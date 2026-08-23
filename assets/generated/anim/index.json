@@ -1,0 +1,24 @@
+{
+  "creatures": [
+    "peasant",
+    "archer",
+    "pikeman",
+    "swordsman",
+    "cavalry",
+    "paladin",
+    "skeleton",
+    "zombie",
+    "mummy",
+    "vampire",
+    "lich",
+    "bone_dragon"
+  ],
+  "poses": [
+    "idle",
+    "ready",
+    "attack",
+    "hit",
+    "die",
+    "win"
+  ]
+}

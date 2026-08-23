@@ -1,0 +1,12 @@
+{
+  "_comment": "Hechizos del vertical slice. damage = basePower + perPower * poderMágico del héroe. level = nivel de gremio de magia que lo enseña (Sabiduría limita qué niveles puede aprender el héroe).",
+  "spells": [
+    { "id": "magic_arrow",    "name": "Flecha mágica", "level": 1, "cost": 3, "kind": "damage",      "target": "enemy", "basePower": 10, "perPower": 10 },
+    { "id": "haste",          "name": "Prisa",         "level": 1, "cost": 3, "kind": "speed",       "target": "ally",  "amount": 2 },
+    { "id": "slow",           "name": "Lentitud",      "level": 1, "cost": 3, "kind": "speed",       "target": "enemy", "amount": -2 },
+    { "id": "bless",          "name": "Bendición",     "level": 2, "cost": 3, "kind": "luck",        "target": "ally",  "amount": 1 },
+    { "id": "curse",          "name": "Maldición",     "level": 2, "cost": 3, "kind": "luck",        "target": "enemy", "amount": -1 },
+    { "id": "lightning_bolt", "name": "Rayo",          "level": 3, "cost": 7, "kind": "damage",      "target": "enemy", "basePower": 25, "perPower": 25 },
+    { "id": "cure",           "name": "Curación",      "level": 3, "cost": 6, "kind": "heal",        "target": "ally",  "basePower": 5,  "perPower": 5 }
+  ]
+}

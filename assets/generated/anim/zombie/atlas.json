@@ -1,0 +1,101 @@
+{
+  "frames": [
+    {
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 421,
+        "h": 424
+      },
+      "duration": 120
+    },
+    {
+      "frame": {
+        "x": 421,
+        "y": 0,
+        "w": 421,
+        "h": 424
+      },
+      "duration": 120
+    },
+    {
+      "frame": {
+        "x": 842,
+        "y": 0,
+        "w": 421,
+        "h": 424
+      },
+      "duration": 120
+    },
+    {
+      "frame": {
+        "x": 0,
+        "y": 424,
+        "w": 421,
+        "h": 424
+      },
+      "duration": 120
+    },
+    {
+      "frame": {
+        "x": 421,
+        "y": 424,
+        "w": 421,
+        "h": 424
+      },
+      "duration": 120
+    },
+    {
+      "frame": {
+        "x": 842,
+        "y": 424,
+        "w": 421,
+        "h": 424
+      },
+      "duration": 120
+    }
+  ],
+  "meta": {
+    "image": "/home/al/code/heroes/tools/gen/.cache/8a11575b9949b8898ef6fa49.png",
+    "size": {
+      "w": 1264,
+      "h": 848
+    },
+    "layout": {
+      "cols": 3,
+      "rows": 2
+    },
+    "frameTags": [
+      {
+        "name": "idle",
+        "from": 0,
+        "to": 0
+      },
+      {
+        "name": "ready",
+        "from": 1,
+        "to": 1
+      },
+      {
+        "name": "attack",
+        "from": 2,
+        "to": 2
+      },
+      {
+        "name": "hit",
+        "from": 3,
+        "to": 3
+      },
+      {
+        "name": "die",
+        "from": 4,
+        "to": 4
+      },
+      {
+        "name": "win",
+        "from": 5,
+        "to": 5
+      }
+    ]
+  }
+}

@@ -1,0 +1,389 @@
+import { describe, expect, it } from 'vitest';
+import { playAiGame, playAiTurn } from '../src/core/ai/turn.js';
+import {
+  armyPower,
+  chooseHeroDestination,
+  planBuildings,
+  planRecruits,
+} from '../src/core/ai/strategy.js';
+import { creature } from '../src/core/data.js';
+import { maxMana, maxMovePoints, slowestSpeed } from '../src/core/hero/hero.js';
+import { buildMap, generateMapPlan, validateMapPlan } from '../src/core/map/generate.js';
+import { findPath, objectAt, pointKey } from '../src/core/map/map.js';
+import { createRng } from '../src/core/rng.js';
+import {
+  applyAdventureAction,
+  currentPlayer,
+  dayOfWeek,
+  heroById,
+  heroesOf,
+  resolvePendingBattle,
+  townsOf,
+  week,
+  type GameContext,
+} from '../src/core/state/game.js';
+import { newGame } from '../src/core/state/setup.js';
+import { dwellings } from '../src/core/town/town.js';
+
+const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
+
+describe('puntos de movimiento', () => {
+  it('los marca la criatura más lenta del ejército', () => {
+    const lento = [{ creature: 'zombie', count: 5 }, { creature: 'champion', count: 5 }, null, null, null];
+    expect(slowestSpeed(lento)).toBe('very_slow');
+    expect(maxMovePoints({ army: lento, skills: {} })).toBe(1000);
+
+    const rapido = [{ creature: 'champion', count: 5 }, null, null, null, null];
+    expect(slowestSpeed(rapido)).toBe('ultra_fast');
+    expect(maxMovePoints({ army: rapido, skills: {} })).toBe(1500);
+  });
+
+  it('Logística los aumenta un 10 % por nivel', () => {
+    const army = [{ creature: 'skeleton', count: 5 }, null, null, null, null];
+    expect(maxMovePoints({ army, skills: {} })).toBe(1200);
+    expect(maxMovePoints({ army, skills: { logistics: 1 } })).toBe(1320);
+    expect(maxMovePoints({ army, skills: { logistics: 3 } })).toBe(1560);
+  });
+});
+
+describe('maná', () => {
+  it('es diez veces el conocimiento', () => {
+    expect(maxMana({ knowledge: 2 })).toBe(20);
+    expect(maxMana({ knowledge: 7 })).toBe(70);
+  });
+});
+
+describe('generación de mapas', () => {
+  it('el mapa procedural es jugable', () => {
+    for (const semilla of [1, 2, 3, 42, 777]) {
+      const plan = generateMapPlan(createRng(semilla));
+      expect(validateMapPlan(plan)).toEqual([]);
+    }
+  });
+
+  it('rechaza un plan con un pueblo inalcanzable', () => {
+    const plan = generateMapPlan(createRng(5));
+    // Rodear el pueblo enemigo de agua lo deja aislado.
+    const aislado = {
+      ...plan,
+      regions: [
+        ...plan.regions,
+        { terrain: 'water' as const, center: plan.towns[1]!.at, radius: 3 },
+      ],
+    };
+    const problemas = validateMapPlan(aislado);
+    expect(problemas.length).toBeGreaterThan(0);
+    expect(problemas.join(' ')).toMatch(/no puede llegar/);
+  });
+
+  it('rechaza dos objetos en la misma casilla', () => {
+    const plan = generateMapPlan(createRng(6));
+    const chocado = {
+      ...plan,
+      chests: [...plan.chests, { at: plan.towns[0]!.at, gold: 100 }],
+    };
+    expect(validateMapPlan(chocado).join(' ')).toMatch(/la ocupan dos cosas/);
+  });
+
+  it('construye el mapa con todos los objetos del plan', () => {
+    const plan = generateMapPlan(createRng(9));
+    const { map, towns } = buildMap(plan);
+    expect(towns).toHaveLength(plan.towns.length);
+    expect(map.objects.filter((o) => o.kind === 'monster')).toHaveLength(plan.monsters.length);
+    expect(map.objects.filter((o) => o.kind === 'mine')).toHaveLength(plan.mines.length);
+    for (const mina of plan.mines) expect(objectAt(map, mina.at)).toBeDefined();
+  });
+});
+
+describe('calendario', () => {
+  it('los lunes son los días 1, 8 y 15', () => {
+    const state = newGame({ seed: 3 });
+    expect(week(state)).toBe(1);
+    expect(dayOfWeek(state)).toBe(1);
+    state.day = 8;
+    expect(week(state)).toBe(2);
+    expect(dayOfWeek(state)).toBe(1);
+    state.day = 9;
+    expect(dayOfWeek(state)).toBe(2);
+  });
+
+  it('las moradas crecen al empezar la semana', () => {
+    const state = newGame({ seed: 4 });
+    const c = ctx(4);
+    const town = townsOf(state, 0)[0]!;
+    const morada = dwellings(town)[0];
+    expect(morada).toBeDefined();
+    const antes = town.available[morada!.creature] ?? 0;
+
+    // Pasar siete días completos.
+    for (let i = 0; i < 7 * state.players.length; i++) {
+      applyAdventureAction(state, { type: 'end_turn' }, c);
+    }
+    expect(state.day).toBe(8);
+    expect(town.available[morada!.creature] ?? 0).toBeGreaterThan(antes);
+  });
+});
+
+describe('economía', () => {
+  it('el ayuntamiento y las minas ingresan cada día', () => {
+    const state = newGame({ seed: 11 });
+    const c = ctx(11);
+    const oroInicial = state.players[0]!.resources.gold;
+
+    // Un turno de cada jugador devuelve la vez al primero, con su ingreso.
+    for (const _ of state.players) applyAdventureAction(state, { type: 'end_turn' }, c);
+    expect(state.players[0]!.resources.gold).toBeGreaterThan(oroInicial);
+  });
+
+  it('construir cuesta recursos y solo se puede una vez al día', () => {
+    const state = newGame({ seed: 12 });
+    const c = ctx(12);
+    const town = townsOf(state, 0)[0]!;
+    const player = currentPlayer(state);
+    const oroAntes = player.resources.gold;
+
+    applyAdventureAction(state, { type: 'build', town: town.id, building: 'dwelling_2' }, c);
+    expect(town.buildings).toContain('dwelling_2');
+    expect(player.resources.gold).toBeLessThan(oroAntes);
+
+    expect(() =>
+      applyAdventureAction(state, { type: 'build', town: town.id, building: 'dwelling_3' }, c),
+    ).toThrow(/ya se ha construido hoy/);
+  });
+
+  it('reclutar descuenta oro y suma tropas al héroe que esté en el pueblo', () => {
+    const state = newGame({ seed: 13 });
+    const c = ctx(13);
+    const town = townsOf(state, 0)[0]!;
+    const hero = heroesOf(state, 0)[0]!;
+    hero.at = town.at;
+
+    const morada = dwellings(town)[0]!;
+    const disponibles = town.available[morada.creature] ?? 0;
+    expect(disponibles).toBeGreaterThan(0);
+
+    const antes = hero.army.find((s) => s?.creature === morada.creature)?.count ?? 0;
+    applyAdventureAction(
+      state,
+      { type: 'recruit', town: town.id, creature: morada.creature, count: 2 },
+      c,
+    );
+    const despues = hero.army.find((s) => s?.creature === morada.creature)?.count ?? 0;
+    expect(despues).toBe(antes + 2);
+    expect(town.available[morada.creature]).toBe(disponibles - 2);
+  });
+
+  it('no deja reclutar más de lo disponible', () => {
+    const state = newGame({ seed: 14 });
+    const c = ctx(14);
+    const town = townsOf(state, 0)[0]!;
+    const morada = dwellings(town)[0]!;
+    expect(() =>
+      applyAdventureAction(
+        state,
+        { type: 'recruit', town: town.id, creature: morada.creature, count: 9999 },
+        c,
+      ),
+    ).toThrow(/solo hay/);
+  });
+});
+
+describe('movimiento de héroes', () => {
+  it('gasta puntos de movimiento y descubre el mapa', () => {
+    const state = newGame({ seed: 21 });
+    const c = ctx(21);
+    const hero = heroesOf(state, 0)[0]!;
+    const puntosAntes = hero.movePoints;
+    const nieblaAntes = state.players[0]!.fog.size;
+
+    const destino = { x: hero.at.x + 2, y: hero.at.y };
+    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: destino }, c);
+
+    expect(pointKey(hero.at)).toBe(pointKey(destino));
+    expect(hero.movePoints).toBeLessThan(puntosAntes);
+    expect(state.players[0]!.fog.size).toBeGreaterThan(nieblaAntes);
+  });
+
+  it('recoge los recursos que pisa', () => {
+    const state = newGame({ seed: 22 });
+    const c = ctx(22);
+    const hero = heroesOf(state, 0)[0]!;
+    const recurso = state.map.objects.find((o) => o.kind === 'resource' && !o.taken);
+    expect(recurso).toBeDefined();
+
+    // Teletransporte de test: interesa la recogida, no el paseo.
+    hero.at = { x: recurso!.at.x - 1, y: recurso!.at.y };
+    hero.movePoints = 5000;
+    const camino = findPath(state.map, hero.at, recurso!.at);
+    expect(camino).not.toBeNull();
+
+    const antes = { ...state.players[0]!.resources };
+    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: recurso!.at }, c);
+    const tipo = (recurso as { resource: keyof typeof antes }).resource;
+    expect(state.players[0]!.resources[tipo]).toBeGreaterThan(antes[tipo]);
+  });
+
+  it('captura las minas que visita', () => {
+    const state = newGame({ seed: 23 });
+    const c = ctx(23);
+    const hero = heroesOf(state, 0)[0]!;
+    const mina = state.map.objects.find((o) => o.kind === 'mine' && o.owner === null);
+    expect(mina).toBeDefined();
+
+    hero.at = { x: mina!.at.x - 1, y: mina!.at.y };
+    hero.movePoints = 5000;
+    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: mina!.at }, c);
+    expect((mina as { owner: number | null }).owner).toBe(0);
+  });
+
+  it('no deja mover al héroe de otro jugador', () => {
+    const state = newGame({ seed: 24 });
+    const c = ctx(24);
+    const ajeno = heroesOf(state, 1)[0]!;
+    expect(() =>
+      applyAdventureAction(state, { type: 'move_hero', hero: ajeno.id, to: { x: 1, y: 1 } }, c),
+    ).toThrow(/no es tuyo/);
+  });
+});
+
+describe('batallas del mapa', () => {
+  it('pisar un monstruo abre una batalla y ganarla lo elimina', () => {
+    const state = newGame({ seed: 31 });
+    const c = ctx(31);
+    const hero = heroesOf(state, 0)[0]!;
+
+    const monstruo = state.map.objects.find((o) => o.kind === 'monster' && !o.defeated)!;
+    // Ejército sobrado para que la victoria no dependa de la suerte.
+    hero.army = [{ creature: 'paladin', count: 50 }, null, null, null, null];
+    hero.at = { x: monstruo.at.x - 1, y: monstruo.at.y };
+    hero.movePoints = 5000;
+
+    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: monstruo.at }, c);
+    expect(state.pendingBattle).not.toBeNull();
+    expect(state.pendingBattle!.foe).toEqual({ kind: 'monster', objectId: monstruo.id });
+
+    const resultado = resolvePendingBattle(state, c);
+    expect(resultado.winner).toBe('attacker');
+    expect((monstruo as { defeated: boolean }).defeated).toBe(true);
+    expect(state.pendingBattle).toBeNull();
+    expect(heroById(state, hero.id).experience).toBeGreaterThan(0);
+  });
+
+  it('perder la batalla elimina al héroe atacante', () => {
+    const state = newGame({ seed: 32 });
+    const c = ctx(32);
+    const hero = heroesOf(state, 0)[0]!;
+    const monstruo = state.map.objects.find((o) => o.kind === 'monster' && !o.defeated)!;
+
+    hero.army = [{ creature: 'peasant', count: 1 }, null, null, null, null];
+    // Se sustituye por un monstruo imbatible en la misma casilla.
+    const donde = monstruo.at;
+    state.map.objects.splice(state.map.objects.indexOf(monstruo), 1, {
+      kind: 'monster',
+      id: monstruo.id,
+      at: donde,
+      creature: 'bone_dragon',
+      count: 20,
+      defeated: false,
+    });
+    hero.at = { x: donde.x - 1, y: donde.y };
+    hero.movePoints = 5000;
+
+    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: monstruo.at }, c);
+    const resultado = resolvePendingBattle(state, c);
+    expect(resultado.winner).toBe('defender');
+    expect(state.heroes.some((h) => h.id === hero.id)).toBe(false);
+    expect(state.log.some((e) => e.kind === 'hero_defeated')).toBe(true);
+  });
+
+  it('no se puede seguir jugando con una batalla pendiente', () => {
+    const state = newGame({ seed: 33 });
+    const c = ctx(33);
+    const hero = heroesOf(state, 0)[0]!;
+    const monstruo = state.map.objects.find((o) => o.kind === 'monster' && !o.defeated)!;
+    hero.at = { x: monstruo.at.x - 1, y: monstruo.at.y };
+    hero.movePoints = 5000;
+    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: monstruo.at }, c);
+
+    expect(() => applyAdventureAction(state, { type: 'end_turn' }, c)).toThrow(/batalla pendiente/);
+  });
+});
+
+describe('IA de respaldo', () => {
+  it('planifica construir y reclutar en el primer turno', () => {
+    const state = newGame({ seed: 41 });
+    expect(planBuildings(state, 0).some((a) => a.type === 'build')).toBe(true);
+    expect(planRecruits(state, 0).some((a) => a.type === 'recruit')).toBe(true);
+  });
+
+  it('valora más un ejército mayor', () => {
+    const debil = [{ creature: 'peasant', count: 10 }, null, null, null, null];
+    const fuerte = [{ creature: 'paladin', count: 10 }, null, null, null, null];
+    expect(armyPower(fuerte)).toBeGreaterThan(armyPower(debil));
+  });
+
+  it('no manda al héroe contra un monstruo que le supera', () => {
+    const state = newGame({ seed: 42 });
+    const hero = heroesOf(state, 0)[0]!;
+    hero.army = [{ creature: 'peasant', count: 1 }, null, null, null, null];
+    hero.movePoints = 99999;
+
+    // Se vacía el mapa y se deja un único objetivo: un monstruo descomunal
+    // pegado al héroe. Si la IA lo elige, es que no mide sus fuerzas.
+    state.map.objects.length = 0;
+    state.map.objects.push({
+      kind: 'monster',
+      id: 'coloso',
+      at: { x: hero.at.x + 1, y: hero.at.y },
+      creature: 'bone_dragon',
+      count: 30,
+      defeated: false,
+    });
+    expect(chooseHeroDestination(state, hero)).toBeNull();
+  });
+
+  it('juega un turno completo sin romperse', () => {
+    const state = newGame({ seed: 43 });
+    const c = ctx(43);
+    const antes = state.current;
+    playAiTurn(state, c);
+    expect(state.current).not.toBe(antes);
+    expect(state.pendingBattle).toBeNull();
+  });
+});
+
+describe('partida completa', () => {
+  it('termina con un ganador jugando IA contra IA', () => {
+    const state = newGame({ seed: 1234 });
+    const c = ctx(1234);
+    playAiGame(state, c, 300);
+
+    expect(state.finished).not.toBeNull();
+    const ganador = state.finished!.winner;
+    const perdedores = state.players.filter((p) => p.id !== ganador);
+    expect(perdedores.every((p) => p.defeated)).toBe(true);
+    expect(state.log.at(-1)).toEqual({ kind: 'game_over', winner: ganador });
+  });
+
+  it('el bucle completo pasa por construir, reclutar, luchar y capturar', () => {
+    const state = newGame({ seed: 4321 });
+    const c = ctx(4321);
+    playAiGame(state, c, 300);
+
+    const tipos = new Set(state.log.map((e) => e.kind));
+    expect(tipos.has('built')).toBe(true);
+    expect(tipos.has('recruited')).toBe(true);
+    expect(tipos.has('battle_started')).toBe(true);
+    expect(tipos.has('hero_moved')).toBe(true);
+    expect(tipos.has('game_over')).toBe(true);
+  });
+
+  it('es determinista: misma semilla, misma partida', () => {
+    const jugar = (semilla: number): string => {
+      const state = newGame({ seed: semilla });
+      playAiGame(state, ctx(semilla), 300);
+      return JSON.stringify(state.log);
+    };
+    expect(jugar(555)).toBe(jugar(555));
+  });
+});

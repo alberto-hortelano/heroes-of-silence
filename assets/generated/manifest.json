@@ -1,0 +1,186 @@
+{
+  "generatedAt": "2026-08-23T16:47:05.519Z",
+  "style": "painted",
+  "files": [
+    {
+      "group": "terrains",
+      "name": "grass",
+      "path": "terrain/grass.png"
+    },
+    {
+      "group": "terrains",
+      "name": "dirt",
+      "path": "terrain/dirt.png"
+    },
+    {
+      "group": "terrains",
+      "name": "sand",
+      "path": "terrain/sand.png"
+    },
+    {
+      "group": "terrains",
+      "name": "snow",
+      "path": "terrain/snow.png"
+    },
+    {
+      "group": "terrains",
+      "name": "swamp",
+      "path": "terrain/swamp.png"
+    },
+    {
+      "group": "terrains",
+      "name": "lava",
+      "path": "terrain/lava.png"
+    },
+    {
+      "group": "terrains",
+      "name": "rough",
+      "path": "terrain/rough.png"
+    },
+    {
+      "group": "terrains",
+      "name": "water",
+      "path": "terrain/water.png"
+    },
+    {
+      "group": "creatures",
+      "name": "peasant",
+      "path": "creatures/peasant.png"
+    },
+    {
+      "group": "creatures",
+      "name": "archer",
+      "path": "creatures/archer.png"
+    },
+    {
+      "group": "creatures",
+      "name": "ranger",
+      "path": "creatures/ranger.png"
+    },
+    {
+      "group": "creatures",
+      "name": "pikeman",
+      "path": "creatures/pikeman.png"
+    },
+    {
+      "group": "creatures",
+      "name": "veteran_pikeman",
+      "path": "creatures/veteran_pikeman.png"
+    },
+    {
+      "group": "creatures",
+      "name": "swordsman",
+      "path": "creatures/swordsman.png"
+    },
+    {
+      "group": "creatures",
+      "name": "master_swordsman",
+      "path": "creatures/master_swordsman.png"
+    },
+    {
+      "group": "creatures",
+      "name": "cavalry",
+      "path": "creatures/cavalry.png"
+    },
+    {
+      "group": "creatures",
+      "name": "champion",
+      "path": "creatures/champion.png"
+    },
+    {
+      "group": "creatures",
+      "name": "paladin",
+      "path": "creatures/paladin.png"
+    },
+    {
+      "group": "creatures",
+      "name": "crusader",
+      "path": "creatures/crusader.png"
+    },
+    {
+      "group": "creatures",
+      "name": "skeleton",
+      "path": "creatures/skeleton.png"
+    },
+    {
+      "group": "creatures",
+      "name": "zombie",
+      "path": "creatures/zombie.png"
+    },
+    {
+      "group": "creatures",
+      "name": "mutant_zombie",
+      "path": "creatures/mutant_zombie.png"
+    },
+    {
+      "group": "creatures",
+      "name": "mummy",
+      "path": "creatures/mummy.png"
+    },
+    {
+      "group": "creatures",
+      "name": "royal_mummy",
+      "path": "creatures/royal_mummy.png"
+    },
+    {
+      "group": "creatures",
+      "name": "vampire",
+      "path": "creatures/vampire.png"
+    },
+    {
+      "group": "creatures",
+      "name": "vampire_lord",
+      "path": "creatures/vampire_lord.png"
+    },
+    {
+      "group": "creatures",
+      "name": "lich",
+      "path": "creatures/lich.png"
+    },
+    {
+      "group": "creatures",
+      "name": "power_lich",
+      "path": "creatures/power_lich.png"
+    },
+    {
+      "group": "creatures",
+      "name": "bone_dragon",
+      "path": "creatures/bone_dragon.png"
+    },
+    {
+      "group": "icons",
+      "name": "wood",
+      "path": "icons/wood.png"
+    },
+    {
+      "group": "icons",
+      "name": "mercury",
+      "path": "icons/mercury.png"
+    },
+    {
+      "group": "icons",
+      "name": "ore",
+      "path": "icons/ore.png"
+    },
+    {
+      "group": "icons",
+      "name": "sulfur",
+      "path": "icons/sulfur.png"
+    },
+    {
+      "group": "icons",
+      "name": "crystal",
+      "path": "icons/crystal.png"
+    },
+    {
+      "group": "icons",
+      "name": "gems",
+      "path": "icons/gems.png"
+    },
+    {
+      "group": "icons",
+      "name": "gold",
+      "path": "icons/gold.png"
+    }
+  ]
+}

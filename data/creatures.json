@@ -1,0 +1,37 @@
+{
+  "_comment": "Stats de referencia de HoMM2. Editables sin recompilar: el motor solo lee este fichero. speed = escalón de velocidad (determina iniciativa y hexes de movimiento en batalla). shots > 0 = tirador. hexes 2 = unidad grande.",
+  "creatures": [
+    { "id": "peasant",          "faction": "knight",      "level": 1, "name": "Campesino",         "attack": 1,  "defense": 1,  "damage": [1, 1],   "hp": 1,   "speed": "very_slow",  "growth": 12, "cost": { "gold": 20 } },
+
+    { "id": "archer",           "faction": "knight",      "level": 2, "name": "Arquero",           "attack": 4,  "defense": 3,  "damage": [2, 3],   "hp": 10,  "speed": "very_slow",  "growth": 8,  "cost": { "gold": 150 }, "shots": 12, "upgradesTo": "ranger" },
+    { "id": "ranger",           "faction": "knight",      "level": 2, "name": "Montaraz",          "attack": 5,  "defense": 3,  "damage": [2, 3],   "hp": 10,  "speed": "average",    "growth": 8,  "cost": { "gold": 200 }, "shots": 24, "traits": ["double_shot"] },
+
+    { "id": "pikeman",          "faction": "knight",      "level": 3, "name": "Piquero",           "attack": 5,  "defense": 9,  "damage": [3, 4],   "hp": 15,  "speed": "average",    "growth": 5,  "cost": { "gold": 200 }, "upgradesTo": "veteran_pikeman" },
+    { "id": "veteran_pikeman",  "faction": "knight",      "level": 3, "name": "Piquero veterano",  "attack": 5,  "defense": 9,  "damage": [3, 4],   "hp": 20,  "speed": "fast",       "growth": 5,  "cost": { "gold": 250 } },
+
+    { "id": "swordsman",        "faction": "knight",      "level": 4, "name": "Espadachín",        "attack": 7,  "defense": 9,  "damage": [4, 6],   "hp": 25,  "speed": "average",    "growth": 4,  "cost": { "gold": 250 }, "upgradesTo": "master_swordsman" },
+    { "id": "master_swordsman", "faction": "knight",      "level": 4, "name": "Maestro espadachín","attack": 7,  "defense": 9,  "damage": [4, 6],   "hp": 30,  "speed": "fast",       "growth": 4,  "cost": { "gold": 300 } },
+
+    { "id": "cavalry",          "faction": "knight",      "level": 5, "name": "Caballería",        "attack": 10, "defense": 9,  "damage": [5, 10],  "hp": 30,  "speed": "very_fast",  "growth": 3,  "cost": { "gold": 300 }, "traits": ["charge"], "upgradesTo": "champion" },
+    { "id": "champion",         "faction": "knight",      "level": 5, "name": "Campeón",           "attack": 10, "defense": 9,  "damage": [5, 10],  "hp": 40,  "speed": "ultra_fast", "growth": 3,  "cost": { "gold": 375 }, "traits": ["charge"] },
+
+    { "id": "paladin",          "faction": "knight",      "level": 6, "name": "Paladín",           "attack": 11, "defense": 12, "damage": [10, 20], "hp": 50,  "speed": "fast",       "growth": 2,  "cost": { "gold": 600 }, "traits": ["double_attack"], "upgradesTo": "crusader" },
+    { "id": "crusader",         "faction": "knight",      "level": 6, "name": "Cruzado",           "attack": 11, "defense": 12, "damage": [10, 20], "hp": 65,  "speed": "very_fast",  "growth": 2,  "cost": { "gold": 1000 }, "traits": ["double_attack", "bane_undead"] },
+
+    { "id": "skeleton",         "faction": "necromancer", "level": 1, "name": "Esqueleto",         "attack": 4,  "defense": 3,  "damage": [2, 3],   "hp": 4,   "speed": "average",    "growth": 8,  "cost": { "gold": 75 },  "traits": ["undead"] },
+
+    { "id": "zombie",           "faction": "necromancer", "level": 2, "name": "Zombi",             "attack": 5,  "defense": 2,  "damage": [2, 3],   "hp": 15,  "speed": "very_slow",  "growth": 6,  "cost": { "gold": 150 }, "traits": ["undead"], "upgradesTo": "mutant_zombie" },
+    { "id": "mutant_zombie",    "faction": "necromancer", "level": 2, "name": "Zombi mutante",     "attack": 5,  "defense": 2,  "damage": [2, 3],   "hp": 20,  "speed": "average",    "growth": 6,  "cost": { "gold": 200 }, "traits": ["undead"] },
+
+    { "id": "mummy",            "faction": "necromancer", "level": 3, "name": "Momia",             "attack": 6,  "defense": 6,  "damage": [3, 4],   "hp": 25,  "speed": "average",    "growth": 4,  "cost": { "gold": 250 }, "traits": ["undead", "curse_on_hit"], "upgradesTo": "royal_mummy" },
+    { "id": "royal_mummy",      "faction": "necromancer", "level": 3, "name": "Momia real",        "attack": 6,  "defense": 6,  "damage": [3, 4],   "hp": 30,  "speed": "fast",       "growth": 4,  "cost": { "gold": 300 }, "traits": ["undead", "curse_on_hit"] },
+
+    { "id": "vampire",          "faction": "necromancer", "level": 4, "name": "Vampiro",           "attack": 8,  "defense": 6,  "damage": [5, 7],   "hp": 30,  "speed": "average",    "growth": 3,  "cost": { "gold": 500 }, "traits": ["undead", "flying", "no_retaliation"], "upgradesTo": "vampire_lord" },
+    { "id": "vampire_lord",     "faction": "necromancer", "level": 4, "name": "Señor vampiro",     "attack": 8,  "defense": 6,  "damage": [5, 7],   "hp": 40,  "speed": "fast",       "growth": 3,  "cost": { "gold": 650 }, "traits": ["undead", "flying", "no_retaliation", "life_drain"] },
+
+    { "id": "lich",             "faction": "necromancer", "level": 5, "name": "Liche",             "attack": 7,  "defense": 12, "damage": [8, 10],  "hp": 25,  "speed": "fast",       "growth": 2,  "cost": { "gold": 750 }, "shots": 12, "traits": ["undead", "splash_shot"], "upgradesTo": "power_lich" },
+    { "id": "power_lich",       "faction": "necromancer", "level": 5, "name": "Liche mayor",       "attack": 7,  "defense": 13, "damage": [8, 10],  "hp": 35,  "speed": "very_fast",  "growth": 2,  "cost": { "gold": 900 }, "shots": 24, "traits": ["undead", "splash_shot"] },
+
+    { "id": "bone_dragon",      "faction": "necromancer", "level": 6, "name": "Dragón óseo",       "attack": 11, "defense": 9,  "damage": [25, 45], "hp": 150, "speed": "average",    "growth": 1,  "cost": { "gold": 1500 }, "hexes": 2, "traits": ["undead", "flying", "fear"] }
+  ]
+}

@@ -1,0 +1,199 @@
+/**
+ * Contrato entre el juego y el agente que hace de modelo.
+ *
+ * Cada petición lleva un `kind` y **embebe su propio esquema de respuesta**,
+ * como en el `narrative_listen` de ne-fan: así el agente no tiene que recordar
+ * el formato entre turnos ni consultar documentación aparte.
+ *
+ * Todo lo que llega del agente se valida con zod ANTES de tocar el estado. Una
+ * respuesta mal formada se rechaza con un mensaje que dice qué falta.
+ */
+import { z } from 'zod';
+
+// ---------------------------------------------------------------- respuestas
+
+export const pointSchema = z.object({ x: z.number().int(), y: z.number().int() });
+export const hexSchema = z.object({ col: z.number().int(), row: z.number().int() });
+
+export const adventureActionSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('move_hero'), hero: z.string(), to: pointSchema }),
+  z.object({ type: z.literal('hire_hero'), town: z.string() }),
+  z.object({ type: z.literal('build'), town: z.string(), building: z.string() }),
+  z.object({
+    type: z.literal('recruit'),
+    town: z.string(),
+    creature: z.string(),
+    count: z.number().int().positive(),
+  }),
+  z.object({ type: z.literal('end_turn') }),
+]);
+
+export const battleActionSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('move'), to: hexSchema }),
+  z.object({ type: z.literal('attack'), target: z.string(), from: hexSchema.optional() }),
+  z.object({ type: z.literal('shoot'), target: z.string() }),
+  z.object({ type: z.literal('wait') }),
+  z.object({ type: z.literal('defend') }),
+  z.object({ type: z.literal('cast'), spell: z.string(), target: z.string().optional() }),
+]);
+
+export const adventureTurnResponseSchema = z.object({
+  /** Acciones en orden. No hace falta terminar con `end_turn`: se añade solo. */
+  actions: z.array(adventureActionSchema).max(200),
+  /** Opcional: por qué. Se guarda en la crónica, no afecta a las reglas. */
+  reasoning: z.string().max(2000).optional(),
+});
+
+export const battleTurnResponseSchema = z.object({
+  action: battleActionSchema,
+  reasoning: z.string().max(2000).optional(),
+});
+
+export const terrainSchema = z.enum([
+  'grass',
+  'dirt',
+  'sand',
+  'snow',
+  'swamp',
+  'lava',
+  'rough',
+  'water',
+]);
+
+export const resourceSchema = z.enum([
+  'wood',
+  'mercury',
+  'ore',
+  'sulfur',
+  'crystal',
+  'gems',
+  'gold',
+]);
+
+export const mapPlanSchema = z.object({
+  width: z.number().int().min(8).max(128),
+  height: z.number().int().min(8).max(128),
+  baseTerrain: terrainSchema,
+  regions: z.array(
+    z.object({ terrain: terrainSchema, center: pointSchema, radius: z.number().min(1).max(40) }),
+  ),
+  towns: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      faction: z.enum(['knight', 'necromancer']),
+      at: pointSchema,
+      owner: z.number().int().nullable(),
+    }),
+  ),
+  heroStarts: z.array(z.object({ player: z.number().int(), at: pointSchema })),
+  mines: z.array(
+    z.object({ at: pointSchema, resource: resourceSchema, owner: z.number().int().optional() }),
+  ),
+  resources: z.array(
+    z.object({ at: pointSchema, resource: resourceSchema, amount: z.number().int().positive() }),
+  ),
+  monsters: z.array(
+    z.object({ at: pointSchema, creature: z.string(), count: z.number().int().positive() }),
+  ),
+  chests: z.array(z.object({ at: pointSchema, gold: z.number().int().positive() })),
+  roads: z.array(pointSchema).optional(),
+});
+
+export const mapGenerateResponseSchema = z.object({
+  plan: mapPlanSchema,
+  reasoning: z.string().max(2000).optional(),
+});
+
+export const banterResponseSchema = z.object({
+  line: z.string().max(280),
+});
+
+// ---------------------------------------------------------------- peticiones
+
+export const REQUEST_KINDS = [
+  'adventure_turn',
+  'battle_turn',
+  'map_generate',
+  'hero_banter',
+] as const;
+
+export type RequestKind = (typeof REQUEST_KINDS)[number];
+
+export const responseSchemas = {
+  adventure_turn: adventureTurnResponseSchema,
+  battle_turn: battleTurnResponseSchema,
+  map_generate: mapGenerateResponseSchema,
+  hero_banter: banterResponseSchema,
+} as const;
+
+export type AdventureTurnResponse = z.infer<typeof adventureTurnResponseSchema>;
+export type BattleTurnResponse = z.infer<typeof battleTurnResponseSchema>;
+export type MapGenerateResponse = z.infer<typeof mapGenerateResponseSchema>;
+export type BanterResponse = z.infer<typeof banterResponseSchema>;
+
+/**
+ * Descripción del formato de respuesta que viaja DENTRO de cada petición.
+ * Es prosa deliberadamente: el agente lee esto en el mismo mensaje que el
+ * estado, y no tiene que ir a buscar nada.
+ */
+export const RESPONSE_FORMAT: Readonly<Record<RequestKind, string>> = {
+  adventure_turn: `Responde con:
+{
+  "actions": [ ...acciones en orden... ],
+  "reasoning": "una línea opcional explicando el plan"
+}
+
+Acciones válidas (el turno termina solo, no hace falta enviar end_turn):
+  { "type": "move_hero", "hero": "<id>", "to": { "x": N, "y": N } }
+  { "type": "build",     "town": "<id>", "building": "<id de edificio>" }
+  { "type": "recruit",   "town": "<id>", "creature": "<id>", "count": N }
+  { "type": "hire_hero", "town": "<id>" }
+  { "type": "end_turn" }
+
+Notas:
+- "to" puede estar a varios días de marcha: el héroe avanza lo que le dé el día.
+- Mover a la casilla de un monstruo, de un héroe enemigo o de un castillo
+  defendido inicia una batalla, y esa batalla la juegas tú con "battle_turn".
+- Si una acción resulta ilegal se descarta y las siguientes siguen aplicándose;
+  el motivo aparecerá en la respuesta a esta petición.`,
+
+  battle_turn: `Responde con:
+{
+  "action": { ...una sola acción... },
+  "reasoning": "una línea opcional"
+}
+
+Acciones válidas para la unidad activa:
+  { "type": "move",   "to": { "col": N, "row": N } }
+  { "type": "attack", "target": "<id de stack>", "from": { "col": N, "row": N } }
+  { "type": "shoot",  "target": "<id de stack>" }
+  { "type": "wait" }
+  { "type": "defend" }
+  { "type": "cast",   "spell": "<id>", "target": "<id de stack>" }
+
+Notas:
+- "from" es opcional en "attack": si se indica, la unidad se mueve ahí y golpea.
+- La lista "legalActions" de la petición ya trae TODAS las acciones legales;
+  elegir una de ellas nunca falla.`,
+
+  map_generate: `Responde con:
+{
+  "plan": { ...plan de mapa declarativo... },
+  "reasoning": "una línea opcional"
+}
+
+El plan NO es una imagen ni una rejilla: describe el mapa y el motor lo
+construye. Campos: width, height, baseTerrain, regions[], towns[], heroStarts[],
+mines[], resources[], monsters[], chests[], roads?.
+
+Reglas que se validan antes de aceptarlo:
+- Mínimo 8×8, máximo 128×128.
+- Al menos dos pueblos y dos posiciones de inicio, y cada jugador con un pueblo.
+- Dos objetos no pueden compartir casilla.
+- Desde cada inicio se debe poder llegar a pie a todos los pueblos.
+Si algo falla se te devuelve la lista de problemas para que lo corrijas.`,
+
+  hero_banter: `Responde con:
+{ "line": "una frase corta, en español, en boca del héroe" }`,
+};

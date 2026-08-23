@@ -1,0 +1,38 @@
+{
+  "name": "heroes-of-silence",
+  "version": "0.1.0",
+  "description": "Clon de Heroes of Might and Magic 2 en el navegador, con NPCs, mapas y assets generados por IA.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b --noEmit && vite build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "server": "tsx src/server/ws-server.ts",
+    "mcp": "tsx src/server/mcp/server.ts",
+    "gen": "tsx tools/gen/cli.ts",
+    "qa": "tsx tools/qa/verify-agent.ts",
+    "verify": "pnpm typecheck && pnpm test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "ws": "^8.18.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/ws": "^8.18.1",
+    "sharp": "^0.35.3",
+    "tsx": "^4.19.0",
+    "typescript": "^5.9.3",
+    "vite": "^6.0.0",
+    "vitest": "^3.0.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}

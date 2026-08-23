@@ -1,0 +1,16 @@
+# credenciales — NUNCA se commitea
+.env
+.env.*
+
+node_modules/
+dist/
+*.tsbuildinfo
+
+# caché y gasto de generación con IA
+.cache/
+tools/gen/.cache/
+tools/gen/spend.json
+tools/clay/out/
+
+# saves de partidas
+saves/
