@@ -14,3 +14,11 @@ tools/clay/out/
 
 # saves de partidas
 saves/
+
+# preferencias personales de Claude Code (las de equipo sí van en settings.json)
+.claude/settings.local.json
+
+# andamio del ciclo de agentes: a los tres meses es documentación falsa.
+# requisitos.md, critica.md y qa.md SÍ se commitean: envejecen bien.
+docs/agents/*/plan.md
+docs/agents/*/implementacion.md

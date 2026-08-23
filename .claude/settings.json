@@ -1,0 +1,17 @@
+{
+  "$comment": "Ajustes de equipo. Las preferencias personales van en .claude/settings.local.json, que no se commitea.",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/verde.sh\"",
+            "timeout": 200,
+            "statusMessage": "Comprobando que pnpm verify está verde…"
+          }
+        ]
+      }
+    ]
+  }
+}

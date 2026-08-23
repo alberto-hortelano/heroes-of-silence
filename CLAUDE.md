@@ -177,6 +177,42 @@ Las poses (`idle`, `ready`, `attack`, `hit`, `die`, `win`) las reparte
 `src/client/anim.ts` leyendo el registro de la batalla. El motor no sabe que
 existen: sin atlas, cada criatura usa su sprite quieto y se juega igual.
 
+## El equipo de agentes
+
+Para un trabajo sustancial hay un ciclo de cuatro roles en `.claude/agents/`,
+que se lanza con la skill **`/feature`**:
+
+**crítico** → **arquitecto** → **ingeniero** → **QA**
+
+Arrancan con contexto limpio y no se ven entre sí: todo lo que necesitan viaja
+por ficheros en `docs/agents/<tarea>/`. El crítico va primero porque el fallo
+más caro del ciclo no es un plan malo, sino un plan **bueno** sobre una tarea
+que no había que hacer — y el backlog de este repo son decenas de issues
+escritos de una sentada.
+
+Para un cambio de una línea el ciclo es sobrecoste: hazlo y ya.
+
+### Control de calidad, deliberadamente ligero
+
+Nada de puntuación de deuda ni pruebas de mutación: frenan más de lo que
+aportan en un prototipo. Lo que hay:
+
+| Comprobación | Cuánto tarda | Cuándo |
+|---|---|---|
+| `pnpm verify` | 3 s | siempre |
+| `test/invariantes.test.ts` | 8 ms | va dentro de `pnpm test` |
+| El navegador | minutos | si el cambio se ve |
+| `pnpm qa` | ~1 min | si tocas `src/server/` o el contrato |
+
+`test/invariantes.test.ts` convierte en tests las fronteras de este documento:
+`core` sin `node:*` ni DOM, ni un `Math.random` suelto, `session.ts` como única
+puerta del cliente al núcleo y `FAL_KEY` fuera del navegador. Los cuatro nacen
+en verde — un guardia que nace rojo se ignora desde el primer día.
+
+Y un hook `Stop` (`.claude/hooks/verde.sh`) impide dar una tarea por terminada
+con `pnpm verify` en rojo. No estorba: no se lanza siquiera si no ha cambiado
+nada bajo `src/`, `test/` o `data/` desde la última vez que salió verde.
+
 ## Decisiones tomadas
 
 - **MCP antes que API key.** El usuario tiene Claude Max: el agente entra por
