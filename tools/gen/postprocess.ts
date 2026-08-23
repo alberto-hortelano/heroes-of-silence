@@ -52,3 +52,39 @@ export async function imageInfo(path: string): Promise<{ width: number; height: 
   const meta = await sharp(path).metadata();
   return { width: meta.width ?? 0, height: meta.height ?? 0, bytes: meta.size ?? 0 };
 }
+
+/** Lado máximo de un edificio del castillo. */
+export const BUILDING_SIZE = 256;
+
+/**
+ * Edificio: recortado a su contenido y SIN encajar en un cuadrado.
+ *
+ * Un lienzo cuadrado con relleno transparente dejaría al edificio flotando
+ * sobre el solar, porque el renderizador lo apoya por su borde inferior y ese
+ * borde sería aire.
+ */
+export async function processBuilding(input: string, output: string): Promise<void> {
+  const recortado = await sharp(input)
+    .ensureAlpha()
+    .trim({ threshold: 10 })
+    .toBuffer()
+    .catch(async () => {
+      console.warn(`  [aviso] no se pudo recortar ${input}: ¿fondo opaco?`);
+      return sharp(input).ensureAlpha().toBuffer();
+    });
+
+  // Paletizado: un edificio pintado a 256 px no se distingue con 256 colores y
+  // pesa la cuarta parte. Treinta edificios en PNG completo eran 3,6 MB.
+  await sharp(recortado)
+    .resize(BUILDING_SIZE, BUILDING_SIZE, { fit: 'inside', withoutEnlargement: false })
+    .png({ compressionLevel: 9, palette: true, quality: 90 })
+    .toFile(output);
+}
+
+/** Fondo de castillo: sin alfa y en JPEG, que un cielo pintado en PNG pesa. */
+export async function processScene(input: string, output: string): Promise<void> {
+  await sharp(input)
+    .resize(1024, 576, { fit: 'cover' })
+    .jpeg({ quality: 82 })
+    .toFile(output);
+}

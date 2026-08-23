@@ -21,6 +21,14 @@ de cinco unidades, y batalla táctica en rejilla hexagonal de 11×9 con
 contraataques, tiradores, moral, suerte y hechizos. Una partida termina con un
 ganador.
 
+**El castillo es una pantalla, no un menú.** Once solares fijos, cada uno con su
+cadena de mejora: se pulsa el solar y se levanta lo siguiente. Un solar vacío se
+dibuja como parcela punteada con el nombre de lo que iría ahí, así que se ve a la
+vez lo que tienes y lo que te falta, y debajo de cada morada está su casilla de
+reclutamiento.
+
+![la pantalla de castillo](docs/castillo.png)
+
 Las constantes vienen del código de [fheroes2](https://github.com/ihhub/fheroes2),
 no de la memoria: 5 slots de ejército, 7 recursos, puntos de movimiento marcados
 por la criatura más lenta del ejército, puntos de hechizo = 10 × Conocimiento.
@@ -29,10 +37,10 @@ por la criatura más lenta del ejército, puntos de hechizo = 10 × Conocimiento
 el formato de respuesta en el mismo mensaje. Si no hay agente conectado, juega
 una IA de reglas y la partida sigue igual.
 
-**El arte se genera.** 108 imágenes con [fal.ai](https://fal.ai) por 2,80 $,
-incluidas 72 poses de animación. Cada criatura se anima con **una sola llamada**:
-las seis poses viajan en el mismo atlas, que es lo que mantiene al personaje
-reconocible entre fotogramas.
+**El arte se genera.** 140 imágenes con [fal.ai](https://fal.ai) por 3,74 $,
+incluidas 72 poses de animación y los edificios de las dos facciones. Cada
+criatura se anima con **una sola llamada**: las seis poses viajan en el mismo
+atlas, que es lo que mantiene al personaje reconocible entre fotogramas.
 
 ## Arrancar
 
@@ -65,19 +73,20 @@ Hace falta una clave de [fal.ai](https://fal.ai) en `.env`:
 echo 'FAL_KEY=tu-clave' > .env
 
 pnpm gen                                    # simula: qué falta y qué costaría
-pnpm gen -- all --go --budget 3             # terrenos, criaturas e iconos
+pnpm gen -- all --go --budget 4             # terrenos, criaturas, iconos y edificios
 npx tsx tools/gen/animate.ts --all --go     # las poses de combate
 ```
 
 Sin `--go` no se gasta un céntimo. La caché va por hash del payload, así que
-repetir una tanda sale gratis.
+repetir una tanda sale gratis. `--budget` es el tope del gasto **acumulado** del
+proyecto, no el de la tanda.
 
 ## Cómo está montado
 
 ```
 src/core/      las reglas. TypeScript puro: sin DOM y sin node:*
 src/server/    bridge WebSocket + puente MCP para el agente
-src/client/    Vite + Canvas 2D. Solo pinta y manda intenciones
+src/client/    Vite + Canvas 2D. Una escena por pantalla; solo pinta
 tools/gen/     generación de assets con fal.ai
 data/          criaturas, edificios y hechizos en JSON editable
 ```

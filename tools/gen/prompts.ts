@@ -105,3 +105,76 @@ export function heroPortraitPrompt(descripcion: string): string {
     `neutral dark background, no text, no frame. ${STYLE_TOKEN}`
   );
 }
+
+/**
+ * Cláusula compartida por los edificios del castillo.
+ *
+ * Se pide **el edificio**, no el lugar: describir "una aldea" o "una escena"
+ * mete paisaje y perspectiva, y entonces los solares dejan de encajar entre sí
+ * porque cada imagen trae su propio horizonte.
+ */
+const BUILDING_RULE =
+  'Single isolated building, complete and centered, seen from a low three-quarter ' +
+  'view. It stands alone with nothing around it. Transparent background, no ground, ' +
+  'no terrain, no cast shadow, no landscape, no characters, no text, no frame.';
+
+/**
+ * Un prompt por imagen de edificio.
+ *
+ * Los ocho primeros no llevan facción: son los mismos para las dos y el
+ * renderizador los busca sin prefijo. Las moradas sí, porque la choza del
+ * campesino y la fosa del esqueleto no pueden ser la misma imagen.
+ */
+export const BUILDING_PROMPTS: Readonly<Record<string, string>> = {
+  village_hall: 'A modest timber-framed village hall with a slate roof and a small bell gable',
+  town_hall: 'A stone town hall with arched windows, a carved gable and a banner over the door',
+  city_hall: 'A grand civic palace with a columned portico, a gilded dome and wide steps',
+  castle: 'A fortified gatehouse with a raised portcullis flanked by two tall crenellated towers',
+  mage_guild_1: 'A slender stone wizard tower with a conical blue roof and one glowing arched window',
+  mage_guild_2: 'A two-tiered wizard tower with a brass orrery on the roof and glowing runes cut into the stone',
+  tavern: 'A cosy timbered tavern with a hanging painted sign, warm lit windows and barrels by the door',
+  marketplace: 'A row of open market stalls under striped awnings, with crates of goods and a set of scales',
+
+  // — Reino caballeresco —
+  knight_dwelling_1: 'A humble thatched farm hut with a wattle fence and a haystack beside it',
+  knight_dwelling_2: 'A wooden archery range with a shingled shed, straw target butts and racks of longbows',
+  knight_upgrade_2: 'A dark green timber ranger lodge with a watchtower and twin straw target butts',
+  knight_dwelling_3: 'A squat stone barracks with a rack of pikes outside and a blue pennant on the roof',
+  knight_upgrade_3: 'A reinforced stone barracks with a walled drill yard, blue and gold banners and a halberd trophy',
+  knight_dwelling_4: 'An armory forge with a smoking chimney, an anvil at the door and swords on a rack',
+  knight_upgrade_4: 'A grand armory of pale stone with a gilded sword above the door and a suit of plate on display',
+  knight_dwelling_5: 'A long timber stable with a fenced paddock and a saddle hung by the door',
+  knight_upgrade_5: 'A tournament jousting arena with striped tents, a heraldic grandstand and gilded lances',
+  knight_dwelling_6: 'A small white stone chapel with a rose window and a golden cross on the roof',
+  knight_upgrade_6: 'A soaring cathedral of white and gold stone with flying buttresses and a radiant rose window',
+
+  // — Necrópolis —
+  necromancer_dwelling_1: 'An open grave excavation with broken headstones, abandoned spades and scattered bones',
+  necromancer_dwelling_2: 'A rusted graveyard gate under a stone arch, with mounded fresh graves behind the railings',
+  necromancer_upgrade_2: 'A putrid plague pit ringed by iron railings, greenish mist and a leaning mausoleum',
+  necromancer_dwelling_3: 'A small sandstone pyramid tomb with a sealed door and carved funerary glyphs',
+  necromancer_upgrade_3: 'A gilded pharaonic pyramid flanked by two obelisks and a black jackal statue',
+  necromancer_dwelling_4: 'A derelict gothic manor with boarded windows, a broken weathervane and circling bats',
+  necromancer_upgrade_4: 'A grand gothic mansion with black spires, crimson stained glass and tall iron gates',
+  necromancer_dwelling_5: 'A cracked stone mausoleum with a domed roof and green witchfire spilling from the doorway',
+  necromancer_upgrade_5: 'A necromantic laboratory tower with bubbling green vats, bone scaffolding and carved sigils',
+  necromancer_dwelling_6: 'A dragon roost built from a colossal ribcage of bone, with a dark stone altar inside',
+  necromancer_upgrade_6: 'A towering temple of fused dragon skeletons crowned with a brazier of green witchfire',
+};
+
+export function buildingPrompt(name: string): string {
+  const identidad = BUILDING_PROMPTS[name];
+  if (identidad === undefined) throw new Error(`no hay prompt para el edificio "${name}"`);
+  return `${identidad}. ${BUILDING_RULE} ${STYLE_TOKEN}`;
+}
+
+/**
+ * Fondo de la pantalla de castillo.
+ *
+ * El centro tiene que quedar VACÍO: encima van once solares, y un fondo con
+ * protagonista pelearía con los edificios que se dibujan sobre él.
+ */
+export const TOWN_BACKDROP_PROMPTS: Readonly<Record<string, string>> = {
+  knight: `Wide empty backdrop of rolling green hills under a bright blue sky with soft clouds, seen from a low viewpoint, open and uncluttered, nothing in the middle of the frame. No buildings, no characters, no text. ${STYLE_TOKEN}`,
+  necromancer: `Wide empty backdrop of barren grey moorland under a bruised violet sky with a pale moon, seen from a low viewpoint, open and uncluttered, nothing in the middle of the frame. No buildings, no characters, no text. ${STYLE_TOKEN}`,
+};

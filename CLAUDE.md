@@ -45,6 +45,8 @@ src/core/          TypeScript puro: las reglas. Sin DOM y sin node:*
   contract/        esquemas zod y serialización para el agente
 src/server/        bridge WebSocket + puente MCP
 src/client/        Vite + Canvas 2D. Solo pinta y manda intents
+  render/          una escena por pantalla: aventura, castillo y batalla
+  views/           los paneles de HTML del lateral
 tools/gen/         generación de assets con fal.ai
 tools/qa/          verificación de extremo a extremo
 data/              criaturas, edificios y hechizos en JSON editable
@@ -102,12 +104,35 @@ En `map_generate` el agente **no dibuja**: devuelve un plan declarativo y
 `buildMap` lo construye. `validateMapPlan` lo rechaza si algún castillo queda
 inalcanzable o si dos objetos comparten casilla.
 
+## La pantalla de castillo
+
+El castillo no es una lista de edificios: es un cuadro con **solares fijos**
+(`src/client/render/town.ts`). Cada solar tiene una cadena de mejora que se
+levanta en el sitio, y son once para los diecinueve edificios:
+
+| Solar | Cadena |
+|---|---|
+| `hall` | `village_hall` → `town_hall` → `city_hall` |
+| `fort` | `castle` |
+| `guild` | `mage_guild_1` → `mage_guild_2` |
+| `tavern` · `market` | un solo edificio cada uno |
+| `lvl1` … `lvl6` | `dwelling_N` → `upgrade_N` |
+
+Un solar dibuja el último eslabón construido; si le queda alguno, se pulsa y se
+levanta. Vacío se pinta como parcela punteada con el nombre de lo que iría ahí,
+así que se ve a la vez lo que tienes y lo que te falta. Debajo de cada morada,
+su casilla de reclutamiento.
+
+El motivo de un rechazo sale de `buildBlocker`, que ya devuelve la frase escrita
+para la persona: la pantalla no reimplementa ni una regla.
+
 ## Generación de assets
 
 ```bash
 pnpm gen                              # simula: qué falta y cuánto costaría
 pnpm gen -- terrains --go             # genera de verdad
-pnpm gen -- all --go --budget 3       # terrenos + criaturas + iconos
+pnpm gen -- buildings --go --budget 4 # edificios del castillo y sus fondos
+pnpm gen -- all --go --budget 4       # todo lo anterior de una vez
 
 npx tsx tools/gen/animate.ts peasant --go   # atlas de poses de una criatura
 npx tsx tools/gen/animate.ts --all --go     # las doce criaturas base
@@ -115,7 +140,8 @@ npx tsx tools/gen/animate.ts --all --go     # las doce criaturas base
 
 Sin `--go` no se gasta un céntimo. La caché va por hash del payload, así que
 repetir una tanda sale gratis, y el gasto acumulado queda en
-`tools/gen/spend.json`.
+`tools/gen/spend.json`. Ojo con `--budget`: es el tope del gasto **acumulado**
+del proyecto, no el de la tanda.
 
 Lecciones heredadas de los laboratorios de ne-fan, aplicadas en `prompts.ts`:
 

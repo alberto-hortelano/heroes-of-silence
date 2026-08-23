@@ -18,6 +18,16 @@ import {
 } from './render/adventure.js';
 import { assetCount, loadAssets, onAssetsChanged } from './render/assets.js';
 import { battleOffset, drawBattle, hexAtPixel } from './render/battle.js';
+import {
+  describeHit,
+  drawTown,
+  hitAtPixel,
+  nextOf,
+  plotById,
+  townLayout,
+  type TownHit,
+  type TownTransform,
+} from './render/town.js';
 import { Session } from './session.js';
 import { renderActions, renderSide, renderTopbar } from './views/panels.js';
 
@@ -38,6 +48,8 @@ let hoverPath: Point[] = [];
 let hoverStack: string | null = null;
 let hoverHex: ReturnType<typeof hexAtPixel> = null;
 let battleShift = { x: 0, y: 0 };
+let townShift: TownTransform = { scale: 1, x: 0, y: 0 };
+let hoverTown: TownHit | null = null;
 const animator = new BattleAnimator();
 let needsRender = true;
 
@@ -72,7 +84,16 @@ function render(): void {
   const rect = syncCanvasSize();
   ctx!.clearRect(0, 0, rect.width, rect.height);
 
-  if (session.scene === 'battle' && session.battle !== null) {
+  if (session.scene === 'town' && session.activeTown !== null) {
+    townShift = townLayout(rect.width, rect.height);
+    drawTown(ctx!, {
+      town: session.activeTown,
+      purse: session.resources,
+      transform: townShift,
+      hover: hoverTown,
+      interactive: session.isPlayersTurn,
+    });
+  } else if (session.scene === 'battle' && session.battle !== null) {
     const battle = session.battle;
     battleShift = battleOffset(rect.width, rect.height);
 
@@ -127,7 +148,11 @@ canvas.addEventListener('mousemove', (ev) => {
   const px = ev.clientX - rect.left;
   const py = ev.clientY - rect.top;
 
-  if (session.scene === 'battle') {
+  if (session.scene === 'town' && session.activeTown !== null) {
+    hoverTown = hitAtPixel(session.activeTown, px, py, townShift);
+    canvas.style.cursor = hoverTown === null ? 'default' : 'pointer';
+    session.status = describeHit(session.activeTown, session.resources, hoverTown);
+  } else if (session.scene === 'battle') {
     hoverHex = hexAtPixel(px, py, battleShift);
     hoverStack = hoverHex === null ? null : stackAt(hoverHex)?.id ?? null;
     canvas.style.cursor = hoverStack !== null ? 'crosshair' : 'pointer';
@@ -143,6 +168,7 @@ canvas.addEventListener('mouseleave', () => {
   hoverPath = [];
   hoverHex = null;
   hoverStack = null;
+  hoverTown = null;
   needsRender = true;
 });
 
@@ -151,7 +177,9 @@ canvas.addEventListener('click', (ev) => {
   const px = ev.clientX - rect.left;
   const py = ev.clientY - rect.top;
 
-  if (session.scene === 'battle') {
+  if (session.scene === 'town') {
+    handleTownClick(px, py);
+  } else if (session.scene === 'battle') {
     handleBattleClick(px, py);
   } else {
     session.clickTile(tileAtPixel(camera, px, py));
@@ -159,6 +187,31 @@ canvas.addEventListener('click', (ev) => {
   }
   needsRender = true;
 });
+
+/**
+ * Clic dentro del castillo: un solar levanta su siguiente eslabón y un botón de
+ * la franja recluta. Las reglas siguen viviendo en el núcleo — aquí solo se
+ * traduce el píxel a la acción.
+ */
+function handleTownClick(px: number, py: number): void {
+  const town = session.activeTown;
+  if (town === null) return;
+  const hit = hitAtPixel(town, px, py, townShift);
+  if (hit === null) return;
+
+  if (hit.kind === 'recruit') {
+    const disponibles = town.available[hit.creature] ?? 0;
+    session.recruit(hit.creature, hit.all ? disponibles : 1);
+    return;
+  }
+
+  const next = nextOf(town, plotById(hit.plot));
+  if (next === null) {
+    session.status = 'En ese solar ya está todo construido.';
+    return;
+  }
+  session.build(next);
+}
 
 function stackAt(hex: { col: number; row: number }): BattleStack | undefined {
   const battle = session.battle;
@@ -228,18 +281,8 @@ document.addEventListener('click', (ev) => {
       break;
     case 'close-town':
       session.closeTown();
+      hoverTown = null;
       break;
-    case 'build':
-      session.build(target.getAttribute('data-building') as string);
-      break;
-    case 'recruit': {
-      const id = target.getAttribute('data-creature') as string;
-      const raw = target.getAttribute('data-count') as string;
-      const town = session.activeTown;
-      const disponibles = town?.available[id] ?? 0;
-      session.recruit(id, raw === 'all' ? disponibles : Number(raw));
-      break;
-    }
     case 'hire-hero':
       session.hireHero();
       break;
@@ -265,7 +308,10 @@ document.addEventListener('click', (ev) => {
 });
 
 document.addEventListener('keydown', (ev) => {
-  if (ev.key === 'Escape' && session.scene === 'town') session.closeTown();
+  if (ev.key === 'Escape' && session.scene === 'town') {
+    session.closeTown();
+    hoverTown = null;
+  }
   if (ev.key === ' ' && session.scene === 'adventure') {
     ev.preventDefault();
     session.endTurn();

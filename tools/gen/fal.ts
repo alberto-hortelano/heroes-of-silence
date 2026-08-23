@@ -129,7 +129,7 @@ export class FalClient {
     const tope = this.options.budgetUsd;
     if (tope !== undefined && this.spend.totalUsd + costUsd > tope) {
       throw new Error(
-        `el tope de la tanda ($${tope.toFixed(2)}) se agotaría con "${what}": ` +
+        `el tope de gasto ($${tope.toFixed(2)}) se agotaría con "${what}": ` +
           `llevas gastados $${this.spend.totalUsd.toFixed(2)}`,
       );
     }

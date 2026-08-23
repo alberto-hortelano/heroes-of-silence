@@ -1,5 +1,5 @@
 /** Colores del prototipo. Son marcadores: el arte generado llega en la fase 5. */
-import type { ResourceKind } from '@core/types.js';
+import { RESOURCE_KINDS, type ResourceKind, type Resources } from '@core/types.js';
 import type { TerrainKind } from '@core/map/terrain.js';
 
 export const TERRAIN_COLORS: Readonly<Record<TerrainKind, string>> = {
@@ -39,4 +39,12 @@ export const PLAYER_COLORS = ['#d94f4f', '#4f7fd9', '#4fd97f', '#d9c14f'] as con
 export function playerColor(id: number | null): string {
   if (id === null) return '#7d7364';
   return PLAYER_COLORS[id % PLAYER_COLORS.length] as string;
+}
+
+/** Coste en prosa: "2500 oro, 5 madera". Lo comparten paneles y castillo. */
+export function costLabel(cost: Partial<Resources>): string {
+  const partes = RESOURCE_KINDS.filter((k) => (cost[k] ?? 0) > 0).map(
+    (k) => `${cost[k]} ${RESOURCE_NAMES[k].toLowerCase()}`,
+  );
+  return partes.length === 0 ? 'gratis' : partes.join(', ');
 }

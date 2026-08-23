@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-23T16:47:05.519Z",
+  "generatedAt": "2026-08-23T18:18:56.780Z",
   "style": "painted",
   "files": [
     {
@@ -181,6 +181,166 @@
       "group": "icons",
       "name": "gold",
       "path": "icons/gold.png"
+    },
+    {
+      "group": "buildings",
+      "name": "village_hall",
+      "path": "buildings/village_hall.png"
+    },
+    {
+      "group": "buildings",
+      "name": "town_hall",
+      "path": "buildings/town_hall.png"
+    },
+    {
+      "group": "buildings",
+      "name": "city_hall",
+      "path": "buildings/city_hall.png"
+    },
+    {
+      "group": "buildings",
+      "name": "castle",
+      "path": "buildings/castle.png"
+    },
+    {
+      "group": "buildings",
+      "name": "mage_guild_1",
+      "path": "buildings/mage_guild_1.png"
+    },
+    {
+      "group": "buildings",
+      "name": "mage_guild_2",
+      "path": "buildings/mage_guild_2.png"
+    },
+    {
+      "group": "buildings",
+      "name": "tavern",
+      "path": "buildings/tavern.png"
+    },
+    {
+      "group": "buildings",
+      "name": "marketplace",
+      "path": "buildings/marketplace.png"
+    },
+    {
+      "group": "buildings",
+      "name": "knight_dwelling_1",
+      "path": "buildings/knight_dwelling_1.png"
+    },
+    {
+      "group": "buildings",
+      "name": "knight_dwelling_2",
+      "path": "buildings/knight_dwelling_2.png"
+    },
+    {
+      "group": "buildings",
+      "name": "knight_upgrade_2",
+      "path": "buildings/knight_upgrade_2.png"
+    },
+    {
+      "group": "buildings",
+      "name": "knight_dwelling_3",
+      "path": "buildings/knight_dwelling_3.png"
+    },
+    {
+      "group": "buildings",
+      "name": "knight_upgrade_3",
+      "path": "buildings/knight_upgrade_3.png"
+    },
+    {
+      "group": "buildings",
+      "name": "knight_dwelling_4",
+      "path": "buildings/knight_dwelling_4.png"
+    },
+    {
+      "group": "buildings",
+      "name": "knight_upgrade_4",
+      "path": "buildings/knight_upgrade_4.png"
+    },
+    {
+      "group": "buildings",
+      "name": "knight_dwelling_5",
+      "path": "buildings/knight_dwelling_5.png"
+    },
+    {
+      "group": "buildings",
+      "name": "knight_upgrade_5",
+      "path": "buildings/knight_upgrade_5.png"
+    },
+    {
+      "group": "buildings",
+      "name": "knight_dwelling_6",
+      "path": "buildings/knight_dwelling_6.png"
+    },
+    {
+      "group": "buildings",
+      "name": "knight_upgrade_6",
+      "path": "buildings/knight_upgrade_6.png"
+    },
+    {
+      "group": "buildings",
+      "name": "necromancer_dwelling_1",
+      "path": "buildings/necromancer_dwelling_1.png"
+    },
+    {
+      "group": "buildings",
+      "name": "necromancer_dwelling_2",
+      "path": "buildings/necromancer_dwelling_2.png"
+    },
+    {
+      "group": "buildings",
+      "name": "necromancer_upgrade_2",
+      "path": "buildings/necromancer_upgrade_2.png"
+    },
+    {
+      "group": "buildings",
+      "name": "necromancer_dwelling_3",
+      "path": "buildings/necromancer_dwelling_3.png"
+    },
+    {
+      "group": "buildings",
+      "name": "necromancer_upgrade_3",
+      "path": "buildings/necromancer_upgrade_3.png"
+    },
+    {
+      "group": "buildings",
+      "name": "necromancer_dwelling_4",
+      "path": "buildings/necromancer_dwelling_4.png"
+    },
+    {
+      "group": "buildings",
+      "name": "necromancer_upgrade_4",
+      "path": "buildings/necromancer_upgrade_4.png"
+    },
+    {
+      "group": "buildings",
+      "name": "necromancer_dwelling_5",
+      "path": "buildings/necromancer_dwelling_5.png"
+    },
+    {
+      "group": "buildings",
+      "name": "necromancer_upgrade_5",
+      "path": "buildings/necromancer_upgrade_5.png"
+    },
+    {
+      "group": "buildings",
+      "name": "necromancer_dwelling_6",
+      "path": "buildings/necromancer_dwelling_6.png"
+    },
+    {
+      "group": "buildings",
+      "name": "necromancer_upgrade_6",
+      "path": "buildings/necromancer_upgrade_6.png"
+    },
+    {
+      "group": "towns",
+      "name": "knight",
+      "path": "towns/knight.jpg"
+    },
+    {
+      "group": "towns",
+      "name": "necromancer",
+      "path": "towns/necromancer.jpg"
     }
   ]
 }

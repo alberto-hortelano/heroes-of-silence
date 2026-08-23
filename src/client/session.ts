@@ -183,6 +183,9 @@ export class Session {
   closeTown(): void {
     this.openTownId = null;
     this.scene = 'adventure';
+    // El último rótulo del castillo hablaba de solares y reclutas: fuera de
+    // allí no significa nada.
+    this.status = '';
   }
 
   /** El castillo abierto ahora mismo, o `null` si no hay ninguno. */

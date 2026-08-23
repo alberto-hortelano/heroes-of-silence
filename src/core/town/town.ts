@@ -89,10 +89,11 @@ export function canBuild(town: Town, buildingId: string, purse: Resources): bool
 
 /** Construye y devuelve los recursos que quedan. Lanza si no era posible. */
 export function build(town: Town, buildingId: string, purse: Resources): Resources {
-  const blocker = buildBlocker(town, buildingId, purse);
-  if (blocker !== null) throw new Error(`no se puede construir "${buildingId}": ${blocker}`);
-
   const b = building(buildingId);
+  const blocker = buildBlocker(town, buildingId, purse);
+  // El mensaje lo lee una persona: va el nombre del edificio, no su id.
+  if (blocker !== null) throw new Error(`no se puede construir ${b.name}: ${blocker}`);
+
   town.buildings = [...town.buildings, buildingId];
   town.builtToday = true;
 

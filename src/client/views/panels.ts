@@ -8,16 +8,9 @@ import type { BattleEvent } from '@core/battle/types.js';
 import { creature, isShooter } from '@core/data.js';
 import { armySize, maxMana, maxMovePoints } from '@core/hero/hero.js';
 import type { GameEvent } from '@core/state/game.js';
-import { allBuildings, building } from '@core/town/buildings.js';
-import {
-  buildBlocker,
-  dailyIncome,
-  dwellings,
-  hasBuilding,
-  mageGuildLevel,
-  recruitCost,
-} from '@core/town/town.js';
-import type { Army, Resources } from '@core/types.js';
+import { building } from '@core/town/buildings.js';
+import { dailyIncome, dwellings, mageGuildLevel } from '@core/town/town.js';
+import type { Army } from '@core/types.js';
 import { asset } from '../render/assets.js';
 import { RESOURCE_COLORS, RESOURCE_NAMES } from '../render/palette.js';
 import type { Session } from '../session.js';
@@ -152,65 +145,38 @@ function renderArmy(army: Army): string {
 function renderTownPanel(session: Session): string {
   const town = session.activeTown;
   if (town === null) return '';
-  const purse = session.resources;
 
-  const construibles = allBuildings()
-    .filter((b) => !hasBuilding(town, b.id))
-    .map((b) => {
-      const blocker = buildBlocker(town, b.id, purse);
-      const coste = costLabel(b.cost);
-      return `<button data-action="build" data-building="${b.id}" ${blocker === null ? '' : 'disabled'}
-        title="${blocker ?? 'Construir'}">
-        <span>${b.name}</span><span class="cost">${coste}</span>
-      </button>`;
-    })
-    .join('');
+  // Solo los héroes PROPIOS: un rival parado en tu castillo no te enseña su
+  // ejército, y sobre todo no esconde tu guarnición.
+  const heroeAqui = session
+    .myHeroes()
+    .find((h) => h.at.x === town.at.x && h.at.y === town.at.y);
 
-  const moradas = dwellings(town)
+  const crecimiento = dwellings(town)
     .map(({ creature: id }) => {
       const info = creature(id);
-      const disponibles = town.available[id] ?? 0;
-      const coste = costLabel(recruitCost(id, 1));
-      return `<div class="stack">
-        <span>${info.name} <span class="cost">(${disponibles} disp. · ${coste})</span></span>
-        <span>
-          <button data-action="recruit" data-creature="${id}" data-count="1" ${disponibles > 0 ? '' : 'disabled'}>+1</button>
-          <button data-action="recruit" data-creature="${id}" data-count="all" ${disponibles > 0 ? '' : 'disabled'}>Todo</button>
-        </span>
-      </div>`;
+      return `<div class="stack"><span>${info.name}</span><span class="count">+${info.growth}</span></div>`;
     })
     .join('');
-
-  const heroeAqui = session.state.heroes.find(
-    (h) => h.at.x === town.at.x && h.at.y === town.at.y,
-  );
 
   return `
     <h2>${town.name}</h2>
     <div class="row"><span class="label">Ingresos</span><span>${dailyIncome(town)} oro/día</span></div>
     <div class="row"><span class="label">Gremio de magia</span><span>${mageGuildLevel(town) || '—'}</span></div>
-    <div class="row"><span class="label">Construido hoy</span><span>${town.builtToday ? 'sí' : 'no'}</span></div>
+    <div class="row"><span class="label">Construir hoy</span><span>${town.builtToday ? 'ya hecho' : 'disponible'}</span></div>
+    <p class="cost">Pulsa un solar para levantarlo y la franja de abajo para reclutar.</p>
 
-    <h3>Reclutar</h3>
-    <div class="stack-list">${moradas || '<div class="stack empty">Sin moradas</div>'}</div>
+    <h3>Crecimiento semanal</h3>
+    <div class="stack-list">${crecimiento || '<div class="stack empty">Sin moradas</div>'}</div>
 
-    <h3>${heroeAqui === undefined ? 'Guarnición' : `Ejército de ${heroeAqui.name}`}</h3>
-    ${renderArmy(heroeAqui?.army ?? town.garrison)}
+    <h3>Guarnición</h3>
+    ${renderArmy(town.garrison)}
+
     ${
       heroeAqui === undefined
-        ? `<button data-action="hire-hero" class="primary" style="margin-top:.5rem">Contratar héroe (2500 oro)</button>`
-        : ''
-    }
-
-    <h3>Construir</h3>
-    <div class="build-list">${construibles || '<em>Está todo construido.</em>'}</div>`;
-}
-
-function costLabel(cost: Partial<Resources>): string {
-  const partes = RESOURCE_KINDS.filter((k) => (cost[k] ?? 0) > 0).map(
-    (k) => `${cost[k]} ${RESOURCE_NAMES[k].toLowerCase()}`,
-  );
-  return partes.length === 0 ? 'gratis' : partes.join(', ');
+        ? `<button data-action="hire-hero" class="primary" style="margin-top:.7rem">Contratar héroe (2500 oro)</button>`
+        : `<h3>Ejército de ${heroeAqui.name}</h3>${renderArmy(heroeAqui.army)}`
+    }`;
 }
 
 // ---------------------------------------------------------------- batalla
