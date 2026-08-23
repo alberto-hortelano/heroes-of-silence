@@ -2,6 +2,7 @@
 import spellsJson from '../../../data/spells.json' with { type: 'json' };
 import { creature } from '../data.js';
 import { applyDamage } from './damage.js';
+import type { StackEffect } from './effects.js';
 import type { BattleHero, BattleStack } from './types.js';
 
 export type SpellKind = 'damage' | 'speed' | 'luck' | 'heal';
@@ -47,6 +48,30 @@ export function allSpells(): readonly Spell[] {
 export interface SpellResult {
   readonly damage: number;
   readonly killed: number;
+  /** Lo que dura unas rondas. Lo cuelga del stack el motor, no el hechizo. */
+  readonly effect?: StackEffect;
+}
+
+/** Dura el poder mágico del lanzador en rondas, que es lo del original. */
+function temporalEffect(kind: 'speed' | 'luck', s: Spell, caster: BattleHero): StackEffect {
+  return {
+    kind,
+    amount: s.amount ?? 0,
+    source: s.id,
+    roundsLeft: Math.max(1, caster.spellPower),
+  };
+}
+
+/**
+ * El efecto temporal que dejaría este hechizo, o `null` si no deja ninguno.
+ *
+ * Se calcula aparte de aplicarlo porque `legalActions` necesita saber si el
+ * objetivo sería inmune ANTES de ofrecer el lanzamiento: así no se le propone
+ * al agente una Maldición sobre un esqueleto que después va a rebotar.
+ */
+export function effectOfSpell(s: Spell, caster: BattleHero): StackEffect | null {
+  if (s.kind !== 'speed' && s.kind !== 'luck') return null;
+  return temporalEffect(s.kind, s, caster);
 }
 
 /** Aplica el hechizo al objetivo. El coste de maná lo descuenta el motor. */
@@ -57,14 +82,11 @@ export function castSpell(s: Spell, caster: BattleHero, target: BattleStack): Sp
       const killed = applyDamage(target, power);
       return { damage: power, killed };
     }
-    case 'speed': {
-      target.speedBonus += s.amount ?? 0;
-      return { damage: 0, killed: 0 };
-    }
-    case 'luck': {
-      target.luck = Math.max(-3, Math.min(3, target.luck + (s.amount ?? 0)));
-      return { damage: 0, killed: 0 };
-    }
+    case 'speed':
+    case 'luck':
+      // Dentro del `case` el tipo ya está acotado: aquí el efecto existe
+      // siempre, así que no hay rama `null` que fingir que puede pasar.
+      return { damage: 0, killed: 0, effect: temporalEffect(s.kind, s, caster) };
     case 'heal': {
       const amount = (s.basePower ?? 0) + (s.perPower ?? 0) * caster.spellPower;
       const maxHp = creature(target.creature).hp;

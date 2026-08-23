@@ -7,6 +7,7 @@
  */
 import { creature, hasTrait } from '../data.js';
 import type { Rng } from '../rng.js';
+import { effectiveLuck, effectTotal } from './effects.js';
 import type { BattleHero, BattleStack } from './types.js';
 
 export const ATTACK_BONUS_PER_POINT = 0.1;
@@ -26,8 +27,17 @@ export const UNLUCKY_MULTIPLIER = 0.5;
 /** Probabilidad por punto de moral o suerte (≈1/24, como la serie). */
 export const CHANCE_PER_POINT = 1 / 24;
 
+/**
+ * Carga: cada hex recorrido antes de golpear suma un 10 % de daño, con tope
+ * en cinco hexes (+50 %). La caballería que arranca de lejos pega más que la
+ * que ya estaba pegada al enemigo, que es de lo que va el rasgo.
+ */
+export const CHARGE_BONUS_PER_HEX = 0.1;
+export const MAX_CHARGE_HEXES = 5;
+
 export function effectiveAttack(stack: BattleStack, hero: BattleHero | null): number {
-  return creature(stack.creature).attack + (hero?.attack ?? 0);
+  // Los efectos de `attack` son los que mete el miedo del dragón óseo.
+  return creature(stack.creature).attack + (hero?.attack ?? 0) + effectTotal(stack, 'attack');
 }
 
 export function effectiveDefense(stack: BattleStack, hero: BattleHero | null): number {
@@ -50,6 +60,13 @@ export interface DamageResult {
   readonly damage: number;
   readonly lucky: boolean;
   readonly unlucky: boolean;
+  /**
+   * Hexes de carga que se han COBRADO de verdad, ya con el tope aplicado; 0 si
+   * no hubo carga. El parte de guerra lo copia en vez de volver a deducirlo:
+   * si no, una carga de 7 hexes se anunciaba como tal mientras el bono se
+   * había quedado en los 5 que caben en +50 %.
+   */
+  readonly charge: number;
 }
 
 /** Daño que inflige `attacker` a `defender`, ya con suerte aplicada. */
@@ -59,7 +76,7 @@ export function computeDamage(
   defender: BattleStack,
   defenderHero: BattleHero | null,
   rng: Rng,
-  opts: { ranged?: boolean; distance?: number } = {},
+  opts: { ranged?: boolean; distance?: number; chargeHexes?: number } = {},
 ): DamageResult {
   const info = creature(attacker.creature);
   const [min, max] = info.damage;
@@ -80,17 +97,24 @@ export function computeDamage(
   // Penalización de distancia del tirador: a más de media rejilla, mitad de daño.
   if (opts.ranged === true && (opts.distance ?? 0) > 5) base *= 0.5;
 
+  // Carga. El contraataque pasa siempre 0 hexes: se contraataca desde el sitio.
+  const charge = hasTrait(info, 'charge')
+    ? Math.min(opts.chargeHexes ?? 0, MAX_CHARGE_HEXES)
+    : 0;
+  if (charge > 0) base *= 1 + charge * CHARGE_BONUS_PER_HEX;
+
+  const luck = effectiveLuck(attacker);
   let lucky = false;
   let unlucky = false;
-  if (attacker.luck > 0 && rng.chance(Math.min(attacker.luck, 3) * CHANCE_PER_POINT)) {
+  if (luck > 0 && rng.chance(luck * CHANCE_PER_POINT)) {
     lucky = true;
     base *= LUCKY_MULTIPLIER;
-  } else if (attacker.luck < 0 && rng.chance(Math.min(-attacker.luck, 3) * CHANCE_PER_POINT)) {
+  } else if (luck < 0 && rng.chance(-luck * CHANCE_PER_POINT)) {
     unlucky = true;
     base *= UNLUCKY_MULTIPLIER;
   }
 
-  return { damage: Math.max(1, Math.round(base)), lucky, unlucky };
+  return { damage: Math.max(1, Math.round(base)), lucky, unlucky, charge };
 }
 
 /**

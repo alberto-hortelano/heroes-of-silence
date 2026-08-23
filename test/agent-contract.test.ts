@@ -128,7 +128,7 @@ describe('respuestas del agente', () => {
   it('acepta una respuesta de turno bien formada', () => {
     const r = responseSchemas.adventure_turn.safeParse({
       actions: [
-        { type: 'build', town: 'town-1', building: 'dwelling_2' },
+        { type: 'build', town: 'town-1', building: 'knight_dwelling_2' },
         { type: 'move_hero', hero: 'hero-1', to: { x: 3, y: 4 } },
       ],
       reasoning: 'Construyo y salgo a por la mina.',

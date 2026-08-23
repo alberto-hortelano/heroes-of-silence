@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { playAiGame, playAiTurn } from '../src/core/ai/turn.js';
 import {
   armyPower,
+  chooseBuilding,
   chooseHeroDestination,
   planBuildings,
   planRecruits,
@@ -23,7 +24,18 @@ import {
   type GameContext,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
-import { dwellings } from '../src/core/town/town.js';
+import {
+  applyWeeklyGrowth,
+  availableBuildings,
+  build,
+  buildBlocker,
+  createTown,
+  dwellings,
+  type Town,
+} from '../src/core/town/town.js';
+import { buildingsOfFaction } from '../src/core/town/buildings.js';
+import { factionLineup } from '../src/core/data.js';
+import type { Resources } from '../src/core/types.js';
 
 const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 
@@ -142,12 +154,12 @@ describe('economía', () => {
     const player = currentPlayer(state);
     const oroAntes = player.resources.gold;
 
-    applyAdventureAction(state, { type: 'build', town: town.id, building: 'dwelling_2' }, c);
-    expect(town.buildings).toContain('dwelling_2');
+    applyAdventureAction(state, { type: 'build', town: town.id, building: 'knight_dwelling_2' }, c);
+    expect(town.buildings).toContain('knight_dwelling_2');
     expect(player.resources.gold).toBeLessThan(oroAntes);
 
     expect(() =>
-      applyAdventureAction(state, { type: 'build', town: town.id, building: 'dwelling_3' }, c),
+      applyAdventureAction(state, { type: 'build', town: town.id, building: 'knight_dwelling_3' }, c),
     ).toThrow(/ya se ha construido hoy/);
   });
 
@@ -353,9 +365,17 @@ describe('IA de respaldo', () => {
 });
 
 describe('partida completa', () => {
+  // La semilla cambió de 1234 a 1235 con la cadena de moradas de #13, y NO
+  // porque hiciera falta hasta que pasara: con la cadena, los dos bandos suben
+  // de nivel al mismo ritmo, y una partida entre dos héroes igualados no
+  // termina nunca — `chooseHeroDestination` exige un 1,05 de ventaja para
+  // atacar, así que se esquivan hasta el día 1500. Ese empate eterno ya existía
+  // antes del cambio y con la misma frecuencia (medido a 40 semillas: 5 de 40
+  // no terminaban antes, 4 de 40 después); lo único que cambió es qué semillas
+  // caen en él. La 1234 pasó a estar entre ellas.
   it('termina con un ganador jugando IA contra IA', () => {
-    const state = newGame({ seed: 1234 });
-    const c = ctx(1234);
+    const state = newGame({ seed: 1235 });
+    const c = ctx(1235);
     playAiGame(state, c, 300);
 
     expect(state.finished).not.toBeNull();
@@ -385,5 +405,154 @@ describe('partida completa', () => {
       return JSON.stringify(state.log);
     };
     expect(jugar(555)).toBe(jugar(555));
+  });
+});
+
+describe('catálogo de edificios por facción', () => {
+  const bolsaInfinita: Resources = {
+    wood: 9999, mercury: 9999, ore: 9999, sulfur: 9999, crystal: 9999, gems: 9999, gold: 999999,
+  };
+
+  const pueblo = (faction: 'knight' | 'necromancer'): Town =>
+    createTown(`t-${faction}`, 'Prueba', faction, { x: 0, y: 0 }, 0);
+
+  /** Levanta la lista entera, uno por día, y devuelve los días gastados. */
+  const levantar = (town: Town, ids: string[]): number => {
+    let dias = 0;
+    for (const id of ids) {
+      town.builtToday = false;
+      dias += 1;
+      build(town, id, bolsaInfinita);
+    }
+    return dias;
+  };
+
+  // ------------------------------------------------------------------- #46
+
+  it('el nigromante no puede comprar la mejora de nivel 6: no existe', () => {
+    const cripta = pueblo('necromancer');
+    levantar(cripta, [
+      'necromancer_dwelling_2',
+      'necromancer_dwelling_3',
+      'necromancer_dwelling_4',
+      'necromancer_dwelling_5',
+      'castle',
+      'necromancer_dwelling_6',
+    ]);
+    expect(cripta.available['bone_dragon']).toBeGreaterThan(0);
+
+    // El motivo se escribe para la persona, y `null` sería "adelante, cobra".
+    expect(buildBlocker(cripta, 'necromancer_upgrade_6', bolsaInfinita)).toMatch(/no existe/);
+    // Y el id del caballero tampoco cuela en un pueblo nigromante.
+    expect(buildBlocker(cripta, 'knight_upgrade_6', bolsaInfinita)).toMatch(/no es un edificio de esta facción/);
+  });
+
+  it('intentarlo lanza y no cuesta ni oro ni la construcción del día', () => {
+    const cripta = pueblo('necromancer');
+    cripta.builtToday = false;
+    const bolsa = { ...bolsaInfinita };
+
+    expect(() => build(cripta, 'necromancer_upgrade_6', bolsa)).toThrow(/no se puede construir/);
+    expect(cripta.builtToday).toBe(false);
+    expect(bolsa.gold).toBe(bolsaInfinita.gold);
+    expect(bolsa.gems).toBe(bolsaInfinita.gems);
+  });
+
+  it('el caballero conserva su mejora de nivel 6: paladines a cruzados', () => {
+    const castillo = pueblo('knight');
+    levantar(castillo, [
+      'knight_dwelling_2',
+      'knight_dwelling_3',
+      'knight_dwelling_4',
+      'knight_dwelling_5',
+      'castle',
+      'knight_dwelling_6',
+    ]);
+    expect(castillo.available['paladin']).toBeGreaterThan(0);
+
+    castillo.builtToday = false;
+    build(castillo, 'knight_upgrade_6', bolsaInfinita);
+    expect(castillo.available['paladin']).toBeUndefined();
+    expect(castillo.available['crusader']).toBeGreaterThan(0);
+  });
+
+  it('ninguna mejora del catálogo apunta a un nivel sin criatura mejorada', () => {
+    // Esto es lo que hace que #46 sea una REGLA y no un caso del dragón óseo:
+    // si mañana alguien escribe la fila de una mejora imposible, salta aquí.
+    for (const faction of ['knight', 'necromancer'] as const) {
+      const linea = factionLineup(faction);
+      for (const b of buildingsOfFaction(faction)) {
+        if (b.upgradesLevel === undefined) continue;
+        const base = linea.find((c) => c.level === b.upgradesLevel);
+        expect(base, `${b.id}: la facción no tiene criatura de nivel ${b.upgradesLevel}`).toBeDefined();
+        expect(
+          base?.upgradesTo,
+          `${b.id} mejora un nivel cuya criatura (${base?.id}) no tiene versión mejorada`,
+        ).toBeDefined();
+      }
+    }
+  });
+
+  // ------------------------------------------------------------------- #13
+
+  it('la morada de nivel 6 no se levanta el día 1 en ninguna facción', () => {
+    for (const faction of ['knight', 'necromancer'] as const) {
+      const t = pueblo(faction);
+      const motivo = buildBlocker(t, `${faction}_dwelling_6`, bolsaInfinita);
+      expect(motivo, `${faction} pudo saltar a la morada 6`).not.toBeNull();
+      expect(motivo).toMatch(/falta construir/);
+    }
+  });
+
+  it('un pueblo recién fundado ya es jugable: su morada de nivel 1 cría', () => {
+    for (const faction of ['knight', 'necromancer'] as const) {
+      const t = pueblo(faction);
+      expect(t.buildings).toContain(`${faction}_dwelling_1`);
+      applyWeeklyGrowth(t);
+      const moradas = dwellings(t);
+      expect(moradas.length).toBe(1);
+      expect(t.available[moradas[0]!.creature] ?? 0).toBeGreaterThan(0);
+    }
+  });
+
+  it('la morada de nivel 6 cuesta seis días de obra en las dos facciones', () => {
+    // Uno por día, porque solo se construye un edificio diario. Si la cadena
+    // del JSON cambia, este número cambia CON ella, no al revés.
+    for (const faction of ['knight', 'necromancer'] as const) {
+      const t = pueblo(faction);
+      const dias = levantar(t, [
+        `${faction}_dwelling_2`,
+        `${faction}_dwelling_3`,
+        `${faction}_dwelling_4`,
+        `${faction}_dwelling_5`,
+        'castle',
+        `${faction}_dwelling_6`,
+      ]);
+      expect(dias, `${faction}`).toBe(6);
+      expect(dwellings(t).map((d) => d.level)).toEqual([1, 2, 3, 4, 5, 6]);
+    }
+  });
+
+  it('cada pueblo solo ve su propio catálogo', () => {
+    const castillo = pueblo('knight');
+    const cripta = pueblo('necromancer');
+    expect(availableBuildings(castillo, bolsaInfinita)).toContain('knight_dwelling_2');
+    expect(availableBuildings(castillo, bolsaInfinita)).not.toContain('necromancer_dwelling_2');
+    expect(availableBuildings(cripta, bolsaInfinita)).toContain('necromancer_dwelling_2');
+    expect(availableBuildings(cripta, bolsaInfinita)).not.toContain('knight_dwelling_2');
+  });
+
+  it('la IA levanta el castillo cuando es lo único que le separa del nivel 6', () => {
+    // Sin la prioridad 95 elegiría el gremio o el mercado y se quedaría
+    // atascada para siempre a las puertas de su mejor criatura.
+    const castillo = pueblo('knight');
+    levantar(castillo, [
+      'knight_dwelling_2',
+      'knight_dwelling_3',
+      'knight_dwelling_4',
+      'knight_dwelling_5',
+    ]);
+    castillo.builtToday = false;
+    expect(chooseBuilding(castillo, bolsaInfinita)).toBe('castle');
   });
 });

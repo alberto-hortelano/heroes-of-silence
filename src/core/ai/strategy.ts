@@ -11,10 +11,11 @@ import { findPath, pointKey, reachableCosts, type MapObject } from '../map/map.j
 import {
   availableBuildings,
   dwellings,
+  hasBuilding,
   recruitBlocker,
   type Town,
 } from '../town/town.js';
-import { building } from '../town/buildings.js';
+import { building, buildingsOfFaction } from '../town/buildings.js';
 import type { Army, PlayerId, Point, Resources } from '../types.js';
 import { canAfford, scaleResources, subtractResources } from '../types.js';
 import {
@@ -162,9 +163,19 @@ export function chooseBuilding(town: Town, purse: Resources): string | null {
   const posibles = availableBuildings(town, purse);
   if (posibles.length === 0) return null;
 
+  // Lo que le falta a alguna morada aún sin levantar. Sin esto la IA nunca
+  // construiría el castillo —no da ingreso ni criaturas— y se quedaría
+  // atascada para siempre a las puertas de la morada de nivel 6, que lo exige.
+  const abrePuerta = new Set<string>();
+  for (const b of buildingsOfFaction(town.faction)) {
+    if (b.dwellingLevel === undefined || hasBuilding(town, b.id)) continue;
+    for (const req of b.requires ?? []) if (!hasBuilding(town, req)) abrePuerta.add(req);
+  }
+
   const prioridad = (id: string): number => {
     const b = building(id);
     if (b.dwellingLevel !== undefined) return 100 + b.dwellingLevel;
+    if (abrePuerta.has(id)) return 95;
     if (b.income !== undefined) return 90;
     if (b.upgradesLevel !== undefined) return 50 + b.upgradesLevel;
     if (b.mageGuildLevel !== undefined) return 40;

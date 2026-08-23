@@ -1,10 +1,17 @@
 /** Catálogo de edificios del castillo. */
 import buildingsJson from '../../../data/buildings.json' with { type: 'json' };
-import type { Resources } from '../types.js';
+import type { FactionId, Resources } from '../types.js';
 
 export interface Building {
   readonly id: string;
   readonly name: string;
+  /**
+   * Facción a la que pertenece, si es propio de una.
+   * Los edificios de villa (ayuntamiento, castillo, gremio…) no la llevan:
+   * son los mismos para todo el mundo. Las moradas y sus mejoras sí, y su id
+   * empieza por ella — que es además el nombre de su PNG.
+   */
+  readonly faction?: FactionId;
   readonly cost: Partial<Resources>;
   /** Oro por día que aporta (solo los ayuntamientos). */
   readonly income?: number;
@@ -26,6 +33,7 @@ for (const raw of buildingsJson.buildings) {
     id: raw.id,
     name: raw.name,
     cost: raw.cost,
+    ...('faction' in raw ? { faction: raw.faction as FactionId } : {}),
     ...('income' in raw ? { income: raw.income as number } : {}),
     ...('prebuilt' in raw ? { prebuilt: raw.prebuilt as boolean } : {}),
     ...('requires' in raw ? { requires: raw.requires as readonly string[] } : {}),
@@ -38,17 +46,32 @@ for (const raw of buildingsJson.buildings) {
 }
 
 export function building(id: string): Building {
-  const found = byId.get(id);
-  if (found === undefined) throw new Error(`edificio desconocido: "${id}"`);
+  const found = buildingIfExists(id);
+  if (found === null) throw new Error(`edificio desconocido: "${id}"`);
   return found;
+}
+
+/**
+ * Como `building`, pero devuelve `null` en vez de lanzar.
+ *
+ * Lo usa `buildBlocker`: a un id inventado —del agente, de un cliente viejo—
+ * hay que darle un motivo escrito, no una excepción a mitad de turno.
+ */
+export function buildingIfExists(id: string): Building | null {
+  return byId.get(id) ?? null;
 }
 
 export function allBuildings(): readonly Building[] {
   return [...byId.values()];
 }
 
-export function prebuiltBuildings(): string[] {
-  return allBuildings()
+/** Los que puede levantar esa facción: los de villa más los suyos. */
+export function buildingsOfFaction(faction: FactionId): readonly Building[] {
+  return allBuildings().filter((b) => b.faction === undefined || b.faction === faction);
+}
+
+export function prebuiltBuildings(faction: FactionId): string[] {
+  return buildingsOfFaction(faction)
     .filter((b) => b.prebuilt === true)
     .map((b) => b.id);
 }

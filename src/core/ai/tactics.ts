@@ -13,12 +13,13 @@ import {
   isEngaged,
   legalActions,
   movableHexes,
+  splashTargets,
   stackHexes,
 } from '../battle/battle.js';
 import { hexDistance } from '../battle/board.js';
 import { stackHp } from '../battle/damage.js';
 import type { BattleAction, BattleStack, BattleState, Side } from '../battle/types.js';
-import { creature, isShooter } from '../data.js';
+import { creature, hasTrait, isShooter } from '../data.js';
 import type { Rng } from '../rng.js';
 import type { Hex } from '../types.js';
 
@@ -57,7 +58,27 @@ export function chooseBattleAction(state: BattleState): BattleAction {
 
   // Un tirador con línea libre dispara al mejor objetivo.
   if (isShooter(creature(s.creature)) && s.shotsLeft > 0 && !isEngaged(state, s)) {
-    const objetivo = bestTarget(enemigos);
+    // El liche salpica todo lo pegado al objetivo, aliados incluidos. Eso es
+    // legal —y `legalActions` lo sigue ofreciendo, porque filtrarlo sería
+    // mentirle al agente—, pero suicida: aquí se elige con cabeza.
+    let candidatos = enemigos;
+    if (hasTrait(creature(s.creature), 'splash_shot')) {
+      // A quién alcanza la salpicadura lo dice el motor, no una copia de la
+      // regla aquí: si mañana cambia el radio, la IA no se queda jugando con la
+      // forma vieja. El propio tirador cuenta como salpicado — hoy no puede
+      // estarlo, porque con un enemigo encima `isEngaged` no le deja disparar.
+      const aliadosSalpicados = (objetivo: BattleStack): number =>
+        splashTargets(state, objetivo).filter((o) => o.side === s.side).length;
+
+      // Se puntúa una vez por enemigo y se elige el mínimo: sin esto la cuenta
+      // se rehacía dentro de un `reduce` y de dos `filter`. Sin `rng`: esto no
+      // se sortea. Y `enemigos` nunca viene vacío, que ya se ha comprobado.
+      const coste = enemigos.map((e) => ({ enemigo: e, aliados: aliadosSalpicados(e) }));
+      const minimo = Math.min(...coste.map((c) => c.aliados));
+      candidatos = coste.filter((c) => c.aliados === minimo).map((c) => c.enemigo);
+    }
+
+    const objetivo = bestTarget(candidatos);
     if (objetivo !== null) {
       const disparo = acciones.find((a) => a.type === 'shoot' && a.target === objetivo.id);
       if (disparo !== undefined) return disparo;

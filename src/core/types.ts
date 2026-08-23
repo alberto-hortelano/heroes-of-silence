@@ -62,19 +62,31 @@ export const SPEED_TO_MOVE_POINTS: Readonly<Record<SpeedTier, number>> = {
 
 export type FactionId = 'knight' | 'necromancer';
 
-/** Rasgos especiales. El motor solo implementa los que consulta explícitamente. */
-export type CreatureTrait =
-  | 'undead'
-  | 'flying'
-  | 'no_retaliation'
-  | 'double_attack'
-  | 'double_shot'
-  | 'life_drain'
-  | 'splash_shot'
-  | 'charge'
-  | 'curse_on_hit'
-  | 'bane_undead'
-  | 'fear';
+/**
+ * Rasgos especiales de criatura.
+ *
+ * Es una constante recorrible, y no solo una unión de literales, porque hay un
+ * test que la recorre: `test/invariantes.test.ts` exige que cada rasgo
+ * declarado aparezca leído en algún sitio de `src/core`. Durante mucho tiempo
+ * cuatro de estos once estuvieron escritos aquí y en `data/creatures.json` sin
+ * que el motor los mirara: el jugador —y el agente, que los recibe en cada
+ * turno de batalla— pagaban por una ficha que mentía.
+ */
+export const CREATURE_TRAITS = [
+  'undead',
+  'flying',
+  'no_retaliation',
+  'double_attack',
+  'double_shot',
+  'life_drain',
+  'splash_shot',
+  'charge',
+  'curse_on_hit',
+  'bane_undead',
+  'fear',
+] as const;
+
+export type CreatureTrait = (typeof CREATURE_TRAITS)[number];
 
 export interface Creature {
   readonly id: string;

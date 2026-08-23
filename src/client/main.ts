@@ -205,7 +205,7 @@ function handleTownClick(px: number, py: number): void {
     return;
   }
 
-  const next = nextOf(town, plotById(hit.plot));
+  const next = nextOf(town, plotById(town.faction, hit.plot));
   if (next === null) {
     session.status = 'En ese solar ya está todo construido.';
     return;

@@ -4,6 +4,8 @@
  * listeners sueltos que limpiar en cada repintado.
  */
 import { activeStack } from '@core/battle/battle.js';
+import { effectiveLuck } from '@core/battle/effects.js';
+import { spell } from '@core/battle/spells.js';
 import type { BattleEvent } from '@core/battle/types.js';
 import { creature, isShooter } from '@core/data.js';
 import { armySize, maxMana, maxMovePoints } from '@core/hero/hero.js';
@@ -199,7 +201,7 @@ function renderBattlePanel(session: Session): string {
       : `<h2>${creature(s.creature).name}</h2>
         <div class="row"><span class="label">Bando</span><span>${s.side === 'attacker' ? 'Tú' : 'Enemigo'}</span></div>
         <div class="row"><span class="label">Efectivos</span><span>${s.count}</span></div>
-        <div class="row"><span class="label">Moral / Suerte</span><span>${s.morale} / ${s.luck}</span></div>
+        <div class="row"><span class="label">Moral / Suerte</span><span>${s.morale} / ${effectiveLuck(s)}</span></div>
         ${isShooter(creature(s.creature)) ? `<div class="row"><span class="label">Munición</span><span>${s.shotsLeft}</span></div>` : ''}`;
 
   const suTurno = s !== null && s.side === 'attacker';
@@ -232,6 +234,33 @@ function renderBattlePanel(session: Session): string {
     <h3>Parte de guerra</h3>${renderBattleLog(battle.log)}`;
 }
 
+/**
+ * Nombres de los RASGOS que ponen efectos. Los hechizos no están aquí: ya se
+ * llaman a sí mismos en `data/spells.json`, y copiarlos era una segunda fuente
+ * de verdad que se quedaría vieja al retocar el catálogo. Y ninguno lleva el
+ * nombre de su criatura: el día que una segunda tenga `fear`, "Terror del
+ * dragón óseo" sería mentira.
+ */
+const FUENTE_RASGO: Readonly<Record<string, string>> = {
+  fear: 'Terror',
+  curse_on_hit: 'Maldición al golpear',
+};
+
+/**
+ * Cómo se llama en el parte lo que puso un efecto. Si no es un rasgo tiene que
+ * ser un hechizo, y `spell()` lanza con un id desconocido: un origen sin nombre
+ * es un fallo nuestro, no algo que disimular con el id crudo en pantalla.
+ */
+function nombreFuente(source: string): string {
+  return FUENTE_RASGO[source] ?? spell(source).name;
+}
+
+const ETIQUETA_EFECTO: Readonly<Record<string, string>> = {
+  speed: 'velocidad',
+  luck: 'suerte',
+  attack: 'ataque',
+};
+
 function renderBattleLog(log: readonly BattleEvent[]): string {
   const lineas = log
     .slice(-40)
@@ -239,16 +268,24 @@ function renderBattleLog(log: readonly BattleEvent[]): string {
       switch (e.kind) {
         case 'round_start':
           return `<div>— Ronda ${e.round} —</div>`;
-        case 'attack':
-          return `<div>${e.retaliation ? 'Contraataque' : 'Ataque'}: ${e.damage} de daño, ${e.killed} bajas</div>`;
+        case 'attack': {
+          const carga = e.charge === undefined ? '' : ` (carga de ${e.charge} hexes)`;
+          return `<div>${e.retaliation ? 'Contraataque' : 'Ataque'}${carga}: ${e.damage} de daño, ${e.killed} bajas</div>`;
+        }
         case 'shoot':
-          return `<div>Disparo: ${e.damage} de daño, ${e.killed} bajas</div>`;
+          return `<div>${e.splash === true ? 'Salpicadura' : 'Disparo'}: ${e.damage} de daño, ${e.killed} bajas</div>`;
         case 'cast':
           return `<div>Hechizo ${e.spell}${e.damage ? `: ${e.damage} de daño` : ''}</div>`;
         case 'morale':
           return `<div class="${e.good ? 'win' : 'lose'}">${e.good ? 'Moral alta: turno extra' : 'Moral baja: turno perdido'}</div>`;
         case 'luck':
           return `<div class="${e.good ? 'win' : 'lose'}">${e.good ? '¡Golpe afortunado!' : 'Golpe desafortunado'}</div>`;
+        case 'effect':
+          return `<div class="${e.amount >= 0 ? 'win' : 'lose'}">${nombreFuente(e.source)}: ${ETIQUETA_EFECTO[e.effect]} ${e.amount > 0 ? '+' : ''}${e.amount} durante ${e.rounds} ${e.rounds === 1 ? 'ronda' : 'rondas'}</div>`;
+        case 'effect_end':
+          return `<div>Se disipa: ${nombreFuente(e.source)}</div>`;
+        case 'immune':
+          return `<div>Inmune a ${nombreFuente(e.source)}: los no-muertos no tienen ánimo que quebrar</div>`;
         case 'perished':
           return `<div class="lose">Una unidad ha sido aniquilada</div>`;
         case 'finished':

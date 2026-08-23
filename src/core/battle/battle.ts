@@ -8,7 +8,7 @@
  */
 import { creature, hasTrait, hexSize, isShooter } from '../data.js';
 import type { Rng } from '../rng.js';
-import type { Army, FactionId, Hex } from '../types.js';
+import type { Army, CreatureTrait, FactionId, Hex } from '../types.js';
 import { SPEED_TO_HEXES } from '../types.js';
 import {
   areAdjacent,
@@ -20,7 +20,14 @@ import {
   reachable,
 } from './board.js';
 import { applyDamage, computeDamage, CHANCE_PER_POINT } from './damage.js';
-import { castSpell, spell } from './spells.js';
+import {
+  applyEffect,
+  clampMoraleLuck,
+  effectTotal,
+  tickEffects,
+  type StackEffect,
+} from './effects.js';
+import { castSpell, effectOfSpell, spell } from './spells.js';
 import type {
   BattleAction,
   BattleHero,
@@ -103,9 +110,9 @@ export function createBattle(
         waited: false,
         acted: false,
         gotMoraleBonus: false,
-        morale: hasTrait(info, 'undead') ? 0 : Math.max(-3, Math.min(3, baseMorale)),
-        luck: Math.max(-3, Math.min(3, setup.luckBonus ?? 0)),
-        speedBonus: 0,
+        morale: hasTrait(info, 'undead') ? 0 : clampMoraleLuck(baseMorale),
+        luck: clampMoraleLuck(setup.luckBonus ?? 0),
+        effects: [],
       });
     });
   }
@@ -142,7 +149,7 @@ export function activeStack(state: BattleState): BattleStack | null {
 
 export function stackSpeed(s: BattleStack): number {
   const base = SPEED_TO_HEXES[creature(s.creature).speed];
-  return Math.max(1, base + s.speedBonus);
+  return Math.max(1, base + effectTotal(s, 'speed'));
 }
 
 /** Todos los hexes ocupados por un stack (uno, o dos si es grande). */
@@ -182,12 +189,19 @@ export function canReachMelee(s: BattleStack, target: BattleStack): boolean {
   return stackHexes(target).some((th) => own.some((oh) => areAdjacent(oh, th)));
 }
 
-/** Hexes a los que el stack puede moverse este turno. */
-export function movableHexes(state: BattleState, s: BattleStack): Hex[] {
+/**
+ * Hexes a los que el stack puede moverse este turno, con lo que cuesta llegar
+ * a cada uno, indexados por `hexKey`.
+ *
+ * El coste no es un extra: es lo que la carga necesita saber. Antes `moveTo`
+ * validaba el destino con `movableHexes` y volvía a lanzar el BFS para contar
+ * los hexes recorridos — dos recorridos para la misma pregunta.
+ */
+export function movableCosts(state: BattleState, s: BattleStack): Map<string, number> {
+  const info = creature(s.creature);
   const blocked = blockedHexes(state, s.id);
-  const size = hexSize(creature(s.creature));
+  const size = hexSize(info);
   const facingRight = s.side === 'attacker';
-  const speed = stackSpeed(s);
 
   const fits = (head: Hex): boolean => {
     const cells = occupiedHexes(head, size, facingRight);
@@ -195,17 +209,21 @@ export function movableHexes(state: BattleState, s: BattleStack): Hex[] {
   };
 
   // Los voladores ignoran lo que hay en medio: solo les importa dónde aterrizan.
-  if (hasTrait(creature(s.creature), 'flying')) {
-    const dist = reachable(s.hex, speed, new Set());
-    return [...dist.keys()]
-      .map(parseHexKey)
-      .filter((h) => !hexEquals(h, s.hex) && fits(h));
-  }
+  const volando = hasTrait(info, 'flying');
+  const dist = reachable(s.hex, stackSpeed(s), volando ? new Set() : blocked);
 
-  const dist = reachable(s.hex, speed, blocked);
-  return [...dist.keys()]
-    .map(parseHexKey)
-    .filter((h) => !hexEquals(h, s.hex) && fits(h));
+  const out = new Map<string, number>();
+  for (const [key, coste] of dist) {
+    const h = parseHexKey(key);
+    if (hexEquals(h, s.hex) || !fits(h)) continue;
+    out.set(key, coste);
+  }
+  return out;
+}
+
+/** Hexes a los que el stack puede moverse este turno. */
+export function movableHexes(state: BattleState, s: BattleStack): Hex[] {
+  return [...movableCosts(state, s).keys()].map(parseHexKey);
 }
 
 function parseHexKey(key: string): Hex {
@@ -248,23 +266,34 @@ function beginRound(state: BattleState, rng: Rng): void {
   }
 
   state.round += 1;
+  // El rótulo de ronda va ANTES de que caduquen los efectos: así el
+  // `effect_end` se lee dentro de la ronda en la que se disipa, y no colgando
+  // del final de la anterior.
+  state.log.push({ kind: 'round_start', round: state.round });
+
   for (const s of state.stacks) {
     s.acted = false;
     s.waited = false;
     s.defending = false;
     s.retaliated = false;
     s.gotMoraleBonus = false;
+    // Caducar es filtrar: el stack nunca guardó el bono, así que quitarlo de
+    // la lista lo devuelve solo a su valor base. No hay nada que revertir.
+    for (const caducado of tickEffects(s)) {
+      state.log.push({ kind: 'effect_end', stack: s.id, source: caducado.source });
+    }
   }
   for (const side of ['attacker', 'defender'] as const) {
     const hero = state.heroes[side];
     if (hero !== null) hero.castThisRound = false;
   }
+  // La iniciativa se monta DESPUÉS de caducar: una Prisa que expira ya no
+  // cuenta para el orden de esta ronda.
   state.queue = initiativeOrder(state);
   if (state.queue.length === 0) {
     finishByExhaustion(state);
     return;
   }
-  state.log.push({ kind: 'round_start', round: state.round });
   advance(state, rng);
 }
 
@@ -292,7 +321,8 @@ function advance(state: BattleState, rng: Rng): void {
     if (!isAlive(s)) continue;
 
     // Moral baja: el stack se queda paralizado y pierde el turno.
-    if (s.morale < 0 && rng.chance(Math.min(-s.morale, 3) * CHANCE_PER_POINT)) {
+    const moral = s.morale;
+    if (moral < 0 && rng.chance(-moral * CHANCE_PER_POINT)) {
       s.acted = true;
       state.log.push({ kind: 'morale', stack: s.id, good: false });
       continue;
@@ -313,12 +343,8 @@ function endTurn(state: BattleState, s: BattleStack, rng: Rng): void {
     return;
   }
 
-  if (
-    isAlive(s) &&
-    s.morale > 0 &&
-    !s.gotMoraleBonus &&
-    rng.chance(Math.min(s.morale, 3) * CHANCE_PER_POINT)
-  ) {
+  const moral = s.morale;
+  if (isAlive(s) && moral > 0 && !s.gotMoraleBonus && rng.chance(moral * CHANCE_PER_POINT)) {
     s.gotMoraleBonus = true;
     s.acted = false;
     state.log.push({ kind: 'morale', stack: s.id, good: true });
@@ -378,11 +404,15 @@ export function applyAction(state: BattleState, action: BattleAction, rng: Rng):
       const target = stackById(state, action.target);
       if (!isAlive(target)) throw new Error(`${target.id} ya está destruido`);
       if (target.side === s.side) throw new Error('no se puede atacar a un aliado');
-      if (action.from !== undefined) moveTo(state, s, action.from);
+      // Los hexes recorridos NO se guardan en el stack: viajan hasta el golpe
+      // como argumento. Un campo `hexesMoved` habría que resetearlo en
+      // `beginRound` y en `endTurn`, y el día que se olvidara uno el
+      // contraatacante cargaría con los hexes de su turno anterior.
+      const recorridos = action.from === undefined ? 0 : moveTo(state, s, action.from);
       if (!canReachMelee(s, target)) {
         throw new Error(`${s.id} no alcanza a ${target.id} cuerpo a cuerpo`);
       }
-      melee(state, s, target, rng);
+      melee(state, s, target, rng, recorridos);
       endTurn(state, s, rng);
       return;
     }
@@ -407,21 +437,73 @@ export function applyAction(state: BattleState, action: BattleAction, rng: Rng):
   }
 }
 
-function moveTo(state: BattleState, s: BattleStack, to: Hex): void {
-  const legal = movableHexes(state, s);
-  if (!legal.some((h) => hexEquals(h, to))) {
+/** Mueve el stack y devuelve cuántos hexes ha recorrido de verdad. */
+function moveTo(state: BattleState, s: BattleStack, to: Hex): number {
+  // El coste real del camino, no la distancia en línea recta: rodear a un
+  // enemigo cuesta más hexes y la carga tiene que notarlo. Sale del mismo
+  // recorrido que decide si el destino es legal, así que no hay una segunda
+  // cuenta que pueda discrepar de la primera.
+  const recorridos = movableCosts(state, s).get(hexKey(to));
+  if (recorridos === undefined) {
     throw new Error(`${s.id} no puede moverse a (${to.col},${to.row})`);
   }
+
   s.hex = to;
   state.log.push({ kind: 'move', stack: s.id, to });
+  return recorridos;
 }
 
-function melee(state: BattleState, attacker: BattleStack, target: BattleStack, rng: Rng): void {
+/**
+ * ¿Rebota este efecto contra el objetivo?
+ *
+ * Los no-muertos no tienen ánimo que quebrar: son inmunes a la mala suerte
+ * venga de donde venga — Maldición del héroe o el golpe de una momia. Vive
+ * aquí y no en `effects.ts` porque es una regla del juego que mira los rasgos
+ * de la criatura, no aritmética de una lista. La consultan `applyStackEffect`
+ * y `legalActions`, para que la lista de acciones legales no ofrezca un
+ * hechizo que después va a rebotar.
+ */
+function isImmuneTo(stack: BattleStack, effect: StackEffect): boolean {
+  const info = creature(stack.creature);
+  return effect.kind === 'luck' && effect.amount < 0 && hasTrait(info, 'undead');
+}
+
+/**
+ * Cuelga un efecto del stack y lo cuenta en el registro.
+ * Si el objetivo es inmune no se acumula nada y se anota el rebote: sin esto
+ * una momia dejaría tres maldiciones sobre un esqueleto que no las siente.
+ */
+function applyStackEffect(state: BattleState, target: BattleStack, effect: StackEffect): void {
+  if (isImmuneTo(target, effect)) {
+    state.log.push({ kind: 'immune', stack: target.id, source: effect.source });
+    return;
+  }
+  // Lo que se anota es el efecto YA colgado, no el que se pidió: si refrescó a
+  // uno del mismo origen, las rondas que se leen en el parte son las que de
+  // verdad le quedan.
+  const vivo = applyEffect(target, effect);
+  state.log.push({
+    kind: 'effect',
+    stack: target.id,
+    effect: vivo.kind,
+    amount: vivo.amount,
+    source: vivo.source,
+    rounds: vivo.roundsLeft,
+  });
+}
+
+function melee(
+  state: BattleState,
+  attacker: BattleStack,
+  target: BattleStack,
+  rng: Rng,
+  hexesMoved: number,
+): void {
   const info = creature(attacker.creature);
   const hits = hasTrait(info, 'double_attack') ? 2 : 1;
 
   for (let i = 0; i < hits && isAlive(target); i++) {
-    strike(state, attacker, target, rng, false);
+    strike(state, attacker, target, rng, false, hexesMoved);
   }
 
   // Contraataque: uno por ronda, y solo si el atacante lo permite.
@@ -432,10 +514,56 @@ function melee(state: BattleState, attacker: BattleStack, target: BattleStack, r
     !hasTrait(info, 'no_retaliation') &&
     canReachMelee(target, attacker)
   ) {
+    // El contraataque no carga: se devuelve el golpe desde donde se está.
     target.retaliated = true;
-    strike(state, target, attacker, rng, true);
+    strike(state, target, attacker, rng, true, 0);
   }
 }
+
+/** El dragón óseo: ataque −2 durante 2 rondas. Ver la nota de la tabla. */
+const FEAR_ATTACK_PENALTY = -2;
+const FEAR_ROUNDS = 2;
+/** La momia deja maldición al golpear: suerte −1 durante 3 rondas. */
+const CURSE_ON_HIT_LUCK = -1;
+const CURSE_ON_HIT_ROUNDS = 3;
+
+/**
+ * Lo que un golpe deja pegado al objetivo, según el rasgo de quien pega. El
+ * quinto rasgo de este tipo es una fila más, no otro bloque igual al de al
+ * lado.
+ *
+ * Está aquí y no en `effects.ts` a propósito: el libro mayor de efectos no
+ * tiene por qué saber que existen un dragón y una momia. Y se puede compartir
+ * entre golpes porque `applyEffect` guarda una copia; si guardara este objeto,
+ * `tickEffects` le iría bajando el `roundsLeft` hasta que el miedo no durase
+ * nada.
+ */
+const ON_HIT_EFFECTS: readonly { trait: CreatureTrait; effect: StackEffect }[] = [
+  // DIVERGENCIA DELIBERADA de fheroes2, decidida por el usuario: allí `fear` es
+  // un aura de moral −1. Aquí no serviría de nada, porque `createBattle` fuerza
+  // `morale: 0` a los no-muertos y el nigromante entero lo es: en un espejo
+  // nigromante el rasgo quedaría medio muerto, que es justo el bug que se está
+  // cerrando. Muerde por el ataque, que sí pasa por `effectiveAttack` y sí
+  // siente un esqueleto.
+  {
+    trait: 'fear',
+    effect: {
+      kind: 'attack',
+      amount: FEAR_ATTACK_PENALTY,
+      roundsLeft: FEAR_ROUNDS,
+      source: 'fear',
+    },
+  },
+  {
+    trait: 'curse_on_hit',
+    effect: {
+      kind: 'luck',
+      amount: CURSE_ON_HIT_LUCK,
+      roundsLeft: CURSE_ON_HIT_ROUNDS,
+      source: 'curse_on_hit',
+    },
+  },
+];
 
 function strike(
   state: BattleState,
@@ -443,13 +571,16 @@ function strike(
   target: BattleStack,
   rng: Rng,
   retaliation: boolean,
+  hexesMoved: number,
 ): void {
+  const info = creature(attacker.creature);
   const result = computeDamage(
     attacker,
     state.heroes[attacker.side],
     target,
     state.heroes[target.side],
     rng,
+    { chargeHexes: hexesMoved },
   );
   const killed = applyDamage(target, result.damage);
 
@@ -463,11 +594,24 @@ function strike(
     damage: result.damage,
     killed,
     retaliation,
+    // La carga la dice `computeDamage`, que es quien la cobró: preguntarlo otra
+    // vez aquí dejaba el parte contando 7 hexes mientras el bono se había
+    // topado en los 5 que caben en +50 %.
+    ...(result.charge > 0 ? { charge: result.charge } : {}),
   });
 
   // Los vampiros señores recuperan efectivos con lo que drenan.
-  if (hasTrait(creature(attacker.creature), 'life_drain') && !retaliation) {
+  if (hasTrait(info, 'life_drain') && !retaliation) {
     healFromDrain(attacker, result.damage);
+  }
+
+  // Lo que el golpe deja pegado. Va ANTES del contraataque a propósito: al
+  // dragón óseo le devuelven el golpe ya asustados, que es donde se nota.
+  // Un contraataque no asusta ni maldice: solo el que ataca de verdad.
+  if (!retaliation && isAlive(target)) {
+    for (const { trait, effect } of ON_HIT_EFFECTS) {
+      if (hasTrait(info, trait)) applyStackEffect(state, target, effect);
+    }
   }
 
   if (!isAlive(target)) state.log.push({ kind: 'perished', stack: target.id });
@@ -511,6 +655,54 @@ function shoot(state: BattleState, shooter: BattleStack, target: BattleStack, rn
       killed,
     });
     if (!isAlive(target)) state.log.push({ kind: 'perished', stack: target.id });
+
+    if (hasTrait(info, 'splash_shot')) splash(state, shooter, target, result.damage);
+  }
+}
+
+/**
+ * A quién alcanza la salpicadura de un disparo sobre `target`: todo lo vivo
+ * pegado a él, **de cualquier bando**, como en el original.
+ *
+ * Está exportada porque la IA necesita la MISMA respuesta para no dispararse a
+ * los suyos (`tactics.ts`). Cuando la deducía por su cuenta, el día que
+ * cambiara el radio la IA habría seguido jugando con la forma vieja sin que
+ * nadie se enterase.
+ */
+export function splashTargets(state: BattleState, target: BattleStack): BattleStack[] {
+  // "Pegado al objetivo" y "alcanza al objetivo cuerpo a cuerpo" son la misma
+  // pregunta, así que se hace con la misma función.
+  return state.stacks.filter(
+    (otro) => otro.id !== target.id && isAlive(otro) && canReachMelee(otro, target),
+  );
+}
+
+/**
+ * La salpicadura del liche. Se reparte el daño YA calculado, sin volver a
+ * tirar: una tirada por disparo mantiene los tests legibles y la semilla
+ * estable.
+ *
+ * El tirador nunca se salpica a sí mismo: para estar pegado a su objetivo
+ * tendría un enemigo encima, y con un enemigo encima `isEngaged` no le deja
+ * disparar.
+ */
+function splash(
+  state: BattleState,
+  shooter: BattleStack,
+  target: BattleStack,
+  damage: number,
+): void {
+  for (const otro of splashTargets(state, target)) {
+    const killed = applyDamage(otro, damage);
+    state.log.push({
+      kind: 'shoot',
+      stack: shooter.id,
+      target: otro.id,
+      damage,
+      killed,
+      splash: true,
+    });
+    if (!isAlive(otro)) state.log.push({ kind: 'perished', stack: otro.id });
   }
 }
 
@@ -548,6 +740,12 @@ function castHeroSpell(
     damage: result.damage,
     killed: result.killed,
   });
+
+  // El hechizo no muta el stack: devuelve el efecto y lo cuelga el motor, que
+  // es quien sabe anotarlo en el registro y quien decide si rebota. Un
+  // lanzamiento que rebota igualmente gasta el maná y la tirada de la ronda:
+  // `legalActions` no lo ofrece, así que solo llega aquí quien lo pide a mano.
+  if (result.effect !== undefined) applyStackEffect(state, target, result.effect);
   if (!isAlive(target)) state.log.push({ kind: 'perished', stack: target.id });
   checkFinished(state);
 }
@@ -587,7 +785,13 @@ export function legalActions(state: BattleState): BattleAction[] {
       const sp = spell(spellId);
       if (hero.mana < sp.cost) continue;
       const targets = sp.target === 'enemy' ? enemies : alliesOf(state, s);
-      for (const t of targets) out.push({ type: 'cast', spell: spellId, target: t.id });
+      const efecto = effectOfSpell(sp, hero);
+      for (const t of targets) {
+        // Nada de ofrecer una Maldición sobre un no-muerto: se consulta la
+        // misma función que decide al aplicarlo, no una copia de la regla.
+        if (efecto !== null && isImmuneTo(t, efecto)) continue;
+        out.push({ type: 'cast', spell: spellId, target: t.id });
+      }
     }
   }
 

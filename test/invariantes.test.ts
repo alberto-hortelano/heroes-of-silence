@@ -12,6 +12,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { extname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { CREATURE_TRAITS } from '../src/core/types.js';
 
 const RAIZ = new URL('..', import.meta.url).pathname;
 
@@ -71,6 +72,20 @@ describe('invariantes del proyecto', () => {
       /\b(applyAdventureAction|applyAction|resolvePendingBattle|settleBattle|playAiTurn|chooseBattleAction|newGame)\b/;
     const fuera = ficheros('src/client').filter((r) => r !== 'src/client/session.ts');
     expect(infractores(fuera, puertas)).toEqual([]);
+  });
+
+  it('ningún rasgo de criatura está declarado y muerto', () => {
+    // Un rasgo escrito en el tipo y en `data/creatures.json` que el motor no
+    // lee es una promesa sin respaldo: el jugador paga por una caballería que
+    // no carga y el agente decide con una ficha que miente. Este guardia nace
+    // en verde justo después de implementar los cuatro que faltaban.
+    const motor = ficheros('src/core')
+      .filter((r) => r !== 'src/core/types.ts')
+      .map(leer)
+      .join('\n');
+
+    const muertos = CREATURE_TRAITS.filter((rasgo) => !motor.includes(`'${rasgo}'`));
+    expect(muertos, `rasgos declarados que el motor no lee: ${muertos.join(', ')}`).toEqual([]);
   });
 
   it('FAL_KEY no llega al navegador', () => {

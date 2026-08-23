@@ -7,6 +7,7 @@
  */
 import { legalActions, stackHexes, stackSpeed } from '../battle/battle.js';
 import { stackHp } from '../battle/damage.js';
+import { effectiveLuck } from '../battle/effects.js';
 import type { BattleState, Side } from '../battle/types.js';
 import { creature, isShooter } from '../data.js';
 import { maxMana, maxMovePoints, type Hero } from '../hero/hero.js';
@@ -132,8 +133,19 @@ export function serializeBattleTurn(battle: BattleState, side: Side): unknown {
       shooter: isShooter(info),
       shotsLeft: s.shotsLeft,
       traits: info.traits ?? [],
+      // La suerte va ya con los efectos aplicados: el contrato promete el
+      // valor con el que se va a tirar, no el de la ficha. La moral no tiene
+      // efectos temporales que aplicar, así que es la suya y ya.
       morale: s.morale,
-      luck: s.luck,
+      luck: effectiveLuck(s),
+      // Y aparte, cuánto le queda a cada cosa: sin esto el agente ve el número
+      // cambiar de una ronda a otra sin saber por qué ni hasta cuándo.
+      effects: s.effects.map((e) => ({
+        kind: e.kind,
+        amount: e.amount,
+        source: e.source,
+        roundsLeft: e.roundsLeft,
+      })),
       defending: s.defending,
       waited: s.waited,
     };

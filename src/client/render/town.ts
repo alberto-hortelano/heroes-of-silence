@@ -11,9 +11,9 @@
  * igual que el tablero de batalla se centra con `battleOffset`.
  */
 import { creature } from '@core/data.js';
-import { building } from '@core/town/buildings.js';
+import { building, buildingsOfFaction } from '@core/town/buildings.js';
 import { buildBlocker, creatureOfLevel, hasBuilding, recruitCost, type Town } from '@core/town/town.js';
-import { RESOURCE_KINDS, type Resources } from '@core/types.js';
+import { RESOURCE_KINDS, type FactionId, type Resources } from '@core/types.js';
 import { asset } from './assets.js';
 import { costLabel, RESOURCE_COLORS } from './palette.js';
 
@@ -32,29 +32,47 @@ export interface TownPlot {
   readonly level?: number;
 }
 
-/**
- * Once solares para los diecinueve edificios.
- *
- * La fila de atrás son los edificios de villa; la de delante, las seis moradas,
- * en orden de nivel y con su franja de reclutamiento justo debajo: la criatura
- * cae siempre bajo la casa que la cría.
- */
-export const TOWN_PLOTS: readonly TownPlot[] = [
+/** Los cinco solares de villa: iguales para las dos facciones. */
+const SOLARES_DE_VILLA: readonly TownPlot[] = [
   { id: 'fort', chain: ['castle'], x: 40, y: 30, w: 190, h: 150 },
   { id: 'hall', chain: ['village_hall', 'town_hall', 'city_hall'], x: 258, y: 30, w: 190, h: 150 },
   { id: 'guild', chain: ['mage_guild_1', 'mage_guild_2'], x: 476, y: 30, w: 170, h: 150 },
   { id: 'tavern', chain: ['tavern'], x: 674, y: 30, w: 150, h: 150 },
   { id: 'market', chain: ['marketplace'], x: 852, y: 30, w: 132, h: 150 },
-  ...[1, 2, 3, 4, 5, 6].map((n, i) => ({
-    id: `lvl${n}`,
-    chain: n === 1 ? ['dwelling_1'] : [`dwelling_${n}`, `upgrade_${n}`],
-    x: 42 + i * 160,
-    y: 200,
-    w: 140,
-    h: 150,
-    level: n,
-  })),
 ];
+
+/**
+ * Once solares para los edificios de la facción.
+ *
+ * La fila de atrás son los edificios de villa; la de delante, las seis moradas,
+ * en orden de nivel y con su franja de reclutamiento justo debajo: la criatura
+ * cae siempre bajo la casa que la cría.
+ *
+ * Las cadenas de las moradas se DERIVAN del catálogo, no se escriben aquí. Por
+ * eso el `lvl6` del nigromante sale con un solo eslabón sin que la pantalla
+ * sepa nada del dragón óseo: su mejora no existe en `data/buildings.json`, así
+ * que no hay nada que encadenar ni nada que ofrecer.
+ */
+export function townPlots(faction: FactionId): readonly TownPlot[] {
+  const propios = buildingsOfFaction(faction);
+  const cadena = (nivel: number): string[] => [
+    ...propios.filter((b) => b.dwellingLevel === nivel),
+    ...propios.filter((b) => b.upgradesLevel === nivel),
+  ].map((b) => b.id);
+
+  return [
+    ...SOLARES_DE_VILLA,
+    ...[1, 2, 3, 4, 5, 6].map((n, i) => ({
+      id: `lvl${n}`,
+      chain: cadena(n),
+      x: 42 + i * 160,
+      y: 200,
+      w: 140,
+      h: 150,
+      level: n,
+    })),
+  ];
+}
 
 /** La línea de suelo cae justo en la base de las moradas: parecen apoyadas. */
 const GROUND_Y = 344;
@@ -102,7 +120,7 @@ export function hitAtPixel(
   const vx = (px - t.x) / t.scale;
   const vy = (py - t.y) / t.scale;
 
-  for (const plot of TOWN_PLOTS) {
+  for (const plot of townPlots(town.faction)) {
     if (vx >= plot.x && vx <= plot.x + plot.w && vy >= plot.y && vy <= plot.y + plot.h) {
       return { kind: 'plot', plot: plot.id };
     }
@@ -121,9 +139,9 @@ export function hitAtPixel(
 
 /** Una casilla de recluta por morada construida, bajo su propio solar. */
 function recruitCells(town: Town): { plot: TownPlot; creature: string }[] {
-  return TOWN_PLOTS.filter(
-    (p) => p.level !== undefined && p.chain.some((id) => hasBuilding(town, id)),
-  ).map((p) => ({ plot: p, creature: creatureOfLevel(town, p.level as number) }));
+  return townPlots(town.faction)
+    .filter((p) => p.level !== undefined && p.chain.some((id) => hasBuilding(town, id)))
+    .map((p) => ({ plot: p, creature: creatureOfLevel(town, p.level as number) }));
 }
 
 /** El eslabón construido más avanzado del solar, o `null` si está vacío. */
@@ -138,8 +156,8 @@ export function nextOf(town: Town, plot: TownPlot): string | null {
   return plot.chain.find((id) => !hasBuilding(town, id)) ?? null;
 }
 
-export function plotById(id: string): TownPlot {
-  const found = TOWN_PLOTS.find((p) => p.id === id);
+export function plotById(faction: FactionId, id: string): TownPlot {
+  const found = townPlots(faction).find((p) => p.id === id);
   if (found === undefined) throw new Error(`solar desconocido: "${id}"`);
   return found;
 }
@@ -161,7 +179,7 @@ export function drawTown(ctx: CanvasRenderingContext2D, view: TownView): void {
 
   drawBackdrop(ctx, town);
 
-  for (const plot of TOWN_PLOTS) drawPlot(ctx, view, plot);
+  for (const plot of townPlots(town.faction)) drawPlot(ctx, view, plot);
   drawRecruitStrip(ctx, view);
 
   ctx.restore();
@@ -212,12 +230,9 @@ function drawPlot(ctx: CanvasRenderingContext2D, view: TownView, plot: TownPlot)
   const blocker = next === null ? 'ya está todo construido' : buildBlocker(town, next, purse);
   const construible = view.interactive && next !== null && blocker === null;
 
-  // Los edificios de villa son los mismos para las dos facciones y se guardan
-  // sin prefijo; solo las moradas tienen versión propia de cada bando.
-  const sprite =
-    built === null
-      ? null
-      : asset('buildings', `${town.faction}_${built}`) ?? asset('buildings', built);
+  // El id del edificio ES el nombre de su PNG: los de villa van sin prefijo
+  // ('castle'), y las moradas ya lo llevan dentro ('knight_dwelling_3').
+  const sprite = built === null ? null : asset('buildings', built);
 
   if (built !== null) {
     if (sprite !== null) {
@@ -482,7 +497,7 @@ export function describeHit(town: Town, purse: Resources, hit: TownHit | null): 
     return `Reclutar ${cuantos} × ${info.name} — ${costLabel(recruitCost(hit.creature, cuantos))}`;
   }
 
-  const plot = plotById(hit.plot);
+  const plot = plotById(town.faction, hit.plot);
   const next = nextOf(town, plot);
   if (next === null) {
     const built = builtOf(town, plot);

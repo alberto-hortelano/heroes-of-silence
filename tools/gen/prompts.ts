@@ -159,7 +159,6 @@ export const BUILDING_PROMPTS: Readonly<Record<string, string>> = {
   necromancer_dwelling_5: 'A cracked stone mausoleum with a domed roof and green witchfire spilling from the doorway',
   necromancer_upgrade_5: 'A necromantic laboratory tower with bubbling green vats, bone scaffolding and carved sigils',
   necromancer_dwelling_6: 'A dragon roost built from a colossal ribcage of bone, with a dark stone altar inside',
-  necromancer_upgrade_6: 'A towering temple of fused dragon skeletons crowned with a brazier of green witchfire',
 };
 
 export function buildingPrompt(name: string): string {

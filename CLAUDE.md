@@ -11,7 +11,7 @@ El juego es el andamio; lo interesante es lo que se puede enchufar dentro.
 ```bash
 pnpm install
 pnpm dev        # cliente en http://localhost:3100 (juego local contra la IA de reglas)
-pnpm test       # 76 tests: reglas, batalla, partida completa y contrato del agente
+pnpm test       # 103 tests: reglas, batalla, partida completa y contrato del agente
 pnpm typecheck
 ```
 
@@ -80,9 +80,28 @@ assets/generated/  arte generado (lo sirve Vite como estático)
 | Movimiento diario | lo marca la criatura MÁS LENTA (1000–1500) |
 | Puntos de hechizo | 10 × Conocimiento |
 | Moral y suerte | −3 a +3 |
+| Duración de Prisa/Lentitud | poder mágico del lanzador, en rondas |
+| Inmunidad de los no-muertos | a la mala suerte: Maldición y `curse_on_hit` |
+| Dos efectos del mismo origen | el segundo REFRESCA la duración, no se acumula |
 
 Las cifras de criaturas, edificios y hechizos están en `data/*.json` y se
 editan sin recompilar.
+
+**Una divergencia deliberada, para que no parezca un olvido:** en fheroes2 el
+`fear` del dragón óseo es un **aura de moral −1**. Aquí es **ataque −2 durante
+2 rondas** sobre el stack al que muerde (`src/core/battle/battle.ts`, tabla
+`ON_HIT_EFFECTS`). El motivo es que `createBattle` fuerza `morale: 0` a los
+no-muertos y **una de las dos facciones lo es entera**: el aura no asustaría a
+nadie en un espejo nigromante y el rasgo quedaría medio muerto, que es justo el
+bug que se cerró al implementarlo. El ataque sí lo siente un esqueleto, porque
+pasa por `effectiveAttack`.
+
+Lo temporal —prisa, lentitud, maldición, miedo— vive en `BattleStack.effects`
+(`src/core/battle/effects.ts`) y **nunca se suma al stack**: el total se calcula
+al leer, así que caducar es filtrar una lista y no puede descuadrar nada. Y el
+mismo origen **refresca en vez de apilarse**, quedándose con la duración mayor:
+sin esa regla, dos mordiscos del dragón óseo dejaban −4 de ataque sostenido y
+una Lentitud por ronda iba a −2, −4, −6.
 
 ## El agente como modelo
 
@@ -116,7 +135,18 @@ levanta en el sitio, y son once para los diecinueve edificios:
 | `fort` | `castle` |
 | `guild` | `mage_guild_1` → `mage_guild_2` |
 | `tavern` · `market` | un solo edificio cada uno |
-| `lvl1` … `lvl6` | `dwelling_N` → `upgrade_N` |
+| `lvl1` … `lvl6` | `<facción>_dwelling_N` → `<facción>_upgrade_N` |
+
+**Las moradas son propias de cada facción**, con sus requisitos y sus costes: el
+caballero construye con madera y cristal, el nigromante con mineral y gemas. El
+id del edificio *es* el nombre de su PNG (`knight_dwelling_3`), así que la
+pantalla lo resuelve con un solo `asset('buildings', id)`.
+
+Y la cadena de la fila de abajo **no siempre tiene dos eslabones**: el
+nigromante no tiene `necromancer_upgrade_6` porque el dragón óseo no tiene
+criatura mejorada, así que su `lvl6` se ve terminado con la morada. La pantalla
+no sabe nada de eso: las cadenas se **derivan del catálogo** (`townPlots`), y lo
+que no está en `data/buildings.json` no se puede ofrecer ni cobrar.
 
 Un solar dibuja el último eslabón construido; si le queda alguno, se pulsa y se
 levanta. Vacío se pinta como parcela punteada con el nombre de lo que iría ahí,
@@ -206,8 +236,10 @@ aportan en un prototipo. Lo que hay:
 
 `test/invariantes.test.ts` convierte en tests las fronteras de este documento:
 `core` sin `node:*` ni DOM, ni un `Math.random` suelto, `session.ts` como única
-puerta del cliente al núcleo y `FAL_KEY` fuera del navegador. Los cuatro nacen
-en verde — un guardia que nace rojo se ignora desde el primer día.
+puerta del cliente al núcleo, `FAL_KEY` fuera del navegador, y que **ningún
+rasgo de `CREATURE_TRAITS` esté declarado y muerto** — cuatro lo estuvieron.
+Los cinco nacen en verde — un guardia que nace rojo se ignora desde el primer
+día.
 
 Y un hook `Stop` (`.claude/hooks/verde.sh`) impide dar una tarea por terminada
 con `pnpm verify` en rojo. No estorba: no se lanza siquiera si no ha cambiado

@@ -2,7 +2,7 @@
 import { creature, factionLineup } from '../data.js';
 import type { Army, FactionId, PlayerId, Point, Resources } from '../types.js';
 import { canAfford, scaleResources, subtractResources } from '../types.js';
-import { allBuildings, building, prebuiltBuildings } from './buildings.js';
+import { building, buildingIfExists, buildingsOfFaction, prebuiltBuildings } from './buildings.js';
 
 export interface Town {
   readonly id: string;
@@ -33,7 +33,7 @@ export function createTown(
     name,
     faction,
     at,
-    buildings: prebuiltBuildings(),
+    buildings: prebuiltBuildings(faction),
     builtToday: false,
     available: {},
     garrison: [null, null, null, null, null],
@@ -73,9 +73,32 @@ export function moraleFromBuildings(town: Town): number {
 
 /** Motivo por el que no se puede construir, o `null` si sí se puede. */
 export function buildBlocker(town: Town, buildingId: string, purse: Resources): string | null {
-  const b = building(buildingId);
+  const b = buildingIfExists(buildingId);
+  // Un id que no existe o que es de la otra facción no es una excepción: es
+  // alguien —el agente, un cliente viejo— preguntando, y merece un motivo.
+  if (b === null) return `no existe el edificio "${buildingId}"`;
+  if (b.faction !== undefined && b.faction !== town.faction) {
+    return `"${b.name}" no es un edificio de esta facción`;
+  }
+
   if (hasBuilding(town, buildingId)) return 'ya está construido';
   if (town.builtToday) return 'ya se ha construido hoy en este pueblo';
+
+  // #46, y como regla general y no como caso del dragón óseo: una mejora de
+  // morada no tiene sentido si la criatura base de ese nivel no tiene versión
+  // mejorada. Hoy el catálogo ya lo impide —esa fila no se escribe—, pero
+  // `data/buildings.json` se edita sin recompilar, y sin esta red el día que
+  // alguien vuelva a escribirla se paga por una mejora que no mejora nada, que
+  // es exactamente el bug de #46. Va DESPUÉS de las dos comprobaciones de
+  // arriba, que son O(1): `factionLineup` rehace dos veces el mapa de criaturas
+  // y la pantalla de castillo pregunta esto hasta seis veces por fotograma.
+  if (b.upgradesLevel !== undefined) {
+    const base = baseCreatureOfLevel(town, b.upgradesLevel);
+    if (creature(base).upgradesTo === undefined) {
+      return `las criaturas de nivel ${b.upgradesLevel} de esta facción no tienen mejora`;
+    }
+  }
+
   for (const req of b.requires ?? []) {
     if (!hasBuilding(town, req)) return `falta construir "${building(req).name}"`;
   }
@@ -89,9 +112,13 @@ export function canBuild(town: Town, buildingId: string, purse: Resources): bool
 
 /** Construye y devuelve los recursos que quedan. Lanza si no era posible. */
 export function build(town: Town, buildingId: string, purse: Resources): Resources {
-  const b = building(buildingId);
+  // El mensaje lo lee una persona: va el nombre del edificio, no su id. Con un
+  // id inventado no hay nombre que poner, así que ese caso se separa antes de
+  // preguntar por el resto de motivos.
+  const b = buildingIfExists(buildingId);
+  if (b === null) throw new Error(`no se puede construir: no existe el edificio "${buildingId}"`);
+
   const blocker = buildBlocker(town, buildingId, purse);
-  // El mensaje lo lee una persona: va el nombre del edificio, no su id.
   if (blocker !== null) throw new Error(`no se puede construir ${b.name}: ${blocker}`);
 
   town.buildings = [...town.buildings, buildingId];
@@ -181,7 +208,7 @@ export function payRecruit(
 
 /** Edificios que se podrían construir hoy en este pueblo. */
 export function availableBuildings(town: Town, purse: Resources): string[] {
-  return allBuildings()
+  return buildingsOfFaction(town.faction)
     .filter((b) => canBuild(town, b.id, purse))
     .map((b) => b.id);
 }

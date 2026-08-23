@@ -1,5 +1,5 @@
 {
-  "_comment": "Edificios del castillo. dwelling.creature indica qué criatura produce. Un castillo solo puede construir UN edificio por día.",
+  "_comment": "Edificios del castillo. dwelling.creature indica qué criatura produce. Un castillo solo puede construir UN edificio por día. Los ocho primeros son de villa y valen para las dos facciones; las moradas y sus mejoras llevan `faction` y su id es `<facción>_<lo que es>`, que es además el nombre de su PNG en assets/generated/buildings. La cadena de `requires` sube de nivel en nivel: no hay atajo a la morada de nivel 6, que además exige el castillo. El nigromante no tiene mejora de nivel 6 porque el dragón óseo no tiene criatura mejorada: esa fila NO existe, y por eso no se puede comprar.",
   "buildings": [
     { "id": "village_hall", "name": "Ayuntamiento",    "cost": { "gold": 0 },                          "income": 500,  "prebuilt": true },
     { "id": "town_hall",    "name": "Casa consistorial","cost": { "gold": 2500 },                       "income": 1000, "requires": ["village_hall"] },
@@ -10,17 +10,29 @@
     { "id": "tavern",       "name": "Taberna",          "cost": { "gold": 500, "wood": 5 },             "moraleBonus": 1 },
     { "id": "marketplace",  "name": "Mercado",          "cost": { "gold": 500, "wood": 5 } },
 
-    { "id": "dwelling_1",   "name": "Morada de nivel 1","cost": { "gold": 500 },                        "dwellingLevel": 1, "prebuilt": true },
-    { "id": "dwelling_2",   "name": "Morada de nivel 2","cost": { "gold": 1000, "wood": 5 },            "dwellingLevel": 2 },
-    { "id": "dwelling_3",   "name": "Morada de nivel 3","cost": { "gold": 1000, "ore": 5 },             "dwellingLevel": 3 },
-    { "id": "dwelling_4",   "name": "Morada de nivel 4","cost": { "gold": 2000, "wood": 10, "ore": 10 },"dwellingLevel": 4 },
-    { "id": "dwelling_5",   "name": "Morada de nivel 5","cost": { "gold": 3000, "wood": 10, "ore": 10, "crystal": 5 }, "dwellingLevel": 5 },
-    { "id": "dwelling_6",   "name": "Morada de nivel 6","cost": { "gold": 5000, "wood": 20, "ore": 20, "gems": 10 },   "dwellingLevel": 6 },
+    { "id": "knight_dwelling_1", "faction": "knight", "name": "Morada de nivel 1", "cost": { "gold": 500 },                                            "dwellingLevel": 1, "prebuilt": true },
+    { "id": "knight_dwelling_2", "faction": "knight", "name": "Morada de nivel 2", "cost": { "gold": 1000, "wood": 5 },                                "dwellingLevel": 2, "requires": ["knight_dwelling_1"] },
+    { "id": "knight_dwelling_3", "faction": "knight", "name": "Morada de nivel 3", "cost": { "gold": 1000, "wood": 5, "ore": 5 },                      "dwellingLevel": 3, "requires": ["knight_dwelling_2"] },
+    { "id": "knight_dwelling_4", "faction": "knight", "name": "Morada de nivel 4", "cost": { "gold": 2000, "wood": 10, "ore": 10 },                    "dwellingLevel": 4, "requires": ["knight_dwelling_3"] },
+    { "id": "knight_dwelling_5", "faction": "knight", "name": "Morada de nivel 5", "cost": { "gold": 3000, "wood": 10, "ore": 10, "crystal": 5 },      "dwellingLevel": 5, "requires": ["knight_dwelling_4"] },
+    { "id": "knight_dwelling_6", "faction": "knight", "name": "Morada de nivel 6", "cost": { "gold": 5000, "wood": 20, "ore": 20, "gems": 10 },        "dwellingLevel": 6, "requires": ["knight_dwelling_5", "castle"] },
 
-    { "id": "upgrade_2",    "name": "Mejora de nivel 2","cost": { "gold": 1500, "wood": 5 },            "upgradesLevel": 2, "requires": ["dwelling_2"] },
-    { "id": "upgrade_3",    "name": "Mejora de nivel 3","cost": { "gold": 1500, "ore": 5 },             "upgradesLevel": 3, "requires": ["dwelling_3"] },
-    { "id": "upgrade_4",    "name": "Mejora de nivel 4","cost": { "gold": 3000, "wood": 10, "ore": 10 },"upgradesLevel": 4, "requires": ["dwelling_4"] },
-    { "id": "upgrade_5",    "name": "Mejora de nivel 5","cost": { "gold": 4000, "crystal": 10 },        "upgradesLevel": 5, "requires": ["dwelling_5"] },
-    { "id": "upgrade_6",    "name": "Mejora de nivel 6","cost": { "gold": 8000, "gems": 20 },           "upgradesLevel": 6, "requires": ["dwelling_6"] }
+    { "id": "knight_upgrade_2",  "faction": "knight", "name": "Mejora de nivel 2", "cost": { "gold": 1500, "wood": 5 },                                "upgradesLevel": 2, "requires": ["knight_dwelling_2"] },
+    { "id": "knight_upgrade_3",  "faction": "knight", "name": "Mejora de nivel 3", "cost": { "gold": 1500, "ore": 5 },                                 "upgradesLevel": 3, "requires": ["knight_dwelling_3"] },
+    { "id": "knight_upgrade_4",  "faction": "knight", "name": "Mejora de nivel 4", "cost": { "gold": 3000, "wood": 10, "ore": 10 },                    "upgradesLevel": 4, "requires": ["knight_dwelling_4"] },
+    { "id": "knight_upgrade_5",  "faction": "knight", "name": "Mejora de nivel 5", "cost": { "gold": 4000, "crystal": 10 },                            "upgradesLevel": 5, "requires": ["knight_dwelling_5"] },
+    { "id": "knight_upgrade_6",  "faction": "knight", "name": "Mejora de nivel 6", "cost": { "gold": 8000, "gems": 20 },                               "upgradesLevel": 6, "requires": ["knight_dwelling_6"] },
+
+    { "id": "necromancer_dwelling_1", "faction": "necromancer", "name": "Morada de nivel 1", "cost": { "gold": 500 },                                  "dwellingLevel": 1, "prebuilt": true },
+    { "id": "necromancer_dwelling_2", "faction": "necromancer", "name": "Morada de nivel 2", "cost": { "gold": 1000, "ore": 5 },                       "dwellingLevel": 2, "requires": ["necromancer_dwelling_1"] },
+    { "id": "necromancer_dwelling_3", "faction": "necromancer", "name": "Morada de nivel 3", "cost": { "gold": 1000, "ore": 10 },                      "dwellingLevel": 3, "requires": ["necromancer_dwelling_2"] },
+    { "id": "necromancer_dwelling_4", "faction": "necromancer", "name": "Morada de nivel 4", "cost": { "gold": 2000, "ore": 20 },                      "dwellingLevel": 4, "requires": ["necromancer_dwelling_3"] },
+    { "id": "necromancer_dwelling_5", "faction": "necromancer", "name": "Morada de nivel 5", "cost": { "gold": 3000, "ore": 20, "gems": 5 },           "dwellingLevel": 5, "requires": ["necromancer_dwelling_4"] },
+    { "id": "necromancer_dwelling_6", "faction": "necromancer", "name": "Morada de nivel 6", "cost": { "gold": 5000, "ore": 30, "gems": 15 },          "dwellingLevel": 6, "requires": ["necromancer_dwelling_5", "castle"] },
+
+    { "id": "necromancer_upgrade_2",  "faction": "necromancer", "name": "Mejora de nivel 2", "cost": { "gold": 1500, "ore": 5 },                       "upgradesLevel": 2, "requires": ["necromancer_dwelling_2"] },
+    { "id": "necromancer_upgrade_3",  "faction": "necromancer", "name": "Mejora de nivel 3", "cost": { "gold": 1500, "ore": 10 },                      "upgradesLevel": 3, "requires": ["necromancer_dwelling_3"] },
+    { "id": "necromancer_upgrade_4",  "faction": "necromancer", "name": "Mejora de nivel 4", "cost": { "gold": 3000, "ore": 20 },                      "upgradesLevel": 4, "requires": ["necromancer_dwelling_4"] },
+    { "id": "necromancer_upgrade_5",  "faction": "necromancer", "name": "Mejora de nivel 5", "cost": { "gold": 4000, "gems": 10 },                     "upgradesLevel": 5, "requires": ["necromancer_dwelling_5"] }
   ]
 }
