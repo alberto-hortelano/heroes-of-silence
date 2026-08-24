@@ -55,6 +55,121 @@ export const PREFIJO_CORTE = 'SE HA PERDIDO LA CONEXIÓN';
  */
 export const PREFIJO_RELEVO = 'ESCUCHA RELEVADA';
 
+// ------------------------------------------------- el bloque de veredictos
+
+/** Por dónde empieza el bloque de acuses de lo anterior. */
+export const CABECERA_VEREDICTOS = 'CÓMO FUE LO ANTERIOR:';
+/** Coló. */
+export const MARCA_OK = '✓';
+/** No coló, y debajo va el motivo de cada descarte. */
+export const MARCA_FALLO = '⚠';
+/** Con lo que se sangra cada problema bajo su veredicto. */
+export const SANGRIA_PROBLEMA = '    - ';
+
+/**
+ * Los tres marcadores por los que se reconoce una petición.
+ *
+ * Están aquí por el mismo motivo que las marcas del bloque de veredictos: el
+ * arnés de QA los busca en el texto para sacar el kind y el estado, y los tenía
+ * escritos a mano. De los tres marcadores de la escucha se ató uno mientras el
+ * bloque de veredictos se mudaba, y los otros dos se quedaron esperando a que
+ * alguien reescribiera `textoDeEscucha` para romperse en el sitio equivocado.
+ */
+export const MARCA_KIND = 'kind: ';
+export const CABECERA_ESTADO = 'ESTADO:';
+export const CABECERA_RESPUESTA = 'CÓMO RESPONDER:';
+
+/** Un veredicto tal y como lo lee quien quiera contarlos. */
+export interface Veredicto {
+  readonly requestId: string;
+  readonly ok: boolean;
+  readonly nota: string;
+  readonly problemas: readonly string[];
+}
+
+/**
+ * Un veredicto, escrito tal y como lo lee `leeVeredictos`.
+ *
+ * Las dos caras del codec viven pegadas **de verdad**: la cola del puente
+ * componía la línea a mano en su fichero y aquí solo estaba el parser, unidos
+ * por cuatro constantes compartidas. Compartir las marcas no es lo mismo que
+ * compartir el formato — el `:` que separa el id de la nota, y la sangría de
+ * cada problema, seguían escritos dos veces.
+ *
+ * Y aquí es donde se cumple lo que el parser SUPONE: que un veredicto ocupa una
+ * línea y cada problema otra. Era cierto por costumbre y no por contrato, y el
+ * día que un `err.message` traiga un `\n` —el `message` crudo de un `ZodError`
+ * es JSON multilínea— el bloque se cerraría a media lista y `pnpm qa` contaría
+ * de menos **sin ponerse rojo**. Lo garantiza quien escribe, que es el único que
+ * puede.
+ */
+export function lineaDeVeredicto(v: Veredicto): string {
+  const problemas = v.problemas.map((p) => `${SANGRIA_PROBLEMA}${unaLinea(p)}`).join('\n');
+  return (
+    `${v.ok ? MARCA_OK : MARCA_FALLO} ${v.requestId}: ${unaLinea(v.nota)}` +
+    `${problemas === '' ? '' : `\n${problemas}`}`
+  );
+}
+
+function unaLinea(texto: string): string {
+  return texto.replace(/\n/g, ' ');
+}
+
+/**
+ * Vuelve a leer el bloque de veredictos de una escucha.
+ *
+ * Existe porque `pnpm qa` daba verde sin mirarlo: cuatro de cuatro acciones
+ * descartadas salían igual de verdes que un turno perfecto. Contarlas obliga a
+ * leer prosa, y **el acoplamiento se asume**: es la única prueba de que el
+ * agente recibe lo que decimos, así que atarlo a un canal aparte dejaría de
+ * verificar justo el texto que él lee.
+ *
+ * Lo que sí se elige es DÓNDE vive: aquí, pegado al escritor. Reescribir la
+ * cabecera o las marcas rompe `pnpm test` en cuatro segundos y en el mismo
+ * fichero que se acaba de tocar, en vez de romper `pnpm qa` en CI señalando al
+ * arnés — que es donde nadie va a buscar la causa.
+ */
+export function leeVeredictos(texto: string): Veredicto[] {
+  const desde = texto.indexOf(CABECERA_VEREDICTOS);
+  if (desde < 0) return [];
+
+  const out: { requestId: string; ok: boolean; nota: string; problemas: string[] }[] = [];
+  const cuerpo = texto.slice(desde + CABECERA_VEREDICTOS.length).replace(/^\n/, '');
+
+  for (const linea of cuerpo.split('\n')) {
+    // La marca se resuelve una vez y se corta por SU longitud. Cortar siempre
+    // por la de `MARCA_OK` cuela mientras las dos midan una unidad UTF-16; el
+    // día que una sea `⚠️` o `[ok]`, el parser se come un carácter de más —o de
+    // menos— y lo hace en silencio.
+    const marca = [MARCA_OK, MARCA_FALLO].find((m) => linea.startsWith(m));
+    if (marca !== undefined) {
+      const resto = linea.slice(marca.length).trimStart();
+      const corte = resto.indexOf(':');
+      // El id no lleva dos puntos («req-3»), así que un veredicto sin ellos es
+      // que el formato ha cambiado. Se lanza en vez de devolver medio dato: un
+      // contador que cuenta mal es peor que no contar.
+      if (corte < 0) throw new Error(`veredicto sin requestId: ${linea}`);
+      out.push({
+        requestId: resto.slice(0, corte),
+        ok: marca === MARCA_OK,
+        nota: resto.slice(corte + 1).trim(),
+        problemas: [],
+      });
+      continue;
+    }
+    if (linea.startsWith(SANGRIA_PROBLEMA)) {
+      const ultimo = out[out.length - 1];
+      if (ultimo === undefined) throw new Error(`problema sin veredicto delante: ${linea}`);
+      ultimo.problemas.push(linea.slice(SANGRIA_PROBLEMA.length));
+      continue;
+    }
+    // Cualquier otra cosa cierra el bloque: detrás viene el ESTADO, y seguir
+    // leyendo contaría el JSON entero como veredictos.
+    break;
+  }
+  return out;
+}
+
 // -------------------------------------------------------- turnos y acciones
 
 /** Resumen de un turno de aventura ya aplicado. */
@@ -281,7 +396,7 @@ export function textoDeEscucha(aviso: Aviso, veredictos: { recoge(): string }): 
   // También cuando ya no habrá más turnos: son los acuses de sus últimas
   // acciones, y esa es su única oportunidad de leerlos.
   const recogidos = veredictos.recoge();
-  const cola = recogidos === '' ? '' : `\n\nCÓMO FUE LO ANTERIOR:\n${recogidos}`;
+  const cola = recogidos === '' ? '' : `\n\n${CABECERA_VEREDICTOS}\n${recogidos}`;
 
   if (aviso.clase === 'fin') {
     // El fin de partida NO es un error: es el final normal de una sesión.
@@ -292,9 +407,9 @@ export function textoDeEscucha(aviso: Aviso, veredictos: { recoge(): string }): 
   return {
     esError: false,
     texto:
-      `Petición ${msg.requestId} · kind: ${msg.kind}${cola === '' ? '' : `${cola}\n`}\n\n` +
-      `ESTADO:\n${JSON.stringify(msg.payload, null, 2)}\n\n` +
-      `CÓMO RESPONDER:\n${msg.responseFormat}`,
+      `Petición ${msg.requestId} · ${MARCA_KIND}${msg.kind}${cola === '' ? '' : `${cola}\n`}\n\n` +
+      `${CABECERA_ESTADO}\n${JSON.stringify(msg.payload, null, 2)}\n\n` +
+      `${CABECERA_RESPUESTA}\n${msg.responseFormat}`,
   };
 }
 

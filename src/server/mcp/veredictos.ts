@@ -11,6 +11,7 @@
  * Vive fuera de `server.ts` porque allí no se puede probar: ese módulo abre el
  * transporte de stdio en cuanto se importa.
  */
+import { lineaDeVeredicto } from '../notas.js';
 import type { AgentResultMsg } from '../protocol.js';
 
 /**
@@ -36,10 +37,17 @@ export class ColaDeVeredictos {
   /** Anota un veredicto. Se guardan LOS DOS signos: coló y no coló. */
   anota(msg: AgentResultMsg): void {
     if (this.lineas.length >= MAX_VEREDICTOS) this.lineas.shift();
-    const nota = msg.note ?? (msg.ok ? 'aplicada.' : 'no se pudo aplicar.');
-    const problemas = (msg.problems ?? []).map((p) => `    - ${p}`).join('\n');
+    // El formato de la línea lo escribe `notas.ts`, que es donde vive el parser
+    // que la vuelve a leer. Aquí se compone solo el veredicto: esta clase es un
+    // anillo, no un codec. Escrito a mano en los dos sitios, un cambio en uno
+    // dejaba al otro leyendo lo que ya no se escribe.
     this.lineas.push(
-      `${msg.ok ? '✓' : '⚠'} ${msg.requestId}: ${nota}${problemas === '' ? '' : `\n${problemas}`}`,
+      lineaDeVeredicto({
+        requestId: msg.requestId,
+        ok: msg.ok,
+        nota: msg.note ?? (msg.ok ? 'aplicada.' : 'no se pudo aplicar.'),
+        problemas: msg.problems ?? [],
+      }),
     );
   }
 

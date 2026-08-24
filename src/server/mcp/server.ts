@@ -15,7 +15,10 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import WebSocket from 'ws';
 import { z } from 'zod';
 import {
+  CABECERA_VEREDICTOS,
   LA_JUEGA_LA_IA,
+  MARCA_FALLO,
+  MARCA_OK,
   PREFIJO_CORTE,
   PREFIJO_FIN,
   PREFIJO_RELEVO,
@@ -147,11 +150,11 @@ Cada mensaje que devuelve empieza por un campo "kind" y trae EMBEBIDO el
 formato exacto de respuesta para ese kind: léelo ahí, no hace falta que lo
 recuerdes entre turnos.
 
-Y trae, cuando lo hay, un bloque "CÓMO FUE LO ANTERIOR" con el veredicto de
+Y trae, cuando lo hay, un bloque "${CABECERA_VEREDICTOS}" con el veredicto de
 CADA respuesta tuya que se haya aplicado desde la última vez que escuchaste:
-"✓" es que entró y "⚠" que no, con el motivo. Se informa siempre, también
-cuando salió bien: no tienes que deducir de un silencio si coló o si el
-mensaje se perdió.
+"${MARCA_OK}" es que entró y "${MARCA_FALLO}" que no, con el motivo. Se informa
+siempre, también cuando salió bien: no tienes que deducir de un silencio si coló
+o si el mensaje se perdió.
 
 Tipos de petición que puedes recibir:
 - "adventure_turn" → te toca el turno en el mapa: mueve héroes, construye,

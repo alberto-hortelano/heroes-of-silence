@@ -12,6 +12,7 @@ import { newGame } from '../src/core/state/setup.js';
 import { ColaDeVeredictos } from '../src/server/mcp/veredictos.js';
 import {
   describeAccion,
+  leeVeredictos,
   MOTIVO_PARTIDA_TERMINADA,
   notaAccionAceptada,
   notaAccionSustituida,
@@ -355,5 +356,88 @@ describe('las dos frases terminales', () => {
     // Ni «ha terminado» ni «se ha caído»: no consta cuál de las dos.
     expect(texto).toMatch(/No consta/);
     expect(texto).toContain('pnpm server');
+  });
+});
+
+describe('los veredictos se vuelven a leer donde se escriben (#44)', () => {
+  // El arnés de QA necesita CONTAR cuántas acciones entraron y cuántas se
+  // descartaron, y eso solo está escrito en la prosa que lee el agente. El
+  // parser vive aquí, al lado del escritor, a propósito: si alguien reescribe
+  // `textoDeEscucha` o las marcas, esto se pone rojo en `pnpm test` —cuatro
+  // segundos— en vez de ponerse rojo `pnpm qa` en CI, lejos y señalando al
+  // arnés en vez de al cambio.
+  it('ida y vuelta: lo que anota la cola es lo que lee el parser', () => {
+    const cola = new ColaDeVeredictos();
+    cola.anota({ type: 'result', requestId: 'req-1', ok: true, note: 'Turno del día 1 entero.' });
+    cola.anota({
+      type: 'result',
+      requestId: 'req-2',
+      ok: false,
+      note: 'Turno del día 2: 1 de 3 aplicadas.',
+      problems: ['build town_hall: recursos insuficientes', 'move_hero h1: no hay camino'],
+    });
+
+    const { texto } = textoDeEscucha({ clase: 'peticion', msg: PETICION }, cola);
+    const leidos = leeVeredictos(texto);
+
+    expect(leidos).toHaveLength(2);
+    expect(leidos[0]).toEqual({
+      requestId: 'req-1',
+      ok: true,
+      nota: 'Turno del día 1 entero.',
+      problemas: [],
+    });
+    expect(leidos[1]?.ok).toBe(false);
+    expect(leidos[1]?.requestId).toBe('req-2');
+    // El motivo de cada descarte, que es lo que el arnés tiene que poder
+    // imprimir: un contador sin motivos no dice dónde mirar.
+    expect(leidos[1]?.problemas).toEqual([
+      'build town_hall: recursos insuficientes',
+      'move_hero h1: no hay camino',
+    ]);
+  });
+
+  it('un motivo con salto de línea no parte el bloque en dos', () => {
+    // El parser da el bloque por terminado en la primera línea que no encaja, y
+    // eso SUPONE que cada veredicto y cada problema ocupan una sola línea. Era
+    // cierto por costumbre, no por contrato: el `message` crudo de un `ZodError`
+    // es JSON multilínea, y con uno dentro el bloque se cerraba a media lista —
+    // así que `pnpm qa` contaba de menos SIN ponerse rojo. Lo garantiza quien
+    // escribe, que es el único que puede.
+    const cola = new ColaDeVeredictos();
+    cola.anota({
+      type: 'result',
+      requestId: 'req-4',
+      ok: false,
+      note: 'Tu respuesta no encaja\ncon el esquema',
+      problems: ['build: esperaba\n  un objeto', 'move_hero h1: no hay camino'],
+    });
+
+    const { texto } = textoDeEscucha({ clase: 'peticion', msg: PETICION }, cola);
+    const leidos = leeVeredictos(texto);
+
+    expect(leidos).toHaveLength(1);
+    expect(leidos[0]?.nota).toBe('Tu respuesta no encaja con el esquema');
+    // Los dos: sin aplanar, el segundo problema se quedaba detrás del corte.
+    expect(leidos[0]?.problemas).toEqual([
+      'build: esperaba   un objeto',
+      'move_hero h1: no hay camino',
+    ]);
+  });
+
+  it('el bloque termina donde termina, y no se come el ESTADO', () => {
+    // La escucha lleva el estado detrás del bloque. Si el parser siguiera
+    // leyendo, el JSON entero acabaría contado como veredictos.
+    const cola = new ColaDeVeredictos();
+    cola.anota({ type: 'result', requestId: 'req-7', ok: true });
+    const { texto } = textoDeEscucha({ clase: 'peticion', msg: PETICION }, cola);
+
+    expect(texto).toContain('ESTADO:');
+    expect(leeVeredictos(texto)).toHaveLength(1);
+  });
+
+  it('una escucha sin veredictos no inventa ninguno', () => {
+    const { texto } = textoDeEscucha({ clase: 'peticion', msg: PETICION }, new ColaDeVeredictos());
+    expect(leeVeredictos(texto)).toEqual([]);
   });
 });
