@@ -58,7 +58,10 @@ export class Buzon {
   private terminada: string | null = null;
   private readonly consultas = new Map<
     string,
-    { readonly entregar: (r: RespuestaConsulta) => void; readonly temporizador: ReturnType<typeof setTimeout> }
+    {
+      readonly entregar: (r: RespuestaConsulta) => void;
+      readonly temporizador: ReturnType<typeof setTimeout>;
+    }
   >();
   /** La petición recogida y sin contestar. */
   private recogida: string | null = null;

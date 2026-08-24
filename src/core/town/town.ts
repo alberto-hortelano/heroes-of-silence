@@ -184,7 +184,10 @@ export function dwellings(town: Town): { level: number; creature: string }[] {
   return town.buildings
     .map((id) => building(id))
     .filter((b) => b.dwellingLevel !== undefined)
-    .map((b) => ({ level: b.dwellingLevel as number, creature: creatureOfLevel(town, b.dwellingLevel as number) }))
+    .map((b) => ({
+      level: b.dwellingLevel as number,
+      creature: creatureOfLevel(town, b.dwellingLevel as number),
+    }))
     .sort((a, b) => a.level - b.level);
 }
 

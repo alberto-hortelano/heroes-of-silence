@@ -12,17 +12,17 @@ import type { BattleState, Side } from '../battle/types.js';
 import { creature, isShooter } from '../data.js';
 import { maxMana, maxMovePoints } from '../hero/hero.js';
 import { pointKey } from '../map/map.js';
-import { availableBuildings, dailyIncome, dwellings, mageGuildLevel, townSpells } from '../town/town.js';
+import { type GameState, heroesOf, townsOf, visibleNow, week } from '../state/game.js';
 import { building } from '../town/buildings.js';
+import {
+  availableBuildings,
+  dailyIncome,
+  dwellings,
+  mageGuildLevel,
+  townSpells,
+} from '../town/town.js';
 import type { Army, PlayerId } from '../types.js';
 import { RESOURCE_KINDS } from '../types.js';
-import {
-  heroesOf,
-  townsOf,
-  visibleNow,
-  week,
-  type GameState,
-} from '../state/game.js';
 
 function armyView(army: Army): { slot: number; creature: string; count: number; speed: string }[] {
   return army.flatMap((stack, slot) =>
@@ -117,13 +117,36 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId): un
         const cuando = { lastSeen: mirandolo ? state.day : recuerdo.day };
         switch (o.kind) {
           case 'mine':
-            return { kind: o.kind, id: o.id, at: o.at, resource: o.resource, owner: o.owner, ...cuando };
+            return {
+              kind: o.kind,
+              id: o.id,
+              at: o.at,
+              resource: o.resource,
+              owner: o.owner,
+              ...cuando,
+            };
           case 'resource':
-            return { kind: o.kind, id: o.id, at: o.at, resource: o.resource, amount: o.amount, taken: o.taken, ...cuando };
+            return {
+              kind: o.kind,
+              id: o.id,
+              at: o.at,
+              resource: o.resource,
+              amount: o.amount,
+              taken: o.taken,
+              ...cuando,
+            };
           case 'town':
             return { kind: o.kind, id: o.id, at: o.at, owner: o.owner, ...cuando };
           case 'monster':
-            return { kind: o.kind, id: o.id, at: o.at, creature: o.creature, count: o.count, defeated: o.defeated, ...cuando };
+            return {
+              kind: o.kind,
+              id: o.id,
+              at: o.at,
+              creature: o.creature,
+              count: o.count,
+              defeated: o.defeated,
+              ...cuando,
+            };
           case 'chest':
             return { kind: o.kind, id: o.id, at: o.at, gold: o.gold, taken: o.taken, ...cuando };
         }

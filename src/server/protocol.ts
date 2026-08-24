@@ -56,11 +56,7 @@ export interface AgentGameOverMsg {
   readonly note: string;
 }
 
-export type ServerToAgentMsg =
-  | AgentRequestMsg
-  | AgentResultMsg
-  | QueryResultMsg
-  | AgentGameOverMsg;
+export type ServerToAgentMsg = AgentRequestMsg | AgentResultMsg | QueryResultMsg | AgentGameOverMsg;
 
 // ------------------------------------------------------- agente → servidor
 

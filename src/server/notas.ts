@@ -21,11 +21,11 @@
  */
 import type { BattleAction } from '@core/battle/types.js';
 import {
+  type AdventureAction,
   describePlayer,
+  type GameState,
   heroesOf,
   townsOf,
-  type AdventureAction,
-  type GameState,
 } from '@core/state/game.js';
 import type { PlayerId } from '@core/types.js';
 import type { Aviso } from './mcp/buzon.js';
@@ -95,8 +95,7 @@ export function notaTurnoAventura(
  */
 export const MOTIVO_TRAS_END_TURN =
   'no se ha intentado: va detrás de tu end_turn, y cerrar el turno lo cierra para todo lo demás';
-export const MOTIVO_PARTIDA_TERMINADA =
-  'no se ha intentado: la partida ya había terminado';
+export const MOTIVO_PARTIDA_TERMINADA = 'no se ha intentado: la partida ya había terminado';
 
 /**
  * Qué se jugó en lugar de una acción de batalla rechazada, y qué costó.
@@ -125,8 +124,7 @@ export function notaAccionSustituida(
   heroe: string | null,
   batallaTerminada: boolean,
 ): string {
-  const cabecera =
-    `Tu acción para ${unidad} se descartó (${motivo}); la ${LA_JUEGA_LA_IA}: ${describeAccion(sustituta)}.`;
+  const cabecera = `Tu acción para ${unidad} se descartó (${motivo}); la ${LA_JUEGA_LA_IA}: ${describeAccion(sustituta)}.`;
   // El maná se MIDE, así que un `cast` que no llegó a cobrar no se cobra aquí.
   const mana =
     manaGastado === 0 ? null : `le ha costado ${manaGastado} de maná a ${heroe ?? 'tu héroe'}`;

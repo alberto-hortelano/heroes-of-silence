@@ -6,13 +6,14 @@
  * con el formato de respuesta; el agente decide y llama a `heroes_respond`
  * exactamente una vez; después vuelve a `heroes_listen`. Y así toda la partida.
  */
+
+import { allSpells } from '@core/battle/spells.js';
+import { allCreatures, creature, factionLineup } from '@core/data.js';
+import { allBuildings } from '@core/town/buildings.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { z } from 'zod';
 import WebSocket from 'ws';
-import { allCreatures, creature, factionLineup } from '@core/data.js';
-import { allSpells } from '@core/battle/spells.js';
-import { allBuildings } from '@core/town/buildings.js';
+import { z } from 'zod';
 import {
   LA_JUEGA_LA_IA,
   PREFIJO_CORTE,
@@ -127,7 +128,9 @@ async function consultar(what: string, args: Record<string, unknown> = {}): Prom
   await connect();
   contadorConsultas += 1;
   const queryId = `q-${contadorConsultas}`;
-  return buzon.consulta(queryId, () => send({ type: 'query', queryId, what: what as 'game_state', args }));
+  return buzon.consulta(queryId, () =>
+    send({ type: 'query', queryId, what: what as 'game_state', args }),
+  );
 }
 
 // ---------------------------------------------------------------- servidor
@@ -206,9 +209,7 @@ server.tool(
   'heroes_respond',
   'Entrega tu decisión para la petición que acabas de recibir. Una sola vez por petición.',
   {
-    response: z
-      .string()
-      .describe('La respuesta en JSON, con la forma que indicaba la petición.'),
+    response: z.string().describe('La respuesta en JSON, con la forma que indicaba la petición.'),
   },
   async ({ response }) => {
     if (buzon.haTerminado) {
@@ -229,7 +230,10 @@ server.tool(
     if (enviado === null) {
       return {
         content: [
-          { type: 'text' as const, text: 'No hay ninguna petición pendiente. Llama antes a heroes_listen.' },
+          {
+            type: 'text' as const,
+            text: 'No hay ninguna petición pendiente. Llama antes a heroes_listen.',
+          },
         ],
         isError: true,
       };
@@ -274,7 +278,10 @@ server.tool(
     buzon.suelta();
     return {
       content: [
-        { type: 'text' as const, text: `Respuesta a ${enviado} entregada. Vuelve a heroes_listen.` },
+        {
+          type: 'text' as const,
+          text: `Respuesta a ${enviado} entregada. Vuelve a heroes_listen.`,
+        },
       ],
     };
   },

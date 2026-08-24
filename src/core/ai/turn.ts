@@ -5,10 +5,10 @@
 import {
   applyAdventureAction,
   currentPlayer,
-  heroesOf,
-  resolvePendingBattle,
   type GameContext,
   type GameState,
+  heroesOf,
+  resolvePendingBattle,
 } from '../state/game.js';
 import {
   chooseHeroDestination,

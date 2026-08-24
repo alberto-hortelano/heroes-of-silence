@@ -11,11 +11,7 @@ import type { BattleAction, BattleState } from '../src/core/battle/types.js';
 import type { Hero } from '../src/core/hero/hero.js';
 import type { MapObject } from '../src/core/map/map.js';
 import type { Rng } from '../src/core/rng.js';
-import {
-  applyAdventureAction,
-  type GameContext,
-  type GameState,
-} from '../src/core/state/game.js';
+import { applyAdventureAction, type GameContext, type GameState } from '../src/core/state/game.js';
 
 export type Monstruo = Extract<MapObject, { kind: 'monster' }>;
 
@@ -44,7 +40,12 @@ export function forzarBatalla(state: GameState, ctx: GameContext, hero: Hero): M
   const monstruo = monstruoVivo(state);
   hero.at = { x: monstruo.at.x - 1, y: monstruo.at.y };
   hero.movePoints = 5000;
-  applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: monstruo.at }, ctx, state.current);
+  applyAdventureAction(
+    state,
+    { type: 'move_hero', hero: hero.id, to: monstruo.at },
+    ctx,
+    state.current,
+  );
   if (state.pendingBattle === null) throw new Error('pisar al monstruo no abrió ninguna batalla');
   return monstruo;
 }
@@ -65,7 +66,9 @@ export function agresiva(state: BattleState): BattleAction {
   if (ataque !== undefined) return ataque;
 
   const enemigos = enemiesOf(state, s);
-  const movimientos = acciones.filter((a): a is Extract<BattleAction, { type: 'move' }> => a.type === 'move');
+  const movimientos = acciones.filter(
+    (a): a is Extract<BattleAction, { type: 'move' }> => a.type === 'move',
+  );
   if (movimientos.length > 0 && enemigos.length > 0) {
     const distancia = (h: { col: number; row: number }): number =>
       Math.min(...enemigos.flatMap((e) => stackHexes(e).map((eh) => hexDistance(h, eh))));

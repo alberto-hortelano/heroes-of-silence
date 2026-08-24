@@ -7,11 +7,13 @@
  * siguen derivándose y no vuelven a escribirse a mano.
  */
 import { describe, expect, it } from 'vitest';
-import { allBuildings } from '../src/core/town/buildings.js';
 import { townPlots } from '../src/client/render/town.js';
+import { allBuildings } from '../src/core/town/buildings.js';
 
 /** La cadena que el catálogo dicta para un solar, calculada aparte a propósito. */
-function cadenaDelCatalogo(pick: (b: ReturnType<typeof allBuildings>[number]) => number | undefined) {
+function cadenaDelCatalogo(
+  pick: (b: ReturnType<typeof allBuildings>[number]) => number | undefined,
+) {
   return allBuildings()
     .filter((b) => pick(b) !== undefined)
     .slice()
@@ -41,7 +43,10 @@ describe('solares del castillo', () => {
     for (const faccion of ['knight', 'necromancer'] as const) {
       for (const solar of townPlots(faccion)) {
         for (const id of solar.chain) {
-          expect(conocidos.has(id), `${faccion}/${solar.id} ofrece "${id}", que no está en los datos`).toBe(true);
+          expect(
+            conocidos.has(id),
+            `${faccion}/${solar.id} ofrece "${id}", que no está en los datos`,
+          ).toBe(true);
         }
       }
     }
@@ -52,7 +57,10 @@ describe('solares del castillo', () => {
       const solares = townPlots(faccion);
       expect(solares).toHaveLength(11);
       for (const solar of solares) {
-        expect(solar.chain.length, `${faccion}/${solar.id} se quedó sin nada que construir`).toBeGreaterThan(0);
+        expect(
+          solar.chain.length,
+          `${faccion}/${solar.id} se quedó sin nada que construir`,
+        ).toBeGreaterThan(0);
       }
     }
   });

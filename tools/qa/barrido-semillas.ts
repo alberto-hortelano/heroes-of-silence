@@ -70,4 +70,6 @@ for (let semilla = 1; semilla <= SEMILLAS; semilla++) {
   if (rounds > peorRonda) peorRonda = rounds;
   if (rounds >= MAX_ROUNDS) enElTope++;
 }
-console.log(`batallas IA vs IA: peor caso ${peorRonda} rondas, ${enElTope}/${SEMILLAS} en el tope de ${MAX_ROUNDS}`);
+console.log(
+  `batallas IA vs IA: peor caso ${peorRonda} rondas, ${enElTope}/${SEMILLAS} en el tope de ${MAX_ROUNDS}`,
+);

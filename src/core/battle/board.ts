@@ -119,11 +119,7 @@ export function reachable(
  * Camino más corto de `from` a `to` (sin incluir `from`), o `null` si no llega.
  * `blocked` no debe contener `to` si se quiere llegar a él.
  */
-export function findPath(
-  from: Hex,
-  to: Hex,
-  blocked: ReadonlySet<string>,
-): Hex[] | null {
+export function findPath(from: Hex, to: Hex, blocked: ReadonlySet<string>): Hex[] | null {
   if (hexEquals(from, to)) return [];
   const cameFrom = new Map<string, Hex>();
   const seen = new Set<string>([hexKey(from)]);

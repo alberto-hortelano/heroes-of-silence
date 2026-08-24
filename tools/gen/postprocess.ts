@@ -48,7 +48,9 @@ export async function processSprite(
     .toFile(output);
 }
 
-export async function imageInfo(path: string): Promise<{ width: number; height: number; bytes: number }> {
+export async function imageInfo(
+  path: string,
+): Promise<{ width: number; height: number; bytes: number }> {
   const meta = await sharp(path).metadata();
   return { width: meta.width ?? 0, height: meta.height ?? 0, bytes: meta.size ?? 0 };
 }
@@ -83,8 +85,5 @@ export async function processBuilding(input: string, output: string): Promise<vo
 
 /** Fondo de castillo: sin alfa y en JPEG, que un cielo pintado en PNG pesa. */
 export async function processScene(input: string, output: string): Promise<void> {
-  await sharp(input)
-    .resize(1024, 576, { fit: 'cover' })
-    .jpeg({ quality: 82 })
-    .toFile(output);
+  await sharp(input).resize(1024, 576, { fit: 'cover' }).jpeg({ quality: 82 }).toFile(output);
 }

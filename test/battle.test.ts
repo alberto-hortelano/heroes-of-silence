@@ -1,15 +1,17 @@
 import { describe, expect, it } from 'vitest';
+import { Session } from '../src/client/session.js';
+import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import {
   activeStack,
   applyAction,
   armyMorale,
+  type BattleSide,
   createBattle,
   isAlive,
   legalActions,
   movableHexes,
   stackById,
   stackSpeed,
-  type BattleSide,
 } from '../src/core/battle/battle.js';
 import {
   applyDamage,
@@ -18,15 +20,18 @@ import {
   effectiveAttack,
   stackHp,
 } from '../src/core/battle/damage.js';
-import { applyEffect, effectiveLuck, effectTotal, tickEffects } from '../src/core/battle/effects.js';
-import { chooseBattleAction } from '../src/core/ai/tactics.js';
-import type { Rng } from '../src/core/rng.js';
+import {
+  applyEffect,
+  effectiveLuck,
+  effectTotal,
+  tickEffects,
+} from '../src/core/battle/effects.js';
 import type { BattleHero, BattleStack, BattleState } from '../src/core/battle/types.js';
 import { creature } from '../src/core/data.js';
+import type { Rng } from '../src/core/rng.js';
 import { createRng } from '../src/core/rng.js';
-import { monstruoVivo, simular } from './helpers.js';
-import { Session } from '../src/client/session.js';
 import type { Army } from '../src/core/types.js';
+import { monstruoVivo, simular } from './helpers.js';
 
 const side = (army: Army, hero: BattleHero | null = null): BattleSide => ({ army, hero });
 
@@ -305,13 +310,7 @@ describe('batalla completa', () => {
         null,
         null,
       ]),
-      side([
-        { creature: 'skeleton', count: 40 },
-        { creature: 'lich', count: 5 },
-        null,
-        null,
-        null,
-      ]),
+      side([{ creature: 'skeleton', count: 40 }, { creature: 'lich', count: 5 }, null, null, null]),
       rng,
     );
 
@@ -370,7 +369,10 @@ function pasarRonda(state: BattleState, rng: Rng): void {
 }
 
 /** Pega dos stacks el uno al otro para no depender de que se busquen. */
-function enfrentar(a: { hex: { col: number; row: number } }, b: { hex: { col: number; row: number } }): void {
+function enfrentar(
+  a: { hex: { col: number; row: number } },
+  b: { hex: { col: number; row: number } },
+): void {
   a.hex = { col: 5, row: 4 };
   b.hex = { col: 6, row: 4 };
 }
@@ -575,7 +577,9 @@ describe('rasgos de criatura (#8)', () => {
 
     expect(esqueleto.effects.some((e) => e.source === 'fear' && e.amount === -2)).toBe(true);
     expect(effectiveAttack(esqueleto, null)).toBe(creature('skeleton').attack - 2);
-    expect(state.log.some((e) => e.kind === 'effect' && e.source === 'fear' && e.effect === 'attack')).toBe(true);
+    expect(
+      state.log.some((e) => e.kind === 'effect' && e.source === 'fear' && e.effect === 'attack'),
+    ).toBe(true);
 
     // Y el miedo se nota en el golpe: mismo dado, menos daño.
     const conMiedo = computeDamage(esqueleto, null, dragon, null, createRng(5));
@@ -596,7 +600,9 @@ describe('rasgos de criatura (#8)', () => {
     const piquero = stackById(contraVivos, 'defender-0');
     expect(piquero.effects.some((e) => e.source === 'curse_on_hit' && e.amount === -1)).toBe(true);
     expect(effectiveLuck(piquero)).toBe(-1);
-    expect(contraVivos.log.some((e) => e.kind === 'effect' && e.source === 'curse_on_hit')).toBe(true);
+    expect(contraVivos.log.some((e) => e.kind === 'effect' && e.source === 'curse_on_hit')).toBe(
+      true,
+    );
 
     // Espejo nigromante: una momia no desmoraliza a un esqueleto.
     const rng2 = createRng(63);
@@ -610,19 +616,15 @@ describe('rasgos de criatura (#8)', () => {
 
     const esqueleto = stackById(contraMuertos, 'defender-0');
     expect(esqueleto.effects).toEqual([]);
-    expect(contraMuertos.log.some((e) => e.kind === 'immune' && e.source === 'curse_on_hit')).toBe(true);
+    expect(contraMuertos.log.some((e) => e.kind === 'immune' && e.source === 'curse_on_hit')).toBe(
+      true,
+    );
   });
 
   it('splash_shot: el disparo del liche salpica también a los suyos', () => {
     const rng = createRng(64);
     const state = createBattle(
-      side([
-        { creature: 'lich', count: 5 },
-        { creature: 'skeleton', count: 30 },
-        null,
-        null,
-        null,
-      ]),
+      side([{ creature: 'lich', count: 5 }, { creature: 'skeleton', count: 30 }, null, null, null]),
       side([{ creature: 'pikeman', count: 30 }, null, null, null, null]),
       rng,
     );
@@ -646,14 +648,14 @@ describe('rasgos de criatura (#8)', () => {
   it('splash_shot: la IA no se dispara a los suyos si tiene otro objetivo', () => {
     const rng = createRng(65);
     const state = createBattle(
+      side([{ creature: 'lich', count: 5 }, { creature: 'skeleton', count: 30 }, null, null, null]),
       side([
-        { creature: 'lich', count: 5 },
-        { creature: 'skeleton', count: 30 },
+        { creature: 'pikeman', count: 30 },
+        { creature: 'archer', count: 10 },
         null,
         null,
         null,
       ]),
-      side([{ creature: 'pikeman', count: 30 }, { creature: 'archer', count: 10 }, null, null, null]),
       rng,
     );
     stackById(state, 'attacker-0').hex = { col: 0, row: 4 };
@@ -666,7 +668,9 @@ describe('rasgos de criatura (#8)', () => {
     // Disparar al piquero era legal —y `legalActions` lo sigue ofreciendo—,
     // pero se llevaría por delante a su propio esqueleto.
     expect(eleccion).toEqual({ type: 'shoot', target: 'defender-1' });
-    expect(legalActions(state).some((a) => a.type === 'shoot' && a.target === 'defender-0')).toBe(true);
+    expect(legalActions(state).some((a) => a.type === 'shoot' && a.target === 'defender-0')).toBe(
+      true,
+    );
   });
 });
 
@@ -839,7 +843,6 @@ describe('la IA lanza hechizos (#24)', () => {
       target: 'defender-0',
     });
   });
-
 });
 
 describe('la IA espera en vez de plantarse (#24)', () => {
@@ -855,7 +858,11 @@ describe('la IA espera en vez de plantarse (#24)', () => {
 
     // Sobre el objetivo limpio compra las tres rondas de golpe y sí sale a
     // cuenta: es el caso con el que se calibró el umbral, y no se toca.
-    expect(chooseBattleAction(state)).toEqual({ type: 'cast', spell: 'slow', target: 'defender-0' });
+    expect(chooseBattleAction(state)).toEqual({
+      type: 'cast',
+      spell: 'slow',
+      target: 'defender-0',
+    });
 
     // Con la Lentitud ya encima y dos rondas por delante, relanzar solo compra
     // la TERCERA —el mismo origen refresca, no apila—, y a ese precio no sale.

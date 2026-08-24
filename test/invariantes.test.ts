@@ -18,7 +18,12 @@ import { extname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { stackSpeed } from '../src/core/battle/battle.js';
 import { effectiveAttack } from '../src/core/battle/damage.js';
-import { applyEffect, effectiveLuck, EFFECT_KINDS, type EffectKind } from '../src/core/battle/effects.js';
+import {
+  applyEffect,
+  EFFECT_KINDS,
+  type EffectKind,
+  effectiveLuck,
+} from '../src/core/battle/effects.js';
 import type { BattleStack } from '../src/core/battle/types.js';
 import { CREATURE_TRAITS } from '../src/core/types.js';
 

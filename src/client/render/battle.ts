@@ -1,6 +1,7 @@
 /** Dibuja la rejilla de batalla y las unidades. Hexágonos de punta arriba. */
-import { BOARD_HEIGHT, BOARD_WIDTH, hexKey } from '@core/battle/board.js';
+
 import { stackHexes } from '@core/battle/battle.js';
+import { BOARD_HEIGHT, BOARD_WIDTH, hexKey } from '@core/battle/board.js';
 import { stackHp } from '@core/battle/damage.js';
 import type { BattleStack, BattleState } from '@core/battle/types.js';
 import { creature, hexSize, isShooter } from '@core/data.js';
@@ -109,14 +110,7 @@ export function drawBattle(ctx: CanvasRenderingContext2D, view: BattleView): voi
     const pose = view.poses?.get(s.id) ?? (s.count > 0 ? 'idle' : undefined);
     // Sin pose no hay nada que pintar: la unidad ya cayó y su muerte terminó.
     if (pose === undefined) continue;
-    drawStack(
-      ctx,
-      s,
-      s.id === activo,
-      s.id === view.hoverStack,
-      pose,
-      view.castTargets.has(s.id),
-    );
+    drawStack(ctx, s, s.id === activo, s.id === view.hoverStack, pose, view.castTargets.has(s.id));
   }
 
   ctx.restore();

@@ -5,8 +5,9 @@
  * conectado —o tarda demasiado— el juego NO se detiene: cae en la IA
  * heurística y sigue. El agente es una mejora, no una dependencia.
  */
+
+import { RESPONSE_FORMAT, type RequestKind, responseSchemas } from '@core/contract/agent.js';
 import type { WebSocket } from 'ws';
-import { responseSchemas, RESPONSE_FORMAT, type RequestKind } from '@core/contract/agent.js';
 import { notaRespuestaInvalida, notaSinRespuesta } from './notas.js';
 import type {
   AgentGameOverMsg,
@@ -23,10 +24,7 @@ export interface PendingRequest {
   timer: ReturnType<typeof setTimeout>;
 }
 
-export type QueryHandler = (
-  what: string,
-  args: Record<string, unknown>,
-) => unknown;
+export type QueryHandler = (what: string, args: Record<string, unknown>) => unknown;
 
 /**
  * La respuesta del agente **con el número de petición que la provocó**.
@@ -256,7 +254,13 @@ export class AgentLink {
 
   /** Informa al agente de cómo fue su última respuesta. */
   report(requestId: string, ok: boolean, problems?: readonly string[], note?: string): void {
-    this.send({ type: 'result', requestId, ok, ...(problems ? { problems } : {}), ...(note ? { note } : {}) });
+    this.send({
+      type: 'result',
+      requestId,
+      ok,
+      ...(problems ? { problems } : {}),
+      ...(note ? { note } : {}),
+    });
   }
 
   /**

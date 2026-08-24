@@ -12,7 +12,7 @@
  *   - Las referencias viajan como data URI en base64: no hay que subir nada.
  */
 import { createHash } from 'node:crypto';
-import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 export const FAL_BASE = 'https://fal.run';
@@ -154,7 +154,9 @@ export class FalClient {
     };
     const imagenUrl = data.images?.[0]?.url ?? data.image?.url;
     if (imagenUrl === undefined) {
-      throw new Error(`la respuesta de ${endpoint} no trae ninguna imagen: ${JSON.stringify(data).slice(0, 300)}`);
+      throw new Error(
+        `la respuesta de ${endpoint} no trae ninguna imagen: ${JSON.stringify(data).slice(0, 300)}`,
+      );
     }
 
     const bytes = imagenUrl.startsWith('data:')
@@ -171,8 +173,7 @@ export class FalClient {
 /** Convierte un fichero local en data URI, que es como fal acepta referencias. */
 export function toDataUri(path: string): string {
   const bytes = readFileSync(path);
-  const ext = path.toLowerCase().endsWith('.jpg') || path.toLowerCase().endsWith('.jpeg')
-    ? 'jpeg'
-    : 'png';
+  const ext =
+    path.toLowerCase().endsWith('.jpg') || path.toLowerCase().endsWith('.jpeg') ? 'jpeg' : 'png';
   return `data:image/${ext};base64,${bytes.toString('base64')}`;
 }

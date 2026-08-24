@@ -11,9 +11,15 @@
  * igual que el tablero de batalla se centra con `battleOffset`.
  */
 import { creature } from '@core/data.js';
-import { building, buildingsOfFaction, type Building } from '@core/town/buildings.js';
-import { buildBlocker, creatureOfLevel, hasBuilding, recruitCost, type Town } from '@core/town/town.js';
-import { RESOURCE_KINDS, type FactionId, type Resources } from '@core/types.js';
+import { type Building, building, buildingsOfFaction } from '@core/town/buildings.js';
+import {
+  buildBlocker,
+  creatureOfLevel,
+  hasBuilding,
+  recruitCost,
+  type Town,
+} from '@core/town/town.js';
+import { type FactionId, RESOURCE_KINDS, type Resources } from '@core/types.js';
 import { asset } from './assets.js';
 import { costLabel, RESOURCE_COLORS } from './palette.js';
 
@@ -50,7 +56,14 @@ function solaresDeVilla(catalogo: readonly Building[]): readonly TownPlot[] {
 
   return [
     { id: 'fort', chain: ['castle'], x: 40, y: 30, w: 190, h: 150 },
-    { id: 'hall', chain: ['village_hall', 'town_hall', 'city_hall'], x: 258, y: 30, w: 190, h: 150 },
+    {
+      id: 'hall',
+      chain: ['village_hall', 'town_hall', 'city_hall'],
+      x: 258,
+      y: 30,
+      w: 190,
+      h: 150,
+    },
     { id: 'guild', chain: gremio, x: 476, y: 30, w: 170, h: 150 },
     { id: 'tavern', chain: ['tavern'], x: 674, y: 30, w: 150, h: 150 },
     { id: 'market', chain: ['marketplace'], x: 852, y: 30, w: 132, h: 150 },
@@ -71,10 +84,11 @@ function solaresDeVilla(catalogo: readonly Building[]): readonly TownPlot[] {
  */
 export function townPlots(faction: FactionId): readonly TownPlot[] {
   const propios = buildingsOfFaction(faction);
-  const cadena = (nivel: number): string[] => [
-    ...propios.filter((b) => b.dwellingLevel === nivel),
-    ...propios.filter((b) => b.upgradesLevel === nivel),
-  ].map((b) => b.id);
+  const cadena = (nivel: number): string[] =>
+    [
+      ...propios.filter((b) => b.dwellingLevel === nivel),
+      ...propios.filter((b) => b.upgradesLevel === nivel),
+    ].map((b) => b.id);
 
   return [
     ...solaresDeVilla(propios),
@@ -127,12 +141,7 @@ export type TownHit =
   | { readonly kind: 'plot'; readonly plot: string }
   | { readonly kind: 'recruit'; readonly creature: string; readonly all: boolean };
 
-export function hitAtPixel(
-  town: Town,
-  px: number,
-  py: number,
-  t: TownTransform,
-): TownHit | null {
+export function hitAtPixel(town: Town, px: number, py: number, t: TownTransform): TownHit | null {
   const vx = (px - t.x) / t.scale;
   const vy = (py - t.y) / t.scale;
 
@@ -241,8 +250,7 @@ function drawPlot(ctx: CanvasRenderingContext2D, view: TownView, plot: TownPlot)
   const { town, purse } = view;
   const built = builtOf(town, plot);
   const next = nextOf(town, plot);
-  const señalado =
-    view.hover !== null && view.hover.kind === 'plot' && view.hover.plot === plot.id;
+  const señalado = view.hover !== null && view.hover.kind === 'plot' && view.hover.plot === plot.id;
   const blocker = next === null ? 'ya está todo construido' : buildBlocker(town, next, purse);
   const construible = view.interactive && next !== null && blocker === null;
 
@@ -300,7 +308,15 @@ function siluetaConstruida(ctx: CanvasRenderingContext2D, plot: TownPlot, nombre
   ctx.strokeStyle = 'rgba(0,0,0,0.5)';
   ctx.lineWidth = 1.5;
   ctx.strokeRect(plot.x + 12, base - alto, plot.w - 24, alto);
-  texto(ctx, nombre, plot.x + plot.w / 2, base - alto / 2, '#e8dcc4', 'bold 13px system-ui, sans-serif', plot.w - 20);
+  texto(
+    ctx,
+    nombre,
+    plot.x + plot.w / 2,
+    base - alto / 2,
+    '#e8dcc4',
+    'bold 13px system-ui, sans-serif',
+    plot.w - 20,
+  );
 }
 
 function solarVacio(ctx: CanvasRenderingContext2D, plot: TownPlot, nombre: string): void {
@@ -314,7 +330,15 @@ function solarVacio(ctx: CanvasRenderingContext2D, plot: TownPlot, nombre: strin
   ctx.restore();
   ctx.fillStyle = 'rgba(10,8,6,0.28)';
   ctx.fillRect(plot.x + 12, base - alto, plot.w - 24, alto);
-  texto(ctx, nombre, plot.x + plot.w / 2, base - alto / 2, 'rgba(232,220,196,0.65)', '12px system-ui, sans-serif', plot.w - 20);
+  texto(
+    ctx,
+    nombre,
+    plot.x + plot.w / 2,
+    base - alto / 2,
+    'rgba(232,220,196,0.65)',
+    '12px system-ui, sans-serif',
+    plot.w - 20,
+  );
 }
 
 /** Chapa con el coste del siguiente eslabón, sobre el solar. */
@@ -331,7 +355,15 @@ function etiquetaCoste(
 
   if (partes.length === 0) {
     chapa(ctx, plot.x + (plot.w - 60) / 2, y, 60, 18, construible);
-    texto(ctx, 'gratis', plot.x + plot.w / 2, y + 9, '#d9a441', 'bold 11px system-ui, sans-serif', 56);
+    texto(
+      ctx,
+      'gratis',
+      plot.x + plot.w / 2,
+      y + 9,
+      '#d9a441',
+      'bold 11px system-ui, sans-serif',
+      56,
+    );
     return;
   }
 
@@ -410,8 +442,15 @@ function etiquetaMorada(
 function drawRecruitStrip(ctx: CanvasRenderingContext2D, view: TownView): void {
   const celdas = recruitCells(view.town);
   if (celdas.length === 0) {
-    texto(ctx, 'Sin moradas construidas: pulsa un solar de la fila de abajo para levantar una.',
-      TOWN_WIDTH / 2, STRIP_Y + STRIP_H / 2, '#a8977a', '14px system-ui, sans-serif', TOWN_WIDTH - 40);
+    texto(
+      ctx,
+      'Sin moradas construidas: pulsa un solar de la fila de abajo para levantar una.',
+      TOWN_WIDTH / 2,
+      STRIP_Y + STRIP_H / 2,
+      '#a8977a',
+      '14px system-ui, sans-serif',
+      TOWN_WIDTH - 40,
+    );
     return;
   }
   for (const { plot, creature: id } of celdas) drawRecruitCell(ctx, view, plot, id);
@@ -474,7 +513,15 @@ function drawRecruitCell(
     ctx.fillRect(bx, by, bw, 20);
     ctx.strokeStyle = activo ? (señalado ? '#d9a441' : '#4a3c2a') : 'rgba(74,60,42,0.5)';
     ctx.strokeRect(bx + 0.5, by + 0.5, bw - 1, 19);
-    texto(ctx, etiqueta, bx + bw / 2, by + 10, activo ? '#d9a441' : '#6b6152', 'bold 11px system-ui, sans-serif', bw);
+    texto(
+      ctx,
+      etiqueta,
+      bx + bw / 2,
+      by + 10,
+      activo ? '#d9a441' : '#6b6152',
+      'bold 11px system-ui, sans-serif',
+      bw,
+    );
   }
 }
 
@@ -521,7 +568,5 @@ export function describeHit(town: Town, purse: Resources, hit: TownHit | null): 
   }
   const blocker = buildBlocker(town, next, purse);
   const b = building(next);
-  return blocker === null
-    ? `Construir ${b.name} — ${costLabel(b.cost)}`
-    : `${b.name}: ${blocker}`;
+  return blocker === null ? `Construir ${b.name} — ${costLabel(b.cost)}` : `${b.name}: ${blocker}`;
 }

@@ -75,7 +75,9 @@ export async function loadAssets(base = '/generated'): Promise<boolean> {
       animaciones = (await res.json()) as AnimIndex;
       await Promise.all(
         animaciones.creatures.flatMap((c) =>
-          animaciones!.poses.map((p) => cargarImagen(`anim:${c}/${p}`, `${base}/anim/${c}/${p}.png`)),
+          animaciones!.poses.map((p) =>
+            cargarImagen(`anim:${c}/${p}`, `${base}/anim/${c}/${p}.png`),
+          ),
         ),
       );
     }

@@ -7,7 +7,7 @@
  * cableado, que es lo que no se puede probar de todos modos.
  */
 import { serializeAdventureTurn, serializeBattleTurn } from '@core/contract/serialize.js';
-import { sidesOwnedBy, type GameState } from '@core/state/game.js';
+import { type GameState, sidesOwnedBy } from '@core/state/game.js';
 
 export function responderConsulta(
   state: GameState,
@@ -40,7 +40,10 @@ export function responderConsulta(
       // Llevar los DOS bandos es posible —`agentPlayers` acepta varios
       // jugadores—, y una vista tiene un solo punto de vista: se elige el del
       // atacante y se dice, en vez de callarse cuál de los dos se está viendo.
-      const vista = serializeBattleTurn(pending.battle, suyos.has('attacker') ? 'attacker' : 'defender');
+      const vista = serializeBattleTurn(
+        pending.battle,
+        suyos.has('attacker') ? 'attacker' : 'defender',
+      );
       if (suyos.size === 1) return vista;
       return {
         ...(vista as object),

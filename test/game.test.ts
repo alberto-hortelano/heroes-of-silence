@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { playAiGame, playAiTurn } from '../src/core/ai/turn.js';
 import {
   armyPower,
   chooseBuilding,
@@ -7,8 +6,10 @@ import {
   planBuildings,
   planRecruits,
 } from '../src/core/ai/strategy.js';
-import { learnable, maxMana, maxMovePoints, slowestSpeed } from '../src/core/hero/hero.js';
+import { playAiGame, playAiTurn } from '../src/core/ai/turn.js';
 import { allSpells } from '../src/core/battle/spells.js';
+import { factionLineup } from '../src/core/data.js';
+import { learnable, maxMana, maxMovePoints, slowestSpeed } from '../src/core/hero/hero.js';
 import { buildMap, generateMapPlan, validateMapPlan } from '../src/core/map/generate.js';
 import { findPath, objectAt, pointKey } from '../src/core/map/map.js';
 import { createRng } from '../src/core/rng.js';
@@ -16,14 +17,15 @@ import {
   applyAdventureAction,
   currentPlayer,
   dayOfWeek,
+  type GameContext,
   heroById,
   heroesOf,
   resolvePendingBattle,
   townsOf,
   week,
-  type GameContext,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
+import { buildingsOfFaction } from '../src/core/town/buildings.js';
 import {
   applyWeeklyGrowth,
   availableBuildings,
@@ -31,11 +33,9 @@ import {
   buildBlocker,
   createTown,
   dwellings,
-  townSpells,
   type Town,
+  townSpells,
 } from '../src/core/town/town.js';
-import { buildingsOfFaction } from '../src/core/town/buildings.js';
-import { factionLineup } from '../src/core/data.js';
 import type { Resources } from '../src/core/types.js';
 import { forzarBatalla, monstruoVivo } from './helpers.js';
 
@@ -43,7 +43,13 @@ const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 
 describe('puntos de movimiento', () => {
   it('los marca la criatura más lenta del ejército', () => {
-    const lento = [{ creature: 'zombie', count: 5 }, { creature: 'champion', count: 5 }, null, null, null];
+    const lento = [
+      { creature: 'zombie', count: 5 },
+      { creature: 'champion', count: 5 },
+      null,
+      null,
+      null,
+    ];
     expect(slowestSpeed(lento)).toBe('very_slow');
     expect(maxMovePoints({ army: lento, skills: {} })).toBe(1000);
 
@@ -145,7 +151,8 @@ describe('economía', () => {
     const oroInicial = state.players[0]!.resources.gold;
 
     // Un turno de cada jugador devuelve la vez al primero, con su ingreso.
-    for (const _ of state.players) applyAdventureAction(state, { type: 'end_turn' }, c, state.current);
+    for (const _ of state.players)
+      applyAdventureAction(state, { type: 'end_turn' }, c, state.current);
     expect(state.players[0]!.resources.gold).toBeGreaterThan(oroInicial);
   });
 
@@ -156,12 +163,22 @@ describe('economía', () => {
     const player = currentPlayer(state);
     const oroAntes = player.resources.gold;
 
-    applyAdventureAction(state, { type: 'build', town: town.id, building: 'knight_dwelling_2' }, c, state.current);
+    applyAdventureAction(
+      state,
+      { type: 'build', town: town.id, building: 'knight_dwelling_2' },
+      c,
+      state.current,
+    );
     expect(town.buildings).toContain('knight_dwelling_2');
     expect(player.resources.gold).toBeLessThan(oroAntes);
 
     expect(() =>
-      applyAdventureAction(state, { type: 'build', town: town.id, building: 'knight_dwelling_3' }, c, state.current),
+      applyAdventureAction(
+        state,
+        { type: 'build', town: town.id, building: 'knight_dwelling_3' },
+        c,
+        state.current,
+      ),
     ).toThrow(/ya se ha construido hoy/);
   });
 
@@ -213,7 +230,12 @@ describe('movimiento de héroes', () => {
     const nieblaAntes = state.players[0]!.fog.size;
 
     const destino = { x: hero.at.x + 2, y: hero.at.y };
-    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: destino }, c, state.current);
+    applyAdventureAction(
+      state,
+      { type: 'move_hero', hero: hero.id, to: destino },
+      c,
+      state.current,
+    );
 
     expect(pointKey(hero.at)).toBe(pointKey(destino));
     expect(hero.movePoints).toBeLessThan(puntosAntes);
@@ -234,7 +256,12 @@ describe('movimiento de héroes', () => {
     expect(camino).not.toBeNull();
 
     const antes = { ...state.players[0]!.resources };
-    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: recurso!.at }, c, state.current);
+    applyAdventureAction(
+      state,
+      { type: 'move_hero', hero: hero.id, to: recurso!.at },
+      c,
+      state.current,
+    );
     const tipo = (recurso as { resource: keyof typeof antes }).resource;
     expect(state.players[0]!.resources[tipo]).toBeGreaterThan(antes[tipo]);
   });
@@ -248,7 +275,12 @@ describe('movimiento de héroes', () => {
 
     hero.at = { x: mina!.at.x - 1, y: mina!.at.y };
     hero.movePoints = 5000;
-    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: mina!.at }, c, state.current);
+    applyAdventureAction(
+      state,
+      { type: 'move_hero', hero: hero.id, to: mina!.at },
+      c,
+      state.current,
+    );
     expect((mina as { owner: number | null }).owner).toBe(0);
   });
 
@@ -269,7 +301,12 @@ describe('movimiento de héroes', () => {
     suyo.garrison = [null, null, null, null, null];
     hero.at = { x: suyo.at.x - 1, y: suyo.at.y };
     hero.movePoints = 5000;
-    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: suyo.at }, c, state.current);
+    applyAdventureAction(
+      state,
+      { type: 'move_hero', hero: hero.id, to: suyo.at },
+      c,
+      state.current,
+    );
 
     expect(suyo.owner).toBe(0);
     expect((bandera as { owner: number | null }).owner).toBe(0);
@@ -280,7 +317,12 @@ describe('movimiento de héroes', () => {
     const c = ctx(24);
     const ajeno = heroesOf(state, 1)[0]!;
     expect(() =>
-      applyAdventureAction(state, { type: 'move_hero', hero: ajeno.id, to: { x: 1, y: 1 } }, c, state.current),
+      applyAdventureAction(
+        state,
+        { type: 'move_hero', hero: ajeno.id, to: { x: 1, y: 1 } },
+        c,
+        state.current,
+      ),
     ).toThrow(/no es tuyo/);
   });
 
@@ -358,7 +400,9 @@ describe('batallas del mapa', () => {
     const hero = heroesOf(state, 0)[0]!;
     forzarBatalla(state, c, hero);
 
-    expect(() => applyAdventureAction(state, { type: 'end_turn' }, c, state.current)).toThrow(/batalla pendiente/);
+    expect(() => applyAdventureAction(state, { type: 'end_turn' }, c, state.current)).toThrow(
+      /batalla pendiente/,
+    );
   });
 });
 
@@ -450,7 +494,9 @@ describe('partida completa', () => {
     for (const town of state.towns) {
       const bandera = state.map.objects.find((o) => o.kind === 'town' && o.id === town.id);
       expect(bandera, `${town.id} no tiene objeto en el mapa`).toBeDefined();
-      expect((bandera as { owner: number | null }).owner, `${town.id} descuadrado`).toBe(town.owner);
+      expect((bandera as { owner: number | null }).owner, `${town.id} descuadrado`).toBe(
+        town.owner,
+      );
     }
     // Y la semilla 9 era una de las dos que no terminaban en 300 días.
     expect(state.finished).not.toBeNull();
@@ -468,7 +514,13 @@ describe('partida completa', () => {
 
 describe('catálogo de edificios por facción', () => {
   const bolsaInfinita: Resources = {
-    wood: 9999, mercury: 9999, ore: 9999, sulfur: 9999, crystal: 9999, gems: 9999, gold: 999999,
+    wood: 9999,
+    mercury: 9999,
+    ore: 9999,
+    sulfur: 9999,
+    crystal: 9999,
+    gems: 9999,
+    gold: 999999,
   };
 
   const pueblo = (faction: 'knight' | 'necromancer'): Town =>
@@ -502,7 +554,9 @@ describe('catálogo de edificios por facción', () => {
     // El motivo se escribe para la persona, y `null` sería "adelante, cobra".
     expect(buildBlocker(cripta, 'necromancer_upgrade_6', bolsaInfinita)).toMatch(/no existe/);
     // Y el id del caballero tampoco cuela en un pueblo nigromante.
-    expect(buildBlocker(cripta, 'knight_upgrade_6', bolsaInfinita)).toMatch(/no es un edificio de esta facción/);
+    expect(buildBlocker(cripta, 'knight_upgrade_6', bolsaInfinita)).toMatch(
+      /no es un edificio de esta facción/,
+    );
   });
 
   it('intentarlo lanza y no cuesta ni oro ni la construcción del día', () => {
@@ -542,7 +596,10 @@ describe('catálogo de edificios por facción', () => {
       for (const b of buildingsOfFaction(faction)) {
         if (b.upgradesLevel === undefined) continue;
         const base = linea.find((c) => c.level === b.upgradesLevel);
-        expect(base, `${b.id}: la facción no tiene criatura de nivel ${b.upgradesLevel}`).toBeDefined();
+        expect(
+          base,
+          `${b.id}: la facción no tiene criatura de nivel ${b.upgradesLevel}`,
+        ).toBeDefined();
         expect(
           base?.upgradesTo,
           `${b.id} mejora un nivel cuya criatura (${base?.id}) no tiene versión mejorada`,
@@ -625,7 +682,12 @@ describe('el gremio enseña (#2)', () => {
     hero.at = { ...town.at };
     expect(hero.spells).toEqual(['magic_arrow']);
 
-    applyAdventureAction(state, { type: 'build', town: town.id, building: 'mage_guild_1' }, c, state.current);
+    applyAdventureAction(
+      state,
+      { type: 'build', town: town.id, building: 'mage_guild_1' },
+      c,
+      state.current,
+    );
 
     // El gremio de nivel 1 enseña los tres de nivel 1, y `magic_arrow` es uno de
     // ellos: el que ya sabía no se le apunta dos veces.
@@ -663,7 +725,11 @@ describe('el gremio enseña (#2)', () => {
     expect(townSpells(castillo)).toEqual([]);
 
     castillo.buildings = [...castillo.buildings, 'mage_guild_1'];
-    expect(townSpells(castillo).map((s) => s.id).sort()).toEqual(['haste', 'magic_arrow', 'slow']);
+    expect(
+      townSpells(castillo)
+        .map((s) => s.id)
+        .sort(),
+    ).toEqual(['haste', 'magic_arrow', 'slow']);
 
     castillo.buildings = [...castillo.buildings, 'mage_guild_2'];
     const nivel2 = townSpells(castillo).map((s) => s.id);

@@ -5,18 +5,18 @@
  */
 import { activeStack } from '@core/battle/battle.js';
 import { effectiveLuck } from '@core/battle/effects.js';
-import { spell, type Spell } from '@core/battle/spells.js';
+import { type Spell, spell } from '@core/battle/spells.js';
 import type { BattleEvent, Side } from '@core/battle/types.js';
 import { creature, isShooter } from '@core/data.js';
 import { armySize, maxMana, maxMovePoints } from '@core/hero/hero.js';
 import type { GameEvent } from '@core/state/game.js';
 import { building } from '@core/town/buildings.js';
-import { dailyIncome, dwellings, mageGuildLevel, townSpells, type Town } from '@core/town/town.js';
+import { dailyIncome, dwellings, mageGuildLevel, type Town, townSpells } from '@core/town/town.js';
 import type { Army } from '@core/types.js';
+import { RESOURCE_KINDS } from '@core/types.js';
 import { asset } from '../render/assets.js';
 import { RESOURCE_COLORS, RESOURCE_NAMES } from '../render/palette.js';
 import type { Session } from '../session.js';
-import { RESOURCE_KINDS } from '@core/types.js';
 
 export function renderTopbar(session: Session): { day: string; resources: string; turn: string } {
   const state = session.state;
@@ -172,9 +172,7 @@ function renderTownPanel(session: Session): string {
 
   // Solo los héroes PROPIOS: un rival parado en tu castillo no te enseña su
   // ejército, y sobre todo no esconde tu guarnición.
-  const heroeAqui = session
-    .myHeroes()
-    .find((h) => h.at.x === town.at.x && h.at.y === town.at.y);
+  const heroeAqui = session.myHeroes().find((h) => h.at.x === town.at.x && h.at.y === town.at.y);
 
   const crecimiento = dwellings(town)
     .map(({ creature: id }) => {

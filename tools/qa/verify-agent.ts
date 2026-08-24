@@ -136,14 +136,18 @@ async function main(): Promise<void> {
         throw new Error(`la partida acaba sin decir quién ganó:\n${resumen}`);
       }
       log(resumen);
-      log(`terminado por fin de partida: ${turnos} turnos de mapa y ${batallas} decisiones de batalla`);
+      log(
+        `terminado por fin de partida: ${turnos} turnos de mapa y ${batallas} decisiones de batalla`,
+      );
       await terminar(0);
     }
 
     if (texto.startsWith(PREFIJO_RELEVO)) {
       // El arnés escucha en serie, así que esto no puede pasar: si pasa, hay dos
       // escuchas donde debería haber una y el fallo es de aquí, no del circuito.
-      throw new Error(`una escucha ha relevado a otra, y este arnés solo llama de una en una:\n${texto.slice(0, 300)}`);
+      throw new Error(
+        `una escucha ha relevado a otra, y este arnés solo llama de una en una:\n${texto.slice(0, 300)}`,
+      );
     }
 
     if (texto.startsWith(PREFIJO_CORTE)) {
@@ -154,7 +158,8 @@ async function main(): Promise<void> {
 
     const kind = /kind: (\w+)/.exec(texto)?.[1];
     const payload = extraerEstado(texto);
-    if (kind === undefined || payload === null) throw new Error(`petición ilegible:\n${texto.slice(0, 400)}`);
+    if (kind === undefined || payload === null)
+      throw new Error(`petición ilegible:\n${texto.slice(0, 400)}`);
 
     const respuesta = decidir(kind, payload);
     if (kind === 'battle_turn') batallas++;
@@ -210,7 +215,8 @@ function decidir(kind: string, payload: any): unknown {
       const hero = payload.heroes?.[0];
       if (hero !== undefined) {
         const objetivo = payload.knownMap?.objects?.find(
-          (o: any) => (o.kind === 'resource' && !o.taken) || (o.kind === 'mine' && o.owner === null),
+          (o: any) =>
+            (o.kind === 'resource' && !o.taken) || (o.kind === 'mine' && o.owner === null),
         );
         acciones.push({
           type: 'move_hero',

@@ -1,9 +1,10 @@
 /** Dibuja el mapa de aventura. Solo pinta: no toca el estado. */
-import type { GameState } from '@core/state/game.js';
+
 import type { Hero } from '@core/hero/hero.js';
-import { pointKey, type MapObject } from '@core/map/map.js';
-import type { Point } from '@core/types.js';
+import { type MapObject, pointKey } from '@core/map/map.js';
 import type { TerrainKind } from '@core/map/terrain.js';
+import type { GameState } from '@core/state/game.js';
+import type { Point } from '@core/types.js';
 import { asset } from './assets.js';
 import { playerColor, RESOURCE_COLORS, TERRAIN_COLORS } from './palette.js';
 

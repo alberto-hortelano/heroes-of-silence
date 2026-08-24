@@ -6,13 +6,14 @@
  * sola; si el agente no está conectado cuando le toca, se le espera un rato y,
  * si no aparece, juega la IA de reglas.
  */
-import { WebSocketServer, type WebSocket } from 'ws';
+
 import { creature } from '@core/data.js';
+import { type WebSocket, WebSocketServer } from 'ws';
 import { AgentLink } from './agent-link.js';
 import { responderConsulta } from './consultas.js';
 import { Director } from './director.js';
 import { notaFinDePartida } from './notas.js';
-import { AGENT_PORT, SPECTATOR_PORT, type ServerToSpectatorMsg } from './protocol.js';
+import { AGENT_PORT, type ServerToSpectatorMsg, SPECTATOR_PORT } from './protocol.js';
 
 const SEED = Number(process.env.HEROES_SEED ?? 20260823);
 const MAX_DAYS = Number(process.env.HEROES_MAX_DAYS ?? 200);

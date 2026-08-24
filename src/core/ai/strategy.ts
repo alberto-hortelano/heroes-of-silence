@@ -7,7 +7,15 @@
  */
 import { creature } from '../data.js';
 import type { Hero } from '../hero/hero.js';
-import { findPath, pointKey, reachableCosts, type MapObject } from '../map/map.js';
+import { findPath, type MapObject, pointKey, reachableCosts } from '../map/map.js';
+import {
+  type AdventureAction,
+  type GameState,
+  HERO_HIRE_COST,
+  heroesOf,
+  townsOf,
+} from '../state/game.js';
+import { building, buildingsOfFaction } from '../town/buildings.js';
 import {
   availableBuildings,
   dwellings,
@@ -15,16 +23,8 @@ import {
   recruitBlocker,
   type Town,
 } from '../town/town.js';
-import { building, buildingsOfFaction } from '../town/buildings.js';
 import type { Army, PlayerId, Point, Resources } from '../types.js';
 import { canAfford, scaleResources, subtractResources } from '../types.js';
-import {
-  heroesOf,
-  HERO_HIRE_COST,
-  townsOf,
-  type AdventureAction,
-  type GameState,
-} from '../state/game.js';
 
 /** Fuerza bruta de un ejército: lo que pega por lo que aguanta. */
 export function armyPower(army: Army): number {
@@ -68,7 +68,13 @@ function objectValue(state: GameState, obj: MapObject, hero: Hero): number {
     }
     case 'monster': {
       if (obj.defeated) return 0;
-      const suyo = armyPower([{ creature: obj.creature, count: obj.count }, null, null, null, null]);
+      const suyo = armyPower([
+        { creature: obj.creature, count: obj.count },
+        null,
+        null,
+        null,
+        null,
+      ]);
       const mio = armyPower(hero.army);
       // Solo se ataca con ventaja clara: un prototipo que se suicida no se puede probar.
       return mio > suyo * 1.6 ? 2000 : -1;
@@ -254,9 +260,7 @@ export function planRecruits(state: GameState, playerId: PlayerId): AdventureAct
 
   // Reclutar de arriba abajo: las criaturas caras rinden más por moneda.
   for (const town of townsOf(state, playerId)) {
-    const heroeAqui = heroesOf(state, playerId).find(
-      (h) => pointKey(h.at) === pointKey(town.at),
-    );
+    const heroeAqui = heroesOf(state, playerId).find((h) => pointKey(h.at) === pointKey(town.at));
     const destino = heroeAqui?.army ?? town.garrison;
     let huecos = destino.filter((s) => s === null).length;
     const yaPresentes = new Set(destino.filter((s) => s !== null).map((s) => s!.creature));

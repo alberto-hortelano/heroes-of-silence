@@ -5,21 +5,22 @@
  * hay agente o si su respuesta no sirve. Nunca deja la partida encallada por
  * culpa del agente.
  */
-import { serializeAdventureTurn, serializeBattleTurn } from '@core/contract/serialize.js';
+
 import { chooseBattleAction } from '@core/ai/tactics.js';
-import { playAiTurn, type BattleTakeover } from '@core/ai/turn.js';
+import { type BattleTakeover, playAiTurn } from '@core/ai/turn.js';
 import { activeStack, applyAction } from '@core/battle/battle.js';
 import type { BattleAction } from '@core/battle/types.js';
+import { serializeAdventureTurn, serializeBattleTurn } from '@core/contract/serialize.js';
 import { createRng } from '@core/rng.js';
 import {
+  type AdventureAction,
   applyAdventureAction,
   currentPlayer,
+  type GameContext,
+  type GameState,
   resolvePendingBattle,
   settleBattle,
   sidesOwnedBy,
-  type AdventureAction,
-  type GameContext,
-  type GameState,
 } from '@core/state/game.js';
 import { newGame } from '@core/state/setup.js';
 import type { PlayerId } from '@core/types.js';
@@ -106,7 +107,10 @@ export class Director {
     // El día se anota antes: `end_turn` puede pasar de día y la nota tiene que
     // hablar del turno que el agente acaba de jugar, no del siguiente.
     const dia = this.state.day;
-    const respuesta = await this.link.ask('adventure_turn', serializeAdventureTurn(this.state, playerId));
+    const respuesta = await this.link.ask(
+      'adventure_turn',
+      serializeAdventureTurn(this.state, playerId),
+    );
     const plan = respuesta.data;
     if (plan.reasoning !== undefined) this.note(`Agente: ${plan.reasoning}`);
 

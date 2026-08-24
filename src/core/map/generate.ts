@@ -6,11 +6,19 @@
  * determinista. Lo mismo hace el generador procedural de respaldo, así que
  * ambos caminos pasan por la misma validación de jugabilidad.
  */
+
+import type { Rng } from '../rng.js';
 import { createTown, type Town } from '../town/town.js';
 import type { FactionId, PlayerId, Point, ResourceKind } from '../types.js';
-import { createEmptyMap, findPath, inBounds, pointKey, type GameMap, type MapObject } from './map.js';
+import {
+  createEmptyMap,
+  findPath,
+  type GameMap,
+  inBounds,
+  type MapObject,
+  pointKey,
+} from './map.js';
 import { isWalkable, type TerrainKind } from './terrain.js';
-import type { Rng } from '../rng.js';
 
 export interface TerrainRegion {
   readonly terrain: TerrainKind;
@@ -35,9 +43,21 @@ export interface MapPlan {
   readonly regions: readonly TerrainRegion[];
   readonly towns: readonly PlannedTown[];
   readonly heroStarts: readonly { readonly player: PlayerId; readonly at: Point }[];
-  readonly mines: readonly { readonly at: Point; readonly resource: ResourceKind; readonly owner?: PlayerId }[];
-  readonly resources: readonly { readonly at: Point; readonly resource: ResourceKind; readonly amount: number }[];
-  readonly monsters: readonly { readonly at: Point; readonly creature: string; readonly count: number }[];
+  readonly mines: readonly {
+    readonly at: Point;
+    readonly resource: ResourceKind;
+    readonly owner?: PlayerId;
+  }[];
+  readonly resources: readonly {
+    readonly at: Point;
+    readonly resource: ResourceKind;
+    readonly amount: number;
+  }[];
+  readonly monsters: readonly {
+    readonly at: Point;
+    readonly creature: string;
+    readonly count: number;
+  }[];
   readonly chests: readonly { readonly at: Point; readonly gold: number }[];
   readonly roads?: readonly Point[];
 }
@@ -57,8 +77,10 @@ export interface BuiltMap {
 export function validateMapPlan(plan: MapPlan): string[] {
   const problemas: string[] = [];
 
-  if (plan.width < 8 || plan.height < 8) problemas.push('el mapa es demasiado pequeño (mínimo 8×8)');
-  if (plan.width > 128 || plan.height > 128) problemas.push('el mapa es demasiado grande (máximo 128×128)');
+  if (plan.width < 8 || plan.height < 8)
+    problemas.push('el mapa es demasiado pequeño (mínimo 8×8)');
+  if (plan.width > 128 || plan.height > 128)
+    problemas.push('el mapa es demasiado grande (máximo 128×128)');
 
   const dentro = (p: Point): boolean =>
     p.x >= 0 && p.x < plan.width && p.y >= 0 && p.y < plan.height;
@@ -102,7 +124,10 @@ export function validateMapPlan(plan: MapPlan): string[] {
   // Conectividad real, sobre el mapa ya construido: cada héroe debe poder
   // llegar a cada pueblo. Los monstruos no se cuentan como muro: son la gracia.
   const { map } = buildMap(plan);
-  const sinMonstruos: GameMap = { ...map, objects: map.objects.filter((o) => o.kind !== 'monster') };
+  const sinMonstruos: GameMap = {
+    ...map,
+    objects: map.objects.filter((o) => o.kind !== 'monster'),
+  };
   for (const inicio of plan.heroStarts) {
     for (const pueblo of plan.towns) {
       if (findPath(sinMonstruos, inicio.at, pueblo.at) === null) {
@@ -141,13 +166,33 @@ export function buildMap(plan: MapPlan): BuiltMap {
   const objects: MapObject[] = [];
   for (const t of plan.towns) objects.push({ kind: 'town', id: t.id, at: t.at, owner: t.owner });
   for (const [i, m] of plan.mines.entries()) {
-    objects.push({ kind: 'mine', id: `mine-${i}`, at: m.at, resource: m.resource, owner: m.owner ?? null });
+    objects.push({
+      kind: 'mine',
+      id: `mine-${i}`,
+      at: m.at,
+      resource: m.resource,
+      owner: m.owner ?? null,
+    });
   }
   for (const [i, r] of plan.resources.entries()) {
-    objects.push({ kind: 'resource', id: `res-${i}`, at: r.at, resource: r.resource, amount: r.amount, taken: false });
+    objects.push({
+      kind: 'resource',
+      id: `res-${i}`,
+      at: r.at,
+      resource: r.resource,
+      amount: r.amount,
+      taken: false,
+    });
   }
   for (const [i, m] of plan.monsters.entries()) {
-    objects.push({ kind: 'monster', id: `mon-${i}`, at: m.at, creature: m.creature, count: m.count, defeated: false });
+    objects.push({
+      kind: 'monster',
+      id: `mon-${i}`,
+      at: m.at,
+      creature: m.creature,
+      count: m.count,
+      defeated: false,
+    });
   }
   for (const [i, c] of plan.chests.entries()) {
     objects.push({ kind: 'chest', id: `chest-${i}`, at: c.at, gold: c.gold, taken: false });
@@ -220,9 +265,21 @@ export function generateMapPlan(rng: Rng, opts: ProceduralOptions = {}): MapPlan
   const regions: TerrainRegion[] = [
     { terrain: 'dirt', center: townA, radius: 4 },
     { terrain: 'dirt', center: townB, radius: 4 },
-    { terrain: 'rough', center: { x: Math.floor(width / 2), y: Math.floor(height / 2) }, radius: 5 },
-    { terrain: 'swamp', center: { x: Math.floor(width * 0.25), y: Math.floor(height * 0.75) }, radius: 3 },
-    { terrain: 'snow', center: { x: Math.floor(width * 0.75), y: Math.floor(height * 0.25) }, radius: 3 },
+    {
+      terrain: 'rough',
+      center: { x: Math.floor(width / 2), y: Math.floor(height / 2) },
+      radius: 5,
+    },
+    {
+      terrain: 'swamp',
+      center: { x: Math.floor(width * 0.25), y: Math.floor(height * 0.75) },
+      radius: 3,
+    },
+    {
+      terrain: 'snow',
+      center: { x: Math.floor(width * 0.75), y: Math.floor(height * 0.25) },
+      radius: 3,
+    },
   ];
 
   // Una mina de cada recurso por bando, en espejo.

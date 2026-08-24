@@ -9,14 +9,15 @@
 import { describe, expect, it } from 'vitest';
 import type { BattleAction } from '../src/core/battle/types.js';
 import { newGame } from '../src/core/state/setup.js';
+import { ColaDeVeredictos } from '../src/server/mcp/veredictos.js';
 import {
   describeAccion,
+  MOTIVO_PARTIDA_TERMINADA,
   notaAccionAceptada,
   notaAccionSustituida,
   notaFinDePartida,
   notaRespuestaInvalida,
   notaSinRespuesta,
-  MOTIVO_PARTIDA_TERMINADA,
   notaTurnoAventura,
   PREFIJO_CORTE,
   PREFIJO_FIN,
@@ -26,7 +27,6 @@ import {
   textoDeFin,
 } from '../src/server/notas.js';
 import type { AgentRequestMsg } from '../src/server/protocol.js';
-import { ColaDeVeredictos } from '../src/server/mcp/veredictos.js';
 
 /** Una petición cualquiera, para mirar cómo se compone la escucha. */
 const PETICION: AgentRequestMsg = {
@@ -48,7 +48,10 @@ describe('notas para el agente', () => {
   });
 
   it('un turno con descartes dice cuántos entraron y que no se reintentan', () => {
-    const nota = notaTurnoAventura(3, 2, 4, ['build: ese pueblo no es tuyo', 'move_hero: héroe desconocido']);
+    const nota = notaTurnoAventura(3, 2, 4, [
+      'build: ese pueblo no es tuyo',
+      'move_hero: héroe desconocido',
+    ]);
     expect(nota).toContain('2 de 4');
     expect(nota).toContain('2 descartadas');
     expect(nota).toMatch(/NO se reintentan/);
@@ -142,7 +145,9 @@ describe('notas para el agente', () => {
     // Decía `action.type` a secas: el agente recibía «move_hero: no hay camino»
     // con cuatro `move_hero` en el mismo turno y sin forma de saber cuál.
     expect(describeAccion({ type: 'move_hero', hero: 'h1', to: { x: 4, y: 7 } })).toContain('h1');
-    expect(describeAccion({ type: 'move_hero', hero: 'h1', to: { x: 4, y: 7 } })).toContain('(4,7)');
+    expect(describeAccion({ type: 'move_hero', hero: 'h1', to: { x: 4, y: 7 } })).toContain(
+      '(4,7)',
+    );
     expect(describeAccion({ type: 'build', building: 'town_hall', town: 't2' })).toBe(
       'build town_hall en t2',
     );
@@ -225,7 +230,12 @@ describe('cómo acabó la partida, contado al agente', () => {
 describe('cola de veredictos del puente', () => {
   it('entrega el veredicto también cuando fue bien, y con su nota', () => {
     const cola = new ColaDeVeredictos();
-    cola.anota({ type: 'result', requestId: 'req-7', ok: true, note: 'Turno del día 2 aplicado entero: 3 acciones.' });
+    cola.anota({
+      type: 'result',
+      requestId: 'req-7',
+      ok: true,
+      note: 'Turno del día 2 aplicado entero: 3 acciones.',
+    });
 
     const texto = cola.recoge();
     expect(texto).toContain('✓ req-7');

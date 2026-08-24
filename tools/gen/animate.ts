@@ -22,8 +22,7 @@ import { join } from 'node:path';
 import sharp from 'sharp';
 import { cutoutBackground, detectBackgroundColor, transparencyRatio } from './cutout.js';
 import { FalClient, toDataUri } from './fal.js';
-import { STYLE_TOKEN } from './prompts.js';
-import { CREATURE_PROMPTS } from './prompts.js';
+import { CREATURE_PROMPTS, STYLE_TOKEN } from './prompts.js';
 
 const ROOT = process.cwd();
 const CACHE_DIR = join(ROOT, 'tools', 'gen', '.cache');
@@ -60,7 +59,10 @@ function layoutFor(n: number): { cols: number; rows: number } {
 }
 
 /** Rejilla con el mismo sprite repetido: el lienzo que el modelo va a repintar. */
-async function composeGrid(sprite: string, n: number): Promise<{ buffer: Buffer; cols: number; rows: number }> {
+async function composeGrid(
+  sprite: string,
+  n: number,
+): Promise<{ buffer: Buffer; cols: number; rows: number }> {
   const { cols, rows } = layoutFor(n);
   const celda = await sharp(sprite)
     .resize(CELL, CELL, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
@@ -149,7 +151,9 @@ async function main(): Promise<void> {
       try {
         await animar(c, go, POSES.length);
       } catch (err) {
-        console.error(`  \x1b[31m[error]\x1b[0m ${c}: ${err instanceof Error ? err.message : String(err)}`);
+        console.error(
+          `  \x1b[31m[error]\x1b[0m ${c}: ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
     }
     return;
@@ -255,7 +259,9 @@ async function animar(id: string, go: boolean, n: number): Promise<void> {
     });
     const vacio = await transparencyRatio(limpio);
     if (vacio < 0.1) {
-      console.warn(`  [aviso] la pose "${POSES[i]!.id}" apenas ha perdido fondo (${Math.round(vacio * 100)}%)`);
+      console.warn(
+        `  [aviso] la pose "${POSES[i]!.id}" apenas ha perdido fondo (${Math.round(vacio * 100)}%)`,
+      );
     }
 
     await sharp(limpio)

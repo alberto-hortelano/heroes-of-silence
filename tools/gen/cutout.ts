@@ -24,10 +24,11 @@ export interface CutoutOptions {
 }
 
 /** Color de fondo de una imagen: mediana de sus cuatro esquinas. */
-export async function detectBackgroundColor(
-  input: Buffer,
-): Promise<[number, number, number]> {
-  const { data, info } = await sharp(input).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+export async function detectBackgroundColor(input: Buffer): Promise<[number, number, number]> {
+  const { data, info } = await sharp(input)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
   const { width, height, channels } = info;
   const at = (x: number, y: number): number => (y * width + x) * channels;
   const esquinas = [at(0, 0), at(width - 1, 0), at(0, height - 1), at(width - 1, height - 1)].map(
@@ -107,9 +108,7 @@ export async function cutoutBackground(
     if (visto[i] === 1) data[i * channels + 3] = 0;
   }
 
-  const recortado = await sharp(data, { raw: { width, height, channels } })
-    .png()
-    .toBuffer();
+  const recortado = await sharp(data, { raw: { width, height, channels } }).png().toBuffer();
 
   // Un desenfoque mínimo solo del alfa suaviza el borde del recorte.
   const feather = options.feather ?? 0;

@@ -1,31 +1,31 @@
 import { describe, expect, it } from 'vitest';
+import { planBuildings, planHires, planRecruits } from '../src/core/ai/strategy.js';
+import { chooseBattleAction } from '../src/core/ai/tactics.js';
+import { createBattle, legalActions } from '../src/core/battle/battle.js';
 import {
   adventureActionSchema,
   battleActionSchema,
   mapPlanSchema,
-  responseSchemas,
-  RESPONSE_FORMAT,
   REQUEST_KINDS,
+  RESPONSE_FORMAT,
+  responseSchemas,
 } from '../src/core/contract/agent.js';
 import {
   serializeAdventureTurn,
   serializeBattleTurn,
   serializeMapRequest,
 } from '../src/core/contract/serialize.js';
-import { chooseBattleAction } from '../src/core/ai/tactics.js';
-import { planBuildings, planHires, planRecruits } from '../src/core/ai/strategy.js';
-import { createBattle, legalActions } from '../src/core/battle/battle.js';
 import { generateMapPlan } from '../src/core/map/generate.js';
+import { pointKey } from '../src/core/map/map.js';
 import { createRng } from '../src/core/rng.js';
 import {
+  applyAdventureAction,
   heroesOf,
   resolvePendingBattle,
-  applyAdventureAction,
   revealEverything,
   visibleNow,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
-import { pointKey } from '../src/core/map/map.js';
 import { mageGuildLevel, townSpells } from '../src/core/town/town.js';
 import { forzarBatalla } from './helpers.js';
 
@@ -58,7 +58,16 @@ describe('contrato con el agente', () => {
   it('las acciones de batalla de la IA pasan su esquema', () => {
     const rng = createRng(88);
     const battle = createBattle(
-      { army: [{ creature: 'swordsman', count: 10 }, { creature: 'archer', count: 6 }, null, null, null], hero: null },
+      {
+        army: [
+          { creature: 'swordsman', count: 10 },
+          { creature: 'archer', count: 6 },
+          null,
+          null,
+          null,
+        ],
+        hero: null,
+      },
       { army: [{ creature: 'skeleton', count: 20 }, null, null, null, null], hero: null },
       rng,
     );
@@ -113,9 +122,7 @@ describe('lo que ve el agente', () => {
     revealEverything(state, 0);
     const mirando = visibleNow(state, 0);
 
-    const lejos = state.map.objects.find(
-      (o) => o.kind === 'mine' && !mirando.has(pointKey(o.at)),
-    );
+    const lejos = state.map.objects.find((o) => o.kind === 'mine' && !mirando.has(pointKey(o.at)));
     expect(lejos, 'la semilla no deja ninguna mina fuera de la vista').toBeDefined();
     if (lejos === undefined || lejos.kind !== 'mine') throw new Error('sin mina lejana');
 
@@ -197,7 +204,12 @@ describe('lo que ve el agente', () => {
     };
     expect(sinGremio.towns.find((t) => t.id === town.id)!.teaches).toEqual([]);
 
-    applyAdventureAction(state, { type: 'build', town: town.id, building: 'mage_guild_1' }, c, state.current);
+    applyAdventureAction(
+      state,
+      { type: 'build', town: town.id, building: 'mage_guild_1' },
+      c,
+      state.current,
+    );
 
     const payload = serializeAdventureTurn(state, 0) as {
       heroes: { id: string; spells: string[] }[];
@@ -263,7 +275,18 @@ describe('respuestas del agente', () => {
 
   it('rechaza un plan de mapa fuera de límites', () => {
     const r = responseSchemas.map_generate.safeParse({
-      plan: { width: 500, height: 4, baseTerrain: 'grass', regions: [], towns: [], heroStarts: [], mines: [], resources: [], monsters: [], chests: [] },
+      plan: {
+        width: 500,
+        height: 4,
+        baseTerrain: 'grass',
+        regions: [],
+        towns: [],
+        heroStarts: [],
+        mines: [],
+        resources: [],
+        monsters: [],
+        chests: [],
+      },
     });
     expect(r.success).toBe(false);
   });

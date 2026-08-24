@@ -5,14 +5,46 @@
  * ocho direcciones, como HoMM2.
  */
 import type { Point, ResourceKind } from '../types.js';
-import { DIAGONAL_FACTOR, isWalkable, ROAD_COST, TERRAIN_COST, type TerrainKind } from './terrain.js';
+import {
+  DIAGONAL_FACTOR,
+  isWalkable,
+  ROAD_COST,
+  TERRAIN_COST,
+  type TerrainKind,
+} from './terrain.js';
 
 export type MapObject =
-  | { readonly kind: 'mine'; readonly id: string; readonly at: Point; readonly resource: ResourceKind; owner: number | null }
-  | { readonly kind: 'resource'; readonly id: string; readonly at: Point; readonly resource: ResourceKind; readonly amount: number; taken: boolean }
+  | {
+      readonly kind: 'mine';
+      readonly id: string;
+      readonly at: Point;
+      readonly resource: ResourceKind;
+      owner: number | null;
+    }
+  | {
+      readonly kind: 'resource';
+      readonly id: string;
+      readonly at: Point;
+      readonly resource: ResourceKind;
+      readonly amount: number;
+      taken: boolean;
+    }
   | { readonly kind: 'town'; readonly id: string; readonly at: Point; owner: number | null }
-  | { readonly kind: 'monster'; readonly id: string; readonly at: Point; readonly creature: string; count: number; defeated: boolean }
-  | { readonly kind: 'chest'; readonly id: string; readonly at: Point; readonly gold: number; taken: boolean };
+  | {
+      readonly kind: 'monster';
+      readonly id: string;
+      readonly at: Point;
+      readonly creature: string;
+      count: number;
+      defeated: boolean;
+    }
+  | {
+      readonly kind: 'chest';
+      readonly id: string;
+      readonly at: Point;
+      readonly gold: number;
+      taken: boolean;
+    };
 
 export interface GameMap {
   readonly width: number;
@@ -218,7 +250,11 @@ export function visibleFrom(map: GameMap, p: Point, radius: number): string[] {
   return out;
 }
 
-export function createEmptyMap(width: number, height: number, fill: TerrainKind = 'grass'): GameMap {
+export function createEmptyMap(
+  width: number,
+  height: number,
+  fill: TerrainKind = 'grass',
+): GameMap {
   return {
     width,
     height,

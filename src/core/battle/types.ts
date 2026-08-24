@@ -64,14 +64,36 @@ export interface BattleHero {
 export type BattleEvent =
   | { kind: 'round_start'; round: number }
   | { kind: 'move'; stack: string; to: Hex }
-  | { kind: 'attack'; stack: string; target: string; damage: number; killed: number; retaliation: boolean; charge?: number }
-  | { kind: 'shoot'; stack: string; target: string; damage: number; killed: number; splash?: boolean }
+  | {
+      kind: 'attack';
+      stack: string;
+      target: string;
+      damage: number;
+      killed: number;
+      retaliation: boolean;
+      charge?: number;
+    }
+  | {
+      kind: 'shoot';
+      stack: string;
+      target: string;
+      damage: number;
+      killed: number;
+      splash?: boolean;
+    }
   | { kind: 'wait'; stack: string }
   | { kind: 'defend'; stack: string }
   | { kind: 'cast'; side: Side; spell: string; target?: string; damage?: number; killed?: number }
   | { kind: 'morale'; stack: string; good: boolean }
   | { kind: 'luck'; stack: string; good: boolean }
-  | { kind: 'effect'; stack: string; effect: EffectKind; amount: number; source: string; rounds: number }
+  | {
+      kind: 'effect';
+      stack: string;
+      effect: EffectKind;
+      amount: number;
+      source: string;
+      rounds: number;
+    }
   | { kind: 'effect_end'; stack: string; source: string }
   | { kind: 'immune'; stack: string; source: string }
   | { kind: 'perished'; stack: string }

@@ -19,22 +19,16 @@ import {
   occupiedHexes,
   reachable,
 } from './board.js';
-import { applyDamage, computeDamage, CHANCE_PER_POINT } from './damage.js';
+import { applyDamage, CHANCE_PER_POINT, computeDamage } from './damage.js';
 import {
   applyEffect,
   clampMoraleLuck,
   effectTotal,
-  tickEffects,
   type StackEffect,
+  tickEffects,
 } from './effects.js';
-import { castSpell, effectOfSpell, spell, type Spell } from './spells.js';
-import type {
-  BattleAction,
-  BattleHero,
-  BattleStack,
-  BattleState,
-  Side,
-} from './types.js';
+import { castSpell, effectOfSpell, type Spell, spell } from './spells.js';
+import type { BattleAction, BattleHero, BattleStack, BattleState, Side } from './types.js';
 import { SIDES } from './types.js';
 
 export interface BattleSide {
@@ -70,11 +64,7 @@ export function armyMorale(army: Army): number {
   return -(factions.size - 2);
 }
 
-export function createBattle(
-  attacker: BattleSide,
-  defender: BattleSide,
-  _rng: Rng,
-): BattleState {
+export function createBattle(attacker: BattleSide, defender: BattleSide, _rng: Rng): BattleState {
   const stacks: BattleStack[] = [];
 
   for (const [side, setup] of [
@@ -83,7 +73,9 @@ export function createBattle(
   ] as const) {
     const filled = setup.army
       .map((stack, slot) => ({ stack, slot }))
-      .filter((s): s is { stack: NonNullable<(typeof s)['stack']>; slot: number } => s.stack !== null);
+      .filter(
+        (s): s is { stack: NonNullable<(typeof s)['stack']>; slot: number } => s.stack !== null,
+      );
 
     const rows = ROWS_BY_COUNT[filled.length] ?? ROWS_BY_COUNT[5]!;
     const baseMorale = armyMorale(setup.army) + (setup.moraleBonus ?? 0);
@@ -628,9 +620,7 @@ function shoot(state: BattleState, shooter: BattleStack, target: BattleStack, rn
 
   for (let i = 0; i < shots && isAlive(target); i++) {
     const distance = Math.min(
-      ...stackHexes(shooter).flatMap((sh) =>
-        stackHexes(target).map((th) => hexDistance(sh, th)),
-      ),
+      ...stackHexes(shooter).flatMap((sh) => stackHexes(target).map((th) => hexDistance(sh, th))),
     );
     const result = computeDamage(
       shooter,
@@ -746,12 +736,7 @@ export function castBlocker(
 }
 
 /** Por qué este stack no vale como objetivo de este hechizo. */
-function targetBlocker(
-  hero: BattleHero,
-  s: Spell,
-  side: Side,
-  target: BattleStack,
-): string | null {
+function targetBlocker(hero: BattleHero, s: Spell, side: Side, target: BattleStack): string | null {
   if (!isAlive(target)) return 'el objetivo ya está destruido';
   const wantsEnemy = s.target === 'enemy';
   if (wantsEnemy === (target.side === side)) {

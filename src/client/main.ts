@@ -6,16 +6,11 @@
  * de dibujo.
  */
 import { stackHexes } from '@core/battle/battle.js';
-import { BattleAnimator, type Pose } from './anim.js';
 import { hexKey } from '@core/battle/board.js';
 import type { BattleStack } from '@core/battle/types.js';
 import type { Point } from '@core/types.js';
-import {
-  cameraFor,
-  drawAdventure,
-  tileAtPixel,
-  type AdventureCamera,
-} from './render/adventure.js';
+import { BattleAnimator, type Pose } from './anim.js';
+import { type AdventureCamera, cameraFor, drawAdventure, tileAtPixel } from './render/adventure.js';
 import { assetCount, loadAssets, onAssetsChanged } from './render/assets.js';
 import { battleOffset, drawBattle, hexAtPixel } from './render/battle.js';
 import {
@@ -24,9 +19,9 @@ import {
   hitAtPixel,
   nextOf,
   plotById,
-  townLayout,
   type TownHit,
   type TownTransform,
+  townLayout,
 } from './render/town.js';
 import { Session } from './session.js';
 import { renderActions, renderSide, renderTopbar } from './views/panels.js';
@@ -125,8 +120,7 @@ function render(): void {
       // Sin hechizo elegido no hay nada que anillar: se reparte el conjunto
       // vacío en vez de montar uno nuevo en cada fotograma, que a 60 fps
       // mientras dura una animación son sesenta por segundo para nada.
-      castTargets:
-        session.selectedSpell === null ? SIN_OBJETIVOS : new Set(session.castTargets()),
+      castTargets: session.selectedSpell === null ? SIN_OBJETIVOS : new Set(session.castTargets()),
       offset: battleShift,
       poses,
     });
@@ -134,8 +128,7 @@ function render(): void {
     // Mientras haya una pose en marcha hay que seguir repintando.
     if (animator.busy) needsRender = true;
   } else {
-    const centro = session.selectedHero?.at ??
-      session.myTowns()[0]?.at ?? { x: 0, y: 0 };
+    const centro = session.selectedHero?.at ?? session.myTowns()[0]?.at ?? { x: 0, y: 0 };
     camera = cameraFor(session.state, centro, rect.width, rect.height);
     drawAdventure(ctx!, {
       state: session.state,
@@ -171,7 +164,7 @@ canvas.addEventListener('mousemove', (ev) => {
     session.status = describeHit(session.activeTown, session.resources, hoverTown);
   } else if (session.scene === 'battle') {
     hoverHex = hexAtPixel(px, py, battleShift);
-    hoverStack = hoverHex === null ? null : stackAt(hoverHex)?.id ?? null;
+    hoverStack = hoverHex === null ? null : (stackAt(hoverHex)?.id ?? null);
     canvas.style.cursor = hoverStack !== null ? 'crosshair' : 'pointer';
   } else {
     const tile = tileAtPixel(camera, px, py);
@@ -283,8 +276,9 @@ function handleBattleClick(px: number, py: number): void {
       return;
     }
     const cuerpoACuerpo =
-      acciones.find((a) => a.type === 'attack' && a.target === objetivo.id && a.from === undefined) ??
-      acciones.find((a) => a.type === 'attack' && a.target === objetivo.id);
+      acciones.find(
+        (a) => a.type === 'attack' && a.target === objetivo.id && a.from === undefined,
+      ) ?? acciones.find((a) => a.type === 'attack' && a.target === objetivo.id);
     if (cuerpoACuerpo !== undefined) {
       session.playBattleAction(cuerpoACuerpo);
       return;
@@ -293,9 +287,7 @@ function handleBattleClick(px: number, py: number): void {
     return;
   }
 
-  const movimiento = acciones.find(
-    (a) => a.type === 'move' && hexKey(a.to) === hexKey(hex),
-  );
+  const movimiento = acciones.find((a) => a.type === 'move' && hexKey(a.to) === hexKey(hex));
   if (movimiento !== undefined) {
     session.playBattleAction(movimiento);
     return;

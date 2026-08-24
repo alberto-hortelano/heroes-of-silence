@@ -20,7 +20,7 @@ import {
 import { hexDistance } from '../battle/board.js';
 import { CHANCE_PER_POINT, stackHp } from '../battle/damage.js';
 import { roundsLeftOf } from '../battle/effects.js';
-import { effectOfSpell, spell, spellAmount, type Spell } from '../battle/spells.js';
+import { effectOfSpell, type Spell, spell, spellAmount } from '../battle/spells.js';
 import type { BattleAction, BattleHero, BattleStack, BattleState, Side } from '../battle/types.js';
 import { creature, hasTrait, isShooter } from '../data.js';
 import type { Rng } from '../rng.js';
@@ -102,10 +102,7 @@ function spellValue(caster: BattleHero, sp: Spell, objetivo: BattleStack): numbe
     case 'heal':
       // Sale ≈0 salvo con un stack tocado, y está bien: la Curación no se lanza
       // por lanzarla. No necesita caso especial para quedar fuera del umbral.
-      return Math.min(
-        spellAmount(sp, caster),
-        creature(objetivo.creature).hp - objetivo.topHp,
-      );
+      return Math.min(spellAmount(sp, caster), creature(objetivo.creature).hp - objetivo.topHp);
   }
 }
 
@@ -121,7 +118,11 @@ function spellValue(caster: BattleHero, sp: Spell, objetivo: BattleStack): numbe
  * Reutiliza las acciones que ya trae el llamante: ni una llamada más a
  * `legalActions`, que es lo caro.
  */
-function bestCast(state: BattleState, s: BattleStack, acciones: readonly BattleAction[]): BattleAction | null {
+function bestCast(
+  state: BattleState,
+  s: BattleStack,
+  acciones: readonly BattleAction[],
+): BattleAction | null {
   const hero = state.heroes[s.side];
   if (hero === null) return null;
 
@@ -193,7 +194,9 @@ export function chooseBattleAction(state: BattleState): BattleAction {
   const alcanzables = enemigos.filter((e) => canReachMelee(s, e));
   const cercano = bestTarget(alcanzables);
   if (cercano !== null) {
-    const ataque = acciones.find((a) => a.type === 'attack' && a.target === cercano.id && a.from === undefined);
+    const ataque = acciones.find(
+      (a) => a.type === 'attack' && a.target === cercano.id && a.from === undefined,
+    );
     if (ataque !== undefined) return ataque;
   }
 

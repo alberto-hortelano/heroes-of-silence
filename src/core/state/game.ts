@@ -5,12 +5,13 @@
  * pasar. Cuando todos han pasado, avanza el día; los lunes crecen las moradas.
  */
 import { autoResolve, type BattleOutcome } from '../ai/tactics.js';
-import { createBattle, type BattleSide } from '../battle/battle.js';
+import { type BattleSide, createBattle } from '../battle/battle.js';
 import type { BattleHero, BattleState, Side } from '../battle/types.js';
 import { SIDES } from '../battle/types.js';
 import { creature } from '../data.js';
 import {
   addToArmy,
+  type Hero,
   isArmyEmpty,
   learnable,
   luckBonus,
@@ -18,9 +19,15 @@ import {
   maxMovePoints,
   moraleBonus,
   pruneArmy,
-  type Hero,
 } from '../hero/hero.js';
-import { findPath, objectAt, pointKey, visibleFrom, type GameMap, type MapObject } from '../map/map.js';
+import {
+  findPath,
+  type GameMap,
+  type MapObject,
+  objectAt,
+  pointKey,
+  visibleFrom,
+} from '../map/map.js';
 import type { Rng } from '../rng.js';
 import {
   applyWeeklyGrowth,
@@ -29,10 +36,19 @@ import {
   mageGuildLevel,
   moraleFromBuildings,
   payRecruit,
-  townSpells,
   type Town,
+  townSpells,
 } from '../town/town.js';
-import type { Army, Controller, FactionId, PlayerId, Point, ResourceKind, Resources, Stack } from '../types.js';
+import type {
+  Army,
+  Controller,
+  FactionId,
+  PlayerId,
+  Point,
+  ResourceKind,
+  Resources,
+  Stack,
+} from '../types.js';
 import { addResources, EMPTY_RESOURCES } from '../types.js';
 
 export interface Player {
@@ -130,7 +146,12 @@ export const MAX_HEROES_PER_PLAYER = 4;
 export type AdventureAction =
   | { readonly type: 'move_hero'; readonly hero: string; readonly to: Point }
   | { readonly type: 'hire_hero'; readonly town: string }
-  | { readonly type: 'recruit'; readonly town: string; readonly creature: string; readonly count: number }
+  | {
+      readonly type: 'recruit';
+      readonly town: string;
+      readonly creature: string;
+      readonly count: number;
+    }
   | { readonly type: 'build'; readonly town: string; readonly building: string }
   | { readonly type: 'end_turn' };
 
@@ -214,7 +235,11 @@ export function createGame(config: GameConfig): GameState {
     map: config.map,
     players,
     heroes: config.heroes.map((h) => ({ ...h, army: [...h.army] })),
-    towns: config.towns.map((t) => ({ ...t, available: { ...t.available }, buildings: [...t.buildings] })),
+    towns: config.towns.map((t) => ({
+      ...t,
+      available: { ...t.available },
+      buildings: [...t.buildings],
+    })),
     current: config.players[0]?.id ?? 0,
     pendingBattle: null,
     finished: null,
@@ -336,7 +361,7 @@ function nextPlayer(state: GameState): void {
     if (jugador.defeated) continue;
 
     // Si damos la vuelta al orden, empieza un día nuevo.
-    if ((actual + i) >= orden.length) advanceDay(state);
+    if (actual + i >= orden.length) advanceDay(state);
     state.current = candidato;
     startTurn(state);
     return;
@@ -491,9 +516,7 @@ function aplicar(state: GameState, action: AdventureAction, ctx: GameContext): v
       if (town.owner !== player.id) throw new Error('ese pueblo no es tuyo');
 
       // Va al héroe que esté en el pueblo; si no hay ninguno, a la guarnición.
-      const hero = heroesOf(state, player.id).find(
-        (h) => pointKey(h.at) === pointKey(town.at),
-      );
+      const hero = heroesOf(state, player.id).find((h) => pointKey(h.at) === pointKey(town.at));
       const destino: Army = hero?.army ?? town.garrison;
       const ampliado = addToArmy(destino, action.creature, action.count);
       if (ampliado === null) throw new Error('no quedan huecos en el ejército');
@@ -768,7 +791,10 @@ function defenderSide(state: GameState, foe: BattleFoe): BattleSide {
     case 'monster': {
       const obj = state.map.objects.find((o) => o.id === foe.objectId);
       if (obj === undefined || obj.kind !== 'monster') throw new Error('monstruo no encontrado');
-      return { army: [{ creature: obj.creature, count: obj.count }, null, null, null, null], hero: null };
+      return {
+        army: [{ creature: obj.creature, count: obj.count }, null, null, null, null],
+        hero: null,
+      };
     }
     case 'hero': {
       const enemigo = heroById(state, foe.heroId);

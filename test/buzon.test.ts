@@ -148,10 +148,9 @@ describe('buzón del puente', () => {
 
     const primera = await enPlazo(buzon.espera());
     const segunda = await enPlazo(buzon.espera());
-    expect([primera, segunda].map((a) => (a.clase === 'peticion' ? a.msg.requestId : a.clase))).toEqual([
-      'req-1',
-      'req-2',
-    ]);
+    expect(
+      [primera, segunda].map((a) => (a.clase === 'peticion' ? a.msg.requestId : a.clase)),
+    ).toEqual(['req-1', 'req-2']);
   });
 
   it('dos escuchas a la vez no dejan colgada a la primera', async () => {

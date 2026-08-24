@@ -98,9 +98,7 @@ export function computeDamage(
   if (opts.ranged === true && (opts.distance ?? 0) > 5) base *= 0.5;
 
   // Carga. El contraataque pasa siempre 0 hexes: se contraataca desde el sitio.
-  const charge = hasTrait(info, 'charge')
-    ? Math.min(opts.chargeHexes ?? 0, MAX_CHARGE_HEXES)
-    : 0;
+  const charge = hasTrait(info, 'charge') ? Math.min(opts.chargeHexes ?? 0, MAX_CHARGE_HEXES) : 0;
   if (charge > 0) base *= 1 + charge * CHARGE_BONUS_PER_HEX;
 
   const luck = effectiveLuck(attacker);

@@ -1,7 +1,7 @@
 /** Arranque de partida: del plan de mapa a un `GameState` listo para jugar. */
 import { factionLineup } from '../data.js';
-import { emptyArmy, maxMana, maxMovePoints, type Hero } from '../hero/hero.js';
-import { buildMap, generateMapPlan, validateMapPlan, type MapPlan } from '../map/generate.js';
+import { emptyArmy, type Hero, maxMana, maxMovePoints } from '../hero/hero.js';
+import { buildMap, generateMapPlan, type MapPlan, validateMapPlan } from '../map/generate.js';
 import { createRng, type Rng } from '../rng.js';
 import type { Controller, FactionId, PlayerId } from '../types.js';
 import { createGame, type GameState } from './game.js';

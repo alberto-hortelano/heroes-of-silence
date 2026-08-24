@@ -244,7 +244,9 @@ async function main(): Promise<void> {
         console.log(`  \x1b[32m[listo]\x1b[0m ${job.out} (${kb} kB)`);
       }
     } catch (err) {
-      console.error(`  \x1b[31m[error]\x1b[0m ${job.group}/${job.name}: ${err instanceof Error ? err.message : String(err)}`);
+      console.error(
+        `  \x1b[31m[error]\x1b[0m ${job.group}/${job.name}: ${err instanceof Error ? err.message : String(err)}`,
+      );
       if (err instanceof Error && err.message.includes('tope de gasto')) break;
     }
   }

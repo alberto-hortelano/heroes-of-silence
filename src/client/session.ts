@@ -8,11 +8,11 @@
 import { chooseBattleAction } from '@core/ai/tactics.js';
 import { playAiTurn } from '@core/ai/turn.js';
 import {
+  activeStack,
   applyAction,
   castBlocker,
   legalActions,
   movableHexes,
-  activeStack,
 } from '@core/battle/battle.js';
 import { spell } from '@core/battle/spells.js';
 import type { BattleAction, BattleStack, BattleState, Side } from '@core/battle/types.js';
@@ -20,6 +20,8 @@ import { findPath, type PathStep } from '@core/map/map.js';
 import { createRng } from '@core/rng.js';
 import {
   applyAdventureAction,
+  type GameContext,
+  type GameState,
   heroById,
   heroesOf,
   resolvePendingBattle,
@@ -28,8 +30,6 @@ import {
   townById,
   townsOf,
   turnBlocker,
-  type GameContext,
-  type GameState,
 } from '@core/state/game.js';
 import { newGame } from '@core/state/setup.js';
 import type { Hex, Point } from '@core/types.js';
@@ -136,7 +136,10 @@ export class Session {
 
     const puebloAqui = this.myTowns().find((t) => t.at.x === p.x && t.at.y === p.y);
     const heroSeleccionado = this.selectedHero;
-    if (puebloAqui !== undefined && (heroSeleccionado === null || sameTile(heroSeleccionado.at, p))) {
+    if (
+      puebloAqui !== undefined &&
+      (heroSeleccionado === null || sameTile(heroSeleccionado.at, p))
+    ) {
       this.openTown(puebloAqui.id);
       return;
     }
@@ -408,7 +411,9 @@ export class Session {
     if (turno === null || elegido === null) return '';
     const motivo = castBlocker(turno.battle, turno.side, elegido, targetId);
     if (motivo === null) {
-      throw new Error(`${spell(elegido).name} no se ofrece sobre ${targetId} y el núcleo no dice por qué`);
+      throw new Error(
+        `${spell(elegido).name} no se ofrece sobre ${targetId} y el núcleo no dice por qué`,
+      );
     }
     return motivo;
   }
@@ -497,8 +502,7 @@ export class Session {
       this.selectedHeroId = this.myHeroes()[0]?.id ?? null;
     }
     if (this.state.finished !== null) {
-      this.status =
-        this.state.finished.winner === this.viewer ? '¡Victoria!' : 'Derrota.';
+      this.status = this.state.finished.winner === this.viewer ? '¡Victoria!' : 'Derrota.';
     }
   }
 
@@ -541,7 +545,9 @@ export class Session {
    */
   private bloqueoDeTurno(): string | null {
     if (this.isPlayersTurn) return null;
-    return turnBlocker(this.state, this.viewer) ?? 'Espera: el turno del rival aún se está resolviendo.';
+    return (
+      turnBlocker(this.state, this.viewer) ?? 'Espera: el turno del rival aún se está resolviendo.'
+    );
   }
 }
 

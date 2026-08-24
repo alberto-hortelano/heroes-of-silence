@@ -3,11 +3,11 @@ import type { AddressInfo } from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
 import { creature } from '../src/core/data.js';
-import { pointKey, reachableCosts } from '../src/core/map/map.js';
-import { applyAdventureAction, revealEverything, type GameState } from '../src/core/state/game.js';
-import type { Point } from '../src/core/types.js';
-import type { Town } from '../src/core/town/town.js';
 import type { Hero } from '../src/core/hero/hero.js';
+import { pointKey, reachableCosts } from '../src/core/map/map.js';
+import { applyAdventureAction, type GameState, revealEverything } from '../src/core/state/game.js';
+import type { Town } from '../src/core/town/town.js';
+import type { Point } from '../src/core/types.js';
 import { AgentLink } from '../src/server/agent-link.js';
 import { responderConsulta } from '../src/server/consultas.js';
 import { Director } from '../src/server/director.js';
@@ -73,7 +73,12 @@ async function conectaAgente(
       return;
     }
     if (msg.type === 'result') {
-      results.push({ requestId: msg.requestId, ok: msg.ok, problems: msg.problems, note: msg.note });
+      results.push({
+        requestId: msg.requestId,
+        ok: msg.ok,
+        problems: msg.problems,
+        note: msg.note,
+      });
       return;
     }
     if (msg.type !== 'request') return;
@@ -315,7 +320,11 @@ describe('enlace con el agente', () => {
     // El nuevo sigue siendo el agente, y su petición sigue viva.
     expect(link.connected).toBe(true);
     nuevo.socket.send(
-      JSON.stringify({ type: 'response', requestId: nuevo.seen[0]!.requestId, data: { actions: [] } }),
+      JSON.stringify({
+        type: 'response',
+        requestId: nuevo.seen[0]!.requestId,
+        data: { actions: [] },
+      }),
     );
     const respuesta = await segunda;
     expect(respuesta.requestId).toBe(nuevo.seen[0]!.requestId);
@@ -352,13 +361,7 @@ describe('enlace con el agente', () => {
     // al que atacar, y el test no probaría nada.
     revealEverything(director.state, 0);
     // Se le da un ejército de sobra para que la batalla la gane él.
-    director.state.heroes[0]!.army = [
-      { creature: 'paladin', count: 40 },
-      null,
-      null,
-      null,
-      null,
-    ];
+    director.state.heroes[0]!.army = [{ creature: 'paladin', count: 40 }, null, null, null, null];
     director.state.heroes[0]!.movePoints = 20000;
 
     const informe = await director.playTurn();
@@ -662,7 +665,9 @@ describe('el agente sabe cómo le fue', () => {
     // consiguió en una partida de verdad.
     const { link, agent } = await montar((kind, payload) => {
       if (kind === 'adventure_turn') {
-        const monstruo = payload.knownMap.objects.find((o: any) => o.kind === 'monster' && !o.defeated);
+        const monstruo = payload.knownMap.objects.find(
+          (o: any) => o.kind === 'monster' && !o.defeated,
+        );
         if (monstruo === undefined) throw new Error('el mapa de esta semilla no trae monstruos');
         return { actions: [{ type: 'move_hero', hero: payload.heroes[0].id, to: monstruo.at }] };
       }
@@ -716,7 +721,9 @@ describe('el agente sabe cómo le fue', () => {
     await respira();
 
     const deBatalla = agent.seen.filter((p) => p.kind === 'battle_turn').map((p) => p.requestId);
-    const deAventura = agent.seen.filter((p) => p.kind === 'adventure_turn').map((p) => p.requestId);
+    const deAventura = agent.seen
+      .filter((p) => p.kind === 'adventure_turn')
+      .map((p) => p.requestId);
     expect(deBatalla.length).toBeGreaterThan(0);
     expect(deAventura.length).toBeGreaterThan(0);
 
@@ -749,7 +756,10 @@ describe('el agente sabe cómo le fue', () => {
   it('una partida que revienta también se cuenta, sin inventarse un ganador', async () => {
     const { link, agent } = await montar(() => ({ actions: [] }));
 
-    link.gameOver(null, 'La partida se ha interrumpido por un fallo del servidor: se acabó el mapa');
+    link.gameOver(
+      null,
+      'La partida se ha interrumpido por un fallo del servidor: se acabó el mapa',
+    );
     await respira();
 
     expect(agent.finales).toHaveLength(1);
