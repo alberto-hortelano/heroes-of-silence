@@ -12,10 +12,16 @@ existe**.
 | `qa.md` | `qa` | **sí** — qué se verificó y con qué evidencia |
 | `plan.md` | `arquitecto` | no |
 | `implementacion.md` | `ingeniero` | no |
+| `commits/*.patch` | `ingeniero` | no — andamio del reparto |
 
-Los tres primeros describen **decisiones** y envejecen bien. Los dos últimos
-describen código, y el código cambia: commiteados, a los tres meses son
-documentación falsa que alguien se cree. Los ignora `.gitignore`, no la memoria
-de nadie.
+Los tres primeros describen **decisiones** y envejecen bien. Los demás describen
+código, y el código cambia: commiteados, a los tres meses son documentación
+falsa que alguien se cree. Los ignora `.gitignore`, no la memoria de nadie.
+
+Los parches de `commits/` son el reparto en commits que propone el ingeniero:
+sirven una vez, para que el coordinador los aplique en orden, y en cuanto los
+commits existen el historial de git los cuenta mejor. Además llevan dentro lo
+que el commit **quita**, así que un parche que arregla una ruta absoluta la
+lleva escrita — y el guardia de `test/invariantes.test.ts` lo caza, con razón.
 
 El ciclo se lanza con la skill `/feature`.

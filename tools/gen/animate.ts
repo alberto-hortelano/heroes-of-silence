@@ -229,7 +229,6 @@ async function animar(id: string, go: boolean, n: number): Promise<void> {
   const altoCelda = Math.floor((meta.height ?? rows * CELL) / rows);
 
   mkdirSync(join(OUT_DIR, id), { recursive: true });
-  const frames: { frame: { x: number; y: number; w: number; h: number }; duration: number }[] = [];
 
   // El fondo se mide UNA vez en el atlas completo: en las celdas donde el
   // personaje toca el borde, sus propias esquinas no sirven de referencia.
@@ -269,35 +268,43 @@ async function animar(id: string, go: boolean, n: number): Promise<void> {
       .resize(256, 256, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
       .png({ compressionLevel: 9 })
       .toFile(join(OUT_DIR, id, `${POSES[i]!.id}.png`));
-    frames.push({ frame: { x, y, w: anchoCelda, h: altoCelda }, duration: 120 });
   }
 
-  // El atlas entero NO se copia junto al juego: pesa más de un mega y el
-  // cliente solo carga los fotogramas sueltos. Se queda en la caché, que es
-  // donde sirve para volver a cortarlo sin pagar otra vez.
-  writeFileSync(
-    join(OUT_DIR, id, 'atlas.json'),
-    `${JSON.stringify(
-      {
-        frames,
-        meta: {
-          // Ruta del atlas dentro de la caché, por si hay que recortar de nuevo.
-          image: path,
-          size: { w: meta.width, h: meta.height },
-          layout: { cols, rows },
-          frameTags: POSES.slice(0, n).map((p, i) => ({ name: p.id, from: i, to: i })),
-        },
-      },
-      null,
-      2,
-    )}\n`,
-  );
+  // Aquí se escribía `atlas.json`, la hoja de coordenadas del corte, y ya no se
+  // escribe. Queda dicho para que no parezca un olvido:
+  //
+  //  1. No lo leía nadie. Ni el cliente —que carga `anim/index.json` y los PNG
+  //     por pose— ni un test. Su único uso era el `existsSync` de aquí abajo
+  //     para construir el índice, y eso lo dicen mejor los propios PNG.
+  //  2. Su `meta.image` era la ruta absoluta del atlas crudo EN LA MÁQUINA que
+  //     lo generó. Versionada, valía para una sola máquina; es la presa del
+  //     guardia de `test/invariantes.test.ts`.
+  //  3. Y no servía para lo que prometía. Re-recortar desde lo versionado es
+  //     imposible: el atlas crudo vive en `tools/gen/.cache`, que está en
+  //     `.gitignore`, y los PNG por pose ya pasaron por `trim()` y
+  //     `resize(256, 256)`, que se llevan por delante el fondo gris y la
+  //     resolución original.
+  //
+  // La decisión, del usuario: el arte se da por bueno. Si algún día quiere otro
+  // recorte, se regenera con prompts mejores en vez de re-recortar aquello — y
+  // regenerar cuesta dinero, así que no se hace por gusto. Los doce ficheros
+  // quedan en el historial de git, y el corte se recalcula de `cols`/`rows` si
+  // alguna vez hace falta.
 
   console.log(`  \x1b[32m[listo]\x1b[0m ${n} poses en assets/generated/anim/${id}/`);
   console.log(`  gasto acumulado: $${client.totalSpent.toFixed(2)}\n`);
 
-  // Índice de lo animado, para que el cliente sepa qué puede animar.
-  const indice = BASE_CREATURES.filter((c) => existsSync(join(OUT_DIR, c, 'atlas.json')));
+  // Índice de lo animado, para que el cliente sepa qué puede animar. Se deriva
+  // de los PNG de pose, que es lo que el cliente carga de verdad: antes se
+  // derivaba de un `atlas.json` que ya no se escribe, y un índice apoyado en un
+  // fichero que nadie lee es un índice que puede mentir sin que se note.
+  //
+  // Basta UNA pose: `creatureFrame` resuelve cada una por su cuenta y cae al
+  // sprite quieto si falta, así que una tanda con `--poses 2` se anuncia y se
+  // ve bien. Exigirlas todas dejaría fuera criaturas que sí se animan.
+  const indice = BASE_CREATURES.filter((c) =>
+    POSES.some((pose) => existsSync(join(OUT_DIR, c, `${pose.id}.png`))),
+  );
   writeFileSync(
     join(OUT_DIR, 'index.json'),
     `${JSON.stringify({ creatures: indice, poses: POSES.map((p) => p.id) }, null, 2)}\n`,

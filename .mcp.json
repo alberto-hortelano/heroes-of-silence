@@ -3,7 +3,7 @@
     "heroes": {
       "type": "stdio",
       "command": "npx",
-      "args": ["tsx", "/home/al/code/heroes/src/server/mcp/server.ts"]
+      "args": ["tsx", "src/server/mcp/server.ts"]
     }
   }
 }

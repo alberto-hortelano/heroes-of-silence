@@ -22,3 +22,7 @@ saves/
 # requisitos.md, critica.md y qa.md SÍ se commitean: envejecen bien.
 docs/agents/*/plan.md
 docs/agents/*/implementacion.md
+# Los parches existen para repartir los commits; en cuanto los commits existen,
+# el historial de git los cuenta mejor. Y llevan dentro lo que el commit quita
+# —incluida una ruta absoluta, cuando eso es justo lo que se está quitando—.
+docs/agents/*/commits/
