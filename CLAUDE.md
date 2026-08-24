@@ -11,9 +11,30 @@ El juego es el andamio; lo interesante es lo que se puede enchufar dentro.
 ```bash
 pnpm install
 pnpm dev        # cliente en http://localhost:3100 (juego local contra la IA de reglas)
-pnpm test       # 188 tests: reglas, batalla, partida completa y contrato del agente
+pnpm verify     # typecheck + lint + 208 tests, 6,5 s: el bucle rápido
+pnpm test       # 208 tests: reglas, batalla, partida completa y contrato del agente
 pnpm typecheck
+pnpm lint       # Biome: formato y lint en una sola pasada, 40 ms
+pnpm format     # lo mismo, arreglando lo que sepa arreglar
 ```
+
+La partida se abre con una semilla al azar; **`?seed=N` en la URL fija la
+partida** y la barra de arriba enseña siempre cuál se está jugando. Reiniciar
+sortea una nueva y reescribe la URL, así que un fallo encontrado jugando se
+vuelve a producir copiando la barra de direcciones. Lo que no es una semilla se
+rechaza **diciéndolo** —`?seed=abc` escribe el motivo en la barra de estado, y
+cómo salir: quitar el parámetro— y la regla vive en `core` (`parseSeed`), que es
+de donde la leen también `HEROES_SEED` y el servidor: `createRng` hace
+`seed >>> 0`, así que un `-1` no revienta, abre otra partida en silencio. **No
+pedir semilla no es un error**: `?seed=` vacío y `HEROES_SEED=` vacía valen lo
+mismo que no escribirlas —se sortea en el navegador, se usa la de por defecto en
+el servidor—, que era donde los dos llamantes discrepaban.
+
+Y hay CI: `.github/workflows/ci.yml` corre `pnpm verify` y `vite build` en un
+job, y `pnpm qa` en otro, en cada push y cada PR contra `main`. Invoca `verify`
+y no sus tres órdenes sueltas a propósito: el bucle rápido se define una vez, en
+`package.json`. **No gasta un céntimo**: no declara ninguna credencial y no
+invoca nada de `tools/gen/`.
 
 Para que juegue un **agente** hacen falta dos terminales:
 
@@ -21,7 +42,11 @@ Para que juegue un **agente** hacen falta dos terminales:
 # terminal 1 — el servidor de la partida
 pnpm server
 
-# terminal 2 — Claude Code en esta carpeta; el MCP "heroes" ya está en .mcp.json
+# terminal 2 — Claude Code EN ESTA CARPETA; el MCP "heroes" ya está en .mcp.json.
+#   La ruta de .mcp.json es relativa (antes era absoluta y solo valía en una
+#   máquina), y un servidor MCP se lanza desde el directorio en el que se
+#   arrancó Claude Code: si lo arrancas desde un subdirectorio, `/mcp` no lista
+#   "heroes". Arráncalo desde la raíz del repo.
 #   pídele: "juega la partida: llama a heroes_listen, decide y responde con
 #            heroes_respond, y repite"
 ```
@@ -29,8 +54,16 @@ pnpm server
 Verificación del circuito entero sin tocar nada a mano:
 
 ```bash
-npx tsx tools/qa/verify-agent.ts   # arranca servidor + puente MCP y juega turnos
+pnpm qa   # arranca servidor + puente MCP y juega la partida, 5,4 s
 ```
+
+No solo comprueba que no reviente. Lee el bloque `CÓMO FUE LO ANTERIOR` de cada
+escucha y **cuenta** cuántas respuestas entraron y cuántas se descartaron, con
+el motivo; exige con `game_state` que lo pedido se **aplique** de verdad (el
+edificio concreto que se pidió, o el héroe en otra casilla); y ejercita las
+cinco consultas por su contenido —`battle_state` en plena batalla,
+`creature_stats`, `game_state`, `spell_list` y `building_list`—. Antes daba
+verde con cuatro de cuatro acciones descartadas.
 
 ## Mapa del repositorio
 
@@ -283,6 +316,15 @@ Las poses (`idle`, `ready`, `attack`, `hit`, `die`, `win`) las reparte
 `src/client/anim.ts` leyendo el registro de la batalla. El motor no sabe que
 existen: sin atlas, cada criatura usa su sprite quieto y se juega igual.
 
+Lo que **ya no se escribe** es el `atlas.json` con la hoja de coordenadas del
+corte. No lo leía nadie —el cliente carga `anim/index.json` y los PNG por
+pose—, su `meta.image` era la ruta absoluta de la máquina que lo generó, y no
+servía ni para re-recortar: el atlas crudo vive en la caché, que está en
+`.gitignore`. El índice se deriva ahora de los PNG que sí existen. Si algún día
+hace falta otro recorte, se regenera con prompts mejores —y eso cuesta dinero—
+en vez de re-recortar lo de antes; los doce ficheros quedan en el historial de
+git.
+
 ## El equipo de agentes
 
 Para un trabajo sustancial hay un ciclo de cuatro roles en `.claude/agents/`,
@@ -305,19 +347,60 @@ aportan en un prototipo. Lo que hay:
 
 | Comprobación | Cuánto tarda | Cuándo |
 |---|---|---|
-| `pnpm verify` | 3 s | siempre |
-| `test/invariantes.test.ts` | 8 ms | va dentro de `pnpm test` |
+| `pnpm verify` | 6,5 s | siempre |
+| `test/invariantes.test.ts` | 40 ms | va dentro de `pnpm test` |
 | El navegador | minutos | si el cambio se ve |
-| `pnpm qa` | ~1 min | si tocas `src/server/` o el contrato |
-| `npx tsx tools/qa/barrido-semillas.ts` | ~2 s | si tocas la IA o la economía |
+| `pnpm qa` | 5,4 s | si tocas `src/server/` o el contrato |
+| `npx tsx tools/qa/barrido-semillas.ts` | 2,2 s | si tocas la IA o la economía |
+| CI (`.github/workflows/ci.yml`) | ~1 min | en cada push y cada PR |
+
+Los tiempos están **medidos**, tres pasadas cada uno, no estimados: los que
+había antes decían 3 s y «~1 min» y llevaban ciclos siendo falsos. Que `pnpm qa`
+tarde 5 s y no un minuto no es una mejora: es que la partida se acaba el día 3
+porque el agente defiende y pierde, así que la cobertura real son **2 turnos de
+mapa y 13 decisiones de batalla**.
+
+`pnpm qa` **no entra en `pnpm verify`**, y no por lo que tarda: abre los puertos
+fijos 9880/9881 y sale 1 con `EADDRINUSE` si hay un `pnpm server` levantado, que
+es la forma documentada de jugar con el agente. El hook `Stop` se pondría rojo
+por tener el juego abierto, y un guardia que se pone rojo por algo que no es el
+código se desactiva. Su sitio es CI, donde cada job tiene su propia máquina.
 
 `test/invariantes.test.ts` convierte en tests las fronteras de este documento:
 `core` sin `node:*` ni DOM, ni un `Math.random` suelto, `session.ts` como única
 puerta del cliente al núcleo, `FAL_KEY` fuera del navegador, que **ningún
 rasgo de `CREATURE_TRAITS` esté declarado y muerto** —cuatro lo estuvieron—,
-que **cada `EffectKind` tenga un lector vivo** y que **`core` no importe
-`src/server`**. Todos nacen en verde: un guardia
-que nace rojo se ignora desde el primer día.
+que **cada `EffectKind` tenga un lector vivo**, que **`core` no importe
+`src/server`** y que **ningún fichero que una máquina ejecuta o lee lleve dentro
+la ruta absoluta de esta máquina**. Todos nacen en verde: un guardia que nace
+rojo se ignora desde el primer día.
+
+El de las rutas absolutas deriva la ruta del checkout **en ejecución**, no
+escrita como literal: así no se encuentra a sí mismo y no hay que excluir su
+propio fichero. Y mira `git ls-files -c -o --exclude-standard` —lo **no
+indexado** también, que es como nacen las presas y como está el árbol cuando
+corre el hook `Stop`—, el repo **entero** menos una **lista negra**: la prosa
+(`.md`, `.txt`), la cara del cliente (`.css`, `.html`, donde una ruta es una URL
+del navegador) y los binarios, que se detectan por un byte cero en su primer
+kilobyte en vez de enumerarlos. La forma de la lista **es** el guardia: en
+blanco —acotado a `.json`, `.ts`, `.sh`…— falla **en silencio** ante la clase
+que nadie previó, y se le colaban `.js`, `.mjs`, `.cjs`, `.tsx`, `.toml`,
+`.envrc` y los ejecutables sin extensión; de ocho ficheros plantados cazó uno.
+En negro falla al revés: un formato de prosa nuevo da un falso positivo, que se
+ve y se quita con una línea. Acotar por clase y no por carpeta es además lo que
+lo deja **sin excepciones**: la prosa cita rutas absolutas para explicar el
+fallo —este documento incluido—, y una excepción por carpeta acabaría tapando al
+siguiente `.json` que caiga dentro. Busca la ruta en sus **dos** formas, la
+literal y la escapada de JSON (`\/home\/…`), porque `JSON.parse` devuelve la
+misma ruta con las dos. Nació con **trece presas** —`.mcp.json`, que sí se lee y
+es lo que enchufa el MCP, y doce `atlas.json` que no leía nadie—, y se volvió a
+correr en rojo con un fichero nuevo **sin indexar** y con los nueve de la lista
+blanca. Lo que no ve, dicho en su propio docstring: la ruta de OTRA máquina, que
+es la única que no puede derivar.
+
+Por eso mismo los parches de `docs/agents/*/commits/` **no se commitean**: un
+parche que quita una ruta absoluta la lleva dentro, y excluirlo sería justo la
+excepción que mañana tapa a la siguiente presa.
 
 El de los efectos no busca texto, **llama**: recorre una tabla que asocia cada
 tipo con su lector y comprueba que el total cambia al colgar el efecto. Un
@@ -340,7 +423,15 @@ termine es una regresión**, no ruido.
 
 Y un hook `Stop` (`.claude/hooks/verde.sh`) impide dar una tarea por terminada
 con `pnpm verify` en rojo. No estorba: no se lanza siquiera si no ha cambiado
-nada bajo `src/`, `test/` o `data/` desde la última vez que salió verde.
+nada en el repo desde la última vez que salió verde. La huella cubre el repo
+**entero** a propósito, y no una lista de rutas: esa lista era la tercera
+redacción de «qué cubre `pnpm verify`», y a las tres les faltaba
+`vite.config.ts`. Excluir `assets` y `docs` abría la misma puerta por el otro
+lado —el guardia de rutas absolutas sí mira los ficheros de máquina que vivan
+ahí, así que un `.json` bajo `docs/` ponía la verificación en rojo con el hook
+dormido—, y cuesta 17 ms recorrerlo entero. Con `-z` y `xargs -0`, porque un
+nombre con un espacio se partía en dos y su contenido dejaba de contar **en
+silencio**.
 
 ## Decisiones tomadas
 

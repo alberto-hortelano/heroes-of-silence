@@ -5,10 +5,10 @@
 # Por qué existe: "creo que funciona" y "pnpm verify está verde" no son lo
 # mismo, y la diferencia solo se nota cuando ya se ha dicho que estaba hecho.
 #
-# Por qué no estorba: `pnpm verify` son tres segundos (typecheck + 81 tests), y
-# ni siquiera se lanza si no ha cambiado nada bajo src/, test/ o data/ desde la
-# última vez que salió verde. En una conversación de preguntas o de documentos
-# no se ejecuta una sola vez.
+# Por qué no estorba: `pnpm verify` son seis segundos (typecheck + lint + 208
+# tests), y ni siquiera se lanza si no ha cambiado nada en el repo desde la
+# última vez que salió verde. En una conversación de preguntas no se ejecuta una
+# sola vez.
 #
 # Fail-open en todo lo demás: sin repo, sin pnpm o con la orden colgada, sale en
 # silencio. Un guardia que bloquea por su propia avería se desactiva el primer
