@@ -12,7 +12,7 @@ import type { BattleState, Side } from '../battle/types.js';
 import { creature, isShooter } from '../data.js';
 import { maxMana, maxMovePoints, type Hero } from '../hero/hero.js';
 import { pointKey } from '../map/map.js';
-import { availableBuildings, dailyIncome, dwellings, mageGuildLevel } from '../town/town.js';
+import { availableBuildings, dailyIncome, dwellings, mageGuildLevel, townSpells } from '../town/town.js';
 import { building } from '../town/buildings.js';
 import type { Army, PlayerId } from '../types.js';
 import { RESOURCE_KINDS } from '../types.js';
@@ -64,6 +64,9 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId): un
       spellPower: h.spellPower,
       knowledge: h.knowledge,
       mana: `${h.mana}/${maxMana(h)}`,
+      // Sin esto el agente decide adónde caminar sin saber qué sabe su héroe: la
+      // batalla le ofrece los `cast` legales, pero para entonces ya ha elegido.
+      spells: h.spells,
       army: armyView(h.army),
     })),
     towns: townsOf(state, playerId).map((t) => ({
@@ -72,6 +75,9 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId): un
       at: t.at,
       income: dailyIncome(t),
       mageGuild: mageGuildLevel(t),
+      // Ids, como `buildings` y `recruitable`: el detalle lo da la tool
+      // `spell_list` y no hace falta repetirlo en cada turno.
+      teaches: townSpells(t).map((s) => s.id),
       builtToday: t.builtToday,
       buildings: t.buildings,
       canBuildNow: availableBuildings(t, player.resources).map((id) => ({

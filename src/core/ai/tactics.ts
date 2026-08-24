@@ -14,11 +14,14 @@ import {
   legalActions,
   movableHexes,
   splashTargets,
+  stackById,
   stackHexes,
 } from '../battle/battle.js';
 import { hexDistance } from '../battle/board.js';
-import { stackHp } from '../battle/damage.js';
-import type { BattleAction, BattleStack, BattleState, Side } from '../battle/types.js';
+import { CHANCE_PER_POINT, stackHp } from '../battle/damage.js';
+import { roundsLeftOf } from '../battle/effects.js';
+import { effectOfSpell, spell, spellAmount, type Spell } from '../battle/spells.js';
+import type { BattleAction, BattleHero, BattleStack, BattleState, Side } from '../battle/types.js';
 import { creature, hasTrait, isShooter } from '../data.js';
 import type { Rng } from '../rng.js';
 import type { Hex } from '../types.js';
@@ -44,6 +47,100 @@ function distanceTo(from: Hex, target: BattleStack): number {
 }
 
 /**
+ * Cuánto tiene que rendir un hechizo, en PV equivalentes por punto de maná,
+ * para que valga la pena lanzarlo.
+ *
+ * No es un número inventado: se calibra contra dos comportamientos observables.
+ * Con 4, la Flecha mágica del héroe inicial (≈20 de daño por 3 de maná) se
+ * dispara, y una Prisa sobre tres campesinos (≈1,5 de valor por 3 de maná) no.
+ * Subirlo hace tacaña a la IA; bajarlo la deja gastando el maná en buffos que
+ * no cambian nada.
+ */
+const VALOR_MINIMO_POR_MANA = 4;
+
+/**
+ * Lo que vale medio turno extra de una unidad, como fracción de su amenaza. Es
+ * un proxy grueso para prisa y lentitud: lo que se gana no es el daño de la
+ * unidad, es llegar antes.
+ */
+const FRACCION_TEMPO = 0.5;
+
+/**
+ * Lo que vale lanzar este hechizo sobre este objetivo, en PV equivalentes, para
+ * poder comparar un buffo con un daño en la misma escala.
+ */
+function spellValue(caster: BattleHero, sp: Spell, objetivo: BattleStack): number {
+  switch (sp.kind) {
+    case 'damage':
+      // El tope es la vida que queda: sin él, un Rayo sobre tres campesinos
+      // puntuaba como si matara a cincuenta.
+      return Math.min(spellAmount(sp, caster), stackHp(objetivo));
+    case 'speed':
+    case 'luck': {
+      // Los dos temporales comparten la resta que manda `effects.ts`: el mismo
+      // origen REFRESCA, no apila, así que relanzar sobre quien ya lo tiene solo
+      // compra la DIFERENCIA de rondas. Sin esta cuenta la IA con Poder 3
+      // relanzaba Lentitud cada ronda a precio completo por una ronda marginal,
+      // y desde que el maná no se recupera al salir de la batalla llegaba al
+      // mapa a cero. `effectOfSpell` es la misma función que el motor consulta
+      // para saber qué colgaría, así que la duración no se recalcula aquí.
+      const efecto = effectOfSpell(sp, caster);
+      // Inalcanzable: `effectOfSpell` solo devuelve `null` fuera de estas dos
+      // ramas. Vale 0 y no lanza porque esto es una heurística, no una regla.
+      if (efecto === null) return 0;
+      const compradas = Math.max(0, efecto.roundsLeft - roundsLeftOf(objetivo, efecto));
+      if (compradas === 0) return 0;
+      // La suerte se cuenta por rondas —un punto es `CHANCE_PER_POINT` de golpe
+      // doble en cada una—, así que basta con contar las compradas. El tempo no
+      // se cuenta por rondas: se escala por la fracción de duración comprada,
+      // que con el objetivo limpio es 1 y deja intacto el primer lanzamiento,
+      // que es el caso con el que se calibró `VALOR_MINIMO_POR_MANA`.
+      return sp.kind === 'luck'
+        ? compradas * Math.abs(sp.amount ?? 0) * threat(objetivo) * CHANCE_PER_POINT
+        : FRACCION_TEMPO * threat(objetivo) * (compradas / efecto.roundsLeft);
+    }
+    case 'heal':
+      // Sale ≈0 salvo con un stack tocado, y está bien: la Curación no se lanza
+      // por lanzarla. No necesita caso especial para quedar fuera del umbral.
+      return Math.min(
+        spellAmount(sp, caster),
+        creature(objetivo.creature).hp - objetivo.topHp,
+      );
+  }
+}
+
+/**
+ * El mejor lanzamiento de la lista de acciones legales, o `null` si ninguno
+ * rinde lo bastante.
+ *
+ * Es una decisión INDEPENDIENTE y previa a la de combate, no una alternativa:
+ * `cast` no consume el turno del stack (`battle.ts`, caso `'cast'`), así que
+ * lanzar no compite con atacar — solo cuesta maná y la tirada de la ronda.
+ * Modelarlo como disyuntiva haría que la IA dejara de pegar para lanzar.
+ *
+ * Reutiliza las acciones que ya trae el llamante: ni una llamada más a
+ * `legalActions`, que es lo caro.
+ */
+function bestCast(state: BattleState, s: BattleStack, acciones: readonly BattleAction[]): BattleAction | null {
+  const hero = state.heroes[s.side];
+  if (hero === null) return null;
+
+  let mejor: BattleAction | null = null;
+  let mejorValor = 0;
+  for (const a of acciones) {
+    if (a.type !== 'cast' || a.target === undefined) continue;
+    const sp = spell(a.spell);
+    const valor = spellValue(hero, sp, stackById(state, a.target));
+    if (valor < VALOR_MINIMO_POR_MANA * sp.cost) continue;
+    if (valor > mejorValor) {
+      mejorValor = valor;
+      mejor = a;
+    }
+  }
+  return mejor;
+}
+
+/**
  * Elige la acción del stack activo:
  * dispara si puede, remata lo que alcanza, si no se acerca al objetivo más
  * jugoso, y si no puede hacer nada útil se defiende.
@@ -55,6 +152,13 @@ export function chooseBattleAction(state: BattleState): BattleAction {
   const acciones = legalActions(state);
   const enemigos = enemiesOf(state, s);
   if (enemigos.length === 0) return { type: 'defend' };
+
+  // El hechizo va primero porque no gasta el turno: si se lanza, se volverá a
+  // pedir acción para este mismo stack y entonces peleará. En esa segunda
+  // vuelta `castThisRound` ya está puesto y `legalActions` no ofrece ni un
+  // `cast`, así que esto no puede dar vueltas.
+  const conjuro = bestCast(state, s, acciones);
+  if (conjuro !== null) return conjuro;
 
   // Un tirador con línea libre dispara al mejor objetivo.
   if (isShooter(creature(s.creature)) && s.shotsLeft > 0 && !isEngaged(state, s)) {
@@ -113,6 +217,14 @@ export function chooseBattleAction(state: BattleState): BattleAction {
       }
     }
   }
+
+  // Aquí el stack no alcanza a nadie ni puede acercarse. Esperar es mejor que
+  // defenderse: cede el turno al final de la ronda por si el enemigo cierra la
+  // distancia, y entonces sí habrá a quién pegar. No estanca, porque `waited`
+  // se resetea en cada `beginRound` y en la segunda mitad de la ronda ya no
+  // queda `wait` legal que elegir — que es la misma condición que se lee aquí,
+  // en vez de buscarla en una lista de cientos de entradas.
+  if (!s.waited) return { type: 'wait' };
 
   return { type: 'defend' };
 }

@@ -75,6 +75,24 @@ export function maxSpellLevel(hero: Pick<Hero, 'skills'>): number {
   return 2 + wisdom;
 }
 
+/**
+ * De lo que ofrece un gremio, qué se llevaría este héroe: lo que aún no sabe y
+ * le deja aprender su Sabiduría. Devuelve ids en el orden de la oferta.
+ *
+ * Es la única puerta por la que `maxSpellLevel()` se lee de verdad. La puerta
+ * no muerde en partida todavía —sin gremio de nivel 3 no hay hechizo que
+ * recortar— pero queda leída y probada para el día que #3 aterrice; hasta
+ * entonces `hero.skills` solo se escribe al crear la partida (#6, #15).
+ */
+export function learnable(
+  hero: Pick<Hero, 'spells' | 'skills'>,
+  oferta: readonly { readonly id: string; readonly level: number }[],
+): string[] {
+  const tope = maxSpellLevel(hero);
+  const sabidos = new Set(hero.spells);
+  return oferta.filter((s) => s.level <= tope && !sabidos.has(s.id)).map((s) => s.id);
+}
+
 // ---------------------------------------------------------------- ejército
 
 export function emptyArmy(): Army {

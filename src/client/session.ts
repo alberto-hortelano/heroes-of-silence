@@ -7,8 +7,15 @@
  */
 import { chooseBattleAction } from '@core/ai/tactics.js';
 import { playAiTurn } from '@core/ai/turn.js';
-import { applyAction, legalActions, movableHexes, activeStack } from '@core/battle/battle.js';
-import type { BattleAction } from '@core/battle/types.js';
+import {
+  applyAction,
+  castBlocker,
+  legalActions,
+  movableHexes,
+  activeStack,
+} from '@core/battle/battle.js';
+import { spell } from '@core/battle/spells.js';
+import type { BattleAction, BattleStack, BattleState } from '@core/battle/types.js';
 import { findPath, type PathStep } from '@core/map/map.js';
 import { createRng } from '@core/rng.js';
 import {
@@ -28,6 +35,18 @@ import type { Hex, Point } from '@core/types.js';
 
 export type Scene = 'adventure' | 'town' | 'battle';
 
+/** Una entrada del libro de hechizos tal y como la pinta el panel de batalla. */
+export interface SpellOption {
+  readonly id: string;
+  readonly name: string;
+  readonly cost: number;
+  /** Stacks sobre los que se puede lanzar ahora mismo, según `legalActions`. */
+  readonly targets: readonly string[];
+  readonly castable: boolean;
+  /** Por qué no se puede lanzar, escrito para la persona. Vacío si sí se puede. */
+  readonly motivo: string;
+}
+
 export class Session {
   state: GameState;
   readonly ctx: GameContext;
@@ -35,6 +54,12 @@ export class Session {
   readonly viewer = 0;
   scene: Scene = 'adventure';
   selectedHeroId: string | null = null;
+  /**
+   * Hechizo que la persona ha elegido y está a punto de lanzar sobre alguien.
+   * Vive aquí y no en `main.ts` porque lo lee también el panel; `main.ts` solo
+   * guarda estado de píxel.
+   */
+  selectedSpell: string | null = null;
   openTownId: string | null = null;
   revealAll = false;
   status = '';
@@ -233,19 +258,120 @@ export class Session {
     return this.state.pendingBattle?.battle ?? null;
   }
 
+  /**
+   * La batalla y su stack activo, pero solo cuando el turno es de verdad de la
+   * persona. Son las cuatro guardas de «¿me toca?», escritas una vez: estaban
+   * copiadas en `battleMovable` y en `spellOptions`.
+   */
+  private get turnoPropio(): { battle: BattleState; stack: BattleStack } | null {
+    const battle = this.battle;
+    if (battle === null || battle.finished !== null) return null;
+    const stack = activeStack(battle);
+    if (stack === null || stack.side !== 'attacker') return null;
+    return { battle, stack };
+  }
+
   /** Hexes a los que puede ir el stack activo, si es de la persona. */
   battleMovable(): Hex[] {
-    const battle = this.battle;
-    if (battle === null || battle.finished !== null) return [];
-    const s = activeStack(battle);
-    if (s === null || s.side !== 'attacker') return [];
-    return movableHexes(battle, s);
+    const turno = this.turnoPropio;
+    return turno === null ? [] : movableHexes(turno.battle, turno.stack);
   }
 
   battleLegalActions(): BattleAction[] {
     const battle = this.battle;
     if (battle === null || battle.finished !== null) return [];
     return legalActions(battle);
+  }
+
+  /** El héroe de la persona en la batalla en curso. */
+  get battleHero() {
+    return this.battle?.heroes.attacker ?? null;
+  }
+
+  /**
+   * El libro de hechizos tal y como se pinta: qué se puede lanzar ahora mismo y,
+   * si no, por qué.
+   *
+   * `castable` no recalcula ninguna regla: es «existe un `cast` de este hechizo
+   * entre las acciones legales». Y el motivo lo escribe el núcleo
+   * (`castBlocker`), igual que el del castillo sale de `buildBlocker`.
+   */
+  spellOptions(): SpellOption[] {
+    const turno = this.turnoPropio;
+    if (turno === null) return [];
+    const hero = this.battleHero;
+    // Un héroe sin libro no necesita que se le calculen las acciones legales, que
+    // es lo caro: sin esto, uno contratado sin gremio pagaba el recorrido entero
+    // en cada fotograma para pintar «no conoce ninguno».
+    if (hero === null || hero.spells.length === 0) return [];
+
+    const acciones = this.battleLegalActions();
+    return hero.spells.map((id) => {
+      const sp = spell(id);
+      // Un solo predicado para las tres preguntas —sobre quién, si se puede, y
+      // por qué no—: el par (hechizo, objetivo) sale de la lista legal y el
+      // motivo lo escribe el núcleo.
+      const targets = acciones.flatMap((a) =>
+        a.type === 'cast' && a.spell === id && a.target !== undefined ? [a.target] : [],
+      );
+      const castable = targets.length > 0;
+      // Con `castable` verdadero el bloqueo es `null` por construcción, así que
+      // solo se pregunta cuando hace falta. Y si no lo es, el núcleo TIENE que
+      // dar motivo: las dos respuestas salen de la misma función.
+      const motivo = castable ? '' : castBlocker(turno.battle, 'attacker', id);
+      if (motivo === null) {
+        throw new Error(`${sp.name} no se ofrece y el núcleo no dice por qué`);
+      }
+      return { id, name: sp.name, cost: sp.cost, targets, castable, motivo };
+    });
+  }
+
+  /**
+   * Por qué el hechizo elegido no se puede lanzar sobre ese stack.
+   *
+   * Apuntar mal es una regla del juego —a un aliado, a un inmune, a un muerto—,
+   * así que la frase la escribe el núcleo y la pantalla solo la enseña. Si el
+   * par no está entre las acciones legales, el bloqueador TIENE motivo: son las
+   * dos caras de la misma función.
+   */
+  castRejection(targetId: string): string {
+    const turno = this.turnoPropio;
+    const elegido = this.selectedSpell;
+    if (turno === null || elegido === null) return '';
+    const motivo = castBlocker(turno.battle, 'attacker', elegido, targetId);
+    if (motivo === null) {
+      throw new Error(`${spell(elegido).name} no se ofrece sobre ${targetId} y el núcleo no dice por qué`);
+    }
+    return motivo;
+  }
+
+  /** Ids de los stacks sobre los que se puede lanzar el hechizo elegido. */
+  castTargets(): readonly string[] {
+    const elegido = this.selectedSpell;
+    if (elegido === null) return [];
+    return this.spellOptions().find((o) => o.id === elegido)?.targets ?? [];
+  }
+
+  /** Elige hechizo, o lo suelta si ya estaba elegido. */
+  selectSpell(spellId: string): void {
+    if (this.selectedSpell === spellId) {
+      this.clearSpell();
+      return;
+    }
+    const opcion = this.spellOptions().find((o) => o.id === spellId);
+    if (opcion === undefined) return;
+    if (!opcion.castable) {
+      this.status = `No puedes lanzar ${opcion.name}: ${opcion.motivo}.`;
+      return;
+    }
+    this.selectedSpell = spellId;
+    this.status = `${opcion.name}: elige sobre quién lanzarlo.`;
+  }
+
+  clearSpell(): void {
+    if (this.selectedSpell === null) return;
+    this.selectedSpell = null;
+    this.status = '';
   }
 
   /** Aplica la acción de la persona y deja que la IA juegue lo suyo. */
@@ -259,6 +385,10 @@ export class Session {
       this.status = mensaje(err);
       return;
     }
+    // Una acción aplicada deja el hechizo elegido sin sentido: o se acaba de
+    // lanzar —y el héroe ya no puede volver a lanzar esta ronda— o el stack
+    // activo ha cambiado. Se suelta aquí y no en cada llamante.
+    this.selectedSpell = null;
     this.advanceEnemyTurns();
   }
 
@@ -293,6 +423,7 @@ export class Session {
 
   private afterBattle(): void {
     this.scene = 'adventure';
+    this.selectedSpell = null;
     if (this.selectedHero === null) {
       this.selectedHeroId = this.myHeroes()[0]?.id ?? null;
     }

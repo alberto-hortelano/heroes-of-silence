@@ -8,7 +8,8 @@ import {
   planRecruits,
 } from '../src/core/ai/strategy.js';
 import { creature } from '../src/core/data.js';
-import { maxMana, maxMovePoints, slowestSpeed } from '../src/core/hero/hero.js';
+import { learnable, maxMana, maxMovePoints, slowestSpeed } from '../src/core/hero/hero.js';
+import { allSpells } from '../src/core/battle/spells.js';
 import { buildMap, generateMapPlan, validateMapPlan } from '../src/core/map/generate.js';
 import { findPath, objectAt, pointKey } from '../src/core/map/map.js';
 import { createRng } from '../src/core/rng.js';
@@ -31,11 +32,13 @@ import {
   buildBlocker,
   createTown,
   dwellings,
+  townSpells,
   type Town,
 } from '../src/core/town/town.js';
 import { buildingsOfFaction } from '../src/core/town/buildings.js';
 import { factionLineup } from '../src/core/data.js';
 import type { Resources } from '../src/core/types.js';
+import { forzarBatalla, monstruoVivo } from './helpers.js';
 
 const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 
@@ -264,14 +267,9 @@ describe('batallas del mapa', () => {
     const c = ctx(31);
     const hero = heroesOf(state, 0)[0]!;
 
-    const monstruo = state.map.objects.find((o) => o.kind === 'monster' && !o.defeated)!;
     // Ejército sobrado para que la victoria no dependa de la suerte.
     hero.army = [{ creature: 'paladin', count: 50 }, null, null, null, null];
-    hero.at = { x: monstruo.at.x - 1, y: monstruo.at.y };
-    hero.movePoints = 5000;
-
-    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: monstruo.at }, c);
-    expect(state.pendingBattle).not.toBeNull();
+    const monstruo = forzarBatalla(state, c, hero);
     expect(state.pendingBattle!.foe).toEqual({ kind: 'monster', objectId: monstruo.id });
 
     const resultado = resolvePendingBattle(state, c);
@@ -285,23 +283,20 @@ describe('batallas del mapa', () => {
     const state = newGame({ seed: 32 });
     const c = ctx(32);
     const hero = heroesOf(state, 0)[0]!;
-    const monstruo = state.map.objects.find((o) => o.kind === 'monster' && !o.defeated)!;
+    const monstruo = monstruoVivo(state);
 
     hero.army = [{ creature: 'peasant', count: 1 }, null, null, null, null];
     // Se sustituye por un monstruo imbatible en la misma casilla.
-    const donde = monstruo.at;
     state.map.objects.splice(state.map.objects.indexOf(monstruo), 1, {
       kind: 'monster',
       id: monstruo.id,
-      at: donde,
+      at: monstruo.at,
       creature: 'bone_dragon',
       count: 20,
       defeated: false,
     });
-    hero.at = { x: donde.x - 1, y: donde.y };
-    hero.movePoints = 5000;
 
-    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: monstruo.at }, c);
+    forzarBatalla(state, c, hero);
     const resultado = resolvePendingBattle(state, c);
     expect(resultado.winner).toBe('defender');
     expect(state.heroes.some((h) => h.id === hero.id)).toBe(false);
@@ -312,10 +307,7 @@ describe('batallas del mapa', () => {
     const state = newGame({ seed: 33 });
     const c = ctx(33);
     const hero = heroesOf(state, 0)[0]!;
-    const monstruo = state.map.objects.find((o) => o.kind === 'monster' && !o.defeated)!;
-    hero.at = { x: monstruo.at.x - 1, y: monstruo.at.y };
-    hero.movePoints = 5000;
-    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: monstruo.at }, c);
+    forzarBatalla(state, c, hero);
 
     expect(() => applyAdventureAction(state, { type: 'end_turn' }, c)).toThrow(/batalla pendiente/);
   });
@@ -554,5 +546,108 @@ describe('catálogo de edificios por facción', () => {
     ]);
     castillo.builtToday = false;
     expect(chooseBuilding(castillo, bolsaInfinita)).toBe('castle');
+  });
+});
+
+describe('el gremio enseña (#2)', () => {
+  it('un héroe dentro de su castillo aprende lo que enseña el gremio, y repetir no duplica', () => {
+    const state = newGame({ seed: 51 });
+    const c = ctx(51);
+    const hero = heroesOf(state, 0)[0]!;
+    const town = townsOf(state, 0)[0]!;
+    // Teletransporte de test: interesa el aprendizaje, no el paseo hasta allí.
+    hero.at = { ...town.at };
+    expect(hero.spells).toEqual(['magic_arrow']);
+
+    applyAdventureAction(state, { type: 'build', town: town.id, building: 'mage_guild_1' }, c);
+
+    // El gremio de nivel 1 enseña los tres de nivel 1, y `magic_arrow` es uno de
+    // ellos: el que ya sabía no se le apunta dos veces.
+    expect(hero.spells).toContain('haste');
+    expect(hero.spells).toContain('slow');
+    expect(new Set(hero.spells).size).toBe(hero.spells.length);
+    expect(state.log.some((e) => e.kind === 'spells_learned' && e.hero === hero.id)).toBe(true);
+
+    // Sigue allí un día más: la sincronía vuelve a pasar y no añade nada.
+    const libro = [...hero.spells];
+    applyAdventureAction(state, { type: 'end_turn' }, c);
+    expect(hero.spells).toEqual(libro);
+  });
+
+  it('la puerta de Sabiduría recorta lo que se aprende', () => {
+    // Los dos de nivel 3 existen en el catálogo y hoy no hay gremio que los
+    // ofrezca, así que esta es la prueba de que `maxSpellLevel()` se lee: sin
+    // Sabiduría quedan fuera, con Sabiduría entran.
+    const oferta = allSpells();
+    const sinSabiduria = learnable({ spells: [], skills: {} }, oferta);
+    expect(sinSabiduria).toContain('bless');
+    expect(sinSabiduria).not.toContain('lightning_bolt');
+    expect(sinSabiduria).not.toContain('cure');
+
+    const conSabiduria = learnable({ spells: [], skills: { wisdom: 1 } }, oferta);
+    expect(conSabiduria).toContain('lightning_bolt');
+    expect(conSabiduria).toContain('cure');
+
+    // Y lo que ya se sabe no vuelve a ofrecerse.
+    expect(learnable({ spells: ['haste'], skills: {} }, oferta)).not.toContain('haste');
+  });
+
+  it('lo que enseña un pueblo lo determina el nivel de su gremio', () => {
+    const castillo = createTown('t-magia', 'Prueba', 'knight', { x: 0, y: 0 }, 0);
+    expect(townSpells(castillo)).toEqual([]);
+
+    castillo.buildings = [...castillo.buildings, 'mage_guild_1'];
+    expect(townSpells(castillo).map((s) => s.id).sort()).toEqual(['haste', 'magic_arrow', 'slow']);
+
+    castillo.buildings = [...castillo.buildings, 'mage_guild_2'];
+    const nivel2 = townSpells(castillo).map((s) => s.id);
+    expect(nivel2).toContain('bless');
+    expect(nivel2).toContain('curse');
+    // No hay `mage_guild_3`, así que los de nivel 3 no los ofrece nadie.
+    expect(nivel2).not.toContain('lightning_bolt');
+  });
+
+  it('un héroe recién contratado deja de estar condenado a no lanzar nada', () => {
+    const state = newGame({ seed: 52 });
+    const c = ctx(52);
+    const town = townsOf(state, 0)[0]!;
+    town.buildings = [...town.buildings, 'mage_guild_1'];
+    // El pueblo tiene que estar libre: no se contrata con un héroe dentro.
+    const inicial = heroesOf(state, 0)[0]!;
+    inicial.at = { x: town.at.x, y: town.at.y + 2 };
+
+    applyAdventureAction(state, { type: 'hire_hero', town: town.id }, c);
+    const nuevo = heroesOf(state, 0).find((h) => h.id !== inicial.id)!;
+
+    // Sigue sin habilidades —escribir `hero.skills` en partida es #6/#15— y aun
+    // así aprende todo lo que hoy existe, porque nada pasa del nivel 2.
+    expect(nuevo.skills).toEqual({});
+    expect(nuevo.spells).toContain('magic_arrow');
+    expect(nuevo.spells).toContain('haste');
+    expect(nuevo.spells).toContain('slow');
+  });
+});
+
+describe('el maná es un recurso (#4)', () => {
+  it('el maná gastado en la batalla sigue gastado al volver al mapa', () => {
+    const state = newGame({ seed: 53 });
+    const c = ctx(53);
+    const hero = heroesOf(state, 0)[0]!;
+    // Ejército sobrado: interesa el maná, no quién gana.
+    hero.army = [{ creature: 'paladin', count: 50 }, null, null, null, null];
+    hero.mana = maxMana(hero);
+    const antes = hero.mana;
+
+    forzarBatalla(state, c, hero);
+    const enBatalla = state.pendingBattle!.battle.heroes.attacker!;
+    const registro = state.pendingBattle!.battle.log;
+    resolvePendingBattle(state, c);
+
+    // La IA lanza, así que el héroe termina la batalla con menos maná del que
+    // entró — y ese es el que se lleva al mapa. Sin la copia volvía a 20/20 y la
+    // magia salía gratis.
+    expect(registro.some((e) => e.kind === 'cast')).toBe(true);
+    expect(hero.mana).toBe(enBatalla.mana);
+    expect(hero.mana).toBeLessThan(antes);
   });
 });

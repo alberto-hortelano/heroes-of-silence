@@ -155,6 +155,9 @@ Notas:
 - "to" puede estar a varios días de marcha: el héroe avanza lo que le dé el día.
 - Mover a la casilla de un monstruo, de un héroe enemigo o de un castillo
   defendido inicia una batalla, y esa batalla la juegas tú con "battle_turn".
+- "towns[].teaches" son los hechizos que enseña el gremio de ese pueblo: un
+  héroe tuyo parado allí los aprende solo, hasta donde le deje su Sabiduría, y
+  aparecen en "heroes[].spells". NO hay acción para aprender: basta con llevarlo.
 - Si una acción resulta ilegal se descarta y las siguientes siguen aplicándose;
   el motivo aparecerá en la respuesta a esta petición.`,
 
@@ -174,6 +177,9 @@ Acciones válidas para la unidad activa:
 
 Notas:
 - "from" es opcional en "attack": si se indica, la unidad se mueve ahí y golpea.
+- "cast" NO consume el turno de la unidad activa: lanza el héroe, se cobra el
+  maná y una tirada por ronda, y después la unidad sigue pudiendo moverse,
+  disparar o atacar. Se te volverá a pedir acción para el mismo stack.
 - La lista "legalActions" de la petición ya trae TODAS las acciones legales;
   elegir una de ellas nunca falla.`,
 

@@ -19,6 +19,8 @@ import { generateMapPlan } from '../src/core/map/generate.js';
 import { createRng } from '../src/core/rng.js';
 import { heroesOf, resolvePendingBattle, applyAdventureAction } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
+import { mageGuildLevel, townSpells } from '../src/core/town/town.js';
+import { forzarBatalla } from './helpers.js';
 
 describe('contrato con el agente', () => {
   it('cada tipo de petición tiene esquema y formato de respuesta', () => {
@@ -101,10 +103,7 @@ describe('lo que ve el agente', () => {
     const state = newGame({ seed: 93 });
     const ctx = { rng: createRng(93) };
     const hero = heroesOf(state, 0)[0]!;
-    const monstruo = state.map.objects.find((o) => o.kind === 'monster' && !o.defeated)!;
-    hero.at = { x: monstruo.at.x - 1, y: monstruo.at.y };
-    hero.movePoints = 5000;
-    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: monstruo.at }, ctx);
+    forzarBatalla(state, ctx, hero);
 
     const battle = state.pendingBattle!.battle;
     const payload = serializeBattleTurn(battle, 'attacker') as { legalActions: unknown[] };
@@ -113,6 +112,47 @@ describe('lo que ve el agente', () => {
     expect(JSON.parse(JSON.stringify(payload))).toEqual(payload);
 
     resolvePendingBattle(state, ctx);
+  });
+
+  it('el pueblo manda qué enseña su gremio, y el héroe qué sabe', () => {
+    const state = newGame({ seed: 94 });
+    const c = { rng: createRng(94) };
+    const town = state.towns.find((t) => t.owner === 0)!;
+    const hero = heroesOf(state, 0)[0]!;
+    hero.at = { ...town.at };
+
+    // Sin gremio no enseña nada: el agente no ve una lista que no existe.
+    const sinGremio = serializeAdventureTurn(state, 0) as {
+      towns: { id: string; mageGuild: number; teaches: string[] }[];
+    };
+    expect(sinGremio.towns.find((t) => t.id === town.id)!.teaches).toEqual([]);
+
+    applyAdventureAction(state, { type: 'build', town: town.id, building: 'mage_guild_1' }, c);
+
+    const payload = serializeAdventureTurn(state, 0) as {
+      heroes: { id: string; spells: string[] }[];
+      towns: { id: string; mageGuild: number; teaches: string[] }[];
+    };
+
+    // Qué enseña cada nivel de gremio es una regla del núcleo y la prueba
+    // `game.test.ts`. Lo que se prueba AQUÍ es lo del contrato: que el campo
+    // existe y refleja al núcleo sin inventarse nada por el camino.
+    const vista = payload.towns.find((t) => t.id === town.id)!;
+    expect(vista.mageGuild).toBe(mageGuildLevel(town));
+    expect(vista.teaches).toEqual(townSpells(town).map((s) => s.id));
+
+    // Y el libro del héroe que está dentro, igual: sin que el agente haya
+    // mandado ninguna acción de aprender, porque no existe tal acción.
+    expect(payload.heroes.find((h) => h.id === hero.id)!.spells).toEqual(hero.spells);
+    expect(hero.spells.length).toBeGreaterThan(0);
+  });
+
+  it('el formato de respuesta avisa de que `cast` no gasta el turno y de que no hay acción de aprender', () => {
+    // La prosa viaja con el campo: un campo nuevo que el agente no sabe leer es
+    // ruido, y una acción que no existe la intentaría igual si nadie se lo dice.
+    expect(RESPONSE_FORMAT.battle_turn).toMatch(/no consume el turno/i);
+    expect(RESPONSE_FORMAT.adventure_turn).toContain('teaches');
+    expect(RESPONSE_FORMAT.adventure_turn).toMatch(/no hay acción para aprender/i);
   });
 
   it('la petición de mapa describe la paleta disponible', () => {

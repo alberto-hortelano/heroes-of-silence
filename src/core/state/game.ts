@@ -6,11 +6,12 @@
  */
 import { autoResolve, type BattleOutcome } from '../ai/tactics.js';
 import { createBattle, type BattleSide } from '../battle/battle.js';
-import type { BattleState } from '../battle/types.js';
+import type { BattleHero, BattleState } from '../battle/types.js';
 import { creature } from '../data.js';
 import {
   addToArmy,
   isArmyEmpty,
+  learnable,
   luckBonus,
   maxMana,
   maxMovePoints,
@@ -27,6 +28,7 @@ import {
   mageGuildLevel,
   moraleFromBuildings,
   payRecruit,
+  townSpells,
   type Town,
 } from '../town/town.js';
 import type { Army, Controller, FactionId, PlayerId, Point, ResourceKind, Resources, Stack } from '../types.js';
@@ -78,6 +80,7 @@ export type GameEvent =
   | { kind: 'built'; town: string; building: string }
   | { kind: 'recruited'; town: string; creature: string; count: number }
   | { kind: 'hero_hired'; player: PlayerId; hero: string; town: string }
+  | { kind: 'spells_learned'; hero: string; town: string; spells: string[] }
   | { kind: 'garrison_taken'; hero: string; town: string }
   | { kind: 'battle_started'; attacker: string; foe: BattleFoe }
   | { kind: 'battle_ended'; winner: 'attacker' | 'defender'; foe: BattleFoe }
@@ -313,6 +316,41 @@ export function applyAdventureAction(
     throw new Error('hay una batalla pendiente de resolver');
   }
 
+  // Quién actúa se anota ANTES de la acción: `end_turn` cambia `state.current`,
+  // y el que acaba de meter su héroe en el castillo es el jugador saliente.
+  const actor = currentPlayer(state).id;
+  aplicar(state, action, ctx);
+  syncSpellbooks(state, actor);
+}
+
+/**
+ * Los héroes propios parados en un pueblo propio con gremio aprenden lo que ese
+ * gremio enseña, sin duplicados y hasta donde les deje su Sabiduría.
+ *
+ * Es sincronía, no acción: no hay nada ilegal que rechazar, así que no lanza —
+ * y por eso no existe una acción de "aprender" ni en el cliente ni en el
+ * contrato del agente. Se pasa entera tras cada acción de aventura (≤4 héroes
+ * por unos pocos pueblos) en vez de parchear por separado los tres caminos que
+ * llevan a aprender —entrar al pueblo, contratar allí y construir el gremio con
+ * el héroe dentro—, que es donde se olvidaría el cuarto. Al entrar y no al
+ * empezar el turno, para que quien lee "enseña Prisa" no tenga que esperar a
+ * mañana para saberla.
+ */
+function syncSpellbooks(state: GameState, playerId: PlayerId): void {
+  const pueblos = townsOf(state, playerId);
+  if (pueblos.length === 0) return;
+
+  for (const hero of heroesOf(state, playerId)) {
+    const town = pueblos.find((t) => pointKey(t.at) === pointKey(hero.at));
+    if (town === undefined) continue;
+    const nuevos = learnable(hero, townSpells(town));
+    if (nuevos.length === 0) continue;
+    hero.spells = [...hero.spells, ...nuevos];
+    state.log.push({ kind: 'spells_learned', hero: hero.id, town: town.id, spells: nuevos });
+  }
+}
+
+function aplicar(state: GameState, action: AdventureAction, ctx: GameContext): void {
   switch (action.type) {
     case 'end_turn':
       nextPlayer(state);
@@ -574,6 +612,26 @@ function battleSideForHero(state: GameState, hero: Hero): BattleSide {
   };
 }
 
+/**
+ * La vuelta de `battleSideForHero`: lo que la batalla mutó y el héroe del mapa
+ * se lleva puesto.
+ *
+ * Vive pegada a la ida porque la inversa estaba escrita DOS veces —el atacante
+ * en `settleBattle` y el defensor que sobrevive en `applyDefenderSurvivors`— y
+ * la línea del maná hubo que añadirla a cada copia por separado. El camino del
+ * defensor solo se ejecuta cuando el atacante pierde, así que el próximo campo
+ * que la batalla mute se habría añadido a uno de los dos sitios y habría llegado
+ * a partida en verde.
+ */
+function restoreHeroFromBattle(mapHero: Hero, battleHero: BattleHero | null, army: Army): void {
+  mapHero.army = army;
+  // `battleSideForHero` copia el héroe a un objeto aparte, así que lo que se
+  // gastó en la batalla no ha tocado al del mapa: hay que traerlo. Sin esta
+  // línea el héroe gastaba 12 lanzando y volvía con 20/20 — la magia sería
+  // gratis y la recarga del gremio, un adorno.
+  if (battleHero !== null) mapHero.mana = battleHero.mana;
+}
+
 function defenderSide(state: GameState, foe: BattleFoe): BattleSide {
   switch (foe.kind) {
     case 'monster': {
@@ -629,7 +687,7 @@ export function settleBattle(state: GameState, _ctx: GameContext): void {
     return pruneArmy(slots);
   };
 
-  hero.army = superviviente('attacker');
+  restoreHeroFromBattle(hero, pending.battle.heroes.attacker, superviviente('attacker'));
   const heroeAtacanteVivo = winner === 'attacker';
 
   // El cierre de la batalla se registra ANTES de sus consecuencias: capturar
@@ -705,8 +763,11 @@ function applyDefenderSurvivors(state: GameState, pending: PendingBattle, army: 
       break;
     }
     case 'hero': {
+      // Lo simétrico del atacante, con la misma función. Solo se llega aquí
+      // cuando el atacante cae; si el defensor pierde, desaparece del mapa y no
+      // hay nada que devolverle.
       const defensor = heroById(state, foe.heroId);
-      defensor.army = army;
+      restoreHeroFromBattle(defensor, pending.battle.heroes.defender, army);
       break;
     }
     case 'town': {

@@ -52,6 +52,17 @@ export interface SpellResult {
   readonly effect?: StackEffect;
 }
 
+/**
+ * Lo que rinde el hechizo con este lanzador: su base más lo que aporta el poder
+ * mágico. Está exportada porque la IA necesita el MISMO número para valorar un
+ * lanzamiento sin aplicarlo (`tactics.ts`); cuando lo recalculaba por su cuenta
+ * había cuatro copias de la fórmula y cualquier cambio dejaba a la IA puntuando
+ * con la vieja.
+ */
+export function spellAmount(s: Spell, caster: Pick<BattleHero, 'spellPower'>): number {
+  return (s.basePower ?? 0) + (s.perPower ?? 0) * caster.spellPower;
+}
+
 /** Dura el poder mágico del lanzador en rondas, que es lo del original. */
 function temporalEffect(kind: 'speed' | 'luck', s: Spell, caster: BattleHero): StackEffect {
   return {
@@ -78,7 +89,7 @@ export function effectOfSpell(s: Spell, caster: BattleHero): StackEffect | null 
 export function castSpell(s: Spell, caster: BattleHero, target: BattleStack): SpellResult {
   switch (s.kind) {
     case 'damage': {
-      const power = (s.basePower ?? 0) + (s.perPower ?? 0) * caster.spellPower;
+      const power = spellAmount(s, caster);
       const killed = applyDamage(target, power);
       return { damage: power, killed };
     }
@@ -88,7 +99,7 @@ export function castSpell(s: Spell, caster: BattleHero, target: BattleStack): Sp
       // siempre, así que no hay rama `null` que fingir que puede pasar.
       return { damage: 0, killed: 0, effect: temporalEffect(s.kind, s, caster) };
     case 'heal': {
-      const amount = (s.basePower ?? 0) + (s.perPower ?? 0) * caster.spellPower;
+      const amount = spellAmount(s, caster);
       const maxHp = creature(target.creature).hp;
       target.topHp = Math.min(maxHp, target.topHp + amount);
       return { damage: 0, killed: 0 };

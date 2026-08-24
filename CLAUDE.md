@@ -11,7 +11,7 @@ El juego es el andamio; lo interesante es lo que se puede enchufar dentro.
 ```bash
 pnpm install
 pnpm dev        # cliente en http://localhost:3100 (juego local contra la IA de reglas)
-pnpm test       # 103 tests: reglas, batalla, partida completa y contrato del agente
+pnpm test       # 121 tests: reglas, batalla, partida completa y contrato del agente
 pnpm typecheck
 ```
 
@@ -156,6 +156,50 @@ su casilla de reclutamiento.
 El motivo de un rechazo sale de `buildBlocker`, que ya devuelve la frase escrita
 para la persona: la pantalla no reimplementa ni una regla.
 
+## La magia, de punta a punta
+
+Los hechizos existían en el motor mucho antes de que pudiera lanzarlos nadie: se
+podía castigar el maná, validar el bando y filtrar por inmunidad, pero **ningún
+héroe aprendía un segundo hechizo en toda la partida**. La cadena que faltaba,
+en orden:
+
+1. **El gremio enseña por derivación, no por sorteo.** `townSpells(town)` es
+   `allSpells()` filtrado por `mageGuildLevel(town)`. No hay libro guardado en el
+   `Town` porque no hay nada que sortear: con tres hechizos de nivel 1 y dos de
+   nivel 2, el nivel del gremio determina la lista entera. El día que haya
+   contenido para sortear, se rellena **dentro de esa función** y ningún llamante
+   se entera.
+2. **Aprender es sincronía, no acción.** `syncSpellbooks` corre al final de cada
+   acción de aventura y empuja al libro del héroe lo que enseñe el pueblo bajo
+   sus pies. Un solo punto cubre los tres caminos —moverse allí, contratar allí,
+   construir el gremio con el héroe dentro— en vez de tres parches. No lanza,
+   porque no hay nada ilegal que rechazar.
+3. **`cast` no consume el turno del stack.** Es la pieza que ordena todo lo
+   demás: en el cliente, tras lanzar el mismo stack sigue activo; y en la IA,
+   lanzar **no compite con atacar**, así que la heurística evalúa el hechizo
+   aparte y antes. Modelar una disyuntiva que no existe habría hecho que la IA
+   dejara de pegar para lanzar.
+4. **El maná vuelve de la batalla.** Sin eso, lanzar salía gratis y la única
+   función del gremio —recargarlo— era ficción.
+
+**El motivo de un rechazo lo escribe `castBlocker`**, igual que `buildBlocker` lo
+escribe en el castillo, y con el objetivo opcional: sin él contesta «¿puede
+lanzarlo sobre alguien?», con él añade vivo/muerto, aliado/enemigo e inmunidad.
+Lo consultan los tres: `legalActions` para ofrecer el par, `castHeroSpell` para
+rechazar y la pantalla para explicar. Una regla nueva entra por un sitio y llega
+a los tres a la vez — antes de unificarlo, `legalActions` reimplementaba sus
+cuatro condiciones justo debajo y el cliente redactaba la mitad que faltaba.
+
+**La IA valora en PV equivalentes** y descuenta lo que el objetivo ya tiene
+encima: como el mismo origen refresca en vez de apilarse, relanzar una Lentitud
+que aún dura dos rondas vale **una ronda**, no tres. Sin esa resta compraba lo
+mismo cada ronda y llegaba al mapa sin maná.
+
+**Sabiduría se lee, pero todavía no muerde**: `maxSpellLevel()` recorta el
+aprendizaje y el héroe inicial nace con `wisdom: 1`, así que su techo es nivel 3
+— y el gremio llega a 2. Es correcto e inerte hasta que exista `mage_guild_3`
+(#3), que a su vez espera a que las habilidades se puedan ganar (#6, #15).
+
 ## Generación de assets
 
 ```bash
@@ -233,13 +277,24 @@ aportan en un prototipo. Lo que hay:
 | `test/invariantes.test.ts` | 8 ms | va dentro de `pnpm test` |
 | El navegador | minutos | si el cambio se ve |
 | `pnpm qa` | ~1 min | si tocas `src/server/` o el contrato |
+| `npx tsx tools/qa/barrido-semillas.ts` | ~7 s | si tocas la IA o la economía |
 
 `test/invariantes.test.ts` convierte en tests las fronteras de este documento:
 `core` sin `node:*` ni DOM, ni un `Math.random` suelto, `session.ts` como única
-puerta del cliente al núcleo, `FAL_KEY` fuera del navegador, y que **ningún
-rasgo de `CREATURE_TRAITS` esté declarado y muerto** — cuatro lo estuvieron.
-Los cinco nacen en verde — un guardia que nace rojo se ignora desde el primer
-día.
+puerta del cliente al núcleo, `FAL_KEY` fuera del navegador, que **ningún
+rasgo de `CREATURE_TRAITS` esté declarado y muerto** —cuatro lo estuvieron— y
+que **cada `EffectKind` tenga un lector vivo**. Todos nacen en verde: un guardia
+que nace rojo se ignora desde el primer día.
+
+El de los efectos no busca texto, **llama**: recorre una tabla que asocia cada
+tipo con su lector y comprueba que el total cambia al colgar el efecto. Un
+lector escrito y muerto no puede satisfacerlo, que es justo el agujero por el
+que se colaría el primer hechizo de defensa.
+
+El barrido de semillas no es un test: es una **medida**. Juega 40 partidas de la
+IA contra sí misma y cuenta cuántas no terminan en 300 días. Hoy son **2**, y
+antes de la magia eran 4 (#47 sigue abierto). Sirve para lo que un test no
+puede: distinguir «no empeora» de «tuve suerte con la semilla».
 
 Y un hook `Stop` (`.claude/hooks/verde.sh`) impide dar una tarea por terminada
 con `pnpm verify` en rojo. No estorba: no se lanza siquiera si no ha cambiado

@@ -7,6 +7,7 @@ import { creature, hexSize, isShooter } from '@core/data.js';
 import type { Hex } from '@core/types.js';
 import type { Pose } from '../anim.js';
 import { asset, creatureFrame } from './assets.js';
+import { RESOURCE_COLORS } from './palette.js';
 
 export const HEX_SIZE = 34;
 const HEX_W = Math.sqrt(3) * HEX_SIZE;
@@ -70,6 +71,8 @@ export interface BattleView {
   readonly hoverHex: Hex | null;
   /** Stack sobre el que está el ratón, para resaltar el objetivo. */
   readonly hoverStack: string | null;
+  /** Stacks sobre los que se puede lanzar el hechizo elegido. Vacío si no hay. */
+  readonly castTargets: ReadonlySet<string>;
   readonly offset: { x: number; y: number };
 }
 
@@ -106,7 +109,14 @@ export function drawBattle(ctx: CanvasRenderingContext2D, view: BattleView): voi
     const pose = view.poses?.get(s.id) ?? (s.count > 0 ? 'idle' : undefined);
     // Sin pose no hay nada que pintar: la unidad ya cayó y su muerte terminó.
     if (pose === undefined) continue;
-    drawStack(ctx, s, s.id === activo, s.id === view.hoverStack, pose);
+    drawStack(
+      ctx,
+      s,
+      s.id === activo,
+      s.id === view.hoverStack,
+      pose,
+      view.castTargets.has(s.id),
+    );
   }
 
   ctx.restore();
@@ -118,6 +128,7 @@ function drawStack(
   activo: boolean,
   resaltado: boolean,
   pose: Pose,
+  objetivoDeHechizo: boolean,
 ): void {
   const info = creature(s.creature);
   const celdas = stackHexes(s);
@@ -178,6 +189,19 @@ function drawStack(
     ctx.beginPath();
     ctx.arc(cx, cy - 4, radio + 3, 0, Math.PI * 2);
     ctx.stroke();
+  }
+
+  // Objetivo válido del hechizo elegido. El anillo va por FUERA del de defensa
+  // para que una unidad defendiéndose enseñe los dos, y reusa un color de la
+  // paleta para no inventar arte nuevo.
+  if (objetivoDeHechizo) {
+    ctx.strokeStyle = RESOURCE_COLORS.crystal;
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    ctx.arc(cx, cy - 4, radio + 7, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
   }
 
   // Con arte, el nombre sobra: el sprite ya dice qué es.

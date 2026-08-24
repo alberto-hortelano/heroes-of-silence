@@ -53,6 +53,9 @@ let hoverTown: TownHit | null = null;
 const animator = new BattleAnimator();
 let needsRender = true;
 
+/** Compartido: no hay nada que anillar cuando no hay hechizo elegido. */
+const SIN_OBJETIVOS: ReadonlySet<string> = new Set();
+
 /**
  * Ajusta el búfer del canvas a su tamaño real en pantalla.
  *
@@ -110,6 +113,11 @@ function render(): void {
       movable: session.battleMovable(),
       hoverHex,
       hoverStack,
+      // Sin hechizo elegido no hay nada que anillar: se reparte el conjunto
+      // vacío en vez de montar uno nuevo en cada fotograma, que a 60 fps
+      // mientras dura una animación son sesenta por segundo para nada.
+      castTargets:
+        session.selectedSpell === null ? SIN_OBJETIVOS : new Set(session.castTargets()),
       offset: battleShift,
       poses,
     });
@@ -231,6 +239,27 @@ function handleBattleClick(px: number, py: number): void {
   const objetivo = stackAt(hex);
   const acciones = session.battleLegalActions();
 
+  // Con un hechizo elegido, el clic apunta: va ANTES que atacar y moverse, y la
+  // acción que se emite sale de la lista de legales — nunca se construye aquí.
+  const hechizo = session.selectedSpell;
+  if (hechizo !== null) {
+    if (objetivo === undefined) {
+      session.status = 'Elige una unidad sobre la que lanzarlo, o pulsa Escape para cancelar.';
+      return;
+    }
+    const conjuro = acciones.find(
+      (a) => a.type === 'cast' && a.spell === hechizo && a.target === objetivo.id,
+    );
+    if (conjuro !== undefined) {
+      session.playBattleAction(conjuro);
+      return;
+    }
+    // La selección se mantiene: quien apuntó mal vuelve a apuntar sin repetir
+    // el viaje al botón.
+    session.status = session.castRejection(objetivo.id);
+    return;
+  }
+
   // Clic sobre un enemigo: disparar si se puede, si no cargar contra él.
   if (objetivo !== undefined && objetivo.side === 'defender') {
     const disparo = acciones.find((a) => a.type === 'shoot' && a.target === objetivo.id);
@@ -292,6 +321,9 @@ document.addEventListener('click', (ev) => {
     case 'battle-wait':
       session.playBattleAction({ type: 'wait' });
       break;
+    case 'battle-spell':
+      session.selectSpell(target.getAttribute('data-spell') as string);
+      break;
     case 'auto-battle':
       session.autoResolveBattle();
       break;
@@ -311,6 +343,9 @@ document.addEventListener('keydown', (ev) => {
   if (ev.key === 'Escape' && session.scene === 'town') {
     session.closeTown();
     hoverTown = null;
+  }
+  if (ev.key === 'Escape' && session.scene === 'battle') {
+    session.clearSpell();
   }
   if (ev.key === ' ' && session.scene === 'adventure') {
     ev.preventDefault();

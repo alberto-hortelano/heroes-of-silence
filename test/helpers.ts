@@ -8,7 +8,46 @@ import {
 } from '../src/core/battle/battle.js';
 import { hexDistance } from '../src/core/battle/board.js';
 import type { BattleAction, BattleState } from '../src/core/battle/types.js';
+import type { Hero } from '../src/core/hero/hero.js';
+import type { MapObject } from '../src/core/map/map.js';
 import type { Rng } from '../src/core/rng.js';
+import {
+  applyAdventureAction,
+  type GameContext,
+  type GameState,
+} from '../src/core/state/game.js';
+
+export type Monstruo = Extract<MapObject, { kind: 'monster' }>;
+
+/**
+ * El primer monstruo en pie del mapa. Existe para que ningún test se invente un
+ * `objectId`: uno inventado sobrevive mientras la batalla no se cierre y revienta
+ * con «monstruo no encontrado» el día que alguien llame a `settleBattle`, donde
+ * parece un fallo del núcleo y no del andamio del test.
+ */
+export function monstruoVivo(state: GameState): Monstruo {
+  const obj = state.map.objects.find((o) => o.kind === 'monster' && !o.defeated);
+  if (obj === undefined || obj.kind !== 'monster') {
+    throw new Error('el mapa no tiene ningún monstruo en pie');
+  }
+  return obj;
+}
+
+/**
+ * Coloca al héroe junto al primer monstruo en pie y lo hace entrar: deja la
+ * batalla montada en `state.pendingBattle` y devuelve contra quién.
+ *
+ * La receta iba por su sexta copia entre `game.test.ts` y `battle.test.ts`, y
+ * cada copia repetía los mismos 5000 puntos de movimiento a mano.
+ */
+export function forzarBatalla(state: GameState, ctx: GameContext, hero: Hero): Monstruo {
+  const monstruo = monstruoVivo(state);
+  hero.at = { x: monstruo.at.x - 1, y: monstruo.at.y };
+  hero.movePoints = 5000;
+  applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: monstruo.at }, ctx);
+  if (state.pendingBattle === null) throw new Error('pisar al monstruo no abrió ninguna batalla');
+  return monstruo;
+}
 
 /**
  * Política agresiva para tests: dispara, si no golpea, si no se acerca todo lo

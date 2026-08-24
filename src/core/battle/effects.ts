@@ -20,7 +20,17 @@
  */
 import type { BattleStack } from './types.js';
 
-export type EffectKind = 'speed' | 'luck' | 'attack';
+/**
+ * Los tipos de efecto que existen. Es una lista de valores y no solo un tipo
+ * porque `test/invariantes.test.ts` la recorre para exigir que cada uno tenga
+ * quien lo lea: `effectiveDefense` (`damage.ts`) NO llama a `effectTotal`, así
+ * que el día que se añada un `'defense'` aquí el efecto se colgaría del stack y
+ * no lo leería nadie. El guardia lo pilla en rojo antes de que llegue a
+ * partida. Mismo patrón que `CREATURE_TRAITS` en `types.ts`.
+ */
+export const EFFECT_KINDS = ['speed', 'luck', 'attack'] as const;
+
+export type EffectKind = (typeof EFFECT_KINDS)[number];
 
 export interface StackEffect {
   readonly kind: EffectKind;
@@ -59,13 +69,37 @@ export function clampMoraleLuck(n: number): number {
  * de constantes como `ON_HIT_EFFECTS` hasta que el miedo dejara de durar.
  */
 export function applyEffect(stack: BattleStack, effect: StackEffect): StackEffect {
-  const previo = stack.effects.find((e) => e.kind === effect.kind && e.source === effect.source);
+  const previo = mismoOrigen(stack, effect);
   const nuevo: StackEffect = {
     ...effect,
     roundsLeft: Math.max(effect.roundsLeft, previo?.roundsLeft ?? 0),
   };
   stack.effects = [...stack.effects.filter((e) => e !== previo), nuevo];
   return nuevo;
+}
+
+/** El efecto vivo que este refrescaría: mismo tipo y mismo origen. */
+function mismoOrigen(
+  stack: BattleStack,
+  effect: Pick<StackEffect, 'kind' | 'source'>,
+): StackEffect | undefined {
+  return stack.effects.find((e) => e.kind === effect.kind && e.source === effect.source);
+}
+
+/**
+ * Rondas que le quedan al efecto que este refrescaría, o 0 si no lleva ninguno.
+ *
+ * Es la cara de lectura de `applyEffect`, y usa su misma función para decidir
+ * cuál es «el mismo»: quien valora un lanzamiento tiene que saber que relanzar
+ * sobre un objetivo que ya lo tiene solo compra la diferencia de rondas, porque
+ * el mismo origen REFRESCA y no apila. Sin esto la IA pagaba cada ronda el
+ * precio del primer lanzamiento.
+ */
+export function roundsLeftOf(
+  stack: BattleStack,
+  effect: Pick<StackEffect, 'kind' | 'source'>,
+): number {
+  return mismoOrigen(stack, effect)?.roundsLeft ?? 0;
 }
 
 /** Lo que suman todos los efectos vivos de ese tipo. */

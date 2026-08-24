@@ -5,13 +5,13 @@
  */
 import { activeStack } from '@core/battle/battle.js';
 import { effectiveLuck } from '@core/battle/effects.js';
-import { spell } from '@core/battle/spells.js';
+import { spell, type Spell } from '@core/battle/spells.js';
 import type { BattleEvent } from '@core/battle/types.js';
 import { creature, isShooter } from '@core/data.js';
 import { armySize, maxMana, maxMovePoints } from '@core/hero/hero.js';
 import type { GameEvent } from '@core/state/game.js';
 import { building } from '@core/town/buildings.js';
-import { dailyIncome, dwellings, mageGuildLevel } from '@core/town/town.js';
+import { dailyIncome, dwellings, mageGuildLevel, townSpells, type Town } from '@core/town/town.js';
 import type { Army } from '@core/types.js';
 import { asset } from '../render/assets.js';
 import { RESOURCE_COLORS, RESOURCE_NAMES } from '../render/palette.js';
@@ -100,6 +100,8 @@ function renderAdventurePanel(session: Session): string {
         <div class="row"><span class="label">Ataque / Defensa</span><span>${hero.attack} / ${hero.defense}</span></div>
         <div class="row"><span class="label">Poder / Conocimiento</span><span>${hero.spellPower} / ${hero.knowledge}</span></div>
         <div class="row"><span class="label">Experiencia</span><span>${hero.experience}</span></div>
+        <h3>Hechizos</h3>
+        ${renderSpellbook(hero.spells)}
         <h3>Ejército (${armySize(hero.army)})</h3>
         ${renderArmy(hero.army)}`;
 
@@ -128,6 +130,26 @@ function renderAdventurePanel(session: Session): string {
 
   return `${heroPanel}${listaHeroes}${listaPueblos}
     <h3>Crónica</h3>${renderLog(session.state.log, session.viewer)}`;
+}
+
+/**
+ * Una fila de hechizo: nombre —con su nivel donde importa— y coste en maná. La
+ * pintan el libro del héroe y la lista del gremio, que solo se diferencian en
+ * eso. El tercer pintor, `renderSpells`, NO entra aquí: son botones con
+ * `disabled` y `title`, y forzarlos en este molde saldría más caro que la copia.
+ */
+function filaHechizo(s: Spell, conNivel = false): string {
+  const nivel = conNivel ? ` <span class="count">n.${s.level}</span>` : '';
+  return `<div class="stack"><span>${s.name}${nivel}</span><span class="count">${s.cost}</span></div>`;
+}
+
+/** El libro de un héroe: nombre y coste, que es lo que se decide con ellos. */
+function renderSpellbook(spells: readonly string[]): string {
+  if (spells.length === 0) {
+    return `<div class="stack-list"><div class="stack empty">Sin hechizos: llévalo a un castillo con gremio</div></div>`;
+  }
+  const filas = spells.map((id) => filaHechizo(spell(id))).join('');
+  return `<div class="stack-list">${filas}</div>`;
 }
 
 function renderArmy(army: Army): string {
@@ -165,6 +187,7 @@ function renderTownPanel(session: Session): string {
     <h2>${town.name}</h2>
     <div class="row"><span class="label">Ingresos</span><span>${dailyIncome(town)} oro/día</span></div>
     <div class="row"><span class="label">Gremio de magia</span><span>${mageGuildLevel(town) || '—'}</span></div>
+    ${renderTownSpells(town)}
     <div class="row"><span class="label">Construir hoy</span><span>${town.builtToday ? 'ya hecho' : 'disponible'}</span></div>
     <p class="cost">Pulsa un solar para levantarlo y la franja de abajo para reclutar.</p>
 
@@ -179,6 +202,21 @@ function renderTownPanel(session: Session): string {
         ? `<button data-action="hire-hero" class="primary" style="margin-top:.7rem">Contratar héroe (2500 oro)</button>`
         : `<h3>Ejército de ${heroeAqui.name}</h3>${renderArmy(heroeAqui.army)}`
     }`;
+}
+
+/**
+ * Qué enseña el gremio, no solo su nivel: un número suelto no dice si merece la
+ * pena traer aquí al héroe. La lista sale de `townSpells`, así que el panel no
+ * sabe qué nivel enseña qué.
+ */
+function renderTownSpells(town: Town): string {
+  const hechizos = townSpells(town);
+  if (hechizos.length === 0) {
+    return `<p class="cost">Sin gremio: construye uno para que tus héroes aprendan magia aquí.</p>`;
+  }
+  const filas = hechizos.map((s) => filaHechizo(s, true)).join('');
+  return `<h3>Enseña</h3><div class="stack-list">${filas}</div>
+    <p class="cost">Un héroe tuyo parado aquí los aprende solo.</p>`;
 }
 
 // ---------------------------------------------------------------- batalla
@@ -211,10 +249,19 @@ function renderBattlePanel(session: Session): string {
          <button data-action="battle-defend">Defender</button>
          <button data-action="battle-wait" ${s.waited ? 'disabled' : ''}>Esperar</button>
        </div>
+       ${renderSpells(session)}
        <p class="cost" style="margin-top:.5rem">
          Haz clic en un hexágono verde para moverte, o sobre un enemigo para atacarlo.
        </p>`
     : '<p>Turno del enemigo…</p>';
+
+  // El maná del héroe, junto a la ficha de la unidad activa: es un recurso de la
+  // batalla entera, no del stack, y sin verlo no se decide si lanzar.
+  const heroe = session.battleHero;
+  const mana =
+    heroe === null
+      ? ''
+      : `<div class="row"><span class="label">Maná</span><span>${heroe.mana} / ${maxMana(heroe)}</span></div>`;
 
   const orden = battle.stacks
     .filter((x) => x.count > 0)
@@ -229,9 +276,43 @@ function renderBattlePanel(session: Session): string {
 
   return `${activo}
     <div class="row"><span class="label">Ronda</span><span>${battle.round}</span></div>
+    ${mana}
     ${acciones}
     <h3>En el campo</h3><div class="stack-list">${orden}</div>
     <h3>Parte de guerra</h3>${renderBattleLog(battle.log)}`;
+}
+
+/**
+ * El libro de hechizos durante la batalla.
+ *
+ * Lo que no se puede lanzar sale apagado y con el motivo en el `title`: se ve a
+ * la vez lo que tienes y lo que te falta, igual que un solar vacío del castillo.
+ * Ni el `castable` ni el motivo se deciden aquí — los da `session.spellOptions()`.
+ */
+function renderSpells(session: Session): string {
+  const opciones = session.spellOptions();
+  if (opciones.length === 0) {
+    return `<h3>Hechizos</h3>
+      <div class="stack-list"><div class="stack empty">Este héroe no conoce ninguno</div></div>`;
+  }
+  const botones = opciones
+    .map((o) => {
+      // El elegido se marca con `primary`, no el resto con `empty`: `.empty` es
+      // el gris de un hueco vacío, y con él un hechizo perfectamente lanzable se
+      // veía apagado, igual que uno que no se puede pagar. Lo apagado lo pone
+      // `button:disabled`, y así los dos estados no se confunden en pantalla.
+      const elegido = session.selectedSpell === o.id;
+      return `<button data-action="battle-spell" data-spell="${o.id}"
+        class="stack${elegido ? ' primary' : ''}"
+        ${o.castable ? '' : 'disabled'}
+        title="${o.castable ? `Cuesta ${o.cost} de maná` : o.motivo}">
+        <span>${o.name}</span><span class="count">${o.cost}</span>
+      </button>`;
+    })
+    .join('');
+  const elegido = opciones.find((o) => o.id === session.selectedSpell);
+  return `<h3>Hechizos</h3><div class="stack-list">${botones}</div>
+    ${elegido === undefined ? '' : `<p class="cost" style="margin-top:.5rem">${elegido.name}: pulsa sobre la unidad objetivo. Escape cancela.</p>`}`;
 }
 
 /**
@@ -275,7 +356,9 @@ function renderBattleLog(log: readonly BattleEvent[]): string {
         case 'shoot':
           return `<div>${e.splash === true ? 'Salpicadura' : 'Disparo'}: ${e.damage} de daño, ${e.killed} bajas</div>`;
         case 'cast':
-          return `<div>Hechizo ${e.spell}${e.damage ? `: ${e.damage} de daño` : ''}</div>`;
+          // El nombre, no el id: `spell()` ya lo tiene y quien lee el parte no
+          // sabe qué es un "magic_arrow". Sobre quién se lanzó es #18.
+          return `<div>Hechizo ${spell(e.spell).name}${e.damage ? `: ${e.damage} de daño` : ''}</div>`;
         case 'morale':
           return `<div class="${e.good ? 'win' : 'lose'}">${e.good ? 'Moral alta: turno extra' : 'Moral baja: turno perdido'}</div>`;
         case 'luck':
@@ -322,6 +405,8 @@ function renderLog(log: readonly GameEvent[], viewer: number): string {
           return `<div class="${e.player === viewer ? 'win' : 'lose'}">Héroe contratado</div>`;
         case 'garrison_taken':
           return `<div>Guarnición incorporada</div>`;
+        case 'spells_learned':
+          return `<div class="win">Aprendido: ${e.spells.map((id) => spell(id).name).join(', ')}</div>`;
         case 'battle_ended':
           return `<div>Batalla resuelta</div>`;
         case 'hero_defeated':

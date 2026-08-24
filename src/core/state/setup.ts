@@ -74,7 +74,11 @@ export function newGame(options: NewGameOptions = {}): GameState {
       at: inicio.at,
       movePoints: 0,
       spells: ['magic_arrow'],
-      skills: { logistics: 1 },
+      // Sabiduría 1 sube el tope a nivel 3. Hoy no muerde —sin `mage_guild_3`
+      // no hay hechizo de nivel 3 que ofrecer—, pero deja la puerta leída y
+      // correcta el día que #3 aterrice. El héroe contratado sigue sin
+      // habilidades: escribir `hero.skills` en partida es #6/#15.
+      skills: { logistics: 1, wisdom: 1 },
     };
     hero.mana = maxMana(hero);
     hero.movePoints = maxMovePoints(hero);

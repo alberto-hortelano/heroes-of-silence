@@ -1,4 +1,5 @@
 /** Castillos: construcción, moradas y reclutamiento. */
+import { allSpells, type Spell } from '../battle/spells.js';
 import { creature, factionLineup } from '../data.js';
 import type { Army, FactionId, PlayerId, Point, Resources } from '../types.js';
 import { canAfford, scaleResources, subtractResources } from '../types.js';
@@ -61,6 +62,25 @@ export function mageGuildLevel(town: Town): number {
     if (b.mageGuildLevel !== undefined && b.mageGuildLevel > level) level = b.mageGuildLevel;
   }
   return level;
+}
+
+/**
+ * Los hechizos que enseña el gremio de este pueblo, ordenados por nivel.
+ *
+ * Se DERIVAN del nivel del gremio, no se guardan: con tres hechizos de nivel 1
+ * y dos de nivel 2 para los huecos que hay no queda nada que sortear, así que
+ * un `Town.spellBook` sería estado nuevo, serialización nueva y una segunda
+ * fuente de verdad para una decisión que no existe. El día que #26 traiga
+ * contenido de sobra, el sorteo se rellena DENTRO de esta función: la firma es
+ * la que ven el panel, `serialize.ts` y el aprendizaje, así que ninguno se
+ * entera. Sin tirada, el `createRng` de `CLAUDE.md` no aplica todavía.
+ */
+export function townSpells(town: Town): readonly Spell[] {
+  const nivel = mageGuildLevel(town);
+  if (nivel === 0) return [];
+  return allSpells()
+    .filter((s) => s.level <= nivel)
+    .sort((a, b) => a.level - b.level || a.cost - b.cost || a.id.localeCompare(b.id));
 }
 
 export function hasWalls(town: Town): boolean {

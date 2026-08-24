@@ -6,6 +6,7 @@ import {
   createBattle,
   isAlive,
   legalActions,
+  movableHexes,
   stackById,
   stackSpeed,
   type BattleSide,
@@ -23,7 +24,8 @@ import type { Rng } from '../src/core/rng.js';
 import type { BattleHero, BattleStack, BattleState } from '../src/core/battle/types.js';
 import { creature } from '../src/core/data.js';
 import { createRng } from '../src/core/rng.js';
-import { simular } from './helpers.js';
+import { monstruoVivo, simular } from './helpers.js';
+import { Session } from '../src/client/session.js';
 import type { Army } from '../src/core/types.js';
 
 const side = (army: Army, hero: BattleHero | null = null): BattleSide => ({ army, hero });
@@ -402,7 +404,7 @@ describe('efectos temporales (#9)', () => {
     expect(state.log.some((e) => e.kind === 'effect_end' && e.source === 'slow')).toBe(true);
   });
 
-  it('un no-muerto es inmune a la maldición, y no se le ofrece lanzarla', () => {
+  it('un no-muerto es inmune a la maldición: ni se ofrece ni se acepta', () => {
     const rng = createRng(8);
     const lanzador = hero({ spells: ['curse'], mana: 30, spellPower: 3 });
     const state = createBattle(
@@ -418,11 +420,16 @@ describe('efectos temporales (#9)', () => {
     // El esqueleto es el único enemigo, así que no queda ni un `cast` legal.
     expect(legalActions(state).some((a) => a.type === 'cast')).toBe(false);
 
-    // Y si alguien lo pide a mano de todos modos, rebota en vez de acumularse.
-    applyAction(state, { type: 'cast', spell: 'curse', target: 'defender-0' }, rng);
-    expect(state.log.some((e) => e.kind === 'immune' && e.source === 'curse')).toBe(true);
+    // Y pedirlo a mano tampoco cuela: lo rechaza la MISMA función que decidió
+    // no ofrecerlo, con el motivo escrito para la persona. Antes se aceptaba,
+    // rebotaba y cobraba igual el maná y la tirada de la ronda; ahora ni eso.
+    expect(() =>
+      applyAction(state, { type: 'cast', spell: 'curse', target: 'defender-0' }, rng),
+    ).toThrow(/inmune a "Maldición"/);
     expect(esqueleto.effects).toEqual([]);
     expect(effectiveLuck(esqueleto)).toBe(suerteAntes);
+    expect(lanzador.mana).toBe(30);
+    expect(lanzador.castThisRound).toBe(false);
   });
 
   it('la maldición sí muerde a un vivo, y el recorte a −3 se hace al leer', () => {
@@ -660,5 +667,235 @@ describe('rasgos de criatura (#8)', () => {
     // pero se llevaría por delante a su propio esqueleto.
     expect(eleccion).toEqual({ type: 'shoot', target: 'defender-1' });
     expect(legalActions(state).some((a) => a.type === 'shoot' && a.target === 'defender-0')).toBe(true);
+  });
+});
+
+describe('el libro de hechizos del jugador (#4)', () => {
+  /**
+   * Una sesión con una batalla en curso, montada con la misma `createBattle`
+   * que usa `startBattle`. Interesa el panel de hechizos, no el paseo por el
+   * mapa hasta topar con el monstruo.
+   */
+  function sesionEnBatalla(semilla: number, over: Partial<BattleHero>) {
+    const session = new Session(semilla);
+    const heroe = hero(over);
+    const battle = createBattle(
+      side([{ creature: 'champion', count: 10 }, null, null, null, null], heroe),
+      side([{ creature: 'zombie', count: 10 }, null, null, null, null]),
+      session.ctx.rng,
+    );
+    // El rival es un monstruo REAL del mapa. Con un id inventado la batalla se
+    // juega igual mientras nadie la cierre, y el primer test que llamara a
+    // `finishBattle()` se estrellaría contra "monstruo no encontrado": un fallo
+    // del andamio con toda la pinta de ser del núcleo.
+    session.state.pendingBattle = {
+      attackerHeroId: session.myHeroes()[0]!.id,
+      foe: { kind: 'monster', objectId: monstruoVivo(session.state).id },
+      battle,
+    };
+    session.scene = 'battle';
+    return { session, heroe, battle };
+  }
+
+  it('lo lanzable se ancla en el hecho: con maná sí, sin maná no, y nunca sobre quien es inmune', () => {
+    const { session, heroe } = sesionEnBatalla(61, { spells: ['magic_arrow', 'curse'], mana: 30 });
+    const opciones = session.spellOptions();
+    expect(opciones.map((o) => o.id)).toEqual(['magic_arrow', 'curse']);
+
+    // La Flecha mágica se puede lanzar sobre el único enemigo que hay.
+    const flecha = opciones.find((o) => o.id === 'magic_arrow')!;
+    expect(flecha.castable).toBe(true);
+    expect(flecha.targets).toEqual(['defender-0']);
+    expect(flecha.motivo).toBe('');
+
+    // La Maldición rebota en un no-muerto, así que no le queda a quién: el
+    // motivo lo escribe el núcleo y el panel lo enseña tal cual.
+    const maldicion = opciones.find((o) => o.id === 'curse')!;
+    expect(maldicion.castable).toBe(false);
+    expect(maldicion.targets).toEqual([]);
+    expect(maldicion.motivo).toBe('no hay ningún objetivo válido');
+
+    // Y sin maná deja de ser lanzable: `castable` sigue al estado, no es un sí
+    // fijo por estar en el libro.
+    heroe.mana = 0;
+    expect(session.spellOptions().find((o) => o.id === 'magic_arrow')!.castable).toBe(false);
+  });
+
+  it('apuntar mal se explica con la frase del núcleo, no con una de la pantalla', () => {
+    // El clic sobre un objetivo imposible es una regla del juego —un aliado, un
+    // inmune, un muerto—, así que la explicación tiene que salir de `core`.
+    // Antes la pantalla redactaba la suya y perdía el motivo concreto.
+    const { session } = sesionEnBatalla(63, { spells: ['haste'], mana: 30 });
+    session.selectSpell('haste');
+
+    expect(session.castRejection('defender-0')).toBe('"Prisa" va dirigido a un aliado');
+  });
+
+  it('lo que no se puede lanzar no se ofrece, y el motivo está escrito para la persona', () => {
+    const { session, heroe } = sesionEnBatalla(62, { spells: ['magic_arrow'], mana: 1 });
+    expect(session.spellOptions()[0]!.castable).toBe(false);
+    expect(session.spellOptions()[0]!.motivo).toBe('maná insuficiente: cuesta 3 y quedan 1');
+
+    // Y si lo intenta igual, ve el motivo en vez de que no pase nada.
+    session.selectSpell('magic_arrow');
+    expect(session.selectedSpell).toBeNull();
+    expect(session.status).toContain('maná insuficiente');
+
+    heroe.mana = 30;
+    heroe.castThisRound = true;
+    expect(session.spellOptions().every((o) => !o.castable)).toBe(true);
+    expect(session.spellOptions()[0]!.motivo).toMatch(/ya lanzó/);
+  });
+
+  it('lanzar sale de las acciones legales, gasta maná y NO consume el turno del stack', () => {
+    const { session, heroe, battle } = sesionEnBatalla(63, { spells: ['magic_arrow'], mana: 20 });
+    const activoAntes = battle.activeId;
+    expect(activoAntes).toBe('attacker-0');
+
+    session.selectSpell('magic_arrow');
+    expect(session.selectedSpell).toBe('magic_arrow');
+    expect(session.castTargets()).toEqual(['defender-0']);
+
+    // Esto es lo que hace el clic en `main.ts`: buscar, no construir.
+    const conjuro = session
+      .battleLegalActions()
+      .find((a) => a.type === 'cast' && a.spell === 'magic_arrow' && a.target === 'defender-0');
+    expect(conjuro).toBeDefined();
+    session.playBattleAction(conjuro!);
+
+    expect(heroe.mana).toBe(17);
+    expect(battle.activeId).toBe(activoAntes);
+    expect(session.selectedSpell).toBeNull();
+    // Ya lanzó esta ronda: el libro entero queda apagado hasta la siguiente.
+    expect(session.spellOptions().every((o) => !o.castable)).toBe(true);
+  });
+
+  it('volver a pulsar el hechizo elegido lo suelta', () => {
+    const { session } = sesionEnBatalla(64, { spells: ['magic_arrow'], mana: 20 });
+    session.selectSpell('magic_arrow');
+    session.selectSpell('magic_arrow');
+    expect(session.selectedSpell).toBeNull();
+    expect(session.castTargets()).toEqual([]);
+  });
+});
+
+describe('la IA lanza hechizos (#24)', () => {
+  it('lanza la flecha mágica cuando rinde más que su coste, y no gasta el turno', () => {
+    const rng = createRng(71);
+    const lanzador = hero({ spells: ['magic_arrow'], mana: 20, spellPower: 1 });
+    const state = createBattle(
+      side([{ creature: 'champion', count: 10 }, null, null, null, null], lanzador),
+      side([{ creature: 'zombie', count: 10 }, null, null, null, null]),
+      rng,
+    );
+
+    const decision = chooseBattleAction(state);
+    expect(decision).toEqual({ type: 'cast', spell: 'magic_arrow', target: 'defender-0' });
+
+    // La segunda vuelta sobre el MISMO stack devuelve una acción de combate:
+    // `castThisRound` corta el bucle, así que la IA no se cuelga lanzando.
+    applyAction(state, decision, rng);
+    expect(state.activeId).toBe('attacker-0');
+    expect(lanzador.mana).toBe(17);
+    expect(chooseBattleAction(state).type).not.toBe('cast');
+  });
+
+  it('sin maná no lo intenta', () => {
+    const rng = createRng(72);
+    const lanzador = hero({ spells: ['magic_arrow'], mana: 0, spellPower: 1 });
+    const state = createBattle(
+      side([{ creature: 'champion', count: 10 }, null, null, null, null], lanzador),
+      side([{ creature: 'zombie', count: 10 }, null, null, null, null]),
+      rng,
+    );
+    expect(chooseBattleAction(state).type).not.toBe('cast');
+    expect(lanzador.mana).toBe(0);
+  });
+
+  it('elige con criterio: una Lentitud sobre un ejército gordo sí, una Prisa sobre tres campesinos no', () => {
+    const rng = createRng(73);
+    const derrocha = hero({ spells: ['haste'], mana: 30, spellPower: 3 });
+    const tacaña = createBattle(
+      side([{ creature: 'peasant', count: 3 }, null, null, null, null], derrocha),
+      side([{ creature: 'zombie', count: 3 }, null, null, null, null]),
+      rng,
+    );
+    // Medio turno extra de tres campesinos vale ≈1,5: no llega ni de lejos a
+    // los 12 que exige gastar 3 de maná.
+    expect(chooseBattleAction(tacaña).type).not.toBe('cast');
+
+    const listo = hero({ spells: ['slow'], mana: 30, spellPower: 3 });
+    const gorda = createBattle(
+      // El cruzado va primero: el turno tiene que ser del bando que tiene héroe
+      // para que haya un lanzamiento que decidir.
+      side([{ creature: 'crusader', count: 1 }, null, null, null, null], listo),
+      side([{ creature: 'zombie', count: 60 }, null, null, null, null]),
+      rng,
+    );
+    // Frenar a sesenta zombis sí: la heurística no es solo de daño.
+    expect(chooseBattleAction(gorda)).toEqual({
+      type: 'cast',
+      spell: 'slow',
+      target: 'defender-0',
+    });
+  });
+
+});
+
+describe('la IA espera en vez de plantarse (#24)', () => {
+  it('un refresco no se paga al precio de un lanzamiento nuevo', () => {
+    const rng = createRng(75);
+    const listo = hero({ spells: ['slow'], mana: 30, spellPower: 3 });
+    const state = createBattle(
+      side([{ creature: 'crusader', count: 1 }, null, null, null, null], listo),
+      side([{ creature: 'zombie', count: 12 }, null, null, null, null]),
+      rng,
+    );
+    const zombis = stackById(state, 'defender-0');
+
+    // Sobre el objetivo limpio compra las tres rondas de golpe y sí sale a
+    // cuenta: es el caso con el que se calibró el umbral, y no se toca.
+    expect(chooseBattleAction(state)).toEqual({ type: 'cast', spell: 'slow', target: 'defender-0' });
+
+    // Con la Lentitud ya encima y dos rondas por delante, relanzar solo compra
+    // la TERCERA —el mismo origen refresca, no apila—, y a ese precio no sale.
+    // Antes la IA la relanzaba cada ronda pagando por tres.
+    applyEffect(zombis, { kind: 'speed', amount: -2, source: 'slow', roundsLeft: 2 });
+    expect(chooseBattleAction(state).type).not.toBe('cast');
+    expect(listo.mana).toBe(30);
+
+    // Y cuando se disipa vuelve a valer la pena: la resta no es un veto.
+    zombis.effects = [];
+    expect(chooseBattleAction(state).type).toBe('cast');
+  });
+
+  it('espera cuando no alcanza a nadie ni puede acercarse', () => {
+    const rng = createRng(74);
+    const state = createBattle(
+      side([
+        { creature: 'champion', count: 5 },
+        { creature: 'peasant', count: 5 },
+        { creature: 'peasant', count: 5 },
+        null,
+        null,
+      ]),
+      side([{ creature: 'zombie', count: 5 }, null, null, null, null]),
+      rng,
+    );
+    // El campeón queda embotellado en la esquina por los suyos: (0,0) solo
+    // tiene dos vecinos dentro del tablero y los dos están ocupados.
+    stackById(state, 'attacker-0').hex = { col: 0, row: 0 };
+    stackById(state, 'attacker-1').hex = { col: 1, row: 0 };
+    stackById(state, 'attacker-2').hex = { col: 0, row: 1 };
+    stackById(state, 'defender-0').hex = { col: 10, row: 8 };
+
+    expect(state.activeId).toBe('attacker-0');
+    expect(movableHexes(state, stackById(state, 'attacker-0'))).toEqual([]);
+    expect(chooseBattleAction(state)).toEqual({ type: 'wait' });
+
+    // Y no se estanca: quien ya esperó no vuelve a esperar en la misma ronda,
+    // porque `legalActions` deja de ofrecerlo.
+    stackById(state, 'attacker-0').waited = true;
+    expect(chooseBattleAction(state)).toEqual({ type: 'defend' });
   });
 });

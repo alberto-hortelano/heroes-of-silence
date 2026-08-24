@@ -27,7 +27,7 @@ import {
   tickEffects,
   type StackEffect,
 } from './effects.js';
-import { castSpell, effectOfSpell, spell } from './spells.js';
+import { castSpell, effectOfSpell, spell, type Spell } from './spells.js';
 import type {
   BattleAction,
   BattleHero,
@@ -169,10 +169,6 @@ export function blockedHexes(state: BattleState, exceptId?: string): Set<string>
 
 export function enemiesOf(state: BattleState, s: BattleStack): BattleStack[] {
   return state.stacks.filter((o) => isAlive(o) && o.side !== s.side);
-}
-
-export function alliesOf(state: BattleState, s: BattleStack): BattleStack[] {
-  return state.stacks.filter((o) => isAlive(o) && o.side === s.side);
 }
 
 /** ¿Hay un enemigo pegado? Un tirador así no puede disparar. */
@@ -460,8 +456,8 @@ function moveTo(state: BattleState, s: BattleStack, to: Hex): number {
  * venga de donde venga — Maldición del héroe o el golpe de una momia. Vive
  * aquí y no en `effects.ts` porque es una regla del juego que mira los rasgos
  * de la criatura, no aritmética de una lista. La consultan `applyStackEffect`
- * y `legalActions`, para que la lista de acciones legales no ofrezca un
- * hechizo que después va a rebotar.
+ * —para el efecto que deja un golpe— y `targetBlocker` —para que ni se ofrezca
+ * ni se acepte un hechizo que va a rebotar.
  */
 function isImmuneTo(stack: BattleStack, effect: StackEffect): boolean {
   const info = creature(stack.creature);
@@ -706,27 +702,88 @@ function splash(
   }
 }
 
+/** Se escribe una vez y se lee en dos: el bloqueador y el estrechamiento. */
+const SIN_HEROE = 'este bando no tiene héroe';
+
+/**
+ * Motivo por el que el héroe de `side` no puede lanzar `spellId` —sobre
+ * `targetId` si se apunta a alguien—, o `null` si sí puede. Mismo patrón que
+ * `buildBlocker` en `town.ts`: la frase la escribe el núcleo y la pantalla la
+ * enseña tal cual, así que el panel de batalla no reimplementa ni una regla.
+ *
+ * Es la ÚNICA redacción de estas reglas: la consultan `castHeroSpell` al lanzar
+ * y `legalActions` al ofrecer. Cuando `legalActions` las repetía a mano, la
+ * promesa que `agent.ts` le hace al agente —«elegir de `legalActions` nunca
+ * falla»— la sostenía una copia, y la quinta regla que entrara (un silencio, un
+ * tope de nivel) se habría aplicado al lanzar y no al ofrecer.
+ *
+ * Sin objetivo la pregunta es «¿puede lanzarlo sobre alguien?»; con objetivo,
+ * «¿sobre ese?».
+ */
+export function castBlocker(
+  state: BattleState,
+  side: Side,
+  spellId: string,
+  targetId?: string,
+): string | null {
+  const hero = state.heroes[side];
+  if (hero === null) return SIN_HEROE;
+  if (hero.castThisRound) return 'el héroe ya lanzó un hechizo esta ronda';
+  // El id se comprueba contra el libro ANTES de buscarlo en el catálogo: con un
+  // id inventado, "no lo conoce" es más cierto y más útil que reventar.
+  if (!hero.spells.includes(spellId)) return `el héroe no conoce "${spellId}"`;
+  const s = spell(spellId);
+  if (hero.mana < s.cost) return `maná insuficiente: cuesta ${s.cost} y quedan ${hero.mana}`;
+
+  if (targetId !== undefined) {
+    const target = state.stacks.find((t) => t.id === targetId);
+    if (target === undefined) return `no hay ninguna unidad "${targetId}"`;
+    return targetBlocker(hero, s, side, target);
+  }
+  return state.stacks.some((t) => targetBlocker(hero, s, side, t) === null)
+    ? null
+    : 'no hay ningún objetivo válido';
+}
+
+/** Por qué este stack no vale como objetivo de este hechizo. */
+function targetBlocker(
+  hero: BattleHero,
+  s: Spell,
+  side: Side,
+  target: BattleStack,
+): string | null {
+  if (!isAlive(target)) return 'el objetivo ya está destruido';
+  const wantsEnemy = s.target === 'enemy';
+  if (wantsEnemy === (target.side === side)) {
+    return `"${s.name}" va dirigido a ${wantsEnemy ? 'un enemigo' : 'un aliado'}`;
+  }
+  // La inmunidad se pregunta a la misma función que decide al aplicar el efecto,
+  // no a una copia de la regla: nada de ofrecer una Maldición sobre un no-muerto
+  // para que después rebote.
+  const efecto = effectOfSpell(s, hero);
+  if (efecto !== null && isImmuneTo(target, efecto)) {
+    return `${creature(target.creature).name} es inmune a "${s.name}"`;
+  }
+  return null;
+}
+
 function castHeroSpell(
   state: BattleState,
   side: Side,
   spellId: string,
   targetId: string | undefined,
 ): void {
+  // El nulo se comprueba aquí, y no solo dentro del bloqueador, porque el
+  // estrechamiento no cruza la llamada. El motivo sigue escrito una sola vez.
   const hero = state.heroes[side];
-  if (hero === null) throw new Error(`el bando ${side} no tiene héroe`);
-  if (hero.castThisRound) throw new Error('el héroe ya lanzó un hechizo esta ronda');
-  if (!hero.spells.includes(spellId)) throw new Error(`el héroe no conoce "${spellId}"`);
+  if (hero === null) throw new Error(`no se puede lanzar: ${SIN_HEROE}`);
+
+  const blocker = castBlocker(state, side, spellId, targetId);
+  if (blocker !== null) throw new Error(`no se puede lanzar: ${blocker}`);
 
   const s = spell(spellId);
-  if (hero.mana < s.cost) throw new Error('maná insuficiente');
-  if (targetId === undefined) throw new Error(`"${spellId}" necesita un objetivo`);
-
+  if (targetId === undefined) throw new Error(`"${s.name}" necesita un objetivo`);
   const target = stackById(state, targetId);
-  if (!isAlive(target)) throw new Error('el objetivo ya está destruido');
-  const wantsEnemy = s.target === 'enemy';
-  if (wantsEnemy === (target.side === side)) {
-    throw new Error(`"${spellId}" va dirigido a ${wantsEnemy ? 'un enemigo' : 'un aliado'}`);
-  }
 
   hero.mana -= s.cost;
   hero.castThisRound = true;
@@ -742,9 +799,9 @@ function castHeroSpell(
   });
 
   // El hechizo no muta el stack: devuelve el efecto y lo cuelga el motor, que
-  // es quien sabe anotarlo en el registro y quien decide si rebota. Un
-  // lanzamiento que rebota igualmente gasta el maná y la tirada de la ronda:
-  // `legalActions` no lo ofrece, así que solo llega aquí quien lo pide a mano.
+  // es quien sabe anotarlo en el registro. Aquí no puede rebotar —`castBlocker`
+  // rechaza al objetivo inmune antes de cobrar el maná—, pero `applyStackEffect`
+  // sigue comprobándolo porque el mismo camino lo usan los golpes con rasgo.
   if (result.effect !== undefined) applyStackEffect(state, target, result.effect);
   if (!isAlive(target)) state.log.push({ kind: 'perished', stack: target.id });
   checkFinished(state);
@@ -779,18 +836,17 @@ export function legalActions(state: BattleState): BattleAction[] {
     }
   }
 
+  // Ni una regla de lanzamiento escrita aquí: la lista ofrece exactamente los
+  // pares (hechizo, objetivo) que `castBlocker` deja pasar, que es la misma
+  // función que después decide si el lanzamiento sale adelante.
   const hero = state.heroes[s.side];
-  if (hero !== null && !hero.castThisRound) {
+  if (hero !== null) {
     for (const spellId of hero.spells) {
-      const sp = spell(spellId);
-      if (hero.mana < sp.cost) continue;
-      const targets = sp.target === 'enemy' ? enemies : alliesOf(state, s);
-      const efecto = effectOfSpell(sp, hero);
-      for (const t of targets) {
-        // Nada de ofrecer una Maldición sobre un no-muerto: se consulta la
-        // misma función que decide al aplicarlo, no una copia de la regla.
-        if (efecto !== null && isImmuneTo(t, efecto)) continue;
-        out.push({ type: 'cast', spell: spellId, target: t.id });
+      if (castBlocker(state, s.side, spellId) !== null) continue;
+      for (const t of state.stacks) {
+        if (castBlocker(state, s.side, spellId, t.id) === null) {
+          out.push({ type: 'cast', spell: spellId, target: t.id });
+        }
       }
     }
   }
