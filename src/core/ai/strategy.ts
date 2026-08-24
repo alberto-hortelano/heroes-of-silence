@@ -49,16 +49,20 @@ function objectValue(state: GameState, obj: MapObject, hero: Hero): number {
     case 'mine':
       return obj.owner === player ? 0 : obj.resource === 'gold' ? 6000 : 3000;
     case 'town': {
-      if (obj.owner === player) {
+      // El dueño se lee del LIBRO DE CUENTAS y no de la bandera del mapa. Son
+      // dos caras del mismo hecho y `captureTown` las escribe juntas, pero
+      // quien decide a dónde ir no tiene por qué depender de que sigan al día:
+      // la bandera es lo que se VE —y lo que recuerda la niebla—, y esta
+      // decisión es de reglas.
+      const pueblo = state.towns.find((t) => t.id === obj.id);
+      if (pueblo === undefined) throw new Error(`el mapa tiene un castillo sin datos: ${obj.id}`);
+      if (pueblo.owner === player) {
         // Pueblo propio: merece el viaje si guarda tropas. Concentrar el
         // ejército en un héroe es lo que decide las partidas.
-        const propio = state.towns.find((t) => t.id === obj.id);
-        const guardadas = propio === undefined ? 0 : armyPower(propio.garrison);
-        return guardadas / 10;
+        return armyPower(pueblo.garrison) / 10;
       }
       // Un pueblo con guarnición es una batalla: se mide antes de ir.
-      const pueblo = state.towns.find((t) => t.id === obj.id);
-      const guarnicion = pueblo === undefined ? 0 : armyPower(pueblo.garrison);
+      const guarnicion = armyPower(pueblo.garrison);
       if (guarnicion > 0 && armyPower(hero.army) < guarnicion * 1.1) return -1;
       return 40000;
     }

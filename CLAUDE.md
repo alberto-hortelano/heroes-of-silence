@@ -69,6 +69,14 @@ assets/generated/  arte generado (lo sirve Vite como estático)
 - **El juego se juega sin agente y sin arte.** Sin agente juega `core/ai`; sin
   PNGs, cada renderizador pinta su marcador de color. Las dos cosas tienen
   test.
+- **Un hecho, un sitio; y si de verdad son dos caras, se escriben juntas.** El
+  dueño de un castillo vive en `Town.owner` —el libro de cuentas: quién cobra,
+  quién construye, quién pierde— y en el objeto del mapa —la bandera: lo que se
+  ve, lo que pinta el cliente y lo que recuerda la niebla—. `captureTown`
+  escribe las dos y es el único sitio que lo hace. Cuando escribía solo una, la
+  IA veía el castillo enemigo donde tenía el suyo y se pasaba la partida
+  entrando en su propia casa: **ese era el ~10 % de partidas que no terminaban**
+  (#47), no el umbral de ataque que decía el issue.
 
 ## Reglas del juego (verificadas contra fheroes2)
 
@@ -301,7 +309,7 @@ aportan en un prototipo. Lo que hay:
 | `test/invariantes.test.ts` | 8 ms | va dentro de `pnpm test` |
 | El navegador | minutos | si el cambio se ve |
 | `pnpm qa` | ~1 min | si tocas `src/server/` o el contrato |
-| `npx tsx tools/qa/barrido-semillas.ts` | ~7 s | si tocas la IA o la economía |
+| `npx tsx tools/qa/barrido-semillas.ts` | ~2 s | si tocas la IA o la economía |
 
 `test/invariantes.test.ts` convierte en tests las fronteras de este documento:
 `core` sin `node:*` ni DOM, ni un `Math.random` suelto, `session.ts` como única
@@ -324,9 +332,11 @@ eso cada guardia nuevo se rompe a mano, se mira rojo y se arregla antes de darlo
 por bueno.
 
 El barrido de semillas no es un test: es una **medida**. Juega 40 partidas de la
-IA contra sí misma y cuenta cuántas no terminan en 300 días. Hoy son **2**, y
-antes de la magia eran 4 (#47 sigue abierto). Sirve para lo que un test no
-puede: distinguir «no empeora» de «tuve suerte con la semilla».
+IA contra sí misma y cuenta cuántas no terminan en 300 días. Hoy son **0**;
+fueron 4, luego 2, y la causa no era la que decía el issue —ver más abajo—.
+Sirve para lo que un test no puede: distinguir «no empeora» de «tuve suerte con
+la semilla». Y ahora que la línea base es cero, **una sola semilla que no
+termine es una regresión**, no ruido.
 
 Y un hook `Stop` (`.claude/hooks/verde.sh`) impide dar una tarea por terminada
 con `pnpm verify` en rojo. No estorba: no se lanza siquiera si no ha cambiado

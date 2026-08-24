@@ -1,16 +1,19 @@
 /**
  * Barrido de semillas: ¿siguen terminando las partidas de IA contra IA?
  *
- * Las tres semillas de `test/game.test.ts` están elegidas a mano para esquivar
- * el empate eterno de #47, así que medir ahí no distingue «no empeora» de
- * «suerte». Esto juega 40 partidas enteras con la IA en los dos bandos y
- * cuenta cuántas no terminan en 300 días.
+ * Las tres semillas de `test/game.test.ts` están elegidas a mano, así que medir
+ * ahí no distingue «no empeora» de «suerte». Esto juega 40 partidas enteras con
+ * la IA en los dos bandos y cuenta cuántas no terminan en 300 días.
  *
- * La medida es **no empeorar**, no arreglar #47. La línea base de **antes** del
- * racimo de la magia era 4 de 40 (semillas 9, 18, 24 y 34); desde que la IA
- * lanza hechizos son **2 de 40** (semillas 9 y 18), que es contra lo que se
- * compara ahora. Si sube, se para y se dice: subir `VALOR_MINIMO_POR_MANA` para
- * taparlo rompe el caso bueno, que es el primer lanzamiento.
+ * **La línea base es 0.** Lo fue 4 de 40, luego 2, y era #47: `captureTown`
+ * escribía el dueño en el `Town` y no en el objeto del mapa, así que la IA veía
+ * el castillo ENEMIGO donde tenía el suyo y se pasaba la partida entrando en su
+ * propia casa. Medido sobre 200 semillas: **12 sin terminar antes, 0 después**.
+ *
+ * Que hoy sea cero convierte esta herramienta en algo más severo que un «no
+ * empeora»: **una sola semilla que no termine es una regresión**. El margen de
+ * 1,05 de `chooseHeroDestination` sigue haciendo falta —con 1,4 vuelven a salir
+ * 3 de 200—, así que sube y baja con cuidado.
  *
  * Uso: npx tsx tools/qa/barrido-semillas.ts [semillas] [dias]
  */

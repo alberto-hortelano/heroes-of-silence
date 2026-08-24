@@ -701,9 +701,29 @@ function collectAt(state: GameState, hero: Hero, at: Point): void {
   }
 }
 
+/**
+ * Cambia de dueño un castillo. Las DOS caras del mismo hecho, juntas.
+ *
+ * `Town.owner` es el libro de cuentas —quién cobra, quién construye, quién
+ * pierde la partida al quedarse sin ninguno— y el objeto del mapa es la
+ * bandera: lo que ve quien pasa por delante, lo que pinta el cliente y lo que
+ * recuerda la niebla. Mientras esta función solo escribió la primera, las dos
+ * copias divergían en la primera captura y no volvían a coincidir jamás.
+ *
+ * Lo que provocaba no era un detalle de pintado: la IA veía el castillo ENEMIGO
+ * donde tenía el suyo, y como un castillo enemigo vale 40000 y estaba a un paso,
+ * se pasaba la partida entrando en su propia casa. Dos jugadores haciendo eso a
+ * la vez no se encuentran nunca — y ninguno se queda sin castillos, que es la
+ * única forma de perder. Ese era el ~10 % de partidas que no terminaban.
+ */
 function captureTown(state: GameState, town: Town, player: PlayerId): void {
   town.owner = player;
   town.garrison = [null, null, null, null, null];
+  const bandera = state.map.objects.find((o) => o.kind === 'town' && o.id === town.id);
+  if (bandera === undefined || bandera.kind !== 'town') {
+    throw new Error(`el castillo ${town.id} no tiene objeto en el mapa`);
+  }
+  bandera.owner = player;
   state.log.push({ kind: 'town_captured', player, town: town.id });
   checkDefeat(state);
 }

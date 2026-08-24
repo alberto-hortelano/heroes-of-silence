@@ -253,6 +253,29 @@ describe('movimiento de héroes', () => {
     expect((mina as { owner: number | null }).owner).toBe(0);
   });
 
+  it('capturar un castillo cambia el libro de cuentas Y la bandera del mapa', () => {
+    // El mismo hecho vivía en dos sitios y solo se escribía uno. La IA veía el
+    // castillo ENEMIGO donde tenía el suyo, y como eso vale 40000 y estaba a un
+    // paso, se pasaba la partida entrando en su propia casa: dos jugadores
+    // haciendo eso no se encuentran nunca y ninguno se queda sin castillos, que
+    // es la única forma de perder. Era el ~10 % de partidas que no terminaban.
+    const state = newGame({ seed: 23 });
+    const c = ctx(23);
+    const hero = heroesOf(state, 0)[0]!;
+    const suyo = state.towns.find((t) => t.owner === 1)!;
+    const bandera = state.map.objects.find((o) => o.kind === 'town' && o.id === suyo.id)!;
+    expect((bandera as { owner: number | null }).owner).toBe(1);
+
+    // Sin guarnición no hay batalla: lo que se mide aquí es la captura.
+    suyo.garrison = [null, null, null, null, null];
+    hero.at = { x: suyo.at.x - 1, y: suyo.at.y };
+    hero.movePoints = 5000;
+    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: suyo.at }, c, state.current);
+
+    expect(suyo.owner).toBe(0);
+    expect((bandera as { owner: number | null }).owner).toBe(0);
+  });
+
   it('no deja mover al héroe de otro jugador', () => {
     const state = newGame({ seed: 24 });
     const c = ctx(24);
@@ -414,6 +437,23 @@ describe('partida completa', () => {
     expect(tipos.has('battle_started')).toBe(true);
     expect(tipos.has('hero_moved')).toBe(true);
     expect(tipos.has('game_over')).toBe(true);
+  });
+
+  it('en una partida entera, ninguna bandera se separa de su libro de cuentas', async () => {
+    // El guardia del bug de arriba, pero por el camino real y con capturas de
+    // verdad: basta una que no escriba las dos caras para que diverjan y no
+    // vuelvan a coincidir nunca.
+    const state = newGame({ seed: 9 });
+    await playAiGame(state, ctx(9), 300);
+    expect(state.log.some((e) => e.kind === 'town_captured')).toBe(true);
+
+    for (const town of state.towns) {
+      const bandera = state.map.objects.find((o) => o.kind === 'town' && o.id === town.id);
+      expect(bandera, `${town.id} no tiene objeto en el mapa`).toBeDefined();
+      expect((bandera as { owner: number | null }).owner, `${town.id} descuadrado`).toBe(town.owner);
+    }
+    // Y la semilla 9 era una de las dos que no terminaban en 300 días.
+    expect(state.finished).not.toBeNull();
   });
 
   it('es determinista: misma semilla, misma partida', async () => {
