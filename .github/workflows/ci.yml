@@ -1,0 +1,71 @@
+# Lo que comprueba el repo cuando sale de la máquina de quien lo escribe.
+#
+# Dos jobs a propósito: `verify` es el bucle rápido (lo mismo que corre el hook
+# `Stop`, más `build`), y `qa` es la única prueba del circuito entero del
+# agente. `qa` no está dentro de `pnpm verify` porque abre los puertos fijos
+# 9880/9881 y sale 1 con EADDRINUSE si hay un `pnpm server` levantado, que es la
+# forma documentada de jugar con el agente: el hook se pondría rojo por tener el
+# juego abierto. Aquí no hay ese problema — cada job es una máquina propia.
+#
+# NO SE GASTA UN CÉNTIMO: no se invoca nada de `tools/gen/`, que es lo único que
+# llama a fal.ai, ni se declara ninguna credencial. `permissions` es de solo
+# lectura para que tampoco pueda escribir en el repo. La comprobación es un grep
+# de las palabras que delatarían lo contrario, y este fichero está escrito para
+# no contener ninguna.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# Dos pushes seguidos a la misma rama no tienen por qué correr los dos hasta el
+# final: manda el último. En un PR no se cancela nada que nadie vaya a mirar,
+# porque lo que se mira es la cabeza de la rama.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      # La versión de pnpm sale de `packageManager` en package.json: una sola
+      # fuente, la misma que usa quien desarrolla.
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # `pnpm verify` y no sus tres órdenes sueltas: el bucle rápido se define
+      # UNA vez, en package.json, y así añadirle una comprobación llega también
+      # aquí. Se pierde la anotación por paso en la interfaz de Actions —un
+      # rojo dice «verify» y hay que abrir el log para ver si fue tsc, biome o
+      # vitest—; sale más barato que dos definiciones que se separan solas.
+      - run: pnpm verify
+      # `vite build` a secas, no `pnpm build`: ese encadena un `tsc -b --noEmit`
+      # que NO es incremental y repite el typecheck que acaba de hacer `verify`.
+      - run: npx vite build
+
+  qa:
+    runs-on: ubuntu-latest
+    # Cinco minutos es diez veces lo que tarda hoy (5,4 s). El tope está por si
+    # el arnés se queda esperando una petición que no llega: sin él, un bloqueo
+    # se come el presupuesto entero de Actions en vez de salir rojo.
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm qa
