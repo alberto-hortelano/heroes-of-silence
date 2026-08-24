@@ -55,14 +55,16 @@ Lánzalo con la ruta y la instrucción de seguir `plan.md`. Devuelve código, te
 
 Si el informe trae desviaciones que afectan al diseño, vuelve al arquitecto (o decide tú si es menor) antes de pasar a QA.
 
-**Antes de llamar a QA**, un paso barato que evita una vuelta entera: invoca `/simplify` sobre el diff. El código recién escrito casi siempre tiene una abstracción de más o una duplicación que se ve mejor en frío.
+**Antes de llamar a QA**, un paso barato que evita una vuelta entera: invoca `/simplify` sobre el diff. El código recién escrito casi siempre tiene una abstracción de más o una duplicación que se ve mejor en frío — y en las dos vueltas que lleva el ciclo ha encontrado **bugs de comportamiento**, no solo cuestiones de estilo.
+
+Sus cuatro revisores se contradicen a veces, y **deduplicarlos y decidir los choques es tuyo**, no del ingeniero: consolida todo en `docs/agents/<tarea>/hallazgos-simplify.md` con la decisión ya tomada en cada uno, incluida una sección de lo que se descarta a conciencia. Un hallazgo descartado con motivo es información; uno descartado en silencio, no.
 
 ## 5 · QA
 
 Lánzalo con la ruta. Devuelve `qa.md` con veredicto.
 
 - **Apto** → paso 6.
-- **Hallazgos** → reanuda al **mismo ingeniero** con `SendMessage` (conserva su contexto: más barato y sin relectura) pasándole los hallazgos concretos. Después, QA re-verifica *solo* los criterios afectados más una pasada adversarial nueva.
+- **Hallazgos** → **escríbelos a `docs/agents/<tarea>/hallazgos-qa.md` y lanza un ingeniero nuevo apuntando ahí.** No intentes reanudar al mismo con `SendMessage`: no es reanudable una vez ha terminado, y falla con *«No transcript found»*. Además, pasar por fichero encaja con el principio del ciclo —todo lo que necesitan viaja escrito— y te obliga a deduplicar los hallazgos antes de mandarlos, que es donde se decide cuáles son de verdad. Después, QA re-verifica *solo* los criterios afectados más una pasada adversarial nueva.
 - Dos vueltas sin cerrar: para y consulta al usuario. Un bucle QA↔ingeniero que no converge suele significar que el requisito está mal escrito, no que el código esté mal.
 
 ## 6 · Cierre
