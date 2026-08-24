@@ -64,7 +64,6 @@ function broadcast(): void {
       },
       players: state.players.map((p) => ({
         id: p.id,
-        name: p.name,
         faction: p.faction,
         resources: p.resources,
         defeated: p.defeated,

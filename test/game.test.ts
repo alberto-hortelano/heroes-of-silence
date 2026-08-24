@@ -298,7 +298,8 @@ describe('movimiento de héroes', () => {
       applyAdventureAction(state, { type: 'build', town: suyo.id, building: 'town_hall' }, c, 1),
     ).toThrow(/todavía no es tu turno/);
     // Y nombra a quién hay que esperar CON SU ID, el mismo que ve el agente en
-    // todo lo demás: `player.name` es 1-based y decía «Jugador 1» del jugador 0.
+    // todo lo demás: el `Player.name` que hubo era 1-based y decía «Jugador 1»
+    // del jugador 0.
     expect(() => applyAdventureAction(state, { type: 'end_turn' }, c, 1)).toThrow(
       /ahora juega el jugador 0 \(knight\)/,
     );

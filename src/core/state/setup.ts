@@ -87,7 +87,6 @@ export function newGame(options: NewGameOptions = {}): GameState {
 
   const players = plan.heroStarts.map((inicio) => ({
     id: inicio.player,
-    name: `Jugador ${inicio.player + 1}`,
     faction: factionOf.get(inicio.player) ?? ('knight' as FactionId),
     controller: options.controllers?.[inicio.player] ?? ('ai' as Controller),
   }));

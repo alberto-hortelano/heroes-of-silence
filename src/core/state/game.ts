@@ -37,7 +37,6 @@ import { addResources, EMPTY_RESOURCES } from '../types.js';
 
 export interface Player {
   readonly id: PlayerId;
-  readonly name: string;
   readonly faction: FactionId;
   controller: Controller;
   resources: Resources;
@@ -182,7 +181,7 @@ export function townsOf(state: GameState, player: PlayerId): Town[] {
 export interface GameConfig {
   readonly seed: number;
   readonly map: GameMap;
-  readonly players: readonly { id: PlayerId; name: string; faction: FactionId; controller: Controller }[];
+  readonly players: readonly { id: PlayerId; faction: FactionId; controller: Controller }[];
   readonly heroes: readonly Hero[];
   readonly towns: readonly Town[];
   readonly startingResources?: Partial<Resources>;
@@ -201,7 +200,6 @@ export const DEFAULT_STARTING_RESOURCES: Resources = {
 export function createGame(config: GameConfig): GameState {
   const players: Player[] = config.players.map((p) => ({
     id: p.id,
-    name: p.name,
     faction: p.faction,
     controller: p.controller,
     resources: addResources(DEFAULT_STARTING_RESOURCES, config.startingResources ?? {}),
@@ -391,17 +389,11 @@ export function turnBlocker(state: GameState, quien: PlayerId): string | null {
 }
 
 /**
- * Quién es un jugador, con **el mismo número que ve todo lo demás**.
- *
- * Existe porque esta frase se escribía de dos maneras: `player.name` es
- * `Jugador ${id + 1}`, así que `turnBlocker` decía «ahora juega Jugador 1» del
- * jugador cuyo id es 0 — y el agente ve el id en todas partes (`owner`, `you`,
- * `player` de las consultas, la nota de fin de partida). Dos numeraciones para
- * la misma cosa es una trampa en cualquier sitio, y aquí la lee un modelo que
- * decide con ella. La facción dice más que el número y no compite con él.
- *
- * `playerById` **lanza** con su mensaje si el id no existe, en vez de degradar a
- * un `jugador 7` con pinta de dato bueno.
+ * Quién es un jugador, con **el mismo número que ve todo lo demás**: el agente
+ * ve el id en `owner`, en `you`, en las consultas y en la nota de fin de
+ * partida, y dos numeraciones para la misma cosa es una trampa. `playerById`
+ * **lanza** si el id no existe, en vez de degradar a un `jugador 7` con pinta
+ * de dato bueno.
  */
 export function describePlayer(state: GameState, id: PlayerId): string {
   return `jugador ${id} (${playerById(state, id).faction})`;
