@@ -19,6 +19,7 @@ import { RESOURCE_KINDS } from '../types.js';
 import {
   heroesOf,
   townsOf,
+  visibleNow,
   week,
   type GameState,
 } from '../state/game.js';
@@ -42,7 +43,12 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId): un
   const player = state.players.find((p) => p.id === playerId);
   if (player === undefined) throw new Error(`jugador desconocido: ${playerId}`);
 
-  const visible = (p: { x: number; y: number }): boolean => player.fog.has(pointKey(p));
+  // Dos capas, y la diferencia importa: `fog` es «esto lo conozco alguna vez» y
+  // `mirando` es «esto lo estoy viendo ahora». Del presente solo se puede
+  // afirmar lo segundo; de lo demás se manda el RECUERDO, con su fecha.
+  const mirando = visibleNow(state, playerId);
+  const observado = (p: { x: number; y: number }): boolean => mirando.has(pointKey(p));
+  const vivos = new Map(state.map.objects.map((o) => [o.id, o]));
 
   return {
     kind: 'adventure_turn',
@@ -92,29 +98,38 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId): un
       })),
       garrison: armyView(t.garrison),
     })),
-    // Solo lo que este jugador ha explorado: el agente no ve por las paredes.
+    // Solo lo que este jugador ha OBSERVADO, y tal como lo observó. El agente no
+    // ve por las paredes, y tampoco ve el futuro de una casilla que dejó atrás:
+    // `lastSeen` dice de qué día es cada dato, y si es de ayer puede haber
+    // dejado de ser verdad.
     knownMap: {
       width: state.map.width,
       height: state.map.height,
-      objects: state.map.objects
-        .filter((o) => visible(o.at))
-        .map((o) => {
-          switch (o.kind) {
-            case 'mine':
-              return { kind: o.kind, id: o.id, at: o.at, resource: o.resource, owner: o.owner };
-            case 'resource':
-              return { kind: o.kind, id: o.id, at: o.at, resource: o.resource, amount: o.amount, taken: o.taken };
-            case 'town':
-              return { kind: o.kind, id: o.id, at: o.at, owner: o.owner };
-            case 'monster':
-              return { kind: o.kind, id: o.id, at: o.at, creature: o.creature, count: o.count, defeated: o.defeated };
-            case 'chest':
-              return { kind: o.kind, id: o.id, at: o.at, gold: o.gold, taken: o.taken };
-          }
-        }),
+      objects: [...player.memory.values()].map((recuerdo) => {
+        // Lo que se está mirando ahora es presente; lo demás, memoria.
+        const mirandolo = observado(recuerdo.object.at);
+        const o = mirandolo ? (vivos.get(recuerdo.object.id) ?? recuerdo.object) : recuerdo.object;
+        const cuando = { lastSeen: mirandolo ? state.day : recuerdo.day };
+        switch (o.kind) {
+          case 'mine':
+            return { kind: o.kind, id: o.id, at: o.at, resource: o.resource, owner: o.owner, ...cuando };
+          case 'resource':
+            return { kind: o.kind, id: o.id, at: o.at, resource: o.resource, amount: o.amount, taken: o.taken, ...cuando };
+          case 'town':
+            return { kind: o.kind, id: o.id, at: o.at, owner: o.owner, ...cuando };
+          case 'monster':
+            return { kind: o.kind, id: o.id, at: o.at, creature: o.creature, count: o.count, defeated: o.defeated, ...cuando };
+          case 'chest':
+            return { kind: o.kind, id: o.id, at: o.at, gold: o.gold, taken: o.taken, ...cuando };
+        }
+      }),
     },
+    // Un héroe enemigo se ve o no se ve: no hay recuerdo que mandar, porque una
+    // posición de anteayer es ruido y no intel. Antes bastaba con haber pisado
+    // esa casilla alguna vez, así que el agente seguía al rival por medio mapa
+    // sin tener a nadie cerca.
     enemyHeroes: state.heroes
-      .filter((h) => h.owner !== playerId && visible(h.at))
+      .filter((h) => h.owner !== playerId && observado(h.at))
       .map((h) => ({ id: h.id, owner: h.owner, at: h.at, army: armyView(h.army) })),
     recentEvents: state.log.slice(-25),
   };

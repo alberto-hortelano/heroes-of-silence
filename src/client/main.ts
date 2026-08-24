@@ -45,6 +45,15 @@ const elActions = document.getElementById('actions') as HTMLElement;
 let session = new Session(Date.now() % 100000);
 let camera: AdventureCamera = { origin: { x: 0, y: 0 }, cols: 0, rows: 0, offsetX: 0, offsetY: 0 };
 let hoverPath: Point[] = [];
+/**
+ * Lo que determina la ruta previsualizada: la casilla señalada, quién la anda y
+ * cuánto le queda. Un `mousemove` dispara muchísimo más rápido de lo que cambia
+ * la casilla —una casilla son decenas de píxeles—, así que sin esta clave la
+ * inmensa mayoría de los Dijkstras (0,78 ms cada uno) recalculaban el MISMO
+ * camino. Va la clave entera y no solo la casilla porque la ruta también cambia
+ * al elegir otro héroe desde el panel o al gastarle el movimiento.
+ */
+let rutaPintada: string | null = null;
 let hoverStack: string | null = null;
 let hoverHex: ReturnType<typeof hexAtPixel> = null;
 let battleShift = { x: 0, y: 0 };
@@ -166,6 +175,10 @@ canvas.addEventListener('mousemove', (ev) => {
     canvas.style.cursor = hoverStack !== null ? 'crosshair' : 'pointer';
   } else {
     const tile = tileAtPixel(camera, px, py);
+    const heroe = session.selectedHero;
+    const clave = `${tile.x},${tile.y}|${heroe?.id ?? ''}|${heroe?.movePoints ?? 0}|${session.isPlayersTurn}`;
+    if (clave === rutaPintada) return;
+    rutaPintada = clave;
     hoverPath = session.previewPath(tile).map((p) => p.at);
     canvas.style.cursor = hoverPath.length > 0 ? 'pointer' : 'default';
   }
@@ -174,6 +187,7 @@ canvas.addEventListener('mousemove', (ev) => {
 
 canvas.addEventListener('mouseleave', () => {
   hoverPath = [];
+  rutaPintada = null;
   hoverHex = null;
   hoverStack = null;
   hoverTown = null;
@@ -192,6 +206,7 @@ canvas.addEventListener('click', (ev) => {
   } else {
     session.clickTile(tileAtPixel(camera, px, py));
     hoverPath = [];
+    rutaPintada = null;
   }
   needsRender = true;
 });
@@ -337,6 +352,7 @@ document.addEventListener('click', (ev) => {
       break;
     case 'restart':
       session = new Session(Date.now() % 100000);
+      rutaPintada = null;
       break;
     default:
       return;

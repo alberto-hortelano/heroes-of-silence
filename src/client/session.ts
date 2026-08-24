@@ -15,7 +15,7 @@ import {
   activeStack,
 } from '@core/battle/battle.js';
 import { spell } from '@core/battle/spells.js';
-import type { BattleAction, BattleStack, BattleState } from '@core/battle/types.js';
+import type { BattleAction, BattleStack, BattleState, Side } from '@core/battle/types.js';
 import { findPath, type PathStep } from '@core/map/map.js';
 import { createRng } from '@core/rng.js';
 import {
@@ -25,6 +25,7 @@ import {
   heroesOf,
   resolvePendingBattle,
   settleBattle,
+  sidesOwnedBy,
   townById,
   townsOf,
   turnBlocker,
@@ -300,16 +301,41 @@ export class Session {
   }
 
   /**
+   * El bando de la persona en la batalla pendiente, DERIVADO del dueño.
+   *
+   * Suponer `attacker` colaba mientras la persona solo jugaba las batallas que
+   * empezaba ella. Pero es la misma suposición que el ciclo de #29 quitó del
+   * servidor, y aquí quedaban seis: el día que la persona pueda defender —o que
+   * esta capa hable por WebSocket, que es lo que anuncia la cabecera— pintaría
+   * los stacks del enemigo como propios, le preguntaría a `castBlocker` por el
+   * héroe equivocado y dejaría al rival mover con la IA en su propio turno.
+   *
+   * La derivación es literalmente la del director (`sidesOwnedBy`), así que las
+   * dos mitades del arreglo no pueden separarse. `null` es «esta batalla no va
+   * conmigo»: nada que mover y ningún turno propio.
+   */
+  get miBando(): Side | null {
+    const pending = this.state.pendingBattle;
+    if (pending === null) return null;
+    const bandos = sidesOwnedBy(this.state, pending, [this.viewer]);
+    // Con los dos bandos en la misma mano se juega el atacante, que es quien
+    // inició: es lo mismo que decide el director cuando el agente lleva a los dos.
+    if (bandos.has('attacker')) return 'attacker';
+    return bandos.has('defender') ? 'defender' : null;
+  }
+
+  /**
    * La batalla y su stack activo, pero solo cuando el turno es de verdad de la
    * persona. Son las cuatro guardas de «¿me toca?», escritas una vez: estaban
    * copiadas en `battleMovable` y en `spellOptions`.
    */
-  private get turnoPropio(): { battle: BattleState; stack: BattleStack } | null {
+  private get turnoPropio(): { battle: BattleState; stack: BattleStack; side: Side } | null {
     const battle = this.battle;
     if (battle === null || battle.finished !== null) return null;
+    const side = this.miBando;
     const stack = activeStack(battle);
-    if (stack === null || stack.side !== 'attacker') return null;
-    return { battle, stack };
+    if (side === null || stack === null || stack.side !== side) return null;
+    return { battle, stack, side };
   }
 
   /** Hexes a los que puede ir el stack activo, si es de la persona. */
@@ -324,9 +350,11 @@ export class Session {
     return legalActions(battle);
   }
 
-  /** El héroe de la persona en la batalla en curso. */
+  /** El héroe de la persona en la batalla en curso, el de SU bando. */
   get battleHero() {
-    return this.battle?.heroes.attacker ?? null;
+    const bando = this.miBando;
+    if (bando === null) return null;
+    return this.battle?.heroes[bando] ?? null;
   }
 
   /**
@@ -359,7 +387,7 @@ export class Session {
       // Con `castable` verdadero el bloqueo es `null` por construcción, así que
       // solo se pregunta cuando hace falta. Y si no lo es, el núcleo TIENE que
       // dar motivo: las dos respuestas salen de la misma función.
-      const motivo = castable ? '' : castBlocker(turno.battle, 'attacker', id);
+      const motivo = castable ? '' : castBlocker(turno.battle, turno.side, id);
       if (motivo === null) {
         throw new Error(`${sp.name} no se ofrece y el núcleo no dice por qué`);
       }
@@ -379,7 +407,7 @@ export class Session {
     const turno = this.turnoPropio;
     const elegido = this.selectedSpell;
     if (turno === null || elegido === null) return '';
-    const motivo = castBlocker(turno.battle, 'attacker', elegido, targetId);
+    const motivo = castBlocker(turno.battle, turno.side, elegido, targetId);
     if (motivo === null) {
       throw new Error(`${spell(elegido).name} no se ofrece sobre ${targetId} y el núcleo no dice por qué`);
     }
@@ -433,14 +461,15 @@ export class Session {
     this.advanceEnemyTurns();
   }
 
-  /** Deja que la IA mueva mientras el turno sea del defensor. */
+  /** Deja que la IA mueva mientras el turno NO sea del bando de la persona. */
   advanceEnemyTurns(): void {
     const battle = this.battle;
-    if (battle === null) return;
+    const mio = this.miBando;
+    if (battle === null || mio === null) return;
     let guard = 0;
     while (battle.finished === null && guard < 500) {
       const s = activeStack(battle);
-      if (s === null || s.side === 'attacker') break;
+      if (s === null || s.side === mio) break;
       applyAction(battle, chooseBattleAction(battle), this.ctx.rng);
       guard++;
     }

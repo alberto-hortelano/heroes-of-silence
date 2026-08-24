@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
 import { creature } from '../src/core/data.js';
 import { pointKey, reachableCosts } from '../src/core/map/map.js';
-import { applyAdventureAction, type GameState } from '../src/core/state/game.js';
+import { applyAdventureAction, revealEverything, type GameState } from '../src/core/state/game.js';
 import type { Point } from '../src/core/types.js';
 import type { Town } from '../src/core/town/town.js';
 import type { Hero } from '../src/core/hero/hero.js';
@@ -350,11 +350,7 @@ describe('enlace con el agente', () => {
     const director = new Director(link, { seed: 106, agentPlayers: [0] });
     // Se le descubre el mapa: con la niebla inicial no vería ningún monstruo
     // al que atacar, y el test no probaría nada.
-    for (let y = 0; y < director.state.map.height; y++) {
-      for (let x = 0; x < director.state.map.width; x++) {
-        director.state.players[0]!.fog.add(`${x},${y}`);
-      }
-    }
+    revealEverything(director.state, 0);
     // Se le da un ejército de sobra para que la batalla la gane él.
     director.state.heroes[0]!.army = [
       { creature: 'paladin', count: 40 },
@@ -676,11 +672,7 @@ describe('el agente sabe cómo le fue', () => {
     });
 
     const director = new Director(link, { seed: 307, agentPlayers: [0] });
-    for (let y = 0; y < director.state.map.height; y++) {
-      for (let x = 0; x < director.state.map.width; x++) {
-        director.state.players[0]!.fog.add(`${x},${y}`);
-      }
-    }
+    revealEverything(director.state, 0);
 
     const heroe = director.state.heroes.find((h) => h.owner === 0) as Hero;
     heroe.army = [{ creature: 'paladin', count: 40 }, null, null, null, null];

@@ -11,7 +11,7 @@
  * igual que el tablero de batalla se centra con `battleOffset`.
  */
 import { creature } from '@core/data.js';
-import { building, buildingsOfFaction } from '@core/town/buildings.js';
+import { building, buildingsOfFaction, type Building } from '@core/town/buildings.js';
 import { buildBlocker, creatureOfLevel, hasBuilding, recruitCost, type Town } from '@core/town/town.js';
 import { RESOURCE_KINDS, type FactionId, type Resources } from '@core/types.js';
 import { asset } from './assets.js';
@@ -32,14 +32,30 @@ export interface TownPlot {
   readonly level?: number;
 }
 
-/** Los cinco solares de villa: iguales para las dos facciones. */
-const SOLARES_DE_VILLA: readonly TownPlot[] = [
-  { id: 'fort', chain: ['castle'], x: 40, y: 30, w: 190, h: 150 },
-  { id: 'hall', chain: ['village_hall', 'town_hall', 'city_hall'], x: 258, y: 30, w: 190, h: 150 },
-  { id: 'guild', chain: ['mage_guild_1', 'mage_guild_2'], x: 476, y: 30, w: 170, h: 150 },
-  { id: 'tavern', chain: ['tavern'], x: 674, y: 30, w: 150, h: 150 },
-  { id: 'market', chain: ['marketplace'], x: 852, y: 30, w: 132, h: 150 },
-];
+/**
+ * Los cinco solares de villa: iguales para las dos facciones.
+ *
+ * La cadena del gremio se DERIVA del catálogo, igual que las de las moradas:
+ * los edificios con `mageGuildLevel`, en orden de nivel. Escrita a mano era una
+ * trampa esperando — el día que entrara `mage_guild_3` en los datos, la IA
+ * podría construirlo y la persona vería el solar terminado en el II, sin que
+ * ningún test se pusiera rojo.
+ */
+function solaresDeVilla(catalogo: readonly Building[]): readonly TownPlot[] {
+  const gremio = catalogo
+    .filter((b) => b.mageGuildLevel !== undefined)
+    .slice()
+    .sort((a, b) => (a.mageGuildLevel ?? 0) - (b.mageGuildLevel ?? 0))
+    .map((b) => b.id);
+
+  return [
+    { id: 'fort', chain: ['castle'], x: 40, y: 30, w: 190, h: 150 },
+    { id: 'hall', chain: ['village_hall', 'town_hall', 'city_hall'], x: 258, y: 30, w: 190, h: 150 },
+    { id: 'guild', chain: gremio, x: 476, y: 30, w: 170, h: 150 },
+    { id: 'tavern', chain: ['tavern'], x: 674, y: 30, w: 150, h: 150 },
+    { id: 'market', chain: ['marketplace'], x: 852, y: 30, w: 132, h: 150 },
+  ];
+}
 
 /**
  * Once solares para los edificios de la facción.
@@ -61,7 +77,7 @@ export function townPlots(faction: FactionId): readonly TownPlot[] {
   ].map((b) => b.id);
 
   return [
-    ...SOLARES_DE_VILLA,
+    ...solaresDeVilla(propios),
     ...[1, 2, 3, 4, 5, 6].map((n, i) => ({
       id: `lvl${n}`,
       chain: cadena(n),

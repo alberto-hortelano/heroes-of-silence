@@ -43,7 +43,23 @@ export interface Player {
   resources: Resources;
   /** Casillas ya exploradas, por clave "x,y". */
   fog: Set<string>;
+  /**
+   * Lo último OBSERVADO de cada objeto del mapa, por id de objeto.
+   *
+   * La niebla filtraba el espacio pero no el tiempo: bastaba haber pisado una
+   * casilla el día 3 para ver, el día 20, quién posee la mina AHORA. Lo que se
+   * recuerda es lo que se vio, con el día en que se vio, así que hay algo que
+   * reconocer — y una mina que dejó de dar oro sin cambiar de dueño en el mapa
+   * conocido es justo la señal de que allí ha pasado algo.
+   */
+  memory: Map<string, RememberedObject>;
   defeated: boolean;
+}
+
+/** Un objeto del mapa tal y como se vio, y cuándo. */
+export interface RememberedObject {
+  readonly day: number;
+  readonly object: MapObject;
 }
 
 /** Producción diaria de cada tipo de mina. */
@@ -190,6 +206,7 @@ export function createGame(config: GameConfig): GameState {
     controller: p.controller,
     resources: addResources(DEFAULT_STARTING_RESOURCES, config.startingResources ?? {}),
     fog: new Set<string>(),
+    memory: new Map<string, RememberedObject>(),
     defeated: false,
   }));
 
@@ -219,10 +236,59 @@ export function createGame(config: GameConfig): GameState {
   return state;
 }
 
+/**
+ * El héroe mira alrededor: explora Y apunta lo que ve.
+ *
+ * Las dos cosas van juntas a propósito. Separarlas es exactamente el bug que
+ * había: la casilla quedaba explorada para siempre y el objeto se leía del
+ * estado vivo, así que el agente se enteraba de una captura ocurrida a veinte
+ * casillas de su héroe más cercano.
+ */
 function revealAround(state: GameState, hero: Hero): void {
   const player = state.players.find((p) => p.id === hero.owner);
   if (player === undefined) return;
-  for (const key of visibleFrom(state.map, hero.at, HERO_SCOUT_RADIUS)) player.fog.add(key);
+  const alcance = new Set(visibleFrom(state.map, hero.at, HERO_SCOUT_RADIUS));
+  for (const key of alcance) player.fog.add(key);
+  for (const obj of state.map.objects) {
+    if (alcance.has(pointKey(obj.at))) {
+      player.memory.set(obj.id, { day: state.day, object: { ...obj } });
+    }
+  }
+}
+
+/**
+ * Le descubre el mapa entero a un jugador: explorado Y observado.
+ *
+ * Existe para los tests y para mirar una partida por dentro. Desde que la
+ * niebla recuerda, llenar `fog` a mano ya NO basta —lo que se sabe de cada
+ * objeto vive en `memory`—, y quien solo llenara `fog` vería un mapa entero y
+ * vacío. Que esa trampa esté escrita una vez y no copiada en cada test es justo
+ * lo que evita que la próxima copia se quede a medias.
+ */
+export function revealEverything(state: GameState, playerId: PlayerId): void {
+  const player = playerById(state, playerId);
+  for (let y = 0; y < state.map.height; y++) {
+    for (let x = 0; x < state.map.width; x++) player.fog.add(pointKey({ x, y }));
+  }
+  for (const obj of state.map.objects) {
+    player.memory.set(obj.id, { day: state.day, object: { ...obj } });
+  }
+}
+
+/**
+ * Las casillas que un jugador está viendo AHORA MISMO: el entorno de cada uno
+ * de sus héroes, más el suelo de sus pueblos, que siempre tienen a alguien.
+ *
+ * Es la otra mitad de `fog`. `fog` dice «esto lo conozco»; esto dice «esto lo
+ * estoy mirando», y solo de lo que se mira se puede afirmar el presente.
+ */
+export function visibleNow(state: GameState, playerId: PlayerId): Set<string> {
+  const claves = new Set<string>();
+  for (const hero of heroesOf(state, playerId)) {
+    for (const key of visibleFrom(state.map, hero.at, HERO_SCOUT_RADIUS)) claves.add(key);
+  }
+  for (const town of townsOf(state, playerId)) claves.add(pointKey(town.at));
+  return claves;
 }
 
 // ---------------------------------------------------------------- turnos
@@ -251,6 +317,9 @@ function startTurn(state: GameState): void {
       (t) => pointKey(t.at) === pointKey(hero.at) && mageGuildLevel(t) > 0,
     );
     hero.mana = enPueblo ? maxMana(hero) : Math.min(maxMana(hero), hero.mana + 1);
+    // Y mira alrededor al levantarse: un héroe quieto también ve. Sin esto, su
+    // recuerdo de la mina que tiene al lado sería del día en que llegó.
+    revealAround(state, hero);
   }
 }
 

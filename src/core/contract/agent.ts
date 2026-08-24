@@ -158,6 +158,13 @@ Notas:
 - "towns[].teaches" son los hechizos que enseña el gremio de ese pueblo: un
   héroe tuyo parado allí los aprende solo, hasta donde le deje su Sabiduría, y
   aparecen en "heroes[].spells". NO hay acción para aprender: basta con llevarlo.
+- "knownMap.objects" es lo que has OBSERVADO, no lo que es verdad ahora: cada
+  objeto trae "lastSeen" con el día en que lo viste. Si "lastSeen" es anterior
+  a hoy, el dato puede haber caducado —una mina cambia de dueño y tú sigues
+  viendo la bandera vieja hasta que alguien vuelva a mirar—. Una mina tuya que
+  dejó de dar recursos es la señal de que allí ha pasado algo.
+- "enemyHeroes" son los que ves AHORA: si no aparece ninguno, no significa que
+  no haya, solo que nadie tuyo los tiene a la vista.
 - Si una acción resulta ilegal se descarta y las siguientes siguen aplicándose.
 - Al cerrar el turno se te dice cuántas acciones entraron y, si se descartó
   alguna, cuál y por qué. Las descartadas NO se reintentan solas.`,

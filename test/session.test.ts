@@ -8,6 +8,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { Session } from '../src/client/session.js';
+import { applyAdventureAction, heroesOf } from '../src/core/state/game.js';
 
 describe('sesión del cliente: el turno del rival', () => {
   it('mientras juega el rival no es tu turno, y pulsar otra vez no hace nada', async () => {
@@ -87,5 +88,58 @@ describe('sesión del cliente: el turno del rival', () => {
     // Y la bandera vuelve abajo pase lo que pase: si se quedara arriba, el
     // juego se quedaría mudo para siempre, que es peor que el fallo.
     expect((s as unknown as { turnoDelRivalEnCurso: boolean }).turnoDelRivalEnCurso).toBe(false);
+  });
+});
+
+describe('sesión del cliente: el bando de la persona', () => {
+  /**
+   * Una batalla en la que la persona DEFIENDE. Hoy no llega ninguna al cliente
+   * —`playAiTurn` autorresuelve lo que el rival le echa encima—, así que se monta
+   * a mano: el héroe del jugador 1 entra en la casilla del héroe del jugador 0.
+   */
+  function meAtacan(semilla: number) {
+    const s = new Session(semilla);
+    const mio = heroesOf(s.state, 0)[0]!;
+    const suyo = heroesOf(s.state, 1)[0]!;
+    s.state.current = 1;
+    suyo.movePoints = 100000;
+    applyAdventureAction(s.state, { type: 'move_hero', hero: suyo.id, to: mio.at }, s.ctx, 1);
+    if (s.state.pendingBattle === null) throw new Error('el rival no llegó a atacar');
+    return { s, mio };
+  }
+
+  it('defendiendo, el bando sale del dueño y no de suponerse atacante', () => {
+    const { s, mio } = meAtacan(7);
+
+    expect(s.miBando).toBe('defender');
+    // El libro de hechizos que se pinta es el MÍO. Suponiendo `attacker` era el
+    // del rival: se le habría ofrecido a la persona lanzar con el maná del otro.
+    expect(s.battleHero?.name).toBe(mio.name);
+  });
+
+  it('con el rival activo no se le puede mover NADA a la persona', () => {
+    const { s } = meAtacan(7);
+    const activo = s.battle!.stacks.find((x) => x.id === s.battle!.activeId)!;
+    expect(activo.side).toBe('attacker');
+
+    // Aquí mordía de verdad: dando por hecho que la persona es el atacante, el
+    // tablero pintaba en verde los hexes del stack del RIVAL y dejaba moverlo.
+    expect(s.battleMovable()).toEqual([]);
+    expect(s.spellOptions()).toEqual([]);
+  });
+
+  it('el turno del rival lo juega la IA hasta que le toca a la persona', () => {
+    const { s } = meAtacan(7);
+
+    s.advanceEnemyTurns();
+
+    const battle = s.battle!;
+    if (battle.finished === null) {
+      const activo = battle.stacks.find((x) => x.id === battle.activeId)!;
+      // Lo contrario de lo que hacía: se paraba al ver un atacante —creyéndolo
+      // suyo— y devolvía el mando con el turno del rival a medias.
+      expect(activo.side).toBe('defender');
+      expect(s.battleMovable().length).toBeGreaterThan(0);
+    }
   });
 });

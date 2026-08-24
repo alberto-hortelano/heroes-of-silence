@@ -17,8 +17,15 @@ import { planBuildings, planHires, planRecruits } from '../src/core/ai/strategy.
 import { createBattle, legalActions } from '../src/core/battle/battle.js';
 import { generateMapPlan } from '../src/core/map/generate.js';
 import { createRng } from '../src/core/rng.js';
-import { heroesOf, resolvePendingBattle, applyAdventureAction } from '../src/core/state/game.js';
+import {
+  heroesOf,
+  resolvePendingBattle,
+  applyAdventureAction,
+  revealEverything,
+  visibleNow,
+} from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
+import { pointKey } from '../src/core/map/map.js';
 import { mageGuildLevel, townSpells } from '../src/core/town/town.js';
 import { forzarBatalla } from './helpers.js';
 
@@ -97,6 +104,69 @@ describe('lo que ve el agente', () => {
         (o) => o.at.x === puebloEnemigo.at.x && o.at.y === puebloEnemigo.at.y,
       ),
     ).toBe(false);
+  });
+
+  it('lo que se dejó atrás se manda como se vio, con el día en que se vio', () => {
+    // La niebla filtraba el espacio pero no el tiempo: pisar una casilla el día
+    // 1 bastaba para saber, el día 20, de quién es la mina AHORA.
+    const state = newGame({ seed: 92 });
+    revealEverything(state, 0);
+    const mirando = visibleNow(state, 0);
+
+    const lejos = state.map.objects.find(
+      (o) => o.kind === 'mine' && !mirando.has(pointKey(o.at)),
+    );
+    expect(lejos, 'la semilla no deja ninguna mina fuera de la vista').toBeDefined();
+    if (lejos === undefined || lejos.kind !== 'mine') throw new Error('sin mina lejana');
+
+    // Pasan diecinueve días y el rival la captura sin que nadie lo vea.
+    state.day = 20;
+    lejos.owner = 1;
+
+    const payload = serializeAdventureTurn(state, 0) as {
+      knownMap: { objects: { id: string; owner?: number | null; lastSeen: number }[] };
+    };
+    const vista = payload.knownMap.objects.find((o) => o.id === lejos.id)!;
+    expect(vista.owner).toBeNull();
+    expect(vista.lastSeen).toBe(1);
+  });
+
+  it('lo que se está mirando ahora sí es el presente', () => {
+    const state = newGame({ seed: 92 });
+    revealEverything(state, 0);
+    const mirando = visibleNow(state, 0);
+
+    const cerca = state.map.objects.find((o) => o.kind === 'mine' && mirando.has(pointKey(o.at)));
+    expect(cerca, 'la semilla no deja ninguna mina a la vista').toBeDefined();
+    if (cerca === undefined || cerca.kind !== 'mine') throw new Error('sin mina cercana');
+
+    state.day = 20;
+    cerca.owner = 1;
+
+    const payload = serializeAdventureTurn(state, 0) as {
+      knownMap: { objects: { id: string; owner?: number | null; lastSeen: number }[] };
+    };
+    const vista = payload.knownMap.objects.find((o) => o.id === cerca.id)!;
+    // Con un héroe delante no hay recuerdo que valga: se ve lo que hay.
+    expect(vista.owner).toBe(1);
+    expect(vista.lastSeen).toBe(20);
+  });
+
+  it('un héroe enemigo se ve solo si alguien lo está mirando', () => {
+    const state = newGame({ seed: 92 });
+    revealEverything(state, 0);
+
+    const mio = heroesOf(state, 0)[0]!;
+    const suyo = state.heroes.find((h) => h.owner === 1)!;
+
+    // Con el mapa entero explorado, antes se le seguía por medio mapa sin tener
+    // a nadie cerca: bastaba con haber pisado esa casilla alguna vez.
+    const lejos = serializeAdventureTurn(state, 0) as { enemyHeroes: unknown[] };
+    expect(lejos.enemyHeroes).toEqual([]);
+
+    suyo.at = { ...mio.at };
+    const delante = serializeAdventureTurn(state, 0) as { enemyHeroes: { id: string }[] };
+    expect(delante.enemyHeroes.map((h) => h.id)).toEqual([suyo.id]);
   });
 
   it('la petición de batalla trae todas las acciones legales', () => {

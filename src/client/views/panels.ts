@@ -6,7 +6,7 @@
 import { activeStack } from '@core/battle/battle.js';
 import { effectiveLuck } from '@core/battle/effects.js';
 import { spell, type Spell } from '@core/battle/spells.js';
-import type { BattleEvent } from '@core/battle/types.js';
+import type { BattleEvent, Side } from '@core/battle/types.js';
 import { creature, isShooter } from '@core/data.js';
 import { armySize, maxMana, maxMovePoints } from '@core/hero/hero.js';
 import type { GameEvent } from '@core/state/game.js';
@@ -225,11 +225,17 @@ function renderBattlePanel(session: Session): string {
   const battle = session.battle;
   if (battle === null) return '';
 
+  // El bando de la persona lo DERIVA la sesión del dueño de la batalla; aquí no
+  // se supone. Decir «Tú» al atacante era la misma suposición que el ciclo de
+  // #29 quitó del servidor, y le habría cantado «Victoria» a quien acababa de
+  // perder el castillo el primer día que la persona defienda.
+  const mio = session.miBando;
+
   if (battle.finished !== null) {
-    const gane = battle.finished.winner === 'attacker';
+    const gane = battle.finished.winner === mio;
     return `<h2>${gane ? 'Victoria' : 'Derrota'}</h2>
       <p>${gane ? 'El campo es tuyo.' : 'Tu héroe ha caído.'}</p>
-      <h3>Parte de guerra</h3>${renderBattleLog(battle.log)}`;
+      <h3>Parte de guerra</h3>${renderBattleLog(battle.log, mio)}`;
   }
 
   const s = activeStack(battle);
@@ -237,12 +243,12 @@ function renderBattlePanel(session: Session): string {
     s === null
       ? '<p>Sin unidad activa.</p>'
       : `<h2>${creature(s.creature).name}</h2>
-        <div class="row"><span class="label">Bando</span><span>${s.side === 'attacker' ? 'Tú' : 'Enemigo'}</span></div>
+        <div class="row"><span class="label">Bando</span><span>${s.side === mio ? 'Tú' : 'Enemigo'}</span></div>
         <div class="row"><span class="label">Efectivos</span><span>${s.count}</span></div>
         <div class="row"><span class="label">Moral / Suerte</span><span>${s.morale} / ${effectiveLuck(s)}</span></div>
         ${isShooter(creature(s.creature)) ? `<div class="row"><span class="label">Munición</span><span>${s.shotsLeft}</span></div>` : ''}`;
 
-  const suTurno = s !== null && s.side === 'attacker';
+  const suTurno = s !== null && s.side === mio;
   const acciones = suTurno
     ? `<h3>Acciones</h3>
        <div class="stack-list">
@@ -268,7 +274,7 @@ function renderBattlePanel(session: Session): string {
     .map(
       (x) =>
         `<div class="stack${x.id === battle.activeId ? '' : ' empty'}">
-          <span>${x.side === 'attacker' ? '▶' : '◀'} ${creature(x.creature).name}</span>
+          <span>${x.side === mio ? '▶' : '◀'} ${creature(x.creature).name}</span>
           <span class="count">${x.count}</span>
         </div>`,
     )
@@ -279,7 +285,7 @@ function renderBattlePanel(session: Session): string {
     ${mana}
     ${acciones}
     <h3>En el campo</h3><div class="stack-list">${orden}</div>
-    <h3>Parte de guerra</h3>${renderBattleLog(battle.log)}`;
+    <h3>Parte de guerra</h3>${renderBattleLog(battle.log, mio)}`;
 }
 
 /**
@@ -342,7 +348,11 @@ const ETIQUETA_EFECTO: Readonly<Record<string, string>> = {
   attack: 'ataque',
 };
 
-function renderBattleLog(log: readonly BattleEvent[]): string {
+/**
+ * El parte de guerra. `mio` es el bando de quien lo lee: sin él, «gana el
+ * defensor» se pintaría en rojo de derrota aunque el defensor fueras tú.
+ */
+function renderBattleLog(log: readonly BattleEvent[], mio: Side | null): string {
   const lineas = log
     .slice(-40)
     .map((e) => {
@@ -372,7 +382,7 @@ function renderBattleLog(log: readonly BattleEvent[]): string {
         case 'perished':
           return `<div class="lose">Una unidad ha sido aniquilada</div>`;
         case 'finished':
-          return `<div class="${e.winner === 'attacker' ? 'win' : 'lose'}">Fin: gana el ${e.winner === 'attacker' ? 'atacante' : 'defensor'}</div>`;
+          return `<div class="${mio === null ? '' : e.winner === mio ? 'win' : 'lose'}">Fin: gana el ${e.winner === 'attacker' ? 'atacante' : 'defensor'}</div>`;
         default:
           return '';
       }
