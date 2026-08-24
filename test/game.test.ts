@@ -132,7 +132,7 @@ describe('calendario', () => {
 
     // Pasar siete días completos.
     for (let i = 0; i < 7 * state.players.length; i++) {
-      applyAdventureAction(state, { type: 'end_turn' }, c);
+      applyAdventureAction(state, { type: 'end_turn' }, c, state.current);
     }
     expect(state.day).toBe(8);
     expect(town.available[morada!.creature] ?? 0).toBeGreaterThan(antes);
@@ -146,7 +146,7 @@ describe('economía', () => {
     const oroInicial = state.players[0]!.resources.gold;
 
     // Un turno de cada jugador devuelve la vez al primero, con su ingreso.
-    for (const _ of state.players) applyAdventureAction(state, { type: 'end_turn' }, c);
+    for (const _ of state.players) applyAdventureAction(state, { type: 'end_turn' }, c, state.current);
     expect(state.players[0]!.resources.gold).toBeGreaterThan(oroInicial);
   });
 
@@ -157,12 +157,12 @@ describe('economía', () => {
     const player = currentPlayer(state);
     const oroAntes = player.resources.gold;
 
-    applyAdventureAction(state, { type: 'build', town: town.id, building: 'knight_dwelling_2' }, c);
+    applyAdventureAction(state, { type: 'build', town: town.id, building: 'knight_dwelling_2' }, c, state.current);
     expect(town.buildings).toContain('knight_dwelling_2');
     expect(player.resources.gold).toBeLessThan(oroAntes);
 
     expect(() =>
-      applyAdventureAction(state, { type: 'build', town: town.id, building: 'knight_dwelling_3' }, c),
+      applyAdventureAction(state, { type: 'build', town: town.id, building: 'knight_dwelling_3' }, c, state.current),
     ).toThrow(/ya se ha construido hoy/);
   });
 
@@ -182,6 +182,7 @@ describe('economía', () => {
       state,
       { type: 'recruit', town: town.id, creature: morada.creature, count: 2 },
       c,
+      state.current,
     );
     const despues = hero.army.find((s) => s?.creature === morada.creature)?.count ?? 0;
     expect(despues).toBe(antes + 2);
@@ -198,6 +199,7 @@ describe('economía', () => {
         state,
         { type: 'recruit', town: town.id, creature: morada.creature, count: 9999 },
         c,
+        state.current,
       ),
     ).toThrow(/solo hay/);
   });
@@ -212,7 +214,7 @@ describe('movimiento de héroes', () => {
     const nieblaAntes = state.players[0]!.fog.size;
 
     const destino = { x: hero.at.x + 2, y: hero.at.y };
-    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: destino }, c);
+    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: destino }, c, state.current);
 
     expect(pointKey(hero.at)).toBe(pointKey(destino));
     expect(hero.movePoints).toBeLessThan(puntosAntes);
@@ -233,7 +235,7 @@ describe('movimiento de héroes', () => {
     expect(camino).not.toBeNull();
 
     const antes = { ...state.players[0]!.resources };
-    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: recurso!.at }, c);
+    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: recurso!.at }, c, state.current);
     const tipo = (recurso as { resource: keyof typeof antes }).resource;
     expect(state.players[0]!.resources[tipo]).toBeGreaterThan(antes[tipo]);
   });
@@ -247,7 +249,7 @@ describe('movimiento de héroes', () => {
 
     hero.at = { x: mina!.at.x - 1, y: mina!.at.y };
     hero.movePoints = 5000;
-    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: mina!.at }, c);
+    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: mina!.at }, c, state.current);
     expect((mina as { owner: number | null }).owner).toBe(0);
   });
 
@@ -256,8 +258,32 @@ describe('movimiento de héroes', () => {
     const c = ctx(24);
     const ajeno = heroesOf(state, 1)[0]!;
     expect(() =>
-      applyAdventureAction(state, { type: 'move_hero', hero: ajeno.id, to: { x: 1, y: 1 } }, c),
+      applyAdventureAction(state, { type: 'move_hero', hero: ajeno.id, to: { x: 1, y: 1 } }, c, state.current),
     ).toThrow(/no es tuyo/);
+  });
+
+  it('quien dice ser el que actúa y no es el de turno se lleva un no', () => {
+    // El núcleo daba por hecho que quien llama es el jugador de turno, y con un
+    // `endTurn()` asíncrono en el cliente eso dejó de ser cierto. Lo que salía
+    // sin este dato era «ese pueblo no es tuyo», que despista: el pueblo sí es
+    // suyo, lo que no es suyo es el turno.
+    const state = newGame({ seed: 25 });
+    const c = ctx(25);
+    const suyo = townsOf(state, 1)[0]!;
+    expect(state.current).toBe(0);
+
+    expect(() =>
+      applyAdventureAction(state, { type: 'build', town: suyo.id, building: 'town_hall' }, c, 1),
+    ).toThrow(/todavía no es tu turno/);
+    // Y nombra a quién hay que esperar CON SU ID, el mismo que ve el agente en
+    // todo lo demás: `player.name` es 1-based y decía «Jugador 1» del jugador 0.
+    expect(() => applyAdventureAction(state, { type: 'end_turn' }, c, 1)).toThrow(
+      /ahora juega el jugador 0 \(knight\)/,
+    );
+
+    // El de turno sí pasa por la misma puerta.
+    applyAdventureAction(state, { type: 'end_turn' }, c, 0);
+    expect(state.current).toBe(1);
   });
 });
 
@@ -309,7 +335,7 @@ describe('batallas del mapa', () => {
     const hero = heroesOf(state, 0)[0]!;
     forzarBatalla(state, c, hero);
 
-    expect(() => applyAdventureAction(state, { type: 'end_turn' }, c)).toThrow(/batalla pendiente/);
+    expect(() => applyAdventureAction(state, { type: 'end_turn' }, c, state.current)).toThrow(/batalla pendiente/);
   });
 });
 
@@ -346,11 +372,11 @@ describe('IA de respaldo', () => {
     expect(chooseHeroDestination(state, hero)).toBeNull();
   });
 
-  it('juega un turno completo sin romperse', () => {
+  it('juega un turno completo sin romperse', async () => {
     const state = newGame({ seed: 43 });
     const c = ctx(43);
     const antes = state.current;
-    playAiTurn(state, c);
+    await playAiTurn(state, c);
     expect(state.current).not.toBe(antes);
     expect(state.pendingBattle).toBeNull();
   });
@@ -365,10 +391,10 @@ describe('partida completa', () => {
   // antes del cambio y con la misma frecuencia (medido a 40 semillas: 5 de 40
   // no terminaban antes, 4 de 40 después); lo único que cambió es qué semillas
   // caen en él. La 1234 pasó a estar entre ellas.
-  it('termina con un ganador jugando IA contra IA', () => {
+  it('termina con un ganador jugando IA contra IA', async () => {
     const state = newGame({ seed: 1235 });
     const c = ctx(1235);
-    playAiGame(state, c, 300);
+    await playAiGame(state, c, 300);
 
     expect(state.finished).not.toBeNull();
     const ganador = state.finished!.winner;
@@ -377,10 +403,10 @@ describe('partida completa', () => {
     expect(state.log.at(-1)).toEqual({ kind: 'game_over', winner: ganador });
   });
 
-  it('el bucle completo pasa por construir, reclutar, luchar y capturar', () => {
+  it('el bucle completo pasa por construir, reclutar, luchar y capturar', async () => {
     const state = newGame({ seed: 4321 });
     const c = ctx(4321);
-    playAiGame(state, c, 300);
+    await playAiGame(state, c, 300);
 
     const tipos = new Set(state.log.map((e) => e.kind));
     expect(tipos.has('built')).toBe(true);
@@ -390,13 +416,13 @@ describe('partida completa', () => {
     expect(tipos.has('game_over')).toBe(true);
   });
 
-  it('es determinista: misma semilla, misma partida', () => {
-    const jugar = (semilla: number): string => {
+  it('es determinista: misma semilla, misma partida', async () => {
+    const jugar = async (semilla: number): Promise<string> => {
       const state = newGame({ seed: semilla });
-      playAiGame(state, ctx(semilla), 300);
+      await playAiGame(state, ctx(semilla), 300);
       return JSON.stringify(state.log);
     };
-    expect(jugar(555)).toBe(jugar(555));
+    expect(await jugar(555)).toBe(await jugar(555));
   });
 });
 
@@ -559,7 +585,7 @@ describe('el gremio enseña (#2)', () => {
     hero.at = { ...town.at };
     expect(hero.spells).toEqual(['magic_arrow']);
 
-    applyAdventureAction(state, { type: 'build', town: town.id, building: 'mage_guild_1' }, c);
+    applyAdventureAction(state, { type: 'build', town: town.id, building: 'mage_guild_1' }, c, state.current);
 
     // El gremio de nivel 1 enseña los tres de nivel 1, y `magic_arrow` es uno de
     // ellos: el que ya sabía no se le apunta dos veces.
@@ -570,7 +596,7 @@ describe('el gremio enseña (#2)', () => {
 
     // Sigue allí un día más: la sincronía vuelve a pasar y no añade nada.
     const libro = [...hero.spells];
-    applyAdventureAction(state, { type: 'end_turn' }, c);
+    applyAdventureAction(state, { type: 'end_turn' }, c, state.current);
     expect(hero.spells).toEqual(libro);
   });
 
@@ -616,7 +642,7 @@ describe('el gremio enseña (#2)', () => {
     const inicial = heroesOf(state, 0)[0]!;
     inicial.at = { x: town.at.x, y: town.at.y + 2 };
 
-    applyAdventureAction(state, { type: 'hire_hero', town: town.id }, c);
+    applyAdventureAction(state, { type: 'hire_hero', town: town.id }, c, state.current);
     const nuevo = heroesOf(state, 0).find((h) => h.id !== inicial.id)!;
 
     // Sigue sin habilidades —escribir `hero.skills` en partida es #6/#15— y aun

@@ -38,7 +38,29 @@ export interface QueryResultMsg {
   readonly error?: string;
 }
 
-export type ServerToAgentMsg = AgentRequestMsg | AgentResultMsg | QueryResultMsg;
+/**
+ * La partida ha terminado: no va a haber más peticiones.
+ *
+ * Es el único mensaje que le llega al agente sin que él haya pedido nada, y por
+ * eso hace falta: cuando la partida acaba, el servidor deja de preguntar pero
+ * **no cierra el canal** —los `WebSocketServer` siguen escuchando—, así que
+ * quien esperaba en `heroes_listen` no se enteraba ni por el `close` del
+ * socket. Se quedaba bloqueado para siempre, sin saber que había acabado ni
+ * quién ganó, hasta que su cliente MCP se rendía por timeout.
+ */
+export interface AgentGameOverMsg {
+  readonly type: 'game_over';
+  /** Quién gana, o `null` si se agotaron los días sin resolver o si reventó. */
+  readonly winner: number | null;
+  /** Cómo acabó, escrito para quien lo lee, que es un modelo. */
+  readonly note: string;
+}
+
+export type ServerToAgentMsg =
+  | AgentRequestMsg
+  | AgentResultMsg
+  | QueryResultMsg
+  | AgentGameOverMsg;
 
 // ------------------------------------------------------- agente → servidor
 

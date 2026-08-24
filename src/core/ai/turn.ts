@@ -21,20 +21,39 @@ import {
 /** Tope de movimientos por turno: una red contra un bucle de objetivos. */
 const MAX_MOVIMIENTOS_POR_TURNO = 60;
 
-export function playAiTurn(state: GameState, ctx: GameContext): void {
+/**
+ * Quien conduce la partida puede quedarse la batalla que acaba de nacer.
+ *
+ * Existe porque el turno de la IA era una llamada atómica: cuando el rival
+ * atacaba al agente, `resolvePendingBattle` cerraba la batalla aquí dentro y el
+ * director no llegaba a enterarse de que la había habido. El agente decidía
+ * solo en las batallas que él abría, o sea en la mitad.
+ *
+ * El contrato es **«si te la quedas, la cierras»**: no devuelve un booleano que
+ * pueda mentir, se mira `state.pendingBattle` al volver. Una toma a medias cae
+ * sola en el respaldo de siempre. Y es un tipo, no un `import`: `core` sigue sin
+ * saber que existe un servidor.
+ */
+export type BattleTakeover = (state: GameState, ctx: GameContext) => Promise<void>;
+
+export async function playAiTurn(
+  state: GameState,
+  ctx: GameContext,
+  takeover?: BattleTakeover,
+): Promise<void> {
   if (state.finished !== null) return;
   const player = currentPlayer(state);
 
   // Contratar antes que nada: un héroe nuevo puede reclutar hoy mismo.
   for (const accion of planHires(state, player.id)) {
-    applyAdventureAction(state, accion, ctx);
+    applyAdventureAction(state, accion, ctx, player.id);
   }
   // Construir después: cambia lo que hay disponible para reclutar.
   for (const accion of planBuildings(state, player.id)) {
-    applyAdventureAction(state, accion, ctx);
+    applyAdventureAction(state, accion, ctx, player.id);
   }
   for (const accion of planRecruits(state, player.id)) {
-    applyAdventureAction(state, accion, ctx);
+    applyAdventureAction(state, accion, ctx, player.id);
   }
 
   let movimientos = 0;
@@ -53,8 +72,13 @@ export function playAiTurn(state: GameState, ctx: GameContext): void {
       const paso = stepTowards(state, hero, destino);
       if (paso === null) continue;
 
-      applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: paso }, ctx);
-      if (state.pendingBattle !== null) resolvePendingBattle(state, ctx);
+      applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: paso }, ctx, player.id);
+      if (state.pendingBattle !== null) {
+        if (takeover !== undefined) await takeover(state, ctx);
+        // Se vuelve a preguntar: quien la tomó pudo cerrarla, o no haberla
+        // querido. Si sigue ahí, la cierra la IA como toda la vida.
+        if (state.pendingBattle !== null) resolvePendingBattle(state, ctx);
+      }
       seMovio = true;
       movimientos++;
     }
@@ -62,13 +86,25 @@ export function playAiTurn(state: GameState, ctx: GameContext): void {
     if (!seMovio) break;
   }
 
-  if (state.finished === null) applyAdventureAction(state, { type: 'end_turn' }, ctx);
+  if (state.finished === null) {
+    applyAdventureAction(state, { type: 'end_turn' }, ctx, player.id);
+  }
 }
 
-/** Juega la partida entera con la IA en todos los bandos. Devuelve los días. */
-export function playAiGame(state: GameState, ctx: GameContext, maxDias = 200): number {
+/**
+ * Juega la partida entera con la IA en todos los bandos. Devuelve los días.
+ *
+ * No acepta `takeover` a propósito: es el banco de pruebas de la IA pura, el
+ * que mide el barrido de semillas. Meter a un tercero aquí dejaría de medir lo
+ * que dice medir.
+ */
+export async function playAiGame(
+  state: GameState,
+  ctx: GameContext,
+  maxDias = 200,
+): Promise<number> {
   while (state.finished === null && state.day <= maxDias) {
-    playAiTurn(state, ctx);
+    await playAiTurn(state, ctx);
   }
   return state.day;
 }

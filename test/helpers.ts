@@ -44,7 +44,7 @@ export function forzarBatalla(state: GameState, ctx: GameContext, hero: Hero): M
   const monstruo = monstruoVivo(state);
   hero.at = { x: monstruo.at.x - 1, y: monstruo.at.y };
   hero.movePoints = 5000;
-  applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: monstruo.at }, ctx);
+  applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: monstruo.at }, ctx, state.current);
   if (state.pendingBattle === null) throw new Error('pisar al monstruo no abrió ninguna batalla');
   return monstruo;
 }

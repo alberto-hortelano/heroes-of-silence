@@ -35,7 +35,7 @@ import type {
   BattleState,
   Side,
 } from './types.js';
-import { otherSide } from './types.js';
+import { otherSide, SIDES } from './types.js';
 
 export interface BattleSide {
   readonly army: Army;
@@ -279,7 +279,7 @@ function beginRound(state: BattleState, rng: Rng): void {
       state.log.push({ kind: 'effect_end', stack: s.id, source: caducado.source });
     }
   }
-  for (const side of ['attacker', 'defender'] as const) {
+  for (const side of SIDES) {
     const hero = state.heroes[side];
     if (hero !== null) hero.castThisRound = false;
   }

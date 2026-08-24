@@ -3,6 +3,15 @@ import type { EffectKind, StackEffect } from './effects.js';
 
 export type Side = 'attacker' | 'defender';
 
+/**
+ * Los dos bandos, para recorrerlos.
+ *
+ * Estaba escrito a mano en tres sitios —el motor, el director y la consulta de
+ * batalla—, que es una lista de dos elementos hasta el día que alguien añada un
+ * tercer bando y solo actualice dos.
+ */
+export const SIDES: readonly Side[] = ['attacker', 'defender'];
+
 export function otherSide(s: Side): Side {
   return s === 'attacker' ? 'defender' : 'attacker';
 }

@@ -297,7 +297,12 @@ document.addEventListener('click', (ev) => {
 
   switch (action) {
     case 'end-turn':
-      session.endTurn();
+      // Sin `.finally`: el manejador ya marca el repintado al salir, y
+      // `endTurn` no rechaza —se traga su fallo y lo escribe en `status`—.
+      // El `void p.finally(cb)` que había aquí RE-LANZABA, así que un turno de
+      // rival roto salía por la consola como `unhandledrejection` y en el
+      // tablero no salía por ningún sitio.
+      void session.endTurn();
       break;
     case 'toggle-fog':
       session.revealAll = !session.revealAll;
@@ -349,7 +354,7 @@ document.addEventListener('keydown', (ev) => {
   }
   if (ev.key === ' ' && session.scene === 'adventure') {
     ev.preventDefault();
-    session.endTurn();
+    void session.endTurn();
   }
   needsRender = true;
 });

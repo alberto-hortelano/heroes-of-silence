@@ -13,7 +13,16 @@ import WebSocket from 'ws';
 import { allCreatures, creature, factionLineup } from '@core/data.js';
 import { allSpells } from '@core/battle/spells.js';
 import { allBuildings } from '@core/town/buildings.js';
+import {
+  LA_JUEGA_LA_IA,
+  PREFIJO_CORTE,
+  PREFIJO_FIN,
+  PREFIJO_RELEVO,
+  textoDeEscucha,
+} from '../notas.js';
 import { AGENT_PORT, type AgentToServerMsg, type ServerToAgentMsg } from '../protocol.js';
+import { Buzon } from './buzon.js';
+import { ColaDeVeredictos } from './veredictos.js';
 
 const SERVER_URL = process.env['HEROES_SERVER'] ?? `ws://localhost:${AGENT_PORT}`;
 
@@ -22,14 +31,11 @@ const SERVER_URL = process.env['HEROES_SERVER'] ?? `ws://localhost:${AGENT_PORT}
 let socket: WebSocket | null = null;
 let conectando: Promise<WebSocket> | null = null;
 
-/** Peticiones que han llegado y aún no ha recogido `heroes_listen`. */
-const bandeja: Extract<ServerToAgentMsg, { type: 'request' }>[] = [];
-/** Quien esté esperando una petición, si `heroes_listen` llegó primero. */
-let esperando: ((msg: Extract<ServerToAgentMsg, { type: 'request' }>) => void) | null = null;
-/** Petición recogida y pendiente de respuesta. */
-let enCurso: string | null = null;
-/** Consultas de estado en vuelo. */
-const consultas = new Map<string, (r: { ok: boolean; data?: unknown; error?: string }) => void>();
+/**
+ * Todo lo que espera al otro lado del socket: la petición que aún no ha
+ * recogido `heroes_listen` y las consultas en vuelo. Sabe terminarse.
+ */
+const buzon = new Buzon();
 let contadorConsultas = 0;
 
 function connect(): Promise<WebSocket> {
@@ -58,6 +64,10 @@ function connect(): Promise<WebSocket> {
 
     ws.on('close', () => {
       if (socket === ws) socket = null;
+      // Antes esto solo ponía la referencia a `null`, y quien esperaba una
+      // decisión —o una respuesta a su consulta— se quedaba colgado para
+      // siempre. El canal se muere entero: se avisa a todos a la vez.
+      buzon.corta(`el servidor de la partida (${SERVER_URL}) ha cerrado el canal`);
     });
 
     ws.on('error', (err) => {
@@ -76,35 +86,35 @@ function connect(): Promise<WebSocket> {
 
 function recibir(msg: ServerToAgentMsg): void {
   switch (msg.type) {
-    case 'request': {
-      if (esperando !== null) {
-        const resolver = esperando;
-        esperando = null;
-        enCurso = msg.requestId;
-        resolver(msg);
-      } else {
-        bandeja.push(msg);
-      }
+    case 'request':
+      buzon.entrega(msg);
       return;
-    }
-    case 'query_result': {
-      const pendiente = consultas.get(msg.queryId);
-      if (pendiente === undefined) return;
-      consultas.delete(msg.queryId);
-      pendiente({ ok: msg.ok, ...(msg.data !== undefined ? { data: msg.data } : {}), ...(msg.error !== undefined ? { error: msg.error } : {}) });
+
+    case 'query_result':
+      buzon.resuelveConsulta(msg.queryId, {
+        ok: msg.ok,
+        ...(msg.data !== undefined ? { data: msg.data } : {}),
+        ...(msg.error !== undefined ? { error: msg.error } : {}),
+      });
       return;
-    }
+
+    case 'game_over':
+      // La única señal de que se acabó. El servidor sigue vivo con sus puertos
+      // abiertos, así que sin esto no llegaría ni el `close` del socket.
+      buzon.fin(msg.note);
+      return;
+
     case 'result':
-      // El veredicto sobre la última respuesta llega aquí; se le entrega al
-      // agente en la siguiente petición, que es cuando puede hacer algo con él.
-      ultimoVeredicto = msg.ok
-        ? null
-        : `Tu respuesta anterior tuvo problemas:\n- ${(msg.problems ?? []).join('\n- ')}`;
+      // El veredicto sobre una respuesta llega aquí; se le entrega al agente en
+      // la siguiente petición, que es cuando puede hacer algo con él. Se guardan
+      // TODOS y con su `note`: el que dice que coló también, porque un silencio
+      // es ambiguo en un canal que puede perder mensajes.
+      veredictos.anota(msg);
       return;
   }
 }
 
-let ultimoVeredicto: string | null = null;
+const veredictos = new ColaDeVeredictos();
 
 function send(msg: AgentToServerMsg): void {
   if (socket === null || socket.readyState !== WebSocket.OPEN) {
@@ -117,13 +127,7 @@ async function consultar(what: string, args: Record<string, unknown> = {}): Prom
   await connect();
   contadorConsultas += 1;
   const queryId = `q-${contadorConsultas}`;
-  return new Promise((resolve, reject) => {
-    consultas.set(queryId, (r) => {
-      if (r.ok) resolve(r.data);
-      else reject(new Error(r.error ?? 'la consulta ha fallado'));
-    });
-    send({ type: 'query', queryId, what: what as 'game_state', args });
-  });
+  return buzon.consulta(queryId, () => send({ type: 'query', queryId, what: what as 'game_state', args }));
 }
 
 // ---------------------------------------------------------------- servidor
@@ -140,30 +144,50 @@ Cada mensaje que devuelve empieza por un campo "kind" y trae EMBEBIDO el
 formato exacto de respuesta para ese kind: léelo ahí, no hace falta que lo
 recuerdes entre turnos.
 
+Y trae, cuando lo hay, un bloque "CÓMO FUE LO ANTERIOR" con el veredicto de
+CADA respuesta tuya que se haya aplicado desde la última vez que escuchaste:
+"✓" es que entró y "⚠" que no, con el motivo. Se informa siempre, también
+cuando salió bien: no tienes que deducir de un silencio si coló o si el
+mensaje se perdió.
+
 Tipos de petición que puedes recibir:
 - "adventure_turn" → te toca el turno en el mapa: mueve héroes, construye,
   recluta. Devuelves una lista de acciones.
 - "battle_turn"    → una unidad tuya espera órdenes en la batalla. Devuelves
   UNA acción. La petición incluye "legalActions" con todo lo que se puede
-  hacer: elegir de ahí nunca falla.
+  hacer: elegir de ahí nunca falla. Puedes ser el atacante o el DEFENSOR: mira
+  "yourSide" en cada petición y no des por hecho que atacas.
 - "map_generate"   → diseña un mapa. No dibujas nada: devuelves un plan
   declarativo y el motor lo construye y lo valida.
 - "hero_banter"    → una frase en boca de tu héroe.
+
+El ciclo tiene final y te avisa de él: cuando la partida termina recibes un
+mensaje que empieza por "${PREFIJO_FIN}" y te dice quién ganó. Ahí se para
+el bucle. Y si el canal con la partida se muere, recibes uno que empieza por
+"${PREFIJO_CORTE}" con lo que se sabe y lo que puedes intentar. En
+ninguno de los dos casos te quedas esperando a ciegas.
+
+Llama de una en una: si dos heroes_listen se solapan, la primera vuelve con
+"${PREFIJO_RELEVO}" —el canal sigue vivo y no se pierde nada, pero esa
+llamada ya no trae decisión: la trae la que la relevó—.
 
 Aparte de responder, puedes consultar el estado en cualquier momento con
 game_state, battle_state, creature_stats, spell_list y building_list, sin
 volcarte la partida entera en el contexto.`;
 
 server.tool('heroes_listen', LISTEN_DESCRIPTION, {}, async () => {
-  await connect();
+  // Con la partida terminada no se reconecta: el servidor puede estar ya
+  // apagado y lo que hay que decirle al agente no depende del socket.
+  if (!buzon.haTerminado) await connect();
 
-  if (enCurso !== null) {
+  const recogida = buzon.enCurso;
+  if (recogida !== null) {
     return {
       content: [
         {
           type: 'text' as const,
           text:
-            `Tienes la petición ${enCurso} recogida y sin contestar. ` +
+            `Tienes la petición ${recogida} recogida y sin contestar. ` +
             'Responde con heroes_respond antes de volver a escuchar.',
         },
       ],
@@ -171,26 +195,10 @@ server.tool('heroes_listen', LISTEN_DESCRIPTION, {}, async () => {
     };
   }
 
-  const msg =
-    bandeja.shift() ??
-    (await new Promise<Extract<ServerToAgentMsg, { type: 'request' }>>((resolve) => {
-      esperando = resolve;
-    }));
-  enCurso = msg.requestId;
-
-  const aviso = ultimoVeredicto === null ? '' : `\n\n⚠ ${ultimoVeredicto}\n`;
-  ultimoVeredicto = null;
-
+  const { texto, esError } = textoDeEscucha(await buzon.espera(), veredictos);
   return {
-    content: [
-      {
-        type: 'text' as const,
-        text:
-          `Petición ${msg.requestId} · kind: ${msg.kind}${aviso}\n\n` +
-          `ESTADO:\n${JSON.stringify(msg.payload, null, 2)}\n\n` +
-          `CÓMO RESPONDER:\n${msg.responseFormat}`,
-      },
-    ],
+    content: [{ type: 'text' as const, text: texto }],
+    ...(esError ? { isError: true } : {}),
   };
 });
 
@@ -203,7 +211,22 @@ server.tool(
       .describe('La respuesta en JSON, con la forma que indicaba la petición.'),
   },
   async ({ response }) => {
-    if (enCurso === null) {
+    if (buzon.haTerminado) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text:
+              'La partida ya ha terminado: no queda nadie esperando esta respuesta y no ' +
+              'se va a aplicar. Llama a heroes_listen si quieres releer cómo acabó.',
+          },
+        ],
+        isError: true,
+      };
+    }
+
+    const enviado = buzon.enCurso;
+    if (enviado === null) {
       return {
         content: [
           { type: 'text' as const, text: 'No hay ninguna petición pendiente. Llama antes a heroes_listen.' },
@@ -227,9 +250,28 @@ server.tool(
       };
     }
 
-    send({ type: 'response', requestId: enCurso, data });
-    const enviado = enCurso;
-    enCurso = null;
+    try {
+      send({ type: 'response', requestId: enviado, data });
+    } catch (err) {
+      // El canal se ha muerto entre escuchar y responder. Se suelta la petición
+      // igualmente: retenerla dejaría al agente atascado en el guardia de
+      // `heroes_listen`, que es la forma tonta de volver a colgarlo.
+      buzon.suelta();
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text:
+              `Tu respuesta a ${enviado} no ha llegado a salir: ` +
+              `${err instanceof Error ? err.message : String(err)}. ` +
+              `Esa decisión la ${LA_JUEGA_LA_IA}. Vuelve a heroes_listen: ` +
+              'si el servidor sigue vivo, el puente se reconecta solo.',
+          },
+        ],
+        isError: true,
+      };
+    }
+    buzon.suelta();
     return {
       content: [
         { type: 'text' as const, text: `Respuesta a ${enviado} entregada. Vuelve a heroes_listen.` },
@@ -250,10 +292,15 @@ server.tool(
   },
 );
 
-server.tool('battle_state', 'La batalla en curso, si la hay.', {}, async () => {
-  const data = await consultar('battle_state');
-  return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
-});
+server.tool(
+  'battle_state',
+  'La batalla en curso, si la hay, desde el punto de vista de un jugador.',
+  { player: z.number().int().optional().describe('Jugador (por defecto, el tuyo: 1)') },
+  async ({ player }) => {
+    const data = await consultar('battle_state', { player: player ?? 1 });
+    return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
+  },
+);
 
 server.tool(
   'creature_stats',

@@ -11,7 +11,7 @@ El juego es el andamio; lo interesante es lo que se puede enchufar dentro.
 ```bash
 pnpm install
 pnpm dev        # cliente en http://localhost:3100 (juego local contra la IA de reglas)
-pnpm test       # 121 tests: reglas, batalla, partida completa y contrato del agente
+pnpm test       # 188 tests: reglas, batalla, partida completa y contrato del agente
 pnpm typecheck
 ```
 
@@ -112,7 +112,31 @@ Es el patrón de `narrative-mcp` en ne-fan:
 2. Recibe el estado **con el formato de respuesta embebido**: no tiene que
    recordar el esquema entre turnos.
 3. Decide y llama a **`heroes_respond`** una sola vez.
-4. Vuelve a `heroes_listen`.
+4. **Recibe el veredicto de lo anterior** pegado a la siguiente petición, y
+   vuelve a `heroes_listen`.
+
+**Se le informa SIEMPRE, también cuando acertó.** No porque sea amable, sino
+porque un silencio es ambiguo en un canal que puede perder mensajes: el agente
+no debería tener que distinguir «fue bien» de «no llegó». Un acuse de algo que
+coló es una línea; un rechazo dice **qué se jugó en su lugar y qué le costó** —el
+turno de esa unidad, o el maná de su héroe si la sustituta fue un `cast`—, y el
+maná **se mide** restando antes y después, no se supone por el tipo de acción.
+
+**El agente defiende.** Hasta hace poco solo jugaba las batallas que empezaba él:
+el turno del rival era una llamada atómica a `playAiTurn`, que resolvía las
+batallas por dentro, así que **la mitad de sus batallas las jugaba entera la IA de
+reglas**. Ahora `playAiTurn` acepta un `BattleTakeover` opcional —el tipo vive en
+`core`, la implementación en el director— con el contrato **«si te la quedas, la
+cierras»**: al volver se mira `state.pendingBattle`, sin un booleano que pueda
+mentir. Y el bando **se deriva del dueño** (`battleOwners`) en vez de suponerse
+atacante, lo que además hace que defender un castillo salga gratis.
+
+**Y la partida se acaba diciéndolo.** `heroes_listen` esperaba en una promesa que
+nadie resolvía nunca: cualquier agente se quedaba colgado para siempre al
+terminar la partida, sin saber que había terminado ni quién ganó. Ahora el
+servidor manda un `game_over` explícito —no un `close` interpretado—, el puente
+lo recuerda para quien conecte después, y un corte de conexión dice que **no
+consta** si la partida terminó en vez de inventárselo.
 
 Tipos de petición: `adventure_turn`, `battle_turn`, `map_generate` y
 `hero_banter`. Y hay tools de consulta (`game_state`, `battle_state`,
@@ -282,14 +306,22 @@ aportan en un prototipo. Lo que hay:
 `test/invariantes.test.ts` convierte en tests las fronteras de este documento:
 `core` sin `node:*` ni DOM, ni un `Math.random` suelto, `session.ts` como única
 puerta del cliente al núcleo, `FAL_KEY` fuera del navegador, que **ningún
-rasgo de `CREATURE_TRAITS` esté declarado y muerto** —cuatro lo estuvieron— y
-que **cada `EffectKind` tenga un lector vivo**. Todos nacen en verde: un guardia
+rasgo de `CREATURE_TRAITS` esté declarado y muerto** —cuatro lo estuvieron—,
+que **cada `EffectKind` tenga un lector vivo** y que **`core` no importe
+`src/server`**. Todos nacen en verde: un guardia
 que nace rojo se ignora desde el primer día.
 
 El de los efectos no busca texto, **llama**: recorre una tabla que asocia cada
 tipo con su lector y comprueba que el total cambia al colgar el efecto. Un
 lector escrito y muerto no puede satisfacerlo, que es justo el agujero por el
 que se colaría el primer hechizo de defensa.
+
+Y una lección que costó tres ciclos: **un guardia hay que verlo morder**. El de
+`node:` nació ciego a `import 'node:fs';` sin `from` y a `await import('node:fs')`,
+y estuvo así desde el día en que se escribió — tres ciclos apoyados en un
+invariante con dos agujeros. No se coló nada por ellos, pero nadie lo sabía. Por
+eso cada guardia nuevo se rompe a mano, se mira rojo y se arregla antes de darlo
+por bueno.
 
 El barrido de semillas no es un test: es una **medida**. Juega 40 partidas de la
 IA contra sí misma y cuenta cuántas no terminan en 300 días. Hoy son **2**, y

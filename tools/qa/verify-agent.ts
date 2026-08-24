@@ -13,6 +13,7 @@ import { spawn } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { PREFIJO_CORTE, PREFIJO_FIN, PREFIJO_RELEVO } from '../../src/server/notas.js';
 
 const TURNOS = Number(process.env['QA_TURNS'] ?? 6);
 
@@ -20,13 +21,21 @@ function log(msg: string): void {
   console.log(`\x1b[36m[qa]\x1b[0m ${msg}`);
 }
 
+// `detached` le da al servidor su propio grupo de procesos, y por eso: `npx` no
+// reenvía la señal a su hijo, así que matar al envoltorio dejaba vivo el
+// servidor de la partida con el puerto 9881 cogido — y el siguiente `pnpm qa`
+// moría con EADDRINUSE antes de verificar nada. Con el grupo se mata entero.
 const servidor = spawn('npx', ['tsx', 'src/server/ws-server.ts'], {
   cwd: process.cwd(),
   env: { ...process.env, HEROES_MAX_DAYS: '12', HEROES_WAIT_AGENT_MS: '30000' },
   stdio: ['ignore', 'pipe', 'pipe'],
+  detached: true,
 });
 
 let salidaServidor = '';
+let servidorVivo = true;
+/** El cliente MCP, aquí fuera para poder cerrarlo desde `terminar`. */
+let cliente: Client | null = null;
 servidor.stdout.on('data', (d: Buffer) => {
   salidaServidor += d.toString();
   process.stdout.write(`\x1b[90m${d.toString()}\x1b[0m`);
@@ -36,14 +45,47 @@ servidor.stderr.on('data', (d: Buffer) => process.stderr.write(`\x1b[31m${d.toSt
 // Si el servidor se cae —un puerto ya ocupado, por ejemplo— no tiene sentido
 // seguir esperando bloqueado una petición que ya no va a llegar.
 servidor.on('exit', (codigo) => {
+  servidorVivo = false;
   if (codigo === 0 || codigo === null) return;
   console.error(`\x1b[31m[qa] el servidor de la partida ha muerto (código ${codigo})\x1b[0m`);
   process.exit(1);
 });
 
-function terminar(codigo: number): never {
-  servidor.kill('SIGTERM');
+function pararServidor(): void {
+  // Señalar un pid ya recogido puede alcanzar a otro proceso que haya heredado
+  // ese número: dos líneas de guarda por no jugársela.
+  if (!servidorVivo || servidor.pid === undefined) return;
+  servidorVivo = false;
+  try {
+    // El menos es el grupo entero: el envoltorio de `npx` y el node de dentro.
+    process.kill(-servidor.pid, 'SIGTERM');
+  } catch (err) {
+    // ESRCH es que ya se había muerto solo. Cualquier otra cosa hay que verla:
+    // significa que el puerto se queda cogido y el siguiente `pnpm qa` es rojo
+    // por un motivo que no tiene nada que ver con lo que verifica.
+    if ((err as NodeJS.ErrnoException).code !== 'ESRCH') {
+      console.error(`\x1b[31m[qa] no se ha podido parar el servidor: ${String(err)}\x1b[0m`);
+    }
+  }
+}
+
+async function terminar(codigo: number): Promise<never> {
+  // El puente MCP es un hijo aparte (`npx tsx mcp/server.ts`) y solo se muere
+  // cuando su stdin da EOF, que es lo que hace `close()`: sin esto se quedaba
+  // suelto después de cada pasada.
+  if (cliente !== null) {
+    const c = cliente;
+    cliente = null;
+    await c.close().catch(() => {});
+  }
+  pararServidor();
   process.exit(codigo);
+}
+
+// Si a este proceso lo cortan por teclado, el servidor se va con él: en su
+// propio grupo ya no le llega el Ctrl+C del terminal.
+for (const señal of ['SIGINT', 'SIGTERM'] as const) {
+  process.on(señal, () => void terminar(130));
 }
 
 async function main(): Promise<void> {
@@ -59,6 +101,7 @@ async function main(): Promise<void> {
   });
   const client = new Client({ name: 'qa-agent', version: '1.0.0' });
   await client.connect(transport);
+  cliente = client;
 
   const tools = await client.listTools();
   const nombres = tools.tools.map((t) => t.name).sort();
@@ -82,6 +125,33 @@ async function main(): Promise<void> {
   while (turnos < TURNOS) {
     const recibido = await client.callTool({ name: 'heroes_listen', arguments: {} });
     const texto = textoDe(recibido);
+
+    // La partida puede acabarse antes de agotar los turnos —desde que el agente
+    // defiende sus batallas, pierde y termina el día 4—, y eso es un final
+    // limpio, no una petición ilegible. Que llegue este mensaje ES lo que se
+    // verifica: antes el puente callaba y el cliente MCP moría por timeout.
+    if (texto.startsWith(PREFIJO_FIN)) {
+      const resumen = texto.split('\n')[0] ?? '';
+      if (!/Gana el jugador|sin resolver/.test(resumen)) {
+        throw new Error(`la partida acaba sin decir quién ganó:\n${resumen}`);
+      }
+      log(resumen);
+      log(`terminado por fin de partida: ${turnos} turnos de mapa y ${batallas} decisiones de batalla`);
+      await terminar(0);
+    }
+
+    if (texto.startsWith(PREFIJO_RELEVO)) {
+      // El arnés escucha en serie, así que esto no puede pasar: si pasa, hay dos
+      // escuchas donde debería haber una y el fallo es de aquí, no del circuito.
+      throw new Error(`una escucha ha relevado a otra, y este arnés solo llama de una en una:\n${texto.slice(0, 300)}`);
+    }
+
+    if (texto.startsWith(PREFIJO_CORTE)) {
+      // Se avisa en vez de colgarse, que ya es la mitad del arreglo; pero el
+      // circuito se ha roto sin terminar la partida, y eso es rojo.
+      throw new Error(`el canal con la partida se ha muerto:\n${texto.slice(0, 300)}`);
+    }
+
     const kind = /kind: (\w+)/.exec(texto)?.[1];
     const payload = extraerEstado(texto);
     if (kind === undefined || payload === null) throw new Error(`petición ilegible:\n${texto.slice(0, 400)}`);
@@ -99,8 +169,7 @@ async function main(): Promise<void> {
   }
 
   log(`terminado: ${turnos} turnos de mapa y ${batallas} decisiones de batalla`);
-  await client.close();
-  terminar(0);
+  await terminar(0);
 }
 
 function textoDe(resultado: unknown): string {
@@ -165,7 +234,7 @@ function decidir(kind: string, payload: any): unknown {
   }
 }
 
-main().catch((err) => {
+main().catch(async (err) => {
   console.error('\x1b[31m[qa] ha fallado:\x1b[0m', err);
-  terminar(1);
+  await terminar(1);
 });

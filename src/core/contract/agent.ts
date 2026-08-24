@@ -158,14 +158,19 @@ Notas:
 - "towns[].teaches" son los hechizos que enseña el gremio de ese pueblo: un
   héroe tuyo parado allí los aprende solo, hasta donde le deje su Sabiduría, y
   aparecen en "heroes[].spells". NO hay acción para aprender: basta con llevarlo.
-- Si una acción resulta ilegal se descarta y las siguientes siguen aplicándose;
-  el motivo aparecerá en la respuesta a esta petición.`,
+- Si una acción resulta ilegal se descarta y las siguientes siguen aplicándose.
+- Al cerrar el turno se te dice cuántas acciones entraron y, si se descartó
+  alguna, cuál y por qué. Las descartadas NO se reintentan solas.`,
 
   battle_turn: `Responde con:
 {
   "action": { ...una sola acción... },
   "reasoning": "una línea opcional"
 }
+
+Mira "yourSide": puedes ser el atacante o el defensor. Cuando el rival te ataca
+un héroe o un castillo, esta batalla la juegas defendiendo, y "stacks" con ese
+"side" son los tuyos.
 
 Acciones válidas para la unidad activa:
   { "type": "move",   "to": { "col": N, "row": N } }
@@ -181,7 +186,12 @@ Notas:
   maná y una tirada por ronda, y después la unidad sigue pudiendo moverse,
   disparar o atacar. Se te volverá a pedir acción para el mismo stack.
 - La lista "legalActions" de la petición ya trae TODAS las acciones legales;
-  elegir una de ellas nunca falla.`,
+  elegir una de ellas nunca falla.
+- Si tu acción NO es legal se descarta y juega la IA de reglas en su lugar, que
+  no es gratis: te habrá gastado el turno de esa unidad, o el maná de tu héroe
+  si lo que jugó fue un hechizo. Se te dice cuál de las dos en el veredicto.
+- De cada acción se te informa, también cuando entra: no tienes que deducir de
+  un silencio si coló.`,
 
   map_generate: `Responde con:
 {

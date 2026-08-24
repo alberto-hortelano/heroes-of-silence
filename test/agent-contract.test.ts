@@ -127,7 +127,7 @@ describe('lo que ve el agente', () => {
     };
     expect(sinGremio.towns.find((t) => t.id === town.id)!.teaches).toEqual([]);
 
-    applyAdventureAction(state, { type: 'build', town: town.id, building: 'mage_guild_1' }, c);
+    applyAdventureAction(state, { type: 'build', town: town.id, building: 'mage_guild_1' }, c, state.current);
 
     const payload = serializeAdventureTurn(state, 0) as {
       heroes: { id: string; spells: string[] }[];

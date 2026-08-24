@@ -6,7 +6,8 @@
  */
 import { autoResolve, type BattleOutcome } from '../ai/tactics.js';
 import { createBattle, type BattleSide } from '../battle/battle.js';
-import type { BattleHero, BattleState } from '../battle/types.js';
+import type { BattleHero, BattleState, Side } from '../battle/types.js';
+import { SIDES } from '../battle/types.js';
 import { creature } from '../data.js';
 import {
   addToArmy,
@@ -306,15 +307,64 @@ function checkDefeat(state: GameState): void {
 
 // ---------------------------------------------------------------- acciones
 
+/**
+ * Por qué `quien` no puede actuar ahora mismo, o `null` si sí puede.
+ *
+ * La frase la escribe el núcleo y la enseña quien la pida, igual que
+ * `buildBlocker` y `castBlocker`: antes había tres redacciones de esto —una
+ * aquí y dos en el cliente— y la única que decía **quién** está jugando era la
+ * que no se veía nunca, porque el cliente comprobaba el turno antes de llamar.
+ */
+export function turnBlocker(state: GameState, quien: PlayerId): string | null {
+  if (state.finished !== null) return 'la partida ya ha terminado';
+  if (quien === state.current) return null;
+  return `todavía no es tu turno: ahora juega el ${describePlayer(state, state.current)}`;
+}
+
+/**
+ * Quién es un jugador, con **el mismo número que ve todo lo demás**.
+ *
+ * Existe porque esta frase se escribía de dos maneras: `player.name` es
+ * `Jugador ${id + 1}`, así que `turnBlocker` decía «ahora juega Jugador 1» del
+ * jugador cuyo id es 0 — y el agente ve el id en todas partes (`owner`, `you`,
+ * `player` de las consultas, la nota de fin de partida). Dos numeraciones para
+ * la misma cosa es una trampa en cualquier sitio, y aquí la lee un modelo que
+ * decide con ella. La facción dice más que el número y no compite con él.
+ *
+ * `playerById` **lanza** con su mensaje si el id no existe, en vez de degradar a
+ * un `jugador 7` con pinta de dato bueno.
+ */
+export function describePlayer(state: GameState, id: PlayerId): string {
+  return `jugador ${id} (${playerById(state, id).faction})`;
+}
+
+/**
+ * Aplica una acción de mapa.
+ *
+ * `quien` es **quién dice ser el que actúa**, y es obligatorio: una acción no
+ * lleva dentro a su autor, así que sin este dato el núcleo daba por hecho que
+ * quien llama es el jugador de turno. Con un `endTurn()` asíncrono en el
+ * cliente eso dejó de ser cierto —se puede construir o reclutar mientras corre
+ * el turno del rival—, y lo único que salía era `ese pueblo no es tuyo`, que es
+ * verdad a medias y despista: el pueblo sí es tuyo, lo que no es tuyo es el
+ * turno.
+ *
+ * Fue opcional un rato y no compraba nada: una comprobación que se apaga sola
+ * al olvidar un argumento es la única que no avisa de que falta.
+ */
 export function applyAdventureAction(
   state: GameState,
   action: AdventureAction,
   ctx: GameContext,
+  quien: PlayerId,
 ): void {
-  if (state.finished !== null) throw new Error('la partida ya ha terminado');
   if (state.pendingBattle !== null) {
     throw new Error('hay una batalla pendiente de resolver');
   }
+  // La partida terminada y el turno ajeno los dice `turnBlocker`, que es donde
+  // vive la frase: aquí no se reescribe ninguna de las dos.
+  const bloqueo = turnBlocker(state, quien);
+  if (bloqueo !== null) throw new Error(bloqueo);
 
   // Quién actúa se anota ANTES de la acción: `end_turn` cambia `state.current`,
   // y el que acaba de meter su héroe en el castillo es el jugador saliente.
@@ -652,6 +702,53 @@ function defenderSide(state: GameState, foe: BattleFoe): BattleSide {
       };
     }
   }
+}
+
+/**
+ * De quién es cada bando de una batalla pendiente.
+ *
+ * Borra dos constantes cableadas que decían `'attacker'` porque el único camino
+ * que existía a una batalla era el ataque del agente: el del director y el de la
+ * consulta `battle_state`. El defensor es `null` cuando enfrente hay un
+ * monstruo, que no tiene dueño; un pueblo lo tiene igual que un héroe, y por eso
+ * el agente también defiende su castillo.
+ */
+export function battleOwners(
+  state: GameState,
+  pending: PendingBattle,
+): Readonly<Record<Side, PlayerId | null>> {
+  const foe = pending.foe;
+  const defender =
+    foe.kind === 'monster'
+      ? null
+      : foe.kind === 'hero'
+        ? heroById(state, foe.heroId).owner
+        : townById(state, foe.townId).owner;
+  return { attacker: heroById(state, pending.attackerHeroId).owner, defender };
+}
+
+/**
+ * Qué bandos de una batalla lleva alguno de `jugadores`. Vacío: no va con ellos.
+ *
+ * Es el compañero que le faltaba a `battleOwners`, y faltaba de verdad: el
+ * director y la consulta `battle_state` derivaban esto cada uno por su cuenta y
+ * **ya no coincidían** cuando un jugador llevaba los dos bandos —uno devolvía
+ * los dos y el otro se quedaba con `attacker` por ser el primero del array—. Ese
+ * caso existe desde que `agentPlayers` acepta varios jugadores.
+ */
+export function sidesOwnedBy(
+  state: GameState,
+  pending: PendingBattle,
+  jugadores: Iterable<PlayerId>,
+): ReadonlySet<Side> {
+  const suyos = new Set(jugadores);
+  const dueños = battleOwners(state, pending);
+  const bandos = new Set<Side>();
+  for (const bando of SIDES) {
+    const dueño = dueños[bando];
+    if (dueño !== null && suyos.has(dueño)) bandos.add(bando);
+  }
+  return bandos;
 }
 
 /** Prepara la batalla y la deja pendiente: la juega la IA o el jugador. */

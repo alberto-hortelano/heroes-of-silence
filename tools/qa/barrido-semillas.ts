@@ -27,7 +27,10 @@ const sinTerminar: number[] = [];
 
 for (let semilla = 1; semilla <= SEMILLAS; semilla++) {
   const state = newGame({ seed: semilla });
-  playAiGame(state, { rng: createRng(semilla) }, DIAS);
+  // `playAiGame` es asíncrona desde que el director puede meterse en la batalla
+  // que nace a mitad del turno del rival. Aquí no hay director: el `await` no
+  // cambia ni una tirada, y por eso las semillas siguen siendo las mismas.
+  await playAiGame(state, { rng: createRng(semilla) }, DIAS);
 
   if (state.finished === null) {
     sinTerminar.push(semilla);

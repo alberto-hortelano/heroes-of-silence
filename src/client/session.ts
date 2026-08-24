@@ -27,6 +27,7 @@ import {
   settleBattle,
   townById,
   townsOf,
+  turnBlocker,
   type GameContext,
   type GameState,
 } from '@core/state/game.js';
@@ -63,6 +64,16 @@ export class Session {
   openTownId: string | null = null;
   revealAll = false;
   status = '';
+  /**
+   * Mientras juegan los rivales no se acepta nada de la persona.
+   *
+   * Desde que `playAiTurn` es asíncrona, `endTurn()` devuelve antes de que el
+   * turno del rival haya terminado: pulsar «fin de turno» dos veces, o entrar
+   * en un castillo a construir mientras corre, eran acciones alcanzables que
+   * antes no existían. La bandera entra en `isPlayersTurn`, que ya gobierna el
+   * botón, los paneles y `clickTile`, así que las cierra las tres de una vez.
+   */
+  private turnoDelRivalEnCurso = false;
 
   constructor(seed: number) {
     this.state = newGame({ seed, controllers: { 0: 'human', 1: 'ai' } });
@@ -73,7 +84,11 @@ export class Session {
   // ------------------------------------------------------------ consultas
 
   get isPlayersTurn(): boolean {
-    return this.state.current === this.viewer && this.state.finished === null;
+    return (
+      this.state.current === this.viewer &&
+      this.state.finished === null &&
+      !this.turnoDelRivalEnCurso
+    );
   }
 
   get selectedHero() {
@@ -106,8 +121,9 @@ export class Session {
 
   /** Selecciona lo que haya en la casilla, o mueve el héroe hasta ella. */
   clickTile(p: Point): void {
-    if (!this.isPlayersTurn) {
-      this.status = 'Espera tu turno.';
+    const bloqueo = this.bloqueoDeTurno();
+    if (bloqueo !== null) {
+      this.status = bloqueo;
       return;
     }
 
@@ -150,7 +166,12 @@ export class Session {
 
     const destino = alcanzable.at(-1)!.at;
     try {
-      applyAdventureAction(this.state, { type: 'move_hero', hero: heroId, to: destino }, this.ctx);
+      applyAdventureAction(
+        this.state,
+        { type: 'move_hero', hero: heroId, to: destino },
+        this.ctx,
+        this.viewer,
+      );
       this.status = '';
     } catch (err) {
       this.status = mensaje(err);
@@ -170,22 +191,39 @@ export class Session {
     if (pueblo !== undefined) this.openTown(pueblo.id);
   }
 
-  endTurn(): void {
+  async endTurn(): Promise<void> {
     if (!this.isPlayersTurn) return;
     try {
-      applyAdventureAction(this.state, { type: 'end_turn' }, this.ctx);
+      applyAdventureAction(this.state, { type: 'end_turn' }, this.ctx, this.viewer);
     } catch (err) {
       this.status = mensaje(err);
       return;
     }
-    this.runAiTurns();
+    this.turnoDelRivalEnCurso = true;
+    try {
+      await this.runAiTurns();
+    } catch (err) {
+      // Si el turno del rival revienta, el tablero se quedaba **muerto y mudo**:
+      // la bandera bajaba, pero nadie escribía nada, `state.current` se quedaba
+      // en la IA, el botón seguía deshabilitado y el fallo solo salía por la
+      // consola como `unhandledrejection`. Sigue sin ser tu turno —eso no se
+      // puede inventar—, pero ahora se dice por qué.
+      this.status = `El turno del rival se ha interrumpido: ${mensaje(err)}`;
+    } finally {
+      // Pase lo que pase: una bandera que se queda arriba deja el juego mudo
+      // para siempre, y eso es peor que el fallo que la dejó ahí.
+      this.turnoDelRivalEnCurso = false;
+    }
   }
 
   /** Deja que los rivales jueguen hasta que vuelva a tocarle a la persona. */
-  private runAiTurns(): void {
+  private async runAiTurns(): Promise<void> {
     let guard = 0;
-    while (this.state.finished === null && !this.isPlayersTurn && guard < 20) {
-      playAiTurn(this.state, this.ctx);
+    // La condición NO puede ser `!this.isPlayersTurn`: con la bandera dentro de
+    // ese getter es falso mientras corre esto, y el bucle daría las 20 vueltas
+    // del guardia jugando días enteros de golpe. Se pregunta por el estado.
+    while (this.state.finished === null && this.state.current !== this.viewer && guard < 20) {
+      await playAiTurn(this.state, this.ctx);
       guard++;
     }
     if (this.state.finished !== null) {
@@ -226,6 +264,7 @@ export class Session {
         this.state,
         { type: 'build', town: this.openTownId as string, building: buildingId },
         this.ctx,
+        this.viewer,
       ),
     );
   }
@@ -237,6 +276,7 @@ export class Session {
         this.state,
         { type: 'recruit', town: this.openTownId as string, creature: creatureId, count },
         this.ctx,
+        this.viewer,
       ),
     );
   }
@@ -248,6 +288,7 @@ export class Session {
         this.state,
         { type: 'hire_hero', town: this.openTownId as string },
         this.ctx,
+        this.viewer,
       ),
     );
   }
@@ -435,13 +476,44 @@ export class Session {
 
   // ------------------------------------------------------------ interno
 
+  /**
+   * Las acciones del castillo, con la guarda de turno delante.
+   *
+   * `build`, `recruit` y `hireHero` no la tenían: mientras el turno fue
+   * síncrono no había un instante en el que pulsarlas fuera de turno, y desde
+   * que no lo es sí. El núcleo también las rechaza —lo cierran los dos lados—,
+   * pero aquí se dice antes y sin excepción.
+   */
   private run(fn: () => void): void {
+    const bloqueo = this.bloqueoDeTurno();
+    if (bloqueo !== null) {
+      this.status = bloqueo;
+      return;
+    }
     try {
       fn();
       this.status = '';
     } catch (err) {
       this.status = mensaje(err);
     }
+  }
+
+  /**
+   * Por qué no se puede jugar ahora, o `null`. **La frase la escribe el núcleo.**
+   *
+   * Había tres redacciones de esto —una en `game.ts` y dos aquí— y la única que
+   * decía QUIÉN está jugando era la del núcleo, que no se veía nunca porque el
+   * cliente comprobaba el turno antes de llamar. Ahora el cliente enseña y no
+   * redacta, igual que hace con `buildBlocker` en la pantalla de castillo.
+   *
+   * La excepción es la ventana de la bandera: mientras el turno del rival se
+   * está resolviendo dentro de esta misma sesión, `state.current` ya puede ser
+   * el nuestro y el núcleo diría que sí es tu turno. Eso el núcleo no lo sabe ni
+   * tiene por qué, así que esa frase —y solo esa— la pone el cliente.
+   */
+  private bloqueoDeTurno(): string | null {
+    if (this.isPlayersTurn) return null;
+    return turnBlocker(this.state, this.viewer) ?? 'Espera: el turno del rival aún se está resolviendo.';
   }
 }
 

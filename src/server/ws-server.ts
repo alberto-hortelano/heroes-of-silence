@@ -9,9 +9,10 @@
 import { WebSocketServer, type WebSocket } from 'ws';
 import { creature } from '@core/data.js';
 import { AgentLink } from './agent-link.js';
+import { responderConsulta } from './consultas.js';
 import { Director } from './director.js';
+import { notaFinDePartida } from './notas.js';
 import { AGENT_PORT, SPECTATOR_PORT, type ServerToSpectatorMsg } from './protocol.js';
-import { serializeAdventureTurn, serializeBattleTurn } from '@core/contract/serialize.js';
 
 const SEED = Number(process.env['HEROES_SEED'] ?? 20260823);
 const MAX_DAYS = Number(process.env['HEROES_MAX_DAYS'] ?? 200);
@@ -23,31 +24,7 @@ const director = new Director(link, { seed: SEED, agentPlayers: [1] });
 
 // ---------------------------------------------------------------- consultas
 
-link.onQuery((what, args) => {
-  switch (what) {
-    case 'game_state': {
-      const player = Number(args['player'] ?? 1);
-      return serializeAdventureTurn(director.state, player);
-    }
-    case 'battle_state': {
-      const pending = director.state.pendingBattle;
-      if (pending === null) return { battle: null, note: 'ahora mismo no hay ninguna batalla' };
-      return serializeBattleTurn(pending.battle, 'attacker');
-    }
-    case 'map': {
-      const state = director.state;
-      return {
-        width: state.map.width,
-        height: state.map.height,
-        terrain: state.map.terrain,
-        roads: [...state.map.roads],
-        objects: state.map.objects,
-      };
-    }
-    default:
-      throw new Error(`consulta desconocida: "${what}"`);
-  }
-});
+link.onQuery((what, args) => responderConsulta(director.state, what, args));
 
 // ---------------------------------------------------------------- agente
 
@@ -121,18 +98,27 @@ function broadcast(): void {
 
 // ---------------------------------------------------------------- partida
 
+/**
+ * Espera al agente antes de su turno, y **solo la primera vez**.
+ *
+ * La espera la lleva `AgentLink`, que es quien se entera de las conexiones: aquí
+ * era un sondeo cada 500 ms que además volvía a esperar los dos minutos enteros
+ * antes de CADA turno en cuanto el puente se caía, y eso convierte una partida
+ * de 200 días en horas de nada.
+ */
 async function esperarAgente(): Promise<void> {
   if (link.connected) return;
+  // Si el puente estuvo y se cayó, no se espera: se juega con la heurística y
+  // se sigue. La primera vez sí, porque es la que da tiempo a conectarlo.
+  if (link.haVenidoAlgunAgente) return;
   console.log(
     `[servidor] esperando al agente hasta ${Math.round(WAIT_FOR_AGENT_MS / 1000)} s…\n` +
       '           conéctalo abriendo Claude Code en otra terminal de este proyecto\n' +
       '           y pidiéndole que juegue con las tools heroes_listen / heroes_respond.',
   );
-  const hasta = Date.now() + WAIT_FOR_AGENT_MS;
-  while (!link.connected && Date.now() < hasta) {
-    await new Promise((r) => setTimeout(r, 500));
+  if (!(await link.esperaPrimerAgente(WAIT_FOR_AGENT_MS))) {
+    console.log('[servidor] no ha venido nadie; juega la IA de reglas.');
   }
-  if (!link.connected) console.log('[servidor] no ha venido nadie; juega la IA de reglas.');
 }
 
 async function jugar(): Promise<void> {
@@ -149,12 +135,19 @@ async function jugar(): Promise<void> {
   }
 
   const state = director.state;
+
+  // Al agente hay que DECÍRSELO. Este proceso no se muere al acabar la partida
+  // —los dos WebSocketServer siguen escuchando—, así que sin este aviso el que
+  // esperaba en `heroes_listen` no se entera ni por el cierre del socket: se
+  // queda bloqueado hasta que su cliente MCP se rinde por timeout. El canal se
+  // deja abierto a propósito: `game_state` sigue valiendo para mirar el final.
+  const nota = notaFinDePartida(state, director.agentPlayers);
+  link.gameOver(state.finished?.winner ?? null, nota);
+
+  // La misma frase para el terminal: estaba escrita dos veces, doce líneas
+  // aparte, y la de aquí decía menos.
   console.log('\n──────── fin de la partida ────────');
-  console.log(
-    state.finished === null
-      ? `Sin resolver tras ${MAX_DAYS} días.`
-      : `Gana el jugador ${state.finished.winner}.`,
-  );
+  console.log(nota);
   for (const p of state.players) {
     const heroes = state.heroes.filter((h) => h.owner === p.id);
     const pueblos = state.towns.filter((t) => t.owner === p.id);
@@ -174,5 +167,11 @@ async function jugar(): Promise<void> {
 
 jugar().catch((err) => {
   console.error('[servidor] la partida ha reventado:', err);
+  // También cuando revienta: un agente bloqueado sin motivo es peor que uno que
+  // sabe que hubo un fallo y puede contarlo.
+  link.gameOver(
+    null,
+    `La partida se ha interrumpido por un fallo del servidor: ${err instanceof Error ? err.message : String(err)}`,
+  );
   process.exitCode = 1;
 });

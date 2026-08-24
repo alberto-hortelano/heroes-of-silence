@@ -7,14 +7,16 @@
  */
 import { serializeAdventureTurn, serializeBattleTurn } from '@core/contract/serialize.js';
 import { chooseBattleAction } from '@core/ai/tactics.js';
-import { playAiTurn } from '@core/ai/turn.js';
+import { playAiTurn, type BattleTakeover } from '@core/ai/turn.js';
 import { activeStack, applyAction } from '@core/battle/battle.js';
+import type { BattleAction } from '@core/battle/types.js';
 import { createRng } from '@core/rng.js';
 import {
   applyAdventureAction,
   currentPlayer,
   resolvePendingBattle,
   settleBattle,
+  sidesOwnedBy,
   type AdventureAction,
   type GameContext,
   type GameState,
@@ -22,6 +24,14 @@ import {
 import { newGame } from '@core/state/setup.js';
 import type { PlayerId } from '@core/types.js';
 import type { AgentLink } from './agent-link.js';
+import {
+  describeAccion,
+  MOTIVO_PARTIDA_TERMINADA,
+  MOTIVO_TRAS_END_TURN,
+  notaAccionAceptada,
+  notaAccionSustituida,
+  notaTurnoAventura,
+} from './notas.js';
 
 export interface DirectorOptions {
   readonly seed?: number;
@@ -56,13 +66,26 @@ export class Director {
     return this.state.finished !== null;
   }
 
+  /**
+   * La batalla que nazca a mitad del turno de otro, ofrecida al agente.
+   *
+   * Es lo que rompe el nudo de «el agente solo decide en la mitad de sus
+   * batallas»: el turno del rival era una llamada atómica a `core` que cerraba
+   * por dentro las batallas que provocaba. El tipo vive en `core` y la
+   * implementación aquí, así que el núcleo sigue sin saber que existe un
+   * director.
+   */
+  private readonly takeover: BattleTakeover = () => this.playBattle();
+
   /** Juega el turno del jugador que toca. */
   async playTurn(): Promise<TurnReport> {
     const player = currentPlayer(this.state);
     const usaAgente = this.agentPlayers.has(player.id) && this.link.connected;
 
     if (!usaAgente) {
-      playAiTurn(this.state, this.ctx);
+      // Aunque el turno sea del rival, el agente puede tener que DEFENDER lo
+      // que ese turno le eche encima.
+      await playAiTurn(this.state, this.ctx, this.link.connected ? this.takeover : undefined);
       return { player: player.id, by: 'heuristic', actions: 0, problems: [] };
     }
 
@@ -71,55 +94,100 @@ export class Director {
     } catch (err) {
       const motivo = err instanceof Error ? err.message : String(err);
       this.note(`El agente no pudo jugar el turno (${motivo}); toma el relevo la IA de reglas.`);
-      // La partida no se detiene por un fallo del agente.
+      // La partida no se detiene por un fallo del agente. Y sin takeover: si
+      // acaba de fallar, no se le vuelve a preguntar dentro del mismo turno.
       if (this.state.pendingBattle !== null) resolvePendingBattle(this.state, this.ctx);
-      playAiTurn(this.state, this.ctx);
+      await playAiTurn(this.state, this.ctx);
       return { player: player.id, by: 'heuristic', actions: 0, problems: [motivo] };
     }
   }
 
   private async playAgentTurn(playerId: PlayerId): Promise<TurnReport> {
+    // El día se anota antes: `end_turn` puede pasar de día y la nota tiene que
+    // hablar del turno que el agente acaba de jugar, no del siguiente.
+    const dia = this.state.day;
     const respuesta = await this.link.ask('adventure_turn', serializeAdventureTurn(this.state, playerId));
-    if (respuesta.reasoning !== undefined) this.note(`Agente: ${respuesta.reasoning}`);
+    const plan = respuesta.data;
+    if (plan.reasoning !== undefined) this.note(`Agente: ${plan.reasoning}`);
 
     const problems: string[] = [];
     let aplicadas = 0;
 
-    for (const accion of respuesta.actions) {
-      if (this.state.finished !== null) break;
-      if (accion.type === 'end_turn') break;
+    /** Lo que ya no se va a intentar, contado una por una y con su motivo. */
+    const descartar = (resto: readonly unknown[], motivo: string): void => {
+      for (const a of resto) problems.push(`${describeAccion(a as AdventureAction)}: ${motivo}`);
+    };
+
+    for (const [i, accion] of plan.actions.entries()) {
+      if (this.state.finished !== null) {
+        descartar(plan.actions.slice(i), MOTIVO_PARTIDA_TERMINADA);
+        break;
+      }
+      if (accion.type === 'end_turn') {
+        // El `end_turn` sí se honra —el turno se cierra abajo—, así que cuenta
+        // como aplicada. Lo que venía DETRÁS no se aplica y antes desaparecía en
+        // silencio: `problems` volvía vacío y la nota decía «aplicado entero».
+        aplicadas++;
+        descartar(plan.actions.slice(i + 1), MOTIVO_TRAS_END_TURN);
+        break;
+      }
 
       try {
-        applyAdventureAction(this.state, accion as AdventureAction, this.ctx);
+        applyAdventureAction(this.state, accion as AdventureAction, this.ctx, playerId);
         aplicadas++;
       } catch (err) {
         // Una acción ilegal se descarta y se le cuenta al agente, tal y como
         // promete el contrato; las siguientes siguen aplicándose.
-        problems.push(`${describe(accion)}: ${err instanceof Error ? err.message : String(err)}`);
+        problems.push(
+          `${describeAccion(accion as AdventureAction)}: ${err instanceof Error ? err.message : String(err)}`,
+        );
         continue;
       }
 
       if (this.state.pendingBattle !== null) {
-        await this.playBattle(playerId);
+        await this.playBattle();
+        // Si nadie la tomó, la cierra la IA: dejarla pendiente reventaría todas
+        // las acciones que quedaran del turno con «hay una batalla pendiente».
+        if (this.state.pendingBattle !== null) resolvePendingBattle(this.state, this.ctx);
       }
     }
 
     if (this.state.finished === null) {
-      applyAdventureAction(this.state, { type: 'end_turn' }, this.ctx);
+      applyAdventureAction(this.state, { type: 'end_turn' }, this.ctx, playerId);
     }
 
     if (problems.length > 0) this.note(`Acciones rechazadas: ${problems.length}`);
+    // El veredicto sale SIEMPRE, también cuando salió perfecto: un silencio es
+    // ambiguo en un canal que puede perder mensajes.
+    this.link.report(
+      respuesta.requestId,
+      true,
+      problems.length > 0 ? problems : undefined,
+      // Intentadas es exactamente lo que entró más lo que se rechazó: un
+      // segundo contador que subir en el orden correcto dentro de un bucle con
+      // `continue` miente el día que alguien meta un `break`.
+      notaTurnoAventura(dia, aplicadas, aplicadas + problems.length, problems),
+    );
     return { player: playerId, by: 'agent', actions: aplicadas, problems };
   }
 
-  /** Juega la batalla pendiente: el agente lleva su bando, la IA el otro. */
-  private async playBattle(playerId: PlayerId): Promise<void> {
+  /**
+   * Juega la batalla pendiente: el agente lleva los bandos que sean suyos y la
+   * IA de reglas el resto. Con los dos bandos suyos se le pregunta por separado,
+   * cada uno con su propio `battle_turn`.
+   */
+  private async playBattle(): Promise<void> {
     const pending = this.state.pendingBattle;
     if (pending === null) return;
-    const battle = pending.battle;
+    // Qué bandos son suyos lo dice el núcleo, que es donde vive `battleOwners`:
+    // esto lo derivaba aquí y la consulta `battle_state` por su cuenta, y las
+    // dos copias ya discrepaban con un jugador que llevara los dos bandos.
+    const bandos = sidesOwnedBy(this.state, pending, this.agentPlayers);
+    // No es asunto del agente: se devuelve sin cerrarla y la cierra quien la
+    // abrió, que es el contrato del takeover.
+    if (bandos.size === 0) return;
 
-    // El agente es siempre el atacante aquí: la batalla nace de su movimiento.
-    const suBando = 'attacker' as const;
+    const battle = pending.battle;
     let guard = 0;
 
     while (battle.finished === null && guard < 800) {
@@ -127,15 +195,14 @@ export class Director {
       const s = activeStack(battle);
       if (s === null) break;
 
-      if (s.side !== suBando) {
+      if (!bandos.has(s.side)) {
         applyAction(battle, chooseBattleAction(battle), this.ctx.rng);
         continue;
       }
 
-      let accion;
+      let respuesta;
       try {
-        const r = await this.link.ask('battle_turn', serializeBattleTurn(battle, suBando));
-        accion = r.action;
+        respuesta = await this.link.ask('battle_turn', serializeBattleTurn(battle, s.side));
       } catch (err) {
         this.note(
           `El agente falló en la batalla (${err instanceof Error ? err.message : String(err)}); la termina la IA.`,
@@ -143,12 +210,38 @@ export class Director {
         break;
       }
 
+      const accion = respuesta.data.action as BattleAction;
       try {
-        applyAction(battle, accion as never, this.ctx.rng);
+        applyAction(battle, accion, this.ctx.rng);
+        this.link.report(respuesta.requestId, true, undefined, notaAccionAceptada(s.id, accion));
       } catch (err) {
-        this.note(`Acción de batalla rechazada: ${err instanceof Error ? err.message : String(err)}`);
-        // Para no bloquear el turno, se resuelve con la heurística y se sigue.
-        applyAction(battle, chooseBattleAction(battle), this.ctx.rng);
+        const motivo = err instanceof Error ? err.message : String(err);
+        this.note(`Acción de batalla rechazada: ${motivo}`);
+        // Para no bloquear el turno se juega la de la heurística — y se MIDE lo
+        // que cuesta antes de contárselo: un `cast` sustituto no consume el
+        // turno del stack, gasta el maná del héroe. Suponerlo mentiría en una
+        // de cada cuatro sustituciones.
+        const sustituta = chooseBattleAction(battle);
+        const heroe = battle.heroes[s.side];
+        const manaAntes = heroe?.mana ?? 0;
+        applyAction(battle, sustituta, this.ctx.rng);
+        const manaGastado = manaAntes - (heroe?.mana ?? 0);
+        // Si la sustituta remató, la promesa del `cast` —«se te volverá a pedir
+        // acción para ella»— sería falsa: el bucle sale por `battle.finished` y
+        // no hay más peticiones. También se mide, no se supone.
+        this.link.report(
+          respuesta.requestId,
+          false,
+          [motivo],
+          notaAccionSustituida(
+            s.id,
+            motivo,
+            sustituta,
+            manaGastado,
+            heroe?.name ?? null,
+            battle.finished !== null,
+          ),
+        );
       }
     }
 
@@ -163,8 +256,4 @@ export class Director {
     this.log.push(line);
     console.log(`[director] ${line}`);
   }
-}
-
-function describe(action: { type: string }): string {
-  return action.type;
 }

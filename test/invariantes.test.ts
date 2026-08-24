@@ -2,13 +2,16 @@
  * Las fronteras de `CLAUDE.md`, comprobadas.
  *
  * Un contrato que solo vive en la documentación se rompe sin que nadie se
- * entere; aquí se rompe en rojo. Son siete guardias: cinco leen el código con
+ * entere; aquí se rompe en rojo. Son ocho guardias: seis leen el código con
  * una expresión regular, uno recorre el catálogo de rasgos y el de efectos
  * temporales llama de verdad a los lectores del motor. Cuestan milisegundos,
  * así que caben en cada `pnpm test` sin frenar a nadie.
  *
- * Los siete nacen en verde. Un guardia que nace rojo se ignora desde el primer
- * día.
+ * Los ocho nacen en verde. Un guardia que nace rojo se ignora desde el primer
+ * día — y uno que nace verde sin comprobar que MUERDE no guarda nada: el de la
+ * frontera con el servidor se probó metiendo un `import` del director en
+ * `src/core/ai/turn.ts`, viéndolo rojo y quitándolo. Se volvió a probar con la
+ * forma que se le colaba (`import 'ruta';`, sin `from`) al cerrarle ese hueco.
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { extname, join } from 'node:path';
@@ -45,6 +48,19 @@ function leer(ruta: string): string {
   const texto = readFileSync(join(RAIZ, ruta), 'utf8');
   CACHE.set(ruta, texto);
   return texto;
+}
+
+/**
+ * Cualquier forma de traerse `destino`, incluida la que no tiene `from`.
+ *
+ * Las formas son `from 'x'`, `import('x')`, `require('x')` y `import 'x';` a
+ * secas, y de la última —la de efecto lateral, que es justo la que se usa cuando
+ * lo único que se quiere es enchufar el módulo— eran ciegos los dos guardias de
+ * importación: `import '../../server/director.js'` los dejaba a los ocho en
+ * verde. Un guardia con un hueco conocido invita a usar el hueco.
+ */
+function importaDe(destino: RegExp): RegExp {
+  return new RegExp(`(?:from|import\\(|require\\(|import)\\s*['"](?:${destino.source})`);
 }
 
 /** Ficheros que incumplen, con la línea que lo hace: el mensaje del fallo. */
@@ -98,7 +114,7 @@ describe('invariantes del proyecto', () => {
   it('`core` es puro: no importa nada de node', () => {
     // Sin esto los mismos tests no valdrían para el navegador y para el
     // servidor, que es justo lo que hace barato el núcleo.
-    expect(infractores(CORE, /from ['"]node:|require\(['"]node:/)).toEqual([]);
+    expect(infractores(CORE, importaDe(/node:/))).toEqual([]);
   });
 
   it('`core` es puro: no toca el DOM', () => {
@@ -107,6 +123,18 @@ describe('invariantes del proyecto', () => {
         CORE,
         /\b(document|window|navigator|localStorage)\s*\.|\b(HTMLElement|HTMLImageElement|CanvasRenderingContext2D)\b/,
       ),
+    ).toEqual([]);
+  });
+
+  it('`core` no conoce al servidor: la dependencia va en un solo sentido', () => {
+    // La salida fácil a «el agente tiene que defender» era un `import` del
+    // director dentro de `core`, y los otros guardias la habrían dejado pasar:
+    // el servidor no es `node:` ni es DOM. El núcleo se entera de que hay
+    // alguien conduciendo por un TIPO de callback (`BattleTakeover`), no por
+    // una importación — así los mismos tests siguen valiendo en el navegador,
+    // donde `src/server` ni existe.
+    expect(
+      infractores(CORE, importaDe(/@server\/|[^'"]*\.\.?\/server\/|[^'"]*\/src\/server\//)),
     ).toEqual([]);
   });
 
