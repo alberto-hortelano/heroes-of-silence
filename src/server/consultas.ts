@@ -16,14 +16,14 @@ export function responderConsulta(
 ): unknown {
   switch (what) {
     case 'game_state': {
-      const player = Number(args['player'] ?? 1);
+      const player = Number(args.player ?? 1);
       return serializeAdventureTurn(state, player);
     }
 
     case 'battle_state': {
       const pending = state.pendingBattle;
       if (pending === null) return { battle: null, note: 'ahora mismo no hay ninguna batalla' };
-      const player = Number(args['player'] ?? 1);
+      const player = Number(args.player ?? 1);
       // El bando sale del dueño y lo deriva el núcleo, no una constante ni una
       // copia de la regla. Cuando esto decía 'attacker' pasara lo que pasara,
       // un agente que defendía veía su batalla del revés: sus stacks marcados

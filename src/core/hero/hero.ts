@@ -120,7 +120,7 @@ export function addToArmy(army: Army, creatureId: string, count: number): Army |
     out[existing] = { creature: creatureId, count: stack.count + count };
     return out;
   }
-  const free = out.findIndex((s) => s === null);
+  const free = out.indexOf(null);
   if (free < 0) return null;
   out[free] = { creature: creatureId, count };
   return out;
@@ -144,7 +144,7 @@ export function hasFreeSlot(army: Army): boolean {
 /** Experiencia necesaria para alcanzar cierto nivel (curva suave). */
 export function experienceForLevel(level: number): number {
   if (level <= 1) return 0;
-  return Math.round(1000 * Math.pow(1.4, level - 2));
+  return Math.round(1000 * 1.4 ** (level - 2));
 }
 
 export function levelFromExperience(exp: number): number {

@@ -1,0 +1,77 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.10/schema.json",
+
+  // Una sola herramienta para lint y formato, porque el control de calidad de
+  // este repo es «deliberadamente ligero»: una dependencia, un fichero de
+  // configuración y milisegundos. El presupuesto es duro —`pnpm verify` por
+  // debajo de 10 s— y con dos herramientas no cabía.
+  "vcs": { "enabled": false, "clientKind": "git", "useIgnoreFile": false },
+
+  // Solo el TypeScript. `data/*.json` es contenido editable a mano y
+  // `assets/generated` es salida de fal.ai: un formateador no tiene nada que
+  // decir ahí, y reordenarlo sería ruido en el diff de cada tanda de arte.
+  "files": {
+    "includes": ["src/**/*.ts", "test/**/*.ts", "tools/**/*.ts", "vite.config.ts"]
+  },
+
+  // El estilo de hecho del repo, medido sobre los 61 ficheros, no uno nuevo:
+  // 2 espacios, comillas simples, punto y coma y coma final. `lineWidth` a 100
+  // porque es donde ya estaban las 201 líneas largas… salvo los literales de
+  // plantilla HTML de `views/panels.ts` y los prompts de `tools/gen`, que un
+  // formateador no puede partir y deja como están.
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "semicolons": "always",
+      "trailingCommas": "all"
+    }
+  },
+
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "correctness": {
+        // Un solo dueño para «esto no lo usa nadie», y es `tsc`:
+        // `noUnusedLocals`/`noUnusedParameters` están encendidos en
+        // `tsconfig.json` y comprueban lo mismo dentro del mismo `pnpm verify`.
+        // No solo se solapan, **discrepan**: `const _noUsada` pasa por Biome
+        // —que perdona el guion bajo— y lo rechaza `tsc`, así que la salida que
+        // el propio mensaje de Biome recomienda deja el repo en rojo. Dos voces
+        // dando consejos incompatibles sobre la misma línea es peor que una.
+        "noUnusedVariables": "off",
+        "noUnusedImports": "off"
+      },
+      "style": {
+        // 151 sitios. Con `noUncheckedIndexedAccess` encendido en
+        // `tsconfig.json`, `array[0]!` ES el idioma del repo: el tipo dice
+        // `T | undefined` y el `!` es cómo se afirma lo que el índice ya
+        // garantiza. Encenderla obligaría a tocar medio repo para cambiar una
+        // afirmación por otra.
+        "noNonNullAssertion": "off"
+      },
+      "suspicious": {
+        // 20 sitios, casi todos JSON sin tipar que entra por el canal del
+        // agente (`tools/qa`, `test/agent-link.test.ts`): ahí `any` es el tipo
+        // honesto de algo que acaba de salir de un `JSON.parse`, y el esquema
+        // zod es quien lo estrecha después.
+        "noExplicitAny": "off"
+      }
+    }
+  },
+
+  // El orden de los imports lo decide la herramienta y no la costumbre: es la
+  // única parte del reformateo que mueve líneas de sitio, y va en el mismo
+  // commit mecánico que el resto.
+  "assist": {
+    "actions": {
+      "source": { "organizeImports": "on" }
+    }
+  }
+}

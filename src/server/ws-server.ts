@@ -14,10 +14,10 @@ import { Director } from './director.js';
 import { notaFinDePartida } from './notas.js';
 import { AGENT_PORT, SPECTATOR_PORT, type ServerToSpectatorMsg } from './protocol.js';
 
-const SEED = Number(process.env['HEROES_SEED'] ?? 20260823);
-const MAX_DAYS = Number(process.env['HEROES_MAX_DAYS'] ?? 200);
+const SEED = Number(process.env.HEROES_SEED ?? 20260823);
+const MAX_DAYS = Number(process.env.HEROES_MAX_DAYS ?? 200);
 /** Cuánto se espera a que el agente se conecte antes de tirar de heurística. */
-const WAIT_FOR_AGENT_MS = Number(process.env['HEROES_WAIT_AGENT_MS'] ?? 120_000);
+const WAIT_FOR_AGENT_MS = Number(process.env.HEROES_WAIT_AGENT_MS ?? 120_000);
 
 const link = new AgentLink();
 const director = new Director(link, { seed: SEED, agentPlayers: [1] });

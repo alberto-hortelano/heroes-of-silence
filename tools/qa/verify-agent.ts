@@ -15,7 +15,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { PREFIJO_CORTE, PREFIJO_FIN, PREFIJO_RELEVO } from '../../src/server/notas.js';
 
-const TURNOS = Number(process.env['QA_TURNS'] ?? 6);
+const TURNOS = Number(process.env.QA_TURNS ?? 6);
 
 function log(msg: string): void {
   console.log(`\x1b[36m[qa]\x1b[0m ${msg}`);

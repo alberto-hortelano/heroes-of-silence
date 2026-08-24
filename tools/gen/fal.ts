@@ -37,7 +37,7 @@ export interface SpendState {
 
 /** Lee FAL_KEY del `.env` sin depender de ninguna librería. */
 export function loadFalKey(envPath = '.env'): string {
-  const desdeEntorno = process.env['FAL_KEY'];
+  const desdeEntorno = process.env.FAL_KEY;
   if (desdeEntorno !== undefined && desdeEntorno !== '') return desdeEntorno;
 
   if (!existsSync(envPath)) {

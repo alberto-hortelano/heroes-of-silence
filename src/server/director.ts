@@ -200,15 +200,18 @@ export class Director {
         continue;
       }
 
-      let respuesta;
-      try {
-        respuesta = await this.link.ask('battle_turn', serializeBattleTurn(battle, s.side));
-      } catch (err) {
-        this.note(
-          `El agente falló en la batalla (${err instanceof Error ? err.message : String(err)}); la termina la IA.`,
-        );
-        break;
-      }
+      // El `catch` devuelve `null` en vez de asignar a un `let` sin tipo: así
+      // `respuesta` queda tipada por lo que promete `ask` —el esquema zod de
+      // `battle_turn`— en lugar de ser un `any` que se va ensanchando.
+      const respuesta = await this.link
+        .ask('battle_turn', serializeBattleTurn(battle, s.side))
+        .catch((err: unknown) => {
+          this.note(
+            `El agente falló en la batalla (${err instanceof Error ? err.message : String(err)}); la termina la IA.`,
+          );
+          return null;
+        });
+      if (respuesta === null) break;
 
       const accion = respuesta.data.action as BattleAction;
       try {

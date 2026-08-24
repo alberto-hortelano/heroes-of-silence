@@ -497,7 +497,7 @@ describe('catálogo de edificios por facción', () => {
       'castle',
       'necromancer_dwelling_6',
     ]);
-    expect(cripta.available['bone_dragon']).toBeGreaterThan(0);
+    expect(cripta.available.bone_dragon).toBeGreaterThan(0);
 
     // El motivo se escribe para la persona, y `null` sería "adelante, cobra".
     expect(buildBlocker(cripta, 'necromancer_upgrade_6', bolsaInfinita)).toMatch(/no existe/);
@@ -526,12 +526,12 @@ describe('catálogo de edificios por facción', () => {
       'castle',
       'knight_dwelling_6',
     ]);
-    expect(castillo.available['paladin']).toBeGreaterThan(0);
+    expect(castillo.available.paladin).toBeGreaterThan(0);
 
     castillo.builtToday = false;
     build(castillo, 'knight_upgrade_6', bolsaInfinita);
-    expect(castillo.available['paladin']).toBeUndefined();
-    expect(castillo.available['crusader']).toBeGreaterThan(0);
+    expect(castillo.available.paladin).toBeUndefined();
+    expect(castillo.available.crusader).toBeGreaterThan(0);
   });
 
   it('ninguna mejora del catálogo apunta a un nivel sin criatura mejorada', () => {

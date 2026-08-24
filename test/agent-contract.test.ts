@@ -83,9 +83,9 @@ describe('lo que ve el agente', () => {
     const payload = serializeAdventureTurn(state, 0);
     const roundtrip = JSON.parse(JSON.stringify(payload)) as Record<string, unknown>;
     expect(roundtrip).toEqual(payload);
-    expect(roundtrip['kind']).toBe('adventure_turn');
-    expect(Array.isArray(roundtrip['heroes'])).toBe(true);
-    expect((roundtrip['towns'] as unknown[]).length).toBeGreaterThan(0);
+    expect(roundtrip.kind).toBe('adventure_turn');
+    expect(Array.isArray(roundtrip.heroes)).toBe(true);
+    expect((roundtrip.towns as unknown[]).length).toBeGreaterThan(0);
   });
 
   it('solo enseña lo que ese jugador ha explorado', () => {

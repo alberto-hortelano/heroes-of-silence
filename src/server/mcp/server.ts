@@ -24,7 +24,7 @@ import { AGENT_PORT, type AgentToServerMsg, type ServerToAgentMsg } from '../pro
 import { Buzon } from './buzon.js';
 import { ColaDeVeredictos } from './veredictos.js';
 
-const SERVER_URL = process.env['HEROES_SERVER'] ?? `ws://localhost:${AGENT_PORT}`;
+const SERVER_URL = process.env.HEROES_SERVER ?? `ws://localhost:${AGENT_PORT}`;
 
 // ---------------------------------------------------------------- conexión
 

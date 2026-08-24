@@ -39,7 +39,7 @@ export class ColaDeVeredictos {
     const nota = msg.note ?? (msg.ok ? 'aplicada.' : 'no se pudo aplicar.');
     const problemas = (msg.problems ?? []).map((p) => `    - ${p}`).join('\n');
     this.lineas.push(
-      `${msg.ok ? '✓' : '⚠'} ${msg.requestId}: ${nota}` + (problemas === '' ? '' : `\n${problemas}`),
+      `${msg.ok ? '✓' : '⚠'} ${msg.requestId}: ${nota}${problemas === '' ? '' : `\n${problemas}`}`,
     );
   }
 

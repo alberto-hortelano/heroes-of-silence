@@ -105,6 +105,11 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId): un
     knownMap: {
       width: state.map.width,
       height: state.map.height,
+      // El `switch` de dentro cubre la unión entera de `o.kind`, así que no hay
+      // camino sin `return` — pero eso lo sabe `tsc` y no el linter, que no mira
+      // tipos. Un `default` para callarlo escondería justo lo que interesa ver
+      // rojo: que un `kind` nuevo del mapa no se está serializando.
+      // biome-ignore lint/suspicious/useIterableCallbackReturn: lo garantiza el tipo, no el linter
       objects: [...player.memory.values()].map((recuerdo) => {
         // Lo que se está mirando ahora es presente; lo demás, memoria.
         const mirandolo = observado(recuerdo.object.at);
