@@ -12,7 +12,7 @@ import { factionLineup } from '../src/core/data.js';
 import { learnable, maxMana, maxMovePoints, slowestSpeed } from '../src/core/hero/hero.js';
 import { buildMap, generateMapPlan, validateMapPlan } from '../src/core/map/generate.js';
 import { findPath, objectAt, pointKey } from '../src/core/map/map.js';
-import { createRng } from '../src/core/rng.js';
+import { createRng, parseSeed } from '../src/core/rng.js';
 import {
   applyAdventureAction,
   currentPlayer,
@@ -103,6 +103,48 @@ describe('generación de mapas', () => {
       chests: [...plan.chests, { at: plan.towns[0]!.at, gold: 100 }],
     };
     expect(validateMapPlan(chocado).join(' ')).toMatch(/la ocupan dos cosas/);
+  });
+
+  it('la misma semilla da la misma partida, y otra da otra (#53)', () => {
+    // Es la promesa entera de `?seed=N`: sin esto, un fallo encontrado jugando
+    // no se puede volver a producir, que es para lo que existe el parámetro.
+    // Se compara lo que se VE al empezar: terreno, objetos y héroes.
+    const retrato = (s: ReturnType<typeof newGame>): string =>
+      JSON.stringify({
+        terreno: s.map.terrain,
+        objetos: s.map.objects,
+        pueblos: s.towns.map((t) => ({ id: t.id, at: t.at, faction: t.faction, owner: t.owner })),
+        heroes: s.heroes.map((h) => ({ id: h.id, name: h.name, at: h.at, army: h.army })),
+      });
+
+    expect(retrato(newGame({ seed: 777 }))).toBe(retrato(newGame({ seed: 777 })));
+    // Y la otra mitad, para que la primera no pase por una partida constante:
+    // si `newGame` ignorara la semilla, la comparación de arriba sola sería
+    // verde y no probaría nada.
+    expect(retrato(newGame({ seed: 777 }))).not.toBe(retrato(newGame({ seed: 778 })));
+  });
+
+  it('una semilla escrita a mano se lee, y la que no lo es se RECHAZA (#53)', () => {
+    // La otra mitad de `?seed=N`: el número que escribe una persona entra por
+    // aquí, en `core`, y no en la capa que solo pinta. Lo que se defiende es que
+    // NADA se corrija en silencio — `createRng` hace `seed >>> 0`, así que un
+    // `-1` no revienta: abre otra partida sin decirlo, que es peor.
+    expect(parseSeed('777')).toBe(777);
+    expect(parseSeed('0')).toBe(0);
+
+    // Y la trampa de verdad: `Number(null)` y `Number('')` son 0, una semilla
+    // legal. Si esto devolviera un número, «no pediste ninguna» y «pediste la
+    // 0» serían la misma partida. `null` es lo que dice «no ha pedido» sin
+    // matar a nadie: no pedir semilla NO es un error, y los dos llamantes
+    // discrepaban justo aquí — `HEROES_SEED=` vacía mataba el servidor mientras
+    // `?seed=` vacío sorteaba en el navegador.
+    expect(parseSeed(null)).toBeNull();
+    expect(parseSeed(undefined)).toBeNull();
+    expect(parseSeed('')).toBeNull();
+    expect(parseSeed('   ')).toBeNull();
+    for (const malo of ['abc', '-1', '7.5', 'NaN', 'Infinity']) {
+      expect(() => parseSeed(malo), malo).toThrow(/no es una semilla/);
+    }
   });
 
   it('construye el mapa con todos los objetos del plan', () => {

@@ -47,6 +47,12 @@ html, body {
 
 #day { color: var(--gold); font-weight: 700; letter-spacing: 0.03em; }
 #turn { margin-left: auto; color: var(--ink-dim); }
+#seed {
+  color: var(--ink-dim);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+  opacity: 0.75;
+}
 
 #resources {
   display: flex;

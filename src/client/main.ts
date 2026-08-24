@@ -8,6 +8,7 @@
 import { stackHexes } from '@core/battle/battle.js';
 import { hexKey } from '@core/battle/board.js';
 import type { BattleStack } from '@core/battle/types.js';
+import { parseSeed } from '@core/rng.js';
 import type { Point } from '@core/types.js';
 import { BattleAnimator, type Pose } from './anim.js';
 import { type AdventureCamera, cameraFor, drawAdventure, tileAtPixel } from './render/adventure.js';
@@ -36,8 +37,64 @@ const elTurn = document.getElementById('turn') as HTMLElement;
 const elSide = document.getElementById('side') as HTMLElement;
 const elStatus = document.getElementById('status') as HTMLElement;
 const elActions = document.getElementById('actions') as HTMLElement;
+const elSeed = document.getElementById('seed') as HTMLElement;
 
-let session = new Session(Date.now() % 100000);
+/**
+ * La semilla que pide la URL, o `null` si no pide ninguna. Lanza si pide una
+ * que no lo es: la regla entera —incluido que `?seed=` vacío es no pedir— la
+ * escribe el núcleo (`parseSeed`), aquí solo se lee la barra de direcciones.
+ */
+function semillaDeLaUrl(): number | null {
+  return parseSeed(new URLSearchParams(location.search).get('seed'));
+}
+
+/** Una partida que nadie ha pedido: la de hoy a esta hora. */
+function semillaSorteada(): number {
+  return Date.now() % 100000;
+}
+
+/**
+ * Abre la partida y deja dicho, en la URL y en la barra, con qué semilla juega.
+ *
+ * Entre copiar un número a mano y copiar la barra de direcciones está la
+ * diferencia entre que un fallo encontrado jugando se pueda volver a producir o
+ * no. La semilla se escribe **una vez, aquí**: no cambia en toda la partida, así
+ * que sacarla del bucle de dibujo le quitó sesenta escrituras por segundo.
+ */
+function abrePartida(seed: number): Session {
+  // Se cambia SOLO `seed` sobre la URL de ahora: escribir `?seed=N` a pelo
+  // sustituía la query entera y el fragmento, así que `?debug=1&seed=777#castillo`
+  // se quedaba en `?seed=777`. Hoy no lo nota nadie porque no hay un segundo
+  // parámetro; el día que lo haya, desaparecería al abrir partida.
+  const url = new URL(location.href);
+  url.searchParams.set('seed', String(seed));
+  history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+  const abierta = new Session(seed);
+  elSeed.textContent = `semilla ${abierta.state.seed}`;
+  return abierta;
+}
+
+let session: Session;
+try {
+  session = abrePartida(semillaDeLaUrl() ?? semillaSorteada());
+} catch (err) {
+  // Sin sesión no arranca el bucle de dibujo y la página se queda EN BLANCO: el
+  // motivo existiría solo en la consola, que es tanto como no escribirlo para la
+  // persona. Nadie repinta `#status` sin sesión, así que lo que se escriba aquí
+  // se queda. Y se relanza igual: un fallo no se tapa con una barra bonita.
+  const motivo = err instanceof Error ? err.message : String(err);
+  // Con el motivo va la SALIDA: `#actions` está vacío —no hay sesión que ofrecer
+  // acciones—, así que quien escriba `?seed=abc` se queda ante una pantalla
+  // negra sin nada que pulsar, y la única forma de salir es la barra de
+  // direcciones. Solo se dice cuando la URL pide semilla: si lo que ha fallado
+  // es otra cosa, el consejo sería mentira.
+  const pideSemilla = new URLSearchParams(location.search).get('seed') !== null;
+  elStatus.textContent = pideSemilla
+    ? `${motivo} — quita "?seed=…" de la barra de direcciones para jugar una partida al azar`
+    : motivo;
+  throw err;
+}
+
 let camera: AdventureCamera = { origin: { x: 0, y: 0 }, cols: 0, rows: 0, offsetX: 0, offsetY: 0 };
 let hoverPath: Point[] = [];
 /**
@@ -343,7 +400,9 @@ document.addEventListener('click', (ev) => {
       session.finishBattle();
       break;
     case 'restart':
-      session = new Session(Date.now() % 100000);
+      // Reiniciar es partida NUEVA: se sortea aunque la URL traiga una semilla,
+      // y la URL se reescribe con la que salga.
+      session = abrePartida(semillaSorteada());
       rutaPintada = null;
       break;
     default:

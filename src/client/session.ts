@@ -76,6 +76,10 @@ export class Session {
   private turnoDelRivalEnCurso = false;
 
   constructor(seed: number) {
+    // La semilla no se guarda aquí: `newGame` la deja en `state.seed`, que es
+    // de donde la lee quien la enseña. Un hecho en dos sitios se desincroniza
+    // el día que esta capa hable por WebSocket —`this.seed` sería la que pidió
+    // el cliente y `state.seed` la que abrió el servidor—.
     this.state = newGame({ seed, controllers: { 0: 'human', 1: 'ai' } });
     this.ctx = { rng: createRng(seed ^ 0x5eed) };
     this.selectedHeroId = heroesOf(this.state, this.viewer)[0]?.id ?? null;

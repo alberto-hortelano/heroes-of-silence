@@ -8,6 +8,7 @@
  */
 
 import { creature } from '@core/data.js';
+import { parseSeed } from '@core/rng.js';
 import { type WebSocket, WebSocketServer } from 'ws';
 import { AgentLink } from './agent-link.js';
 import { responderConsulta } from './consultas.js';
@@ -15,7 +16,14 @@ import { Director } from './director.js';
 import { notaFinDePartida } from './notas.js';
 import { AGENT_PORT, type ServerToSpectatorMsg, SPECTATOR_PORT } from './protocol.js';
 
-const SEED = Number(process.env.HEROES_SEED ?? 20260823);
+/** La partida que se juega si nadie pide otra. */
+const SEED_POR_DEFECTO = 20260823;
+// La misma regla que `?seed=` en el navegador, y por eso vive en `core`: esto
+// aceptaba `HEROES_SEED=abc` y abría la partida `NaN >>> 0` sin decir nada.
+// Sin variable o con la variable vacía no hay nada que rechazar: se juega la de
+// por defecto, igual que el navegador sortea. `HEROES_SEED=abc` sigue matando
+// el arranque, que es lo que se pidió y no se puede dar.
+const SEED = parseSeed(process.env.HEROES_SEED) ?? SEED_POR_DEFECTO;
 const MAX_DAYS = Number(process.env.HEROES_MAX_DAYS ?? 200);
 /** Cuánto se espera a que el agente se conecte antes de tirar de heurística. */
 const WAIT_FOR_AGENT_MS = Number(process.env.HEROES_WAIT_AGENT_MS ?? 120_000);

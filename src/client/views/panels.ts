@@ -18,7 +18,11 @@ import { asset } from '../render/assets.js';
 import { RESOURCE_COLORS, RESOURCE_NAMES } from '../render/palette.js';
 import type { Session } from '../session.js';
 
-export function renderTopbar(session: Session): { day: string; resources: string; turn: string } {
+export function renderTopbar(session: Session): {
+  day: string;
+  resources: string;
+  turn: string;
+} {
   const state = session.state;
   const semana = Math.floor((state.day - 1) / 7) + 1;
   const dia = ((state.day - 1) % 7) + 1;
@@ -43,11 +47,9 @@ export function renderTopbar(session: Session): { day: string; resources: string
         ? 'Tu turno'
         : 'Turno del rival…';
 
-  return {
-    day: `Día ${dia} · Semana ${semana}`,
-    resources,
-    turn: turno,
-  };
+  // La semilla no sale de aquí: no cambia en toda la partida, así que la
+  // escribe `main.ts` una vez al abrirla en vez de sesenta veces por segundo.
+  return { day: `Día ${dia} · Semana ${semana}`, resources, turn: turno };
 }
 
 export function renderSide(session: Session): string {
