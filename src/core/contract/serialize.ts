@@ -10,7 +10,7 @@ import { stackHp } from '../battle/damage.js';
 import { effectiveLuck } from '../battle/effects.js';
 import type { BattleState, Side } from '../battle/types.js';
 import { creature, isShooter } from '../data.js';
-import { maxMana, maxMovePoints, type Hero } from '../hero/hero.js';
+import { maxMana, maxMovePoints } from '../hero/hero.js';
 import { pointKey } from '../map/map.js';
 import { availableBuildings, dailyIncome, dwellings, mageGuildLevel, townSpells } from '../town/town.js';
 import { building } from '../town/buildings.js';

@@ -7,7 +7,6 @@ import {
   planBuildings,
   planRecruits,
 } from '../src/core/ai/strategy.js';
-import { creature } from '../src/core/data.js';
 import { learnable, maxMana, maxMovePoints, slowestSpeed } from '../src/core/hero/hero.js';
 import { allSpells } from '../src/core/battle/spells.js';
 import { buildMap, generateMapPlan, validateMapPlan } from '../src/core/map/generate.js';

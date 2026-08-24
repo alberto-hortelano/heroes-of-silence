@@ -12,10 +12,6 @@ export type Side = 'attacker' | 'defender';
  */
 export const SIDES: readonly Side[] = ['attacker', 'defender'];
 
-export function otherSide(s: Side): Side {
-  return s === 'attacker' ? 'defender' : 'attacker';
-}
-
 /** Un stack dentro de una batalla. Mutable: el motor lo modifica en sitio. */
 export interface BattleStack {
   readonly id: string;

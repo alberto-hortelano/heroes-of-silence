@@ -35,7 +35,7 @@ import type {
   BattleState,
   Side,
 } from './types.js';
-import { otherSide, SIDES } from './types.js';
+import { SIDES } from './types.js';
 
 export interface BattleSide {
   readonly army: Army;

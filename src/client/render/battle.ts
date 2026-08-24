@@ -6,7 +6,7 @@ import type { BattleStack, BattleState } from '@core/battle/types.js';
 import { creature, hexSize, isShooter } from '@core/data.js';
 import type { Hex } from '@core/types.js';
 import type { Pose } from '../anim.js';
-import { asset, creatureFrame } from './assets.js';
+import { creatureFrame } from './assets.js';
 import { RESOURCE_COLORS } from './palette.js';
 
 export const HEX_SIZE = 34;

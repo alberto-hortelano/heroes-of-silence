@@ -17,7 +17,6 @@ import { TERRAIN_KINDS } from '@core/map/terrain.js';
 import { RESOURCE_KINDS } from '@core/types.js';
 import { FalClient } from './fal.js';
 import {
-  BUILDING_SIZE,
   ICON_SIZE,
   processBuilding,
   processScene,

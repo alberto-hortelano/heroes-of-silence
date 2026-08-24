@@ -20,7 +20,6 @@ import { findPath, type PathStep } from '@core/map/map.js';
 import { createRng } from '@core/rng.js';
 import {
   applyAdventureAction,
-  currentPlayer,
   heroById,
   heroesOf,
   resolvePendingBattle,
