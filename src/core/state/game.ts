@@ -93,6 +93,27 @@ export const MINE_YIELD: Readonly<Record<ResourceKind, number>> = {
 /** Radio de visión de un héroe. */
 export const HERO_SCOUT_RADIUS = 4;
 
+/**
+ * Radio de visión de un pueblo o castillo (#72).
+ *
+ * Era su propia casilla y nada más, así que un héroe enemigo acampado pegado a
+ * tu capital no producía un solo `hero_moved` que te llegara: 0 de 60 escenarios
+ * medidos; con este radio, 60 de 60.
+ *
+ * **El número es del original y la forma no.** `GameStatic::getFogDiscoveryDistance`
+ * (`game/game_static.cpp`) da `CASTLE: 5` y `HEROES: 4` —nuestro
+ * `HERO_SCOUT_RADIUS` ya coincidía—, y `Castle::Scout()` la llama **sin
+ * ramificar por el fuerte**: no depende de la fortificación, y el enum no tiene
+ * un valor `TOWN` aparte. Lo que allí es un disco chapucero aquí es el cuadrado
+ * de `visibleFrom`, así que el héroe **ya diverge** —81 casillas contra 69— e
+ * igualar la forma es otra tarea. Se copia el número.
+ *
+ * Y esto alimenta `visibleNow`, **no `fog` ni `memory`**: un objeto pegado a tu
+ * capital te da eventos y sale en `enemyHeroes`, pero no entra en `knownMap`.
+ * Que el pueblo despeje también la niebla es otra decisión y otro coste.
+ */
+export const TOWN_SCOUT_RADIUS = 5;
+
 export interface PendingBattle {
   readonly attackerHeroId: string;
   readonly foe: BattleFoe;
@@ -292,7 +313,7 @@ export function revealEverything(state: GameState, playerId: PlayerId): void {
 
 /**
  * Las casillas que un jugador está viendo AHORA MISMO: el entorno de cada uno
- * de sus héroes, más el suelo de sus pueblos, que siempre tienen a alguien.
+ * de sus héroes y el de cada uno de sus pueblos, que siempre tienen a alguien.
  *
  * Es la otra mitad de `fog`. `fog` dice «esto lo conozco»; esto dice «esto lo
  * estoy mirando», y solo de lo que se mira se puede afirmar el presente.
@@ -302,7 +323,9 @@ export function visibleNow(state: GameState, playerId: PlayerId): Set<string> {
   for (const hero of heroesOf(state, playerId)) {
     for (const key of visibleFrom(state.map, hero.at, HERO_SCOUT_RADIUS)) claves.add(key);
   }
-  for (const town of townsOf(state, playerId)) claves.add(pointKey(town.at));
+  for (const town of townsOf(state, playerId)) {
+    for (const key of visibleFrom(state.map, town.at, TOWN_SCOUT_RADIUS)) claves.add(key);
+  }
   return claves;
 }
 
@@ -342,7 +365,10 @@ export function visibleNowAt(state: GameState, playerId: PlayerId, q: Point): bo
     if (dx <= HERO_SCOUT_RADIUS && dy <= HERO_SCOUT_RADIUS) return true;
   }
   for (const town of state.towns) {
-    if (town.owner === playerId && town.at.x === q.x && town.at.y === q.y) return true;
+    if (town.owner !== playerId) continue;
+    const dx = Math.abs(town.at.x - q.x);
+    const dy = Math.abs(town.at.y - q.y);
+    if (dx <= TOWN_SCOUT_RADIUS && dy <= TOWN_SCOUT_RADIUS) return true;
   }
   return false;
 }

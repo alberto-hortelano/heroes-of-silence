@@ -55,8 +55,38 @@ const PLANO: MapPlan = {
   chests: [],
 };
 
+/** El mismo mapa con los castillos en las esquinas, para la poda de los bordes. */
+const ESQUINAS: MapPlan = {
+  ...PLANO,
+  towns: [
+    { id: 'mio', name: 'Valdeluz', faction: 'knight', at: { x: 0, y: 0 }, owner: 0 },
+    { id: 'suyo', name: 'Osario', faction: 'necromancer', at: { x: 39, y: 11 }, owner: 1 },
+  ],
+};
+
 function partida(semilla: number): { state: GameState; ctx: GameContext } {
   return { state: newGame({ seed: semilla, plan: PLANO }), ctx: { rng: createRng(semilla) } };
+}
+
+/**
+ * Dónde discrepan las dos formas de «quién mira ahora», barriendo el mapa
+ * entero y una casilla más por cada lado: fuera del mapa las dos tienen que
+ * decir que no.
+ */
+function discrepanciasDeVision(state: GameState): string[] {
+  const fuera: string[] = [];
+  for (const p of state.players) {
+    const conjunto = visibleNow(state, p.id);
+    for (let y = -1; y <= state.map.height; y++) {
+      for (let x = -1; x <= state.map.width; x++) {
+        const q = { x, y };
+        if (visibleNowAt(state, p.id, q) !== conjunto.has(pointKey(q))) {
+          fuera.push(`jugador ${p.id} en (${x},${y})`);
+        }
+      }
+    }
+  }
+  return fuera;
 }
 
 /** Lo que recibe el agente de ese jugador, con `recentEvents` ya tipado flojo. */
@@ -255,20 +285,41 @@ describe('la crónica pasa por la niebla', () => {
     pasear(state, ctx, 0, [{ x: 0, y: 0 }]);
     pasarTurno(state, ctx, 0);
     pasear(state, ctx, 1, [{ x: 39, y: 11 }]);
+    expect(discrepanciasDeVision(state)).toEqual([]);
 
-    const discrepancias: string[] = [];
-    for (const p of state.players) {
-      const conjunto = visibleNow(state, p.id);
-      for (let y = -1; y <= state.map.height; y++) {
-        for (let x = -1; x <= state.map.width; x++) {
-          const q = { x, y };
-          if (visibleNowAt(state, p.id, q) !== conjunto.has(pointKey(q))) {
-            discrepancias.push(`jugador ${p.id} en (${x},${y})`);
-          }
-        }
-      }
-    }
-    expect(discrepancias).toEqual([]);
+    // Y otra partida con los CASTILLOS en las esquinas, que es lo único que no
+    // ejercitaba: desde #72 el pueblo tiene radio propio, y en mitad de la
+    // franja su cuadrado de 5 no llega a ningún límite de arriba ni de abajo.
+    // Comprobado que muerde: con el bucle del pueblo escrito a mano y la poda
+    // de abajo olvidada, la primera pasada sigue verde y esta saca seis.
+    expect(discrepanciasDeVision(newGame({ seed: 111, plan: ESQUINAS }))).toEqual([]);
+  });
+
+  it('un héroe enemigo acampado junto a mi capital me consta, sin nadie mío cerca', () => {
+    // El criterio observable de #72, y el que da el issue: hasta ahora un
+    // castillo veía **su propia casilla y nada más**, así que el rival podía
+    // plantarse en la de al lado sin que llegara una línea. Medido: 0 de 60
+    // escenarios antes, 60 de 60 después.
+    const { state, ctx } = partida(110);
+
+    // Mi héroe, al otro lado del mapa y fuera de la fila por la que viene el
+    // rival: lo único que mira hacia mi capital es la capital.
+    pasear(state, ctx, 0, [{ x: 20, y: 0 }]);
+    pasarTurno(state, ctx, 0);
+    // Y el rival cruza los 32 de la franja y acampa pegado a mi castillo.
+    pasear(state, ctx, 1, [{ x: 3, y: 6 }]);
+    pasarTurno(state, ctx, 1);
+
+    const suyos = leer(state, 0).recentEvents.filter(
+      (e) => e.kind === 'hero_moved' && e.actor === 1,
+    );
+    expect(suyos.some((e) => e.to.x === 3 && e.to.y === 6)).toBe(true);
+
+    // Y solo lo que alcanza el castillo, no el viaje entero: la niebla sigue
+    // siendo niebla. Si llegara todo, el test pasaría por no filtrar nada.
+    const todos = state.log.filter((e) => e.kind === 'hero_moved' && e.actor === 1);
+    expect(suyos.length).toBeLessThan(todos.length);
+    expect(suyos.length).toBeGreaterThan(0);
   });
 
   it('la pantalla NO se filtra: el cliente sigue viendo el log entero', () => {

@@ -74,11 +74,19 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  * - `a4d71f9b…` (28 406 líneas): #52, la regla de espera. Cambia las partidas a
  *   propósito: la IA juega `wait` 476 veces en estas 200 partidas, donde antes
  *   jugaba 0. Las 106 líneas de más son los hechos que eso añade a la crónica.
+ * - `299b1a7c…` (28 406 líneas, **las mismas**): #72, el radio de visión del
+ *   castillo. No mueve una sola partida: mueve **quién se entera**. El `diff`
+ *   contra `a4d71f9b…` trae 1 871 de 28 406 líneas (6,6 %), el **100 %** de
+ *   ellas distintas SOLO en `seen`, **cero** líneas `fin` —mismo ganador, mismo
+ *   día y mismos hechos en las 200 partidas— y las 1 871 **ganan** observador,
+ *   ninguna lo pierde, que es lo único que puede hacer un radio más grande.
+ *   Ese diff era el criterio de aceptación, y no que el sha cambiara: el sha lo
+ *   mueve también una implementación mala.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: 'a4d71f9ba1dde3afd7aabc28f039110ea95ab51e5f8a79dcfc8538ce1c0856bc',
+  sha: '299b1a7ca5bb13642880b63dd7fa9a9f75dadad14ee1f7a2a82dca5886745336',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);
