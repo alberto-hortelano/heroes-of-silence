@@ -11,11 +11,13 @@
  * ve nada del otro salvo cuando el test lo lleva a propósito.
  */
 import { describe, expect, it } from 'vitest';
+import { renderLog } from '../src/client/views/panels.js';
 import { playAiGame } from '../src/core/ai/turn.js';
 import { serializeAdventureTurn } from '../src/core/contract/serialize.js';
 import type { MapPlan } from '../src/core/map/generate.js';
 import { pointKey } from '../src/core/map/map.js';
 import { createRng } from '../src/core/rng.js';
+import type { GameEvent } from '../src/core/state/events.js';
 import { visibleTo } from '../src/core/state/events.js';
 import {
   applyAdventureAction,
@@ -242,6 +244,22 @@ describe('la crónica pasa por la niebla', () => {
     expect(new Set(state.log.map((e) => e.kind)).size).toBeGreaterThanOrEqual(15);
   });
 
+  it('la pantalla NO se filtra: el cliente sigue viendo el log entero', () => {
+    // Deliberado, y escrito aquí para que no parezca un olvido: el lienzo del
+    // mapa nunca pasó por #35 —pinta con `player.fog`, o sea «lo exploré
+    // alguna vez»—, así que filtrar solo la crónica dejaría a la persona
+    // viendo al rival moverse por el mapa sin una línea que lo contara. Las dos
+    // mitades se quedan coherentes hasta que el mapa del cliente se arregle.
+    const { state, ctx } = partida(108);
+    pasear(state, ctx, 0, [{ x: 4, y: 1 }]);
+    pasarTurno(state, ctx, 0);
+    pasear(state, ctx, 1, [MI_MINA]);
+
+    const pintado = renderLog(state.log, 0);
+    expect(pintado).toMatch(/mina/i);
+    expect(leer(state, 0).recentEvents.some((e) => e.kind === 'mine_captured')).toBe(false);
+  });
+
   it('una batalla en la que defiendo llega entera, incluso la muerte del mío', () => {
     const { state, ctx } = partida(107);
 
@@ -265,5 +283,99 @@ describe('la crónica pasa por la niebla', () => {
     expect(muerte).toBeDefined();
     expect(muerte.actor).toBe(0);
     expect(state.log.find((e) => e.kind === 'hero_defeated')?.seen).not.toContain(0);
+  });
+});
+
+/**
+ * La crónica de la pantalla, que es lo que lee la persona.
+ *
+ * Se prueba llamando a `renderLog` con los eventos puestos a mano y no jugando
+ * una partida: lo que se afirma aquí es la REDACCIÓN y el COLOR, y hacen falta
+ * los seis casos —lo mío, lo suyo y lo neutral— que ninguna semilla da juntos.
+ * El dato de cada evento ya lo garantizan los tests de arriba.
+ *
+ * Y hay un motivo para que esto exista además del navegador: en el navegador se
+ * vio que «Castillo de tú capturado por el jugador 1» era agramatical, y se
+ * arregló. Un test no lo habría cazado; una vez cazado, es lo que impide que
+ * vuelva.
+ */
+describe('la crónica de la pantalla deja de mentir', () => {
+  const evento = (cuerpo: Record<string, unknown>): GameEvent =>
+    ({ actor: 1, at: { x: 0, y: 0 }, seen: [], ...cuerpo }) as unknown as GameEvent;
+  /** El HTML de un solo evento, para mirarlo entero sin ruido alrededor. */
+  const linea = (cuerpo: Record<string, unknown>): string => renderLog([evento(cuerpo)], 0);
+
+  it('la muerte de un héroe ENEMIGO ya no se pinta como derrota propia', () => {
+    // El bug que más se notaba: `hero_defeated` salía SIEMPRE en clase `lose`,
+    // así que matar al héroe del rival se le pintaba a la persona en rojo, con
+    // el mismo color que perder el suyo.
+    const mio = linea({ kind: 'hero_defeated', hero: 'h', actor: 0 });
+    expect(mio).toContain('class="lose"');
+    expect(mio).toContain('Un héroe tuyo ha caído');
+
+    const suyo = linea({ kind: 'hero_defeated', hero: 'h', actor: 1 });
+    expect(suyo).toContain('class="win"');
+    expect(suyo).toContain('Ha caído un héroe del jugador 1');
+    expect(suyo).not.toContain('lose');
+  });
+
+  it('la captura de un castillo dice a costa de quién', () => {
+    // Criterio 9. «Castillo capturado» a secas era media verdad justo en el
+    // evento que decide la partida.
+    expect(linea({ kind: 'town_captured', town: 't', actor: 0, from: 1 })).toContain(
+      'Has capturado un castillo del jugador 1',
+    );
+    expect(linea({ kind: 'town_captured', town: 't', actor: 0, from: null })).toContain(
+      'Has capturado un castillo neutral',
+    );
+    const perdido = linea({ kind: 'town_captured', town: 't', actor: 1, from: 0 });
+    expect(perdido).toContain('El jugador 1 te ha capturado un castillo');
+    expect(perdido).toContain('class="lose"');
+  });
+
+  it('lo que construye y recluta el rival ya no parece tuyo', () => {
+    // Criterio 11: sin dueño en el evento, las tres salían idénticas fuera de
+    // quien fuesen, y la persona leía las obras del enemigo como suyas.
+    expect(linea({ kind: 'built', town: 't', building: 'tavern', actor: 0 })).toContain(
+      'Construido: Taberna',
+    );
+    expect(linea({ kind: 'built', town: 't', building: 'tavern', actor: 1 })).toContain(
+      'El jugador 1 construye: Taberna',
+    );
+    expect(linea({ kind: 'recruited', town: 't', creature: 'peasant', count: 3 })).toContain(
+      'El jugador 1 recluta 3 × Campesino',
+    );
+    expect(linea({ kind: 'garrison_taken', hero: 'h', town: 't' })).toContain(
+      'El jugador 1 incorpora una guarnición',
+    );
+  });
+
+  it('los hechizos del rival ya no se pintan como una buena noticia tuya', () => {
+    // Salía SIEMPRE en clase `win`, aprendiera quien aprendiera.
+    const spells = ['haste'];
+    expect(linea({ kind: 'spells_learned', hero: 'h', town: 't', spells, actor: 0 })).toContain(
+      '<div class="win">Aprendido: Prisa</div>',
+    );
+    // Sin clase: lo que aprende el rival no es ni tu victoria ni tu derrota.
+    expect(linea({ kind: 'spells_learned', hero: 'h', town: 't', spells, actor: 1 })).toContain(
+      '<div>El jugador 1 aprende: Prisa</div>',
+    );
+  });
+
+  it('ninguna línea compone un genitivo agramatical', () => {
+    // El navegador cazó «Castillo de tú capturado» y «un héroe de el jugador
+    // 1»: componer «de» + el sujeto no vale en español, y por eso hay dos
+    // formas del helper. Esto es lo que impide que vuelva la de una sola.
+    const todas = renderLog(
+      [
+        evento({ kind: 'town_captured', town: 't', actor: 1, from: 0 }),
+        evento({ kind: 'town_captured', town: 't', actor: 0, from: 1 }),
+        evento({ kind: 'hero_defeated', hero: 'h', actor: 1 }),
+        evento({ kind: 'mine_captured', mine: 'm', actor: 1, from: 0 }),
+        evento({ kind: 'mine_captured', mine: 'm', actor: 0, from: 1 }),
+      ],
+      0,
+    );
+    expect(todas).not.toMatch(/de tú|de el |a tú/);
   });
 });

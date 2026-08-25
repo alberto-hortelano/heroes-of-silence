@@ -392,35 +392,103 @@ function renderBattleLog(log: readonly BattleEvent[], mio: Side | null): string 
   return `<div class="log">${lineas}</div>`;
 }
 
-function renderLog(log: readonly GameEvent[], viewer: number): string {
+/**
+ * La crónica de la pantalla.
+ *
+ * Aquí NO se llama a `visibleTo`: la persona sigue viendo el log entero, y es
+ * deliberado. El lienzo del mapa nunca pasó por #35 —pinta con `player.fog`, o
+ * sea «lo exploré alguna vez»—, así que filtrar solo la crónica dejaría a quien
+ * juega viendo al rival moverse por el mapa y sin una línea que lo contara. Las
+ * dos mitades se quedan coherentes entre sí hasta que el mapa del cliente se
+ * arregle; el día que #34 aterrice, esta crónica vendrá ya filtrada del
+ * servidor y el problema se resuelve solo.
+ *
+ * Lo que sí se arregla es que MENTÍA. Sin dueño en el evento, `built`,
+ * `recruited` y `garrison_taken` se pintaban igual fueran de quien fueran —lo
+ * del rival parecía tuyo—, `spells_learned` salía siempre en verde y
+ * `hero_defeated` siempre en rojo: cuando el que caía era el héroe ENEMIGO, a
+ * la persona se le pintaba como derrota propia. El color se sigue usando para
+ * distinguir lo tuyo de lo suyo, que es presentación y es a propósito, pero
+ * ahora con el dato en la mano en vez de suponiéndolo.
+ */
+export function renderLog(log: readonly GameEvent[], viewer: number): string {
+  /** Verde lo que te suma, rojo lo que te resta, sin color lo que ni una cosa ni otra. */
+  const clase = (bueno: boolean, malo: boolean): string =>
+    bueno ? ' class="win"' : malo ? ' class="lose"' : '';
+  /**
+   * Quién, en las tres formas que pide la frase: sujeto, genitivo y dativo.
+   * Son tres y no una porque componer «de» o «a» con el sujeto no vale en
+   * español, y no es teórico: en pantalla salió «Castillo de tú capturado» y
+   * habría salido «Mina capturada a el jugador 1». El número es el mismo que
+   * enseña todo lo demás — dos numeraciones para la misma cosa es una trampa.
+   */
+  const jugador = (id: number | null): string =>
+    id === null ? 'Alguien' : id === viewer ? 'Tú' : `El jugador ${id}`;
+  const deJugador = (id: number | null): string =>
+    id === null ? 'de alguien' : id === viewer ? 'tuyo' : `del jugador ${id}`;
+  const alJugador = (id: number | null): string =>
+    id === null ? 'a alguien' : id === viewer ? 'a ti' : `al jugador ${id}`;
+
   const lineas = log
     .slice(-60)
     .map((e) => {
+      const mio = e.actor === viewer;
       switch (e.kind) {
         case 'day_start':
           return `<div>— Día ${e.day} —</div>`;
         case 'resource_gained':
-          return e.player === viewer
+          return mio
             ? `<div class="win">+${e.amount} ${RESOURCE_NAMES[e.resource].toLowerCase()}</div>`
             : '';
         case 'mine_captured':
-          return `<div class="${e.player === viewer ? 'win' : 'lose'}">Mina capturada</div>`;
+          return `<div${clase(mio, e.from === viewer)}>${
+            mio
+              ? `Mina capturada${e.from === null ? '' : ` ${alJugador(e.from)}`}`
+              : e.from === viewer
+                ? `${jugador(e.actor)} te ha quitado una mina`
+                : `${jugador(e.actor)} captura una mina`
+          }</div>`;
         case 'town_captured':
-          return `<div class="${e.player === viewer ? 'win' : 'lose'}">Castillo capturado</div>`;
+          // El criterio 9: a costa de quién. «Castillo capturado» a secas era
+          // media verdad justo en el evento que decide la partida.
+          return `<div${clase(mio, e.from === viewer)}>${
+            mio
+              ? `Has capturado un castillo ${e.from === null ? 'neutral' : deJugador(e.from)}`
+              : e.from === viewer
+                ? `${jugador(e.actor)} te ha capturado un castillo`
+                : `${jugador(e.actor)} captura un castillo ${
+                    e.from === null ? 'neutral' : deJugador(e.from)
+                  }`
+          }</div>`;
         case 'built':
-          return `<div>Construido: ${building(e.building).name}</div>`;
+          return `<div${clase(mio, false)}>${
+            mio ? 'Construido' : `${jugador(e.actor)} construye`
+          }: ${building(e.building).name}</div>`;
         case 'recruited':
-          return `<div>Reclutados ${e.count} × ${creature(e.creature).name}</div>`;
+          return `<div${clase(mio, false)}>${
+            mio ? 'Reclutados' : `${jugador(e.actor)} recluta`
+          } ${e.count} × ${creature(e.creature).name}</div>`;
         case 'hero_hired':
-          return `<div class="${e.player === viewer ? 'win' : 'lose'}">Héroe contratado</div>`;
+          return `<div${clase(mio, false)}>${
+            mio ? 'Héroe contratado' : `${jugador(e.actor)} contrata un héroe`
+          }</div>`;
         case 'garrison_taken':
-          return `<div>Guarnición incorporada</div>`;
+          return `<div${clase(mio, false)}>${
+            mio ? 'Guarnición incorporada' : `${jugador(e.actor)} incorpora una guarnición`
+          }</div>`;
         case 'spells_learned':
-          return `<div class="win">Aprendido: ${e.spells.map((id) => spell(id).name).join(', ')}</div>`;
+          return `<div${clase(mio, false)}>${
+            mio ? 'Aprendido' : `${jugador(e.actor)} aprende`
+          }: ${e.spells.map((id) => spell(id).name).join(', ')}</div>`;
         case 'battle_ended':
           return `<div>Batalla resuelta</div>`;
         case 'hero_defeated':
-          return `<div class="lose">Un héroe ha caído</div>`;
+          // `actor` es el dueño del MUERTO, así que aquí «mío» es la derrota y
+          // lo del rival es una victoria. Antes las dos salían en rojo, y a la
+          // persona se le pintaba como propia la muerte del héroe enemigo.
+          return `<div${clase(!mio, mio)}>${
+            mio ? 'Un héroe tuyo ha caído' : `Ha caído un héroe ${deJugador(e.actor)}`
+          }</div>`;
         case 'game_over':
           return `<div class="${e.winner === viewer ? 'win' : 'lose'}">Fin de la partida</div>`;
         default:
