@@ -12,7 +12,6 @@ import {
   enemiesOf,
   isEngaged,
   legalActions,
-  movableHexes,
   splashTargets,
   stackById,
   stackHexes,
@@ -209,8 +208,13 @@ export function chooseBattleAction(state: BattleState): BattleAction {
     );
     if (cargas.length > 0) return cargas[0]!;
 
-    // Si no llega, avanzar lo máximo posible hacia él.
-    const movimientos = movableHexes(state, s);
+    // Si no llega, avanzar lo máximo posible hacia él. Los hexes ya están en
+    // la mano: los `move` de `acciones` SON `movableHexes(state, s)`, en
+    // contenido y en orden, porque `legalActions` los saca de esa misma
+    // llamada y los empuja tal cual. Relanzar el BFS aquí era el 20,6 % de los
+    // recorridos de tablero de una batalla —1461 de 7090— y un 11 % del banco:
+    // #48 izó el BFS DENTRO de `legalActions` y dejó al gemelo un piso arriba.
+    const movimientos = acciones.filter((a) => a.type === 'move').map((a) => a.to);
     if (movimientos.length > 0) {
       const mejor = movimientos.reduce((a, b) =>
         distanceTo(b, objetivo) < distanceTo(a, objetivo) ? b : a,

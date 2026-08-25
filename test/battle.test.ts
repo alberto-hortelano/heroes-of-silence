@@ -389,6 +389,23 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
       { type: 'attack', target: 'defender-2', from: { col: 9, row: 5 } },
     ]);
   });
+
+  it('sus `move` son `movableHexes` tal cual, que es de lo que tira la IA', () => {
+    // La IA táctica ya no relanza el BFS para saber a dónde puede avanzar:
+    // filtra los `move` de la lista que acaba de pedir. Eso solo vale si son
+    // exactamente los mismos hexes Y en el mismo orden, porque de ese orden
+    // sale la casilla elegida cuando dos quedan a la misma distancia. Este
+    // test es lo que sujeta esa suposición: si `legalActions` empezara a
+    // filtrar, reordenar o completar sus `move`, aquí se ve.
+    const state = batallaDeCuatroEnemigos();
+    const s = activeStack(state) as BattleStack;
+    const movimientos = legalActions(state)
+      .filter((a) => a.type === 'move')
+      .map((a) => a.to);
+
+    expect(movimientos.length).toBeGreaterThan(0);
+    expect(movimientos).toEqual(movableHexes(state, s));
+  });
 });
 
 /** Cuántos enemigos tiene delante el stack activo. */
