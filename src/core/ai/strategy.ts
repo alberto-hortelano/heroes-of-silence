@@ -280,7 +280,16 @@ export function planRecruits(state: GameState, playerId: PlayerId): AdventureAct
   const player = state.players.find((p) => p.id === playerId);
   if (player === undefined) return acciones;
 
-  let purse = { ...player.resources };
+  // Quien se ha quedado sin héroe reserva lo que cuesta el siguiente, igual
+  // que `planHires` reserva 6000 cuando aún le queda alguno. Sin esta línea el
+  // reclutamiento se gasta el monedero ENTERO cada día y `planHires` —que
+  // corre primero y exige 2500— no ve ese oro nunca: la renta de un pueblo no
+  // llega a 2500 y la guarnición se come lo que entra. Resultado: un jugador
+  // con 0 héroes y ~25 de oro frente a otro con un millón que no ataca su
+  // castillo, hasta el día 300. Hoy no se ve porque la partida acaba el 7;
+  // cuadrada la economía eran 15 de 200 partidas eternas, y las 15 esta.
+  const reserva = heroesOf(state, playerId).length === 0 ? HERO_HIRE_COST : 0;
+  let purse = { ...player.resources, gold: player.resources.gold - reserva };
 
   // Reclutar de arriba abajo: las criaturas caras rinden más por moneda.
   for (const town of townsOf(state, playerId)) {

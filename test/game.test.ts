@@ -4,6 +4,7 @@ import {
   chooseBuilding,
   chooseHeroDestination,
   planBuildings,
+  planHires,
   planRecruits,
   stepTowards,
 } from '../src/core/ai/strategy.js';
@@ -23,10 +24,12 @@ import {
 import { isWalkable, ROAD_COST, TERRAIN_KINDS } from '../src/core/map/terrain.js';
 import { createRng, parseSeed } from '../src/core/rng.js';
 import {
+  type AdventureAction,
   applyAdventureAction,
   currentPlayer,
   dayOfWeek,
   type GameContext,
+  HERO_HIRE_COST,
   heroById,
   heroesOf,
   resolvePendingBattle,
@@ -489,6 +492,50 @@ describe('IA de respaldo', () => {
     const state = newGame({ seed: 41 });
     expect(planBuildings(state, 0).some((a) => a.type === 'build')).toBe(true);
     expect(planRecruits(state, 0).some((a) => a.type === 'recruit')).toBe(true);
+  });
+
+  it('quien se ha quedado sin héroe reserva lo que cuesta el siguiente', () => {
+    // La avería, que es anterior a cuadrar la economía: `planRecruits` gastaba
+    // el monedero ENTERO y `planHires` exige 2500, así que el jugador que
+    // perdía su héroe no compraba otro nunca. Se quedaba con su castillo y
+    // ~25 de oro sosteniendo un empate hasta el día 300.
+    const state = newGame({ seed: 41 });
+    const player = state.players.find((p) => p.id === 0)!;
+    state.heroes = state.heroes.filter((h) => h.owner !== 0);
+    player.resources = { ...player.resources, gold: HERO_HIRE_COST + 400 };
+    // Con la morada llena, quien manda es el oro: sin la reserva, el
+    // reclutamiento se lo lleva hasta el último. Con la docena de campesinos
+    // que hay el día 1 este test pasaría sin reserva y no guardaría nada.
+    const town = townsOf(state, 0)[0]!;
+    for (const id of Object.keys(town.available)) town.available[id] = 500;
+
+    const reclutas = planRecruits(state, 0);
+    expect(reclutas.some((a) => a.type === 'recruit')).toBe(true); // no se queda parado
+    for (const accion of reclutas) applyAdventureAction(state, accion, ctx(41), 0);
+
+    expect(player.resources.gold).toBeGreaterThanOrEqual(HERO_HIRE_COST);
+    expect(planHires(state, 0).some((a) => a.type === 'hire_hero')).toBe(true);
+  });
+
+  it('con un héroe vivo no se reserva nada: el oro es para el ejército', () => {
+    // La otra cara, que es lo que hace de la reserva un arreglo y no un
+    // impuesto: reservar 2500 todos los días dejaría al ejército corto para
+    // siempre. Las dos partidas salen de la misma semilla y solo se
+    // diferencian en si al jugador le queda un héroe; con la morada llena de
+    // criaturas, lo que manda es el oro.
+    const cuenta = (acciones: readonly AdventureAction[]): number =>
+      acciones.reduce((n, a) => (a.type === 'recruit' ? n + a.count : n), 0);
+    const montar = (conHeroe: boolean) => {
+      const state = newGame({ seed: 41 });
+      const player = state.players.find((p) => p.id === 0)!;
+      player.resources = { ...player.resources, gold: HERO_HIRE_COST + 400 };
+      const town = townsOf(state, 0)[0]!;
+      for (const id of Object.keys(town.available)) town.available[id] = 500;
+      if (!conHeroe) state.heroes = state.heroes.filter((h) => h.owner !== 0);
+      return cuenta(planRecruits(state, 0));
+    };
+
+    expect(montar(true)).toBeGreaterThan(montar(false));
   });
 
   it('valora más un ejército mayor', () => {

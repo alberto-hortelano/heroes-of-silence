@@ -82,11 +82,18 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   ninguna lo pierde, que es lo único que puede hacer un radio más grande.
  *   Ese diff era el criterio de aceptación, y no que el sha cambiara: el sha lo
  *   mueve también una implementación mala.
+ * - `a8fc2820…` (27 731 líneas): la reserva de héroe de `planRecruits`, primera
+ *   de las cuatro palancas del ciclo que cuadra el coste con la renta. Arregla
+ *   una avería anterior —quien perdía su héroe no compraba otro nunca—, así que
+ *   **195 de las 200 semillas salen idénticas hecho a hecho**; las 5 que cambian
+ *   (33, 35, 114, 127, 186) son exactamente las que dejaban a un jugador sin
+ *   héroe. Tres se acortan y el máximo baja de **22 días a 15**: las 675 líneas
+ *   de menos son los días de empate que ya no se juegan.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '299b1a7ca5bb13642880b63dd7fa9a9f75dadad14ee1f7a2a82dca5886745336',
+  sha: 'a8fc28209d98e6cb83d96e745604de2a811643fac644d708714ad6d3ef48da08',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);
