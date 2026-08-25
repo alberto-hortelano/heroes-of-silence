@@ -36,6 +36,24 @@ No te impongo un ritual —ni «tests primero» ni ningún otro—: te impongo e
 - La caché va por hash del payload: repetir una tanda sale gratis, pero **cambiar un prompt repaga esa imagen**. Retocar `prompts.ts` no es gratis.
 - No generes nada que el plan no pida.
 
+## La máquina es compartida
+
+Esta máquina la comparten otras sesiones de agentes trabajando en otros proyectos. **Nada de `pkill`, `killall` ni `kill` por nombre de proceso**: `pkill -f vite` no distingue de quién es el vite y ya mató el servidor de desarrollo de otro repo. Lo que arranques, arráncalo guardando su PID y mátalo por su grupo:
+
+```bash
+set -m                       # cada trabajo en SU grupo; dentro de un `bash -c` viene apagado
+pnpm dev > /tmp/dev.log 2>&1 &
+DEV=$!
+set +m
+# El guion mata al grupo entero (tu pnpm y su vite) — pero solo si ese PID ES su
+# grupo; si no lo es, ese mismo guion se lleva tu sesión por delante.
+[ "$(ps -o pgid= -p "$DEV" | tr -d ' ')" = "$DEV" ] && kill -TERM -"$DEV" || kill -TERM "$DEV"
+```
+
+`setsid pnpm dev &` no vale aunque lo parezca: bifurca, y `$!` es el PID del `setsid` que ya murió.
+
+Y un puerto ocupado por algo que no arrancaste tú no se libera matando: se dice. Un `pnpm qa` que sale con `EADDRINUSE` en 9880/9881 significa que hay un `pnpm server` de alguien levantado — se reporta, no se resuelve.
+
 ## Reglas de código
 
 - **Fail-loud con mensaje escrito para la persona**: `no se puede construir Castillo: recursos insuficientes`, no un id ni un código. Prohibido el catch vacío y el `return null` de conveniencia.

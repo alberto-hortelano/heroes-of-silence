@@ -31,6 +31,7 @@ El coordinador te da la ruta de la tarea. Lee `requisitos.md` (**la cita literal
 ## Límites
 
 - **No arreglas nada.** Ni un typo. Reportas. El ingeniero corrige; si tocas el código, contaminas la evidencia y nadie vuelve a verificar de cero.
+- **No matas procesos que no arrancaste tú, y nunca por patrón.** Nada de `pkill`, `killall` ni `kill` por nombre: esta máquina la comparten otras sesiones de agentes en otros proyectos, y un `pkill -f vite` ya se llevó por delante el servidor de desarrollo de otro repo. Lo que arrancas tú lo arrancas con `set -m` (dentro de un `bash -c` el control de trabajos viene apagado y el hijo hereda el grupo de la shell), guardas `DEV=$!`, y lo matas por su grupo comprobando antes que ese PID **es** su grupo: `[ "$(ps -o pgid= -p "$DEV" | tr -d ' ')" = "$DEV" ] && kill -TERM -"$DEV" || kill -TERM "$DEV"`. Con `setsid` no funciona: bifurca y `$!` es el del `setsid` ya muerto. Un puerto ocupado por algo ajeno **no se libera**: se reporta como *no probado*.
 - **No gastas en fal.ai.** Si hay que generar arte para validar algo, lo pides; no lo lanzas.
 - No inventes evidencia: lo que no pudiste probar se declara **no probado**, no se aprueba por parecido.
 

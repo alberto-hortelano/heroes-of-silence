@@ -393,6 +393,43 @@ escritos de una sentada.
 
 Para un cambio de una línea el ciclo es sobrecoste: hazlo y ya.
 
+### La máquina es compartida: nada de matar por patrón
+
+**No existe ningún `pkill`, `killall` ni `kill` por nombre de proceso.** En esta
+máquina hay otras sesiones de agentes trabajando en otros proyectos, y `pkill -f
+vite` no distingue de quién es el vite: se llevó por delante el servidor de
+desarrollo de `ne-fan`, que no tenía nada que ver con este repo ni con quien lo
+mató. Un `pkill` acierta con el suyo y no se entera de los demás — por eso no
+vale «he mirado antes»: lo que hay que cambiar es el gesto, no el cuidado.
+
+Lo que se arranca se apunta, y se mata **por su grupo y solo por el suyo**:
+
+```bash
+set -m                       # cada trabajo en SU grupo; sin esto hereda el de la shell
+pnpm dev > /tmp/dev.log 2>&1 &
+DEV=$!
+set +m
+# ...lo que hubiera que mirar...
+# El guion delante mata al grupo: cae tu pnpm y el vite que cuelga de él.
+# Pero antes se comprueba que ese PID ES su grupo, porque si no lo es, ese
+# mismo guion se lleva por delante tu propia sesión.
+[ "$(ps -o pgid= -p "$DEV" | tr -d ' ')" = "$DEV" ] && kill -TERM -"$DEV" || kill -TERM "$DEV"
+```
+
+`set -m` no es adorno: dentro de un `bash -c` —que es como corre un script y como
+corren tus órdenes— el control de trabajos viene apagado y el hijo hereda el
+grupo de la shell. Comprobado: `PID=…691` con `PGID=…690`, el de la shell. Y
+`setsid pnpm dev &` **no** vale, aunque lo parezca: `setsid` bifurca, así que `$!`
+es el PID del `setsid` que ya murió y el `kill` no encuentra el grupo. También
+comprobado, a base de escribirlo mal primero.
+
+Si lo lanzaste con `run_in_background`, lo paras con su identificador de tarea.
+
+**Y un puerto ocupado por algo que no arrancaste tú no se libera: se dice.**
+`pnpm qa` sale 1 con `EADDRINUSE` en 9880/9881 cuando hay un `pnpm server`
+levantado, que es la forma documentada de jugar con el agente: eso se reporta
+como «no probado, el puerto estaba ocupado», nunca se resuelve matando.
+
 ### Control de calidad, deliberadamente ligero
 
 Nada de puntuación de deuda ni pruebas de mutación: frenan más de lo que
