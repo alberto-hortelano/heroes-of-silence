@@ -349,6 +349,20 @@ const ETIQUETA_EFECTO: Readonly<Record<string, string>> = {
 };
 
 /**
+ * Verde lo que te suma, rojo lo que te resta, sin color lo que ni una cosa ni
+ * otra. Devuelve el atributo entero —con su espacio delante— o nada, así que
+ * `<div${clase(...)}>` no deja un `class=""` colgando cuando no hay color.
+ *
+ * Vive aquí y no dentro de `renderLog` porque nació dentro y a la vez había
+ * CINCO copias escritas a mano de lo mismo: cuatro en el parte de batalla y una
+ * en el fin de la partida. Un helper que no cubre ni a su propia rama es un
+ * helper que no existe.
+ */
+function clase(bueno: boolean, malo: boolean): string {
+  return bueno ? ' class="win"' : malo ? ' class="lose"' : '';
+}
+
+/**
  * El parte de guerra. `mio` es el bando de quien lo lee: sin él, «gana el
  * defensor» se pintaría en rojo de derrota aunque el defensor fueras tú.
  */
@@ -370,11 +384,11 @@ function renderBattleLog(log: readonly BattleEvent[], mio: Side | null): string 
           // sabe qué es un "magic_arrow". Sobre quién se lanzó es #18.
           return `<div>Hechizo ${spell(e.spell).name}${e.damage ? `: ${e.damage} de daño` : ''}</div>`;
         case 'morale':
-          return `<div class="${e.good ? 'win' : 'lose'}">${e.good ? 'Moral alta: turno extra' : 'Moral baja: turno perdido'}</div>`;
+          return `<div${clase(e.good, !e.good)}>${e.good ? 'Moral alta: turno extra' : 'Moral baja: turno perdido'}</div>`;
         case 'luck':
-          return `<div class="${e.good ? 'win' : 'lose'}">${e.good ? '¡Golpe afortunado!' : 'Golpe desafortunado'}</div>`;
+          return `<div${clase(e.good, !e.good)}>${e.good ? '¡Golpe afortunado!' : 'Golpe desafortunado'}</div>`;
         case 'effect':
-          return `<div class="${e.amount >= 0 ? 'win' : 'lose'}">${nombreFuente(e.source)}: ${ETIQUETA_EFECTO[e.effect]} ${e.amount > 0 ? '+' : ''}${e.amount} durante ${e.rounds} ${e.rounds === 1 ? 'ronda' : 'rondas'}</div>`;
+          return `<div${clase(e.amount >= 0, e.amount < 0)}>${nombreFuente(e.source)}: ${ETIQUETA_EFECTO[e.effect]} ${e.amount > 0 ? '+' : ''}${e.amount} durante ${e.rounds} ${e.rounds === 1 ? 'ronda' : 'rondas'}</div>`;
         case 'effect_end':
           return `<div>Se disipa: ${nombreFuente(e.source)}</div>`;
         case 'immune':
@@ -382,7 +396,7 @@ function renderBattleLog(log: readonly BattleEvent[], mio: Side | null): string 
         case 'perished':
           return `<div class="lose">Una unidad ha sido aniquilada</div>`;
         case 'finished':
-          return `<div class="${mio === null ? '' : e.winner === mio ? 'win' : 'lose'}">Fin: gana el ${e.winner === 'attacker' ? 'atacante' : 'defensor'}</div>`;
+          return `<div${clase(e.winner === mio, mio !== null && e.winner !== mio)}>Fin: gana el ${e.winner === 'attacker' ? 'atacante' : 'defensor'}</div>`;
         default:
           return '';
       }
@@ -412,9 +426,6 @@ function renderBattleLog(log: readonly BattleEvent[], mio: Side | null): string 
  * ahora con el dato en la mano en vez de suponiéndolo.
  */
 export function renderLog(log: readonly GameEvent[], viewer: number): string {
-  /** Verde lo que te suma, rojo lo que te resta, sin color lo que ni una cosa ni otra. */
-  const clase = (bueno: boolean, malo: boolean): string =>
-    bueno ? ' class="win"' : malo ? ' class="lose"' : '';
   /**
    * Quién, en las tres formas que pide la frase: sujeto, genitivo y dativo.
    * Son tres y no una porque componer «de» o «a» con el sujeto no vale en
@@ -431,7 +442,13 @@ export function renderLog(log: readonly GameEvent[], viewer: number): string {
 
   const lineas = log
     .slice(-60)
-    .map((e) => {
+    // El `switch` de dentro cubre la unión entera de `e.kind` y NO tiene
+    // `default`, así que lo que se calla aquí es el linter y no el fallo: con
+    // el `: string` escrito, un `kind` al que nadie le haya puesto frase deja
+    // un camino sin `return` y `tsc` lo dice (TS2366). Es el mismo trato que
+    // `serialize.ts` le da a los objetos del mapa.
+    // biome-ignore lint/suspicious/useIterableCallbackReturn: lo garantiza el tipo, no el linter
+    .map((e): string => {
       const mio = e.actor === viewer;
       switch (e.kind) {
         case 'day_start':
@@ -493,8 +510,22 @@ export function renderLog(log: readonly GameEvent[], viewer: number): string {
           // El ganador es `actor`, y ya no hay un `winner` al lado diciendo lo
           // mismo: `visibleTo` enrutaba por uno y esta línea pintaba por el
           // otro, sin que nada comprobara que coincidían.
-          return `<div class="${mio ? 'win' : 'lose'}">Fin de la partida</div>`;
-        default:
+          return `<div${clase(mio, !mio)}>Fin de la partida</div>`;
+
+        // Los cuatro que la pantalla NO pinta, escritos uno a uno en vez de
+        // caer por un `default`. El núcleo ya te obliga a decidir si un `kind`
+        // nuevo se reparte (`visibleTo`); esto te obliga a decidir si se lee, y
+        // con el `default` puesto se colaba sin frase y sin ponerse nada rojo
+        // — que es como `built` y `recruited` se pasaron la vida
+        // misatribuyendo.
+        //
+        // El turno y la derrota los cuenta ya la barra de arriba, el paso a
+        // paso del héroe ahogaría el resto de la crónica, y el principio de una
+        // batalla se ve en el propio tablero.
+        case 'turn_start':
+        case 'hero_moved':
+        case 'battle_started':
+        case 'player_defeated':
           return '';
       }
     })
