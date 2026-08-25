@@ -221,13 +221,24 @@ export interface GameConfig {
   readonly startingResources?: Partial<Resources>;
 }
 
+/**
+ * Con qué empieza cada reino, copiado de `Kingdom::_getKingdomStartingResources`
+ * (fheroes2, `kingdom/kingdom.cpp`), dificultad NORMAL: `{7500, 20, 5, 20, 5, 5,
+ * 5}` sobre `Cost {gold, wood, mercury, ore, sulfur, crystal, gems}`.
+ *
+ * Antes decía `7500 oro, 10 madera, 10 mineral, 2 de cada raro`, que **no es
+ * ninguna fila del original**: el oro sale de NORMAL y el material de HARD
+ * (`{5000, 10, 2, 10, 2, 2, 2}`). Media fila de cada, sin declararlo — la misma
+ * divergencia silenciosa que el coste de las moradas, y en la misma dirección:
+ * oro de sobra y materia prima a la mitad.
+ */
 export const DEFAULT_STARTING_RESOURCES: Resources = {
-  wood: 10,
-  ore: 10,
-  mercury: 2,
-  sulfur: 2,
-  crystal: 2,
-  gems: 2,
+  wood: 20,
+  ore: 20,
+  mercury: 5,
+  sulfur: 5,
+  crystal: 5,
+  gems: 5,
   gold: 7500,
 };
 

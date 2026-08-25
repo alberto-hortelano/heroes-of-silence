@@ -254,7 +254,13 @@ describe('la crónica pasa por la niebla', () => {
     // Los cuatro de la lista son los únicos que pueden no tener sitio, y no es
     // un agujero: van siempre, así que su `at` no lo lee nadie. `day_start` es
     // además el único sin protagonista — no lo hace ningún jugador, pasa.
-    const state = newGame({ seed: 9 });
+    //
+    // En 48×48 y no en el mapa de siempre, por el mismo motivo que el guardia
+    // hermano de `invariantes.test.ts`: cuadrada la economía, la partida de
+    // 24×24 acaba el día 7 y no llega a emitir `mine_captured` ni
+    // `spells_learned` — dos de los dieciséis tipos que este test dice
+    // recorrer. Bajar el umbral habría dejado el guardia mirando catorce.
+    const state = newGame({ seed: 9, width: 48, height: 48 });
     await playAiGame(state, { rng: createRng(9) }, 300);
 
     const SIN_SITIO = new Set(['day_start', 'turn_start', 'player_defeated', 'game_over']);

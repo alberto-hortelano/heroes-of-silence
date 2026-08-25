@@ -89,11 +89,17 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   (33, 35, 114, 127, 186) son exactamente las que dejaban a un jugador sin
  *   héroe. Tres se acortan y el máximo baja de **22 días a 15**: las 675 líneas
  *   de menos son los días de empate que ya no se juegan.
+ * - `b790afc9…` (30 503 líneas): los recursos de salida, copiados de la fila
+ *   NORMAL de `Kingdom::_getKingdomStartingResources`. Aquí no queda una sola
+ *   semilla igual, y la forma del diff es la que tiene que ser: el **primer
+ *   hecho distinto es `built` en 200 de 200**, porque la economía entra por el
+ *   castillo y por ningún otro sitio. `knight_dwelling_4` pasa de 8/200 a
+ *   **200/200** y `mage_guild_2` de 0 a 25/200.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: 'a8fc28209d98e6cb83d96e745604de2a811643fac644d708714ad6d3ef48da08',
+  sha: 'b790afc9fb92d71c46bcda9ecbe22fc706a418046ef4eaead451934b29704614',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

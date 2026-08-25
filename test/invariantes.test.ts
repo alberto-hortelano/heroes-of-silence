@@ -7,7 +7,7 @@
  * temporales llama de verdad a los lectores del motor, el décimo recorre todo
  * el repo —menos la prosa y los binarios— buscando la ruta de esta máquina y el
  * undécimo juega una partida y le da a la crónica un viaje de ida y vuelta por
- * `JSON`. Cuestan milisegundos —el undécimo, 200— así que caben en cada
+ * `JSON`. Cuestan milisegundos —el undécimo, 350— así que caben en cada
  * `pnpm test` sin frenar a nadie.
  *
  * Los once nacen en verde. Un guardia que nace rojo se ignora desde el primer
@@ -408,17 +408,27 @@ describe('invariantes del proyecto', () => {
     // antes de darlo por bueno, que es la regla de la casa: un guardia que
     // nunca se ha visto morder no guarda nada.
     //
-    // La semilla 9 es la que más variedad da en 20 días: 261 eventos de los
-    // dieciséis tipos —los dieciséis, ni uno se queda fuera—, 224 de ellos con
-    // el sello puesto. La cuenta de tipos está afirmada porque es lo que hace
-    // que «261 eventos» signifique algo —un log largo de `hero_moved` no
-    // probaría casi nada—, y se deja con holgura de uno para que un cambio de
-    // la IA que deje algo sin salir no ponga rojo a este guardia, que va de
-    // otra cosa. Antes decía «16 de los 17» y los tipos son dieciséis.
-    const state = newGame({ seed: 9 });
-    await playAiGame(state, { rng: createRng(9) }, 20);
-    expect(state.log.length).toBeGreaterThan(200);
+    // La semilla 9 se juega en 48×48 y no en el mapa de siempre. Con la
+    // economía cuadrada la partida de 24×24 acaba el día 7 y deja 131 hechos de
+    // catorce tipos: se quedan fuera `mine_captured` y `spells_learned`, que
+    // son justo los que este guardia quiere ver pasar por el JSON. **No se baja
+    // el umbral**: se juega un mapa donde la partida da de sí. En 48×48 la
+    // misma semilla llega al día 32 y deja más del doble de hechos, los
+    // dieciséis tipos y la gran mayoría con el sello puesto.
+    //
+    // Los tres umbrales van con holgura sobre lo medido, porque este guardia va
+    // del viaje de ida y vuelta y no de la IA: un cambio de heurística que
+    // mueva las cifras un 20 % no tiene por qué ponerlo rojo.
+    //
+    // El tercero es el que faltaba y el que de verdad muerde: si ningún evento
+    // llevara sello, `seen` sería siempre una lista vacía y el `toEqual` de
+    // abajo pasaría sin probar nada. La cuenta de tipos hace lo mismo para la
+    // variedad — un log largo de `hero_moved` no probaría casi nada.
+    const state = newGame({ seed: 9, width: 48, height: 48 });
+    await playAiGame(state, { rng: createRng(9) }, 40);
+    expect(state.log.length).toBeGreaterThan(500);
     expect(new Set(state.log.map((e) => e.kind)).size).toBeGreaterThanOrEqual(15);
+    expect(state.log.filter((e) => e.seen.length > 0).length).toBeGreaterThan(400);
     expect(JSON.parse(JSON.stringify(state.log))).toEqual(state.log);
   });
 
