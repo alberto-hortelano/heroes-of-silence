@@ -3,6 +3,7 @@
  * recluta, mueve a sus héroes y resuelve las batallas que provoque.
  */
 import { reachableFrom } from '../map/map.js';
+import { ROAD_COST } from '../map/terrain.js';
 import {
   applyAdventureAction,
   currentPlayer,
@@ -65,6 +66,17 @@ export async function playAiTurn(
     for (const hero of [...heroesOf(state, player.id)]) {
       if (state.finished !== null) break;
       if (!state.heroes.includes(hero)) continue;
+
+      // Por debajo del paso más barato que existe no hay Dijkstra que valga:
+      // `ROAD_COST` son 75 y el terreno más barato son 100, así que ningún
+      // paso cabe y `stepTowards` iba a devolver `null` seguro. Es el mismo
+      // `continue` de tres líneas más abajo, tomado antes de recorrer el mapa
+      // entero: 231 de las 1257 pasadas de 40 partidas —el 18,4 %— salían por
+      // ahí, y las 231 sin una sola excepción.
+      //
+      // Es equivalente porque ni esto ni el `paso === null` marcan `seMovio`,
+      // y ninguna de las dos decisiones que se saltan toca el estado.
+      if (hero.movePoints < ROAD_COST) continue;
 
       // El único Dijkstra del movimiento, y se ve dónde se hace. Sin tope,
       // porque el objetivo puede estar a diez días de marcha. Alimenta a las

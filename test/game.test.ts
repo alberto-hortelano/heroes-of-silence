@@ -12,7 +12,15 @@ import { allSpells } from '../src/core/battle/spells.js';
 import { factionLineup } from '../src/core/data.js';
 import { learnable, maxMana, maxMovePoints, slowestSpeed } from '../src/core/hero/hero.js';
 import { buildMap, generateMapPlan, validateMapPlan } from '../src/core/map/generate.js';
-import { findPath, objectAt, pointKey, reachableFrom } from '../src/core/map/map.js';
+import {
+  createEmptyMap,
+  findPath,
+  objectAt,
+  pointKey,
+  reachableFrom,
+  stepCost,
+} from '../src/core/map/map.js';
+import { isWalkable, ROAD_COST, TERRAIN_KINDS } from '../src/core/map/terrain.js';
 import { createRng, parseSeed } from '../src/core/rng.js';
 import {
   applyAdventureAction,
@@ -265,6 +273,33 @@ describe('economía', () => {
 });
 
 describe('movimiento de héroes', () => {
+  it('ningún paso del mapa cuesta menos que ROAD_COST (#55)', () => {
+    // El turno de la IA se ahorra el Dijkstra entero cuando al héroe le quedan
+    // menos de `ROAD_COST` puntos, porque por debajo de eso no hay un solo
+    // paso que quepa. Eso deja de ser cierto el día que alguien meta un
+    // terreno más barato que el camino, o un modificador que reste — y sin
+    // este test el héroe dejaría de dar su último paso EN SILENCIO.
+    //
+    // Se mide llamando a `stepCost` y no leyendo la tabla: el coste real pasa
+    // por el camino, por el factor diagonal y por un redondeo.
+    let minimo = Number.POSITIVE_INFINITY;
+    for (const terreno of TERRAIN_KINDS) {
+      if (!isWalkable(terreno)) continue;
+      for (const conCamino of [false, true]) {
+        const map = createEmptyMap(3, 3, terreno);
+        if (conCamino) map.roads.add(pointKey({ x: 1, y: 1 }));
+        // Ortogonal y diagonal, que es la otra mitad de la fórmula.
+        for (const desde of [
+          { x: 0, y: 1 },
+          { x: 0, y: 0 },
+        ]) {
+          minimo = Math.min(minimo, stepCost(map, desde, { x: 1, y: 1 }));
+        }
+      }
+    }
+    expect(minimo).toBe(ROAD_COST);
+  });
+
   it('gasta puntos de movimiento y descubre el mapa', () => {
     const state = newGame({ seed: 21 });
     const c = ctx(21);
