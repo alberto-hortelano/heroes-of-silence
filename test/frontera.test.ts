@@ -166,4 +166,30 @@ describe('los dos Dijkstra que usan la frontera', () => {
     // Y el predecesor de la casilla empatada, que es lo que decide el camino.
     expect(prev.get('2,2')).toEqual({ x: 2, y: 1 });
   });
+
+  it('una frontera agotada se niega a servir a otra búsqueda, aunque los costes cuadren', () => {
+    // El agujero que dejó abierto el primer guardia, encontrado por QA: si la
+    // búsqueda anterior se agota extrayendo coste 0 —un origen sin salidas, que
+    // es lo que da un pueblo rodeado de agua en `map_generate`—, entonces el
+    // coste del último `pop` es 0, la siguiente empuja su origen por 0, y
+    // `0 < 0` es falso. La segunda heredaba el `orden` de la primera y el empate
+    // se resolvía al revés EN SILENCIO.
+    const f = new Frontera();
+    f.push('0,0', { x: 0, y: 0 }, 0);
+    expect(f.pop()?.key).toBe('0,0');
+    expect(f.pop()).toBeUndefined(); // la búsqueda termina aquí
+
+    expect(() => f.push('9,9', { x: 9, y: 9 }, 0)).toThrow(/una sola búsqueda/);
+  });
+
+  it('el guardia del coste sigue cazando a quien empuja una casilla ya asentada', () => {
+    const f = new Frontera();
+    f.push('0,0', { x: 0, y: 0 }, 0);
+    f.push('1,0', { x: 1, y: 0 }, 100);
+    expect(f.pop()?.key).toBe('0,0');
+    expect(f.pop()?.key).toBe('1,0');
+
+    // Sin agotarla: la frontera sigue viva, pero 50 ya no puede salir.
+    expect(() => f.push('2,0', { x: 2, y: 0 }, 50)).toThrow(/ya salió 100/);
+  });
 });

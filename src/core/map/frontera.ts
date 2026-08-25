@@ -42,7 +42,9 @@
  * —repetir una búsqueda, repetirla acotada, un golden precedido de otra
  * búsqueda— y ninguno muerde, porque `orden` no se reasigna nunca y la
  * contaminación no aparece al repetir una búsqueda sino en la **siguiente**.
- * Lo que sí muerde es `ultimoPop`, aquí abajo.
+ * Lo que sí muerde son los dos guardias de `push`, aquí abajo — y hicieron falta
+ * los dos: el primero, por sí solo, no veía la reutilización cuando la búsqueda
+ * anterior se agotaba en el origen. Lo encontró QA.
  *
  * `core` sigue puro: aquí dentro solo hay aritmética.
  */
@@ -85,20 +87,40 @@ export class Frontera {
   private readonly monticulo: Nodo[] = [];
   private readonly ordenes = new Map<string, number>();
   /**
-   * Coste de la última extracción, y el guardia de «una instancia por
-   * búsqueda».
+   * Coste de la última extracción. Caza al que empuja una casilla ya asentada.
    *
    * En un Dijkstra los costes salen en orden no decreciente: cada `push` lo
    * hace un nodo recién extraído sumándole un paso, y ningún paso del mapa
    * cuesta cero. Así que empujar POR DEBAJO del último extraído no puede pasar
-   * en una búsqueda sana, y sí pasa —en el primer `push`, con coste 0— en
-   * cuanto una frontera sirve a una segunda búsqueda.
+   * en una búsqueda sana.
    */
   private ultimoPop = Number.NEGATIVE_INFINITY;
 
+  /**
+   * El guardia de «una instancia por búsqueda», y **este es el que lo cierra**.
+   *
+   * `ultimoPop` solo no bastaba, y el agujero lo encontró QA: si la búsqueda
+   * anterior terminó extrayendo coste 0 —un origen sin salidas, que es lo que da
+   * un `map_generate` con un pueblo rodeado de agua—, entonces `ultimoPop` vale
+   * 0, la siguiente búsqueda empuja su origen por 0, y **`0 < 0` es falso**. La
+   * segunda heredaba el `orden` de la primera y el empate se resolvía al revés,
+   * en silencio: exactamente lo que el guardia existe para impedir.
+   *
+   * Esto no depende de ningún coste. Una búsqueda sana llama a `pop()` hasta que
+   * devuelve `undefined` —una vez, al final— y no vuelve a empujar; el bucle de
+   * los dos llamantes es literalmente eso. Así que un `push` después de esa
+   * llamada **es** una segunda búsqueda, cueste lo que cueste.
+   */
+  private agotada = false;
+
   push(key: string, at: Point, cost: number): void {
-    // Fail-loud en vez de prosa. De propina caza al que empuje una casilla ya
-    // asentada, que es la otra forma de descuadrar el desempate.
+    // Fail-loud en vez de prosa, por las dos puertas: reutilizar la instancia y
+    // empujar una casilla ya asentada.
+    if (this.agotada) {
+      throw new Error(
+        `una frontera es de una sola búsqueda: ${key} entra después de que se agotara`,
+      );
+    }
     if (cost < this.ultimoPop) {
       throw new Error(
         `una frontera es de una sola búsqueda: ${key} entra por ${cost} y ya salió ${this.ultimoPop}`,
@@ -128,7 +150,10 @@ export class Frontera {
   pop(): NodoFrontera | undefined {
     const m = this.monticulo;
     const cima = m[0];
-    if (cima === undefined) return undefined;
+    if (cima === undefined) {
+      this.agotada = true;
+      return undefined;
+    }
     this.ultimoPop = cima.cost;
 
     const ultimo = m.pop() as Nodo;

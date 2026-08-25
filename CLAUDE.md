@@ -11,11 +11,12 @@ El juego es el andamio; lo interesante es lo que se puede enchufar dentro.
 ```bash
 pnpm install
 pnpm dev        # cliente en http://localhost:3100 (juego local contra la IA de reglas)
-pnpm verify     # typecheck + lint + 238 tests, 6,5 s: el bucle rápido
-pnpm test       # 238 tests: reglas, batalla, partida completa y contrato del agente
+pnpm verify     # typecheck + lint + 251 tests, 6,7 s: el bucle rápido
+pnpm test       # 251 tests: reglas, batalla, partida completa y contrato del agente
 pnpm typecheck
 pnpm lint       # Biome: formato y lint en una sola pasada, 40 ms
 pnpm format     # lo mismo, arreglando lo que sepa arreglar
+pnpm banco      # 200 partidas: tiempo y sha256 del volcado, 4,1 s
 ```
 
 La partida se abre con una semilla al azar; **`?seed=N` en la URL fija la
@@ -30,8 +31,9 @@ pedir semilla no es un error**: `?seed=` vacío y `HEROES_SEED=` vacía valen lo
 mismo que no escribirlas —se sortea en el navegador, se usa la de por defecto en
 el servidor—, que era donde los dos llamantes discrepaban.
 
-Y hay CI: `.github/workflows/ci.yml` corre `pnpm verify` y `vite build` en un
-job, y `pnpm qa` en otro, en cada push y cada PR contra `main`. Invoca `verify`
+Y hay CI: `.github/workflows/ci.yml` corre `pnpm verify`, `pnpm banco` y
+`vite build` en un job, y `pnpm qa` en otro, en cada push y cada PR contra
+`main`. Invoca `verify`
 y no sus tres órdenes sueltas a propósito: el bucle rápido se define una vez, en
 `package.json`. **No gasta un céntimo**: no declara ninguna credencial y no
 invoca nada de `tools/gen/`.
@@ -110,6 +112,21 @@ assets/generated/  arte generado (lo sirve Vite como estático)
   IA veía el castillo enemigo donde tenía el suyo y se pasaba la partida
   entrando en su propia casa: **ese era el ~10 % de partidas que no terminaban**
   (#47), no el umbral de ataque que decía el issue.
+- **El Dijkstra desempata por orden de descubrimiento, y eso es una regla, no un
+  detalle.** Entre dos casillas que cuestan lo mismo gana **la que se descubrió
+  antes**, y en una re-inserción por mejora de coste el nodo **conserva su orden
+  original**. Antes lo hacía por accidente —el barrido lineal usaba `<` estricto
+  sobre un `Set`—; ahora lo hace `src/core/map/frontera.ts` a propósito, porque un
+  montículo ordinario rompe el empate por la forma del árbol y **cambia las
+  partidas**. Por eso `Frontera` es **de una sola búsqueda** y lanza si la
+  reutilizas: compartirla entre búsquedas pasaba los 247 tests y cambiaba el
+  volcado en silencio, y ningún test podía cazarlo —la contaminación no se ve al
+  repetir una búsqueda, sino en la **siguiente**—. El guardia no es un test: son
+  **dos** `throw` dentro de la clase, y hicieron falta los dos. El primero
+  comparaba costes, y QA encontró que no veía la reutilización cuando la búsqueda
+  anterior se agotaba en el origen —`0 < 0` es falso—, que es lo que da un
+  `map_generate` con un pueblo rodeado de agua. El segundo no mira costes: mira si
+  la frontera ya se agotó.
 
 ## Reglas del juego (verificadas contra fheroes2)
 
@@ -383,11 +400,12 @@ aportan en un prototipo. Lo que hay:
 
 | Comprobación | Cuánto tarda | Cuándo |
 |---|---|---|
-| `pnpm verify` | 6,5 s | siempre |
+| `pnpm verify` | 6,7 s | siempre |
 | `test/invariantes.test.ts` | 40 ms | va dentro de `pnpm test` |
 | El navegador | minutos | si el cambio se ve |
 | `pnpm qa` | 5,4 s | si tocas `src/server/` o el contrato |
-| `npx tsx tools/qa/barrido-semillas.ts` | 2,2 s | si tocas la IA o la economía |
+| `npx tsx tools/qa/barrido-semillas.ts` | 1,1 s | si tocas la IA o la economía |
+| `pnpm banco` | 4,1 s | si tocas el núcleo sin querer cambiar el juego |
 | CI (`.github/workflows/ci.yml`) | ~1 min | en cada push y cada PR |
 
 Los tiempos están **medidos**, tres pasadas cada uno, no estimados: los que
@@ -469,6 +487,16 @@ y estuvo así desde el día en que se escribió — tres ciclos apoyados en un
 invariante con dos agujeros. No se coló nada por ellos, pero nadie lo sabía. Por
 eso cada guardia nuevo se rompe a mano, se mira rojo y se arregla antes de darlo
 por bueno.
+
+**`pnpm banco` es el otro par de ojos, y mide lo contrario que el barrido.** El
+barrido pregunta si la IA juega peor; el banco, si el código hace **exactamente lo
+mismo**: juega 200 partidas y saca el tiempo y el **sha256 del volcado**. Ese hash
+está **anclado en el propio fichero** y la orden sale 1 si no cuadra, porque un
+criterio de aceptación que exige acordarse de correr la herramienta en el commit
+anterior no es un criterio: es una costumbre. Y lo corre CI. Es reproducible fuera
+de esta máquina porque el núcleo no ejecuta ni una operación de coma flotante que
+dependa de la plataforma — solo `min/max/floor/ceil/abs/round/imul`, nada de
+`Math.pow`, ni `**`, ni trigonometría.
 
 El barrido de semillas no es un test: es una **medida**. Juega 40 partidas de la
 IA contra sí misma y cuenta cuántas no terminan en 300 días. Hoy son **0**;
