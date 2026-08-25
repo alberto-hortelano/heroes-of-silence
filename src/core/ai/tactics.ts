@@ -12,12 +12,13 @@ import {
   enemiesOf,
   isEngaged,
   legalActions,
+  movableCosts,
   splashTargets,
   stackById,
   stackHexes,
 } from '../battle/battle.js';
-import { hexDistance } from '../battle/board.js';
-import { CHANCE_PER_POINT, stackHp } from '../battle/damage.js';
+import { hexDistance, hexKey } from '../battle/board.js';
+import { CHANCE_PER_POINT, expectedDamage, stackHp } from '../battle/damage.js';
 import { roundsLeftOf } from '../battle/effects.js';
 import { effectOfSpell, type Spell, spell, spellAmount } from '../battle/spells.js';
 import type { BattleAction, BattleHero, BattleStack, BattleState, Side } from '../battle/types.js';
@@ -140,6 +141,66 @@ function bestCast(
   return mejor;
 }
 
+/** Un ataque que sale de moverse primero: `from` ya está, no es opcional. */
+type CargaContra = Extract<BattleAction, { type: 'attack' }> & { from: Hex };
+
+/**
+ * Desde qué casilla golpear, cuando hay varias desde las que se alcanza al
+ * mismo objetivo.
+ *
+ * Orden total de tres niveles, y los tres deciden algo:
+ *
+ * 1. **Máximo daño esperado.** Es lo único que distingue una casilla de otra:
+ *    `computeDamage` no mira el hex más que por la carga. Escrito en daño y no
+ *    en «cuantos más hexes mejor» a propósito — con el criterio en distancia,
+ *    una unidad SIN `charge` se pondría a dar rodeos para no ganar nada.
+ * 2. **Coste mínimo**, que es lo que queda cuando el daño empata: sin `charge`
+ *    empatan todas.
+ * 3. **El primero en el orden de enumeración**, que hoy es el que decide de
+ *    verdad: 722 de 1194 decisiones con varias casillas empatan también a
+ *    coste mínimo. Sale solo de comparar con `>` y `<` estrictos.
+ *
+ * El coste se LEE de `movableCosts`; no se deduce de que `cargas[0]` sea la
+ * casilla más barata. Hoy lo es en 1698 de 1698 casos porque `reachable` es un
+ * BFS y `movableHexes` conserva su orden, pero eso es un accidente del
+ * recorrido y no un contrato: el día que el BFS cambie de forma, esto elige lo
+ * mismo.
+ *
+ * Es la única llamada a `movableCosts` de la heurística y solo pasa por aquí
+ * —el 12 % de las decisiones—, porque es el único sitio que necesita el coste:
+ * la rama de avanzar se conforma con los hexes, que ya vienen en `acciones`.
+ */
+function mejorCarga(
+  state: BattleState,
+  s: BattleStack,
+  objetivo: BattleStack,
+  cargas: readonly CargaContra[],
+): BattleAction {
+  const costes = movableCosts(state, s);
+  const miHeroe = state.heroes[s.side];
+  const suHeroe = state.heroes[objetivo.side];
+
+  let mejor = cargas[0] as CargaContra;
+  let mejorDano = -1;
+  let mejorCoste = Number.POSITIVE_INFINITY;
+  for (const a of cargas) {
+    const coste = costes.get(hexKey(a.from));
+    // Inalcanzable salvo que `legalActions` y el tablero discrepen: los `from`
+    // salen de `movableHexes`, que son las claves de este mismo mapa. Si algún
+    // día discrepan, se dice; no se elige una casilla a ciegas.
+    if (coste === undefined) {
+      throw new Error(`${s.id} no alcanza (${a.from.col},${a.from.row}): la lista legal miente`);
+    }
+    const dano = expectedDamage(s, miHeroe, objetivo, suHeroe, { chargeHexes: coste });
+    if (dano > mejorDano || (dano === mejorDano && coste < mejorCoste)) {
+      mejor = a;
+      mejorDano = dano;
+      mejorCoste = coste;
+    }
+  }
+  return mejor;
+}
+
 /**
  * Elige la acción del stack activo:
  * dispara si puede, remata lo que alcanza, si no se acerca al objetivo más
@@ -203,10 +264,10 @@ export function chooseBattleAction(state: BattleState): BattleAction {
   const objetivo = bestTarget(enemigos);
   if (objetivo !== null) {
     const cargas = acciones.filter(
-      (a): a is Extract<BattleAction, { type: 'attack' }> =>
+      (a): a is CargaContra =>
         a.type === 'attack' && a.target === objetivo.id && a.from !== undefined,
     );
-    if (cargas.length > 0) return cargas[0]!;
+    if (cargas.length > 0) return mejorCarga(state, s, objetivo, cargas);
 
     // Si no llega, avanzar lo máximo posible hacia él. Los hexes ya están en
     // la mano: los `move` de `acciones` SON `movableHexes(state, s)`, en

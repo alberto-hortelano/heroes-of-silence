@@ -69,19 +69,33 @@ export interface DamageResult {
   readonly charge: number;
 }
 
-/** Daño que inflige `attacker` a `defender`, ya con suerte aplicada. */
-export function computeDamage(
+/** Lo que cambia el daño según de dónde y a quién se pega. */
+export interface DamageOptions {
+  readonly ranged?: boolean;
+  readonly distance?: number;
+  readonly chargeHexes?: number;
+}
+
+/**
+ * La parte DETERMINISTA de la fórmula: todo lo que multiplica al daño base sin
+ * tocar el `Rng` —ataque contra defensa, cruzado contra no-muerto, distancia
+ * del tirador y carga—.
+ *
+ * Existe partida en dos porque la IA necesita el daño MEDIO de un golpe para
+ * comparar casillas (`expectedDamage`) y la alternativa era una segunda copia
+ * de la fórmula que envejecería aparte. Las multiplicaciones van en el mismo
+ * orden que tenían dentro de `computeDamage` y no se reasocian a propósito:
+ * reasociar mueve el redondeo del último decimal y con él las partidas.
+ */
+function applyModifiers(
+  base: number,
   attacker: BattleStack,
   attackerHero: BattleHero | null,
   defender: BattleStack,
   defenderHero: BattleHero | null,
-  rng: Rng,
-  opts: { ranged?: boolean; distance?: number; chargeHexes?: number } = {},
-): DamageResult {
+  opts: DamageOptions,
+): { base: number; charge: number } {
   const info = creature(attacker.creature);
-  const [min, max] = info.damage;
-  const roll = rng.int(min, max);
-  let base = roll * attacker.count;
 
   const mult = damageMultiplier(
     effectiveAttack(attacker, attackerHero),
@@ -100,6 +114,52 @@ export function computeDamage(
   // Carga. El contraataque pasa siempre 0 hexes: se contraataca desde el sitio.
   const charge = hasTrait(info, 'charge') ? Math.min(opts.chargeHexes ?? 0, MAX_CHARGE_HEXES) : 0;
   if (charge > 0) base *= 1 + charge * CHARGE_BONUS_PER_HEX;
+
+  return { base, charge };
+}
+
+/**
+ * Daño MEDIO de un golpe, sin tirada y sin suerte: la tirada se sustituye por
+ * el centro del intervalo de la criatura y el dado de la suerte no se lanza.
+ *
+ * Es para COMPARAR, no para enseñar: no redondea ni fuerza el mínimo de 1,
+ * porque redondear inventaría empates entre casillas que se distinguen por
+ * décimas. No toca el `Rng`, así que llamarla no desplaza ni una tirada de la
+ * partida — que es lo que permite usarla desde la IA sin cambiar las semillas.
+ */
+export function expectedDamage(
+  attacker: BattleStack,
+  attackerHero: BattleHero | null,
+  defender: BattleStack,
+  defenderHero: BattleHero | null,
+  opts: DamageOptions = {},
+): number {
+  const [min, max] = creature(attacker.creature).damage;
+  const medio = ((min + max) / 2) * attacker.count;
+  return applyModifiers(medio, attacker, attackerHero, defender, defenderHero, opts).base;
+}
+
+/** Daño que inflige `attacker` a `defender`, ya con suerte aplicada. */
+export function computeDamage(
+  attacker: BattleStack,
+  attackerHero: BattleHero | null,
+  defender: BattleStack,
+  defenderHero: BattleHero | null,
+  rng: Rng,
+  opts: DamageOptions = {},
+): DamageResult {
+  const [min, max] = creature(attacker.creature).damage;
+  const roll = rng.int(min, max);
+  const modificado = applyModifiers(
+    roll * attacker.count,
+    attacker,
+    attackerHero,
+    defender,
+    defenderHero,
+    opts,
+  );
+  let base = modificado.base;
+  const charge = modificado.charge;
 
   const luck = effectiveLuck(attacker);
   let lucky = false;

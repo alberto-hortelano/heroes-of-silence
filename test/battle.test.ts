@@ -38,7 +38,7 @@ import type {
 import { creature } from '../src/core/data.js';
 import type { Rng } from '../src/core/rng.js';
 import { createRng } from '../src/core/rng.js';
-import type { Army } from '../src/core/types.js';
+import type { Army, Hex } from '../src/core/types.js';
 import { monstruoVivo, simular } from './helpers.js';
 
 /**
@@ -896,6 +896,77 @@ describe('el libro de hechizos del jugador (#4)', () => {
     expect(session.castTargets()).toEqual([]);
   });
 });
+
+/**
+ * La escena de #50, con sus seis casillas ya contadas.
+ *
+ * Atacante en (0,4) y zombi en (3,4): las seis vecinas del zombi cuestan
+ * 2, 3, 3, 4, 4 y 5 pasos, y la de coste 5 —(4,4), la de detrás— hay que
+ * rodearla porque el zombi tapa el camino recto. Con eso el tablero ofrece a la
+ * vez el tope de carga (+50 % a los 5 hexes) y una casilla barata que no carga
+ * nada, que es exactamente la disyuntiva que #50 decide.
+ */
+function escenaDeCarga(atacante: string): BattleState {
+  const state = createBattle(
+    side([{ creature: atacante, count: 10 }, null, null, null, null]),
+    side([{ creature: 'zombie', count: 10 }, null, null, null, null]),
+    createRng(7),
+  );
+  stackById(state, 'attacker-0').hex = { col: 0, row: 4 };
+  stackById(state, 'defender-0').hex = { col: 3, row: 4 };
+  return state;
+}
+
+/** El `from` de la acción, o `null` si la IA no eligió acercarse y golpear. */
+function casillaElegida(state: BattleState): Hex | null {
+  const a = chooseBattleAction(state);
+  return a.type === 'attack' ? (a.from ?? null) : null;
+}
+
+describe('la IA elige la casilla de ataque por daño esperado (#50)', () => {
+  it('con carga se va a la casilla que más cobra, aunque sea la más lejana', () => {
+    const state = escenaDeCarga('cavalry');
+    expect(state.activeId).toBe('attacker-0');
+
+    // (4,4) cuesta 5 pasos: el tope de la carga, +50 % de daño. Antes se
+    // elegía (2,4), la más barata, que es la que MENOS carga cobra.
+    expect(casillaElegida(state)).toEqual({ col: 4, row: 4 });
+  });
+
+  it('sin carga no da rodeos: el criterio es el daño, no la distancia', () => {
+    // Misma escena y misma disyuntiva, con una unidad sin el rasgo. Todas las
+    // casillas pegan lo mismo —`computeDamage` no mira el hex salvo por la
+    // carga—, así que irse lejos solo sirve para acabar el turno más expuesto.
+    const state = escenaDeCarga('swordsman');
+    expect(state.activeId).toBe('attacker-0');
+    expect(casillaElegida(state)).toEqual({ col: 2, row: 4 });
+  });
+
+  it('a igual daño gana la barata, y el coste se LEE: no se supone del orden', () => {
+    // Hoy la primera casilla de `legalActions` es siempre la más barata porque
+    // `reachable` es un BFS y `movableHexes` conserva su orden. Eso es un
+    // accidente del recorrido, no un contrato — y el ciclo de rendimiento ya
+    // reescribió esa cola una vez. Aquí se le da la vuelta al orden de
+    // enumeración: si la heurística se apoyara en `cargas[0]`, elegiría la de
+    // coste 4 y este test se pondría rojo.
+    const espia = vi.mocked(board.reachable);
+    const real = espia.getMockImplementation() as typeof board.reachable;
+    espia.mockImplementation((from, maxSteps, blocked) =>
+      // El mismo mapa con las entradas al revés: mismos hexes, mismos costes.
+      reverse(real(from, maxSteps, blocked)),
+    );
+    try {
+      const state = escenaDeCarga('swordsman');
+      expect(casillaElegida(state)).toEqual({ col: 2, row: 4 });
+    } finally {
+      espia.mockImplementation(real);
+    }
+  });
+});
+
+function reverse<K, V>(m: Map<K, V>): Map<K, V> {
+  return new Map([...m].reverse());
+}
 
 describe('la IA lanza hechizos (#24)', () => {
   it('lanza la flecha mágica cuando rinde más que su coste, y no gasta el turno', () => {
