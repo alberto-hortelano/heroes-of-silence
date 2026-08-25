@@ -513,7 +513,7 @@ describe('partida completa', () => {
     // sitio, comparar el objeto ENTERO ataría este test a los campos de
     // contabilidad de la crónica. Lo que se afirma aquí es cómo termina la
     // partida, no cómo se sella un evento.
-    expect(state.log.at(-1)).toMatchObject({ kind: 'game_over', winner: ganador });
+    expect(state.log.at(-1)).toMatchObject({ kind: 'game_over', actor: ganador });
   });
 
   it('el bucle completo pasa por construir, reclutar, luchar y capturar', async () => {

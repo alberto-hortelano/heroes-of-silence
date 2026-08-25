@@ -68,21 +68,21 @@ type Sello = {
 /** Los diecisiete hechos, sin protagonista todavía. */
 type Cuerpo =
   | { kind: 'day_start'; day: number; week: number }
-  | { kind: 'turn_start'; player: PlayerId }
+  | { kind: 'turn_start' }
   | { kind: 'hero_moved'; hero: string; to: Point; spent: number }
-  | { kind: 'resource_gained'; player: PlayerId; resource: ResourceKind; amount: number }
-  | { kind: 'mine_captured'; player: PlayerId; mine: string; from: PlayerId | null }
-  | { kind: 'town_captured'; player: PlayerId; town: string; from: PlayerId | null }
+  | { kind: 'resource_gained'; resource: ResourceKind; amount: number }
+  | { kind: 'mine_captured'; mine: string; from: PlayerId | null }
+  | { kind: 'town_captured'; town: string; from: PlayerId | null }
   | { kind: 'built'; town: string; building: string }
   | { kind: 'recruited'; town: string; creature: string; count: number }
-  | { kind: 'hero_hired'; player: PlayerId; hero: string; town: string }
+  | { kind: 'hero_hired'; hero: string; town: string }
   | { kind: 'spells_learned'; hero: string; town: string; spells: string[] }
   | { kind: 'garrison_taken'; hero: string; town: string }
   | { kind: 'battle_started'; attacker: string; foe: BattleFoe }
   | { kind: 'battle_ended'; winner: 'attacker' | 'defender'; foe: BattleFoe }
   | { kind: 'hero_defeated'; hero: string }
-  | { kind: 'player_defeated'; player: PlayerId }
-  | { kind: 'game_over'; winner: PlayerId };
+  | { kind: 'player_defeated' }
+  | { kind: 'game_over' };
 
 /** Lo que escribe quien aplica la regla: el hecho, con su protagonista y su sitio. */
 export type GameEventDraft = Con<Cuerpo, Origen>;

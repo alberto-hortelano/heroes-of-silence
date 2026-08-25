@@ -390,7 +390,7 @@ function emit(state: GameState, draft: GameEventDraft): void {
 
 function startTurn(state: GameState): void {
   const player = currentPlayer(state);
-  emit(state, { kind: 'turn_start', player: player.id, actor: player.id, at: null });
+  emit(state, { kind: 'turn_start', actor: player.id, at: null });
 
   // Ingresos del día: ayuntamientos y minas.
   let income = { ...EMPTY_RESOURCES };
@@ -451,7 +451,7 @@ function advanceDay(state: GameState): void {
 function finishGame(state: GameState, winner: PlayerId): void {
   if (state.finished !== null) return;
   state.finished = { winner };
-  emit(state, { kind: 'game_over', winner, actor: winner, at: null });
+  emit(state, { kind: 'game_over', actor: winner, at: null });
 }
 
 /** Un jugador sin pueblos ni héroes está eliminado. */
@@ -462,7 +462,7 @@ function checkDefeat(state: GameState): void {
     const sinPueblos = townsOf(state, player.id).length === 0;
     if (sinHeroes && sinPueblos) {
       player.defeated = true;
-      emit(state, { kind: 'player_defeated', player: player.id, actor: player.id, at: null });
+      emit(state, { kind: 'player_defeated', actor: player.id, at: null });
     }
   }
   const vivos = state.players.filter((p) => !p.defeated);
@@ -670,7 +670,6 @@ function hireHero(state: GameState, townId: string): void {
   state.heroes.push(hero);
   emit(state, {
     kind: 'hero_hired',
-    player: player.id,
     hero: id,
     town: town.id,
     actor: player.id,
@@ -787,7 +786,6 @@ function collectAt(state: GameState, hero: Hero, at: Point): void {
           player.resources = addResources(player.resources, { [obj.resource]: obj.amount });
           emit(state, {
             kind: 'resource_gained',
-            player: player.id,
             resource: obj.resource,
             amount: obj.amount,
             actor: player.id,
@@ -801,7 +799,6 @@ function collectAt(state: GameState, hero: Hero, at: Point): void {
           player.resources = addResources(player.resources, { gold: obj.gold });
           emit(state, {
             kind: 'resource_gained',
-            player: player.id,
             resource: 'gold',
             amount: obj.gold,
             actor: player.id,
@@ -818,7 +815,6 @@ function collectAt(state: GameState, hero: Hero, at: Point): void {
           obj.owner = player.id;
           emit(state, {
             kind: 'mine_captured',
-            player: player.id,
             mine: obj.id,
             from: anterior,
             actor: player.id,
@@ -867,7 +863,6 @@ function captureTown(state: GameState, town: Town, player: PlayerId): void {
   bandera.owner = player;
   emit(state, {
     kind: 'town_captured',
-    player,
     town: town.id,
     from: anterior,
     actor: player,

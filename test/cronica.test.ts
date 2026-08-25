@@ -175,8 +175,8 @@ describe('la crónica pasa por la niebla', () => {
     const ev = leer(state, 0).recentEvents;
     expect(ev.some((e) => e.kind === 'day_start')).toBe(true);
     expect(ev.some((e) => e.kind === 'turn_start' && e.actor === 1)).toBe(true);
-    expect(ev.some((e) => e.kind === 'player_defeated' && e.player === 0)).toBe(true);
-    expect(ev.some((e) => e.kind === 'game_over' && e.winner === 1)).toBe(true);
+    expect(ev.some((e) => e.kind === 'player_defeated' && e.actor === 0)).toBe(true);
+    expect(ev.some((e) => e.kind === 'game_over' && e.actor === 1)).toBe(true);
   });
 
   it('perder un castillo se sabe siempre, aunque no lo mire nadie mío', () => {

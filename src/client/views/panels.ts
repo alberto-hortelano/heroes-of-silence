@@ -490,7 +490,10 @@ export function renderLog(log: readonly GameEvent[], viewer: number): string {
             mio ? 'Un héroe tuyo ha caído' : `Ha caído un héroe ${deJugador(e.actor)}`
           }</div>`;
         case 'game_over':
-          return `<div class="${e.winner === viewer ? 'win' : 'lose'}">Fin de la partida</div>`;
+          // El ganador es `actor`, y ya no hay un `winner` al lado diciendo lo
+          // mismo: `visibleTo` enrutaba por uno y esta línea pintaba por el
+          // otro, sin que nada comprobara que coincidían.
+          return `<div class="${mio ? 'win' : 'lose'}">Fin de la partida</div>`;
         default:
           return '';
       }

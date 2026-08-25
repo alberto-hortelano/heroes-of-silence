@@ -7,6 +7,13 @@
  *
  * Todo lo que llega del agente se valida con zod ANTES de tocar el estado. Una
  * respuesta mal formada se rechaza con un mensaje que dice qué falta.
+ *
+ * En los hechos de la crónica que se le entregan (`recentEvents`), **el
+ * protagonista es siempre `actor`**, y no hay ningún otro campo que diga lo
+ * mismo: siete variantes llevaban además un `player` o un `winner` con el valor
+ * repetido, y nada comprobaba que coincidieran. `winner` sigue existiendo solo
+ * en `battle_ended`, donde significa otra cosa — el bando que gana la batalla,
+ * `attacker` o `defender`, no un jugador.
  */
 import { z } from 'zod';
 
