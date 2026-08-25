@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { Session } from '../src/client/session.js';
 import { renderSide } from '../src/client/views/panels.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
@@ -14,6 +14,7 @@ import {
   stackById,
   stackSpeed,
 } from '../src/core/battle/battle.js';
+import * as board from '../src/core/battle/board.js';
 import {
   applyDamage,
   computeDamage,
@@ -38,6 +39,22 @@ import type { Rng } from '../src/core/rng.js';
 import { createRng } from '../src/core/rng.js';
 import type { Army } from '../src/core/types.js';
 import { monstruoVivo, simular } from './helpers.js';
+
+/**
+ * `reachable` es el BFS del tablero y `movableCosts` es su ÚNICO llamante, así
+ * que contarle las llamadas cuenta exactamente los recorridos que hace
+ * `legalActions`.
+ *
+ * Se envuelve el módulo en vez de espiar el export, y no por gusto: la llamada
+ * de `movableCosts` va por el enlace local de su módulo, así que un
+ * `vi.spyOn(board, 'reachable')` se quedaría mirando un objeto por el que no
+ * pasa nadie y contaría cero pase lo que pase. El envoltorio llama al original,
+ * de modo que ninguna otra prueba de este fichero cambia de comportamiento.
+ */
+vi.mock('../src/core/battle/board.js', async (original) => {
+  const real = await original<typeof import('../src/core/battle/board.js')>();
+  return { ...real, reachable: vi.fn(real.reachable) };
+});
 
 const side = (army: Army, hero: BattleHero | null = null): BattleSide => ({ army, hero });
 
@@ -304,6 +321,80 @@ describe('acciones ilegales', () => {
     );
   });
 });
+
+/**
+ * Batalla fija para mirar `legalActions` con lupa: un zombi —lento, así que su
+ * alcance cabe en la vista— pegado al arquero, con CUATRO enemigos delante.
+ *
+ * El activo se fija a mano porque `activeId` es un campo y no una tirada: si la
+ * lista dependiera de quién gana la iniciativa, el día que cambie un desempate
+ * este test diría que se rompió `legalActions`.
+ */
+function batallaDeCuatroEnemigos(): BattleState {
+  const state = createBattle(
+    side([{ creature: 'zombie', count: 5 }, null, null, null, null]),
+    side([
+      { creature: 'peasant', count: 6 },
+      { creature: 'archer', count: 4 },
+      { creature: 'pikeman', count: 3 },
+      { creature: 'cavalry', count: 2 },
+      null,
+    ]),
+    createRng(7),
+  );
+  stackById(state, 'attacker-0').hex = { col: 9, row: 3 };
+  state.activeId = 'attacker-0';
+  return state;
+}
+
+describe('legalActions recorre el tablero una sola vez (#48)', () => {
+  it('lanza un BFS por llamada, no uno por enemigo', () => {
+    const state = batallaDeCuatroEnemigos();
+    expect(enemigosDe(state)).toBe(4);
+
+    const espia = vi.mocked(board.reachable);
+    espia.mockClear();
+    legalActions(state);
+    // Con el BFS dentro del bucle de ataques eran 1 + 4 = 5.
+    expect(espia).toHaveBeenCalledTimes(1);
+  });
+
+  it('devuelve exactamente la misma lista, en el mismo orden', () => {
+    // Golden tomado del código de ANTES de izar el BFS. De este orden cuelgan
+    // los desempates de la IA —`chooseBattleAction` se queda con el primero de
+    // varios empatados—, así que reordenarlo cambia partidas enteras aunque el
+    // conjunto sea idéntico. Por eso se compara con `toEqual` sobre el array y
+    // no con `expect.arrayContaining`.
+    expect(legalActions(batallaDeCuatroEnemigos())).toEqual([
+      { type: 'defend' },
+      { type: 'wait' },
+      { type: 'move', to: { col: 9, row: 4 } },
+      { type: 'move', to: { col: 10, row: 4 } },
+      { type: 'move', to: { col: 8, row: 3 } },
+      { type: 'move', to: { col: 9, row: 2 } },
+      { type: 'move', to: { col: 10, row: 2 } },
+      { type: 'move', to: { col: 8, row: 5 } },
+      { type: 'move', to: { col: 9, row: 5 } },
+      { type: 'move', to: { col: 8, row: 4 } },
+      { type: 'move', to: { col: 7, row: 3 } },
+      { type: 'move', to: { col: 8, row: 2 } },
+      { type: 'move', to: { col: 8, row: 1 } },
+      { type: 'move', to: { col: 9, row: 1 } },
+      { type: 'attack', target: 'defender-0', from: { col: 10, row: 2 } },
+      { type: 'attack', target: 'defender-0', from: { col: 9, row: 1 } },
+      { type: 'attack', target: 'defender-1' },
+      { type: 'attack', target: 'defender-1', from: { col: 10, row: 4 } },
+      { type: 'attack', target: 'defender-1', from: { col: 10, row: 2 } },
+      { type: 'attack', target: 'defender-2', from: { col: 10, row: 4 } },
+      { type: 'attack', target: 'defender-2', from: { col: 9, row: 5 } },
+    ]);
+  });
+});
+
+/** Cuántos enemigos tiene delante el stack activo. */
+function enemigosDe(state: BattleState): number {
+  return state.stacks.filter((s) => s.side !== 'attacker' && isAlive(s)).length;
+}
 
 describe('batalla completa', () => {
   it('termina con un solo bando en pie', () => {

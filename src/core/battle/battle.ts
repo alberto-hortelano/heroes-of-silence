@@ -810,12 +810,17 @@ export function legalActions(state: BattleState): BattleAction[] {
     for (const e of enemies) out.push({ type: 'shoot', target: e.id });
   }
 
-  for (const h of movableHexes(state, s)) out.push({ type: 'move', to: h });
+  // Un solo BFS por llamada. Estaba dentro del bucle de ataques, así que con
+  // cuatro enemigos el tablero se recorría cinco veces para dar la misma
+  // respuesta: 1 + E. La lista no cambia ni de contenido ni de orden porque se
+  // recorre la misma secuencia, solo que sin recalcularla.
+  const alcanzables = movableHexes(state, s);
+  for (const h of alcanzables) out.push({ type: 'move', to: h });
 
   // Ataques: desde donde está, o moviéndose a un hex desde el que alcance.
   for (const e of enemies) {
     if (canReachMelee(s, e)) out.push({ type: 'attack', target: e.id });
-    for (const h of movableHexes(state, s)) {
+    for (const h of alcanzables) {
       const probe: BattleStack = { ...s, hex: h };
       if (canReachMelee(probe, e)) out.push({ type: 'attack', target: e.id, from: h });
     }
