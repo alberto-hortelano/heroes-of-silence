@@ -5,6 +5,7 @@
  * ocho direcciones, como HoMM2.
  */
 import type { Point, ResourceKind } from '../types.js';
+import { Frontera, type NodoFrontera } from './frontera.js';
 import {
   DIAGONAL_FACTOR,
   isWalkable,
@@ -139,22 +140,15 @@ export function findPath(map: GameMap, from: Point, to: Point): PathStep[] | nul
   const destino = pointKey(to);
   const coste = new Map<string, number>([[pointKey(from), 0]]);
   const previo = new Map<string, Point>();
-  const pendientes = new Set<string>([pointKey(from)]);
+  const frontera = new Frontera();
+  frontera.push(pointKey(from), 0);
 
-  while (pendientes.size > 0) {
-    // Cola de prioridad ingenua: los mapas del prototipo son de decenas de
-    // casillas por lado, no de miles.
-    let actualKey: string | null = null;
-    let mejor = Infinity;
-    for (const k of pendientes) {
-      const c = coste.get(k) as number;
-      if (c < mejor) {
-        mejor = c;
-        actualKey = k;
-      }
-    }
-    if (actualKey === null) break;
-    pendientes.delete(actualKey);
+  while (frontera.size > 0) {
+    const nodo = frontera.pop() as NodoFrontera;
+    // Borrado perezoso: una mejora de coste empujó un nodo nuevo y dejó a este
+    // rancio. No hay *decrease-key*, y no hace falta.
+    if (nodo.cost > (coste.get(nodo.key) ?? Infinity)) continue;
+    const actualKey = nodo.key;
 
     if (actualKey === destino) {
       const pasos: PathStep[] = [];
@@ -173,11 +167,11 @@ export function findPath(map: GameMap, from: Point, to: Point): PathStep[] | nul
       // Un obstáculo solo se admite si es el destino final.
       if (bloqueadas.has(nk) && nk !== destino) continue;
 
-      const nuevo = (coste.get(actualKey) as number) + stepCost(map, actual, n);
+      const nuevo = nodo.cost + stepCost(map, actual, n);
       if (nuevo < (coste.get(nk) ?? Infinity)) {
         coste.set(nk, nuevo);
         previo.set(nk, actual);
-        pendientes.add(nk);
+        frontera.push(nk, nuevo);
       }
     }
   }
@@ -221,25 +215,18 @@ export function reachableFrom(map: GameMap, from: Point, maxCost: number): Reach
   const coste = new Map<string, number>([[pointKey(from), 0]]);
   const previo = new Map<string, Point>();
   const cerradas = new Set<string>();
-  const pendientes = new Set<string>([pointKey(from)]);
+  const frontera = new Frontera();
+  frontera.push(pointKey(from), 0);
 
   const bloqueadas = new Set<string>();
   for (const o of map.objects) {
     if (blocksMovement(o)) bloqueadas.add(pointKey(o.at));
   }
 
-  while (pendientes.size > 0) {
-    let actualKey: string | null = null;
-    let mejor = Infinity;
-    for (const k of pendientes) {
-      const c = coste.get(k) as number;
-      if (c < mejor) {
-        mejor = c;
-        actualKey = k;
-      }
-    }
-    if (actualKey === null) break;
-    pendientes.delete(actualKey);
+  while (frontera.size > 0) {
+    const nodo = frontera.pop() as NodoFrontera;
+    if (nodo.cost > (coste.get(nodo.key) ?? Infinity)) continue;
+    const actualKey = nodo.key;
     cerradas.add(actualKey);
 
     // Desde una casilla bloqueada no se sigue: es final de trayecto. La
@@ -251,12 +238,12 @@ export function reachableFrom(map: GameMap, from: Point, maxCost: number): Reach
     for (const n of neighbours(map, actual)) {
       const nk = pointKey(n);
       if (cerradas.has(nk) || !isEnterable(map, n)) continue;
-      const nuevo = mejor + stepCost(map, actual, n);
+      const nuevo = nodo.cost + stepCost(map, actual, n);
       if (nuevo > maxCost) continue;
       if (nuevo < (coste.get(nk) ?? Infinity)) {
         coste.set(nk, nuevo);
         previo.set(nk, actual);
-        pendientes.add(nk);
+        frontera.push(nk, nuevo);
       }
     }
   }
