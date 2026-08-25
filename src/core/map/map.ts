@@ -205,8 +205,15 @@ export interface Reachable {
  * el nombre cambió a propósito con la firma: así el typecheck señala a todos
  * los llamantes en vez de dejar que alguno se quede con la versión de antes
  * creyendo que sigue valiendo.
+ *
+ * **Sin tope de coste, y no por olvido.** Hubo un `maxCost` desde el primer
+ * commit y los ocho llamantes le pasaron siempre `Infinity`: era una rama que
+ * ninguna partida y ningún test tomaban jamás, en el bucle más caliente de
+ * `core`. Quien de verdad necesite un tope algún día lo escribe entonces, con
+ * un test que lo tome — y sabiendo que recortar la búsqueda cambia el orden de
+ * asentamiento, que es de donde cuelga el desempate.
  */
-export function reachableFrom(map: GameMap, from: Point, maxCost: number): Reachable {
+export function reachableFrom(map: GameMap, from: Point): Reachable {
   const coste = new Map<string, number>([[pointKey(from), 0]]);
   const previo = new Map<string, Point>();
   const cerradas = new Set<string>();
@@ -234,7 +241,6 @@ export function reachableFrom(map: GameMap, from: Point, maxCost: number): Reach
       const nk = pointKey(n);
       if (cerradas.has(nk) || !isEnterable(map, n)) continue;
       const nuevo = nodo.cost + stepCost(map, actual, n);
-      if (nuevo > maxCost) continue;
       if (nuevo < (coste.get(nk) ?? Infinity)) {
         coste.set(nk, nuevo);
         previo.set(nk, actual);

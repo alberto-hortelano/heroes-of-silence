@@ -514,7 +514,7 @@ describe('IA de respaldo', () => {
       count: 30,
       defeated: false,
     });
-    const alcance = reachableFrom(state.map, hero.at, Infinity);
+    const alcance = reachableFrom(state.map, hero.at);
     expect(chooseHeroDestination(state, hero, alcance)).toBeNull();
   });
 
@@ -551,7 +551,7 @@ describe('IA de respaldo', () => {
     for (const destino of destinos) {
       for (const puntos of [180, 1500]) {
         hero.movePoints = puntos;
-        const alcance = reachableFrom(state.map, hero.at, Infinity);
+        const alcance = reachableFrom(state.map, hero.at);
         const ahora = stepTowards(hero, destino, alcance);
         const antes = comoAntes(hero.at, destino, puntos);
         expect(ahora, `destino (${destino.x},${destino.y}) con ${puntos} puntos`).toEqual(antes);
@@ -571,7 +571,7 @@ describe('IA de respaldo', () => {
   it('no se mueve a donde no le llega, ni cuando ya está allí', () => {
     const state = newGame({ seed: 5 });
     const hero = heroesOf(state, 0)[0]!;
-    const alcance = reachableFrom(state.map, hero.at, Infinity);
+    const alcance = reachableFrom(state.map, hero.at);
 
     // Ya está allí: coste 0, y moverse a la propia casilla no es un paso.
     expect(stepTowards(hero, hero.at, alcance)).toBeNull();

@@ -82,7 +82,7 @@ export async function playAiTurn(
       // porque el objetivo puede estar a diez días de marcha. Alimenta a las
       // dos decisiones: elegir a dónde ir, y hasta dónde llegar hoy — que
       // antes recorrían el mapa una vez cada una desde el mismo origen.
-      const alcance = reachableFrom(state.map, hero.at, Infinity);
+      const alcance = reachableFrom(state.map, hero.at);
 
       const destino = chooseHeroDestination(state, hero, alcance);
       if (destino === null) continue;

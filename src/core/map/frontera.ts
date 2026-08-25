@@ -1,10 +1,10 @@
 /**
  * La cola de prioridad de los dos Dijkstra del mapa.
  *
- * Antes era un `Set<string>` recorrido entero en cada extracción. Con
- * `Infinity` de tope, `reachableFrom` asienta el mapa 24×24 ENTERO —576
- * casillas— con una frontera media de 42: cuarenta y cinco millones de
- * comparaciones en cuarenta partidas para sacar el mínimo.
+ * Antes era un `Set<string>` recorrido entero en cada extracción. Sin tope de
+ * coste, `reachableFrom` asienta el mapa 24×24 ENTERO —576 casillas— con una
+ * frontera media de 42: cuarenta y cinco millones de comparaciones en cuarenta
+ * partidas para sacar el mínimo.
  *
  * ## El desempate ES el contrato, y romperlo cambia las partidas
  *

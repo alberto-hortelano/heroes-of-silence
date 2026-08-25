@@ -139,7 +139,7 @@ describe('los dos Dijkstra que usan la frontera', () => {
     // El orden de inserción del `Map` de costes ES el orden de descubrimiento,
     // y de él cuelgan tres sitios de `test/agent-link.test.ts` que ordenan con
     // `Array.sort`, que es estable. Golden del código de ANTES del montículo.
-    const { costs, prev } = reachableFrom(mapaDelEmpate(), { x: 0, y: 0 }, Infinity);
+    const { costs, prev } = reachableFrom(mapaDelEmpate(), { x: 0, y: 0 });
     expect([...costs.keys()]).toEqual([
       '0,0',
       '1,0',
