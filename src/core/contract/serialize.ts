@@ -13,7 +13,7 @@ import { creature, isShooter } from '../data.js';
 import { maxMana, maxMovePoints } from '../hero/hero.js';
 import { pointKey } from '../map/map.js';
 import { cronicaPara } from '../state/events.js';
-import { type GameState, heroesOf, townsOf, visibleNow, week } from '../state/game.js';
+import { type GameState, heroesOf, playerById, townsOf, visibleNow, week } from '../state/game.js';
 import { building } from '../town/buildings.js';
 import {
   availableBuildings,
@@ -40,16 +40,126 @@ function armyView(army: Army): { slot: number; creature: string; count: number; 
   );
 }
 
-export function serializeAdventureTurn(state: GameState, playerId: PlayerId): unknown {
-  const player = state.players.find((p) => p.id === playerId);
-  if (player === undefined) throw new Error(`jugador desconocido: ${playerId}`);
+/**
+ * Los objetos del mapa **tal como los recuerda un jugador**, cada uno con la
+ * fecha de su recuerdo.
+ *
+ * Está fuera de `serializeAdventureTurn` porque tiene dos consumidores: el
+ * `knownMap` de cada turno y la consulta `map` (#74), que hasta ahora devolvía
+ * `state.map.objects` entero —el mapa del rival incluido—. La regla de «qué
+ * objetos conoce este jugador» se escribe aquí y solo aquí; si se copiara, la
+ * copia volvería a quedarse atrás, que es exactamente lo que pasó.
+ *
+ * Levanta su propio `visibleNow`, sin recibirlo: la consulta no tiene ningún
+ * otro motivo para construirlo, y encadenárselo al llamante haría que el
+ * próximo se lo pasara mal calculado. Son 81 claves por héroe una vez por
+ * petición del agente, no algo que corra dentro de una partida.
+ */
+export function knownObjects(state: GameState, playerId: PlayerId) {
+  const player = playerById(state, playerId);
 
   // Dos capas, y la diferencia importa: `fog` es «esto lo conozco alguna vez» y
   // `mirando` es «esto lo estoy viendo ahora». Del presente solo se puede
   // afirmar lo segundo; de lo demás se manda el RECUERDO, con su fecha.
   const mirando = visibleNow(state, playerId);
-  const observado = (p: { x: number; y: number }): boolean => mirando.has(pointKey(p));
   const vivos = new Map(state.map.objects.map((o) => [o.id, o]));
+
+  // El `switch` de dentro cubre la unión entera de `o.kind` y no lleva
+  // `default`: un `default` para callar al linter escondería justo lo que
+  // interesa ver rojo, que un `kind` nuevo del mapa no se serializa.
+  //
+  // Quien lo pone rojo es el `never` de abajo, y no el `biome-ignore` que
+  // hubo aquí: comprobado quitando el `case 'chest'`, con el `ignore`
+  // puesto **compilaba y linteaba limpio**. Un guardia ciego durante todo
+  // el tiempo que nadie lo rompió a mano.
+  return [...player.memory.values()].map((recuerdo) => {
+    // Lo que se está mirando ahora es presente; lo demás, memoria.
+    const mirandolo = mirando.has(pointKey(recuerdo.object.at));
+    const o = mirandolo ? (vivos.get(recuerdo.object.id) ?? recuerdo.object) : recuerdo.object;
+    const cuando = { lastSeen: mirandolo ? state.day : recuerdo.day };
+    switch (o.kind) {
+      case 'mine':
+        return {
+          kind: o.kind,
+          id: o.id,
+          at: o.at,
+          resource: o.resource,
+          owner: o.owner,
+          ...cuando,
+        };
+      case 'resource':
+        return {
+          kind: o.kind,
+          id: o.id,
+          at: o.at,
+          resource: o.resource,
+          amount: o.amount,
+          taken: o.taken,
+          ...cuando,
+        };
+      case 'town':
+        return { kind: o.kind, id: o.id, at: o.at, owner: o.owner, ...cuando };
+      case 'monster':
+        return {
+          kind: o.kind,
+          id: o.id,
+          at: o.at,
+          creature: o.creature,
+          count: o.count,
+          defeated: o.defeated,
+          ...cuando,
+        };
+      case 'chest':
+        return { kind: o.kind, id: o.id, at: o.at, gold: o.gold, taken: o.taken, ...cuando };
+    }
+    // Exhaustivo: con un `kind` nuevo del mapa, `o` deja de ser `never`
+    // aquí y esta línea NO compila. Y como termina en `throw`, el linter
+    // ya ve que no hay camino sin salida y no hace falta callarlo.
+    const sinSerializar: never = o;
+    throw new Error(`objeto del mapa sin serializar: ${JSON.stringify(sinSerializar)}`);
+  });
+}
+
+/**
+ * El mapa **filtrado por la niebla de un jugador**: lo que responde la consulta
+ * `map` (#74), que antes devolvía `state.map` tal cual.
+ *
+ * La capa es `fog` —«lo exploré alguna vez»— y no `visibleNow`, y el motivo es
+ * que el terreno y los caminos **no cambian**: el recuerdo de un hecho estático
+ * *es* el hecho, así que no lleva `lastSeen`. Los objetos sí cambian y por eso
+ * siguen viniendo de `memory` con su fecha.
+ *
+ * **Una casilla sin explorar va como `null` en `terrain`**, no como hierba: el
+ * índice sigue siendo `y * width + x`, igual que en `state.map.terrain`, y el
+ * agente puede distinguir llanura de ignorancia. Al día 6 el 45,3 % de las
+ * casillas serían mentira si se rellenaran con un terreno por defecto.
+ *
+ * `roads` solo trae las claves exploradas. Su ausencia **no** significa que no
+ * haya camino: lo desambigua el terreno de esa misma casilla, que si es `null`
+ * quiere decir que ahí no se sabe nada de nada.
+ */
+export function serializeKnownMap(state: GameState, playerId: PlayerId): unknown {
+  const player = playerById(state, playerId);
+  const { width, terrain, roads } = state.map;
+
+  return {
+    width,
+    height: state.map.height,
+    terrain: terrain.map((t, i) =>
+      player.fog.has(pointKey({ x: i % width, y: Math.floor(i / width) })) ? t : null,
+    ),
+    roads: [...roads].filter((clave) => player.fog.has(clave)),
+    objects: knownObjects(state, playerId),
+  };
+}
+
+export function serializeAdventureTurn(state: GameState, playerId: PlayerId): unknown {
+  const player = playerById(state, playerId);
+
+  // `visibleNow` otra vez —`knownObjects` levanta el suyo—, y aquí se usa para
+  // lo que no es el mapa: qué héroes enemigos se están viendo AHORA.
+  const mirando = visibleNow(state, playerId);
+  const observado = (p: { x: number; y: number }): boolean => mirando.has(pointKey(p));
 
   return {
     kind: 'adventure_turn',
@@ -106,60 +216,7 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId): un
     knownMap: {
       width: state.map.width,
       height: state.map.height,
-      // El `switch` de dentro cubre la unión entera de `o.kind` y no lleva
-      // `default`: un `default` para callar al linter escondería justo lo que
-      // interesa ver rojo, que un `kind` nuevo del mapa no se serializa.
-      //
-      // Quien lo pone rojo es el `never` de abajo, y no el `biome-ignore` que
-      // hubo aquí: comprobado quitando el `case 'chest'`, con el `ignore`
-      // puesto **compilaba y linteaba limpio**. Un guardia ciego durante todo
-      // el tiempo que nadie lo rompió a mano.
-      objects: [...player.memory.values()].map((recuerdo) => {
-        // Lo que se está mirando ahora es presente; lo demás, memoria.
-        const mirandolo = observado(recuerdo.object.at);
-        const o = mirandolo ? (vivos.get(recuerdo.object.id) ?? recuerdo.object) : recuerdo.object;
-        const cuando = { lastSeen: mirandolo ? state.day : recuerdo.day };
-        switch (o.kind) {
-          case 'mine':
-            return {
-              kind: o.kind,
-              id: o.id,
-              at: o.at,
-              resource: o.resource,
-              owner: o.owner,
-              ...cuando,
-            };
-          case 'resource':
-            return {
-              kind: o.kind,
-              id: o.id,
-              at: o.at,
-              resource: o.resource,
-              amount: o.amount,
-              taken: o.taken,
-              ...cuando,
-            };
-          case 'town':
-            return { kind: o.kind, id: o.id, at: o.at, owner: o.owner, ...cuando };
-          case 'monster':
-            return {
-              kind: o.kind,
-              id: o.id,
-              at: o.at,
-              creature: o.creature,
-              count: o.count,
-              defeated: o.defeated,
-              ...cuando,
-            };
-          case 'chest':
-            return { kind: o.kind, id: o.id, at: o.at, gold: o.gold, taken: o.taken, ...cuando };
-        }
-        // Exhaustivo: con un `kind` nuevo del mapa, `o` deja de ser `never`
-        // aquí y esta línea NO compila. Y como termina en `throw`, el linter
-        // ya ve que no hay camino sin salida y no hace falta callarlo.
-        const sinSerializar: never = o;
-        throw new Error(`objeto del mapa sin serializar: ${JSON.stringify(sinSerializar)}`);
-      }),
+      objects: knownObjects(state, playerId),
     },
     // Un héroe enemigo se ve o no se ve: no hay recuerdo que mandar, porque una
     // posición de anteayer es ruido y no intel. Antes bastaba con haber pisado

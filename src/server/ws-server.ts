@@ -85,6 +85,11 @@ function broadcast(): void {
     current: state.current,
     finished: state.finished,
     view: {
+      // El espectador lo ve TODO, y es aposta: mira la partida desde fuera, no
+      // la juega. Esta forma se parecía a la de la consulta `map`, que desde
+      // #74 pasa por la niebla (`serializeKnownMap`, `core/contract/serialize`)
+      // y ya no es la misma cosa: si alguien viene a unificarlas, lo que se
+      // junta son dos reglas distintas bajo un solo nombre.
       map: {
         width: state.map.width,
         height: state.map.height,

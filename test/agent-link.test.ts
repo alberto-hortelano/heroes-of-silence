@@ -521,6 +521,32 @@ describe('el agente defiende', () => {
 });
 
 /**
+ * Lo que una consulta ENTREGA de verdad, en JSON, o cadena vacía si la
+ * rechaza.
+ *
+ * Se mide lo que sale por el cable y no el mecanismo del rechazo a propósito:
+ * una fuga es que el dato aparezca, venga como respuesta o disfrazado de nota.
+ * El motivo lo mira el `toThrow` de al lado, que es lo otro que se promete.
+ *
+ * Está fuera de su `describe` porque lo usan dos: el candado del `player` y la
+ * niebla de la consulta `map`.
+ */
+function entregado(
+  partida: { state: GameState; agentPlayers: ReadonlySet<number> },
+  what: string,
+  args: Record<string, unknown>,
+): string {
+  try {
+    return JSON.stringify(responderConsulta(partida, what, args));
+  } catch (err) {
+    // Rechazada: no entrega nada, que es justo lo que este test quiere medir.
+    // No se traga el error — lo devuelve como «cero bytes entregados».
+    if (!(err instanceof Error)) throw err;
+    return '';
+  }
+}
+
+/**
  * El parámetro `player` de las consultas, que era la puerta de al lado.
  *
  * El ciclo de #59 cerró la crónica del rival por la puerta principal —lo que
@@ -530,29 +556,6 @@ describe('el agente defiende', () => {
  * cable, se pida como se pida.
  */
 describe('una consulta solo habla de los jugadores que lleva el agente', () => {
-  /**
-   * Lo que una consulta ENTREGA de verdad, en JSON, o cadena vacía si la
-   * rechaza.
-   *
-   * Se mide lo que sale por el cable y no el mecanismo del rechazo a propósito:
-   * una fuga es que el dato aparezca, venga como respuesta o disfrazado de nota.
-   * El motivo lo mira el `toThrow` de al lado, que es lo otro que se promete.
-   */
-  function entregado(
-    partida: { state: GameState; agentPlayers: ReadonlySet<number> },
-    what: string,
-    args: Record<string, unknown>,
-  ): string {
-    try {
-      return JSON.stringify(responderConsulta(partida, what, args));
-    } catch (err) {
-      // Rechazada: no entrega nada, que es justo lo que este test quiere medir.
-      // No se traga el error — lo devuelve como «cero bytes entregados».
-      if (!(err instanceof Error)) throw err;
-      return '';
-    }
-  }
-
   it('game_state del rival ya no devuelve su crónica, y dice por cuál preguntar', async () => {
     const { link } = await montar(() => ({ actions: [] }));
     const director = new Director(link, { seed: 401, agentPlayers: [1] });
@@ -635,6 +638,109 @@ describe('una consulta solo habla de los jugadores que lleva el agente', () => {
     expect(() => responderConsulta(director, 'game_state', { player: 7 })).toThrow(
       /Llevas los jugadores 0, 1/,
     );
+  });
+});
+
+/**
+ * La consulta `map`, que devolvía el mapa entero (#74).
+ *
+ * Es la tercera salida del núcleo escrita antes de que existiera «lo que este
+ * jugador ve»: `width, height, terrain, roads, objects` de `state.map`, sin
+ * mirar por quién se preguntaba. Nadie la alcanza hoy —no hay tool MCP que la
+ * publique, eso es #33—, así que esto no es una fuga cerrada: es una puerta
+ * tapiada antes de abrirla.
+ */
+describe('la consulta `map` pasa por la niebla', () => {
+  /** El jugador `id` de esa partida, con su `fog` y su `memory`. */
+  const jugador = (state: GameState, id: number) => state.players.find((p) => p.id === id)!;
+
+  it('un objeto que no he explorado no sale en mi mapa, y sí en el de quien sí', async () => {
+    const { link } = await montar(() => ({ actions: [] }));
+    const director = new Director(link, { seed: 406, agentPlayers: [1] });
+    const state = director.state;
+    // El rival lo ha visto todo; yo, lo que se ve desde mi castillo. Así el
+    // mismo objeto tiene que salir en un mapa y faltar en el otro.
+    revealEverything(state, 0);
+
+    const mio = jugador(state, 1);
+    const lejano = state.map.objects.find((o) => !mio.fog.has(pointKey(o.at)));
+    if (lejano === undefined) throw new Error('la semilla 406 ya no deja nada sin explorar');
+
+    const mapa1 = JSON.parse(entregado(director, 'map', { player: 1 })) as {
+      objects: { id: string }[];
+    };
+    const mapa0 = JSON.parse(
+      entregado({ state, agentPlayers: new Set([0]) }, 'map', { player: 0 }),
+    ) as { objects: { id: string }[] };
+
+    // Los DOS sentidos: solo la ausencia daría verde con un arreglo que
+    // devolviera la lista vacía a todo el mundo.
+    expect(mapa1.objects.map((o) => o.id)).not.toContain(lejano.id);
+    expect(mapa0.objects.map((o) => o.id)).toContain(lejano.id);
+    // Y lo que sí conozco me sigue llegando: filtrar no es vaciar.
+    expect(mapa1.objects.length).toBeGreaterThan(0);
+  });
+
+  it('una casilla sin explorar va como hueco, no como terreno inventado', async () => {
+    const { link } = await montar(() => ({ actions: [] }));
+    const director = new Director(link, { seed: 407, agentPlayers: [1] });
+    const state = director.state;
+    const mio = jugador(state, 1);
+
+    // El generador no dibuja caminos todavía, así que se ponen a mano: uno
+    // dentro de la niebla y otro fuera. Con los del mapa generado —cero— este
+    // trozo del test sería una comprobación vacía que pasaría siempre.
+    const explorada = [...mio.fog][0]!;
+    const ignorada = [...Array(state.map.width * state.map.height).keys()]
+      .map((i) => pointKey({ x: i % state.map.width, y: Math.floor(i / state.map.width) }))
+      .find((clave) => !mio.fog.has(clave));
+    if (ignorada === undefined) throw new Error('la semilla 407 ya no deja nada sin explorar');
+    state.map.roads.add(explorada);
+    state.map.roads.add(ignorada);
+
+    const mapa = JSON.parse(entregado(director, 'map', { player: 1 })) as {
+      width: number;
+      height: number;
+      terrain: (string | null)[];
+      roads: string[];
+    };
+
+    expect(mapa.width).toBe(state.map.width);
+    expect(mapa.height).toBe(state.map.height);
+
+    // Casilla a casilla, y contando las dos clases: si una saliera a cero, el
+    // test pasaría por el motivo equivocado.
+    let conocidas = 0;
+    let huecos = 0;
+    for (let y = 0; y < state.map.height; y++) {
+      for (let x = 0; x < state.map.width; x++) {
+        const i = y * state.map.width + x;
+        if (mio.fog.has(pointKey({ x, y }))) {
+          expect(mapa.terrain[i], `(${x},${y}) explorada`).toBe(state.map.terrain[i]);
+          conocidas++;
+        } else {
+          expect(mapa.terrain[i], `(${x},${y}) sin explorar`).toBeNull();
+          huecos++;
+        }
+      }
+    }
+    expect(conocidas).toBeGreaterThan(0);
+    expect(huecos).toBeGreaterThan(0);
+
+    expect(mapa.roads).toContain(explorada);
+    expect(mapa.roads).not.toContain(ignorada);
+  });
+
+  it('y el mapa del rival se rechaza igual que su estado, sin entregar un byte', async () => {
+    const { link } = await montar(() => ({ actions: [] }));
+    const director = new Director(link, { seed: 408, agentPlayers: [1] });
+
+    expect(entregado(director, 'map', { player: 0 })).toBe('');
+    expect(() => responderConsulta(director, 'map', { player: 0 })).toThrow(
+      /no es tuyo.*Llevas el jugador 1/s,
+    );
+    // Sin `player` contesta por el suyo, como las otras dos.
+    expect(entregado(director, 'map', {})).not.toBe('');
   });
 });
 

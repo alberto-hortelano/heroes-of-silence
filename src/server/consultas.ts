@@ -6,7 +6,11 @@
  * su batalla con sus ojos era sacarlas de allí. `ws-server.ts` se queda con el
  * cableado, que es lo que no se puede probar de todos modos.
  */
-import { serializeAdventureTurn, serializeBattleTurn } from '@core/contract/serialize.js';
+import {
+  serializeAdventureTurn,
+  serializeBattleTurn,
+  serializeKnownMap,
+} from '@core/contract/serialize.js';
 import { type GameState, sidesOwnedBy } from '@core/state/game.js';
 import type { PlayerId } from '@core/types.js';
 
@@ -71,13 +75,13 @@ export function responderConsulta(
     }
 
     case 'map': {
-      return {
-        width: state.map.width,
-        height: state.map.height,
-        terrain: state.map.terrain,
-        roads: [...state.map.roads],
-        objects: state.map.objects,
-      };
+      // Pasa por la niebla y por el candado del jugador, como las otras dos
+      // (#74). Devolvía `state.map` entero —terreno, caminos y objetos, el
+      // medio mapa que este jugador no ha pisado incluido— y sin mirar
+      // siquiera por quién se preguntaba: la puerta se tapia antes de
+      // publicarla como tool, que es #33 y va aparte.
+      const player = jugadorDelAgente(partida, args);
+      return serializeKnownMap(state, player);
     }
 
     default:
