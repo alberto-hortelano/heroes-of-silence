@@ -4,11 +4,6 @@
  */
 import type { RequestKind } from '@core/contract/agent.js';
 
-/** Puerto del canal con el puente MCP (el agente). */
-export const AGENT_PORT = 9881;
-/** Puerto del canal con los clientes que miran la partida. */
-export const SPECTATOR_PORT = 9880;
-
 // ------------------------------------------------------- servidor → agente
 
 export interface AgentRequestMsg {

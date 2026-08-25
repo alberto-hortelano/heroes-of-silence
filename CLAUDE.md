@@ -426,9 +426,10 @@ comprobado, a base de escribirlo mal primero.
 Si lo lanzaste con `run_in_background`, lo paras con su identificador de tarea.
 
 **Y un puerto ocupado por algo que no arrancaste tú no se libera: se dice.**
-`pnpm qa` sale 1 con `EADDRINUSE` en 9880/9881 cuando hay un `pnpm server`
-levantado, que es la forma documentada de jugar con el agente: eso se reporta
-como «no probado, el puerto estaba ocupado», nunca se resuelve matando.
+Se reporta como «no probado, el puerto estaba ocupado», nunca se resuelve
+matando. Aquí ya no debería pasar —los dos puertos del servidor salen del
+entorno y el arnés se coge los que le dé el sistema (#61)—, pero la regla es del
+gesto, no de este repo.
 
 ### Control de calidad, deliberadamente ligero
 
@@ -451,11 +452,19 @@ tarde 5 s y no un minuto no es una mejora: es que la partida se acaba el día 3
 porque el agente defiende y pierde, así que la cobertura real son **2 turnos de
 mapa y 13 decisiones de batalla**.
 
-`pnpm qa` **no entra en `pnpm verify`**, y no por lo que tarda: abre los puertos
-fijos 9880/9881 y sale 1 con `EADDRINUSE` si hay un `pnpm server` levantado, que
-es la forma documentada de jugar con el agente. El hook `Stop` se pondría rojo
-por tener el juego abierto, y un guardia que se pone rojo por algo que no es el
-código se desactiva. Su sitio es CI, donde cada job tiene su propia máquina.
+`pnpm qa` **no entra en `pnpm verify`**, y ahora sí es por lo que tarda: 6,7 +
+5,4 = 12,1 s en cada final de tarea, para un guardia que solo dice algo cuando se
+toca `src/server/` o el contrato. El motivo de antes era otro y ya no existe:
+abría los puertos **fijos** 9880/9881 y salía 1 con `EADDRINUSE` si había un
+`pnpm server` levantado —la forma documentada de jugar con el agente—, así que el
+hook `Stop` se ponía rojo por tener el juego abierto. Eso está arreglado: los dos
+puertos salen de `HEROES_AGENT_PORT` y `HEROES_SPECTATOR_PORT` (`src/server/puertos.ts`),
+con los literales de siempre por defecto y **`0` para que los elija el sistema**,
+que es lo que pide el arnés. Comprobado con la partida abierta en 9881/9880:
+`pnpm qa` sale 0 en 5,43 s con su servidor en un puerto efímero, y la partida
+sigue en pie. Quien pide `0` tiene que enterarse de cuál le tocó, así que
+`ws-server.ts` imprime el puerto **real** desde `listening` y de ahí lo lee el
+arnés: anunciar el que se pidió sería anunciar un cero.
 
 `test/invariantes.test.ts` convierte en tests las fronteras de este documento:
 `core` sin `node:*` ni DOM, ni un `Math.random` suelto, `session.ts` como única

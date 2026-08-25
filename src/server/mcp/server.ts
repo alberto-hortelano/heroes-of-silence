@@ -24,11 +24,30 @@ import {
   PREFIJO_RELEVO,
   textoDeEscucha,
 } from '../notas.js';
-import { AGENT_PORT, type AgentToServerMsg, type ServerToAgentMsg } from '../protocol.js';
+import type { AgentToServerMsg, ServerToAgentMsg } from '../protocol.js';
+import { puertoAgente } from '../puertos.js';
 import { Buzon } from './buzon.js';
 import { ColaDeVeredictos } from './veredictos.js';
 
-const SERVER_URL = process.env.HEROES_SERVER ?? `ws://localhost:${AGENT_PORT}`;
+const SERVER_URL = process.env.HEROES_SERVER ?? `ws://localhost:${puertoDelServidor()}`;
+
+/**
+ * A dónde conectarse cuando nadie ha dicho `HEROES_SERVER`.
+ *
+ * Sigue a `HEROES_AGENT_PORT` para que cambiar el puerto del servidor no deje
+ * al puente llamando al de por defecto. Lo que no puede hacer es adivinar: con
+ * `0` el puerto lo elige el sistema al arrancar y desde aquí no hay forma de
+ * saber cuál tocó, así que se dice en vez de intentar `ws://localhost:0`.
+ */
+function puertoDelServidor(): number {
+  const p = puertoAgente();
+  if (p === 0) {
+    throw new Error(
+      'HEROES_AGENT_PORT=0 deja que el puerto lo elija el sistema: dile al puente a dónde conectarse con HEROES_SERVER=ws://localhost:<puerto>',
+    );
+  }
+  return p;
+}
 
 // ---------------------------------------------------------------- conexión
 

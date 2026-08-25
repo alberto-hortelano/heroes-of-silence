@@ -55,7 +55,17 @@ function log(msg: string): void {
 // moría con EADDRINUSE antes de verificar nada. Con el grupo se mata entero.
 const servidor = spawn('npx', ['tsx', 'src/server/ws-server.ts'], {
   cwd: process.cwd(),
-  env: { ...process.env, HEROES_MAX_DAYS: '12', HEROES_WAIT_AGENT_MS: '30000' },
+  // Puerto 0 en los dos canales: lo elige el sistema. Antes eran literales, y
+  // `pnpm qa` salía 1 con EADDRINUSE en cuanto había un `pnpm server` abierto —
+  // que es la forma documentada de jugar con el agente. Con 0 no hay puerto que
+  // chocar, así que el arnés convive con la partida de al lado (#61).
+  env: {
+    ...process.env,
+    HEROES_MAX_DAYS: '12',
+    HEROES_WAIT_AGENT_MS: '30000',
+    HEROES_AGENT_PORT: '0',
+    HEROES_SPECTATOR_PORT: '0',
+  },
   stdio: ['ignore', 'pipe', 'pipe'],
   detached: true,
 });
@@ -289,16 +299,24 @@ async function terminarBien(turnos: number, batallas: number, motivo: string): P
   await terminar(0);
 }
 
+/** La URL que el servidor acaba de anunciar, con el puerto que le tocó de verdad. */
+const RE_CANAL = /canal del agente en (ws:\/\/\S+)/;
+
 async function main(): Promise<void> {
   log('esperando a que arranque el servidor…');
-  for (let i = 0; i < 60 && !salidaServidor.includes('canal del agente'); i++) await sleep(250);
-  if (!salidaServidor.includes('canal del agente')) throw new Error('el servidor no arrancó');
+  for (let i = 0; i < 60 && !RE_CANAL.test(salidaServidor); i++) await sleep(250);
+  const anuncio = RE_CANAL.exec(salidaServidor);
+  if (anuncio === null) throw new Error('el servidor no arrancó');
+  // No se puede suponer: el puerto se lo acaba de dar el sistema, y esta traza
+  // la escribe el servidor desde `listening`, o sea cuando ya está escuchando.
+  const url = anuncio[1] as string;
+  log(`el servidor escucha en ${url}`);
 
   log('conectando al puente MCP por stdio…');
   const transport = new StdioClientTransport({
     command: 'npx',
     args: ['tsx', 'src/server/mcp/server.ts'],
-    env: process.env as Record<string, string>,
+    env: { ...process.env, HEROES_SERVER: url } as Record<string, string>,
   });
   const client = new Client({ name: 'qa-agent', version: '1.0.0' });
   await client.connect(transport);

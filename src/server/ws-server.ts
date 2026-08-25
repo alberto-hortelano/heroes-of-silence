@@ -15,7 +15,8 @@ import { AgentLink } from './agent-link.js';
 import { responderConsulta } from './consultas.js';
 import { Director } from './director.js';
 import { notaFinDePartida } from './notas.js';
-import { AGENT_PORT, type ServerToSpectatorMsg, SPECTATOR_PORT } from './protocol.js';
+import type { ServerToSpectatorMsg } from './protocol.js';
+import { puertoAgente, puertoEspectadores } from './puertos.js';
 
 /** La partida que se juega si nadie pide otra. */
 const SEED_POR_DEFECTO = 20260823;
@@ -40,23 +41,40 @@ link.onQuery((what, args) => responderConsulta(director, what, args));
 
 // ---------------------------------------------------------------- agente
 
-const agentServer = new WebSocketServer({ port: AGENT_PORT });
+/** El puerto que le tocó de verdad. `address()` es un string solo en sockets Unix. */
+function puertoReal(server: WebSocketServer): number {
+  const dir = server.address();
+  if (dir === null || typeof dir === 'string') {
+    throw new Error(`el servidor no escucha en un puerto TCP: ${String(dir)}`);
+  }
+  return dir.port;
+}
+
+const agentServer = new WebSocketServer({ port: puertoAgente() });
 agentServer.on('connection', (socket) => {
   console.log('[servidor] el puente del agente se ha conectado');
   link.attach(socket);
 });
-console.log(`[servidor] canal del agente en ws://localhost:${AGENT_PORT}`);
+// El puerto REAL y no el pedido, y por eso desde `listening` y no antes: con
+// `HEROES_AGENT_PORT=0` lo elige el sistema, así que imprimir lo que se pidió
+// sería imprimir un cero. De esta línea saca el arnés a dónde conectar el
+// puente, y de paso ya no se anuncia un canal que todavía no está escuchando.
+agentServer.on('listening', () => {
+  console.log(`[servidor] canal del agente en ws://localhost:${puertoReal(agentServer)}`);
+});
 
 // ---------------------------------------------------------------- mirones
 
 const spectators = new Set<WebSocket>();
-const spectatorServer = new WebSocketServer({ port: SPECTATOR_PORT });
+const spectatorServer = new WebSocketServer({ port: puertoEspectadores() });
 spectatorServer.on('connection', (socket) => {
   spectators.add(socket);
   socket.on('close', () => spectators.delete(socket));
   broadcast();
 });
-console.log(`[servidor] canal de espectadores en ws://localhost:${SPECTATOR_PORT}`);
+spectatorServer.on('listening', () => {
+  console.log(`[servidor] canal de espectadores en ws://localhost:${puertoReal(spectatorServer)}`);
+});
 
 function broadcast(): void {
   if (spectators.size === 0) return;
