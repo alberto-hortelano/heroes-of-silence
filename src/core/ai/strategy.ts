@@ -288,10 +288,3 @@ export function planRecruits(state: GameState, playerId: PlayerId): AdventureAct
 
   return acciones;
 }
-
-/** ¿Le queda algo útil por hacer a este héroe hoy? */
-export function heroHasWork(state: GameState, hero: Hero): boolean {
-  if (hero.movePoints <= 0) return false;
-  const destino = chooseHeroDestination(state, hero);
-  return destino !== null && stepTowards(state, hero, destino) !== null;
-}

@@ -17,6 +17,7 @@
     "mcp": "tsx src/server/mcp/server.ts",
     "gen": "tsx tools/gen/cli.ts",
     "qa": "tsx tools/qa/verify-agent.ts",
+    "banco": "tsx tools/qa/banco.ts",
     "verify": "pnpm typecheck && pnpm lint && pnpm test"
   },
   "dependencies": {
