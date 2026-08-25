@@ -443,11 +443,9 @@ export function renderLog(log: readonly GameEvent[], viewer: number): string {
   const lineas = log
     .slice(-60)
     // El `switch` de dentro cubre la unión entera de `e.kind` y NO tiene
-    // `default`, así que lo que se calla aquí es el linter y no el fallo: con
-    // el `: string` escrito, un `kind` al que nadie le haya puesto frase deja
-    // un camino sin `return` y `tsc` lo dice (TS2366). Es el mismo trato que
-    // `serialize.ts` le da a los objetos del mapa.
-    // biome-ignore lint/suspicious/useIterableCallbackReturn: lo garantiza el tipo, no el linter
+    // `default`: un `kind` al que nadie le haya escrito su frase tiene que
+    // ponerse rojo, no colarse por la rama de abajo. Quien lo pone rojo es el
+    // `never` del final, igual que en `serialize.ts`.
     .map((e): string => {
       const mio = e.actor === viewer;
       switch (e.kind) {
@@ -528,6 +526,10 @@ export function renderLog(log: readonly GameEvent[], viewer: number): string {
         case 'player_defeated':
           return '';
       }
+      // Exhaustivo: con un `kind` nuevo, `e` deja de ser `never` aquí y esta
+      // línea no compila hasta que alguien decida si se pinta o no.
+      const sinFrase: never = e;
+      throw new Error(`hecho de la crónica sin frase: ${JSON.stringify(sinFrase)}`);
     })
     .filter((s) => s !== '')
     .join('');

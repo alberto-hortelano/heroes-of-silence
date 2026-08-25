@@ -106,11 +106,14 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId): un
     knownMap: {
       width: state.map.width,
       height: state.map.height,
-      // El `switch` de dentro cubre la unión entera de `o.kind`, así que no hay
-      // camino sin `return` — pero eso lo sabe `tsc` y no el linter, que no mira
-      // tipos. Un `default` para callarlo escondería justo lo que interesa ver
-      // rojo: que un `kind` nuevo del mapa no se está serializando.
-      // biome-ignore lint/suspicious/useIterableCallbackReturn: lo garantiza el tipo, no el linter
+      // El `switch` de dentro cubre la unión entera de `o.kind` y no lleva
+      // `default`: un `default` para callar al linter escondería justo lo que
+      // interesa ver rojo, que un `kind` nuevo del mapa no se serializa.
+      //
+      // Quien lo pone rojo es el `never` de abajo, y no el `biome-ignore` que
+      // hubo aquí: comprobado quitando el `case 'chest'`, con el `ignore`
+      // puesto **compilaba y linteaba limpio**. Un guardia ciego durante todo
+      // el tiempo que nadie lo rompió a mano.
       objects: [...player.memory.values()].map((recuerdo) => {
         // Lo que se está mirando ahora es presente; lo demás, memoria.
         const mirandolo = observado(recuerdo.object.at);
@@ -151,6 +154,11 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId): un
           case 'chest':
             return { kind: o.kind, id: o.id, at: o.at, gold: o.gold, taken: o.taken, ...cuando };
         }
+        // Exhaustivo: con un `kind` nuevo del mapa, `o` deja de ser `never`
+        // aquí y esta línea NO compila. Y como termina en `throw`, el linter
+        // ya ve que no hay camino sin salida y no hace falta callarlo.
+        const sinSerializar: never = o;
+        throw new Error(`objeto del mapa sin serializar: ${JSON.stringify(sinSerializar)}`);
       }),
     },
     // Un héroe enemigo se ve o no se ve: no hay recuerdo que mandar, porque una
