@@ -11,8 +11,8 @@ El juego es el andamio; lo interesante es lo que se puede enchufar dentro.
 ```bash
 pnpm install
 pnpm dev        # cliente en http://localhost:3100 (juego local contra la IA de reglas)
-pnpm verify     # typecheck + lint + 230 tests, 6,5 s: el bucle rápido
-pnpm test       # 230 tests: reglas, batalla, partida completa y contrato del agente
+pnpm verify     # typecheck + lint + 238 tests, 6,5 s: el bucle rápido
+pnpm test       # 238 tests: reglas, batalla, partida completa y contrato del agente
 pnpm typecheck
 pnpm lint       # Biome: formato y lint en una sola pasada, 40 ms
 pnpm format     # lo mismo, arreglando lo que sepa arreglar
@@ -172,6 +172,31 @@ cierras»**: al volver se mira `state.pendingBattle`, sin un booleano que pueda
 mentir. Y el bando **se deriva del dueño** (`battleOwners`) en vez de suponerse
 atacante, lo que además hace que defender un castillo salga gratis.
 
+**Y la crónica pasa por la niebla.** El agente ya no lee el diario del rival:
+`recentEvents` iba sin filtrar y **2767 de 6287 eventos entregados eran suyos —el
+44 %, 9,6 de cada 25 por lectura—**, así que después de filtrar el mapa seguía
+enterándose de cada movimiento del enemigo. El arreglo no fue filtrar: fue que
+**el `GameEvent` dejara de ser anónimo**. Era la única vía — 683 de esos 6287
+(10,9 %) **no se podían atribuir a nadie**, porque `state.heroes` se filtra
+**antes** de escribir `hero_defeated` y el dueño del muerto ya no existe.
+
+Ahora cada hecho lleva quién lo protagoniza y dónde ocurre, y `emit` lo **sella
+al ocurrir** con quién lo estaba mirando. Sellar y no recalcular al leer también
+está medido: la ventana de 25 abarca 2,34 días, y en ese lapso **el 14,8 % de los
+eventos del rival cambian de veredicto** según cuándo se evalúen. El candado de
+que nadie vuelva a escribir el log a pelo no es una expresión regular: `log` es
+`readonly` y `emit` hace el único `push`, así que cualquier otro **no compila**.
+
+Dos trampas que costaron sus tests: **se filtra ANTES de cortar** —al revés la
+ventana encoge de 25 a 18 en silencio— y el sello se calcula **después** de la
+mutación, así que en dos casos el observador ya no se ve a sí mismo (tu castillo
+recién perdido, tu héroe recién muerto): a esos los salvan las cláusulas de
+«siempre», no el sello.
+
+**El cliente NO se filtra**, y es deliberado: su lienzo pinta con `fog` —«lo
+exploré alguna vez»— y no con `visibleNow`, así que filtrar solo su crónica le
+dejaría viendo al rival en el mapa sin una línea que lo contara (#64).
+
 **Y la partida se acaba diciéndolo.** `heroes_listen` esperaba en una promesa que
 nadie resolvía nunca: cualquier agente se quedaba colgado para siempre al
 terminar la partida, sin saber que había terminado ni quién ganó. Ahora el
@@ -183,6 +208,17 @@ Tipos de petición: `adventure_turn`, `battle_turn`, `map_generate` y
 `hero_banter`. Y hay tools de consulta (`game_state`, `battle_state`,
 `creature_stats`, `spell_list`, `building_list`) para mirar cosas sin volcarse
 la partida entera en el contexto.
+
+**Y el agente solo pregunta por los suyos.** `game_state` y `battle_state` llevan
+un parámetro `player`, y hasta hace poco se lo creían: `game_state{player:0}`
+devolvía la crónica del rival, sus recursos, sus héroes y sus castillos. Con la
+crónica ya filtrada por la niebla, eso dejaba cerrada la puerta principal y
+abierta la de al lado — y hacía **falsa** la frase con la que se cerró aquel
+trabajo. Ahora `responderConsulta` recibe qué jugadores lleva el agente y
+**rechaza diciéndolo**, nombrando los suyos: *«no puedes consultar por el jugador
+0: no es tuyo. Llevas el jugador 1: pregunta por ese»*. La descripción de la tool
+dice qué acepta, porque un agente que recibe un rechazo sin haber sido avisado no
+se corrige: reintenta.
 
 En `map_generate` el agente **no dibuja**: devuelve un plan declarativo y
 `buildMap` lo construye. `validateMapPlan` lo rechaza si algún castillo queda
