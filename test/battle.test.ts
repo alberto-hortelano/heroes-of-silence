@@ -696,6 +696,7 @@ describe('el libro de hechizos del jugador (#4)', () => {
       attackerHeroId: session.myHeroes()[0]!.id,
       foe: { kind: 'monster', objectId: monstruoVivo(session.state).id },
       battle,
+      at: monstruoVivo(session.state).at,
     };
     session.scene = 'battle';
     return { session, heroe, battle };

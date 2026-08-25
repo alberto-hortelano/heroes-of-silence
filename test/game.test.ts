@@ -509,7 +509,11 @@ describe('partida completa', () => {
     const ganador = state.finished!.winner;
     const perdedores = state.players.filter((p) => p.id !== ganador);
     expect(perdedores.every((p) => p.defeated)).toBe(true);
-    expect(state.log.at(-1)).toEqual({ kind: 'game_over', winner: ganador });
+    // `toMatchObject` y no `toEqual`: desde que el evento lleva protagonista y
+    // sitio, comparar el objeto ENTERO ataría este test a los campos de
+    // contabilidad de la crónica. Lo que se afirma aquí es cómo termina la
+    // partida, no cómo se sella un evento.
+    expect(state.log.at(-1)).toMatchObject({ kind: 'game_over', winner: ganador });
   });
 
   it('el bucle completo pasa por construir, reclutar, luchar y capturar', async () => {

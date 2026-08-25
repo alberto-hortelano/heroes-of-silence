@@ -50,6 +50,7 @@ import type {
   Stack,
 } from '../types.js';
 import { addResources, EMPTY_RESOURCES } from '../types.js';
+import type { BattleFoe, GameEvent } from './events.js';
 
 export interface Player {
   readonly id: PlayerId;
@@ -91,34 +92,20 @@ export const MINE_YIELD: Readonly<Record<ResourceKind, number>> = {
 /** Radio de visión de un héroe. */
 export const HERO_SCOUT_RADIUS = 4;
 
-export type BattleFoe =
-  | { readonly kind: 'monster'; readonly objectId: string }
-  | { readonly kind: 'hero'; readonly heroId: string }
-  | { readonly kind: 'town'; readonly townId: string };
-
 export interface PendingBattle {
   readonly attackerHeroId: string;
   readonly foe: BattleFoe;
   readonly battle: BattleState;
+  /**
+   * La casilla donde se libra: la del defensor, que es a la que el atacante
+   * intentó entrar.
+   *
+   * Se guarda en vez de deducirse del `foe` porque el evento que cuenta la
+   * muerte del perdedor se escribe DESPUÉS de borrarlo del mapa: deducirla
+   * entonces sería preguntar por alguien que ya no está.
+   */
+  readonly at: Point;
 }
-
-export type GameEvent =
-  | { kind: 'day_start'; day: number; week: number }
-  | { kind: 'turn_start'; player: PlayerId }
-  | { kind: 'hero_moved'; hero: string; to: Point; spent: number }
-  | { kind: 'resource_gained'; player: PlayerId; resource: ResourceKind; amount: number }
-  | { kind: 'mine_captured'; player: PlayerId; mine: string }
-  | { kind: 'town_captured'; player: PlayerId; town: string }
-  | { kind: 'built'; town: string; building: string }
-  | { kind: 'recruited'; town: string; creature: string; count: number }
-  | { kind: 'hero_hired'; player: PlayerId; hero: string; town: string }
-  | { kind: 'spells_learned'; hero: string; town: string; spells: string[] }
-  | { kind: 'garrison_taken'; hero: string; town: string }
-  | { kind: 'battle_started'; attacker: string; foe: BattleFoe }
-  | { kind: 'battle_ended'; winner: 'attacker' | 'defender'; foe: BattleFoe }
-  | { kind: 'hero_defeated'; hero: string }
-  | { kind: 'player_defeated'; player: PlayerId }
-  | { kind: 'game_over'; winner: PlayerId };
 
 export interface GameState {
   readonly seed: number;
@@ -131,7 +118,20 @@ export interface GameState {
   current: PlayerId;
   pendingBattle: PendingBattle | null;
   finished: { winner: PlayerId } | null;
-  log: GameEvent[];
+  /**
+   * La crónica. `readonly` es un candado, no adorno: el único `push` está en
+   * `emit`, y con el array de solo lectura cualquier otro **no compila**.
+   *
+   * Es lo que sostiene «un hecho, un sitio» aquí: si el reparto se apoyara en
+   * que todo el mundo se acuerde de llamar a `emit`, el emisor número veinte
+   * nacería sin protagonista y sin sello. Y lo sostiene `tsc` en cada build, no
+   * una expresión regular: un guardia por texto no sabe distinguir este
+   * `log.push` del de `battle.ts`, que es otro tipo y otro canal.
+   *
+   * Los consumidores no se enteran: `slice`, `some`, `map`, `filter` y `at`
+   * valen igual sobre un array de solo lectura.
+   */
+  readonly log: readonly GameEvent[];
 }
 
 export interface GameContext {
@@ -254,7 +254,7 @@ export function createGame(config: GameConfig): GameState {
     revealAround(state, hero);
   }
 
-  state.log.push({ kind: 'day_start', day: 1, week: 1 });
+  emit(state, { kind: 'day_start', day: 1, week: 1, actor: null, at: null });
   startTurn(state);
   return state;
 }
@@ -314,11 +314,24 @@ export function visibleNow(state: GameState, playerId: PlayerId): Set<string> {
   return claves;
 }
 
+// ---------------------------------------------------------------- crónica
+
+/**
+ * Escribe un hecho en la crónica. **El único sitio que la toca.**
+ *
+ * `state.log` es de solo lectura para que esto sea verdad y lo compruebe el
+ * compilador; el `as` de aquí abajo es la única grieta, y está a la vista y
+ * comentada en vez de repartida por diecinueve sitios.
+ */
+function emit(state: GameState, e: GameEvent): void {
+  (state.log as GameEvent[]).push(e);
+}
+
 // ---------------------------------------------------------------- turnos
 
 function startTurn(state: GameState): void {
   const player = currentPlayer(state);
-  state.log.push({ kind: 'turn_start', player: player.id });
+  emit(state, { kind: 'turn_start', player: player.id, actor: player.id, at: null });
 
   // Ingresos del día: ayuntamientos y minas.
   let income = { ...EMPTY_RESOURCES };
@@ -370,7 +383,7 @@ function nextPlayer(state: GameState): void {
 
 function advanceDay(state: GameState): void {
   state.day += 1;
-  state.log.push({ kind: 'day_start', day: state.day, week: week(state) });
+  emit(state, { kind: 'day_start', day: state.day, week: week(state), actor: null, at: null });
   if (dayOfWeek(state) === 1) {
     for (const town of state.towns) applyWeeklyGrowth(town);
   }
@@ -379,7 +392,7 @@ function advanceDay(state: GameState): void {
 function finishGame(state: GameState, winner: PlayerId): void {
   if (state.finished !== null) return;
   state.finished = { winner };
-  state.log.push({ kind: 'game_over', winner });
+  emit(state, { kind: 'game_over', winner, actor: winner, at: null });
 }
 
 /** Un jugador sin pueblos ni héroes está eliminado. */
@@ -390,7 +403,7 @@ function checkDefeat(state: GameState): void {
     const sinPueblos = townsOf(state, player.id).length === 0;
     if (sinHeroes && sinPueblos) {
       player.defeated = true;
-      state.log.push({ kind: 'player_defeated', player: player.id });
+      emit(state, { kind: 'player_defeated', player: player.id, actor: player.id, at: null });
     }
   }
   const vivos = state.players.filter((p) => !p.defeated);
@@ -482,7 +495,14 @@ function syncSpellbooks(state: GameState, playerId: PlayerId): void {
     const nuevos = learnable(hero, townSpells(town));
     if (nuevos.length === 0) continue;
     hero.spells = [...hero.spells, ...nuevos];
-    state.log.push({ kind: 'spells_learned', hero: hero.id, town: town.id, spells: nuevos });
+    emit(state, {
+      kind: 'spells_learned',
+      hero: hero.id,
+      town: town.id,
+      spells: nuevos,
+      actor: hero.owner,
+      at: town.at,
+    });
   }
 }
 
@@ -506,7 +526,13 @@ function aplicar(state: GameState, action: AdventureAction, ctx: GameContext): v
       const player = currentPlayer(state);
       if (town.owner !== player.id) throw new Error('ese pueblo no es tuyo');
       player.resources = buildInTown(town, action.building, player.resources);
-      state.log.push({ kind: 'built', town: town.id, building: action.building });
+      emit(state, {
+        kind: 'built',
+        town: town.id,
+        building: action.building,
+        actor: player.id,
+        at: town.at,
+      });
       return;
     }
 
@@ -528,11 +554,13 @@ function aplicar(state: GameState, action: AdventureAction, ctx: GameContext): v
       } else {
         town.garrison = ampliado;
       }
-      state.log.push({
+      emit(state, {
         kind: 'recruited',
         town: town.id,
         creature: action.creature,
         count: action.count,
+        actor: player.id,
+        at: town.at,
       });
       return;
     }
@@ -581,7 +609,14 @@ function hireHero(state: GameState, townId: string): void {
 
   player.resources = addResources(player.resources, { gold: -HERO_HIRE_COST });
   state.heroes.push(hero);
-  state.log.push({ kind: 'hero_hired', player: player.id, hero: id, town: town.id });
+  emit(state, {
+    kind: 'hero_hired',
+    player: player.id,
+    hero: id,
+    town: town.id,
+    actor: player.id,
+    at: town.at,
+  });
 
   takeGarrison(state, hero, town);
   revealAround(state, hero);
@@ -612,7 +647,13 @@ function takeGarrison(state: GameState, hero: Hero, town: Town): void {
   hero.army = army;
   town.garrison = quedan;
   hero.movePoints = Math.min(hero.movePoints, maxMovePoints(hero));
-  state.log.push({ kind: 'garrison_taken', hero: hero.id, town: town.id });
+  emit(state, {
+    kind: 'garrison_taken',
+    hero: hero.id,
+    town: town.id,
+    actor: hero.owner,
+    at: town.at,
+  });
 }
 
 function moveHero(state: GameState, heroId: string, to: Point, ctx: GameContext): void {
@@ -635,14 +676,21 @@ function moveHero(state: GameState, heroId: string, to: Point, ctx: GameContext)
     const enemigo = enemyAt(state, paso.at, player.id);
     if (enemigo !== null) {
       hero.movePoints -= coste;
-      startBattle(state, hero, enemigo, ctx);
+      startBattle(state, hero, enemigo, paso.at, ctx);
       return;
     }
 
     hero.movePoints -= coste;
     hero.at = paso.at;
     revealAround(state, hero);
-    state.log.push({ kind: 'hero_moved', hero: hero.id, to: paso.at, spent: coste });
+    emit(state, {
+      kind: 'hero_moved',
+      hero: hero.id,
+      to: paso.at,
+      spent: coste,
+      actor: hero.owner,
+      at: paso.at,
+    });
     collectAt(state, hero, paso.at);
   }
 }
@@ -678,11 +726,13 @@ function collectAt(state: GameState, hero: Hero, at: Point): void {
         if (!obj.taken) {
           obj.taken = true;
           player.resources = addResources(player.resources, { [obj.resource]: obj.amount });
-          state.log.push({
+          emit(state, {
             kind: 'resource_gained',
             player: player.id,
             resource: obj.resource,
             amount: obj.amount,
+            actor: player.id,
+            at,
           });
         }
         break;
@@ -690,18 +740,31 @@ function collectAt(state: GameState, hero: Hero, at: Point): void {
         if (!obj.taken) {
           obj.taken = true;
           player.resources = addResources(player.resources, { gold: obj.gold });
-          state.log.push({
+          emit(state, {
             kind: 'resource_gained',
             player: player.id,
             resource: 'gold',
             amount: obj.gold,
+            actor: player.id,
+            at,
           });
         }
         break;
       case 'mine':
         if (obj.owner !== player.id) {
+          // De quién era se lee ANTES de escribir el dueño nuevo: después ya no
+          // hay a quién preguntárselo. Lo escribe quien captura, que es el
+          // único que lo sabe sin adivinar.
+          const anterior = obj.owner;
           obj.owner = player.id;
-          state.log.push({ kind: 'mine_captured', player: player.id, mine: obj.id });
+          emit(state, {
+            kind: 'mine_captured',
+            player: player.id,
+            mine: obj.id,
+            from: anterior,
+            actor: player.id,
+            at: obj.at,
+          });
         }
         break;
       default:
@@ -732,6 +795,10 @@ function collectAt(state: GameState, hero: Hero, at: Point): void {
  * única forma de perder. Ese era el ~10 % de partidas que no terminaban.
  */
 function captureTown(state: GameState, town: Town, player: PlayerId): void {
+  // De quién era, antes de que deje de serlo. Es el dato con el que su dueño de
+  // ayer se entera de que lo ha perdido: sin leerlo aquí no hay forma de
+  // escribirlo, porque un instante después el castillo ya es de otro.
+  const anterior = town.owner;
   town.owner = player;
   town.garrison = [null, null, null, null, null];
   const bandera = state.map.objects.find((o) => o.kind === 'town' && o.id === town.id);
@@ -739,7 +806,14 @@ function captureTown(state: GameState, town: Town, player: PlayerId): void {
     throw new Error(`el castillo ${town.id} no tiene objeto en el mapa`);
   }
   bandera.owner = player;
-  state.log.push({ kind: 'town_captured', player, town: town.id });
+  emit(state, {
+    kind: 'town_captured',
+    player,
+    town: town.id,
+    from: anterior,
+    actor: player,
+    at: town.at,
+  });
   checkDefeat(state);
 }
 
@@ -859,10 +933,16 @@ export function sidesOwnedBy(
 }
 
 /** Prepara la batalla y la deja pendiente: la juega la IA o el jugador. */
-function startBattle(state: GameState, hero: Hero, foe: BattleFoe, ctx: GameContext): void {
+function startBattle(
+  state: GameState,
+  hero: Hero,
+  foe: BattleFoe,
+  at: Point,
+  ctx: GameContext,
+): void {
   const battle = createBattle(battleSideForHero(state, hero), defenderSide(state, foe), ctx.rng);
-  state.pendingBattle = { attackerHeroId: hero.id, foe, battle };
-  state.log.push({ kind: 'battle_started', attacker: hero.id, foe });
+  state.pendingBattle = { attackerHeroId: hero.id, foe, battle, at };
+  emit(state, { kind: 'battle_started', attacker: hero.id, foe, actor: hero.owner, at });
 }
 
 /** Juega la batalla pendiente con la IA táctica y aplica el resultado. */
@@ -897,16 +977,26 @@ export function settleBattle(state: GameState, _ctx: GameContext): void {
   // El cierre de la batalla se registra ANTES de sus consecuencias: capturar
   // el último pueblo del rival termina la partida, y "game_over" tiene que ser
   // el último evento del registro, no quedar sepultado bajo el de la batalla.
-  state.log.push({ kind: 'battle_ended', winner, foe: pending.foe });
+  emit(state, {
+    kind: 'battle_ended',
+    winner,
+    foe: pending.foe,
+    actor: hero.owner,
+    at: pending.at,
+  });
   state.pendingBattle = null;
 
   if (heroeAtacanteVivo) {
     hero.experience += experienceFor(pending, state);
-    applyVictory(state, hero, pending.foe);
+    applyVictory(state, hero, pending.foe, pending.at);
   } else {
-    // El atacante derrotado desaparece del mapa con su ejército.
+    // El atacante derrotado desaparece del mapa con su ejército. Su dueño se
+    // lee ANTES del filtro: un instante después el héroe ya no está y el evento
+    // que cuenta su muerte no tendría a quién atribuirse — que es justo por qué
+    // el 10,9 % de la crónica era inatribuible.
+    const dueño = hero.owner;
     state.heroes = state.heroes.filter((h) => h.id !== hero.id);
-    state.log.push({ kind: 'hero_defeated', hero: hero.id });
+    emit(state, { kind: 'hero_defeated', hero: hero.id, actor: dueño, at: pending.at });
     applyDefenderSurvivors(state, pending, superviviente('defender'));
   }
 
@@ -924,7 +1014,7 @@ function experienceFor(pending: PendingBattle, _state: GameState): number {
   return exp;
 }
 
-function applyVictory(state: GameState, hero: Hero, foe: BattleFoe): void {
+function applyVictory(state: GameState, hero: Hero, foe: BattleFoe, at: Point): void {
   switch (foe.kind) {
     case 'monster': {
       const obj = state.map.objects.find((o) => o.id === foe.objectId) as
@@ -938,8 +1028,10 @@ function applyVictory(state: GameState, hero: Hero, foe: BattleFoe): void {
     }
     case 'hero': {
       const derrotado = heroById(state, foe.heroId);
+      // Igual que con el atacante: el dueño se lee mientras el héroe existe.
+      const dueño = derrotado.owner;
       state.heroes = state.heroes.filter((h) => h.id !== derrotado.id);
-      state.log.push({ kind: 'hero_defeated', hero: derrotado.id });
+      emit(state, { kind: 'hero_defeated', hero: derrotado.id, actor: dueño, at });
       break;
     }
     case 'town': {

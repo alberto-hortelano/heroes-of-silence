@@ -9,7 +9,7 @@ import { type Spell, spell } from '@core/battle/spells.js';
 import type { BattleEvent, Side } from '@core/battle/types.js';
 import { creature, isShooter } from '@core/data.js';
 import { armySize, maxMana, maxMovePoints } from '@core/hero/hero.js';
-import type { GameEvent } from '@core/state/game.js';
+import type { GameEvent } from '@core/state/events.js';
 import { building } from '@core/town/buildings.js';
 import { dailyIncome, dwellings, mageGuildLevel, type Town, townSpells } from '@core/town/town.js';
 import type { Army } from '@core/types.js';
