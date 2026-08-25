@@ -186,15 +186,40 @@ export function findPath(map: GameMap, from: Point, to: Point): PathStep[] | nul
 }
 
 /**
- * Coste de llegar a cada casilla desde `from`, en una sola pasada de Dijkstra.
+ * Lo que sabe una pasada de Dijkstra desde un origen: lo que cuesta llegar a
+ * cada casilla y por dónde se llega.
+ *
+ * `prev` va siempre y no tras una bandera: construirlo no se paga aparte —es
+ * un `set` en la misma rama que ya escribe el coste— y una bandera que cambia
+ * la forma del retorno obliga a todos los llamantes a estrechar un tipo para
+ * pedir algo que sale gratis.
+ */
+export interface Reachable {
+  /** Coste de llegar a cada casilla, por clave "x,y". */
+  readonly costs: Map<string, number>;
+  /** Desde qué casilla se llega a cada una. El origen no está: no viene de nada. */
+  readonly prev: Map<string, Point>;
+}
+
+/**
+ * Coste de llegar a cada casilla desde `from`, en una sola pasada de Dijkstra,
+ * **y por dónde**.
  *
  * Existe porque la IA necesita comparar decenas de destinos por turno: llamar a
  * `findPath` una vez por candidato multiplica el mismo trabajo por treinta.
  * Las casillas bloqueadas (monstruos, pueblos, minas) se registran con su coste
  * de entrada pero no se expanden: se puede llegar a ellas, no atravesarlas.
+ *
+ * Los predecesores son lo que evita el SEGUNDO recorrido: quien ya llamó aquí
+ * para elegir a dónde ir no necesita relanzar `findPath` para saber por dónde
+ * se va — retrocede por `prev` desde el destino. Se llamaba `reachableCosts`, y
+ * el nombre cambió a propósito con la firma: así el typecheck señala a todos
+ * los llamantes en vez de dejar que alguno se quede con la versión de antes
+ * creyendo que sigue valiendo.
  */
-export function reachableCosts(map: GameMap, from: Point, maxCost: number): Map<string, number> {
+export function reachableFrom(map: GameMap, from: Point, maxCost: number): Reachable {
   const coste = new Map<string, number>([[pointKey(from), 0]]);
+  const previo = new Map<string, Point>();
   const cerradas = new Set<string>();
   const pendientes = new Set<string>([pointKey(from)]);
 
@@ -230,12 +255,13 @@ export function reachableCosts(map: GameMap, from: Point, maxCost: number): Map<
       if (nuevo > maxCost) continue;
       if (nuevo < (coste.get(nk) ?? Infinity)) {
         coste.set(nk, nuevo);
+        previo.set(nk, actual);
         pendientes.add(nk);
       }
     }
   }
 
-  return coste;
+  return { costs: coste, prev: previo };
 }
 
 /** Casillas visibles desde `p` con radio `radius` (distancia de Chebyshev). */

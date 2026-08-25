@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
 import { creature } from '../src/core/data.js';
 import type { Hero } from '../src/core/hero/hero.js';
-import { pointKey, reachableCosts } from '../src/core/map/map.js';
+import { pointKey, reachableFrom } from '../src/core/map/map.js';
 import { cronicaPara, sinSello, visibleTo } from '../src/core/state/events.js';
 import {
   applyAdventureAction,
@@ -115,7 +115,7 @@ async function montar(
 
 /** La casilla pisable más cercana a `desde`, para plantar a alguien al lado. */
 function vecina(state: GameState, desde: Point): Point {
-  const [clave] = [...reachableCosts(state.map, desde, Infinity).entries()]
+  const [clave] = [...reachableFrom(state.map, desde, Infinity).costs.entries()]
     .filter(([, coste]) => coste > 0)
     .sort((a, b) => a[1] - b[1])[0]!;
   const [x, y] = clave.split(',').map(Number);
@@ -134,7 +134,8 @@ function plantarRival(state: GameState, objetivo: Point): Hero {
   const rival = state.heroes.find((h) => h.owner === 0) as Hero;
   rival.at = vecina(state, objetivo);
   rival.army = [{ creature: 'paladin', count: 40 }, null, null, null, null];
-  rival.movePoints = reachableCosts(state.map, rival.at, Infinity).get(pointKey(objetivo)) ?? 200;
+  rival.movePoints =
+    reachableFrom(state.map, rival.at, Infinity).costs.get(pointKey(objetivo)) ?? 200;
   return rival;
 }
 
@@ -172,7 +173,7 @@ function rivalAlCastillo(state: GameState): Town {
 
   // El héroe del agente se lleva lejos: pegado al castillo, el rival preferiría
   // atacarle a él y este test no miraría lo que dice mirar.
-  const lejos = [...reachableCosts(state.map, pueblo.at, Infinity).entries()]
+  const lejos = [...reachableFrom(state.map, pueblo.at, Infinity).costs.entries()]
     .filter(([, coste]) => coste > 900)
     .sort((a, b) => a[1] - b[1])[0];
   if (lejos === undefined) throw new Error('el mapa no da para alejar al héroe del castillo');

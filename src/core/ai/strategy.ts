@@ -7,7 +7,7 @@
  */
 import { creature } from '../data.js';
 import type { Hero } from '../hero/hero.js';
-import { findPath, type MapObject, pointKey, reachableCosts } from '../map/map.js';
+import { type MapObject, pointKey, type Reachable } from '../map/map.js';
 import {
   type AdventureAction,
   type GameState,
@@ -89,14 +89,20 @@ function objectValue(state: GameState, obj: MapObject, hero: Hero): number {
  * agotaba lo cercano: nunca llegaba al enemigo y la partida no terminaba nunca.
  * Ahora se elige el objetivo por rentabilidad global y se camina hacia él turno
  * a turno con `stepTowards`.
+ *
+ * El Dijkstra llega hecho: lo lanza el llamante una sola vez y se lo pasa a
+ * esta función y a `stepTowards`, que antes hacían uno cada una **desde el
+ * mismo origen**. Esto queda como pura elección.
  */
-export function chooseHeroDestination(state: GameState, hero: Hero): Point | null {
+export function chooseHeroDestination(
+  state: GameState,
+  hero: Hero,
+  alcance: Reachable,
+): Point | null {
   let mejor: { at: Point; score: number } | null = null;
 
-  // Un solo Dijkstra por turno, sin tope: el objetivo puede estar lejos.
-  const costes = reachableCosts(state.map, hero.at, Infinity);
   const costeHasta = (p: Point): number | null => {
-    const c = costes.get(pointKey(p));
+    const c = alcance.costs.get(pointKey(p));
     return c === undefined || c === 0 ? null : c;
   };
 
@@ -155,17 +161,35 @@ function distanciaAprox(a: Point, b: Point): number {
 /**
  * Hasta dónde puede avanzar hoy el héroe camino de `destino`.
  * Devuelve `null` si no le llega ni para el primer paso.
+ *
+ * Retrocede por los predecesores que `reachableFrom` ya calculó en vez de
+ * relanzar un `findPath` desde el mismo origen: ese segundo recorrido era la
+ * mitad del pathfinding del mapa. Ir hacia atrás da lo mismo que ir hacia
+ * delante porque el coste crece ESTRICTAMENTE a lo largo de un camino mínimo
+ * —ningún paso vale 0—, así que el primer nodo que cabe en los puntos de
+ * movimiento viniendo del destino es el último que cabía viniendo del origen.
+ *
+ * Los tres `null` son los de `findPath`, uno a uno: el destino no está en el
+ * alcance (inalcanzable, o no pisable — `reachableFrom` no lo asienta), el
+ * destino es el origen (coste 0), y retroceder hasta el origen sin encontrar
+ * nada, que es no tener ni para el primer paso.
  */
-export function stepTowards(state: GameState, hero: Hero, destino: Point): Point | null {
-  const camino = findPath(state.map, hero.at, destino);
-  if (camino === null || camino.length === 0) return null;
+export function stepTowards(hero: Hero, destino: Point, alcance: Reachable): Point | null {
+  let at = destino;
+  let coste = alcance.costs.get(pointKey(destino));
+  if (coste === undefined || coste === 0) return null;
 
-  let ultimo: Point | null = null;
-  for (const paso of camino) {
-    if (paso.cost > hero.movePoints) break;
-    ultimo = paso.at;
+  while (coste > hero.movePoints) {
+    const anterior = alcance.prev.get(pointKey(at));
+    if (anterior === undefined) return null;
+    at = anterior;
+    const c = alcance.costs.get(pointKey(at));
+    if (c === undefined) throw new Error(`el alcance no sabe qué cuesta (${at.x},${at.y})`);
+    coste = c;
   }
-  return ultimo;
+
+  // Coste 0 es el origen y solo el origen: se retrocedió el camino entero.
+  return coste === 0 ? null : at;
 }
 
 /** Qué construir hoy: lo más caro que se pueda pagar, con las moradas primero. */

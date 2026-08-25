@@ -5,13 +5,14 @@ import {
   chooseHeroDestination,
   planBuildings,
   planRecruits,
+  stepTowards,
 } from '../src/core/ai/strategy.js';
 import { playAiGame, playAiTurn } from '../src/core/ai/turn.js';
 import { allSpells } from '../src/core/battle/spells.js';
 import { factionLineup } from '../src/core/data.js';
 import { learnable, maxMana, maxMovePoints, slowestSpeed } from '../src/core/hero/hero.js';
 import { buildMap, generateMapPlan, validateMapPlan } from '../src/core/map/generate.js';
-import { findPath, objectAt, pointKey } from '../src/core/map/map.js';
+import { findPath, objectAt, pointKey, reachableFrom } from '../src/core/map/map.js';
 import { createRng, parseSeed } from '../src/core/rng.js';
 import {
   applyAdventureAction,
@@ -36,7 +37,7 @@ import {
   type Town,
   townSpells,
 } from '../src/core/town/town.js';
-import type { Resources } from '../src/core/types.js';
+import type { Point, Resources } from '../src/core/types.js';
 import { forzarBatalla, monstruoVivo } from './helpers.js';
 
 const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
@@ -478,7 +479,77 @@ describe('IA de respaldo', () => {
       count: 30,
       defeated: false,
     });
-    expect(chooseHeroDestination(state, hero)).toBeNull();
+    const alcance = reachableFrom(state.map, hero.at, Infinity);
+    expect(chooseHeroDestination(state, hero, alcance)).toBeNull();
+  });
+
+  it('retroceder por los predecesores da el mismo paso que relanzar findPath (#55)', () => {
+    // El segundo recorrido del mapa era `stepTowards` relanzando un Dijkstra
+    // desde el mismo origen del que venía `chooseHeroDestination`. Aquí está
+    // escrito lo que hacía ANTES, y se compara paso a paso: si retroceder por
+    // `prev` divergiera en un solo par, la IA elegiría otra casilla y la
+    // partida entera cambiaría.
+    const state = newGame({ seed: 5 });
+    const hero = heroesOf(state, 0)[0]!;
+
+    /** `stepTowards` de antes: un `findPath` nuevo y el bucle hacia delante. */
+    const comoAntes = (desde: Point, destino: Point, puntos: number): Point | null => {
+      const camino = findPath(state.map, desde, destino);
+      if (camino === null || camino.length === 0) return null;
+      let ultimo: Point | null = null;
+      for (const paso of camino) {
+        if (paso.cost > puntos) break;
+        ultimo = paso.at;
+      }
+      return ultimo;
+    };
+
+    // Los destinos son objetos del mapa a propósito: minas, pueblos y
+    // monstruos BLOQUEAN el paso y solo valen como final de trayecto, que es
+    // justo donde los dos algoritmos podrían separarse — y es el caso normal
+    // de la IA, que va casi siempre a por uno de ellos.
+    const destinos = state.map.objects.slice(0, 10).map((o) => o.at);
+    expect(destinos).toHaveLength(10);
+
+    let alcanzados = 0;
+    let intermedios = 0;
+    for (const destino of destinos) {
+      for (const puntos of [180, 1500]) {
+        hero.movePoints = puntos;
+        const alcance = reachableFrom(state.map, hero.at, Infinity);
+        const ahora = stepTowards(hero, destino, alcance);
+        const antes = comoAntes(hero.at, destino, puntos);
+        expect(ahora, `destino (${destino.x},${destino.y}) con ${puntos} puntos`).toEqual(antes);
+        if (ahora === null) continue;
+        if (pointKey(ahora) === pointKey(destino)) alcanzados++;
+        else intermedios++;
+      }
+    }
+
+    // Sin esto los 20 pares pasarían con un `return null` a secas. Y hacen
+    // falta los dos: llegar al destino no ejercita el retroceso, y quedarse a
+    // medias no ejercita que el destino bloqueado se asiente.
+    expect(alcanzados).toBeGreaterThan(0);
+    expect(intermedios).toBeGreaterThan(0);
+  });
+
+  it('no se mueve a donde no le llega, ni cuando ya está allí', () => {
+    const state = newGame({ seed: 5 });
+    const hero = heroesOf(state, 0)[0]!;
+    const alcance = reachableFrom(state.map, hero.at, Infinity);
+
+    // Ya está allí: coste 0, y moverse a la propia casilla no es un paso.
+    expect(stepTowards(hero, hero.at, alcance)).toBeNull();
+
+    // Fuera del mapa: `reachableFrom` no lo asienta, así que no hay a dónde ir.
+    expect(stepTowards(hero, { x: -1, y: -1 }, alcance)).toBeNull();
+
+    // Sin puntos de movimiento no da ni para el primer paso, esté donde esté
+    // el destino. Con el bucle hacia delante esto era «ningún paso cabe»; con
+    // los predecesores es «se retrocedió hasta el origen».
+    const lejos = state.map.objects.find((o) => pointKey(o.at) !== pointKey(hero.at))!.at;
+    hero.movePoints = 0;
+    expect(stepTowards(hero, lejos, alcance)).toBeNull();
   });
 
   it('juega un turno completo sin romperse', async () => {

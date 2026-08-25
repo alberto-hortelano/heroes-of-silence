@@ -2,6 +2,7 @@
  * Juega un turno entero de un jugador con la IA de respaldo: construye,
  * recluta, mueve a sus héroes y resuelve las batallas que provoque.
  */
+import { reachableFrom } from '../map/map.js';
 import {
   applyAdventureAction,
   currentPlayer,
@@ -65,11 +66,17 @@ export async function playAiTurn(
       if (state.finished !== null) break;
       if (!state.heroes.includes(hero)) continue;
 
-      const destino = chooseHeroDestination(state, hero);
+      // El único Dijkstra del movimiento, y se ve dónde se hace. Sin tope,
+      // porque el objetivo puede estar a diez días de marcha. Alimenta a las
+      // dos decisiones: elegir a dónde ir, y hasta dónde llegar hoy — que
+      // antes recorrían el mapa una vez cada una desde el mismo origen.
+      const alcance = reachableFrom(state.map, hero.at, Infinity);
+
+      const destino = chooseHeroDestination(state, hero, alcance);
       if (destino === null) continue;
 
       // El objetivo puede estar a varios días: se avanza lo que dé el día.
-      const paso = stepTowards(state, hero, destino);
+      const paso = stepTowards(hero, destino, alcance);
       if (paso === null) continue;
 
       applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: paso }, ctx, player.id);
