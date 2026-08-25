@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Session } from '../src/client/session.js';
+import { renderSide } from '../src/client/views/panels.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import {
   activeStack,
@@ -26,7 +27,12 @@ import {
   effectTotal,
   tickEffects,
 } from '../src/core/battle/effects.js';
-import type { BattleHero, BattleStack, BattleState } from '../src/core/battle/types.js';
+import type {
+  BattleEvent,
+  BattleHero,
+  BattleStack,
+  BattleState,
+} from '../src/core/battle/types.js';
 import { creature } from '../src/core/data.js';
 import type { Rng } from '../src/core/rng.js';
 import { createRng } from '../src/core/rng.js';
@@ -904,5 +910,100 @@ describe('la IA espera en vez de plantarse (#24)', () => {
     // porque `legalActions` deja de ofrecerlo.
     stackById(state, 'attacker-0').waited = true;
     expect(chooseBattleAction(state)).toEqual({ type: 'defend' });
+  });
+});
+
+/**
+ * El parte de guerra, que es lo que lee la persona durante la batalla.
+ *
+ * Con los eventos puestos a mano, igual que la crónica del mapa en
+ * `cronica.test.ts`: lo que se afirma aquí es el COLOR, y hacen falta los seis
+ * casos —moral alta y baja, suerte buena y mala, el efecto que suma y el que
+ * resta, y el final ganado y perdido— que ninguna semilla da juntos.
+ *
+ * Y hacía falta: `renderBattleLog` no tenía ni una línea de test, y sus cuatro
+ * ternarios `win`/`lose` escritos a mano se cambiaron por el helper `clase()`
+ * sin nada que lo comprobara. El bando de quien lo lee lo DERIVA la sesión del
+ * dueño de la batalla, así que aquí el atacante es el jugador.
+ */
+describe('el parte de guerra pinta de quién es cada cosa', () => {
+  function parte(eventos: BattleEvent[]): string {
+    const session = new Session(71);
+    const battle = createBattle(
+      side([{ creature: 'champion', count: 10 }, null, null, null, null], hero()),
+      side([{ creature: 'zombie', count: 10 }, null, null, null, null]),
+      session.ctx.rng,
+    );
+    // El registro del despliegue estorba: lo que se mira son estas líneas.
+    battle.log.length = 0;
+    battle.log.push(...eventos);
+    session.state.pendingBattle = {
+      attackerHeroId: session.myHeroes()[0]!.id,
+      foe: { kind: 'monster', objectId: monstruoVivo(session.state).id },
+      battle,
+    };
+    session.scene = 'battle';
+    return renderSide(session);
+  }
+
+  it('la moral y la suerte se pintan por su signo', () => {
+    expect(parte([{ kind: 'morale', stack: 'attacker-0', good: true }])).toContain(
+      '<div class="win">Moral alta: turno extra</div>',
+    );
+    expect(parte([{ kind: 'morale', stack: 'attacker-0', good: false }])).toContain(
+      '<div class="lose">Moral baja: turno perdido</div>',
+    );
+    expect(parte([{ kind: 'luck', stack: 'attacker-0', good: true }])).toContain(
+      '<div class="win">¡Golpe afortunado!</div>',
+    );
+    expect(parte([{ kind: 'luck', stack: 'attacker-0', good: false }])).toContain(
+      '<div class="lose">Golpe desafortunado</div>',
+    );
+  });
+
+  it('un efecto se pinta por lo que suma o resta, no por quién lo puso', () => {
+    const prisa = parte([
+      {
+        kind: 'effect',
+        stack: 'attacker-0',
+        effect: 'speed',
+        amount: 2,
+        source: 'haste',
+        rounds: 3,
+      },
+    ]);
+    expect(prisa).toContain('<div class="win">Prisa: velocidad +2 durante 3 rondas</div>');
+
+    const miedo = parte([
+      {
+        kind: 'effect',
+        stack: 'attacker-0',
+        effect: 'attack',
+        amount: -2,
+        source: 'fear',
+        rounds: 1,
+      },
+    ]);
+    expect(miedo).toContain('<div class="lose">Terror: ataque -2 durante 1 ronda</div>');
+  });
+
+  it('el final se pinta desde el bando de quien lee, no desde el atacante', () => {
+    // Es el mismo error que el ciclo de #29 le quitó al servidor: dar por hecho
+    // que quien lee es el atacante le canta «Victoria» a quien acaba de perder.
+    expect(parte([{ kind: 'finished', winner: 'attacker' }])).toContain(
+      '<div class="win">Fin: gana el atacante</div>',
+    );
+    expect(parte([{ kind: 'finished', winner: 'defender' }])).toContain(
+      '<div class="lose">Fin: gana el defensor</div>',
+    );
+  });
+
+  it('una línea sin color no lleva un `class` vacío colgando', () => {
+    // `clase()` devuelve el atributo ENTERO o nada, en vez de rellenar un
+    // `class="…"` que ya estaba escrito. Por eso el parte de quien no lleva
+    // ninguno de los dos bandos deja de emitir `<div class="">` en su línea
+    // de final, que es lo único que este cambio movió en pantalla.
+    expect(parte([{ kind: 'round_start', round: 2 }])).toContain('<div>— Ronda 2 —</div>');
+    expect(parte([{ kind: 'round_start', round: 2 }])).not.toContain('class=""');
   });
 });

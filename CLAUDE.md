@@ -11,8 +11,8 @@ El juego es el andamio; lo interesante es lo que se puede enchufar dentro.
 ```bash
 pnpm install
 pnpm dev        # cliente en http://localhost:3100 (juego local contra la IA de reglas)
-pnpm verify     # typecheck + lint + 226 tests, 6,5 s: el bucle rápido
-pnpm test       # 226 tests: reglas, batalla, partida completa y contrato del agente
+pnpm verify     # typecheck + lint + 230 tests, 6,5 s: el bucle rápido
+pnpm test       # 230 tests: reglas, batalla, partida completa y contrato del agente
 pnpm typecheck
 pnpm lint       # Biome: formato y lint en una sola pasada, 40 ms
 pnpm format     # lo mismo, arreglando lo que sepa arreglar
