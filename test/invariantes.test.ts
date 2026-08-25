@@ -2,15 +2,15 @@
  * Las fronteras de `CLAUDE.md`, comprobadas.
  *
  * Un contrato que solo vive en la documentación se rompe sin que nadie se
- * entere; aquí se rompe en rojo. Son diez guardias: seis leen el código con
+ * entere; aquí se rompe en rojo. Son once guardias: siete leen el código con
  * una expresión regular, uno recorre el catálogo de rasgos, el de efectos
- * temporales llama de verdad a los lectores del motor, el noveno recorre todo
+ * temporales llama de verdad a los lectores del motor, el décimo recorre todo
  * el repo —menos la prosa y los binarios— buscando la ruta de esta máquina y el
- * décimo juega una partida y le da a la crónica un viaje de ida y vuelta por
- * `JSON`. Cuestan milisegundos —el décimo, 200— así que caben en cada
+ * undécimo juega una partida y le da a la crónica un viaje de ida y vuelta por
+ * `JSON`. Cuestan milisegundos —el undécimo, 200— así que caben en cada
  * `pnpm test` sin frenar a nadie.
  *
- * Los diez nacen en verde. Un guardia que nace rojo se ignora desde el primer
+ * Los once nacen en verde. Un guardia que nace rojo se ignora desde el primer
  * día — y uno que nace verde sin comprobar que MUERDE no guarda nada: el de la
  * frontera con el servidor se probó metiendo un `import` del director en
  * `src/core/ai/turn.ts`, viéndolo rojo y quitándolo. Se volvió a probar con la
@@ -21,7 +21,10 @@
  * miró `git ls-files` a secas. Y una tercera vez con los NUEVE ficheros que se
  * le colaban por mirar una lista blanca de extensiones (`.js`, `.mjs`, `.cjs`,
  * `.tsx`, `.toml`, `.envrc`, un ejecutable sin extensión, y un `.json` con las
- * barras escapadas), que es lo que invirtió la lista.
+ * barras escapadas), que es lo que invirtió la lista. Y el del candado de la
+ * crónica se rompió copiando el `as GameEvent[]` de `game.ts` a
+ * `serialize.ts`, que es justo el sitio al que se copiaría de verdad: cazado
+ * con el fichero y la línea, y retirada la sonda antes de darlo por bueno.
  */
 import { execFileSync } from 'node:child_process';
 import { closeSync, openSync, readdirSync, readFileSync, readSync, statSync } from 'node:fs';
@@ -334,6 +337,25 @@ describe('invariantes del proyecto', () => {
     expect(infractores(ficherosDeMaquina(), patron)).toEqual([]);
   });
 
+  it('la crónica se escribe por un solo sitio: el `as` que abre el candado', () => {
+    // `state.log` es de solo lectura, así que escribir en él exige un `as`
+    // VISIBLE, y esa es toda la fuerza del candado. Pero `emit` no está
+    // exportada: el día que una regla salga de `game.ts`, la salida fácil no es
+    // exportarla, es copiar el cast — y con él se pierden de golpe el
+    // protagonista, el sitio y el sello, que es el bug que este ciclo cerró.
+    //
+    // Busca el CAST y no el `.push`, que es lo que el propio `GameState`
+    // documenta que no se puede buscar: un `log.push` es indistinguible del
+    // canal de `battle.ts`, que es otro tipo y otro registro. Un `.log as` no.
+    // Se le deja pasar `as const`, que no abre nada.
+    //
+    // El LÍMITE, declarado para que nadie lo herede creyendo que ve más: mira
+    // el código que se publica —`core`, cliente y servidor— y no los tests, que
+    // no llevan reglas dentro.
+    const fuera = [...CORE, ...CLIENTE, ...SERVIDOR].filter((r) => r !== 'src/core/state/game.ts');
+    expect(infractores(fuera, /\.log\s+as\s+(?!const\b)/)).toEqual([]);
+  });
+
   it('la crónica sobrevive a un JSON de ida y vuelta', async () => {
     // El sello de cada evento —quién lo estaba mirando— es una colección por
     // evento, y #10 (guardar y cargar) ya avisa de lo que pasa con esas:
@@ -351,10 +373,13 @@ describe('invariantes del proyecto', () => {
     // antes de darlo por bueno, que es la regla de la casa: un guardia que
     // nunca se ha visto morder no guarda nada.
     //
-    // La semilla 9 es la que más variedad da en 20 días: 261 eventos de 16 de
-    // los 17 tipos, 224 de ellos con el sello puesto. La cuenta de tipos está
-    // afirmada porque es lo que hace que «261 eventos» signifique algo — un log
-    // largo de `hero_moved` no probaría casi nada.
+    // La semilla 9 es la que más variedad da en 20 días: 261 eventos de los
+    // dieciséis tipos —los dieciséis, ni uno se queda fuera—, 224 de ellos con
+    // el sello puesto. La cuenta de tipos está afirmada porque es lo que hace
+    // que «261 eventos» signifique algo —un log largo de `hero_moved` no
+    // probaría casi nada—, y se deja con holgura de uno para que un cambio de
+    // la IA que deje algo sin salir no ponga rojo a este guardia, que va de
+    // otra cosa. Antes decía «16 de los 17» y los tipos son dieciséis.
     const state = newGame({ seed: 9 });
     await playAiGame(state, { rng: createRng(9) }, 20);
     expect(state.log.length).toBeGreaterThan(200);

@@ -65,7 +65,7 @@ type Sello = {
   readonly seen: readonly PlayerId[];
 };
 
-/** Los diecisiete hechos, sin protagonista todavía. */
+/** Los dieciséis hechos, sin protagonista todavía. */
 type Cuerpo =
   | { kind: 'day_start'; day: number; week: number }
   | { kind: 'turn_start' }
@@ -87,8 +87,14 @@ type Cuerpo =
 /** Lo que escribe quien aplica la regla: el hecho, con su protagonista y su sitio. */
 export type GameEventDraft = Con<Cuerpo, Origen>;
 
-/** Lo que se guarda en `state.log`: el borrador, ya sellado por `emit`. */
-export type GameEvent = Con<GameEventDraft, Sello>;
+/**
+ * Lo que se guarda en `state.log`: el borrador, ya sellado por `emit`.
+ *
+ * Se distribuye UNA vez sobre `Cuerpo` y no dos. `Con<GameEventDraft, Sello>`
+ * daba exactamente lo mismo volviendo a recorrer la unión entera, y `Con` viene
+ * con ocho líneas de docstring justo porque es delicado.
+ */
+export type GameEvent = Con<Cuerpo, Origen & Sello>;
 
 /**
  * Si a `p` le consta ese hecho. **La única función que lo decide.**
@@ -96,8 +102,16 @@ export type GameEvent = Con<GameEventDraft, Sello>;
  * Ni el contrato del agente ni la pantalla reimplementan esto: la leen. Y el
  * `switch` es exhaustivo y **no tiene `default`** a propósito — un `kind` nuevo
  * sin reparto no compila, en vez de colarse por la rama de abajo con la
- * respuesta que tocara. Ese es el motivo entero de que sea un `switch` largo y
- * no una tabla.
+ * respuesta que tocara.
+ *
+ * Eso no es, en cambio, el motivo de que sea un `switch` y no una tabla, que es
+ * lo que decía aquí antes: está comprobado que una tabla
+ * `Record<E['kind'], Politica>` obliga exactamente igual —`TS2741: Property …
+ * is missing`—. El motivo real es el **estrechamiento**: dentro de la cláusula
+ * de `town_captured` el tipo ya es esa variante, y por eso se puede leer
+ * `e.from`, que una tabla indexada por `kind` no tendría delante. En este
+ * repositorio el comentario ES el documento de diseño, y uno que enseña algo
+ * falso al siguiente que dude entre tabla y `switch` cuesta más que ninguno.
  *
  * Tres reglas, en orden:
  *
@@ -147,4 +161,55 @@ export function visibleTo(e: GameEvent, p: PlayerId): boolean {
     case 'hero_defeated':
       return e.actor === p || e.seen.includes(p);
   }
+}
+
+/**
+ * El hecho como se cuenta fuera: sin el sello.
+ *
+ * Quién MÁS estaba mirando es contabilidad de casa. Decírselo a alguien es una
+ * fuga por la puerta de al lado, y este ciclo la dejó abierta en el mensaje del
+ * espectador después de cerrarla en el del agente: por eso el borrado se
+ * escribe aquí una vez y no en cada salida.
+ */
+export function sinSello(e: GameEvent): GameEventDraft {
+  const { seen: _seen, ...resto } = e;
+  return resto;
+}
+
+/**
+ * La crónica que le consta a `player`, lista para entregar: los `n` hechos más
+ * recientes que pasan la niebla, en orden y sin el sello.
+ *
+ * `visibleTo` estaba exportada y documentada como la única que decide, pero la
+ * COMPOSICIÓN no: vivía como tres eslabones encadenados en el consumidor, y las
+ * dos reglas que no son `visibleTo` —filtrar ANTES de cortar, y borrar el
+ * sello— las sostenía un comentario. El error del que avisa es real y
+ * silencioso: cortando primero, la ventana del agente encoge de 25 a 18
+ * —medido— y no lo nota ningún test que no cuente los eventos que llegan. Con
+ * un segundo llamante ya a la vista (#34, el espectador), la regla se escribe
+ * una vez.
+ *
+ * Recorre el log desde el FINAL y para al llegar a `n`, en vez de filtrarlo
+ * entero para quedarse con la cola. Es la misma semántica —el filtro sigue
+ * yendo antes que el corte— y con logs de verdad (≤359 eventos) el ahorro son
+ * ~8 µs por llamada, o sea nada: se escribe así porque es lo que se quiere
+ * decir, no porque se note.
+ *
+ * Toma el estado por su FORMA y no por el tipo `GameState`: este módulo no
+ * importa a `game.ts` —es todo el motivo de que viva aparte— y de lo único que
+ * depende aquí es del log.
+ */
+export function cronicaPara(
+  state: { readonly log: readonly GameEvent[] },
+  player: PlayerId,
+  n: number,
+): GameEventDraft[] {
+  const cronica: GameEventDraft[] = [];
+  for (let i = state.log.length - 1; i >= 0 && cronica.length < n; i--) {
+    // El `!` y no un `as`: el índice está acotado por el propio bucle, y en
+    // este módulo el `as` sobre un log es justo lo que vigila un invariante.
+    const e = state.log[i]!;
+    if (visibleTo(e, player)) cronica.push(sinSello(e));
+  }
+  return cronica.reverse();
 }

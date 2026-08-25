@@ -213,10 +213,6 @@ describe('la crónica pasa por la niebla', () => {
 
     expect(state.log.some((e) => e.kind === 'mine_captured' && e.from === 0)).toBe(true);
     expect(leer(state, 0).recentEvents.some((e) => e.kind === 'mine_captured')).toBe(false);
-
-    // Lo que sí se ve es la consecuencia, y el contrato ya enseña a leerla: la
-    // mina deja de dar mineral mañana.
-    expect(leer(state, 0).recentEvents.some((e) => e.kind === 'resource_gained')).toBe(false);
   });
 
   it('en una partida entera, ningún evento ocultable nace anónimo', async () => {

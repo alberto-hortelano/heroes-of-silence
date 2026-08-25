@@ -9,6 +9,7 @@
 
 import { creature } from '@core/data.js';
 import { parseSeed } from '@core/rng.js';
+import { sinSello } from '@core/state/events.js';
 import { type WebSocket, WebSocketServer } from 'ws';
 import { AgentLink } from './agent-link.js';
 import { responderConsulta } from './consultas.js';
@@ -94,7 +95,11 @@ function broadcast(): void {
         buildings: t.buildings,
         garrison: t.garrison,
       })),
-      log: state.log.slice(-40),
+      // Sin el sello: el espectador ve la partida entera —eso es lo que es—
+      // pero quién MÁS estaba mirando cada casilla es contabilidad de casa, y
+      // salía entera por aquí mientras el mensaje del agente la borraba a
+      // propósito dos ficheros más allá.
+      log: state.log.slice(-40).map(sinSello),
       directorLog: director.log.slice(-20),
     },
   };

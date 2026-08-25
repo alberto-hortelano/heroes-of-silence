@@ -11,8 +11,8 @@ El juego es el andamio; lo interesante es lo que se puede enchufar dentro.
 ```bash
 pnpm install
 pnpm dev        # cliente en http://localhost:3100 (juego local contra la IA de reglas)
-pnpm verify     # typecheck + lint + 208 tests, 6,5 s: el bucle rápido
-pnpm test       # 208 tests: reglas, batalla, partida completa y contrato del agente
+pnpm verify     # typecheck + lint + 226 tests, 6,5 s: el bucle rápido
+pnpm test       # 226 tests: reglas, batalla, partida completa y contrato del agente
 pnpm typecheck
 pnpm lint       # Biome: formato y lint en una sola pasada, 40 ms
 pnpm format     # lo mismo, arreglando lo que sepa arreglar
@@ -372,16 +372,26 @@ puerta del cliente al núcleo, `FAL_KEY` fuera del navegador, que **ningún
 rasgo de `CREATURE_TRAITS` esté declarado y muerto** —cuatro lo estuvieron—,
 que **cada `EffectKind` tenga un lector vivo**, que **`core` no importe
 `src/server`**, que **ningún fichero que una máquina ejecuta o lee lleve dentro
-la ruta absoluta de esta máquina** y que **la crónica sobreviva a un `JSON` de
-ida y vuelta**. Todos nacen en verde: un guardia que nace rojo se ignora desde
+la ruta absoluta de esta máquina**, que **la crónica sobreviva a un `JSON` de
+ida y vuelta** y que **el `as` que abre el candado de `state.log` viva en un
+solo sitio**. Todos nacen en verde: un guardia que nace rojo se ignora desde
 el primer día.
 
-El del `JSON` juega 20 días con la semilla 9 —261 eventos de 16 tipos, 224 con
-sello— y compara `state.log` con su ida y vuelta. Existe porque el sello de cada
-evento (`seen`: quién lo estaba mirando) es una colección por evento, y #10 ya
-avisa de que `JSON.stringify` deja un `Set` en `{}` sin decir nada: el día que
-exista guardar y cargar, la crónica volvería del disco convertida en un montón
-de eventos anónimos otra vez. Mira `state.log` y **no `state`**, porque
+El del candado busca el **cast** y no el `.push`, que es lo que el propio
+`GameState` documenta que no se puede buscar: un `log.push` es indistinguible
+del canal de `battle.ts`, que es otro tipo y otro registro. `state.log` es de
+solo lectura, así que escribir en él exige un `as` visible, y `emit` —el único
+que lo hace— no está exportada: el día que una regla salga de `game.ts`, la
+salida fácil no es exportarla, es copiar el cast, y con él se pierden de golpe
+el protagonista, el sitio y el sello. Se rompió a mano copiando ese `as` a
+`serialize.ts`, se miró rojo con el fichero y la línea, y se retiró la sonda.
+
+El del `JSON` juega 20 días con la semilla 9 —261 eventos de los dieciséis
+tipos, 224 con sello— y compara `state.log` con su ida y vuelta. Existe porque
+el sello de cada evento (`seen`: quién lo estaba mirando) es una colección por
+evento, y #10 ya avisa de que `JSON.stringify` deja un `Set` en `{}` sin decir
+nada: el día que exista guardar y cargar, la crónica volvería del disco
+convertida en un montón de eventos anónimos otra vez. Mira `state.log` y **no `state`**, porque
 `Player.fog` es un `Set` y nacería rojo por algo que no es su asunto. Se rompió
 a mano pasando `seen` a `Set<PlayerId>` y se miró rojo antes de darlo por bueno.
 
