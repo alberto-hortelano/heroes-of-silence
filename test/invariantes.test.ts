@@ -25,6 +25,10 @@
  * crónica se rompió copiando el `as GameEvent[]` de `game.ts` a
  * `serialize.ts`, que es justo el sitio al que se copiaría de verdad: cazado
  * con el fichero y la línea, y retirada la sonda antes de darlo por bueno.
+ * Ese último **no bastaba**: miraba una sola puerta y QA se coló por la de al
+ * lado —castear el ESTADO en vez del log— con `tsc`, Biome y los 235 tests en
+ * verde. Ahora mira cuatro y las cuatro se han roto a mano, una a una, y se
+ * han visto rojas con su nombre delante.
  */
 import { execFileSync } from 'node:child_process';
 import { closeSync, openSync, readdirSync, readFileSync, readSync, statSync } from 'node:fs';
@@ -337,7 +341,7 @@ describe('invariantes del proyecto', () => {
     expect(infractores(ficherosDeMaquina(), patron)).toEqual([]);
   });
 
-  it('la crónica se escribe por un solo sitio: el `as` que abre el candado', () => {
+  it('la crónica se escribe por un solo sitio: los `as` que abren el candado', () => {
     // `state.log` es de solo lectura, así que escribir en él exige un `as`
     // VISIBLE, y esa es toda la fuerza del candado. Pero `emit` no está
     // exportada: el día que una regla salga de `game.ts`, la salida fácil no es
@@ -346,14 +350,45 @@ describe('invariantes del proyecto', () => {
     //
     // Busca el CAST y no el `.push`, que es lo que el propio `GameState`
     // documenta que no se puede buscar: un `log.push` es indistinguible del
-    // canal de `battle.ts`, que es otro tipo y otro registro. Un `.log as` no.
-    // Se le deja pasar `as const`, que no abre nada.
+    // canal de `battle.ts`, que es otro tipo y otro registro. Un `as` no.
     //
-    // El LÍMITE, declarado para que nadie lo herede creyendo que ve más: mira
-    // el código que se publica —`core`, cliente y servidor— y no los tests, que
-    // no llevan reglas dentro.
+    // Y busca CUATRO, no uno. Nació mirando solo la primera puerta —el cast
+    // sobre el log— y QA se coló por la segunda con
+    //
+    //     (state as unknown as { log: unknown[] }).log.push({ kind: 'sonda' });
+    //
+    // en `serializeAdventureTurn`: `tsc` rc=0, Biome limpio y los 235 tests
+    // verdes. No hace falta castear el log si casteas lo que lo lleva dentro.
+    // Es la misma lección que costó tres ciclos con el guardia de `node:`, que
+    // nació ciego a `import 'node:fs';` sin `from`: un guardia hay que verlo
+    // morder por TODAS sus puertas, no por la que se le ocurrió a quien lo
+    // escribió. Las cuatro se han roto a mano, una a una, y vistas rojas.
+    //
+    // El LÍMITE, declarado para que nadie lo herede creyendo que ve más. Dos
+    // cosas. La primera: mira el código que se publica —`core`, cliente y
+    // servidor— y no los tests, que no llevan reglas dentro. La segunda:
+    // `infractores` va LÍNEA a línea, así que un cast repartido en varias
+    // —`const escritura = state as unknown as {` y el `log:` en la siguiente—
+    // se le escapa a las puertas 2 y 3; lo que lo tapa es la 4, porque para
+    // partir así un cast hace falta escribirlo largo, y el atajo corto de
+    // verdad es `as any`.
     const fuera = [...CORE, ...CLIENTE, ...SERVIDOR].filter((r) => r !== 'src/core/state/game.ts');
-    expect(infractores(fuera, /\.log\s+as\s+(?!const\b)/)).toEqual([]);
+    const puertas: readonly (readonly [string, RegExp])[] = [
+      // 1 · el log casteado a algo escribible. `as const` pasa: no abre nada.
+      ['el log casteado', /\.log\s+as\s+(?!const\b)/],
+      // 2 · casteas el ESTADO y lees `.log` de lo que sale. La de QA.
+      ['un cast del que se saca `.log`', /\bas\b[^;\n]*\)\s*\.log\b/],
+      // 3 · la misma, con el tipo escrito ahí mismo: sirve aunque el `.log` se
+      //     lea tres líneas más abajo, que es lo que la 2 no alcanza.
+      ['un cast a un tipo que redeclara `log`', /\bas\b[^;\n]*\blog\s*\??\s*:/],
+      // 4 · el cheque en blanco. No se puede acotar a lo que abre —abre todo—,
+      //     así que se prohíbe entero; hoy no hay ni uno en el código publicado.
+      ['un `as any`, que abre esa puerta y todas', /\bas\s+any\b/],
+    ];
+    const colados = puertas.flatMap(([puerta, patron]) =>
+      infractores(fuera, patron).map((donde) => `[${puerta}] ${donde}`),
+    );
+    expect(colados).toEqual([]);
   });
 
   it('la crónica sobrevive a un JSON de ida y vuelta', async () => {
