@@ -103,11 +103,20 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   la partida —mediana 7 → 17 días— porque quien pisa el freno es la materia
  *   prima, que llega con la palanca de las minas: es el estado intermedio que
  *   el plan predijo, no el destino.
+ * - `cf7b8d3b…` (26 444 líneas): las minas de los siete recursos, cuarta y
+ *   última palanca. Aquí el primer hecho distinto ya **no** es `built` sino
+ *   `hero_moved` (173/200), `resource_gained` (21) y `mine_captured` (3), que
+ *   es lo que predice añadir objetos al mapa: la ruta del héroe cambia antes
+ *   que lo que se construye. **146 de las 200 partidas se acortan** y solo 16
+ *   se alargan. Cierre del ciclo, contra el suelo `299b1a7c…` de antes: mediana
+ *   7 → **6** días, p90 8 → 7, máximo 22 → 20; 200/200 con ganador y 0 sin
+ *   terminar; `dwelling_5` 0 → **52/200** y `dwelling_6` 0 → **10/200**. Las
+ *   1 962 líneas de menos son partidas más cortas, no crónica perdida.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: 'f0eee7c355a75382df710b7165174b6e9532d93fbe9e8c069643d0b5b4bfa740',
+  sha: 'cf7b8d3b5129aa99b0fec66c956a508d26c1055396f2b6aa8721c94589b233f6',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

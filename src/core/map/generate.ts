@@ -282,18 +282,63 @@ export function generateMapPlan(rng: Rng, opts: ProceduralOptions = {}): MapPlan
     },
   ];
 
-  // Una mina de cada recurso por bando, en espejo.
-  const recursosMina: ResourceKind[] = ['gold', 'wood', 'ore', 'crystal'];
-  const mines: MapPlan['mines'] = recursosMina.flatMap((resource, i) => {
-    const a: Point = { x: 2 + i * 2, y: 7 };
-    const b: Point = { x: width - 3 - i * 2, y: height - 8 };
-    tomar(a);
-    tomar(b);
-    return [
-      { at: a, resource },
-      { at: b, resource },
-    ];
-  });
+  // Minas de los siete recursos, dos de cada por bando y en espejo.
+  //
+  // Decía `['gold', 'wood', 'ore', 'crystal']`, así que **no existía una sola
+  // mina de gemas, mercurio ni azufre en ningún mapa**. Con eso, seis
+  // edificios que los piden —las dos moradas de nivel 6, `knight_upgrade_6`,
+  // `necromancer_upgrade_4/5` y `mage_guild_2`— eran inalcanzables durase lo
+  // que durase la partida: la otra fuente son los montones sueltos, y la IA
+  // recoge una mediana de 0 en toda la partida.
+  //
+  // La lista sigue escrita y no se deriva de `RESOURCE_KINDS` porque el ORDEN
+  // fija en qué columna cae cada mina: derivarla movía el oro de la columna 2
+  // a la 14 —del lado de casa al centro del mapa— y eso solo, sin cambiar
+  // ninguna otra cifra, dejaba una partida sin terminar de 200. Las cuatro que
+  // ya existían se quedan donde estaban y las tres nuevas continúan la fila.
+  // Que no vuelva a quedarse corta lo vigila un test contra `RESOURCE_KINDS`,
+  // que es donde ese guardia sirve de algo: aquí sería tautológico.
+  //
+  // Dos por recurso es la única cifra de este ciclo que no tiene fuente en el
+  // original —HoMM2 no tiene generador de mapas— y se fija midiendo, con las
+  // otras tres palancas puestas y 400 semillas del barrido: con **una** queda
+  // 1 partida sin terminar (la 43) y con **dos**, ninguna. Con **tres** el
+  // barrido sigue limpio pero la victoria se da la vuelta —el caballero pasa
+  // de ganar 184 de 200 a 69— y la mediana vuelve a subir a 7 días.
+  //
+  // `b` es el espejo exacto de `a`, casilla a casilla, porque si un bando nace
+  // con una mina de gemas a mano y el otro no, la partida la decide el
+  // generador y no quien juega.
+  const MINAS_POR_RECURSO = 2;
+  const recursosMina: readonly ResourceKind[] = [
+    'gold',
+    'wood',
+    'ore',
+    'crystal',
+    'gems',
+    'mercury',
+    'sulfur',
+  ];
+  const mines: { at: Point; resource: ResourceKind }[] = [];
+  for (const [i, resource] of recursosMina.entries()) {
+    for (let k = 0; k < MINAS_POR_RECURSO; k++) {
+      const a: Point = { x: 2 + i * 2, y: 7 + k * 2 };
+      const b: Point = { x: width - 3 - i * 2, y: height - 8 - k * 2 };
+      // Y aquí SÍ se mira lo que devuelve `tomar`. Con cuatro recursos en una
+      // sola fila la colisión era imposible y el `boolean` se tiraba; con
+      // catorce minas por bando deja de serlo, y sin esto la segunda mina de
+      // una casilla se perdería en silencio hasta salir mucho después como un
+      // `validateMapPlan` que no señala a nadie.
+      for (const p of [a, b]) {
+        if (!tomar(p)) {
+          throw new Error(
+            `no se puede colocar la mina de ${resource}: (${p.x},${p.y}) ya está ocupada`,
+          );
+        }
+      }
+      mines.push({ at: a, resource }, { at: b, resource });
+    }
+  }
 
   const monstruosPosibles = ['peasant', 'skeleton', 'zombie', 'archer', 'pikeman', 'mummy'];
   const monsters = Array.from({ length: opts.monsterCount ?? 8 }, () => {

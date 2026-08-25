@@ -48,7 +48,7 @@ import {
   type Town,
   townSpells,
 } from '../src/core/town/town.js';
-import type { Point, Resources } from '../src/core/types.js';
+import { type Point, RESOURCE_KINDS, type Resources } from '../src/core/types.js';
 import { forzarBatalla, monstruoVivo } from './helpers.js';
 
 const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
@@ -166,6 +166,57 @@ describe('generación de mapas', () => {
     expect(map.objects.filter((o) => o.kind === 'monster')).toHaveLength(plan.monsters.length);
     expect(map.objects.filter((o) => o.kind === 'mine')).toHaveLength(plan.mines.length);
     for (const mina of plan.mines) expect(objectAt(map, mina.at)).toBeDefined();
+  });
+
+  it('el generador reparte minas de los siete recursos, y en espejo exacto (#68)', () => {
+    // La mitad de #68: `recursosMina` tenía cuatro entradas, así que NO existía
+    // una sola mina de gemas, mercurio ni azufre en ningún mapa — y seis
+    // edificios que los piden eran inalcanzables durase lo que durase la
+    // partida. Los montones sueltos no cuentan: la IA recoge una mediana de 0
+    // en toda una partida.
+    //
+    // Sigue siendo una lista escrita, porque su ORDEN coloca las minas; este
+    // test es el guardia de que no vuelva a quedarse corta, y por eso recorre
+    // `RESOURCE_KINDS` y no la lista del generador: comparar la lista consigo
+    // misma no probaría nada.
+    //
+    // El espejo es la otra mitad y es lo que hace que la simetría sea una
+    // aserción y no una intención: si un bando naciera con una mina de gemas a
+    // mano y el otro no, la partida la decidiría el generador. La distancia
+    // inicial no varía con la semilla, así que se puede comprobar de verdad.
+    for (let semilla = 1; semilla <= 20; semilla++) {
+      const plan = generateMapPlan(createRng(semilla));
+      const conMina = new Set(plan.mines.map((m) => m.resource));
+      for (const recurso of RESOURCE_KINDS) {
+        expect(conMina.has(recurso), `la semilla ${semilla} no reparte minas de ${recurso}`).toBe(
+          true,
+        );
+      }
+
+      const donde = new Set(plan.mines.map((m) => `${m.resource}@${m.at.x},${m.at.y}`));
+      for (const m of plan.mines) {
+        const espejo = `${m.resource}@${plan.width - 1 - m.at.x},${plan.height - 1 - m.at.y}`;
+        expect(
+          donde.has(espejo),
+          `la mina de ${m.resource} en (${m.at.x},${m.at.y}) no tiene espejo`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it('dos minas en la misma casilla se dicen, no se pierden', () => {
+    // El bloque de minas tiraba el `boolean` de `tomar()`. Con cuatro recursos
+    // en una sola fila la colisión era imposible; con catorce minas por bando
+    // deja de serlo, y una perdida en silencio saldría mucho después como un
+    // `validateMapPlan` que no señala a nadie.
+    //
+    // 25×17 es el caso: con 17 de alto la fila de abajo (`height-8`) cae
+    // encima de la de arriba, y con un ancho IMPAR las columnas de los dos
+    // bandos coinciden en paridad. El mensaje trae el recurso y la casilla,
+    // que es lo que hace falta para arreglarlo.
+    expect(() => generateMapPlan(createRng(1), { width: 25, height: 17 })).toThrow(
+      'no se puede colocar la mina de mercury: (12,9) ya está ocupada',
+    );
   });
 });
 
