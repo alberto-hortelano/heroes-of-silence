@@ -37,7 +37,7 @@ import {
   week,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
-import { buildingsOfFaction } from '../src/core/town/buildings.js';
+import { building, buildingsOfFaction } from '../src/core/town/buildings.js';
 import {
   applyWeeklyGrowth,
   availableBuildings,
@@ -740,6 +740,96 @@ describe('catálogo de edificios por facción', () => {
     }
     return dias;
   };
+
+  // ------------------------------------------- el coste sale de fheroes2 (#66)
+
+  it('las cuatro filas donde muerde el original valen lo que valen allí', () => {
+    // Las cuatro que separan «coste copiado» de «coste inventado». Fuente:
+    // `_buildingStats` de `buildinginfo.cpp` (ihhub/fheroes2), filas Race::KNGT
+    // y Race::NECR sobre `Cost {gold, wood, mercury, ore, sulfur, crystal,
+    // gems}`. Antes eran 10w+10o+5cr, 20w+20o+10ge, 20o+5ge y 30o+15ge: más
+    // materia prima de la que el mapa reparte en toda la partida, y por eso
+    // `dwelling_5` se construía en 0 de 200 semillas.
+    expect(building('knight_dwelling_5').cost).toEqual({ gold: 3000, wood: 20 });
+    expect(building('knight_dwelling_6').cost).toEqual({ gold: 5000, wood: 20, crystal: 20 });
+    expect(building('necromancer_dwelling_5').cost).toEqual({ gold: 4000, wood: 10, sulfur: 10 });
+    expect(building('necromancer_dwelling_6').cost).toEqual({
+      gold: 10000,
+      wood: 10,
+      ore: 10,
+      crystal: 5,
+      gems: 5,
+      mercury: 5,
+      sulfur: 5,
+    });
+  });
+
+  it('ninguna morada de nivel 1 a 4 pide un recurso raro, en ninguna facción', () => {
+    // Regla del original y no cuatro filas sueltas: allí el mercurio, el
+    // azufre, el cristal y las gemas no aparecen hasta el nivel 5. Aquí el
+    // cristal mordía en la morada 5 del caballero y las gemas en la 5 del
+    // nigromante, que son los dos recursos que el generador tardaba más en
+    // repartir. Si mañana alguien vuelve a escribir un raro en la mitad baja de
+    // la cadena, salta esto.
+    const RAROS = ['mercury', 'sulfur', 'crystal', 'gems'] as const;
+    for (const faction of ['knight', 'necromancer'] as const) {
+      for (const b of buildingsOfFaction(faction)) {
+        if (b.dwellingLevel === undefined || b.dwellingLevel > 4) continue;
+        for (const raro of RAROS) {
+          expect(b.cost[raro] ?? 0, `${b.id} pide ${raro} y es de nivel ${b.dwellingLevel}`).toBe(
+            0,
+          );
+        }
+      }
+    }
+  });
+
+  it('el dragón óseo se paga: seis materiales, y sin azufre se dice cuál falta', () => {
+    // La fila más cara del catálogo y la única que pide los seis materiales a
+    // la vez, así que es la que solo se desbloquea con las dos mitades del
+    // ciclo puestas: el coste de fheroes2 Y minas de azufre, mercurio y gemas
+    // en el mapa. Aquí se comprueba la mitad del coste; la del mapa, en
+    // «el generador reparte minas de los siete recursos».
+    const cripta = pueblo('necromancer');
+    levantar(cripta, [
+      'necromancer_dwelling_2',
+      'necromancer_dwelling_3',
+      'necromancer_dwelling_4',
+      'necromancer_dwelling_5',
+      'castle',
+    ]);
+
+    const justo: Resources = { ...building('necromancer_dwelling_6').cost } as Resources;
+    const bolsa: Resources = {
+      wood: 0,
+      mercury: 0,
+      ore: 0,
+      sulfur: 0,
+      crystal: 0,
+      gems: 0,
+      gold: 0,
+    };
+    const exacta = { ...bolsa, ...justo };
+
+    cripta.builtToday = false;
+    expect(build(cripta, 'necromancer_dwelling_6', exacta)).toEqual(bolsa);
+    expect(cripta.available.bone_dragon).toBeGreaterThan(0);
+
+    // Y con la misma bolsa menos el azufre, el motivo se escribe para la
+    // persona en vez de dejar el botón muerto sin decir por qué.
+    const otra = pueblo('necromancer');
+    levantar(otra, [
+      'necromancer_dwelling_2',
+      'necromancer_dwelling_3',
+      'necromancer_dwelling_4',
+      'necromancer_dwelling_5',
+      'castle',
+    ]);
+    otra.builtToday = false;
+    expect(buildBlocker(otra, 'necromancer_dwelling_6', { ...exacta, sulfur: 0 })).toBe(
+      'recursos insuficientes',
+    );
+  });
 
   // ------------------------------------------------------------------- #46
 

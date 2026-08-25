@@ -95,11 +95,19 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   hecho distinto es `built` en 200 de 200**, porque la economía entra por el
  *   castillo y por ningún otro sitio. `knight_dwelling_4` pasa de 8/200 a
  *   **200/200** y `mage_guild_2` de 0 a 25/200.
+ * - `f0eee7c3…` (51 952 líneas): el coste de las 18 filas inventadas de
+ *   `data/buildings.json`, copiado de `buildinginfo.cpp`. Misma forma que la
+ *   palanca anterior y por el mismo motivo: **`built` es el primer hecho
+ *   distinto en 200 de 200**. `knight_dwelling_5` pasa de 15/200 a 129/200 y
+ *   aparecen las tres primeras criaturas de nivel ≥5. Este paso solo **alarga**
+ *   la partida —mediana 7 → 17 días— porque quien pisa el freno es la materia
+ *   prima, que llega con la palanca de las minas: es el estado intermedio que
+ *   el plan predijo, no el destino.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: 'b790afc9fb92d71c46bcda9ecbe22fc706a418046ef4eaead451934b29704614',
+  sha: 'f0eee7c355a75382df710b7165174b6e9532d93fbe9e8c069643d0b5b4bfa740',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);
