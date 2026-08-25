@@ -3,7 +3,9 @@
  *
  * No es un test —no falla, mide— y va aparte del barrido de semillas a
  * propósito: el barrido mide la IA (¿siguen terminando las partidas?), esto
- * mide el código (¿tarda menos y da lo mismo?).
+ * mide el código (¿tarda menos y da lo mismo?). Lo que sí comparten son las
+ * tripas, en `partidas.ts`: jugar la partida de una semilla y montar su batalla
+ * espejo. Estaban copiadas verbatim en los dos ficheros.
  *
  * Lo que imprime, en una sola orden:
  *
@@ -33,11 +35,13 @@
  */
 import { createHash } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
-import { autoResolve } from '../../src/core/ai/tactics.js';
-import { playAiGame } from '../../src/core/ai/turn.js';
-import { createBattle } from '../../src/core/battle/battle.js';
-import { createRng } from '../../src/core/rng.js';
-import { newGame, startingArmy } from '../../src/core/state/setup.js';
+import {
+  batallaDeSemilla,
+  DIAS_POR_DEFECTO,
+  partidaDeSemilla,
+  resumenSinTerminar,
+  SEMILLAS_DEL_BANCO,
+} from './partidas.js';
 
 const args = process.argv.slice(2);
 const iDump = args.indexOf('--dump');
@@ -60,8 +64,8 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  * esto sigue siendo lo que dice ser, una medida.
  */
 const ANCLA = {
-  semillas: 200,
-  dias: 300,
+  semillas: SEMILLAS_DEL_BANCO,
+  dias: DIAS_POR_DEFECTO,
   sha: 'eb29472446c90b27b5d15c764e6677d702f1d40e2c646191484c92c5f4711a4f',
 } as const;
 
@@ -73,10 +77,7 @@ const sinTerminar: number[] = [];
 
 const t0 = performance.now();
 for (let semilla = 1; semilla <= SEMILLAS; semilla++) {
-  const state = newGame({ seed: semilla });
-  // El `await` no cambia ni una tirada: aquí no hay director que se quede
-  // ninguna batalla. Igual que en el barrido.
-  await playAiGame(state, { rng: createRng(semilla) }, DIAS);
+  const state = await partidaDeSemilla(semilla, DIAS);
 
   const ganador = state.finished === null ? 'ninguno' : String(state.finished.winner);
   if (state.finished === null) sinTerminar.push(semilla);
@@ -92,7 +93,7 @@ if (fichero !== null && fichero !== undefined) writeFileSync(fichero, volcado);
 console.log(`partidas:      ${SEMILLAS} semillas × ${DIAS} días → ${msPartidas.toFixed(0)} ms`);
 console.log(`sha256:        ${sha}`);
 console.log(`líneas:        ${lineas.length}`);
-console.log(`sin terminar:  ${sinTerminar.length}/${SEMILLAS} → [${sinTerminar.join(', ')}]`);
+console.log(`sin terminar:  ${resumenSinTerminar(sinTerminar, SEMILLAS)}`);
 if (fichero !== null && fichero !== undefined) console.log(`volcado:       ${fichero}`);
 
 if (SEMILLAS === ANCLA.semillas && DIAS === ANCLA.dias) {
@@ -124,15 +125,7 @@ if (SEMILLAS === ANCLA.semillas && DIAS === ANCLA.dias) {
 const BATALLAS = 300;
 const t1 = performance.now();
 let rondas = 0;
-for (let i = 1; i <= BATALLAS; i++) {
-  const rng = createRng(i * 7919);
-  const battle = createBattle(
-    { army: startingArmy('knight', rng), hero: null },
-    { army: startingArmy('necromancer', rng), hero: null },
-    rng,
-  );
-  rondas += autoResolve(battle, rng).rounds;
-}
+for (let i = 1; i <= BATALLAS; i++) rondas += batallaDeSemilla(i).rounds;
 console.log(
   `autoResolve:   ${BATALLAS} batallas (${rondas} rondas) → ${(performance.now() - t1).toFixed(0)} ms`,
 );

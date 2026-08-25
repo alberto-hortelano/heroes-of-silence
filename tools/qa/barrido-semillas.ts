@@ -15,25 +15,29 @@
  * 1,05 de `chooseHeroDestination` sigue haciendo falta —con 1,4 vuelven a salir
  * 3 de 200—, así que sube y baja con cuidado.
  *
+ * Las tripas —jugar la partida de una semilla y montar su batalla espejo— son
+ * de `partidas.ts`, compartidas con `banco.ts`. Estaban copiadas en los dos, y
+ * el día que una de las dos fórmulas cambiara habrían medido batallas distintas
+ * sin decirlo.
+ *
  * Uso: npx tsx tools/qa/barrido-semillas.ts [semillas] [dias]
  */
-import { autoResolve } from '../../src/core/ai/tactics.js';
-import { playAiGame } from '../../src/core/ai/turn.js';
-import { createBattle, MAX_ROUNDS } from '../../src/core/battle/battle.js';
-import { createRng } from '../../src/core/rng.js';
-import { newGame, startingArmy } from '../../src/core/state/setup.js';
+import { MAX_ROUNDS } from '../../src/core/battle/battle.js';
+import {
+  batallaDeSemilla,
+  DIAS_POR_DEFECTO,
+  partidaDeSemilla,
+  resumenSinTerminar,
+  SEMILLAS_DEL_BARRIDO,
+} from './partidas.js';
 
-const SEMILLAS = Number(process.argv[2] ?? 40);
-const DIAS = Number(process.argv[3] ?? 300);
+const SEMILLAS = Number(process.argv[2] ?? SEMILLAS_DEL_BARRIDO);
+const DIAS = Number(process.argv[3] ?? DIAS_POR_DEFECTO);
 
 const sinTerminar: number[] = [];
 
 for (let semilla = 1; semilla <= SEMILLAS; semilla++) {
-  const state = newGame({ seed: semilla });
-  // `playAiGame` es asíncrona desde que el director puede meterse en la batalla
-  // que nace a mitad del turno del rival. Aquí no hay director: el `await` no
-  // cambia ni una tirada, y por eso las semillas siguen siendo las mismas.
-  await playAiGame(state, { rng: createRng(semilla) }, DIAS);
+  const state = await partidaDeSemilla(semilla, DIAS);
 
   if (state.finished === null) {
     sinTerminar.push(semilla);
@@ -46,7 +50,7 @@ for (let semilla = 1; semilla <= SEMILLAS; semilla++) {
 }
 
 console.log('');
-console.log(`sin terminar: ${sinTerminar.length}/${SEMILLAS} → [${sinTerminar.join(', ')}]`);
+console.log(`sin terminar: ${resumenSinTerminar(sinTerminar, SEMILLAS)}`);
 
 /**
  * Segunda medida, la que vigila que `wait` no estanque nada: batallas de la IA
@@ -60,13 +64,7 @@ console.log(`sin terminar: ${sinTerminar.length}/${SEMILLAS} → [${sinTerminar.
 let peorRonda = 0;
 let enElTope = 0;
 for (let semilla = 1; semilla <= SEMILLAS; semilla++) {
-  const rng = createRng(semilla * 7919);
-  const battle = createBattle(
-    { army: startingArmy('knight', rng), hero: null },
-    { army: startingArmy('necromancer', rng), hero: null },
-    rng,
-  );
-  const { rounds } = autoResolve(battle, rng);
+  const { rounds } = batallaDeSemilla(semilla);
   if (rounds > peorRonda) peorRonda = rounds;
   if (rounds >= MAX_ROUNDS) enElTope++;
 }
