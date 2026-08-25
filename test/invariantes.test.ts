@@ -7,7 +7,7 @@
  * temporales llama de verdad a los lectores del motor, el décimo recorre todo
  * el repo —menos la prosa y los binarios— buscando la ruta de esta máquina y el
  * undécimo juega una partida y le da a la crónica un viaje de ida y vuelta por
- * `JSON`. Cuestan milisegundos —el undécimo, 350— así que caben en cada
+ * `JSON`. Cuestan milisegundos —el undécimo, 310— así que caben en cada
  * `pnpm test` sin frenar a nadie.
  *
  * Los once nacen en verde. Un guardia que nace rojo se ignora desde el primer
@@ -409,12 +409,12 @@ describe('invariantes del proyecto', () => {
     // nunca se ha visto morder no guarda nada.
     //
     // La semilla 9 se juega en 48×48 y no en el mapa de siempre. Con la
-    // economía cuadrada la partida de 24×24 acaba el día 7 y deja 131 hechos de
-    // catorce tipos: se quedan fuera `mine_captured` y `spells_learned`, que
-    // son justo los que este guardia quiere ver pasar por el JSON. **No se baja
-    // el umbral**: se juega un mapa donde la partida da de sí. En 48×48 la
-    // misma semilla llega al día 32 y deja más del doble de hechos, los
-    // dieciséis tipos y la gran mayoría con el sello puesto.
+    // economía cuadrada la partida de 24×24 acaba el día 6 y deja 134 hechos,
+    // donde antes daba 261: el umbral de 200 se caía por incidental. **No se
+    // baja**: se juega un mapa donde la partida da de sí. En 48×48 la misma
+    // semilla llega al día 23 y deja **618 hechos de los dieciséis tipos, 548
+    // con el sello puesto** — más largo, más variado y con más sellos que el
+    // mapa pequeño en cualquier momento de su historia.
     //
     // Los tres umbrales van con holgura sobre lo medido, porque este guardia va
     // del viaje de ida y vuelta y no de la IA: un cambio de heurística que
