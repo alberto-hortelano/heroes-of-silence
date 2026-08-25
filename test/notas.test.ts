@@ -130,6 +130,20 @@ describe('notas para el agente', () => {
     expect(nota).not.toMatch(/maná/);
   });
 
+  it('y la promesa de esa petición va CONDICIONADA, porque falla 1 de cada 5', () => {
+    // De las 476 esperas de 200 partidas, 375 vuelven a actuar, 67 mueren antes
+    // y en 34 se acaba la batalla: 101, el 21,2 %, no reciben la petición. El
+    // guardia de `batallaTerminada` no puede cubrirlo —se mide justo después de
+    // aplicar la sustituta, y una espera no cierra una batalla—, así que lo
+    // único honesto es no prometerla a secas.
+    const nota = notaAccionSustituida('a1', 'no alcanza', { type: 'wait' }, 0, 'Aldo', false);
+
+    expect(nota).toMatch(/SI llega viva/);
+    expect(nota).toContain('la batalla no ha terminado antes');
+    // Sin condición sería la misma mentira una casilla más allá.
+    expect(nota).not.toMatch(/volverá a pedir acción para ella al final de la ronda\./);
+  });
+
   it('si la sustituta TERMINÓ la batalla, no promete otra petición', () => {
     // La promesa del `cast` —«se te volverá a pedir acción para ella»— es falsa
     // si el hechizo remata: `spellValue` valora explícitamente el golpe que mata,

@@ -11,6 +11,8 @@ import {
   enemiesOf,
   isAlive,
   legalActions,
+  legalActionsAndCosts,
+  movableCosts,
   movableHexes,
   stackById,
   stackSpeed,
@@ -410,6 +412,31 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
 
     expect(movimientos.length).toBeGreaterThan(0);
     expect(movimientos).toEqual(movableHexes(state, s));
+  });
+
+  it('los costes que devuelve son los de `movableCosts`, sin un BFS de más', () => {
+    // De este mapa cuelga la elección de casilla de #50, y el motivo de que
+    // venga de aquí es que el BFS ya se ha hecho: pedirlo aparte costaba
+    // +17,6 % en 300 batallas, pagado íntegro por unidades sin `charge`.
+    // Si algún día `legalActionsAndCosts` devolviera un mapa recortado, o de
+    // otro stack, la IA elegiría a ciegas y el `throw` de `mejorCarga` no lo
+    // vería: las claves seguirían siendo las mismas.
+    const state = batallaDeCuatroEnemigos();
+    const s = activeStack(state) as BattleStack;
+    const { actions, costs } = legalActionsAndCosts(state);
+
+    expect(costs).toEqual(movableCosts(state, s));
+    expect(costs.size).toBeGreaterThan(0);
+    // Y son los mismos hexes que los `move`, en el mismo orden.
+    expect([...costs.keys()]).toEqual(
+      actions.filter((a) => a.type === 'move').map((a) => `${a.to.col},${a.to.row}`),
+    );
+  });
+
+  it('sin stack activo no hay lista ni costes, y no revienta', () => {
+    const state = batallaDeCuatroEnemigos();
+    state.activeId = null;
+    expect(legalActionsAndCosts(state)).toEqual({ actions: [], costs: new Map() });
   });
 });
 

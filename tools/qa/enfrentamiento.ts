@@ -11,6 +11,12 @@
  * aquí un 50,0 % por construcción, y ese 50 % no significaría «no mejora»:
  * significaría «no hay nada que medir». Hay que decirlo al leer la cifra.
  *
+ * Y una advertencia sobre la población: los ejércitos son de este generador, no
+ * de una partida. Aquí `charge` sale en el 8,2 % de los stacks y en partida real
+ * en 0 de 1258 decisiones, así que la cifra de una táctica medida aquí **no es**
+ * su efecto en una partida. Dos tandas de generadores distintos tampoco se
+ * comparan entre sí.
+ *
  * ## Por qué a nivel de batalla y no de partida
  *
  * Distinguir un 55 % de un 50 % con partidas enteras pide 783 partidas; 40 dan
@@ -24,9 +30,26 @@
  * El atacante gana los empates de velocidad (`initiativeOrder`), así que su
  * asiento vale puntos. Cada par de ejércitos se juega dos veces con los mismos
  * ejércitos en los mismos asientos y la táctica **cambiada de bando**: lo que
- * se compara es la táctica, no el asiento. Que eso basta no es una promesa,
- * es una comprobación que la herramienta trae puesta: `--espejo` pone la misma
- * táctica en los dos lados y tiene que dar **50,0 % exacto**.
+ * se compara es la táctica, no el asiento.
+ *
+ * Eso neutraliza la ventaja del asiento **por construcción**, y conviene decir
+ * qué NO lo demuestra: `--espejo` pone la misma función en los dos lados, así
+ * que las dos batallas de cada pareja son **la misma partida calculada dos
+ * veces** — gana el mismo bando y puntúa 1 de 2 siempre. Su 50,0 % es una
+ * identidad algebraica, con varianza **cero**: no puede salir otra cosa ni
+ * aunque el banco estuviera roto de otra manera. Lo que sí caza, y por eso se
+ * queda, es que las dos batallas de una pareja **dejen** de ser la misma:
+ * semilla o ejércitos que se cuelen por asiento.
+ *
+ * ## Por qué el intervalo es PAREADO
+ *
+ * La unidad independiente es la **pareja**, no la batalla: las dos batallas de
+ * una comparten ejércitos y semilla, y casi siempre ganador. Tratarlas como
+ * 2N observaciones independientes ensancha el intervalo al doble de lo que
+ * toca —±0,41 pp donde son ±0,20— y encima imprimiría un ±0,7 pp sobre el
+ * espejo, que no puede variar. Se computa sobre la puntuación por pareja
+ * (0, ½ o 1) y el reparto se imprime al lado, que es lo que hace legible el
+ * número: lo que decide son las parejas que NO empatan.
  *
  * ## Qué es "la IA de antes"
  *
@@ -166,10 +189,13 @@ let defensas = 0;
 let peorRonda = 0;
 let totalRondas = 0;
 let enElTope = 0;
+/** Cuántas parejas acaban 0-2, 1-1 y 2-0 para la táctica con espera. */
+const reparto = [0, 0, 0];
 
 const t0 = performance.now();
 for (let semilla = 1; semilla <= PAREJAS; semilla++) {
   const ejercitos = ejercitosDe(semilla);
+  let ganadasAqui = 0;
 
   // La misma pareja dos veces: primero la espera ataca, después defiende.
   for (const asiento of ['attacker', 'defender'] as const) {
@@ -179,42 +205,75 @@ for (let semilla = 1; semilla <= PAREJAS; semilla++) {
       [otro]: rival,
     } as Record<Side, Tactica>);
 
-    if (r.winner === asiento) victorias++;
+    if (r.winner === asiento) ganadasAqui++;
     esperas += r.esperas;
     defensas += r.defensas;
     totalRondas += r.rounds;
     if (r.rounds > peorRonda) peorRonda = r.rounds;
     if (r.rounds >= MAX_ROUNDS) enElTope++;
   }
+  victorias += ganadasAqui;
+  reparto[ganadasAqui] = (reparto[ganadasAqui] as number) + 1;
 }
 const ms = performance.now() - t0;
 
 const batallas = PAREJAS * 2;
 const p = victorias / batallas;
-// IC del 95 % de una binomial, normal aproximada: con 2000 batallas son ±2,2 pp.
-const ic = 1.96 * Math.sqrt((p * (1 - p)) / batallas);
+
+/**
+ * Intervalo del 95 % con la PAREJA como unidad, que es la independiente.
+ *
+ * Cada pareja puntúa 0, ½ o 1. La varianza sale de ese reparto y no de una
+ * binomial sobre 2N batallas: las dos batallas de una pareja comparten
+ * ejércitos, semilla y casi siempre ganador, así que contarlas como
+ * independientes ensancha el intervalo al doble de lo que toca.
+ */
+function icPareado(): number {
+  if (PAREJAS === 0) return 0;
+  const puntos = [0, 0.5, 1];
+  let suma = 0;
+  let sumaCuadrados = 0;
+  for (const [ganadas, n] of reparto.entries()) {
+    suma += (puntos[ganadas] as number) * n;
+    sumaCuadrados += (puntos[ganadas] as number) ** 2 * n;
+  }
+  const media = suma / PAREJAS;
+  const varianza = Math.max(0, sumaCuadrados / PAREJAS - media * media);
+  return 1.96 * Math.sqrt(varianza / PAREJAS);
+}
+
+const ic = icPareado();
 
 console.log(
   `parejas:       ${PAREJAS} (${batallas} batallas, bandos alternados) → ${ms.toFixed(0)} ms`,
 );
 console.log(
-  `victorias:     ${victorias}/${batallas} = ${(p * 100).toFixed(1)} % ± ${(ic * 100).toFixed(1)} pp` +
-    (ESPEJO
-      ? '  (espejo: tiene que ser 50,0 % exacto)'
-      : '  de la IA CON espera, contra la de antes'),
+  `victorias:     ${victorias}/${batallas} = ${(p * 100).toFixed(2)} % ± ${(ic * 100).toFixed(2)} pp ` +
+    `(IC 95 % pareado)${ESPEJO ? '' : ' de la IA CON espera, contra la de antes'}`,
+);
+console.log(
+  `parejas 2-0 · 1-1 · 0-2:  ${reparto[2]} ganadas · ${reparto[1]} empatadas · ${reparto[0]} perdidas`,
 );
 console.log(
   `rondas:        peor ${peorRonda}, media ${(totalRondas / batallas).toFixed(2)}, ${enElTope}/${batallas} en el tope de ${MAX_ROUNDS}`,
 );
 console.log(`cola jugada:   ${esperas} esperas, ${defensas} defensas`);
 
-if (ESPEJO && victorias * 2 !== batallas) {
-  process.exitCode = 1;
-  console.error('');
-  console.error(`ESPEJO SESGADO: con la misma táctica en los dos lados han salido ${victorias}`);
-  console.error(
-    `                de ${batallas}, y tienen que ser ${batallas / 2} exactas. Alternar`,
-  );
-  console.error('                los bandos ya no neutraliza la ventaja del atacante, así que');
-  console.error('                la cifra de arriba no mide la táctica: mide el asiento.');
+if (ESPEJO) {
+  // El espejo no demuestra que alternar asientos quite el sesgo —eso es cierto
+  // por construcción—: demuestra que las dos batallas de cada pareja son LA
+  // MISMA. Por eso lo que se comprueba es el reparto y no el 50 %, que sale
+  // solo. Un 1-1 en todas y varianza cero: si aparece una pareja 2-0 o 0-2, es
+  // que por algún asiento se está colando una semilla o un ejército distinto,
+  // y entonces la tanda normal no está comparando tácticas.
+  console.log('espejo:        misma táctica en los dos asientos; el 50 % es una identidad,');
+  console.log('               no una medida. Lo que se comprueba es el reparto 0 · N · 0.');
+  if (reparto[1] !== PAREJAS) {
+    process.exitCode = 1;
+    console.error('');
+    console.error(`ESPEJO ROTO: ${reparto[2]} parejas 2-0 y ${reparto[0]} parejas 0-2, y tienen`);
+    console.error(`             que ser 0 y 0: las ${PAREJAS} deberían empatar 1-1, porque las`);
+    console.error('             dos batallas de una pareja son la misma partida. Si no lo son,');
+    console.error('             algo cambia con el asiento y la tanda normal no mide la táctica.');
+  }
 }

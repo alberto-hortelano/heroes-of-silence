@@ -11,8 +11,7 @@ import {
   canReachMelee,
   enemiesOf,
   isEngaged,
-  legalActions,
-  movableCosts,
+  legalActionsAndCosts,
   splashTargets,
   stackById,
   stackHexes,
@@ -161,38 +160,47 @@ type CargaContra = Extract<BattleAction, { type: 'attack' }> & { from: Hex };
  *    verdad: 722 de 1194 decisiones con varias casillas empatan también a
  *    coste mínimo. Sale solo de comparar con `>` y `<` estrictos.
  *
- * El coste se LEE de `movableCosts`; no se deduce de que `cargas[0]` sea la
- * casilla más barata. Hoy lo es en 1698 de 1698 casos porque `reachable` es un
- * BFS y `movableHexes` conserva su orden, pero eso es un accidente del
- * recorrido y no un contrato: el día que el BFS cambie de forma, esto elige lo
- * mismo.
+ * El coste se LEE; no se deduce de que `cargas[0]` sea la casilla más barata.
+ * Hoy lo es en 1698 de 1698 casos porque `reachable` es un BFS y la lista legal
+ * conserva su orden, pero eso es un accidente del recorrido y no un contrato:
+ * el día que el BFS cambie de forma, esto elige lo mismo.
  *
- * Es la única llamada a `movableCosts` de la heurística y solo pasa por aquí
- * —el 12 % de las decisiones—, porque es el único sitio que necesita el coste:
- * la rama de avanzar se conforma con los hexes, que ya vienen en `acciones`.
+ * **Y se lee del recorrido que ya se hizo**, el de `legalActionsAndCosts`, en
+ * vez de lanzar uno nuevo. Cuando esto pedía su propio `movableCosts`, ese
+ * segundo recorrido lo pagaban las 1258 de 1258 decisiones SIN `charge`
+ * —+17,6 % en 300 batallas— para responder a una pregunta que solo tiene
+ * sentido con el rasgo puesto.
  */
 function mejorCarga(
   state: BattleState,
   s: BattleStack,
   objetivo: BattleStack,
   cargas: readonly CargaContra[],
+  costes: ReadonlyMap<string, number>,
 ): BattleAction {
-  const costes = movableCosts(state, s);
   const miHeroe = state.heroes[s.side];
   const suHeroe = state.heroes[objetivo.side];
+  // Sin el rasgo, `expectedDamage` da lo MISMO desde cualquier casilla: la
+  // fórmula no mira el hex más que por la carga. No es una optimización, es lo
+  // que significa — evaluarla casilla a casilla sería preguntar seis veces algo
+  // cuya respuesta no depende de la pregunta. Con el daño empatado decide el
+  // desempate, que es lo que decide hoy el 100 % de los casos.
+  const cobraCarga = hasTrait(creature(s.creature), 'charge');
 
   let mejor = cargas[0] as CargaContra;
   let mejorDano = -1;
   let mejorCoste = Number.POSITIVE_INFINITY;
   for (const a of cargas) {
     const coste = costes.get(hexKey(a.from));
-    // Inalcanzable salvo que `legalActions` y el tablero discrepen: los `from`
-    // salen de `movableHexes`, que son las claves de este mismo mapa. Si algún
-    // día discrepan, se dice; no se elige una casilla a ciegas.
+    // Inalcanzable salvo que la lista legal y su propio mapa discrepen: los
+    // `from` salen de las claves de ese mapa. Si algún día discrepan, se dice;
+    // no se elige una casilla a ciegas.
     if (coste === undefined) {
       throw new Error(`${s.id} no alcanza (${a.from.col},${a.from.row}): la lista legal miente`);
     }
-    const dano = expectedDamage(s, miHeroe, objetivo, suHeroe, { chargeHexes: coste });
+    const dano = cobraCarga
+      ? expectedDamage(s, miHeroe, objetivo, suHeroe, { chargeHexes: coste })
+      : 0;
     if (dano > mejorDano || (dano === mejorDano && coste < mejorCoste)) {
       mejor = a;
       mejorDano = dano;
@@ -245,7 +253,7 @@ export function chooseBattleAction(state: BattleState): BattleAction {
   const s = activeStack(state);
   if (s === null) throw new Error('no hay stack activo');
 
-  const acciones = legalActions(state);
+  const { actions: acciones, costs: costes } = legalActionsAndCosts(state);
   const enemigos = enemiesOf(state, s);
   if (enemigos.length === 0) return { type: 'defend' };
 
@@ -302,7 +310,7 @@ export function chooseBattleAction(state: BattleState): BattleAction {
       (a): a is CargaContra =>
         a.type === 'attack' && a.target === objetivo.id && a.from !== undefined,
     );
-    if (cargas.length > 0) return mejorCarga(state, s, objetivo, cargas);
+    if (cargas.length > 0) return mejorCarga(state, s, objetivo, cargas, costes);
 
     // Si no llega, avanzar lo máximo posible hacia él. Los hexes ya están en
     // la mano: los `move` de `acciones` SON `movableHexes(state, s)`, en

@@ -796,8 +796,32 @@ function castHeroSpell(
 
 /** Acciones legales del stack activo. La usan la IA y el validador del agente. */
 export function legalActions(state: BattleState): BattleAction[] {
+  return legalActionsAndCosts(state).actions;
+}
+
+/**
+ * Lo mismo, y además el mapa de costes con el que se ha construido la lista.
+ *
+ * Existe porque ese coste ya se calcula aquí —es el BFS de `movableCosts`— y
+ * hasta ahora se tiraba: la lista se quedaba con las claves, así que el
+ * llamante que necesitara el coste tenía que recorrer el tablero otra vez. La
+ * IA lo necesita para elegir desde qué casilla golpear (#50), y volver a
+ * pedirlo era **el 100 % del sobrecoste de aquel cambio, pagado entero por
+ * unidades sin `charge`** — las únicas que no pueden aprovecharlo, y hoy son
+ * todas: 1258 de 1258 decisiones. Medido en 300 batallas: 150 ms con el
+ * segundo recorrido, 128 ms sin él, que es exactamente la línea base.
+ *
+ * Devolver el mapa **no** relaja el contrato del que cuelga el desempate de la
+ * IA: el coste se sigue **leyendo**, solo que del recorrido que ya se hizo en
+ * vez de uno nuevo. Las claves del mapa son, en ese orden, los `move` de la
+ * lista.
+ */
+export function legalActionsAndCosts(state: BattleState): {
+  actions: BattleAction[];
+  costs: Map<string, number>;
+} {
   const s = activeStack(state);
-  if (s === null || state.finished !== null) return [];
+  if (s === null || state.finished !== null) return { actions: [], costs: new Map() };
 
   const out: BattleAction[] = [{ type: 'defend' }];
   if (!s.waited) out.push({ type: 'wait' });
@@ -814,7 +838,8 @@ export function legalActions(state: BattleState): BattleAction[] {
   // cuatro enemigos el tablero se recorría cinco veces para dar la misma
   // respuesta: 1 + E. La lista no cambia ni de contenido ni de orden porque se
   // recorre la misma secuencia, solo que sin recalcularla.
-  const alcanzables = movableHexes(state, s);
+  const costs = movableCosts(state, s);
+  const alcanzables = [...costs.keys()].map(parseHexKey);
   for (const h of alcanzables) out.push({ type: 'move', to: h });
 
   // Ataques: desde donde está, o moviéndose a un hex desde el que alcance.
@@ -841,5 +866,5 @@ export function legalActions(state: BattleState): BattleAction[] {
     }
   }
 
-  return out;
+  return { actions: out, costs };
 }

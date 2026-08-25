@@ -237,6 +237,14 @@ export const MOTIVO_PARTIDA_TERMINADA = 'no se ha intentado: la partida ya habí
  * ronda—. Ahora que la espera se juega de verdad, el agente recibiría una
  * explicación falsa de qué le costó su error justo en la acción que menos se
  * parece a las demás.
+ *
+ * Y su promesa va **condicionada**, que es donde el primer arreglo se quedó
+ * corto: «se te volverá a pedir acción» falla el **21,2 %** de las veces —101
+ * de las 476 esperas medidas en 200 partidas—, porque al stack lo destruyen o
+ * la batalla se acaba mientras espera. La rama de `cast` tiene el guardia de
+ * `batallaTerminada` para justo este problema; la de `wait` no puede usarlo,
+ * porque una espera **no cierra ninguna batalla**: la cierra lo que ocurre
+ * después, cuando la nota ya se ha escrito.
  */
 export function notaAccionSustituida(
   unidad: string,
@@ -272,9 +280,20 @@ export function notaAccionSustituida(
     // `cast` porque el precio es otro: no se ha ido maná, se ha ido el SITIO en
     // la cola, y saberlo cambia lo que conviene responder cuando le vuelvan a
     // preguntar por la misma unidad.
+    //
+    // Y la petición se promete CONDICIONADA, no a secas. Medido sobre las 476
+    // esperas de 200 partidas: 375 vuelven a actuar, a 67 las destruyen antes
+    // de que les toque y en 34 la batalla se acaba mientras esperaban. **101 de
+    // 476, el 21,2 %, no reciben la petición.** El guardia de `batallaTerminada`
+    // no cubre esto: se mide justo después de aplicar la sustituta, y una espera
+    // nunca cierra una batalla — la cierra lo que pase después, mientras espera.
+    // Prometerla a secas sería la misma mentira que este hallazgo vino a quitar,
+    // solo que una casilla más allá.
     return (
-      `${cabecera} Eso NO ha consumido el turno de ${unidad} —se te volverá a pedir acción ` +
-      'para ella al final de la ronda, cuando ya hayan movido los demás—.'
+      `${cabecera} Eso NO ha consumido el turno de ${unidad}: actuará al final de la ronda, ` +
+      'cuando ya hayan movido los demás. Se te volverá a pedir acción para ella SI llega viva ' +
+      'a ese momento y la batalla no ha terminado antes — esperar la deja expuesta, y 1 de ' +
+      'cada 5 veces no llega.'
     );
   }
   return `${cabecera} Eso ha consumido el turno de ${unidad} en esta ronda.`;
