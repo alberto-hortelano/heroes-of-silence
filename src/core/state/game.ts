@@ -96,15 +96,6 @@ export interface PendingBattle {
   readonly attackerHeroId: string;
   readonly foe: BattleFoe;
   readonly battle: BattleState;
-  /**
-   * La casilla donde se libra: la del defensor, que es a la que el atacante
-   * intentó entrar.
-   *
-   * Se guarda en vez de deducirse del `foe` porque el evento que cuenta la
-   * muerte del perdedor se escribe DESPUÉS de borrarlo del mapa: deducirla
-   * entonces sería preguntar por alguien que ya no está.
-   */
-  readonly at: Point;
 }
 
 export interface GameState {
@@ -703,7 +694,7 @@ function moveHero(state: GameState, heroId: string, to: Point, ctx: GameContext)
     const enemigo = enemyAt(state, paso.at, player.id);
     if (enemigo !== null) {
       hero.movePoints -= coste;
-      startBattle(state, hero, enemigo, paso.at, ctx);
+      startBattle(state, hero, enemigo, ctx);
       return;
     }
 
@@ -936,6 +927,36 @@ export function battleOwners(
 }
 
 /**
+ * Dónde se libra una batalla pendiente: la casilla del DEFENSOR, que es a la
+ * que el atacante intentó entrar.
+ *
+ * Estuvo guardada en `PendingBattle` como una cuarta copia de un hecho que el
+ * estado ya tiene, con el argumento de que el evento que cuenta la muerte del
+ * perdedor se escribe DESPUÉS de borrarlo del mapa. El argumento solo vale si
+ * se deriva ENTONCES, y no hace falta: `settleBattle` la lee una vez al
+ * principio, con los dos bandos todavía en pie, y la local sobrevive a todas
+ * las mutaciones que vienen detrás.
+ *
+ * Que el campo desaparezca importa porque `PendingBattle` es estado
+ * serializable y #10 lo va a guardar: un campo copiado es un campo que puede
+ * volver del disco contradiciendo al mapa, que es la forma exacta de #47.
+ */
+function battleAt(state: GameState, pending: PendingBattle): Point {
+  const foe = pending.foe;
+  switch (foe.kind) {
+    case 'monster': {
+      const obj = state.map.objects.find((o) => o.id === foe.objectId);
+      if (obj === undefined) throw new Error(`el monstruo ${foe.objectId} ya no está en el mapa`);
+      return obj.at;
+    }
+    case 'hero':
+      return heroById(state, foe.heroId).at;
+    case 'town':
+      return townById(state, foe.townId).at;
+  }
+}
+
+/**
  * Qué bandos de una batalla lleva alguno de `jugadores`. Vacío: no va con ellos.
  *
  * Es el compañero que le faltaba a `battleOwners`, y faltaba de verdad: el
@@ -960,16 +981,20 @@ export function sidesOwnedBy(
 }
 
 /** Prepara la batalla y la deja pendiente: la juega la IA o el jugador. */
-function startBattle(
-  state: GameState,
-  hero: Hero,
-  foe: BattleFoe,
-  at: Point,
-  ctx: GameContext,
-): void {
+function startBattle(state: GameState, hero: Hero, foe: BattleFoe, ctx: GameContext): void {
   const battle = createBattle(battleSideForHero(state, hero), defenderSide(state, foe), ctx.rng);
-  state.pendingBattle = { attackerHeroId: hero.id, foe, battle, at };
-  emit(state, { kind: 'battle_started', attacker: hero.id, foe, actor: hero.owner, at });
+  const pending = { attackerHeroId: hero.id, foe, battle };
+  state.pendingBattle = pending;
+  // La casilla se deriva aquí también, y no se toma del paso que abrió la
+  // batalla: así el sitio que dice el `battle_started` y el que dice el
+  // `battle_ended` no son dos respuestas que puedan dejar de coincidir.
+  emit(state, {
+    kind: 'battle_started',
+    attacker: hero.id,
+    foe,
+    actor: hero.owner,
+    at: battleAt(state, pending),
+  });
 }
 
 /** Juega la batalla pendiente con la IA táctica y aplica el resultado. */
@@ -989,6 +1014,12 @@ export function settleBattle(state: GameState, _ctx: GameContext): void {
 
   const { winner } = pending.battle.finished;
   const hero = heroById(state, pending.attackerHeroId);
+  // La casilla, LEÍDA AQUÍ: con los dos bandos todavía en pie. Después hay
+  // héroes que salen del mapa y castillos que cambian de bandera, y preguntar
+  // entonces sería preguntar por alguien que ya no está. Es el mismo patrón que
+  // el `const dueño = hero.owner` de más abajo, y por eso el dato no hace falta
+  // guardarlo en `PendingBattle`.
+  const at = battleAt(state, pending);
   const superviviente = (side: 'attacker' | 'defender'): Army => {
     const slots: (Stack | null)[] = [null, null, null, null, null];
     for (const s of pending.battle.stacks) {
@@ -1009,13 +1040,13 @@ export function settleBattle(state: GameState, _ctx: GameContext): void {
     winner,
     foe: pending.foe,
     actor: hero.owner,
-    at: pending.at,
+    at,
   });
   state.pendingBattle = null;
 
   if (heroeAtacanteVivo) {
     hero.experience += experienceFor(pending, state);
-    applyVictory(state, hero, pending.foe, pending.at);
+    applyVictory(state, hero, pending.foe, at);
   } else {
     // El atacante derrotado desaparece del mapa con su ejército. Su dueño se
     // lee ANTES del filtro: un instante después el héroe ya no está y el evento
@@ -1023,7 +1054,7 @@ export function settleBattle(state: GameState, _ctx: GameContext): void {
     // el 10,9 % de la crónica era inatribuible.
     const dueño = hero.owner;
     state.heroes = state.heroes.filter((h) => h.id !== hero.id);
-    emit(state, { kind: 'hero_defeated', hero: hero.id, actor: dueño, at: pending.at });
+    emit(state, { kind: 'hero_defeated', hero: hero.id, actor: dueño, at });
     applyDefenderSurvivors(state, pending, superviviente('defender'));
   }
 
