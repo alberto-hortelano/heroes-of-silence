@@ -6,7 +6,7 @@
 import { activeStack } from '@core/battle/battle.js';
 import { effectiveLuck } from '@core/battle/effects.js';
 import { type Spell, spell } from '@core/battle/spells.js';
-import type { BattleEvent, Side } from '@core/battle/types.js';
+import type { BattleState, Side } from '@core/battle/types.js';
 import { creature, isShooter } from '@core/data.js';
 import { armySize, maxMana, maxMovePoints } from '@core/hero/hero.js';
 import type { GameEvent } from '@core/state/events.js';
@@ -235,7 +235,7 @@ function renderBattlePanel(session: Session): string {
     const gane = battle.finished.winner === mio;
     return `<h2>${gane ? 'Victoria' : 'Derrota'}</h2>
       <p>${gane ? 'El campo es tuyo.' : 'Tu héroe ha caído.'}</p>
-      <h3>Parte de guerra</h3>${renderBattleLog(battle.log, mio)}`;
+      <h3>Parte de guerra</h3>${renderBattleLog(battle, mio)}`;
   }
 
   const s = activeStack(battle);
@@ -285,7 +285,7 @@ function renderBattlePanel(session: Session): string {
     ${mana}
     ${acciones}
     <h3>En el campo</h3><div class="stack-list">${orden}</div>
-    <h3>Parte de guerra</h3>${renderBattleLog(battle.log, mio)}`;
+    <h3>Parte de guerra</h3>${renderBattleLog(battle, mio)}`;
 }
 
 /**
@@ -365,11 +365,34 @@ function clase(bueno: boolean, malo: boolean): string {
 /**
  * El parte de guerra. `mio` es el bando de quien lo lee: sin él, «gana el
  * defensor» se pintaría en rojo de derrota aunque el defensor fueras tú.
+ *
+ * Toma la BATALLA y no su log, y es por una línea: un `perished` dice qué stack
+ * cayó y no de quién era, así que sin los stacks delante no se puede pintar. Se
+ * pintaba **siempre** en rojo de derrota, y la mitad de las veces la unidad
+ * aniquilada era la del rival — la misma misatribución que `renderLog` acaba de
+ * quitarse un piso más arriba, en el mismo fichero.
+ *
+ * Y el `switch` ya no tiene `default`, por lo mismo que el de `renderLog`: se
+ * tragaba en silencio los tres eventos que nadie escribió (`move`, `wait`,
+ * `defend`) y se tragaría igual el que se añada mañana. Ahora los tres están
+ * escritos con su frase vacía y quien decide es el `never` del final.
  */
-function renderBattleLog(log: readonly BattleEvent[], mio: Side | null): string {
-  const lineas = log
+function renderBattleLog(battle: BattleState, mio: Side | null): string {
+  /**
+   * De quién era el stack. Lanza si no aparece: un id del registro que no está
+   * en el campo es un fallo nuestro, y disimularlo con «una unidad» sería
+   * volver a la misatribución por otro camino.
+   */
+  const bandoDe = (id: string): Side => {
+    const s = battle.stacks.find((x) => x.id === id);
+    if (s === undefined)
+      throw new Error(`el parte habla de una unidad que no está en el campo: ${id}`);
+    return s.side;
+  };
+
+  const lineas = battle.log
     .slice(-40)
-    .map((e) => {
+    .map((e): string => {
       switch (e.kind) {
         case 'round_start':
           return `<div>— Ronda ${e.round} —</div>`;
@@ -393,13 +416,35 @@ function renderBattleLog(log: readonly BattleEvent[], mio: Side | null): string 
           return `<div>Se disipa: ${nombreFuente(e.source)}</div>`;
         case 'immune':
           return `<div>Inmune a ${nombreFuente(e.source)}: los no-muertos no tienen ánimo que quebrar</div>`;
-        case 'perished':
-          return `<div class="lose">Una unidad ha sido aniquilada</div>`;
+        case 'perished': {
+          // Quién cae decide el color, igual que en `hero_defeated` un piso más
+          // arriba: lo tuyo es la derrota y lo suyo la victoria. Sin bando —el
+          // parte de quien no lleva ninguno de los dos— no se pinta ninguna de
+          // las dos cosas, en vez de inventarse una.
+          const suya = bandoDe(e.stack) === mio;
+          return `<div${clase(mio !== null && !suya, suya)}>${
+            mio === null
+              ? 'Una unidad ha sido aniquilada'
+              : suya
+                ? 'Una unidad tuya ha sido aniquilada'
+                : 'Una unidad enemiga ha sido aniquilada'
+          }</div>`;
+        }
         case 'finished':
           return `<div${clase(e.winner === mio, mio !== null && e.winner !== mio)}>Fin: gana el ${e.winner === 'attacker' ? 'atacante' : 'defensor'}</div>`;
-        default:
+
+        // Los tres que el parte NO cuenta, escritos uno a uno en vez de caer por
+        // un `default`. El tablero ya enseña dónde está cada unidad y quién se
+        // defiende; el paso a paso ahogaría el resto del parte.
+        case 'move':
+        case 'wait':
+        case 'defend':
           return '';
       }
+      // Exhaustivo: con un `kind` nuevo, `e` deja de ser `never` aquí y esta
+      // línea no compila hasta que alguien decida si se pinta o no.
+      const sinFrase: never = e;
+      throw new Error(`hecho del parte de guerra sin frase: ${JSON.stringify(sinFrase)}`);
     })
     .filter((s) => s !== '')
     .join('');

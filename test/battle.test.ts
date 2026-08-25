@@ -927,7 +927,13 @@ describe('la IA espera en vez de plantarse (#24)', () => {
  * dueño de la batalla, así que aquí el atacante es el jugador.
  */
 describe('el parte de guerra pinta de quién es cada cosa', () => {
-  function parte(eventos: BattleEvent[]): string {
+  /**
+   * `deQuien` elige a quién pertenece el héroe atacante, que es de donde
+   * `session.miBando` deriva el bando de quien lee: `'mio'` deja al jugador de
+   * atacante y `'ajena'` monta una batalla del rival contra un monstruo, en la
+   * que la persona no lleva ninguno de los dos bandos.
+   */
+  function parte(eventos: BattleEvent[], deQuien: 'mio' | 'ajena' = 'mio'): string {
     const session = new Session(71);
     const battle = createBattle(
       side([{ creature: 'champion', count: 10 }, null, null, null, null], hero()),
@@ -937,8 +943,12 @@ describe('el parte de guerra pinta de quién es cada cosa', () => {
     // El registro del despliegue estorba: lo que se mira son estas líneas.
     battle.log.length = 0;
     battle.log.push(...eventos);
+    const atacante =
+      deQuien === 'mio'
+        ? session.myHeroes()[0]!
+        : session.state.heroes.find((h) => h.owner !== session.viewer)!;
     session.state.pendingBattle = {
-      attackerHeroId: session.myHeroes()[0]!.id,
+      attackerHeroId: atacante.id,
       foe: { kind: 'monster', objectId: monstruoVivo(session.state).id },
       battle,
     };
@@ -996,6 +1006,40 @@ describe('el parte de guerra pinta de quién es cada cosa', () => {
     expect(parte([{ kind: 'finished', winner: 'defender' }])).toContain(
       '<div class="lose">Fin: gana el defensor</div>',
     );
+  });
+
+  it('una unidad aniquilada se pinta por su bando, no siempre como derrota', () => {
+    // Salía SIEMPRE en `lose`, y la mitad de las veces la que caía era del
+    // rival: a la persona se le pintaba de derrota su mejor jugada. Es la misma
+    // misatribución que el ciclo de #59 le quitó a `hero_defeated` en la crónica
+    // del mapa, veinte líneas más arriba en el mismo fichero.
+    expect(parte([{ kind: 'perished', stack: 'attacker-0' }])).toContain(
+      '<div class="lose">Una unidad tuya ha sido aniquilada</div>',
+    );
+    expect(parte([{ kind: 'perished', stack: 'defender-0' }])).toContain(
+      '<div class="win">Una unidad enemiga ha sido aniquilada</div>',
+    );
+  });
+
+  it('en una batalla ajena no se pinta de nadie: ni victoria ni derrota', () => {
+    // Sin bando propio no hay «tuya» ni «enemiga» que valga, y tampoco color:
+    // inventarse uno es lo que hacía la versión de antes con todo el mundo.
+    const ajena = parte([{ kind: 'perished', stack: 'attacker-0' }], 'ajena');
+    expect(ajena).toContain('<div>Una unidad ha sido aniquilada</div>');
+    expect(ajena).not.toContain('class="lose"');
+    expect(ajena).not.toContain('class="win"');
+  });
+
+  it('un evento que el parte no cuenta no deja rastro, y ya no cae por un `default`', () => {
+    // `move`, `wait` y `defend` están escritos uno a uno con su frase vacía. El
+    // `default` que los tapaba tapaba igual al `kind` que se añada mañana; quien
+    // lo impide ahora es el `never` del final, roto a mano y visto rojo en `tsc`.
+    const mudos = parte([
+      { kind: 'move', stack: 'attacker-0', to: { col: 3, row: 3 } },
+      { kind: 'wait', stack: 'attacker-0' },
+      { kind: 'defend', stack: 'attacker-0' },
+    ]);
+    expect(mudos).toContain('<h3>Parte de guerra</h3><div class="log"></div>');
   });
 
   it('una línea sin color no lleva un `class` vacío colgando', () => {
