@@ -65,11 +65,20 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *
  * Solo se comprueba con `200 300`, que es lo que corre CI: con otros argumentos
  * esto sigue siendo lo que dice ser, una medida.
+ *
+ * **Historial de anclas**, que es lo que dice si un cambio se hizo a la vista:
+ *
+ * - `eb294724…` (28 300 líneas): el suelo con el que se cerró el ciclo de
+ *   rendimiento. Lo conservó #50 —elegir la casilla de ataque por daño esperado
+ *   no mueve una sola partida mientras no haya caballería en el tablero—.
+ * - `a4d71f9b…` (28 406 líneas): #52, la regla de espera. Cambia las partidas a
+ *   propósito: la IA juega `wait` 476 veces en estas 200 partidas, donde antes
+ *   jugaba 0. Las 106 líneas de más son los hechos que eso añade a la crónica.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: 'eb29472446c90b27b5d15c764e6677d702f1d40e2c646191484c92c5f4711a4f',
+  sha: 'a4d71f9ba1dde3afd7aabc28f039110ea95ab51e5f8a79dcfc8538ce1c0856bc',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

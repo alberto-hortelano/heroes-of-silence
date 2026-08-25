@@ -1061,7 +1061,7 @@ describe('la IA espera en vez de plantarse (#24)', () => {
     expect(chooseBattleAction(state).type).toBe('cast');
   });
 
-  it('espera cuando no alcanza a nadie ni puede acercarse', () => {
+  it('se defiende cuando no alcanza a nadie ni puede moverse', () => {
     const rng = createRng(74);
     const state = createBattle(
       side([
@@ -1083,12 +1083,69 @@ describe('la IA espera en vez de plantarse (#24)', () => {
 
     expect(state.activeId).toBe('attacker-0');
     expect(movableHexes(state, stackById(state, 'attacker-0'))).toEqual([]);
-    expect(chooseBattleAction(state)).toEqual({ type: 'wait' });
 
-    // Y no se estanca: quien ya esperó no vuelve a esperar en la misma ronda,
-    // porque `legalActions` deja de ofrecerlo.
-    stackById(state, 'attacker-0').waited = true;
+    // Antes esto era un `wait`, y era una tautología: quien no puede llegarme
+    // hoy tampoco llegará al final de la ronda, así que ceder la iniciativa no
+    // compra nada y el +20 % de defensa sí. `defend` es la única cola terminal.
     expect(chooseBattleAction(state)).toEqual({ type: 'defend' });
+  });
+});
+
+/**
+ * La escena de #52: campeón del atacante contra un piquero, en la fila 4.
+ *
+ * El campeón corre 7 hexes y el piquero 4, así que el campeón mueve primero y
+ * el piquero le alcanza a 5 (sus pasos más el hex desde el que golpea). Con el
+ * piquero al otro extremo, avanzar deja al campeón dentro de ese radio y
+ * esperar lo deja pegando al final de la ronda.
+ */
+function escenaDeEspera(piqueroEn: Hex, piqueroYaActuo = false): BattleState {
+  const state = createBattle(
+    side([{ creature: 'champion', count: 5 }, null, null, null, null]),
+    side([{ creature: 'pikeman', count: 5 }, null, null, null, null]),
+    createRng(74),
+  );
+  stackById(state, 'attacker-0').hex = { col: 0, row: 4 };
+  stackById(state, 'defender-0').hex = piqueroEn;
+  stackById(state, 'defender-0').acted = piqueroYaActuo;
+  return state;
+}
+
+describe('la IA cede la iniciativa en vez de meter el morro (#52)', () => {
+  it('espera si al avanzar quedaría dentro del alcance de quien aún no ha movido', () => {
+    const state = escenaDeEspera({ col: 10, row: 4 });
+    expect(state.activeId).toBe('attacker-0');
+    expect(stackSpeed(stackById(state, 'attacker-0'))).toBe(7);
+    expect(stackSpeed(stackById(state, 'defender-0'))).toBe(4);
+
+    // Avanzar lo dejaría en (7,4), a 3 hexes del piquero: dentro de sus 4+1.
+    expect(chooseBattleAction(state)).toEqual({ type: 'wait' });
+  });
+
+  it('y no es otra tautología: si el enemigo ya actuó, avanza', () => {
+    // Misma escena, mismo alcance, misma distancia. Lo único que cambia es que
+    // el piquero ya gastó su turno, así que no hay iniciativa que cederle: si
+    // la regla se disparase igual, sería «esperar por esperar» con otro
+    // disfraz, que es justo lo que se acaba de borrar.
+    const state = escenaDeEspera({ col: 10, row: 4 }, true);
+    expect(chooseBattleAction(state)).toEqual({ type: 'move', to: { col: 7, row: 4 } });
+  });
+
+  it('golpear gana a esperar: la espera es la alternativa a avanzar, no al ataque', () => {
+    // Con el piquero a tiro de carga, la rama de acercarse y golpear resuelve
+    // antes: ceder la iniciativa para pegar al final de la ronda no vale nada
+    // cuando ya se puede pegar ahora.
+    const state = escenaDeEspera({ col: 7, row: 4 });
+    expect(chooseBattleAction(state).type).toBe('attack');
+  });
+
+  it('quien ya esperó esta ronda no vuelve a esperar', () => {
+    // El motor lo rechazaría (`legalActions` deja de ofrecer `wait`), así que
+    // sin esta condición la heurística devolvería una acción ilegal. Es también
+    // lo que impide que dos stacks se pasen la ronda cediéndose el turno.
+    const state = escenaDeEspera({ col: 10, row: 4 });
+    stackById(state, 'attacker-0').waited = true;
+    expect(chooseBattleAction(state)).toEqual({ type: 'move', to: { col: 7, row: 4 } });
   });
 });
 

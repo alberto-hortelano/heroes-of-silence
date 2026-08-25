@@ -230,6 +230,13 @@ export const MOTIVO_PARTIDA_TERMINADA = 'no se ha intentado: la partida ya habí
  * así que un hechizo sustituto puede cerrar la batalla, el bucle del director
  * sale por `battle.finished` y no hay ninguna petición más. Prometer una que no
  * va a llegar deja al agente esperando su turno de la unidad que ya ganó.
+ *
+ * `wait` es la tercera rama, y hasta #52 no se veía porque la heurística no
+ * esperaba nunca: la cola por defecto le decía «Eso ha consumido el turno», y
+ * con una espera **eso es mentira** —el stack vuelve al final de la misma
+ * ronda—. Ahora que la espera se juega de verdad, el agente recibiría una
+ * explicación falsa de qué le costó su error justo en la acción que menos se
+ * parece a las demás.
  */
 export function notaAccionSustituida(
   unidad: string,
@@ -257,6 +264,17 @@ export function notaAccionSustituida(
     return (
       `${cabecera} Eso NO ha consumido el turno de ${unidad} —se te volverá a pedir acción ` +
       `para ella—${mana === null ? '' : `, pero ${mana}`}.`
+    );
+  }
+  if (sustituta.type === 'wait') {
+    // Una espera tampoco lo consume: empuja al stack al final de `state.queue`
+    // y `advance` lo volverá a sacar en esta misma ronda. Se le dice aparte del
+    // `cast` porque el precio es otro: no se ha ido maná, se ha ido el SITIO en
+    // la cola, y saberlo cambia lo que conviene responder cuando le vuelvan a
+    // preguntar por la misma unidad.
+    return (
+      `${cabecera} Eso NO ha consumido el turno de ${unidad} —se te volverá a pedir acción ` +
+      'para ella al final de la ronda, cuando ya hayan movido los demás—.'
     );
   }
   return `${cabecera} Eso ha consumido el turno de ${unidad} en esta ronda.`;

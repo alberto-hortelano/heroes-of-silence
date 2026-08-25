@@ -205,6 +205,11 @@ Notas:
 - "cast" NO consume el turno de la unidad activa: lanza el héroe, se cobra el
   maná y una tirada por ronda, y después la unidad sigue pudiendo moverse,
   disparar o atacar. Se te volverá a pedir acción para el mismo stack.
+- "wait" tampoco lo consume: manda a la unidad al FINAL de la cola de esta
+  ronda y se te volverá a pedir acción para ella cuando hayan movido los
+  demás. Sirve para no meterte en el alcance de quien todavía no ha actuado:
+  déjale comprometerse y pégale tú después. Solo se puede una vez por ronda
+  y por unidad, y por eso desaparece de "legalActions" en cuanto la usas.
 - La lista "legalActions" de la petición ya trae TODAS las acciones legales;
   elegir una de ellas nunca falla.
 - Si tu acción NO es legal se descarta y juega la IA de reglas en su lugar, que

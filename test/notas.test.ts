@@ -113,6 +113,23 @@ describe('notas para el agente', () => {
     expect(nota).toContain('Eso NO ha consumido el turno de a1');
   });
 
+  it('una sustituta que fue espera tampoco consume el turno, y NO habla de maná', () => {
+    // Esta es la mentira que #52 destapa: mientras la heurística no esperaba
+    // nunca, un `wait` sustituto caía en la cola por defecto y el agente leía
+    // «Eso ha consumido el turno», que con una espera es falso — el stack
+    // vuelve al final de la MISMA ronda.
+    const sustituta: BattleAction = { type: 'wait' };
+    const nota = notaAccionSustituida('a1', 'no alcanza', sustituta, 0, 'Aldo', false);
+
+    expect(nota).toContain('espera');
+    expect(nota).toContain('Eso NO ha consumido el turno de a1');
+    expect(nota).not.toContain('Eso ha consumido el turno de a1');
+    // Y dice CUÁNDO le volverán a preguntar, que es lo único que la distingue
+    // de un `cast`: el precio no fue maná, fue el sitio en la cola.
+    expect(nota).toContain('al final de la ronda');
+    expect(nota).not.toMatch(/maná/);
+  });
+
   it('si la sustituta TERMINÓ la batalla, no promete otra petición', () => {
     // La promesa del `cast` —«se te volverá a pedir acción para ella»— es falsa
     // si el hechizo remata: `spellValue` valora explícitamente el golpe que mata,

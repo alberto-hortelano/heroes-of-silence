@@ -16,6 +16,7 @@ import {
   splashTargets,
   stackById,
   stackHexes,
+  stackSpeed,
 } from '../battle/battle.js';
 import { hexDistance, hexKey } from '../battle/board.js';
 import { CHANCE_PER_POINT, expectedDamage, stackHp } from '../battle/damage.js';
@@ -202,9 +203,43 @@ function mejorCarga(
 }
 
 /**
+ * ¿Conviene ceder la iniciativa en vez de dar el paso adelante?
+ *
+ * Sí cuando hay un enemigo que **todavía no ha actuado** y cuyo alcance cubre
+ * mi casilla actual o aquella a la que iba a avanzar: si avanzo, meto el morro
+ * en su radio y me pega él primero; si espero, actúo al final de la ronda,
+ * cuando ya se ha comprometido, y le pego yo.
+ *
+ * Los requisitos decían «típicamente con tiradores y unidades lentas», copiando
+ * al original, y medido es al revés: ceder la iniciativa solo compra algo a
+ * quien tiene enemigos PENDIENTES detrás en la cola —o sea al rápido—, porque
+ * `wait` empuja el stack al final de `state.queue` y `advance` saca por
+ * `shift`. El más lento no tiene a quién cederle nada.
+ *
+ * El alcance se aproxima con `hexDistance` y `stackSpeed(e) + 1` —los pasos que
+ * da más el hex desde el que golpea— en vez de un BFS por enemigo: sobreestima,
+ * así que espera de más y nunca de menos, y no cuesta un recorrido de tablero.
+ *
+ * De las tres reglas que se midieron es la del medio, y la única cuyo intervalo
+ * de confianza entero queda por encima del 50 %. Mirar solo mi hex actual apenas
+ * se dispara (1,2 % de las decisiones) y no se distingue de cero; esperar en
+ * cuanto haya cualquier enemigo pendiente (24 %) es la tautología por el otro
+ * lado y juega peor.
+ */
+function convieneEsperar(s: BattleStack, enemigos: readonly BattleStack[], destino: Hex): boolean {
+  if (s.waited) return false;
+  return enemigos.some((e) => {
+    if (e.acted) return false;
+    const alcance = stackSpeed(e) + 1;
+    return hexDistance(e.hex, s.hex) <= alcance || hexDistance(e.hex, destino) <= alcance;
+  });
+}
+
+/**
  * Elige la acción del stack activo:
  * dispara si puede, remata lo que alcanza, si no se acerca al objetivo más
- * jugoso, y si no puede hacer nada útil se defiende.
+ * jugoso —o cede la iniciativa antes de meterse en el alcance de quien aún no
+ * ha movido—, y si no puede hacer nada útil se defiende.
  */
 export function chooseBattleAction(state: BattleState): BattleAction {
   const s = activeStack(state);
@@ -281,19 +316,20 @@ export function chooseBattleAction(state: BattleState): BattleAction {
         distanceTo(b, objetivo) < distanceTo(a, objetivo) ? b : a,
       );
       if (distanceTo(mejor, objetivo) < distanceTo(s.hex, objetivo)) {
+        // El paso adelante es lo último que se decide, porque es justo el que
+        // puede salir caro: si al darlo quedo dentro del alcance de alguien que
+        // aún no ha movido, sale más a cuenta esperar y pegarle yo.
+        if (convieneEsperar(s, enemigos, mejor)) return { type: 'wait' };
         return { type: 'move', to: mejor };
       }
     }
   }
 
-  // Aquí el stack no alcanza a nadie ni puede acercarse. Esperar es mejor que
-  // defenderse: cede el turno al final de la ronda por si el enemigo cierra la
-  // distancia, y entonces sí habrá a quién pegar. No estanca, porque `waited`
-  // se resetea en cada `beginRound` y en la segunda mitad de la ronda ya no
-  // queda `wait` legal que elegir — que es la misma condición que se lee aquí,
-  // en vez de buscarla en una lista de cientos de entradas.
-  if (!s.waited) return { type: 'wait' };
-
+  // Aquí el stack no alcanza a nadie ni puede acercarse. Esperar no compra
+  // nada —quien no puede llegarme hoy tampoco llegará al final de la ronda—, y
+  // el +20 % de defensa sí. `defend` es la única cola terminal: el `wait` que
+  // había aquí era una tautología defensiva que además no se alcanzaba nunca,
+  // 0 de 10 440 decisiones.
   return { type: 'defend' };
 }
 
