@@ -26,6 +26,7 @@ import {
   heroById,
   resolvePendingBattle,
   visibleNow,
+  visibleNowAt,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import type { Point } from '../src/core/types.js';
@@ -242,6 +243,36 @@ describe('la crónica pasa por la niebla', () => {
     // Y que la partida haya dado de sí: si solo saliera `hero_moved`, lo de
     // arriba no probaría gran cosa.
     expect(new Set(state.log.map((e) => e.kind)).size).toBeGreaterThanOrEqual(15);
+  });
+
+  it('las dos formas de «quién mira ahora» dicen lo mismo, casilla a casilla', () => {
+    // `emit` pregunta por UNA casilla y `visibleNowAt` responde sin construir
+    // el `Set` de 81 claves que `visibleNow` levantaba para tirarlo. Son la
+    // misma regla escrita dos veces, y eso aquí se ata o se rompe solo: el día
+    // que la visión deje de ser un cuadrado —un bosque que tape, un catalejo—,
+    // la forma que se quede atrás sellará eventos que no vio nadie.
+    //
+    // El héroe se lleva a la esquina a propósito: es donde `visibleFrom` poda
+    // por los límites del mapa, que es la mitad de la equivalencia que un
+    // héroe en mitad de la franja no ejercita.
+    const { state, ctx } = partida(109);
+    pasear(state, ctx, 0, [{ x: 0, y: 0 }]);
+    pasarTurno(state, ctx, 0);
+    pasear(state, ctx, 1, [{ x: 39, y: 11 }]);
+
+    const discrepancias: string[] = [];
+    for (const p of state.players) {
+      const conjunto = visibleNow(state, p.id);
+      for (let y = -1; y <= state.map.height; y++) {
+        for (let x = -1; x <= state.map.width; x++) {
+          const q = { x, y };
+          if (visibleNowAt(state, p.id, q) !== conjunto.has(pointKey(q))) {
+            discrepancias.push(`jugador ${p.id} en (${x},${y})`);
+          }
+        }
+      }
+    }
+    expect(discrepancias).toEqual([]);
   });
 
   it('la pantalla NO se filtra: el cliente sigue viendo el log entero', () => {
