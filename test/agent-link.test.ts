@@ -518,6 +518,53 @@ describe('el agente defiende', () => {
     expect(vista.yourSide).toBe('attacker');
     expect(vista.note).toMatch(/no está en esta batalla/);
   });
+
+  it('pero esa batalla ajena llega sin el maná ni el libro del héroe de otro', async () => {
+    // #73. La premisa del issue era falsa por el lado bueno: no es «solo con
+    // monstruos neutrales, que no tienen secretos». `battleOwners` pone al
+    // monstruo de DEFENSOR, así que el atacante es siempre un jugador y lo que
+    // volvía era el héroe de una persona, con su maná y su libro.
+    const { link } = await montar(() => ({ actions: [] }));
+    const director = new Director(link, { seed: 206, agentPlayers: [1] });
+    const state = director.state;
+    rivalContraMonstruo(state, director.ctx);
+    expect(state.pendingBattle).not.toBeNull();
+
+    const suyo = state.heroes.find((h) => h.owner === 0) as Hero;
+    expect(suyo.spells.length).toBeGreaterThan(0);
+
+    const ajena = responderConsulta(director, 'battle_state', { player: 1 }) as any;
+    // El tablero entero se sigue viendo: la decisión sigue siendo no negar la
+    // vista, y lo que cambia es lo que va dentro.
+    expect(ajena.stacks.length).toBeGreaterThan(0);
+    expect(ajena.round).toBeGreaterThan(0);
+    expect(ajena.hero.name).toBe(suyo.name);
+    expect(ajena.hero.attack).toBe(suyo.attack);
+    expect(ajena.note).toMatch(/no está en esta batalla/);
+    // Lo del bando, que no sale: con cuánto cuenta y qué sabe lanzar.
+    expect(ajena.hero.mana).toBeUndefined();
+    expect(ajena.hero.spells).toBeUndefined();
+    // Y la cuarta fuga, la que no estaba en el issue: `legalActions` es la del
+    // stack ACTIVO sea de quien sea, y sus `cast` enumeran ese mismo libro
+    // filtrado por ese mismo maná. La misma puerta, la de al lado.
+    expect(ajena.legalActions).toBeUndefined();
+
+    // Lo que se afirma de verdad es lo que sale por el cable, no la forma del
+    // objeto: una fuga es que el dato aparezca, aunque sea dentro de otra cosa.
+    const cable = entregado(director, 'battle_state', { player: 1 });
+    expect(cable).not.toContain('"mana":');
+    expect(cable).not.toContain('"spells":');
+    for (const hechizo of suyo.spells) expect(cable).not.toContain(hechizo);
+
+    // Y al dueño de ese héroe se le siguen dando los dos: un arreglo que se los
+    // quite a todos no es un arreglo.
+    const propia = responderConsulta({ state, agentPlayers: new Set([0]) }, 'battle_state', {
+      player: 0,
+    }) as any;
+    expect(propia.hero.name).toBe(suyo.name);
+    expect(typeof propia.hero.mana).toBe('number');
+    expect(propia.hero.spells).toEqual(suyo.spells);
+  });
 });
 
 /**

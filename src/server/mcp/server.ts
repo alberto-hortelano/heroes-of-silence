@@ -345,7 +345,10 @@ server.tool(
 
 server.tool(
   'battle_state',
-  'La batalla en curso, si la hay, desde tu punto de vista.',
+  'La batalla en curso, si la hay, desde tu punto de vista. Si no es tuya —el ' +
+    'rival contra un monstruo— la ves igual, con los ojos del atacante, pero sin ' +
+    'el maná ni el libro de hechizos de su héroe y sin "legalActions": ahí no ' +
+    'juegas tú. La nota de la respuesta lo dice.',
   { player: z.number().int().optional().describe(PARAMETRO_JUGADOR) },
   async ({ player }) => {
     const data = await consultar('battle_state', jugador(player));

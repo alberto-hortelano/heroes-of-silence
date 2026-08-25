@@ -55,9 +55,14 @@ export function responderConsulta(
         // dice que no es la suya. Aquí sí vale, y en `game_state` no: esto pasa
         // con un jugador SUYO —una batalla entre el rival y un monstruo— y lo
         // que se le enseña es un campo de batalla, no el diario del rival.
+        //
+        // Lo que sí cambia es lo que va dentro: `'ajena'` quita el maná y el
+        // libro de ese héroe, que **es el de otra persona** —el monstruo es
+        // siempre el defensor, así que el atacante es siempre un jugador— y las
+        // acciones legales, que son las de un stack que no manda quien pregunta.
         return {
-          ...(serializeBattleTurn(pending.battle, 'attacker') as object),
-          note: `el jugador ${player} no está en esta batalla: la ves con los ojos del atacante`,
+          ...(serializeBattleTurn(pending.battle, 'attacker', 'ajena') as object),
+          note: `el jugador ${player} no está en esta batalla: la ves con los ojos del atacante, sin su maná ni su libro de hechizos, y no juegas tú`,
         };
       }
       // Llevar los DOS bandos es posible —`agentPlayers` acepta varios
@@ -66,6 +71,7 @@ export function responderConsulta(
       const vista = serializeBattleTurn(
         pending.battle,
         suyos.has('attacker') ? 'attacker' : 'defender',
+        'propia',
       );
       if (suyos.size === 1) return vista;
       return {

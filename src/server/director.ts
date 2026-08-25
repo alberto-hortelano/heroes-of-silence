@@ -208,7 +208,9 @@ export class Director {
       // `respuesta` queda tipada por lo que promete `ask` —el esquema zod de
       // `battle_turn`— en lugar de ser un `any` que se va ensanchando.
       const respuesta = await this.link
-        .ask('battle_turn', serializeBattleTurn(battle, s.side))
+        // Vista propia siempre: `s` ES el stack activo y `s.side` su bando, así
+        // que aquí quien pregunta es quien manda.
+        .ask('battle_turn', serializeBattleTurn(battle, s.side, 'propia'))
         .catch((err: unknown) => {
           this.note(
             `El agente falló en la batalla (${err instanceof Error ? err.message : String(err)}); la termina la IA.`,

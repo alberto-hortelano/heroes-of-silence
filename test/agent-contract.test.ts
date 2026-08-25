@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { planBuildings, planHires, planRecruits } from '../src/core/ai/strategy.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
-import { createBattle, legalActions } from '../src/core/battle/battle.js';
+import { activeStack, createBattle, legalActions } from '../src/core/battle/battle.js';
 import {
   adventureActionSchema,
   battleActionSchema,
@@ -183,7 +183,13 @@ describe('lo que ve el agente', () => {
     forzarBatalla(state, ctx, hero);
 
     const battle = state.pendingBattle!.battle;
-    const payload = serializeBattleTurn(battle, 'attacker') as { legalActions: unknown[] };
+    // El bando sale del stack activo y no de un `'attacker'` escrito a mano,
+    // que es lo que hace el director: `legalActions` es la lista de quien
+    // decide, y desde #73 solo se manda cuando le toca a él.
+    const activo = activeStack(battle)!;
+    const payload = serializeBattleTurn(battle, activo.side, 'propia') as {
+      legalActions: unknown[];
+    };
     expect(payload.legalActions.length).toBeGreaterThan(0);
     expect(payload.legalActions).toEqual(legalActions(battle));
     expect(JSON.parse(JSON.stringify(payload))).toEqual(payload);

@@ -5,7 +5,7 @@
  * estables para que pueda pedir detalles con las tools de consulta. Volcar el
  * mundo completo en cada turno llenaría su contexto de ruido.
  */
-import { legalActions, stackHexes, stackSpeed } from '../battle/battle.js';
+import { activeStack, legalActions, stackHexes, stackSpeed } from '../battle/battle.js';
 import { stackHp } from '../battle/damage.js';
 import { effectiveLuck } from '../battle/effects.js';
 import type { BattleState, Side } from '../battle/types.js';
@@ -234,7 +234,45 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId): un
   };
 }
 
-export function serializeBattleTurn(battle: BattleState, side: Side): unknown {
+/**
+ * De quién son los ojos con los que se mira una batalla: **si el bando `side`
+ * es de quien pregunta, o de otro** (#73).
+ *
+ * Es obligatorio y no opcional con defecto a propósito. Un defecto hace que el
+ * próximo llamante se lleve los secretos por no escribir nada, que es
+ * exactamente cómo se abrió esta: `consultas.ts` pasaba `'attacker'` cuando la
+ * batalla no era tuya —el rival contra un monstruo neutral— y el atacante es
+ * **siempre** un jugador, así que lo que volvía era el héroe de una persona con
+ * su maná y su libro. Medido 8/8, y la situación ocurre 111 veces en 200
+ * partidas.
+ */
+export type VistaDeBatalla = 'propia' | 'ajena';
+
+/**
+ * La batalla vista desde `side`, con lo público separado de lo del bando.
+ *
+ * **Público**, porque es lo que se ve pasar en el tablero: la ronda, quién es
+ * el bando mirado, qué stack tiene el turno, el tablero, los stacks enteros
+ * —efectos, disparos, moral y suerte— y el registro, que cuenta hechizos ya
+ * lanzados: eso lo has visto ocurrir.
+ *
+ * **Del bando**: `hero.mana` y `hero.spells`, que son lo que *podría* lanzar y
+ * con cuánto. Con `vista: 'ajena'` esos dos no se emiten y el resto del héroe
+ * —nombre y estadísticas— se queda: negarle la vista entera no era la decisión,
+ * y sigue sin serlo.
+ *
+ * Y `legalActions` va **solo si la vista es propia y el stack activo es de
+ * `side`**: es la del stack activo sea de quien sea, y sus entradas `cast`
+ * enumeran el libro de ese héroe filtrado por su maná —la misma fuga por la
+ * puerta de al lado—. La promesa del contrato, «elegir una nunca falla», solo
+ * es cierta cuando te toca a ti; en `director.ts` esa condición no muerde nunca,
+ * porque allí `side` es el bando del stack que decide.
+ */
+export function serializeBattleTurn(
+  battle: BattleState,
+  side: Side,
+  vista: VistaDeBatalla,
+): unknown {
   const stackView = (s: (typeof battle.stacks)[number]) => {
     const info = creature(s.creature);
     return {
@@ -272,6 +310,8 @@ export function serializeBattleTurn(battle: BattleState, side: Side): unknown {
   };
 
   const hero = battle.heroes[side];
+  const propia = vista === 'propia';
+  const activo = activeStack(battle);
 
   return {
     kind: 'battle_turn',
@@ -288,12 +328,17 @@ export function serializeBattleTurn(battle: BattleState, side: Side): unknown {
             attack: hero.attack,
             defense: hero.defense,
             spellPower: hero.spellPower,
-            mana: hero.mana,
             castThisRound: hero.castThisRound,
-            spells: hero.spells,
+            // Los dos únicos campos del bando, juntos y en una línea que se lee:
+            // con qué maná cuenta y qué sabe lanzar. De un héroe ajeno no salen.
+            ...(propia ? { mana: hero.mana, spells: hero.spells } : {}),
           },
-    // Todas las acciones legales del stack activo: elegir una nunca falla.
-    legalActions: legalActions(battle),
+    // Todas las acciones legales del stack activo: elegir una nunca falla —
+    // cuando te toca. Si el stack activo no es de `side`, esta lista es la de
+    // OTRO y sus `cast` son su libro y su maná: no se manda.
+    ...(propia && activo !== null && activo.side === side
+      ? { legalActions: legalActions(battle) }
+      : {}),
     log: battle.log.slice(-30),
   };
 }
