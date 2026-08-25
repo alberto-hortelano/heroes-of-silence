@@ -394,7 +394,7 @@ export function textoDeCorte(motivo: string): string {
     `${PREFIJO_CORTE} CON LA PARTIDA · ${motivo}.\n\n` +
     'No consta si la partida había terminado o si el servidor se ha caído: se cortó ' +
     'antes de decirlo, y las consultas viajan por ese mismo canal, así que preguntarlo ' +
-    'ahora tampoco serviría. Si el servidor sigue en pie ("pnpm server"), vuelve a ' +
+    'ahora tampoco serviría. Si el servidor sigue en pie ("pnpm partida"), vuelve a ' +
     'llamar a heroes_listen y el puente se reconecta solo; si no vuelve, tu sesión ' +
     'se acaba aquí y puedes contar lo último que sí viste.'
   );

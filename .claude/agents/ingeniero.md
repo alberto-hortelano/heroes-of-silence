@@ -52,7 +52,7 @@ set +m
 
 `setsid pnpm dev &` no vale aunque lo parezca: bifurca, y `$!` es el PID del `setsid` que ya murió.
 
-Y un puerto ocupado por algo que no arrancaste tú no se libera matando: se dice. Si necesitas un servidor propio que no choque con nada, `HEROES_AGENT_PORT=0 HEROES_SPECTATOR_PORT=0` hace que los elija el sistema y el servidor imprime los que le tocaron; es lo que hace `pnpm qa`, que por eso convive con un `pnpm server` abierto.
+Y un puerto ocupado por algo que no arrancaste tú no se libera matando: se dice. Si necesitas un servidor propio que no choque con nada, `HEROES_AGENT_PORT=0 HEROES_SPECTATOR_PORT=0` hace que los elija el sistema y el servidor imprime los que le tocaron; es lo que hace `pnpm qa`, que por eso convive con un `pnpm partida` abierto.
 
 ## Reglas de código
 

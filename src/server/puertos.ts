@@ -2,7 +2,7 @@
  * De dónde salen los dos puertos del servidor.
  *
  * Eran literales en `protocol.ts`, y eso hacía que `pnpm qa` —que levanta su
- * propio servidor— saliera 1 con `EADDRINUSE` en cuanto había un `pnpm server`
+ * propio servidor— saliera 1 con `EADDRINUSE` en cuanto había un `pnpm partida`
  * abierto, que es **la forma documentada de jugar con el agente**. Ese choque
  * no era solo una molestia: es la fricción que empuja a liberar el puerto
  * matando procesos por patrón, y en una máquina compartida eso se lleva por

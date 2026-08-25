@@ -53,7 +53,7 @@ pnpm test     # 76 tests
 Para que juegue un agente hacen falta dos terminales:
 
 ```bash
-pnpm server                       # terminal 1: la partida
+pnpm partida                      # terminal 1: la partida
 # terminal 2: Claude Code en esta carpeta. El MCP "heroes" ya está en .mcp.json.
 #   «juega la partida: llama a heroes_listen, decide, responde con
 #    heroes_respond, y repite»

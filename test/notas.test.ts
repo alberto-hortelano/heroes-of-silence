@@ -334,7 +334,7 @@ describe('lo que devuelve una escucha', () => {
 
     expect(texto.startsWith(PREFIJO_RELEVO)).toBe(true);
     expect(texto).not.toContain(PREFIJO_CORTE);
-    expect(texto).not.toMatch(/No consta|se ha caído|pnpm server/);
+    expect(texto).not.toMatch(/No consta|se ha caído|pnpm partida/);
     // Dice lo que sí ha pasado y qué hacer: nada, esperar a la otra escucha.
     expect(texto).toMatch(/sigue vivo/);
     expect(texto).toMatch(/NO vuelvas a llamar a heroes_listen/);
@@ -386,7 +386,7 @@ describe('las dos frases terminales', () => {
     expect(texto.startsWith(PREFIJO_CORTE)).toBe(true);
     // Ni «ha terminado» ni «se ha caído»: no consta cuál de las dos.
     expect(texto).toMatch(/No consta/);
-    expect(texto).toContain('pnpm server');
+    expect(texto).toContain('pnpm partida');
   });
 });
 

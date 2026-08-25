@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
     "format": "biome check --write .",
-    "server": "tsx src/server/ws-server.ts",
+    "partida": "tsx src/server/ws-server.ts",
     "mcp": "tsx src/server/mcp/server.ts",
     "gen": "tsx tools/gen/cli.ts",
     "qa": "tsx tools/qa/verify-agent.ts",

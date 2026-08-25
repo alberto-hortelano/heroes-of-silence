@@ -56,7 +56,7 @@ function log(msg: string): void {
 const servidor = spawn('npx', ['tsx', 'src/server/ws-server.ts'], {
   cwd: process.cwd(),
   // Puerto 0 en los dos canales: lo elige el sistema. Antes eran literales, y
-  // `pnpm qa` salía 1 con EADDRINUSE en cuanto había un `pnpm server` abierto —
+  // `pnpm qa` salía 1 con EADDRINUSE en cuanto había un `pnpm partida` abierto —
   // que es la forma documentada de jugar con el agente. Con 0 no hay puerto que
   // chocar, así que el arnés convive con la partida de al lado (#61).
   env: {

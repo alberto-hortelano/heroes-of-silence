@@ -98,7 +98,7 @@ function connect(): Promise<WebSocket> {
       reject(
         new Error(
           `no se puede hablar con el servidor de la partida en ${SERVER_URL}: ${err.message}. ` +
-            '¿Está arrancado con "pnpm server"?',
+            '¿Está arrancado con "pnpm partida"?',
         ),
       );
     });

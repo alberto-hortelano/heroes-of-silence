@@ -3,7 +3,7 @@
 # Dos jobs a propósito: `verify` es el bucle rápido (lo mismo que corre el hook
 # `Stop`, más `build`), y `qa` es la única prueba del circuito entero del
 # agente. `qa` no está dentro de `pnpm verify` porque abre los puertos fijos
-# 9880/9881 y sale 1 con EADDRINUSE si hay un `pnpm server` levantado, que es la
+# 9880/9881 y sale 1 con EADDRINUSE si hay un `pnpm partida` levantado, que es la
 # forma documentada de jugar con el agente: el hook se pondría rojo por tener el
 # juego abierto. Aquí no hay ese problema — cada job es una máquina propia.
 #

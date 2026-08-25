@@ -11,8 +11,8 @@ El juego es el andamio; lo interesante es lo que se puede enchufar dentro.
 ```bash
 pnpm install
 pnpm dev        # cliente en http://localhost:3100 (juego local contra la IA de reglas)
-pnpm verify     # typecheck + lint + 277 tests, 6,7 s: el bucle rápido
-pnpm test       # 277 tests: reglas, batalla, partida completa y contrato del agente
+pnpm verify     # typecheck + lint + 282 tests, 7,2 s: el bucle rápido
+pnpm test       # 282 tests: reglas, batalla, partida completa y contrato del agente
 pnpm typecheck
 pnpm lint       # Biome: formato y lint en una sola pasada, 40 ms
 pnpm format     # lo mismo, arreglando lo que sepa arreglar
@@ -43,8 +43,8 @@ invoca nada de `tools/gen/`.
 Para que juegue un **agente** hacen falta dos terminales:
 
 ```bash
-# terminal 1 — el servidor de la partida
-pnpm server
+# terminal 1 — el servidor de la partida.  NO se llama `pnpm server`: ver abajo
+pnpm partida
 
 # terminal 2 — Claude Code EN ESTA CARPETA; el MCP "heroes" ya está en .mcp.json.
 #   La ruta de .mcp.json es relativa (antes era absoluta y solo valía en una
@@ -54,6 +54,17 @@ pnpm server
 #   pídele: "juega la partida: llama a heroes_listen, decide y responde con
 #            heroes_respond, y repite"
 ```
+
+**El script se llama `partida` y no `server`, y el motivo es una trampa de las
+que vuelven.** `server` es un **subcomando propio de pnpm** («Manage a store
+server»), así que `pnpm server` **nunca llega al script**: sale **0 en silencio**,
+sin arrancar nada y sin decir que no ha arrancado nada. Estuvo así documentado
+dos veces aquí y una en el `README`, y —peor— el servidor le decía **al agente**
+«¿está arrancado con "pnpm server"?» cuando no podía conectar. Lo encontró QA
+intentando seguir la propia documentación. Con el nombre cambiado, `pnpm run
+server` falla ruidosamente («script not found»), que es lo que este repo pide de
+un fallo. La lección general: **una orden documentada hay que verla arrancar**,
+igual que un guardia hay que verlo morder.
 
 Verificación del circuito entero sin tocar nada a mano:
 
@@ -238,6 +249,47 @@ trabajo. Ahora `responderConsulta` recibe qué jugadores lleva el agente y
 0: no es tuyo. Llevas el jugador 1: pregunta por ese»*. La descripción de la tool
 dice qué acepta, porque un agente que recibe un rechazo sin haber sido avisado no
 se corrige: reintenta.
+
+**Y la niebla tapa también las consultas.** Cerrar la crónica dejó la puerta
+principal cerrada y **tres de al lado abiertas**, y ninguna la alcanzaba nadie
+todavía: se taparon **antes** de abrir la puerta, que es más barato que
+quitárselo a un agente que ya lo tenía.
+
+- La consulta `map` devolvía el mapa **entero** y ni miraba por quién. Ahora pasa
+  por `jugadorDelAgente` y por `serializeKnownMap`, que filtra por `player.fog`.
+- Una batalla entre dos terceros enseñaba el **maná y el libro** del héroe ajeno.
+  El monstruo es siempre el **defensor**, así que el atacante es siempre una
+  persona: no era «solo con neutrales, que no tienen secretos». La vista **no se
+  niega** —eso ya se decidió—: se enseña el tablero y se dice de quién son los
+  ojos, sin lo que es del bando.
+- Y la que **no estaba en ningún issue**: `legalActions` es la del stack activo
+  *sea de quien sea*, y sus entradas `cast` enumeran el libro de ese héroe
+  filtrado por su maná. Viaja solo si la vista es propia **y** el stack activo es
+  tuyo.
+
+**Lo que se ve en una casilla no explorada es un hueco explícito**, `null`, y no
+el terreno por defecto: al día 6 el 45,3 % de las casillas serían dato fabricado
+sin decirlo, y un agente no puede distinguir llanura de ignorancia. El índice
+`y*width+x` se conserva, así que quien lea esto no aprende una convención nueva.
+Y una cifra que contradice lo que cualquiera esperaría: **filtrar apenas encoge
+el payload** —14,8 % de mediana—, porque `null` ocupa cuatro caracteres y
+`"grass"` siete. Quien publique la tool no debe contar con ese ahorro.
+
+**Un castillo ve 5 casillas, no una.** `visibleNow` le daba **su propia casilla y
+nada más**, así que un héroe enemigo podía acampar pegado a tu capital sin que te
+llegara un solo `hero_moved` — medido, 0 de 60. Antes de que la crónica pasara
+por la niebla no se notaba porque te enterabas igual, por la fuga. La cifra es de
+fheroes2 (`getFogDiscoveryDistance`: `CASTLE: 5`, `HEROES: 4`) y **no depende de
+la fortificación**; se copia **el número y no la forma**, porque allí es un disco
+y aquí un cuadrado. La regla vive en **dos** funciones —`visibleNow` y
+`visibleNowAt`— y las dos se editan: hay un test que las compara casilla a
+casilla, y tocar solo una saca **129 discrepancias**.
+
+Cambia la niebla de todas las partidas, así que el volcado se movió a propósito
+—1 871 de 28 406 líneas—, y el criterio de aceptación no fue el hash sino la
+**forma del diff**: el 100 % de las diferencias solo en `seen`, **cero** líneas
+`fin`, y todas **ganando** observador sin que ninguna lo pierda. Un hash nuevo lo
+habría dado por bueno también si la visión hubiera cambiado *decisiones*.
 
 En `map_generate` el agente **no dibuja**: devuelve un plan declarativo y
 `buildMap` lo construye. `validateMapPlan` lo rechaza si algún castillo queda
@@ -487,7 +539,7 @@ aportan en un prototipo. Lo que hay:
 
 | Comprobación | Cuánto tarda | Cuándo |
 |---|---|---|
-| `pnpm verify` | 6,7 s | siempre |
+| `pnpm verify` | 7,2 s | siempre |
 | `test/invariantes.test.ts` | 40 ms | va dentro de `pnpm test` |
 | El navegador | minutos | si el cambio se ve |
 | `pnpm qa` | 5,4 s | si tocas `src/server/` o el contrato |
@@ -502,11 +554,11 @@ tarde 5 s y no un minuto no es una mejora: es que la partida se acaba el día 3
 porque el agente defiende y pierde, así que la cobertura real son **2 turnos de
 mapa y 14 decisiones de batalla** — eran 13 hasta que la IA aprendió a esperar.
 
-`pnpm qa` **no entra en `pnpm verify`**, y ahora sí es por lo que tarda: 6,7 +
-5,4 = 12,1 s en cada final de tarea, para un guardia que solo dice algo cuando se
+`pnpm qa` **no entra en `pnpm verify`**, y ahora sí es por lo que tarda: 7,2 +
+5,4 = 12,6 s en cada final de tarea, para un guardia que solo dice algo cuando se
 toca `src/server/` o el contrato. El motivo de antes era otro y ya no existe:
 abría los puertos **fijos** 9880/9881 y salía 1 con `EADDRINUSE` si había un
-`pnpm server` levantado —la forma documentada de jugar con el agente—, así que el
+`pnpm partida` levantado —la forma documentada de jugar con el agente—, así que el
 hook `Stop` se ponía rojo por tener el juego abierto. Eso está arreglado: los dos
 puertos salen de `HEROES_AGENT_PORT` y `HEROES_SPECTATOR_PORT` (`src/server/puertos.ts`),
 con los literales de siempre por defecto y **`0` para que los elija el sistema**,
