@@ -61,11 +61,6 @@ export function pointKey(p: Point): string {
   return `${p.x},${p.y}`;
 }
 
-export function parsePointKey(key: string): Point {
-  const [x, y] = key.split(',').map(Number);
-  return { x: x as number, y: y as number };
-}
-
 export function inBounds(map: GameMap, p: Point): boolean {
   return p.x >= 0 && p.x < map.width && p.y >= 0 && p.y < map.height;
 }
@@ -141,7 +136,7 @@ export function findPath(map: GameMap, from: Point, to: Point): PathStep[] | nul
   const coste = new Map<string, number>([[pointKey(from), 0]]);
   const previo = new Map<string, Point>();
   const frontera = new Frontera();
-  frontera.push(pointKey(from), 0);
+  frontera.push(pointKey(from), from, 0);
 
   while (frontera.size > 0) {
     const nodo = frontera.pop() as NodoFrontera;
@@ -152,7 +147,7 @@ export function findPath(map: GameMap, from: Point, to: Point): PathStep[] | nul
 
     if (actualKey === destino) {
       const pasos: PathStep[] = [];
-      let cur = parsePointKey(actualKey);
+      let cur = nodo.at;
       while (pointKey(cur) !== pointKey(from)) {
         pasos.unshift({ at: cur, cost: coste.get(pointKey(cur)) as number });
         cur = previo.get(pointKey(cur)) as Point;
@@ -160,7 +155,7 @@ export function findPath(map: GameMap, from: Point, to: Point): PathStep[] | nul
       return pasos;
     }
 
-    const actual = parsePointKey(actualKey);
+    const actual = nodo.at;
     for (const n of neighbours(map, actual)) {
       const nk = pointKey(n);
       if (!isEnterable(map, n)) continue;
@@ -171,7 +166,7 @@ export function findPath(map: GameMap, from: Point, to: Point): PathStep[] | nul
       if (nuevo < (coste.get(nk) ?? Infinity)) {
         coste.set(nk, nuevo);
         previo.set(nk, actual);
-        frontera.push(nk, nuevo);
+        frontera.push(nk, n, nuevo);
       }
     }
   }
@@ -216,7 +211,7 @@ export function reachableFrom(map: GameMap, from: Point, maxCost: number): Reach
   const previo = new Map<string, Point>();
   const cerradas = new Set<string>();
   const frontera = new Frontera();
-  frontera.push(pointKey(from), 0);
+  frontera.push(pointKey(from), from, 0);
 
   const bloqueadas = new Set<string>();
   for (const o of map.objects) {
@@ -234,7 +229,7 @@ export function reachableFrom(map: GameMap, from: Point, maxCost: number): Reach
     // una mina recién capturada, y tratarlo como muro lo dejaba sin rutas.
     if (bloqueadas.has(actualKey) && actualKey !== pointKey(from)) continue;
 
-    const actual = parsePointKey(actualKey);
+    const actual = nodo.at;
     for (const n of neighbours(map, actual)) {
       const nk = pointKey(n);
       if (cerradas.has(nk) || !isEnterable(map, n)) continue;
@@ -243,7 +238,7 @@ export function reachableFrom(map: GameMap, from: Point, maxCost: number): Reach
       if (nuevo < (coste.get(nk) ?? Infinity)) {
         coste.set(nk, nuevo);
         previo.set(nk, actual);
-        frontera.push(nk, nuevo);
+        frontera.push(nk, n, nuevo);
       }
     }
   }

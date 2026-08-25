@@ -38,16 +38,25 @@
  *
  * `core` sigue puro: aquí dentro solo hay aritmética.
  */
+import type { Point } from '../types.js';
 
-/** Lo que sale de la frontera: una casilla y lo que costó llegar a ella. */
+/**
+ * Lo que sale de la frontera: una casilla —su clave Y su punto— y lo que costó
+ * llegar a ella.
+ *
+ * El `Point` viaja aquí dentro porque quien empuja YA lo tiene en la mano: sale
+ * de `neighbours`, que lo acaba de construir. Sin él, los dos Dijkstra volvían
+ * a partir la clave por la coma y a convertir dos trozos a número en cada
+ * extracción — el 12,8 % del perfil del barrido, gastado en reconstruir algo
+ * que se había tirado tres líneas antes.
+ */
 export interface NodoFrontera {
   readonly key: string;
+  readonly at: Point;
   readonly cost: number;
 }
 
-interface Nodo {
-  readonly key: string;
-  readonly cost: number;
+interface Nodo extends NodoFrontera {
   /** Orden de primer descubrimiento. Lo asigna la clase, no el llamante. */
   readonly orden: number;
 }
@@ -72,7 +81,7 @@ export class Frontera {
     return this.monticulo.length;
   }
 
-  push(key: string, cost: number): void {
+  push(key: string, at: Point, cost: number): void {
     let orden = this.ordenes.get(key);
     if (orden === undefined) {
       orden = this.ordenes.size;
@@ -80,7 +89,7 @@ export class Frontera {
     }
 
     const m = this.monticulo;
-    const nodo: Nodo = { key, cost, orden };
+    const nodo: Nodo = { key, at, cost, orden };
     let i = m.length;
     m.push(nodo);
     while (i > 0) {

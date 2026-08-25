@@ -16,6 +16,18 @@ import { describe, expect, it } from 'vitest';
 import { Frontera } from '../src/core/map/frontera.js';
 import { createEmptyMap, findPath, reachableFrom } from '../src/core/map/map.js';
 
+/**
+ * Empuja con un punto de relleno.
+ *
+ * Los tres primeros tests miran el ORDEN, y el `Point` que viaja en el nodo no
+ * entra en el comparador. Las claves son letras y no coordenadas justo para que
+ * se vea que el desempate no las mira: si alguna vez desempatara por clave,
+ * `['z','y','x']` saldría al revés.
+ */
+function empuja(f: Frontera, key: string, cost: number): void {
+  f.push(key, { x: 0, y: 0 }, cost);
+}
+
 /** Vacía la frontera y devuelve las claves en el orden en que salieron. */
 function vaciar(f: Frontera): string[] {
   const salida: string[] = [];
@@ -33,7 +45,7 @@ describe('la frontera del Dijkstra del mapa', () => {
       ['e', 500],
       ['b', 200],
     ] as const) {
-      f.push(k, c);
+      empuja(f, k, c);
     }
     expect(f.size).toBe(5);
     expect(vaciar(f)).toEqual(['a', 'b', 'c', 'd', 'e']);
@@ -44,7 +56,7 @@ describe('la frontera del Dijkstra del mapa', () => {
     // Empujados al revés del orden alfabético a propósito: si el desempate
     // fuera por clave, o por la forma del montículo, esto no saldría igual.
     const f = new Frontera();
-    for (const k of ['z', 'y', 'x', 'w', 'v', 'u']) f.push(k, 100);
+    for (const k of ['z', 'y', 'x', 'w', 'v', 'u']) empuja(f, k, 100);
     expect(vaciar(f)).toEqual(['z', 'y', 'x', 'w', 'v', 'u']);
   });
 
@@ -55,9 +67,9 @@ describe('la frontera del Dijkstra del mapa', () => {
     // un número de orden nuevo, `a` empataría por detrás de `b` y el camino
     // cambiaría — con él, la partida.
     const f = new Frontera();
-    f.push('a', 900);
-    f.push('b', 100);
-    f.push('a', 100);
+    empuja(f, 'a', 900);
+    empuja(f, 'b', 100);
+    empuja(f, 'a', 100);
 
     // El primero es la entrada buena de `a`; el rancio de 900 sale al final y
     // lo descarta el llamante comparando con el coste que tiene apuntado.
