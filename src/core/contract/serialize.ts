@@ -12,6 +12,7 @@ import type { BattleState, Side } from '../battle/types.js';
 import { creature, isShooter } from '../data.js';
 import { maxMana, maxMovePoints } from '../hero/hero.js';
 import { pointKey } from '../map/map.js';
+import { visibleTo } from '../state/events.js';
 import { type GameState, heroesOf, townsOf, visibleNow, week } from '../state/game.js';
 import { building } from '../town/buildings.js';
 import {
@@ -159,7 +160,20 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId): un
     enemyHeroes: state.heroes
       .filter((h) => h.owner !== playerId && observado(h.at))
       .map((h) => ({ id: h.id, owner: h.owner, at: h.at, army: armyView(h.army) })),
-    recentEvents: state.log.slice(-25),
+    // La crónica pasa por la niebla, igual que el mapa desde #35. Antes iba el
+    // log ENTERO: 2767 de 6287 eventos entregados eran del rival —el 44 %, 9,6
+    // de cada 25— y el agente le seguía los pasos leyendo su diario.
+    //
+    // **Filtrar y DESPUÉS cortar**, nunca al revés: con `slice(-25)` primero, la
+    // ventana del agente encogería de 25 a las ~15 que sobrevivan al filtro, y
+    // no se notaría en ningún test que no cuente los eventos que llegan.
+    //
+    // Y el sello se queda en casa: es contabilidad interna, y decir quién MÁS
+    // estaba mirando sería una fuga nueva colada por la puerta del arreglo.
+    recentEvents: state.log
+      .filter((e) => visibleTo(e, playerId))
+      .slice(-25)
+      .map(({ seen: _seen, ...resto }) => resto),
   };
 }
 

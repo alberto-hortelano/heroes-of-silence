@@ -165,6 +165,12 @@ Notas:
   dejó de dar recursos es la señal de que allí ha pasado algo.
 - "enemyHeroes" son los que ves AHORA: si no aparece ninguno, no significa que
   no haya, solo que nadie tuyo los tiene a la vista.
+- "recentEvents" es lo que OBSERVABAS cuando ocurrió, no todo lo que pasó. Lo
+  tuyo entra siempre, y también perder un castillo o un héroe aunque te los
+  quiten lejos; del rival solo llega lo que alguien tuyo tenía a la vista en ese
+  momento —y sigue llegando aunque hoy ya no lo mires: la crónica es memoria—.
+  Un silencio NO significa que el rival esté quieto: significa que no lo has
+  visto. Si quieres saber qué hace, ponle a alguien delante.
 - Si una acción resulta ilegal se descarta y las siguientes siguen aplicándose.
 - Al cerrar el turno se te dice cuántas acciones entraron y, si se descartó
   alguna, cuál y por qué. Las descartadas NO se reintentan solas.`,

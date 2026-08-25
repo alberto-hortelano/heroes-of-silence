@@ -89,3 +89,62 @@ export type GameEventDraft = Con<Cuerpo, Origen>;
 
 /** Lo que se guarda en `state.log`: el borrador, ya sellado por `emit`. */
 export type GameEvent = Con<GameEventDraft, Sello>;
+
+/**
+ * Si a `p` le consta ese hecho. **La única función que lo decide.**
+ *
+ * Ni el contrato del agente ni la pantalla reimplementan esto: la leen. Y el
+ * `switch` es exhaustivo y **no tiene `default`** a propósito — un `kind` nuevo
+ * sin reparto no compila, en vez de colarse por la rama de abajo con la
+ * respuesta que tocara. Ese es el motivo entero de que sea un `switch` largo y
+ * no una tabla.
+ *
+ * Tres reglas, en orden:
+ *
+ *  - **El reloj y el final, siempre**, sean de quien sean. Ocultar `day_start`
+ *    o `game_over` no es niebla, es una partida rota. `turn_start` va con
+ *    ellos: no tiene casilla que observar y en una partida de dos el agente ya
+ *    sabe que no le toca — esconderlo no le quita información, le rompe la
+ *    máquina de estados.
+ *  - **Lo tuyo, siempre**, por `actor`. Y eso cubre de paso lo que te pasa a ti
+ *    protagonizándolo el rival: el `actor` de `hero_defeated` es el dueño del
+ *    MUERTO, así que perder un héroe te consta aunque te lo maten a veinte
+ *    casillas de cualquiera de los tuyos.
+ *  - **Lo demás, solo si lo estabas mirando**: `seen`, sellado al ocurrir.
+ *
+ * Con una excepción, y es la trampa del diseño: perder un castillo se sabe
+ * siempre, y eso lo dice `from` y **no** el sello. Cuando `emit` calcula el
+ * sello, el castillo ya ha cambiado de bandera y su dueño de ayer no lo mira ya
+ * desde ninguna parte — se selló a sí mismo fuera. Lo mismo le pasa al héroe
+ * muerto, que ya no está en `state.heroes`, y por eso los dos van por las
+ * cláusulas de «siempre».
+ *
+ * Una mina propia capturada lejos **no** entra en esa excepción: el original no
+ * te avisa, y el contrato ya enseña a leer la señal —una mina tuya que dejó de
+ * dar recursos es que allí ha pasado algo—.
+ */
+export function visibleTo(e: GameEvent, p: PlayerId): boolean {
+  switch (e.kind) {
+    case 'day_start':
+    case 'turn_start':
+    case 'player_defeated':
+    case 'game_over':
+      return true;
+
+    case 'town_captured':
+      return e.actor === p || e.from === p || e.seen.includes(p);
+
+    case 'hero_moved':
+    case 'resource_gained':
+    case 'mine_captured':
+    case 'built':
+    case 'recruited':
+    case 'hero_hired':
+    case 'spells_learned':
+    case 'garrison_taken':
+    case 'battle_started':
+    case 'battle_ended':
+    case 'hero_defeated':
+      return e.actor === p || e.seen.includes(p);
+  }
+}

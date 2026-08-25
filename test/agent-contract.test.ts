@@ -237,6 +237,16 @@ describe('lo que ve el agente', () => {
     expect(RESPONSE_FORMAT.adventure_turn).toMatch(/no hay acción para aprender/i);
   });
 
+  it('el formato de respuesta avisa de que la crónica pasa por la niebla', () => {
+    // El campo cambió de significado sin cambiar de forma, que es el caso más
+    // fácil de dejar sin explicar: un agente que crea que `recentEvents` es
+    // todo lo que pasa leerá un silencio como «el rival está quieto» y decidirá
+    // sobre eso.
+    expect(RESPONSE_FORMAT.adventure_turn).toContain('recentEvents');
+    expect(RESPONSE_FORMAT.adventure_turn).toMatch(/observabas cuando ocurrió/i);
+    expect(RESPONSE_FORMAT.adventure_turn).toMatch(/silencio NO significa/i);
+  });
+
   it('la petición de mapa describe la paleta disponible', () => {
     const payload = serializeMapRequest({ width: 24, height: 24, players: 2 }) as {
       palette: { terrains: string[]; factions: string[] };
