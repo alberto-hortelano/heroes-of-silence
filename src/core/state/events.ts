@@ -47,6 +47,24 @@ type Origen = {
   readonly at: Point | null;
 };
 
+/** El sello: quién estaba mirando ese sitio **cuando ocurrió**. */
+type Sello = {
+  /**
+   * Los jugadores que observaban `at` en el instante del hecho, en el orden de
+   * `state.players`.
+   *
+   * Es un array de ids y no un `Set` ni una máscara de bits, y el motivo lo
+   * avisa #10: `JSON.stringify` no salva un `Set`. El día que exista guardar y
+   * cargar, la crónica volvería del disco con el sello convertido en `{}` y
+   * todo el mundo se enteraría de todo otra vez. Con dos jugadores son 0–2
+   * números sobre los 141 eventos de una partida: no hay nada que optimizar.
+   *
+   * En orden de `state.players` y nunca el de la iteración de un `Set`: dos
+   * partidas con la misma semilla tienen que dar el mismo `JSON`.
+   */
+  readonly seen: readonly PlayerId[];
+};
+
 /** Los diecisiete hechos, sin protagonista todavía. */
 type Cuerpo =
   | { kind: 'day_start'; day: number; week: number }
@@ -66,5 +84,8 @@ type Cuerpo =
   | { kind: 'player_defeated'; player: PlayerId }
   | { kind: 'game_over'; winner: PlayerId };
 
-/** Un hecho de la partida: qué pasó, quién lo hizo y dónde. */
-export type GameEvent = Con<Cuerpo, Origen>;
+/** Lo que escribe quien aplica la regla: el hecho, con su protagonista y su sitio. */
+export type GameEventDraft = Con<Cuerpo, Origen>;
+
+/** Lo que se guarda en `state.log`: el borrador, ya sellado por `emit`. */
+export type GameEvent = Con<GameEventDraft, Sello>;

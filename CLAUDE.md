@@ -371,9 +371,19 @@ código se desactiva. Su sitio es CI, donde cada job tiene su propia máquina.
 puerta del cliente al núcleo, `FAL_KEY` fuera del navegador, que **ningún
 rasgo de `CREATURE_TRAITS` esté declarado y muerto** —cuatro lo estuvieron—,
 que **cada `EffectKind` tenga un lector vivo**, que **`core` no importe
-`src/server`** y que **ningún fichero que una máquina ejecuta o lee lleve dentro
-la ruta absoluta de esta máquina**. Todos nacen en verde: un guardia que nace
-rojo se ignora desde el primer día.
+`src/server`**, que **ningún fichero que una máquina ejecuta o lee lleve dentro
+la ruta absoluta de esta máquina** y que **la crónica sobreviva a un `JSON` de
+ida y vuelta**. Todos nacen en verde: un guardia que nace rojo se ignora desde
+el primer día.
+
+El del `JSON` juega 20 días con la semilla 9 —261 eventos de 16 tipos, 224 con
+sello— y compara `state.log` con su ida y vuelta. Existe porque el sello de cada
+evento (`seen`: quién lo estaba mirando) es una colección por evento, y #10 ya
+avisa de que `JSON.stringify` deja un `Set` en `{}` sin decir nada: el día que
+exista guardar y cargar, la crónica volvería del disco convertida en un montón
+de eventos anónimos otra vez. Mira `state.log` y **no `state`**, porque
+`Player.fog` es un `Set` y nacería rojo por algo que no es su asunto. Se rompió
+a mano pasando `seen` a `Set<PlayerId>` y se miró rojo antes de darlo por bueno.
 
 El de las rutas absolutas deriva la ruta del checkout **en ejecución**, no
 escrita como literal: así no se encuentra a sí mismo y no hay que excluir su

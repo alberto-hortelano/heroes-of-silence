@@ -2,13 +2,15 @@
  * Las fronteras de `CLAUDE.md`, comprobadas.
  *
  * Un contrato que solo vive en la documentación se rompe sin que nadie se
- * entere; aquí se rompe en rojo. Son nueve guardias: seis leen el código con
+ * entere; aquí se rompe en rojo. Son diez guardias: seis leen el código con
  * una expresión regular, uno recorre el catálogo de rasgos, el de efectos
- * temporales llama de verdad a los lectores del motor y el noveno recorre todo
- * el repo —menos la prosa y los binarios— buscando la ruta de esta máquina.
- * Cuestan milisegundos, así que caben en cada `pnpm test` sin frenar a nadie.
+ * temporales llama de verdad a los lectores del motor, el noveno recorre todo
+ * el repo —menos la prosa y los binarios— buscando la ruta de esta máquina y el
+ * décimo juega una partida y le da a la crónica un viaje de ida y vuelta por
+ * `JSON`. Cuestan milisegundos —el décimo, 200— así que caben en cada
+ * `pnpm test` sin frenar a nadie.
  *
- * Los nueve nacen en verde. Un guardia que nace rojo se ignora desde el primer
+ * Los diez nacen en verde. Un guardia que nace rojo se ignora desde el primer
  * día — y uno que nace verde sin comprobar que MUERDE no guarda nada: el de la
  * frontera con el servidor se probó metiendo un `import` del director en
  * `src/core/ai/turn.ts`, viéndolo rojo y quitándolo. Se volvió a probar con la
@@ -26,6 +28,7 @@ import { closeSync, openSync, readdirSync, readFileSync, readSync, statSync } fr
 import { extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { playAiGame } from '../src/core/ai/turn.js';
 import { stackSpeed } from '../src/core/battle/battle.js';
 import { effectiveAttack } from '../src/core/battle/damage.js';
 import {
@@ -35,6 +38,8 @@ import {
   effectiveLuck,
 } from '../src/core/battle/effects.js';
 import type { BattleStack } from '../src/core/battle/types.js';
+import { createRng } from '../src/core/rng.js';
+import { newGame } from '../src/core/state/setup.js';
 import { CREATURE_TRAITS } from '../src/core/types.js';
 
 // `new URL(...).pathname` devuelve la ruta PERCENT-ENCODED: en un checkout que
@@ -327,6 +332,34 @@ describe('invariantes del proyecto', () => {
     const enJson = RUTA_DE_ESTA_MAQUINA.replaceAll('/', '\\/');
     const patron = new RegExp(`${escapa(RUTA_DE_ESTA_MAQUINA)}|${escapa(enJson)}`);
     expect(infractores(ficherosDeMaquina(), patron)).toEqual([]);
+  });
+
+  it('la crónica sobrevive a un JSON de ida y vuelta', async () => {
+    // El sello de cada evento —quién lo estaba mirando— es una colección por
+    // evento, y #10 (guardar y cargar) ya avisa de lo que pasa con esas:
+    // `JSON.stringify` no salva un `Set` ni un `Map`. Los deja en `{}`, sin
+    // decir nada. El día que exista el guardado, una crónica que no aguante el
+    // viaje vuelve del disco convertida en un montón de eventos anónimos otra
+    // vez, que es exactamente el bug que este ciclo cerró.
+    //
+    // Mira `state.log` y NO `state` a propósito: `Player.fog` es un `Set` y
+    // `Player.memory` un `Map`, así que sobre el estado entero este guardia
+    // nacería rojo por algo que no es su asunto — y un guardia que nace rojo se
+    // ignora desde el primer día.
+    //
+    // Se rompió a mano cambiando `seen` a un `Set<PlayerId>` y se miró rojo
+    // antes de darlo por bueno, que es la regla de la casa: un guardia que
+    // nunca se ha visto morder no guarda nada.
+    //
+    // La semilla 9 es la que más variedad da en 20 días: 261 eventos de 16 de
+    // los 17 tipos, 224 de ellos con el sello puesto. La cuenta de tipos está
+    // afirmada porque es lo que hace que «261 eventos» signifique algo — un log
+    // largo de `hero_moved` no probaría casi nada.
+    const state = newGame({ seed: 9 });
+    await playAiGame(state, { rng: createRng(9) }, 20);
+    expect(state.log.length).toBeGreaterThan(200);
+    expect(new Set(state.log.map((e) => e.kind)).size).toBeGreaterThanOrEqual(15);
+    expect(JSON.parse(JSON.stringify(state.log))).toEqual(state.log);
   });
 
   it('FAL_KEY no llega al navegador', () => {

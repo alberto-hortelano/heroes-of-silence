@@ -50,7 +50,7 @@ import type {
   Stack,
 } from '../types.js';
 import { addResources, EMPTY_RESOURCES } from '../types.js';
-import type { BattleFoe, GameEvent } from './events.js';
+import type { BattleFoe, GameEvent, GameEventDraft } from './events.js';
 
 export interface Player {
   readonly id: PlayerId;
@@ -317,14 +317,41 @@ export function visibleNow(state: GameState, playerId: PlayerId): Set<string> {
 // ---------------------------------------------------------------- crónica
 
 /**
- * Escribe un hecho en la crónica. **El único sitio que la toca.**
+ * Escribe un hecho en la crónica, sellado con quién lo estaba mirando.
+ * **El único sitio que toca `state.log`.**
  *
- * `state.log` es de solo lectura para que esto sea verdad y lo compruebe el
+ * El sello se pone AL OCURRIR y no al leer, y eso es la decisión de fondo: la
+ * crónica es memoria, no una ventana. Recalcular al leer no era la opción
+ * barata sino la imposible —el héroe muerto ya no tiene dueño a quien
+ * preguntar— y encima filtraría al revés: 133 eventos por 40 semillas que no vi
+ * cuando pasaron y cuya casilla hoy sí miro. Medido: el 14,8 % de los eventos
+ * del rival cambia de veredicto según cuándo se evalúe.
+ *
+ * **Y el sello se calcula DESPUÉS de la mutación**, que es la trampa del
+ * cambio: cuando se sella la muerte de un héroe, el héroe ya no está en el
+ * mapa y su dueño no mira desde ninguna parte; cuando se sella una captura, el
+ * castillo ya lleva la bandera nueva. A esos dos no los salva el sello, los
+ * salvan las cláusulas de «siempre» de `visibleTo` — `actor` y `from`.
+ *
+ * Recorre `state.players` EN ORDEN, nunca la iteración de un `Set`: el `JSON`
+ * de dos partidas con la misma semilla tiene que salir idéntico.
+ *
+ * `state.log` es de solo lectura para que «el único sitio» lo compruebe el
  * compilador; el `as` de aquí abajo es la única grieta, y está a la vista y
  * comentada en vez de repartida por diecinueve sitios.
  */
-function emit(state: GameState, e: GameEvent): void {
-  (state.log as GameEvent[]).push(e);
+function emit(state: GameState, draft: GameEventDraft): void {
+  const sitio = draft.at;
+  const seen: PlayerId[] = [];
+  // Un hecho sin sitio no lo observa nadie, y no es un agujero: los cuatro que
+  // no tienen casilla —el día, el turno, la derrota y el fin— van siempre.
+  if (sitio !== null) {
+    const clave = pointKey(sitio);
+    for (const p of state.players) {
+      if (visibleNow(state, p.id).has(clave)) seen.push(p.id);
+    }
+  }
+  (state.log as GameEvent[]).push({ ...draft, seen });
 }
 
 // ---------------------------------------------------------------- turnos
