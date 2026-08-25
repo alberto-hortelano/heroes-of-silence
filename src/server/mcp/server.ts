@@ -292,22 +292,44 @@ server.tool(
 
 // ------------------------------------------------------- tools de consulta
 
+/**
+ * Qué se acepta en `player`, dicho ANTES de que lo rechacen.
+ *
+ * La tool anunciaba el parámetro sin decir qué valores valían, y con el rival
+ * ahí dentro devolvía su estado entero. Ahora se rechaza — pero un agente al que
+ * le llega un rechazo que nadie le avisó no se corrige: reintenta. Cuál es «el
+ * tuyo» no se escribe aquí: lo sabe el servidor, que es quien lleva la cuenta de
+ * los jugadores del agente, y un `1` puesto a mano era falso en cuanto el agente
+ * llevaba al 0.
+ */
+const PARAMETRO_JUGADOR =
+  'Jugador por el que preguntas. SOLO vale uno de los tuyos, los que lleva este ' +
+  'agente; por cualquier otro se rechaza la consulta diciéndote cuáles son. ' +
+  'Si lo omites se entiende el tuyo, que es lo normal.';
+
+/**
+ * `player` se manda solo si el agente lo pidió: omitirlo es decirle al servidor
+ * «el mío», y el servidor es el único que sabe cuál es.
+ */
+const jugador = (player: number | undefined): Record<string, unknown> =>
+  player === undefined ? {} : { player };
+
 server.tool(
   'game_state',
-  'Estado de la partida desde el punto de vista de un jugador, sin esperar turno.',
-  { player: z.number().int().optional().describe('Jugador (por defecto, el tuyo: 1)') },
+  'Estado de la partida desde tu punto de vista, sin esperar turno.',
+  { player: z.number().int().optional().describe(PARAMETRO_JUGADOR) },
   async ({ player }) => {
-    const data = await consultar('game_state', { player: player ?? 1 });
+    const data = await consultar('game_state', jugador(player));
     return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
   },
 );
 
 server.tool(
   'battle_state',
-  'La batalla en curso, si la hay, desde el punto de vista de un jugador.',
-  { player: z.number().int().optional().describe('Jugador (por defecto, el tuyo: 1)') },
+  'La batalla en curso, si la hay, desde tu punto de vista.',
+  { player: z.number().int().optional().describe(PARAMETRO_JUGADOR) },
   async ({ player }) => {
-    const data = await consultar('battle_state', { player: player ?? 1 });
+    const data = await consultar('battle_state', jugador(player));
     return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
   },
 );

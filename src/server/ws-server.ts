@@ -34,7 +34,9 @@ const director = new Director(link, { seed: SEED, agentPlayers: [1] });
 
 // ---------------------------------------------------------------- consultas
 
-link.onQuery((what, args) => responderConsulta(director.state, what, args));
+// El director entero y no `director.state`: una consulta necesita saber qué
+// jugadores lleva el agente para no contestar por el rival, y eso ya lo sabe él.
+link.onQuery((what, args) => responderConsulta(director, what, args));
 
 // ---------------------------------------------------------------- agente
 

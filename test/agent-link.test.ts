@@ -5,7 +5,13 @@ import WebSocket, { WebSocketServer } from 'ws';
 import { creature } from '../src/core/data.js';
 import type { Hero } from '../src/core/hero/hero.js';
 import { pointKey, reachableCosts } from '../src/core/map/map.js';
-import { applyAdventureAction, type GameState, revealEverything } from '../src/core/state/game.js';
+import { cronicaPara, sinSello, visibleTo } from '../src/core/state/events.js';
+import {
+  applyAdventureAction,
+  type GameContext,
+  type GameState,
+  revealEverything,
+} from '../src/core/state/game.js';
 import type { Town } from '../src/core/town/town.js';
 import type { Point } from '../src/core/types.js';
 import { AgentLink } from '../src/server/agent-link.js';
@@ -143,6 +149,20 @@ function rivalAlAtaque(state: GameState): Hero {
   const mio = state.heroes.find((h) => h.owner === 1) as Hero;
   plantarRival(state, mio.at);
   return mio;
+}
+
+/**
+ * Una batalla en la que el agente NO participa: el rival contra un monstruo.
+ *
+ * Es el único modo de tener una batalla ajena en una partida de dos, y hace
+ * falta para ejercer la rama de «no estás en esta batalla» sin inventarse un
+ * jugador que no lleva nadie.
+ */
+function rivalContraMonstruo(state: GameState, ctx: GameContext): void {
+  const monstruo = state.map.objects.find((o) => o.kind === 'monster' && !o.defeated);
+  if (monstruo === undefined) throw new Error('el mapa no trae ningún monstruo vivo');
+  const rival = plantarRival(state, monstruo.at);
+  applyAdventureAction(state, { type: 'move_hero', hero: rival.id, to: monstruo.at }, ctx, 0);
 }
 
 /** Lo mismo, pero contra un castillo del agente. Sin murallas: eso es #7. */
@@ -456,8 +476,16 @@ describe('el agente defiende', () => {
     const { link } = await montar((kind, payload) => {
       if (kind !== 'battle_turn') return { actions: [] };
       if (vistaDelAgente === null) {
-        vistaDelAgente = responderConsulta(director.state, 'battle_state', { player: 1 });
-        vistaDelRival = responderConsulta(director.state, 'battle_state', { player: 0 });
+        vistaDelAgente = responderConsulta(director, 'battle_state', { player: 1 });
+        // La del rival ya no se pide con el director del agente —eso es la fuga
+        // que cierra el candado de más abajo—, sino con la misma partida vista
+        // por un agente que llevara al 0. Lo que se sigue afirmando es lo mismo:
+        // el bando se DERIVA del dueño.
+        vistaDelRival = responderConsulta(
+          { state: director.state, agentPlayers: new Set([0]) },
+          'battle_state',
+          { player: 0 },
+        );
       }
       return { action: payload.legalActions[0] };
     });
@@ -476,11 +504,98 @@ describe('el agente defiende', () => {
     for (const s of mios) expect(misCriaturas.has(s.creature)).toBe(true);
   });
 
-  it('a un jugador que no está en la batalla se le avisa en vez de mentirle', async () => {
+  it('a un jugador SUYO que no está en la batalla se le avisa en vez de mentirle', async () => {
+    // El rival se pelea con un monstruo neutral: una batalla de verdad en la que
+    // el agente no pinta nada. Antes esto se probaba preguntando por el «jugador
+    // 7», que ya no llega hasta aquí — lo para el candado del jugador, y la
+    // rama de «no estás en esta batalla» se quedaría sin nadie que la ejerza.
     const { link } = await montar(() => ({ actions: [] }));
     const director = new Director(link, { seed: 205, agentPlayers: [1] });
+    rivalContraMonstruo(director.state, director.ctx);
+    expect(director.state.pendingBattle).not.toBeNull();
+
+    const vista = responderConsulta(director, 'battle_state', { player: 1 }) as any;
+    expect(vista.yourSide).toBe('attacker');
+    expect(vista.note).toMatch(/no está en esta batalla/);
+  });
+});
+
+/**
+ * El parámetro `player` de las consultas, que era la puerta de al lado.
+ *
+ * El ciclo de #59 cerró la crónica del rival por la puerta principal —lo que
+ * llega en `adventure_turn`— y dejó esta abierta y anunciada en la tool: pedir
+ * `game_state{player:0}` devolvía la crónica del rival, sus recursos, sus héroes
+ * y sus castillos. Lo que se afirma aquí es el EFECTO: que eso ya no sale por el
+ * cable, se pida como se pida.
+ */
+describe('una consulta solo habla de los jugadores que lleva el agente', () => {
+  /**
+   * Lo que una consulta ENTREGA de verdad, en JSON, o cadena vacía si la
+   * rechaza.
+   *
+   * Se mide lo que sale por el cable y no el mecanismo del rechazo a propósito:
+   * una fuga es que el dato aparezca, venga como respuesta o disfrazado de nota.
+   * El motivo lo mira el `toThrow` de al lado, que es lo otro que se promete.
+   */
+  function entregado(
+    partida: { state: GameState; agentPlayers: ReadonlySet<number> },
+    what: string,
+    args: Record<string, unknown>,
+  ): string {
+    try {
+      return JSON.stringify(responderConsulta(partida, what, args));
+    } catch (err) {
+      // Rechazada: no entrega nada, que es justo lo que este test quiere medir.
+      // No se traga el error — lo devuelve como «cero bytes entregados».
+      if (!(err instanceof Error)) throw err;
+      return '';
+    }
+  }
+
+  it('game_state del rival ya no devuelve su crónica, y dice por cuál preguntar', async () => {
+    const { link } = await montar(() => ({ actions: [] }));
+    const director = new Director(link, { seed: 401, agentPlayers: [1] });
+    // Un puñado de turnos de la IA para que los dos tengan diario propio.
+    for (let i = 0; i < 8; i++) await director.playTurn();
+
+    // Los hechos que le constan al rival y a mí NO, dentro de su ventana de 25:
+    // exactamente lo que este ciclo dejó de mandar por la puerta principal.
+    const ventana = new Set(cronicaPara(director.state, 0, 25).map((e) => JSON.stringify(e)));
+    const soloSuyos = director.state.log
+      .filter((e) => visibleTo(e, 0) && !visibleTo(e, 1))
+      .map((e) => JSON.stringify(sinSello(e)))
+      .filter((s) => ventana.has(s));
+    expect(soloSuyos.length).toBeGreaterThan(0);
+
+    const fugado = entregado(director, 'game_state', { player: 0 });
+    for (const hecho of soloSuyos) expect(fugado).not.toContain(hecho);
+    // Y tampoco lo demás que iba en el mismo paquete: el punto de vista entero.
+    expect(fugado).not.toContain('"player":0');
+
+    // Se rechaza DICIÉNDOLO, y nombrando el jugador que sí lleva: es lo único
+    // con lo que el agente puede corregirse en vez de reintentar.
+    expect(() => responderConsulta(director, 'game_state', { player: 0 })).toThrow(
+      /no es tuyo.*Llevas el jugador 1/s,
+    );
+
+    // Lo suyo sigue llegando entero.
+    const mio = JSON.parse(entregado(director, 'game_state', { player: 1 }));
+    expect(mio.you.player).toBe(1);
+    expect(mio.recentEvents.length).toBeGreaterThan(0);
+  });
+
+  it('sin `player` se contesta por el suyo, sea cual sea, y no por un 1 escrito a mano', async () => {
+    const { link } = await montar(() => ({ actions: [] }));
+    const director = new Director(link, { seed: 402, agentPlayers: [0] });
+    const vista = JSON.parse(entregado(director, 'game_state', {})) as any;
+    expect(vista.you.player).toBe(0);
+  });
+
+  it('battle_state del rival tampoco: su maná y su libro no salen', async () => {
+    const { link } = await montar(() => ({ actions: [] }));
+    const director = new Director(link, { seed: 403, agentPlayers: [1] });
     const mio = rivalAlAtaque(director.state);
-    // La batalla se abre a mano: aquí solo se mira la consulta.
     const rival = director.state.heroes.find((h) => h.owner === 0) as Hero;
     applyAdventureAction(
       director.state,
@@ -490,9 +605,36 @@ describe('el agente defiende', () => {
     );
     expect(director.state.pendingBattle).not.toBeNull();
 
-    const vista = responderConsulta(director.state, 'battle_state', { player: 7 }) as any;
-    expect(vista.yourSide).toBe('attacker');
-    expect(vista.note).toMatch(/no está en esta batalla/);
+    // La vista del atacante trae `hero`: nombre, maná y hechizos del héroe
+    // rival. Preguntar por él era leerle el libro.
+    expect(entregado(director, 'battle_state', { player: 0 })).toBe('');
+    expect(() => responderConsulta(director, 'battle_state', { player: 0 })).toThrow(
+      /no es tuyo.*Llevas el jugador 1/s,
+    );
+
+    const mia = JSON.parse(entregado(director, 'battle_state', { player: 1 })) as any;
+    expect(mia.yourSide).toBe('defender');
+    expect(mia.hero.name).toBe(mio.name);
+  });
+
+  it('un jugador que no existe se rechaza igual, y con el mismo motivo', async () => {
+    const { link } = await montar(() => ({ actions: [] }));
+    const director = new Director(link, { seed: 404, agentPlayers: [1] });
+    expect(() => responderConsulta(director, 'game_state', { player: 7 })).toThrow(
+      /jugador 7: no es tuyo/,
+    );
+  });
+
+  it('un agente con dos jugadores los nombra los dos y contesta por los dos', async () => {
+    const { link } = await montar(() => ({ actions: [] }));
+    const director = new Director(link, { seed: 405, agentPlayers: [1, 0] });
+    for (const id of [0, 1]) {
+      const vista = JSON.parse(entregado(director, 'game_state', { player: id })) as any;
+      expect(vista.you.player).toBe(id);
+    }
+    expect(() => responderConsulta(director, 'game_state', { player: 7 })).toThrow(
+      /Llevas los jugadores 0, 1/,
+    );
   });
 });
 
