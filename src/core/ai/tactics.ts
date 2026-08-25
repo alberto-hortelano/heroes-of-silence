@@ -225,8 +225,18 @@ function mejorCarga(
  * `shift`. El más lento no tiene a quién cederle nada.
  *
  * El alcance se aproxima con `hexDistance` y `stackSpeed(e) + 1` —los pasos que
- * da más el hex desde el que golpea— en vez de un BFS por enemigo: sobreestima,
- * así que espera de más y nunca de menos, y no cuesta un recorrido de tablero.
+ * da más el hex desde el que golpea— en vez de un BFS por enemigo: en línea
+ * recta se llega antes que rodeando, así que casi siempre sobreestima y la IA
+ * espera de más, nunca de menos, sin costar un recorrido de tablero.
+ *
+ * «Casi siempre» y no «siempre», que la diferencia la encontró QA: se mide
+ * desde la CABEZA del enemigo, mientras que el `distanceTo` de aquí al lado
+ * mide contra todos sus hexes. Para una unidad de dos casillas la cabeza puede
+ * quedar un hex más lejos que su celda más cercana, y ahí la cuenta subestima:
+ * la IA se acerca a un dragón óseo creyéndose fuera de su alcance. Afecta a una
+ * criatura de las veintiuna —es la única con `hexes: 2`— y el `+1` lo tapa casi
+ * siempre. Queda escrito y no arreglado a propósito: arreglarlo mueve partidas,
+ * y esto es una heurística, no una regla.
  *
  * De las tres reglas que se midieron es la del medio, y la única cuyo intervalo
  * de confianza entero queda por encima del 50 %. Mirar solo mi hex actual apenas
