@@ -28,10 +28,16 @@ function empuja(f: Frontera, key: string, cost: number): void {
   f.push(key, { x: 0, y: 0 }, cost);
 }
 
-/** Vacía la frontera y devuelve las claves en el orden en que salieron. */
+/**
+ * Vacía la frontera y devuelve las claves en el orden en que salieron.
+ *
+ * Se pregunta con el propio `pop()` y no con un `size > 0`: la frontera vacía y
+ * el nodo extraído son la misma pregunta, y hacerla dos veces era lo que
+ * obligaba a un `as` sin comprobar aquí y en los dos Dijkstra de `map.ts`.
+ */
 function vaciar(f: Frontera): string[] {
   const salida: string[] = [];
-  while (f.size > 0) salida.push((f.pop() as { key: string }).key);
+  for (let n = f.pop(); n !== undefined; n = f.pop()) salida.push(n.key);
   return salida;
 }
 
@@ -47,7 +53,6 @@ describe('la frontera del Dijkstra del mapa', () => {
     ] as const) {
       empuja(f, k, c);
     }
-    expect(f.size).toBe(5);
     expect(vaciar(f)).toEqual(['a', 'b', 'c', 'd', 'e']);
     expect(f.pop()).toBeUndefined();
   });

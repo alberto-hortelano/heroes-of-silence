@@ -546,12 +546,17 @@ describe('IA de respaldo', () => {
     const destinos = state.map.objects.slice(0, 10).map((o) => o.at);
     expect(destinos).toHaveLength(10);
 
+    // Un solo Dijkstra para los veinte pares, y no uno dentro del doble bucle:
+    // no depende del destino ni de los puntos de movimiento —solo del mapa y
+    // del origen, que no se mueven— y era la ironía justo en el test que prueba
+    // que la IA dejó de lanzarlo dos veces.
+    const alcance = reachableFrom(state.map, hero.at);
+
     let alcanzados = 0;
     let intermedios = 0;
     for (const destino of destinos) {
       for (const puntos of [180, 1500]) {
         hero.movePoints = puntos;
-        const alcance = reachableFrom(state.map, hero.at);
         const ahora = stepTowards(hero, destino, alcance);
         const antes = comoAntes(hero.at, destino, puntos);
         expect(ahora, `destino (${destino.x},${destino.y}) con ${puntos} puntos`).toEqual(antes);

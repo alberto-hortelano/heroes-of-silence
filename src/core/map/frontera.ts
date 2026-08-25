@@ -96,10 +96,6 @@ export class Frontera {
    */
   private ultimoPop = Number.NEGATIVE_INFINITY;
 
-  get size(): number {
-    return this.monticulo.length;
-  }
-
   push(key: string, at: Point, cost: number): void {
     // Fail-loud en vez de prosa. De propina caza al que empuje una casilla ya
     // asentada, que es la otra forma de descuadrar el desempate.

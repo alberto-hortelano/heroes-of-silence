@@ -8,6 +8,7 @@ import {
   armyMorale,
   type BattleSide,
   createBattle,
+  enemiesOf,
   isAlive,
   legalActions,
   movableHexes,
@@ -350,7 +351,11 @@ function batallaDeCuatroEnemigos(): BattleState {
 describe('legalActions recorre el tablero una sola vez (#48)', () => {
   it('lanza un BFS por llamada, no uno por enemigo', () => {
     const state = batallaDeCuatroEnemigos();
-    expect(enemigosDe(state)).toBe(4);
+    // `enemiesOf` del núcleo, no una copia: el helper que había aquí fijaba el
+    // bando a mano —`side !== 'attacker'`—, así que el día que el activo fuera
+    // el defensor contaría el bando equivocado y el `toBe(4)` seguiría verde
+    // diciendo otra cosa.
+    expect(enemiesOf(state, activeStack(state) as BattleStack)).toHaveLength(4);
 
     const espia = vi.mocked(board.reachable);
     espia.mockClear();
@@ -407,11 +412,6 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
     expect(movimientos).toEqual(movableHexes(state, s));
   });
 });
-
-/** Cuántos enemigos tiene delante el stack activo. */
-function enemigosDe(state: BattleState): number {
-  return state.stacks.filter((s) => s.side !== 'attacker' && isAlive(s)).length;
-}
 
 describe('batalla completa', () => {
   it('termina con un solo bando en pie', () => {

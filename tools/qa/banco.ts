@@ -45,8 +45,11 @@ import {
 
 const args = process.argv.slice(2);
 const iDump = args.indexOf('--dump');
-const fichero = iDump === -1 ? null : args[iDump + 1];
-if (iDump !== -1 && fichero === undefined) throw new Error('--dump necesita un fichero');
+// La ausencia se escribe de UNA manera, `null`, y no de dos: cuando el tipo
+// era `string | null | undefined` había que preguntar por las dos cada vez que
+// se usaba, y las dos preguntas querían decir lo mismo.
+const fichero: string | null = iDump === -1 ? null : (args[iDump + 1] ?? null);
+if (iDump !== -1 && fichero === null) throw new Error('--dump necesita un fichero');
 // El `-1` se descarta antes de filtrar: sin eso, `i !== iDump + 1` valía
 // `i !== 0` y se comía el primer argumento cuando no había `--dump`.
 const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !== iDump + 1);
@@ -88,13 +91,13 @@ const msPartidas = performance.now() - t0;
 
 const volcado = `${lineas.join('\n')}\n`;
 const sha = createHash('sha256').update(volcado).digest('hex');
-if (fichero !== null && fichero !== undefined) writeFileSync(fichero, volcado);
+if (fichero !== null) writeFileSync(fichero, volcado);
 
 console.log(`partidas:      ${SEMILLAS} semillas × ${DIAS} días → ${msPartidas.toFixed(0)} ms`);
 console.log(`sha256:        ${sha}`);
 console.log(`líneas:        ${lineas.length}`);
 console.log(`sin terminar:  ${resumenSinTerminar(sinTerminar, SEMILLAS)}`);
-if (fichero !== null && fichero !== undefined) console.log(`volcado:       ${fichero}`);
+if (fichero !== null) console.log(`volcado:       ${fichero}`);
 
 if (SEMILLAS === ANCLA.semillas && DIAS === ANCLA.dias) {
   if (sha === ANCLA.sha) {

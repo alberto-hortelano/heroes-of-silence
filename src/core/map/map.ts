@@ -5,7 +5,7 @@
  * ocho direcciones, como HoMM2.
  */
 import type { Point, ResourceKind } from '../types.js';
-import { Frontera, type NodoFrontera } from './frontera.js';
+import { Frontera } from './frontera.js';
 import {
   DIAGONAL_FACTOR,
   isWalkable,
@@ -138,8 +138,10 @@ export function findPath(map: GameMap, from: Point, to: Point): PathStep[] | nul
   const frontera = new Frontera();
   frontera.push(pointKey(from), from, 0);
 
-  while (frontera.size > 0) {
-    const nodo = frontera.pop() as NodoFrontera;
+  // `pop()` en la condición y no `size > 0` + una aserción: la frontera vacía y
+  // el nodo extraído son la misma pregunta, y preguntarla dos veces obligaba a
+  // un `as NodoFrontera` sin comprobar dentro de `core`.
+  for (let nodo = frontera.pop(); nodo !== undefined; nodo = frontera.pop()) {
     // Borrado perezoso: una mejora de coste empujó un nodo nuevo y dejó a este
     // rancio. No hay *decrease-key*, y no hace falta.
     if (nodo.cost > (coste.get(nodo.key) ?? Infinity)) continue;
@@ -225,8 +227,7 @@ export function reachableFrom(map: GameMap, from: Point): Reachable {
     if (blocksMovement(o)) bloqueadas.add(pointKey(o.at));
   }
 
-  while (frontera.size > 0) {
-    const nodo = frontera.pop() as NodoFrontera;
+  for (let nodo = frontera.pop(); nodo !== undefined; nodo = frontera.pop()) {
     if (nodo.cost > (coste.get(nodo.key) ?? Infinity)) continue;
     const actualKey = nodo.key;
     cerradas.add(actualKey);
