@@ -11,12 +11,14 @@ El juego es el andamio; lo interesante es lo que se puede enchufar dentro.
 ```bash
 pnpm install
 pnpm dev        # cliente en http://localhost:3100 (juego local contra la IA de reglas)
-pnpm verify     # typecheck + lint + 251 tests, 6,7 s: el bucle rápido
-pnpm test       # 251 tests: reglas, batalla, partida completa y contrato del agente
+pnpm verify     # typecheck + lint + 277 tests, 6,7 s: el bucle rápido
+pnpm test       # 277 tests: reglas, batalla, partida completa y contrato del agente
 pnpm typecheck
 pnpm lint       # Biome: formato y lint en una sola pasada, 40 ms
 pnpm format     # lo mismo, arreglando lo que sepa arreglar
 pnpm banco      # 200 partidas: tiempo y sha256 del volcado, 4,1 s
+
+npx tsx tools/qa/enfrentamiento.ts   # dos tácticas frente a frente, 5000 batallas, 11,8 s
 ```
 
 La partida se abre con una semilla al azar; **`?seed=N` en la URL fija la
@@ -241,6 +243,53 @@ En `map_generate` el agente **no dibuja**: devuelve un plan declarativo y
 `buildMap` lo construye. `validateMapPlan` lo rechaza si algún castillo queda
 inalcanzable o si dos objetos comparten casilla.
 
+## La IA de batalla cede la iniciativa
+
+La cascada de `chooseBattleAction` (`src/core/ai/tactics.ts`) terminaba en dos
+ramas que **no se alcanzaban nunca**: `wait` y `defend`, 0 de 10 440 decisiones
+en 802 batallas. El motor sí cedía la iniciativa —`wait` empuja el stack al final
+de `state.queue` y `advance` saca por `shift`, así que un campeón que espera pasa
+de primero a sexto de la ronda—, pero nadie llamaba a esa puerta.
+
+**La regla que se juega es «no metas el morro donde te van a pegar primero»**:
+se espera si un enemigo que aún no ha actuado esta ronda alcanza mi hex actual
+**o la casilla a la que iba a avanzar**. Se eligió midiendo tres candidatas, no
+razonando: «alcanza mi hex» apenas se dispara (1,2 %) y su ventaja no se
+distingue de cero; «hay cualquier enemigo pendiente» es la tautología por el otro
+lado (24 %) y juega **peor**. La elegida sale 476 veces en 200 partidas (4,4 %) y
+gana **51,13 % ± 0,20**, intervalo entero por encima del 50.
+
+Y **al revés de lo que decía la intuición del encargo**: esperar beneficia al
+**rápido**, no al lento ni al tirador. Solo gana algo quien tenga enemigos
+pendientes detrás; el más lento no tiene a quién cederle nada, y un tirador con
+línea libre dispara antes de llegar a esa rama.
+
+**La casilla de ataque se elige por daño esperado** y no por ser la primera de la
+lista. Hoy no cambia ni una decisión —ninguna criatura con `charge` pisa el
+tablero, porque la partida se acaba el día 7 y nadie construye la morada 5—, así
+que entró **byte a byte idéntica**: es una corrección latente, no una mejora.
+
+Tres cosas que costaron su vuelta de QA y conviene no repetir:
+
+- **Un cálculo caro se paga donde significa algo.** El daño solo depende del hex
+  por `chargeHexes`, así que para un stack sin `charge` todas las casillas empatan
+  y **no hay nada que calcular**. Pedirlo igualmente costaba un +18 % en
+  `autoResolve` pagado **entero** por unidades que no podían cobrarlo: 0 de 1258
+  llamadas tenían el rasgo. El arreglo no fue un umbral, fue que el mapa lo
+  devuelva quien ya lo tenía —`legalActionsAndCosts`— y que la fórmula se gatee
+  por el rasgo que la hace significar algo.
+- **La nota que se le manda al agente lleva su condición.** Decía «se te volverá a
+  pedir acción para ella al final de la ronda», y eso **falla 1 de cada 5 veces**:
+  de 476 esperas, 67 mueren antes y 34 se quedan sin turno porque la batalla
+  termina. Un acuse que promete lo que no puede cumplir es peor que el silencio,
+  que es justo lo que este contrato existe para evitar.
+- **Un instrumento de medida nuevo se desconfía antes que su resultado.** La
+  prueba de no-sesgo del banco de enfrentamiento ponía la misma función en los dos
+  asientos, así que las dos batallas de cada pareja eran **la misma partida**:
+  reparto 0 · 10 000 · 0, varianza cero, y un intervalo de confianza impreso al
+  lado de una identidad algebraica. Ahora comprueba el reparto, que es lo que sí
+  dice algo, y el intervalo es **pareado** (±0,20 donde el binomial decía ±0,41).
+
 ## La pantalla de castillo
 
 El castillo no es una lista de edificios: es un cuadro con **solares fijos**
@@ -444,13 +493,14 @@ aportan en un prototipo. Lo que hay:
 | `pnpm qa` | 5,4 s | si tocas `src/server/` o el contrato |
 | `npx tsx tools/qa/barrido-semillas.ts` | 1,1 s | si tocas la IA o la economía |
 | `pnpm banco` | 4,1 s | si tocas el núcleo sin querer cambiar el juego |
+| `tools/qa/enfrentamiento.ts` | 11,8 s | si cambias **cómo decide** la IA de batalla |
 | CI (`.github/workflows/ci.yml`) | ~1 min | en cada push y cada PR |
 
 Los tiempos están **medidos**, tres pasadas cada uno, no estimados: los que
 había antes decían 3 s y «~1 min» y llevaban ciclos siendo falsos. Que `pnpm qa`
 tarde 5 s y no un minuto no es una mejora: es que la partida se acaba el día 3
 porque el agente defiende y pierde, así que la cobertura real son **2 turnos de
-mapa y 13 decisiones de batalla**.
+mapa y 14 decisiones de batalla** — eran 13 hasta que la IA aprendió a esperar.
 
 `pnpm qa` **no entra en `pnpm verify`**, y ahora sí es por lo que tarda: 6,7 +
 5,4 = 12,1 s en cada final de tarea, para un guardia que solo dice algo cuando se
