@@ -34,7 +34,15 @@
  *
  * **Una instancia por búsqueda**, nunca a nivel de módulo: el mapa de órdenes
  * es estado, y compartirlo entre dos búsquedas cambiaría el desempate de la
- * segunda.
+ * segunda. Eso estuvo escrito aquí **solo como prosa** y no se sostenía: la
+ * rotura natural de un ciclo de rendimiento —«no alojar un montículo por
+ * búsqueda»: un `reiniciar()` y la instancia izada en `map.ts`— pasaba los 247
+ * tests y `pnpm verify` en verde y cambiaba las partidas en silencio (28 300 →
+ * 28 278 líneas de volcado, otro sha256). Y no vale un test: se probaron tres
+ * —repetir una búsqueda, repetirla acotada, un golden precedido de otra
+ * búsqueda— y ninguno muerde, porque `orden` no se reasigna nunca y la
+ * contaminación no aparece al repetir una búsqueda sino en la **siguiente**.
+ * Lo que sí muerde es `ultimoPop`, aquí abajo.
  *
  * `core` sigue puro: aquí dentro solo hay aritmética.
  */
@@ -76,12 +84,31 @@ export class Frontera {
   /** Montículo binario en un array: los hijos de `i` están en `2i+1` y `2i+2`. */
   private readonly monticulo: Nodo[] = [];
   private readonly ordenes = new Map<string, number>();
+  /**
+   * Coste de la última extracción, y el guardia de «una instancia por
+   * búsqueda».
+   *
+   * En un Dijkstra los costes salen en orden no decreciente: cada `push` lo
+   * hace un nodo recién extraído sumándole un paso, y ningún paso del mapa
+   * cuesta cero. Así que empujar POR DEBAJO del último extraído no puede pasar
+   * en una búsqueda sana, y sí pasa —en el primer `push`, con coste 0— en
+   * cuanto una frontera sirve a una segunda búsqueda.
+   */
+  private ultimoPop = Number.NEGATIVE_INFINITY;
 
   get size(): number {
     return this.monticulo.length;
   }
 
   push(key: string, at: Point, cost: number): void {
+    // Fail-loud en vez de prosa. De propina caza al que empuje una casilla ya
+    // asentada, que es la otra forma de descuadrar el desempate.
+    if (cost < this.ultimoPop) {
+      throw new Error(
+        `una frontera es de una sola búsqueda: ${key} entra por ${cost} y ya salió ${this.ultimoPop}`,
+      );
+    }
+
     let orden = this.ordenes.get(key);
     if (orden === undefined) {
       orden = this.ordenes.size;
@@ -106,6 +133,7 @@ export class Frontera {
     const m = this.monticulo;
     const cima = m[0];
     if (cima === undefined) return undefined;
+    this.ultimoPop = cima.cost;
 
     const ultimo = m.pop() as Nodo;
     if (m.length > 0) {

@@ -75,6 +75,38 @@ describe('la frontera del Dijkstra del mapa', () => {
     // lo descarta el llamante comparando con el coste que tiene apuntado.
     expect(vaciar(f)).toEqual(['a', 'b', 'a']);
   });
+
+  it('se niega a servir a una segunda búsqueda', () => {
+    // «Una instancia por búsqueda» estuvo escrito arriba SOLO como prosa, y no
+    // aguantó: izar la instancia a nivel de módulo con un `reiniciar()` pasaba
+    // los 247 tests en verde y cambiaba el sha256 del volcado de 200 semillas.
+    // Reusar la frontera es empezar la búsqueda nueva empujando el origen por
+    // 0 con la vieja ya asentada por encima, así que basta con mirar el coste.
+    const f = new Frontera();
+    empuja(f, 'origen', 0);
+    f.pop();
+    empuja(f, 'lejos', 500);
+    f.pop();
+
+    expect(() => empuja(f, 'otro-origen', 0)).toThrow(
+      'una frontera es de una sola búsqueda: otro-origen entra por 0 y ya salió 500',
+    );
+  });
+
+  it('se niega a que le empujen una casilla ya asentada', () => {
+    // La propina del mismo guardia: con `<` estricto para empujar, una casilla
+    // que ya salió no puede volver más barata. Si vuelve, o el coste del paso
+    // es cero o alguien se saltó el `if (nuevo < coste)`, y las dos cosas
+    // descuadran el desempate en silencio.
+    const f = new Frontera();
+    empuja(f, 'a', 100);
+    empuja(f, 'b', 300);
+    f.pop();
+
+    expect(() => empuja(f, 'a', 50)).toThrow(/entra por 50 y ya salió 100/);
+    // Empatar con el último extraído sigue siendo legal: dos hermanos a 100.
+    expect(() => empuja(f, 'c', 100)).not.toThrow();
+  });
 });
 
 /**

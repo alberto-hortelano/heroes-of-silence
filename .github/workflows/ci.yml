@@ -53,6 +53,17 @@ jobs:
       # `vite build` a secas, no `pnpm build`: ese encadena un `tsc -b --noEmit`
       # que NO es incremental y repite el typecheck que acaba de hacer `verify`.
       - run: npx vite build
+      # El banco no entra en `pnpm verify` —4,3 s es demasiado para el bucle
+      # rápido— pero su sha256 es lo ÚNICO que caza un cambio de partidas que
+      # los tests dan por bueno, así que su sitio es aquí. Sale 1 si el volcado
+      # de las 200 partidas no coincide con el sha anclado en `banco.ts`.
+      #
+      # Es reproducible en otra máquina porque el núcleo no usa una sola
+      # operación de coma flotante dependiente de la plataforma: mulberry32 va
+      # con `Math.imul` sobre enteros, y de `Math` solo se llama a min, max,
+      # floor, ceil, abs, round e imul — todas exactas por especificación. Ni
+      # `Math.pow`, ni trigonometría, ni `Intl`.
+      - run: pnpm banco
 
   qa:
     runs-on: ubuntu-latest
