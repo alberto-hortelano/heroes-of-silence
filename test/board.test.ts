@@ -81,8 +81,21 @@ describe('movimiento', () => {
     const from = { col: 5, row: 4 };
     const dist = reachable(from, 20, new Set());
     for (const h of allHexes()) {
-      expect(dist.get(hexKey(h))).toBe(hexDistance(from, h));
+      expect(dist.get(hexKey(h))?.steps).toBe(hexDistance(from, h));
     }
+  });
+
+  it('cada paso trae el hex de SU clave, que es lo que ya no se reconstruye (#76)', () => {
+    // El BFS tenía el `Hex` en la mano y lo tiraba para quedarse con la clave;
+    // `movableFrom` la volvía a partir por la coma para filtrar los que no
+    // caben y `movableHexes` otra vez para devolverlos. Ahora viaja dentro, y
+    // lo que hay que sujetar es que sea el de su clave y no el del vecino: un
+    // desfase ahí movería a la unidad a otra casilla sin que nada se queje.
+    const muro = new Set([hexKey({ col: 6, row: 4 })]);
+    const dist = reachable({ col: 5, row: 4 }, 3, muro);
+    expect(dist.size).toBeGreaterThan(1);
+    for (const [k, paso] of dist) expect(hexKey(paso.at)).toBe(k);
+    expect(dist.has(hexKey({ col: 6, row: 4 }))).toBe(false);
   });
 
   it('rodea a las unidades bloqueadas en vez de atravesarlas', () => {

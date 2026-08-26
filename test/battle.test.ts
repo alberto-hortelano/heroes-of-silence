@@ -12,7 +12,7 @@ import {
   isAlive,
   legalActions,
   legalActionsAndCosts,
-  movableCosts,
+  movableFrom,
   movableHexes,
   stackById,
   stackSpeed,
@@ -44,12 +44,12 @@ import type { Army, Hex } from '../src/core/types.js';
 import { monstruoVivo, simular } from './helpers.js';
 
 /**
- * `reachable` es el BFS del tablero y `movableCosts` es su ÚNICO llamante, así
+ * `reachable` es el BFS del tablero y `movableFrom` es su ÚNICO llamante, así
  * que contarle las llamadas cuenta exactamente los recorridos que hace
  * `legalActions`.
  *
  * Se envuelve el módulo en vez de espiar el export, y no por gusto: la llamada
- * de `movableCosts` va por el enlace local de su módulo, así que un
+ * de `movableFrom` va por el enlace local de su módulo, así que un
  * `vi.spyOn(board, 'reachable')` se quedaría mirando un objeto por el que no
  * pasa nadie y contaría cero pase lo que pase. El envoltorio llama al original,
  * de modo que ninguna otra prueba de este fichero cambia de comportamiento.
@@ -415,7 +415,7 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
     expect(movimientos).toEqual(movableHexes(state, s));
   });
 
-  it('los costes que devuelve son los de `movableCosts`, sin un BFS de más', () => {
+  it('los costes que devuelve son los de `movableFrom`, sin un BFS de más', () => {
     // De este mapa cuelga la elección de casilla de #50, y el motivo de que
     // venga de aquí es que el BFS ya se ha hecho: pedirlo aparte costaba
     // +17,6 % en 300 batallas, pagado íntegro por unidades sin `charge`.
@@ -426,12 +426,26 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
     const s = activeStack(state) as BattleStack;
     const { actions, costs } = legalActionsAndCosts(state);
 
-    expect(costs).toEqual(movableCosts(state, s));
+    expect(costs).toEqual(movableFrom(state, s));
     expect(costs.size).toBeGreaterThan(0);
     // Y son los mismos hexes que los `move`, en el mismo orden.
     expect([...costs.keys()]).toEqual(
       actions.filter((a) => a.type === 'move').map((a) => `${a.to.col},${a.to.row}`),
     );
+  });
+
+  it('los hexes de `movableHexes` son los de las claves de `movableFrom` (#76)', () => {
+    // `movableHexes` devolvía la clave partida por la coma; ahora devuelve el
+    // `Hex` que el BFS metió en el paso. Si los dos se separaran, la lista
+    // legal ofrecería un `move` a una casilla y el motor cobraría la de otra —
+    // y las claves seguirían cuadrando, que es lo que lo haría invisible.
+    const state = batallaDeCuatroEnemigos();
+    const s = activeStack(state) as BattleStack;
+    const pasos = movableFrom(state, s);
+
+    expect(pasos.size).toBeGreaterThan(0);
+    expect(movableHexes(state, s).map((h) => `${h.col},${h.row}`)).toEqual([...pasos.keys()]);
+    for (const [k, paso] of pasos) expect(`${paso.at.col},${paso.at.row}`).toBe(k);
   });
 
   it('elegir y aplicar un avance cuesta UN recorrido, no dos (#78)', () => {
@@ -497,7 +511,7 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
 
     const conPista = montar(createRng(51));
     const s = activeStack(conPista) as BattleStack;
-    const conRecorrido = { stack: s.id, costs: movableCosts(conPista, s) };
+    const conRecorrido = { stack: s.id, costs: movableFrom(conPista, s) };
     applyAction(conPista, carga, createRng(51), conRecorrido);
 
     expect(conPista.log).toEqual(aPelo.log);
@@ -517,7 +531,7 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
     expect(() =>
       applyAction(state, { type: 'defend' }, createRng(1), {
         stack: 'defender-3',
-        costs: movableCosts(state, s),
+        costs: movableFrom(state, s),
       }),
     ).toThrow('el recorrido que traes es de defender-3 y quien actúa es attacker-0');
   });

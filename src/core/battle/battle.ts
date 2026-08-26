@@ -17,6 +17,7 @@ import {
   hexKey,
   isInside,
   occupiedHexes,
+  type Paso,
   reachable,
 } from './board.js';
 import { applyDamage, CHANCE_PER_POINT, computeDamage } from './damage.js';
@@ -179,14 +180,22 @@ export function canReachMelee(s: BattleStack, target: BattleStack): boolean {
 }
 
 /**
- * Hexes a los que el stack puede moverse este turno, con lo que cuesta llegar
- * a cada uno, indexados por `hexKey`.
+ * Hexes a los que el stack puede moverse este turno, con la casilla y los pasos
+ * que cuesta llegar a cada uno, indexados por `hexKey`.
  *
- * El coste no es un extra: es lo que la carga necesita saber. Antes `moveTo`
+ * Los pasos no son un extra: son lo que la carga necesita saber. Antes `moveTo`
  * validaba el destino con `movableHexes` y volvía a lanzar el BFS para contar
  * los hexes recorridos — dos recorridos para la misma pregunta.
+ *
+ * Y el `Hex` tampoco: **el BFS ya lo tenía en la mano** y lo tiraba para
+ * quedarse con la clave. Reconstruirlo costaba partir la cadena por la coma y
+ * convertir dos trozos a número, aquí para filtrar los que no caben y otra vez
+ * en `movableHexes` para devolverlos. Se llamaba `movableCosts`, y el nombre
+ * cambió a propósito con la firma: así el typecheck señala a todos los
+ * llamantes en vez de dejar que alguno se quede con la versión de antes
+ * creyendo que sigue valiendo.
  */
-export function movableCosts(state: BattleState, s: BattleStack): Map<string, number> {
+export function movableFrom(state: BattleState, s: BattleStack): Map<string, Paso> {
   const info = creature(s.creature);
   const blocked = blockedHexes(state, s.id);
   const size = hexSize(info);
@@ -201,23 +210,17 @@ export function movableCosts(state: BattleState, s: BattleStack): Map<string, nu
   const volando = hasTrait(info, 'flying');
   const dist = reachable(s.hex, stackSpeed(s), volando ? new Set() : blocked);
 
-  const out = new Map<string, number>();
-  for (const [key, coste] of dist) {
-    const h = parseHexKey(key);
-    if (hexEquals(h, s.hex) || !fits(h)) continue;
-    out.set(key, coste);
+  const out = new Map<string, Paso>();
+  for (const [key, paso] of dist) {
+    if (hexEquals(paso.at, s.hex) || !fits(paso.at)) continue;
+    out.set(key, paso);
   }
   return out;
 }
 
 /** Hexes a los que el stack puede moverse este turno. */
 export function movableHexes(state: BattleState, s: BattleStack): Hex[] {
-  return [...movableCosts(state, s).keys()].map(parseHexKey);
-}
-
-function parseHexKey(key: string): Hex {
-  const [col, row] = key.split(',').map(Number);
-  return { col: col as number, row: row as number };
+  return [...movableFrom(state, s).values()].map((p) => p.at);
 }
 
 // ---------------------------------------------------------------- rondas
@@ -369,13 +372,13 @@ function checkFinished(state: BattleState): void {
  */
 export interface Movibles {
   readonly stack: string;
-  readonly costs: ReadonlyMap<string, number>;
+  readonly costs: ReadonlyMap<string, Paso>;
 }
 
 /**
  * Aplica la acción del stack activo. Lanza si es ilegal: no la corrige.
  *
- * `movibles` es una **pista de rendimiento**: el mismo `movableCosts` que ya
+ * `movibles` es una **pista de rendimiento**: el mismo `movableFrom` que ya
  * calculó quien eligió la acción. No es un atajo que se salte la comprobación
  * —la legalidad del destino se sigue leyendo del mapa, solo que del recorrido
  * ya hecho en vez de uno nuevo—. Sin ella, `moveTo` recorre el tablero como
@@ -460,21 +463,21 @@ function moveTo(
   state: BattleState,
   s: BattleStack,
   to: Hex,
-  costes?: ReadonlyMap<string, number>,
+  costes?: ReadonlyMap<string, Paso>,
 ): number {
   // El coste real del camino, no la distancia en línea recta: rodear a un
   // enemigo cuesta más hexes y la carga tiene que notarlo. Sale del mismo
   // recorrido que decide si el destino es legal, así que no hay una segunda
   // cuenta que pueda discrepar de la primera — y si el llamante ya lo hizo, es
   // literalmente ese, no uno equivalente.
-  const recorridos = (costes ?? movableCosts(state, s)).get(hexKey(to));
-  if (recorridos === undefined) {
+  const paso = (costes ?? movableFrom(state, s)).get(hexKey(to));
+  if (paso === undefined) {
     throw new Error(`${s.id} no puede moverse a (${to.col},${to.row})`);
   }
 
   s.hex = to;
   state.log.push({ kind: 'move', stack: s.id, to });
-  return recorridos;
+  return paso.steps;
 }
 
 /**
@@ -838,7 +841,7 @@ export function legalActions(state: BattleState): BattleAction[] {
 /**
  * Lo mismo, y además el mapa de costes con el que se ha construido la lista.
  *
- * Existe porque ese coste ya se calcula aquí —es el BFS de `movableCosts`— y
+ * Existe porque ese coste ya se calcula aquí —es el BFS de `movableFrom`— y
  * hasta ahora se tiraba: la lista se quedaba con las claves, así que el
  * llamante que necesitara el coste tenía que recorrer el tablero otra vez. La
  * IA lo necesita para elegir desde qué casilla golpear (#50), y volver a
@@ -854,7 +857,7 @@ export function legalActions(state: BattleState): BattleAction[] {
  */
 export function legalActionsAndCosts(state: BattleState): {
   actions: BattleAction[];
-  costs: Map<string, number>;
+  costs: Map<string, Paso>;
 } {
   const s = activeStack(state);
   if (s === null || state.finished !== null) return { actions: [], costs: new Map() };
@@ -874,8 +877,8 @@ export function legalActionsAndCosts(state: BattleState): {
   // cuatro enemigos el tablero se recorría cinco veces para dar la misma
   // respuesta: 1 + E. La lista no cambia ni de contenido ni de orden porque se
   // recorre la misma secuencia, solo que sin recalcularla.
-  const costs = movableCosts(state, s);
-  const alcanzables = [...costs.keys()].map(parseHexKey);
+  const costs = movableFrom(state, s);
+  const alcanzables = [...costs.values()].map((p) => p.at);
   for (const h of alcanzables) out.push({ type: 'move', to: h });
 
   // Ataques: desde donde está, o moviéndose a un hex desde el que alcance.

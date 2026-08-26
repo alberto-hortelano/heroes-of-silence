@@ -17,7 +17,7 @@ import {
   stackHexes,
   stackSpeed,
 } from '../battle/battle.js';
-import { hexDistance, hexKey } from '../battle/board.js';
+import { hexDistance, hexKey, type Paso } from '../battle/board.js';
 import { CHANCE_PER_POINT, expectedDamage, stackHp } from '../battle/damage.js';
 import { roundsLeftOf } from '../battle/effects.js';
 import { effectOfSpell, type Spell, spell, spellAmount } from '../battle/spells.js';
@@ -166,7 +166,7 @@ type CargaContra = Extract<BattleAction, { type: 'attack' }> & { from: Hex };
  * el día que el BFS cambie de forma, esto elige lo mismo.
  *
  * **Y se lee del recorrido que ya se hizo**, el de `legalActionsAndCosts`, en
- * vez de lanzar uno nuevo. Cuando esto pedía su propio `movableCosts`, ese
+ * vez de lanzar uno nuevo. Cuando esto pedía su propio `movableFrom`, ese
  * segundo recorrido lo pagaban las 1258 de 1258 decisiones SIN `charge`
  * —+17,6 % en 300 batallas— para responder a una pregunta que solo tiene
  * sentido con el rasgo puesto.
@@ -176,7 +176,7 @@ function mejorCarga(
   s: BattleStack,
   objetivo: BattleStack,
   cargas: readonly CargaContra[],
-  costes: ReadonlyMap<string, number>,
+  costes: ReadonlyMap<string, Paso>,
 ): BattleAction {
   const miHeroe = state.heroes[s.side];
   const suHeroe = state.heroes[objetivo.side];
@@ -191,13 +191,14 @@ function mejorCarga(
   let mejorDano = -1;
   let mejorCoste = Number.POSITIVE_INFINITY;
   for (const a of cargas) {
-    const coste = costes.get(hexKey(a.from));
+    const paso = costes.get(hexKey(a.from));
     // Inalcanzable salvo que la lista legal y su propio mapa discrepen: los
     // `from` salen de las claves de ese mapa. Si algún día discrepan, se dice;
     // no se elige una casilla a ciegas.
-    if (coste === undefined) {
+    if (paso === undefined) {
       throw new Error(`${s.id} no alcanza (${a.from.col},${a.from.row}): la lista legal miente`);
     }
+    const coste = paso.steps;
     const dano = cobraCarga
       ? expectedDamage(s, miHeroe, objetivo, suHeroe, { chargeHexes: coste })
       : 0;
@@ -271,7 +272,7 @@ export function chooseBattleAction(state: BattleState): BattleAction {
  * Existe porque ese recorrido ya está hecho y `moveTo` lo repetía: era el
  * TERCER BFS del mismo turno del mismo stack —`legalActions` el primero,
  * `mejorCarga` lo lee del primero, y `moveTo` el segundo—, 970 de las 3 170
- * llamadas a `movableCosts` de 300 batallas.
+ * llamadas al BFS del tablero de 300 batallas.
  *
  * El `stack` viaja al lado de los costes y no se supone: `applyAction` no puede
  * comprobar que un mapa de costes sea del stack que actúa mirando sus claves
@@ -281,7 +282,7 @@ export function chooseBattleAction(state: BattleState): BattleAction {
 export function chooseBattleActionAndCosts(state: BattleState): {
   action: BattleAction;
   stack: string;
-  costs: Map<string, number>;
+  costs: Map<string, Paso>;
 } {
   const s = activeStack(state);
   if (s === null) throw new Error('no hay stack activo');
@@ -294,7 +295,7 @@ function decideAccion(
   state: BattleState,
   s: BattleStack,
   acciones: readonly BattleAction[],
-  costes: ReadonlyMap<string, number>,
+  costes: ReadonlyMap<string, Paso>,
 ): BattleAction {
   const enemigos = enemiesOf(state, s);
   if (enemigos.length === 0) return { type: 'defend' };

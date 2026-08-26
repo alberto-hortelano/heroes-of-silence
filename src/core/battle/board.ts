@@ -87,16 +87,32 @@ export function occupiedHexes(head: Hex, size: number, facingRight: boolean): He
 // -------------------------------------------------------------- pathfinding
 
 /**
+ * Un hex alcanzado por el BFS: la casilla y a cuántos pasos queda.
+ *
+ * El `Hex` viaja aquí dentro porque quien lo mete YA lo tiene en la mano —sale
+ * de `neighbours`, que lo acaba de construir— y quien lo saca lo necesita. Sin
+ * él, la clave se partía por la coma y se convertían dos trozos a número **dos
+ * veces por hex**: una en `movableFrom` para filtrar los que no caben y otra en
+ * `movableHexes` para devolverlos. Es el mismo motivo por el que
+ * `NodoFrontera.at` lleva su `Point` en el mapa de aventura.
+ */
+export interface Paso {
+  readonly at: Hex;
+  /** Pasos desde el origen. */
+  readonly steps: number;
+}
+
+/**
  * Hexes alcanzables desde `from` con `maxSteps` pasos, esquivando `blocked`.
  * BFS: en un tablero de 99 casillas no hay nada que optimizar.
- * Devuelve un mapa hexKey → coste en pasos (incluye `from` con coste 0).
+ * Devuelve un mapa hexKey → paso (incluye `from` con 0 pasos).
  */
 export function reachable(
   from: Hex,
   maxSteps: number,
   blocked: ReadonlySet<string>,
-): Map<string, number> {
-  const dist = new Map<string, number>([[hexKey(from), 0]]);
+): Map<string, Paso> {
+  const dist = new Map<string, Paso>([[hexKey(from), { at: from, steps: 0 }]]);
   let frontier: Hex[] = [from];
 
   for (let step = 1; step <= maxSteps; step++) {
@@ -105,7 +121,7 @@ export function reachable(
       for (const n of neighbours(h)) {
         const k = hexKey(n);
         if (dist.has(k) || blocked.has(k)) continue;
-        dist.set(k, step);
+        dist.set(k, { at: n, steps: step });
         next.push(n);
       }
     }
