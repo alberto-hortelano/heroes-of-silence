@@ -134,9 +134,19 @@ assets/generated/  arte generado (lo sirve Vite como estático)
   partidas**. Por eso `Frontera` es **de una sola búsqueda** y lanza si la
   reutilizas: compartirla entre búsquedas pasaba los 247 tests y cambiaba el
   volcado en silencio, y ningún test podía cazarlo —la contaminación no se ve al
-  repetir una búsqueda, sino en la **siguiente**—. El guardia no es un test: son
-  **tres** `throw` dentro de la clase, y hicieron falta los tres. El primero
-  comparaba costes, y QA encontró que no veía la reutilización cuando la búsqueda
+  repetir una búsqueda, sino en la **siguiente**—.
+
+  **Y esa última frase promete más de lo que el código cumple, así que aquí va lo
+  que de verdad lo guarda: `pnpm banco`.** QA lo demostró rompiéndolo por donde el
+  propio `frontera.ts` dice que no se puede: izar la instancia a nivel de módulo
+  con un `reiniciar()` que repone `agotada` y `ultimoPop` **y no limpia
+  `ordenes`**. Reproducido al aceptarlo: **los 310 tests pasan**, los once de
+  `frontera.test.ts` incluidos, los tres `throw` se callan, y el volcado se va a
+  32 159 líneas con otro sha — que es quien lo caza. El agujero es **anterior** a
+  todo esto y sigue abierto; lo que cambia es que ya no se cree tapado.
+
+  Los **tres** `throw` de la clase guardan lo que sí guardan, y hicieron falta
+  los tres. El primero comparaba costes, y QA encontró que no veía la reutilización cuando la búsqueda
   anterior se agotaba en el origen —`0 < 0` es falso—, que es lo que da un
   `map_generate` con un pueblo rodeado de agua. El segundo no mira costes: mira si
   la frontera ya se agotó. Y el tercero entró con el índice plano, por un motivo
@@ -144,7 +154,11 @@ assets/generated/  arte generado (lo sirve Vite como estático)
   array tira en silencio una escritura fuera de rango** donde un `Map` no podía.
   Vigila el rango, y se le vio morder: quitando la comprobación de columna del
   bucle de vecinas sale «la frontera va de 0 a 15 y le entra -1: un índice fuera
-  de rango se perdería en silencio».
+  de rango se perdería en silencio». **Es un guardia de rango y no de índice**, y
+  la diferencia importa: con `x = −1` en la fila `y`, `y*W − 1` cae dentro del
+  array —es la última casilla de la fila anterior—, así que un desbordamiento
+  lateral pasa por delante de él sin despeinarlo. QA lo demostró construyendo el
+  mapa donde todos los desbordamientos caen dentro del rango.
 
 ## Reglas del juego (verificadas contra fheroes2)
 
@@ -461,6 +475,14 @@ bajan de **3 910 a 1 741 ms** y `autoResolve` de 156 a 60 ms.
 | #76 | el BFS del tablero tenía el `Hex` en la mano y se reconstruía dos veces |
 | #77 | `findPath` y `reachableFrom` eran el mismo Dijkstra copiado |
 | #75 | ese Dijkstra hablaba en cadenas `"x,y"`; ahora en índices |
+
+**Dos de las cifras por commit las corrigió QA hacia abajo, y la lección es del
+instrumento:** `autoResolve` es **bimodal** —57 a 89 ms para código idéntico en
+seis pasadas—, así que el «−50 %» de #76 era la punta buena y la mediana real es
+≈ −39 %; y #77 no es «indistinguible de cero» sino **+0,8 % más lento**, con los
+rangos sin solaparse. Ninguna de las dos mueve una partida, y el racimo entero
+sigue en 2,25×. Tres pasadas no bastan cuando la medida es bimodal: hay que mirar
+si lo es antes de creerse la mediana.
 
 **El orden no era cosmético.** #77 tuvo que ir **antes** que #75, al revés de lo
 que decía su propio issue: `Frontera` recibía claves de texto, y el índice plano
