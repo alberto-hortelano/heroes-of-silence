@@ -862,20 +862,28 @@ describe('IA de respaldo', () => {
     expect(conCamino).toBeGreaterThan(0);
 
     // Y los tres casos que no son un camino, también uno a uno: ya está allí,
-    // fuera del mapa, y —el que no se deduce del alcance— un origen fuera del
-    // mapa. `reachableFrom` desde fuera SÍ encuentra vecinos dentro, así que
-    // sin la guardia de `inBounds` devolvería camino donde `findPath` no.
+    // el destino fuera del mapa, y —el que no se deduce del alcance— el ORIGEN
+    // fuera del mapa.
     const fuera = { x: -1, y: -1 };
     expect(pathFromReachable(state.map, alcance, hero.at, hero.at)).toEqual([]);
     expect(pathFromReachable(state.map, alcance, hero.at, fuera)).toBeNull();
 
-    const desdeFuera = reachableFrom(state.map, fuera);
-    const vecinaDentro = { x: 0, y: 0 };
-    expect(desdeFuera.costs.get(pointKey(vecinaDentro))).toBeDefined();
-    expect(pathFromReachable(state.map, desdeFuera, fuera, vecinaDentro)).toEqual(
-      findPath(state.map, fuera, vecinaDentro),
-    );
-    expect(findPath(state.map, fuera, vecinaDentro)).toBeNull();
+    // Un destino que el alcance SÍ conoce, para que solo la guardia de
+    // `inBounds(from)` pueda decidir: sin ella, esto retrocedería por un árbol
+    // de predecesores que no es el suyo y acabaría LANZANDO, que no es lo mismo
+    // que decir que no hay camino.
+    const [clave] = [...alcance.costs.entries()].filter(([, c]) => c > 0)[0] as [string, number];
+    const [dx, dy] = clave.split(',').map(Number);
+    const dentro = { x: dx as number, y: dy as number };
+    expect(pathFromReachable(state.map, alcance, fuera, dentro)).toBeNull();
+    expect(findPath(state.map, fuera, dentro)).toBeNull();
+
+    // Y lanzar el Dijkstra DESDE fuera del mapa se dice. Es lo único observable
+    // que cambió con el índice plano (#75): antes «funcionaba» —asentaba el
+    // origen de fuera y sus vecinos de dentro— porque una clave `"x,y"` admite
+    // cualquier cosa, no porque nadie lo hubiera decidido. `terrainAt` lleva
+    // desde siempre lanzando lo mismo para la misma casilla.
+    expect(() => reachableFrom(state.map, fuera)).toThrow('(-1,-1) está fuera del mapa');
   });
 
   it('mover con la pista deja la partida igual que sin ella (#65)', () => {

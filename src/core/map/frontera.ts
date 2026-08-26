@@ -1,5 +1,5 @@
 /**
- * La cola de prioridad de los dos Dijkstra del mapa.
+ * La cola de prioridad del Dijkstra del mapa.
  *
  * Antes era un `Set<string>` recorrido entero en cada extracción. Sin tope de
  * coste, `reachableFrom` asienta el mapa 24×24 ENTERO —576 casillas— con una
@@ -42,27 +42,27 @@
  * —repetir una búsqueda, repetirla acotada, un golden precedido de otra
  * búsqueda— y ninguno muerde, porque `orden` no se reasigna nunca y la
  * contaminación no aparece al repetir una búsqueda sino en la **siguiente**.
- * Lo que sí muerde son los dos guardias de `push`, aquí abajo — y hicieron falta
- * los dos: el primero, por sí solo, no veía la reutilización cuando la búsqueda
- * anterior se agotaba en el origen. Lo encontró QA.
+ * Lo que sí muerde son los guardias de `push`, aquí abajo — y hicieron falta los
+ * dos: el primero, por sí solo, no veía la reutilización cuando la búsqueda
+ * anterior se agotaba en el origen. Lo encontró QA. El tercero es de otra clase
+ * y llegó con el índice plano: ver abajo.
+ *
+ * ## La clave es un índice plano, no una cadena
+ *
+ * `y * anchura + x`, el mismo que ya usa `GameMap.terrain`. Antes era `"x,y"`:
+ * cada `push` construía una cadena, cada `Map` la hasheaba y el `Point` tenía
+ * que viajar dentro del nodo porque reconstruirlo desde la clave costaba
+ * partirla por la coma. Con un índice no hay nada que construir ni que
+ * reconstruir — de la coordenada se vuelve con un `%` y una división—, así que
+ * `NodoFrontera` ya no lleva `at`: en la búsqueda plana nadie construye un
+ * `Point`.
  *
  * `core` sigue puro: aquí dentro solo hay aritmética.
  */
-import type { Point } from '../types.js';
 
-/**
- * Lo que sale de la frontera: una casilla —su clave Y su punto— y lo que costó
- * llegar a ella.
- *
- * El `Point` viaja aquí dentro porque quien empuja YA lo tiene en la mano: sale
- * de `neighbours`, que lo acaba de construir. Sin él, los dos Dijkstra volvían
- * a partir la clave por la coma y a convertir dos trozos a número en cada
- * extracción — el 12,8 % del perfil del barrido, gastado en reconstruir algo
- * que se había tirado tres líneas antes.
- */
+/** Lo que sale de la frontera: el índice de una casilla y lo que costó llegar. */
 export interface NodoFrontera {
-  readonly key: string;
-  readonly at: Point;
+  readonly key: number;
   readonly cost: number;
 }
 
@@ -85,7 +85,11 @@ function compara(a: Nodo, b: Nodo): number {
 export class Frontera {
   /** Montículo binario en un array: los hijos de `i` están en `2i+1` y `2i+2`. */
   private readonly monticulo: Nodo[] = [];
-  private readonly ordenes = new Map<string, number>();
+  /** Orden de primer descubrimiento por índice de casilla; −1 = sin ver. */
+  private readonly ordenes: Int32Array;
+  /** El siguiente número a repartir. Antes era `ordenes.size`, que ya no existe. */
+  private siguienteOrden = 0;
+  private readonly capacidad: number;
   /**
    * Coste de la última extracción. Caza al que empuja una casilla ya asentada.
    *
@@ -108,14 +112,23 @@ export class Frontera {
    *
    * Esto no depende de ningún coste. Una búsqueda sana llama a `pop()` hasta que
    * devuelve `undefined` —una vez, al final— y no vuelve a empujar; el bucle de
-   * los dos llamantes es literalmente eso. Así que un `push` después de esa
+   * su único llamante es literalmente eso. Así que un `push` después de esa
    * llamada **es** una segunda búsqueda, cueste lo que cueste.
    */
   private agotada = false;
 
-  push(key: string, at: Point, cost: number): void {
-    // Fail-loud en vez de prosa, por las dos puertas: reutilizar la instancia y
-    // empujar una casilla ya asentada.
+  /**
+   * `capacidad` son las casillas del mapa: las claves válidas van de 0 a
+   * `capacidad - 1`.
+   */
+  constructor(capacidad: number) {
+    this.capacidad = capacidad;
+    this.ordenes = new Int32Array(capacidad).fill(-1);
+  }
+
+  push(key: number, cost: number): void {
+    // Fail-loud en vez de prosa, por las tres puertas: reutilizar la instancia,
+    // empujar una casilla ya asentada, y un índice fuera del mapa.
     if (this.agotada) {
       throw new Error(
         `una frontera es de una sola búsqueda: ${key} entra después de que se agotara`,
@@ -126,15 +139,26 @@ export class Frontera {
         `una frontera es de una sola búsqueda: ${key} entra por ${cost} y ya salió ${this.ultimoPop}`,
       );
     }
+    // El tercero, y nació con el índice plano: un `Map` no podía guardar mal una
+    // clave, pero un `Int32Array` **tira en silencio** una escritura fuera de
+    // rango y devuelve `undefined` en la lectura. Un índice mal calculado
+    // dejaría a esa casilla sin número de orden y rompería el desempate sin
+    // decir nada — que es exactamente lo que los otros dos existen para impedir.
+    if (!Number.isInteger(key) || key < 0 || key >= this.capacidad) {
+      throw new Error(
+        `la frontera va de 0 a ${this.capacidad - 1} y le entra ${key}: ` +
+          'un índice fuera de rango se perdería en silencio',
+      );
+    }
 
-    let orden = this.ordenes.get(key);
-    if (orden === undefined) {
-      orden = this.ordenes.size;
-      this.ordenes.set(key, orden);
+    let orden = this.ordenes[key] as number;
+    if (orden === -1) {
+      orden = this.siguienteOrden++;
+      this.ordenes[key] = orden;
     }
 
     const m = this.monticulo;
-    const nodo: Nodo = { key, at, cost, orden };
+    const nodo: Nodo = { key, cost, orden };
     let i = m.length;
     m.push(nodo);
     while (i > 0) {

@@ -8,7 +8,7 @@
  * empate por la forma del árbol, y entonces el héroe elige otra de dos rutas
  * igual de baratas y la partida entera se juega distinta.
  *
- * Los cinco primeros tests miran la estructura; los de abajo miran al Dijkstra
+ * Los seis primeros tests miran la estructura; los de abajo miran al Dijkstra
  * que la usa —uno solo desde #77, con dos puertas: `findPath` y
  * `reachableFrom`—, porque una cola que ordena bien y un Dijkstra que la usa
  * mal darían verde por separado.
@@ -18,15 +18,15 @@ import { Frontera } from '../src/core/map/frontera.js';
 import { createEmptyMap, findPath, pointKey, reachableFrom } from '../src/core/map/map.js';
 
 /**
- * Empuja con un punto de relleno.
+ * Una frontera con sitio de sobra para las claves de estos tests.
  *
- * Los tres primeros tests miran el ORDEN, y el `Point` que viaja en el nodo no
- * entra en el comparador. Las claves son letras y no coordenadas justo para que
- * se vea que el desempate no las mira: si alguna vez desempatara por clave,
- * `['z','y','x']` saldría al revés.
+ * Las claves son índices planos (`y * anchura + x`) desde #75, y aquí se eligen
+ * **a contrapelo del orden natural**: si el desempate mirara la clave en vez del
+ * orden de descubrimiento, estas pruebas saldrían al revés. Antes eran letras
+ * (`['z','y','x']`) y decían exactamente lo mismo.
  */
-function empuja(f: Frontera, key: string, cost: number): void {
-  f.push(key, { x: 0, y: 0 }, cost);
+function frontera(): Frontera {
+  return new Frontera(100);
 }
 
 /**
@@ -36,50 +36,52 @@ function empuja(f: Frontera, key: string, cost: number): void {
  * el nodo extraído son la misma pregunta, y hacerla dos veces era lo que
  * obligaba a un `as` sin comprobar aquí y en el Dijkstra de `map.ts`.
  */
-function vaciar(f: Frontera): string[] {
-  const salida: string[] = [];
+function vaciar(f: Frontera): number[] {
+  const salida: number[] = [];
   for (let n = f.pop(); n !== undefined; n = f.pop()) salida.push(n.key);
   return salida;
 }
 
 describe('la frontera del Dijkstra del mapa', () => {
   it('extrae en coste ascendente', () => {
-    const f = new Frontera();
+    const f = frontera();
     for (const [k, c] of [
-      ['d', 400],
-      ['a', 100],
-      ['c', 300],
-      ['e', 500],
-      ['b', 200],
+      [40, 400],
+      [10, 100],
+      [30, 300],
+      [50, 500],
+      [20, 200],
     ] as const) {
-      empuja(f, k, c);
+      f.push(k, c);
     }
-    expect(vaciar(f)).toEqual(['a', 'b', 'c', 'd', 'e']);
+    expect(vaciar(f)).toEqual([10, 20, 30, 40, 50]);
     expect(f.pop()).toBeUndefined();
   });
 
   it('a igual coste, en orden de primer descubrimiento', () => {
-    // Empujados al revés del orden alfabético a propósito: si el desempate
-    // fuera por clave, o por la forma del montículo, esto no saldría igual.
-    const f = new Frontera();
-    for (const k of ['z', 'y', 'x', 'w', 'v', 'u']) empuja(f, k, 100);
-    expect(vaciar(f)).toEqual(['z', 'y', 'x', 'w', 'v', 'u']);
+    // Empujadas en orden numérico DESCENDENTE a propósito: si el desempate
+    // fuera por clave, o por la forma del montículo, saldrían al revés. Es lo
+    // que decían las letras `['z','y','x']` cuando la clave era una cadena.
+    const f = frontera();
+    for (const k of [95, 74, 53, 32, 11, 0]) f.push(k, 100);
+    expect(vaciar(f)).toEqual([95, 74, 53, 32, 11, 0]);
   });
 
   it('una clave re-empujada más barata conserva su orden original', () => {
-    // Aquí es donde se rompe todo. `a` se descubre primero, con un coste malo;
-    // `b` se descubre después. Luego `a` mejora hasta empatar con `b`: tiene
-    // que salir ANTES, porque se descubrió antes. Si la re-inserción le diera
-    // un número de orden nuevo, `a` empataría por detrás de `b` y el camino
-    // cambiaría — con él, la partida.
-    const f = new Frontera();
-    empuja(f, 'a', 900);
-    empuja(f, 'b', 100);
-    empuja(f, 'a', 100);
+    // Aquí es donde se rompe todo. El `7` se descubre primero, con un coste
+    // malo; el `3` se descubre después. Luego el `7` mejora hasta empatar con
+    // el `3`: tiene que salir ANTES, porque se descubrió antes. Si la
+    // re-inserción le diera un número de orden nuevo, empataría por detrás y el
+    // camino cambiaría — con él, la partida. Y las claves van otra vez a
+    // contrapelo de su orden natural, para que se vea que no las mira.
+    const f = frontera();
+    f.push(7, 900);
+    f.push(3, 100);
+    f.push(7, 100);
 
-    // El primero es la entrada buena de `a`; el rancio de 900 sale al final y
+    // El primero es la entrada buena de `7`; el rancio de 900 sale al final y
     // lo descarta el llamante comparando con el coste que tiene apuntado.
-    expect(vaciar(f)).toEqual(['a', 'b', 'a']);
+    expect(vaciar(f)).toEqual([7, 3, 7]);
   });
 
   it('se niega a servir a una segunda búsqueda', () => {
@@ -88,14 +90,14 @@ describe('la frontera del Dijkstra del mapa', () => {
     // los 247 tests en verde y cambiaba el sha256 del volcado de 200 semillas.
     // Reusar la frontera es empezar la búsqueda nueva empujando el origen por
     // 0 con la vieja ya asentada por encima, así que basta con mirar el coste.
-    const f = new Frontera();
-    empuja(f, 'origen', 0);
+    const f = frontera();
+    f.push(12, 0);
     f.pop();
-    empuja(f, 'lejos', 500);
+    f.push(80, 500);
     f.pop();
 
-    expect(() => empuja(f, 'otro-origen', 0)).toThrow(
-      'una frontera es de una sola búsqueda: otro-origen entra por 0 y ya salió 500',
+    expect(() => f.push(34, 0)).toThrow(
+      'una frontera es de una sola búsqueda: 34 entra por 0 y ya salió 500',
     );
   });
 
@@ -104,14 +106,30 @@ describe('la frontera del Dijkstra del mapa', () => {
     // que ya salió no puede volver más barata. Si vuelve, o el coste del paso
     // es cero o alguien se saltó el `if (nuevo < coste)`, y las dos cosas
     // descuadran el desempate en silencio.
-    const f = new Frontera();
-    empuja(f, 'a', 100);
-    empuja(f, 'b', 300);
+    const f = frontera();
+    f.push(1, 100);
+    f.push(2, 300);
     f.pop();
 
-    expect(() => empuja(f, 'a', 50)).toThrow(/entra por 50 y ya salió 100/);
+    expect(() => f.push(1, 50)).toThrow(/entra por 50 y ya salió 100/);
     // Empatar con el último extraído sigue siendo legal: dos hermanos a 100.
-    expect(() => empuja(f, 'c', 100)).not.toThrow();
+    expect(() => f.push(3, 100)).not.toThrow();
+  });
+
+  it('se niega a una clave fuera de rango, que un typed array tiraría en silencio', () => {
+    // El tercer guardia, y nació con el índice plano (#75): un `Map` no podía
+    // guardar mal una clave; un `Int32Array` **tira la escritura y devuelve
+    // `undefined` en la lectura**, así que una casilla con el índice mal
+    // calculado se quedaría sin número de orden y el desempate se rompería sin
+    // decir nada. Es exactamente lo que los otros dos existen para impedir.
+    const f = new Frontera(10);
+    expect(() => f.push(10, 0)).toThrow('la frontera va de 0 a 9 y le entra 10');
+    expect(() => f.push(-1, 0)).toThrow(/fuera de rango/);
+    expect(() => f.push(2.5, 0)).toThrow(/fuera de rango/);
+    // Y los extremos válidos sí entran: un guardia que rechazara de más sería
+    // igual de malo, y no se vería en ninguna partida.
+    expect(() => f.push(0, 0)).not.toThrow();
+    expect(() => f.push(9, 0)).not.toThrow();
   });
 });
 
@@ -209,22 +227,22 @@ describe('el Dijkstra que usa la frontera, por sus dos puertas', () => {
     // coste del último `pop` es 0, la siguiente empuja su origen por 0, y
     // `0 < 0` es falso. La segunda heredaba el `orden` de la primera y el empate
     // se resolvía al revés EN SILENCIO.
-    const f = new Frontera();
-    f.push('0,0', { x: 0, y: 0 }, 0);
-    expect(f.pop()?.key).toBe('0,0');
+    const f = frontera();
+    f.push(0, 0);
+    expect(f.pop()?.key).toBe(0);
     expect(f.pop()).toBeUndefined(); // la búsqueda termina aquí
 
-    expect(() => f.push('9,9', { x: 9, y: 9 }, 0)).toThrow(/una sola búsqueda/);
+    expect(() => f.push(99, 0)).toThrow(/una sola búsqueda/);
   });
 
   it('el guardia del coste sigue cazando a quien empuja una casilla ya asentada', () => {
-    const f = new Frontera();
-    f.push('0,0', { x: 0, y: 0 }, 0);
-    f.push('1,0', { x: 1, y: 0 }, 100);
-    expect(f.pop()?.key).toBe('0,0');
-    expect(f.pop()?.key).toBe('1,0');
+    const f = frontera();
+    f.push(0, 0);
+    f.push(1, 100);
+    expect(f.pop()?.key).toBe(0);
+    expect(f.pop()?.key).toBe(1);
 
     // Sin agotarla: la frontera sigue viva, pero 50 ya no puede salir.
-    expect(() => f.push('2,0', { x: 2, y: 0 }, 50)).toThrow(/ya salió 100/);
+    expect(() => f.push(2, 50)).toThrow(/ya salió 100/);
   });
 });

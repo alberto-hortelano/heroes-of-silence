@@ -90,24 +90,28 @@ export function isEnterable(map: GameMap, p: Point): boolean {
   return isWalkable(terrainAt(map, p));
 }
 
-/** Coste de entrar en `to` viniendo de `from`. */
-export function stepCost(map: GameMap, from: Point, to: Point): number {
-  const base = map.roads.has(pointKey(to)) ? ROAD_COST : TERRAIN_COST[terrainAt(map, to)];
-  const diagonal = from.x !== to.x && from.y !== to.y;
+/**
+ * Lo que cuesta poner el pie en una casilla, dado su terreno, si tiene camino y
+ * si se entra en diagonal.
+ *
+ * Es la regla, escrita **una vez**. `stepCost` es su lectura legible —la que se
+ * lee cuando se quiere saber qué cuesta un paso concreto— y el Dijkstra la usa
+ * para precalcular sus dos tablas por casilla. Sin extraerla, la fórmula
+ * quedaría copiada en los dos sitios y el día que cambie el factor diagonal
+ * habría que acordarse de los dos.
+ */
+function costeDeEntrada(terreno: TerrainKind, camino: boolean, diagonal: boolean): number {
+  const base = camino ? ROAD_COST : TERRAIN_COST[terreno];
   return Math.round(diagonal ? base * DIAGONAL_FACTOR : base);
 }
 
-/** Las 8 casillas vecinas dentro del mapa. */
-export function neighbours(map: GameMap, p: Point): Point[] {
-  const out: Point[] = [];
-  for (let dy = -1; dy <= 1; dy++) {
-    for (let dx = -1; dx <= 1; dx++) {
-      if (dx === 0 && dy === 0) continue;
-      const n = { x: p.x + dx, y: p.y + dy };
-      if (inBounds(map, n)) out.push(n);
-    }
-  }
-  return out;
+/** Coste de entrar en `to` viniendo de `from`. */
+export function stepCost(map: GameMap, from: Point, to: Point): number {
+  return costeDeEntrada(
+    terrainAt(map, to),
+    map.roads.has(pointKey(to)),
+    from.x !== to.x && from.y !== to.y,
+  );
 }
 
 export interface PathStep {
@@ -225,51 +229,134 @@ export function reachableFrom(map: GameMap, from: Point): Reachable {
  * no miran la clave, y sigue habiendo **una frontera por búsqueda**.
  */
 function dijkstra(map: GameMap, from: Point, parar: Point | null): Reachable {
-  const origen = pointKey(from);
-  const destino = parar === null ? null : pointKey(parar);
+  const ancho = map.width;
+  const casillas = ancho * map.height;
 
-  const coste = new Map<string, number>([[origen, 0]]);
-  const previo = new Map<string, Point>();
-  const cerradas = new Set<string>();
-  const frontera = new Frontera();
-  frontera.push(origen, from, 0);
+  // Fail-loud, y con el índice plano no es opcional: `(-1,-1)` da un índice
+  // negativo, que un `Int32Array` tira en silencio. Con claves `"x,y"` esto
+  // "funcionaba" —asentaba el origen de fuera y sus vecinos de dentro— porque
+  // una cadena admite cualquier cosa, no porque nadie lo hubiera decidido.
+  // `terrainAt` lleva desde siempre lanzando por lo mismo.
+  if (!inBounds(map, from)) throw new Error(`(${from.x},${from.y}) está fuera del mapa`);
+  const origen = from.y * ancho + from.x;
+  const destino = parar === null ? -1 : parar.y * ancho + parar.x;
 
-  const bloqueadas = new Set<string>();
-  for (const o of map.objects) {
-    if (blocksMovement(o)) bloqueadas.add(pointKey(o.at));
+  // Las cuatro tablas por casilla, **reconstruidas en cada llamada**: `GameMap`
+  // es dato y cachearlas allí obligaría a invalidarlas cuando un monstruo cae o
+  // una mina cambia de dueño, que es la clase de estado que este repositorio no
+  // quiere. Se pagan enteras en cada búsqueda y aun así sale a cuenta: medido
+  // en `pnpm banco`, 3402 → 1611 ms de mediana en tres pasadas intercaladas,
+  // **2,11×**, con el sha256 del volcado intacto.
+  const pisable = new Uint8Array(casillas);
+  const recto = new Int32Array(casillas);
+  const oblicuo = new Int32Array(casillas);
+  for (let i = 0; i < casillas; i++) {
+    const terreno = map.terrain[i] as TerrainKind;
+    if (isWalkable(terreno)) pisable[i] = 1;
+    recto[i] = costeDeEntrada(terreno, false, false);
+    oblicuo[i] = costeDeEntrada(terreno, false, true);
   }
+  // Los caminos vienen por clave, así que aquí sí se parte una cadena — pero
+  // una por casilla CON camino, no una por casilla del mapa. Una clave que no
+  // sea una casilla de este mapa se salta, que es lo que hacía el `roads.has`
+  // de antes: nunca se le preguntaba por una casilla de fuera.
+  for (const clave of map.roads) {
+    const coma = clave.indexOf(',');
+    const x = Number(clave.slice(0, coma));
+    const y = Number(clave.slice(coma + 1));
+    if (!Number.isInteger(x) || !Number.isInteger(y)) continue;
+    if (x < 0 || x >= ancho || y < 0 || y >= map.height) continue;
+    const i = y * ancho + x;
+    recto[i] = costeDeEntrada(map.terrain[i] as TerrainKind, true, false);
+    oblicuo[i] = costeDeEntrada(map.terrain[i] as TerrainKind, true, true);
+  }
+  const bloqueada = new Uint8Array(casillas);
+  for (const o of map.objects) {
+    if (!blocksMovement(o) || !inBounds(map, o.at)) continue;
+    bloqueada[o.at.y * ancho + o.at.x] = 1;
+  }
+
+  // −1 es «sin coste todavía»: los costes reales son siempre > 0 salvo el del
+  // origen, que es 0, así que el centinela no pisa ningún valor legítimo.
+  const coste = new Int32Array(casillas).fill(-1);
+  const previo = new Int32Array(casillas).fill(-1);
+  const cerrada = new Uint8Array(casillas);
+  // El orden de PRIMER descubrimiento, que es el orden de inserción que tenían
+  // los `Map` de antes. De él cuelgan el golden de `frontera.test.ts` y tres
+  // sitios de `agent-link.test.ts` que ordenan con `Array.sort`, que es estable:
+  // sin reproducirlo, la salida tendría los mismos pares en otro orden.
+  const descubiertas: number[] = [origen];
+
+  coste[origen] = 0;
+  const frontera = new Frontera(casillas);
+  frontera.push(origen, 0);
 
   // `pop()` en la condición y no `size > 0` + una aserción: la frontera vacía y
   // el nodo extraído son la misma pregunta, y preguntarla dos veces obligaba a
   // un `as NodoFrontera` sin comprobar dentro de `core`.
   for (let nodo = frontera.pop(); nodo !== undefined; nodo = frontera.pop()) {
+    const actual = nodo.key;
     // Borrado perezoso: una mejora de coste empujó un nodo nuevo y dejó a este
     // rancio. No hay *decrease-key*, y no hace falta.
-    if (nodo.cost > (coste.get(nodo.key) ?? Infinity)) continue;
-    const actualKey = nodo.key;
-    cerradas.add(actualKey);
+    if (nodo.cost > (coste[actual] as number)) continue;
+    cerrada[actual] = 1;
 
-    if (actualKey === destino) break;
+    if (actual === destino) break;
 
     // Desde una casilla bloqueada no se sigue: es final de trayecto. La
     // excepción es el origen — el héroe suele estar ENCIMA de su pueblo o de
     // una mina recién capturada, y tratarlo como muro lo dejaba sin rutas.
-    if (bloqueadas.has(actualKey) && actualKey !== origen) continue;
+    if (bloqueada[actual] === 1 && actual !== origen) continue;
 
-    const actual = nodo.at;
-    for (const n of neighbours(map, actual)) {
-      const nk = pointKey(n);
-      if (cerradas.has(nk) || !isEnterable(map, n)) continue;
-      const nuevo = nodo.cost + stepCost(map, actual, n);
-      if (nuevo < (coste.get(nk) ?? Infinity)) {
-        coste.set(nk, nuevo);
-        previo.set(nk, actual);
-        frontera.push(nk, n, nuevo);
+    const x = actual % ancho;
+    const y = (actual - x) / ancho;
+    // Las ocho vecinas, `dy` por fuera y `dx` por dentro. **Ese orden es el
+    // desempate**: de él sale el número de orden de cada casilla. No es una
+    // preferencia de escritura — viene de la `neighbours` que este commit borró
+    // (construía un `Point[]` por casilla extraída, para tirarlo enseguida) y
+    // cambiarlo cambia las partidas.
+    for (let dy = -1; dy <= 1; dy++) {
+      const ny = y + dy;
+      if (ny < 0 || ny >= map.height) continue;
+      for (let dx = -1; dx <= 1; dx++) {
+        if (dx === 0 && dy === 0) continue;
+        const nx = x + dx;
+        if (nx < 0 || nx >= ancho) continue;
+
+        const vecina = ny * ancho + nx;
+        if (cerrada[vecina] === 1 || pisable[vecina] === 0) continue;
+
+        const paso = dx !== 0 && dy !== 0 ? (oblicuo[vecina] as number) : (recto[vecina] as number);
+        const nuevo = nodo.cost + paso;
+        const anterior = coste[vecina] as number;
+        if (anterior !== -1 && nuevo >= anterior) continue;
+
+        if (anterior === -1) descubiertas.push(vecina);
+        coste[vecina] = nuevo;
+        previo[vecina] = actual;
+        frontera.push(vecina, nuevo);
       }
     }
   }
 
-  return { costs: coste, prev: previo };
+  // La salida sigue hablando en `"x,y"`, y en el orden de siempre: quien la lee
+  // —`chooseHeroDestination`, `stepTowards`, los tests— no se entera de que por
+  // dentro esto es aritmética. Cambiar también la salida vale más —el prototipo
+  // del issue medía 6,5 puntos por encima de esta variante— pero arrastra a
+  // `stepTowards`, a `chooseHeroDestination` y a los seis goldens que
+  // certifican que esto no movió nada; es otro issue, no este commit.
+  const costs = new Map<string, number>();
+  const prev = new Map<string, Point>();
+  for (const i of descubiertas) {
+    const x = i % ancho;
+    const y = (i - x) / ancho;
+    costs.set(`${x},${y}`, coste[i] as number);
+    const p = previo[i] as number;
+    if (p === -1) continue;
+    const px = p % ancho;
+    prev.set(`${x},${y}`, { x: px, y: (p - px) / ancho });
+  }
+  return { costs, prev };
 }
 
 /**
