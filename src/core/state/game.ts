@@ -566,7 +566,15 @@ export function applyAdventureAction(
   // y el que acaba de meter su héroe en el castillo es el jugador saliente.
   const actor = currentPlayer(state).id;
   aplicar(state, action, ctx);
-  syncSpellbooks(state, actor);
+
+  // Y nada se aprende después del final. `aplicar` puede terminar la partida
+  // —capturar el último castillo del rival lo hace—, y esta sincronía iba
+  // detrás sin preguntar: en 34 de 200 semillas la crónica acababa con «Fin de
+  // la partida» y DEBAJO «El jugador 1 aprende: Prisa, Lentitud», que además se
+  // pinta así en pantalla. La regla que rompía está escrita en `settleBattle`
+  // —`game_over` es el ÚLTIMO hecho del registro— y no la vigilaba nadie;
+  // ahora sí (`test/invariantes.test.ts`).
+  if (state.finished === null) syncSpellbooks(state, actor);
 }
 
 /**

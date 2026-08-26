@@ -2,17 +2,18 @@
  * Las fronteras de `CLAUDE.md`, comprobadas.
  *
  * Un contrato que solo vive en la documentación se rompe sin que nadie se
- * entere; aquí se rompe en rojo. Son doce guardias: siete leen el código con
+ * entere; aquí se rompe en rojo. Son trece guardias: siete leen el código con
  * una expresión regular, uno recorre el catálogo de rasgos, el de efectos
  * temporales llama de verdad a los lectores del motor, otro recorre todo el
- * repo —menos la prosa y los binarios— buscando la ruta de esta máquina, otro
- * juega una partida y le da a la crónica un viaje de ida y vuelta por `JSON` y
+ * repo —menos la prosa y los binarios— buscando la ruta de esta máquina, dos
+ * juegan partidas enteras —uno le da a la crónica un viaje de ida y vuelta por
+ * `JSON`, el otro comprueba que nadie escriba detrás de «fin de la partida»— y
  * el último vigila que el núcleo no ejecute coma flotante que dependa de la
  * plataforma, que es en lo que se apoya el sha256 de `pnpm banco` para valer
- * fuera de esta máquina. Cuestan milisegundos —el de la crónica, 310— así que
- * caben en cada `pnpm test` sin frenar a nadie.
+ * fuera de esta máquina. Cuestan milisegundos —los dos que juegan, medio
+ * segundo cada uno— así que caben en cada `pnpm test` sin frenar a nadie.
  *
- * Los doce nacen en verde. Un guardia que nace rojo se ignora desde el primer
+ * Los trece nacen en verde. Un guardia que nace rojo se ignora desde el primer
  * día — y uno que nace verde sin comprobar que MUERDE no guarda nada: el de la
  * frontera con el servidor se probó metiendo un `import` del director en
  * `src/core/ai/turn.ts`, viéndolo rojo y quitándolo. Se volvió a probar con la
@@ -32,16 +33,23 @@
  * verde. Ahora mira cuatro y las cuatro se han roto a mano, una a una, y se
  * han visto rojas con su nombre delante.
  *
- * Y el de la coma flotante, el último en llegar, se rompió con CINCO sondas en
- * `src/core/hero/hero.ts`: un `Math.pow`, un `1.4 ** n`, un `Math.hypot`, un
- * `Math.sqrt` y —la que de verdad importaba— un `2 ** n` en la línea siguiente
- * a una cadena que lleva dentro las dos marcas de comentario, que es como se
- * comprueba que el quitacomentarios no se come código de verdad en silencio.
- * Las cinco salieron con su fichero y su línea, y el `Math.pow` que el
- * docstring de al lado cita por su nombre NO salió. Y esta frase no puede
- * escribir la marca de cierre de un comentario de bloque: al escribirla la
- * primera vez cerró este docstring de verdad y tumbó el `tsc` con seis errores
- * a partir de aquí abajo.
+ * Y el de la coma flotante repitió la lección entera. Nació probado con CINCO
+ * sondas —`Math.pow`, `1.4 ** n`, `Math.hypot`, `Math.sqrt` y un `2 ** n` en la
+ * línea siguiente a una cadena que lleva dentro las dos marcas de comentario,
+ * que es como se comprueba que el quitacomentarios no se come código de verdad
+ * en silencio— y las cinco mordieron. Y aun así **tenía un agujero**: QA lo
+ * rompió con `const { pow } = Math`, que no escribe `Math.pow` en ninguna parte.
+ * Cinco sondas con punto no prueban un guardia que mira puntos. Ahora la regla
+ * es que `Math` solo puede aparecer seguido de una de las siete permitidas, y
+ * las sondas son OCHO: las cinco de antes más desestructurar, desestructurar
+ * renombrando y `Math['pow']`. Es la tercera vez que este fichero aprende lo
+ * mismo —el de `node:` con `import 'x';`, el del candado con el cast del
+ * estado, este con la desestructuración—: **lo que hay que ensanchar es la
+ * batería de sondas, no la confianza**.
+ *
+ * Y esta frase no puede escribir la marca de cierre de un comentario de bloque:
+ * al escribirla la primera vez cerró este docstring de verdad y tumbó el `tsc`
+ * con seis errores a partir de aquí abajo.
  */
 import { execFileSync } from 'node:child_process';
 import { closeSync, openSync, readdirSync, readFileSync, readSync, statSync } from 'node:fs';
@@ -406,25 +414,41 @@ describe('invariantes del proyecto', () => {
     // habría roto en silencio.
     //
     // Dos mitades, y la primera es la que decide la forma:
-    //  1. `Math.<algo>` contra la lista BLANCA de arriba — el porqué está en su
-    //     docstring: lo cerrado y publicado es lo permitido, no lo prohibido;
+    //  1. **el identificador `Math` solo puede aparecer como `Math.<permitido>`**
+    //     — el porqué de la lista blanca está en su docstring: lo cerrado y
+    //     publicado es lo permitido, no lo prohibido;
     //  2. el operador `**`, que es `Math.pow` escrito de otra manera y no lo
     //     caza la primera.
+    //
+    // La primera mitad miraba `Math\.<algo>` y **tenía un agujero que encontró
+    // QA**: `const { pow } = Math;` no escribe `Math.pow` en ninguna parte y
+    // pasaba limpio, igual que `const M = Math` o `Math['pow']`. La batería de
+    // sondas original tampoco lo cubría —tres sondas, las tres con punto—, así
+    // que lo estrecho era la prueba y no la idea. La regla correcta es la
+    // conclusión de la lista blanca llevada hasta el final: la ÚNICA forma
+    // permitida de nombrar `Math` en el núcleo es seguida de una de las siete.
+    // Cualquier otra mención —desestructurar, aliasar, indexar con corchetes—
+    // es un infractor, porque de ahí en adelante ya no se puede saber qué se
+    // llama.
     //
     // Mira el CÓDIGO y no el fichero: los comentarios de este repositorio
     // llevan negrita de Markdown y explican con sus nombres las funciones que
     // se prohíben, así que sin `sinComentarios` este guardia nacería rojo con
     // seis presas y todas falsas.
     //
-    // Se rompió a mano, se miró rojo y se arregló, que es la regla de la casa:
-    // un `Math.pow`, un `1.4 ** 3`, un `Math.hypot` y un `Math.sqrt` metidos en
-    // `src/core/hero/hero.ts` salieron los cuatro con su fichero y su línea, y
-    // el `Math.pow` del docstring de al lado NO salió.
+    // Se rompió a mano, se miró rojo y se arregló, que es la regla de la casa.
+    // Ocho sondas en `src/core/hero/hero.ts`, y las cuatro últimas son las que
+    // el guardia no veía en su primera versión: `Math.pow`, `1.4 ** n`,
+    // `Math.hypot`, `Math.sqrt`, un `2 ** n` detrás de una cadena que lleva
+    // dentro las dos marcas de comentario, `const { pow } = Math`,
+    // `const { pow: elevar } = Math` y `Math['pow']`. Las ocho salieron con su
+    // fichero y su línea, y el `Math.pow` que el docstring de al lado cita por
+    // su nombre NO salió.
     const permitidos = MATH_PERMITIDO.join('|');
     const puertas: readonly (readonly [string, RegExp])[] = [
       [
-        'una función de `Math` que no está en la lista',
-        new RegExp(`Math\\.(?!(?:${permitidos})\\b)[A-Za-z_$][\\w$]*`),
+        'una mención de `Math` que no es `Math.<permitido>`',
+        new RegExp(`\\bMath\\b(?!\\s*\\.\\s*(?:${permitidos})\\b)`),
       ],
       ['el operador `**`, que es `Math.pow` con otra cara', /\*\*/],
     ];
@@ -555,6 +579,36 @@ describe('invariantes del proyecto', () => {
     const colados = puertas.flatMap(([puerta, patron]) =>
       infractores(fuera, patron).map((donde) => `[${puerta}] ${donde}`),
     );
+    expect(colados).toEqual([]);
+  });
+
+  it('nadie escribe en la crónica después de «fin de la partida»', async () => {
+    // La regla está escrita en `settleBattle` desde que la crónica existe
+    // —«"game_over" tiene que ser el último evento del registro, no quedar
+    // sepultado bajo el de la batalla»— y **no la vigilaba nadie**. El ciclo del
+    // gremio la rompió a la primera: `applyAdventureAction` llamaba a
+    // `syncSpellbooks` sin preguntar si la acción acababa de terminar la
+    // partida, así que en **34 de 200 semillas** la crónica terminaba con «Fin
+    // de la partida» y debajo «El jugador 1 aprende: Prisa, Lentitud». No es
+    // contabilidad interna: eso se pinta en el panel y lo lee una persona.
+    //
+    // Veinte semillas y no doscientas porque cuestan 0,4 s y ya cazan cuatro de
+    // aquellas treinta y cuatro (3, 11, 16 y 17): para un guardia lo que hace
+    // falta es que muerda, no que cuente.
+    //
+    // Se rompió a mano quitando el `if (state.finished === null)` de
+    // `applyAdventureAction` y se miró rojo, con la semilla y el hecho colado
+    // en el mensaje, antes de darlo por bueno.
+    const colados: string[] = [];
+    for (let semilla = 1; semilla <= 20; semilla++) {
+      const state = newGame({ seed: semilla });
+      await playAiGame(state, { rng: createRng(semilla) }, 300);
+      const fin = state.log.findIndex((e) => e.kind === 'game_over');
+      if (fin === -1) continue;
+      for (const e of state.log.slice(fin + 1)) {
+        colados.push(`semilla ${semilla}: "${e.kind}" después de game_over`);
+      }
+    }
     expect(colados).toEqual([]);
   });
 

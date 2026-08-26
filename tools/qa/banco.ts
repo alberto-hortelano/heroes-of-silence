@@ -135,11 +135,26 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   Y da la vuelta al ganador —el caballero pasa de 184/200 a 42/200—, que es
  *   consecuencia aprobada de arreglar los dos bugs y se apunta en #89: no se
  *   compensa aquí retocando cifras sin fuente.
+ * - `297dbef9…` (32 177 líneas): la corrección de QA. **Borrado puro**, que es
+ *   el espejo de la inserción pura de `1e32b19e…`: **34 líneas `spells_learned`
+ *   menos y ni una más**, todas ellas la ÚLTIMA de su semilla, en las 34
+ *   semillas exactas donde `applyAdventureAction` sincronizaba los libros
+ *   después de que la partida hubiera terminado — la crónica acababa con «Fin
+ *   de la partida» y debajo «aprende: Prisa». Cero líneas `fin` con ganador o
+ *   día distinto.
+ *
+ *   La tabla de experiencia se cambió en el mismo commit —las 39 filas que
+ *   decían venir de `heroes.cpp` estaban inventadas y solo coincidían en 8; van
+ *   las 40 de verdad— y **no mueve ni una partida**, comprobado a propósito y
+ *   no supuesto: con la tabla nueva y el bug de vuelta, el volcado sale
+ *   `d5502745…` **exacto**. Los umbrales alcanzables (niveles 2 a 6) son los
+ *   mismos en las dos tablas; la primera fila que cambia es la del nivel 7,
+ *   7700 contra 7500, y a nivel 7 no llega nadie.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: 'd5502745c4e978c2e49b0b47f112d7cc313cf1dc6f410bfb3081622b29b2f38c',
+  sha: '297dbef912ab23c88507558ded39c1dc8d8726fb39fad17ee47fa965c23e1767',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

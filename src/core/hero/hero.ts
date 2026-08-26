@@ -142,52 +142,82 @@ export function hasFreeSlot(army: Army): boolean {
 // ---------------------------------------------------------------- progreso
 
 /**
- * La tabla de experiencia, fila a fila.
+ * La tabla de experiencia de fheroes2, fila a fila.
  *
- * **Fuente**: `Heroes::GetExperienceFromLevel`, `heroes.cpp:1512-1600` de
- * ihhub/fheroes2 — 39 filas escritas a mano, de la 0 a la 38. El índice de este
- * array ES el argumento de allí, así que `UMBRALES[n]` es
- * `GetExperienceFromLevel(n)` sin ninguna conversión que se pueda equivocar; la
- * conversión —que el umbral del nivel `n` es `GetExperienceFromLevel(n-1)`— la
- * hace `experienceForLevel` y se ve en una línea.
+ * **Fuente**: `Heroes::GetExperienceFromLevel`,
+ * `src/fheroes2/heroes/heroes.cpp:1512-1601` de ihhub/fheroes2 — **cuarenta**
+ * filas, de `case 0` a `case 39`. El índice de este array ES el argumento de
+ * allí, así que `UMBRALES[n]` es `GetExperienceFromLevel(n)` sin ninguna
+ * conversión que se pueda equivocar; la conversión —que el umbral del nivel `n`
+ * es `GetExperienceFromLevel(n-1)`— la hace `experienceForLevel` y se ve en una
+ * línea.
  *
- * Sustituye a `Math.round(1000 * 1.4 ** (n-2))`, y por dos motivos. El primero
- * es el de siempre en este repositorio: era una cifra inventada donde el
- * original publica una tabla, y daba 1400 y 2744 donde la tabla dice 2000 y
- * 4500. El segundo pesa más y es de máquina: `**` es `Math.pow`, coma flotante
- * cuya precisión NO fija la norma, y `CLAUDE.md` promete que el núcleo no
- * ejecuta ninguna — `pnpm banco` se apoya en esa promesa para valer fuera de
- * esta máquina. Mientras la función fue código muerto la promesa se sostuvo por
- * accidente; en cuanto la llama una batalla, se rompe. Ahora lo vigila un
- * invariante (`test/invariantes.test.ts`).
+ * **Estas cuarenta cifras se sacaron del fichero, no de la memoria de nadie**,
+ * y esto no es una precaución de estilo: la primera redacción de este bloque
+ * traía una tabla de 39 filas que decía venir de aquí y **solo coincidía en 8**.
+ * Era una curva suavizada a mano —desde la fila 22 sumaba 3000 constantes— con
+ * el nombre de la fuente encima, que es peor que una cifra declaradamente
+ * inventada: una cifra inventada avisa de que hay que verificarla y una cita
+ * hace bajar la guardia. Se propagó al docstring, al nombre de un test y a
+ * `CLAUDE.md` antes de que QA la cazara. La regla que sale de ahí: **una tabla
+ * se copia del fichero o no se cita**.
+ *
+ * Sustituye a `Math.round(1000 * 1.4 ** (n-2))` por dos motivos. El primero es
+ * el de siempre aquí: era una cifra inventada donde el original publica una
+ * tabla, y daba 1400 y 2744 donde la tabla dice 2000 y 4500. El segundo pesa
+ * más y es de máquina: `**` es `Math.pow`, coma flotante cuya precisión NO fija
+ * la norma, y `CLAUDE.md` promete que el núcleo no ejecuta ninguna — `pnpm
+ * banco` se apoya en esa promesa para valer fuera de esta máquina. Mientras la
+ * función fue código muerto la promesa se sostuvo por accidente; en cuanto la
+ * llama una batalla, se rompe. Ahora lo vigila un invariante
+ * (`test/invariantes.test.ts`).
  */
 const UMBRALES_DE_NIVEL: readonly number[] = [
-  0, 1000, 2000, 3200, 4500, 6000, 7500, 9000, 11000, 13000, 15000, 17000, 19000, 21000, 23000,
-  25000, 27000, 29000, 31000, 33000, 35000, 37000, 40000, 43000, 46000, 49000, 52000, 55000, 58000,
-  61000, 64000, 67000, 70000, 73000, 76000, 79000, 82000, 85000, 88000,
+  0, 1000, 2000, 3200, 4500, 6000, 7700, 9000, 11000, 13200, 15500, 18500, 22100, 26400, 31600,
+  37800, 45300, 54200, 65000, 78000, 93600, 112300, 134700, 161600, 193900, 232700, 279300, 335200,
+  402300, 482800, 579400, 695300, 834400, 1001300, 1201600, 1442000, 1730500, 2076700, 2492100,
+  2990600,
 ];
 
 /**
- * Lo que crece cada nivel una vez agotada la tabla: la última diferencia.
+ * Lo que el original hace cuando se le acaba la tabla, copiado tal cual.
  *
- * El original extrapola con una fórmula sobre las dos últimas filas; aquí se
- * continúa la progresión con su último paso, que es lo mismo mientras esas dos
- * diferencias sean iguales —lo son, 3000— y es aritmética entera. No se copia
- * la fórmula porque no se ha podido comprobar fila a fila, y una fórmula que no
- * se comprueba es otra cifra inventada. Un héroe de este juego no pasa del
- * nivel 3: esto existe para que `levelFromExperience` termine siempre, no para
- * que alguien lo alcance.
+ * `heroes.cpp:1600-1601`: la diferencia entre dos filas seguidas se multiplica
+ * por 1,2 y se redondea a centenas. Aquí va en bucle en vez de en recursión
+ * —allí cada llamada dispara otras dos— pero es la misma cuenta y da lo mismo.
+ *
+ * La primera redacción de esto decía «se continúa con la última diferencia,
+ * 3000, que es lo mismo mientras las dos últimas sean iguales». En el original
+ * las dos últimas diferencias son **415 400 y 498 500**, así que ni eran
+ * iguales ni la regla era sumar: era multiplicar, y estaba escrita dos líneas
+ * más abajo de la tabla que se decía haber leído.
+ *
+ * Y no rompe la promesa de la coma flotante: lo que la norma deja a merced de
+ * la plataforma son `pow`, `sin`, `exp` y compañía, no `*`, `/` ni
+ * `Math.round`, que están especificados al bit. El invariante prohíbe las
+ * primeras y estas tres siguen permitidas.
+ *
+ * Un héroe de este juego no pasa del nivel 3: esto existe para que
+ * `levelFromExperience` termine siempre, no para que alguien lo alcance.
  */
-const PASO_TRAS_LA_TABLA = 3000;
+function experienciaDeLaFila(fila: number): number {
+  const ultima = UMBRALES_DE_NIVEL.length - 1;
+  // El `!` y no un `as`: los dos índices están acotados por la propia tabla.
+  if (fila <= ultima) return UMBRALES_DE_NIVEL[fila]!;
+
+  let total = UMBRALES_DE_NIVEL[ultima]!;
+  let diferencia = total - UMBRALES_DE_NIVEL[ultima - 1]!;
+  for (let n = ultima + 1; n <= fila; n++) {
+    diferencia = Math.round((diferencia * 1.2) / 100) * 100;
+    total += diferencia;
+  }
+  return total;
+}
 
 /** Experiencia con la que se alcanza cierto nivel. */
 export function experienceForLevel(level: number): number {
   if (level <= 1) return 0;
-  const fila = level - 1;
-  const ultima = UMBRALES_DE_NIVEL.length - 1;
-  // El `!` y no un `as`: los dos índices están acotados en la línea de arriba.
-  if (fila <= ultima) return UMBRALES_DE_NIVEL[fila]!;
-  return UMBRALES_DE_NIVEL[ultima]! + (fila - ultima) * PASO_TRAS_LA_TABLA;
+  return experienciaDeLaFila(level - 1);
 }
 
 export function levelFromExperience(exp: number): number {

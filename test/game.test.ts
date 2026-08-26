@@ -645,29 +645,52 @@ describe('experiencia y niveles', () => {
     expect(subidas.every((e) => e.seen.includes(0))).toBe(true);
   });
 
-  it('la curva de niveles es la tabla de fheroes2 y no una potencia', () => {
-    // `Heroes::GetExperienceFromLevel` (`heroes.cpp`), desplazada un peldaño:
-    // el umbral del nivel `n` es `GetExperienceFromLevel(n-1)`. La curva de
-    // antes era `Math.round(1000 * 1.4 ** (n-2))` y daba 1400 y 2744 donde la
-    // tabla dice 2000 y 4500 — además de meter un `Math.pow` en el núcleo.
+  it('la curva de niveles es la tabla de fheroes2, comprobada contra su propia regla', () => {
+    // `Heroes::GetExperienceFromLevel` (`heroes.cpp:1512-1601`), desplazada un
+    // peldaño: el umbral del nivel `n` es `GetExperienceFromLevel(n-1)`.
+    //
+    // Este test se reescribió entero después de que QA cazara que la tabla que
+    // decía venir de allí era inventada —coincidía en 8 de 39 filas— y que la
+    // versión anterior de este test **anclaba las cifras inventadas**, o sea que
+    // el guardia protegía el error. Ahora comprueba tres cosas distintas y solo
+    // la segunda depende de que alguien haya tecleado bien.
+
+    // 1 · Los umbrales que una partida puede alcanzar de verdad. Son los únicos
+    //     que mueven el juego, y son los que erraba la curva `1,4^(n-2)`: decía
+    //     1400 y 2744 donde la tabla dice 2000 y 4500.
     expect(experienceForLevel(1)).toBe(0);
-    expect(experienceForLevel(2)).toBe(1000);
-    expect(experienceForLevel(3)).toBe(2000);
-    expect(experienceForLevel(4)).toBe(3200);
-    expect(experienceForLevel(5)).toBe(4500);
+    expect([2, 3, 4, 5, 6].map(experienceForLevel)).toEqual([1000, 2000, 3200, 4500, 6000]);
+
+    // 2 · Las filas donde la tabla inventada se separaba de la de verdad. Si
+    //     vuelve a colarse una curva suavizada a mano, cae aquí.
+    expect(experienceForLevel(7)).toBe(7700); // la inventada decía 7500
+    expect(experienceForLevel(10)).toBe(13200); // decía 13000
+    expect(experienceForLevel(39)).toBe(2492100); // decía 88000
+    expect(experienceForLevel(40)).toBe(2990600); // decía 91000
+
+    // 3 · La comprobación que NO depende de lo que nadie haya tecleado: de la
+    //     fila 19 en adelante la tabla obedece la regla que el propio original
+    //     publica dos líneas más abajo —cada diferencia es la anterior por 1,2,
+    //     redondeada a centenas—, y la extrapolación de más allá de la fila 39
+    //     es esa misma regla. Son 26 filas contra un criterio que este test no
+    //     elige, y es exactamente lo que habría cazado la cola inventada, que
+    //     sumaba 3000 constantes.
+    for (let nivel = 20; nivel <= 45; nivel++) {
+      const anterior = experienceForLevel(nivel - 1) - experienceForLevel(nivel - 2);
+      expect(
+        experienceForLevel(nivel) - experienceForLevel(nivel - 1),
+        `la fila ${nivel - 1} no sigue la regla ×1,2 del original`,
+      ).toBe(Math.round((anterior * 1.2) / 100) * 100);
+    }
 
     expect(levelFromExperience(0)).toBe(1);
     expect(levelFromExperience(999)).toBe(1);
     expect(levelFromExperience(1000)).toBe(2);
     expect(levelFromExperience(4499)).toBe(4);
     expect(levelFromExperience(4500)).toBe(5);
-
-    // Pasada la fila 38 la tabla se acaba y la progresión sigue con su último
-    // paso. No es contenido: es lo que hace que el `while` de
-    // `levelFromExperience` termine siempre en vez de dar vueltas.
-    expect(experienceForLevel(39)).toBe(88000);
-    expect(experienceForLevel(40)).toBe(91000);
-    expect(levelFromExperience(1_000_000)).toBeGreaterThan(39);
+    // Pasada la fila 39 la curva sigue creciendo, que es lo que hace que el
+    // `while` de `levelFromExperience` termine en vez de dar vueltas.
+    expect(levelFromExperience(10_000_000)).toBeGreaterThan(40);
   });
 });
 
