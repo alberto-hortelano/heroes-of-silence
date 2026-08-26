@@ -121,59 +121,17 @@ export interface PathStep {
  *
  * Los objetos que bloquean paso no se pueden atravesar, pero SÍ pueden ser el
  * destino: así se interactúa con una mina o se ataca a un monstruo.
+ *
+ * Las tres guardias se quedan aquí delante, incluida la de `isEnterable(to)`
+ * que `pathFromReachable` sabría contestar sola: sin ella, un destino no
+ * pisable haría recorrer el mapa ENTERO para acabar devolviendo `null`.
  */
 export function findPath(map: GameMap, from: Point, to: Point): PathStep[] | null {
   if (!inBounds(map, from) || !inBounds(map, to)) return null;
   if (pointKey(from) === pointKey(to)) return [];
   if (!isEnterable(map, to)) return null;
 
-  const bloqueadas = new Set<string>();
-  for (const o of map.objects) {
-    if (blocksMovement(o)) bloqueadas.add(pointKey(o.at));
-  }
-
-  const destino = pointKey(to);
-  const coste = new Map<string, number>([[pointKey(from), 0]]);
-  const previo = new Map<string, Point>();
-  const frontera = new Frontera();
-  frontera.push(pointKey(from), from, 0);
-
-  // `pop()` en la condición y no `size > 0` + una aserción: la frontera vacía y
-  // el nodo extraído son la misma pregunta, y preguntarla dos veces obligaba a
-  // un `as NodoFrontera` sin comprobar dentro de `core`.
-  for (let nodo = frontera.pop(); nodo !== undefined; nodo = frontera.pop()) {
-    // Borrado perezoso: una mejora de coste empujó un nodo nuevo y dejó a este
-    // rancio. No hay *decrease-key*, y no hace falta.
-    if (nodo.cost > (coste.get(nodo.key) ?? Infinity)) continue;
-    const actualKey = nodo.key;
-
-    if (actualKey === destino) {
-      const pasos: PathStep[] = [];
-      let cur = nodo.at;
-      while (pointKey(cur) !== pointKey(from)) {
-        pasos.unshift({ at: cur, cost: coste.get(pointKey(cur)) as number });
-        cur = previo.get(pointKey(cur)) as Point;
-      }
-      return pasos;
-    }
-
-    const actual = nodo.at;
-    for (const n of neighbours(map, actual)) {
-      const nk = pointKey(n);
-      if (!isEnterable(map, n)) continue;
-      // Un obstáculo solo se admite si es el destino final.
-      if (bloqueadas.has(nk) && nk !== destino) continue;
-
-      const nuevo = nodo.cost + stepCost(map, actual, n);
-      if (nuevo < (coste.get(nk) ?? Infinity)) {
-        coste.set(nk, nuevo);
-        previo.set(nk, actual);
-        frontera.push(nk, n, nuevo);
-      }
-    }
-  }
-
-  return null;
+  return pathFromReachable(map, dijkstra(map, from, to), from, to);
 }
 
 /**
@@ -216,26 +174,87 @@ export interface Reachable {
  * asentamiento, que es de donde cuelga el desempate.
  */
 export function reachableFrom(map: GameMap, from: Point): Reachable {
-  const coste = new Map<string, number>([[pointKey(from), 0]]);
+  return dijkstra(map, from, null);
+}
+
+/**
+ * El Dijkstra del mapa, uno solo. `parar` corta en cuanto esa casilla queda
+ * asentada; con `null` asienta el mapa entero.
+ *
+ * Eran **dos copias** del mismo bucle con dos condiciones de parada y dos
+ * reglas para las bloqueadas: `findPath` no las empujaba salvo que fueran el
+ * destino, `reachableFrom` las empujaba y no las expandía. Aquí manda la de
+ * `reachableFrom`, así que `findPath` **empieza a empujar** las bloqueadas que
+ * antes se saltaba y **sus números de orden ya no coinciden** con los de antes.
+ *
+ * Sale igual, y este es el argumento entero porque es sutil y es justo donde
+ * un cambio así se rompe:
+ *
+ * 1. Una bloqueada que no sea el origen se asienta y **no se expande**, así que
+ *    no relaja a nadie: nunca llega a ser predecesor y no aparece en ningún
+ *    camino. Lo único que hace de más es ocupar un sitio en la frontera.
+ * 2. `orden` se asigna en orden de `push`, y el comparador solo mira su
+ *    **signo** (`a.orden - b.orden`). Intercalar entradas nuevas en esa
+ *    secuencia conserva el orden **relativo** de las que ya estaban.
+ * 3. De 1 y 2, por inducción sobre las extracciones: la secuencia de `pop`
+ *    restringida a las casillas no bloqueadas es la misma que antes, con las
+ *    bloqueadas metidas en medio sin hacer nada. Mismas relajaciones, mismos
+ *    predecesores, mismo camino.
+ *
+ * El merge al revés —imponerle a `reachableFrom` la regla de `findPath`— **no**
+ * sale igual: dejaría de asentar las bloqueadas, y de eso cuelga que la IA
+ * pueda ir a por una mina o un monstruo. Se probó a mano: pone en rojo los dos
+ * tests que comparan `findPath` con el retroceso por `prev` (#55 y #65), las
+ * tres partidas completas, y saca 120 discrepancias en un barrido de 43 160
+ * pares. Lo que **no** lo cazaba era ninguno de los dos goldens de
+ * `test/frontera.test.ts`, y conviene saber por qué: su mapa de 4×4 no tiene un
+ * solo objeto, así que allí no hay ninguna casilla bloqueada que asentar. Por
+ * eso este merge trajo un test más a ese fichero, con un guardia en (1,0).
+ *
+ * La parada se compara donde estaba en `findPath` —después del descarte del
+ * rancio y antes del `continue` de las bloqueadas—, pero **no porque las otras
+ * dos posiciones den otra cosa**: se probaron las dos y el barrido sale en 0.
+ * Antes del descarte es equivalente porque `push` solo entra con `<` estricto,
+ * así que dos entradas vivas de la misma clave nunca empatan y el destino sale
+ * la primera vez ya con su coste final. Después del `continue` de las
+ * bloqueadas también es equivalente, y ahí lo que se paga es tiempo: un destino
+ * bloqueado no cortaría nunca y recorrería el mapa entero — y el destino de la
+ * IA es casi siempre una mina, un pueblo o un monstruo.
+ *
+ * Los dos `throw` de `Frontera` siguen intactos y no había por qué tocarlos:
+ * no miran la clave, y sigue habiendo **una frontera por búsqueda**.
+ */
+function dijkstra(map: GameMap, from: Point, parar: Point | null): Reachable {
+  const origen = pointKey(from);
+  const destino = parar === null ? null : pointKey(parar);
+
+  const coste = new Map<string, number>([[origen, 0]]);
   const previo = new Map<string, Point>();
   const cerradas = new Set<string>();
   const frontera = new Frontera();
-  frontera.push(pointKey(from), from, 0);
+  frontera.push(origen, from, 0);
 
   const bloqueadas = new Set<string>();
   for (const o of map.objects) {
     if (blocksMovement(o)) bloqueadas.add(pointKey(o.at));
   }
 
+  // `pop()` en la condición y no `size > 0` + una aserción: la frontera vacía y
+  // el nodo extraído son la misma pregunta, y preguntarla dos veces obligaba a
+  // un `as NodoFrontera` sin comprobar dentro de `core`.
   for (let nodo = frontera.pop(); nodo !== undefined; nodo = frontera.pop()) {
+    // Borrado perezoso: una mejora de coste empujó un nodo nuevo y dejó a este
+    // rancio. No hay *decrease-key*, y no hace falta.
     if (nodo.cost > (coste.get(nodo.key) ?? Infinity)) continue;
     const actualKey = nodo.key;
     cerradas.add(actualKey);
 
+    if (actualKey === destino) break;
+
     // Desde una casilla bloqueada no se sigue: es final de trayecto. La
     // excepción es el origen — el héroe suele estar ENCIMA de su pueblo o de
     // una mina recién capturada, y tratarlo como muro lo dejaba sin rutas.
-    if (bloqueadas.has(actualKey) && actualKey !== pointKey(from)) continue;
+    if (bloqueadas.has(actualKey) && actualKey !== origen) continue;
 
     const actual = nodo.at;
     for (const n of neighbours(map, actual)) {
@@ -258,19 +277,15 @@ export function reachableFrom(map: GameMap, from: Point): Reachable {
  * vez de volver a recorrer el mapa.
  *
  * Da **exactamente** lo mismo que `findPath(map, from, to)` mientras el alcance
- * salga de ese mismo origen, y no por casualidad: los dos Dijkstra relajan
- * igual y solo discrepan en qué hacen con las casillas bloqueadas —`findPath`
- * no las empuja salvo que sean el destino; `reachableFrom` las empuja y no las
- * expande—. Una bloqueada nunca llega a ser predecesor de nadie, así que no
- * aparece en ningún camino; y las entradas de más que mete en la frontera no
- * mueven el desempate, porque `orden` se asigna en orden de `push` y meter
- * entradas nuevas en esa secuencia conserva el orden **relativo** de las
- * comunes, que es lo único que mira el comparador.
+ * salga de ese mismo origen — y desde que los dos Dijkstra son uno (`dijkstra`)
+ * lo da por construcción: `findPath` **es** esta función sobre esa búsqueda,
+ * con la parada puesta en el destino. Antes del merge también salía igual, y
+ * ese argumento está escrito arriba porque es el que sostuvo el merge.
  *
  * Los `null` son los de `findPath`, uno a uno. El de `inBounds(from)` es el
- * único que no se puede deducir del alcance: `reachableFrom` desde fuera del
- * mapa sí encuentra vecinos dentro, y devolvería un camino donde `findPath`
- * dice que no hay ninguno.
+ * único que no se puede deducir del alcance: un Dijkstra lanzado desde fuera
+ * del mapa sí encuentra vecinos dentro, y esto devolvería un camino donde
+ * `findPath` dice que no hay ninguno.
  */
 export function pathFromReachable(
   map: GameMap,

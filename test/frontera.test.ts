@@ -8,13 +8,14 @@
  * empate por la forma del árbol, y entonces el héroe elige otra de dos rutas
  * igual de baratas y la partida entera se juega distinta.
  *
- * Los tres primeros tests miran la estructura; los dos últimos miran a los dos
- * Dijkstra que la usan, porque una cola que ordena bien y un Dijkstra que la
- * usa mal darían verde por separado.
+ * Los cinco primeros tests miran la estructura; los de abajo miran al Dijkstra
+ * que la usa —uno solo desde #77, con dos puertas: `findPath` y
+ * `reachableFrom`—, porque una cola que ordena bien y un Dijkstra que la usa
+ * mal darían verde por separado.
  */
 import { describe, expect, it } from 'vitest';
 import { Frontera } from '../src/core/map/frontera.js';
-import { createEmptyMap, findPath, reachableFrom } from '../src/core/map/map.js';
+import { createEmptyMap, findPath, pointKey, reachableFrom } from '../src/core/map/map.js';
 
 /**
  * Empuja con un punto de relleno.
@@ -33,7 +34,7 @@ function empuja(f: Frontera, key: string, cost: number): void {
  *
  * Se pregunta con el propio `pop()` y no con un `size > 0`: la frontera vacía y
  * el nodo extraído son la misma pregunta, y hacerla dos veces era lo que
- * obligaba a un `as` sin comprobar aquí y en los dos Dijkstra de `map.ts`.
+ * obligaba a un `as` sin comprobar aquí y en el Dijkstra de `map.ts`.
  */
 function vaciar(f: Frontera): string[] {
   const salida: string[] = [];
@@ -130,7 +131,7 @@ function mapaDelEmpate(): ReturnType<typeof createEmptyMap> {
   return map;
 }
 
-describe('los dos Dijkstra que usan la frontera', () => {
+describe('el Dijkstra que usa la frontera, por sus dos puertas', () => {
   it('findPath elige, entre dos rutas igual de caras, la del primer descubierto', () => {
     // Golden tomado del código de ANTES del montículo, con el `Set`.
     expect(findPath(mapaDelEmpate(), { x: 0, y: 0 }, { x: 2, y: 2 })).toEqual([
@@ -165,6 +166,40 @@ describe('los dos Dijkstra que usan la frontera', () => {
     ]);
     // Y el predecesor de la casilla empatada, que es lo que decide el camino.
     expect(prev.get('2,2')).toEqual({ x: 2, y: 1 });
+  });
+
+  it('una casilla bloqueada se asienta pero no se expande, y por ahí no pasa ningún camino', () => {
+    // La regla que decidió el merge de los dos Dijkstra (#77): manda la de
+    // `reachableFrom` —asentar sin expandir— y no la de `findPath`, que las
+    // saltaba. Los dos goldens de arriba NO pueden verla: su mapa no tiene un
+    // solo objeto, así que no hay ninguna casilla bloqueada que asentar. Se
+    // comprobó a mano haciendo el merge al revés: aquellos dos siguen verdes.
+    const map = mapaDelEmpate();
+    map.objects.push({
+      kind: 'monster',
+      id: 'guardia',
+      at: { x: 1, y: 0 },
+      creature: 'peasant',
+      count: 1,
+      defeated: false,
+    });
+    const desde = { x: 0, y: 0 };
+    const { costs, prev } = reachableFrom(map, desde);
+
+    // Se llega a ella, con su coste de entrada: es como se ataca a un monstruo
+    // o se toma una mina.
+    expect(costs.get('1,0')).toBe(100);
+    expect(findPath(map, desde, { x: 1, y: 0 })).toEqual([{ at: { x: 1, y: 0 }, cost: 100 }]);
+    // Pero no se sale de ella: nadie la tiene por predecesor.
+    expect([...prev.values()].map(pointKey)).not.toContain('1,0');
+
+    // Y el camino al empate de (2,2) ya no puede subir por (1,0): la ruta de
+    // arriba está cortada, así que gana la de abajo con su mismo coste de 340.
+    expect(findPath(map, desde, { x: 2, y: 2 })).toEqual([
+      { at: { x: 0, y: 1 }, cost: 100 },
+      { at: { x: 1, y: 2 }, cost: 240 },
+      { at: { x: 2, y: 2 }, cost: 340 },
+    ]);
   });
 
   it('una frontera agotada se niega a servir a otra búsqueda, aunque los costes cuadren', () => {
