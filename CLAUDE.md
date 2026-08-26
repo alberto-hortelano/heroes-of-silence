@@ -11,8 +11,8 @@ El juego es el andamio; lo interesante es lo que se puede enchufar dentro.
 ```bash
 pnpm install
 pnpm dev        # cliente en http://localhost:3100 (juego local contra la IA de reglas)
-pnpm verify     # typecheck + lint + 289 tests, 7,2 s: el bucle rápido
-pnpm test       # 289 tests: reglas, batalla, partida completa y contrato del agente
+pnpm verify     # typecheck + lint + 298 tests, 7,2 s: el bucle rápido
+pnpm test       # 298 tests: reglas, batalla, partida completa y contrato del agente
 pnpm typecheck
 pnpm lint       # Biome: formato y lint en una sola pasada, 40 ms
 pnpm format     # lo mismo, arreglando lo que sepa arreglar
@@ -204,6 +204,47 @@ Lo que se consiguió y lo que no, porque las dos mitades importan:
   primera redacción de la nota. La asimetría **es del original**; lo que falta es
   lo que allí la compensa y aquí no existe, **Nigromancia** (#89). Bajarle el oro
   al nigromante sería volver a inventar cifras, que es de lo que se venía.
+
+## El héroe cobra lo que mata, y el gremio se construye
+
+Dos surtidores cerrados con toda la tubería ya montada detrás. Los dos se
+descubrieron **midiendo**, no leyendo: el crítico de otro ciclo instrumentó 40
+semillas para comprobar una premisa y volvió con dos capas del juego que eran
+ficción.
+
+**La experiencia no llegaba a ninguna parte.** `experienceFor` sumaba
+`hp * level * 2` por **stack** y no miraba `count` —cien campesinos y uno daban
+los mismos 2 puntos, y `createBattle` sí guarda el recuento—, y la cobraba solo el
+atacante que gana, así que **quien defendía y repelía no ganaba nada**: la mitad
+de las batallas del agente desde que defiende. Medido: **65 héroes, 0 llegaban a
+nivel 2**, con la exp pico en una mediana de 68 sobre los 1000 que cuesta. La
+fórmula es ahora la del original —`GetHitPoints() × muertas` sobre el bando que
+pierde, **+500 por héroe rival derrotado**, +500 por asedio— y esos +500 no son
+decoración: sin ellos siguen siendo 0 de 68, con ellos son 40 de 68.
+
+**Y el gremio de magia se construía en 1 partida de 40.** El ciclo entero de «la
+magia, de punta a punta» —el de aquí abajo— estaba escrito, probado, documentado
+y **no lo ejercía nadie**: en 40 partidas `syncSpellbooks` no enseñaba un solo
+hechizo, y el único que sabía cualquier héroe era el de nacimiento. La causa era
+que `chooseBuilding` puntuaba el gremio con un **40** contra el `100 + nivel` de
+las moradas. No se subió ese número: fheroes2 **no puntúa, ordena por raza**, así
+que la cascada de seis constantes pasó a ser una lista ordenada por facción y el
+número mágico desapareció en vez de crecer. La lista reproduce el orden de hoy
+**byte a byte** —comprobado dejando el gremio en su puesto de siempre: volcado
+idéntico— y mueve una sola entrada.
+
+Lo que se consiguió: hechizos enseñados de **15 en 3 partidas a 965 en 177**. Y la
+cifra incómoda, que se publica igual: **2618 de los 2644 `cast` siguen siendo
+`magic_arrow`**, el de nacimiento. Lo que el gremio cambia sobre todo es que el
+héroe **contratado**, que nace con el libro vacío, aprenda algo. Que la IA de
+batalla casi nunca compre `haste` ni `slow` es otra puerta y tiene su issue.
+
+**Y arreglar los dos volcó el ganador**, que estaba previsto y aprobado antes de
+implementar: con control de esquina el caballero pasa de **78,5 % a 16,25 %**.
+`#87` no movió el equilibrio **ni un punto en ninguna esquina** —el vuelco es
+entero del gremio— y no se compensa aquí: la reparación con fuente es
+**Nigromancia**, que es lo que en el original pone el otro platillo. Lo mismo que
+se decidió cuando el desequilibrio iba en la dirección contraria.
 
 ## El agente como modelo
 
@@ -606,8 +647,9 @@ rasgo de `CREATURE_TRAITS` esté declarado y muerto** —cuatro lo estuvieron—
 que **cada `EffectKind` tenga un lector vivo**, que **`core` no importe
 `src/server`**, que **ningún fichero que una máquina ejecuta o lee lleve dentro
 la ruta absoluta de esta máquina**, que **la crónica sobreviva a un `JSON` de
-ida y vuelta** y que **el `as` que abre el candado de `state.log` viva en un
-solo sitio**. Todos nacen en verde: un guardia que nace rojo se ignora desde
+ida y vuelta**, que **el `as` que abre el candado de `state.log` viva en un
+solo sitio** y que **`core` no ejecute coma flotante que dependa de la
+plataforma**. Todos nacen en verde: un guardia que nace rojo se ignora desde
 el primer día.
 
 El del candado busca el **cast** y no el `.push`, que es lo que el propio
@@ -683,6 +725,22 @@ anterior no es un criterio: es una costumbre. Y lo corre CI. Es reproducible fue
 de esta máquina porque el núcleo no ejecuta ni una operación de coma flotante que
 dependa de la plataforma — solo `min/max/floor/ceil/abs/round/imul`, nada de
 `Math.pow`, ni `**`, ni trigonometría.
+
+Y esa frase **ahora la vigila un test**, que es lo que llevaba sin hacer desde que
+se escribió. Se sostenía por accidente: la única aparición del operador `**` en
+todo `core` estaba en `experienceForLevel` —la curva de experiencia—, y solo
+seguía siendo cierta porque **nadie llamaba a esa función**. El ciclo de #87 iba a
+llamarla, y con eso la promesa se rompía en silencio y en la función más fácil de
+no mirar. Se cambió la curva por la tabla de 39 filas del original y se escribió
+el guardia. Va con **lista blanca** de lo permitido y no con lista negra —al revés
+que el de rutas absolutas, y por el mismo razonamiento: aquí lo cerrado y
+publicado es *lo que vale*, así que una lista negra sería la que fallara en
+silencio ante el siguiente `Math.fround`—. Y borra los comentarios antes de
+mirar, porque `**` es también la negrita de Markdown que este repositorio usa
+dentro del código y porque el docstring de al lado cita `Math.pow` para
+explicarse. Roto a mano con cinco sondas, y con tres más al aceptarlo: `Math.pow`,
+el operador `**` y un `Math.sqrt` en otro fichero, los tres vistos rojos con su
+fichero y su línea.
 
 El barrido de semillas no es un test: es una **medida**. Juega 40 partidas de la
 IA contra sí misma y cuenta cuántas no terminan en 300 días. Hoy son **0**;
