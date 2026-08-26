@@ -11,12 +11,12 @@ El juego es el andamio; lo interesante es lo que se puede enchufar dentro.
 ```bash
 pnpm install
 pnpm dev        # cliente en http://localhost:3100 (juego local contra la IA de reglas)
-pnpm verify     # typecheck + lint + 299 tests, 7,2 s: el bucle rápido
-pnpm test       # 299 tests: reglas, batalla, partida completa y contrato del agente
+pnpm verify     # typecheck + lint + 310 tests, 7,2 s: el bucle rápido
+pnpm test       # 310 tests: reglas, batalla, partida completa y contrato del agente
 pnpm typecheck
 pnpm lint       # Biome: formato y lint en una sola pasada, 40 ms
 pnpm format     # lo mismo, arreglando lo que sepa arreglar
-pnpm banco      # 200 partidas: tiempo y sha256 del volcado, 4,1 s
+pnpm banco      # 200 partidas: tiempo y sha256 del volcado, 1,7 s
 
 npx tsx tools/qa/enfrentamiento.ts   # dos tácticas frente a frente, 5000 batallas, 11,8 s
 ```
@@ -135,11 +135,16 @@ assets/generated/  arte generado (lo sirve Vite como estático)
   reutilizas: compartirla entre búsquedas pasaba los 247 tests y cambiaba el
   volcado en silencio, y ningún test podía cazarlo —la contaminación no se ve al
   repetir una búsqueda, sino en la **siguiente**—. El guardia no es un test: son
-  **dos** `throw` dentro de la clase, y hicieron falta los dos. El primero
+  **tres** `throw` dentro de la clase, y hicieron falta los tres. El primero
   comparaba costes, y QA encontró que no veía la reutilización cuando la búsqueda
   anterior se agotaba en el origen —`0 < 0` es falso—, que es lo que da un
   `map_generate` con un pueblo rodeado de agua. El segundo no mira costes: mira si
-  la frontera ya se agotó.
+  la frontera ya se agotó. Y el tercero entró con el índice plano, por un motivo
+  distinto de los otros dos: `ordenes` pasó de `Map` a `Int32Array`, y **un typed
+  array tira en silencio una escritura fuera de rango** donde un `Map` no podía.
+  Vigila el rango, y se le vio morder: quitando la comprobación de columna del
+  bucle de vecinas sale «la frontera va de 0 a 15 y le entra -1: un índice fuera
+  de rango se perdería en silencio».
 
 ## Reglas del juego (verificadas contra fheroes2)
 
@@ -443,6 +448,45 @@ Tres cosas que costaron su vuelta de QA y conviene no repetir:
   lado de una identidad algebraica. Ahora comprueba el reparto, que es lo que sí
   dice algo, y el intervalo es **pareado** (±0,20 donde el binomial decía ±0,41).
 
+## El núcleo por dentro: 2,25× sin cambiar una sola partida
+
+Cinco optimizaciones, cinco commits, y **el ancla del banco intacta en los cinco**:
+`297dbef9…`, 32 177 líneas, byte a byte igual antes y después. Las 200 partidas
+bajan de **3 910 a 1 741 ms** y `autoResolve` de 156 a 60 ms.
+
+| Issue | Qué recorría de más |
+|---|---|
+| #65 | `moveHero` relanzaba `findPath` desde el mismo origen que la IA acababa de recorrer |
+| #78 | `moveTo` recalculaba `movableCosts` para cobrar la carga: el tercer BFS del mismo turno |
+| #76 | el BFS del tablero tenía el `Hex` en la mano y se reconstruía dos veces |
+| #77 | `findPath` y `reachableFrom` eran el mismo Dijkstra copiado |
+| #75 | ese Dijkstra hablaba en cadenas `"x,y"`; ahora en índices |
+
+**El orden no era cosmético.** #77 tuvo que ir **antes** que #75, al revés de lo
+que decía su propio issue: `Frontera` recibía claves de texto, y el índice plano
+las quiere numéricas. Con **dos** Dijkstra mirando, la salida barata habría sido
+una segunda clase de frontera con sus propias copias de `agotada` y `ultimoPop`
+— o sea **relajar los dos `throw` del desempate sin escribir en ninguna parte que
+se estaban relajando**. Unificando primero hay un solo llamante y el problema no
+existe. El precio, ~40 líneas escritas dos veces, es barato al lado de eso.
+
+Y #77 es un **merge semántico y no una extracción**, que es la parte que un lector
+futuro va a dar por obvia: `findPath` adopta la regla de `reachableFrom` y empieza
+a empujar las casillas bloqueadas que antes saltaba, así que **los `orden` ya no
+coinciden**. Sale igual porque una bloqueada no se expande y porque `orden` se
+asigna en orden de `push`, de modo que insertar entradas nuevas conserva el orden
+**relativo** de las comunes — que es lo único que mira el comparador. Además del
+ancla, se comprobó con **43 160 pares (origen, destino)** sobre 40 mapas contra el
+`findPath` de antes: **0 discrepancias**, con 28 314 destinos bloqueados.
+
+**Lo que más valió del ciclo fue romper el plan, no seguirlo.** Tres afirmaciones
+del plan resultaron falsas al ir a comprobarlas a mano, y las tres se corrigieron
+en el código y no en el informe. La mejor: se creía que la posición de la parada
+en el Dijkstra era necesaria para la **corrección**; se probaron las otras dos y
+el barrido de 43 160 pares salió en cero con las tres. Se queda donde está por lo
+que **sí** cuesta —un destino bloqueado recorrería el mapa entero—, y el
+comentario dice eso ahora en vez de lo que se creía.
+
 ## La pantalla de castillo
 
 El castillo no es una lista de edificios: es un cuadro con **solares fijos**
@@ -625,6 +669,46 @@ grupo de la shell. Comprobado: `PID=…691` con `PGID=…690`, el de la shell. Y
 es el PID del `setsid` que ya murió y el `kill` no encuentra el grupo. También
 comprobado, a base de escribirlo mal primero.
 
+**`set -m` va en su propia línea, y esto es la parte que muerde.** Escribir
+`set -m && pnpm dev > log 2>&1 &` **desarma la receta entera en silencio**: en
+bash el `&` se aplica a la lista `&&` completa, así que lo que se manda al fondo
+es `set -m && pnpm dev` **como un solo trabajo en una subshell**. `$!` apunta a
+esa subshell, y `set -m` corre **dentro** de ella, de modo que al bifurcar el
+`pnpm` real el control de trabajos lo mete en un grupo nuevo suyo.
+
+Y lo peor no es que falle: **es que el guardia da verde**. La subshell es su
+propio líder de grupo, así que
+`[ "$(ps -o pgid= -p "$DEV")" = "$DEV" ]` **pasa**, el `kill -TERM -$DEV` se
+ejecuta, mata la subshell y **el vite sobrevive con el puerto ocupado**.
+Reproducido las dos formas seguidas con `pnpm dev` de verdad:
+
+```
+FORMA BUENA (`set -m` en su línea):   $!=205934  pgid=205934
+  205934  pnpm dev              pgid=205934   ← $! ES el pnpm
+  205989  vite.js               pgid=205934   ==> muere entero, 3100 libre
+
+FORMA MALA  (`set -m && …  &`):       $!=209781  pgid=209781  ← el guardia dice SÍ
+  209783  pnpm dev              pgid=209783   ← ¡otro grupo!
+  209795  vite.js               pgid=209783   ==> SOBREVIVE, 3100 ocupado
+```
+
+La comprobación responde a «¿es este PID su propio líder de grupo?», que **no es
+la misma pregunta** que «¿está en este grupo lo que lancé?». Por eso hace falta
+lo siguiente, que es la lección de este documento aplicada a sí mismo — una orden
+documentada hay que verla arrancar, y también **verla morir**:
+
+```bash
+# Después de matar, SIEMPRE se comprueba. Sin esto no sabes si mataste algo.
+ss -ltnp 2>/dev/null | grep ':3100' || echo "libre"
+```
+
+**Y `ps` no te dice de quién es un `vite`.** Aparece como `sh -c vite`, sin ruta
+ninguna: mientras se escribía esto había un vite de `/home/al/code/ai-tutorials`
+corriendo en esta máquina, de otra sesión, indistinguible del propio en un `ps |
+grep vite`. El dueño se identifica por el **puerto** (`ss -ltnp` da el PID que
+tiene el socket) y por **`readlink /proc/<pid>/cwd`**. Esa es la comprobación que
+protege al de al lado, y va antes de cualquier `kill`.
+
 Si lo lanzaste con `run_in_background`, lo paras con su identificador de tarea.
 
 **Y un puerto ocupado por algo que no arrancaste tú no se libera: se dice.**
@@ -645,7 +729,7 @@ aportan en un prototipo. Lo que hay:
 | El navegador | minutos | si el cambio se ve |
 | `pnpm qa` | 5,4 s | si tocas `src/server/` o el contrato |
 | `npx tsx tools/qa/barrido-semillas.ts` | 1,1 s | si tocas la IA o la economía |
-| `pnpm banco` | 4,1 s | si tocas el núcleo sin querer cambiar el juego |
+| `pnpm banco` | 1,7 s | si tocas el núcleo sin querer cambiar el juego |
 | `tools/qa/enfrentamiento.ts` | 11,8 s | si cambias **cómo decide** la IA de batalla |
 | CI (`.github/workflows/ci.yml`) | ~1 min | en cada push y cada PR |
 
