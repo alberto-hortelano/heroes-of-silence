@@ -253,6 +253,57 @@ export function reachableFrom(map: GameMap, from: Point): Reachable {
   return { costs: coste, prev: previo };
 }
 
+/**
+ * El camino de `from` a `to` sacado de un `Reachable` que ya se recorrió, en
+ * vez de volver a recorrer el mapa.
+ *
+ * Da **exactamente** lo mismo que `findPath(map, from, to)` mientras el alcance
+ * salga de ese mismo origen, y no por casualidad: los dos Dijkstra relajan
+ * igual y solo discrepan en qué hacen con las casillas bloqueadas —`findPath`
+ * no las empuja salvo que sean el destino; `reachableFrom` las empuja y no las
+ * expande—. Una bloqueada nunca llega a ser predecesor de nadie, así que no
+ * aparece en ningún camino; y las entradas de más que mete en la frontera no
+ * mueven el desempate, porque `orden` se asigna en orden de `push` y meter
+ * entradas nuevas en esa secuencia conserva el orden **relativo** de las
+ * comunes, que es lo único que mira el comparador.
+ *
+ * Los `null` son los de `findPath`, uno a uno. El de `inBounds(from)` es el
+ * único que no se puede deducir del alcance: `reachableFrom` desde fuera del
+ * mapa sí encuentra vecinos dentro, y devolvería un camino donde `findPath`
+ * dice que no hay ninguno.
+ */
+export function pathFromReachable(
+  map: GameMap,
+  alcance: Reachable,
+  from: Point,
+  to: Point,
+): PathStep[] | null {
+  if (!inBounds(map, from) || !inBounds(map, to)) return null;
+  const origen = pointKey(from);
+  const destino = pointKey(to);
+  if (origen === destino) return [];
+
+  const total = alcance.costs.get(destino);
+  // No asentado: inalcanzable, o no pisable — `reachableFrom` no lo asienta.
+  if (total === undefined) return null;
+
+  const pasos: PathStep[] = [];
+  let clave = destino;
+  let at = to;
+  while (clave !== origen) {
+    pasos.unshift({ at, cost: alcance.costs.get(clave) as number });
+    const anterior = alcance.prev.get(clave);
+    // Se retrocedió hasta la raíz del árbol de predecesores y no era `from`:
+    // el alcance es de OTRO origen. Se dice en vez de devolver medio camino.
+    if (anterior === undefined) {
+      throw new Error(`el alcance no viene de (${from.x},${from.y}): no lleva hasta ahí`);
+    }
+    at = anterior;
+    clave = pointKey(at);
+  }
+  return pasos;
+}
+
 /** Casillas visibles desde `p` con radio `radius` (distancia de Chebyshev). */
 export function visibleFrom(map: GameMap, p: Point, radius: number): string[] {
   const out: string[] = [];

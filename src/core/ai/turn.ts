@@ -80,8 +80,9 @@ export async function playAiTurn(
 
       // El único Dijkstra del movimiento, y se ve dónde se hace. Sin tope,
       // porque el objetivo puede estar a diez días de marcha. Alimenta a las
-      // dos decisiones: elegir a dónde ir, y hasta dónde llegar hoy — que
-      // antes recorrían el mapa una vez cada una desde el mismo origen.
+      // TRES decisiones: elegir a dónde ir, hasta dónde llegar hoy, y por
+      // dónde se va — que antes recorrían el mapa una vez cada una desde el
+      // mismo origen.
       const alcance = reachableFrom(state.map, hero.at);
 
       const destino = chooseHeroDestination(state, hero, alcance);
@@ -91,7 +92,16 @@ export async function playAiTurn(
       const paso = stepTowards(hero, destino, alcance);
       if (paso === null) continue;
 
-      applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: paso }, ctx, player.id);
+      // Y el mismo alcance viaja a la puerta: `moveHero` relanzaba `findPath`
+      // desde este origen hasta este destino, o sea el tercer recorrido del
+      // mapa de las mismas nueve líneas.
+      applyAdventureAction(
+        state,
+        { type: 'move_hero', hero: hero.id, to: paso },
+        ctx,
+        player.id,
+        alcance,
+      );
       if (state.pendingBattle !== null) {
         if (takeover !== undefined) await takeover(state, ctx);
         // Se vuelve a preguntar: quien la tomó pudo cerrarla, o no haberla

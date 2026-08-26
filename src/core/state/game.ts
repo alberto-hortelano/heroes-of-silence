@@ -27,7 +27,10 @@ import {
   inBounds,
   type MapObject,
   objectAt,
+  type PathStep,
+  pathFromReachable,
   pointKey,
+  type Reachable,
   visibleFrom,
 } from '../map/map.js';
 import type { Rng } from '../rng.js';
@@ -547,12 +550,19 @@ export function describePlayer(state: GameState, id: PlayerId): string {
  *
  * Fue opcional un rato y no compraba nada: una comprobación que se apaga sola
  * al olvidar un argumento es la única que no avisa de que falta.
+ *
+ * `alcance` sí es opcional, y por lo contrario: es una **pista de rendimiento**
+ * —el Dijkstra desde el héroe, ya recorrido— que solo tiene quien acaba de
+ * hacerlo. El cliente, el servidor y el agente no traen camino, así que sin
+ * ella `move_hero` recorre el mapa como siempre. Lo que no es opcional es que
+ * salga del sitio donde está el héroe: eso lo comprueba `caminoDelHeroe`.
  */
 export function applyAdventureAction(
   state: GameState,
   action: AdventureAction,
   ctx: GameContext,
   quien: PlayerId,
+  alcance?: Reachable,
 ): void {
   if (state.pendingBattle !== null) {
     throw new Error('hay una batalla pendiente de resolver');
@@ -565,7 +575,7 @@ export function applyAdventureAction(
   // Quién actúa se anota ANTES de la acción: `end_turn` cambia `state.current`,
   // y el que acaba de meter su héroe en el castillo es el jugador saliente.
   const actor = currentPlayer(state).id;
-  aplicar(state, action, ctx);
+  aplicar(state, action, ctx, alcance);
 
   // Y nada se aprende después del final. `aplicar` puede terminar la partida
   // —capturar el último castillo del rival lo hace—, y esta sincronía iba
@@ -611,14 +621,19 @@ function syncSpellbooks(state: GameState, playerId: PlayerId): void {
   }
 }
 
-function aplicar(state: GameState, action: AdventureAction, ctx: GameContext): void {
+function aplicar(
+  state: GameState,
+  action: AdventureAction,
+  ctx: GameContext,
+  alcance: Reachable | undefined,
+): void {
   switch (action.type) {
     case 'end_turn':
       nextPlayer(state);
       return;
 
     case 'move_hero':
-      moveHero(state, action.hero, action.to, ctx);
+      moveHero(state, action.hero, action.to, ctx, alcance);
       return;
 
     case 'hire_hero': {
@@ -760,12 +775,47 @@ function takeGarrison(state: GameState, hero: Hero, town: Town): void {
   });
 }
 
-function moveHero(state: GameState, heroId: string, to: Point, ctx: GameContext): void {
+/**
+ * El camino del héroe: del recorrido que trae el llamante, o de uno nuevo.
+ *
+ * La pista **no es un atajo que se salte una regla**: es el mismo Dijkstra que
+ * lanzaría esta puerta, ya hecho. `reachableFrom` tiene un solo constructor en
+ * `core`, así que desconfiar de sus costes sería `core` desconfiando de `core`;
+ * lo que el llamante sí puede equivocar es **de qué origen** viene el alcance
+ * —reutilizar el de antes de moverse—, y eso es lo único que se comprueba.
+ *
+ * Existe porque la IA ya recorre el mapa desde el héroe para decidir a dónde
+ * va, y nueve líneas después esta puerta lo recorría otra vez desde el mismo
+ * sitio hasta el mismo destino: 868 de las 1 028 llamadas a `findPath` de 40
+ * partidas, el 6,5 % del banco.
+ */
+function caminoDelHeroe(
+  state: GameState,
+  hero: Hero,
+  to: Point,
+  alcance: Reachable | undefined,
+): PathStep[] | null {
+  if (alcance === undefined) return findPath(state.map, hero.at, to);
+  if (alcance.costs.get(pointKey(hero.at)) !== 0) {
+    throw new Error(
+      `el alcance que traes no sale de donde está ${hero.name}: (${hero.at.x},${hero.at.y})`,
+    );
+  }
+  return pathFromReachable(state.map, alcance, hero.at, to);
+}
+
+function moveHero(
+  state: GameState,
+  heroId: string,
+  to: Point,
+  ctx: GameContext,
+  alcance?: Reachable,
+): void {
   const hero = heroById(state, heroId);
   const player = currentPlayer(state);
   if (hero.owner !== player.id) throw new Error('ese héroe no es tuyo');
 
-  const camino = findPath(state.map, hero.at, to);
+  const camino = caminoDelHeroe(state, hero, to, alcance);
   if (camino === null) throw new Error(`no hay camino hasta (${to.x},${to.y})`);
   if (camino.length === 0) return;
 

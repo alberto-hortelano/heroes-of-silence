@@ -22,9 +22,11 @@ import {
 } from '../src/core/hero/hero.js';
 import { buildMap, generateMapPlan, validateMapPlan } from '../src/core/map/generate.js';
 import {
+  blocksMovement,
   createEmptyMap,
   findPath,
   objectAt,
+  pathFromReachable,
   pointKey,
   reachableFrom,
   stepCost,
@@ -825,6 +827,132 @@ describe('IA de respaldo', () => {
     // medias no ejercita que el destino bloqueado se asiente.
     expect(alcanzados).toBeGreaterThan(0);
     expect(intermedios).toBeGreaterThan(0);
+  });
+
+  it('el camino sacado del alcance es el mismo que relanzar findPath (#65)', () => {
+    // Gemelo del de arriba, un piso más abajo: allí se compara el PASO que da
+    // la IA, aquí el CAMINO entero que recorre la puerta. Los dos Dijkstra
+    // discrepan en las bloqueadas —`findPath` no las empuja salvo que sean el
+    // destino, `reachableFrom` las empuja y no las expande—, así que sus
+    // números de orden no coinciden; si eso moviera un solo camino, se ve aquí
+    // antes que en el banco.
+    const state = newGame({ seed: 5 });
+    const hero = heroesOf(state, 0)[0]!;
+    const alcance = reachableFrom(state.map, hero.at);
+
+    const destinos = state.map.objects.slice(0, 10).map((o) => o.at);
+    expect(destinos).toHaveLength(10);
+
+    let bloqueados = 0;
+    let conCamino = 0;
+    for (const destino of destinos) {
+      const objeto = objectAt(state.map, destino);
+      if (objeto !== undefined && blocksMovement(objeto)) bloqueados++;
+      const ahora = pathFromReachable(state.map, alcance, hero.at, destino);
+      expect(ahora, `destino (${destino.x},${destino.y})`).toEqual(
+        findPath(state.map, hero.at, destino),
+      );
+      if (ahora !== null && ahora.length > 0) conCamino++;
+    }
+
+    // Sin estas dos cuentas los diez destinos pasarían con un `return null` a
+    // secas: hace falta que alguno tenga camino y que alguno esté bloqueado,
+    // que es justo donde los dos algoritmos podrían separarse.
+    expect(bloqueados).toBeGreaterThan(0);
+    expect(conCamino).toBeGreaterThan(0);
+
+    // Y los tres casos que no son un camino, también uno a uno: ya está allí,
+    // fuera del mapa, y —el que no se deduce del alcance— un origen fuera del
+    // mapa. `reachableFrom` desde fuera SÍ encuentra vecinos dentro, así que
+    // sin la guardia de `inBounds` devolvería camino donde `findPath` no.
+    const fuera = { x: -1, y: -1 };
+    expect(pathFromReachable(state.map, alcance, hero.at, hero.at)).toEqual([]);
+    expect(pathFromReachable(state.map, alcance, hero.at, fuera)).toBeNull();
+
+    const desdeFuera = reachableFrom(state.map, fuera);
+    const vecinaDentro = { x: 0, y: 0 };
+    expect(desdeFuera.costs.get(pointKey(vecinaDentro))).toBeDefined();
+    expect(pathFromReachable(state.map, desdeFuera, fuera, vecinaDentro)).toEqual(
+      findPath(state.map, fuera, vecinaDentro),
+    );
+    expect(findPath(state.map, fuera, vecinaDentro)).toBeNull();
+  });
+
+  it('mover con la pista deja la partida igual que sin ella (#65)', () => {
+    // La equivalencia de arriba es del camino; esta es de la PUERTA: mismo
+    // sitio, mismos puntos gastados y misma crónica, hecho a hecho.
+    const destinoDe = (state: GameState): Point => {
+      const hero = heroesOf(state, 0)[0]!;
+      const alcance = reachableFrom(state.map, hero.at);
+      return stepTowards(
+        hero,
+        chooseHeroDestination(state, hero, alcance) as Point,
+        alcance,
+      ) as Point;
+    };
+
+    const sinPista = newGame({ seed: 5 });
+    const conPista = newGame({ seed: 5 });
+    const destino = destinoDe(sinPista);
+    expect(destino).not.toBeNull();
+
+    applyAdventureAction(
+      sinPista,
+      { type: 'move_hero', hero: heroesOf(sinPista, 0)[0]!.id, to: destino },
+      ctx(5),
+      0,
+    );
+    const heroe = heroesOf(conPista, 0)[0]!;
+    applyAdventureAction(
+      conPista,
+      { type: 'move_hero', hero: heroe.id, to: destino },
+      ctx(5),
+      0,
+      reachableFrom(conPista.map, heroe.at),
+    );
+
+    expect(heroesOf(conPista, 0)[0]!.at).toEqual(heroesOf(sinPista, 0)[0]!.at);
+    expect(heroesOf(conPista, 0)[0]!.movePoints).toBe(heroesOf(sinPista, 0)[0]!.movePoints);
+    expect(conPista.log).toEqual(sinPista.log);
+  });
+
+  it('una pista de otro origen lanza en vez de mover al héroe (#65)', () => {
+    // Lo único que el llamante puede equivocar es DE DÓNDE sale el alcance:
+    // reutilizar el de antes de moverse daría un camino que no empieza donde
+    // está el héroe. Con `costs` mudo eso se colaría, porque el destino sigue
+    // teniendo coste — solo que desde otro sitio.
+    const state = newGame({ seed: 5 });
+    const hero = heroesOf(state, 0)[0]!;
+    const antes = { ...hero.at };
+    const puntos = hero.movePoints;
+
+    const alcance = reachableFrom(state.map, hero.at);
+    const destino = stepTowards(
+      hero,
+      chooseHeroDestination(state, hero, alcance) as Point,
+      alcance,
+    ) as Point;
+
+    // Un alcance del vecino de al lado: el destino sigue asentado, así que solo
+    // la comprobación de origen puede cazarlo.
+    const otroOrigen = [...alcance.costs.entries()]
+      .filter(([, coste]) => coste > 0)
+      .sort((a, b) => a[1] - b[1])[0]![0];
+    const [x, y] = otroOrigen.split(',').map(Number);
+    const impostor = reachableFrom(state.map, { x: x as number, y: y as number });
+    expect(impostor.costs.get(pointKey(destino))).toBeDefined();
+
+    expect(() =>
+      applyAdventureAction(
+        state,
+        { type: 'move_hero', hero: hero.id, to: destino },
+        ctx(5),
+        0,
+        impostor,
+      ),
+    ).toThrow('no sale de donde está');
+    expect(hero.at).toEqual(antes);
+    expect(hero.movePoints).toBe(puntos);
   });
 
   it('no se mueve a donde no le llega, ni cuando ya está allí', () => {
