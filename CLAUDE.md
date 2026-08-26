@@ -11,8 +11,8 @@ El juego es el andamio; lo interesante es lo que se puede enchufar dentro.
 ```bash
 pnpm install
 pnpm dev        # cliente en http://localhost:3100 (juego local contra la IA de reglas)
-pnpm verify     # typecheck + lint + 298 tests, 7,2 s: el bucle rápido
-pnpm test       # 298 tests: reglas, batalla, partida completa y contrato del agente
+pnpm verify     # typecheck + lint + 299 tests, 7,2 s: el bucle rápido
+pnpm test       # 299 tests: reglas, batalla, partida completa y contrato del agente
 pnpm typecheck
 pnpm lint       # Biome: formato y lint en una sola pasada, 40 ms
 pnpm format     # lo mismo, arreglando lo que sepa arreglar
@@ -238,6 +238,35 @@ cifra incómoda, que se publica igual: **2618 de los 2644 `cast` siguen siendo
 `magic_arrow`**, el de nacimiento. Lo que el gremio cambia sobre todo es que el
 héroe **contratado**, que nace con el libro vacío, aprenda algo. Que la IA de
 batalla casi nunca compre `haste` ni `slow` es otra puerta y tiene su issue.
+
+Y una letra pequeña que conviene saber antes de abrir el juego a mirarlo: **a
+quien cruza la puerta de la magia es al nigromante**. Al caballero —la facción con
+la que juega el jugador 0— el gremio se le construye en **4 partidas de 200**, y
+enseña 18 hechizos frente a los 841 del rival. No es un fallo del reparto: es la
+asimetría de coste del original, que aquí no tiene a Nigromancia en el otro
+platillo (#89).
+
+**La lección más cara del ciclo no fue ninguno de los dos bugs: fue una cita.**
+La tabla de experiencia que sustituyó a la curva decía venir de
+`Heroes::GetExperienceFromLevel` y **coincidía en 8 de 39 filas** — la fuente
+tiene 40—. Se había escrito de memoria y se había dado por verificada porque tres
+filas cuadraban con las tres que cita el plan: 1000, 2000, 4500, que son las tres
+que cualquiera recuerda de HoMM2. Era **inerte** —los umbrales que se alcanzan
+están entre los que coinciden, y con la tabla buena puesta el volcado sale
+idéntico al carácter— y eso es justo lo que la hacía peligrosa: nada se ponía
+rojo. Peor, el test que decía comprobarla **anclaba los valores inventados**, así
+que el guardia protegía el error, y la cita ya se había propagado al docstring, al
+nombre del test y a este documento.
+
+**Una cita falsa a la fuente es peor que una cifra declaradamente inventada**: la
+inventada avisa de que hay que verificarla; la citada hace bajar la guardia de
+quien la lea después. Ahora la tabla se extrae del fichero **con una expresión
+regular, sin transcribir a mano** —que es la parte que falla—, y el test no ancla
+lo que haya: comprueba **26 filas contra la regla que el propio original publica
+dos líneas más abajo**, que las diferencias crecen ×1,2 redondeado a centenas. Esa
+propiedad es lo único que no depende de que nadie teclee bien, y una tabla
+alucinada no la tiene. Comprobado aparte al aceptarla: 19 de 19 filas seguidas la
+cumplen, y la extrapolación del original **multiplica, no suma**.
 
 **Y arreglar los dos volcó el ganador**, que estaba previsto y aprobado antes de
 implementar: con control de esquina el caballero pasa de **78,5 % a 16,25 %**.
@@ -648,8 +677,8 @@ que **cada `EffectKind` tenga un lector vivo**, que **`core` no importe
 `src/server`**, que **ningún fichero que una máquina ejecuta o lee lleve dentro
 la ruta absoluta de esta máquina**, que **la crónica sobreviva a un `JSON` de
 ida y vuelta**, que **el `as` que abre el candado de `state.log` viva en un
-solo sitio** y que **`core` no ejecute coma flotante que dependa de la
-plataforma**. Todos nacen en verde: un guardia que nace rojo se ignora desde
+solo sitio**, que **`core` no ejecute coma flotante que dependa de la
+plataforma** y que **`game_over` sea el último hecho de la crónica**. Todos nacen en verde: un guardia que nace rojo se ignora desde
 el primer día.
 
 El del candado busca el **cast** y no el `.push`, que es lo que el propio
@@ -731,7 +760,7 @@ se escribió. Se sostenía por accidente: la única aparición del operador `**`
 todo `core` estaba en `experienceForLevel` —la curva de experiencia—, y solo
 seguía siendo cierta porque **nadie llamaba a esa función**. El ciclo de #87 iba a
 llamarla, y con eso la promesa se rompía en silencio y en la función más fácil de
-no mirar. Se cambió la curva por la tabla de 39 filas del original y se escribió
+no mirar. Se cambió la curva por la tabla de 40 filas del original y se escribió
 el guardia. Va con **lista blanca** de lo permitido y no con lista negra —al revés
 que el de rutas absolutas, y por el mismo razonamiento: aquí lo cerrado y
 publicado es *lo que vale*, así que una lista negra sería la que fallara en
@@ -740,7 +769,14 @@ mirar, porque `**` es también la negrita de Markdown que este repositorio usa
 dentro del código y porque el docstring de al lado cita `Math.pow` para
 explicarse. Roto a mano con cinco sondas, y con tres más al aceptarlo: `Math.pow`,
 el operador `**` y un `Math.sqrt` en otro fichero, los tres vistos rojos con su
-fichero y su línea.
+fichero y su línea.Y su forma final no es «prohibido `Math.pow`»
+sino la lista blanca llevada al final: **`Math` solo puede aparecer seguido de una
+de las siete permitidas**. La diferencia la encontró QA rompiéndolo con
+`const { pow } = Math`, que la primera redacción no veía — y mis tres sondas
+tampoco, porque las tres escribían `Math.` con el punto delante: **lo estrecho era
+la batería, no la idea**. Un guardia probado solo con las formas que su autor
+imaginó prueba su implementación, no su criterio. Ocho sondas ahora, y muerde
+además `const M = Math` y `Math['pow']`.
 
 El barrido de semillas no es un test: es una **medida**. Juega 40 partidas de la
 IA contra sí misma y cuenta cuántas no terminan en 300 días. Hoy son **0**;
