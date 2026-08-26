@@ -11,8 +11,8 @@ El juego es el andamio; lo interesante es lo que se puede enchufar dentro.
 ```bash
 pnpm install
 pnpm dev        # cliente en http://localhost:3100 (juego local contra la IA de reglas)
-pnpm verify     # typecheck + lint + 282 tests, 7,2 s: el bucle rápido
-pnpm test       # 282 tests: reglas, batalla, partida completa y contrato del agente
+pnpm verify     # typecheck + lint + 289 tests, 7,2 s: el bucle rápido
+pnpm test       # 289 tests: reglas, batalla, partida completa y contrato del agente
 pnpm typecheck
 pnpm lint       # Biome: formato y lint en una sola pasada, 40 ms
 pnpm format     # lo mismo, arreglando lo que sepa arreglar
@@ -173,6 +173,37 @@ al leer, así que caducar es filtrar una lista y no puede descuadrar nada. Y el
 mismo origen **refresca en vez de apilarse**, quedándose con la duración mayor:
 sin esa regla, dos mordiscos del dragón óseo dejaban −4 de ataque sostenido y
 una Lentitud por ronda iba a −2, −4, −6.
+
+## La economía: la renta se copió y el coste se inventó
+
+La renta estaba verificada —`MINE_YIELD` **es** `ProfitConditions::FromMine`— y el
+coste de los edificios no: eran **18 filas inventadas**. Con la renta bien y el
+coste a ojo, la cadena de moradas costaba 30 de madera y 25 de mineral donde el
+mapa repartía 18 y 18 en lo que dura la partida, mientras el oro sobraba por un
+factor de 20. Resultado medido: **la morada 5 se construía en 0 de 200 partidas**.
+
+Se corrigió copiando la fuente, no ajustando a ojo hasta que saliera bonito: las
+**18 filas de `buildinginfo.cpp` son exactas, 18 de 18 verificadas**, y con ellas
+la fila de recursos de salida —`DEFAULT_STARTING_RESOURCES` daba **el oro de
+NORMAL y el material de HARD**, media fila de cada, sin declararlo—. Y no había
+**una sola mina de gemas, mercurio ni azufre** en ningún mapa, con seis edificios
+pidiéndolos: hoy hay 28 minas en juego y los siete recursos tienen la suya.
+
+Lo que se consiguió y lo que no, porque las dos mitades importan:
+
+- morada 5: **52 de 200** partidas, desde 0. La partida **no se alarga** —mediana
+  7→6 días, p90 8→7—, que era la condición.
+- pero el **dragón óseo sigue en 0 de 200** en 24×24. En 48×48 salen las siete
+  criaturas de nivel ≥5 y el dragón en 12 de 20: **las dos mitades entraron y lo
+  que falta son días** (#90). La premisa que aprobó no tocar la duración venía de
+  una contrafáctica de material **infinito** y era optimista por un factor 19.
+- y el reajuste **desequilibró las facciones**: con control de esquina
+  —intercambiando facciones sobre los mismos mapas— el caballero pasa de ganar
+  **53,25 %** a **78,5 %**. La palanca es el **oro** (la cadena del nigromante
+  suma 9 900 frente a 7 200, con 7 500 de bolsa), no el azufre que decía la
+  primera redacción de la nota. La asimetría **es del original**; lo que falta es
+  lo que allí la compensa y aquí no existe, **Nigromancia** (#89). Bajarle el oro
+  al nigromante sería volver a inventar cifras, que es de lo que se venía.
 
 ## El agente como modelo
 
@@ -588,8 +619,15 @@ salida fácil no es exportarla, es copiar el cast, y con él se pierden de golpe
 el protagonista, el sitio y el sello. Se rompió a mano copiando ese `as` a
 `serialize.ts`, se miró rojo con el fichero y la línea, y se retiró la sonda.
 
-El del `JSON` juega 20 días con la semilla 9 —261 eventos de los dieciséis
-tipos, 224 con sello— y compara `state.log` con su ida y vuelta. Existe porque
+El del `JSON` juega 40 días con la semilla 9 **en 48×48** —618 hechos de los
+dieciséis tipos, 548 con sello— y compara `state.log` con su ida y vuelta. Juega
+ahí y no en el mapa de siempre por una razón que conviene no deshacer: con la
+economía cuadrada, la partida de 24×24 se acaba el día 6 y deja 134 hechos de
+**quince** tipos, sin `spells_learned`, que es justo uno de los que este guardia
+quiere ver pasar por el JSON. **No se bajó el umbral: se cambió de mapa**, que es
+la diferencia entre reparar un guardia y desafilarlo. De paso le entró el diente
+que le faltaba —que un buen número de eventos lleven el sello puesto—: sin él, un
+`seen` siempre vacío pasaba el viaje de ida y vuelta sin probar nada. Existe porque
 el sello de cada evento (`seen`: quién lo estaba mirando) es una colección por
 evento, y #10 ya avisa de que `JSON.stringify` deja un `Set` en `{}` sin decir
 nada: el día que exista guardar y cargar, la crónica volvería del disco
