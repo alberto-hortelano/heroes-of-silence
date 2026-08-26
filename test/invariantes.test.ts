@@ -583,6 +583,15 @@ describe('invariantes del proyecto', () => {
     // con el sello puesto** — más largo, más variado y con más sellos que el
     // mapa pequeño en cualquier momento de su historia.
     //
+    // Y por lo mismo el tope pasa de 40 días a 60. Con el gremio del nigromante
+    // en su sitio, esta partida ya no cabe en 40: al día 41 seguía viva y le
+    // faltaban `game_over`, `player_defeated` y `town_captured`, o sea **14
+    // tipos donde el guardia pide 15**. Bajar el umbral es exactamente lo que
+    // el párrafo de arriba prohíbe; con 60 días la partida se acaba sola el
+    // día 44 y deja **1 140 hechos de diecisiete tipos, 1 007 con sello**, así
+    // que el umbral sube a 16 en vez de bajar. Los días de más no cuestan nada:
+    // la partida termina antes de gastarlos.
+    //
     // Los tres umbrales van con holgura sobre lo medido, porque este guardia va
     // del viaje de ida y vuelta y no de la IA: un cambio de heurística que
     // mueva las cifras un 20 % no tiene por qué ponerlo rojo.
@@ -592,9 +601,9 @@ describe('invariantes del proyecto', () => {
     // abajo pasaría sin probar nada. La cuenta de tipos hace lo mismo para la
     // variedad — un log largo de `hero_moved` no probaría casi nada.
     const state = newGame({ seed: 9, width: 48, height: 48 });
-    await playAiGame(state, { rng: createRng(9) }, 40);
+    await playAiGame(state, { rng: createRng(9) }, 60);
     expect(state.log.length).toBeGreaterThan(500);
-    expect(new Set(state.log.map((e) => e.kind)).size).toBeGreaterThanOrEqual(15);
+    expect(new Set(state.log.map((e) => e.kind)).size).toBeGreaterThanOrEqual(16);
     expect(state.log.filter((e) => e.seen.length > 0).length).toBeGreaterThan(400);
     expect(JSON.parse(JSON.stringify(state.log))).toEqual(state.log);
   });

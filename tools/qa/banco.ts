@@ -122,11 +122,24 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   renumerado el índice; **cero** líneas `fin` con ganador o día distinto, y
  *   `hechos=` como lo único que crece, exactamente en las subidas de cada
  *   semilla. Un `hero_moved` distinto habría querido decir que algo se rompió.
+ * - `d5502745…` (32 211 líneas): #88, el gremio de magia deja de ser el último
+ *   de la cola. La cascada de seis constantes pasa a ser una **lista ordenada
+ *   por facción** —comprobado con el gremio en su puesto de siempre: volcado
+ *   byte a byte idéntico, así que la lista no cambia nada por sí sola— y lo
+ *   único que se mueve es `mage_guild_1` en la del nigromante. Misma forma de
+ *   diff que las dos palancas de economía anteriores y por el mismo motivo: el
+ *   **primer hecho distinto es `built` en 200 de 200**, cero semillas idénticas.
+ *   `mage_guild_1` 10 → **206** (200 de 200 partidas), `spells_learned` 3 →
+ *   **316** y `built` 2 236 → 2 601. La partida se alarga un día de mediana
+ *   (6 → 7, p90 7 → 8) con el máximo quieto en 20 y **0/200 sin terminar**.
+ *   Y da la vuelta al ganador —el caballero pasa de 184/200 a 42/200—, que es
+ *   consecuencia aprobada de arreglar los dos bugs y se apunta en #89: no se
+ *   compensa aquí retocando cifras sin fuente.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '1e32b19e63617b5fab9da116da1fb1f35ab1251f8c8fc0e05c9bad73d2597464',
+  sha: 'd5502745c4e978c2e49b0b47f112d7cc313cf1dc6f410bfb3081622b29b2f38c',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

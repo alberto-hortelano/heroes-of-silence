@@ -15,15 +15,9 @@ import {
   heroesOf,
   townsOf,
 } from '../state/game.js';
-import { building, buildingsOfFaction } from '../town/buildings.js';
-import {
-  availableBuildings,
-  dwellings,
-  hasBuilding,
-  recruitBlocker,
-  type Town,
-} from '../town/town.js';
-import type { Army, PlayerId, Point, Resources } from '../types.js';
+import { building } from '../town/buildings.js';
+import { availableBuildings, dwellings, recruitBlocker, type Town } from '../town/town.js';
+import type { Army, FactionId, PlayerId, Point, Resources } from '../types.js';
 import { canAfford, scaleResources, subtractResources } from '../types.js';
 
 /** Fuerza bruta de un ejército: lo que pega por lo que aguanta. */
@@ -192,31 +186,114 @@ export function stepTowards(hero: Hero, destino: Point, alcance: Reachable): Poi
   return coste === 0 ? null : at;
 }
 
-/** Qué construir hoy: lo más caro que se pueda pagar, con las moradas primero. */
+/**
+ * Qué construir antes que qué, en cada facción. **La prioridad es el puesto.**
+ *
+ * Antes esto era una cascada de seis constantes —`100 + dwellingLevel` para las
+ * moradas, 95 para lo que abre una puerta, 90 para el ingreso,
+ * `50 + upgradesLevel` para las mejoras, 40 para el gremio y 10 para el resto—
+ * y el gremio de magia perdía siempre: `mage_guild_1` se construía en **1
+ * partida de 40** y `syncSpellbooks` no enseñaba **un solo hechizo**. La magia
+ * estaba entera —el gremio enseña, el héroe aprende, la IA valora, el maná
+ * vuelve de la batalla— detrás de un edificio que nadie levantaba.
+ *
+ * La reparación no sube el 40 a 96: **quita el número**. El original tampoco
+ * puntúa, ORDENA por raza (`ai/ai_planner_castle.cpp`), y una lista dice lo que
+ * la cascada siempre quiso decir sin que haya que defender por qué 96 y no 94.
+ * Estas dos reproducen el orden de la cascada **exactamente** —comprobado: con
+ * el gremio en su sitio de siempre el volcado del banco sale byte a byte
+ * idéntico— y lo único que se mueve es `mage_guild_1` en la lista del
+ * nigromante, al puesto que le da el original: por delante de la morada y la
+ * mejora de nivel 4. Al caballero no se le toca, y también es del original,
+ * donde para KNGT el gremio va detrás de todo lo militar.
+ *
+ * **La asimetría no es un descuido que corregir.** Dársela a las dos facciones
+ * a la vez se midió: 1 de 200 partidas deja de terminar, porque dos ejércitos
+ * que crecen a la par es justo lo que produce partidas eternas.
+ *
+ * Y una lista tiene una obligación que un `if` no tiene: **el edificio que
+ * llegue mañana hay que colocarlo**. Si no está, `chooseBuilding` lanza
+ * diciéndolo, y un test exige que cada edificio de la facción salga aquí
+ * exactamente una vez.
+ */
+const ORDEN_DE_CONSTRUCCION: Readonly<Record<FactionId, readonly string[]>> = {
+  // La morada más alta que esté a mano manda: como cada una exige la anterior,
+  // solo puede haber una disponible, y ponerlas en cascada es decir «la
+  // siguiente de la cadena, antes que nada».
+  knight: [
+    'knight_dwelling_6',
+    'knight_dwelling_5',
+    'knight_dwelling_4',
+    'knight_dwelling_3',
+    'knight_dwelling_2',
+    'knight_dwelling_1',
+    // El castillo no da ingreso ni criaturas, pero es lo único que separa de la
+    // morada de nivel 6: sin él la IA se quedaba atascada a sus puertas para
+    // siempre. Ese era el 95 de «abre puerta», que se ve mejor aquí.
+    'castle',
+    'town_hall',
+    'city_hall',
+    'knight_upgrade_6',
+    'knight_upgrade_5',
+    'knight_upgrade_4',
+    'knight_upgrade_3',
+    'knight_upgrade_2',
+    'mage_guild_1',
+    'mage_guild_2',
+    'tavern',
+    'marketplace',
+    // Prebuilt: nunca está disponible, pero la lista tiene que nombrarlo igual.
+    'village_hall',
+  ],
+  necromancer: [
+    'necromancer_dwelling_6',
+    'necromancer_dwelling_5',
+    // El único cambio de esta lista, y el que abre #88: el nigromante levanta el
+    // gremio antes que su morada de nivel 4, que es el puesto que le da
+    // `ai_planner_castle.cpp` para NECR. Comprobado antes de moverlo: con el
+    // gremio abajo, donde lo dejaba el 40 de la cascada, estas dos listas dan
+    // el volcado del banco byte a byte idéntico.
+    'mage_guild_1',
+    'necromancer_dwelling_4',
+    'necromancer_dwelling_3',
+    'necromancer_dwelling_2',
+    'necromancer_dwelling_1',
+    'castle',
+    'town_hall',
+    'city_hall',
+    'necromancer_upgrade_5',
+    'necromancer_upgrade_4',
+    'necromancer_upgrade_3',
+    'necromancer_upgrade_2',
+    'mage_guild_2',
+    'tavern',
+    'marketplace',
+    'village_hall',
+  ],
+};
+
+/** Qué construir hoy: lo primero de la lista de su facción que se pueda pagar. */
 export function chooseBuilding(town: Town, purse: Resources): string | null {
   const posibles = availableBuildings(town, purse);
   if (posibles.length === 0) return null;
 
-  // Lo que le falta a alguna morada aún sin levantar. Sin esto la IA nunca
-  // construiría el castillo —no da ingreso ni criaturas— y se quedaría
-  // atascada para siempre a las puertas de la morada de nivel 6, que lo exige.
-  const abrePuerta = new Set<string>();
-  for (const b of buildingsOfFaction(town.faction)) {
-    if (b.dwellingLevel === undefined || hasBuilding(town, b.id)) continue;
-    for (const req of b.requires ?? []) if (!hasBuilding(town, req)) abrePuerta.add(req);
-  }
-
-  const prioridad = (id: string): number => {
-    const b = building(id);
-    if (b.dwellingLevel !== undefined) return 100 + b.dwellingLevel;
-    if (abrePuerta.has(id)) return 95;
-    if (b.income !== undefined) return 90;
-    if (b.upgradesLevel !== undefined) return 50 + b.upgradesLevel;
-    if (b.mageGuildLevel !== undefined) return 40;
-    return 10;
+  const orden = ORDEN_DE_CONSTRUCCION[town.faction];
+  const puesto = (id: string): number => {
+    const i = orden.indexOf(id);
+    // Fail-loud, y es el precio de la lista: un edificio nuevo que nadie haya
+    // colocado no se cuela con la prioridad que tocara, se dice.
+    if (i < 0) {
+      throw new Error(`la lista de construcción de ${town.faction} no coloca "${id}"`);
+    }
+    return i;
   };
 
-  return posibles.reduce((a, b) => (prioridad(b) > prioridad(a) ? b : a));
+  return posibles.reduce((a, b) => (puesto(b) < puesto(a) ? b : a));
+}
+
+/** La lista de construcción de una facción, para quien quiera comprobarla. */
+export function ordenDeConstruccion(faction: FactionId): readonly string[] {
+  return ORDEN_DE_CONSTRUCCION[faction];
 }
 
 /**

@@ -3,6 +3,7 @@ import {
   armyPower,
   chooseBuilding,
   chooseHeroDestination,
+  ordenDeConstruccion,
   planBuildings,
   planHires,
   planRecruits,
@@ -1147,9 +1148,68 @@ describe('catálogo de edificios por facción', () => {
     castillo.builtToday = false;
     expect(chooseBuilding(castillo, bolsaInfinita)).toBe('castle');
   });
+
+  // --------------------------------------- el orden de construcción es la lista
+
+  it('la lista de construcción coloca cada edificio de la facción exactamente una vez', () => {
+    // Es el precio de haber cambiado la cascada de constantes por una lista, y
+    // el argumento de fondo para preferirla: con seis `if` encadenados, el
+    // edificio que llegue mañana cae por el `return 10` del final y nadie se
+    // entera; con una lista hay que colocarlo, y si no está `chooseBuilding`
+    // lanza. Este test es lo que hace que ese `throw` no se alcance nunca.
+    for (const faction of ['knight', 'necromancer'] as const) {
+      const orden = ordenDeConstruccion(faction);
+      const catalogo = buildingsOfFaction(faction).map((b) => b.id);
+      expect([...orden].sort()).toEqual([...catalogo].sort());
+      expect(new Set(orden).size, `${faction}: hay un edificio repetido`).toBe(orden.length);
+    }
+  });
+
+  it('el nigromante levanta el gremio antes que su morada de nivel 4; el caballero no', () => {
+    // El único cambio de #88, y su asimetría es del original
+    // (`ai_planner_castle.cpp`): para NECR el gremio va por delante de la
+    // morada y la mejora de nivel 4; para KNGT, detrás de todo lo militar.
+    // Dársela a los dos a la vez está medido y deja 1 de 200 partidas sin
+    // terminar: dos ejércitos que crecen a la par no se matan nunca.
+    const necro = pueblo('necromancer');
+    levantar(necro, ['necromancer_dwelling_2', 'necromancer_dwelling_3']);
+    necro.builtToday = false;
+    expect(chooseBuilding(necro, bolsaInfinita)).toBe('mage_guild_1');
+
+    const caballero = pueblo('knight');
+    levantar(caballero, ['knight_dwelling_2', 'knight_dwelling_3']);
+    caballero.builtToday = false;
+    expect(chooseBuilding(caballero, bolsaInfinita)).toBe('knight_dwelling_4');
+
+    const ordenKnight = ordenDeConstruccion('knight');
+    expect(ordenKnight.indexOf('mage_guild_1')).toBeGreaterThan(
+      ordenKnight.indexOf('knight_upgrade_2'),
+    );
+  });
 });
 
 describe('el gremio enseña (#2)', () => {
+  it('el gremio se construye jugando, y acaba en un hechizo aprendido', async () => {
+    // El criterio que de verdad cierra #88: un gremio construido que no acaba
+    // en un héroe que aprende algo no cierra nada. Antes de mover el gremio en
+    // la lista del nigromante, `mage_guild_1` salía en 10 de las 200 semillas
+    // del banco y `syncSpellbooks` enseñaba 15 hechizos en 3 partidas; ahora,
+    // 206 gremios en 200 de 200 y 965 hechizos en 177. Aquí se juegan cinco
+    // semillas, que es lo que cabe en un test de milisegundos.
+    let gremios = 0;
+    let aprendidos = 0;
+    for (let semilla = 1; semilla <= 5; semilla++) {
+      const state = newGame({ seed: semilla });
+      await playAiGame(state, { rng: createRng(semilla) }, 300);
+      for (const e of state.log) {
+        if (e.kind === 'built' && e.building === 'mage_guild_1') gremios++;
+        if (e.kind === 'spells_learned') aprendidos += e.spells.length;
+      }
+    }
+    expect(gremios).toBeGreaterThan(0);
+    expect(aprendidos).toBeGreaterThan(0);
+  });
+
   it('un héroe dentro de su castillo aprende lo que enseña el gremio, y repetir no duplica', () => {
     const state = newGame({ seed: 51 });
     const c = ctx(51);
