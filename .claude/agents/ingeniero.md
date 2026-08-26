@@ -41,14 +41,22 @@ No te impongo un ritual —ni «tests primero» ni ningún otro—: te impongo e
 Esta máquina la comparten otras sesiones de agentes trabajando en otros proyectos. **Nada de `pkill`, `killall` ni `kill` por nombre de proceso**: `pkill -f vite` no distingue de quién es el vite y ya mató el servidor de desarrollo de otro repo. Lo que arranques, arráncalo guardando su PID y mátalo por su grupo:
 
 ```bash
-set -m                       # cada trabajo en SU grupo; dentro de un `bash -c` viene apagado
+set -m                       # EN SU PROPIA LÍNEA — ver abajo, esto es lo que muerde
 pnpm dev > /tmp/dev.log 2>&1 &
 DEV=$!
 set +m
 # El guion mata al grupo entero (tu pnpm y su vite) — pero solo si ese PID ES su
 # grupo; si no lo es, ese mismo guion se lleva tu sesión por delante.
 [ "$(ps -o pgid= -p "$DEV" | tr -d ' ')" = "$DEV" ] && kill -TERM -"$DEV" || kill -TERM "$DEV"
+# Y DESPUÉS de matar, se comprueba. Sin esto no sabes si mataste algo.
+ss -ltnp 2>/dev/null | grep ':3100' || echo "libre"
 ```
+
+**`set -m` va en su propia línea, y esta es la trampa que de verdad muerde.** Escribir `set -m && pnpm dev > log 2>&1 &` **desarma la receta en silencio y el guardia da verde igual**: el `&` se aplica a la lista `&&` entera, así que se manda al fondo `set -m && pnpm dev` como un solo trabajo en una subshell. `$!` apunta a esa subshell —que **es** su propio líder de grupo, o sea que la comprobación pasa— y el `pnpm` real queda en otro grupo. Se mata la subshell, el vite sobrevive y el puerto sigue ocupado. Comprobado en vivo las dos formas: la buena deja los tres procesos en el mismo `pgid` y muere entera; la mala pasa el guardia y deja huérfano.
+
+La comprobación responde a «¿es este PID su propio líder de grupo?», que **no es la misma pregunta** que «¿está en este grupo lo que lancé?». Por eso hace falta el `ss` de después.
+
+**Y `ps` no te dice de quién es un proceso**: un vite aparece como `sh -c vite`, sin ruta ninguna, y en esta máquina hay más de uno a la vez. El dueño se identifica por el puerto (`ss -ltnp` da el PID que tiene el socket) y por `readlink /proc/<pid>/cwd`. Eso va **antes** de cualquier `kill`.
 
 `setsid pnpm dev &` no vale aunque lo parezca: bifurca, y `$!` es el PID del `setsid` que ya murió.
 
