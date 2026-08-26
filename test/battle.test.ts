@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { Session } from '../src/client/session.js';
 import { renderSide } from '../src/client/views/panels.js';
-import { chooseBattleAction } from '../src/core/ai/tactics.js';
+import { chooseBattleAction, chooseBattleActionAndCosts } from '../src/core/ai/tactics.js';
 import {
   activeStack,
   applyAction,
@@ -432,6 +432,94 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
     expect([...costs.keys()]).toEqual(
       actions.filter((a) => a.type === 'move').map((a) => `${a.to.col},${a.to.row}`),
     );
+  });
+
+  it('elegir y aplicar un avance cuesta UN recorrido, no dos (#78)', () => {
+    // El tercer BFS del mismo turno del mismo stack: `legalActions` hacía el
+    // primero, `mejorCarga` lo leía de ahí, y `moveTo` volvía a hacerlo entero
+    // solo para contar los hexes de la carga. 970 de 3 170 en 300 batallas.
+    const state = batallaDeCuatroEnemigos();
+    // Lejos de todos, que es la rama que llega a `moveTo`: pegado a un enemigo
+    // la IA pega desde donde está y no se mueve.
+    stackById(state, 'attacker-0').hex = { col: 0, row: 4 };
+
+    const espia = vi.mocked(board.reachable);
+    espia.mockClear();
+    const { action, stack, costs } = chooseBattleActionAndCosts(state);
+    // Si la IA dejara de avanzar en este tablero, el test dejaría de medir lo
+    // que dice medir y hay que buscarle otro.
+    expect(action.type).toBe('move');
+    applyAction(state, action, createRng(1), { stack, costs });
+
+    expect(espia).toHaveBeenCalledTimes(1);
+  });
+
+  it('sin recorrido en la mano, moveTo sigue haciendo el suyo (#78)', () => {
+    // El director y el cliente no traen recorrido, y tienen que seguir
+    // moviéndose igual: la pista es opcional de verdad.
+    const state = batallaDeCuatroEnemigos();
+    stackById(state, 'attacker-0').hex = { col: 0, row: 4 };
+
+    const espia = vi.mocked(board.reachable);
+    espia.mockClear();
+    applyAction(state, { type: 'move', to: { col: 2, row: 4 } }, createRng(1));
+
+    expect(espia).toHaveBeenCalledTimes(1);
+    expect(stackById(state, 'attacker-0').hex).toEqual({ col: 2, row: 4 });
+  });
+
+  it('la carga cobra los mismos hexes con recorrido traído que sin él (#78)', () => {
+    // Lo que se lee del mapa es el daño: `chargeHexes` sale de ahí. Si el
+    // recorrido traído discrepara del que haría `moveTo`, la caballería
+    // pegaría distinto — y eso mueve partidas sin que el tipo cambie.
+    const montar = (rng: ReturnType<typeof createRng>): BattleState => {
+      const s = createBattle(
+        side([{ creature: 'cavalry', count: 10 }, null, null, null, null]),
+        side([{ creature: 'pikeman', count: 40 }, null, null, null, null]),
+        rng,
+      );
+      stackById(s, 'attacker-0').hex = { col: 0, row: 4 };
+      stackById(s, 'defender-0').hex = { col: 4, row: 4 };
+      return s;
+    };
+    // Tres hexes y no los cinco de la carga máxima **a propósito**: en el techo
+    // el motor recorta, así que un recorrido que dijera uno de MÁS daría el
+    // mismo daño y este test lo dejaría pasar. Comprobado a mano: con `+1` en
+    // el techo nada se mueve; aquí, con `+1` y con `−1`, se ve.
+    const carga = {
+      type: 'attack',
+      target: 'defender-0',
+      from: { col: 3, row: 4 },
+    } as const;
+
+    const aPelo = montar(createRng(51));
+    applyAction(aPelo, carga, createRng(51));
+
+    const conPista = montar(createRng(51));
+    const s = activeStack(conPista) as BattleStack;
+    const conRecorrido = { stack: s.id, costs: movableCosts(conPista, s) };
+    applyAction(conPista, carga, createRng(51), conRecorrido);
+
+    expect(conPista.log).toEqual(aPelo.log);
+    const golpe = aPelo.log.find((e) => e.kind === 'attack' && !e.retaliation);
+    expect(golpe).toMatchObject({ charge: 3 });
+    expect(3).toBeLessThan(stackSpeed(stackById(aPelo, 'attacker-0')));
+  });
+
+  it('un recorrido de otro stack se rechaza diciéndolo (#78)', () => {
+    // Las claves de un mapa de costes ajeno son las mismas «col,row», así que
+    // mirarlo no distingue de quién es: por eso el stack viaja al lado y se
+    // compara. Sin esto, cobrar la carga con el recorrido del vecino saldría
+    // en silencio con otro número de hexes.
+    const state = batallaDeCuatroEnemigos();
+    const s = activeStack(state) as BattleStack;
+
+    expect(() =>
+      applyAction(state, { type: 'defend' }, createRng(1), {
+        stack: 'defender-3',
+        costs: movableCosts(state, s),
+      }),
+    ).toThrow('el recorrido que traes es de defender-3 y quien actúa es attacker-0');
   });
 
   it('sin stack activo no hay lista ni costes, y no revienta', () => {

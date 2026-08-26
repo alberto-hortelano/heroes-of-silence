@@ -360,11 +360,39 @@ function checkFinished(state: BattleState): void {
 
 // ---------------------------------------------------------------- acciones
 
-/** Aplica la acción del stack activo. Lanza si es ilegal: no la corrige. */
-export function applyAction(state: BattleState, action: BattleAction, rng: Rng): void {
+/**
+ * El recorrido del tablero que el llamante YA hizo, y de qué stack es.
+ *
+ * `stack` no es redundante: un mapa de costes de otro stack tiene las mismas
+ * claves «x,y» y no hay forma de distinguirlo mirándolo. Quien lo calculó dice
+ * para quién, y `applyAction` lo compara con el que está actuando.
+ */
+export interface Movibles {
+  readonly stack: string;
+  readonly costs: ReadonlyMap<string, number>;
+}
+
+/**
+ * Aplica la acción del stack activo. Lanza si es ilegal: no la corrige.
+ *
+ * `movibles` es una **pista de rendimiento**: el mismo `movableCosts` que ya
+ * calculó quien eligió la acción. No es un atajo que se salte la comprobación
+ * —la legalidad del destino se sigue leyendo del mapa, solo que del recorrido
+ * ya hecho en vez de uno nuevo—. Sin ella, `moveTo` recorre el tablero como
+ * siempre: es lo que hacen el director y el cliente, que no traen recorrido.
+ */
+export function applyAction(
+  state: BattleState,
+  action: BattleAction,
+  rng: Rng,
+  movibles?: Movibles,
+): void {
   if (state.finished !== null) throw new Error('la batalla ya ha terminado');
   const s = activeStack(state);
   if (s === null) throw new Error('no hay stack activo');
+  if (movibles !== undefined && movibles.stack !== s.id) {
+    throw new Error(`el recorrido que traes es de ${movibles.stack} y quien actúa es ${s.id}`);
+  }
 
   switch (action.type) {
     case 'wait': {
@@ -384,7 +412,7 @@ export function applyAction(state: BattleState, action: BattleAction, rng: Rng):
     }
 
     case 'move': {
-      moveTo(state, s, action.to);
+      moveTo(state, s, action.to, movibles?.costs);
       endTurn(state, s, rng);
       return;
     }
@@ -397,7 +425,8 @@ export function applyAction(state: BattleState, action: BattleAction, rng: Rng):
       // como argumento. Un campo `hexesMoved` habría que resetearlo en
       // `beginRound` y en `endTurn`, y el día que se olvidara uno el
       // contraatacante cargaría con los hexes de su turno anterior.
-      const recorridos = action.from === undefined ? 0 : moveTo(state, s, action.from);
+      const recorridos =
+        action.from === undefined ? 0 : moveTo(state, s, action.from, movibles?.costs);
       if (!canReachMelee(s, target)) {
         throw new Error(`${s.id} no alcanza a ${target.id} cuerpo a cuerpo`);
       }
@@ -427,12 +456,18 @@ export function applyAction(state: BattleState, action: BattleAction, rng: Rng):
 }
 
 /** Mueve el stack y devuelve cuántos hexes ha recorrido de verdad. */
-function moveTo(state: BattleState, s: BattleStack, to: Hex): number {
+function moveTo(
+  state: BattleState,
+  s: BattleStack,
+  to: Hex,
+  costes?: ReadonlyMap<string, number>,
+): number {
   // El coste real del camino, no la distancia en línea recta: rodear a un
   // enemigo cuesta más hexes y la carga tiene que notarlo. Sale del mismo
   // recorrido que decide si el destino es legal, así que no hay una segunda
-  // cuenta que pueda discrepar de la primera.
-  const recorridos = movableCosts(state, s).get(hexKey(to));
+  // cuenta que pueda discrepar de la primera — y si el llamante ya lo hizo, es
+  // literalmente ese, no uno equivalente.
+  const recorridos = (costes ?? movableCosts(state, s)).get(hexKey(to));
   if (recorridos === undefined) {
     throw new Error(`${s.id} no puede moverse a (${to.col},${to.row})`);
   }

@@ -260,10 +260,42 @@ function convieneEsperar(s: BattleStack, enemigos: readonly BattleStack[], desti
  * ha movido—, y si no puede hacer nada útil se defiende.
  */
 export function chooseBattleAction(state: BattleState): BattleAction {
+  return chooseBattleActionAndCosts(state).action;
+}
+
+/**
+ * Lo mismo, y además **de qué stack** es la decisión y el recorrido con el que
+ * se tomó. Es el mismo par que `legalActions`/`legalActionsAndCosts`, un piso
+ * más arriba.
+ *
+ * Existe porque ese recorrido ya está hecho y `moveTo` lo repetía: era el
+ * TERCER BFS del mismo turno del mismo stack —`legalActions` el primero,
+ * `mejorCarga` lo lee del primero, y `moveTo` el segundo—, 970 de las 3 170
+ * llamadas a `movableCosts` de 300 batallas.
+ *
+ * El `stack` viaja al lado de los costes y no se supone: `applyAction` no puede
+ * comprobar que un mapa de costes sea del stack que actúa mirando sus claves
+ * —las de otro stack cercano se le parecen—, así que se le dice quién lo
+ * calculó y él lo compara con quien está activo.
+ */
+export function chooseBattleActionAndCosts(state: BattleState): {
+  action: BattleAction;
+  stack: string;
+  costs: Map<string, number>;
+} {
   const s = activeStack(state);
   if (s === null) throw new Error('no hay stack activo');
 
-  const { actions: acciones, costs: costes } = legalActionsAndCosts(state);
+  const { actions, costs } = legalActionsAndCosts(state);
+  return { action: decideAccion(state, s, actions, costs), stack: s.id, costs };
+}
+
+function decideAccion(
+  state: BattleState,
+  s: BattleStack,
+  acciones: readonly BattleAction[],
+  costes: ReadonlyMap<string, number>,
+): BattleAction {
   const enemigos = enemiesOf(state, s);
   if (enemigos.length === 0) return { type: 'defend' };
 
@@ -361,7 +393,10 @@ export interface BattleOutcome {
 export function autoResolve(state: BattleState, rng: Rng, maxTurnos = 5000): BattleOutcome {
   let n = 0;
   while (state.finished === null && n < maxTurnos) {
-    applyAction(state, chooseBattleAction(state), rng);
+    // El recorrido con el que se decidió viaja hasta el motor: `moveTo` lo
+    // repetía entero para cobrar la carga.
+    const { action, stack, costs } = chooseBattleActionAndCosts(state);
+    applyAction(state, action, rng, { stack, costs });
     n++;
   }
   if (state.finished === null) {
