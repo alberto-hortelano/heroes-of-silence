@@ -26,8 +26,8 @@ Hoy el juego tiene los tres eslabones sueltos y ninguno enganchado:
 - La experiencia **se acumula** (`game.ts`, `hp * level * 2` por stack
   destruido) y `levelFromExperience()` **existe y no la llama nadie**: el héroe
   se queda en nivel 1 para siempre.
-- `hero.skills` solo se escribe al crear la partida. El héroe inicial nace con
-  `logistics: 1`; el contratado con `{}` y muere con `{}`.
+- ~~`hero.skills` solo se escribe al crear la partida. El héroe inicial nace con
+  `logistics: 1`; el contratado con `{}` y muere con `{}`.~~
 - `maxSpellLevel()` lee `wisdom` y `learnable()` lo aplica — **está escrito,
   probado e inerte**, porque sin gremio de nivel 3 no hay hechizo que recortar.
 
@@ -35,6 +35,40 @@ Subir de nivel sin habilidades que ganar es un número que sube. Habilidades sin
 gremio alto dejan `wisdom` inerte otra vez. El gremio 3-5 sin héroes que suban
 pone hechizos a la venta que nadie puede aprender. **Los tres a la vez o
 ninguno.**
+
+## Lo que el crítico refutó, y por qué esto no se hace tal como está escrito
+
+Las tres premisas de arriba se comprobaron contra el código, no contra este
+documento. **Una es falsa, otra tiene la causa invertida, y la que sí es cierta
+esconde el problema de verdad.** El detalle está en `critica.md`; lo que cambia
+el alcance, aquí:
+
+1. **La experiencia se acumula, sí, pero no llega a ninguna parte.** Medido sobre
+   40 semillas: **65 héroes, 0 alcanzan el nivel 2** (exp pico mediana 68, y el
+   nivel 2 cuesta 1000). `experienceFor` (`game.ts:1137`) **ignora `s.count`** —cien
+   campesinos y uno valen lo mismo— y solo la cobra el atacante que gana, así que
+   **quien defiende y repele no gana nada**, justo lo que hace el agente. Curva y
+   surtidor están descuadrados por un factor ~15: **alargar la partida no
+   desbloquea #6**. Es el issue #87 y es su prerrequisito.
+2. **La segunda premisa era mía y era falsa.** `setup.ts:81` es
+   `skills: { logistics: 1, wisdom: 1 }`: el héroe inicial **ya tiene** la
+   Sabiduría que este racimo iba a buscar dando un rodeo por #15.
+3. **A #3 no le faltan hechizos, le falta el edificio.** `lightning_bolt` y `cure`
+   ya son de **nivel 3**, completos de punta a punta y valorados por la IA. Lo que
+   no existe es `mage_guild_3` en `data/buildings.json`. El criterio 16 de este
+   documento —«hacen falta más hechizos, ese es el trabajo de verdad»— contradice
+   al cuerpo del propio #3, y estaba equivocado.
+
+Y un hallazgo que no buscaba nadie: **`mage_guild_1` se construye en 1 partida de
+40**, así que el ciclo entero de «la magia, de punta a punta» **no lo ejerce
+nadie** —en 40 partidas `syncSpellbooks` no enseña un solo hechizo—. Es el issue
+#88.
+
+**Veredicto: #6 PREMATURA · #15 REENCUADRADA · #3 REENCUADRADA.** El racimo de
+tres no se hace. Lo que sí vale hoy es el recorte que cierra la cadena por el
+otro extremo: **`mage_guild_3`**, una entrada de JSON que hace que `wisdom`
+**muerda sin que nadie suba de nivel** (tope 3 para el héroe inicial, 2 para el
+contratado), y que resucita dos hechizos ya implementados.
 
 ## Criterios de aceptación
 
@@ -99,8 +133,10 @@ ninguno.**
 
 ## Fuera de alcance
 
-- **Artefactos** (#11), **ficha de héroe** (#12), **niveles de héroe en el
-  mapa** más allá de lo que exigen los criterios.
+- **Artefactos** (#11) y **niveles de héroe en el mapa** más allá de lo que
+  exigen los criterios. La **ficha de héroe** (#12) estaba aquí y no podía estar:
+  los criterios 2 y 11 piden justo lo que #12 pide, palabra por palabra. Se
+  retira de la lista en vez de dejar la contradicción escrita.
 - **Las 66 criaturas y los 66 hechizos** (#26). Aquí entran los hechizos que
   hagan falta para llenar los niveles 3, 4 y 5 con algo digno, no el catálogo
   entero.
