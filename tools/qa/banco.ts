@@ -112,11 +112,21 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   7 → **6** días, p90 8 → 7, máximo 22 → 20; 200/200 con ganador y 0 sin
  *   terminar; `dwelling_5` 0 → **52/200** y `dwelling_6` 0 → **10/200**. Las
  *   1 962 líneas de menos son partidas más cortas, no crónica perdida.
+ * - `1e32b19e…` (26 647 líneas): #87 y la parte mínima de #6 — la experiencia
+ *   cuenta las criaturas muertas y la cobra también quien defiende, y el héroe
+ *   sube de nivel con la tabla de fheroes2. Es una **inserción pura**, y no por
+ *   suerte: **nadie lee `hero.level` ni `hero.experience`** para decidir nada,
+ *   así que un número nuevo no puede mover una partida. Medido contra
+ *   `cf7b8d3b…`: **203 líneas `level_up` nuevas** (197 de nivel 2 y 6 de nivel
+ *   3) y **todas las demás idénticas byte a byte** una vez quitadas esas y
+ *   renumerado el índice; **cero** líneas `fin` con ganador o día distinto, y
+ *   `hechos=` como lo único que crece, exactamente en las subidas de cada
+ *   semilla. Un `hero_moved` distinto habría querido decir que algo se rompió.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: 'cf7b8d3b5129aa99b0fec66c956a508d26c1055396f2b6aa8721c94589b233f6',
+  sha: '1e32b19e63617b5fab9da116da1fb1f35ab1251f8c8fc0e05c9bad73d2597464',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

@@ -549,6 +549,13 @@ export function renderLog(log: readonly GameEvent[], viewer: number): string {
           return `<div${clase(!mio, mio)}>${
             mio ? 'Un héroe tuyo ha caído' : `Ha caído un héroe ${deJugador(e.actor)}`
           }</div>`;
+        case 'level_up':
+          // La única consecuencia visible de subir de nivel hoy, y por eso
+          // sale: el nivel todavía no reparte atributos ni habilidades (#6,
+          // #15), así que si no se contara aquí no se notaría en ningún sitio.
+          return `<div${clase(mio, false)}>Un héroe ${deJugador(e.actor)} sube a nivel ${
+            e.level
+          }</div>`;
         case 'game_over':
           // El ganador es `actor`, y ya no hay un `winner` al lado diciendo lo
           // mismo: `visibleTo` enrutaba por uno y esta línea pintaba por el

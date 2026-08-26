@@ -93,6 +93,7 @@ export function createBattle(attacker: BattleSide, defender: BattleSide, _rng: R
         side,
         slot,
         creature: stack.creature,
+        initialCount: stack.count,
         count: stack.count,
         topHp: info.hp,
         hex: { col, row },

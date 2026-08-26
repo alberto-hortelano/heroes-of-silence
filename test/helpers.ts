@@ -30,6 +30,28 @@ export function monstruoVivo(state: GameState): Monstruo {
 }
 
 /**
+ * Cambia el primer monstruo en pie por el que pide el test, en su misma casilla.
+ *
+ * Los objetos del mapa son de solo lectura, así que se sustituye entero en su
+ * sitio del array —igual que ya hacía a mano el test del héroe que pierde—: lo
+ * que importa es que `monstruoVivo` siga devolviendo este, porque es a él a
+ * quien va a entrar `forzarBatalla`.
+ */
+export function ponerMonstruo(state: GameState, creature: string, count: number): Monstruo {
+  const anterior = monstruoVivo(state);
+  const nuevo: Monstruo = {
+    kind: 'monster',
+    id: anterior.id,
+    at: anterior.at,
+    creature,
+    count,
+    defeated: false,
+  };
+  state.map.objects.splice(state.map.objects.indexOf(anterior), 1, nuevo);
+  return nuevo;
+}
+
+/**
  * Coloca al héroe junto al primer monstruo en pie y lo hace entrar: deja la
  * batalla montada en `state.pendingBattle` y devuelve contra quién.
  *

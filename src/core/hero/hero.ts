@@ -141,10 +141,53 @@ export function hasFreeSlot(army: Army): boolean {
 
 // ---------------------------------------------------------------- progreso
 
-/** Experiencia necesaria para alcanzar cierto nivel (curva suave). */
+/**
+ * La tabla de experiencia, fila a fila.
+ *
+ * **Fuente**: `Heroes::GetExperienceFromLevel`, `heroes.cpp:1512-1600` de
+ * ihhub/fheroes2 — 39 filas escritas a mano, de la 0 a la 38. El índice de este
+ * array ES el argumento de allí, así que `UMBRALES[n]` es
+ * `GetExperienceFromLevel(n)` sin ninguna conversión que se pueda equivocar; la
+ * conversión —que el umbral del nivel `n` es `GetExperienceFromLevel(n-1)`— la
+ * hace `experienceForLevel` y se ve en una línea.
+ *
+ * Sustituye a `Math.round(1000 * 1.4 ** (n-2))`, y por dos motivos. El primero
+ * es el de siempre en este repositorio: era una cifra inventada donde el
+ * original publica una tabla, y daba 1400 y 2744 donde la tabla dice 2000 y
+ * 4500. El segundo pesa más y es de máquina: `**` es `Math.pow`, coma flotante
+ * cuya precisión NO fija la norma, y `CLAUDE.md` promete que el núcleo no
+ * ejecuta ninguna — `pnpm banco` se apoya en esa promesa para valer fuera de
+ * esta máquina. Mientras la función fue código muerto la promesa se sostuvo por
+ * accidente; en cuanto la llama una batalla, se rompe. Ahora lo vigila un
+ * invariante (`test/invariantes.test.ts`).
+ */
+const UMBRALES_DE_NIVEL: readonly number[] = [
+  0, 1000, 2000, 3200, 4500, 6000, 7500, 9000, 11000, 13000, 15000, 17000, 19000, 21000, 23000,
+  25000, 27000, 29000, 31000, 33000, 35000, 37000, 40000, 43000, 46000, 49000, 52000, 55000, 58000,
+  61000, 64000, 67000, 70000, 73000, 76000, 79000, 82000, 85000, 88000,
+];
+
+/**
+ * Lo que crece cada nivel una vez agotada la tabla: la última diferencia.
+ *
+ * El original extrapola con una fórmula sobre las dos últimas filas; aquí se
+ * continúa la progresión con su último paso, que es lo mismo mientras esas dos
+ * diferencias sean iguales —lo son, 3000— y es aritmética entera. No se copia
+ * la fórmula porque no se ha podido comprobar fila a fila, y una fórmula que no
+ * se comprueba es otra cifra inventada. Un héroe de este juego no pasa del
+ * nivel 3: esto existe para que `levelFromExperience` termine siempre, no para
+ * que alguien lo alcance.
+ */
+const PASO_TRAS_LA_TABLA = 3000;
+
+/** Experiencia con la que se alcanza cierto nivel. */
 export function experienceForLevel(level: number): number {
   if (level <= 1) return 0;
-  return Math.round(1000 * 1.4 ** (level - 2));
+  const fila = level - 1;
+  const ultima = UMBRALES_DE_NIVEL.length - 1;
+  // El `!` y no un `as`: los dos índices están acotados en la línea de arriba.
+  if (fila <= ultima) return UMBRALES_DE_NIVEL[fila]!;
+  return UMBRALES_DE_NIVEL[ultima]! + (fila - ultima) * PASO_TRAS_LA_TABLA;
 }
 
 export function levelFromExperience(exp: number): number {

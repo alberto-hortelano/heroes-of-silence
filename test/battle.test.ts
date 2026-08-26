@@ -80,6 +80,7 @@ function stackOf(id: string, count: number): BattleStack {
     side: 'attacker',
     slot: 0,
     creature: id,
+    initialCount: count,
     count,
     topHp: creature(id).hp,
     hex: { col: 0, row: 0 },

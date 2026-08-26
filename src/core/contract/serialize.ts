@@ -174,6 +174,12 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId): un
       id: h.id,
       name: h.name,
       at: h.at,
+      // El nivel viaja y la experiencia no: el nivel es lo que ya significa
+      // algo —sale en la crónica y el agente lo ve subir—, mientras que los
+      // puntos sueltos serían un número sin escala hasta que exista la tabla
+      // del lado del agente. Va con su línea en `RESPONSE_FORMAT`: un dato
+      // nuevo que el contrato no nombra es un dato que el agente no mira.
+      level: h.level,
       movePoints: h.movePoints,
       maxMovePoints: maxMovePoints(h),
       attack: h.attack,

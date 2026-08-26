@@ -19,6 +19,16 @@ export interface BattleStack {
   /** Slot de origen en el ejército (0..4), para desempatar la iniciativa. */
   readonly slot: number;
   readonly creature: string;
+  /**
+   * Efectivos con los que ENTRÓ al tablero.
+   *
+   * Se escribe una vez y no se toca: es el minuendo de las bajas, que es lo
+   * único que las cuenta. `count` solo baja —ningún hechizo resucita: `heal`
+   * repone `topHp` y nada más (`spells.ts`)—, así que `initialCount - count`
+   * son los muertos exactos. El día que exista resurrección, esa resta pasa a
+   * ser un máximo y hará falta el `std::min` que el original ya escribe.
+   */
+  readonly initialCount: number;
   /** Efectivos vivos. 0 = destruido. */
   count: number;
   /** HP restante del efectivo de arriba; el resto están intactos. */

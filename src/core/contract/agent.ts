@@ -162,6 +162,9 @@ Notas:
 - "to" puede estar a varios días de marcha: el héroe avanza lo que le dé el día.
 - Mover a la casilla de un monstruo, de un héroe enemigo o de un castillo
   defendido inicia una batalla, y esa batalla la juegas tú con "battle_turn".
+- "heroes[].level" sube cuando el héroe acumula experiencia ganando batallas, y
+  se cobra también defendiendo. Hoy es una medida de veteranía y no reparte
+  atributos todavía; sirve para saber qué héroe tuyo lleva el peso de la guerra.
 - "towns[].teaches" son los hechizos que enseña el gremio de ese pueblo: un
   héroe tuyo parado allí los aprende solo, hasta donde le deje su Sabiduría, y
   aparecen en "heroes[].spells". NO hay acción para aprender: basta con llevarlo.

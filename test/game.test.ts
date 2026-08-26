@@ -11,7 +11,14 @@ import {
 import { playAiGame, playAiTurn } from '../src/core/ai/turn.js';
 import { allSpells } from '../src/core/battle/spells.js';
 import { factionLineup } from '../src/core/data.js';
-import { learnable, maxMana, maxMovePoints, slowestSpeed } from '../src/core/hero/hero.js';
+import {
+  experienceForLevel,
+  learnable,
+  levelFromExperience,
+  maxMana,
+  maxMovePoints,
+  slowestSpeed,
+} from '../src/core/hero/hero.js';
 import { buildMap, generateMapPlan, validateMapPlan } from '../src/core/map/generate.js';
 import {
   createEmptyMap,
@@ -29,6 +36,7 @@ import {
   currentPlayer,
   dayOfWeek,
   type GameContext,
+  type GameState,
   HERO_HIRE_COST,
   heroById,
   heroesOf,
@@ -49,7 +57,7 @@ import {
   townSpells,
 } from '../src/core/town/town.js';
 import { type Point, RESOURCE_KINDS, type Resources } from '../src/core/types.js';
-import { forzarBatalla, monstruoVivo } from './helpers.js';
+import { forzarBatalla, monstruoVivo, ponerMonstruo } from './helpers.js';
 
 const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 
@@ -535,6 +543,130 @@ describe('batallas del mapa', () => {
     expect(() => applyAdventureAction(state, { type: 'end_turn' }, c, state.current)).toThrow(
       /batalla pendiente/,
     );
+  });
+});
+
+describe('experiencia y niveles', () => {
+  /**
+   * Una casilla pegada al héroe, andable y sin nada encima: el sitio donde
+   * plantar al defensor para que el atacante entre de un solo paso.
+   *
+   * Se pregunta al mapa en vez de escribir un desplazamiento a mano porque la
+   * casilla de al lado puede ser agua o llevar un cofre encima, y entonces el
+   * test mediría otra cosa —o reventaría— según la semilla.
+   */
+  const casillaVecinaLibre = (state: GameState, desde: Point): Point => {
+    for (const d of [
+      { x: 1, y: 0 },
+      { x: -1, y: 0 },
+      { x: 0, y: 1 },
+      { x: 0, y: -1 },
+    ]) {
+      const at = { x: desde.x + d.x, y: desde.y + d.y };
+      const camino = findPath(state.map, desde, at);
+      if (camino !== null && camino.length === 1 && objectAt(state.map, at) === undefined) {
+        return at;
+      }
+    }
+    throw new Error('el héroe no tiene ninguna casilla vecina libre');
+  };
+
+  it('la experiencia cuenta las criaturas muertas, no los stacks', () => {
+    // La fórmula es `PV de la criatura × muertas`
+    // (`Battle::Force::calculateExperienceBasedOnLosses`, `battle_army.cpp`), y
+    // el campesino tiene 1 punto de vida: la cifra ES el número de campesinos.
+    // Con lo que había —`hp × level × 2` por STACK, sin mirar `count`— las dos
+    // batallas de abajo daban 2 y 2.
+    const experienciaContra = (cuantos: number): number => {
+      const state = newGame({ seed: 31 });
+      const c = ctx(31);
+      const hero = heroesOf(state, 0)[0]!;
+      hero.army = [{ creature: 'crusader', count: 100 }, null, null, null, null];
+      ponerMonstruo(state, 'peasant', cuantos);
+      forzarBatalla(state, c, hero);
+      expect(resolvePendingBattle(state, c).winner).toBe('attacker');
+      return heroById(state, hero.id).experience;
+    };
+
+    expect(experienciaContra(100)).toBe(100);
+    expect(experienciaContra(1)).toBe(1);
+  });
+
+  it('quien defiende y repele cobra las bajas del atacante más los 500', () => {
+    // La otra mitad de #87, y la que más pesa desde que el agente defiende: la
+    // llamada vivía dentro del `if (heroeAtacanteVivo)`, así que un héroe que
+    // se pasaba la partida repeliendo asaltos no ganaba un punto.
+    const state = newGame({ seed: 41 });
+    const c = ctx(41);
+    const atacante = heroesOf(state, 0)[0]!;
+    const defensor = heroesOf(state, 1)[0]!;
+
+    atacante.army = [{ creature: 'peasant', count: 10 }, null, null, null, null];
+    atacante.movePoints = 5000;
+    defensor.army = [{ creature: 'crusader', count: 60 }, null, null, null, null];
+    defensor.experience = 0;
+    defensor.at = casillaVecinaLibre(state, atacante.at);
+
+    applyAdventureAction(state, { type: 'move_hero', hero: atacante.id, to: defensor.at }, c, 0);
+    expect(state.pendingBattle!.foe).toEqual({ kind: 'hero', heroId: defensor.id });
+    expect(resolvePendingBattle(state, c).winner).toBe('defender');
+
+    // 10 campesinos de 1 PV, más los 500 de derrotar al héroe que los mandaba
+    // (`battle_arena.cpp`). Misma fórmula que cobraría atacando: la simetría
+    // también es del original.
+    expect(heroById(state, defensor.id).experience).toBe(10 * 1 + 500);
+    expect(state.heroes.some((h) => h.id === atacante.id)).toBe(false);
+  });
+
+  it('se suben dos niveles de golpe y se cuentan los dos, cada uno con su hecho', () => {
+    const state = newGame({ seed: 31 });
+    const c = ctx(31);
+    const hero = heroesOf(state, 0)[0]!;
+    hero.army = [{ creature: 'crusader', count: 300 }, null, null, null, null];
+    // 140 piqueros de 15 PV = 2100 de experiencia de una sentada: pasa de
+    // largo el umbral del nivel 2 (1000) y el del 3 (2000), y se queda corto
+    // del 4 (3200).
+    const monstruo = ponerMonstruo(state, 'pikeman', 140);
+    forzarBatalla(state, c, hero);
+    expect(resolvePendingBattle(state, c).winner).toBe('attacker');
+
+    const vivo = heroById(state, hero.id);
+    expect(vivo.experience).toBe(2100);
+    expect(vivo.level).toBe(3);
+
+    const subidas = state.log.filter((e) => e.kind === 'level_up');
+    expect(subidas.map((e) => e.level)).toEqual([2, 3]);
+    // Con protagonista y sitio, como cualquier otro hecho: sin ellos el evento
+    // nace anónimo y `visibleTo` no sabría a quién le consta.
+    expect(subidas.map((e) => e.actor)).toEqual([0, 0]);
+    expect(subidas.map((e) => e.at)).toEqual([monstruo.at, monstruo.at]);
+    // Y sellado por `emit`: el dueño estaba mirando su propia batalla.
+    expect(subidas.every((e) => e.seen.includes(0))).toBe(true);
+  });
+
+  it('la curva de niveles es la tabla de fheroes2 y no una potencia', () => {
+    // `Heroes::GetExperienceFromLevel` (`heroes.cpp`), desplazada un peldaño:
+    // el umbral del nivel `n` es `GetExperienceFromLevel(n-1)`. La curva de
+    // antes era `Math.round(1000 * 1.4 ** (n-2))` y daba 1400 y 2744 donde la
+    // tabla dice 2000 y 4500 — además de meter un `Math.pow` en el núcleo.
+    expect(experienceForLevel(1)).toBe(0);
+    expect(experienceForLevel(2)).toBe(1000);
+    expect(experienceForLevel(3)).toBe(2000);
+    expect(experienceForLevel(4)).toBe(3200);
+    expect(experienceForLevel(5)).toBe(4500);
+
+    expect(levelFromExperience(0)).toBe(1);
+    expect(levelFromExperience(999)).toBe(1);
+    expect(levelFromExperience(1000)).toBe(2);
+    expect(levelFromExperience(4499)).toBe(4);
+    expect(levelFromExperience(4500)).toBe(5);
+
+    // Pasada la fila 38 la tabla se acaba y la progresión sigue con su último
+    // paso. No es contenido: es lo que hace que el `while` de
+    // `levelFromExperience` termine siempre en vez de dar vueltas.
+    expect(experienceForLevel(39)).toBe(88000);
+    expect(experienceForLevel(40)).toBe(91000);
+    expect(levelFromExperience(1_000_000)).toBeGreaterThan(39);
   });
 });
 

@@ -65,7 +65,7 @@ type Sello = {
   readonly seen: readonly PlayerId[];
 };
 
-/** Los dieciséis hechos, sin protagonista todavía. */
+/** Los diecisiete hechos, sin protagonista todavía. */
 type Cuerpo =
   | { kind: 'day_start'; day: number; week: number }
   | { kind: 'turn_start' }
@@ -81,6 +81,7 @@ type Cuerpo =
   | { kind: 'battle_started'; attacker: string; foe: BattleFoe }
   | { kind: 'battle_ended'; winner: 'attacker' | 'defender'; foe: BattleFoe }
   | { kind: 'hero_defeated'; hero: string }
+  | { kind: 'level_up'; hero: string; level: number }
   | { kind: 'player_defeated' }
   | { kind: 'game_over' };
 
@@ -159,6 +160,7 @@ export function visibleTo(e: GameEvent, p: PlayerId): boolean {
     case 'battle_started':
     case 'battle_ended':
     case 'hero_defeated':
+    case 'level_up':
       return e.actor === p || e.seen.includes(p);
   }
 }

@@ -2,15 +2,17 @@
  * Las fronteras de `CLAUDE.md`, comprobadas.
  *
  * Un contrato que solo vive en la documentación se rompe sin que nadie se
- * entere; aquí se rompe en rojo. Son once guardias: siete leen el código con
+ * entere; aquí se rompe en rojo. Son doce guardias: siete leen el código con
  * una expresión regular, uno recorre el catálogo de rasgos, el de efectos
- * temporales llama de verdad a los lectores del motor, el décimo recorre todo
- * el repo —menos la prosa y los binarios— buscando la ruta de esta máquina y el
- * undécimo juega una partida y le da a la crónica un viaje de ida y vuelta por
- * `JSON`. Cuestan milisegundos —el undécimo, 310— así que caben en cada
- * `pnpm test` sin frenar a nadie.
+ * temporales llama de verdad a los lectores del motor, otro recorre todo el
+ * repo —menos la prosa y los binarios— buscando la ruta de esta máquina, otro
+ * juega una partida y le da a la crónica un viaje de ida y vuelta por `JSON` y
+ * el último vigila que el núcleo no ejecute coma flotante que dependa de la
+ * plataforma, que es en lo que se apoya el sha256 de `pnpm banco` para valer
+ * fuera de esta máquina. Cuestan milisegundos —el de la crónica, 310— así que
+ * caben en cada `pnpm test` sin frenar a nadie.
  *
- * Los once nacen en verde. Un guardia que nace rojo se ignora desde el primer
+ * Los doce nacen en verde. Un guardia que nace rojo se ignora desde el primer
  * día — y uno que nace verde sin comprobar que MUERDE no guarda nada: el de la
  * frontera con el servidor se probó metiendo un `import` del director en
  * `src/core/ai/turn.ts`, viéndolo rojo y quitándolo. Se volvió a probar con la
@@ -29,6 +31,17 @@
  * lado —castear el ESTADO en vez del log— con `tsc`, Biome y los 235 tests en
  * verde. Ahora mira cuatro y las cuatro se han roto a mano, una a una, y se
  * han visto rojas con su nombre delante.
+ *
+ * Y el de la coma flotante, el último en llegar, se rompió con CINCO sondas en
+ * `src/core/hero/hero.ts`: un `Math.pow`, un `1.4 ** n`, un `Math.hypot`, un
+ * `Math.sqrt` y —la que de verdad importaba— un `2 ** n` en la línea siguiente
+ * a una cadena que lleva dentro las dos marcas de comentario, que es como se
+ * comprueba que el quitacomentarios no se come código de verdad en silencio.
+ * Las cinco salieron con su fichero y su línea, y el `Math.pow` que el
+ * docstring de al lado cita por su nombre NO salió. Y esta frase no puede
+ * escribir la marca de cierre de un comentario de bloque: al escribirla la
+ * primera vez cerró este docstring de verdad y tumbó el `tsc` con seis errores
+ * a partir de aquí abajo.
  */
 import { execFileSync } from 'node:child_process';
 import { closeSync, openSync, readdirSync, readFileSync, readSync, statSync } from 'node:fs';
@@ -198,6 +211,113 @@ function infractores(rutas: string[], patron: RegExp): string[] {
 }
 
 /**
+ * El mismo fichero con los COMENTARIOS en blanco y las líneas donde estaban.
+ *
+ * Hace falta para un solo guardia —el de la coma flotante— y sin él ese guardia
+ * **nace rojo**, que es lo que este fichero tiene prohibido. En este repositorio
+ * el comentario es el documento de diseño y usa negrita de Markdown, así que
+ * `**` sale cinco veces en `generate.ts` y `serialize.ts` sin ser una potencia;
+ * y `hero.ts` explica en su docstring que la curva vieja usaba `Math.pow`, que
+ * es justo la palabra que se persigue. Un guardia que caza su propia
+ * explicación se ignora desde el primer día.
+ *
+ * Las cadenas NO se ponen en blanco, y es deliberado: solo se siguen para no
+ * confundir un `//` de dentro de una con el principio de un comentario —eso sí
+ * taparía código de verdad, en silencio—. Un `**` escrito dentro de una cadena
+ * da falso positivo, que es el lado bueno por el que fallar y se quita con una
+ * línea. Hoy no hay ninguno.
+ *
+ * Se conservan los saltos de línea uno a uno para que el número de línea del
+ * mensaje siga señalando el sitio real del fichero.
+ */
+function sinComentarios(texto: string): string {
+  let estado: 'codigo' | 'linea' | 'bloque' | 'cadena' = 'codigo';
+  let comilla = '';
+  let out = '';
+
+  for (let i = 0; i < texto.length; i++) {
+    const c = texto[i] as string;
+    const siguiente = texto[i + 1] ?? '';
+
+    if (estado === 'linea') {
+      if (c === '\n') estado = 'codigo';
+      out += c === '\n' ? c : ' ';
+      continue;
+    }
+    if (estado === 'bloque') {
+      if (c === '*' && siguiente === '/') {
+        estado = 'codigo';
+        out += '  ';
+        i++;
+        continue;
+      }
+      out += c === '\n' ? c : ' ';
+      continue;
+    }
+    if (estado === 'cadena') {
+      // La barra invertida se come el carácter de detrás: sin esto, un
+      // `'\''` cerraría la cadena donde no toca y el resto de la línea se
+      // leería como código.
+      if (c === '\\') {
+        out += texto.slice(i, i + 2);
+        i++;
+        continue;
+      }
+      if (c === comilla) estado = 'codigo';
+      out += c;
+      continue;
+    }
+
+    if (c === '/' && siguiente === '/') {
+      estado = 'linea';
+      out += '  ';
+      i++;
+      continue;
+    }
+    if (c === '/' && siguiente === '*') {
+      estado = 'bloque';
+      out += '  ';
+      i++;
+      continue;
+    }
+    if (c === "'" || c === '"' || c === '`') {
+      estado = 'cadena';
+      comilla = c;
+    }
+    out += c;
+  }
+  return out;
+}
+
+/** Como `infractores`, pero mirando solo el CÓDIGO: los comentarios no cuentan. */
+function infractoresDeCodigo(rutas: string[], patron: RegExp): string[] {
+  const out: string[] = [];
+  for (const ruta of rutas) {
+    for (const [i, linea] of sinComentarios(leer(ruta)).split('\n').entries()) {
+      if (patron.test(linea)) out.push(`${ruta}:${i + 1} → ${linea.trim()}`);
+    }
+  }
+  return out;
+}
+
+/**
+ * Lo que el núcleo PUEDE llamar de `Math`, copiado de `CLAUDE.md`.
+ *
+ * La lista es BLANCA, al revés que la del guardia de las rutas absolutas, y el
+ * motivo es que aquí lo cerrado es lo permitido: `CLAUDE.md` publica esas siete
+ * y promete que no hay más. Una lista NEGRA —`pow`, `sin`, `cos`…— es la que
+ * fallaría en silencio, porque la escribe quien se acuerda de las que conoce:
+ * `fround`, `sinh`, `log1p`, `expm1` o la que traiga la próxima norma se
+ * colarían sin que nadie se enterara, y son exactamente las que la norma NO
+ * obliga a calcular igual en dos máquinas.
+ *
+ * En blanco falla al revés y se ve: una función nueva, determinista y entera
+ * —`trunc`, `sign`— da rojo hasta que alguien la escriba aquí, que es una línea
+ * y una decisión tomada a la vista en vez de por omisión.
+ */
+const MATH_PERMITIDO = ['min', 'max', 'floor', 'ceil', 'abs', 'round', 'imul'] as const;
+
+/**
  * Cada tipo de efecto temporal con el lector del motor que suma su total.
  *
  * La tabla no es documentación: el test la recorre LLAMANDO a cada lector, así
@@ -218,6 +338,7 @@ function stackDePrueba(): BattleStack {
     side: 'attacker',
     slot: 0,
     creature: 'pikeman',
+    initialCount: 10,
     count: 10,
     topHp: 1,
     hex: { col: 0, row: 0 },
@@ -265,6 +386,52 @@ describe('invariantes del proyecto', () => {
     // Sin semilla no hay partida reproducible y un test de batalla sería una
     // lotería que un día falla sin que nadie sepa por qué.
     expect(infractores([...CORE, ...CLIENTE, ...SERVIDOR], /Math\.random\s*\(/)).toEqual([]);
+  });
+
+  it('`core` no ejecuta coma flotante que dependa de la plataforma', () => {
+    // `CLAUDE.md` promete que `pnpm banco` vale FUERA de esta máquina, y toda
+    // la promesa se apoya en esta frase suya: «el núcleo no ejecuta ni una
+    // operación de coma flotante que dependa de la plataforma — solo
+    // min/max/floor/ceil/abs/round/imul, nada de Math.pow, ni **, ni
+    // trigonometría». La norma fija el resultado de `+`, `-`, `*` y `/` al bit,
+    // pero NO el de `pow`, `sqrt` compuesto, `sin`, `exp` ni sus parientes: dos
+    // motores pueden devolver el último bit distinto y ahí el sha256 de 200
+    // partidas deja de significar nada, sin que nada se ponga rojo.
+    //
+    // La promesa se sostenía por ACCIDENTE. `experienceForLevel` era
+    // `Math.round(1000 * 1.4 ** (n-2))` desde el primer día y nadie la
+    // llamaba: era código muerto, así que ninguna partida ejecutaba el
+    // `Math.pow` que hay debajo del `**`. El ciclo que abre el surtidor de
+    // experiencia la pone en el camino de cada batalla, y ahí la promesa se
+    // habría roto en silencio.
+    //
+    // Dos mitades, y la primera es la que decide la forma:
+    //  1. `Math.<algo>` contra la lista BLANCA de arriba — el porqué está en su
+    //     docstring: lo cerrado y publicado es lo permitido, no lo prohibido;
+    //  2. el operador `**`, que es `Math.pow` escrito de otra manera y no lo
+    //     caza la primera.
+    //
+    // Mira el CÓDIGO y no el fichero: los comentarios de este repositorio
+    // llevan negrita de Markdown y explican con sus nombres las funciones que
+    // se prohíben, así que sin `sinComentarios` este guardia nacería rojo con
+    // seis presas y todas falsas.
+    //
+    // Se rompió a mano, se miró rojo y se arregló, que es la regla de la casa:
+    // un `Math.pow`, un `1.4 ** 3`, un `Math.hypot` y un `Math.sqrt` metidos en
+    // `src/core/hero/hero.ts` salieron los cuatro con su fichero y su línea, y
+    // el `Math.pow` del docstring de al lado NO salió.
+    const permitidos = MATH_PERMITIDO.join('|');
+    const puertas: readonly (readonly [string, RegExp])[] = [
+      [
+        'una función de `Math` que no está en la lista',
+        new RegExp(`Math\\.(?!(?:${permitidos})\\b)[A-Za-z_$][\\w$]*`),
+      ],
+      ['el operador `**`, que es `Math.pow` con otra cara', /\*\*/],
+    ];
+    const colados = puertas.flatMap(([puerta, patron]) =>
+      infractoresDeCodigo(CORE, patron).map((donde) => `[${puerta}] ${donde}`),
+    );
+    expect(colados).toEqual([]);
   });
 
   it('el cliente no aplica reglas: la única puerta al núcleo es session.ts', () => {

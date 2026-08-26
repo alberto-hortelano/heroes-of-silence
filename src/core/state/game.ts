@@ -14,6 +14,7 @@ import {
   type Hero,
   isArmyEmpty,
   learnable,
+  levelFromExperience,
   luckBonus,
   maxMana,
   maxMovePoints,
@@ -1118,7 +1119,7 @@ export function settleBattle(state: GameState, _ctx: GameContext): void {
   state.pendingBattle = null;
 
   if (heroeAtacanteVivo) {
-    hero.experience += experienceFor(pending, state);
+    ganarExperiencia(state, hero, experienceFor(pending, 'attacker'), at);
     applyVictory(state, hero, pending.foe, at);
   } else {
     // El atacante derrotado desaparece del mapa con su ejército. Su dueño se
@@ -1128,21 +1129,85 @@ export function settleBattle(state: GameState, _ctx: GameContext): void {
     const dueño = hero.owner;
     state.heroes = state.heroes.filter((h) => h.id !== hero.id);
     emit(state, { kind: 'hero_defeated', hero: hero.id, actor: dueño, at });
-    applyDefenderSurvivors(state, pending, superviviente('defender'));
+    applyDefenderSurvivors(state, pending, superviviente('defender'), at);
   }
 
   checkDefeat(state);
 }
 
-function experienceFor(pending: PendingBattle, _state: GameState): number {
-  // Experiencia proporcional a lo que se ha destruido.
-  let exp = 0;
-  for (const s of pending.battle.stacks) {
-    if (s.side !== 'defender') continue;
-    const info = creature(s.creature);
-    exp += info.hp * info.level * 2;
+/**
+ * Los dos premios de 500 de `battle_arena.cpp:657-675`.
+ *
+ * Uno lo cobra el vencedor cuyo rival iba mandado por un héroe —el que acaba de
+ * derrotar— y el otro, solo el atacante, por tomar un castillo (`_isTown`).
+ *
+ * **No son adorno, y esto está medido**: sin ellos ningún héroe llega al nivel
+ * 2 en una partida de seis días; con ellos llegan la mayoría. La experiencia de
+ * las bajas sola no da para la primera fila de la tabla.
+ */
+const EXP_POR_DERROTAR_A_UN_HEROE = 500;
+const EXP_POR_ASEDIO = 500;
+
+/** Los puntos de vida que ha perdido un bando: los PV de cada criatura por las muertas. */
+function bajasEnPuntosDeVida(battle: BattleState, lado: Side): number {
+  let pv = 0;
+  for (const s of battle.stacks) {
+    if (s.side !== lado) continue;
+    // `initialCount - count` y no un `min` con los muertos como en el original:
+    // allí el `min` está por la resurrección, y aquí `count` solo baja —`heal`
+    // repone `topHp` y nada más—. El día que algo resucite, vuelve el `min`.
+    pv += creature(s.creature).hp * (s.initialCount - s.count);
   }
+  return pv;
+}
+
+/**
+ * La experiencia que se lleva el bando que gana la batalla.
+ *
+ * **Fuente**: `Battle::Force::calculateExperienceBasedOnLosses()`
+ * (`battle/battle_army.cpp:292-299`) —
+ * `GetHitPoints() * min(GetInitialCount(), GetDead())` sumado sobre el bando
+ * que PIERDE: los puntos de vida de una criatura por las que se han muerto.
+ *
+ * Lo que había aquí era inventado y roto dos veces. Sumaba `hp × level × 2`
+ * —ni el nivel ni el ×2 existen en el original— y **no miraba `count`**, así
+ * que cien campesinos y uno valían los mismos 2 puntos. Y solo se llamaba
+ * dentro de la rama del atacante que gana, o sea que quien defendía y repelía
+ * no cobraba nunca — la mitad de las batallas desde que el agente defiende.
+ *
+ * La simetría también es del original (`battle_arena.cpp:657-675`): la misma
+ * fórmula para los dos bandos, cambiando de quién se cuentan las bajas.
+ */
+function experienceFor(pending: PendingBattle, ganador: Side): number {
+  const perdedor: Side = ganador === 'attacker' ? 'defender' : 'attacker';
+  let exp = bajasEnPuntosDeVida(pending.battle, perdedor);
+  if (pending.battle.heroes[perdedor] !== null) exp += EXP_POR_DERROTAR_A_UN_HEROE;
+  if (ganador === 'attacker' && pending.foe.kind === 'town') exp += EXP_POR_ASEDIO;
   return exp;
+}
+
+/**
+ * Le da la experiencia al héroe y le cobra los niveles que salgan, uno a uno.
+ *
+ * El bucle emite **un `level_up` por nivel ganado** y no uno por batalla, que
+ * es lo que hace `Heroes::IncreaseExperience`. Con 2100 puntos de golpe se
+ * suben dos niveles y se cuentan los dos: el criterio deja de ser una promesa y
+ * pasa a ser el bucle. Y es el sitio en el que el día que subir de nivel
+ * REPARTA algo —atributos, habilidades— se reparte, sin tener que volver a
+ * decidir dónde.
+ *
+ * `levelFromExperience` es la que ya existía y estaba probada, y hasta hoy no
+ * la llamaba nadie: el surtidor estaba cerrado y llamarla no habría movido un
+ * solo número.
+ */
+function ganarExperiencia(state: GameState, hero: Hero, exp: number, at: Point): void {
+  if (exp <= 0) return;
+  hero.experience += exp;
+  const nivel = levelFromExperience(hero.experience);
+  while (hero.level < nivel) {
+    hero.level += 1;
+    emit(state, { kind: 'level_up', hero: hero.id, level: hero.level, actor: hero.owner, at });
+  }
 }
 
 function applyVictory(state: GameState, hero: Hero, foe: BattleFoe, at: Point): void {
@@ -1173,7 +1238,12 @@ function applyVictory(state: GameState, hero: Hero, foe: BattleFoe, at: Point): 
   }
 }
 
-function applyDefenderSurvivors(state: GameState, pending: PendingBattle, army: Army): void {
+function applyDefenderSurvivors(
+  state: GameState,
+  pending: PendingBattle,
+  army: Army,
+  at: Point,
+): void {
   // Se copia a una constante local: dentro de los callbacks de `find` el
   // estrechamiento sobre `pending.foe` se pierde.
   const foe = pending.foe;
@@ -1195,6 +1265,11 @@ function applyDefenderSurvivors(state: GameState, pending: PendingBattle, army: 
       // hay nada que devolverle.
       const defensor = heroById(state, foe.heroId);
       restoreHeroFromBattle(defensor, pending.battle.heroes.defender, army);
+      // Y cobra. Es la mitad que faltaba de #87: el original paga al que gana,
+      // ataque o defensa (`heroes_action.cpp:583-590` y `658-665`), y aquí solo
+      // cobraba el atacante. Un héroe que se pasa la partida repeliendo asaltos
+      // no subía de nivel ni una vez.
+      ganarExperiencia(state, defensor, experienceFor(pending, 'defender'), at);
       break;
     }
     case 'town': {

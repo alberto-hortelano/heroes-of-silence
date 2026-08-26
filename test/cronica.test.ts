@@ -447,6 +447,18 @@ describe('la crónica de la pantalla deja de mentir', () => {
     );
   });
 
+  it('subir de nivel se cuenta, y se distingue el tuyo del suyo', () => {
+    // La única consecuencia visible de subir de nivel hoy: el nivel no reparte
+    // atributos todavía (#6, #15), así que sin esta línea la persona no se
+    // enteraría de que su héroe ha progresado.
+    const mio = linea({ kind: 'level_up', hero: 'h', level: 2, actor: 0 });
+    expect(mio).toContain('<div class="win">Un héroe tuyo sube a nivel 2</div>');
+
+    const suyo = linea({ kind: 'level_up', hero: 'h', level: 3, actor: 1 });
+    expect(suyo).toContain('<div>Un héroe del jugador 1 sube a nivel 3</div>');
+    expect(suyo).not.toContain('win');
+  });
+
   it('ninguna línea compone un genitivo agramatical', () => {
     // El navegador cazó «Castillo de tú capturado» y «un héroe de el jugador
     // 1»: componer «de» + el sujeto no vale en español, y por eso hay dos
@@ -458,6 +470,8 @@ describe('la crónica de la pantalla deja de mentir', () => {
         evento({ kind: 'hero_defeated', hero: 'h', actor: 1 }),
         evento({ kind: 'mine_captured', mine: 'm', actor: 1, from: 0 }),
         evento({ kind: 'mine_captured', mine: 'm', actor: 0, from: 1 }),
+        evento({ kind: 'level_up', hero: 'h', level: 2, actor: 1 }),
+        evento({ kind: 'level_up', hero: 'h', level: 2, actor: 0 }),
       ],
       0,
     );
