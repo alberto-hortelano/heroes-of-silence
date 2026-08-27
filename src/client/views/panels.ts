@@ -418,12 +418,17 @@ function clase(bueno: boolean, malo: boolean): Html {
  * aniquilada era la del rival — la misma misatribución que `renderLog` acaba de
  * quitarse un piso más arriba, en el mismo fichero.
  *
+ * Se exporta porque lo pinta también el espectador, que es quien de verdad
+ * ejercita el `mio === null`: mira desde fuera y no lleva ninguno de los dos
+ * bandos, así que no se le pinta ni victoria ni derrota. Esa rama existía desde
+ * que existe la función y hasta hoy no la llamaba nadie.
+ *
  * Y el `switch` ya no tiene `default`, por lo mismo que el de `renderLog`: se
  * tragaba en silencio los tres eventos que nadie escribió (`move`, `wait`,
  * `defend`) y se tragaría igual el que se añada mañana. Ahora los tres están
  * escritos con su frase vacía y quien decide es el `never` del final.
  */
-function renderBattleLog(battle: BattleState, mio: Side | null): Html {
+export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
   /**
    * De quién era el stack. Lanza si no aparece: un id del registro que no está
    * en el campo es un fallo nuestro, y disimularlo con «una unidad» sería

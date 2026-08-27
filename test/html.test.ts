@@ -174,9 +174,30 @@ describe('la puerta de escapar: los dos atributos interpretados que sí hacen fa
   });
 
   it('`srcDeImagen` rechaza lo que el navegador va a EJECUTAR', () => {
-    expect(() => srcDeImagen('javascript:alert(1)')).toThrow(/no se puede pintar una imagen/);
-    expect(() => srcDeImagen('  JavaScript:alert(1)')).toThrow(/no se puede pintar una imagen/);
-    expect(() => srcDeImagen('data:text/html,<script>')).toThrow(/no se puede pintar una imagen/);
+    expect(() => srcDeImagen('javascript:alert(1)')).toThrow(/no se puede cargar una imagen/);
+    expect(() => srcDeImagen('  JavaScript:alert(1)')).toThrow(/no se puede cargar una imagen/);
+    expect(() => srcDeImagen('data:text/html,<script>')).toThrow(/no se puede cargar una imagen/);
+  });
+
+  it('y no falla ABIERTO con un separador dentro del esquema', () => {
+    // El navegador QUITA tabuladores, saltos de línea y retornos al leer una
+    // URL, así que las tres de abajo son `javascript:` para él. La expresión que
+    // buscaba el esquema al principio no las veía y caían en la rama «sin
+    // esquema es una ruta relativa»: la función fallaba abierto justo en el caso
+    // que existe para cazar, y solo veía la escrita del tirón.
+    expect(() => srcDeImagen('java\tscript:alert(1)')).toThrow(/tabulador/);
+    expect(() => srcDeImagen('java\nscript:alert(1)')).toThrow(/salto de línea/);
+    expect(() => srcDeImagen('java\rscript:alert(1)')).toThrow(/NUL|salto|tabulador/);
+    expect(() => srcDeImagen('java\0script:alert(1)')).toThrow(/NUL|salto|tabulador/);
+  });
+
+  it('un SVG no es una imagen inerte, y por eso `data:image/svg+xml` tampoco pasa', () => {
+    // Es el único formato de imagen que lleva script dentro. Aquí no se genera
+    // ninguno, así que no hay nada que perder cerrándolo.
+    expect(() => srcDeImagen('data:image/svg+xml,<svg onload=alert(1)>')).toThrow(
+      /no se puede cargar una imagen/,
+    );
+    expect(marcadoDe(srcDeImagen('data:image/png;base64,AAAA'))).toContain('data:image/png');
   });
 
   it('y escapa igual la comilla, por si la ruta la trae', () => {
@@ -216,6 +237,21 @@ describe('la puerta de escapar: los comentarios', () => {
     // Al texto se le escapa el `>`; al marcado crudo no, así que un `-->` suyo
     // SÍ cerraría el comentario y lo de dentro pasaría a pintarse.
     expect(() => html`<!-- ${html`<i>x</i>`} -->`).toThrow(/comentario HTML/);
+  });
+
+  it('las TRES formas de cerrar un comentario cuentan, no solo `-->`', () => {
+    // La norma cierra un comentario con `-->` y con `--!>`, y `<!-->` / `<!--->`
+    // están cerrados de nacimiento. Reconocer solo la primera dejaba al autómata
+    // dentro del comentario para siempre, así que el hueco de después —dentro de
+    // un atributo de verdad— se escapaba como TEXTO: sin las comillas, la puerta
+    // llegaba a emitir un `onmouseover` VIVO. Latente hoy —no hay comentarios en
+    // ninguna plantilla— pero prometido en el docstring.
+    const roto = 'x" onmouseover="alert(1)';
+    const bien = '<div class="x&quot; onmouseover=&quot;alert(1)">hola</div>';
+    expect(pintado(html`<!-- n --><div class="${roto}">hola</div>`)).toBe(`<!-- n -->${bien}`);
+    expect(pintado(html`<!-- n --!><div class="${roto}">hola</div>`)).toBe(`<!-- n --!>${bien}`);
+    expect(pintado(html`<!--><div class="${roto}">hola</div>`)).toBe(`<!-->${bien}`);
+    expect(pintado(html`<!---><div class="${roto}">hola</div>`)).toBe(`<!--->${bien}`);
   });
 
   it('y lo que viene DESPUÉS de un comentario se clasifica bien', () => {

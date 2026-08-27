@@ -6,6 +6,7 @@
  * aquí devuelve `null` en vez de lanzar, y el manifiesto que falta no es un
  * error sino "todavía no se ha generado nada".
  */
+import { urlDeImagenSegura } from '../html.js';
 export interface AssetManifest {
   readonly generatedAt: string;
   readonly style: string;
@@ -23,15 +24,36 @@ let manifiesto: AssetManifest | null = null;
 let animaciones: AnimIndex | null = null;
 let cargado = false;
 
+/**
+ * Carga una imagen, con la URL comprobada por la MISMA regla que la puerta.
+ *
+ * `img.src = url` es el otro sumidero de `src` del repositorio: en una plantilla,
+ * `src` es un atributo interpretado que `html.ts` rechaza de plano y obliga a
+ * pasar por `srcDeImagen`; por aquí no lo miraba nadie. Hoy no hay fuga —la URL
+ * se arma con `base` y una ruta del `manifest.json` local— pero la asimetría es
+ * la que abre el agujero mañana, y la regla ya estaba escrita: se llama.
+ *
+ * Lo que NO hace es lanzar: este módulo promete que sin arte se juega igual, así
+ * que una URL que no pasa se salta **diciéndolo** y el juego sigue con su
+ * marcador de color. Un `console.warn` y no un silencio.
+ */
 function cargarImagen(clave: string, url: string): Promise<void> {
   return new Promise((resolve) => {
+    let comprobada: string;
+    try {
+      comprobada = urlDeImagenSegura(url);
+    } catch (err) {
+      console.warn(`[assets] no se carga ${clave}: ${err instanceof Error ? err.message : err}`);
+      resolve();
+      return;
+    }
     const img = new Image();
     img.onload = () => {
       imagenes.set(clave, img);
       resolve();
     };
     img.onerror = () => resolve();
-    img.src = url;
+    img.src = comprobada;
   });
 }
 

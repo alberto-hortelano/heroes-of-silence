@@ -86,6 +86,15 @@ function puertoReal(server: WebSocketServer): number {
 
 const spectators = new Set<WebSocket>();
 
+/**
+ * Que la partida ha terminado, la gane alguien o no la gane nadie.
+ *
+ * `state.finished` no basta: cuando se agotan los días se queda en `null` y la
+ * partida ha terminado igual. Al agente eso ya se le decía por `game_over`; al
+ * espectador no se le decía nada y se quedaba mirando el último día para siempre.
+ */
+let partidaTerminada = false;
+
 function broadcast(): void {
   if (spectators.size === 0) return;
   // Sin partida no hay nada que retransmitir, y esto es alcanzable de verdad:
@@ -96,7 +105,15 @@ function broadcast(): void {
     type: 'snapshot',
     day: state.day,
     current: state.current,
-    finished: state.finished,
+    // Lo mismo que se le manda al agente, y por el mismo motivo: quien mira
+    // tiene que enterarse de que se acabó, gane alguien o no gane nadie.
+    finished:
+      state.finished === null && !partidaTerminada
+        ? null
+        : {
+            winner: state.finished?.winner ?? null,
+            note: notaFinDePartida(state, director.agentPlayers),
+          },
     // La vista se MONTA en `vista-espectador.ts`, que es donde vive su tipo. Se
     // escribía aquí, a mano y dentro de esta función, contra un `view: unknown`.
     view: construirVista(state, director.log),
@@ -169,6 +186,9 @@ async function jugar(director: Director): Promise<void> {
   // deja abierto a propósito: `game_state` sigue valiendo para mirar el final.
   const nota = notaFinDePartida(state, director.agentPlayers);
   link.gameOver(state.finished?.winner ?? null, nota);
+  // Antes del último `broadcast()`: es lo que hace que el espectador se entere
+  // de un final sin ganador, donde `state.finished` sigue siendo `null`.
+  partidaTerminada = true;
 
   // La misma frase para el terminal: estaba escrita dos veces, doce líneas
   // aparte, y la de aquí decía menos.

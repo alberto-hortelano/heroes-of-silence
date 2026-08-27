@@ -512,9 +512,22 @@ describe('invariantes del proyecto', () => {
     //     palabra `HTML` dentro, hay que escribirla aquí. Queda dicho para que
     //     nadie la herede creyendo que se cubre sola.
     //
-    // Lo que este guardia NO mira, también dicho: `setAttribute('on…', …)`, que
-    // es inyección de atributo sin parsear marcado. Hoy el cliente no llama a
-    // `setAttribute` ni una vez; el día que lo haga, es otro guardia.
+    // **Y una TERCERA mitad, que es blanca por SITIOS y no por nombres.** La
+    // primera redacción decía que `setAttribute` no lo miraba nadie y que «hoy
+    // el cliente no llama a `setAttribute` ni una vez», lo cual era cierto y
+    // engañoso a la vez: la especie no es `setAttribute`, es «meter un atributo
+    // sin parsear marcado», y de esa **sí** hay una llamada viva
+    // (`render/assets.ts` hace `img.src = url`). QA plantó quince sumideros de
+    // esa familia y los catorce invariantes salieron verdes, `iframe.srcdoc`
+    // incluido — que además **parsea HTML entero sin llevar `HTML` en el
+    // nombre**, o sea que se le escapaba a las dos mitades anteriores.
+    //
+    // Los nombres de esa familia no se pueden enumerar. Lo que sí se puede son
+    // los **sitios**: los dos ficheros que tienen algo que hacer ahí. `html.ts`
+    // es la puerta; `render/assets.ts` carga el arte, y desde este ciclo su
+    // `img.src` pasa por `urlDeImagenSegura`, la misma regla que la puerta aplica
+    // en la plantilla. Cualquier otro fichero que toque estas APIs es un
+    // infractor, se llame como se llame.
     //
     // Mira el CÓDIGO y no el fichero, como el de la coma flotante: los
     // docstrings de `html.ts`, de `main.ts` y de `contract/agent.ts` nombran
@@ -545,10 +558,54 @@ describe('invariantes del proyecto', () => {
       ],
       ['un `Html` fabricado a mano', /\bas\s+unknown\s+as\s+Html\b/],
     ];
+
+    /**
+     * Los dos sitios que pueden meter un atributo interpretado en el DOM sin
+     * pasar por una plantilla. Cerrado y comprobado: cualquier otro es rojo.
+     */
+    const SITIOS_CON_PERMISO = ['src/client/html.ts', 'src/client/render/assets.ts'];
+    const porSitio: readonly (readonly [string, RegExp])[] = [
+      // `setAttribute` acepta CUALQUIER nombre de atributo, incluido `onerror`,
+      // así que no se puede acotar por el nombre: se acota por quién la llama.
+      // Ojo con el `?`: `setAttributeNS?` hace opcional la **S**, no el `NS`, y
+      // así escrito dejaba pasar `setAttribute(` entero — cazaba nueve de las
+      // quince sondas y no once. Un guardia hay que verlo morder POR CADA
+      // PUERTA, no en conjunto.
+      ['`setAttribute`, que acepta cualquier atributo', /\.setAttribute(?:NS)?\s*\(/],
+      // La asignación de propiedad equivalente. `srcdoc` es un documento HTML
+      // entero; `cssText`, hojas de estilo; `on*`, código.
+      [
+        'una propiedad interpretada asignada a mano',
+        /\.(?:src|href|srcdoc)\s*=(?!=)|\.style\s*\.\s*cssText\s*=(?!=)|\.on[a-z]+\s*=(?!=)/,
+      ],
+      // Y el texto que se ejecuta directamente. Estos no los quiere NADIE, ni
+      // siquiera los dos con permiso; se dejan aquí porque son la misma especie.
+      ['texto ejecutado como código', /\beval\s*\(|\bnew\s+Function\s*\(/],
+      // Un `<script>` fabricado a mano: su `textContent` no parsea marcado, pero
+      // al colgarlo del documento el navegador ejecuta lo que lleve dentro. Se
+      // caza por el `createElement`, que es la parte acotable: vigilar
+      // `textContent` sería un falso positivo por cada rótulo del cliente.
+      ['un `<script>` fabricado a mano', /createElement\s*\(\s*['"`]script/i],
+      // Y el rodeo por asignación en bloque, que es como se esquiva cualquier
+      // regla escrita sobre `algo.propiedad =`. Hoy no hay ni un `Object.assign`
+      // en el código publicado.
+      ['un `Object.assign` sobre un nodo', /\bObject\s*\.\s*assign\s*\(/],
+      // Navegar a una URL de texto: `javascript:` también ejecuta ahí.
+      [
+        'navegar a una URL construida',
+        /\bwindow\s*\.\s*open\s*\(|\blocation\s*\.\s*(?:assign|replace)\s*\(/,
+      ],
+    ];
+    const porSitioColados = porSitio.flatMap(([puerta, patron]) =>
+      infractoresDeCodigo(
+        fuera.filter((r) => !SITIOS_CON_PERMISO.includes(r)),
+        patron,
+      ).map((donde) => `[${puerta}] ${donde}`),
+    );
     const colados = puertas.flatMap(([puerta, patron]) =>
       infractoresDeCodigo(fuera, patron).map((donde) => `[${puerta}] ${donde}`),
     );
-    expect(colados).toEqual([]);
+    expect([...colados, ...porSitioColados]).toEqual([]);
   });
 
   it('ningún rasgo de criatura está declarado y muerto', () => {

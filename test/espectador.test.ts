@@ -24,6 +24,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
 import { adaptarEscena } from '../src/client/espectador/adaptar.js';
 import type { AdventureScene } from '../src/client/render/adventure.js';
+import type { BattleState } from '../src/core/battle/types.js';
 import type { Hero } from '../src/core/hero/hero.js';
 import { pointKey, reachableFrom } from '../src/core/map/map.js';
 import { createRng } from '../src/core/rng.js';
@@ -37,6 +38,7 @@ import type { Point } from '../src/core/types.js';
 import { AgentLink } from '../src/server/agent-link.js';
 import { Director } from '../src/server/director.js';
 import { construirVista, type SpectatorView } from '../src/server/vista-espectador.js';
+import { monstruoVivo } from './helpers.js';
 
 const abiertos: (() => void)[] = [];
 afterEach(() => {
@@ -168,6 +170,91 @@ describe('el fotograma por acción', () => {
     // Las tres del agente: dos acciones aplicadas más el `end_turn`, que también
     // mueve el tablero —cambia el turno y puede cambiar el día—.
     expect(fotogramas).toHaveLength(3);
+  });
+
+  it('cada acción de BATALLA da su fotograma, no uno al acabar — criterio 16', async () => {
+    // El guardia que faltaba, y faltaba entero: QA quitó los tres `this.frame()`
+    // del bucle de batalla y los 379 tests siguieron verdes. O sea que el
+    // fotograma por acción —43 de 61 fotogramas de una partida, lo que este
+    // ciclo existe para dar— no lo defendía nada.
+    //
+    // El montaje es juego NORMAL: el héroe del agente entra en la casilla de un
+    // monstruo. Los dos caminos de `applyAction` del bucle se ejercitan, porque
+    // el bando del monstruo lo juega la heurística y el del agente se le
+    // pregunta.
+    const semilla = 5;
+    const base = newGame({ seed: semilla });
+    const heroe = base.heroes.find((h) => h.owner === 1) as Hero;
+    const monstruo = monstruoVivo(base);
+
+    const { link } = await montar((kind, payload) => {
+      if (kind === 'adventure_turn') {
+        return { actions: [{ type: 'move_hero', hero: heroe.id, to: monstruo.at }] };
+      }
+      if (kind === 'battle_turn') {
+        const acciones = payload.legalActions as { type: string }[];
+        return {
+          action:
+            acciones.find((a) => a.type === 'attack') ??
+            acciones.find((a) => a.type === 'move') ??
+            acciones[0],
+        };
+      }
+      return undefined;
+    });
+
+    const director = new Director(link, { seed: semilla, agentPlayers: [1], onFrame: () => {} });
+    // El mismo estado, con el héroe ya pegado al monstruo y con movimiento de
+    // sobra: lo que se mide es el bucle de batalla, no el pathfinding.
+    director.state = base;
+    const suyo = base.heroes.find((h) => h.owner === 1) as Hero;
+    suyo.at = { x: monstruo.at.x - 1, y: monstruo.at.y };
+    suyo.movePoints = 5000;
+    base.current = 1;
+
+    /** Cuántos fotogramas se emiten con una batalla en curso, y su registro. */
+    let enBatalla = 0;
+    let campo: BattleState | null = null;
+    const largos: number[] = [];
+    (director as unknown as { mirador: () => void }).mirador = () => {
+      const pending = director.state.pendingBattle;
+      if (pending === null) return;
+      enBatalla++;
+      campo = pending.battle;
+      largos.push(pending.battle.log.length);
+    };
+
+    await director.playTurn();
+
+    const batalla = campo as BattleState | null;
+    if (batalla === null) throw new Error('el montaje no abrió ninguna batalla');
+
+    // Cuántas acciones se aplicaron de verdad, derivado del registro. Tres
+    // reglas, y las tres son del motor y no de este test:
+    //  - cada acción deja UN hecho primario: `move`, `wait`, `defend`, `shoot`,
+    //    `cast` o `attack`;
+    //  - el `attack` de un contraataque NO es una acción: es parte de la del
+    //    otro, y por eso se filtra por `retaliation`;
+    //  - un `attack` con `from` **se mueve y luego pega**, así que deja un `move`
+    //    pegado delante del `attack`. Eso es UNA acción, no dos. Sin esta
+    //    tercera regla la cuenta sale dos de más en esta misma semilla.
+    const primarias = new Set(['move', 'wait', 'defend', 'shoot', 'cast', 'attack']);
+    const hechos = batalla.log.filter(
+      (e) => primarias.has(e.kind) && !(e.kind === 'attack' && e.retaliation),
+    );
+    const cargas = hechos.filter(
+      (e, i) => e.kind === 'move' && hechos[i + 1]?.kind === 'attack',
+    ).length;
+    const acciones = hechos.length - cargas;
+
+    expect(acciones).toBeGreaterThan(1);
+    // El `+1` es el fotograma del `move_hero` que ABRIÓ la batalla: en él la
+    // batalla ya está desplegada, y es el primero que ve quien mira.
+    expect(enBatalla).toBe(acciones + 1);
+    // Y son fotogramas de verdad repartidos, no N copias del final: el registro
+    // crece en cada uno.
+    expect(largos).toEqual([...largos].sort((a, b) => a - b));
+    expect(new Set(largos).size).toBe(largos.length);
   });
 
   it('sin `onFrame` el director juega exactamente igual', async () => {

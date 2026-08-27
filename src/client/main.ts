@@ -139,11 +139,34 @@ function syncCanvasSize(): { width: number; height: number } {
   return { width: rect.width, height: rect.height };
 }
 
+/**
+ * El bucle de dibujo, con red — el mismo arreglo que el del espectador y por el
+ * mismo motivo.
+ *
+ * Desde que el marcado sale por `pintar`, dentro de este bucle hay funciones que
+ * **lanzan** donde antes solo había asignaciones a `innerHTML`, que no pueden
+ * lanzar. Con el `requestAnimationFrame` en la última línea, una sola excepción
+ * mataba el bucle entero y el tablero se quedaba congelado sin decir nada. Aquí
+ * duele menos que en el espectador —quien juega nota que no responde— pero el
+ * fallo es el mismo y la red también: se re-arma en un `finally` y el motivo se
+ * escribe en la barra de estado, que es donde esta pantalla cuenta las cosas.
+ */
 function render(): void {
-  if (!needsRender) {
+  try {
+    dibujarFotograma();
+  } catch (err) {
+    // No se traga nada: se dice. Y `needsRender` ya está en `false`, así que no
+    // se repite el intento sesenta veces por segundo.
+    const motivo = err instanceof Error ? err.message : String(err);
+    console.error('[cliente] fallo al pintar', err);
+    elStatus.textContent = `No se ha podido pintar la pantalla: ${motivo}`;
+  } finally {
     requestAnimationFrame(render);
-    return;
   }
+}
+
+function dibujarFotograma(): void {
+  if (!needsRender) return;
   needsRender = false;
 
   const rect = syncCanvasSize();
@@ -208,8 +231,6 @@ function render(): void {
   pintar(elSide, renderSide(session));
   pintar(elActions, renderActions(session));
   elStatus.textContent = session.status;
-
-  requestAnimationFrame(render);
 }
 
 // ---------------------------------------------------------------- ratón

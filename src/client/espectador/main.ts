@@ -11,17 +11,14 @@
  * juega porque aquí no hay ratón, ni animador, ni sesión: llega un fotograma, se
  * pinta.
  */
-import type { Side } from '@core/battle/types.js';
-import { creature } from '@core/data.js';
 import type { SpectatorSnapshotMsg } from '../../server/protocol.js';
 import type { SpectatorView } from '../../server/vista-espectador.js';
-import { fondoDeColor, type Html, html, NADA, pintar, unir } from '../html.js';
+import { NADA, pintar } from '../html.js';
 import { type AdventureCamera, cameraFor, drawAdventure } from '../render/adventure.js';
 import { assetCount, loadAssets, onAssetsChanged } from '../render/assets.js';
 import { battleOffset, drawBattle } from '../render/battle.js';
-import { playerColor } from '../render/palette.js';
-import { renderLog } from '../views/panels.js';
 import { adaptarEscena, centroDeLaEscena } from './adaptar.js';
+import { type FinDePartida, NADIE, panelDelEspectador } from './paneles.js';
 
 const canvas = document.getElementById('canvas') as HTMLCanvasElement;
 const ctx = canvas.getContext('2d');
@@ -32,15 +29,6 @@ const elTurn = document.getElementById('turn') as HTMLElement;
 const elSide = document.getElementById('side') as HTMLElement;
 const elStatus = document.getElementById('status') as HTMLElement;
 const elSeed = document.getElementById('seed') as HTMLElement;
-
-/**
- * Quien mira no es ningún jugador, así que no tiene un «tú».
- *
- * `renderLog` escribe «Tú» para los hechos de `viewer`; con un id que no es de
- * nadie la crónica entera se lee en tercera persona —«El jugador 0 construye…»—,
- * que es lo correcto para quien ve la partida desde fuera.
- */
-const NADIE = -1;
 
 /**
  * El puerto del canal de espectadores, sin escribirlo a mano (criterio 20).
@@ -98,9 +86,11 @@ function destino(): Destino {
 let vista: SpectatorView | null = null;
 let dia = 0;
 let turnoDe = 0;
-let finDe: { winner: number } | null = null;
+let finDe: FinDePartida | null = null;
 let camara: AdventureCamera = { origin: { x: 0, y: 0 }, cols: 0, rows: 0, offsetX: 0, offsetY: 0 };
 let repintar = true;
+/** A dónde se conectó, para poder repetirlo en la barra. Vacío hasta conectar. */
+let urlDelCanal = '';
 
 function ajustarLienzo(): { width: number; height: number } {
   const rect = canvas.getBoundingClientRect();
@@ -119,13 +109,59 @@ function ajustarLienzo(): { width: number; height: number } {
 /** Sin objetivos ni hexes movibles: el espectador no mueve nada. */
 const NINGUNO: ReadonlySet<string> = new Set();
 
-function dibujar(): void {
-  if (!repintar) {
-    requestAnimationFrame(dibujar);
-    return;
-  }
-  repintar = false;
+/**
+ * Si el último intento de pintar reventó. Sirve para dos cosas: no repetir el
+ * aviso sesenta veces por segundo, y **volver a decir que se está mirando** en
+ * cuanto un fotograma bueno se pinta.
+ */
+let fallandoAlPintar = false;
 
+/**
+ * El bucle de dibujo, con red.
+ *
+ * Este ciclo ha metido en el bucle tres funciones que **lanzan** —`pintar`,
+ * `srcDeImagen` y `fondoDeColor`— donde antes solo había asignaciones a
+ * `innerHTML`, que no pueden lanzar. Eso cambia la física del bucle: con el
+ * `requestAnimationFrame` en la última línea, **una sola excepción mataba el
+ * bucle entero**, y la página se quedaba congelada con la barra de estado
+ * diciendo tan tranquila «Mirando la partida». Un fallo que se presenta como
+ * normalidad es peor que uno ruidoso.
+ *
+ * Dos decisiones, y las dos son de esta casa:
+ *
+ *  - el bucle se re-arma en un `finally`, **pase lo que pase**: la página sigue
+ *    viva y el siguiente fotograma bueno se pinta;
+ *  - el fallo **se dice**, con su motivo, en la barra. El `catch` no está vacío
+ *    ni se traga nada.
+ *
+ * Y no repinta en bucle: `repintar` ya está en `false` cuando salta, así que no
+ * se vuelve a intentar hasta que llegue otro fotograma del servidor.
+ */
+function dibujar(): void {
+  try {
+    if (repintar) {
+      repintar = false;
+      pintarTodo();
+      if (fallandoAlPintar) {
+        fallandoAlPintar = false;
+        elStatus.textContent = `Mirando la partida en ${urlDelCanal}.`;
+      }
+    }
+  } catch (err) {
+    const motivo = err instanceof Error ? err.message : String(err);
+    console.error('[espectador] fallo al pintar', err);
+    if (!fallandoAlPintar) {
+      fallandoAlPintar = true;
+      elStatus.textContent =
+        `No se ha podido pintar este fotograma: ${motivo}. ` +
+        'Se sigue escuchando; el siguiente que llegue vuelve a intentarlo.';
+    }
+  } finally {
+    requestAnimationFrame(dibujar);
+  }
+}
+
+function pintarTodo(): void {
   const rect = ajustarLienzo();
   ctx!.clearRect(0, 0, rect.width, rect.height);
 
@@ -157,7 +193,6 @@ function dibujar(): void {
   }
 
   pintarPaneles();
-  requestAnimationFrame(dibujar);
 }
 
 function pintarPaneles(): void {
@@ -166,111 +201,13 @@ function pintarPaneles(): void {
   elDay.textContent = dia === 0 ? '—' : `Día ${diaDeLaSemana} · Semana ${semana}`;
   elTurn.textContent =
     finDe !== null
-      ? `Gana el jugador ${finDe.winner}`
+      ? finDe.winner === null
+        ? 'Terminada sin ganador'
+        : `Gana el jugador ${finDe.winner}`
       : dia === 0
         ? ''
         : `Juega el jugador ${turnoDe}`;
-  pintar(elSide, vista === null ? NADA : panelLateral(vista));
-}
-
-function panelLateral(v: SpectatorView): Html {
-  return html`${fin()}${jugadores(v)}${batalla(v)}${crónica(v)}${vozDelDirector(v)}`;
-}
-
-/**
- * Criterio 9: se ve terminar la partida y quién ganó.
- *
- * Es lo mismo que `game_over` le dice al agente en vez de dejarlo colgado; aquí
- * es una línea arriba del todo, no un `alert` ni un silencio.
- */
-function fin(): Html {
-  if (finDe === null) return NADA;
-  return html`<h2>Fin de la partida</h2>
-    <p class="cost">Gana el jugador ${finDe.winner}.</p>`;
-}
-
-function jugadores(v: SpectatorView): Html {
-  return html`<h3>Jugadores</h3>
-    <div class="stack-list">${unir(
-      v.players.map((p) => {
-        const castillos = v.towns.filter((t) => t.owner === p.id).length;
-        const heroes = v.heroes.filter((h) => h.owner === p.id).length;
-        const estado = p.defeated ? 'derrotado' : `${castillos} cast · ${heroes} hér`;
-        return html`<div class="stack">
-          <span>${bandera(p.id)} jugador ${p.id} · ${p.faction}</span>
-          <span class="count">${estado}</span>
-        </div>
-        <div class="row"><span class="label">oro</span><span>${p.resources.gold}</span></div>
-        <div class="row"><span class="label">explorado</span><span>${p.fog.length} casillas</span></div>
-        ${unir(
-          v.heroes
-            .filter((h) => h.owner === p.id)
-            // El nombre del héroe SÍ se pinta, y es el criterio 8 («los héroes»)
-            // pero también la fuga que señaló la crítica: `hireHero` lo deriva del
-            // pueblo (`Capitán de ${town.name}`), o sea que un nombre de pueblo
-            // que escriba el agente acaba aquí. Sale por la puerta como todo.
-            .map(
-              (h) => html`<div class="stack empty">
-                <span>${h.name}</span><span class="count">${h.movePoints}</span>
-              </div>`,
-            ),
-        )}`;
-      }),
-    )}</div>`;
-}
-
-/** El cuadradito de color del jugador, igual que el que pinta el mapa. */
-function bandera(id: number): Html {
-  return html`<span class="swatch"${fondoDelJugador(id)}></span>`;
-}
-
-/**
- * `playerColor` da un `#rrggbb`; `fondoDeColor` lo valida y escribe el atributo
- * entero. Un hueco dentro de `style="…"` lo rechaza la puerta —escapar comillas
- * no para una declaración de estilo de más—, y este es el camino que sí pasa.
- */
-function fondoDelJugador(id: number): Html {
-  return fondoDeColor(playerColor(id));
-}
-
-function batalla(v: SpectatorView): Html {
-  if (v.battle === null) return NADA;
-  const { estado, dueños } = v.battle;
-  const deQuien = (side: Side): Html => {
-    const id = dueños[side];
-    return id === null ? html`neutral` : html`${bandera(id)} jugador ${id}`;
-  };
-  return html`<h3>Batalla · ronda ${estado.round}</h3>
-    <div class="row"><span class="label">atacante</span><span>${deQuien('attacker')}</span></div>
-    <div class="row"><span class="label">defensor</span><span>${deQuien('defender')}</span></div>
-    <div class="stack-list">${unir(
-      estado.stacks
-        .filter((s) => s.count > 0)
-        .map(
-          (s) => html`<div class="stack${s.id === estado.activeId ? '' : ' empty'}">
-            <span>${bandera(dueños[s.side] ?? -1)} ${creature(s.creature).name}</span>
-            <span class="count">${s.count}</span>
-          </div>`,
-        ),
-    )}</div>`;
-}
-
-function crónica(v: SpectatorView): Html {
-  return html`<h3>Crónica</h3>${renderLog(v.log, NADIE)}`;
-}
-
-/**
- * Lo que va diciendo el director, **y ahí dentro va el `reasoning` del agente**.
- *
- * Es el texto ajeno más ancho que hay en el cable —2000 caracteres de prosa libre
- * de un modelo, `z.string().max(2000)`— y hasta ahora no lo pintaba nadie. Por
- * eso este ciclo empieza por la puerta de escapar y no por esta página: aquí sale
- * por `html`, como todo lo demás.
- */
-function vozDelDirector(v: SpectatorView): Html {
-  if (v.directorLog.length === 0) return NADA;
-  return html`<h3>El director</h3>
-    <div class="log">${unir(v.directorLog.map((linea) => html`<div>${linea}</div>`))}</div>`;
+  pintar(elSide, vista === null ? NADA : panelDelEspectador(vista, finDe));
 }
 
 // --------------------------------------------------------------- el cable
@@ -296,6 +233,7 @@ function conectar(): void {
   }
 
   const url = `ws://localhost:${puerto}`;
+  urlDelCanal = url;
   // El puerto se escribe ANTES de conectar, no después: si el servidor está en
   // otro, el desajuste se LEE en vez de quedarse en un «conectando…» inerte.
   elSeed.textContent = url;
@@ -304,7 +242,16 @@ function conectar(): void {
   const socket = new WebSocket(url);
 
   socket.addEventListener('open', () => {
-    elStatus.textContent = `Mirando la partida en ${url}.`;
+    // Conectado NO es lo mismo que hay partida. `broadcast()` sale antes si el
+    // director todavía no existe, y no existe hasta que pasan la espera del
+    // agente (120 s por defecto) y la del plan de mapa. En ese hueco decir
+    // «Mirando la partida» sobre una pantalla negra es afirmar que todo va bien
+    // cuando no hay nada que ver: quien abre `pnpm mirar` siguiendo el README
+    // cae justo ahí. Lo que se dice es lo que está pasando, y se cambia cuando
+    // llega el primer fotograma.
+    elStatus.textContent =
+      `Conectado a ${url}. Esperando a que empiece la partida: el servidor no ` +
+      'retransmite hasta que el agente se conecta y le da su plan de mapa.';
   });
 
   socket.addEventListener('message', (ev) => {
@@ -327,6 +274,7 @@ function conectar(): void {
       return;
     }
     const snapshot = msg as SpectatorSnapshotMsg;
+    if (vista === null) elStatus.textContent = `Mirando la partida en ${url}.`;
     vista = snapshot.view;
     dia = snapshot.day;
     turnoDe = snapshot.current;
@@ -342,14 +290,25 @@ function conectar(): void {
       'terminal y recarga esta página.';
   });
 
+  let huboConexion = false;
+  socket.addEventListener('open', () => {
+    huboConexion = true;
+  });
+
   socket.addEventListener('close', () => {
-    // Si nunca llegó un snapshot, el motivo es que no había servidor y ya lo
-    // dijo el `error`. Si llegó alguno, la partida estaba en marcha y se cortó.
+    // Tres finales distintos, y los tres se dicen. El de en medio faltaba: la
+    // conexión SÍ se abrió —así que el `error` no dice nada— pero no llegó a
+    // haber partida, y quedaba «Conectado, esperando…» ante un servidor muerto.
     if (vista !== null) {
       elStatus.textContent =
         `Se ha cortado la conexión con ${url}: lo que se ve es el último fotograma ` +
         'que llegó. Recarga la página para volver a intentarlo.';
+    } else if (huboConexion) {
+      elStatus.textContent =
+        `El servidor de ${url} se ha ido antes de empezar la partida. Arráncalo otra ` +
+        'vez con `pnpm partida` y recarga esta página.';
     }
+    // Si nunca llegó a abrirse, el motivo lo dijo ya el `error`.
   });
 }
 

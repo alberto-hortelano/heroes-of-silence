@@ -205,9 +205,18 @@ function analizar(estaticas: TemplateStringsArray): readonly Clase[] {
       const c = trozo[j] as string;
 
       if (donde === 'comentario') {
+        // La norma cierra un comentario de DOS formas, no de una: `-->` y
+        // `--!>`. Reconocer solo la primera dejaba al autómata creyéndose dentro
+        // del comentario para siempre, así que el hueco siguiente —que podía
+        // estar dentro de un atributo de verdad— se escapaba como TEXTO, sin las
+        // comillas. O sea que la puerta llegaba a emitir un `onmouseover` vivo,
+        // que es justo lo que existe para impedir.
         if (trozo.startsWith('-->', j)) {
           donde = 'texto';
           j += 2;
+        } else if (trozo.startsWith('--!>', j)) {
+          donde = 'texto';
+          j += 3;
         }
         continue;
       }
@@ -223,8 +232,17 @@ function analizar(estaticas: TemplateStringsArray): readonly Clase[] {
 
       if (donde === 'texto') {
         if (trozo.startsWith('<!--', j)) {
-          donde = 'comentario';
-          j += 3;
+          // Y los comentarios ABRUPTOS: `<!-->` y `<!--->` están cerrados en el
+          // sitio, según la norma. Sin esto, un `<!-->` abría un comentario que
+          // no se cerraba nunca — el mismo agujero que el `--!>` por el otro lado.
+          if (trozo.startsWith('<!-->', j)) {
+            j += 4;
+          } else if (trozo.startsWith('<!--->', j)) {
+            j += 5;
+          } else {
+            donde = 'comentario';
+            j += 3;
+          }
         } else if (c === '<') {
           donde = 'etiqueta';
           pendiente = '';
@@ -404,27 +422,57 @@ export function pintar(destino: Element, contenido: Html): void {
 }
 
 /**
+ * La URL, comprobada, o se lanza. **La única regla de «esta URL se puede
+ * cargar» del repositorio.**
+ *
+ * Vive aparte de `srcDeImagen` porque hay DOS sumideros y no uno: la plantilla
+ * (`<img${srcDeImagen(u)}>`) y la propiedad del DOM (`img.src = u` en
+ * `render/assets.ts`, que carga el arte). Escrita dos veces, se desincroniza;
+ * escrita aquí, las dos puertas comprueban lo mismo.
+ *
+ * Tres reglas, y la primera es la que faltaba:
+ *
+ *  1. **Ni tabuladores, ni saltos de línea, ni NUL.** El navegador los QUITA al
+ *     leer una URL, así que `java\tscript:alert(1)` es `javascript:` para él —y
+ *     no para una expresión regular que busque el esquema al principio—. Sin
+ *     esta regla la función fallaba ABIERTO justo en el caso que existe para
+ *     cazar: aceptaba las tres variantes con separador dentro y rechazaba solo
+ *     la escrita del tirón.
+ *  2. El esquema, sobre el valor ya recortado: sin esquema es una ruta relativa
+ *     y no hay nada que ejecutar; con esquema, solo `http`, `https` y `blob`.
+ *  3. `data:` solo para imágenes, y **no `svg+xml`**: un SVG es el único formato
+ *     de imagen que lleva script dentro. Aquí no se genera ninguno.
+ */
+export function urlDeImagenSegura(url: string): string {
+  if (/[\t\n\r\0]/.test(url)) {
+    throw new Error(
+      `no se puede cargar una imagen desde "${url}": lleva un tabulador, un salto de línea o un NUL, y el navegador los quita antes de mirar el esquema`,
+    );
+  }
+  const limpia = url.trim();
+  const esquema = /^([a-z][a-z0-9+.-]*):/i.exec(limpia);
+  const permitido =
+    esquema === null ||
+    ['http', 'https', 'blob'].includes((esquema[1] as string).toLowerCase()) ||
+    (/^data:image\//i.test(limpia) && !/^data:image\/svg\+xml/i.test(limpia));
+  if (!permitido) {
+    throw new Error(
+      `no se puede cargar una imagen desde "${url}": solo valen rutas relativas, http, https, blob o data:image (menos svg)`,
+    );
+  }
+  return limpia;
+}
+
+/**
  * ` src="…"` con la URL comprobada, para la única imagen que pintan los paneles.
  *
  * `src` está en la lista de atributos interpretados y un hueco ahí lo rechaza el
  * analizador, con razón: escapar comillas no para un `javascript:`. Lo que sí
- * vale es mirar el esquema, que es lo que decide si el navegador va a buscar un
- * fichero o a ejecutar algo. Vive aquí, dentro de la puerta, y no en el panel:
- * fuera no se puede fabricar un `Html`.
+ * vale es mirar el esquema, y eso lo decide `urlDeImagenSegura`, que es la misma
+ * regla que aplica `render/assets.ts` antes de tocar `img.src`.
  */
 export function srcDeImagen(url: string): Html {
-  // Sin esquema es una ruta relativa a la página: no hay nada que ejecutar.
-  const esquema = /^([a-z][a-z0-9+.-]*):/i.exec(url.trim());
-  const permitido =
-    esquema === null ||
-    ['http', 'https', 'blob'].includes((esquema[1] as string).toLowerCase()) ||
-    /^data:image\//i.test(url.trim());
-  if (!permitido) {
-    throw new Error(
-      `no se puede pintar una imagen desde "${url}": solo valen rutas relativas, http, https, blob o data:image`,
-    );
-  }
-  return crudo(` src="${escaparAtributo(url)}"`);
+  return crudo(` src="${escaparAtributo(urlDeImagenSegura(url))}"`);
 }
 
 /**

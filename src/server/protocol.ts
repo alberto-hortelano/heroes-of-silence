@@ -83,7 +83,17 @@ export interface SpectatorSnapshotMsg {
   readonly type: 'snapshot';
   readonly day: number;
   readonly current: number;
-  readonly finished: { winner: number } | null;
+  /**
+   * La partida ha terminado, y **también cuando no gana nadie**.
+   *
+   * Era `{ winner: number } | null`, o sea `state.finished` tal cual, y con eso
+   * una partida que se agota sin resolver dejaba al espectador en el último día
+   * sin una línea: `state.finished` se queda en `null` y el aviso solo salía por
+   * el canal del agente. Ahora dice lo mismo que `game_over` —quién gana o
+   * nadie, y la nota escrita para quien lee—, que es lo que promete el criterio
+   * 9 de #30.
+   */
+  readonly finished: { readonly winner: number | null; readonly note: string } | null;
   /**
    * Estado del mapa, los jugadores y la batalla en curso, ya sin `Set` ni `Map`.
    *

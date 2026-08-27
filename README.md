@@ -38,10 +38,13 @@ el formato de respuesta en el mismo mensaje. Si no hay agente conectado, juega
 una IA de reglas y la partida sigue igual.
 
 **Y se le puede ver jugar.** `pnpm mirar` abre una página de solo lectura que
-enseña la partida del servidor: el mapa, las banderas, el día, la crónica y —esto
-es lo que importa— **las batallas acción a acción**, que son la mayoría de las
-decisiones que toma el agente. También lo que va pensando: el `reasoning` que
-manda con cada turno sale ahí, escapado como todo lo demás.
+enseña la partida del servidor: el mapa, las banderas, el día, la crónica, el
+parte de guerra y —esto es lo que importa— **las batallas mientras se deciden**,
+que son la mayoría de las decisiones que toma el agente. El servidor emite un
+fotograma por cada acción aplicada; lo que se llega a ver de cada una depende de
+lo rápido que conteste el agente, porque la página pinta el último fotograma de
+cada refresco. También sale lo que va pensando: el `reasoning` que manda con cada
+turno, escapado como todo lo demás.
 
 **El arte se genera.** 140 imágenes con [fal.ai](https://fal.ai) por 3,74 $,
 incluidas 72 poses de animación y los edificios de las dos facciones. Cada
