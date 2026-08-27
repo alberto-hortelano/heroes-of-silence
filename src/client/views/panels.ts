@@ -1,10 +1,21 @@
 /**
- * Paneles de interfaz. Generan HTML a partir de la sesión; los clics se
+ * Paneles de interfaz. Generan marcado a partir de la sesión; los clics se
  * resuelven por delegación con atributos `data-action`, así que no hay
  * listeners sueltos que limpiar en cada repintado.
+ *
+ * **Todo sale por `html.ts` y nada devuelve `string`.** No es celo: el `name` de
+ * un pueblo lo escribe el agente y el del héroe se deriva de él (`hireHero`
+ * bautiza `Capitán de ${town.name}`), así que sanear «en la entrada» nace con
+ * fuga y hay que escapar en el sumidero. Que las quince funciones devuelvan
+ * `Html` es lo que hace que olvidarse NO compile: `pintar` no acepta otra cosa,
+ * y una función nueva que devuelva `string` la caza `tsc` en `main.ts`.
+ *
+ * Los `.join('')` de las listas son ahora `unir(...)`, y por el mismo motivo:
+ * un `.join('')` sobre cadenas era justo el sitio por donde el marcado se
+ * escapaba de la puerta.
  */
 import { activeStack } from '@core/battle/battle.js';
-import { effectiveLuck } from '@core/battle/effects.js';
+import { type EffectKind, effectiveLuck } from '@core/battle/effects.js';
 import { type Spell, spell } from '@core/battle/spells.js';
 import type { BattleState, Side } from '@core/battle/types.js';
 import { creature, isShooter } from '@core/data.js';
@@ -14,13 +25,24 @@ import { building } from '@core/town/buildings.js';
 import { dailyIncome, dwellings, mageGuildLevel, type Town, townSpells } from '@core/town/town.js';
 import type { Army } from '@core/types.js';
 import { RESOURCE_KINDS } from '@core/types.js';
+import { fondoDeColor, type Html, html, NADA, srcDeImagen, unir } from '../html.js';
 import { asset } from '../render/assets.js';
 import { RESOURCE_COLORS, RESOURCE_NAMES } from '../render/palette.js';
 import type { Session } from '../session.js';
 
+/**
+ * El atributo `disabled`, suelto.
+ *
+ * Va dentro de una etiqueta y no dentro de un atributo, así que el hueco solo
+ * acepta marcado: una cadena `'disabled'` ahí la rechaza la puerta, y con razón
+ * —sin comillas alrededor, cualquier texto que caiga en ese sitio se lee como
+ * atributos—. Tres sitios lo ponen.
+ */
+const DESHABILITADO: Html = html`disabled`;
+
 export function renderTopbar(session: Session): {
   day: string;
-  resources: string;
+  resources: Html;
   turn: string;
 } {
   const state = session.state;
@@ -28,15 +50,23 @@ export function renderTopbar(session: Session): {
   const dia = ((state.day - 1) % 7) + 1;
 
   // Con arte generado se usa el icono; si no, la muestra de color.
-  const resources = RESOURCE_KINDS.map((k) => {
-    const valor = session.resources[k];
-    const icono = asset('icons', k);
-    const marca =
-      icono === null
-        ? `<span class="swatch" style="background:${RESOURCE_COLORS[k]}"></span>`
-        : `<img class="res-icon" src="${icono.src}" alt="">`;
-    return `<li title="${RESOURCE_NAMES[k]}">${marca}${valor}</li>`;
-  }).join('');
+  //
+  // Los dos únicos huecos de este fichero que caen en `style=` y en `src=` están
+  // aquí, y la puerta los rechaza de plano: escapar comillas no para un
+  // `javascript:` ni una declaración de estilo de más. Por eso pasan por
+  // `srcDeImagen` y `fondoDeColor`, que validan en el idioma del atributo y
+  // devuelven el atributo entero ya escrito.
+  const resources = unir(
+    RESOURCE_KINDS.map((k) => {
+      const valor = session.resources[k];
+      const icono = asset('icons', k);
+      const marca =
+        icono === null
+          ? html`<span class="swatch"${fondoDeColor(RESOURCE_COLORS[k])}></span>`
+          : html`<img class="res-icon"${srcDeImagen(icono.src)} alt="">`;
+      return html`<li title="${RESOURCE_NAMES[k]}">${marca}${valor}</li>`;
+    }),
+  );
 
   const turno =
     state.finished !== null
@@ -52,7 +82,7 @@ export function renderTopbar(session: Session): {
   return { day: `Día ${dia} · Semana ${semana}`, resources, turn: turno };
 }
 
-export function renderSide(session: Session): string {
+export function renderSide(session: Session): Html {
   switch (session.scene) {
     case 'town':
       return renderTownPanel(session);
@@ -63,24 +93,24 @@ export function renderSide(session: Session): string {
   }
 }
 
-export function renderActions(session: Session): string {
+export function renderActions(session: Session): Html {
   if (session.state.finished !== null) {
-    return `<button data-action="restart" class="primary">Partida nueva</button>`;
+    return html`<button data-action="restart" class="primary">Partida nueva</button>`;
   }
   switch (session.scene) {
     case 'town':
-      return `<button data-action="close-town">Volver al mapa</button>`;
+      return html`<button data-action="close-town">Volver al mapa</button>`;
     case 'battle': {
       const battle = session.battle;
       if (battle !== null && battle.finished !== null) {
-        return `<button data-action="finish-battle" class="primary">Continuar</button>`;
+        return html`<button data-action="finish-battle" class="primary">Continuar</button>`;
       }
-      return `<button data-action="auto-battle">Resolver sola</button>`;
+      return html`<button data-action="auto-battle">Resolver sola</button>`;
     }
     default:
-      return `
+      return html`
         <button data-action="toggle-fog">${session.revealAll ? 'Ocultar mapa' : 'Ver mapa entero'}</button>
-        <button data-action="end-turn" class="primary" ${session.isPlayersTurn ? '' : 'disabled'}>
+        <button data-action="end-turn" class="primary" ${session.isPlayersTurn ? NADA : DESHABILITADO}>
           Fin de turno
         </button>`;
   }
@@ -88,14 +118,14 @@ export function renderActions(session: Session): string {
 
 // ---------------------------------------------------------------- aventura
 
-function renderAdventurePanel(session: Session): string {
+function renderAdventurePanel(session: Session): Html {
   const hero = session.selectedHero;
   const heroes = session.myHeroes();
 
   const heroPanel =
     hero === null
-      ? `<p>No tienes héroes en el mapa. Contrata uno en tu castillo.</p>`
-      : `
+      ? html`<p>No tienes héroes en el mapa. Contrata uno en tu castillo.</p>`
+      : html`
         <h2>${hero.name}</h2>
         <div class="row"><span class="label">Movimiento</span><span>${hero.movePoints} / ${maxMovePoints(hero)}</span></div>
         <div class="row"><span class="label">Maná</span><span>${hero.mana} / ${maxMana(hero)}</span></div>
@@ -109,28 +139,28 @@ function renderAdventurePanel(session: Session): string {
 
   const listaHeroes =
     heroes.length <= 1
-      ? ''
-      : `<h3>Héroes</h3><div class="stack-list">${heroes
-          .map(
-            (h) => `<button data-action="select-hero" data-hero="${h.id}" class="stack">
+      ? NADA
+      : html`<h3>Héroes</h3><div class="stack-list">${unir(
+          heroes.map(
+            (h) => html`<button data-action="select-hero" data-hero="${h.id}" class="stack">
               <span>${h.name}</span><span class="count">${h.movePoints}</span>
             </button>`,
-          )
-          .join('')}</div>`;
+          ),
+        )}</div>`;
 
   const pueblos = session.myTowns();
   const listaPueblos =
     pueblos.length === 0
-      ? ''
-      : `<h3>Castillos</h3><div class="stack-list">${pueblos
-          .map(
-            (t) => `<button data-action="open-town" data-town="${t.id}" class="stack">
+      ? NADA
+      : html`<h3>Castillos</h3><div class="stack-list">${unir(
+          pueblos.map(
+            (t) => html`<button data-action="open-town" data-town="${t.id}" class="stack">
               <span>${t.name}</span><span class="count">+${dailyIncome(t)}</span>
             </button>`,
-          )
-          .join('')}</div>`;
+          ),
+        )}</div>`;
 
-  return `${heroPanel}${listaHeroes}${listaPueblos}
+  return html`${heroPanel}${listaHeroes}${listaPueblos}
     <h3>Crónica</h3>${renderLog(session.state.log, session.viewer)}`;
 }
 
@@ -140,50 +170,58 @@ function renderAdventurePanel(session: Session): string {
  * eso. El tercer pintor, `renderSpells`, NO entra aquí: son botones con
  * `disabled` y `title`, y forzarlos en este molde saldría más caro que la copia.
  */
-function filaHechizo(s: Spell, conNivel = false): string {
-  const nivel = conNivel ? ` <span class="count">n.${s.level}</span>` : '';
-  return `<div class="stack"><span>${s.name}${nivel}</span><span class="count">${s.cost}</span></div>`;
+function filaHechizo(s: Spell, conNivel = false): Html {
+  const nivel = conNivel ? html` <span class="count">n.${s.level}</span>` : NADA;
+  return html`<div class="stack"><span>${s.name}${nivel}</span><span class="count">${s.cost}</span></div>`;
 }
 
 /** El libro de un héroe: nombre y coste, que es lo que se decide con ellos. */
-function renderSpellbook(spells: readonly string[]): string {
+function renderSpellbook(spells: readonly string[]): Html {
   if (spells.length === 0) {
-    return `<div class="stack-list"><div class="stack empty">Sin hechizos: llévalo a un castillo con gremio</div></div>`;
+    return html`<div class="stack-list"><div class="stack empty">Sin hechizos: llévalo a un castillo con gremio</div></div>`;
   }
-  const filas = spells.map((id) => filaHechizo(spell(id))).join('');
-  return `<div class="stack-list">${filas}</div>`;
+  const filas = unir(spells.map((id) => filaHechizo(spell(id))));
+  return html`<div class="stack-list">${filas}</div>`;
 }
 
-function renderArmy(army: Army): string {
-  const filas = army
-    .map((stack) => {
-      if (stack === null) return `<div class="stack empty"><span>—</span></div>`;
+function renderArmy(army: Army): Html {
+  const filas = unir(
+    army.map((stack) => {
+      if (stack === null) return html`<div class="stack empty"><span>—</span></div>`;
       const info = creature(stack.creature);
       const marca = isShooter(info) ? ' ↑' : '';
-      return `<div class="stack"><span>${info.name}${marca}</span><span class="count">${stack.count}</span></div>`;
-    })
-    .join('');
-  return `<div class="stack-list">${filas}</div>`;
+      return html`<div class="stack"><span>${info.name}${marca}</span><span class="count">${stack.count}</span></div>`;
+    }),
+  );
+  return html`<div class="stack-list">${filas}</div>`;
 }
 
 // ---------------------------------------------------------------- castillo
 
-function renderTownPanel(session: Session): string {
+function renderTownPanel(session: Session): Html {
   const town = session.activeTown;
-  if (town === null) return '';
+  if (town === null) return NADA;
 
   // Solo los héroes PROPIOS: un rival parado en tu castillo no te enseña su
   // ejército, y sobre todo no esconde tu guarnición.
   const heroeAqui = session.myHeroes().find((h) => h.at.x === town.at.x && h.at.y === town.at.y);
 
-  const crecimiento = dwellings(town)
-    .map(({ creature: id }) => {
-      const info = creature(id);
-      return `<div class="stack"><span>${info.name}</span><span class="count">+${info.growth}</span></div>`;
-    })
-    .join('');
+  // El `crecimiento || '<div…>Sin moradas</div>'` de antes no vale con marcado:
+  // un fragmento vacío es un OBJETO, y `||` lo da por bueno siempre. Se pregunta
+  // por lo que de verdad decide —si hay moradas—, que además es lo que se quería
+  // decir.
+  const moradas = dwellings(town);
+  const crecimiento =
+    moradas.length === 0
+      ? html`<div class="stack empty">Sin moradas</div>`
+      : unir(
+          moradas.map(({ creature: id }) => {
+            const info = creature(id);
+            return html`<div class="stack"><span>${info.name}</span><span class="count">+${info.growth}</span></div>`;
+          }),
+        );
 
-  return `
+  return html`
     <h2>${town.name}</h2>
     <div class="row"><span class="label">Ingresos</span><span>${dailyIncome(town)} oro/día</span></div>
     <div class="row"><span class="label">Gremio de magia</span><span>${mageGuildLevel(town) || '—'}</span></div>
@@ -192,15 +230,15 @@ function renderTownPanel(session: Session): string {
     <p class="cost">Pulsa un solar para levantarlo y la franja de abajo para reclutar.</p>
 
     <h3>Crecimiento semanal</h3>
-    <div class="stack-list">${crecimiento || '<div class="stack empty">Sin moradas</div>'}</div>
+    <div class="stack-list">${crecimiento}</div>
 
     <h3>Guarnición</h3>
     ${renderArmy(town.garrison)}
 
     ${
       heroeAqui === undefined
-        ? `<button data-action="hire-hero" class="primary" style="margin-top:.7rem">Contratar héroe (2500 oro)</button>`
-        : `<h3>Ejército de ${heroeAqui.name}</h3>${renderArmy(heroeAqui.army)}`
+        ? html`<button data-action="hire-hero" class="primary" style="margin-top:.7rem">Contratar héroe (2500 oro)</button>`
+        : html`<h3>Ejército de ${heroeAqui.name}</h3>${renderArmy(heroeAqui.army)}`
     }`;
 }
 
@@ -209,21 +247,21 @@ function renderTownPanel(session: Session): string {
  * pena traer aquí al héroe. La lista sale de `townSpells`, así que el panel no
  * sabe qué nivel enseña qué.
  */
-function renderTownSpells(town: Town): string {
+function renderTownSpells(town: Town): Html {
   const hechizos = townSpells(town);
   if (hechizos.length === 0) {
-    return `<p class="cost">Sin gremio: construye uno para que tus héroes aprendan magia aquí.</p>`;
+    return html`<p class="cost">Sin gremio: construye uno para que tus héroes aprendan magia aquí.</p>`;
   }
-  const filas = hechizos.map((s) => filaHechizo(s, true)).join('');
-  return `<h3>Enseña</h3><div class="stack-list">${filas}</div>
+  const filas = unir(hechizos.map((s) => filaHechizo(s, true)));
+  return html`<h3>Enseña</h3><div class="stack-list">${filas}</div>
     <p class="cost">Un héroe tuyo parado aquí los aprende solo.</p>`;
 }
 
 // ---------------------------------------------------------------- batalla
 
-function renderBattlePanel(session: Session): string {
+function renderBattlePanel(session: Session): Html {
   const battle = session.battle;
-  if (battle === null) return '';
+  if (battle === null) return NADA;
 
   // El bando de la persona lo DERIVA la sesión del dueño de la batalla; aquí no
   // se supone. Decir «Tú» al atacante era la misma suposición que el ciclo de
@@ -233,7 +271,7 @@ function renderBattlePanel(session: Session): string {
 
   if (battle.finished !== null) {
     const gane = battle.finished.winner === mio;
-    return `<h2>${gane ? 'Victoria' : 'Derrota'}</h2>
+    return html`<h2>${gane ? 'Victoria' : 'Derrota'}</h2>
       <p>${gane ? 'El campo es tuyo.' : 'Tu héroe ha caído.'}</p>
       <h3>Parte de guerra</h3>${renderBattleLog(battle, mio)}`;
   }
@@ -241,46 +279,47 @@ function renderBattlePanel(session: Session): string {
   const s = activeStack(battle);
   const activo =
     s === null
-      ? '<p>Sin unidad activa.</p>'
-      : `<h2>${creature(s.creature).name}</h2>
+      ? html`<p>Sin unidad activa.</p>`
+      : html`<h2>${creature(s.creature).name}</h2>
         <div class="row"><span class="label">Bando</span><span>${s.side === mio ? 'Tú' : 'Enemigo'}</span></div>
         <div class="row"><span class="label">Efectivos</span><span>${s.count}</span></div>
         <div class="row"><span class="label">Moral / Suerte</span><span>${s.morale} / ${effectiveLuck(s)}</span></div>
-        ${isShooter(creature(s.creature)) ? `<div class="row"><span class="label">Munición</span><span>${s.shotsLeft}</span></div>` : ''}`;
+        ${isShooter(creature(s.creature)) ? html`<div class="row"><span class="label">Munición</span><span>${s.shotsLeft}</span></div>` : NADA}`;
 
   const suTurno = s !== null && s.side === mio;
   const acciones = suTurno
-    ? `<h3>Acciones</h3>
+    ? html`<h3>Acciones</h3>
        <div class="stack-list">
          <button data-action="battle-defend">Defender</button>
-         <button data-action="battle-wait" ${s.waited ? 'disabled' : ''}>Esperar</button>
+         <button data-action="battle-wait" ${s.waited ? DESHABILITADO : NADA}>Esperar</button>
        </div>
        ${renderSpells(session)}
        <p class="cost" style="margin-top:.5rem">
          Haz clic en un hexágono verde para moverte, o sobre un enemigo para atacarlo.
        </p>`
-    : '<p>Turno del enemigo…</p>';
+    : html`<p>Turno del enemigo…</p>`;
 
   // El maná del héroe, junto a la ficha de la unidad activa: es un recurso de la
   // batalla entera, no del stack, y sin verlo no se decide si lanzar.
   const heroe = session.battleHero;
   const mana =
     heroe === null
-      ? ''
-      : `<div class="row"><span class="label">Maná</span><span>${heroe.mana} / ${maxMana(heroe)}</span></div>`;
+      ? NADA
+      : html`<div class="row"><span class="label">Maná</span><span>${heroe.mana} / ${maxMana(heroe)}</span></div>`;
 
-  const orden = battle.stacks
-    .filter((x) => x.count > 0)
-    .map(
-      (x) =>
-        `<div class="stack${x.id === battle.activeId ? '' : ' empty'}">
+  const orden = unir(
+    battle.stacks
+      .filter((x) => x.count > 0)
+      .map(
+        (x) =>
+          html`<div class="stack${x.id === battle.activeId ? '' : ' empty'}">
           <span>${x.side === mio ? '▶' : '◀'} ${creature(x.creature).name}</span>
           <span class="count">${x.count}</span>
         </div>`,
-    )
-    .join('');
+      ),
+  );
 
-  return `${activo}
+  return html`${activo}
     <div class="row"><span class="label">Ronda</span><span>${battle.round}</span></div>
     ${mana}
     ${acciones}
@@ -295,30 +334,30 @@ function renderBattlePanel(session: Session): string {
  * la vez lo que tienes y lo que te falta, igual que un solar vacío del castillo.
  * Ni el `castable` ni el motivo se deciden aquí — los da `session.spellOptions()`.
  */
-function renderSpells(session: Session): string {
+function renderSpells(session: Session): Html {
   const opciones = session.spellOptions();
   if (opciones.length === 0) {
-    return `<h3>Hechizos</h3>
+    return html`<h3>Hechizos</h3>
       <div class="stack-list"><div class="stack empty">Este héroe no conoce ninguno</div></div>`;
   }
-  const botones = opciones
-    .map((o) => {
+  const botones = unir(
+    opciones.map((o) => {
       // El elegido se marca con `primary`, no el resto con `empty`: `.empty` es
       // el gris de un hueco vacío, y con él un hechizo perfectamente lanzable se
       // veía apagado, igual que uno que no se puede pagar. Lo apagado lo pone
       // `button:disabled`, y así los dos estados no se confunden en pantalla.
       const elegido = session.selectedSpell === o.id;
-      return `<button data-action="battle-spell" data-spell="${o.id}"
+      return html`<button data-action="battle-spell" data-spell="${o.id}"
         class="stack${elegido ? ' primary' : ''}"
-        ${o.castable ? '' : 'disabled'}
+        ${o.castable ? NADA : DESHABILITADO}
         title="${o.castable ? `Cuesta ${o.cost} de maná` : o.motivo}">
         <span>${o.name}</span><span class="count">${o.cost}</span>
       </button>`;
-    })
-    .join('');
+    }),
+  );
   const elegido = opciones.find((o) => o.id === session.selectedSpell);
-  return `<h3>Hechizos</h3><div class="stack-list">${botones}</div>
-    ${elegido === undefined ? '' : `<p class="cost" style="margin-top:.5rem">${elegido.name}: pulsa sobre la unidad objetivo. Escape cancela.</p>`}`;
+  return html`<h3>Hechizos</h3><div class="stack-list">${botones}</div>
+    ${elegido === undefined ? NADA : html`<p class="cost" style="margin-top:.5rem">${elegido.name}: pulsa sobre la unidad objetivo. Escape cancela.</p>`}`;
 }
 
 /**
@@ -342,7 +381,14 @@ function nombreFuente(source: string): string {
   return FUENTE_RASGO[source] ?? spell(source).name;
 }
 
-const ETIQUETA_EFECTO: Readonly<Record<string, string>> = {
+/**
+ * Va tipada por `EffectKind` y ya no por `string`, y no es cosmética: con la
+ * clave abierta, `ETIQUETA_EFECTO[e.effect]` es `string | undefined` y la puerta
+ * no lo acepta —con razón: un hueco que puede ser `undefined` pinta la palabra
+ * «undefined»—. Cerrada, la tabla cubre la unión y un `EffectKind` nuevo no
+ * compila hasta que alguien le escriba su nombre.
+ */
+const ETIQUETA_EFECTO: Readonly<Record<EffectKind, string>> = {
   speed: 'velocidad',
   luck: 'suerte',
   attack: 'ataque',
@@ -358,8 +404,8 @@ const ETIQUETA_EFECTO: Readonly<Record<string, string>> = {
  * en el fin de la partida. Un helper que no cubre ni a su propia rama es un
  * helper que no existe.
  */
-function clase(bueno: boolean, malo: boolean): string {
-  return bueno ? ' class="win"' : malo ? ' class="lose"' : '';
+function clase(bueno: boolean, malo: boolean): Html {
+  return bueno ? html` class="win"` : malo ? html` class="lose"` : NADA;
 }
 
 /**
@@ -377,7 +423,7 @@ function clase(bueno: boolean, malo: boolean): string {
  * `defend`) y se tragaría igual el que se añada mañana. Ahora los tres están
  * escritos con su frase vacía y quien decide es el `never` del final.
  */
-function renderBattleLog(battle: BattleState, mio: Side | null): string {
+function renderBattleLog(battle: BattleState, mio: Side | null): Html {
   /**
    * De quién era el stack. Lanza si no aparece: un id del registro que no está
    * en el campo es un fallo nuestro, y disimularlo con «una unidad» sería
@@ -392,37 +438,37 @@ function renderBattleLog(battle: BattleState, mio: Side | null): string {
 
   const lineas = battle.log
     .slice(-40)
-    .map((e): string => {
+    .map((e): Html => {
       switch (e.kind) {
         case 'round_start':
-          return `<div>— Ronda ${e.round} —</div>`;
+          return html`<div>— Ronda ${e.round} —</div>`;
         case 'attack': {
           const carga = e.charge === undefined ? '' : ` (carga de ${e.charge} hexes)`;
-          return `<div>${e.retaliation ? 'Contraataque' : 'Ataque'}${carga}: ${e.damage} de daño, ${e.killed} bajas</div>`;
+          return html`<div>${e.retaliation ? 'Contraataque' : 'Ataque'}${carga}: ${e.damage} de daño, ${e.killed} bajas</div>`;
         }
         case 'shoot':
-          return `<div>${e.splash === true ? 'Salpicadura' : 'Disparo'}: ${e.damage} de daño, ${e.killed} bajas</div>`;
+          return html`<div>${e.splash === true ? 'Salpicadura' : 'Disparo'}: ${e.damage} de daño, ${e.killed} bajas</div>`;
         case 'cast':
           // El nombre, no el id: `spell()` ya lo tiene y quien lee el parte no
           // sabe qué es un "magic_arrow". Sobre quién se lanzó es #18.
-          return `<div>Hechizo ${spell(e.spell).name}${e.damage ? `: ${e.damage} de daño` : ''}</div>`;
+          return html`<div>Hechizo ${spell(e.spell).name}${e.damage ? `: ${e.damage} de daño` : ''}</div>`;
         case 'morale':
-          return `<div${clase(e.good, !e.good)}>${e.good ? 'Moral alta: turno extra' : 'Moral baja: turno perdido'}</div>`;
+          return html`<div${clase(e.good, !e.good)}>${e.good ? 'Moral alta: turno extra' : 'Moral baja: turno perdido'}</div>`;
         case 'luck':
-          return `<div${clase(e.good, !e.good)}>${e.good ? '¡Golpe afortunado!' : 'Golpe desafortunado'}</div>`;
+          return html`<div${clase(e.good, !e.good)}>${e.good ? '¡Golpe afortunado!' : 'Golpe desafortunado'}</div>`;
         case 'effect':
-          return `<div${clase(e.amount >= 0, e.amount < 0)}>${nombreFuente(e.source)}: ${ETIQUETA_EFECTO[e.effect]} ${e.amount > 0 ? '+' : ''}${e.amount} durante ${e.rounds} ${e.rounds === 1 ? 'ronda' : 'rondas'}</div>`;
+          return html`<div${clase(e.amount >= 0, e.amount < 0)}>${nombreFuente(e.source)}: ${ETIQUETA_EFECTO[e.effect]} ${e.amount > 0 ? '+' : ''}${e.amount} durante ${e.rounds} ${e.rounds === 1 ? 'ronda' : 'rondas'}</div>`;
         case 'effect_end':
-          return `<div>Se disipa: ${nombreFuente(e.source)}</div>`;
+          return html`<div>Se disipa: ${nombreFuente(e.source)}</div>`;
         case 'immune':
-          return `<div>Inmune a ${nombreFuente(e.source)}: los no-muertos no tienen ánimo que quebrar</div>`;
+          return html`<div>Inmune a ${nombreFuente(e.source)}: los no-muertos no tienen ánimo que quebrar</div>`;
         case 'perished': {
           // Quién cae decide el color, igual que en `hero_defeated` un piso más
           // arriba: lo tuyo es la derrota y lo suyo la victoria. Sin bando —el
           // parte de quien no lleva ninguno de los dos— no se pinta ninguna de
           // las dos cosas, en vez de inventarse una.
           const suya = bandoDe(e.stack) === mio;
-          return `<div${clase(mio !== null && !suya, suya)}>${
+          return html`<div${clase(mio !== null && !suya, suya)}>${
             mio === null
               ? 'Una unidad ha sido aniquilada'
               : suya
@@ -431,7 +477,7 @@ function renderBattleLog(battle: BattleState, mio: Side | null): string {
           }</div>`;
         }
         case 'finished':
-          return `<div${clase(e.winner === mio, mio !== null && e.winner !== mio)}>Fin: gana el ${e.winner === 'attacker' ? 'atacante' : 'defensor'}</div>`;
+          return html`<div${clase(e.winner === mio, mio !== null && e.winner !== mio)}>Fin: gana el ${e.winner === 'attacker' ? 'atacante' : 'defensor'}</div>`;
 
         // Los tres que el parte NO cuenta, escritos uno a uno en vez de caer por
         // un `default`. El tablero ya enseña dónde está cada unidad y quién se
@@ -439,16 +485,19 @@ function renderBattleLog(battle: BattleState, mio: Side | null): string {
         case 'move':
         case 'wait':
         case 'defend':
-          return '';
+          return NADA;
       }
       // Exhaustivo: con un `kind` nuevo, `e` deja de ser `never` aquí y esta
       // línea no compila hasta que alguien decida si se pinta o no.
       const sinFrase: never = e;
       throw new Error(`hecho del parte de guerra sin frase: ${JSON.stringify(sinFrase)}`);
     })
-    .filter((s) => s !== '')
-    .join('');
-  return `<div class="log">${lineas}</div>`;
+    // Las líneas vacías se van igual que antes. Se comparan con `NADA` por
+    // identidad y no por su contenido: `NADA` es el único hueco vacío que
+    // escriben las ramas de arriba, así que es exacto y no hay que abrir el
+    // fragmento para mirarlo.
+    .filter((linea) => linea !== NADA);
+  return html`<div class="log">${unir(lineas)}</div>`;
 }
 
 /**
@@ -470,7 +519,7 @@ function renderBattleLog(battle: BattleState, mio: Side | null): string {
  * distinguir lo tuyo de lo suyo, que es presentación y es a propósito, pero
  * ahora con el dato en la mano en vez de suponiéndolo.
  */
-export function renderLog(log: readonly GameEvent[], viewer: number): string {
+export function renderLog(log: readonly GameEvent[], viewer: number): Html {
   /**
    * Quién, en las tres formas que pide la frase: sujeto, genitivo y dativo.
    * Son tres y no una porque componer «de» o «a» con el sujeto no vale en
@@ -491,17 +540,17 @@ export function renderLog(log: readonly GameEvent[], viewer: number): string {
     // `default`: un `kind` al que nadie le haya escrito su frase tiene que
     // ponerse rojo, no colarse por la rama de abajo. Quien lo pone rojo es el
     // `never` del final, igual que en `serialize.ts`.
-    .map((e): string => {
+    .map((e): Html => {
       const mio = e.actor === viewer;
       switch (e.kind) {
         case 'day_start':
-          return `<div>— Día ${e.day} —</div>`;
+          return html`<div>— Día ${e.day} —</div>`;
         case 'resource_gained':
           return mio
-            ? `<div class="win">+${e.amount} ${RESOURCE_NAMES[e.resource].toLowerCase()}</div>`
-            : '';
+            ? html`<div class="win">+${e.amount} ${RESOURCE_NAMES[e.resource].toLowerCase()}</div>`
+            : NADA;
         case 'mine_captured':
-          return `<div${clase(mio, e.from === viewer)}>${
+          return html`<div${clase(mio, e.from === viewer)}>${
             mio
               ? `Mina capturada${e.from === null ? '' : ` ${alJugador(e.from)}`}`
               : e.from === viewer
@@ -511,7 +560,7 @@ export function renderLog(log: readonly GameEvent[], viewer: number): string {
         case 'town_captured':
           // El criterio 9: a costa de quién. «Castillo capturado» a secas era
           // media verdad justo en el evento que decide la partida.
-          return `<div${clase(mio, e.from === viewer)}>${
+          return html`<div${clase(mio, e.from === viewer)}>${
             mio
               ? `Has capturado un castillo ${e.from === null ? 'neutral' : deJugador(e.from)}`
               : e.from === viewer
@@ -521,46 +570,46 @@ export function renderLog(log: readonly GameEvent[], viewer: number): string {
                   }`
           }</div>`;
         case 'built':
-          return `<div${clase(mio, false)}>${
+          return html`<div${clase(mio, false)}>${
             mio ? 'Construido' : `${jugador(e.actor)} construye`
           }: ${building(e.building).name}</div>`;
         case 'recruited':
-          return `<div${clase(mio, false)}>${
+          return html`<div${clase(mio, false)}>${
             mio ? 'Reclutados' : `${jugador(e.actor)} recluta`
           } ${e.count} × ${creature(e.creature).name}</div>`;
         case 'hero_hired':
-          return `<div${clase(mio, false)}>${
+          return html`<div${clase(mio, false)}>${
             mio ? 'Héroe contratado' : `${jugador(e.actor)} contrata un héroe`
           }</div>`;
         case 'garrison_taken':
-          return `<div${clase(mio, false)}>${
+          return html`<div${clase(mio, false)}>${
             mio ? 'Guarnición incorporada' : `${jugador(e.actor)} incorpora una guarnición`
           }</div>`;
         case 'spells_learned':
-          return `<div${clase(mio, false)}>${
+          return html`<div${clase(mio, false)}>${
             mio ? 'Aprendido' : `${jugador(e.actor)} aprende`
           }: ${e.spells.map((id) => spell(id).name).join(', ')}</div>`;
         case 'battle_ended':
-          return `<div>Batalla resuelta</div>`;
+          return html`<div>Batalla resuelta</div>`;
         case 'hero_defeated':
           // `actor` es el dueño del MUERTO, así que aquí «mío» es la derrota y
           // lo del rival es una victoria. Antes las dos salían en rojo, y a la
           // persona se le pintaba como propia la muerte del héroe enemigo.
-          return `<div${clase(!mio, mio)}>${
+          return html`<div${clase(!mio, mio)}>${
             mio ? 'Un héroe tuyo ha caído' : `Ha caído un héroe ${deJugador(e.actor)}`
           }</div>`;
         case 'level_up':
           // La única consecuencia visible de subir de nivel hoy, y por eso
           // sale: el nivel todavía no reparte atributos ni habilidades (#6,
           // #15), así que si no se contara aquí no se notaría en ningún sitio.
-          return `<div${clase(mio, false)}>Un héroe ${deJugador(e.actor)} sube a nivel ${
+          return html`<div${clase(mio, false)}>Un héroe ${deJugador(e.actor)} sube a nivel ${
             e.level
           }</div>`;
         case 'game_over':
           // El ganador es `actor`, y ya no hay un `winner` al lado diciendo lo
           // mismo: `visibleTo` enrutaba por uno y esta línea pintaba por el
           // otro, sin que nada comprobara que coincidían.
-          return `<div${clase(mio, !mio)}>Fin de la partida</div>`;
+          return html`<div${clase(mio, !mio)}>Fin de la partida</div>`;
 
         // Los cuatro que la pantalla NO pinta, escritos uno a uno en vez de
         // caer por un `default`. El núcleo ya te obliga a decidir si un `kind`
@@ -576,14 +625,13 @@ export function renderLog(log: readonly GameEvent[], viewer: number): string {
         case 'hero_moved':
         case 'battle_started':
         case 'player_defeated':
-          return '';
+          return NADA;
       }
       // Exhaustivo: con un `kind` nuevo, `e` deja de ser `never` aquí y esta
       // línea no compila hasta que alguien decida si se pinta o no.
       const sinFrase: never = e;
       throw new Error(`hecho de la crónica sin frase: ${JSON.stringify(sinFrase)}`);
     })
-    .filter((s) => s !== '')
-    .join('');
-  return `<div class="log">${lineas}</div>`;
+    .filter((linea) => linea !== NADA);
+  return html`<div class="log">${unir(lineas)}</div>`;
 }

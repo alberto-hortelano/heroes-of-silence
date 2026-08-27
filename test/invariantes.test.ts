@@ -2,7 +2,7 @@
  * Las fronteras de `CLAUDE.md`, comprobadas.
  *
  * Un contrato que solo vive en la documentación se rompe sin que nadie se
- * entere; aquí se rompe en rojo. Son trece guardias: siete leen el código con
+ * entere; aquí se rompe en rojo. Son catorce guardias: ocho leen el código con
  * una expresión regular, uno recorre el catálogo de rasgos, el de efectos
  * temporales llama de verdad a los lectores del motor, otro recorre todo el
  * repo —menos la prosa y los binarios— buscando la ruta de esta máquina, dos
@@ -13,7 +13,7 @@
  * fuera de esta máquina. Cuestan milisegundos —los dos que juegan, medio
  * segundo cada uno— así que caben en cada `pnpm test` sin frenar a nadie.
  *
- * Los trece nacen en verde. Un guardia que nace rojo se ignora desde el primer
+ * Los catorce nacen en verde. Un guardia que nace rojo se ignora desde el primer
  * día — y uno que nace verde sin comprobar que MUERDE no guarda nada: el de la
  * frontera con el servidor se probó metiendo un `import` del director en
  * `src/core/ai/turn.ts`, viéndolo rojo y quitándolo. Se volvió a probar con la
@@ -46,6 +46,12 @@
  * mismo —el de `node:` con `import 'x';`, el del candado con el cast del
  * estado, este con la desestructuración—: **lo que hay que ensanchar es la
  * batería de sondas, no la confianza**.
+ *
+ * El catorceavo es el de #63: `pintar` es el único `innerHTML` del repositorio y
+ * un `Html` solo se fabrica dentro de `src/client/html.ts`. Nace en verde **en
+ * el commit que reescribe `views/panels.ts`** y no en el que escribe la puerta,
+ * donde habría nacido rojo con los tres `innerHTML` que `main.ts` tenía
+ * entonces. También se rompió a mano, copiando uno de vuelta a `main.ts`.
  *
  * Y esta frase no puede escribir la marca de cierre de un comentario de bloque:
  * al escribirla la primera vez cerró este docstring de verdad y tumbó el `tsc`
@@ -466,6 +472,45 @@ describe('invariantes del proyecto', () => {
       /\b(applyAdventureAction|applyAction|resolvePendingBattle|settleBattle|playAiTurn|chooseBattleAction|newGame)\b/;
     const fuera = CLIENTE.filter((r) => r !== 'src/client/session.ts');
     expect(infractores(fuera, puertas)).toEqual([]);
+  });
+
+  it('el marcado sale por una sola puerta: `pintar` es el único innerHTML', () => {
+    // El cerrojo de verdad de #63 es de TIPOS: `pintar` solo acepta `Html` y las
+    // quince funciones de `views/panels.ts` lo devuelven, así que una nueva que
+    // devuelva `string` no compila. Este guardia cierra las dos puertas que el
+    // compilador no puede: escribir en el DOM sin pasar por `pintar`, y
+    // fabricar un `Html` desde fuera con un cast.
+    //
+    // Fabricarlo exige `as unknown as` porque `Html` lleva una propiedad de
+    // símbolo privado del módulo — comprobado a mano con tres sondas: una cadena
+    // no compila (TS2345), `'…' as Html` pide pasar por `unknown` primero
+    // (TS2352), y un objeto con OTRO símbolo sale con «Property '[MARCA]' is
+    // missing». O sea que el único camino queda a la vista, y es este el que lo
+    // acota a un fichero.
+    //
+    // Mira el CÓDIGO y no el fichero, como el de la coma flotante: el docstring
+    // de `html.ts` y el de `main.ts` nombran `innerHTML` para explicarse, y un
+    // guardia que caza su propia explicación se ignora desde el primer día.
+    //
+    // Y mira también `core` y el servidor, aunque hoy no tengan DOM: el guardia
+    // de «`core` no toca el DOM» busca `document.`/`window.` y `HTMLElement`, y
+    // un `nodo.innerHTML = x` no escribe ninguna de las tres.
+    //
+    // Se rompió a mano copiando un `elSide.innerHTML = ...` a `main.ts`, se miró
+    // rojo con su fichero y su línea, y se retiró la sonda.
+    const fuera = [...CORE, ...CLIENTE, ...SERVIDOR].filter((r) => r !== 'src/client/html.ts');
+    const puertas: readonly (readonly [string, RegExp])[] = [
+      ['un sumidero de marcado', /\b(innerHTML|outerHTML|insertAdjacentHTML)\b/],
+      [
+        'un `document.write`, que es el mismo sumidero por la puerta de atrás',
+        /\bdocument\s*\.\s*write(?:ln)?\s*\(/,
+      ],
+      ['un `Html` fabricado a mano', /\bas\s+unknown\s+as\s+Html\b/],
+    ];
+    const colados = puertas.flatMap(([puerta, patron]) =>
+      infractoresDeCodigo(fuera, patron).map((donde) => `[${puerta}] ${donde}`),
+    );
+    expect(colados).toEqual([]);
   });
 
   it('ningún rasgo de criatura está declarado y muerto', () => {

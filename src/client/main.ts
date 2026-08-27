@@ -11,6 +11,7 @@ import type { BattleStack } from '@core/battle/types.js';
 import { parseSeed } from '@core/rng.js';
 import type { Point } from '@core/types.js';
 import { BattleAnimator, type Pose } from './anim.js';
+import { pintar } from './html.js';
 import { type AdventureCamera, cameraFor, drawAdventure, tileAtPixel } from './render/adventure.js';
 import { assetCount, loadAssets, onAssetsChanged } from './render/assets.js';
 import { battleOffset, drawBattle, hexAtPixel } from './render/battle.js';
@@ -197,12 +198,15 @@ function render(): void {
     });
   }
 
+  // Lo que es marcado se pinta con `pintar`, que es el único `innerHTML` del
+  // repo; lo que es texto sigue yendo por `textContent`, que no necesita
+  // escapar nada porque no interpreta nada.
   const top = renderTopbar(session);
   elDay.textContent = top.day;
-  elResources.innerHTML = top.resources;
+  pintar(elResources, top.resources);
   elTurn.textContent = top.turn;
-  elSide.innerHTML = renderSide(session);
-  elActions.innerHTML = renderActions(session);
+  pintar(elSide, renderSide(session));
+  pintar(elActions, renderActions(session));
   elStatus.textContent = session.status;
 
   requestAnimationFrame(render);

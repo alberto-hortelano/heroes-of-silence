@@ -17,6 +17,7 @@
  * una rama que el ancla no puede defender.
  */
 
+import { type Html, marcadoDe } from '../src/client/html.js';
 import { Session } from '../src/client/session.js';
 import { renderActions, renderLog, renderSide, renderTopbar } from '../src/client/views/panels.js';
 import { playAiGame } from '../src/core/ai/turn.js';
@@ -303,11 +304,14 @@ function cronicaCompleta(): readonly GameEvent[] {
 export async function volcado(): Promise<string> {
   const bloques: string[] = [];
   for (const { nombre, session } of await escenas()) {
-    bloques.push(`### ${nombre} · renderTopbar.resources\n${renderTopbar(session).resources}`);
-    bloques.push(`### ${nombre} · renderSide\n${renderSide(session)}`);
-    bloques.push(`### ${nombre} · renderActions\n${renderActions(session)}`);
-    bloques.push(`### ${nombre} · renderLog\n${renderLog(session.state.log, session.viewer)}`);
+    const pinta = (rotulo: string, salida: Html): void => {
+      bloques.push(`### ${nombre} · ${rotulo}\n${marcadoDe(salida)}`);
+    };
+    pinta('renderTopbar.resources', renderTopbar(session).resources);
+    pinta('renderSide', renderSide(session));
+    pinta('renderActions', renderActions(session));
+    pinta('renderLog', renderLog(session.state.log, session.viewer));
   }
-  bloques.push(`### crónica completa · renderLog\n${renderLog(cronicaCompleta(), 0)}`);
+  bloques.push(`### crónica completa · renderLog\n${marcadoDe(renderLog(cronicaCompleta(), 0))}`);
   return `${bloques.join('\n')}\n`;
 }

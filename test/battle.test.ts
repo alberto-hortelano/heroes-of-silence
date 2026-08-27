@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { marcadoDe } from '../src/client/html.js';
 import { Session } from '../src/client/session.js';
 import { renderSide } from '../src/client/views/panels.js';
 import { chooseBattleAction, chooseBattleActionAndCosts } from '../src/core/ai/tactics.js';
@@ -1319,7 +1320,7 @@ describe('el parte de guerra pinta de quién es cada cosa', () => {
       battle,
     };
     session.scene = 'battle';
-    return renderSide(session);
+    return marcadoDe(renderSide(session));
   }
 
   it('la moral y la suerte se pintan por su signo', () => {

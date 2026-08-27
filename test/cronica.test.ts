@@ -11,6 +11,7 @@
  * ve nada del otro salvo cuando el test lo lleva a propósito.
  */
 import { describe, expect, it } from 'vitest';
+import { marcadoDe } from '../src/client/html.js';
 import { renderLog } from '../src/client/views/panels.js';
 import { playAiGame } from '../src/core/ai/turn.js';
 import { serializeAdventureTurn } from '../src/core/contract/serialize.js';
@@ -340,7 +341,7 @@ describe('la crónica pasa por la niebla', () => {
     pasarTurno(state, ctx, 0);
     pasear(state, ctx, 1, [MI_MINA]);
 
-    const pintado = renderLog(state.log, 0);
+    const pintado = marcadoDe(renderLog(state.log, 0));
     expect(pintado).toMatch(/mina/i);
     expect(leer(state, 0).recentEvents.some((e) => e.kind === 'mine_captured')).toBe(false);
   });
@@ -388,7 +389,8 @@ describe('la crónica de la pantalla deja de mentir', () => {
   const evento = (cuerpo: Record<string, unknown>): GameEvent =>
     ({ actor: 1, at: { x: 0, y: 0 }, seen: [], ...cuerpo }) as unknown as GameEvent;
   /** El HTML de un solo evento, para mirarlo entero sin ruido alrededor. */
-  const linea = (cuerpo: Record<string, unknown>): string => renderLog([evento(cuerpo)], 0);
+  const linea = (cuerpo: Record<string, unknown>): string =>
+    marcadoDe(renderLog([evento(cuerpo)], 0));
 
   it('la muerte de un héroe ENEMIGO ya no se pinta como derrota propia', () => {
     // El bug que más se notaba: `hero_defeated` salía SIEMPRE en clase `lose`,
@@ -463,17 +465,19 @@ describe('la crónica de la pantalla deja de mentir', () => {
     // El navegador cazó «Castillo de tú capturado» y «un héroe de el jugador
     // 1»: componer «de» + el sujeto no vale en español, y por eso hay dos
     // formas del helper. Esto es lo que impide que vuelva la de una sola.
-    const todas = renderLog(
-      [
-        evento({ kind: 'town_captured', town: 't', actor: 1, from: 0 }),
-        evento({ kind: 'town_captured', town: 't', actor: 0, from: 1 }),
-        evento({ kind: 'hero_defeated', hero: 'h', actor: 1 }),
-        evento({ kind: 'mine_captured', mine: 'm', actor: 1, from: 0 }),
-        evento({ kind: 'mine_captured', mine: 'm', actor: 0, from: 1 }),
-        evento({ kind: 'level_up', hero: 'h', level: 2, actor: 1 }),
-        evento({ kind: 'level_up', hero: 'h', level: 2, actor: 0 }),
-      ],
-      0,
+    const todas = marcadoDe(
+      renderLog(
+        [
+          evento({ kind: 'town_captured', town: 't', actor: 1, from: 0 }),
+          evento({ kind: 'town_captured', town: 't', actor: 0, from: 1 }),
+          evento({ kind: 'hero_defeated', hero: 'h', actor: 1 }),
+          evento({ kind: 'mine_captured', mine: 'm', actor: 1, from: 0 }),
+          evento({ kind: 'mine_captured', mine: 'm', actor: 0, from: 1 }),
+          evento({ kind: 'level_up', hero: 'h', level: 2, actor: 1 }),
+          evento({ kind: 'level_up', hero: 'h', level: 2, actor: 0 }),
+        ],
+        0,
+      ),
     );
     expect(todas).not.toMatch(/de tú|de el |a tú/);
   });
