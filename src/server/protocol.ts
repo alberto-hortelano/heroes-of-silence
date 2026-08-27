@@ -87,9 +87,17 @@ export interface SpectatorSnapshotMsg {
   readonly view: unknown;
 }
 
-export interface SpectatorLogMsg {
-  readonly type: 'log';
-  readonly lines: readonly string[];
-}
-
-export type ServerToSpectatorMsg = SpectatorSnapshotMsg | SpectatorLogMsg;
+/**
+ * Un solo brazo, y por ahora es lo honesto.
+ *
+ * Aquí vivía un `SpectatorLogMsg` con `readonly lines: string[]` y **cero
+ * emisores** (#32). No se emitió nunca porque no tiene sujeto: el snapshot ya
+ * lleva `view.log` con los últimos 40 hechos ESTRUCTURADOS y `view.directorLog`
+ * con lo que dice el director, así que una lista de cadenas sueltas es
+ * estrictamente más pobre que lo que ya viaja. Emitirlo habría sido fabricarle
+ * un motivo.
+ *
+ * Se borra en vez de dejarlo declarado: un tipo con cero emisores lo lee alguien
+ * dentro de seis meses, se cree que funciona, y escribe el cliente que lo espera.
+ */
+export type ServerToSpectatorMsg = SpectatorSnapshotMsg;
