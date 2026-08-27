@@ -69,7 +69,7 @@ export async function pedirMapaAlAgente(
   }
 
   const plan = respuesta.data.plan;
-  const problemas = [...validateMapPlan(plan), ...jugadoresCambiados(plan, peticion.players)];
+  const problemas = [...validateMapPlan(plan), ...loQuePidioElServidor(plan, peticion)];
   if (problemas.length > 0) {
     link.report(respuesta.requestId, false, problemas, notaMapaRechazado(problemas));
     return { plan: null, motivo: `el plan del agente no es jugable: ${problemas.join('; ')}` };
@@ -85,23 +85,37 @@ export async function pedirMapaAlAgente(
 }
 
 /**
- * Que los inicios del plan sean EXACTAMENTE los jugadores que se pidieron.
+ * Que el plan sea el que se pidió: **este tamaño** y **estos jugadores**.
  *
  * Lo comprueba el servidor y no `core`, y no es capricho de dónde ponerlo:
  * `validateMapPlan` mira que un plan sea **jugable** —dos pueblos, nadie
- * aislado, un inicio por jugador— y no puede saber CUÁLES son los jugadores,
- * porque eso lo sabe quien pidió el mapa. Un plan con los jugadores 3 y 4 es
- * perfectamente jugable y deja al agente sin un solo turno: `agentPlayers.has`
- * no se cumple nunca, todos los informes dicen «reglas» y no se rompe nada. Ese
- * silencio es justo el que hay que cerrar.
+ * aislado, un inicio por jugador, ninguna criatura inventada— y no puede saber
+ * CUÁLES son los jugadores ni qué tamaño se pidió, porque eso lo sabe quien
+ * pidió el mapa. Un plan con los jugadores 3 y 4 es perfectamente jugable y deja
+ * al agente sin un solo turno: `agentPlayers.has` no se cumple nunca, todos los
+ * informes dicen «reglas» y no se rompe nada. Ese silencio es justo el que hay
+ * que cerrar.
+ *
+ * El tamaño va aquí por lo mismo y porque `ws-server.ts` ya lo promete por
+ * escrito: si el mapa con agente y el mapa sin agente dejan de medir lo mismo,
+ * las dos partidas dejan de ser comparables. Se aceptaba un 128×128 pedido un
+ * 24×24 sin que nadie dijera nada — y son 16 384 casillas de `knownMap` en cada
+ * turno.
  *
  * `serializeMapRequest` le dice al agente **cuántos** jugadores hay, no cuáles;
- * el día que el payload lleve los ids, esta comprobación se muere sola.
+ * el día que el payload lleve los ids, media comprobación se muere sola.
  */
-function jugadoresCambiados(plan: MapPlan, esperados: readonly PlayerId[]): string[] {
+function loQuePidioElServidor(plan: MapPlan, peticion: PeticionDeMapa): string[] {
   const problemas: string[] = [];
+  const esperados = peticion.players;
   const trae = new Set(plan.heroStarts.map((h) => h.player));
   const lista = esperados.join(', ');
+
+  if (plan.width !== peticion.width || plan.height !== peticion.height) {
+    problemas.push(
+      `el mapa mide ${plan.width}×${plan.height} y se te pidió ${peticion.width}×${peticion.height}: devuelve el tamaño de "want"`,
+    );
+  }
 
   for (const p of esperados) {
     if (!trae.has(p)) {

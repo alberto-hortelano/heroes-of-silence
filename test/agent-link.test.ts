@@ -967,6 +967,36 @@ describe('el agente diseña el mapa', () => {
     expect(acuse?.note).toMatch(/no se te va a volver a pedir/i);
   });
 
+  it('un plan con una criatura inventada muere en la PUERTA, no en el primer turno', async () => {
+    // El bloqueante, por el camino entero. Antes de esto el servidor aceptaba
+    // el plan, le mandaba al agente «Tu plan de mapa entró» y reventaba en
+    // `playAiTurn` con «criatura desconocida». Fail-loud en el sitio equivocado:
+    // ruidoso DESPUÉS del acuse, que es cuando ya no se puede corregir.
+    const base = generateMapPlan(createRng(24));
+    const { link, agent } = await montar(() => ({
+      plan: { ...base, monsters: [{ at: base.monsters[0]!.at, creature: 'no-existe', count: 3 }] },
+    }));
+
+    const { plan, motivo } = await pedirMapaAlAgente(link, PETICION);
+    expect(plan).toBeNull();
+    expect(motivo).toMatch(/criatura que no existe: "no-existe"/);
+
+    const acuse = await acuseDelMapa(agent);
+    // Lo que más importa: el acuse dice que NO, no que sí.
+    expect(acuse?.ok).toBe(false);
+    expect(acuse?.problems?.join(' ')).toMatch(/Las que valen:/);
+  });
+
+  it('un plan de otro tamaño se rechaza: 128×128 pedido un 24×24', async () => {
+    const grande = generateMapPlan(createRng(25), { width: 48, height: 48 });
+    const { link, agent } = await montar(() => ({ plan: grande }));
+
+    const { plan, motivo } = await pedirMapaAlAgente(link, PETICION);
+    expect(plan).toBeNull();
+    expect(motivo).toMatch(/mide 48×48 y se te pidió 24×24/);
+    expect((await acuseDelMapa(agent))?.ok).toBe(false);
+  });
+
   it('un plan con OTROS jugadores se rechaza, que si no deja al agente sin turnos', async () => {
     // Es jugable —`validateMapPlan` lo acepta entero— y deja al agente sin una
     // sola petición: `agentPlayers.has(current)` nunca se cumple, todos los

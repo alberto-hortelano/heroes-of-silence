@@ -244,8 +244,23 @@ mines[], resources[], monsters[], chests[], roads?.
 Reglas que se validan antes de aceptarlo:
 - Mínimo 8×8, máximo 128×128.
 - Al menos dos pueblos y dos posiciones de inicio, y cada jugador con un pueblo.
-- Dos objetos no pueden compartir casilla.
+- Dos objetos no pueden compartir casilla, y las posiciones de inicio TAMBIÉN
+  ocupan la suya: dos héroes juntos, o un héroe encima de un castillo, se
+  rechazan.
 - Desde cada inicio se debe poder llegar a pie a todos los pueblos.
+- "monsters[].creature" tiene que ser un id de criatura que exista: usa los de
+  "palette.creaturesForGuards", que están escritos como los espera el motor.
+  Distingue mayúsculas ("skeleton" sí, "Skeleton" no) y no vale inventarse una:
+  el mapa no se construye y se te devuelve la lista de las que valen.
+- Un "towns[].owner" y un "mines[].owner" tienen que ser jugadores CON posición
+  de inicio en este mismo plan. Para dejar un pueblo neutral, "owner": null;
+  para una mina sin dueño, no pongas "owner".
+- Devuelve el "width" y el "height" que se te piden en "want": el servidor
+  compara la partida con agente contra la que jugaría sin él, y un tamaño
+  distinto las hace incomparables.
+- El ORDEN en que escribas "heroStarts" no decide nada: el servidor ordena los
+  jugadores por su número, así que el 0 abre la partida lo escribas donde lo
+  escribas.
 - El "id" de un pueblo es un identificador, no un rótulo: minúsculas, letras,
   dígitos, guion y guion bajo, empezando por letra o dígito, hasta 32
   caracteres. "town-0" vale; "Pueblo Uno" no. Y no puede repetirse: dos pueblos

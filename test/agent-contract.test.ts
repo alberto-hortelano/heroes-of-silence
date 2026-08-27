@@ -293,6 +293,25 @@ describe('lo que ve el agente', () => {
     expect(RESPONSE_FORMAT.map_generate).toMatch(/numerados desde 0/);
   });
 
+  it('y la prosa enumera TODO lo que se valida, no tres cuartas partes', () => {
+    // La lección del bloqueante: la paleta manda cuatro listas al agente y solo
+    // tres se validaban. La que faltaba era la única que el motor ejecuta, y
+    // `RESPONSE_FORMAT` tampoco la nombraba entre las «reglas que se validan»,
+    // así que un modelo que lea el contrato no tiene motivo para creer que la
+    // lista sea cerrada ni que distinga mayúsculas. Ahora lo dice.
+    const prosa = RESPONSE_FORMAT.map_generate;
+    expect(prosa).toMatch(/creaturesForGuards/);
+    expect(prosa).toMatch(/Distingue mayúsculas/);
+    // Las posiciones de inicio ocupan casilla.
+    expect(prosa).toMatch(/posiciones de inicio TAMBIÉN\s+ocupan/);
+    // Los dueños tienen que jugar.
+    expect(prosa).toMatch(/owner.*jugadores CON posición\s+de inicio/s);
+    // El tamaño pedido es el que hay que devolver.
+    expect(prosa).toMatch(/Devuelve el "width" y el "height" que se te piden/);
+    // Y que el orden no le regala la iniciativa a nadie.
+    expect(prosa).toMatch(/ORDEN en que escribas "heroStarts" no decide nada/);
+  });
+
   it('la petición de mapa describe la paleta disponible', () => {
     const payload = serializeMapRequest({ width: 24, height: 24, players: 2 }) as {
       palette: { terrains: string[]; factions: string[] };

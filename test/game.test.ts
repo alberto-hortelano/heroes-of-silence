@@ -146,6 +146,85 @@ describe('generación de mapas', () => {
     expect(validateMapPlan(doble).join(' ')).toMatch(/jugador 0 tiene dos posiciones de inicio/);
   });
 
+  it('rechaza un monstruo de una criatura que no existe, y dice cuáles valen', () => {
+    // El bloqueante del ciclo. De las cuatro listas de la paleta que se le
+    // mandan al agente —terreno, recursos, facciones y criaturas— tres viajaban
+    // por `z.enum` y esta por `z.string()`, y es justo la que el motor EJECUTA:
+    // `buildMap` la copia verbatim y el primer turno de la IA llama a
+    // `creature(id)`, que lanza. El plan se aceptaba, se le acusaba al agente
+    // «tu plan entró», y la partida moría antes del día 2.
+    const plan = generateMapPlan(createRng(31));
+    const inventada = {
+      ...plan,
+      monsters: [...plan.monsters, { at: { x: 11, y: 11 }, creature: 'dragon', count: 3 }],
+    };
+    const problemas = validateMapPlan(inventada);
+    expect(problemas.join(' ')).toMatch(/criatura que no existe: "dragon"/);
+    // Y con qué corregirlo: un rechazo que no dice las opciones no se corrige.
+    expect(problemas.join(' ')).toMatch(/Las que valen:.*skeleton/);
+
+    // La mayúscula también, que es el error más probable de un modelo.
+    const mayuscula = {
+      ...plan,
+      monsters: [{ at: plan.monsters[0]!.at, creature: 'Skeleton', count: 3 }],
+    };
+    expect(validateMapPlan(mayuscula).join(' ')).toMatch(/"Skeleton"/);
+
+    // Y el plan que muere en la puerta NO llega a construirse: `newGame` lanza
+    // con el motivo del plan, no con «criatura desconocida» desde dentro del
+    // turno de la IA, que era donde reventaba.
+    expect(() => newGame({ seed: 31, plan: inventada })).toThrow(/no es jugable/);
+  });
+
+  it('los inicios de héroe también ocupan casilla (#97, la puerta de al lado)', () => {
+    const plan = generateMapPlan(createRng(32));
+    // Dos héroes en la misma casilla.
+    const juntos = {
+      ...plan,
+      heroStarts: [plan.heroStarts[0]!, { player: 1, at: plan.heroStarts[0]!.at }],
+    };
+    expect(validateMapPlan(juntos).join(' ')).toMatch(/la ocupan dos cosas.*inicio del jugador 1/);
+
+    // Y un héroe encima del castillo rival, que no revienta y da una partida
+    // degenerada — la peor forma de pasar.
+    const encima = {
+      ...plan,
+      heroStarts: [{ player: 0, at: plan.towns[1]!.at }, plan.heroStarts[1]!],
+    };
+    expect(validateMapPlan(encima).join(' ')).toMatch(/la ocupan dos cosas/);
+  });
+
+  it('un pueblo o una mina de un jugador que no juega se rechazan', () => {
+    const plan = generateMapPlan(createRng(33));
+    const fantasma = {
+      ...plan,
+      towns: [
+        ...plan.towns,
+        {
+          id: 'town-9',
+          name: 'Fantasma',
+          faction: 'knight' as const,
+          at: { x: 12, y: 2 },
+          owner: 7,
+        },
+      ],
+    };
+    expect(validateMapPlan(fantasma).join(' ')).toMatch(
+      /pueblo "town-9" es del jugador 7, que no tiene posición de inicio/,
+    );
+
+    const minaAjena = {
+      ...plan,
+      mines: plan.mines.map((m, i) => (i === 0 ? { ...m, owner: 7 } : m)),
+    };
+    expect(validateMapPlan(minaAjena).join(' ')).toMatch(
+      /mina de \w+ en \(\d+,\d+\) es del jugador 7/,
+    );
+
+    // Neutral sigue valiendo: filtrar no es prohibir.
+    expect(validateMapPlan({ ...plan, towns: plan.towns.map((t) => ({ ...t })) })).toEqual([]);
+  });
+
   it('rechaza dos objetos en la misma casilla', () => {
     const plan = generateMapPlan(createRng(6));
     const chocado = {

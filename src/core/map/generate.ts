@@ -7,6 +7,7 @@
  * ambos caminos pasan por la misma validación de jugabilidad.
  */
 
+import { allCreatures } from '../data.js';
 import type { Rng } from '../rng.js';
 import { createTown, type Town } from '../town/town.js';
 import type { FactionId, PlayerId, Point, ResourceKind } from '../types.js';
@@ -74,6 +75,15 @@ export interface BuiltMap {
   readonly towns: Town[];
 }
 
+/**
+ * Los ids de criatura que el motor sabe construir.
+ *
+ * Se deriva del catálogo y no se escribe a mano: una lista copiada aquí sería
+ * la cuarta enumeración de lo mismo, y se quedaría atrás el día que entre una
+ * criatura nueva sin que nada se ponga rojo.
+ */
+const CRIATURAS: ReadonlySet<string> = new Set(allCreatures().map((c) => c.id));
+
 // ---------------------------------------------------------------- validación
 
 /**
@@ -112,6 +122,12 @@ export function validateMapPlan(plan: MapPlan): string[] {
   for (const r of plan.resources) ocupar(r.at, `recurso ${r.resource}`);
   for (const m of plan.monsters) ocupar(m.at, `monstruo ${m.creature}`);
   for (const c of plan.chests) ocupar(c.at, 'cofre');
+  // Los inicios también ocupan casilla, y faltaban en la lista: dos héroes en
+  // la misma o un héroe **encima del castillo rival** se aceptaban enteros y
+  // daban partidas degeneradas sin reventar, que es la peor forma de pasar.
+  // `ocupar` cubre además el «fuera del mapa» que este bucle comprobaba aparte
+  // cincuenta líneas más abajo, y con la casilla dentro del mensaje.
+  for (const i of plan.heroStarts) ocupar(i.at, `el inicio del jugador ${i.player}`);
 
   if (plan.towns.length < 2) problemas.push('hacen falta al menos dos pueblos');
   if (plan.heroStarts.length < 2) problemas.push('hacen falta al menos dos posiciones de inicio');
@@ -144,11 +160,51 @@ export function validateMapPlan(plan: MapPlan): string[] {
 
   const conPueblo = new Set(plan.towns.filter((t) => t.owner !== null).map((t) => t.owner));
   for (const inicio of plan.heroStarts) {
-    if (!dentro(inicio.at)) {
-      problemas.push(`el inicio del jugador ${inicio.player} cae fuera del mapa`);
-    }
     if (!conPueblo.has(inicio.player)) {
       problemas.push(`el jugador ${inicio.player} no tiene ningún pueblo`);
+    }
+  }
+
+  // Y al revés, que era la puerta de al lado: cada jugador con inicio tenía que
+  // tener pueblo, pero **un pueblo podía ser de cualquiera**. Con `owner: 7` en
+  // una partida de dos, el castillo entra y se comporta como uno capturable de
+  // un jugador que no existe — o sea, un tercer bando fantasma que el reparto de
+  // jugadores no ve. Lo mismo con las minas, que rentan para nadie.
+  const jugadores = new Set<PlayerId>(plan.heroStarts.map((i) => i.player));
+  const noJuega = (id: PlayerId): boolean => !jugadores.has(id);
+  for (const t of plan.towns) {
+    if (t.owner !== null && noJuega(t.owner)) {
+      problemas.push(
+        `el pueblo "${t.id}" es del jugador ${t.owner}, que no tiene posición de inicio en este mapa: o le pones una, o déjalo neutral con "owner": null`,
+      );
+    }
+  }
+  for (const m of plan.mines) {
+    if (m.owner !== undefined && noJuega(m.owner)) {
+      problemas.push(
+        `la mina de ${m.resource} en (${m.at.x},${m.at.y}) es del jugador ${m.owner}, que no tiene posición de inicio en este mapa: quita "owner" para dejarla sin dueño`,
+      );
+    }
+  }
+
+  // La criatura de un monstruo es el ÚNICO texto del plan que el motor ejecuta
+  // en vez de leer, y era el único de la paleta sin validar: el terreno, los
+  // recursos y la facción viajan por `z.enum` y esto viajaba por `z.string()`.
+  // `buildMap` lo copia verbatim al `MapObject` y el primer turno de la IA llama
+  // a `creature(id)`, que lanza «criatura desconocida». Con el agente ya avisado
+  // de que su plan entró.
+  //
+  // **La comprobación vive aquí y no en el esquema, y esto es lo que manda.**
+  // `mapPlanSchema` solo ve el plan del agente; `validateMapPlan` es la puerta
+  // única por la que pasan los dos productores —el agente y el procedimental—,
+  // así que un `z.enum` dejaría al generador de casa sin vigilar justo en el
+  // campo que mata el proceso. Que la regla también se anuncie en
+  // `RESPONSE_FORMAT` no la duplica: eso es la prosa, no la comprobación.
+  for (const m of plan.monsters) {
+    if (!CRIATURAS.has(m.creature)) {
+      problemas.push(
+        `el monstruo de (${m.at.x},${m.at.y}) es de una criatura que no existe: "${m.creature}". Las que valen: ${[...CRIATURAS].sort().join(', ')}`,
+      );
     }
   }
 
