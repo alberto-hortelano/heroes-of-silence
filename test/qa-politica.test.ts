@@ -7,9 +7,17 @@
  * silencio verde para una respuesta que no se aplicó.
  *
  * Y no se puede ver morder jugando: hoy nadie emite un tercer `kind`
- * (`map_generate` es #27 y `hero_banter` es #28, los dos abiertos), así que
- * `pnpm qa` en verde no prueba nada de esta rama. Solo un kind inventado a mano
- * la alcanza, que es exactamente lo que hace este fichero.
+ * (`map_generate` es #27, todavía abierto), así que `pnpm qa` en verde no
+ * prueba nada de esta rama. Solo un kind inventado a mano la alcanza, que es
+ * exactamente lo que hace este fichero.
+ *
+ * `hero_banter` sigue en la lista de abajo, y desde #28 por el motivo
+ * contrario: ya no existe en el contrato. Se le anunciaba al agente en
+ * `heroes_listen` sin serializador, sin punto de llamada y sin sitio donde
+ * enseñar la frase, así que se retiró el anuncio en vez de fingir la mitad que
+ * faltaba. Aquí queda como el ejemplo de un kind **retirado** que alguien
+ * podría seguir emitiendo por costumbre: la rama tiene que morder con él igual
+ * que con uno inventado.
  */
 import { describe, expect, it } from 'vitest';
 import { decidir } from '../tools/qa/politica.js';

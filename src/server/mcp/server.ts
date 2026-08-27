@@ -184,7 +184,6 @@ Tipos de petición que puedes recibir:
   "yourSide" en cada petición y no des por hecho que atacas.
 - "map_generate"   → diseña un mapa. No dibujas nada: devuelves un plan
   declarativo y el motor lo construye y lo valida.
-- "hero_banter"    → una frase en boca de tu héroe.
 
 El ciclo tiene final y te avisa de él: cuando la partida termina recibes un
 mensaje que empieza por "${PREFIJO_FIN}" y te dice quién ganó. Ahí se para

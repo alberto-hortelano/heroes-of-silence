@@ -112,18 +112,9 @@ export const mapGenerateResponseSchema = z.object({
   reasoning: z.string().max(2000).optional(),
 });
 
-export const banterResponseSchema = z.object({
-  line: z.string().max(280),
-});
-
 // ---------------------------------------------------------------- peticiones
 
-export const REQUEST_KINDS = [
-  'adventure_turn',
-  'battle_turn',
-  'map_generate',
-  'hero_banter',
-] as const;
+export const REQUEST_KINDS = ['adventure_turn', 'battle_turn', 'map_generate'] as const;
 
 export type RequestKind = (typeof REQUEST_KINDS)[number];
 
@@ -131,13 +122,11 @@ export const responseSchemas = {
   adventure_turn: adventureTurnResponseSchema,
   battle_turn: battleTurnResponseSchema,
   map_generate: mapGenerateResponseSchema,
-  hero_banter: banterResponseSchema,
 } as const;
 
 export type AdventureTurnResponse = z.infer<typeof adventureTurnResponseSchema>;
 export type BattleTurnResponse = z.infer<typeof battleTurnResponseSchema>;
 export type MapGenerateResponse = z.infer<typeof mapGenerateResponseSchema>;
-export type BanterResponse = z.infer<typeof banterResponseSchema>;
 
 /**
  * Descripción del formato de respuesta que viaja DENTRO de cada petición.
@@ -237,7 +226,4 @@ Reglas que se validan antes de aceptarlo:
 - Dos objetos no pueden compartir casilla.
 - Desde cada inicio se debe poder llegar a pie a todos los pueblos.
 Si algo falla se te devuelve la lista de problemas para que lo corrijas.`,
-
-  hero_banter: `Responde con:
-{ "line": "una frase corta, en español, en boca del héroe" }`,
 };
