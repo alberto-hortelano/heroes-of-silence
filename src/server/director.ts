@@ -49,6 +49,29 @@ export interface DirectorOptions {
   readonly plan?: MapPlan;
   /** Jugadores cuyo turno decide el agente. */
   readonly agentPlayers?: readonly PlayerId[];
+  /**
+   * Un fotograma: se llama tras CADA acción aplicada, de mapa y de batalla.
+   *
+   * Existe porque `broadcast()` corría una vez por turno y una batalla se
+   * resolvía entera entre dos fotogramas: en la cobertura de `pnpm qa` son 15 de
+   * 18 decisiones las que no se verían, y son justo las que más toma el agente.
+   * Una ronda son 6-10 acciones, así que un fotograma por ronda perdería
+   * catorce de esas quince.
+   *
+   * Con el número delante y MEDIDO aquí, porque la pregunta obvia es si inunda
+   * el socket: un snapshot del día 8 en 24×24 son **19 446 bytes y 0,044 ms** de
+   * `JSON.stringify` (22 515 con las veinte notas del director llenas), y la
+   * batalla en curso añade **1 693 bytes**. `broadcast()` sale antes si no mira
+   * nadie. Y esto no es un bucle de juego: avanza al ritmo al que contesta el
+   * agente, que son segundos.
+   *
+   * **Lo que NO da fotogramas, dicho aquí y no descubierto luego**: el turno de
+   * mapa que juega la heurística (`playAiTurn` es una llamada atómica a `core`)
+   * y las batallas que no se queda nadie (`resolvePendingBattle`, `autoResolve`),
+   * que se resuelven dentro del núcleo. Enseñarlas exigiría que `core` conociera
+   * a un observador, y eso es otro issue.
+   */
+  readonly onFrame?: () => void;
 }
 
 export interface TurnReport {
@@ -63,6 +86,8 @@ export class Director {
   readonly ctx: GameContext;
   readonly agentPlayers: Set<PlayerId>;
   readonly log: string[] = [];
+  /** Quién quiere ver cada acción, si alguien quiere. */
+  private mirador: (() => void) | null;
 
   constructor(
     private readonly link: AgentLink,
@@ -72,6 +97,27 @@ export class Director {
     this.state = newGame({ seed, ...(options.plan === undefined ? {} : { plan: options.plan }) });
     this.ctx = { rng: createRng(seed ^ 0xa9e7) };
     this.agentPlayers = new Set(options.agentPlayers ?? [1]);
+    this.mirador = options.onFrame ?? null;
+  }
+
+  /**
+   * Un fotograma, si hay quien lo mire.
+   *
+   * El `catch` no está vacío ni se traga nada: **lo dice** y se desengancha. Un
+   * observador es opcional por definición, y una partida —con el agente esperando
+   * al otro lado del cable— no se puede caer porque a un mirón se le muera el
+   * socket a mitad. Que deje de haber fotogramas se ve en la crónica del
+   * director, que es lo que el espectador tiene delante.
+   */
+  private frame(): void {
+    if (this.mirador === null) return;
+    try {
+      this.mirador();
+    } catch (err) {
+      const motivo = err instanceof Error ? err.message : String(err);
+      this.mirador = null;
+      this.note(`El espectador ha fallado y se deja de retransmitir (${motivo}).`);
+    }
   }
 
   get finished(): boolean {
@@ -150,6 +196,7 @@ export class Director {
       try {
         applyAdventureAction(this.state, accion as AdventureAction, this.ctx, playerId);
         aplicadas++;
+        this.frame();
       } catch (err) {
         // Una acción ilegal se descarta y se le cuenta al agente, tal y como
         // promete el contrato; las siguientes siguen aplicándose.
@@ -164,11 +211,16 @@ export class Director {
         // Si nadie la tomó, la cierra la IA: dejarla pendiente reventaría todas
         // las acciones que quedaran del turno con «hay una batalla pendiente».
         if (this.state.pendingBattle !== null) resolvePendingBattle(this.state, this.ctx);
+        // Y un fotograma al cerrarla: el de la última acción todavía la enseñaba
+        // en pie, así que sin este el tablero se quedaría con la batalla puesta
+        // hasta la siguiente acción del mapa.
+        this.frame();
       }
     }
 
     if (this.state.finished === null) {
       applyAdventureAction(this.state, { type: 'end_turn' }, this.ctx, playerId);
+      this.frame();
     }
 
     if (problems.length > 0) this.note(`Acciones rechazadas: ${problems.length}`);
@@ -212,6 +264,7 @@ export class Director {
 
       if (!bandos.has(s.side)) {
         applyAction(battle, chooseBattleAction(battle), this.ctx.rng);
+        this.frame();
         continue;
       }
 
@@ -233,6 +286,7 @@ export class Director {
       const accion = respuesta.data.action as BattleAction;
       try {
         applyAction(battle, accion, this.ctx.rng);
+        this.frame();
         this.link.report(respuesta.requestId, true, undefined, notaAccionAceptada(s.id, accion));
       } catch (err) {
         const motivo = err instanceof Error ? err.message : String(err);
@@ -245,6 +299,7 @@ export class Director {
         const heroe = battle.heroes[s.side];
         const manaAntes = heroe?.mana ?? 0;
         applyAction(battle, sustituta, this.ctx.rng);
+        this.frame();
         const manaGastado = manaAntes - (heroe?.mana ?? 0);
         // Si la sustituta remató, la promesa del `cast` —«se te volverá a pedir
         // acción para ella»— sería falsa: el bucle sale por `battle.finished` y

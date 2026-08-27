@@ -3,6 +3,7 @@
  * Es la fuente de verdad del formato: si cambia aquí, cambia en los dos lados.
  */
 import type { RequestKind } from '@core/contract/agent.js';
+import type { SpectatorView } from './vista-espectador.js';
 
 // ------------------------------------------------------- servidor → agente
 
@@ -83,8 +84,16 @@ export interface SpectatorSnapshotMsg {
   readonly day: number;
   readonly current: number;
   readonly finished: { winner: number } | null;
-  /** Estado del mapa y de los jugadores, ya sin `Set` ni `Map`. */
-  readonly view: unknown;
+  /**
+   * Estado del mapa, los jugadores y la batalla en curso, ya sin `Set` ni `Map`.
+   *
+   * Decía `unknown`, y eso obligaba a quien lo pintara a reimplementar el
+   * esquema del emisor por su cuenta: dos declaraciones de la misma cosa que
+   * nadie compara, que es el bug que acaba de morder en `MapPlan` contra
+   * `mapPlanSchema`. Ahora es un tipo, `SpectatorView`, y los dos extremos
+   * compilan contra él.
+   */
+  readonly view: SpectatorView;
 }
 
 /**

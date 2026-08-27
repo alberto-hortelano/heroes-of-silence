@@ -10,7 +10,6 @@
 import { once } from 'node:events';
 import { creature } from '@core/data.js';
 import { parseSeed } from '@core/rng.js';
-import { sinSello } from '@core/state/events.js';
 import { type WebSocket, WebSocketServer } from 'ws';
 import { AgentLink } from './agent-link.js';
 import { responderConsulta } from './consultas.js';
@@ -19,6 +18,7 @@ import { pedirMapaAlAgente } from './mapa-del-agente.js';
 import { notaFinDePartida, SIN_PARTIDA_TODAVIA } from './notas.js';
 import type { ServerToSpectatorMsg } from './protocol.js';
 import { puertoAgente, puertoEspectadores } from './puertos.js';
+import { construirVista } from './vista-espectador.js';
 
 /** La partida que se juega si nadie pide otra. */
 const SEED_POR_DEFECTO = 20260823;
@@ -97,49 +97,9 @@ function broadcast(): void {
     day: state.day,
     current: state.current,
     finished: state.finished,
-    view: {
-      // El espectador lo ve TODO, y es aposta: mira la partida desde fuera, no
-      // la juega. Esta forma se parecía a la de la consulta `map`, que desde
-      // #74 pasa por la niebla (`serializeKnownMap`, `core/contract/serialize`)
-      // y ya no es la misma cosa: si alguien viene a unificarlas, lo que se
-      // junta son dos reglas distintas bajo un solo nombre.
-      map: {
-        width: state.map.width,
-        height: state.map.height,
-        terrain: state.map.terrain,
-        roads: [...state.map.roads],
-        objects: state.map.objects,
-      },
-      players: state.players.map((p) => ({
-        id: p.id,
-        faction: p.faction,
-        resources: p.resources,
-        defeated: p.defeated,
-        fog: [...p.fog],
-      })),
-      heroes: state.heroes.map((h) => ({
-        id: h.id,
-        owner: h.owner,
-        name: h.name,
-        at: h.at,
-        movePoints: h.movePoints,
-        army: h.army,
-      })),
-      towns: state.towns.map((t) => ({
-        id: t.id,
-        owner: t.owner,
-        name: t.name,
-        at: t.at,
-        buildings: t.buildings,
-        garrison: t.garrison,
-      })),
-      // Sin el sello: el espectador ve la partida entera —eso es lo que es—
-      // pero quién MÁS estaba mirando cada casilla es contabilidad de casa, y
-      // salía entera por aquí mientras el mensaje del agente la borraba a
-      // propósito dos ficheros más allá.
-      log: state.log.slice(-40).map(sinSello),
-      directorLog: director.log.slice(-20),
-    },
+    // La vista se MONTA en `vista-espectador.ts`, que es donde vive su tipo. Se
+    // escribía aquí, a mano y dentro de esta función, contra un `view: unknown`.
+    view: construirVista(state, director.log),
   };
   const raw = JSON.stringify(msg);
   for (const s of spectators) {
@@ -310,6 +270,10 @@ async function main(): Promise<void> {
   director = new Director(link, {
     seed: SEED,
     agentPlayers: [1],
+    // Un fotograma por acción aplicada, y no uno por turno: una batalla entera
+    // caía antes entre dos snapshots. `broadcast()` sale sola si no mira nadie,
+    // así que sin espectadores esto no cuesta nada.
+    onFrame: broadcast,
     ...(plan === null ? {} : { plan }),
   });
   await jugar(director);
