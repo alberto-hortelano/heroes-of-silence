@@ -197,7 +197,7 @@ Llama de una en una: si dos heroes_listen se solapan, la primera vuelve con
 llamada ya no trae decisión: la trae la que la relevó—.
 
 Aparte de responder, puedes consultar el estado en cualquier momento con
-game_state, battle_state, creature_stats, spell_list y building_list, sin
+game_state, battle_state, map, creature_stats, spell_list y building_list, sin
 volcarte la partida entera en el contexto.`;
 
 server.tool('heroes_listen', LISTEN_DESCRIPTION, {}, async () => {
@@ -352,6 +352,46 @@ server.tool(
   { player: z.number().int().optional().describe(PARAMETRO_JUGADOR) },
   async ({ player }) => {
     const data = await consultar('battle_state', jugador(player));
+    return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
+  },
+);
+
+/**
+ * El mapa como lo conoce el agente.
+ *
+ * La consulta existía desde el primer día en `consultas.ts` y **ninguna tool la
+ * exponía**: un endpoint que el cable servía y al que nadie podía llamar (#33).
+ * Se publica ahora y no antes porque hasta #74 devolvía el mapa entero sin
+ * mirar siquiera por quién se preguntaba; hoy pasa por `jugadorDelAgente` y por
+ * `serializeKnownMap`, o sea por el mismo candado y la misma niebla que
+ * `game_state`.
+ *
+ * La descripción dice las tres cosas que un agente **no puede deducir del
+ * JSON**: que un `null` del terreno es ignorancia y no una casilla rara, que los
+ * objetos son memoria fechada y no el presente, y que los caminos que faltan
+ * pueden estar ahí sin haberlos visto. Sin decirlas, la respuesta se lee como un
+ * mapa completo con agujeros.
+ */
+const MAPA_DESCRIPCION =
+  'El mapa de aventura tal y como lo conoces TÚ, sin esperar turno. Es lo mismo ' +
+  'que viaja en "knownMap" dentro de adventure_turn, pero puedes pedirlo cuando ' +
+  'quieras.\n' +
+  'Devuelve width, height, terrain[], roads[] y objects[]:\n' +
+  '- "terrain" es un array plano de width×height, indexado y*width+x. Una casilla ' +
+  'que no has explorado viaja como null, y ese null es IGNORANCIA, no un tipo de ' +
+  'terreno: no supongas que es hierba.\n' +
+  '- "objects" es lo que has OBSERVADO, con "lastSeen" (el día en que lo viste). ' +
+  'Si "lastSeen" es anterior a hoy el dato puede haber caducado: una mina cambia ' +
+  'de dueño y tú sigues viendo la bandera vieja hasta que alguien vuelva a mirar.\n' +
+  '- "roads" son solo los tramos que conoces. Que falte uno no significa que no ' +
+  'exista.';
+
+server.tool(
+  'map',
+  MAPA_DESCRIPCION,
+  { player: z.number().int().optional().describe(PARAMETRO_JUGADOR) },
+  async ({ player }) => {
+    const data = await consultar('map', jugador(player));
     return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
   },
 );

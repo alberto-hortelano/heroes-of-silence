@@ -17,10 +17,11 @@
  *  2. **Que lo pedido se aplique.** `game_state` antes y después del primer
  *     turno de aventura, exigiendo un cambio CONCRETO: un edificio más, o el
  *     héroe en otra casilla.
- *  3. **Las cinco tools de consulta**, por su contenido y no por su ausencia de
- *     error: `battle_state` en plena batalla, `game_state`, `creature_stats`,
- *     `spell_list` y `building_list`. Todas pasan por `consulta()`, así que el
- *     recuento del final cuenta lo que de verdad se ha ejercitado.
+ *  3. **Las seis tools de consulta**, por su contenido y no por su ausencia de
+ *     error: `battle_state` en plena batalla, `game_state`, `map` con su niebla,
+ *     `creature_stats`, `spell_list` y `building_list`. Todas pasan por
+ *     `consulta()`, así que el recuento del final cuenta lo que de verdad se ha
+ *     ejercitado.
  *
  * Uso: npx tsx tools/qa/verify-agent.ts
  */
@@ -281,7 +282,7 @@ async function terminarBien(turnos: number, batallas: number, motivo: string): P
   if (cambioAplicado === null) {
     throw new Error('no se ha llegado a comprobar que ninguna acción se aplicara de verdad');
   }
-  const faltan = ['game_state', 'creature_stats', 'spell_list', 'building_list'].filter(
+  const faltan = ['game_state', 'map', 'creature_stats', 'spell_list', 'building_list'].filter(
     (n) => !consultadas.has(n),
   );
   if (faltan.length > 0) throw new Error(`tools de consulta sin ejercitar: ${faltan.join(', ')}`);
@@ -330,6 +331,7 @@ async function main(): Promise<void> {
     'heroes_respond',
     'game_state',
     'battle_state',
+    'map',
     'creature_stats',
     'spell_list',
     'building_list',
@@ -404,6 +406,34 @@ async function main(): Promise<void> {
     const payload = extraerEstado(texto);
     if (kind === undefined || payload === null)
       throw new Error(`petición ilegible:\n${texto.slice(0, 400)}`);
+
+    // El mapa conocido, y por su CONTENIDO. Se pide aquí dentro y no al
+    // conectar porque hasta que no llega una petición de turno no hay partida
+    // que consultar. Lo que se exige es lo que distingue esta tool de la vista
+    // del espectador: el terreno entero —width×height, índice y*width+x— y **al
+    // menos una casilla `null`**. Ese `null` ES la niebla; un mapa sin ninguno
+    // sería la puerta que se tapió en #74 abierta otra vez por la tool nueva
+    // (#33), y saldría verde con solo mirar que no da error.
+    if (!consultadas.has('map')) {
+      const conocido = await consulta(client, 'map');
+      const casillas = conocido.width * conocido.height;
+      if (!Array.isArray(conocido.terrain) || conocido.terrain.length !== casillas) {
+        const tiene = Array.isArray(conocido.terrain) ? conocido.terrain.length : 'ni un array';
+        throw new Error(
+          `map devuelve ${tiene} donde un mapa de ${conocido.width}×${conocido.height} son ${casillas} casillas`,
+        );
+      }
+      const tapadas = conocido.terrain.filter((t: unknown) => t === null).length;
+      if (tapadas === 0) {
+        throw new Error(
+          'map devuelve el mapa entero sin una sola casilla tapada: no está pasando por la niebla',
+        );
+      }
+      log(
+        `map: ${casillas} casillas, ${tapadas} tapadas por la niebla, ` +
+          `${conocido.objects.length} objetos conocidos`,
+      );
+    }
 
     // La batalla, vista con los ojos del agente y mientras la está jugando: es
     // el único momento en que `battle_state` tiene algo que enseñar.

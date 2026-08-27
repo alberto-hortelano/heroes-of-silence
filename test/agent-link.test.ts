@@ -667,6 +667,30 @@ describe('una consulta solo habla de los jugadores que lleva el agente', () => {
     expect(mia.hero.name).toBe(mio.name);
   });
 
+  it('battle_state SIN batalla también comprueba de quién se pregunta (#83)', async () => {
+    // La guarda de «no hay batalla» iba ANTES del candado, así que
+    // `battle_state{player:0}` contestaba `ok=true` con `battle: null` mientras
+    // `game_state{player:0}` y `map{player:0}` lo rechazaban. No filtraba nada
+    // —no hay nada que enseñar—, pero le enseñaba al agente que preguntar por el
+    // rival es legal, y esa lección deja de valer en cuanto empieza una batalla.
+    // El sitio donde muerde es este: sin batalla en curso.
+    const { link } = await montar(() => ({ actions: [] }));
+    const director = new Director(link, { seed: 409, agentPlayers: [1] });
+    expect(director.state.pendingBattle).toBeNull();
+
+    expect(() => responderConsulta(director, 'battle_state', { player: 0 })).toThrow(
+      /no es tuyo.*Llevas el jugador 1/s,
+    );
+    // Y lo suyo se sigue contestando: el candado no puede haberse llevado por
+    // delante la respuesta honesta de que ahora mismo no hay ninguna batalla.
+    const suya = responderConsulta(director, 'battle_state', { player: 1 }) as {
+      battle: null;
+      note: string;
+    };
+    expect(suya.battle).toBeNull();
+    expect(suya.note).toMatch(/no hay ninguna batalla/);
+  });
+
   it('un jugador que no existe se rechaza igual, y con el mismo motivo', async () => {
     const { link } = await montar(() => ({ actions: [] }));
     const director = new Director(link, { seed: 404, agentPlayers: [1] });
@@ -693,9 +717,10 @@ describe('una consulta solo habla de los jugadores que lleva el agente', () => {
  *
  * Es la tercera salida del núcleo escrita antes de que existiera «lo que este
  * jugador ve»: `width, height, terrain, roads, objects` de `state.map`, sin
- * mirar por quién se preguntaba. Nadie la alcanza hoy —no hay tool MCP que la
- * publique, eso es #33—, así que esto no es una fuga cerrada: es una puerta
- * tapiada antes de abrirla.
+ * mirar por quién se preguntaba. Se tapió antes de que la alcanzara nadie, que
+ * es más barato que quitárselo a un agente que ya lo tenía; desde #33 la
+ * alcanza la tool `map` del puente, así que esto ya no guarda una puerta
+ * tapiada sino una publicada.
  */
 describe('la consulta `map` pasa por la niebla', () => {
   /** El jugador `id` de esa partida, con su `fog` y su `memory`. */

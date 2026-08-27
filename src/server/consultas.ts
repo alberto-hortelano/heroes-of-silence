@@ -42,9 +42,16 @@ export function responderConsulta(
     }
 
     case 'battle_state': {
+      // El candado va ANTES de la guarda de `pending`, y el orden es la regla
+      // (#83). Al revés, `battle_state{player:0}` contestaba `ok=true` —con
+      // `battle: null`— mientras `game_state{player:0}` y `map{player:0}` lo
+      // rechazaban: el candado tapaba dos puertas de tres y la de al lado le
+      // enseñaba al agente que preguntar por el rival es legal, hasta el día en
+      // que hubiera una batalla en curso y dejara de serlo. Se comprueba de
+      // quién se pregunta antes de mirar si hay algo que enseñar.
+      const player = jugadorDelAgente(partida, args);
       const pending = state.pendingBattle;
       if (pending === null) return { battle: null, note: 'ahora mismo no hay ninguna batalla' };
-      const player = jugadorDelAgente(partida, args);
       // El bando sale del dueño y lo deriva el núcleo, no una constante ni una
       // copia de la regla. Cuando esto decía 'attacker' pasara lo que pasara,
       // un agente que defendía veía su batalla del revés: sus stacks marcados
