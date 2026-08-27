@@ -21,6 +21,8 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { Session } from '../src/client/session.js';
+import { renderTopbar } from '../src/client/views/panels.js';
 import { volcado } from './escenas-paneles.js';
 
 const ANCLA = fileURLToPath(new URL('fixtures/paneles.txt', import.meta.url));
@@ -39,5 +41,28 @@ describe('el marcado de los paneles', () => {
       expect(mias[i], `línea ${i + 1} del volcado`).toBe(suyas[i]);
     }
     expect(salida).toBe(esperado);
+  });
+});
+
+describe('la barra de arriba cuenta cómo acabó la partida', () => {
+  it('el empate por días no se pinta como una derrota', () => {
+    // Aquí y **no** con una escena más en el ancla: `escenas-paneles.ts` vuelca
+    // `renderTopbar.resources` y no `.turn`, así que una escena de más movería
+    // 34 KB de fixtura sin llegar a mirar la línea que cambia.
+    //
+    // Lo que vigila es que `winner === session.viewer` con un `null` delante es
+    // `false` y **compila**: el ternario anidado de antes anunciaba «Partida
+    // perdida» a una partida que no ha perdido nadie.
+    const session = new Session(3);
+    expect(renderTopbar(session).turn).toBe('Tu turno');
+
+    session.state.finished = { winner: 0 };
+    expect(renderTopbar(session).turn).toBe('Partida ganada');
+
+    session.state.finished = { winner: 1 };
+    expect(renderTopbar(session).turn).toBe('Partida perdida');
+
+    session.state.finished = { winner: null };
+    expect(renderTopbar(session).turn).toBe('Partida sin resolver');
   });
 });

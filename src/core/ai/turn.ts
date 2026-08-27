@@ -8,6 +8,7 @@ import {
   applyAdventureAction,
   currentPlayer,
   type GameContext,
+  type GameOutcome,
   type GameState,
   heroesOf,
   resolvePendingBattle,
@@ -121,19 +122,21 @@ export async function playAiTurn(
 }
 
 /**
- * Juega la partida entera con la IA en todos los bandos. Devuelve los días.
+ * Juega la partida entera con la IA en todos los bandos, y devuelve **cómo
+ * acabó**: quién ganó, o `null` si no ganó nadie.
  *
  * No acepta `takeover` a propósito: es el banco de pruebas de la IA pura, el
  * que mide el barrido de semillas. Meter a un tercero aquí dejaría de medir lo
  * que dice medir.
+ *
+ * El tope de días lo lleva la partida (`state.maxDays`) y no un parámetro de
+ * aquí; el porqué, en el docstring de `GameState.finished`. Devolver el
+ * desenlace y no el día es lo que hace que la postcondición —al volver, la
+ * partida ha terminado— la afirme `tsc` y no la re-deduzca cada llamante.
  */
-export async function playAiGame(
-  state: GameState,
-  ctx: GameContext,
-  maxDias = 200,
-): Promise<number> {
-  while (state.finished === null && state.day <= maxDias) {
+export async function playAiGame(state: GameState, ctx: GameContext): Promise<GameOutcome> {
+  while (state.finished === null) {
     await playAiTurn(state, ctx);
   }
-  return state.day;
+  return state.finished;
 }

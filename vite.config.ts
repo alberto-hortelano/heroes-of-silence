@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 import { defineConfig } from 'vite';
-import { puertoEspectadores } from './src/server/puertos.js';
+import { puertoEspectadores } from './src/server/entorno.js';
 
 export default defineConfig({
   root: 'src/client',
@@ -9,7 +9,7 @@ export default defineConfig({
     alias: { '@core': resolve(__dirname, 'src/core') },
   },
   define: {
-    // El puerto del canal de espectadores, de UNA fuente: `src/server/puertos.ts`,
+    // El puerto del canal de espectadores, de UNA fuente: `src/server/entorno.ts`,
     // que es quien lee `HEROES_SPECTATOR_PORT` y quien acepta el `0` de #61. Un
     // `ws://localhost:9880` escrito a mano en la página contradiría esa decisión,
     // y el cliente no puede leer `process.env` — hay un invariante que lo vigila.

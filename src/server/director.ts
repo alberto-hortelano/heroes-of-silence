@@ -50,6 +50,13 @@ export interface DirectorOptions {
   /** Jugadores cuyo turno decide el agente. */
   readonly agentPlayers?: readonly PlayerId[];
   /**
+   * El último día que se juega. Se le pasa tal cual a `newGame`.
+   *
+   * El tope es **configuración** del servidor (`HEROES_MAX_DAYS`); la **regla**
+   * de qué pasa al agotarse es del núcleo (`GameState.finished`).
+   */
+  readonly maxDays?: number | undefined;
+  /**
    * Un fotograma: se llama tras CADA acción aplicada, de mapa y de batalla.
    *
    * Existe porque `broadcast()` corría una vez por turno y una batalla se
@@ -94,7 +101,11 @@ export class Director {
     options: DirectorOptions = {},
   ) {
     const seed = options.seed ?? 20260823;
-    this.state = newGame({ seed, ...(options.plan === undefined ? {} : { plan: options.plan }) });
+    this.state = newGame({
+      seed,
+      ...(options.plan === undefined ? {} : { plan: options.plan }),
+      maxDays: options.maxDays,
+    });
     this.ctx = { rng: createRng(seed ^ 0xa9e7) };
     this.agentPlayers = new Set(options.agentPlayers ?? [1]);
     this.mirador = options.onFrame ?? null;
@@ -120,8 +131,16 @@ export class Director {
     }
   }
 
-  get finished(): boolean {
-    return this.state.finished !== null;
+  /**
+   * Cómo acabó la partida, o `null` si sigue. Espejo de `Session.desenlace`.
+   *
+   * Contestaba `boolean`, y su único consumidor necesitaba acto seguido **el
+   * objeto**: volvía a leer `state.finished` y añadía un `throw` para convencer
+   * a `tsc` de algo que el bucle acababa de comprobar. Devolviendo lo que hay,
+   * el `throw` sobra.
+   */
+  get desenlace(): { winner: PlayerId | null } | null {
+    return this.state.finished;
   }
 
   /**

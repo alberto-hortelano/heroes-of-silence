@@ -15,6 +15,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import WebSocket from 'ws';
 import { z } from 'zod';
+import { puertoAgente } from '../entorno.js';
 import {
   CABECERA_VEREDICTOS,
   LA_JUEGA_LA_IA,
@@ -26,7 +27,6 @@ import {
   textoDeEscucha,
 } from '../notas.js';
 import type { AgentToServerMsg, ServerToAgentMsg } from '../protocol.js';
-import { puertoAgente } from '../puertos.js';
 import { Buzon } from './buzon.js';
 import { ColaDeVeredictos } from './veredictos.js';
 

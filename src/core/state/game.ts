@@ -118,6 +118,18 @@ export const HERO_SCOUT_RADIUS = 4;
  */
 export const TOWN_SCOUT_RADIUS = 5;
 
+/**
+ * Cómo terminó una partida: quién ganó, o `null` si **no ganó nadie**.
+ *
+ * Tiene nombre porque lo devuelven cuatro sitios —el estado, `playAiGame`, el
+ * director y el arnés del banco— y escrito inline en cada uno son cuatro
+ * declaraciones de la misma cosa, libres de divergir en cuanto a alguien se le
+ * ocurra añadirle el día o el motivo.
+ */
+export interface GameOutcome {
+  readonly winner: PlayerId | null;
+}
+
 export interface PendingBattle {
   readonly attackerHeroId: string;
   readonly foe: BattleFoe;
@@ -128,13 +140,43 @@ export interface GameState {
   readonly seed: number;
   /** Día 1 en adelante. Los lunes son los días 1, 8, 15… */
   day: number;
+  /**
+   * El último día que se juega. Pasado él, la partida termina sin ganador.
+   *
+   * Se pide en `newGame({ maxDays })` y lo aplica `advanceDay`. Por qué vive
+   * aquí y no en el bucle de cada conductor, en `finished`, tres campos abajo.
+   */
+  readonly maxDays: number;
   map: GameMap;
   players: Player[];
   heroes: Hero[];
   towns: Town[];
   current: PlayerId;
   pendingBattle: PendingBattle | null;
-  finished: { winner: PlayerId } | null;
+  /**
+   * La partida ha terminado, y `winner` dice quién ganó **o que no ganó nadie**.
+   *
+   * **Este docstring es el sitio donde se cuenta el porqué del tope de días**;
+   * el resto del repositorio apunta aquí en vez de repetirlo.
+   *
+   * `!== null` significa «terminó» y nada más. Antes significaba «terminó **con**
+   * ganador», y el tope de días vivía fuera —`MAX_DAYS` en `ws-server.ts`,
+   * `DIAS_POR_DEFECTO` en el banco y un parámetro de `playAiGame`, cada uno con
+   * su bucle—, así que al agotarse los días el bucle salía y esto se quedaba en
+   * `null`: el núcleo sosteniendo que la partida seguía viva cuando ya no la
+   * jugaba nadie. Un cuarto conductor que se olvidara del suyo jugaba hasta el
+   * fin de los tiempos, y los que sí lo tenían tapaban el hueco por su cuenta:
+   * de ahí nacieron el booleano `partidaTerminada` de `ws-server.ts` y el
+   * `winner: number | null` del protocolo, los dos parcheando lo mismo desde
+   * fuera.
+   *
+   * El `null` de dentro es ese empate por tiempo, y obliga a decidir qué se
+   * enseña. Lo que **no** obliga es `tsc`: `finished.winner === viewer` con un
+   * `null` delante compila y contesta «has perdido», así que la clasificación
+   * de tres se escribe una vez por lector —`client/desenlace.ts`— y no en cada
+   * ternario.
+   */
+  finished: GameOutcome | null;
   /**
    * La crónica. `readonly` es un candado, no adorno: el único `push` está en
    * `emit`, y con el array de solo lectura cualquier otro **no compila**.
@@ -218,6 +260,13 @@ export function townsOf(state: GameState, player: PlayerId): Town[] {
 
 export interface GameConfig {
   readonly seed: number;
+  /**
+   * El tope de días, **obligatorio**: toda partida se acaba y hay que decir
+   * cuándo. Su valor por defecto lo pone `newGame`, que es la única puerta por
+   * la que se crean partidas, y así el número vive en un solo sitio en vez de
+   * en dos `??` que puedan divergir.
+   */
+  readonly maxDays: number;
   readonly map: GameMap;
   readonly players: readonly { id: PlayerId; faction: FactionId; controller: Controller }[];
   readonly heroes: readonly Hero[];
@@ -247,6 +296,18 @@ export const DEFAULT_STARTING_RESOURCES: Resources = {
 };
 
 export function createGame(config: GameConfig): GameState {
+  // El tope se valida AQUÍ y no solo en el borde del entorno, porque la regla es
+  // del juego y no de quién la pide. `enteroDelEntorno` ya rechazaba un
+  // `HEROES_MAX_DAYS=0` con una frase buena, pero `newGame({ maxDays: 0 })` —o
+  // un `-5`— se aceptaba y jugaba **un día**, terminando «sin resolver» en
+  // silencio: la misma regla con dos severidades según por qué puerta entres,
+  // que es lo que este repositorio llama fallar callando.
+  if (!Number.isInteger(config.maxDays) || config.maxDays < 1) {
+    throw new Error(
+      `una partida de ${config.maxDays} días no es una partida: el tope tiene que ser un entero ≥ 1`,
+    );
+  }
+
   const players: Player[] = config.players.map((p) => ({
     id: p.id,
     faction: p.faction,
@@ -260,6 +321,7 @@ export function createGame(config: GameConfig): GameState {
   const state: GameState = {
     seed: config.seed,
     day: 1,
+    maxDays: config.maxDays,
     map: config.map,
     players,
     heroes: config.heroes.map((h) => ({ ...h, army: [...h.army] })),
@@ -462,7 +524,11 @@ function startTurn(state: GameState): void {
 function nextPlayer(state: GameState): void {
   const vivos = state.players.filter((p) => !p.defeated);
   if (vivos.length <= 1) {
-    finishGame(state, vivos[0]?.id ?? state.current);
+    // Sin nadie vivo no gana nadie, y ahora se puede decir: antes esto coronaba
+    // al jugador de turno —`?? state.current`— porque `winner` no admitía otra
+    // cosa, o sea que la única salida era mentir. No mueve ninguna de las 200
+    // partidas del banco: todas tienen exactamente un `player_defeated`.
+    finishGame(state, vivos[0]?.id ?? null);
     return;
   }
 
@@ -475,13 +541,39 @@ function nextPlayer(state: GameState): void {
 
     // Si damos la vuelta al orden, empieza un día nuevo.
     if (actual + i >= orden.length) advanceDay(state);
+    // …y ese día nuevo puede no llegar a existir: `advanceDay` termina la
+    // partida al agotarse el tope. Sin esta línea, `startTurn` correría sobre
+    // una partida acabada y le escribiría un `turn_start` detrás del
+    // `game_over`.
+    //
+    // Quien lo vigila es el test del tope en `game.test.ts` y NO el invariante
+    // de «`game_over` es el último hecho», que es a quien apuntaba esta frase:
+    // sus veinte semillas juegan a 200 días y acaban por conquista, así que no
+    // pisan esta salida. Quitando la línea, el invariante se queda verde y el
+    // otro saca «expected turn_start to match game_over». Citar al guardia
+    // equivocado es peor que no citar ninguno: el que lea esto y lo dé por
+    // cubierto no irá a mirar.
+    if (state.finished !== null) return;
     state.current = candidato;
     startTurn(state);
     return;
   }
 }
 
+/**
+ * Pasa de día, o termina la partida si ya no quedan.
+ *
+ * El tope se mira **antes** de incrementar, y el orden no es cosmético: al
+ * revés se emitiría un `day_start` de un día que no juega nadie —una línea de
+ * más en la crónica de cada partida que llegue al tope, y el ancla del banco
+ * movida—. Así el último día jugado es exactamente `maxDays`, y `game_over`
+ * queda de último hecho.
+ */
 function advanceDay(state: GameState): void {
+  if (state.day >= state.maxDays) {
+    finishGame(state, null);
+    return;
+  }
   state.day += 1;
   emit(state, { kind: 'day_start', day: state.day, week: week(state), actor: null, at: null });
   if (dayOfWeek(state) === 1) {
@@ -489,9 +581,13 @@ function advanceDay(state: GameState): void {
   }
 }
 
-function finishGame(state: GameState, winner: PlayerId): void {
+/** Se acabó. `winner` es `null` cuando se agotaron los días y no ganó nadie. */
+function finishGame(state: GameState, winner: PlayerId | null): void {
   if (state.finished !== null) return;
   state.finished = { winner };
+  // `actor: null` es exacto y no un hueco: no lo hace ningún jugador, igual que
+  // el `day_start`. Y `visibleTo` da `game_over` a todo el mundo sin mirar el
+  // actor, así que el reparto no se entera.
   emit(state, { kind: 'game_over', actor: winner, at: null });
 }
 

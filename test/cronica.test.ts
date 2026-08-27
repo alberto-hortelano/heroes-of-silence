@@ -253,8 +253,15 @@ describe('la crónica pasa por la niebla', () => {
     // se le entrega a todo el mundo.
     //
     // Los cuatro de la lista son los únicos que pueden no tener sitio, y no es
-    // un agujero: van siempre, así que su `at` no lo lee nadie. `day_start` es
-    // además el único sin protagonista — no lo hace ningún jugador, pasa.
+    // un agujero: van siempre, así que su `at` no lo lee nadie.
+    //
+    // Sin protagonista pueden ir **dos**, y esta lista decía uno: `day_start`
+    // —no lo hace nadie, pasa— y `game_over` **cuando no gana nadie**, que
+    // entró con el tope de días. La frase vieja siguió verde por la semilla: la
+    // 9 en 48×48 acaba por conquista, así que la rama no se pisa. Con
+    // `maxDays: 5` sobre este mismo montaje salía un infractor, y era correcto.
+    // Se escribe como conjunto y no como excepción suelta para que el día que
+    // aparezca un tercero haya que ponerlo aquí a mano.
     //
     // En 48×48 y no en el mapa de siempre, por el mismo motivo que el guardia
     // hermano de `invariantes.test.ts`: cuadrada la economía, la partida de
@@ -263,11 +270,18 @@ describe('la crónica pasa por la niebla', () => {
     // Bajarle el umbral habría sido dejarlo mirando quince para siempre; en
     // 48×48 recorre 618 hechos de los dieciséis tipos.
     const state = newGame({ seed: 9, width: 48, height: 48 });
-    await playAiGame(state, { rng: createRng(9) }, 300);
+    await playAiGame(state, { rng: createRng(9) });
 
     const SIN_SITIO = new Set(['day_start', 'turn_start', 'player_defeated', 'game_over']);
     for (const e of state.log) {
-      if (e.kind !== 'day_start') {
+      // `game_over` no se exime: se le exige que su `actor` SEA el ganador, con
+      // `null` solo si de verdad no ganó nadie. Eximirlo habría sido bajar el
+      // listón para que cupiera el caso nuevo, que es lo contrario de lo que
+      // este guardia hace: así sigue cazando un `game_over` anónimo de una
+      // partida que sí tuvo ganador, que es el fallo que importa.
+      if (e.kind === 'game_over') {
+        expect(e.actor, 'el game_over no lleva al ganador').toBe(state.finished?.winner ?? null);
+      } else if (e.kind !== 'day_start') {
         expect(e.actor, `un ${e.kind} sin protagonista`).not.toBeNull();
       }
       if (!SIN_SITIO.has(e.kind)) {
@@ -459,6 +473,42 @@ describe('la crónica de la pantalla deja de mentir', () => {
     const suyo = linea({ kind: 'level_up', hero: 'h', level: 3, actor: 1 });
     expect(suyo).toContain('<div>Un héroe del jugador 1 sube a nivel 3</div>');
     expect(suyo).not.toContain('win');
+  });
+
+  it('el empate por días no se pinta en el rojo de derrota', () => {
+    // La misma misatribución que la de `hero_defeated`, un evento más allá y
+    // por el mismo motivo: la línea preguntaba `actor === viewer`, que es una
+    // pregunta de DOS, y el fin de partida tiene tres respuestas. Con
+    // `actor: null` —los días agotados, nadie gana— `!mio` era `true` y la
+    // crónica cerraba la partida en rojo de derrota.
+    //
+    // Y esta línea la pinta también el espectador, que no lleva bando: para él
+    // toda partida con ganador es ajena, pero un empate tampoco es su derrota.
+    const gane = linea({ kind: 'game_over', actor: 0 });
+    expect(gane).toContain('<div class="win">Fin de la partida</div>');
+
+    const pierda = linea({ kind: 'game_over', actor: 1 });
+    expect(pierda).toContain('<div class="lose">Fin de la partida</div>');
+
+    const nadie = linea({ kind: 'game_over', actor: null });
+    expect(nadie).toContain('<div>Fin de la partida</div>');
+    expect(nadie).not.toContain('lose');
+    expect(nadie).not.toContain('win');
+
+    // El espectador (`NADIE = -1`), sus DOS mitades. La primera se escribió sola
+    // y por eso se escapó la segunda: quien no lleva bando no pierde el empate,
+    // pero **tampoco pierde la partida que gana otro**. Con la respuesta de dos
+    // esta línea salía en rojo de derrota en la misma pantalla que decía «Gana el
+    // jugador 1 — has ganado», y el test de arriba lo daba por bueno porque no la
+    // miraba. La respuesta a «no tienes bando» no es «perdida»: es `ajena`.
+    for (const actor of [null, 0, 1]) {
+      const visto = marcadoDe(renderLog([evento({ kind: 'game_over', actor })], -1));
+      expect(visto, `game_over con actor ${actor} visto sin bando`).toContain(
+        '<div>Fin de la partida</div>',
+      );
+      expect(visto, `game_over con actor ${actor} visto sin bando`).not.toContain('lose');
+      expect(visto, `game_over con actor ${actor} visto sin bando`).not.toContain('win');
+    }
   });
 
   it('ninguna línea compone un genitivo agramatical', () => {

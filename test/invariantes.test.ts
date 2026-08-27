@@ -742,7 +742,7 @@ describe('invariantes del proyecto', () => {
     const colados: string[] = [];
     for (let semilla = 1; semilla <= 20; semilla++) {
       const state = newGame({ seed: semilla });
-      await playAiGame(state, { rng: createRng(semilla) }, 300);
+      await playAiGame(state, { rng: createRng(semilla) });
       const fin = state.log.findIndex((e) => e.kind === 'game_over');
       if (fin === -1) continue;
       for (const e of state.log.slice(fin + 1)) {
@@ -794,8 +794,8 @@ describe('invariantes del proyecto', () => {
     // llevara sello, `seen` sería siempre una lista vacía y el `toEqual` de
     // abajo pasaría sin probar nada. La cuenta de tipos hace lo mismo para la
     // variedad — un log largo de `hero_moved` no probaría casi nada.
-    const state = newGame({ seed: 9, width: 48, height: 48 });
-    await playAiGame(state, { rng: createRng(9) }, 60);
+    const state = newGame({ seed: 9, width: 48, height: 48, maxDays: 60 });
+    await playAiGame(state, { rng: createRng(9) });
     expect(state.log.length).toBeGreaterThan(500);
     expect(new Set(state.log.map((e) => e.kind)).size).toBeGreaterThanOrEqual(16);
     expect(state.log.filter((e) => e.seen.length > 0).length).toBeGreaterThan(400);

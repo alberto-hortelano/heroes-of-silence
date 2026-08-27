@@ -427,6 +427,14 @@ export function notaMapaAceptado(width: number, height: number, pueblos: number)
  * qué hacer: que se acabó, quién ganó, y cómo quedó lo suyo.
  */
 export function notaFinDePartida(state: GameState, tuyos: ReadonlySet<PlayerId>): string {
+  // Lo primero, como las demás guardas de este fichero: contar el final de una
+  // partida viva es un fallo del llamante, no un final que redactar. Antes se
+  // contestaba «sin resolver», que es lo que decía también el empate de verdad.
+  const fin = state.finished;
+  if (fin === null) {
+    throw new Error('no se puede contar cómo acabó una partida que no ha terminado');
+  }
+
   const balance = [...tuyos]
     .sort((a, b) => a - b)
     .map((id) => `llevabas al ${describePlayer(state, id)} y acabas con ${recuento(state, id)}`)
@@ -434,12 +442,12 @@ export function notaFinDePartida(state: GameState, tuyos: ReadonlySet<PlayerId>)
   // Sin jugadores del agente no se dice «has perdido»: no llevaba a nadie.
   const cola = balance === '' ? '' : ` Tú ${balance}.`;
 
-  if (state.finished === null) {
+  const ganador = fin.winner;
+  if (ganador === null) {
     const dias = `${state.day} ${state.day === 1 ? 'día' : 'días'}`;
     return `La partida se ha quedado sin resolver tras ${dias}: no gana nadie.${cola}`;
   }
 
-  const ganador = state.finished.winner;
   const veredicto = tuyos.size === 0 ? '' : tuyos.has(ganador) ? ' — has ganado' : ' — has perdido';
   return `La partida ha terminado el día ${state.day}. Gana el ${describePlayer(state, ganador)}${veredicto}.${cola}`;
 }

@@ -86,12 +86,11 @@ export interface SpectatorSnapshotMsg {
   /**
    * La partida ha terminado, y **también cuando no gana nadie**.
    *
-   * Era `{ winner: number } | null`, o sea `state.finished` tal cual, y con eso
-   * una partida que se agota sin resolver dejaba al espectador en el último día
-   * sin una línea: `state.finished` se queda en `null` y el aviso solo salía por
-   * el canal del agente. Ahora dice lo mismo que `game_over` —quién gana o
-   * nadie, y la nota escrita para quien lee—, que es lo que promete el criterio
-   * 9 de #30.
+   * Es `state.finished` tal cual más la nota escrita para quien lee. Nació como
+   * parche —el núcleo no sabía decir «se agotaron los días» y el espectador se
+   * quedaba mirando el último día para siempre— y la forma resultó ser la
+   * buena: sobrevive entera. Lo que se murió es el booleano que la sostenía
+   * desde fuera.
    */
   readonly finished: { readonly winner: number | null; readonly note: string } | null;
   /**

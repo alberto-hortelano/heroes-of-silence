@@ -25,6 +25,7 @@ import { building } from '@core/town/buildings.js';
 import { dailyIncome, dwellings, mageGuildLevel, type Town, townSpells } from '@core/town/town.js';
 import type { Army } from '@core/types.js';
 import { RESOURCE_KINDS } from '@core/types.js';
+import { type Desenlace, desenlaceDe } from '../desenlace.js';
 import { fondoDeColor, type Html, html, NADA, srcDeImagen, unir } from '../html.js';
 import { asset } from '../render/assets.js';
 import { RESOURCE_COLORS, RESOURCE_NAMES } from '../render/palette.js';
@@ -39,6 +40,24 @@ import type { Session } from '../session.js';
  * atributos—. Tres sitios lo ponen.
  */
 const DESHABILITADO: Html = html`disabled`;
+
+/**
+ * Lo que dice la barra de arriba cuando la partida ha terminado.
+ *
+ * Tabla y no ternario anidado: con el ternario, el empate por días se pintaba
+ * «Partida perdida» —`winner === viewer` con un `null` delante es `false`— y
+ * `tsc` no tenía nada que decir. Un `Record<Desenlace, …>` obliga a contestar a
+ * los tres, y al cuarto que llegue.
+ */
+const ROTULO_DE_FIN: Record<Desenlace, string> = {
+  ganada: 'Partida ganada',
+  perdida: 'Partida perdida',
+  'sin resolver': 'Partida sin resolver',
+  // Inalcanzable desde aquí —`Session` siempre tiene un `viewer` de verdad— pero
+  // la fila no es un relleno: si algún día esta barra la pinta quien solo mira,
+  // «Partida terminada» es lo que hay que decirle.
+  ajena: 'Partida terminada',
+};
 
 export function renderTopbar(session: Session): {
   day: string;
@@ -68,11 +87,10 @@ export function renderTopbar(session: Session): {
     }),
   );
 
+  const desenlace = session.desenlace;
   const turno =
-    state.finished !== null
-      ? state.finished.winner === session.viewer
-        ? 'Partida ganada'
-        : 'Partida perdida'
+    desenlace !== null
+      ? ROTULO_DE_FIN[desenlace]
       : session.isPlayersTurn
         ? 'Tu turno'
         : 'Turno del rival…';
@@ -619,11 +637,19 @@ export function renderLog(log: readonly GameEventDraft[], viewer: number): Html 
           return html`<div${clase(mio, false)}>Un héroe ${deJugador(e.actor)} sube a nivel ${
             e.level
           }</div>`;
-        case 'game_over':
+        case 'game_over': {
           // El ganador es `actor`, y ya no hay un `winner` al lado diciendo lo
           // mismo: `visibleTo` enrutaba por uno y esta línea pintaba por el
           // otro, sin que nada comprobara que coincidían.
-          return html`<div${clase(mio, !mio)}>Fin de la partida</div>`;
+          //
+          // Y NO va por `mio`, que es la pregunta de dos: con `actor: null` —el
+          // empate por días— `!mio` es `true` y el fin de partida salía en el
+          // rojo de derrota. Es el mismo fallo que `desenlaceDe` existe para
+          // impedir, un panel más allá, y esta línea la pinta también el
+          // espectador, que no tiene bando.
+          const fin = desenlaceDe(e.actor, viewer);
+          return html`<div${clase(fin === 'ganada', fin === 'perdida')}>Fin de la partida</div>`;
+        }
 
         // Los cuatro que la pantalla NO pinta, escritos uno a uno en vez de
         // caer por un `default`. El núcleo ya te obliga a decidir si un `kind`

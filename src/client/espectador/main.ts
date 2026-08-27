@@ -35,7 +35,7 @@ const elSeed = document.getElementById('seed') as HTMLElement;
  *
  * `HEROES_SPECTATOR_PORT` lo mueve y **acepta `0`** para que lo elija el sistema
  * (#61), así que un `ws://localhost:9880` escrito aquí contradiría esa decisión.
- * Lo inyecta `vite.config.ts` desde `puertos.ts`, que es la única fuente — el
+ * Lo inyecta `vite.config.ts` desde `entorno.ts`, que es la única fuente — el
  * cliente no puede leer las variables de entorno y hay un invariante que lo
  * vigila.
  *

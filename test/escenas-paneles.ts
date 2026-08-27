@@ -106,8 +106,9 @@ export async function escenas(): Promise<readonly Escena[]> {
   // 7 · Partida terminada: el botón de partida nueva y el «fin de la partida»
   //     de la crónica, que es el último hecho que se pinta.
   const terminada = new Session(3);
-  await playAiGame(terminada.state, terminada.ctx, 300);
-  if (terminada.state.finished === null) throw new Error('la partida no terminó');
+  // Sin comprobar que terminó: `playAiGame` no vuelve de otra manera, y lo dice
+  // su tipo de retorno.
+  await playAiGame(terminada.state, terminada.ctx);
   out.push({ nombre: 'partida terminada', session: terminada });
 
   // 8 · Aventura en turno del rival: es la única forma de que salga el botón

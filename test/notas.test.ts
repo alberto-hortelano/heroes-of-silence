@@ -279,11 +279,25 @@ describe('cómo acabó la partida, contado al agente', () => {
   it('sin resolver no inventa un ganador ni un veredicto', () => {
     const state = newGame({ seed: 7 });
     state.day = 12;
+    // Terminada y sin ganador, que es lo que deja agotar los días. Antes este
+    // test montaba una partida **sin empezar** —`finished` en `null`— para
+    // probar un final: era el mismo `null` diciendo dos cosas distintas, que es
+    // justo lo que este ciclo cierra.
+    state.finished = { winner: null };
 
     const nota = notaFinDePartida(state, new Set([1]));
     expect(nota).toContain('sin resolver tras 12 días');
     expect(nota).toContain('no gana nadie');
     expect(nota).not.toMatch(/has (ganado|perdido)/);
+  });
+
+  it('contar el final de una partida viva es un fallo, no una frase', () => {
+    // La frase «se ha quedado sin resolver» describía los dos casos: la partida
+    // agotada y la que sigue jugándose. El bucle del servidor salía por su
+    // propio tope de días y llamaba aquí con `finished` en `null`, así que una
+    // partida a medias se le contaba al agente como un empate.
+    const state = newGame({ seed: 7 });
+    expect(() => notaFinDePartida(state, new Set([1]))).toThrow(/no ha terminado/);
   });
 
   it('sin jugadores del agente no le atribuye ni victoria ni derrota', () => {

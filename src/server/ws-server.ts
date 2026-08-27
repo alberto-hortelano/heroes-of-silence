@@ -10,14 +10,15 @@
 import { once } from 'node:events';
 import { creature } from '@core/data.js';
 import { parseSeed } from '@core/rng.js';
+import type { PlayerId } from '@core/types.js';
 import { type WebSocket, WebSocketServer } from 'ws';
 import { AgentLink } from './agent-link.js';
 import { responderConsulta } from './consultas.js';
 import { Director } from './director.js';
+import { esperaAlAgente, maxDiasDelEntorno, puertoAgente, puertoEspectadores } from './entorno.js';
 import { pedirMapaAlAgente } from './mapa-del-agente.js';
 import { notaFinDePartida, SIN_PARTIDA_TODAVIA } from './notas.js';
 import type { ServerToSpectatorMsg } from './protocol.js';
-import { puertoAgente, puertoEspectadores } from './puertos.js';
 import { construirVista } from './vista-espectador.js';
 
 /** La partida que se juega si nadie pide otra. */
@@ -28,9 +29,12 @@ const SEED_POR_DEFECTO = 20260823;
 // por defecto, igual que el navegador sortea. `HEROES_SEED=abc` sigue matando
 // el arranque, que es lo que se pidió y no se puede dar.
 const SEED = parseSeed(process.env.HEROES_SEED) ?? SEED_POR_DEFECTO;
-const MAX_DAYS = Number(process.env.HEROES_MAX_DAYS ?? 200);
-/** Cuánto se espera a que el agente se conecte antes de tirar de heurística. */
-const WAIT_FOR_AGENT_MS = Number(process.env.HEROES_WAIT_AGENT_MS ?? 120_000);
+
+// Los cuatro valores que este servidor lee del entorno salen de `entorno.ts`,
+// que es donde vive el único parser y donde hay un test que lo ejerce: aquí no
+// se puede probar nada, porque importar este módulo arranca el servidor.
+const MAX_DAYS = maxDiasDelEntorno();
+const WAIT_FOR_AGENT_MS = esperaAlAgente();
 /**
  * El mapa que se le pide al agente, y el que sale del procedimental si no lo da.
  *
@@ -86,14 +90,8 @@ function puertoReal(server: WebSocketServer): number {
 
 const spectators = new Set<WebSocket>();
 
-/**
- * Que la partida ha terminado, la gane alguien o no la gane nadie.
- *
- * `state.finished` no basta: cuando se agotan los días se queda en `null` y la
- * partida ha terminado igual. Al agente eso ya se le decía por `game_over`; al
- * espectador no se le decía nada y se quedaba mirando el último día para siempre.
- */
-let partidaTerminada = false;
+/** Quien mira no lleva a nadie, y las frases que le llegan tienen que saberlo. */
+const SIN_BANDO: ReadonlySet<PlayerId> = new Set();
 
 function broadcast(): void {
   if (spectators.size === 0) return;
@@ -105,15 +103,20 @@ function broadcast(): void {
     type: 'snapshot',
     day: state.day,
     current: state.current,
-    // Lo mismo que se le manda al agente, y por el mismo motivo: quien mira
-    // tiene que enterarse de que se acabó, gane alguien o no gane nadie.
+    // El mismo hecho que se le manda al agente, y por el mismo motivo: quien
+    // mira tiene que enterarse de que se acabó, gane alguien o no gane nadie.
+    //
+    // Pero **sin `agentPlayers`**, y esa es la diferencia: la nota se redacta
+    // para quien la lee, y aquí la lee alguien que no lleva bando. Con el
+    // conjunto del agente se le decía «no gana nadie. Tú llevabas al jugador 1
+    // (necromancer) y acabas con 1 castillo» a un espectador que no llevaba
+    // nada — la segunda persona de otro. `notaFinDePartida` ya sabe callar el
+    // veredicto y la cola con el conjunto vacío, así que no hace falta una
+    // segunda redacción: hace falta pasarle quién pregunta.
     finished:
-      state.finished === null && !partidaTerminada
+      state.finished === null
         ? null
-        : {
-            winner: state.finished?.winner ?? null,
-            note: notaFinDePartida(state, director.agentPlayers),
-          },
+        : { winner: state.finished.winner, note: notaFinDePartida(state, SIN_BANDO) },
     // La vista se MONTA en `vista-espectador.ts`, que es donde vive su tipo. Se
     // escribía aquí, a mano y dentro de esta función, contra un `view: unknown`.
     view: construirVista(state, director.log),
@@ -165,7 +168,9 @@ async function esperarAgente(): Promise<void> {
 }
 
 async function jugar(director: Director): Promise<void> {
-  while (!director.finished && director.state.day <= MAX_DAYS) {
+  // La única salida es que la partida haya terminado: el `día <= MAX_DAYS` que
+  // había aquí era otra declaración de la misma regla (`GameState.finished`).
+  while (director.desenlace === null) {
     if (director.agentPlayers.has(director.state.current)) await esperarAgente();
 
     const informe = await director.playTurn();
@@ -178,6 +183,9 @@ async function jugar(director: Director): Promise<void> {
   }
 
   const state = director.state;
+  // Sin `?? null` y sin guarda: la condición del bucle es que esto sea `null`,
+  // así que aquí `tsc` ya sabe que no lo es.
+  const fin = director.desenlace;
 
   // Al agente hay que DECÍRSELO. Este proceso no se muere al acabar la partida
   // —los dos WebSocketServer siguen escuchando—, así que sin este aviso el que
@@ -185,10 +193,7 @@ async function jugar(director: Director): Promise<void> {
   // queda bloqueado hasta que su cliente MCP se rinde por timeout. El canal se
   // deja abierto a propósito: `game_state` sigue valiendo para mirar el final.
   const nota = notaFinDePartida(state, director.agentPlayers);
-  link.gameOver(state.finished?.winner ?? null, nota);
-  // Antes del último `broadcast()`: es lo que hace que el espectador se entere
-  // de un final sin ganador, donde `state.finished` sigue siendo `null`.
-  partidaTerminada = true;
+  link.gameOver(fin.winner, nota);
 
   // La misma frase para el terminal: estaba escrita dos veces, doce líneas
   // aparte, y la de aquí decía menos.
@@ -290,6 +295,8 @@ async function main(): Promise<void> {
   director = new Director(link, {
     seed: SEED,
     agentPlayers: [1],
+    // Sin `HEROES_MAX_DAYS` esto es `undefined` y manda el tope de `newGame`.
+    maxDays: MAX_DAYS,
     // Un fotograma por acción aplicada, y no uno por turno: una batalla entera
     // caía antes entre dos snapshots. `broadcast()` sale sola si no mira nadie,
     // así que sin espectadores esto no cuesta nada.

@@ -33,6 +33,7 @@ import {
 } from '@core/state/game.js';
 import { newGame } from '@core/state/setup.js';
 import type { Hex, Point } from '@core/types.js';
+import { type Desenlace, desenlaceDe } from './desenlace.js';
 
 export type Scene = 'adventure' | 'town' | 'battle';
 
@@ -47,6 +48,45 @@ export interface SpellOption {
   /** Por qué no se puede lanzar, escrito para la persona. Vacío si sí se puede. */
   readonly motivo: string;
 }
+
+/**
+ * El empate por días se cuenta con la misma frase en los dos sitios, y las de
+ * victoria y derrota no: al acabar el mapa hay espacio para explicar qué pasó y
+ * al cerrar una batalla no. Escrito una vez porque **es** una sola frase; los
+ * pares vecinos son dos a propósito.
+ */
+const SIN_RESOLVER = 'Nadie gana: se han agotado los días.';
+
+/**
+ * `ajena` no se alcanza desde aquí: una `Session` siempre lleva un jugador. La
+ * fila existe porque la unión la comparte con la crónica, que sí la pinta para
+ * el espectador — y prefiero una frase verdadera a un `never` que diga que este
+ * caso no puede pasar cuando en el otro lector pasa todos los días.
+ */
+const FIN_AJENO = 'La partida ha terminado.';
+
+/**
+ * Las dos son `Record<Desenlace, string>` y no un `switch`, y eso es el guardia.
+ *
+ * Con `switch` de sentencia —el que asigna a `this.status` y hace `break`— un
+ * cuarto desenlace **no pone nada rojo**: se comprobó plantando uno en la unión
+ * y `pnpm typecheck` salía verde por estos dos sitios. La tabla lo caza con
+ * `TS2741: Property … is missing`, que es lo que hace falta el día que exista
+ * otra forma de acabar una partida.
+ */
+const AL_ACABARSE_EL_MAPA: Record<Desenlace, string> = {
+  ganada: '¡Victoria! Has conquistado el mapa.',
+  perdida: 'Derrota: el enemigo se ha quedado con todo.',
+  'sin resolver': SIN_RESOLVER,
+  ajena: FIN_AJENO,
+};
+
+const AL_CERRARSE_LA_BATALLA: Record<Desenlace, string> = {
+  ganada: '¡Victoria!',
+  perdida: 'Derrota.',
+  'sin resolver': SIN_RESOLVER,
+  ajena: FIN_AJENO,
+};
 
 export class Session {
   state: GameState;
@@ -93,6 +133,12 @@ export class Session {
       this.state.finished === null &&
       !this.turnoDelRivalEnCurso
     );
+  }
+
+  /** Cómo acabó la partida para quien mira, o `null` si sigue viva. */
+  get desenlace(): Desenlace | null {
+    const fin = this.state.finished;
+    return fin === null ? null : desenlaceDe(fin.winner, this.viewer);
   }
 
   get selectedHero() {
@@ -233,13 +279,11 @@ export class Session {
       await playAiTurn(this.state, this.ctx);
       guard++;
     }
-    if (this.state.finished !== null) {
-      this.status =
-        this.state.finished.winner === this.viewer
-          ? '¡Victoria! Has conquistado el mapa.'
-          : 'Derrota: el enemigo se ha quedado con todo.';
-    } else {
+    const desenlace = this.desenlace;
+    if (desenlace === null) {
       this.selectedHeroId = this.myHeroes()[0]?.id ?? null;
+    } else {
+      this.status = AL_ACABARSE_EL_MAPA[desenlace];
     }
   }
 
@@ -505,9 +549,8 @@ export class Session {
     if (this.selectedHero === null) {
       this.selectedHeroId = this.myHeroes()[0]?.id ?? null;
     }
-    if (this.state.finished !== null) {
-      this.status = this.state.finished.winner === this.viewer ? '¡Victoria!' : 'Derrota.';
-    }
+    const desenlace = this.desenlace;
+    if (desenlace !== null) this.status = AL_CERRARSE_LA_BATALLA[desenlace];
   }
 
   // ------------------------------------------------------------ interno

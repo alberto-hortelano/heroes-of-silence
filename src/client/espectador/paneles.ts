@@ -15,6 +15,7 @@
 import type { Side } from '@core/battle/types.js';
 import { creature } from '@core/data.js';
 import type { SpectatorView, VistaBatalla } from '../../server/vista-espectador.js';
+import { NADIE } from '../desenlace.js';
 import { fondoDeColor, type Html, html, NADA, unir } from '../html.js';
 import { playerColor } from '../render/palette.js';
 import { renderBattleLog, renderLog } from '../views/panels.js';
@@ -26,8 +27,12 @@ import { renderBattleLog, renderLog } from '../views/panels.js';
  * nadie la crónica entera se lee en tercera persona —«El jugador 0 construye…»—,
  * que es lo correcto para quien ve la partida desde fuera. Lo mismo hace el parte
  * de guerra con `mio: null`: sin bando propio no pinta victorias ni derrotas.
+ *
+ * Se re-exporta y no se declara: el dueño es `desenlace.ts`, que es el único
+ * sitio donde «no tienes bando» y «no es tu bando» dan respuestas distintas.
+ * Declararlo aquí y compararlo allí eran dos `-1` que nadie comparaba.
  */
-export const NADIE = -1;
+export { NADIE };
 
 /** Cómo terminó la partida, tal y como llega en el snapshot. */
 export interface FinDePartida {

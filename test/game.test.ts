@@ -1175,10 +1175,11 @@ describe('partida completa', () => {
   it('termina con un ganador jugando IA contra IA', async () => {
     const state = newGame({ seed: 1235 });
     const c = ctx(1235);
-    await playAiGame(state, c, 300);
-
-    expect(state.finished).not.toBeNull();
-    const ganador = state.finished!.winner;
+    // Que la partida termine ya lo dice el tipo de retorno; lo que este test
+    // afirma es que gana ALGUIEN. `expect(state.finished).not.toBeNull()` sería
+    // verde por construcción, y también con una partida agotada.
+    const { winner: ganador } = await playAiGame(state, c);
+    expect(ganador).not.toBeNull();
     const perdedores = state.players.filter((p) => p.id !== ganador);
     expect(perdedores.every((p) => p.defeated)).toBe(true);
     // `toMatchObject` y no `toEqual`: desde que el evento lleva protagonista y
@@ -1188,10 +1189,49 @@ describe('partida completa', () => {
     expect(state.log.at(-1)).toMatchObject({ kind: 'game_over', actor: ganador });
   });
 
+  it('cuando se acaban los días la partida TERMINA, y sin ganador', async () => {
+    // El guardia del agujero que cierra este ciclo, contado en el docstring de
+    // `GameState.finished`: agotar los días dejaba `finished` en `null`.
+    //
+    // Tres días sobre la 1235, que es la semilla de aquí arriba: con 300 la
+    // gana el jugador 0 mucho antes, así que lo que se prueba es el tope y no
+    // un empate afortunado.
+    const state = newGame({ seed: 1235, maxDays: 3 });
+    await playAiGame(state, ctx(1235));
+
+    // El último día jugado es `maxDays` y no `maxDays + 1`: el tope se mira
+    // ANTES de incrementar, así que no se emite un `day_start` de un día que no
+    // juega nadie. Al revés, cada partida agotada llevaría una línea de más en
+    // la crónica y el ancla del banco se movería.
+    expect(state.day).toBe(3);
+    expect(state.finished).toEqual({ winner: null });
+    // `game_over` con `actor: null` es exacto: no lo protagoniza ningún
+    // jugador. Y va el ÚLTIMO —nadie escribe detrás de él—, que es lo que
+    // vigila `invariantes.test.ts` sobre las veinte primeras semillas.
+    expect(state.log.at(-1)).toMatchObject({ kind: 'game_over', actor: null });
+    expect(state.log.filter((e) => e.kind === 'day_start').map((e) => e.day)).toEqual([1, 2, 3]);
+    // Y nadie está eliminado: la partida no se acabó por eso.
+    expect(state.players.every((p) => !p.defeated)).toBe(true);
+  });
+
+  it('un tope de días que no es un tope se rechaza al crear la partida', () => {
+    // La regla vivía solo en el borde del entorno, que rechazaba un
+    // `HEROES_MAX_DAYS=0` con una frase buena — mientras `newGame({maxDays: 0})`
+    // se aceptaba y jugaba **un día**, acabando «sin resolver» en silencio. La
+    // misma regla con dos severidades según la puerta por la que entres.
+    for (const maxDays of [0, -5, 1.5, Number.NaN]) {
+      expect(() => newGame({ seed: 1235, maxDays }), `maxDays=${maxDays}`).toThrow(
+        /no es una partida/,
+      );
+    }
+    // Y el suelo sí vale: una partida de un día es corta, no ilegal.
+    expect(newGame({ seed: 1235, maxDays: 1 }).maxDays).toBe(1);
+  });
+
   it('el bucle completo pasa por construir, reclutar, luchar y capturar', async () => {
     const state = newGame({ seed: 4321 });
     const c = ctx(4321);
-    await playAiGame(state, c, 300);
+    await playAiGame(state, c);
 
     const tipos = new Set(state.log.map((e) => e.kind));
     expect(tipos.has('built')).toBe(true);
@@ -1206,7 +1246,7 @@ describe('partida completa', () => {
     // verdad: basta una que no escriba las dos caras para que diverjan y no
     // vuelvan a coincidir nunca.
     const state = newGame({ seed: 9 });
-    await playAiGame(state, ctx(9), 300);
+    const { winner } = await playAiGame(state, ctx(9));
     expect(state.log.some((e) => e.kind === 'town_captured')).toBe(true);
 
     for (const town of state.towns) {
@@ -1216,14 +1256,16 @@ describe('partida completa', () => {
         town.owner,
       );
     }
-    // Y la semilla 9 era una de las dos que no terminaban en 300 días.
-    expect(state.finished).not.toBeNull();
+    // Y la semilla 9 era una de las dos que no terminaban en 300 días: lo que
+    // hay que exigirle es un GANADOR, no que termine — eso lo cumple ahora hasta
+    // la partida que se queda sin días.
+    expect(winner).not.toBeNull();
   });
 
   it('es determinista: misma semilla, misma partida', async () => {
     const jugar = async (semilla: number): Promise<string> => {
       const state = newGame({ seed: semilla });
-      await playAiGame(state, ctx(semilla), 300);
+      await playAiGame(state, ctx(semilla));
       return JSON.stringify(state.log);
     };
     expect(await jugar(555)).toBe(await jugar(555));
@@ -1530,7 +1572,7 @@ describe('el gremio enseña (#2)', () => {
     let aprendidos = 0;
     for (let semilla = 1; semilla <= 5; semilla++) {
       const state = newGame({ seed: semilla });
-      await playAiGame(state, { rng: createRng(semilla) }, 300);
+      await playAiGame(state, { rng: createRng(semilla) });
       for (const e of state.log) {
         if (e.kind === 'built' && e.building === 'mage_guild_1') gremios++;
         if (e.kind === 'spells_learned') aprendidos += e.spells.length;

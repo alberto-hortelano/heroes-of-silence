@@ -18,7 +18,26 @@ export interface NewGameOptions {
   readonly controllers?: Readonly<Record<PlayerId, Controller>>;
   readonly width?: number;
   readonly height?: number;
+  /**
+   * El último día que se juega; por defecto, `MAX_DAYS_POR_DEFECTO`.
+   *
+   * El `| undefined` está escrito porque con `exactOptionalPropertyTypes` un
+   * `maxDays?: number` acepta que la propiedad falte y **rechaza** que valga
+   * `undefined`, que es justo lo que trae quien reenvía una opción suya sin
+   * mirarla. Mismo idioma que `MapPlan.roads`.
+   */
+  readonly maxDays?: number | undefined;
 }
+
+/**
+ * Días de una partida si nadie pide otra cosa.
+ *
+ * 200 y no 300 porque es lo que ya pedían los dos conductores de verdad cuando
+ * cada uno llevaba el suyo; el banco sigue pidiendo sus 300 explícitamente, que
+ * es lo que ancla su sha. Ninguna partida de hoy se acerca a ninguno de los dos:
+ * el máximo de las 200 del banco es el día 20.
+ */
+const MAX_DAYS_POR_DEFECTO = 200;
 
 /** Ejército de salida: unas cuantas criaturas de nivel 1 y 2 de la facción. */
 export function startingArmy(faction: FactionId, rng: Rng): Hero['army'] {
@@ -106,5 +125,12 @@ export function newGame(options: NewGameOptions = {}): GameState {
     controller: options.controllers?.[inicio.player] ?? ('ai' as Controller),
   }));
 
-  return createGame({ seed, map, players, heroes, towns });
+  return createGame({
+    seed,
+    maxDays: options.maxDays ?? MAX_DAYS_POR_DEFECTO,
+    map,
+    players,
+    heroes,
+    towns,
+  });
 }

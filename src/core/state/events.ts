@@ -41,7 +41,15 @@ type Con<T, X> = T extends unknown ? T & X : never;
 
 /** Quién protagoniza el hecho y en qué casilla pasa. */
 type Origen = {
-  /** El jugador que lo hace, o `null` si no lo hace nadie: el reloj y el día. */
+  /**
+   * El jugador que lo hace, o `null` si no lo hace nadie.
+   *
+   * Son **dos** casos y hasta hace poco era uno: el reloj (`day_start`, que no
+   * lo pasa nadie, pasa) y el final **sin ganador** (`game_over` al agotarse los
+   * días). El segundo entró con el tope de días y dejó caducada esta frase
+   * cuando decía «el reloj y el día» — y no se puso nada rojo, porque el test
+   * que la vigila juega una semilla que acaba por conquista.
+   */
   readonly actor: PlayerId | null;
   /** La casilla donde ocurre, o `null` si el hecho no pasa en ningún sitio. */
   readonly at: Point | null;
