@@ -165,10 +165,14 @@ const sinTerminar: number[] = [];
 
 const t0 = performance.now();
 for (let semilla = 1; semilla <= SEMILLAS; semilla++) {
-  const state = await partidaDeSemilla(semilla, DIAS);
+  const { state, fin } = await partidaDeSemilla(semilla, DIAS);
 
-  const ganador = state.finished === null ? 'ninguno' : String(state.finished.winner);
-  if (state.finished === null) sinTerminar.push(semilla);
+  // «Sin terminar» es `winner === null` y no `finished === null`: una partida
+  // agotada vuelve **terminada** y sin ganador. Con el criterio de antes esta
+  // cuenta daría 0 siempre y por construcción — un informe que imprime su línea
+  // sin medir nada.
+  const ganador = fin.winner === null ? 'ninguno' : String(fin.winner);
+  if (fin.winner === null) sinTerminar.push(semilla);
   lineas.push(`${semilla} fin ganador=${ganador} dia=${state.day} hechos=${state.log.length}`);
   for (const [i, e] of state.log.entries()) lineas.push(`${semilla} ${i} ${JSON.stringify(e)}`);
 }

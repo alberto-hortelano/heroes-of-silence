@@ -72,13 +72,45 @@ const servidor = spawn('npx', ['tsx', 'src/server/ws-server.ts'], {
   detached: true,
 });
 
+/** La URL que el servidor acaba de anunciar, con el puerto que le tocó de verdad. */
+const RE_CANAL = /canal del agente en (ws:\/\/\S+)/;
+/** Cuánto se le da al servidor para anunciar su canal antes de darlo por muerto. */
+const PLAZO_DE_ARRANQUE_MS = 15_000;
+
 let salidaServidor = '';
 let servidorVivo = true;
 /** El cliente MCP, aquí fuera para poder cerrarlo desde `terminar`. */
 let cliente: Client | null = null;
+
+/**
+ * La URL del canal del agente, resuelta **cuando el servidor la anuncia** (#62).
+ *
+ * Era un sondeo —60 vueltas de 250 ms preguntándole a `salidaServidor` si ya
+ * estaba—, así que la espera se redondeaba hacia arriba al siguiente cuarto de
+ * segundo: el servidor anuncia a los 311-359 ms y el arnés se enteraba a los
+ * 500. La línea llega por este mismo `on('data')`, así que no hay nada que
+ * sondear: se avisa desde donde se lee.
+ *
+ * El `resolve` se guarda aquí fuera porque quien lo dispara es el handler, y se
+ * pone a `null` al usarlo: el anuncio sale una vez y las trazas que vengan
+ * detrás no tienen que volver a casar la expresión.
+ */
+let anunciaCanal: ((url: string) => void) | null = null;
+const canalAnunciado = new Promise<string>((resolve) => {
+  anunciaCanal = resolve;
+});
+
 servidor.stdout.on('data', (d: Buffer) => {
   salidaServidor += d.toString();
   process.stdout.write(`\x1b[90m${d.toString()}\x1b[0m`);
+  // Sobre lo ACUMULADO y no sobre este trozo: una línea puede partirse entre
+  // dos chunks, y entonces la expresión no casaría en ninguno de los dos.
+  if (anunciaCanal === null) return;
+  const anuncio = RE_CANAL.exec(salidaServidor);
+  if (anuncio === null) return;
+  const avisar = anunciaCanal;
+  anunciaCanal = null;
+  avisar(anuncio[1] as string);
 });
 servidor.stderr.on('data', (d: Buffer) => process.stderr.write(`\x1b[31m${d.toString()}\x1b[0m`));
 
@@ -110,9 +142,13 @@ function pararServidor(): void {
 }
 
 async function terminar(codigo: number): Promise<never> {
-  // El puente MCP es un hijo aparte (`npx tsx mcp/server.ts`) y solo se muere
-  // cuando su stdin da EOF, que es lo que hace `close()`: sin esto se quedaba
-  // suelto después de cada pasada.
+  // El puente MCP es un hijo aparte y sin esto se quedaba suelto después de
+  // cada pasada, así que `close()` hace falta. Lo que NO es cierto es cómo
+  // muere, que es lo que decía aquí antes: «solo cuando su stdin da EOF».
+  // Instrumentado, ese camino **no se toma nunca** — `mcp/server.ts` mantiene
+  // abierto su WebSocket y no tiene manejador de cierre, así que el EOF no
+  // termina el proceso y lo que lo mata es el `SIGTERM` que el SDK manda dos
+  // segundos después. De ahí salen los 2 s que siguen costando este cierre.
   if (cliente !== null) {
     const c = cliente;
     cliente = null;
@@ -333,23 +369,55 @@ async function terminarBien(
   await terminar(0);
 }
 
-/** La URL que el servidor acaba de anunciar, con el puerto que le tocó de verdad. */
-const RE_CANAL = /canal del agente en (ws:\/\/\S+)/;
+/**
+ * Espera el anuncio del canal, con tope y con fallo ruidoso.
+ *
+ * El tope es el mismo de siempre —60 × 250 ms— escrito de una vez, y al agotarse
+ * dice lo mismo que decía, pero con la salida del servidor pegada: si no
+ * arrancó, el motivo está ahí y no en otra terminal.
+ */
+async function esperarCanal(): Promise<string> {
+  let temporizador: NodeJS.Timeout | undefined;
+  const plazo = new Promise<never>((_, reject) => {
+    temporizador = setTimeout(() => {
+      reject(
+        new Error(
+          `el servidor no arrancó en ${PLAZO_DE_ARRANQUE_MS / 1000} s. Lo que dijo:\n${salidaServidor.slice(-2000)}`,
+        ),
+      );
+    }, PLAZO_DE_ARRANQUE_MS);
+  });
+  try {
+    return await Promise.race([canalAnunciado, plazo]);
+  } finally {
+    // Sin esto el temporizador mantiene vivo el bucle de eventos quince segundos
+    // después de haber terminado.
+    clearTimeout(temporizador);
+  }
+}
 
 async function main(): Promise<void> {
   log('esperando a que arranque el servidor…');
-  for (let i = 0; i < 60 && !RE_CANAL.test(salidaServidor); i++) await sleep(250);
-  const anuncio = RE_CANAL.exec(salidaServidor);
-  if (anuncio === null) throw new Error('el servidor no arrancó');
   // No se puede suponer: el puerto se lo acaba de dar el sistema, y esta traza
   // la escribe el servidor desde `listening`, o sea cuando ya está escuchando.
-  const url = anuncio[1] as string;
+  const url = await esperarCanal();
   log(`el servidor escucha en ${url}`);
 
   log('conectando al puente MCP por stdio…');
+  // `tsx` directo y NO `npx tsx`, y la diferencia son **dos segundos de los
+  // cinco** que tardaba `pnpm qa`. El envoltorio mete un proceso de más entre
+  // el SDK y el puente, y el cierre del SDK son dos carreras de 2 s en cadena
+  // (`stdin.end()`, luego `SIGTERM`, luego `SIGKILL`): con `npx` en medio, el
+  // nieto retiene las tuberías, el `'close'` no llega dentro de la ventana y
+  // las dos carreras se agotan enteras. Medido, cuatro pasadas intercaladas:
+  // 5,18-5,19 s con `npx` contra 3,08-3,25 s sin él, rangos sin solaparse.
+  //
+  // Aquí se puede y en el servidor de la partida no: aquel lo lanza y lo mata
+  // este fichero —por eso va `detached` y se mata por grupo—, mientras que a
+  // este lo cierra el SDK, que no sabe nada de grupos de procesos.
   const transport = new StdioClientTransport({
-    command: 'npx',
-    args: ['tsx', 'src/server/mcp/server.ts'],
+    command: 'node_modules/.bin/tsx',
+    args: ['src/server/mcp/server.ts'],
     env: { ...process.env, HEROES_SERVER: url } as Record<string, string>,
   });
   const client = new Client({ name: 'qa-agent', version: '1.0.0' });

@@ -37,14 +37,17 @@ const DIAS = Number(process.argv[3] ?? DIAS_POR_DEFECTO);
 const sinTerminar: number[] = [];
 
 for (let semilla = 1; semilla <= SEMILLAS; semilla++) {
-  const state = await partidaDeSemilla(semilla, DIAS);
+  const { state, fin } = await partidaDeSemilla(semilla, DIAS);
 
-  if (state.finished === null) {
+  // «No la resolvió nadie en `DIAS` días» es `winner === null` y no
+  // `finished === null`: preguntar por lo de antes daría 0/40 siempre y por
+  // construcción, o sea un guardia verde que ha dejado de mirar.
+  if (fin.winner === null) {
     sinTerminar.push(semilla);
     console.log(`  semilla ${String(semilla).padStart(3)} → SIN TERMINAR en ${DIAS} días`);
   } else {
     console.log(
-      `  semilla ${String(semilla).padStart(3)} → gana ${state.finished.winner} el día ${state.day}`,
+      `  semilla ${String(semilla).padStart(3)} → gana ${fin.winner} el día ${state.day}`,
     );
   }
 }

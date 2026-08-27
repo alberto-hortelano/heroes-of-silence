@@ -23,7 +23,7 @@ import { autoResolve } from '../../src/core/ai/tactics.js';
 import { playAiGame } from '../../src/core/ai/turn.js';
 import { createBattle } from '../../src/core/battle/battle.js';
 import { createRng } from '../../src/core/rng.js';
-import type { GameState } from '../../src/core/state/game.js';
+import type { GameOutcome, GameState } from '../../src/core/state/game.js';
 import { newGame, startingArmy } from '../../src/core/state/setup.js';
 
 /** Días de tope: pasados estos, una partida que no ha acabado no acaba. */
@@ -59,10 +59,15 @@ const PRIMO_DE_BATALLA = 7919;
 export async function partidaDeSemilla(
   semilla: number,
   dias: number = DIAS_POR_DEFECTO,
-): Promise<GameState> {
-  const state = newGame({ seed: semilla });
-  await playAiGame(state, { rng: createRng(semilla) }, dias);
-  return state;
+): Promise<{ state: GameState; fin: GameOutcome }> {
+  // El tope se pide al crear la partida y lo aplica `advanceDay` (`GameState.finished`).
+  const state = newGame({ seed: semilla, maxDays: dias });
+  // El desenlace se devuelve **ya estrechado**, en vez de dejar que cada informe
+  // lo saque de `state.finished`, que es `| null` por tipo: era el mismo
+  // `if (fin === null) throw` escrito en los dos, o sea justo el par de tripas
+  // copiadas que este fichero existe para no tener.
+  const fin = await playAiGame(state, { rng: createRng(semilla) });
+  return { state, fin };
 }
 
 /**

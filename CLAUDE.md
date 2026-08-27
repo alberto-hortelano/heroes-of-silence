@@ -12,8 +12,8 @@ El juego es el andamio; lo interesante es lo que se puede enchufar dentro.
 pnpm install
 pnpm dev        # cliente en http://localhost:3100 (juego local contra la IA de reglas)
 pnpm mirar      # MIRAR la partida del agente: /espectador/ contra el servidor
-pnpm verify     # typecheck + lint + 402 tests, 8,7 s: el bucle rápido
-pnpm test       # 402 tests: reglas, batalla, partida completa y contrato del agente
+pnpm verify     # typecheck + lint + 421 tests, 8,7 s: el bucle rápido
+pnpm test       # 421 tests: reglas, batalla, partida completa y contrato del agente
 pnpm typecheck
 pnpm lint       # Biome: formato y lint en una sola pasada, 40 ms
 pnpm format     # lo mismo, arreglando lo que sepa arreglar
@@ -88,7 +88,7 @@ igual que un guardia hay que verlo morder.
 Verificación del circuito entero sin tocar nada a mano:
 
 ```bash
-pnpm qa   # pide el mapa al agente, arranca servidor + puente MCP y juega, 5,4 s
+pnpm qa   # pide el mapa al agente, arranca servidor + puente MCP y juega, 3,1 s
 ```
 
 No solo comprueba que no reviente. Lee el bloque `CÓMO FUE LO ANTERIOR` de cada
@@ -247,12 +247,21 @@ pidiéndolos: hoy hay 28 minas en juego y los siete recursos tienen la suya.
 
 Lo que se consiguió y lo que no, porque las dos mitades importan:
 
-- morada 5: **52 de 200** partidas, desde 0. La partida **no se alarga** —mediana
-  7→6 días, p90 8→7—, que era la condición.
-- pero el **dragón óseo sigue en 0 de 200** en 24×24. En 48×48 salen las siete
-  criaturas de nivel ≥5 y el dragón en 12 de 20: **las dos mitades entraron y lo
-  que falta son días** (#90). La premisa que aprobó no tocar la duración venía de
-  una contrafáctica de material **infinito** y era optimista por un factor 19.
+- morada 5: **52 de 200** partidas al cerrar aquel ciclo (`2db037e`), desde 0. La
+  partida **no se alargaba** —mediana 7→6 días, p90 8→7—, que era la condición.
+- pero el **dragón óseo seguía en 0 de 200** en 24×24: **las dos mitades entraron
+  y lo que faltaba no era economía** (#90). La premisa que aprobó no tocar la
+  duración venía de una contrafáctica de material **infinito** y era optimista por
+  un factor 19.
+
+**Y las dos cifras de arriba llevan fecha porque ya no son las de hoy**, que es lo
+que este documento pide de una cita y no se estaba pidiendo a sí mismo. Censado el
+volcado del banco el 27-08-2026: morada 5 en **15 de 200**, morada 6 en **2**,
+mediana **7 días**, ganadores **42/158**. No se movió la economía: la movieron
+**#87 y #88** —la experiencia y el gremio— al dar la vuelta al ganador, y con él
+se fue el desarrollo. Nadie volvió a medir, y una cifra de hace tres ciclos escrita
+en presente es exactamente la trampa contra la que avisa la sección de la tabla de
+experiencia.
 - y el reajuste **desequilibró las facciones**: con control de esquina
   —intercambiando facciones sobre los mismos mapas— el caballero pasa de ganar
   **53,25 %** a **78,5 %**. La palanca es el **oro** (la cadena del nigromante
@@ -538,7 +547,7 @@ podían morder**. Uno tapaba un `undefined` con un `!` y su aserción pasaba **p
 vacío**. El otro decía comprobar que el `null` es exactamente la niebla, casilla
 a casilla, y **recalculaba el índice con la misma expresión que la
 implementación**: un espejo. Transponer el índice en `serializeKnownMap` dejaba
-los 402 tests en verde.
+los 402 tests de entonces en verde.
 
 Lo que lo tapaba no era la semilla, y por eso hay que escribirlo: **el generador
 pone los dos inicios en la diagonal de un mapa cuadrado** —(4,4) y (19,19)—, así
@@ -763,6 +772,118 @@ Tres cosas que costaron su vuelta de QA y conviene no repetir:
   reparto 0 · 10 000 · 0, varianza cero, y un intervalo de confianza impreso al
   lado de una identidad algebraica. Ahora comprueba el reparto, que es lo que sí
   dice algo, y el intervalo es **pareado** (±0,20 donde el binomial decía ±0,41).
+
+## La partida sabe acabarse, y el mapa no da para más
+
+Dos cosas de esta tanda, y la segunda es una medida y no un cambio.
+
+**El tope de días estaba declarado tres veces y ninguna en `core`** —`ws-server.ts`,
+`tools/qa/partidas.ts` y un `playAiGame(state, ctx, maxDias = 200)` cuyo valor por
+defecto llevaba tiempo **muerto**, porque los diez llamantes pasaban número—. Y al
+saltar, **`state.finished` se quedaba en `null`**: el núcleo sostenía que la partida
+no había terminado. Eso se tapaba con un `partidaTerminada` suelto en el servidor y
+con un `winner: number | null` en el protocolo, los dos con su comentario
+explicando el parche.
+
+Ahora el tope es `GameState.maxDays`, la regla vive en `advanceDay` —que **mira
+antes de incrementar**, así que el último día jugado es `maxDays` y `game_over`
+sigue siendo el último hecho— y `finished` es `{ winner: PlayerId | null } | null`,
+con lo que `!== null` significa por fin «terminó». Los tres bucles pasan a
+`while (state.finished === null)` y **ninguno puede olvidarse de la condición**: la
+alternativa —una función que cada bucle llame al salir— dejaba el *cuándo*
+declarado tres veces otra vez, que es el bug de hoy subido un piso. `HEROES_MAX_DAYS`
+y las 300 del banco siguen valiendo: son configuración, no la regla. **El ancla del
+banco no se movió**, porque ninguna de las 200 partidas roza el tope.
+
+**Y `null` no es lo mismo que `-1`, que es lo que costó dos vueltas.** Con
+`finished.winner` triestado, `winner === viewer` **compila y miente**: `tsc` no
+caza al lector que se olvida de la tercera respuesta, así que los tres del cliente
+hubo que mirarlos a mano. La clasificación vive hoy en `src/client/desenlace.ts`, y
+tiene **cuatro** respuestas y no tres — la cuarta se escapó en la primera vuelta y
+la encontró QA: quien mira sin llevar bando (`NADIE`, el espectador) no pierde el
+empate **ni pierde la partida que gana otro**, y estaba viendo «Fin de la partida»
+en rojo de derrota en la misma pantalla que decía «has ganado». La respuesta a «no
+tienes bando» no era «perdida»: **faltaba una respuesta**. Por eso `NADIE` vive
+ahora en `desenlace.ts`, que es el único sitio del repositorio donde «no es tu
+bando» y «no tienes bando» dan resultados distintos; en el resto de la crónica el
+centinela contesta bien por accidente, porque allí la pregunta ya es de dos.
+
+**Las tablas son el guardia, y un `switch` no lo era.** Los tres rótulos son
+`Record<Desenlace, string>` porque un `switch` de sentencia —el que asigna y hace
+`break`— deja pasar un desenlace nuevo **sin poner nada rojo**: comprobado
+plantando un cuarto miembro en la unión, salía **un** error (el `switch` que sí
+retorna) y no tres. Y el mismo cambio destapó dos aserciones convertidas en
+tautologías —`expect(state.finished).not.toBeNull()` es hoy verde por
+construcción— y una premisa caducada: `day_start` había dejado de ser el único
+hecho sin protagonista, y el guardia seguía verde porque su semilla acaba por
+conquista. Se reparó **afirmando la regla y no eximiendo el caso**: el `actor` de
+`game_over` tiene que **ser** el ganador, `null` incluido. Bajar el listón para que
+cupiera el caso nuevo habría sido desafilarlo.
+
+**Y una validación que vivía en la puerta y no en la casa.** `enteroDelEntorno`
+rechazaba `HEROES_MAX_DAYS=0` con una frase buena mientras `newGame({maxDays: 0})`
+lo aceptaba y jugaba un día en silencio: la misma regla con dos severidades según
+por dónde entres. Hoy lanza `createGame`. Y el parser mira `isSafeInteger` y no
+`isInteger`, porque `1e21` es entero y produce **justo la partida eterna que la
+validación existe para evitar** — `day >= 1e21` no se cumple nunca. De paso se
+descubrió que la variable de al lado, `HEROES_WAIT_AGENT_MS`, **no validaba nada**:
+un `NaN` hace que `setTimeout` dispare a 1 ms, el servidor concluye «no ha venido
+nadie» y **juega la partida entera sin el agente**. Node avisa con un
+`TimeoutNaNWarning` que se pierde entre las trazas, así que el fallo llegaba
+disfrazado de partida sin agente. Las cuatro variables pasan hoy por el mismo
+parser, en `src/server/entorno.ts` —que se llamaba `puertos.ts` y ya no contiene
+solo puertos—, y viven **donde hay test**: `ws-server.ts` arranca el servidor al
+importarlo, así que lo que se quedara allí no lo podía probar nadie.
+
+**`pnpm qa` bajó de 5,4 s a 3,1 s**, y solo 0,2 de esos 2,3 son de #62. El resto
+era que el puente MCP se lanzaba con `npx tsx` en vez de `tsx`: ese proceso de más
+hace que las dos carreras de 2 s encadenadas del cierre del SDK se agoten enteras,
+porque el nieto retiene las tuberías. La cobertura no se movió — una mejora de
+tiempo que recorta cobertura es una regresión disfrazada—. Y murió un comentario
+que la medida desmintió: el puente **no** muere por el EOF de su stdin, como decía;
+muere por el `SIGTERM` de dos segundos después.
+
+### No faltan días: falta un mapa que escale
+
+**Lo que #23 pedía —los 7 días de gracia— no se hizo, y el motivo es que la premisa
+era falsa.** `Kingdom::isLoss()` de fheroes2 es `castles.empty() && heroes.empty()`
+y elimina **en el acto**: `checkDefeat` ya lo reproducía exactamente. Los 7 días
+existen (`GetGameOverLostDays()`) pero son de **otro** estado —sin castillos y
+**con** héroes—, donde aquí el jugador es inmortal, así que **copiar el original
+acorta partidas, no las alarga**. Además de ese estado no se puede volver
+(`hireHero` exige pueblo propio) y, prototipada, la gracia no movía **un solo
+ganador** de 200 a cambio de dos anclas rotas y un 76 % más de crónica.
+Implementarla habría sido vender como fidelidad lo contrario de lo que hace la
+fuente.
+
+**Y el mapa se midió en vez de elegirse.** Siete tamaños, 200 semillas cada uno,
+con los dos extremos remedidos como control:
+
+| lado | mediana | `dwelling_5` | `dwelling_6` | dragón óseo | gana j0 | tiempo |
+|---|---|---|---|---|---|---|
+| **24** | 7 d | 15/200 | 2/200 | 1/200 | 42/200 | **1,65 s** |
+| 28 | 8 d | 197/200 | 8/200 | 1/200 | 189/200 | 3,99 s |
+| 32 | 9 d | 200/200 | 9/200 | **0/200** | **200/200** | 3,13 s |
+| 36 | 11 d | 200/200 | 12/200 | 11/200 | 198/200 | 6,47 s |
+| 40 | 20 d | 200/200 | 86/200 | 80/200 | 186/200 | 11,59 s |
+| **48** | 30 d | 200/200 | 150/200 | 139/200 | 181/200 | **20,92 s** |
+
+**No hay punto intermedio**: son dos escalones lejos el uno del otro —24→28 mete la
+morada 5 y nada más; 36→40 es el que trae el dragón— con una meseta en medio donde
+ampliar compra días y no bestiario. Y **el equilibrio está volteado en los siete
+tamaños que no son 24**, con el peor en 32 (200/200 para j0). El 28 es además el
+tamaño a evitar y es el más cercano al de hoy: única talla con una partida sin
+terminar, y **más lenta que 32 siendo más pequeña**, porque lo que paga es la cola.
+
+**La causa mecánica es que el generador no escala**: `generateMapPlan` pone siempre
+28 minas, 8 monstruos, 10 recursos y 4 cofres, con las minas en coordenadas fijas
+respecto a cada esquina y los radios de terreno fijos. Un mapa más grande **no añade
+economía: alarga el hueco vacío del centro**, así que lo que las siete filas miden
+no es «un mapa más grande» sino «más días de renta antes del contacto». Por eso el
+tiempo crece ×12,7 mientras los días solo crecen ×4: el coste **por día jugado**
+sube de 1,10 a 3,45 ms. **El 24×24 se queda**, y ejercitar el bestiario caro es una
+segunda tanda con otro lado —40 semillas en 38×38 son ~2 s y sacan las siete—, no
+mover la que está anclada.
 
 ## El núcleo por dentro: 2,25× sin cambiar una sola partida
 
@@ -1052,7 +1173,7 @@ aportan en un prototipo. Lo que hay:
 | `test/invariantes.test.ts` | 505 ms | va dentro de `pnpm test` |
 | El navegador | minutos | si el cambio se ve |
 | El espectador en el navegador | minutos | si tocas `html.ts`, `espectador/` o el canal |
-| `pnpm qa` | 5,4 s | si tocas `src/server/` o el contrato |
+| `pnpm qa` | 3,1 s | si tocas `src/server/` o el contrato |
 | `npx tsx tools/qa/barrido-semillas.ts` | 1,1 s | si tocas la IA o la economía |
 | `pnpm banco` | 1,7 s | si tocas el núcleo sin querer cambiar el juego |
 | `tools/qa/enfrentamiento.ts` | 11,8 s | si cambias **cómo decide** la IA de batalla |
@@ -1065,16 +1186,16 @@ porque el agente defiende y pierde, así que la cobertura real son **1 mapa
 diseñado, 3 turnos de mapa y 15 decisiones de batalla** — eran 2 y 13 antes de
 que la IA aprendiera a esperar y de que el agente diseñara el mapa.
 
-`pnpm qa` **no entra en `pnpm verify`**, y ahora sí es por lo que tarda: 8,7 +
-5,4 = 14,1 s en cada final de tarea, para un guardia que solo dice algo cuando se
-toca `src/server/` o el contrato. El motivo de antes era otro y ya no existe:
+`pnpm qa` **no entra en `pnpm verify`**: 8,7 + 3,1 = 11,8 s en cada final de
+tarea, para un guardia que solo dice algo cuando se toca `src/server/` o el
+contrato. Ese 3,1 eran 5,4 hasta que se le quitó el envoltorio `npx` al puente. El motivo de antes era otro y ya no existe:
 abría los puertos **fijos** 9880/9881 y salía 1 con `EADDRINUSE` si había un
 `pnpm partida` levantado —la forma documentada de jugar con el agente—, así que el
 hook `Stop` se ponía rojo por tener el juego abierto. Eso está arreglado: los dos
-puertos salen de `HEROES_AGENT_PORT` y `HEROES_SPECTATOR_PORT` (`src/server/puertos.ts`),
+puertos salen de `HEROES_AGENT_PORT` y `HEROES_SPECTATOR_PORT` (`src/server/entorno.ts`),
 con los literales de siempre por defecto y **`0` para que los elija el sistema**,
 que es lo que pide el arnés. Comprobado con la partida abierta en 9881/9880:
-`pnpm qa` sale 0 en 5,43 s con su servidor en un puerto efímero, y la partida
+`pnpm qa` salía 0 en 5,43 s con su servidor en un puerto efímero, y la partida
 sigue en pie. Quien pide `0` tiene que enterarse de cuál le tocó, así que
 `ws-server.ts` imprime el puerto **real** desde `listening` y de ahí lo lee el
 arnés: anunciar el que se pidió sería anunciar un cero.
