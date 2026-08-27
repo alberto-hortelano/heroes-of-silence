@@ -12,8 +12,8 @@ El juego es el andamio; lo interesante es lo que se puede enchufar dentro.
 pnpm install
 pnpm dev        # cliente en http://localhost:3100 (juego local contra la IA de reglas)
 pnpm mirar      # MIRAR la partida del agente: /espectador/ contra el servidor
-pnpm verify     # typecheck + lint + 392 tests, 8,5 s: el bucle rápido
-pnpm test       # 392 tests: reglas, batalla, partida completa y contrato del agente
+pnpm verify     # typecheck + lint + 402 tests, 8,7 s: el bucle rápido
+pnpm test       # 402 tests: reglas, batalla, partida completa y contrato del agente
 pnpm typecheck
 pnpm lint       # Biome: formato y lint en una sola pasada, 40 ms
 pnpm format     # lo mismo, arreglando lo que sepa arreglar
@@ -391,6 +391,21 @@ servidor manda un `game_over` explícito —no un `close` interpretado—, el pu
 lo recuerda para quien conecte después, y un corte de conexión dice que **no
 consta** si la partida terminó en vez de inventárselo.
 
+**Y la petición de mapa dice CUÁLES son los jugadores, no cuántos** (#101).
+Mandaba `players: 2`, un número, y el agente tenía que sacar de una convención en
+prosa —«numerados desde 0»— que eran el 0 y el 1. Ahora van los ids. Lo que **no**
+cambia, contra lo que prometía el issue y contra lo que yo copié al encargarlo:
+**el guardia que compara los jugadores del plan contra los pedidos no se muere**.
+Nombrar los ids quita la **ambigüedad**, no la **desobediencia** — un agente
+puede leer `players: [0, 1]` y devolver los jugadores 3 y 4 igual, y eso sigue
+dejando la partida sin un solo turno en silencio. Lo que murió es la convención.
+
+**Del contrato se exportan los esquemas, no los alias** (#100). `z.infer` se
+escribe donde se usa —`agent-link.ts` ya tipa `ask()` así— y un tipo que ningún
+`import` nombra se borra: este paquete es `"private": true`, así que el cliente de
+fuera del repo que justificaría «es API pública» no existe. `MapGenerateResponse`
+se queda porque tiene un consumidor, no porque sea más importante.
+
 Tipos de petición: `adventure_turn`, `battle_turn` y `map_generate`. Y hay
 **seis** tools de consulta (`game_state`, `battle_state`, `map`,
 `creature_stats`, `spell_list`, `building_list`) para mirar cosas sin volcarse
@@ -439,6 +454,41 @@ porque la alternativa —publicar y tapar después— es la que parece más bara
   filtrado por su maná. Viaja solo si la vista es propia **y** el stack activo es
   tuyo.
 
+**Y esa última ausencia se explica, que es lo que faltaba** (#84). De las tres
+ramas de `battle_state`, la de tu propia batalla era la única que quitaba el
+campo **callando**. Ahora lleva su nota, y la decisión de si ponerla se le
+pregunta **al objeto ya serializado** (`'legalActions' in vista`) en vez de
+reescribir la condición del serializador: sería la tercera declaración de la
+misma regla, con las dos libres de divergir. La nota vive en el servidor y no en
+`core` porque las otras dos las pone el servidor por encima del objeto, y un
+`note` nacido en `core` chocaría con esos dos *spreads*.
+
+Y lo incómodo, que se publica igual porque lo midió QA: **esa rama no se alcanza
+jugando**. No es solo que la petición empujada no falle nunca la condición
+—`director.ts` llama con el bando del stack que decide—: es que `playBattle`
+aplica las acciones del rival de forma síncrona, así que entre dos
+`heroes_respond` no hay ventana en la que consultar y ver a otro activo. Medido:
+15 de 15 consultas con la lista y ~325 sondeos sin una sola ausencia. Se escribe
+igual porque el día que la ventana exista la ausencia volvería a ser muda; lo que
+no se hace es contarlo como cubierto.
+
+**Y desde #85 ese mapa filtrado es también el `knownMap` de cada turno.** Iba
+`{width, height, objects}` —ni terreno ni caminos—, así que el agente elegía el
+destino de cada `move_hero` sin saber por dónde se anda, **mientras la
+descripción de la tool `map` le prometía por escrito que traía «lo mismo»**. Las
+dos cosas no podían ser verdad, y la falsa estaba publicada. El arreglo es una
+línea: el turno llama a `serializeKnownMap`, y **que sea la misma llamada es toda
+la garantía** de que las dos puertas devuelven lo mismo — no un test.
+
+La hipótesis de que #85 había caducado al publicarse la tool `map` (#33) se cayó
+al medirla, y conviene guardar el porqué: el terreno **no cambia**, pero **lo que
+el agente conoce crece** —14 % del mapa el día 1, 38 % el día 3, 49-64 % el día
+6—, así que cachear la llamada del día 1 es planificar el día 6 con el mapa del
+día 1. Cuesta **+3 099 B el día 1**, que más que duplica un turno de 1 853-2 296 B,
+y +3 685 a +3 901 B el día 6. Un esquema de **deltas** se descartó a propósito:
+obligaría al servidor a recordar qué mandó por un canal que puede perder
+mensajes, y un mensaje perdido corrompería el mapa del agente en silencio.
+
 **Lo que se ve en una casilla no explorada es un hueco explícito**, `null`, y no
 el terreno por defecto: al día 6 el 45,3 % de las casillas serían dato fabricado
 sin decirlo, y un agente no puede distinguir llanura de ignorancia. El índice
@@ -446,6 +496,58 @@ sin decirlo, y un agente no puede distinguir llanura de ignorancia. El índice
 Y una cifra que contradice lo que cualquiera esperaría: **filtrar apenas encoge
 el payload** —14,8 % de mediana—, porque `null` ocupa cuatro caracteres y
 `"grass"` siete. Quien publique la tool no debe contar con ese ahorro.
+
+### Lo que el agente lee sale de donde se calcula
+
+Tres cosas que no estaban en ningún issue y que salieron al darle al agente el
+mapa. Las tres son la misma: **un dato que el agente no puede comprobar tiene que
+derivarse, no escribirse.**
+
+- **La prosa derivaba las cifras y copiaba la fórmula.** Los costes de terreno
+  salían de `TERRAIN_COST` —bien—, y al lado se reescribía a mano que el camino
+  sustituye al terreno y que la diagonal multiplica y redondea. Eso es
+  exactamente lo que el docstring de `costeDeEntrada` dice que no puede pasar
+  —«el día que cambie el factor diagonal habría que acordarse de los dos»—, y
+  aquí el segundo sitio es el peor: **el agente no puede verificar lo que se le
+  anuncia**, así que un número que deje de cuadrar no lo descubre nadie. La
+  fórmula bajó a vivir con sus tres constantes en `terrain.ts` y la prosa lleva
+  **las dos columnas ya resueltas** (`grass 100 (140 en diagonal)`): el agente no
+  multiplica ni redondea. Con un guardia que prohíbe que la fórmula vuelva a
+  viajar, y que mordió a la primera sobre el texto de quien lo escribió — decía
+  «no tienes que multiplicar ni redondear nada», y la expresión no distingue la
+  fórmula de su negación.
+- **`roads` viajaba como claves `"x,y"`** en un payload donde todo lo demás son
+  puntos. Lo decisivo no fue la estética: **`mapPlanSchema.roads` es
+  `z.array(pointSchema)`**, o sea que el agente **escribe** los caminos como
+  `{x,y}` y los **leía** como cadenas, en el mismo contrato y en direcciones
+  opuestas. Se normalizó, y con eso se **borran** seis líneas de prosa en vez de
+  añadirlas. El precio son ~800 B por cada 100 casillas con camino, y **cero en
+  toda partida de hoy**: `generateMapPlan` no pone caminos, así que sólo los hay
+  en los mapas que diseña el agente. El espectador **no se toca**: tiene su propio
+  serializador y su inversa exacta, otra frontera y otro estándar, a propósito.
+- **La descripción del mapa estaba escrita dos veces**, y había divergido en el
+  mismo commit que la creó. Ahora es una constante pegada al serializador que
+  interpolan las dos puertas, y su guardia tiene **dos mitades por una razón
+  física**: `mcp/server.ts` se autoarranca al importarlo, así que el bloque del
+  turno lo vigila `pnpm verify` y el de la tool publicada, `pnpm qa`. Rotas por
+  separado, cada una muerde lo suyo.
+
+**Y la lección más cara del ciclo es la de siempre con una vuelta más:** dos
+guardias nuevos, escritos precisamente para cerrar esta clase de agujero, **no
+podían morder**. Uno tapaba un `undefined` con un `!` y su aserción pasaba **por
+vacío**. El otro decía comprobar que el `null` es exactamente la niebla, casilla
+a casilla, y **recalculaba el índice con la misma expresión que la
+implementación**: un espejo. Transponer el índice en `serializeKnownMap` dejaba
+los 402 tests en verde.
+
+Lo que lo tapaba no era la semilla, y por eso hay que escribirlo: **el generador
+pone los dos inicios en la diagonal de un mapa cuadrado** —(4,4) y (19,19)—, así
+que la niebla de una partida joven es **simétrica bajo transponer** y leer la
+clave del revés no cambia ni una casilla. La misma fixtura había dejado pasar
+antes una sonda sobre `pointFromKey`, una función más allá. Hicieron falta las
+dos mitades: el barrido recorre ahora **(x, y) y calcula el índice**, y el
+fixture **fuerza una casilla explorada cuya transpuesta no lo está**. Hoy la
+sonda sale «(1,0): expected true to be false».
 
 **Un castillo ve 5 casillas, no una.** `visibleNow` le daba **su propia casilla y
 nada más**, así que un héroe enemigo podía acampar pegado a tu capital sin que te
@@ -946,7 +1048,7 @@ aportan en un prototipo. Lo que hay:
 
 | Comprobación | Cuánto tarda | Cuándo |
 |---|---|---|
-| `pnpm verify` | 8,4 s | siempre |
+| `pnpm verify` | 8,7 s | siempre |
 | `test/invariantes.test.ts` | 505 ms | va dentro de `pnpm test` |
 | El navegador | minutos | si el cambio se ve |
 | El espectador en el navegador | minutos | si tocas `html.ts`, `espectador/` o el canal |
@@ -963,8 +1065,8 @@ porque el agente defiende y pierde, así que la cobertura real son **1 mapa
 diseñado, 3 turnos de mapa y 15 decisiones de batalla** — eran 2 y 13 antes de
 que la IA aprendiera a esperar y de que el agente diseñara el mapa.
 
-`pnpm qa` **no entra en `pnpm verify`**, y ahora sí es por lo que tarda: 8,4 +
-5,4 = 13,8 s en cada final de tarea, para un guardia que solo dice algo cuando se
+`pnpm qa` **no entra en `pnpm verify`**, y ahora sí es por lo que tarda: 8,7 +
+5,4 = 14,1 s en cada final de tarea, para un guardia que solo dice algo cuando se
 toca `src/server/` o el contrato. El motivo de antes era otro y ya no existe:
 abría los puertos **fijos** 9880/9881 y salía 1 con `EADDRINUSE` si había un
 `pnpm partida` levantado —la forma documentada de jugar con el agente—, así que el
