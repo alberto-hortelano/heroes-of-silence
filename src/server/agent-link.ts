@@ -61,6 +61,18 @@ export class AgentLink {
   /** Segundos que se espera una decisión antes de rendirse. */
   constructor(private readonly timeoutMs = 300_000) {}
 
+  /**
+   * Cuánto se espera una decisión, para quien tenga que ANUNCIARLO.
+   *
+   * El servidor dice en consola cuánto va a estar esperando el plan de mapa, y
+   * el número tiene que salir de aquí: escrito a mano en `ws-server.ts` sería
+   * una segunda copia del plazo que dejaría de ser verdad en cuanto alguien
+   * construyera el enlace con otro.
+   */
+  get plazoMs(): number {
+    return this.timeoutMs;
+  }
+
   get connected(): boolean {
     return this.socket !== null;
   }

@@ -7,6 +7,7 @@
  * si no aparece, juega la IA de reglas.
  */
 
+import { once } from 'node:events';
 import { creature } from '@core/data.js';
 import { parseSeed } from '@core/rng.js';
 import { sinSello } from '@core/state/events.js';
@@ -263,10 +264,28 @@ async function main(): Promise<void> {
     );
   });
 
+  // Los dos canales, ESCUCHANDO, antes de invitar a nadie a conectarse. Sin
+  // esto la invitación de `esperarAgente()` —que escribe síncrona— salía por
+  // delante de las dos líneas de `listening`, así que se decía «conéctalo» antes
+  // de decir a dónde; y con `HEROES_AGENT_PORT=0` el puerto ni siquiera existía
+  // todavía. El cómo iba antes que el dónde.
+  await Promise.all([once(agentServer, 'listening'), once(spectatorServer, 'listening')]);
+
   // Se le espera ANTES de pedirle nada: es la misma espera de siempre, con el
   // mismo `HEROES_WAIT_AGENT_MS` y la misma traza, solo que ahora la primera
   // ocasión de gastarla es el mapa y no el primer turno.
   await esperarAgente();
+
+  // Y si hay alguien atado, se dice que ahora se le espera a ÉL. Este hueco no
+  // existía antes del arranque asíncrono: con el agente conectado y mudo, la
+  // consola se quedaba muda hasta cinco minutos después de haber escrito
+  // «esperando al agente hasta 120 s», que ya no describía lo que pasaba. La
+  // señal de que algo va mal no puede ser una ausencia de líneas.
+  if (link.connected) {
+    console.log(
+      `[servidor] esperando el plan de mapa del agente (hasta ${Math.round(link.plazoMs / 1000)} s)…`,
+    );
+  }
 
   const { plan, motivo } = await pedirMapaAlAgente(link, {
     width: ANCHO_DEL_MAPA,
