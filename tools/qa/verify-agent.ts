@@ -40,7 +40,7 @@ import {
   SANGRIA_PROBLEMA,
   type Veredicto,
 } from '../../src/server/notas.js';
-import { decidir } from './politica.js';
+import { decidir, FIRMA_DEL_MAPA } from './politica.js';
 
 const TURNOS = Number(process.env.QA_TURNS ?? 6);
 /** El kind de la petición, leído por el marcador que lo escribe `notas.ts`. */
@@ -239,6 +239,30 @@ async function esperaElCambio(client: Client, antes: any, respuesta: unknown): P
   );
 }
 
+/**
+ * Que la partida se esté jugando en el mapa que diseñó el agente.
+ *
+ * Es la prueba de punta a punta de #27, y hace falta porque el camino de
+ * respaldo es **silencioso por diseño**: si el plan se rechazara, el servidor
+ * jugaría el procedimental, la partida seguiría, los veredictos seguirían
+ * entrando y `pnpm qa` saldría verde sin haber ejercitado una sola línea del
+ * mapa del agente. Lo único que distingue los dos mundos es el nombre de los
+ * pueblos, así que se mira eso.
+ */
+function exigeElMapaDelAgente(estado: any): void {
+  const ids: string[] = (estado.towns ?? []).map((t: any) => String(t.id));
+  if (ids.some((id) => id.startsWith(FIRMA_DEL_MAPA))) {
+    log(`el mapa lo diseñó el agente: pueblos ${ids.join(', ')}`);
+    return;
+  }
+  throw new Error(
+    `la partida NO se juega en el mapa del agente: sus pueblos son ${ids.join(', ') || '(ninguno)'} ` +
+      `y ninguno lleva la firma "${FIRMA_DEL_MAPA}*". O el plan se rechazó y el servidor está ` +
+      'jugando el procedimental —que es verde sin haber probado nada de #27—, o la política dejó ' +
+      'de firmarlo. Mira la línea "[servidor] mapa …" de arriba: dice cuál de las dos.',
+  );
+}
+
 /** Un veredicto con sus motivos debajo, sangrados como los escribe el puente. */
 function detalle(v: Veredicto): string {
   return `${v.requestId}: ${v.nota}${v.problemas.map((p) => `\n${SANGRIA_PROBLEMA}${p}`).join('')}`;
@@ -276,7 +300,12 @@ function informaVeredictos(): void {
 }
 
 /** Cierra con el resumen de todo lo que se ha verificado. */
-async function terminarBien(turnos: number, batallas: number, motivo: string): Promise<void> {
+async function terminarBien(
+  turnos: number,
+  batallas: number,
+  mapas: number,
+  motivo: string,
+): Promise<void> {
   informaVeredictos();
 
   if (cambioAplicado === null) {
@@ -296,7 +325,10 @@ async function terminarBien(turnos: number, batallas: number, motivo: string): P
     );
   }
   log(`consultas ejercitadas: ${[...consultadas].sort().join(', ')}`);
-  log(`${motivo}: ${turnos} turnos de mapa y ${batallas} decisiones de batalla`);
+  log(
+    `${motivo}: ${mapas} ${mapas === 1 ? 'mapa diseñado' : 'mapas diseñados'}, ` +
+      `${turnos} turnos de mapa y ${batallas} decisiones de batalla`,
+  );
   await terminar(0);
 }
 
@@ -365,6 +397,7 @@ async function main(): Promise<void> {
 
   let turnos = 0;
   let batallas = 0;
+  let mapas = 0;
 
   while (turnos < TURNOS) {
     const recibido = await client.callTool({ name: 'heroes_listen', arguments: {} });
@@ -385,7 +418,7 @@ async function main(): Promise<void> {
         throw new Error(`la partida acaba sin decir quién ganó:\n${resumen}`);
       }
       log(resumen);
-      await terminarBien(turnos, batallas, 'terminado por fin de partida');
+      await terminarBien(turnos, batallas, mapas, 'terminado por fin de partida');
     }
 
     if (texto.startsWith(PREFIJO_RELEVO)) {
@@ -408,13 +441,14 @@ async function main(): Promise<void> {
       throw new Error(`petición ilegible:\n${texto.slice(0, 400)}`);
 
     // El mapa conocido, y por su CONTENIDO. Se pide aquí dentro y no al
-    // conectar porque hasta que no llega una petición de turno no hay partida
-    // que consultar. Lo que se exige es lo que distingue esta tool de la vista
+    // conectar porque hasta que no llega una petición de TURNO no hay partida
+    // que consultar: durante el `map_generate` el director todavía es `null` y
+    // la consulta se rechaza diciéndolo, que es lo correcto y aquí sería ruido. Lo que se exige es lo que distingue esta tool de la vista
     // del espectador: el terreno entero —width×height, índice y*width+x— y **al
     // menos una casilla `null`**. Ese `null` ES la niebla; un mapa sin ninguno
     // sería la puerta que se tapió en #74 abierta otra vez por la tool nueva
     // (#33), y saldría verde con solo mirar que no da error.
-    if (!consultadas.has('map')) {
+    if (!consultadas.has('map') && kind !== 'map_generate') {
       const conocido = await consulta(client, 'map');
       const casillas = conocido.width * conocido.height;
       if (!Array.isArray(conocido.terrain) || conocido.terrain.length !== casillas) {
@@ -455,9 +489,15 @@ async function main(): Promise<void> {
       kind === 'adventure_turn' && cambioAplicado === null
         ? await consulta(client, 'game_state')
         : null;
+    // El primer estado que se mira es el que dice en qué mapa se juega.
+    if (antes !== null) exigeElMapaDelAgente(antes);
 
     const respuesta = decidir(kind, payload);
+    // `map_generate` se cuenta aparte y NO como turno de mapa: mezclarlo movería
+    // la cifra del informe y dejaría de ser comparable con los 3 turnos y 9
+    // decisiones de las pasadas anteriores.
     if (kind === 'battle_turn') batallas++;
+    else if (kind === 'map_generate') mapas++;
     else turnos++;
 
     const r = await client.callTool({
@@ -470,7 +510,7 @@ async function main(): Promise<void> {
     if (antes !== null) await esperaElCambio(client, antes, respuesta);
   }
 
-  await terminarBien(turnos, batallas, 'terminado');
+  await terminarBien(turnos, batallas, mapas, 'terminado');
 }
 
 function textoDe(resultado: unknown): string {

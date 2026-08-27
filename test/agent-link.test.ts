@@ -4,7 +4,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
 import { creature } from '../src/core/data.js';
 import type { Hero } from '../src/core/hero/hero.js';
+import { generateMapPlan, type MapPlan, validateMapPlan } from '../src/core/map/generate.js';
 import { pointKey, reachableFrom } from '../src/core/map/map.js';
+import { createRng } from '../src/core/rng.js';
 import { cronicaPara, sinSello, visibleTo } from '../src/core/state/events.js';
 import {
   applyAdventureAction,
@@ -17,6 +19,7 @@ import type { Point } from '../src/core/types.js';
 import { AgentLink } from '../src/server/agent-link.js';
 import { responderConsulta } from '../src/server/consultas.js';
 import { Director } from '../src/server/director.js';
+import { pedirMapaAlAgente } from '../src/server/mapa-del-agente.js';
 import { SIN_PARTIDA_TODAVIA } from '../src/server/notas.js';
 
 /** Agente de mentira: responde leyendo el payload, como haría uno de verdad. */
@@ -308,7 +311,10 @@ describe('enlace con el agente', () => {
     const aviso = agent.results.find((r) => r.requestId === agent.seen[0]!.requestId);
     expect(aviso?.ok).toBe(false);
     expect(aviso?.note).toContain('No llegó tu respuesta a "adventure_turn"');
-    expect(aviso?.note).toMatch(/no lo contestes/);
+    // «no la contestes»: la nota se generalizó al entrar `map_generate`, que no
+    // es un turno. Lo que se afirma sigue siendo lo mismo — que le dice qué NO
+    // hacer, porque contestar tarde es tirar otra decisión.
+    expect(aviso?.note).toMatch(/no la contestes/i);
   });
 
   it('al agente se le espera la primera vez, y SOLO la primera', async () => {
@@ -880,6 +886,111 @@ describe('el agente pregunta antes de que exista la partida', () => {
     const despues = await agent.pregunta('game_state', {});
     expect(despues.ok).toBe(true);
     expect((despues.data as any).you.player).toBe(1);
+  });
+});
+
+/**
+ * El mapa lo diseña el agente (#27), y la partida empieza igual si no lo diseña.
+ *
+ * `map_generate` es una de las tres promesas del proyecto y llevaba desde el
+ * primer día con el esquema escrito, `validateMapPlan` y `buildMap` probados… y
+ * ningún llamante. Lo que se mira aquí son los **cuatro** caminos, porque los
+ * tres malos son los que tienen que caer de pie: sin agente, sin respuesta, con
+ * un plan injugable y con un plan de otros jugadores. En los tres se sigue con
+ * el generador procedimental y **al agente se le dice por qué**.
+ */
+describe('el agente diseña el mapa', () => {
+  const PETICION = { width: 24, height: 24, players: [0, 1] as const };
+
+  /** El acuse de la petición de mapa, ya entregado por el cable. */
+  async function acuseDelMapa(agent: FakeAgent) {
+    await respira();
+    const peticion = agent.seen.find((s) => s.kind === 'map_generate');
+    expect(peticion, 'no se le pidió ningún mapa').toBeDefined();
+    return agent.results.find((r) => r.requestId === peticion?.requestId);
+  }
+
+  it('un plan bueno se acepta, se le acusa, y la partida se juega en él', async () => {
+    const suyo = generateMapPlan(createRng(21));
+    const { link, agent } = await montar(() => ({ plan: suyo }));
+
+    const { plan, motivo } = await pedirMapaAlAgente(link, PETICION);
+    expect(plan).not.toBeNull();
+    expect(motivo).toContain('24×24');
+
+    // Devolverlo no basta: lo que prueba #27 es que la partida se juega en él.
+    const director = new Director(link, { seed: 411, agentPlayers: [1], plan: plan as MapPlan });
+    expect(director.state.towns.map((t) => t.id)).toEqual(suyo.towns.map((t) => t.id));
+
+    const acuse = await acuseDelMapa(agent);
+    expect(acuse?.ok).toBe(true);
+    expect(acuse?.note).toMatch(/plan de mapa entró/);
+  });
+
+  it('sin agente conectado no se pide nada y no revienta', async () => {
+    const link = new AgentLink(400);
+    const { plan, motivo } = await pedirMapaAlAgente(link, PETICION);
+    expect(plan).toBeNull();
+    expect(motivo).toMatch(/ningún agente conectado/);
+  });
+
+  it('si no contesta, se sigue — y se le dice, sin prometerle un turno', async () => {
+    // El plazo corto es del test; el de verdad son los 300 s de `ask`.
+    const { link, agent } = await montar(() => undefined, 400);
+    const { plan, motivo } = await pedirMapaAlAgente(link, PETICION);
+    expect(plan).toBeNull();
+    expect(motivo).toMatch(/no respondió/);
+
+    const acuse = await acuseDelMapa(agent);
+    expect(acuse?.ok).toBe(false);
+    // La cola que decía «ese turno lo juega la IA de reglas» es FALSA aquí: un
+    // mapa no es un turno y no hay heurística que lo sustituya.
+    expect(acuse?.note).not.toContain('juega la IA de reglas en tu lugar');
+    expect(acuse?.note).toMatch(/generador procedimental/);
+  });
+
+  it('un plan injugable se rechaza con sus problemas, uno a uno', async () => {
+    // Pasa el esquema y no pasa `validateMapPlan`: un cofre encima del pueblo.
+    const base = generateMapPlan(createRng(22));
+    const { link, agent } = await montar(() => ({
+      plan: { ...base, chests: [...base.chests, { at: base.towns[0]!.at, gold: 500 }] },
+    }));
+
+    const { plan, motivo } = await pedirMapaAlAgente(link, PETICION);
+    expect(plan).toBeNull();
+    expect(motivo).toMatch(/la ocupan dos cosas/);
+
+    const acuse = await acuseDelMapa(agent);
+    expect(acuse?.ok).toBe(false);
+    expect(acuse?.problems?.join(' ')).toMatch(/la ocupan dos cosas/);
+    // Y se le dice que no habrá segunda oportunidad, en vez de dejarle esperando.
+    expect(acuse?.note).toMatch(/no se te va a volver a pedir/i);
+  });
+
+  it('un plan con OTROS jugadores se rechaza, que si no deja al agente sin turnos', async () => {
+    // Es jugable —`validateMapPlan` lo acepta entero— y deja al agente sin una
+    // sola petición: `agentPlayers.has(current)` nunca se cumple, todos los
+    // informes dicen «reglas» y no se rompe nada. El silencio es el bug.
+    const base = generateMapPlan(createRng(23));
+    const ajeno = {
+      ...base,
+      towns: base.towns.map((t) => ({ ...t, owner: t.owner === null ? null : t.owner + 3 })),
+      heroStarts: base.heroStarts.map((h) => ({ ...h, player: h.player + 3 })),
+    };
+    expect(validateMapPlan(ajeno), 'el plan tiene que ser JUGABLE para probar esto').toEqual([]);
+
+    const { link, agent } = await montar(() => ({ plan: ajeno }));
+    const { plan, motivo } = await pedirMapaAlAgente(link, PETICION);
+    expect(plan).toBeNull();
+    expect(motivo).toMatch(/falta la posición de inicio del jugador 0/);
+
+    const acuse = await acuseDelMapa(agent);
+    expect(acuse?.ok).toBe(false);
+    const problemas = acuse?.problems?.join(' ') ?? '';
+    expect(problemas).toMatch(/falta la posición de inicio del jugador 0/);
+    expect(problemas).toMatch(/falta la posición de inicio del jugador 1/);
+    expect(problemas).toMatch(/el jugador 3 no juega esta partida/);
+    expect(problemas).toMatch(/el jugador 4 no juega esta partida/);
   });
 });
 

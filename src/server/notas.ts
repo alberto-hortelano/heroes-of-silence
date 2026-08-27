@@ -327,11 +327,40 @@ export function notaAccionAceptada(unidad: string, accion: BattleAction): string
   return `${unidad}: ${describeAccion(accion)}, aplicada.`;
 }
 
+/** Lo que pasa con el mapa cuando el del agente no llega o no sirve. */
+const EL_MAPA_LO_PONE_EL_GENERADOR =
+  'el mapa lo pone el generador procedimental y la partida empieza igual';
+
+/**
+ * Qué se juega en lugar de lo que el agente no entregó.
+ *
+ * `LA_JUEGA_LA_IA` —«juega la IA de reglas en tu lugar»— es cierto para un turno
+ * y **falso para un mapa**: un `map_generate` que no llega no lo juega nadie,
+ * porque no es un turno y no hay heurística que lo sustituya. Lo que pasa es que
+ * el mapa lo pone el generador procedimental y la partida empieza igual, y eso
+ * es lo que el agente necesita saber para no quedarse esperando una segunda
+ * oportunidad que no va a existir.
+ *
+ * Es el mismo fallo que cerró la crítica del ciclo de los veredictos —una nota
+ * que afirma lo que no ha pasado— una petición más allá: la cola estaba escrita
+ * cuando el único `kind` que se pedía era un turno, y se quedó igual el día en
+ * que dejó de serlo.
+ */
+function enSuLugar(kind: string): string {
+  if (kind === 'map_generate') {
+    return `${mayuscula(EL_MAPA_LO_PONE_EL_GENERADOR)}.`;
+  }
+  return `Ese turno lo ${LA_JUEGA_LA_IA}.`;
+}
+
+function mayuscula(texto: string): string {
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+
 /** Su respuesta no encajaba con el esquema y no se aplicó nada de ella. */
 export function notaRespuestaInvalida(kind: string): string {
   return (
-    `Tu respuesta a "${kind}" no encaja con el esquema y no se ha aplicado nada. ` +
-    `Este turno lo ${LA_JUEGA_LA_IA}.`
+    `Tu respuesta a "${kind}" no encaja con el esquema y no se ha aplicado nada. ` + enSuLugar(kind)
   );
 }
 
@@ -346,9 +375,43 @@ export function notaRespuestaInvalida(kind: string): string {
  */
 export function notaSinRespuesta(kind: string, motivo: string): string {
   return (
-    `No llegó tu respuesta a "${kind}": ${motivo}. Ese turno lo ${LA_JUEGA_LA_IA}, ` +
-    'así que no lo contestes: si contestas ahora se descarta por llegar tarde. ' +
+    `No llegó tu respuesta a "${kind}": ${motivo}. ${enSuLugar(kind)} ` +
+    'No la contestes ahora: si la contestas se descarta por llegar tarde. ' +
     'Vuelve a heroes_listen y sigue desde la petición siguiente.'
+  );
+}
+
+// -------------------------------------------------------------- el mapa
+
+/**
+ * El plan de mapa llegó, con su forma buena, y no se puede jugar.
+ *
+ * Es el tercer camino de `map_generate` y el único en el que el agente hizo su
+ * parte: contestó a tiempo y el esquema lo aceptó, pero el mapa deja un castillo
+ * aislado, dos cosas en la misma casilla o los jugadores cambiados. Se le
+ * devuelven los problemas uno a uno —como una acción de aventura ilegal— y **no
+ * hay reintento**: la partida no se queda esperando un segundo plan, igual que
+ * un turno descartado no se vuelve a pedir.
+ */
+export function notaMapaRechazado(problemas: readonly string[]): string {
+  const cuantos = problemas.length === 1 ? '1 problema' : `${problemas.length} problemas`;
+  return (
+    `Tu plan de mapa no se puede jugar (${cuantos}, debajo). No se te va a volver a pedir: ` +
+    `${EL_MAPA_LO_PONE_EL_GENERADOR}.`
+  );
+}
+
+/**
+ * El plan entró: se juega en el mapa que diseñó él.
+ *
+ * Corta, como el acuse de una acción de batalla que cuela, y por el mismo
+ * motivo: se informa siempre, también cuando salió bien, y el precio de no
+ * callar nunca es que lo bueno ocupe poco.
+ */
+export function notaMapaAceptado(width: number, height: number, pueblos: number): string {
+  return (
+    `Tu plan de mapa entró: la partida se juega en ${width}×${height} con ${pueblos} pueblos. ` +
+    'A partir de aquí las peticiones son de turno.'
   );
 }
 

@@ -14,6 +14,7 @@ import { type WebSocket, WebSocketServer } from 'ws';
 import { AgentLink } from './agent-link.js';
 import { responderConsulta } from './consultas.js';
 import { Director } from './director.js';
+import { pedirMapaAlAgente } from './mapa-del-agente.js';
 import { notaFinDePartida, SIN_PARTIDA_TODAVIA } from './notas.js';
 import type { ServerToSpectatorMsg } from './protocol.js';
 import { puertoAgente, puertoEspectadores } from './puertos.js';
@@ -29,6 +30,18 @@ const SEED = parseSeed(process.env.HEROES_SEED) ?? SEED_POR_DEFECTO;
 const MAX_DAYS = Number(process.env.HEROES_MAX_DAYS ?? 200);
 /** Cuánto se espera a que el agente se conecte antes de tirar de heurística. */
 const WAIT_FOR_AGENT_MS = Number(process.env.HEROES_WAIT_AGENT_MS ?? 120_000);
+/**
+ * El mapa que se le pide al agente, y el que sale del procedimental si no lo da.
+ *
+ * Son los valores por defecto de `generateMapPlan`, escritos aquí porque ahora
+ * hay que decírselos a alguien: el agente no puede adivinar de qué tamaño lo
+ * quieres. Si dejan de coincidir, la partida sin agente y la partida con agente
+ * dejan de jugarse en mapas comparables.
+ */
+const ANCHO_DEL_MAPA = 24;
+const ALTO_DEL_MAPA = 24;
+/** Los jugadores de la partida, en el orden en que los numera `newGame`. */
+const JUGADORES = [0, 1] as const;
 
 const link = new AgentLink();
 
@@ -136,18 +149,33 @@ function broadcast(): void {
 // ---------------------------------------------------------------- partida
 
 /**
- * Espera al agente antes de su turno, y **solo la primera vez**.
+ * Que ya se gastó el plazo de espera, aunque no viniera nadie.
+ *
+ * `link.haVenidoAlgunAgente` cubre «vino y se fue» y **no** cubre «no vino
+ * nunca», que es exactamente el caso que se estrena al mover la espera delante
+ * del arranque: sin este banderín, un `pnpm partida` sin agente esperaba los dos
+ * minutos para pedir el mapa y **otros dos** antes del primer turno del jugador
+ * 1. Se espera una vez, venga o no venga.
+ */
+let yaSeEspero = false;
+
+/**
+ * Espera al agente, y **solo la primera vez**.
  *
  * La espera la lleva `AgentLink`, que es quien se entera de las conexiones: aquí
  * era un sondeo cada 500 ms que además volvía a esperar los dos minutos enteros
  * antes de CADA turno en cuanto el puente se caía, y eso convierte una partida
  * de 200 días en horas de nada.
+ *
+ * Desde #27 la primera llamada es la del arranque —hay que dejarle conectarse
+ * para poder pedirle el mapa—, y las de cada turno suyo caen ya en las guardas.
  */
 async function esperarAgente(): Promise<void> {
   if (link.connected) return;
   // Si el puente estuvo y se cayó, no se espera: se juega con la heurística y
   // se sigue. La primera vez sí, porque es la que da tiempo a conectarlo.
-  if (link.haVenidoAlgunAgente) return;
+  if (link.haVenidoAlgunAgente || yaSeEspero) return;
+  yaSeEspero = true;
   console.log(
     `[servidor] esperando al agente hasta ${Math.round(WAIT_FOR_AGENT_MS / 1000)} s…\n` +
       '           conéctalo abriendo Claude Code en otra terminal de este proyecto\n' +
@@ -235,7 +263,36 @@ async function main(): Promise<void> {
     );
   });
 
-  director = new Director(link, { seed: SEED, agentPlayers: [1] });
+  // Se le espera ANTES de pedirle nada: es la misma espera de siempre, con el
+  // mismo `HEROES_WAIT_AGENT_MS` y la misma traza, solo que ahora la primera
+  // ocasión de gastarla es el mapa y no el primer turno.
+  await esperarAgente();
+
+  const { plan, motivo } = await pedirMapaAlAgente(link, {
+    width: ANCHO_DEL_MAPA,
+    height: ALTO_DEL_MAPA,
+    players: JUGADORES,
+  });
+
+  if (plan === null) {
+    console.log(`[servidor] mapa procedimental de la semilla ${SEED} (${motivo})`);
+  } else {
+    // Se dice, en vez de romperlo en silencio: `CLAUDE.md` promete que una
+    // partida se reproduce copiando su semilla, y con el mapa del agente eso
+    // deja de ser cierto —ni el mapa ni el ejército de salida salen de ella,
+    // porque `newGame` ya no llama a `generateMapPlan` y la corriente del `rng`
+    // se desplaza—. La semilla sigue fijando las tiradas de dentro.
+    console.log(
+      `[servidor] mapa diseñado por el agente (${motivo}). La semilla ${SEED} ya NO ` +
+        'reproduce esta partida: el mapa lo puso él.',
+    );
+  }
+
+  director = new Director(link, {
+    seed: SEED,
+    agentPlayers: [1],
+    ...(plan === null ? {} : { plan }),
+  });
   await jugar(director);
 }
 

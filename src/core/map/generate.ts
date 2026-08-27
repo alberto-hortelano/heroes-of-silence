@@ -43,10 +43,17 @@ export interface MapPlan {
   readonly regions: readonly TerrainRegion[];
   readonly towns: readonly PlannedTown[];
   readonly heroStarts: readonly { readonly player: PlayerId; readonly at: Point }[];
+  // Los dos opcionales llevan el `| undefined` escrito, y no es ruido: con
+  // `exactOptionalPropertyTypes` un `owner?: PlayerId` acepta que la propiedad
+  // FALTE y rechaza que valga `undefined`, mientras que un `.optional()` de zod
+  // produce justo lo segundo. Nadie lo había notado porque `mapPlanSchema` no
+  // tenía llamante: el plan del agente y este tipo no se habían encontrado nunca
+  // hasta que `map_generate` tuvo quien lo pidiera (#27). Es la misma cosa
+  // declarada dos veces, así que las dos declaraciones tienen que decir lo mismo.
   readonly mines: readonly {
     readonly at: Point;
     readonly resource: ResourceKind;
-    readonly owner?: PlayerId;
+    readonly owner?: PlayerId | undefined;
   }[];
   readonly resources: readonly {
     readonly at: Point;
@@ -59,7 +66,7 @@ export interface MapPlan {
     readonly count: number;
   }[];
   readonly chests: readonly { readonly at: Point; readonly gold: number }[];
-  readonly roads?: readonly Point[];
+  readonly roads?: readonly Point[] | undefined;
 }
 
 export interface BuiltMap {

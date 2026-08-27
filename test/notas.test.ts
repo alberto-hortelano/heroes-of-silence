@@ -17,6 +17,8 @@ import {
   notaAccionAceptada,
   notaAccionSustituida,
   notaFinDePartida,
+  notaMapaAceptado,
+  notaMapaRechazado,
   notaRespuestaInvalida,
   notaSinRespuesta,
   notaTurnoAventura,
@@ -197,14 +199,50 @@ describe('notas para el agente', () => {
     expect(nota).toContain('battle_turn');
     expect(nota).toContain('no respondiste a tiempo');
     // Y le dice qué NO hacer: contestar tarde es tirar otra decisión.
-    expect(nota).toMatch(/no lo contestes/);
+    expect(nota).toMatch(/no la contestes/i);
     expect(nota).toContain('juega la IA de reglas en tu lugar');
   });
 
-  it('una respuesta que no valida se explica con la misma frase de siempre', () => {
-    const nota = notaRespuestaInvalida('map_generate');
-    expect(nota).toContain('map_generate');
-    expect(nota).toContain('juega la IA de reglas en tu lugar');
+  it('una respuesta de TURNO que no valida se explica con la frase de siempre', () => {
+    for (const kind of ['adventure_turn', 'battle_turn']) {
+      const nota = notaRespuestaInvalida(kind);
+      expect(nota).toContain(kind);
+      expect(nota).toContain('juega la IA de reglas en tu lugar');
+    }
+  });
+
+  it('y a un MAPA no se le dice que lo juega la IA de reglas, porque es falso', () => {
+    // Este test anclaba justo lo contrario: pedía que `notaRespuestaInvalida`
+    // dijera «juega la IA de reglas en tu lugar» para un `map_generate`. Estaba
+    // escrito cuando nadie pedía mapas, así que la frase no la leía nadie; con
+    // #27 la lee el agente, y para un mapa es mentira — no es un turno y no hay
+    // heurística que lo sustituya. Lo que pasa es que el mapa lo pone el
+    // generador procedimental y la partida empieza igual.
+    for (const nota of [
+      notaRespuestaInvalida('map_generate'),
+      notaSinRespuesta('map_generate', 'no respondiste a tiempo (300 s)'),
+    ]) {
+      expect(nota).toContain('map_generate');
+      expect(nota).not.toContain('juega la IA de reglas en tu lugar');
+      expect(nota).not.toMatch(/turno/i);
+      expect(nota).toMatch(/generador procedimental/);
+      expect(nota).toMatch(/la partida empieza igual/);
+    }
+  });
+
+  it('el plan que llega y no se puede jugar se rechaza sin prometer un reintento', () => {
+    const nota = notaMapaRechazado(['el jugador 0 no tiene ningún pueblo', 'cofre fuera del mapa']);
+    expect(nota).toContain('2 problemas');
+    // La promesa que NO se hace: no se le va a volver a pedir. Igual que una
+    // acción de aventura descartada no se reintenta sola.
+    expect(nota).toMatch(/no se te va a volver a pedir/i);
+    expect(nota).toMatch(/generador procedimental/);
+  });
+
+  it('y el plan que entra se acusa, corto, como cualquier acierto', () => {
+    const nota = notaMapaAceptado(24, 24, 2);
+    expect(nota).toContain('24×24');
+    expect(nota).toContain('2 pueblos');
   });
 });
 
