@@ -474,12 +474,12 @@ describe('invariantes del proyecto', () => {
     expect(infractores(fuera, puertas)).toEqual([]);
   });
 
-  it('el marcado sale por una sola puerta: `pintar` es el único innerHTML', () => {
+  it('el marcado sale por una sola puerta: solo `html.ts` convierte texto en DOM', () => {
     // El cerrojo de verdad de #63 es de TIPOS: `pintar` solo acepta `Html` y las
-    // quince funciones de `views/panels.ts` lo devuelven, así que una nueva que
+    // funciones de `views/panels.ts` lo devuelven, así que una nueva que
     // devuelva `string` no compila. Este guardia cierra las dos puertas que el
-    // compilador no puede: escribir en el DOM sin pasar por `pintar`, y
-    // fabricar un `Html` desde fuera con un cast.
+    // compilador no puede: escribir en el DOM sin pasar por `pintar`, y fabricar
+    // un `Html` desde fuera con un cast.
     //
     // Fabricarlo exige `as unknown as` porque `Html` lleva una propiedad de
     // símbolo privado del módulo — comprobado a mano con tres sondas: una cadena
@@ -488,22 +488,60 @@ describe('invariantes del proyecto', () => {
     // missing». O sea que el único camino queda a la vista, y es este el que lo
     // acota a un fichero.
     //
-    // Mira el CÓDIGO y no el fichero, como el de la coma flotante: el docstring
-    // de `html.ts` y el de `main.ts` nombran `innerHTML` para explicarse, y un
-    // guardia que caza su propia explicación se ignora desde el primer día.
+    // **Es medio BLANCO y medio NEGRO, y las dos mitades están así a propósito.**
+    // Este repositorio tiene los dos precedentes y los tiene enfrentados: el de
+    // las rutas absolutas es negro porque lo cerrado y enumerable es lo que se
+    // EXCLUYE —la prosa—, y el de la coma flotante es blanco porque lo cerrado y
+    // publicado es lo PERMITIDO —las siete de `Math`—. Aquí no vale ninguno de
+    // los dos enteros:
+    //
+    //  1. **Blanca**, y es la mitad que de verdad guarda: el token `HTML` solo
+    //     puede aparecer seguido de uno de los tipos del DOM que el cliente
+    //     declara. Con eso caen `innerHTML`, `outerHTML`, `insertAdjacentHTML`
+    //     **y las que todavía no existen** —`setHTMLUnsafe`, `parseHTMLUnsafe`,
+    //     `getHTML`— sin que nadie tenga que acordarse de añadirlas. Se puede
+    //     cerrar porque lo permitido sí es enumerable: el cliente usa TRES tipos
+    //     `HTML*` y ninguno más.
+    //  2. **Negra**, y no hay forma de evitarlo: los parseadores que NO llevan
+    //     `HTML` en el nombre. `createContextualFragment`, `DOMParser`,
+    //     `document.write`. Una lista blanca de «APIs del DOM permitidas» sería
+    //     el DOM entero —`createElement`, `appendChild`, `getBoundingClientRect`,
+    //     el canvas…—, o sea abierta, y una lista abierta como blanca es un
+    //     guardia que nace rojo. Así que esta mitad **caduca**: el día que la
+    //     plataforma añada otra forma de convertir una cadena en DOM sin la
+    //     palabra `HTML` dentro, hay que escribirla aquí. Queda dicho para que
+    //     nadie la herede creyendo que se cubre sola.
+    //
+    // Lo que este guardia NO mira, también dicho: `setAttribute('on…', …)`, que
+    // es inyección de atributo sin parsear marcado. Hoy el cliente no llama a
+    // `setAttribute` ni una vez; el día que lo haga, es otro guardia.
+    //
+    // Mira el CÓDIGO y no el fichero, como el de la coma flotante: los
+    // docstrings de `html.ts`, de `main.ts` y de `contract/agent.ts` nombran
+    // `innerHTML` para explicarse, y un guardia que caza su propia explicación
+    // se ignora desde el primer día.
     //
     // Y mira también `core` y el servidor, aunque hoy no tengan DOM: el guardia
     // de «`core` no toca el DOM» busca `document.`/`window.` y `HTMLElement`, y
     // un `nodo.innerHTML = x` no escribe ninguna de las tres.
     //
-    // Se rompió a mano copiando un `elSide.innerHTML = ...` a `main.ts`, se miró
-    // rojo con su fichero y su línea, y se retiró la sonda.
+    // Roto a mano por SIETE puertas, copiadas a `main.ts` una a una, vistas
+    // rojas con su fichero y su línea y retiradas: `innerHTML`, `outerHTML`,
+    // `insertAdjacentHTML`, `document.write`, `as unknown as Html`,
+    // `createContextualFragment` y `DOMParser`. Las dos últimas las encontró la
+    // compuerta **pasando** por encima de la primera redacción, que era una
+    // lista negra corta.
     const fuera = [...CORE, ...CLIENTE, ...SERVIDOR].filter((r) => r !== 'src/client/html.ts');
+    /** Los únicos tipos del DOM que el cliente nombra. Cerrado y comprobado. */
+    const TIPOS_DOM = ['Element', 'CanvasElement', 'ImageElement'];
     const puertas: readonly (readonly [string, RegExp])[] = [
-      ['un sumidero de marcado', /\b(innerHTML|outerHTML|insertAdjacentHTML)\b/],
       [
-        'un `document.write`, que es el mismo sumidero por la puerta de atrás',
-        /\bdocument\s*\.\s*write(?:ln)?\s*\(/,
+        'un nombre con `HTML` dentro que no es un tipo del DOM',
+        new RegExp(`HTML(?!(?:${TIPOS_DOM.join('|')})\\b)`),
+      ],
+      [
+        'un parseador de marcado sin `HTML` en el nombre',
+        /\b(?:createContextualFragment|DOMParser|parseFromString)\b|\bdocument\s*\.\s*write(?:ln)?\s*\(/,
       ],
       ['un `Html` fabricado a mano', /\bas\s+unknown\s+as\s+Html\b/],
     ];

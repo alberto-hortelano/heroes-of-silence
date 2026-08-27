@@ -126,6 +126,10 @@ describe('la puerta de escapar: lo que el analizador NO adivina', () => {
     expect(() => html`<button onclick="${'f()'}">x</button>`).toThrow(/onclick/);
   });
 
+  it('un hueco en `srcdoc` lanza: es un documento entero dentro de un atributo', () => {
+    expect(() => html`<iframe srcdoc="${'<b>x</b>'}"></iframe>`).toThrow(/srcdoc/);
+  });
+
   it('un atributo SIN comillas lanza, aunque el valor se escapara', () => {
     // Sin comillas el valor lo termina el primer espacio, así que `a b=c` mete
     // un atributo nuevo sin necesitar ni una comilla ni un `<`.
@@ -191,6 +195,36 @@ describe('la puerta de escapar: los dos atributos interpretados que sí hacen fa
     );
     expect(() => fondoDeColor('url(x)')).toThrow(/no es un color/);
     expect(() => fondoDeColor('#fff" onload="alert(1)')).toThrow(/no es un color/);
+  });
+});
+
+describe('la puerta de escapar: los comentarios', () => {
+  it('un hueco dentro de un comentario se escapa como texto y no miente al fallar', () => {
+    // Antes lanzaba diciendo «dentro de una etiqueta», y un comentario no es una
+    // etiqueta: mandaba a quien lo leyera a buscar algo que no existe.
+    expect(pintado(html`<!-- ${'x'} -->`)).toBe('<!-- x -->');
+  });
+
+  it('un valor no puede cerrar el comentario que lo contiene', () => {
+    // Todo terminador de comentario —`-->` y `--!>`— necesita un `>` literal, y
+    // escapar como texto no deja ninguno.
+    expect(pintado(html`<!-- ${'--> <img src=x>'} -->`)).toBe('<!-- --&gt; &lt;img src=x&gt; -->');
+    expect(pintado(html`<!-- ${'--!> hola'} -->`)).toBe('<!-- --!&gt; hola -->');
+  });
+
+  it('un fragmento de marcado dentro de un comentario se rechaza', () => {
+    // Al texto se le escapa el `>`; al marcado crudo no, así que un `-->` suyo
+    // SÍ cerraría el comentario y lo de dentro pasaría a pintarse.
+    expect(() => html`<!-- ${html`<i>x</i>`} -->`).toThrow(/comentario HTML/);
+  });
+
+  it('y lo que viene DESPUÉS de un comentario se clasifica bien', () => {
+    // Este es el motivo de verdad para entender `<!-- -->`: sin el estado, la
+    // comilla de dentro del comentario dejaba al analizador creyéndose en un
+    // valor entrecomillado y todo el marcado de detrás salía mal clasificado.
+    expect(pintado(html`<!-- <div class=" --><p>${'<b>a</b>'}</p>`)).toBe(
+      '<!-- <div class=" --><p>&lt;b&gt;a&lt;/b&gt;</p>',
+    );
   });
 });
 

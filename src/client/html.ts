@@ -102,7 +102,7 @@ function escaparAtributo(valor: string): string {
 }
 
 /** Dónde cae un hueco, que es lo que decide cómo se escapa. */
-type Clase = 'texto' | 'atributo' | 'marcado';
+type Clase = 'texto' | 'atributo' | 'marcado' | 'comentario';
 
 /** Lo que puede ir en un hueco. Un `undefined` o un objeto cualquiera no. */
 type Valor = Html | string | number;
@@ -126,6 +126,10 @@ const ATRIBUTOS_INTERPRETADOS = [
   'background',
   'style',
   'data',
+  // `srcdoc` es un DOCUMENTO entero dentro de un atributo: escaparlo como texto
+  // lo dejaría inerte, pero es exactamente el sitio donde alguien metería
+  // marcado creyendo que la puerta se lo escapa.
+  'srcdoc',
 ];
 
 function esInterpretado(nombre: string): boolean {
@@ -168,14 +172,21 @@ function clasesDe(estaticas: TemplateStringsArray): readonly Clase[] {
 /**
  * Recorre el marcado estático y dice, para cada hueco, dónde cae.
  *
- * El autómata tiene tres sitios —fuera de una etiqueta, dentro de una etiqueta y
- * dentro de un valor entrecomillado— y va recordando el nombre del atributo cuyo
- * valor está leyendo. Corre entero aunque la plantilla no tenga ni un hueco:
- * `<script>` se rechaza igual.
+ * El autómata tiene CUATRO sitios —fuera de una etiqueta, dentro de una
+ * etiqueta, dentro de un valor entrecomillado y dentro de un comentario— y va
+ * recordando el nombre del atributo cuyo valor está leyendo. Corre entero aunque
+ * la plantilla no tenga ni un hueco: `<script>` se rechaza igual.
+ *
+ * **El comentario no está por el hueco: está por lo que viene DESPUÉS.** Sin
+ * este estado, un `<!-- <div class=" -->` deja al autómata creyéndose dentro de
+ * un valor entrecomillado, y todo el marcado de detrás se clasifica mal — que es
+ * peor que equivocarse en el comentario. De paso, un hueco dentro de un
+ * comentario deja de decir «dentro de una etiqueta», que era mentira y mandaba a
+ * quien lo leyera a buscar una etiqueta que no existe.
  */
 function analizar(estaticas: TemplateStringsArray): readonly Clase[] {
   const clases: Clase[] = [];
-  let donde: 'texto' | 'etiqueta' | 'valor' = 'texto';
+  let donde: 'texto' | 'etiqueta' | 'valor' | 'comentario' = 'texto';
   let comilla = '';
   /** Nombre del atributo cuyo valor se está leyendo, en minúsculas. */
   let atributo = '';
@@ -187,7 +198,20 @@ function analizar(estaticas: TemplateStringsArray): readonly Clase[] {
   let esNombreDeEtiqueta = false;
 
   for (let i = 0; i < estaticas.length; i++) {
-    for (const c of estaticas[i] as string) {
+    // Se recorre por índice y no con `for…of` porque hacen falta cuatro
+    // caracteres de vista: `<!--` y `-->` no se reconocen de uno en uno.
+    const trozo = estaticas[i] as string;
+    for (let j = 0; j < trozo.length; j++) {
+      const c = trozo[j] as string;
+
+      if (donde === 'comentario') {
+        if (trozo.startsWith('-->', j)) {
+          donde = 'texto';
+          j += 2;
+        }
+        continue;
+      }
+
       if (donde === 'valor') {
         if (c === comilla) {
           donde = 'etiqueta';
@@ -198,7 +222,10 @@ function analizar(estaticas: TemplateStringsArray): readonly Clase[] {
       }
 
       if (donde === 'texto') {
-        if (c === '<') {
+        if (trozo.startsWith('<!--', j)) {
+          donde = 'comentario';
+          j += 3;
+        } else if (c === '<') {
           donde = 'etiqueta';
           pendiente = '';
           esNombreDeEtiqueta = true;
@@ -246,6 +273,8 @@ function analizar(estaticas: TemplateStringsArray): readonly Clase[] {
 
     if (donde === 'texto') {
       clases.push('texto');
+    } else if (donde === 'comentario') {
+      clases.push('comentario');
     } else if (donde === 'valor') {
       if (esInterpretado(atributo)) {
         throw new Error(
@@ -296,6 +325,15 @@ function pegar(clase: Clase, valor: Valor, estaticas: TemplateStringsArray): str
         `un fragmento de marcado no cabe dentro de un atributo: ${comoSeEscribio(estaticas)}`,
       );
     }
+    // Y dentro de un comentario, menos: un fragmento que lleve `-->` cerraría el
+    // comentario y todo lo suyo pasaría a pintarse. El texto llano no puede
+    // —se le escapa el `>`— pero el marcado crudo sí.
+    if (clase === 'comentario') {
+      throw new Error(
+        `un fragmento de marcado no cabe dentro de un comentario HTML, porque un ` +
+          `\`-->\` suyo lo cerraría: ${comoSeEscribio(estaticas)}`,
+      );
+    }
     // Y aquí está la trampa del doble escape: lo que ya salió de esta puerta
     // entra CRUDO, o los paneles anidados se llenarían de `&lt;div&gt;`.
     return valor[MARCA];
@@ -308,7 +346,12 @@ function pegar(clase: Clase, valor: Valor, estaticas: TemplateStringsArray): str
     );
   }
   const texto = String(valor);
-  return clase === 'texto' ? escaparTexto(texto) : escaparAtributo(texto);
+  // El comentario se escapa como texto, y con eso queda cerrado: todo
+  // terminador de comentario —`-->` y `--!>`— necesita un `>` LITERAL, y ahí ya
+  // no queda ninguno. Las entidades no se decodifican dentro de un comentario,
+  // así que el `&lt;` que salga se queda ahí escrito sin significar nada, que es
+  // lo que se quiere de algo que no lee nadie.
+  return clase === 'atributo' ? escaparAtributo(texto) : escaparTexto(texto);
 }
 
 /**
