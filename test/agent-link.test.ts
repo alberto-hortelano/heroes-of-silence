@@ -2,10 +2,11 @@ import { once } from 'node:events';
 import type { AddressInfo } from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
+import { activeStack, applyAction } from '../src/core/battle/battle.js';
 import { creature } from '../src/core/data.js';
 import type { Hero } from '../src/core/hero/hero.js';
 import { generateMapPlan, type MapPlan, validateMapPlan } from '../src/core/map/generate.js';
-import { pointKey, reachableFrom } from '../src/core/map/map.js';
+import { pointFromKey, pointKey, reachableFrom } from '../src/core/map/map.js';
 import { createRng } from '../src/core/rng.js';
 import { cronicaPara, sinSello, visibleTo } from '../src/core/state/events.js';
 import {
@@ -701,6 +702,57 @@ describe('una consulta solo habla de los jugadores que lleva el agente', () => {
     expect(mia.hero.name).toBe(mio.name);
   });
 
+  it('en TU batalla, cuando manda el otro bando, la ausencia se explica (#84)', async () => {
+    // El guardia de #73 (arriba) cubre la batalla AJENA. Esta es la otra rama y
+    // no tenía ninguno: tu propia batalla, con el turno en una unidad del rival.
+    // `legalActions` es la del stack activo sea de quien sea, así que ahí
+    // desaparece — y hasta ahora desaparecía en silencio.
+    const { link } = await montar(() => ({ actions: [] }));
+    const director = new Director(link, { seed: 403, agentPlayers: [1] });
+    const mio = rivalAlAtaque(director.state);
+    const rival = director.state.heroes.find((h) => h.owner === 0) as Hero;
+    applyAdventureAction(
+      director.state,
+      { type: 'move_hero', hero: rival.id, to: mio.at },
+      director.ctx,
+      rival.owner,
+    );
+    const pendiente = director.state.pendingBattle;
+    if (pendiente === null) throw new Error('hacía falta una batalla del agente');
+    const batalla = pendiente.battle;
+
+    // Los DOS casos salen de la misma batalla y sin fabricar estado: se juega
+    // `defend`, que consume el turno y pasa al siguiente, hasta haber visto una
+    // unidad de cada bando con el turno. Una nota que se emitiera SIEMPRE
+    // pasaría la mitad de este test; por eso se afirman las dos direcciones.
+    const rng = createRng(84);
+    let conElMio = 0;
+    let conElSuyo = 0;
+    for (let i = 0; i < 40 && (conElMio === 0 || conElSuyo === 0); i++) {
+      const activo = activeStack(batalla);
+      if (activo === null || batalla.finished !== null) break;
+      const vista = responderConsulta(director, 'battle_state', { player: 1 }) as any;
+      expect(vista.yourSide).toBe('defender');
+      if (activo.side === 'defender') {
+        conElMio++;
+        expect(vista.legalActions, 'te toca a ti: la lista tiene que venir').toBeDefined();
+        expect(vista.legalActions.length).toBeGreaterThan(0);
+        expect(vista.note, 'no hay nada que explicar cuando el campo está').toBeUndefined();
+      } else {
+        conElSuyo++;
+        expect(vista.legalActions).toBeUndefined();
+        // La nota dice de quién es el turno, cuál es tu bando y qué hacer.
+        expect(vista.note).toMatch(/no viene con "legalActions"/);
+        expect(vista.note).toMatch(/bando attacker/);
+        expect(vista.note).toMatch(/llevas el defender/);
+        expect(vista.note).toMatch(/battle_turn/);
+      }
+      applyAction(batalla, { type: 'defend' }, rng);
+    }
+    expect(conElMio, 'la batalla tiene que enseñar un turno tuyo').toBeGreaterThan(0);
+    expect(conElSuyo, 'y uno del rival, o esto no prueba nada').toBeGreaterThan(0);
+  });
+
   it('battle_state SIN batalla también comprueba de quién se pregunta (#83)', async () => {
     // La guarda de «no hay batalla» iba ANTES del candado, así que
     // `battle_state{player:0}` contestaba `ok=true` con `battle: null` mientras
@@ -796,7 +848,13 @@ describe('la consulta `map` pasa por la niebla', () => {
     // El generador no dibuja caminos todavía, así que se ponen a mano: uno
     // dentro de la niebla y otro fuera. Con los del mapa generado —cero— este
     // trozo del test sería una comprobación vacía que pasaría siempre.
-    const explorada = [...mio.fog][0]!;
+    // Fuera de la diagonal: en (15,15) leer la clave del revés es la identidad.
+    const explorada = [...mio.fog].find((k) => {
+      const p = pointFromKey(k);
+      return p.x !== p.y;
+    });
+    if (explorada === undefined)
+      throw new Error('la semilla 407 ya no deja una casilla fuera de la diagonal');
     const ignorada = [...Array(state.map.width * state.map.height).keys()]
       .map((i) => pointKey({ x: i % state.map.width, y: Math.floor(i / state.map.width) }))
       .find((clave) => !mio.fog.has(clave));
@@ -808,7 +866,7 @@ describe('la consulta `map` pasa por la niebla', () => {
       width: number;
       height: number;
       terrain: (string | null)[];
-      roads: string[];
+      roads: { x: number; y: number }[];
     };
 
     expect(mapa.width).toBe(state.map.width);
@@ -833,8 +891,59 @@ describe('la consulta `map` pasa por la niebla', () => {
     expect(conocidas).toBeGreaterThan(0);
     expect(huecos).toBeGreaterThan(0);
 
-    expect(mapa.roads).toContain(explorada);
-    expect(mapa.roads).not.toContain(ignorada);
+    // Puntos, no claves: se comparan por `pointKey` para no depender del orden.
+    expect(mapa.roads.map(pointKey)).toContain(explorada);
+    expect(mapa.roads.map(pointKey)).not.toContain(ignorada);
+  });
+
+  it('la tool `map` y el `knownMap` del turno traen lo MISMO, campo a campo (#85)', async () => {
+    // `MAPA_DESCRIPCION` le promete al agente que la tool «es lo mismo que
+    // viaja en "knownMap" dentro de adventure_turn». Era falso: el turno
+    // llevaba `{width, height, objects}` escrito a mano. Lo que lo hace verdad
+    // es que las dos salgan de `serializeKnownMap`, y lo que lo comprueba es
+    // esto — que la frase publicada no vuelva a ser una promesa sin guardia.
+    const { link } = await montar(() => ({ actions: [] }));
+    const director = new Director(link, { seed: 410, agentPlayers: [1] });
+    const state = director.state;
+    const mio = jugador(state, 1);
+
+    // Con un camino dentro de la niebla: si `roads` fuera `[]` en las dos, la
+    // igualdad de ese campo se cumpliría por vacío.
+    const explorada = [...mio.fog].find((k) => {
+      const p = pointFromKey(k);
+      return p.x !== p.y;
+    });
+    if (explorada === undefined)
+      throw new Error('la semilla 410 ya no deja una casilla fuera de la diagonal');
+    state.map.roads.add(explorada);
+
+    const porLaTool = responderConsulta(director, 'map', { player: 1 }) as Record<string, unknown>;
+    const porElTurno = (
+      responderConsulta(director, 'game_state', { player: 1 }) as {
+        knownMap: Record<string, unknown>;
+      }
+    ).knownMap;
+
+    expect(porElTurno).toEqual(porLaTool);
+
+    // Y los conjuntos de claves aparte: `toEqual` pasa por alto un campo cuyo
+    // valor sea `undefined`, así que añadir uno a UNA sola de las dos puertas
+    // podría colarse. Con esto sale rojo.
+    expect(Object.keys(porElTurno).sort()).toEqual(Object.keys(porLaTool).sort());
+    expect(Object.keys(porLaTool).sort()).toEqual([
+      'height',
+      'objects',
+      'roads',
+      'terrain',
+      'width',
+    ]);
+
+    // Y que lo comparado no esté vacío, o esto pasaría con dos mapas a oscuras.
+    const terreno = porLaTool.terrain as (string | null)[];
+    expect(terreno.some((t) => t !== null)).toBe(true);
+    expect(terreno.some((t) => t === null)).toBe(true);
+    expect((porLaTool.roads as { x: number; y: number }[]).map(pointKey)).toContain(explorada);
+    expect((porLaTool.objects as unknown[]).length).toBeGreaterThan(0);
   });
 
   it('y el mapa del rival se rechaza igual que su estado, sin entregar un byte', async () => {

@@ -16,6 +16,8 @@
  * `attacker` o `defender`, no un jugador.
  */
 import { z } from 'zod';
+import { TERRAIN_KINDS } from '../map/terrain.js';
+import { COMO_SE_LEE_EL_MAPA } from './serialize.js';
 
 // ---------------------------------------------------------------- respuestas
 
@@ -56,16 +58,18 @@ export const battleTurnResponseSchema = z.object({
   reasoning: z.string().max(2000).optional(),
 });
 
-export const terrainSchema = z.enum([
-  'grass',
-  'dirt',
-  'sand',
-  'snow',
-  'swamp',
-  'lava',
-  'rough',
-  'water',
-]);
+/**
+ * Los terrenos, **derivados de `TERRAIN_KINDS`** y no copiados.
+ *
+ * Eran tres declaraciones de la misma lista de ocho —la constante, este esquema
+ * y `palette.terrains`— y la barrera que lo justificaba desapareció en este
+ * mismo ciclo, cuando el contrato empezó a importar `terrain.js` para derivar
+ * los costes. Con las tres a mano, el día que entre un terreno la prosa le dice
+ * al agente lo que cuesta pisarlo, el esquema le rechaza el plan si lo dibuja y
+ * la paleta no se lo ofrece: tres comportamientos incoherentes con un cambio y
+ * ningún test rojo.
+ */
+export const terrainSchema = z.enum(TERRAIN_KINDS);
 
 export const resourceSchema = z.enum([
   'wood',
@@ -145,8 +149,21 @@ export const responseSchemas = {
   map_generate: mapGenerateResponseSchema,
 } as const;
 
-export type AdventureTurnResponse = z.infer<typeof adventureTurnResponseSchema>;
-export type BattleTurnResponse = z.infer<typeof battleTurnResponseSchema>;
+/**
+ * Aquí había tres alias y dos no los importaba nadie. El criterio con el que se
+ * decide el siguiente, escrito para quien lo lea y no enterrado en un commit:
+ *
+ * **Se exportan los esquemas**, que es lo que valida y de lo que todo se
+ * deriva. **Un alias de `z.infer` se escribe donde se usa** —`agent-link.ts` ya
+ * tipa `ask()` con `z.infer<(typeof responseSchemas)[K]>` en el sitio, que es el
+ * único consumidor real del contrato—. Y **un tipo que ningún `import` nombra se
+ * borra**: este paquete es `"private": true`, así que el cliente de fuera del
+ * repo que justificaría «es API pública» no existe, y esta casa lleva varios
+ * ciclos destruyendo capas que solo sostenía un consumidor hipotético.
+ *
+ * `MapGenerateResponse` se queda porque tiene uno (`mapa-del-agente.ts:53`), no
+ * porque sea más importante.
+ */
 export type MapGenerateResponse = z.infer<typeof mapGenerateResponseSchema>;
 
 /**
@@ -178,11 +195,10 @@ Notas:
 - "towns[].teaches" son los hechizos que enseña el gremio de ese pueblo: un
   héroe tuyo parado allí los aprende solo, hasta donde le deje su Sabiduría, y
   aparecen en "heroes[].spells". NO hay acción para aprender: basta con llevarlo.
-- "knownMap.objects" es lo que has OBSERVADO, no lo que es verdad ahora: cada
-  objeto trae "lastSeen" con el día en que lo viste. Si "lastSeen" es anterior
-  a hoy, el dato puede haber caducado —una mina cambia de dueño y tú sigues
-  viendo la bandera vieja hasta que alguien vuelva a mirar—. Una mina tuya que
-  dejó de dar recursos es la señal de que allí ha pasado algo.
+- "knownMap" es el mapa tal y como lo conoces TÚ, y es exactamente lo mismo
+  que devuelve la tool "map": para elegir el "to" de un "move_hero" no hace
+  falta pedirla, ya lo tienes delante.
+${COMO_SE_LEE_EL_MAPA}
 - "enemyHeroes" son los que ves AHORA: si no aparece ninguno, no significa que
   no haya, solo que nadie tuyo los tiene a la vista.
 - "recentEvents" es lo que OBSERVABAS cuando ocurrió, no todo lo que pasó. Lo
@@ -267,9 +283,9 @@ Reglas que se validan antes de aceptarlo:
   con el mismo id son dos castillos indistinguibles para todo lo demás.
 - El "name" es lo que lee una persona: una sola línea, sin saltos, hasta 40
   caracteres.
-- "heroStarts" tiene que traer EXACTAMENTE los jugadores que se te piden,
-  numerados desde 0 y uno por jugador: con "players": 2 son el 0 y el 1, sin
-  repetir ninguno y sin inventarte un tercero. Un inicio de más deja dos héroes
-  con el mismo id; un jugador sin inicio se queda sin héroe y sin turnos.
+- "heroStarts" tiene que traer EXACTAMENTE los jugadores de "want.players", uno
+  por jugador: ahí van sus números, así que no hay nada que deducir. Sin repetir
+  ninguno y sin inventarte un tercero. Un inicio de más deja dos héroes con el
+  mismo id; un jugador sin inicio se queda sin héroe y sin turnos.
 Si algo falla se te devuelve la lista de problemas para que lo corrijas.`,
 };

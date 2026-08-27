@@ -11,7 +11,8 @@ import { effectiveLuck } from '../battle/effects.js';
 import type { BattleState, Side } from '../battle/types.js';
 import { creature, isShooter } from '../data.js';
 import { maxMana, maxMovePoints } from '../hero/hero.js';
-import { pointKey } from '../map/map.js';
+import { pointFromKey, pointKey } from '../map/map.js';
+import { costeDeEntrada, isWalkable, TERRAIN_KINDS } from '../map/terrain.js';
 import { cronicaPara } from '../state/events.js';
 import { type GameState, heroesOf, playerById, townsOf, visibleNow, week } from '../state/game.js';
 import { building } from '../town/buildings.js';
@@ -55,7 +56,7 @@ function armyView(army: Army): { slot: number; creature: string; count: number; 
  * próximo se lo pasara mal calculado. Son 81 claves por héroe una vez por
  * petición del agente, no algo que corra dentro de una partida.
  */
-export function knownObjects(state: GameState, playerId: PlayerId) {
+function knownObjects(state: GameState, playerId: PlayerId) {
   const player = playerById(state, playerId);
 
   // Dos capas, y la diferencia importa: `fog` es «esto lo conozco alguna vez» y
@@ -122,7 +123,15 @@ export function knownObjects(state: GameState, playerId: PlayerId) {
 
 /**
  * El mapa **filtrado por la niebla de un jugador**: lo que responde la consulta
- * `map` (#74), que antes devolvía `state.map` tal cual.
+ * `map` (#74), que antes devolvía `state.map` tal cual, **y el `knownMap` de
+ * cada `adventure_turn`** (#85). Los dos, desde aquí: si la tool le promete al
+ * agente que trae lo mismo que el turno, lo mínimo es que salga de la misma
+ * llamada. Igual que `knownObjects`, y por el mismo motivo — la copia se queda
+ * atrás, que es exactamente lo que había pasado.
+ *
+ * No lleva anotación de retorno a propósito: el tipo lo infiere el compilador y
+ * quien lo necesite lo escribe donde lo usa (`ReturnType<typeof …>`), que es el
+ * mismo criterio con el que se borraron los alias de `agent.ts`.
  *
  * La capa es `fog` —«lo exploré alguna vez»— y no `visibleNow`, y el motivo es
  * que el terreno y los caminos **no cambian**: el recuerdo de un hecho estático
@@ -134,11 +143,22 @@ export function knownObjects(state: GameState, playerId: PlayerId) {
  * agente puede distinguir llanura de ignorancia. Al día 6 el 45,3 % de las
  * casillas serían mentira si se rellenaran con un terreno por defecto.
  *
- * `roads` solo trae las claves exploradas. Su ausencia **no** significa que no
+ * `roads` solo trae las casillas exploradas. Su ausencia **no** significa que no
  * haya camino: lo desambigua el terreno de esa misma casilla, que si es `null`
  * quiere decir que ahí no se sabe nada de nada.
+ *
+ * **Y salen como `{x, y}`, no como la clave `"x,y"` con la que se guardan.** El
+ * `Set<string>` es cómo `GameMap` almacena los caminos, no cómo se cuentan: lo
+ * que se filtraba a la red era el detalle de almacenamiento. En este mismo
+ * contrato el agente **escribe** los caminos como puntos —`mapPlanSchema.roads`
+ * es `z.array(pointSchema)`— así que leerlos como cadenas era pedirle dos
+ * formatos para el mismo hecho, y era el único campo del payload que no venía
+ * como `{x, y}`. Cuesta unos 800 B por cada 100 casillas con camino, y **cero**
+ * en toda partida procedimental, porque `generateMapPlan` no dibuja ninguno; a
+ * cambio se cae la advertencia que había que escribirle al agente para que
+ * supiera leer el campo, que es un guardia que no existía.
  */
-export function serializeKnownMap(state: GameState, playerId: PlayerId): unknown {
+export function serializeKnownMap(state: GameState, playerId: PlayerId) {
   const player = playerById(state, playerId);
   const { width, terrain, roads } = state.map;
 
@@ -148,10 +168,87 @@ export function serializeKnownMap(state: GameState, playerId: PlayerId): unknown
     terrain: terrain.map((t, i) =>
       player.fog.has(pointKey({ x: i % width, y: Math.floor(i / width) })) ? t : null,
     ),
-    roads: [...roads].filter((clave) => player.fog.has(clave)),
+    roads: [...roads].filter((clave) => player.fog.has(clave)).map(pointFromKey),
     objects: knownObjects(state, playerId),
   };
 }
+
+/**
+ * Lo que cuesta entrar en cada terreno, **resuelto llamando a `costeDeEntrada`**.
+ *
+ * Vino de `agent.ts` con el bloque de prosa al que pertenece, y sigue sin llevar
+ * fórmula ninguna: **las dos columnas ya calculadas**, recto y diagonal, de modo
+ * que el agente suma lo mismo que el motor sin multiplicar ni redondear. Si
+ * mañana el camino deja de ser plano o el redondeo cambia a `floor`, estas
+ * cifras cambian solas.
+ *
+ * Se recorre `TERRAIN_KINDS` y no `Object.entries`, que perdía el tipo de la
+ * clave y obligaba a un `as`. El agua se cae sola por `isWalkable`, la misma
+ * función que usa el pathfinding: el día que se navegue, aparece sin que nadie
+ * se acuerde. Y el orden es por coste, estable sobre el de declaración: ni un
+ * `localeCompare`, que sería la única comparación sensible al idioma en un texto
+ * que tiene que ser el mismo en dos partidas iguales.
+ */
+const COSTE_POR_TERRENO = TERRAIN_KINDS.filter(isWalkable)
+  .map((t) => ({ t, recto: costeDeEntrada(t, false, false), obl: costeDeEntrada(t, false, true) }))
+  .sort((a, b) => a.recto - b.recto)
+  .map(({ t, recto, obl }) => `${t} ${recto} (${obl} en diagonal)`)
+  .join(', ');
+
+/** Lo mismo para una casilla con camino: no depende del terreno que haya debajo. */
+const COSTE_CON_CAMINO = `${costeDeEntrada('grass', true, false)} (${costeDeEntrada('grass', true, true)} en diagonal)`;
+
+/**
+ * **Cómo se lee lo que devuelve `serializeKnownMap`**, en prosa y una sola vez.
+ *
+ * Vive pegado al serializador porque el fallo que cierra es exactamente el de
+ * añadirle un campo y olvidar la descripción: quien edite la función de arriba
+ * tropieza con esto. Lo leen las **dos** puertas por las que sale ese objeto —
+ * `RESPONSE_FORMAT.adventure_turn` (`agent.ts`) y la descripción de la tool
+ * `map` (`mcp/server.ts`)— y hasta este ciclo eran dos prosas escritas a mano
+ * que se citaban la una a la otra: «es lo mismo que viaja en knownMap» / «es lo
+ * mismo que devuelve la tool map». #85 unificó el **dato** y las dejó
+ * divergiendo en el mismo commit — la de la tool no tenía el agua, ni los
+ * costes, ni el formato de los caminos, así que quien llamaba a la tool recibía
+ * una descripción estrictamente peor del mismo objeto.
+ *
+ * Va en `core` y no en `notas.ts` por la frontera que aquel módulo declara:
+ * `RESPONSE_FORMAT` **anuncia antes** y las notas **informan después**. Esto es
+ * lo primero.
+ *
+ * **Sangrado dos espacios, y no es cosmético.** Las dos puertas lo introducen con
+ * una línea que acaba en dos puntos, y en `RESPONSE_FORMAT` esa línea es una
+ * viñeta más de una lista larga: sin la sangría, un `- "terrain"` se lee como un
+ * campo de la raíz del payload y no como uno de `knownMap`. Cada puerta pone lo
+ * suyo delante —que la tool se puede pedir sin esperar turno, que en el turno ya
+ * lo tienes delante—, que es lo único que de verdad las diferencia.
+ */
+export const COMO_SE_LEE_EL_MAPA = `  Trae width, height, terrain[], roads[] y objects[]:
+  - "terrain" es un array plano de width×height casillas, indexado y*width+x: la
+    casilla {x,y} está en terrain[y*width+x]. Un null NO es un tipo de terreno, es
+    una casilla que no has explorado: ahí no sabes nada —ni el suelo, ni si hay
+    camino, ni qué hay encima— y no vale suponer que es hierba.
+  - "roads" son las casillas con camino que has explorado, como puntos {x,y},
+    igual que los escribes tú en un plan de mapa. Que falte una NO significa que
+    no haya camino: si el terreno de esa casilla es null, es que no lo has visto.
+  - "objects" es lo que has OBSERVADO, no lo que es verdad ahora: cada objeto trae
+    "lastSeen" con el día en que lo viste. Si "lastSeen" es anterior a hoy, el dato
+    puede haber caducado —una mina cambia de dueño y tú sigues viendo la bandera
+    vieja hasta que alguien vuelva a mirar—. Una mina tuya que dejó de dar recursos
+    es la señal de que allí ha pasado algo.
+  - Con "terrain" y "roads" eliges la ruta antes de andarla, en vez de descubrirla
+    al pisarla:
+    - El agua NO se cruza. No hay barcos: una casilla de agua no es un atajo caro,
+      es un muro, y un destino al otro lado obliga a rodear.
+    - Entrar en una casilla cuesta esto en puntos de movimiento, y la cifra entre
+      paréntesis es la que se cobra si entras en diagonal —las dos son ya el precio
+      final, no hay nada que aplicarles—:
+      ${COSTE_POR_TERRENO}.
+    - Si la casilla tiene camino cuesta ${COSTE_CON_CAMINO} se pinte sobre el
+      terreno que se pinte, y por eso un rodeo por carretera sale a menudo más
+      barato que la línea recta por el barro.
+    - Compáralo con los puntos de movimiento que le queden hoy al héroe
+      ("movePoints") para saber hasta dónde llegas.`;
 
 export function serializeAdventureTurn(state: GameState, playerId: PlayerId): unknown {
   const player = playerById(state, playerId);
@@ -219,11 +316,15 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId): un
     // ve por las paredes, y tampoco ve el futuro de una casilla que dejó atrás:
     // `lastSeen` dice de qué día es cada dato, y si es de ayer puede haber
     // dejado de ser verdad.
-    knownMap: {
-      width: state.map.width,
-      height: state.map.height,
-      objects: knownObjects(state, playerId),
-    },
+    //
+    // Es **la misma llamada** que responde la tool `map`, y esa es toda la
+    // garantía de que las dos devuelven lo mismo (#85). Aquí había un
+    // `{width, height, objects}` escrito a mano: el agente elegía el destino de
+    // cada `move_hero` sin saber por dónde se anda, mientras `MAPA_DESCRIPCION`
+    // le prometía que la tool traía «lo mismo que viaja en knownMap». Lo que lo
+    // vuelve a separar no es olvidarse de un campo, es escribir un segundo
+    // serializador.
+    knownMap: serializeKnownMap(state, playerId),
     // Un héroe enemigo se ve o no se ve: no hay recuerdo que mandar, porque una
     // posición de anteayer es ruido y no intel. Antes bastaba con haber pisado
     // esa casilla alguna vez, así que el agente seguía al rival por medio mapa
@@ -352,7 +453,13 @@ export function serializeBattleTurn(
 export interface MapRequestOptions {
   readonly width: number;
   readonly height: number;
-  readonly players: number;
+  /**
+   * **Los ids, no cuántos** (#101). Con un número, el agente sabía que había dos
+   * jugadores y tenía que sacar de una convención en prosa —«numerados desde
+   * 0»— que eran el 0 y el 1. El llamante tiene la lista en la mano
+   * (`MapRequestOptions.players`) y la tiraba con un `.length`.
+   */
+  readonly players: readonly PlayerId[];
   readonly theme?: string;
 }
 
@@ -366,7 +473,9 @@ export function serializeMapRequest(opts: MapRequestOptions): unknown {
       theme: opts.theme ?? 'un valle en disputa entre un reino caballeresco y una necrópolis',
     },
     palette: {
-      terrains: ['grass', 'dirt', 'sand', 'snow', 'swamp', 'lava', 'rough', 'water'],
+      // Derivada, no copiada: era la tercera declaración de la misma lista de
+      // ocho y se habría quedado atrás en silencio el día que entrara un terreno.
+      terrains: [...TERRAIN_KINDS],
       resources: RESOURCE_KINDS,
       factions: ['knight', 'necromancer'],
       creaturesForGuards: [

@@ -27,6 +27,7 @@ import {
   findPath,
   objectAt,
   pathFromReachable,
+  pointFromKey,
   pointKey,
   reachableFrom,
   stepCost,
@@ -93,6 +94,47 @@ describe('maná', () => {
   it('es diez veces el conocimiento', () => {
     expect(maxMana({ knowledge: 2 })).toBe(20);
     expect(maxMana({ knowledge: 7 })).toBe(70);
+  });
+});
+
+describe('las claves de casilla', () => {
+  it('pointFromKey es la inversa EXACTA de pointKey, y no solo en la diagonal', () => {
+    // Este test existe por una sonda que salió VERDE: cambiar `{x, y}` por
+    // `{x: y, y: x}` dentro de `pointFromKey` dejaba los 400 tests pasando.
+    // Todas las fixturas de camino del repositorio usaban una casilla de la
+    // diagonal —(1,1), (15,15), (0,0)—, donde intercambiar x por y es la
+    // identidad. La batería era estrecha, no la idea.
+    for (const p of [
+      { x: 3, y: 7 },
+      { x: 7, y: 3 },
+      { x: 0, y: 12 },
+      { x: 12, y: 0 },
+      { x: 0, y: 0 },
+    ]) {
+      expect(pointFromKey(pointKey(p)), `(${p.x},${p.y})`).toEqual(p);
+    }
+  });
+
+  it('y lo que no es una clave se rechaza DICIÉNDOLO, en vez de dar un punto raro', () => {
+    // Toda clave del sistema sale de `pointKey`, así que una que no se pueda
+    // leer es un fallo de programa: se lanza. Las dos que más costaron son las
+    // de la mitad vacía, porque `Number("")` es 0 y no NaN: `"3,"` se leía como
+    // (3,0) y `",7"` como (0,7), los dos en silencio.
+    for (const basura of [
+      '',
+      '3',
+      '3,',
+      ',7',
+      ',',
+      'a,7',
+      '3,b',
+      '3.5,7',
+      '3,7,9',
+      '03,7',
+      '3, 7',
+    ]) {
+      expect(() => pointFromKey(basura), `"${basura}"`).toThrow(/no es una casilla/);
+    }
   });
 });
 

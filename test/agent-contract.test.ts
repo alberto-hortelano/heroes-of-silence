@@ -11,12 +11,14 @@ import {
   responseSchemas,
 } from '../src/core/contract/agent.js';
 import {
+  COMO_SE_LEE_EL_MAPA,
   serializeAdventureTurn,
   serializeBattleTurn,
   serializeMapRequest,
 } from '../src/core/contract/serialize.js';
 import { generateMapPlan } from '../src/core/map/generate.js';
-import { pointKey } from '../src/core/map/map.js';
+import { pointFromKey, pointKey } from '../src/core/map/map.js';
+import { costeDeEntrada, isWalkable, TERRAIN_KINDS } from '../src/core/map/terrain.js';
 import { createRng } from '../src/core/rng.js';
 import {
   applyAdventureAction,
@@ -142,6 +144,102 @@ describe('lo que ve el agente', () => {
         (o) => o.at.x === puebloEnemigo.at.x && o.at.y === puebloEnemigo.at.y,
       ),
     ).toBe(false);
+  });
+
+  it('el turno lleva el TERRENO y los caminos que ha explorado, no solo objetos (#85)', () => {
+    // `knownMap` era `{width, height, objects}`: el agente elegía el "to" de
+    // cada `move_hero` sin saber por dónde se anda ni dónde hay carretera,
+    // mientras la tool `map` le prometía traer «lo mismo». Ahora sale del mismo
+    // serializador, así que trae terreno y caminos filtrados por la niebla.
+    const state = newGame({ seed: 92 });
+    // Un camino a mano: el generador procedimental no pone ninguno, así que sin
+    // esto `roads` sería siempre `[]` y el filtro no probaría nada. Uno dentro
+    // de la niebla del jugador 0 y otro fuera, para que haya algo que filtrar.
+    const jugador = state.players[0]!;
+    // Fuera de la diagonal a propósito: en (15,15) intercambiar x por y es la
+    // identidad, y una fixtura así deja pasar un serializador que lea la clave
+    // del revés. Se vio: la sonda que hacía justo eso salió verde en los 400.
+    const asimetrica = (k: string): boolean => {
+      const p = pointFromKey(k);
+      return p.x !== p.y;
+    };
+    const dentro = [...jugador.fog].find(asimetrica);
+    const fuera = [...state.players[1]!.fog].find((k) => !jugador.fog.has(k) && asimetrica(k));
+    // Y se comprueba que la semilla sigue dando las dos casillas, en vez de
+    // taparlo con un `!`. Con `fuera` a `undefined` se colaba un `undefined` en
+    // `roads` y el `not.toContain(fuera)` de abajo pasaba **por vacío**: un
+    // guardia verde sin haber probado nada, que es justo lo que este ciclo
+    // persigue. El test hermano de `agent-link` ya lo hacía así.
+    if (dentro === undefined || fuera === undefined) {
+      throw new Error(
+        'la semilla 92 ya no deja una casilla fuera de la diagonal dentro de la niebla del 0 y otra fuera',
+      );
+    }
+    state.map.roads.add(dentro);
+    state.map.roads.add(fuera);
+    // Y la niebla tiene que ser ASIMÉTRICA, o el barrido de abajo tampoco puede
+    // morder: el generador pone los inicios en la diagonal de un mapa cuadrado
+    // —(4,4) y (19,19)—, así que hasta el día 3 la niebla es simétrica bajo
+    // transponer y leer la clave del revés no cambia ni una casilla. Se fuerza
+    // una casilla explorada cuya transpuesta NO lo esté, y se comprueba que
+    // queda así en vez de suponerlo.
+    const espejo = pointFromKey(dentro);
+    const transpuesta = pointKey({ x: espejo.y, y: espejo.x });
+    jugador.fog.delete(transpuesta);
+    if (!jugador.fog.has(dentro) || jugador.fog.has(transpuesta)) {
+      throw new Error(`la niebla del jugador 0 sigue siendo simétrica en ${dentro}`);
+    }
+
+    const payload = serializeAdventureTurn(state, 0) as {
+      knownMap: {
+        width: number;
+        height: number;
+        terrain: (string | null)[];
+        roads: { x: number; y: number }[];
+        objects: unknown[];
+      };
+    };
+    const { width, height, terrain, roads } = payload.knownMap;
+
+    // El array es plano y completo: el índice `y*width+x` se conserva, así que
+    // el agente no aprende una convención nueva para leerlo.
+    expect(terrain.length).toBe(width * height);
+
+    // Las dos mitades, y las dos importan. Sin el `null` esto pasaría con un
+    // mapa revelado entero; sin el terreno real pasaría con el mapa a oscuras.
+    expect(
+      terrain.some((t) => t === null),
+      'lo no explorado va como null',
+    ).toBe(true);
+    expect(
+      terrain.some((t) => t !== null),
+      'lo explorado trae su terreno',
+    ).toBe(true);
+
+    // Y el `null` es EXACTAMENTE la niebla, casilla a casilla: ni una de más
+    // —eso sería fuga— ni una de menos —eso sería terreno inventado—.
+    //
+    // Se recorre (x, y) y se calcula el índice, y NO al revés. La primera
+    // redacción sacaba la casilla del índice con `{x: i % width, y: floor(i /
+    // width)}`, que es **la misma expresión que la implementación**: un espejo,
+    // no un guardia. Transponerla en `serializeKnownMap` dejaba los 402 en
+    // verde. Es `pointFromKey` otra vez, una función más allá.
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const explorada = jugador.fog.has(pointKey({ x, y }));
+        expect(terrain[y * width + x] === null, `(${x},${y})`).toBe(!explorada);
+      }
+    }
+
+    // Los caminos salen como PUNTOS y no como la clave con la que se guardan,
+    // igual que `at` y que los `roads` que el propio agente escribe en un plan
+    // de mapa. Se compara por `pointKey` para no depender del orden.
+    expect(roads.map(pointKey)).toContain(dentro);
+    expect(roads.map(pointKey)).not.toContain(fuera);
+    for (const p of roads) {
+      expect(typeof p.x, 'un camino viaja como {x,y}, no como "x,y"').toBe('number');
+      expect(jugador.fog.has(pointKey(p))).toBe(true);
+    }
   });
 
   it('lo que se dejó atrás se manda como se vio, con el día en que se vio', () => {
@@ -272,6 +370,86 @@ describe('lo que ve el agente', () => {
     expect(RESPONSE_FORMAT.adventure_turn).toMatch(/no hay acción para aprender/i);
   });
 
+  it('y nombra el terreno y los caminos, o el dato viaja y no se mira (#85)', () => {
+    // La regla de la casa, escrita en `serialize.ts` a cuenta de `level`: un
+    // dato nuevo que el contrato no nombra es un dato que el agente no mira.
+    const prosa = RESPONSE_FORMAT.adventure_turn;
+    expect(prosa).toContain('"knownMap"');
+    expect(prosa).toContain('"terrain"');
+    expect(prosa).toContain('"roads"');
+    // El índice, que es cómo se lee el array plano.
+    expect(prosa).toMatch(/y\*width\+x/);
+    // El `null` es ignorancia y no hierba: sin esta línea, el 45 % del mapa del
+    // día 6 se lee como un terreno raro en vez de como un hueco.
+    expect(prosa).toMatch(/no has explorado/);
+    expect(prosa).toMatch(/hierba/);
+    // El agua no se pisa: es lo que convierte el terreno en una decisión.
+    expect(prosa).toMatch(/agua/i);
+
+    // Aquí había dos aserciones —`CADENAS "x,y"` y el ejemplo `"3,7"`— que
+    // anclaban una advertencia que ya no hay que dar: `roads` viajaba como
+    // claves de texto y era el único campo del payload que no iba como {x,y}.
+    // Se normalizó el dato en vez de documentar la rareza, así que la viñeta
+    // desapareció y con ella el riesgo que no tenía guardia. Lo que queda es
+    // que la prosa diga la forma que SÍ tiene.
+    expect(prosa).toMatch(/como puntos \{x,y\}/);
+    expect(prosa, 'la clave de almacenamiento no vuelve a la red').not.toMatch(/CADENAS/);
+  });
+
+  it('y la descripción de knownMap es UNA, compartida con la tool `map`', () => {
+    // `MAPA_DESCRIPCION` y esta prosa describían el MISMO objeto en dos
+    // redacciones a mano que se citaban la una a la otra —«es lo mismo que
+    // viaja en knownMap» / «es lo mismo que devuelve la tool map»— y ya habían
+    // divergido en el commit que las unificó por el lado del dato: la de la
+    // tool no tenía ni el agua infranqueable ni los costes, así que el agente
+    // que llamaba a la tool recibía una descripción estrictamente peor.
+    //
+    // Esta mitad comprueba la puerta que un test alcanza. La otra —que la tool
+    // publicada lo lleve— la comprueba `pnpm qa` contra un cliente MCP de
+    // verdad, porque `mcp/server.ts` abre el transporte al importarlo y desde
+    // aquí no se puede afirmar nada sobre él.
+    expect(RESPONSE_FORMAT.adventure_turn).toContain(COMO_SE_LEE_EL_MAPA);
+
+    // Y que el bloque no esté vacío ni sea un trozo suelto: si alguien lo
+    // recorta a una línea, esto sigue pasando y no debería.
+    expect(COMO_SE_LEE_EL_MAPA).toMatch(/"terrain"/);
+    expect(COMO_SE_LEE_EL_MAPA).toMatch(/"roads"/);
+    expect(COMO_SE_LEE_EL_MAPA).toMatch(/"objects"/);
+  });
+
+  it('y los costes de la prosa salen de costeDeEntrada, no de la tabla', () => {
+    // La primera redacción de este test leía `TERRAIN_COST`, o sea que **anclaba
+    // la copia y no la regla**: la prosa derivaba las cifras de la tabla y
+    // reescribía a mano la fórmula de al lado —el camino que sustituye al
+    // terreno, la diagonal que multiplica y redondea—, y este test la daba por
+    // buena. Es el mismo criterio que `game.test.ts` ya aplica al medir un paso:
+    // «se mide llamando a `stepCost` y no leyendo la tabla».
+    //
+    // Ahora la prosa lleva las dos columnas ya resueltas y el test las pide a la
+    // misma función que se las cobra al héroe. El día que el camino deje de ser
+    // plano o el redondeo cambie, las dos se mueven juntas o esto se pone rojo.
+    const prosa = RESPONSE_FORMAT.adventure_turn;
+    for (const kind of TERRAIN_KINDS) {
+      const fila = `${kind} ${costeDeEntrada(kind, false, false)} (${costeDeEntrada(kind, false, true)} en diagonal)`;
+      if (isWalkable(kind)) {
+        expect(prosa, `falta el coste de ${kind}`).toContain(fila);
+      } else {
+        // El agua no tiene coste que anunciar: no se pisa. Y se cae sola de la
+        // lista porque la filtra `isWalkable`, la misma que usa el pathfinding.
+        expect(prosa, 'el agua no se pisa: no se le anuncia coste').not.toContain(fila);
+      }
+    }
+    // El camino no depende del terreno de debajo, así que se pregunta por uno
+    // cualquiera: si algún día dependiera, esta línea dejaría de ser cierta.
+    expect(prosa).toContain(
+      `camino cuesta ${costeDeEntrada('grass', true, false)} (${costeDeEntrada('grass', true, true)} en diagonal)`,
+    );
+    // Y la fórmula NO viaja: al agente se le dan números, no deberes. Una prosa
+    // que le pida multiplicar y redondear es una segunda implementación de
+    // `costeDeEntrada` escrita en un sitio donde nada la puede comprobar.
+    expect(prosa, 'la prosa no debe reescribir la fórmula').not.toMatch(/multiplica|redondea/i);
+  });
+
   it('el formato de respuesta avisa de que la crónica pasa por la niebla', () => {
     // El campo cambió de significado sin cambiar de forma, que es el caso más
     // fácil de dejar sin explicar: un agente que crea que `recentEvents` es
@@ -290,7 +468,10 @@ describe('lo que ve el agente', () => {
     expect(RESPONSE_FORMAT.map_generate).toMatch(/town-0/);
     expect(RESPONSE_FORMAT.map_generate).toMatch(/no puede repetirse/);
     expect(RESPONSE_FORMAT.map_generate).toMatch(/heroStarts/);
-    expect(RESPONSE_FORMAT.map_generate).toMatch(/numerados desde 0/);
+    // Aquí decía `/numerados desde 0/`: era la convención en prosa de la que el
+    // agente tenía que sacar QUÉ jugadores colocar. Desde #101 ese dato viaja en
+    // el payload y la prosa manda leerlo; lo que se acota se sigue anunciando.
+    expect(RESPONSE_FORMAT.map_generate).toMatch(/want\.players/);
   });
 
   it('y la prosa enumera TODO lo que se valida, no tres cuartas partes', () => {
@@ -313,11 +494,36 @@ describe('lo que ve el agente', () => {
   });
 
   it('la petición de mapa describe la paleta disponible', () => {
-    const payload = serializeMapRequest({ width: 24, height: 24, players: 2 }) as {
+    const payload = serializeMapRequest({ width: 24, height: 24, players: [0, 1] }) as {
       palette: { terrains: string[]; factions: string[] };
     };
     expect(payload.palette.terrains).toContain('grass');
     expect(payload.palette.factions).toEqual(['knight', 'necromancer']);
+  });
+
+  it('la petición de mapa dice CUÁLES son los jugadores, no cuántos', () => {
+    // Antes viajaba `players: 2` y de qué números eran esos dos se enteraba el
+    // agente por una frase de `RESPONSE_FORMAT` («numerados desde 0»). El dato
+    // que hay que leer no puede vivir en la prosa que lo explica.
+    const payload = serializeMapRequest({ width: 24, height: 24, players: [0, 1] }) as {
+      want: { players: unknown };
+    };
+    expect(payload.want.players).toEqual([0, 1]);
+
+    // Y no son siempre el 0 y el 1: eso es justo lo que la convención daba por
+    // supuesto. Lo que se manda es la lista que se pidió.
+    const raro = serializeMapRequest({ width: 24, height: 24, players: [3, 7] }) as {
+      want: { players: unknown };
+    };
+    expect(raro.want.players).toEqual([3, 7]);
+  });
+
+  it('y la prosa del mapa manda leer "want.players" en vez de contar desde 0', () => {
+    const prosa = RESPONSE_FORMAT.map_generate;
+    expect(prosa).toMatch(/EXACTAMENTE los jugadores de "want\.players"/);
+    // La convención muere: si vuelve a aparecer, el dato ha vuelto a la prosa.
+    expect(prosa).not.toMatch(/numerados desde 0/);
+    expect(prosa).not.toMatch(/"players": 2 son el 0 y el 1/);
   });
 });
 

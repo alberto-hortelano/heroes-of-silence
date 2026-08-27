@@ -18,18 +18,16 @@
  */
 
 import type { MapGenerateResponse } from '@core/contract/agent.js';
-import { serializeMapRequest } from '@core/contract/serialize.js';
+import { type MapRequestOptions, serializeMapRequest } from '@core/contract/serialize.js';
 import { type MapPlan, validateMapPlan } from '@core/map/generate.js';
-import type { PlayerId } from '@core/types.js';
 import type { AgentAnswer, AgentLink } from './agent-link.js';
 import { notaMapaAceptado, notaMapaRechazado } from './notas.js';
 
-export interface PeticionDeMapa {
-  readonly width: number;
-  readonly height: number;
-  /** Los jugadores de la partida: exactamente los inicios que debe traer. */
-  readonly players: readonly PlayerId[];
-}
+// Lo que el servidor pide es el `MapRequestOptions` del contrato, y se usa ese
+// tipo directamente: un alias no lo importaría nadie, y el criterio que este
+// mismo ciclo escribió en `agent.ts` dice que eso se borra. `players` son **los
+// ids** y no cuántos (#101), así que el agente lee qué jugadores colocar en vez
+// de deducirlo de una convención en prosa.
 
 export interface MapaDelAgente {
   /** El plan si sirve; `null` si no hay agente, no contestó o no era jugable. */
@@ -40,7 +38,7 @@ export interface MapaDelAgente {
 
 export async function pedirMapaAlAgente(
   link: AgentLink,
-  peticion: PeticionDeMapa,
+  peticion: MapRequestOptions,
 ): Promise<MapaDelAgente> {
   // Sin agente atado, `ask` lanzaría en el acto: se dice antes y con las
   // palabras de una persona, que es quien va a leer la consola del servidor.
@@ -54,11 +52,13 @@ export async function pedirMapaAlAgente(
   try {
     respuesta = await link.ask(
       'map_generate',
-      serializeMapRequest({
-        width: peticion.width,
-        height: peticion.height,
-        players: peticion.players.length,
-      }),
+      // `peticion` **es** un `MapRequestOptions`: mientras `players` había que
+      // convertirlo con un `.length` el literal tenía un motivo, y al quitarlo se
+      // quedó en ceremonia. Reenviar campo a campo dos formas idénticas es la
+      // trampa que este mismo ciclo documenta en `MapPlan`: añadir un campo
+      // obliga a tocar tres sitios y olvidarse del tercero no rompe nada — el
+      // dato simplemente no viaja, en silencio.
+      serializeMapRequest(peticion),
     );
   } catch (err) {
     // Al agente ya se lo ha dicho `ask`: el plazo agotado y la respuesta que no
@@ -102,10 +102,16 @@ export async function pedirMapaAlAgente(
  * 24×24 sin que nadie dijera nada — y son 16 384 casillas de `knownMap` en cada
  * turno.
  *
- * `serializeMapRequest` le dice al agente **cuántos** jugadores hay, no cuáles;
- * el día que el payload lleve los ids, media comprobación se muere sola.
+ * Desde #101 `serializeMapRequest` le dice al agente **cuáles** son los
+ * jugadores y no cuántos, y aquí donde había escrito que «media comprobación se
+ * muere sola» hay que leer lo contrario: **no se muere ninguna**. Nombrar los
+ * ids quita la **ambigüedad** —el agente ya no tiene que deducir de una
+ * convención en prosa que con dos jugadores son el 0 y el 1— y no quita la
+ * **desobediencia**: un plan que lee `players: [0, 1]` y devuelve `heroStarts`
+ * con los jugadores 3 y 4 sigue siendo jugable y sigue dejando la partida sin un
+ * solo turno en silencio. Lo que murió es la convención, no el guardia.
  */
-function loQuePidioElServidor(plan: MapPlan, peticion: PeticionDeMapa): string[] {
+function loQuePidioElServidor(plan: MapPlan, peticion: MapRequestOptions): string[] {
   const problemas: string[] = [];
   const esperados = peticion.players;
   const trae = new Set(plan.heroStarts.map((h) => h.player));
@@ -128,9 +134,7 @@ function loQuePidioElServidor(plan: MapPlan, peticion: PeticionDeMapa): string[]
   // ser el mismo en dos partidas iguales.
   for (const p of [...trae].sort((a, b) => a - b)) {
     if (!esperados.includes(p)) {
-      problemas.push(
-        `el jugador ${p} no juega esta partida: los jugadores son ${lista}, numerados desde 0`,
-      );
+      problemas.push(`el jugador ${p} no juega esta partida: los jugadores son ${lista}`);
     }
   }
   return problemas;

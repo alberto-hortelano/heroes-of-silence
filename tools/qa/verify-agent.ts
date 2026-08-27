@@ -29,6 +29,7 @@ import { spawn } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { COMO_SE_LEE_EL_MAPA } from '../../src/core/contract/serialize.js';
 import {
   CABECERA_ESTADO,
   CABECERA_RESPUESTA,
@@ -370,6 +371,22 @@ async function main(): Promise<void> {
   ]) {
     if (!nombres.includes(obligatoria)) throw new Error(`falta la tool "${obligatoria}"`);
   }
+
+  // La tool `map` y el `knownMap` de cada turno devuelven el MISMO objeto desde
+  // la misma función, así que su descripción también es una sola
+  // (`COMO_SE_LEE_EL_MAPA`, pegada a `serializeKnownMap`). Se comprueba aquí y
+  // no en un test porque `mcp/server.ts` abre el transporte al importarlo:
+  // desde vitest no se puede afirmar nada de él, y lo que hay que afirmar es
+  // justo lo que un cliente MCP recibe. Antes eran dos prosas escritas a mano
+  // que se citaban la una a la otra, y la de la tool se había quedado sin el
+  // agua infranqueable y sin los costes.
+  const descripcionDelMapa = tools.tools.find((t) => t.name === 'map')?.description ?? '';
+  if (!descripcionDelMapa.includes(COMO_SE_LEE_EL_MAPA)) {
+    throw new Error(
+      'la descripción de la tool "map" ya no lleva COMO_SE_LEE_EL_MAPA: el mismo objeto ha vuelto a tener dos prosas',
+    );
+  }
+  log('la tool `map` publica la MISMA descripción de knownMap que el turno');
 
   // Consulta que no depende del turno: catálogo estático. Va por `consulta()`
   // como las otras tres —devuelve JSON igual que ellas—, y por eso ahora entra

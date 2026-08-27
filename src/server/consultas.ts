@@ -6,6 +6,8 @@
  * su batalla con sus ojos era sacarlas de allí. `ws-server.ts` se queda con el
  * cableado, que es lo que no se puede probar de todos modos.
  */
+import { activeStack } from '@core/battle/battle.js';
+import type { BattleState, Side } from '@core/battle/types.js';
 import {
   serializeAdventureTurn,
   serializeBattleTurn,
@@ -69,22 +71,54 @@ export function responderConsulta(
         // acciones legales, que son las de un stack que no manda quien pregunta.
         return {
           ...(serializeBattleTurn(pending.battle, 'attacker', 'ajena') as object),
-          note: `el jugador ${player} no está en esta batalla: la ves con los ojos del atacante, sin su maná ni su libro de hechizos, y no juegas tú`,
+          note: `el jugador ${player} no está en esta batalla: la ves con los ojos del atacante, sin su maná, sin su libro de hechizos y sin "legalActions", porque ahí no juegas tú`,
         };
       }
       // Llevar los DOS bandos es posible —`agentPlayers` acepta varios
       // jugadores—, y una vista tiene un solo punto de vista: se elige el del
       // atacante y se dice, en vez de callarse cuál de los dos se está viendo.
-      const vista = serializeBattleTurn(
-        pending.battle,
-        suyos.has('attacker') ? 'attacker' : 'defender',
-        'propia',
-      );
-      if (suyos.size === 1) return vista;
-      return {
-        ...(vista as object),
-        note: `el jugador ${player} lleva los dos bandos de esta batalla: la ves con los ojos del atacante`,
-      };
+      const mio = suyos.has('attacker') ? 'attacker' : 'defender';
+      const vista = serializeBattleTurn(pending.battle, mio, 'propia') as object;
+      if (suyos.size === 1) {
+        // La ausencia que faltaba por explicar (#84). `legalActions` viaja solo
+        // si el stack activo es del bando mirado, así que en TU propia batalla
+        // desaparece cada vez que le toca al rival, y esta era la única de las
+        // tres ramas del `case` que la devolvía callando.
+        //
+        // **Y hoy tampoco se alcanza jugando, que es más de lo que parece.** No
+        // solo es que la petición empujada no falle nunca la condición
+        // —`director.ts` llama con el bando del stack que decide—: es que
+        // `playBattle` aplica las acciones del rival de forma síncrona, así que
+        // entre dos `heroes_respond` no hay ventana en la que consultar y ver a
+        // otro activo. Medido: 15 de 15 consultas con `legalActions` y ~325
+        // sondeos sin una sola ausencia. Se escribe igual porque la alternativa
+        // es que el día que aparezca la ventana —una batalla que el agente mire
+        // sin jugarla, dos agentes, una pausa entre acciones— la ausencia vuelva
+        // a ser muda; pero **no se cuente como cubierto lo que no se ejerce**.
+        //
+        // Si está o no se le pregunta al objeto YA serializado, y no se vuelve a
+        // escribir aquí la condición de `serializeBattleTurn`: sería la tercera
+        // declaración de la misma regla, con las dos libres de divergir sin que
+        // nada se pusiera rojo.
+        if ('legalActions' in vista) return vista;
+        return { ...vista, note: sinAccionesLegales(pending.battle, mio, false) };
+      }
+      // Este caso no lo produce hoy ningún servidor publicado —`ws-server.ts`
+      // fija `agentPlayers: [1]`—, así que llevar los dos bandos es alcanzable
+      // en tests y no jugando. Se deja dicho aquí y no en la nota: al agente le
+      // sería ruido, porque lo que necesita saber es qué está viendo, no cuántas
+      // configuraciones del servidor existen.
+      // La misma pregunta al objeto ya serializado que en la rama de arriba, y
+      // por el mismo motivo: la nota dice lo que PASA y no lo que pasaría. La
+      // primera redacción de esta rama explicaba la ausencia en hipotético
+      // —«cuando viene, es la del atacante»— y era además una segunda escritura
+      // a mano de la regla que la función de abajo ya redacta: dos textos libres
+      // de divergir, y este sin un test que lo alcance.
+      const cabecera = `el jugador ${player} lleva los dos bandos de esta batalla: la ves con los ojos del atacante`;
+      if ('legalActions' in vista) {
+        return { ...vista, note: `${cabecera}, y "legalActions" es la de una unidad suya.` };
+      }
+      return { ...vista, note: `${cabecera}. ${sinAccionesLegales(pending.battle, mio, true)}` };
     }
 
     case 'map': {
@@ -142,6 +176,36 @@ function jugadorDelAgente(partida: PartidaConsultable, args: Record<string, unkn
     );
   }
   return player;
+}
+
+/**
+ * Por qué tu propia batalla viene sin `legalActions`.
+ *
+ * La lista es la del **stack activo, sea de quien sea**, y sus entradas `cast`
+ * enumeran el libro y el maná de ese héroe: por eso no se manda cuando el turno
+ * lo tiene el rival (#73). Lo que faltaba era decirlo. Un agente que ve
+ * desaparecer un campo sin explicación no distingue «no te toca» de «esta
+ * consulta se ha roto», y esta casa ya decidió que un silencio no vale como
+ * respuesta.
+ *
+ * De quién es el turno se lo pregunta al núcleo con la misma función que usa el
+ * serializador, no a una copia de la regla; y si no hay nadie activo se dice
+ * eso, sin inventarse un bando que no existe.
+ *
+ * `ambos` distingue los dos motivos, porque **no son el mismo** y decir el que
+ * no es sería peor que callarse: con un bando tuyo la lista falta porque no te
+ * toca; con los dos, el turno también es tuyo y lo que falta es punto de vista
+ * —una vista tiene uno solo, y es el del atacante—.
+ */
+function sinAccionesLegales(battle: BattleState, mirado: Side, ambos: boolean): string {
+  const activo = activeStack(battle);
+  if (activo === null) {
+    return `esta batalla no viene con "legalActions" porque ahora mismo ninguna unidad tiene el turno. La ves con los ojos del ${mirado}: espera a que el servidor te pida "battle_turn".`;
+  }
+  if (ambos) {
+    return `No viene "legalActions" porque el turno lo tiene una unidad del bando ${activo.side} —que también es tuyo— y la lista es siempre la del stack activo, o sea que no es la del ${mirado} que estás mirando. El servidor te pedirá "battle_turn" cuando le toque decidir a esa unidad.`;
+  }
+  return `esta batalla no viene con "legalActions" porque el turno lo tiene una unidad del bando ${activo.side} y tú llevas el ${mirado}: la lista es siempre la del stack activo, o sea que sería la suya. No es que no puedas hacer nada, es que ahora no te toca: cuando le toque a una unidad tuya, el servidor te pedirá "battle_turn" con la lista ya hecha. Volver a consultar más tarde también la trae.`;
 }
 
 const SIN_JUGADORES =

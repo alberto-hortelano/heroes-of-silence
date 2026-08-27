@@ -6,13 +6,7 @@
  */
 import type { Point, ResourceKind } from '../types.js';
 import { Frontera } from './frontera.js';
-import {
-  DIAGONAL_FACTOR,
-  isWalkable,
-  ROAD_COST,
-  TERRAIN_COST,
-  type TerrainKind,
-} from './terrain.js';
+import { costeDeEntrada, isWalkable, type TerrainKind } from './terrain.js';
 
 export type MapObject =
   | {
@@ -61,6 +55,34 @@ export function pointKey(p: Point): string {
   return `${p.x},${p.y}`;
 }
 
+/**
+ * La inversa de `pointKey`, escrita **una vez**.
+ *
+ * Estaba abierta a mano donde hacía falta —el bucle de caminos de
+ * `movableCosts`, con su `indexOf(',')` y sus dos `Number`— y volvió a hacer
+ * falta en cuanto `serializeKnownMap` dejó de mandarle al agente la clave de
+ * almacenamiento y le mandó el punto. Dos aperturas de la misma cadena es la
+ * clase de copia que se queda atrás el día que la clave deje de ser `"x,y"`.
+ *
+ * **Lanza** en vez de devolver un punto con `NaN`: toda clave del sistema sale
+ * de `pointKey`, así que una que no se pueda leer es un fallo de programa y no
+ * un dato del jugador. El único llamante que se saltaba claves lo hacía por
+ * estar **fuera del mapa**, que es otra pregunta y sigue siendo suya.
+ */
+export function pointFromKey(clave: string): Point {
+  const coma = clave.indexOf(',');
+  const p = { x: Number(clave.slice(0, coma)), y: Number(clave.slice(coma + 1)) };
+  // Se valida por **round-trip** y no mirando los trozos por separado: la
+  // inversa de `pointKey` es, por definición, lo que vuelve a dar la misma
+  // clave. Así cae de una vez la mitad vacía —`Number("")` es **0**, no `NaN`,
+  // así que `"3,"` colaba como (3,0)—, el `NaN` y el `"03,7"`. El `isInteger` va
+  // aparte porque `"3.5,7"` sí round-trippea consigo mismo.
+  if (coma < 0 || !Number.isInteger(p.x) || !Number.isInteger(p.y) || pointKey(p) !== clave) {
+    throw new Error(`"${clave}" no es una casilla: se esperaba "x,y" con dos enteros`);
+  }
+  return p;
+}
+
 export function inBounds(map: GameMap, p: Point): boolean {
   return p.x >= 0 && p.x < map.width && p.y >= 0 && p.y < map.height;
 }
@@ -91,21 +113,12 @@ export function isEnterable(map: GameMap, p: Point): boolean {
 }
 
 /**
- * Lo que cuesta poner el pie en una casilla, dado su terreno, si tiene camino y
- * si se entra en diagonal.
- *
- * Es la regla, escrita **una vez**. `stepCost` es su lectura legible —la que se
- * lee cuando se quiere saber qué cuesta un paso concreto— y el Dijkstra la usa
- * para precalcular sus dos tablas por casilla. Sin extraerla, la fórmula
- * quedaría copiada en los dos sitios y el día que cambie el factor diagonal
- * habría que acordarse de los dos.
+ * Coste de entrar en `to` viniendo de `from`: la lectura legible de
+ * `costeDeEntrada`, que vive con sus constantes en `terrain.ts`. El Dijkstra usa
+ * la de allí directamente para precalcular sus dos tablas por casilla, y desde
+ * este ciclo también la usa el contrato para decirle al agente lo que le va a
+ * costar cada paso — tres lectores y una sola fórmula.
  */
-function costeDeEntrada(terreno: TerrainKind, camino: boolean, diagonal: boolean): number {
-  const base = camino ? ROAD_COST : TERRAIN_COST[terreno];
-  return Math.round(diagonal ? base * DIAGONAL_FACTOR : base);
-}
-
-/** Coste de entrar en `to` viniendo de `from`. */
 export function stepCost(map: GameMap, from: Point, to: Point): number {
   return costeDeEntrada(
     terrainAt(map, to),
@@ -256,15 +269,14 @@ function dijkstra(map: GameMap, from: Point, parar: Point | null): Reachable {
     recto[i] = costeDeEntrada(terreno, false, false);
     oblicuo[i] = costeDeEntrada(terreno, false, true);
   }
-  // Los caminos vienen por clave, así que aquí sí se parte una cadena — pero
+  // Los caminos vienen por clave, así que aquí sí se abre una cadena — pero
   // una por casilla CON camino, no una por casilla del mapa. Una clave que no
   // sea una casilla de este mapa se salta, que es lo que hacía el `roads.has`
-  // de antes: nunca se le preguntaba por una casilla de fuera.
+  // de antes: nunca se le preguntaba por una casilla de fuera. Lo que ya no se
+  // abre aquí es la clave: eso lo hace `pointFromKey`, que es la inversa de
+  // `pointKey` y vive a su lado.
   for (const clave of map.roads) {
-    const coma = clave.indexOf(',');
-    const x = Number(clave.slice(0, coma));
-    const y = Number(clave.slice(coma + 1));
-    if (!Number.isInteger(x) || !Number.isInteger(y)) continue;
+    const { x, y } = pointFromKey(clave);
     if (x < 0 || x >= ancho || y < 0 || y >= map.height) continue;
     const i = y * ancho + x;
     recto[i] = costeDeEntrada(map.terrain[i] as TerrainKind, true, false);

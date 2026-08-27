@@ -8,6 +8,7 @@
  */
 
 import { allSpells } from '@core/battle/spells.js';
+import { COMO_SE_LEE_EL_MAPA } from '@core/contract/serialize.js';
 import { allCreatures, creature, factionLineup } from '@core/data.js';
 import { allBuildings } from '@core/town/buildings.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -347,7 +348,10 @@ server.tool(
   'La batalla en curso, si la hay, desde tu punto de vista. Si no es tuya —el ' +
     'rival contra un monstruo— la ves igual, con los ojos del atacante, pero sin ' +
     'el maná ni el libro de hechizos de su héroe y sin "legalActions": ahí no ' +
-    'juegas tú. La nota de la respuesta lo dice.',
+    'juegas tú. Y en tu PROPIA batalla tampoco hay "legalActions" cuando el ' +
+    'turno lo tiene una unidad del otro bando: la lista es siempre la del stack ' +
+    'activo, y esa sería la del rival. En los dos casos la nota de la respuesta ' +
+    'dice cuál de las dos ausencias es.',
   { player: z.number().int().optional().describe(PARAMETRO_JUGADOR) },
   async ({ player }) => {
     const data = await consultar('battle_state', jugador(player));
@@ -365,25 +369,24 @@ server.tool(
  * `serializeKnownMap`, o sea por el mismo candado y la misma niebla que
  * `game_state`.
  *
- * La descripción dice las tres cosas que un agente **no puede deducir del
- * JSON**: que un `null` del terreno es ignorancia y no una casilla rara, que los
- * objetos son memoria fechada y no el presente, y que los caminos que faltan
- * pueden estar ahí sin haberlos visto. Sin decirlas, la respuesta se lee como un
- * mapa completo con agujeros.
+ * **La descripción no se escribe aquí.** Lo que hay que decir de este objeto —que
+ * un `null` del terreno es ignorancia y no una casilla rara, que los objetos son
+ * memoria fechada, que un camino que falta puede estar ahí, y qué cuesta pisar
+ * cada cosa— lo escribe `COMO_SE_LEE_EL_MAPA`, **pegado al serializador que lo
+ * produce**, y de ahí lo leen esta tool y `RESPONSE_FORMAT.adventure_turn`.
+ *
+ * Se hizo así porque las dos ya habían divergido: eran dos prosas a mano que se
+ * citaban la una a la otra —«es lo mismo que viaja en knownMap» / «es lo mismo
+ * que devuelve la tool map»— y la de aquí no tenía ni el agua infranqueable ni
+ * los costes, así que quien llamaba a la tool recibía una descripción
+ * estrictamente peor del **mismo** objeto. Lo único propio de esta puerta es la
+ * frase de arriba: que se puede pedir sin esperar turno.
  */
 const MAPA_DESCRIPCION =
   'El mapa de aventura tal y como lo conoces TÚ, sin esperar turno. Es lo mismo ' +
   'que viaja en "knownMap" dentro de adventure_turn, pero puedes pedirlo cuando ' +
   'quieras.\n' +
-  'Devuelve width, height, terrain[], roads[] y objects[]:\n' +
-  '- "terrain" es un array plano de width×height, indexado y*width+x. Una casilla ' +
-  'que no has explorado viaja como null, y ese null es IGNORANCIA, no un tipo de ' +
-  'terreno: no supongas que es hierba.\n' +
-  '- "objects" es lo que has OBSERVADO, con "lastSeen" (el día en que lo viste). ' +
-  'Si "lastSeen" es anterior a hoy el dato puede haber caducado: una mina cambia ' +
-  'de dueño y tú sigues viendo la bandera vieja hasta que alguien vuelva a mirar.\n' +
-  '- "roads" son solo los tramos que conoces. Que falte uno no significa que no ' +
-  'exista.';
+  COMO_SE_LEE_EL_MAPA;
 
 server.tool(
   'map',
