@@ -119,6 +119,33 @@ describe('generación de mapas', () => {
     expect(problemas.join(' ')).toMatch(/no puede llegar/);
   });
 
+  it('rechaza dos pueblos con el mismo id (#97)', () => {
+    // No choca con nada al construir, y eso es lo que lo hace peligroso:
+    // `buildMap` crea dos `Town` y dos `MapObject` con el mismo id, y desde ahí
+    // construir, reclutar o capturar encuentran siempre el primero. El segundo
+    // castillo existe y es inalcanzable.
+    const plan = generateMapPlan(createRng(11));
+    const repetido = {
+      ...plan,
+      towns: plan.towns.map((t, i) => ({ ...t, id: 't', at: i === 0 ? t.at : t.at })),
+    };
+    expect(validateMapPlan(repetido).join(' ')).toMatch(/dos pueblos con el id "t"/);
+  });
+
+  it('rechaza un jugador con dos posiciones de inicio (#97)', () => {
+    // `setup.ts` deriva el id del héroe del jugador y no del orden, así que dos
+    // inicios del 0 dan dos héroes `hero-0`.
+    const plan = generateMapPlan(createRng(12));
+    const doble = {
+      ...plan,
+      heroStarts: [
+        ...plan.heroStarts,
+        { player: 0, at: { x: plan.heroStarts[0]!.at.x + 1, y: plan.heroStarts[0]!.at.y } },
+      ],
+    };
+    expect(validateMapPlan(doble).join(' ')).toMatch(/jugador 0 tiene dos posiciones de inicio/);
+  });
+
   it('rechaza dos objetos en la misma casilla', () => {
     const plan = generateMapPlan(createRng(6));
     const chocado = {

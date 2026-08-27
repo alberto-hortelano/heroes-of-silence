@@ -109,6 +109,32 @@ export function validateMapPlan(plan: MapPlan): string[] {
   if (plan.towns.length < 2) problemas.push('hacen falta al menos dos pueblos');
   if (plan.heroStarts.length < 2) problemas.push('hacen falta al menos dos posiciones de inicio');
 
+  // Un id de pueblo repetido no choca con nada al construir: `buildMap` crea
+  // dos `Town` y dos `MapObject` con el mismo id, y a partir de ahí todo lo que
+  // busca un pueblo por su id —construir, reclutar, capturar, la pantalla del
+  // castillo— encuentra el primero y el segundo es inalcanzable. Es el tipo de
+  // plan que sale de un agente que numera mal, y hoy pasaba entero.
+  const vistos = new Set<string>();
+  for (const t of plan.towns) {
+    if (vistos.has(t.id))
+      problemas.push(`hay dos pueblos con el id "${t.id}": tienen que ser únicos`);
+    vistos.add(t.id);
+  }
+
+  // Y un jugador con dos inicios da dos héroes `hero-<player>`, con el mismo
+  // problema un piso más abajo: `setup.ts` deriva el id del jugador, no del
+  // orden. La comprobación es de UNICIDAD, no de cuáles: qué jugadores tenía que
+  // haber lo sabe quien pidió el mapa, y eso no es asunto de `core`.
+  const conInicio = new Set<PlayerId>();
+  for (const inicio of plan.heroStarts) {
+    if (conInicio.has(inicio.player)) {
+      problemas.push(
+        `el jugador ${inicio.player} tiene dos posiciones de inicio: solo puede tener una`,
+      );
+    }
+    conInicio.add(inicio.player);
+  }
+
   const conPueblo = new Set(plan.towns.filter((t) => t.owner !== null).map((t) => t.owner));
   for (const inicio of plan.heroStarts) {
     if (!dentro(inicio.at)) {

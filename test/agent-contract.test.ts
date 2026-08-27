@@ -84,6 +84,35 @@ describe('contrato con el agente', () => {
       expect(r.success, JSON.stringify(r.success ? '' : r.error.issues)).toBe(true);
     }
   });
+
+  it('el id y el nombre de un pueblo están acotados, no son `string` a secas (#97)', () => {
+    // Los dos únicos textos del plan que el motor usa VERBATIM: de `buildMap`
+    // salen al `MapObject`, al `Town`, y de ahí a la consulta `map`, a
+    // `game_state` y al canal del espectador. Un id con un salto de línea
+    // dentro además parte el bloque de veredictos, que se lee línea a línea.
+    const base = generateMapPlan(createRng(13));
+    const conPueblo = (parche: Record<string, unknown>): unknown => ({
+      ...base,
+      towns: [{ ...base.towns[0], ...parche }, base.towns[1]],
+    });
+
+    // Lo que ya se juega tiene que seguir pasando: `town-0` es el id del
+    // procedimental, y si el acotado lo rechazara no habría partida sin agente.
+    expect(mapPlanSchema.safeParse(conPueblo({ id: 'town-0' })).success).toBe(true);
+
+    for (const malo of ['', 'Pueblo Uno', '-town', 'TOWN', 'town/0', 'x'.repeat(33)]) {
+      const r = mapPlanSchema.safeParse(conPueblo({ id: malo }));
+      expect(r.success, `id ${JSON.stringify(malo)} debería rechazarse`).toBe(false);
+    }
+    for (const malo of ['', 'x'.repeat(41), 'Valde\nluz']) {
+      const r = mapPlanSchema.safeParse(conPueblo({ name: malo }));
+      expect(r.success, `name ${JSON.stringify(malo)} debería rechazarse`).toBe(false);
+    }
+    // Y el motivo se le dice al agente: un rechazo sin forma no se corrige.
+    const r = mapPlanSchema.safeParse(conPueblo({ id: 'Pueblo Uno' }));
+    if (r.success) throw new Error('«Pueblo Uno» debería rechazarse');
+    expect(r.error.issues.map((i) => i.message).join(' ')).toMatch(/minúsculas/);
+  });
 });
 
 describe('lo que ve el agente', () => {
@@ -251,6 +280,17 @@ describe('lo que ve el agente', () => {
     expect(RESPONSE_FORMAT.adventure_turn).toContain('recentEvents');
     expect(RESPONSE_FORMAT.adventure_turn).toMatch(/observabas cuando ocurrió/i);
     expect(RESPONSE_FORMAT.adventure_turn).toMatch(/silencio NO significa/i);
+  });
+
+  it('lo que el esquema del mapa acota, la prosa lo dice (#97)', () => {
+    // El esquema y la prosa viajan juntos en la misma petición, así que acotar
+    // sin anunciarlo es fabricar un rechazo que el agente no puede prever: no se
+    // corrige, reintenta. Lo mismo que se aprendió con `PARAMETRO_JUGADOR`.
+    expect(RESPONSE_FORMAT.map_generate).toMatch(/minúsculas/);
+    expect(RESPONSE_FORMAT.map_generate).toMatch(/town-0/);
+    expect(RESPONSE_FORMAT.map_generate).toMatch(/no puede repetirse/);
+    expect(RESPONSE_FORMAT.map_generate).toMatch(/heroStarts/);
+    expect(RESPONSE_FORMAT.map_generate).toMatch(/numerados desde 0/);
   });
 
   it('la petición de mapa describe la paleta disponible', () => {

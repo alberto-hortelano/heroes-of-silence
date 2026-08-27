@@ -86,8 +86,29 @@ export const mapPlanSchema = z.object({
   ),
   towns: z.array(
     z.object({
-      id: z.string(),
-      name: z.string(),
+      // El `id` y el `name` de un pueblo son los dos únicos textos del plan que
+      // el motor usa VERBATIM: `buildMap` los mete tal cual en el `MapObject` y
+      // en el `Town`, y de ahí salen por la consulta `map`, por `game_state` y
+      // por el canal del espectador. Antes eran `z.string()` a secas, o sea
+      // cualquier cosa de cualquier longitud, y una `id` con un salto de línea
+      // dentro se lleva por delante el bloque de veredictos, que se parsea línea
+      // a línea (`notas.ts`). Esto es un **contrato acotado** y NO es defensa
+      // contra XSS: la pantalla mete el nombre sin escapar en `innerHTML`
+      // (`panels.ts`), y eso es #63, que hay que cerrar antes de que un visor
+      // enseñe la partida del servidor.
+      id: z
+        .string()
+        .min(1)
+        .max(32)
+        .regex(
+          /^[a-z0-9][a-z0-9_-]*$/,
+          'un id de pueblo va en minúsculas y solo lleva letras, dígitos, guion y guion bajo, empezando por letra o dígito (p. ej. "town-0")',
+        ),
+      name: z
+        .string()
+        .min(1)
+        .max(40)
+        .regex(/^[^\n\r]+$/, 'el nombre de un pueblo es una sola línea, sin saltos'),
       faction: z.enum(['knight', 'necromancer']),
       at: pointSchema,
       owner: z.number().int().nullable(),
@@ -225,5 +246,15 @@ Reglas que se validan antes de aceptarlo:
 - Al menos dos pueblos y dos posiciones de inicio, y cada jugador con un pueblo.
 - Dos objetos no pueden compartir casilla.
 - Desde cada inicio se debe poder llegar a pie a todos los pueblos.
+- El "id" de un pueblo es un identificador, no un rótulo: minúsculas, letras,
+  dígitos, guion y guion bajo, empezando por letra o dígito, hasta 32
+  caracteres. "town-0" vale; "Pueblo Uno" no. Y no puede repetirse: dos pueblos
+  con el mismo id son dos castillos indistinguibles para todo lo demás.
+- El "name" es lo que lee una persona: una sola línea, sin saltos, hasta 40
+  caracteres.
+- "heroStarts" tiene que traer EXACTAMENTE los jugadores que se te piden,
+  numerados desde 0 y uno por jugador: con "players": 2 son el 0 y el 1, sin
+  repetir ninguno y sin inventarte un tercero. Un inicio de más deja dos héroes
+  con el mismo id; un jugador sin inicio se queda sin héroe y sin turnos.
 Si algo falla se te devuelve la lista de problemas para que lo corrijas.`,
 };
