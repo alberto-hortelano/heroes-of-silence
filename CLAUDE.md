@@ -11,8 +11,9 @@ El juego es el andamio; lo interesante es lo que se puede enchufar dentro.
 ```bash
 pnpm install
 pnpm dev        # cliente en http://localhost:3100 (juego local contra la IA de reglas)
-pnpm verify     # typecheck + lint + 333 tests, 8,4 s: el bucle rápido
-pnpm test       # 333 tests: reglas, batalla, partida completa y contrato del agente
+pnpm mirar      # MIRAR la partida del agente: /espectador/ contra el servidor
+pnpm verify     # typecheck + lint + 392 tests, 8,5 s: el bucle rápido
+pnpm test       # 392 tests: reglas, batalla, partida completa y contrato del agente
 pnpm typecheck
 pnpm lint       # Biome: formato y lint en una sola pasada, 40 ms
 pnpm format     # lo mismo, arreglando lo que sepa arreglar
@@ -46,7 +47,8 @@ y no sus tres órdenes sueltas a propósito: el bucle rápido se define una vez,
 `package.json`. **No gasta un céntimo**: no declara ninguna credencial y no
 invoca nada de `tools/gen/`.
 
-Para que juegue un **agente** hacen falta dos terminales:
+Para que juegue un **agente** hacen falta dos terminales, y una tercera si
+quieres **verlo**:
 
 ```bash
 # terminal 1 — el servidor de la partida.  NO se llama `pnpm server`: ver abajo
@@ -59,7 +61,18 @@ pnpm partida
 #   "heroes". Arráncalo desde la raíz del repo.
 #   pídele: "juega la partida: llama a heroes_listen, decide y responde con
 #            heroes_respond, y repite"
+
+# terminal 3 — OPCIONAL: la partida, vista.
+pnpm mirar
 ```
+
+**La tercera terminal es nueva y es la que cierra la frase con la que abre este
+documento.** Hasta #30, ver jugar al agente consistía en leer los `console.log`
+del servidor: el proyecto era un banco de pruebas para un juego con IA cuya demo
+no se podía enseñar. `pnpm mirar` abre `/espectador/`, que se cuelga del canal de
+espectadores —que ya emitía y no leía nadie— y pinta el mapa, las banderas, la
+crónica y **las batallas acción a acción**. Es de **solo lectura**: no manda un
+solo intent, y por eso no pasa por `session.ts`.
 
 **El script se llama `partida` y no `server`, y el motivo es una trampa de las
 que vuelven.** `server` es un **subcomando propio de pnpm** («Manage a store
@@ -104,8 +117,10 @@ src/core/          TypeScript puro: las reglas. Sin DOM y sin node:*
   contract/        esquemas zod y serialización para el agente
 src/server/        bridge WebSocket + puente MCP
 src/client/        Vite + Canvas 2D. Solo pinta y manda intents
+  html.ts          LA PUERTA: todo el marcado sale de aquí, ya escapado
   render/          una escena por pantalla: aventura, castillo y batalla
   views/           los paneles de HTML del lateral
+  espectador/      la otra página: mira la partida del servidor, no juega
 tools/gen/         generación de assets con fal.ai
 tools/qa/          verificación de extremo a extremo
 data/              criaturas, edificios y hechizos en JSON editable
@@ -115,8 +130,19 @@ assets/generated/  arte generado (lo sirve Vite como estático)
 ## Contratos que no se rompen
 
 - **La lógica vive en `core` y el cliente solo pinta.** El cliente no aplica
-  reglas: llama a `session.ts`, que es la única puerta al núcleo. Cuando el
-  cliente pase a hablar por WebSocket, cambia esa capa y nada más.
+  reglas: llama a `session.ts`, que es la única puerta al núcleo. La frase que
+  seguía a esta —«cuando el cliente pase a hablar por WebSocket, cambia esa capa
+  y nada más»— **la desmintió el espectador**: ya hay una página del cliente que
+  habla por WebSocket y **no pasa por `session.ts`**, porque no juega. Tiene su
+  propia entrada, `espectador/adaptar.ts`, que es la inversa exacta de la
+  serialización del servidor. La regla que sí aguanta es la de arriba: quien
+  aplique reglas pasa por `session.ts`; quien solo mira, no aplica ninguna.
+- **Todo el marcado del cliente sale por `html.ts`, y `pintar` es el único
+  `innerHTML` del repositorio.** Una plantilla `html` escapa cada hueco **según
+  dónde cae** —texto y atributo no son la misma operación— y lo que no entiende
+  **lanza** en vez de adivinar. Lo ya escapado se reconoce por un símbolo privado
+  del módulo, no por un tipo que se borra al compilar, así que lo anidado no se
+  escapa dos veces. Olvidarse no compila: `pintar` solo acepta `Html`.
 - **`core` es puro.** Nada de `node:*` ni de DOM: por eso los mismos tests
   valen para el navegador y para el servidor.
 - **Toda tirada pasa por `createRng(seed)`.** Sin eso no hay partidas
@@ -503,6 +529,92 @@ acción de aventura ilegal. Lo que sí cambia y hay que saberlo: cuando el mapa 
 pone el agente, **la semilla del servidor ya no reproduce esa partida**, y por eso
 lo dice en su consola.
 
+## Ver jugar al agente, y el marcado que eso abrió
+
+La primera línea de este documento dice que el proyecto es un banco de pruebas
+para un juego con IA. Hasta #30, **la demo no se podía enseñar**: ver jugar al
+agente era leer los `console.log` del servidor. El canal de espectadores llevaba
+desde su primer día emitiendo un snapshot completo en cada turno y **no lo leía
+nadie**, que es el mismo patrón de `map_generate` y del gremio de magia — otra
+capa escrita, probada y sin usuario.
+
+**Y no se enseña el mapa entre turnos: se enseñan las batallas.** El aviso llegó
+del crítico antes de que nadie escribiera código: con un fotograma por turno, en
+la cobertura de `pnpm qa` serían **3 diapositivas y cero batallas**, con 15 de las
+18 decisiones del agente resueltas fuera de cámara. La frecuencia se eligió con el
+número delante —un fotograma son **19,5 KB y 0,044 ms**, y `broadcast()` ya sale
+antes si no mira nadie—, así que va **por acción aplicada**. Medido después: **61
+fotogramas por partida, 43 con batalla**, contra 7 y ninguno.
+
+Lo que **no** se ve, dicho aquí y no descubierto luego: las batallas que no se
+queda nadie (`resolvePendingBattle`, `autoResolve`) se resuelven dentro de `core`
+y no dan ni un fotograma. Enseñarlas exigiría que `core` conociera a un
+observador, y eso es otra decisión (#103).
+
+**El espectador no pasa por `session.ts` y es lo correcto**, aunque desmienta una
+frase que este documento llevaba tiempo prometiendo. No juega: no manda un solo
+intent. Tiene su propia entrada, `espectador/adaptar.ts`, que es **la inversa
+exacta** de la serialización del servidor y el único sitio que rehace los dos
+`Set`. Y el `view` del snapshot dejó de ser `unknown`: se declara una vez, junto a
+su único constructor, porque un lector que parsea `unknown` reimplementa el
+esquema del emisor por su cuenta — dos declaraciones de lo mismo que nadie
+compara, que es justo lo que acababa de morder en `MapPlan`.
+
+### La puerta del marcado
+
+Abrir el visor obligaba a cerrar #63 antes, porque el espectador pinta **nombres
+que escribe el agente**. El arreglo no fue un `escape()`: **un `escape()` que hay
+que acordarse de llamar no es un guardia**, porque la primera vez que alguien
+añada un campo se le olvidará. Es una plantilla etiquetada, `html.ts`, y sus
+piezas son las que son por un motivo:
+
+- **Se escapa según DÓNDE cae el hueco**, deducido de la porción estática anterior
+  y cacheado por sitio de llamada. Texto y atributo son **dos funciones de
+  verdad**: en un atributo hay que escapar además `"` y `'`.
+- **Lo ya escapado se reconoce por un símbolo privado del módulo**, no por un tipo
+  que se borra al compilar. Sin eso, lo anidado se escapa **dos veces** — que era
+  la trampa que avisó la crítica.
+- **Lo que el analizador no entiende lanza**, nombrando el fragmento: atributo sin
+  comillas, `on*`, `<script>`.
+- Y `href`/`src`/`style` **no se escapan: se validan en su propio idioma**
+  (`srcDeImagen`, `fondoDeColor`, `urlDeImagenSegura`), porque escapar comillas no
+  para un `javascript:`. Esa la encontró el ingeniero: el plan los declaraba
+  prohibidos y `renderTopbar` ya interpolaba en dos de ellos.
+
+**El criterio de aceptación fue de máquina y no «se ve igual»**: un ancla generada
+del código de ANTES —las cuatro escenas, con nombres ajenos dentro— que se
+reproduce **byte a byte** después de reescribir las 15 funciones y sus 168 huecos.
+
+Y la puerta destapó dos bugs que un `escape()` jamás habría encontrado, los dos
+por cambiar cadenas por objetos: `crecimiento || '<div>Sin moradas</div>'` era
+correcto con cadenas y **falso con marcado** —un fragmento vacío es un objeto,
+`||` lo da por bueno siempre, y «Sin moradas» no se habría pintado nunca sin que
+`tsc` dijera nada—; y `ETIQUETA_EFECTO` estaba tipada `Record<string, string>`, o
+sea `string | undefined` con `noUncheckedIndexedAccess`, que habría pintado la
+palabra «undefined» en el parte de guerra.
+
+### Las dos lecciones que costaron una vuelta de QA
+
+**Una defensa que convierte un caso soportado en uno imposible es peor que no
+poner ninguna.** El espectador escribía `bandera(dueños[s.side] ?? -1)`, y
+`playerColor(null)` **ya devolvía el gris de neutral en su primera línea**. Ese
+`?? -1` cogía un valor que la función sabe manejar y lo convertía en uno que no:
+`-1 % 4` en JavaScript es `-1`, así que `PLAYER_COLORS[-1]` era `undefined`,
+**tapado por un `as string`**. Igual que el tercer `throw` de `frontera.ts`, un
+índice fuera de rango que se perdía en silencio; hoy `playerColor` lanza diciendo
+el número.
+
+**Y meter una función que lanza en un bucle que no las esperaba cambia su
+física.** El ciclo metió tres —`pintar`, `srcDeImagen`, `fondoDeColor`— dentro de
+dos bucles de `requestAnimationFrame` donde antes solo había asignaciones a
+`innerHTML`, que no lanzan. Y como `dibujar()` se re-armaba **en su última
+línea**, la excepción mataba el bucle entero: lienzo congelado, panel vacío, y la
+barra diciendo tan tranquila «Mirando la partida». Ahora el bucle se re-arma en un
+`finally`, el fallo **se dice** y al recuperarse se desdice. La causa de que
+llegara al navegador un fallo que tres líneas de test cazan es que el panel vivía
+en un módulo que toca `document` al importarse: **por eso salió a
+`espectador/paneles.ts`, que es puro.**
+
 ## La IA de batalla cede la iniciativa
 
 La cascada de `chooseBattleAction` (`src/core/ai/tactics.ts`) terminaba en dos
@@ -835,8 +947,9 @@ aportan en un prototipo. Lo que hay:
 | Comprobación | Cuánto tarda | Cuándo |
 |---|---|---|
 | `pnpm verify` | 8,4 s | siempre |
-| `test/invariantes.test.ts` | 40 ms | va dentro de `pnpm test` |
+| `test/invariantes.test.ts` | 505 ms | va dentro de `pnpm test` |
 | El navegador | minutos | si el cambio se ve |
+| El espectador en el navegador | minutos | si tocas `html.ts`, `espectador/` o el canal |
 | `pnpm qa` | 5,4 s | si tocas `src/server/` o el contrato |
 | `npx tsx tools/qa/barrido-semillas.ts` | 1,1 s | si tocas la IA o la economía |
 | `pnpm banco` | 1,7 s | si tocas el núcleo sin querer cambiar el juego |
@@ -873,8 +986,30 @@ que **cada `EffectKind` tenga un lector vivo**, que **`core` no importe
 la ruta absoluta de esta máquina**, que **la crónica sobreviva a un `JSON` de
 ida y vuelta**, que **el `as` que abre el candado de `state.log` viva en un
 solo sitio**, que **`core` no ejecute coma flotante que dependa de la
-plataforma** y que **`game_over` sea el último hecho de la crónica**. Todos nacen en verde: un guardia que nace rojo se ignora desde
-el primer día.
+plataforma**, que **`game_over` sea el último hecho de la crónica** y —el
+catorceavo— que **`pintar` sea el único `innerHTML` del repositorio**. Todos
+nacen en verde: un guardia que nace rojo se ignora desde el primer día.
+
+El de la puerta del marcado tiene **tres mitades y dos formas distintas**, y eso
+es deliberado. La que de verdad guarda es **blanca**: el token `HTML` solo puede
+aparecer seguido de uno de los tres tipos del DOM que el cliente nombra, así que
+caen `innerHTML`, `outerHTML`, `insertAdjacentHTML` **y las que todavía no
+existen** — se plantó `setHTMLUnsafe` y salió roja sin estar escrita en ninguna
+lista, y también un `replaceChildrenFromHTML` inventado. La segunda es **negra**
+y no hay forma de evitarlo, porque la lista blanca alternativa sería «las APIs
+del DOM permitidas», o sea el DOM entero, o sea abierta — y una lista abierta
+como blanca nace roja: ahí van `createContextualFragment`, `DOMParser` y
+`document.write`, y su docstring dice que **caduca**. La tercera es blanca otra
+vez y **por sitios y no por nombres**, que es el reencuadre que costó dos vueltas
+de QA: los sumideros que meten atributo o script sin parsear HTML —`setAttribute`,
+`a.href=`, `style.cssText=`, `iframe.srcdoc=`, `eval`, `new Function`— no se
+pueden enumerar por nombre, pero **los ficheros que pueden llamarlos sí**, y son
+dos: `html.ts` y `render/assets.ts`.
+
+Y una lección del ciclo que es la de siempre vuelta del revés: la primera versión
+de esa tercera mitad cazaba **nueve de quince** sondas, porque su autor escribió
+`setAttributeNS?` — que hace opcional la **S** y no el `NS`—. No se descubrió
+razonando el patrón: se descubrió **pasándole las quince, una a una**.
 
 El del candado busca el **cast** y no el `.push`, que es lo que el propio
 `GameState` documenta que no se puede buscar: un `log.push` es indistinguible
