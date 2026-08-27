@@ -11,8 +11,8 @@ El juego es el andamio; lo interesante es lo que se puede enchufar dentro.
 ```bash
 pnpm install
 pnpm dev        # cliente en http://localhost:3100 (juego local contra la IA de reglas)
-pnpm verify     # typecheck + lint + 310 tests, 7,2 s: el bucle rápido
-pnpm test       # 310 tests: reglas, batalla, partida completa y contrato del agente
+pnpm verify     # typecheck + lint + 333 tests, 8,4 s: el bucle rápido
+pnpm test       # 333 tests: reglas, batalla, partida completa y contrato del agente
 pnpm typecheck
 pnpm lint       # Biome: formato y lint en una sola pasada, 40 ms
 pnpm format     # lo mismo, arreglando lo que sepa arreglar
@@ -32,6 +32,12 @@ de donde la leen también `HEROES_SEED` y el servidor: `createRng` hace
 pedir semilla no es un error**: `?seed=` vacío y `HEROES_SEED=` vacía valen lo
 mismo que no escribirlas —se sortea en el navegador, se usa la de por defecto en
 el servidor—, que era donde los dos llamantes discrepaban.
+
+Todo eso sigue siendo cierto **en el navegador**, que juega en local y no le pide
+el mapa a nadie. Donde deja de serlo es en el **servidor**: desde #27, si el
+agente diseña el mapa, la semilla ya no reproduce esa partida —el mapa lo puso
+él, no ella— y la consola lo avisa al arrancar. Con el respaldo procedimental la
+semilla vuelve a mandar.
 
 Y hay CI: `.github/workflows/ci.yml` corre `pnpm verify`, `pnpm banco` y
 `vite build` en un job, y `pnpm qa` en otro, en cada push y cada PR contra
@@ -69,16 +75,21 @@ igual que un guardia hay que verlo morder.
 Verificación del circuito entero sin tocar nada a mano:
 
 ```bash
-pnpm qa   # arranca servidor + puente MCP y juega la partida, 5,4 s
+pnpm qa   # pide el mapa al agente, arranca servidor + puente MCP y juega, 5,4 s
 ```
 
 No solo comprueba que no reviente. Lee el bloque `CÓMO FUE LO ANTERIOR` de cada
 escucha y **cuenta** cuántas respuestas entraron y cuántas se descartaron, con
 el motivo; exige con `game_state` que lo pedido se **aplique** de verdad (el
 edificio concreto que se pidió, o el héroe en otra casilla); y ejercita las
-cinco consultas por su contenido —`battle_state` en plena batalla,
-`creature_stats`, `game_state`, `spell_list` y `building_list`—. Antes daba
-verde con cuatro de cuatro acciones descartadas.
+seis consultas por su contenido —`battle_state` en plena batalla, `map` con su
+niebla, `creature_stats`, `game_state`, `spell_list` y `building_list`—. Antes
+daba verde con cuatro de cuatro acciones descartadas.
+
+Y desde #27 **el mapa que se juega lo diseña el agente**: sus pueblos se llaman
+`qa-town-*`, y el arnés sale 1 si el primer `game_state` no los ve. Sin esa
+firma, un plan rechazado dejaría al servidor jugando el procedimental y el
+arnés daría verde sin haber ejercitado nada de lo que #27 añadió.
 
 ## Mapa del repositorio
 
@@ -140,7 +151,7 @@ assets/generated/  arte generado (lo sirve Vite como estático)
   que de verdad lo guarda: `pnpm banco`.** QA lo demostró rompiéndolo por donde el
   propio `frontera.ts` dice que no se puede: izar la instancia a nivel de módulo
   con un `reiniciar()` que repone `agotada` y `ultimoPop` **y no limpia
-  `ordenes`**. Reproducido al aceptarlo: **los 310 tests pasan**, los once de
+  `ordenes`**. Reproducido al aceptarlo: **los 310 tests de entonces pasan**, los once de
   `frontera.test.ts` incluidos, los tres `throw` se callan, y el volcado se va a
   32 159 líneas con otro sha — que es quien lo caza. El agujero es **anterior** a
   todo esto y sigue abierto; lo que cambia es que ya no se cree tapado.
@@ -354,13 +365,22 @@ servidor manda un `game_over` explícito —no un `close` interpretado—, el pu
 lo recuerda para quien conecte después, y un corte de conexión dice que **no
 consta** si la partida terminó en vez de inventárselo.
 
-Tipos de petición: `adventure_turn`, `battle_turn`, `map_generate` y
-`hero_banter`. Y hay tools de consulta (`game_state`, `battle_state`,
+Tipos de petición: `adventure_turn`, `battle_turn` y `map_generate`. Y hay
+**seis** tools de consulta (`game_state`, `battle_state`, `map`,
 `creature_stats`, `spell_list`, `building_list`) para mirar cosas sin volcarse
 la partida entera en el contexto.
 
-**Y el agente solo pregunta por los suyos.** `game_state` y `battle_state` llevan
-un parámetro `player`, y hasta hace poco se lo creían: `game_state{player:0}`
+Los tres tipos están vivos y se ejercen. **`hero_banter` era el cuarto y no
+existía**: se le anunciaba a un agente que no podía descubrir la mentira —el
+kind no estaba en `REQUEST_KINDS`, así que nadie se lo iba a pedir nunca y el
+anuncio no tenía forma de ponerse rojo—. Se retiró entero, y de paso se llevó un
+fallo latente: el `else` de `enSuLugar` le habría contestado «ese turno lo juega
+la IA de reglas» **sobre una frase de héroe**. Lo que quedó vigilándolo no es un
+test de que ya no esté —ese no puede ponerse rojo tampoco—, sino uno que compara
+los `case` de `decidir` contra `REQUEST_KINDS` **en las dos direcciones**.
+
+**Y el agente solo pregunta por los suyos.** `game_state`, `battle_state` y `map`
+llevan un parámetro `player`, y hasta hace poco se lo creían: `game_state{player:0}`
 devolvía la crónica del rival, sus recursos, sus héroes y sus castillos. Con la
 crónica ya filtrada por la niebla, eso dejaba cerrada la puerta principal y
 abierta la de al lado — y hacía **falsa** la frase con la que se cerró aquel
@@ -368,12 +388,18 @@ trabajo. Ahora `responderConsulta` recibe qué jugadores lleva el agente y
 **rechaza diciéndolo**, nombrando los suyos: *«no puedes consultar por el jugador
 0: no es tuyo. Llevas el jugador 1: pregunta por ese»*. La descripción de la tool
 dice qué acepta, porque un agente que recibe un rechazo sin haber sido avisado no
-se corrige: reintenta.
+se corrige: reintenta. Hay un **segundo** motivo por el que una consulta se
+rechaza diciéndolo, y es nuevo: durante la ventana de arranque —desde que se abre
+el canal hasta que hay mapa— todavía no existe partida por la que preguntar, y se
+contesta que se está esperando su plan en vez de reventar.
 
 **Y la niebla tapa también las consultas.** Cerrar la crónica dejó la puerta
 principal cerrada y **tres de al lado abiertas**, y ninguna la alcanzaba nadie
 todavía: se taparon **antes** de abrir la puerta, que es más barato que
-quitárselo a un agente que ya lo tenía.
+quitárselo a un agente que ya lo tenía. **La puerta ya está abierta**: la tool
+`map` se publicó en #33, y llegó a un sitio que llevaba tapado desde antes de que
+hubiera quien mirara. La apuesta salió bien y conviene recordar por qué se hizo,
+porque la alternativa —publicar y tapar después— es la que parece más barata.
 
 - La consulta `map` devolvía el mapa **entero** y ni miraba por quién. Ahora pasa
   por `jugadorDelAgente` y por `serializeKnownMap`, que filtra por `player.fog`.
@@ -411,9 +437,71 @@ Cambia la niebla de todas las partidas, así que el volcado se movió a propósi
 `fin`, y todas **ganando** observador sin que ninguna lo pierda. Un hash nuevo lo
 habría dado por bueno también si la visión hubiera cambiado *decisiones*.
 
+## El mapa lo diseña el agente, y el plan se valida entero
+
 En `map_generate` el agente **no dibuja**: devuelve un plan declarativo y
-`buildMap` lo construye. `validateMapPlan` lo rechaza si algún castillo queda
-inalcanzable o si dos objetos comparten casilla.
+`buildMap` lo construye. La frase de arriba del repositorio —«los mapas los
+diseña ese mismo agente»— fue aspiracional hasta #27: `map_generate` tenía
+esquema, validación, serializador, prosa de respuesta y **ningún llamante**.
+Otra capa escrita, probada, documentada y muerta, como la experiencia y el
+gremio; y se destapa igual, dándole un usuario.
+
+**Lo primero que aparece al darle uno es que las dos mitades no encajaban.**
+`MapPlan` (el tipo, en `core`) y `mapPlanSchema` (el esquema, en el contrato) son
+la misma cosa declarada dos veces, y con `exactOptionalPropertyTypes` un
+`owner?: PlayerId` **prohíbe** el `undefined` que produce un `.optional()` de
+zod. O sea que el plan del agente, parseado por el esquema del propio contrato,
+no era asignable al tipo que lo tenía que recibir. Nadie lo notaba porque los dos
+nunca se habían encontrado. Cuando una cosa se declara dos veces, lo que las
+mantiene en sintonía no es la disciplina: es que alguien las ponga en contacto.
+
+**El plan se validaba en tres cuartas partes, y la que faltaba mataba la
+partida.** La paleta que se le manda al agente tiene cuatro listas: el terreno,
+los recursos y la facción viajaban por `z.enum`, y la criatura por `z.string()`.
+La criatura es el **único texto del plan que el motor ejecuta en vez de leer**:
+`buildMap` la copia verbatim y el primer turno de la IA llama a `creature(id)`.
+Con `"dragon"` en vez de `"bone_dragon"` —o `"Skeleton"` con mayúscula— el agente
+recibía **«Tu plan de mapa entró»** y el proceso moría en el día 1.
+
+Lo grave no era que reventara: era **dónde**. Este repositorio falla ruidosamente
+a propósito, pero un fallo ruidoso **después del acuse** llega cuando ya no se
+puede corregir, y para el agente es indistinguible de un servidor roto. Un plan
+malo tiene que morir en la puerta. Y el defecto es de esta especie exacta: #97
+vino a cerrarla —texto del agente usado verbatim— y acotó `id` y `name`, que son
+los que **no** revientan.
+
+**La comprobación vive en `validateMapPlan` y no en el esquema, y eso es lo que
+manda.** El `z.enum` gana en que el rechazo viaja con la prosa; `validateMapPlan`
+gana en que es la **puerta única por la que pasan los dos productores de planes**,
+el agente y el procedimental. Un enum habría dejado al generador de casa sin
+vigilar justo en el campo que mata el proceso. La regla se anuncia además en
+`RESPONSE_FORMAT`, pero eso es el anuncio y no la comprobación: no está en dos
+sitios. Y la lista de criaturas se **deriva del catálogo**, porque copiada aquí
+sería la cuarta enumeración de lo mismo y se quedaría atrás en silencio.
+
+Buscando más de la misma especie salieron tres puertas de al lado, las tres
+abiertas y ninguna ruidosa: los **inicios no ocupaban casilla** (dos héroes
+juntos, o uno encima del castillo rival), **`owner` aceptaba cualquier entero**
+(un castillo de un jugador que no juega, un tercer bando fantasma) y el servidor
+pedía 24×24 y **aceptaba un 128×128** contra su propio docstring.
+
+**Y diseñar el mapa no puede ser repartirse el turno.** `setup.ts` derivaba
+`state.players` del **orden** de `heroStarts`, así que con los inicios del revés
+el agente abría la partida el día 1 — y la comprobación que había miraba el
+conjunto, no el orden. Se ordena en el motor y no se le exige al agente: **una
+regla que el motor puede cumplir solo no se delega en quien tiene interés en
+incumplirla**. Del orden salían tres cosas y no una —`players`, `heroes` y el
+nombre de cada héroe—, así que arreglar solo `players` cerraba el síntoma y
+dejaba los héroes mal.
+
+**El respaldo son ocho caminos y los ocho terminan igual.** Sin agente atado,
+agente mudo, desconexión en vuelo, respuesta sin forma, esquema rechazado,
+`validateMapPlan` rechaza, criatura inexistente, jugadores que no son los de la
+partida: en todos arranca la partida con el mapa procedimental, el motivo le
+llega al agente y la consola lo dice. **No hay reintento**, igual que con una
+acción de aventura ilegal. Lo que sí cambia y hay que saberlo: cuando el mapa lo
+pone el agente, **la semilla del servidor ya no reproduce esa partida**, y por eso
+lo dice en su consola.
 
 ## La IA de batalla cede la iniciativa
 
@@ -746,7 +834,7 @@ aportan en un prototipo. Lo que hay:
 
 | Comprobación | Cuánto tarda | Cuándo |
 |---|---|---|
-| `pnpm verify` | 7,2 s | siempre |
+| `pnpm verify` | 8,4 s | siempre |
 | `test/invariantes.test.ts` | 40 ms | va dentro de `pnpm test` |
 | El navegador | minutos | si el cambio se ve |
 | `pnpm qa` | 5,4 s | si tocas `src/server/` o el contrato |
@@ -757,12 +845,13 @@ aportan en un prototipo. Lo que hay:
 
 Los tiempos están **medidos**, tres pasadas cada uno, no estimados: los que
 había antes decían 3 s y «~1 min» y llevaban ciclos siendo falsos. Que `pnpm qa`
-tarde 5 s y no un minuto no es una mejora: es que la partida se acaba el día 3
-porque el agente defiende y pierde, así que la cobertura real son **2 turnos de
-mapa y 14 decisiones de batalla** — eran 13 hasta que la IA aprendió a esperar.
+tarde 5 s y no un minuto no es una mejora: es que la partida se acaba el día 4
+porque el agente defiende y pierde, así que la cobertura real son **1 mapa
+diseñado, 3 turnos de mapa y 15 decisiones de batalla** — eran 2 y 13 antes de
+que la IA aprendiera a esperar y de que el agente diseñara el mapa.
 
-`pnpm qa` **no entra en `pnpm verify`**, y ahora sí es por lo que tarda: 7,2 +
-5,4 = 12,6 s en cada final de tarea, para un guardia que solo dice algo cuando se
+`pnpm qa` **no entra en `pnpm verify`**, y ahora sí es por lo que tarda: 8,4 +
+5,4 = 13,8 s en cada final de tarea, para un guardia que solo dice algo cuando se
 toca `src/server/` o el contrato. El motivo de antes era otro y ya no existe:
 abría los puertos **fijos** 9880/9881 y salía 1 con `EADDRINUSE` si había un
 `pnpm partida` levantado —la forma documentada de jugar con el agente—, así que el
