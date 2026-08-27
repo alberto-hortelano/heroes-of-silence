@@ -1,0 +1,398 @@
+### aventura · renderTopbar.resources
+<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>9000</li>
+### aventura · renderSide
+
+        <h2>Aldo de Valdeluz</h2>
+        <div class="row"><span class="label">Movimiento</span><span>1100 / 1100</span></div>
+        <div class="row"><span class="label">Maná</span><span>20 / 20</span></div>
+        <div class="row"><span class="label">Ataque / Defensa</span><span>2 / 2</span></div>
+        <div class="row"><span class="label">Poder / Conocimiento</span><span>1 / 2</span></div>
+        <div class="row"><span class="label">Experiencia</span><span>0</span></div>
+        <h3>Hechizos</h3>
+        <div class="stack-list"><div class="stack"><span>Flecha mágica</span><span class="count">3</span></div></div>
+        <h3>Ejército (32)</h3>
+        <div class="stack-list"><div class="stack"><span>Campesino</span><span class="count">25</span></div><div class="stack"><span>Arquero ↑</span><span class="count">7</span></div><div class="stack empty"><span>—</span></div><div class="stack empty"><span>—</span></div><div class="stack empty"><span>—</span></div></div><h3>Castillos</h3><div class="stack-list"><button data-action="open-town" data-town="town-0" class="stack">
+              <span>Valdeluz</span><span class="count">+500</span>
+            </button></div>
+    <h3>Crónica</h3><div class="log"><div>— Día 1 —</div><div>El jugador 1 construye: Gremio de magia I</div><div>El jugador 1 recluta 8 × Esqueleto</div><div>— Día 2 —</div><div>El jugador 1 construye: Morada de nivel 2</div><div>El jugador 1 recluta 6 × Zombi</div><div>— Día 3 —</div></div>
+### aventura · renderActions
+
+        <button data-action="toggle-fog">Ver mapa entero</button>
+        <button data-action="end-turn" class="primary" >
+          Fin de turno
+        </button>
+### aventura · renderLog
+<div class="log"><div>— Día 1 —</div><div>El jugador 1 construye: Gremio de magia I</div><div>El jugador 1 recluta 8 × Esqueleto</div><div>— Día 2 —</div><div>El jugador 1 construye: Morada de nivel 2</div><div>El jugador 1 recluta 6 × Zombi</div><div>— Día 3 —</div></div>
+### castillo · con héroe dentro y gremio · renderTopbar.resources
+<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>15</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>15</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>6000</li>
+### castillo · con héroe dentro y gremio · renderSide
+
+    <h2>Valdeluz</h2>
+    <div class="row"><span class="label">Ingresos</span><span>500 oro/día</span></div>
+    <div class="row"><span class="label">Gremio de magia</span><span>1</span></div>
+    <h3>Enseña</h3><div class="stack-list"><div class="stack"><span>Prisa <span class="count">n.1</span></span><span class="count">3</span></div><div class="stack"><span>Flecha mágica <span class="count">n.1</span></span><span class="count">3</span></div><div class="stack"><span>Lentitud <span class="count">n.1</span></span><span class="count">3</span></div></div>
+    <p class="cost">Un héroe tuyo parado aquí los aprende solo.</p>
+    <div class="row"><span class="label">Construir hoy</span><span>ya hecho</span></div>
+    <p class="cost">Pulsa un solar para levantarlo y la franja de abajo para reclutar.</p>
+
+    <h3>Crecimiento semanal</h3>
+    <div class="stack-list"><div class="stack"><span>Campesino</span><span class="count">+12</span></div></div>
+
+    <h3>Guarnición</h3>
+    <div class="stack-list"><div class="stack empty"><span>—</span></div><div class="stack empty"><span>—</span></div><div class="stack empty"><span>—</span></div><div class="stack empty"><span>—</span></div><div class="stack empty"><span>—</span></div></div>
+
+    <h3>Ejército de Aldo de Valdeluz</h3><div class="stack-list"><div class="stack"><span>Campesino</span><span class="count">25</span></div><div class="stack"><span>Arquero ↑</span><span class="count">7</span></div><div class="stack empty"><span>—</span></div><div class="stack empty"><span>—</span></div><div class="stack empty"><span>—</span></div></div>
+### castillo · con héroe dentro y gremio · renderActions
+<button data-action="close-town">Volver al mapa</button>
+### castillo · con héroe dentro y gremio · renderLog
+<div class="log"><div>— Día 1 —</div><div class="win">Construido: Gremio de magia I</div><div class="win">Aprendido: Prisa, Lentitud</div></div>
+### castillo · sin héroe y sin gremio · renderTopbar.resources
+<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>8000</li>
+### castillo · sin héroe y sin gremio · renderSide
+
+    <h2>Valdeluz</h2>
+    <div class="row"><span class="label">Ingresos</span><span>500 oro/día</span></div>
+    <div class="row"><span class="label">Gremio de magia</span><span>—</span></div>
+    <p class="cost">Sin gremio: construye uno para que tus héroes aprendan magia aquí.</p>
+    <div class="row"><span class="label">Construir hoy</span><span>disponible</span></div>
+    <p class="cost">Pulsa un solar para levantarlo y la franja de abajo para reclutar.</p>
+
+    <h3>Crecimiento semanal</h3>
+    <div class="stack-list"><div class="stack"><span>Campesino</span><span class="count">+12</span></div></div>
+
+    <h3>Guarnición</h3>
+    <div class="stack-list"><div class="stack empty"><span>—</span></div><div class="stack empty"><span>—</span></div><div class="stack empty"><span>—</span></div><div class="stack empty"><span>—</span></div><div class="stack empty"><span>—</span></div></div>
+
+    <button data-action="hire-hero" class="primary" style="margin-top:.7rem">Contratar héroe (2500 oro)</button>
+### castillo · sin héroe y sin gremio · renderActions
+<button data-action="close-town">Volver al mapa</button>
+### castillo · sin héroe y sin gremio · renderLog
+<div class="log"><div>— Día 1 —</div></div>
+### aventura · héroe recién contratado · renderTopbar.resources
+<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>5500</li>
+### aventura · héroe recién contratado · renderSide
+
+        <h2>Capitán de Valdeluz</h2>
+        <div class="row"><span class="label">Movimiento</span><span>1500 / 1500</span></div>
+        <div class="row"><span class="label">Maná</span><span>10 / 10</span></div>
+        <div class="row"><span class="label">Ataque / Defensa</span><span>1 / 1</span></div>
+        <div class="row"><span class="label">Poder / Conocimiento</span><span>1 / 1</span></div>
+        <div class="row"><span class="label">Experiencia</span><span>0</span></div>
+        <h3>Hechizos</h3>
+        <div class="stack-list"><div class="stack empty">Sin hechizos: llévalo a un castillo con gremio</div></div>
+        <h3>Ejército (0)</h3>
+        <div class="stack-list"><div class="stack empty"><span>—</span></div><div class="stack empty"><span>—</span></div><div class="stack empty"><span>—</span></div><div class="stack empty"><span>—</span></div><div class="stack empty"><span>—</span></div></div><h3>Héroes</h3><div class="stack-list"><button data-action="select-hero" data-hero="hero-0" class="stack">
+              <span>Aldo de Valdeluz</span><span class="count">1100</span>
+            </button><button data-action="select-hero" data-hero="hero-0-2-1" class="stack">
+              <span>Capitán de Valdeluz</span><span class="count">1500</span>
+            </button></div><h3>Castillos</h3><div class="stack-list"><button data-action="open-town" data-town="town-0" class="stack">
+              <span>Valdeluz</span><span class="count">+500</span>
+            </button></div>
+    <h3>Crónica</h3><div class="log"><div>— Día 1 —</div><div class="win">Héroe contratado</div></div>
+### aventura · héroe recién contratado · renderActions
+
+        <button data-action="toggle-fog">Ver mapa entero</button>
+        <button data-action="end-turn" class="primary" >
+          Fin de turno
+        </button>
+### aventura · héroe recién contratado · renderLog
+<div class="log"><div>— Día 1 —</div><div class="win">Héroe contratado</div></div>
+### batalla · en marcha · renderTopbar.resources
+<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>8000</li>
+### batalla · en marcha · renderSide
+<h2>Campesino</h2>
+        <div class="row"><span class="label">Bando</span><span>Tú</span></div>
+        <div class="row"><span class="label">Efectivos</span><span>8</span></div>
+        <div class="row"><span class="label">Moral / Suerte</span><span>1 / 0</span></div>
+        
+    <div class="row"><span class="label">Ronda</span><span>1</span></div>
+    <div class="row"><span class="label">Maná</span><span>20 / 20</span></div>
+    <h3>Acciones</h3>
+       <div class="stack-list">
+         <button data-action="battle-defend">Defender</button>
+         <button data-action="battle-wait" >Esperar</button>
+       </div>
+       <h3>Hechizos</h3><div class="stack-list"><button data-action="battle-spell" data-spell="magic_arrow"
+        class="stack"
+        
+        title="Cuesta 3 de maná">
+        <span>Flecha mágica</span><span class="count">3</span>
+      </button></div>
+    
+       <p class="cost" style="margin-top:.5rem">
+         Haz clic en un hexágono verde para moverte, o sobre un enemigo para atacarlo.
+       </p>
+    <h3>En el campo</h3><div class="stack-list"><div class="stack empty">
+          <span>◀ Esqueleto</span>
+          <span class="count">23</span>
+        </div><div class="stack empty">
+          <span>◀ Zombi</span>
+          <span class="count">7</span>
+        </div><div class="stack">
+          <span>▶ Campesino</span>
+          <span class="count">8</span>
+        </div><div class="stack empty">
+          <span>▶ Arquero</span>
+          <span class="count">8</span>
+        </div></div>
+    <h3>Parte de guerra</h3><div class="log"><div>— Ronda 1 —</div><div>Hechizo Flecha mágica: 20 de daño</div></div>
+### batalla · en marcha · renderActions
+<button data-action="auto-battle">Resolver sola</button>
+### batalla · en marcha · renderLog
+<div class="log"><div>— Día 1 —</div></div>
+### batalla · terminada · renderTopbar.resources
+<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>8000</li>
+### batalla · terminada · renderSide
+<h2>Derrota</h2>
+      <p>Tu héroe ha caído.</p>
+      <h3>Parte de guerra</h3><div class="log"><div>— Ronda 1 —</div><div>Disparo: 9 de daño, 2 bajas</div><div>— Ronda 2 —</div><div>Ataque: 55 de daño, 28 bajas</div><div class="lose">Una unidad tuya ha sido aniquilada</div><div>Disparo: 26 de daño, 6 bajas</div><div>— Ronda 3 —</div><div>Ataque: 50 de daño, 5 bajas</div><div>Contraataque: 10 de daño, 3 bajas</div><div>Ataque: 7 de daño, 2 bajas</div><div>Contraataque: 22 de daño, 2 bajas</div><div>— Ronda 4 —</div><div>Ataque: 22 de daño, 1 bajas</div><div class="lose">Una unidad tuya ha sido aniquilada</div><div class="lose">Fin: gana el atacante</div></div>
+### batalla · terminada · renderActions
+<button data-action="finish-battle" class="primary">Continuar</button>
+### batalla · terminada · renderLog
+<div class="log"><div>— Día 1 —</div></div>
+### partida terminada · renderTopbar.resources
+<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>5</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>0</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>3060</li>
+### partida terminada · renderSide
+<p>No tienes héroes en el mapa. Contrata uno en tu castillo.</p><h3>Castillos</h3><div class="stack-list"><button data-action="open-town" data-town="town-0" class="stack">
+              <span>Valdeluz</span><span class="count">+2000</span>
+            </button><button data-action="open-town" data-town="town-1" class="stack">
+              <span>Cripta Gris</span><span class="count">+500</span>
+            </button></div>
+    <h3>Crónica</h3><div class="log"><div class="win">Reclutados 4 × Espadachín</div><div>El jugador 1 construye: Morada de nivel 3</div><div>El jugador 1 recluta 4 × Momia</div><div>— Día 4 —</div><div class="win">Construido: Casa consistorial</div><div>Batalla resuelta</div><div class="win">Ha caído un héroe del jugador 1</div><div>El jugador 1 contrata un héroe</div><div>El jugador 1 incorpora una guarnición</div><div>El jugador 1 aprende: Prisa, Flecha mágica, Lentitud</div><div>— Día 5 —</div><div class="win">Construido: Palacio municipal</div><div>Batalla resuelta</div><div class="win">Un héroe tuyo sube a nivel 2</div><div class="win">Ha caído un héroe del jugador 1</div><div>El jugador 1 construye: Taberna</div><div>— Día 6 —</div><div class="win">Construido: Mejora de nivel 4</div><div class="win">Has capturado un castillo del jugador 1</div><div class="win">Fin de la partida</div></div>
+### partida terminada · renderActions
+<button data-action="restart" class="primary">Partida nueva</button>
+### partida terminada · renderLog
+<div class="log"><div class="win">Reclutados 4 × Espadachín</div><div>El jugador 1 construye: Morada de nivel 3</div><div>El jugador 1 recluta 4 × Momia</div><div>— Día 4 —</div><div class="win">Construido: Casa consistorial</div><div>Batalla resuelta</div><div class="win">Ha caído un héroe del jugador 1</div><div>El jugador 1 contrata un héroe</div><div>El jugador 1 incorpora una guarnición</div><div>El jugador 1 aprende: Prisa, Flecha mágica, Lentitud</div><div>— Día 5 —</div><div class="win">Construido: Palacio municipal</div><div>Batalla resuelta</div><div class="win">Un héroe tuyo sube a nivel 2</div><div class="win">Ha caído un héroe del jugador 1</div><div>El jugador 1 construye: Taberna</div><div>— Día 6 —</div><div class="win">Construido: Mejora de nivel 4</div><div class="win">Has capturado un castillo del jugador 1</div><div class="win">Fin de la partida</div></div>
+### aventura · turno del rival · renderTopbar.resources
+<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>8000</li>
+### aventura · turno del rival · renderSide
+
+        <h2>Aldo de Valdeluz</h2>
+        <div class="row"><span class="label">Movimiento</span><span>1100 / 1100</span></div>
+        <div class="row"><span class="label">Maná</span><span>20 / 20</span></div>
+        <div class="row"><span class="label">Ataque / Defensa</span><span>2 / 2</span></div>
+        <div class="row"><span class="label">Poder / Conocimiento</span><span>1 / 2</span></div>
+        <div class="row"><span class="label">Experiencia</span><span>0</span></div>
+        <h3>Hechizos</h3>
+        <div class="stack-list"><div class="stack"><span>Flecha mágica</span><span class="count">3</span></div></div>
+        <h3>Ejército (32)</h3>
+        <div class="stack-list"><div class="stack"><span>Campesino</span><span class="count">25</span></div><div class="stack"><span>Arquero ↑</span><span class="count">7</span></div><div class="stack empty"><span>—</span></div><div class="stack empty"><span>—</span></div><div class="stack empty"><span>—</span></div></div><h3>Castillos</h3><div class="stack-list"><button data-action="open-town" data-town="town-0" class="stack">
+              <span>Valdeluz</span><span class="count">+500</span>
+            </button></div>
+    <h3>Crónica</h3><div class="log"><div>— Día 1 —</div></div>
+### aventura · turno del rival · renderActions
+
+        <button data-action="toggle-fog">Ver mapa entero</button>
+        <button data-action="end-turn" class="primary" disabled>
+          Fin de turno
+        </button>
+### aventura · turno del rival · renderLog
+<div class="log"><div>— Día 1 —</div></div>
+### batalla · turno del enemigo · renderTopbar.resources
+<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>8000</li>
+### batalla · turno del enemigo · renderSide
+<h2>Esqueleto</h2>
+        <div class="row"><span class="label">Bando</span><span>Enemigo</span></div>
+        <div class="row"><span class="label">Efectivos</span><span>23</span></div>
+        <div class="row"><span class="label">Moral / Suerte</span><span>0 / 0</span></div>
+        
+    <div class="row"><span class="label">Ronda</span><span>1</span></div>
+    <div class="row"><span class="label">Maná</span><span>20 / 20</span></div>
+    <p>Turno del enemigo…</p>
+    <h3>En el campo</h3><div class="stack-list"><div class="stack">
+          <span>◀ Esqueleto</span>
+          <span class="count">23</span>
+        </div><div class="stack empty">
+          <span>◀ Zombi</span>
+          <span class="count">7</span>
+        </div><div class="stack empty">
+          <span>▶ Campesino</span>
+          <span class="count">28</span>
+        </div><div class="stack empty">
+          <span>▶ Arquero</span>
+          <span class="count">8</span>
+        </div></div>
+    <h3>Parte de guerra</h3><div class="log"><div>— Ronda 1 —</div></div>
+### batalla · turno del enemigo · renderActions
+<button data-action="auto-battle">Resolver sola</button>
+### batalla · turno del enemigo · renderLog
+<div class="log"><div>— Día 1 —</div></div>
+### batalla · en espera y sin maná · renderTopbar.resources
+<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>8000</li>
+### batalla · en espera y sin maná · renderSide
+<h2>Campesino</h2>
+        <div class="row"><span class="label">Bando</span><span>Tú</span></div>
+        <div class="row"><span class="label">Efectivos</span><span>8</span></div>
+        <div class="row"><span class="label">Moral / Suerte</span><span>1 / 0</span></div>
+        
+    <div class="row"><span class="label">Ronda</span><span>1</span></div>
+    <div class="row"><span class="label">Maná</span><span>0 / 20</span></div>
+    <h3>Acciones</h3>
+       <div class="stack-list">
+         <button data-action="battle-defend">Defender</button>
+         <button data-action="battle-wait" disabled>Esperar</button>
+       </div>
+       <h3>Hechizos</h3><div class="stack-list"><button data-action="battle-spell" data-spell="magic_arrow"
+        class="stack"
+        disabled
+        title="maná insuficiente: cuesta 3 y quedan 0">
+        <span>Flecha mágica</span><span class="count">3</span>
+      </button></div>
+    
+       <p class="cost" style="margin-top:.5rem">
+         Haz clic en un hexágono verde para moverte, o sobre un enemigo para atacarlo.
+       </p>
+    <h3>En el campo</h3><div class="stack-list"><div class="stack empty">
+          <span>◀ Esqueleto</span>
+          <span class="count">23</span>
+        </div><div class="stack empty">
+          <span>◀ Zombi</span>
+          <span class="count">7</span>
+        </div><div class="stack">
+          <span>▶ Campesino</span>
+          <span class="count">8</span>
+        </div><div class="stack empty">
+          <span>▶ Arquero</span>
+          <span class="count">8</span>
+        </div></div>
+    <h3>Parte de guerra</h3><div class="log"><div>— Ronda 1 —</div><div>Hechizo Flecha mágica: 20 de daño</div></div>
+### batalla · en espera y sin maná · renderActions
+<button data-action="auto-battle">Resolver sola</button>
+### batalla · en espera y sin maná · renderLog
+<div class="log"><div>— Día 1 —</div></div>
+### batalla · tirador activo · renderTopbar.resources
+<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>8000</li>
+### batalla · tirador activo · renderSide
+<h2>Arquero</h2>
+        <div class="row"><span class="label">Bando</span><span>Tú</span></div>
+        <div class="row"><span class="label">Efectivos</span><span>8</span></div>
+        <div class="row"><span class="label">Moral / Suerte</span><span>1 / 0</span></div>
+        <div class="row"><span class="label">Munición</span><span>12</span></div>
+    <div class="row"><span class="label">Ronda</span><span>1</span></div>
+    <div class="row"><span class="label">Maná</span><span>20 / 20</span></div>
+    <h3>Acciones</h3>
+       <div class="stack-list">
+         <button data-action="battle-defend">Defender</button>
+         <button data-action="battle-wait" >Esperar</button>
+       </div>
+       <h3>Hechizos</h3><div class="stack-list"><button data-action="battle-spell" data-spell="magic_arrow"
+        class="stack"
+        
+        title="Cuesta 3 de maná">
+        <span>Flecha mágica</span><span class="count">3</span>
+      </button></div>
+    
+       <p class="cost" style="margin-top:.5rem">
+         Haz clic en un hexágono verde para moverte, o sobre un enemigo para atacarlo.
+       </p>
+    <h3>En el campo</h3><div class="stack-list"><div class="stack empty">
+          <span>◀ Esqueleto</span>
+          <span class="count">23</span>
+        </div><div class="stack empty">
+          <span>◀ Zombi</span>
+          <span class="count">7</span>
+        </div><div class="stack empty">
+          <span>▶ Campesino</span>
+          <span class="count">28</span>
+        </div><div class="stack">
+          <span>▶ Arquero</span>
+          <span class="count">8</span>
+        </div></div>
+    <h3>Parte de guerra</h3><div class="log"><div>— Ronda 1 —</div></div>
+### batalla · tirador activo · renderActions
+<button data-action="auto-battle">Resolver sola</button>
+### batalla · tirador activo · renderLog
+<div class="log"><div>— Día 1 —</div></div>
+### batalla · parte de guerra completo · renderTopbar.resources
+<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>8000</li>
+### batalla · parte de guerra completo · renderSide
+<h2>Victoria</h2>
+      <p>El campo es tuyo.</p>
+      <h3>Parte de guerra</h3><div class="log"><div>— Ronda 3 —</div><div>Ataque: 12 de daño, 2 bajas</div><div>Contraataque: 3 de daño, 0 bajas</div><div>Ataque (carga de 3 hexes): 20 de daño, 4 bajas</div><div>Disparo: 8 de daño, 1 bajas</div><div>Salpicadura: 4 de daño, 0 bajas</div><div>Hechizo Flecha mágica: 10 de daño</div><div>Hechizo Prisa</div><div class="win">Moral alta: turno extra</div><div class="lose">Moral baja: turno perdido</div><div class="win">¡Golpe afortunado!</div><div class="lose">Golpe desafortunado</div><div class="win">Prisa: velocidad +2 durante 3 rondas</div><div class="lose">Terror: ataque -2 durante 1 ronda</div><div>Se disipa: Lentitud</div><div>Inmune a Maldición al golpear: los no-muertos no tienen ánimo que quebrar</div><div class="win">Una unidad enemiga ha sido aniquilada</div><div class="lose">Una unidad tuya ha sido aniquilada</div><div class="win">Fin: gana el defensor</div></div>
+### batalla · parte de guerra completo · renderActions
+<button data-action="finish-battle" class="primary">Continuar</button>
+### batalla · parte de guerra completo · renderLog
+<div class="log"><div>— Día 1 —</div></div>
+### batalla · hechizo elegido · renderTopbar.resources
+<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>8000</li>
+### batalla · hechizo elegido · renderSide
+<h2>Campesino</h2>
+        <div class="row"><span class="label">Bando</span><span>Tú</span></div>
+        <div class="row"><span class="label">Efectivos</span><span>8</span></div>
+        <div class="row"><span class="label">Moral / Suerte</span><span>1 / 0</span></div>
+        
+    <div class="row"><span class="label">Ronda</span><span>1</span></div>
+    <div class="row"><span class="label">Maná</span><span>20 / 20</span></div>
+    <h3>Acciones</h3>
+       <div class="stack-list">
+         <button data-action="battle-defend">Defender</button>
+         <button data-action="battle-wait" >Esperar</button>
+       </div>
+       <h3>Hechizos</h3><div class="stack-list"><button data-action="battle-spell" data-spell="magic_arrow"
+        class="stack primary"
+        
+        title="Cuesta 3 de maná">
+        <span>Flecha mágica</span><span class="count">3</span>
+      </button></div>
+    <p class="cost" style="margin-top:.5rem">Flecha mágica: pulsa sobre la unidad objetivo. Escape cancela.</p>
+       <p class="cost" style="margin-top:.5rem">
+         Haz clic en un hexágono verde para moverte, o sobre un enemigo para atacarlo.
+       </p>
+    <h3>En el campo</h3><div class="stack-list"><div class="stack empty">
+          <span>◀ Esqueleto</span>
+          <span class="count">23</span>
+        </div><div class="stack empty">
+          <span>◀ Zombi</span>
+          <span class="count">7</span>
+        </div><div class="stack">
+          <span>▶ Campesino</span>
+          <span class="count">8</span>
+        </div><div class="stack empty">
+          <span>▶ Arquero</span>
+          <span class="count">8</span>
+        </div></div>
+    <h3>Parte de guerra</h3><div class="log"><div>— Ronda 1 —</div><div>Hechizo Flecha mágica: 20 de daño</div></div>
+### batalla · hechizo elegido · renderActions
+<button data-action="auto-battle">Resolver sola</button>
+### batalla · hechizo elegido · renderLog
+<div class="log"><div>— Día 1 —</div></div>
+### batalla · héroe sin libro · renderTopbar.resources
+<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>8000</li>
+### batalla · héroe sin libro · renderSide
+<h2>Campesino</h2>
+        <div class="row"><span class="label">Bando</span><span>Tú</span></div>
+        <div class="row"><span class="label">Efectivos</span><span>8</span></div>
+        <div class="row"><span class="label">Moral / Suerte</span><span>1 / 0</span></div>
+        
+    <div class="row"><span class="label">Ronda</span><span>1</span></div>
+    <div class="row"><span class="label">Maná</span><span>20 / 20</span></div>
+    <h3>Acciones</h3>
+       <div class="stack-list">
+         <button data-action="battle-defend">Defender</button>
+         <button data-action="battle-wait" >Esperar</button>
+       </div>
+       <h3>Hechizos</h3>
+      <div class="stack-list"><div class="stack empty">Este héroe no conoce ninguno</div></div>
+       <p class="cost" style="margin-top:.5rem">
+         Haz clic en un hexágono verde para moverte, o sobre un enemigo para atacarlo.
+       </p>
+    <h3>En el campo</h3><div class="stack-list"><div class="stack empty">
+          <span>◀ Esqueleto</span>
+          <span class="count">23</span>
+        </div><div class="stack empty">
+          <span>◀ Zombi</span>
+          <span class="count">7</span>
+        </div><div class="stack">
+          <span>▶ Campesino</span>
+          <span class="count">8</span>
+        </div><div class="stack empty">
+          <span>▶ Arquero</span>
+          <span class="count">8</span>
+        </div></div>
+    <h3>Parte de guerra</h3><div class="log"><div>— Ronda 1 —</div><div>Hechizo Flecha mágica: 20 de daño</div></div>
+### batalla · héroe sin libro · renderActions
+<button data-action="auto-battle">Resolver sola</button>
+### batalla · héroe sin libro · renderLog
+<div class="log"><div>— Día 1 —</div></div>
+### crónica completa · renderLog
+<div class="log"><div>— Día 4 —</div><div class="win">+2 madera</div><div class="win">Mina capturada</div><div class="win">Mina capturada al jugador 1</div><div class="lose">El jugador 1 te ha quitado una mina</div><div>El jugador 1 captura una mina</div><div class="win">Has capturado un castillo neutral</div><div class="win">Has capturado un castillo del jugador 1</div><div class="lose">El jugador 1 te ha capturado un castillo</div><div>El jugador 1 captura un castillo neutral</div><div class="win">Construido: Casa consistorial</div><div>El jugador 1 construye: Gremio de magia I</div><div class="win">Reclutados 12 × Campesino</div><div>El jugador 1 recluta 8 × Esqueleto</div><div class="win">Héroe contratado</div><div>El jugador 1 contrata un héroe</div><div class="win">Guarnición incorporada</div><div>El jugador 1 incorpora una guarnición</div><div class="win">Aprendido: Prisa, Lentitud</div><div>El jugador 1 aprende: Flecha mágica</div><div>Batalla resuelta</div><div class="lose">Un héroe tuyo ha caído</div><div class="win">Ha caído un héroe del jugador 1</div><div class="win">Un héroe tuyo sube a nivel 2</div><div>Un héroe del jugador 1 sube a nivel 3</div><div class="win">Fin de la partida</div></div>
