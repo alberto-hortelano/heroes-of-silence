@@ -225,6 +225,29 @@ describe('generación de mapas', () => {
     expect(validateMapPlan({ ...plan, towns: plan.towns.map((t) => ({ ...t })) })).toEqual([]);
   });
 
+  it('el ORDEN de heroStarts no decide quién abre la partida', () => {
+    // `currentPlayer` juega por el índice de `state.players`, y `state.players`
+    // salía del orden en que el plan escribe `heroStarts`. Con el mapa en manos
+    // del agente eso es repartirse la iniciativa: mandando los inicios del revés
+    // abría él el día 1. Comprobado en el circuito real antes de arreglarlo.
+    const plan = generateMapPlan(createRng(34));
+    const alDerecho = newGame({ seed: 34, plan });
+    const alReves = newGame({
+      seed: 34,
+      plan: { ...plan, heroStarts: [...plan.heroStarts].reverse() },
+    });
+
+    for (const state of [alDerecho, alReves]) {
+      expect(state.players.map((p) => p.id)).toEqual([0, 1]);
+      expect(state.heroes.map((h) => h.owner)).toEqual([0, 1]);
+      // Y la facción va con el jugador, no con la posición en la lista.
+      expect(state.players[0]!.faction).toBe(plan.towns.find((t) => t.owner === 0)!.faction);
+    }
+    // Invertir los inicios da la MISMA partida, no una parecida: el orden del
+    // plan deja de ser una palanca.
+    expect(JSON.stringify(alReves.heroes)).toBe(JSON.stringify(alDerecho.heroes));
+  });
+
   it('rechaza dos objetos en la misma casilla', () => {
     const plan = generateMapPlan(createRng(6));
     const chocado = {

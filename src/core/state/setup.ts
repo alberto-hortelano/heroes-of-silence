@@ -55,7 +55,22 @@ export function newGame(options: NewGameOptions = {}): GameState {
     if (t.owner !== null && !factionOf.has(t.owner)) factionOf.set(t.owner, t.faction);
   }
 
-  const heroes: Hero[] = plan.heroStarts.map((inicio, i) => {
+  // Los inicios, ORDENADOS por jugador, y de aquí salen las tres cosas que el
+  // orden decide: `state.players`, `state.heroes` y el nombre de cada héroe.
+  //
+  // `currentPlayer` juega por el índice de `state.players`, así que derivarlo
+  // del orden en que el plan escribe `heroStarts` le regalaba la iniciativa a
+  // quien diseña el mapa: con los inicios del revés, el agente abría la partida
+  // el día 1. Diseñar el mapa no puede ser también repartirse el turno, y menos
+  // con el equilibrio entre facciones ya declarado frágil (#89).
+  //
+  // Se ordena aquí, en el único sitio donde el plan se convierte en partida, en
+  // vez de exigírselo al agente: una regla que el motor puede cumplir solo no se
+  // delega en quien tiene interés en incumplirla. La prosa del contrato se lo
+  // dice para que no lo intente.
+  const inicios = [...plan.heroStarts].sort((a, b) => a.player - b.player);
+
+  const heroes: Hero[] = inicios.map((inicio, i) => {
     const faction = factionOf.get(inicio.player) ?? 'knight';
     const nombres = HERO_NAMES[faction];
     const hero: Hero = {
@@ -85,7 +100,7 @@ export function newGame(options: NewGameOptions = {}): GameState {
     return hero;
   });
 
-  const players = plan.heroStarts.map((inicio) => ({
+  const players = inicios.map((inicio) => ({
     id: inicio.player,
     faction: factionOf.get(inicio.player) ?? ('knight' as FactionId),
     controller: options.controllers?.[inicio.player] ?? ('ai' as Controller),
