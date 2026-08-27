@@ -11,6 +11,7 @@ import { type BattleTakeover, playAiTurn } from '@core/ai/turn.js';
 import { activeStack, applyAction } from '@core/battle/battle.js';
 import type { BattleAction } from '@core/battle/types.js';
 import { serializeAdventureTurn, serializeBattleTurn } from '@core/contract/serialize.js';
+import type { MapPlan } from '@core/map/generate.js';
 import { createRng } from '@core/rng.js';
 import {
   type AdventureAction,
@@ -36,6 +37,16 @@ import {
 
 export interface DirectorOptions {
   readonly seed?: number;
+  /**
+   * El mapa ya diseñado, si alguien lo trae hecho.
+   *
+   * El director sigue siendo síncrono y sigue sin saber que existe un agente al
+   * que pedirle cosas: recibe un plan o no lo recibe. Quien lo pide es
+   * `ws-server.ts`, que es el único que sabe que hay alguien al otro lado del
+   * cable — y el único módulo de este directorio que nadie puede probar de
+   * todos modos.
+   */
+  readonly plan?: MapPlan;
   /** Jugadores cuyo turno decide el agente. */
   readonly agentPlayers?: readonly PlayerId[];
 }
@@ -58,7 +69,7 @@ export class Director {
     options: DirectorOptions = {},
   ) {
     const seed = options.seed ?? 20260823;
-    this.state = newGame({ seed });
+    this.state = newGame({ seed, ...(options.plan === undefined ? {} : { plan: options.plan }) });
     this.ctx = { rng: createRng(seed ^ 0xa9e7) };
     this.agentPlayers = new Set(options.agentPlayers ?? [1]);
   }

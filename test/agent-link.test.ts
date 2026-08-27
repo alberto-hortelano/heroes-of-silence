@@ -17,6 +17,7 @@ import type { Point } from '../src/core/types.js';
 import { AgentLink } from '../src/server/agent-link.js';
 import { responderConsulta } from '../src/server/consultas.js';
 import { Director } from '../src/server/director.js';
+import { SIN_PARTIDA_TODAVIA } from '../src/server/notas.js';
 
 /** Agente de mentira: responde leyendo el payload, como haría uno de verdad. */
 interface FakeAgent {
@@ -26,6 +27,18 @@ interface FakeAgent {
   readonly results: { requestId: string; ok: boolean; problems?: string[]; note?: string }[];
   /** El aviso de fin de partida, que llega sin haberlo pedido. */
   readonly finales: { winner: number | null; note: string }[];
+  /**
+   * Una consulta fuera de turno, por el cable y no llamando a `responderConsulta`.
+   *
+   * Los demás tests de consultas preguntan directamente al módulo, que es más
+   * barato y basta para lo que miran. Esto hace falta cuando lo que se
+   * comprueba es qué le LLEGA al agente: que un rechazo viaja como
+   * `query_result ok:false` con su motivo, y no como un socket que se muere.
+   */
+  pregunta: (
+    what: string,
+    args?: Record<string, unknown>,
+  ) => Promise<{ ok: boolean; data?: unknown; error?: string }>;
   close: () => void;
 }
 
@@ -69,6 +82,8 @@ async function conectaAgente(
   const seen: FakeAgent['seen'] = [];
   const results: FakeAgent['results'] = [];
   const finales: FakeAgent['finales'] = [];
+  const esperando = new Map<string, (r: { ok: boolean; data?: unknown; error?: string }) => void>();
+  let contador = 0;
   // El oyente se ata ANTES de esperar a `open`, como hace el puente de verdad:
   // atarlo después pierde lo que el servidor mande nada más conectar, que es
   // justo el aviso de fin de partida guardado para quien llega tarde.
@@ -87,6 +102,11 @@ async function conectaAgente(
       });
       return;
     }
+    if (msg.type === 'query_result') {
+      esperando.get(msg.queryId)?.({ ok: msg.ok, data: msg.data, error: msg.error });
+      esperando.delete(msg.queryId);
+      return;
+    }
     if (msg.type !== 'request') return;
     seen.push({ requestId: msg.requestId, kind: msg.kind, payload: msg.payload });
     const data = responder(msg.kind, msg.payload);
@@ -101,7 +121,15 @@ async function conectaAgente(
   await respira(50);
 
   abiertos.push(() => socket.close());
-  return { socket, seen, results, finales, close: () => socket.close() };
+  const pregunta: FakeAgent['pregunta'] = (what, args = {}) => {
+    contador += 1;
+    const queryId = `q-${contador}`;
+    return new Promise((resolve) => {
+      esperando.set(queryId, resolve);
+      socket.send(JSON.stringify({ type: 'query', queryId, what, args }));
+    });
+  };
+  return { socket, seen, results, finales, pregunta, close: () => socket.close() };
 }
 
 async function montar(
@@ -813,6 +841,45 @@ describe('la consulta `map` pasa por la niebla', () => {
     );
     // Sin `player` contesta por el suyo, como las otras dos.
     expect(entregado(director, 'map', {})).not.toBe('');
+  });
+});
+
+/**
+ * La ventana en la que ya hay agente y todavía no hay partida.
+ *
+ * Nace con el arranque asíncrono de #27: si el mapa lo diseña el agente, no
+ * puede haber `GameState` hasta que lo entregue, y hasta entonces el `Director`
+ * es `null`. `ws-server.ts` no se puede probar —abre dos puertos en cuanto se
+ * importa—, así que lo que se prueba aquí es la FORMA de su guarda: que un
+ * `onQuery` que lanza le llega al agente como un rechazo con su motivo, y no
+ * como un socket muerto ni como un silencio.
+ */
+describe('el agente pregunta antes de que exista la partida', () => {
+  it('le llega el motivo por el cable, y el canal sigue vivo', async () => {
+    const link = new AgentLink(4000);
+    const url = await servidorDePruebas(link);
+    // La misma guarda que monta `ws-server.ts` mientras `director === null`.
+    let director: Director | null = null;
+    link.onQuery((what, args) => {
+      if (director === null) throw new Error(SIN_PARTIDA_TODAVIA);
+      return responderConsulta(director, what, args);
+    });
+    const agent = await conectaAgente(url, () => undefined);
+
+    const antes = await agent.pregunta('game_state', {});
+    expect(antes.ok).toBe(false);
+    // El motivo dice qué falta y quién tiene que hacerlo: un rechazo que no
+    // nombra la salida deja al agente reintentando lo mismo.
+    expect(antes.error).toMatch(/todavía no hay partida/);
+    expect(antes.error).toContain('map_generate');
+
+    // Y en cuanto la partida existe, la misma consulta contesta: el rechazo era
+    // del momento y no de la tool. Sin esto, un guardia que se quedara pegado
+    // pasaría este test igual de verde.
+    director = new Director(link, { seed: 410, agentPlayers: [1] });
+    const despues = await agent.pregunta('game_state', {});
+    expect(despues.ok).toBe(true);
+    expect((despues.data as any).you.player).toBe(1);
   });
 });
 

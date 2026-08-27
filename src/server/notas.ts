@@ -55,6 +55,23 @@ export const PREFIJO_CORTE = 'SE HA PERDIDO LA CONEXIÓN';
  */
 export const PREFIJO_RELEVO = 'ESCUCHA RELEVADA';
 
+/**
+ * Todavía no hay partida que consultar.
+ *
+ * Es la ventana entre que el agente se ata al canal y que el mapa está
+ * construido: el servidor le pide el plan y no puede haber `GameState` antes de
+ * que lo entregue. Sus consultas en ese hueco ni revientan con un mensaje de
+ * programador ni se inventan un estado: se rechazan diciendo qué falta y quién
+ * tiene que hacerlo, que es él.
+ *
+ * Sale por `query_result` con `ok:false`, que es el mismo camino por el que ya
+ * viaja «no puedes consultar por el jugador 0: no es tuyo».
+ */
+export const SIN_PARTIDA_TODAVIA =
+  'todavía no hay partida que consultar: estoy esperando tu plan de mapa. Contesta a la ' +
+  'petición "map_generate" con heroes_respond y vuelve a preguntar cuando la partida haya ' +
+  'empezado.';
+
 // ------------------------------------------------- el bloque de veredictos
 
 /** Por dónde empieza el bloque de acuses de lo anterior. */

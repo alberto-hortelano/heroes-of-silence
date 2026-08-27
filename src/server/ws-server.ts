@@ -14,7 +14,7 @@ import { type WebSocket, WebSocketServer } from 'ws';
 import { AgentLink } from './agent-link.js';
 import { responderConsulta } from './consultas.js';
 import { Director } from './director.js';
-import { notaFinDePartida } from './notas.js';
+import { notaFinDePartida, SIN_PARTIDA_TODAVIA } from './notas.js';
 import type { ServerToSpectatorMsg } from './protocol.js';
 import { puertoAgente, puertoEspectadores } from './puertos.js';
 
@@ -31,15 +31,33 @@ const MAX_DAYS = Number(process.env.HEROES_MAX_DAYS ?? 200);
 const WAIT_FOR_AGENT_MS = Number(process.env.HEROES_WAIT_AGENT_MS ?? 120_000);
 
 const link = new AgentLink();
-const director = new Director(link, { seed: SEED, agentPlayers: [1] });
+
+/**
+ * La partida, que ya no existe desde el instante en que se importa el módulo.
+ *
+ * Antes se construía aquí mismo —`new Director(...)` en una constante—, y con
+ * ella el mapa: el `Director` llama a `newGame` dentro de su constructor. Eso
+ * dejaba el mapa hecho **antes** de que hubiera nadie a quien pedírselo, que es
+ * lo que impedía enchufar `map_generate` (#27). Ahora nace en `main()`, y
+ * mientras tanto esto es `null` a la vista de todos en vez de un objeto a medio
+ * construir.
+ */
+let director: Director | null = null;
 
 // ---------------------------------------------------------------- consultas
 
 // El director entero y no `director.state`: una consulta necesita saber qué
 // jugadores lleva el agente para no contestar por el rival, y eso ya lo sabe él.
-link.onQuery((what, args) => responderConsulta(director, what, args));
-
-// ---------------------------------------------------------------- agente
+//
+// Y se registra ANTES de abrir el puerto del agente, porque desde que la
+// partida arranca en asíncrono hay una ventana en la que el agente ya está
+// atado y todavía no hay `GameState`. Lo que se le dice en esa ventana es que
+// falta su plan de mapa: el canal lleva la frase tal cual por `query_result`
+// con `ok:false`.
+link.onQuery((what, args) => {
+  if (director === null) throw new Error(SIN_PARTIDA_TODAVIA);
+  return responderConsulta(director, what, args);
+});
 
 /** El puerto que le tocó de verdad. `address()` es un string solo en sockets Unix. */
 function puertoReal(server: WebSocketServer): number {
@@ -50,34 +68,15 @@ function puertoReal(server: WebSocketServer): number {
   return dir.port;
 }
 
-const agentServer = new WebSocketServer({ port: puertoAgente() });
-agentServer.on('connection', (socket) => {
-  console.log('[servidor] el puente del agente se ha conectado');
-  link.attach(socket);
-});
-// El puerto REAL y no el pedido, y por eso desde `listening` y no antes: con
-// `HEROES_AGENT_PORT=0` lo elige el sistema, así que imprimir lo que se pidió
-// sería imprimir un cero. De esta línea saca el arnés a dónde conectar el
-// puente, y de paso ya no se anuncia un canal que todavía no está escuchando.
-agentServer.on('listening', () => {
-  console.log(`[servidor] canal del agente en ws://localhost:${puertoReal(agentServer)}`);
-});
-
 // ---------------------------------------------------------------- mirones
 
 const spectators = new Set<WebSocket>();
-const spectatorServer = new WebSocketServer({ port: puertoEspectadores() });
-spectatorServer.on('connection', (socket) => {
-  spectators.add(socket);
-  socket.on('close', () => spectators.delete(socket));
-  broadcast();
-});
-spectatorServer.on('listening', () => {
-  console.log(`[servidor] canal de espectadores en ws://localhost:${puertoReal(spectatorServer)}`);
-});
 
 function broadcast(): void {
   if (spectators.size === 0) return;
+  // Sin partida no hay nada que retransmitir, y esto es alcanzable de verdad:
+  // un espectador puede conectarse mientras se espera el mapa del agente.
+  if (director === null) return;
   const state = director.state;
   const msg: ServerToSpectatorMsg = {
     type: 'snapshot',
@@ -159,7 +158,7 @@ async function esperarAgente(): Promise<void> {
   }
 }
 
-async function jugar(): Promise<void> {
+async function jugar(director: Director): Promise<void> {
   while (!director.finished && director.state.day <= MAX_DAYS) {
     if (director.agentPlayers.has(director.state.current)) await esperarAgente();
 
@@ -203,7 +202,44 @@ async function jugar(): Promise<void> {
   broadcast();
 }
 
-jugar().catch((err) => {
+/**
+ * El arranque, ahora en asíncrono y en un orden que importa.
+ *
+ * Los dos canales se abren ANTES de construir la partida: el del agente porque
+ * hay que dejarle conectarse para poder pedirle nada, y el de los espectadores
+ * porque un mirón que llega temprano no tiene por qué esperar a que empiece.
+ */
+async function main(): Promise<void> {
+  const agentServer = new WebSocketServer({ port: puertoAgente() });
+  agentServer.on('connection', (socket) => {
+    console.log('[servidor] el puente del agente se ha conectado');
+    link.attach(socket);
+  });
+  // El puerto REAL y no el pedido, y por eso desde `listening` y no antes: con
+  // `HEROES_AGENT_PORT=0` lo elige el sistema, así que imprimir lo que se pidió
+  // sería imprimir un cero. De esta línea saca el arnés a dónde conectar el
+  // puente, y de paso ya no se anuncia un canal que todavía no está escuchando.
+  agentServer.on('listening', () => {
+    console.log(`[servidor] canal del agente en ws://localhost:${puertoReal(agentServer)}`);
+  });
+
+  const spectatorServer = new WebSocketServer({ port: puertoEspectadores() });
+  spectatorServer.on('connection', (socket) => {
+    spectators.add(socket);
+    socket.on('close', () => spectators.delete(socket));
+    broadcast();
+  });
+  spectatorServer.on('listening', () => {
+    console.log(
+      `[servidor] canal de espectadores en ws://localhost:${puertoReal(spectatorServer)}`,
+    );
+  });
+
+  director = new Director(link, { seed: SEED, agentPlayers: [1] });
+  await jugar(director);
+}
+
+main().catch((err) => {
   console.error('[servidor] la partida ha reventado:', err);
   // También cuando revienta: un agente bloqueado sin motivo es peor que uno que
   // sabe que hubo un fallo y puede contarlo.
