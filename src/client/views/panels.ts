@@ -20,7 +20,7 @@ import { type Spell, spell } from '@core/battle/spells.js';
 import type { BattleState, Side } from '@core/battle/types.js';
 import { creature, isShooter } from '@core/data.js';
 import { armySize, maxMana, maxMovePoints } from '@core/hero/hero.js';
-import type { GameEvent } from '@core/state/events.js';
+import type { GameEventDraft } from '@core/state/events.js';
 import { building } from '@core/town/buildings.js';
 import { dailyIncome, dwellings, mageGuildLevel, type Town, townSpells } from '@core/town/town.js';
 import type { Army } from '@core/types.js';
@@ -518,8 +518,17 @@ function renderBattleLog(battle: BattleState, mio: Side | null): Html {
  * la persona se le pintaba como derrota propia. El color se sigue usando para
  * distinguir lo tuyo de lo suyo, que es presentación y es a propósito, pero
  * ahora con el dato en la mano en vez de suponiéndolo.
+ *
+ * Toma `GameEventDraft` y no `GameEvent`, o sea la crónica **sin el sello**: no
+ * lee `seen` ni una vez, y así vale también para el espectador, al que la crónica
+ * le llega ya sin él. Un `GameEvent` encaja donde se pide un borrador, así que el
+ * cliente que juega sigue llamando igual.
+ *
+ * `viewer` es quien la lee. El espectador no es nadie —no tiene un «tú»—, y por
+ * eso pasa un id que no es de ningún jugador: entonces toda la crónica se lee en
+ * tercera persona, que es lo correcto para quien mira desde fuera.
  */
-export function renderLog(log: readonly GameEvent[], viewer: number): Html {
+export function renderLog(log: readonly GameEventDraft[], viewer: number): Html {
   /**
    * Quién, en las tres formas que pide la frase: sujeto, genitivo y dativo.
    * Son tres y no una porque componer «de» o «a» con el sujeto no vale en

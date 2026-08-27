@@ -37,6 +37,12 @@ por la criatura más lenta del ejército, puntos de hechizo = 10 × Conocimiento
 el formato de respuesta en el mismo mensaje. Si no hay agente conectado, juega
 una IA de reglas y la partida sigue igual.
 
+**Y se le puede ver jugar.** `pnpm mirar` abre una página de solo lectura que
+enseña la partida del servidor: el mapa, las banderas, el día, la crónica y —esto
+es lo que importa— **las batallas acción a acción**, que son la mayoría de las
+decisiones que toma el agente. También lo que va pensando: el `reasoning` que
+manda con cada turno sale ahí, escapado como todo lo demás.
+
 **El arte se genera.** 140 imágenes con [fal.ai](https://fal.ai) por 3,74 $,
 incluidas 72 poses de animación y los edificios de las dos facciones. Cada
 criatura se anima con **una sola llamada**: las seis poses viajan en el mismo
@@ -46,8 +52,8 @@ atlas, que es lo que mantiene al personaje reconocible entre fotogramas.
 
 ```bash
 pnpm install
-pnpm dev      # http://localhost:3100
-pnpm test     # 76 tests
+pnpm dev      # http://localhost:3100 — la partida local contra la IA de reglas
+pnpm test
 ```
 
 Para que juegue un agente hacen falta dos terminales:
@@ -59,10 +65,22 @@ pnpm partida                      # terminal 1: la partida
 #    heroes_respond, y repite»
 ```
 
+Y una tercera terminal para **mirar** esa partida mientras se juega:
+
+```bash
+pnpm mirar                        # abre http://localhost:3100/espectador/
+```
+
+El espectador es de **solo lectura**: no manda ni una acción, solo escucha el
+canal del servidor y pinta. Se conecta a `ws://localhost:9880`, que es lo que
+mueve `HEROES_SPECTATOR_PORT`; si el servidor arrancó con `0` —para que el puerto
+lo elija el sistema— la página lo dice y te manda a
+`/espectador/?puerto=NNNN`, con el número que imprime `pnpm partida`.
+
 Y para comprobar el circuito entero sin tocar nada a mano:
 
 ```bash
-npx tsx tools/qa/verify-agent.ts
+pnpm qa
 ```
 
 ## Generar el arte
@@ -87,6 +105,7 @@ proyecto, no el de la tanda.
 src/core/      las reglas. TypeScript puro: sin DOM y sin node:*
 src/server/    bridge WebSocket + puente MCP para el agente
 src/client/    Vite + Canvas 2D. Una escena por pantalla; solo pinta
+               espectador/ es la página que mira la partida del servidor
 tools/gen/     generación de assets con fal.ai
 data/          criaturas, edificios y hechizos en JSON editable
 ```

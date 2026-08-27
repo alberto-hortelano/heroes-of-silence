@@ -748,6 +748,15 @@ describe('invariantes del proyecto', () => {
   it('FAL_KEY no llega al navegador', () => {
     // El arte se genera en scripts de línea de órdenes; el cliente solo carga
     // PNGs. Una clave de pago en el bundle es un incidente, no un despiste.
-    expect(infractores(CLIENTE, /FAL_KEY|process\.env/)).toEqual([]);
+    //
+    // Mira el CÓDIGO y no el fichero, y esto lo cambió el ciclo del espectador:
+    // miraba el fichero entero y se puso rojo con un COMENTARIO que explicaba
+    // por qué el puerto entra por `define` y no por el entorno. Es la tercera
+    // vez que este fichero aprende lo mismo —el de la coma flotante ya nacía
+    // rojo con seis presas y todas falsas—: **un guardia que caza su propia
+    // explicación se ignora desde el primer día**, y una mención en un
+    // comentario no filtra ninguna clave. Las cadenas NO se blanquean, así que
+    // un acceso indirecto escrito como texto sigue cayendo.
+    expect(infractoresDeCodigo(CLIENTE, /FAL_KEY|process\.env/)).toEqual([]);
   });
 });

@@ -1,14 +1,49 @@
 /** Dibuja el mapa de aventura. Solo pinta: no toca el estado. */
 
-import type { Hero } from '@core/hero/hero.js';
 import { type MapObject, pointKey } from '@core/map/map.js';
 import type { TerrainKind } from '@core/map/terrain.js';
-import type { GameState } from '@core/state/game.js';
 import type { Point } from '@core/types.js';
 import { asset } from './assets.js';
 import { playerColor, RESOURCE_COLORS, TERRAIN_COLORS } from './palette.js';
 
 export const TILE = 42;
+
+/**
+ * Lo que este lienzo necesita de una partida, y **nada más**.
+ *
+ * Pedía un `GameState` entero y leía once campos. Eso obligaba a quien no
+ * tuviera uno —el espectador, que recibe una vista serializada por el cable— a
+ * fabricar un `GameState` FALSO para poder llamar aquí: un objeto con
+ * `pendingBattle`, `log`, `seed` y `finished` inventados solo para satisfacer al
+ * compilador, que es la clase de mentira que dentro de seis meses alguien lee
+ * como si fuera la partida.
+ *
+ * Con el tipo estructural, `GameState` lo satisface tal cual —`main.ts` no
+ * cambia ni un carácter (11)— y la vista adaptada del espectador también, sin
+ * que ninguno de los dos tenga que fingir nada.
+ *
+ * Los `Set` son parte del contrato: `roads` y `fog` se preguntan con `.has()`
+ * por clave `"x,y"`, y es `adaptar.ts` quien los rehace al otro lado del cable.
+ */
+export interface AdventureScene {
+  readonly map: {
+    readonly width: number;
+    readonly height: number;
+    readonly terrain: readonly TerrainKind[];
+    readonly roads: ReadonlySet<string>;
+    readonly objects: readonly MapObject[];
+  };
+  readonly players: readonly { readonly id: number; readonly fog: ReadonlySet<string> }[];
+  readonly heroes: readonly {
+    readonly id: string;
+    readonly owner: number;
+    readonly name: string;
+    readonly at: Point;
+  }[];
+}
+
+/** Un héroe tal y como lo pinta este lienzo: cuatro campos. */
+type HeroeDibujable = AdventureScene['heroes'][number];
 
 export interface AdventureCamera {
   /** Casilla superior izquierda visible. */
@@ -22,7 +57,7 @@ export interface AdventureCamera {
 
 /** Cámara centrada en un punto, recortada a los bordes del mapa. */
 export function cameraFor(
-  state: GameState,
+  state: AdventureScene,
   center: Point,
   canvasWidth: number,
   canvasHeight: number,
@@ -55,7 +90,7 @@ export function tileAtPixel(camera: AdventureCamera, px: number, py: number): Po
 }
 
 export interface AdventureView {
-  readonly state: GameState;
+  readonly state: AdventureScene;
   readonly camera: AdventureCamera;
   readonly viewer: number;
   readonly selectedHero: string | null;
@@ -215,7 +250,7 @@ function drawObject(ctx: CanvasRenderingContext2D, obj: MapObject, x: number, y:
 
 function drawHero(
   ctx: CanvasRenderingContext2D,
-  hero: Hero,
+  hero: HeroeDibujable,
   x: number,
   y: number,
   selected: boolean,

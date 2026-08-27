@@ -22,6 +22,8 @@ import { once } from 'node:events';
 import type { AddressInfo } from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
+import { adaptarEscena } from '../src/client/espectador/adaptar.js';
+import type { AdventureScene } from '../src/client/render/adventure.js';
 import type { Hero } from '../src/core/hero/hero.js';
 import { pointKey, reachableFrom } from '../src/core/map/map.js';
 import { createRng } from '../src/core/rng.js';
@@ -106,6 +108,36 @@ describe('la vista del espectador', () => {
     const vista = construirVista(state, []);
     expect(vista.log.length).toBeGreaterThan(0);
     for (const e of vista.log) expect(e).not.toHaveProperty('seen');
+  });
+});
+
+describe('adaptar: la vuelta del cable', () => {
+  it('`adaptarEscena` es la inversa EXACTA de `construirVista`', () => {
+    // Las dos mitades de una misma conversión escritas en ficheros distintos son
+    // justo lo que se desincroniza. Aquí se cierra el círculo entero: estado →
+    // vista → JSON → escena, y lo que sale tiene que ser lo que entró.
+    const state = newGame({ seed: 5 });
+    state.map.roads.add(pointKey({ x: 2, y: 2 }));
+    state.map.roads.add(pointKey({ x: 3, y: 2 }));
+    state.players[0]?.fog.add(pointKey({ x: 9, y: 9 }));
+
+    const escena = adaptarEscena(JSON.parse(JSON.stringify(construirVista(state, []))));
+
+    // Los `Set`, que es lo que el JSON destruye y esta función rehace.
+    expect(escena.map.roads).toEqual(state.map.roads);
+    expect(escena.players[0]?.fog).toEqual(state.players[0]?.fog);
+    expect(escena.map.roads.has('2,2')).toBe(true);
+    expect(escena.map.width).toBe(state.map.width);
+    expect(escena.map.terrain).toEqual(state.map.terrain);
+    expect(escena.heroes.map((h) => h.id)).toEqual(state.heroes.map((h) => h.id));
+  });
+
+  it('un `GameState` satisface `AdventureScene` sin adaptar nada', () => {
+    // Es la otra mitad del criterio 11: `main.ts` no cambió ni un carácter al
+    // hacer estructural el tipo del lienzo, y esto lo deja escrito para que no
+    // se rompa por accidente. Si dejara de valer, esta línea no compila.
+    const state: AdventureScene = newGame({ seed: 5 });
+    expect(state.map.width).toBeGreaterThan(0);
   });
 });
 
