@@ -9,6 +9,7 @@ import { type BattleMember, type BattleSide, createBattle } from '../battle/batt
 import { stackHp } from '../battle/damage.js';
 import type { BattleHero, BattleState, Side } from '../battle/types.js';
 import { SIDES } from '../battle/types.js';
+import { creature } from '../data.js';
 import {
   type Hero,
   learnable,
@@ -19,10 +20,12 @@ import {
   moraleBonus,
 } from '../hero/hero.js';
 import {
+  armyLeadership,
   characterOf,
   GARRISON_LEADERSHIP,
   heroLeadership,
   troopBlocker,
+  troopRoom,
   troopsAsStacks,
   troopsThatFit,
   withTroops,
@@ -50,6 +53,7 @@ import {
   moraleFromBuildings,
   payRecruit,
   recruitBlocker,
+  recruitCost,
   type Town,
   townSpells,
 } from '../town/town.js';
@@ -63,7 +67,7 @@ import type {
   Resources,
   Troop,
 } from '../types.js';
-import { addResources, EMPTY_RESOURCES } from '../types.js';
+import { addResources, canAfford, EMPTY_RESOURCES } from '../types.js';
 import type { BattleFoe, GameEvent, GameEventDraft } from './events.js';
 
 export interface Player {
@@ -300,6 +304,59 @@ export function destinoDeRecluta(state: GameState, town: Town): DestinoDeRecluta
   return hero === undefined
     ? { hero, army: town.garrison, tope: GARRISON_LEADERSHIP, quien: 'la guarnición' }
     : { hero, army: hero.army, tope: heroLeadership(hero), quien: 'el ejército' };
+}
+
+/** Cuántos individuos de una criatura se pueden reclutar ahora, y por qué no más. */
+export interface RecruitCapacity {
+  /** Los que ofrece el pueblo esta semana. */
+  readonly disponibles: number;
+  /** Los que caben en el liderazgo del destino. */
+  readonly caben: number;
+  /** De los que hay y caben, cuántos se pueden pagar con `purse`. */
+  readonly maximo: number;
+  /** Lo que ocupa uno en el liderazgo. */
+  readonly ocupaUno: number;
+  /** Lo que ya ocupa el destino. */
+  readonly ocupado: number;
+  readonly tope: number;
+  /** «el ejército» o «la guarnición», como lo nombra el rechazo. */
+  readonly quien: string;
+}
+
+/**
+ * Lo máximo que se puede reclutar de `creatureId` hacia `destino` con `purse`.
+ *
+ * Es la cuenta que hacía `planRecruits` por dentro, sacada aquí para que la
+ * lean la IA y la pantalla: el botón «todo» del castillo reclutaba
+ * `town.available` sin mirar el liderazgo ni el oro, y el núcleo lo rechazaba
+ * entero —«no cabe»— en vez de dar lo que cabía. **Es la misma cuenta, línea a
+ * línea, incluido el `while` que baja de uno en uno hasta que se puede pagar**:
+ * con un coste de varios recursos la división no es trivial, y cambiarla por
+ * otra fórmula movería el ancla del banco si alguna vez discrepara.
+ *
+ * Toma el destino y no el estado porque la IA planifica varias criaturas
+ * seguidas sobre un ejército que va creciendo y un monedero que va menguando;
+ * quien solo quiere la foto de ahora lo saca con `destinoDeRecluta`.
+ */
+export function recruitCapacity(
+  town: Town,
+  creatureId: string,
+  destino: Pick<DestinoDeRecluta, 'army' | 'tope' | 'quien'>,
+  purse: Resources,
+): RecruitCapacity {
+  const disponibles = town.available[creatureId] ?? 0;
+  const caben = troopRoom(destino.army, destino.tope, creatureId);
+  let maximo = Math.min(disponibles, caben);
+  while (maximo > 0 && !canAfford(purse, recruitCost(creatureId, maximo))) maximo--;
+  return {
+    disponibles,
+    caben,
+    maximo,
+    ocupaUno: creature(creatureId).leadership,
+    ocupado: armyLeadership(destino.army),
+    tope: destino.tope,
+    quien: destino.quien,
+  };
 }
 
 // ---------------------------------------------------------------- creación

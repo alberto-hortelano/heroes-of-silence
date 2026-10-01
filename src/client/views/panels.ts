@@ -60,14 +60,20 @@ const ROTULO_DE_FIN: Record<Desenlace, string> = {
   ajena: 'Partida terminada',
 };
 
+/**
+ * El día como se lee en la barra: «Día 3 · Semana 2». Lo usan la barra del que
+ * juega, la del espectador y el guion de capturas, que la compara con su espejo.
+ */
+export function rotuloDeDia(day: number): string {
+  return `Día ${((day - 1) % 7) + 1} · Semana ${Math.floor((day - 1) / 7) + 1}`;
+}
+
 export function renderTopbar(session: Session): {
   day: string;
   resources: Html;
   turn: string;
 } {
   const state = session.state;
-  const semana = Math.floor((state.day - 1) / 7) + 1;
-  const dia = ((state.day - 1) % 7) + 1;
 
   // Con arte generado se usa el icono; si no, la muestra de color.
   //
@@ -98,7 +104,7 @@ export function renderTopbar(session: Session): {
 
   // La semilla no sale de aquí: no cambia en toda la partida, así que la
   // escribe `main.ts` una vez al abrirla en vez de sesenta veces por segundo.
-  return { day: `Día ${dia} · Semana ${semana}`, resources, turn: turno };
+  return { day: rotuloDeDia(state.day), resources, turn: turno };
 }
 
 export function renderSide(session: Session): Html {
@@ -137,15 +143,49 @@ export function renderActions(session: Session): Html {
 
 // ---------------------------------------------------------------- aventura
 
+/**
+ * Cómo acabó la partida, contado en el lateral. Las cuatro respuestas de
+ * `desenlace.ts`, en tabla por lo mismo que `ROTULO_DE_FIN`: un `switch` de
+ * sentencia dejaría pasar una quinta sin poner nada rojo.
+ */
+const EXPLICACION_DE_FIN: Record<Desenlace, string> = {
+  ganada: 'Has conquistado el mapa: el rival no tiene castillos ni héroes.',
+  perdida: 'El rival se ha quedado con todo: no te quedan castillos ni héroes.',
+  'sin resolver': 'Se han agotado los días y nadie ha vencido.',
+  ajena: 'La partida ha terminado.',
+};
+
+function renderFinDePartida(desenlace: Desenlace): Html {
+  return html`<div class="fin ${desenlace === 'perdida' ? 'perdida' : 'ganada'}">
+    <p class="eyebrow">FIN DE LA PARTIDA</p>
+    <h2>${ROTULO_DE_FIN[desenlace]}</h2>
+    <p>${EXPLICACION_DE_FIN[desenlace]}</p>
+  </div>`;
+}
+
+/**
+ * El liderazgo ocupado sobre el tope, con su barra. Lo pinta el héroe del mapa y
+ * el castillo: es la cifra que decide cuántos más caben, y sin verla «todo»
+ * parecía reclutar menos de lo que había por capricho.
+ */
+function filaLiderazgo({ ocupado, tope }: { ocupado: number; tope: number }): Html {
+  return html`<div class="row"><span class="label">Liderazgo</span><span>${ocupado} / ${tope}</span></div>
+    <progress class="liderazgo" max="${tope}" value="${Math.min(ocupado, tope)}"></progress>`;
+}
+
 function renderAdventurePanel(session: Session): Html {
   const hero = session.selectedHero;
   const heroes = session.myHeroes();
+  const desenlace = session.desenlace;
+  const fin = desenlace === null ? NADA : renderFinDePartida(desenlace);
 
   const heroPanel =
     hero === null
       ? html`<p>No tienes héroes en el mapa. Contrata uno en tu castillo.</p>`
       : html`
+        <p class="eyebrow">HÉROE · NIVEL ${hero.level}</p>
         <h2>${hero.name}</h2>
+        ${filaLiderazgo(session.liderazgo({ heroe: hero.id }))}
         <div class="row"><span class="label">Movimiento</span><span>${hero.movePoints} / ${maxMovePoints(hero, session.state.characters)}</span></div>
         <div class="row"><span class="label">Maná</span><span>${hero.mana} / ${maxMana(hero)}</span></div>
         <div class="row"><span class="label">Ataque / Defensa</span><span>${hero.attack} / ${hero.defense}</span></div>
@@ -153,7 +193,7 @@ function renderAdventurePanel(session: Session): Html {
         <div class="row"><span class="label">Experiencia</span><span>${hero.experience}</span></div>
         <h3>Hechizos</h3>
         ${renderSpellbook(hero.spells)}
-        <h3>Ejército (${hero.army.length})</h3>
+        <h3>Tropa · ${hero.army.length} ${hero.army.length === 1 ? 'individuo' : 'individuos'}</h3>
         ${renderArmy(hero.army, session.state.characters)}`;
 
   const listaHeroes =
@@ -179,7 +219,7 @@ function renderAdventurePanel(session: Session): Html {
           ),
         )}</div>`;
 
-  return html`${heroPanel}${listaHeroes}${listaPueblos}
+  return html`${fin}${heroPanel}${listaHeroes}${listaPueblos}
     <h3>Crónica</h3>${renderLog(session.state.log, session.viewer)}`;
 }
 
@@ -257,12 +297,17 @@ function renderTownPanel(session: Session): Html {
     <div class="stack-list">${crecimiento}</div>
 
     <h3>Guarnición</h3>
+    ${filaLiderazgo(session.liderazgo({ guarnicion: town.id }))}
     ${renderArmy(town.garrison, session.state.characters)}
 
     ${
       heroeAqui === undefined
-        ? html`<button data-action="hire-hero" class="primary" style="margin-top:.7rem">Contratar héroe (2500 oro)</button>`
-        : html`<h3>Ejército de ${heroeAqui.name}</h3>${renderArmy(heroeAqui.army, session.state.characters)}`
+        ? html`<p class="cost">Sin héroe dentro, lo que reclutes se queda de guarnición.</p>
+          <button data-action="hire-hero" class="primary" style="margin-top:.7rem">Contratar héroe (2500 oro)</button>`
+        : html`<h3>Tropa de ${heroeAqui.name}</h3>
+          ${filaLiderazgo(session.liderazgo({ heroe: heroeAqui.id }))}
+          <p class="cost">Lo que reclutes va a su tropa, hasta su liderazgo.</p>
+          ${renderArmy(heroeAqui.army, session.state.characters)}`
     }`;
 }
 

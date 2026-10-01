@@ -328,11 +328,6 @@
       "path": "buildings/necromancer_dwelling_6.png"
     },
     {
-      "group": "buildings",
-      "name": "necromancer_upgrade_6",
-      "path": "buildings/necromancer_upgrade_6.png"
-    },
-    {
       "group": "towns",
       "name": "knight",
       "path": "towns/knight.jpg"

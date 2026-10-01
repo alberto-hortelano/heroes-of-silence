@@ -7,7 +7,8 @@
  * siguen derivándose y no vuelven a escribirse a mano.
  */
 import { describe, expect, it } from 'vitest';
-import { townPlots } from '../src/client/render/town.js';
+import { botonDeRecluta, hitAtPixel, townPlots } from '../src/client/render/town.js';
+import { newGame } from '../src/core/state/setup.js';
 import { allBuildings } from '../src/core/town/buildings.js';
 
 /** La cadena que el catálogo dicta para un solar, calculada aparte a propósito. */
@@ -63,5 +64,25 @@ describe('solares del castillo', () => {
         ).toBeGreaterThan(0);
       }
     }
+  });
+});
+
+describe('los botones de reclutar', () => {
+  it('«Todo» es exactamente el botón que se dibuja; el resto de la casilla recluta uno', () => {
+    const state = newGame({ seed: 7 });
+    const town = state.towns.find((t) => t.owner === 0)!;
+    const plot = townPlots(town.faction).find((p) => p.level === 1)!;
+    const t = { scale: 1, x: 0, y: 0 };
+    const centro = (b: { x: number; y: number; w: number; h: number }) => ({
+      x: b.x + b.w / 2,
+      y: b.y + b.h / 2,
+    });
+    const todo = centro(botonDeRecluta(plot, true));
+    const uno = centro(botonDeRecluta(plot, false));
+    expect(hitAtPixel(town, todo.x, todo.y, t)).toMatchObject({ kind: 'recruit', all: true });
+    expect(hitAtPixel(town, uno.x, uno.y, t)).toMatchObject({ kind: 'recruit', all: false });
+    // Los dos botones no se pisan: «+1» acaba antes de que empiece «Todo».
+    const b1 = botonDeRecluta(plot, false);
+    expect(b1.x + b1.w).toBeLessThan(botonDeRecluta(plot, true).x);
   });
 });

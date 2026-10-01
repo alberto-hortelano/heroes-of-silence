@@ -6,7 +6,7 @@
  * hace son dos `new Set(...)`, porque `JSON.stringify` deja un `Set` en `{}` sin
  * decir nada y el emisor los manda como listas de claves `"x,y"`.
  *
- * Y no fabrica un `GameState` falso: desde este ciclo `drawAdventure` pide un
+ * Y no fabrica un `GameState` falso: `drawMapa` pide un
  * `AdventureScene` —los campos que de verdad lee— en vez de la partida entera,
  * así que aquí no hay que inventarse ni un `pendingBattle` ni un `log` ni una
  * `seed` para contentar al compilador. Esa mentira es la que dentro de seis
@@ -15,15 +15,38 @@
 
 import type { BattleState } from '@core/battle/types.js';
 import { creature } from '@core/data.js';
+import type { TerrainKind } from '@core/map/terrain.js';
 import type { SpectatorView, VistaBatalla } from '../../server/vista-espectador.js';
-import type { AdventureScene } from '../render/adventure.js';
+import type { AdventureScene } from '../render/mapa.js';
+
+/**
+ * El terreno del fotograma anterior, para devolver EL MISMO array si no ha
+ * cambiado. El lienzo del mapa rehace la superficie cuando el array es otro, y
+ * cada fotograma del cable trae uno recién parseado aunque el terreno sea el de
+ * siempre —el terreno no cambia en toda la partida—. Comparar 576 casillas una
+ * vez por fotograma del cable es lo que ahorra rehacer la superficie en cada uno.
+ */
+let terrenoAnterior: readonly TerrainKind[] | null = null;
+
+function terrenoEstable(terreno: readonly TerrainKind[]): readonly TerrainKind[] {
+  const antes = terrenoAnterior;
+  if (
+    antes !== null &&
+    antes.length === terreno.length &&
+    antes.every((t, i) => t === terreno[i])
+  ) {
+    return antes;
+  }
+  terrenoAnterior = terreno;
+  return terreno;
+}
 
 export function adaptarEscena(view: SpectatorView): AdventureScene {
   return {
     map: {
       width: view.map.width,
       height: view.map.height,
-      terrain: view.map.terrain,
+      terrain: terrenoEstable(view.map.terrain),
       roads: new Set(view.map.roads),
       objects: view.map.objects,
     },

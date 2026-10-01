@@ -1,0 +1,184 @@
+{
+  "model": "y_bot",
+  "poseReference": "assets/characters/y-bot-reference/companions-poses.png",
+  "camera": {
+    "projection": "orthographic",
+    "pitchDegrees": -25,
+    "direction": 2,
+    "directions": 8
+  },
+  "characters": {
+    "nara": {
+      "cell": 256,
+      "columns": 7,
+      "sceneScale": 1.2240437158469946,
+      "clips": {
+        "idle": {
+          "row": 0,
+          "frames": 7,
+          "fps": 2,
+          "loop": true,
+          "anchor": [
+            145,
+            233
+          ],
+          "sourceY": 0,
+          "sourceHeight": 259
+        },
+        "walk": {
+          "row": 1,
+          "frames": 7,
+          "fps": 6.363636363636363,
+          "loop": true,
+          "anchor": [
+            145,
+            217
+          ],
+          "sourceY": 259,
+          "sourceHeight": 244
+        },
+        "attack": {
+          "row": 0,
+          "frames": 7,
+          "fps": 2,
+          "loop": false,
+          "anchor": [
+            145,
+            233
+          ],
+          "sourceY": 0,
+          "sourceHeight": 259
+        }
+      }
+    },
+    "mael": {
+      "cell": 256,
+      "columns": 7,
+      "sceneScale": 1.041860465116279,
+      "clips": {
+        "idle": {
+          "row": 2,
+          "frames": 7,
+          "fps": 2,
+          "loop": true,
+          "anchor": [
+            145,
+            229
+          ],
+          "sourceY": 503,
+          "sourceHeight": 254
+        },
+        "walk": {
+          "row": 3,
+          "frames": 7,
+          "fps": 6.363636363636363,
+          "loop": true,
+          "anchor": [
+            145,
+            229
+          ],
+          "sourceY": 757,
+          "sourceHeight": 249
+        },
+        "attack": {
+          "row": 2,
+          "frames": 7,
+          "fps": 2,
+          "loop": false,
+          "anchor": [
+            145,
+            229
+          ],
+          "sourceY": 503,
+          "sourceHeight": 254
+        }
+      }
+    },
+    "doran": {
+      "cell": 256,
+      "columns": 7,
+      "sceneScale": 1,
+      "clips": {
+        "idle": {
+          "row": 4,
+          "frames": 7,
+          "fps": 2,
+          "loop": true,
+          "anchor": [
+            145,
+            237
+          ],
+          "sourceY": 1006,
+          "sourceHeight": 256
+        },
+        "walk": {
+          "row": 5,
+          "frames": 7,
+          "fps": 6.363636363636363,
+          "loop": true,
+          "anchor": [
+            145,
+            217
+          ],
+          "sourceY": 1262,
+          "sourceHeight": 235
+        },
+        "attack": {
+          "row": 4,
+          "frames": 7,
+          "fps": 2,
+          "loop": false,
+          "anchor": [
+            145,
+            237
+          ],
+          "sourceY": 1006,
+          "sourceHeight": 256
+        }
+      }
+    },
+    "ves": {
+      "cell": 256,
+      "columns": 7,
+      "sceneScale": 0.9911504424778761,
+      "clips": {
+        "idle": {
+          "row": 6,
+          "frames": 7,
+          "fps": 2,
+          "loop": true,
+          "anchor": [
+            145,
+            235
+          ],
+          "sourceY": 1497,
+          "sourceHeight": 252
+        },
+        "walk": {
+          "row": 7,
+          "frames": 7,
+          "fps": 6.363636363636363,
+          "loop": true,
+          "anchor": [
+            145,
+            224
+          ],
+          "sourceY": 1749,
+          "sourceHeight": 299
+        },
+        "attack": {
+          "row": 6,
+          "frames": 7,
+          "fps": 2,
+          "loop": false,
+          "anchor": [
+            145,
+            235
+          ],
+          "sourceY": 1497,
+          "sourceHeight": 252
+        }
+      }
+    }
+  }
+}

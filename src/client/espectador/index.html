@@ -4,10 +4,11 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Heroes of Silence — espectador</title>
+    <link rel="icon" href="data:," />
     <link rel="stylesheet" href="../style.css" />
   </head>
   <body>
-    <div id="app">
+    <div id="app" data-escena="adventure">
       <header id="topbar">
         <span id="day">—</span>
         <span id="turn"></span>
@@ -15,8 +16,8 @@
       </header>
 
       <main id="stage">
-        <canvas id="canvas"></canvas>
-        <aside id="side"></aside>
+        <div id="lienzo" class="map-wrap"><canvas id="canvas"></canvas></div>
+        <aside id="lateral"><div id="side"></div></aside>
       </main>
 
       <footer id="statusbar">

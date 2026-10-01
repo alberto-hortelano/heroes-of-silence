@@ -7,22 +7,21 @@
  * error sino "todavía no se ha generado nada".
  */
 import { urlDeImagenSegura } from '../html.js';
-export interface AssetManifest {
+
+interface AssetManifest {
   readonly generatedAt: string;
   readonly style: string;
   readonly files: readonly { group: string; name: string; path: string }[];
 }
 
-/** Índice de las criaturas que tienen atlas de poses generado. */
-export interface AnimIndex {
-  readonly creatures: readonly string[];
-  readonly poses: readonly string[];
-}
-
 const imagenes = new Map<string, HTMLImageElement>();
+/**
+ * Las cargas en vuelo, por clave. Rescatado de la rama `archivo/gpt-rpg`: sin
+ * esto, dos llamantes que piden la misma hoja a la vez —el mapa y la batalla, al
+ * arrancar— la descargaban dos veces.
+ */
+const pendientes = new Map<string, Promise<void>>();
 let manifiesto: AssetManifest | null = null;
-let animaciones: AnimIndex | null = null;
-let cargado = false;
 
 /**
  * Carga una imagen, con la URL comprobada por la MISMA regla que la puerta.
@@ -38,7 +37,10 @@ let cargado = false;
  * marcador de color. Un `console.warn` y no un silencio.
  */
 function cargarImagen(clave: string, url: string): Promise<void> {
-  return new Promise((resolve) => {
+  if (imagenes.has(clave)) return Promise.resolve();
+  const enVuelo = pendientes.get(clave);
+  if (enVuelo !== undefined) return enVuelo;
+  const promesa = new Promise<void>((resolve) => {
     let comprobada: string;
     try {
       comprobada = urlDeImagenSegura(url);
@@ -52,30 +54,69 @@ function cargarImagen(clave: string, url: string): Promise<void> {
       imagenes.set(clave, img);
       resolve();
     };
-    img.onerror = () => resolve();
+    img.onerror = () => {
+      // Sin arte se juega igual, pero se dice cuál falta: un PNG que no llega
+      // por un nombre mal escrito no debería parecer un «aún no hay arte».
+      console.warn(`[assets] no ha cargado ${clave} (${comprobada})`);
+      resolve();
+    };
     img.src = comprobada;
-  });
+  }).finally(() => pendientes.delete(clave));
+  pendientes.set(clave, promesa);
+  return promesa;
+}
+
+/**
+ * Todo el arte del cliente nuevo, por el nombre con el que se pide a `asset('rpg',
+ * …)`: el atlas del mapa, la textura del suelo, el fondo de la batalla y las
+ * hojas de personajes a 25°. Una sola tabla: antes las hojas vivían en
+ * `personajes.ts` y el resto escrito aquí a mano, y cada `main` tenía que
+ * acordarse de pasarle la una a la otra.
+ *
+ * Va aparte del manifiesto de `generated/` porque no lo produce `tools/gen`: es
+ * el arte aprobado que se rescató de la rama `archivo/gpt-rpg`.
+ */
+export const ARTE_RPG = {
+  mapa: '/rpg/map-atlas.png',
+  suelo: '/rpg/suelo.webp',
+  campo: '/rpg/campo.webp',
+  liora: '/characters/liora/atlas.png',
+  ybot: '/characters/y-bot-reference/liora-poses-v3.png',
+  companeros: '/rpg/scenes/companions-v3.webp',
+  guardia: '/rpg/scenes/guards-v3.webp',
+  combate: '/rpg/scenes/combat-actions-v1.webp',
+} as const;
+
+export type NombreDeArte = keyof typeof ARTE_RPG;
+
+/** Carga la tabla de arriba. Nunca lanza: lo que no llegue se queda en su marcador. */
+async function loadRpgArt(): Promise<void> {
+  await Promise.all(
+    Object.entries(ARTE_RPG).map(([nombre, url]) => cargarImagen(`rpg/${nombre}`, url)),
+  );
+  avisar();
 }
 
 /** Se avisa cuando entra arte nuevo, para repintar. */
 type Listener = () => void;
 const oyentes = new Set<Listener>();
 
-export function onAssetsChanged(fn: Listener): void {
-  oyentes.add(fn);
-}
-
 function avisar(): void {
   for (const fn of oyentes) fn();
 }
 
-/** Carga el manifiesto y precarga las imágenes. Nunca lanza. */
-export async function loadAssets(base = '/generated'): Promise<boolean> {
-  if (cargado) return manifiesto !== null;
-  cargado = true;
+/**
+ * Los grupos del manifiesto que se pintan hoy: los iconos de recursos, los
+ * edificios y el fondo del castillo. `creatures` y `terrains` ya no los pinta
+ * nadie —la batalla y el mapa son de figuras a 25° y superficie continua— y se
+ * seguían descargando: 29 peticiones en cada arranque para nada.
+ */
+const GRUPOS_QUE_SE_PINTAN: ReadonlySet<string> = new Set(['icons', 'buildings', 'towns']);
 
+/** Carga el manifiesto y precarga las imágenes que se pintan. Nunca lanza. */
+async function loadAssets(): Promise<boolean> {
   try {
-    const res = await fetch(`${base}/manifest.json`, { cache: 'no-cache' });
+    const res = await fetch('/generated/manifest.json', { cache: 'no-cache' });
     if (!res.ok) return false;
     manifiesto = (await res.json()) as AssetManifest;
   } catch {
@@ -84,54 +125,29 @@ export async function loadAssets(base = '/generated'): Promise<boolean> {
   }
 
   await Promise.all(
-    manifiesto.files.map((f) =>
-      cargarImagen(`${f.group}/${f.name}`, `${base}/${f.path.replace(/\\/g, '/')}`),
-    ),
+    manifiesto.files
+      .filter((f) => GRUPOS_QUE_SE_PINTAN.has(f.group))
+      .map((f) => cargarImagen(`${f.group}/${f.name}`, `/generated/${f.path.replace(/\\/g, '/')}`)),
   );
-
-  // Las poses son opcionales: sin ellas, cada criatura se queda con su sprite
-  // quieto y el juego se ve igual de bien, solo que sin moverse.
-  try {
-    const res = await fetch(`${base}/anim/index.json`, { cache: 'no-cache' });
-    if (res.ok) {
-      animaciones = (await res.json()) as AnimIndex;
-      await Promise.all(
-        animaciones.creatures.flatMap((c) =>
-          animaciones!.poses.map((p) =>
-            cargarImagen(`anim:${c}/${p}`, `${base}/anim/${c}/${p}.png`),
-          ),
-        ),
-      );
-    }
-  } catch {
-    animaciones = null;
-  }
-
   avisar();
   return imagenes.size > 0;
+}
+
+/**
+ * Pone a cargar todo el arte y avisa con `onCambio` cada vez que entra algo. Es
+ * lo único que llaman los dos `main`, el que juega y el espectador: el juego ya
+ * es jugable con los marcadores, y el arte entra cuando entra.
+ */
+export function cargarArte(onCambio: () => void): void {
+  oyentes.add(onCambio);
+  void loadAssets().then((hay) => {
+    if (hay) console.log(`[assets] ${imagenes.size} imágenes generadas cargadas`);
+    else console.log('[assets] sin arte generado todavía; se pinta con marcadores');
+  });
+  void loadRpgArt();
 }
 
 /** Imagen ya cargada, o `null` si ese asset todavía no existe. */
 export function asset(group: string, name: string): HTMLImageElement | null {
   return imagenes.get(`${group}/${name}`) ?? null;
-}
-
-export function hasArt(): boolean {
-  return imagenes.size > 0;
-}
-
-/**
- * Fotograma de una criatura en una pose. Si esa criatura no tiene atlas —o la
- * pose concreta falta— devuelve su sprite quieto, que siempre existe.
- */
-export function creatureFrame(creature: string, pose: string): HTMLImageElement | null {
-  return imagenes.get(`anim:${creature}/${pose}`) ?? imagenes.get(`creatures/${creature}`) ?? null;
-}
-
-export function isAnimated(creature: string): boolean {
-  return animaciones?.creatures.includes(creature) ?? false;
-}
-
-export function assetCount(): number {
-  return imagenes.size;
 }

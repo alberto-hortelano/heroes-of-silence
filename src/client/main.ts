@@ -1,36 +1,25 @@
 /**
- * Punto de entrada del cliente.
+ * Punto de entrada del cliente: arranque, bucle de dibujo y reparto del ratón.
  *
- * Reparte el trabajo: la sesión decide, los módulos de `render/` pintan y los
- * de `views/` montan los paneles. Aquí solo se conectan ratón, teclado y bucle
- * de dibujo.
+ * La sesión decide, `render/` pinta, `views/` monta los paneles y cada escena
+ * (`escenas/`) traduce el puntero de su pantalla. Aquí solo se conecta todo.
  */
-import { stackHexes } from '@core/battle/battle.js';
-import { hexKey } from '@core/battle/board.js';
-import type { BattleStack } from '@core/battle/types.js';
 import { parseSeed } from '@core/rng.js';
-import type { Point } from '@core/types.js';
-import { BattleAnimator, type Pose } from './anim.js';
+import { EscenaAventura } from './escenas/aventura.js';
+import { EscenaBatalla } from './escenas/batalla.js';
+import { EscenaCastillo } from './escenas/castillo.js';
+import { PuertaDeFinDeTurno } from './fin-de-turno.js';
 import { pintar } from './html.js';
-import { type AdventureCamera, cameraFor, drawAdventure, tileAtPixel } from './render/adventure.js';
-import { assetCount, loadAssets, onAssetsChanged } from './render/assets.js';
-import { battleOffset, drawBattle, hexAtPixel } from './render/battle.js';
-import {
-  describeHit,
-  drawTown,
-  hitAtPixel,
-  nextOf,
-  plotById,
-  type TownHit,
-  type TownTransform,
-  townLayout,
-} from './render/town.js';
+import { cargarArte } from './render/assets.js';
+import { hayFigurasAnimadas } from './render/figura.js';
+import { ajustarLienzo } from './render/lienzo.js';
 import { Session } from './session.js';
 import { renderActions, renderSide, renderTopbar } from './views/panels.js';
 
+const app = document.getElementById('app') as HTMLElement;
 const canvas = document.getElementById('canvas') as HTMLCanvasElement;
-const ctx = canvas.getContext('2d');
-if (ctx === null) throw new Error('este navegador no tiene canvas 2D');
+const lienzo = document.getElementById('lienzo') as HTMLElement;
+const minimapa = document.getElementById('minimapa') as HTMLCanvasElement;
 
 const elDay = document.getElementById('day') as HTMLElement;
 const elResources = document.getElementById('resources') as HTMLElement;
@@ -39,6 +28,7 @@ const elSide = document.getElementById('side') as HTMLElement;
 const elStatus = document.getElementById('status') as HTMLElement;
 const elActions = document.getElementById('actions') as HTMLElement;
 const elSeed = document.getElementById('seed') as HTMLElement;
+const haciaEnemigo = document.getElementById('hacia-enemigo') as HTMLElement;
 
 /**
  * La semilla que pide la URL, o `null` si no pide ninguna. Lanza si pide una
@@ -56,17 +46,10 @@ function semillaSorteada(): number {
 
 /**
  * Abre la partida y deja dicho, en la URL y en la barra, con qué semilla juega.
- *
- * Entre copiar un número a mano y copiar la barra de direcciones está la
- * diferencia entre que un fallo encontrado jugando se pueda volver a producir o
- * no. La semilla se escribe **una vez, aquí**: no cambia en toda la partida, así
- * que sacarla del bucle de dibujo le quitó sesenta escrituras por segundo.
+ * Se cambia SOLO `seed` sobre la URL de ahora: escribir `?seed=N` a pelo
+ * sustituía la query entera y el fragmento.
  */
 function abrePartida(seed: number): Session {
-  // Se cambia SOLO `seed` sobre la URL de ahora: escribir `?seed=N` a pelo
-  // sustituía la query entera y el fragmento, así que `?debug=1&seed=777#castillo`
-  // se quedaba en `?seed=777`. Hoy no lo nota nadie porque no hay un segundo
-  // parámetro; el día que lo haya, desaparecería al abrir partida.
   const url = new URL(location.href);
   url.searchParams.set('seed', String(seed));
   history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
@@ -79,16 +62,10 @@ let session: Session;
 try {
   session = abrePartida(semillaDeLaUrl() ?? semillaSorteada());
 } catch (err) {
-  // Sin sesión no arranca el bucle de dibujo y la página se queda EN BLANCO: el
-  // motivo existiría solo en la consola, que es tanto como no escribirlo para la
-  // persona. Nadie repinta `#status` sin sesión, así que lo que se escriba aquí
-  // se queda. Y se relanza igual: un fallo no se tapa con una barra bonita.
+  // Sin sesión no arranca el bucle y la página se queda en blanco: el motivo se
+  // escribe para la persona, con la salida si lo que falla es la semilla. Y se
+  // relanza igual: un fallo no se tapa con una barra bonita.
   const motivo = err instanceof Error ? err.message : String(err);
-  // Con el motivo va la SALIDA: `#actions` está vacío —no hay sesión que ofrecer
-  // acciones—, así que quien escriba `?seed=abc` se queda ante una pantalla
-  // negra sin nada que pulsar, y la única forma de salir es la barra de
-  // direcciones. Solo se dice cuando la URL pide semilla: si lo que ha fallado
-  // es otra cosa, el consejo sería mentira.
   const pideSemilla = new URLSearchParams(location.search).get('seed') !== null;
   elStatus.textContent = pideSemilla
     ? `${motivo} — quita "?seed=…" de la barra de direcciones para jugar una partida al azar`
@@ -96,324 +73,297 @@ try {
   throw err;
 }
 
-let camera: AdventureCamera = { origin: { x: 0, y: 0 }, cols: 0, rows: 0, offsetX: 0, offsetY: 0 };
-let hoverPath: Point[] = [];
-/**
- * Lo que determina la ruta previsualizada: la casilla señalada, quién la anda y
- * cuánto le queda. Un `mousemove` dispara muchísimo más rápido de lo que cambia
- * la casilla —una casilla son decenas de píxeles—, así que sin esta clave la
- * inmensa mayoría de los Dijkstras (0,78 ms cada uno) recalculaban el MISMO
- * camino. Va la clave entera y no solo la casilla porque la ruta también cambia
- * al elegir otro héroe desde el panel o al gastarle el movimiento.
- */
-let rutaPintada: string | null = null;
-let hoverStack: string | null = null;
-let hoverHex: ReturnType<typeof hexAtPixel> = null;
-let battleShift = { x: 0, y: 0 };
-let townShift: TownTransform = { scale: 1, x: 0, y: 0 };
-let hoverTown: TownHit | null = null;
-const animator = new BattleAnimator();
-let needsRender = true;
+const sesion = (): Session => session;
+const aventura = new EscenaAventura(sesion);
+const batalla = new EscenaBatalla(sesion);
+const castillo = new EscenaCastillo(sesion);
+const finDeTurno = new PuertaDeFinDeTurno(() => performance.now());
 
-/** Compartido: no hay nada que anillar cuando no hay hechizo elegido. */
-const SIN_OBJETIVOS: ReadonlySet<string> = new Set();
+// ---------------------------------------------------------------- dibujo
 
 /**
- * Ajusta el búfer del canvas a su tamaño real en pantalla.
+ * Cuándo se pinta, que es la mitad del trabajo.
  *
- * Se comprueba en cada fotograma, no solo al arrancar: la primera medida se
- * toma antes de que la rejilla CSS haya colocado nada, y el mapa se quedaba
- * dibujado en una franja estrecha a la izquierda.
+ * El lienzo pide fotograma solo mientras hay algo que se mueve: figuras que
+ * respiran (con su arte cargado), la cola del animador de batalla o un arrastre
+ * del mapa. Fuera de eso, se pinta cuando algo pasa —un gesto, el fin del turno
+ * del rival, un cambio de tamaño, arte que llega— y se para. Antes era un
+ * `requestAnimationFrame` perpetuo que lo rehacía todo, paneles incluidos.
  */
-function syncCanvasSize(): { width: number; height: number } {
-  const rect = canvas.getBoundingClientRect();
-  const dpr = window.devicePixelRatio || 1;
-  const w = Math.max(1, Math.floor(rect.width * dpr));
-  const h = Math.max(1, Math.floor(rect.height * dpr));
-  if (canvas.width !== w || canvas.height !== h) {
-    canvas.width = w;
-    canvas.height = h;
-    needsRender = true;
-  }
-  ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
-  return { width: rect.width, height: rect.height };
+let fotogramaPedido = false;
+function pedirFotograma(): void {
+  if (fotogramaPedido) return;
+  fotogramaPedido = true;
+  requestAnimationFrame(render);
 }
 
+function hayAnimacion(): boolean {
+  if (hayFigurasAnimadas()) return true;
+  if (session.scene === 'battle') return batalla.ocupada;
+  return session.scene === 'adventure' && aventura.arrastrando;
+}
+
+const principal = ajustarLienzo(canvas, pedirFotograma);
+const ctx = principal.ctx;
+
 /**
- * El bucle de dibujo, con red — el mismo arreglo que el del espectador y por el
- * mismo motivo.
- *
- * Desde que el marcado sale por `pintar`, dentro de este bucle hay funciones que
- * **lanzan** donde antes solo había asignaciones a `innerHTML`, que no pueden
- * lanzar. Con el `requestAnimationFrame` en la última línea, una sola excepción
- * mataba el bucle entero y el tablero se quedaba congelado sin decir nada. Aquí
- * duele menos que en el espectador —quien juega nota que no responde— pero el
- * fallo es el mismo y la red también: se re-arma en un `finally` y el motivo se
- * escribe en la barra de estado, que es donde esta pantalla cuenta las cosas.
+ * Los paneles se rehacen cuando la sesión dice que algo ha cambiado (`version`),
+ * cuando llega arte (los iconos de recursos) o cuando la partida es otra. Antes
+ * se generaba su marcado en cada fotograma para compararlo con el anterior.
  */
-function render(): void {
+let paneles: { sesion: Session; version: number; arte: number } | null = null;
+let arteLlegado = 0;
+cargarArte(() => {
+  arteLlegado++;
+  pedirFotograma();
+});
+
+let escenaPintada = '';
+
+/**
+ * El bucle de dibujo, con red: el fallo se escribe en la barra y el siguiente
+ * fotograma se vuelve a pedir si hace falta. Desde que el marcado sale por
+ * `pintar`, dentro hay funciones que lanzan, y con el `requestAnimationFrame` en
+ * la última línea una sola excepción congelaba el tablero sin decir nada.
+ */
+function render(ahora: number): void {
+  fotogramaPedido = false;
   try {
-    dibujarFotograma();
+    dibujarFotograma(ahora);
   } catch (err) {
-    // No se traga nada: se dice. Y `needsRender` ya está en `false`, así que no
-    // se repite el intento sesenta veces por segundo.
     const motivo = err instanceof Error ? err.message : String(err);
     console.error('[cliente] fallo al pintar', err);
     elStatus.textContent = `No se ha podido pintar la pantalla: ${motivo}`;
   } finally {
-    requestAnimationFrame(render);
+    if (hayAnimacion()) pedirFotograma();
   }
 }
 
-function dibujarFotograma(): void {
-  if (!needsRender) return;
-  needsRender = false;
-
-  const rect = syncCanvasSize();
-  ctx!.clearRect(0, 0, rect.width, rect.height);
-
-  if (session.scene === 'town' && session.activeTown !== null) {
-    townShift = townLayout(rect.width, rect.height);
-    drawTown(ctx!, {
-      town: session.activeTown,
-      purse: session.resources,
-      transform: townShift,
-      hover: hoverTown,
-      interactive: session.isPlayersTurn,
-    });
-  } else if (session.scene === 'battle' && session.battle !== null) {
-    const battle = session.battle;
-    battleShift = battleOffset(rect.width, rect.height);
-
-    const muertos = new Set(battle.stacks.filter((s) => s.count <= 0).map((s) => s.id));
-    animator.observe(battle.log, muertos);
-    const poses = new Map<string, Pose>();
-    for (const s of battle.stacks) {
-      const pose = animator.poseOf(s.id, { muerto: s.count <= 0, defendiendo: s.defending });
-      if (pose !== null) poses.set(s.id, pose);
-    }
-
-    drawBattle(ctx!, {
-      battle,
-      movable: session.battleMovable(),
-      hoverHex,
-      hoverStack,
-      // Sin hechizo elegido no hay nada que anillar: se reparte el conjunto
-      // vacío en vez de montar uno nuevo en cada fotograma, que a 60 fps
-      // mientras dura una animación son sesenta por segundo para nada.
-      castTargets: session.selectedSpell === null ? SIN_OBJETIVOS : new Set(session.castTargets()),
-      offset: battleShift,
-      poses,
-    });
-
-    // Mientras haya una pose en marcha hay que seguir repintando.
-    if (animator.busy) needsRender = true;
-  } else {
-    const centro = session.selectedHero?.at ?? session.myTowns()[0]?.at ?? { x: 0, y: 0 };
-    camera = cameraFor(session.state, centro, rect.width, rect.height);
-    drawAdventure(ctx!, {
-      state: session.state,
-      camera,
-      viewer: session.viewer,
-      selectedHero: session.selectedHeroId,
-      hoverPath,
-      revealAll: session.revealAll,
-    });
+function dibujarFotograma(ahora: number): void {
+  const escena = session.scene;
+  if (escena !== escenaPintada) {
+    app.dataset.escena = escena;
+    principal.remedir();
+    // El tablero de batalla es más ancho que un móvil: se empieza mirando el
+    // centro, que es donde se encuentran los dos bandos.
+    lienzo.scrollLeft = Math.max(0, (lienzo.scrollWidth - lienzo.clientWidth) / 2);
+    escenaPintada = escena;
   }
 
-  // Lo que es marcado se pinta con `pintar`, que es el único `innerHTML` del
-  // repo; lo que es texto sigue yendo por `textContent`, que no necesita
-  // escapar nada porque no interpreta nada.
-  const top = renderTopbar(session);
-  elDay.textContent = top.day;
-  pintar(elResources, top.resources);
-  elTurn.textContent = top.turn;
-  pintar(elSide, renderSide(session));
-  pintar(elActions, renderActions(session));
-  elStatus.textContent = session.status;
+  const rect = principal.preparar();
+  ctx.clearRect(0, 0, rect.width, rect.height);
+  if (escena === 'town' && session.activeTown !== null) {
+    castillo.dibujar(ctx, rect.width, rect.height, ahora);
+  } else if (escena === 'battle' && session.battle !== null) {
+    batalla.sincronizar(ahora);
+    batalla.dibujar(ctx, rect.width, rect.height);
+    seguirALaActiva();
+  } else {
+    aventura.dibujar(ctx, rect.width, rect.height, ahora);
+    aventura.dibujarMinimapa(minimapa);
+  }
+  señalarEnemigo(escena === 'battle' && session.battle !== null);
+
+  if (
+    paneles === null ||
+    paneles.sesion !== session ||
+    paneles.version !== session.version ||
+    paneles.arte !== arteLlegado
+  ) {
+    paneles = { sesion: session, version: session.version, arte: arteLlegado };
+    const top = renderTopbar(session);
+    elDay.textContent = top.day;
+    pintar(elResources, top.resources);
+    elTurn.textContent = top.turn;
+    pintar(elSide, renderSide(session));
+    pintar(elActions, renderActions(session));
+  }
+  if (elStatus.textContent !== session.status) elStatus.textContent = session.status;
 }
-
-// ---------------------------------------------------------------- ratón
-
-canvas.addEventListener('mousemove', (ev) => {
-  const rect = canvas.getBoundingClientRect();
-  const px = ev.clientX - rect.left;
-  const py = ev.clientY - rect.top;
-
-  if (session.scene === 'town' && session.activeTown !== null) {
-    hoverTown = hitAtPixel(session.activeTown, px, py, townShift);
-    canvas.style.cursor = hoverTown === null ? 'default' : 'pointer';
-    session.status = describeHit(session.activeTown, session.resources, hoverTown);
-  } else if (session.scene === 'battle') {
-    hoverHex = hexAtPixel(px, py, battleShift);
-    hoverStack = hoverHex === null ? null : (stackAt(hoverHex)?.id ?? null);
-    canvas.style.cursor = hoverStack !== null ? 'crosshair' : 'pointer';
-  } else {
-    const tile = tileAtPixel(camera, px, py);
-    const heroe = session.selectedHero;
-    const clave = `${tile.x},${tile.y}|${heroe?.id ?? ''}|${heroe?.movePoints ?? 0}|${session.isPlayersTurn}`;
-    if (clave === rutaPintada) return;
-    rutaPintada = clave;
-    hoverPath = session.previewPath(tile).map((p) => p.at);
-    canvas.style.cursor = hoverPath.length > 0 ? 'pointer' : 'default';
-  }
-  needsRender = true;
-});
-
-canvas.addEventListener('mouseleave', () => {
-  hoverPath = [];
-  rutaPintada = null;
-  hoverHex = null;
-  hoverStack = null;
-  hoverTown = null;
-  needsRender = true;
-});
-
-canvas.addEventListener('click', (ev) => {
-  const rect = canvas.getBoundingClientRect();
-  const px = ev.clientX - rect.left;
-  const py = ev.clientY - rect.top;
-
-  if (session.scene === 'town') {
-    handleTownClick(px, py);
-  } else if (session.scene === 'battle') {
-    handleBattleClick(px, py);
-  } else {
-    session.clickTile(tileAtPixel(camera, px, py));
-    hoverPath = [];
-    rutaPintada = null;
-  }
-  needsRender = true;
-});
 
 /**
- * Clic dentro del castillo: un solar levanta su siguiente eslabón y un botón de
- * la franja recluta. Las reglas siguen viviendo en el núcleo — aquí solo se
- * traduce el píxel a la acción.
+ * La única puerta de los gestos de batalla mientras la jugada se está contando.
+ *
+ * El tablero que se ve todavía no es el del estado, así que no se acepta nada:
+ * ni un clic en el lienzo ni un botón ni Escape. Estaba repartida —una
+ * comprobación en el clic del lienzo y otra en dos de los botones—, y por los
+ * huecos se colaban «Resolver sola», el libro de hechizos, «Continuar» y Escape.
  */
-function handleTownClick(px: number, py: number): void {
-  const town = session.activeTown;
-  if (town === null) return;
-  const hit = hitAtPixel(town, px, py, townShift);
-  if (hit === null) return;
-
-  if (hit.kind === 'recruit') {
-    const disponibles = town.available[hit.creature] ?? 0;
-    session.recruit(hit.creature, hit.all ? disponibles : 1);
-    return;
-  }
-
-  const next = nextOf(town, plotById(town.faction, hit.plot));
-  if (next === null) {
-    session.status = 'En ese solar ya está todo construido.';
-    return;
-  }
-  session.build(next);
+function jugadaEnCurso(): boolean {
+  if (session.scene !== 'battle') return false;
+  if (!batalla.rechazarSiOcupada(performance.now())) return false;
+  pedirFotograma();
+  return true;
 }
 
-function stackAt(hex: { col: number; row: number }): BattleStack | undefined {
-  const battle = session.battle;
-  if (battle === null) return undefined;
-  return battle.stacks.find(
-    (s) => s.count > 0 && stackHexes(s).some((h) => hexKey(h) === hexKey(hex)),
-  );
+/** La última unidad propia a la que se llevó el marco, para no pelear con el dedo. */
+let activaSeguida: string | null = null;
+
+/**
+ * En el móvil el tablero se desplaza dentro de su marco: cuando le toca a otra
+ * unidad tuya, el marco va hasta ella. Una sola vez por unidad, para que quien
+ * desplaza a mano para mirar no vea el marco volver solo a cada fotograma.
+ */
+function seguirALaActiva(): void {
+  if (lienzo.scrollWidth <= lienzo.clientWidth) return;
+  const activa = batalla.activaPropia();
+  if (activa === null || activa.id === activaSeguida) return;
+  activaSeguida = activa.id;
+  lienzo.scrollLeft = Math.max(0, activa.x - lienzo.clientWidth / 2);
 }
 
-function handleBattleClick(px: number, py: number): void {
-  const battle = session.battle;
-  if (battle === null || battle.finished !== null) return;
-
-  const hex = hexAtPixel(px, py, battleShift);
-  if (hex === null) return;
-
-  const objetivo = stackAt(hex);
-  const acciones = session.battleLegalActions();
-
-  // Con un hechizo elegido, el clic apunta: va ANTES que atacar y moverse, y la
-  // acción que se emite sale de la lista de legales — nunca se construye aquí.
-  const hechizo = session.selectedSpell;
-  if (hechizo !== null) {
-    if (objetivo === undefined) {
-      session.status = 'Elige una unidad sobre la que lanzarlo, o pulsa Escape para cancelar.';
-      return;
-    }
-    const conjuro = acciones.find(
-      (a) => a.type === 'cast' && a.spell === hechizo && a.target === objetivo.id,
-    );
-    if (conjuro !== undefined) {
-      session.playBattleAction(conjuro);
-      return;
-    }
-    // La selección se mantiene: quien apuntó mal vuelve a apuntar sin repetir
-    // el viaje al botón.
-    session.status = session.castRejection(objetivo.id);
-    return;
+/**
+ * La pista del borde: en el móvil el marco empieza en tu unidad, y el enemigo
+ * —al otro lado de un tablero de 860 px— quedaba entero fuera de la vista sin
+ * que nada dijera que el tablero seguía. Si hay enemigos fuera, un botón en ese
+ * borde lo dice con cuántos son, y pulsarlo lleva el marco hasta allí.
+ */
+function señalarEnemigo(enBatalla: boolean): void {
+  const fuera =
+    enBatalla && lienzo.scrollWidth > lienzo.clientWidth
+      ? batalla.enemigosFuera(lienzo.scrollLeft, lienzo.scrollLeft + lienzo.clientWidth)
+      : { izquierda: 0, derecha: 0 };
+  // A la derecha primero: es donde está el enemigo cuando la persona ataca.
+  const lado = fuera.derecha > 0 ? 'derecha' : fuera.izquierda > 0 ? 'izquierda' : '';
+  const cuantos = lado === 'derecha' ? fuera.derecha : fuera.izquierda;
+  const texto =
+    lado === 'derecha'
+      ? `Enemigo (${cuantos}) ▸`
+      : lado === 'izquierda'
+        ? `◂ Enemigo (${cuantos})`
+        : '';
+  if (haciaEnemigo.dataset.lado !== lado) haciaEnemigo.dataset.lado = lado;
+  if (haciaEnemigo.textContent !== texto) haciaEnemigo.textContent = texto;
+  haciaEnemigo.hidden = lado === '';
+  // El botón vive dentro del marco que se desplaza: se recoloca en su borde.
+  if (lado !== '') {
+    const izquierda =
+      lado === 'derecha'
+        ? lienzo.scrollLeft + lienzo.clientWidth - haciaEnemigo.offsetWidth - 8
+        : lienzo.scrollLeft + 8;
+    haciaEnemigo.style.left = `${izquierda}px`;
   }
-
-  // Clic sobre un enemigo: disparar si se puede, si no cargar contra él.
-  if (objetivo !== undefined && objetivo.side === 'defender') {
-    const disparo = acciones.find((a) => a.type === 'shoot' && a.target === objetivo.id);
-    if (disparo !== undefined) {
-      session.playBattleAction(disparo);
-      return;
-    }
-    const cuerpoACuerpo =
-      acciones.find(
-        (a) => a.type === 'attack' && a.target === objetivo.id && a.from === undefined,
-      ) ?? acciones.find((a) => a.type === 'attack' && a.target === objetivo.id);
-    if (cuerpoACuerpo !== undefined) {
-      session.playBattleAction(cuerpoACuerpo);
-      return;
-    }
-    session.status = 'No alcanzas a esa unidad este turno.';
-    return;
-  }
-
-  const movimiento = acciones.find((a) => a.type === 'move' && hexKey(a.to) === hexKey(hex));
-  if (movimiento !== undefined) {
-    session.playBattleAction(movimiento);
-    return;
-  }
-  session.status = 'No puedes llegar a ese hexágono.';
 }
+
+lienzo.addEventListener('scroll', pedirFotograma, { passive: true });
+
+// ---------------------------------------------------------------- puntero
+
+function enLienzo(ev: { clientX: number; clientY: number }): { x: number; y: number } {
+  const r = canvas.getBoundingClientRect();
+  return { x: ev.clientX - r.left, y: ev.clientY - r.top };
+}
+
+canvas.addEventListener('pointerdown', (ev) => {
+  if (ev.button !== 0) return;
+  const p = enLienzo(ev);
+  if (session.scene === 'adventure') {
+    aventura.bajar(p.x, p.y);
+    canvas.setPointerCapture(ev.pointerId);
+  }
+  pedirFotograma();
+});
+
+canvas.addEventListener('pointermove', (ev) => {
+  const p = enLienzo(ev);
+  if (session.scene === 'town') {
+    canvas.style.cursor = castillo.mover(p.x, p.y) ? 'pointer' : 'default';
+  } else if (session.scene === 'battle') {
+    batalla.mover(p.x, p.y);
+  } else {
+    aventura.mover(p.x, p.y);
+  }
+  pedirFotograma();
+});
+
+canvas.addEventListener('pointerup', (ev) => {
+  if (ev.button !== 0) return;
+  const p = enLienzo(ev);
+  if (session.scene === 'town') castillo.pulsar(p.x, p.y);
+  else if (session.scene === 'battle') {
+    batalla.mover(p.x, p.y);
+    if (!jugadaEnCurso()) batalla.pulsar(p.x, p.y);
+  } else aventura.soltar(p.x, p.y, ev.pointerType === 'touch');
+  pedirFotograma();
+});
+
+canvas.addEventListener('pointerleave', () => {
+  aventura.salir();
+  batalla.salir();
+  castillo.salir();
+  pedirFotograma();
+});
+
+canvas.addEventListener(
+  'wheel',
+  (ev) => {
+    if (session.scene !== 'adventure') return;
+    ev.preventDefault();
+    aventura.zoom(ev.deltaY < 0 ? 1 : -1, enLienzo(ev));
+    pedirFotograma();
+  },
+  { passive: false },
+);
+
+minimapa.addEventListener('pointerdown', (ev) => {
+  const r = minimapa.getBoundingClientRect();
+  aventura.pulsarMinimapa(ev.clientX - r.left, ev.clientY - r.top, r.width, r.height);
+  pedirFotograma();
+});
 
 // ---------------------------------------------------------------- paneles
+
+/**
+ * «Fin de turno», por el botón o por el Espacio. La puerta lo ignora fuera del
+ * turno de la persona, con algo moviéndose y durante el cambio de día; `endTurn`
+ * no rechaza —se traga su fallo y lo escribe en `status`—, y lo que juega el
+ * rival llega cuando termina, sin gesto que pida fotograma.
+ */
+function pasarTurno(): void {
+  const animando = session.scene === 'adventure' && aventura.arrastrando;
+  if (!finDeTurno.abierta(session, animando)) return;
+  aventura.olvidarRuta();
+  void finDeTurno.pasar(session, animando).then(pedirFotograma);
+}
 
 document.addEventListener('click', (ev) => {
   const target = (ev.target as HTMLElement).closest('[data-action]');
   if (target === null) return;
   const action = target.getAttribute('data-action');
+  // Mirar al enemigo no es un gesto de la batalla: se puede mientras se cuenta.
+  if (action === 'ver-enemigo') {
+    const izquierda = haciaEnemigo.dataset.lado === 'izquierda' ? 0 : lienzo.scrollWidth;
+    lienzo.scrollTo({ left: izquierda, behavior: 'smooth' });
+    return;
+  }
+  if (action === null || jugadaEnCurso()) return;
+  pedirFotograma();
 
   switch (action) {
     case 'end-turn':
-      // Sin `.finally`: el manejador ya marca el repintado al salir, y
-      // `endTurn` no rechaza —se traga su fallo y lo escribe en `status`—.
-      // El `void p.finally(cb)` que había aquí RE-LANZABA, así que un turno de
-      // rival roto salía por la consola como `unhandledrejection` y en el
-      // tablero no salía por ningún sitio.
-      void session.endTurn();
+      pasarTurno();
       break;
     case 'toggle-fog':
       session.revealAll = !session.revealAll;
       break;
     case 'select-hero':
       session.selectedHeroId = target.getAttribute('data-hero');
+      aventura.olvidarRuta();
+      aventura.centrar();
       break;
     case 'open-town':
       session.openTown(target.getAttribute('data-town') as string);
       break;
     case 'close-town':
       session.closeTown();
-      hoverTown = null;
+      castillo.salir();
       break;
     case 'hire-hero':
       session.hireHero();
       break;
     case 'battle-defend':
-      session.playBattleAction({ type: 'defend' });
-      break;
     case 'battle-wait':
-      session.playBattleAction({ type: 'wait' });
+      session.playBattleAction({ type: action === 'battle-wait' ? 'wait' : 'defend' });
       break;
     case 'battle-spell':
       session.selectSpell(target.getAttribute('data-spell') as string);
@@ -423,51 +373,45 @@ document.addEventListener('click', (ev) => {
       break;
     case 'finish-battle':
       session.finishBattle();
+      aventura.olvidarRuta();
+      break;
+    case 'zoom-in':
+      aventura.zoom(1);
+      break;
+    case 'zoom-out':
+      aventura.zoom(-1);
+      break;
+    case 'centrar':
+      aventura.centrar();
       break;
     case 'restart':
-      // Reiniciar es partida NUEVA: se sortea aunque la URL traiga una semilla,
-      // y la URL se reescribe con la que salga.
+      // Reiniciar es partida NUEVA: se sortea aunque la URL traiga una semilla.
       session = abrePartida(semillaSorteada());
-      rutaPintada = null;
+      aventura.olvidarRuta();
+      aventura.centrar();
       break;
     default:
       return;
   }
-  needsRender = true;
 });
 
 document.addEventListener('keydown', (ev) => {
   if (ev.key === 'Escape' && session.scene === 'town') {
     session.closeTown();
-    hoverTown = null;
+    castillo.salir();
   }
-  if (ev.key === 'Escape' && session.scene === 'battle') {
-    session.clearSpell();
-  }
+  if (ev.key === 'Escape' && session.scene === 'battle' && !jugadaEnCurso()) session.clearSpell();
   if (ev.key === ' ' && session.scene === 'adventure') {
     ev.preventDefault();
-    void session.endTurn();
+    // Dejar el Espacio pulsado repite la tecla: eso no es pedir varios días.
+    if (!ev.repeat) pasarTurno();
   }
-  needsRender = true;
+  if ((ev.key === '+' || ev.key === '-') && session.scene === 'adventure') {
+    aventura.zoom(ev.key === '+' ? 1 : -1);
+  }
+  pedirFotograma();
 });
 
-onAssetsChanged(() => {
-  needsRender = true;
-});
-
-// El arte entra cuando entra: el juego ya es jugable con los marcadores.
-void loadAssets().then((hay) => {
-  if (hay) console.log(`[assets] ${assetCount()} imágenes generadas cargadas`);
-  else console.log('[assets] sin arte generado todavía; se juega con marcadores');
-  needsRender = true;
-});
-
-window.addEventListener('resize', () => {
-  needsRender = true;
-});
-new ResizeObserver(() => {
-  needsRender = true;
-}).observe(canvas);
-syncCanvasSize();
-session.status = 'Haz clic en el mapa para mover a tu héroe. Espacio pasa el turno.';
-requestAnimationFrame(render);
+session.status =
+  'Haz clic en el mapa para mover a tu héroe; arrastra para mirar. Espacio pasa el turno.';
+pedirFotograma();

@@ -1,0 +1,423 @@
+/**
+ * La batalla a 25°: el tablero de 11×9 proyectado sobre el suelo y las figuras
+ * ordenadas por profundidad.
+ *
+ * Toma las ideas de `aventura/tactical-scene.ts` de la rama `archivo/gpt-rpg`
+ * —fondo pintado, hexes aplastados, unidades de pie con su sombra— sin traerse
+ * el fichero, que montaba un botón del DOM por hex y posicionaba con
+ * `style.left`. Aquí todo es lienzo, y lo pinta el `BattleState` del núcleo:
+ * individuos, hasta 27 por bando.
+ *
+ * Solo pinta. Qué hexes se pueden pisar, a quién se puede atacar y sobre quién
+ * cae el hechizo llegan hechos de `session.ts`; dónde está cada figura en este
+ * instante, del animador.
+ */
+import { activeStack, isAlive, stackHexes } from '@core/battle/battle.js';
+import { BOARD_HEIGHT, BOARD_WIDTH, hexKey } from '@core/battle/board.js';
+import { stackHp } from '@core/battle/damage.js';
+import type { BattleStack, BattleState, Side } from '@core/battle/types.js';
+import { hexSize, isShooter } from '@core/data.js';
+import type { Hex } from '@core/types.js';
+import { sombraDeFigura } from '../../shared/arte.js';
+import type { Efecto, EstadoFigura } from '../anim.js';
+import { asset } from './assets.js';
+import { pintarFigura } from './figura.js';
+import { enPantalla, type Plano, type Tablero, verticesHex } from './proyeccion.js';
+
+/** Los colores de los dos bandos: tiñen el maniquí y pintan el aro. */
+const COLOR_BANDO: Readonly<Record<Side, string>> = {
+  attacker: '#d9774f',
+  defender: '#5a8ad9',
+};
+
+export interface VistaBatalla {
+  readonly battle: BattleState;
+  readonly tablero: Tablero;
+  readonly ancho: number;
+  readonly alto: number;
+  /** Hexes a los que puede ir la unidad activa, si es tuya. */
+  readonly movibles: readonly Hex[];
+  /** Unidades a las que puede atacar o disparar la activa, si es tuya. */
+  readonly atacables: ReadonlySet<string>;
+  /** Unidades sobre las que cae el hechizo elegido. */
+  readonly objetivosHechizo: ReadonlySet<string>;
+  readonly hoverHex: Hex | null;
+  readonly hoverStack: string | null;
+  /** Dónde y cómo está cada figura ahora: lo dice el animador. */
+  readonly figura: (s: BattleStack) => EstadoFigura;
+  readonly efectos: readonly Efecto[];
+}
+
+/**
+ * Los 99 hexes ya trazados, para el tablero de este tamaño. Cada uno eran seis
+ * senos y cosenos por fotograma para dibujar siempre lo mismo; ahora se trazan
+ * al cambiar el tamaño del lienzo y nada más.
+ */
+let geometria: { clave: string; hexes: { k: string; camino: Path2D }[] } | null = null;
+
+function hexesDe(t: Tablero): { k: string; camino: Path2D }[] {
+  const clave = `${t.paso}|${t.origenX}|${t.origenY}|${t.compresion}`;
+  if (geometria !== null && geometria.clave === clave) return geometria.hexes;
+  const hexes: { k: string; camino: Path2D }[] = [];
+  for (let row = 0; row < BOARD_HEIGHT; row++) {
+    for (let col = 0; col < BOARD_WIDTH; col++) {
+      const camino = new Path2D();
+      for (const [i, p] of verticesHex(t, { col, row }).entries()) {
+        if (i === 0) camino.moveTo(p.x, p.y);
+        else camino.lineTo(p.x, p.y);
+      }
+      camino.closePath();
+      hexes.push({ k: hexKey({ col, row }), camino });
+    }
+  }
+  geometria = { clave, hexes };
+  return hexes;
+}
+
+export function drawBatalla(ctx: CanvasRenderingContext2D, v: VistaBatalla): void {
+  const { battle, tablero } = v;
+  ctx.save();
+  ctx.imageSmoothingEnabled = true;
+  pintarFondo(ctx, v);
+
+  const movibles = new Set(v.movibles.map(hexKey));
+  const enTurno = activeStack(battle);
+  const activo = enTurno !== null && isAlive(enTurno) ? enTurno : null;
+  const hexDeActivo = new Set<string>();
+  const hexAtacables = new Set<string>();
+  for (const s of battle.stacks) {
+    if (!isAlive(s)) continue;
+    const marcas = s.id === activo?.id ? hexDeActivo : v.atacables.has(s.id) ? hexAtacables : null;
+    if (marcas === null) continue;
+    for (const h of stackHexes(s)) marcas.add(hexKey(h));
+  }
+
+  // 1 · Los hexes, aplastados sobre el suelo.
+  const señalado = v.hoverHex === null ? null : hexKey(v.hoverHex);
+  for (const { k, camino } of hexesDe(tablero)) {
+    const encima = señalado === k;
+    const deActivo = hexDeActivo.has(k);
+    const atacable = hexAtacables.has(k);
+    const movible = movibles.has(k);
+    ctx.fillStyle = deActivo
+      ? '#edca6066'
+      : atacable
+        ? encima
+          ? '#e2735888'
+          : '#d6624955'
+        : movible
+          ? encima
+            ? '#7cc8d466'
+            : '#5caab73a'
+          : encima
+            ? '#ffffff22'
+            : '#00000014';
+    ctx.fill(camino);
+    ctx.lineWidth = deActivo ? 2.5 : 1.2;
+    ctx.strokeStyle = deActivo
+      ? '#fbe3a0'
+      : atacable
+        ? '#f39980cc'
+        : movible
+          ? '#b6e3e9aa'
+          : '#f2e6c05c';
+    ctx.stroke(camino);
+  }
+
+  // 2 · Las figuras, de atrás adelante.
+  const figuras = battle.stacks
+    .map((s) => ({ s, f: v.figura(s) }))
+    .filter(({ f }) => f.visible)
+    .sort((a, b) => a.f.en.y - b.f.en.y);
+  for (const { s, f } of figuras) {
+    pintarUnidad(ctx, v, s, f, s.id === activo?.id);
+  }
+  // Las barras van en una pasada aparte, por encima de TODAS las figuras: pintadas
+  // con su unidad, la figura de la fila de delante tapaba la barra de la de
+  // detrás. Y de atrás adelante, para que la de detrás no tape la de delante.
+  for (const { s, f } of figuras) pintarVida(ctx, v, s, f);
+  // El nombre, de la señalada y de la que actúa, encima de todo lo demás.
+  for (const { s, f } of figuras) {
+    if (s.id === v.hoverStack || s.id === activo?.id) pintarNombre(ctx, v, s, f);
+  }
+
+  // 3 · Lo que vuela por encima: proyectiles, hechizos y cifras.
+  for (const e of v.efectos) pintarEfecto(ctx, tablero, e);
+  ctx.restore();
+}
+
+/**
+ * Dónde está la figura en pantalla: el centro de sus pies, el suelo y su altura.
+ * La usan el dibujo y el clic: quien pulsa apunta al cuerpo, que está ENCIMA de
+ * su hex, y con solo el hex un clic en la cabeza de un esqueleto caía en el de
+ * la fila de atrás.
+ */
+export function cajaDeFigura(
+  t: Tablero,
+  s: BattleStack,
+  en: Plano,
+): { x: number; suelo: number; alto: number; ancho: number } {
+  const grande = hexSize(s.unit) > 1;
+  const p = enPantalla(t, en);
+  const alto = t.paso * (grande ? 1.45 : 0.95);
+  return {
+    x: p.x,
+    suelo: p.y + t.paso * 0.24 * t.compresion,
+    alto,
+    ancho: alto * (grande ? 0.9 : 0.42),
+  };
+}
+
+/**
+ * El fondo compuesto una vez por tamaño de lienzo: el campo escalado y su
+ * velo. Escalar la imagen entera del campo con suavizado era, con el mapa ya
+ * cacheado, lo más caro de un fotograma de batalla, y no cambia mientras el
+ * lienzo no cambie de tamaño.
+ */
+let fondo: { clave: string; campo: HTMLImageElement | null; lienzo: HTMLCanvasElement } | null =
+  null;
+
+function pintarFondo(ctx: CanvasRenderingContext2D, v: VistaBatalla): void {
+  const campo = asset('rpg', 'campo');
+  const dpr = ctx.getTransform().a;
+  const clave = `${v.ancho}|${v.alto}|${dpr}|${v.tablero.paso}|${v.tablero.origenY}|${v.tablero.compresion}`;
+  if (fondo === null || fondo.clave !== clave || fondo.campo !== campo) {
+    const lienzo = fondo?.lienzo ?? document.createElement('canvas');
+    lienzo.width = Math.max(1, Math.ceil(v.ancho * dpr));
+    lienzo.height = Math.max(1, Math.ceil(v.alto * dpr));
+    const c = lienzo.getContext('2d');
+    if (c === null)
+      throw new Error('este navegador no tiene canvas 2D para el fondo de la batalla');
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    c.imageSmoothingEnabled = true;
+    componerFondo(c, v, campo);
+    fondo = { clave, campo, lienzo };
+  }
+  ctx.drawImage(fondo.lienzo, 0, 0, v.ancho, v.alto);
+}
+
+function componerFondo(
+  ctx: CanvasRenderingContext2D,
+  v: VistaBatalla,
+  campo: HTMLImageElement | null,
+): void {
+  if (campo !== null) {
+    pintarCielo(ctx, v);
+    // El horizonte del fondo (el 47 % de su alto, donde acaba el empedrado) se
+    // pone un poco por encima de la fila de atrás: así el tablero entero pisa
+    // suelo y no flota sobre el cielo. Y la escala nunca deja el fondo más
+    // estrecho que el lienzo ni corto por abajo.
+    const HORIZONTE = 0.47;
+    const W = campo.naturalWidth;
+    const H = campo.naturalHeight;
+    const arriba = v.tablero.origenY - v.tablero.paso * 0.9;
+    const escala = Math.max(v.ancho / W, (v.alto - arriba) / ((1 - HORIZONTE) * H));
+    const w = W * escala;
+    const h = H * escala;
+    ctx.drawImage(campo, (v.ancho - w) / 2, arriba - HORIZONTE * h, w, h);
+    ctx.fillStyle = 'rgba(10,12,8,0.22)';
+    ctx.fillRect(0, 0, v.ancho, v.alto);
+    return;
+  }
+  const degradado = ctx.createLinearGradient(0, 0, 0, v.alto);
+  degradado.addColorStop(0, '#1d221a');
+  degradado.addColorStop(0.35, '#3a3a26');
+  degradado.addColorStop(1, '#4d4630');
+  ctx.fillStyle = degradado;
+  ctx.fillRect(0, 0, v.ancho, v.alto);
+}
+
+/**
+ * El cielo de detrás del campo. `campo.webp` lo trae TRANSPARENTE —un tercio de
+ * sus píxeles, igual que el `clearing.png` del que sale—, y sobre el negro de
+ * antes quedaba un hueco negro encima de los árboles. Es un atardecer de otoño,
+ * del azul pizarra arriba al ocre de la bruma en la línea de los árboles, que es
+ * la luz que ya tiene el empedrado.
+ */
+function pintarCielo(ctx: CanvasRenderingContext2D, v: VistaBatalla): void {
+  const linea = Math.max(1, v.tablero.origenY - v.tablero.paso * 0.9);
+  const cielo = ctx.createLinearGradient(0, 0, 0, linea);
+  cielo.addColorStop(0, '#27303b');
+  cielo.addColorStop(0.55, '#5b5e58');
+  cielo.addColorStop(1, '#a58c5c');
+  ctx.fillStyle = cielo;
+  ctx.fillRect(0, 0, v.ancho, v.alto);
+}
+
+function pintarUnidad(
+  ctx: CanvasRenderingContext2D,
+  v: VistaBatalla,
+  s: BattleStack,
+  f: EstadoFigura,
+  activa: boolean,
+): void {
+  const paso = v.tablero.paso;
+  const grande = hexSize(s.unit) > 1;
+  const caja = cajaDeFigura(v.tablero, s, f.en);
+  // El retroceso del golpe: un temblor que se apaga.
+  const x = caja.x + (f.golpe > 0 ? Math.sin(f.golpe * 22) * paso * 0.06 * (1 - f.golpe) : 0);
+  const { suelo, alto } = caja;
+  const color = COLOR_BANDO[s.side];
+
+  ctx.save();
+  ctx.globalAlpha = f.alfa;
+  // Aro del bando a los pies; dorado y más grueso si es la que actúa.
+  const rx = paso * (grande ? 0.75 : 0.36);
+  const ry = rx * v.tablero.compresion * 0.95;
+  const sombra = sombraDeFigura(alto);
+  ctx.fillStyle = `rgba(0,0,0,${sombra.opacidad + 0.12})`;
+  ctx.beginPath();
+  ctx.ellipse(x + sombra.x * 0.35, suelo + sombra.y * 0.2, rx * 1.05, ry * 1.05, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.lineWidth = activa ? 3 : 2;
+  ctx.strokeStyle = activa ? '#fbe3a0' : color;
+  ctx.beginPath();
+  ctx.ellipse(x, suelo, rx, ry, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  if (s.defending) {
+    ctx.strokeStyle = '#9fc49a';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(x, suelo, rx * 1.25, ry * 1.25, 0, Math.PI * 0.9, Math.PI * 2.1);
+    ctx.stroke();
+  }
+  if (v.objetivosHechizo.has(s.id)) {
+    ctx.strokeStyle = '#7fd4d8';
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    ctx.ellipse(x, suelo, rx * 1.45, ry * 1.45, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  ctx.restore();
+
+  pintarFigura(ctx, {
+    body: s.body,
+    clip: f.clip,
+    tiempo: f.tiempo,
+    x,
+    suelo,
+    alto,
+    mirandoIzquierda: s.side === 'defender',
+    color,
+    alfa: f.alfa,
+    // El destello del golpe, que se apaga en el primer 60 % de lo que dura.
+    destello: f.golpe > 0 && f.golpe < 0.6 ? 1 - f.golpe / 0.6 : 0,
+    rotulo: s.unit.name.slice(0, 3),
+  });
+}
+
+/** Lo que va encima de la cabeza: dónde, y de qué ancho es la barra. */
+function cabezaDe(v: VistaBatalla, s: BattleStack, f: EstadoFigura) {
+  const caja = cajaDeFigura(v.tablero, s, f.en);
+  const grande = hexSize(s.unit) > 1;
+  return {
+    x: caja.x,
+    y: caja.suelo - caja.alto - v.tablero.paso * 0.08,
+    anchoBarra: v.tablero.paso * (grande ? 0.9 : 0.6),
+  };
+}
+
+/**
+ * La barra de vida y, si dispara, cuántos tiros le quedan.
+ *
+ * Sin chapa de nombre: con nueve individuos por bando las «Cam», «Esq» y «Mom»
+ * se amontonaban unas sobre otras y tapaban a las figuras. El nombre está en el
+ * panel, sale al pasar el ratón y en la unidad que actúa (`pintarNombre`).
+ */
+function pintarVida(
+  ctx: CanvasRenderingContext2D,
+  v: VistaBatalla,
+  s: BattleStack,
+  f: EstadoFigura,
+): void {
+  const { x, y, anchoBarra } = cabezaDe(v, s, f);
+  const vida = Math.max(0, Math.min(1, stackHp(s) / Math.max(1, s.unit.hp * s.initialCount)));
+  ctx.save();
+  ctx.globalAlpha = f.alfa;
+  ctx.fillStyle = 'rgba(12,10,6,0.85)';
+  ctx.fillRect(x - anchoBarra / 2 - 1, y - 1, anchoBarra + 2, 6);
+  ctx.fillStyle = vida > 0.5 ? '#9fc49a' : vida > 0.25 ? '#e0c060' : '#e3735a';
+  ctx.fillRect(x - anchoBarra / 2, y, anchoBarra * vida, 4);
+  if (isShooter(s.unit) && s.shotsLeft > 0) {
+    ctx.fillStyle = '#9fc49a';
+    ctx.font = `bold ${Math.max(9, Math.round(v.tablero.paso * 0.14))}px system-ui, sans-serif`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`↑${s.shotsLeft}`, x + anchoBarra / 2 + 3, y + 2);
+  }
+  ctx.restore();
+}
+
+/** El nombre entero, sobre la barra: solo de la señalada y de la que actúa. */
+function pintarNombre(
+  ctx: CanvasRenderingContext2D,
+  v: VistaBatalla,
+  s: BattleStack,
+  f: EstadoFigura,
+): void {
+  const { x, y } = cabezaDe(v, s, f);
+  const cuerpo = Math.max(10, Math.round(v.tablero.paso * 0.16));
+  ctx.save();
+  ctx.globalAlpha = f.alfa;
+  ctx.font = `${cuerpo}px system-ui, sans-serif`;
+  const w = ctx.measureText(s.unit.name).width + 8;
+  const arriba = y - cuerpo - 6;
+  ctx.fillStyle = 'rgba(25,21,9,0.9)';
+  ctx.fillRect(x - w / 2, arriba, w, cuerpo + 4);
+  ctx.fillStyle = '#fbe8b5';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillText(s.unit.name, x, arriba + 2);
+  ctx.restore();
+}
+
+function pintarEfecto(ctx: CanvasRenderingContext2D, t: Tablero, e: Efecto): void {
+  const alto = t.paso * 0.9;
+  ctx.save();
+  switch (e.tipo) {
+    case 'proyectil': {
+      const a = enPantalla(t, e.desde);
+      const b = enPantalla(t, e.hasta);
+      const x = a.x + (b.x - a.x) * e.t;
+      // Un arco: sube y baja sobre la línea recta entre los dos.
+      const y = a.y - alto * 0.7 + (b.y - a.y) * e.t - Math.sin(e.t * Math.PI) * t.paso * 0.6;
+      const dx = (b.x - a.x) * 0.04;
+      const dy = (b.y - a.y) * 0.04;
+      ctx.strokeStyle = '#fff1be';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(x - dx, y - dy);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      break;
+    }
+    case 'hechizo': {
+      const p = enPantalla(t, e.en);
+      ctx.strokeStyle = '#b5d9ff';
+      ctx.shadowColor = '#b5d9ff';
+      ctx.shadowBlur = 14;
+      ctx.lineWidth = 3;
+      ctx.globalAlpha = 1 - e.t * 0.6;
+      ctx.beginPath();
+      ctx.ellipse(p.x, p.y - alto * 0.5, 14 + e.t * 30, 8 + e.t * 14, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      break;
+    }
+    case 'danio': {
+      const p = enPantalla(t, e.en);
+      ctx.globalAlpha = Math.min(1, (1 - e.t) * 3);
+      ctx.fillStyle = '#ffe1c2';
+      ctx.strokeStyle = '#2a0e06';
+      ctx.lineWidth = 3;
+      ctx.font = `bold ${Math.max(14, Math.round(t.paso * 0.28))}px Georgia, serif`;
+      ctx.textAlign = 'center';
+      const y = p.y - alto - e.t * t.paso * 0.45;
+      ctx.strokeText(`−${e.cifra}`, p.x, y);
+      ctx.fillText(`−${e.cifra}`, p.x, y);
+      break;
+    }
+  }
+  ctx.restore();
+}

@@ -7,7 +7,9 @@
  * veces significara algo; ahora sí, y hay que cerrarlo.
  */
 import { describe, expect, it } from 'vitest';
+import { accionContra } from '../src/client/escenas/batalla.js';
 import { Session } from '../src/client/session.js';
+import { armyLeadership, GARRISON_LEADERSHIP } from '../src/core/hero/troop.js';
 import { applyAdventureAction, heroesOf } from '../src/core/state/game.js';
 
 describe('sesión del cliente: el turno del rival', () => {
@@ -141,5 +143,128 @@ describe('sesión del cliente: el bando de la persona', () => {
       expect(activo.side).toBe('defender');
       expect(s.battleMovable().length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('sesión del cliente: reclutar lo que cabe y ver la ruta entera', () => {
+  it('«todo» pide lo que cabe: con el liderazgo casi lleno, el máximo es menor que lo disponible', () => {
+    const s = new Session(7);
+    const town = s.myTowns()[0]!;
+    s.openTown(town.id);
+    town.available.peasant = 12;
+
+    const plan = s.recruitPlan('peasant')!;
+    // La guarnición de salida tiene 20 de liderazgo y el campesino ocupa 2.
+    expect(plan.disponibles).toBe(12);
+    expect(plan.maximo).toBeLessThan(plan.disponibles);
+
+    // Uno más del máximo: el núcleo lo rechaza diciendo que no cabe.
+    s.recruit('peasant', plan.maximo + 1);
+    expect(s.status).toMatch(/no cabe/);
+    expect(town.garrison.length).toBe(0);
+
+    // Y «todo» recluta exactamente el máximo, sin mensaje de error.
+    s.recruitAll('peasant');
+    expect(s.status).toBe('');
+    expect(town.garrison.length).toBe(plan.maximo);
+    expect(s.recruitPlan('peasant')!.maximo).toBe(0);
+
+    // Con el cupo lleno, «todo» no calla: el motivo lo escribe el núcleo.
+    s.recruitAll('peasant');
+    expect(s.status).toMatch(/no cabe/);
+  });
+
+  it('la ruta previsualizada llega hasta el destino y marca lo que no se alcanza hoy', () => {
+    const s = new Session(7);
+    const heroe = s.selectedHero!;
+    // Lejos: la otra esquina del mapa, que no se anda en un día.
+    const lejos = { x: s.state.map.width - 4, y: s.state.map.height - 4 };
+    const ruta = s.previewPath(lejos);
+    expect(ruta.length).toBeGreaterThan(0);
+    expect(ruta.at(-1)!.at).toEqual(lejos);
+    expect(ruta.some((p) => !p.hoy)).toBe(true);
+    // Lo de hoy va primero y en un tramo: no hay un paso de hoy después de uno de otro día.
+    const primeroOtroDia = ruta.findIndex((p) => !p.hoy);
+    expect(ruta.slice(primeroOtroDia).every((p) => !p.hoy)).toBe(true);
+    for (const p of ruta) expect(p.hoy).toBe(p.cost <= heroe.movePoints);
+  });
+
+  it('el liderazgo del héroe es lo que ocupa su ejército sobre su tope', () => {
+    const s = new Session(7);
+    const heroe = s.selectedHero!;
+    expect(s.liderazgo({ heroe: heroe.id })).toEqual({ ocupado: 18, tope: 20 });
+  });
+
+  it('la guarnición va por el mismo camino, con el tope de guarnición', () => {
+    const s = new Session(7);
+    const pueblo = s.myTowns()[0]!;
+    expect(s.liderazgo({ guarnicion: pueblo.id })).toEqual({
+      ocupado: armyLeadership(pueblo.garrison),
+      tope: GARRISON_LEADERSHIP,
+    });
+  });
+
+  it('lo visible ahora es un subconjunto de lo explorado, y se rehace al moverse', () => {
+    const s = new Session(7);
+    const fog = s.state.players[0]!.fog;
+    const antes = s.visibles();
+    for (const k of antes) expect(fog.has(k)).toBe(true);
+    expect(s.visibles()).toBe(antes); // la caché: el mismo objeto sin cambios
+    const heroe = s.selectedHero!;
+    s.moveHeroTo(heroe.id, { x: heroe.at.x + 2, y: heroe.at.y });
+    expect(s.visibles()).not.toBe(antes);
+  });
+});
+
+describe('sesión del cliente: la versión y lo que se guarda entre fotogramas', () => {
+  it('la versión sube con una acción y con la selección, y no con la barra de estado', () => {
+    const s = new Session(7);
+    const v0 = s.version;
+    s.status = 'la barra se reescribe a cada paso del ratón';
+    expect(s.version).toBe(v0);
+    s.selectedHeroId = null;
+    expect(s.version).toBeGreaterThan(v0);
+    const v1 = s.version;
+    s.revealAll = true;
+    expect(s.version).toBeGreaterThan(v1);
+    const v2 = s.version;
+    const heroe = heroesOf(s.state, 0)[0]!;
+    s.moveHeroTo(heroe.id, { x: heroe.at.x + 1, y: heroe.at.y });
+    expect(s.version).toBeGreaterThan(v2);
+  });
+
+  it('las acciones de batalla se calculan una vez por jugada, y los hexes salen de ellas', () => {
+    const s = new Session(7);
+    const mio = heroesOf(s.state, 0)[0]!;
+    const suyo = heroesOf(s.state, 1)[0]!;
+    // La persona ataca: su héroe entra en la casilla del rival.
+    mio.movePoints = 100000;
+    applyAdventureAction(s.state, { type: 'move_hero', hero: mio.id, to: suyo.at }, s.ctx, 0);
+    if (s.state.pendingBattle === null) throw new Error('no hubo batalla');
+    s.advanceEnemyTurns();
+    if (s.turnoPropio === null) throw new Error('a la persona no le toca');
+
+    const acciones = s.battleLegalActions();
+    expect(s.battleLegalActions()).toBe(acciones); // el mismo objeto: no se recalcula
+    // Los hexes a los que ir son los `move` de esa misma lista, en su orden.
+    expect(s.battleMovable()).toEqual(acciones.flatMap((a) => (a.type === 'move' ? [a.to] : [])));
+
+    const v = s.version;
+    s.playBattleAction({ type: 'defend' });
+    expect(s.version).toBeGreaterThan(v);
+    expect(s.battleLegalActions()).not.toBe(acciones);
+  });
+});
+
+describe('el clic sobre un enemigo', () => {
+  it('dispara si puede; si no, golpea sin moverse; si no, el primer golpe que haya', () => {
+    const disparo = { type: 'shoot', target: 'e' } as const;
+    const quieto = { type: 'attack', target: 'e' } as const;
+    const andando = { type: 'attack', target: 'e', from: { col: 1, row: 1 } } as const;
+    const otro = { type: 'attack', target: 'x' } as const;
+    expect(accionContra([andando, quieto, disparo], 'e')).toBe(disparo);
+    expect(accionContra([andando, quieto], 'e')).toBe(quieto);
+    expect(accionContra([otro, andando], 'e')).toBe(andando);
+    expect(accionContra([otro], 'e')).toBeUndefined();
   });
 });

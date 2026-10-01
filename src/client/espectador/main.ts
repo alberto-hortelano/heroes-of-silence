@@ -6,23 +6,28 @@
  * reglas lo vigila además `invariantes.test.ts`, que corre sobre `src/client`
  * entero: esta carpeta cae dentro y por eso vive aquí y no en otra parte.
  *
- * Reutiliza sin copiar los lienzos de `render/` y la crónica de `views/panels`.
- * Lo único duplicado es el bucle de dibujo, y es más corto que el del cliente que
- * juega porque aquí no hay ratón, ni animador, ni sesión: llega un fotograma, se
- * pinta.
+ * Reutiliza sin copiar los lienzos de `render/`, el animador de batalla y la
+ * crónica de `views/panels`. Lo único duplicado es el bucle de dibujo, y es más
+ * corto que el del cliente que juega porque aquí no hay ratón ni sesión.
  */
+import type { BattleState } from '@core/battle/types.js';
 import type { SpectatorSnapshotMsg } from '../../server/protocol.js';
 import type { SpectatorView } from '../../server/vista-espectador.js';
+import { BattleAnimator } from '../anim.js';
 import { NADA, pintar } from '../html.js';
-import { type AdventureCamera, cameraFor, drawAdventure } from '../render/adventure.js';
-import { assetCount, loadAssets, onAssetsChanged } from '../render/assets.js';
-import { battleOffset, drawBattle } from '../render/battle.js';
+import { cargarArte } from '../render/assets.js';
+import { drawBatalla } from '../render/batalla.js';
+import { type CamaraMapa, centrarEn, TILE_MIN } from '../render/camara-mapa.js';
+import { hayFigurasAnimadas } from '../render/figura.js';
+import { ajustarLienzo } from '../render/lienzo.js';
+import { type AdventureScene, drawMapa } from '../render/mapa.js';
+import { tableroPara } from '../render/proyeccion.js';
+import { rotuloDeDia } from '../views/panels.js';
 import { adaptarBatalla, adaptarEscena, centroDeLaEscena } from './adaptar.js';
-import { type FinDePartida, NADIE, panelDelEspectador } from './paneles.js';
+import { type FinDePartida, panelDelEspectador } from './paneles.js';
 
+const app = document.getElementById('app') as HTMLElement;
 const canvas = document.getElementById('canvas') as HTMLCanvasElement;
-const ctx = canvas.getContext('2d');
-if (ctx === null) throw new Error('este navegador no tiene canvas 2D');
 
 const elDay = document.getElementById('day') as HTMLElement;
 const elTurn = document.getElementById('turn') as HTMLElement;
@@ -84,30 +89,46 @@ function destino(): Destino {
 // --------------------------------------------------------------- estado
 
 let vista: SpectatorView | null = null;
+/** Lo que se pinta, adaptado una vez por fotograma del cable y no a cada fotograma de pantalla. */
+let escena: AdventureScene | null = null;
+let batalla: BattleState | null = null;
+/**
+ * Qué batalla es, para el animador: sube cada vez que aparece una después de no
+ * haber ninguna. Cada fotograma del cable trae la batalla recién parseada, así
+ * que el objeto no sirve para saber si es la misma.
+ */
+let numeroDeBatalla = 0;
+/** Cuántos fotogramas del cable han llegado: la versión de lo que se pinta quieto. */
+let fotogramasDelCable = 0;
 let dia = 0;
 let turnoDe = 0;
 let finDe: FinDePartida | null = null;
-let camara: AdventureCamera = { origin: { x: 0, y: 0 }, cols: 0, rows: 0, offsetX: 0, offsetY: 0 };
-let repintar = true;
+let camara: CamaraMapa = { tile: TILE_MIN, x: 0, y: 0 };
+/** Los paneles se rehacen cuando llega algo nuevo, no a cada fotograma. */
+let panelesPendientes = true;
 /** A dónde se conectó, para poder repetirlo en la barra. Vacío hasta conectar. */
 let urlDelCanal = '';
 
-function ajustarLienzo(): { width: number; height: number } {
-  const rect = canvas.getBoundingClientRect();
-  const dpr = window.devicePixelRatio || 1;
-  const w = Math.max(1, Math.floor(rect.width * dpr));
-  const h = Math.max(1, Math.floor(rect.height * dpr));
-  if (canvas.width !== w || canvas.height !== h) {
-    canvas.width = w;
-    canvas.height = h;
-    repintar = true;
-  }
-  ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
-  return { width: rect.width, height: rect.height };
+/**
+ * El mismo animador que el cliente que juega: cada acción que llega por el cable
+ * se cuenta en orden —quién anda, quién golpea, quién cae— en vez de saltar de un
+ * fotograma al siguiente. Era lo que prometía #30, «las batallas acción a
+ * acción», y hasta ahora cada acción era un salto.
+ */
+const animador = new BattleAnimator();
+
+/** Sin objetivos ni hexes atacables: el espectador no mueve nada. */
+const NINGUNO: ReadonlySet<string> = new Set();
+
+let fotogramaPedido = false;
+function pedirFotograma(): void {
+  if (fotogramaPedido) return;
+  fotogramaPedido = true;
+  requestAnimationFrame(dibujar);
 }
 
-/** Sin objetivos ni hexes movibles: el espectador no mueve nada. */
-const NINGUNO: ReadonlySet<string> = new Set();
+const principal = ajustarLienzo(canvas, pedirFotograma);
+const ctx = principal.ctx;
 
 /**
  * Si el último intento de pintar reventó. Sirve para dos cosas: no repetir el
@@ -129,76 +150,96 @@ let fallandoAlPintar = false;
  *
  * Dos decisiones, y las dos son de esta casa:
  *
- *  - el bucle se re-arma en un `finally`, **pase lo que pase**: la página sigue
- *    viva y el siguiente fotograma bueno se pinta;
  *  - el fallo **se dice**, con su motivo, en la barra. El `catch` no está vacío
- *    ni se traga nada.
- *
- * Y no repinta en bucle: `repintar` ya está en `false` cuando salta, así que no
- * se vuelve a intentar hasta que llegue otro fotograma del servidor.
+ *    ni se traga nada;
+ *  - y tras un fallo no se pide otro fotograma: se vuelve a intentar cuando
+ *    llegue otro fotograma del servidor, en vez de repetir el mismo fallo
+ *    sesenta veces por segundo. Mientras todo va bien, se repinta solo mientras
+ *    algo se mueve: las figuras que respiran o la cola del animador.
  */
-function dibujar(): void {
+function dibujar(ahora: number): void {
+  fotogramaPedido = false;
   try {
-    if (repintar) {
-      repintar = false;
-      pintarTodo();
-      if (fallandoAlPintar) {
-        fallandoAlPintar = false;
-        elStatus.textContent = `Mirando la partida en ${urlDelCanal}.`;
-      }
+    pintarTodo(ahora);
+    if (fallandoAlPintar) {
+      fallandoAlPintar = false;
+      elStatus.textContent = `Mirando la partida en ${urlDelCanal}.`;
     }
+    if (vista !== null && (hayFigurasAnimadas() || animador.busy)) pedirFotograma();
   } catch (err) {
     const motivo = err instanceof Error ? err.message : String(err);
-    console.error('[espectador] fallo al pintar', err);
     if (!fallandoAlPintar) {
+      console.error('[espectador] fallo al pintar', err);
       fallandoAlPintar = true;
       elStatus.textContent =
         `No se ha podido pintar este fotograma: ${motivo}. ` +
         'Se sigue escuchando; el siguiente que llegue vuelve a intentarlo.';
     }
-  } finally {
-    requestAnimationFrame(dibujar);
   }
 }
 
-function pintarTodo(): void {
-  const rect = ajustarLienzo();
-  ctx!.clearRect(0, 0, rect.width, rect.height);
+function pintarTodo(ahora: number): void {
+  const nueva = batalla === null ? 'adventure' : 'battle';
+  if (vista !== null && app.dataset.escena !== nueva) {
+    app.dataset.escena = nueva;
+    principal.remedir();
+  }
+  const rect = principal.preparar();
+  ctx.clearRect(0, 0, rect.width, rect.height);
 
-  if (vista !== null) {
-    if (vista.battle !== null) {
+  if (vista !== null && escena !== null) {
+    if (batalla !== null) {
       // Mientras hay batalla se enseña el tablero: es lo que este ciclo existe
       // para que se vea, y son la mayoría de las decisiones que toma el agente.
-      drawBattle(ctx!, {
-        battle: adaptarBatalla(vista.battle),
-        movable: [],
+      animador.observe(batalla, numeroDeBatalla);
+      animador.tick(ahora);
+      const enCurso = batalla;
+      drawBatalla(ctx, {
+        battle: enCurso,
+        tablero: tableroPara(rect.width, rect.height),
+        ancho: rect.width,
+        alto: rect.height,
+        movibles: [],
+        atacables: NINGUNO,
+        objetivosHechizo: NINGUNO,
         hoverHex: null,
         hoverStack: null,
-        castTargets: NINGUNO,
-        offset: battleOffset(rect.width, rect.height),
+        figura: (s) => animador.figura(s),
+        efectos: animador.efectos(enCurso),
       });
     } else {
-      const escena = adaptarEscena(vista);
-      camara = cameraFor(escena, centroDeLaEscena(vista), rect.width, rect.height);
-      drawAdventure(ctx!, {
-        state: escena,
-        camera: camara,
-        viewer: NADIE,
-        selectedHero: null,
-        hoverPath: [],
-        // Un espectador lo ve TODO: eso es lo que es. Por eso #64 no aplica aquí.
-        revealAll: true,
+      camara = centrarEn(camara, centroDeLaEscena(vista), {
+        ancho: rect.width,
+        alto: rect.height,
+        mapaAncho: escena.map.width,
+        mapaAlto: escena.map.height,
+      });
+      // Un espectador lo ve TODO: eso es lo que es. Por eso #64 no aplica aquí.
+      drawMapa(ctx, {
+        escena,
+        camara,
+        ancho: rect.width,
+        alto: rect.height,
+        explorado: null,
+        visibles: null,
+        ruta: [],
+        seleccionado: null,
+        hover: null,
+        semilla: 0,
+        tiempo: ahora,
+        version: fotogramasDelCable,
       });
     }
   }
 
-  pintarPaneles();
+  if (panelesPendientes) {
+    panelesPendientes = false;
+    pintarPaneles();
+  }
 }
 
 function pintarPaneles(): void {
-  const semana = Math.floor((dia - 1) / 7) + 1;
-  const diaDeLaSemana = ((dia - 1) % 7) + 1;
-  elDay.textContent = dia === 0 ? '—' : `Día ${diaDeLaSemana} · Semana ${semana}`;
+  elDay.textContent = dia === 0 ? '—' : rotuloDeDia(dia);
   elTurn.textContent =
     finDe !== null
       ? finDe.winner === null
@@ -275,11 +316,18 @@ function conectar(): void {
     }
     const snapshot = msg as SpectatorSnapshotMsg;
     if (vista === null) elStatus.textContent = `Mirando la partida en ${url}.`;
+    if (snapshot.view.battle !== null && (vista === null || vista.battle === null)) {
+      numeroDeBatalla++;
+    }
     vista = snapshot.view;
+    escena = adaptarEscena(vista);
+    batalla = vista.battle === null ? null : adaptarBatalla(vista.battle);
+    fotogramasDelCable++;
     dia = snapshot.day;
     turnoDe = snapshot.current;
     finDe = snapshot.finished;
-    repintar = true;
+    panelesPendientes = true;
+    pedirFotograma();
   });
 
   socket.addEventListener('error', () => {
@@ -314,22 +362,9 @@ function conectar(): void {
 
 // El arte entra cuando entra, igual que en el cliente que juega: sin PNGs cada
 // renderizador pinta su marcador de color y se mira igual.
-void loadAssets().then((hay) => {
-  if (hay) console.log(`[assets] ${assetCount()} imágenes generadas cargadas`);
-  else console.log('[assets] sin arte generado todavía; se mira con marcadores');
-  repintar = true;
+cargarArte(() => {
+  panelesPendientes = true;
+  pedirFotograma();
 });
-onAssetsChanged(() => {
-  repintar = true;
-});
-
-window.addEventListener('resize', () => {
-  repintar = true;
-});
-new ResizeObserver(() => {
-  repintar = true;
-}).observe(canvas);
-
-ajustarLienzo();
 conectar();
-requestAnimationFrame(dibujar);
+pedirFotograma();

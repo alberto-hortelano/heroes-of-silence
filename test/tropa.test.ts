@@ -29,9 +29,11 @@ import { CHARACTER_BODY, createCharacter, defaultBuild } from '../src/core/rpg/c
 import { combatProfile } from '../src/core/rpg/stats.js';
 import {
   applyAdventureAction,
+  destinoDeRecluta,
   type GameContext,
   type GameState,
   heroesOf,
+  recruitCapacity,
   townsOf,
 } from '../src/core/state/game.js';
 import { newGame, startingArmy } from '../src/core/state/setup.js';
@@ -338,5 +340,61 @@ describe('la IA de reglas juega dentro del liderazgo', () => {
     expect(total).toBe(2);
     for (const a of reclutas) applyAdventureAction(state, a, ctx(21), 0);
     expect(armyLeadership(hero.army)).toBe(20);
+  });
+});
+
+describe('`recruitCapacity`: lo máximo que el núcleo acepta, ni uno más ni uno menos', () => {
+  /**
+   * La propiedad que da sentido al botón «todo»: reclutar `maximo` entra, y
+   * reclutar uno más lanza. No se compara contra la IA —desde este cambio la IA
+   * LLAMA a esta función, así que la comparación sería un espejo—, sino contra
+   * la regla que aplica `recruit`.
+   */
+  it('en 40 semillas, recluta `maximo` sin lanzar y `maximo + 1` lanza', () => {
+    let topadoPorLiderazgo = 0;
+    let topadoPorOro = 0;
+    for (let seed = 1; seed <= 40; seed++) {
+      const state = newGame({ seed });
+      const town = townsOf(state, 0)[0]!;
+      // Variedad: unas semillas con mucha oferta, otras con poco oro, para que
+      // el tope lo pongan las tres cosas en semillas distintas.
+      town.available.peasant = 5 + (seed % 9) * 3;
+      const oro = seed % 3 === 0 ? 20 * (seed % 7) : 50_000;
+      state.players[0]!.resources = { ...state.players[0]!.resources, gold: oro };
+
+      const plan = recruitCapacity(
+        town,
+        'peasant',
+        destinoDeRecluta(state, town),
+        state.players[0]!.resources,
+      );
+      expect(plan.maximo).toBeLessThanOrEqual(Math.min(plan.disponibles, plan.caben));
+      if (plan.maximo < plan.disponibles && plan.maximo === plan.caben) topadoPorLiderazgo++;
+      if (plan.maximo < Math.min(plan.disponibles, plan.caben)) topadoPorOro++;
+
+      const copia = structuredClone(state);
+      const mas = plan.maximo + 1;
+      expect(() =>
+        applyAdventureAction(
+          copia,
+          { type: 'recruit', town: town.id, creature: 'peasant', count: mas },
+          ctx(seed),
+          0,
+        ),
+      ).toThrow(/no se puede reclutar/);
+
+      if (plan.maximo > 0) {
+        applyAdventureAction(
+          state,
+          { type: 'recruit', town: town.id, creature: 'peasant', count: plan.maximo },
+          ctx(seed),
+          0,
+        );
+        expect(armyLeadership(town.garrison)).toBe(plan.ocupado + plan.maximo * plan.ocupaUno);
+      }
+    }
+    // Que las dos ramas se ejerzan de verdad: si no, el test no prueba el `while`.
+    expect(topadoPorLiderazgo).toBeGreaterThan(0);
+    expect(topadoPorOro).toBeGreaterThan(0);
   });
 });

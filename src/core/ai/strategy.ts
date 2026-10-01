@@ -10,7 +10,6 @@ import type { Hero } from '../hero/hero.js';
 import {
   heroLeadership,
   type Personajes,
-  troopRoom,
   troopsThatFit,
   troopUnit,
   withTroops,
@@ -22,12 +21,13 @@ import {
   type GameState,
   HERO_HIRE_COST,
   heroesOf,
+  recruitCapacity,
   townsOf,
 } from '../state/game.js';
 import { building } from '../town/buildings.js';
-import { availableBuildings, dwellings, recruitBlocker, type Town } from '../town/town.js';
+import { availableBuildings, dwellings, recruitCost, type Town } from '../town/town.js';
 import type { Army, FactionId, PlayerId, Point, Resources, UnitInfo } from '../types.js';
-import { canAfford, scaleResources, subtractResources } from '../types.js';
+import { subtractResources } from '../types.js';
 
 /** Fuerza bruta de un individuo: lo que pega por lo que aguanta. */
 export function unitPower(info: UnitInfo): number {
@@ -387,24 +387,21 @@ export function planRecruits(state: GameState, playerId: PlayerId): AdventureAct
   for (const town of townsOf(state, playerId)) {
     // La misma regla que aplica `recruit`: si la IA la copiara, el día que
     // cambie una de las dos pediría lo que el motor rechaza.
-    const { tope, army } = destinoDeRecluta(state, town);
+    const { tope, army, quien } = destinoDeRecluta(state, town);
     let destino = army;
 
     for (const { creature: id } of [...dwellings(town)].reverse()) {
-      const disponibles = town.available[id] ?? 0;
-      if (disponibles <= 0) continue;
-
       // Cuántos caben en el liderazgo, y de esos cuántos en el bolsillo. Lo
       // primero sustituye a los cinco huecos: el tope ya no es de tipos
-      // distintos sino de lo que ocupa cada individuo.
-      const coste = creature(id).cost;
-      let cantidad = Math.min(disponibles, troopRoom(destino, tope, id));
-      while (cantidad > 0 && !canAfford(purse, scaleResources(coste, cantidad))) cantidad--;
+      // distintos sino de lo que ocupa cada individuo. La cuenta es la misma
+      // que enseña el botón «todo» del castillo: vive en `recruitCapacity`, y
+      // un máximo mayor que cero ya es uno que hay, cabe y se paga — lo mismo
+      // que miraban las dos guardas que había aquí alrededor.
+      const cantidad = recruitCapacity(town, id, { army: destino, tope, quien }, purse).maximo;
       if (cantidad <= 0) continue;
-      if (recruitBlocker(town, id, cantidad, purse) !== null) continue;
 
       acciones.push({ type: 'recruit', town: town.id, creature: id, count: cantidad });
-      purse = subtractResources(purse, scaleResources(coste, cantidad));
+      purse = subtractResources(purse, recruitCost(id, cantidad));
       destino = withTroops(destino, id, cantidad);
     }
   }

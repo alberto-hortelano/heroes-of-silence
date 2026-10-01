@@ -1,13 +1,21 @@
+/*
+ * El marco del cliente: madera oscura, latón y el lienzo con protagonismo.
+ * El lenguaje es el de la `/aventura/` de la rama `archivo/gpt-rpg` (Georgia,
+ * bordes `ridge`, botones cuadrados), sobre la rejilla de tres franjas que ya
+ * comparte el espectador: sus ids (#topbar #day #turn #seed #stage #canvas #side
+ * #statusbar #status) no se tocan.
+ */
 :root {
-  --bg: #14110d;
-  --panel: #241d15;
-  --panel-alt: #2f261b;
-  --ink: #e8dcc4;
-  --ink-dim: #a8977a;
-  --gold: #d9a441;
-  --accent: #7fa87f;
-  --danger: #b4553f;
-  --border: #4a3c2a;
+  --bg: #151a15;
+  --panel: #201d17;
+  --panel-alt: #26362b;
+  --ink: #e5dbc3;
+  --ink-dim: #aab49f;
+  --gold: #cbb780;
+  --brass: #817047;
+  --accent: #9fc49a;
+  --danger: #e3a076;
+  --border: #a68b4d55;
   color-scheme: dark;
 }
 
@@ -18,159 +26,239 @@ html, body {
   height: 100%;
   background: var(--bg);
   color: var(--ink);
-  font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+  font-family: Georgia, 'Times New Roman', serif;
   overflow: hidden;
 }
 
 #app {
   display: grid;
+  /* La columna no crece con lo que lleva dentro: el tablero de batalla es más
+     ancho que un móvil y debe desplazarse en su marco, no estirar la página. */
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto 1fr auto;
   height: 100%;
 }
 
-#topbar, #statusbar {
+#topbar {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 0.4rem 0.9rem;
+  gap: 1.1rem;
+  padding: 0.45rem 1rem;
   background: var(--panel);
-  border-bottom: 1px solid var(--border);
-  font-size: 0.9rem;
+  border-bottom: 3px ridge #71623e;
+  font: 13px system-ui, sans-serif;
+  flex-wrap: wrap;
 }
-
-#statusbar {
-  border-bottom: none;
-  border-top: 1px solid var(--border);
-  justify-content: space-between;
-  min-height: 2.4rem;
-}
-
-#day { color: var(--gold); font-weight: 700; letter-spacing: 0.03em; }
+#topbar .marca { font-size: 11px; letter-spacing: 2px; color: var(--gold); }
+#day { color: #f2deac; font: 15px Georgia, serif; letter-spacing: 0.03em; }
 #turn { margin-left: auto; color: var(--ink-dim); }
 #seed {
   color: var(--ink-dim);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.8rem;
-  opacity: 0.75;
+  font-size: 0.78rem;
+  opacity: 0.8;
 }
 
-#resources {
-  display: flex;
-  gap: 0.9rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-#resources li { display: flex; align-items: center; gap: 0.3rem; }
-#resources .res-icon {
-  width: 1.15rem;
-  height: 1.15rem;
-  object-fit: contain;
-  image-rendering: auto;
-}
-
-#resources .swatch {
-  width: 0.65rem;
-  height: 0.65rem;
-  border-radius: 2px;
-  border: 1px solid rgba(0, 0, 0, 0.4);
-}
+#resources { display: flex; gap: 0.9rem; margin: 0; padding: 0; list-style: none; flex-wrap: wrap; }
+#resources li { display: flex; align-items: center; gap: 0.3rem; font-variant-numeric: tabular-nums; }
+#resources .res-icon { width: 1.15rem; height: 1.15rem; object-fit: contain; }
+#resources .swatch { width: 0.65rem; height: 0.65rem; border: 1px solid rgba(0, 0, 0, 0.4); }
 
 #stage {
   display: grid;
-  grid-template-columns: 1fr 20rem;
+  grid-template-columns: minmax(0, 1fr) 19rem;
+  gap: 14px;
+  padding: 12px 14px;
   min-height: 0;
+}
+
+.map-wrap {
+  position: relative;
+  min-height: 0;
+  border: 7px ridge var(--brass);
+  box-shadow: 0 0 0 2px #19140d, 0 12px 30px #0008;
+  background: #080a10;
+  overflow: hidden;
 }
 
 #canvas {
   width: 100%;
   height: 100%;
   display: block;
-  background: #0d0b08;
-  cursor: pointer;
+  cursor: crosshair;
+  touch-action: none;
 }
+#canvas:focus-visible { outline: 2px solid #f5d973; outline-offset: -3px; }
 
-#side {
-  background: var(--panel);
-  border-left: 1px solid var(--border);
-  padding: 0.8rem;
+.map-tools { position: absolute; bottom: 10px; right: 10px; display: flex; gap: 3px; }
+.map-tools button {
+  background: #292619ed;
+  border: 2px outset #857147;
+  padding: 6px 10px;
+  color: #f5dfb0;
+  min-height: 34px;
+}
+/* La pista del borde en la batalla del móvil: hay enemigos fuera de la vista. */
+.borde-enemigo {
+  position: absolute;
+  top: 8px;
+  background: #3b1f17ee;
+  border: 2px outset #b8664b;
+  color: #ffe1c2;
+  font-weight: 600;
+  min-height: 40px;
+  z-index: 1;
+}
+.borde-enemigo[hidden] { display: none; }
+
+#app:not([data-escena='adventure']) .map-tools,
+#app:not([data-escena='adventure']) #atlas { display: none; }
+
+#lateral {
+  min-height: 0;
   overflow-y: auto;
-  font-size: 0.85rem;
+  padding-left: 14px;
+  border-left: 1px solid var(--border);
+  font-size: 0.86rem;
 }
 
-#side h2 {
-  margin: 0 0 0.5rem;
-  font-size: 1rem;
-  color: var(--gold);
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 0.3rem;
+.eyebrow { font: 10px system-ui, sans-serif; letter-spacing: 2.5px; color: var(--gold); margin: 0 0 8px; }
+.atlas-panel { margin-bottom: 14px; }
+.atlas-panel canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  border: 4px ridge var(--brass);
+  background: #080a10;
+  cursor: crosshair;
 }
 
+#side h2 { margin: 0 0 0.45rem; font-size: 1.35rem; font-weight: 400; color: #f2deac; }
 #side h3 {
-  margin: 1rem 0 0.35rem;
-  font-size: 0.8rem;
+  margin: 1rem 0 0.4rem;
+  font: 10px system-ui, sans-serif;
+  letter-spacing: 2px;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--ink-dim);
+  color: var(--gold);
+  border-top: 1px solid var(--border);
+  padding-top: 0.6rem;
 }
-
+#side p { line-height: 1.5; }
 #side ul { margin: 0; padding-left: 1.1rem; }
-#side li { margin-bottom: 0.2rem; }
 
-.row {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.15rem 0;
-}
+.row { display: flex; justify-content: space-between; gap: 0.5rem; padding: 0.15rem 0; }
 .row .label { color: var(--ink-dim); }
 
 button {
-  font: inherit;
-  font-size: 0.85rem;
-  color: var(--ink);
-  background: var(--panel-alt);
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  padding: 0.35rem 0.7rem;
+  font: 13px system-ui, sans-serif;
+  color: #efe5ce;
+  background: #303421;
+  border: 1px solid #8f784955;
+  border-radius: 0;
+  padding: 0.4rem 0.75rem;
+  min-height: 34px;
   cursor: pointer;
 }
-button:hover:not(:disabled) { border-color: var(--gold); color: var(--gold); }
-button:disabled { opacity: 0.4; cursor: not-allowed; }
-button.primary { background: #3d3220; border-color: var(--gold); color: var(--gold); }
+button:hover:not(:disabled) { background: #4a4d2d; border-color: #cbb780; }
+button:focus-visible { outline: 2px solid #ecd49e; outline-offset: 2px; }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+button.primary { background: #b59b60; color: #161d16; border-color: #e0c589; font-weight: 600; }
+button.primary:hover:not(:disabled) { background: #c9ae70; color: #161d16; }
 
 .stack-list { display: grid; gap: 0.3rem; }
 .stack {
   display: flex;
   justify-content: space-between;
   gap: 0.5rem;
-  padding: 0.3rem 0.45rem;
+  padding: 0.32rem 0.5rem;
   background: var(--panel-alt);
-  border: 1px solid var(--border);
-  border-radius: 3px;
+  border: 1px solid #6e71413d;
+  text-align: left;
 }
-.stack .count { color: var(--gold); font-variant-numeric: tabular-nums; }
-.stack.empty { opacity: 0.35; font-style: italic; }
+.stack .count { color: #f2deac; font-variant-numeric: tabular-nums; }
+.stack.empty { opacity: 0.45; font-style: italic; }
+.stack.primary { background: #4a4d2d; border-color: #e0c589; color: #f5dfb0; font-weight: 400; }
 
-.build-list { display: grid; gap: 0.25rem; }
-.build-list button { text-align: left; display: flex; justify-content: space-between; gap: 0.6rem; }
-.build-list .cost { color: var(--ink-dim); font-size: 0.78rem; }
+progress.liderazgo {
+  display: block;
+  width: 100%;
+  height: 5px;
+  margin: 0.2rem 0 0.5rem;
+  border: 0;
+  background: #16221a;
+  accent-color: #d5ba78;
+}
+progress.liderazgo::-webkit-progress-bar { background: #16221a; }
+progress.liderazgo::-webkit-progress-value { background: #d5ba78; }
+progress.liderazgo::-moz-progress-bar { background: #d5ba78; }
 
-#actions { display: flex; gap: 0.5rem; }
-#status { color: var(--ink-dim); }
+.cost { color: var(--ink-dim); font-size: 0.8rem; }
+
+.fin {
+  padding: 0.8rem 0.9rem;
+  margin-bottom: 0.9rem;
+  border: 1px solid #a18b565e;
+  border-left: 3px solid #cfb474;
+  background: linear-gradient(110deg, #334435, #222c23);
+}
+.fin.perdida { border-left-color: var(--danger); background: linear-gradient(110deg, #4a3326, #2a221c); }
+.fin h2 { margin: 0 0 0.3rem; }
+
+#statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.45rem 1rem;
+  min-height: 2.8rem;
+  background: #26362ef5;
+  border-top: 1px solid #b39e6355;
+  font: 13px/1.5 system-ui, sans-serif;
+}
+#actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+#status { color: #d6d6c0; }
 
 .log {
-  max-height: 11rem;
+  max-height: 12rem;
   overflow-y: auto;
-  font-size: 0.78rem;
-  line-height: 1.45;
+  font: 12px/1.55 system-ui, sans-serif;
   color: var(--ink-dim);
-  background: #1b1610;
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  padding: 0.4rem 0.5rem;
+  background: #1d281f;
+  border: 1px solid #6e71413d;
+  padding: 0.45rem 0.55rem;
 }
 .log div { margin-bottom: 0.15rem; }
 .log .win { color: var(--accent); }
 .log .lose { color: var(--danger); }
+
+/*
+ * Móvil: se apila todo y la página se desplaza. El tablero de batalla a 25° es
+ * casi 3:1 y a 390 px los hexes no se pueden tocar, así que en batalla —y en el
+ * castillo, que es un cuadro de 16:9— el lienzo se ensancha y se desplaza en
+ * horizontal dentro de su marco (decisión del usuario, 01-10-2026).
+ */
+@media (max-width: 760px) {
+  /* La barra de acciones es una fila de la rejilla, no una capa pegajosa
+     encima del contenido: lo que se desplaza es `#stage`, entre la barra de
+     arriba y la de abajo. Pegada con `position: sticky` sobre el documento,
+     tapaba lo que quedara debajo —en batalla, la fila de hechizos— hasta que
+     se desplazaba la página. Así el hueco que deja abajo es exactamente su
+     alto, y «Fin de turno» sigue siempre a la vista. */
+  #app { height: 100dvh; }
+  #topbar { gap: 0.6rem; padding: 0.4rem 0.6rem; }
+  #topbar .marca { display: none; }
+  #stage { display: block; padding: 8px; overflow-y: auto; }
+  .map-wrap { height: 62dvh; border-width: 5px; }
+  #app[data-escena='battle'] .map-wrap,
+  #app[data-escena='town'] .map-wrap { overflow-x: auto; overflow-y: hidden; }
+  #app[data-escena='battle'] #canvas { width: 860px; }
+  #app[data-escena='town'] #canvas { width: 760px; }
+  #app[data-escena='battle'] .map-wrap { height: 380px; }
+  #app[data-escena='town'] .map-wrap { height: 440px; }
+  .map-tools button { min-width: 44px; min-height: 44px; }
+  #lateral { border-left: 0; padding: 12px 0 0; }
+  .atlas-panel { max-width: 150px; }
+  #statusbar { flex-wrap: wrap; padding: 0.4rem 0.6rem; }
+  #actions button { min-height: 44px; }
+}

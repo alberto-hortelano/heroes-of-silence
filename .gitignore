@@ -26,3 +26,6 @@ docs/agents/*/implementacion.md
 # el historial de git los cuenta mejor. Y llevan dentro lo que el commit quita
 # —incluida una ruta absoluta, cuando eso es justo lo que se está quitando—.
 docs/agents/*/commits/
+# Capturas de pnpm capturas y de QA: se regeneran, pesan decenas de MB
+docs/agents/*/capturas/
+docs/agents/*/qa/

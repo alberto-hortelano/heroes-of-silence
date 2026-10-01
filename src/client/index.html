@@ -4,11 +4,13 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Heroes of Silence</title>
+    <link rel="icon" href="data:," />
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
-    <div id="app">
+    <div id="app" data-escena="adventure">
       <header id="topbar">
+        <span class="marca">HEROES OF SILENCE</span>
         <span id="day">Día 1</span>
         <ul id="resources"></ul>
         <span id="turn"></span>
@@ -16,8 +18,22 @@
       </header>
 
       <main id="stage">
-        <canvas id="canvas"></canvas>
-        <aside id="side"></aside>
+        <div id="lienzo" class="map-wrap">
+          <canvas id="canvas" tabindex="0" aria-label="Mapa de aventura. Clic para mover al héroe; arrastra para mirar; rueda o + y − para el zoom."></canvas>
+          <button id="hacia-enemigo" class="borde-enemigo" data-action="ver-enemigo" hidden></button>
+          <div class="map-tools" id="herramientas">
+            <button data-action="zoom-out" aria-label="Alejar el mapa">−</button>
+            <button data-action="centrar">Centrar héroe</button>
+            <button data-action="zoom-in" aria-label="Acercar el mapa">+</button>
+          </div>
+        </div>
+        <aside id="lateral">
+          <div class="atlas-panel" id="atlas">
+            <p class="eyebrow">TIERRAS EXPLORADAS</p>
+            <canvas id="minimapa" width="240" height="240" aria-label="Minimapa: pulsa para llevar la vista allí"></canvas>
+          </div>
+          <div id="side"></div>
+        </aside>
       </main>
 
       <footer id="statusbar">

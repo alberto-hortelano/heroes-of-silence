@@ -7,35 +7,40 @@
  */
 import { chooseBattleAction } from '@core/ai/tactics.js';
 import { playAiTurn } from '@core/ai/turn.js';
-import {
-  activeStack,
-  applyAction,
-  castBlocker,
-  legalActions,
-  movableHexes,
-} from '@core/battle/battle.js';
+import { activeStack, applyAction, castBlocker, legalActions } from '@core/battle/battle.js';
 import { spell } from '@core/battle/spells.js';
 import type { BattleAction, BattleStack, BattleState, Side } from '@core/battle/types.js';
+import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '@core/hero/troop.js';
 import { findPath, type PathStep } from '@core/map/map.js';
 import { createRng } from '@core/rng.js';
 import {
   applyAdventureAction,
+  destinoDeRecluta,
   type GameContext,
   type GameState,
   heroById,
   heroesOf,
+  type Player,
+  type RecruitCapacity,
+  recruitCapacity,
   resolvePendingBattle,
   settleBattle,
   sidesOwnedBy,
   townById,
   townsOf,
   turnBlocker,
+  visibleNow,
 } from '@core/state/game.js';
 import { newGame } from '@core/state/setup.js';
 import type { Hex, Point } from '@core/types.js';
 import { type Desenlace, desenlaceDe } from './desenlace.js';
 
 export type Scene = 'adventure' | 'town' | 'battle';
+
+/** Un paso de la ruta previsualizada: `hoy` si lo alcanza el movimiento del día. */
+interface RoutePreview extends PathStep {
+  readonly hoy: boolean;
+}
 
 /** Una entrada del libro de hechizos tal y como la pinta el panel de batalla. */
 export interface SpellOption {
@@ -93,17 +98,84 @@ export class Session {
   readonly ctx: GameContext;
   /** El jugador que maneja la persona sentada delante. */
   readonly viewer = 0;
-  scene: Scene = 'adventure';
-  selectedHeroId: string | null = null;
+
+  /**
+   * Cuántas veces ha cambiado algo que se ve. Sube con cada acción, cada cambio
+   * de selección, de escena o de barra de estado.
+   *
+   * Existe porque `main.ts` repintaba los paneles **sesenta veces por segundo**
+   * para descubrir, comparando el marcado ya serializado, que no había cambiado
+   * nada. Ahora quien pinta mira este número: si no se ha movido, lo de antes
+   * sigue valiendo — los paneles, la lista de lo que hay en el mapa, el
+   * minimapa. Los campos de abajo son accesores por eso y no por gusto: una
+   * asignación a pelo no subiría la versión y el panel se quedaría viejo.
+   */
+  get version(): number {
+    return this.versionActual;
+  }
+  private versionActual = 0;
+  private tocar(): void {
+    this.versionActual++;
+  }
+
+  get scene(): Scene {
+    return this.escena;
+  }
+  set scene(v: Scene) {
+    this.escena = v;
+    this.tocar();
+  }
+  private escena: Scene = 'adventure';
+
+  get selectedHeroId(): string | null {
+    return this.heroeElegido;
+  }
+  set selectedHeroId(v: string | null) {
+    this.heroeElegido = v;
+    this.tocar();
+  }
+  private heroeElegido: string | null = null;
+
   /**
    * Hechizo que la persona ha elegido y está a punto de lanzar sobre alguien.
    * Vive aquí y no en `main.ts` porque lo lee también el panel; `main.ts` solo
    * guarda estado de píxel.
    */
-  selectedSpell: string | null = null;
-  openTownId: string | null = null;
-  revealAll = false;
+  get selectedSpell(): string | null {
+    return this.hechizoElegido;
+  }
+  set selectedSpell(v: string | null) {
+    this.hechizoElegido = v;
+    this.tocar();
+  }
+  private hechizoElegido: string | null = null;
+
+  get openTownId(): string | null {
+    return this.puebloAbierto;
+  }
+  set openTownId(v: string | null) {
+    this.puebloAbierto = v;
+    this.tocar();
+  }
+  private puebloAbierto: string | null = null;
+
+  get revealAll(): boolean {
+    return this.todoALaVista;
+  }
+  set revealAll(v: boolean) {
+    this.todoALaVista = v;
+    this.tocar();
+  }
+  private todoALaVista = false;
+
+  /**
+   * La barra de estado. Es lo único que NO sube la versión, y a propósito: se
+   * reescribe a cada casilla que pisa el ratón, ningún panel la lee —`main.ts`
+   * la copia a su barra comparando el texto— y subir la versión por ella tiraba
+   * a cada paso del ratón todo lo que el mapa guarda entre fotogramas.
+   */
   status = '';
+
   /**
    * Mientras juegan los rivales no se acepta nada de la persona.
    *
@@ -154,17 +226,71 @@ export class Session {
     return townsOf(this.state, this.viewer);
   }
 
-  get resources() {
-    return this.state.players.find((p) => p.id === this.viewer)!.resources;
+  /** El jugador de la persona: sus recursos y su niebla. */
+  get jugador(): Player {
+    const propio = this.state.players.find((p) => p.id === this.viewer);
+    if (propio === undefined) throw new Error(`el jugador ${this.viewer} no está en la partida`);
+    return propio;
   }
 
-  /** Ruta que seguiría el héroe seleccionado hasta `to`, para previsualizarla. */
-  previewPath(to: Point): PathStep[] {
+  get resources() {
+    return this.jugador.resources;
+  }
+
+  /** Lo explorado por la persona, o `null` si se ha pedido verlo todo. */
+  get explorado(): ReadonlySet<string> | null {
+    return this.revealAll ? null : this.jugador.fog;
+  }
+
+  /**
+   * La ruta ENTERA del héroe seleccionado hasta `to`, con cada paso marcado
+   * según llegue hoy o no.
+   *
+   * Antes se cortaba en `movePoints` y la pantalla solo sabía pintar lo de hoy:
+   * a quien señalaba un castillo a tres días no se le enseñaba por dónde iba a ir.
+   * El clic sigue moviendo hasta donde llegue hoy (`moveHeroTo`); lo de otro día
+   * es solo para verlo, porque un destino de varios días pediría que el núcleo
+   * lo recordara.
+   */
+  previewPath(to: Point): RoutePreview[] {
     const hero = this.selectedHero;
     if (hero === null || !this.isPlayersTurn) return [];
     const camino = findPath(this.state.map, hero.at, to);
     if (camino === null) return [];
-    return camino.filter((paso) => paso.cost <= hero.movePoints);
+    return camino.map((paso) => ({ ...paso, hoy: paso.cost <= hero.movePoints }));
+  }
+
+  /**
+   * Las casillas que la persona está mirando AHORA, para la niebla de dos tonos.
+   *
+   * `visibleNow` recorre héroes y castillos; se pide en cada fotograma, así que se
+   * guarda mientras no cambie nada que la mueva: la crónica crece con cada
+   * movimiento y captura, y el turno cambia al pasar de día.
+   */
+  visibles(): ReadonlySet<string> {
+    const clave = `${this.state.log.length}|${this.state.day}|${this.state.current}`;
+    if (this.cacheVisibles === null || this.cacheVisibles.clave !== clave) {
+      this.cacheVisibles = { clave, casillas: visibleNow(this.state, this.viewer) };
+    }
+    return this.cacheVisibles.casillas;
+  }
+  private cacheVisibles: { clave: string; casillas: ReadonlySet<string> } | null = null;
+
+  /**
+   * El liderazgo que ocupa una tropa y su tope: la de un héroe, o la guarnición
+   * de un castillo. Las dos por el mismo camino, para que el panel pinte la
+   * misma fila con una sola llamada.
+   */
+  liderazgo(de: { readonly heroe: string } | { readonly guarnicion: string }): {
+    ocupado: number;
+    tope: number;
+  } {
+    if ('heroe' in de) {
+      const hero = heroById(this.state, de.heroe);
+      return { ocupado: armyLeadership(hero.army), tope: heroLeadership(hero) };
+    }
+    const town = townById(this.state, de.guarnicion);
+    return { ocupado: armyLeadership(town.garrison), tope: GARRISON_LEADERSHIP };
   }
 
   // ------------------------------------------------------------ aventura
@@ -204,6 +330,12 @@ export class Session {
 
   moveHeroTo(heroId: string, to: Point): void {
     const hero = heroById(this.state, heroId);
+    // Pulsar donde ya está el héroe no es un destino sin camino: el camino es
+    // vacío porque ya ha llegado. Decía «No hay camino hasta ahí», que es falso.
+    if (sameTile(hero.at, to)) {
+      this.status = `${hero.name} ya está en esa casilla: pulsa otra para moverlo.`;
+      return;
+    }
     const camino = findPath(this.state.map, hero.at, to);
     if (camino === null || camino.length === 0) {
       this.status = 'No hay camino hasta ahí.';
@@ -230,6 +362,7 @@ export class Session {
       this.status = mensaje(err);
       return;
     }
+    this.tocar();
 
     if (this.state.pendingBattle !== null) {
       this.scene = 'battle';
@@ -253,6 +386,7 @@ export class Session {
       return;
     }
     this.turnoDelRivalEnCurso = true;
+    this.tocar();
     try {
       await this.runAiTurns();
     } catch (err) {
@@ -266,6 +400,7 @@ export class Session {
       // Pase lo que pase: una bandera que se queda arriba deja el juego mudo
       // para siempre, y eso es peor que el fallo que la dejó ahí.
       this.turnoDelRivalEnCurso = false;
+      this.tocar();
     }
   }
 
@@ -318,6 +453,28 @@ export class Session {
         this.viewer,
       ),
     );
+  }
+
+  /**
+   * Cuánto se puede reclutar de esa criatura en el castillo abierto: lo que hay,
+   * lo que cabe y lo que se paga. La cuenta es la del núcleo (`recruitCapacity`),
+   * la misma con la que planifica la IA, así que «todo» pide justo lo que el
+   * núcleo acepta.
+   */
+  recruitPlan(creatureId: string): RecruitCapacity | null {
+    const town = this.activeTown;
+    if (town === null || town.owner === null) return null;
+    return recruitCapacity(town, creatureId, destinoDeRecluta(this.state, town), this.resources);
+  }
+
+  /**
+   * «Todo»: lo que cabe y se paga, no lo que hay. Si no cabe ni uno se pide uno,
+   * para que el motivo lo escriba el núcleo en vez de redactarlo aquí.
+   */
+  recruitAll(creatureId: string): void {
+    const plan = this.recruitPlan(creatureId);
+    if (plan === null) return;
+    this.recruit(creatureId, Math.max(1, plan.maximo));
   }
 
   recruit(creatureId: string, count: number): void {
@@ -377,9 +534,10 @@ export class Session {
   /**
    * La batalla y su stack activo, pero solo cuando el turno es de verdad de la
    * persona. Son las cuatro guardas de «¿me toca?», escritas una vez: estaban
-   * copiadas en `battleMovable` y en `spellOptions`.
+   * copiadas en `battleMovable` y en `spellOptions`, y la escena de batalla las
+   * volvía a escribir para saber si marcar objetivos. Ahora la lee también ella.
    */
-  private get turnoPropio(): { battle: BattleState; stack: BattleStack; side: Side } | null {
+  get turnoPropio(): { battle: BattleState; stack: BattleStack; side: Side } | null {
     const battle = this.battle;
     if (battle === null || battle.finished !== null) return null;
     const side = this.miBando;
@@ -388,16 +546,55 @@ export class Session {
     return { battle, stack, side };
   }
 
-  /** Hexes a los que puede ir el stack activo, si es de la persona. */
-  battleMovable(): Hex[] {
+  /**
+   * Las acciones legales y lo que se deriva de ellas, guardado mientras la
+   * batalla no se mueva.
+   *
+   * La escena las pide en cada fotograma, y cada petición era el BFS del tablero
+   * más un `castBlocker` por hechizo y objetivo. Toda acción aplicada deja una
+   * línea en el registro y cambia el stack activo, así que la clave es esa —el
+   * patrón de `visibles()`—, con la batalla por identidad delante: una
+   * batalla nueva empieza con el registro corto y podría coincidir.
+   */
+  private calculoDeBatalla(): {
+    acciones: BattleAction[];
+    movibles: Hex[];
+    opciones: SpellOption[];
+  } {
+    const battle = this.battle;
+    if (battle === null) return { acciones: [], movibles: [], opciones: [] };
+    // El maná y el «ya lanzó» de los dos héroes van en la clave aunque hoy solo
+    // cambien con un `cast` (que ya deja línea): son lo único de lo que dependen
+    // los hechizos que no pasa por el registro, y un test que los toca a mano
+    // vería una lista vieja.
+    const { attacker: ha, defender: hd } = battle.heroes;
+    const clave = `${battle.log.length}|${battle.activeId}|${this.selectedSpell}|${ha?.mana}|${ha?.castThisRound}|${hd?.mana}|${hd?.castThisRound}`;
+    const c = this.cacheBatalla;
+    if (c !== null && c.battle === battle && c.clave === clave) return c.valor;
+    const acciones = battle.finished === null ? legalActions(battle) : [];
     const turno = this.turnoPropio;
-    return turno === null ? [] : movableHexes(turno.battle, turno.stack);
+    // Los hexes a los que ir son las entradas `move` de la misma lista: antes se
+    // pedían aparte con `movableHexes`, que era recorrer el tablero otra vez para
+    // dar la misma respuesta.
+    const movibles =
+      turno === null ? [] : acciones.flatMap((a) => (a.type === 'move' ? [a.to] : []));
+    const valor = { acciones, movibles, opciones: this.opcionesDeHechizo(acciones) };
+    this.cacheBatalla = { battle, clave, valor };
+    return valor;
+  }
+  private cacheBatalla: {
+    battle: BattleState;
+    clave: string;
+    valor: { acciones: BattleAction[]; movibles: Hex[]; opciones: SpellOption[] };
+  } | null = null;
+
+  /** Hexes a los que puede ir el stack activo, si es de la persona. */
+  battleMovable(): readonly Hex[] {
+    return this.calculoDeBatalla().movibles;
   }
 
-  battleLegalActions(): BattleAction[] {
-    const battle = this.battle;
-    if (battle === null || battle.finished !== null) return [];
-    return legalActions(battle);
+  battleLegalActions(): readonly BattleAction[] {
+    return this.calculoDeBatalla().acciones;
   }
 
   /** El héroe de la persona en la batalla en curso, el de SU bando. */
@@ -415,16 +612,16 @@ export class Session {
    * entre las acciones legales». Y el motivo lo escribe el núcleo
    * (`castBlocker`), igual que el del castillo sale de `buildBlocker`.
    */
-  spellOptions(): SpellOption[] {
+  spellOptions(): readonly SpellOption[] {
+    return this.calculoDeBatalla().opciones;
+  }
+
+  private opcionesDeHechizo(acciones: readonly BattleAction[]): SpellOption[] {
     const turno = this.turnoPropio;
     if (turno === null) return [];
     const hero = this.battleHero;
-    // Un héroe sin libro no necesita que se le calculen las acciones legales, que
-    // es lo caro: sin esto, uno contratado sin gremio pagaba el recorrido entero
-    // en cada fotograma para pintar «no conoce ninguno».
     if (hero === null || hero.spells.length === 0) return [];
 
-    const acciones = this.battleLegalActions();
     return hero.spells.map((id) => {
       const sp = spell(id);
       // Un solo predicado para las tres preguntas —sobre quién, si se puede, y
@@ -501,6 +698,7 @@ export class Session {
     if (battle === null) return;
     try {
       applyAction(battle, action, this.ctx.rng);
+      this.tocar();
       this.status = '';
     } catch (err) {
       this.status = mensaje(err);
@@ -525,6 +723,7 @@ export class Session {
       applyAction(battle, chooseBattleAction(battle), this.ctx.rng);
       guard++;
     }
+    if (guard > 0) this.tocar();
     if (battle.finished !== null) this.status = 'La batalla ha terminado.';
   }
 
@@ -549,8 +748,10 @@ export class Session {
     if (this.selectedHero === null) {
       this.selectedHeroId = this.myHeroes()[0]?.id ?? null;
     }
+    // «¡Batalla!» se quedaba en la barra ya de vuelta en el mapa: se borra, y si
+    // la batalla cerró la partida se dice cómo.
     const desenlace = this.desenlace;
-    if (desenlace !== null) this.status = AL_CERRARSE_LA_BATALLA[desenlace];
+    this.status = desenlace === null ? '' : AL_CERRARSE_LA_BATALLA[desenlace];
   }
 
   // ------------------------------------------------------------ interno
@@ -575,6 +776,7 @@ export class Session {
     } catch (err) {
       this.status = mensaje(err);
     }
+    this.tocar();
   }
 
   /**

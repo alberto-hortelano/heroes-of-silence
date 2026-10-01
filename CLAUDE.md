@@ -20,6 +20,7 @@ pnpm format     # lo mismo, arreglando lo que sepa arreglar
 pnpm banco      # 200 partidas: tiempo y sha256 del volcado, 2,7 s
 
 npx tsx tools/qa/enfrentamiento.ts   # dos tácticas frente a frente, 5000 batallas, 11,8 s
+pnpm capturas   # juega el cliente en Chromium (Playwright) con clics reales y saca capturas, ~40 s
 ```
 
 La partida se abre con una semilla al azar; **`?seed=N` en la URL fija la
@@ -118,7 +119,9 @@ src/core/          TypeScript puro: las reglas. Sin DOM y sin node:*
 src/server/        bridge WebSocket + puente MCP
 src/client/        Vite + Canvas 2D. Solo pinta y manda intents
   html.ts          LA PUERTA: todo el marcado sale de aquí, ya escapado
-  render/          una escena por pantalla: aventura, castillo y batalla
+  escenas/         ratón y cámara de cada pantalla: aventura, castillo y batalla
+  render/          lo que pinta cada pantalla: mapa, batalla a 25°, castillo, figuras
+src/shared/        el contrato visual (cámara a 25°, luz) que comparten cliente y taller
   views/           los paneles de HTML del lateral
   espectador/      la otra página: mira la partida del servidor, no juega
 tools/gen/         generación de assets con fal.ai
@@ -1174,6 +1177,7 @@ aportan en un prototipo. Lo que hay:
 | El navegador | minutos | si el cambio se ve |
 | El espectador en el navegador | minutos | si tocas `html.ts`, `espectador/` o el canal |
 | `pnpm qa` | 3,1 s | si tocas `src/server/` o el contrato |
+| `pnpm capturas` | ~40 s | si el cambio se ve: juega el cliente y el espectador en Chromium y sale 1 con un error en consola |
 | `npx tsx tools/qa/barrido-semillas.ts` | 1,1 s | si tocas la IA o la economía |
 | `pnpm banco` | 2,7 s | si tocas el núcleo sin querer cambiar el juego |
 | `tools/qa/enfrentamiento.ts` | 11,8 s | si cambias **cómo decide** la IA de batalla |

@@ -2,7 +2,10 @@
 <li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>9000</li>
 ### aventura · renderSide
 
+        <p class="eyebrow">HÉROE · NIVEL 1</p>
         <h2>Aldo de Valdeluz</h2>
+        <div class="row"><span class="label">Liderazgo</span><span>16 / 20</span></div>
+    <progress class="liderazgo" max="20" value="16"></progress>
         <div class="row"><span class="label">Movimiento</span><span>1100 / 1100</span></div>
         <div class="row"><span class="label">Maná</span><span>20 / 20</span></div>
         <div class="row"><span class="label">Ataque / Defensa</span><span>2 / 2</span></div>
@@ -10,7 +13,7 @@
         <div class="row"><span class="label">Experiencia</span><span>0</span></div>
         <h3>Hechizos</h3>
         <div class="stack-list"><div class="stack"><span>Flecha mágica</span><span class="count">3</span></div></div>
-        <h3>Ejército (7)</h3>
+        <h3>Tropa · 7 individuos</h3>
         <div class="stack-list"><div class="stack"><span>Campesino</span><span class="count">5</span></div><div class="stack"><span>Arquero ↑</span><span class="count">2</span></div></div><h3>Castillos</h3><div class="stack-list"><button data-action="open-town" data-town="town-0" class="stack">
               <span>Valdeluz</span><span class="count">+500</span>
             </button></div>
@@ -39,9 +42,15 @@
     <div class="stack-list"><div class="stack"><span>Campesino</span><span class="count">+12</span></div></div>
 
     <h3>Guarnición</h3>
+    <div class="row"><span class="label">Liderazgo</span><span>0 / 20</span></div>
+    <progress class="liderazgo" max="20" value="0"></progress>
     <div class="stack-list"><div class="stack empty"><span>—</span></div></div>
 
-    <h3>Ejército de Aldo de Valdeluz</h3><div class="stack-list"><div class="stack"><span>Campesino</span><span class="count">5</span></div><div class="stack"><span>Arquero ↑</span><span class="count">2</span></div></div>
+    <h3>Tropa de Aldo de Valdeluz</h3>
+          <div class="row"><span class="label">Liderazgo</span><span>16 / 20</span></div>
+    <progress class="liderazgo" max="20" value="16"></progress>
+          <p class="cost">Lo que reclutes va a su tropa, hasta su liderazgo.</p>
+          <div class="stack-list"><div class="stack"><span>Campesino</span><span class="count">5</span></div><div class="stack"><span>Arquero ↑</span><span class="count">2</span></div></div>
 ### castillo · con héroe dentro y gremio · renderActions
 <button data-action="close-town">Volver al mapa</button>
 ### castillo · con héroe dentro y gremio · renderLog
@@ -61,9 +70,12 @@
     <div class="stack-list"><div class="stack"><span>Campesino</span><span class="count">+12</span></div></div>
 
     <h3>Guarnición</h3>
+    <div class="row"><span class="label">Liderazgo</span><span>0 / 20</span></div>
+    <progress class="liderazgo" max="20" value="0"></progress>
     <div class="stack-list"><div class="stack empty"><span>—</span></div></div>
 
-    <button data-action="hire-hero" class="primary" style="margin-top:.7rem">Contratar héroe (2500 oro)</button>
+    <p class="cost">Sin héroe dentro, lo que reclutes se queda de guarnición.</p>
+          <button data-action="hire-hero" class="primary" style="margin-top:.7rem">Contratar héroe (2500 oro)</button>
 ### castillo · sin héroe y sin gremio · renderActions
 <button data-action="close-town">Volver al mapa</button>
 ### castillo · sin héroe y sin gremio · renderLog
@@ -72,7 +84,10 @@
 <li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>5500</li>
 ### aventura · héroe recién contratado · renderSide
 
+        <p class="eyebrow">HÉROE · NIVEL 1</p>
         <h2>Capitán de Valdeluz</h2>
+        <div class="row"><span class="label">Liderazgo</span><span>0 / 20</span></div>
+    <progress class="liderazgo" max="20" value="0"></progress>
         <div class="row"><span class="label">Movimiento</span><span>1500 / 1500</span></div>
         <div class="row"><span class="label">Maná</span><span>10 / 10</span></div>
         <div class="row"><span class="label">Ataque / Defensa</span><span>1 / 1</span></div>
@@ -80,7 +95,7 @@
         <div class="row"><span class="label">Experiencia</span><span>0</span></div>
         <h3>Hechizos</h3>
         <div class="stack-list"><div class="stack empty">Sin hechizos: llévalo a un castillo con gremio</div></div>
-        <h3>Ejército (0)</h3>
+        <h3>Tropa · 0 individuos</h3>
         <div class="stack-list"><div class="stack empty"><span>—</span></div></div><h3>Héroes</h3><div class="stack-list"><button data-action="select-hero" data-hero="hero-0" class="stack">
               <span>Aldo de Valdeluz</span><span class="count">1100</span>
             </button><button data-action="select-hero" data-hero="hero-0-2-1" class="stack">
@@ -186,7 +201,11 @@
 ### partida terminada · renderTopbar.resources
 <li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>6</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>21</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>8</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>2810</li>
 ### partida terminada · renderSide
-<p>No tienes héroes en el mapa. Contrata uno en tu castillo.</p><h3>Castillos</h3><div class="stack-list"><button data-action="open-town" data-town="town-0" class="stack">
+<div class="fin ganada">
+    <p class="eyebrow">FIN DE LA PARTIDA</p>
+    <h2>Partida ganada</h2>
+    <p>Has conquistado el mapa: el rival no tiene castillos ni héroes.</p>
+  </div><p>No tienes héroes en el mapa. Contrata uno en tu castillo.</p><h3>Castillos</h3><div class="stack-list"><button data-action="open-town" data-town="town-0" class="stack">
               <span>Valdeluz</span><span class="count">+2000</span>
             </button><button data-action="open-town" data-town="town-1" class="stack">
               <span>Cripta Gris</span><span class="count">+500</span>
@@ -200,7 +219,10 @@
 <li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>8000</li>
 ### aventura · turno del rival · renderSide
 
+        <p class="eyebrow">HÉROE · NIVEL 1</p>
         <h2>Aldo de Valdeluz</h2>
+        <div class="row"><span class="label">Liderazgo</span><span>16 / 20</span></div>
+    <progress class="liderazgo" max="20" value="16"></progress>
         <div class="row"><span class="label">Movimiento</span><span>1100 / 1100</span></div>
         <div class="row"><span class="label">Maná</span><span>20 / 20</span></div>
         <div class="row"><span class="label">Ataque / Defensa</span><span>2 / 2</span></div>
@@ -208,7 +230,7 @@
         <div class="row"><span class="label">Experiencia</span><span>0</span></div>
         <h3>Hechizos</h3>
         <div class="stack-list"><div class="stack"><span>Flecha mágica</span><span class="count">3</span></div></div>
-        <h3>Ejército (7)</h3>
+        <h3>Tropa · 7 individuos</h3>
         <div class="stack-list"><div class="stack"><span>Campesino</span><span class="count">5</span></div><div class="stack"><span>Arquero ↑</span><span class="count">2</span></div></div><h3>Castillos</h3><div class="stack-list"><button data-action="open-town" data-town="town-0" class="stack">
               <span>Valdeluz</span><span class="count">+500</span>
             </button></div>

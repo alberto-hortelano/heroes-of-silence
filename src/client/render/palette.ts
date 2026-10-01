@@ -1,18 +1,6 @@
 /** Colores del prototipo. Son marcadores: el arte generado llega en la fase 5. */
 
-import type { TerrainKind } from '@core/map/terrain.js';
 import { RESOURCE_KINDS, type ResourceKind, type Resources } from '@core/types.js';
-
-export const TERRAIN_COLORS: Readonly<Record<TerrainKind, string>> = {
-  grass: '#4a6b35',
-  dirt: '#6b543a',
-  sand: '#c2a86a',
-  snow: '#d5dde2',
-  swamp: '#3f5145',
-  lava: '#5a2f28',
-  rough: '#7a6a4e',
-  water: '#2b4a63',
-};
 
 export const RESOURCE_COLORS: Readonly<Record<ResourceKind, string>> = {
   wood: '#8b5a2b',

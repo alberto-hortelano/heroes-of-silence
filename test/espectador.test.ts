@@ -23,7 +23,7 @@ import type { AddressInfo } from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
 import { adaptarBatalla, adaptarEscena } from '../src/client/espectador/adaptar.js';
-import type { AdventureScene } from '../src/client/render/adventure.js';
+import type { AdventureScene } from '../src/client/render/mapa.js';
 import { createBattle } from '../src/core/battle/battle.js';
 import type { BattleState } from '../src/core/battle/types.js';
 import type { Hero } from '../src/core/hero/hero.js';
@@ -135,6 +135,19 @@ describe('adaptar: la vuelta del cable', () => {
     expect(escena.map.width).toBe(state.map.width);
     expect(escena.map.terrain).toEqual(state.map.terrain);
     expect(escena.heroes.map((h) => h.id)).toEqual(state.heroes.map((h) => h.id));
+  });
+
+  it('el terreno que no cambia vuelve como EL MISMO array, para no rehacer la superficie', () => {
+    // El lienzo rehace la superficie del mapa cuando el array de terreno es
+    // otro; cada fotograma del cable trae uno recién parseado.
+    const state = newGame({ seed: 5 });
+    const cable = (): SpectatorView => JSON.parse(JSON.stringify(construirVista(state, [])));
+    const primero = adaptarEscena(cable()).map.terrain;
+    expect(adaptarEscena(cable()).map.terrain).toBe(primero);
+    state.map.terrain[0] = state.map.terrain[0] === 'water' ? 'grass' : 'water';
+    const cambiado = adaptarEscena(cable()).map.terrain;
+    expect(cambiado).not.toBe(primero);
+    expect(cambiado).toEqual(state.map.terrain);
   });
 
   it('un `GameState` satisface `AdventureScene` sin adaptar nada', () => {

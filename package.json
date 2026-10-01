@@ -18,6 +18,7 @@
     "mcp": "tsx src/server/mcp/server.ts",
     "gen": "tsx tools/gen/cli.ts",
     "qa": "tsx tools/qa/verify-agent.ts",
+    "capturas": "tsx tools/qa/capturas.ts",
     "banco": "tsx tools/qa/banco.ts",
     "verify": "pnpm typecheck && pnpm lint && pnpm test"
   },
@@ -30,6 +31,7 @@
     "@biomejs/biome": "^2.5.10",
     "@types/node": "^24.0.0",
     "@types/ws": "^8.18.1",
+    "playwright": "^1.63.0",
     "sharp": "^0.35.3",
     "tsx": "^4.19.0",
     "typescript": "^5.9.3",

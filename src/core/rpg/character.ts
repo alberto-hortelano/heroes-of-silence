@@ -49,7 +49,7 @@ const NAME_MAX = 35;
  * `Army` que todavía no sabe de personajes —la velocidad del héroe, la fuerza
  * que calcula la IA, la vista del ejército— leería cifras de espadachín **en
  * silencio**. Con el centinela, `creature("character")` lanza nombrándolo, y
- * `creatureFrame` no encuentra arte y se pinta el marcador de color.
+ * el cliente lo pinta con la figura de Liora (`render/personajes.ts`).
  */
 export const CHARACTER_BODY = 'character';
 

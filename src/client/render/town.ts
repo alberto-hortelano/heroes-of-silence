@@ -8,9 +8,10 @@
  * justo lo que una lista de botones no enseña.
  *
  * Las medidas van en un lienzo virtual de 1024×576 y se escalan al canvas real,
- * igual que el tablero de batalla se centra con `battleOffset`.
+ * igual que el tablero de batalla se ajusta al lienzo con `tableroPara`.
  */
 import { creature } from '@core/data.js';
+import type { RecruitCapacity } from '@core/state/game.js';
 import { type Building, building, buildingsOfFaction } from '@core/town/buildings.js';
 import {
   buildBlocker,
@@ -21,10 +22,12 @@ import {
 } from '@core/town/town.js';
 import { type FactionId, RESOURCE_KINDS, type Resources } from '@core/types.js';
 import { asset } from './assets.js';
+import { pintarFigura } from './figura.js';
 import { costLabel, RESOURCE_COLORS } from './palette.js';
+import { pintarSombra } from './sombra.js';
 
-export const TOWN_WIDTH = 1024;
-export const TOWN_HEIGHT = 576;
+const TOWN_WIDTH = 1024;
+const TOWN_HEIGHT = 576;
 
 export interface TownPlot {
   readonly id: string;
@@ -154,12 +157,31 @@ export function hitAtPixel(town: Town, px: number, py: number, t: TownTransform)
   for (const { plot, creature: id } of recruitCells(town)) {
     if (vx < plot.x || vx > plot.x + plot.w) continue;
     if (vy < STRIP_Y || vy > STRIP_Y + CELL_H) continue;
-    // Los dos botones ocupan la banda de abajo de la casilla, a mitades.
-    const enBotones = vy >= STRIP_Y + CELL_H - 30;
-    if (!enBotones) return { kind: 'recruit', creature: id, all: false };
-    return { kind: 'recruit', creature: id, all: vx > plot.x + plot.w / 2 };
+    // «Todo» solo si cae en su botón, el mismo rectángulo que se dibuja; el
+    // resto de la casilla —la figura, el nombre, el botón «+1»— recluta uno.
+    const todo = botonDeRecluta(plot, true);
+    const enTodo = vx >= todo.x && vx <= todo.x + todo.w && vy >= todo.y && vy <= todo.y + todo.h;
+    return { kind: 'recruit', creature: id, all: enTodo };
   }
   return null;
+}
+
+/**
+ * Dónde está un botón de reclutar de la casilla de `plot`, en el lienzo virtual:
+ * «+1» a la izquierda y «Todo» a la derecha. Lo usan el dibujo, el clic y el
+ * guion de capturas, que pulsa ahí: escrito una vez, no pueden discrepar.
+ */
+export function botonDeRecluta(
+  plot: TownPlot,
+  todo: boolean,
+): { x: number; y: number; w: number; h: number } {
+  const w = (plot.w - 8) / 2 - 2;
+  return {
+    x: plot.x + 4 + (todo ? (plot.w - 8) / 2 : 0),
+    y: STRIP_Y + 10 + CELL_H - 20 - 24,
+    w,
+    h: 20,
+  };
 }
 
 /** Una casilla de recluta por morada construida, bajo su propio solar. */
@@ -170,7 +192,7 @@ function recruitCells(town: Town): { plot: TownPlot; creature: string }[] {
 }
 
 /** El eslabón construido más avanzado del solar, o `null` si está vacío. */
-export function builtOf(town: Town, plot: TownPlot): string | null {
+function builtOf(town: Town, plot: TownPlot): string | null {
   let found: string | null = null;
   for (const id of plot.chain) if (hasBuilding(town, id)) found = id;
   return found;
@@ -187,9 +209,16 @@ export function plotById(faction: FactionId, id: string): TownPlot {
   return found;
 }
 
+/** Lo que se puede reclutar de una criatura: lo calcula el núcleo. */
+export type PlanDeRecluta = RecruitCapacity;
+
 export interface TownView {
   readonly town: Town;
   readonly purse: Resources;
+  /** Por criatura, cuánto hay, cuánto cabe y cuánto pide «todo». */
+  readonly planes: ReadonlyMap<string, PlanDeRecluta>;
+  /** Reloj de la figura en reposo de cada casilla de recluta. */
+  readonly tiempo: number;
   readonly transform: TownTransform;
   readonly hover: TownHit | null;
   /** Falso mientras juega el rival: se pinta todo, pero no se invita a pulsar. */
@@ -234,10 +263,10 @@ function drawBackdrop(ctx: CanvasRenderingContext2D, town: Town): void {
     ctx.fillRect(0, GROUND_Y, TOWN_WIDTH, STRIP_Y - GROUND_Y);
   }
 
-  ctx.fillStyle = 'rgba(20,17,13,0.92)';
+  ctx.fillStyle = 'rgba(21,26,21,0.95)';
   ctx.fillRect(0, STRIP_Y, TOWN_WIDTH, STRIP_H);
-  ctx.strokeStyle = '#4a3c2a';
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = '#817047';
+  ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.moveTo(0, STRIP_Y);
   ctx.lineTo(TOWN_WIDTH, STRIP_Y);
@@ -341,6 +370,45 @@ function solarVacio(ctx: CanvasRenderingContext2D, plot: TownPlot, nombre: strin
   );
 }
 
+/** Lo que ocupa el icono de una ficha de coste antes de su cifra. */
+const FICHA_ICONO = 14;
+/** El hueco entre una ficha y la siguiente, y el margen de la chapa a cada lado. */
+const FICHA_HUECO = 6;
+const CHAPA_MARGEN = 5;
+
+/**
+ * Coloca las fichas de coste en filas y mide la chapa que las envuelve.
+ *
+ * Cada ficha mide lo que su icono más lo que mide SU cifra: con un ancho fijo
+ * de 34 px por ficha, «2000», «3000» y «5000» —las moradas 4 a 6— se salían por
+ * la derecha de la chapa. Las fichas se reparten en tantas filas como haga falta
+ * para no pasar de `maximo` (el gremio de nivel 2 cuesta siete recursos), y la
+ * chapa es tan ancha como su fila más ancha. Pura, para probarla sin lienzo:
+ * recibe ya medidos los anchos de las cifras.
+ */
+export function maquetarCoste(
+  anchosDeCifra: readonly number[],
+  maximo: number,
+): { ancho: number; alto: number; fichas: { x: number; fila: number }[] } {
+  const fichas: { x: number; fila: number }[] = [];
+  let fila = 0;
+  let cursor = CHAPA_MARGEN;
+  let masAncha = 0;
+  for (const cifra of anchosDeCifra) {
+    const ancho = FICHA_ICONO + Math.ceil(cifra);
+    // Una ficha sola en su fila va aunque no quepa: partirla no la arregla.
+    if (cursor > CHAPA_MARGEN && cursor + ancho + CHAPA_MARGEN > maximo) {
+      fila++;
+      cursor = CHAPA_MARGEN;
+    }
+    fichas.push({ x: cursor, fila });
+    cursor += ancho;
+    masAncha = Math.max(masAncha, cursor);
+    cursor += FICHA_HUECO;
+  }
+  return { ancho: masAncha + CHAPA_MARGEN, alto: (fila + 1) * 18 + 4, fichas };
+}
+
 /** Chapa con el coste del siguiente eslabón, sobre el solar. */
 function etiquetaCoste(
   ctx: CanvasRenderingContext2D,
@@ -367,19 +435,19 @@ function etiquetaCoste(
     return;
   }
 
-  // El gremio de nivel 2 cuesta SIETE recursos y no cabe en una fila de 170 px:
-  // se reparte en tantas filas como haga falta en vez de desbordar el solar.
-  const CHIP = 34;
-  const porFila = Math.max(1, Math.min(partes.length, Math.floor((plot.w - 10) / CHIP)));
-  const filas = Math.ceil(partes.length / porFila);
-  const ancho = porFila * CHIP + 10;
-  const alto = filas * 18 + 4;
-  const x = plot.x + (plot.w - ancho) / 2;
-  chapa(ctx, x, y, ancho, alto, construible);
+  ctx.font = 'bold 10px system-ui, sans-serif';
+  const cifras = partes.map((k) => String(coste[k]));
+  const m = maquetarCoste(
+    cifras.map((c) => ctx.measureText(c).width),
+    plot.w - 10,
+  );
+  const x = plot.x + (plot.w - m.ancho) / 2;
+  chapa(ctx, x, y, m.ancho, m.alto, construible);
 
   partes.forEach((k, i) => {
-    const cursor = x + 5 + (i % porFila) * CHIP;
-    const cy = y + 2 + Math.floor(i / porFila) * 18 + 9;
+    const ficha = m.fichas[i] as { x: number; fila: number };
+    const cursor = x + ficha.x;
+    const cy = y + 2 + ficha.fila * 18 + 9;
     const icono = asset('icons', k);
     if (icono !== null) {
       ctx.drawImage(icono, cursor, cy - 6, 12, 12);
@@ -391,7 +459,7 @@ function etiquetaCoste(
     ctx.font = 'bold 10px system-ui, sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText(String(coste[k]), cursor + 14, cy);
+    ctx.fillText(cifras[i] as string, cursor + FICHA_ICONO, cy);
   });
 
   if (señalado && !construible) {
@@ -469,58 +537,65 @@ function drawRecruitCell(
   const w = plot.w;
   const h = CELL_H - 20;
 
-  ctx.fillStyle = 'rgba(47,38,27,0.9)';
+  ctx.fillStyle = 'rgba(38,54,43,0.92)';
   ctx.fillRect(x, y, w, h);
-  ctx.strokeStyle = '#4a3c2a';
-  ctx.lineWidth = 1;
-  ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+  ctx.strokeStyle = '#817047';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
 
-  const sprite = asset('creatures', creatureId);
-  if (sprite !== null) {
-    const alto = h - 52;
-    ctx.drawImage(sprite, x + (w - alto) / 2, y + 4, alto, alto);
-  } else {
-    ctx.fillStyle = '#6b5a44';
-    ctx.beginPath();
-    ctx.ellipse(x + w / 2, y + (h - 48) / 2 + 4, w * 0.22, (h - 52) * 0.36, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
+  // La misma figura a 25° que en el mapa y la batalla, del color del latón: la
+  // casilla dice qué se recluta, no de quién es.
+  pintarSombra(ctx, x + w / 2, y + h - 58, 60);
+  pintarFigura(ctx, {
+    body: creatureId,
+    clip: 'idle',
+    tiempo: view.tiempo + x * 7,
+    x: x + w / 2,
+    suelo: y + h - 58,
+    alto: 66,
+    mirandoIzquierda: false,
+    color: '#cbb780',
+    rotulo: info.name.slice(0, 3),
+  });
 
-  texto(ctx, info.name, x + w / 2, y + h - 46, '#e8dcc4', 'bold 12px system-ui, sans-serif', w - 8);
+  const plan = view.planes.get(creatureId);
+  texto(ctx, info.name, x + w / 2, y + h - 48, '#f2deac', '13px Georgia, serif', w - 8);
   const oro = recruitCost(creatureId, 1).gold;
   texto(
     ctx,
-    `${disponibles} disp. · ${oro} oro`,
+    `${disponibles} disp. · ${oro} oro · ocupa ${info.leadership}`,
     x + w / 2,
-    y + h - 32,
-    disponibles > 0 ? '#a8977a' : '#7a6a54',
+    y + h - 35,
+    disponibles > 0 ? '#c2bba4' : '#7a6a54',
     '10px system-ui, sans-serif',
     w - 8,
   );
 
   const hover = view.hover;
-  const activo = view.interactive && disponibles > 0;
-  for (const [i, etiqueta] of ['+1', 'Todo'].entries()) {
-    const bx = x + 4 + i * ((w - 8) / 2);
-    const bw = (w - 8) / 2 - 2;
-    const by = y + h - 24;
+  // Apagado si no entra ni uno: hay, pero no caben o no se pagan. Pulsarlo
+  // sigue diciendo por qué, con la frase del núcleo.
+  const activo = view.interactive && disponibles > 0 && (plan === undefined || plan.maximo > 0);
+  // «Todo» dice cuántos son: los que caben y se pagan, no los que hay.
+  const todo = plan === undefined ? 'Todo' : `Todo (${plan.maximo})`;
+  for (const [i, etiqueta] of ['+1', todo].entries()) {
+    const b = botonDeRecluta(plot, i === 1);
     const señalado =
       hover !== null &&
       hover.kind === 'recruit' &&
       hover.creature === creatureId &&
       hover.all === (i === 1);
-    ctx.fillStyle = activo && señalado ? '#3d3220' : 'rgba(36,29,21,0.9)';
-    ctx.fillRect(bx, by, bw, 20);
-    ctx.strokeStyle = activo ? (señalado ? '#d9a441' : '#4a3c2a') : 'rgba(74,60,42,0.5)';
-    ctx.strokeRect(bx + 0.5, by + 0.5, bw - 1, 19);
+    ctx.fillStyle = activo && señalado ? '#4a4d2d' : 'rgba(48,52,33,0.95)';
+    ctx.fillRect(b.x, b.y, b.w, b.h);
+    ctx.strokeStyle = activo ? (señalado ? '#e0c589' : '#8f7849') : 'rgba(74,60,42,0.5)';
+    ctx.strokeRect(b.x + 0.5, b.y + 0.5, b.w - 1, b.h - 1);
     texto(
       ctx,
       etiqueta,
-      bx + bw / 2,
-      by + 10,
-      activo ? '#d9a441' : '#6b6152',
+      b.x + b.w / 2,
+      b.y + b.h / 2,
+      activo ? '#f5dfb0' : '#6b6152',
       'bold 11px system-ui, sans-serif',
-      bw,
+      b.w,
     );
   }
 }
@@ -549,15 +624,29 @@ function texto(
  * El motivo del rechazo sale de `buildBlocker`, que ya devuelve una frase
  * escrita para la persona: aquí no se reescribe ninguna regla.
  */
-export function describeHit(town: Town, purse: Resources, hit: TownHit | null): string {
+export function describeHit(
+  town: Town,
+  purse: Resources,
+  hit: TownHit | null,
+  plan: PlanDeRecluta | null,
+): string {
   if (hit === null) return '';
 
   if (hit.kind === 'recruit') {
     const info = creature(hit.creature);
     const disponibles = town.available[hit.creature] ?? 0;
     if (disponibles === 0) return `${info.name}: no queda ninguno esta semana.`;
-    const cuantos = hit.all ? disponibles : 1;
-    return `Reclutar ${cuantos} × ${info.name} — ${costLabel(recruitCost(hit.creature, cuantos))}`;
+    // Cuánto ocupa y cuánto cabe va siempre: es lo que explica que «todo» pida
+    // menos de lo que hay. La cifra sale del núcleo, no de aquí.
+    const cupo =
+      plan === null
+        ? ''
+        : ` · cada uno ocupa ${plan.ocupaUno}; ${plan.quien} lleva ${plan.ocupado} de ${plan.tope} y caben ${plan.caben}`;
+    const cuantos = hit.all ? (plan?.maximo ?? disponibles) : 1;
+    if (cuantos === 0) {
+      return `${info.name}: no puedes reclutar ninguno ahora${cupo}.`;
+    }
+    return `Reclutar ${cuantos} × ${info.name} — ${costLabel(recruitCost(hit.creature, cuantos))}${cupo}`;
   }
 
   const plot = plotById(town.faction, hit.plot);

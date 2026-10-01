@@ -104,3 +104,14 @@ Léelo: esta es su fase 1.
 - **Derrotar a un héroe en su propia base conquista la base**: aceptado.
 - **El héroe entra sano a cada batalla** (perfil propio, sin heridas persistentes,
   no es `Character`): aceptado; heridas y curación del héroe van a issue.
+
+## Regla nueva para 1b (usuario, 01-10-2026)
+
+> «Los heroes llevaran maximo 6 personajes mas.»
+
+Confirmado con el usuario: **todo bando ≤ 7 individuos**. Un héroe = él + como
+mucho 6 de tropa; los **monstruos del mapa y las guarniciones** (de castillos y,
+en la fase 3, de fortificaciones) también, como mucho 7. El liderazgo sigue
+decidiendo QUÉ cabe dentro de esos 6. Se implementa en **1b**, junto al héroe en
+el tablero, con su re-anclaje del banco; `validateMapPlan`, el generador,
+`recruitCapacity` y `takeGarrison` lo respetan, y el rechazo se dice con frase.

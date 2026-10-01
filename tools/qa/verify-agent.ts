@@ -23,9 +23,8 @@
  *     `consulta()`, así que el recuento del final cuenta lo que de verdad se ha
  *     ejercitado.
  *
- * Uso: npx tsx tools/qa/verify-agent.ts
+ * Uso: pnpm qa
  */
-import { spawn } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
@@ -42,6 +41,7 @@ import {
   type Veredicto,
 } from '../../src/server/notas.js';
 import { decidir, FIRMA_DEL_MAPA } from './politica.js';
+import { arrancarServidor, type ServidorDePartida } from './servidor.js';
 
 const TURNOS = Number(process.env.QA_TURNS ?? 6);
 /** El kind de la petición, leído por el marcador que lo escribe `notas.ts`. */
@@ -51,95 +51,10 @@ function log(msg: string): void {
   console.log(`\x1b[36m[qa]\x1b[0m ${msg}`);
 }
 
-// `detached` le da al servidor su propio grupo de procesos, y por eso: `npx` no
-// reenvía la señal a su hijo, así que matar al envoltorio dejaba vivo el
-// servidor de la partida con el puerto 9881 cogido — y el siguiente `pnpm qa`
-// moría con EADDRINUSE antes de verificar nada. Con el grupo se mata entero.
-const servidor = spawn('npx', ['tsx', 'src/server/ws-server.ts'], {
-  cwd: process.cwd(),
-  // Puerto 0 en los dos canales: lo elige el sistema. Antes eran literales, y
-  // `pnpm qa` salía 1 con EADDRINUSE en cuanto había un `pnpm partida` abierto —
-  // que es la forma documentada de jugar con el agente. Con 0 no hay puerto que
-  // chocar, así que el arnés convive con la partida de al lado (#61).
-  env: {
-    ...process.env,
-    HEROES_MAX_DAYS: '12',
-    HEROES_WAIT_AGENT_MS: '30000',
-    HEROES_AGENT_PORT: '0',
-    HEROES_SPECTATOR_PORT: '0',
-  },
-  stdio: ['ignore', 'pipe', 'pipe'],
-  detached: true,
-});
-
-/** La URL que el servidor acaba de anunciar, con el puerto que le tocó de verdad. */
-const RE_CANAL = /canal del agente en (ws:\/\/\S+)/;
-/** Cuánto se le da al servidor para anunciar su canal antes de darlo por muerto. */
-const PLAZO_DE_ARRANQUE_MS = 15_000;
-
-let salidaServidor = '';
-let servidorVivo = true;
+/** El servidor de la partida: lo arranca y lo para `servidor.ts`, el mismo de `capturas.ts`. */
+let servidor: ServidorDePartida | null = null;
 /** El cliente MCP, aquí fuera para poder cerrarlo desde `terminar`. */
 let cliente: Client | null = null;
-
-/**
- * La URL del canal del agente, resuelta **cuando el servidor la anuncia** (#62).
- *
- * Era un sondeo —60 vueltas de 250 ms preguntándole a `salidaServidor` si ya
- * estaba—, así que la espera se redondeaba hacia arriba al siguiente cuarto de
- * segundo: el servidor anuncia a los 311-359 ms y el arnés se enteraba a los
- * 500. La línea llega por este mismo `on('data')`, así que no hay nada que
- * sondear: se avisa desde donde se lee.
- *
- * El `resolve` se guarda aquí fuera porque quien lo dispara es el handler, y se
- * pone a `null` al usarlo: el anuncio sale una vez y las trazas que vengan
- * detrás no tienen que volver a casar la expresión.
- */
-let anunciaCanal: ((url: string) => void) | null = null;
-const canalAnunciado = new Promise<string>((resolve) => {
-  anunciaCanal = resolve;
-});
-
-servidor.stdout.on('data', (d: Buffer) => {
-  salidaServidor += d.toString();
-  process.stdout.write(`\x1b[90m${d.toString()}\x1b[0m`);
-  // Sobre lo ACUMULADO y no sobre este trozo: una línea puede partirse entre
-  // dos chunks, y entonces la expresión no casaría en ninguno de los dos.
-  if (anunciaCanal === null) return;
-  const anuncio = RE_CANAL.exec(salidaServidor);
-  if (anuncio === null) return;
-  const avisar = anunciaCanal;
-  anunciaCanal = null;
-  avisar(anuncio[1] as string);
-});
-servidor.stderr.on('data', (d: Buffer) => process.stderr.write(`\x1b[31m${d.toString()}\x1b[0m`));
-
-// Si el servidor se cae —un puerto ya ocupado, por ejemplo— no tiene sentido
-// seguir esperando bloqueado una petición que ya no va a llegar.
-servidor.on('exit', (codigo) => {
-  servidorVivo = false;
-  if (codigo === 0 || codigo === null) return;
-  console.error(`\x1b[31m[qa] el servidor de la partida ha muerto (código ${codigo})\x1b[0m`);
-  process.exit(1);
-});
-
-function pararServidor(): void {
-  // Señalar un pid ya recogido puede alcanzar a otro proceso que haya heredado
-  // ese número: dos líneas de guarda por no jugársela.
-  if (!servidorVivo || servidor.pid === undefined) return;
-  servidorVivo = false;
-  try {
-    // El menos es el grupo entero: el envoltorio de `npx` y el node de dentro.
-    process.kill(-servidor.pid, 'SIGTERM');
-  } catch (err) {
-    // ESRCH es que ya se había muerto solo. Cualquier otra cosa hay que verla:
-    // significa que el puerto se queda cogido y el siguiente `pnpm qa` es rojo
-    // por un motivo que no tiene nada que ver con lo que verifica.
-    if ((err as NodeJS.ErrnoException).code !== 'ESRCH') {
-      console.error(`\x1b[31m[qa] no se ha podido parar el servidor: ${String(err)}\x1b[0m`);
-    }
-  }
-}
 
 async function terminar(codigo: number): Promise<never> {
   // El puente MCP es un hijo aparte y sin esto se quedaba suelto después de
@@ -154,7 +69,7 @@ async function terminar(codigo: number): Promise<never> {
     cliente = null;
     await c.close().catch(() => {});
   }
-  pararServidor();
+  servidor?.parar();
   process.exit(codigo);
 }
 
@@ -369,38 +284,26 @@ async function terminarBien(
   await terminar(0);
 }
 
-/**
- * Espera el anuncio del canal, con tope y con fallo ruidoso.
- *
- * El tope es el mismo de siempre —60 × 250 ms— escrito de una vez, y al agotarse
- * dice lo mismo que decía, pero con la salida del servidor pegada: si no
- * arrancó, el motivo está ahí y no en otra terminal.
- */
-async function esperarCanal(): Promise<string> {
-  let temporizador: NodeJS.Timeout | undefined;
-  const plazo = new Promise<never>((_, reject) => {
-    temporizador = setTimeout(() => {
-      reject(
-        new Error(
-          `el servidor no arrancó en ${PLAZO_DE_ARRANQUE_MS / 1000} s. Lo que dijo:\n${salidaServidor.slice(-2000)}`,
-        ),
-      );
-    }, PLAZO_DE_ARRANQUE_MS);
-  });
-  try {
-    return await Promise.race([canalAnunciado, plazo]);
-  } finally {
-    // Sin esto el temporizador mantiene vivo el bucle de eventos quince segundos
-    // después de haber terminado.
-    clearTimeout(temporizador);
-  }
-}
-
 async function main(): Promise<void> {
   log('esperando a que arranque el servidor…');
-  // No se puede suponer: el puerto se lo acaba de dar el sistema, y esta traza
-  // la escribe el servidor desde `listening`, o sea cuando ya está escuchando.
-  const url = await esperarCanal();
+  // Puertos que elige el sistema: el arnés convive con un `pnpm partida` abierto
+  // (#61). El de verdad lo anuncia el servidor desde `listening`.
+  servidor = await arrancarServidor(
+    { HEROES_MAX_DAYS: '12', HEROES_WAIT_AGENT_MS: '30000' },
+    {
+      eco: (trozo, deError) =>
+        deError
+          ? process.stderr.write(`\x1b[31m${trozo}\x1b[0m`)
+          : process.stdout.write(`\x1b[90m${trozo}\x1b[0m`),
+      // Si el servidor se cae, no tiene sentido seguir esperando bloqueado una
+      // petición que ya no va a llegar.
+      alMorir: (codigo) => {
+        console.error(`\x1b[31m[qa] el servidor de la partida ha muerto (código ${codigo})\x1b[0m`);
+        process.exit(1);
+      },
+    },
+  );
+  const url = `ws://localhost:${servidor.agente}`;
   log(`el servidor escucha en ${url}`);
 
   log('conectando al puente MCP por stdio…');
@@ -412,9 +315,8 @@ async function main(): Promise<void> {
   // las dos carreras se agotan enteras. Medido, cuatro pasadas intercaladas:
   // 5,18-5,19 s con `npx` contra 3,08-3,25 s sin él, rangos sin solaparse.
   //
-  // Aquí se puede y en el servidor de la partida no: aquel lo lanza y lo mata
-  // este fichero —por eso va `detached` y se mata por grupo—, mientras que a
-  // este lo cierra el SDK, que no sabe nada de grupos de procesos.
+  // El servidor de la partida va además `detached` y se mata por grupo
+  // (`servidor.ts`); a este lo cierra el SDK, que no sabe nada de grupos.
   const transport = new StdioClientTransport({
     command: 'node_modules/.bin/tsx',
     args: ['src/server/mcp/server.ts'],
