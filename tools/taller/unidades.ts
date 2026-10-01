@@ -25,9 +25,11 @@ export interface Unidad {
   readonly perfil: Perfil;
   /**
    * La lámina de referencia de `assets/art/`: fija el aspecto Y el estilo que
-   * tienen que seguir la identidad y la animación (decisión del usuario).
+   * tienen que seguir la identidad y la animación (decisión del usuario). Los
+   * héroes no la tienen: su aspecto sale de la descripción y su estilo, de la
+   * lámina de su facción (`ESTILO_DE_FACCION`).
    */
-  readonly concepto: string;
+  readonly concepto?: string;
   /** Altura en la celda; por defecto la de un adulto (160). */
   readonly altura?: number;
   /** El aspecto. La cámara, la pose y el fondo los pone el taller. */
@@ -153,10 +155,97 @@ export const UNIDADES: readonly Unidad[] = [
   },
 ];
 
+/**
+ * Los cuatro héroes de cada facción. Sin lámina propia en `assets/art/`: su
+ * aspecto lo da la descripción y su acabado, la lámina de referencia de la
+ * tropa más representativa de su facción. Un poco más altos que la tropa.
+ */
+export const HEROES: readonly Unidad[] = [
+  {
+    id: 'heroe-templario-caballero',
+    faccion: 'templarios',
+    nombre: 'Caballero (héroe)',
+    perfil: 'espada-escudo',
+    altura: 168,
+    aspecto:
+      'Un caballero templario veterano, líder de primera línea: armadura de placas completa y cuidada con filos dorados, sobrevesta blanca impecable con gran cruz roja, capa blanca corta, yelmo abierto con nasal que deja ver un rostro curtido de barba gris, escudo de cometa con cruz roja y espada larga de una mano.',
+  },
+  {
+    id: 'heroe-templario-abad',
+    faccion: 'templarios',
+    nombre: 'Monje (Abad), héroe',
+    perfil: 'baston',
+    altura: 166,
+    aspecto:
+      'Un abad templario, sanador y protector: hábito blanco de buen paño con estola roja bordada y cruz roja al pecho, cota de malla asomando por las mangas, cabeza tonsurada y barba blanca, báculo de abad de madera oscura rematado en cruz de latón con un incensario colgando.',
+  },
+  {
+    id: 'heroe-templario-inquisidor',
+    faccion: 'templarios',
+    nombre: 'Inquisidor (héroe)',
+    perfil: 'espada-escudo',
+    altura: 166,
+    aspecto:
+      'Un inquisidor, cazador de magos y no muertos: sombrero de ala ancha negro, abrigo largo de cuero negro sobre coraza ligera, sobrevesta corta blanca con cruz roja, sello y rosario al cinto, maza de pinchos de una mano en la derecha y un pequeño libro sagrado encadenado en la izquierda. Sin escudo.',
+  },
+  {
+    id: 'heroe-templario-gran-maestre',
+    faccion: 'templarios',
+    nombre: 'Gran Maestre (héroe)',
+    perfil: 'dos-manos',
+    altura: 172,
+    aspecto:
+      'El Gran Maestre de la orden: armadura de placas ornamentada con grabados dorados, sobrevesta blanca larga con cruz roja grande, manto blanco con forro rojo, corona de hierro sobre el yelmo abierto, rostro severo de barba blanca, gran espadón ceremonial empuñado a dos manos.',
+  },
+  {
+    id: 'heroe-nigromante',
+    faccion: 'no-muertos',
+    nombre: 'Nigromante (héroe)',
+    perfil: 'baston',
+    altura: 166,
+    aspecto:
+      'Un nigromante: túnica larga negra y morada raída, capucha echada hacia atrás, rostro pálido y demacrado, collar de huesos de dedos, bastón de madera negra rematado en un cráneo con un tenue brillo verde en las cuencas.',
+  },
+  {
+    id: 'heroe-vampiro',
+    faccion: 'no-muertos',
+    nombre: 'Vampiro (héroe)',
+    perfil: 'espada-escudo',
+    altura: 166,
+    aspecto:
+      'Un señor vampiro: noble de piel muy pálida y pelo negro largo, jubón de terciopelo granate con bordados negros, coraza ligera negra, capa negra de cuello alto con forro rojo, ropera fina de una mano en la derecha y la mano izquierda libre con garras. Sin escudo.',
+  },
+  {
+    id: 'heroe-lich',
+    faccion: 'no-muertos',
+    nombre: 'Lich (héroe)',
+    perfil: 'baston',
+    altura: 168,
+    aspecto:
+      'Un lich: esqueleto de mago con corona de hierro oxidada, túnica ceremonial negra y verde podrida con hilos de oro deshilachados, manos huesudas con anillos, filacteria colgada al cuello, bastón alto de hueso rematado en una gema verde.',
+  },
+  {
+    id: 'heroe-caballero-de-la-muerte',
+    faccion: 'no-muertos',
+    nombre: 'Caballero de la muerte (héroe)',
+    perfil: 'dos-manos',
+    altura: 172,
+    aspecto:
+      'Un caballero de la muerte, contrapunto oscuro del templario: armadura de placas negra y abollada con remaches de hierro, sobrevesta negra hecha jirones con una cruz rota desteñida, yelmo cerrado con cuernos cortos y un brillo verde frío tras la visera, gran espadón mellado empuñado a dos manos.',
+  },
+];
+
+/** La lámina de `assets/art/` que da el acabado a un héroe de cada facción. */
+export const ESTILO_DE_FACCION: Readonly<Record<Unidad['faccion'], string>> = {
+  templarios: 'assets/art/templarios/guerrero-con-escudo.png',
+  'no-muertos': 'assets/art/no-muertos/esqueleto-guerrero.png',
+};
+
 export function unidad(id: string): Unidad {
-  const u = UNIDADES.find((x) => x.id === id);
+  const todas = [...UNIDADES, ...HEROES];
+  const u = todas.find((x) => x.id === id);
   if (u === undefined) {
-    throw new Error(`no hay unidad «${id}». Hay: ${UNIDADES.map((x) => x.id).join(', ')}`);
+    throw new Error(`no hay unidad «${id}». Hay: ${todas.map((x) => x.id).join(', ')}`);
   }
   return u;
 }
@@ -172,7 +261,9 @@ export function encargoDeIdentidad(u: Unidad): Encargo {
     descripcion: `${u.aspecto}\n${PINTURA}`,
     referencias: [
       { ruta: rutaPoses(u), papel: 'pose' },
-      { ruta: u.concepto, papel: 'identidad' },
+      u.concepto === undefined
+        ? { ruta: ESTILO_DE_FACCION[u.faccion], papel: 'estilo' }
+        : { ruta: u.concepto, papel: 'identidad' },
     ],
     salida: rutaIdentidad(u),
     fondo: 'transparente',
@@ -187,7 +278,7 @@ export function encargoDeAtlas(u: Unidad): Encargo {
     referencias: [
       { ruta: rutaPoses(u), papel: 'pose' },
       { ruta: `${rutaIdentidad(u)}.webp`, papel: 'identidad' },
-      { ruta: u.concepto, papel: 'estilo' },
+      { ruta: u.concepto ?? ESTILO_DE_FACCION[u.faccion], papel: 'estilo' },
     ],
     salida: rutaAtlas(u),
     fondo: 'transparente',

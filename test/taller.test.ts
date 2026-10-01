@@ -15,7 +15,7 @@ import { derivarAtlas } from '../tools/taller/derivar.js';
 import { empaquetar } from '../tools/taller/empaquetar.js';
 import { encargoSchema, promptDe } from '../tools/taller/encargo.js';
 import { quitarHalo, type Raster } from '../tools/taller/recorte.js';
-import { encargoDeAtlas, encargoDeIdentidad, UNIDADES } from '../tools/taller/unidades.js';
+import { encargoDeAtlas, encargoDeIdentidad, HEROES, UNIDADES } from '../tools/taller/unidades.js';
 
 let dir: string;
 beforeEach(async () => {
@@ -82,7 +82,7 @@ describe('el encargo', () => {
   });
 
   it('el prompt dice el papel de cada imagen con esas palabras, en su orden', () => {
-    for (const u of UNIDADES) {
+    for (const u of [...UNIDADES, ...HEROES]) {
       for (const e of [encargoDeIdentidad(u), encargoDeAtlas(u)]) {
         encargoSchema.parse(e);
         const p = promptDe(e);
