@@ -1,0 +1,45 @@
+{
+  "encargo": "imperio-arcabucero-identidad",
+  "tipo": "identidad",
+  "fecha": "2026-10-01T17:36:33.336Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f888-e140-7292-a978-afa09edbcb9e",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUn arcabucero: sombrero de ala ancha con pluma roja, jubón acuchillado amarillo y negro, bandolera de cargas, banda roja a la cintura, arcabuz de mecha empuñado con las dos manos y la horquilla colgada.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nUN solo personaje, de cuerpo entero, de pie, en la primera pose de reposo de la referencia de pose.\nCámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.\nLámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/ballesta.png",
+      "papel": "pose",
+      "sha256": "dca0fe826b054a07f1c1f5ced895f06c4a9654115f43873889ccb4cfb7c20008"
+    },
+    {
+      "ruta": "assets/art/imperio/arcabucero.png",
+      "papel": "identidad",
+      "sha256": "7f36e63a0121971da5ff711840511e2cf3b6674c6ab0c3fbe9886eb08cc5cccd"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f888-e140-7292-a978-afa09edbcb9e/exec-3d8e5d6a-ed10-4836-ba95-59c357b05e59.png",
+    "sha256": "5b46e3f851c627501740747d80ecc2d80f54a5245cf64330e7203fe60ab67aa5",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.3706977112099572,
+    "opacos": 0.9860133440191352,
+    "haloSuelto": 0.000027293456765923873,
+    "ancho": 903,
+    "alto": 1204
+  },
+  "salida": {
+    "ruta": "assets/unidades/imperio-arcabucero/identidad.webp",
+    "sha256": "04c051b9cea7fa49a32c56b35d9cc459e1d517450abadccc5b60557a368701ab"
+  }
+}

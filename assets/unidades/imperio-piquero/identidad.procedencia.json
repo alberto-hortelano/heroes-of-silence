@@ -1,0 +1,45 @@
+{
+  "encargo": "imperio-piquero-identidad",
+  "tipo": "identidad",
+  "fecha": "2026-10-01T17:40:54.409Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f88c-ef86-72d3-b76b-9e3f5d1b5f1a",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUn piquero lansquenete: morrión, peto de acero, ropa acuchillada a franjas amarillas y negras, pica larga (una vez y media su altura) empuñada a dos manos, inclinada y nunca más larga que eso.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nUN solo personaje, de cuerpo entero, de pie, en la primera pose de reposo de la referencia de pose.\nCámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.\nLámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/dos-manos.png",
+      "papel": "pose",
+      "sha256": "669d14f9183e2e30fff6f6912dc82a44610b3fa07f107fbbb0f149a544531078"
+    },
+    {
+      "ruta": "assets/art/imperio/piquero.png",
+      "papel": "identidad",
+      "sha256": "f1dd0778280bb78820ae39f6e9d457bffe033578502b66f1dcc2ef43a70b6cd4"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f88c-ef86-72d3-b76b-9e3f5d1b5f1a/exec-d71af859-5e17-4b2c-8eee-311aad7b1b61.png",
+    "sha256": "381b64e129ea93089ae7368efb174a30e17290c94ae8605abe5824d55cc70144",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.18287249341228431,
+    "opacos": 0.9860565012841201,
+    "haloSuelto": 0,
+    "ancho": 1204,
+    "alto": 1199
+  },
+  "salida": {
+    "ruta": "assets/unidades/imperio-piquero/identidad.webp",
+    "sha256": "a15f24fe157c25ae8fdfe49781c408a222c0fad712a566618a57ce00717344bf"
+  }
+}

@@ -118,7 +118,14 @@ todas por la espada invadiendo la celda vecina en el ataque.
 | `heroe-orko-chaman` | Chamán (héroe) | baston |
 | `heroe-orko-senor-de-la-guerra` | Señor de la guerra a pie (héroe) | dos-manos |
 
-Lote 3 (Imperio, Elfos y Orkos, tropas y héroes): **en curso**, pendiente del visto bueno del usuario.
+Lote 3 (Imperio, Elfos y Orkos, tropas y héroes): **aprobado por el usuario el
+01-10-2026**, visto animado. Corregidos en su hilo (`-c1`), por el arma invadiendo
+la celda vecina en el ataque: `elfo-corredor-del-bosque`, `elfo-guardia-del-bosque`,
+`goblin-lancero`, `heroe-orko-senor-de-la-guerra`, `imperio-alabardero`,
+`imperio-piquero` y `troll-maza`. Desde este lote la regla del aire entre figuras va
+en el prompt base de todo atlas. Ballestero, arcabucero y artillero usan el perfil
+`ballesta` (encarar el arma al hombro); el piquero lleva la pica a vez y media su
+altura para que quepa en su celda.
 
 ## Estado
 

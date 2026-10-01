@@ -1,0 +1,45 @@
+{
+  "encargo": "elfo-arquero-identidad",
+  "tipo": "identidad",
+  "fecha": "2026-10-01T17:29:58.162Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f882-e6b7-7523-89fe-328d19b13c47",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUna arquera elfa: pelo plateado trenzado, armadura ligera de cuero con escamas de hoja, capa verde musgo hecha jirones, carcaj a la espalda y arco largo élfico de madera clara.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nUN solo personaje, de cuerpo entero, de pie, en la primera pose de reposo de la referencia de pose.\nCámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.\nLámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/arco.png",
+      "papel": "pose",
+      "sha256": "0cc647db8371233b32dbd4e653313f0053cc8424798c289e67b408f270a6b618"
+    },
+    {
+      "ruta": "assets/art/elfos/arquero.png",
+      "papel": "identidad",
+      "sha256": "8edbceb29b830d810459da1ceb724ef29bcae3cc7596111eeb4914726b6c9f54"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f882-e6b7-7523-89fe-328d19b13c47/exec-5506daa2-4b5f-4883-b9be-7804b4fbac84.png",
+    "sha256": "6b0e2b2d8eaaa63b6f8149565867b9a5e39eaed6e42d84430d2f7867b5b09e25",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.39047755323676603,
+    "opacos": 0.9854336775442322,
+    "haloSuelto": 0.000002349027972225093,
+    "ancho": 904,
+    "alto": 1206
+  },
+  "salida": {
+    "ruta": "assets/unidades/elfo-arquero/identidad.webp",
+    "sha256": "b1390e9e58e5f9a1d532e7d48900ec7e5a620446d9c7df48094cdce3f21df3d8"
+  }
+}

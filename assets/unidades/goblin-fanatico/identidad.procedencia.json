@@ -1,0 +1,45 @@
+{
+  "encargo": "goblin-fanatico-identidad",
+  "tipo": "identidad",
+  "fecha": "2026-10-01T17:31:33.499Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f884-4f9d-7ee1-9086-616f26be9440",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUn goblin fanático: pequeño, sonrisa enloquecida, pañuelo rojo en la cabeza, harapos, dos barriles de pólvora atados a la espalda con la mecha encendida, una bomba en la mano derecha. Sin armas.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nUN solo personaje, de cuerpo entero, de pie, en la primera pose de reposo de la referencia de pose.\nCámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.\nLámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/espada-escudo.png",
+      "papel": "pose",
+      "sha256": "d9cf91645424ef72f0b52de18c7c202add6af827718c2e809da70eae75964642"
+    },
+    {
+      "ruta": "assets/art/orkos/goblin-fanatico.png",
+      "papel": "identidad",
+      "sha256": "3f451de6e467366dc0934e250e2c0ff39c0c049172f996ff0992e480b8314934"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f884-4f9d-7ee1-9086-616f26be9440/exec-cb5aadc7-2bba-4180-9218-4561db51270f.png",
+    "sha256": "0d936cb7c4453682044c6559120da675f262bc5029f2fde991e02b499f6298e2",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.4758513741165209,
+    "opacos": 0.9859486293440619,
+    "haloSuelto": 0.000019916896748317645,
+    "ancho": 719,
+    "alto": 1174
+  },
+  "salida": {
+    "ruta": "assets/unidades/goblin-fanatico/identidad.webp",
+    "sha256": "bee8ac5a78452d9c4ddb787aef706d65b0fab24663e29abb254b17a20e525b16"
+  }
+}

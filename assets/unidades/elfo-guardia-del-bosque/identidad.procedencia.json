@@ -1,0 +1,45 @@
+{
+  "encargo": "elfo-guardia-del-bosque-identidad",
+  "tipo": "identidad",
+  "fecha": "2026-10-01T17:31:13.277Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f884-0bfa-70b3-a23c-90277fefd7f5",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUn guardia del bosque elfo: armadura de escamas en forma de hoja verde oliva, yelmo alto con alas de hoja, capa verde, escudo oval de madera tallada en el brazo izquierdo y lanza larga élfica en la derecha.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nUN solo personaje, de cuerpo entero, de pie, en la primera pose de reposo de la referencia de pose.\nCámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.\nLámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/espada-escudo.png",
+      "papel": "pose",
+      "sha256": "d9cf91645424ef72f0b52de18c7c202add6af827718c2e809da70eae75964642"
+    },
+    {
+      "ruta": "assets/art/elfos/guardia-del-bosque.png",
+      "papel": "identidad",
+      "sha256": "782609dddae805c994ede85fbfc5a72236884072af1209636f302e5b92a71ac1"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f884-0bfa-70b3-a23c-90277fefd7f5/exec-dd3f3681-8235-43d3-b10d-a7408ddbbed8.png",
+    "sha256": "efa7e8246cedd3184ef1222c377e4aacdd8b33b23c5e0de1c1c36645a5432af4",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.4406236161283289,
+    "opacos": 0.9862204071637557,
+    "haloSuelto": 0,
+    "ancho": 721,
+    "alto": 1234
+  },
+  "salida": {
+    "ruta": "assets/unidades/elfo-guardia-del-bosque/identidad.webp",
+    "sha256": "cd7b45072f398ed712f64db1d46fcdf31c88a02627b1a2d07950eae496ed2cfd"
+  }
+}

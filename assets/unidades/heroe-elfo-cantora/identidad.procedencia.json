@@ -1,0 +1,45 @@
+{
+  "encargo": "heroe-elfo-cantora-identidad",
+  "tipo": "identidad",
+  "fecha": "2026-10-01T17:32:41.421Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f885-5827-7df3-81b1-80e8ef2e5051",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que tiene que seguir cada figura. No copies su pose ni su encuadre, que están de frente y a la altura de los ojos.\n\nUna cantora elfa: vestido largo verde y plata, diadema de hojas de plata, pelo rubio muy largo, arpa pequeña de madera clara sujeta en el brazo izquierdo y la mano derecha alzada.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nUN solo personaje, de cuerpo entero, de pie, en la primera pose de reposo de la referencia de pose.\nCámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.\nLámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/baston.png",
+      "papel": "pose",
+      "sha256": "ed53da07a9c45eb3e1982b4ffa763ba185b48269b73bc292d18f061eeb10d81a"
+    },
+    {
+      "ruta": "assets/art/elfos/guardia-del-bosque.png",
+      "papel": "estilo",
+      "sha256": "782609dddae805c994ede85fbfc5a72236884072af1209636f302e5b92a71ac1"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f885-5827-7df3-81b1-80e8ef2e5051/exec-6121448f-545b-4b3b-ba44-c22c9e6fea6c.png",
+    "sha256": "b91d79d25de50ac99409ce7e2e753e0a1642b640c468e62c79cac2fd7a4640a2",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.5318486528798716,
+    "opacos": 0.9859948779595463,
+    "haloSuelto": 0.00003345006010557675,
+    "ancho": 739,
+    "alto": 1217
+  },
+  "salida": {
+    "ruta": "assets/unidades/heroe-elfo-cantora/identidad.webp",
+    "sha256": "1aa1c8b19be9d3e104031f41ad52ed16daa56dac118b72ae09a642538af13a20"
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "encargo": "elfo-ent-atlas",
+  "tipo": "atlas",
+  "fecha": "2026-10-01T17:41:12.937Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f88d-2747-7031-8b33-496ac1eb8e63",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que tiene que seguir cada figura. No copies su pose ni su encuadre, que están de frente y a la altura de los ojos.\n\nUn ent, guardián arbóreo: gigante de corteza y raíces retorcidas, musgo y ramas en la cabeza, cuerpo de tronco nudoso, brazos largos con manos de raíz. Sin armas. Muy lento y muy duro.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete poses de ataque de la fila 3.\nMisma cámara ortográfica elevada 25 grados en las tres filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos. El personaje mira a la derecha y al frente como el maniquí.\nMisma escala en todas las celdas: la figura de pie ocupa unos 210 de cada 256 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/dos-manos.png",
+      "papel": "pose",
+      "sha256": "669d14f9183e2e30fff6f6912dc82a44610b3fa07f107fbbb0f149a544531078"
+    },
+    {
+      "ruta": "assets/unidades/elfo-ent/identidad.webp",
+      "papel": "identidad",
+      "sha256": "08b47eb4089f3772ba7b27102124f0aae8e9b3f57cdcc7335f9af4250b87dd88"
+    },
+    {
+      "ruta": "assets/art/elfos/ent-guardian-arboreo.png",
+      "papel": "estilo",
+      "sha256": "6a55d19f72fe1ea4623957a005123781a75188ac9068f6e7cdca949f987e7996"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f88d-2747-7031-8b33-496ac1eb8e63/exec-36847f38-f949-4e4e-8950-a4ce1ab1e95f.png",
+    "sha256": "0b435ace27c939ce2f467b393a55b2daa1414f4ac1754f89bb8c2c3fad0972c9",
+    "ancho": 1915,
+    "alto": 821
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "figuras localizadas y empaquetadas en 7×3 celdas de 256, escala uniforme 0.8884, pies en y=228, reposo reducido de 210 a 195 px para que el fotograma más ancho quepa con margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: altura 193, fotogramas 7/7/7"
+  ],
+  "validacion": {
+    "visibles": 0.21149480910528273,
+    "opacos": 0.9452813918253622,
+    "haloSuelto": 0,
+    "ancho": 1792,
+    "alto": 768
+  },
+  "salida": {
+    "ruta": "assets/unidades/elfo-ent/atlas.webp",
+    "sha256": "7a9289227a6902498bf2f30e2df4b93f963cc609f6061e2d34d7619512efdcf1"
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "encargo": "elfo-explorador-atlas",
+  "tipo": "atlas",
+  "fecha": "2026-10-01T17:42:14.291Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f88e-0f74-7d42-a564-cfbb0d7e5ff0",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que tiene que seguir cada figura. No copies su pose ni su encuadre, que están de frente y a la altura de los ojos.\n\nUn explorador elfo: capucha y capa de camuflaje hecha de hojas secas, máscara de tela, ropa de cuero oscuro, dos cuchillos curvos, uno en cada mano, arco corto a la espalda. Agazapado.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete poses de ataque de la fila 3.\nMisma cámara ortográfica elevada 25 grados en las tres filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos. El personaje mira a la derecha y al frente como el maniquí.\nMisma escala en todas las celdas: la figura de pie ocupa unos 150 de cada 256 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/espada-escudo.png",
+      "papel": "pose",
+      "sha256": "d9cf91645424ef72f0b52de18c7c202add6af827718c2e809da70eae75964642"
+    },
+    {
+      "ruta": "assets/unidades/elfo-explorador/identidad.webp",
+      "papel": "identidad",
+      "sha256": "dc852b0c3cf97a4c5960ce96c338c395cc8240fe9335630b2ab999444f04e705"
+    },
+    {
+      "ruta": "assets/art/elfos/explorador.png",
+      "papel": "estilo",
+      "sha256": "2e6e82d6ab195eed08824f3eb71d71fcfc04b5699c7542fcf6a239e13f5cab3b"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f88e-0f74-7d42-a564-cfbb0d7e5ff0/exec-26c95978-ff66-4c6d-b080-3b0779fb7aa4.png",
+    "sha256": "b146346d181b6e75ee28b92ede495358d0988ea27f5db24f24577f76699fc1fb",
+    "ancho": 1915,
+    "alto": 821
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "figuras localizadas y empaquetadas en 7×3 celdas de 256, escala uniforme 0.7389, pies en y=228, reposo a 150 px",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: altura 150, fotogramas 7/7/7"
+  ],
+  "validacion": {
+    "visibles": 0.10984729585193452,
+    "opacos": 0.9348384024130495,
+    "haloSuelto": 0,
+    "ancho": 1792,
+    "alto": 768
+  },
+  "salida": {
+    "ruta": "assets/unidades/elfo-explorador/atlas.webp",
+    "sha256": "4195daa28c92f4f77ce51217ae345bb93fd5c58721eb98d703b1e6f8e3ed4d25"
+  }
+}

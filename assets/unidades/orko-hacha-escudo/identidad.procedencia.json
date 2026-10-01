@@ -1,0 +1,45 @@
+{
+  "encargo": "orko-hacha-escudo-identidad",
+  "tipo": "identidad",
+  "fecha": "2026-10-01T17:39:10.588Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f88b-4916-7ca1-86b5-790e48a23c89",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUn orko de piel verde oliva: colmillos, pelo negro recogido, armadura de cuero y placas oxidadas con pieles, faldón de cuero, escudo redondo de madera reforzado en la izquierda y hacha de una mano en la derecha.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nUN solo personaje, de cuerpo entero, de pie, en la primera pose de reposo de la referencia de pose.\nCámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.\nLámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/espada-escudo.png",
+      "papel": "pose",
+      "sha256": "d9cf91645424ef72f0b52de18c7c202add6af827718c2e809da70eae75964642"
+    },
+    {
+      "ruta": "assets/art/orkos/orko-con-hacha-y-escudo.png",
+      "papel": "identidad",
+      "sha256": "cd64488118da9d64d21496454e5a924b3715dcd0b0bae3baec82912d1e894e63"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f88b-4916-7ca1-86b5-790e48a23c89/exec-e2e038aa-1720-4335-9990-1e01a5eb2e4b.png",
+    "sha256": "89845cd423acb7ef94917ecbbb90256e596f809f9888d77da357c98744953fc9",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.4702087610182811,
+    "opacos": 0.9872966931096976,
+    "haloSuelto": 0.000008636809217202797,
+    "ancho": 1181,
+    "alto": 1251
+  },
+  "salida": {
+    "ruta": "assets/unidades/orko-hacha-escudo/identidad.webp",
+    "sha256": "b758f2b1cec0b6f3c9c1fe36e0d26e891996a129f19c39f0a7606a2d34000af3"
+  }
+}
