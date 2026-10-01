@@ -81,7 +81,7 @@ export async function pedirMapaAlAgente(
     undefined,
     notaMapaAceptado(plan.width, plan.height, plan.towns.length),
   );
-  return { plan, motivo: `${plan.width}×${plan.height}, ${plan.towns.length} pueblos` };
+  return { plan, motivo: `${plan.width}×${plan.height}, ${plan.towns.length} ciudades` };
 }
 
 /**

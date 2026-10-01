@@ -21,7 +21,7 @@ import type { BattleStack, BattleState, Side } from '@core/battle/types.js';
 import { creature, isShooter } from '@core/data.js';
 import { maxMana, maxMovePoints } from '@core/hero/hero.js';
 import { type Personajes, troopSummary } from '@core/hero/troop.js';
-import type { GameEventDraft } from '@core/state/events.js';
+import type { DefeatReason, GameEventDraft } from '@core/state/events.js';
 import { building } from '@core/town/buildings.js';
 import { dailyIncome, dwellings, mageGuildLevel, type Town, townSpells } from '@core/town/town.js';
 import type { Army } from '@core/types.js';
@@ -144,22 +144,40 @@ export function renderActions(session: Session): Html {
 // ---------------------------------------------------------------- aventura
 
 /**
- * Cómo acabó la partida, contado en el lateral. Las cuatro respuestas de
- * `desenlace.ts`, en tabla por lo mismo que `ROTULO_DE_FIN`: un `switch` de
- * sentencia dejaría pasar una quinta sin poner nada rojo.
+ * Cómo acabó la partida, contado en el lateral. Ganar y perder se explican por **la causa** que selló `checkDefeat`, no por
+ * una frase fija: la fija era la regla de antes del mapa de nodos —«no te
+ * quedan castillos ni héroes»— y se leía con el héroe del derrotado todavía en
+ * el mapa (I1 de la 2a). Tabla por causa por lo mismo que las de arriba: una
+ * causa nueva sin frase no compila.
  */
-const EXPLICACION_DE_FIN: Record<Desenlace, string> = {
-  ganada: 'Has conquistado el mapa: el rival no tiene castillos ni héroes.',
-  perdida: 'El rival se ha quedado con todo: no te quedan castillos ni héroes.',
-  'sin resolver': 'Se han agotado los días y nadie ha vencido.',
-  ajena: 'La partida ha terminado.',
+const POR_QUE_SE_DECIDIO: Record<DefeatReason, { ganada: string; perdida: string }> = {
+  lost_base: {
+    ganada: 'Has tomado la base rival: sin ella, el rival queda eliminado.',
+    perdida: 'Has perdido tu base: sin ella quedas eliminado, aunque te queden héroes o ciudades.',
+  },
+  nothing_left: {
+    ganada: 'El rival se ha quedado sin héroes y sin ciudades.',
+    perdida: 'Te has quedado sin héroes y sin ciudades.',
+  },
 };
 
-function renderFinDePartida(desenlace: Desenlace): Html {
+/**
+ * Las dos que no tienen causa salen antes; con un quinto desenlace, el índice
+ * de la última línea deja de compilar, que es el mismo guardia que la tabla.
+ */
+export function explicacionDeFin(desenlace: Desenlace, causa: DefeatReason | null): string {
+  if (desenlace === 'sin resolver') return 'Se han agotado los días y nadie ha vencido.';
+  if (desenlace === 'ajena') return 'La partida ha terminado.';
+  if (causa === null) throw new Error(`la partida está ${desenlace} y no consta por qué`);
+  return POR_QUE_SE_DECIDIO[causa][desenlace];
+}
+
+function renderFinDePartida(desenlace: Desenlace, causa: DefeatReason | null): Html {
+  const explicacion = explicacionDeFin(desenlace, causa);
   return html`<div class="fin ${desenlace === 'perdida' ? 'perdida' : 'ganada'}">
     <p class="eyebrow">FIN DE LA PARTIDA</p>
     <h2>${ROTULO_DE_FIN[desenlace]}</h2>
-    <p>${EXPLICACION_DE_FIN[desenlace]}</p>
+    <p>${explicacion}</p>
   </div>`;
 }
 
@@ -177,7 +195,7 @@ function renderAdventurePanel(session: Session): Html {
   const hero = session.selectedHero;
   const heroes = session.myHeroes();
   const desenlace = session.desenlace;
-  const fin = desenlace === null ? NADA : renderFinDePartida(desenlace);
+  const fin = desenlace === null ? NADA : renderFinDePartida(desenlace, session.causaDelFinal);
 
   const heroPanel =
     hero === null
@@ -680,13 +698,13 @@ export function renderLog(log: readonly GameEventDraft[], viewer: number): Html 
           return mio
             ? html`<div class="win">+${e.amount} ${RESOURCE_NAMES[e.resource].toLowerCase()}</div>`
             : NADA;
-        case 'mine_captured':
+        case 'node_captured':
           return html`<div${clase(mio, e.from === viewer)}>${
             mio
-              ? `Mina capturada${e.from === null ? '' : ` ${alJugador(e.from)}`}`
+              ? `Paso tomado${e.from === null ? '' : ` ${alJugador(e.from)}`}`
               : e.from === viewer
-                ? `${jugador(e.actor)} te ha quitado una mina`
-                : `${jugador(e.actor)} captura una mina`
+                ? `${jugador(e.actor)} te ha quitado un paso`
+                : `${jugador(e.actor)} toma un paso`
           }</div>`;
         case 'town_captured':
           // El criterio 9: a costa de quién. «Castillo capturado» a secas era

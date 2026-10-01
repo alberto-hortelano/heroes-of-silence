@@ -39,7 +39,7 @@ import {
 } from '../src/core/state/game.js';
 import { newGame, startingArmy } from '../src/core/state/setup.js';
 import { SPEED_TO_MOVE_POINTS } from '../src/core/types.js';
-import { ejercito } from './helpers.js';
+import { ejercito, sinGuarnicionDeSalida } from './helpers.js';
 
 const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 
@@ -175,6 +175,8 @@ describe('liderazgo', () => {
 
   it('sin héroe en el pueblo se recluta a la guarnición, con su propio tope', () => {
     const { state, hero, town } = heroeEnCasa(13);
+    // Se mide reclutar a una guarnición con sitio; la de salida la llena.
+    sinGuarnicionDeSalida(state);
     hero.at = { x: hero.at.x + 1, y: hero.at.y };
     town.available.peasant = 50;
     state.players[0]!.resources = { ...state.players[0]!.resources, gold: 10_000 };
@@ -393,7 +395,9 @@ describe('`recruitCapacity`: lo máximo que el núcleo acepta, ni uno más ni un
     let topadoPorLiderazgo = 0;
     let topadoPorOro = 0;
     for (let seed = 1; seed <= 40; seed++) {
-      const state = newGame({ seed });
+      // Con la base llena de salida el máximo sería 0 en las 40 y el test no
+      // probaría el `while`: se mide sobre una guarnición con sitio.
+      const state = sinGuarnicionDeSalida(newGame({ seed }));
       const town = townsOf(state, 0)[0]!;
       // Variedad: unas semillas con mucha oferta, otras con poco oro, para que
       // el tope lo pongan las tres cosas en semillas distintas.

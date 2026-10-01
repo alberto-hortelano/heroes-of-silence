@@ -212,6 +212,7 @@ async function jugar(director: Director): Promise<void> {
     );
   }
   console.log(`  minas en juego: ${state.map.objects.filter((o) => o.kind === 'mine').length}`);
+  console.log(`  nodos en juego: ${state.map.objects.filter((o) => o.kind === 'node').length}`);
   console.log(`  casillas exploradas por el agente: ${state.players[1]?.fog.size ?? 0}`);
   broadcast();
 }

@@ -96,10 +96,12 @@ describe('la política del arnés de QA (#44)', () => {
     };
 
     expect(validateMapPlan(respuesta.plan)).toEqual([]);
-    expect(respuesta.plan.towns.map((t) => t.id)).toEqual([
-      `${FIRMA_DEL_MAPA}0`,
-      `${FIRMA_DEL_MAPA}1`,
-    ]);
+    // Todas las ciudades firmadas, las neutrales también: desde el mapa de nodos
+    // el generador pone más de dos.
+    expect(respuesta.plan.towns.length).toBeGreaterThan(2);
+    expect(respuesta.plan.towns.map((t) => t.id)).toEqual(
+      respuesta.plan.towns.map((_, i) => `${FIRMA_DEL_MAPA}${i}`),
+    );
     // Y los jugadores son los de la partida: un plan con otros es jugable y deja
     // al agente sin un solo turno, en silencio.
     expect(respuesta.plan.heroStarts.map((h) => h.player).sort()).toEqual([0, 1]);

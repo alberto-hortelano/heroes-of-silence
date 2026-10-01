@@ -557,11 +557,14 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
     const vuelto = heroById(state, defensor.id);
     expect(pointKey(vuelto.at)).toBe(pointKey(base.at));
     const tras = state.log.slice(state.log.findIndex((e) => e.kind === 'battle_ended'));
+    // Y en casa recoge la guarnición con la que nació la base: vuelve sin
+    // tropa y se lleva lo que le quepa.
     expect(tras.map((e) => e.kind)).toEqual([
       'battle_ended',
       'town_captured',
       'hero_defeated',
       'hero_returned',
+      'garrison_taken',
     ]);
   });
 
@@ -585,8 +588,12 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
     expect(kinds).toContain('town_captured');
     expect(kinds.indexOf('hero_defeated')).toBeGreaterThan(kinds.indexOf('town_captured'));
     expect(kinds).not.toContain('hero_returned');
-    // Sin castillos ni héroes: el jugador 1 pierde, y `game_over` es lo último.
+    // Pierde la base y con ella la partida, y `game_over` es lo último.
     expect(townsOf(state, 1)).toHaveLength(0);
+    expect(state.log.find((e) => e.kind === 'player_defeated')).toMatchObject({
+      actor: 1,
+      reason: 'lost_base',
+    });
     expect(state.log.at(-1)?.kind).toBe('game_over');
     expect(state.finished?.winner).toBe(0);
   });
@@ -662,7 +669,9 @@ describe('la IA no se rinde por quien no es ella (H-1)', () => {
         { creature: 'lich', count: 2 },
         { creature: 'vampire', count: 3 },
       );
-      mio.at = { x: suyo.at.x - 2, y: suyo.at.y };
+      // A dos pasos del rival y en casilla pisable: con el mapa de nodos, dos a
+      // la izquierda puede ser cordillera.
+      mio.at = casillaADosPasos(st, suyo.at);
       const desde = st.log.length;
       await ses.endTurn();
       const hechos = st.log.slice(desde);
@@ -673,3 +682,14 @@ describe('la IA no se rinde por quien no es ella (H-1)', () => {
     }
   });
 });
+
+/** Una casilla libre y pisable a dos pasos de `desde`, la primera que salga. */
+function casillaADosPasos(state: GameState, desde: Point): Point {
+  const alcance = reachableFrom(state.map, desde);
+  for (const [clave, coste] of alcance.costs) {
+    const p = pointFromKey(clave);
+    const lejos = Math.max(Math.abs(p.x - desde.x), Math.abs(p.y - desde.y));
+    if (coste > 0 && lejos === 2 && objectAt(state.map, p) === undefined) return p;
+  }
+  throw new Error(`no hay casilla libre a dos pasos de (${desde.x},${desde.y})`);
+}

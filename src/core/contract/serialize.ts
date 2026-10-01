@@ -18,6 +18,7 @@ import {
   type Personajes,
   troopSummary,
 } from '../hero/troop.js';
+import { WALL_TERRAINS } from '../map/generate.js';
 import { pointFromKey, pointKey } from '../map/map.js';
 import { costeDeEntrada, isWalkable, TERRAIN_KINDS } from '../map/terrain.js';
 import { cronicaPara } from '../state/events.js';
@@ -100,14 +101,11 @@ function knownObjects(state: GameState, playerId: PlayerId) {
     const cuando = { lastSeen: mirandolo ? state.day : recuerdo.day };
     switch (o.kind) {
       case 'mine':
-        return {
-          kind: o.kind,
-          id: o.id,
-          at: o.at,
-          resource: o.resource,
-          owner: o.owner,
-          ...cuando,
-        };
+        return { kind: o.kind, id: o.id, at: o.at, resource: o.resource, ...cuando };
+      case 'node':
+        return { kind: o.kind, id: o.id, at: o.at, owner: o.owner, ...cuando };
+      case 'village':
+        return { kind: o.kind, id: o.id, at: o.at, name: o.name, ...cuando };
       case 'resource':
         return {
           kind: o.kind,
@@ -253,13 +251,28 @@ export const COMO_SE_LEE_EL_MAPA = `  Trae width, height, terrain[], roads[] y o
     no haya camino: si el terreno de esa casilla es null, es que no lo has visto.
   - "objects" es lo que has OBSERVADO, no lo que es verdad ahora: cada objeto trae
     "lastSeen" con el día en que lo viste. Si "lastSeen" es anterior a hoy, el dato
-    puede haber caducado —una mina cambia de dueño y tú sigues viendo la bandera
-    vieja hasta que alguien vuelva a mirar—. Una mina tuya que dejó de dar recursos
-    es la señal de que allí ha pasado algo.
+    puede haber caducado —un nodo cambia de dueño y tú sigues viendo la bandera
+    vieja hasta que alguien vuelva a mirar—.
+  - El mapa es una RED: regiones cerradas por montaña o agua, y "node" y "town"
+    son los únicos pasos entre ellas. Un "node" se toma pisándolo, de camino o
+    parando; una ciudad ("town") es un nodo con guarnición que se toma
+    venciéndola, o entrando si está vacía. Una región es tuya cuando lo son TODOS
+    los nodos que la rodean, y solo produce si además está unida a tu base por
+    regiones y nodos tuyos: las minas ("mine") y los pueblos ("village") no se
+    toman, son de quien tenga su región. Una región que deja de darte recursos es
+    que alguien te ha cortado un paso.
+  - Tu base ("yourBase") es la partida: si la pierdes quedas eliminado en el
+    acto, aunque te queden héroes y ciudades. Lo mismo le pasa al rival. Las
+    dos nacen con guarnición, así que tomarla es una batalla mientras le quede
+    tropa dentro.
+  - Un héroe enemigo o una ciudad ajena con guarnición se alcanzan pero no se
+    cruzan: pedirlos de destino es pedir la batalla, y un "move_hero" a otro
+    sitio los rodea por otro paso si lo hay. Si no lo hay, no hay camino.
   - Con "terrain" y "roads" eliges la ruta antes de andarla, en vez de descubrirla
     al pisarla:
-    - El agua NO se cruza. No hay barcos: una casilla de agua no es un atajo caro,
-      es un muro, y un destino al otro lado obliga a rodear.
+    - El agua y la montaña NO se cruzan. No hay barcos ni puertos de montaña: una
+      casilla de "water" o de "mountain" no es un atajo caro, es un muro, y un
+      destino al otro lado obliga a pasar por un nodo.
     - Entrar en una casilla cuesta esto en puntos de movimiento, y la cifra entre
       paréntesis es la que se cobra si entras en diagonal —las dos son ya el precio
       final, no hay nada que aplicarles—:
@@ -539,6 +552,9 @@ export function serializeMapRequest(opts: MapRequestOptions): unknown {
       // Derivada, no copiada: era la tercera declaración de la misma lista de
       // ocho y se habría quedado atrás en silencio el día que entrara un terreno.
       terrains: [...TERRAIN_KINDS],
+      // Con qué se levanta un muro. Derivado igual que los terrenos: es la lista
+      // que valida `validateMapPlan`, no una copia.
+      wallTerrains: [...WALL_TERRAINS],
       resources: RESOURCE_KINDS,
       factions: ['knight', 'necromancer'],
       creaturesForGuards: [
@@ -556,6 +572,7 @@ export function serializeMapRequest(opts: MapRequestOptions): unknown {
       'Reparte las minas para que ningún jugador nazca sin madera ni mineral.',
       'Los monstruos custodian lo bueno: cuanto mejor el premio, más dura la guardia.',
       'Deja el centro del mapa disputado y los bordes seguros.',
+      'Pon las ciudades en los cruces de tres regiones o más, y que cada base tenga dos caminos distintos hasta las ciudades que le quedan cerca: así aislarlas es posible pero no trivial.',
     ],
   };
 }

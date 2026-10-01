@@ -12,7 +12,13 @@ import {
 import { playAiGame, playAiTurn } from '../src/core/ai/turn.js';
 import { stackHp } from '../src/core/battle/damage.js';
 import { allSpells } from '../src/core/battle/spells.js';
-import { factionLineup } from '../src/core/data.js';
+import {
+  factionLineup,
+  guarnicionDeBase,
+  guarnicionNeutral,
+  problemasDeGrupo,
+  problemasDeGuarnicion,
+} from '../src/core/data.js';
 import {
   experienceForLevel,
   type Hero,
@@ -27,6 +33,7 @@ import {
   blocksMovement,
   createEmptyMap,
   findPath,
+  type MapObject,
   objectAt,
   pathFromReachable,
   pointFromKey,
@@ -34,6 +41,13 @@ import {
   reachableFrom,
   stepCost,
 } from '../src/core/map/map.js';
+import {
+  conectadoABase,
+  estructura,
+  regionesQueCierra,
+  regionOwner,
+  territorio,
+} from '../src/core/map/regiones.js';
 import { isWalkable, ROAD_COST, TERRAIN_KINDS } from '../src/core/map/terrain.js';
 import { createRng, parseSeed } from '../src/core/rng.js';
 import {
@@ -44,7 +58,9 @@ import {
 } from '../src/core/rpg/character.js';
 import {
   type AdventureAction,
+  alcanceDelHeroe,
   applyAdventureAction,
+  baseOf,
   currentPlayer,
   dayOfWeek,
   type GameContext,
@@ -52,6 +68,7 @@ import {
   HERO_HIRE_COST,
   heroById,
   heroesOf,
+  MINE_YIELD,
   resolvePendingBattle,
   townsOf,
   week,
@@ -64,12 +81,26 @@ import {
   build,
   buildBlocker,
   createTown,
+  dailyIncome,
   dwellings,
   type Town,
   townSpells,
 } from '../src/core/town/town.js';
-import { type Point, RESOURCE_KINDS, type Resources } from '../src/core/types.js';
-import { ejercito, esPersonaje, forzarBatalla, monstruoVivo, ponerMonstruo } from './helpers.js';
+import {
+  EMPTY_RESOURCES as EMPTY,
+  type Point,
+  RESOURCE_KINDS,
+  type Resources,
+} from '../src/core/types.js';
+import {
+  ejercito,
+  esPersonaje,
+  forzarBatalla,
+  monstruoVivo,
+  planDeNodos,
+  ponerMonstruo,
+  sinGuarnicionDeSalida,
+} from './helpers.js';
 
 const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 
@@ -172,19 +203,21 @@ describe('generación de mapas', () => {
     }
   });
 
-  it('rechaza un plan con un pueblo inalcanzable', () => {
+  it('rechaza una ciudad rodeada de agua: ya no es un paso entre regiones', () => {
+    // Era «un pueblo inalcanzable», y se comprobaba con un `findPath` desde cada
+    // inicio. Con el mapa de nodos esa comprobación se cayó por redundante: si
+    // cada ciudad toca dos regiones y todas las regiones se alcanzan unas desde
+    // otras (`problemasDeRed`), no hay ciudad a la que no se llegue. Lo que se
+    // rechaza ahora es la causa, y con la ciudad nombrada.
     const plan = generateMapPlan(createRng(5));
-    // Rodear el pueblo enemigo de agua lo deja aislado.
+    const neutral = plan.towns.find((t) => t.owner === null)!;
     const aislado = {
       ...plan,
-      regions: [
-        ...plan.regions,
-        { terrain: 'water' as const, center: plan.towns[1]!.at, radius: 3 },
-      ],
+      patches: [...plan.patches, { terrain: 'water' as const, center: neutral.at, radius: 1.5 }],
     };
-    const problemas = validateMapPlan(aislado);
-    expect(problemas.length).toBeGreaterThan(0);
-    expect(problemas.join(' ')).toMatch(/no puede llegar/);
+    expect(validateMapPlan(aislado).join(' ')).toMatch(
+      new RegExp(`la ciudad "${neutral.id}" no toca ninguna región`),
+    );
   });
 
   it('rechaza dos pueblos con el mismo id (#97)', () => {
@@ -197,7 +230,7 @@ describe('generación de mapas', () => {
       ...plan,
       towns: plan.towns.map((t, i) => ({ ...t, id: 't', at: i === 0 ? t.at : t.at })),
     };
-    expect(validateMapPlan(repetido).join(' ')).toMatch(/dos pueblos con el id "t"/);
+    expect(validateMapPlan(repetido).join(' ')).toMatch(/dos ciudades con el id "t"/);
   });
 
   it('rechaza un jugador con dos posiciones de inicio (#97)', () => {
@@ -262,6 +295,39 @@ describe('generación de mapas', () => {
     expect(validateMapPlan(conMonstruo('bone_dragon', 7))).toEqual([]);
   });
 
+  it('la guarnición de los datos y el monstruo del plan pasan por la misma comprobación', () => {
+    // Una sola regla para los grupos escritos a mano (`problemasDeGrupo`): el
+    // tope es del BANDO, así que en una guarnición de varios grupos se suman.
+    expect(
+      problemasDeGrupo(
+        [
+          { creature: 'peasant', count: 4 },
+          { creature: 'archer', count: 4 },
+        ],
+        'la guarnición',
+      ),
+    ).toEqual(['la guarnición trae 4 × peasant + 4 × archer y un bando lleva como mucho 7']);
+    // Y la de los datos de hoy, la que nace en cada ciudad neutral, vale.
+    for (const f of ['knight', 'necromancer'] as const) {
+      expect(problemasDeGrupo(guarnicionNeutral(f), f)).toEqual([]);
+    }
+  });
+
+  it('una guarnición de los datos tiene además el tope de liderazgo de guarnición', () => {
+    // Siete espadachines caben en el cupo de un bando y no en una guarnición:
+    // 42 de liderazgo donde caben 20. Un monstruo así vale; una ciudad, no.
+    const siete = [{ creature: 'swordsman', count: 7 }];
+    expect(problemasDeGrupo(siete, 'el monstruo')).toEqual([]);
+    expect(problemasDeGuarnicion(siete, 'la base')).toEqual([
+      'la base ocupa 42 de liderazgo y una guarnición lleva como mucho 20',
+    ]);
+    // Y las dos tablas de hoy valen, la de la base justo en el tope.
+    for (const f of ['knight', 'necromancer'] as const) {
+      expect(problemasDeGuarnicion(guarnicionNeutral(f), f)).toEqual([]);
+      expect(problemasDeGuarnicion(guarnicionDeBase(f), f)).toEqual([]);
+    }
+  });
+
   it('rechaza un monstruo de 0, negativo o con decimales: son individuos', () => {
     // El esquema del agente ya exige un entero positivo, pero `validateMapPlan`
     // es la puerta de los dos productores y el procedimental no pasa por zod. Un
@@ -305,7 +371,7 @@ describe('generación de mapas', () => {
     expect(validateMapPlan(encima).join(' ')).toMatch(/la ocupan dos cosas/);
   });
 
-  it('un pueblo o una mina de un jugador que no juega se rechazan', () => {
+  it('una ciudad de un jugador que no juega se rechaza', () => {
     const plan = generateMapPlan(createRng(33));
     const fantasma = {
       ...plan,
@@ -321,16 +387,10 @@ describe('generación de mapas', () => {
       ],
     };
     expect(validateMapPlan(fantasma).join(' ')).toMatch(
-      /pueblo "town-9" es del jugador 7, que no tiene posición de inicio/,
+      /ciudad "town-9" es del jugador 7, que no tiene posición de inicio/,
     );
-
-    const minaAjena = {
-      ...plan,
-      mines: plan.mines.map((m, i) => (i === 0 ? { ...m, owner: 7 } : m)),
-    };
-    expect(validateMapPlan(minaAjena).join(' ')).toMatch(
-      /mina de \w+ en \(\d+,\d+\) es del jugador 7/,
-    );
+    // La mitad de la mina se fue con su dueño: desde el mapa de nodos una mina
+    // no lleva `owner`, es de quien tenga su región.
 
     // Neutral sigue valiendo: filtrar no es prohibir.
     expect(validateMapPlan({ ...plan, towns: plan.towns.map((t) => ({ ...t })) })).toEqual([]);
@@ -419,55 +479,41 @@ describe('generación de mapas', () => {
     for (const mina of plan.mines) expect(objectAt(map, mina.at)).toBeDefined();
   });
 
-  it('el generador reparte minas de los siete recursos, y en espejo exacto (#68)', () => {
-    // La mitad de #68: `recursosMina` tenía cuatro entradas, así que NO existía
-    // una sola mina de gemas, mercurio ni azufre en ningún mapa — y seis
-    // edificios que los piden eran inalcanzables durase lo que durase la
-    // partida. Los montones sueltos no cuentan: la IA recoge una mediana de 0
-    // en toda una partida.
+  it('el generador reparte minas de los siete recursos, dos por bando y en espejo (#68)', () => {
+    // La mitad de #68 sigue en pie: con cuatro recursos no existía una sola
+    // mina de gemas, mercurio ni azufre, y seis edificios eran inalcanzables.
+    // Se recorre `RESOURCE_KINDS` y no la lista del generador: compararla
+    // consigo misma no probaría nada.
     //
-    // Sigue siendo una lista escrita, porque su ORDEN coloca las minas; este
-    // test es el guardia de que no vuelva a quedarse corta, y por eso recorre
-    // `RESOURCE_KINDS` y no la lista del generador: comparar la lista consigo
-    // misma no probaría nada.
-    //
-    // El espejo es la otra mitad y es lo que hace que la simetría sea una
-    // aserción y no una intención: si un bando naciera con una mina de gemas a
-    // mano y el otro no, la partida la decidiría el generador. La distancia
-    // inicial no varía con la semilla, así que se puede comprobar de verdad.
+    // El espejo cambió de forma con el mapa de nodos y conviene saber por qué:
+    // los muros de una casilla no se pueden reflejar sin abrir huecos, así que
+    // ya no es «la casilla reflejada» sino **la región reflejada**. Las semillas
+    // 2k y 2k+1 son espejo, y cada mina de una tiene su gemela —mismo recurso—
+    // en la otra. Lo que la simetría protege —que ningún bando nazca con una
+    // mina a mano que el otro no tiene— sigue siendo una aserción.
     for (let semilla = 1; semilla <= 20; semilla++) {
       const plan = generateMapPlan(createRng(semilla));
+      const { map } = buildMap(plan);
       const conMina = new Set(plan.mines.map((m) => m.resource));
       for (const recurso of RESOURCE_KINDS) {
         expect(conMina.has(recurso), `la semilla ${semilla} no reparte minas de ${recurso}`).toBe(
           true,
         );
       }
-
-      const donde = new Set(plan.mines.map((m) => `${m.resource}@${m.at.x},${m.at.y}`));
+      const porRegion = new Map<string, number>();
+      const { regionDe } = estructura(map);
       for (const m of plan.mines) {
-        const espejo = `${m.resource}@${plan.width - 1 - m.at.x},${plan.height - 1 - m.at.y}`;
-        expect(
-          donde.has(espejo),
-          `la mina de ${m.resource} en (${m.at.x},${m.at.y}) no tiene espejo`,
-        ).toBe(true);
+        const r = regionDe[m.at.y * map.width + m.at.x];
+        expect(r, `la mina de (${m.at.x},${m.at.y}) no está en una región`).not.toBe(-1);
+        const clave = `${m.resource}@${r}`;
+        porRegion.set(clave, (porRegion.get(clave) ?? 0) + 1);
+      }
+      for (const [clave, n] of porRegion) {
+        const [recurso, r] = clave.split('@') as [string, string];
+        const pareja = Number(r) % 2 === 0 ? Number(r) + 1 : Number(r) - 1;
+        expect(porRegion.get(`${recurso}@${pareja}`), `semilla ${semilla}: ${clave}`).toBe(n);
       }
     }
-  });
-
-  it('dos minas en la misma casilla se dicen, no se pierden', () => {
-    // El bloque de minas tiraba el `boolean` de `tomar()`. Con cuatro recursos
-    // en una sola fila la colisión era imposible; con catorce minas por bando
-    // deja de serlo, y una perdida en silencio saldría mucho después como un
-    // `validateMapPlan` que no señala a nadie.
-    //
-    // 25×17 es el caso: con 17 de alto la fila de abajo (`height-8`) cae
-    // encima de la de arriba, y con un ancho IMPAR las columnas de los dos
-    // bandos coinciden en paridad. El mensaje trae el recurso y la casilla,
-    // que es lo que hace falta para arreglarlo.
-    expect(() => generateMapPlan(createRng(1), { width: 25, height: 17 })).toThrow(
-      'no se puede colocar la mina de mercury: (12,9) ya está ocupada',
-    );
   });
 });
 
@@ -651,22 +697,16 @@ describe('movimiento de héroes', () => {
     expect(state.players[0]!.resources[tipo]).toBeGreaterThan(antes[tipo]);
   });
 
-  it('captura las minas que visita', () => {
-    const state = newGame({ seed: 23 });
+  it('una mina no se toma al pisarla: es de quien tenga su región', () => {
+    // Era «captura las minas que visita». La mina perdió el dueño con el mapa
+    // de nodos, y pisarla no deja ningún hecho en la crónica.
+    const state = newGame({ seed: 0, plan: planDeNodos() });
     const c = ctx(23);
     const hero = heroesOf(state, 0)[0]!;
-    const mina = state.map.objects.find((o) => o.kind === 'mine' && o.owner === null);
-    expect(mina).toBeDefined();
-
-    hero.at = { x: mina!.at.x - 1, y: mina!.at.y };
     hero.movePoints = 5000;
-    applyAdventureAction(
-      state,
-      { type: 'move_hero', hero: hero.id, to: mina!.at },
-      c,
-      state.current,
-    );
-    expect((mina as { owner: number | null }).owner).toBe(0);
+    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: { x: 2, y: 2 } }, c, 0);
+    expect(hero.at).toEqual({ x: 2, y: 2 });
+    expect(state.log.some((e) => e.kind === 'node_captured')).toBe(false);
   });
 
   it('capturar un castillo cambia el libro de cuentas Y la bandera del mapa', () => {
@@ -951,8 +991,11 @@ describe('experiencia y niveles', () => {
 });
 
 describe('IA de respaldo', () => {
-  it('planifica construir y reclutar en el primer turno', () => {
-    const state = newGame({ seed: 41 });
+  it('planifica construir y reclutar en el primer turno, si la base tiene sitio', () => {
+    // La base nace llena (`guarnicionBase`) y el héroe no empieza dentro: con
+    // la de salida puesta, el día 1 no se recluta —eso lo prueba el bloque de
+    // la guarnición de la base—. Aquí se mide el plan.
+    const state = sinGuarnicionDeSalida(newGame({ seed: 41 }));
     expect(planBuildings(state, 0).some((a) => a.type === 'build')).toBe(true);
     expect(planRecruits(state, 0).some((a) => a.type === 'recruit')).toBe(true);
   });
@@ -962,7 +1005,7 @@ describe('IA de respaldo', () => {
     // el monedero ENTERO y `planHires` exige 2500, así que el jugador que
     // perdía su héroe no compraba otro nunca. Se quedaba con su castillo y
     // ~25 de oro sosteniendo un empate hasta el día 300.
-    const state = newGame({ seed: 41 });
+    const state = sinGuarnicionDeSalida(newGame({ seed: 41 }));
     const player = state.players.find((p) => p.id === 0)!;
     state.heroes = state.heroes.filter((h) => h.owner !== 0);
     player.resources = { ...player.resources, gold: HERO_HIRE_COST + 400 };
@@ -991,7 +1034,7 @@ describe('IA de respaldo', () => {
     const cuenta = (acciones: readonly AdventureAction[]): number =>
       acciones.reduce((n, a) => (a.type === 'recruit' ? n + a.count : n), 0);
     const montar = (conHeroe: boolean) => {
-      const state = newGame({ seed: 41 });
+      const state = sinGuarnicionDeSalida(newGame({ seed: 41 }));
       const player = state.players.find((p) => p.id === 0)!;
       player.resources = { ...player.resources, gold: HERO_HIRE_COST + 100 };
       const town = townsOf(state, 0)[0]!;
@@ -1055,7 +1098,12 @@ describe('IA de respaldo', () => {
     // monstruos BLOQUEAN el paso y solo valen como final de trayecto, que es
     // justo donde los dos algoritmos podrían separarse — y es el caso normal
     // de la IA, que va casi siempre a por uno de ellos.
-    const destinos = state.map.objects.slice(0, 10).map((o) => o.at);
+    // Monstruos primero: desde el mapa de nodos son lo único que bloquea, y sin
+    // ellos entre los diez no habría bloqueada en la que separarse.
+    const destinos = [
+      ...state.map.objects.filter((o) => o.kind === 'monster').slice(0, 5),
+      ...state.map.objects.filter((o) => o.kind !== 'monster').slice(0, 5),
+    ].map((o) => o.at);
     expect(destinos).toHaveLength(10);
 
     // Un solo Dijkstra para los veinte pares, y no uno dentro del doble bucle:
@@ -1096,7 +1144,12 @@ describe('IA de respaldo', () => {
     const hero = heroesOf(state, 0)[0]!;
     const alcance = reachableFrom(state.map, hero.at);
 
-    const destinos = state.map.objects.slice(0, 10).map((o) => o.at);
+    // Monstruos primero: desde el mapa de nodos son lo único que bloquea, y sin
+    // ellos entre los diez no habría bloqueada en la que separarse.
+    const destinos = [
+      ...state.map.objects.filter((o) => o.kind === 'monster').slice(0, 5),
+      ...state.map.objects.filter((o) => o.kind !== 'monster').slice(0, 5),
+    ].map((o) => o.at);
     expect(destinos).toHaveLength(10);
 
     let bloqueados = 0;
@@ -1933,5 +1986,486 @@ describe('los personajes y sus heridas', () => {
     expect(() => forzarBatalla(state, c, hero)).toThrow(
       /lleva en el ejército al personaje "nadie", pero la partida no lo conoce/,
     );
+  });
+});
+
+// ---------------------------------------------------------------- mapa de nodos
+
+/** Una partida sobre el mapa de nodos escrito a mano (`planDeNodos`). */
+function enLaRed(): { state: GameState; c: GameContext } {
+  return { state: newGame({ seed: 1, plan: planDeNodos() }), c: ctx(1) };
+}
+
+function nodo(state: GameState, id: string): Extract<MapObject, { kind: 'node' }> {
+  const o = state.map.objects.find((x) => x.kind === 'node' && x.id === id);
+  if (o === undefined || o.kind !== 'node') throw new Error(`no hay nodo ${id}`);
+  return o;
+}
+
+/**
+ * Le da una ciudad a un jugador escribiendo LAS DOS caras —el libro de cuentas
+ * y la bandera—, que es lo que hace `captureTown`: en un test, saltarse una
+ * sería montar a mano el bug de #47.
+ */
+function darCiudad(state: GameState, id: string, jugador: number): void {
+  const town = state.towns.find((t) => t.id === id)!;
+  town.owner = jugador;
+  const bandera = state.map.objects.find((o) => o.kind === 'town' && o.id === id)!;
+  (bandera as { owner: number | null }).owner = jugador;
+}
+
+/** Lo que cobra el jugador 0 al empezar su turno siguiente. */
+function rentaDel0(state: GameState, c: GameContext): Resources {
+  applyAdventureAction(state, { type: 'end_turn' }, c, 0);
+  const antes = { ...state.players[0]!.resources };
+  applyAdventureAction(state, { type: 'end_turn' }, c, 1);
+  const despues = state.players[0]!.resources;
+  return Object.fromEntries(
+    RESOURCE_KINDS.map((k) => [k, despues[k] - antes[k]]),
+  ) as unknown as Resources;
+}
+
+describe('el mapa de nodos se juega', () => {
+  it('cruzar un nodo ajeno lo hace mío y lo cuenta; pasar por casa recoge la guarnición', () => {
+    const { state, c } = enLaRed();
+    const base = state.towns.find((t) => t.id === 'town-0')!;
+    // Zombis: lentos. Si entrar en la tropa recortara los puntos del día, la
+    // marcha se quedaría sin puntos a mitad de camino y `moveHero` lanzaría.
+    base.garrison = ejercito({ creature: 'zombie', count: 1 });
+    const hero = heroById(state, 'hero-0');
+    const tropa = hero.army.length;
+    hero.movePoints = 1500;
+    // De (4,4) a (12,2): se cruza la base (5,4) y el paso de arriba (11,2).
+    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: { x: 12, y: 2 } }, c, 0);
+
+    expect(hero.at).toEqual({ x: 12, y: 2 });
+    expect(nodo(state, 'node-1').owner).toBe(0);
+    expect(
+      state.log.filter((e) => e.kind === 'node_captured').map((e) => [e.node, e.from, e.actor]),
+    ).toEqual([['node-1', null, 0]]);
+    // La tropa de casa se recoge al PASAR: los puntos del día ya están fijados.
+    expect(base.garrison).toHaveLength(0);
+    expect(hero.army).toHaveLength(tropa + 1);
+    const gastado = state.log
+      .filter((e) => e.kind === 'hero_moved')
+      .reduce((t, e) => t + e.spent, 0);
+    expect(hero.movePoints).toBe(1500 - gastado);
+  });
+
+  it('reclutar con el héroe dentro no le recorta los puntos de hoy: cuenta desde mañana', () => {
+    const { state, c } = enLaRed();
+    const hero = heroById(state, 'hero-0');
+    const base = state.towns.find((t) => t.id === 'town-0')!;
+    hero.at = base.at;
+    hero.movePoints = 1500;
+    const lento = maxMovePoints(
+      { ...hero, army: [...hero.army, ...ejercito({ creature: 'peasant', count: 1 })] },
+      state.characters,
+    );
+    base.available = { ...base.available, peasant: 5 };
+    applyAdventureAction(
+      state,
+      { type: 'recruit', town: base.id, creature: 'peasant', count: 1 },
+      c,
+      0,
+    );
+    expect(hero.army.some((t) => t.creature === 'peasant')).toBe(true);
+    expect(hero.movePoints).toBe(1500);
+    // Y al día siguiente manda la criatura más lenta.
+    applyAdventureAction(state, { type: 'end_turn' }, c, 0);
+    applyAdventureAction(state, { type: 'end_turn' }, c, 1);
+    expect(hero.movePoints).toBe(lento);
+  });
+
+  it('un héroe enemigo en un paso se rodea por el otro, sin batalla', () => {
+    // Lo hostil se alcanza pero no se cruza, en el camino de TODOS: la persona
+    // y el agente mueven por `move_hero` sin alcance, y eso es `caminoHasta`.
+    const { state, c } = enLaRed();
+    const hero = heroById(state, 'hero-0');
+    const rival = heroById(state, 'hero-1');
+    rival.at = { x: 11, y: 2 }; // node-1, el paso de arriba entre B y C
+    hero.at = { x: 9, y: 2 };
+    hero.movePoints = 9000;
+    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: { x: 13, y: 2 } }, c, 0);
+    expect(state.pendingBattle).toBeNull();
+    expect(hero.at).toEqual({ x: 13, y: 2 });
+    // Se ha ido por node-2, el de abajo.
+    expect(nodo(state, 'node-2').owner).toBe(0);
+    expect(nodo(state, 'node-1').owner).toBeNull();
+    // Y si el rival ES el destino, se llega y hay batalla.
+    hero.at = { x: 10, y: 2 };
+    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: rival.at }, c, 0);
+    expect(state.pendingBattle?.foe).toEqual({ kind: 'hero', heroId: rival.id });
+  });
+
+  it('sin camino, el rechazo dice QUÉ lo cierra: la ciudad guarnecida o el héroe rival (M2)', () => {
+    // El camino existe a la vista; «no hay camino hasta (19,4)» a secas era
+    // falso para quien lo leía.
+    const { state, c } = enLaRed();
+    const hero = heroById(state, 'hero-0');
+    hero.movePoints = 9000;
+    const mover = (to: { x: number; y: number }) => () =>
+      applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to }, c, 0);
+
+    // De C a D solo se pasa por Torreblanca, neutral y guarnecida.
+    hero.at = { x: 14, y: 4 };
+    expect(mover({ x: 19, y: 4 })).toThrow(
+      'no hay camino hasta (19,4): lo cierra la ciudad Torreblanca, con guarnición, en (17,4)',
+    );
+
+    // De B a C hay dos pasos: con un rival en cada uno, los dos lo cierran.
+    const rival = heroById(state, 'hero-1');
+    rival.at = { x: 11, y: 2 };
+    state.heroes.push({ ...rival, id: 'hero-9', name: 'Otro Rival', at: { x: 11, y: 6 } });
+    hero.at = { x: 8, y: 4 };
+    expect(mover({ x: 14, y: 4 })).toThrow(
+      `no hay camino hasta (14,4): lo cierran el héroe rival ${rival.name} en (11,2) y el héroe rival Otro Rival en (11,6)`,
+    );
+
+    // Y si lo cierra el mapa, no se culpa a nadie: la cordillera no es un rival.
+    expect(mover({ x: 11, y: 0 })).toThrow(/^no hay camino hasta \(11,0\)$/);
+  });
+
+  it('una ciudad neutral nace con la guarnición de los datos y se toma peleando', () => {
+    const { state, c } = enLaRed();
+    const neutral = state.towns.find((t) => t.id === 'town-2')!;
+    const esperada = guarnicionNeutral('knight').flatMap((g) =>
+      Array.from({ length: g.count }, () => g.creature),
+    );
+    expect(neutral.owner).toBeNull();
+    expect(neutral.garrison.map((t) => t.creature)).toEqual(esperada);
+
+    const hero = heroById(state, 'hero-0');
+    hero.at = { x: 15, y: 4 };
+    hero.movePoints = 9000;
+    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: neutral.at }, c, 0);
+    expect(state.pendingBattle?.foe).toEqual({ kind: 'town', townId: 'town-2' });
+  });
+
+  it('la base nace con la guarnición de los datos, de la facción de su dueño, y se asalta peleando', () => {
+    // Decisión del usuario: con «perder la base elimina», una base vacía hacía
+    // de cada partida una carrera. Cada una nace con la de `guarnicionBase`.
+    const { state, c } = enLaRed();
+    const individuos = (f: 'knight' | 'necromancer') =>
+      guarnicionDeBase(f).flatMap((g) => Array.from({ length: g.count }, () => g.creature));
+    for (const p of state.players) {
+      const base = baseOf(state, p.id)!;
+      expect(base.faction).toBe(p.faction);
+      expect(base.garrison.map((t) => t.creature)).toEqual(individuos(p.faction));
+    }
+    expect(individuos('knight')).not.toEqual(individuos('necromancer'));
+
+    // Y entrar en la del rival ya no es tomarla: es batalla contra esa tropa.
+    state.current = 1;
+    const suyo = heroById(state, 'hero-1');
+    suyo.at = { x: 6, y: 4 };
+    suyo.movePoints = 9000;
+    applyAdventureAction(state, { type: 'move_hero', hero: suyo.id, to: { x: 5, y: 4 } }, c, 1);
+    expect(state.pendingBattle?.foe).toEqual({ kind: 'town', townId: 'town-0' });
+    expect(state.towns.find((t) => t.id === 'town-0')!.owner).toBe(0);
+    expect(state.players[0]!.defeated).toBe(false);
+  });
+
+  it('solo la base nace guarnecida, y la base es la primera ciudad de su dueño en el plan', () => {
+    // La misma regla que apunta `Player.base` es la que guarnece
+    // (`primeraCiudadDe`): con el orden del plan al revés cambian las dos a la
+    // vez, en vez de guarnecer una ciudad y declarar base la otra.
+    const plan = planDeNodos();
+    const mia = plan.towns.map((t) => (t.id === 'town-2' ? { ...t, owner: 0 } : t));
+    const tamaño = guarnicionDeBase('knight').reduce((n, g) => n + g.count, 0);
+
+    const enOrden = newGame({ seed: 1, plan: { ...plan, towns: mia } });
+    expect(enOrden.players[0]!.base).toBe('town-0');
+    expect(enOrden.towns.find((t) => t.id === 'town-0')!.garrison).toHaveLength(tamaño);
+    expect(enOrden.towns.find((t) => t.id === 'town-2')!.garrison).toEqual([]);
+
+    const otra = mia.find((t) => t.id === 'town-2')!;
+    const alReves = newGame({
+      seed: 1,
+      plan: { ...plan, towns: [otra, ...mia.filter((t) => t !== otra)] },
+    });
+    expect(alReves.players[0]!.base).toBe('town-2');
+    expect(alReves.towns.find((t) => t.id === 'town-2')!.garrison).toHaveLength(tamaño);
+    expect(alReves.towns.find((t) => t.id === 'town-0')!.garrison).toEqual([]);
+  });
+
+  it('la base nace llena: sin el héroe dentro no se recluta, y el rechazo lo dice', () => {
+    // Siete individuos y 20 de liderazgo: el cupo y el tope de una guarnición.
+    // El héroe no empieza dentro (los inicios no comparten casilla), así que
+    // el día 1 se recluta entrando en casa, no desde fuera.
+    const state = newGame({ seed: 41 });
+    const base = baseOf(state, 0)!;
+    expect(heroesOf(state, 0).some((h) => pointKey(h.at) === pointKey(base.at))).toBe(false);
+    base.available.peasant = 10;
+    expect(() =>
+      applyAdventureAction(
+        state,
+        { type: 'recruit', town: base.id, creature: 'peasant', count: 1 },
+        ctx(41),
+        0,
+      ),
+    ).toThrow('no se puede reclutar: no cabe: la guarnición ya lleva 7 de 7 individuos');
+  });
+
+  it('una ciudad vacía se toma entrando, con las dos caras a la vez', () => {
+    const { state, c } = enLaRed();
+    const neutral = state.towns.find((t) => t.id === 'town-2')!;
+    neutral.garrison = [];
+    const hero = heroById(state, 'hero-0');
+    hero.at = { x: 15, y: 4 };
+    hero.movePoints = 9000;
+    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: neutral.at }, c, 0);
+    expect(neutral.owner).toBe(0);
+    const bandera = state.map.objects.find((o) => o.id === 'town-2') as { owner: number | null };
+    expect(bandera.owner).toBe(0);
+  });
+
+  it('una región es del dueño común de TODOS sus nodos, ciudades incluidas', () => {
+    const { state } = enLaRed();
+    // A la cierran la base y node-0: con la base sola, no es de nadie.
+    expect(regionOwner(state, 'a')).toBeNull();
+    nodo(state, 'node-0').owner = 0;
+    expect(regionOwner(state, 'a')).toBe(0);
+    // B tiene cuatro: la base, node-0 y los dos del medio. Con tres, nada.
+    nodo(state, 'node-1').owner = 0;
+    expect(regionOwner(state, 'b')).toBeNull();
+    nodo(state, 'node-2').owner = 0;
+    expect(regionOwner(state, 'b')).toBe(0);
+    // Y uno del rival la abre: no hay dueño común.
+    nodo(state, 'node-2').owner = 1;
+    expect(regionOwner(state, 'b')).toBeNull();
+    // Una ciudad cuenta como nodo: C es de quien tenga node-1, node-2 y town-2.
+    nodo(state, 'node-2').owner = 0;
+    expect(regionOwner(state, 'c')).toBeNull();
+    darCiudad(state, 'town-2', 0);
+    expect(regionOwner(state, 'c')).toBe(0);
+  });
+
+  it('lo que la IA cree que cierra un nodo es lo que la regla da por región tuya', () => {
+    // `regionesQueCierra` pregunta a la MISMA regla que `regionOwner`, como si el
+    // nodo ya fuera suyo: si reescribiera la regla, las dos podrían divergir.
+    const { state } = enLaRed();
+    // node-0 cierra A (la base ya es mía), y no B: le faltan node-1 y node-2.
+    expect(regionesQueCierra(territorio(state), 'node-0', 0)).toBe(1);
+    expect(regionesQueCierra(territorio(state), 'node-0', 1)).toBe(0);
+    nodo(state, 'node-1').owner = 0;
+    nodo(state, 'node-2').owner = 0;
+    expect(regionesQueCierra(territorio(state), 'node-0', 0)).toBe(2);
+    // Y lo que dice se cumple al tomarlo.
+    nodo(state, 'node-0').owner = 0;
+    expect([regionOwner(state, 'a'), regionOwner(state, 'b')]).toEqual([0, 0]);
+    // Un nodo del rival en la región la deja abierta.
+    nodo(state, 'node-0').owner = null;
+    nodo(state, 'node-2').owner = 1;
+    expect(regionesQueCierra(territorio(state), 'node-0', 0)).toBe(1);
+  });
+
+  it('conectado a la base es una cadena de regiones y nodos propios; cortar un nodo lo corta todo detrás', () => {
+    const { state } = enLaRed();
+    nodo(state, 'node-1').owner = 0;
+    nodo(state, 'node-2').owner = 0;
+    darCiudad(state, 'town-2', 0);
+    // C cerrada y mía, pero desconectada: B no es mía (falta node-0).
+    expect(regionOwner(state, 'c')).toBe(0);
+    expect(conectadoABase(state, 0, { region: 'c' })).toBe(false);
+    expect(conectadoABase(state, 0, { nodo: 'town-2' })).toBe(false);
+    expect(conectadoABase(state, 0, { nodo: 'town-0' })).toBe(true);
+
+    nodo(state, 'node-0').owner = 0;
+    expect(conectadoABase(state, 0, { region: 'b' })).toBe(true);
+    expect(conectadoABase(state, 0, { region: 'c' })).toBe(true);
+    expect(conectadoABase(state, 0, { nodo: 'town-2' })).toBe(true);
+
+    // El rival corta node-2: B y C dejan de ser mías, y la ciudad de detrás se
+    // queda aislada sin haber cambiado de dueño.
+    nodo(state, 'node-2').owner = 1;
+    expect(conectadoABase(state, 0, { region: 'a' })).toBe(true);
+    expect(conectadoABase(state, 0, { region: 'b' })).toBe(false);
+    expect(conectadoABase(state, 0, { region: 'c' })).toBe(false);
+    expect(conectadoABase(state, 0, { nodo: 'town-2' })).toBe(false);
+    expect(state.towns.find((t) => t.id === 'town-2')!.owner).toBe(0);
+  });
+
+  it('la renta sale del territorio unido a la base, y cerrar sin conectar no da nada', () => {
+    const { state, c } = enLaRed();
+    const base = state.towns.find((t) => t.id === 'town-0')!;
+    const neutral = state.towns.find((t) => t.id === 'town-2')!;
+    const soloLaBase = { ...EMPTY, gold: dailyIncome(base) };
+
+    // Al empezar, la base y nada más: A no es mía todavía.
+    expect(rentaDel0(state, c)).toEqual(soloLaBase);
+
+    // C cerrada pero desconectada: ni su mina de madera ni la ciudad cobran.
+    nodo(state, 'node-1').owner = 0;
+    nodo(state, 'node-2').owner = 0;
+    darCiudad(state, 'town-2', 0);
+    expect(rentaDel0(state, c)).toEqual(soloLaBase);
+
+    // Con node-0, A, B y C quedan unidas: las tres minas y la ciudad.
+    nodo(state, 'node-0').owner = 0;
+    expect(rentaDel0(state, c)).toEqual({
+      ...EMPTY,
+      gold: dailyIncome(base) + dailyIncome(neutral) + MINE_YIELD.gold,
+      ore: MINE_YIELD.ore,
+      wood: MINE_YIELD.wood,
+    });
+
+    // Y el rival corta node-2: solo queda A —su mina de mineral— y la base.
+    nodo(state, 'node-2').owner = 1;
+    expect(rentaDel0(state, c)).toEqual({ ...soloLaBase, ore: MINE_YIELD.ore });
+  });
+
+  it('perder la base elimina en el acto, aunque queden héroes y ciudades', () => {
+    // Decisión del usuario tras la 2a: «se gana tomando las bases rivales». El
+    // 0 conserva su héroe y una ciudad, y aun así cae al perder la base.
+    const { state, c } = enLaRed();
+    // Vacía: se mide qué pasa al perderla, no el asalto a su guarnición.
+    sinGuarnicionDeSalida(state);
+    darCiudad(state, 'town-2', 0);
+    expect(heroesOf(state, 0)).toHaveLength(1);
+    state.current = 1;
+    const suyo = heroById(state, 'hero-1');
+    suyo.at = { x: 6, y: 4 };
+    suyo.movePoints = 9000;
+    applyAdventureAction(state, { type: 'move_hero', hero: suyo.id, to: { x: 5, y: 4 } }, c, 1);
+    expect(state.towns.find((t) => t.id === 'town-0')!.owner).toBe(1);
+    expect(townsOf(state, 0).map((t) => t.id)).toEqual(['town-2']);
+    expect(heroesOf(state, 0)).toHaveLength(1);
+    expect(state.players[0]!.defeated).toBe(true);
+    expect(state.finished).toEqual({ winner: 1 });
+    expect(state.log.at(-1)?.kind).toBe('game_over');
+    // Y el hecho dice por qué: el cliente lo cuenta leyéndolo, no suponiéndolo
+    // (I1 de la 2a: decía «no te quedan castillos ni héroes» con este héroe vivo).
+    expect(state.log.filter((e) => e.kind === 'player_defeated')).toEqual([
+      expect.objectContaining({ actor: 0, reason: 'lost_base' }),
+    ]);
+  });
+
+  it('quien no tuvo nunca base cae al quedarse sin nada, y el hecho lo dice así', () => {
+    const { state, c } = enLaRed();
+    sinGuarnicionDeSalida(state);
+    (state.players[0] as { base: string | null }).base = null;
+    state.heroes = state.heroes.filter((h) => h.owner !== 0);
+    state.current = 1;
+    const suyo = heroById(state, 'hero-1');
+    suyo.at = { x: 6, y: 4 };
+    suyo.movePoints = 9000;
+    applyAdventureAction(state, { type: 'move_hero', hero: suyo.id, to: { x: 5, y: 4 } }, c, 1);
+    expect(state.finished).toEqual({ winner: 1 });
+    expect(state.log.filter((e) => e.kind === 'player_defeated')).toEqual([
+      expect.objectContaining({ actor: 0, reason: 'nothing_left' }),
+    ]);
+  });
+
+  it('escribir un hecho después del final lanza: game_over es el último por regla del núcleo', () => {
+    // Los bucles ya no llegan aquí (`return` tras el final); esto es el candado
+    // por si uno nuevo se olvida. Se fuerza a mano: una batalla abierta sobre
+    // una partida que ya acabó.
+    const { state, c } = enLaRed();
+    const hero = heroById(state, 'hero-0');
+    hero.at = { x: 15, y: 4 };
+    hero.movePoints = 9000;
+    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: { x: 17, y: 4 } }, c, 0);
+    expect(state.pendingBattle).not.toBeNull();
+    state.finished = { winner: 0 };
+    expect(() => resolvePendingBattle(state, c)).toThrow(
+      'la partida ya ha terminado y se iba a escribir "battle_ended" después del final',
+    );
+  });
+
+  it('con el héroe del dueño dentro, defiende SOLO él con su tropa, y si cae, cae la base (regla del usuario, I2)', () => {
+    // Regla DECIDIDA, no un olvido: «Solo el heroe con su tropa, es la batalla
+    // final (si pierde)». QA la señaló como fallo —la guarnición inicial se
+    // queda fuera justo cuando el dueño vuelve a casa— y el usuario la
+    // confirmó. Este test existe para que nadie la «arregle» sumando la
+    // guarnición al bando del héroe: si eso cambia, es otra decisión suya.
+    const { state, c } = enLaRed();
+    const base = state.towns.find((t) => t.id === 'town-0')!;
+    const guarnicion = base.garrison.map((g) => g.creature);
+    expect(guarnicion.length).toBeGreaterThan(0);
+    const mio = heroById(state, 'hero-0');
+    mio.at = { ...base.at };
+    mio.army = [];
+    state.current = 1;
+    const suyo = heroById(state, 'hero-1');
+    suyo.army = ejercito({ creature: 'skeleton', count: 2 });
+    suyo.at = { x: base.at.x + 1, y: base.at.y };
+    suyo.movePoints = 9000;
+    applyAdventureAction(state, { type: 'move_hero', hero: suyo.id, to: base.at }, c, 1);
+
+    // Contra el héroe, no contra la ciudad: el héroe va antes en `enemyAt`.
+    expect(state.pendingBattle?.foe).toEqual({ kind: 'hero', heroId: 'hero-0' });
+    const defensores = state.pendingBattle!.battle.stacks.filter((st) => st.side === 'defender');
+    // Uno: el héroe solo, sin tropa, y ninguno de la guarnición en el tablero.
+    expect(defensores.map((st) => st.origen.kind)).toEqual(['heroe']);
+    expect(defensores.some((st) => guarnicion.includes(st.body))).toBe(false);
+
+    expect(resolvePendingBattle(state, c).winner).toBe('attacker');
+    // Era la batalla final: la base cae sin que la guarnición llegue a pelear,
+    // `captureTown` se la lleva, y perder la base elimina.
+    expect(base.owner).toBe(1);
+    expect(base.garrison).toEqual([]);
+    expect(state.players[0]!.defeated).toBe(true);
+    expect(state.finished).toEqual({ winner: 1 });
+  });
+
+  it('perder otra ciudad que no es la base no elimina', () => {
+    const { state, c } = enLaRed();
+    darCiudad(state, 'town-2', 0);
+    state.towns.find((t) => t.id === 'town-2')!.garrison = [];
+    state.current = 1;
+    const suyo = heroById(state, 'hero-1');
+    suyo.at = { x: 18, y: 4 };
+    suyo.movePoints = 9000;
+    applyAdventureAction(state, { type: 'move_hero', hero: suyo.id, to: { x: 17, y: 4 } }, c, 1);
+    expect(state.towns.find((t) => t.id === 'town-2')!.owner).toBe(1);
+    expect(state.players[0]!.defeated).toBe(false);
+    expect(state.finished).toBeNull();
+  });
+
+  it('tomar de camino la base del rival acaba la partida, y el héroe se para ahí', () => {
+    // Desde que el castillo no bloquea, la captura puede ser a MITAD de una
+    // marcha. Sin cortar la marcha, el héroe seguía andando y dejaba
+    // `hero_moved` debajo del `game_over`, que tiene que ser el último hecho.
+    const { state, c } = enLaRed();
+    state.heroes = state.heroes.filter((h) => h.owner !== 1);
+    state.towns.find((t) => t.id === 'town-1')!.garrison = [];
+    const hero = heroById(state, 'hero-0');
+    hero.at = { x: 21, y: 4 };
+    hero.movePoints = 9000;
+    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: { x: 24, y: 4 } }, c, 0);
+    expect(state.finished).toEqual({ winner: 0 });
+    expect(hero.at).toEqual({ x: 22, y: 4 });
+    expect(state.log.at(-1)?.kind).toBe('game_over');
+  });
+
+  it('la IA no elige un objetivo que está detrás de una guarnición que no puede vencer', () => {
+    // Con los pasos estrechos, un Dijkstra que no supiera de héroes ni de
+    // guarniciones mandaría a la IA por ENCIMA de lo que hubiera plantado en
+    // el paso: batalla no elegida, derrota, vuelta a casa y otra vez. La
+    // semilla 54 del barrido no terminaba así. Aquí la base del rival (22,4)
+    // está detrás de la ciudad neutral (17,4), que es el único paso entre C y D.
+    const objetivo = (guarnecida: boolean) => {
+      const { state } = enLaRed();
+      state.towns.find((t) => t.id === 'town-1')!.garrison = [];
+      state.towns.find((t) => t.id === 'town-2')!.garrison = guarnecida
+        ? ejercito({ creature: 'bone_dragon', count: 7 })
+        : [];
+      // El héroe rival, fuerte y fuera del camino: que no sea él el objetivo.
+      heroById(state, 'hero-1').army = ejercito({ creature: 'bone_dragon', count: 6 });
+      const mio = heroById(state, 'hero-0');
+      mio.at = { x: 14, y: 2 };
+      const alcance = alcanceDelHeroe(state, mio);
+      // La guarnición se alcanza —es una batalla posible— y no se cruza.
+      expect(alcance.costs.has('17,4')).toBe(true);
+      expect(alcance.costs.has('22,4'), 'la base rival, detrás del paso').toBe(!guarnecida);
+      return chooseHeroDestination(state, mio, alcance);
+    };
+    // Con el paso libre, la base rival vacía es el objetivo…
+    expect(objetivo(false)).toEqual({ x: 22, y: 4 });
+    // …y con el paso guardado por quien no puede vencer, ni ella ni el paso.
+    const conGuardia = objetivo(true);
+    expect(conGuardia).not.toEqual({ x: 22, y: 4 });
+    expect(conGuardia).not.toEqual({ x: 17, y: 4 });
   });
 });

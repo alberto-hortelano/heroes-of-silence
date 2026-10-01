@@ -23,8 +23,10 @@ import { renderActions, renderLog, renderSide, renderTopbar } from '../src/clien
 import { playAiGame } from '../src/core/ai/turn.js';
 import { activeStack, applyAction } from '../src/core/battle/battle.js';
 import { isShooter } from '../src/core/data.js';
+import { isEnterable, objectAt } from '../src/core/map/map.js';
 import type { GameEvent } from '../src/core/state/events.js';
 import { applyAdventureAction, heroesOf } from '../src/core/state/game.js';
+import type { Point } from '../src/core/types.js';
 import { agresiva, avanzarHasta } from './helpers.js';
 
 export interface Escena {
@@ -38,11 +40,29 @@ export interface Escena {
  * Se usa aquí porque es la única forma de que le llegue una batalla al cliente
  * sin que la resuelva la IA por dentro.
  */
+/** Una casilla pisable, sin objeto y sin héroe, pegada a `p`. */
+function vecinaLibre(s: Session, p: Point): Point {
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      const q = { x: p.x + dx, y: p.y + dy };
+      if ((dx === 0 && dy === 0) || !isEnterable(s.state.map, q)) continue;
+      if (objectAt(s.state.map, q) !== undefined) continue;
+      if (s.state.heroes.some((h) => h.at.x === q.x && h.at.y === q.y)) continue;
+      return q;
+    }
+  }
+  throw new Error(`no hay casilla libre junto a (${p.x},${p.y})`);
+}
+
 function meAtacan(semilla: number): Session {
   const s = new Session(semilla);
   const mio = heroesOf(s.state, 0)[0]!;
   const suyo = heroesOf(s.state, 1)[0]!;
   s.state.current = 1;
+  // Pegado al mío antes de entrar: desde el mapa de nodos el castillo no
+  // bloquea, y cruzando medio mapa el rival pasaba por encima de mi base vacía
+  // y la tomaba de camino — la escena se quedaba sin la rendición que enseña.
+  suyo.at = vecinaLibre(s, mio.at);
   suyo.movePoints = 100000;
   applyAdventureAction(s.state, { type: 'move_hero', hero: suyo.id, to: mio.at }, s.ctx, 1);
   if (s.state.pendingBattle === null) throw new Error('el rival no llegó a atacar');
@@ -235,10 +255,10 @@ function cronicaCompleta(): readonly GameEvent[] {
     { ...base, kind: 'hero_moved', hero: 'hero-0', to: sitio, spent: 100, actor: 0 },
     { ...base, kind: 'resource_gained', resource: 'wood', amount: 2, actor: 0 },
     { ...base, kind: 'resource_gained', resource: 'gold', amount: 500, actor: 1 },
-    { ...base, kind: 'mine_captured', mine: 'mine-1', from: null, actor: 0 },
-    { ...base, kind: 'mine_captured', mine: 'mine-1', from: 1, actor: 0 },
-    { ...base, kind: 'mine_captured', mine: 'mine-1', from: 0, actor: 1 },
-    { ...base, kind: 'mine_captured', mine: 'mine-1', from: null, actor: 1 },
+    { ...base, kind: 'node_captured', node: 'node-1', from: null, actor: 0 },
+    { ...base, kind: 'node_captured', node: 'node-1', from: 1, actor: 0 },
+    { ...base, kind: 'node_captured', node: 'node-1', from: 0, actor: 1 },
+    { ...base, kind: 'node_captured', node: 'node-1', from: null, actor: 1 },
     { ...base, kind: 'town_captured', town: 'town-1', from: null, actor: 0 },
     { ...base, kind: 'town_captured', town: 'town-1', from: 1, actor: 0 },
     { ...base, kind: 'town_captured', town: 'town-0', from: 0, actor: 1 },
@@ -302,7 +322,7 @@ function cronicaCompleta(): readonly GameEvent[] {
     },
     { ...base, kind: 'level_up', hero: 'hero-0', level: 2, actor: 0 },
     { ...base, kind: 'level_up', hero: 'hero-1', level: 3, actor: 1 },
-    { ...base, kind: 'player_defeated', actor: 1 },
+    { ...base, kind: 'player_defeated', reason: 'lost_base', actor: 1 },
     { ...base, kind: 'game_over', actor: 0 },
   ];
 }

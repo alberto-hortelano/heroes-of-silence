@@ -20,6 +20,9 @@ export const pigments: Readonly<Record<Terrain, readonly [number, number, number
   water: [42, 67, 72],
   snow: [167, 172, 171],
   lava: [85, 51, 40],
+  // La cordillera que cierra las regiones del mapa de nodos: más oscura y más
+  // fría que el `rough`, para que el muro se lea como muro y no como suelo malo.
+  mountain: [70, 66, 62],
 };
 /** Una superficie de `resolucion` píxeles por casilla. */
 export function terrainSurface(

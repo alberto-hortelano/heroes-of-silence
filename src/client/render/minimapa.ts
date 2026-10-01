@@ -77,7 +77,7 @@ function baseDe(ancho: number, alto: number, v: VistaMinimapa): HTMLCanvasElemen
   }
   for (const o of objects) {
     if (!explorada(pointKey(o.at))) continue;
-    if (o.kind === 'town' || o.kind === 'mine') {
+    if (o.kind === 'town' || o.kind === 'node') {
       ctx.fillStyle = o.owner === null ? '#d9c995' : playerColor(o.owner);
       const r = o.kind === 'town' ? 1.4 : 0.8;
       ctx.fillRect((o.at.x + 0.5 - r / 2) * sx, (o.at.y + 0.5 - r / 2) * sy, sx * r, sy * r);

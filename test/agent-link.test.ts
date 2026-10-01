@@ -22,7 +22,7 @@ import { responderConsulta } from '../src/server/consultas.js';
 import { Director } from '../src/server/director.js';
 import { pedirMapaAlAgente } from '../src/server/mapa-del-agente.js';
 import { SIN_PARTIDA_TODAVIA } from '../src/server/notas.js';
-import { ejercito, ponerMonstruo } from './helpers.js';
+import { ejercito, ponerMonstruo, sinGuarnicionDeSalida } from './helpers.js';
 
 /** Agente de mentira: responde leyendo el payload, como haría uno de verdad. */
 interface FakeAgent {
@@ -458,6 +458,9 @@ describe('el agente se rinde (fase 1b)', () => {
 
     const director = new Director(link, { seed: 106, agentPlayers: [0] });
     revealEverything(director.state, 0);
+    // Vacía: de camino al monstruo el héroe pasa por casa, y con la guarnición
+    // de salida dentro se la llevaría y el precio ya no sería el de dos arqueros.
+    sinGuarnicionDeSalida(director.state);
     const heroe = director.state.heroes[0]!;
     heroe.army = ejercito({ creature: 'archer', count: 2 });
     heroe.movePoints = 20000;

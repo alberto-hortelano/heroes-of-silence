@@ -227,11 +227,74 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   El veto de rendirse por quien no es la IA (H-1) no entra aquí a propósito:
  *   `playAiGame` no veta a nadie, porque en el banco todos los bandos los lleva
  *   la IA y rendirse es decisión suya.
+ * - `9a0a3313…` (36 905 líneas): el mapa es una red de nodos (fase 2a de
+ *   NuevaJugabilidad, «la red»), anclado una sola vez al final del ciclo. Otro
+ *   mapa entero —Voronoi con cordilleras, nodos y ciudades neutrales con
+ *   guarnición—, así que **cero semillas idénticas**, y el primer hecho distinto
+ *   es `built` en 200 de 200: el primer hecho con casilla de cada partida es la
+ *   construcción del día 1, y la base ya no está en (3,3). 200/200 con `fin` y
+ *   ganador, **0 sin terminar**, **0 hechos imposibles** (ningún hecho tras
+ *   `game_over`, ninguna batalla anidada o sin cerrar, ningún héroe que actúe
+ *   tras caer sin vuelta). **Sale `mine_captured` (826 → 0) y entra
+ *   `node_captured` (1 203)**; vuelve `hero_hired` (0 → 10): quien pierde la base
+ *   y conserva una ciudad contrata en ella. Dieciocho tipos. `town_captured`
+ *   202 → 1 521, porque hay ciudades neutrales que tomar y retomar. Partidas más
+ *   cortas: mediana 8 → **6** días, p90 12 → 11, máximo 26 → 25. **El ganador se
+ *   da la vuelta**: j0 7 → **139 de 200**; con control de esquina —los mismos
+ *   mapas con las facciones cambiadas de sitio, 400 partidas— el caballero gana
+ *   el **62 %** y el asiento 0 el 56,5 % (desde 1,50 % del caballero). De las 200
+ *   derrotas, **162 son por la regla nueva de `checkDefeat`** —sin héroes, sin
+ *   base y sin oro para contratar— y 38 por quedarse sin castillos: con
+ *   ciudades neutrales que tomar, quien pierde la base casi siempre conserva
+ *   alguna, y sin esa regla el barrido de 1 000 semillas deja 12 sin terminar.
+ *   Tiempo de las 200: **~2,75 s** (2 760, 2 721 y 2 753 ms), desde ~2,65;
+ *   `autoResolve` igual (~121 ms), porque sus batallas espejo no miran el mapa.
+ *   **No llegó a commitearse**: es el ancla intermedia de la 2a, antes de su
+ *   pasada de `/simplify`, y se deja por la forma del diff que documenta.
+ * - `1fd0d9a1…` (24 924 líneas): la 2a con su `/simplify` aplicado y la regla
+ *   del usuario, anclada una sola vez. Cuatro cambios de regla a la vez, y el
+ *   primer hecho distinto dice cuál pesa: `hero_moved` en 76 semillas (lo hostil
+ *   se alcanza pero no se cruza, en el camino de todos), `battle_started` en 57
+ *   (lo mismo: ya no se tropieza con un héroe en un paso), `garrison_taken` en
+ *   45 (la tropa de casa se recoge **al pasar**, y los puntos del día no se
+ *   recortan) y `node_captured` en 20; `player_defeated` en 2 (**perder la base
+ *   elimina**). Y además todos los cruces de grado ≥ 3 son ciudad. 0 semillas
+ *   idénticas, 200/200 con `game_over` de último hecho, 0 sin terminar, **ningún
+ *   tipo nuevo**; sale `hero_hired` (10 → 0): ya nadie sobrevive a perder la
+ *   base para contratar en otra ciudad. Las 200 derrotas siguen a la captura
+ *   de la base del derrotado, como antes (también en `9a0a3313…`: la regla de
+ *   «congelado» solo remataba a quien ya la había perdido). Partidas más
+ *   cortas: mediana 6 → **4** días, p90 11 → 6, máximo 25 → 18; hechos
+ *   36 905 → 24 924. Ganador j0 139 → **135 de 200**; control de esquina (400
+ *   partidas): caballero **60,75 %**, asiento 0 61,25 %. Tiempo de las 200:
+ *   **~1,69 s** (1 680, 1 692 y 1 686 ms), desde ~2,75: partidas más cortas y
+ *   `chooseHeroDestination` sin la cadena de predecesores.
+ * - `02bf2610…` (30 862 líneas): **la base nace con guarnición** (decisión del
+ *   usuario tras la 2a), anclada una sola vez. Tres de nivel 1, dos de nivel 2
+ *   y dos de nivel 3 de la facción del dueño: 7 individuos y 20 de liderazgo,
+ *   la base llena. El primer hecho distinto es `hero_moved` en **200 de 200**,
+ *   y es el reclutamiento que falta: con la base llena y el héroe fuera no cabe
+ *   ni un recluta, así que los **600 `recruited` del día 1 pasan a 0**. 0
+ *   semillas idénticas, **ningún tipo nuevo ni perdido**, 200/200 con
+ *   `game_over` de último hecho, 0 sin terminar. Más batallas (1 247 → 1 584),
+ *   más `town_captured` (1 092 → 1 448) y más `garrison_taken` (438 → 642): el
+ *   héroe que vuelve a casa se lleva la guarnición. Hechos 24 724 → 30 662;
+ *   mediana 4 → **5** días, p90 6 → **9**, máximo 18 → **14**. **El ganador se
+ *   da la vuelta otra vez**: j0 135 → **61 de 200**; con control de esquina
+ *   (400 partidas) el caballero gana el **26,25 %** (desde 60,75) y el asiento 0
+ *   el 53,25 %. Tiempo de las 200: 2 107, 2 167 y 2 403 ms, desde ~1,69:
+ *   partidas más largas.
+ * - `2a836460…` (30 862 líneas): `player_defeated` **dice por qué** (I1 de la
+ *   QA de la 2a: el cliente contaba la derrota con la regla de antes porque el
+ *   hecho no traía la causa). Cambian **200 líneas de 30 862, las 200
+ *   `player_defeated`**, y nada más: quitando `"reason":"lost_base",` el
+ *   volcado nuevo es byte a byte el de `02bf2610…`. Las 200 son `lost_base`;
+ *   `nothing_left` no sale nunca, porque toda partida real tiene base.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '957a24864372e30d7d33e395a8afa63ee1f701055e437c9386147acaedfbb7b8',
+  sha: '2a836460a0e84bf959cb70ed310bcefb2297a57022cf3d11c1f72ef96a1f47df',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

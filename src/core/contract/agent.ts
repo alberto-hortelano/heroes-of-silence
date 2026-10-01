@@ -16,6 +16,7 @@
  * `attacker` o `defender`, no un jugador.
  */
 import { z } from 'zod';
+import { WALL_TERRAINS } from '../map/generate.js';
 import { TERRAIN_KINDS } from '../map/terrain.js';
 import { COMO_SE_LEE_EL_MAPA } from './serialize.js';
 
@@ -84,47 +85,56 @@ export const resourceSchema = z.enum([
   'gold',
 ]);
 
+/**
+ * Un id que el motor usa VERBATIM —en el `MapObject`, en el `Town`, en los
+ * mensajes y en la consulta `map`—, así que es un contrato acotado: una `id`
+ * con un salto de línea dentro se llevaba por delante el bloque de veredictos,
+ * que se parsea línea a línea (`notas.ts`). NO es defensa contra XSS: eso es
+ * `html.ts`.
+ */
+const idDeMapa = (que: string) =>
+  z
+    .string()
+    .min(1)
+    .max(32)
+    .regex(
+      /^[a-z0-9][a-z0-9_-]*$/,
+      `un id de ${que} va en minúsculas y solo lleva letras, dígitos, guion y guion bajo, empezando por letra o dígito (p. ej. "town-0")`,
+    );
+/** Lo que lee una persona: una sola línea. */
+const nombreDeMapa = (que: string) =>
+  z
+    .string()
+    .min(1)
+    .max(40)
+    .regex(/^[^\n\r]+$/, `el nombre de ${que} es una sola línea, sin saltos`);
+
 export const mapPlanSchema = z.object({
   width: z.number().int().min(8).max(128),
   height: z.number().int().min(8).max(128),
   baseTerrain: terrainSchema,
-  regions: z.array(
+  patches: z.array(
     z.object({ terrain: terrainSchema, center: pointSchema, radius: z.number().min(1).max(40) }),
   ),
+  regions: z.array(
+    z.object({ id: idDeMapa('región'), name: nombreDeMapa('una región'), at: pointSchema }),
+  ),
+  // Derivado de la lista que valida `validateMapPlan`, no copiado: el esquema y
+  // la validación de los dos productores dicen lo mismo porque es lo mismo.
+  walls: z.array(z.object({ terrain: z.enum(WALL_TERRAINS), from: pointSchema, to: pointSchema })),
+  nodes: z.array(pointSchema),
   towns: z.array(
     z.object({
-      // El `id` y el `name` de un pueblo son los dos únicos textos del plan que
-      // el motor usa VERBATIM: `buildMap` los mete tal cual en el `MapObject` y
-      // en el `Town`, y de ahí salen por la consulta `map`, por `game_state` y
-      // por el canal del espectador. Antes eran `z.string()` a secas, o sea
-      // cualquier cosa de cualquier longitud, y una `id` con un salto de línea
-      // dentro se lleva por delante el bloque de veredictos, que se parsea línea
-      // a línea (`notas.ts`). Esto es un **contrato acotado** y NO es defensa
-      // contra XSS: la pantalla mete el nombre sin escapar en `innerHTML`
-      // (`panels.ts`), y eso es #63, que hay que cerrar antes de que un visor
-      // enseñe la partida del servidor.
-      id: z
-        .string()
-        .min(1)
-        .max(32)
-        .regex(
-          /^[a-z0-9][a-z0-9_-]*$/,
-          'un id de pueblo va en minúsculas y solo lleva letras, dígitos, guion y guion bajo, empezando por letra o dígito (p. ej. "town-0")',
-        ),
-      name: z
-        .string()
-        .min(1)
-        .max(40)
-        .regex(/^[^\n\r]+$/, 'el nombre de un pueblo es una sola línea, sin saltos'),
+      id: idDeMapa('ciudad'),
+      name: nombreDeMapa('una ciudad'),
       faction: z.enum(['knight', 'necromancer']),
       at: pointSchema,
       owner: z.number().int().nullable(),
     }),
   ),
   heroStarts: z.array(z.object({ player: z.number().int(), at: pointSchema })),
-  mines: z.array(
-    z.object({ at: pointSchema, resource: resourceSchema, owner: z.number().int().optional() }),
-  ),
+  mines: z.array(z.object({ at: pointSchema, resource: resourceSchema })),
+  villages: z.array(z.object({ name: nombreDeMapa('un pueblo'), at: pointSchema })),
   resources: z.array(
     z.object({ at: pointSchema, resource: resourceSchema, amount: z.number().int().positive() }),
   ),
@@ -206,13 +216,20 @@ Notas:
   de 6 individuos". Sin héroe en el pueblo se recluta a la guarnición, que
   guarda como mucho 7 individuos y tiene su propio tope en
   "towns[].garrisonLeadership". Un héroe que entra en su pueblo se lleva de la
-  guarnición lo que le quepa; el resto se queda guardándolo.
+  guarnición lo que le quepa; el resto se queda guardándolo. Tu base NACE con
+  la guarnición llena: para reclutar en ella el primer día, entra con el héroe
+  —y al entrar se lleva la parte que le quepa, que deja de defenderla—.
 - "yourBase" es tu base: el castillo al que vuelve un héroe tuyo que pierde una
   batalla o se rinde. Vuelve con el ejército vacío (o con la tropa que salvó
   rindiéndose) y sin movimiento hasta el día siguiente; la tropa muerta se
   pierde. Si un héroe tuyo pierde defendiendo un castillo tuyo, ese castillo
   es del rival; si era la base, el héroe ya no tiene a dónde volver y se
   pierde. Sin base ("yourBase": null), un héroe que cae se pierde.
+- Con un héroe dentro de una ciudad, la defiende SOLO ese héroe con su tropa:
+  la guarnición NO se suma a la batalla. Esa batalla es la final: si la pierde,
+  la ciudad cae con su guarnición sin que esta llegue a pelear, y si era tu
+  base, pierdes la partida. Lo que el héroe se llevó al entrar sí pelea: ya es
+  su tropa.
 - "towns[].teaches" son los hechizos que enseña el gremio de ese pueblo: un
   héroe tuyo parado allí los aprende solo, hasta donde le deje su Sabiduría, y
   aparecen en "heroes[].spells". NO hay acción para aprender: basta con llevarlo.
@@ -290,16 +307,45 @@ Notas:
 }
 
 El plan NO es una imagen ni una rejilla: describe el mapa y el motor lo
-construye. Campos: width, height, baseTerrain, regions[], towns[], heroStarts[],
-mines[], resources[], monsters[], chests[], roads?.
+construye. Campos: width, height, baseTerrain, patches[], regions[], walls[],
+nodes[], towns[], heroStarts[], mines[], villages[], resources[], monsters[],
+chests[], roads?.
+
+El mapa es una RED DE NODOS, y eso se comprueba:
+- Una REGIÓN es una zona por la que se anda libre, cerrada por muro. Cada una se
+  declara en "regions" con un "id", un "name" y una casilla suya en "at".
+- Un MURO es un tramo RECTO de "mountain" o "water" (los de "palette.wallTerrains"):
+  {"terrain", "from", "to"} con "from" y "to" en la misma fila o en la misma
+  columna; se pintan los dos extremos y lo de en medio. Un tramo en diagonal se
+  rechaza: deja huecos por las esquinas. Se mueve en 8 direcciones, así que dos
+  casillas pisables que se tocan aunque sea en diagonal están unidas.
+- Un NODO es el único paso entre regiones: una casilla de "nodes" en un muro,
+  tocando dos regiones o más. Una CIUDAD ("towns") ES un nodo: va igual en el
+  muro, entre regiones, y no se repite en "nodes". Un nodo o una ciudad ABRE la
+  casilla de muro en la que está, así que puedes trazar el muro entero y poner
+  el paso encima. Dos nodos no pueden ser vecinos.
+- Quitando los nodos, cada zona pisable tiene que ser EXACTAMENTE una de tus
+  regiones: si dos regiones se tocan sin nodo, se te dice entre qué dos casillas
+  queda el paso abierto; una zona pisable sin región declarada se rechaza; cada
+  región necesita al menos un nodo, y todas tienen que alcanzarse.
+- Una región es de quien tenga TODOS sus nodos, y solo da renta unida a su base.
+  Las minas y los pueblos ("villages": {"name", "at"}) no se toman: son de quien
+  tenga su región, y por eso no llevan dueño.
+- "patches" solo pintan el suelo (círculos de "terrain", "center" y "radius"): no
+  separan nada. Los muros se pintan encima.
+- Una ciudad neutral ("owner": null) nace con guarnición: hay que vencerla para
+  tomarla. La base de cada jugador —su PRIMERA ciudad en "towns"— nace también
+  con guarnición, de la facción de su dueño; sus otras ciudades nacen vacías.
 
 Reglas que se validan antes de aceptarlo:
 - Mínimo 8×8, máximo 128×128.
-- Al menos dos pueblos y dos posiciones de inicio, y cada jugador con un pueblo.
-- Dos objetos no pueden compartir casilla, y las posiciones de inicio TAMBIÉN
-  ocupan la suya: dos héroes juntos, o un héroe encima de un castillo, se
+- Al menos dos ciudades y dos posiciones de inicio, y cada jugador con una ciudad.
+- Dos cosas no pueden compartir casilla, y las posiciones de inicio TAMBIÉN
+  ocupan la suya: dos héroes juntos, o un héroe encima de una ciudad, se
   rechazan.
-- Desde cada inicio se debe poder llegar a pie a todos los pueblos.
+- Todo lo que no es nodo ni ciudad —minas, pueblos, recursos, monstruos, cofres
+  e inicios— va DENTRO de una región, nunca sobre un muro ni sobre un nodo.
+- Desde cada inicio se debe poder llegar a pie a todas las ciudades.
 - "monsters[].creature" tiene que ser un id de criatura que exista: usa los de
   "palette.creaturesForGuards", que están escritos como los espera el motor.
   Distingue mayúsculas ("skeleton" sí, "Skeleton" no) y no vale inventarse una:
@@ -307,19 +353,18 @@ Reglas que se validan antes de aceptarlo:
 - "monsters[].count" son individuos, un entero de 1 a 7: en batalla ningún
   bando lleva más de 7 (un héroe pelea con 6 más él). Un monstruo de más se
   rechaza diciendo el máximo.
-- Un "towns[].owner" y un "mines[].owner" tienen que ser jugadores CON posición
-  de inicio en este mismo plan. Para dejar un pueblo neutral, "owner": null;
-  para una mina sin dueño, no pongas "owner".
+- Un "towns[].owner" tiene que ser un jugador CON posición de inicio en este
+  mismo plan. Para dejar una ciudad neutral, "owner": null.
 - Devuelve el "width" y el "height" que se te piden en "want": el servidor
   compara la partida con agente contra la que jugaría sin él, y un tamaño
   distinto las hace incomparables.
 - El ORDEN en que escribas "heroStarts" no decide nada: el servidor ordena los
   jugadores por su número, así que el 0 abre la partida lo escribas donde lo
   escribas.
-- El "id" de un pueblo es un identificador, no un rótulo: minúsculas, letras,
-  dígitos, guion y guion bajo, empezando por letra o dígito, hasta 32
-  caracteres. "town-0" vale; "Pueblo Uno" no. Y no puede repetirse: dos pueblos
-  con el mismo id son dos castillos indistinguibles para todo lo demás.
+- El "id" de una ciudad o de una región es un identificador, no un rótulo:
+  minúsculas, letras, dígitos, guion y guion bajo, empezando por letra o dígito,
+  hasta 32 caracteres. "town-0" vale; "Pueblo Uno" no. Y no puede repetirse.
+  "node-N" y "village-N" los reserva el motor para los nodos y los pueblos.
 - El "name" es lo que lee una persona: una sola línea, sin saltos, hasta 40
   caracteres.
 - "heroStarts" tiene que traer EXACTAMENTE los jugadores de "want.players", uno

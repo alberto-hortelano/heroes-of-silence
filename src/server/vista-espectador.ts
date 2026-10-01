@@ -19,7 +19,7 @@
  * dos, lo que junta son dos reglas distintas bajo un solo nombre.
  */
 import type { BattleStack, BattleState, Side } from '@core/battle/types.js';
-import type { MapObject } from '@core/map/map.js';
+import type { MapObject, MapRegion } from '@core/map/map.js';
 import type { TerrainKind } from '@core/map/terrain.js';
 import type { GameEventDraft } from '@core/state/events.js';
 import { sinSello } from '@core/state/events.js';
@@ -39,6 +39,12 @@ export interface VistaMapa {
   readonly terrain: readonly TerrainKind[];
   readonly roads: readonly string[];
   readonly objects: readonly MapObject[];
+  /**
+   * Las regiones declaradas del mapa de nodos (fase 2a). Viajan ya, aunque el
+   * visor todavía no pinte el territorio (es de la 2b), para que el cable sea
+   * la imagen entera del mapa y no haya que volver a abrir esta frontera.
+   */
+  readonly regions: readonly MapRegion[];
 }
 
 export interface VistaJugador {
@@ -131,6 +137,7 @@ export function construirVista(state: GameState, directorLog: readonly string[])
       terrain: state.map.terrain,
       roads: [...state.map.roads],
       objects: state.map.objects,
+      regions: state.map.regions,
     },
     players: state.players.map((p) => ({
       id: p.id,

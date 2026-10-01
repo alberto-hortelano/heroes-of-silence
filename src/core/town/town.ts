@@ -41,6 +41,20 @@ export function createTown(
   };
 }
 
+/**
+ * La base de un jugador en una lista de ciudades: **la primera suya**. Es la
+ * regla de siempre (`createGame` la usaba a pelo) y ahora la leen dos: la
+ * partida, para apuntar `Player.base`, y `buildMap`, para guarnecerla al nacer.
+ * Escrita dos veces, un plan con dos ciudades de un mismo dueño podía guarnecer
+ * una y declarar base la otra sin que nadie lo notara.
+ */
+export function primeraCiudadDe<T extends { readonly owner: PlayerId | null }>(
+  towns: readonly T[],
+  player: PlayerId,
+): T | undefined {
+  return towns.find((t) => t.owner === player);
+}
+
 export function hasBuilding(town: Town, id: string): boolean {
   return town.buildings.includes(id);
 }

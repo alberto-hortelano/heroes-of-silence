@@ -2,7 +2,7 @@
  * Las fronteras de `CLAUDE.md`, comprobadas.
  *
  * Un contrato que solo vive en la documentación se rompe sin que nadie se
- * entere; aquí se rompe en rojo. Son catorce guardias: ocho leen el código con
+ * entere; aquí se rompe en rojo. Son quince guardias: ocho leen el código con
  * una expresión regular, uno recorre el catálogo de rasgos, el de efectos
  * temporales llama de verdad a los lectores del motor, otro recorre todo el
  * repo —menos la prosa y los binarios— buscando la ruta de esta máquina, dos
@@ -52,6 +52,12 @@
  * el commit que reescribe `views/panels.ts`** y no en el que escribe la puerta,
  * donde habría nacido rojo con los tres `innerHTML` que `main.ts` tenía
  * entonces. También se rompió a mano, copiando uno de vuelta a `main.ts`.
+ *
+ * El quinceavo es de la fase 2a: el dueño de un nodo o de un castillo lo
+ * escriben `captureNode` y `captureTown` y nadie más, que es lo que permite que
+ * el dueño de una región se derive en vez de guardarse. Se rompió a mano
+ * metiendo una escritura de `obj.owner` en la IA (`strategy.ts`) y salió rojo
+ * con el fichero y la línea.
  *
  * Y esta frase no puede escribir la marca de cierre de un comentario de bloque:
  * al escribirla la primera vez cerró este docstring de verdad y tumbó el `tsc`
@@ -960,12 +966,81 @@ describe('invariantes del proyecto', () => {
     // llevara sello, `seen` sería siempre una lista vacía y el `toEqual` de
     // abajo pasaría sin probar nada. La cuenta de tipos hace lo mismo para la
     // variedad — un log largo de `hero_moved` no probaría casi nada.
-    const state = newGame({ seed: 9, width: 48, height: 48, maxDays: 60 });
-    await playAiGame(state, { rng: createRng(9) });
+    //
+    // **Y la semilla pasó de 9 a 4** con «perder la base elimina» (fase 2a):
+    // la 9 se acaba ahora el día 9 con 292 hechos de catorce tipos. No se bajó
+    // ningún umbral: se barrieron cuarenta semillas en el mismo mapa y la 4
+    // llega al día 23 con **672 hechos de diecisiete tipos, 602 con sello**.
+    //
+    // **Y de 4 a 19** cuando la base nació guarnecida: la 4 se quedó en 242
+    // hechos con sello y catorce tipos. Mismo remedio, sin tocar umbrales: de
+    // cuarenta semillas en 48×48, la 19 llega al día 24 con **810 hechos de
+    // diecisiete tipos, 736 con sello**.
+    const state = newGame({ seed: 19, width: 48, height: 48, maxDays: 60 });
+    await playAiGame(state, { rng: createRng(19) });
     expect(state.log.length).toBeGreaterThan(500);
     expect(new Set(state.log.map((e) => e.kind)).size).toBeGreaterThanOrEqual(16);
     expect(state.log.filter((e) => e.seen.length > 0).length).toBeGreaterThan(400);
     expect(JSON.parse(JSON.stringify(state.log))).toEqual(state.log);
+  });
+
+  it('el dueño de un nodo o de un castillo lo escriben captureNode y captureTown, nadie más', () => {
+    // «Un hecho, un sitio», con el mapa de nodos: el dueño de una REGIÓN no se
+    // guarda porque se deriva de sus nodos (`regionOwner`), y eso solo es verdad
+    // mientras los nodos tengan un único escritor. Una segunda escritura —un
+    // atajo en la IA, un «arreglo» en el cliente— dejaría el territorio
+    // calculado sobre un dueño que nadie anunció en la crónica, que es la forma
+    // exacta de #47 (la IA viendo el castillo enemigo donde tenía el suyo).
+    //
+    // Mira el código sin comentarios y todo `src`, no solo `core`: el cliente y
+    // el servidor tampoco escriben dueños. La asignación y la escritura por
+    // corchetes (`o['owner'] =`), que es por donde se escaparía un atajo.
+    // `Object.assign` no lo ve: si algún día hace falta, se dirá aquí.
+    const escrituras = infractoresDeCodigo(
+      [...CORE, ...CLIENTE, ...SERVIDOR],
+      /\.owner\s*=(?!=)|\[\s*['"`]owner['"`]\s*\]\s*=(?!=)/,
+    );
+    const codigo = sinComentarios(leer('src/core/state/game.ts')).split('\n');
+    const funcionDe = (linea: number): string | null => {
+      for (let i = linea - 1; i >= 0; i--) {
+        const m = /^function (\w+)/.exec(codigo[i] ?? '');
+        if (m !== null) return m[1] ?? null;
+      }
+      return null;
+    };
+    const ajenas = escrituras.filter((e) => {
+      const m = /^src\/core\/state\/game\.ts:(\d+) /.exec(e);
+      if (m === null) return true;
+      const fn = funcionDe(Number(m[1]));
+      return fn !== 'captureNode' && fn !== 'captureTown';
+    });
+    expect(ajenas).toEqual([]);
+    // Y que mire algo: las tres escrituras de verdad —el nodo, el libro de
+    // cuentas del castillo y su bandera— tienen que salir. Sin esto, un patrón
+    // que no casara nada pasaría por vacío.
+    expect(escrituras).toHaveLength(3);
+  });
+
+  it('el camino de un héroe lleva lo hostil: fuera de game.ts nadie llama al Dijkstra del mapa', () => {
+    // Lo hostil de la partida —héroe ajeno, castillo ajeno guarnecido— se
+    // alcanza y no se cruza en el camino de TODOS (la IA, la persona y el
+    // agente), y eso solo lo sabe quien tiene la partida: `alcanceDelHeroe` y
+    // `caminoHasta`, en `game.ts`. Un `findPath` o un `reachableFrom` a pelo en
+    // la IA o en el cliente volvería a cruzar por encima de una guarnición en
+    // un paso estrecho sin que nada se pusiera rojo: el parámetro es opcional
+    // porque el mapa, solo, no sabe de héroes.
+    const llamadas = infractoresDeCodigo(
+      [...CORE, ...CLIENTE, ...SERVIDOR],
+      /\b(?:findPath|reachableFrom)\s*\(/,
+    );
+    // `battle/` se salta por nombre y no por despiste: su `findPath` es el del
+    // tablero de hexes, otra función con el mismo nombre y sin mapa.
+    const ajenas = llamadas.filter(
+      (e) => !/^src\/core\/(?:map\/map\.ts|state\/game\.ts|battle\/)/.test(e),
+    );
+    expect(ajenas).toEqual([]);
+    // Y que mire algo: las dos de `game.ts` tienen que salir.
+    expect(llamadas.filter((e) => e.startsWith('src/core/state/game.ts:'))).toHaveLength(2);
   });
 
   it('FAL_KEY no llega al navegador', () => {

@@ -1,0 +1,26 @@
+{
+  "_comment": "PROVISIONAL e INVENTADO (fase 2a de NuevaJugabilidad, 01-10-2026). guarnicionNeutral = la tropa con la que NACE una ciudad sin dueño, por la facción de la ciudad: el usuario corrigió el plan («las ciudades neutrales nacen CON guarnición»: hay que pelear para tomarlas). No hay fila del original que copiar —HoMM2 no tiene ciudades neutrales con este papel—, así que las cifras son de quien escribe esto y se ajustan midiendo: la condición es que el barrido siga dando 0 partidas sin terminar. Cada guarnición cabe en el cupo de un bando (liderazgo.json, maxPorBando: 7) y lo comprueba el cargador.",
+  "guarnicionNeutral": {
+    "knight": [
+      { "creature": "peasant", "count": 3 },
+      { "creature": "archer", "count": 2 }
+    ],
+    "necromancer": [
+      { "creature": "skeleton", "count": 3 },
+      { "creature": "zombie", "count": 2 }
+    ]
+  },
+  "_comment_base": "PROVISIONAL e INVENTADO (fase 2a, 01-10-2026). guarnicionBase = la tropa con la que NACE la base de cada jugador, de la facción de su dueño (la de la base: la facción del jugador sale de ella). La pidió el usuario cuando «perder la base elimina» volvió cada partida una carrera contra una base vacía. Murallas y bonificación al defensor son de la fase 3. Las cifras no son del original —HoMM2 no guarnece el castillo de salida— y se eligieron midiendo (docs/agents/2026-10-01-mapa-de-nodos/implementacion.md, «La base nace con guarnición»): tres de nivel 1, dos de nivel 2 y dos de nivel 3 son 7 individuos y 20 de liderazgo, lo más que cabe a la vez en el cupo de un bando (maxPorBando: 7) y en el liderazgo de guarnición (liderazgo.json, guarnicion: 20); el cargador comprueba los dos. AVISO medido: dentro de esos dos topes NINGUNA composición deja de hacer carrera (mediana 4-5 días), porque el héroe dueño se la lleva al pasar o al volver vencido y la IA solo asalta lo que vence.",
+  "guarnicionBase": {
+    "knight": [
+      { "creature": "peasant", "count": 3 },
+      { "creature": "archer", "count": 2 },
+      { "creature": "pikeman", "count": 2 }
+    ],
+    "necromancer": [
+      { "creature": "skeleton", "count": 3 },
+      { "creature": "zombie", "count": 2 },
+      { "creature": "mummy", "count": 2 }
+    ]
+  }
+}

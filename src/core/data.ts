@@ -1,4 +1,5 @@
 /** Catálogo de criaturas: carga `data/creatures.json` y lo tipa. */
+import ciudadesJson from '../../data/ciudades.json' with { type: 'json' };
 import creaturesJson from '../../data/creatures.json' with { type: 'json' };
 import heroeJson from '../../data/heroe.json' with { type: 'json' };
 import liderazgoJson from '../../data/liderazgo.json' with { type: 'json' };
@@ -138,3 +139,117 @@ export const HEROE: ReglasDelHeroe = {
   },
   rendicion: { ...heroeJson.rendicion },
 };
+
+/** Un grupo de individuos de la misma criatura, como se escriben en los datos. */
+interface GrupoDeTropa {
+  readonly creature: string;
+  readonly count: number;
+}
+
+/**
+ * Lo que impide que unos grupos de tropa formen **un bando**: una criatura que
+ * no existe, un número que no es de individuos o más de los que lleva un bando
+ * (`maxPorBando`). Vacío: valen. `quien` encabeza cada frase.
+ *
+ * Una sola comprobación para los dos sitios donde se escriben grupos a mano:
+ * la guarnición neutral de `data/ciudades.json` y los monstruos de un plan de
+ * mapa (`validateMapPlan`). Eran dos copias con dos redacciones, y una ciudad
+ * neutral y un monstruo acaban en la misma batalla con el mismo tope.
+ */
+export function problemasDeGrupo(grupos: readonly GrupoDeTropa[], quien: string): string[] {
+  const problemas: string[] = [];
+  let total = 0;
+  for (const g of grupos) {
+    if (!byId.has(g.creature)) {
+      problemas.push(
+        `${quien} es de una criatura que no existe: "${g.creature}". Las que valen: ${[...byId.keys()].sort().join(', ')}`,
+      );
+      continue;
+    }
+    if (!Number.isSafeInteger(g.count) || g.count < 1) {
+      problemas.push(
+        `${quien} trae ${g.count} × ${g.creature}: son individuos, tiene que ser un entero de 1 en adelante`,
+      );
+      continue;
+    }
+    total += g.count;
+  }
+  if (problemas.length === 0 && total > LIDERAZGO.maxPorBando) {
+    const cuales = grupos.map((g) => `${g.count} × ${g.creature}`).join(' + ');
+    problemas.push(`${quien} trae ${cuales} y un bando lleva como mucho ${LIDERAZGO.maxPorBando}`);
+  }
+  return problemas;
+}
+
+/**
+ * Lo que impide que unos grupos sean la guarnición de un castillo: lo de
+ * `problemasDeGrupo` y, además, el tope de liderazgo de una guarnición
+ * (`LIDERAZGO.guarnicion`). Un monstruo no tiene ese tope; una ciudad sí.
+ *
+ * Una que naciera por encima dejaría el castillo en un estado que ninguna
+ * partida alcanza reclutando —lo vigila `tropa.test.ts` sobre partidas
+ * enteras—, y el tope existe porque una guarnición mayor que el héroe recién
+ * contratado deja partidas en tablas para siempre (`data/liderazgo.json`).
+ */
+export function problemasDeGuarnicion(grupos: readonly GrupoDeTropa[], quien: string): string[] {
+  const problemas = problemasDeGrupo(grupos, quien);
+  if (problemas.length > 0) return problemas;
+  let ocupa = 0;
+  for (const g of grupos) ocupa += creature(g.creature).leadership * g.count;
+  if (ocupa > LIDERAZGO.guarnicion) {
+    problemas.push(
+      `${quien} ocupa ${ocupa} de liderazgo y una guarnición lleva como mucho ${LIDERAZGO.guarnicion}`,
+    );
+  }
+  return problemas;
+}
+
+/**
+ * Lee una tabla de guarniciones de `data/ciudades.json`, una por facción.
+ *
+ * Se valida al cargar y no al usarla: una criatura mal escrita, una guarnición
+ * de más de `maxPorBando` individuos o de más liderazgo que el de guarnición
+ * revientan aquí con el nombre del fichero, en vez de en la primera batalla
+ * contra esa ciudad, con la partida ya en marcha.
+ */
+function tablaDeGuarniciones(
+  clave: 'guarnicionNeutral' | 'guarnicionBase',
+  que: string,
+): Readonly<Record<FactionId, readonly GrupoDeTropa[]>> {
+  const tabla = ciudadesJson[clave] as Record<string, readonly GrupoDeTropa[]> | undefined;
+  if (tabla === undefined) throw new Error(`data/ciudades.json: falta "${clave}"`);
+  const out = {} as Record<FactionId, readonly GrupoDeTropa[]>;
+  for (const faccion of ['knight', 'necromancer'] as const) {
+    const grupos = tabla[faccion];
+    if (grupos === undefined) {
+      throw new Error(`data/ciudades.json: falta ${que} de ${faccion}`);
+    }
+    const problemas = problemasDeGuarnicion(grupos, `data/ciudades.json: ${que} de ${faccion}`);
+    if (problemas.length > 0) throw new Error(problemas.join('; '));
+    out[faccion] = grupos;
+  }
+  return out;
+}
+
+/**
+ * La guarnición con la que nace una ciudad **neutral**, por su facción.
+ * **Inventada y provisional**: la fijó el usuario como regla («nacen CON
+ * guarnición») y no como cifra.
+ */
+const GUARNICION_NEUTRAL = tablaDeGuarniciones('guarnicionNeutral', 'la guarnición neutral');
+
+/**
+ * La guarnición con la que nace la **base** de cada jugador, de la facción de su
+ * dueño. **Inventada y provisional**, igual que la neutral: la pidió el usuario
+ * cuando «perder la base elimina» convirtió las partidas en carreras contra una
+ * base vacía. Las murallas y la ventaja del defensor son de la fase 3.
+ */
+const GUARNICION_DE_BASE = tablaDeGuarniciones('guarnicionBase', 'la guarnición de la base');
+
+export function guarnicionNeutral(faction: FactionId): readonly GrupoDeTropa[] {
+  return GUARNICION_NEUTRAL[faction];
+}
+
+export function guarnicionDeBase(faction: FactionId): readonly GrupoDeTropa[] {
+  return GUARNICION_DE_BASE[faction];
+}

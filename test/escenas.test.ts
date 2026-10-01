@@ -20,6 +20,7 @@ import {
   pintarSobreLaCabeza,
 } from '../src/client/render/batalla.js';
 import { casillaAPixel, centrarEn, TILE_INICIAL } from '../src/client/render/camara-mapa.js';
+import { pasosAPintar } from '../src/client/render/mapa.js';
 import { MARCA_DE_COMANDANTE } from '../src/client/render/palette.js';
 import { centroDeStack, centroHex, tableroPara } from '../src/client/render/proyeccion.js';
 import { maquetarCoste } from '../src/client/render/town.js';
@@ -30,11 +31,11 @@ import { isAlive, stackHexes } from '../src/core/battle/battle.js';
 import type { BattleStack } from '../src/core/battle/types.js';
 import type { Hex } from '../src/core/types.js';
 
-/** La semilla 2 tiene una guardia en (5,2) a un paso del héroe: batalla al primer clic. */
+/** La semilla 2 tiene una guardia de zombis en (12,3) al alcance del héroe: batalla al primer clic. */
 function sesionEnBatalla(): Session {
   const s = new Session(2);
-  s.clickTile({ x: 5, y: 2 });
-  if (s.battle === null) throw new Error(`la semilla 2 ya no da batalla en (5,2): ${s.status}`);
+  s.clickTile({ x: 12, y: 3 });
+  if (s.battle === null) throw new Error(`la semilla 2 ya no da batalla en (12,3): ${s.status}`);
   return s;
 }
 
@@ -326,5 +327,39 @@ describe('las fichas de coste del castillo', () => {
     for (const [i, f] of m.fichas.entries()) {
       expect(f.x + 14 + (anchos[i] as number)).toBeLessThanOrEqual(m.ancho - 5);
     }
+  });
+});
+
+describe('la ruta no se pinta sobre la niebla (M5 de la 2a)', () => {
+  const paso = (x: number, hoy: boolean) => ({ at: { x, y: 0 }, hoy });
+
+  it('lo no explorado no se pinta, y el último paso visible no se hace pasar por destino', () => {
+    const ruta = [paso(1, true), paso(2, true), paso(3, false), paso(4, false)];
+    const explorado = new Set(['1,0', '2,0']);
+    expect(pasosAPintar(ruta, explorado)).toEqual([
+      { ...paso(1, true), marca: 'paso' },
+      // La parada de hoy sigue siéndolo, y nada lleva la marca de destino.
+      { ...paso(2, true), marca: 'parada' },
+    ]);
+    // El destino explorado sí se pinta, aunque lo de en medio no.
+    const conDestino = pasosAPintar(ruta, new Set(['1,0', '4,0']));
+    expect(conDestino.map((p) => [p.at.x, p.marca])).toEqual([
+      [1, 'paso'],
+      [4, 'destino'],
+    ]);
+    // Viéndolo todo, entera.
+    expect(pasosAPintar(ruta, null)).toHaveLength(4);
+  });
+
+  it('en una partida de verdad, una ruta hacia lo desconocido solo pinta lo explorado', () => {
+    const s = new Session(3);
+    const lejos = s.state.towns.find((t) => t.owner !== null && t.owner !== s.viewer)!.at;
+    const ruta = s.previewPath(lejos);
+    const explorado = s.explorado!;
+    // La premisa, para que el test no pase por vacío: la ruta entra en la niebla.
+    expect(ruta.some((r) => !explorado.has(`${r.at.x},${r.at.y}`))).toBe(true);
+    const pintados = pasosAPintar(ruta, explorado);
+    expect(pintados.length).toBeGreaterThan(0);
+    expect(pintados.every((p) => explorado.has(`${p.at.x},${p.at.y}`))).toBe(true);
   });
 });

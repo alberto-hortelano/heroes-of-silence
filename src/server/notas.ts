@@ -426,9 +426,12 @@ export function notaMapaRechazado(problemas: readonly string[]): string {
  * motivo: se informa siempre, también cuando salió bien, y el precio de no
  * callar nunca es que lo bueno ocupe poco.
  */
-export function notaMapaAceptado(width: number, height: number, pueblos: number): string {
+export function notaMapaAceptado(width: number, height: number, ciudades: number): string {
+  // «ciudades» y no «pueblos»: desde el mapa de nodos un pueblo ("villages") es
+  // otra cosa del plan, y contarle al agente sus ciudades con esa palabra le
+  // haría dudar de cuál de las dos listas se ha leído.
   return (
-    `Tu plan de mapa entró: la partida se juega en ${width}×${height} con ${pueblos} pueblos. ` +
+    `Tu plan de mapa entró: la partida se juega en ${width}×${height} con ${ciudades} ciudades. ` +
     'A partir de aquí las peticiones son de turno.'
   );
 }

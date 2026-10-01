@@ -8,9 +8,26 @@
  */
 import { describe, expect, it } from 'vitest';
 import { accionContra } from '../src/client/escenas/batalla.js';
+import { marcadoDe } from '../src/client/html.js';
 import { Session } from '../src/client/session.js';
+import { renderSide } from '../src/client/views/panels.js';
 import { armyLeadership, GARRISON_LEADERSHIP } from '../src/core/hero/troop.js';
-import { applyAdventureAction, heroesOf } from '../src/core/state/game.js';
+import {
+  findPath,
+  objectAt,
+  pointFromKey,
+  reachableFrom,
+  visibleFrom,
+} from '../src/core/map/map.js';
+import {
+  applyAdventureAction,
+  baseOf,
+  HERO_SCOUT_RADIUS,
+  heroesOf,
+} from '../src/core/state/game.js';
+import { newGame } from '../src/core/state/setup.js';
+import type { PlayerId, Point } from '../src/core/types.js';
+import { planDeNodos } from './helpers.js';
 
 describe('sesión del cliente: el turno del rival', () => {
   it('mientras juega el rival no es tu turno, y pulsar otra vez no hace nada', async () => {
@@ -93,6 +110,27 @@ describe('sesión del cliente: el turno del rival', () => {
   });
 });
 
+/**
+ * Una casilla pegada a `desde` a la que se llega de un paso, sin objeto: donde
+ * plantar a un héroe para que entre en batalla sin cruzar nada por el camino.
+ * Desde que perder la base elimina y el castillo no bloquea, mandar al héroe
+ * de una punta a otra del mapa cruzaba la base rival vacía y acababa la
+ * partida antes de llegar a la batalla que el test quería ver.
+ */
+function pegadoA(s: Session, desde: Point): Point {
+  for (const [dx, dy] of [
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
+  ] as const) {
+    const at = { x: desde.x + dx, y: desde.y + dy };
+    const camino = findPath(s.state.map, desde, at);
+    if (camino?.length === 1 && objectAt(s.state.map, at) === undefined) return at;
+  }
+  throw new Error(`(${desde.x},${desde.y}) no tiene ninguna casilla vecina libre`);
+}
+
 describe('sesión del cliente: el bando de la persona', () => {
   /**
    * Una batalla en la que la persona DEFIENDE. Hoy no llega ninguna al cliente
@@ -104,6 +142,7 @@ describe('sesión del cliente: el bando de la persona', () => {
     const mio = heroesOf(s.state, 0)[0]!;
     const suyo = heroesOf(s.state, 1)[0]!;
     s.state.current = 1;
+    suyo.at = pegadoA(s, mio.at);
     suyo.movePoints = 100000;
     applyAdventureAction(s.state, { type: 'move_hero', hero: suyo.id, to: mio.at }, s.ctx, 1);
     if (s.state.pendingBattle === null) throw new Error('el rival no llegó a atacar');
@@ -150,6 +189,8 @@ describe('sesión del cliente: reclutar lo que cabe y ver la ruta entera', () =>
   it('«todo» pide lo que cabe: con el liderazgo casi lleno, el máximo es menor que lo disponible', () => {
     const s = new Session(7);
     const town = s.myTowns()[0]!;
+    // La base nace llena (`guarnicionBase`): aquí se mide «todo» con sitio.
+    town.garrison = [];
     s.openTown(town.id);
     town.available.peasant = 12;
 
@@ -192,7 +233,9 @@ describe('sesión del cliente: reclutar lo que cabe y ver la ruta entera', () =>
   it('el liderazgo del héroe es lo que ocupa su ejército sobre su tope', () => {
     const s = new Session(7);
     const heroe = s.selectedHero!;
-    expect(s.liderazgo({ heroe: heroe.id })).toEqual({ ocupado: 14, tope: 20 });
+    // El 10 es de la semilla: el ejército de salida sale del mismo `rng` que el
+    // mapa, y el mapa de nodos tira distinto que el de esquinas (era 14).
+    expect(s.liderazgo({ heroe: heroe.id })).toEqual({ ocupado: 10, tope: 20 });
   });
 
   it('la guarnición va por el mismo camino, con el tope de guarnición', () => {
@@ -204,14 +247,33 @@ describe('sesión del cliente: reclutar lo que cabe y ver la ruta entera', () =>
     });
   });
 
-  it('lo visible ahora es un subconjunto de lo explorado, y se rehace al moverse', () => {
+  it('lo que ve el héroe ahora está explorado, y lo visible se rehace al moverse', () => {
+    // Decía «lo visible es un subconjunto de lo explorado», y era verdad por
+    // casualidad: con el castillo en (3,3) y el héroe en (4,4), el cuadrado de
+    // 5 del castillo y el de 4 del héroe llegaban a la misma columna. El
+    // castillo **no despeja niebla** —`TOWN_SCOUT_RADIUS` alimenta
+    // `visibleNow` y no `fog`, y está escrito allí—, así que en cuanto el mapa
+    // de nodos movió la base, su borde quedó visible sin explorar. Lo que sí
+    // tiene que estar explorado es lo que ve el héroe.
     const s = new Session(7);
     const fog = s.state.players[0]!.fog;
     const antes = s.visibles();
-    for (const k of antes) expect(fog.has(k)).toBe(true);
+    const heroe0 = s.selectedHero!;
+    for (const k of visibleFrom(s.state.map, heroe0.at, HERO_SCOUT_RADIUS)) {
+      expect(antes.has(k)).toBe(true);
+      expect(fog.has(k)).toBe(true);
+    }
     expect(s.visibles()).toBe(antes); // la caché: el mismo objeto sin cambios
     const heroe = s.selectedHero!;
-    s.moveHeroTo(heroe.id, { x: heroe.at.x + 2, y: heroe.at.y });
+    // Un destino a dos pasos que de verdad se pise: a dos casillas a la derecha
+    // puede haber cordillera desde el mapa de nodos.
+    const alcance = reachableFrom(s.state.map, heroe.at);
+    const destino = [...alcance.costs.entries()]
+      .filter(([, c]) => c > 0 && c <= heroe.movePoints)
+      .map(([k]) => pointFromKey(k))
+      .find((p) => Math.max(Math.abs(p.x - heroe.at.x), Math.abs(p.y - heroe.at.y)) === 2)!;
+    s.moveHeroTo(heroe.id, destino);
+    expect(heroe.at).toEqual(destino);
     expect(s.visibles()).not.toBe(antes);
   });
 });
@@ -238,6 +300,7 @@ describe('sesión del cliente: la versión y lo que se guarda entre fotogramas',
     const mio = heroesOf(s.state, 0)[0]!;
     const suyo = heroesOf(s.state, 1)[0]!;
     // La persona ataca: su héroe entra en la casilla del rival.
+    mio.at = pegadoA(s, suyo.at);
     mio.movePoints = 100000;
     applyAdventureAction(s.state, { type: 'move_hero', hero: mio.id, to: suyo.at }, s.ctx, 0);
     if (s.state.pendingBattle === null) throw new Error('no hubo batalla');
@@ -266,5 +329,72 @@ describe('el clic sobre un enemigo', () => {
     expect(accionContra([andando, quieto], 'e')).toBe(quieto);
     expect(accionContra([otro, andando], 'e')).toBe(andando);
     expect(accionContra([otro], 'e')).toBeUndefined();
+  });
+});
+
+describe('el fin de partida cuenta la causa que selló el núcleo (I1 de la 2a)', () => {
+  /**
+   * Pone a `quien` pegado a la base de `victima`, con la base vacía y el héroe
+   * de la víctima lejos de ella: lo que se mide es qué se cuenta al perder la
+   * base con el héroe todavía en el mapa, que es justo cuando la frase de antes
+   * —«no te quedan castillos ni héroes»— mentía.
+   */
+  function anteLaBase(s: Session, quien: PlayerId, victima: PlayerId) {
+    const base = baseOf(s.state, victima)!;
+    base.garrison = [];
+    const atacante = heroesOf(s.state, quien)[0]!;
+    const defensor = heroesOf(s.state, victima)[0]!;
+    defensor.at = pegadoA(s, baseOf(s.state, quien)!.at);
+    atacante.at = pegadoA(s, base.at);
+    atacante.movePoints = 100000;
+    return { base, atacante };
+  }
+
+  it('al perder la base: «has perdido tu base», con el héroe vivo en el mapa', async () => {
+    const s = new Session(5);
+    anteLaBase(s, 1, 0);
+    await s.endTurn();
+    expect(s.desenlace).toBe('perdida');
+    expect(heroesOf(s.state, 0)).toHaveLength(1);
+    expect(s.causaDelFinal).toBe('lost_base');
+    expect(s.status).toBe('Derrota: has perdido tu base.');
+    const lateral = marcadoDe(renderSide(s));
+    expect(lateral).toContain('Has perdido tu base');
+    expect(lateral).not.toContain('castillos ni héroes');
+  });
+
+  it('al tomar la base rival: «has tomado la base rival»', () => {
+    const s = new Session(5);
+    const { base, atacante } = anteLaBase(s, 0, 1);
+    s.moveHeroTo(atacante.id, base.at);
+    expect(s.desenlace).toBe('ganada');
+    expect(heroesOf(s.state, 1)).toHaveLength(1);
+    expect(s.causaDelFinal).toBe('lost_base');
+    expect(s.status).toBe('¡Victoria! Has tomado la base rival.');
+    // Y en el mapa, no en el castillo recién tomado: abrirlo tapaba el final.
+    expect(s.scene).toBe('adventure');
+    expect(marcadoDe(renderSide(s))).toContain('Has tomado la base rival');
+  });
+
+  it('una partida con ganador y sin player_defeated en la crónica se dice rota', () => {
+    const s = new Session(5);
+    s.state.finished = { winner: 1 };
+    expect(() => s.causaDelFinal).toThrow(
+      'la partida la ganó el jugador 1 y la crónica no dice quién quedó eliminado ni por qué',
+    );
+  });
+});
+
+describe('sin camino, la barra dice qué lo cierra (M2 de la 2a)', () => {
+  it('la frase la escribe el núcleo: la ciudad guarnecida que guarda el único paso', () => {
+    const s = new Session(1);
+    s.state = newGame({ seed: 1, plan: planDeNodos() });
+    const hero = heroesOf(s.state, 0)[0]!;
+    hero.at = { x: 14, y: 4 };
+    s.moveHeroTo(hero.id, { x: 19, y: 4 });
+    expect(s.status).toBe(
+      'No hay camino hasta (19,4): lo cierra la ciudad Torreblanca, con guarnición, en (17,4).',
+    );
+    expect(hero.at).toEqual({ x: 14, y: 4 });
   });
 });

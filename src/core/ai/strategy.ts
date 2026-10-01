@@ -15,6 +15,7 @@ import {
   withTroops,
 } from '../hero/troop.js';
 import { type MapObject, pointKey, type Reachable } from '../map/map.js';
+import { regionesQueCierra, type Territorio, territorio } from '../map/regiones.js';
 import {
   type AdventureAction,
   destinoDeRecluta,
@@ -56,20 +57,44 @@ export function fuerzaDe(hero: Hero, characters: Personajes): number {
   return armyPower(hero.army, characters) + unitPower(heroUnit(hero));
 }
 
+/** Lo que vale tomar una ciudad ajena que no es la base de nadie. */
+const VALOR_DE_CIUDAD = 40000;
+/** Lo que vale tomar un nodo ajeno, sin contar lo que cierre. */
+const VALOR_DE_NODO = 3000;
+/** Lo que suma cada región que ese nodo dejaría cerrada para mí. */
+const VALOR_POR_REGION_CERRADA = 6000;
+
 /**
  * Cuánto vale la pena ir a por este objeto del mapa. `miPoder` es
  * `fuerzaDe(hero)`, calculada una vez por quien recorre los objetos: no cambia
  * de un objeto a otro.
  */
-function objectValue(state: GameState, obj: MapObject, hero: Hero, miPoder: number): number {
+function objectValue(
+  state: GameState,
+  foto: () => Territorio,
+  obj: MapObject,
+  hero: Hero,
+  miPoder: number,
+): number {
   const player = hero.owner;
   switch (obj.kind) {
     case 'resource':
       return obj.taken ? 0 : obj.resource === 'gold' ? obj.amount : obj.amount * 120;
     case 'chest':
       return obj.taken ? 0 : obj.gold;
+    // Ni la mina ni el pueblo se toman: son de quien cierre su región. Lo que
+    // se persigue es el nodo que la cierra.
     case 'mine':
-      return obj.owner === player ? 0 : obj.resource === 'gold' ? 6000 : 3000;
+    case 'village':
+      return 0;
+    case 'node': {
+      if (obj.owner === player) return 0;
+      // Un nodo ajeno vale por sí mismo y, sobre todo, por las regiones que
+      // CIERRA: las que tienen ya todos sus demás nodos en mi mano. Es la
+      // valoración mínima de la fase 2a —«no tiene que ser buena; tiene que
+      // jugar y acabar»—; cortar al rival y defender lo propio son de la 2b.
+      return VALOR_DE_NODO + VALOR_POR_REGION_CERRADA * regionesQueCierra(foto(), obj.id, player);
+    }
     case 'town': {
       // El dueño se lee del LIBRO DE CUENTAS y no de la bandera del mapa. Son
       // dos caras del mismo hecho y `captureTown` las escribe juntas, pero
@@ -91,7 +116,17 @@ function objectValue(state: GameState, obj: MapObject, hero: Hero, miPoder: numb
       // Un pueblo con guarnición es una batalla: se mide antes de ir.
       const guarnicion = armyPower(pueblo.garrison, state.characters);
       if (guarnicion > 0 && miPoder < guarnicion * 1.1) return -1;
-      return 40000;
+      // La BASE del rival vale el triple: tomarla gana la partida. Es una
+      // cifra medida y no un principio: con «perder la base elimina» se probó
+      // sin el ×3 (1 000 semillas, 01-10-2026) y las partidas terminan todas,
+      // pero la cola se dispara —mediana 4 → 7 días, p90 7 → 16, p99 13 → 42,
+      // máximo 20 → 80— porque los héroes se entretienen con las ciudades del
+      // medio, que siempre quedan más cerca. El arreglo de fondo es valorar
+      // cada objetivo por lo que cambia la conexión a la base, y es #115.
+      const esBaseRival = state.players.some(
+        (p) => p.id !== player && p.base === pueblo.id && pueblo.owner === p.id,
+      );
+      return esBaseRival ? 3 * VALOR_DE_CIUDAD : VALOR_DE_CIUDAD;
     }
     case 'monster': {
       if (obj.defeated) return 0;
@@ -121,14 +156,26 @@ export function chooseHeroDestination(
 ): Point | null {
   let mejor: { at: Point; score: number } | null = null;
   const miPoder = fuerzaDe(hero, state.characters);
+  // Una foto del territorio para todos los objetos: no cambia mientras se
+  // elige. Perezosa, porque solo la pide un nodo ajeno.
+  let hecha: Territorio | undefined;
+  const foto = (): Territorio => {
+    hecha ??= territorio(state);
+    return hecha;
+  };
 
+  // Lo hostil —héroes enemigos y ciudades ajenas guarnecidas— ya viene en el
+  // alcance como final de trayecto (`alcanceDelHeroe`): se llega a ello, no se
+  // cruza. Un objetivo detrás de uno sale con el coste del rodeo, o no sale.
+  // Antes se miraba aquí retrocediendo la cadena de predecesores de cada
+  // candidato, y se llevaba 147 de los 209 ms de esta función.
   const costeHasta = (p: Point): number | null => {
     const c = alcance.costs.get(pointKey(p));
     return c === undefined || c === 0 ? null : c;
   };
 
   for (const obj of state.map.objects) {
-    const valor = objectValue(state, obj, hero, miPoder);
+    const valor = objectValue(state, foto, obj, hero, miPoder);
     if (valor <= 0) continue;
 
     const coste = costeHasta(obj.at);

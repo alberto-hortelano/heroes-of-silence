@@ -42,7 +42,7 @@ import type { Point } from '../src/core/types.js';
 import { AgentLink } from '../src/server/agent-link.js';
 import { Director } from '../src/server/director.js';
 import { construirVista, type SpectatorView } from '../src/server/vista-espectador.js';
-import { monstruoVivo } from './helpers.js';
+import { monstruoVivo, sinGuarnicionDeSalida } from './helpers.js';
 
 const abiertos: (() => void)[] = [];
 afterEach(() => {
@@ -135,6 +135,8 @@ describe('adaptar: la vuelta del cable', () => {
     expect(escena.map.roads.has('2,2')).toBe(true);
     expect(escena.map.width).toBe(state.map.width);
     expect(escena.map.terrain).toEqual(state.map.terrain);
+    expect(escena.map.regions).toEqual(state.map.regions);
+    expect(escena.map.regions.length).toBeGreaterThan(0);
     expect(escena.heroes.map((h) => h.id)).toEqual(state.heroes.map((h) => h.id));
   });
 
@@ -178,6 +180,9 @@ describe('el fotograma por acción', () => {
       agentPlayers: [1],
       onFrame: () => fotogramas.push(director.state.day),
     });
+    // La base nace llena (`guarnicionBase`) y el héroe no está dentro: sin
+    // vaciarla, el `recruit` se descartaría y serían dos acciones y no tres.
+    sinGuarnicionDeSalida(director.state);
     // El turno del jugador 0 primero, que lo juega la heurística: no da
     // fotogramas por acción y eso está declarado en `DirectorOptions.onFrame`.
     await director.playTurn();
@@ -331,6 +336,7 @@ describe('el fotograma por acción', () => {
         throw new Error('al mirón se le ha muerto el socket');
       },
     });
+    sinGuarnicionDeSalida(director.state);
     await director.playTurn();
     const informe = await director.playTurn();
 

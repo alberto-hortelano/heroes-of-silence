@@ -14,6 +14,7 @@ export const TERRAIN_KINDS = [
   'lava',
   'rough',
   'water',
+  'mountain',
 ] as const;
 
 export type TerrainKind = (typeof TERRAIN_KINDS)[number];
@@ -27,6 +28,9 @@ export const TERRAIN_COST: Readonly<Record<TerrainKind, number>> = {
   swamp: 175,
   sand: 200,
   water: 100,
+  // Existe porque la tabla es un `Record` del tipo entero, no porque se cobre:
+  // la montaña no se pisa (`isWalkable`) y el Dijkstra no llega a preguntar.
+  mountain: 100,
 };
 
 /** Un camino abarata el paso, se pinte sobre el terreno que se pinte. */
@@ -55,7 +59,13 @@ export function costeDeEntrada(terreno: TerrainKind, camino: boolean, diagonal: 
   return Math.round(diagonal ? base * DIAGONAL_FACTOR : base);
 }
 
-/** Sin barco, el agua no se pisa. El slice es terrestre. */
+/**
+ * Lo que no se pisa: el agua, porque no hay barcos, y la montaña.
+ *
+ * Son los dos muros con los que se cierran las regiones del mapa de nodos
+ * (`regiones.ts`): el agua es el río y la montaña la cordillera. Los dos valen
+ * lo mismo para el motor —un muro—, y la diferencia es solo de lo que se ve.
+ */
 export function isWalkable(t: TerrainKind): boolean {
-  return t !== 'water';
+  return t !== 'water' && t !== 'mountain';
 }

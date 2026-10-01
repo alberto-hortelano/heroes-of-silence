@@ -17,16 +17,19 @@ import {
 import { spell } from '@core/battle/spells.js';
 import type { BattleAction, BattleStack, BattleState, Side } from '@core/battle/types.js';
 import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '@core/hero/troop.js';
-import { findPath, type PathStep } from '@core/map/map.js';
+import type { PathStep } from '@core/map/map.js';
 import { createRng } from '@core/rng.js';
+import type { DefeatReason } from '@core/state/events.js';
 import {
   applyAdventureAction,
+  caminoHasta,
   destinoDeRecluta,
   type GameContext,
   type GameState,
   heroById,
   heroesOf,
   type Player,
+  porQueNoLlega,
   type RecruitCapacity,
   recruitCapacity,
   resolvePendingBattle,
@@ -85,11 +88,23 @@ const FIN_AJENO = 'La partida ha terminado.';
  * `TS2741: Property … is missing`, que es lo que hace falta el día que exista
  * otra forma de acabar una partida.
  */
-const AL_ACABARSE_EL_MAPA: Record<Desenlace, string> = {
-  ganada: '¡Victoria! Has conquistado el mapa.',
-  perdida: 'Derrota: el enemigo se ha quedado con todo.',
-  'sin resolver': SIN_RESOLVER,
-  ajena: FIN_AJENO,
+const AL_ACABARSE_EL_MAPA: Record<DefeatReason, Record<Desenlace, string>> = {
+  // La regla de la partida: la base cae y su dueño queda fuera. Antes decía
+  // «has conquistado el mapa» y «el enemigo se ha quedado con todo», que con
+  // perder la base eliminando ya no eran verdad — el derrotado sigue con sus
+  // héroes en el mapa (I1 de la 2a).
+  lost_base: {
+    ganada: '¡Victoria! Has tomado la base rival.',
+    perdida: 'Derrota: has perdido tu base.',
+    'sin resolver': SIN_RESOLVER,
+    ajena: FIN_AJENO,
+  },
+  nothing_left: {
+    ganada: '¡Victoria! El rival no tiene héroes ni ciudades.',
+    perdida: 'Derrota: no te quedan héroes ni ciudades.',
+    'sin resolver': SIN_RESOLVER,
+    ajena: FIN_AJENO,
+  },
 };
 
 const AL_CERRARSE_LA_BATALLA: Record<Desenlace, string> = {
@@ -215,6 +230,30 @@ export class Session {
     );
   }
 
+  /**
+   * Por qué acabó la partida, leído del `player_defeated` que la cerró, o `null`
+   * si sigue viva o se agotaron los días. La causa la decide `checkDefeat` y la
+   * sella en el hecho: aquí solo se busca, no se deduce del mapa.
+   *
+   * Si perdiste, la tuya; si ganaste, la del último rival eliminado. Una partida
+   * con ganador y sin ningún `player_defeated` es una partida rota, y se dice.
+   */
+  get causaDelFinal(): DefeatReason | null {
+    const fin = this.state.finished;
+    if (fin === null || fin.winner === null) return null;
+    const perdiYo = fin.winner !== this.viewer;
+    const derrotas = this.state.log.filter(
+      (e) => e.kind === 'player_defeated' && (!perdiYo || e.actor === this.viewer),
+    );
+    const ultima = derrotas.at(-1);
+    if (ultima === undefined || ultima.kind !== 'player_defeated') {
+      throw new Error(
+        `la partida la ganó el jugador ${fin.winner} y la crónica no dice quién quedó eliminado ni por qué`,
+      );
+    }
+    return ultima.reason;
+  }
+
   /** Cómo acabó la partida para quien mira, o `null` si sigue viva. */
   get desenlace(): Desenlace | null {
     const fin = this.state.finished;
@@ -263,7 +302,7 @@ export class Session {
   previewPath(to: Point): RoutePreview[] {
     const hero = this.selectedHero;
     if (hero === null || !this.isPlayersTurn) return [];
-    const camino = findPath(this.state.map, hero.at, to);
+    const camino = caminoHasta(this.state, hero, to);
     if (camino === null) return [];
     return camino.map((paso) => ({ ...paso, hoy: paso.cost <= hero.movePoints }));
   }
@@ -344,9 +383,12 @@ export class Session {
       this.status = `${hero.name} ya está en esa casilla: pulsa otra para moverlo.`;
       return;
     }
-    const camino = findPath(this.state.map, hero.at, to);
+    const camino = caminoHasta(this.state, hero, to);
     if (camino === null || camino.length === 0) {
-      this.status = 'No hay camino hasta ahí.';
+      // La frase la escribe el núcleo, que sabe si lo cierra el mapa o alguien
+      // plantado en el paso (M2 de la 2a); aquí solo se le pone la mayúscula.
+      const motivo = porQueNoLlega(this.state, hero, to);
+      this.status = `${motivo.charAt(0).toUpperCase()}${motivo.slice(1)}.`;
       return;
     }
 
@@ -381,8 +423,22 @@ export class Session {
       return;
     }
 
+    // Entrar en la base rival vacía acaba la partida, y abría su castillo
+    // encima: el fin y su causa se quedaban detrás de una pantalla de compras
+    // que ya no sirve de nada.
+    const desenlace = this.desenlace;
+    if (desenlace !== null) {
+      this.status = this.alAcabarseElMapa(desenlace);
+      return;
+    }
     const pueblo = this.myTowns().find((t) => sameTile(t.at, destino));
     if (pueblo !== undefined) this.openTown(pueblo.id);
+  }
+
+  /** La frase de la barra al acabarse el mapa, por la causa que selló el núcleo. */
+  private alAcabarseElMapa(desenlace: Desenlace): string {
+    // Sin causa solo se acaba por días, y esa fila es la misma en las dos.
+    return AL_ACABARSE_EL_MAPA[this.causaDelFinal ?? 'lost_base'][desenlace];
   }
 
   async endTurn(): Promise<void> {
@@ -429,7 +485,7 @@ export class Session {
     if (desenlace === null) {
       this.selectedHeroId = this.myHeroes()[0]?.id ?? null;
     } else {
-      this.status = AL_ACABARSE_EL_MAPA[desenlace];
+      this.status = this.alAcabarseElMapa(desenlace);
     }
   }
 

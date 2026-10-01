@@ -34,6 +34,9 @@ export const TERRAIN_PROMPTS: Readonly<Record<TerrainKind, string>> = {
   rough: `Broken rocky ground, loose grey scree and dry tufts. ${SWATCH_RULE} ${STYLE_TOKEN}`,
   // El agua es el ÚNICO terreno donde se nombra: en los demás, cebaría ríos.
   water: `Deep blue-green sea water with gentle rolling waves seen from directly above. ${SWATCH_RULE} ${STYLE_TOKEN}`,
+  // El muro del mapa de nodos. Sin `--go` no se genera, y el cliente no lo
+  // necesita: sin PNG pinta su pigmento y un pico del atlas por casilla.
+  mountain: `Jagged grey granite crags and rocky ridges seen from directly above. ${SWATCH_RULE} ${STYLE_TOKEN}`,
 };
 
 export const RESOURCE_ICON_PROMPTS: Readonly<Record<ResourceKind, string>> = {

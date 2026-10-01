@@ -7,8 +7,10 @@
  * distancia concreta y no lo que salga.
  *
  * El mapa es una franja de 40×12 de hierba con un castillo en cada punta, así
- * que los dos jugadores empiezan a 33 casillas y el radio de visión es 4: nadie
- * ve nada del otro salvo cuando el test lo lleva a propósito.
+ * que los dos jugadores empiezan a 31 casillas y el radio de visión es 4: nadie
+ * ve nada del otro salvo cuando el test lo lleva a propósito. Desde el mapa de
+ * nodos la franja lleva tres cordilleras de arriba abajo —los castillos y un
+ * nodo son los pasos—, que no tapan la vista: la visión es un cuadrado.
  */
 import { describe, expect, it } from 'vitest';
 import { marcadoDe } from '../src/client/html.js';
@@ -16,7 +18,7 @@ import { renderLog } from '../src/client/views/panels.js';
 import { playAiGame } from '../src/core/ai/turn.js';
 import { serializeAdventureTurn } from '../src/core/contract/serialize.js';
 import type { MapPlan } from '../src/core/map/generate.js';
-import { pointKey } from '../src/core/map/map.js';
+import { type MapObject, pointKey } from '../src/core/map/map.js';
 import { createRng } from '../src/core/rng.js';
 import type { GameEvent } from '../src/core/state/events.js';
 import { visibleTo } from '../src/core/state/events.js';
@@ -31,18 +33,42 @@ import {
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import type { Point } from '../src/core/types.js';
-import { ejercito } from './helpers.js';
+import { ejercito, sinGuarnicionDeSalida } from './helpers.js';
 
 const MI_CASTILLO: Point = { x: 2, y: 6 };
 const SU_CASTILLO: Point = { x: 37, y: 6 };
-/** Mina mía, y lejísimos de mi castillo: el criterio 4 no la cubre a propósito. */
-const MI_MINA: Point = { x: 30, y: 6 };
+/**
+ * Un paso de la red, lejísimos de mi castillo: el criterio 4 no lo cubre a
+ * propósito. Era una mina mía; desde el mapa de nodos la mina no se toma, y lo
+ * que cambia de dueño al pisarlo es el nodo.
+ */
+const MI_NODO: Point = { x: 30, y: 6 };
 
+/** Una cordillera de punta a punta de la franja, en la columna `x`. */
+const columna = (x: number) => ({
+  terrain: 'mountain' as const,
+  from: { x, y: 0 },
+  to: { x, y: 11 },
+});
+
+/**
+ * La franja, partida en cuatro regiones por tres cordilleras: los castillos
+ * son los pasos de las de los extremos (columnas 2 y 37) y `MI_NODO` el del
+ * medio (columna 30). Las distancias que miden estos tests son las de siempre.
+ */
 const PLANO: MapPlan = {
   width: 40,
   height: 12,
   baseTerrain: 'grass',
-  regions: [],
+  patches: [],
+  regions: [
+    { id: 'oeste', name: 'Oeste', at: { x: 0, y: 6 } },
+    { id: 'llano', name: 'Llano', at: { x: 10, y: 6 } },
+    { id: 'vega', name: 'Vega', at: { x: 33, y: 2 } },
+    { id: 'este', name: 'Este', at: { x: 39, y: 6 } },
+  ],
+  walls: [columna(2), columna(30), columna(37)],
+  nodes: [MI_NODO],
   towns: [
     { id: 'mio', name: 'Valdeluz', faction: 'knight', at: MI_CASTILLO, owner: 0 },
     { id: 'suyo', name: 'Osario', faction: 'necromancer', at: SU_CASTILLO, owner: 1 },
@@ -51,20 +77,43 @@ const PLANO: MapPlan = {
     { player: 0, at: { x: 4, y: 6 } },
     { player: 1, at: { x: 35, y: 6 } },
   ],
-  mines: [{ at: MI_MINA, resource: 'ore', owner: 0 }],
+  mines: [],
+  villages: [],
   resources: [],
   monsters: [],
   chests: [],
 };
 
-/** El mismo mapa con los castillos en las esquinas, para la poda de los bordes. */
+/**
+ * El mismo tamaño con los castillos en los BORDES, para la poda de los límites.
+ * En la esquina misma no pueden ir: una casilla de esquina solo tiene tres
+ * vecinas y dos de ellas se tocan en diagonal, así que no separa dos regiones.
+ * Van en los extremos de una cordillera que parte el mapa en norte y sur.
+ */
 const ESQUINAS: MapPlan = {
   ...PLANO,
+  regions: [
+    { id: 'norte', name: 'Norte', at: { x: 10, y: 1 } },
+    { id: 'sur', name: 'Sur', at: { x: 10, y: 9 } },
+  ],
+  walls: [{ terrain: 'mountain', from: { x: 0, y: 5 }, to: { x: 39, y: 5 } }],
+  nodes: [],
   towns: [
-    { id: 'mio', name: 'Valdeluz', faction: 'knight', at: { x: 0, y: 0 }, owner: 0 },
-    { id: 'suyo', name: 'Osario', faction: 'necromancer', at: { x: 39, y: 11 }, owner: 1 },
+    { id: 'mio', name: 'Valdeluz', faction: 'knight', at: { x: 0, y: 5 }, owner: 0 },
+    { id: 'suyo', name: 'Osario', faction: 'necromancer', at: { x: 39, y: 5 }, owner: 1 },
+  ],
+  heroStarts: [
+    { player: 0, at: { x: 2, y: 2 } },
+    { player: 1, at: { x: 37, y: 8 } },
   ],
 };
+
+/** El nodo de la franja, para dárselo a quien haga falta. */
+function nodoDelMedio(state: GameState): Extract<MapObject, { kind: 'node' }> {
+  const nodo = state.map.objects.find((o) => o.kind === 'node');
+  if (nodo === undefined || nodo.kind !== 'node') throw new Error('la franja no tiene nodo');
+  return nodo;
+}
 
 function partida(semilla: number): { state: GameState; ctx: GameContext } {
   return { state: newGame({ seed: semilla, plan: PLANO }), ctx: { rng: createRng(semilla) } };
@@ -218,6 +267,8 @@ describe('la crónica pasa por la niebla', () => {
 
   it('perder un castillo se sabe siempre, aunque no lo mire nadie mío', () => {
     const { state, ctx } = partida(105);
+    // Vacía: el rival tiene que ENTRAR y tomarla, no asaltar su guarnición.
+    sinGuarnicionDeSalida(state);
 
     // Mi héroe se va a la otra punta y por otra fila: ni ve el castillo ni se
     // cruza con el rival por el camino.
@@ -241,15 +292,16 @@ describe('la crónica pasa por la niebla', () => {
     for (const e of leer(state, 0).recentEvents) expect(e).not.toHaveProperty('seen');
   });
 
-  it('una mina mía capturada lejos no me consta: el original tampoco te avisa', () => {
+  it('un nodo mío tomado lejos no me consta: como no constaba la mina', () => {
     const { state, ctx } = partida(106);
+    nodoDelMedio(state).owner = 0;
 
     pasear(state, ctx, 0, [{ x: 4, y: 1 }]);
     pasarTurno(state, ctx, 0);
-    pasear(state, ctx, 1, [MI_MINA]);
+    pasear(state, ctx, 1, [MI_NODO]);
 
-    expect(state.log.some((e) => e.kind === 'mine_captured' && e.from === 0)).toBe(true);
-    expect(leer(state, 0).recentEvents.some((e) => e.kind === 'mine_captured')).toBe(false);
+    expect(state.log.some((e) => e.kind === 'node_captured' && e.from === 0)).toBe(true);
+    expect(leer(state, 0).recentEvents.some((e) => e.kind === 'node_captured')).toBe(false);
   });
 
   it('en una partida entera, ningún evento ocultable nace anónimo', async () => {
@@ -275,8 +327,13 @@ describe('la crónica pasa por la niebla', () => {
     // aprender un hechizo—, así que este test recorría un evento menos.
     // Bajarle el umbral habría sido dejarlo mirando quince para siempre; en
     // 48×48 recorre 618 hechos de los dieciséis tipos.
-    const state = newGame({ seed: 9, width: 48, height: 48 });
-    await playAiGame(state, { rng: createRng(9) });
+    //
+    // La semilla es la 4 y no la 9 desde que perder la base elimina: la 9 se
+    // acaba el día 9 con catorce tipos, y la 4 da diecisiete (672 hechos).
+    // Y la 19 desde que la base nace guarnecida: la 4 bajó a catorce tipos, y
+    // la 19 da diecisiete (810 hechos, día 24).
+    const state = newGame({ seed: 19, width: 48, height: 48 });
+    await playAiGame(state, { rng: createRng(19) });
 
     const SIN_SITIO = new Set(['day_start', 'turn_start', 'player_defeated', 'game_over']);
     for (const e of state.log) {
@@ -357,13 +414,14 @@ describe('la crónica pasa por la niebla', () => {
     // viendo al rival moverse por el mapa sin una línea que lo contara. Las dos
     // mitades se quedan coherentes hasta que el mapa del cliente se arregle.
     const { state, ctx } = partida(108);
+    nodoDelMedio(state).owner = 0;
     pasear(state, ctx, 0, [{ x: 4, y: 1 }]);
     pasarTurno(state, ctx, 0);
-    pasear(state, ctx, 1, [MI_MINA]);
+    pasear(state, ctx, 1, [MI_NODO]);
 
     const pintado = marcadoDe(renderLog(state.log, 0));
-    expect(pintado).toMatch(/mina/i);
-    expect(leer(state, 0).recentEvents.some((e) => e.kind === 'mine_captured')).toBe(false);
+    expect(pintado).toMatch(/te ha quitado un paso/i);
+    expect(leer(state, 0).recentEvents.some((e) => e.kind === 'node_captured')).toBe(false);
   });
 
   it('una batalla en la que defiendo llega entera, incluso la muerte del mío', () => {
@@ -531,8 +589,8 @@ describe('la crónica de la pantalla deja de mentir', () => {
           evento({ kind: 'town_captured', town: 't', actor: 1, from: 0 }),
           evento({ kind: 'town_captured', town: 't', actor: 0, from: 1 }),
           evento({ kind: 'hero_defeated', hero: 'h', actor: 1 }),
-          evento({ kind: 'mine_captured', mine: 'm', actor: 1, from: 0 }),
-          evento({ kind: 'mine_captured', mine: 'm', actor: 0, from: 1 }),
+          evento({ kind: 'node_captured', node: 'n', actor: 1, from: 0 }),
+          evento({ kind: 'node_captured', node: 'n', actor: 0, from: 1 }),
           evento({ kind: 'level_up', hero: 'h', level: 2, actor: 1 }),
           evento({ kind: 'level_up', hero: 'h', level: 2, actor: 0 }),
         ],

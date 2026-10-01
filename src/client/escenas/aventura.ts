@@ -227,8 +227,12 @@ function describirCasilla(s: Session, p: Point, ruta: readonly PasoDeRuta[]): st
     const dueño =
       objeto.owner === null ? 'neutral' : objeto.owner === s.viewer ? 'tuyo' : 'enemigo';
     que = `${t?.name ?? 'Castillo'} (${dueño})`;
+  } else if (objeto?.kind === 'node') {
+    que = `Paso ${objeto.owner === s.viewer ? 'tuyo' : objeto.owner === null ? 'sin dueño' : 'enemigo'}`;
   } else if (objeto?.kind === 'mine') {
-    que = `Mina ${objeto.owner === s.viewer ? 'tuya' : objeto.owner === null ? 'sin dueño' : 'enemiga'}`;
+    que = 'Mina: produce para quien tenga la región';
+  } else if (objeto?.kind === 'village') {
+    que = `${objeto.name}: es de quien tenga la región`;
   } else if (objeto?.kind === 'monster' && !objeto.defeated)
     que = `${objeto.count} monstruos de guardia`;
   else if (objeto?.kind === 'chest' && !objeto.taken) que = 'Un cofre';

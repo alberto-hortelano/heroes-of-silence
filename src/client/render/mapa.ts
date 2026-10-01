@@ -13,7 +13,7 @@
  */
 
 import { HERO_BODY } from '@core/hero/hero.js';
-import { type MapObject, pointFromKey, pointKey } from '@core/map/map.js';
+import { type MapObject, type MapRegion, pointFromKey, pointKey } from '@core/map/map.js';
 import type { TerrainKind } from '@core/map/terrain.js';
 import type { Point } from '@core/types.js';
 import { asset } from './assets.js';
@@ -39,6 +39,8 @@ export interface AdventureScene {
     readonly terrain: readonly TerrainKind[];
     readonly roads: ReadonlySet<string>;
     readonly objects: readonly MapObject[];
+    /** Las regiones del mapa de nodos. Las pintará el territorio de la 2b. */
+    readonly regions: readonly MapRegion[];
   };
   readonly players: readonly { readonly id: number; readonly fog: ReadonlySet<string> }[];
   readonly heroes: readonly {
@@ -231,7 +233,7 @@ export function drawMapa(ctx: CanvasRenderingContext2D, v: VistaMapa): void {
   pintarNiebla(ctx, v);
 
   // 5 · Encima de todo, lo que es de quien juega: la ruta y la casilla señalada.
-  pintarRuta(ctx, camara, v.ruta);
+  pintarRuta(ctx, camara, pasosAPintar(v.ruta, v.explorado));
   if (v.hover !== null && v.hover.x >= 0 && v.hover.y >= 0 && v.hover.x < W && v.hover.y < H) {
     const c = casillaAPixel(camara, v.hover);
     ctx.strokeStyle = '#f2d585';
@@ -358,6 +360,10 @@ function vegetacion(
       return azar < 10 ? { celda: CELDA.pinar, escala: 1.1 + (azar % 4) * 0.1, dx, dy } : null;
     case 'rough':
       return azar < 7 ? { celda: CELDA.montana, escala: 1.05 + (azar % 3) * 0.12, dx, dy } : null;
+    // La montaña no se pisa: cada casilla lleva su pico, y así el muro entre
+    // regiones se ve como una cordillera continua y no como un color.
+    case 'mountain':
+      return { celda: CELDA.montana, escala: 1.25 + (azar % 3) * 0.1, dx: dx * 0.5, dy: dy * 0.5 };
     case 'sand':
     case 'lava':
     case 'water':
@@ -407,8 +413,43 @@ function pintarObjeto(ctx: CanvasRenderingContext2D, v: VistaMapa, o: MapObject)
       bandera(ctx, c.x - tile * 0.55, c.y - tile * 1.05, tile, playerColor(o.owner));
       return;
     }
+    case 'node': {
+      // El paso entre regiones: un hito de piedra con la bandera de su dueño.
+      // Sin dueño, gris y sin bandera: se ve qué falta por tomar.
+      base(ctx, c, tile * 0.4, playerColor(o.owner));
+      ctx.fillStyle = '#8a8172';
+      ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+      ctx.lineWidth = 1;
+      ctx.fillRect(c.x - tile * 0.09, c.y - tile * 0.45, tile * 0.18, tile * 0.6);
+      ctx.strokeRect(c.x - tile * 0.09, c.y - tile * 0.45, tile * 0.18, tile * 0.6);
+      if (o.owner !== null) bandera(ctx, c.x, c.y - tile * 0.85, tile * 0.75, playerColor(o.owner));
+      return;
+    }
+    case 'village': {
+      // Un pueblo: tres tejados. Sin dueño propio —es de quien tenga su región—,
+      // así que no lleva bandera.
+      ctx.fillStyle = '#7a5a3a';
+      ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+      ctx.lineWidth = 1;
+      for (const [dx, dy] of [
+        [-0.22, 0.05],
+        [0.18, 0.1],
+        [-0.02, -0.12],
+      ] as const) {
+        const x = c.x + dx * tile;
+        const y = c.y + dy * tile;
+        ctx.fillRect(x - tile * 0.11, y, tile * 0.22, tile * 0.16);
+        ctx.beginPath();
+        ctx.moveTo(x - tile * 0.14, y);
+        ctx.lineTo(x, y - tile * 0.13);
+        ctx.lineTo(x + tile * 0.14, y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      }
+      return;
+    }
     case 'mine': {
-      base(ctx, c, tile * 0.45, playerColor(o.owner));
       if (!pintarCelda(ctx, camara, CELDA.mina, o.at, 1.2)) {
         ctx.fillStyle = '#6b6152';
         ctx.beginPath();
@@ -417,9 +458,8 @@ function pintarObjeto(ctx: CanvasRenderingContext2D, v: VistaMapa, o: MapObject)
         ctx.lineTo(c.x - tile * 0.4, c.y + tile * 0.3);
         ctx.fill();
       }
+      // Sin bandera: una mina no se toma, es de quien tenga su región.
       icono(ctx, o.resource, c.x + tile * 0.32, c.y + tile * 0.12, tile * 0.36);
-      if (o.owner !== null)
-        bandera(ctx, c.x - tile * 0.42, c.y - tile * 0.72, tile * 0.75, playerColor(o.owner));
       return;
     }
     case 'chest': {
@@ -740,26 +780,61 @@ function pintarNiebla(ctx: CanvasRenderingContext2D, v: VistaMapa): void {
   ctx.restore();
 }
 
+/** Cómo se pinta un paso: el destino y la parada de hoy van más grandes. */
+export interface PasoPintado extends PasoDeRuta {
+  readonly marca: 'destino' | 'parada' | 'paso';
+}
+
+/**
+ * Los pasos de la ruta que se pintan, con su marca: solo los de casillas
+ * exploradas.
+ *
+ * La ruta la calcula el núcleo con el mapa entero, y pintada sobre la niebla
+ * **dibujaba la red sin explorar**: el trazo esquivaba cordilleras que el
+ * jugador no ha visto y se paraba en pasos que no conoce (M5 de la QA de la
+ * 2a). Lo de dentro de la niebla no se pinta, tampoco el destino; el destino
+ * explorado sí. Con `explorado` a `null` —verlo todo, o el espectador— se pinta
+ * entera.
+ *
+ * La marca se decide **sobre la ruta entera y después se filtra**, y el orden
+ * importa: al revés, el último paso explorado salía con el círculo grande del
+ * destino, señalando como llegada una casilla que no lo es.
+ */
+export function pasosAPintar(
+  ruta: readonly PasoDeRuta[],
+  explorado: ReadonlySet<string> | null,
+): readonly PasoPintado[] {
+  const marcados = ruta.map((paso, i): PasoPintado => {
+    // El último de hoy es donde se parará el héroe: se marca aparte.
+    const marca =
+      i === ruta.length - 1
+        ? 'destino'
+        : paso.hoy && (ruta[i + 1]?.hoy ?? false) === false
+          ? 'parada'
+          : 'paso';
+    return { ...paso, marca };
+  });
+  if (explorado === null) return marcados;
+  return marcados.filter((paso) => explorado.has(pointKey(paso.at)));
+}
+
 function pintarRuta(
   ctx: CanvasRenderingContext2D,
   camara: CamaraMapa,
-  ruta: readonly PasoDeRuta[],
+  pasos: readonly PasoPintado[],
 ): void {
-  if (ruta.length === 0) return;
+  if (pasos.length === 0) return;
   ctx.save();
-  for (const [i, paso] of ruta.entries()) {
+  for (const paso of pasos) {
     const c = casillaAPixel(camara, paso.at);
-    const ultimo = i === ruta.length - 1;
-    // El último de hoy es donde se parará el héroe: se marca aparte.
-    const paradaDeHoy = paso.hoy && (ruta[i + 1]?.hoy ?? false) === false;
     ctx.fillStyle = paso.hoy ? '#f6db78' : '#9aa1a8';
     ctx.strokeStyle = '#1b1608';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.arc(c.x, c.y, ultimo || paradaDeHoy ? 6.5 : 3.5, 0, Math.PI * 2);
+    ctx.arc(c.x, c.y, paso.marca === 'paso' ? 3.5 : 6.5, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
-    if (paradaDeHoy && !ultimo) {
+    if (paso.marca === 'parada') {
       ctx.strokeStyle = '#f6db78';
       ctx.beginPath();
       ctx.arc(c.x, c.y, 10, 0, Math.PI * 2);

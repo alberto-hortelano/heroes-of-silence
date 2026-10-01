@@ -10,11 +10,39 @@ import { costeDeEntrada, isWalkable, type TerrainKind } from './terrain.js';
 
 export type MapObject =
   | {
+      /**
+       * Una mina **no tiene dueño propio**: produce para el dueño de la región
+       * en la que está (`regionOwner`), si esa región sigue conectada a su base.
+       * Antes se tomaba pisando la bandera; desde el mapa de nodos el territorio
+       * se gana cerrando la región, y una bandera aquí sería una segunda copia
+       * de un hecho que ya se deriva de los nodos.
+       */
       readonly kind: 'mine';
       readonly id: string;
       readonly at: Point;
       readonly resource: ResourceKind;
+    }
+  | {
+      /**
+       * Un paso entre regiones (`regiones.ts`). Se toma **pisándolo**, de camino
+       * o parando en él, igual que se tomaba antes la bandera de una mina, y
+       * `owner` es el único sitio donde vive su dueño: lo escribe `captureNode`
+       * y nadie más. No bloquea el paso: es un paso.
+       */
+      readonly kind: 'node';
+      readonly id: string;
+      readonly at: Point;
       owner: number | null;
+    }
+  | {
+      /**
+       * Un pueblo: está DENTRO de una región y es de quien la tenga. Sin dueño
+       * guardado, por la misma razón que la mina. Lo que produce es de la fase 3.
+       */
+      readonly kind: 'village';
+      readonly id: string;
+      readonly name: string;
+      readonly at: Point;
     }
   | {
       readonly kind: 'resource';
@@ -41,9 +69,29 @@ export type MapObject =
       taken: boolean;
     };
 
+/**
+ * Una región declarada: su id, su nombre y una casilla suya (la semilla).
+ *
+ * La región **no se guarda casilla a casilla**: es la componente del terreno
+ * pisable, sin nodos, que contiene esa casilla, y la calcula `estructura`
+ * (`regiones.ts`). Lo único que el mapa necesita recordar es cómo se llama y
+ * dónde está, para poder nombrarla en un mensaje y para que dos productores de
+ * mapas no tengan que ponerse de acuerdo en numerarlas.
+ */
+export interface MapRegion {
+  readonly id: string;
+  readonly name: string;
+  readonly at: Point;
+}
+
 export interface GameMap {
   readonly width: number;
   readonly height: number;
+  /**
+   * Las regiones del mapa de nodos. Vacío en un mapa que no las tiene —los de
+   * algunos tests de pathfinding—, y entonces no hay territorio que calcular.
+   */
+  readonly regions: readonly MapRegion[];
   /** Terreno por casilla, en orden de filas. */
   readonly terrain: TerrainKind[];
   /** Casillas con camino, por clave "x,y". */
@@ -83,7 +131,7 @@ export function pointFromKey(clave: string): Point {
   return p;
 }
 
-export function inBounds(map: GameMap, p: Point): boolean {
+export function inBounds(map: Pick<GameMap, 'width' | 'height'>, p: Point): boolean {
   return p.x >= 0 && p.x < map.width && p.y >= 0 && p.y < map.height;
 }
 
@@ -97,10 +145,19 @@ export function objectAt(map: GameMap, p: Point): MapObject | undefined {
   return map.objects.find((o) => pointKey(o.at) === key);
 }
 
-/** ¿Bloquea el paso este objeto? Los monstruos vivos y los pueblos, sí. */
+/**
+ * ¿Bloquea el paso este objeto? Solo un monstruo en pie.
+ *
+ * Bloqueaban también el castillo y la mina, y con el mapa de nodos los dos
+ * dejan de hacerlo por motivos distintos. La mina ya no se toma —no hay nada
+ * que hacer en ella—. Y el castillo **es un nodo**: es el paso entre dos o más
+ * regiones, así que si bloqueara cortaría la red justo donde la red pasa; las
+ * regiones de detrás solo se alcanzarían parando en él y volviendo a salir.
+ * Pisarlo de camino hace lo que hacía pisarlo de destino: batalla contra la
+ * guarnición, captura si está vacío o recoger la tropa si es tuyo.
+ */
 export function blocksMovement(o: MapObject): boolean {
-  if (o.kind === 'monster') return !o.defeated;
-  return o.kind === 'town' || o.kind === 'mine';
+  return o.kind === 'monster' && !o.defeated;
 }
 
 /**
@@ -143,12 +200,17 @@ export interface PathStep {
  * que `pathFromReachable` sabría contestar sola: sin ella, un destino no
  * pisable haría recorrer el mapa ENTERO para acabar devolviendo `null`.
  */
-export function findPath(map: GameMap, from: Point, to: Point): PathStep[] | null {
+export function findPath(
+  map: GameMap,
+  from: Point,
+  to: Point,
+  hostiles: readonly Point[] = [],
+): PathStep[] | null {
   if (!inBounds(map, from) || !inBounds(map, to)) return null;
   if (pointKey(from) === pointKey(to)) return [];
   if (!isEnterable(map, to)) return null;
 
-  return pathFromReachable(map, dijkstra(map, from, to), from, to);
+  return pathFromReachable(map, dijkstra(map, from, to, hostiles), from, to);
 }
 
 /**
@@ -173,7 +235,7 @@ export interface Reachable {
  *
  * Existe porque la IA necesita comparar decenas de destinos por turno: llamar a
  * `findPath` una vez por candidato multiplica el mismo trabajo por treinta.
- * Las casillas bloqueadas (monstruos, pueblos, minas) se registran con su coste
+ * Las casillas bloqueadas (los monstruos en pie) se registran con su coste
  * de entrada pero no se expanden: se puede llegar a ellas, no atravesarlas.
  *
  * Los predecesores son lo que evita el SEGUNDO recorrido: quien ya llamó aquí
@@ -190,8 +252,12 @@ export interface Reachable {
  * un test que lo tome — y sabiendo que recortar la búsqueda cambia el orden de
  * asentamiento, que es de donde cuelga el desempate.
  */
-export function reachableFrom(map: GameMap, from: Point): Reachable {
-  return dijkstra(map, from, null);
+export function reachableFrom(
+  map: GameMap,
+  from: Point,
+  hostiles: readonly Point[] = [],
+): Reachable {
+  return dijkstra(map, from, null, hostiles);
 }
 
 /**
@@ -241,7 +307,12 @@ export function reachableFrom(map: GameMap, from: Point): Reachable {
  * Los dos `throw` de `Frontera` siguen intactos y no había por qué tocarlos:
  * no miran la clave, y sigue habiendo **una frontera por búsqueda**.
  */
-function dijkstra(map: GameMap, from: Point, parar: Point | null): Reachable {
+function dijkstra(
+  map: GameMap,
+  from: Point,
+  parar: Point | null,
+  hostiles: readonly Point[],
+): Reachable {
   const ancho = map.width;
   const casillas = ancho * map.height;
 
@@ -287,6 +358,14 @@ function dijkstra(map: GameMap, from: Point, parar: Point | null): Reachable {
     if (!blocksMovement(o) || !inBounds(map, o.at)) continue;
     bloqueada[o.at.y * ancho + o.at.x] = 1;
   }
+  // Lo hostil de la partida —un héroe ajeno, un castillo ajeno guarnecido— se
+  // trata igual que un monstruo en pie: se llega, no se cruza. El mapa no sabe
+  // de héroes ni de guarniciones, así que se lo dice quien sí (`casillasHostiles`
+  // en `game.ts`). Solo cambia `bloqueada`: el orden de descubrimiento y la
+  // frontera son los de siempre, y el desempate no se entera.
+  for (const p of hostiles) {
+    if (inBounds(map, p)) bloqueada[p.y * ancho + p.x] = 1;
+  }
 
   // −1 es «sin coste todavía»: los costes reales son siempre > 0 salvo el del
   // origen, que es 0, así que el centinela no pisa ningún valor legítimo.
@@ -316,8 +395,9 @@ function dijkstra(map: GameMap, from: Point, parar: Point | null): Reachable {
     if (actual === destino) break;
 
     // Desde una casilla bloqueada no se sigue: es final de trayecto. La
-    // excepción es el origen — el héroe suele estar ENCIMA de su pueblo o de
-    // una mina recién capturada, y tratarlo como muro lo dejaba sin rutas.
+    // excepción es el origen. Desde el mapa de nodos solo bloquea un monstruo
+    // en pie, y un héroe no empieza encima de uno; la excepción se queda porque
+    // es la regla de siempre y no cuesta nada.
     if (bloqueada[actual] === 1 && actual !== origen) continue;
 
     const x = actual % ancho;
@@ -438,6 +518,7 @@ export function createEmptyMap(
   return {
     width,
     height,
+    regions: [],
     terrain: new Array<TerrainKind>(width * height).fill(fill),
     roads: new Set<string>(),
     objects: [],

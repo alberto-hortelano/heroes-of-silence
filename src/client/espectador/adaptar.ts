@@ -50,6 +50,7 @@ export function adaptarEscena(view: SpectatorView): AdventureScene {
       terrain: terrenoEstable(view.map.terrain),
       roads: new Set(view.map.roads),
       objects: view.map.objects,
+      regions: view.map.regions,
     },
     players: view.players.map((p) => ({ id: p.id, fog: new Set(p.fog) })),
     heroes: view.heroes,

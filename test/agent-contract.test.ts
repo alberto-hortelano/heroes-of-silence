@@ -244,14 +244,15 @@ describe('lo que ve el agente', () => {
 
   it('lo que se dejó atrás se manda como se vio, con el día en que se vio', () => {
     // La niebla filtraba el espacio pero no el tiempo: pisar una casilla el día
-    // 1 bastaba para saber, el día 20, de quién es la mina AHORA.
+    // 1 bastaba para saber, el día 20, de quién es el nodo AHORA. (Era una
+    // mina; desde el mapa de nodos lo que cambia de dueño es el nodo.)
     const state = newGame({ seed: 92 });
     revealEverything(state, 0);
     const mirando = visibleNow(state, 0);
 
-    const lejos = state.map.objects.find((o) => o.kind === 'mine' && !mirando.has(pointKey(o.at)));
-    expect(lejos, 'la semilla no deja ninguna mina fuera de la vista').toBeDefined();
-    if (lejos === undefined || lejos.kind !== 'mine') throw new Error('sin mina lejana');
+    const lejos = state.map.objects.find((o) => o.kind === 'node' && !mirando.has(pointKey(o.at)));
+    expect(lejos, 'la semilla no deja ningún nodo fuera de la vista').toBeDefined();
+    if (lejos === undefined || lejos.kind !== 'node') throw new Error('sin nodo lejano');
 
     // Pasan diecinueve días y el rival la captura sin que nadie lo vea.
     state.day = 20;
@@ -270,9 +271,9 @@ describe('lo que ve el agente', () => {
     revealEverything(state, 0);
     const mirando = visibleNow(state, 0);
 
-    const cerca = state.map.objects.find((o) => o.kind === 'mine' && mirando.has(pointKey(o.at)));
-    expect(cerca, 'la semilla no deja ninguna mina a la vista').toBeDefined();
-    if (cerca === undefined || cerca.kind !== 'mine') throw new Error('sin mina cercana');
+    const cerca = state.map.objects.find((o) => o.kind === 'node' && mirando.has(pointKey(o.at)));
+    expect(cerca, 'la semilla no deja ningún nodo a la vista').toBeDefined();
+    if (cerca === undefined || cerca.kind !== 'node') throw new Error('sin nodo cercano');
 
     state.day = 20;
     cerca.owner = 1;
@@ -391,7 +392,13 @@ describe('lo que ve el agente', () => {
     for (const r of vista.recruitable) {
       expect(r.leadership).toBe(creature(r.creature).leadership);
     }
-    expect(vista.garrisonLeadership).toEqual({ used: 0, max: GARRISON_LEADERSHIP });
+    // La base nace guarnecida (`guarnicionBase`), así que lo usado no es 0: es
+    // lo que ocupa esa tropa, y la vista tiene que decirlo.
+    expect(town.garrison.length).toBeGreaterThan(0);
+    expect(vista.garrisonLeadership).toEqual({
+      used: armyLeadership(town.garrison),
+      max: GARRISON_LEADERSHIP,
+    });
   });
 
   it('el formato de respuesta explica el liderazgo, y el de mapa el tamaño de un monstruo', () => {
@@ -458,6 +465,13 @@ describe('lo que ve el agente', () => {
     expect(RESPONSE_FORMAT.map_generate).toMatch(/de 1 a 7/);
     expect(RESPONSE_FORMAT.adventure_turn).toMatch(/6 individuos además del héroe/);
     expect(RESPONSE_FORMAT.adventure_turn).toContain('yourBase');
+  });
+
+  it('la prosa avisa de que, con un héroe dentro, la ciudad la defiende solo él (regla del usuario, I2)', () => {
+    // La regla está fijada en `game.test.ts`; esto fija que el agente la sepa
+    // antes de llevar a su héroe a casa a defender contando con la guarnición.
+    expect(RESPONSE_FORMAT.adventure_turn).toMatch(/la defiende SOLO ese héroe con su tropa/);
+    expect(RESPONSE_FORMAT.adventure_turn).toMatch(/la guarnición NO se suma a la batalla/);
   });
 
   it('el turno dice cuál es tu base, y la batalla cuál es tu héroe', () => {
@@ -535,6 +549,11 @@ describe('lo que ve el agente', () => {
     expect(COMO_SE_LEE_EL_MAPA).toMatch(/"terrain"/);
     expect(COMO_SE_LEE_EL_MAPA).toMatch(/"roads"/);
     expect(COMO_SE_LEE_EL_MAPA).toMatch(/"objects"/);
+    // Y las dos reglas de la 2a que el agente no puede deducir del mapa: que
+    // perder la base es perder, y que lo hostil no se cruza (`caminoHasta`).
+    expect(COMO_SE_LEE_EL_MAPA).toMatch(/si la pierdes quedas eliminado en el\s+acto/);
+    expect(COMO_SE_LEE_EL_MAPA).toMatch(/Las\s+dos nacen con guarnición/);
+    expect(COMO_SE_LEE_EL_MAPA).toMatch(/se alcanzan pero no se\s+cruzan/);
   });
 
   it('y los costes de la prosa salen de costeDeEntrada, no de la tabla', () => {
@@ -606,11 +625,52 @@ describe('lo que ve el agente', () => {
     // Las posiciones de inicio ocupan casilla.
     expect(prosa).toMatch(/posiciones de inicio TAMBIÉN\s+ocupan/);
     // Los dueños tienen que jugar.
-    expect(prosa).toMatch(/owner.*jugadores CON posición\s+de inicio/s);
+    expect(prosa).toMatch(/owner.*jugador CON posición\s+de inicio/s);
     // El tamaño pedido es el que hay que devolver.
     expect(prosa).toMatch(/Devuelve el "width" y el "height" que se te piden/);
     // Y que el orden no le regala la iniciativa a nadie.
     expect(prosa).toMatch(/ORDEN en que escribas "heroStarts" no decide nada/);
+  });
+
+  it('la prosa de map_generate explica la red: regiones, muros, nodos y la ciudad como nodo', () => {
+    // El esquema y la prosa cambian en el mismo commit (fase 2a): un campo que
+    // el esquema pide y la prosa no nombra es un campo que el agente no rellena.
+    const prosa = RESPONSE_FORMAT.map_generate;
+    for (const campo of ['patches', 'regions', 'walls', 'nodes', 'villages']) {
+      expect(prosa, campo).toContain(`${campo}[]`);
+    }
+    expect(prosa).toMatch(/Una CIUDAD \("towns"\) ES un nodo/);
+    expect(prosa).toMatch(/tramo RECTO de "mountain" o "water"/);
+    expect(prosa).toMatch(/se te dice entre qué dos casillas\s+queda el paso abierto/);
+    expect(prosa).toMatch(/ciudad neutral \("owner": null\) nace con guarnición/);
+    // Y la base también, y CUÁL es la base: el agente que diseña el mapa decide
+    // con el orden de "towns" qué ciudad suya nace guarnecida.
+    expect(prosa).toMatch(/su PRIMERA ciudad en "towns"—\s+nace también\s+con guarnición/);
+    // Y la paleta le da los muros, derivados de la misma lista que valida.
+    const payload = serializeMapRequest({ width: 24, height: 24, players: [0, 1] }) as {
+      palette: { wallTerrains: string[]; terrains: string[] };
+    };
+    expect(payload.palette.wallTerrains).toEqual(['mountain', 'water']);
+    expect(payload.palette.terrains).toContain('mountain');
+  });
+
+  it('el mapa conocido trae los nodos con su dueño y los pueblos, y no promete minas con bandera', () => {
+    const state = newGame({ seed: 3 });
+    revealEverything(state, 0);
+    const objetos = (
+      serializeAdventureTurn(state, 0) as {
+        knownMap: { objects: { kind: string; owner?: unknown; name?: unknown }[] };
+      }
+    ).knownMap.objects;
+    const nodos = objetos.filter((o) => o.kind === 'node');
+    expect(nodos.length).toBeGreaterThan(0);
+    for (const n of nodos) expect(n).toHaveProperty('owner');
+    expect(
+      objetos.filter((o) => o.kind === 'village').every((v) => typeof v.name === 'string'),
+    ).toBe(true);
+    for (const m of objetos.filter((o) => o.kind === 'mine')) expect(m).not.toHaveProperty('owner');
+    expect(COMO_SE_LEE_EL_MAPA).not.toMatch(/mina cambia de dueño/);
+    expect(COMO_SE_LEE_EL_MAPA).toMatch(/El agua y la montaña NO se cruzan/);
   });
 
   it('la petición de mapa describe la paleta disponible', () => {
@@ -680,10 +740,14 @@ describe('respuestas del agente', () => {
         width: 500,
         height: 4,
         baseTerrain: 'grass',
+        patches: [],
         regions: [],
+        walls: [],
+        nodes: [],
         towns: [],
         heroStarts: [],
         mines: [],
+        villages: [],
         resources: [],
         monsters: [],
         chests: [],

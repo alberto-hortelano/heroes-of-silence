@@ -45,9 +45,11 @@ export function decidir(kind: string, payload: any): unknown {
       }
       const hero = payload.heroes?.[0];
       if (hero !== undefined) {
+        // Un recurso suelto o un nodo sin dueño: desde el mapa de nodos la mina
+        // ya no se toma, y lo que cambia de dueño al pisarlo es el nodo.
         const objetivo = payload.knownMap?.objects?.find(
           (o: any) =>
-            (o.kind === 'resource' && !o.taken) || (o.kind === 'mine' && o.owner === null),
+            (o.kind === 'resource' && !o.taken) || (o.kind === 'node' && o.owner === null),
         );
         acciones.push({
           type: 'move_hero',

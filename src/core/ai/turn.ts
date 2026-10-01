@@ -2,9 +2,9 @@
  * Juega un turno entero de un jugador con la IA de respaldo: construye,
  * recluta, mueve a sus héroes y resuelve las batallas que provoque.
  */
-import { reachableFrom } from '../map/map.js';
 import { ROAD_COST } from '../map/terrain.js';
 import {
+  alcanceDelHeroe,
   applyAdventureAction,
   currentPlayer,
   type GameContext,
@@ -100,7 +100,7 @@ export async function playAiTurn(
       // TRES decisiones: elegir a dónde ir, hasta dónde llegar hoy, y por
       // dónde se va — que antes recorrían el mapa una vez cada una desde el
       // mismo origen.
-      const alcance = reachableFrom(state.map, hero.at);
+      const alcance = alcanceDelHeroe(state, hero);
 
       const destino = chooseHeroDestination(state, hero, alcance);
       if (destino === null) continue;

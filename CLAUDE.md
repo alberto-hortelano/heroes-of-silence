@@ -110,7 +110,8 @@ arnés daría verde sin haber ejercitado nada de lo que #27 añadió.
 ```
 src/core/          TypeScript puro: las reglas. Sin DOM y sin node:*
   battle/          rejilla 11×9, iniciativa, daño, hechizos
-  map/             mapa de aventura, pathfinding, niebla, generación
+  map/             mapa de aventura, pathfinding, niebla, generación y la red de
+                   nodos (`regiones.ts`: regiones, dueños y conexión con la base)
   town/            castillos, edificios, reclutamiento
   hero/            héroes, ejército de 5 stacks, movimiento
   state/           GameState, turnos, batallas del mapa
@@ -878,7 +879,11 @@ tamaños que no son 24**, con el peor en 32 (200/200 para j0). El 28 es además 
 tamaño a evitar y es el más cercano al de hoy: única talla con una partida sin
 terminar, y **más lenta que 32 siendo más pequeña**, porque lo que paga es la cola.
 
-**La causa mecánica es que el generador no escala**: `generateMapPlan` pone siempre
+**Esta tabla y el párrafo de abajo son del generador de esquinas, el de antes de la
+fase 2a**, y se dejan porque la medida sigue enseñando algo; el generador de hoy es
+el de la red de nodos (sección siguiente) y no se ha vuelto a medir por tamaños.
+
+**La causa mecánica era que el generador no escalaba**: `generateMapPlan` ponía siempre
 28 minas, 8 monstruos, 10 recursos y 4 cofres, con las minas en coordenadas fijas
 respecto a cada esquina y los radios de terreno fijos. Un mapa más grande **no añade
 economía: alarga el hueco vacío del centro**, así que lo que las siete filas miden
@@ -887,6 +892,113 @@ tiempo crece ×12,7 mientras los días solo crecen ×4: el coste **por día juga
 sube de 1,10 a 3,45 ms. **El 24×24 se queda**, y ejercitar el bestiario caro es una
 segunda tanda con otro lado —40 semillas en 38×38 son ~2 s y sacan las siete—, no
 mover la que está anclada.
+
+## El mapa es una red de nodos (fase 2a)
+
+Desde la fase 2a de NuevaJugabilidad («la red») el mapa no es un campo abierto con
+dos castillos en las esquinas: son **regiones cerradas por cordillera o río**, y los
+únicos pasos entre ellas son los **nodos**. Una ciudad **es** un nodo —la base
+también—, y se toma venciendo su guarnición o entrando si está vacía
+(`captureTown`, la de siempre); un nodo que no es ciudad se toma **pisándolo**, de
+camino o parando (`captureNode`, su único escritor, y el hecho nuevo
+`node_captured`, que sustituye a `mine_captured`).
+
+**Nada del territorio se guarda.** `src/core/map/regiones.ts` deriva la forma de
+la red del terreno y de los objetos —una región es la componente 8-conexa de lo
+pisable **sin los nodos** que contiene la casilla que la declara—, y la memoiza por
+mapa porque ni el terreno ni los nodos cambian en una partida. **Lo que cambia se
+lee en una sola foto, `territorio(state)`**: el dueño de cada nodo, el de cada
+región —el común de **todos** sus nodos, y esa regla se escribe en un solo sitio,
+`dueñoComun`, que la IA también pregunta en vez de copiarla— y lo que cada jugador
+tiene unido a su base, que es una búsqueda desde la base por regiones y nodos
+propios. La renta sale de ahí y de nada más: una ciudad cobra si está unida, y una
+mina produce para el dueño de su región **solo si está unida** —el usuario corrigió
+el plan: una región cerrada pero desconectada no da nada—. La mina y el pueblo ya
+no tienen dueño propio.
+
+**La estructura se comprueba, no se supone**, y en la puerta de los dos
+productores (`validateMapPlan` → `problemasDeRed`): una componente con dos semillas
+son dos regiones que se tocan sin nodo, y el rechazo dice **por dónde** —busca en
+primero el paso en diagonal entre dos esquinas de muro —un muro en escalera o en
+diagonal pura se cruza por la esquina, y ahí nombra las dos casillas de ese paso—,
+y si no lo hay, en el camino más corto entre las dos semillas la primera casilla con
+muro a los dos lados, que es la forma del hueco recto—; una zona pisable sin región, un nodo de grado
+1, dos nodos vecinos o una región sin nodos también se rechazan con su sitio.
+`buildMap` **ya no sanea en silencio** el terreno bajo un objeto: la única casilla
+que un muro cede es la de un nodo o una ciudad, y es una regla declarada.
+
+**El generador es Voronoi con semillas en espejo**: las fronteras de las celdas se
+levantan como cordillera de una casilla, cada pareja de regiones vecinas tiene un
+paso en mitad de su frontera, y **cada cruce de grado ≥ 3 que no es base es una
+ciudad neutral**. Hubo un límite —las dos más cercanas a cada base— puesto con la
+regla de derrota vieja; medido otra vez con «perder la base elimina» no cambiaba
+nada (1 000 semillas: mediana 4, p90 7, máximo 20 con él y sin él) y se quitó. El
+espejo de los muros no existe (reflejar un muro de una casilla abre huecos), así
+que el equilibrio se pide por **perfil**: las dos bases ven sus dos ciudades más
+cercanas a los mismos saltos. **El generador no lleva una segunda implementación de
+la red**: cada intento se construye como mapa provisional y lo leen `estructura` y
+`problemasDeRed`, las mismas que leen y validan el plan del agente. Los dos caminos
+disjuntos de cada base a sus ciudades cercanas no se comprueban al generar —un
+bucle lo hacía y en 1 050 planes no rechazó ninguno—: los vigila, y muerde, el test
+que audita 200 semillas en 24×24 y 20 en 48×48 **desde fuera**.
+
+Las reglas que cambiaron por el camino y conviene no deshacer sin medir:
+
+- **Perder la base elimina en el acto**, aunque queden héroes o ciudades. Es la
+  regla de victoria de NuevaJugabilidad («se gana tomando las bases rivales»), que
+  el usuario adelantó de la fase 3 al ver la 2a. Sustituye a la que había
+  improvisado el ingeniero —sin héroes, sin base y sin oro para contratar—, que
+  cerraba 162 de las 200 partidas del banco sin que nadie la hubiera pedido. Y por
+  eso `captureTown` **no** comprueba la derrota: tomar la base con su héroe dentro
+  es capturar **y después** derrotar al héroe, y lo comprueba quien llama al acabar.
+- **`game_over` es el último hecho por regla del núcleo**: `emit` lanza si la
+  partida ya terminó y el hecho no es `game_over`. Los `return` de los bucles se
+  quedan —son los que hacen que no se llegue ahí—, y el invariante de la crónica
+  sigue mirando veinte partidas; lo que cambia es que un bucle nuevo que se olvide
+  revienta donde escribe, no en la semilla que lo pise.
+- **El castillo y la mina ya no bloquean el paso.** El castillo es un nodo, y si
+  bloqueara cortaría la red justo donde la red pasa. Pisarlo de camino hace lo
+  mismo que pisarlo de destino, **incluido recoger la guarnición**. Y tomar de
+  camino la base del rival **corta la marcha**.
+- **Los puntos de movimiento del día se fijan al empezar el día.** Unirse a tropa a
+  mitad de turno —recogiendo la guarnición o reclutando— no recorta los que quedan;
+  la criatura más lenta cuenta desde mañana. Antes se recortaban, y eso obligaba a
+  distinguir pasar por casa de llegar a ella. **Regla de juego por verificar contra
+  fheroes2**: no se cita como suya sin haberla comprobado.
+- **Lo hostil se alcanza pero no se cruza, en el camino de todos.** Un héroe ajeno
+  y un castillo ajeno guarnecido son final de trayecto, como un monstruo en pie:
+  el Dijkstra del mapa los recibe (`casillasHostiles`) y la IA, la persona y el
+  agente piden el camino por `alcanceDelHeroe` y `caminoHasta`. Con los pasos
+  estrechos, cruzarlos era meterse en una batalla no elegida —la semilla 54 no
+  terminaba—. Antes solo se defendía la IA, retrocediendo la cadena de
+  predecesores de cada candidato: 147 de los 209 ms de `chooseHeroDestination`.
+  Un invariante impide llamar a `findPath` o `reachableFrom` fuera de `game.ts`.
+- **La base del rival vale el triple** que otra ciudad para la IA, y es una cifra
+  **medida**: sin el ×3 las 1 000 semillas terminan igual, pero la cola se dispara
+  —mediana 4 → 7 días, p90 7 → 16, p99 13 → 42, máximo 20 → 80—. El arreglo de
+  fondo es valorar por lo que cambia la conexión a la base (#115).
+- **La base nace con guarnición** (`data/ciudades.json`, `guarnicionBase`),
+  inventada y provisional: tres de nivel 1, dos de nivel 2 y dos de nivel 3 de la
+  facción del dueño, que son **7 individuos y 20 de liderazgo** —el cupo de un
+  bando y el tope de una guarnición, los dos comprobados al cargar
+  (`problemasDeGuarnicion`)—. La base es la **primera ciudad de su dueño** en el
+  plan, y esa regla vive en un sitio (`primeraCiudadDe`) que leen `createGame` y
+  `buildMap`. **No deshizo la carrera, y se sabe por qué**: dentro de esos dos
+  topes una guarnición no es más fuerte que el ejército de un héroe —que lleva lo
+  mismo y además pelea él—, la IA solo asalta lo que vence (197 de 198 asaltos
+  ganados) y el héroe dueño se la lleva al pasar por casa o al volver vencido. Se
+  midieron siete composiciones: solo las que pasan del tope de guarnición alargan
+  la partida (con el tope a 30, mediana 7 y p90 10), y subir ese tope es relajar
+  dos guardias de `tropa.test.ts`, decisión del usuario. **Y la base llena no
+  admite reclutas sin el héroe dentro**: en el banco, los 600 reclutamientos del
+  día 1 pasaron a 0.
+- **Con el héroe del dueño dentro, la ciudad la defiende solo él con su tropa**, y es la batalla final: si cae, la ciudad cae con su guarnición sin que esta pelee —y con la base, la facción—. Regla decidida por el usuario («Solo el heroe con su tropa, es la batalla final (si pierde)»), no un olvido: la fija un test de `game.test.ts` y la cuenta `enemyAt`.
+
+Medido al anclar (`02bf2610…`): 0 de 200 sin terminar en el banco y 0 de 1 000 en
+el barrido; en las 1 000, mediana **4** días, p90 9, p99 13, máximo 22, y el
+jugador 0 gana 293. En el banco, 61 de 200 (mediana 5, p90 9, máximo 14), y con
+control de esquina el caballero el **26,25 %** —desde 60,75 sin guarnición—. La 2b —«el territorio a la vista»— trae los tres recursos, el
+territorio en el turno del agente y en el cliente, y la IA que corta y defiende.
 
 ## El núcleo por dentro: 2,25× sin cambiar una sola partida
 
@@ -1213,8 +1325,12 @@ que **cada `EffectKind` tenga un lector vivo**, que **`core` no importe
 la ruta absoluta de esta máquina**, que **la crónica sobreviva a un `JSON` de
 ida y vuelta**, que **el `as` que abre el candado de `state.log` viva en un
 solo sitio**, que **`core` no ejecute coma flotante que dependa de la
-plataforma**, que **`game_over` sea el último hecho de la crónica** y —el
-catorceavo— que **`pintar` sea el único `innerHTML` del repositorio**. Todos
+plataforma**, que **`game_over` sea el último hecho de la crónica**, que
+**`pintar` sea el único `innerHTML` del repositorio**, que **el dueño de un nodo
+o de un castillo lo escriban `captureNode` y `captureTown` y nadie más** —que es
+lo que deja derivar el dueño de una región— y —el decimosexto— que **fuera de
+`game.ts` nadie llame al Dijkstra del mapa**, para que el camino de un héroe
+lleve siempre lo hostil de la partida. Todos
 nacen en verde: un guardia que nace rojo se ignora desde el primer día.
 
 El de la puerta del marcado tiene **tres mitades y dos formas distintas**, y eso

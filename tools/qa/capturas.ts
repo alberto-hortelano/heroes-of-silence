@@ -42,13 +42,15 @@ import {
   TILE_INICIAL,
   zoom,
 } from '../../src/client/render/camara-mapa.js';
+import { pasosAPintar } from '../../src/client/render/mapa.js';
 import { centroDeStack, centroHex, tableroPara } from '../../src/client/render/proyeccion.js';
 import { botonDeRecluta, townLayout, townPlots } from '../../src/client/render/town.js';
 import { Session } from '../../src/client/session.js';
-import { rotuloDeDia } from '../../src/client/views/panels.js';
+import { explicacionDeFin, rotuloDeDia } from '../../src/client/views/panels.js';
 import { chooseBattleAction } from '../../src/core/ai/tactics.js';
 import { stackHexes } from '../../src/core/battle/battle.js';
 import type { BattleAction, BattleEvent, BattleStack } from '../../src/core/battle/types.js';
+import { baseOf, heroesOf } from '../../src/core/state/game.js';
 import type { Point } from '../../src/core/types.js';
 import type {
   AgentHelloMsg,
@@ -59,6 +61,15 @@ import { decidir } from './politica.js';
 import { arrancarServidor, type ServidorDePartida } from './servidor.js';
 
 const SEMILLA = 2;
+/**
+ * La del móvil y la del dedo: en un marco de 364 px de ancho la guardia que se
+ * alcanza hoy tiene que caer DENTRO, y en la semilla 2 del mapa de nodos no cae
+ * ninguna. La 29 tiene cuatro piqueros a la vista desde el primer día, lejos
+ * de los botones de la cámara.
+ */
+const SEMILLA_MOVIL = 29;
+/** La partida cuya guardia más cercana gana: la batalla que se pierde y la vuelta a la base. */
+const SEMILLA_QUE_PIERDE = 4;
 const DESTINO = resolve(process.argv[2] ?? 'docs/agents/2026-10-01-cliente-nuevo/capturas');
 
 /** Los códigos de color ANSI; escritos con `fromCharCode` porque Biome no deja un ESC literal en una regex. */
@@ -242,14 +253,51 @@ async function esperarCola(nuevos: readonly BattleEvent[]): Promise<void> {
  * la partida y no en cada fotograma; con el día en la condición no puede pasar.
  */
 async function pasarDia(page: Page, espejo: Session): Promise<void> {
-  await page.getByRole('button', { name: 'Fin de turno' }).click();
+  // El clic se repite hasta que la página lo ACEPTA, que es cuando cambia el
+  // día o se acaba la partida. La puerta de «Fin de turno» ignora a propósito
+  // lo que llega durante la pausa del cambio de día o con algo animándose
+  // (`fin-de-turno.ts`), y un clic ignorado no deja rastro: el guion se quedaba
+  // esperando un día que la página no iba a pasar. Con el mapa de nodos la
+  // partida dura un día más dentro de este bucle y el segundo clic, que llega
+  // pegado al primero, caía en la pausa.
+  const antes = await page.locator('#day').innerText();
+  for (let intento = 0; ; intento++) {
+    await page.getByRole('button', { name: 'Fin de turno' }).click();
+    const entro = await page
+      .waitForFunction(
+        (diaDeAntes) => {
+          const turno = document.getElementById('turn')?.textContent ?? '';
+          const hoy = document.getElementById('day')?.textContent ?? '';
+          return hoy !== diaDeAntes || turno !== 'Tu turno';
+        },
+        antes,
+        { timeout: 1500 },
+      )
+      .then(
+        () => true,
+        () => false,
+      );
+    if (entro) break;
+    if (intento >= 5) throw new Error(`la página no acepta «Fin de turno» en ${antes}`);
+  }
   await espejo.endTurn();
   const dia = rotuloDeDia(espejo.state.day);
-  await page.waitForFunction((esperado) => {
-    const turno = document.getElementById('turn')?.textContent ?? '';
-    const hoy = document.getElementById('day')?.textContent ?? '';
-    return turno.startsWith('Partida') || (turno === 'Tu turno' && hoy === esperado);
-  }, dia);
+  // Si el espejo ya sabe que la partida se acabó, se espera a que la página lo
+  // diga, y SOLO eso. Con el día en la condición quedaba la misma carrera de
+  // arriba cuando el final llega el MISMO día del clic —el rival te toma la
+  // base en su turno—: la barra todavía decía el «Tu turno» de antes del clic,
+  // con el día que tocaba, y la captura del final salía a mitad del turno del
+  // rival. Pasó al llegar el mapa de nodos, donde la partida acaba antes.
+  const acabada = espejo.state.finished !== null;
+  await page.waitForFunction(
+    ([esperado, soloElFinal]) => {
+      const turno = document.getElementById('turn')?.textContent ?? '';
+      const hoy = document.getElementById('day')?.textContent ?? '';
+      if (soloElFinal) return turno.startsWith('Partida');
+      return turno.startsWith('Partida') || (turno === 'Tu turno' && hoy === esperado);
+    },
+    [dia, acabada] as const,
+  );
 }
 
 // ------------------------------------------------------------ el mapa en píxeles
@@ -404,6 +452,15 @@ async function turnoDeBatalla(
       const b = await alcanzar(page, c.x);
       await page.mouse.click(b.x + c.x, b.y + c.y);
       espejo.playBattleAction(ia);
+    } else if (ia.type === 'cast') {
+      // La IA también lanza, y aquí no se le sigue: se defiende, en la página Y
+      // en el espejo. Antes caía al «Defender» de abajo con el espejo lanzando,
+      // y las dos partidas se separaban sin que nada lo dijera hasta el aviso de
+      // espera —no salió hasta que el mapa de nodos trajo otra batalla al
+      // móvil—. Lanzar a clics ya lo ejerce la jugada 2 en el escritorio; en el
+      // marco estrecho del móvil el objetivo puede quedar fuera.
+      await page.getByRole('button', { name: 'Defender' }).click();
+      espejo.playBattleAction({ type: 'defend' });
     } else if (ia.type === 'surrender') {
       // La IA puede elegir rendirse (fase 1b): se pulsa SU botón, no «Defender».
       await page.getByRole('button', { name: /Rendirse/ }).click();
@@ -511,11 +568,7 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
     await comprobar(page, espejo, 'pulsar al propio héroe');
   }
 
-  // La ruta: hacia la otra punta, que no se anda en un día.
-  const lejos = { x: 12, y: 10 };
-  const px = await mapa.pixel(lejos);
-  await page.mouse.move(px.x, px.y);
-  await sleep(200);
+  await rutaDoradaYGris(page, espejo, mapa);
   await captura(page, 'desktop-02-mapa-ruta-dorada-y-gris');
 
   // Zoom con la rueda y arrastre; luego «Centrar héroe» devuelve la vista.
@@ -585,7 +638,7 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
   await sleep(200);
 
   // Una batalla de varios individuos por bando, jugada a clics.
-  const monstruo = { x: 5, y: 2 };
+  const monstruo = await guardiaALaVista(page, mapa, espejo);
   await mapa.pulsar(monstruo);
   if (espejo.battle === null)
     throw new Error(`el espejo no ha entrado en batalla: ${espejo.status}`);
@@ -702,14 +755,67 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
   log(
     `fin: día ${espejo.state.day}, la barra dice «${turno}», el espejo ${espejo.desenlace ?? 'sigue'}`,
   );
+  await finContadoPorSuCausa(page, espejo);
   await captura(page, 'desktop-12-fin-de-partida');
   await page.close();
+}
+
+/**
+ * El fin de partida, contado por su causa de verdad (I1 de la QA de la 2a).
+ *
+ * Decía «no te quedan castillos ni héroes» con el héroe del derrotado todavía
+ * en el mapa, y esta pasada daba verde porque no leía el texto. Ahora la causa
+ * se mira **en el estado** —el derrotado no tiene base, o no tiene nada—, se
+ * exige que el hecho la diga igual, y la página tiene que contar esa y no otra.
+ */
+async function finContadoPorSuCausa(page: Page, espejo: Session): Promise<void> {
+  const desenlace = espejo.desenlace;
+  if (desenlace === null) {
+    throw new Error(`la partida no ha terminado en 60 días: el fin no se ha podido comprobar`);
+  }
+  if (desenlace !== 'ganada' && desenlace !== 'perdida') {
+    throw new Error(
+      `la partida ha acabado «${desenlace}», y esta pasada solo sabe mirar ganadas y perdidas`,
+    );
+  }
+  const winner = espejo.state.finished!.winner!;
+  const vencido = espejo.state.players.find((p) => p.id !== winner)!;
+  const sinBase = vencido.base !== null && baseOf(espejo.state, vencido.id) === null;
+  const real = sinBase ? 'lost_base' : 'nothing_left';
+  if (espejo.causaDelFinal !== real) {
+    throw new Error(
+      `el jugador ${vencido.id} ${sinBase ? 'ha perdido su base' : 'conserva su base'} y el hecho dice «${espejo.causaDelFinal}»`,
+    );
+  }
+  const dice = (await page.locator('#side .fin p:not(.eyebrow)').innerText()).trim();
+  // La frase se exige por lo que tiene que decir de la causa, no solo igual a
+  // la del cliente: compararla con `explicacionDeFin` a secas sería comparar el
+  // cliente consigo mismo, y la frase vieja habría pasado.
+  const esperada = explicacionDeFin(desenlace, real);
+  const exige =
+    real === 'lost_base'
+      ? desenlace === 'perdida'
+        ? 'tu base'
+        : 'la base rival'
+      : 'sin héroes y sin ciudades';
+  if (dice !== esperada || !dice.includes(exige)) {
+    throw new Error(
+      `fin de partida (${desenlace}, ${real}): la página dice «${dice}», y con esa causa tiene que decir «${exige}»`,
+    );
+  }
+  const barra = (await page.locator('#status').innerText()).trim();
+  if (barra !== espejo.status) {
+    throw new Error(`fin de partida: la barra dice «${barra}» y el espejo «${espejo.status}»`);
+  }
+  log(
+    `fin: ${desenlace} por ${real}, con ${heroesOf(espejo.state, vencido.id).length} héroe(s) del vencido en el mapa; el lateral dice «${dice}»`,
+  );
 }
 
 async function jugarMovil(browser: Browser, url: string, problemas: Problemas): Promise<void> {
   const { page, espejo, mapa } = await abrir(browser, url, problemas, {
     nombre: 'móvil',
-    semilla: SEMILLA,
+    semilla: SEMILLA_MOVIL,
     movil: true,
   });
   await captura(page, 'movil-01-mapa');
@@ -720,7 +826,7 @@ async function jugarMovil(browser: Browser, url: string, problemas: Problemas): 
   espejo.closeTown();
   await sleep(200);
   await comprobar(page, espejo, 'móvil: volver del castillo');
-  await mapa.pulsar({ x: 5, y: 2 });
+  await mapa.pulsar(await guardiaALaVista(page, mapa, espejo));
   if (espejo.battle === null)
     throw new Error(`móvil: el espejo no ha entrado en batalla: ${espejo.status}`);
   await esperarCola(espejo.battle.log);
@@ -738,6 +844,77 @@ async function jugarMovil(browser: Browser, url: string, problemas: Problemas): 
   }
   await captura(page, 'movil-04-batalla-jugada');
   await page.close();
+}
+
+/**
+ * Pasa el ratón por un destino cuya ruta tiene tramo de hoy y tramo de otro
+ * día **pintados**, y comprueba en el lienzo que se pintan (M4 de la QA de la
+ * 2a).
+ *
+ * Antes se apuntaba a la base del rival a ciegas: en el mapa de nodos cayó fuera
+ * del lienzo, la captura salía igual que la `01` y la pasada daba verde. Ahora
+ * el destino se elige con el espejo —que la ruta pintada, ya sin lo que cae en
+ * la niebla (M5), tenga los dos colores y quepa en pantalla—, y además se mira
+ * que un paso de la ruta que cae en la niebla **no** cambia: es la otra mitad
+ * de M5, vista en el lienzo y no solo en el test.
+ */
+async function rutaDoradaYGris(page: Page, espejo: Session, mapa: Mapa): Promise<void> {
+  const b = await caja(page);
+  const explorado = espejo.explorado;
+  if (explorado === null) throw new Error('ruta: el espejo lo ve todo y no hay niebla que mirar');
+  const dentro = (p: { x: number; y: number }) =>
+    p.x > b.x + 30 && p.x < b.x + b.width - 30 && p.y > b.y + 30 && p.y < b.y + b.height - 30;
+  let elegido: { destino: Point; pintados: number } | null = null;
+  for (const clave of explorado) {
+    const [x, y] = clave.split(',').map(Number) as [number, number];
+    const destino = { x, y };
+    const pintados = pasosAPintar(espejo.previewPath(destino), explorado);
+    if (!pintados.some((p) => p.hoy) || !pintados.some((p) => !p.hoy)) continue;
+    if (elegido !== null && pintados.length <= elegido.pintados) continue;
+    if (!dentro(await mapa.pixel(destino))) continue;
+    elegido = { destino, pintados: pintados.length };
+  }
+  if (elegido === null) {
+    throw new Error('ruta: no hay a la vista un destino explorado con tramo de hoy y de otro día');
+  }
+  const ruta = espejo.previewPath(elegido.destino);
+  const pintados = pasosAPintar(ruta, explorado);
+  const dorado = pintados.find((p) => p.hoy && p.marca === 'paso') ?? pintados.find((p) => p.hoy)!;
+  const gris =
+    pintados.find((p) => !p.hoy && p.marca !== 'destino') ?? pintados.find((p) => !p.hoy)!;
+  const oculto = ruta.find((r) => !explorado.has(`${r.at.x},${r.at.y}`));
+  const sitios = [dorado.at, gris.at, ...(oculto === undefined ? [] : [oculto.at])];
+  const enPagina = await Promise.all(sitios.map((p) => mapa.pixel(p)));
+  const antes = await Promise.all(
+    enPagina.map((p) => pixelesDelLienzo(page, p.x - b.x, p.y - b.y)),
+  );
+  const px = await mapa.pixel(elegido.destino);
+  await page.mouse.move(px.x, px.y);
+  await sleep(250);
+  const despues = await Promise.all(
+    enPagina.map((p) => pixelesDelLienzo(page, p.x - b.x, p.y - b.y)),
+  );
+  const cambio = antes.map((a, i) =>
+    a.reduce((t, v, j) => t + Math.abs(v - (despues[i]?.[j] ?? 0)), 0),
+  );
+  const dice = await page.locator('#status').innerText();
+  log(
+    `ruta a (${elegido.destino.x},${elegido.destino.y}): ${pintados.length} de ${ruta.length} pasos pintados; ` +
+      `dorado (${dorado.at.x},${dorado.at.y}) cambia ${cambio[0]}, gris (${gris.at.x},${gris.at.y}) ${cambio[1]}` +
+      (oculto === undefined ? '' : `, en la niebla (${oculto.at.x},${oculto.at.y}) ${cambio[2]}`) +
+      ` — «${dice}»`,
+  );
+  if (!dice.includes('dorado hoy, gris otro día')) throw new Error(`ruta: la barra dice «${dice}»`);
+  if ((cambio[0] ?? 0) < 2000 || (cambio[1] ?? 0) < 2000) {
+    throw new Error(
+      `ruta: el paso dorado cambia ${cambio[0]} y el gris ${cambio[1]}: no se ha pintado`,
+    );
+  }
+  if (oculto !== undefined && (cambio[2] ?? 0) > 200) {
+    throw new Error(
+      `ruta: el paso de la niebla (${oculto.at.x},${oculto.at.y}) cambia ${cambio[2]}: se pinta sobre lo desconocido`,
+    );
+  }
 }
 
 /**
@@ -760,8 +937,8 @@ async function jugarTactil(browser: Browser, url: string, problemas: Problemas):
   });
   const page = await contexto.newPage();
   vigilarConsola(page, 'táctil', problemas);
-  const espejo = new Session(SEMILLA);
-  await page.goto(`${url}/?seed=${SEMILLA}`, { waitUntil: 'networkidle' });
+  const espejo = new Session(SEMILLA_MOVIL);
+  await page.goto(`${url}/?seed=${SEMILLA_MOVIL}`, { waitUntil: 'networkidle' });
   await sleep(450);
   const mapa = new Mapa(page, espejo);
 
@@ -819,11 +996,12 @@ async function jugarTactil(browser: Browser, url: string, problemas: Problemas):
 
   // A la batalla de la semilla, desde el principio otra vez (el héroe ya ha
   // andado), con dos toques: el primero enseña, el segundo va.
-  await page.goto(`${url}/?seed=${SEMILLA}`, { waitUntil: 'networkidle' });
+  await page.goto(`${url}/?seed=${SEMILLA_MOVIL}`, { waitUntil: 'networkidle' });
   await sleep(450);
-  const otra = new Session(SEMILLA);
-  const monstruo = { x: 5, y: 2 };
-  const enMonstruo = await new Mapa(page, otra).pixel(monstruo);
+  const otra = new Session(SEMILLA_MOVIL);
+  const enOtra = new Mapa(page, otra);
+  const monstruo = await guardiaALaVista(page, enOtra, otra);
+  const enMonstruo = await enOtra.pixel(monstruo);
   await page.touchscreen.tap(enMonstruo.x, enMonstruo.y);
   await sleep(200);
   await page.touchscreen.tap(enMonstruo.x, enMonstruo.y);
@@ -903,21 +1081,49 @@ async function pixelesDelLienzo(page: Page, x: number, y: number): Promise<numbe
  * el tablero esa batalla se gana. Se buscó una que se pierda peleando y no
  * rindiéndose: la IA de reglas se rinde cuando pierde de largo.
  */
+/**
+ * La guardia más cercana a la que el héroe llega HOY y que se VE en el lienzo,
+ * por la ruta que enseña el cliente. Era una casilla escrita a mano —(5,2) en la
+ * semilla 2—, y el mapa de nodos la convirtió en cordillera: el guion se quedaba
+ * sin batalla. Lo de «se ve» es del móvil: allí el marco es estrecho, la más
+ * cercana caía fuera y el toque iba a otra parte mientras el espejo peleaba.
+ */
+async function guardiaALaVista(page: Page, mapa: Mapa, espejo: Session): Promise<Point> {
+  const b = await caja(page);
+  const candidatas: { at: Point; pasos: number }[] = [];
+  for (const o of espejo.state.map.objects) {
+    if (o.kind !== 'monster' || o.defeated) continue;
+    const ruta = espejo.previewPath(o.at);
+    if (ruta.length === 0 || !ruta.every((paso) => paso.hoy)) continue;
+    candidatas.push({ at: o.at, pasos: ruta.length });
+  }
+  candidatas.sort((x, y) => x.pasos - y.pasos);
+  for (const c of candidatas) {
+    const px = await mapa.pixel(c.at);
+    // Abajo, 110 px de margen y no 30: ahí van los botones de la cámara, y un
+    // toque que cae en el «+» hace zoom en vez de ir a la guardia.
+    const dentro =
+      px.x > b.x + 30 &&
+      px.x < b.x + b.width - 30 &&
+      px.y > b.y + 30 &&
+      px.y < b.y + b.height - 110;
+    if (dentro) return c.at;
+  }
+  throw new Error('no hay a la vista ninguna guardia a la que se llegue hoy');
+}
+
 async function batallaPerdida(browser: Browser, url: string, problemas: Problemas): Promise<void> {
   const { page, espejo, mapa } = await abrir(browser, url, problemas, {
     nombre: 'batalla perdida',
-    semilla: 6,
+    // La 4 y no la 6: con el mapa de nodos la guardia más cercana de la 6 cae
+    // y la de la 4 (cinco arqueros) gana. Se busca igual que las demás.
+    semilla: SEMILLA_QUE_PIERDE,
   });
-  const heroe = espejo.selectedHero!;
-  const guardia = espejo.state.map.objects
-    .filter((o) => o.kind === 'monster')
-    .sort(
-      (a, b) =>
-        Math.max(Math.abs(a.at.x - heroe.at.x), Math.abs(a.at.y - heroe.at.y)) -
-        Math.max(Math.abs(b.at.x - heroe.at.x), Math.abs(b.at.y - heroe.at.y)),
-    )[0]!;
+  const guardia = { at: await guardiaALaVista(page, mapa, espejo) };
   await mapa.pulsar(guardia.at);
-  if (espejo.battle === null) throw new Error(`semilla 7: no hubo batalla: ${espejo.status}`);
+  if (espejo.battle === null) {
+    throw new Error(`semilla ${SEMILLA_QUE_PIERDE}: no hubo batalla: ${espejo.status}`);
+  }
   await esperarCola(espejo.battle.log);
   await captura(page, 'desktop-13-batalla-que-se-pierde');
   await page.getByRole('button', { name: 'Resolver sola' }).click();
@@ -926,7 +1132,7 @@ async function batallaPerdida(browser: Browser, url: string, problemas: Problema
   await comprobar(page, espejo, 'resolver la batalla perdida');
   const final = [...espejo.state.log].reverse().find((e) => e.kind === 'battle_ended');
   const perdida = final?.kind === 'battle_ended' && final.winner === 'defender';
-  log(`batalla de la semilla 6: ${perdida ? 'PERDIDA' : 'ganada'}`);
+  log(`batalla de la semilla ${SEMILLA_QUE_PIERDE}: ${perdida ? 'PERDIDA' : 'ganada'}`);
   if (!perdida) throw new Error('la batalla que debía perderse se ha ganado: cambia de guardia');
   // El héroe derrotado vuelve a la base: en el castillo, sin tropa y sin
   // movimiento, y la crónica lo cuenta en ese orden.
@@ -967,7 +1173,7 @@ async function sinArte(browser: Browser, url: string, problemas: Problemas): Pro
     sinImagenes: /\/(rpg|characters)\/.*\.(png|webp)$/,
   });
   await captura(page, 'sin-arte-01-mapa');
-  await mapa.pulsar({ x: 5, y: 2 });
+  await mapa.pulsar(await guardiaALaVista(page, mapa, espejo));
   if (espejo.battle !== null) {
     await esperarCola(espejo.battle.log);
     await captura(page, 'sin-arte-02-batalla');

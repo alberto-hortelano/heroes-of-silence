@@ -44,8 +44,10 @@ import {
   pathFromReachable,
   pointKey,
   type Reachable,
+  reachableFrom,
   visibleFrom,
 } from '../map/map.js';
+import { territorio } from '../map/regiones.js';
 import type { Rng } from '../rng.js';
 import type { Character } from '../rpg/character.js';
 import { combatProfile } from '../rpg/stats.js';
@@ -56,6 +58,7 @@ import {
   mageGuildLevel,
   moraleFromBuildings,
   payRecruit,
+  primeraCiudadDe,
   recruitBlocker,
   recruitCost,
   type Town,
@@ -111,7 +114,10 @@ export interface RememberedObject {
   readonly object: MapObject;
 }
 
-/** Producción diaria de cada tipo de mina. */
+/**
+ * Producción diaria de cada tipo de mina, para el dueño de su región si está
+ * unida a su base (`startTurn`).
+ */
 export const MINE_YIELD: Readonly<Record<ResourceKind, number>> = {
   gold: 1000,
   wood: 2,
@@ -442,7 +448,7 @@ export function createGame(config: GameConfig): GameState {
     fog: new Set<string>(),
     memory: new Map<string, RememberedObject>(),
     defeated: false,
-    base: config.towns.find((t) => t.owner === p.id)?.id ?? null,
+    base: primeraCiudadDe(config.towns, p.id)?.id ?? null,
   }));
 
   const state: GameState = {
@@ -604,6 +610,16 @@ export function visibleNowAt(state: GameState, playerId: PlayerId, q: Point): bo
  * comentada en vez de repartida por diecinueve sitios.
  */
 function emit(state: GameState, draft: GameEventDraft): void {
+  // «`game_over` es el último hecho» es una regla del núcleo y no una
+  // costumbre de los bucles: un hecho escrito después del final lanza aquí,
+  // donde se escribe, en vez de esperar a que lo vea el invariante de la
+  // crónica en las semillas que lo pisen. Los `return` de los bucles se quedan:
+  // son los que hacen que no se llegue aquí.
+  if (state.finished !== null && draft.kind !== 'game_over') {
+    throw new Error(
+      `la partida ya ha terminado y se iba a escribir "${draft.kind}" después del final`,
+    );
+  }
   const sitio = draft.at;
   const seen: PlayerId[] = [];
   // Un hecho sin sitio no lo observa nadie, y no es un agujero: los cuatro que
@@ -622,14 +638,27 @@ function startTurn(state: GameState): void {
   const player = currentPlayer(state);
   emit(state, { kind: 'turn_start', actor: player.id, at: null });
 
-  // Ingresos del día: ayuntamientos y minas.
+  // Ingresos del día: lo que está UNIDO A LA BASE, y nada más (fase 2a).
+  //
+  // Una ciudad cobra su ayuntamiento solo si sigue conectada; una mina produce
+  // para el dueño de su región solo si esa región es suya **y** está conectada
+  // —el usuario corrigió aquí el plan: «una región cerrada pero desconectada de
+  // la base NO da renta»—. Las dos preguntas salen de UNA búsqueda desde la
+  // base (la foto de `territorio`), y por eso cortar un nodo se nota en todo
+  // lo que colgaba detrás a la vez, sin que nadie tenga que apuntar nada.
+  const { red, conexion: conexiones } = territorio(state);
+  const conexion = conexiones.get(player.id);
+  if (conexion === undefined)
+    throw new Error(`el jugador ${player.id} no está en la foto del territorio`);
   let income = { ...EMPTY_RESOURCES };
   for (const town of townsOf(state, player.id)) {
-    income = addResources(income, { gold: dailyIncome(town) });
+    if (conexion.nodos.has(town.id)) income = addResources(income, { gold: dailyIncome(town) });
     town.builtToday = false;
   }
   for (const obj of state.map.objects) {
-    if (obj.kind === 'mine' && obj.owner === player.id) {
+    if (obj.kind !== 'mine') continue;
+    const region = red.regionDe[obj.at.y * state.map.width + obj.at.x] as number;
+    if (conexion.regiones.has(region)) {
       income = addResources(income, { [obj.resource]: MINE_YIELD[obj.resource] });
     }
   }
@@ -718,15 +747,29 @@ function finishGame(state: GameState, winner: PlayerId | null): void {
   emit(state, { kind: 'game_over', actor: winner, at: null });
 }
 
-/** Un jugador sin pueblos ni héroes está eliminado. */
+/**
+ * Un jugador está eliminado en cuanto **pierde su base**, aunque le queden
+ * héroes o ciudades. Es la regla de victoria de NuevaJugabilidad —«se gana
+ * tomando las bases rivales»—, que el usuario adelantó de la fase 3 al ver la
+ * fase 2a: la base es la única ciudad donde se reaparece y de la que cuelga
+ * toda la renta (`territorio`), así que perderla es perder la partida.
+ *
+ * La otra mitad, sin héroes y sin castillos, se queda para quien **no tuvo
+ * nunca** base (`Player.base === null`), que solo dan los estados de prueba:
+ * con base, quedarse sin castillos ya es haberla perdido.
+ */
 function checkDefeat(state: GameState): void {
   for (const player of state.players) {
     if (player.defeated) continue;
-    const sinHeroes = heroesOf(state, player.id).length === 0;
-    const sinPueblos = townsOf(state, player.id).length === 0;
-    if (sinHeroes && sinPueblos) {
+    const perdioLaBase = player.base !== null && baseOf(state, player.id) === null;
+    const sinNada =
+      heroesOf(state, player.id).length === 0 && townsOf(state, player.id).length === 0;
+    if (perdioLaBase || sinNada) {
       player.defeated = true;
-      emit(state, { kind: 'player_defeated', actor: player.id, at: null });
+      // Con las dos a la vez manda la base: es la regla de la partida, y la
+      // otra solo existe para quien nunca tuvo base.
+      const reason = perdioLaBase ? 'lost_base' : 'nothing_left';
+      emit(state, { kind: 'player_defeated', reason, actor: player.id, at: null });
     }
   }
   const vivos = state.players.filter((p) => !p.defeated);
@@ -904,10 +947,10 @@ function aplicar(
 
       player.resources = payRecruit(town, action.creature, action.count, player.resources);
       const hero = destino.hero;
-      if (hero !== undefined) {
-        hero.army = ampliado;
-        hero.movePoints = Math.min(hero.movePoints, maxMovePoints(hero, state.characters));
-      } else {
+      // Reclutar no toca los puntos de hoy: se fijan al empezar el día
+      // (`startTurn`), y la tropa nueva cuenta a partir de mañana.
+      if (hero !== undefined) hero.army = ampliado;
+      else {
         town.garrison = ampliado;
       }
       emit(state, {
@@ -982,6 +1025,13 @@ function hireHero(state: GameState, townId: string): void {
  * liderazgo y en su cupo de individuos, en orden; lo que no cabe se queda
  * guardando el pueblo en vez de desaparecer. No lanza: entrar en casa no es
  * pedir tropa.
+ *
+ * **No toca los puntos de movimiento.** Los del día se fijan al empezarlo
+ * (`startTurn`) con la tropa que se tenía, y lo que se una después —esta tropa
+ * o la que se recluta— cuenta desde mañana. Antes se recortaban aquí al de la
+ * criatura más lenta, y eso hacía que recoger tropa de paso dejara sin puntos
+ * una marcha ya cobrada: había que distinguir pasar de llegar. Regla de juego
+ * por verificar contra fheroes2; no se cita como suya.
  */
 function takeGarrison(state: GameState, hero: Hero, town: Town): void {
   if (town.owner !== hero.owner) return;
@@ -990,7 +1040,6 @@ function takeGarrison(state: GameState, hero: Hero, town: Town): void {
   if (dentro.length === 0) return;
   hero.army = [...hero.army, ...dentro];
   town.garrison = fuera;
-  hero.movePoints = Math.min(hero.movePoints, maxMovePoints(hero, state.characters));
   emit(state, {
     kind: 'garrison_taken',
     hero: hero.id,
@@ -998,6 +1047,107 @@ function takeGarrison(state: GameState, hero: Hero, town: Town): void {
     actor: hero.owner,
     at: town.at,
   });
+}
+
+/**
+ * Las casillas que un héroe de `player` puede **alcanzar pero no cruzar**: lo
+ * que `enemyAt` da por batalla y el mapa no sabe —un héroe ajeno y un castillo
+ * ajeno con guarnición—. Los monstruos ya los bloquea el mapa.
+ *
+ * Existe para que nadie se meta en una batalla que no eligió a mitad de un
+ * paso estrecho: con los pasos de la red, un héroe plantado junto a uno es una
+ * batalla para todo el que lo cruce, y la semilla 54 del barrido no terminaba
+ * —248 derrotas chocando en el mismo paso—. Antes el Dijkstra los cruzaba y
+ * solo la IA se defendía, con
+ * una segunda pasada por la cadena de predecesores de cada candidato
+ * descartando lo que pasara por encima de uno: 147 de los 209 ms de
+ * `chooseHeroDestination`, y la persona y el agente sin la misma defensa.
+ */
+export function casillasHostiles(state: GameState, player: PlayerId): Point[] {
+  const out: Point[] = [];
+  for (const h of state.heroes) if (h.owner !== player) out.push(h.at);
+  for (const t of state.towns) if (t.owner !== player && t.garrison.length > 0) out.push(t.at);
+  return out;
+}
+
+/**
+ * Todo lo que alcanza un héroe desde donde está, con lo hostil de la partida
+ * (`casillasHostiles`) como final de trayecto. Es el alcance de la IA y de
+ * quien quiera mirar a dónde llega un héroe.
+ */
+export function alcanceDelHeroe(state: GameState, hero: Hero): Reachable {
+  return reachableFrom(state.map, hero.at, casillasHostiles(state, hero.owner));
+}
+
+/**
+ * El camino de un héroe hasta `to`, con lo hostil como final de trayecto: el
+ * mismo que va a andar `move_hero`. Lo pide la pantalla para enseñar la ruta.
+ */
+export function caminoHasta(state: GameState, hero: Hero, to: Point): PathStep[] | null {
+  return caminoEsquivando(state, hero, to, casillasHostiles(state, hero.owner));
+}
+
+/**
+ * El Dijkstra del héroe con una lista de hostiles **elegida a mano**. No se
+ * exporta, y es a propósito: fuera de aquí la lista es siempre la de la partida
+ * (`caminoHasta`), y con esta abierta cualquiera podría pasarle `[]` y cruzar
+ * por encima de una guarnición. Solo la usa, además, `porQueNoLlega`, que
+ * necesita preguntar «¿y si este no estuviera?» para saber a quién culpar.
+ */
+function caminoEsquivando(
+  state: GameState,
+  hero: Hero,
+  to: Point,
+  hostiles: readonly Point[],
+): PathStep[] | null {
+  return findPath(state.map, hero.at, to, hostiles);
+}
+
+/**
+ * Por qué `hero` no llega a `to`, en una frase para la persona, o el agente.
+ *
+ * Decía siempre «no hay camino hasta (x,y)», y con «lo hostil se alcanza pero
+ * no se cruza» eso es falso a la vista: el camino existe, lo cierra una ciudad
+ * guarnecida o un héroe rival plantado en el paso (M2 de la QA de la 2a).
+ * Ahora se nombra quién. Se pregunta en tres pasos, y solo cuando ya se sabe
+ * que no hay camino, así que el coste lo paga el rechazo y no la marcha:
+ *
+ *  1. Sin nada hostil, ¿se llega? Si no, el mapa no da paso y no hay a quién
+ *     culpar.
+ *  2. Lo hostil que el héroe **alcanza**: lo que tiene delante.
+ *  3. De eso, lo que basta quitar para pasar. Si nada basta solo —dos héroes
+ *     guardando los dos pasos de una región—, son todos los de delante.
+ */
+export function porQueNoLlega(state: GameState, hero: Hero, to: Point): string {
+  const frase = `no hay camino hasta (${to.x},${to.y})`;
+  if (caminoEsquivando(state, hero, to, []) === null) return frase;
+  const hostiles = casillasHostiles(state, hero.owner);
+  const alcance = alcanceDelHeroe(state, hero);
+  const delante = hostiles.filter((h) => alcance.costs.has(pointKey(h)));
+  const bastan = delante.filter(
+    (h) =>
+      caminoEsquivando(
+        state,
+        hero,
+        to,
+        hostiles.filter((o) => pointKey(o) !== pointKey(h)),
+      ) !== null,
+  );
+  const cierran = (bastan.length > 0 ? bastan : delante).map((at) => queLoCierra(state, hero, at));
+  if (cierran.length === 0) return frase;
+  const lista =
+    cierran.length === 1 ? cierran[0] : `${cierran.slice(0, -1).join(', ')} y ${cierran.at(-1)}`;
+  return `${frase}: ${cierran.length === 1 ? 'lo cierra' : 'lo cierran'} ${lista}`;
+}
+
+/** Qué hostil hay en esa casilla, con nombre: el héroe va antes, como en `enemyAt`. */
+function queLoCierra(state: GameState, hero: Hero, at: Point): string {
+  const donde = `en (${at.x},${at.y})`;
+  const rival = state.heroes.find((h) => h.owner !== hero.owner && pointKey(h.at) === pointKey(at));
+  if (rival !== undefined) return `el héroe rival ${rival.name} ${donde}`;
+  const ciudad = state.towns.find((t) => pointKey(t.at) === pointKey(at));
+  if (ciudad !== undefined) return `la ciudad ${ciudad.name}, con guarnición, ${donde}`;
+  throw new Error(`(${at.x},${at.y}) se tiene por hostil y no hay en ella ni héroe ni ciudad`);
 }
 
 /**
@@ -1020,7 +1170,7 @@ function caminoDelHeroe(
   to: Point,
   alcance: Reachable | undefined,
 ): PathStep[] | null {
-  if (alcance === undefined) return findPath(state.map, hero.at, to);
+  if (alcance === undefined) return caminoHasta(state, hero, to);
   if (alcance.costs.get(pointKey(hero.at)) !== 0) {
     throw new Error(
       `el alcance que traes no sale de donde está ${hero.name}: (${hero.at.x},${hero.at.y})`,
@@ -1041,7 +1191,7 @@ function moveHero(
   if (hero.owner !== player.id) throw new Error('ese héroe no es tuyo');
 
   const camino = caminoDelHeroe(state, hero, to, alcance);
-  if (camino === null) throw new Error(`no hay camino hasta (${to.x},${to.y})`);
+  if (camino === null) throw new Error(porQueNoLlega(state, hero, to));
   if (camino.length === 0) return;
 
   for (let i = 0; i < camino.length; i++) {
@@ -1071,10 +1221,30 @@ function moveHero(
       at: paso.at,
     });
     collectAt(state, hero, paso.at);
+    // Desde que el castillo no bloquea, se puede tomar la base del rival a
+    // MITAD de camino, y eso acaba la partida: seguir andando escribiría
+    // `hero_moved` debajo del `game_over`, que `emit` ya no deja escribir.
+    if (state.finished !== null) return;
   }
 }
 
-/** Qué hay de hostil en esa casilla, si algo. */
+/**
+ * Qué hay de hostil en esa casilla, si algo.
+ *
+ * **El héroe va antes que la ciudad, y es una regla decidida, no un orden de
+ * comprobación**: si atacan una ciudad con el héroe del dueño dentro, defiende
+ * **solo el héroe con su tropa** (`defenderSide`), y esa batalla es la final.
+ * Si pierde, `applyVictory` captura la ciudad, `captureTown` se lleva la
+ * guarnición que no llegó a pelear y, si era la base, `checkDefeat` elimina a su
+ * dueño. La guarnición que no viaja con él no pelea; quien la quiera en la
+ * batalla la recoge en su tropa al pasar por casa.
+ *
+ * QA la señaló como fallo (I2 de la 2a: la guarnición inicial se queda fuera
+ * justo cuando el dueño vuelve a defender) y el usuario la confirmó con estas
+ * palabras: «Solo el heroe con su tropa, es la batalla final (si pierde)». La
+ * fija un test de `game.test.ts`; sumar la guarnición al héroe es otra
+ * decisión, suya.
+ */
 function enemyAt(state: GameState, at: Point, player: PlayerId): BattleFoe | null {
   const obj = objectAt(state.map, at);
   if (obj !== undefined && obj.kind === 'monster' && !obj.defeated) {
@@ -1094,7 +1264,14 @@ function enemyAt(state: GameState, at: Point, player: PlayerId): BattleFoe | nul
   return null;
 }
 
-/** Recoge lo que haya en la casilla: recursos, cofres, minas y pueblos vacíos. */
+/**
+ * Lo que pasa al pisar una casilla: se recogen recursos y cofres, se toma el
+ * nodo y se toma el castillo vacío (o se recoge su tropa, si es tuyo).
+ *
+ * Corre en **cada casilla del camino**, no solo en la última, y es lo que hace
+ * que un nodo se tome cruzándolo y que la tropa de casa se recoja al pasar. La
+ * mina y el pueblo ya no hacen nada aquí: son de quien tenga su región.
+ */
 function collectAt(state: GameState, hero: Hero, at: Point): void {
   const player = playerById(state, hero.owner);
   const obj = objectAt(state.map, at);
@@ -1127,21 +1304,8 @@ function collectAt(state: GameState, hero: Hero, at: Point): void {
           });
         }
         break;
-      case 'mine':
-        if (obj.owner !== player.id) {
-          // De quién era se lee ANTES de escribir el dueño nuevo: después ya no
-          // hay a quién preguntárselo. Lo escribe quien captura, que es el
-          // único que lo sabe sin adivinar.
-          const anterior = obj.owner;
-          obj.owner = player.id;
-          emit(state, {
-            kind: 'mine_captured',
-            mine: obj.id,
-            from: anterior,
-            actor: player.id,
-            at: obj.at,
-          });
-        }
+      case 'node':
+        if (obj.owner !== player.id) captureNode(state, obj, player.id);
         break;
       default:
         break;
@@ -1150,9 +1314,33 @@ function collectAt(state: GameState, hero: Hero, at: Point): void {
 
   const pueblo = state.towns.find((t) => pointKey(t.at) === pointKey(at));
   if (pueblo !== undefined) {
-    if (pueblo.owner !== player.id) captureTown(state, pueblo, player.id);
+    if (pueblo.owner !== player.id) {
+      captureTown(state, pueblo, player.id);
+      checkDefeat(state);
+    }
+    // La tropa de casa se recoge también al pasar: desde que los puntos del día
+    // no los recorta la tropa nueva (`takeGarrison`), recogerla de camino ya no
+    // deja sin puntos una marcha cobrada.
     else takeGarrison(state, hero, pueblo);
   }
+}
+
+/**
+ * Cambia de dueño un nodo de la red. **El único escritor de `node.owner`**: es
+ * la regla de «un hecho, un sitio», y aquí es más fácil que con el castillo
+ * porque el nodo tiene una sola cara —el objeto del mapa— y no dos.
+ *
+ * De quién era se lee ANTES de escribir el dueño nuevo: después ya no hay a
+ * quién preguntárselo, y es el dato con el que su dueño de ayer se entera.
+ */
+function captureNode(
+  state: GameState,
+  nodo: Extract<MapObject, { kind: 'node' }>,
+  player: PlayerId,
+): void {
+  const anterior = nodo.owner;
+  nodo.owner = player;
+  emit(state, { kind: 'node_captured', node: nodo.id, from: anterior, actor: player, at: nodo.at });
 }
 
 /**
@@ -1189,7 +1377,11 @@ function captureTown(state: GameState, town: Town, player: PlayerId): void {
     actor: player,
     at: town.at,
   });
-  checkDefeat(state);
+  // Sin `checkDefeat` aquí, y es a propósito: la captura es UNA parte de lo que
+  // pasa, y quien la llama comprueba la derrota al acabar lo suyo. Tomar la base
+  // con su héroe dentro es capturar **y después** derrotar al héroe; si la
+  // derrota se mirase aquí, `game_over` saldría antes que `hero_defeated`, y
+  // eso `emit` ya no lo deja escribir.
 }
 
 // ---------------------------------------------------------------- batallas
@@ -1289,6 +1481,11 @@ function restoreHeroFromBattle(mapHero: Hero, battleHero: BattleHero | null, arm
   if (battleHero !== null) mapHero.mana = battleHero.mana;
 }
 
+/**
+ * El bando que defiende. Con un héroe, **su tropa y nada más**, también dentro
+ * de su propia ciudad: la guarnición no se suma. Es la regla decidida por el
+ * usuario que cuenta `enemyAt` (I2 de la 2a), no una rama que falte.
+ */
 function defenderSide(state: GameState, foe: BattleFoe): BattleSide {
   switch (foe.kind) {
     case 'monster': {

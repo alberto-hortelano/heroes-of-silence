@@ -30,6 +30,13 @@ export type BattleFoe =
   | { readonly kind: 'town'; readonly townId: string };
 
 /**
+ * Por qué queda eliminado un jugador. `lost_base` es la regla de la partida:
+ * perder la base elimina aunque queden héroes y ciudades. `nothing_left` es la
+ * de quien no tuvo nunca base, que solo dan los estados de prueba.
+ */
+export type DefeatReason = 'lost_base' | 'nothing_left';
+
+/**
  * Añade `X` a cada miembro de la unión, uno a uno.
  *
  * El `T extends unknown` no filtra nada: está para que TypeScript **distribuya**
@@ -73,13 +80,17 @@ type Sello = {
   readonly seen: readonly PlayerId[];
 };
 
-/** Los dieciocho hechos, sin protagonista todavía. */
+/** Los hechos, sin protagonista todavía. */
 type Cuerpo =
   | { kind: 'day_start'; day: number; week: number }
   | { kind: 'turn_start' }
   | { kind: 'hero_moved'; hero: string; to: Point; spent: number }
   | { kind: 'resource_gained'; resource: ResourceKind; amount: number }
-  | { kind: 'mine_captured'; mine: string; from: PlayerId | null }
+  /**
+   * Un nodo de la red cambia de dueño al pisarlo (fase 2a). Sustituye a
+   * `mine_captured`: la mina ya no se toma, es de quien tenga su región.
+   */
+  | { kind: 'node_captured'; node: string; from: PlayerId | null }
   | { kind: 'town_captured'; town: string; from: PlayerId | null }
   | { kind: 'built'; town: string; building: string }
   | { kind: 'recruited'; town: string; creature: string; count: number }
@@ -102,7 +113,14 @@ type Cuerpo =
   | { kind: 'hero_returned'; hero: string; town: string; surrendered: false }
   | { kind: 'hero_returned'; hero: string; town: string; surrendered: true; gold: number }
   | { kind: 'level_up'; hero: string; level: number }
-  | { kind: 'player_defeated' }
+  /**
+   * Un jugador queda eliminado, y **por qué**. Sin el motivo, el cliente
+   * escribía la regla de antes del mapa de nodos —«no te quedan castillos ni
+   * héroes»— con el héroe del derrotado todavía en el mapa (I1 de la 2a): la
+   * causa la decide `checkDefeat`, y quien la cuente tiene que leerla de aquí
+   * en vez de suponerla.
+   */
+  | { kind: 'player_defeated'; reason: DefeatReason }
   | { kind: 'game_over' };
 
 /** Lo que escribe quien aplica la regla: el hecho, con su protagonista y su sitio. */
@@ -154,9 +172,9 @@ export type GameEvent = Con<Cuerpo, Origen & Sello>;
  * muerto, que ya no está en `state.heroes`, y por eso los dos van por las
  * cláusulas de «siempre».
  *
- * Una mina propia capturada lejos **no** entra en esa excepción: el original no
- * te avisa, y el contrato ya enseña a leer la señal —una mina tuya que dejó de
- * dar recursos es que allí ha pasado algo—.
+ * Un nodo propio tomado lejos **no** entra en esa excepción, como no entraba la
+ * mina a la que sustituye: no te avisa nadie, y la señal es la renta —una
+ * región que deja de dar recursos es que alguien ha cortado un paso—.
  */
 export function visibleTo(e: GameEvent, p: PlayerId): boolean {
   switch (e.kind) {
@@ -171,7 +189,7 @@ export function visibleTo(e: GameEvent, p: PlayerId): boolean {
 
     case 'hero_moved':
     case 'resource_gained':
-    case 'mine_captured':
+    case 'node_captured':
     case 'built':
     case 'recruited':
     case 'hero_hired':

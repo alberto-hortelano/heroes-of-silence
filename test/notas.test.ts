@@ -251,7 +251,7 @@ describe('notas para el agente', () => {
   it('y el plan que entra se acusa, corto, como cualquier acierto', () => {
     const nota = notaMapaAceptado(24, 24, 2);
     expect(nota).toContain('24×24');
-    expect(nota).toContain('2 pueblos');
+    expect(nota).toContain('2 ciudades');
   });
 });
 
