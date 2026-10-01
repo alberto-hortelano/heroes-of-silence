@@ -11,6 +11,13 @@ import { effectiveLuck } from '../battle/effects.js';
 import type { BattleState, Side } from '../battle/types.js';
 import { creature, isShooter } from '../data.js';
 import { maxMana, maxMovePoints } from '../hero/hero.js';
+import {
+  armyLeadership,
+  GARRISON_LEADERSHIP,
+  heroLeadership,
+  type Personajes,
+  troopSummary,
+} from '../hero/troop.js';
 import { pointFromKey, pointKey } from '../map/map.js';
 import { costeDeEntrada, isWalkable, TERRAIN_KINDS } from '../map/terrain.js';
 import { cronicaPara } from '../state/events.js';
@@ -26,19 +33,24 @@ import {
 import type { Army, PlayerId } from '../types.js';
 import { RESOURCE_KINDS } from '../types.js';
 
-function armyView(army: Army): { slot: number; creature: string; count: number; speed: string }[] {
-  return army.flatMap((stack, slot) =>
-    stack === null
-      ? []
-      : [
-          {
-            slot,
-            creature: stack.creature,
-            count: stack.count,
-            speed: creature(stack.creature).speed,
-          },
-        ],
-  );
+/**
+ * El ejército tal como lo lee el agente: agrupado por criatura, con cuántos
+ * individuos lleva de cada una. Agrupa `troopSummary`, que es el único sitio
+ * que lo hace; un personaje va en su propia fila, con su `member` y su
+ * velocidad, que es la de su perfil y no la de ningún catálogo.
+ *
+ * Ya no lleva `slot`: con la tropa de individuos no hay huecos que numerar.
+ */
+function armyView(
+  army: Army,
+  characters: Personajes,
+): { creature: string; member?: string; count: number; speed: string }[] {
+  return troopSummary(army, characters).map((g) => ({
+    creature: g.creature,
+    ...(g.member === undefined ? {} : { member: g.member }),
+    count: g.count,
+    speed: g.unit.speed,
+  }));
 }
 
 /**
@@ -278,7 +290,7 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId): un
       // nuevo que el contrato no nombra es un dato que el agente no mira.
       level: h.level,
       movePoints: h.movePoints,
-      maxMovePoints: maxMovePoints(h),
+      maxMovePoints: maxMovePoints(h, state.characters),
       attack: h.attack,
       defense: h.defense,
       spellPower: h.spellPower,
@@ -287,7 +299,11 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId): un
       // Sin esto el agente decide adónde caminar sin saber qué sabe su héroe: la
       // batalla le ofrece los `cast` legales, pero para entonces ya ha elegido.
       spells: h.spells,
-      army: armyView(h.army),
+      army: armyView(h.army, state.characters),
+      // Lo que ocupa su ejército y su tope. El tope crece con el nivel y un
+      // `recruit` que se pase se rechaza: sin las dos cifras delante, el agente
+      // solo se enteraría al leer el veredicto.
+      leadership: { used: armyLeadership(h.army), max: heroLeadership(h) },
     })),
     towns: townsOf(state, playerId).map((t) => ({
       id: t.id,
@@ -309,8 +325,10 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId): un
         creature: id,
         available: t.available[id] ?? 0,
         cost: creature(id).cost,
+        leadership: creature(id).leadership,
       })),
-      garrison: armyView(t.garrison),
+      garrison: armyView(t.garrison, state.characters),
+      garrisonLeadership: { used: armyLeadership(t.garrison), max: GARRISON_LEADERSHIP },
     })),
     // Solo lo que este jugador ha OBSERVADO, y tal como lo observó. El agente no
     // ve por las paredes, y tampoco ve el futuro de una casilla que dejó atrás:
@@ -331,7 +349,12 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId): un
     // sin tener a nadie cerca.
     enemyHeroes: state.heroes
       .filter((h) => h.owner !== playerId && observado(h.at))
-      .map((h) => ({ id: h.id, owner: h.owner, at: h.at, army: armyView(h.army) })),
+      .map((h) => ({
+        id: h.id,
+        owner: h.owner,
+        at: h.at,
+        army: armyView(h.army, state.characters),
+      })),
     // La crónica pasa por la niebla, igual que el mapa desde #35: antes iba el
     // log ENTERO y el agente le seguía los pasos al rival leyendo su diario. La
     // regla completa —a quién le consta, cuántos caben y el sello que se queda

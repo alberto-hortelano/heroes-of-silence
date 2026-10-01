@@ -8,7 +8,7 @@
  */
 
 import { once } from 'node:events';
-import { creature } from '@core/data.js';
+import { troopSummary } from '@core/hero/troop.js';
 import { parseSeed } from '@core/rng.js';
 import type { PlayerId } from '@core/types.js';
 import { type WebSocket, WebSocketServer } from 'ws';
@@ -203,8 +203,8 @@ async function jugar(director: Director): Promise<void> {
     const heroes = state.heroes.filter((h) => h.owner === p.id);
     const pueblos = state.towns.filter((t) => t.owner === p.id);
     const tropas = heroes
-      .flatMap((h) => h.army.filter((s) => s !== null))
-      .map((s) => `${s!.count}×${creature(s!.creature).name}`)
+      .flatMap((h) => troopSummary(h.army, state.characters))
+      .map((g) => `${g.count}×${g.unit.name}`)
       .join(', ');
     console.log(
       `  jugador ${p.id} (${p.faction}): ${pueblos.length} castillos, ${heroes.length} héroes` +

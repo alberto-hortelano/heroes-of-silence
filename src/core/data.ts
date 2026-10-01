@@ -1,5 +1,6 @@
 /** Catálogo de criaturas: carga `data/creatures.json` y lo tipa. */
 import creaturesJson from '../../data/creatures.json' with { type: 'json' };
+import liderazgoJson from '../../data/liderazgo.json' with { type: 'json' };
 import type { Creature, CreatureTrait, FactionId, SpeedTier, UnitInfo } from './types.js';
 
 const byId = new Map<string, Creature>();
@@ -9,6 +10,7 @@ for (const raw of creaturesJson.creatures) {
     id: raw.id,
     faction: raw.faction as FactionId,
     level: raw.level,
+    leadership: raw.leadership,
     name: raw.name,
     attack: raw.attack,
     defense: raw.defense,
@@ -59,3 +61,23 @@ export function isShooter(c: UnitInfo): boolean {
 export function hexSize(c: UnitInfo): number {
   return c.hexes ?? 1;
 }
+
+/**
+ * Las reglas del liderazgo, de `data/liderazgo.json`. **Provisionales**: las
+ * cifras las define el usuario cuando cierre la economía, y por eso viven en
+ * datos y no en el código.
+ */
+export interface ReglasDeLiderazgo {
+  /** Tope de un héroe: `base + porNivel × (nivel − 1)`, sin pasar de `max`. */
+  readonly heroe: { readonly base: number; readonly porNivel: number; readonly max: number };
+  /** Tope de la tropa que guarda un castillo sin héroe. */
+  readonly guarnicion: number;
+  /** Lo que ocupa un personaje (`Troop.member`), que no está en el catálogo. */
+  readonly personaje: number;
+}
+
+export const LIDERAZGO: ReglasDeLiderazgo = {
+  heroe: { ...liderazgoJson.heroe },
+  guarnicion: liderazgoJson.guarnicion,
+  personaje: liderazgoJson.personaje,
+};

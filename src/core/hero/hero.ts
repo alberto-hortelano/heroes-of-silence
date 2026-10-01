@@ -1,7 +1,7 @@
 /** Héroes: atributos, ejército y movimiento diario. */
-import { creature } from '../data.js';
-import type { Army, FactionId, PlayerId, Point, SpeedTier, Stack } from '../types.js';
-import { MAX_ARMY_SLOTS, SPEED_TO_MOVE_POINTS } from '../types.js';
+import type { Army, FactionId, PlayerId, Point, SpeedTier } from '../types.js';
+import { SPEED_TO_MOVE_POINTS } from '../types.js';
+import { type Personajes, troopUnit } from './troop.js';
 
 /** Habilidades secundarias del slice. Cada una en básico/avanzado/experto. */
 export type SkillId = 'logistics' | 'pathfinding' | 'wisdom' | 'leadership' | 'luck';
@@ -31,13 +31,18 @@ export function maxMana(hero: Pick<Hero, 'knowledge'>): number {
   return hero.knowledge * 10;
 }
 
-/** La criatura más lenta del ejército; sin ejército, el héroe va a pie ligero. */
-export function slowestSpeed(army: Army): SpeedTier {
+/**
+ * El individuo más lento del ejército; sin ejército, el héroe va a pie ligero.
+ *
+ * Pide los personajes porque un individuo puede serlo, y su velocidad sale de
+ * su destreza y no del catálogo: sin ellos, un héroe que llevara uno lanzaba
+ * al pasar de día.
+ */
+export function slowestSpeed(army: Army, characters: Personajes): SpeedTier {
   let slowest: SpeedTier | null = null;
   let slowestPoints = Infinity;
-  for (const stack of army) {
-    if (stack === null) continue;
-    const speed = creature(stack.creature).speed;
+  for (const t of army) {
+    const speed = troopUnit(t, characters).speed;
     const points = SPEED_TO_MOVE_POINTS[speed];
     if (points < slowestPoints) {
       slowestPoints = points;
@@ -54,8 +59,8 @@ export function logisticsBonus(hero: Pick<Hero, 'skills'>): number {
 }
 
 /** Puntos de movimiento del día: los marca la criatura más lenta. */
-export function maxMovePoints(hero: Pick<Hero, 'army' | 'skills'>): number {
-  const base = SPEED_TO_MOVE_POINTS[slowestSpeed(hero.army)];
+export function maxMovePoints(hero: Pick<Hero, 'army' | 'skills'>, characters: Personajes): number {
+  const base = SPEED_TO_MOVE_POINTS[slowestSpeed(hero.army, characters)];
   return Math.round(base * (1 + logisticsBonus(hero)));
 }
 
@@ -91,52 +96,6 @@ export function learnable(
   const tope = maxSpellLevel(hero);
   const sabidos = new Set(hero.spells);
   return oferta.filter((s) => s.level <= tope && !sabidos.has(s.id)).map((s) => s.id);
-}
-
-// ---------------------------------------------------------------- ejército
-
-export function emptyArmy(): Army {
-  return [null, null, null, null, null];
-}
-
-export function armySize(army: Army): number {
-  return army.reduce((n, s) => n + (s === null ? 0 : s.count), 0);
-}
-
-export function isArmyEmpty(army: Army): boolean {
-  return army.every((s) => s === null || s.count === 0);
-}
-
-/**
- * Añade criaturas al ejército: engorda el stack existente o toma un hueco.
- * Devuelve `null` si no hay sitio — el llamante decide qué hacer, no se pierde
- * la tropa en silencio.
- */
-export function addToArmy(army: Army, creatureId: string, count: number): Army | null {
-  const out = [...army];
-  const existing = out.findIndex((s) => s !== null && s.creature === creatureId);
-  if (existing >= 0) {
-    const stack = out[existing] as Stack;
-    out[existing] = { creature: creatureId, count: stack.count + count };
-    return out;
-  }
-  const free = out.indexOf(null);
-  if (free < 0) return null;
-  out[free] = { creature: creatureId, count };
-  return out;
-}
-
-/** Elimina los stacks vacíos dejando los huecos donde estaban. */
-export function pruneArmy(army: Army): Army {
-  return army.map((s) => (s === null || s.count <= 0 ? null : s));
-}
-
-export function armySlotsUsed(army: Army): number {
-  return army.filter((s) => s !== null).length;
-}
-
-export function hasFreeSlot(army: Army): boolean {
-  return armySlotsUsed(army) < MAX_ARMY_SLOTS;
 }
 
 // ---------------------------------------------------------------- progreso

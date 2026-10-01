@@ -37,7 +37,7 @@ export function createTown(
     buildings: prebuiltBuildings(faction),
     builtToday: false,
     available: {},
-    garrison: [null, null, null, null, null],
+    garrison: [],
   };
 }
 

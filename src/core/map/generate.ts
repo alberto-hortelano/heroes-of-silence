@@ -7,7 +7,8 @@
  * ambos caminos pasan por la misma validación de jugabilidad.
  */
 
-import { allCreatures } from '../data.js';
+import { maximoPorBando } from '../battle/battle.js';
+import { allCreatures, creature } from '../data.js';
 import type { Rng } from '../rng.js';
 import { createTown, type Town } from '../town/town.js';
 import type { FactionId, PlayerId, Point, ResourceKind } from '../types.js';
@@ -204,6 +205,17 @@ export function validateMapPlan(plan: MapPlan): string[] {
     if (!CRIATURAS.has(m.creature)) {
       problemas.push(
         `el monstruo de (${m.at.x},${m.at.y}) es de una criatura que no existe: "${m.creature}". Las que valen: ${[...CRIATURAS].sort().join(', ')}`,
+      );
+      continue;
+    }
+    // Un monstruo son `count` individuos y en batalla cada uno pisa su hex: si
+    // no caben en un bando, `createBattle` lanzaría al pisarlo —con el plan ya
+    // aceptado y la partida en marcha—. Se dice aquí, con el máximo, que es
+    // donde todavía se puede corregir.
+    const maximo = maximoPorBando(creature(m.creature));
+    if (m.count > maximo) {
+      problemas.push(
+        `el monstruo de (${m.at.x},${m.at.y}) trae ${m.count} × ${m.creature} y no caben en su lado del tablero: como mucho ${maximo}`,
       );
     }
   }

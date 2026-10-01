@@ -24,7 +24,7 @@ import type { TerrainKind } from '@core/map/terrain.js';
 import type { GameEventDraft } from '@core/state/events.js';
 import { sinSello } from '@core/state/events.js';
 import { battleOwners, type GameState } from '@core/state/game.js';
-import type { Army, FactionId, PlayerId, Point, Resources, UnitInfo } from '@core/types.js';
+import type { FactionId, PlayerId, Point, Resources, UnitInfo } from '@core/types.js';
 
 /**
  * El mapa sin `Set`: `roads` viaja como array de claves `"x,y"`.
@@ -56,7 +56,6 @@ export interface VistaHeroe {
   readonly name: string;
   readonly at: Point;
   readonly movePoints: number;
-  readonly army: Army;
 }
 
 export interface VistaPueblo {
@@ -65,7 +64,6 @@ export interface VistaPueblo {
   readonly name: string;
   readonly at: Point;
   readonly buildings: readonly string[];
-  readonly garrison: Army;
 }
 
 /**
@@ -147,7 +145,9 @@ export function construirVista(state: GameState, directorLog: readonly string[])
       name: h.name,
       at: h.at,
       movePoints: h.movePoints,
-      army: h.army,
+      // Sin el ejército: ningún panel del espectador lo lee, y desde la tropa
+      // de individuos crece con cada uno, en cada fotograma. Si algún panel lo
+      // necesita, se manda `troopSummary`, que es el que agrupa.
     })),
     towns: state.towns.map((t) => ({
       id: t.id,
@@ -155,7 +155,6 @@ export function construirVista(state: GameState, directorLog: readonly string[])
       name: t.name,
       at: t.at,
       buildings: t.buildings,
-      garrison: t.garrison,
     })),
     // Sin el sello: el espectador ve la partida entera —eso es lo que es— pero
     // quién MÁS estaba mirando cada casilla es contabilidad de casa, y salía

@@ -1,6 +1,7 @@
 /** Arranque de partida: del plan de mapa a un `GameState` listo para jugar. */
 import { factionLineup } from '../data.js';
-import { emptyArmy, type Hero, maxMana, maxMovePoints } from '../hero/hero.js';
+import { type Hero, maxMana, maxMovePoints } from '../hero/hero.js';
+import { withTroops } from '../hero/troop.js';
 import { buildMap, generateMapPlan, type MapPlan, validateMapPlan } from '../map/generate.js';
 import { createRng, type Rng } from '../rng.js';
 import type { Controller, FactionId, PlayerId } from '../types.js';
@@ -39,16 +40,19 @@ export interface NewGameOptions {
  */
 const MAX_DAYS_POR_DEFECTO = 200;
 
-/** Ejército de salida: unas cuantas criaturas de nivel 1 y 2 de la facción. */
+/**
+ * Ejército de salida: unos cuantos individuos de nivel 1 y dos de nivel 2 de
+ * la facción. Con el liderazgo provisional (2 y 3) son 14 a 18 de los 20 de un
+ * héroe de nivel 1: cabe siempre y deja hueco para reclutar algo el primer día.
+ */
 export function startingArmy(faction: FactionId, rng: Rng): Hero['army'] {
   const lineup = factionLineup(faction);
   const nivel1 = lineup.find((c) => c.level === 1);
   const nivel2 = lineup.find((c) => c.level === 2);
-  const army = emptyArmy();
-  const out = [...army];
-  if (nivel1 !== undefined) out[0] = { creature: nivel1.id, count: rng.int(20, 30) };
-  if (nivel2 !== undefined) out[1] = { creature: nivel2.id, count: rng.int(6, 10) };
-  return out;
+  let army: Hero['army'] = [];
+  if (nivel1 !== undefined) army = withTroops(army, nivel1.id, rng.int(4, 6));
+  if (nivel2 !== undefined) army = withTroops(army, nivel2.id, 2);
+  return army;
 }
 
 export function newGame(options: NewGameOptions = {}): GameState {
@@ -115,7 +119,8 @@ export function newGame(options: NewGameOptions = {}): GameState {
       skills: { logistics: 1, wisdom: 1 },
     };
     hero.mana = maxMana(hero);
-    hero.movePoints = maxMovePoints(hero);
+    // Sin personajes: una partida nueva no tiene ninguno (`GameState.characters`).
+    hero.movePoints = maxMovePoints(hero, undefined);
     return hero;
   });
 

@@ -12,6 +12,7 @@ import {
   occupiedHexes,
   reachable,
 } from '../src/core/battle/board.js';
+import { createRng } from '../src/core/rng.js';
 
 describe('rejilla de batalla', () => {
   it('mide 11 x 9 = 99 hexes', () => {
@@ -96,6 +97,43 @@ describe('movimiento', () => {
     expect(dist.size).toBeGreaterThan(1);
     for (const [k, paso] of dist) expect(hexKey(paso.at)).toBe(k);
     expect(dist.has(hexKey({ col: 6, row: 4 }))).toBe(false);
+  });
+
+  it('reachable descubre en el mismo orden que el BFS de claves de antes', () => {
+    // El orden del `Map` es regla: la IA se queda con la primera de varias
+    // casillas empatadas. Al pasar el BFS a índices y a un `Uint8Array`, lo que
+    // tiene que sobrevivir es justo eso; lo comprueba contra el BFS ingenuo de
+    // antes, sobre tableros con obstáculos sorteados.
+    const rng = createRng(11);
+    for (let prueba = 0; prueba < 50; prueba++) {
+      const muro = new Set<string>();
+      for (const h of allHexes()) if (rng.int(0, 3) === 0) muro.add(hexKey(h));
+      const from = { col: rng.int(0, BOARD_WIDTH - 1), row: rng.int(0, BOARD_HEIGHT - 1) };
+      const pasos = rng.int(1, 8);
+      const ingenuo: string[] = [hexKey(from)];
+      const vistos = new Set(ingenuo);
+      let frente = [from];
+      for (let paso = 1; paso <= pasos; paso++) {
+        const siguiente = [];
+        for (const h of frente) {
+          for (const n of neighbours(h)) {
+            const k = hexKey(n);
+            if (vistos.has(k) || muro.has(k)) continue;
+            vistos.add(k);
+            ingenuo.push(k);
+            siguiente.push(n);
+          }
+        }
+        frente = siguiente;
+      }
+      expect([...reachable(from, pasos, muro).keys()]).toEqual(ingenuo);
+    }
+  });
+
+  it('reachable desde fuera del tablero lanza en vez de inventarse vecinas', () => {
+    expect(() => reachable({ col: -1, row: 4 }, 3, new Set())).toThrow(
+      'no se puede buscar camino desde (-1,4): está fuera del tablero',
+    );
   });
 
   it('rodea a las unidades bloqueadas en vez de atravesarlas', () => {

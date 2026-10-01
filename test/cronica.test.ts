@@ -31,6 +31,7 @@ import {
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import type { Point } from '../src/core/types.js';
+import { ejercito } from './helpers.js';
 
 const MI_CASTILLO: Point = { x: 2, y: 6 };
 const SU_CASTILLO: Point = { x: 37, y: 6 };
@@ -193,7 +194,7 @@ describe('la crónica pasa por la niebla', () => {
 
     // Pierdo el héroe y después el castillo: me quedo sin nada que mirar y sin
     // partida, y me tengo que enterar de las dos cosas.
-    heroById(state, 'hero-0').army = [{ creature: 'peasant', count: 1 }, null, null, null, null];
+    heroById(state, 'hero-0').army = ejercito({ creature: 'peasant', count: 1 });
     pasear(state, ctx, 0, [{ x: 8, y: 6 }]);
     pasarTurno(state, ctx, 0);
     pasear(state, ctx, 1, [{ x: 8, y: 6 }]);
@@ -365,7 +366,7 @@ describe('la crónica pasa por la niebla', () => {
 
     // Sin castillo cerca y sin más héroes: lo único que mira esa casilla es el
     // héroe que está a punto de morir en ella.
-    heroById(state, 'hero-0').army = [{ creature: 'peasant', count: 1 }, null, null, null, null];
+    heroById(state, 'hero-0').army = ejercito({ creature: 'peasant', count: 1 });
     pasear(state, ctx, 0, [{ x: 20, y: 6 }]);
     pasarTurno(state, ctx, 0);
     pasear(state, ctx, 1, [{ x: 20, y: 6 }]);

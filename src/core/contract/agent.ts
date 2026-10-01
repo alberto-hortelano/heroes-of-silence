@@ -190,8 +190,17 @@ Notas:
 - Mover a la casilla de un monstruo, de un héroe enemigo o de un castillo
   defendido inicia una batalla, y esa batalla la juegas tú con "battle_turn".
 - "heroes[].level" sube cuando el héroe acumula experiencia ganando batallas, y
-  se cobra también defendiendo. Hoy es una medida de veteranía y no reparte
-  atributos todavía; sirve para saber qué héroe tuyo lleva el peso de la guerra.
+  se cobra también defendiendo. Lo que sí reparte es LIDERAZGO: el tope de su
+  ejército crece con el nivel.
+- Un ejército son INDIVIDUOS, no stacks: "army[].count" dice cuántos lleva de
+  cada criatura, y en batalla cada uno ocupa su hex. Lo que limita cuántos
+  lleva es "heroes[].leadership": "used" es lo que ocupa y "max" su tope. Cada
+  criatura ocupa lo que dice "recruitable[].leadership" por individuo. Un
+  "recruit" que no quepa se rechaza diciendo cuántos caben, por ejemplo: "no
+  cabe: el ejército ocupa 18 de 20 de liderazgo y 2 × Piquero piden 8". Sin
+  héroe en el pueblo se recluta a la guarnición, con su propio tope en
+  "towns[].garrisonLeadership". Un héroe que entra en su pueblo se lleva de la
+  guarnición lo que le quepa; el resto se queda guardándolo.
 - "towns[].teaches" son los hechizos que enseña el gremio de ese pueblo: un
   héroe tuyo parado allí los aprende solo, hasta donde le deje su Sabiduría, y
   aparecen en "heroes[].spells". NO hay acción para aprender: basta con llevarlo.
@@ -268,6 +277,9 @@ Reglas que se validan antes de aceptarlo:
   "palette.creaturesForGuards", que están escritos como los espera el motor.
   Distingue mayúsculas ("skeleton" sí, "Skeleton" no) y no vale inventarse una:
   el mapa no se construye y se te devuelve la lista de las que valen.
+- "monsters[].count" son individuos, y en batalla cada uno ocupa su hex: un
+  bando tiene 27 y una criatura grande ocupa dos y una fila entera. Un monstruo
+  que no quepa se rechaza diciendo el máximo de esa criatura.
 - Un "towns[].owner" y un "mines[].owner" tienen que ser jugadores CON posición
   de inicio en este mismo plan. Para dejar un pueblo neutral, "owner": null;
   para una mina sin dueño, no pongas "owner".

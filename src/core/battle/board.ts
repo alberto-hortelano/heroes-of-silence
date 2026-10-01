@@ -22,7 +22,7 @@ export function hexEquals(a: Hex, b: Hex): boolean {
 }
 
 /** Los 6 vecinos, en orden E, SE, SW, W, NW, NE. Filtrados al tablero. */
-export function neighbours(h: Hex): Hex[] {
+function vecinasCalculadas(h: Hex): Hex[] {
   const odd = h.row % 2 === 1;
   const shift = odd ? 1 : 0;
   const candidates: Hex[] = [
@@ -45,6 +45,50 @@ export function neighbours(h: Hex): Hex[] {
     out.push(c);
   }
   return out;
+}
+
+/** Índice plano de una casilla del tablero: `row * BOARD_WIDTH + col`. */
+function indiceDe(h: Hex): number {
+  return h.row * BOARD_WIDTH + h.col;
+}
+
+/**
+ * Las 99 casillas con su clave y sus vecinas, calculadas UNA vez.
+ *
+ * El tablero no cambia nunca, y con individuos una batalla pasó de ~10 a ~100
+ * decisiones: `neighbours` y el BFS de `reachable` reconstruían los mismos seis
+ * objetos y las mismas claves de texto en cada sondeo, y eran la mitad del
+ * tiempo de `autoResolve`. Las vecinas guardan **el mismo orden** que
+ * `vecinasCalculadas`, porque el BFS inserta en ese orden y el orden del `Map`
+ * que devuelve decide qué casilla gana un empate en la IA.
+ */
+interface Casilla {
+  readonly hex: Hex;
+  readonly key: string;
+  readonly vecinas: readonly Hex[];
+  readonly indicesVecinas: readonly number[];
+}
+
+const CASILLAS: readonly Casilla[] = (() => {
+  const out: Casilla[] = [];
+  for (let row = 0; row < BOARD_HEIGHT; row++) {
+    for (let col = 0; col < BOARD_WIDTH; col++) {
+      const hex = { col, row };
+      const vecinas = vecinasCalculadas(hex);
+      out.push({ hex, key: hexKey(hex), vecinas, indicesVecinas: vecinas.map(indiceDe) });
+    }
+  }
+  return out;
+})();
+
+/**
+ * Los 6 vecinos, en orden E, SE, SW, W, NW, NE. Filtrados al tablero.
+ *
+ * Dentro del tablero devuelve la lista memorizada, compartida entre llamadas:
+ * por eso es `readonly`. Fuera (una cola que asoma) se calcula al vuelo.
+ */
+export function neighbours(h: Hex): readonly Hex[] {
+  return isInside(h) ? (CASILLAS[indiceDe(h)] as Casilla).vecinas : vecinasCalculadas(h);
 }
 
 // -------------------------------------------------------------- distancia
@@ -104,24 +148,39 @@ export interface Paso {
 
 /**
  * Hexes alcanzables desde `from` con `maxSteps` pasos, esquivando `blocked`.
- * BFS: en un tablero de 99 casillas no hay nada que optimizar.
- * Devuelve un mapa hexKey → paso (incluye `from` con 0 pasos).
+ * BFS sobre la tabla de `CASILLAS`: con 99 casillas el algoritmo no tiene nada
+ * que optimizar, pero se llama en cada decisión y cada sondeo, y con individuos
+ * eso son decenas de miles de llamadas por partida.
+ * Devuelve un mapa hexKey → paso (incluye `from` con 0 pasos), en orden de
+ * descubrimiento: ese orden lo leen los llamantes y es parte de la regla.
  */
 export function reachable(
   from: Hex,
   maxSteps: number,
   blocked: ReadonlySet<string>,
 ): Map<string, Paso> {
+  if (!isInside(from)) {
+    throw new Error(
+      `no se puede buscar camino desde (${from.col},${from.row}): está fuera del tablero`,
+    );
+  }
   const dist = new Map<string, Paso>([[hexKey(from), { at: from, steps: 0 }]]);
-  let frontier: Hex[] = [from];
+  // Visitados por índice en vez de `dist.has(clave)`: el `Map` se sigue
+  // llenando en el mismo orden, que es lo que leen los llamantes.
+  const visto = new Uint8Array(BOARD_SIZE);
+  const origen = indiceDe(from);
+  visto[origen] = 1;
+  let frontier: number[] = [origen];
 
   for (let step = 1; step <= maxSteps; step++) {
-    const next: Hex[] = [];
+    const next: number[] = [];
     for (const h of frontier) {
-      for (const n of neighbours(h)) {
-        const k = hexKey(n);
-        if (dist.has(k) || blocked.has(k)) continue;
-        dist.set(k, { at: n, steps: step });
+      for (const n of (CASILLAS[h] as Casilla).indicesVecinas) {
+        if (visto[n] === 1) continue;
+        const c = CASILLAS[n] as Casilla;
+        if (blocked.has(c.key)) continue;
+        visto[n] = 1;
+        dist.set(c.key, { at: c.hex, steps: step });
         next.push(n);
       }
     }

@@ -16,6 +16,8 @@ import {
   serializeBattleTurn,
   serializeMapRequest,
 } from '../src/core/contract/serialize.js';
+import { creature } from '../src/core/data.js';
+import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '../src/core/hero/troop.js';
 import { generateMapPlan } from '../src/core/map/generate.js';
 import { pointFromKey, pointKey } from '../src/core/map/map.js';
 import { costeDeEntrada, isWalkable, TERRAIN_KINDS } from '../src/core/map/terrain.js';
@@ -64,13 +66,10 @@ describe('contrato con el agente', () => {
         army: [
           { creature: 'swordsman', count: 10 },
           { creature: 'archer', count: 6 },
-          null,
-          null,
-          null,
         ],
         hero: null,
       },
-      { army: [{ creature: 'skeleton', count: 20 }, null, null, null, null], hero: null },
+      { army: [{ creature: 'skeleton', count: 20 }], hero: null },
       rng,
     );
     for (const accion of legalActions(battle)) {
@@ -360,6 +359,49 @@ describe('lo que ve el agente', () => {
     // mandado ninguna acción de aprender, porque no existe tal acción.
     expect(payload.heroes.find((h) => h.id === hero.id)!.spells).toEqual(hero.spells);
     expect(hero.spells.length).toBeGreaterThan(0);
+  });
+
+  it('el ejército viaja agrupado en individuos, con el liderazgo al lado', () => {
+    const state = newGame({ seed: 94 });
+    const hero = heroesOf(state, 0)[0]!;
+    const town = state.towns.find((t) => t.owner === 0)!;
+    const payload = serializeAdventureTurn(state, 0) as {
+      heroes: {
+        id: string;
+        army: Record<string, unknown>[];
+        leadership: { used: number; max: number };
+      }[];
+      towns: {
+        id: string;
+        recruitable: { creature: string; leadership: number }[];
+        garrisonLeadership: { used: number; max: number };
+      }[];
+    };
+    const mio = payload.heroes.find((h) => h.id === hero.id)!;
+    // Un grupo por criatura, con cuántos individuos: los que hay en la lista.
+    const total = mio.army.reduce((n, g) => n + (g.count as number), 0);
+    expect(total).toBe(hero.army.length);
+    // Sin `slot`: con la tropa de individuos no hay huecos que numerar, y un
+    // campo que ya no significa nada es un campo que el agente intentaría leer.
+    expect(mio.army.every((g) => !('slot' in g))).toBe(true);
+    expect(mio.leadership).toEqual({ used: armyLeadership(hero.army), max: heroLeadership(hero) });
+
+    const vista = payload.towns.find((t) => t.id === town.id)!;
+    for (const r of vista.recruitable) {
+      expect(r.leadership).toBe(creature(r.creature).leadership);
+    }
+    expect(vista.garrisonLeadership).toEqual({ used: 0, max: GARRISON_LEADERSHIP });
+  });
+
+  it('el formato de respuesta explica el liderazgo, y el de mapa el tamaño de un monstruo', () => {
+    // Un dato nuevo que la prosa no nombra es un dato que el agente no mira, y un
+    // rechazo que no se anuncia se reintenta en vez de corregirse.
+    const turno = RESPONSE_FORMAT.adventure_turn;
+    expect(turno).toContain('heroes[].leadership');
+    expect(turno).toContain('recruitable[].leadership');
+    expect(turno).toContain('garrisonLeadership');
+    expect(turno).toMatch(/INDIVIDUOS/);
+    expect(RESPONSE_FORMAT.map_generate).toMatch(/"monsters\[\]\.count" son individuos/);
   });
 
   it('el formato de respuesta avisa de que `cast` no gasta el turno y de que no hay acción de aprender', () => {

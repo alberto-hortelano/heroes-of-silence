@@ -71,9 +71,8 @@ import {
 } from '../../src/core/battle/battle.js';
 import type { BattleAction, BattleState, Side } from '../../src/core/battle/types.js';
 import { factionLineup } from '../../src/core/data.js';
-import { emptyArmy } from '../../src/core/hero/hero.js';
 import { createRng, type Rng } from '../../src/core/rng.js';
-import type { Army, FactionId } from '../../src/core/types.js';
+import type { FactionId, Stack } from '../../src/core/types.js';
 
 const args = process.argv.slice(2);
 const ESPEJO = args.includes('--espejo');
@@ -117,14 +116,17 @@ const sinEspera: Tactica = (state) => {
   return alternativa;
 };
 
-/** Un ejército de cinco slots sacado del catálogo de la facción. */
-function ejercitoDe(faction: FactionId, rng: Rng): Army {
+/**
+ * Cinco stacks sacados del catálogo de la facción. Siguen siendo stacks de N y
+ * no individuos a propósito: este banco mide la TÁCTICA sobre el motor, y sus
+ * cifras de referencia están tomadas con estos ejércitos.
+ */
+function ejercitoDe(faction: FactionId, rng: Rng): Stack[] {
   const lineup = factionLineup(faction);
-  const army = [...emptyArmy()];
-  for (let slot = 0; slot < army.length; slot++) {
-    army[slot] = { creature: rng.pick(lineup).id, count: rng.int(EFECTIVOS[0], EFECTIVOS[1]) };
-  }
-  return army;
+  return Array.from({ length: 5 }, () => ({
+    creature: rng.pick(lineup).id,
+    count: rng.int(EFECTIVOS[0], EFECTIVOS[1]),
+  }));
 }
 
 interface Resultado {
@@ -163,14 +165,14 @@ function jugar(state: BattleState, rng: Rng, tacticas: Record<Side, Tactica>): R
 }
 
 /** Los dos ejércitos de una pareja: el mismo par para las dos batallas. */
-function ejercitosDe(semilla: number): Record<Side, Army> {
+function ejercitosDe(semilla: number): Record<Side, Stack[]> {
   const rng = createRng(semilla * PRIMO_DE_EJERCITOS);
   return { attacker: ejercitoDe('knight', rng), defender: ejercitoDe('necromancer', rng) };
 }
 
 function batalla(
   semilla: number,
-  ejercitos: Record<Side, Army>,
+  ejercitos: Record<Side, Stack[]>,
   tacticas: Record<Side, Tactica>,
 ): Resultado {
   const rng = createRng(semilla * PRIMO_DE_DESPLIEGUE);

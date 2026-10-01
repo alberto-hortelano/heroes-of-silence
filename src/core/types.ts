@@ -120,6 +120,11 @@ export interface Creature extends UnitInfo {
   readonly faction: FactionId;
   /** 1..6 — el nivel de la morada que la produce. */
   readonly level: number;
+  /**
+   * Lo que ocupa UN individuo en el liderazgo de quien lo lleva
+   * (`hero/troop.ts`). Provisional, en datos: lo define el usuario.
+   */
+  readonly leadership: number;
   /** Crecimiento semanal base de la morada. */
   readonly growth: number;
   readonly cost: Partial<Resources>;
@@ -128,25 +133,43 @@ export interface Creature extends UnitInfo {
 
 // ---------------------------------------------------------------- ejército
 
-/** Un stack: un tipo de criatura y su cantidad. Un ejército tiene hasta 5. */
-export interface Stack {
+/**
+ * Un individuo del ejército: una criatura del catálogo, o un personaje.
+ *
+ * **No tiene `count`, y es a propósito.** El ejército de un héroe es una lista
+ * de individuos, uno por hex en el tablero; si el campo existiera, alguien
+ * escribiría un 2 y el liderazgo —que se cuenta por individuo— mentiría. Diez
+ * piqueros son diez entradas. Quien quiera verlos agrupados para pintarlos los
+ * pide a `troopSummary`, que es el único sitio que agrupa.
+ */
+export interface Troop {
   readonly creature: string;
-  readonly count: number;
   /**
-   * Id de un personaje de `GameState.characters`: el stack ES ese individuo.
-   * Va siempre con `count: 1` —`createBattle` lanza si no— y con
-   * `creature: CHARACTER_BODY`, que no está en el catálogo a propósito: un
-   * lector de `Army` que no sepa de personajes lanza en vez de leer cifras
-   * prestadas en silencio.
+   * Id de un personaje de `GameState.characters`: el individuo ES ese
+   * personaje. Va con `creature: CHARACTER_BODY`, que no está en el catálogo a
+   * propósito: un lector de `Army` que no sepa de personajes lanza en vez de
+   * leer cifras prestadas en silencio. La puerta que sí sabe es `troopUnit`.
    */
   readonly member?: string;
 }
 
-/** `army.h: maximumTroopCount` de fheroes2. */
-export const MAX_ARMY_SLOTS = 5;
+/**
+ * La entrada del motor de batalla: un tipo y cuántos. El motor sigue sabiendo
+ * jugar stacks de N —sus tests lo ejercen—, pero desde la tropa de individuos
+ * la partida solo le manda `count: 1` (`troopsAsStacks`). Un personaje va
+ * siempre con `count: 1`: `createBattle` lanza si no.
+ */
+export interface Stack extends Troop {
+  readonly count: number;
+}
 
-/** Los 5 slots. `null` = slot vacío; el hueco importa, por eso no es un array denso. */
-export type Army = ReadonlyArray<Stack | null>;
+/**
+ * El ejército de un héroe o la guarnición de un castillo: una lista DENSA de
+ * individuos, sin huecos y sin tope de slots. El tope es el liderazgo
+ * (`hero/troop.ts`), y el orden importa: es el de despliegue y el que desempata
+ * la iniciativa.
+ */
+export type Army = readonly Troop[];
 
 // ---------------------------------------------------------------- jugadores
 

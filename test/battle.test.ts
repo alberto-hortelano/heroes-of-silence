@@ -9,13 +9,17 @@ import {
   armyMorale,
   type BattleSide,
   createBattle,
+  despliegueBlocker,
   enemiesOf,
+  HEXES_POR_BANDO,
   isAlive,
   legalActions,
   legalActionsAndCosts,
+  maximoPorBando,
   movableFrom,
   movableHexes,
   stackById,
+  stackHexes,
   stackSpeed,
 } from '../src/core/battle/battle.js';
 import * as board from '../src/core/battle/board.js';
@@ -38,10 +42,10 @@ import type {
   BattleStack,
   BattleState,
 } from '../src/core/battle/types.js';
-import { creature } from '../src/core/data.js';
+import { allCreatures, creature } from '../src/core/data.js';
 import type { Rng } from '../src/core/rng.js';
 import { createRng } from '../src/core/rng.js';
-import type { Army, Hex } from '../src/core/types.js';
+import type { Hex, Stack } from '../src/core/types.js';
 import { monstruoVivo, simular } from './helpers.js';
 
 /**
@@ -60,7 +64,10 @@ vi.mock('../src/core/battle/board.js', async (original) => {
   return { ...real, reachable: vi.fn(real.reachable) };
 });
 
-const side = (army: Army, hero: BattleHero | null = null): BattleSide => ({ army, hero });
+const side = (army: readonly Stack[], hero: BattleHero | null = null): BattleSide => ({
+  army,
+  hero,
+});
 
 const hero = (over: Partial<BattleHero> = {}): BattleHero => ({
   name: 'Prueba',
@@ -160,8 +167,8 @@ describe('moral por composición del ejército', () => {
 describe('despliegue inicial', () => {
   it('coloca cada bando en su borde y respeta la cola de las unidades grandes', () => {
     const state = createBattle(
-      side([{ creature: 'peasant', count: 10 }, null, null, null, null]),
-      side([{ creature: 'bone_dragon', count: 1 }, null, null, null, null]),
+      side([{ creature: 'peasant', count: 10 }]),
+      side([{ creature: 'bone_dragon', count: 1 }]),
       createRng(1),
     );
     expect(stackById(state, 'attacker-0').hex.col).toBe(0);
@@ -171,8 +178,8 @@ describe('despliegue inicial', () => {
 
   it('empieza en la ronda 1 con un stack activo', () => {
     const state = createBattle(
-      side([{ creature: 'archer', count: 5 }, null, null, null, null]),
-      side([{ creature: 'skeleton', count: 5 }, null, null, null, null]),
+      side([{ creature: 'archer', count: 5 }]),
+      side([{ creature: 'skeleton', count: 5 }]),
       createRng(7),
     );
     expect(state.round).toBe(1);
@@ -183,8 +190,8 @@ describe('despliegue inicial', () => {
 describe('iniciativa', () => {
   it('mueve primero al más rápido', () => {
     const state = createBattle(
-      side([{ creature: 'zombie', count: 5 }, null, null, null, null]), // very_slow
-      side([{ creature: 'champion', count: 5 }, null, null, null, null]), // ultra_fast
+      side([{ creature: 'zombie', count: 5 }]), // very_slow
+      side([{ creature: 'champion', count: 5 }]), // ultra_fast
       createRng(3),
     );
     expect(activeStack(state)!.id).toBe('defender-0');
@@ -192,8 +199,8 @@ describe('iniciativa', () => {
 
   it('en un empate de velocidad mueve el atacante', () => {
     const state = createBattle(
-      side([{ creature: 'skeleton', count: 5 }, null, null, null, null]),
-      side([{ creature: 'skeleton', count: 5 }, null, null, null, null]),
+      side([{ creature: 'skeleton', count: 5 }]),
+      side([{ creature: 'skeleton', count: 5 }]),
       createRng(3),
     );
     expect(activeStack(state)!.id).toBe('attacker-0');
@@ -201,8 +208,8 @@ describe('iniciativa', () => {
 
   it('los hechizos de velocidad cambian el orden', () => {
     const state = createBattle(
-      side([{ creature: 'skeleton', count: 5 }, null, null, null, null]),
-      side([{ creature: 'skeleton', count: 5 }, null, null, null, null]),
+      side([{ creature: 'skeleton', count: 5 }]),
+      side([{ creature: 'skeleton', count: 5 }]),
       createRng(3),
     );
     const s = stackById(state, 'attacker-0');
@@ -216,8 +223,8 @@ describe('combate cuerpo a cuerpo', () => {
   it('ningún stack contraataca más de una vez por ronda', () => {
     const rng = createRng(11);
     const state = createBattle(
-      side([{ creature: 'swordsman', count: 20 }, null, null, null, null]),
-      side([{ creature: 'pikeman', count: 20 }, null, null, null, null]),
+      side([{ creature: 'swordsman', count: 20 }]),
+      side([{ creature: 'pikeman', count: 20 }]),
       rng,
     );
     simular(state, rng);
@@ -238,8 +245,8 @@ describe('combate cuerpo a cuerpo', () => {
   it('los vampiros no reciben contraataque', () => {
     const rng = createRng(5);
     const state = createBattle(
-      side([{ creature: 'vampire', count: 10 }, null, null, null, null]),
-      side([{ creature: 'peasant', count: 40 }, null, null, null, null]),
+      side([{ creature: 'vampire', count: 10 }]),
+      side([{ creature: 'peasant', count: 40 }]),
       rng,
     );
     simular(state, rng);
@@ -253,8 +260,8 @@ describe('tiradores', () => {
   it('gastan munición al disparar y no pueden hacerlo con un enemigo encima', () => {
     const rng = createRng(21);
     const state = createBattle(
-      side([{ creature: 'archer', count: 10 }, null, null, null, null]),
-      side([{ creature: 'zombie', count: 10 }, null, null, null, null]),
+      side([{ creature: 'archer', count: 10 }]),
+      side([{ creature: 'zombie', count: 10 }]),
       rng,
     );
     const arquero = stackById(state, 'attacker-0');
@@ -272,8 +279,8 @@ describe('hechizos', () => {
     const rng = createRng(31);
     const lanzador = hero({ spells: ['magic_arrow'], mana: 10, spellPower: 3 });
     const state = createBattle(
-      side([{ creature: 'champion', count: 10 }, null, null, null, null], lanzador),
-      side([{ creature: 'zombie', count: 10 }, null, null, null, null]),
+      side([{ creature: 'champion', count: 10 }], lanzador),
+      side([{ creature: 'zombie', count: 10 }]),
       rng,
     );
     const objetivo = stackById(state, 'defender-0');
@@ -292,8 +299,8 @@ describe('hechizos', () => {
     const rng = createRng(32);
     const lanzador = hero({ spells: ['magic_arrow'], mana: 30 });
     const state = createBattle(
-      side([{ creature: 'champion', count: 10 }, null, null, null, null], lanzador),
-      side([{ creature: 'zombie', count: 10 }, null, null, null, null]),
+      side([{ creature: 'champion', count: 10 }], lanzador),
+      side([{ creature: 'zombie', count: 10 }]),
       rng,
     );
     applyAction(state, { type: 'cast', spell: 'magic_arrow', target: 'defender-0' }, rng);
@@ -307,8 +314,8 @@ describe('acciones ilegales', () => {
   it('se rechazan en vez de corregirse en silencio', () => {
     const rng = createRng(41);
     const state = createBattle(
-      side([{ creature: 'champion', count: 5 }, null, null, null, null]),
-      side([{ creature: 'zombie', count: 5 }, null, null, null, null]),
+      side([{ creature: 'champion', count: 5 }]),
+      side([{ creature: 'zombie', count: 5 }]),
       rng,
     );
     expect(activeStack(state)!.id).toBe('attacker-0');
@@ -330,13 +337,12 @@ describe('acciones ilegales', () => {
  */
 function batallaDeCuatroEnemigos(): BattleState {
   const state = createBattle(
-    side([{ creature: 'zombie', count: 5 }, null, null, null, null]),
+    side([{ creature: 'zombie', count: 5 }]),
     side([
       { creature: 'peasant', count: 6 },
       { creature: 'archer', count: 4 },
       { creature: 'pikeman', count: 3 },
       { creature: 'cavalry', count: 2 },
-      null,
     ]),
     createRng(7),
   );
@@ -367,14 +373,18 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
     // varios empatados—, así que reordenarlo cambia partidas enteras aunque el
     // conjunto sea idéntico. Por eso se compara con `toEqual` sobre el array y
     // no con `expect.arrayContaining`.
+    //
+    // Re-anclado UNA vez, a propósito, al quedar un solo despliegue (fase 1a):
+    // los cuatro defensores salen ahora en la columna 10, filas 4, 3, 5 y 2 —del
+    // centro hacia fuera— en vez de 0, 2, 4, 6 de las filas de HoMM2. Cambian
+    // las casillas libres y los ataques posibles; el orden en que se listan es
+    // la misma regla de antes, y por eso este test sigue diciendo algo.
     expect(legalActions(batallaDeCuatroEnemigos())).toEqual([
       { type: 'defend' },
       { type: 'wait' },
       { type: 'move', to: { col: 9, row: 4 } },
-      { type: 'move', to: { col: 10, row: 4 } },
       { type: 'move', to: { col: 8, row: 3 } },
       { type: 'move', to: { col: 9, row: 2 } },
-      { type: 'move', to: { col: 10, row: 2 } },
       { type: 'move', to: { col: 8, row: 5 } },
       { type: 'move', to: { col: 9, row: 5 } },
       { type: 'move', to: { col: 8, row: 4 } },
@@ -382,13 +392,14 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
       { type: 'move', to: { col: 8, row: 2 } },
       { type: 'move', to: { col: 8, row: 1 } },
       { type: 'move', to: { col: 9, row: 1 } },
-      { type: 'attack', target: 'defender-0', from: { col: 10, row: 2 } },
-      { type: 'attack', target: 'defender-0', from: { col: 9, row: 1 } },
+      { type: 'attack', target: 'defender-0' },
+      { type: 'attack', target: 'defender-0', from: { col: 9, row: 4 } },
+      { type: 'attack', target: 'defender-0', from: { col: 9, row: 5 } },
       { type: 'attack', target: 'defender-1' },
-      { type: 'attack', target: 'defender-1', from: { col: 10, row: 4 } },
-      { type: 'attack', target: 'defender-1', from: { col: 10, row: 2 } },
-      { type: 'attack', target: 'defender-2', from: { col: 10, row: 4 } },
       { type: 'attack', target: 'defender-2', from: { col: 9, row: 5 } },
+      { type: 'attack', target: 'defender-3' },
+      { type: 'attack', target: 'defender-3', from: { col: 9, row: 2 } },
+      { type: 'attack', target: 'defender-3', from: { col: 9, row: 1 } },
     ]);
   });
 
@@ -482,8 +493,8 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
     // pegaría distinto — y eso mueve partidas sin que el tipo cambie.
     const montar = (rng: ReturnType<typeof createRng>): BattleState => {
       const s = createBattle(
-        side([{ creature: 'cavalry', count: 10 }, null, null, null, null]),
-        side([{ creature: 'pikeman', count: 40 }, null, null, null, null]),
+        side([{ creature: 'cavalry', count: 10 }]),
+        side([{ creature: 'pikeman', count: 40 }]),
         rng,
       );
       stackById(s, 'attacker-0').hex = { col: 0, row: 4 };
@@ -544,11 +555,11 @@ describe('batalla completa', () => {
       side([
         { creature: 'swordsman', count: 20 },
         { creature: 'archer', count: 15 },
-        null,
-        null,
-        null,
       ]),
-      side([{ creature: 'skeleton', count: 40 }, { creature: 'lich', count: 5 }, null, null, null]),
+      side([
+        { creature: 'skeleton', count: 40 },
+        { creature: 'lich', count: 5 },
+      ]),
       rng,
     );
 
@@ -579,8 +590,8 @@ describe('batalla completa', () => {
     const jugar = (semilla: number): string => {
       const rng = createRng(semilla);
       const state = createBattle(
-        side([{ creature: 'pikeman', count: 12 }, null, null, null, null]),
-        side([{ creature: 'zombie', count: 18 }, null, null, null, null]),
+        side([{ creature: 'pikeman', count: 12 }]),
+        side([{ creature: 'zombie', count: 18 }]),
         rng,
       );
       let n = 0;
@@ -620,8 +631,8 @@ describe('efectos temporales (#9)', () => {
     const rng = createRng(7);
     const lanzador = hero({ spells: ['slow'], mana: 30, spellPower: 2 });
     const state = createBattle(
-      side([{ creature: 'skeleton', count: 5 }, null, null, null, null], lanzador),
-      side([{ creature: 'skeleton', count: 5 }, null, null, null, null]),
+      side([{ creature: 'skeleton', count: 5 }], lanzador),
+      side([{ creature: 'skeleton', count: 5 }]),
       rng,
     );
     const objetivo = stackById(state, 'defender-0');
@@ -650,8 +661,8 @@ describe('efectos temporales (#9)', () => {
     const state = createBattle(
       // El campeón es lo más rápido del tablero: así el turno activo es el del
       // bando que tiene héroe y se le puede pedir el lanzamiento.
-      side([{ creature: 'champion', count: 5 }, null, null, null, null], lanzador),
-      side([{ creature: 'skeleton', count: 5 }, null, null, null, null]),
+      side([{ creature: 'champion', count: 5 }], lanzador),
+      side([{ creature: 'skeleton', count: 5 }]),
       rng,
     );
     const esqueleto = stackById(state, 'defender-0');
@@ -691,8 +702,8 @@ describe('efectos temporales (#9)', () => {
       // Uno contra cincuenta: el dragón aguanta dos contraataques y el
       // esqueleto aguanta dos mordiscos, así que la batalla llega entera a la
       // segunda ronda, que es lo que se quiere mirar.
-      side([{ creature: 'bone_dragon', count: 1 }, null, null, null, null]),
-      side([{ creature: 'skeleton', count: 50 }, null, null, null, null]),
+      side([{ creature: 'bone_dragon', count: 1 }]),
+      side([{ creature: 'skeleton', count: 50 }]),
       rng,
     );
     const dragon = stackById(state, 'attacker-0');
@@ -752,8 +763,8 @@ describe('rasgos de criatura (#8)', () => {
 
     const montar = (rng: ReturnType<typeof createRng>) =>
       createBattle(
-        side([{ creature: 'cavalry', count: 10 }, null, null, null, null]),
-        side([{ creature: 'pikeman', count: 40 }, null, null, null, null]),
+        side([{ creature: 'cavalry', count: 10 }]),
+        side([{ creature: 'pikeman', count: 40 }]),
         rng,
       );
 
@@ -802,8 +813,8 @@ describe('rasgos de criatura (#8)', () => {
     // porque `createBattle` fuerza `morale: 0` a todo lo no-muerto.
     const rng = createRng(61);
     const state = createBattle(
-      side([{ creature: 'bone_dragon', count: 2 }, null, null, null, null]),
-      side([{ creature: 'skeleton', count: 40 }, null, null, null, null]),
+      side([{ creature: 'bone_dragon', count: 2 }]),
+      side([{ creature: 'skeleton', count: 40 }]),
       rng,
     );
     const dragon = stackById(state, 'attacker-0');
@@ -828,8 +839,8 @@ describe('rasgos de criatura (#8)', () => {
   it('curse_on_hit: la momia maldice a un vivo y rebota en un no-muerto', () => {
     const rng = createRng(62);
     const contraVivos = createBattle(
-      side([{ creature: 'mummy', count: 5 }, null, null, null, null]),
-      side([{ creature: 'pikeman', count: 30 }, null, null, null, null]),
+      side([{ creature: 'mummy', count: 5 }]),
+      side([{ creature: 'pikeman', count: 30 }]),
       rng,
     );
     enfrentar(stackById(contraVivos, 'attacker-0'), stackById(contraVivos, 'defender-0'));
@@ -845,8 +856,8 @@ describe('rasgos de criatura (#8)', () => {
     // Espejo nigromante: una momia no desmoraliza a un esqueleto.
     const rng2 = createRng(63);
     const contraMuertos = createBattle(
-      side([{ creature: 'mummy', count: 5 }, null, null, null, null]),
-      side([{ creature: 'skeleton', count: 30 }, null, null, null, null]),
+      side([{ creature: 'mummy', count: 5 }]),
+      side([{ creature: 'skeleton', count: 30 }]),
       rng2,
     );
     enfrentar(stackById(contraMuertos, 'attacker-0'), stackById(contraMuertos, 'defender-0'));
@@ -862,8 +873,11 @@ describe('rasgos de criatura (#8)', () => {
   it('splash_shot: el disparo del liche salpica también a los suyos', () => {
     const rng = createRng(64);
     const state = createBattle(
-      side([{ creature: 'lich', count: 5 }, { creature: 'skeleton', count: 30 }, null, null, null]),
-      side([{ creature: 'pikeman', count: 30 }, null, null, null, null]),
+      side([
+        { creature: 'lich', count: 5 },
+        { creature: 'skeleton', count: 30 },
+      ]),
+      side([{ creature: 'pikeman', count: 30 }]),
       rng,
     );
     const liche = stackById(state, 'attacker-0');
@@ -886,13 +900,13 @@ describe('rasgos de criatura (#8)', () => {
   it('splash_shot: la IA no se dispara a los suyos si tiene otro objetivo', () => {
     const rng = createRng(65);
     const state = createBattle(
-      side([{ creature: 'lich', count: 5 }, { creature: 'skeleton', count: 30 }, null, null, null]),
+      side([
+        { creature: 'lich', count: 5 },
+        { creature: 'skeleton', count: 30 },
+      ]),
       side([
         { creature: 'pikeman', count: 30 },
         { creature: 'archer', count: 10 },
-        null,
-        null,
-        null,
       ]),
       rng,
     );
@@ -922,8 +936,8 @@ describe('el libro de hechizos del jugador (#4)', () => {
     const session = new Session(semilla);
     const heroe = hero(over);
     const battle = createBattle(
-      side([{ creature: 'champion', count: 10 }, null, null, null, null], heroe),
-      side([{ creature: 'zombie', count: 10 }, null, null, null, null]),
+      side([{ creature: 'champion', count: 10 }], heroe),
+      side([{ creature: 'zombie', count: 10 }]),
       session.ctx.rng,
     );
     // El rival es un monstruo REAL del mapa. Con un id inventado la batalla se
@@ -1032,8 +1046,8 @@ describe('el libro de hechizos del jugador (#4)', () => {
  */
 function escenaDeCarga(atacante: string): BattleState {
   const state = createBattle(
-    side([{ creature: atacante, count: 10 }, null, null, null, null]),
-    side([{ creature: 'zombie', count: 10 }, null, null, null, null]),
+    side([{ creature: atacante, count: 10 }]),
+    side([{ creature: 'zombie', count: 10 }]),
     createRng(7),
   );
   stackById(state, 'attacker-0').hex = { col: 0, row: 4 };
@@ -1097,8 +1111,8 @@ describe('la IA lanza hechizos (#24)', () => {
     const rng = createRng(71);
     const lanzador = hero({ spells: ['magic_arrow'], mana: 20, spellPower: 1 });
     const state = createBattle(
-      side([{ creature: 'champion', count: 10 }, null, null, null, null], lanzador),
-      side([{ creature: 'zombie', count: 10 }, null, null, null, null]),
+      side([{ creature: 'champion', count: 10 }], lanzador),
+      side([{ creature: 'zombie', count: 10 }]),
       rng,
     );
 
@@ -1117,8 +1131,8 @@ describe('la IA lanza hechizos (#24)', () => {
     const rng = createRng(72);
     const lanzador = hero({ spells: ['magic_arrow'], mana: 0, spellPower: 1 });
     const state = createBattle(
-      side([{ creature: 'champion', count: 10 }, null, null, null, null], lanzador),
-      side([{ creature: 'zombie', count: 10 }, null, null, null, null]),
+      side([{ creature: 'champion', count: 10 }], lanzador),
+      side([{ creature: 'zombie', count: 10 }]),
       rng,
     );
     expect(chooseBattleAction(state).type).not.toBe('cast');
@@ -1129,8 +1143,8 @@ describe('la IA lanza hechizos (#24)', () => {
     const rng = createRng(73);
     const derrocha = hero({ spells: ['haste'], mana: 30, spellPower: 3 });
     const tacaña = createBattle(
-      side([{ creature: 'peasant', count: 3 }, null, null, null, null], derrocha),
-      side([{ creature: 'zombie', count: 3 }, null, null, null, null]),
+      side([{ creature: 'peasant', count: 3 }], derrocha),
+      side([{ creature: 'zombie', count: 3 }]),
       rng,
     );
     // Medio turno extra de tres campesinos vale ≈1,5: no llega ni de lejos a
@@ -1141,8 +1155,8 @@ describe('la IA lanza hechizos (#24)', () => {
     const gorda = createBattle(
       // El cruzado va primero: el turno tiene que ser del bando que tiene héroe
       // para que haya un lanzamiento que decidir.
-      side([{ creature: 'crusader', count: 1 }, null, null, null, null], listo),
-      side([{ creature: 'zombie', count: 60 }, null, null, null, null]),
+      side([{ creature: 'crusader', count: 1 }], listo),
+      side([{ creature: 'zombie', count: 60 }]),
       rng,
     );
     // Frenar a sesenta zombis sí: la heurística no es solo de daño.
@@ -1159,8 +1173,8 @@ describe('la IA espera en vez de plantarse (#24)', () => {
     const rng = createRng(75);
     const listo = hero({ spells: ['slow'], mana: 30, spellPower: 3 });
     const state = createBattle(
-      side([{ creature: 'crusader', count: 1 }, null, null, null, null], listo),
-      side([{ creature: 'zombie', count: 12 }, null, null, null, null]),
+      side([{ creature: 'crusader', count: 1 }], listo),
+      side([{ creature: 'zombie', count: 12 }]),
       rng,
     );
     const zombis = stackById(state, 'defender-0');
@@ -1192,10 +1206,8 @@ describe('la IA espera en vez de plantarse (#24)', () => {
         { creature: 'champion', count: 5 },
         { creature: 'peasant', count: 5 },
         { creature: 'peasant', count: 5 },
-        null,
-        null,
       ]),
-      side([{ creature: 'zombie', count: 5 }, null, null, null, null]),
+      side([{ creature: 'zombie', count: 5 }]),
       rng,
     );
     // El campeón queda embotellado en la esquina por los suyos: (0,0) solo
@@ -1225,8 +1237,8 @@ describe('la IA espera en vez de plantarse (#24)', () => {
  */
 function escenaDeEspera(piqueroEn: Hex, piqueroYaActuo = false): BattleState {
   const state = createBattle(
-    side([{ creature: 'champion', count: 5 }, null, null, null, null]),
-    side([{ creature: 'pikeman', count: 5 }, null, null, null, null]),
+    side([{ creature: 'champion', count: 5 }]),
+    side([{ creature: 'pikeman', count: 5 }]),
     createRng(74),
   );
   stackById(state, 'attacker-0').hex = { col: 0, row: 4 };
@@ -1296,8 +1308,8 @@ describe('el parte de guerra pinta de quién es cada cosa', () => {
   function parte(eventos: BattleEvent[], deQuien: 'mio' | 'ajena' = 'mio'): string {
     const session = new Session(71);
     const battle = createBattle(
-      side([{ creature: 'champion', count: 10 }, null, null, null, null], hero()),
-      side([{ creature: 'zombie', count: 10 }, null, null, null, null]),
+      side([{ creature: 'champion', count: 10 }], hero()),
+      side([{ creature: 'zombie', count: 10 }]),
       session.ctx.rng,
     );
     // El registro del despliegue estorba: lo que se mira son estas líneas.
@@ -1409,5 +1421,115 @@ describe('el parte de guerra pinta de quién es cada cosa', () => {
     // de final, que es lo único que este cambio movió en pantalla.
     expect(parte([{ kind: 'round_start', round: 2 }])).toContain('<div>— Ronda 2 —</div>');
     expect(parte([{ kind: 'round_start', round: 2 }])).not.toContain('class=""');
+  });
+});
+
+describe('despliegue de una tropa de individuos', () => {
+  /** `n` individuos de esa criatura, cada uno un stack de 1: lo que manda la partida. */
+  const individuos = (creatureId: string, n: number): Stack[] =>
+    Array.from({ length: n }, () => ({ creature: creatureId, count: 1 }));
+
+  /** Todos los hexes que pisa un bando, sin repetir: si se repite alguno, se solapan. */
+  function hexesDe(state: BattleState, lado: 'attacker' | 'defender'): string[] {
+    return state.stacks
+      .filter((s) => s.side === lado)
+      .flatMap((s) => stackHexes(s).map((h) => `${h.col},${h.row}`));
+  }
+
+  it('veintiséis individuos por bando, sin que dos pisen el mismo hex', () => {
+    // Antes del sexto todo iba bien; del sexto en adelante caían todos a la
+    // fila 4 de la columna del borde, unos encima de otros, sin aviso.
+    const state = createBattle(
+      side(individuos('peasant', 26)),
+      side(individuos('skeleton', 26)),
+      createRng(1),
+    );
+    for (const lado of ['attacker', 'defender'] as const) {
+      const hexes = hexesDe(state, lado);
+      expect(hexes).toHaveLength(26);
+      expect(new Set(hexes).size).toBe(26);
+    }
+    // Cada bando en sus tres columnas: el atacante a la izquierda, el defensor
+    // a la derecha. Ni uno dentro del campo del otro.
+    for (const s of state.stacks) {
+      const col = s.hex.col;
+      if (s.side === 'attacker') expect(col).toBeLessThanOrEqual(2);
+      else expect(col).toBeGreaterThanOrEqual(8);
+    }
+  });
+
+  it('veintiocho no caben y se dice, nombrando el bando', () => {
+    expect(() =>
+      createBattle(side(individuos('peasant', 28)), side(individuos('skeleton', 3)), createRng(1)),
+    ).toThrow(
+      `no caben: 28 unidades ocupan 28 hexes y un bando tiene ${HEXES_POR_BANDO} (el atacante)`,
+    );
+  });
+
+  it('nueve dragones caben con nueve pequeñas al lado; el décimo dragón no', () => {
+    const lleno = [...individuos('bone_dragon', 9), ...individuos('skeleton', 9)];
+    const state = createBattle(side(individuos('peasant', 3)), side(lleno), createRng(2));
+    const hexes = hexesDe(state, 'defender');
+    expect(hexes).toHaveLength(27);
+    expect(new Set(hexes).size).toBe(27);
+    // La cola del dragón defensor queda a su derecha, dentro del tablero.
+    for (const s of state.stacks.filter((x) => x.body === 'bone_dragon')) {
+      expect(stackHexes(s).every((h) => board.isInside(h))).toBe(true);
+    }
+
+    expect(() =>
+      createBattle(
+        side(individuos('peasant', 3)),
+        side(individuos('bone_dragon', 10)),
+        createRng(2),
+      ),
+    ).toThrow('no caben: 10 unidades grandes necesitan una fila cada una');
+  });
+
+  it('`despliegueBlocker` es la misma regla que aplica `createBattle`', () => {
+    const peasant = creature('peasant');
+    const dragon = creature('bone_dragon');
+    expect(despliegueBlocker(Array.from({ length: 27 }, () => peasant))).toBeNull();
+    expect(despliegueBlocker(Array.from({ length: 28 }, () => peasant))).not.toBeNull();
+    // Trece dragones son 26 hexes —menos de 27— y aun así no caben: una fila
+    // por dragón.
+    expect(despliegueBlocker(Array.from({ length: 13 }, () => dragon))).toMatch(/grandes/);
+  });
+
+  it('`maximoPorBando` es esa regla despejada: el máximo cabe y uno más no', () => {
+    // Criatura a criatura, contra `despliegueBlocker`: si alguien cambia una de
+    // las dos, el máximo que se le dice al agente dejaría de ser verdad.
+    for (const c of allCreatures()) {
+      const max = maximoPorBando(c);
+      expect(despliegueBlocker(Array.from({ length: max }, () => c)), c.id).toBeNull();
+      expect(despliegueBlocker(Array.from({ length: max + 1 }, () => c)), c.id).not.toBeNull();
+    }
+    expect(maximoPorBando(creature('peasant'))).toBe(27);
+    expect(maximoPorBando(creature('bone_dragon'))).toBe(9);
+  });
+
+  it('pocos individuos salen por la misma regla que muchos', () => {
+    // No hay caso especial para cinco o menos: del centro hacia fuera en la
+    // columna del borde, y la grande con la cabeza una columna hacia dentro.
+    // Con las filas de HoMM2 de antes, estos cinco salían en 0, 2, 4, 6 y 8.
+    const state = createBattle(
+      side(individuos('peasant', 5)),
+      side([{ creature: 'bone_dragon', count: 1 }]),
+      createRng(3),
+    );
+    const atacantes = state.stacks.filter((s) => s.side === 'attacker');
+    expect(atacantes.map((s) => s.hex)).toEqual([4, 3, 5, 2, 6].map((row) => ({ col: 0, row })));
+    expect(stackById(state, 'defender-0').hex).toEqual({ col: 9, row: 4 });
+  });
+
+  it('una batalla de muchos individuos se juega hasta el final', () => {
+    const rng = createRng(4);
+    const state = createBattle(
+      side([...individuos('pikeman', 8), ...individuos('archer', 4)]),
+      side([...individuos('skeleton', 14), ...individuos('zombie', 6)]),
+      rng,
+    );
+    simular(state, rng);
+    expect(state.finished).not.toBeNull();
   });
 });

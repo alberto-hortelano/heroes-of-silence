@@ -150,11 +150,47 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   `d5502745…` **exacto**. Los umbrales alcanzables (niveles 2 a 6) son los
  *   mismos en las dos tablas; la primera fila que cambia es la del nivel 7,
  *   7700 contra 7500, y a nivel 7 no llega nadie.
+ * - `7372210b…` (45 175 líneas): la tropa de individuos y el liderazgo (fase
+ *   1a de NuevaJugabilidad). Se re-ancla a propósito y la forma del diff es la
+ *   que tiene que ser: **cero semillas idénticas y el primer hecho distinto es
+ *   `recruited` en 200 de 200**, porque el ejército de salida no deja hecho en
+ *   la crónica y lo primero que el liderazgo toca a la vista es el primer
+ *   reclutamiento (6,0 → 2,55 individuos por `recruited` de media). 200/200 con
+ *   línea `fin` y ganador, **0 sin terminar**; ningún hecho imposible —ningún
+ *   héroe se mueve, aprende ni empieza batalla después de su `hero_defeated`,
+ *   ninguna batalla anidada o sin cerrar, `game_over` el último en las 200—.
+ *   **No aparece ni desaparece ningún tipo de hecho**: los mismos diecisiete,
+ *   porque la vuelta a la base y la rendición son de la fase 1b. La partida se
+ *   alarga —mediana 7 → 8,5 días, p90 8 → 16, máximo 20 → 34— y con ella todo
+ *   lo que se cuenta por día: batallas 774 → 1 065, `level_up` 123 → 246,
+ *   `dwelling_5` 15 → 161 de 200. **Y el ganador se vuelca**: el jugador 0
+ *   gana 42/200 → **195/200**; con control de esquina —los mismos 200 mapas con
+ *   las facciones cambiadas de sitio— el caballero pasa de 16,25 % a **93 %**.
+ *   No se compensa aquí: la economía la define el usuario. El tiempo de las 200
+ *   pasa de ~1,9 s a **~3,1 s** (tres pasadas: 3 144, 3 135 y 3 120 ms), y
+ *   `autoResolve` de ~72 a ~355 ms, porque una batalla ya no es de cinco stacks
+ *   sino de diez a veinte individuos por bando.
+ * - `54a035f0…` (45 128 líneas): un solo despliegue. Las filas de HoMM2 para
+ *   cinco o menos (`ROWS_BY_COUNT`) convivían con el despliegue nuevo solo para
+ *   no mover tests del motor, y las dos se jugaban (974 bandos con la vieja,
+ *   1 156 con la nueva). Antes de mover nada, el mismo ciclo hizo el motor de
+ *   batalla más barato —vecinas memorizadas, BFS por índice, las casillas del
+ *   enemigo una vez por enemigo— **sin mover el ancla `7372210b…`**, comprobado
+ *   tras cada bloque. Forma del diff contra `7372210b…`: **163 de 200 semillas
+ *   idénticas hecho a hecho**, y en las 37 que cambian **ninguna diferencia
+ *   ocurre antes de la primera batalla** —el despliegue solo existe dentro de
+ *   una—; el primer hecho distinto es `battle_ended` en 27 (y en las 27 lo único
+ *   distinto es el `winner`), `hero_moved` en 8, y `recruited` y `turn_start`
+ *   en una cada una. 200/200 con `fin`, **0 sin terminar**, 0 hechos
+ *   imposibles, los mismos diecisiete tipos; cambia el ganador en 4 semillas
+ *   (j0 195 → 193 de 200), mediana 8,5 → 8 días, máximo 34 → 37. Tiempo de las
+ *   200: **~2,7 s** (2 654, 2 665 y 2 790 ms), desde ~3,1 s; `autoResolve`
+ *   ~175 ms, desde ~360.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '297dbef912ab23c88507558ded39c1dc8d8726fb39fad17ee47fa965c23e1767',
+  sha: '54a035f0ae024a8e24b64de211a02b1ede41c967aeb2c574de450822dfb2bd43',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

@@ -41,7 +41,7 @@ import type { Point } from '../src/core/types.js';
 import { AgentLink } from '../src/server/agent-link.js';
 import { Director } from '../src/server/director.js';
 import { construirVista, type SpectatorView } from '../src/server/vista-espectador.js';
-import { ejercito, monstruoVivo } from './helpers.js';
+import { monstruoVivo } from './helpers.js';
 
 const abiertos: (() => void)[] = [];
 afterEach(() => {
@@ -370,11 +370,11 @@ describe('la batalla en la vista', () => {
     const aren = createCharacter('aren', defaultBuild);
     const batalla = createBattle(
       {
-        army: ejercito({ creature: CHARACTER_BODY, count: 1, member: aren.id }),
+        army: [{ creature: CHARACTER_BODY, count: 1, member: aren.id }],
         hero: null,
         members: new Map([[aren.id, { profile: combatProfile(aren), hp: 20 }]]),
       },
-      { army: ejercito({ creature: 'zombie', count: 3 }), hero: null },
+      { army: [{ creature: 'zombie', count: 3 }], hero: null },
       createRng(5),
     );
     state.pendingBattle = { ...state.pendingBattle!, battle: batalla };

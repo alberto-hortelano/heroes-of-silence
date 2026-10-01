@@ -3,7 +3,6 @@ import type { AddressInfo } from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
 import { activeStack, applyAction } from '../src/core/battle/battle.js';
-import { creature } from '../src/core/data.js';
 import type { Hero } from '../src/core/hero/hero.js';
 import { generateMapPlan, type MapPlan, validateMapPlan } from '../src/core/map/generate.js';
 import { pointFromKey, pointKey, reachableFrom } from '../src/core/map/map.js';
@@ -22,6 +21,7 @@ import { responderConsulta } from '../src/server/consultas.js';
 import { Director } from '../src/server/director.js';
 import { pedirMapaAlAgente } from '../src/server/mapa-del-agente.js';
 import { SIN_PARTIDA_TODAVIA } from '../src/server/notas.js';
+import { ejercito, ponerMonstruo } from './helpers.js';
 
 /** Agente de mentira: responde leyendo el payload, como haría uno de verdad. */
 interface FakeAgent {
@@ -165,7 +165,7 @@ function vecina(state: GameState, desde: Point): Point {
 function plantarRival(state: GameState, objetivo: Point): Hero {
   const rival = state.heroes.find((h) => h.owner === 0) as Hero;
   rival.at = vecina(state, objetivo);
-  rival.army = [{ creature: 'paladin', count: 40 }, null, null, null, null];
+  rival.army = ejercito({ creature: 'paladin', count: 20 });
   rival.movePoints = reachableFrom(state.map, rival.at).costs.get(pointKey(objetivo)) ?? 200;
   return rival;
 }
@@ -211,7 +211,7 @@ function rivalAlCastillo(state: GameState): Town {
   const [x, y] = lejos[0].split(',').map(Number);
   mio.at = { x: x as number, y: y as number };
 
-  pueblo.garrison = [{ creature: 'skeleton', count: 30 }, null, null, null, null];
+  pueblo.garrison = ejercito({ creature: 'skeleton', count: 20 });
   plantarRival(state, pueblo.at);
   return pueblo;
 }
@@ -416,7 +416,7 @@ describe('enlace con el agente', () => {
     // al que atacar, y el test no probaría nada.
     revealEverything(director.state, 0);
     // Se le da un ejército de sobra para que la batalla la gane él.
-    director.state.heroes[0]!.army = [{ creature: 'paladin', count: 40 }, null, null, null, null];
+    director.state.heroes[0]!.army = ejercito({ creature: 'paladin', count: 20 });
     director.state.heroes[0]!.movePoints = 20000;
 
     const informe = await director.playTurn();
@@ -1232,7 +1232,7 @@ describe('el agente sabe cómo le fue', () => {
     // de quien todavía no ha actuado. Eso es exactamente la regla de #52, así
     // que la sustituta de la heurística es un `wait`. Montado a mano y no
     // buscado por semilla: el ejército de salida no da esa escena nunca.
-    mio.army = [{ creature: 'champion', count: 5 }, null, null, null, null];
+    mio.army = ejercito({ creature: 'champion', count: 5 });
     await director.playTurn();
     await respira();
 
@@ -1323,18 +1323,19 @@ describe('el agente sabe cómo le fue', () => {
     revealEverything(director.state, 0);
 
     const heroe = director.state.heroes.find((h) => h.owner === 0) as Hero;
-    heroe.army = [{ creature: 'paladin', count: 40 }, null, null, null, null];
+    heroe.army = ejercito({ creature: 'paladin', count: 20 });
     heroe.movePoints = 20000;
     // Con qué se remata: una flecha que se lleva al monstruo entero de una.
     heroe.spells = ['magic_arrow'];
     heroe.mana = 20;
     heroe.spellPower = 10; // 10 + 10×poder = 110 de daño
 
-    const monstruo = director.state.map.objects.find((o) => o.kind === 'monster' && !o.defeated);
-    if (monstruo === undefined || monstruo.kind !== 'monster') throw new Error('sin monstruo');
-    // Justo por encima del umbral de la heurística (4 PV por punto de maná × 3):
-    // por debajo no lanzaría, y por encima de 110 no mataría de una.
-    monstruo.count = Math.max(1, Math.ceil(12 / creature(monstruo.creature).hp));
+    // UN zombi: 15 PV, justo por encima del umbral de la heurística (4 PV por
+    // punto de maná × 3) —por debajo no lanzaría— y muy por debajo de 110, así
+    // que una flecha se lleva al monstruo entero. Antes era un stack de
+    // `⌈12/PV⌉`; con la tropa de individuos cada uno es un hex, y la flecha da
+    // a uno solo.
+    ponerMonstruo(director.state, 'zombie', 1);
 
     await director.playTurn();
     await respira();
@@ -1373,7 +1374,7 @@ describe('el agente sabe cómo le fue', () => {
     // exactamente la regla de #52, así que la sustituta de la heurística es un
     // `wait`. Con el ejército de salida del nigromante no pasa: el paladín es
     // más rápido que el esqueleto y que el zombi, y mueve antes que los dos.
-    mio.army = [{ creature: 'champion', count: 5 }, null, null, null, null];
+    mio.army = ejercito({ creature: 'champion', count: 5 });
 
     await director.playTurn();
     await respira();

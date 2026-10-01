@@ -98,26 +98,20 @@ const casillaVecinaLibre = (state: GameState, desde: Point): Point => {
 
 describe('puntos de movimiento', () => {
   it('los marca la criatura más lenta del ejército', () => {
-    const lento = [
-      { creature: 'zombie', count: 5 },
-      { creature: 'champion', count: 5 },
-      null,
-      null,
-      null,
-    ];
-    expect(slowestSpeed(lento)).toBe('very_slow');
-    expect(maxMovePoints({ army: lento, skills: {} })).toBe(1000);
+    const lento = ejercito({ creature: 'zombie', count: 5 }, { creature: 'champion', count: 5 });
+    expect(slowestSpeed(lento, undefined)).toBe('very_slow');
+    expect(maxMovePoints({ army: lento, skills: {} }, undefined)).toBe(1000);
 
-    const rapido = [{ creature: 'champion', count: 5 }, null, null, null, null];
-    expect(slowestSpeed(rapido)).toBe('ultra_fast');
-    expect(maxMovePoints({ army: rapido, skills: {} })).toBe(1500);
+    const rapido = ejercito({ creature: 'champion', count: 5 });
+    expect(slowestSpeed(rapido, undefined)).toBe('ultra_fast');
+    expect(maxMovePoints({ army: rapido, skills: {} }, undefined)).toBe(1500);
   });
 
   it('Logística los aumenta un 10 % por nivel', () => {
-    const army = [{ creature: 'skeleton', count: 5 }, null, null, null, null];
-    expect(maxMovePoints({ army, skills: {} })).toBe(1200);
-    expect(maxMovePoints({ army, skills: { logistics: 1 } })).toBe(1320);
-    expect(maxMovePoints({ army, skills: { logistics: 3 } })).toBe(1560);
+    const army = ejercito({ creature: 'skeleton', count: 5 });
+    expect(maxMovePoints({ army, skills: {} }, undefined)).toBe(1200);
+    expect(maxMovePoints({ army, skills: { logistics: 1 } }, undefined)).toBe(1320);
+    expect(maxMovePoints({ army, skills: { logistics: 3 } }, undefined)).toBe(1560);
   });
 });
 
@@ -247,6 +241,32 @@ describe('generación de mapas', () => {
     // con el motivo del plan, no con «criatura desconocida» desde dentro del
     // turno de la IA, que era donde reventaba.
     expect(() => newGame({ seed: 31, plan: inventada })).toThrow(/no es jugable/);
+  });
+
+  it('rechaza un monstruo que no cabe en su lado del tablero, y dice el máximo', () => {
+    // Un monstruo son individuos, uno por hex: treinta campesinos no caben en
+    // los 27 de un bando, y diez dragones —una fila cada uno— tampoco en las 9
+    // filas. Sin esto el plan entraba y `createBattle` reventaba al pisarlo,
+    // con la partida ya en marcha.
+    const plan = generateMapPlan(createRng(31));
+    const conMonstruo = (creature: string, count: number) => ({
+      ...plan,
+      monsters: [{ at: plan.monsters[0]!.at, creature, count }, ...plan.monsters.slice(1)],
+    });
+    const campesinos = validateMapPlan(conMonstruo('peasant', 30)).join(' ');
+    expect(campesinos).toMatch(/trae 30 × peasant y no caben en su lado del tablero/);
+    expect(campesinos).toMatch(/como mucho 27/);
+    expect(validateMapPlan(conMonstruo('bone_dragon', 10)).join(' ')).toMatch(/como mucho 9/);
+    // Y en el límite, entra.
+    expect(validateMapPlan(conMonstruo('peasant', 27))).toEqual([]);
+    expect(validateMapPlan(conMonstruo('bone_dragon', 9))).toEqual([]);
+  });
+
+  it('el generador no pone nunca un monstruo que no quepa', () => {
+    for (let seed = 1; seed <= 60; seed++) {
+      const plan = generateMapPlan(createRng(seed));
+      expect(validateMapPlan(plan).filter((p) => p.includes('no caben'))).toEqual([]);
+    }
   });
 
   it('los inicios de héroe también ocupan casilla (#97, la puerta de al lado)', () => {
@@ -511,14 +531,14 @@ describe('economía', () => {
     const disponibles = town.available[morada.creature] ?? 0;
     expect(disponibles).toBeGreaterThan(0);
 
-    const antes = hero.army.find((s) => s?.creature === morada.creature)?.count ?? 0;
+    const antes = hero.army.filter((s) => s.creature === morada.creature).length;
     applyAdventureAction(
       state,
       { type: 'recruit', town: town.id, creature: morada.creature, count: 2 },
       c,
       state.current,
     );
-    const despues = hero.army.find((s) => s?.creature === morada.creature)?.count ?? 0;
+    const despues = hero.army.filter((s) => s.creature === morada.creature).length;
     expect(despues).toBe(antes + 2);
     expect(town.available[morada.creature]).toBe(disponibles - 2);
   });
@@ -643,7 +663,7 @@ describe('movimiento de héroes', () => {
     expect((bandera as { owner: number | null }).owner).toBe(1);
 
     // Sin guarnición no hay batalla: lo que se mide aquí es la captura.
-    suyo.garrison = [null, null, null, null, null];
+    suyo.garrison = [];
     hero.at = { x: suyo.at.x - 1, y: suyo.at.y };
     hero.movePoints = 5000;
     applyAdventureAction(
@@ -704,7 +724,7 @@ describe('batallas del mapa', () => {
     const hero = heroesOf(state, 0)[0]!;
 
     // Ejército sobrado para que la victoria no dependa de la suerte.
-    hero.army = [{ creature: 'paladin', count: 50 }, null, null, null, null];
+    hero.army = ejercito({ creature: 'paladin', count: 20 });
     const monstruo = forzarBatalla(state, c, hero);
     expect(state.pendingBattle!.foe).toEqual({ kind: 'monster', objectId: monstruo.id });
 
@@ -721,14 +741,14 @@ describe('batallas del mapa', () => {
     const hero = heroesOf(state, 0)[0]!;
     const monstruo = monstruoVivo(state);
 
-    hero.army = [{ creature: 'peasant', count: 1 }, null, null, null, null];
+    hero.army = ejercito({ creature: 'peasant', count: 1 });
     // Se sustituye por un monstruo imbatible en la misma casilla.
     state.map.objects.splice(state.map.objects.indexOf(monstruo), 1, {
       kind: 'monster',
       id: monstruo.id,
       at: monstruo.at,
       creature: 'bone_dragon',
-      count: 20,
+      count: 9,
       defeated: false,
     });
 
@@ -762,14 +782,16 @@ describe('experiencia y niveles', () => {
       const state = newGame({ seed: 31 });
       const c = ctx(31);
       const hero = heroesOf(state, 0)[0]!;
-      hero.army = [{ creature: 'crusader', count: 100 }, null, null, null, null];
+      hero.army = ejercito({ creature: 'crusader', count: 20 });
       ponerMonstruo(state, 'peasant', cuantos);
       forzarBatalla(state, c, hero);
       expect(resolvePendingBattle(state, c).winner).toBe('attacker');
       return heroById(state, hero.id).experience;
     };
 
-    expect(experienciaContra(100)).toBe(100);
+    // Veinte y no cien: un monstruo son individuos, uno por hex, y en un bando
+    // caben 27.
+    expect(experienciaContra(20)).toBe(20);
     expect(experienciaContra(1)).toBe(1);
   });
 
@@ -782,9 +804,9 @@ describe('experiencia y niveles', () => {
     const atacante = heroesOf(state, 0)[0]!;
     const defensor = heroesOf(state, 1)[0]!;
 
-    atacante.army = [{ creature: 'peasant', count: 10 }, null, null, null, null];
+    atacante.army = ejercito({ creature: 'peasant', count: 10 });
     atacante.movePoints = 5000;
-    defensor.army = [{ creature: 'crusader', count: 60 }, null, null, null, null];
+    defensor.army = ejercito({ creature: 'crusader', count: 20 });
     defensor.experience = 0;
     defensor.at = casillaVecinaLibre(state, atacante.at);
 
@@ -803,16 +825,19 @@ describe('experiencia y niveles', () => {
     const state = newGame({ seed: 31 });
     const c = ctx(31);
     const hero = heroesOf(state, 0)[0]!;
-    hero.army = [{ creature: 'crusader', count: 300 }, null, null, null, null];
-    // 140 piqueros de 15 PV = 2100 de experiencia de una sentada: pasa de
-    // largo el umbral del nivel 2 (1000) y el del 3 (2000), y se queda corto
-    // del 4 (3200).
-    const monstruo = ponerMonstruo(state, 'pikeman', 140);
+    hero.army = ejercito({ creature: 'crusader', count: 27 });
+    // Nueve dragones óseos de 150 PV = 1350 de experiencia de una sentada, sobre
+    // los 900 que ya traía: pasa el umbral del nivel 2 (1000) y el del 3 (2000)
+    // en la misma batalla, y se queda corto del 4 (3200). Eran 140 piqueros
+    // desde cero; con un individuo por hex no caben más de 27, y nueve dragones
+    // —una fila cada uno— son lo que más experiencia da en un bando.
+    hero.experience = 900;
+    const monstruo = ponerMonstruo(state, 'bone_dragon', 9);
     forzarBatalla(state, c, hero);
     expect(resolvePendingBattle(state, c).winner).toBe('attacker');
 
     const vivo = heroById(state, hero.id);
-    expect(vivo.experience).toBe(2100);
+    expect(vivo.experience).toBe(900 + 1350);
     expect(vivo.level).toBe(3);
 
     const subidas = state.log.filter((e) => e.kind === 'level_up');
@@ -909,13 +934,15 @@ describe('IA de respaldo', () => {
     // impuesto: reservar 2500 todos los días dejaría al ejército corto para
     // siempre. Las dos partidas salen de la misma semilla y solo se
     // diferencian en si al jugador le queda un héroe; con la morada llena de
-    // criaturas, lo que manda es el oro.
+    // criaturas, lo que manda es el oro. Y poco oro: el liderazgo de la
+    // guarnición (10 campesinos) también es un techo, y con más se llegaría a él
+    // por los dos lados.
     const cuenta = (acciones: readonly AdventureAction[]): number =>
       acciones.reduce((n, a) => (a.type === 'recruit' ? n + a.count : n), 0);
     const montar = (conHeroe: boolean) => {
       const state = newGame({ seed: 41 });
       const player = state.players.find((p) => p.id === 0)!;
-      player.resources = { ...player.resources, gold: HERO_HIRE_COST + 400 };
+      player.resources = { ...player.resources, gold: HERO_HIRE_COST + 100 };
       const town = townsOf(state, 0)[0]!;
       for (const id of Object.keys(town.available)) town.available[id] = 500;
       if (!conHeroe) state.heroes = state.heroes.filter((h) => h.owner !== 0);
@@ -926,15 +953,15 @@ describe('IA de respaldo', () => {
   });
 
   it('valora más un ejército mayor', () => {
-    const debil = [{ creature: 'peasant', count: 10 }, null, null, null, null];
-    const fuerte = [{ creature: 'paladin', count: 10 }, null, null, null, null];
-    expect(armyPower(fuerte)).toBeGreaterThan(armyPower(debil));
+    const debil = ejercito({ creature: 'peasant', count: 10 });
+    const fuerte = ejercito({ creature: 'paladin', count: 10 });
+    expect(armyPower(fuerte, undefined)).toBeGreaterThan(armyPower(debil, undefined));
   });
 
   it('no manda al héroe contra un monstruo que le supera', () => {
     const state = newGame({ seed: 42 });
     const hero = heroesOf(state, 0)[0]!;
-    hero.army = [{ creature: 'peasant', count: 1 }, null, null, null, null];
+    hero.army = ejercito({ creature: 'peasant', count: 1 });
     hero.movePoints = 99999;
 
     // Se vacía el mapa y se deja un único objetivo: un monstruo descomunal
@@ -1682,9 +1709,14 @@ describe('el maná es un recurso (#4)', () => {
     const c = ctx(53);
     const hero = heroesOf(state, 0)[0]!;
     // Ejército sobrado: interesa el maná, no quién gana.
-    hero.army = [{ creature: 'paladin', count: 50 }, null, null, null, null];
+    hero.army = ejercito({ creature: 'paladin', count: 5 });
     hero.mana = maxMana(hero);
     const antes = hero.mana;
+    // Zombis y no lo que hubiera: con la tropa de individuos la flecha mágica
+    // vale lo que le quede de vida a UNO, y contra un esqueleto de 4 PV no
+    // llega al umbral de `VALOR_MINIMO_POR_MANA` y la IA no la lanza. Un zombi
+    // tiene 15.
+    ponerMonstruo(state, 'zombie', 4);
 
     forzarBatalla(state, c, hero);
     const enBatalla = state.pendingBattle!.battle.heroes.attacker!;
@@ -1736,7 +1768,6 @@ describe('los personajes y sus heridas', () => {
     // Y sigue en el ejército, con su `member`: no vuelve como un stack anónimo.
     expect(heroById(state, hero.id).army[0]).toEqual({
       creature: CHARACTER_BODY,
-      count: 1,
       member: 'aren',
     });
   });
@@ -1762,7 +1793,7 @@ describe('los personajes y sus heridas', () => {
     // el ejército y no habría ejército que mirar.
     state.characters!.aren!.hp = 3;
     hero.mana = 0;
-    hero.army = ejercito(hero.army[0]!, { creature: 'pikeman', count: 20 });
+    hero.army = [...hero.army, ...ejercito({ creature: 'paladin', count: 1 })];
     ponerMonstruo(state, 'zombie', 3);
     forzarBatalla(state, c, hero);
     const final = state.pendingBattle!.battle;
@@ -1774,7 +1805,9 @@ describe('los personajes y sus heridas', () => {
     expect(state.characters!.aren!.hp).toBe(0);
     const vivo = heroById(state, hero.id);
     expect(vivo.army.some((s) => s?.member === 'aren')).toBe(false);
-    expect(vivo.army[1]?.creature).toBe('pikeman');
+    // Y el compañero, en su sitio: la lista se queda densa, sin hueco.
+    expect(vivo.army.length).toBeGreaterThan(0);
+    expect(vivo.army.every((s) => s.creature === 'paladin')).toBe(true);
   });
 
   it('las heridas se escriben también en el bando que defiende, aunque su héroe caiga', () => {
@@ -1784,7 +1817,7 @@ describe('los personajes y sus heridas', () => {
     const defensor = heroesOf(state, 1)[0]!;
     alistar(state, defensor, 'bera');
 
-    atacante.army = ejercito({ creature: 'crusader', count: 60 });
+    atacante.army = ejercito({ creature: 'crusader', count: 20 });
     atacante.movePoints = 5000;
     defensor.at = casillaVecinaLibre(state, atacante.at);
 
@@ -1800,16 +1833,20 @@ describe('los personajes y sus heridas', () => {
   it('el defensor con personaje que GANA lo conserva en el ejército, con sus PV escritos', () => {
     // Es otro camino que el del atacante —`applyDefenderSurvivors` y
     // `restoreHeroFromBattle`— y es donde ya se olvidó una línea una vez (el
-    // maná). Doce arqueros contra el personaje y sesenta esqueletos: el
-    // defensor gana, y los arqueros disparan, así que el personaje sale herido.
+    // maná). Siete arqueros contra el personaje y veintiséis esqueletos —uno
+    // por hex: no caben más de 27 en un bando—: el defensor gana, y los
+    // arqueros disparan, así que el personaje sale herido.
     const state = newGame({ seed: 41 });
     const c = ctx(41);
     const atacante = heroesOf(state, 0)[0]!;
     const defensor = heroesOf(state, 1)[0]!;
     alistar(state, defensor, 'bera');
-    defensor.army = ejercito(defensor.army[0]!, { creature: 'skeleton', count: 60 });
+    defensor.army = [...defensor.army, ...ejercito({ creature: 'skeleton', count: 26 })];
 
-    atacante.army = ejercito({ creature: 'archer', count: 12 });
+    atacante.army = ejercito({ creature: 'archer', count: 7 });
+    // Sin maná: la flecha mágica del héroe va a por el personaje —es el único
+    // individuo del bando con vida para que valga la pena— y lo mataría.
+    atacante.mana = 0;
     atacante.movePoints = 5000;
     defensor.at = casillaVecinaLibre(state, atacante.at);
 
@@ -1825,7 +1862,6 @@ describe('los personajes y sus heridas', () => {
     expect(bera.hp).toBeGreaterThan(0);
     expect(heroById(state, defensor.id).army[0]).toEqual({
       creature: CHARACTER_BODY,
-      count: 1,
       member: 'bera',
     });
   });

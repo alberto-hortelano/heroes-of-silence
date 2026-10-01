@@ -10,17 +10,23 @@ import { stackHp } from '../battle/damage.js';
 import type { BattleHero, BattleState, Side } from '../battle/types.js';
 import { SIDES } from '../battle/types.js';
 import {
-  addToArmy,
   type Hero,
-  isArmyEmpty,
   learnable,
   levelFromExperience,
   luckBonus,
   maxMana,
   maxMovePoints,
   moraleBonus,
-  pruneArmy,
 } from '../hero/hero.js';
+import {
+  characterOf,
+  GARRISON_LEADERSHIP,
+  heroLeadership,
+  troopBlocker,
+  troopsAsStacks,
+  troopsThatFit,
+  withTroops,
+} from '../hero/troop.js';
 import {
   findPath,
   type GameMap,
@@ -43,6 +49,7 @@ import {
   mageGuildLevel,
   moraleFromBuildings,
   payRecruit,
+  recruitBlocker,
   type Town,
   townSpells,
 } from '../town/town.js';
@@ -54,7 +61,7 @@ import type {
   Point,
   ResourceKind,
   Resources,
-  Stack,
+  Troop,
 } from '../types.js';
 import { addResources, EMPTY_RESOURCES } from '../types.js';
 import type { BattleFoe, GameEvent, GameEventDraft } from './events.js';
@@ -195,7 +202,7 @@ export interface GameState {
   readonly log: readonly GameEvent[];
   /**
    * Los personajes por id: individuos con atributos propios (`rpg/character.ts`)
-   * que ocupan un slot del ejército de un héroe con `Stack.member`.
+   * que van como individuos en el ejército de un héroe con `Troop.member`.
    *
    * **Ausente en una partida de estrategia**, no vacío: `newGame` no lo escribe
    * y nada de la estrategia lo lee, así que no hay forma de que su presencia
@@ -267,6 +274,32 @@ export function heroesOf(state: GameState, player: PlayerId): Hero[] {
 
 export function townsOf(state: GameState, player: PlayerId): Town[] {
   return state.towns.filter((t) => t.owner === player);
+}
+
+/** A dónde va lo que se recluta en un pueblo, y con qué tope de liderazgo. */
+export interface DestinoDeRecluta {
+  /** El héroe del dueño que está dentro, o `undefined` si va a la guarnición. */
+  readonly hero: Hero | undefined;
+  readonly army: Army;
+  readonly tope: number;
+  /** Cómo lo nombra la frase de rechazo: «el ejército» o «la guarnición». */
+  readonly quien: string;
+}
+
+/**
+ * La regla de a dónde va un recluta: al héroe del dueño que esté en el pueblo,
+ * con su liderazgo; si no hay ninguno, a la guarnición, con el suyo.
+ *
+ * Una sola regla con dos lectores —`recruit`, que la aplica, y `planRecruits`,
+ * que planifica con ella—. Copiada en los dos, el día que cambie uno la IA
+ * pediría lo que el motor rechaza, y la partida lanzaría en el turno de la IA.
+ */
+export function destinoDeRecluta(state: GameState, town: Town): DestinoDeRecluta {
+  if (town.owner === null) throw new Error(`no se puede reclutar en ${town.name}: no tiene dueño`);
+  const hero = heroesOf(state, town.owner).find((h) => pointKey(h.at) === pointKey(town.at));
+  return hero === undefined
+    ? { hero, army: town.garrison, tope: GARRISON_LEADERSHIP, quien: 'la guarnición' }
+    : { hero, army: hero.army, tope: heroLeadership(hero), quien: 'el ejército' };
 }
 
 // ---------------------------------------------------------------- creación
@@ -353,7 +386,7 @@ export function createGame(config: GameConfig): GameState {
   for (const town of state.towns) applyWeeklyGrowth(town);
 
   for (const hero of state.heroes) {
-    hero.movePoints = maxMovePoints(hero);
+    hero.movePoints = maxMovePoints(hero, state.characters);
     revealAround(state, hero);
   }
 
@@ -522,7 +555,7 @@ function startTurn(state: GameState): void {
   player.resources = addResources(player.resources, income);
 
   for (const hero of heroesOf(state, player.id)) {
-    hero.movePoints = maxMovePoints(hero);
+    hero.movePoints = maxMovePoints(hero, state.characters);
     // El maná se recupera poco a poco, salvo en un pueblo con gremio.
     const enPueblo = townsOf(state, player.id).some(
       (t) => pointKey(t.at) === pointKey(hero.at) && mageGuildLevel(t) > 0,
@@ -770,16 +803,28 @@ function aplicar(
       const player = currentPlayer(state);
       if (town.owner !== player.id) throw new Error('ese pueblo no es tuyo');
 
-      // Va al héroe que esté en el pueblo; si no hay ninguno, a la guarnición.
-      const hero = heroesOf(state, player.id).find((h) => pointKey(h.at) === pointKey(town.at));
-      const destino: Army = hero?.army ?? town.garrison;
-      const ampliado = addToArmy(destino, action.creature, action.count);
-      if (ampliado === null) throw new Error('no quedan huecos en el ejército');
+      const destino = destinoDeRecluta(state, town);
+      // Primero lo que el pueblo puede dar —hay tantos, alcanza el oro— y luego
+      // si cabe. Las dos ANTES de cobrar: `payRecruit` descuenta las criaturas
+      // del pueblo y el oro del monedero, y un rechazo después de pagar sería
+      // tropa pagada y perdida.
+      const noHay = recruitBlocker(town, action.creature, action.count, player.resources);
+      if (noHay !== null) throw new Error(`no se puede reclutar: ${noHay}`);
+      const noCabe = troopBlocker(
+        destino.army,
+        destino.tope,
+        action.creature,
+        action.count,
+        destino.quien,
+      );
+      if (noCabe !== null) throw new Error(`no se puede reclutar: ${noCabe}`);
+      const ampliado = withTroops(destino.army, action.creature, action.count);
 
       player.resources = payRecruit(town, action.creature, action.count, player.resources);
+      const hero = destino.hero;
       if (hero !== undefined) {
         hero.army = ampliado;
-        hero.movePoints = Math.min(hero.movePoints, maxMovePoints(hero));
+        hero.movePoints = Math.min(hero.movePoints, maxMovePoints(hero, state.characters));
       } else {
         town.garrison = ampliado;
       }
@@ -828,13 +873,13 @@ function hireHero(state: GameState, townId: string): void {
     mana: 10,
     level: 1,
     experience: 0,
-    army: [null, null, null, null, null],
+    army: [],
     at: town.at,
     movePoints: 0,
     spells: [],
     skills: {},
   };
-  hero.movePoints = maxMovePoints(hero);
+  hero.movePoints = maxMovePoints(hero, state.characters);
 
   player.resources = addResources(player.resources, { gold: -HERO_HIRE_COST });
   state.heroes.push(hero);
@@ -850,31 +895,18 @@ function hireHero(state: GameState, townId: string): void {
   revealAround(state, hero);
 }
 
-/** Un héroe que entra en su pueblo se lleva la guarnición que le quepa. */
+/**
+ * Un héroe que entra en su pueblo se lleva la guarnición que le quepa en el
+ * liderazgo, en orden; lo que no cabe se queda guardando el pueblo en vez de
+ * desaparecer. No lanza: entrar en casa no es pedir tropa.
+ */
 function takeGarrison(state: GameState, hero: Hero, town: Town): void {
   if (town.owner !== hero.owner) return;
-  let army = hero.army;
-  let quedan: Army = [null, null, null, null, null];
-  let movidas = false;
-
-  for (const [i, stack] of town.garrison.entries()) {
-    if (stack === null || stack.count <= 0) continue;
-    const ampliado = addToArmy(army, stack.creature, stack.count);
-    if (ampliado === null) {
-      // No cabe: se queda en el pueblo en vez de desaparecer.
-      const resto = [...quedan];
-      resto[i] = stack;
-      quedan = resto;
-      continue;
-    }
-    army = ampliado;
-    movidas = true;
-  }
-
-  if (!movidas) return;
-  hero.army = army;
-  town.garrison = quedan;
-  hero.movePoints = Math.min(hero.movePoints, maxMovePoints(hero));
+  const { dentro, fuera } = troopsThatFit(hero.army, heroLeadership(hero), town.garrison);
+  if (dentro.length === 0) return;
+  hero.army = [...hero.army, ...dentro];
+  town.garrison = fuera;
+  hero.movePoints = Math.min(hero.movePoints, maxMovePoints(hero, state.characters));
   emit(state, {
     kind: 'garrison_taken',
     hero: hero.id,
@@ -972,7 +1004,7 @@ function enemyAt(state: GameState, at: Point, player: PlayerId): BattleFoe | nul
 
   const pueblo = state.towns.find((t) => pointKey(t.at) === pointKey(at));
   if (pueblo !== undefined && pueblo.owner !== player) {
-    const defendido = !isArmyEmpty(pueblo.garrison);
+    const defendido = pueblo.garrison.length > 0;
     if (defendido) return { kind: 'town', townId: pueblo.id };
   }
   return null;
@@ -1060,7 +1092,7 @@ function captureTown(state: GameState, town: Town, player: PlayerId): void {
   // escribirlo, porque un instante después el castillo ya es de otro.
   const anterior = town.owner;
   town.owner = player;
-  town.garrison = [null, null, null, null, null];
+  town.garrison = [];
   const bandera = state.map.objects.find((o) => o.kind === 'town' && o.id === town.id);
   if (bandera === undefined || bandera.kind !== 'town') {
     throw new Error(`el castillo ${town.id} no tiene objeto en el mapa`);
@@ -1079,28 +1111,14 @@ function captureTown(state: GameState, town: Town, player: PlayerId): void {
 // ---------------------------------------------------------------- batallas
 
 /**
- * La puerta para buscar un personaje por id. Lanza diciendo el id si la partida
- * no lo conoce: sería un stack sin cifras, y adivinárselas es justo lo que no
- * se hace. `quien` dice desde dónde se le buscaba —«Gustav lleva en el
- * ejército», «la batalla devuelve»—, para que la frase lo cuente.
- */
-function characterOf(state: GameState, id: string, quien: string): Character {
-  const c = state.characters?.[id];
-  if (c === undefined) {
-    throw new Error(`${quien} al personaje "${id}", pero la partida no lo conoce`);
-  }
-  return c;
-}
-
-/**
  * Los personajes del ejército de un héroe, listos para `createBattle`, o
  * `undefined` si no lleva ninguno —que es siempre, en estrategia—.
  */
 function membersOf(state: GameState, hero: Hero): ReadonlyMap<string, BattleMember> | undefined {
   let out: Map<string, BattleMember> | undefined;
   for (const s of hero.army) {
-    if (s?.member === undefined) continue;
-    const c = characterOf(state, s.member, `${hero.name} lleva en el ejército`);
+    if (s.member === undefined) continue;
+    const c = characterOf(state.characters, s.member, `${hero.name} lleva en el ejército`);
     out ??= new Map();
     out.set(s.member, { profile: combatProfile(c), hp: c.hp });
   }
@@ -1114,7 +1132,7 @@ function battleSideForHero(state: GameState, hero: Hero): BattleSide {
   const members = membersOf(state, hero);
   return {
     ...(members === undefined ? {} : { members }),
-    army: hero.army,
+    army: troopsAsStacks(hero.army),
     hero: {
       name: hero.name,
       attack: hero.attack,
@@ -1156,7 +1174,9 @@ function defenderSide(state: GameState, foe: BattleFoe): BattleSide {
       const obj = state.map.objects.find((o) => o.id === foe.objectId);
       if (obj === undefined || obj.kind !== 'monster') throw new Error('monstruo no encontrado');
       return {
-        army: [{ creature: obj.creature, count: obj.count }, null, null, null, null],
+        // Un monstruo del mapa son `count` individuos: cada uno en su hex. La
+        // misma conversión que la tropa de un héroe, no una propia.
+        army: troopsAsStacks(withTroops([], obj.creature, obj.count)),
         hero: null,
       };
     }
@@ -1167,7 +1187,7 @@ function defenderSide(state: GameState, foe: BattleFoe): BattleSide {
     case 'town': {
       const pueblo = townById(state, foe.townId);
       return {
-        army: pueblo.garrison,
+        army: troopsAsStacks(pueblo.garrison),
         hero: null,
         moraleBonus: moraleFromBuildings(pueblo),
       };
@@ -1296,19 +1316,22 @@ export function settleBattle(state: GameState, _ctx: GameContext): void {
   // su ejército. Lo que se escribe es del personaje, no del héroe, y tiene que
   // quedar escrito pase lo que pase con quien lo llevaba.
   woundsFromBattle(state, pending.battle);
+  // Los vivos de un bando, en su orden de salida. Un stack de N —el motor los
+  // sigue sabiendo jugar— vuelve como N individuos, aunque la partida solo le
+  // mande de 1. Sin ordenar: `createBattle` empuja cada bando en orden de
+  // `slot` y nadie añade ni reordena stacks después, así que el orden de
+  // `stacks` YA es el de salida.
   const superviviente = (side: 'attacker' | 'defender'): Army => {
-    const slots: (Stack | null)[] = [null, null, null, null, null];
+    const vivos: Troop[] = [];
     for (const s of pending.battle.stacks) {
       if (s.side !== side || s.count <= 0) continue;
       // `member` viaja de vuelta: sin él, el superviviente volvería al mapa
-      // convertido en un stack de «character» que nadie sabe leer.
-      slots[s.slot] = {
-        creature: s.body,
-        count: s.count,
-        ...(s.member === undefined ? {} : { member: s.member }),
-      };
+      // convertido en un individuo «character» que nadie sabe leer.
+      const t: Troop =
+        s.member === undefined ? { creature: s.body } : { creature: s.body, member: s.member };
+      for (let i = 0; i < s.count; i++) vivos.push(t);
     }
-    return pruneArmy(slots);
+    return vivos;
   };
 
   restoreHeroFromBattle(hero, pending.battle.heroes.attacker, superviviente('attacker'));
@@ -1349,7 +1372,7 @@ export function settleBattle(state: GameState, _ctx: GameContext): void {
  *
  * Los de los DOS bandos, porque un personaje puede defender. El que cae queda a
  * 0 y sale del ejército por el mismo camino que cualquier stack a 0
- * (`pruneArmy`); sigue en `characters`, y qué le pasa después —si se levanta,
+ * (`superviviente`); sigue en `characters`, y qué le pasa después —si se levanta,
  * si se pierde— es de la fase siguiente, no de esta.
  */
 function woundsFromBattle(state: GameState, battle: BattleState): void {
@@ -1358,7 +1381,7 @@ function woundsFromBattle(state: GameState, battle: BattleState): void {
     if (s.member === undefined) continue;
     // `battleSideForHero` ya lanzó si faltaba al entrar: faltar al salir es
     // que alguien lo borró a mitad de batalla, y eso también se dice.
-    characterOf(state, s.member, 'la batalla devuelve').hp = stackHp(s);
+    characterOf(state.characters, s.member, 'la batalla devuelve').hp = stackHp(s);
   }
 }
 
@@ -1480,9 +1503,8 @@ function applyDefenderSurvivors(
         (o) => o.kind === 'monster' && o.id === foe.objectId,
       ) as Extract<MapObject, { kind: 'monster' }> | undefined;
       if (monstruo !== undefined) {
-        const vivos = army.reduce((n, s) => n + (s?.count ?? 0), 0);
-        monstruo.count = vivos;
-        monstruo.defeated = vivos === 0;
+        monstruo.count = army.length;
+        monstruo.defeated = army.length === 0;
       }
       break;
     }

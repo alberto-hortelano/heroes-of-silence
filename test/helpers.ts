@@ -8,25 +8,27 @@ import {
 } from '../src/core/battle/battle.js';
 import { hexDistance } from '../src/core/battle/board.js';
 import type { BattleAction, BattleState } from '../src/core/battle/types.js';
-import { emptyArmy, type Hero } from '../src/core/hero/hero.js';
+import type { Hero } from '../src/core/hero/hero.js';
 import type { MapObject } from '../src/core/map/map.js';
 import type { Rng } from '../src/core/rng.js';
 import { applyAdventureAction, type GameContext, type GameState } from '../src/core/state/game.js';
-import type { Army, Stack } from '../src/core/types.js';
+import type { Army, Stack, Troop } from '../src/core/types.js';
 
 /**
- * Un ejército con estos stacks en los primeros slots y el resto vacío.
+ * Un ejército de individuos, escrito por grupos: `{ creature: 'pikeman',
+ * count: 20 }` son veinte piqueros, uno detrás de otro y en el orden en que se
+ * escriben. Un personaje va con `count: 1` y conserva su `member`.
  *
- * Asigna slot a slot y NO pasa por `addToArmy`: esa funde los stacks de la misma
- * criatura, y dos personajes —los dos con el cuerpo `character`— acabarían en
- * uno solo sin decir nada.
+ * NO pasa por el liderazgo: un test que monta un ejército a mano decide qué
+ * lleva, igual que antes decidía qué había en cada hueco. Lo que sí tiene que
+ * respetar es el tablero —27 hexes por bando—, porque eso lo mira la batalla.
  */
-export function ejercito(...stacks: Stack[]): Army {
-  const slots: (Stack | null)[] = [...emptyArmy()];
-  stacks.forEach((s, i) => {
-    slots[i] = s;
-  });
-  return slots;
+export function ejercito(...grupos: Stack[]): Army {
+  const out: Troop[] = [];
+  for (const { count, ...troop } of grupos) {
+    for (let i = 0; i < count; i++) out.push(troop);
+  }
+  return out;
 }
 
 export type Monstruo = Extract<MapObject, { kind: 'monster' }>;

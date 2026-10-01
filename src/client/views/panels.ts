@@ -19,7 +19,8 @@ import { type EffectKind, effectiveLuck } from '@core/battle/effects.js';
 import { type Spell, spell } from '@core/battle/spells.js';
 import type { BattleState, Side } from '@core/battle/types.js';
 import { creature, isShooter } from '@core/data.js';
-import { armySize, maxMana, maxMovePoints } from '@core/hero/hero.js';
+import { maxMana, maxMovePoints } from '@core/hero/hero.js';
+import { type Personajes, troopSummary } from '@core/hero/troop.js';
 import type { GameEventDraft } from '@core/state/events.js';
 import { building } from '@core/town/buildings.js';
 import { dailyIncome, dwellings, mageGuildLevel, type Town, townSpells } from '@core/town/town.js';
@@ -145,15 +146,15 @@ function renderAdventurePanel(session: Session): Html {
       ? html`<p>No tienes héroes en el mapa. Contrata uno en tu castillo.</p>`
       : html`
         <h2>${hero.name}</h2>
-        <div class="row"><span class="label">Movimiento</span><span>${hero.movePoints} / ${maxMovePoints(hero)}</span></div>
+        <div class="row"><span class="label">Movimiento</span><span>${hero.movePoints} / ${maxMovePoints(hero, session.state.characters)}</span></div>
         <div class="row"><span class="label">Maná</span><span>${hero.mana} / ${maxMana(hero)}</span></div>
         <div class="row"><span class="label">Ataque / Defensa</span><span>${hero.attack} / ${hero.defense}</span></div>
         <div class="row"><span class="label">Poder / Conocimiento</span><span>${hero.spellPower} / ${hero.knowledge}</span></div>
         <div class="row"><span class="label">Experiencia</span><span>${hero.experience}</span></div>
         <h3>Hechizos</h3>
         ${renderSpellbook(hero.spells)}
-        <h3>Ejército (${armySize(hero.army)})</h3>
-        ${renderArmy(hero.army)}`;
+        <h3>Ejército (${hero.army.length})</h3>
+        ${renderArmy(hero.army, session.state.characters)}`;
 
   const listaHeroes =
     heroes.length <= 1
@@ -202,13 +203,18 @@ function renderSpellbook(spells: readonly string[]): Html {
   return html`<div class="stack-list">${filas}</div>`;
 }
 
-function renderArmy(army: Army): Html {
+/**
+ * El ejército agrupado: una fila por criatura con cuántos individuos lleva, y
+ * una por personaje. Agrupa `troopSummary`, no este panel.
+ */
+function renderArmy(army: Army, characters: Personajes): Html {
+  if (army.length === 0) {
+    return html`<div class="stack-list"><div class="stack empty"><span>—</span></div></div>`;
+  }
   const filas = unir(
-    army.map((stack) => {
-      if (stack === null) return html`<div class="stack empty"><span>—</span></div>`;
-      const info = creature(stack.creature);
-      const marca = isShooter(info) ? ' ↑' : '';
-      return html`<div class="stack"><span>${info.name}${marca}</span><span class="count">${stack.count}</span></div>`;
+    troopSummary(army, characters).map((g) => {
+      const marca = isShooter(g.unit) ? ' ↑' : '';
+      return html`<div class="stack"><span>${g.unit.name}${marca}</span><span class="count">${g.count}</span></div>`;
     }),
   );
   return html`<div class="stack-list">${filas}</div>`;
@@ -251,12 +257,12 @@ function renderTownPanel(session: Session): Html {
     <div class="stack-list">${crecimiento}</div>
 
     <h3>Guarnición</h3>
-    ${renderArmy(town.garrison)}
+    ${renderArmy(town.garrison, session.state.characters)}
 
     ${
       heroeAqui === undefined
         ? html`<button data-action="hire-hero" class="primary" style="margin-top:.7rem">Contratar héroe (2500 oro)</button>`
-        : html`<h3>Ejército de ${heroeAqui.name}</h3>${renderArmy(heroeAqui.army)}`
+        : html`<h3>Ejército de ${heroeAqui.name}</h3>${renderArmy(heroeAqui.army, session.state.characters)}`
     }`;
 }
 

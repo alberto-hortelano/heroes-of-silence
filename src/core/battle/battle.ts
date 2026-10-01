@@ -9,10 +9,12 @@
 import { creature, hasTrait, hexSize, isShooter } from '../data.js';
 import type { Rng } from '../rng.js';
 import type { CombatProfile } from '../rpg/stats.js';
-import type { Army, CreatureTrait, FactionId, Hex, Stack, UnitInfo } from '../types.js';
+import type { CreatureTrait, FactionId, Hex, Stack, UnitInfo } from '../types.js';
 import { SPEED_TO_HEXES } from '../types.js';
 import {
   areAdjacent,
+  BOARD_HEIGHT,
+  BOARD_WIDTH,
   hexDistance,
   hexEquals,
   hexKey,
@@ -34,7 +36,12 @@ import type { BattleAction, BattleHero, BattleStack, BattleState, Side } from '.
 import { SIDES } from './types.js';
 
 export interface BattleSide {
-  readonly army: Army;
+  /**
+   * Lo que sale al tablero, en orden de despliegue. Desde la tropa de
+   * individuos la partida manda un stack de 1 por individuo
+   * (`troopsAsStacks`); el motor sigue sabiendo jugar stacks de N.
+   */
+  readonly army: readonly Stack[];
   readonly hero: BattleHero | null;
   /** Bonus de moral/suerte del héroe (habilidades, artefactos, edificios). */
   readonly moraleBonus?: number;
@@ -54,14 +61,103 @@ export interface BattleMember {
   readonly hp: number;
 }
 
-/** Filas de salida según cuántos stacks trae el ejército. */
-const ROWS_BY_COUNT: Readonly<Record<number, readonly number[]>> = {
-  1: [4],
-  2: [2, 6],
-  3: [2, 4, 6],
-  4: [1, 3, 5, 7],
-  5: [0, 2, 4, 6, 8],
-};
+/** Columnas de salida de cada bando, contando desde su borde. */
+const COLUMNAS_DE_SALIDA = 3;
+
+/** Hexes en los que puede desplegar un bando: tres columnas de nueve. */
+export const HEXES_POR_BANDO = COLUMNAS_DE_SALIDA * BOARD_HEIGHT;
+
+/** Las filas, del centro hacia fuera: el centro es lo primero que se llena. */
+const DEL_CENTRO_A_FUERA: readonly number[] = [4, 3, 5, 2, 6, 1, 7, 0, 8];
+
+/**
+ * Por qué estas unidades no caben en un bando, o `null` si caben.
+ *
+ * La regla es cerrada y exacta para `despliegue`: una grande ocupa la columna
+ * del borde y la siguiente de su fila —nueve como mucho, una por fila— y el
+ * resto se reparte por lo que quede de las tres columnas. Con ≤ 9 grandes y
+ * ≤ 27 hexes en total siempre hay sitio: `k` grandes dejan `27 − 2k` hexes
+ * libres, que es justo lo que piden las pequeñas.
+ *
+ * Exportada porque la preguntan dos puertas además del motor: `validateMapPlan`
+ * —un monstruo del mapa no puede traer más de los que caben— y el test de datos
+ * que comprueba que ningún ejército dentro del liderazgo se pasa.
+ */
+export function despliegueBlocker(units: readonly UnitInfo[]): string | null {
+  let hexes = 0;
+  let grandes = 0;
+  for (const u of units) {
+    const size = hexSize(u);
+    hexes += size;
+    if (size > 1) grandes++;
+  }
+  if (hexes > HEXES_POR_BANDO) {
+    return `no caben: ${units.length} unidades ocupan ${hexes} hexes y un bando tiene ${HEXES_POR_BANDO}`;
+  }
+  if (grandes > BOARD_HEIGHT) {
+    return `no caben: ${grandes} unidades grandes necesitan una fila cada una y un bando tiene ${BOARD_HEIGHT}`;
+  }
+  return null;
+}
+
+/**
+ * Cuántos individuos de UNA criatura caben en un bando: la misma regla de
+ * `despliegueBlocker`, despejada para un ejército de una sola clase. Es la cifra
+ * que se le devuelve a quien diseña un monstruo demasiado grande. Un test
+ * comprueba, criatura a criatura, que este número cabe y el siguiente no.
+ */
+export function maximoPorBando(u: UnitInfo): number {
+  const size = hexSize(u);
+  const porHexes = Math.floor(HEXES_POR_BANDO / size);
+  return size > 1 ? Math.min(porHexes, BOARD_HEIGHT) : porHexes;
+}
+
+/**
+ * El hex de cabeza de cada unidad, en el orden en que llegan.
+ *
+ * Las tres columnas del borde: primero las grandes, una por fila del centro
+ * hacia fuera, con la cabeza en la segunda columna y la cola en la del borde;
+ * luego las pequeñas, columna a columna desde el borde y cada columna del
+ * centro hacia fuera. Se calcula en el marco del atacante y se refleja para el
+ * defensor, cuya cola queda a la derecha (`occupiedHexes`).
+ *
+ * Es la única regla, para uno o para veintisiete. Hasta la fase 1a convivía
+ * con las filas de HoMM2 para cinco o menos (`ROWS_BY_COUNT`), que se habían
+ * quedado solo para no mover los tests del motor: el juego no tenía motivo, y
+ * un ejército saltaba de formación abierta a compacta al pasar de cinco a seis
+ * individuos. En el banco se jugaban las dos (974 bandos con la vieja, 1 156
+ * con esta).
+ *
+ * No comprueba si caben: eso es `despliegueBlocker`, y `createBattle` lo
+ * pregunta antes de llamar.
+ */
+function despliegue(units: readonly UnitInfo[], side: Side): Hex[] {
+  const marco = (h: Hex): Hex =>
+    side === 'attacker' ? h : { col: BOARD_WIDTH - 1 - h.col, row: h.row };
+
+  const out: Hex[] = new Array<Hex>(units.length);
+  const ocupadas = new Set<string>();
+  let fila = 0;
+  units.forEach((u, i) => {
+    if (hexSize(u) <= 1) return;
+    const row = DEL_CENTRO_A_FUERA[fila++]!;
+    out[i] = { col: 1, row };
+    ocupadas.add(hexKey({ col: 0, row })).add(hexKey({ col: 1, row }));
+  });
+
+  const huecos: Hex[] = [];
+  for (let col = 0; col < COLUMNAS_DE_SALIDA; col++) {
+    for (const row of DEL_CENTRO_A_FUERA) {
+      if (!ocupadas.has(hexKey({ col, row }))) huecos.push({ col, row });
+    }
+  }
+  let siguiente = 0;
+  units.forEach((u, i) => {
+    if (hexSize(u) > 1) return;
+    out[i] = huecos[siguiente++]!;
+  });
+  return out.map(marco);
+}
 
 /**
  * Moral del ejército por diversidad de facciones: +1 si todas las criaturas
@@ -94,25 +190,22 @@ export function createBattle(attacker: BattleSide, defender: BattleSide, _rng: R
     ['attacker', attacker],
     ['defender', defender],
   ] as const) {
-    const filled = setup.army
-      .map((stack, slot) => ({ stack, slot }))
-      .filter(
-        (s): s is { stack: NonNullable<(typeof s)['stack']>; slot: number } => s.stack !== null,
-      );
-
-    const rows = ROWS_BY_COUNT[filled.length] ?? ROWS_BY_COUNT[5]!;
-    unoPorHueco(filled, setup);
-    const resolved = filled.map(({ stack }) => resolveUnit(stack, setup));
-    const baseMorale = armyMorale(resolved.map((r) => r.unit)) + (setup.moraleBonus ?? 0);
+    personajesSinRepetir(setup);
+    const resolved = setup.army.map((stack) => resolveUnit(stack, setup));
+    const units = resolved.map((r) => r.unit);
+    // Antes de colocar a nadie: del sexto en adelante se solapaban sin aviso.
+    const noCaben = despliegueBlocker(units);
+    if (noCaben !== null) {
+      const bando = side === 'attacker' ? 'el atacante' : 'el defensor';
+      throw new Error(`${noCaben} (${bando})`);
+    }
+    const hexes = despliegue(units, side);
+    const baseMorale = armyMorale(units) + (setup.moraleBonus ?? 0);
     const luckBonus = setup.luckBonus ?? 0;
 
-    filled.forEach(({ stack, slot }, index) => {
-      const { unit: info, topHp, ownMorale, ownLuck } = resolved[index]!;
-      const big = hexSize(info) > 1;
-      // Las unidades grandes arrancan una columna hacia dentro: su cola ocupa
-      // la columna del borde y se saldría del tablero.
-      const col = side === 'attacker' ? (big ? 1 : 0) : big ? 9 : 10;
-      const row = rows[index] ?? 4;
+    setup.army.forEach((stack, slot) => {
+      const { unit: info, topHp, ownMorale, ownLuck } = resolved[slot]!;
+      const hex = hexes[slot]!;
 
       stacks.push({
         id: `${side}-${slot}`,
@@ -124,7 +217,7 @@ export function createBattle(attacker: BattleSide, defender: BattleSide, _rng: R
         initialCount: stack.count,
         count: stack.count,
         topHp,
-        hex: { col, row },
+        hex,
         shotsLeft: info.shots ?? 0,
         retaliated: false,
         defending: false,
@@ -155,7 +248,7 @@ export function createBattle(attacker: BattleSide, defender: BattleSide, _rng: R
 }
 
 /**
- * Un personaje es un individuo: no puede ocupar dos huecos del mismo ejército.
+ * Un personaje es un individuo: no puede aparecer dos veces en el mismo ejército.
  *
  * Si lo hiciera, los dos stacks entrarían con sus PV y saldrían con PV
  * distintos, y `woundsFromBattle` escribiría los dos sobre el mismo personaje:
@@ -163,13 +256,13 @@ export function createBattle(attacker: BattleSide, defender: BattleSide, _rng: R
  * Hoy ningún camino del juego lo produce; se cierra en la puerta de la batalla,
  * que es donde ya se validan el `count` y los PV, antes de que lo produzca uno.
  */
-function unoPorHueco(filled: readonly { stack: Stack }[], setup: BattleSide): void {
+function personajesSinRepetir(setup: BattleSide): void {
   const vistos = new Set<string>();
-  for (const { stack } of filled) {
+  for (const stack of setup.army) {
     if (stack.member === undefined) continue;
     if (vistos.has(stack.member)) {
       const nombre = setup.members?.get(stack.member)?.profile.unit.name ?? stack.member;
-      throw new Error(`${nombre} ocupa dos huecos del ejército`);
+      throw new Error(`${nombre} aparece dos veces en el ejército`);
     }
     vistos.add(stack.member);
   }
@@ -984,11 +1077,20 @@ export function legalActionsAndCosts(state: BattleState): {
   for (const h of alcanzables) out.push({ type: 'move', to: h });
 
   // Ataques: desde donde está, o moviéndose a un hex desde el que alcance.
+  // Es `canReachMelee` desplegada a mano: con individuos este doble bucle se
+  // corre ~100 veces por batalla sobre decenas de casillas, y copiar el stack
+  // entero por sonda para preguntar lo que solo depende de su cabeza y su
+  // tamaño era la mitad de su coste. Las casillas del enemigo, una vez por él.
+  const tamaño = hexSize(info);
+  const miraALaDerecha = s.side === 'attacker';
   for (const e of enemies) {
     if (canReachMelee(s, e)) out.push({ type: 'attack', target: e.id });
+    const suyas = stackHexes(e);
     for (const h of alcanzables) {
-      const probe: BattleStack = { ...s, hex: h };
-      if (canReachMelee(probe, e)) out.push({ type: 'attack', target: e.id, from: h });
+      const mias = occupiedHexes(h, tamaño, miraALaDerecha);
+      if (suyas.some((th) => mias.some((oh) => areAdjacent(oh, th)))) {
+        out.push({ type: 'attack', target: e.id, from: h });
+      }
     }
   }
 

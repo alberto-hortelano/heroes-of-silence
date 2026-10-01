@@ -1,0 +1,6 @@
+{
+  "_comment": "Liderazgo PROVISIONAL: lo define el usuario más adelante (fase 1a de NuevaJugabilidad). heroe = tope del ejército de un héroe, base + porNivel × (nivel − 1) sin pasar de max; guarnicion = tope de la tropa que guarda un castillo sin héroe, IGUAL al de un héroe recién contratado: medido con la IA contra sí misma, con 40 la semilla 10 se queda en tablas para siempre (dos héroes de nivel 1 con 20 que nunca vencen a una guarnición de 40) y con 30 no termina 1 de 200; con 20, 0 de 200; personaje = lo que ocupa un personaje (Stack.member). Con max 50 y el individuo más barato a 2 por hex, un ejército cabe siempre en los 27 hexes de su bando.",
+  "heroe": { "base": 20, "porNivel": 5, "max": 50 },
+  "guarnicion": 20,
+  "personaje": 6
+}

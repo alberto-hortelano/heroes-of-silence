@@ -16,7 +16,7 @@ export const SIDES: readonly Side[] = ['attacker', 'defender'];
 export interface BattleStack {
   readonly id: string;
   readonly side: Side;
-  /** Slot de origen en el ejército (0..4), para desempatar la iniciativa. */
+  /** Puesto de origen en el ejército (su índice), para desempatar la iniciativa. */
   readonly slot: number;
   /**
    * El id del ARTE: qué sprite se pinta y qué id viaja al agente. No es de

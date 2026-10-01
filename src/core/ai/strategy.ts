@@ -7,9 +7,18 @@
  */
 import { creature } from '../data.js';
 import type { Hero } from '../hero/hero.js';
+import {
+  heroLeadership,
+  type Personajes,
+  troopRoom,
+  troopsThatFit,
+  troopUnit,
+  withTroops,
+} from '../hero/troop.js';
 import { type MapObject, pointKey, type Reachable } from '../map/map.js';
 import {
   type AdventureAction,
+  destinoDeRecluta,
   type GameState,
   HERO_HIRE_COST,
   heroesOf,
@@ -17,18 +26,21 @@ import {
 } from '../state/game.js';
 import { building } from '../town/buildings.js';
 import { availableBuildings, dwellings, recruitBlocker, type Town } from '../town/town.js';
-import type { Army, FactionId, PlayerId, Point, Resources } from '../types.js';
+import type { Army, FactionId, PlayerId, Point, Resources, UnitInfo } from '../types.js';
 import { canAfford, scaleResources, subtractResources } from '../types.js';
 
-/** Fuerza bruta de un ejército: lo que pega por lo que aguanta. */
-export function armyPower(army: Army): number {
+/** Fuerza bruta de un individuo: lo que pega por lo que aguanta. */
+export function unitPower(info: UnitInfo): number {
+  return ((info.damage[0] + info.damage[1]) / 2) * info.hp;
+}
+
+/**
+ * Fuerza bruta de un ejército. Pide los personajes porque un individuo puede
+ * serlo, y sus cifras salen de su perfil y no del catálogo.
+ */
+export function armyPower(army: Army, characters: Personajes): number {
   let power = 0;
-  for (const stack of army) {
-    if (stack === null) continue;
-    const info = creature(stack.creature);
-    const dmg = (info.damage[0] + info.damage[1]) / 2;
-    power += dmg * info.hp * stack.count;
-  }
+  for (const t of army) power += unitPower(troopUnit(t, characters));
   return power;
 }
 
@@ -51,25 +63,23 @@ function objectValue(state: GameState, obj: MapObject, hero: Hero): number {
       const pueblo = state.towns.find((t) => t.id === obj.id);
       if (pueblo === undefined) throw new Error(`el mapa tiene un castillo sin datos: ${obj.id}`);
       if (pueblo.owner === player) {
-        // Pueblo propio: merece el viaje si guarda tropas. Concentrar el
-        // ejército en un héroe es lo que decide las partidas.
-        return armyPower(pueblo.garrison) / 10;
+        // Pueblo propio: merece el viaje si guarda tropas QUE LE QUEPAN.
+        // Concentrar el ejército en un héroe es lo que decide las partidas,
+        // pero con el liderazgo lleno la guarnición entera vale cero: sin esta
+        // resta, el héroe volvería a casa a por una tropa que no puede
+        // llevarse, una y otra vez.
+        const { dentro } = troopsThatFit(hero.army, heroLeadership(hero), pueblo.garrison);
+        return armyPower(dentro, state.characters) / 10;
       }
       // Un pueblo con guarnición es una batalla: se mide antes de ir.
-      const guarnicion = armyPower(pueblo.garrison);
-      if (guarnicion > 0 && armyPower(hero.army) < guarnicion * 1.1) return -1;
+      const guarnicion = armyPower(pueblo.garrison, state.characters);
+      if (guarnicion > 0 && armyPower(hero.army, state.characters) < guarnicion * 1.1) return -1;
       return 40000;
     }
     case 'monster': {
       if (obj.defeated) return 0;
-      const suyo = armyPower([
-        { creature: obj.creature, count: obj.count },
-        null,
-        null,
-        null,
-        null,
-      ]);
-      const mio = armyPower(hero.army);
+      const suyo = unitPower(creature(obj.creature)) * obj.count;
+      const mio = armyPower(hero.army, state.characters);
       // Solo se ataca con ventaja clara: un prototipo que se suicida no se puede probar.
       return mio > suyo * 1.6 ? 2000 : -1;
     }
@@ -114,16 +124,21 @@ export function chooseHeroDestination(
 
   // Héroe enemigo a tiro. Un héroe sin tropas no persigue a nadie.
   //
-  // El margen es ajustado a propósito: con un 1,4 los dos bandos se esquivaban
-  // eternamente en cuanto sus ejércitos se parecían, y la partida no terminaba
-  // nunca. Atacar da la iniciativa, así que una ventaja pequeña ya compensa.
-  const miPoder = armyPower(hero.army);
+  // Sin margen, y es a propósito. Con un 1,4 los dos bandos se esquivaban
+  // eternamente en cuanto sus ejércitos se parecían; con el 1,05 que lo
+  // sustituyó pasaba lo mismo en cuanto llegó el liderazgo: los dos ejércitos
+  // se paran en el tope, dejan de crecer y se quedan a menos de un 5 % el uno
+  // del otro para siempre —medido: 2 de 1000 semillas sin terminar en 300 días,
+  // una de ellas con los dos héroes a 502,5 exactos—. Sin margen la relación es
+  // total: de dos héroes, al menos uno persigue al otro. Atacar da la
+  // iniciativa, así que el empate lo rompe quien llega antes.
+  const miPoder = armyPower(hero.army, state.characters);
   for (const enemigo of state.heroes) {
     if (enemigo.owner === hero.owner) continue;
     if (miPoder <= 0) break;
     const coste = costeHasta(enemigo.at);
     if (coste === null) continue;
-    if (miPoder < armyPower(enemigo.army) * 1.05) continue;
+    if (miPoder < armyPower(enemigo.army, state.characters)) continue;
     const score = 60000 / Math.max(1, coste);
     if (mejor === null || score > mejor.score) mejor = { at: enemigo.at, score };
   }
@@ -370,29 +385,27 @@ export function planRecruits(state: GameState, playerId: PlayerId): AdventureAct
 
   // Reclutar de arriba abajo: las criaturas caras rinden más por moneda.
   for (const town of townsOf(state, playerId)) {
-    const heroeAqui = heroesOf(state, playerId).find((h) => pointKey(h.at) === pointKey(town.at));
-    const destino = heroeAqui?.army ?? town.garrison;
-    let huecos = destino.filter((s) => s === null).length;
-    const yaPresentes = new Set(destino.filter((s) => s !== null).map((s) => s!.creature));
+    // La misma regla que aplica `recruit`: si la IA la copiara, el día que
+    // cambie una de las dos pediría lo que el motor rechaza.
+    const { tope, army } = destinoDeRecluta(state, town);
+    let destino = army;
 
     for (const { creature: id } of [...dwellings(town)].reverse()) {
       const disponibles = town.available[id] ?? 0;
       if (disponibles <= 0) continue;
-      if (!yaPresentes.has(id) && huecos <= 0) continue;
 
-      // Cuántos caben en el bolsillo.
+      // Cuántos caben en el liderazgo, y de esos cuántos en el bolsillo. Lo
+      // primero sustituye a los cinco huecos: el tope ya no es de tipos
+      // distintos sino de lo que ocupa cada individuo.
       const coste = creature(id).cost;
-      let cantidad = disponibles;
+      let cantidad = Math.min(disponibles, troopRoom(destino, tope, id));
       while (cantidad > 0 && !canAfford(purse, scaleResources(coste, cantidad))) cantidad--;
       if (cantidad <= 0) continue;
       if (recruitBlocker(town, id, cantidad, purse) !== null) continue;
 
       acciones.push({ type: 'recruit', town: town.id, creature: id, count: cantidad });
       purse = subtractResources(purse, scaleResources(coste, cantidad));
-      if (!yaPresentes.has(id)) {
-        yaPresentes.add(id);
-        huecos--;
-      }
+      destino = withTroops(destino, id, cantidad);
     }
   }
 

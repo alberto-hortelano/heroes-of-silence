@@ -22,6 +22,7 @@ import type { BattleOutcome } from '../../src/core/ai/tactics.js';
 import { autoResolve } from '../../src/core/ai/tactics.js';
 import { playAiGame } from '../../src/core/ai/turn.js';
 import { createBattle } from '../../src/core/battle/battle.js';
+import { troopsAsStacks } from '../../src/core/hero/troop.js';
 import { createRng } from '../../src/core/rng.js';
 import type { GameOutcome, GameState } from '../../src/core/state/game.js';
 import { newGame, startingArmy } from '../../src/core/state/setup.js';
@@ -81,8 +82,8 @@ export async function partidaDeSemilla(
 export function batallaDeSemilla(semilla: number): BattleOutcome {
   const rng = createRng(semilla * PRIMO_DE_BATALLA);
   const battle = createBattle(
-    { army: startingArmy('knight', rng), hero: null },
-    { army: startingArmy('necromancer', rng), hero: null },
+    { army: troopsAsStacks(startingArmy('knight', rng)), hero: null },
+    { army: troopsAsStacks(startingArmy('necromancer', rng)), hero: null },
     rng,
   );
   return autoResolve(battle, rng);

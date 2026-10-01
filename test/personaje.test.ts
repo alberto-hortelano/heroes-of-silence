@@ -22,7 +22,6 @@ import {
   RACES,
 } from '../src/core/rpg/character.js';
 import { combatProfile } from '../src/core/rpg/stats.js';
-import { ejercito } from './helpers.js';
 
 /**
  * Juega un duelo 1 contra 1 entero con la IA de reglas decidiendo por los dos
@@ -53,7 +52,7 @@ function duelo(atacante: BattleSide, defensor: BattleSide, semilla: number): Bat
 }
 
 const solo = (creature: string): BattleSide => ({
-  army: ejercito({ creature, count: 1 }),
+  army: [{ creature, count: 1 }],
   hero: null,
 });
 
@@ -229,7 +228,7 @@ describe('del personaje a las cifras de combate', () => {
 function ladoDe(c: Character, hp = c.hp, count = 1): BattleSide {
   const members = new Map<string, BattleMember>([[c.id, { profile: combatProfile(c), hp }]]);
   return {
-    army: ejercito({ creature: CHARACTER_BODY, count, member: c.id }),
+    army: [{ creature: CHARACTER_BODY, count, member: c.id }],
     hero: null,
     members,
   };
@@ -272,19 +271,19 @@ describe('un personaje en el tablero', () => {
     );
   });
 
-  it('el mismo personaje en dos huecos del ejército lanza', () => {
+  it('el mismo personaje dos veces en el ejército lanza', () => {
     // Si entrara, los dos stacks saldrían con PV distintos y los dos se
     // escribirían sobre el mismo personaje: una herida se perdería.
     const c = personaje('Guerrero');
     const lado: BattleSide = {
       ...ladoDe(c),
-      army: ejercito(
+      army: [
         { creature: CHARACTER_BODY, count: 1, member: c.id },
         { creature: 'peasant', count: 5 },
         { creature: CHARACTER_BODY, count: 1, member: c.id },
-      ),
+      ],
     };
-    expect(() => createBattle(lado, zombi, rng())).toThrow(/Aren ocupa dos huecos del ejército/);
+    expect(() => createBattle(lado, zombi, rng())).toThrow(/Aren aparece dos veces en el ejército/);
   });
 
   it('entra herido: 12 de 34 PV es un topHp de 12', () => {
@@ -310,10 +309,10 @@ describe('un personaje en el tablero', () => {
     const c = personaje('Guerrero');
     const lado: BattleSide = {
       ...ladoDe(c),
-      army: ejercito(
+      army: [
         { creature: CHARACTER_BODY, count: 1, member: c.id },
         { creature: 'peasant', count: 5 },
-      ),
+      ],
     };
     const b = createBattle(lado, zombi, rng());
     // Solo caballeros entre las criaturas: +1, también para el personaje.

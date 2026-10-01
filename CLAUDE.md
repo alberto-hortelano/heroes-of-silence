@@ -12,12 +12,12 @@ El juego es el andamio; lo interesante es lo que se puede enchufar dentro.
 pnpm install
 pnpm dev        # cliente en http://localhost:3100 (juego local contra la IA de reglas)
 pnpm mirar      # MIRAR la partida del agente: /espectador/ contra el servidor
-pnpm verify     # typecheck + lint + 421 tests, 8,7 s: el bucle rápido
-pnpm test       # 421 tests: reglas, batalla, partida completa y contrato del agente
+pnpm verify     # typecheck + lint + 493 tests, 8,8 s: el bucle rápido
+pnpm test       # 493 tests: reglas, batalla, partida completa y contrato del agente
 pnpm typecheck
 pnpm lint       # Biome: formato y lint en una sola pasada, 40 ms
 pnpm format     # lo mismo, arreglando lo que sepa arreglar
-pnpm banco      # 200 partidas: tiempo y sha256 del volcado, 1,7 s
+pnpm banco      # 200 partidas: tiempo y sha256 del volcado, 2,7 s
 
 npx tsx tools/qa/enfrentamiento.ts   # dos tácticas frente a frente, 5000 batallas, 11,8 s
 ```
@@ -202,7 +202,7 @@ assets/generated/  arte generado (lo sirve Vite como estático)
 | Dato | Valor |
 |---|---|
 | Rejilla de batalla | 11 × 9 = 99 hexes, offset odd-r |
-| Slots de ejército | 5 |
+| Tropa | individuos, uno por hex, acotados por el liderazgo del héroe (`data/liderazgo.json`, provisional) |
 | Recursos | madera, mercurio, mineral, azufre, cristal, gemas, oro |
 | Movimiento diario | lo marca la criatura MÁS LENTA (1000–1500) |
 | Puntos de hechizo | 10 × Conocimiento |
@@ -1169,13 +1169,13 @@ aportan en un prototipo. Lo que hay:
 
 | Comprobación | Cuánto tarda | Cuándo |
 |---|---|---|
-| `pnpm verify` | 8,7 s | siempre |
+| `pnpm verify` | 8,8 s | siempre |
 | `test/invariantes.test.ts` | 505 ms | va dentro de `pnpm test` |
 | El navegador | minutos | si el cambio se ve |
 | El espectador en el navegador | minutos | si tocas `html.ts`, `espectador/` o el canal |
 | `pnpm qa` | 3,1 s | si tocas `src/server/` o el contrato |
 | `npx tsx tools/qa/barrido-semillas.ts` | 1,1 s | si tocas la IA o la economía |
-| `pnpm banco` | 1,7 s | si tocas el núcleo sin querer cambiar el juego |
+| `pnpm banco` | 2,7 s | si tocas el núcleo sin querer cambiar el juego |
 | `tools/qa/enfrentamiento.ts` | 11,8 s | si cambias **cómo decide** la IA de batalla |
 | CI (`.github/workflows/ci.yml`) | ~1 min | en cada push y cada PR |
 

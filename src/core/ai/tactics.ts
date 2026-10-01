@@ -363,10 +363,18 @@ function decideAccion(
     // #48 izó el BFS DENTRO de `legalActions` y dejó al gemelo un piso arriba.
     const movimientos = acciones.filter((a) => a.type === 'move').map((a) => a.to);
     if (movimientos.length > 0) {
-      const mejor = movimientos.reduce((a, b) =>
-        distanceTo(b, objetivo) < distanceTo(a, objetivo) ? b : a,
-      );
-      if (distanceTo(mejor, objetivo) < distanceTo(s.hex, objetivo)) {
+      // Cada distancia una sola vez: el `reduce` recalculaba la del mejor en
+      // cada comparación. Gana la PRIMERA de las más cercanas, como antes.
+      let mejor = movimientos[0] as Hex;
+      let distanciaMejor = distanceTo(mejor, objetivo);
+      for (const m of movimientos) {
+        const d = distanceTo(m, objetivo);
+        if (d < distanciaMejor) {
+          mejor = m;
+          distanciaMejor = d;
+        }
+      }
+      if (distanciaMejor < distanceTo(s.hex, objetivo)) {
         // El paso adelante es lo último que se decide, porque es justo el que
         // puede salir caro: si al darlo quedo dentro del alcance de alguien que
         // aún no ha movido, sale más a cuenta esperar y pegarle yo.
