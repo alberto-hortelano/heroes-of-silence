@@ -1,0 +1,40 @@
+{
+  "encargo": "mapa-muestra-pintado",
+  "tipo": "imagen",
+  "fecha": "2026-10-01T16:34:44.697Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f84f-8457-73d0-930b-25f6f2c6f0ad",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que tiene que seguir cada figura. No copies su pose ni su encuadre, que están de frente y a la altura de los ojos.\n\nLámina de muestra de las piezas del mapa de aventura de un juego de estrategia por turnos, en estilo: ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria y terrosa, como la imagen de estilo.\nNueve piezas sueltas en una rejilla de 3 por 3, en este orden de lectura, separadas con holgura:\n1. un tramo de cordillera infranqueable: picos rocosos altos y escarpados, sin paso posible, que pueda repetirse en cadena para cerrar el mapa.\n2. un nodo de la red sin fortificar: un hito de piedra tallada con un poste vacío para la bandera de su dueño.\n3. el mismo nodo con una fortificación ligera: el hito rodeado por una empalizada de troncos con una puerta.\n4. el mismo nodo con una fortificación de piedra: una torre de vigía cuadrada con almenas y el hito al pie.\n5. una ciudad que es punto fuerte de la red: murallas de piedra con torres y puerta, y dentro tejados y una torre mayor.\n6. un pueblo abierto, sin murallas: cuatro o cinco casas de labriegos, un pozo y huertos.\n7. el recurso oro: un montón de monedas y lingotes de oro en un arcón abierto.\n8. el recurso piedra: bloques de piedra tallada apilados junto a una pequeña cantera.\n9. el recurso madera: troncos cortados y apilados, atados con cuerdas.\nTodas con la MISMA cámara: ortográfica, elevada 25 grados sobre la horizontal, mirando de frente y algo a la derecha, como se ven las figuras del juego; nunca cenital ni de perfil. Misma escala relativa entre piezas: la montaña y la ciudad son las mayores, los recursos los menores. La luz viene de arriba a la izquierda.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/art/templarios/guerrero-con-escudo.png",
+      "papel": "estilo",
+      "sha256": "be91381e9343b31c50ffa617668920c4d950c59351dbe5e0b71534cffb8e5f28"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f84f-8457-73d0-930b-25f6f2c6f0ad/exec-2e668f8a-8137-485a-aed0-1abfa4731b74.png",
+    "sha256": "edb993fee940d1b84e681ee669a8bc93413d6ebd341868451793f35382208ce9",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.4238694631979762,
+    "opacos": 0.9792609182530795,
+    "haloSuelto": 0.000003089160906668726,
+    "ancho": 1496,
+    "alto": 1021
+  },
+  "salida": {
+    "ruta": "assets/mapa/muestras/pintado.webp",
+    "sha256": "2257bd10a5efa8f2c430c2d86609ac895750568961a4dea6dfddd4c8081e1838"
+  }
+}

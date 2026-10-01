@@ -33,10 +33,10 @@ import sharp from 'sharp';
 import { FIGURA } from '../../src/shared/arte.js';
 import { CODEX, type Generacion, generar } from './codex.js';
 import { Cola } from './cola.js';
-import { escribirDerivado } from './derivar.js';
+import { escribirDerivado, escribirPiezaDerivada } from './derivar.js';
 import { empaquetar, recortarAlContenido } from './empaquetar.js';
 import { type Encargo, promptDe } from './encargo.js';
-import { ESTILOS_DE_MAPA, encargoDeMuestra } from './mapa.js';
+import { ESTILOS_DE_MAPA, encargoDeMuestra, encargosDePiezas } from './mapa.js';
 import { recortar, UMBRALES } from './recorte.js';
 import { encargoDeAtlas, encargoDeIdentidad, unidad } from './unidades.js';
 import { validar } from './validar.js';
@@ -155,6 +155,11 @@ async function postprocesar(
     await writeFile(rutaSalida, webp);
     pasos.push('WebP calidad 92, alfa sin pérdida');
 
+    // Las piezas sueltas del mapa (no las láminas de muestra) llevan su JSON derivado.
+    if (encargo.tipo === 'imagen' && /^assets\/mapa\/[^/]+$/.test(encargo.salida)) {
+      const d = await escribirPiezaDerivada(rutaSalida);
+      pasos.push(`JSON derivado: ${d.ancho}×${d.alto}, ancla en (${d.ancla})`);
+    }
     if (encargo.tipo === 'atlas') {
       const d = await escribirDerivado(rutaSalida);
       // El empaquetado puso los pies en un sitio y la derivación los midió: si no
@@ -275,6 +280,13 @@ async function reprocesar(id: string): Promise<void> {
 }
 
 async function encolar(args: readonly string[]): Promise<void> {
+  if (args.includes('--piezas-mapa')) {
+    for (const bruto of encargosDePiezas()) {
+      if (args.includes('--rehacer')) await COLA.olvidar(bruto.id);
+      console.log(`encolado ${(await COLA.encolar(bruto)).id}`);
+    }
+    return;
+  }
   if (args.includes('--muestras-mapa')) {
     for (const estilo of ESTILOS_DE_MAPA) {
       const bruto = encargoDeMuestra(estilo);

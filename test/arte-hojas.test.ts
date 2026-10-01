@@ -12,7 +12,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { derivarAtlas, rutaDelJson } from '../tools/taller/derivar.js';
+import { derivarAtlas, derivarPieza, rutaDelJson } from '../tools/taller/derivar.js';
 
 const RAIZ = join(import.meta.dirname, '..');
 const UNIDADES = join(RAIZ, 'assets/unidades');
@@ -22,6 +22,19 @@ const hojas = existsSync(UNIDADES)
       .filter((d) => !d.startsWith('_'))
       .flatMap((d) => ['atlas.webp', 'identidad.webp'].map((f) => join(UNIDADES, d, f)))
       .filter((f) => existsSync(f))
+  : [];
+
+/** Las piezas sueltas del mapa y las láminas de muestra, con su procedencia. */
+const MAPA = join(RAIZ, 'assets/mapa');
+const piezas = existsSync(MAPA)
+  ? readdirSync(MAPA)
+      .filter((f) => f.endsWith('.webp'))
+      .map((f) => join(MAPA, f))
+  : [];
+const muestras = existsSync(join(MAPA, 'muestras'))
+  ? readdirSync(join(MAPA, 'muestras'))
+      .filter((f) => f.endsWith('.webp'))
+      .map((f) => join(MAPA, 'muestras', f))
   : [];
 
 const leer = (r: string): any => JSON.parse(readFileSync(r, 'utf8'));
@@ -52,5 +65,18 @@ describe('las hojas del taller', () => {
     for (const h of hojas.filter((x) => x.endsWith('atlas.webp'))) {
       expect(existsSync(h.replace('atlas.webp', 'identidad.webp')), h).toBe(true);
     }
+  });
+});
+
+describe('las piezas del mapa', () => {
+  it.each(piezas)('%s: el JSON es lo que mide la imagen', async (p) => {
+    expect(leer(rutaDelJson(p))).toEqual(JSON.parse(JSON.stringify(await derivarPieza(p))));
+  });
+
+  it.each([...piezas, ...muestras])('%s: lleva su procedencia', (p) => {
+    const pr = leer(p.replace(/\.webp$/, '.procedencia.json'));
+    expect(pr.salida.sha256, 'la imagen cambió sin registrar de dónde sale').toBe(sha256(p));
+    expect(pr.hilo).toMatch(/^[0-9a-f-]{36}$/);
+    for (const r of pr.referencias) expect(r.sha256).toMatch(/^[0-9a-f]{64}$/);
   });
 });

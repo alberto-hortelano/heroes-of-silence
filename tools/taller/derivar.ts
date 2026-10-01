@@ -187,3 +187,55 @@ export async function escribirDerivado(rutaImagen: string): Promise<AtlasDerivad
   await writeFile(rutaDelJson(rutaImagen), `${JSON.stringify(derivado, null, 2)}\n`);
   return derivado;
 }
+
+/** El JSON de una pieza suelta del mapa: su tamaño y dónde pisa el suelo. */
+export interface PiezaDerivada {
+  readonly imagen: string;
+  readonly sha256: string;
+  readonly ancho: number;
+  readonly alto: number;
+  /** El centro de su base: la mediana de x de la franja más baja (15 %) y la fila más baja. */
+  readonly ancla: readonly [number, number];
+  readonly derivadoPor: 'tools/taller/derivar.ts';
+}
+
+export async function derivarPieza(rutaImagen: string): Promise<PiezaDerivada> {
+  const bytes = await readFile(rutaImagen);
+  const { data, info } = await sharp(bytes)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const alfa = (x: number, y: number): number => data[(y * info.width + x) * 4 + 3] as number;
+  let y1 = -1;
+  let y0 = info.height;
+  for (let y = 0; y < info.height; y++) {
+    for (let x = 0; x < info.width; x++) {
+      if (alfa(x, y) >= ALFA_FIGURA) {
+        if (y < y0) y0 = y;
+        y1 = y;
+        break;
+      }
+    }
+  }
+  if (y1 < 0) throw new Error(`${rutaImagen} no tiene nada opaco`);
+  const franja = Math.max(2, Math.round((y1 - y0 + 1) * 0.15));
+  const xs: number[] = [];
+  for (let y = y1 - franja + 1; y <= y1; y++) {
+    for (let x = 0; x < info.width; x++) if (alfa(x, y) >= ALFA_FIGURA) xs.push(x);
+  }
+  xs.sort((a, b) => a - b);
+  return {
+    imagen: basename(rutaImagen),
+    sha256: createHash('sha256').update(bytes).digest('hex'),
+    ancho: info.width,
+    alto: info.height,
+    ancla: [xs[Math.floor(xs.length / 2)] as number, y1],
+    derivadoPor: 'tools/taller/derivar.ts',
+  };
+}
+
+export async function escribirPiezaDerivada(rutaImagen: string): Promise<PiezaDerivada> {
+  const d = await derivarPieza(rutaImagen);
+  await writeFile(rutaDelJson(rutaImagen), `${JSON.stringify(d, null, 2)}\n`);
+  return d;
+}
