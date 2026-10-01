@@ -76,7 +76,26 @@ export class BattleAnimator {
   private identidad: unknown = null;
   private leidos = 0;
   private readonly cola: Paso[] = [];
-  private actual: { paso: Paso; inicio: number } | null = null;
+  private actual: { paso: Paso; inicio: number; dura: number } | null = null;
+  /**
+   * A qué ritmo se cuenta, 1 el normal. Lo sube el espectador cuando se queda
+   * detrás de la partida (`ritmoDeReproduccion` en `espectador/telon.ts`); el
+   * cliente que juega no lo toca. Se lee al EMPEZAR cada paso y el paso guarda su
+   * duración: cambiarlo a mitad no hace saltar la figura que ya se está moviendo.
+   */
+  private ritmo = 1;
+
+  get velocidad(): number {
+    return this.ritmo;
+  }
+
+  /** Solo acelera: frenar por debajo de 1 no lo pide nadie y se diría como fallo. */
+  set velocidad(v: number) {
+    if (!Number.isFinite(v) || v < 1) {
+      throw new Error(`el animador no puede ir a ritmo ${v}: va de 1 (normal) hacia arriba`);
+    }
+    this.ritmo = v;
+  }
   /** Dónde se VE cada unidad, en el plano, con el hex de cabeza. */
   private readonly vista = new Map<string, Plano>();
   /** Dónde estará cuando la cola acabe: el `desde` del siguiente movimiento. */
@@ -163,7 +182,7 @@ export class BattleAnimator {
     let libreDesde = ahora;
     for (;;) {
       if (this.actual !== null) {
-        const fin = this.actual.inicio + DURACION[this.actual.paso.tipo];
+        const fin = this.actual.inicio + this.actual.dura;
         if (ahora < fin) return;
         this.terminar(this.actual.paso);
         this.actual = null;
@@ -171,7 +190,11 @@ export class BattleAnimator {
       }
       const siguiente = this.cola.shift();
       if (siguiente === undefined) return;
-      this.actual = { paso: siguiente, inicio: libreDesde };
+      this.actual = {
+        paso: siguiente,
+        inicio: libreDesde,
+        dura: DURACION[siguiente.tipo] / this.ritmo,
+      };
     }
   }
 
@@ -188,7 +211,7 @@ export class BattleAnimator {
   /** Cuánto lleva el paso en curso, de 0 a 1. */
   private progreso(): number {
     if (this.actual === null) return 0;
-    return Math.min(1, (this.ahora - this.actual.inicio) / DURACION[this.actual.paso.tipo]);
+    return Math.min(1, (this.ahora - this.actual.inicio) / this.actual.dura);
   }
 
   /** Dónde pintar el centro de un stack cuya cabeza se ve en `cabeza`. */

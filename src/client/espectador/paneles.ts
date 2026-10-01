@@ -40,8 +40,18 @@ export interface FinDePartida {
   readonly note: string;
 }
 
-export function panelDelEspectador(v: SpectatorView, fin: FinDePartida | null): Html {
-  return html`${finDeLaPartida(fin)}${jugadores(v)}${batalla(v)}${crónica(v)}${vozDelDirector(v)}`;
+/**
+ * @param contandoAun si el tablero todavía está contando la última acción. Con
+ *   la batalla ya terminada en el estado, el panel callaba el final hasta que el
+ *   tablero llega a él: si no, «Fin: gana el atacante» salía con el último golpe
+ *   en el aire y los muertos de pie (H-7 de la QA de la fase 1b).
+ */
+export function panelDelEspectador(
+  v: SpectatorView,
+  fin: FinDePartida | null,
+  contandoAun = false,
+): Html {
+  return html`${finDeLaPartida(fin)}${jugadores(v)}${batalla(v, contandoAun)}${crónica(v)}${vozDelDirector(v)}`;
 }
 
 /**
@@ -110,10 +120,11 @@ function fondoDelJugador(id: number | null): Html {
   return fondoDeColor(playerColor(id));
 }
 
-export function batalla(v: SpectatorView): Html {
+export function batalla(v: SpectatorView, contandoAun = false): Html {
   if (v.battle === null) return NADA;
   const { dueños } = v.battle;
-  const estado = adaptarBatalla(v.battle);
+  const adaptada = adaptarBatalla(v.battle);
+  const estado = contandoAun ? sinElFinal(adaptada) : adaptada;
   const deQuien = (side: Side): Html => {
     const id = dueños[side];
     return id === null ? html`neutral` : html`${bandera(id)} jugador ${id}`;
@@ -133,6 +144,21 @@ export function batalla(v: SpectatorView): Html {
         ),
     )}</div>
     ${parteDeGuerra(estado)}`;
+}
+
+/**
+ * La batalla tal y como se ve mientras el tablero cuenta su último golpe: sin
+ * terminar todavía. Se quitan el `finished` y las dos líneas que lo cuentan
+ * —la rendición y el «Fin»—, que son las que leen tanto el desenlace de arriba
+ * como el parte de guerra: una sola poda para los dos, no una por bloque.
+ */
+function sinElFinal(estado: BattleState): BattleState {
+  if (estado.finished === null) return estado;
+  return {
+    ...estado,
+    finished: null,
+    log: estado.log.filter((e) => e.kind !== 'surrender' && e.kind !== 'finished'),
+  };
 }
 
 /**

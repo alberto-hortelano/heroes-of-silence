@@ -10,10 +10,8 @@
  * crónica de `views/panels`. Lo único duplicado es el bucle de dibujo, y es más
  * corto que el del cliente que juega porque aquí no hay ratón ni sesión.
  */
-import type { BattleState } from '@core/battle/types.js';
 import type { SpectatorSnapshotMsg } from '../../server/protocol.js';
 import type { SpectatorView } from '../../server/vista-espectador.js';
-import { BattleAnimator } from '../anim.js';
 import { NADA, pintar } from '../html.js';
 import { cargarArte } from '../render/assets.js';
 import { drawBatalla } from '../render/batalla.js';
@@ -23,9 +21,9 @@ import { ajustarLienzo } from '../render/lienzo.js';
 import { type AdventureScene, drawMapa } from '../render/mapa.js';
 import { tableroPara } from '../render/proyeccion.js';
 import { rotuloDeDia } from '../views/panels.js';
-import { adaptarBatalla, adaptarEscena, centroDeLaEscena } from './adaptar.js';
+import { adaptarEscena, centroDeLaEscena } from './adaptar.js';
 import { type FinDePartida, panelDelEspectador } from './paneles.js';
-import { batallaTerminada, TelonDeBatalla } from './telon.js';
+import { Reproductor } from './reproductor.js';
 
 const app = document.getElementById('app') as HTMLElement;
 const canvas = document.getElementById('canvas') as HTMLCanvasElement;
@@ -92,13 +90,6 @@ function destino(): Destino {
 let vista: SpectatorView | null = null;
 /** Lo que se pinta, adaptado una vez por fotograma del cable y no a cada fotograma de pantalla. */
 let escena: AdventureScene | null = null;
-let batalla: BattleState | null = null;
-/**
- * Qué batalla es, para el animador: sube cada vez que aparece una después de no
- * haber ninguna. Cada fotograma del cable trae la batalla recién parseada, así
- * que el objeto no sirve para saber si es la misma.
- */
-let numeroDeBatalla = 0;
 /** Cuántos fotogramas del cable han llegado: la versión de lo que se pinta quieto. */
 let fotogramasDelCable = 0;
 let dia = 0;
@@ -107,22 +98,20 @@ let finDe: FinDePartida | null = null;
 let camara: CamaraMapa = { tile: TILE_MIN, x: 0, y: 0 };
 /** Los paneles se rehacen cuando llega algo nuevo, no a cada fotograma. */
 let panelesPendientes = true;
+/** Si el panel se pintó con el tablero aún contando: entonces calla el final. */
+let panelContando = false;
 /** A dónde se conectó, para poder repetirlo en la barra. Vacío hasta conectar. */
 let urlDelCanal = '';
 
 /**
- * El mismo animador que el cliente que juega: cada acción que llega por el cable
- * se cuenta en orden —quién anda, quién golpea, quién cae— en vez de saltar de un
- * fotograma al siguiente. Era lo que prometía #30, «las batallas acción a
- * acción», y hasta ahora cada acción era un salto.
+ * Lo que llega por el cable no se aplica al llegar: pasa por el reproductor, que
+ * lo pone fotograma a fotograma, al ritmo al que el animador lo cuenta —el mismo
+ * animador que el cliente que juega: quién anda, quién golpea, quién cae— y
+ * retiene el final de cada batalla hasta que se ha visto (`reproductor.ts`,
+ * `telon.ts`).
  */
-const animador = new BattleAnimator();
-
-/**
- * Lo que llega por el cable no se aplica al llegar: pasa por el telón, que
- * retiene el final de cada batalla hasta que se ha visto (ver `telon.ts`).
- */
-const telon = new TelonDeBatalla<SpectatorSnapshotMsg>(batallaTerminada);
+const reproductor = new Reproductor();
+const animador = reproductor.animador;
 
 /** Sin objetivos ni hexes atacables: el espectador no mueve nada. */
 const NINGUNO: ReadonlySet<string> = new Set();
@@ -167,8 +156,10 @@ let fallandoAlPintar = false;
 function dibujar(ahora: number): void {
   fotogramaPedido = false;
   try {
-    const llegado = telon.avanzar(ahora, animador.busy);
-    if (llegado !== null) aplicar(llegado);
+    // Lo que no es el último no se llega a ver en pantalla —no traía nada que
+    // contar, ver `paso`—, así que solo el último se adapta para pintar.
+    const llegado = reproductor.paso(ahora).at(-1);
+    if (llegado !== undefined) aplicar(llegado);
     pintarTodo(ahora);
     if (fallandoAlPintar) {
       fallandoAlPintar = false;
@@ -176,7 +167,7 @@ function dibujar(ahora: number): void {
     }
     // El telón también pide fotogramas: mientras retiene un final, el reloj que
     // lo suelta solo avanza si alguien vuelve a mirar.
-    if (telon.pendiente || (vista !== null && (hayFigurasAnimadas() || animador.busy))) {
+    if (reproductor.pendiente || (vista !== null && (hayFigurasAnimadas() || animador.busy))) {
       pedirFotograma();
     }
   } catch (err) {
@@ -192,6 +183,7 @@ function dibujar(ahora: number): void {
 }
 
 function pintarTodo(ahora: number): void {
+  const batalla = reproductor.batalla;
   const nueva = batalla === null ? 'adventure' : 'battle';
   if (vista !== null && app.dataset.escena !== nueva) {
     app.dataset.escena = nueva;
@@ -204,8 +196,6 @@ function pintarTodo(ahora: number): void {
     if (batalla !== null) {
       // Mientras hay batalla se enseña el tablero: es lo que este ciclo existe
       // para que se vea, y son la mayoría de las decisiones que toma el agente.
-      animador.observe(batalla, numeroDeBatalla);
-      animador.tick(ahora);
       const enCurso = batalla;
       drawBatalla(ctx, {
         battle: enCurso,
@@ -220,7 +210,9 @@ function pintarTodo(ahora: number): void {
         figura: (s) => animador.figura(s),
         efectos: animador.efectos(enCurso),
       });
+      apuntarLoQueSePinta(true);
     } else {
+      apuntarLoQueSePinta(false);
       camara = centrarEn(camara, centroDeLaEscena(vista), {
         ancho: rect.width,
         alto: rect.height,
@@ -245,10 +237,36 @@ function pintarTodo(ahora: number): void {
     }
   }
 
-  if (panelesPendientes) {
+  // El final de la batalla no se adelanta al tablero: el panel lo calla mientras
+  // el animador cuenta, y se repinta en cuanto acaba (H-7 de la QA de la fase 1b).
+  const contando = reproductor.contando;
+  if (panelesPendientes || contando !== panelContando) {
     panelesPendientes = false;
+    panelContando = contando;
     pintarPaneles();
   }
+}
+
+/**
+ * Lo que de verdad se ve en el tablero, apuntado en el `#app` para quien lo mire
+ * desde fuera: `pnpm capturas` lo lee para comprobar que, cuando el panel dice
+ * «Fin», no queda ninguna figura muerta en pie y el animador ya no cuenta nada.
+ *
+ * Existe porque el paso del espectador de `capturas` comprobaba el texto y no el
+ * tablero, y dio verde sobre una captura con esqueletos muertos de pie (H-7). Lo
+ * que se apunta sale de las mismas `figura()` con las que se acaba de pintar, no
+ * de una segunda cuenta: no puede discrepar del lienzo.
+ */
+function apuntarLoQueSePinta(hayBatalla: boolean): void {
+  // Cuántos fotogramas del cable esperan: lo que el espectador va retrasado.
+  app.dataset.atrasados = String(reproductor.atrasados);
+  if (!hayBatalla) {
+    delete app.dataset.caidosEnPie;
+    delete app.dataset.animando;
+    return;
+  }
+  app.dataset.caidosEnPie = String(reproductor.caidosEnPie());
+  app.dataset.animando = String(reproductor.contando);
 }
 
 function pintarPaneles(): void {
@@ -261,19 +279,15 @@ function pintarPaneles(): void {
       : dia === 0
         ? ''
         : `Juega el jugador ${turnoDe}`;
-  pintar(elSide, vista === null ? NADA : panelDelEspectador(vista, finDe));
+  pintar(elSide, vista === null ? NADA : panelDelEspectador(vista, finDe, panelContando));
 }
 
 // --------------------------------------------------------------- el cable
 
 /** Pone en pantalla un fotograma del cable, cuando el telón lo suelta. */
 function aplicar(snapshot: SpectatorSnapshotMsg): void {
-  if (snapshot.view.battle !== null && (vista === null || vista.battle === null)) {
-    numeroDeBatalla++;
-  }
   vista = snapshot.view;
   escena = adaptarEscena(vista);
-  batalla = vista.battle === null ? null : adaptarBatalla(vista.battle);
   fotogramasDelCable++;
   dia = snapshot.day;
   turnoDe = snapshot.current;
@@ -343,7 +357,7 @@ function conectar(): void {
       return;
     }
     if (vista === null) elStatus.textContent = `Mirando la partida en ${url}.`;
-    telon.llega(msg as SpectatorSnapshotMsg);
+    reproductor.llega(msg as SpectatorSnapshotMsg);
     pedirFotograma();
   });
 

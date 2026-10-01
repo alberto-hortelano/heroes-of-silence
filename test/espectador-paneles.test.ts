@@ -13,7 +13,15 @@
  */
 import { describe, expect, it } from 'vitest';
 import { batalla, panelDelEspectador } from '../src/client/espectador/paneles.js';
-import { batallaTerminada, TelonDeBatalla } from '../src/client/espectador/telon.js';
+import { Reproductor } from '../src/client/espectador/reproductor.js';
+import {
+  batallaTerminada,
+  FINAL_VISIBLE_MS,
+  mismaBatalla,
+  RITMO_MAXIMO,
+  ritmoDeReproduccion,
+  TelonDeBatalla,
+} from '../src/client/espectador/telon.js';
 import { marcadoDe } from '../src/client/html.js';
 import { autoResolve, chooseBattleAction } from '../src/core/ai/tactics.js';
 import { activeStack, applyAction, legalActions } from '../src/core/battle/battle.js';
@@ -275,11 +283,158 @@ describe('el telón retiene el final de una batalla', () => {
     );
   });
 
-  it('sin final de por medio no retiene nada: lo acumulado se aplica de golpe, como antes', () => {
+  it('nunca aplica dos de golpe: el mapa espera a que el animador acabe, aunque no haya final', () => {
     const { enCurso, mapa } = finalDeBatalla();
     const telon = new TelonDeBatalla(batallaTerminada, 1000);
     telon.llega(enCurso);
     telon.llega(mapa);
-    expect(telon.avanzar(0, true)).toBe(mapa);
+    expect(telon.avanzar(0, false)).toBe(enCurso);
+    expect(telon.atrasados).toBe(1);
+    // El animador cuenta lo que trajo `enCurso`: el mapa no lo pisa.
+    expect(telon.avanzar(10, true)).toBeNull();
+    expect(telon.avanzar(20, false)).toBe(mapa);
+  });
+});
+
+/**
+ * H-7 de la segunda pasada de QA de la fase 1b. Con un agente rápido la batalla
+ * entera llega en unos 40 ms; el telón la aplicaba de golpe, el animador la
+ * contaba desde el principio en el fotograma final, el panel decía «Fin» con los
+ * muertos de pie, y el espectador acababa 22 s detrás de la partida.
+ */
+describe('el espectador cuenta cada batalla en orden', () => {
+  /** Una batalla de verdad, fotografiada tras CADA acción, como hace el director. */
+  function fotogramasDeUnaBatalla(
+    semilla: number,
+    conMapaAlFinal: boolean,
+  ): SpectatorSnapshotMsg[] {
+    const { state } = contraUnNeutral(semilla);
+    const foto = (): SpectatorSnapshotMsg => ({
+      type: 'snapshot',
+      day: state.day,
+      current: state.current,
+      finished: null,
+      view: JSON.parse(JSON.stringify(construirVista(state, []))),
+    });
+    const b = state.pendingBattle!.battle;
+    const rng = createRng(semilla);
+    const fotos: SpectatorSnapshotMsg[] = [];
+    for (let i = 0; i < 300 && b.finished === null; i++) {
+      applyAction(b, chooseBattleAction(b), rng);
+      fotos.push(foto());
+    }
+    expect(b.finished).not.toBeNull();
+    if (conMapaAlFinal) {
+      settleBattle(state, { rng });
+      fotos.push(foto());
+    }
+    return fotos;
+  }
+
+  /**
+   * El bucle de la página sin la página: un `paso` cada 16 ms hasta que no
+   * quede nada, apuntando lo que vería quien mira en cada instante.
+   */
+  function reproducir(r: Reproductor, hasta = 600_000) {
+    const puestos: { t: number; f: SpectatorSnapshotMsg; batalla: number }[] = [];
+    const finesVistos: { t: number; caidosEnPie: number; contando: boolean }[] = [];
+    let t = 0;
+    for (; t < hasta; t += 16) {
+      for (const f of r.paso(t)) puestos.push({ t, f, batalla: r.numeroDeBatalla });
+      const b = r.batalla;
+      // Lo que dice el panel, tal y como lo pinta la página en este instante.
+      const ultimo = puestos.at(-1)?.f;
+      if (ultimo !== undefined && b !== null) {
+        const panel = marcadoDe(panelDelEspectador(ultimo.view, null, r.contando));
+        if (/Fin: gana el|Se rinde/.test(panel))
+          finesVistos.push({ t, caidosEnPie: r.caidosEnPie(), contando: r.contando });
+      }
+      if (!r.pendiente && !r.contando) break;
+    }
+    return { puestos, finesVistos, fin: t };
+  }
+
+  it('dos batallas seguidas en la misma ráfaga: en orden, sin saltos y sin mezclarse', () => {
+    const a = fotogramasDeUnaBatalla(4, false);
+    const b = fotogramasDeUnaBatalla(5, true);
+    // Sin fotograma de mapa entre las dos: el caso que la regla vieja («aparece
+    // una batalla después de no haber ninguna») contaba como una sola.
+    const todos = [...a, ...b];
+    const r = new Reproductor(1000);
+    for (const f of todos) r.llega(f);
+    const { puestos, finesVistos } = reproducir(r);
+
+    // Uno a uno y en el orden en que llegaron: ni uno saltado.
+    expect(puestos.map((p) => p.f)).toEqual(todos);
+    // Cada fotograma con su batalla: los de A son la 1 y los de B la 2.
+    expect(puestos.slice(0, a.length).every((p) => p.batalla === 1)).toBe(true);
+    expect(puestos.slice(a.length, a.length + b.length - 1).every((p) => p.batalla === 2)).toBe(
+      true,
+    );
+    // Y el «Fin» de cada una solo se da por visto con el tablero en su final.
+    expect(finesVistos.length).toBeGreaterThan(0);
+    expect(finesVistos.filter((v) => v.caidosEnPie > 0 || v.contando)).toEqual([]);
+  });
+
+  it('el final se sigue viendo el mínimo, ya contado, antes de pasar a lo siguiente', () => {
+    const a = fotogramasDeUnaBatalla(4, true);
+    const r = new Reproductor(1000);
+    for (const f of a) r.llega(f);
+    const { puestos } = reproducir(r);
+    const final = puestos[a.length - 2]!;
+    const mapa = puestos[a.length - 1]!;
+    expect(batallaTerminada(final.f)).toBe(true);
+    expect(mapa.f.view.battle).toBeNull();
+    expect(mapa.t - final.t).toBeGreaterThanOrEqual(1000);
+  });
+
+  it('atrasado, acelera: una ráfaga se cuenta entera y antes que a ritmo normal', () => {
+    const fotos = [...fotogramasDeUnaBatalla(4, true), ...fotogramasDeUnaBatalla(5, true)];
+    const deGolpe = new Reproductor(FINAL_VISIBLE_MS);
+    for (const f of fotos) deGolpe.llega(f);
+    const rafaga = reproducir(deGolpe);
+    // Al día: llegan de uno en uno y cada uno cuando el anterior ya se contó.
+    const alDia = new Reproductor(FINAL_VISIBLE_MS);
+    let t = 0;
+    const cola = [...fotos];
+    for (; t < 600_000; t += 16) {
+      if (!alDia.pendiente && !alDia.contando) {
+        const f = cola.shift();
+        if (f === undefined) break;
+        alDia.llega(f);
+      }
+      alDia.paso(t);
+    }
+    expect(rafaga.puestos.map((p) => p.f)).toEqual(fotos);
+    expect(rafaga.fin).toBeLessThan(t * 0.6);
+  });
+
+  it('el ritmo: normal al día, proporcional al retraso y con techo', () => {
+    expect(ritmoDeReproduccion(0)).toBe(1);
+    expect(ritmoDeReproduccion(4)).toBeGreaterThan(ritmoDeReproduccion(2));
+    expect(ritmoDeReproduccion(1000)).toBe(RITMO_MAXIMO);
+    expect(() => ritmoDeReproduccion(-1)).toThrow(/es un recuento/);
+  });
+
+  it('`mismaBatalla`: la misma crece; otra no, aunque los stacks se llamen igual', () => {
+    const a = fotogramasDeUnaBatalla(4, false).map((f) => f.view.battle!.estado);
+    const b = fotogramasDeUnaBatalla(5, false).map((f) => f.view.battle!.estado);
+    expect(mismaBatalla(null, a[0]!)).toBe(false);
+    expect(mismaBatalla(a[0]!, a[1]!)).toBe(true);
+    expect(mismaBatalla(a[0]!, a.at(-1)!)).toBe(true);
+    // El mismo final repetido sigue siendo el mismo.
+    expect(mismaBatalla(a.at(-1)!, a.at(-1)!)).toBe(true);
+    // Lo que llega después de un final, con más registro, es otra.
+    expect(mismaBatalla(a.at(-1)!, b.at(-1)!)).toBe(false);
+    expect(mismaBatalla(a.at(-1)!, b[0]!)).toBe(false);
+    // Y la de en medio de A no continúa en B.
+    expect(mismaBatalla(a[0]!, b.at(-1)!)).toBe(false);
+  });
+
+  it('el animador no frena por debajo de 1: lo dice', () => {
+    const r = new Reproductor();
+    expect(() => {
+      r.animador.velocidad = 0.5;
+    }).toThrow(/ritmo 0.5/);
   });
 });

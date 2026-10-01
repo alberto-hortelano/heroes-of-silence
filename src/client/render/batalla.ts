@@ -141,6 +141,10 @@ export function drawBatalla(ctx: CanvasRenderingContext2D, v: VistaBatalla): voi
   for (const { s, f } of figuras) {
     if (s.id === v.hoverStack || s.id === activo?.id) pintarNombre(ctx, v, s, f);
   }
+  // Y la corona, la última de las tres: encima del nombre y no debajo (H-8).
+  for (const { s, f } of figuras) {
+    if (s.origen.kind === 'heroe') pintarCorona(ctx, v, s, f);
+  }
 
   // 3 · Lo que vuela por encima: proyectiles, hechizos y cifras.
   for (const e of v.efectos) pintarEfecto(ctx, tablero, e);
@@ -321,9 +325,9 @@ function cabezaDe(v: VistaBatalla, s: BattleStack, f: EstadoFigura) {
 }
 
 /**
- * Lo que va encima de cada figura: la barra de vida, los tiros y, si es el
- * comandante, su corona. Exportada para que un test pueda mirar qué se escribe
- * sin un navegador: no toca imágenes ni `Path2D`.
+ * Lo que va encima de cada figura: la barra de vida y los tiros. Exportada para
+ * que un test pueda mirar qué se escribe sin un navegador: no toca imágenes ni
+ * `Path2D`.
  */
 export function pintarSobreLaCabeza(
   ctx: CanvasRenderingContext2D,
@@ -332,33 +336,56 @@ export function pintarSobreLaCabeza(
   f: EstadoFigura,
 ): void {
   pintarVida(ctx, v, s, f);
-  if (s.origen.kind === 'heroe') pintarCorona(ctx, v, s, f);
+}
+
+/** Un rectángulo en píxeles del lienzo: lo que ocupa algo pintado. */
+export interface Caja {
+  readonly x: number;
+  readonly y: number;
+  readonly ancho: number;
+  readonly alto: number;
 }
 
 /**
- * La corona del comandante, a la izquierda de su barra (a la derecha van los
- * tiros). Va en esta pasada, por encima de todas las figuras, para que no la
- * tape la de delante: es la pieza que decide la batalla y se tiene que ver
- * siempre, con arte y sin él.
+ * Dónde va la corona del comandante: centrada sobre su cabeza y **por encima
+ * del hueco del nombre**, se pinte el nombre o no.
+ *
+ * Antes iba a la izquierda de la barra, a 14 px, y la chapa del nombre —que sale
+ * en la unidad activa y en la señalada, justo cuando más se mira— le caía encima
+ * (H-8 de la QA de la fase 1b). Ahora no comparten sitio y además se pinta en la
+ * última pasada; el test lo comprueba con las dos cajas, no con un píxel.
  */
-function pintarCorona(
+export function cajaDeCorona(v: VistaBatalla, s: BattleStack, f: EstadoFigura): Caja {
+  const { x } = cabezaDe(v, s, f);
+  const nombre = cajaDeNombre(v, s, f, 0);
+  const tam = Math.max(22, Math.round(v.tablero.paso * 0.4));
+  return { x: x - tam / 2, y: nombre.y - 2 - tam, ancho: tam, alto: tam };
+}
+
+/**
+ * La corona del comandante. Va la última, por encima de todas las figuras y de
+ * los nombres: es la pieza que decide la batalla y se tiene que ver siempre, con
+ * arte y sin él. Exportada para el mismo test que `pintarSobreLaCabeza`.
+ */
+export function pintarCorona(
   ctx: CanvasRenderingContext2D,
   v: VistaBatalla,
   s: BattleStack,
   f: EstadoFigura,
 ): void {
-  const { x, y, anchoBarra } = cabezaDe(v, s, f);
-  const tam = Math.max(14, Math.round(v.tablero.paso * 0.26));
+  const c = cajaDeCorona(v, s, f);
   ctx.save();
   ctx.globalAlpha = f.alfa;
-  ctx.font = `bold ${tam}px system-ui, "DejaVu Sans", sans-serif`;
-  ctx.textAlign = 'right';
+  ctx.font = `bold ${c.alto}px system-ui, "DejaVu Sans", sans-serif`;
+  ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.lineWidth = 3;
+  ctx.lineWidth = 4;
   ctx.strokeStyle = 'rgba(12,10,6,0.9)';
-  ctx.strokeText(MARCA_DE_COMANDANTE, x - anchoBarra / 2 - 2, y + 2);
+  const cx = c.x + c.ancho / 2;
+  const cy = c.y + c.alto / 2;
+  ctx.strokeText(MARCA_DE_COMANDANTE, cx, cy);
   ctx.fillStyle = COLOR_DE_COMANDANTE;
-  ctx.fillText(MARCA_DE_COMANDANTE, x - anchoBarra / 2 - 2, y + 2);
+  ctx.fillText(MARCA_DE_COMANDANTE, cx, cy);
   ctx.restore();
 }
 
@@ -400,20 +427,34 @@ function pintarNombre(
   s: BattleStack,
   f: EstadoFigura,
 ): void {
-  const { x, y } = cabezaDe(v, s, f);
-  const cuerpo = Math.max(10, Math.round(v.tablero.paso * 0.16));
   ctx.save();
   ctx.globalAlpha = f.alfa;
-  ctx.font = `${cuerpo}px system-ui, sans-serif`;
-  const w = ctx.measureText(s.unit.name).width + 8;
-  const arriba = y - cuerpo - 6;
+  ctx.font = `${cuerpoDelNombre(v)}px system-ui, sans-serif`;
+  const caja = cajaDeNombre(v, s, f, ctx.measureText(s.unit.name).width);
   ctx.fillStyle = 'rgba(25,21,9,0.9)';
-  ctx.fillRect(x - w / 2, arriba, w, cuerpo + 4);
+  ctx.fillRect(caja.x, caja.y, caja.ancho, caja.alto);
   ctx.fillStyle = '#fbe8b5';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
-  ctx.fillText(s.unit.name, x, arriba + 2);
+  ctx.fillText(s.unit.name, caja.x + caja.ancho / 2, caja.y + 2);
   ctx.restore();
+}
+
+function cuerpoDelNombre(v: VistaBatalla): number {
+  return Math.max(10, Math.round(v.tablero.paso * 0.16));
+}
+
+/** La chapa del nombre, sobre la barra; `anchoTexto` lo mide quien tiene la fuente. */
+export function cajaDeNombre(
+  v: VistaBatalla,
+  s: BattleStack,
+  f: EstadoFigura,
+  anchoTexto: number,
+): Caja {
+  const { x, y } = cabezaDe(v, s, f);
+  const cuerpo = cuerpoDelNombre(v);
+  const ancho = anchoTexto + 8;
+  return { x: x - ancho / 2, y: y - cuerpo - 6, ancho, alto: cuerpo + 4 };
 }
 
 function pintarEfecto(ctx: CanvasRenderingContext2D, t: Tablero, e: Efecto): void {

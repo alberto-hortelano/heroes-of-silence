@@ -140,4 +140,25 @@ describe('el animador de batalla', () => {
     a.tick(DURACION.move / 2);
     expect(a.busy).toBe(false);
   });
+
+  it('a ritmo 2 un paso dura la mitad, y cambiar el ritmo a mitad no mueve el que ya va', () => {
+    const a = new BattleAnimator();
+    const b = batalla();
+    a.observe(b);
+    a.tick(0);
+    const s1 = b.stacks[0]!;
+    const destino = { col: s1.hex.col + 1, row: s1.hex.row };
+    s1.hex = destino;
+    b.log.push({ kind: 'move', stack: s1.id, to: destino });
+    a.velocidad = 2;
+    a.observe(b);
+    a.tick(0);
+    // Ya empezado a ritmo 2: volver a 1 no lo estira.
+    a.velocidad = 1;
+    a.tick(DURACION.move / 2 - 1);
+    expect(a.busy).toBe(true);
+    a.tick(DURACION.move / 2 + 1);
+    expect(a.busy).toBe(false);
+    expect(a.figura(s1).en).toEqual(planoDeHex(destino));
+  });
 });

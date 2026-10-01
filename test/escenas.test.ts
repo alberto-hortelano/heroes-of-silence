@@ -12,7 +12,13 @@ import { DURACION, type EstadoFigura } from '../src/client/anim.js';
 import { EscenaAventura, focoDe } from '../src/client/escenas/aventura.js';
 import { AVISO_DE_ESPERA, EscenaBatalla } from '../src/client/escenas/batalla.js';
 import { PAUSA_TRAS_EL_RIVAL, PuertaDeFinDeTurno } from '../src/client/fin-de-turno.js';
-import { cajaDeFigura, pintarSobreLaCabeza } from '../src/client/render/batalla.js';
+import {
+  cajaDeCorona,
+  cajaDeFigura,
+  cajaDeNombre,
+  pintarCorona,
+  pintarSobreLaCabeza,
+} from '../src/client/render/batalla.js';
 import { casillaAPixel, centrarEn, TILE_INICIAL } from '../src/client/render/camara-mapa.js';
 import { MARCA_DE_COMANDANTE } from '../src/client/render/palette.js';
 import { centroDeStack, centroHex, tableroPara } from '../src/client/render/proyeccion.js';
@@ -268,7 +274,10 @@ describe('el comandante se distingue en el tablero (H-4)', () => {
     const coronas = (x: BattleStack): number => {
       const { ctx, textos } = contextoQueApunta();
       const f = { en: centroDeStack(stackHexes(x)), alfa: 1 } as EstadoFigura;
+      // La barra no la lleva, y la corona solo la pinta quien la pinta.
       pintarSobreLaCabeza(ctx, vista, x, f);
+      expect(textos).not.toContain(MARCA_DE_COMANDANTE);
+      if (x.origen.kind === 'heroe') pintarCorona(ctx, vista, x, f);
       return textos.filter((t) => t === MARCA_DE_COMANDANTE).length;
     };
     const heroe = batalla.stacks.find((x) => x.origen.kind === 'heroe')!;
@@ -280,6 +289,21 @@ describe('el comandante se distingue en el tablero (H-4)', () => {
     // Y la fila del panel: la misma marca delante de su nombre, y de nadie más.
     expect(marcaDeComandante(heroe)).toBe(`${MARCA_DE_COMANDANTE} `);
     expect(batalla.stacks.filter((x) => marcaDeComandante(x) !== '')).toEqual([heroe]);
+
+    // H-8 de la QA de la fase 1b: la chapa del nombre —la que sale en la unidad
+    // activa y en la señalada— le caía encima. Las dos cajas no se tocan, y la
+    // corona ya no es la de 14 px de antes.
+    const f = { en: centroDeStack(stackHexes(heroe)), alfa: 1 } as EstadoFigura;
+    const corona = cajaDeCorona(vista, heroe, f);
+    // Un nombre largo de verdad: lo que mide «Aldo de Valdeluz» y algo más.
+    const nombre = cajaDeNombre(vista, heroe, f, 160);
+    const seTocan =
+      corona.x < nombre.x + nombre.ancho &&
+      nombre.x < corona.x + corona.ancho &&
+      corona.y < nombre.y + nombre.alto &&
+      nombre.y < corona.y + corona.alto;
+    expect(seTocan, JSON.stringify({ corona, nombre })).toBe(false);
+    expect(corona.alto).toBeGreaterThanOrEqual(22);
   });
 });
 
