@@ -39,6 +39,7 @@ const ANIMS_EXTRA = [
   // El arco no tiene clip de Mixamo: el FBX solo da la postura y los brazos los
   // coloca `POSE_A_DISTANCIA` fotograma a fotograma.
   { id: 'bow', file: 'anims/sword_and_shield/sword and shield attack (4).fbx' },
+  { id: 'crossbow', file: 'anims/sword_and_shield/sword and shield attack (4).fbx' },
 ];
 
 /**
@@ -50,6 +51,11 @@ export const PERFILES = {
   'dos-manos': { ataque: 'heavy', describe: 'tajo amplio con las dos manos' },
   baston: { ataque: 'casting', describe: 'lanzamiento con el brazo extendido' },
   arco: { ataque: 'bow', describe: 'tensar y soltar un arco' },
+  ballesta: {
+    ataque: 'crossbow',
+    describe:
+      'encarar y disparar un arma a la altura del hombro (ballesta, arcabuz o culebrina de mano)',
+  },
 } as const;
 export type Perfil = keyof typeof PERFILES;
 
@@ -107,11 +113,11 @@ async function prepararForge(temporal: string): Promise<void> {
     ],
     [
       '    mixer.setTime(Math.min(clip.duration, frameStep * f));',
-      `    if (state.animId === 'bow') {
+      `    if (state.animId === 'bow' || state.animId === 'crossbow') {
       pivot.rotation.set(0, 0, 0);
       mixer.setTime(0);
       scene.updateMatrixWorld(true);
-      rangedPose(state.model, 'bow', f);
+      rangedPose(state.model, state.animId, f);
       pivot.rotation.set(0, (2 * Math.PI * dir) / directions, 0);
     } else {
       mixer.setTime(Math.min(clip.duration, frameStep * f));
@@ -183,8 +189,8 @@ export async function renderizarPerfil(perfil: Perfil): Promise<string> {
     for (const [fila, c] of clips.entries()) {
       const dir = join(salida, 'frames/y_bot', c.anim, 'tactical_25');
       const meta = JSON.parse(await readFile(join(dir, 'meta.json'), 'utf8')) as MetaDeClip;
-      // El arco son 6 poses escritas a mano, no fotogramas de un clip.
-      const total = c.anim === 'bow' ? 6 : meta.frame_count;
+      // El arco y la ballesta son 6 poses escritas a mano, no fotogramas de un clip.
+      const total = c.anim === 'bow' || c.anim === 'crossbow' ? 6 : meta.frame_count;
       const indices = indicesDeClip(total, columnas, c.enBucle);
       filas.push({ clip: c.clip, anim: c.anim, indices, sourceMetadata: meta });
       for (const [col, i] of indices.entries()) {

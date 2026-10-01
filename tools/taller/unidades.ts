@@ -19,7 +19,7 @@ import type { Encargo } from './encargo.js';
 
 export interface Unidad {
   readonly id: string;
-  readonly faccion: 'templarios' | 'no-muertos';
+  readonly faccion: 'templarios' | 'no-muertos' | 'imperio' | 'elfos' | 'orkos';
   /** El nombre en `NuevaJugabilidad.md`. */
   readonly nombre: string;
   readonly perfil: Perfil;
@@ -153,6 +153,197 @@ export const UNIDADES: readonly Unidad[] = [
     aspecto:
       'Un gólem de huesos: coloso de huesos atados con cadenas y bandas de hierro, costillar con un resplandor verde, cráneo astado como cabeza, puños enormes de huesos. Sin armas.',
   },
+  {
+    id: 'imperio-alabardero',
+    faccion: 'imperio',
+    nombre: 'Alabardero',
+    perfil: 'dos-manos',
+    concepto: 'assets/art/imperio/alabardero.png',
+    aspecto:
+      'Un alabardero lansquenete: morrión de acero, peto, mangas y calzas acuchilladas a franjas amarillas y negras con forros rojos, alabarda empuñada a dos manos y espada corta al cinto.',
+  },
+  {
+    id: 'imperio-piquero',
+    faccion: 'imperio',
+    nombre: 'Piquero',
+    perfil: 'dos-manos',
+    concepto: 'assets/art/imperio/piquero.png',
+    aspecto:
+      'Un piquero lansquenete: morrión, peto de acero, ropa acuchillada a franjas amarillas y negras, pica larga (una vez y media su altura) empuñada a dos manos, inclinada y nunca más larga que eso.',
+  },
+  {
+    id: 'imperio-ballestero',
+    faccion: 'imperio',
+    nombre: 'Ballestero',
+    perfil: 'ballesta',
+    concepto: 'assets/art/imperio/ballestero.png',
+    aspecto:
+      'Un ballestero: capacete, jubón acolchado amarillo y negro con mangas rojas, gran pavés con el águila imperial a la espalda, ballesta de acero empuñada con las dos manos y carcaj de virotes al cinto.',
+  },
+  {
+    id: 'imperio-coracero',
+    faccion: 'imperio',
+    nombre: 'Coracero',
+    perfil: 'espada-escudo',
+    concepto: 'assets/art/imperio/coracero.png',
+    altura: 168,
+    aspecto:
+      'Un coracero: armadura de placas pesada y oscura casi completa, banda roja cruzada al pecho, borgoñota cerrada, espada de lazo de una mano. Sin escudo. Muy duro y lento.',
+  },
+  {
+    id: 'imperio-arcabucero',
+    faccion: 'imperio',
+    nombre: 'Arcabucero',
+    perfil: 'ballesta',
+    concepto: 'assets/art/imperio/arcabucero.png',
+    aspecto:
+      'Un arcabucero: sombrero de ala ancha con pluma roja, jubón acuchillado amarillo y negro, bandolera de cargas, banda roja a la cintura, arcabuz de mecha empuñado con las dos manos y la horquilla colgada.',
+  },
+  {
+    id: 'imperio-rodelero',
+    faccion: 'imperio',
+    nombre: 'Rodelero',
+    perfil: 'espada-escudo',
+    concepto: 'assets/art/imperio/rodelero.png',
+    aspecto:
+      'Un rodelero: morrión con pluma roja, peto de acero, ropa acuchillada roja y negra, rodela de acero redonda en el brazo izquierdo y espada ropera en la derecha.',
+  },
+  {
+    id: 'imperio-artillero-culebrina',
+    faccion: 'imperio',
+    nombre: 'Artillero con culebrina',
+    perfil: 'ballesta',
+    concepto: 'assets/art/imperio/artillero-con-culebrina.png',
+    aspecto:
+      'Un artillero: gorra de lana, mandil de cuero tiznado sobre ropa amarilla y negra, guantes gruesos, culebrina de mano (cañón largo y ligero de bronce con culata de madera) empuñada con las dos manos, bolsa de pólvora y botafuego al cinto. Sin cureña.',
+  },
+  {
+    id: 'elfo-arquero',
+    faccion: 'elfos',
+    nombre: 'Arquero',
+    perfil: 'arco',
+    concepto: 'assets/art/elfos/arquero.png',
+    aspecto:
+      'Una arquera elfa: pelo plateado trenzado, armadura ligera de cuero con escamas de hoja, capa verde musgo hecha jirones, carcaj a la espalda y arco largo élfico de madera clara.',
+  },
+  {
+    id: 'elfo-explorador',
+    faccion: 'elfos',
+    nombre: 'Explorador',
+    perfil: 'espada-escudo',
+    concepto: 'assets/art/elfos/explorador.png',
+    altura: 150,
+    aspecto:
+      'Un explorador elfo: capucha y capa de camuflaje hecha de hojas secas, máscara de tela, ropa de cuero oscuro, dos cuchillos curvos, uno en cada mano, arco corto a la espalda. Agazapado.',
+  },
+  {
+    id: 'elfo-guardia-del-bosque',
+    faccion: 'elfos',
+    nombre: 'Guardia del bosque',
+    perfil: 'espada-escudo',
+    concepto: 'assets/art/elfos/guardia-del-bosque.png',
+    aspecto:
+      'Un guardia del bosque elfo: armadura de escamas en forma de hoja verde oliva, yelmo alto con alas de hoja, capa verde, escudo oval de madera tallada en el brazo izquierdo y lanza larga élfica en la derecha.',
+  },
+  {
+    id: 'elfo-corredor-del-bosque',
+    faccion: 'elfos',
+    nombre: 'Corredores del bosque (antes Jinetes de ciervo)',
+    perfil: 'espada-escudo',
+    concepto: 'assets/art/elfos/jinete-de-ciervo.png',
+    altura: 158,
+    aspecto:
+      'Un corredor del bosque elfo, A PIE y sin montura: el jinete del concepto bajado del ciervo, ligero y veloz, armadura de cuero con hojas, capa verde al viento, pelo rubio largo, lanza corta en la derecha y escudo redondo pequeño en la izquierda.',
+  },
+  {
+    id: 'elfo-ent',
+    faccion: 'elfos',
+    nombre: 'Ent o Guardián arbóreo',
+    perfil: 'dos-manos',
+    concepto: 'assets/art/elfos/ent-guardian-arboreo.png',
+    altura: 210,
+    aspecto:
+      'Un ent, guardián arbóreo: gigante de corteza y raíces retorcidas, musgo y ramas en la cabeza, cuerpo de tronco nudoso, brazos largos con manos de raíz. Sin armas. Muy lento y muy duro.',
+  },
+  {
+    id: 'elfo-hostigador',
+    faccion: 'elfos',
+    nombre: 'Hostigador elfo (antes Halcón o Lobo)',
+    perfil: 'espada-escudo',
+    altura: 150,
+    aspecto:
+      'Un hostigador elfo, tropa barata y rápida: capa de piel de lobo gris con la cabeza del lobo como capucha, plumas de halcón trenzadas en el pelo, ropa de cuero ligera, jabalina corta en la mano derecha y otras dos a la espalda.',
+  },
+  {
+    id: 'orko-hacha-escudo',
+    faccion: 'orkos',
+    nombre: 'Orko con hacha y escudo',
+    perfil: 'espada-escudo',
+    concepto: 'assets/art/orkos/orko-con-hacha-y-escudo.png',
+    altura: 172,
+    aspecto:
+      'Un orko de piel verde oliva: colmillos, pelo negro recogido, armadura de cuero y placas oxidadas con pieles, faldón de cuero, escudo redondo de madera reforzado en la izquierda y hacha de una mano en la derecha.',
+  },
+  {
+    id: 'orko-dos-armas',
+    faccion: 'orkos',
+    nombre: 'Orko con dos armas',
+    perfil: 'dos-manos',
+    concepto: 'assets/art/orkos/orko-con-dos-armas.png',
+    altura: 172,
+    aspecto:
+      'Un orko de piel verde, torso casi desnudo con pinturas de guerra rojas, hombrera de pinchos, faldón de pieles, una cuchilla tosca en cada mano. Sin defensa, rugiendo.',
+  },
+  {
+    id: 'goblin-lancero',
+    faccion: 'orkos',
+    nombre: 'Goblin lancero',
+    perfil: 'espada-escudo',
+    concepto: 'assets/art/orkos/goblin-lancero.png',
+    altura: 122,
+    aspecto:
+      'Un goblin lancero: pequeño y flaco, piel verde amarillenta, orejas largas, casco de hierro abollado, harapos, escudo redondo pequeño en la izquierda y lanza larga en la derecha.',
+  },
+  {
+    id: 'goblin-arquero',
+    faccion: 'orkos',
+    nombre: 'Goblin arquero',
+    perfil: 'arco',
+    concepto: 'assets/art/orkos/goblin-arquero.png',
+    altura: 122,
+    aspecto:
+      'Un goblin arquero: pequeño, piel verde amarillenta, capucha y pañuelo rojos tapándole la boca, harapos de cuero, carcaj de flechas a la espalda, arco corto tosco.',
+  },
+  {
+    id: 'troll-maza',
+    faccion: 'orkos',
+    nombre: 'Troll con maza',
+    perfil: 'dos-manos',
+    concepto: 'assets/art/orkos/troll-con-maza.png',
+    altura: 210,
+    aspecto:
+      'Un troll: gigante de piel gris azulada con musgo, cabeza pequeña, colmillos, grilletes rotos con cadenas en las muñecas, taparrabos, maza de madera con clavos de hierro empuñada a dos manos.',
+  },
+  {
+    id: 'orko-berserker',
+    faccion: 'orkos',
+    nombre: 'Orko berserker (antes Jinete de jabalí)',
+    perfil: 'dos-manos',
+    concepto: 'assets/art/orkos/jinete-de-jabali.png',
+    altura: 174,
+    aspecto:
+      'Un orko berserker, A PIE y sin montura: el jinete del concepto bajado del jabalí, armadura de cuero con trofeos de cráneo y pinturas rojas, sin escudo, hacha grande empuñada a dos manos, enloquecido.',
+  },
+  {
+    id: 'goblin-fanatico',
+    faccion: 'orkos',
+    nombre: 'Goblin fanático',
+    perfil: 'espada-escudo',
+    concepto: 'assets/art/orkos/goblin-fanatico.png',
+    altura: 122,
+    aspecto:
+      'Un goblin fanático: pequeño, sonrisa enloquecida, pañuelo rojo en la cabeza, harapos, dos barriles de pólvora atados a la espalda con la mecha encendida, una bomba en la mano derecha. Sin armas.',
+  },
 ];
 
 /**
@@ -233,12 +424,123 @@ export const HEROES: readonly Unidad[] = [
     aspecto:
       'Un caballero de la muerte, contrapunto oscuro del templario: armadura de placas negra y abollada con remaches de hierro, sobrevesta negra hecha jirones con una cruz rota desteñida, yelmo cerrado con cuernos cortos y un brillo verde frío tras la visera, gran espadón mellado empuñado a dos manos.',
   },
+  {
+    id: 'heroe-imperio-noble',
+    faccion: 'imperio',
+    nombre: 'Noble (héroe)',
+    perfil: 'espada-escudo',
+    altura: 168,
+    aspecto:
+      'Un noble imperial: sombrero de ala con plumas, jubón de terciopelo negro y oro, gorguera, coraza ligera grabada, banda roja de mando, ropera en la derecha y bastón de mando en la izquierda.',
+  },
+  {
+    id: 'heroe-imperio-mago',
+    faccion: 'imperio',
+    nombre: 'Mago de batalla (héroe)',
+    perfil: 'baston',
+    altura: 166,
+    aspecto:
+      'Un mago de batalla imperial: túnica larga azul oscuro con ribetes dorados sobre coraza ligera, birrete, barba recortada, libro atado al cinto, bastón de metal rematado en una esfera con llamas.',
+  },
+  {
+    id: 'heroe-imperio-capitan-mercenario',
+    faccion: 'imperio',
+    nombre: 'Capitán mercenario (héroe)',
+    perfil: 'espada-escudo',
+    altura: 168,
+    aspecto:
+      'Un capitán mercenario lansquenete: sombrero enorme con plumas rojas y amarillas, ropa acuchillada llamativa, peto de acero abollado, bigote, espada katzbalger en la derecha y una bolsa de monedas al cinto. Sin escudo.',
+  },
+  {
+    id: 'heroe-imperio-ingeniero',
+    faccion: 'imperio',
+    nombre: 'Ingeniero (héroe)',
+    perfil: 'espada-escudo',
+    altura: 164,
+    aspecto:
+      'Un ingeniero imperial: gafas de latón sobre la frente, mandil de cuero con herramientas, jubón amarillo y negro, rollo de planos a la espalda, martillo de guerra de una mano en la derecha.',
+  },
+  {
+    id: 'heroe-elfo-danzante-de-espadas',
+    faccion: 'elfos',
+    nombre: 'Danzante de espadas (héroe)',
+    perfil: 'espada-escudo',
+    altura: 168,
+    aspecto:
+      'Un danzante de espadas elfo: pelo blanco largo recogido, armadura ligera de escamas de hoja dorada, faldones de tela verde que vuelan, una espada élfica curva en cada mano. Ágil y elegante.',
+  },
+  {
+    id: 'heroe-elfo-druida',
+    faccion: 'elfos',
+    nombre: 'Druida (héroe)',
+    perfil: 'baston',
+    altura: 166,
+    aspecto:
+      'Una druida elfa: túnica de hojas y musgo, corona de astas pequeñas y flores, pelo largo cobrizo, bastón retorcido de madera viva con brotes verdes y una luz verde en la punta.',
+  },
+  {
+    id: 'heroe-elfo-senor-de-las-bestias',
+    faccion: 'elfos',
+    nombre: 'Señor de las bestias (héroe)',
+    perfil: 'espada-escudo',
+    altura: 170,
+    aspecto:
+      'Un señor de las bestias elfo: capa de piel de oso, cuernos de ciervo en el yelmo de cuero, pinturas de guerra verdes, un halcón posado en el hombro, lanza de caza en la derecha.',
+  },
+  {
+    id: 'heroe-elfo-cantora',
+    faccion: 'elfos',
+    nombre: 'Cantora (héroe)',
+    perfil: 'baston',
+    altura: 166,
+    aspecto:
+      'Una cantora elfa: vestido largo verde y plata, diadema de hojas de plata, pelo rubio muy largo, arpa pequeña de madera clara sujeta en el brazo izquierdo y la mano derecha alzada.',
+  },
+  {
+    id: 'heroe-orko-kaudillo',
+    faccion: 'orkos',
+    nombre: 'Kaudillo (héroe)',
+    perfil: 'dos-manos',
+    altura: 180,
+    aspecto:
+      'Un kaudillo orko enorme: armadura de placas de chatarra con pinchos y cráneos, capa de piel de lobo, cuernos en el casco, cicatrices, gran cuchilla de carnicero empuñada a dos manos.',
+  },
+  {
+    id: 'heroe-goblin-jefe',
+    faccion: 'orkos',
+    nombre: 'Jefe goblin (héroe)',
+    perfil: 'espada-escudo',
+    altura: 130,
+    aspecto:
+      'Un jefe goblin: pequeño y astuto, corona torcida de latón, capa roja raída demasiado grande, muchos amuletos, daga envenenada en la derecha y una trampa de cepo colgando del cinto.',
+  },
+  {
+    id: 'heroe-orko-chaman',
+    faccion: 'orkos',
+    nombre: 'Chamán (héroe)',
+    perfil: 'baston',
+    altura: 172,
+    aspecto:
+      'Un chamán orko: tocado de plumas y cráneo de animal, collares de huesos y dientes, pinturas blancas, pieles, bastón nudoso con una calavera en llamas verdes.',
+  },
+  {
+    id: 'heroe-orko-senor-de-la-guerra',
+    faccion: 'orkos',
+    nombre: 'Señor de la guerra a pie (héroe)',
+    perfil: 'dos-manos',
+    altura: 180,
+    aspecto:
+      'Un señor de la guerra orko, A PIE y sin montura: corpulento, armadura pesada de chatarra con trofeos, estandarte pequeño de guerra atado a la espalda, hacha a dos manos enorme. Carga brutal.',
+  },
 ];
 
 /** La lámina de `assets/art/` que da el acabado a un héroe de cada facción. */
 export const ESTILO_DE_FACCION: Readonly<Record<Unidad['faccion'], string>> = {
   templarios: 'assets/art/templarios/guerrero-con-escudo.png',
   'no-muertos': 'assets/art/no-muertos/esqueleto-guerrero.png',
+  imperio: 'assets/art/imperio/rodelero.png',
+  elfos: 'assets/art/elfos/guardia-del-bosque.png',
+  orkos: 'assets/art/orkos/orko-con-hacha-y-escudo.png',
 };
 
 export function unidad(id: string): Unidad {

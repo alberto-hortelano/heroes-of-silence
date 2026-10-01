@@ -5,7 +5,8 @@
  * renderizador original no se toca.
  *
  * Rescatado tal cual de `tools/art/ybot-ranged-poses.mjs` de la rama
- * `archivo/gpt-rpg` (solo la rama del arco: la ballesta no tiene unidad hoy).
+ * `archivo/gpt-rpg`: el arco (tensar y soltar) y la ballesta (encarar y
+ * disparar), que es también la pose del arcabuz y de la culebrina de mano.
  */
 export const POSE_A_DISTANCIA = `
 function turnJoint(bone, child, destination) {
@@ -35,8 +36,14 @@ function poseArm(model, side, target, hint) {
   turnJoint(upper,lower,elbow); turnJoint(lower,hand,start.clone().addScaledVector(line,distance));
 }
 function rangedPose(model, kind, frame) {
-  const draw=[0,.45,1,1,.65,0][frame%6];
-  poseArm(model,'Left',new THREE.Vector3(.12,1.22+draw*.18,.40+draw*.20),new THREE.Vector3(.5,-1,0));
-  poseArm(model,'Right',new THREE.Vector3(-.06,1.20+draw*.24,.38-draw*.28),new THREE.Vector3(-1,.15,0));
+  if(kind==='bow') {
+    const draw=[0,.45,1,1,.65,0][frame%6];
+    poseArm(model,'Left',new THREE.Vector3(.12,1.22+draw*.18,.40+draw*.20),new THREE.Vector3(.5,-1,0));
+    poseArm(model,'Right',new THREE.Vector3(-.06,1.20+draw*.24,.38-draw*.28),new THREE.Vector3(-1,.15,0));
+  } else {
+    const raise=[0,.7,1,1,.55,0][frame%6];
+    poseArm(model,'Left',new THREE.Vector3(.10,1.02+raise*.25,.43),new THREE.Vector3(.5,-1,0));
+    poseArm(model,'Right',new THREE.Vector3(-.10,1.00+raise*.23,.24),new THREE.Vector3(-.5,-1,0));
+  }
 }
 `;
