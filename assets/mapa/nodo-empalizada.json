@@ -1,0 +1,11 @@
+{
+  "imagen": "nodo-empalizada.webp",
+  "sha256": "012f188aacc2776e9d8026b4528ec6b95b161da573e2146fe4cfc0094b5b37ec",
+  "ancho": 1141,
+  "alto": 974,
+  "ancla": [
+    571,
+    949
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

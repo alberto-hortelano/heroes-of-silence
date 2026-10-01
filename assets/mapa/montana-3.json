@@ -1,0 +1,11 @@
+{
+  "imagen": "montana-3.webp",
+  "sha256": "470aa64a6ab18b917ded1ead8cf921fd7cf8e3b4691f365e9afd4e38c650d7f9",
+  "ancho": 1774,
+  "alto": 800,
+  "ancla": [
+    967,
+    775
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

@@ -1,0 +1,11 @@
+{
+  "imagen": "pueblo.webp",
+  "sha256": "457b227e7fc82b43fc6f7492e0b810b0b5e80a2dd35d2fec931ef654f27fda7d",
+  "ancho": 1536,
+  "alto": 995,
+  "ancla": [
+    994,
+    970
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

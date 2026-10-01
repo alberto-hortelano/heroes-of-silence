@@ -1,0 +1,41 @@
+{
+  "encargo": "mapa-ciudad",
+  "tipo": "imagen",
+  "fecha": "2026-10-01T16:42:16.518Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f856-b497-7962-a44b-62e5ef4549d5",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que tiene que seguir cada figura. No copies su pose ni su encuadre, que están de frente y a la altura de los ojos.\n\nUna pieza suelta del mapa de aventura de un juego de estrategia por turnos. Dibuja SOLO la pieza 5 de la imagen de estilo (una ciudad que es punto fuerte de la red: murallas de piedra con torres y puerta, y dentro tejados y una torre mayor), con su mismo diseño, materiales y colores.\nUn único objeto, centrado y entero. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, la misma de la imagen de estilo; nunca cenital ni de perfil. La luz viene de arriba a la izquierda. Sin estandartes ni banderas: la bandera del dueño la pone el juego.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/pintado.webp",
+      "papel": "estilo",
+      "sha256": "2257bd10a5efa8f2c430c2d86609ac895750568961a4dea6dfddd4c8081e1838"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f856-b497-7962-a44b-62e5ef4549d5/exec-57e17095-582f-4dec-9693-0771a4cf6453.png",
+    "sha256": "c536a4c75a1c004bac155bf5b9492c67b6f1f72fda0a6a1ebfeb1ea3b2332e59",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: 1290×963, ancla en (689,938)"
+  ],
+  "validacion": {
+    "visibles": 0.5969104944979755,
+    "opacos": 0.9952422308650832,
+    "haloSuelto": 0,
+    "ancho": 1290,
+    "alto": 963
+  },
+  "salida": {
+    "ruta": "assets/mapa/ciudad.webp",
+    "sha256": "8ac4c00a16fde1e53774817b5798ab28fbe95126f504d5c3ab70a9a24dcccb61"
+  }
+}

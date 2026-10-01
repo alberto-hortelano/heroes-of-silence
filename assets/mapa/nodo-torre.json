@@ -1,0 +1,11 @@
+{
+  "imagen": "nodo-torre.webp",
+  "sha256": "4396fba7973fac54a50712ec26806c3360f056c79b2e928433eca7877697a4f3",
+  "ancho": 1144,
+  "alto": 1153,
+  "ancla": [
+    566,
+    1128
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

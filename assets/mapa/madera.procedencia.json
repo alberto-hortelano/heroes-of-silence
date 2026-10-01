@@ -1,0 +1,41 @@
+{
+  "encargo": "mapa-madera",
+  "tipo": "imagen",
+  "fecha": "2026-10-01T16:42:17.133Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f856-bc72-7352-b78e-5ab352c76e34",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que tiene que seguir cada figura. No copies su pose ni su encuadre, que están de frente y a la altura de los ojos.\n\nUna pieza suelta del mapa de aventura de un juego de estrategia por turnos. Dibuja SOLO la pieza 9 de la imagen de estilo (el recurso madera: troncos cortados y apilados, atados con cuerdas), con su mismo diseño, materiales y colores.\nUn único objeto, centrado y entero. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, la misma de la imagen de estilo; nunca cenital ni de perfil. La luz viene de arriba a la izquierda. Sin estandartes ni banderas: la bandera del dueño la pone el juego.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/pintado.webp",
+      "papel": "estilo",
+      "sha256": "2257bd10a5efa8f2c430c2d86609ac895750568961a4dea6dfddd4c8081e1838"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f856-bc72-7352-b78e-5ab352c76e34/exec-c52a8dc8-4edb-4b06-af98-b49328e58295.png",
+    "sha256": "ceab232d535f39c99c0f540060aa0c2fdba0948f534abc064be84a7705860ccd",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: 1484×979, ancla en (638,954)"
+  ],
+  "validacion": {
+    "visibles": 0.6130857164883029,
+    "opacos": 0.997418921695316,
+    "haloSuelto": 0,
+    "ancho": 1484,
+    "alto": 979
+  },
+  "salida": {
+    "ruta": "assets/mapa/madera.webp",
+    "sha256": "2068d899b60114f88910a1e5f80358252db6d2d6a7f1347c29eac3989d3bb159"
+  }
+}
