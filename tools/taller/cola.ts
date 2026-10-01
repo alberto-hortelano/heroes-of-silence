@@ -11,7 +11,7 @@
  * `estado()` lo enseña y `devolver()` lo devuelve a la cola. No se recoge solo:
  * podría estar en curso de verdad en otro proceso.
  */
-import { mkdir, readdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { type Encargo, encargoSchema } from './encargo.js';
 
@@ -111,6 +111,33 @@ export class Cola {
     const origen = join(this.dir(desde), `${id}.json`);
     await writeFile(origen, `${JSON.stringify({ encargo: ficha.encargo }, null, 2)}\n`);
     await rename(origen, join(this.dir('pendiente'), `${id}.json`));
+  }
+
+  /**
+   * Retira un pendiente que ya no vale (sus referencias cambiaron). Se renombra
+   * antes de borrarlo, para que un trabajador no lo tome a medio retirar.
+   */
+  async retirar(id: string): Promise<boolean> {
+    const temporal = join(this.raiz, `.retirado-${id}.json`);
+    try {
+      await rename(join(this.dir('pendiente'), `${id}.json`), temporal);
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return false; // ya lo tomó alguien
+      throw err;
+    }
+    await rm(temporal);
+    return true;
+  }
+
+  /** Olvida el registro de un encargo cerrado, para encolarlo de nuevo con el mismo id. */
+  async olvidar(id: string): Promise<boolean> {
+    for (const e of ['hecho', 'fallido'] as const) {
+      if ((await this.ids(e)).includes(id)) {
+        await rm(join(this.dir(e), `${id}.json`));
+        return true;
+      }
+    }
+    return false;
   }
 
   async estado(): Promise<Record<Estado, string[]>> {

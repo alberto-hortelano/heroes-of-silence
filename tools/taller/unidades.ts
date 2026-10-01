@@ -5,11 +5,14 @@
  *
  * De cada unidad salen dos encargos, en este orden:
  *  1. `<id>-identidad`: una lámina con el aspecto, ya a la cámara del juego. Sus
- *     referencias: el maniquí (pose), el concepto de `assets/art/` si lo hay
- *     (identidad: solo el aspecto, porque está dibujado de frente y a la altura
- *     de los ojos) y el atlas de Liora (estilo y escala).
- *  2. `<id>-atlas`: la hoja de reposo, marcha y ataque, con la referencia de
- *     pose de su perfil como primera imagen y la lámina del paso 1 como segunda.
+ *     referencias: el maniquí (pose) y la lámina de `assets/art/` (identidad:
+ *     aspecto y acabado, nunca cámara, porque está de frente y a la altura de
+ *     los ojos).
+ *  2. `<id>-atlas`: la hoja de reposo, marcha y ataque: la referencia de pose de
+ *     su perfil, la lámina del paso 1 como identidad y la de `assets/art/` como
+ *     estilo. Las láminas de `assets/art/` existen para que la animación siga
+ *     ese estilo (decisión del usuario, 01-10-2026); el atlas de Liora ya no es
+ *     referencia de nada.
  */
 import type { Perfil } from '../art/poses.js';
 import type { Encargo } from './encargo.js';
@@ -20,8 +23,11 @@ export interface Unidad {
   /** El nombre en `NuevaJugabilidad.md`. */
   readonly nombre: string;
   readonly perfil: Perfil;
-  /** La lámina de concepto de `assets/art/`, si la hay. */
-  readonly concepto?: string;
+  /**
+   * La lámina de referencia de `assets/art/`: fija el aspecto Y el estilo que
+   * tienen que seguir la identidad y la animación (decisión del usuario).
+   */
+  readonly concepto: string;
   /** Altura en la celda; por defecto la de un adulto (160). */
   readonly altura?: number;
   /** El aspecto. La cámara, la pose y el fondo los pone el taller. */
@@ -29,7 +35,7 @@ export interface Unidad {
 }
 
 const PINTURA =
-  'Estilo: miniatura de fantasía pintada, materiales gastados y legibles, paleta sobria, silueta clara; el acabado de la imagen de estilo.';
+  'Estilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.';
 
 export const UNIDADES: readonly Unidad[] = [
   {
@@ -147,8 +153,6 @@ export const UNIDADES: readonly Unidad[] = [
   },
 ];
 
-export const ESTILO = 'assets/characters/liora/atlas.png';
-
 export function unidad(id: string): Unidad {
   const u = UNIDADES.find((x) => x.id === id);
   if (u === undefined) {
@@ -168,8 +172,7 @@ export function encargoDeIdentidad(u: Unidad): Encargo {
     descripcion: `${u.aspecto}\n${PINTURA}`,
     referencias: [
       { ruta: rutaPoses(u), papel: 'pose' },
-      ...(u.concepto === undefined ? [] : [{ ruta: u.concepto, papel: 'identidad' as const }]),
-      { ruta: ESTILO, papel: 'estilo' },
+      { ruta: u.concepto, papel: 'identidad' },
     ],
     salida: rutaIdentidad(u),
     fondo: 'transparente',
@@ -184,7 +187,7 @@ export function encargoDeAtlas(u: Unidad): Encargo {
     referencias: [
       { ruta: rutaPoses(u), papel: 'pose' },
       { ruta: `${rutaIdentidad(u)}.webp`, papel: 'identidad' },
-      { ruta: ESTILO, papel: 'estilo' },
+      { ruta: u.concepto, papel: 'estilo' },
     ],
     salida: rutaAtlas(u),
     fondo: 'transparente',

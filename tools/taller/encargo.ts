@@ -15,9 +15,9 @@ import { FIGURA } from '../../src/shared/arte.js';
 export const PAPELES = {
   pose: 'es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación',
   identidad:
-    'es la IDENTIDAD DEL PERSONAJE: solo define su aspecto (cara, ropa, armadura, armas, colores). No determina la cámara, la anatomía ni la pose',
+    'es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose',
   estilo:
-    'es solo referencia de ESTILO pintado y de escala relativa. No copies su identidad, su pose ni su encuadre',
+    'es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que tiene que seguir cada figura. No copies su pose ni su encuadre, que están de frente y a la altura de los ojos',
 } as const;
 export type Papel = keyof typeof PAPELES;
 

@@ -4,11 +4,13 @@
  *   pnpm taller                          trabaja hasta vaciar la cola
  *   pnpm taller encolar <unidad|fichero.json>…
  *                                        una unidad de `unidades.ts` encola su
- *                                        identidad, o su atlas con `--atlas`
+ *                                        identidad, o su atlas con `--atlas`;
+ *                                        `--rehacer` olvida el encargo cerrado de antes
  *   pnpm taller corregir <encargo> "<corrección>"
  *                                        reabre el hilo de Codex de un encargo hecho
  *   pnpm taller estado
  *   pnpm taller devolver <id>            de en-curso/ o fallido/ a pendiente/
+ *   pnpm taller retirar <id>…            borra pendientes que ya no valen
  *   pnpm taller reprocesar <id>          rehace el post-proceso sobre el crudo ya generado
  *   pnpm taller derivar <hoja.webp>…     reescribe el JSON de una hoja
  *   pnpm taller vista <unidad>…          láminas de revisión en .cache/taller/vista/
@@ -279,6 +281,9 @@ async function encolar(args: readonly string[]): Promise<void> {
       : atlas
         ? encargoDeAtlas(unidad(a))
         : encargoDeIdentidad(unidad(a));
+    if (args.includes('--rehacer') && (await COLA.olvidar(bruto.id))) {
+      console.log(`olvidado el ${bruto.id} anterior`);
+    }
     const e = await COLA.encolar(bruto);
     console.log(`encolado ${e.id}`);
   }
@@ -333,6 +338,10 @@ switch (orden) {
     console.log(`${id}: de ${desde}/ a pendiente/`);
     break;
   }
+  case 'retirar':
+    for (const id of resto)
+      console.log(`${id}: ${(await COLA.retirar(id)) ? 'retirado' : 'no estaba pendiente'}`);
+    break;
   case 'reprocesar':
     for (const id of resto) await reprocesar(id);
     break;
@@ -351,6 +360,6 @@ switch (orden) {
     break;
   default:
     throw new Error(
-      `orden desconocida «${orden}»: trabajar, encolar, corregir, reprocesar, estado, devolver, derivar, vista`,
+      `orden desconocida «${orden}»: trabajar, encolar, corregir, retirar, reprocesar, estado, devolver, derivar, vista`,
     );
 }

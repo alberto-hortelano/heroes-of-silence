@@ -11,6 +11,8 @@ pnpm taller encolar templario-escudo --atlas
 pnpm taller
 pnpm taller corregir templario-escudo-atlas "el escudo va en el brazo izquierdo"
 pnpm taller estado
+pnpm taller encolar --rehacer templario-escudo   # vuelve a pedir lo ya hecho
+pnpm taller retirar <id>                    # borra un pendiente que ya no vale
 pnpm taller devolver <id>                   # de en-curso/ o fallido/ otra vez a pendiente/
 pnpm taller derivar assets/unidades/<id>/atlas.webp
 ```
@@ -49,8 +51,15 @@ aceptación: esa la da el usuario mirando capturas dentro del juego.
 `assets/art/<facción>/<unidad>.png` son las láminas de referencia que fijan el
 estilo de cada unidad (decisión del usuario, 01-10-2026), con sus prompts en
 `assets/art/prompts.json`. Están dibujadas de frente y a la altura de los ojos,
-así que entran como **identidad**: mandan en el aspecto y el acabado, nunca en la
-cámara ni en la pose.
+así que mandan en el aspecto y el acabado, nunca en la cámara ni en la pose.
+Existen para que **la animación siga ese estilo**:
+
+| Encargo | Imagen 1 | Imagen 2 | Imagen 3 |
+|---|---|---|---|
+| lámina de identidad a 25° | pose del Y Bot | lámina de `assets/art/` (identidad) | — |
+| atlas | pose del Y Bot | lámina de identidad a 25° | lámina de `assets/art/` (estilo) |
+
+El atlas de Liora ya no es referencia de nada.
 
 ## Las referencias de pose
 
