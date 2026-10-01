@@ -13,6 +13,7 @@
  *   pnpm taller retirar <id>…            borra pendientes que ya no valen
  *   pnpm taller reprocesar <id>          rehace el post-proceso sobre el crudo ya generado
  *   pnpm taller derivar <hoja.webp>…     reescribe el JSON de una hoja
+ *   pnpm taller componer-atlas-mapa      rehace assets/rpg/map-atlas.png con las piezas pintadas
  *   pnpm taller vista <unidad>…          láminas de revisión en .cache/taller/vista/
  *
  * Por cada encargo: lanza Codex con las referencias en su orden, recorta el
@@ -33,10 +34,11 @@ import sharp from 'sharp';
 import { FIGURA } from '../../src/shared/arte.js';
 import { CODEX, type Generacion, generar } from './codex.js';
 import { Cola } from './cola.js';
+import { componerAtlasMapa } from './componer-atlas-mapa.js';
 import { escribirDerivado, escribirPiezaDerivada } from './derivar.js';
 import { empaquetar, recortarAlContenido } from './empaquetar.js';
 import { type Encargo, promptDe } from './encargo.js';
-import { ESTILOS_DE_MAPA, encargoDeMuestra, encargosDePiezas } from './mapa.js';
+import { ESTILOS_DE_MAPA, encargoDeMuestra, encargosDeCeldas, encargosDePiezas } from './mapa.js';
 import { recortar, UMBRALES } from './recorte.js';
 import { encargoDeAtlas, encargoDeIdentidad, unidad } from './unidades.js';
 import { validar } from './validar.js';
@@ -280,8 +282,9 @@ async function reprocesar(id: string): Promise<void> {
 }
 
 async function encolar(args: readonly string[]): Promise<void> {
-  if (args.includes('--piezas-mapa')) {
-    for (const bruto of encargosDePiezas()) {
+  if (args.includes('--piezas-mapa') || args.includes('--atlas-mapa')) {
+    const lista = args.includes('--atlas-mapa') ? encargosDeCeldas() : encargosDePiezas();
+    for (const bruto of lista) {
       if (args.includes('--rehacer')) await COLA.olvidar(bruto.id);
       console.log(`encolado ${(await COLA.encolar(bruto)).id}`);
     }
@@ -363,6 +366,9 @@ switch (orden) {
     for (const id of resto)
       console.log(`${id}: ${(await COLA.retirar(id)) ? 'retirado' : 'no estaba pendiente'}`);
     break;
+  case 'componer-atlas-mapa':
+    console.log(`→ ${await componerAtlasMapa()}`);
+    break;
   case 'reprocesar':
     for (const id of resto) await reprocesar(id);
     break;
@@ -381,6 +387,6 @@ switch (orden) {
     break;
   default:
     throw new Error(
-      `orden desconocida «${orden}»: trabajar, encolar, corregir, retirar, reprocesar, estado, devolver, derivar, vista`,
+      `orden desconocida «${orden}»: trabajar, encolar, corregir, retirar, reprocesar, estado, devolver, derivar, vista, componer-atlas-mapa`,
     );
 }

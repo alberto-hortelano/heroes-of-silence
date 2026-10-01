@@ -148,3 +148,78 @@ export function encargosDePiezas(): Encargo[] {
       : [encargoDePieza(p.id)],
   );
 }
+
+/**
+ * Las 16 celdas de `assets/rpg/map-atlas.png`, en orden de lectura: el atlas del
+ * mapa de hoy, en pixel art, rehecho en el estilo pintado para que el mapa sea
+ * coherente con las piezas nuevas. El orden es contrato: `render/mapa.ts` pide
+ * las celdas por su índice (`CELDA`).
+ */
+export const CELDAS_DEL_ATLAS = [
+  { id: 'castillo', describe: 'un castillo de piedra con torres, almenas y puerta' },
+  { id: 'aldea', describe: 'una aldea de tres casas con entramado de madera, pozo y cercas' },
+  { id: 'ruinas', describe: 'las ruinas de una abadía gótica con arcos rotos cubiertos de hiedra' },
+  { id: 'capilla', describe: 'una capilla de piedra con campanario y cipreses' },
+  { id: 'torre-vigia', describe: 'una torre de vigía cuadrada de piedra con almenas, sobre rocas' },
+  {
+    id: 'fuente',
+    describe: 'una fuente mágica de piedra con una pequeña cascada y piedras con runas',
+  },
+  { id: 'cueva', describe: 'la boca de una cueva en una roca grande con musgo' },
+  {
+    id: 'mina',
+    describe:
+      'la entrada de una mina apuntalada con vigas, raíles, una vagoneta de mineral y cristales',
+  },
+  { id: 'cofre', describe: 'un cofre del tesoro abierto lleno de monedas y joyas' },
+  { id: 'druida', describe: 'un ermitaño druida con capucha verde y bastón, de pie' },
+  { id: 'caballo', describe: 'un caballo ensillado, de pie' },
+  { id: 'arboleda', describe: 'una arboleda de árboles de hoja ancha' },
+  { id: 'pinar', describe: 'un grupo de pinos altos' },
+  {
+    id: 'montana',
+    describe: 'una montaña suelta, alta y escarpada, de picos nevados, con pinos en la falda',
+  },
+  { id: 'piedra-runica', describe: 'un menhir con una runa que brilla en azul' },
+  { id: 'cartel', describe: 'un poste indicador de madera con dos tablas, entre piedras' },
+] as const;
+
+/**
+ * Celdas que no se piden porque ya hay una pieza aprobada que sirve. Vacío: la
+ * montaña se probó con `montana-1` y no vale, porque es un tramo de cordillera
+ * ancho y bajo y en su celda quedaba como una tira aplastada; el mapa de hoy la
+ * usa como montaña suelta.
+ */
+export const CELDAS_REUTILIZADAS: Readonly<Record<string, string>> = {};
+
+export const ATLAS_ANTIGUO = 'assets/rpg/map-atlas.png';
+
+/** La pieza de una celda del atlas, copiando QUÉ es del atlas antiguo y CÓMO se pinta de la muestra elegida. */
+export function encargoDeCelda(id: string): Encargo {
+  const n = CELDAS_DEL_ATLAS.findIndex((c) => c.id === id);
+  const celda = CELDAS_DEL_ATLAS[n];
+  if (celda === undefined) {
+    throw new Error(`no hay celda «${id}». Hay: ${CELDAS_DEL_ATLAS.map((c) => c.id).join(', ')}`);
+  }
+  return {
+    id: `atlas-mapa-${id}`,
+    tipo: 'imagen',
+    descripcion: [
+      `Una pieza suelta del mapa de aventura de un juego de estrategia por turnos: ${celda.describe}.`,
+      `Es la pieza ${n + 1} de la imagen 1, la de la fila ${Math.floor(n / 4) + 1} y columna ${(n % 4) + 1}: dibuja lo mismo, con su composición, pero NADA de su pixel art ni de sus colores saturados. Píntala en el estilo de la imagen 2: ilustración pintada de fantasía medieval oscura, materiales gastados, paleta sobria y terrosa.`,
+      'Un único objeto, centrado y entero, sin estandartes ni banderas. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, como la imagen 2; nunca cenital ni de perfil. La luz viene de arriba a la izquierda.',
+    ].join('\n'),
+    referencias: [
+      { ruta: ATLAS_ANTIGUO, papel: 'identidad' },
+      { ruta: MUESTRA_ELEGIDA, papel: 'estilo' },
+    ],
+    salida: `assets/mapa/atlas/${id}`,
+    fondo: 'transparente',
+  };
+}
+
+export function encargosDeCeldas(): Encargo[] {
+  return CELDAS_DEL_ATLAS.filter((c) => !(c.id in CELDAS_REUTILIZADAS)).map((c) =>
+    encargoDeCelda(c.id),
+  );
+}
