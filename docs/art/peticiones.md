@@ -64,3 +64,12 @@ pie sin escribir cifras a mano (#120), y su `.procedencia.json`.
 
 La rama `arte` se integra en main al acabar el ciclo actual de reglas; mientras,
 los commits siguen en `arte`.
+
+## 4. `map-atlas.png` rehecho en el estilo pintado (aprobado el 01-10-2026)
+
+Las 16 celdas de siempre, en el mismo orden y colocadas con la misma base y el
+mismo centro que las antiguas: `render/mapa.ts` no necesita ningún cambio para
+pintarlas. Al lado va `assets/rpg/map-atlas.json` con la caja y el ancla medidas
+de cada celda, para cuando la 2b deje de escalar a ojo (#120). Las piezas sueltas
+están en `assets/mapa/atlas/`, cada una con su procedencia. El castillo ya no
+lleva estandartes: la bandera la pinta el juego.

@@ -1,0 +1,397 @@
+{
+  "imagen": "map-atlas.png",
+  "sha256": "9a5376edf2add434511a98a965cf54ddae8aad5a2c80f97ec45d008032c0727d",
+  "celda": 256,
+  "columnas": 4,
+  "celdas": [
+    {
+      "id": "castillo",
+      "caja": [
+        24,
+        17,
+        238,
+        252
+      ],
+      "ancla": [
+        131,
+        252
+      ]
+    },
+    {
+      "id": "aldea",
+      "caja": [
+        12,
+        75,
+        251,
+        252
+      ],
+      "ancla": [
+        132,
+        252
+      ]
+    },
+    {
+      "id": "ruinas",
+      "caja": [
+        5,
+        44,
+        250,
+        252
+      ],
+      "ancla": [
+        128,
+        252
+      ]
+    },
+    {
+      "id": "capilla",
+      "caja": [
+        25,
+        16,
+        213,
+        252
+      ],
+      "ancla": [
+        119,
+        252
+      ]
+    },
+    {
+      "id": "torre-vigia",
+      "caja": [
+        44,
+        13,
+        208,
+        252
+      ],
+      "ancla": [
+        126,
+        252
+      ]
+    },
+    {
+      "id": "fuente",
+      "caja": [
+        25,
+        80,
+        230,
+        248
+      ],
+      "ancla": [
+        128,
+        248
+      ]
+    },
+    {
+      "id": "cueva",
+      "caja": [
+        15,
+        34,
+        251,
+        246
+      ],
+      "ancla": [
+        133,
+        246
+      ]
+    },
+    {
+      "id": "mina",
+      "caja": [
+        15,
+        45,
+        240,
+        250
+      ],
+      "ancla": [
+        128,
+        250
+      ]
+    },
+    {
+      "id": "cofre",
+      "caja": [
+        23,
+        64,
+        238,
+        252
+      ],
+      "ancla": [
+        131,
+        252
+      ]
+    },
+    {
+      "id": "druida",
+      "caja": [
+        41,
+        16,
+        202,
+        252
+      ],
+      "ancla": [
+        122,
+        252
+      ]
+    },
+    {
+      "id": "caballo",
+      "caja": [
+        51,
+        44,
+        204,
+        218
+      ],
+      "ancla": [
+        128,
+        218
+      ]
+    },
+    {
+      "id": "arboleda",
+      "caja": [
+        10,
+        27,
+        241,
+        240
+      ],
+      "ancla": [
+        126,
+        240
+      ]
+    },
+    {
+      "id": "pinar",
+      "caja": [
+        25,
+        4,
+        231,
+        231
+      ],
+      "ancla": [
+        128,
+        231
+      ]
+    },
+    {
+      "id": "montana",
+      "caja": [
+        10,
+        123,
+        251,
+        231
+      ],
+      "ancla": [
+        131,
+        231
+      ]
+    },
+    {
+      "id": "piedra-runica",
+      "caja": [
+        26,
+        21,
+        201,
+        226
+      ],
+      "ancla": [
+        114,
+        226
+      ]
+    },
+    {
+      "id": "cartel",
+      "caja": [
+        56,
+        12,
+        191,
+        221
+      ],
+      "ancla": [
+        124,
+        221
+      ]
+    }
+  ],
+  "colocacion": {
+    "castillo": [
+      14,
+      17,
+      248,
+      254
+    ],
+    "aldea": [
+      9,
+      30,
+      255,
+      254
+    ],
+    "ruinas": [
+      0,
+      44,
+      255,
+      255
+    ],
+    "capilla": [
+      0,
+      16,
+      239,
+      255
+    ],
+    "torre-vigia": [
+      34,
+      13,
+      218,
+      253
+    ],
+    "fuente": [
+      10,
+      80,
+      246,
+      248
+    ],
+    "cueva": [
+      15,
+      0,
+      251,
+      246
+    ],
+    "mina": [
+      15,
+      0,
+      240,
+      250
+    ],
+    "cofre": [
+      23,
+      59,
+      238,
+      255
+    ],
+    "druida": [
+      39,
+      16,
+      204,
+      255
+    ],
+    "caballo": [
+      22,
+      44,
+      233,
+      218
+    ],
+    "arboleda": [
+      10,
+      14,
+      241,
+      240
+    ],
+    "pinar": [
+      21,
+      0,
+      236,
+      231
+    ],
+    "montana": [
+      7,
+      0,
+      255,
+      231
+    ],
+    "piedra-runica": [
+      0,
+      21,
+      227,
+      226
+    ],
+    "cartel": [
+      48,
+      12,
+      200,
+      221
+    ]
+  },
+  "fuentes": [
+    {
+      "celda": "castillo",
+      "fuente": "assets/mapa/atlas/castillo.webp",
+      "sha256": "35bd193a4884050e2413cce1ac3912f14cdf16809b30448c996ad9bb298819d2"
+    },
+    {
+      "celda": "aldea",
+      "fuente": "assets/mapa/atlas/aldea.webp",
+      "sha256": "31438ed4d92d048840e87c2248be0a9c0d6ef4b7d282c58d88bafc5f0c96a6f6"
+    },
+    {
+      "celda": "ruinas",
+      "fuente": "assets/mapa/atlas/ruinas.webp",
+      "sha256": "a8486b35e6e9d74eb8976a83588a1105e12c54e96be20de1462bbb93624071a5"
+    },
+    {
+      "celda": "capilla",
+      "fuente": "assets/mapa/atlas/capilla.webp",
+      "sha256": "b5561d939c7817dc7ee3e84941e665ce07c596a36568d45d3201a052217fc6cc"
+    },
+    {
+      "celda": "torre-vigia",
+      "fuente": "assets/mapa/atlas/torre-vigia.webp",
+      "sha256": "d53c2e231f74847ae6bfcfcf0f7f9832d085864f22dd4ad291d11e9bccff3d5a"
+    },
+    {
+      "celda": "fuente",
+      "fuente": "assets/mapa/atlas/fuente.webp",
+      "sha256": "ddbee3a74647f87fdff471f480947cb70ef5796021bb8e0ec3f3ea371f1ed4ec"
+    },
+    {
+      "celda": "cueva",
+      "fuente": "assets/mapa/atlas/cueva.webp",
+      "sha256": "b27129fb06f0722a6d63b4bc4a2dc30e3525949fdaf61fff36d3d63a16dd9cce"
+    },
+    {
+      "celda": "mina",
+      "fuente": "assets/mapa/atlas/mina.webp",
+      "sha256": "94e9be633a766b547e90fbd70bf72ec39fc9eeea3cc49e6390148be0706fd6ea"
+    },
+    {
+      "celda": "cofre",
+      "fuente": "assets/mapa/atlas/cofre.webp",
+      "sha256": "54d2bac80b18d1d97c9cbc66be41d765aa922b622bd1f2ff9b9a46fd52fb8e24"
+    },
+    {
+      "celda": "druida",
+      "fuente": "assets/mapa/atlas/druida.webp",
+      "sha256": "342494d7ee81bfef8ed5722b0508d1e99055c5203c46edd54a6c6a13910775a2"
+    },
+    {
+      "celda": "caballo",
+      "fuente": "assets/mapa/atlas/caballo.webp",
+      "sha256": "ea2ea88b8958d931d918f989098e5d7df107cac4021a6050925f202487212925"
+    },
+    {
+      "celda": "arboleda",
+      "fuente": "assets/mapa/atlas/arboleda.webp",
+      "sha256": "d6109d47abbf55891a4932b4c583347b4221c13768e0fe68d715d57fe784b3fa"
+    },
+    {
+      "celda": "pinar",
+      "fuente": "assets/mapa/atlas/pinar.webp",
+      "sha256": "bd1a94d156bd96f4b4d606f0151b8273495b4211d1561991ca7b73bb68133f25"
+    },
+    {
+      "celda": "montana",
+      "fuente": "assets/mapa/atlas/montana.webp",
+      "sha256": "ec0b0a86f307b0964fb0204f782c1fe7905369aed8219e19c5e472d9679b0211"
+    },
+    {
+      "celda": "piedra-runica",
+      "fuente": "assets/mapa/atlas/piedra-runica.webp",
+      "sha256": "c2f8850b75bb3af1d3d723212fe97dd9f3c0decdda74a6de941423dc42aaca21"
+    },
+    {
+      "celda": "cartel",
+      "fuente": "assets/mapa/atlas/cartel.webp",
+      "sha256": "d4ffdac6772deb4ab6cf5e02b11c2f9efc53e439e2e7e900f6844e4a40b6b554"
+    }
+  ],
+  "derivadoPor": "tools/taller/componer-atlas-mapa.ts"
+}

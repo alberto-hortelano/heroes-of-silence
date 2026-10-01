@@ -1,0 +1,45 @@
+{
+  "encargo": "atlas-mapa-cueva",
+  "tipo": "imagen",
+  "fecha": "2026-10-01T17:07:18.697Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f86e-540e-7121-84dd-f73845844f09",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 2 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que tiene que seguir cada figura. No copies su pose ni su encuadre, que están de frente y a la altura de los ojos.\n\nUna pieza suelta del mapa de aventura de un juego de estrategia por turnos: la boca de una cueva en una roca grande con musgo.\nEs la pieza 7 de la imagen 1, la de la fila 2 y columna 3: dibuja lo mismo, con su composición, pero NADA de su pixel art ni de sus colores saturados. Píntala en el estilo de la imagen 2: ilustración pintada de fantasía medieval oscura, materiales gastados, paleta sobria y terrosa.\nUn único objeto, centrado y entero, sin estandartes ni banderas. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, como la imagen 2; nunca cenital ni de perfil. La luz viene de arriba a la izquierda.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/rpg/map-atlas.png",
+      "papel": "identidad",
+      "sha256": "7c5cd7364bcefab2ddd4f3f0925decf872fff48a292cc9a6f0a6a7b3f527a55a"
+    },
+    {
+      "ruta": "assets/mapa/muestras/pintado.webp",
+      "papel": "estilo",
+      "sha256": "2257bd10a5efa8f2c430c2d86609ac895750568961a4dea6dfddd4c8081e1838"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f86e-540e-7121-84dd-f73845844f09/exec-6f4d345c-fea4-43ed-910f-4215a388a32c.png",
+    "sha256": "c6e4eb802a517cb107e614b93bb5c80a90b42bb040520ff33d287fe7130399e7",
+    "ancho": 1312,
+    "alto": 1199
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.5952360576673279,
+    "opacos": 0.9944250039152056,
+    "haloSuelto": 0,
+    "ancho": 1204,
+    "alto": 1087
+  },
+  "salida": {
+    "ruta": "assets/mapa/atlas/cueva.webp",
+    "sha256": "b27129fb06f0722a6d63b4bc4a2dc30e3525949fdaf61fff36d3d63a16dd9cce"
+  }
+}
