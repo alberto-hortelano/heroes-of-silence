@@ -1,0 +1,45 @@
+{
+  "encargo": "golem-de-huesos-identidad",
+  "tipo": "identidad",
+  "fecha": "2026-10-01T15:20:30.155Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f80c-5463-7bc2-8284-49b9cefe7fb4",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: solo define su aspecto (cara, ropa, armadura, armas, colores). No determina la cámara, la anatomía ni la pose.\n\nUn gólem de huesos: coloso de huesos atados con cadenas y bandas de hierro, costillar con un resplandor verde, cráneo astado como cabeza, puños enormes de huesos. Sin armas.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nUN solo personaje, de cuerpo entero, de pie, en la primera pose de reposo de la referencia de pose.\nCámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.\nLámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/dos-manos.png",
+      "papel": "pose",
+      "sha256": "669d14f9183e2e30fff6f6912dc82a44610b3fa07f107fbbb0f149a544531078"
+    },
+    {
+      "ruta": "assets/art/no-muertos/golem-de-huesos.png",
+      "papel": "identidad",
+      "sha256": "2fefa7a0bd94ef9ed9bce995bd3f3c41b21eb3d696fe2f1aedebb72917d57723"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f80c-5463-7bc2-8284-49b9cefe7fb4/exec-f4e3b295-6656-41c8-a407-44ce83216bc5.png",
+    "sha256": "426dc800ec008f0737543f0758edb162074b79774c9a77adc7eec245f94c79a3",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.4248565968907737,
+    "opacos": 0.9827396750106918,
+    "haloSuelto": 0.0000020462744504218394,
+    "ancho": 918,
+    "alto": 1253
+  },
+  "salida": {
+    "ruta": "assets/unidades/golem-de-huesos/identidad.webp",
+    "sha256": "226723534846acf107330b59e3d6df600d5a1a632bc67f879cd32a99fd724afe"
+  }
+}

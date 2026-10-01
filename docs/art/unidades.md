@@ -52,6 +52,25 @@ El Ent y el artillero con culebrina se quedan.
 
 ## Estado
 
-| id | identidad | atlas | visto bueno del usuario |
+Lote 1 (Templarios y No muertos): **aprobado por el usuario el 01-10-2026**, visto
+animado en `pnpm taller vista` y en capturas de batalla.
+
+| id | identidad | atlas | notas |
 |---|---|---|---|
-| (se rellena por lotes) | | | |
+| `templario-escudo` | ✔ | ✔ | |
+| `templario-mandoble` | ✔ | ✔ | |
+| `templario-monje` | ✔ | ✔ | el ataque es `casting`: acaba de rodillas golpeando con el bastón |
+| `templario-escudero` | ✔ | ✔ | |
+| `templario-hermano-de-carga` | ✔ | ✔ | lanza corta: la del concepto no cabía en su celda (corrección `-c1`) |
+| `templario-penitente` | ✔ | ✔ | |
+| `esqueleto-guerrero` | ✔ | ✔ | corrección `-c1`: la espada invadía la celda vecina |
+| `esqueleto-arquero` | ✔ | ✔ | |
+| `zombi` | ✔ | ✔ | |
+| `necrofago` | ✔ | ✔ | |
+| `espectro` | ✔ | ✔ | corrección `-c1`: la espada invadía la celda vecina |
+| `golem-de-huesos` | ✔ | ✔ | |
+
+**Pendiente conocido, aceptado:** algunos ciclos de marcha no son del todo finos
+(los pies no siempre alternan limpios). Es un límite del modelo de imagen al
+repintar las poses del Y Bot; el usuario decidió seguir con ellos. Si se rehacen,
+`pnpm taller corregir <id>-atlas "…"` reabre el mismo hilo y conserva la identidad.

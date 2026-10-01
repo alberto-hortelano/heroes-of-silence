@@ -1,0 +1,45 @@
+{
+  "encargo": "templario-penitente-identidad",
+  "tipo": "identidad",
+  "fecha": "2026-10-01T15:22:50.506Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f80e-679b-7ab0-8060-8061af61cd99",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUn penitente flagelante sin armadura: capirote de tela áspera que le tapa la cara, torso desnudo y marcado, faldón de arpillera con tiras rojas, pies descalzos, mayal de bola de pinchos.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nUN solo personaje, de cuerpo entero, de pie, en la primera pose de reposo de la referencia de pose.\nCámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.\nLámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/dos-manos.png",
+      "papel": "pose",
+      "sha256": "669d14f9183e2e30fff6f6912dc82a44610b3fa07f107fbbb0f149a544531078"
+    },
+    {
+      "ruta": "assets/art/templarios/penitente.png",
+      "papel": "identidad",
+      "sha256": "13f44100fd9f568ae987daf031d49bb490cf21fa5c8d85a2aed53761250a5d47"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f80e-679b-7ab0-8060-8061af61cd99/exec-926baf65-6ff8-420c-81ee-4ce4ee12768f.png",
+    "sha256": "8fa7fd19e157316488c13f05c90da7cefc94e823ef831192792ca84c11709f30",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.32471385871546254,
+    "opacos": 0.9804505960800162,
+    "haloSuelto": 0,
+    "ancho": 880,
+    "alto": 1247
+  },
+  "salida": {
+    "ruta": "assets/unidades/templario-penitente/identidad.webp",
+    "sha256": "3abb0f342f5c1b2376fcf2b27d4a070594f453871e335a9409009f927589d1a6"
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "encargo": "templario-escudero-identidad",
+  "tipo": "identidad",
+  "fecha": "2026-10-01T15:21:28.360Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f80d-5121-7771-add5-93de3f055f50",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUn escudero joven y ligero: capacete de ala, jubón acolchado con sobrevesta corta y cruz roja pequeña, mochila con cuerda y equipo de repuesto a la espalda, lanza en la mano derecha. Sin escudo.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nUN solo personaje, de cuerpo entero, de pie, en la primera pose de reposo de la referencia de pose.\nCámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.\nLámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/espada-escudo.png",
+      "papel": "pose",
+      "sha256": "d9cf91645424ef72f0b52de18c7c202add6af827718c2e809da70eae75964642"
+    },
+    {
+      "ruta": "assets/art/templarios/escudero.png",
+      "papel": "identidad",
+      "sha256": "735029aa17cdbc4f25317e983f93e8552b78bc8cb6e812cf71630ecbd4cd9ebb"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f80d-5121-7771-add5-93de3f055f50/exec-4932bd72-3087-4104-b656-f5d80b9c235a.png",
+    "sha256": "0bee067454e77c5086f63c8670dd5c51a4e18dee8805e2d4f5b15c73d77b9bcc",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.3143084985190248,
+    "opacos": 0.9856832185574483,
+    "haloSuelto": 0,
+    "ancho": 700,
+    "alto": 1254
+  },
+  "salida": {
+    "ruta": "assets/unidades/templario-escudero/identidad.webp",
+    "sha256": "915173ce8bdd3bc088ac045173d73e87a6c8b5daf76a48c183c883da3a0287ba"
+  }
+}
