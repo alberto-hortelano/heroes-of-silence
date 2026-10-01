@@ -135,11 +135,95 @@ async function animacion(h: Hoja): Promise<Buffer> {
     .toBuffer();
 }
 
+/**
+ * Una página que reproduce las hojas como las reproduce el juego: cada clip a su
+ * reloj y anclado por sus pies, mirando a los dos lados, sobre el campo de
+ * batalla. Se abre con `file://`: las imágenes se leen de `assets/` con una ruta
+ * relativa, así que la página ve siempre las hojas de ahora mismo.
+ */
+function pagina(hojas: readonly Hoja[]): string {
+  const datos = hojas.map((h) => ({
+    id: h.id,
+    src: `../../../assets/unidades/${h.id}/atlas.webp`,
+    atlas: h.atlas,
+  }));
+  return `<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><title>Taller · animaciones</title>
+<style>
+  body { margin: 0; background: #1b1d16; color: #e8e2cf; font: 14px system-ui, sans-serif; }
+  header { padding: 12px 16px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .rejilla { display: grid; grid-template-columns: repeat(auto-fill, minmax(560px, 1fr)); gap: 12px; padding: 0 16px 16px; }
+  figure { margin: 0; background: #2a2d22; border-radius: 6px; overflow: hidden; }
+  figcaption { padding: 6px 10px; display: flex; justify-content: space-between; }
+  canvas { display: block; width: 100%; background: url(../../../assets/rpg/campo.webp) center 70% / cover; }
+  label { display: flex; gap: 6px; align-items: center; }
+</style></head><body>
+<header><strong>Animaciones del taller</strong>
+  <label>Velocidad <input id="vel" type="range" min="0.25" max="2" step="0.25" value="1"><span id="velv">1×</span></label>
+  <label>Tamaño <input id="tam" type="range" min="0.6" max="1.6" step="0.1" value="1"><span id="tamv">1×</span></label>
+  <span>Reposo · Marcha · Ataque — arriba mirando a la derecha, abajo espejado</span>
+</header>
+<div class="rejilla" id="rejilla"></div>
+<script>
+const HOJAS = ${JSON.stringify(datos)};
+const CLIPS = ['idle', 'walk', 'attack'];
+const SOMBRA = ${JSON.stringify(sombraDeFigura(100))};
+let vel = 1, tam = 1;
+vel_ = document.getElementById('vel'); tam_ = document.getElementById('tam');
+vel_.oninput = () => { vel = +vel_.value; document.getElementById('velv').textContent = vel + '×'; };
+tam_.oninput = () => { tam = +tam_.value; document.getElementById('tamv').textContent = tam.toFixed(1) + '×'; };
+const piezas = HOJAS.map((h) => {
+  const fig = document.createElement('figure');
+  const c = document.createElement('canvas'); c.width = 600; c.height = 440;
+  const cap = document.createElement('figcaption');
+  const f = Object.values(h.atlas.clips).map((k) => k.frames).join('/');
+  cap.innerHTML = '<span></span><span></span>';
+  cap.children[0].textContent = h.id;
+  cap.children[1].textContent = 'altura ' + h.atlas.altura + ' px · fotogramas ' + f;
+  fig.append(c, cap); document.getElementById('rejilla').append(fig);
+  const img = new Image(); img.src = h.src;
+  return { h, c, img };
+});
+const t0 = performance.now();
+function dibujar(ahora) {
+  const t = ((ahora - t0) / 1000) * vel;
+  for (const { h, c, img } of piezas) {
+    const ctx = c.getContext('2d'); ctx.clearRect(0, 0, c.width, c.height);
+    if (!img.complete || img.naturalWidth === 0) continue;
+    const cell = h.atlas.cell, esc = 0.85 * tam;
+    CLIPS.forEach((nombre, k) => {
+      const clip = h.atlas.clips[nombre];
+      const n = Math.floor(t * clip.fps);
+      // El ataque se repite cada 2 s para poder verlo; en el juego sale una vez.
+      const i = clip.loop ? n % clip.frames : Math.min(clip.frames - 1, Math.floor((t % 2) * clip.fps));
+      [false, true].forEach((espejo, fila) => {
+        const x = 100 + k * 200, suelo = 200 + fila * 215;
+        const alto = h.atlas.altura * esc;
+        const r = alto * 0.36;
+        ctx.fillStyle = 'rgba(0,0,0,' + (SOMBRA.opacidad + 0.12) + ')';
+        ctx.beginPath();
+        ctx.ellipse(x + SOMBRA.x * alto / 100 * 0.35, suelo + SOMBRA.y * alto / 100 * 0.2, r, r * 0.42, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.save(); ctx.translate(x, suelo); if (espejo) ctx.scale(-1, 1);
+        ctx.drawImage(img, i * cell, clip.row * cell, cell, cell,
+          -clip.anchor[0] * esc, -clip.anchor[1] * esc, cell * esc, cell * esc);
+        ctx.restore();
+      });
+    });
+  }
+  requestAnimationFrame(dibujar);
+}
+requestAnimationFrame(dibujar);
+</script></body></html>
+`;
+}
+
 export async function vista(ids: readonly string[]): Promise<string[]> {
   await mkdir(DIR_VISTA, { recursive: true });
   const hojas = await Promise.all(ids.map(cargar));
-  const fuera = [join(DIR_VISTA, 'lote.png')];
-  await writeFile(fuera[0] as string, await lamina(hojas));
+  const fuera = [join(DIR_VISTA, 'animaciones.html'), join(DIR_VISTA, 'lote.png')];
+  await writeFile(fuera[0] as string, pagina(hojas));
+  await writeFile(fuera[1] as string, await lamina(hojas));
   for (const h of hojas) {
     const r = join(DIR_VISTA, `${h.id}.webp`);
     await writeFile(r, await animacion(h));
