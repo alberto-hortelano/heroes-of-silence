@@ -44,6 +44,14 @@ fallo no para la cola: el encargo va a `fallido/` con el motivo.
 Que el taller dé por bueno un encargo es una condición técnica, no la
 aceptación: esa la da el usuario mirando capturas dentro del juego.
 
+## Las referencias de estilo
+
+`assets/art/<facción>/<unidad>.png` son las láminas de referencia que fijan el
+estilo de cada unidad (decisión del usuario, 01-10-2026), con sus prompts en
+`assets/art/prompts.json`. Están dibujadas de frente y a la altura de los ojos,
+así que entran como **identidad**: mandan en el aspecto y el acabado, nunca en la
+cámara ni en la pose.
+
 ## Las referencias de pose
 
 `tools/art/poses.ts` renderiza el rig `y_bot` con sprite-forge a la cámara del
