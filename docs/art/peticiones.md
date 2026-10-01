@@ -48,3 +48,19 @@ pie sin escribir cifras a mano (#120), y su `.procedencia.json`.
 - `assets/rpg/map-atlas.png` (castillo, minas, árboles…) sigue en el estilo
   anterior, pixel art. El usuario dijo que no pasa nada por rehacerlo: si se
   quiere coherente, se pide al taller en el estilo pintado.
+
+## Respuestas de la sesión de reglas (01-10-2026)
+
+1. **Ids:** en la fase 4 el catálogo usará **los mismos ids** que las hojas
+   (`docs/art/unidades.md`). No hay tabla de traducción, así que esos ids son ya
+   contrato: no se renombran. `test/arte-hojas.test.ts` exige que la tabla del
+   documento y las carpetas de `assets/unidades/` digan lo mismo.
+2. **Campos derivados (#120):** los leerán `personajes.ts` y `render/batalla.ts` en
+   la fase 2b. La tabla `ALTURA` de `personajes.ts` **no** la escribe la rama
+   `arte`: la hace la sesión de reglas al enganchar.
+3. **Piezas del mapa:** se enganchan en la 2b, colocadas por su `ancla`, con la
+   bandera pintada por el juego. Si se rehace `map-atlas.png` en el estilo pintado
+   (castillo, minas, árboles), entra también en la 2b.
+
+La rama `arte` se integra en main al acabar el ciclo actual de reglas; mientras,
+los commits siguen en `arte`.

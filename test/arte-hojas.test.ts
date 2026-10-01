@@ -80,3 +80,16 @@ describe('las piezas del mapa', () => {
     for (const r of pr.referencias) expect(r.sha256).toMatch(/^[0-9a-f]{64}$/);
   });
 });
+
+describe('los ids de las hojas son los del catálogo', () => {
+  it('la tabla de docs/art/unidades.md y las carpetas de assets/unidades dicen lo mismo', () => {
+    // El catálogo de la fase 4 usará estos ids tal cual: renombrar una carpeta
+    // sin el documento, o al revés, rompería el enganche en silencio.
+    const doc = readFileSync(join(RAIZ, 'docs/art/unidades.md'), 'utf8');
+    const enDoc = new Set([...doc.matchAll(/^\| `([a-z0-9-]+)` \|/gm)].map((m) => m[1]));
+    const enDisco = new Set(
+      existsSync(UNIDADES) ? readdirSync(UNIDADES).filter((d) => !d.startsWith('_')) : [],
+    );
+    expect([...enDisco].sort()).toEqual([...enDoc].sort());
+  });
+});

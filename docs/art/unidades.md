@@ -1,8 +1,8 @@
-# Unidades con arte: ids provisionales
+# Unidades con arte: ids del catálogo
 
-Las facciones nuevas todavía no están en el catálogo del juego (llegan en la
-fase 4). Las hojas se nombran con ids provisionales en kebab-case y esta tabla
-dice a qué unidad de `NuevaJugabilidad.md` corresponde cada una. La fuente de
+Las facciones nuevas llegan al catálogo en la fase 4 **con estos mismos ids**
+(decisión de la sesión de reglas, 01-10-2026): no se renombran. Esta tabla dice
+a qué unidad de `NuevaJugabilidad.md` corresponde cada uno. La fuente de
 los ids, las descripciones y los perfiles de pose es `tools/taller/unidades.ts`.
 
 Cada unidad tiene en `assets/unidades/<id>/`:
