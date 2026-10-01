@@ -22,13 +22,13 @@ import { CHANCE_PER_POINT, expectedDamage, stackHp } from '../battle/damage.js';
 import { roundsLeftOf } from '../battle/effects.js';
 import { effectOfSpell, type Spell, spell, spellAmount } from '../battle/spells.js';
 import type { BattleAction, BattleHero, BattleStack, BattleState, Side } from '../battle/types.js';
-import { creature, hasTrait, isShooter } from '../data.js';
+import { hasTrait, isShooter } from '../data.js';
 import type { Rng } from '../rng.js';
 import type { Hex } from '../types.js';
 
 /** Cuánto "vale" destruir a este stack: daño que hace por lo que aguanta. */
 function threat(s: BattleStack): number {
-  const info = creature(s.creature);
+  const info = s.unit;
   const damage = ((info.damage[0] + info.damage[1]) / 2) * s.count;
   const shooterBonus = isShooter(info) && s.shotsLeft > 0 ? 1.6 : 1;
   return damage * shooterBonus;
@@ -102,7 +102,7 @@ function spellValue(caster: BattleHero, sp: Spell, objetivo: BattleStack): numbe
     case 'heal':
       // Sale ≈0 salvo con un stack tocado, y está bien: la Curación no se lanza
       // por lanzarla. No necesita caso especial para quedar fuera del umbral.
-      return Math.min(spellAmount(sp, caster), creature(objetivo.creature).hp - objetivo.topHp);
+      return Math.min(spellAmount(sp, caster), objetivo.unit.hp - objetivo.topHp);
   }
 }
 
@@ -185,7 +185,7 @@ function mejorCarga(
   // que significa — evaluarla casilla a casilla sería preguntar seis veces algo
   // cuya respuesta no depende de la pregunta. Con el daño empatado decide el
   // desempate, que es lo que decide hoy el 100 % de los casos.
-  const cobraCarga = hasTrait(creature(s.creature), 'charge');
+  const cobraCarga = hasTrait(s.unit, 'charge');
 
   let mejor = cargas[0] as CargaContra;
   let mejorDano = -1;
@@ -308,12 +308,12 @@ function decideAccion(
   if (conjuro !== null) return conjuro;
 
   // Un tirador con línea libre dispara al mejor objetivo.
-  if (isShooter(creature(s.creature)) && s.shotsLeft > 0 && !isEngaged(state, s)) {
+  if (isShooter(s.unit) && s.shotsLeft > 0 && !isEngaged(state, s)) {
     // El liche salpica todo lo pegado al objetivo, aliados incluidos. Eso es
     // legal —y `legalActions` lo sigue ofreciendo, porque filtrarlo sería
     // mentirle al agente—, pero suicida: aquí se elige con cabeza.
     let candidatos = enemigos;
-    if (hasTrait(creature(s.creature), 'splash_shot')) {
+    if (hasTrait(s.unit, 'splash_shot')) {
       // A quién alcanza la salpicadura lo dice el motor, no una copia de la
       // regla aquí: si mañana cambia el radio, la IA no se queda jugando con la
       // forma vieja. El propio tirador cuenta como salpicado — hoy no puede

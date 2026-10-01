@@ -1,6 +1,5 @@
 /** Hechizos de combate: catálogo tipado y su efecto sobre la batalla. */
 import spellsJson from '../../../data/spells.json' with { type: 'json' };
-import { creature } from '../data.js';
 import { applyDamage } from './damage.js';
 import type { StackEffect } from './effects.js';
 import type { BattleHero, BattleStack } from './types.js';
@@ -100,7 +99,7 @@ export function castSpell(s: Spell, caster: BattleHero, target: BattleStack): Sp
       return { damage: 0, killed: 0, effect: temporalEffect(s.kind, s, caster) };
     case 'heal': {
       const amount = spellAmount(s, caster);
-      const maxHp = creature(target.creature).hp;
+      const maxHp = target.unit.hp;
       target.topHp = Math.min(maxHp, target.topHp + amount);
       return { damage: 0, killed: 0 };
     }

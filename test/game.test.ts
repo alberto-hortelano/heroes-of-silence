@@ -14,6 +14,7 @@ import { allSpells } from '../src/core/battle/spells.js';
 import { factionLineup } from '../src/core/data.js';
 import {
   experienceForLevel,
+  type Hero,
   learnable,
   levelFromExperience,
   maxMana,
@@ -34,6 +35,12 @@ import {
 } from '../src/core/map/map.js';
 import { isWalkable, ROAD_COST, TERRAIN_KINDS } from '../src/core/map/terrain.js';
 import { createRng, parseSeed } from '../src/core/rng.js';
+import {
+  CHARACTER_BODY,
+  type Character,
+  createCharacter,
+  defaultBuild,
+} from '../src/core/rpg/character.js';
 import {
   type AdventureAction,
   applyAdventureAction,
@@ -61,9 +68,33 @@ import {
   townSpells,
 } from '../src/core/town/town.js';
 import { type Point, RESOURCE_KINDS, type Resources } from '../src/core/types.js';
-import { forzarBatalla, monstruoVivo, ponerMonstruo } from './helpers.js';
+import { ejercito, forzarBatalla, monstruoVivo, ponerMonstruo } from './helpers.js';
 
 const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
+
+/**
+ * Una casilla pegada al héroe, andable y sin nada encima: el sitio donde
+ * plantar al defensor para que el atacante entre de un solo paso.
+ *
+ * Se pregunta al mapa en vez de escribir un desplazamiento a mano porque la
+ * casilla de al lado puede ser agua o llevar un cofre encima, y entonces el
+ * test mediría otra cosa —o reventaría— según la semilla.
+ */
+const casillaVecinaLibre = (state: GameState, desde: Point): Point => {
+  for (const d of [
+    { x: 1, y: 0 },
+    { x: -1, y: 0 },
+    { x: 0, y: 1 },
+    { x: 0, y: -1 },
+  ]) {
+    const at = { x: desde.x + d.x, y: desde.y + d.y };
+    const camino = findPath(state.map, desde, at);
+    if (camino !== null && camino.length === 1 && objectAt(state.map, at) === undefined) {
+      return at;
+    }
+  }
+  throw new Error('el héroe no tiene ninguna casilla vecina libre');
+};
 
 describe('puntos de movimiento', () => {
   it('los marca la criatura más lenta del ejército', () => {
@@ -721,30 +752,6 @@ describe('batallas del mapa', () => {
 });
 
 describe('experiencia y niveles', () => {
-  /**
-   * Una casilla pegada al héroe, andable y sin nada encima: el sitio donde
-   * plantar al defensor para que el atacante entre de un solo paso.
-   *
-   * Se pregunta al mapa en vez de escribir un desplazamiento a mano porque la
-   * casilla de al lado puede ser agua o llevar un cofre encima, y entonces el
-   * test mediría otra cosa —o reventaría— según la semilla.
-   */
-  const casillaVecinaLibre = (state: GameState, desde: Point): Point => {
-    for (const d of [
-      { x: 1, y: 0 },
-      { x: -1, y: 0 },
-      { x: 0, y: 1 },
-      { x: 0, y: -1 },
-    ]) {
-      const at = { x: desde.x + d.x, y: desde.y + d.y };
-      const camino = findPath(state.map, desde, at);
-      if (camino !== null && camino.length === 1 && objectAt(state.map, at) === undefined) {
-        return at;
-      }
-    }
-    throw new Error('el héroe no tiene ninguna casilla vecina libre');
-  };
-
   it('la experiencia cuenta las criaturas muertas, no los stacks', () => {
     // La fórmula es `PV de la criatura × muertas`
     // (`Battle::Force::calculateExperienceBasedOnLosses`, `battle_army.cpp`), y
@@ -1690,5 +1697,146 @@ describe('el maná es un recurso (#4)', () => {
     expect(registro.some((e) => e.kind === 'cast')).toBe(true);
     expect(hero.mana).toBe(enBatalla.mana);
     expect(hero.mana).toBeLessThan(antes);
+  });
+});
+
+describe('los personajes y sus heridas', () => {
+  /** Un guerrero de 34 PV en el primer slot del héroe, dado de alta en la partida. */
+  function alistar(state: GameState, hero: Hero, id = 'aren'): Character {
+    const c = createCharacter(id, { ...defaultBuild, profession: 'Guerrero' });
+    state.characters = { ...(state.characters ?? {}), [id]: c };
+    hero.army = ejercito({ creature: CHARACTER_BODY, count: 1, member: id });
+    return c;
+  }
+
+  it('una partida de estrategia no tiene personajes', () => {
+    const state = newGame({ seed: 5 });
+    expect('characters' in state).toBe(false);
+  });
+
+  it('el personaje que gana vuelve con los PV que le quedaron, no con el máximo', () => {
+    const state = newGame({ seed: 32 });
+    const c = ctx(32);
+    const hero = heroesOf(state, 0)[0]!;
+    alistar(state, hero);
+    // Sin maná: con él, la flecha mágica del héroe mata a los zombis antes de
+    // que lleguen a tocarlo, y el personaje volvería sano sin probar nada.
+    hero.mana = 0;
+    ponerMonstruo(state, 'zombie', 2);
+    forzarBatalla(state, c, hero);
+    const final = state.pendingBattle!.battle;
+
+    expect(resolvePendingBattle(state, c).winner).toBe('attacker');
+    const s = final.stacks.find((x) => x.member === 'aren')!;
+    const aren = state.characters!.aren!;
+    expect(aren.hp).toBe(s.topHp);
+    // El zombi contraatacó: sale herido, y con eso el test prueba algo.
+    expect(aren.hp).toBeLessThan(34);
+    expect(aren.hp).toBeGreaterThan(0);
+    // Y sigue en el ejército, con su `member`: no vuelve como un stack anónimo.
+    expect(heroById(state, hero.id).army[0]).toEqual({
+      creature: CHARACTER_BODY,
+      count: 1,
+      member: 'aren',
+    });
+  });
+
+  it('herido, entra a la siguiente batalla con lo que le quedó', () => {
+    const state = newGame({ seed: 31 });
+    const c = ctx(31);
+    const hero = heroesOf(state, 0)[0]!;
+    alistar(state, hero);
+    state.characters!.aren!.hp = 9;
+    ponerMonstruo(state, 'peasant', 1);
+    forzarBatalla(state, c, hero);
+    expect(state.pendingBattle!.battle.stacks.find((x) => x.member === 'aren')!.topHp).toBe(9);
+  });
+
+  it('el personaje que cae queda a 0 PV y sale del ejército, pero no de la partida', () => {
+    const state = newGame({ seed: 32 });
+    const c = ctx(32);
+    const hero = heroesOf(state, 0)[0]!;
+    alistar(state, hero);
+    // Llega con 3 PV y sin la flecha mágica del héroe, y lleva un compañero que
+    // no cae, para que el héroe gane y siga en el mapa: si perdiera, se iría con
+    // el ejército y no habría ejército que mirar.
+    state.characters!.aren!.hp = 3;
+    hero.mana = 0;
+    hero.army = ejercito(hero.army[0]!, { creature: 'pikeman', count: 20 });
+    ponerMonstruo(state, 'zombie', 3);
+    forzarBatalla(state, c, hero);
+    const final = state.pendingBattle!.battle;
+    // Que caiga lo decide el tablero; el test comprueba lo que se escribe
+    // DESPUÉS, así que exige que de verdad cayera.
+    expect(resolvePendingBattle(state, c).winner).toBe('attacker');
+    expect(final.stacks.find((x) => x.member === 'aren')!.count).toBe(0);
+
+    expect(state.characters!.aren!.hp).toBe(0);
+    const vivo = heroById(state, hero.id);
+    expect(vivo.army.some((s) => s?.member === 'aren')).toBe(false);
+    expect(vivo.army[1]?.creature).toBe('pikeman');
+  });
+
+  it('las heridas se escriben también en el bando que defiende, aunque su héroe caiga', () => {
+    const state = newGame({ seed: 41 });
+    const c = ctx(41);
+    const atacante = heroesOf(state, 0)[0]!;
+    const defensor = heroesOf(state, 1)[0]!;
+    alistar(state, defensor, 'bera');
+
+    atacante.army = ejercito({ creature: 'crusader', count: 60 });
+    atacante.movePoints = 5000;
+    defensor.at = casillaVecinaLibre(state, atacante.at);
+
+    applyAdventureAction(state, { type: 'move_hero', hero: atacante.id, to: defensor.at }, c, 0);
+    expect(state.pendingBattle!.battle.stacks.some((s) => s.member === 'bera')).toBe(true);
+    expect(resolvePendingBattle(state, c).winner).toBe('attacker');
+    // El héroe que lo llevaba ya no está en el mapa; el personaje sí está en la
+    // partida, y con su herida escrita.
+    expect(state.heroes.some((h) => h.id === defensor.id)).toBe(false);
+    expect(state.characters!.bera!.hp).toBe(0);
+  });
+
+  it('el defensor con personaje que GANA lo conserva en el ejército, con sus PV escritos', () => {
+    // Es otro camino que el del atacante —`applyDefenderSurvivors` y
+    // `restoreHeroFromBattle`— y es donde ya se olvidó una línea una vez (el
+    // maná). Doce arqueros contra el personaje y sesenta esqueletos: el
+    // defensor gana, y los arqueros disparan, así que el personaje sale herido.
+    const state = newGame({ seed: 41 });
+    const c = ctx(41);
+    const atacante = heroesOf(state, 0)[0]!;
+    const defensor = heroesOf(state, 1)[0]!;
+    alistar(state, defensor, 'bera');
+    defensor.army = ejercito(defensor.army[0]!, { creature: 'skeleton', count: 60 });
+
+    atacante.army = ejercito({ creature: 'archer', count: 12 });
+    atacante.movePoints = 5000;
+    defensor.at = casillaVecinaLibre(state, atacante.at);
+
+    applyAdventureAction(state, { type: 'move_hero', hero: atacante.id, to: defensor.at }, c, 0);
+    const final = state.pendingBattle!.battle;
+    expect(resolvePendingBattle(state, c).winner).toBe('defender');
+
+    const s = final.stacks.find((x) => x.member === 'bera')!;
+    const bera = state.characters!.bera!;
+    expect(bera.hp).toBe(s.topHp);
+    // Si saliera sano el test no distinguiría «escrito» de «no tocado».
+    expect(bera.hp).toBeLessThan(s.unit.hp);
+    expect(bera.hp).toBeGreaterThan(0);
+    expect(heroById(state, defensor.id).army[0]).toEqual({
+      creature: CHARACTER_BODY,
+      count: 1,
+      member: 'bera',
+    });
+  });
+
+  it('un ejército que nombra a un personaje que la partida no conoce lanza al entrar en batalla', () => {
+    const state = newGame({ seed: 31 });
+    const c = ctx(31);
+    const hero = heroesOf(state, 0)[0]!;
+    hero.army = ejercito({ creature: CHARACTER_BODY, count: 1, member: 'nadie' });
+    expect(() => forzarBatalla(state, c, hero)).toThrow(
+      /lleva en el ejército al personaje "nadie", pero la partida no lo conoce/,
+    );
   });
 });

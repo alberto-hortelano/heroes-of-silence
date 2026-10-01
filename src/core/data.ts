@@ -1,6 +1,6 @@
 /** Catálogo de criaturas: carga `data/creatures.json` y lo tipa. */
 import creaturesJson from '../../data/creatures.json' with { type: 'json' };
-import type { Creature, CreatureTrait, FactionId, SpeedTier } from './types.js';
+import type { Creature, CreatureTrait, FactionId, SpeedTier, UnitInfo } from './types.js';
 
 const byId = new Map<string, Creature>();
 
@@ -48,14 +48,14 @@ export function factionLineup(faction: FactionId): readonly Creature[] {
     .sort((a, b) => a.level - b.level);
 }
 
-export function hasTrait(c: Creature, trait: CreatureTrait): boolean {
+export function hasTrait(c: UnitInfo, trait: CreatureTrait): boolean {
   return c.traits?.includes(trait) ?? false;
 }
 
-export function isShooter(c: Creature): boolean {
+export function isShooter(c: UnitInfo): boolean {
   return (c.shots ?? 0) > 0;
 }
 
-export function hexSize(c: Creature): number {
+export function hexSize(c: UnitInfo): number {
   return c.hexes ?? 1;
 }

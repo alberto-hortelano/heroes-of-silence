@@ -8,10 +8,26 @@ import {
 } from '../src/core/battle/battle.js';
 import { hexDistance } from '../src/core/battle/board.js';
 import type { BattleAction, BattleState } from '../src/core/battle/types.js';
-import type { Hero } from '../src/core/hero/hero.js';
+import { emptyArmy, type Hero } from '../src/core/hero/hero.js';
 import type { MapObject } from '../src/core/map/map.js';
 import type { Rng } from '../src/core/rng.js';
 import { applyAdventureAction, type GameContext, type GameState } from '../src/core/state/game.js';
+import type { Army, Stack } from '../src/core/types.js';
+
+/**
+ * Un ejército con estos stacks en los primeros slots y el resto vacío.
+ *
+ * Asigna slot a slot y NO pasa por `addToArmy`: esa funde los stacks de la misma
+ * criatura, y dos personajes —los dos con el cuerpo `character`— acabarían en
+ * uno solo sin decir nada.
+ */
+export function ejercito(...stacks: Stack[]): Army {
+  const slots: (Stack | null)[] = [...emptyArmy()];
+  stacks.forEach((s, i) => {
+    slots[i] = s;
+  });
+  return slots;
+}
 
 export type Monstruo = Extract<MapObject, { kind: 'monster' }>;
 

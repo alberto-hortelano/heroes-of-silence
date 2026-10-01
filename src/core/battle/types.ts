@@ -1,4 +1,4 @@
-import type { Hex } from '../types.js';
+import type { Hex, UnitInfo } from '../types.js';
 import type { EffectKind, StackEffect } from './effects.js';
 
 export type Side = 'attacker' | 'defender';
@@ -18,7 +18,22 @@ export interface BattleStack {
   readonly side: Side;
   /** Slot de origen en el ejército (0..4), para desempatar la iniciativa. */
   readonly slot: number;
-  readonly creature: string;
+  /**
+   * El id del ARTE: qué sprite se pinta y qué id viaja al agente. No es de
+   * donde salen las cifras —eso es `unit`—, y por eso dejó de llamarse
+   * `creature`: el nombre invitaba a volver al catálogo con él, y para un
+   * personaje eso es el centinela `CHARACTER_BODY`, que el catálogo no tiene.
+   */
+  readonly body: string;
+  /**
+   * Las cifras de combate, resueltas UNA vez en `createBattle`. Es la única
+   * fuente: para una criatura es la misma referencia del catálogo, para un
+   * personaje las de su perfil. Ninguna lectura de batalla vuelve a
+   * `creature(...)`, y lo vigila `test/invariantes.test.ts`.
+   */
+  readonly unit: UnitInfo;
+  /** Id del personaje de `GameState.characters`, si el stack es uno. */
+  readonly member?: string;
   /**
    * Efectivos con los que ENTRÓ al tablero.
    *

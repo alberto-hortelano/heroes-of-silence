@@ -12,13 +12,13 @@
  * `reasoning` del agente: 2000 caracteres de prosa libre de un modelo, que es el
  * texto ajeno más ancho que hay en el cable.
  */
-import type { Side } from '@core/battle/types.js';
-import { creature } from '@core/data.js';
-import type { SpectatorView, VistaBatalla } from '../../server/vista-espectador.js';
+import type { BattleState, Side } from '@core/battle/types.js';
+import type { SpectatorView } from '../../server/vista-espectador.js';
 import { NADIE } from '../desenlace.js';
 import { fondoDeColor, type Html, html, NADA, unir } from '../html.js';
 import { playerColor } from '../render/palette.js';
 import { renderBattleLog, renderLog } from '../views/panels.js';
+import { adaptarBatalla } from './adaptar.js';
 
 /**
  * Quien mira no es ningún jugador, así que no tiene un «tú».
@@ -112,7 +112,8 @@ function fondoDelJugador(id: number | null): Html {
 
 export function batalla(v: SpectatorView): Html {
   if (v.battle === null) return NADA;
-  const { estado, dueños } = v.battle;
+  const { dueños } = v.battle;
+  const estado = adaptarBatalla(v.battle);
   const deQuien = (side: Side): Html => {
     const id = dueños[side];
     return id === null ? html`neutral` : html`${bandera(id)} jugador ${id}`;
@@ -125,7 +126,7 @@ export function batalla(v: SpectatorView): Html {
         .filter((s) => s.count > 0)
         .map(
           (s) => html`<div class="stack${s.id === estado.activeId ? '' : ' empty'}">
-            <span>${bandera(dueños[s.side])} ${creature(s.creature).name}</span>
+            <span>${bandera(dueños[s.side])} ${s.unit.name}</span>
             <span class="count">${s.count}</span>
           </div>`,
         ),
@@ -142,7 +143,7 @@ export function batalla(v: SpectatorView): Html {
  * `mio: null` porque el espectador no lleva bando: sin él, `renderBattleLog` no
  * pinta victorias ni derrotas, solo lo que pasó.
  */
-function parteDeGuerra(estado: VistaBatalla['estado']): Html {
+function parteDeGuerra(estado: BattleState): Html {
   return html`<h3>Parte de guerra</h3>${renderBattleLog(estado, null)}`;
 }
 

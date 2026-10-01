@@ -17,7 +17,7 @@ import { NADA, pintar } from '../html.js';
 import { type AdventureCamera, cameraFor, drawAdventure } from '../render/adventure.js';
 import { assetCount, loadAssets, onAssetsChanged } from '../render/assets.js';
 import { battleOffset, drawBattle } from '../render/battle.js';
-import { adaptarEscena, centroDeLaEscena } from './adaptar.js';
+import { adaptarBatalla, adaptarEscena, centroDeLaEscena } from './adaptar.js';
 import { type FinDePartida, NADIE, panelDelEspectador } from './paneles.js';
 
 const canvas = document.getElementById('canvas') as HTMLCanvasElement;
@@ -170,7 +170,7 @@ function pintarTodo(): void {
       // Mientras hay batalla se enseña el tablero: es lo que este ciclo existe
       // para que se vea, y son la mayoría de las decisiones que toma el agente.
       drawBattle(ctx!, {
-        battle: vista.battle.estado,
+        battle: adaptarBatalla(vista.battle),
         movable: [],
         hoverHex: null,
         hoverStack: null,

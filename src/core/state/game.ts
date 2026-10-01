@@ -5,10 +5,10 @@
  * pasar. Cuando todos han pasado, avanza el día; los lunes crecen las moradas.
  */
 import { autoResolve, type BattleOutcome } from '../ai/tactics.js';
-import { type BattleSide, createBattle } from '../battle/battle.js';
+import { type BattleMember, type BattleSide, createBattle } from '../battle/battle.js';
+import { stackHp } from '../battle/damage.js';
 import type { BattleHero, BattleState, Side } from '../battle/types.js';
 import { SIDES } from '../battle/types.js';
-import { creature } from '../data.js';
 import {
   addToArmy,
   type Hero,
@@ -34,6 +34,8 @@ import {
   visibleFrom,
 } from '../map/map.js';
 import type { Rng } from '../rng.js';
+import type { Character } from '../rpg/character.js';
+import { combatProfile } from '../rpg/stats.js';
 import {
   applyWeeklyGrowth,
   build as buildInTown,
@@ -191,6 +193,17 @@ export interface GameState {
    * valen igual sobre un array de solo lectura.
    */
   readonly log: readonly GameEvent[];
+  /**
+   * Los personajes por id: individuos con atributos propios (`rpg/character.ts`)
+   * que ocupan un slot del ejército de un héroe con `Stack.member`.
+   *
+   * **Ausente en una partida de estrategia**, no vacío: `newGame` no lo escribe
+   * y nada de la estrategia lo lee, así que no hay forma de que su presencia
+   * mueva una partida. Lo lee la ida a la batalla (`battleSideForHero`) y lo
+   * escribe la vuelta (`woundsFromBattle`), y solo si el ejército lleva algún
+   * miembro.
+   */
+  characters?: Record<string, Character>;
 }
 
 export interface GameContext {
@@ -1065,11 +1078,42 @@ function captureTown(state: GameState, town: Town, player: PlayerId): void {
 
 // ---------------------------------------------------------------- batallas
 
+/**
+ * La puerta para buscar un personaje por id. Lanza diciendo el id si la partida
+ * no lo conoce: sería un stack sin cifras, y adivinárselas es justo lo que no
+ * se hace. `quien` dice desde dónde se le buscaba —«Gustav lleva en el
+ * ejército», «la batalla devuelve»—, para que la frase lo cuente.
+ */
+function characterOf(state: GameState, id: string, quien: string): Character {
+  const c = state.characters?.[id];
+  if (c === undefined) {
+    throw new Error(`${quien} al personaje "${id}", pero la partida no lo conoce`);
+  }
+  return c;
+}
+
+/**
+ * Los personajes del ejército de un héroe, listos para `createBattle`, o
+ * `undefined` si no lleva ninguno —que es siempre, en estrategia—.
+ */
+function membersOf(state: GameState, hero: Hero): ReadonlyMap<string, BattleMember> | undefined {
+  let out: Map<string, BattleMember> | undefined;
+  for (const s of hero.army) {
+    if (s?.member === undefined) continue;
+    const c = characterOf(state, s.member, `${hero.name} lleva en el ejército`);
+    out ??= new Map();
+    out.set(s.member, { profile: combatProfile(c), hp: c.hp });
+  }
+  return out;
+}
+
 function battleSideForHero(state: GameState, hero: Hero): BattleSide {
   const pueblo = state.towns.find(
     (t) => t.owner === hero.owner && pointKey(t.at) === pointKey(hero.at),
   );
+  const members = membersOf(state, hero);
   return {
+    ...(members === undefined ? {} : { members }),
     army: hero.army,
     hero: {
       name: hero.name,
@@ -1248,11 +1292,21 @@ export function settleBattle(state: GameState, _ctx: GameContext): void {
   // el `const dueño = hero.owner` de más abajo, y por eso el dato no hace falta
   // guardarlo en `PendingBattle`.
   const at = battleAt(state, pending);
+  // Las heridas, PRIMERO: antes de que el héroe que pierde salga del mapa con
+  // su ejército. Lo que se escribe es del personaje, no del héroe, y tiene que
+  // quedar escrito pase lo que pase con quien lo llevaba.
+  woundsFromBattle(state, pending.battle);
   const superviviente = (side: 'attacker' | 'defender'): Army => {
     const slots: (Stack | null)[] = [null, null, null, null, null];
     for (const s of pending.battle.stacks) {
       if (s.side !== side || s.count <= 0) continue;
-      slots[s.slot] = { creature: s.creature, count: s.count };
+      // `member` viaja de vuelta: sin él, el superviviente volvería al mapa
+      // convertido en un stack de «character» que nadie sabe leer.
+      slots[s.slot] = {
+        creature: s.body,
+        count: s.count,
+        ...(s.member === undefined ? {} : { member: s.member }),
+      };
     }
     return pruneArmy(slots);
   };
@@ -1290,6 +1344,25 @@ export function settleBattle(state: GameState, _ctx: GameContext): void {
 }
 
 /**
+ * Los PV con los que cada personaje sale de la batalla, escritos en
+ * `state.characters`: las heridas duran más que la batalla.
+ *
+ * Los de los DOS bandos, porque un personaje puede defender. El que cae queda a
+ * 0 y sale del ejército por el mismo camino que cualquier stack a 0
+ * (`pruneArmy`); sigue en `characters`, y qué le pasa después —si se levanta,
+ * si se pierde— es de la fase siguiente, no de esta.
+ */
+function woundsFromBattle(state: GameState, battle: BattleState): void {
+  if (state.characters === undefined) return;
+  for (const s of battle.stacks) {
+    if (s.member === undefined) continue;
+    // `battleSideForHero` ya lanzó si faltaba al entrar: faltar al salir es
+    // que alguien lo borró a mitad de batalla, y eso también se dice.
+    characterOf(state, s.member, 'la batalla devuelve').hp = stackHp(s);
+  }
+}
+
+/**
  * Los dos premios de 500 de `battle_arena.cpp:657-675`.
  *
  * Uno lo cobra el vencedor cuyo rival iba mandado por un héroe —el que acaba de
@@ -1310,7 +1383,7 @@ function bajasEnPuntosDeVida(battle: BattleState, lado: Side): number {
     // `initialCount - count` y no un `min` con los muertos como en el original:
     // allí el `min` está por la resurrección, y aquí `count` solo baja —`heal`
     // repone `topHp` y nada más—. El día que algo resucite, vuelve el `min`.
-    pv += creature(s.creature).hp * (s.initialCount - s.count);
+    pv += s.unit.hp * (s.initialCount - s.count);
   }
   return pv;
 }

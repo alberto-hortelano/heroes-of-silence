@@ -5,7 +5,7 @@
  * +300 %; cada punto de defensa por encima del ataque resta un 2,5 %, hasta
  * -70 %. Las constantes viven aquí y no repartidas por el motor.
  */
-import { creature, hasTrait } from '../data.js';
+import { hasTrait } from '../data.js';
 import type { Rng } from '../rng.js';
 import { effectiveLuck, effectTotal } from './effects.js';
 import type { BattleHero, BattleStack } from './types.js';
@@ -37,11 +37,11 @@ export const MAX_CHARGE_HEXES = 5;
 
 export function effectiveAttack(stack: BattleStack, hero: BattleHero | null): number {
   // Los efectos de `attack` son los que mete el miedo del dragón óseo.
-  return creature(stack.creature).attack + (hero?.attack ?? 0) + effectTotal(stack, 'attack');
+  return stack.unit.attack + (hero?.attack ?? 0) + effectTotal(stack, 'attack');
 }
 
 export function effectiveDefense(stack: BattleStack, hero: BattleHero | null): number {
-  const base = creature(stack.creature).defense + (hero?.defense ?? 0);
+  const base = stack.unit.defense + (hero?.defense ?? 0);
   return stack.defending ? base * (1 + DEFEND_BONUS) : base;
 }
 
@@ -95,7 +95,7 @@ function applyModifiers(
   defenderHero: BattleHero | null,
   opts: DamageOptions,
 ): { base: number; charge: number } {
-  const info = creature(attacker.creature);
+  const info = attacker.unit;
 
   const mult = damageMultiplier(
     effectiveAttack(attacker, attackerHero),
@@ -104,7 +104,7 @@ function applyModifiers(
   base *= mult;
 
   // Los cruzados hacen daño doble a los no-muertos.
-  if (hasTrait(info, 'bane_undead') && hasTrait(creature(defender.creature), 'undead')) {
+  if (hasTrait(info, 'bane_undead') && hasTrait(defender.unit, 'undead')) {
     base *= 2;
   }
 
@@ -134,7 +134,7 @@ export function expectedDamage(
   defenderHero: BattleHero | null,
   opts: DamageOptions = {},
 ): number {
-  const [min, max] = creature(attacker.creature).damage;
+  const [min, max] = attacker.unit.damage;
   const medio = ((min + max) / 2) * attacker.count;
   return applyModifiers(medio, attacker, attackerHero, defender, defenderHero, opts).base;
 }
@@ -148,7 +148,7 @@ export function computeDamage(
   rng: Rng,
   opts: DamageOptions = {},
 ): DamageResult {
-  const [min, max] = creature(attacker.creature).damage;
+  const [min, max] = attacker.unit.damage;
   const roll = rng.int(min, max);
   const modificado = applyModifiers(
     roll * attacker.count,
@@ -180,7 +180,7 @@ export function computeDamage(
  * El daño se come primero al efectivo de arriba, como en la serie.
  */
 export function applyDamage(stack: BattleStack, damage: number): number {
-  const hp = creature(stack.creature).hp;
+  const hp = stack.unit.hp;
   const totalHp = (stack.count - 1) * hp + stack.topHp;
   const remaining = totalHp - damage;
   const before = stack.count;
@@ -199,5 +199,5 @@ export function applyDamage(stack: BattleStack, damage: number): number {
 /** Puntos de vida totales que le quedan a un stack. Útil para la IA. */
 export function stackHp(stack: BattleStack): number {
   if (stack.count === 0) return 0;
-  return (stack.count - 1) * creature(stack.creature).hp + stack.topHp;
+  return (stack.count - 1) * stack.unit.hp + stack.topHp;
 }

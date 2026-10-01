@@ -381,11 +381,11 @@ export function serializeBattleTurn(
   vista: VistaDeBatalla,
 ): unknown {
   const stackView = (s: (typeof battle.stacks)[number]) => {
-    const info = creature(s.creature);
+    const info = s.unit;
     return {
       id: s.id,
       side: s.side,
-      creature: s.creature,
+      creature: s.body,
       name: info.name,
       count: s.count,
       hp: stackHp(s),

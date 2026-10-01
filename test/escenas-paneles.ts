@@ -22,7 +22,7 @@ import { Session } from '../src/client/session.js';
 import { renderActions, renderLog, renderSide, renderTopbar } from '../src/client/views/panels.js';
 import { playAiGame } from '../src/core/ai/turn.js';
 import { activeStack, applyAction } from '../src/core/battle/battle.js';
-import { creature, isShooter } from '../src/core/data.js';
+import { isShooter } from '../src/core/data.js';
 import type { GameEvent } from '../src/core/state/events.js';
 import { applyAdventureAction, heroesOf } from '../src/core/state/game.js';
 import { agresiva, avanzarHasta } from './helpers.js';
@@ -141,9 +141,7 @@ export async function escenas(): Promise<readonly Escena[]> {
   const tirador = meAtacan(7);
   const campoTirador = tirador.battle;
   if (campoTirador === null) throw new Error('la batalla no se montó');
-  const arquero = campoTirador.stacks.find(
-    (s) => s.side === 'defender' && isShooter(creature(s.creature)),
-  );
+  const arquero = campoTirador.stacks.find((s) => s.side === 'defender' && isShooter(s.unit));
   if (arquero === undefined) throw new Error('esta batalla no tiene tirador propio');
   avanzarHasta(campoTirador, tirador.ctx.rng, arquero.id);
   out.push({ nombre: 'batalla · tirador activo', session: tirador });

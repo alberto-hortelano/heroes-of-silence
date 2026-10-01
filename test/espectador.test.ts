@@ -22,12 +22,15 @@ import { once } from 'node:events';
 import type { AddressInfo } from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
-import { adaptarEscena } from '../src/client/espectador/adaptar.js';
+import { adaptarBatalla, adaptarEscena } from '../src/client/espectador/adaptar.js';
 import type { AdventureScene } from '../src/client/render/adventure.js';
+import { createBattle } from '../src/core/battle/battle.js';
 import type { BattleState } from '../src/core/battle/types.js';
 import type { Hero } from '../src/core/hero/hero.js';
 import { pointKey, reachableFrom } from '../src/core/map/map.js';
 import { createRng } from '../src/core/rng.js';
+import { CHARACTER_BODY, createCharacter, defaultBuild } from '../src/core/rpg/character.js';
+import { combatProfile } from '../src/core/rpg/stats.js';
 import {
   applyAdventureAction,
   type GameState,
@@ -38,7 +41,7 @@ import type { Point } from '../src/core/types.js';
 import { AgentLink } from '../src/server/agent-link.js';
 import { Director } from '../src/server/director.js';
 import { construirVista, type SpectatorView } from '../src/server/vista-espectador.js';
-import { monstruoVivo } from './helpers.js';
+import { ejercito, monstruoVivo } from './helpers.js';
 
 const abiertos: (() => void)[] = [];
 afterEach(() => {
@@ -352,6 +355,48 @@ describe('la batalla en la vista', () => {
     const { state } = conBatalla();
     const vista = construirVista(state, []);
     expect(JSON.parse(JSON.stringify(vista.battle))).toEqual(vista.battle);
+  });
+
+  it('una criatura viaja SIN `unit` y `adaptarBatalla` la rehace del catálogo', () => {
+    const { state } = conBatalla();
+    const ida: SpectatorView = JSON.parse(JSON.stringify(construirVista(state, [])));
+    // El catálogo no viaja: las dos puntas ya lo tienen.
+    expect(ida.battle!.estado.stacks.every((s) => !('unit' in s))).toBe(true);
+    expect(adaptarBatalla(ida.battle!)).toEqual(state.pendingBattle!.battle);
+  });
+
+  it('un personaje viaja CON su `unit`, que no está en ninguna otra parte', () => {
+    const { state } = conBatalla();
+    const aren = createCharacter('aren', defaultBuild);
+    const batalla = createBattle(
+      {
+        army: ejercito({ creature: CHARACTER_BODY, count: 1, member: aren.id }),
+        hero: null,
+        members: new Map([[aren.id, { profile: combatProfile(aren), hp: 20 }]]),
+      },
+      { army: ejercito({ creature: 'zombie', count: 3 }), hero: null },
+      createRng(5),
+    );
+    state.pendingBattle = { ...state.pendingBattle!, battle: batalla };
+
+    const ida: SpectatorView = JSON.parse(JSON.stringify(construirVista(state, [])));
+    const [suyo, zombi] = ida.battle!.estado.stacks;
+    expect(suyo!.unit?.name).toBe('Aren');
+    expect(zombi!.unit).toBeUndefined();
+    expect(adaptarBatalla(ida.battle!)).toEqual(batalla);
+  });
+
+  it('un cuerpo que no está en el catálogo y llega sin `unit` lanza, no se inventa', () => {
+    const { state } = conBatalla();
+    const vista = construirVista(state, []);
+    const roto = {
+      ...vista.battle!,
+      estado: {
+        ...vista.battle!.estado,
+        stacks: [{ ...vista.battle!.estado.stacks[0]!, body: CHARACTER_BODY }],
+      },
+    };
+    expect(() => adaptarBatalla(roto)).toThrow(/criatura desconocida: "character"/);
   });
 
   it('y al acabarla vuelve a ser `null`, que es como el espectador cambia de escena', () => {

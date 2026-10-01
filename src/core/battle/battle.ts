@@ -8,7 +8,8 @@
  */
 import { creature, hasTrait, hexSize, isShooter } from '../data.js';
 import type { Rng } from '../rng.js';
-import type { Army, CreatureTrait, FactionId, Hex } from '../types.js';
+import type { CombatProfile } from '../rpg/stats.js';
+import type { Army, CreatureTrait, FactionId, Hex, Stack, UnitInfo } from '../types.js';
 import { SPEED_TO_HEXES } from '../types.js';
 import {
   areAdjacent,
@@ -38,6 +39,19 @@ export interface BattleSide {
   /** Bonus de moral/suerte del héroe (habilidades, artefactos, edificios). */
   readonly moraleBonus?: number;
   readonly luckBonus?: number;
+  /**
+   * Los personajes del ejército (`Stack.member`), con su perfil y los PV con
+   * los que llegan. Lo monta quien conoce `GameState.characters`
+   * —`battleSideForHero`—: el motor no sabe de dónde salen, solo los juega.
+   */
+  readonly members?: ReadonlyMap<string, BattleMember>;
+}
+
+/** Un personaje listo para entrar al tablero. */
+export interface BattleMember {
+  readonly profile: CombatProfile;
+  /** PV actuales: entra herido si lo está. */
+  readonly hp: number;
 }
 
 /** Filas de salida según cuántos stacks trae el ejército. */
@@ -53,14 +67,22 @@ const ROWS_BY_COUNT: Readonly<Record<number, readonly number[]>> = {
  * Moral del ejército por diversidad de facciones: +1 si todas las criaturas
  * son de la misma, y penalización creciente a partir de tres facciones
  * distintas. Los no-muertos son inmunes y se resuelven aparte.
+ *
+ * Mira las unidades YA resueltas, no el `Army`: así «un personaje no tiene
+ * facción» se dice una sola vez —`faction: null` en `rpg/stats.ts`— y aquí solo
+ * se lee. Quien no tiene facción ni rompe la unidad de un ejército de caballeros
+ * ni la da. Un ejército SOLO de personajes no tiene ninguna facción que
+ * compartir, así que no cobra el +1 —su moral sale de la voluntad de cada uno—.
+ * En estrategia ese caso no existe: todo stack es una criatura con facción, y
+ * un ejército vacío no pone a nadie en el tablero.
  */
-export function armyMorale(army: Army): number {
+export function armyMorale(units: readonly UnitInfo[]): number {
   const factions = new Set<FactionId>();
-  for (const stack of army) {
-    if (stack === null) continue;
-    factions.add(creature(stack.creature).faction);
+  for (const unit of units) {
+    if (unit.faction !== null) factions.add(unit.faction);
   }
-  if (factions.size <= 1) return 1;
+  if (factions.size === 0) return 0;
+  if (factions.size === 1) return 1;
   if (factions.size === 2) return 0;
   return -(factions.size - 2);
 }
@@ -79,10 +101,13 @@ export function createBattle(attacker: BattleSide, defender: BattleSide, _rng: R
       );
 
     const rows = ROWS_BY_COUNT[filled.length] ?? ROWS_BY_COUNT[5]!;
-    const baseMorale = armyMorale(setup.army) + (setup.moraleBonus ?? 0);
+    unoPorHueco(filled, setup);
+    const resolved = filled.map(({ stack }) => resolveUnit(stack, setup));
+    const baseMorale = armyMorale(resolved.map((r) => r.unit)) + (setup.moraleBonus ?? 0);
+    const luckBonus = setup.luckBonus ?? 0;
 
     filled.forEach(({ stack, slot }, index) => {
-      const info = creature(stack.creature);
+      const { unit: info, topHp, ownMorale, ownLuck } = resolved[index]!;
       const big = hexSize(info) > 1;
       // Las unidades grandes arrancan una columna hacia dentro: su cola ocupa
       // la columna del borde y se saldría del tablero.
@@ -93,10 +118,12 @@ export function createBattle(attacker: BattleSide, defender: BattleSide, _rng: R
         id: `${side}-${slot}`,
         side,
         slot,
-        creature: stack.creature,
+        body: stack.creature,
+        unit: info,
+        ...(stack.member !== undefined ? { member: stack.member } : {}),
         initialCount: stack.count,
         count: stack.count,
-        topHp: info.hp,
+        topHp,
         hex: { col, row },
         shotsLeft: info.shots ?? 0,
         retaliated: false,
@@ -104,8 +131,10 @@ export function createBattle(attacker: BattleSide, defender: BattleSide, _rng: R
         waited: false,
         acted: false,
         gotMoraleBonus: false,
-        morale: hasTrait(info, 'undead') ? 0 : clampMoraleLuck(baseMorale),
-        luck: clampMoraleLuck(setup.luckBonus ?? 0),
+        // Una regla para todos: la moral y la suerte propias —0 en una criatura—
+        // más las del bando, recortadas una vez. Los no-muertos, a 0.
+        morale: hasTrait(info, 'undead') ? 0 : clampMoraleLuck(baseMorale + ownMorale),
+        luck: clampMoraleLuck(luckBonus + ownLuck),
         effects: [],
       });
     });
@@ -125,6 +154,79 @@ export function createBattle(attacker: BattleSide, defender: BattleSide, _rng: R
   return state;
 }
 
+/**
+ * Un personaje es un individuo: no puede ocupar dos huecos del mismo ejército.
+ *
+ * Si lo hiciera, los dos stacks entrarían con sus PV y saldrían con PV
+ * distintos, y `woundsFromBattle` escribiría los dos sobre el mismo personaje:
+ * ganaría la última escritura y una herida se perdería sin que nadie lo dijera.
+ * Hoy ningún camino del juego lo produce; se cierra en la puerta de la batalla,
+ * que es donde ya se validan el `count` y los PV, antes de que lo produzca uno.
+ */
+function unoPorHueco(filled: readonly { stack: Stack }[], setup: BattleSide): void {
+  const vistos = new Set<string>();
+  for (const { stack } of filled) {
+    if (stack.member === undefined) continue;
+    if (vistos.has(stack.member)) {
+      const nombre = setup.members?.get(stack.member)?.profile.unit.name ?? stack.member;
+      throw new Error(`${nombre} ocupa dos huecos del ejército`);
+    }
+    vistos.add(stack.member);
+  }
+}
+
+/**
+ * De dónde salen las cifras de un stack: del catálogo, o del perfil de su
+ * personaje. Es el ÚNICO sitio que decide, y se decide una vez: después todo
+ * el motor lee `BattleStack.unit` y no vuelve a preguntar.
+ *
+ * Devuelve la moral y la suerte PROPIAS —0 y 0 en una criatura— y no las
+ * finales: las del bando las suma `createBattle` para todos igual. La rama de la
+ * criatura devuelve la misma referencia del catálogo, así que el volcado del
+ * banco no se mueve.
+ */
+function resolveUnit(
+  stack: Stack,
+  setup: BattleSide,
+): { unit: UnitInfo; topHp: number; ownMorale: number; ownLuck: number } {
+  if (stack.member === undefined) {
+    const unit = creature(stack.creature);
+    return { unit, topHp: unit.hp, ownMorale: 0, ownLuck: 0 };
+  }
+  const id = stack.member;
+  if (stack.count !== 1) {
+    throw new Error(`un personaje es uno solo: "${id}" viene en un stack de ${stack.count}`);
+  }
+  const miembro = setup.members?.get(id);
+  if (miembro === undefined) {
+    throw new Error(`el personaje "${id}" está en el ejército pero no se sabe quién es`);
+  }
+  // Antes que los límites: `NaN <= 0` y `NaN > max` son los dos falsos, así
+  // que un PV imposible pasaba por delante de las dos comprobaciones de abajo y
+  // la batalla empezaba con `topHp: NaN`. Y `2.5` entraba con dos PV y medio.
+  if (!Number.isSafeInteger(miembro.hp)) {
+    throw new Error(
+      `${miembro.profile.unit.name} llega con ${miembro.hp} PV: los PV son un número entero`,
+    );
+  }
+  if (miembro.hp <= 0) {
+    throw new Error(`${miembro.profile.unit.name} no puede entrar en batalla: tiene 0 PV`);
+  }
+  if (miembro.hp > miembro.profile.unit.hp) {
+    throw new Error(
+      `${miembro.profile.unit.name} llega con ${miembro.hp} PV y su máximo es ${miembro.profile.unit.hp}`,
+    );
+  }
+  // Un personaje no tiene rasgos, así que tampoco la inmunidad del no-muerto:
+  // entra herido si lo está, con su moral y su suerte.
+  return {
+    unit: miembro.profile.unit,
+    topHp: miembro.hp,
+    ownMorale: miembro.profile.morale,
+    ownLuck: miembro.profile.luck,
+  };
+}
+
 // ---------------------------------------------------------------- consultas
 
 export function stackById(state: BattleState, id: string): BattleStack {
@@ -142,13 +244,13 @@ export function activeStack(state: BattleState): BattleStack | null {
 }
 
 export function stackSpeed(s: BattleStack): number {
-  const base = SPEED_TO_HEXES[creature(s.creature).speed];
+  const base = SPEED_TO_HEXES[s.unit.speed];
   return Math.max(1, base + effectTotal(s, 'speed'));
 }
 
 /** Todos los hexes ocupados por un stack (uno, o dos si es grande). */
 export function stackHexes(s: BattleStack): Hex[] {
-  return occupiedHexes(s.hex, hexSize(creature(s.creature)), s.side === 'attacker');
+  return occupiedHexes(s.hex, hexSize(s.unit), s.side === 'attacker');
 }
 
 /** Hexes ocupados por alguien, excluyendo opcionalmente a un stack. */
@@ -196,7 +298,7 @@ export function canReachMelee(s: BattleStack, target: BattleStack): boolean {
  * creyendo que sigue valiendo.
  */
 export function movableFrom(state: BattleState, s: BattleStack): Map<string, Paso> {
-  const info = creature(s.creature);
+  const info = s.unit;
   const blocked = blockedHexes(state, s.id);
   const size = hexSize(info);
   const facingRight = s.side === 'attacker';
@@ -440,7 +542,7 @@ export function applyAction(
 
     case 'shoot': {
       const target = stackById(state, action.target);
-      if (!isShooter(creature(s.creature))) throw new Error(`${s.id} no es tirador`);
+      if (!isShooter(s.unit)) throw new Error(`${s.id} no es tirador`);
       if (s.shotsLeft <= 0) throw new Error(`${s.id} se ha quedado sin munición`);
       if (isEngaged(state, s)) throw new Error(`${s.id} tiene un enemigo encima`);
       if (!isAlive(target)) throw new Error(`${target.id} ya está destruido`);
@@ -491,7 +593,7 @@ function moveTo(
  * ni se acepte un hechizo que va a rebotar.
  */
 function isImmuneTo(stack: BattleStack, effect: StackEffect): boolean {
-  const info = creature(stack.creature);
+  const info = stack.unit;
   return effect.kind === 'luck' && effect.amount < 0 && hasTrait(info, 'undead');
 }
 
@@ -526,7 +628,7 @@ function melee(
   rng: Rng,
   hexesMoved: number,
 ): void {
-  const info = creature(attacker.creature);
+  const info = attacker.unit;
   const hits = hasTrait(info, 'double_attack') ? 2 : 1;
 
   for (let i = 0; i < hits && isAlive(target); i++) {
@@ -600,7 +702,7 @@ function strike(
   retaliation: boolean,
   hexesMoved: number,
 ): void {
-  const info = creature(attacker.creature);
+  const info = attacker.unit;
   const result = computeDamage(
     attacker,
     state.heroes[attacker.side],
@@ -645,7 +747,7 @@ function strike(
 }
 
 function healFromDrain(s: BattleStack, damage: number): void {
-  const info = creature(s.creature);
+  const info = s.unit;
   const maxHp = info.hp;
   const currentTotal = (s.count - 1) * maxHp + s.topHp;
   const healed = Math.min(currentTotal + damage, maxHp * s.count);
@@ -653,7 +755,7 @@ function healFromDrain(s: BattleStack, damage: number): void {
 }
 
 function shoot(state: BattleState, shooter: BattleStack, target: BattleStack, rng: Rng): void {
-  const info = creature(shooter.creature);
+  const info = shooter.unit;
   shooter.shotsLeft -= 1;
   const shots = hasTrait(info, 'double_shot') ? 2 : 1;
 
@@ -786,7 +888,7 @@ function targetBlocker(hero: BattleHero, s: Spell, side: Side, target: BattleSta
   // para que después rebote.
   const efecto = effectOfSpell(s, hero);
   if (efecto !== null && isImmuneTo(target, efecto)) {
-    return `${creature(target.creature).name} es inmune a "${s.name}"`;
+    return `${target.unit.name} es inmune a "${s.name}"`;
   }
   return null;
 }
@@ -865,7 +967,7 @@ export function legalActionsAndCosts(state: BattleState): {
   const out: BattleAction[] = [{ type: 'defend' }];
   if (!s.waited) out.push({ type: 'wait' });
 
-  const info = creature(s.creature);
+  const info = s.unit;
   const enemies = enemiesOf(state, s);
   const engaged = isEngaged(state, s);
 

@@ -88,26 +88,41 @@ export const CREATURE_TRAITS = [
 
 export type CreatureTrait = (typeof CREATURE_TRAITS)[number];
 
-export interface Creature {
-  readonly id: string;
-  readonly faction: FactionId;
-  /** 1..6 — el nivel de la morada que la produce. */
-  readonly level: number;
+/**
+ * Lo que el motor de batalla necesita saber de una unidad para jugarla: las
+ * cifras de combate, sin nada de economía.
+ *
+ * Existe porque ya no todo lo que pisa el tablero sale del catálogo: un
+ * personaje (`rpg/stats.ts`) tiene sus propias cifras, calculadas de sus
+ * atributos. Una criatura ES una `UnitInfo` —la extiende—, así que para el
+ * catálogo no hay traducción: el stack de batalla guarda la misma referencia.
+ *
+ * `faction: null` es «sin facción»: no suma a la diversidad del ejército.
+ */
+export interface UnitInfo {
   readonly name: string;
+  readonly faction: FactionId | null;
   readonly attack: number;
   readonly defense: number;
   /** [mínimo, máximo] de daño por efectivo. */
   readonly damage: readonly [number, number];
   readonly hp: number;
   readonly speed: SpeedTier;
-  /** Crecimiento semanal base de la morada. */
-  readonly growth: number;
-  readonly cost: Partial<Resources>;
   /** Munición. > 0 = es tirador. */
   readonly shots?: number;
   /** Hexes que ocupa en la rejilla de batalla (1 o 2). */
   readonly hexes?: number;
   readonly traits?: readonly CreatureTrait[];
+}
+
+export interface Creature extends UnitInfo {
+  readonly id: string;
+  readonly faction: FactionId;
+  /** 1..6 — el nivel de la morada que la produce. */
+  readonly level: number;
+  /** Crecimiento semanal base de la morada. */
+  readonly growth: number;
+  readonly cost: Partial<Resources>;
   readonly upgradesTo?: string;
 }
 
@@ -117,6 +132,14 @@ export interface Creature {
 export interface Stack {
   readonly creature: string;
   readonly count: number;
+  /**
+   * Id de un personaje de `GameState.characters`: el stack ES ese individuo.
+   * Va siempre con `count: 1` —`createBattle` lanza si no— y con
+   * `creature: CHARACTER_BODY`, que no está en el catálogo a propósito: un
+   * lector de `Army` que no sepa de personajes lanza en vez de leer cifras
+   * prestadas en silencio.
+   */
+  readonly member?: string;
 }
 
 /** `army.h: maximumTroopCount` de fheroes2. */

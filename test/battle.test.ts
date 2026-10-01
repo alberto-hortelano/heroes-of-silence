@@ -80,7 +80,8 @@ function stackOf(id: string, count: number): BattleStack {
     id,
     side: 'attacker',
     slot: 0,
-    creature: id,
+    body: id,
+    unit: creature(id),
     initialCount: count,
     count,
     topHp: creature(id).hp,
@@ -138,29 +139,21 @@ describe('aplicación de daño a un stack', () => {
 });
 
 describe('moral por composición del ejército', () => {
+  const u = (id: string) => creature(id);
+
   it('premia al ejército de una sola facción', () => {
-    expect(armyMorale([{ creature: 'peasant', count: 10 }, null, null, null, null])).toBe(1);
-    expect(
-      armyMorale([
-        { creature: 'peasant', count: 10 },
-        { creature: 'archer', count: 5 },
-        null,
-        null,
-        null,
-      ]),
-    ).toBe(1);
+    expect(armyMorale([u('peasant')])).toBe(1);
+    expect(armyMorale([u('peasant'), u('archer')])).toBe(1);
   });
 
   it('no premia a un ejército mixto de dos facciones', () => {
-    expect(
-      armyMorale([
-        { creature: 'peasant', count: 10 },
-        { creature: 'skeleton', count: 10 },
-        null,
-        null,
-        null,
-      ]),
-    ).toBe(0);
+    expect(armyMorale([u('peasant'), u('skeleton')])).toBe(0);
+  });
+
+  it('quien no tiene facción no cuenta: ni rompe la unidad ni la da', () => {
+    const sinFaccion = { ...u('peasant'), faction: null };
+    expect(armyMorale([u('peasant'), sinFaccion])).toBe(1);
+    expect(armyMorale([sinFaccion])).toBe(0);
   });
 });
 

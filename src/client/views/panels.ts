@@ -298,11 +298,11 @@ function renderBattlePanel(session: Session): Html {
   const activo =
     s === null
       ? html`<p>Sin unidad activa.</p>`
-      : html`<h2>${creature(s.creature).name}</h2>
+      : html`<h2>${s.unit.name}</h2>
         <div class="row"><span class="label">Bando</span><span>${s.side === mio ? 'Tú' : 'Enemigo'}</span></div>
         <div class="row"><span class="label">Efectivos</span><span>${s.count}</span></div>
         <div class="row"><span class="label">Moral / Suerte</span><span>${s.morale} / ${effectiveLuck(s)}</span></div>
-        ${isShooter(creature(s.creature)) ? html`<div class="row"><span class="label">Munición</span><span>${s.shotsLeft}</span></div>` : NADA}`;
+        ${isShooter(s.unit) ? html`<div class="row"><span class="label">Munición</span><span>${s.shotsLeft}</span></div>` : NADA}`;
 
   const suTurno = s !== null && s.side === mio;
   const acciones = suTurno
@@ -331,7 +331,7 @@ function renderBattlePanel(session: Session): Html {
       .map(
         (x) =>
           html`<div class="stack${x.id === battle.activeId ? '' : ' empty'}">
-          <span>${x.side === mio ? '▶' : '◀'} ${creature(x.creature).name}</span>
+          <span>${x.side === mio ? '▶' : '◀'} ${x.unit.name}</span>
           <span class="count">${x.count}</span>
         </div>`,
       ),

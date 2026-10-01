@@ -13,7 +13,9 @@
  * meses alguien lee como si fuera la partida.
  */
 
-import type { SpectatorView } from '../../server/vista-espectador.js';
+import type { BattleState } from '@core/battle/types.js';
+import { creature } from '@core/data.js';
+import type { SpectatorView, VistaBatalla } from '../../server/vista-espectador.js';
 import type { AdventureScene } from '../render/adventure.js';
 
 export function adaptarEscena(view: SpectatorView): AdventureScene {
@@ -41,4 +43,20 @@ export function adaptarEscena(view: SpectatorView): AdventureScene {
  */
 export function centroDeLaEscena(view: SpectatorView): { x: number; y: number } {
   return view.heroes[0]?.at ?? view.towns[0]?.at ?? { x: 0, y: 0 };
+}
+
+/**
+ * La batalla del cable con sus cifras otra vez: la inversa de `stackAlCable`.
+ *
+ * Un stack sin `unit` es una criatura del catálogo y se rehace con
+ * `creature(body)`, la misma referencia que puso `createBattle`; uno con `unit`
+ * es un personaje y la trae puesta. Un `body` que no esté en el catálogo y
+ * llegue sin `unit` lanza nombrándolo: no se pinta con cifras inventadas.
+ */
+export function adaptarBatalla(batalla: VistaBatalla): BattleState {
+  const { estado } = batalla;
+  return {
+    ...estado,
+    stacks: estado.stacks.map((s) => ({ ...s, unit: s.unit ?? creature(s.body) })),
+  };
 }

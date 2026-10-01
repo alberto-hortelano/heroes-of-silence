@@ -72,6 +72,7 @@ import {
   effectiveLuck,
 } from '../src/core/battle/effects.js';
 import type { BattleStack } from '../src/core/battle/types.js';
+import { creature } from '../src/core/data.js';
 import { createRng } from '../src/core/rng.js';
 import { newGame } from '../src/core/state/setup.js';
 import { CREATURE_TRAITS } from '../src/core/types.js';
@@ -314,6 +315,84 @@ function infractoresDeCodigo(rutas: string[], patron: RegExp): string[] {
   return out;
 }
 
+/** El número de línea, contando desde 1, del carácter `indice` de `texto`. */
+function lineaDe(texto: string, indice: number): number {
+  let n = 1;
+  for (let i = 0; i < indice; i++) if (texto[i] === '\n') n++;
+  return n;
+}
+
+/**
+ * Cada llamada a `nombre(` del código con su argumento ENTERO: se empareja el
+ * paréntesis de cierre en vez de pararse en el primer `)`, y el argumento
+ * conserva los saltos de línea.
+ *
+ * Las cadenas se saltan para que un `)` escrito dentro de una no cierre la
+ * llamada. Un `${…}` dentro de una plantilla no se analiza: su contenido cuenta
+ * como parte de la cadena. Hoy ningún argumento de `creature(` lleva plantilla.
+ */
+function llamadasA(nombre: string, codigo: string): { inicio: number; argumento: string }[] {
+  const out: { inicio: number; argumento: string }[] = [];
+  for (const m of codigo.matchAll(new RegExp(`\\b${nombre}\\s*\\(`, 'g'))) {
+    const abre = m.index + m[0].length;
+    let nivel = 1;
+    let comilla = '';
+    let i = abre;
+    for (; i < codigo.length && nivel > 0; i++) {
+      const c = codigo[i] as string;
+      if (comilla !== '') {
+        if (c === '\\') i++;
+        else if (c === comilla) comilla = '';
+        continue;
+      }
+      if (c === "'" || c === '"' || c === '`') comilla = c;
+      else if (c === '(') nivel++;
+      else if (c === ')') nivel--;
+    }
+    if (nivel > 0) throw new Error(`llamada a ${nombre}( sin cerrar en el carácter ${m.index}`);
+    out.push({ inicio: m.index, argumento: codigo.slice(abre, i - 1).trim() });
+  }
+  return out;
+}
+
+/**
+ * La única forma permitida de leer el catálogo con el cuerpo, y solo en la
+ * inversa del cable: `X.unit ?? creature(X.body)`, con la misma `X` y nada entre
+ * el `??` y la llamada. Se mira LA LLAMADA, no la línea en que cae.
+ */
+function esRellenoDelCable(codigo: string, inicio: number, argumento: string): boolean {
+  const cuerpo = /^(\w+)\.body$/.exec(argumento);
+  if (cuerpo === null) return false;
+  const antes = codigo.slice(Math.max(0, inicio - 200), inicio);
+  const unidad = /\b(\w+)\.unit\s*\?\?\s*$/.exec(antes);
+  return unidad !== null && unidad[1] === cuerpo[1];
+}
+
+/** Si el fichero importa `creature` del catálogo (`data.js`) con su nombre. */
+function importaCreature(codigo: string): boolean {
+  return /import\s*\{[^}]*\bcreature\b[^}]*\}\s*from\s*['"][^'"]*\/data\.js['"]/.test(codigo);
+}
+
+/**
+ * Dónde aparece `creature` como VALOR y no como llamada: pasada a `map`, a
+ * `then`, asignada a otra variable. Lo que no cuenta: la propia importación,
+ * la llamada, una propiedad (`s.creature`, `{ creature: … }`, `creature?:`) y
+ * el texto de una cadena (`'creature'`).
+ */
+function creatureComoValor(codigo: string): number[] {
+  const sinImports = codigo.replace(/import\s*\{[^}]*\}\s*from\s*['"][^'"]*['"]/g, (m) =>
+    m.replace(/[^\n]/g, ' '),
+  );
+  const out: number[] = [];
+  for (const m of sinImports.matchAll(/(?<![\w.$'"`-])creature\b(?![\w$'"`-])/g)) {
+    const detras = sinImports.slice(m.index + m[0].length);
+    if (/^\s*\(/.test(detras)) continue; // la llamada: la mira `llamadasA`
+    if (/^\s*\??:/.test(detras)) continue; // clave de objeto o anotación de tipo
+    out.push(m.index);
+  }
+  return out;
+}
+
 /**
  * Lo que el núcleo PUEDE llamar de `Math`, copiado de `CLAUDE.md`.
  *
@@ -351,7 +430,8 @@ function stackDePrueba(): BattleStack {
     id: 'guardia-0',
     side: 'attacker',
     slot: 0,
-    creature: 'pikeman',
+    body: 'pikeman',
+    unit: creature('pikeman'),
     initialCount: 10,
     count: 10,
     topHp: 1,
@@ -645,6 +725,81 @@ describe('invariantes del proyecto', () => {
       applyEffect(s, { kind: kind as EffectKind, amount: 2, source: 'guardia', roundsLeft: 2 });
       expect(lector(s), `${kind}: su lector no suma el efecto`).not.toBe(antes);
     }
+  });
+
+  it('las cifras de un stack de batalla salen de `unit`, no del catálogo', () => {
+    // Desde que un personaje puede pisar el tablero, `BattleStack.unit` es la
+    // ÚNICA fuente de sus cifras: `createBattle` la resuelve una vez, del
+    // catálogo o del perfil del personaje. Volver al catálogo con el cuerpo
+    // —`creature(s.body)`— lee las cifras del catálogo para una criatura y
+    // LANZA para un personaje, cuyo cuerpo es el centinela `"character"`: una
+    // lectura así pasaría todos los tests de estrategia y rompería la primera
+    // batalla de un personaje.
+    //
+    // Hay tres candados y este es el segundo y el tercero. El primero es `tsc`:
+    // el campo se llamaba `creature` y ya no existe, así que
+    // `creature(s.creature)` no compila. Lo que sí compila, este guardia lo mira
+    // en todo `src`, en dos mitades:
+    //
+    // 1. **Cada llamada a `creature(`, con su argumento ENTERO.** No una
+    //    expresión regular de una línea: la primera versión era
+    //    `creature\([^)]*\.body` y QA le coló cuatro formas, dos de ellas de las
+    //    que produce el repositorio solo — `creature(stackById(st, id).body)`,
+    //    donde el `)` de la llamada interior paraba el `[^)]*`, y la llamada
+    //    partida en varias líneas que escribe Biome en cuanto pasa de 100
+    //    columnas—. Ahora se busca el paréntesis de cierre emparejado y se mira
+    //    el argumento con sus saltos de línea, por `.body`, `?.body` o
+    //    `['body']`.
+    // 2. **`creature` como valor**, fuera de `data.ts` que la declara:
+    //    `[s.body].map(creature)`, `.then(creature)`, `const f = creature`. No
+    //    hay ni un uso legítimo, y cada uno es una llamada que la mitad 1 no ve.
+    //    Solo en los ficheros que la importan de `data`, porque en
+    //    `render/assets.ts` `creature` es el nombre de un parámetro de texto.
+    //
+    // Lo que NO ve, dicho aquí para que nadie lo dé por cubierto: el alias por
+    // variable intermedia (`const id = s.body; creature(id)`), la importación
+    // con otro nombre (`import { creature as c }`) y la de espacio de nombres
+    // (`D.creature` sí la ve la mitad 1; `const { creature: c } = D`, no). Eso no
+    // lo cierra ningún análisis de texto honesto: lo cierra la unión
+    // discriminada de `Stack` de la fase 3, que hace que el tipo del cuerpo de
+    // un personaje no sea un id del catálogo.
+    //
+    // Tampoco ve —lo encontró la segunda pasada de QA, con 22 formas—: la mitad 2
+    // depende de cómo se escriba el import (`from './data'` sin `.js`,
+    // `map(D.creature)`, un `import()` dinámico); los accesos calculados
+    // (`Reflect.get(s, 'body')`, `s['bo' + 'dy']`); y `sinComentarios` no
+    // entiende las expresiones regulares literales, así que una que acabe en
+    // `\//` deja en blanco el resto de su línea, y lo que haya allí no se mira.
+    //
+    // Visto morder, sonda a sonda en `ai/tactics.ts` y `battle/battle.ts`: `creature(s.body)`, las
+    // cuatro de QA y las tres que ya mordían (`s.body!`, `s.body as string`,
+    // `String(s.body)`).
+    //
+    // **Una sola excepción, y es de FORMA y POR LLAMADA, no de fichero ni de
+    // línea.** El cable del espectador no manda `unit` cuando es la del catálogo
+    // (+72 % de fotograma para repetir una tabla que las dos puntas tienen), así
+    // que su inversa, `espectador/adaptar.ts`, la rehace. Se le permite
+    // exactamente la llamada `creature(X.body)` precedida inmediatamente de
+    // `X.unit ??` con la misma `X` —el catálogo solo donde `unit` NO viajó— y
+    // nada más. La versión anterior eximía la LÍNEA en que aparecía esa forma, y
+    // una lectura directa escrita a su lado se colaba con ella.
+    const INVERSA_DEL_CABLE = 'src/client/espectador/adaptar.ts';
+    const fugas: string[] = [];
+    for (const ruta of [...CORE, ...CLIENTE, ...SERVIDOR]) {
+      const codigo = sinComentarios(leer(ruta));
+      for (const { inicio, argumento } of llamadasA('creature', codigo)) {
+        if (!/\.\s*body\b|\[\s*(['"`])body\1\s*\]/.test(argumento)) continue;
+        if (ruta === INVERSA_DEL_CABLE && esRellenoDelCable(codigo, inicio, argumento)) continue;
+        fugas.push(
+          `${ruta}:${lineaDe(codigo, inicio)} → creature(${argumento.replace(/\s+/g, ' ')})`,
+        );
+      }
+      if (ruta === 'src/core/data.ts' || !importaCreature(codigo)) continue;
+      for (const inicio of creatureComoValor(codigo)) {
+        fugas.push(`${ruta}:${lineaDe(codigo, inicio)} → \`creature\` pasada como valor`);
+      }
+    }
+    expect(fugas).toEqual([]);
   });
 
   it('ningún fichero que una máquina lee lleva dentro la ruta de esta máquina', () => {

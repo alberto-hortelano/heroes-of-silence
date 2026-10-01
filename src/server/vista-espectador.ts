@@ -18,13 +18,13 @@
  * #74 pasa por la niebla (`serializeKnownMap`). Si alguien viene a unificar las
  * dos, lo que junta son dos reglas distintas bajo un solo nombre.
  */
-import type { BattleState, Side } from '@core/battle/types.js';
+import type { BattleStack, BattleState, Side } from '@core/battle/types.js';
 import type { MapObject } from '@core/map/map.js';
 import type { TerrainKind } from '@core/map/terrain.js';
 import type { GameEventDraft } from '@core/state/events.js';
 import { sinSello } from '@core/state/events.js';
 import { battleOwners, type GameState } from '@core/state/game.js';
-import type { Army, FactionId, PlayerId, Point, Resources } from '@core/types.js';
+import type { Army, FactionId, PlayerId, Point, Resources, UnitInfo } from '@core/types.js';
 
 /**
  * El mapa sin `Set`: `roads` viaja como array de claves `"x,y"`.
@@ -69,17 +69,34 @@ export interface VistaPueblo {
 }
 
 /**
+ * Un stack de batalla tal y como viaja: **sin `unit` si sus cifras son las del
+ * catálogo**, que el espectador ya tiene —`creature(body)`—, y con `unit` si es
+ * un personaje, cuyas cifras no están en ninguna otra parte.
+ *
+ * Mandar el catálogo por el cable costaba +2 097 B en una batalla de 5 contra 5
+ * (+72 % del estado de batalla) en cada fotograma, o sea ~90 KB por partida,
+ * para repetir una tabla que las dos puntas ya tienen. `adaptarBatalla`, en el
+ * cliente, es la inversa exacta.
+ */
+export type StackEnCable = Omit<BattleStack, 'unit'> & { readonly unit?: UnitInfo };
+
+export interface BatallaEnCable extends Omit<BattleState, 'stacks'> {
+  readonly stacks: readonly StackEnCable[];
+}
+
+/**
  * La batalla en curso, con **de quién es cada bando**.
  *
  * Los dueños viajan porque el espectador pinta cada bando del color de su
  * jugador, y sin esto tendría que rederivarlo del `foe` — o sea, una tercera
  * copia de `battleOwners`, que ya se escribió dos veces y ya discrepó una.
  *
- * `BattleState` viaja tal cual: no lleva ni un `Set` ni un `Map` dentro, así que
- * el viaje por JSON no le quita nada. Comprobado en `test/espectador.test.ts`.
+ * Fuera de `unit`, el `BattleState` viaja tal cual: no lleva ni un `Set` ni un
+ * `Map` dentro, así que el viaje por JSON no le quita nada. Comprobado en
+ * `test/espectador.test.ts`.
  */
 export interface VistaBatalla {
-  readonly estado: BattleState;
+  readonly estado: BatallaEnCable;
   readonly dueños: Readonly<Record<Side, PlayerId | null>>;
 }
 
@@ -147,6 +164,22 @@ export function construirVista(state: GameState, directorLog: readonly string[])
     log: state.log.slice(-40).map(sinSello),
     directorLog: directorLog.slice(-20),
     battle:
-      pending === null ? null : { estado: pending.battle, dueños: battleOwners(state, pending) },
+      pending === null
+        ? null
+        : {
+            estado: { ...pending.battle, stacks: pending.battle.stacks.map(stackAlCable) },
+            dueños: battleOwners(state, pending),
+          },
   };
+}
+
+/**
+ * Se quita `unit` exactamente cuando `createBattle` la sacó del catálogo —el
+ * stack no es un personaje—, que es lo que deja a `adaptarBatalla` rehacerla
+ * con `creature(body)` sin adivinar nada.
+ */
+function stackAlCable(s: BattleStack): StackEnCable {
+  if (s.member !== undefined) return s;
+  const { unit: _catalogo, ...resto } = s;
+  return resto;
 }

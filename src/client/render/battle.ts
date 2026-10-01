@@ -4,7 +4,7 @@ import { stackHexes } from '@core/battle/battle.js';
 import { BOARD_HEIGHT, BOARD_WIDTH, hexKey } from '@core/battle/board.js';
 import { stackHp } from '@core/battle/damage.js';
 import type { BattleStack, BattleState } from '@core/battle/types.js';
-import { creature, hexSize, isShooter } from '@core/data.js';
+import { hexSize, isShooter } from '@core/data.js';
 import type { Hex } from '@core/types.js';
 import type { Pose } from '../anim.js';
 import { creatureFrame } from './assets.js';
@@ -124,7 +124,7 @@ function drawStack(
   pose: Pose,
   objetivoDeHechizo: boolean,
 ): void {
-  const info = creature(s.creature);
+  const info = s.unit;
   const celdas = stackHexes(s);
   const centros = celdas.map(hexCenter);
   const cx = centros.reduce((t, c) => t + c.x, 0) / centros.length;
@@ -134,8 +134,7 @@ function drawStack(
 
   // Peana: dice el bando por el color y la salud por el arco relleno, así el
   // contador no tiene que taparle los pies al sprite.
-  const info2 = creature(s.creature);
-  const salud = Math.max(0, Math.min(1, stackHp(s) / Math.max(1, info2.hp * s.count)));
+  const salud = Math.max(0, Math.min(1, stackHp(s) / Math.max(1, info.hp * s.count)));
   const baseY = cy + HEX_SIZE * 0.5;
   const radioPeana = radio * 0.78;
 
@@ -155,7 +154,7 @@ function drawStack(
   ctx.ellipse(cx, baseY, radioPeana, HEX_SIZE * 0.2, 0, 0, Math.PI * 2);
   ctx.stroke();
 
-  const sprite = creatureFrame(s.creature, pose);
+  const sprite = creatureFrame(s.body, pose);
   if (sprite !== null) {
     const alto = HEX_SIZE * (grande ? 2.9 : 2.15);
     const ancho = alto;
