@@ -17,10 +17,16 @@
 import { activeStack } from '@core/battle/battle.js';
 import { type EffectKind, effectiveLuck } from '@core/battle/effects.js';
 import { type Spell, spell } from '@core/battle/spells.js';
-import type { BattleStack, BattleState, Side } from '@core/battle/types.js';
+import {
+  type BattleStack,
+  type BattleState,
+  nivelDeVeterania,
+  type Side,
+} from '@core/battle/types.js';
 import { creature, isShooter } from '@core/data.js';
+import { nivelDe, nivelDeHeroe, umbral } from '@core/hero/experiencia.js';
 import { maxMana, maxMovePoints } from '@core/hero/hero.js';
-import { type Personajes, troopSummary } from '@core/hero/troop.js';
+import { elQueSeIria, type Personajes, type TroopGroup, troopSummary } from '@core/hero/troop.js';
 import type { DefeatReason, GameEventDraft } from '@core/state/events.js';
 import { building } from '@core/town/buildings.js';
 import { dailyIncome, dwellings, mageGuildLevel, type Town, townSpells } from '@core/town/town.js';
@@ -201,14 +207,14 @@ function renderAdventurePanel(session: Session): Html {
     hero === null
       ? html`<p>No tienes héroes en el mapa. Contrata uno en tu castillo.</p>`
       : html`
-        <p class="eyebrow">HÉROE · NIVEL ${hero.level}</p>
+        <p class="eyebrow">HÉROE · NIVEL ${nivelDeHeroe(hero)}</p>
         <h2>${hero.name}</h2>
         ${filaLiderazgo(session.liderazgo({ heroe: hero.id }))}
         <div class="row"><span class="label">Movimiento</span><span>${hero.movePoints} / ${maxMovePoints(hero, session.state.characters)}</span></div>
         <div class="row"><span class="label">Maná</span><span>${hero.mana} / ${maxMana(hero)}</span></div>
         <div class="row"><span class="label">Ataque / Defensa</span><span>${hero.attack} / ${hero.defense}</span></div>
         <div class="row"><span class="label">Poder / Conocimiento</span><span>${hero.spellPower} / ${hero.knowledge}</span></div>
-        <div class="row"><span class="label">Experiencia</span><span>${hero.experience}</span></div>
+        <div class="row"><span class="label">Experiencia</span><span>${experienciaDeHeroe(hero.experience)}</span></div>
         <h3>Hechizos</h3>
         ${renderSpellbook(hero.spells)}
         <h3>Tropa · ${hero.army.length} ${hero.army.length === 1 ? 'individuo' : 'individuos'}</h3>
@@ -242,6 +248,17 @@ function renderAdventurePanel(session: Session): Html {
 }
 
 /**
+ * La experiencia del héroe con el umbral del nivel siguiente: «220 / 380». El
+ * héroe no tiene tope, así que siempre hay siguiente —y si la tabla se acabara,
+ * `umbral` lo diría lanzando en vez de pintar un «null»—; el umbral lo da el
+ * núcleo —una sola tabla para tropa y héroe— y el panel no sabe cuánto cuesta
+ * un nivel.
+ */
+function experienciaDeHeroe(experiencia: number): string {
+  return `${experiencia} / ${umbral(nivelDe(experiencia) + 1)}`;
+}
+
+/**
  * Una fila de hechizo: nombre —con su nivel donde importa— y coste en maná. La
  * pintan el libro del héroe y la lista del gremio, que solo se diferencian en
  * eso. El tercer pintor, `renderSpells`, NO entra aquí: son botones con
@@ -262,8 +279,24 @@ function renderSpellbook(spells: readonly string[]): Html {
 }
 
 /**
+ * El nivel de un veterano y lo que le falta para el siguiente, o nada si es una
+ * fila de novatos. Las cifras salen de `troopSummary`, que es quien las deriva:
+ * el panel no sabe qué umbral tiene cada nivel.
+ */
+function lineaDeVeterania(g: TroopGroup): Html {
+  if (g.veterania === undefined) return NADA;
+  const exp = g.veterania.experiencia;
+  const falta = g.siguiente === null ? `${exp} exp · nivel máximo` : `${exp} / ${g.siguiente} exp`;
+  // «Veterano» desde el nivel 2: con 18 de los 20 del primer umbral todavía es
+  // un novato que ha empezado a aprender, y llamarlo veterano sería mentirle.
+  const quien = g.nivel >= 2 ? `Veterano · nivel ${g.nivel}` : 'Nivel 1';
+  return html`<span class="veterania">${quien} · ${falta}</span>`;
+}
+
+/**
  * El ejército agrupado: una fila por criatura con cuántos individuos lleva, y
- * una por personaje. Agrupa `troopSummary`, no este panel.
+ * una por personaje o por veterano, con su nivel y lo que le falta. Agrupa
+ * `troopSummary`, no este panel.
  */
 function renderArmy(army: Army, characters: Personajes): Html {
   if (army.length === 0) {
@@ -272,7 +305,7 @@ function renderArmy(army: Army, characters: Personajes): Html {
   const filas = unir(
     troopSummary(army, characters).map((g) => {
       const marca = isShooter(g.unit) ? ' ↑' : '';
-      return html`<div class="stack"><span>${g.unit.name}${marca}</span><span class="count">${g.count}</span></div>`;
+      return html`<div class="stack"><span>${g.unit.name}${marca}${lineaDeVeterania(g)}</span><span class="count">${g.count}</span></div>`;
     }),
   );
   return html`<div class="stack-list">${filas}</div>`;
@@ -281,19 +314,29 @@ function renderArmy(army: Army, characters: Personajes): Html {
 /**
  * La tropa del héroe que está en su castillo, con un botón por criatura para
  * licenciar uno: es donde se cambia tropa barata por otra mejor. Un personaje
- * va sin botón, porque no se licencia. Sin comprobar reglas: si no se puede,
+ * va sin botón, porque no se licencia, y un veterano solo lo lleva si es él
+ * quien se iría. Sin comprobar reglas: si no se puede,
  * lo dice el núcleo en la barra.
  */
 function renderTropaLicenciable(heroId: string, army: Army, characters: Personajes): Html {
   if (army.length === 0) return renderArmy(army, characters);
+  const grupos = troopSummary(army, characters);
+  // `dismiss` licencia POR TIPO, y de cada tipo se va primero quien diga
+  // `elQueSeIria`. Así que el botón va solo en la fila de quien se iría de
+  // verdad: puesto en la de un veterano con novatos de su tipo detrás, el clic
+  // se habría llevado a otro sin decirlo.
+  const seIria = (g: TroopGroup): boolean => {
+    if (g.member !== undefined) return false;
+    const t = elQueSeIria(army, g.creature);
+    return t !== null && t.veterania?.id === g.veterania?.id;
+  };
   const filas = unir(
-    troopSummary(army, characters).map((g) => {
+    grupos.map((g) => {
       const marca = isShooter(g.unit) ? ' ↑' : '';
-      const boton =
-        g.member === undefined
-          ? html` <button data-action="dismiss" data-hero="${heroId}" data-creature="${g.creature}" title="Licenciar uno">−1</button>`
-          : NADA;
-      return html`<div class="stack"><span>${g.unit.name}${marca}</span><span class="count">${g.count}${boton}</span></div>`;
+      const boton = seIria(g)
+        ? html` <button data-action="dismiss" data-hero="${heroId}" data-creature="${g.creature}" title="Licenciar uno: de cada tipo se va primero el de menos experiencia">−1</button>`
+        : NADA;
+      return html`<div class="stack"><span>${g.unit.name}${marca}${lineaDeVeterania(g)}</span><span class="count">${g.count}${boton}</span></div>`;
     }),
   );
   return html`<div class="stack-list">${filas}</div>`;
@@ -430,7 +473,7 @@ function renderBattlePanel(session: Session): Html {
       .map(
         (x) =>
           html`<div class="stack${x.id === battle.activeId ? '' : ' empty'}">
-          <span>${x.side === mio ? '▶' : '◀'} ${marcaDeComandante(x)}${x.unit.name}</span>
+          <span>${x.side === mio ? '▶' : '◀'} ${marcaDeComandante(x)}${x.unit.name}${marcaDeVeterano(x)}</span>
           <span class="count">${x.count}</span>
         </div>`,
       ),
@@ -451,6 +494,17 @@ function renderBattlePanel(session: Session): Html {
  */
 export function marcaDeComandante(s: BattleStack): string {
   return s.origen.kind === 'heroe' ? `${MARCA_DE_COMANDANTE} ` : '';
+}
+
+/**
+ * El nivel de un veterano detrás de su nombre en «En el campo», o nada: la fila
+ * dice con palabras lo que la figura dice con galones (`galonesDe`, en
+ * `render/batalla.ts`, que este módulo no importa: es puro y lo carga el
+ * espectador sin lienzo).
+ */
+export function marcaDeVeterano(s: BattleStack): string {
+  const nivel = nivelDeVeterania(s.origen);
+  return nivel > 1 ? ` · nivel ${nivel}` : '';
 }
 
 /**
@@ -781,12 +835,19 @@ export function renderLog(log: readonly GameEventDraft[], viewer: number): Html 
               : `Un héroe ${deJugador(e.actor)} vuelve a su base`
           }${e.surrendered ? ` tras rendirse por ${e.gold} de oro` : ''}</div>`;
         case 'level_up':
-          // La única consecuencia visible de subir de nivel hoy, y por eso
-          // sale: el nivel todavía no reparte atributos ni habilidades (#6,
-          // #15), así que si no se contara aquí no se notaría en ningún sitio.
+          // El nivel reparte cuerpo y liderazgo, pero eso no se ve en el mapa:
+          // si no se contara aquí, subir pasaría sin que nadie lo notara. Todo
+          // héroe nace en el 5 (una sola escala con la tropa), así que la
+          // primera línea de estas que se lee es «sube a nivel 6».
           return html`<div${clase(mio, false)}>Un héroe ${deJugador(e.actor)} sube a nivel ${
             e.level
           }</div>`;
+        case 'troop_level_up':
+          // La tropa también sube, y es lo que se pidió que se viera: un
+          // veterano no se distingue en el mapa, así que el ascenso se cuenta.
+          return html`<div${clase(mio, false)}>Un ${creature(e.creature).name} ${deJugador(
+            e.actor,
+          )} sube a veterano de nivel ${e.level}</div>`;
         case 'game_over': {
           // El ganador es `actor`, y ya no hay un `winner` al lado diciendo lo
           // mismo: `visibleTo` enrutaba por uno y esta línea pintaba por el

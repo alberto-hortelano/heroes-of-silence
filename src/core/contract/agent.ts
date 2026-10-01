@@ -231,9 +231,16 @@ Notas:
   casilla aunque le queden puntos, y la batalla la juegas defendiendo. Si va
   directo a por la base rival por regiones sin conquistar, puede llegar con
   menos gente de la que salió —o no llegar—.
-- "heroes[].level" sube cuando el héroe acumula experiencia ganando batallas, y
-  se cobra también defendiendo. Lo que sí reparte es LIDERAZGO: el tope de su
-  ejército crece con el nivel.
+- La EXPERIENCIA se gana por daño: quien quita PV a un enemigo —criatura o
+  héroe, con golpes, disparos o hechizos— gana "PV quitados × nivel del que los
+  recibe", gane o pierda la batalla. La escala de niveles es UNA para tropa y
+  héroe: la TROPA va del 1 al 5, y todo HÉROE empieza en el 5 —el inicial y el
+  contratado— y sube sin tope (6, 7, 8…). "heroes[].level" lleva al lado su
+  "experience" y "nextLevelAt"; cada nivel por encima del 5 le da LIDERAZGO (el
+  tope de su ejército) y cuerpo. Pegarle a un héroe da mucho: recibe con su
+  nivel, 5 o más. Una fila de "army" con "level" es UN veterano, con su
+  "experience" y "nextLevelAt" (null en el 5); cada nivel le suma ataque y
+  defensa. Si muere, se pierde con lo que había ganado.
 - Un ejército son INDIVIDUOS, no stacks: "army[].count" dice cuántos lleva de
   cada criatura, y en batalla cada uno ocupa su hex. Dos límites deciden
   cuántos lleva: como mucho 6 individuos además del héroe, que pelea en el
@@ -252,8 +259,10 @@ Notas:
   tuyo (tu base u otro): se van para siempre, no vuelven a la guarnición. Sirve
   para CAMBIAR tropa: con el liderazgo o los 6 individuos llenos de lo barato,
   un "recruit" de algo mejor no cabe; licencia primero lo que sobra y recluta
-  después, en el mismo turno y en ese orden. Un personaje no se licencia, y
-  fuera de un castillo tuyo se rechaza diciéndolo.
+  después, en el mismo turno y en ese orden. De cada criatura se van primero
+  los de MENOS experiencia: el veterano no se va mientras quede un novato de su
+  tipo. Un personaje no se licencia, y fuera de un castillo tuyo se rechaza
+  diciéndolo.
 - "yourBase" es tu base: el castillo al que vuelve un héroe tuyo que pierde una
   batalla o se rinde. Vuelve con el ejército vacío (o con la tropa que salvó
   rindiéndose) y sin movimiento hasta el día siguiente; la tropa muerta se
@@ -311,6 +320,10 @@ Notas:
   para el del rival: matarlo gana la batalla. Su magia ("cast") funciona
   mientras esté vivo. El héroe ya no suma ataque ni defensa a la tropa: sus
   cifras son las de su stack.
+- Un stack con "veteranLevel" es un VETERANO (nivel 2 a 5): su ataque y su
+  defensa ya traen lo que da su nivel. Cada PV que le quites a alguien te da
+  "PV × nivel de quien los recibe" de experiencia, así que pegar a un veterano o
+  a un héroe enseña más. La tropa que muere pierde lo que había ganado.
 - "surrender" te rinde: pierdes la batalla, pagas el oro de la rendición y tu
   héroe vuelve a la base con la tropa que siga viva. El precio es proporcional
   a la tropa que salvas y viene en su "gold" dentro de "legalActions"; el oro

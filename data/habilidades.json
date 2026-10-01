@@ -1,0 +1,190 @@
+{
+  "_comment": "GENERADO por tools/datos/habilidades.ts a partir de la sección «Habilidades» de NuevaJugabilidad.md (el cuaderno de diseño del usuario, que no se commitea), con una expresión regular y sin teclear ningún nombre. No se edita a mano: se regenera. disparador = la palabra «Es pasivo/automático/activo» de la descripción, o null si no la dice. Es el catálogo contra el que data.ts comprueba los nombres de data/experiencia.json; las habilidades todavía NO tienen efecto (no hay motor de habilidades).",
+  "habilidades": [
+    {
+      "nombre": "Salto",
+      "categoria": "Movimiento",
+      "disparador": "automático"
+    },
+    {
+      "nombre": "Carga",
+      "categoria": "Movimiento",
+      "disparador": "automático"
+    },
+    {
+      "nombre": "Hostigar",
+      "categoria": "Movimiento",
+      "disparador": "automático"
+    },
+    {
+      "nombre": "Pesado",
+      "categoria": "Movimiento",
+      "disparador": "pasivo"
+    },
+    {
+      "nombre": "Sigilo",
+      "categoria": "Movimiento",
+      "disparador": "automático"
+    },
+    {
+      "nombre": "Terreno natural",
+      "categoria": "Movimiento",
+      "disparador": "pasivo"
+    },
+    {
+      "nombre": "Alcance",
+      "categoria": "Ataque",
+      "disparador": "automático"
+    },
+    {
+      "nombre": "Barrido",
+      "categoria": "Ataque",
+      "disparador": "automático"
+    },
+    {
+      "nombre": "Doble ataque",
+      "categoria": "Ataque",
+      "disparador": "automático"
+    },
+    {
+      "nombre": "Recarga",
+      "categoria": "Ataque",
+      "disparador": "automático"
+    },
+    {
+      "nombre": "Perforante",
+      "categoria": "Ataque",
+      "disparador": "pasivo"
+    },
+    {
+      "nombre": "Veneno",
+      "categoria": "Ataque",
+      "disparador": "automático"
+    },
+    {
+      "nombre": "Robo de vida",
+      "categoria": "Ataque",
+      "disparador": "pasivo"
+    },
+    {
+      "nombre": "Golpe aturdidor",
+      "categoria": "Ataque",
+      "disparador": "activo"
+    },
+    {
+      "nombre": "Explosión",
+      "categoria": "Ataque",
+      "disparador": "activo"
+    },
+    {
+      "nombre": "Area (X)",
+      "categoria": "Ataque",
+      "disparador": "automático"
+    },
+    {
+      "nombre": "Proteger",
+      "categoria": "Defensa",
+      "disparador": "automático"
+    },
+    {
+      "nombre": "Contraataque",
+      "categoria": "Defensa",
+      "disparador": "automático"
+    },
+    {
+      "nombre": "Antiinfantería montada",
+      "categoria": "Defensa",
+      "disparador": "pasivo"
+    },
+    {
+      "nombre": "Escudo contra proyectiles",
+      "categoria": "Defensa",
+      "disparador": "pasivo"
+    },
+    {
+      "nombre": "Regeneración (X)",
+      "categoria": "Defensa",
+      "disparador": "automático"
+    },
+    {
+      "nombre": "Guardia",
+      "categoria": "Defensa",
+      "disparador": "automático"
+    },
+    {
+      "nombre": "Sin flanqueo",
+      "categoria": "Defensa",
+      "disparador": "pasivo"
+    },
+    {
+      "nombre": "Formación cerrada",
+      "categoria": "Formación y apoyo",
+      "disparador": "pasivo"
+    },
+    {
+      "nombre": "Descarga",
+      "categoria": "Formación y apoyo",
+      "disparador": "automático"
+    },
+    {
+      "nombre": "Aura (X)",
+      "categoria": "Formación y apoyo",
+      "disparador": "pasivo"
+    },
+    {
+      "nombre": "Órdenes",
+      "categoria": "Formación y apoyo",
+      "disparador": "activo"
+    },
+    {
+      "nombre": "Curar (X)",
+      "categoria": "Formación y apoyo",
+      "disparador": "activo"
+    },
+    {
+      "nombre": "Desafío",
+      "categoria": "Formación y apoyo",
+      "disparador": "activo"
+    },
+    {
+      "nombre": "Cobarde",
+      "categoria": "Facción y especiales",
+      "disparador": "automático"
+    },
+    {
+      "nombre": "Estúpido",
+      "categoria": "Facción y especiales",
+      "disparador": "automático"
+    },
+    {
+      "nombre": "Resucitar",
+      "categoria": "Facción y especiales",
+      "disparador": "activo"
+    },
+    {
+      "nombre": "Infectar",
+      "categoria": "Facción y especiales",
+      "disparador": "automático"
+    },
+    {
+      "nombre": "Devorar",
+      "categoria": "Facción y especiales",
+      "disparador": "activo"
+    },
+    {
+      "nombre": "Sangre fría (No muerto)",
+      "categoria": "Facción y especiales",
+      "disparador": "pasivo"
+    },
+    {
+      "nombre": "Bendecido",
+      "categoria": "Facción y especiales",
+      "disparador": "pasivo"
+    },
+    {
+      "nombre": "Miedo",
+      "categoria": "Facción y especiales",
+      "disparador": "pasivo"
+    }
+  ]
+}

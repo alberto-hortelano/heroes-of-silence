@@ -1,6 +1,6 @@
 /** Hechizos de combate: catálogo tipado y su efecto sobre la batalla. */
 import spellsJson from '../../../data/spells.json' with { type: 'json' };
-import { applyDamage } from './damage.js';
+import { herir } from './damage.js';
 import type { StackEffect } from './effects.js';
 import type { BattleHero, BattleStack } from './types.js';
 
@@ -84,12 +84,22 @@ export function effectOfSpell(s: Spell, caster: BattleHero): StackEffect | null 
   return temporalEffect(s.kind, s, caster);
 }
 
-/** Aplica el hechizo al objetivo. El coste de maná lo descuenta el motor. */
-export function castSpell(s: Spell, caster: BattleHero, target: BattleStack): SpellResult {
+/**
+ * Aplica el hechizo al objetivo. El coste de maná lo descuenta el motor.
+ *
+ * `autor` es el stack del héroe que lo lanza: el daño de un hechizo es suyo y
+ * le da experiencia como un golpe (`herir`). `null` si no hay cuerpo que cobre.
+ */
+export function castSpell(
+  s: Spell,
+  caster: BattleHero,
+  target: BattleStack,
+  autor: BattleStack | null,
+): SpellResult {
   switch (s.kind) {
     case 'damage': {
       const power = spellAmount(s, caster);
-      const killed = applyDamage(target, power);
+      const killed = herir(target, power, autor);
       return { damage: power, killed };
     }
     case 'speed':

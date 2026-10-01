@@ -1,5 +1,6 @@
 /** Arranque de partida: del plan de mapa a un `GameState` listo para jugar. */
 import { factionLineup } from '../data.js';
+import { EXPERIENCIA_INICIAL_DE_HEROE } from '../hero/experiencia.js';
 import { type Hero, maxMana, maxMovePoints } from '../hero/hero.js';
 import { withTroops } from '../hero/troop.js';
 import { buildMap, generateMapPlan, type MapPlan, validateMapPlan } from '../map/generate.js';
@@ -108,8 +109,7 @@ export function newGame(options: NewGameOptions = {}): GameState {
       spellPower: 1,
       knowledge: 2,
       mana: 0,
-      level: 1,
-      experience: 0,
+      experience: EXPERIENCIA_INICIAL_DE_HEROE,
       army: startingArmy(faction, rng),
       at: inicio.at,
       movePoints: 0,

@@ -108,6 +108,19 @@ export interface UnitInfo {
   readonly damage: readonly [number, number];
   readonly hp: number;
   readonly speed: SpeedTier;
+  /**
+   * El nivel de quien RECIBE un golpe, que multiplica la experiencia de quien
+   * se lo da (`herir`). Lo ponen los tres constructores: el catálogo —el nivel
+   * de su morada—, el personaje —su `level`— y el héroe —el suyo—; y
+   * `cifrasVeteranas` le suma la veteranía como suma ataque y defensa. Vive en
+   * las cifras y no al lado del stack porque es una cifra más del individuo:
+   * fuera de aquí había cuatro campos `nivel` que rellenar a mano en cada
+   * camino de entrada.
+   *
+   * En una criatura del catálogo coincide con `Creature.level`, y no es el mismo
+   * dato: el de un veterano crece y su morada no.
+   */
+  readonly nivel: number;
   /** Munición. > 0 = es tirador. */
   readonly shots?: number;
   /** Hexes que ocupa en la rejilla de batalla (1 o 2). */
@@ -151,6 +164,34 @@ export interface Troop {
    * leer cifras prestadas en silencio. La puerta que sí sabe es `troopUnit`.
    */
   readonly member?: string;
+  /**
+   * Lo que este individuo lleva vivido, o nada si es un novato. **Vive en el
+   * individuo y viaja con él** —batalla, guarnición, recoger tropa, rendirse—
+   * sin que nadie tenga que acordarse de copiarlo: es el mismo objeto el que
+   * se mueve. Cuando muere, se pierde con él. Un libro aparte
+   * (`state.veteranos[id]`) habría sido el segundo sitio del mismo hecho.
+   */
+  readonly veterania?: Veterania;
+}
+
+/**
+ * La hoja de servicios de un individuo con experiencia (`hero/experiencia.ts`).
+ * El nivel **no se guarda**: se deriva de `experiencia` con `nivelDeTropa`, así
+ * que no hay un segundo dato que subir al subir de nivel.
+ */
+export interface Veterania {
+  /**
+   * Identidad estable, de `GameState.siguienteVeterano`: la necesita la tropa
+   * que se hace héroe (el ciclo B), que tiene que poder decir CUÁL.
+   */
+  readonly id: string;
+  readonly experiencia: number;
+  /** Batallas de las que ha salido vivo desde que tiene experiencia. */
+  readonly batallas: number;
+  /** Enemigos que ha matado: individuos, no stacks. */
+  readonly bajas: number;
+  /** Los nombres de los héroes rivales que ha derribado él. */
+  readonly heroes: readonly string[];
 }
 
 /**

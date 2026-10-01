@@ -15,6 +15,7 @@ import { playAiGame } from '../src/core/ai/turn.js';
 import { BOARD_HEIGHT } from '../src/core/battle/board.js';
 import { serializeAdventureTurn } from '../src/core/contract/serialize.js';
 import { allCreatures, creature, LIDERAZGO } from '../src/core/data.js';
+import { NIVEL_INICIAL_DE_HEROE, umbral } from '../src/core/hero/experiencia.js';
 import { maxMovePoints, slowestSpeed } from '../src/core/hero/hero.js';
 import {
   armyLeadership,
@@ -106,9 +107,11 @@ describe('el ejército es una lista de individuos', () => {
 describe('liderazgo', () => {
   it('el tope del héroe crece con el nivel y se para en el máximo', () => {
     const { base, porNivel, max } = LIDERAZGO.heroe;
-    expect(heroLeadership({ level: 1 })).toBe(base);
-    expect(heroLeadership({ level: 2 })).toBe(base + porNivel);
-    expect(heroLeadership({ level: 40 })).toBe(max);
+    // La escala es una sola: un héroe recién hecho está en el 5, y es ahí
+    // donde tiene la base.
+    expect(heroLeadership({ experience: umbral(5) })).toBe(base);
+    expect(heroLeadership({ experience: umbral(6) })).toBe(base + porNivel);
+    expect(heroLeadership({ experience: umbral(40) })).toBe(max);
   });
 
   it('reclutar por encima del liderazgo lanza con la frase, y no cobra nada', () => {
@@ -242,11 +245,13 @@ describe('liderazgo', () => {
     expect(state.log.some((e) => e.kind === 'garrison_taken')).toBe(true);
   });
 
-  it('el ejército de salida cabe en el liderazgo de un héroe de nivel 1, en las dos facciones', () => {
+  it('el ejército de salida cabe en el liderazgo de un héroe recién hecho, en las dos facciones', () => {
     for (let seed = 1; seed <= 200; seed++) {
       for (const faction of ['knight', 'necromancer'] as const) {
         const army = startingArmy(faction, createRng(seed));
-        expect(armyLeadership(army)).toBeLessThanOrEqual(heroLeadership({ level: 1 }));
+        expect(armyLeadership(army)).toBeLessThanOrEqual(
+          heroLeadership({ experience: umbral(NIVEL_INICIAL_DE_HEROE) }),
+        );
         expect(army.length).toBeGreaterThan(0);
         // Y en el cupo: el héroe ocupa el séptimo puesto de su bando.
         expect(army.length, `semilla ${seed}`).toBeLessThanOrEqual(CUPO_HEROE);

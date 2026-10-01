@@ -25,7 +25,7 @@ import type { VistaAsaltante } from '@core/state/asaltantes.js';
 import type { GameEventDraft } from '@core/state/events.js';
 import { sinSello } from '@core/state/events.js';
 import { battleOwners, type GameState } from '@core/state/game.js';
-import type { FactionId, PlayerId, Point, Resources, UnitInfo } from '@core/types.js';
+import type { FactionId, PlayerId, Point, Resources, UnitInfo, Veterania } from '@core/types.js';
 
 /**
  * El mapa sin `Set`: `roads` viaja como array de claves `"x,y"`.
@@ -74,16 +74,38 @@ export interface VistaPueblo {
 }
 
 /**
- * Un stack de batalla tal y como viaja: **sin `unit` si sus cifras son las del
- * catálogo**, que el espectador ya tiene —`creature(body)`—, y con `unit` si es
- * un personaje, cuyas cifras no están en ninguna otra parte.
+ * Un stack de batalla tal y como viaja: **sin `unit` si sus cifras salen del
+ * catálogo**, que el espectador ya tiene —`cifrasDeCatalogo(body, …)`, con la
+ * experiencia que viaja en el origen—, y con `unit` si es un personaje, cuyas
+ * cifras no están en ninguna otra parte.
  *
  * Mandar el catálogo por el cable costaba +2 097 B en una batalla de 5 contra 5
  * (+72 % del estado de batalla) en cada fotograma, o sea ~90 KB por partida,
  * para repetir una tabla que las dos puntas ya tienen. `adaptarBatalla`, en el
  * cliente, es la inversa exacta.
  */
-export type StackEnCable = Omit<BattleStack, 'unit'> & { readonly unit?: UnitInfo };
+export type StackEnCable = Omit<BattleStack, 'unit' | 'ganado' | 'origen'> & {
+  readonly unit?: UnitInfo;
+  readonly origen: OrigenEnCable;
+};
+
+/**
+ * Lo que viaja de un veterano: quién es y la experiencia, que es de donde salen
+ * sus cifras y sus galones. **La hoja de servicios —batallas, bajas y héroes
+ * derribados— no viaja**: vive en el núcleo porque la usará la tropa que se
+ * hace héroe (ciclo B), y el espectador no pinta ninguna de las tres.
+ */
+export type VeteraniaEnCable = Pick<Veterania, 'id' | 'experiencia'>;
+
+/**
+ * El origen tal y como viaja: el del núcleo **sin el precio** —`oro` lo lee la
+ * rendición, que el espectador ni calcula ni pinta— y con la veteranía
+ * recortada a `VeteraniaEnCable`.
+ */
+export type OrigenEnCable =
+  | { readonly kind: 'catalogo'; readonly veterania: VeteraniaEnCable | null }
+  | { readonly kind: 'personaje'; readonly id: string; readonly veterania: VeteraniaEnCable | null }
+  | { readonly kind: 'heroe' };
 
 export interface BatallaEnCable extends Omit<BattleState, 'stacks'> {
   readonly stacks: readonly StackEnCable[];
@@ -190,17 +212,30 @@ export function construirVista(state: GameState, directorLog: readonly string[])
 /**
  * Se quita `unit` exactamente cuando `createBattle` la sacó del catálogo
  * (`origen: catalogo`), que es lo que deja a `adaptarBatalla` rehacerla con
- * `creature(body)` sin adivinar nada. El personaje y el héroe la traen de otro
- * sitio y viajan con ella.
+ * `cifrasDeCatalogo` sin adivinar nada: un veterano también, porque su
+ * experiencia viaja en `origen.veterania`. El personaje y el héroe la traen de
+ * otro sitio y viajan con ella.
+ *
+ * Y no viaja lo que el espectador no lee: `ganado` —la contabilidad de la
+ * batalla en curso, que cobra `settleBattle`—, el precio de rendición y la hoja
+ * de servicios. Iban en cada fotograma por el solo hecho de estar en el objeto.
  */
 function stackAlCable(s: BattleStack): StackEnCable {
-  switch (s.origen.kind) {
-    case 'catalogo': {
-      const { unit: _catalogo, ...resto } = s;
-      return resto;
-    }
+  const { unit, ganado: _ganado, origen, ...resto } = s;
+  switch (origen.kind) {
+    case 'catalogo':
+      return { ...resto, origen: { kind: 'catalogo', veterania: hojaAlCable(origen.veterania) } };
     case 'personaje':
+      return {
+        ...resto,
+        unit,
+        origen: { kind: 'personaje', id: origen.id, veterania: hojaAlCable(origen.veterania) },
+      };
     case 'heroe':
-      return s;
+      return { ...resto, unit, origen };
   }
+}
+
+function hojaAlCable(v: Veterania | null): VeteraniaEnCable | null {
+  return v === null ? null : { id: v.id, experiencia: v.experiencia };
 }

@@ -316,11 +316,65 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   j0 88 → **100 de 200**. Tiempo de las 200: **~3,4 s** (3 395, 3 450 y
  *   3 489 ms), desde ~4,1 con `raider_moved` y la ocupación por cadenas, y ~2,15
  *   en `2a836460…`. `autoResolve` igual (~124 ms).
+ * - `a6811441…` (46 852 líneas): **la tropa crece** —la experiencia se gana por
+ *   daño × nivel del que lo recibe, gane o pierda, con umbrales Fibonacci; la
+ *   tropa sube hasta el 5 con +1/+1 por nivel y el héroe sin tope; la IA
+ *   licencia antes a los novatos—, anclado una sola vez. Es una regla NUESTRA y
+ *   no de fheroes2, y sustituye a la de antes (bajas en PV del perdedor, +500
+ *   por héroe y por asedio). Forma del diff contra `c1da16a0…`: **cero semillas
+ *   idénticas** y el primer hecho distinto es **`level_up` en 184 y
+ *   `troop_level_up` en 16**, y en las 200 **después del primer
+ *   `battle_ended`**: nada cambia antes de la primera batalla, que es donde
+ *   empieza a contar. **Un tipo nuevo, `troop_level_up` (1 546: 1 019 al 2, 336
+ *   al 3, 149 al 4 y 42 al 5), ninguno perdido.** `level_up` 771 → **1 878**,
+ *   ahora hasta el nivel 13 (392 al 2 … 1 al 13). **0 hechos imposibles**:
+ *   `game_over` último y único en las 200, todo ascenso pegado a su
+ *   `battle_ended`, ningún veterano ni héroe que salte un nivel, ningún
+ *   `troop_level_up` sin dueño ni fuera de 2..5. 200/200 con ganador, **0 sin
+ *   terminar**. Partidas más cortas: mediana 8 → **6** días, p90 15 → 12, máximo
+ *   35 → 24 —lo pesado es el héroe que crece, no la tropa—; con ellas baja todo
+ *   lo que se cuenta por día (`hero_moved` 25 121 → 21 050, `built` 4 764 →
+ *   3 721). **El ganador se mueve**: j0 100 → **76 de 200**, 76 semillas con
+ *   otro ganador. Publicado y no compensado, como pidió el usuario. Tiempo de
+ *   las 200: **~3,3 s** (3 226, 3 275 y 3 301 ms), desde ~3,4: partidas más
+ *   cortas que pagan la cuenta de la experiencia. `autoResolve` igual (~124 ms).
+ *   La medida entera —individuos por nivel, los que pisan su base en el 5,
+ *   héroes por nivel— la publica `tools/qa/veterania.ts`.
+ * - `3bb44c4b…` (62 531 líneas): **una sola escala de niveles** —todo héroe nace
+ *   en el nivel 5 con los 220 de experiencia del 5, donde acaba la tropa, y sus
+ *   cifras se reindexan para que un 5 tenga lo que antes un 1—, anclado una sola
+ *   vez y en el mismo ciclo que `a6811441…`, que no llegó a commitearse. La
+ *   reindexación sola no mueve nada: con el nivel inicial puesto a 1 sale
+ *   `a6811441…` exacto. Lo que mueve es que subir cuesta más (el primer ascenso
+ *   del héroe pasa de 20 a 160) y que pegarle a un héroe da ×5 o más. Forma del
+ *   diff contra `a6811441…`: **cero semillas idénticas**, y en **las 200** el
+ *   primer hecho distinto del volcado viejo es **un `level_up`** —el ascenso al 2
+ *   que ya no llega—, siempre **después del primer `battle_ended`**. Ningún tipo
+ *   nuevo ni perdido. `level_up` 1 878 → **880**, ahora del 6 al 14 (341 al 6 …
+ *   1 al 14) y ninguno por debajo del 6; `troop_level_up` 1 546 → **2 986**
+ *   (1 783 al 2, 768 al 3, 336 al 4 y 99 al 5): la tropa sube el doble porque
+ *   las partidas duran más. **0 hechos imposibles**: `game_over` último y único,
+ *   cada héroe sube de uno en uno desde el 5, ninguna `troop_level_up` sin dueño
+ *   ni fuera de 2..5. 0 sin terminar. **Partidas más largas**: mediana 6 → **9**
+ *   días, p90 12 → 18, máximo 24 → 35, de vuelta hacia las de `c1da16a0…`
+ *   (8 / 15 / 35). **El ganador vuelve hacia el centro**: j0 76 → **91 de 200**,
+ *   89 semillas con otro ganador. Emboscadas, 0 y 0. Tiempo de las 200: **~4,1 s**
+ *   (4 059, 4 100 y 4 124 ms), desde ~3,3: las partidas son más largas.
+ *   `autoResolve` igual (~123 ms).
+ * - `0c8fc759…` (62 531 líneas, **las mismas**): `troop_level_up` deja de llevar
+ *   `hero` —quién llevaba a la tropa—, que no leía nadie. Re-anclado una vez,
+ *   en la pasada de /simplify del ciclo, y comprobada la forma antes de anclar:
+ *   **2 986 líneas distintas de 62 531, las 2 986 `troop_level_up`** —todas las
+ *   del volcado— y en las 2 986 la única diferencia es el campo `hero` quitado;
+ *   cero líneas `fin` distintas y ningún otro hecho movido. El resto de la
+ *   pasada (una regla de quién se licencia, el nivel en las cifras, una función
+ *   para «catálogo + veteranía», el nivel del héroe derivado de su experiencia…)
+ *   dejó `3bb44c4b…` exacto, comprobado tras cada bloque.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: 'c1da16a04f81da0655b778aeb62c2237ad8aec8da6fb2e63e5b10cab23bad4af',
+  sha: '0c8fc759950dfd95e11c22bdf7ad7ca33b523c47bbaa3cddb6a8cd569544bc45',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

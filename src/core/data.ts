@@ -2,6 +2,8 @@
 import asaltantesJson from '../../data/asaltantes.json' with { type: 'json' };
 import ciudadesJson from '../../data/ciudades.json' with { type: 'json' };
 import creaturesJson from '../../data/creatures.json' with { type: 'json' };
+import experienciaJson from '../../data/experiencia.json' with { type: 'json' };
+import habilidadesJson from '../../data/habilidades.json' with { type: 'json' };
 import heroeJson from '../../data/heroe.json' with { type: 'json' };
 import liderazgoJson from '../../data/liderazgo.json' with { type: 'json' };
 import type { Creature, CreatureTrait, FactionId, SpeedTier, UnitInfo } from './types.js';
@@ -21,6 +23,9 @@ for (const raw of creaturesJson.creatures) {
     damage: [raw.damage[0] as number, raw.damage[1] as number],
     hp: raw.hp,
     speed: raw.speed as SpeedTier,
+    // Quien recibe un golpe de una criatura del catálogo lo recibe con el nivel
+    // de su morada (`UnitInfo.nivel`).
+    nivel: raw.level,
     growth: raw.growth,
     cost: raw.cost,
     ...('shots' in raw ? { shots: raw.shots as number } : {}),
@@ -31,22 +36,22 @@ for (const raw of creaturesJson.creatures) {
   byId.set(creature.id, creature);
 }
 
+/**
+ * Un entero que se puede sumar sin perder bits, y ≥ `desde`. Es la única forma
+ * en que este módulo pregunta «¿es un entero válido?» a lo que lee de un JSON:
+ * los grupos de tropa, las reglas de los asaltantes y las de la experiencia.
+ * `isSafeInteger` y no `isInteger`, por lo mismo que `entorno.ts`: `1e21` es
+ * entero y no se puede sumar.
+ */
+function enteroDesde(v: unknown, desde: number): v is number {
+  return typeof v === 'number' && Number.isSafeInteger(v) && v >= desde;
+}
+
 /** Lanza si el id no existe: un id de criatura inventado es un bug, no un vacío. */
 export function creature(id: string): Creature {
   const found = byId.get(id);
   if (found === undefined) throw new Error(`criatura desconocida: "${id}"`);
   return found;
-}
-
-/**
- * Si estas cifras son las de una criatura del catálogo —la misma referencia,
- * no unas que se le parezcan—. Es como el motor de batalla sabe si un stack
- * trae cifras de catálogo sin volver a buscarlo por su `body`, que es lo que
- * vigila `test/invariantes.test.ts`: `createBattle` guarda la referencia del
- * catálogo tal cual, así que la identidad basta.
- */
-export function esDelCatalogo(u: UnitInfo): u is Creature {
-  return 'id' in u && typeof u.id === 'string' && byId.get(u.id) === u;
 }
 
 export function allCreatures(): readonly Creature[] {
@@ -167,7 +172,7 @@ export function problemasDeGrupo(grupos: readonly GrupoDeTropa[], quien: string)
       );
       continue;
     }
-    if (!Number.isSafeInteger(g.count) || g.count < 1) {
+    if (!enteroDesde(g.count, 1)) {
       problemas.push(
         `${quien} trae ${g.count} × ${g.creature}: son individuos, tiene que ser un entero de 1 en adelante`,
       );
@@ -310,7 +315,7 @@ function reglasDeAsaltantes(): ReglasDeAsaltantes {
     ['liderazgoMax', j.liderazgoMax],
     ['fuerzaMax', j.fuerzaMax],
   ] as const) {
-    if (!Number.isSafeInteger(valor) || valor < 0) {
+    if (!enteroDesde(valor, 0)) {
       throw new Error(`${fichero}: ${campo} tiene que ser un entero ≥ 0 y es ${valor}`);
     }
   }
@@ -336,3 +341,123 @@ function reglasDeAsaltantes(): ReglasDeAsaltantes {
 }
 
 export const ASALTANTES: ReglasDeAsaltantes = reglasDeAsaltantes();
+
+/**
+ * Las reglas de la experiencia, de `data/experiencia.json`. **Regla nuestra y
+ * no del original**, y así lo dice su `_comment`: sustituye a la tabla de
+ * fheroes2. Los umbrales y las cifras los resuelve `hero/experiencia.ts`; esto
+ * solo las lee y las valida.
+ */
+export interface ReglasDeExperiencia {
+  /** Lo que cuesta el primer nivel: subir del n al n+1 cuesta `base × incrementos[n−1]`. */
+  readonly base: number;
+  /** Los primeros incrementos, Fibonacci; más allá se siguen por la recurrencia. */
+  readonly incrementos: readonly number[];
+  /** El tope de la tropa. El héroe no tiene. */
+  readonly nivelMaximoDeTropa: number;
+  /** Lo que suma a ataque y defensa cada nivel de veteranía por encima del 1. */
+  readonly porNivel: { readonly ataque: number; readonly defensa: number };
+  /**
+   * Qué habilidad gana cada criatura en los niveles 2…`nivelMaximoDeTropa`, por
+   * id de criatura. **Inertes**: no hay motor de habilidades todavía.
+   */
+  readonly habilidades: Readonly<Record<string, readonly string[]>>;
+}
+
+/**
+ * Valida unas reglas de experiencia contra el catálogo de habilidades y el de
+ * criaturas, y las devuelve tipadas. **Lanza con todos los problemas a la vez**,
+ * escritos para quien edita el JSON.
+ *
+ * Exportada y con los catálogos de argumento para que un test pueda darle un
+ * JSON roto y verla morder: sin eso, el guardia de nombres solo se probaría con
+ * el fichero bueno, que es probar que no muerde.
+ *
+ * El nombre de una habilidad se compara **exacto** contra el catálogo, que se
+ * sacó del cuaderno con una expresión regular (`tools/datos/habilidades.ts`):
+ * una habilidad escrita de memoria es la forma en que se cuela una inventada.
+ */
+export function validarExperiencia(
+  json: unknown,
+  catalogo: readonly string[],
+  criaturas: readonly string[],
+  fichero = 'data/experiencia.json',
+): ReglasDeExperiencia {
+  const problemas: string[] = [];
+  const j = (json ?? {}) as Record<string, unknown>;
+  if (!enteroDesde(j.base, 1)) problemas.push(`base tiene que ser un entero ≥ 1 y es ${j.base}`);
+  const nivelMax = j.nivelMaximoDeTropa;
+  if (!enteroDesde(nivelMax, 2)) {
+    problemas.push(`nivelMaximoDeTropa tiene que ser un entero ≥ 2 y es ${nivelMax}`);
+  }
+  const inc = j.incrementos;
+  if (!Array.isArray(inc) || inc.length < 2 || !inc.every((x) => enteroDesde(x, 1))) {
+    problemas.push(
+      `incrementos tiene que ser una lista de al menos dos enteros ≥ 1 —los dos primeros siembran la recurrencia— y es ${JSON.stringify(inc)}`,
+    );
+  } else {
+    const n = inc as number[];
+    for (let k = 2; k < n.length; k++) {
+      const [a, b, c] = [n[k - 2] as number, n[k - 1] as number, n[k] as number];
+      if (c !== a + b) {
+        problemas.push(
+          `incrementos no es Fibonacci: el ${k + 1}.º es ${c} y tendría que ser ${b} + ${a} = ${a + b}`,
+        );
+        break;
+      }
+    }
+  }
+  const por = (j.porNivel ?? {}) as Record<string, unknown>;
+  for (const campo of ['ataque', 'defensa'] as const) {
+    if (!enteroDesde(por[campo], 0)) {
+      problemas.push(`porNivel.${campo} tiene que ser un entero ≥ 0 y es ${por[campo]}`);
+    }
+  }
+  const hab = (j.habilidades ?? {}) as Record<string, unknown>;
+  const validas = new Set(catalogo);
+  const cuantas = enteroDesde(nivelMax, 2) ? nivelMax - 1 : null;
+  for (const id of criaturas) {
+    if (!(id in hab)) problemas.push(`habilidades: falta la criatura "${id}"`);
+  }
+  for (const [id, lista] of Object.entries(hab)) {
+    if (!criaturas.includes(id)) {
+      problemas.push(`habilidades: "${id}" no es ninguna criatura del catálogo`);
+      continue;
+    }
+    if (!Array.isArray(lista) || !lista.every((x) => typeof x === 'string')) {
+      problemas.push(`habilidades.${id} tiene que ser una lista de nombres`);
+      continue;
+    }
+    if (cuantas !== null && lista.length !== cuantas) {
+      problemas.push(
+        `habilidades.${id} trae ${lista.length} y son ${cuantas}: una por nivel, del 2 al ${nivelMax}`,
+      );
+    }
+    for (const nombre of lista) {
+      if (!validas.has(nombre)) {
+        problemas.push(
+          `habilidades.${id}: "${nombre}" no está en el catálogo (data/habilidades.json, sacado de NuevaJugabilidad.md)`,
+        );
+      }
+    }
+  }
+  if (problemas.length > 0) throw new Error(`${fichero}: ${problemas.join('; ')}`);
+  return {
+    base: j.base as number,
+    incrementos: [...(inc as number[])],
+    nivelMaximoDeTropa: nivelMax as number,
+    porNivel: { ataque: por.ataque as number, defensa: por.defensa as number },
+    habilidades: hab as Record<string, readonly string[]>,
+  };
+}
+
+/** Los nombres del catálogo de habilidades, en el orden del cuaderno. */
+export const CATALOGO_DE_HABILIDADES: readonly string[] = habilidadesJson.habilidades.map(
+  (h) => h.nombre,
+);
+
+export const EXPERIENCIA: ReglasDeExperiencia = validarExperiencia(
+  experienciaJson,
+  CATALOGO_DE_HABILIDADES,
+  [...byId.keys()],
+);

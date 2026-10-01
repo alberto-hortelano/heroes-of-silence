@@ -1,4 +1,5 @@
-import type { Hex, UnitInfo } from '../types.js';
+import { nivelDeTropa } from '../hero/experiencia.js';
+import type { Hex, UnitInfo, Veterania } from '../types.js';
 import type { EffectKind, StackEffect } from './effects.js';
 
 export type Side = 'attacker' | 'defender';
@@ -30,9 +31,30 @@ export function otroBando(side: Side): Side {
  * heredado en silencio.
  */
 export type OrigenDelStack =
-  | { readonly kind: 'catalogo' }
-  | { readonly kind: 'personaje'; readonly id: string }
+  | {
+      readonly kind: 'catalogo';
+      /**
+       * El oro de catálogo de UN individuo: lo que vale para la rendición. Va
+       * aquí porque `unit` ya no es siempre la referencia del catálogo —la de
+       * un veterano es una copia con sus cifras— y era la referencia la que
+       * traía el precio.
+       */
+      readonly oro: number;
+      /** La hoja con la que ENTRÓ, o `null` si es un novato. La de salida la escribe `settleBattle`. */
+      readonly veterania: Veterania | null;
+    }
+  | { readonly kind: 'personaje'; readonly id: string; readonly veterania: Veterania | null }
   | { readonly kind: 'heroe' };
+
+/** Lo que un stack ha ganado en esta batalla: lo apunta `herir`, lo cobra `settleBattle`. */
+export interface Ganado {
+  /** `PV quitados × nivel del que los recibe`, sumado golpe a golpe. */
+  experiencia: number;
+  /** Individuos enemigos que ha matado. */
+  bajas: number;
+  /** Los nombres de los héroes rivales que ha derribado. */
+  heroes: string[];
+}
 
 /**
  * El personaje de `GameState.characters` que es este stack, o `null`. Con un
@@ -46,6 +68,25 @@ export function personajeDe(origen: OrigenDelStack): string | null {
     case 'catalogo':
     case 'heroe':
       return null;
+  }
+}
+
+/**
+ * El nivel de veteranía con el que entró este stack: 1 para un novato, un
+ * monstruo y el héroe —que no es tropa: su nivel va en sus cifras—. Con un
+ * `switch` que devuelve, como `personajeDe`.
+ *
+ * Tiene tres lectores —los galones de la figura, la fila de «En el campo» y el
+ * `veteranLevel` del agente— y los tres preguntan lo mismo: el nivel, no la
+ * hoja. Antes cada uno sacaba la hoja y la convertía por su cuenta.
+ */
+export function nivelDeVeterania(origen: OrigenDelStack): number {
+  switch (origen.kind) {
+    case 'catalogo':
+    case 'personaje':
+      return nivelDeTropa(origen.veterania);
+    case 'heroe':
+      return 1;
   }
 }
 
@@ -112,6 +153,7 @@ export interface BattleStack {
   luck: number;
   /** Lo temporal: prisa, lentitud, maldición, miedo. Caduca en `beginRound`. */
   effects: StackEffect[];
+  ganado: Ganado;
 }
 
 /**

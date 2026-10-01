@@ -143,6 +143,14 @@ type Cuerpo =
   | { kind: 'hero_returned'; hero: string; town: string; surrendered: true; gold: number }
   | { kind: 'level_up'; hero: string; level: number }
   /**
+   * Un individuo de la tropa sube de nivel de veteranía: uno por nivel, como
+   * `level_up`. `veterano` es su `Veterania.id` —la tropa que se hace héroe
+   * (ciclo B) tiene que poder decir CUÁL—; `actor` es su dueño. No dice quién lo
+   * llevaba: no lo leía nadie, y un campo que nadie lee en cada hecho es volcado
+   * y payload de más.
+   */
+  | { kind: 'troop_level_up'; creature: string; level: number; veterano: string }
+  /**
    * Un jugador queda eliminado, y **por qué**. Sin el motivo, el cliente
    * escribía la regla de antes del mapa de nodos —«no te quedan castillos ni
    * héroes»— con el héroe del derrotado todavía en el mapa (I1 de la 2a): la
@@ -230,6 +238,7 @@ export function visibleTo(e: GameEvent, p: PlayerId): boolean {
     case 'hero_defeated':
     case 'hero_returned':
     case 'level_up':
+    case 'troop_level_up':
     case 'raider_spawned':
     case 'raider_dispersed':
       return e.actor === p || e.seen.includes(p);

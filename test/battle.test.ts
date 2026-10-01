@@ -21,10 +21,10 @@ import {
 } from '../src/core/battle/battle.js';
 import * as board from '../src/core/battle/board.js';
 import {
-  applyDamage,
   computeDamage,
   damageMultiplier,
   effectiveAttack,
+  herir,
   stackHp,
 } from '../src/core/battle/damage.js';
 import {
@@ -40,6 +40,7 @@ import type {
   BattleState,
 } from '../src/core/battle/types.js';
 import { creature } from '../src/core/data.js';
+import { umbral } from '../src/core/hero/experiencia.js';
 import { heroUnit } from '../src/core/hero/hero.js';
 import type { Rng } from '../src/core/rng.js';
 import { createRng } from '../src/core/rng.js';
@@ -69,7 +70,7 @@ vi.mock('../src/core/battle/board.js', async (original) => {
 const side = (
   army: readonly Stack[],
   hero: BattleHero | null = null,
-  cuerpo: UnitInfo = heroUnit({ name: 'Prueba', attack: 0, defense: 0, level: 1 }),
+  cuerpo: UnitInfo = heroUnit({ name: 'Prueba', attack: 0, defense: 0, experience: umbral(5) }),
 ): BattleSide => ({
   army,
   hero: hero === null ? null : { mando: hero, cuerpo },
@@ -95,7 +96,7 @@ function stackOf(id: string, count: number): BattleStack {
     slot: 0,
     body: id,
     unit: creature(id),
-    origen: { kind: 'catalogo' },
+    origen: { kind: 'catalogo', oro: creature(id).cost.gold ?? 0, veterania: null },
     initialCount: count,
     count,
     topHp: creature(id).hp,
@@ -109,6 +110,7 @@ function stackOf(id: string, count: number): BattleStack {
     morale: 0,
     luck: 0,
     effects: [],
+    ganado: { experiencia: 0, bajas: 0, heroes: [] },
   };
 }
 
@@ -131,7 +133,7 @@ describe('aplicación de daño a un stack', () => {
   it('mata efectivos enteros y deja al de arriba herido', () => {
     const s = stackOf('swordsman', 10); // 25 hp cada uno
     expect(stackHp(s)).toBe(250);
-    const killed = applyDamage(s, 60);
+    const killed = herir(s, 60, null);
     expect(killed).toBe(2);
     expect(s.count).toBe(8);
     expect(stackHp(s)).toBe(190);
@@ -139,14 +141,14 @@ describe('aplicación de daño a un stack', () => {
 
   it('un daño menor que un efectivo no mata a nadie', () => {
     const s = stackOf('swordsman', 3);
-    expect(applyDamage(s, 5)).toBe(0);
+    expect(herir(s, 5, null)).toBe(0);
     expect(s.count).toBe(3);
     expect(s.topHp).toBe(20);
   });
 
   it('el exceso de daño no resucita ni deja restos', () => {
     const s = stackOf('peasant', 4);
-    expect(applyDamage(s, 9999)).toBe(4);
+    expect(herir(s, 9999, null)).toBe(4);
     expect(s.count).toBe(0);
     expect(stackHp(s)).toBe(0);
   });
@@ -1438,7 +1440,12 @@ describe('el héroe ya no bonifica a su tropa (fase 1b)', () => {
     // su ataque es el de ese cuerpo, no el de sus piqueros.
     const golpe = (ataqueDelHeroe: number): number => {
       const rng = createRng(90);
-      const cuerpo = heroUnit({ name: 'Prueba', attack: ataqueDelHeroe, defense: 0, level: 1 });
+      const cuerpo = heroUnit({
+        name: 'Prueba',
+        attack: ataqueDelHeroe,
+        defense: 0,
+        experience: umbral(5),
+      });
       const state = createBattle(
         side([{ creature: 'pikeman', count: 1 }], hero(), cuerpo),
         side([{ creature: 'peasant', count: 1 }]),
@@ -1457,7 +1464,7 @@ describe('el héroe ya no bonifica a su tropa (fase 1b)', () => {
     };
     expect(golpe(40)).toBe(golpe(0));
     // Y el cuerpo sí lo lleva: es su propia ficha.
-    expect(heroUnit({ name: 'X', attack: 40, defense: 0, level: 1 }).attack).toBe(40);
+    expect(heroUnit({ name: 'X', attack: 40, defense: 0, experience: umbral(5) }).attack).toBe(40);
   });
 });
 

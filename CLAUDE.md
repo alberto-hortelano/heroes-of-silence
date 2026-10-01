@@ -17,7 +17,7 @@ pnpm test       # 594 tests: reglas, batalla, partida completa y contrato del ag
 pnpm typecheck
 pnpm lint       # Biome: formato y lint en una sola pasada, 40 ms
 pnpm format     # lo mismo, arreglando lo que sepa arreglar
-pnpm banco      # 200 partidas: tiempo y sha256 del volcado, 3,4 s
+pnpm banco      # 200 partidas: tiempo y sha256 del volcado, 4,1 s
 
 npx tsx tools/qa/enfrentamiento.ts   # dos tácticas frente a frente, 5000 batallas, 11,8 s
 pnpm capturas   # juega el cliente en Chromium (Playwright) con clics reales y saca capturas, ~40 s
@@ -139,7 +139,9 @@ assets/generated/  arte generado (lo sirve Vite como estático)
   y nada más»— **la desmintió el espectador**: ya hay una página del cliente que
   habla por WebSocket y **no pasa por `session.ts`**, porque no juega. Tiene su
   propia entrada, `espectador/adaptar.ts`, que es la inversa exacta de la
-  serialización del servidor. La regla que sí aguanta es la de arriba: quien
+  serialización del servidor en todo lo que se pinta: lo que el cable no manda
+  —lo ganado en la batalla en curso y la hoja de servicios de un veterano— vuelve
+  vacío, y lo dice. La regla que sí aguanta es la de arriba: quien
   aplique reglas pasa por `session.ts`; quien solo mira, no aplica ninguna.
 - **Todo el marcado del cliente sale por `html.ts`, y `pintar` es el único
   `innerHTML` del repositorio.** Una plantilla `html` escapa cada hueco **según
@@ -287,9 +289,13 @@ los mismos 2 puntos, y `createBattle` sí guarda el recuento—, y la cobraba so
 atacante que gana, así que **quien defendía y repelía no ganaba nada**: la mitad
 de las batallas del agente desde que defiende. Medido: **65 héroes, 0 llegaban a
 nivel 2**, con la exp pico en una mediana de 68 sobre los 1000 que cuesta. La
-fórmula es ahora la del original —`GetHitPoints() × muertas` sobre el bando que
-pierde, **+500 por héroe rival derrotado**, +500 por asedio— y esos +500 no son
-decoración: sin ellos siguen siendo 0 de 68, con ellos son 40 de 68.
+fórmula pasó a ser la del original —`GetHitPoints() × muertas` sobre el bando que
+pierde, **+500 por héroe rival derrotado**, +500 por asedio— y esos +500 no eran
+decoración: sin ellos seguían siendo 0 de 68, con ellos 40 de 68.
+
+**Esa fórmula ya no es la vigente**: la sustituyó la experiencia por daño de «La
+tropa crece», más abajo, que es **regla nuestra y no del original**. Lo de aquí es
+historia, y se queda por la lección.
 
 **Y el gremio de magia se construía en 1 partida de 40.** El ciclo entero de «la
 magia, de punta a punta» —el de aquí abajo— estaba escrito, probado, documentado
@@ -329,13 +335,14 @@ nombre del test y a este documento.
 
 **Una cita falsa a la fuente es peor que una cifra declaradamente inventada**: la
 inventada avisa de que hay que verificarla; la citada hace bajar la guardia de
-quien la lea después. Ahora la tabla se extrae del fichero **con una expresión
-regular, sin transcribir a mano** —que es la parte que falla—, y el test no ancla
-lo que haya: comprueba **26 filas contra la regla que el propio original publica
+quien la lea después. Aquella tabla se extrajo del fichero **con una expresión
+regular, sin transcribir a mano** —que es la parte que falla—, y el test no anclaba
+lo que hubiera: comprobaba **26 filas contra la regla que el propio original publica
 dos líneas más abajo**, que las diferencias crecen ×1,2 redondeado a centenas. Esa
 propiedad es lo único que no depende de que nadie teclee bien, y una tabla
-alucinada no la tiene. Comprobado aparte al aceptarla: 19 de 19 filas seguidas la
-cumplen, y la extrapolación del original **multiplica, no suma**.
+alucinada no la tiene. La tabla y su test se retiraron con «La tropa crece»; la
+lección se quedó, y el catálogo de habilidades de ese ciclo se sacó del cuaderno
+igual: con una expresión regular.
 
 **Y arreglar los dos volcó el ganador**, que estaba previsto y aprobado antes de
 implementar: con control de esquina el caballero pasa de **78,5 % a 16,25 %**.
@@ -343,6 +350,112 @@ implementar: con control de esquina el caballero pasa de **78,5 % a 16,25 %**.
 entero del gremio— y no se compensa aquí: la reparación con fuente es
 **Nigromancia**, que es lo que en el original pone el otro platillo. Lo mismo que
 se decidió cuando el desequilibrio iba en la dirección contraria.
+
+## La tropa crece: la experiencia es regla nuestra
+
+**La experiencia de hoy no viene de HoMM2 y no se cita como suya.** La pidió el
+usuario en `NuevaJugabilidad.md` («Experiencia») y sustituye entera a la de
+fheroes2 —bajas en PV del perdedor, +500 por héroe y por asedio, la tabla de 40
+filas—:
+
+- **Se gana por daño**: quien quita PV a un enemigo cobra `PV quitados × nivel
+  del que los recibe`, **gane o pierda**. Lo quitado y no lo tirado: un golpe de 7
+  sobre un piquero con 5 PV cobra 5 × 3. La salpicadura sobre los tuyos no
+  cuenta. Un hechizo lo cobra el cuerpo del héroe que lo lanza.
+- **El nivel de quien recibe**: una criatura, su nivel de catálogo + veteranía − 1;
+  un personaje, su `level` + veteranía − 1; un héroe, su nivel, que es 5 o más.
+  **Vive en las cifras** (`UnitInfo.nivel`): lo ponen los tres constructores y
+  `cifrasVeteranas` le suma la veteranía como suma ataque y defensa. Antes eran
+  cuatro campos `nivel` repartidos por el stack, el héroe, el personaje y la
+  entrada del motor, que cada camino rellenaba a mano.
+- **Una tabla, en datos** (`data/experiencia.json`): subir del nivel n al n+1
+  cuesta `base × incrementos[n−1]`, con incrementos de Fibonacci —`data.ts`
+  lanza si no lo son— y base 20: **20, 60, 120, 220** para los niveles 2-5. Más
+  allá de la lista sigue la recurrencia, solo con sumas de enteros: la tabla se
+  corta donde deja de caber en un entero seguro, así que el banco sigue valiendo
+  fuera de esta máquina.
+- **Una sola escala de niveles: la tropa va del 1 al 5 y todo héroe EMPIEZA en el
+  5** —el inicial, el contratado y el veterano que se haga héroe (ciclo B)— con
+  los 220 de experiencia del 5, y sube sin tope por la misma tabla (6, 7, 8…).
+  Decisiones del usuario, en dos tiempos: primero «el tope de 5 es solo de la
+  tropa», y al medir que con la escala aparte el héroe llegaba al 5 tras una sola
+  guardia, «si la tropa pasa a héroe con nivel 5, la base de héroe debería ser
+  5». Cada nivel de tropa suma +1/+1 de ataque y defensa, provisional; lo que da
+  el nivel de un héroe vive donde ya vivía, en `data/heroe.json` y
+  `data/liderazgo.json`, **reindexado**: un héroe de nivel 5 tiene lo que antes
+  uno de nivel 1. La reindexación vive en **una** función, `subidasDeHeroe`
+  (`hero/experiencia.ts`), que leen el cuerpo y el liderazgo y que **lanza** con
+  un héroe por debajo del 5 —un `level − 1` olvidado le regalaría cuatro niveles
+  en silencio—. Y el 5 inicial **se deriva** del tope de la tropa en vez de
+  escribirse al lado: son la misma frontera vista desde los dos lados.
+- **El héroe no guarda su nivel: lo deriva de su experiencia** (`nivelDeHeroe`),
+  igual que la tropa lo deriva de su hoja. `Hero.level` era el mismo hecho
+  escrito dos veces, con un bucle que los resincronizaba y una pareja de
+  constantes —nivel y experiencia iniciales— que cuadrar en cada sitio que crea
+  un héroe. Ahora nace con 220 y el 5 sale de ahí.
+- **Cada nivel de tropa trae una habilidad en datos, inerte**: no tiene efecto
+  hasta que exista el motor de habilidades. Los nombres se comprueban al cargar
+  contra `data/habilidades.json`, que **se saca de `NuevaJugabilidad.md` con una
+  expresión regular** (`tools/datos/habilidades.ts`) y no se teclea: el cuaderno
+  no se commitea y el JSON sí, que es lo que CI puede leer.
+
+**La experiencia vive en el individuo** (`Troop.veterania`), y eso es lo que la
+hace sobrevivir sin que nadie se acuerde: es el mismo objeto el que va del héroe a
+la guarnición, al recoger tropa o al rendirse, y si muere se pierde con él. Lleva
+un `id` de un contador del estado, que es lo que necesitará la tropa que se hace
+héroe (el ciclo B). El nivel **no se guarda**: se deriva de la experiencia. El
+motor sigue sabiendo jugar stacks de N, pero **lanza** si uno con hoja de servicios
+trae `count ≠ 1`: la experiencia es de un individuo y no se reparte. Esa es la
+única comprobación, a la entrada de `createBattle`: un bando con dueño se monta
+siempre con `troopsAsStacks`, que da stacks de 1.
+
+Tres puertas únicas que conviene no saltarse:
+
+- **`herir` (`battle/damage.ts`) es la única forma de quitar vida**, y
+  `applyDamage` **no se exporta**: un quinto sitio que hiriera por su cuenta haría
+  daño gratis sin que nada se pusiera rojo. Lo vigilaba un guardia de texto; ahora
+  lo impide el módulo, y eso lo comprueba `tsc`.
+- **`cifrasDeCatalogo` es la única regla de «cifras = catálogo + veteranía»**
+  (`cifrasVeteranas` es la suma por nivel que hay debajo), y tiene tres lectores:
+  `troopUnit`, `resolveUnit` y la inversa del cable del espectador, con un test
+  que pone en contacto a las dos primeras. En el nivel 1 devuelve la **misma
+  referencia** del catálogo, así que un novato sigue siendo idéntico; las cifras
+  de un veterano se recuerdan **por su hoja**, que es inmutable, y `armyPower`
+  dejó de fabricar una copia por veterano en cada pregunta. El precio de rendirse
+  viaja en el origen del stack (`origen.oro`) porque la referencia ya no lo
+  garantiza. El guardia del catálogo mira las dos llamadas, `creature(` y
+  `cifrasDeCatalogo(`, y la excepción del cable es para la segunda.
+- **`elQueSeIria` (`hero/troop.ts`) dice a quién se licencia**: de cada tipo, el
+  de menos experiencia y, a igualdad, el último en llegar. La aplican la acción
+  (`sinIndividuos`), la IA que planea licenciar y el botón del panel, que va solo
+  en la fila de quien se iría. Estaba escrita tres veces. El contrato del agente
+  no cambió («licencia dos piqueros»), el veterano no se va mientras quede un
+  novato de su tipo, y la IA ordena por veteranía antes que por oro.
+
+Medido con el código final (`tools/qa/veterania.ts`, 1 000 partidas, 02-10-2026,
+**con la escala única**): **individuos que llegan a cada nivel por partida 9,35 /
+3,88 / 1,69 / 0,51** (2, 3, 4 y 5), 207 de 1 000 partidas con algún 5, y **solo 59
+veteranos de nivel 5 pisan vivos su base en 1 000 partidas** (en 43 de ellas) —el
+dato que pide el ciclo B, y sigue siendo poco: 0,06 por partida—. Los héroes suben
+4,31 niveles por partida y llegan al 15; al final, de los vivos, 301 siguen en el
+5, 541 en el 6 y 371 en el 7. Duración mediana **9** días, p90 17, máximo 54, 0
+sin terminar; **el caballero (j0) gana 484 de 1 000**.
+
+Con la escala aparte —el héroe empezando en el 1, que fue lo primero que se
+midió— eran 5,51 / 1,94 / 0,82 / 0,23, 116 partidas con algún 5, **21** veteranos
+de 5 en su base, 9,62 subidas de héroe hasta el 14, mediana **6** días y j0 **360
+de 1 000**. Lo que movió el equilibrio era la experiencia del héroe y no la de la
+tropa —el prototipo del arquitecto, con +0/+0 por nivel de tropa, daba 78 de 200
+frente a 77—, y por eso la escala única lo devuelve casi al centro sin haberlo
+buscado: subir del 5 al 6 cuesta 160 donde subir del 1 al 2 costaba 20. La tropa
+sube más porque las partidas duran más, no porque cueste menos. No se ha
+compensado nada.
+
+Y una trampa de medida que conviene no repetir: el prototipo contaba **12,3 / 4,3
+/ 2,0 / 0,6** individuos por nivel, y no porque la regla fuera otra —con la sonda
+de contar igual que él, el código final da 12,32 / 4,34 / 1,99 / 0,59—, sino
+porque contaba también **a los que suben y mueren en la misma batalla y a los
+neutrales**, que no se llevan nada. Lo que llega es lo que sobrevive con dueño.
 
 ## El agente como modelo
 
@@ -1050,11 +1163,12 @@ aplica `game.ts`, que es el único que llama a `emit`.
   (corrección del usuario al plan: «No, también en casa»).
 - **El techo de fuerza está en datos y lo vigila un test**: un grupo más fuerte
   de lo que un héroe llega a llevar es un **muro eterno** —en el prototipo, 7
-  vampiros contra héroes de nivel 2 dejaban 110–134 partidas de 1 000 sin
+  vampiros contra héroes de nivel 2 —el 6 en la escala única de hoy— dejaban 110–134 partidas de 1 000 sin
   terminar—. `data/asaltantes.json` lleva `liderazgoMax` y `fuerzaMax`, y el
   cargador comprueba cada composición. El test **no** lo mide contra un héroe
   ideal, que es lo que hacía al principio (526 a fuerza bruta): lo mide contra lo
-  que alcanza de verdad un héroe de nivel 1 que **espera en su base** con el cupo
+  que alcanza de verdad un héroe recién hecho —nivel 5, el 1 de antes de la
+  escala única— que **espera en su base** con el cupo
   lleno de lo más barato mientras la IA construye, licencia y recluta. Aquel 526
   era cierto solo si el héroe podía cambiar su tropa, y hasta licenciar no podía.
   El plan del agente pasa por la misma comprobación (`problemasDeAsaltante`).
@@ -1384,7 +1498,7 @@ aportan en un prototipo. Lo que hay:
 | `pnpm qa` | 3,1 s | si tocas `src/server/` o el contrato |
 | `pnpm capturas` | ~40 s | si el cambio se ve: juega el cliente y el espectador en Chromium y sale 1 con un error en consola |
 | `npx tsx tools/qa/barrido-semillas.ts` | 1,1 s | si tocas la IA o la economía |
-| `pnpm banco` | 3,4 s | si tocas el núcleo sin querer cambiar el juego |
+| `pnpm banco` | 4,1 s | si tocas el núcleo sin querer cambiar el juego |
 | `tools/qa/enfrentamiento.ts` | 11,8 s | si cambias **cómo decide** la IA de batalla |
 | CI (`.github/workflows/ci.yml`) | ~1 min | en cada push y cada PR |
 
@@ -1527,7 +1641,8 @@ todo `core` estaba en `experienceForLevel` —la curva de experiencia—, y solo
 seguía siendo cierta porque **nadie llamaba a esa función**. El ciclo de #87 iba a
 llamarla, y con eso la promesa se rompía en silencio y en la función más fácil de
 no mirar. Se cambió la curva por la tabla de 40 filas del original y se escribió
-el guardia. Va con **lista blanca** de lo permitido y no con lista negra —al revés
+el guardia. (La tabla se fue después con «La tropa crece»: los umbrales de hoy son
+Fibonacci y solo suman enteros. El guardia sigue igual.) Va con **lista blanca** de lo permitido y no con lista negra —al revés
 que el de rutas absolutas, y por el mismo razonamiento: aquí lo cerrado y
 publicado es *lo que vale*, así que una lista negra sería la que fallara en
 silencio ante el siguiente `Math.fround`—. Y borra los comentarios antes de

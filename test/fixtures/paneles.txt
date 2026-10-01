@@ -2,7 +2,7 @@
 <li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>9000</li>
 ### aventura · renderSide
 
-        <p class="eyebrow">HÉROE · NIVEL 1</p>
+        <p class="eyebrow">HÉROE · NIVEL 5</p>
         <h2>Aldo de Valdeluz</h2>
         <div class="row"><span class="label">Liderazgo</span><span>12 / 20</span></div>
     <progress class="liderazgo" max="20" value="12"></progress>
@@ -10,7 +10,7 @@
         <div class="row"><span class="label">Maná</span><span>20 / 20</span></div>
         <div class="row"><span class="label">Ataque / Defensa</span><span>2 / 2</span></div>
         <div class="row"><span class="label">Poder / Conocimiento</span><span>1 / 2</span></div>
-        <div class="row"><span class="label">Experiencia</span><span>0</span></div>
+        <div class="row"><span class="label">Experiencia</span><span>220 / 380</span></div>
         <h3>Hechizos</h3>
         <div class="stack-list"><div class="stack"><span>Flecha mágica</span><span class="count">3</span></div></div>
         <h3>Tropa · 5 individuos</h3>
@@ -50,7 +50,7 @@
           <div class="row"><span class="label">Liderazgo</span><span>14 / 20</span></div>
     <progress class="liderazgo" max="20" value="14"></progress>
           <p class="cost">Lo que reclutes va a su tropa, hasta su liderazgo. Licencia lo que sobre para hacer sitio a algo mejor.</p>
-          <div class="stack-list"><div class="stack"><span>Campesino</span><span class="count">4 <button data-action="dismiss" data-hero="hero-0" data-creature="peasant" title="Licenciar uno">−1</button></span></div><div class="stack"><span>Arquero ↑</span><span class="count">2 <button data-action="dismiss" data-hero="hero-0" data-creature="archer" title="Licenciar uno">−1</button></span></div></div>
+          <div class="stack-list"><div class="stack"><span>Campesino</span><span class="count">4 <button data-action="dismiss" data-hero="hero-0" data-creature="peasant" title="Licenciar uno: de cada tipo se va primero el de menos experiencia">−1</button></span></div><div class="stack"><span>Arquero ↑</span><span class="count">2 <button data-action="dismiss" data-hero="hero-0" data-creature="archer" title="Licenciar uno: de cada tipo se va primero el de menos experiencia">−1</button></span></div></div>
 ### castillo · con héroe dentro y gremio · renderActions
 <button data-action="close-town">Volver al mapa</button>
 ### castillo · con héroe dentro y gremio · renderLog
@@ -84,7 +84,7 @@
 <li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>5500</li>
 ### aventura · héroe recién contratado · renderSide
 
-        <p class="eyebrow">HÉROE · NIVEL 1</p>
+        <p class="eyebrow">HÉROE · NIVEL 5</p>
         <h2>Capitán de Valdeluz</h2>
         <div class="row"><span class="label">Liderazgo</span><span>16 / 20</span></div>
     <progress class="liderazgo" max="20" value="16"></progress>
@@ -92,7 +92,7 @@
         <div class="row"><span class="label">Maná</span><span>10 / 10</span></div>
         <div class="row"><span class="label">Ataque / Defensa</span><span>1 / 1</span></div>
         <div class="row"><span class="label">Poder / Conocimiento</span><span>1 / 1</span></div>
-        <div class="row"><span class="label">Experiencia</span><span>0</span></div>
+        <div class="row"><span class="label">Experiencia</span><span>220 / 380</span></div>
         <h3>Hechizos</h3>
         <div class="stack-list"><div class="stack empty">Sin hechizos: llévalo a un castillo con gremio</div></div>
         <h3>Tropa · 6 individuos</h3>
@@ -197,44 +197,46 @@
 ### batalla · terminada · renderLog
 <div class="log"><div>— Día 1 —</div></div>
 ### partida terminada · renderTopbar.resources
-<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>0</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>0</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>1047</li>
+<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>0</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>0</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>20</li>
 ### partida terminada · renderSide
-<div class="fin ganada">
+<div class="fin perdida">
     <p class="eyebrow">FIN DE LA PARTIDA</p>
-    <h2>Partida ganada</h2>
-    <p>Has tomado la base rival: sin ella, el rival queda eliminado.</p>
+    <h2>Partida perdida</h2>
+    <p>Has perdido tu base: sin ella quedas eliminado, aunque te queden héroes o ciudades.</p>
   </div>
-        <p class="eyebrow">HÉROE · NIVEL 3</p>
+        <p class="eyebrow">HÉROE · NIVEL 5</p>
         <h2>Aldo de Valdeluz</h2>
-        <div class="row"><span class="label">Liderazgo</span><span>24 / 30</span></div>
-    <progress class="liderazgo" max="30" value="24"></progress>
-        <div class="row"><span class="label">Movimiento</span><span>340 / 1100</span></div>
-        <div class="row"><span class="label">Maná</span><span>0 / 20</span></div>
+        <div class="row"><span class="label">Liderazgo</span><span>18 / 20</span></div>
+    <progress class="liderazgo" max="20" value="18"></progress>
+        <div class="row"><span class="label">Movimiento</span><span>40 / 1100</span></div>
+        <div class="row"><span class="label">Maná</span><span>20 / 20</span></div>
         <div class="row"><span class="label">Ataque / Defensa</span><span>2 / 2</span></div>
         <div class="row"><span class="label">Poder / Conocimiento</span><span>1 / 2</span></div>
-        <div class="row"><span class="label">Experiencia</span><span>2688</span></div>
+        <div class="row"><span class="label">Experiencia</span><span>346 / 380</span></div>
         <h3>Hechizos</h3>
-        <div class="stack-list"><div class="stack"><span>Flecha mágica</span><span class="count">3</span></div></div>
+        <div class="stack-list"><div class="stack"><span>Flecha mágica</span><span class="count">3</span></div><div class="stack"><span>Prisa</span><span class="count">3</span></div><div class="stack"><span>Lentitud</span><span class="count">3</span></div></div>
         <h3>Tropa · 6 individuos</h3>
-        <div class="stack-list"><div class="stack"><span>Campesino</span><span class="count">1</span></div><div class="stack"><span>Arquero ↑</span><span class="count">2</span></div><div class="stack"><span>Piquero</span><span class="count">1</span></div><div class="stack"><span>Espadachín</span><span class="count">2</span></div></div><h3>Castillos</h3><div class="stack-list"><button data-action="open-town" data-town="town-0" class="stack">
-              <span>Valdeluz</span><span class="count">+500</span>
-            </button><button data-action="open-town" data-town="town-1" class="stack">
-              <span>Cripta Gris</span><span class="count">+1000</span>
-            </button><button data-action="open-town" data-town="town-2" class="stack">
+        <div class="stack-list"><div class="stack"><span>Arquero ↑<span class="veterania">Veterano · nivel 2 · 42 / 60 exp</span></span><span class="count">1</span></div><div class="stack"><span>Arquero ↑<span class="veterania">Veterano · nivel 2 · 36 / 60 exp</span></span><span class="count">1</span></div><div class="stack"><span>Arquero ↑<span class="veterania">Veterano · nivel 2 · 21 / 60 exp</span></span><span class="count">1</span></div><div class="stack"><span>Arquero ↑<span class="veterania">Nivel 1 · 12 / 20 exp</span></span><span class="count">1</span></div><div class="stack"><span>Arquero ↑<span class="veterania">Nivel 1 · 10 / 20 exp</span></span><span class="count">1</span></div><div class="stack"><span>Arquero ↑<span class="veterania">Nivel 1 · 12 / 20 exp</span></span><span class="count">1</span></div></div><h3>Castillos</h3><div class="stack-list"><button data-action="open-town" data-town="town-2" class="stack">
               <span>Torreblanca</span><span class="count">+500</span>
+            </button><button data-action="open-town" data-town="town-3" class="stack">
+              <span>Puenteroto</span><span class="count">+500</span>
             </button><button data-action="open-town" data-town="town-4" class="stack">
               <span>Alcázar Hondo</span><span class="count">+500</span>
+            </button><button data-action="open-town" data-town="town-5" class="stack">
+              <span>Peñagrís</span><span class="count">+500</span>
+            </button><button data-action="open-town" data-town="town-7" class="stack">
+              <span>Fuenteseca</span><span class="count">+500</span>
             </button></div>
-    <h3>Crónica</h3><div class="log"><div class="win">+1137 oro</div><div>El jugador 1 construye: Taberna</div><div>El jugador 1 construye: Casa consistorial</div><div class="lose">El jugador 1 te ha capturado un castillo</div><div>— Día 7 —</div><div class="win">Reclutados 2 × Espadachín</div><div class="win">Reclutados 1 × Piquero</div><div class="win">Reclutados 2 × Piquero</div><div class="win">Paso tomado</div><div>El jugador 1 construye: Mejora de nivel 3</div><div>El jugador 1 construye: Morada de nivel 2</div><div>El jugador 1 construye: Taberna</div><div>El jugador 1 recluta 1 × Momia real</div><div>El jugador 1 recluta 1 × Zombi mutante</div><div>El jugador 1 recluta 1 × Campesino</div><div class="lose">El jugador 1 te ha quitado un paso</div><div class="lose">El jugador 1 te ha quitado un paso</div><div>— Día 8 —</div><div class="win">Paso tomado</div><div>Batalla resuelta</div><div class="win">Has capturado un castillo del jugador 1</div><div class="win">Fin de la partida</div></div>
+    <h3>Crónica</h3><div class="log"><div>Batalla resuelta</div><div class="win">Has capturado un castillo del jugador 1</div><div class="win">Aprendido: Prisa, Lentitud</div><div>El jugador 1 construye: Gremio de magia II</div><div>Batalla resuelta</div><div>El jugador 1 captura un castillo neutral</div><div>— Día 6 —</div><div class="win">Reclutados 2 × Piquero</div><div class="win">Reclutados 5 × Campesino</div><div>Batalla resuelta</div><div class="win">Un Arquero tuyo sube a veterano de nivel 2</div><div class="win">Has capturado un castillo del jugador 1</div><div>El jugador 1 construye: Morada de nivel 2</div><div>El jugador 1 toma un paso</div><div>— Día 7 —</div><div class="win">Reclutados 2 × Campesino</div><div class="win">Reclutados 3 × Zombi</div><div>El jugador 1 recluta 6 × Arquero</div><div>El jugador 1 recluta 1 × Campesino</div><div>Batalla resuelta</div><div>Un héroe del jugador 1 sube a nivel 6</div><div class="lose">El jugador 1 te ha capturado un castillo</div><div class="lose">Fin de la partida</div></div>
 ### partida terminada · renderActions
 <button data-action="restart" class="primary">Partida nueva</button>
 ### partida terminada · renderLog
-<div class="log"><div class="win">+1137 oro</div><div>El jugador 1 construye: Taberna</div><div>El jugador 1 construye: Casa consistorial</div><div class="lose">El jugador 1 te ha capturado un castillo</div><div>— Día 7 —</div><div class="win">Reclutados 2 × Espadachín</div><div class="win">Reclutados 1 × Piquero</div><div class="win">Reclutados 2 × Piquero</div><div class="win">Paso tomado</div><div>El jugador 1 construye: Mejora de nivel 3</div><div>El jugador 1 construye: Morada de nivel 2</div><div>El jugador 1 construye: Taberna</div><div>El jugador 1 recluta 1 × Momia real</div><div>El jugador 1 recluta 1 × Zombi mutante</div><div>El jugador 1 recluta 1 × Campesino</div><div class="lose">El jugador 1 te ha quitado un paso</div><div class="lose">El jugador 1 te ha quitado un paso</div><div>— Día 8 —</div><div class="win">Paso tomado</div><div>Batalla resuelta</div><div class="win">Has capturado un castillo del jugador 1</div><div class="win">Fin de la partida</div></div>
+<div class="log"><div>Batalla resuelta</div><div class="win">Has capturado un castillo del jugador 1</div><div class="win">Aprendido: Prisa, Lentitud</div><div>El jugador 1 construye: Gremio de magia II</div><div>Batalla resuelta</div><div>El jugador 1 captura un castillo neutral</div><div>— Día 6 —</div><div class="win">Reclutados 2 × Piquero</div><div class="win">Reclutados 5 × Campesino</div><div>Batalla resuelta</div><div class="win">Un Arquero tuyo sube a veterano de nivel 2</div><div class="win">Has capturado un castillo del jugador 1</div><div>El jugador 1 construye: Morada de nivel 2</div><div>El jugador 1 toma un paso</div><div>— Día 7 —</div><div class="win">Reclutados 2 × Campesino</div><div class="win">Reclutados 3 × Zombi</div><div>El jugador 1 recluta 6 × Arquero</div><div>El jugador 1 recluta 1 × Campesino</div><div>Batalla resuelta</div><div>Un héroe del jugador 1 sube a nivel 6</div><div class="lose">El jugador 1 te ha capturado un castillo</div><div class="lose">Fin de la partida</div></div>
 ### aventura · turno del rival · renderTopbar.resources
 <li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>8000</li>
 ### aventura · turno del rival · renderSide
 
-        <p class="eyebrow">HÉROE · NIVEL 1</p>
+        <p class="eyebrow">HÉROE · NIVEL 5</p>
         <h2>Aldo de Valdeluz</h2>
         <div class="row"><span class="label">Liderazgo</span><span>12 / 20</span></div>
     <progress class="liderazgo" max="20" value="12"></progress>
@@ -242,7 +244,7 @@
         <div class="row"><span class="label">Maná</span><span>20 / 20</span></div>
         <div class="row"><span class="label">Ataque / Defensa</span><span>2 / 2</span></div>
         <div class="row"><span class="label">Poder / Conocimiento</span><span>1 / 2</span></div>
-        <div class="row"><span class="label">Experiencia</span><span>0</span></div>
+        <div class="row"><span class="label">Experiencia</span><span>220 / 380</span></div>
         <h3>Hechizos</h3>
         <div class="stack-list"><div class="stack"><span>Flecha mágica</span><span class="count">3</span></div></div>
         <h3>Tropa · 5 individuos</h3>
@@ -618,5 +620,80 @@
 <button data-action="auto-battle">Resolver sola</button>
 ### batalla · héroe sin libro · renderLog
 <div class="log"><div>— Día 1 —</div></div>
+### castillo · con veteranos · renderTopbar.resources
+<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>8000</li>
+### castillo · con veteranos · renderSide
+
+    <h2>Valdeluz</h2>
+    <div class="row"><span class="label">Ingresos</span><span>500 oro/día</span></div>
+    <div class="row"><span class="label">Gremio de magia</span><span>—</span></div>
+    <p class="cost">Sin gremio: construye uno para que tus héroes aprendan magia aquí.</p>
+    <div class="row"><span class="label">Construir hoy</span><span>disponible</span></div>
+    <p class="cost">Pulsa un solar para levantarlo y la franja de abajo para reclutar.</p>
+
+    <h3>Crecimiento semanal</h3>
+    <div class="stack-list"><div class="stack"><span>Campesino</span><span class="count">+12</span></div></div>
+
+    <h3>Guarnición</h3>
+    <div class="row"><span class="label">Liderazgo</span><span>18 / 20</span></div>
+    <progress class="liderazgo" max="20" value="18"></progress>
+    <div class="stack-list"><div class="stack"><span>Campesino</span><span class="count">2</span></div><div class="stack"><span>Arquero ↑</span><span class="count">2</span></div><div class="stack"><span>Piquero</span><span class="count">2</span></div></div>
+
+    <h3>Tropa de Aldo de Valdeluz</h3>
+          <div class="row"><span class="label">Liderazgo</span><span>15 / 20</span></div>
+    <progress class="liderazgo" max="20" value="15"></progress>
+          <p class="cost">Lo que reclutes va a su tropa, hasta su liderazgo. Licencia lo que sobre para hacer sitio a algo mejor.</p>
+          <div class="stack-list"><div class="stack"><span>Campesino</span><span class="count">1 <button data-action="dismiss" data-hero="hero-0" data-creature="peasant" title="Licenciar uno: de cada tipo se va primero el de menos experiencia">−1</button></span></div><div class="stack"><span>Piquero<span class="veterania">Veterano · nivel 3 · 70 / 120 exp</span></span><span class="count">1</span></div><div class="stack"><span>Piquero</span><span class="count">1 <button data-action="dismiss" data-hero="hero-0" data-creature="pikeman" title="Licenciar uno: de cada tipo se va primero el de menos experiencia">−1</button></span></div><div class="stack"><span>Arquero ↑<span class="veterania">Veterano · nivel 5 · 400 exp · nivel máximo</span></span><span class="count">1 <button data-action="dismiss" data-hero="hero-0" data-creature="archer" title="Licenciar uno: de cada tipo se va primero el de menos experiencia">−1</button></span></div><div class="stack"><span>Campesino<span class="veterania">Nivel 1 · 12 / 20 exp</span></span><span class="count">1</span></div></div>
+### castillo · con veteranos · renderActions
+<button data-action="close-town">Volver al mapa</button>
+### castillo · con veteranos · renderLog
+<div class="log"><div>— Día 1 —</div><div class="win">Guarnición incorporada</div></div>
+### batalla · con un veterano · renderTopbar.resources
+<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>8000</li>
+### batalla · con un veterano · renderSide
+<h2>Esqueleto</h2>
+        <div class="row"><span class="label">Bando</span><span>Enemigo</span></div>
+        <div class="row"><span class="label">Efectivos</span><span>1</span></div>
+        <div class="row"><span class="label">Moral / Suerte</span><span>0 / 0</span></div>
+        
+    <div class="row"><span class="label">Ronda</span><span>1</span></div>
+    <div class="row"><span class="label">Maná</span><span>20 / 20</span></div>
+    <p>Turno del enemigo…</p>
+    <h3>En el campo</h3><div class="stack-list"><div class="stack">
+          <span>◀ Esqueleto</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>◀ Esqueleto</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>◀ Esqueleto</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>◀ Esqueleto</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>◀ Zombi</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>◀ Zombi</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>◀ ♛ Serena la Pálida</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>▶ Piquero · nivel 3</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>▶ Campesino</span>
+          <span class="count">1</span>
+        </div><div class="stack empty">
+          <span>▶ ♛ Aldo de Valdeluz</span>
+          <span class="count">1</span>
+        </div></div>
+    <h3>Parte de guerra</h3><div class="log"><div>— Ronda 1 —</div></div>
+### batalla · con un veterano · renderActions
+<button data-action="auto-battle">Resolver sola</button>
+### batalla · con un veterano · renderLog
+<div class="log"><div>— Día 1 —</div></div>
 ### crónica completa · renderLog
-<div class="log"><div>— Día 4 —</div><div class="win">+2 madera</div><div class="win">Paso tomado</div><div class="win">Paso tomado al jugador 1</div><div class="lose">El jugador 1 te ha quitado un paso</div><div>El jugador 1 toma un paso</div><div class="win">Has capturado un castillo neutral</div><div class="win">Has capturado un castillo del jugador 1</div><div class="lose">El jugador 1 te ha capturado un castillo</div><div>El jugador 1 captura un castillo neutral</div><div class="win">Construido: Casa consistorial</div><div>El jugador 1 construye: Gremio de magia I</div><div class="win">Reclutados 12 × Campesino</div><div>El jugador 1 recluta 8 × Esqueleto</div><div class="win">Héroe contratado</div><div>El jugador 1 contrata un héroe</div><div class="win">Guarnición incorporada</div><div>El jugador 1 incorpora una guarnición</div><div class="win">Aprendido: Prisa, Lentitud</div><div>El jugador 1 aprende: Flecha mágica</div><div>Batalla resuelta</div><div class="lose">Un héroe tuyo ha caído</div><div class="win">Ha caído un héroe del jugador 1</div><div class="lose">Un héroe tuyo vuelve a la base</div><div class="win">Un héroe del jugador 1 vuelve a su base tras rendirse por 190 de oro</div><div class="win">Un héroe tuyo sube a nivel 2</div><div>Un héroe del jugador 1 sube a nivel 3</div><div class="win">Fin de la partida</div></div>
+<div class="log"><div>— Día 4 —</div><div class="win">+2 madera</div><div class="win">Paso tomado</div><div class="win">Paso tomado al jugador 1</div><div class="lose">El jugador 1 te ha quitado un paso</div><div>El jugador 1 toma un paso</div><div class="win">Has capturado un castillo neutral</div><div class="win">Has capturado un castillo del jugador 1</div><div class="lose">El jugador 1 te ha capturado un castillo</div><div>El jugador 1 captura un castillo neutral</div><div class="win">Construido: Casa consistorial</div><div>El jugador 1 construye: Gremio de magia I</div><div class="win">Reclutados 12 × Campesino</div><div>El jugador 1 recluta 8 × Esqueleto</div><div class="win">Héroe contratado</div><div>El jugador 1 contrata un héroe</div><div class="win">Guarnición incorporada</div><div>El jugador 1 incorpora una guarnición</div><div class="win">Aprendido: Prisa, Lentitud</div><div>El jugador 1 aprende: Flecha mágica</div><div>Batalla resuelta</div><div class="lose">Un héroe tuyo ha caído</div><div class="win">Ha caído un héroe del jugador 1</div><div class="lose">Un héroe tuyo vuelve a la base</div><div class="win">Un héroe del jugador 1 vuelve a su base tras rendirse por 190 de oro</div><div class="win">Un héroe tuyo sube a nivel 6</div><div>Un héroe del jugador 1 sube a nivel 7</div><div class="win">Un Piquero tuyo sube a veterano de nivel 2</div><div>Un Esqueleto del jugador 1 sube a veterano de nivel 4</div><div class="win">Fin de la partida</div></div>

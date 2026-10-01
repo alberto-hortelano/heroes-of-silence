@@ -6,15 +6,8 @@
  * pueden disparar con un enemigo encima, moral que da o quita turnos, suerte
  * que dobla o parte el daño, y un hechizo de héroe por ronda.
  */
-import {
-  creature,
-  esDelCatalogo,
-  HEROE,
-  hasTrait,
-  hexSize,
-  isShooter,
-  LIDERAZGO,
-} from '../data.js';
+import { HEROE, hasTrait, hexSize, isShooter, LIDERAZGO } from '../data.js';
+import { cifrasDeCatalogo, cifrasVeteranas, nivelDeTropa } from '../hero/experiencia.js';
 import { HERO_BODY } from '../hero/hero.js';
 import type { Rng } from '../rng.js';
 import type { CombatProfile } from '../rpg/stats.js';
@@ -31,7 +24,7 @@ import {
   type Paso,
   reachable,
 } from './board.js';
-import { applyDamage, CHANCE_PER_POINT, computeDamage } from './damage.js';
+import { CHANCE_PER_POINT, computeDamage, herir } from './damage.js';
 import {
   applyEffect,
   clampMoraleLuck,
@@ -229,6 +222,7 @@ export function createBattle(attacker: BattleSide, defender: BattleSide, _rng: R
         morale: hasTrait(e.unit, 'undead') ? 0 : clampMoraleLuck(baseMorale + e.ownMorale),
         luck: clampMoraleLuck(luckBonus + e.ownLuck),
         effects: [],
+        ganado: { experiencia: 0, bajas: 0, heroes: [] },
       });
     });
   }
@@ -292,13 +286,27 @@ interface Entrada {
  * banco no se mueve.
  */
 function resolveUnit(stack: Stack, slot: number, setup: BattleSide): Entrada {
+  // La experiencia es de un individuo: un stack de N con hoja de servicios no
+  // sabría de cuál de los N es, igual que un personaje no puede ser dos.
+  if (stack.veterania !== undefined && stack.count !== 1) {
+    throw new Error(
+      `el veterano ${stack.veterania.id} es uno solo y viene en un stack de ${stack.count}`,
+    );
+  }
   if (stack.member === undefined) {
-    const unit = creature(stack.creature);
+    // `cifrasDeCatalogo`, la misma regla que leen la IA y el agente por
+    // `troopUnit`: un veterano pisa el tablero con las cifras que ellos le ven,
+    // y un novato con la referencia del catálogo tal cual.
+    const unit = cifrasDeCatalogo(stack.creature, stack.veterania);
     return {
       slot,
       body: stack.creature,
       unit,
-      origen: { kind: 'catalogo' },
+      origen: {
+        kind: 'catalogo',
+        oro: unit.cost.gold ?? 0,
+        veterania: stack.veterania ?? null,
+      },
       count: stack.count,
       topHp: unit.hp,
       ownMorale: 0,
@@ -330,12 +338,14 @@ function resolveUnit(stack: Stack, slot: number, setup: BattleSide): Entrada {
     );
   }
   // Un personaje no tiene rasgos, así que tampoco la inmunidad del no-muerto:
-  // entra herido si lo está, con su moral y su suerte.
+  // entra herido si lo está, con su moral y su suerte. La veteranía se le suma
+  // con la misma regla que a una criatura (`cifrasVeteranas`), y no cambia sus
+  // PV: entra con los que trae.
   return {
     slot,
     body: stack.creature,
-    unit: miembro.profile.unit,
-    origen: { kind: 'personaje', id },
+    unit: cifrasVeteranas(miembro.profile.unit, nivelDeTropa(stack.veterania)),
+    origen: { kind: 'personaje', id, veterania: stack.veterania ?? null },
     count: 1,
     topHp: miembro.hp,
     ownMorale: miembro.profile.morale,
@@ -762,13 +772,12 @@ function surrenderCost(state: BattleState, side: Side): number {
 function oroDeCatalogo(s: BattleStack): number {
   switch (s.origen.kind) {
     case 'catalogo':
-      // La referencia del catálogo es la que trae el precio: `unit` está
-      // tipada como `UnitInfo`, que no lo tiene, y volver a `creature(body)`
-      // es lo que prohíbe `test/invariantes.test.ts`.
-      if (!esDelCatalogo(s.unit)) {
-        throw new Error(`${s.id} dice venir del catálogo y sus cifras no son las del catálogo`);
-      }
-      return (s.unit.cost.gold ?? 0) * s.count;
+      // El precio viaja en el origen: `unit` ya no es siempre la referencia
+      // del catálogo —la de un veterano es una copia con sus cifras—, y volver
+      // a `creature(body)` es lo que prohíbe `test/invariantes.test.ts`. Un
+      // veterano cuesta lo mismo que un novato: rendirse paga la tropa, no su
+      // historia.
+      return s.origen.oro * s.count;
     case 'personaje':
     case 'heroe':
       return 0;
@@ -943,7 +952,7 @@ function strike(
 ): void {
   const info = attacker.unit;
   const result = computeDamage(attacker, target, rng, { chargeHexes: hexesMoved });
-  const killed = applyDamage(target, result.damage);
+  const killed = herir(target, result.damage, attacker);
 
   if (result.lucky) state.log.push({ kind: 'luck', stack: attacker.id, good: true });
   if (result.unlucky) state.log.push({ kind: 'luck', stack: attacker.id, good: false });
@@ -996,7 +1005,7 @@ function shoot(state: BattleState, shooter: BattleStack, target: BattleStack, rn
       ...stackHexes(shooter).flatMap((sh) => stackHexes(target).map((th) => hexDistance(sh, th))),
     );
     const result = computeDamage(shooter, target, rng, { ranged: true, distance });
-    const killed = applyDamage(target, result.damage);
+    const killed = herir(target, result.damage, shooter);
 
     if (result.lucky) state.log.push({ kind: 'luck', stack: shooter.id, good: true });
     state.log.push({
@@ -1045,7 +1054,7 @@ function splash(
   damage: number,
 ): void {
   for (const otro of splashTargets(state, target)) {
-    const killed = applyDamage(otro, damage);
+    const killed = herir(otro, damage, shooter);
     state.log.push({
       kind: 'shoot',
       stack: shooter.id,
@@ -1138,7 +1147,10 @@ function castHeroSpell(
 
   hero.mana -= s.cost;
   hero.castThisRound = true;
-  const result = castSpell(s, hero, target);
+  // El cuerpo del héroe es quien cobra la experiencia del hechizo. Está vivo
+  // seguro: si cae, su bando pierde (`checkFinished`) y aquí no se llega.
+  const cuerpo = state.stacks.find((x) => x.side === side && x.origen.kind === 'heroe') ?? null;
+  const result = castSpell(s, hero, target, cuerpo);
 
   state.log.push({
     kind: 'cast',

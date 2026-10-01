@@ -13,11 +13,16 @@
  * meses alguien lee como si fuera la partida.
  */
 
-import type { BattleState } from '@core/battle/types.js';
-import { creature } from '@core/data.js';
+import type { BattleStack, BattleState } from '@core/battle/types.js';
+import { cifrasDeCatalogo } from '@core/hero/experiencia.js';
 import type { TerrainKind } from '@core/map/terrain.js';
-import type { UnitInfo } from '@core/types.js';
-import type { SpectatorView, StackEnCable, VistaBatalla } from '../../server/vista-espectador.js';
+import type { UnitInfo, Veterania } from '@core/types.js';
+import type {
+  SpectatorView,
+  StackEnCable,
+  VeteraniaEnCable,
+  VistaBatalla,
+} from '../../server/vista-espectador.js';
 import type { AdventureScene } from '../render/mapa.js';
 
 /**
@@ -74,29 +79,64 @@ export function centroDeLaEscena(view: SpectatorView): { x: number; y: number } 
 /**
  * La batalla del cable con sus cifras otra vez: la inversa de `stackAlCable`.
  *
- * Una criatura del catálogo llega sin `unit` y se rehace con `creature(body)`,
- * la misma referencia que puso `createBattle`; un personaje o el héroe la traen
- * puesta. Se reparte por `origen`, que viaja, y no por si `unit` vino o no: un
- * personaje que llegara sin cifras lanza nombrándolo en vez de ir a buscar al
- * catálogo las de un cuerpo que no está en él.
+ * Una criatura del catálogo llega sin `unit` y se rehace con
+ * `cifrasDeCatalogo`, la misma regla que usó `createBattle` —en el nivel 1, la
+ * misma referencia del catálogo—; un personaje o el héroe la traen puesta. Se
+ * reparte por `origen`, que viaja, y no por si `unit` vino o no: un personaje
+ * que llegara sin cifras lanza nombrándolo en vez de ir a buscar al catálogo las
+ * de un cuerpo que no está en él.
+ *
+ * **Es exacta en lo que se pinta, no en lo que el cable no manda**, y eso se
+ * dice aquí en vez de disimularlo: `ganado`, el precio de rendición y la hoja de
+ * servicios no viajan (`stackAlCable`). El precio se rehace —es del catálogo—;
+ * lo ganado y la hoja vuelven VACÍOS, porque inventarse una cifra que se parezca
+ * sería peor. Ningún lector del espectador los mira, y el test compara la vuelta
+ * con la batalla quitando exactamente esos campos.
  */
 export function adaptarBatalla(batalla: VistaBatalla): BattleState {
   const { estado } = batalla;
-  return {
-    ...estado,
-    stacks: estado.stacks.map((s) => ({ ...s, unit: cifrasDe(s) })),
-  };
+  return { ...estado, stacks: estado.stacks.map(stackDelCable) };
 }
 
-function cifrasDe(s: StackEnCable): UnitInfo {
+function stackDelCable(s: StackEnCable): BattleStack {
+  const { unit: _cifras, origen: _origen, ...resto } = s;
+  const ganado = { experiencia: 0, bajas: 0, heroes: [] };
   switch (s.origen.kind) {
-    case 'catalogo':
-      return creature(s.body);
+    case 'catalogo': {
+      const unit = cifrasDeCatalogo(s.body, s.origen.veterania);
+      return {
+        ...resto,
+        unit,
+        ganado,
+        origen: {
+          kind: 'catalogo',
+          oro: unit.cost.gold ?? 0,
+          veterania: hojaDelCable(s.origen.veterania),
+        },
+      };
+    }
     case 'personaje':
+      return {
+        ...resto,
+        unit: cifrasQueViajan(s),
+        ganado,
+        origen: { kind: 'personaje', id: s.origen.id, veterania: hojaDelCable(s.origen.veterania) },
+      };
     case 'heroe':
-      if (s.unit === undefined) {
-        throw new Error(`${s.id} (${s.origen.kind}) llega por el cable sin sus cifras`);
-      }
-      return s.unit;
+      return { ...resto, unit: cifrasQueViajan(s), ganado, origen: s.origen };
   }
+}
+
+function cifrasQueViajan(s: StackEnCable): UnitInfo {
+  if (s.unit === undefined) {
+    throw new Error(`${s.id} (${s.origen.kind}) llega por el cable sin sus cifras`);
+  }
+  return s.unit;
+}
+
+/** La hoja de un veterano sin lo que no viaja: batallas, bajas y héroes, vacíos. */
+function hojaDelCable(v: VeteraniaEnCable | null): Veterania | null {
+  return v === null
+    ? null
+    : { id: v.id, experiencia: v.experiencia, batallas: 0, bajas: 0, heroes: [] };
 }

@@ -179,6 +179,8 @@ button.primary:hover:not(:disabled) { background: #c9ae70; color: #161d16; }
 .stack .count { color: #f2deac; font-variant-numeric: tabular-nums; }
 .stack.empty { opacity: 0.45; font-style: italic; }
 .stack.primary { background: #4a4d2d; border-color: #e0c589; color: #f5dfb0; font-weight: 400; }
+/* Un veterano: su nivel y lo que le falta, debajo del nombre. */
+.stack .veterania { display: block; font-size: 0.78em; color: #d8b866; }
 
 progress.liderazgo {
   display: block;

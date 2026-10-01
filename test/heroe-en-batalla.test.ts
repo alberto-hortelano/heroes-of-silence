@@ -24,6 +24,7 @@ import {
 } from '../src/core/battle/battle.js';
 import type { BattleState, Side } from '../src/core/battle/types.js';
 import { creature, HEROE } from '../src/core/data.js';
+import { umbral } from '../src/core/hero/experiencia.js';
 import { HERO_BODY, type Hero, heroUnit } from '../src/core/hero/hero.js';
 import { troopsAsStacks } from '../src/core/hero/troop.js';
 import {
@@ -53,7 +54,7 @@ const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 /** Un héroe de batalla con su cuerpo y, si se pide, con monedero para rendirse. */
 function heroeDeBatalla(purse: number | null = null): HeroeDelBando {
   return {
-    cuerpo: heroUnit({ name: 'Prueba', attack: 2, defense: 2, level: 1 }),
+    cuerpo: heroUnit({ name: 'Prueba', attack: 2, defense: 2, experience: umbral(5) }),
     mando: {
       name: 'Prueba',
       retreat: purse === null ? { blocked: 'no tienes base a la que volver' } : { purse },
@@ -147,14 +148,15 @@ describe('el héroe pisa el tablero (criterio 4)', () => {
 
   it('el cuerpo sale de `data/heroe.json` y crece con el nivel', () => {
     const c = HEROE.combate;
-    const nivel3 = heroUnit({ name: 'X', attack: 2, defense: 3, level: 3 });
-    expect(nivel3.hp).toBe(c.pv.base + 2 * c.pv.porNivel);
-    expect(nivel3.attack).toBe(2 + 2 * c.ataquePorNivel);
-    expect(nivel3.defense).toBe(3 + 2 * c.defensaPorNivel);
-    expect(nivel3.damage).toEqual([c.danio.min, c.danio.max + 2 * c.danio.maxPorNivel]);
-    expect(nivel3.speed).toBe(c.velocidad);
+    // Dos niveles por encima del inicial (el 5): dos `porNivel`.
+    const nivel7 = heroUnit({ name: 'X', attack: 2, defense: 3, experience: umbral(7) });
+    expect(nivel7.hp).toBe(c.pv.base + 2 * c.pv.porNivel);
+    expect(nivel7.attack).toBe(2 + 2 * c.ataquePorNivel);
+    expect(nivel7.defense).toBe(3 + 2 * c.defensaPorNivel);
+    expect(nivel7.damage).toEqual([c.danio.min, c.danio.max + 2 * c.danio.maxPorNivel]);
+    expect(nivel7.speed).toBe(c.velocidad);
     // Sin facción: no altera la moral por diversidad del ejército.
-    expect(nivel3.faction).toBeNull();
+    expect(nivel7.faction).toBeNull();
   });
 
   it('un monstruo o una guarnición no tienen comandante', () => {
@@ -557,9 +559,16 @@ describe('el héroe vencido vuelve a la base (criterio 6)', () => {
     const vuelto = heroById(state, defensor.id);
     expect(pointKey(vuelto.at)).toBe(pointKey(base.at));
     const tras = state.log.slice(state.log.findIndex((e) => e.kind === 'battle_ended'));
+    // Los ascensos van pegados al `battle_ended`, antes de cualquier
+    // consecuencia: se cobran con los dos héroes todavía en el mapa.
+    const ascensos = (k: string) => k === 'level_up' || k === 'troop_level_up';
+    const kinds = tras.map((e) => e.kind);
+    const primeraConsecuencia = kinds.findIndex((k, i) => i > 0 && !ascensos(k));
+    expect(kinds.slice(1, primeraConsecuencia).every(ascensos)).toBe(true);
+    expect(kinds.slice(primeraConsecuencia).some(ascensos)).toBe(false);
     // Y en casa recoge la guarnición con la que nació la base: vuelve sin
     // tropa y se lleva lo que le quepa.
-    expect(tras.map((e) => e.kind)).toEqual([
+    expect(kinds.filter((k) => !ascensos(k))).toEqual([
       'battle_ended',
       'town_captured',
       'hero_defeated',

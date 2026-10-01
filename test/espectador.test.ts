@@ -25,8 +25,8 @@ import WebSocket, { WebSocketServer } from 'ws';
 import { adaptarBatalla, adaptarEscena } from '../src/client/espectador/adaptar.js';
 import type { AdventureScene } from '../src/client/render/mapa.js';
 import { createBattle } from '../src/core/battle/battle.js';
-import type { BattleState } from '../src/core/battle/types.js';
-import { esDelCatalogo } from '../src/core/data.js';
+import type { BattleStack, BattleState } from '../src/core/battle/types.js';
+import { allCreatures } from '../src/core/data.js';
 import type { Hero } from '../src/core/hero/hero.js';
 import { pointKey, reachableFrom } from '../src/core/map/map.js';
 import { createRng } from '../src/core/rng.js';
@@ -38,7 +38,7 @@ import {
   resolvePendingBattle,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
-import type { Point } from '../src/core/types.js';
+import type { Point, UnitInfo } from '../src/core/types.js';
 import { AgentLink } from '../src/server/agent-link.js';
 import { Director } from '../src/server/director.js';
 import { construirVista, type SpectatorView } from '../src/server/vista-espectador.js';
@@ -388,25 +388,96 @@ describe('la batalla en la vista', () => {
     expect(JSON.parse(JSON.stringify(vista.battle))).toEqual(vista.battle);
   });
 
+  /**
+   * Si estas cifras son las de una criatura del catálogo —la MISMA referencia,
+   * no unas que se le parezcan—. Vivía en `core/data.ts` desde que el precio de
+   * rendición se leía de la referencia; desde que viaja en `origen.oro` solo la
+   * pregunta este test, y aquí está.
+   */
+  const esDelCatalogo = (u: UnitInfo): boolean => allCreatures().some((c) => c === u);
+
+  /**
+   * La batalla sin lo que el cable no manda (`stackAlCable`): lo ganado y la
+   * hoja de servicios vuelven vacíos de `adaptarBatalla`, y la ida y vuelta se
+   * compara en todo lo demás. Se quita exactamente eso, campo a campo, y no se
+   * relaja la comparación entera.
+   */
+  const sinLoQueNoViaja = (b: BattleState): BattleState => ({
+    ...b,
+    stacks: b.stacks.map(
+      (s): BattleStack => ({
+        ...s,
+        ganado: { experiencia: 0, bajas: 0, heroes: [] },
+        origen:
+          s.origen.kind === 'heroe' || s.origen.veterania === null
+            ? s.origen
+            : {
+                ...s.origen,
+                veterania: { ...s.origen.veterania, batallas: 0, bajas: 0, heroes: [] },
+              },
+      }),
+    ),
+  });
+
   it('una criatura viaja SIN `unit`, el héroe CON la suya, y `adaptarBatalla` lo rehace todo', () => {
     const { state } = conBatalla();
     const batalla = state.pendingBattle!.battle;
     const ida: SpectatorView = JSON.parse(JSON.stringify(construirVista(state, [])));
     // El catálogo no viaja: las dos puntas ya lo tienen. El cuerpo del héroe
     // (fase 1b) no está en el catálogo, así que viaja como el de un personaje.
-    // Lo decide `origen`, y el origen tiene que decir la verdad: es
-    // `catalogo` exactamente cuando `unit` ES la referencia del catálogo.
+    // Lo decide `origen`, y el origen tiene que decir la verdad: un novato del
+    // catálogo lleva EXACTAMENTE la referencia del catálogo, y lo que no es del
+    // catálogo no la lleva. (Un veterano del catálogo no la lleva tampoco —sus
+    // cifras son una copia con la veteranía—, y tiene su propio test abajo.)
     const comandantes = batalla.stacks.filter((s) => s.origen.kind === 'heroe');
     expect(comandantes.length).toBeGreaterThan(0);
     for (const s of batalla.stacks) {
-      expect(esDelCatalogo(s.unit), s.id).toBe(s.origen.kind === 'catalogo');
+      const novatoDelCatalogo = s.origen.kind === 'catalogo' && s.origen.veterania === null;
+      expect(esDelCatalogo(s.unit), s.id).toBe(novatoDelCatalogo);
       const enCable = ida.battle!.estado.stacks.find((x) => x.id === s.id)!;
       expect('unit' in enCable, s.id).toBe(s.origen.kind !== 'catalogo');
     }
     for (const c of comandantes) {
       expect(ida.battle!.estado.stacks.find((x) => x.id === c.id)!.unit).toEqual(c.unit);
     }
-    expect(adaptarBatalla(ida.battle!)).toEqual(batalla);
+    expect(adaptarBatalla(ida.battle!)).toEqual(sinLoQueNoViaja(batalla));
+  });
+
+  it('un veterano del catálogo viaja SIN `unit` y llega con sus cifras de veterano', () => {
+    const { state } = conBatalla();
+    const batalla = createBattle(
+      {
+        army: [
+          {
+            creature: 'pikeman',
+            count: 1,
+            veterania: { id: 'v-1', experiencia: 130, batallas: 3, bajas: 4, heroes: [] },
+          },
+        ],
+        hero: null,
+      },
+      { army: [{ creature: 'zombie', count: 3 }], hero: null },
+      createRng(5),
+    );
+    state.pendingBattle = { ...state.pendingBattle!, battle: batalla };
+    const ida: SpectatorView = JSON.parse(JSON.stringify(construirVista(state, [])));
+    const [veterano] = ida.battle!.estado.stacks;
+    // Las cifras no viajan: se derivan de catálogo + veteranía, que sí viaja.
+    expect(veterano!.unit).toBeUndefined();
+    // Viaja quién es y su experiencia, y nada de la hoja de servicios ni del
+    // precio ni de lo ganado: el espectador no pinta ninguna de las cuatro.
+    expect(veterano!.origen).toEqual({
+      kind: 'catalogo',
+      veterania: { id: 'v-1', experiencia: 130 },
+    });
+    expect('ganado' in veterano!).toBe(false);
+    const vuelta = adaptarBatalla(ida.battle!);
+    expect(vuelta).toEqual(sinLoQueNoViaja(batalla));
+    // `sinLoQueNoViaja` deja el precio: no viaja y se rehace del catálogo, el mismo.
+    // Nivel 4: +3 de ataque sobre el piquero de catálogo. Si el espectador
+    // rehiciera con `creature(body)` a secas, le pintaría cifras de novato.
+    expect(vuelta.stacks[0]!.unit.attack).toBe(batalla.stacks[0]!.unit.attack);
+    expect(vuelta.stacks[0]!.unit.attack).toBeGreaterThan(5);
   });
 
   it('un personaje viaja CON su `unit`, que no está en ninguna otra parte', () => {
@@ -427,7 +498,7 @@ describe('la batalla en la vista', () => {
     const [suyo, zombi] = ida.battle!.estado.stacks;
     expect(suyo!.unit?.name).toBe('Aren');
     expect(zombi!.unit).toBeUndefined();
-    expect(adaptarBatalla(ida.battle!)).toEqual(batalla);
+    expect(adaptarBatalla(ida.battle!)).toEqual(sinLoQueNoViaja(batalla));
   });
 
   it('un cuerpo que no está en el catálogo y llega sin `unit` lanza, no se inventa', () => {

@@ -7,14 +7,14 @@
 import { autoResolve, type BattleOutcome } from '../ai/tactics.js';
 import { type BattleMember, type BattleSide, createBattle } from '../battle/battle.js';
 import { stackHp } from '../battle/damage.js';
-import type { BattleHero, BattleState, Side } from '../battle/types.js';
-import { otroBando, personajeDe, SIDES } from '../battle/types.js';
+import type { BattleHero, BattleStack, BattleState, Side } from '../battle/types.js';
+import { personajeDe, SIDES } from '../battle/types.js';
 import { allCreatures, creature } from '../data.js';
+import { EXPERIENCIA_INICIAL_DE_HEROE, nivelDeHeroe, nivelDeTropa } from '../hero/experiencia.js';
 import {
   type Hero,
   heroUnit,
   learnable,
-  levelFromExperience,
   luckBonus,
   maxMana,
   maxMovePoints,
@@ -28,6 +28,7 @@ import {
   ejercitoDe,
   GARRISON_LEADERSHIP,
   gruposDe,
+  sinIndividuos,
   troopBlocker,
   troopRoom,
   troopsAsStacks,
@@ -75,6 +76,7 @@ import type {
   ResourceKind,
   Resources,
   Troop,
+  Veterania,
 } from '../types.js';
 import { addResources, canAfford, EMPTY_RESOURCES } from '../types.js';
 import {
@@ -278,6 +280,14 @@ export interface GameState {
    * miembro.
    */
   characters?: Record<string, Character>;
+  /**
+   * El número del próximo veterano (`Veterania.id`). Un contador del estado y
+   * no un id derivado de dónde está el individuo: se mueve de héroe a
+   * guarnición y vuelve, y su identidad tiene que sobrevivir a eso. Se lleva
+   * el primero al ganar su primer punto, en el orden de `stacks`, así que es
+   * determinista.
+   */
+  siguienteVeterano: number;
 }
 
 export interface GameContext {
@@ -527,6 +537,7 @@ export function createGame(config: GameConfig): GameState {
     raiders: (config.raiders ?? []).map((r) => ({ ...r })),
     finished: null,
     log: [],
+    siguienteVeterano: 1,
   };
 
   // Los pueblos arrancan con la hornada de la primera semana.
@@ -1184,24 +1195,6 @@ function dismissBlocker(
 }
 
 /**
- * El ejército sin `count` individuos de `creatureId`, quitados **desde el
- * final**: los últimos en llegar son los primeros en irse, y el resto conserva
- * su orden, que es el de despliegue. Lo usan la acción y la IA que la planea,
- * para que lo que la IA cree que queda sea lo que queda.
- */
-export function sinIndividuos(army: Army, creatureId: string, count: number): Army {
-  const out = [...army];
-  let faltan = count;
-  for (let i = out.length - 1; i >= 0 && faltan > 0; i--) {
-    const t = out[i] as Troop;
-    if (t.creature !== creatureId || t.member !== undefined) continue;
-    out.splice(i, 1);
-    faltan--;
-  }
-  return out;
-}
-
-/**
  * Contrata un héroe nuevo en un pueblo propio.
  *
  * Sin esto, perder al único héroe deja al jugador inerte para siempre: conserva
@@ -1231,8 +1224,7 @@ function hireHero(state: GameState, townId: string): void {
     spellPower: 1,
     knowledge: 1,
     mana: 10,
-    level: 1,
-    experience: 0,
+    experience: EXPERIENCIA_INICIAL_DE_HEROE,
     army: [],
     at: town.at,
     movePoints: 0,
@@ -1997,25 +1989,34 @@ export function settleBattle(state: GameState, _ctx: GameContext): void {
   // mande de 1. Sin ordenar: `createBattle` empuja cada bando en orden de
   // `slot` y nadie añade ni reordena stacks después, así que el orden de
   // `stacks` YA es el de salida.
+  //
+  // Y vuelven con su experiencia: la que traían más la que han ganado, en el
+  // mismo individuo. Solo los de un bando con dueño —la tropa de un héroe o la
+  // guarnición de un castillo de alguien—: un monstruo, un asaltante o una
+  // guarnición neutral no tienen campaña que recordar.
+  const dueños = battleOwners(state, pending);
+  const ascensos: Ascenso[] = [];
   const superviviente = (side: 'attacker' | 'defender'): Army => {
     const vivos: Troop[] = [];
+    const cobro: Cobro = { state, dueño: dueños[side], ascensos };
     for (const s of pending.battle.stacks) {
       if (s.side !== side || s.count <= 0) continue;
-      let t: Troop;
+      let base: Troop;
       switch (s.origen.kind) {
         case 'catalogo':
-          t = { creature: s.body };
+          base = { creature: s.body };
           break;
         case 'personaje':
           // `member` viaja de vuelta: sin él, el superviviente volvería al mapa
           // convertido en un individuo «character» que nadie sabe leer.
-          t = { creature: s.body, member: s.origen.id };
+          base = { creature: s.body, member: s.origen.id };
           break;
         case 'heroe':
           // El héroe no es tropa: vuelve al mapa como héroe, no como un
           // individuo «hero» de su propio ejército —que nadie sabría leer—.
           continue;
       }
+      const t = conVeterania(cobro, base, s);
       for (let i = 0; i < s.count; i++) vivos.push(t);
     }
     return vivos;
@@ -2050,6 +2051,28 @@ export function settleBattle(state: GameState, _ctx: GameContext): void {
   });
   state.pendingBattle = null;
 
+  // La experiencia, AQUÍ: después de contar que terminó y antes de sus
+  // consecuencias, que es cuando los dos héroes siguen en el mapa —un héroe
+  // vencido sin base sale de él dos líneas más abajo—. Los dos cobran, gane o
+  // pierda cada uno: se gana por el daño hecho, no por ganar (la regla es del
+  // usuario, no de fheroes2).
+  for (const st of pending.battle.stacks) {
+    if (st.origen.kind !== 'heroe') continue;
+    const quien = st.side === 'attacker' ? pending.attacker : pending.foe;
+    if (quien.kind !== 'hero') continue;
+    ganarExperiencia(state, heroById(state, quien.heroId), st.ganado.experiencia, at);
+  }
+  for (const a of ascensos) {
+    emit(state, {
+      kind: 'troop_level_up',
+      creature: a.creature,
+      level: a.level,
+      veterano: a.veterano,
+      actor: a.dueño,
+      at,
+    });
+  }
+
   if (esEmboscada(pending)) {
     const emboscado = heroById(state, pending.foe.heroId);
     if (winner === 'attacker') {
@@ -2058,16 +2081,14 @@ export function settleBattle(state: GameState, _ctx: GameContext): void {
     } else {
       // Sin héroe no se rinde: perder es caer entero.
       dejarAsaltante(state, pending.attacker.raiderId, []);
-      ganarExperiencia(state, emboscado, experienceFor(pending, 'defender'), at);
     }
   } else {
     const hero = heroById(state, pending.attacker.heroId);
     if (winner === 'attacker') {
-      ganarExperiencia(state, hero, experienceFor(pending, 'attacker'), at);
       applyVictory(state, hero, pending.foe, precio, at);
     } else {
       heroeVencido(state, hero, precio, at);
-      applyDefenderSurvivors(state, pending, supervivientesDelDefensor, at);
+      applyDefenderSurvivors(state, pending, supervivientesDelDefensor);
     }
   }
 
@@ -2211,80 +2232,72 @@ function woundsFromBattle(state: GameState, battle: BattleState): void {
   }
 }
 
-/**
- * Los dos premios de 500 de `battle_arena.cpp:657-675`.
- *
- * Uno lo cobra el vencedor cuyo rival iba mandado por un héroe —el que acaba de
- * derrotar— y el otro, solo el atacante, por tomar un castillo (`_isTown`).
- *
- * **No son adorno, y esto está medido**: sin ellos ningún héroe llega al nivel
- * 2 en una partida de seis días; con ellos llegan la mayoría. La experiencia de
- * las bajas sola no da para la primera fila de la tabla.
- */
-const EXP_POR_DERROTAR_A_UN_HEROE = 500;
-const EXP_POR_ASEDIO = 500;
+/** Un individuo que cruza un nivel en esta batalla: un `troop_level_up` por nivel. */
+interface Ascenso {
+  readonly creature: string;
+  readonly level: number;
+  readonly veterano: string;
+  readonly dueño: PlayerId;
+}
 
-/** Los puntos de vida que ha perdido un bando: los PV de cada criatura por las muertas. */
-function bajasEnPuntosDeVida(battle: BattleState, lado: Side): number {
-  let pv = 0;
-  for (const s of battle.stacks) {
-    // El cuerpo del héroe no cuenta: su caída la paga `EXP_POR_DERROTAR_A_UN_HEROE`
-    // una sola vez. Contarlo aquí también sería cobrar dos veces lo mismo.
-    if (s.side !== lado || s.origen.kind === 'heroe') continue;
-    // `initialCount - count` y no un `min` con los muertos como en el original:
-    // allí el `min` está por la resurrección, y aquí `count` solo baja —`heal`
-    // repone `topHp` y nada más—. El día que algo resucite, vuelve el `min`.
-    pv += s.unit.hp * (s.initialCount - s.count);
+/**
+ * El superviviente con su hoja de servicios al día: la que traía más lo que el
+ * motor le apuntó en `ganado`, y un `Ascenso` por cada nivel que cruza.
+ *
+ * Un novato que no ha ganado nada vuelve como entró, sin `veterania`: así el
+ * ejército de quien no pelea no cambia de forma y el contador de veteranos solo
+ * avanza para quien de verdad lo es. Sin dueño —monstruo, asaltante, guarnición
+ * neutral— no acumula nada.
+ */
+/** Con qué se cobra la experiencia de un bando al cerrar: lo mismo para todos sus stacks. */
+interface Cobro {
+  readonly state: GameState;
+  /** El dueño del bando; `null` —monstruo, asaltante, guarnición neutral— no acumula. */
+  readonly dueño: PlayerId | null;
+  /** Donde se apuntan los ascensos, que se emiten después. */
+  readonly ascensos: Ascenso[];
+}
+
+function conVeterania({ state, dueño, ascensos }: Cobro, base: Troop, s: BattleStack): Troop {
+  if (dueño === null) return base;
+  const previa = s.origen.kind === 'heroe' ? null : s.origen.veterania;
+  if (previa === null && s.ganado.experiencia === 0) return base;
+  // Aquí no se mira `count`: un bando con dueño se monta siempre con
+  // `troopsAsStacks`, que da stacks de 1, y un veterano en un stack de N lo
+  // rechaza `createBattle` al entrar. Es la única comprobación, en la puerta.
+  const veterania: Veterania = {
+    id: previa?.id ?? `veterano-${state.siguienteVeterano++}`,
+    experiencia: (previa?.experiencia ?? 0) + s.ganado.experiencia,
+    batallas: (previa?.batallas ?? 0) + 1,
+    bajas: (previa?.bajas ?? 0) + s.ganado.bajas,
+    heroes: [...(previa?.heroes ?? []), ...s.ganado.heroes],
+  };
+  const antes = nivelDeTropa(previa);
+  const despues = nivelDeTropa(veterania);
+  for (let n = antes + 1; n <= despues; n++) {
+    ascensos.push({ creature: base.creature, level: n, veterano: veterania.id, dueño });
   }
-  return pv;
+  return { ...base, veterania };
 }
 
 /**
- * La experiencia que se lleva el bando que gana la batalla.
+ * Le da la experiencia al héroe y le cobra los niveles que salgan, uno a uno:
+ * **un `level_up` por nivel ganado** y no uno por batalla. Es el sitio en el
+ * que el día que subir de nivel REPARTA algo —habilidades— se reparte.
  *
- * **Fuente**: `Battle::Force::calculateExperienceBasedOnLosses()`
- * (`battle/battle_army.cpp:292-299`) —
- * `GetHitPoints() * min(GetInitialCount(), GetDead())` sumado sobre el bando
- * que PIERDE: los puntos de vida de una criatura por las que se han muerto.
- *
- * Lo que había aquí era inventado y roto dos veces. Sumaba `hp × level × 2`
- * —ni el nivel ni el ×2 existen en el original— y **no miraba `count`**, así
- * que cien campesinos y uno valían los mismos 2 puntos. Y solo se llamaba
- * dentro de la rama del atacante que gana, o sea que quien defendía y repelía
- * no cobraba nunca — la mitad de las batallas desde que el agente defiende.
- *
- * La simetría también es del original (`battle_arena.cpp:657-675`): la misma
- * fórmula para los dos bandos, cambiando de quién se cuentan las bajas.
- */
-function experienceFor(pending: PendingBattle, ganador: Side): number {
-  const perdedor = otroBando(ganador);
-  let exp = bajasEnPuntosDeVida(pending.battle, perdedor);
-  if (pending.battle.heroes[perdedor] !== null) exp += EXP_POR_DERROTAR_A_UN_HEROE;
-  if (ganador === 'attacker' && pending.foe.kind === 'town') exp += EXP_POR_ASEDIO;
-  return exp;
-}
-
-/**
- * Le da la experiencia al héroe y le cobra los niveles que salgan, uno a uno.
- *
- * El bucle emite **un `level_up` por nivel ganado** y no uno por batalla, que
- * es lo que hace `Heroes::IncreaseExperience`. Con 2100 puntos de golpe se
- * suben dos niveles y se cuentan los dos: el criterio deja de ser una promesa y
- * pasa a ser el bucle. Y es el sitio en el que el día que subir de nivel
- * REPARTA algo —atributos, habilidades— se reparte, sin tener que volver a
- * decidir dónde.
- *
- * `levelFromExperience` es la que ya existía y estaba probada, y hasta hoy no
- * la llamaba nadie: el surtidor estaba cerrado y llamarla no habría movido un
- * solo número.
+ * El héroe no tiene tope (decisión del usuario: el 5 es solo de la tropa), así
+ * que `nivelDe` va sin él y sigue la misma tabla Fibonacci de la tropa. Y
+ * empieza donde la tropa acaba, en el 5 con su experiencia (`NIVEL_INICIAL_DE_HEROE`):
+ * una sola escala, así que su primer ascenso es al 6 y cuesta 160. Lo que
+ * le da cada nivel está en datos: su cuerpo (`data/heroe.json`) y su liderazgo
+ * (`data/liderazgo.json`).
  */
 function ganarExperiencia(state: GameState, hero: Hero, exp: number, at: Point): void {
   if (exp <= 0) return;
+  const antes = nivelDeHeroe(hero);
   hero.experience += exp;
-  const nivel = levelFromExperience(hero.experience);
-  while (hero.level < nivel) {
-    hero.level += 1;
-    emit(state, { kind: 'level_up', hero: hero.id, level: hero.level, actor: hero.owner, at });
+  for (let level = antes + 1; level <= nivelDeHeroe(hero); level++) {
+    emit(state, { kind: 'level_up', hero: hero.id, level, actor: hero.owner, at });
   }
 }
 
@@ -2332,12 +2345,7 @@ function applyVictory(
   }
 }
 
-function applyDefenderSurvivors(
-  state: GameState,
-  pending: PendingBattle,
-  army: Army,
-  at: Point,
-): void {
+function applyDefenderSurvivors(state: GameState, pending: PendingBattle, army: Army): void {
   // Se copia a una constante local: dentro de los callbacks de `find` el
   // estrechamiento sobre `pending.foe` se pierde.
   const foe = pending.foe;
@@ -2353,12 +2361,8 @@ function applyDefenderSurvivors(
       break;
     }
     case 'hero': {
-      // Su maná y su tropa ya los devolvió `settleBattle`, a los dos héroes
-      // por igual. Aquí solo cobra. Es la mitad que faltaba de #87: el original paga al que gana,
-      // ataque o defensa (`heroes_action.cpp:583-590` y `658-665`), y aquí solo
-      // cobraba el atacante. Un héroe que se pasa la partida repeliendo asaltos
-      // no subía de nivel ni una vez.
-      ganarExperiencia(state, heroById(state, foe.heroId), experienceFor(pending, 'defender'), at);
+      // Su maná, su tropa y su experiencia ya los devolvió `settleBattle`, a
+      // los dos héroes por igual: aquí no queda nada que hacer.
       break;
     }
     case 'town': {

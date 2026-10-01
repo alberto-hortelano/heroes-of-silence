@@ -10,8 +10,14 @@ import { fuerzaDe, MARGEN_CONTRA_NEUTRALES, poderDe } from '../ai/fuerza.js';
 import { activeStack, legalActions, stackHexes, stackSpeed } from '../battle/battle.js';
 import { stackHp } from '../battle/damage.js';
 import { effectiveLuck } from '../battle/effects.js';
-import type { BattleState, OrigenDelStack, Side } from '../battle/types.js';
+import {
+  type BattleState,
+  nivelDeVeterania,
+  type OrigenDelStack,
+  type Side,
+} from '../battle/types.js';
 import { ASALTANTES, creature, isShooter, LIDERAZGO } from '../data.js';
+import { nivelDeHeroe, siguienteUmbral } from '../hero/experiencia.js';
 import { maxMana, maxMovePoints } from '../hero/hero.js';
 import {
   armyLeadership,
@@ -51,16 +57,32 @@ import { RESOURCE_KINDS } from '../types.js';
  * velocidad, que es la de su perfil y no la de ningún catálogo.
  *
  * Ya no lleva `slot`: con la tropa de individuos no hay huecos que numerar.
+ * Un veterano va en su fila con `level`, `experience` y `nextLevelAt` (la
+ * experiencia a la que sube; `null` en el tope).
  */
 function armyView(
   army: Army,
   characters: Personajes,
-): { creature: string; member?: string; count: number; speed: string }[] {
+): {
+  creature: string;
+  member?: string;
+  count: number;
+  speed: string;
+  level?: number;
+  experience?: number;
+  nextLevelAt?: number | null;
+}[] {
   return troopSummary(army, characters).map((g) => ({
     creature: g.creature,
     ...(g.member === undefined ? {} : { member: g.member }),
     count: g.count,
     speed: g.unit.speed,
+    // Solo en la fila de un veterano, que va sola (`troopSummary`): una fila de
+    // novatos no tiene experiencia que contar, y un `level: 1` en cada una
+    // engordaría todos los turnos para no decir nada.
+    ...(g.veterania === undefined
+      ? {}
+      : { level: g.nivel, experience: g.veterania.experiencia, nextLevelAt: g.siguiente }),
   }));
 }
 
@@ -329,12 +351,15 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId): un
       id: h.id,
       name: h.name,
       at: h.at,
-      // El nivel viaja y la experiencia no: el nivel es lo que ya significa
-      // algo —sale en la crónica y el agente lo ve subir—, mientras que los
-      // puntos sueltos serían un número sin escala hasta que exista la tabla
-      // del lado del agente. Va con su línea en `RESPONSE_FORMAT`: un dato
-      // nuevo que el contrato no nombra es un dato que el agente no mira.
-      level: h.level,
+      // El nivel con su experiencia y el umbral del siguiente, como una fila de
+      // veterano de `army`: la escala es una sola (el héroe empieza en el 5,
+      // donde la tropa acaba), así que las dos se leen igual. Antes viajaba
+      // solo el nivel porque los puntos sueltos no tenían escala del lado del
+      // agente; con `nextLevelAt` la tienen. Va con su línea en
+      // `RESPONSE_FORMAT`: un dato que el contrato no nombra no lo mira nadie.
+      level: nivelDeHeroe(h),
+      experience: h.experience,
+      nextLevelAt: siguienteUmbral(h.experience),
       movePoints: h.movePoints,
       maxMovePoints: maxMovePoints(h, state.characters),
       attack: h.attack,
@@ -435,13 +460,19 @@ export type VistaDeBatalla = 'propia' | 'ajena';
  * personaje se leen por sus cifras. Con un `switch` exhaustivo para que un
  * origen nuevo obligue a decidir aquí si el agente tiene que saberlo.
  */
-function marcaDelOrigen(origen: OrigenDelStack): { commander?: true } {
+function marcaDelOrigen(origen: OrigenDelStack): { commander?: true; veteranLevel?: number } {
   switch (origen.kind) {
     case 'heroe':
       return { commander: true };
     case 'catalogo':
-    case 'personaje':
-      return {};
+    case 'personaje': {
+      // La veteranía se ve en el tablero —los galones de la figura—, así que
+      // es pública como la moral: sus cifras ya van en `attack`/`defense`.
+      // Desde el nivel 2, que es lo que promete la prosa y lo que pintan los
+      // galones: con 18 de los 20 del primer umbral todavía no es veterano.
+      const nivel = nivelDeVeterania(origen);
+      return nivel > 1 ? { veteranLevel: nivel } : {};
+    }
   }
 }
 

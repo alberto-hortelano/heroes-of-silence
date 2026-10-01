@@ -20,7 +20,7 @@
 
 import type { BattleOutcome } from '../../src/core/ai/tactics.js';
 import { autoResolve } from '../../src/core/ai/tactics.js';
-import { playAiGame } from '../../src/core/ai/turn.js';
+import { playAiTurn } from '../../src/core/ai/turn.js';
 import { createBattle } from '../../src/core/battle/battle.js';
 import { troopsAsStacks } from '../../src/core/hero/troop.js';
 import { createRng } from '../../src/core/rng.js';
@@ -53,22 +53,33 @@ const PRIMO_DE_BATALLA = 7919;
  * Juega entera la partida de una semilla, con la IA de reglas en los dos
  * bandos.
  *
- * El `await` no cambia ni una tirada: `playAiGame` es asíncrona desde que el
+ * El `await` no cambia ni una tirada: `playAiTurn` es asíncrona desde que el
  * director puede quedarse la batalla que nace a mitad del turno del rival, y
  * aquí no hay director. Por eso las semillas siguen dando lo mismo.
+ *
+ * `alAcabarTurno` es para el informe que tiene que mirar DURANTE la partida
+ * —`veterania.ts` cuenta quién pisa su base, y al final el héroe puede haber
+ * caído—. Es el mismo bucle que `playAiGame`, turno a turno; sin esto, ese
+ * informe se copiaba el bucle y la semilla, que es lo que este fichero existe
+ * para no tener copiado.
  */
 export async function partidaDeSemilla(
   semilla: number,
   dias: number = DIAS_POR_DEFECTO,
+  alAcabarTurno?: (state: GameState) => void,
 ): Promise<{ state: GameState; fin: GameOutcome }> {
   // El tope se pide al crear la partida y lo aplica `advanceDay` (`GameState.finished`).
   const state = newGame({ seed: semilla, maxDays: dias });
+  const ctx = { rng: createRng(semilla) };
+  while (state.finished === null) {
+    await playAiTurn(state, ctx);
+    alAcabarTurno?.(state);
+  }
   // El desenlace se devuelve **ya estrechado**, en vez de dejar que cada informe
   // lo saque de `state.finished`, que es `| null` por tipo: era el mismo
   // `if (fin === null) throw` escrito en los dos, o sea justo el par de tripas
   // copiadas que este fichero existe para no tener.
-  const fin = await playAiGame(state, { rng: createRng(semilla) });
-  return { state, fin };
+  return { state, fin: state.finished };
 }
 
 /**

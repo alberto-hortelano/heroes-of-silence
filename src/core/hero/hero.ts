@@ -2,6 +2,7 @@
 import { HEROE } from '../data.js';
 import type { Army, FactionId, PlayerId, Point, SpeedTier, UnitInfo } from '../types.js';
 import { SPEED_TO_MOVE_POINTS } from '../types.js';
+import { nivelDeHeroe, subidasDeHeroe } from './experiencia.js';
 import { type Personajes, troopUnit } from './troop.js';
 
 /** Habilidades secundarias del slice. Cada una en básico/avanzado/experto. */
@@ -18,7 +19,7 @@ export interface Hero {
   spellPower: number;
   knowledge: number;
   mana: number;
-  level: number;
+  /** El nivel se deriva de aquí (`nivelDeHeroe`): no hay un `level` que mantener al día. */
   experience: number;
   army: Army;
   at: Point;
@@ -43,16 +44,18 @@ export const HERO_BODY = 'hero';
  * puede caer). Cifras de `data/heroe.json`, **inventadas y provisionales**.
  *
  * Su ataque y su defensa son los de su cuerpo (`BattleHero` cuenta por qué ya
- * no son un bono a la tropa). Lo que crece con el nivel lo dice el JSON. Entra
+ * no son un bono a la tropa). Lo que crece con el nivel lo dice el JSON, contado
+ * desde el nivel inicial del héroe (el 5: `subidasDeHeroe`). Entra
  * sano a cada batalla: no hay heridas que arrastrar, así que esto no mira nada
  * más que el héroe.
  *
  * `faction: null` para que no cambie la moral por diversidad del ejército, y
  * sin rasgos: el héroe no es no-muerto aunque mande a los nigromantes.
  */
-export function heroUnit(hero: Pick<Hero, 'name' | 'attack' | 'defense' | 'level'>): UnitInfo {
+export function heroUnit(hero: Pick<Hero, 'name' | 'attack' | 'defense' | 'experience'>): UnitInfo {
   const c = HEROE.combate;
-  const subidas = hero.level - 1;
+  const nivel = nivelDeHeroe(hero);
+  const subidas = subidasDeHeroe(nivel);
   return {
     name: hero.name,
     faction: null,
@@ -61,6 +64,7 @@ export function heroUnit(hero: Pick<Hero, 'name' | 'attack' | 'defense' | 'level
     damage: [c.danio.min, c.danio.max + c.danio.maxPorNivel * subidas],
     hp: c.pv.base + c.pv.porNivel * subidas,
     speed: c.velocidad,
+    nivel,
   };
 }
 
@@ -134,91 +138,4 @@ export function learnable(
   const tope = maxSpellLevel(hero);
   const sabidos = new Set(hero.spells);
   return oferta.filter((s) => s.level <= tope && !sabidos.has(s.id)).map((s) => s.id);
-}
-
-// ---------------------------------------------------------------- progreso
-
-/**
- * La tabla de experiencia de fheroes2, fila a fila.
- *
- * **Fuente**: `Heroes::GetExperienceFromLevel`,
- * `src/fheroes2/heroes/heroes.cpp:1512-1601` de ihhub/fheroes2 — **cuarenta**
- * filas, de `case 0` a `case 39`. El índice de este array ES el argumento de
- * allí, así que `UMBRALES[n]` es `GetExperienceFromLevel(n)` sin ninguna
- * conversión que se pueda equivocar; la conversión —que el umbral del nivel `n`
- * es `GetExperienceFromLevel(n-1)`— la hace `experienceForLevel` y se ve en una
- * línea.
- *
- * **Estas cuarenta cifras se sacaron del fichero, no de la memoria de nadie**,
- * y esto no es una precaución de estilo: la primera redacción de este bloque
- * traía una tabla de 39 filas que decía venir de aquí y **solo coincidía en 8**.
- * Era una curva suavizada a mano —desde la fila 22 sumaba 3000 constantes— con
- * el nombre de la fuente encima, que es peor que una cifra declaradamente
- * inventada: una cifra inventada avisa de que hay que verificarla y una cita
- * hace bajar la guardia. Se propagó al docstring, al nombre de un test y a
- * `CLAUDE.md` antes de que QA la cazara. La regla que sale de ahí: **una tabla
- * se copia del fichero o no se cita**.
- *
- * Sustituye a `Math.round(1000 * 1.4 ** (n-2))` por dos motivos. El primero es
- * el de siempre aquí: era una cifra inventada donde el original publica una
- * tabla, y daba 1400 y 2744 donde la tabla dice 2000 y 4500. El segundo pesa
- * más y es de máquina: `**` es `Math.pow`, coma flotante cuya precisión NO fija
- * la norma, y `CLAUDE.md` promete que el núcleo no ejecuta ninguna — `pnpm
- * banco` se apoya en esa promesa para valer fuera de esta máquina. Mientras la
- * función fue código muerto la promesa se sostuvo por accidente; en cuanto la
- * llama una batalla, se rompe. Ahora lo vigila un invariante
- * (`test/invariantes.test.ts`).
- */
-const UMBRALES_DE_NIVEL: readonly number[] = [
-  0, 1000, 2000, 3200, 4500, 6000, 7700, 9000, 11000, 13200, 15500, 18500, 22100, 26400, 31600,
-  37800, 45300, 54200, 65000, 78000, 93600, 112300, 134700, 161600, 193900, 232700, 279300, 335200,
-  402300, 482800, 579400, 695300, 834400, 1001300, 1201600, 1442000, 1730500, 2076700, 2492100,
-  2990600,
-];
-
-/**
- * Lo que el original hace cuando se le acaba la tabla, copiado tal cual.
- *
- * `heroes.cpp:1600-1601`: la diferencia entre dos filas seguidas se multiplica
- * por 1,2 y se redondea a centenas. Aquí va en bucle en vez de en recursión
- * —allí cada llamada dispara otras dos— pero es la misma cuenta y da lo mismo.
- *
- * La primera redacción de esto decía «se continúa con la última diferencia,
- * 3000, que es lo mismo mientras las dos últimas sean iguales». En el original
- * las dos últimas diferencias son **415 400 y 498 500**, así que ni eran
- * iguales ni la regla era sumar: era multiplicar, y estaba escrita dos líneas
- * más abajo de la tabla que se decía haber leído.
- *
- * Y no rompe la promesa de la coma flotante: lo que la norma deja a merced de
- * la plataforma son `pow`, `sin`, `exp` y compañía, no `*`, `/` ni
- * `Math.round`, que están especificados al bit. El invariante prohíbe las
- * primeras y estas tres siguen permitidas.
- *
- * Un héroe de este juego no pasa del nivel 3: esto existe para que
- * `levelFromExperience` termine siempre, no para que alguien lo alcance.
- */
-function experienciaDeLaFila(fila: number): number {
-  const ultima = UMBRALES_DE_NIVEL.length - 1;
-  // El `!` y no un `as`: los dos índices están acotados por la propia tabla.
-  if (fila <= ultima) return UMBRALES_DE_NIVEL[fila]!;
-
-  let total = UMBRALES_DE_NIVEL[ultima]!;
-  let diferencia = total - UMBRALES_DE_NIVEL[ultima - 1]!;
-  for (let n = ultima + 1; n <= fila; n++) {
-    diferencia = Math.round((diferencia * 1.2) / 100) * 100;
-    total += diferencia;
-  }
-  return total;
-}
-
-/** Experiencia con la que se alcanza cierto nivel. */
-export function experienceForLevel(level: number): number {
-  if (level <= 1) return 0;
-  return experienciaDeLaFila(level - 1);
-}
-
-export function levelFromExperience(exp: number): number {
-  let level = 1;
-  while (exp >= experienceForLevel(level + 1)) level++;
-  return level;
 }

@@ -26,8 +26,13 @@ import { isShooter } from '../src/core/data.js';
 import { isEnterable, objectAt } from '../src/core/map/map.js';
 import type { GameEvent } from '../src/core/state/events.js';
 import { applyAdventureAction, heroesOf } from '../src/core/state/game.js';
-import type { Point } from '../src/core/types.js';
+import type { Army, Point, Veterania } from '../src/core/types.js';
 import { agresiva, avanzarHasta } from './helpers.js';
+
+/** Una hoja de servicios de prueba: lo justo para que el panel la pinte. */
+function hoja(id: string, experiencia: number): Veterania {
+  return { id, experiencia, batallas: 2, bajas: 1, heroes: [] };
+}
 
 export interface Escena {
   readonly nombre: string;
@@ -54,10 +59,11 @@ function vecinaLibre(s: Session, p: Point): Point {
   throw new Error(`no hay casilla libre junto a (${p.x},${p.y})`);
 }
 
-function meAtacan(semilla: number): Session {
+function meAtacan(semilla: number, ejercitoMio?: Army): Session {
   const s = new Session(semilla);
   const mio = heroesOf(s.state, 0)[0]!;
   const suyo = heroesOf(s.state, 1)[0]!;
+  if (ejercitoMio !== undefined) mio.army = ejercitoMio;
   s.state.current = 1;
   // Pegado al mío antes de entrar: desde el mapa de nodos el castillo no
   // bloquea, y cruzando medio mapa el rival pasaba por encima de mi base vacía
@@ -234,11 +240,39 @@ export async function escenas(): Promise<readonly Escena[]> {
   campoSinLibro.heroes.defender = { ...heroeSinLibro, spells: [] };
   out.push({ nombre: 'batalla · héroe sin libro', session: sinLibro });
 
+  // 15 · El castillo con un héroe que lleva VETERANOS: cada uno en su fila con
+  //      su nivel y lo que le falta —uno en el tope, otro sin llegar al 2—, y el
+  //      botón de licenciar solo en la fila de quien se iría, que es el novato de
+  //      su tipo.
+  const veteranos = new Session(12);
+  const casa = veteranos.myTowns()[0]!;
+  const capitan = veteranos.myHeroes()[0]!;
+  veteranos.moveHeroTo(capitan.id, casa.at);
+  capitan.army = [
+    { creature: 'peasant' },
+    { creature: 'pikeman', veterania: hoja('veterano-1', 70) },
+    { creature: 'pikeman' },
+    { creature: 'archer', veterania: hoja('veterano-2', 400) },
+    // Con experiencia y sin llegar al primer umbral: «Nivel 1», no «Veterano».
+    { creature: 'peasant', veterania: hoja('veterano-3', 12) },
+  ];
+  veteranos.openTown(casa.id);
+  out.push({ nombre: 'castillo · con veteranos', session: veteranos });
+
+  // 16 · Una batalla con un veterano en el campo: «· nivel 3» en su fila.
+  out.push({
+    nombre: 'batalla · con un veterano',
+    session: meAtacan(7, [
+      { creature: 'pikeman', veterania: hoja('veterano-1', 70) },
+      { creature: 'peasant' },
+    ]),
+  });
+
   return out;
 }
 
 /**
- * Una crónica con los DIECISIETE hechos y sus variantes, para anclar
+ * Una crónica con los DIECIOCHO hechos y sus variantes, para anclar
  * `renderLog` entero.
  *
  * Jugando salen doce o trece y siempre los mismos; los que deciden la partida
@@ -320,8 +354,24 @@ function cronicaCompleta(): readonly GameEvent[] {
       gold: 190,
       actor: 1,
     },
-    { ...base, kind: 'level_up', hero: 'hero-0', level: 2, actor: 0 },
-    { ...base, kind: 'level_up', hero: 'hero-1', level: 3, actor: 1 },
+    { ...base, kind: 'level_up', hero: 'hero-0', level: 6, actor: 0 },
+    { ...base, kind: 'level_up', hero: 'hero-1', level: 7, actor: 1 },
+    {
+      ...base,
+      kind: 'troop_level_up',
+      creature: 'pikeman',
+      level: 2,
+      veterano: 'veterano-1',
+      actor: 0,
+    },
+    {
+      ...base,
+      kind: 'troop_level_up',
+      creature: 'skeleton',
+      level: 4,
+      veterano: 'veterano-2',
+      actor: 1,
+    },
     { ...base, kind: 'player_defeated', reason: 'lost_base', actor: 1 },
     { ...base, kind: 'game_over', actor: 0 },
   ];

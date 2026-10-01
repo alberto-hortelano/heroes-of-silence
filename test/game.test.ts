@@ -21,10 +21,8 @@ import {
   problemasDeTopeDeLiderazgo,
 } from '../src/core/data.js';
 import {
-  experienceForLevel,
   type Hero,
   learnable,
-  levelFromExperience,
   maxMana,
   maxMovePoints,
   slowestSpeed,
@@ -857,152 +855,6 @@ describe('batallas del mapa', () => {
     expect(() => applyAdventureAction(state, { type: 'end_turn' }, c, state.current)).toThrow(
       /batalla pendiente/,
     );
-  });
-});
-
-describe('experiencia y niveles', () => {
-  it('la experiencia cuenta las criaturas muertas, no los stacks', () => {
-    // La fórmula es `PV de la criatura × muertas`
-    // (`Battle::Force::calculateExperienceBasedOnLosses`, `battle_army.cpp`), y
-    // el campesino tiene 1 punto de vida: la cifra ES el número de campesinos.
-    // Con lo que había —`hp × level × 2` por STACK, sin mirar `count`— las dos
-    // batallas de abajo daban 2 y 2.
-    const experienciaContra = (cuantos: number): number => {
-      const state = newGame({ seed: 31 });
-      const c = ctx(31);
-      const hero = heroesOf(state, 0)[0]!;
-      hero.army = ejercito({ creature: 'crusader', count: 6 });
-      ponerMonstruo(state, 'peasant', cuantos);
-      forzarBatalla(state, c, hero);
-      expect(resolvePendingBattle(state, c).winner).toBe('attacker');
-      return heroById(state, hero.id).experience;
-    };
-
-    // Siete y no cien: un monstruo son individuos, y un bando lleva como mucho
-    // siete.
-    expect(experienciaContra(7)).toBe(7);
-    expect(experienciaContra(1)).toBe(1);
-  });
-
-  it('quien defiende y repele cobra las bajas del atacante más los 500', () => {
-    // La otra mitad de #87, y la que más pesa desde que el agente defiende: la
-    // llamada vivía dentro del `if (heroeAtacanteVivo)`, así que un héroe que
-    // se pasaba la partida repeliendo asaltos no ganaba un punto.
-    const state = newGame({ seed: 41 });
-    const c = ctx(41);
-    const atacante = heroesOf(state, 0)[0]!;
-    const defensor = heroesOf(state, 1)[0]!;
-
-    atacante.army = ejercito({ creature: 'peasant', count: 6 });
-    atacante.movePoints = 5000;
-    // Sin oro no hay rendición: el atacante tiene que perder peleando.
-    state.players[0]!.resources = { ...state.players[0]!.resources, gold: 0 };
-    defensor.army = ejercito({ creature: 'crusader', count: 6 });
-    defensor.experience = 0;
-    defensor.at = casillaVecinaLibre(state, atacante.at);
-
-    applyAdventureAction(state, { type: 'move_hero', hero: atacante.id, to: defensor.at }, c, 0);
-    expect(state.pendingBattle!.foe).toEqual({ kind: 'hero', heroId: defensor.id });
-    const batalla = state.pendingBattle!.battle;
-    expect(resolvePendingBattle(state, c).winner).toBe('defender');
-
-    // Los campesinos muertos —1 PV cada uno— más los 500 de derrotar al héroe
-    // que los mandaba (`battle_arena.cpp`). Misma fórmula que cobraría
-    // atacando: la simetría también es del original. El cuerpo del héroe no
-    // suma sus PV: su caída la paga el +500, una sola vez.
-    const muertos = batalla.stacks.filter(
-      (s) => s.side === 'attacker' && s.origen.kind !== 'heroe' && s.count === 0,
-    ).length;
-    expect(heroById(state, defensor.id).experience).toBe(muertos + 500);
-  });
-
-  it('se suben dos niveles de golpe y se cuentan los dos, cada uno con su hecho', () => {
-    const state = newGame({ seed: 31 });
-    const c = ctx(31);
-    const hero = heroesOf(state, 0)[0]!;
-    hero.army = ejercito({ creature: 'crusader', count: 6 });
-    // Siete dragones óseos de 150 PV = 1050 de experiencia de una sentada, sobre
-    // los 950 que ya traía: pasa el umbral del nivel 2 (1000) y el del 3 (2000,
-    // justo) en la misma batalla, y se queda corto del 4 (3200). Eran 140
-    // piqueros desde cero; con un bando de siete como mucho, siete dragones son
-    // lo que más experiencia da.
-    hero.experience = 950;
-    // Un héroe duro de pelar, por si el último dragón le alcanza antes de caer.
-    hero.defense = 30;
-    const monstruo = ponerMonstruo(state, 'bone_dragon', 7);
-    forzarBatalla(state, c, hero);
-    // Seis caen antes de empezar y el séptimo llega con 1 PV, para que la
-    // victoria no dependa de la suerte: desde la fase 1b siete dragones van
-    // directos a por el héroe, y si cae se pierde la batalla. La experiencia
-    // cuenta los PV de la criatura por las muertas, no cómo murieron.
-    const dragones = state.pendingBattle!.battle.stacks.filter((s) => s.side === 'defender');
-    for (const d of dragones.slice(1)) {
-      d.count = 0;
-      d.topHp = 0;
-    }
-    dragones[0]!.topHp = 1;
-    expect(resolvePendingBattle(state, c).winner).toBe('attacker');
-
-    const vivo = heroById(state, hero.id);
-    expect(vivo.experience).toBe(950 + 1050);
-    expect(vivo.level).toBe(3);
-
-    const subidas = state.log.filter((e) => e.kind === 'level_up');
-    expect(subidas.map((e) => e.level)).toEqual([2, 3]);
-    // Con protagonista y sitio, como cualquier otro hecho: sin ellos el evento
-    // nace anónimo y `visibleTo` no sabría a quién le consta.
-    expect(subidas.map((e) => e.actor)).toEqual([0, 0]);
-    expect(subidas.map((e) => e.at)).toEqual([monstruo.at, monstruo.at]);
-    // Y sellado por `emit`: el dueño estaba mirando su propia batalla.
-    expect(subidas.every((e) => e.seen.includes(0))).toBe(true);
-  });
-
-  it('la curva de niveles es la tabla de fheroes2, comprobada contra su propia regla', () => {
-    // `Heroes::GetExperienceFromLevel` (`heroes.cpp:1512-1601`), desplazada un
-    // peldaño: el umbral del nivel `n` es `GetExperienceFromLevel(n-1)`.
-    //
-    // Este test se reescribió entero después de que QA cazara que la tabla que
-    // decía venir de allí era inventada —coincidía en 8 de 39 filas— y que la
-    // versión anterior de este test **anclaba las cifras inventadas**, o sea que
-    // el guardia protegía el error. Ahora comprueba tres cosas distintas y solo
-    // la segunda depende de que alguien haya tecleado bien.
-
-    // 1 · Los umbrales que una partida puede alcanzar de verdad. Son los únicos
-    //     que mueven el juego, y son los que erraba la curva `1,4^(n-2)`: decía
-    //     1400 y 2744 donde la tabla dice 2000 y 4500.
-    expect(experienceForLevel(1)).toBe(0);
-    expect([2, 3, 4, 5, 6].map(experienceForLevel)).toEqual([1000, 2000, 3200, 4500, 6000]);
-
-    // 2 · Las filas donde la tabla inventada se separaba de la de verdad. Si
-    //     vuelve a colarse una curva suavizada a mano, cae aquí.
-    expect(experienceForLevel(7)).toBe(7700); // la inventada decía 7500
-    expect(experienceForLevel(10)).toBe(13200); // decía 13000
-    expect(experienceForLevel(39)).toBe(2492100); // decía 88000
-    expect(experienceForLevel(40)).toBe(2990600); // decía 91000
-
-    // 3 · La comprobación que NO depende de lo que nadie haya tecleado: de la
-    //     fila 19 en adelante la tabla obedece la regla que el propio original
-    //     publica dos líneas más abajo —cada diferencia es la anterior por 1,2,
-    //     redondeada a centenas—, y la extrapolación de más allá de la fila 39
-    //     es esa misma regla. Son 26 filas contra un criterio que este test no
-    //     elige, y es exactamente lo que habría cazado la cola inventada, que
-    //     sumaba 3000 constantes.
-    for (let nivel = 20; nivel <= 45; nivel++) {
-      const anterior = experienceForLevel(nivel - 1) - experienceForLevel(nivel - 2);
-      expect(
-        experienceForLevel(nivel) - experienceForLevel(nivel - 1),
-        `la fila ${nivel - 1} no sigue la regla ×1,2 del original`,
-      ).toBe(Math.round((anterior * 1.2) / 100) * 100);
-    }
-
-    expect(levelFromExperience(0)).toBe(1);
-    expect(levelFromExperience(999)).toBe(1);
-    expect(levelFromExperience(1000)).toBe(2);
-    expect(levelFromExperience(4499)).toBe(4);
-    expect(levelFromExperience(4500)).toBe(5);
-    // Pasada la fila 39 la curva sigue creciendo, que es lo que hace que el
-    // `while` de `levelFromExperience` termine en vez de dar vueltas.
-    expect(levelFromExperience(10_000_000)).toBeGreaterThan(40);
   });
 });
 
@@ -1886,10 +1738,11 @@ describe('los personajes y sus heridas', () => {
     expect(aren.hp).toBeLessThan(34);
     expect(aren.hp).toBeGreaterThan(0);
     // Y sigue en el ejército, con su `member`: no vuelve como un stack anónimo.
-    expect(heroById(state, hero.id).army[0]).toEqual({
-      creature: CHARACTER_BODY,
-      member: 'aren',
-    });
+    // Y con la experiencia de lo que pegó: el personaje también es un individuo
+    // que hace campaña.
+    const vuelto = heroById(state, hero.id).army[0]!;
+    expect(vuelto).toMatchObject({ creature: CHARACTER_BODY, member: 'aren' });
+    expect(vuelto.veterania?.experiencia).toBe(s.ganado.experiencia);
   });
 
   it('herido, entra a la siguiente batalla con lo que le quedó', () => {
@@ -1988,7 +1841,7 @@ describe('los personajes y sus heridas', () => {
     // Si saliera sano el test no distinguiría «escrito» de «no tocado».
     expect(bera.hp).toBeLessThan(s.unit.hp);
     expect(bera.hp).toBeGreaterThan(0);
-    expect(heroById(state, defensor.id).army[0]).toEqual({
+    expect(heroById(state, defensor.id).army[0]).toMatchObject({
       creature: CHARACTER_BODY,
       member: 'bera',
     });

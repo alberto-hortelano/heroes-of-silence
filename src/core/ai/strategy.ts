@@ -6,8 +6,17 @@
  * a su alcance. Es el listón que el agente tiene que superar.
  */
 import { creature } from '../data.js';
+import { nivelDeTropa } from '../hero/experiencia.js';
 import type { Hero } from '../hero/hero.js';
-import { capacidadDe, troopRoom, troopsThatFit, withTroops } from '../hero/troop.js';
+import {
+  capacidadDe,
+  elQueSeIria,
+  sinIndividuos,
+  troopRoom,
+  troopsThatFit,
+  troopUnit,
+  withTroops,
+} from '../hero/troop.js';
 import { type MapObject, pointKey, type Reachable } from '../map/map.js';
 import { regionesQueCierra, type Territorio, territorio } from '../map/regiones.js';
 import {
@@ -18,7 +27,6 @@ import {
   HERO_HIRE_COST,
   heroesOf,
   recruitCapacity,
-  sinIndividuos,
   townsOf,
 } from '../state/game.js';
 import { building } from '../town/buildings.js';
@@ -522,46 +530,72 @@ function planCambio(
   let actual = army;
   let cuantos = 0;
   const licencias = new Map<string, number>();
+  // Lo que pesa lo licenciado, sumado individuo a individuo con SUS cifras: un
+  // veterano pesa más que un novato de su tipo, y `creature(c)` lo olvidaría.
+  // `sale` es lo que va soltando la simulación; `saleFirme`, lo que pesaba lo
+  // licenciado cuando se fijó `firme`.
+  let sale = 0;
+  let saleFirme = 0;
   let firme: Cambio = { licencias: new Map(), cuantos: 0, army };
   while (cuantos < disponibles && canAfford(purse, recruitCost(id, cuantos + 1))) {
     if (troopRoom(actual, tope, cupo, id) >= 1) {
       actual = withTroops(actual, id, 1);
       cuantos++;
       firme = { licencias: new Map(licencias), cuantos, army: actual };
+      saleFirme = sale;
       continue;
     }
     const victima = laMasBarata(actual, poder);
     if (victima === null) break;
-    actual = sinIndividuos(actual, victima, 1);
-    licencias.set(victima, (licencias.get(victima) ?? 0) + 1);
+    actual = sinIndividuos(actual, victima.creature, 1);
+    licencias.set(victima.creature, (licencias.get(victima.creature) ?? 0) + 1);
+    sale += victima.poder;
   }
   if (firme.cuantos === 0) return null;
-  let sale = 0;
-  for (const [c, n] of firme.licencias) sale += unitPower(creature(c)) * n;
-  return poder * firme.cuantos > sale ? firme : null;
+  return poder * firme.cuantos > saleFirme ? firme : null;
 }
 
 /**
- * La criatura del catálogo más barata del ejército entre las que pegan menos
- * que `poder`: la primera que se licencia. A igual precio, la más floja, y a
- * igualdad de todo, la de id menor, para que no decida el orden del ejército.
- * Los personajes no entran: no se licencian.
+ * El tipo de criatura que se licencia primero, con lo que pesa el individuo
+ * que se iría: el que dice `elQueSeIria` —la misma regla que aplica
+ * `dismiss`—, entre los que pegan menos que `poder`.
+ *
+ * Se ordena por **veteranía, luego oro, luego fuerza**, y el orden importa: lo
+ * novato y barato se va antes que lo veterano, así que la IA no tira a un
+ * piquero de nivel 3 mientras le quede un campesino que tirar. Sin esa primera
+ * clave, el veterano —que vale lo mismo en oro que un novato de su tipo— se iba
+ * a la primera, y la experiencia no le servía de nada a quien la gana. A
+ * igualdad de todo, el id menor, para que no decida el orden del ejército. Los
+ * personajes no entran: no se licencian.
  */
-function laMasBarata(army: Army, poder: number): string | null {
-  let mejor: { id: string; oro: number; poder: number } | null = null;
-  for (const t of army) {
-    if (t.member !== undefined) continue;
-    const info = creature(t.creature);
-    const suyo = unitPower(info);
+function laMasBarata(
+  army: Army,
+  poder: number,
+): { readonly creature: string; readonly poder: number } | null {
+  let mejor: {
+    readonly creature: string;
+    readonly nivel: number;
+    readonly oro: number;
+    readonly poder: number;
+  } | null = null;
+  const vistos = new Set<string>();
+  for (const { creature: id, member } of army) {
+    if (member !== undefined || vistos.has(id)) continue;
+    vistos.add(id);
+    // El que se iría de este tipo, con la MISMA regla que la acción.
+    const t = elQueSeIria(army, id)!;
+    const suyo = unitPower(troopUnit(t, undefined));
     if (suyo >= poder) continue;
-    const oro = info.cost.gold ?? 0;
-    if (
+    const nivel = nivelDeTropa(t.veterania);
+    const oro = creature(id).cost.gold ?? 0;
+    const gana =
       mejor === null ||
-      oro < mejor.oro ||
-      (oro === mejor.oro && (suyo < mejor.poder || (suyo === mejor.poder && t.creature < mejor.id)))
-    ) {
-      mejor = { id: t.creature, oro, poder: suyo };
-    }
+      nivel < mejor.nivel ||
+      (nivel === mejor.nivel &&
+        (oro < mejor.oro ||
+          (oro === mejor.oro &&
+            (suyo < mejor.poder || (suyo === mejor.poder && id < mejor.creature)))));
+    if (gana) mejor = { creature: id, nivel, oro, poder: suyo };
   }
-  return mejor?.id ?? null;
+  return mejor === null ? null : { creature: mejor.creature, poder: mejor.poder };
 }

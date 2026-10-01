@@ -59,6 +59,7 @@ export function combatProfile(c: Character): CombatProfile {
     damage: [1 + Math.floor(a.fuerza / 4), 2 + Math.floor(a.fuerza / 2)],
     hp: maxHpFrom(a),
     speed: speedFor(a.destreza),
+    nivel: n,
     // Mago y Sanador no tienen rasgo propio: la magia sigue siendo del héroe.
     ...(c.profession === 'Guardabosques' ? { shots: a.percepcion } : {}),
   };

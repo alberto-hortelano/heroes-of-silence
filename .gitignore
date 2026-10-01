@@ -29,3 +29,6 @@ docs/agents/*/commits/
 # Capturas de pnpm capturas y de QA: se regeneran, pesan decenas de MB
 docs/agents/*/capturas/
 docs/agents/*/qa/
+# Borrador de diseño del usuario: decidió no versionarlo (02-10-2026)
+NuevaJugabilidad.md
+NuevaJugabilidad.md.backup

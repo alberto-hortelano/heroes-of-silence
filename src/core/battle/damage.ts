@@ -166,8 +166,14 @@ export function computeDamage(
 /**
  * Aplica `damage` al stack y devuelve cuántos efectivos ha perdido.
  * El daño se come primero al efectivo de arriba, como en la serie.
+ *
+ * **No se exporta**: fuera de este módulo se hiere con `herir`, que es lo mismo
+ * más la experiencia de quien pega. Exportada, un quinto sitio que hiriera con
+ * ella haría daño GRATIS —el objetivo pierde vida, nadie cobra— y ni un test se
+ * pondría rojo. Antes lo vigilaba un guardia de texto en `invariantes.test.ts`;
+ * ahora es el módulo el que no deja nombrarla, y eso lo comprueba `tsc`.
  */
-export function applyDamage(stack: BattleStack, damage: number): number {
+function applyDamage(stack: BattleStack, damage: number): number {
   const hp = stack.unit.hp;
   const totalHp = (stack.count - 1) * hp + stack.topHp;
   const remaining = totalHp - damage;
@@ -182,6 +188,32 @@ export function applyDamage(stack: BattleStack, damage: number): number {
   stack.count = Math.ceil(remaining / hp);
   stack.topHp = remaining - (stack.count - 1) * hp;
   return before - stack.count;
+}
+
+/**
+ * Hiere a `objetivo` con `damage` y le apunta la experiencia a `autor`:
+ * **los PV quitados de verdad × el nivel del que los recibe**. Devuelve los
+ * muertos, como `applyDamage`.
+ *
+ * Es la ÚNICA forma en que el motor quita vida —golpe, contraataque, disparo,
+ * salpicadura y hechizo—: `applyDamage` no sale de este módulo.
+ *
+ * - **Lo quitado, no lo tirado**: un golpe de 7 sobre un piquero con 5 PV cobra
+ *   5. El sobrante no existe para nadie, y contarlo premiaría rematar.
+ * - **Solo contra el bando de enfrente**: la salpicadura del liche sobre los
+ *   suyos no enseña nada. `autor` es `null` cuando no hay quien cobre.
+ */
+export function herir(objetivo: BattleStack, damage: number, autor: BattleStack | null): number {
+  const antes = stackHp(objetivo);
+  const muertos = applyDamage(objetivo, damage);
+  if (autor !== null && autor.side !== objetivo.side) {
+    autor.ganado.experiencia += (antes - stackHp(objetivo)) * objetivo.unit.nivel;
+    autor.ganado.bajas += muertos;
+    if (objetivo.origen.kind === 'heroe' && objetivo.count === 0) {
+      autor.ganado.heroes.push(objetivo.unit.name);
+    }
+  }
+  return muertos;
 }
 
 /** Puntos de vida totales que le quedan a un stack. Útil para la IA. */

@@ -17,7 +17,7 @@ import type { SpectatorView } from '../../server/vista-espectador.js';
 import { NADIE } from '../desenlace.js';
 import { fondoDeColor, type Html, html, NADA, unir } from '../html.js';
 import { playerColor } from '../render/palette.js';
-import { marcaDeComandante, renderBattleLog, renderLog } from '../views/panels.js';
+import { marcaDeComandante, marcaDeVeterano, renderBattleLog, renderLog } from '../views/panels.js';
 import { adaptarBatalla } from './adaptar.js';
 
 /**
@@ -138,7 +138,7 @@ export function batalla(v: SpectatorView, contandoAun = false): Html {
         .filter((s) => s.count > 0)
         .map(
           (s) => html`<div class="stack${s.id === estado.activeId ? '' : ' empty'}">
-            <span>${bandera(dueños[s.side])} ${marcaDeComandante(s)}${s.unit.name}</span>
+            <span>${bandera(dueños[s.side])} ${marcaDeComandante(s)}${s.unit.name}${marcaDeVeterano(s)}</span>
             <span class="count">${s.count}</span>
           </div>`,
         ),

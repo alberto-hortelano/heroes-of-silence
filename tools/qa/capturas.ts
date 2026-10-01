@@ -34,7 +34,7 @@ import WebSocket from 'ws';
 import { DURACION } from '../../src/client/anim.js';
 import { focoDe } from '../../src/client/escenas/aventura.js';
 import { AVISO_DE_ESPERA, accionContra, EscenaBatalla } from '../../src/client/escenas/batalla.js';
-import { cajaDeFigura } from '../../src/client/render/batalla.js';
+import { cajaDeFigura, galonesDe } from '../../src/client/render/batalla.js';
 import {
   casillaAPixel,
   centrarEn,
@@ -50,6 +50,7 @@ import { explicacionDeFin, rotuloDeDia } from '../../src/client/views/panels.js'
 import { chooseBattleAction } from '../../src/core/ai/tactics.js';
 import { stackHexes } from '../../src/core/battle/battle.js';
 import type { BattleAction, BattleEvent, BattleStack } from '../../src/core/battle/types.js';
+import { troopSummary } from '../../src/core/hero/troop.js';
 import { casillasPeligrosas } from '../../src/core/state/asaltantes.js';
 import { baseOf, heroesOf, visibleNow } from '../../src/core/state/game.js';
 import type { Point } from '../../src/core/types.js';
@@ -85,6 +86,8 @@ const SEMILLA = 282;
 const SEMILLA_MOVIL = 668;
 /** La partida cuya guardia más cercana gana: la batalla que se pierde y la vuelta a la base. */
 const SEMILLA_QUE_PIERDE = 273;
+/** La de los veteranos: la guardia más cercana deja uno y al día siguiente hay otra. */
+const SEMILLA_VETERANOS = 177;
 /**
  * La de la emboscada avisada (H2 del ciclo «el camino cuesta»): el día 1, el
  * grupo de 6 piqueros de la región de casa se ve desde Valdeluz, y la ruta a
@@ -817,6 +820,94 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
   );
   await finContadoPorSuCausa(page, espejo);
   await captura(page, 'desktop-12-fin-de-partida');
+  await page.close();
+}
+
+/**
+ * Los veteranos del héroe, en el panel: cada uno con «Veterano · nivel N · …»
+ * —o «Nivel 1 · …» quien ya tiene experiencia y no llega al primer umbral—
+ * tal y como lo deriva el espejo (`troopSummary`). Lanza si no hay ninguno de
+ * nivel 2 o más: la pasada existe para enseñarlos, y una batalla ganada que no
+ * deja a nadie arriba querría decir que la experiencia no llega al cliente.
+ */
+async function veteranosEnElPanel(page: Page, espejo: Session, paso: string): Promise<void> {
+  const heroe = espejo.myHeroes()[0];
+  if (heroe === undefined) throw new Error(`${paso}: no queda héroe en el espejo`);
+  const filas = troopSummary(heroe.army, espejo.state.characters).filter(
+    (g) => g.veterania !== undefined,
+  );
+  if (!filas.some((g) => g.nivel >= 2)) {
+    throw new Error(
+      `${paso}: ningún individuo de ${heroe.name} pasa del nivel 1 (${filas.length} con experiencia): no hay veterano que enseñar`,
+    );
+  }
+  const panel = (await page.locator('#side').innerText()).replace(/\s+/g, ' ');
+  for (const g of filas) {
+    const esperado = g.nivel >= 2 ? `Veterano · nivel ${g.nivel}` : 'Nivel 1 ·';
+    if (!panel.includes(esperado)) {
+      throw new Error(
+        `${paso}: el espejo tiene un ${g.unit.name} de nivel ${g.nivel} y el panel no dice «${esperado}»`,
+      );
+    }
+  }
+  log(
+    `${paso}: ${filas.length} veterano(s) en el panel — ${filas
+      .map((g) => `${g.unit.name} nivel ${g.nivel}, ${g.veterania?.experiencia} exp`)
+      .join('; ')}`,
+  );
+}
+
+/**
+ * Un veterano en el campo: «· nivel N» en su fila de «En el campo», con el nivel
+ * que dice el espejo. Los galones del lienzo no se miran por píxel: van en la
+ * captura, y su cuenta la prueba `galonesDe` en los tests.
+ */
+async function veteranoEnElCampo(page: Page, espejo: Session): Promise<void> {
+  const battle = espejo.battle;
+  if (battle === null) throw new Error('no hay batalla en el espejo');
+  const vet = battle.stacks.find((s) => s.count > 0 && galonesDe(s) > 0);
+  if (vet === undefined) throw new Error('ningún veterano de nivel ≥ 2 pisa este tablero');
+  const esperado = `${vet.unit.name} · nivel ${galonesDe(vet) + 1}`;
+  const panel = (await page.locator('#side').innerText()).replace(/\s+/g, ' ');
+  if (!panel.includes(esperado)) throw new Error(`en «En el campo» falta «${esperado}»`);
+  log(`batalla con veterano: «${esperado}» en el campo, ${galonesDe(vet)} galón(es) en la figura`);
+}
+
+/**
+ * La tropa que crece, vista (ciclo «la tropa crece»): una guardia resuelta deja
+ * un veterano, el panel lo cuenta con su nivel y lo que le falta, y en la
+ * batalla del día siguiente pisa el tablero con galones y «· nivel N».
+ *
+ * Pasada propia y no dentro de la de escritorio: allí la primera batalla se
+ * juega a clics esperando y defendiendo para enseñar la rendición, y nadie de la
+ * tropa llega a pegar. La semilla se buscó con el espejo: en la 177 la guardia
+ * más cercana deja un veterano y al día siguiente hay otra a la que se llega.
+ */
+async function veteranos(browser: Browser, url: string, problemas: Problemas): Promise<void> {
+  const { page, espejo, mapa } = await abrir(browser, url, problemas, {
+    nombre: 'veteranos',
+    semilla: SEMILLA_VETERANOS,
+  });
+  await mapa.pulsar(await guardiaALaVista(page, mapa, espejo));
+  if (espejo.battle === null) throw new Error(`no hubo batalla: ${espejo.status}`);
+  await esperarCola(espejo.battle.log);
+  await page.getByRole('button', { name: 'Resolver sola' }).click();
+  espejo.autoResolveBattle();
+  await sleep(400);
+  await comprobar(page, espejo, 'resolver la guardia de los veteranos');
+  await veteranosEnElPanel(page, espejo, 'tras la primera guardia');
+  const cronica = await page.locator('#side').innerText();
+  if (!cronica.includes('sube a veterano de nivel')) {
+    throw new Error('la crónica de la página no cuenta el ascenso de la tropa');
+  }
+  await captura(page, 'veteranos-01-panel');
+  await pasarDia(page, espejo);
+  await comprobar(page, espejo, 'pasar al día 2 con los veteranos');
+  await mapa.pulsar(await guardiaALaVista(page, mapa, espejo));
+  if (espejo.battle === null) throw new Error(`no hubo segunda batalla: ${espejo.status}`);
+  await esperarCola(espejo.battle.log);
+  await veteranoEnElCampo(page, espejo);
+  await captura(page, 'veteranos-02-batalla-galones');
   await page.close();
 }
 
@@ -1716,6 +1807,7 @@ async function main(): Promise<void> {
     await jugarEscritorio(browser, arrancado.url, problemas);
     await emboscadaAvisada(browser, arrancado.url, problemas);
     await batallaPerdida(browser, arrancado.url, problemas);
+    await veteranos(browser, arrancado.url, problemas);
     await jugarMovil(browser, arrancado.url, problemas);
     await jugarTactil(browser, arrancado.url, problemas);
     await sinArte(browser, arrancado.url, problemas);

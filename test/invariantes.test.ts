@@ -364,9 +364,18 @@ function llamadasA(nombre: string, codigo: string): { inicio: number; argumento:
 /**
  * La única forma permitida de leer el catálogo con el cuerpo, y solo en la
  * inversa del cable: la rama `catalogo` de un `switch` sobre el origen del MISMO
- * stack, devolviendo la llamada sin nada en medio —
- * `switch (X.origen.kind) { case 'catalogo': return creature(X.body);`—. Se
- * mira LA LLAMADA, no la línea en que cae.
+ * stack, devolviendo la llamada sin nada en medio y con la veteranía de ese
+ * mismo origen —
+ * `switch (X.origen.kind) { case 'catalogo': return cifrasDeCatalogo(X.body, X.origen.veterania);`—,
+ * o guardándola en una constante de esa misma rama (`case 'catalogo': { const
+ * u = cifrasDeCatalogo(…)`), que es como la inversa rehace además el precio.
+ * Se mira LA LLAMADA, no la línea en que cae.
+ *
+ * Antes la forma permitida era `return creature(X.body)`, y la veteranía se
+ * sumaba fuera del `switch`: era la tercera copia de «cifras = catálogo +
+ * veteranía». Ahora la regla vive en una función de `core` y la excepción es
+ * para esa función, no una segunda: `creature(X.body)` ya no pasa en ningún
+ * fichero.
  *
  * Antes la forma era `X.unit ?? creature(X.body)`: «el catálogo donde `unit`
  * no viajó». Eso preguntaba por la ausencia de un campo, y un personaje que
@@ -374,11 +383,11 @@ function llamadasA(nombre: string, codigo: string): { inicio: number; argumento:
  * él. Ahora decide el discriminante, y el guardia exige el discriminante.
  */
 function esRellenoDelCable(codigo: string, inicio: number, argumento: string): boolean {
-  const cuerpo = /^(\w+)\.body$/.exec(argumento);
-  if (cuerpo === null) return false;
+  const cuerpo = /^(\w+)\.body\s*,\s*(\w+)\.origen\.veterania$/.exec(argumento);
+  if (cuerpo === null || cuerpo[1] !== cuerpo[2]) return false;
   const antes = codigo.slice(Math.max(0, inicio - 200), inicio);
   const rama =
-    /\bswitch\s*\(\s*(\w+)\.origen\.kind\s*\)\s*\{\s*case\s+'catalogo'\s*:\s*return\s+$/.exec(
+    /\bswitch\s*\(\s*(\w+)\.origen\.kind\s*\)\s*\{\s*case\s+'catalogo'\s*:\s*(?:\{\s*const\s+\w+\s*=|return)\s+$/.exec(
       antes,
     );
   return rama !== null && rama[1] === cuerpo[1];
@@ -448,7 +457,7 @@ function stackDePrueba(): BattleStack {
     slot: 0,
     body: 'pikeman',
     unit: creature('pikeman'),
-    origen: { kind: 'catalogo' },
+    origen: { kind: 'catalogo', oro: 200, veterania: null },
     initialCount: 10,
     count: 10,
     topHp: 1,
@@ -462,6 +471,7 @@ function stackDePrueba(): BattleStack {
     morale: 0,
     luck: 0,
     effects: [],
+    ganado: { experiencia: 0, bajas: 0, heroes: [] },
   };
 }
 
@@ -514,7 +524,9 @@ describe('invariantes del proyecto', () => {
     // llamaba: era código muerto, así que ninguna partida ejecutaba el
     // `Math.pow` que hay debajo del `**`. El ciclo que abre el surtidor de
     // experiencia la pone en el camino de cada batalla, y ahí la promesa se
-    // habría roto en silencio.
+    // habría roto en silencio. (Esa función ya no existe: los umbrales de hoy
+    // son Fibonacci, en `hero/experiencia.ts`, y solo suman y multiplican
+    // enteros. El guardia sigue valiendo para ellos y para el siguiente.)
     //
     // Dos mitades, y la primera es la que decide la forma:
     //  1. **el identificador `Math` solo puede aparecer como `Math.<permitido>`**
@@ -796,20 +808,35 @@ describe('invariantes del proyecto', () => {
     // línea.** El cable del espectador no manda `unit` cuando es la del catálogo
     // (+72 % de fotograma para repetir una tabla que las dos puntas tienen), así
     // que su inversa, `espectador/adaptar.ts`, la rehace. Se le permite
-    // exactamente `return creature(X.body)` como primera rama, `'catalogo'`, de
-    // un `switch (X.origen.kind)` con la misma `X`, y nada más
+    // exactamente `cifrasDeCatalogo(X.body, X.origen.veterania)` como lo
+    // primero de la rama `'catalogo'` —devuelta o en una constante— de un
+    // `switch (X.origen.kind)` con la misma `X`, y nada más
     // (`esRellenoDelCable`). Una versión anterior eximía la LÍNEA en que aparecía
     // la forma, y una lectura directa escrita a su lado se colaba con ella.
+    //
+    // Y la llamada que se mira son DOS nombres: `creature` y `cifrasDeCatalogo`,
+    // que es `creature` más la veteranía. Sin el segundo, la regla de las cifras
+    // en una sola función habría abierto la puerta de al lado: un
+    // `cifrasDeCatalogo(s.body, …)` en el motor lee el catálogo con el cuerpo
+    // igual que `creature(s.body)`. La excepción del cable es solo para él.
     const INVERSA_DEL_CABLE = 'src/client/espectador/adaptar.ts';
     const fugas: string[] = [];
     for (const ruta of [...CORE, ...CLIENTE, ...SERVIDOR]) {
       const codigo = sinComentarios(leer(ruta));
-      for (const { inicio, argumento } of llamadasA('creature', codigo)) {
-        if (!/\.\s*body\b|\[\s*(['"`])body\1\s*\]/.test(argumento)) continue;
-        if (ruta === INVERSA_DEL_CABLE && esRellenoDelCable(codigo, inicio, argumento)) continue;
-        fugas.push(
-          `${ruta}:${lineaDe(codigo, inicio)} → creature(${argumento.replace(/\s+/g, ' ')})`,
-        );
+      for (const nombre of ['creature', 'cifrasDeCatalogo'] as const) {
+        for (const { inicio, argumento } of llamadasA(nombre, codigo)) {
+          if (!/\.\s*body\b|\[\s*(['"`])body\1\s*\]/.test(argumento)) continue;
+          if (
+            nombre === 'cifrasDeCatalogo' &&
+            ruta === INVERSA_DEL_CABLE &&
+            esRellenoDelCable(codigo, inicio, argumento)
+          ) {
+            continue;
+          }
+          fugas.push(
+            `${ruta}:${lineaDe(codigo, inicio)} → ${nombre}(${argumento.replace(/\s+/g, ' ')})`,
+          );
+        }
       }
       if (ruta === 'src/core/data.ts' || !importaCreature(codigo)) continue;
       for (const inicio of creatureComoValor(codigo)) {

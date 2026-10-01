@@ -15,7 +15,12 @@
 import { activeStack, isAlive, stackHexes } from '@core/battle/battle.js';
 import { BOARD_HEIGHT, BOARD_WIDTH, hexKey } from '@core/battle/board.js';
 import { stackHp } from '@core/battle/damage.js';
-import type { BattleStack, BattleState, Side } from '@core/battle/types.js';
+import {
+  type BattleStack,
+  type BattleState,
+  nivelDeVeterania,
+  type Side,
+} from '@core/battle/types.js';
 import { hexSize, isShooter } from '@core/data.js';
 import type { Hex } from '@core/types.js';
 import { sombraDeFigura } from '../../shared/arte.js';
@@ -336,6 +341,57 @@ export function pintarSobreLaCabeza(
   f: EstadoFigura,
 ): void {
   pintarVida(ctx, v, s, f);
+  pintarGalones(ctx, v, s, f);
+}
+
+/**
+ * Cuántos galones lleva la figura: uno por nivel de veteranía por encima del 1,
+ * así que un novato no lleva ninguno y uno de nivel 5, cuatro. Se lee del
+ * origen —la hoja con la que entró—, la misma de la que salen sus cifras.
+ */
+export function galonesDe(s: BattleStack): number {
+  return nivelDeVeterania(s.origen) - 1;
+}
+
+/**
+ * Los galones, encima de la barra y centrados: uves invertidas en fila, una por nivel de
+ * veteranía por encima del 1. Encima y no a un lado porque a la izquierda caía
+ * la corona del comandante vecino y a la derecha van los tiros del tirador. Con
+ * trazos y no con un glifo, porque un `︽` depende de la fuente que tenga quien
+ * mire y sin ella se pinta un cuadrado.
+ */
+function pintarGalones(
+  ctx: CanvasRenderingContext2D,
+  v: VistaBatalla,
+  s: BattleStack,
+  f: EstadoFigura,
+): void {
+  const n = galonesDe(s);
+  if (n <= 0) return;
+  const { x, y } = cabezaDe(v, s, f);
+  const ancho = Math.max(8, Math.round(v.tablero.paso * 0.13));
+  const alto = Math.round(ancho * 0.55);
+  const hueco = 3;
+  const total = n * ancho + (n - 1) * hueco;
+  const abajo = y - 4;
+  ctx.save();
+  ctx.globalAlpha = f.alfa;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  for (let i = 0; i < n; i++) {
+    const izq = x - total / 2 + i * (ancho + hueco);
+    ctx.beginPath();
+    ctx.moveTo(izq, abajo);
+    ctx.lineTo(izq + ancho / 2, abajo - alto);
+    ctx.lineTo(izq + ancho, abajo);
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = 'rgba(12,10,6,0.9)';
+    ctx.stroke();
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = '#e8c35a';
+    ctx.stroke();
+  }
+  ctx.restore();
 }
 
 /** Un rectángulo en píxeles del lienzo: lo que ocupa algo pintado. */
