@@ -193,16 +193,21 @@ describe('la crónica pasa por la niebla', () => {
     const { state, ctx } = partida(104);
 
     // Pierdo el héroe y después el castillo: me quedo sin nada que mirar y sin
-    // partida, y me tengo que enterar de las dos cosas.
+    // partida, y me tengo que enterar de las dos cosas. Desde la fase 1b el
+    // héroe que cae vuelve a casa, así que la segunda batalla es en mi castillo
+    // y con él dentro: perderla se lleva la casa y al héroe a la vez.
     heroById(state, 'hero-0').army = ejercito({ creature: 'peasant', count: 1 });
     pasear(state, ctx, 0, [{ x: 8, y: 6 }]);
     pasarTurno(state, ctx, 0);
     pasear(state, ctx, 1, [{ x: 8, y: 6 }]);
     resolvePendingBattle(state, ctx);
+    expect(heroById(state, 'hero-0').at).toEqual(MI_CASTILLO);
     // Cruzar el día es lo que pone un `day_start` del rival en la ventana.
     pasarTurno(state, ctx, 1);
     pasarTurno(state, ctx, 0);
     pasear(state, ctx, 1, [MI_CASTILLO]);
+    expect(state.pendingBattle?.foe).toEqual({ kind: 'hero', heroId: 'hero-0' });
+    expect(resolvePendingBattle(state, ctx).winner).toBe('attacker');
 
     const ev = leer(state, 0).recentEvents;
     expect(ev.some((e) => e.kind === 'day_start')).toBe(true);
@@ -365,7 +370,11 @@ describe('la crónica pasa por la niebla', () => {
     const { state, ctx } = partida(107);
 
     // Sin castillo cerca y sin más héroes: lo único que mira esa casilla es el
-    // héroe que está a punto de morir en ella.
+    // héroe que está a punto de morir en ella. Y SIN BASE: desde la fase 1b un
+    // héroe con base vuelve a ella, y su `hero_defeated` se sella con él todavía
+    // en el campo, mirándose caer. Lo que este test vigila es el otro caso, el
+    // que sale del mapa: ahí el sello no lo salva y lo salva `actor`.
+    (state.players[0] as { base: string | null }).base = null;
     heroById(state, 'hero-0').army = ejercito({ creature: 'peasant', count: 1 });
     pasear(state, ctx, 0, [{ x: 20, y: 6 }]);
     pasarTurno(state, ctx, 0);

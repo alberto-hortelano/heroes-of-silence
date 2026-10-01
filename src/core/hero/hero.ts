@@ -1,5 +1,6 @@
 /** Héroes: atributos, ejército y movimiento diario. */
-import type { Army, FactionId, PlayerId, Point, SpeedTier } from '../types.js';
+import { HEROE } from '../data.js';
+import type { Army, FactionId, PlayerId, Point, SpeedTier, UnitInfo } from '../types.js';
 import { SPEED_TO_MOVE_POINTS } from '../types.js';
 import { type Personajes, troopUnit } from './troop.js';
 
@@ -24,6 +25,43 @@ export interface Hero {
   movePoints: number;
   spells: string[];
   skills: Partial<Record<SkillId, SkillLevel>>;
+}
+
+/**
+ * El id de ARTE del héroe en el tablero (`BattleStack.body`) y en el mapa.
+ *
+ * Como `CHARACTER_BODY`, no está en el catálogo a propósito: un lector que lo
+ * buscara con `creature()` lanza en vez de leer cifras prestadas. Las cifras
+ * del héroe salen de `heroUnit`. Un hecho, un sitio: el mapa del cliente lo
+ * pinta con este mismo id (`render/mapa.ts`), y `render/personajes.ts` lo
+ * resuelve a la figura que toque.
+ */
+export const HERO_BODY = 'hero';
+
+/**
+ * El cuerpo del héroe en batalla (fase 1b: el héroe pisa el tablero, pelea y
+ * puede caer). Cifras de `data/heroe.json`, **inventadas y provisionales**.
+ *
+ * Su ataque y su defensa son los de su cuerpo (`BattleHero` cuenta por qué ya
+ * no son un bono a la tropa). Lo que crece con el nivel lo dice el JSON. Entra
+ * sano a cada batalla: no hay heridas que arrastrar, así que esto no mira nada
+ * más que el héroe.
+ *
+ * `faction: null` para que no cambie la moral por diversidad del ejército, y
+ * sin rasgos: el héroe no es no-muerto aunque mande a los nigromantes.
+ */
+export function heroUnit(hero: Pick<Hero, 'name' | 'attack' | 'defense' | 'level'>): UnitInfo {
+  const c = HEROE.combate;
+  const subidas = hero.level - 1;
+  return {
+    name: hero.name,
+    faction: null,
+    attack: hero.attack + c.ataquePorNivel * subidas,
+    defense: hero.defense + c.defensaPorNivel * subidas,
+    damage: [c.danio.min, c.danio.max + c.danio.maxPorNivel * subidas],
+    hp: c.pv.base + c.pv.porNivel * subidas,
+    speed: c.velocidad,
+  };
 }
 
 /** Puntos de maná máximos: 10 × Conocimiento (`heroes.cpp` de fheroes2). */

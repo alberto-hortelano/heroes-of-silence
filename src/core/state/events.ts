@@ -73,7 +73,7 @@ type Sello = {
   readonly seen: readonly PlayerId[];
 };
 
-/** Los diecisiete hechos, sin protagonista todavía. */
+/** Los dieciocho hechos, sin protagonista todavía. */
 type Cuerpo =
   | { kind: 'day_start'; day: number; week: number }
   | { kind: 'turn_start' }
@@ -89,6 +89,18 @@ type Cuerpo =
   | { kind: 'battle_started'; attacker: string; foe: BattleFoe }
   | { kind: 'battle_ended'; winner: 'attacker' | 'defender'; foe: BattleFoe }
   | { kind: 'hero_defeated'; hero: string }
+  /**
+   * El héroe vuelve a su base tras perder una batalla (fase 1b). Va DESPUÉS de
+   * su `hero_defeated` si cayó peleando, y solo si se rindió (`surrendered`),
+   * que no es caer. `at` es la casilla donde reaparece.
+   *
+   * Rendido, lleva lo que pagó (`gold`): la crónica es lo único que queda de la
+   * batalla después de liquidarla, y sin la cifra la persona veía bajar su oro
+   * sin una línea que dijera cuánto (H-2 de la fase 1b). Dos variantes y no un
+   * `gold` opcional: así no existe una rendición sin precio ni una caída con él.
+   */
+  | { kind: 'hero_returned'; hero: string; town: string; surrendered: false }
+  | { kind: 'hero_returned'; hero: string; town: string; surrendered: true; gold: number }
   | { kind: 'level_up'; hero: string; level: number }
   | { kind: 'player_defeated' }
   | { kind: 'game_over' };
@@ -168,6 +180,7 @@ export function visibleTo(e: GameEvent, p: PlayerId): boolean {
     case 'battle_started':
     case 'battle_ended':
     case 'hero_defeated':
+    case 'hero_returned':
     case 'level_up':
       return e.actor === p || e.seen.includes(p);
   }

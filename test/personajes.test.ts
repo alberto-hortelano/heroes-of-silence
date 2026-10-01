@@ -15,14 +15,17 @@ import {
   MANIQUI,
 } from '../src/client/render/personajes.js';
 import { allCreatures } from '../src/core/data.js';
+import { HERO_BODY } from '../src/core/hero/hero.js';
 import { CHARACTER_BODY } from '../src/core/rpg/character.js';
 
 describe('las figuras a 25°', () => {
-  it('cada cuerpo de la tabla es una criatura del catálogo o el personaje', () => {
+  it('cada cuerpo de la tabla es una criatura del catálogo, el personaje o el héroe', () => {
     const ids = new Set(allCreatures().map((c) => c.id));
     for (const body of Object.keys(ARTE_POR_CUERPO)) {
-      expect(body === CHARACTER_BODY || ids.has(body), body).toBe(true);
+      expect(body === CHARACTER_BODY || body === HERO_BODY || ids.has(body), body).toBe(true);
     }
+    // Y el héroe tiene figura propia: en el tablero no cae al maniquí (fase 1b).
+    expect(arteDe(HERO_BODY).propio).toBe(true);
   });
 
   it('cada hoja tiene reposo, marcha y ataque, y cuenta como hoja de figura', () => {

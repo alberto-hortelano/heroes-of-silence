@@ -10,6 +10,7 @@ import {
   stepTowards,
 } from '../src/core/ai/strategy.js';
 import { playAiGame, playAiTurn } from '../src/core/ai/turn.js';
+import { stackHp } from '../src/core/battle/damage.js';
 import { allSpells } from '../src/core/battle/spells.js';
 import { factionLineup } from '../src/core/data.js';
 import {
@@ -68,7 +69,7 @@ import {
   townSpells,
 } from '../src/core/town/town.js';
 import { type Point, RESOURCE_KINDS, type Resources } from '../src/core/types.js';
-import { ejercito, forzarBatalla, monstruoVivo, ponerMonstruo } from './helpers.js';
+import { ejercito, esPersonaje, forzarBatalla, monstruoVivo, ponerMonstruo } from './helpers.js';
 
 const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 
@@ -243,29 +244,46 @@ describe('generación de mapas', () => {
     expect(() => newGame({ seed: 31, plan: inventada })).toThrow(/no es jugable/);
   });
 
-  it('rechaza un monstruo que no cabe en su lado del tablero, y dice el máximo', () => {
-    // Un monstruo son individuos, uno por hex: treinta campesinos no caben en
-    // los 27 de un bando, y diez dragones —una fila cada uno— tampoco en las 9
-    // filas. Sin esto el plan entraba y `createBattle` reventaba al pisarlo,
-    // con la partida ya en marcha.
+  it('rechaza un monstruo de más de siete, y dice el máximo', () => {
+    // Un monstruo son individuos y ningún bando pasa de siete (regla del
+    // usuario, fase 1b). Sin esto el plan entraba y `createBattle` reventaba
+    // al pisarlo, con la partida ya en marcha.
     const plan = generateMapPlan(createRng(31));
     const conMonstruo = (creature: string, count: number) => ({
       ...plan,
       monsters: [{ at: plan.monsters[0]!.at, creature, count }, ...plan.monsters.slice(1)],
     });
-    const campesinos = validateMapPlan(conMonstruo('peasant', 30)).join(' ');
-    expect(campesinos).toMatch(/trae 30 × peasant y no caben en su lado del tablero/);
-    expect(campesinos).toMatch(/como mucho 27/);
-    expect(validateMapPlan(conMonstruo('bone_dragon', 10)).join(' ')).toMatch(/como mucho 9/);
+    const at = plan.monsters[0]!.at;
+    expect(validateMapPlan(conMonstruo('peasant', 8))).toEqual([
+      `el monstruo de (${at.x},${at.y}) trae 8 × peasant y un bando lleva como mucho 7`,
+    ]);
     // Y en el límite, entra.
-    expect(validateMapPlan(conMonstruo('peasant', 27))).toEqual([]);
-    expect(validateMapPlan(conMonstruo('bone_dragon', 9))).toEqual([]);
+    expect(validateMapPlan(conMonstruo('peasant', 7))).toEqual([]);
+    expect(validateMapPlan(conMonstruo('bone_dragon', 7))).toEqual([]);
   });
 
-  it('el generador no pone nunca un monstruo que no quepa', () => {
+  it('rechaza un monstruo de 0, negativo o con decimales: son individuos', () => {
+    // El esquema del agente ya exige un entero positivo, pero `validateMapPlan`
+    // es la puerta de los dos productores y el procedimental no pasa por zod. Un
+    // 1,5 era un `Array.from({ length: 1.5 })`: un monstruo de 1, en silencio.
+    const plan = generateMapPlan(createRng(31));
+    const at = plan.monsters[0]!.at;
+    for (const count of [0, -3, 1.5, Number.NaN]) {
+      const malo = {
+        ...plan,
+        monsters: [{ at, creature: 'peasant', count }, ...plan.monsters.slice(1)],
+      };
+      expect(validateMapPlan(malo), String(count)).toEqual([
+        `el monstruo de (${at.x},${at.y}) trae ${count} × peasant: son individuos, tiene que ser un entero de 1 en adelante`,
+      ]);
+    }
+  });
+
+  it('el generador no pone nunca un monstruo de más de siete', () => {
     for (let seed = 1; seed <= 60; seed++) {
       const plan = generateMapPlan(createRng(seed));
-      expect(validateMapPlan(plan).filter((p) => p.includes('no caben'))).toEqual([]);
+      for (const m of plan.monsters) expect(m.count, `semilla ${seed}`).toBeLessThanOrEqual(7);
+      expect(validateMapPlan(plan)).toEqual([]);
     }
   });
 
@@ -526,6 +544,8 @@ describe('economía', () => {
     const town = townsOf(state, 0)[0]!;
     const hero = heroesOf(state, 0)[0]!;
     hero.at = town.at;
+    // Vacío: el ejército de salida puede llevar ya 6 de los 6 que caben.
+    hero.army = [];
 
     const morada = dwellings(town)[0]!;
     const disponibles = town.available[morada.creature] ?? 0;
@@ -724,8 +744,9 @@ describe('batallas del mapa', () => {
     const hero = heroesOf(state, 0)[0]!;
 
     // Ejército sobrado para que la victoria no dependa de la suerte.
-    hero.army = ejercito({ creature: 'paladin', count: 20 });
-    const monstruo = forzarBatalla(state, c, hero);
+    hero.army = ejercito({ creature: 'paladin', count: 6 });
+    const monstruo = monstruoVivo(state);
+    forzarBatalla(state, c, hero, monstruo.at);
     expect(state.pendingBattle!.foe).toEqual({ kind: 'monster', objectId: monstruo.id });
 
     const resultado = resolvePendingBattle(state, c);
@@ -735,28 +756,40 @@ describe('batallas del mapa', () => {
     expect(heroById(state, hero.id).experience).toBeGreaterThan(0);
   });
 
-  it('perder la batalla elimina al héroe atacante', () => {
+  it('perder la batalla devuelve al héroe atacante a su base, sin tropa', () => {
+    // Hasta la fase 1b el héroe que perdía desaparecía del mapa. Ahora cae y
+    // vuelve a su castillo con el ejército vacío y sin movimiento: la tropa
+    // muerta se pierde, y la viva también, porque no se rindió.
     const state = newGame({ seed: 32 });
     const c = ctx(32);
     const hero = heroesOf(state, 0)[0]!;
     const monstruo = monstruoVivo(state);
+    const base = townsOf(state, 0)[0]!;
 
     hero.army = ejercito({ creature: 'peasant', count: 1 });
+    base.garrison = [];
+    // Sin oro no hay rendición: tiene que caer peleando.
+    state.players[0]!.resources = { ...state.players[0]!.resources, gold: 0 };
     // Se sustituye por un monstruo imbatible en la misma casilla.
     state.map.objects.splice(state.map.objects.indexOf(monstruo), 1, {
       kind: 'monster',
       id: monstruo.id,
       at: monstruo.at,
       creature: 'bone_dragon',
-      count: 9,
+      count: 7,
       defeated: false,
     });
 
     forzarBatalla(state, c, hero);
     const resultado = resolvePendingBattle(state, c);
     expect(resultado.winner).toBe('defender');
-    expect(state.heroes.some((h) => h.id === hero.id)).toBe(false);
-    expect(state.log.some((e) => e.kind === 'hero_defeated')).toBe(true);
+    const vuelto = heroById(state, hero.id);
+    expect(vuelto.at).toEqual(base.at);
+    expect(vuelto.movePoints).toBe(0);
+    expect(vuelto.army).toEqual([]);
+    const kinds = state.log.map((e) => e.kind);
+    expect(kinds.indexOf('hero_defeated')).toBeGreaterThan(-1);
+    expect(kinds.indexOf('hero_returned')).toBeGreaterThan(kinds.indexOf('hero_defeated'));
   });
 
   it('no se puede seguir jugando con una batalla pendiente', () => {
@@ -782,16 +815,16 @@ describe('experiencia y niveles', () => {
       const state = newGame({ seed: 31 });
       const c = ctx(31);
       const hero = heroesOf(state, 0)[0]!;
-      hero.army = ejercito({ creature: 'crusader', count: 20 });
+      hero.army = ejercito({ creature: 'crusader', count: 6 });
       ponerMonstruo(state, 'peasant', cuantos);
       forzarBatalla(state, c, hero);
       expect(resolvePendingBattle(state, c).winner).toBe('attacker');
       return heroById(state, hero.id).experience;
     };
 
-    // Veinte y no cien: un monstruo son individuos, uno por hex, y en un bando
-    // caben 27.
-    expect(experienciaContra(20)).toBe(20);
+    // Siete y no cien: un monstruo son individuos, y un bando lleva como mucho
+    // siete.
+    expect(experienciaContra(7)).toBe(7);
     expect(experienciaContra(1)).toBe(1);
   });
 
@@ -804,40 +837,58 @@ describe('experiencia y niveles', () => {
     const atacante = heroesOf(state, 0)[0]!;
     const defensor = heroesOf(state, 1)[0]!;
 
-    atacante.army = ejercito({ creature: 'peasant', count: 10 });
+    atacante.army = ejercito({ creature: 'peasant', count: 6 });
     atacante.movePoints = 5000;
-    defensor.army = ejercito({ creature: 'crusader', count: 20 });
+    // Sin oro no hay rendición: el atacante tiene que perder peleando.
+    state.players[0]!.resources = { ...state.players[0]!.resources, gold: 0 };
+    defensor.army = ejercito({ creature: 'crusader', count: 6 });
     defensor.experience = 0;
     defensor.at = casillaVecinaLibre(state, atacante.at);
 
     applyAdventureAction(state, { type: 'move_hero', hero: atacante.id, to: defensor.at }, c, 0);
     expect(state.pendingBattle!.foe).toEqual({ kind: 'hero', heroId: defensor.id });
+    const batalla = state.pendingBattle!.battle;
     expect(resolvePendingBattle(state, c).winner).toBe('defender');
 
-    // 10 campesinos de 1 PV, más los 500 de derrotar al héroe que los mandaba
-    // (`battle_arena.cpp`). Misma fórmula que cobraría atacando: la simetría
-    // también es del original.
-    expect(heroById(state, defensor.id).experience).toBe(10 * 1 + 500);
-    expect(state.heroes.some((h) => h.id === atacante.id)).toBe(false);
+    // Los campesinos muertos —1 PV cada uno— más los 500 de derrotar al héroe
+    // que los mandaba (`battle_arena.cpp`). Misma fórmula que cobraría
+    // atacando: la simetría también es del original. El cuerpo del héroe no
+    // suma sus PV: su caída la paga el +500, una sola vez.
+    const muertos = batalla.stacks.filter(
+      (s) => s.side === 'attacker' && s.origen.kind !== 'heroe' && s.count === 0,
+    ).length;
+    expect(heroById(state, defensor.id).experience).toBe(muertos + 500);
   });
 
   it('se suben dos niveles de golpe y se cuentan los dos, cada uno con su hecho', () => {
     const state = newGame({ seed: 31 });
     const c = ctx(31);
     const hero = heroesOf(state, 0)[0]!;
-    hero.army = ejercito({ creature: 'crusader', count: 27 });
-    // Nueve dragones óseos de 150 PV = 1350 de experiencia de una sentada, sobre
-    // los 900 que ya traía: pasa el umbral del nivel 2 (1000) y el del 3 (2000)
-    // en la misma batalla, y se queda corto del 4 (3200). Eran 140 piqueros
-    // desde cero; con un individuo por hex no caben más de 27, y nueve dragones
-    // —una fila cada uno— son lo que más experiencia da en un bando.
-    hero.experience = 900;
-    const monstruo = ponerMonstruo(state, 'bone_dragon', 9);
+    hero.army = ejercito({ creature: 'crusader', count: 6 });
+    // Siete dragones óseos de 150 PV = 1050 de experiencia de una sentada, sobre
+    // los 950 que ya traía: pasa el umbral del nivel 2 (1000) y el del 3 (2000,
+    // justo) en la misma batalla, y se queda corto del 4 (3200). Eran 140
+    // piqueros desde cero; con un bando de siete como mucho, siete dragones son
+    // lo que más experiencia da.
+    hero.experience = 950;
+    // Un héroe duro de pelar, por si el último dragón le alcanza antes de caer.
+    hero.defense = 30;
+    const monstruo = ponerMonstruo(state, 'bone_dragon', 7);
     forzarBatalla(state, c, hero);
+    // Seis caen antes de empezar y el séptimo llega con 1 PV, para que la
+    // victoria no dependa de la suerte: desde la fase 1b siete dragones van
+    // directos a por el héroe, y si cae se pierde la batalla. La experiencia
+    // cuenta los PV de la criatura por las muertas, no cómo murieron.
+    const dragones = state.pendingBattle!.battle.stacks.filter((s) => s.side === 'defender');
+    for (const d of dragones.slice(1)) {
+      d.count = 0;
+      d.topHp = 0;
+    }
+    dragones[0]!.topHp = 1;
     expect(resolvePendingBattle(state, c).winner).toBe('attacker');
 
     const vivo = heroById(state, hero.id);
-    expect(vivo.experience).toBe(900 + 1350);
+    expect(vivo.experience).toBe(950 + 1050);
     expect(vivo.level).toBe(3);
 
     const subidas = state.log.filter((e) => e.kind === 'level_up');
@@ -1759,7 +1810,7 @@ describe('los personajes y sus heridas', () => {
     const final = state.pendingBattle!.battle;
 
     expect(resolvePendingBattle(state, c).winner).toBe('attacker');
-    const s = final.stacks.find((x) => x.member === 'aren')!;
+    const s = final.stacks.find(esPersonaje('aren'))!;
     const aren = state.characters!.aren!;
     expect(aren.hp).toBe(s.topHp);
     // El zombi contraatacó: sale herido, y con eso el test prueba algo.
@@ -1780,7 +1831,7 @@ describe('los personajes y sus heridas', () => {
     state.characters!.aren!.hp = 9;
     ponerMonstruo(state, 'peasant', 1);
     forzarBatalla(state, c, hero);
-    expect(state.pendingBattle!.battle.stacks.find((x) => x.member === 'aren')!.topHp).toBe(9);
+    expect(state.pendingBattle!.battle.stacks.find(esPersonaje('aren'))!.topHp).toBe(9);
   });
 
   it('el personaje que cae queda a 0 PV y sale del ejército, pero no de la partida', () => {
@@ -1788,19 +1839,19 @@ describe('los personajes y sus heridas', () => {
     const c = ctx(32);
     const hero = heroesOf(state, 0)[0]!;
     alistar(state, hero);
-    // Llega con 3 PV y sin la flecha mágica del héroe, y lleva un compañero que
-    // no cae, para que el héroe gane y siga en el mapa: si perdiera, se iría con
-    // el ejército y no habría ejército que mirar.
-    state.characters!.aren!.hp = 3;
+    // Llega con 1 PV y sin la flecha mágica del héroe, y lleva un compañero que
+    // no cae, para que el héroe gane y conserve su ejército: si perdiera,
+    // volvería a la base sin él y no habría ejército que mirar.
+    state.characters!.aren!.hp = 1;
     hero.mana = 0;
     hero.army = [...hero.army, ...ejercito({ creature: 'paladin', count: 1 })];
-    ponerMonstruo(state, 'zombie', 3);
+    ponerMonstruo(state, 'skeleton', 4);
     forzarBatalla(state, c, hero);
     const final = state.pendingBattle!.battle;
     // Que caiga lo decide el tablero; el test comprueba lo que se escribe
     // DESPUÉS, así que exige que de verdad cayera.
     expect(resolvePendingBattle(state, c).winner).toBe('attacker');
-    expect(final.stacks.find((x) => x.member === 'aren')!.count).toBe(0);
+    expect(final.stacks.find(esPersonaje('aren'))!.count).toBe(0);
 
     expect(state.characters!.aren!.hp).toBe(0);
     const vivo = heroById(state, hero.id);
@@ -1816,34 +1867,42 @@ describe('los personajes y sus heridas', () => {
     const atacante = heroesOf(state, 0)[0]!;
     const defensor = heroesOf(state, 1)[0]!;
     alistar(state, defensor, 'bera');
+    // Sin base: no puede rendirse —salvar solo a un personaje cuesta 0 de oro,
+    // así que el oro no lo impediría— y, si cae, sale del mapa en vez de volver.
+    (state.players[1] as { base: string | null }).base = null;
 
-    atacante.army = ejercito({ creature: 'crusader', count: 20 });
+    atacante.army = ejercito({ creature: 'crusader', count: 6 });
     atacante.movePoints = 5000;
     defensor.at = casillaVecinaLibre(state, atacante.at);
 
     applyAdventureAction(state, { type: 'move_hero', hero: atacante.id, to: defensor.at }, c, 0);
-    expect(state.pendingBattle!.battle.stacks.some((s) => s.member === 'bera')).toBe(true);
+    const final = state.pendingBattle!.battle;
+    expect(final.stacks.some(esPersonaje('bera'))).toBe(true);
     expect(resolvePendingBattle(state, c).winner).toBe('attacker');
     // El héroe que lo llevaba ya no está en el mapa; el personaje sí está en la
-    // partida, y con su herida escrita.
+    // partida, con su herida escrita: 0 si cayó, o lo que le quedara si la
+    // batalla acabó antes al caer el héroe (fase 1b).
     expect(state.heroes.some((h) => h.id === defensor.id)).toBe(false);
-    expect(state.characters!.bera!.hp).toBe(0);
+    const s = final.stacks.find(esPersonaje('bera'))!;
+    expect(state.characters!.bera!.hp).toBe(stackHp(s));
+    expect(state.characters!.bera!.hp).toBeLessThan(s.unit.hp);
   });
 
   it('el defensor con personaje que GANA lo conserva en el ejército, con sus PV escritos', () => {
     // Es otro camino que el del atacante —`applyDefenderSurvivors` y
     // `restoreHeroFromBattle`— y es donde ya se olvidó una línea una vez (el
-    // maná). Siete arqueros contra el personaje y veintiséis esqueletos —uno
-    // por hex: no caben más de 27 en un bando—: el defensor gana, y los
-    // arqueros disparan, así que el personaje sale herido.
+    // maná). Seis arqueros contra el personaje y cinco vampiros: el defensor
+    // gana, y los arqueros disparan, así que el personaje sale herido.
     const state = newGame({ seed: 41 });
     const c = ctx(41);
     const atacante = heroesOf(state, 0)[0]!;
     const defensor = heroesOf(state, 1)[0]!;
     alistar(state, defensor, 'bera');
-    defensor.army = [...defensor.army, ...ejercito({ creature: 'skeleton', count: 26 })];
+    defensor.army = [...defensor.army, ...ejercito({ creature: 'vampire', count: 5 })];
+    // Sin oro no hay rendición: la batalla se pelea hasta el final.
+    state.players[0]!.resources = { ...state.players[0]!.resources, gold: 0 };
 
-    atacante.army = ejercito({ creature: 'archer', count: 7 });
+    atacante.army = ejercito({ creature: 'archer', count: 6 });
     // Sin maná: la flecha mágica del héroe va a por el personaje —es el único
     // individuo del bando con vida para que valga la pena— y lo mataría.
     atacante.mana = 0;
@@ -1854,7 +1913,7 @@ describe('los personajes y sus heridas', () => {
     const final = state.pendingBattle!.battle;
     expect(resolvePendingBattle(state, c).winner).toBe('defender');
 
-    const s = final.stacks.find((x) => x.member === 'bera')!;
+    const s = final.stacks.find(esPersonaje('bera'))!;
     const bera = state.characters!.bera!;
     expect(bera.hp).toBe(s.topHp);
     // Si saliera sano el test no distinguiría «escrito» de «no tocado».

@@ -11,13 +11,14 @@
 import { describe, expect, it } from 'vitest';
 import { armyPower, planRecruits, unitPower } from '../src/core/ai/strategy.js';
 import { playAiGame } from '../src/core/ai/turn.js';
-import { despliegueBlocker, HEXES_POR_BANDO } from '../src/core/battle/battle.js';
 import { BOARD_HEIGHT } from '../src/core/battle/board.js';
 import { serializeAdventureTurn } from '../src/core/contract/serialize.js';
-import { allCreatures, creature, hexSize, LIDERAZGO } from '../src/core/data.js';
+import { allCreatures, creature, LIDERAZGO } from '../src/core/data.js';
 import { maxMovePoints, slowestSpeed } from '../src/core/hero/hero.js';
 import {
   armyLeadership,
+  CUPO_GUARNICION,
+  CUPO_HEROE,
   GARRISON_LEADERSHIP,
   heroLeadership,
   troopBlocker,
@@ -110,7 +111,8 @@ describe('liderazgo', () => {
 
   it('reclutar por encima del liderazgo lanza con la frase, y no cobra nada', () => {
     const { state, hero, town } = heroeEnCasa(13);
-    hero.army = ejercito({ creature: 'peasant', count: 9 }); // 18 de 20
+    // 18 de 20 con 3 de los 6 individuos: lo que muerde aquí es el liderazgo.
+    hero.army = ejercito({ creature: 'swordsman', count: 3 });
     const oro = state.players[0]!.resources.gold;
     const disponibles = town.available.peasant;
 
@@ -127,7 +129,7 @@ describe('liderazgo', () => {
     // Rechazado ANTES de pagar: ni el oro ni las criaturas del pueblo se mueven.
     expect(state.players[0]!.resources.gold).toBe(oro);
     expect(town.available.peasant).toBe(disponibles);
-    expect(hero.army).toHaveLength(9);
+    expect(hero.army).toHaveLength(3);
 
     // Y el que sí cabe, entra.
     applyAdventureAction(
@@ -140,28 +142,20 @@ describe('liderazgo', () => {
   });
 
   it('la frase de un solo individuo dice «pide», y sin sitio no promete ninguno', () => {
-    const lleno = ejercito({ creature: 'peasant', count: 10 });
-    expect(troopBlocker(lleno, 20, 'paladin', 1)).toBe(
+    const lleno = ejercito({ creature: 'paladin', count: 2 });
+    expect(troopBlocker(lleno, 20, 6, 'paladin', 1)).toBe(
       'no cabe: el ejército ocupa 20 de 20 de liderazgo y 1 × Paladín pide 10',
     );
-    expect(troopBlocker(lleno, 30, 'paladin', 1)).toBeNull();
+    expect(troopBlocker(lleno, 30, 6, 'paladin', 1)).toBeNull();
   });
 
-  it('sin héroe en el pueblo se recluta a la guarnición, con su propio tope', () => {
+  it('el séptimo individuo no cabe aunque sobre liderazgo, y se dice', () => {
+    // La regla del usuario (fase 1b): un héroe lleva como mucho seis más él.
+    // Seis campesinos ocupan 12 de 20: sobra liderazgo y aun así no cabe otro.
     const { state, hero, town } = heroeEnCasa(13);
-    hero.at = { x: hero.at.x + 1, y: hero.at.y };
+    hero.army = ejercito({ creature: 'peasant', count: 6 });
     town.available.peasant = 50;
-    state.players[0]!.resources = { ...state.players[0]!.resources, gold: 10_000 };
-    const tope = GARRISON_LEADERSHIP;
-    const caben = tope / creature('peasant').leadership;
-
-    applyAdventureAction(
-      state,
-      { type: 'recruit', town: town.id, creature: 'peasant', count: caben },
-      ctx(13),
-      0,
-    );
-    expect(town.garrison).toHaveLength(caben);
+    const oro = state.players[0]!.resources.gold;
     expect(() =>
       applyAdventureAction(
         state,
@@ -169,19 +163,62 @@ describe('liderazgo', () => {
         ctx(13),
         0,
       ),
-    ).toThrow(`no cabe: la guarnición ocupa ${tope} de ${tope} de liderazgo`);
+    ).toThrow('no se puede reclutar: no cabe: el ejército ya lleva 6 de 6 individuos');
+    expect(state.players[0]!.resources.gold).toBe(oro);
+    expect(hero.army).toHaveLength(CUPO_HEROE);
+
+    // Y con hueco para menos de los que se piden, dice cuántos caben.
+    expect(troopBlocker(ejercito({ creature: 'peasant', count: 4 }), 20, 6, 'peasant', 3)).toBe(
+      'no cabe: el ejército lleva 4 de 6 individuos y 3 × Campesino son 3 más; caben 2',
+    );
+  });
+
+  it('sin héroe en el pueblo se recluta a la guarnición, con su propio tope', () => {
+    const { state, hero, town } = heroeEnCasa(13);
+    hero.at = { x: hero.at.x + 1, y: hero.at.y };
+    town.available.peasant = 50;
+    state.players[0]!.resources = { ...state.players[0]!.resources, gold: 10_000 };
+    // Con campesinos muerde el cupo: la guarnición lleva siete, no seis, porque
+    // no tiene héroe que ocupe el séptimo puesto. 7 × 2 = 14 de sus 20.
+    applyAdventureAction(
+      state,
+      { type: 'recruit', town: town.id, creature: 'peasant', count: CUPO_GUARNICION },
+      ctx(13),
+      0,
+    );
+    expect(town.garrison).toHaveLength(7);
+    expect(() =>
+      applyAdventureAction(
+        state,
+        { type: 'recruit', town: town.id, creature: 'peasant', count: 1 },
+        ctx(13),
+        0,
+      ),
+    ).toThrow('no cabe: la guarnición ya lleva 7 de 7 individuos');
+
+    // Y con criaturas caras, su propio tope de liderazgo.
+    const tope = GARRISON_LEADERSHIP;
+    town.garrison = ejercito({ creature: 'paladin', count: 2 });
+    town.available.paladin = 5;
+    state.players[0]!.resources = { ...state.players[0]!.resources, gold: 10_000 };
+    expect(troopBlocker(town.garrison, tope, CUPO_GUARNICION, 'paladin', 1, 'la guarnición')).toBe(
+      `no cabe: la guarnición ocupa ${tope} de ${tope} de liderazgo y 1 × Paladín pide 10`,
+    );
   });
 
   it('un héroe que entra en casa se lleva lo que le cabe, en orden, y el resto se queda', () => {
     const state = newGame({ seed: 13 });
     const hero = heroesOf(state, 0)[0]!;
     const town = townsOf(state, 0)[0]!;
-    hero.army = ejercito({ creature: 'peasant', count: 6 }); // 12 de 20: caben 8
-    // El espadachín (6) cabe; el paladín (10) ya no, y se salta sin cerrar el
-    // paso a los campesinos que vienen detrás: entran uno (2) y se queda otro.
+    hero.army = ejercito({ creature: 'peasant', count: 3 }); // 6 de 20, 3 de 6
+    // El espadachín (6) cabe; el paladín (10) ya no —quedan 8—, y se salta sin
+    // cerrar el paso a los arqueros que vienen detrás: entra uno (3, y llega a
+    // 15)… y el segundo, que cabría en el liderazgo, se queda porque el
+    // ejército ya lleva sus seis. Los dos límites, en la misma entrada.
     town.garrison = ejercito(
       { creature: 'swordsman', count: 1 },
       { creature: 'paladin', count: 1 },
+      { creature: 'archer', count: 1 },
       { creature: 'peasant', count: 2 },
     );
     hero.at = { x: town.at.x, y: town.at.y + 1 };
@@ -190,38 +227,54 @@ describe('liderazgo', () => {
     applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: town.at }, ctx(13), 0);
 
     expect(pointKey(hero.at)).toBe(pointKey(town.at));
-    expect(armyLeadership(hero.army)).toBe(20);
-    expect(hero.army.slice(6)).toEqual([{ creature: 'swordsman' }, { creature: 'peasant' }]);
+    expect(hero.army).toHaveLength(CUPO_HEROE);
+    expect(armyLeadership(hero.army)).toBe(17);
+    expect(hero.army.slice(3)).toEqual([
+      { creature: 'swordsman' },
+      { creature: 'archer' },
+      { creature: 'peasant' },
+    ]);
     expect(town.garrison).toEqual([{ creature: 'paladin' }, { creature: 'peasant' }]);
     expect(state.log.some((e) => e.kind === 'garrison_taken')).toBe(true);
   });
 
   it('el ejército de salida cabe en el liderazgo de un héroe de nivel 1, en las dos facciones', () => {
-    for (let seed = 1; seed <= 30; seed++) {
+    for (let seed = 1; seed <= 200; seed++) {
       for (const faction of ['knight', 'necromancer'] as const) {
         const army = startingArmy(faction, createRng(seed));
         expect(armyLeadership(army)).toBeLessThanOrEqual(heroLeadership({ level: 1 }));
         expect(army.length).toBeGreaterThan(0);
+        // Y en el cupo: el héroe ocupa el séptimo puesto de su bando.
+        expect(army.length, `semilla ${seed}`).toBeLessThanOrEqual(CUPO_HEROE);
       }
     }
   });
 });
 
-describe('los datos garantizan que lo que cabe en el liderazgo cabe en el tablero', () => {
-  // Es el test que hace que «createBattle lanza si no caben» no se dispare
-  // nunca en partida. La cuenta: cada individuo ocupa al menos 2 de liderazgo
-  // por hex, así que un ejército de `max` ocupa a lo sumo `max / 2` hexes; y
-  // una grande ocupa una fila, así que caben tantas como filas. El `+ 1`
-  // reserva el hex del héroe, que entra al tablero en la fase 1b.
-  const topes = [LIDERAZGO.heroe.max, LIDERAZGO.guarnicion];
+describe('los datos garantizan que lo que cabe en un bando cabe en el tablero', () => {
+  // Es el test que hace que el despliegue no tenga que comprobar nada: desde la
+  // regla de 7 por bando (fase 1b) el tope no lo pone el tablero sino
+  // `maxPorBando`, y `despliegue` coloca sin mirar. Lo que lo hace seguro son
+  // estas dos cuentas sobre los datos: un bando lleno de criaturas grandes —dos
+  // hexes cada una— no pasa de los 27 de su lado (tres columnas de nueve), y
+  // como cada grande ocupa una fila, no hay más grandes que filas.
+  it('un bando lleno de grandes cabe en sus 27 hexes, y no hay más grandes que filas', () => {
+    expect(2 * LIDERAZGO.maxPorBando).toBeLessThanOrEqual(3 * BOARD_HEIGHT);
+    expect(LIDERAZGO.maxPorBando).toBeLessThanOrEqual(BOARD_HEIGHT);
+    expect(Number.isInteger(LIDERAZGO.maxPorBando)).toBe(true);
+    // Y un héroe deja sitio para algo de tropa: si no, el cupo sería 0.
+    expect(CUPO_HEROE).toBe(LIDERAZGO.maxPorBando - 1);
+    expect(CUPO_HEROE).toBeGreaterThan(0);
+    expect(CUPO_GUARNICION).toBe(LIDERAZGO.maxPorBando);
+  });
 
-  it('ningún individuo ocupa menos de 2 de liderazgo por cada hex que pisa', () => {
+  it('el liderazgo de cada criatura es un entero positivo', () => {
+    // `troopRoom` divide por él: un 0 daría un hueco infinito.
     for (const c of allCreatures()) {
-      expect(c.leadership, c.id).toBeGreaterThanOrEqual(2 * hexSize(c));
+      expect(c.leadership, c.id).toBeGreaterThan(0);
       expect(Number.isInteger(c.leadership), c.id).toBe(true);
     }
-    // Un personaje pisa un hex.
-    expect(LIDERAZGO.personaje).toBeGreaterThanOrEqual(2);
+    expect(LIDERAZGO.personaje).toBeGreaterThan(0);
   });
 
   it('la guarnición no pasa del liderazgo de un héroe recién contratado', () => {
@@ -231,30 +284,6 @@ describe('los datos garantizan que lo que cabe en el liderazgo cabe en el tabler
     // en tablas para siempre. Bajar `heroe.base` lo reabría sin decir nada.
     expect(LIDERAZGO.guarnicion).toBeLessThanOrEqual(LIDERAZGO.heroe.base);
     expect(GARRISON_LEADERSHIP).toBe(LIDERAZGO.guarnicion);
-  });
-
-  it('el tope más alto, a 2 por hex y con el héroe, cabe en los hexes de un bando', () => {
-    for (const tope of topes) {
-      expect(Math.floor(tope / 2) + 1).toBeLessThanOrEqual(HEXES_POR_BANDO);
-    }
-  });
-
-  it('las grandes que caben en el tope no pasan de una por fila', () => {
-    const grandes = allCreatures().filter((c) => hexSize(c) > 1);
-    expect(grandes.length).toBeGreaterThan(0);
-    for (const c of grandes) {
-      for (const tope of topes) {
-        expect(Math.floor(tope / c.leadership), c.id).toBeLessThanOrEqual(BOARD_HEIGHT);
-      }
-    }
-  });
-
-  it('y lo comprueba la propia regla del despliegue, criatura a criatura', () => {
-    for (const c of allCreatures()) {
-      const cuantos = Math.floor(LIDERAZGO.heroe.max / c.leadership);
-      const ejercitoLleno = Array.from({ length: cuantos }, () => c);
-      expect(despliegueBlocker(ejercitoLleno), c.id).toBeNull();
-    }
   });
 });
 
@@ -322,16 +351,18 @@ describe('la IA de reglas juega dentro del liderazgo', () => {
       expect(state.finished, `semilla ${seed}`).not.toBeNull();
       for (const h of state.heroes) {
         expect(armyLeadership(h.army)).toBeLessThanOrEqual(heroLeadership(h));
+        expect(h.army.length).toBeLessThanOrEqual(CUPO_HEROE);
       }
       for (const t of state.towns) {
         expect(armyLeadership(t.garrison)).toBeLessThanOrEqual(GARRISON_LEADERSHIP);
+        expect(t.garrison.length).toBeLessThanOrEqual(CUPO_GUARNICION);
       }
     }
   });
 
   it('el reclutamiento de la IA no pide más de lo que cabe', () => {
     const { state, hero, town } = heroeEnCasa(21);
-    hero.army = ejercito({ creature: 'peasant', count: 8 }); // 16 de 20
+    hero.army = ejercito({ creature: 'swordsman', count: 2 }, { creature: 'peasant', count: 2 }); // 16 de 20
     town.available.peasant = 50;
     state.players[0]!.resources = { ...state.players[0]!.resources, gold: 50_000 };
     const reclutas = planRecruits(state, 0).filter((a) => a.type === 'recruit');
@@ -340,6 +371,14 @@ describe('la IA de reglas juega dentro del liderazgo', () => {
     expect(total).toBe(2);
     for (const a of reclutas) applyAdventureAction(state, a, ctx(21), 0);
     expect(armyLeadership(hero.army)).toBe(20);
+
+    // Y con liderazgo de sobra, lo que manda es el cupo de seis.
+    hero.army = ejercito({ creature: 'peasant', count: 4 }); // 8 de 20, 4 de 6
+    const masReclutas = planRecruits(state, 0).filter((a) => a.type === 'recruit');
+    const masTotal = masReclutas.reduce((n, a) => n + (a.type === 'recruit' ? a.count : 0), 0);
+    expect(masTotal).toBe(2);
+    for (const a of masReclutas) applyAdventureAction(state, a, ctx(21), 0);
+    expect(hero.army).toHaveLength(CUPO_HEROE);
   });
 });
 

@@ -9,13 +9,10 @@ import {
   armyMorale,
   type BattleSide,
   createBattle,
-  despliegueBlocker,
   enemiesOf,
-  HEXES_POR_BANDO,
   isAlive,
   legalActions,
   legalActionsAndCosts,
-  maximoPorBando,
   movableFrom,
   movableHexes,
   stackById,
@@ -42,10 +39,11 @@ import type {
   BattleStack,
   BattleState,
 } from '../src/core/battle/types.js';
-import { allCreatures, creature } from '../src/core/data.js';
+import { creature } from '../src/core/data.js';
+import { heroUnit } from '../src/core/hero/hero.js';
 import type { Rng } from '../src/core/rng.js';
 import { createRng } from '../src/core/rng.js';
-import type { Hex, Stack } from '../src/core/types.js';
+import type { Hex, Stack, UnitInfo } from '../src/core/types.js';
 import { monstruoVivo, simular } from './helpers.js';
 
 /**
@@ -64,15 +62,23 @@ vi.mock('../src/core/battle/board.js', async (original) => {
   return { ...real, reachable: vi.fn(real.reachable) };
 });
 
-const side = (army: readonly Stack[], hero: BattleHero | null = null): BattleSide => ({
+/**
+ * Un bando. Con héroe, el héroe pisa el tablero (fase 1b): una figura más, con
+ * `cuerpo` como cifras.
+ */
+const side = (
+  army: readonly Stack[],
+  hero: BattleHero | null = null,
+  cuerpo: UnitInfo = heroUnit({ name: 'Prueba', attack: 0, defense: 0, level: 1 }),
+): BattleSide => ({
   army,
-  hero,
+  hero: hero === null ? null : { mando: hero, cuerpo },
 });
 
 const hero = (over: Partial<BattleHero> = {}): BattleHero => ({
   name: 'Prueba',
-  attack: 0,
-  defense: 0,
+  // Sin base a la que volver: un héroe de test no se rinde salvo que se diga.
+  retreat: { blocked: 'no tienes base a la que volver' },
   spellPower: 3,
   knowledge: 3,
   mana: 30,
@@ -89,6 +95,7 @@ function stackOf(id: string, count: number): BattleStack {
     slot: 0,
     body: id,
     unit: creature(id),
+    origen: { kind: 'catalogo' },
     initialCount: count,
     count,
     topHp: creature(id).hp,
@@ -713,7 +720,7 @@ describe('efectos temporales (#9)', () => {
 
     expect(state.activeId).toBe('attacker-0');
     applyAction(state, { type: 'attack', target: 'defender-0' }, rng);
-    expect(effectiveAttack(esqueleto, null)).toBe(base - 2);
+    expect(effectiveAttack(esqueleto)).toBe(base - 2);
 
     // El esqueleto cierra la ronda y el dragón vuelve a morder con el miedo
     // anterior todavía vivo (le quedaba 1 ronda de las 2).
@@ -726,7 +733,7 @@ describe('efectos temporales (#9)', () => {
     // ronda iría a −2, −4, −6.
     const miedos = esqueleto.effects.filter((e) => e.source === 'fear');
     expect(miedos).toHaveLength(1);
-    expect(effectiveAttack(esqueleto, null)).toBe(base - 2);
+    expect(effectiveAttack(esqueleto)).toBe(base - 2);
     // Y refrescar alarga: vuelve a durar las dos rondas enteras.
     expect(miedos[0]!.roundsLeft).toBe(2);
   });
@@ -793,8 +800,8 @@ describe('rasgos de criatura (#8)', () => {
   it('charge: el parte cuenta los hexes que se cobran, no los que se anduvieron', () => {
     const jinetes = stackOf('cavalry', 10);
     const piqueros = stackOf('pikeman', 40);
-    const cinco = computeDamage(jinetes, null, piqueros, null, createRng(52), { chargeHexes: 5 });
-    const siete = computeDamage(jinetes, null, piqueros, null, createRng(52), { chargeHexes: 7 });
+    const cinco = computeDamage(jinetes, piqueros, createRng(52), { chargeHexes: 5 });
+    const siete = computeDamage(jinetes, piqueros, createRng(52), { chargeHexes: 7 });
 
     // Por encima del tope, cargar más no pega más. El evento copia lo que la
     // fórmula cobró: si lo dedujera por su cuenta anunciaría «carga de 7 hexes»
@@ -804,7 +811,7 @@ describe('rasgos de criatura (#8)', () => {
     expect(siete.charge).toBe(5);
 
     // Y quien no tiene el rasgo no carga por mucho que corra.
-    const aPie = computeDamage(piqueros, null, jinetes, null, createRng(52), { chargeHexes: 5 });
+    const aPie = computeDamage(piqueros, jinetes, createRng(52), { chargeHexes: 5 });
     expect(aPie.charge).toBe(0);
   });
 
@@ -821,18 +828,18 @@ describe('rasgos de criatura (#8)', () => {
     const esqueleto = stackById(state, 'defender-0');
     enfrentar(dragon, esqueleto);
 
-    expect(effectiveAttack(esqueleto, null)).toBe(creature('skeleton').attack);
+    expect(effectiveAttack(esqueleto)).toBe(creature('skeleton').attack);
     applyAction(state, { type: 'attack', target: 'defender-0' }, rng);
 
     expect(esqueleto.effects.some((e) => e.source === 'fear' && e.amount === -2)).toBe(true);
-    expect(effectiveAttack(esqueleto, null)).toBe(creature('skeleton').attack - 2);
+    expect(effectiveAttack(esqueleto)).toBe(creature('skeleton').attack - 2);
     expect(
       state.log.some((e) => e.kind === 'effect' && e.source === 'fear' && e.effect === 'attack'),
     ).toBe(true);
 
     // Y el miedo se nota en el golpe: mismo dado, menos daño.
-    const conMiedo = computeDamage(esqueleto, null, dragon, null, createRng(5));
-    const sinMiedo = computeDamage({ ...esqueleto, effects: [] }, null, dragon, null, createRng(5));
+    const conMiedo = computeDamage(esqueleto, dragon, createRng(5));
+    const sinMiedo = computeDamage({ ...esqueleto, effects: [] }, dragon, createRng(5));
     expect(conMiedo.damage).toBeLessThan(sinMiedo.damage);
   });
 
@@ -1424,6 +1431,36 @@ describe('el parte de guerra pinta de quién es cada cosa', () => {
   });
 });
 
+describe('el héroe ya no bonifica a su tropa (fase 1b)', () => {
+  it('el mismo golpe pega lo mismo con un héroe de ataque 0 que con uno de 40', () => {
+    // Hasta la 1b `effectiveAttack` sumaba `hero.attack` a cada criatura. Ahora
+    // el héroe pelea con su cuerpo (decisión del usuario: «solo su cuerpo»), y
+    // su ataque es el de ese cuerpo, no el de sus piqueros.
+    const golpe = (ataqueDelHeroe: number): number => {
+      const rng = createRng(90);
+      const cuerpo = heroUnit({ name: 'Prueba', attack: ataqueDelHeroe, defense: 0, level: 1 });
+      const state = createBattle(
+        side([{ creature: 'pikeman', count: 1 }], hero(), cuerpo),
+        side([{ creature: 'peasant', count: 1 }]),
+        rng,
+      );
+      const piquero = stackById(state, 'attacker-0');
+      const campesino = stackById(state, 'defender-0');
+      enfrentar(piquero, campesino);
+      // Por el motor entero y no por `computeDamage`, que ya ni recibe al héroe:
+      // lo que se mira es que nadie se lo sume por otro camino.
+      expect(state.activeId).toBe('attacker-0');
+      applyAction(state, { type: 'attack', target: 'defender-0' }, rng);
+      const ev = state.log.find((e) => e.kind === 'attack' && e.stack === 'attacker-0');
+      if (ev === undefined || ev.kind !== 'attack') throw new Error('el piquero no pegó');
+      return ev.damage;
+    };
+    expect(golpe(40)).toBe(golpe(0));
+    // Y el cuerpo sí lo lleva: es su propia ficha.
+    expect(heroUnit({ name: 'X', attack: 40, defense: 0, level: 1 }).attack).toBe(40);
+  });
+});
+
 describe('despliegue de una tropa de individuos', () => {
   /** `n` individuos de esa criatura, cada uno un stack de 1: lo que manda la partida. */
   const individuos = (creatureId: string, n: number): Stack[] =>
@@ -1436,18 +1473,18 @@ describe('despliegue de una tropa de individuos', () => {
       .flatMap((s) => stackHexes(s).map((h) => `${h.col},${h.row}`));
   }
 
-  it('veintiséis individuos por bando, sin que dos pisen el mismo hex', () => {
+  it('siete individuos por bando, sin que dos pisen el mismo hex', () => {
     // Antes del sexto todo iba bien; del sexto en adelante caían todos a la
     // fila 4 de la columna del borde, unos encima de otros, sin aviso.
     const state = createBattle(
-      side(individuos('peasant', 26)),
-      side(individuos('skeleton', 26)),
+      side(individuos('peasant', 7)),
+      side(individuos('skeleton', 7)),
       createRng(1),
     );
     for (const lado of ['attacker', 'defender'] as const) {
       const hexes = hexesDe(state, lado);
-      expect(hexes).toHaveLength(26);
-      expect(new Set(hexes).size).toBe(26);
+      expect(hexes).toHaveLength(7);
+      expect(new Set(hexes).size).toBe(7);
     }
     // Cada bando en sus tres columnas: el atacante a la izquierda, el defensor
     // a la derecha. Ni uno dentro del campo del otro.
@@ -1458,54 +1495,30 @@ describe('despliegue de una tropa de individuos', () => {
     }
   });
 
-  it('veintiocho no caben y se dice, nombrando el bando', () => {
+  it('el octavo no cabe y se dice, nombrando el bando', () => {
+    // La regla del usuario: un bando lleva como mucho 7 (un héroe y seis, o
+    // siete sin héroe). Antes el tope era el del tablero, 27.
     expect(() =>
-      createBattle(side(individuos('peasant', 28)), side(individuos('skeleton', 3)), createRng(1)),
-    ).toThrow(
-      `no caben: 28 unidades ocupan 28 hexes y un bando tiene ${HEXES_POR_BANDO} (el atacante)`,
-    );
+      createBattle(side(individuos('peasant', 8)), side(individuos('skeleton', 3)), createRng(1)),
+    ).toThrow('no caben: el atacante trae 8 y un bando lleva como mucho 7');
+    expect(() =>
+      createBattle(side(individuos('peasant', 3)), side(individuos('skeleton', 9)), createRng(1)),
+    ).toThrow('no caben: el defensor trae 9 y un bando lleva como mucho 7');
   });
 
-  it('nueve dragones caben con nueve pequeñas al lado; el décimo dragón no', () => {
-    const lleno = [...individuos('bone_dragon', 9), ...individuos('skeleton', 9)];
-    const state = createBattle(side(individuos('peasant', 3)), side(lleno), createRng(2));
+  it('siete dragones caben, uno por fila, con la cola dentro del tablero', () => {
+    const state = createBattle(
+      side(individuos('peasant', 3)),
+      side(individuos('bone_dragon', 7)),
+      createRng(2),
+    );
     const hexes = hexesDe(state, 'defender');
-    expect(hexes).toHaveLength(27);
-    expect(new Set(hexes).size).toBe(27);
+    expect(hexes).toHaveLength(14);
+    expect(new Set(hexes).size).toBe(14);
     // La cola del dragón defensor queda a su derecha, dentro del tablero.
     for (const s of state.stacks.filter((x) => x.body === 'bone_dragon')) {
       expect(stackHexes(s).every((h) => board.isInside(h))).toBe(true);
     }
-
-    expect(() =>
-      createBattle(
-        side(individuos('peasant', 3)),
-        side(individuos('bone_dragon', 10)),
-        createRng(2),
-      ),
-    ).toThrow('no caben: 10 unidades grandes necesitan una fila cada una');
-  });
-
-  it('`despliegueBlocker` es la misma regla que aplica `createBattle`', () => {
-    const peasant = creature('peasant');
-    const dragon = creature('bone_dragon');
-    expect(despliegueBlocker(Array.from({ length: 27 }, () => peasant))).toBeNull();
-    expect(despliegueBlocker(Array.from({ length: 28 }, () => peasant))).not.toBeNull();
-    // Trece dragones son 26 hexes —menos de 27— y aun así no caben: una fila
-    // por dragón.
-    expect(despliegueBlocker(Array.from({ length: 13 }, () => dragon))).toMatch(/grandes/);
-  });
-
-  it('`maximoPorBando` es esa regla despejada: el máximo cabe y uno más no', () => {
-    // Criatura a criatura, contra `despliegueBlocker`: si alguien cambia una de
-    // las dos, el máximo que se le dice al agente dejaría de ser verdad.
-    for (const c of allCreatures()) {
-      const max = maximoPorBando(c);
-      expect(despliegueBlocker(Array.from({ length: max }, () => c)), c.id).toBeNull();
-      expect(despliegueBlocker(Array.from({ length: max + 1 }, () => c)), c.id).not.toBeNull();
-    }
-    expect(maximoPorBando(creature('peasant'))).toBe(27);
-    expect(maximoPorBando(creature('bone_dragon'))).toBe(9);
   });
 
   it('pocos individuos salen por la misma regla que muchos', () => {
@@ -1525,8 +1538,8 @@ describe('despliegue de una tropa de individuos', () => {
   it('una batalla de muchos individuos se juega hasta el final', () => {
     const rng = createRng(4);
     const state = createBattle(
-      side([...individuos('pikeman', 8), ...individuos('archer', 4)]),
-      side([...individuos('skeleton', 14), ...individuos('zombie', 6)]),
+      side([...individuos('pikeman', 4), ...individuos('archer', 3)]),
+      side([...individuos('skeleton', 5), ...individuos('zombie', 2)]),
       rng,
     );
     simular(state, rng);

@@ -11,9 +11,10 @@
  *
  * Solo pinta: ni guarda estado de la partida ni escucha al ratón.
  */
+
+import { HERO_BODY } from '@core/hero/hero.js';
 import { type MapObject, pointFromKey, pointKey } from '@core/map/map.js';
 import type { TerrainKind } from '@core/map/terrain.js';
-import { CHARACTER_BODY } from '@core/rpg/character.js';
 import type { Point } from '@core/types.js';
 import { asset } from './assets.js';
 import { type CamaraMapa, casillaAPixel, mundoAPixel } from './camara-mapa.js';
@@ -481,9 +482,10 @@ function pintarHeroe(
   ctx.restore();
   pintarSombra(ctx, c.x, suelo, tile * 0.95);
   pintarFigura(ctx, {
-    // El héroe a pie, con la figura de Liora (decisión del usuario): todos los
-    // héroes llevan la misma y los distingue el aro del dueño.
-    body: CHARACTER_BODY,
+    // El héroe a pie, con su id de arte: el mismo que lleva en el tablero
+    // (`HERO_BODY`), y `personajes.ts` lo resuelve a la figura de Liora. Todos
+    // los héroes llevan la misma y los distingue el aro del dueño.
+    body: HERO_BODY,
     clip: 'idle',
     tiempo: v.tiempo + h.at.x * 131,
     x: c.x,

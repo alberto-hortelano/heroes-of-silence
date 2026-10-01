@@ -25,6 +25,7 @@ import { tableroPara } from '../render/proyeccion.js';
 import { rotuloDeDia } from '../views/panels.js';
 import { adaptarBatalla, adaptarEscena, centroDeLaEscena } from './adaptar.js';
 import { type FinDePartida, panelDelEspectador } from './paneles.js';
+import { batallaTerminada, TelonDeBatalla } from './telon.js';
 
 const app = document.getElementById('app') as HTMLElement;
 const canvas = document.getElementById('canvas') as HTMLCanvasElement;
@@ -117,6 +118,12 @@ let urlDelCanal = '';
  */
 const animador = new BattleAnimator();
 
+/**
+ * Lo que llega por el cable no se aplica al llegar: pasa por el telón, que
+ * retiene el final de cada batalla hasta que se ha visto (ver `telon.ts`).
+ */
+const telon = new TelonDeBatalla<SpectatorSnapshotMsg>(batallaTerminada);
+
 /** Sin objetivos ni hexes atacables: el espectador no mueve nada. */
 const NINGUNO: ReadonlySet<string> = new Set();
 
@@ -160,12 +167,18 @@ let fallandoAlPintar = false;
 function dibujar(ahora: number): void {
   fotogramaPedido = false;
   try {
+    const llegado = telon.avanzar(ahora, animador.busy);
+    if (llegado !== null) aplicar(llegado);
     pintarTodo(ahora);
     if (fallandoAlPintar) {
       fallandoAlPintar = false;
       elStatus.textContent = `Mirando la partida en ${urlDelCanal}.`;
     }
-    if (vista !== null && (hayFigurasAnimadas() || animador.busy)) pedirFotograma();
+    // El telón también pide fotogramas: mientras retiene un final, el reloj que
+    // lo suelta solo avanza si alguien vuelve a mirar.
+    if (telon.pendiente || (vista !== null && (hayFigurasAnimadas() || animador.busy))) {
+      pedirFotograma();
+    }
   } catch (err) {
     const motivo = err instanceof Error ? err.message : String(err);
     if (!fallandoAlPintar) {
@@ -253,6 +266,21 @@ function pintarPaneles(): void {
 
 // --------------------------------------------------------------- el cable
 
+/** Pone en pantalla un fotograma del cable, cuando el telón lo suelta. */
+function aplicar(snapshot: SpectatorSnapshotMsg): void {
+  if (snapshot.view.battle !== null && (vista === null || vista.battle === null)) {
+    numeroDeBatalla++;
+  }
+  vista = snapshot.view;
+  escena = adaptarEscena(vista);
+  batalla = vista.battle === null ? null : adaptarBatalla(vista.battle);
+  fotogramasDelCable++;
+  dia = snapshot.day;
+  turnoDe = snapshot.current;
+  finDe = snapshot.finished;
+  panelesPendientes = true;
+}
+
 /**
  * Se conecta y se queda escuchando.
  *
@@ -314,19 +342,8 @@ function conectar(): void {
       elStatus.textContent = `Mensaje que este espectador no entiende: ${JSON.stringify(msg).slice(0, 120)}`;
       return;
     }
-    const snapshot = msg as SpectatorSnapshotMsg;
     if (vista === null) elStatus.textContent = `Mirando la partida en ${url}.`;
-    if (snapshot.view.battle !== null && (vista === null || vista.battle === null)) {
-      numeroDeBatalla++;
-    }
-    vista = snapshot.view;
-    escena = adaptarEscena(vista);
-    batalla = vista.battle === null ? null : adaptarBatalla(vista.battle);
-    fotogramasDelCable++;
-    dia = snapshot.day;
-    turnoDe = snapshot.current;
-    finDe = snapshot.finished;
-    panelesPendientes = true;
+    telon.llega(msg as SpectatorSnapshotMsg);
     pedirFotograma();
   });
 

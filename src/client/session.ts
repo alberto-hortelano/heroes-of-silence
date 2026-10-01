@@ -7,7 +7,13 @@
  */
 import { chooseBattleAction } from '@core/ai/tactics.js';
 import { playAiTurn } from '@core/ai/turn.js';
-import { activeStack, applyAction, castBlocker, legalActions } from '@core/battle/battle.js';
+import {
+  activeStack,
+  applyAction,
+  castBlocker,
+  legalActions,
+  surrenderBlocker,
+} from '@core/battle/battle.js';
 import { spell } from '@core/battle/spells.js';
 import type { BattleAction, BattleStack, BattleState, Side } from '@core/battle/types.js';
 import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '@core/hero/troop.js';
@@ -32,7 +38,7 @@ import {
   visibleNow,
 } from '@core/state/game.js';
 import { newGame } from '@core/state/setup.js';
-import type { Hex, Point } from '@core/types.js';
+import type { Hex, PlayerId, Point } from '@core/types.js';
 import { type Desenlace, desenlaceDe } from './desenlace.js';
 
 export type Scene = 'adventure' | 'town' | 'battle';
@@ -98,6 +104,8 @@ export class Session {
   readonly ctx: GameContext;
   /** El jugador que maneja la persona sentada delante. */
   readonly viewer = 0;
+  /** Por quién no se rinde nunca la IA de reglas: por la persona (H-1 de la 1b). */
+  private readonly sinRendirsePorMi: ReadonlySet<PlayerId> = new Set([this.viewer]);
 
   /**
    * Cuántas veces ha cambiado algo que se ve. Sube con cada acción, cada cambio
@@ -411,7 +419,10 @@ export class Session {
     // ese getter es falso mientras corre esto, y el bucle daría las 20 vueltas
     // del guardia jugando días enteros de golpe. Se pregunta por el estado.
     while (this.state.finished === null && this.state.current !== this.viewer && guard < 20) {
-      await playAiTurn(this.state, this.ctx);
+      // La IA de reglas resuelve también las batallas en las que el rival ataca
+      // a la persona; por ella pelea, pero no se rinde: rendirse le cobra su oro
+      // y esa decisión es solo suya (H-1 de la fase 1b).
+      await playAiTurn(this.state, this.ctx, { noSeRinden: this.sinRendirsePorMi });
       guard++;
     }
     const desenlace = this.desenlace;
@@ -663,6 +674,18 @@ export class Session {
     return motivo;
   }
 
+  /**
+   * La rendición tal y como se pinta: cuánto costaría y, si no se puede, por
+   * qué. Las dos cosas las da el núcleo en una llamada (`surrenderBlocker`),
+   * igual que el motivo de un hechizo sale de `castBlocker`; la pantalla no
+   * decide nada. `null` cuando no es el turno de la persona.
+   */
+  surrenderOption(): { readonly coste: number; readonly motivo: string | null } | null {
+    const turno = this.turnoPropio;
+    if (turno === null) return null;
+    return surrenderBlocker(turno.battle, turno.side);
+  }
+
   /** Ids de los stacks sobre los que se puede lanzar el hechizo elegido. */
   castTargets(): readonly string[] {
     const elegido = this.selectedSpell;
@@ -730,7 +753,8 @@ export class Session {
   /** Resuelve el resto de la batalla con la IA en ambos bandos. */
   autoResolveBattle(): void {
     if (this.state.pendingBattle === null) return;
-    resolvePendingBattle(this.state, this.ctx);
+    // Delegar la batalla no es delegar el oro: la IA no se rinde por la persona.
+    resolvePendingBattle(this.state, this.ctx, this.sinRendirsePorMi);
     this.afterBattle();
   }
 

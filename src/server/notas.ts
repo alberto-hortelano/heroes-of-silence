@@ -322,8 +322,26 @@ export function notaAccionSustituida(
  * Es **una línea corta y no un informe**, a propósito: el canal informa siempre
  * —un silencio es ambiguo cuando se pueden perder mensajes—, así que el precio
  * de no callar nunca es que lo bueno ocupe poco.
+ *
+ * La excepción es la rendición: `pagado` es lo que costó, leído de `finished`
+ * —donde el motor lo escribe una vez—. Es la única acción que se paga con
+ * recursos de fuera de la batalla, y el agente tiene que poder cuadrar su oro
+ * sin deducirlo (H-2 de la fase 1b).
  */
-export function notaAccionAceptada(unidad: string, accion: BattleAction): string {
+export function notaAccionAceptada(
+  unidad: string,
+  accion: BattleAction,
+  pagado: number | null,
+): string {
+  if (accion.type === 'surrender') {
+    if (pagado === null) {
+      throw new Error(`${unidad} se ha rendido y la batalla no dice qué costó`);
+    }
+    return (
+      `${unidad}: rendición, aplicada. Has pagado ${pagado} de oro, la batalla está ` +
+      'perdida y tu héroe vuelve a la base con la tropa viva: no habrá más peticiones para ella.'
+    );
+  }
   return `${unidad}: ${describeAccion(accion)}, aplicada.`;
 }
 
@@ -568,6 +586,8 @@ export function describeAccion(accion: BattleAction | AdventureAction): string {
       return 'defensa';
     case 'cast':
       return `hechizo ${accion.spell}${accion.target === undefined ? '' : ` sobre ${accion.target}`}`;
+    case 'surrender':
+      return 'rendición';
     case 'move_hero':
       return `move_hero ${accion.hero} → (${accion.to.x},${accion.to.y})`;
     case 'hire_hero':

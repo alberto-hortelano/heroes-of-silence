@@ -22,6 +22,16 @@ export const RESOURCE_NAMES: Readonly<Record<ResourceKind, string>> = {
   gold: 'Oro',
 };
 
+/**
+ * La marca del comandante —el héroe en el tablero, el que si cae pierde la
+ * batalla—: una corona, la MISMA en el lienzo y en «En el campo». Con arte, el
+ * héroe usa la figura de Liora con el mismo aro que todos; sin arte, era un
+ * círculo «Ald» igual que «Cam» y «Arq» (H-4 de la QA de la fase 1b). Un glifo y
+ * no un dibujo porque así es un solo hecho para el canvas y para el HTML.
+ */
+export const MARCA_DE_COMANDANTE = '♛';
+export const COLOR_DE_COMANDANTE = '#f5cd4f';
+
 /** Color de cada jugador, por índice. */
 export const PLAYER_COLORS = ['#d94f4f', '#4f7fd9', '#4fd97f', '#d9c14f'] as const;
 

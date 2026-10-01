@@ -171,8 +171,17 @@ describe('notas para el agente', () => {
   });
 
   it('el acuse de una acción que coló es una línea corta', () => {
-    const nota = notaAccionAceptada('a1', { type: 'shoot', target: 'd2' });
+    const nota = notaAccionAceptada('a1', { type: 'shoot', target: 'd2' }, null);
     expect(nota).toBe('a1: disparo a d2, aplicada.');
+  });
+
+  it('el acuse de una rendición dice cuánto se pagó (H-2), y sin precio no se inventa', () => {
+    const nota = notaAccionAceptada('attacker-0', { type: 'surrender' }, 150);
+    expect(nota).toContain('Has pagado 150 de oro');
+    expect(nota).toContain('no habrá más peticiones');
+    expect(() => notaAccionAceptada('attacker-0', { type: 'surrender' }, null)).toThrow(
+      'no dice qué costó',
+    );
   });
 
   it('una acción de aventura rechazada se describe entera, no por su tipo', () => {

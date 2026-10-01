@@ -27,6 +27,7 @@ import {
   heroesOf,
   resolvePendingBattle,
   revealEverything,
+  townsOf,
   visibleNow,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
@@ -313,7 +314,7 @@ describe('lo que ve el agente', () => {
     // que es lo que hace el director: `legalActions` es la lista de quien
     // decide, y desde #73 solo se manda cuando le toca a él.
     const activo = activeStack(battle)!;
-    const payload = serializeBattleTurn(battle, activo.side, 'propia') as {
+    const payload = serializeBattleTurn(battle, activo.side, 'propia', 1000) as {
       legalActions: unknown[];
     };
     expect(payload.legalActions.length).toBeGreaterThan(0);
@@ -402,6 +403,83 @@ describe('lo que ve el agente', () => {
     expect(turno).toContain('garrisonLeadership');
     expect(turno).toMatch(/INDIVIDUOS/);
     expect(RESPONSE_FORMAT.map_generate).toMatch(/"monsters\[\]\.count" son individuos/);
+  });
+
+  it('cada acción de batalla del esquema está en la prosa, `surrender` incluida (fase 1b)', () => {
+    // En las dos direcciones del mismo hecho: lo que el esquema acepta se le
+    // anuncia al agente, y lo que se le anuncia lo acepta el esquema. Un
+    // `surrender` en el esquema y no en la prosa es una acción que nadie pide;
+    // al revés, una que se le promete y se le rechaza.
+    const prosa = RESPONSE_FORMAT.battle_turn;
+    const tipos = battleActionSchema.options.map((o) => o.shape.type.value);
+    expect(tipos).toContain('surrender');
+    for (const t of tipos) expect(prosa, t).toContain(`"type": "${t}"`);
+    const anunciados = [...prosa.matchAll(/"type": "([a-z_]+)"/g)].map((m) => m[1]);
+    for (const t of anunciados) expect(tipos, t).toContain(t);
+    expect(battleActionSchema.safeParse({ type: 'surrender' }).success).toBe(true);
+    // Y lo que hay que saber para usarla: el héroe en el tablero y su precio.
+    expect(prosa).toMatch(/"commander": true/);
+    expect(prosa).toMatch(/oro/);
+    expect(prosa).toMatch(/defend/i);
+  });
+
+  it('el precio de rendirse viaja en el esquema y en la prosa (H-2)', () => {
+    // Antes `legalActions` traía `{ "type": "surrender" }` a secas y el turno no
+    // llevaba el oro: el agente pagaba a ciegas lo que la persona veía en el botón.
+    const prosa = RESPONSE_FORMAT.battle_turn;
+    expect(prosa).toContain('{ "type": "surrender", "gold": N }');
+    expect(prosa).toContain('"yourGold"');
+    expect(battleActionSchema.safeParse({ type: 'surrender', gold: 75 }).success).toBe(true);
+    expect(battleActionSchema.safeParse({ type: 'surrender', gold: -1 }).success).toBe(false);
+    expect(battleActionSchema.safeParse({ type: 'surrender', gold: 7.5 }).success).toBe(false);
+  });
+
+  it('el turno de batalla propio lleva el oro de quien decide, y el ajeno no', () => {
+    const state = newGame({ seed: 7 });
+    forzarBatalla(state, { rng: createRng(7) }, heroesOf(state, 0)[0]!);
+    const batalla = state.pendingBattle!.battle;
+    const propia = serializeBattleTurn(batalla, 'attacker', 'propia', 4321) as Record<
+      string,
+      unknown
+    >;
+    expect(propia.yourGold).toBe(4321);
+    const ajena = serializeBattleTurn(batalla, 'attacker', 'ajena', null) as Record<
+      string,
+      unknown
+    >;
+    expect('yourGold' in ajena).toBe(false);
+    // Fail-loud: una vista propia sin oro no sabría leer el precio de rendirse.
+    expect(() => serializeBattleTurn(batalla, 'attacker', 'propia', null)).toThrow(
+      'necesita el oro de su dueño',
+    );
+  });
+
+  it('la prosa dice el tope de 7 por bando y dónde está tu base', () => {
+    expect(RESPONSE_FORMAT.map_generate).toMatch(/de 1 a 7/);
+    expect(RESPONSE_FORMAT.adventure_turn).toMatch(/6 individuos además del héroe/);
+    expect(RESPONSE_FORMAT.adventure_turn).toContain('yourBase');
+  });
+
+  it('el turno dice cuál es tu base, y la batalla cuál es tu héroe', () => {
+    const state = newGame({ seed: 12 });
+    const turno = serializeAdventureTurn(state, 0) as { yourBase: string | null };
+    expect(turno.yourBase).toBe(townsOf(state, 0)[0]!.id);
+    const hero = heroesOf(state, 0)[0]!;
+    forzarBatalla(state, { rng: createRng(12) }, hero);
+    const batalla = serializeBattleTurn(
+      state.pendingBattle!.battle,
+      'attacker',
+      'propia',
+      state.players[0]!.resources.gold,
+    ) as {
+      stacks: { side: string; commander?: boolean; name: string }[];
+      hero: Record<string, unknown>;
+    };
+    const mios = batalla.stacks.filter((s) => s.side === 'attacker' && s.commander === true);
+    expect(mios.map((s) => s.name)).toEqual([hero.name]);
+    // El héroe ya no lleva ataque ni defensa: no bonifica, pelea con su cuerpo.
+    expect(batalla.hero.attack).toBeUndefined();
+    expect(batalla.hero.defense).toBeUndefined();
   });
 
   it('el formato de respuesta avisa de que `cast` no gasta el turno y de que no hay acción de aprender', () => {

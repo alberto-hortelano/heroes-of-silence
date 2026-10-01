@@ -13,7 +13,7 @@ import {
   serializeBattleTurn,
   serializeKnownMap,
 } from '@core/contract/serialize.js';
-import { type GameState, sidesOwnedBy } from '@core/state/game.js';
+import { type GameState, playerById, sidesOwnedBy } from '@core/state/game.js';
 import type { PlayerId } from '@core/types.js';
 
 /**
@@ -70,7 +70,7 @@ export function responderConsulta(
         // siempre el defensor, así que el atacante es siempre un jugador— y las
         // acciones legales, que son las de un stack que no manda quien pregunta.
         return {
-          ...(serializeBattleTurn(pending.battle, 'attacker', 'ajena') as object),
+          ...(serializeBattleTurn(pending.battle, 'attacker', 'ajena', null) as object),
           note: `el jugador ${player} no está en esta batalla: la ves con los ojos del atacante, sin su maná, sin su libro de hechizos y sin "legalActions", porque ahí no juegas tú`,
         };
       }
@@ -78,7 +78,12 @@ export function responderConsulta(
       // jugadores—, y una vista tiene un solo punto de vista: se elige el del
       // atacante y se dice, en vez de callarse cuál de los dos se está viendo.
       const mio = suyos.has('attacker') ? 'attacker' : 'defender';
-      const vista = serializeBattleTurn(pending.battle, mio, 'propia') as object;
+      const vista = serializeBattleTurn(
+        pending.battle,
+        mio,
+        'propia',
+        playerById(state, player).resources.gold,
+      ) as object;
       if (suyos.size === 1) {
         // La ausencia que faltaba por explicar (#84). `legalActions` viaja solo
         // si el stack activo es del bando mirado, así que en TU propia batalla

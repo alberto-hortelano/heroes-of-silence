@@ -115,3 +115,12 @@ en la fase 3, de fortificaciones) también, como mucho 7. El liderazgo sigue
 decidiendo QUÉ cabe dentro de esos 6. Se implementa en **1b**, junto al héroe en
 el tablero, con su re-anclaje del banco; `validateMapPlan`, el generador,
 `recruitCapacity` y `takeGarrison` lo respetan, y el rechazo se dice con frase.
+
+## Decisiones del usuario sobre plan-1b.md (01-10-2026)
+
+- Plan de la 1b aprobado.
+- **El héroe deja de bonificar a la tropa** y pelea con su propio cuerpo: «Sí,
+  solo su cuerpo». Las bonificaciones volverán como habilidades de cada tipo de
+  héroe (motor de habilidades, más adelante).
+- **Precio de rendirse: 50 % del oro de la tropa superviviente**, provisional, en
+  `data/heroe.json`, declarado inventado.

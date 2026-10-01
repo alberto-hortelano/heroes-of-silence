@@ -26,6 +26,7 @@ import { adaptarBatalla, adaptarEscena } from '../src/client/espectador/adaptar.
 import type { AdventureScene } from '../src/client/render/mapa.js';
 import { createBattle } from '../src/core/battle/battle.js';
 import type { BattleState } from '../src/core/battle/types.js';
+import { esDelCatalogo } from '../src/core/data.js';
 import type { Hero } from '../src/core/hero/hero.js';
 import { pointKey, reachableFrom } from '../src/core/map/map.js';
 import { createRng } from '../src/core/rng.js';
@@ -254,13 +255,24 @@ describe('el fotograma por acción', () => {
     //  - un `attack` con `from` **se mueve y luego pega**, así que deja un `move`
     //    pegado delante del `attack`. Eso es UNA acción, no dos. Sin esta
     //    tercera regla la cuenta sale dos de más en esta misma semilla.
-    const primarias = new Set(['move', 'wait', 'defend', 'shoot', 'cast', 'attack']);
+    //
+    // «Pegado» es en el registro CRUDO y del MISMO stack. Antes se miraba la
+    // lista ya filtrada y sin mirar quién: un `move` de un stack seguido del
+    // `attack` de otro contaba como una carga, y con el héroe en el tablero
+    // (fase 1b) esta semilla sacaba tres acciones de menos.
+    const primarias = new Set(['move', 'wait', 'defend', 'shoot', 'cast', 'attack', 'surrender']);
     const hechos = batalla.log.filter(
       (e) => primarias.has(e.kind) && !(e.kind === 'attack' && e.retaliation),
     );
-    const cargas = hechos.filter(
-      (e, i) => e.kind === 'move' && hechos[i + 1]?.kind === 'attack',
-    ).length;
+    const cargas = batalla.log.filter((e, i) => {
+      const siguiente = batalla.log[i + 1];
+      return (
+        e.kind === 'move' &&
+        siguiente?.kind === 'attack' &&
+        !siguiente.retaliation &&
+        siguiente.stack === e.stack
+      );
+    }).length;
     const acciones = hechos.length - cargas;
 
     expect(acciones).toBeGreaterThan(1);
@@ -370,12 +382,25 @@ describe('la batalla en la vista', () => {
     expect(JSON.parse(JSON.stringify(vista.battle))).toEqual(vista.battle);
   });
 
-  it('una criatura viaja SIN `unit` y `adaptarBatalla` la rehace del catálogo', () => {
+  it('una criatura viaja SIN `unit`, el héroe CON la suya, y `adaptarBatalla` lo rehace todo', () => {
     const { state } = conBatalla();
+    const batalla = state.pendingBattle!.battle;
     const ida: SpectatorView = JSON.parse(JSON.stringify(construirVista(state, [])));
-    // El catálogo no viaja: las dos puntas ya lo tienen.
-    expect(ida.battle!.estado.stacks.every((s) => !('unit' in s))).toBe(true);
-    expect(adaptarBatalla(ida.battle!)).toEqual(state.pendingBattle!.battle);
+    // El catálogo no viaja: las dos puntas ya lo tienen. El cuerpo del héroe
+    // (fase 1b) no está en el catálogo, así que viaja como el de un personaje.
+    // Lo decide `origen`, y el origen tiene que decir la verdad: es
+    // `catalogo` exactamente cuando `unit` ES la referencia del catálogo.
+    const comandantes = batalla.stacks.filter((s) => s.origen.kind === 'heroe');
+    expect(comandantes.length).toBeGreaterThan(0);
+    for (const s of batalla.stacks) {
+      expect(esDelCatalogo(s.unit), s.id).toBe(s.origen.kind === 'catalogo');
+      const enCable = ida.battle!.estado.stacks.find((x) => x.id === s.id)!;
+      expect('unit' in enCable, s.id).toBe(s.origen.kind !== 'catalogo');
+    }
+    for (const c of comandantes) {
+      expect(ida.battle!.estado.stacks.find((x) => x.id === c.id)!.unit).toEqual(c.unit);
+    }
+    expect(adaptarBatalla(ida.battle!)).toEqual(batalla);
   });
 
   it('un personaje viaja CON su `unit`, que no está en ninguna otra parte', () => {

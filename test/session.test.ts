@@ -192,7 +192,7 @@ describe('sesión del cliente: reclutar lo que cabe y ver la ruta entera', () =>
   it('el liderazgo del héroe es lo que ocupa su ejército sobre su tope', () => {
     const s = new Session(7);
     const heroe = s.selectedHero!;
-    expect(s.liderazgo({ heroe: heroe.id })).toEqual({ ocupado: 18, tope: 20 });
+    expect(s.liderazgo({ heroe: heroe.id })).toEqual({ ocupado: 14, tope: 20 });
   });
 
   it('la guarnición va por el mismo camino, con el tope de guarnición', () => {

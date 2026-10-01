@@ -6,9 +6,9 @@
  * a su alcance. Es el listón que el agente tiene que superar.
  */
 import { creature } from '../data.js';
-import type { Hero } from '../hero/hero.js';
+import { type Hero, heroUnit } from '../hero/hero.js';
 import {
-  heroLeadership,
+  capacidadDe,
   type Personajes,
   troopsThatFit,
   troopUnit,
@@ -44,8 +44,24 @@ export function armyPower(army: Army, characters: Personajes): number {
   return power;
 }
 
-/** Cuánto vale la pena ir a por este objeto del mapa. */
-function objectValue(state: GameState, obj: MapObject, hero: Hero): number {
+/**
+ * La fuerza de un héroe con su tropa: lo que pesa su ejército **más su propio
+ * cuerpo**, que desde la fase 1b pelea en el tablero.
+ *
+ * Es la única fuerza de héroe que mira la IA, y existe para que lo sea: sin el
+ * cuerpo, un héroe recién vuelto a su base con el ejército vacío valía 0, no
+ * perseguía a nadie y no atacaba nada — y la partida podía no acabar.
+ */
+export function fuerzaDe(hero: Hero, characters: Personajes): number {
+  return armyPower(hero.army, characters) + unitPower(heroUnit(hero));
+}
+
+/**
+ * Cuánto vale la pena ir a por este objeto del mapa. `miPoder` es
+ * `fuerzaDe(hero)`, calculada una vez por quien recorre los objetos: no cambia
+ * de un objeto a otro.
+ */
+function objectValue(state: GameState, obj: MapObject, hero: Hero, miPoder: number): number {
   const player = hero.owner;
   switch (obj.kind) {
     case 'resource':
@@ -68,20 +84,20 @@ function objectValue(state: GameState, obj: MapObject, hero: Hero): number {
         // pero con el liderazgo lleno la guarnición entera vale cero: sin esta
         // resta, el héroe volvería a casa a por una tropa que no puede
         // llevarse, una y otra vez.
-        const { dentro } = troopsThatFit(hero.army, heroLeadership(hero), pueblo.garrison);
+        const { tope, cupo } = capacidadDe(hero);
+        const { dentro } = troopsThatFit(hero.army, tope, cupo, pueblo.garrison);
         return armyPower(dentro, state.characters) / 10;
       }
       // Un pueblo con guarnición es una batalla: se mide antes de ir.
       const guarnicion = armyPower(pueblo.garrison, state.characters);
-      if (guarnicion > 0 && armyPower(hero.army, state.characters) < guarnicion * 1.1) return -1;
+      if (guarnicion > 0 && miPoder < guarnicion * 1.1) return -1;
       return 40000;
     }
     case 'monster': {
       if (obj.defeated) return 0;
       const suyo = unitPower(creature(obj.creature)) * obj.count;
-      const mio = armyPower(hero.army, state.characters);
       // Solo se ataca con ventaja clara: un prototipo que se suicida no se puede probar.
-      return mio > suyo * 1.6 ? 2000 : -1;
+      return miPoder > suyo * 1.6 ? 2000 : -1;
     }
   }
 }
@@ -104,6 +120,7 @@ export function chooseHeroDestination(
   alcance: Reachable,
 ): Point | null {
   let mejor: { at: Point; score: number } | null = null;
+  const miPoder = fuerzaDe(hero, state.characters);
 
   const costeHasta = (p: Point): number | null => {
     const c = alcance.costs.get(pointKey(p));
@@ -111,7 +128,7 @@ export function chooseHeroDestination(
   };
 
   for (const obj of state.map.objects) {
-    const valor = objectValue(state, obj, hero);
+    const valor = objectValue(state, obj, hero, miPoder);
     if (valor <= 0) continue;
 
     const coste = costeHasta(obj.at);
@@ -122,7 +139,8 @@ export function chooseHeroDestination(
     if (mejor === null || score > mejor.score) mejor = { at: obj.at, score };
   }
 
-  // Héroe enemigo a tiro. Un héroe sin tropas no persigue a nadie.
+  // Héroe enemigo a tiro. Las dos fuerzas cuentan el cuerpo de cada héroe:
+  // desde que pisa el tablero, un héroe sin tropa no es un cero.
   //
   // Sin margen, y es a propósito. Con un 1,4 los dos bandos se esquivaban
   // eternamente en cuanto sus ejércitos se parecían; con el 1,05 que lo
@@ -132,13 +150,11 @@ export function chooseHeroDestination(
   // una de ellas con los dos héroes a 502,5 exactos—. Sin margen la relación es
   // total: de dos héroes, al menos uno persigue al otro. Atacar da la
   // iniciativa, así que el empate lo rompe quien llega antes.
-  const miPoder = armyPower(hero.army, state.characters);
   for (const enemigo of state.heroes) {
     if (enemigo.owner === hero.owner) continue;
-    if (miPoder <= 0) break;
     const coste = costeHasta(enemigo.at);
     if (coste === null) continue;
-    if (miPoder < armyPower(enemigo.army, state.characters)) continue;
+    if (miPoder < fuerzaDe(enemigo, state.characters)) continue;
     const score = 60000 / Math.max(1, coste);
     if (mejor === null || score > mejor.score) mejor = { at: enemigo.at, score };
   }
@@ -387,7 +403,7 @@ export function planRecruits(state: GameState, playerId: PlayerId): AdventureAct
   for (const town of townsOf(state, playerId)) {
     // La misma regla que aplica `recruit`: si la IA la copiara, el día que
     // cambie una de las dos pediría lo que el motor rechaza.
-    const { tope, army, quien } = destinoDeRecluta(state, town);
+    const { tope, cupo, army, quien } = destinoDeRecluta(state, town);
     let destino = army;
 
     for (const { creature: id } of [...dwellings(town)].reverse()) {
@@ -397,7 +413,12 @@ export function planRecruits(state: GameState, playerId: PlayerId): AdventureAct
       // que enseña el botón «todo» del castillo: vive en `recruitCapacity`, y
       // un máximo mayor que cero ya es uno que hay, cabe y se paga — lo mismo
       // que miraban las dos guardas que había aquí alrededor.
-      const cantidad = recruitCapacity(town, id, { army: destino, tope, quien }, purse).maximo;
+      const cantidad = recruitCapacity(
+        town,
+        id,
+        { army: destino, tope, cupo, quien },
+        purse,
+      ).maximo;
       if (cantidad <= 0) continue;
 
       acciones.push({ type: 'recruit', town: town.id, creature: id, count: cantidad });

@@ -22,6 +22,7 @@ import {
   RACES,
 } from '../src/core/rpg/character.js';
 import { combatProfile } from '../src/core/rpg/stats.js';
+import { esPersonaje } from './helpers.js';
 
 /**
  * Juega un duelo 1 contra 1 entero con la IA de reglas decidiendo por los dos
@@ -288,7 +289,7 @@ describe('un personaje en el tablero', () => {
 
   it('entra herido: 12 de 34 PV es un topHp de 12', () => {
     const batalla = createBattle(ladoDe(personaje('Guerrero'), 12), zombi, rng());
-    const s = batalla.stacks.find((x) => x.member === 'Guerrero')!;
+    const s = batalla.stacks.find(esPersonaje('Guerrero'))!;
     expect(s.topHp).toBe(12);
     expect(s.count).toBe(1);
     expect(s.body).toBe(CHARACTER_BODY);
@@ -299,7 +300,7 @@ describe('un personaje en el tablero', () => {
   it('su moral y su suerte son las suyas más las del bando, recortadas', () => {
     const mago = personaje('Mago'); // moral 1, suerte 1
     const lado: BattleSide = { ...ladoDe(mago), moraleBonus: 3, luckBonus: -1 };
-    const s = createBattle(lado, zombi, rng()).stacks.find((x) => x.member === 'Mago')!;
+    const s = createBattle(lado, zombi, rng()).stacks.find(esPersonaje('Mago'))!;
     // Ejército solo de personajes: ninguna facción, sin el +1 de unidad.
     expect(s.morale).toBe(3); // 0 + 3 + 1 → recortado a 3
     expect(s.luck).toBe(0); // −1 + 1
@@ -317,7 +318,7 @@ describe('un personaje en el tablero', () => {
     const b = createBattle(lado, zombi, rng());
     // Solo caballeros entre las criaturas: +1, también para el personaje.
     expect(b.stacks.find((x) => x.body === 'peasant')!.morale).toBe(1);
-    expect(b.stacks.find((x) => x.member === c.id)!.morale).toBe(1);
+    expect(b.stacks.find(esPersonaje(c.id))!.morale).toBe(1);
   });
 
   it('el catálogo no conoce al cuerpo de un personaje', () => {
@@ -339,7 +340,7 @@ describe('un personaje en el tablero', () => {
   it('el Guardabosques dispara con la munición de su percepción', () => {
     const c = personaje('Guardabosques');
     const batalla = createBattle(ladoDe(c), zombi, rng());
-    const s = batalla.stacks.find((x) => x.member === c.id)!;
+    const s = batalla.stacks.find(esPersonaje(c.id))!;
     expect(s.shotsLeft).toBe(13);
     const d = duelo(ladoDe(c), zombi, 91);
     expect(d.log.some((e) => e.kind === 'shoot')).toBe(true);

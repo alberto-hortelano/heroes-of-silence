@@ -81,13 +81,42 @@ export function heroLeadership(hero: { readonly level: number }): number {
  */
 export const GARRISON_LEADERSHIP: number = LIDERAZGO.guarnicion;
 
-/** Cuántos individuos de esa criatura caben todavía bajo `tope`. */
-export function troopRoom(army: Army, tope: number, creatureId: string): number {
-  return cabenEnElHueco(tope - armyLeadership(army), creature(creatureId).leadership);
+/**
+ * Cuántos individuos pisan el tablero con un héroe, sin contarle a él: el
+ * héroe ocupa el séptimo puesto de su bando (fase 1b: está en el tablero).
+ */
+export const CUPO_HEROE: number = LIDERAZGO.maxPorBando - 1;
+
+/** Cuántos individuos guarda un castillo sin héroe, o trae un monstruo. */
+export const CUPO_GUARNICION: number = LIDERAZGO.maxPorBando;
+
+/**
+ * Lo que le cabe a un héroe: `tope` de liderazgo y `cupo` de individuos. Juntos
+ * porque se piden juntos —reclutar, recoger la guarnición, la IA que mira si
+ * merece la pena volver a casa— y separados se escribían a mano en cada uno.
+ */
+export function capacidadDe(hero: { readonly level: number }): {
+  readonly tope: number;
+  readonly cupo: number;
+} {
+  return { tope: heroLeadership(hero), cupo: CUPO_HEROE };
 }
 
-function cabenEnElHueco(libre: number, ocupaUno: number): number {
-  return libre <= 0 ? 0 : Math.floor(libre / ocupaUno);
+/**
+ * Cuántos individuos de esa criatura caben todavía: bajo el `tope` de
+ * liderazgo **y** bajo el `cupo` de individuos. Son dos límites y no uno porque
+ * miden cosas distintas —el liderazgo decide QUÉ cabe, el cupo CUÁNTOS pisan el
+ * tablero— y el que muerde antes depende de la criatura: seis campesinos ocupan
+ * 12 de 20 y ya no cabe el séptimo.
+ */
+export function troopRoom(army: Army, tope: number, cupo: number, creatureId: string): number {
+  return cabenEnElHueco(army, tope, cupo, creature(creatureId).leadership);
+}
+
+function cabenEnElHueco(army: Army, tope: number, cupo: number, ocupaUno: number): number {
+  const libre = tope - armyLeadership(army);
+  const porLiderazgo = libre <= 0 ? 0 : Math.floor(libre / ocupaUno);
+  return Math.max(0, Math.min(porLiderazgo, cupo - army.length));
 }
 
 /**
@@ -96,10 +125,14 @@ function cabenEnElHueco(libre: number, ocupaUno: number): number {
  * Devuelve la frase y no lanza, igual que `buildBlocker` y `castBlocker`: la
  * lee quien rechaza (`applyAdventureAction`, que lanza con ella), y la puede
  * leer la pantalla para explicar por qué un botón no hace nada.
+ *
+ * El cupo de individuos se mira primero: si los dos se pasan, «ya lleva 6 de 6»
+ * es la frase que se entiende sin hacer cuentas.
  */
 export function troopBlocker(
   army: Army,
   tope: number,
+  cupo: number,
   creatureId: string,
   n: number,
   quien = 'el ejército',
@@ -107,13 +140,17 @@ export function troopBlocker(
   const info = creature(creatureId);
   const ocupa = armyLeadership(army);
   const pide = info.leadership * n;
+  const caben = cabenEnElHueco(army, tope, cupo, info.leadership);
+  const coletilla = caben > 0 ? `; caben ${caben}` : '';
+  if (army.length + n > cupo) {
+    if (army.length >= cupo)
+      return `no cabe: ${quien} ya lleva ${army.length} de ${cupo} individuos`;
+    const son = n === 1 ? 'es uno' : `son ${n}`;
+    return `no cabe: ${quien} lleva ${army.length} de ${cupo} individuos y ${n} × ${info.name} ${son} más${coletilla}`;
+  }
   if (ocupa + pide <= tope) return null;
-  const caben = cabenEnElHueco(tope - ocupa, info.leadership);
   const verbo = n === 1 ? 'pide' : 'piden';
-  return (
-    `no cabe: ${quien} ocupa ${ocupa} de ${tope} de liderazgo y ${n} × ${info.name} ${verbo} ${pide}` +
-    (caben > 0 ? `; caben ${caben}` : '')
-  );
+  return `no cabe: ${quien} ocupa ${ocupa} de ${tope} de liderazgo y ${n} × ${info.name} ${verbo} ${pide}${coletilla}`;
 }
 
 /** El ejército con `n` individuos más de esa criatura, al final. */
@@ -123,9 +160,10 @@ export function withTroops(army: Army, creatureId: string, n: number): Army {
 }
 
 /**
- * Reparte `entrantes` entre lo que cabe en `army` bajo `tope` y lo que no, en
- * orden: el que no cabe se salta y se prueba el siguiente, así que un dragón
- * que no entra no deja fuera a los esqueletos que vienen detrás.
+ * Reparte `entrantes` entre lo que cabe en `army` bajo `tope` de liderazgo y
+ * `cupo` de individuos, y lo que no, en orden: el que no cabe se salta y se
+ * prueba el siguiente, así que un dragón que no entra no deja fuera a los
+ * esqueletos que vienen detrás.
  *
  * Es lo que hace un héroe al entrar en su castillo —se lleva lo que le quepa y
  * el resto se queda guardándolo— y lo que la IA mira para saber si merece la
@@ -135,14 +173,17 @@ export function withTroops(army: Army, creatureId: string, n: number): Army {
 export function troopsThatFit(
   army: Army,
   tope: number,
+  cupo: number,
   entrantes: Army,
 ): { readonly dentro: Army; readonly fuera: Army } {
   let libre = tope - armyLeadership(army);
+  let plazas = cupo - army.length;
   const dentro: Troop[] = [];
   const fuera: Troop[] = [];
   for (const t of entrantes) {
     const ocupa = troopLeadership(t);
-    if (ocupa <= libre) {
+    if (plazas > 0 && ocupa <= libre) {
+      plazas--;
       dentro.push(t);
       libre -= ocupa;
     } else {

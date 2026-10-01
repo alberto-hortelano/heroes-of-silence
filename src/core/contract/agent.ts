@@ -44,6 +44,9 @@ export const battleActionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('wait') }),
   z.object({ type: z.literal('defend') }),
   z.object({ type: z.literal('cast'), spell: z.string(), target: z.string().optional() }),
+  // `gold` es opcional: viene puesto en `legalActions` y devolverla tal cual
+  // vale; si se manda, tiene que ser el precio de ahora (`applyAction`).
+  z.object({ type: z.literal('surrender'), gold: z.number().int().nonnegative().optional() }),
 ]);
 
 export const adventureTurnResponseSchema = z.object({
@@ -193,14 +196,23 @@ Notas:
   se cobra también defendiendo. Lo que sí reparte es LIDERAZGO: el tope de su
   ejército crece con el nivel.
 - Un ejército son INDIVIDUOS, no stacks: "army[].count" dice cuántos lleva de
-  cada criatura, y en batalla cada uno ocupa su hex. Lo que limita cuántos
-  lleva es "heroes[].leadership": "used" es lo que ocupa y "max" su tope. Cada
-  criatura ocupa lo que dice "recruitable[].leadership" por individuo. Un
-  "recruit" que no quepa se rechaza diciendo cuántos caben, por ejemplo: "no
-  cabe: el ejército ocupa 18 de 20 de liderazgo y 2 × Piquero piden 8". Sin
-  héroe en el pueblo se recluta a la guarnición, con su propio tope en
+  cada criatura, y en batalla cada uno ocupa su hex. Dos límites deciden
+  cuántos lleva: como mucho 6 individuos además del héroe, que pelea en el
+  tablero y es el séptimo; y "heroes[].leadership", donde "used" es lo que
+  ocupa y "max" su tope. Cada criatura ocupa lo que dice
+  "recruitable[].leadership" por individuo. Un "recruit" que no quepa se
+  rechaza diciendo cuántos caben, por ejemplo: "no cabe: el ejército ocupa 18
+  de 20 de liderazgo y 2 × Piquero piden 8" o "no cabe: el ejército ya lleva 6
+  de 6 individuos". Sin héroe en el pueblo se recluta a la guarnición, que
+  guarda como mucho 7 individuos y tiene su propio tope en
   "towns[].garrisonLeadership". Un héroe que entra en su pueblo se lleva de la
   guarnición lo que le quepa; el resto se queda guardándolo.
+- "yourBase" es tu base: el castillo al que vuelve un héroe tuyo que pierde una
+  batalla o se rinde. Vuelve con el ejército vacío (o con la tropa que salvó
+  rindiéndose) y sin movimiento hasta el día siguiente; la tropa muerta se
+  pierde. Si un héroe tuyo pierde defendiendo un castillo tuyo, ese castillo
+  es del rival; si era la base, el héroe ya no tiene a dónde volver y se
+  pierde. Sin base ("yourBase": null), un héroe que cae se pierde.
 - "towns[].teaches" son los hechizos que enseña el gremio de ese pueblo: un
   héroe tuyo parado allí los aprende solo, hasta donde le deje su Sabiduría, y
   aparecen en "heroes[].spells". NO hay acción para aprender: basta con llevarlo.
@@ -237,8 +249,23 @@ Acciones válidas para la unidad activa:
   { "type": "wait" }
   { "type": "defend" }
   { "type": "cast",   "spell": "<id>", "target": "<id de stack>" }
+  { "type": "surrender", "gold": N }
 
 Notas:
+- El stack con "commander": true es tu HÉROE, en el tablero: pelea como una
+  unidad más y, si cae, PIERDES la batalla aunque te quede tropa. Lo mismo vale
+  para el del rival: matarlo gana la batalla. Su magia ("cast") funciona
+  mientras esté vivo. El héroe ya no suma ataque ni defensa a la tropa: sus
+  cifras son las de su stack.
+- "surrender" te rinde: pierdes la batalla, pagas el oro de la rendición y tu
+  héroe vuelve a la base con la tropa que siga viva. El precio es proporcional
+  a la tropa que salvas y viene en su "gold" dentro de "legalActions"; el oro
+  que tienes viene en "yourGold". Solo aparece cuando se puede: con base a la
+  que volver, sin estar defendiéndola —no hay a dónde huir— y con oro para
+  pagarlo. "gold" puedes omitirlo al responder; si lo pones, tiene que ser el
+  de la lista. El veredicto te dice cuánto pagaste. La IA de reglas NUNCA se
+  rinde por ti: ni cuando juega una acción tuya que se descartó ni cuando
+  resuelve una batalla tuya que no juegas.
 - "from" es opcional en "attack": si se indica, la unidad se mueve ahí y golpea.
 - "cast" NO consume el turno de la unidad activa: lanza el héroe, se cobra el
   maná y una tirada por ronda, y después la unidad sigue pudiendo moverse,
@@ -277,9 +304,9 @@ Reglas que se validan antes de aceptarlo:
   "palette.creaturesForGuards", que están escritos como los espera el motor.
   Distingue mayúsculas ("skeleton" sí, "Skeleton" no) y no vale inventarse una:
   el mapa no se construye y se te devuelve la lista de las que valen.
-- "monsters[].count" son individuos, y en batalla cada uno ocupa su hex: un
-  bando tiene 27 y una criatura grande ocupa dos y una fila entera. Un monstruo
-  que no quepa se rechaza diciendo el máximo de esa criatura.
+- "monsters[].count" son individuos, un entero de 1 a 7: en batalla ningún
+  bando lleva más de 7 (un héroe pelea con 6 más él). Un monstruo de más se
+  rechaza diciendo el máximo.
 - Un "towns[].owner" y un "mines[].owner" tienen que ser jugadores CON posición
   de inicio en este mismo plan. Para dejar un pueblo neutral, "owner": null;
   para una mina sin dueño, no pongas "owner".

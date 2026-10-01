@@ -365,6 +365,9 @@ document.addEventListener('click', (ev) => {
     case 'battle-wait':
       session.playBattleAction({ type: action === 'battle-wait' ? 'wait' : 'defend' });
       break;
+    case 'battle-surrender':
+      session.playBattleAction({ type: 'surrender' });
+      break;
     case 'battle-spell':
       session.selectSpell(target.getAttribute('data-spell') as string);
       break;

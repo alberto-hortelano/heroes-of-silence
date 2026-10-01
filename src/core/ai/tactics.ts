@@ -16,30 +16,53 @@ import {
   stackById,
   stackHexes,
   stackSpeed,
+  sumaDelBando,
 } from '../battle/battle.js';
 import { hexDistance, hexKey, type Paso } from '../battle/board.js';
 import { CHANCE_PER_POINT, expectedDamage, stackHp } from '../battle/damage.js';
 import { roundsLeftOf } from '../battle/effects.js';
 import { effectOfSpell, type Spell, spell, spellAmount } from '../battle/spells.js';
 import type { BattleAction, BattleHero, BattleStack, BattleState, Side } from '../battle/types.js';
+import { otroBando } from '../battle/types.js';
 import { hasTrait, isShooter } from '../data.js';
 import type { Rng } from '../rng.js';
 import type { Hex } from '../types.js';
 
-/** Cuánto "vale" destruir a este stack: daño que hace por lo que aguanta. */
-function threat(s: BattleStack): number {
+/** Lo que pega un stack por sí solo, con el extra del tirador que aún dispara. */
+function amenazaPropia(s: BattleStack): number {
   const info = s.unit;
   const damage = ((info.damage[0] + info.damage[1]) / 2) * s.count;
   const shooterBonus = isShooter(info) && s.shotsLeft > 0 ? 1.6 : 1;
   return damage * shooterBonus;
 }
 
+/**
+ * Cuánto "vale" destruir a este stack: daño que hace por lo que aguanta.
+ *
+ * El héroe (`origen: heroe`) vale **lo que su bando entero**, no lo que pega su
+ * cuerpo: matarlo gana la batalla, así que quitarlo de en medio quita de golpe
+ * todo lo que pegan los suyos. Con su amenaza propia —la de un individuo con
+ * 2-4 de daño— la IA lo trataba como al último campesino.
+ *
+ * Es para ELEGIR A QUIÉN PEGAR. Lo que vale un buffo o una maldición sobre él
+ * (`spellValue`) sigue siendo lo que pega su cuerpo: una Prisa al héroe le
+ * compra tempo a él, no a su bando, y el plan pedía no tocar `spellValue`.
+ */
+function threat(state: BattleState, s: BattleStack): number {
+  switch (s.origen.kind) {
+    case 'heroe':
+      return sumaDelBando(state, s.side, amenazaPropia);
+    case 'catalogo':
+    case 'personaje':
+      return amenazaPropia(s);
+  }
+}
+
 /** El objetivo más apetecible: mucha amenaza y poca vida restante. */
-function bestTarget(candidates: BattleStack[]): BattleStack | null {
+function bestTarget(state: BattleState, candidates: BattleStack[]): BattleStack | null {
   if (candidates.length === 0) return null;
-  return candidates.reduce((best, s) =>
-    threat(s) / Math.max(1, stackHp(s)) > threat(best) / Math.max(1, stackHp(best)) ? s : best,
-  );
+  const valor = (s: BattleStack): number => threat(state, s) / Math.max(1, stackHp(s));
+  return candidates.reduce((best, s) => (valor(s) > valor(best) ? s : best));
 }
 
 function distanceTo(from: Hex, target: BattleStack): number {
@@ -96,8 +119,8 @@ function spellValue(caster: BattleHero, sp: Spell, objetivo: BattleStack): numbe
       // que con el objetivo limpio es 1 y deja intacto el primer lanzamiento,
       // que es el caso con el que se calibró `VALOR_MINIMO_POR_MANA`.
       return sp.kind === 'luck'
-        ? compradas * Math.abs(sp.amount ?? 0) * threat(objetivo) * CHANCE_PER_POINT
-        : FRACCION_TEMPO * threat(objetivo) * (compradas / efecto.roundsLeft);
+        ? compradas * Math.abs(sp.amount ?? 0) * amenazaPropia(objetivo) * CHANCE_PER_POINT
+        : FRACCION_TEMPO * amenazaPropia(objetivo) * (compradas / efecto.roundsLeft);
     }
     case 'heal':
       // Sale ≈0 salvo con un stack tocado, y está bien: la Curación no se lanza
@@ -172,14 +195,11 @@ type CargaContra = Extract<BattleAction, { type: 'attack' }> & { from: Hex };
  * sentido con el rasgo puesto.
  */
 function mejorCarga(
-  state: BattleState,
   s: BattleStack,
   objetivo: BattleStack,
   cargas: readonly CargaContra[],
   costes: ReadonlyMap<string, Paso>,
 ): BattleAction {
-  const miHeroe = state.heroes[s.side];
-  const suHeroe = state.heroes[objetivo.side];
   // Sin el rasgo, `expectedDamage` da lo MISMO desde cualquier casilla: la
   // fórmula no mira el hex más que por la carga. No es una optimización, es lo
   // que significa — evaluarla casilla a casilla sería preguntar seis veces algo
@@ -199,9 +219,7 @@ function mejorCarga(
       throw new Error(`${s.id} no alcanza (${a.from.col},${a.from.row}): la lista legal miente`);
     }
     const coste = paso.steps;
-    const dano = cobraCarga
-      ? expectedDamage(s, miHeroe, objetivo, suHeroe, { chargeHexes: coste })
-      : 0;
+    const dano = cobraCarga ? expectedDamage(s, objetivo, { chargeHexes: coste }) : 0;
     if (dano > mejorDano || (dano === mejorDano && coste < mejorCoste)) {
       mejor = a;
       mejorDano = dano;
@@ -255,13 +273,60 @@ function convieneEsperar(s: BattleStack, enemigos: readonly BattleStack[], desti
 }
 
 /**
+ * Lo que pesa un bando en la batalla: Σ amenaza × PV de lo que tiene en pie.
+ *
+ * El producto y no la suma, porque es lo que decide un desgaste: un bando que
+ * pega el doble y aguanta el doble vale cuatro veces más, no dos. Cuenta al
+ * héroe por lo que pega su cuerpo —aquí no se elige a quién pegar, se mide—.
+ */
+function pesoDelBando(state: BattleState, side: Side): number {
+  return sumaDelBando(state, side, (o) => amenazaPropia(o) * stackHp(o));
+}
+
+/**
+ * Por debajo de esta fracción del peso rival, la IA da la batalla por perdida.
+ * Un número redondo y declarado, no calibrado: la regla tenía que ser sencilla
+ * (plan de la fase 1b) y el precio de rendirse lo pone el usuario.
+ */
+const RENDIRSE_POR_DEBAJO_DE = 1 / 3;
+
+/**
+ * ¿Rendirse? Sí cuando se ofrece —hay base, no se la defiende y llega el
+ * oro—, cuando queda tropa propia viva que salvar —rendirse solo con el héroe
+ * es pagar por nada: vuelve igual si cae— y cuando el bando pesa menos de un
+ * tercio que el rival.
+ */
+function convieneRendirse(
+  state: BattleState,
+  s: BattleStack,
+  acciones: readonly BattleAction[],
+): boolean {
+  if (!acciones.some((a) => a.type === 'surrender')) return false;
+  const tropaQueSalvar = state.stacks.some(
+    (o) => o.side === s.side && o.count > 0 && o.origen.kind !== 'heroe',
+  );
+  if (!tropaQueSalvar) return false;
+  const rival = otroBando(s.side);
+  return pesoDelBando(state, s.side) < pesoDelBando(state, rival) * RENDIRSE_POR_DEBAJO_DE;
+}
+
+/**
+ * Ningún bando vetado: la IA juega para sí misma en los dos, que es lo que hace
+ * el banco y lo que hacían todos los llamantes antes de existir el veto.
+ */
+const NINGUNO: ReadonlySet<Side> = new Set();
+
+/**
  * Elige la acción del stack activo:
  * dispara si puede, remata lo que alcanza, si no se acerca al objetivo más
  * jugoso —o cede la iniciativa antes de meterse en el alcance de quien aún no
  * ha movido—, y si no puede hacer nada útil se defiende.
  */
-export function chooseBattleAction(state: BattleState): BattleAction {
-  return chooseBattleActionAndCosts(state).action;
+export function chooseBattleAction(
+  state: BattleState,
+  noSeRinden: ReadonlySet<Side> = NINGUNO,
+): BattleAction {
+  return chooseBattleActionAndCosts(state, noSeRinden).action;
 }
 
 /**
@@ -279,7 +344,10 @@ export function chooseBattleAction(state: BattleState): BattleAction {
  * —las de otro stack cercano se le parecen—, así que se le dice quién lo
  * calculó y él lo compara con quien está activo.
  */
-export function chooseBattleActionAndCosts(state: BattleState): {
+export function chooseBattleActionAndCosts(
+  state: BattleState,
+  noSeRinden: ReadonlySet<Side> = NINGUNO,
+): {
   action: BattleAction;
   stack: string;
   costs: Map<string, Paso>;
@@ -288,7 +356,7 @@ export function chooseBattleActionAndCosts(state: BattleState): {
   if (s === null) throw new Error('no hay stack activo');
 
   const { actions, costs } = legalActionsAndCosts(state);
-  return { action: decideAccion(state, s, actions, costs), stack: s.id, costs };
+  return { action: decideAccion(state, s, actions, costs, noSeRinden), stack: s.id, costs };
 }
 
 function decideAccion(
@@ -296,9 +364,20 @@ function decideAccion(
   s: BattleStack,
   acciones: readonly BattleAction[],
   costes: ReadonlyMap<string, Paso>,
+  noSeRinden: ReadonlySet<Side>,
 ): BattleAction {
   const enemigos = enemiesOf(state, s);
   if (enemigos.length === 0) return { type: 'defend' };
+
+  // Rendirse va antes que todo, incluido el hechizo: si la batalla está
+  // perdida, gastar maná en ella es tirarlo. Pero solo por un bando que sea
+  // SUYO: rendirse cuesta oro, y la IA que resuelve la defensa de una persona o
+  // del agente no puede gastárselo por ellos (H-1 de la fase 1b: le cobraba el
+  // oro a la persona sin preguntarle ni decírselo). Pelear por otro, sí: eso es
+  // lo que ha hecho siempre.
+  if (!noSeRinden.has(s.side) && convieneRendirse(state, s, acciones)) {
+    return { type: 'surrender' };
+  }
 
   // El hechizo va primero porque no gasta el turno: si se lanza, se volverá a
   // pedir acción para este mismo stack y entonces peleará. En esa segunda
@@ -329,7 +408,7 @@ function decideAccion(
       candidatos = coste.filter((c) => c.aliados === minimo).map((c) => c.enemigo);
     }
 
-    const objetivo = bestTarget(candidatos);
+    const objetivo = bestTarget(state, candidatos);
     if (objetivo !== null) {
       const disparo = acciones.find((a) => a.type === 'shoot' && a.target === objetivo.id);
       if (disparo !== undefined) return disparo;
@@ -338,7 +417,7 @@ function decideAccion(
 
   // Golpear a quien ya se alcanza, priorizando el objetivo más valioso.
   const alcanzables = enemigos.filter((e) => canReachMelee(s, e));
-  const cercano = bestTarget(alcanzables);
+  const cercano = bestTarget(state, alcanzables);
   if (cercano !== null) {
     const ataque = acciones.find(
       (a) => a.type === 'attack' && a.target === cercano.id && a.from === undefined,
@@ -347,13 +426,13 @@ function decideAccion(
   }
 
   // Acercarse y golpear en el mismo turno, si llega.
-  const objetivo = bestTarget(enemigos);
+  const objetivo = bestTarget(state, enemigos);
   if (objetivo !== null) {
     const cargas = acciones.filter(
       (a): a is CargaContra =>
         a.type === 'attack' && a.target === objetivo.id && a.from !== undefined,
     );
-    if (cargas.length > 0) return mejorCarga(state, s, objetivo, cargas, costes);
+    if (cargas.length > 0) return mejorCarga(s, objetivo, cargas, costes);
 
     // Si no llega, avanzar lo máximo posible hacia él. Los hexes ya están en
     // la mano: los `move` de `acciones` SON `movableHexes(state, s)`, en
@@ -398,13 +477,21 @@ export interface BattleOutcome {
   readonly rounds: number;
 }
 
-/** Juega la batalla entera con la IA táctica en ambos bandos. */
-export function autoResolve(state: BattleState, rng: Rng, maxTurnos = 5000): BattleOutcome {
+/**
+ * Juega la batalla entera con la IA táctica en ambos bandos. Por los de
+ * `noSeRinden` pelea igual, pero no se rinde: son de alguien que no es ella.
+ */
+export function autoResolve(
+  state: BattleState,
+  rng: Rng,
+  noSeRinden: ReadonlySet<Side> = NINGUNO,
+  maxTurnos = 5000,
+): BattleOutcome {
   let n = 0;
   while (state.finished === null && n < maxTurnos) {
     // El recorrido con el que se decidió viaja hasta el motor: `moveTo` lo
     // repetía entero para cobrar la carga.
-    const { action, stack, costs } = chooseBattleActionAndCosts(state);
+    const { action, stack, costs } = chooseBattleActionAndCosts(state, noSeRinden);
     applyAction(state, action, rng, { stack, costs });
     n++;
   }

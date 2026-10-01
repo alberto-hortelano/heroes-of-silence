@@ -16,7 +16,8 @@
 import type { BattleState } from '@core/battle/types.js';
 import { creature } from '@core/data.js';
 import type { TerrainKind } from '@core/map/terrain.js';
-import type { SpectatorView, VistaBatalla } from '../../server/vista-espectador.js';
+import type { UnitInfo } from '@core/types.js';
+import type { SpectatorView, StackEnCable, VistaBatalla } from '../../server/vista-espectador.js';
 import type { AdventureScene } from '../render/mapa.js';
 
 /**
@@ -71,15 +72,29 @@ export function centroDeLaEscena(view: SpectatorView): { x: number; y: number } 
 /**
  * La batalla del cable con sus cifras otra vez: la inversa de `stackAlCable`.
  *
- * Un stack sin `unit` es una criatura del catálogo y se rehace con
- * `creature(body)`, la misma referencia que puso `createBattle`; uno con `unit`
- * es un personaje y la trae puesta. Un `body` que no esté en el catálogo y
- * llegue sin `unit` lanza nombrándolo: no se pinta con cifras inventadas.
+ * Una criatura del catálogo llega sin `unit` y se rehace con `creature(body)`,
+ * la misma referencia que puso `createBattle`; un personaje o el héroe la traen
+ * puesta. Se reparte por `origen`, que viaja, y no por si `unit` vino o no: un
+ * personaje que llegara sin cifras lanza nombrándolo en vez de ir a buscar al
+ * catálogo las de un cuerpo que no está en él.
  */
 export function adaptarBatalla(batalla: VistaBatalla): BattleState {
   const { estado } = batalla;
   return {
     ...estado,
-    stacks: estado.stacks.map((s) => ({ ...s, unit: s.unit ?? creature(s.body) })),
+    stacks: estado.stacks.map((s) => ({ ...s, unit: cifrasDe(s) })),
   };
+}
+
+function cifrasDe(s: StackEnCable): UnitInfo {
+  switch (s.origen.kind) {
+    case 'catalogo':
+      return creature(s.body);
+    case 'personaje':
+    case 'heroe':
+      if (s.unit === undefined) {
+        throw new Error(`${s.id} (${s.origen.kind}) llega por el cable sin sus cifras`);
+      }
+      return s.unit;
+  }
 }

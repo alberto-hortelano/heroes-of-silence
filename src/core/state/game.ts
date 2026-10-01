@@ -8,10 +8,11 @@ import { autoResolve, type BattleOutcome } from '../ai/tactics.js';
 import { type BattleMember, type BattleSide, createBattle } from '../battle/battle.js';
 import { stackHp } from '../battle/damage.js';
 import type { BattleHero, BattleState, Side } from '../battle/types.js';
-import { SIDES } from '../battle/types.js';
+import { otroBando, personajeDe, SIDES } from '../battle/types.js';
 import { creature } from '../data.js';
 import {
   type Hero,
+  heroUnit,
   learnable,
   levelFromExperience,
   luckBonus,
@@ -21,9 +22,10 @@ import {
 } from '../hero/hero.js';
 import {
   armyLeadership,
+  CUPO_GUARNICION,
+  capacidadDe,
   characterOf,
   GARRISON_LEADERSHIP,
-  heroLeadership,
   troopBlocker,
   troopRoom,
   troopsAsStacks,
@@ -31,9 +33,11 @@ import {
   withTroops,
 } from '../hero/troop.js';
 import {
+  blocksMovement,
   findPath,
   type GameMap,
   inBounds,
+  isEnterable,
   type MapObject,
   objectAt,
   type PathStep,
@@ -88,6 +92,17 @@ export interface Player {
    */
   memory: Map<string, RememberedObject>;
   defeated: boolean;
+  /**
+   * El id del castillo al que vuelve un héroe derrotado o rendido, o `null` si
+   * no tiene ninguno.
+   *
+   * PROVISIONAL (fase 1b): es el primer castillo que el jugador tenía al empezar
+   * la partida y no cambia aunque conquiste otros. La «base única» formal es de
+   * la fase 3. Que la base siga siendo SUYA no se guarda aquí: se pregunta a
+   * `Town.owner` cada vez, porque el dueño de un castillo vive en un solo sitio
+   * (`captureTown`) y una segunda copia es lo que ya costó #47.
+   */
+  readonly base: string | null;
 }
 
 /** Un objeto del mapa tal y como se vio, y cuándo. */
@@ -286,6 +301,8 @@ export interface DestinoDeRecluta {
   readonly hero: Hero | undefined;
   readonly army: Army;
   readonly tope: number;
+  /** Cuántos individuos caben como mucho: `CUPO_HEROE` o `CUPO_GUARNICION`. */
+  readonly cupo: number;
   /** Cómo lo nombra la frase de rechazo: «el ejército» o «la guarnición». */
   readonly quien: string;
 }
@@ -302,8 +319,14 @@ export function destinoDeRecluta(state: GameState, town: Town): DestinoDeRecluta
   if (town.owner === null) throw new Error(`no se puede reclutar en ${town.name}: no tiene dueño`);
   const hero = heroesOf(state, town.owner).find((h) => pointKey(h.at) === pointKey(town.at));
   return hero === undefined
-    ? { hero, army: town.garrison, tope: GARRISON_LEADERSHIP, quien: 'la guarnición' }
-    : { hero, army: hero.army, tope: heroLeadership(hero), quien: 'el ejército' };
+    ? {
+        hero,
+        army: town.garrison,
+        tope: GARRISON_LEADERSHIP,
+        cupo: CUPO_GUARNICION,
+        quien: 'la guarnición',
+      }
+    : { hero, army: hero.army, ...capacidadDe(hero), quien: 'el ejército' };
 }
 
 /** Cuántos individuos de una criatura se pueden reclutar ahora, y por qué no más. */
@@ -341,11 +364,11 @@ export interface RecruitCapacity {
 export function recruitCapacity(
   town: Town,
   creatureId: string,
-  destino: Pick<DestinoDeRecluta, 'army' | 'tope' | 'quien'>,
+  destino: Pick<DestinoDeRecluta, 'army' | 'tope' | 'cupo' | 'quien'>,
   purse: Resources,
 ): RecruitCapacity {
   const disponibles = town.available[creatureId] ?? 0;
-  const caben = troopRoom(destino.army, destino.tope, creatureId);
+  const caben = troopRoom(destino.army, destino.tope, destino.cupo, creatureId);
   let maximo = Math.min(disponibles, caben);
   while (maximo > 0 && !canAfford(purse, recruitCost(creatureId, maximo))) maximo--;
   return {
@@ -419,6 +442,7 @@ export function createGame(config: GameConfig): GameState {
     fog: new Set<string>(),
     memory: new Map<string, RememberedObject>(),
     defeated: false,
+    base: config.towns.find((t) => t.owner === p.id)?.id ?? null,
   }));
 
   const state: GameState = {
@@ -870,6 +894,7 @@ function aplicar(
       const noCabe = troopBlocker(
         destino.army,
         destino.tope,
+        destino.cupo,
         action.creature,
         action.count,
         destino.quien,
@@ -954,12 +979,14 @@ function hireHero(state: GameState, townId: string): void {
 
 /**
  * Un héroe que entra en su pueblo se lleva la guarnición que le quepa en el
- * liderazgo, en orden; lo que no cabe se queda guardando el pueblo en vez de
- * desaparecer. No lanza: entrar en casa no es pedir tropa.
+ * liderazgo y en su cupo de individuos, en orden; lo que no cabe se queda
+ * guardando el pueblo en vez de desaparecer. No lanza: entrar en casa no es
+ * pedir tropa.
  */
 function takeGarrison(state: GameState, hero: Hero, town: Town): void {
   if (town.owner !== hero.owner) return;
-  const { dentro, fuera } = troopsThatFit(hero.army, heroLeadership(hero), town.garrison);
+  const { tope, cupo } = capacidadDe(hero);
+  const { dentro, fuera } = troopsThatFit(hero.army, tope, cupo, town.garrison);
   if (dentro.length === 0) return;
   hero.army = [...hero.army, ...dentro];
   town.garrison = fuera;
@@ -1182,7 +1209,42 @@ function membersOf(state: GameState, hero: Hero): ReadonlyMap<string, BattleMemb
   return out;
 }
 
-function battleSideForHero(state: GameState, hero: Hero): BattleSide {
+/**
+ * La base de un jugador, si todavía es suya; `null` si no la tuvo nunca o la
+ * ha perdido. El dueño se pregunta a `Town.owner`, que es donde vive.
+ */
+export function baseOf(state: GameState, player: PlayerId): Town | null {
+  const id = playerById(state, player).base;
+  if (id === null) return null;
+  const town = townById(state, id);
+  return town.owner === player ? town : null;
+}
+
+/**
+ * Si el héroe puede rendirse, y con cuánto oro; o por qué no. Rendirse es
+ * volver a la base, así que sin base no hay rendición, y defendiéndola
+ * tampoco: no hay a dónde huir.
+ *
+ * Se mira dónde está el héroe y **en qué bando**, no solo dónde está: un
+ * atacante que sale de su castillo a por algo pegado a la muralla también está
+ * en su base, y ese sí puede rendirse —vuelve con lo que salve—. Mirar solo
+ * `hero.at` se probó y cambiaba 318 líneas del volcado del banco, la primera en
+ * la semilla 5, justo por esas salidas.
+ */
+function retiradaDe(
+  state: GameState,
+  hero: Hero,
+  side: Side,
+): { readonly purse: number } | { readonly blocked: string } {
+  const base = baseOf(state, hero.owner);
+  if (base === null) return { blocked: 'no tienes base a la que volver' };
+  if (side === 'defender' && pointKey(base.at) === pointKey(hero.at)) {
+    return { blocked: 'defiendes tu base: no hay a dónde huir' };
+  }
+  return { purse: playerById(state, hero.owner).resources.gold };
+}
+
+function battleSideForHero(state: GameState, hero: Hero, side: Side): BattleSide {
   const pueblo = state.towns.find(
     (t) => t.owner === hero.owner && pointKey(t.at) === pointKey(hero.at),
   );
@@ -1191,14 +1253,16 @@ function battleSideForHero(state: GameState, hero: Hero): BattleSide {
     ...(members === undefined ? {} : { members }),
     army: troopsAsStacks(hero.army),
     hero: {
-      name: hero.name,
-      attack: hero.attack,
-      defense: hero.defense,
-      spellPower: hero.spellPower,
-      knowledge: hero.knowledge,
-      mana: hero.mana,
-      castThisRound: false,
-      spells: hero.spells,
+      cuerpo: heroUnit(hero),
+      mando: {
+        name: hero.name,
+        retreat: retiradaDe(state, hero, side),
+        spellPower: hero.spellPower,
+        knowledge: hero.knowledge,
+        mana: hero.mana,
+        castThisRound: false,
+        spells: hero.spells,
+      },
     },
     moraleBonus: moraleBonus(hero) + (pueblo === undefined ? 0 : moraleFromBuildings(pueblo)),
     luckBonus: luckBonus(hero),
@@ -1214,7 +1278,7 @@ function battleSideForHero(state: GameState, hero: Hero): BattleSide {
  * la línea del maná hubo que añadirla a cada copia por separado. El camino del
  * defensor solo se ejecuta cuando el atacante pierde, así que el próximo campo
  * que la batalla mute se habría añadido a uno de los dos sitios y habría llegado
- * a partida en verde.
+ * a partida en verde. Hoy la llama solo `settleBattle`, para los dos héroes.
  */
 function restoreHeroFromBattle(mapHero: Hero, battleHero: BattleHero | null, army: Army): void {
   mapHero.army = army;
@@ -1239,7 +1303,7 @@ function defenderSide(state: GameState, foe: BattleFoe): BattleSide {
     }
     case 'hero': {
       const enemigo = heroById(state, foe.heroId);
-      return battleSideForHero(state, enemigo);
+      return battleSideForHero(state, enemigo, 'defender');
     }
     case 'town': {
       const pueblo = townById(state, foe.townId);
@@ -1276,8 +1340,8 @@ export function battleOwners(
 }
 
 /**
- * Dónde se libra una batalla pendiente: la casilla del DEFENSOR, que es a la
- * que el atacante intentó entrar.
+ * Dónde se libra una batalla: la casilla del DEFENSOR, que es a la que el
+ * atacante intentó entrar.
  *
  * Estuvo guardada en `PendingBattle` como una cuarta copia de un hecho que el
  * estado ya tiene, con el argumento de que el evento que cuenta la muerte del
@@ -1290,8 +1354,7 @@ export function battleOwners(
  * serializable y #10 lo va a guardar: un campo copiado es un campo que puede
  * volver del disco contradiciendo al mapa, que es la forma exacta de #47.
  */
-function battleAt(state: GameState, pending: PendingBattle): Point {
-  const foe = pending.foe;
+function lugarDelRival(state: GameState, foe: BattleFoe): Point {
   switch (foe.kind) {
     case 'monster': {
       const obj = state.map.objects.find((o) => o.id === foe.objectId);
@@ -1331,7 +1394,11 @@ export function sidesOwnedBy(
 
 /** Prepara la batalla y la deja pendiente: la juega la IA o el jugador. */
 function startBattle(state: GameState, hero: Hero, foe: BattleFoe, ctx: GameContext): void {
-  const battle = createBattle(battleSideForHero(state, hero), defenderSide(state, foe), ctx.rng);
+  const battle = createBattle(
+    battleSideForHero(state, hero, 'attacker'),
+    defenderSide(state, foe),
+    ctx.rng,
+  );
   const pending = { attackerHeroId: hero.id, foe, battle };
   state.pendingBattle = pending;
   // La casilla se deriva aquí también, y no se toma del paso que abrió la
@@ -1342,15 +1409,26 @@ function startBattle(state: GameState, hero: Hero, foe: BattleFoe, ctx: GameCont
     attacker: hero.id,
     foe,
     actor: hero.owner,
-    at: battleAt(state, pending),
+    at: lugarDelRival(state, foe),
   });
 }
 
-/** Juega la batalla pendiente con la IA táctica y aplica el resultado. */
-export function resolvePendingBattle(state: GameState, ctx: GameContext): BattleOutcome {
+/**
+ * Juega la batalla pendiente con la IA táctica y aplica el resultado.
+ *
+ * `noSeRinden` son los jugadores que NO lleva la IA de reglas —la persona, el
+ * agente—: por sus bandos pelea, pero no se rinde, porque rendirse les cuesta
+ * oro y esa decisión es solo de su dueño. Quien llama es quien sabe para quién
+ * juega; el núcleo no sabe que existan personas ni agentes.
+ */
+export function resolvePendingBattle(
+  state: GameState,
+  ctx: GameContext,
+  noSeRinden: ReadonlySet<PlayerId> = new Set(),
+): BattleOutcome {
   const pending = state.pendingBattle;
   if (pending === null) throw new Error('no hay batalla pendiente');
-  const outcome = autoResolve(pending.battle, ctx.rng);
+  const outcome = autoResolve(pending.battle, ctx.rng, sidesOwnedBy(state, pending, noSeRinden));
   settleBattle(state, ctx);
   return outcome;
 }
@@ -1361,14 +1439,15 @@ export function settleBattle(state: GameState, _ctx: GameContext): void {
   if (pending === null) throw new Error('no hay batalla pendiente');
   if (pending.battle.finished === null) throw new Error('la batalla no ha terminado');
 
-  const { winner } = pending.battle.finished;
+  const finished = pending.battle.finished;
+  const winner = finished.winner;
   const hero = heroById(state, pending.attackerHeroId);
   // La casilla, LEÍDA AQUÍ: con los dos bandos todavía en pie. Después hay
   // héroes que salen del mapa y castillos que cambian de bandera, y preguntar
   // entonces sería preguntar por alguien que ya no está. Es el mismo patrón que
   // el `const dueño = hero.owner` de más abajo, y por eso el dato no hace falta
   // guardarlo en `PendingBattle`.
-  const at = battleAt(state, pending);
+  const at = lugarDelRival(state, pending.foe);
   // Las heridas, PRIMERO: antes de que el héroe que pierde salga del mapa con
   // su ejército. Lo que se escribe es del personaje, no del héroe, y tiene que
   // quedar escrito pase lo que pase con quien lo llevaba.
@@ -1382,17 +1461,38 @@ export function settleBattle(state: GameState, _ctx: GameContext): void {
     const vivos: Troop[] = [];
     for (const s of pending.battle.stacks) {
       if (s.side !== side || s.count <= 0) continue;
-      // `member` viaja de vuelta: sin él, el superviviente volvería al mapa
-      // convertido en un individuo «character» que nadie sabe leer.
-      const t: Troop =
-        s.member === undefined ? { creature: s.body } : { creature: s.body, member: s.member };
+      let t: Troop;
+      switch (s.origen.kind) {
+        case 'catalogo':
+          t = { creature: s.body };
+          break;
+        case 'personaje':
+          // `member` viaja de vuelta: sin él, el superviviente volvería al mapa
+          // convertido en un individuo «character» que nadie sabe leer.
+          t = { creature: s.body, member: s.origen.id };
+          break;
+        case 'heroe':
+          // El héroe no es tropa: vuelve al mapa como héroe, no como un
+          // individuo «hero» de su propio ejército —que nadie sabría leer—.
+          continue;
+      }
       for (let i = 0; i < s.count; i++) vivos.push(t);
     }
     return vivos;
   };
 
+  const supervivientesDelDefensor = superviviente('defender');
+  // Lo que la batalla les mutó —el maná, y la tropa que queda en pie— vuelve a
+  // los DOS héroes aquí, una vez y por la misma función, gane quien gane. Antes
+  // se devolvía en tres sitios según quién perdiera, y el defensor que perdía
+  // se restauraba dentro de `applyVictory`, que no es su asunto.
   restoreHeroFromBattle(hero, pending.battle.heroes.attacker, superviviente('attacker'));
-  const heroeAtacanteVivo = winner === 'attacker';
+  if (pending.foe.kind === 'hero') {
+    const defensor = heroById(state, pending.foe.heroId);
+    restoreHeroFromBattle(defensor, pending.battle.heroes.defender, supervivientesDelDefensor);
+  }
+  // Lo que cuesta la rendición, si la hubo. La paga siempre el que pierde.
+  const precio = finished.surrender?.gold ?? null;
 
   // El cierre de la batalla se registra ANTES de sus consecuencias: capturar
   // el último pueblo del rival termina la partida, y "game_over" tiene que ser
@@ -1406,21 +1506,130 @@ export function settleBattle(state: GameState, _ctx: GameContext): void {
   });
   state.pendingBattle = null;
 
-  if (heroeAtacanteVivo) {
+  if (winner === 'attacker') {
     ganarExperiencia(state, hero, experienceFor(pending, 'attacker'), at);
-    applyVictory(state, hero, pending.foe, at);
+    applyVictory(state, hero, pending.foe, precio, at);
   } else {
-    // El atacante derrotado desaparece del mapa con su ejército. Su dueño se
-    // lee ANTES del filtro: un instante después el héroe ya no está y el evento
-    // que cuenta su muerte no tendría a quién atribuirse — que es justo por qué
-    // el 10,9 % de la crónica era inatribuible.
-    const dueño = hero.owner;
-    state.heroes = state.heroes.filter((h) => h.id !== hero.id);
-    emit(state, { kind: 'hero_defeated', hero: hero.id, actor: dueño, at });
-    applyDefenderSurvivors(state, pending, superviviente('defender'), at);
+    heroeVencido(state, hero, precio, at);
+    applyDefenderSurvivors(state, pending, supervivientesDelDefensor, at);
   }
 
   checkDefeat(state);
+}
+
+/**
+ * Lo que le pasa a un héroe que pierde una batalla. **El único camino**: antes
+ * eran dos ramas de borrado —el atacante en `settleBattle` y el defensor en
+ * `applyVictory`—, y la vuelta a la base habría tenido que escribirse en las
+ * dos.
+ *
+ * En este orden, y el orden importa:
+ *
+ * 1. **Si se rindió, paga** `precio`, el que fijó el motor al rendirse. No le
+ *    puede faltar y no se vuelve a mirar: `surrenderBlocker` no ofrece la
+ *    rendición sin el oro, y el oro no cambia en plena batalla.
+ * 2. **Si su base sigue siendo suya, vuelve a ella** (`volverABase`).
+ * 3. **Si no, desaparece**, como hasta la fase 1b. Un rendido no llega aquí:
+ *    sin base no se ofrece la rendición.
+ *
+ * El castillo en el que defendía, si lo había, ya lo ha capturado
+ * `applyVictory`: si era su base, aquí ya no le queda.
+ *
+ * Una derrota en combate cuenta `hero_defeated` —el héroe cayó— y, si vuelve,
+ * **después** `hero_returned`. Una rendición solo `hero_returned`: no cayó.
+ */
+function heroeVencido(state: GameState, hero: Hero, precio: number | null, at: Point): void {
+  // El dueño se lee al principio: si el héroe sale del mapa, un instante
+  // después el evento que lo cuenta no tendría a quién atribuirse — que es
+  // justo por qué el 10,9 % de la crónica era inatribuible.
+  const dueño = hero.owner;
+  const rendido = precio !== null;
+  if (rendido) {
+    const jugador = playerById(state, dueño);
+    jugador.resources = addResources(jugador.resources, { gold: -precio });
+  }
+
+  const base = baseOf(state, dueño);
+  if (base === null) {
+    // Sin base, desaparece como siempre. Primero sale del mapa y DESPUÉS se
+    // cuenta: el sello se calcula tras la mutación (`emit`), así que su dueño
+    // ya no mira la casilla en la que acaba de caer, y la noticia le llega por
+    // `actor`. La rendición exige base, así que aquí solo llega quien cayó.
+    state.heroes = state.heroes.filter((h) => h.id !== hero.id);
+    emit(state, { kind: 'hero_defeated', hero: hero.id, actor: dueño, at });
+    return;
+  }
+  // Con base, cae y vuelve: dos hechos, en ese orden. El primero se sella con
+  // el héroe todavía en el campo de batalla; el segundo, donde reaparece.
+  if (!rendido) emit(state, { kind: 'hero_defeated', hero: hero.id, actor: dueño, at });
+  volverABase(state, hero, base, precio);
+}
+
+/**
+ * El héroe vencido reaparece en su base: en la casilla del castillo o, si la
+ * ocupa otro héroe, en la primera casilla libre más cercana (`casillaDeVuelta`).
+ *
+ * Con el ejército vacío, salvo si se rindió (entonces con la tropa que salvó,
+ * que ya trae puesta), y sin movimiento hasta mañana. Mira alrededor y, si cae
+ * en el castillo, se lleva la guarnición que le quepa: es su casa.
+ */
+function volverABase(state: GameState, hero: Hero, base: Town, precio: number | null): void {
+  if (precio === null) hero.army = [];
+  hero.at = casillaDeVuelta(state, hero, base);
+  hero.movePoints = 0;
+  revealAround(state, hero);
+  const comun = { kind: 'hero_returned', hero: hero.id, town: base.id } as const;
+  const origen = { actor: hero.owner, at: hero.at };
+  emit(
+    state,
+    precio === null
+      ? { ...comun, surrendered: false, ...origen }
+      : { ...comun, surrendered: true, gold: precio, ...origen },
+  );
+  if (pointKey(hero.at) === pointKey(base.at)) takeGarrison(state, hero, base);
+}
+
+/**
+ * La casilla del castillo, o si la ocupa otro héroe la primera libre —que se
+ * pueda pisar, sin objeto y sin héroe— de una búsqueda en anchura desde el
+ * castillo que **para en cuanto la encuentra**.
+ *
+ * Antes era el orden de descubrimiento de un `reachableFrom` del mapa entero
+ * —un Dijkstra completo para mirar, casi siempre, las ocho vecinas—. Las dos
+ * dan la misma casilla siempre que alguna vecina del castillo esté libre: el
+ * Dijkstra descubre las ocho de golpe al sacar el origen, en el mismo orden de
+ * `dy` por fuera y `dx` por dentro que se usa aquí. Si las ocho estuvieran
+ * ocupadas, esta da la más cercana en pasos y aquella la más cercana en coste.
+ * Comprobado ejecutando las dos a la vez en cada vuelta: 1 491 en las 200
+ * partidas del banco y 8 894 en 1 200 partidas, 0 distintas. Con una salvedad
+ * que hay que saber: en ninguna de ellas estaba ocupado el castillo —la IA no
+ * contrata un segundo héroe mientras tiene uno—, así que la rama de la búsqueda
+ * solo la ejercen los tests.
+ */
+function casillaDeVuelta(state: GameState, hero: Hero, base: Town): Point {
+  const ocupada = (p: Point): boolean =>
+    state.heroes.some((h) => h.id !== hero.id && pointKey(h.at) === pointKey(p));
+  if (!ocupada(base.at)) return base.at;
+  const vistas = new Set<string>([pointKey(base.at)]);
+  const cola: Point[] = [base.at];
+  for (let i = 0; i < cola.length; i++) {
+    const desde = cola[i]!;
+    // Como en el Dijkstra del mapa: de una casilla con objeto que bloquea no se
+    // sigue, salvo del origen, que es el propio castillo.
+    const objeto = objectAt(state.map, desde);
+    if (i > 0 && objeto !== undefined && blocksMovement(objeto)) continue;
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if (dx === 0 && dy === 0) continue;
+        const p = { x: desde.x + dx, y: desde.y + dy };
+        if (!isEnterable(state.map, p) || vistas.has(pointKey(p))) continue;
+        vistas.add(pointKey(p));
+        if (!ocupada(p) && objectAt(state.map, p) === undefined) return p;
+        cola.push(p);
+      }
+    }
+  }
+  throw new Error(`${hero.name} no tiene casilla libre a la que volver junto a ${base.name}`);
 }
 
 /**
@@ -1435,10 +1644,12 @@ export function settleBattle(state: GameState, _ctx: GameContext): void {
 function woundsFromBattle(state: GameState, battle: BattleState): void {
   if (state.characters === undefined) return;
   for (const s of battle.stacks) {
-    if (s.member === undefined) continue;
+    // Ni la criatura ni el héroe arrastran heridas: el héroe entra sano.
+    const id = personajeDe(s.origen);
+    if (id === null) continue;
     // `battleSideForHero` ya lanzó si faltaba al entrar: faltar al salir es
     // que alguien lo borró a mitad de batalla, y eso también se dice.
-    characterOf(state.characters, s.member, 'la batalla devuelve').hp = stackHp(s);
+    characterOf(state.characters, id, 'la batalla devuelve').hp = stackHp(s);
   }
 }
 
@@ -1459,7 +1670,9 @@ const EXP_POR_ASEDIO = 500;
 function bajasEnPuntosDeVida(battle: BattleState, lado: Side): number {
   let pv = 0;
   for (const s of battle.stacks) {
-    if (s.side !== lado) continue;
+    // El cuerpo del héroe no cuenta: su caída la paga `EXP_POR_DERROTAR_A_UN_HEROE`
+    // una sola vez. Contarlo aquí también sería cobrar dos veces lo mismo.
+    if (s.side !== lado || s.origen.kind === 'heroe') continue;
     // `initialCount - count` y no un `min` con los muertos como en el original:
     // allí el `min` está por la resurrección, y aquí `count` solo baja —`heal`
     // repone `topHp` y nada más—. El día que algo resucite, vuelve el `min`.
@@ -1486,7 +1699,7 @@ function bajasEnPuntosDeVida(battle: BattleState, lado: Side): number {
  * fórmula para los dos bandos, cambiando de quién se cuentan las bajas.
  */
 function experienceFor(pending: PendingBattle, ganador: Side): number {
-  const perdedor: Side = ganador === 'attacker' ? 'defender' : 'attacker';
+  const perdedor = otroBando(ganador);
   let exp = bajasEnPuntosDeVida(pending.battle, perdedor);
   if (pending.battle.heroes[perdedor] !== null) exp += EXP_POR_DERROTAR_A_UN_HEROE;
   if (ganador === 'attacker' && pending.foe.kind === 'town') exp += EXP_POR_ASEDIO;
@@ -1517,7 +1730,13 @@ function ganarExperiencia(state: GameState, hero: Hero, exp: number, at: Point):
   }
 }
 
-function applyVictory(state: GameState, hero: Hero, foe: BattleFoe, at: Point): void {
+function applyVictory(
+  state: GameState,
+  hero: Hero,
+  foe: BattleFoe,
+  precio: number | null,
+  at: Point,
+): void {
   switch (foe.kind) {
     case 'monster': {
       const obj = state.map.objects.find((o) => o.id === foe.objectId) as
@@ -1531,10 +1750,16 @@ function applyVictory(state: GameState, hero: Hero, foe: BattleFoe, at: Point): 
     }
     case 'hero': {
       const derrotado = heroById(state, foe.heroId);
-      // Igual que con el atacante: el dueño se lee mientras el héroe existe.
-      const dueño = derrotado.owner;
-      state.heroes = state.heroes.filter((h) => h.id !== derrotado.id);
-      emit(state, { kind: 'hero_defeated', hero: derrotado.id, actor: dueño, at });
+      // Si defendía en un castillo suyo, el castillo es del que gana: lo decide
+      // lo que hay en la casilla, no a dónde vuelve el héroe. Hasta aquí era un
+      // caso especial de la base dentro de `heroeVencido`, y un héroe que perdía
+      // defendiendo otro castillo suyo no lo entregaba. Primero la captura y
+      // después el héroe pregunta si le queda base: si era esa, ya no.
+      const pueblo = state.towns.find(
+        (t) => t.owner === derrotado.owner && pointKey(t.at) === pointKey(at),
+      );
+      if (pueblo !== undefined) captureTown(state, pueblo, hero.owner);
+      heroeVencido(state, derrotado, precio, at);
       break;
     }
     case 'town': {
@@ -1566,16 +1791,12 @@ function applyDefenderSurvivors(
       break;
     }
     case 'hero': {
-      // Lo simétrico del atacante, con la misma función. Solo se llega aquí
-      // cuando el atacante cae; si el defensor pierde, desaparece del mapa y no
-      // hay nada que devolverle.
-      const defensor = heroById(state, foe.heroId);
-      restoreHeroFromBattle(defensor, pending.battle.heroes.defender, army);
-      // Y cobra. Es la mitad que faltaba de #87: el original paga al que gana,
+      // Su maná y su tropa ya los devolvió `settleBattle`, a los dos héroes
+      // por igual. Aquí solo cobra. Es la mitad que faltaba de #87: el original paga al que gana,
       // ataque o defensa (`heroes_action.cpp:583-590` y `658-665`), y aquí solo
       // cobraba el atacante. Un héroe que se pasa la partida repeliendo asaltos
       // no subía de nivel ni una vez.
-      ganarExperiencia(state, defensor, experienceFor(pending, 'defender'), at);
+      ganarExperiencia(state, heroById(state, foe.heroId), experienceFor(pending, 'defender'), at);
       break;
     }
     case 'town': {

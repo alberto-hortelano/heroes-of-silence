@@ -341,14 +341,31 @@ async function pixelDeUnidad(
 }
 
 /** Juega un turno de la persona en la batalla con un clic, y lo replica en el espejo. */
-async function turnoDeBatalla(page: Page, espejo: Session, n: number): Promise<void> {
+async function turnoDeBatalla(
+  page: Page,
+  espejo: Session,
+  n: number,
+  rendirse = false,
+): Promise<void> {
   const battle = espejo.battle;
   if (battle === null) throw new Error('no hay batalla en el espejo');
   const antes = battle.log.length;
   const acciones = espejo.battleLegalActions();
 
   // Las cuatro primeras, a propósito: esperar, defender, un hechizo y lo que toque.
+  // La quinta, rendirse si se ofrece y la pasada lo pide (fase 1b): es la única
+  // acción que cierra la batalla y manda al héroe a casa, y la cuarta ya mira el
+  // aviso de espera. Solo la pide la de escritorio: la del móvil juega la suya.
   const hechizo = espejo.spellOptions().find((o) => o.castable);
+  if (rendirse && n === 4 && acciones.some((a) => a.type === 'surrender')) {
+    await page.getByRole('button', { name: /Rendirse/ }).click();
+    espejo.playBattleAction({ type: 'surrender' });
+    await esperarCola(battle.log.slice(antes));
+    await sleep(300);
+    await captura(page, 'desktop-07-rendicion');
+    log(`rendición: ${espejo.status}`);
+    return;
+  }
   if (n === 0 && acciones.some((a) => a.type === 'wait')) {
     await page.getByRole('button', { name: 'Esperar' }).click();
     espejo.playBattleAction({ type: 'wait' });
@@ -386,6 +403,10 @@ async function turnoDeBatalla(page: Page, espejo: Session, n: number): Promise<v
       const c = centroHex(tableroPara(b0.width, b0.height), ia.to);
       const b = await alcanzar(page, c.x);
       await page.mouse.click(b.x + c.x, b.y + c.y);
+      espejo.playBattleAction(ia);
+    } else if (ia.type === 'surrender') {
+      // La IA puede elegir rendirse (fase 1b): se pulsa SU botón, no «Defender».
+      await page.getByRole('button', { name: /Rendirse/ }).click();
       espejo.playBattleAction(ia);
     } else {
       const boton = ia.type === 'wait' ? 'Esperar' : 'Defender';
@@ -539,6 +560,26 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
   );
   await sleep(200);
   await comprobar(page, espejo, 'reclutar todo');
+
+  // «+1» con el ejército ya en sus seis (fase 1b): no recluta, y la barra dice
+  // por qué con la frase del núcleo. El espejo dice lo mismo, y el oro no se mueve.
+  const recluta = town.faction === 'knight' ? 'peasant' : 'skeleton';
+  if ((espejo.selectedHero?.army.length ?? 0) >= 6) {
+    const uno = botonDeRecluta(plot, false);
+    await page.mouse.click(
+      bb.x + t.x + (uno.x + uno.w / 2) * t.scale,
+      bb.y + t.y + (uno.y + uno.h / 2) * t.scale,
+    );
+    espejo.recruit(recluta, 1);
+    await sleep(250);
+    const dice = await page.locator('#status').innerText();
+    if (!dice.includes('ya lleva 6 de 6 individuos') || dice !== espejo.status) {
+      throw new Error(`reclutar el séptimo debía rechazarse diciéndolo; la barra dice «${dice}»`);
+    }
+    log(`el séptimo se rechaza: «${dice}»`);
+    await captura(page, 'desktop-05b-castillo-el-septimo-no-cabe');
+    await comprobar(page, espejo, 'reclutar el séptimo');
+  }
   await page.getByRole('button', { name: 'Volver al mapa' }).click();
   espejo.closeTown();
   await sleep(200);
@@ -551,9 +592,23 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
   await esperarCola(espejo.battle.log);
   await captura(page, 'desktop-07-batalla-inicio');
   for (let n = 0; n < 12 && espejo.battle?.finished === null; n++) {
-    await turnoDeBatalla(page, espejo, n);
+    await turnoDeBatalla(page, espejo, n, true);
     if (n === 3) await captura(page, 'desktop-08-batalla-en-curso');
   }
+  // Lo que hay que comprobar después de una rendición, leído ANTES de cerrarla:
+  // con quién se rindió y cuánto le costó.
+  const primera = espejo.battle;
+  // Quien se rinde es el que pierde: si ganó el otro, la rendición es mía.
+  const rendicion =
+    primera?.finished?.winner !== espejo.miBando ? primera?.finished?.surrender : undefined;
+  const supervivientes =
+    primera === null
+      ? []
+      : primera.stacks
+          .filter((s) => s.side === espejo.miBando && s.origen.kind !== 'heroe' && s.count > 0)
+          .map((s) => s.body);
+  const oroAntes = espejo.resources.gold;
+  const bando = espejo.miBando;
   if (espejo.battle !== null && espejo.battle.finished === null) {
     await page.getByRole('button', { name: 'Resolver sola' }).click();
     espejo.autoResolveBattle();
@@ -564,10 +619,35 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
     await page.getByRole('button', { name: 'Continuar' }).click();
     espejo.finishBattle();
   }
-  const ganada = espejo.myHeroes().length > 0;
+  // Ganada o no lo dice la batalla, no si el héroe sigue en el mapa: desde la
+  // fase 1b el que pierde vuelve a su base.
+  const cierre = [...espejo.state.log].reverse().find((e) => e.kind === 'battle_ended');
+  const ganada = cierre?.kind === 'battle_ended' && cierre.winner === bando;
   log(`primera batalla: ${ganada ? 'GANADA' : 'perdida'} (${espejo.status})`);
   await sleep(300);
   await comprobar(page, espejo, 'cerrar la primera batalla');
+  if (rendicion !== undefined) {
+    const heroe = espejo.myHeroes()[0];
+    const base = espejo.myTowns()[0];
+    if (heroe === undefined || base === undefined) {
+      throw new Error('tras rendirse no queda héroe o base en el espejo');
+    }
+    const enBase = heroe.at.x === base.at.x && heroe.at.y === base.at.y;
+    const tropa = heroe.army.slice(0, supervivientes.length).map((t) => t.creature);
+    if (!enBase || tropa.join() !== supervivientes.join()) {
+      throw new Error(
+        `tras rendirse el héroe debía estar en (${base.at.x},${base.at.y}) con ${supervivientes.join(',')} y está en (${heroe.at.x},${heroe.at.y}) con ${heroe.army.map((t) => t.creature).join(',')}`,
+      );
+    }
+    if (espejo.resources.gold !== oroAntes - rendicion.gold) {
+      throw new Error(
+        `la rendición costaba ${rendicion.gold} y el oro pasó de ${oroAntes} a ${espejo.resources.gold}`,
+      );
+    }
+    log(
+      `tras rendirse: el héroe está en su base con ${supervivientes.length} supervivientes y ${rendicion.gold} de oro menos`,
+    );
+  }
   await captura(page, `desktop-10-mapa-tras-batalla-${ganada ? 'ganada' : 'perdida'}`);
 
   // Una segunda batalla, resuelta sola: la de la otra guardia cercana.
@@ -813,14 +893,20 @@ async function pixelesDelLienzo(page: Page, x: number, y: number): Promise<numbe
 }
 
 /**
- * Una batalla que se pierde: la semilla 7 tiene siete esqueletos pegados al
- * héroe y, resuelta sola, la pierde (lo dice el espejo, no se supone). Se
- * captura el tablero y el mapa de después, con el héroe caído en la crónica.
+ * Una batalla que se pierde: con la semilla 6 la guardia más cercana al héroe,
+ * resuelta sola, se lo gana —lo dice el espejo, no se supone—. Desde la fase 1b
+ * el héroe derrotado no desaparece: cae y vuelve a su base, con el ejército
+ * vacío y sin movimiento. Se captura el tablero y el mapa de después, con el
+ * héroe de vuelta en su castillo y la caída y la vuelta en la crónica.
+ *
+ * Era la semilla 7, con siete esqueletos; con monstruos de 3 a 7 y el héroe en
+ * el tablero esa batalla se gana. Se buscó una que se pierda peleando y no
+ * rindiéndose: la IA de reglas se rinde cuando pierde de largo.
  */
 async function batallaPerdida(browser: Browser, url: string, problemas: Problemas): Promise<void> {
   const { page, espejo, mapa } = await abrir(browser, url, problemas, {
     nombre: 'batalla perdida',
-    semilla: 7,
+    semilla: 6,
   });
   const heroe = espejo.selectedHero!;
   const guardia = espejo.state.map.objects
@@ -838,9 +924,35 @@ async function batallaPerdida(browser: Browser, url: string, problemas: Problema
   espejo.autoResolveBattle();
   await sleep(400);
   await comprobar(page, espejo, 'resolver la batalla perdida');
-  const perdida = espejo.myHeroes().length === 0;
-  log(`batalla de la semilla 7: ${perdida ? 'PERDIDA' : 'ganada'}`);
+  const final = [...espejo.state.log].reverse().find((e) => e.kind === 'battle_ended');
+  const perdida = final?.kind === 'battle_ended' && final.winner === 'defender';
+  log(`batalla de la semilla 6: ${perdida ? 'PERDIDA' : 'ganada'}`);
   if (!perdida) throw new Error('la batalla que debía perderse se ha ganado: cambia de guardia');
+  // El héroe derrotado vuelve a la base: en el castillo, sin tropa y sin
+  // movimiento, y la crónica lo cuenta en ese orden.
+  const vuelto = espejo.myHeroes()[0];
+  const base = espejo.myTowns()[0];
+  if (vuelto === undefined || base === undefined) {
+    throw new Error('el héroe derrotado no ha vuelto a la base: no está en el mapa');
+  }
+  if (vuelto.at.x !== base.at.x || vuelto.at.y !== base.at.y || vuelto.movePoints !== 0) {
+    throw new Error(
+      `el héroe derrotado debía estar en (${base.at.x},${base.at.y}) sin movimiento y está en (${vuelto.at.x},${vuelto.at.y}) con ${vuelto.movePoints}`,
+    );
+  }
+  const suyos = espejo.state.log
+    .filter(
+      (e) => (e.kind === 'hero_defeated' || e.kind === 'hero_returned') && e.hero === vuelto.id,
+    )
+    .map((e) => e.kind);
+  if (suyos.join() !== 'hero_defeated,hero_returned') {
+    throw new Error(`la crónica del héroe derrotado dice ${suyos.join(', ')}`);
+  }
+  const cronica = await page.locator('#side').innerText();
+  if (!cronica.includes('vuelve a la base')) {
+    throw new Error('la crónica de la página no cuenta que el héroe vuelve a la base');
+  }
+  log(`héroe derrotado: de vuelta en (${base.at.x},${base.at.y}), sin tropa y sin movimiento`);
   await captura(page, 'desktop-14-mapa-tras-batalla-perdida');
   await page.close();
 }
@@ -895,14 +1007,26 @@ async function espectador(browser: Browser, url: string, problemas: Problemas): 
     let mapa = false;
     let batalla = false;
     let turnosDeBatalla = 0;
+    let finalVisto = false;
     const hecho = new Promise<void>((ok, mal) => {
       conectado.on('open', () => enviar({ type: 'hello', client: 'capturas' }));
       conectado.on('error', mal);
       conectado.on('message', (datos) => {
         void (async () => {
           const msg = JSON.parse(String(datos)) as ServerToAgentMsg;
-          if (msg.type === 'game_over') return ok();
+          if (msg.type === 'game_over') {
+            if (batalla && !finalVisto) await verElFinal();
+            return ok();
+          }
           if (msg.type !== 'request') return;
+          // La primera petición que no es de batalla después de jugar una:
+          // esa batalla ha terminado, y el servidor ya ha mandado su final y el
+          // mapa en el mismo tic. Se mira ANTES de responder, con la partida
+          // quieta esperando al agente.
+          if (batalla && !finalVisto && msg.kind !== 'battle_turn') {
+            await verElFinal();
+            return ok();
+          }
           if (msg.kind === 'adventure_turn' && !mapa) {
             mapa = true;
             await sleep(800);
@@ -917,7 +1041,6 @@ async function espectador(browser: Browser, url: string, problemas: Problemas): 
               batalla = true;
               await sleep(800);
               await captura(page, 'espectador-02-batalla');
-              return ok();
             }
           }
           enviar({
@@ -928,6 +1051,39 @@ async function espectador(browser: Browser, url: string, problemas: Problemas): 
         })().catch(mal);
       });
     });
+    /**
+     * H-3 de la QA de la fase 1b: el final de la batalla («Fin: gana …», y la
+     * rendición con su precio si la hubo) tiene que llegar a verse. Antes el
+     * fotograma del mapa pisaba al del final en el mismo tic y este texto no
+     * aparecía nunca en el panel; ahora lo retiene el telón del espectador.
+     */
+    async function verElFinal(): Promise<void> {
+      await page
+        .waitForFunction(
+          () => {
+            // Que el texto exista no basta: el parte vive en una caja con scroll
+            // y la línea estaba en el DOM sin verse. Se pregunta a la pantalla:
+            // ¿lo que hay pintado en el centro del desenlace ES el desenlace?
+            const el = document.querySelector('#side .desenlace');
+            if (el === null || !/Fin: gana el/.test(el.textContent ?? '')) return false;
+            const r = el.getBoundingClientRect();
+            if (r.width === 0 || r.bottom > window.innerHeight || r.top < 0) return false;
+            const encima = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+            return encima !== null && el.contains(encima);
+          },
+          undefined,
+          { timeout: 4000, polling: 50 },
+        )
+        .catch(() => {
+          throw new Error(
+            'el espectador no enseñó el final de la batalla («Fin: gana …») antes de volver al mapa',
+          );
+        });
+      await captura(page, 'espectador-03-final');
+      finalVisto = true;
+      log('espectador: el final de la batalla se ve antes del mapa');
+    }
+
     // El plazo se desarma al acabar: un `sleep` suelto mantenía vivo el proceso
     // un minuto entero después de la última captura (se midió: 40 s de trabajo
     // y 98 s de reloj).
@@ -945,6 +1101,9 @@ async function espectador(browser: Browser, url: string, problemas: Problemas): 
       }),
     ]).finally(() => clearTimeout(plazo));
     if (!batalla) throw new Error('la partida terminó sin una sola batalla del agente');
+    if (!finalVisto) {
+      throw new Error('ninguna batalla del agente llegó a terminar delante del espectador');
+    }
     await page.close();
   } finally {
     agente?.close();

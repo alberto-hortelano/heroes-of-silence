@@ -84,6 +84,13 @@ const veredictos: Veredicto[] = [];
 const consultadas = new Set<string>();
 /** Qué cambió en la partida por haberlo pedido. `null` = todavía sin comprobar. */
 let cambioAplicado: string | null = null;
+/**
+ * Si alguna batalla de esta partida le ofreció rendirse al agente (fase 1b).
+ * Solo se mira y se avisa: la política no se rinde —el arnés juega el mapa tal
+ * cual, sin preparar la batalla—, y el circuito de la rendición por el contrato
+ * lo cubre un test (`agent-link.test.ts`), que sí puede construirla.
+ */
+let rendicionOfrecida = false;
 
 /** Una consulta que tiene que devolver JSON. Si no, es que el puente miente. */
 async function consulta(
@@ -251,6 +258,19 @@ function informaVeredictos(): void {
   // edificio pedido APAREZCA.
 }
 
+/**
+ * Que ninguna batalla ofreciera rendirse se avisa, como `battle_state`: depende
+ * de la batalla que toque —hace falta base propia, no estar defendiéndola y el
+ * oro—, pero no se calla.
+ */
+function avisaRendicion(): void {
+  if (rendicionOfrecida) {
+    log('rendición: alguna batalla la ofreció en `legalActions`');
+    return;
+  }
+  console.warn('\x1b[33m[qa] AVISO: ninguna batalla ofreció rendirse en esta partida\x1b[0m');
+}
+
 /** Cierra con el resumen de todo lo que se ha verificado. */
 async function terminarBien(
   turnos: number,
@@ -263,6 +283,7 @@ async function terminarBien(
   if (cambioAplicado === null) {
     throw new Error('no se ha llegado a comprobar que ninguna acción se aplicara de verdad');
   }
+  avisaRendicion();
   const faltan = ['game_state', 'map', 'creature_stats', 'spell_list', 'building_list'].filter(
     (n) => !consultadas.has(n),
   );
@@ -478,6 +499,22 @@ async function main(): Promise<void> {
         : null;
     // El primer estado que se mira es el que dice en qué mapa se juega.
     if (antes !== null) exigeElMapaDelAgente(antes);
+
+    if (kind === 'battle_turn') {
+      // H-2 de la fase 1b: el agente decidía a ciegas una acción que le cuesta
+      // oro. El turno trae su oro y la rendición su precio, por el MCP de verdad.
+      if (typeof payload.yourGold !== 'number') {
+        throw new Error(
+          `el turno de batalla no trae "yourGold": ${JSON.stringify(payload).slice(0, 200)}`,
+        );
+      }
+      const acciones: any[] = payload.legalActions ?? [];
+      const rendicion = acciones.find((a) => a.type === 'surrender');
+      if (rendicion !== undefined && typeof rendicion.gold !== 'number') {
+        throw new Error(`"surrender" llega sin su precio: ${JSON.stringify(rendicion)}`);
+      }
+      rendicionOfrecida ||= rendicion !== undefined;
+    }
 
     const respuesta = decidir(kind, payload);
     // `map_generate` se cuenta aparte y NO como turno de mapa: mezclarlo movería

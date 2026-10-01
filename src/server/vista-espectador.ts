@@ -173,12 +173,19 @@ export function construirVista(state: GameState, directorLog: readonly string[])
 }
 
 /**
- * Se quita `unit` exactamente cuando `createBattle` la sacó del catálogo —el
- * stack no es un personaje—, que es lo que deja a `adaptarBatalla` rehacerla
- * con `creature(body)` sin adivinar nada.
+ * Se quita `unit` exactamente cuando `createBattle` la sacó del catálogo
+ * (`origen: catalogo`), que es lo que deja a `adaptarBatalla` rehacerla con
+ * `creature(body)` sin adivinar nada. El personaje y el héroe la traen de otro
+ * sitio y viajan con ella.
  */
 function stackAlCable(s: BattleStack): StackEnCable {
-  if (s.member !== undefined) return s;
-  const { unit: _catalogo, ...resto } = s;
-  return resto;
+  switch (s.origen.kind) {
+    case 'catalogo': {
+      const { unit: _catalogo, ...resto } = s;
+      return resto;
+    }
+    case 'personaje':
+    case 'heroe':
+      return s;
+  }
 }

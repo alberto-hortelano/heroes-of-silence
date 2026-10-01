@@ -7,12 +7,13 @@ import {
   stackHexes,
 } from '../src/core/battle/battle.js';
 import { hexDistance } from '../src/core/battle/board.js';
-import type { BattleAction, BattleState } from '../src/core/battle/types.js';
+import type { BattleAction, BattleStack, BattleState } from '../src/core/battle/types.js';
+import { personajeDe } from '../src/core/battle/types.js';
 import type { Hero } from '../src/core/hero/hero.js';
 import type { MapObject } from '../src/core/map/map.js';
 import type { Rng } from '../src/core/rng.js';
 import { applyAdventureAction, type GameContext, type GameState } from '../src/core/state/game.js';
-import type { Army, Stack, Troop } from '../src/core/types.js';
+import type { Army, Point, Stack, Troop } from '../src/core/types.js';
 
 /**
  * Un ejército de individuos, escrito por grupos: `{ creature: 'pikeman',
@@ -21,7 +22,8 @@ import type { Army, Stack, Troop } from '../src/core/types.js';
  *
  * NO pasa por el liderazgo: un test que monta un ejército a mano decide qué
  * lleva, igual que antes decidía qué había en cada hueco. Lo que sí tiene que
- * respetar es el tablero —27 hexes por bando—, porque eso lo mira la batalla.
+ * respetar es el tope del bando —siete, y seis si lleva héroe, que es el
+ * séptimo (fase 1b)—, porque eso lo mira la batalla y lanza.
  */
 export function ejercito(...grupos: Stack[]): Army {
   const out: Troop[] = [];
@@ -70,24 +72,26 @@ export function ponerMonstruo(state: GameState, creature: string, count: number)
 }
 
 /**
- * Coloca al héroe junto al primer monstruo en pie y lo hace entrar: deja la
- * batalla montada en `state.pendingBattle` y devuelve contra quién.
+ * Coloca al héroe a la izquierda de `hacia` —por defecto, el primer monstruo en
+ * pie— y lo hace entrar: deja la batalla montada en `state.pendingBattle`. Vale
+ * igual contra un monstruo que contra un héroe o un castillo: es pisar una
+ * casilla.
  *
  * La receta iba por su sexta copia entre `game.test.ts` y `battle.test.ts`, y
  * cada copia repetía los mismos 5000 puntos de movimiento a mano.
  */
-export function forzarBatalla(state: GameState, ctx: GameContext, hero: Hero): Monstruo {
-  const monstruo = monstruoVivo(state);
-  hero.at = { x: monstruo.at.x - 1, y: monstruo.at.y };
+export function forzarBatalla(
+  state: GameState,
+  ctx: GameContext,
+  hero: Hero,
+  hacia: Point = monstruoVivo(state).at,
+): void {
+  hero.at = { x: hacia.x - 1, y: hacia.y };
   hero.movePoints = 5000;
-  applyAdventureAction(
-    state,
-    { type: 'move_hero', hero: hero.id, to: monstruo.at },
-    ctx,
-    state.current,
-  );
-  if (state.pendingBattle === null) throw new Error('pisar al monstruo no abrió ninguna batalla');
-  return monstruo;
+  applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: hacia }, ctx, state.current);
+  if (state.pendingBattle === null) {
+    throw new Error(`pisar (${hacia.x},${hacia.y}) no abrió ninguna batalla`);
+  }
 }
 
 /**
@@ -128,15 +132,30 @@ export function simular(state: BattleState, rng: Rng, maxTurnos = 3000): number 
   return n;
 }
 
-/** Juega hasta que el stack activo sea `id` (o se agoten los turnos). */
-export function avanzarHasta(state: BattleState, rng: Rng, id: string, maxTurnos = 200): boolean {
-  let n = 0;
-  while (state.finished === null && n < maxTurnos) {
-    if (state.activeId === id) return true;
-    applyAction(state, agresiva(state), rng);
-    n++;
+/**
+ * Juega con `politica` hasta que se cumpla `hasta` —el id del stack activo, o
+ * una pregunta sobre la batalla— o se acabe la batalla o los turnos. Dice si
+ * llegó.
+ */
+export function avanzarHasta(
+  state: BattleState,
+  rng: Rng,
+  hasta: string | ((state: BattleState) => boolean),
+  politica: (state: BattleState) => BattleAction = agresiva,
+  maxTurnos = 200,
+): boolean {
+  const llego = typeof hasta === 'string' ? (s: BattleState) => s.activeId === hasta : hasta;
+  for (let n = 0; state.finished === null && n < maxTurnos; n++) {
+    if (llego(state)) return true;
+    applyAction(state, politica(state), rng);
   }
-  return state.activeId === id;
+  return state.finished === null && llego(state);
 }
 
 export { blockedHexes };
+
+/** ¿Es este stack el personaje `id`? Para los `find` de los tests. */
+export const esPersonaje =
+  (id: string) =>
+  (s: BattleStack): boolean =>
+    personajeDe(s.origen) === id;

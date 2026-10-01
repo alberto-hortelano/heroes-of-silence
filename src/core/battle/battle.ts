@@ -6,14 +6,22 @@
  * pueden disparar con un enemigo encima, moral que da o quita turnos, suerte
  * que dobla o parte el daño, y un hechizo de héroe por ronda.
  */
-import { creature, hasTrait, hexSize, isShooter } from '../data.js';
+import {
+  creature,
+  esDelCatalogo,
+  HEROE,
+  hasTrait,
+  hexSize,
+  isShooter,
+  LIDERAZGO,
+} from '../data.js';
+import { HERO_BODY } from '../hero/hero.js';
 import type { Rng } from '../rng.js';
 import type { CombatProfile } from '../rpg/stats.js';
 import type { CreatureTrait, FactionId, Hex, Stack, UnitInfo } from '../types.js';
 import { SPEED_TO_HEXES } from '../types.js';
 import {
   areAdjacent,
-  BOARD_HEIGHT,
   BOARD_WIDTH,
   hexDistance,
   hexEquals,
@@ -32,8 +40,15 @@ import {
   tickEffects,
 } from './effects.js';
 import { castSpell, effectOfSpell, type Spell, spell } from './spells.js';
-import type { BattleAction, BattleHero, BattleStack, BattleState, Side } from './types.js';
-import { SIDES } from './types.js';
+import type {
+  BattleAction,
+  BattleHero,
+  BattleStack,
+  BattleState,
+  OrigenDelStack,
+  Side,
+} from './types.js';
+import { otroBando, SIDES } from './types.js';
 
 export interface BattleSide {
   /**
@@ -42,7 +57,7 @@ export interface BattleSide {
    * (`troopsAsStacks`); el motor sigue sabiendo jugar stacks de N.
    */
   readonly army: readonly Stack[];
-  readonly hero: BattleHero | null;
+  readonly hero: HeroeDelBando | null;
   /** Bonus de moral/suerte del héroe (habilidades, artefactos, edificios). */
   readonly moraleBonus?: number;
   readonly luckBonus?: number;
@@ -52,6 +67,18 @@ export interface BattleSide {
    * —`battleSideForHero`—: el motor no sabe de dónde salen, solo los juega.
    */
   readonly members?: ReadonlyMap<string, BattleMember>;
+}
+
+/**
+ * El héroe de un bando, tal como entra: lo que el motor guarda en
+ * `BattleState.heroes` (`mando`: su magia y su rendición) y las cifras con las
+ * que pisa el tablero (`cuerpo`, de `heroUnit`). Van juntos para que no pueda
+ * haber héroe sin cuerpo ni cuerpo sin héroe; el cuerpo se queda en su stack
+ * y no se copia al estado, que nadie lo leería allí.
+ */
+export interface HeroeDelBando {
+  readonly mando: BattleHero;
+  readonly cuerpo: UnitInfo;
 }
 
 /** Un personaje listo para entrar al tablero. */
@@ -64,53 +91,8 @@ export interface BattleMember {
 /** Columnas de salida de cada bando, contando desde su borde. */
 const COLUMNAS_DE_SALIDA = 3;
 
-/** Hexes en los que puede desplegar un bando: tres columnas de nueve. */
-export const HEXES_POR_BANDO = COLUMNAS_DE_SALIDA * BOARD_HEIGHT;
-
 /** Las filas, del centro hacia fuera: el centro es lo primero que se llena. */
 const DEL_CENTRO_A_FUERA: readonly number[] = [4, 3, 5, 2, 6, 1, 7, 0, 8];
-
-/**
- * Por qué estas unidades no caben en un bando, o `null` si caben.
- *
- * La regla es cerrada y exacta para `despliegue`: una grande ocupa la columna
- * del borde y la siguiente de su fila —nueve como mucho, una por fila— y el
- * resto se reparte por lo que quede de las tres columnas. Con ≤ 9 grandes y
- * ≤ 27 hexes en total siempre hay sitio: `k` grandes dejan `27 − 2k` hexes
- * libres, que es justo lo que piden las pequeñas.
- *
- * Exportada porque la preguntan dos puertas además del motor: `validateMapPlan`
- * —un monstruo del mapa no puede traer más de los que caben— y el test de datos
- * que comprueba que ningún ejército dentro del liderazgo se pasa.
- */
-export function despliegueBlocker(units: readonly UnitInfo[]): string | null {
-  let hexes = 0;
-  let grandes = 0;
-  for (const u of units) {
-    const size = hexSize(u);
-    hexes += size;
-    if (size > 1) grandes++;
-  }
-  if (hexes > HEXES_POR_BANDO) {
-    return `no caben: ${units.length} unidades ocupan ${hexes} hexes y un bando tiene ${HEXES_POR_BANDO}`;
-  }
-  if (grandes > BOARD_HEIGHT) {
-    return `no caben: ${grandes} unidades grandes necesitan una fila cada una y un bando tiene ${BOARD_HEIGHT}`;
-  }
-  return null;
-}
-
-/**
- * Cuántos individuos de UNA criatura caben en un bando: la misma regla de
- * `despliegueBlocker`, despejada para un ejército de una sola clase. Es la cifra
- * que se le devuelve a quien diseña un monstruo demasiado grande. Un test
- * comprueba, criatura a criatura, que este número cabe y el siguiente no.
- */
-export function maximoPorBando(u: UnitInfo): number {
-  const size = hexSize(u);
-  const porHexes = Math.floor(HEXES_POR_BANDO / size);
-  return size > 1 ? Math.min(porHexes, BOARD_HEIGHT) : porHexes;
-}
 
 /**
  * El hex de cabeza de cada unidad, en el orden en que llegan.
@@ -121,17 +103,23 @@ export function maximoPorBando(u: UnitInfo): number {
  * centro hacia fuera. Se calcula en el marco del atacante y se refleja para el
  * defensor, cuya cola queda a la derecha (`occupiedHexes`).
  *
- * Es la única regla, para uno o para veintisiete. Hasta la fase 1a convivía
- * con las filas de HoMM2 para cinco o menos (`ROWS_BY_COUNT`), que se habían
- * quedado solo para no mover los tests del motor: el juego no tenía motivo, y
- * un ejército saltaba de formación abierta a compacta al pasar de cinco a seis
- * individuos. En el banco se jugaban las dos (974 bandos con la vieja, 1 156
- * con esta).
+ * `primera`, si la hay, es la pequeña que coge el primer hueco —el centro de la
+ * columna del borde— aunque llegue la última: es el sitio del héroe, detrás de
+ * su tropa. Se dice aquí y no reordenando la lista fuera, porque el orden de la
+ * lista es también el de `stacks`, y de ese orden cuelgan los empates.
  *
- * No comprueba si caben: eso es `despliegueBlocker`, y `createBattle` lo
- * pregunta antes de llamar.
+ * Es la única regla, para uno o para siete. Hasta la fase 1a convivía con las
+ * filas de HoMM2 para cinco o menos (`ROWS_BY_COUNT`), que se habían quedado
+ * solo para no mover los tests del motor: el juego no tenía motivo, y un
+ * ejército saltaba de formación abierta a compacta al pasar de cinco a seis
+ * individuos.
+ *
+ * No comprueba si caben porque caben siempre: un bando lleva como mucho
+ * `LIDERAZGO.maxPorBando` individuos, y un test de datos (`tropa.test.ts`) fija
+ * que ese número de grandes —dos hexes cada una— no pasa de los 27 de un lado y
+ * que no hay más grandes que filas.
  */
-function despliegue(units: readonly UnitInfo[], side: Side): Hex[] {
+function despliegue(units: readonly UnitInfo[], side: Side, primera: number | null): Hex[] {
   const marco = (h: Hex): Hex =>
     side === 'attacker' ? h : { col: BOARD_WIDTH - 1 - h.col, row: h.row };
 
@@ -152,8 +140,14 @@ function despliegue(units: readonly UnitInfo[], side: Side): Hex[] {
     }
   }
   let siguiente = 0;
+  if (primera !== null) {
+    if (hexSize(units[primera]!) > 1) {
+      throw new Error(`${units[primera]!.name} va detrás de su tropa y no cabe en un solo hex`);
+    }
+    out[primera] = huecos[siguiente++]!;
+  }
   units.forEach((u, i) => {
-    if (hexSize(u) > 1) return;
+    if (hexSize(u) > 1 || i === primera) return;
     out[i] = huecos[siguiente++]!;
   });
   return out.map(marco);
@@ -191,43 +185,49 @@ export function createBattle(attacker: BattleSide, defender: BattleSide, _rng: R
     ['defender', defender],
   ] as const) {
     personajesSinRepetir(setup);
-    const resolved = setup.army.map((stack) => resolveUnit(stack, setup));
-    const units = resolved.map((r) => r.unit);
-    // Antes de colocar a nadie: del sexto en adelante se solapaban sin aviso.
-    const noCaben = despliegueBlocker(units);
-    if (noCaben !== null) {
+    // El héroe pisa el tablero (fase 1b) y cuenta como uno más del bando.
+    const cuantos = setup.army.length + (setup.hero === null ? 0 : 1);
+    // Antes de colocar a nadie. La regla es del juego (`data/liderazgo.json`) y
+    // la respetan todas las puertas —reclutar, la guarnición, el plan de mapa—;
+    // esto es la red, por si un camino nuevo se la salta.
+    if (cuantos > LIDERAZGO.maxPorBando) {
       const bando = side === 'attacker' ? 'el atacante' : 'el defensor';
-      throw new Error(`${noCaben} (${bando})`);
+      throw new Error(
+        `no caben: ${bando} trae ${cuantos} y un bando lleva como mucho ${LIDERAZGO.maxPorBando}`,
+      );
     }
-    const hexes = despliegue(units, side);
+    // Una lista, en el orden de `stacks`: la tropa por su puesto y el héroe el
+    // ÚLTIMO, con `slot = army.length`, así que pierde los empates de
+    // iniciativa con los suyos y los ids de la tropa no se mueven por tenerlo.
+    const entradas = setup.army.map((stack, slot) => resolveUnit(stack, slot, setup));
+    if (setup.hero !== null) entradas.push(entradaDelHeroe(setup.hero, setup.army.length));
+    const units = entradas.map((e) => e.unit);
+    const hexes = despliegue(units, side, setup.hero === null ? null : entradas.length - 1);
     const baseMorale = armyMorale(units) + (setup.moraleBonus ?? 0);
     const luckBonus = setup.luckBonus ?? 0;
 
-    setup.army.forEach((stack, slot) => {
-      const { unit: info, topHp, ownMorale, ownLuck } = resolved[slot]!;
-      const hex = hexes[slot]!;
-
+    entradas.forEach((e, i) => {
       stacks.push({
-        id: `${side}-${slot}`,
+        id: e.origen.kind === 'heroe' ? `${side}-heroe` : `${side}-${e.slot}`,
         side,
-        slot,
-        body: stack.creature,
-        unit: info,
-        ...(stack.member !== undefined ? { member: stack.member } : {}),
-        initialCount: stack.count,
-        count: stack.count,
-        topHp,
-        hex,
-        shotsLeft: info.shots ?? 0,
+        slot: e.slot,
+        body: e.body,
+        unit: e.unit,
+        origen: e.origen,
+        initialCount: e.count,
+        count: e.count,
+        topHp: e.topHp,
+        hex: hexes[i]!,
+        shotsLeft: e.unit.shots ?? 0,
         retaliated: false,
         defending: false,
         waited: false,
         acted: false,
         gotMoraleBonus: false,
-        // Una regla para todos: la moral y la suerte propias —0 en una criatura—
-        // más las del bando, recortadas una vez. Los no-muertos, a 0.
-        morale: hasTrait(info, 'undead') ? 0 : clampMoraleLuck(baseMorale + ownMorale),
-        luck: clampMoraleLuck(luckBonus + ownLuck),
+        // Una regla para todos: la moral y la suerte propias —0 en una criatura
+        // y en el héroe— más las del bando, recortadas una vez. Los no-muertos, a 0.
+        morale: hasTrait(e.unit, 'undead') ? 0 : clampMoraleLuck(baseMorale + e.ownMorale),
+        luck: clampMoraleLuck(luckBonus + e.ownLuck),
         effects: [],
       });
     });
@@ -238,7 +238,7 @@ export function createBattle(attacker: BattleSide, defender: BattleSide, _rng: R
     stacks,
     queue: [],
     activeId: null,
-    heroes: { attacker: attacker.hero, defender: defender.hero },
+    heroes: { attacker: attacker.hero?.mando ?? null, defender: defender.hero?.mando ?? null },
     log: [],
     finished: null,
   };
@@ -268,23 +268,42 @@ function personajesSinRepetir(setup: BattleSide): void {
   }
 }
 
+/** Un stack resuelto y todavía sin colocar: lo que `createBattle` empuja. */
+interface Entrada {
+  readonly slot: number;
+  readonly body: string;
+  readonly unit: UnitInfo;
+  readonly origen: OrigenDelStack;
+  readonly count: number;
+  readonly topHp: number;
+  readonly ownMorale: number;
+  readonly ownLuck: number;
+}
+
 /**
- * De dónde salen las cifras de un stack: del catálogo, o del perfil de su
- * personaje. Es el ÚNICO sitio que decide, y se decide una vez: después todo
- * el motor lee `BattleStack.unit` y no vuelve a preguntar.
+ * De dónde salen las cifras de un stack de la tropa: del catálogo, o del perfil
+ * de su personaje. Con `entradaDelHeroe`, es el ÚNICO sitio que decide, y se
+ * decide una vez: después todo el motor lee `BattleStack.unit` y no vuelve a
+ * preguntar.
  *
  * Devuelve la moral y la suerte PROPIAS —0 y 0 en una criatura— y no las
  * finales: las del bando las suma `createBattle` para todos igual. La rama de la
  * criatura devuelve la misma referencia del catálogo, así que el volcado del
  * banco no se mueve.
  */
-function resolveUnit(
-  stack: Stack,
-  setup: BattleSide,
-): { unit: UnitInfo; topHp: number; ownMorale: number; ownLuck: number } {
+function resolveUnit(stack: Stack, slot: number, setup: BattleSide): Entrada {
   if (stack.member === undefined) {
     const unit = creature(stack.creature);
-    return { unit, topHp: unit.hp, ownMorale: 0, ownLuck: 0 };
+    return {
+      slot,
+      body: stack.creature,
+      unit,
+      origen: { kind: 'catalogo' },
+      count: stack.count,
+      topHp: unit.hp,
+      ownMorale: 0,
+      ownLuck: 0,
+    };
   }
   const id = stack.member;
   if (stack.count !== 1) {
@@ -313,10 +332,28 @@ function resolveUnit(
   // Un personaje no tiene rasgos, así que tampoco la inmunidad del no-muerto:
   // entra herido si lo está, con su moral y su suerte.
   return {
+    slot,
+    body: stack.creature,
     unit: miembro.profile.unit,
+    origen: { kind: 'personaje', id },
+    count: 1,
     topHp: miembro.hp,
     ownMorale: miembro.profile.morale,
     ownLuck: miembro.profile.luck,
+  };
+}
+
+/** El héroe como una entrada más: uno, sano siempre —no arrastra heridas—. */
+function entradaDelHeroe(heroe: HeroeDelBando, slot: number): Entrada {
+  return {
+    slot,
+    body: HERO_BODY,
+    unit: heroe.cuerpo,
+    origen: { kind: 'heroe' },
+    count: 1,
+    topHp: heroe.cuerpo.hp,
+    ownMorale: 0,
+    ownLuck: 0,
   };
 }
 
@@ -330,6 +367,23 @@ export function stackById(state: BattleState, id: string): BattleStack {
 
 export function isAlive(s: BattleStack): boolean {
   return s.count > 0;
+}
+
+/**
+ * Σ `f` sobre lo que un bando tiene en pie, en el orden de `stacks`. Es la
+ * suma; qué se suma —efectivos, amenaza, peso— lo decide quien la pide, y
+ * cada medida sigue siendo suya.
+ */
+export function sumaDelBando(
+  state: BattleState,
+  side: Side,
+  f: (s: BattleStack) => number,
+): number {
+  let total = 0;
+  for (const s of state.stacks) {
+    if (s.side === side && isAlive(s)) total += f(s);
+  }
+  return total;
 }
 
 export function activeStack(state: BattleState): BattleStack | null {
@@ -487,8 +541,7 @@ function beginRound(state: BattleState, rng: Rng): void {
 /** Cierra una batalla que no avanza. Gana quien conserve más efectivos. */
 function finishByExhaustion(state: BattleState): void {
   if (state.finished !== null) return;
-  const vivos = (side: Side): number =>
-    state.stacks.filter((s) => s.side === side && isAlive(s)).reduce((n, s) => n + s.count, 0);
+  const vivos = (side: Side): number => sumaDelBando(state, side, (s) => s.count);
   const winner: Side = vivos('attacker') > vivos('defender') ? 'attacker' : 'defender';
   state.finished = { winner };
   state.activeId = null;
@@ -543,14 +596,31 @@ function endTurn(state: BattleState, s: BattleStack, rng: Rng): void {
   advance(state, rng);
 }
 
+/**
+ * Un bando pierde cuando se queda sin nadie en pie **o cuando cae su héroe**,
+ * aunque le quede tropa (fase 1b): el héroe es el que manda, y sin él la tropa
+ * no sigue peleando.
+ */
+function bandoVencido(state: BattleState, side: Side): boolean {
+  let alguienVivo = false;
+  for (const s of state.stacks) {
+    if (s.side !== side) continue;
+    if (s.origen.kind === 'heroe' && !isAlive(s)) return true;
+    if (isAlive(s)) alguienVivo = true;
+  }
+  return !alguienVivo;
+}
+
 function checkFinished(state: BattleState): void {
   if (state.finished !== null) return;
-  const attackerAlive = state.stacks.some((s) => s.side === 'attacker' && isAlive(s));
-  const defenderAlive = state.stacks.some((s) => s.side === 'defender' && isAlive(s));
-  if (attackerAlive && defenderAlive) return;
+  const attackerLost = bandoVencido(state, 'attacker');
+  const defenderLost = bandoVencido(state, 'defender');
+  if (!attackerLost && !defenderLost) return;
 
-  // Sin atacante no hay conquista: el empate a cero lo gana el defensor.
-  const winner: Side = attackerAlive ? 'attacker' : 'defender';
+  // Sin atacante no hay conquista: el empate a cero lo gana el defensor. Y con
+  // héroes en el tablero hay otro empate posible —un disparo del liche que
+  // salpica a los dos comandantes a la vez—, que se resuelve igual.
+  const winner: Side = attackerLost ? 'defender' : 'attacker';
   state.finished = { winner };
   state.activeId = null;
   state.log.push({ kind: 'finished', winner });
@@ -650,7 +720,83 @@ export function applyAction(
       // Lanzar un hechizo no consume el turno del stack: el héroe actúa aparte.
       return;
     }
+
+    case 'surrender': {
+      const { coste, motivo } = surrenderBlocker(state, s.side);
+      if (motivo !== null) throw new Error(`no se puede rendir: ${motivo}`);
+      if (action.gold !== undefined && action.gold !== coste) {
+        throw new Error(`no se puede rendir por ${action.gold} de oro: ahora cuesta ${coste}`);
+      }
+      // El precio, UNA vez: se escribe en `finished` y de ahí lo lee quien lo
+      // cobra (`settleBattle`). Calcularlo otra vez al cobrar daría la misma
+      // cifra hoy, y el día que algo cambie en medio, dos.
+      const winner = otroBando(s.side);
+      state.log.push({ kind: 'surrender', side: s.side });
+      state.finished = { winner, surrender: { gold: coste } };
+      state.activeId = null;
+      state.log.push({ kind: 'finished', winner });
+      return;
+    }
   }
+}
+
+/**
+ * Lo que cuesta rendirse: un porcentaje del oro de catálogo de la tropa viva
+ * que se salva, redondeado hacia arriba. El héroe no cuenta —no es tropa—, ni
+ * un personaje, que no tiene precio de catálogo.
+ *
+ * Proporcional a lo que se salva, como en HoMM: rendirse con el ejército entero
+ * cuesta, rendirse con dos campesinos casi nada. El porcentaje es provisional
+ * y está en `data/heroe.json`, declarado inventado (decisión del usuario: 50 %).
+ */
+function surrenderCost(state: BattleState, side: Side): number {
+  const oro = sumaDelBando(state, side, oroDeCatalogo);
+  return Math.ceil((oro * HEROE.rendicion.porcentajeDelOro) / 100);
+}
+
+/**
+ * El oro de catálogo de un stack: lo que vale para la rendición. Un `switch`
+ * que devuelve, y no uno que suma: así un origen nuevo no compila hasta que
+ * alguien decida cuánto vale, en vez de valer 0 en silencio.
+ */
+function oroDeCatalogo(s: BattleStack): number {
+  switch (s.origen.kind) {
+    case 'catalogo':
+      // La referencia del catálogo es la que trae el precio: `unit` está
+      // tipada como `UnitInfo`, que no lo tiene, y volver a `creature(body)`
+      // es lo que prohíbe `test/invariantes.test.ts`.
+      if (!esDelCatalogo(s.unit)) {
+        throw new Error(`${s.id} dice venir del catálogo y sus cifras no son las del catálogo`);
+      }
+      return (s.unit.cost.gold ?? 0) * s.count;
+    case 'personaje':
+    case 'heroe':
+      return 0;
+  }
+}
+
+/**
+ * Lo que costaría rendirse y, si no se puede, por qué (`motivo`; `null` si se
+ * puede). Las dos cosas en una llamada porque las piden juntas los tres que la
+ * leen —`applyAction` al rechazar, `legalActions` al ofrecer y la pantalla para
+ * rotular el botón—, y el motivo «cuesta N» ya necesita el precio. Como
+ * `castBlocker`, la frase la escribe el núcleo.
+ */
+export function surrenderBlocker(
+  state: BattleState,
+  side: Side,
+): { readonly coste: number; readonly motivo: string | null } {
+  const coste = surrenderCost(state, side);
+  return { coste, motivo: motivoParaNoRendirse(state, side, coste) };
+}
+
+function motivoParaNoRendirse(state: BattleState, side: Side, coste: number): string | null {
+  if (state.finished !== null) return 'la batalla ya ha terminado';
+  const hero = state.heroes[side];
+  if (hero === null) return SIN_HEROE;
+  if ('blocked' in hero.retreat) return hero.retreat.blocked;
+  if (coste > hero.retreat.purse) return `cuesta ${coste} de oro y tienes ${hero.retreat.purse}`;
+  return null;
 }
 
 /** Mueve el stack y devuelve cuántos hexes ha recorrido de verdad. */
@@ -796,14 +942,7 @@ function strike(
   hexesMoved: number,
 ): void {
   const info = attacker.unit;
-  const result = computeDamage(
-    attacker,
-    state.heroes[attacker.side],
-    target,
-    state.heroes[target.side],
-    rng,
-    { chargeHexes: hexesMoved },
-  );
+  const result = computeDamage(attacker, target, rng, { chargeHexes: hexesMoved });
   const killed = applyDamage(target, result.damage);
 
   if (result.lucky) state.log.push({ kind: 'luck', stack: attacker.id, good: true });
@@ -856,14 +995,7 @@ function shoot(state: BattleState, shooter: BattleStack, target: BattleStack, rn
     const distance = Math.min(
       ...stackHexes(shooter).flatMap((sh) => stackHexes(target).map((th) => hexDistance(sh, th))),
     );
-    const result = computeDamage(
-      shooter,
-      state.heroes[shooter.side],
-      target,
-      state.heroes[target.side],
-      rng,
-      { ranged: true, distance },
-    );
+    const result = computeDamage(shooter, target, rng, { ranged: true, distance });
     const killed = applyDamage(target, result.damage);
 
     if (result.lucky) state.log.push({ kind: 'luck', stack: shooter.id, good: true });
@@ -1093,6 +1225,11 @@ export function legalActionsAndCosts(state: BattleState): {
       }
     }
   }
+
+  // Rendirse lo ofrece la misma función que lo rechaza al aplicarlo, y con su
+  // precio puesto: es la única acción que cuesta recursos fuera de la batalla.
+  const rendicion = surrenderBlocker(state, s.side);
+  if (rendicion.motivo === null) out.push({ type: 'surrender', gold: rendicion.coste });
 
   // Ni una regla de lanzamiento escrita aquí: la lista ofrece exactamente los
   // pares (hechizo, objetivo) que `castBlocker` deja pasar, que es la misma

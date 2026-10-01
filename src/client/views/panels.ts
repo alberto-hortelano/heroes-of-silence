@@ -17,7 +17,7 @@
 import { activeStack } from '@core/battle/battle.js';
 import { type EffectKind, effectiveLuck } from '@core/battle/effects.js';
 import { type Spell, spell } from '@core/battle/spells.js';
-import type { BattleState, Side } from '@core/battle/types.js';
+import type { BattleStack, BattleState, Side } from '@core/battle/types.js';
 import { creature, isShooter } from '@core/data.js';
 import { maxMana, maxMovePoints } from '@core/hero/hero.js';
 import { type Personajes, troopSummary } from '@core/hero/troop.js';
@@ -29,7 +29,7 @@ import { RESOURCE_KINDS } from '@core/types.js';
 import { type Desenlace, desenlaceDe } from '../desenlace.js';
 import { fondoDeColor, type Html, html, NADA, srcDeImagen, unir } from '../html.js';
 import { asset } from '../render/assets.js';
-import { RESOURCE_COLORS, RESOURCE_NAMES } from '../render/palette.js';
+import { MARCA_DE_COMANDANTE, RESOURCE_COLORS, RESOURCE_NAMES } from '../render/palette.js';
 import type { Session } from '../session.js';
 
 /**
@@ -340,8 +340,16 @@ function renderBattlePanel(session: Session): Html {
 
   if (battle.finished !== null) {
     const gane = battle.finished.winner === mio;
+    // Rendirse no es caer: el héroe vuelve a la base con la tropa que salvó.
+    // Quien se rinde es siempre el que pierde, así que en la derrota basta con
+    // saber si hubo rendición.
+    const rendicion = battle.finished.surrender;
+    const derrota =
+      rendicion === undefined
+        ? 'Tu héroe ha caído.'
+        : `Te has rendido por ${rendicion.gold} de oro: tu héroe vuelve a la base con la tropa viva.`;
     return html`<h2>${gane ? 'Victoria' : 'Derrota'}</h2>
-      <p>${gane ? 'El campo es tuyo.' : 'Tu héroe ha caído.'}</p>
+      <p>${gane ? 'El campo es tuyo.' : derrota}</p>
       <h3>Parte de guerra</h3>${renderBattleLog(battle, mio)}`;
   }
 
@@ -361,6 +369,7 @@ function renderBattlePanel(session: Session): Html {
        <div class="stack-list">
          <button data-action="battle-defend">Defender</button>
          <button data-action="battle-wait" ${s.waited ? DESHABILITADO : NADA}>Esperar</button>
+         ${renderRendicion(session)}
        </div>
        ${renderSpells(session)}
        <p class="cost" style="margin-top:.5rem">
@@ -382,7 +391,7 @@ function renderBattlePanel(session: Session): Html {
       .map(
         (x) =>
           html`<div class="stack${x.id === battle.activeId ? '' : ' empty'}">
-          <span>${x.side === mio ? '▶' : '◀'} ${x.unit.name}</span>
+          <span>${x.side === mio ? '▶' : '◀'} ${marcaDeComandante(x)}${x.unit.name}</span>
           <span class="count">${x.count}</span>
         </div>`,
       ),
@@ -394,6 +403,29 @@ function renderBattlePanel(session: Session): Html {
     ${acciones}
     <h3>En el campo</h3><div class="stack-list">${orden}</div>
     <h3>Parte de guerra</h3>${renderBattleLog(battle, mio)}`;
+}
+
+/**
+ * La corona delante del nombre del comandante: la misma que lleva en el
+ * tablero (`MARCA_DE_COMANDANTE`), para que la figura y su fila se reconozcan
+ * como la misma pieza. Texto, y no marcado: la pone `html` en su hueco.
+ */
+export function marcaDeComandante(s: BattleStack): string {
+  return s.origen.kind === 'heroe' ? `${MARCA_DE_COMANDANTE} ` : '';
+}
+
+/**
+ * El botón de rendirse, con su precio. Apagado y con el motivo en el `title`
+ * cuando no se puede —sin base, defendiéndola o sin oro—, igual que un hechizo:
+ * la frase la escribe el núcleo (`surrenderBlocker`).
+ */
+function renderRendicion(session: Session): Html {
+  const opcion = session.surrenderOption();
+  if (opcion === null) return NADA;
+  const rotulo = `Rendirse (${opcion.coste} oro)`;
+  return opcion.motivo === null
+    ? html`<button data-action="battle-surrender">${rotulo}</button>`
+    : html`<button data-action="battle-surrender" ${DESHABILITADO} title="${opcion.motivo}">${rotulo}</button>`;
 }
 
 /**
@@ -550,6 +582,22 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
                 : 'Una unidad enemiga ha sido aniquilada'
           }</div>`;
         }
+        case 'surrender': {
+          // Quien se rinde pierde: en rojo si eres tú, en verde si es el rival,
+          // y sin color si no llevas bando. El precio está una vez, en `finished`.
+          const precio = battle.finished?.surrender?.gold;
+          if (precio === undefined) {
+            throw new Error('el parte cuenta una rendición y la batalla no dice qué costó');
+          }
+          const tuya = e.side === mio;
+          return html`<div${clase(mio !== null && !tuya, tuya)}>${
+            mio === null
+              ? `Se rinde el ${e.side === 'attacker' ? 'atacante' : 'defensor'}`
+              : tuya
+                ? 'Te rindes'
+                : 'El enemigo se rinde'
+          } por ${precio} de oro</div>`;
+        }
         case 'finished':
           return html`<div${clase(e.winner === mio, mio !== null && e.winner !== mio)}>Fin: gana el ${e.winner === 'attacker' ? 'atacante' : 'defensor'}</div>`;
 
@@ -681,6 +729,14 @@ export function renderLog(log: readonly GameEventDraft[], viewer: number): Html 
           return html`<div${clase(!mio, mio)}>${
             mio ? 'Un héroe tuyo ha caído' : `Ha caído un héroe ${deJugador(e.actor)}`
           }</div>`;
+        case 'hero_returned':
+          // Volver a la base es perder (la tropa o el oro) pero no la partida:
+          // el color es el de una derrota tuya o una victoria sobre el rival.
+          return html`<div${clase(!mio, mio)}>${
+            mio
+              ? 'Un héroe tuyo vuelve a la base'
+              : `Un héroe ${deJugador(e.actor)} vuelve a su base`
+          }${e.surrendered ? ` tras rendirse por ${e.gold} de oro` : ''}</div>`;
         case 'level_up':
           // La única consecuencia visible de subir de nivel hoy, y por eso
           // sale: el nivel todavía no reparte atributos ni habilidades (#6,

@@ -13,13 +13,17 @@
  */
 import { describe, expect, it } from 'vitest';
 import { batalla, panelDelEspectador } from '../src/client/espectador/paneles.js';
+import { batallaTerminada, TelonDeBatalla } from '../src/client/espectador/telon.js';
 import { marcadoDe } from '../src/client/html.js';
+import { autoResolve, chooseBattleAction } from '../src/core/ai/tactics.js';
+import { activeStack, applyAction, legalActions } from '../src/core/battle/battle.js';
 import type { BattleState } from '../src/core/battle/types.js';
 import type { Hero } from '../src/core/hero/hero.js';
 import { reachableFrom } from '../src/core/map/map.js';
 import { createRng } from '../src/core/rng.js';
-import { applyAdventureAction, type GameState } from '../src/core/state/game.js';
+import { applyAdventureAction, type GameState, settleBattle } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
+import type { SpectatorSnapshotMsg } from '../src/server/protocol.js';
 import { construirVista, type SpectatorView } from '../src/server/vista-espectador.js';
 import { forzarBatalla, monstruoVivo } from './helpers.js';
 
@@ -188,3 +192,94 @@ describe('el panel del espectador escapa lo ajeno', () => {
 
 /** Que `monstruoVivo` siga existiendo es lo que hace determinista el montaje. */
 void monstruoVivo;
+
+/**
+ * H-3 de la QA de la fase 1b: el fotograma de la batalla terminada y el del mapa
+ * llegaban en el mismo tic, el segundo pisaba al primero, y el espectador no
+ * pintaba nunca el final —ni «Se rinde … por N de oro» ni «Fin: gana …»—.
+ */
+describe('el telón retiene el final de una batalla', () => {
+  /** Los tres fotogramas que manda el director alrededor del final de una batalla. */
+  function finalDeBatalla(): {
+    enCurso: SpectatorSnapshotMsg;
+    terminada: SpectatorSnapshotMsg;
+    mapa: SpectatorSnapshotMsg;
+  } {
+    const { state } = contraUnNeutral(4);
+    const foto = (): SpectatorSnapshotMsg => ({
+      type: 'snapshot',
+      day: state.day,
+      current: state.current,
+      finished: null,
+      view: JSON.parse(JSON.stringify(construirVista(state, []))),
+    });
+    const enCurso = foto();
+    autoResolve(state.pendingBattle!.battle, createRng(4));
+    const terminada = foto();
+    settleBattle(state, { rng: createRng(4) });
+    return { enCurso, terminada, mapa: foto() };
+  }
+
+  it('el final y el mapa llegan juntos: primero se aplica el final, y el mapa espera', () => {
+    const { enCurso, terminada, mapa } = finalDeBatalla();
+    expect(batallaTerminada(enCurso)).toBe(false);
+    expect(batallaTerminada(terminada)).toBe(true);
+    expect(batallaTerminada(mapa)).toBe(false);
+    // Y lo que se retiene es lo que había que ver: el «Fin», arriba del panel
+    // y no al final de la caja del parte, que se queda con el scroll arriba.
+    expect(marcadoDe(panelDelEspectador(terminada.view, null))).toMatch(
+      /<div class="desenlace"><div class="log">.*Fin: gana el/,
+    );
+    expect(marcadoDe(panelDelEspectador(enCurso.view, null))).not.toContain('desenlace');
+
+    const telon = new TelonDeBatalla(batallaTerminada, 1000);
+    telon.llega(enCurso);
+    expect(telon.avanzar(0, false)).toBe(enCurso);
+    // El director manda los dos en el mismo tic.
+    telon.llega(terminada);
+    telon.llega(mapa);
+    expect(telon.avanzar(10, false)).toBe(terminada);
+    // Mientras el animador cuenta los últimos golpes, el reloj no corre.
+    expect(telon.avanzar(20, true)).toBeNull();
+    expect(telon.avanzar(5000, true)).toBeNull();
+    // Quieto ya, el final se queda a la vista el mínimo…
+    expect(telon.avanzar(5010, false)).toBeNull();
+    expect(telon.avanzar(6000, false)).toBeNull();
+    expect(telon.pendiente).toBe(true);
+    // …y luego pasa al mapa.
+    expect(telon.avanzar(6010, false)).toBe(mapa);
+    expect(telon.pendiente).toBe(false);
+  });
+
+  it('una rendición se lee arriba con su precio', () => {
+    const { state } = contraUnNeutral(4);
+    const b = state.pendingBattle!.battle;
+    const rng = createRng(4);
+    // Se juega con la IA hasta que el atacante —el héroe— pueda rendirse.
+    for (let i = 0; i < 200 && b.finished === null; i++) {
+      const s = activeStack(b)!;
+      const rendicion = legalActions(b).find((a) => a.type === 'surrender');
+      if (s.side === 'attacker' && rendicion !== undefined) {
+        applyAction(b, rendicion, rng);
+        break;
+      }
+      applyAction(b, chooseBattleAction(b), rng);
+    }
+    expect(b.finished?.surrender).toBeDefined();
+    const marcado = marcadoDe(panelDelEspectador(construirVista(state, []), null));
+    const desenlace = marcado.slice(marcado.indexOf('class="desenlace"'));
+    expect(desenlace).toMatch(
+      new RegExp(
+        `^class="desenlace"><div class="log"><div>Se rinde el atacante por ${b.finished!.surrender!.gold} de oro</div><div>Fin: gana el defensor</div>`,
+      ),
+    );
+  });
+
+  it('sin final de por medio no retiene nada: lo acumulado se aplica de golpe, como antes', () => {
+    const { enCurso, mapa } = finalDeBatalla();
+    const telon = new TelonDeBatalla(batallaTerminada, 1000);
+    telon.llega(enCurso);
+    telon.llega(mapa);
+    expect(telon.avanzar(0, true)).toBe(mapa);
+  });
+});

@@ -186,11 +186,52 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   (j0 195 → 193 de 200), mediana 8,5 → 8 días, máximo 34 → 37. Tiempo de las
  *   200: **~2,7 s** (2 654, 2 665 y 2 790 ms), desde ~3,1 s; `autoResolve`
  *   ~175 ms, desde ~360.
+ * - `c36d3cc5…` (40 158 líneas): el héroe en el tablero, la rendición, la vuelta
+ *   a la base y el tope de 7 por bando (fase 1b de NuevaJugabilidad), anclado
+ *   una sola vez al final del ciclo. Forma del diff contra `54a035f0…`: **cero
+ *   semillas idénticas** y el primer hecho distinto es `recruited` en 193 y
+ *   `battle_started` en 7, que es lo que tiene que ser: el ejército de salida
+ *   baja a 4–6 individuos y los monstruos a 3–7, y las dos cosas se notan antes
+ *   de la primera batalla (198 de 200 divergen antes de ella). 200/200 con `fin`
+ *   y ganador, **0 sin terminar**, **0 hechos imposibles** —entre el
+ *   `hero_defeated` y el `hero_returned` de un héroe no hay nada suyo (las 1 034
+ *   vueltas tras caer van pegadas a su caída), y un héroe que cae sin vuelta
+ *   (200, uno por partida: el que pierde su base) no vuelve a aparecer;
+ *   `game_over`, el último en las 200—. **`hero_defeated` ya no es el final de
+ *   un héroe**: lo es solo sin base. Siguen siendo **diecisiete tipos** y no
+ *   dieciocho como preveía el plan: entra `hero_returned` (1 491: 1 034 tras
+ *   caer y 457 rendiciones) y **sale `hero_hired`** (720 → 0), porque un héroe
+ *   que vuelve a casa no deja al jugador sin héroes y `planHires` solo contrata
+ *   con cero. Batallas 1 060 → 1 760, `level_up` 241 → 674, mediana 8 → 8 días,
+ *   p90 16 → 12, máximo 37 → 26; `dwelling_5` 159 → **4** de 200 y `dwelling_6`
+ *   17 → 0. **El ganador se vuelca otra vez**: j0 193 → **7 de 200**; con control
+ *   de esquina el caballero pasa de 91,75 % a **1,50 %** (el instrumento da el
+ *   16,25 % documentado sobre `d9a96a7`). No se compensa: la economía y el
+ *   equilibrio los decide el usuario. Tiempo de las 200: **~2,65 s** (2 637,
+ *   2 654 y 2 663 ms); `autoResolve` ~125 ms, desde ~175, porque sus batallas
+ *   espejo —sin héroe— salen con el ejército de salida nuevo, más corto.
+ *   **La conservó la pasada de `/simplify` de la 1b**, incluida la única regla
+ *   que cambió a propósito: que el castillo en el que cae un héroe defendiendo
+ *   se capture aunque no sea su base. Se esperaba re-anclar y no hizo falta: la
+ *   IA no pierde nunca un castillo que no sea la base defendiéndolo con un héroe
+ *   dentro —comparadas las dos reglas en 2 000 semillas: 0 partidas distintas,
+ *   las 1 528 capturas tras vencer a un héroe defensor son todas de su base—.
+ * - `957a2486…` (40 158 líneas, **las mismas**): la corrección de QA de la 1b.
+ *   **No mueve una sola partida: mueve lo que cuenta la crónica.** El
+ *   `hero_returned` de una rendición lleva ahora lo que se pagó (`gold`), para
+ *   que la persona y el agente lean el precio después de pagarlo (H-2). Forma
+ *   del diff contra `c36d3cc5…`: **457 líneas distintas de 40 158, las 457
+ *   rendiciones y nada más**, y en cada una lo único distinto es el
+ *   `"gold":N` insertado tras `"surrendered":true`; quitándolo, el volcado da
+ *   `c36d3cc5…` **exacto**. Las 1 034 vueltas tras caer, byte a byte iguales.
+ *   El veto de rendirse por quien no es la IA (H-1) no entra aquí a propósito:
+ *   `playAiGame` no veta a nadie, porque en el banco todos los bandos los lleva
+ *   la IA y rendirse es decisión suya.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '54a035f0ae024a8e24b64de211a02b1ede41c967aeb2c574de450822dfb2bd43',
+  sha: '957a24864372e30d7d33e395a8afa63ee1f701055e437c9386147acaedfbb7b8',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

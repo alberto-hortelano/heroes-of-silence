@@ -357,15 +357,25 @@ function llamadasA(nombre: string, codigo: string): { inicio: number; argumento:
 
 /**
  * La única forma permitida de leer el catálogo con el cuerpo, y solo en la
- * inversa del cable: `X.unit ?? creature(X.body)`, con la misma `X` y nada entre
- * el `??` y la llamada. Se mira LA LLAMADA, no la línea en que cae.
+ * inversa del cable: la rama `catalogo` de un `switch` sobre el origen del MISMO
+ * stack, devolviendo la llamada sin nada en medio —
+ * `switch (X.origen.kind) { case 'catalogo': return creature(X.body);`—. Se
+ * mira LA LLAMADA, no la línea en que cae.
+ *
+ * Antes la forma era `X.unit ?? creature(X.body)`: «el catálogo donde `unit`
+ * no viajó». Eso preguntaba por la ausencia de un campo, y un personaje que
+ * llegara sin cifras iba a buscar al catálogo las de un cuerpo que no está en
+ * él. Ahora decide el discriminante, y el guardia exige el discriminante.
  */
 function esRellenoDelCable(codigo: string, inicio: number, argumento: string): boolean {
   const cuerpo = /^(\w+)\.body$/.exec(argumento);
   if (cuerpo === null) return false;
   const antes = codigo.slice(Math.max(0, inicio - 200), inicio);
-  const unidad = /\b(\w+)\.unit\s*\?\?\s*$/.exec(antes);
-  return unidad !== null && unidad[1] === cuerpo[1];
+  const rama =
+    /\bswitch\s*\(\s*(\w+)\.origen\.kind\s*\)\s*\{\s*case\s+'catalogo'\s*:\s*return\s+$/.exec(
+      antes,
+    );
+  return rama !== null && rama[1] === cuerpo[1];
 }
 
 /** Si el fichero importa `creature` del catálogo (`data.js`) con su nombre. */
@@ -421,7 +431,7 @@ const MATH_PERMITIDO = ['min', 'max', 'floor', 'ceil', 'abs', 'round', 'imul'] a
 const LECTORES_DE_EFECTO: Readonly<Record<string, (s: BattleStack) => number>> = {
   speed: stackSpeed,
   luck: effectiveLuck,
-  attack: (s) => effectiveAttack(s, null),
+  attack: (s) => effectiveAttack(s),
 };
 
 /** Un stack limpio, fuera de tablero: solo se le cuelgan efectos y se lee. */
@@ -432,6 +442,7 @@ function stackDePrueba(): BattleStack {
     slot: 0,
     body: 'pikeman',
     unit: creature('pikeman'),
+    origen: { kind: 'catalogo' },
     initialCount: 10,
     count: 10,
     topHp: 1,
@@ -779,10 +790,10 @@ describe('invariantes del proyecto', () => {
     // línea.** El cable del espectador no manda `unit` cuando es la del catálogo
     // (+72 % de fotograma para repetir una tabla que las dos puntas tienen), así
     // que su inversa, `espectador/adaptar.ts`, la rehace. Se le permite
-    // exactamente la llamada `creature(X.body)` precedida inmediatamente de
-    // `X.unit ??` con la misma `X` —el catálogo solo donde `unit` NO viajó— y
-    // nada más. La versión anterior eximía la LÍNEA en que aparecía esa forma, y
-    // una lectura directa escrita a su lado se colaba con ella.
+    // exactamente `return creature(X.body)` como primera rama, `'catalogo'`, de
+    // un `switch (X.origen.kind)` con la misma `X`, y nada más
+    // (`esRellenoDelCable`). Una versión anterior eximía la LÍNEA en que aparecía
+    // la forma, y una lectura directa escrita a su lado se colaba con ella.
     const INVERSA_DEL_CABLE = 'src/client/espectador/adaptar.ts';
     const fugas: string[] = [];
     for (const ruta of [...CORE, ...CLIENTE, ...SERVIDOR]) {

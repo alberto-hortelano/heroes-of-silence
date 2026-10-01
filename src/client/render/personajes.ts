@@ -16,6 +16,7 @@
  * Las hojas se leen de los JSON que acompañan a cada PNG en la rama, no se
  * transcriben: un ancla copiada a mano es justo lo que se descuadra en silencio.
  */
+import { HERO_BODY } from '@core/hero/hero.js';
 import { CHARACTER_BODY } from '@core/rpg/character.js';
 import liora from '../../../assets/characters/liora/atlas.json';
 import ybot from '../../../assets/characters/y-bot-reference/liora-poses-v3.json';
@@ -150,6 +151,9 @@ const GUARDIA = deHojaConGolpe(guardia, 'guardia', 'guard-0');
  */
 export const ARTE_POR_CUERPO: Readonly<Record<string, ArteDeCuerpo>> = {
   [CHARACTER_BODY]: { base: LIORA, propio: true },
+  // El héroe, en el mapa y en el tablero (fase 1b): la misma figura de Liora
+  // (decisión del usuario); lo distingue el aro o el bando de su dueño.
+  [HERO_BODY]: { base: LIORA, propio: true },
   swordsman: DORAN,
   master_swordsman: DORAN,
   archer: NARA,

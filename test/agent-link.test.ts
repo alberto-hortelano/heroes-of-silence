@@ -3,7 +3,8 @@ import type { AddressInfo } from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
 import { activeStack, applyAction } from '../src/core/battle/battle.js';
-import type { Hero } from '../src/core/hero/hero.js';
+import { creature } from '../src/core/data.js';
+import { type Hero, heroUnit } from '../src/core/hero/hero.js';
 import { generateMapPlan, type MapPlan, validateMapPlan } from '../src/core/map/generate.js';
 import { pointFromKey, pointKey, reachableFrom } from '../src/core/map/map.js';
 import { createRng } from '../src/core/rng.js';
@@ -165,7 +166,7 @@ function vecina(state: GameState, desde: Point): Point {
 function plantarRival(state: GameState, objetivo: Point): Hero {
   const rival = state.heroes.find((h) => h.owner === 0) as Hero;
   rival.at = vecina(state, objetivo);
-  rival.army = ejercito({ creature: 'paladin', count: 20 });
+  rival.army = ejercito({ creature: 'paladin', count: 6 });
   rival.movePoints = reachableFrom(state.map, rival.at).costs.get(pointKey(objetivo)) ?? 200;
   return rival;
 }
@@ -211,7 +212,7 @@ function rivalAlCastillo(state: GameState): Town {
   const [x, y] = lejos[0].split(',').map(Number);
   mio.at = { x: x as number, y: y as number };
 
-  pueblo.garrison = ejercito({ creature: 'skeleton', count: 20 });
+  pueblo.garrison = ejercito({ creature: 'skeleton', count: 7 });
   plantarRival(state, pueblo.at);
   return pueblo;
 }
@@ -416,7 +417,7 @@ describe('enlace con el agente', () => {
     // al que atacar, y el test no probaría nada.
     revealEverything(director.state, 0);
     // Se le da un ejército de sobra para que la batalla la gane él.
-    director.state.heroes[0]!.army = ejercito({ creature: 'paladin', count: 20 });
+    director.state.heroes[0]!.army = ejercito({ creature: 'paladin', count: 6 });
     director.state.heroes[0]!.movePoints = 20000;
 
     const informe = await director.playTurn();
@@ -425,6 +426,119 @@ describe('enlace con el agente', () => {
     expect(peticionesDeBatalla).toBeGreaterThan(0);
     expect(director.state.pendingBattle).toBeNull();
     expect(director.state.log.some((e) => e.kind === 'battle_ended')).toBe(true);
+  });
+});
+
+describe('el agente se rinde (fase 1b)', () => {
+  it('la rendición se le ofrece, entra por el contrato y el héroe vuelve a su base', async () => {
+    // Lo cubría `pnpm qa` reescribiendo el mapa para forzar la batalla; ahora
+    // juega el mapa tal cual y solo avisa, y el circuito se prueba aquí, donde
+    // la batalla se puede construir.
+    let rendida = false;
+    const { link, agent } = await montar((kind, payload) => {
+      if (kind === 'adventure_turn') {
+        if (rendida) return { actions: [] };
+        const hero = payload.heroes[0];
+        const monstruo = payload.knownMap.objects.find(
+          (o: any) => o.kind === 'monster' && !o.defeated,
+        );
+        if (monstruo === undefined) return { actions: [] };
+        return { actions: [{ type: 'move_hero', hero: hero.id, to: monstruo.at }] };
+      }
+      if (kind === 'battle_turn') {
+        const acciones = payload.legalActions as any[];
+        if (acciones.some((a) => a.type === 'surrender')) {
+          rendida = true;
+          return { action: { type: 'surrender' } };
+        }
+        return { action: acciones[0] };
+      }
+      return {};
+    });
+
+    const director = new Director(link, { seed: 106, agentPlayers: [0] });
+    revealEverything(director.state, 0);
+    const heroe = director.state.heroes[0]!;
+    heroe.army = ejercito({ creature: 'archer', count: 2 });
+    heroe.movePoints = 20000;
+    const oroAntes = director.state.players[0]!.resources.gold;
+
+    await director.playTurn();
+    await respira();
+
+    const batallas = agent.seen.filter((p) => p.kind === 'battle_turn');
+    const conRendicion = batallas.find((p) =>
+      (p.payload.legalActions as any[]).some((a) => a.type === 'surrender'),
+    );
+    // Se ofrece, con su precio y con el oro con el que se compara (H-2)…
+    expect(conRendicion).toBeDefined();
+    const precio = Math.ceil((2 * creature('archer').cost.gold! * 50) / 100);
+    expect(conRendicion!.payload.legalActions).toContainEqual({ type: 'surrender', gold: precio });
+    expect(conRendicion!.payload.yourGold).toBe(oroAntes);
+    // …entra, y el veredicto dice cuánto se pagó…
+    const acuse = agent.results.find((r) => r.requestId === conRendicion!.requestId);
+    expect(acuse?.ok).toBe(true);
+    expect(acuse?.note).toContain(`Has pagado ${precio} de oro`);
+    // …y el héroe vuelve a su base con los dos arqueros, pagando el 50 % de su oro.
+    const vuelta = director.state.log.find((e) => e.kind === 'hero_returned');
+    expect(vuelta).toMatchObject({ hero: heroe.id, surrendered: true });
+    expect(director.state.log.some((e) => e.kind === 'hero_defeated')).toBe(false);
+    const base = director.state.towns.find((t) => t.id === director.state.players[0]!.base)!;
+    expect(pointKey(heroe.at)).toBe(pointKey(base.at));
+    expect(heroe.army).toEqual(ejercito({ creature: 'archer', count: 2 }));
+    expect(oroAntes - director.state.players[0]!.resources.gold).toBe(precio);
+    // …y la crónica que le llega después lo cuenta también.
+    expect(vuelta).toMatchObject({ surrendered: true, gold: precio });
+  });
+  it('si su acción se descarta, la sustituta de la IA nunca es rendirse por él (H-1)', async () => {
+    // Una acción imposible en cada turno de batalla: todas las del agente se
+    // juegan con la sustituta de la IA. En esta posición, sin veto, la IA de
+    // reglas elegía rendirse y le cobraba el oro al agente.
+    let rendirseSeOfrecio = false;
+    const { link, agent } = await montar((kind, payload) => {
+      if (kind === 'adventure_turn') {
+        const hero = payload.heroes[0];
+        const monstruo = payload.knownMap.objects.find(
+          (o: any) => o.kind === 'monster' && !o.defeated,
+        );
+        if (monstruo === undefined) return { actions: [] };
+        return { actions: [{ type: 'move_hero', hero: hero.id, to: monstruo.at }] };
+      }
+      if (kind === 'battle_turn') {
+        if ((payload.legalActions as any[]).some((a) => a.type === 'surrender')) {
+          rendirseSeOfrecio = true;
+        }
+        return { action: { type: 'move', to: { col: 99, row: 99 } } };
+      }
+      return {};
+    });
+
+    const director = new Director(link, { seed: 106, agentPlayers: [0] });
+    revealEverything(director.state, 0);
+    const heroe = director.state.heroes[0]!;
+    heroe.army = ejercito({ creature: 'peasant', count: 2 });
+    heroe.movePoints = 20000;
+    // Monstruos llenos y de nivel alto: dos campesinos contra siete vampiros
+    // pesan menos de un tercio. `creature` es de solo lectura en el tipo porque
+    // la partida no la cambia nunca; el andamio del test sí.
+    for (const o of director.state.map.objects) {
+      if (o.kind !== 'monster') continue;
+      o.count = 7;
+      (o as { creature: string }).creature = 'vampire';
+    }
+    const oroAntes = director.state.players[0]!.resources.gold;
+
+    await director.playTurn();
+    await respira();
+
+    // Se le ofrecía rendirse…
+    expect(rendirseSeOfrecio).toBe(true);
+    expect(agent.results.some((r) => r.ok === false)).toBe(true);
+    // …y la IA, jugando en su lugar, no lo hizo.
+    expect(director.state.log.filter((e) => e.kind === 'hero_returned' && e.surrendered)).toEqual(
+      [],
+    );
+    expect(director.state.players[0]!.resources.gold).toBe(oroAntes);
   });
 });
 
@@ -451,7 +565,11 @@ describe('el agente defiende', () => {
       expect(peticion.payload.yourSide).toBe('defender');
       const mios = peticion.payload.stacks.filter((s: any) => s.side === 'defender');
       expect(mios.length).toBeGreaterThan(0);
-      for (const s of mios) expect(misCriaturas.has(s.creature)).toBe(true);
+      // Su héroe pisa el tablero (fase 1b): uno, marcado, y el resto su tropa.
+      expect(mios.filter((s: any) => s.commander === true).length).toBeLessThanOrEqual(1);
+      for (const s of mios.filter((x: any) => x.commander !== true)) {
+        expect(misCriaturas.has(s.creature)).toBe(true);
+      }
     }
     // Y sus acciones entraron: no es una consulta decorativa.
     await respira();
@@ -527,16 +645,21 @@ describe('el agente defiende', () => {
 
     director = new Director(link, { seed: 204, agentPlayers: [1] });
     const mio = rivalAlAtaque(director.state);
+    // Antes de jugar: si pierde, el héroe vuelve a su base sin ejército (fase 1b).
+    const misCriaturas = new Set(mio.army.flatMap((s) => (s === null ? [] : [s.creature])));
 
     await director.playTurn();
 
     expect(vistaDelAgente.yourSide).toBe('defender');
     expect(vistaDelRival.yourSide).toBe('attacker');
     // Y lo que ve como suyo es de verdad suyo.
-    const misCriaturas = new Set(mio.army.flatMap((s) => (s === null ? [] : [s.creature])));
     const mios = vistaDelAgente.stacks.filter((s: any) => s.side === vistaDelAgente.yourSide);
     expect(mios.length).toBeGreaterThan(0);
-    for (const s of mios) expect(misCriaturas.has(s.creature)).toBe(true);
+    // El héroe va aparte: es el `commander`, y el resto, su tropa.
+    expect(mios.some((s: any) => s.commander === true && s.name === mio.name)).toBe(true);
+    for (const s of mios.filter((x: any) => x.commander !== true)) {
+      expect(misCriaturas.has(s.creature)).toBe(true);
+    }
   });
 
   it('a un jugador SUYO que no está en la batalla se le avisa en vez de mentirle', async () => {
@@ -574,7 +697,10 @@ describe('el agente defiende', () => {
     expect(ajena.stacks.length).toBeGreaterThan(0);
     expect(ajena.round).toBeGreaterThan(0);
     expect(ajena.hero.name).toBe(suyo.name);
-    expect(ajena.hero.attack).toBe(suyo.attack);
+    // Sus cifras de combate ya no van en `hero`: es un stack del tablero.
+    expect(ajena.hero.attack).toBeUndefined();
+    const cuerpo = ajena.stacks.find((s: any) => s.commander === true && s.side === 'attacker');
+    expect(cuerpo.attack).toBe(heroUnit(suyo).attack);
     expect(ajena.note).toMatch(/no está en esta batalla/);
     // Lo del bando, que no sale: con cuánto cuenta y qué sabe lanzar.
     expect(ajena.hero.mana).toBeUndefined();
@@ -1259,6 +1385,10 @@ describe('el agente sabe cómo le fue', () => {
 
     const director = new Director(link, { seed: 304, agentPlayers: [1] });
     rivalAlAtaque(director.state);
+    // Sin oro para rendirse: si no, la heurística sustituta se rinde en la
+    // primera decisión —seis paladines contra su tropa— y la batalla acaba
+    // antes de que salgan las ramas del turno y del maná, que es lo que se mide.
+    director.state.players[1]!.resources = { ...director.state.players[1]!.resources, gold: 0 };
     await director.playTurn();
     await respira();
 
@@ -1323,7 +1453,7 @@ describe('el agente sabe cómo le fue', () => {
     revealEverything(director.state, 0);
 
     const heroe = director.state.heroes.find((h) => h.owner === 0) as Hero;
-    heroe.army = ejercito({ creature: 'paladin', count: 20 });
+    heroe.army = ejercito({ creature: 'paladin', count: 6 });
     heroe.movePoints = 20000;
     // Con qué se remata: una flecha que se lleva al monstruo entero de una.
     heroe.spells = ['magic_arrow'];

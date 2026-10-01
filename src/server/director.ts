@@ -9,16 +9,18 @@
 import { chooseBattleAction } from '@core/ai/tactics.js';
 import { type BattleTakeover, playAiTurn } from '@core/ai/turn.js';
 import { activeStack, applyAction } from '@core/battle/battle.js';
-import type { BattleAction } from '@core/battle/types.js';
+import type { BattleAction, BattleState } from '@core/battle/types.js';
 import { serializeAdventureTurn, serializeBattleTurn } from '@core/contract/serialize.js';
 import type { MapPlan } from '@core/map/generate.js';
 import { createRng } from '@core/rng.js';
 import {
   type AdventureAction,
   applyAdventureAction,
+  battleOwners,
   currentPlayer,
   type GameContext,
   type GameState,
+  playerById,
   resolvePendingBattle,
   settleBattle,
   sidesOwnedBy,
@@ -162,7 +164,12 @@ export class Director {
     if (!usaAgente) {
       // Aunque el turno sea del rival, el agente puede tener que DEFENDER lo
       // que ese turno le eche encima.
-      await playAiTurn(this.state, this.ctx, this.link.connected ? this.takeover : undefined);
+      // Y si la defensa la acaba resolviendo la IA —el agente no la quiso, o no
+      // está—, pelea por él pero no se rinde: rendirse le cobra SU oro.
+      await playAiTurn(this.state, this.ctx, {
+        takeover: this.link.connected ? this.takeover : undefined,
+        noSeRinden: this.agentPlayers,
+      });
       return { player: player.id, by: 'heuristic', actions: 0, problems: [] };
     }
 
@@ -173,8 +180,10 @@ export class Director {
       this.note(`El agente no pudo jugar el turno (${motivo}); toma el relevo la IA de reglas.`);
       // La partida no se detiene por un fallo del agente. Y sin takeover: si
       // acaba de fallar, no se le vuelve a preguntar dentro del mismo turno.
-      if (this.state.pendingBattle !== null) resolvePendingBattle(this.state, this.ctx);
-      await playAiTurn(this.state, this.ctx);
+      if (this.state.pendingBattle !== null) {
+        resolvePendingBattle(this.state, this.ctx, this.agentPlayers);
+      }
+      await playAiTurn(this.state, this.ctx, { noSeRinden: this.agentPlayers });
       return { player: player.id, by: 'heuristic', actions: 0, problems: [motivo] };
     }
   }
@@ -229,7 +238,9 @@ export class Director {
         await this.playBattle();
         // Si nadie la tomó, la cierra la IA: dejarla pendiente reventaría todas
         // las acciones que quedaran del turno con «hay una batalla pendiente».
-        if (this.state.pendingBattle !== null) resolvePendingBattle(this.state, this.ctx);
+        if (this.state.pendingBattle !== null) {
+          resolvePendingBattle(this.state, this.ctx, this.agentPlayers);
+        }
         // Y un fotograma al cerrarla: el de la última acción todavía la enseñaba
         // en pie, así que sin este el tablero se quedaría con la batalla puesta
         // hasta la siguiente acción del mapa.
@@ -274,6 +285,9 @@ export class Director {
     if (bandos.size === 0) return;
 
     const battle = pending.battle;
+    // De quién es cada bando, para leer su oro: el turno de batalla lo lleva,
+    // porque sin él el precio de rendirse no se puede comparar con nada.
+    const dueños = battleOwners(this.state, pending);
     let guard = 0;
 
     while (battle.finished === null && guard < 800) {
@@ -293,7 +307,10 @@ export class Director {
       const respuesta = await this.link
         // Vista propia siempre: `s` ES el stack activo y `s.side` su bando, así
         // que aquí quien pregunta es quien manda.
-        .ask('battle_turn', serializeBattleTurn(battle, s.side, 'propia'))
+        .ask(
+          'battle_turn',
+          serializeBattleTurn(battle, s.side, 'propia', this.oroDe(dueños[s.side])),
+        )
         .catch((err: unknown) => {
           this.note(
             `El agente falló en la batalla (${err instanceof Error ? err.message : String(err)}); la termina la IA.`,
@@ -306,7 +323,12 @@ export class Director {
       try {
         applyAction(battle, accion, this.ctx.rng);
         this.frame();
-        this.link.report(respuesta.requestId, true, undefined, notaAccionAceptada(s.id, accion));
+        this.link.report(
+          respuesta.requestId,
+          true,
+          undefined,
+          notaAccionAceptada(s.id, accion, precioPagado(battle)),
+        );
       } catch (err) {
         const motivo = err instanceof Error ? err.message : String(err);
         this.note(`Acción de batalla rechazada: ${motivo}`);
@@ -314,7 +336,9 @@ export class Director {
         // que cuesta antes de contárselo: un `cast` sustituto no consume el
         // turno del stack, gasta el maná del héroe. Suponerlo mentiría en una
         // de cada cuatro sustituciones.
-        const sustituta = chooseBattleAction(battle);
+        // Y nunca una rendición: la sustituta la elige la IA, y rendirse cuesta
+        // un oro que solo puede gastar el agente (H-1 de la fase 1b).
+        const sustituta = chooseBattleAction(battle, bandos);
         const heroe = battle.heroes[s.side];
         const manaAntes = heroe?.mana ?? 0;
         applyAction(battle, sustituta, this.ctx.rng);
@@ -340,14 +364,32 @@ export class Director {
     }
 
     if (battle.finished === null) {
-      resolvePendingBattle(this.state, this.ctx);
+      resolvePendingBattle(this.state, this.ctx, this.agentPlayers);
     } else {
       settleBattle(this.state, this.ctx);
     }
+  }
+
+  /** El oro de quien lleva un bando del agente: siempre es un jugador, nunca un monstruo. */
+  private oroDe(dueño: PlayerId | null): number {
+    if (dueño === null)
+      throw new Error('un bando del agente sin dueño: el agente no lleva monstruos');
+    return playerById(this.state, dueño).resources.gold;
   }
 
   private note(line: string): void {
     this.log.push(line);
     console.log(`[director] ${line}`);
   }
+}
+
+/**
+ * Lo que costó la rendición que acaba de cerrar `battle`, o `null` si no la hubo.
+ *
+ * Es una función y no `battle.finished?.surrender` en línea porque dentro del
+ * bucle de `playBattle` `tsc` tiene `finished` estrechado a `null` por la
+ * condición del `while`, y no sabe que `applyAction` lo acaba de escribir.
+ */
+function precioPagado(battle: BattleState): number | null {
+  return battle.finished?.surrender?.gold ?? null;
 }

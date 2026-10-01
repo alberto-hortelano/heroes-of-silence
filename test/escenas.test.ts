@@ -8,17 +8,20 @@
  * reproduce antes de comprobar el arreglo.
  */
 import { describe, expect, it } from 'vitest';
-import { DURACION } from '../src/client/anim.js';
+import { DURACION, type EstadoFigura } from '../src/client/anim.js';
 import { EscenaAventura, focoDe } from '../src/client/escenas/aventura.js';
 import { AVISO_DE_ESPERA, EscenaBatalla } from '../src/client/escenas/batalla.js';
 import { PAUSA_TRAS_EL_RIVAL, PuertaDeFinDeTurno } from '../src/client/fin-de-turno.js';
-import { cajaDeFigura } from '../src/client/render/batalla.js';
+import { cajaDeFigura, pintarSobreLaCabeza } from '../src/client/render/batalla.js';
 import { casillaAPixel, centrarEn, TILE_INICIAL } from '../src/client/render/camara-mapa.js';
+import { MARCA_DE_COMANDANTE } from '../src/client/render/palette.js';
 import { centroDeStack, centroHex, tableroPara } from '../src/client/render/proyeccion.js';
 import { maquetarCoste } from '../src/client/render/town.js';
 import { Session } from '../src/client/session.js';
+import { marcaDeComandante } from '../src/client/views/panels.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import { isAlive, stackHexes } from '../src/core/battle/battle.js';
+import type { BattleStack } from '../src/core/battle/types.js';
 import type { Hex } from '../src/core/types.js';
 
 /** La semilla 2 tiene una guardia en (5,2) a un paso del héroe: batalla al primer clic. */
@@ -222,6 +225,61 @@ describe('la batalla en el lienzo', () => {
     expect(escena.enemigosFuera(496, 860)).toEqual({ izquierda: 0, derecha: 0 });
     // Y si el marco no ve nada, los cuenta a la izquierda.
     expect(escena.enemigosFuera(2000, 2400).izquierda).toBe(enemigos);
+  });
+});
+
+describe('el comandante se distingue en el tablero (H-4)', () => {
+  /** Un contexto que solo apunta lo que se escribe: el resto de llamadas no hacen nada. */
+  function contextoQueApunta(): { ctx: CanvasRenderingContext2D; textos: string[] } {
+    const textos: string[] = [];
+    const ctx = new Proxy({} as Record<string | symbol, unknown>, {
+      get: (obj, k) => {
+        if (k === 'fillText') return (t: string) => textos.push(t);
+        if (k in obj) return obj[k];
+        return () => undefined;
+      },
+      set: (obj, k, v) => {
+        obj[k] = v;
+        return true;
+      },
+    }) as unknown as CanvasRenderingContext2D;
+    return { ctx, textos };
+  }
+
+  it('el héroe lleva su corona encima, la tropa no; y la misma corona en «En el campo»', () => {
+    const s = sesionEnBatalla();
+    const batalla = s.battle!;
+    const t = tableroPara(1086, 778);
+    const vista = {
+      battle: batalla,
+      tablero: t,
+      ancho: 1086,
+      alto: 778,
+      movibles: [],
+      atacables: new Set<string>(),
+      objetivosHechizo: new Set<string>(),
+      hoverHex: null,
+      hoverStack: null,
+      figura: () => {
+        throw new Error('no se usa');
+      },
+      efectos: [],
+    };
+    const coronas = (x: BattleStack): number => {
+      const { ctx, textos } = contextoQueApunta();
+      const f = { en: centroDeStack(stackHexes(x)), alfa: 1 } as EstadoFigura;
+      pintarSobreLaCabeza(ctx, vista, x, f);
+      return textos.filter((t) => t === MARCA_DE_COMANDANTE).length;
+    };
+    const heroe = batalla.stacks.find((x) => x.origen.kind === 'heroe')!;
+    expect(heroe).toBeDefined();
+    expect(coronas(heroe)).toBe(1);
+    for (const x of batalla.stacks.filter((y) => y.origen.kind !== 'heroe')) {
+      expect(coronas(x), x.id).toBe(0);
+    }
+    // Y la fila del panel: la misma marca delante de su nombre, y de nadie más.
+    expect(marcaDeComandante(heroe)).toBe(`${MARCA_DE_COMANDANTE} `);
+    expect(batalla.stacks.filter((x) => marcaDeComandante(x) !== '')).toEqual([heroe]);
   });
 });
 

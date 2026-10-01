@@ -17,7 +17,7 @@ import type { SpectatorView } from '../../server/vista-espectador.js';
 import { NADIE } from '../desenlace.js';
 import { fondoDeColor, type Html, html, NADA, unir } from '../html.js';
 import { playerColor } from '../render/palette.js';
-import { renderBattleLog, renderLog } from '../views/panels.js';
+import { marcaDeComandante, renderBattleLog, renderLog } from '../views/panels.js';
 import { adaptarBatalla } from './adaptar.js';
 
 /**
@@ -119,6 +119,7 @@ export function batalla(v: SpectatorView): Html {
     return id === null ? html`neutral` : html`${bandera(id)} jugador ${id}`;
   };
   return html`<h3>Batalla · ronda ${estado.round}</h3>
+    ${desenlaceDeLaBatalla(estado)}
     <div class="row"><span class="label">atacante</span><span>${deQuien('attacker')}</span></div>
     <div class="row"><span class="label">defensor</span><span>${deQuien('defender')}</span></div>
     <div class="stack-list">${unir(
@@ -126,12 +127,26 @@ export function batalla(v: SpectatorView): Html {
         .filter((s) => s.count > 0)
         .map(
           (s) => html`<div class="stack${s.id === estado.activeId ? '' : ' empty'}">
-            <span>${bandera(dueños[s.side])} ${s.unit.name}</span>
+            <span>${bandera(dueños[s.side])} ${marcaDeComandante(s)}${s.unit.name}</span>
             <span class="count">${s.count}</span>
           </div>`,
         ),
     )}</div>
     ${parteDeGuerra(estado)}`;
+}
+
+/**
+ * Cómo acabó, arriba del todo y no al final del parte: el parte es una caja con
+ * scroll que se queda en su principio, así que la línea «Fin: gana …» —y la de
+ * la rendición con su precio— existía en el panel y no se veía (H-3 de la QA de
+ * la fase 1b). Mientras el telón retiene el final (`telon.ts`), esto es lo que
+ * tiene que leerse. Las mismas líneas del parte, filtradas: no una tercera
+ * redacción de cómo se cuenta un final.
+ */
+function desenlaceDeLaBatalla(estado: BattleState): Html {
+  if (estado.finished === null) return NADA;
+  const final = estado.log.filter((e) => e.kind === 'surrender' || e.kind === 'finished');
+  return html`<div class="desenlace">${renderBattleLog({ ...estado, log: final }, null)}</div>`;
 }
 
 /**

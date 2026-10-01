@@ -7,8 +7,8 @@
  * ambos caminos pasan por la misma validación de jugabilidad.
  */
 
-import { maximoPorBando } from '../battle/battle.js';
-import { allCreatures, creature } from '../data.js';
+import { allCreatures } from '../data.js';
+import { CUPO_GUARNICION } from '../hero/troop.js';
 import type { Rng } from '../rng.js';
 import { createTown, type Town } from '../town/town.js';
 import type { FactionId, PlayerId, Point, ResourceKind } from '../types.js';
@@ -208,14 +208,23 @@ export function validateMapPlan(plan: MapPlan): string[] {
       );
       continue;
     }
-    // Un monstruo son `count` individuos y en batalla cada uno pisa su hex: si
-    // no caben en un bando, `createBattle` lanzaría al pisarlo —con el plan ya
-    // aceptado y la partida en marcha—. Se dice aquí, con el máximo, que es
-    // donde todavía se puede corregir.
-    const maximo = maximoPorBando(creature(m.creature));
-    if (m.count > maximo) {
+    // Un monstruo son `count` individuos, y ningún bando pasa de
+    // `maxPorBando` (regla del usuario: un héroe y seis, o siete sin héroe). Si
+    // no, `createBattle` lanzaría al pisarlo —con el plan ya aceptado y la
+    // partida en marcha—. Se dice aquí, con el máximo, que es donde todavía se
+    // puede corregir.
+    //
+    // Y el `count` tiene que ser un entero ≥ 1 aunque el esquema del agente ya
+    // lo exija: esta es la puerta de los DOS productores, y el procedimental no
+    // pasa por zod. Con individuos un 1,5 no es un número raro, es un
+    // `Array.from({ length: 1.5 })` que da un monstruo de 1 en silencio.
+    if (!Number.isSafeInteger(m.count) || m.count < 1) {
       problemas.push(
-        `el monstruo de (${m.at.x},${m.at.y}) trae ${m.count} × ${m.creature} y no caben en su lado del tablero: como mucho ${maximo}`,
+        `el monstruo de (${m.at.x},${m.at.y}) trae ${m.count} × ${m.creature}: son individuos, tiene que ser un entero de 1 en adelante`,
+      );
+    } else if (m.count > CUPO_GUARNICION) {
+      problemas.push(
+        `el monstruo de (${m.at.x},${m.at.y}) trae ${m.count} × ${m.creature} y un bando lleva como mucho ${CUPO_GUARNICION}`,
       );
     }
   }
@@ -444,7 +453,7 @@ export function generateMapPlan(rng: Rng, opts: ProceduralOptions = {}): MapPlan
   const monstruosPosibles = ['peasant', 'skeleton', 'zombie', 'archer', 'pikeman', 'mummy'];
   const monsters = Array.from({ length: opts.monsterCount ?? 8 }, () => {
     const especie = rng.pick(monstruosPosibles);
-    return { at: libre(2), creature: especie, count: rng.int(4, 14) };
+    return { at: libre(2), creature: especie, count: rng.int(3, CUPO_GUARNICION) };
   });
 
   const recursosSueltos: ResourceKind[] = ['wood', 'ore', 'crystal', 'gems', 'mercury', 'sulfur'];

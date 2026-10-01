@@ -8,7 +8,7 @@
 import { activeStack, legalActions, stackHexes, stackSpeed } from '../battle/battle.js';
 import { stackHp } from '../battle/damage.js';
 import { effectiveLuck } from '../battle/effects.js';
-import type { BattleState, Side } from '../battle/types.js';
+import type { BattleState, OrigenDelStack, Side } from '../battle/types.js';
 import { creature, isShooter } from '../data.js';
 import { maxMana, maxMovePoints } from '../hero/hero.js';
 import {
@@ -21,7 +21,15 @@ import {
 import { pointFromKey, pointKey } from '../map/map.js';
 import { costeDeEntrada, isWalkable, TERRAIN_KINDS } from '../map/terrain.js';
 import { cronicaPara } from '../state/events.js';
-import { type GameState, heroesOf, playerById, townsOf, visibleNow, week } from '../state/game.js';
+import {
+  baseOf,
+  type GameState,
+  heroesOf,
+  playerById,
+  townsOf,
+  visibleNow,
+  week,
+} from '../state/game.js';
 import { building } from '../town/buildings.js';
 import {
   availableBuildings,
@@ -279,6 +287,9 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId): un
       week: week(state),
       resources: Object.fromEntries(RESOURCE_KINDS.map((k) => [k, player.resources[k]])),
     },
+    // A dónde vuelve un héroe derrotado o rendido, o `null` si ya no tiene base:
+    // decide si rendirse existe y qué cuesta perder un héroe.
+    yourBase: baseOf(state, playerId)?.id ?? null,
     heroes: heroesOf(state, playerId).map((h) => ({
       id: h.id,
       name: h.name,
@@ -379,6 +390,22 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId): un
 export type VistaDeBatalla = 'propia' | 'ajena';
 
 /**
+ * Lo que el agente ve del origen de un stack. Solo el héroe se marca —tu héroe
+ * o el rival en el tablero: si cae, su bando pierde—; una criatura y un
+ * personaje se leen por sus cifras. Con un `switch` exhaustivo para que un
+ * origen nuevo obligue a decidir aquí si el agente tiene que saberlo.
+ */
+function marcaDelOrigen(origen: OrigenDelStack): { commander?: true } {
+  switch (origen.kind) {
+    case 'heroe':
+      return { commander: true };
+    case 'catalogo':
+    case 'personaje':
+      return {};
+  }
+}
+
+/**
  * La batalla vista desde `side`, con lo público separado de lo del bando.
  *
  * **Público**, porque es lo que se ve pasar en el tablero: la ronda, quién es
@@ -397,11 +424,18 @@ export type VistaDeBatalla = 'propia' | 'ajena';
  * puerta de al lado—. La promesa del contrato, «elegir una nunca falla», solo
  * es cierta cuando te toca a ti; en `director.ts` esa condición no muerde nunca,
  * porque allí `side` es el bando del stack que decide.
+ *
+ * `oro` es el del jugador dueño de `side` y viaja como `yourGold` solo con la
+ * vista propia: es del bando, como el maná. Lo pasa quien llama porque la
+ * batalla no lo sabe —un castillo que se defiende sin héroe no lleva monedero—,
+ * y hace falta para leer el precio de `surrender` (H-2 de la fase 1b). Con la
+ * vista ajena se pasa `null` y no se emite.
  */
 export function serializeBattleTurn(
   battle: BattleState,
   side: Side,
   vista: VistaDeBatalla,
+  oro: number | null,
 ): unknown {
   const stackView = (s: (typeof battle.stacks)[number]) => {
     const info = s.unit;
@@ -436,17 +470,24 @@ export function serializeBattleTurn(
       })),
       defending: s.defending,
       waited: s.waited,
+      ...marcaDelOrigen(s.origen),
     };
   };
 
   const hero = battle.heroes[side];
   const propia = vista === 'propia';
+  if (propia && oro === null) {
+    throw new Error(
+      `la vista propia del ${side} necesita el oro de su dueño: sin él no se lee el precio de rendirse`,
+    );
+  }
   const activo = activeStack(battle);
 
   return {
     kind: 'battle_turn',
     round: battle.round,
     yourSide: side,
+    ...(propia ? { yourGold: oro } : {}),
     activeStack: battle.activeId,
     board: { width: 11, height: 9, layout: 'offset odd-r; el atacante entra por la columna 0' },
     stacks: battle.stacks.filter((s) => s.count > 0).map(stackView),
@@ -455,8 +496,7 @@ export function serializeBattleTurn(
         ? null
         : {
             name: hero.name,
-            attack: hero.attack,
-            defense: hero.defense,
+            // Sus cifras de combate van en su stack, el de `commander: true`.
             spellPower: hero.spellPower,
             castThisRound: hero.castThisRound,
             // Los dos únicos campos del bando, juntos y en una línea que se lee:

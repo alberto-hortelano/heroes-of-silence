@@ -70,6 +70,7 @@ import {
   MAX_ROUNDS,
 } from '../../src/core/battle/battle.js';
 import type { BattleAction, BattleState, Side } from '../../src/core/battle/types.js';
+import { otroBando } from '../../src/core/battle/types.js';
 import { factionLineup } from '../../src/core/data.js';
 import { createRng, type Rng } from '../../src/core/rng.js';
 import type { FactionId, Stack } from '../../src/core/types.js';
@@ -201,7 +202,7 @@ for (let semilla = 1; semilla <= PAREJAS; semilla++) {
 
   // La misma pareja dos veces: primero la espera ataca, después defiende.
   for (const asiento of ['attacker', 'defender'] as const) {
-    const otro: Side = asiento === 'attacker' ? 'defender' : 'attacker';
+    const otro = otroBando(asiento);
     const r = batalla(semilla, ejercitos, {
       [asiento]: conEspera,
       [otro]: rival,

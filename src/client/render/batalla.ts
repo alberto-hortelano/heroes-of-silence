@@ -6,7 +6,7 @@
  * —fondo pintado, hexes aplastados, unidades de pie con su sombra— sin traerse
  * el fichero, que montaba un botón del DOM por hex y posicionaba con
  * `style.left`. Aquí todo es lienzo, y lo pinta el `BattleState` del núcleo:
- * individuos, hasta 27 por bando.
+ * individuos, hasta 7 por bando (el héroe incluido).
  *
  * Solo pinta. Qué hexes se pueden pisar, a quién se puede atacar y sobre quién
  * cae el hechizo llegan hechos de `session.ts`; dónde está cada figura en este
@@ -22,6 +22,7 @@ import { sombraDeFigura } from '../../shared/arte.js';
 import type { Efecto, EstadoFigura } from '../anim.js';
 import { asset } from './assets.js';
 import { pintarFigura } from './figura.js';
+import { COLOR_DE_COMANDANTE, MARCA_DE_COMANDANTE } from './palette.js';
 import { enPantalla, type Plano, type Tablero, verticesHex } from './proyeccion.js';
 
 /** Los colores de los dos bandos: tiñen el maniquí y pintan el aro. */
@@ -135,7 +136,7 @@ export function drawBatalla(ctx: CanvasRenderingContext2D, v: VistaBatalla): voi
   // Las barras van en una pasada aparte, por encima de TODAS las figuras: pintadas
   // con su unidad, la figura de la fila de delante tapaba la barra de la de
   // detrás. Y de atrás adelante, para que la de detrás no tape la de delante.
-  for (const { s, f } of figuras) pintarVida(ctx, v, s, f);
+  for (const { s, f } of figuras) pintarSobreLaCabeza(ctx, v, s, f);
   // El nombre, de la señalada y de la que actúa, encima de todo lo demás.
   for (const { s, f } of figuras) {
     if (s.id === v.hoverStack || s.id === activo?.id) pintarNombre(ctx, v, s, f);
@@ -317,6 +318,48 @@ function cabezaDe(v: VistaBatalla, s: BattleStack, f: EstadoFigura) {
     y: caja.suelo - caja.alto - v.tablero.paso * 0.08,
     anchoBarra: v.tablero.paso * (grande ? 0.9 : 0.6),
   };
+}
+
+/**
+ * Lo que va encima de cada figura: la barra de vida, los tiros y, si es el
+ * comandante, su corona. Exportada para que un test pueda mirar qué se escribe
+ * sin un navegador: no toca imágenes ni `Path2D`.
+ */
+export function pintarSobreLaCabeza(
+  ctx: CanvasRenderingContext2D,
+  v: VistaBatalla,
+  s: BattleStack,
+  f: EstadoFigura,
+): void {
+  pintarVida(ctx, v, s, f);
+  if (s.origen.kind === 'heroe') pintarCorona(ctx, v, s, f);
+}
+
+/**
+ * La corona del comandante, a la izquierda de su barra (a la derecha van los
+ * tiros). Va en esta pasada, por encima de todas las figuras, para que no la
+ * tape la de delante: es la pieza que decide la batalla y se tiene que ver
+ * siempre, con arte y sin él.
+ */
+function pintarCorona(
+  ctx: CanvasRenderingContext2D,
+  v: VistaBatalla,
+  s: BattleStack,
+  f: EstadoFigura,
+): void {
+  const { x, y, anchoBarra } = cabezaDe(v, s, f);
+  const tam = Math.max(14, Math.round(v.tablero.paso * 0.26));
+  ctx.save();
+  ctx.globalAlpha = f.alfa;
+  ctx.font = `bold ${tam}px system-ui, "DejaVu Sans", sans-serif`;
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = 'rgba(12,10,6,0.9)';
+  ctx.strokeText(MARCA_DE_COMANDANTE, x - anchoBarra / 2 - 2, y + 2);
+  ctx.fillStyle = COLOR_DE_COMANDANTE;
+  ctx.fillText(MARCA_DE_COMANDANTE, x - anchoBarra / 2 - 2, y + 2);
+  ctx.restore();
 }
 
 /**

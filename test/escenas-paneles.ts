@@ -186,9 +186,12 @@ export async function escenas(): Promise<readonly Escena[]> {
     { kind: 'immune', stack: suyo.id, source: 'curse_on_hit' },
     { kind: 'perished', stack: suyo.id },
     { kind: 'perished', stack: mio.id },
+    // Las dos, para ver los dos colores; el precio es uno, el de `finished`.
+    { kind: 'surrender', side: 'attacker' },
+    { kind: 'surrender', side: 'defender' },
     { kind: 'finished', winner: 'defender' },
   );
-  campo.finished = { winner: 'defender' };
+  campo.finished = { winner: 'defender', surrender: { gold: 150 } };
   out.push({ nombre: 'batalla · parte de guerra completo', session: parte });
 
   // 13 · Con un hechizo ya elegido sale la línea de «pulsa sobre la unidad
@@ -280,6 +283,23 @@ function cronicaCompleta(): readonly GameEvent[] {
     },
     { ...base, kind: 'hero_defeated', hero: 'hero-0', actor: 0 },
     { ...base, kind: 'hero_defeated', hero: 'hero-1', actor: 1 },
+    {
+      ...base,
+      kind: 'hero_returned',
+      hero: 'hero-0',
+      town: 'town-0',
+      surrendered: false,
+      actor: 0,
+    },
+    {
+      ...base,
+      kind: 'hero_returned',
+      hero: 'hero-1',
+      town: 'town-1',
+      surrendered: true,
+      gold: 190,
+      actor: 1,
+    },
     { ...base, kind: 'level_up', hero: 'hero-0', level: 2, actor: 0 },
     { ...base, kind: 'level_up', hero: 'hero-1', level: 3, actor: 1 },
     { ...base, kind: 'player_defeated', actor: 1 },

@@ -8,7 +8,7 @@
 import { hasTrait } from '../data.js';
 import type { Rng } from '../rng.js';
 import { effectiveLuck, effectTotal } from './effects.js';
-import type { BattleHero, BattleStack } from './types.js';
+import type { BattleStack } from './types.js';
 
 export const ATTACK_BONUS_PER_POINT = 0.1;
 export const MAX_ATTACK_BONUS = 3.0;
@@ -35,13 +35,17 @@ export const CHANCE_PER_POINT = 1 / 24;
 export const CHARGE_BONUS_PER_HEX = 0.1;
 export const MAX_CHARGE_HEXES = 5;
 
-export function effectiveAttack(stack: BattleStack, hero: BattleHero | null): number {
-  // Los efectos de `attack` son los que mete el miedo del dragón óseo.
-  return stack.unit.attack + (hero?.attack ?? 0) + effectTotal(stack, 'attack');
+/**
+ * El ataque con el que pega un stack: el suyo y sus efectos, sin héroe
+ * (`BattleHero` cuenta por qué). Los efectos de `attack` son los que mete el
+ * miedo del dragón óseo.
+ */
+export function effectiveAttack(stack: BattleStack): number {
+  return stack.unit.attack + effectTotal(stack, 'attack');
 }
 
-export function effectiveDefense(stack: BattleStack, hero: BattleHero | null): number {
-  const base = stack.unit.defense + (hero?.defense ?? 0);
+export function effectiveDefense(stack: BattleStack): number {
+  const base = stack.unit.defense;
   return stack.defending ? base * (1 + DEFEND_BONUS) : base;
 }
 
@@ -90,17 +94,12 @@ export interface DamageOptions {
 function applyModifiers(
   base: number,
   attacker: BattleStack,
-  attackerHero: BattleHero | null,
   defender: BattleStack,
-  defenderHero: BattleHero | null,
   opts: DamageOptions,
 ): { base: number; charge: number } {
   const info = attacker.unit;
 
-  const mult = damageMultiplier(
-    effectiveAttack(attacker, attackerHero),
-    effectiveDefense(defender, defenderHero),
-  );
+  const mult = damageMultiplier(effectiveAttack(attacker), effectiveDefense(defender));
   base *= mult;
 
   // Los cruzados hacen daño doble a los no-muertos.
@@ -129,35 +128,24 @@ function applyModifiers(
  */
 export function expectedDamage(
   attacker: BattleStack,
-  attackerHero: BattleHero | null,
   defender: BattleStack,
-  defenderHero: BattleHero | null,
   opts: DamageOptions = {},
 ): number {
   const [min, max] = attacker.unit.damage;
   const medio = ((min + max) / 2) * attacker.count;
-  return applyModifiers(medio, attacker, attackerHero, defender, defenderHero, opts).base;
+  return applyModifiers(medio, attacker, defender, opts).base;
 }
 
 /** Daño que inflige `attacker` a `defender`, ya con suerte aplicada. */
 export function computeDamage(
   attacker: BattleStack,
-  attackerHero: BattleHero | null,
   defender: BattleStack,
-  defenderHero: BattleHero | null,
   rng: Rng,
   opts: DamageOptions = {},
 ): DamageResult {
   const [min, max] = attacker.unit.damage;
   const roll = rng.int(min, max);
-  const modificado = applyModifiers(
-    roll * attacker.count,
-    attacker,
-    attackerHero,
-    defender,
-    defenderHero,
-    opts,
-  );
+  const modificado = applyModifiers(roll * attacker.count, attacker, defender, opts);
   let base = modificado.base;
   const charge = modificado.charge;
 

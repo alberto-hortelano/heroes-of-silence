@@ -1,0 +1,11 @@
+{
+  "_comment": "El héroe como figura del tablero (fase 1b de NuevaJugabilidad) y el precio de rendirse. TODO INVENTADO y PROVISIONAL: inspirado en el héroe de HoMM como comandante que pelea, pero NO verificado contra fheroes2 —allí el héroe no pisa el tablero y no hay fila de la que copiar—. Que nadie cite estas cifras como del original: es la lección de la tabla de experiencia. combate: el cuerpo del héroe en batalla; pv = base + porNivel × (nivel − 1); ataque y defensa = los del héroe + porNivel × (nivel − 1); daño = [min, max + maxPorNivel × (nivel − 1)]. El héroe entra SANO a cada batalla (decisión del usuario): no hay heridas persistentes. rendicion.porcentajeDelOro = lo que cuesta rendirse, en % del oro de catálogo de la tropa viva que se salva (decisión del usuario, 01-10-2026: 50 %, provisional).",
+  "combate": {
+    "pv": { "base": 50, "porNivel": 10 },
+    "ataquePorNivel": 1,
+    "defensaPorNivel": 1,
+    "danio": { "min": 2, "max": 4, "maxPorNivel": 1 },
+    "velocidad": "average"
+  },
+  "rendicion": { "porcentajeDelOro": 50 }
+}
