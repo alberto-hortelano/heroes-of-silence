@@ -84,12 +84,13 @@ function seTocan(a: Caja, b: Caja, holgura: number): boolean {
 }
 
 /**
- * Las figuras: se tiran las motas (menos del 2 % del área de la mayor) y se
+ * Las figuras: se tira el polvo (menos del 0,05 % del área de la mayor; un trozo
+ * mayor, como una hoja de espada separada de la mano, se queda y se funde después) y se
  * funden las cajas que se tocan con `holgura` píxeles, hasta que nada cambia.
  */
 export function figuras(cajas: readonly Caja[], holgura: number): Caja[] {
   const mayor = Math.max(0, ...cajas.map((c) => c.area));
-  let grupos = cajas.filter((c) => c.area >= mayor * 0.02).map((c) => ({ ...c }));
+  let grupos = cajas.filter((c) => c.area >= mayor * 0.0005).map((c) => ({ ...c }));
   let cambiado = true;
   while (cambiado) {
     cambiado = false;
@@ -112,6 +113,36 @@ export function figuras(cajas: readonly Caja[], holgura: number): Caja[] {
   return grupos;
 }
 
+/** Distancia horizontal entre dos cajas: 0 si se solapan en x. */
+function distanciaX(a: Caja, b: Caja): number {
+  return Math.max(0, a.x0 - b.x1, b.x0 - a.x1);
+}
+
+/**
+ * Si una fila trae trozos de más —un jirón suelto, la punta de un arma que no
+ * llega a tocar a su dueño—, el más pequeño se funde con la figura más cercana,
+ * hasta que quedan `columnas`. Los trozos se juntan por cercanía y no por una
+ * holgura fija: con holgura grande, dos figuras vecinas cuya espada casi se
+ * toca se fundían en una (5 de 12 atlas del primer lote).
+ */
+export function fundirSobrantes(fila: Caja[], columnas: number): Caja[] {
+  while (fila.length > columnas) {
+    fila.sort((a, b) => a.area - b.area);
+    const menor = fila.shift() as Caja;
+    let destino = fila[0] as Caja;
+    for (const c of fila) if (distanciaX(menor, c) < distanciaX(menor, destino)) destino = c;
+    destino.x0 = Math.min(destino.x0, menor.x0);
+    destino.y0 = Math.min(destino.y0, menor.y0);
+    destino.x1 = Math.max(destino.x1, menor.x1);
+    destino.y1 = Math.max(destino.y1, menor.y1);
+    destino.area += menor.area;
+  }
+  return fila;
+}
+
+/** Holgura con la que se juntan las piezas de una figura: solo lo que casi se toca. */
+const HOLGURA = 2;
+
 /**
  * Las figuras en `filas` filas, ordenadas. Las filas se cortan por los
  * `filas - 1` saltos mayores entre centros verticales consecutivos.
@@ -129,7 +160,10 @@ export function enFilas(figs: readonly Caja[], filas: number, columnas: number):
   const cortes = [0, ...saltos, porY.length];
   const resultado: Caja[][] = [];
   for (let f = 0; f < filas; f++) {
-    const fila = porY.slice(cortes[f], cortes[f + 1]).sort((a, b) => a.x0 + a.x1 - (b.x0 + b.x1));
+    const fila = fundirSobrantes(
+      porY.slice(cortes[f], cortes[f + 1]).map((c) => ({ ...c })),
+      columnas,
+    ).sort((a, b) => a.x0 + a.x1 - (b.x0 + b.x1));
     if (fila.length !== columnas) {
       throw new Error(
         `la fila ${f + 1} tiene ${fila.length} figuras y la hoja pide ${columnas} ` +
@@ -207,7 +241,7 @@ export async function empaquetar(
   alturaObjetivo: number,
 ): Promise<Empaquetado> {
   const { celda, columnas, base } = FIGURA;
-  const figs = figuras(componentes(r), Math.max(4, Math.round(r.width / 200)));
+  const figs = figuras(componentes(r), HOLGURA);
   const rejilla = enFilas(figs, filas, columnas);
   const medidas = rejilla.map((fila) =>
     fila.map((c) => {
@@ -299,7 +333,7 @@ export async function empaquetar(
 
 /** Una figura suelta (lámina de identidad, objeto del mapa) recortada a su contenido con margen. */
 export async function recortarAlContenido(r: Raster, margen: number): Promise<Buffer> {
-  const figs = figuras(componentes(r), Math.max(4, Math.round(r.width / 200)));
+  const figs = figuras(componentes(r), HOLGURA);
   if (figs.length === 0) throw new Error('la imagen no tiene nada opaco tras el recorte');
   const x0 = Math.max(0, Math.min(...figs.map((c) => c.x0)) - margen);
   const y0 = Math.max(0, Math.min(...figs.map((c) => c.y0)) - margen);

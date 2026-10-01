@@ -115,6 +115,7 @@ export function promptDe(e: Encargo): string {
   if (e.reanudar) {
     return [
       'Corrige la última imagen que has generado en esta conversación, con la herramienta de imágenes, conservando la identidad del personaje y todo lo que no se menciona.',
+      prefacioDeReferencias(e.referencias),
       e.reanudar.correccion,
       e.tipo === 'atlas'
         ? reglasDeAtlas(e)

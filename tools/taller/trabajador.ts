@@ -291,7 +291,8 @@ async function encolar(args: readonly string[]): Promise<void> {
 
 /** Corrige un encargo hecho en su mismo hilo: encola `<id>-c<n>` con `reanudar`. */
 async function corregir(id: string, correccion: string): Promise<void> {
-  const ficha = await COLA.leer('hecho', id);
+  const desde = (await COLA.estado()).hecho.includes(id) ? 'hecho' : 'fallido';
+  const ficha = await COLA.leer(desde, id);
   const hilo = ficha.resultado?.hilo;
   if (hilo === undefined) throw new Error(`el encargo «${id}» no apuntó su hilo de Codex`);
   const base = id.replace(/-c\d+$/, '');
@@ -299,11 +300,10 @@ async function corregir(id: string, correccion: string): Promise<void> {
   const usados = Object.values(ya).flat();
   let n = 1;
   while (usados.includes(`${base}-c${n}`)) n++;
-  const { referencias: _sinReferencias, ...resto } = ficha.encargo;
+  // Las referencias vuelven a adjuntarse: la pose sigue mandando en la corrección.
   const e = await COLA.encolar({
-    ...resto,
+    ...ficha.encargo,
     id: `${base}-c${n}`,
-    referencias: [],
     reanudar: { hilo, correccion },
   });
   console.log(`encolado ${e.id} sobre el hilo ${hilo}`);
