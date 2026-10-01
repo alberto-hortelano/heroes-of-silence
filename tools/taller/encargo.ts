@@ -91,6 +91,10 @@ function reglasDeAtlas(e: Encargo): string {
     'Fila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete poses de ataque de la fila 3.',
     'Misma cámara ortográfica elevada 25 grados en las tres filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos. El personaje mira a la derecha y al frente como el maniquí.',
     `Misma escala en todas las celdas: la figura de pie ocupa unos ${altura} de cada 256 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.`,
+    // Once de los primeros 52 atlas fallaron por lo mismo: en el ataque, la
+    // lanza o la espada de una figura tocaba a la de al lado, y el taller no
+    // puede separar dos figuras que se tocan. Se pide de entrada.
+    'Deja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.',
     SIN_FONDO,
   ].join('\n');
 }
