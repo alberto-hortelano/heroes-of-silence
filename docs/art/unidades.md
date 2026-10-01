@@ -71,6 +71,55 @@ Correcciones en su hilo: `heroe-templario-caballero` y
 `heroe-caballero-de-la-muerte` (`-c1`) y `heroe-templario-gran-maestre` (`-c2`),
 todas por la espada invadiendo la celda vecina en el ataque.
 
+## Imperio
+
+| id | Unidad | Perfil de pose |
+|---|---|---|
+| `imperio-alabardero` | Alabardero | dos-manos |
+| `imperio-piquero` | Piquero | dos-manos |
+| `imperio-ballestero` | Ballestero | ballesta |
+| `imperio-coracero` | Coracero | espada-escudo |
+| `imperio-arcabucero` | Arcabucero | ballesta |
+| `imperio-rodelero` | Rodelero | espada-escudo |
+| `imperio-artillero-culebrina` | Artillero con culebrina | ballesta |
+| `heroe-imperio-noble` | Noble (héroe) | espada-escudo |
+| `heroe-imperio-mago` | Mago de batalla (héroe) | baston |
+| `heroe-imperio-capitan-mercenario` | Capitán mercenario (héroe) | espada-escudo |
+| `heroe-imperio-ingeniero` | Ingeniero (héroe) | espada-escudo |
+
+## Elfos
+
+| id | Unidad | Perfil de pose |
+|---|---|---|
+| `elfo-arquero` | Arquero | arco |
+| `elfo-explorador` | Explorador | espada-escudo |
+| `elfo-guardia-del-bosque` | Guardia del bosque | espada-escudo |
+| `elfo-corredor-del-bosque` | Corredores del bosque (antes Jinetes de ciervo) | espada-escudo |
+| `elfo-ent` | Ent o Guardián arbóreo | dos-manos |
+| `elfo-hostigador` | Hostigador elfo (antes Halcón o Lobo) | espada-escudo |
+| `heroe-elfo-danzante-de-espadas` | Danzante de espadas (héroe) | espada-escudo |
+| `heroe-elfo-druida` | Druida (héroe) | baston |
+| `heroe-elfo-senor-de-las-bestias` | Señor de las bestias (héroe) | espada-escudo |
+| `heroe-elfo-cantora` | Cantora (héroe) | baston |
+
+## Orkos
+
+| id | Unidad | Perfil de pose |
+|---|---|---|
+| `orko-hacha-escudo` | Orko con hacha y escudo | espada-escudo |
+| `orko-dos-armas` | Orko con dos armas | dos-manos |
+| `goblin-lancero` | Goblin lancero | espada-escudo |
+| `goblin-arquero` | Goblin arquero | arco |
+| `troll-maza` | Troll con maza | dos-manos |
+| `orko-berserker` | Orko berserker (antes Jinete de jabalí) | dos-manos |
+| `goblin-fanatico` | Goblin fanático | espada-escudo |
+| `heroe-orko-kaudillo` | Kaudillo (héroe) | dos-manos |
+| `heroe-goblin-jefe` | Jefe goblin (héroe) | espada-escudo |
+| `heroe-orko-chaman` | Chamán (héroe) | baston |
+| `heroe-orko-senor-de-la-guerra` | Señor de la guerra a pie (héroe) | dos-manos |
+
+Lote 3 (Imperio, Elfos y Orkos, tropas y héroes): **en curso**, pendiente del visto bueno del usuario.
+
 ## Estado
 
 Lote 1 (Templarios y No muertos): **aprobado por el usuario el 01-10-2026**, visto
