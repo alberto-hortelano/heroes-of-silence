@@ -107,7 +107,7 @@ function reglasDeIdentidad(): string {
 function reglasDeImagen(e: Encargo): string {
   return e.fondo === 'opaco'
     ? 'Imagen opaca, sin texto ni marco.'
-    : `Un solo objeto centrado con margen. ${SIN_FONDO}`;
+    : `Todo lo dibujado cabe en la imagen con margen. ${SIN_FONDO}`;
 }
 
 /** El prompt entero que viaja a Codex, y el que se guarda en la procedencia. */

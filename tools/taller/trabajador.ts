@@ -36,6 +36,7 @@ import { Cola } from './cola.js';
 import { escribirDerivado } from './derivar.js';
 import { empaquetar, recortarAlContenido } from './empaquetar.js';
 import { type Encargo, promptDe } from './encargo.js';
+import { ESTILOS_DE_MAPA, encargoDeMuestra } from './mapa.js';
 import { recortar, UMBRALES } from './recorte.js';
 import { encargoDeAtlas, encargoDeIdentidad, unidad } from './unidades.js';
 import { validar } from './validar.js';
@@ -274,6 +275,14 @@ async function reprocesar(id: string): Promise<void> {
 }
 
 async function encolar(args: readonly string[]): Promise<void> {
+  if (args.includes('--muestras-mapa')) {
+    for (const estilo of ESTILOS_DE_MAPA) {
+      const bruto = encargoDeMuestra(estilo);
+      if (args.includes('--rehacer')) await COLA.olvidar(bruto.id);
+      console.log(`encolado ${(await COLA.encolar(bruto)).id}`);
+    }
+    return;
+  }
   const atlas = args.includes('--atlas');
   for (const a of args.filter((x) => !x.startsWith('--'))) {
     const bruto = a.endsWith('.json')
