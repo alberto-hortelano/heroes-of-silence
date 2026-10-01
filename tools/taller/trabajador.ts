@@ -29,20 +29,28 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
-import { dirname, join, relative, resolve } from 'node:path';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import sharp from 'sharp';
 import { FIGURA } from '../../src/shared/arte.js';
-import { CODEX, type Generacion, generar } from './codex.js';
+import { CODEX, FalloDeCodex, type Generacion, generar } from './codex.js';
 import { Cola } from './cola.js';
 import { componerAtlasMapa } from './componer-atlas-mapa.js';
-import { escribirDerivado, escribirPiezaDerivada } from './derivar.js';
+import { escribirDerivado, escribirEfectoDerivado, escribirPiezaDerivada } from './derivar.js';
+import { encargosDeEfectos } from './efectos.js';
+import {
+  empaquetarEfecto,
+  LADO_EFECTO,
+  LADO_ICONO,
+  partirIconos,
+  recorteSuave,
+} from './efectos-proceso.js';
 import { empaquetar, recortarAlContenido } from './empaquetar.js';
 import { type Encargo, promptDe } from './encargo.js';
 import { ESTILOS_DE_MAPA, encargoDeMuestra, encargosDeCeldas, encargosDePiezas } from './mapa.js';
-import { recortar, UMBRALES } from './recorte.js';
+import { aRaster, recortar, UMBRALES } from './recorte.js';
 import { encargoDeAtlas, encargoDeIdentidad, unidad } from './unidades.js';
 import { validar } from './validar.js';
-import { vista } from './vista.js';
+import { vista, vistaEfectos } from './vista.js';
 
 const RAIZ = resolve(import.meta.dirname, '../..');
 export const COLA = new Cola(join(RAIZ, 'tools/taller/cola'));
@@ -123,11 +131,41 @@ async function postprocesar(
     if (encargo.fondo === 'opaco') {
       final = crudo;
     } else {
-      const r = await recortar(crudo);
+      // Un efecto es semitransparente a propósito (humo, resplandor): recorte suave.
+      const r =
+        encargo.tipo === 'efecto' ? recorteSuave(await aRaster(crudo)) : await recortar(crudo);
       pasos.push(
-        `halo recortado desde los bordes (alfa < ${UMBRALES.halo}); cuerpo opaco (alfa ≥ ${UMBRALES.cuerpo})`,
+        encargo.tipo === 'efecto'
+          ? 'recorte suave: solo se borra lo casi invisible (alfa < 24); el humo y los resplandores conservan su alfa'
+          : `halo recortado desde los bordes (alfa < ${UMBRALES.halo}); cuerpo opaco (alfa ≥ ${UMBRALES.cuerpo})`,
       );
-      if (encargo.tipo === 'atlas') {
+      if (encargo.tipo === 'efecto') {
+        const ef = await empaquetarEfecto(r);
+        final = ef.png;
+        pasos.push(
+          `fotogramas cortados por la rejilla nominal 3×2 y empaquetados en una tira de 6×${LADO_EFECTO}` +
+            (ef.rozaduras > 0
+              ? `; ${ef.rozaduras} píxeles que rozaban las líneas de corte, recortados`
+              : ''),
+        );
+      } else if (encargo.tipo === 'iconos') {
+        const iconos = await partirIconos(r, encargo.nombres ?? []);
+        const dir = join(RAIZ, dirname(encargo.salida));
+        await mkdir(dir, { recursive: true });
+        const indice = [];
+        for (const ic of iconos) {
+          const bytes = await sharp(ic.png)
+            .webp({ quality: 92, alphaQuality: 100, effort: 6 })
+            .toBuffer();
+          await writeFile(join(dir, `${ic.nombre}.webp`), bytes);
+          indice.push({ nombre: ic.nombre, imagen: `${ic.nombre}.webp`, sha256: sha256(bytes) });
+        }
+        extra = { indiceDeIconos: indice };
+        final = await recortarAlContenido(r, 24);
+        pasos.push(
+          `lámina partida en ${iconos.length} iconos de ${LADO_ICONO}×${LADO_ICONO}, cada uno en su fichero`,
+        );
+      } else if (encargo.tipo === 'atlas') {
         const altura = encargo.alturaObjetivo ?? FIGURA.alturaAdulto;
         const p = await empaquetar(r, 3, altura);
         final = p.png;
@@ -161,6 +199,16 @@ async function postprocesar(
     if (encargo.tipo === 'imagen' && /^assets\/mapa\/[^/]+$/.test(encargo.salida)) {
       const d = await escribirPiezaDerivada(rutaSalida);
       pasos.push(`JSON derivado: ${d.ancho}×${d.alto}, ancla en (${d.ancla})`);
+    }
+    if (encargo.tipo === 'efecto') {
+      const d = await escribirEfectoDerivado(rutaSalida);
+      pasos.push(`JSON derivado: ${d.fotogramas} fotogramas, caja ${d.caja}`);
+    }
+    if (encargo.tipo === 'iconos') {
+      await writeFile(
+        join(RAIZ, `${encargo.salida}.json`),
+        `${JSON.stringify({ lado: LADO_ICONO, iconos: extra.indiceDeIconos, lamina: basename(rutaSalida) }, null, 2)}\n`,
+      );
     }
     if (encargo.tipo === 'atlas') {
       const d = await escribirDerivado(rutaSalida);
@@ -233,6 +281,16 @@ async function trabajar(): Promise<void> {
       console.log(`  ✔ ${r.salida} en ${Math.round((Date.now() - t0) / 1000)} s`);
       hechos++;
     } catch (err) {
+      if (err instanceof FalloDeCodex && err.sinCuota) {
+        // Sin cuota no falla el encargo: falla todo lo que quede. Se devuelve
+        // a la cola y se para, diciendo cuándo vuelve a haber cuota.
+        await COLA.devolver(encargo.id, 'en-curso');
+        console.log(
+          `  ⏸ ${err.message}\n  ${encargo.id} vuelve a pendiente/; la cola se para aquí.`,
+        );
+        process.exitCode = 2;
+        break;
+      }
       const motivo = err instanceof Error ? err.message : String(err);
       await COLA.cerrar(encargo.id, 'fallido', {
         cuando: new Date().toISOString(),
@@ -285,6 +343,13 @@ async function encolar(args: readonly string[]): Promise<void> {
   if (args.includes('--piezas-mapa') || args.includes('--atlas-mapa')) {
     const lista = args.includes('--atlas-mapa') ? encargosDeCeldas() : encargosDePiezas();
     for (const bruto of lista) {
+      if (args.includes('--rehacer')) await COLA.olvidar(bruto.id);
+      console.log(`encolado ${(await COLA.encolar(bruto)).id}`);
+    }
+    return;
+  }
+  if (args.includes('--efectos')) {
+    for (const bruto of encargosDeEfectos()) {
       if (args.includes('--rehacer')) await COLA.olvidar(bruto.id);
       console.log(`encolado ${(await COLA.encolar(bruto)).id}`);
     }
@@ -371,6 +436,9 @@ switch (orden) {
     break;
   case 'reprocesar':
     for (const id of resto) await reprocesar(id);
+    break;
+  case 'vista-efectos':
+    console.log(`→ ${await vistaEfectos()}`);
     break;
   case 'vista':
     for (const r of await vista(resto)) console.log(`→ ${r}`);

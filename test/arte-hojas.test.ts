@@ -13,7 +13,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { derivarCeldas } from '../tools/taller/componer-atlas-mapa.js';
-import { derivarAtlas, derivarPieza, rutaDelJson } from '../tools/taller/derivar.js';
+import { derivarAtlas, derivarEfecto, derivarPieza, rutaDelJson } from '../tools/taller/derivar.js';
 
 const RAIZ = join(import.meta.dirname, '..');
 const UNIDADES = join(RAIZ, 'assets/unidades');
@@ -111,6 +111,35 @@ describe('el atlas del mapa', () => {
         existsSync(join(RAIZ, f.fuente.replace(/\.webp$/, '.procedencia.json'))),
         f.fuente,
       ).toBe(true);
+    }
+  });
+});
+
+describe('los efectos de batalla', () => {
+  const EF = join(RAIZ, 'assets/efectos');
+  const de = (dir: string): string[] =>
+    existsSync(dir)
+      ? readdirSync(dir)
+          .filter((f) => f.endsWith('.webp'))
+          .map((f) => join(dir, f))
+      : [];
+  const animados = de(join(EF, 'animados'));
+  const quietos = de(EF);
+
+  it.each(animados)('%s: el JSON es lo que mide la tira', async (p) => {
+    expect(leer(rutaDelJson(p))).toEqual(JSON.parse(JSON.stringify(await derivarEfecto(p))));
+  });
+
+  it.each([...animados, ...quietos])('%s: lleva su procedencia', (p) => {
+    const pr = leer(p.replace(/\.webp$/, '.procedencia.json'));
+    expect(pr.salida.sha256, 'la imagen cambió sin registrar de dónde sale').toBe(sha256(p));
+    expect(pr.hilo).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  const indice = join(EF, 'iconos/iconos.json');
+  it.runIf(existsSync(indice))('cada icono es el que apuntó el índice de su lámina', () => {
+    for (const ic of leer(indice).iconos) {
+      expect(sha256(join(EF, 'iconos', ic.imagen)), ic.nombre).toBe(ic.sha256);
     }
   });
 });

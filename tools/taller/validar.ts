@@ -50,7 +50,7 @@ function medirAlfa(data: Buffer, width: number, height: number): Record<string, 
 
 export async function validar(
   imagen: Buffer,
-  tipo: 'atlas' | 'identidad' | 'imagen',
+  tipo: 'atlas' | 'identidad' | 'imagen' | 'iconos' | 'efecto',
   opaca = false,
 ): Promise<Informe> {
   const { data, info } = await sharp(imagen)
@@ -64,12 +64,13 @@ export async function validar(
   if ((medidas.visibles ?? 0) < 0.02) problemas.push('la imagen está casi vacía tras el recorte');
   if ((medidas.visibles ?? 0) > 0.9)
     problemas.push('el fondo no se ha recortado: casi todo es opaco');
-  if ((medidas.opacos ?? 0) < 0.75) {
+  // Un efecto es semitransparente a propósito: ni cuerpo opaco ni halo que medir.
+  if (tipo !== 'efecto' && (medidas.opacos ?? 0) < 0.75) {
     problemas.push(
       `el cuerpo no es opaco: solo el ${Math.round((medidas.opacos ?? 0) * 100)} % de lo visible`,
     );
   }
-  if ((medidas.haloSuelto ?? 0) > 0.01) {
+  if (tipo !== 'efecto' && (medidas.haloSuelto ?? 0) > 0.01) {
     problemas.push(
       `queda halo suelto: ${((medidas.haloSuelto ?? 0) * 100).toFixed(1)} % de lo visible`,
     );

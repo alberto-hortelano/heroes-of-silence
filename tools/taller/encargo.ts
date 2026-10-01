@@ -21,6 +21,11 @@ export const PAPELES = {
 } as const;
 export type Papel = keyof typeof PAPELES;
 
+/** La lámina de iconos es de 4×4. */
+export const FILAS_DE_ICONOS = 4;
+/** Un efecto animado son 6 fotogramas en 3 columnas por 2 filas. */
+export const REJILLA_DE_EFECTO = { columnas: 3, filas: 2 } as const;
+
 const ruta = z
   .string()
   .min(1)
@@ -33,7 +38,7 @@ const referencia = z.object({ ruta, papel: z.enum(['pose', 'identidad', 'estilo'
 export const encargoSchema = z
   .object({
     id: z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'el id va en kebab-case'),
-    tipo: z.enum(['identidad', 'atlas', 'imagen']),
+    tipo: z.enum(['identidad', 'atlas', 'imagen', 'iconos', 'efecto']),
     /** El contenido: quién es, qué lleva. Las reglas de cámara y fondo las pone el taller. */
     descripcion: z.string().min(20),
     referencias: z.array(referencia),
@@ -45,8 +50,16 @@ export const encargoSchema = z
     fondo: z.enum(['transparente', 'opaco']).default('transparente'),
     /** Corrige una generación anterior en su mismo hilo de Codex, que conserva la identidad. */
     reanudar: z.object({ hilo: z.string().uuid(), correccion: z.string().min(10) }).optional(),
+    /** Iconos: el nombre de cada uno, en el orden de lectura de la lámina de 4×4. */
+    nombres: z.array(z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/)).optional(),
   })
   .superRefine((e, ctx) => {
+    if (e.tipo === 'iconos' && e.nombres?.length !== FILAS_DE_ICONOS * FILAS_DE_ICONOS) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `una lámina de iconos lleva ${FILAS_DE_ICONOS * FILAS_DE_ICONOS} nombres, uno por icono`,
+      });
+    }
     const papeles = e.referencias.map((r) => r.papel);
     if (
       e.tipo === 'atlas' &&
@@ -108,6 +121,37 @@ function reglasDeIdentidad(): string {
   ].join('\n');
 }
 
+function reglasDeIconos(): string {
+  return [
+    `Rejilla de EXACTAMENTE ${FILAS_DE_ICONOS} por ${FILAS_DE_ICONOS}: dieciséis iconos del mismo tamaño, cada uno compacto y entero, con mucho aire alrededor; ningún icono toca a otro.`,
+    SIN_FONDO,
+  ].join('\n');
+}
+
+function reglasDeEfecto(): string {
+  const { columnas, filas } = REJILLA_DE_EFECTO;
+  return [
+    `Hoja de animación de EXACTAMENTE ${columnas * filas} fotogramas del mismo efecto, en ${columnas} columnas por ${filas} filas, en orden de lectura: del inicio al final del efecto.`,
+    'Cada fotograma ocupa su celda de una rejilla imaginaria igual para todos, centrado en el mismo punto de su celda y a la misma escala; nada cruza el borde de su celda.',
+    SIN_FONDO,
+  ].join('\n');
+}
+
+function reglas(e: Encargo): string {
+  switch (e.tipo) {
+    case 'atlas':
+      return reglasDeAtlas(e);
+    case 'identidad':
+      return reglasDeIdentidad();
+    case 'iconos':
+      return reglasDeIconos();
+    case 'efecto':
+      return reglasDeEfecto();
+    case 'imagen':
+      return reglasDeImagen(e);
+  }
+}
+
 function reglasDeImagen(e: Encargo): string {
   return e.fondo === 'opaco'
     ? 'Imagen opaca, sin texto ni marco.'
@@ -121,24 +165,14 @@ export function promptDe(e: Encargo): string {
       'Corrige la última imagen que has generado en esta conversación, con la herramienta de imágenes, conservando la identidad del personaje y todo lo que no se menciona.',
       prefacioDeReferencias(e.referencias),
       e.reanudar.correccion,
-      e.tipo === 'atlas'
-        ? reglasDeAtlas(e)
-        : e.tipo === 'identidad'
-          ? reglasDeIdentidad()
-          : reglasDeImagen(e),
+      reglas(e),
     ].join('\n\n');
   }
-  const reglas =
-    e.tipo === 'atlas'
-      ? reglasDeAtlas(e)
-      : e.tipo === 'identidad'
-        ? reglasDeIdentidad()
-        : reglasDeImagen(e);
   return [
     'Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.',
     prefacioDeReferencias(e.referencias),
     e.descripcion,
-    reglas,
+    reglas(e),
   ]
     .filter((p) => p.length > 0)
     .join('\n\n');

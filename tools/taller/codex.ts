@@ -21,6 +21,19 @@ const IMAGENES = join(homedir(), '.codex/generated_images');
 /** Una imagen tarda ~1,5 min; un atlas puede tardar bastante más. */
 const LIMITE_MS = Number(process.env.TALLER_LIMITE_MS ?? 20 * 60_000);
 
+/**
+ * Un fallo que Codex explica en su propio JSON. Si es el límite de uso de la
+ * suscripción, `sinCuota` es verdad: el trabajador para la cola en vez de ir
+ * marcando como fallidos todos los encargos que le quedan.
+ */
+export class FalloDeCodex extends Error {
+  readonly sinCuota: boolean;
+  constructor(mensaje: string) {
+    super(`Codex: ${mensaje}`);
+    this.sinCuota = /usage limit|rate limit|límite de uso/i.test(mensaje);
+  }
+}
+
 export interface Generacion {
   readonly hilo: string;
   /** Ruta absoluta del PNG crudo (en `~/.codex`, fuera del repo). */
@@ -30,12 +43,22 @@ export interface Generacion {
 }
 
 /** Los eventos JSONL de Codex que importan aquí. */
-export function leerEventos(salida: string): { hilo: string | null; mensaje: string } {
+export function leerEventos(salida: string): {
+  hilo: string | null;
+  mensaje: string;
+  error: string | null;
+} {
   let hilo: string | null = null;
   let mensaje = '';
+  let error: string | null = null;
   for (const linea of salida.split('\n')) {
     if (!linea.startsWith('{')) continue;
-    let ev: { type?: string; thread_id?: string; item?: { type?: string; text?: string } };
+    let ev: {
+      type?: string;
+      thread_id?: string;
+      message?: string;
+      item?: { type?: string; text?: string };
+    };
     try {
       ev = JSON.parse(linea);
     } catch {
@@ -45,8 +68,11 @@ export function leerEventos(salida: string): { hilo: string | null; mensaje: str
     if (ev.type === 'item.completed' && ev.item?.type === 'agent_message' && ev.item.text) {
       mensaje = ev.item.text.trim();
     }
+    // El motivo de un fallo viaja en el JSON, no en stderr: allí solo queda
+    // «Reading prompt from stdin...», que es lo que se enseñaba antes.
+    if (ev.type === 'error' && typeof ev.message === 'string') error = ev.message;
   }
-  return { hilo, mensaje };
+  return { hilo, mensaje, error };
 }
 
 export async function generar(
@@ -85,7 +111,9 @@ export async function generar(
       });
       hijo.on('close', (codigo) => {
         clearTimeout(reloj);
-        if (codigo === 0) resolve(out);
+        const { error } = leerEventos(out);
+        if (error !== null) reject(new FalloDeCodex(error));
+        else if (codigo === 0) resolve(out);
         else
           reject(
             new Error(`Codex salió con ${codigo}: ${err.trim().split('\n').slice(-3).join(' | ')}`),

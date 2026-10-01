@@ -15,6 +15,7 @@
  * Que la lámina se vea bien NO es la aceptación: la aceptación es del usuario,
  * con capturas del juego cuando las unidades existan.
  */
+import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import sharp, { type OverlayOptions } from 'sharp';
@@ -230,4 +231,97 @@ export async function vista(ids: readonly string[]): Promise<string[]> {
     fuera.push(r);
   }
   return fuera;
+}
+
+/**
+ * La página de revisión de los efectos de batalla: cada efecto animado en bucle
+ * sobre una casilla del campo, con una figura al lado para la escala; los
+ * iconos a 32 px (como se pintarán) y a 96 px; y los sprites quietos.
+ */
+export async function vistaEfectos(): Promise<string> {
+  const { readdir } = await import('node:fs/promises');
+  const base = join(RAIZ, 'assets/efectos');
+  const animados = (await readdir(join(base, 'animados')))
+    .filter((f) => f.endsWith('.json') && !f.endsWith('.procedencia.json'))
+    .map((f) => f.slice(0, -5));
+  // Los iconos pueden no existir todavía (la lámina va aparte): la página lo dice.
+  const rutaIconos = join(base, 'iconos/iconos.json');
+  const iconos = existsSync(rutaIconos)
+    ? (JSON.parse(await readFile(rutaIconos, 'utf8')) as {
+        iconos: { nombre: string; imagen: string }[];
+      })
+    : { iconos: [] };
+  const quietos = (await readdir(base))
+    .filter((f) => f.endsWith('.webp'))
+    .map((f) => f.slice(0, -5));
+  const datos = await Promise.all(
+    animados.map(async (id) => ({
+      id,
+      ...(JSON.parse(await readFile(join(base, 'animados', `${id}.json`), 'utf8')) as object),
+    })),
+  );
+  const R = '../../../assets';
+  const html = `<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><title>Taller · efectos</title>
+<style>
+  body { margin: 0; background: #1b1d16; color: #e8e2cf; font: 14px system-ui, sans-serif; }
+  h2 { font-size: 16px; padding: 12px 16px 0; margin: 0; }
+  .rejilla { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; padding: 12px 16px; }
+  figure { margin: 0; background: #2a2d22; border-radius: 6px; overflow: hidden; }
+  figcaption { padding: 6px 10px; }
+  canvas { display: block; width: 100%; background: url(${R}/rpg/campo.webp) center 70%; background-size: 170%; background-color: #7a7aa4; }
+  .iconos { display: flex; flex-wrap: wrap; gap: 14px; padding: 12px 16px; }
+  .icono { background: #2a2d22; border-radius: 6px; padding: 8px; text-align: center; width: 120px; }
+  .icono img { display: block; margin: 4px auto; }
+  .quieto img { width: 100%; height: 220px; object-fit: contain; background: url(${R}/rpg/campo.webp) center 70%; background-size: 170%; }
+</style></head><body>
+<h2>Efectos animados (en bucle; en el juego salen una vez)</h2>
+<div class="rejilla" id="animados"></div>
+<h2>Iconos de estado, a 32 px y a 96 px</h2>
+<div class="iconos">${iconos.iconos.length === 0 ? '<p>Todavía no hay lámina de iconos.</p>' : ''}${iconos.iconos
+    .map(
+      (i) =>
+        `<div class="icono"><img src="${R}/efectos/iconos/${i.imagen}" width="32" height="32"><img src="${R}/efectos/iconos/${i.imagen}" width="96" height="96">${i.nombre}</div>`,
+    )
+    .join('')}</div>
+<h2>Sprites quietos</h2>
+<div class="rejilla">${quietos
+    .map(
+      (q) =>
+        `<figure class="quieto"><img src="${R}/efectos/${q}.webp"><figcaption>${q}</figcaption></figure>`,
+    )
+    .join('')}</div>
+<script>
+const EFECTOS = ${JSON.stringify(datos)};
+const figura = new Image(); figura.src = '${R}/unidades/templario-escudo/atlas.webp';
+const piezas = EFECTOS.map((e) => {
+  const fig = document.createElement('figure');
+  const c = document.createElement('canvas'); c.width = 400; c.height = 300;
+  const cap = document.createElement('figcaption'); cap.textContent = e.id + ' · ' + e.fotogramas + ' fotogramas';
+  fig.append(c, cap); document.getElementById('animados').append(fig);
+  const img = new Image(); img.src = '${R}/efectos/animados/' + e.id + '.webp';
+  return { e, c, img };
+});
+const t0 = performance.now();
+function dibujar(ahora) {
+  const t = (ahora - t0) / 1000;
+  for (const { e, c, img } of piezas) {
+    const ctx = c.getContext('2d'); ctx.clearRect(0, 0, c.width, c.height);
+    // La casilla: una elipse a 25°.
+    ctx.strokeStyle = 'rgba(255,240,200,0.5)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(220, 230, 60, 26, 0, 0, Math.PI * 2); ctx.stroke();
+    if (figura.complete && figura.naturalWidth) ctx.drawImage(figura, 0, 0, 256, 256, 20, 100, 160, 160);
+    if (!img.complete || !img.naturalWidth) continue;
+    const i = Math.floor(t * 10) % (e.fotogramas + 4); // 10 fps y una pausa
+    if (i < e.fotogramas) ctx.drawImage(img, i * e.celda, 0, e.celda, e.celda, 120, 60, 200, 200);
+  }
+  requestAnimationFrame(dibujar);
+}
+requestAnimationFrame(dibujar);
+</script></body></html>
+`;
+  const ruta = join(DIR_VISTA, 'efectos.html');
+  await mkdir(DIR_VISTA, { recursive: true });
+  await writeFile(ruta, html);
+  return ruta;
 }
