@@ -152,7 +152,7 @@ function pagina(hojas: readonly Hoja[]): string {
 <style>
   body { margin: 0; background: #1b1d16; color: #e8e2cf; font: 14px system-ui, sans-serif; }
   header { padding: 12px 16px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
-  .rejilla { display: grid; grid-template-columns: repeat(auto-fill, minmax(560px, 1fr)); gap: 12px; padding: 0 16px 16px; }
+  .rejilla { display: grid; grid-template-columns: repeat(auto-fill, minmax(744px, 1fr)); gap: 12px; padding: 0 16px 16px; }
   figure { margin: 0; background: #2a2d22; border-radius: 6px; overflow: hidden; }
   figcaption { padding: 6px 10px; display: flex; justify-content: space-between; }
   canvas { display: block; width: 100%; background: url(../../../assets/rpg/campo.webp) center 70%; background-size: 170%; background-color: #7a7aa4; }
