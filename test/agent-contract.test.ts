@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { MARGEN_CONTRA_NEUTRALES } from '../src/core/ai/fuerza.js';
 import { planBuildings, planHires, planRecruits } from '../src/core/ai/strategy.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
+import { playAiTurn } from '../src/core/ai/turn.js';
 import { activeStack, createBattle, legalActions } from '../src/core/battle/battle.js';
 import {
   adventureActionSchema,
@@ -14,14 +16,16 @@ import {
   COMO_SE_LEE_EL_MAPA,
   serializeAdventureTurn,
   serializeBattleTurn,
+  serializeKnownMap,
   serializeMapRequest,
 } from '../src/core/contract/serialize.js';
-import { creature } from '../src/core/data.js';
+import { ASALTANTES, creature } from '../src/core/data.js';
 import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '../src/core/hero/troop.js';
 import { generateMapPlan } from '../src/core/map/generate.js';
 import { pointFromKey, pointKey } from '../src/core/map/map.js';
 import { costeDeEntrada, isWalkable, TERRAIN_KINDS } from '../src/core/map/terrain.js';
 import { createRng } from '../src/core/rng.js';
+import { cronicaPara } from '../src/core/state/events.js';
 import {
   applyAdventureAction,
   heroesOf,
@@ -51,8 +55,13 @@ describe('contrato con el agente', () => {
       ...planBuildings(state, 0),
       ...planRecruits(state, 0),
       { type: 'move_hero' as const, hero: heroesOf(state, 0)[0]!.id, to: { x: 5, y: 5 } },
+      // La que la IA usa para cambiar tropa (`planRecruits`), que en esta
+      // semilla y este día no le hace falta.
+      { type: 'dismiss' as const, hero: heroesOf(state, 0)[0]!.id, creature: 'peasant', count: 1 },
       { type: 'end_turn' as const },
     ];
+    // Y la prosa la anuncia: un agente no descubre una acción que no le cuentan.
+    expect(RESPONSE_FORMAT.adventure_turn).toMatch(/"type": "dismiss"/);
     expect(acciones.length).toBeGreaterThan(2);
     for (const accion of acciones) {
       const r = adventureActionSchema.safeParse(accion);
@@ -302,6 +311,92 @@ describe('lo que ve el agente', () => {
     suyo.at = { ...mio.at };
     const delante = serializeAdventureTurn(state, 0) as { enemyHeroes: { id: string }[] };
     expect(delante.enemyHeroes.map((h) => h.id)).toEqual([suyo.id]);
+  });
+
+  it('un grupo de asaltantes se ve AHORA o no se ve, en el turno y en la tool `map`', () => {
+    const state = newGame({ seed: 92 });
+    // Con el mapa entero explorado: lo que se mira aquí es el presente, no la niebla.
+    revealEverything(state, 0);
+    const mio = heroesOf(state, 0)[0]!;
+    const grupo = state.raiders[0]!;
+    const lejos = serializeAdventureTurn(state, 0) as {
+      knownMap: { raiders: { id: string }[] };
+    };
+    const ids = (m: { raiders: { id: string }[] }) => m.raiders.map((r) => r.id);
+    const vistos = visibleNow(state, 0);
+    expect(ids(lejos.knownMap)).toEqual(
+      state.raiders.filter((r) => vistos.has(pointKey(r.at))).map((r) => r.id),
+    );
+    expect(ids(lejos.knownMap)).not.toContain(grupo.id);
+    expect(ids(serializeKnownMap(state, 0))).toEqual(ids(lejos.knownMap));
+
+    // Con el héroe al lado sí, con su tropa y su fuerza; y el héroe con la suya.
+    mio.at = { x: grupo.at.x, y: grupo.at.y - 1 };
+    const cerca = serializeAdventureTurn(state, 0) as {
+      knownMap: { raiders: { id: string; troops: unknown[]; strength: number }[] };
+      heroes: { strength: number }[];
+    };
+    const visto = cerca.knownMap.raiders.find((r) => r.id === grupo.id)!;
+    expect(visto.troops.length).toBeGreaterThan(0);
+    expect(visto.strength).toBeGreaterThan(0);
+    expect(cerca.heroes[0]!.strength).toBeGreaterThan(0);
+    expect(serializeKnownMap(state, 0)).toEqual(cerca.knownMap);
+  });
+
+  it('que hay un grupo solo le llega a quien lo vio nacer, también a los del mapa de salida', async () => {
+    const state = newGame({ seed: 17, maxDays: 40 });
+    // Los de salida se cuentan al crear la partida, uno por grupo: la regla no
+    // depende de cuándo nació.
+    const deSalida = state.log.filter((e) => e.kind === 'raider_spawned');
+    expect(deSalida.map((e) => e.kind === 'raider_spawned' && e.raider)).toEqual(
+      state.raiders.map((r) => r.id),
+    );
+    const ctx = { rng: createRng(17) };
+    while (state.finished === null) await playAiTurn(state, ctx);
+    const brotes = state.log.filter((e) => e.kind === 'raider_spawned');
+    for (const p of [0, 1] as const) {
+      const leidas = cronicaPara(state, p, 10_000).filter((e) => e.kind === 'raider_spawned');
+      expect(leidas.length).toBe(brotes.filter((e) => e.seen.includes(p)).length);
+    }
+    // Y que alguno no se vea, o el filtro no estaría filtrando nada.
+    expect(brotes.some((e) => e.seen.length === 0)).toBe(true);
+    // La patrulla ya no es un hecho: dónde está un grupo es estado.
+    expect(state.log.some((e) => (e.kind as string) === 'raider_moved')).toBe(false);
+  });
+
+  it('la prosa cuenta los asaltantes donde el agente decide: mapa, turno y batalla', () => {
+    expect(COMO_SE_LEE_EL_MAPA).toMatch(/"raiders"/);
+    expect(COMO_SE_LEE_EL_MAPA).toMatch(/EMBOSCA/);
+    // El margen sale de la regla y no de un número escrito a mano.
+    expect(COMO_SE_LEE_EL_MAPA).toContain(String(MARGEN_CONTRA_NEUTRALES).replace('.', ','));
+    expect(RESPONSE_FORMAT.adventure_turn).toMatch(/EMBOSCADA/);
+    expect(RESPONSE_FORMAT.battle_turn).toMatch(/ASALTANTES emboscan/);
+    expect(RESPONSE_FORMAT.map_generate).toMatch(/raiders\?/);
+    expect(RESPONSE_FORMAT.map_generate).toMatch(/palette\.raiders\.maxStrength/);
+  });
+
+  it('el esquema del plan acepta `raiders` y lo deja opcional', () => {
+    const plan = generateMapPlan(createRng(4));
+    expect(plan.raiders?.length).toBeGreaterThan(0);
+    expect(mapPlanSchema.safeParse(plan).success).toBe(true);
+    const { raiders: _fuera, ...sin } = plan;
+    expect(mapPlanSchema.safeParse(sin).success).toBe(true);
+    // Y la paleta que se le manda trae el techo, sacado de los datos.
+    const peticion = serializeMapRequest({ width: 28, height: 28, players: [0, 1] }) as {
+      palette: { raiders: { maxStrength: number; examples: unknown[] } };
+    };
+    expect(peticion.palette.raiders.maxStrength).toBe(ASALTANTES.fuerzaMax);
+    expect(peticion.palette.raiders.examples).toEqual(ASALTANTES.composiciones);
+  });
+
+  it('un grupo de asaltantes sin nadie dentro no pasa el esquema, y lo dice (H3)', () => {
+    const plan = generateMapPlan(createRng(4));
+    const uno = plan.raiders![0]!;
+    const vacio = mapPlanSchema.safeParse({ ...plan, raiders: [{ at: uno.at, troops: [] }] });
+    expect(vacio.success).toBe(false);
+    expect(vacio.error?.issues.map((i) => i.message).join(' | ')).toMatch(
+      /"troops" no puede ir vacío/,
+    );
   });
 
   it('la petición de batalla trae todas las acciones legales', () => {

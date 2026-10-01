@@ -233,9 +233,10 @@ describe('sesión del cliente: reclutar lo que cabe y ver la ruta entera', () =>
   it('el liderazgo del héroe es lo que ocupa su ejército sobre su tope', () => {
     const s = new Session(7);
     const heroe = s.selectedHero!;
-    // El 10 es de la semilla: el ejército de salida sale del mismo `rng` que el
-    // mapa, y el mapa de nodos tira distinto que el de esquinas (era 14).
-    expect(s.liderazgo({ heroe: heroe.id })).toEqual({ ocupado: 10, tope: 20 });
+    // El 14 es de la semilla: el ejército de salida sale del mismo `rng` que el
+    // mapa, y cada mapa tira distinto —era 14 con el de esquinas, 10 con el de
+    // nodos de 24 y otra vez 14 con el de 28 y sus asaltantes—.
+    expect(s.liderazgo({ heroe: heroe.id })).toEqual({ ocupado: 14, tope: 20 });
   });
 
   it('la guarnición va por el mismo camino, con el tope de guarnición', () => {
@@ -291,7 +292,18 @@ describe('sesión del cliente: la versión y lo que se guarda entre fotogramas',
     expect(s.version).toBeGreaterThan(v1);
     const v2 = s.version;
     const heroe = heroesOf(s.state, 0)[0]!;
-    s.moveHeroTo(heroe.id, { x: heroe.at.x + 1, y: heroe.at.y });
+    // Una vecina que se pise, buscada y no supuesta: con el mapa de 32 la de
+    // la derecha del inicio de la semilla 7 es montaña, y un paso rechazado no
+    // cambia nada que versionar.
+    const vecina = [-1, 0, 1]
+      .flatMap((dy) => [-1, 0, 1].map((dx) => ({ x: heroe.at.x + dx, y: heroe.at.y + dy })))
+      .find(
+        (p) =>
+          (p.x !== heroe.at.x || p.y !== heroe.at.y) &&
+          s.state.map.terrain[p.y * s.state.map.width + p.x] !== 'mountain',
+      )!;
+    s.moveHeroTo(heroe.id, vecina);
+    expect(heroe.at).toEqual(vecina);
     expect(s.version).toBeGreaterThan(v2);
   });
 

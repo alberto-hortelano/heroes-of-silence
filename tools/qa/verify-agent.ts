@@ -91,6 +91,26 @@ let cambioAplicado: string | null = null;
  * lo cubre un test (`agent-link.test.ts`), que sí puede construirla.
  */
 let rendicionOfrecida = false;
+/**
+ * Los asaltantes que el agente ha visto en su `knownMap`, por id, y cuántas
+ * emboscadas le constan en la crónica. El criterio del ciclo es que `pnpm qa`
+ * **se encuentre con alguno**: si el turno no los trajera, el circuito daría
+ * verde sin haber ejercitado nada de lo que el agente tiene que ver.
+ */
+const asaltantesVistos = new Set<string>();
+const emboscadasVistas = new Set<string>();
+/**
+ * Las licencias que le constan al agente en su crónica: el arnés licencia
+ * cuando el héroe está en su castillo con la tropa llena (`politica.ts`), y que
+ * conste es que el `dismiss` cruzó el circuito y se aplicó, no solo que validó.
+ */
+const licenciasVistas = new Set<string>();
+/**
+ * Cuánto de la ventana de `recentEvents` se llevan los hechos de asaltantes.
+ * Era un riesgo del plan —la patrulla podía ahogar los 25 hechos que caben—;
+ * la patrulla dejó de ser un hecho, y lo que queda se mide en vez de suponerse.
+ */
+const cuotaDeAsaltantes = { asaltantes: 0, total: 0 };
 
 /** Una consulta que tiene que devolver JSON. Si no, es que el puente miente. */
 async function consulta(
@@ -297,6 +317,21 @@ async function terminarBien(
       '\x1b[33m[qa] AVISO: no ha habido ninguna batalla, así que battle_state no se ha ejercitado\x1b[0m',
     );
   }
+  if (asaltantesVistos.size === 0) {
+    throw new Error(
+      'el agente no ha visto ni un grupo de asaltantes en ningún knownMap: el turno no los trae, o el arnés no los encuentra',
+    );
+  }
+  log(
+    `asaltantes: ${asaltantesVistos.size} grupos vistos en el knownMap, ${emboscadasVistas.size} emboscadas en la crónica; ` +
+      `los hechos de asaltantes son ${cuotaDeAsaltantes.asaltantes} de ${cuotaDeAsaltantes.total} de recentEvents`,
+  );
+  if (licenciasVistas.size === 0) {
+    throw new Error(
+      'el agente no ha licenciado tropa ni una vez: `dismiss` no ha cruzado el circuito',
+    );
+  }
+  log(`licencias: ${licenciasVistas.size} en la crónica del agente`);
   log(`consultas ejercitadas: ${[...consultadas].sort().join(', ')}`);
   log(
     `${motivo}: ${mapas} ${mapas === 1 ? 'mapa diseñado' : 'mapas diseñados'}, ` +
@@ -516,6 +551,24 @@ async function main(): Promise<void> {
       rendicionOfrecida ||= rendicion !== undefined;
     }
 
+    if (kind === 'adventure_turn') {
+      for (const r of payload.knownMap?.raiders ?? []) asaltantesVistos.add(r.id);
+      for (const e of payload.recentEvents ?? []) {
+        cuotaDeAsaltantes.total++;
+        if (String(e.kind).startsWith('raider_')) cuotaDeAsaltantes.asaltantes++;
+        // La misma emboscada sale en varias ventanas seguidas: se cuenta por su
+        // contenido, que la identifica sin un id que el hecho no tiene.
+        if (e.kind === 'battle_started' && e.attacker?.kind === 'raider') {
+          emboscadasVistas.add(JSON.stringify(e));
+        }
+        if (e.kind === 'dismissed') licenciasVistas.add(JSON.stringify(e));
+      }
+      if (payload.heroes?.some((h: any) => typeof h.strength !== 'number')) {
+        throw new Error(
+          'un héroe del turno llega sin "strength": el agente no puede saber si lo emboscan',
+        );
+      }
+    }
     const respuesta = decidir(kind, payload);
     // `map_generate` se cuenta aparte y NO como turno de mapa: mezclarlo movería
     // la cifra del informe y dejaría de ser comparable con los 3 turnos y 9

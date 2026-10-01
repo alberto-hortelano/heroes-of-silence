@@ -210,7 +210,7 @@ export function findPath(
   if (pointKey(from) === pointKey(to)) return [];
   if (!isEnterable(map, to)) return null;
 
-  return pathFromReachable(map, dijkstra(map, from, to, hostiles), from, to);
+  return pathFromReachable(map, dijkstra(map, from, to, hostiles, null), from, to);
 }
 
 /**
@@ -256,8 +256,9 @@ export function reachableFrom(
   map: GameMap,
   from: Point,
   hostiles: readonly Point[] = [],
+  prohibidas: Uint8Array | null = null,
 ): Reachable {
-  return dijkstra(map, from, null, hostiles);
+  return dijkstra(map, from, null, hostiles, prohibidas);
 }
 
 /**
@@ -312,6 +313,7 @@ function dijkstra(
   from: Point,
   parar: Point | null,
   hostiles: readonly Point[],
+  prohibidas: Uint8Array | null,
 ): Reachable {
   const ancho = map.width;
   const casillas = ancho * map.height;
@@ -365,6 +367,21 @@ function dijkstra(
   // frontera son los de siempre, y el desempate no se entera.
   for (const p of hostiles) {
     if (inBounds(map, p)) bloqueada[p.y * ancho + p.x] = 1;
+  }
+  // Y lo que quien llama no quiere ni pisar —las regiones enteras donde a un
+  // héroe lo emboscarían—: se trata como un muro, no como un final de
+  // trayecto, porque pisar la primera casilla ya es la emboscada. El origen se
+  // respeta aunque venga marcado: desde donde se está siempre se sale. Una
+  // marca por casilla y no una lista de puntos, que eran 1,66 M de `Point` en
+  // el banco para decir lo mismo. Solo cambia `pisable`, como un muro: el orden
+  // de descubrimiento y la frontera son los de siempre.
+  if (prohibidas !== null) {
+    if (prohibidas.length !== casillas) {
+      throw new Error(
+        `la marca de casillas prohibidas tiene ${prohibidas.length} casillas y el mapa ${casillas}`,
+      );
+    }
+    for (let i = 0; i < casillas; i++) if (prohibidas[i] === 1 && i !== origen) pisable[i] = 0;
   }
 
   // −1 es «sin coste todavía»: los costes reales son siempre > 0 salvo el del

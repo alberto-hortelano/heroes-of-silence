@@ -21,6 +21,7 @@
 import type { BattleStack, BattleState, Side } from '@core/battle/types.js';
 import type { MapObject, MapRegion } from '@core/map/map.js';
 import type { TerrainKind } from '@core/map/terrain.js';
+import type { VistaAsaltante } from '@core/state/asaltantes.js';
 import type { GameEventDraft } from '@core/state/events.js';
 import { sinSello } from '@core/state/events.js';
 import { battleOwners, type GameState } from '@core/state/game.js';
@@ -110,6 +111,12 @@ export interface SpectatorView {
   readonly heroes: readonly VistaHeroe[];
   readonly towns: readonly VistaPueblo[];
   /**
+   * Los grupos de asaltantes, con su tropa contada: la figura lleva el cuerpo
+   * de su primera criatura y la chapa, cuántos son. La forma es la del núcleo
+   * (`VistaAsaltante`), la misma que pinta el lienzo.
+   */
+  readonly raiders: readonly VistaAsaltante[];
+  /**
    * Los últimos hechos, **sin el sello**: es `GameEventDraft` y no `GameEvent`, y
    * el tipo lo dice en vez de dejarlo en una nota. Lo que se quita es `seen`
    * —quién más estaba mirando—, que es contabilidad de casa.
@@ -163,6 +170,7 @@ export function construirVista(state: GameState, directorLog: readonly string[])
       at: t.at,
       buildings: t.buildings,
     })),
+    raiders: state.raiders.map((r) => ({ id: r.id, at: r.at, troops: r.troops })),
     // Sin el sello: el espectador ve la partida entera —eso es lo que es— pero
     // quién MÁS estaba mirando cada casilla es contabilidad de casa, y salía
     // entera por aquí mientras el mensaje del agente la borraba a propósito dos

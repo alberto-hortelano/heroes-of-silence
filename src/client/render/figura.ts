@@ -40,12 +40,28 @@ function hojaTeñida(imagen: HTMLImageElement, color: string): HTMLCanvasElement
   return lienzo;
 }
 
+/** Hasta cuándo hay alguna figura en marcha, en el reloj de `performance.now()`. */
+let enMarchaHasta = 0;
+
 /**
- * ¿Hay alguna figura que respire? Con el arte cargado, el reposo se anima y el
- * lienzo tiene que repintarse a cada fotograma; sin él, los marcadores están
- * quietos y se pinta solo cuando algo cambia.
+ * Una figura se está moviendo y lo seguirá haciendo hasta `hasta`: el lienzo
+ * tiene que seguir pidiendo fotogramas hasta entonces, **también sin arte**,
+ * que es cuando nada respira y no se repinta si nada cambia. Lo llama quien
+ * desliza una figura —la patrulla de los asaltantes—, en el mismo contador que
+ * mira el bucle de dibujo, en vez de abrir un segundo mecanismo al lado.
+ */
+export function animarHasta(hasta: number): void {
+  enMarchaHasta = Math.max(enMarchaHasta, hasta);
+}
+
+/**
+ * ¿Hay alguna figura que respire o que ande? Con el arte cargado, el reposo se
+ * anima y el lienzo tiene que repintarse a cada fotograma; sin él, los
+ * marcadores están quietos y se pinta solo cuando algo cambia o algo anda
+ * (`animarHasta`).
  */
 export function hayFigurasAnimadas(): boolean {
+  if (performance.now() < enMarchaHasta) return true;
   return HOJAS_DE_FIGURA.some((h) => asset('rpg', h) !== null);
 }
 

@@ -9,6 +9,7 @@
 
 import { once } from 'node:events';
 import { troopSummary } from '@core/hero/troop.js';
+import { LADO_DEL_MAPA } from '@core/map/generate.js';
 import { parseSeed } from '@core/rng.js';
 import type { PlayerId } from '@core/types.js';
 import { type WebSocket, WebSocketServer } from 'ws';
@@ -38,13 +39,13 @@ const WAIT_FOR_AGENT_MS = esperaAlAgente();
 /**
  * El mapa que se le pide al agente, y el que sale del procedimental si no lo da.
  *
- * Son los valores por defecto de `generateMapPlan`, escritos aquí porque ahora
- * hay que decírselos a alguien: el agente no puede adivinar de qué tamaño lo
- * quieres. Si dejan de coincidir, la partida sin agente y la partida con agente
- * dejan de jugarse en mapas comparables.
+ * Es el lado por defecto de `generateMapPlan`, **leído y no copiado**: estuvo
+ * escrito aquí a mano como `24` y, al cambiar el generador de tamaño, la
+ * partida con agente y la que sale sin él habrían dejado de jugarse en mapas
+ * comparables sin que nada se pusiera rojo.
  */
-const ANCHO_DEL_MAPA = 24;
-const ALTO_DEL_MAPA = 24;
+const ANCHO_DEL_MAPA = LADO_DEL_MAPA;
+const ALTO_DEL_MAPA = LADO_DEL_MAPA;
 /** Los jugadores de la partida, en el orden en que los numera `newGame`. */
 const JUGADORES = [0, 1] as const;
 

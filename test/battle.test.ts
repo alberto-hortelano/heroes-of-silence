@@ -952,7 +952,7 @@ describe('el libro de hechizos del jugador (#4)', () => {
     // `finishBattle()` se estrellaría contra "monstruo no encontrado": un fallo
     // del andamio con toda la pinta de ser del núcleo.
     session.state.pendingBattle = {
-      attackerHeroId: session.myHeroes()[0]!.id,
+      attacker: { kind: 'hero', heroId: session.myHeroes()[0]!.id },
       foe: { kind: 'monster', objectId: monstruoVivo(session.state).id },
       battle,
     };
@@ -1327,7 +1327,7 @@ describe('el parte de guerra pinta de quién es cada cosa', () => {
         ? session.myHeroes()[0]!
         : session.state.heroes.find((h) => h.owner !== session.viewer)!;
     session.state.pendingBattle = {
-      attackerHeroId: atacante.id,
+      attacker: { kind: 'hero', heroId: atacante.id },
       foe: { kind: 'monster', objectId: monstruoVivo(session.state).id },
       battle,
     };

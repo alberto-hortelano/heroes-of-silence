@@ -66,9 +66,12 @@ export function responderConsulta(
         // que se le enseña es un campo de batalla, no el diario del rival.
         //
         // Lo que sí cambia es lo que va dentro: `'ajena'` quita el maná y el
-        // libro de ese héroe, que **es el de otra persona** —el monstruo es
-        // siempre el defensor, así que el atacante es siempre un jugador— y las
-        // acciones legales, que son las de un stack que no manda quien pregunta.
+        // libro del héroe atacante, que si lo hay **es el de otra persona**, y
+        // las acciones legales, que son las de un stack que no manda quien
+        // pregunta. Aquí decía «el atacante es siempre un jugador»: dejó de ser
+        // verdad con los asaltantes, que emboscan atacando. Con uno atacando no
+        // hay héroe atacante que enseñar, y el defensor —un héroe del rival— va
+        // con sus cifras de tablero y sin su libro, que es del otro bando.
         return {
           ...(serializeBattleTurn(pending.battle, 'attacker', 'ajena', null) as object),
           note: `el jugador ${player} no está en esta batalla: la ves con los ojos del atacante, sin su maná, sin su libro de hechizos y sin "legalActions", porque ahí no juegas tú`,

@@ -19,8 +19,16 @@
  * Ahora la cola se consume **fotograma a fotograma**: el siguiente no se aplica
  * hasta que el animador ha contado lo que trajo el anterior. Lo que se queda
  * atrás no se salta: se cuenta **más deprisa** (`ritmoDeReproduccion`). Y el
- * final de cada batalla se sigue reteniendo `FINAL_VISIBLE_MS` con el tablero ya
- * quieto, que es lo que arregló H-3 y no se toca.
+ * final de cada batalla se sigue reteniendo con el tablero ya quieto, que es lo
+ * que arregló H-3: `FINAL_VISIBLE_MS` al día, y **comprimido al mismo ritmo**
+ * cuando va atrasado (`retencionDelFinal`).
+ *
+ * Lo segundo vino con los asaltantes: las emboscadas son batallas del agente, y
+ * con cuatro finales de 2,5 s enteros el espectador enseñaba el fin de la
+ * partida 22,6 s después del `game_over` —diez de ellos, finales quietos—. Un
+ * final que se cuenta deprisa porque llega tarde se retiene deprisa por lo
+ * mismo: el atraso no se arregla acelerando los golpes y parando igual de largo
+ * entre batallas.
  */
 
 import type { SpectatorSnapshotMsg } from '../../server/protocol.js';
@@ -77,13 +85,25 @@ export class TelonDeBatalla<F> {
     if (this.cola.length === 0) return null;
     if (this.actual !== null && this.terminada(this.actual)) {
       if (this.quietoDesde === null) this.quietoDesde = ahora;
-      if (ahora - this.quietoDesde < this.minimo) return null;
+      if (ahora - this.quietoDesde < retencionDelFinal(this.minimo, this.cola.length)) return null;
     }
     const siguiente = this.cola.shift() as F;
     this.actual = siguiente;
     this.quietoDesde = null;
     return siguiente;
   }
+}
+
+/**
+ * Cuánto se retiene un final con `enCola` fotogramas esperando detrás: `minimo`
+ * dividido por el ritmo de lo que espera **detrás del siguiente**. El siguiente
+ * no cuenta como atraso —llega siempre enseguida, con un agente rápido— y si
+ * contara, ningún final se vería nunca entero. Con uno o ninguno detrás, el
+ * mínimo entero; con una cola, una fracción, nunca menos de `minimo /
+ * RITMO_MAXIMO` (≈ 208 ms con el de hoy): se ve, pero no para la partida.
+ */
+export function retencionDelFinal(minimo: number, enCola: number): number {
+  return minimo / ritmoDeReproduccion(Math.max(0, enCola - 1));
 }
 
 /** Si el fotograma del cable trae una batalla ya terminada: lo que el telón retiene. */

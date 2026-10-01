@@ -73,7 +73,7 @@ export function newGame(options: NewGameOptions = {}): GameState {
     throw new Error(`el plan de mapa no es jugable:\n- ${problemas.join('\n- ')}`);
   }
 
-  const { map, towns } = buildMap(plan);
+  const { map, towns, raiders } = buildMap(plan);
 
   const factionOf = new Map<PlayerId, FactionId>();
   for (const t of plan.towns) {
@@ -139,5 +139,6 @@ export function newGame(options: NewGameOptions = {}): GameState {
     players,
     heroes,
     towns,
+    raiders,
   });
 }

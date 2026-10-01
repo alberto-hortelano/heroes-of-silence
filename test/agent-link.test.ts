@@ -5,7 +5,12 @@ import WebSocket, { WebSocketServer } from 'ws';
 import { activeStack, applyAction } from '../src/core/battle/battle.js';
 import { creature } from '../src/core/data.js';
 import { type Hero, heroUnit } from '../src/core/hero/hero.js';
-import { generateMapPlan, type MapPlan, validateMapPlan } from '../src/core/map/generate.js';
+import {
+  generateMapPlan,
+  LADO_DEL_MAPA,
+  type MapPlan,
+  validateMapPlan,
+} from '../src/core/map/generate.js';
 import { pointFromKey, pointKey, reachableFrom } from '../src/core/map/map.js';
 import { createRng } from '../src/core/rng.js';
 import { cronicaPara, sinSello, visibleTo } from '../src/core/state/events.js';
@@ -1062,6 +1067,7 @@ describe('la consulta `map` pasa por la niebla', () => {
     expect(Object.keys(porLaTool).sort()).toEqual([
       'height',
       'objects',
+      'raiders',
       'roads',
       'terrain',
       'width',
@@ -1138,7 +1144,10 @@ describe('el agente pregunta antes de que exista la partida', () => {
  * el generador procedimental y **al agente se le dice por qué**.
  */
 describe('el agente diseña el mapa', () => {
-  const PETICION = { width: 24, height: 24, players: [0, 1] as const };
+  // El lado del generador y no un literal: el plan bueno de abajo sale de
+  // `generateMapPlan` sin tamaño, y pedir otro sería rechazarlo por medir.
+  const PETICION = { width: LADO_DEL_MAPA, height: LADO_DEL_MAPA, players: [0, 1] as const };
+  const PEDIDO = `${LADO_DEL_MAPA}×${LADO_DEL_MAPA}`;
 
   /** El acuse de la petición de mapa, ya entregado por el cable. */
   async function acuseDelMapa(agent: FakeAgent) {
@@ -1154,7 +1163,7 @@ describe('el agente diseña el mapa', () => {
 
     const { plan, motivo } = await pedirMapaAlAgente(link, PETICION);
     expect(plan).not.toBeNull();
-    expect(motivo).toContain('24×24');
+    expect(motivo).toContain(PEDIDO);
 
     // Devolverlo no basta: lo que prueba #27 es que la partida se juega en él.
     const director = new Director(link, { seed: 411, agentPlayers: [1], plan: plan as MapPlan });
@@ -1225,13 +1234,13 @@ describe('el agente diseña el mapa', () => {
     expect(acuse?.problems?.join(' ')).toMatch(/Las que valen:/);
   });
 
-  it('un plan de otro tamaño se rechaza: 128×128 pedido un 24×24', async () => {
+  it('un plan de otro tamaño se rechaza: 48×48 pedido el del generador', async () => {
     const grande = generateMapPlan(createRng(25), { width: 48, height: 48 });
     const { link, agent } = await montar(() => ({ plan: grande }));
 
     const { plan, motivo } = await pedirMapaAlAgente(link, PETICION);
     expect(plan).toBeNull();
-    expect(motivo).toMatch(/mide 48×48 y se te pidió 24×24/);
+    expect(motivo).toContain(`mide 48×48 y se te pidió ${PEDIDO}`);
     expect((await acuseDelMapa(agent))?.ok).toBe(false);
   });
 
@@ -1439,12 +1448,16 @@ describe('el agente sabe cómo le fue', () => {
     // llega nunca: el agente se queda esperando el turno de la unidad que acaba
     // de ganar. El escenario está montado para forzarlo, que es lo que QA no
     // consiguió en una partida de verdad.
+    // El agente va al monstruo que se ha cambiado por el zombi, nombrado por su
+    // id. Antes cogía el primer monstruo de `knownMap.objects`, que coincidía con
+    // el que cambia `ponerMonstruo` solo por el orden en que la niebla los había
+    // apuntado; desde que el castillo también apunta lo que ve (H1), ese orden
+    // es otro y el héroe se iba a pelear con un monstruo distinto.
+    let objetivo = '';
     const { link, agent } = await montar((kind, payload) => {
       if (kind === 'adventure_turn') {
-        const monstruo = payload.knownMap.objects.find(
-          (o: any) => o.kind === 'monster' && !o.defeated,
-        );
-        if (monstruo === undefined) throw new Error('el mapa de esta semilla no trae monstruos');
+        const monstruo = payload.knownMap.objects.find((o: any) => o.id === objetivo);
+        if (monstruo === undefined) throw new Error(`el agente no ve el monstruo ${objetivo}`);
         return { actions: [{ type: 'move_hero', hero: payload.heroes[0].id, to: monstruo.at }] };
       }
       // Legal en el esquema y sin sentido en el tablero: la juega la heurística.
@@ -1468,7 +1481,7 @@ describe('el agente sabe cómo le fue', () => {
     // que una flecha se lleva al monstruo entero. Antes era un stack de
     // `⌈12/PV⌉`; con la tropa de individuos cada uno es un hex, y la flecha da
     // a uno solo.
-    ponerMonstruo(director.state, 'zombie', 1);
+    objetivo = ponerMonstruo(director.state, 'zombie', 1).id;
 
     await director.playTurn();
     await respira();

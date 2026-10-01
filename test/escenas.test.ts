@@ -32,10 +32,20 @@ import type { BattleStack } from '../src/core/battle/types.js';
 import type { Hex } from '../src/core/types.js';
 
 /** La semilla 2 tiene una guardia de zombis en (12,3) al alcance del héroe: batalla al primer clic. */
+/**
+ * Una batalla en la que la persona ATACA a un monstruo. La semilla 2 y (12,3)
+ * dejaron de darla con el mapa de 28 y los asaltantes: allí la marcha se paraba
+ * en una emboscada, y la persona defendía —el marco del móvil empieza en el
+ * otro lado—. La 35 en (8,9) es un monstruo al que se llega sin cruzar la
+ * región de ningún grupo que embosque.
+ */
 function sesionEnBatalla(): Session {
-  const s = new Session(2);
-  s.clickTile({ x: 12, y: 3 });
-  if (s.battle === null) throw new Error(`la semilla 2 ya no da batalla en (12,3): ${s.status}`);
+  const s = new Session(35);
+  s.clickTile({ x: 8, y: 9 });
+  if (s.battle === null) throw new Error(`la semilla 35 ya no da batalla en (8,9): ${s.status}`);
+  if (s.state.pendingBattle?.attacker.kind !== 'hero') {
+    throw new Error('la semilla 35 en (8,9) ya no es la persona atacando: ¿una emboscada?');
+  }
   return s;
 }
 
@@ -93,6 +103,46 @@ describe('el mapa con el dedo', () => {
     expect(s.status).not.toContain('No hay camino');
     expect(s.status).toBe(`${heroe.name} ya está en esa casilla: pulsa otra para moverlo.`);
     expect(s.selectedHero!.movePoints).toBe(heroe.movePoints);
+  });
+});
+
+describe('la ruta avisa de la emboscada (H2)', () => {
+  // Semilla 1, día 1: el grupo de 6 piqueros de la región de casa está a la
+  // vista desde Valdeluz, y una ruta a (2,10) pisa su región en (1,9). Antes, la
+  // barra decía «llegas hoy (3 pasos)» y al pulsar había batalla.
+  it('el tramo desde la emboscada va marcado, la barra lo dice delante y la batalla sale donde avisa', () => {
+    const s = new Session(1);
+    const escena = new EscenaAventura(() => s);
+    escena.encuadrar(800, 600);
+    const camara = centrarEn({ tile: TILE_INICIAL, x: 0, y: 0 }, focoDe(s), {
+      ancho: 800,
+      alto: 600,
+      mapaAncho: s.state.map.width,
+      mapaAlto: s.state.map.height,
+    });
+    const destino = { x: 2, y: 10 };
+    const p = casillaAPixel(camara, destino);
+    escena.mover(p.x, p.y);
+    const ruta = escena.rutaVisible;
+    const donde = ruta.findIndex((paso) => paso.emboscada !== undefined);
+    expect(donde).toBeGreaterThanOrEqual(0);
+    expect(ruta.slice(0, donde).every((paso) => paso.peligro === false)).toBe(true);
+    expect(ruta.slice(donde).every((paso) => paso.peligro === true)).toBe(true);
+    expect(s.status).toMatch(
+      /^Cuidado: el camino cruza la región de 6 asaltantes, que te emboscarían/,
+    );
+    // El aviso es VERDAD: pulsar da la batalla con ese grupo atacando.
+    const quien = ruta[donde]!.emboscada!.id;
+    s.clickTile(destino);
+    expect(s.state.pendingBattle?.attacker).toEqual({ kind: 'raider', raiderId: quien });
+  });
+
+  it('una ruta sin emboscada no avisa', () => {
+    const s = new Session(1);
+    const heroe = s.selectedHero!;
+    const ruta = s.previewPath({ x: heroe.at.x + 1, y: heroe.at.y });
+    expect(ruta.length).toBeGreaterThan(0);
+    expect(ruta.some((paso) => paso.peligro || paso.emboscada !== undefined)).toBe(false);
   });
 });
 

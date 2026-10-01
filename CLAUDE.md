@@ -17,7 +17,7 @@ pnpm test       # 594 tests: reglas, batalla, partida completa y contrato del ag
 pnpm typecheck
 pnpm lint       # Biome: formato y lint en una sola pasada, 40 ms
 pnpm format     # lo mismo, arreglando lo que sepa arreglar
-pnpm banco      # 200 partidas: tiempo y sha256 del volcado, 2,6 s
+pnpm banco      # 200 partidas: tiempo y sha256 del volcado, 3,4 s
 
 npx tsx tools/qa/enfrentamiento.ts   # dos tácticas frente a frente, 5000 batallas, 11,8 s
 pnpm capturas   # juega el cliente en Chromium (Playwright) con clics reales y saca capturas, ~40 s
@@ -578,6 +578,15 @@ Cambia la niebla de todas las partidas, así que el volcado se movió a propósi
 `fin`, y todas **ganando** observador sin que ninguna lo pierda. Un hash nuevo lo
 habría dado por bueno también si la visión hubiera cambiado *decisiones*.
 
+**Y desde «el camino cuesta» ese radio también explora**: se escribe en `fog` y
+en `memory` (`revealAroundTown`) al crear la partida, al empezar el turno del
+dueño y al capturar. Antes solo alimentaba `visibleNow`, y con los asaltantes eso
+dejó de ser un dato de más para el agente y pasó a ser una **emboscada a ciegas**:
+el agente veía el grupo de la región de casa sobre una casilla `terrain: null` y
+la persona, que pinta con `fog`, no lo veía — en 96 de 200 semillas el día 1. **El
+volcado no se movió**: el sello `seen` ya salía de `visibleNowAt` y ninguna IA lee
+`fog`, así que lo único que cambia es lo que se pinta y lo que lee el agente.
+
 ## El mapa lo diseña el agente, y el plan se valida entero
 
 En `map_generate` el agente **no dibuja**: devuelve un plan declarativo y
@@ -860,38 +869,51 @@ ganador** de 200 a cambio de dos anclas rotas y un 76 % más de crónica.
 Implementarla habría sido vender como fidelidad lo contrario de lo que hace la
 fuente.
 
-**Y el mapa se midió en vez de elegirse.** Siete tamaños, 200 semillas cada uno,
-con los dos extremos remedidos como control:
+**Y el mapa se midió en vez de elegirse**, dos veces. La primera fue con el
+generador de esquinas, antes de la red de nodos, y dejó el 24×24; la segunda, la
+que manda hoy, es del ciclo de los asaltantes («más distancia entre bases… que lo
+decida la medida») y dejó **el 28×28** (`LADO_DEL_MAPA`, en `map/generate.ts`; el
+servidor lo lee de ahí en vez de copiarlo). Se mide con `tools/qa/tamanos.ts`, 1 000
+semillas por lado, con asaltantes y —en una copia de `main` sin ellos— sin:
 
-| lado | mediana | `dwelling_5` | `dwelling_6` | dragón óseo | gana j0 | tiempo |
+| lado | con asaltantes: mediana / p90 / máx | sin terminar | gana j0 | asaltos a la base por día | al llegar: individuos · fuerza | emboscadas por partida | sin asaltantes: mediana / p90 / máx |
+|---|---|---|---|---|---|---|---|
+| 24 | 7 / 13 / 60 | 0 | 389 | 0,148 | 5 · 430 | 1,16 | 4 / 9 / 22 |
+| 26 | 8 / 15 / 102 | 0 (**1** en las semillas 1 001–2 000) | 419 | 0,126 | 5 · 460 | 1,10 | 5 / 11 / 34 |
+| **28** | **8 / 16 / 49** | **0** (y 0 en 1 001–2 000: 9 / 17 / 56) | 389 | 0,113 | 5 · 460 | 1,28 | 5 / 12 / 74 |
+| 30 | 10 / 19 / 66 | 0 | 398 | 0,099 | 4 · 500 | 1,24 | 6 / 13 / 91 |
+| 32 | 10 / 20 / 51 | 0 | 420 | 0,090 | 5 · 523 | 1,10 | 6 / 15 / 66 |
+| 36 | 11 / 21 / 87 | 0 | 438 | 0,082 | 4 · 535 | 1,16 | 7 / 18 / 300 (1 sin terminar) |
+
+**La regla la fijó el usuario antes de medir**: el menor lado con mediana ≥ 8, p90
+≤ 20 y 0 sin terminar en 1 000 semillas. El 26 la cumple en las primeras mil y **la
+rompe en las siguientes** (la 1 048 se queda en tablas: dos héroes con la tropa
+llena de campesinos que no pueden cambiar por nada mejor, y grupos de vampiros
+entre medias), así que la mediana justo en el umbral era suerte; el 28 la cumple en
+las dos tandas. El prototipo decía 32 y se equivocaba por la misma razón por la
+que se vuelve a medir: medía otra implementación. **Lo que compran los asaltantes
+lo compra sobre todo el tamaño**: en el 28 la mediana pasa de 5 a 8 días con
+ellos, y de 4 a 5 sin ellos al ampliar de 24 a 28.
+
+**«Llegas con poca gente» no sale como se pidió, y el usuario lo aceptó así**: los
+individuos con los que un héroe llega a la base rival no bajan (5 → 5 de mediana,
+del 24 de hoy al 28 de ahora) y su fuerza **sube** (355 → 460), porque la IA ya no
+va directa: rodea las regiones peligrosas y llega más tarde y más fuerte. Lo que sí
+baja son **los asaltos a la base por día, 0,221 → 0,113**. El banco juega el 28 y
+tarda ~3,4 s, desde ~2,15.
+
+**Y la tabla se volvió a medir cuando la IA dejó de «ir igual»** (el repliegue y
+licenciar, más abajo), porque la regla del lado se aplica a la IA que juega y esa
+había cambiado. Mismas columnas, 1 000 semillas, dos tandas en 26 y 28:
+
+| lado | mediana / p90 / máx | sin terminar | gana j0 | asaltos a la base por día | al llegar: individuos · fuerza | emboscadas por partida |
 |---|---|---|---|---|---|---|
-| **24** | 7 d | 15/200 | 2/200 | 1/200 | 42/200 | **1,65 s** |
-| 28 | 8 d | 197/200 | 8/200 | 1/200 | 189/200 | 3,99 s |
-| 32 | 9 d | 200/200 | 9/200 | **0/200** | **200/200** | 3,13 s |
-| 36 | 11 d | 200/200 | 12/200 | 11/200 | 198/200 | 6,47 s |
-| 40 | 20 d | 200/200 | 86/200 | 80/200 | 186/200 | 11,59 s |
-| **48** | 30 d | 200/200 | 150/200 | 139/200 | 181/200 | **20,92 s** |
+| 24 | 6 / 11 / 60 | 0 | 498 | 0,159 | 4 · 510 | 0 |
+| 26 | 7 / 14 / 40 · 7 / 14 / 300 | 0 · **1** | 522 · 556 | 0,130 | 4 · 510 | 0 |
+| **28** | **8 / 15 / 35 · 8 / 15 / 117** | **0 · 0** | 505 · 553 | 0,120 | 4 · 526 | 0 |
 
-**No hay punto intermedio**: son dos escalones lejos el uno del otro —24→28 mete la
-morada 5 y nada más; 36→40 es el que trae el dragón— con una meseta en medio donde
-ampliar compra días y no bestiario. Y **el equilibrio está volteado en los siete
-tamaños que no son 24**, con el peor en 32 (200/200 para j0). El 28 es además el
-tamaño a evitar y es el más cercano al de hoy: única talla con una partida sin
-terminar, y **más lenta que 32 siendo más pequeña**, porque lo que paga es la cola.
-
-**Esta tabla y el párrafo de abajo son del generador de esquinas, el de antes de la
-fase 2a**, y se dejan porque la medida sigue enseñando algo; el generador de hoy es
-el de la red de nodos (sección siguiente) y no se ha vuelto a medir por tamaños.
-
-**La causa mecánica era que el generador no escalaba**: `generateMapPlan` ponía siempre
-28 minas, 8 monstruos, 10 recursos y 4 cofres, con las minas en coordenadas fijas
-respecto a cada esquina y los radios de terreno fijos. Un mapa más grande **no añade
-economía: alarga el hueco vacío del centro**, así que lo que las siete filas miden
-no es «un mapa más grande» sino «más días de renta antes del contacto». Por eso el
-tiempo crece ×12,7 mientras los días solo crecen ×4: el coste **por día jugado**
-sube de 1,10 a 3,45 ms. **El 24×24 se queda**, y ejercitar el bestiario caro es una
-segunda tanda con otro lado —40 semillas en 38×38 son ~2 s y sacan las siete—, no
-mover la que está anclada.
+**El 28 se queda**, y por la misma regla: el 26 no llega a la mediana de 8 en
+ninguna de las dos tandas y deja una sin terminar; el 28 la cumple en las dos.
 
 ## El mapa es una red de nodos (fase 2a)
 
@@ -999,6 +1021,77 @@ el barrido; en las 1 000, mediana **4** días, p90 9, p99 13, máximo 22, y el
 jugador 0 gana 293. En el banco, 61 de 200 (mediana 5, p90 9, máximo 14), y con
 control de esquina el caballero el **26,25 %** —desde 60,75 sin guarnición—. La 2b —«el territorio a la vista»— trae los tres recursos, el
 territorio en el turno del agente y en el cliente, y la IA que corta y defiende.
+
+## Los asaltantes de caminos
+
+Grupos neutrales de 1 a 7 individuos que **patrullan una región sin dueño** y
+**emboscan** al héroe que la pisa si le sacan el margen (`ventajaClara`, el mismo
+1,6 con el que la IA ataca a un monstruo: **una regla, tres lectores**, en
+`ai/fuerza.ts`). Lo decide `state/asaltantes.ts`, que no escribe la crónica; lo
+aplica `game.ts`, que es el único que llama a `emit`.
+
+- **Un asaltante es un actor y no un objeto del mapa** (`GameState.raiders`). La
+  niebla **copia** los objetos a `player.memory` y `knownObjects` decide qué es
+  presente por la casilla RECORDADA: un objeto que se mueve se enseñaría donde ya
+  no está o filtraría dónde está. Un actor se ve ahora o no se ve, como un héroe
+  enemigo, y no deja recuerdo. Al agente le llega en `knownMap.raiders` —la misma
+  llamada para el turno y la tool `map`—, con su fuerza, y cada héroe suyo lleva
+  la suya (`strength`): sin las dos cifras no puede saber si lo emboscarán.
+- **La emboscada es una batalla al revés**, y por eso `PendingBattle.attacker`
+  dejó de ser un héroe: `{kind: 'raider'}` ataca y el héroe defiende. «El
+  atacante es siempre un jugador» estaba escrito en dos comentarios del servidor y
+  era la premisa de `battleOwners`; contarlo al revés —el héroe «ataca» con una
+  marca de emboscada— le habría dicho `yourSide: attacker` al agente emboscado.
+- **No cruza nodos ni se pega a uno**: patrulla las casillas de su región que no
+  tocan un nodo, así que nunca tapa un paso. Embosca **al pisar**, no por la
+  noche: un héroe parado no se ataca. Se dispersa en cuanto su región tiene dueño
+  —lo llaman `captureNode` y `captureTown`, los únicos sitios donde una región
+  puede ganarlo— y brota los lunes donde no hay nadie, **también junto a casa**
+  (corrección del usuario al plan: «No, también en casa»).
+- **El techo de fuerza está en datos y lo vigila un test**: un grupo más fuerte
+  de lo que un héroe llega a llevar es un **muro eterno** —en el prototipo, 7
+  vampiros contra héroes de nivel 2 dejaban 110–134 partidas de 1 000 sin
+  terminar—. `data/asaltantes.json` lleva `liderazgoMax` y `fuerzaMax`, y el
+  cargador comprueba cada composición. El test **no** lo mide contra un héroe
+  ideal, que es lo que hacía al principio (526 a fuerza bruta): lo mide contra lo
+  que alcanza de verdad un héroe de nivel 1 que **espera en su base** con el cupo
+  lleno de lo más barato mientras la IA construye, licencia y recluta. Aquel 526
+  era cierto solo si el héroe podía cambiar su tropa, y hasta licenciar no podía.
+  El plan del agente pasa por la misma comprobación (`problemasDeAsaltante`).
+- **La causa de las 270 emboscadas perdidas no era la IA: el héroe no podía
+  crecer.** Su cupo de 6 se llenaba de lo barato, no había forma de cambiarlo, y
+  su fuerza se paraba en 200-300 con millones de oro en la bolsa. El «si el
+  alcance prudente no da destino, ve igual» tapaba ese muro mandándolo a perder:
+  quitándolo sin más, 27 de 60 partidas se atascaban. Lo arregló **licenciar**
+  (la acción `dismiss`, abajo): ahora la IA **se repliega** —vuelve a su base, o
+  se queda— y allí cambia tropa hasta que los grupos dejan de sacarle el margen.
+  En el banco: **304 emboscadas en 200 partidas → 0**, 0/40 y 0/1 000 sin
+  terminar, y el máximo de días baja de 49 a 35. Lo que tiene de malo, dicho: la
+  IA **no limpia** grupos —ni una batalla contra uno en 1 000 partidas—, los rodea
+  y las regiones se vacían cerrándolas; la IA buena es #115.
+- **El alcance prudente no pisa la región que embosca, tampoco la suya.** Es una
+  opción del mismo Dijkstra (`alcanceDelHeroe(…, { evitarEmboscadas })`, una sola
+  puerta), con esas casillas como **muro** y no como final de trayecto —la
+  primera casilla ya es la emboscada— y el origen respetado, que es lo que deja
+  salir por el nodo de al lado a un héroe que se ha quedado mermado dentro de una.
+  Dejándole andar por la suya eran 23 de las 33 emboscadas que quedaban.
+- **Licenciar** (`dismiss`): en un castillo propio, un héroe licencia individuos
+  de su tropa —se van, no vuelven a la guarnición—, desde el final, con su
+  `dismissBlocker` y su frase. Va en el contrato con su prosa, en el castillo del
+  cliente (un «−1» por criatura) y en la IA (`planCambio`: licencia lo más barato
+  que pegue menos, solo si lo que entra pesa más que lo que sale). `pnpm qa` lo
+  exige cruzando el circuito.
+- **La patrulla no es un hecho.** Era `raider_moved`, el 20 % del volcado, y no lo
+  leía nadie: dónde está un grupo es estado, y el lienzo anima con él. Lo que sí
+  se cuenta es que un grupo está en el mapa (`raider_spawned`) **con una sola
+  regla**, nazca con el mapa o un lunes: el sello decide quién se entera, y el
+  panel de la persona —que no pasa por la niebla— no pinta ese hecho de mapa,
+  porque el grupo ya se ve en el lienzo.
+- **El espectador comprime los finales cuando va atrasado**: con las emboscadas
+  del agente llegó a enseñar el fin de la partida 22,6 s después del `game_over`,
+  10 de ellos finales retenidos 2,5 s enteros. El telón los retiene ahora al
+  mismo ritmo al que cuenta lo atrasado (`retencionDelFinal`) y el plazo de
+  `pnpm capturas` vuelve a ser un número fijo, medido: 16,1-16,2 s → 21 s.
 
 ## El núcleo por dentro: 2,25× sin cambiar una sola partida
 
@@ -1291,7 +1384,7 @@ aportan en un prototipo. Lo que hay:
 | `pnpm qa` | 3,1 s | si tocas `src/server/` o el contrato |
 | `pnpm capturas` | ~40 s | si el cambio se ve: juega el cliente y el espectador en Chromium y sale 1 con un error en consola |
 | `npx tsx tools/qa/barrido-semillas.ts` | 1,1 s | si tocas la IA o la economía |
-| `pnpm banco` | 2,7 s | si tocas el núcleo sin querer cambiar el juego |
+| `pnpm banco` | 3,4 s | si tocas el núcleo sin querer cambiar el juego |
 | `tools/qa/enfrentamiento.ts` | 11,8 s | si cambias **cómo decide** la IA de batalla |
 | CI (`.github/workflows/ci.yml`) | ~1 min | en cada push y cada PR |
 

@@ -23,6 +23,7 @@
  * Uso: npx tsx tools/qa/barrido-semillas.ts [semillas] [dias]
  */
 import { MAX_ROUNDS } from '../../src/core/battle/battle.js';
+import { duracion } from './estadistica.js';
 import {
   batallaDeSemilla,
   DIAS_POR_DEFECTO,
@@ -35,9 +36,11 @@ const SEMILLAS = Number(process.argv[2] ?? SEMILLAS_DEL_BARRIDO);
 const DIAS = Number(process.argv[3] ?? DIAS_POR_DEFECTO);
 
 const sinTerminar: number[] = [];
+const dias: number[] = [];
 
 for (let semilla = 1; semilla <= SEMILLAS; semilla++) {
   const { state, fin } = await partidaDeSemilla(semilla, DIAS);
+  dias.push(state.day);
 
   // «No la resolvió nadie en `DIAS` días» es `winner === null` y no
   // `finished === null`: preguntar por lo de antes daría 0/40 siempre y por
@@ -54,6 +57,7 @@ for (let semilla = 1; semilla <= SEMILLAS; semilla++) {
 
 console.log('');
 console.log(`sin terminar: ${resumenSinTerminar(sinTerminar, SEMILLAS)}`);
+console.log(`duración (días, mediana / p90 / máximo): ${duracion(dias)}`);
 
 /**
  * Segunda medida, la que vigila que `wait` no estanque nada: batallas de la IA

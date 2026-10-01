@@ -346,7 +346,8 @@ server.tool(
 server.tool(
   'battle_state',
   'La batalla en curso, si la hay, desde tu punto de vista. Si no es tuya —el ' +
-    'rival contra un monstruo— la ves igual, con los ojos del atacante, pero sin ' +
+    'rival contra un monstruo, o unos asaltantes emboscando al rival— la ves igual, ' +
+    'con los ojos del atacante, pero sin ' +
     'el maná ni el libro de hechizos de su héroe y sin "legalActions": ahí no ' +
     'juegas tú. Y en tu PROPIA batalla tampoco hay "legalActions" cuando el ' +
     'turno lo tiene una unidad del otro bando: la lista es siempre la del stack ' +

@@ -5,6 +5,7 @@
  * Guarda solo estado de píxel —dónde mira la cámara, qué casilla está señalada,
  * si se está arrastrando—, igual que hacía `main.ts` antes de partirse.
  */
+import { individuosDe } from '@core/hero/troop.js';
 import { inBounds, objectAt, pointKey } from '@core/map/map.js';
 import type { Point } from '@core/types.js';
 import {
@@ -217,11 +218,14 @@ function describirCasilla(s: Session, p: Point, ruta: readonly PasoDeRuta[]): st
   const explorada = s.explorado?.has(pointKey(p)) ?? true;
   const objeto = objectAt(map, p);
   const heroe = s.state.heroes.find((h) => h.at.x === p.x && h.at.y === p.y);
+  const asaltante = s.state.raiders.find((r) => r.at.x === p.x && r.at.y === p.y);
   let que = '';
   // Lo desconocido se dice, pero la ruta también: el héroe puede ir a explorarlo.
   if (!explorada) que = 'Tierras desconocidas';
   else if (heroe !== undefined)
     que = heroe.owner === s.viewer ? heroe.name : `${heroe.name}, héroe enemigo`;
+  else if (asaltante !== undefined)
+    que = `${individuosDe(asaltante.troops)} asaltantes: emboscan a quien pise su región si le sacan ventaja`;
   else if (objeto?.kind === 'town') {
     const t = s.state.towns.find((x) => x.id === objeto.id);
     const dueño =
@@ -245,5 +249,12 @@ function describirCasilla(s: Session, p: Point, ruta: readonly PasoDeRuta[]): st
       : hoy === 0
         ? 'hoy no te queda movimiento para dar ni un paso'
         : `hoy llegas a ${hoy} de ${ruta.length} pasos: dorado hoy, gris otro día`;
-  return que === '' ? `Ruta: ${llegada}.` : `${que} · ${llegada}.`;
+  // La emboscada va DELANTE: es lo que cambia la decisión, y una barra larga se
+  // corta por el final en pantallas estrechas.
+  const emboscada = ruta.find((r) => r.emboscada !== undefined)?.emboscada;
+  const aviso =
+    emboscada === undefined
+      ? ''
+      : `Cuidado: el camino cruza la región de ${individuosDe(emboscada.troops)} asaltantes, que te emboscarían (en rojo) · `;
+  return que === '' ? `${aviso}Ruta: ${llegada}.` : `${aviso}${que} · ${llegada}.`;
 }

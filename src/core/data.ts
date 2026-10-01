@@ -1,4 +1,5 @@
 /** Catálogo de criaturas: carga `data/creatures.json` y lo tipa. */
+import asaltantesJson from '../../data/asaltantes.json' with { type: 'json' };
 import ciudadesJson from '../../data/ciudades.json' with { type: 'json' };
 import creaturesJson from '../../data/creatures.json' with { type: 'json' };
 import heroeJson from '../../data/heroe.json' with { type: 'json' };
@@ -141,7 +142,7 @@ export const HEROE: ReglasDelHeroe = {
 };
 
 /** Un grupo de individuos de la misma criatura, como se escriben en los datos. */
-interface GrupoDeTropa {
+export interface GrupoDeTropa {
   readonly creature: string;
   readonly count: number;
 }
@@ -182,24 +183,34 @@ export function problemasDeGrupo(grupos: readonly GrupoDeTropa[], quien: string)
 }
 
 /**
- * Lo que impide que unos grupos sean la guarnición de un castillo: lo de
- * `problemasDeGrupo` y, además, el tope de liderazgo de una guarnición
- * (`LIDERAZGO.guarnicion`). Un monstruo no tiene ese tope; una ciudad sí.
+ * Lo que impide que unos grupos quepan bajo un tope de liderazgo: lo de
+ * `problemasDeGrupo` y, además, que no ocupen más de `tope`. `queEs` nombra a
+ * quien tiene el tope en la frase —«una guarnición», «un grupo de
+ * asaltantes»—. Un monstruo no tiene tope; una ciudad y un asaltante, sí.
  *
- * Una que naciera por encima dejaría el castillo en un estado que ninguna
- * partida alcanza reclutando —lo vigila `tropa.test.ts` sobre partidas
+ * Eran dos copias —la de la guarnición y la del asaltante— con la misma suma y
+ * otra frase. La suma no pasa por `armyLeadership` (`hero/troop.ts`) aunque es
+ * la misma cuenta: este módulo valida sus tablas AL CARGAR, y `troop.ts` lo
+ * importa a él, así que llamarla desde aquí cerraría un ciclo justo en la
+ * evaluación del módulo.
+ *
+ * Una guarnición que naciera por encima dejaría el castillo en un estado que
+ * ninguna partida alcanza reclutando —lo vigila `tropa.test.ts` sobre partidas
  * enteras—, y el tope existe porque una guarnición mayor que el héroe recién
  * contratado deja partidas en tablas para siempre (`data/liderazgo.json`).
  */
-export function problemasDeGuarnicion(grupos: readonly GrupoDeTropa[], quien: string): string[] {
+export function problemasDeTopeDeLiderazgo(
+  grupos: readonly GrupoDeTropa[],
+  quien: string,
+  tope: number,
+  queEs: string,
+): string[] {
   const problemas = problemasDeGrupo(grupos, quien);
   if (problemas.length > 0) return problemas;
   let ocupa = 0;
   for (const g of grupos) ocupa += creature(g.creature).leadership * g.count;
-  if (ocupa > LIDERAZGO.guarnicion) {
-    problemas.push(
-      `${quien} ocupa ${ocupa} de liderazgo y una guarnición lleva como mucho ${LIDERAZGO.guarnicion}`,
-    );
+  if (ocupa > tope) {
+    problemas.push(`${quien} ocupa ${ocupa} de liderazgo y ${queEs} lleva como mucho ${tope}`);
   }
   return problemas;
 }
@@ -224,7 +235,12 @@ function tablaDeGuarniciones(
     if (grupos === undefined) {
       throw new Error(`data/ciudades.json: falta ${que} de ${faccion}`);
     }
-    const problemas = problemasDeGuarnicion(grupos, `data/ciudades.json: ${que} de ${faccion}`);
+    const problemas = problemasDeTopeDeLiderazgo(
+      grupos,
+      `data/ciudades.json: ${que} de ${faccion}`,
+      LIDERAZGO.guarnicion,
+      'una guarnición',
+    );
     if (problemas.length > 0) throw new Error(problemas.join('; '));
     out[faccion] = grupos;
   }
@@ -253,3 +269,70 @@ export function guarnicionNeutral(faction: FactionId): readonly GrupoDeTropa[] {
 export function guarnicionDeBase(faction: FactionId): readonly GrupoDeTropa[] {
   return GUARNICION_DE_BASE[faction];
 }
+
+/**
+ * Las reglas de los asaltantes de caminos, de `data/asaltantes.json`.
+ * **Inventadas y provisionales**, y así lo dice su `_comment`: en HoMM2 los
+ * monstruos del mapa no se mueven, así que no hay fila que copiar.
+ */
+export interface ReglasDeAsaltantes {
+  /** La probabilidad de que brote un grupo cada lunes en cada región que lo admita. */
+  readonly probabilidadSemanal: number;
+  /** Cuántas casillas se mueve un grupo al día como mucho, en Chebyshev. */
+  readonly pasosPorDia: number;
+  /** El liderazgo que puede sumar un grupo: el techo de lo que ocupa. */
+  readonly liderazgoMax: number;
+  /**
+   * La fuerza bruta que puede sumar un grupo: el techo de lo que pega. Lo
+   * comprueba `state/asaltantes.ts` al cargar, que es quien sabe medirla sin
+   * cerrar un ciclo con este módulo.
+   */
+  readonly fuerzaMax: number;
+  /** Los grupos que pueden brotar; cada uno, de 1 a `maxPorBando` individuos. */
+  readonly composiciones: readonly (readonly GrupoDeTropa[])[];
+}
+
+/**
+ * Se valida al cargar, como las guarniciones: un número que no es una
+ * probabilidad o una composición imposible revientan aquí con el nombre del
+ * fichero, y no el primer lunes de una partida.
+ */
+function reglasDeAsaltantes(): ReglasDeAsaltantes {
+  const j = asaltantesJson;
+  const fichero = 'data/asaltantes.json';
+  if (!(j.probabilidadSemanal >= 0 && j.probabilidadSemanal <= 1)) {
+    throw new Error(
+      `${fichero}: probabilidadSemanal tiene que ir de 0 a 1 y es ${j.probabilidadSemanal}`,
+    );
+  }
+  for (const [campo, valor] of [
+    ['pasosPorDia', j.pasosPorDia],
+    ['liderazgoMax', j.liderazgoMax],
+    ['fuerzaMax', j.fuerzaMax],
+  ] as const) {
+    if (!Number.isSafeInteger(valor) || valor < 0) {
+      throw new Error(`${fichero}: ${campo} tiene que ser un entero ≥ 0 y es ${valor}`);
+    }
+  }
+  if (j.composiciones.length === 0) {
+    throw new Error(`${fichero}: no hay ninguna composición, y un grupo que brota necesita una`);
+  }
+  const problemas = j.composiciones.flatMap((grupos, i) =>
+    problemasDeTopeDeLiderazgo(
+      grupos,
+      `${fichero}: la composición ${i}`,
+      j.liderazgoMax,
+      'un grupo de asaltantes',
+    ),
+  );
+  if (problemas.length > 0) throw new Error(problemas.join('; '));
+  return {
+    probabilidadSemanal: j.probabilidadSemanal,
+    pasosPorDia: j.pasosPorDia,
+    liderazgoMax: j.liderazgoMax,
+    fuerzaMax: j.fuerzaMax,
+    composiciones: j.composiciones,
+  };
+}
+
+export const ASALTANTES: ReglasDeAsaltantes = reglasDeAsaltantes();

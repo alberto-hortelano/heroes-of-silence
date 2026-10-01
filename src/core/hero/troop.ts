@@ -16,7 +16,7 @@
  * héroe con un personaje no podía ni pasar de día: `maxMovePoints` lanzaba
  * «criatura desconocida: "character"» en el `advanceDay`.
  */
-import { creature, LIDERAZGO } from '../data.js';
+import { creature, type GrupoDeTropa, LIDERAZGO } from '../data.js';
 import type { Character } from '../rpg/character.js';
 import { combatProfile } from '../rpg/stats.js';
 import type { Army, Stack, Troop, UnitInfo } from '../types.js';
@@ -157,6 +157,40 @@ export function troopBlocker(
 export function withTroops(army: Army, creatureId: string, n: number): Army {
   const nuevos: Troop[] = Array.from({ length: n }, () => ({ creature: creatureId }));
   return [...army, ...nuevos];
+}
+
+/**
+ * El ejército que escriben unos grupos de tropa —«5 × piquero»—, en individuos
+ * y en su orden. Es como se escriben a mano una guarnición de los datos y un
+ * grupo de asaltantes, y como el grupo vuelve a ser ejército al abrir batalla.
+ */
+export function ejercitoDe(grupos: readonly GrupoDeTropa[]): Army {
+  let army: Army = [];
+  for (const g of grupos) army = withTroops(army, g.creature, g.count);
+  return army;
+}
+
+/**
+ * La inversa de `ejercitoDe`: un ejército de criaturas del catálogo, agrupado
+ * en su orden (`troopSummary`). Lanza con un personaje dentro, que es uno y
+ * tiene nombre: no se escribe como «1 × character».
+ */
+export function gruposDe(army: Army): GrupoDeTropa[] {
+  return troopSummary(army, undefined).map((g) => {
+    if (g.member !== undefined) {
+      throw new Error(
+        `el personaje ${g.member} no cabe en unos grupos de tropa: es uno y tiene nombre`,
+      );
+    }
+    return { creature: g.creature, count: g.count };
+  });
+}
+
+/** Cuántos individuos escriben unos grupos de tropa. */
+export function individuosDe(grupos: readonly GrupoDeTropa[]): number {
+  let n = 0;
+  for (const g of grupos) n += g.count;
+  return n;
 }
 
 /**

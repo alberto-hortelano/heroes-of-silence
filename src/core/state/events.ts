@@ -15,6 +15,7 @@
  * —2767 de 6287 eventos entregados, el 44 %— después de que #35 le hubiera
  * quitado el mapa.
  */
+import type { GrupoDeTropa } from '../data.js';
 import type { PlayerId, Point, ResourceKind } from '../types.js';
 
 /**
@@ -27,7 +28,21 @@ import type { PlayerId, Point, ResourceKind } from '../types.js';
 export type BattleFoe =
   | { readonly kind: 'monster'; readonly objectId: string }
   | { readonly kind: 'hero'; readonly heroId: string }
-  | { readonly kind: 'town'; readonly townId: string };
+  | { readonly kind: 'town'; readonly townId: string }
+  /** Un grupo de asaltantes al que ataca un héroe (`state/asaltantes.ts`). */
+  | { readonly kind: 'raider'; readonly raiderId: string };
+
+/**
+ * Quién abre una batalla del mapa.
+ *
+ * Fue siempre un héroe —`attackerHeroId: string`, y «el atacante es siempre un
+ * jugador» escrito en dos comentarios del servidor— hasta que hubo asaltantes:
+ * un grupo que **embosca** al héroe que pisa su región ataca él, y el héroe
+ * defiende. Contarlo al revés —el héroe «ataca» y se marca como emboscada—
+ * habría ahorrado tocar `settleBattle` a costa de decirle `yourSide: attacker`
+ * a quien acaban de emboscar: una mentira al agente, y por eso no.
+ */
+export type Atacante = Extract<BattleFoe, { readonly kind: 'hero' | 'raider' }>;
 
 /**
  * Por qué queda eliminado un jugador. `lost_base` es la regla de la partida:
@@ -94,11 +109,25 @@ type Cuerpo =
   | { kind: 'town_captured'; town: string; from: PlayerId | null }
   | { kind: 'built'; town: string; building: string }
   | { kind: 'recruited'; town: string; creature: string; count: number }
+  /** Un héroe licencia tropa en un castillo suyo, para hacer sitio a otra mejor. */
+  | { kind: 'dismissed'; hero: string; creature: string; count: number }
   | { kind: 'hero_hired'; hero: string; town: string }
   | { kind: 'spells_learned'; hero: string; town: string; spells: string[] }
   | { kind: 'garrison_taken'; hero: string; town: string }
-  | { kind: 'battle_started'; attacker: string; foe: BattleFoe }
+  | { kind: 'battle_started'; attacker: Atacante; foe: BattleFoe }
   | { kind: 'battle_ended'; winner: 'attacker' | 'defender'; foe: BattleFoe }
+  /**
+   * Un grupo de asaltantes está en el mapa: los del mapa de salida al empezar
+   * la partida y los que brotan un lunes en una región sin dueño. Lo hace el
+   * reloj (`actor: null`) y se entera quien mirara su casilla. La patrulla
+   * diaria NO es un hecho: es estado (`GameState.raiders`).
+   */
+  | { kind: 'raider_spawned'; raider: string; troops: readonly GrupoDeTropa[] }
+  /**
+   * Un grupo se dispersa porque su región acaba de tener dueño. `actor` es
+   * quien la cerró: es su hecho, aunque el grupo esté lejos de donde la cerró.
+   */
+  | { kind: 'raider_dispersed'; raider: string }
   | { kind: 'hero_defeated'; hero: string }
   /**
    * El héroe vuelve a su base tras perder una batalla (fase 1b). Va DESPUÉS de
@@ -192,6 +221,7 @@ export function visibleTo(e: GameEvent, p: PlayerId): boolean {
     case 'node_captured':
     case 'built':
     case 'recruited':
+    case 'dismissed':
     case 'hero_hired':
     case 'spells_learned':
     case 'garrison_taken':
@@ -200,6 +230,8 @@ export function visibleTo(e: GameEvent, p: PlayerId): boolean {
     case 'hero_defeated':
     case 'hero_returned':
     case 'level_up':
+    case 'raider_spawned':
+    case 'raider_dispersed':
       return e.actor === p || e.seen.includes(p);
   }
 }

@@ -238,6 +238,30 @@ export function regionesQueToca(
   return [...out].sort((a, b) => a - b);
 }
 
+const juntoCache = new WeakMap<GameMap, Uint8Array>();
+
+/**
+ * Las casillas pegadas a un nodo, en 8-vecindad, marcadas con un 1 (índice
+ * `y*width+x`). Lo que se pone ahí taparía la entrada a una región, así que no
+ * se pone nada: ni el generador lo usa para sembrar, ni un asaltante lo pisa.
+ * Una sola marca para los dos, para que lo que el generador cree que deja
+ * libre sea lo que la patrulla acepta. Memoizada por mapa, como `estructura`:
+ * los nodos no se mueven.
+ */
+export function juntoANodo(map: GameMap): Uint8Array {
+  const hecha = juntoCache.get(map);
+  if (hecha !== undefined) return hecha;
+  const marca = new Uint8Array(map.width * map.height);
+  for (const n of estructura(map).nodos) {
+    for (const [dx, dy] of VECINAS) {
+      const v = { x: n.at.x + dx, y: n.at.y + dy };
+      if (inBounds(map, v)) marca[v.y * map.width + v.x] = 1;
+    }
+  }
+  juntoCache.set(map, marca);
+  return marca;
+}
+
 // ---------------------------------------------------------------- validación
 
 const casilla = (p: Point): string => `(${p.x},${p.y})`;

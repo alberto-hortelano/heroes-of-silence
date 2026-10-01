@@ -13,12 +13,14 @@
  */
 
 import { HERO_BODY } from '@core/hero/hero.js';
+import { individuosDe } from '@core/hero/troop.js';
 import { type MapObject, type MapRegion, pointFromKey, pointKey } from '@core/map/map.js';
 import type { TerrainKind } from '@core/map/terrain.js';
+import type { VistaAsaltante } from '@core/state/asaltantes.js';
 import type { Point } from '@core/types.js';
 import { asset } from './assets.js';
 import { type CamaraMapa, casillaAPixel, mundoAPixel } from './camara-mapa.js';
-import { pintarFigura } from './figura.js';
+import { animarHasta, pintarFigura } from './figura.js';
 import { playerColor, RESOURCE_COLORS } from './palette.js';
 import { pintarSombra } from './sombra.js';
 import { terrainSurface } from './terreno.js';
@@ -49,12 +51,23 @@ export interface AdventureScene {
     readonly name: string;
     readonly at: Point;
   }[];
+  /**
+   * Los grupos de asaltantes, con su tropa contada: la figura lleva el cuerpo
+   * de su primera criatura, que es lo que se ve venir, y la chapa cuántos son.
+   */
+  readonly raiders: readonly VistaAsaltante[];
 }
 
-/** Un paso de la ruta que se enseña: dorado si llega hoy, gris si otro día. */
+/**
+ * Un paso de la ruta que se enseña: dorado si llega hoy, gris si otro día, y
+ * rojo desde donde un grupo a la vista emboscaría al héroe (`peligro`).
+ */
 export interface PasoDeRuta {
   readonly at: Point;
   readonly hoy: boolean;
+  readonly peligro?: boolean;
+  /** En el primer paso con peligro: el grupo que embosca ahí. */
+  readonly emboscada?: VistaAsaltante;
 }
 
 export interface VistaMapa {
@@ -93,6 +106,72 @@ const CELDA = {
 
 /** El color de lo hostil sin dueño: los monstruos que guardan el mapa. */
 const COLOR_MONSTRUO = '#b0553f';
+/**
+ * El de los asaltantes, otro: un monstruo se queda donde está y un asaltante
+ * no, y de un vistazo hay que distinguir lo que guarda de lo que embosca.
+ */
+const COLOR_ASALTANTE = '#8c3b8f';
+/** El tramo de una ruta donde un grupo a la vista emboscaría al héroe. */
+const COLOR_EMBOSCADA = '#d8332a';
+
+/** Lo que tarda un asaltante en deslizarse de su casilla de ayer a la de hoy. */
+const DURACION_DE_PATRULLA = 900;
+
+/**
+ * La patrulla que se está viendo: de dónde a dónde va cada grupo y desde
+ * cuándo. El núcleo mueve al grupo de golpe al empezar el día; quien desliza
+ * la figura es el lienzo, recordando la última casilla en la que la pintó.
+ *
+ * Por partida, con el array de terreno como llave: es lo único que no cambia en
+ * toda una partida ni entre fotogramas del espectador (`adaptar.ts` lo conserva),
+ * así que al empezar otra los `raider-0` de antes no se deslizan desde donde
+ * estaban en la partida vieja.
+ */
+interface Marcha {
+  desde: Point;
+  hasta: Point;
+  inicio: number;
+}
+const marchas = new WeakMap<readonly TerrainKind[], Map<string, Marcha>>();
+
+/** Dónde pintar un grupo AHORA, y si está andando. */
+function posicionDeAsaltante(
+  escena: AdventureScene,
+  r: AdventureScene['raiders'][number],
+  tiempo: number,
+): { x: number; y: number; andando: boolean; haciaIzquierda: boolean } {
+  let deLaPartida = marchas.get(escena.map.terrain);
+  if (deLaPartida === undefined) {
+    deLaPartida = new Map();
+    marchas.set(escena.map.terrain, deLaPartida);
+  }
+  let m = deLaPartida.get(r.id);
+  if (m === undefined) {
+    m = { desde: r.at, hasta: r.at, inicio: -DURACION_DE_PATRULLA };
+    deLaPartida.set(r.id, m);
+  } else if (m.hasta.x !== r.at.x || m.hasta.y !== r.at.y) {
+    // Se ha movido desde la última vez que se pintó: arranca desde donde se le
+    // veía, aunque fuera a mitad de un deslizamiento anterior.
+    const ahora = posicionEn(m, tiempo);
+    m.desde = { x: ahora.x, y: ahora.y };
+    m.hasta = r.at;
+    m.inicio = tiempo;
+  }
+  return posicionEn(m, tiempo);
+}
+
+function posicionEn(
+  m: Marcha,
+  tiempo: number,
+): { x: number; y: number; andando: boolean; haciaIzquierda: boolean } {
+  const t = Math.min(1, Math.max(0, (tiempo - m.inicio) / DURACION_DE_PATRULLA));
+  return {
+    x: m.desde.x + (m.hasta.x - m.desde.x) * t,
+    y: m.desde.y + (m.hasta.y - m.desde.y) * t,
+    andando: t < 1 && (m.desde.x !== m.hasta.x || m.desde.y !== m.hasta.y),
+    haciaIzquierda: m.hasta.x < m.desde.x,
+  };
+}
 
 // ------------------------------------------------------------------ superficie
 
@@ -226,6 +305,9 @@ export function drawMapa(ctx: CanvasRenderingContext2D, v: VistaMapa): void {
       case 'heroe':
         pintarHeroe(ctx, v, c.heroe);
         break;
+      case 'asaltante':
+        pintarAsaltante(ctx, v, c.asaltante);
+        break;
     }
   }
 
@@ -257,6 +339,11 @@ type Cosa =
       readonly tipo: 'heroe';
       readonly y: number;
       readonly heroe: AdventureScene['heroes'][number];
+    }
+  | {
+      readonly tipo: 'asaltante';
+      readonly y: number;
+      readonly asaltante: AdventureScene['raiders'][number];
     };
 
 /**
@@ -303,6 +390,7 @@ function cosasDe(v: VistaMapa): readonly Cosa[] {
     }
   }
   for (const h of escena.heroes) ocupadas.add(pointKey(h.at));
+  for (const r of escena.raiders) ocupadas.add(pointKey(r.at));
 
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
@@ -325,6 +413,12 @@ function cosasDe(v: VistaMapa): readonly Cosa[] {
   for (const h of escena.heroes) {
     if (!explorada(pointKey(h.at))) continue;
     lista.push({ tipo: 'heroe', y: h.at.y + 0.01, heroe: h });
+  }
+  // Como los héroes rivales: se pintan sobre lo explorado (#64 cuenta por qué
+  // el lienzo del cliente mira `fog` y no lo que se ve ahora).
+  for (const r of escena.raiders) {
+    if (!explorada(pointKey(r.at))) continue;
+    lista.push({ tipo: 'asaltante', y: r.at.y + 0.01, asaltante: r });
   }
   lista.sort((a, b) => a.y - b.y);
   cosas = { escena, version, explorado, vistos, semilla, lista };
@@ -474,23 +568,16 @@ function pintarObjeto(ctx: CanvasRenderingContext2D, v: VistaMapa, o: MapObject)
       icono(ctx, o.resource, c.x, c.y, tile * 0.56);
       return;
     }
-    case 'monster': {
-      const suelo = c.y + tile * 0.32;
-      pintarSombra(ctx, c.x, suelo, tile * 0.9);
-      pintarFigura(ctx, {
+    case 'monster':
+      pintarGrupoNeutral(ctx, tile, c, {
         body: o.creature,
-        clip: 'idle',
-        tiempo: v.tiempo + (o.at.x * 211 + o.at.y * 97),
-        x: c.x,
-        suelo,
-        alto: tile * 0.85,
-        mirandoIzquierda: true,
+        cuantos: o.count,
         color: COLOR_MONSTRUO,
-        rotulo: String(o.count),
+        tiempo: v.tiempo + (o.at.x * 211 + o.at.y * 97),
+        andando: false,
+        mirandoIzquierda: true,
       });
-      chapa(ctx, String(o.count), c.x + tile * 0.3, c.y + tile * 0.32, tile);
       return;
-    }
   }
 }
 
@@ -535,6 +622,132 @@ function pintarHeroe(
     color,
     rotulo: h.name.charAt(0).toUpperCase(),
   });
+}
+
+/**
+ * Un grupo de asaltantes: la figura de su primera criatura en su color, con la
+ * chapa de cuántos son, deslizándose de la casilla de ayer a la de hoy con el
+ * clip de andar.
+ */
+function pintarAsaltante(
+  ctx: CanvasRenderingContext2D,
+  v: VistaMapa,
+  r: AdventureScene['raiders'][number],
+): void {
+  const tile = v.camara.tile;
+  const p = posicionDeAsaltante(v.escena, r, v.tiempo);
+  if (p.andando) animarHasta(v.tiempo + DURACION_DE_PATRULLA);
+  const c = mundoAPixel(v.camara, p.x + 0.5, p.y + 0.5);
+  const suelo = c.y + tile * 0.32;
+  // El suelo RELLENO y no solo el aro discontinuo: con arte, un grupo de
+  // piqueros es la misma figura gris que un monstruo de piqueros, y el aro solo
+  // se perdía a zoom medio (H5). La mancha morada se lee de lejos.
+  ctx.save();
+  ctx.lineWidth = Math.max(2, tile * 0.04);
+  ctx.fillStyle = `${COLOR_ASALTANTE}59`;
+  ctx.strokeStyle = COLOR_ASALTANTE;
+  ctx.setLineDash([4, 3]);
+  ctx.beginPath();
+  ctx.ellipse(c.x, suelo, tile * 0.34, tile * 0.13, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+  const cuerpo = r.troops[0]?.creature;
+  if (cuerpo === undefined) throw new Error(`el grupo de asaltantes ${r.id} no tiene tropa`);
+  pintarGrupoNeutral(ctx, tile, c, {
+    body: cuerpo,
+    cuantos: individuosDe(r.troops),
+    color: COLOR_ASALTANTE,
+    tiempo: v.tiempo + (r.at.x * 173 + r.at.y * 59),
+    andando: p.andando,
+    mirandoIzquierda: p.andando ? p.haciaIzquierda : true,
+  });
+  estandarteDeAsaltante(ctx, c.x - tile * 0.36, c.y - tile * 0.46, tile);
+}
+
+/**
+ * El estandarte del asaltante: un mástil con un gallardete de cola partida y
+ * dos espadas cruzadas. Es la marca que lo separa del monstruo **por la forma**
+ * y no solo por el color —con arte la figura es la misma (H5)—, y es otra forma
+ * que la bandera triangular de los dueños, para que no se lea como de nadie.
+ */
+function estandarteDeAsaltante(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  tile: number,
+): void {
+  const alto = tile * 0.62;
+  const ancho = tile * 0.3;
+  const paño = tile * 0.22;
+  ctx.save();
+  ctx.strokeStyle = '#2b2119';
+  ctx.lineWidth = Math.max(1.5, tile * 0.03);
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x, y + alto);
+  ctx.stroke();
+  ctx.fillStyle = COLOR_ASALTANTE;
+  ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + ancho, y);
+  ctx.lineTo(x + ancho * 0.7, y + paño / 2);
+  ctx.lineTo(x + ancho, y + paño);
+  ctx.lineTo(x, y + paño);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  // Las espadas: dos trazos blancos en aspa sobre el paño.
+  const cx = x + ancho * 0.36;
+  const cy = y + paño / 2;
+  const r = paño * 0.32;
+  ctx.strokeStyle = '#f4ecf6';
+  ctx.lineWidth = Math.max(1.2, tile * 0.022);
+  ctx.beginPath();
+  ctx.moveTo(cx - r, cy - r);
+  ctx.lineTo(cx + r, cy + r);
+  ctx.moveTo(cx + r, cy - r);
+  ctx.lineTo(cx - r, cy + r);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/**
+ * Un grupo sin dueño —monstruo que guarda o asaltante que patrulla—: la figura
+ * de su criatura en su color, con su sombra y la chapa de cuántos son. Los dos
+ * se pintan igual a propósito: lo que los distingue es el color y el aro del
+ * asaltante, no la figura.
+ */
+function pintarGrupoNeutral(
+  ctx: CanvasRenderingContext2D,
+  tile: number,
+  c: { readonly x: number; readonly y: number },
+  g: {
+    readonly body: string;
+    readonly cuantos: number;
+    readonly color: string;
+    readonly tiempo: number;
+    readonly andando: boolean;
+    readonly mirandoIzquierda: boolean;
+  },
+): void {
+  const suelo = c.y + tile * 0.32;
+  const cuantos = String(g.cuantos);
+  pintarSombra(ctx, c.x, suelo, tile * 0.9);
+  pintarFigura(ctx, {
+    body: g.body,
+    clip: g.andando ? 'walk' : 'idle',
+    tiempo: g.tiempo,
+    x: c.x,
+    suelo,
+    alto: tile * 0.85,
+    mirandoIzquierda: g.mirandoIzquierda,
+    color: g.color,
+    rotulo: cuantos,
+  });
+  chapa(ctx, cuantos, c.x + tile * 0.3, c.y + tile * 0.32, tile);
 }
 
 /** Un óvalo del color del dueño bajo lo que se posee: se lee de lejos. */
@@ -827,13 +1040,35 @@ function pintarRuta(
   ctx.save();
   for (const paso of pasos) {
     const c = casillaAPixel(camara, paso.at);
-    ctx.fillStyle = paso.hoy ? '#f6db78' : '#9aa1a8';
+    // El tramo de la emboscada en rojo, hoy u otro día: ahí se para la marcha y
+    // empieza una batalla, que es lo que la persona tiene que ver antes de pulsar.
+    ctx.fillStyle = paso.peligro === true ? COLOR_EMBOSCADA : paso.hoy ? '#f6db78' : '#9aa1a8';
     ctx.strokeStyle = '#1b1608';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.arc(c.x, c.y, paso.marca === 'paso' ? 3.5 : 6.5, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
+    if (paso.emboscada !== undefined) {
+      // La casilla donde salta: un aviso que se lee sin color —un «!» en un
+      // rombo—, porque el rojo solo no lo distingue quien no ve el rojo.
+      ctx.fillStyle = COLOR_EMBOSCADA;
+      ctx.strokeStyle = '#fff4e0';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(c.x, c.y - 13);
+      ctx.lineTo(c.x + 10, c.y);
+      ctx.lineTo(c.x, c.y + 13);
+      ctx.lineTo(c.x - 10, c.y);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#fff4e0';
+      ctx.font = 'bold 14px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('!', c.x, c.y + 1);
+    }
     if (paso.marca === 'parada') {
       ctx.strokeStyle = '#f6db78';
       ctx.beginPath();

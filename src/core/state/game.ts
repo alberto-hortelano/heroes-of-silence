@@ -9,7 +9,7 @@ import { type BattleMember, type BattleSide, createBattle } from '../battle/batt
 import { stackHp } from '../battle/damage.js';
 import type { BattleHero, BattleState, Side } from '../battle/types.js';
 import { otroBando, personajeDe, SIDES } from '../battle/types.js';
-import { creature } from '../data.js';
+import { allCreatures, creature } from '../data.js';
 import {
   type Hero,
   heroUnit,
@@ -25,7 +25,9 @@ import {
   CUPO_GUARNICION,
   capacidadDe,
   characterOf,
+  ejercitoDe,
   GARRISON_LEADERSHIP,
+  gruposDe,
   troopBlocker,
   troopRoom,
   troopsAsStacks,
@@ -49,7 +51,7 @@ import {
 } from '../map/map.js';
 import { territorio } from '../map/regiones.js';
 import type { Rng } from '../rng.js';
-import type { Character } from '../rpg/character.js';
+import { CHARACTER_BODY, type Character } from '../rpg/character.js';
 import { combatProfile } from '../rpg/stats.js';
 import {
   applyWeeklyGrowth,
@@ -75,7 +77,16 @@ import type {
   Troop,
 } from '../types.js';
 import { addResources, canAfford, EMPTY_RESOURCES } from '../types.js';
-import type { BattleFoe, GameEvent, GameEventDraft } from './events.js';
+import {
+  casillasPeligrosas,
+  dispersados,
+  dondeBrotan,
+  emboscador,
+  mascaraDeOcupacion,
+  pasoDePatrulla,
+  type Raider,
+} from './asaltantes.js';
+import type { Atacante, BattleFoe, GameEvent, GameEventDraft } from './events.js';
 
 export interface Player {
   readonly id: PlayerId;
@@ -146,9 +157,12 @@ export const HERO_SCOUT_RADIUS = 4;
  * de `visibleFrom`, así que el héroe **ya diverge** —81 casillas contra 69— e
  * igualar la forma es otra tarea. Se copia el número.
  *
- * Y esto alimenta `visibleNow`, **no `fog` ni `memory`**: un objeto pegado a tu
- * capital te da eventos y sale en `enemyHeroes`, pero no entra en `knownMap`.
- * Que el pueblo despeje también la niebla es otra decisión y otro coste.
+ * Y alimenta las DOS mitades de la niebla: `visibleNow` y también `fog` y
+ * `memory` (`revealAroundTown`). Durante un tiempo solo alimentó la primera, y
+ * con los asaltantes eso dejó de ser un dato de más para el agente y pasó a ser
+ * una emboscada a ciegas: el agente veía el grupo de la región de casa sobre una
+ * casilla `terrain: null` y la persona, que pinta con `fog`, no lo veía en 96 de
+ * 200 semillas el día 1 — y lo pisaba.
  */
 export const TOWN_SCOUT_RADIUS = 5;
 
@@ -164,10 +178,32 @@ export interface GameOutcome {
   readonly winner: PlayerId | null;
 }
 
-export interface PendingBattle {
-  readonly attackerHeroId: string;
-  readonly foe: BattleFoe;
-  readonly battle: BattleState;
+/**
+ * Quién pelea contra quién en una batalla del mapa: un héroe que ataca a
+ * cualquier cosa, o un grupo de asaltantes que **embosca a un héroe**.
+ *
+ * Es una unión y no `{ attacker: Atacante; foe: BattleFoe }` para que el tipo
+ * diga lo que la regla dice: un grupo solo embosca a héroes. Con los dos campos
+ * sueltos cabía un asaltante contra un monstruo, y quien cerraba la emboscada
+ * tenía que lanzar por un caso que nadie puede construir.
+ *
+ * Era `attackerHeroId: string`, y la frase «el atacante es siempre un jugador»
+ * vivía en dos comentarios del servidor; los asaltantes la hicieron falsa.
+ */
+export type Enfrentamiento =
+  | { readonly attacker: Extract<Atacante, { kind: 'hero' }>; readonly foe: BattleFoe }
+  | {
+      readonly attacker: Extract<Atacante, { kind: 'raider' }>;
+      readonly foe: Extract<BattleFoe, { kind: 'hero' }>;
+    };
+
+export type PendingBattle = Enfrentamiento & { readonly battle: BattleState };
+
+/** Si la batalla es una emboscada: la abrió un grupo, y el emboscado es un héroe. */
+function esEmboscada<T extends Enfrentamiento>(
+  p: T,
+): p is Extract<T, { readonly attacker: { readonly kind: 'raider' } }> {
+  return p.attacker.kind === 'raider';
 }
 
 export interface GameState {
@@ -187,6 +223,12 @@ export interface GameState {
   towns: Town[];
   current: PlayerId;
   pendingBattle: PendingBattle | null;
+  /**
+   * Los grupos de asaltantes en pie (`state/asaltantes.ts`). Son actores, como
+   * los héroes, y no objetos del mapa: se mueven cada día, y la memoria de la
+   * niebla —que copia objetos— los enseñaría donde ya no están.
+   */
+  raiders: Raider[];
   /**
    * La partida ha terminado, y `winner` dice quién ganó **o que no ganó nadie**.
    *
@@ -257,6 +299,18 @@ export type AdventureAction =
       readonly count: number;
     }
   | { readonly type: 'build'; readonly town: string; readonly building: string }
+  /**
+   * Licenciar `count` individuos de `creature` del ejército de un héroe que
+   * está en un castillo suyo (`dismissBlocker`). Es lo que deja cambiar una
+   * tropa barata por una mejor: el cupo y el liderazgo se llenan con lo primero
+   * que se recluta, y sin esto un héroe se quedaba con ella para siempre.
+   */
+  | {
+      readonly type: 'dismiss';
+      readonly hero: string;
+      readonly creature: string;
+      readonly count: number;
+    }
   | { readonly type: 'end_turn' };
 
 // ---------------------------------------------------------------- consultas
@@ -403,6 +457,8 @@ export interface GameConfig {
   readonly players: readonly { id: PlayerId; faction: FactionId; controller: Controller }[];
   readonly heroes: readonly Hero[];
   readonly towns: readonly Town[];
+  /** Los asaltantes con los que empieza la partida; ninguno si falta. */
+  readonly raiders?: readonly Raider[];
   readonly startingResources?: Partial<Resources>;
 }
 
@@ -465,6 +521,10 @@ export function createGame(config: GameConfig): GameState {
     })),
     current: config.players[0]?.id ?? 0,
     pendingBattle: null,
+    // Copia de un nivel, como los héroes: la casilla y la tropa de un grupo se
+    // SUSTITUYEN al moverse o al pelear, nunca se mutan, así que no hace falta
+    // clonar lo que `buildMap` acaba de crear.
+    raiders: (config.raiders ?? []).map((r) => ({ ...r })),
     finished: null,
     log: [],
   };
@@ -476,8 +536,15 @@ export function createGame(config: GameConfig): GameState {
     hero.movePoints = maxMovePoints(hero, state.characters);
     revealAround(state, hero);
   }
+  for (const town of state.towns) revealAroundTown(state, town);
 
   emit(state, { kind: 'day_start', day: 1, week: 1, actor: null, at: null });
+  // Los grupos con los que nace el mapa se cuentan igual que los que brotan un
+  // lunes: la regla de quién se entera es UNA —el sello, al ocurrir— y no
+  // depende de cuándo nació el grupo. Lo que no inunda la crónica de la
+  // persona no es callarlos aquí, sino que el panel no pinta este hecho de
+  // mapa (`renderLog`): el grupo ya se ve en el lienzo.
+  for (const raider of state.raiders) contarBrote(state, raider);
   startTurn(state);
   return state;
 }
@@ -493,7 +560,25 @@ export function createGame(config: GameConfig): GameState {
 function revealAround(state: GameState, hero: Hero): void {
   const player = state.players.find((p) => p.id === hero.owner);
   if (player === undefined) return;
-  const alcance = new Set(visibleFrom(state.map, hero.at, HERO_SCOUT_RADIUS));
+  explorar(state, player, hero.at, HERO_SCOUT_RADIUS);
+}
+
+/**
+ * El castillo mira alrededor, igual que un héroe: explora Y apunta.
+ *
+ * Se llama donde un castillo puede empezar a mirar o mirar algo nuevo: al crear
+ * la partida (para TODOS los jugadores, porque solo el primero pasa por
+ * `startTurn`), al empezar el turno de su dueño y al capturarlo. Con eso, toda
+ * casilla de `visibleNow` que venga de un castillo está ya en `fog`: el lienzo y
+ * el agente miran el mismo cuadrado.
+ */
+function revealAroundTown(state: GameState, town: Town): void {
+  if (town.owner === null) return;
+  explorar(state, playerById(state, town.owner), town.at, TOWN_SCOUT_RADIUS);
+}
+
+function explorar(state: GameState, player: Player, centro: Point, radio: number): void {
+  const alcance = new Set(visibleFrom(state.map, centro, radio));
   for (const key of alcance) player.fog.add(key);
   for (const obj of state.map.objects) {
     if (alcance.has(pointKey(obj.at))) {
@@ -654,6 +739,9 @@ function startTurn(state: GameState): void {
   for (const town of townsOf(state, player.id)) {
     if (conexion.nodos.has(town.id)) income = addResources(income, { gold: dailyIncome(town) });
     town.builtToday = false;
+    // Su recuerdo de lo que tiene alrededor es de hoy, igual que el de un héroe
+    // quieto: un grupo que patrulla junto a casa se ve donde está.
+    revealAroundTown(state, town);
   }
   for (const obj of state.map.objects) {
     if (obj.kind !== 'mine') continue;
@@ -677,7 +765,7 @@ function startTurn(state: GameState): void {
   }
 }
 
-function nextPlayer(state: GameState): void {
+function nextPlayer(state: GameState, ctx: GameContext): void {
   const vivos = state.players.filter((p) => !p.defeated);
   if (vivos.length <= 1) {
     // Sin nadie vivo no gana nadie, y ahora se puede decir: antes esto coronaba
@@ -696,7 +784,7 @@ function nextPlayer(state: GameState): void {
     if (jugador.defeated) continue;
 
     // Si damos la vuelta al orden, empieza un día nuevo.
-    if (actual + i >= orden.length) advanceDay(state);
+    if (actual + i >= orden.length) advanceDay(state, ctx);
     // …y ese día nuevo puede no llegar a existir: `advanceDay` termina la
     // partida al agotarse el tope. Sin esta línea, `startTurn` correría sobre
     // una partida acabada y le escribiría un `turn_start` detrás del
@@ -725,7 +813,7 @@ function nextPlayer(state: GameState): void {
  * movida—. Así el último día jugado es exactamente `maxDays`, y `game_over`
  * queda de último hecho.
  */
-function advanceDay(state: GameState): void {
+function advanceDay(state: GameState, ctx: GameContext): void {
   if (state.day >= state.maxDays) {
     finishGame(state, null);
     return;
@@ -734,6 +822,71 @@ function advanceDay(state: GameState): void {
   emit(state, { kind: 'day_start', day: state.day, week: week(state), actor: null, at: null });
   if (dayOfWeek(state) === 1) {
     for (const town of state.towns) applyWeeklyGrowth(town);
+  }
+  moverAsaltantes(state, ctx.rng);
+  if (dayOfWeek(state) === 1) brotarAsaltantes(state, ctx.rng);
+}
+
+/**
+ * La patrulla del día: cada grupo, en orden, da su paso (`pasoDePatrulla`). Va
+ * con el reloj y no con ningún jugador, al empezar el día y antes del primer
+ * turno: así lo que el agente ve en su turno es dónde está cada grupo HOY.
+ *
+ * **No se cuenta en la crónica.** Era `raider_moved`, el 20 % del volcado del
+ * banco, y no lo leía nadie: el panel no lo pintaba, al agente le llegaba por
+ * el sello y le comía la ventana de 25 hechos, y el lienzo anima la marcha con
+ * la posición, que está en el estado. Dónde está un grupo es estado, no hecho.
+ */
+function moverAsaltantes(state: GameState, rng: Rng): void {
+  const W = state.map.width;
+  const ocupadas = mascaraDeOcupacion(state);
+  for (const raider of state.raiders) {
+    const from = raider.at;
+    const to = pasoDePatrulla(state, raider, rng, ocupadas);
+    if (to.x === from.x && to.y === from.y) continue;
+    ocupadas[from.y * W + from.x] = 0;
+    ocupadas[to.y * W + to.x] = 1;
+    raider.at = to;
+  }
+}
+
+/** Que un grupo está en el mapa, contado: lo ve quien mire su casilla al nacer. */
+function contarBrote(state: GameState, raider: Raider): void {
+  emit(state, {
+    kind: 'raider_spawned',
+    raider: raider.id,
+    troops: raider.troops,
+    actor: null,
+    at: raider.at,
+  });
+}
+
+/**
+ * El brote del lunes (`dondeBrotan`). El id lleva el día y el orden del brote,
+ * así que no hace falta guardar un contador en el estado y dos partidas con la
+ * misma semilla dan los mismos ids.
+ */
+function brotarAsaltantes(state: GameState, rng: Rng): void {
+  for (const [k, plan] of dondeBrotan(state, rng).entries()) {
+    const raider: Raider = {
+      id: `raider-d${state.day}-${k}`,
+      at: plan.at,
+      troops: plan.troops,
+    };
+    state.raiders.push(raider);
+    contarBrote(state, raider);
+  }
+}
+
+/**
+ * Los grupos cuya región acaba de tener dueño se van. Lo llaman `captureNode` y
+ * `captureTown`, que son los únicos sitios donde una región puede ganar dueño:
+ * el dueño de una región es una consecuencia de sus nodos.
+ */
+function dispersarAsaltantes(state: GameState): void {
+  for (const { raider, dueño } of dispersados(state)) {
+    dejarAsaltante(state, raider.id, []);
+    emit(state, { kind: 'raider_dispersed', raider: raider.id, actor: dueño, at: raider.at });
   }
 }
 
@@ -895,7 +1048,7 @@ function aplicar(
 ): void {
   switch (action.type) {
     case 'end_turn':
-      nextPlayer(state);
+      nextPlayer(state, ctx);
       return;
 
     case 'move_hero':
@@ -963,7 +1116,89 @@ function aplicar(
       });
       return;
     }
+
+    case 'dismiss': {
+      const hero = heroById(state, action.hero);
+      const player = currentPlayer(state);
+      if (hero.owner !== player.id) throw new Error(`${hero.name} no es tuyo`);
+      const noSe = dismissBlocker(state, hero, action.creature, action.count);
+      if (noSe !== null) throw new Error(`no se puede licenciar: ${noSe}`);
+      hero.army = sinIndividuos(hero.army, action.creature, action.count);
+      emit(state, {
+        kind: 'dismissed',
+        hero: hero.id,
+        creature: action.creature,
+        count: action.count,
+        actor: player.id,
+        at: hero.at,
+      });
+      return;
+    }
   }
+}
+
+/**
+ * Por qué ese héroe no puede licenciar `count` × `creature` ahora, o `null`.
+ * La frase es para la persona: la lanza la acción, y de ahí la leen la barra
+ * del castillo (`session.ts` enseña el error del núcleo, no redacta) y el
+ * agente en su veredicto.
+ *
+ * Solo en un castillo propio —la base u otro—: licenciar en mitad del camino
+ * sería tirar tropa para pasar una emboscada más ligero, y lo que se pidió es
+ * poder **cambiarla** por otra mejor, que es algo que se hace donde se recluta.
+ * Un personaje no se licencia así: es uno y tiene nombre, y no está en el
+ * catálogo.
+ */
+function dismissBlocker(
+  state: GameState,
+  hero: Hero,
+  creatureId: string,
+  count: number,
+): string | null {
+  if (!Number.isSafeInteger(count) || count < 1) {
+    return `son individuos: se licencian de 1 en adelante, no ${count}`;
+  }
+  const castillo = state.towns.find(
+    (t) => t.owner === hero.owner && pointKey(t.at) === pointKey(hero.at),
+  );
+  if (castillo === undefined) {
+    return `${hero.name} no está en un castillo suyo: la tropa se licencia en la base o en un castillo propio`;
+  }
+  // La frase dice el NOMBRE de la criatura y no su id: «"peasant"» era una
+  // palabra en inglés en la barra del castillo. Un id que no está en el catálogo
+  // —el agente puede mandar cualquier texto— se nombra tal cual, diciendo que no
+  // existe, en vez de reventar en `creature()` con un error que no es el motivo.
+  if (creatureId === CHARACTER_BODY) {
+    return 'un personaje no se licencia: es uno y tiene nombre, no un individuo de la tropa';
+  }
+  const especie = allCreatures().find((c) => c.id === creatureId);
+  if (especie === undefined) {
+    return `no existe ninguna criatura "${creatureId}", así que ${hero.name} no lleva ninguna`;
+  }
+  const lleva = hero.army.filter((t) => t.creature === creatureId && t.member === undefined).length;
+  if (lleva === 0) return `${hero.name} no lleva individuos de tipo ${especie.name}`;
+  if (count > lleva) {
+    return `${hero.name} lleva ${lleva} × ${especie.name} y no puede licenciar ${count}`;
+  }
+  return null;
+}
+
+/**
+ * El ejército sin `count` individuos de `creatureId`, quitados **desde el
+ * final**: los últimos en llegar son los primeros en irse, y el resto conserva
+ * su orden, que es el de despliegue. Lo usan la acción y la IA que la planea,
+ * para que lo que la IA cree que queda sea lo que queda.
+ */
+export function sinIndividuos(army: Army, creatureId: string, count: number): Army {
+  const out = [...army];
+  let faltan = count;
+  for (let i = out.length - 1; i >= 0 && faltan > 0; i--) {
+    const t = out[i] as Troop;
+    if (t.creature !== creatureId || t.member !== undefined) continue;
+    out.splice(i, 1);
+    faltan--;
+  }
+  return out;
 }
 
 /**
@@ -1067,6 +1302,9 @@ export function casillasHostiles(state: GameState, player: PlayerId): Point[] {
   const out: Point[] = [];
   for (const h of state.heroes) if (h.owner !== player) out.push(h.at);
   for (const t of state.towns) if (t.owner !== player && t.garrison.length > 0) out.push(t.at);
+  // Un grupo de asaltantes es hostil para todos: se alcanza —atacarlo es
+  // pedirlo de destino— y no se cruza.
+  for (const r of state.raiders) out.push(r.at);
   return out;
 }
 
@@ -1074,9 +1312,21 @@ export function casillasHostiles(state: GameState, player: PlayerId): Point[] {
  * Todo lo que alcanza un héroe desde donde está, con lo hostil de la partida
  * (`casillasHostiles`) como final de trayecto. Es el alcance de la IA y de
  * quien quiera mirar a dónde llega un héroe.
+ *
+ * Con `evitarEmboscadas`, es el alcance **prudente** de la IA: las regiones
+ * donde a este héroe lo emboscarían (`casillasPeligrosas`) no se pisan. Solo
+ * endurece —se llega a menos sitios, nunca a más—, así que lo hostil sigue sin
+ * cruzarse. Es una opción y no una segunda función porque es
+ * el mismo Dijkstra con una marca más, y el Dijkstra del mapa solo se lanza
+ * desde aquí (`test/invariantes.test.ts`).
  */
-export function alcanceDelHeroe(state: GameState, hero: Hero): Reachable {
-  return reachableFrom(state.map, hero.at, casillasHostiles(state, hero.owner));
+export function alcanceDelHeroe(
+  state: GameState,
+  hero: Hero,
+  opciones: { readonly evitarEmboscadas?: boolean } = {},
+): Reachable {
+  const peligro = opciones.evitarEmboscadas === true ? casillasPeligrosas(state, hero) : null;
+  return reachableFrom(state.map, hero.at, casillasHostiles(state, hero.owner), peligro);
 }
 
 /**
@@ -1147,7 +1397,12 @@ function queLoCierra(state: GameState, hero: Hero, at: Point): string {
   if (rival !== undefined) return `el héroe rival ${rival.name} ${donde}`;
   const ciudad = state.towns.find((t) => pointKey(t.at) === pointKey(at));
   if (ciudad !== undefined) return `la ciudad ${ciudad.name}, con guarnición, ${donde}`;
-  throw new Error(`(${at.x},${at.y}) se tiene por hostil y no hay en ella ni héroe ni ciudad`);
+  if (state.raiders.some((r) => pointKey(r.at) === pointKey(at))) {
+    return `un grupo de asaltantes ${donde}`;
+  }
+  throw new Error(
+    `(${at.x},${at.y}) se tiene por hostil y no hay en ella ni héroe, ni ciudad, ni asaltantes`,
+  );
 }
 
 /**
@@ -1205,7 +1460,7 @@ function moveHero(
     const enemigo = enemyAt(state, paso.at, player.id);
     if (enemigo !== null) {
       hero.movePoints -= coste;
-      startBattle(state, hero, enemigo, ctx);
+      abrirBatalla(state, { attacker: { kind: 'hero', heroId: hero.id }, foe: enemigo }, ctx);
       return;
     }
 
@@ -1225,6 +1480,22 @@ function moveHero(
     // MITAD de camino, y eso acaba la partida: seguir andando escribiría
     // `hero_moved` debajo del `game_over`, que `emit` ya no deja escribir.
     if (state.finished !== null) return;
+    // Pisar la región de un grupo que le saca el margen es la emboscada: el
+    // grupo ataca, el héroe defiende y la marcha se para aquí. Después de
+    // `collectAt` porque esa casilla ya es suya —ha llegado—, y un nodo tomado
+    // de camino pudo dispersar al grupo antes de que lo viera.
+    const asaltante = emboscador(state, hero);
+    if (asaltante !== null) {
+      abrirBatalla(
+        state,
+        {
+          attacker: { kind: 'raider', raiderId: asaltante.id },
+          foe: { kind: 'hero', heroId: hero.id },
+        },
+        ctx,
+      );
+      return;
+    }
   }
 }
 
@@ -1250,6 +1521,9 @@ function enemyAt(state: GameState, at: Point, player: PlayerId): BattleFoe | nul
   if (obj !== undefined && obj.kind === 'monster' && !obj.defeated) {
     return { kind: 'monster', objectId: obj.id };
   }
+
+  const asaltante = state.raiders.find((r) => pointKey(r.at) === pointKey(at));
+  if (asaltante !== undefined) return { kind: 'raider', raiderId: asaltante.id };
 
   const heroeEnemigo = state.heroes.find(
     (h) => h.owner !== player && pointKey(h.at) === pointKey(at),
@@ -1341,6 +1615,7 @@ function captureNode(
   const anterior = nodo.owner;
   nodo.owner = player;
   emit(state, { kind: 'node_captured', node: nodo.id, from: anterior, actor: player, at: nodo.at });
+  dispersarAsaltantes(state);
 }
 
 /**
@@ -1370,6 +1645,7 @@ function captureTown(state: GameState, town: Town, player: PlayerId): void {
     throw new Error(`el castillo ${town.id} no tiene objeto en el mapa`);
   }
   bandera.owner = player;
+  revealAroundTown(state, town);
   emit(state, {
     kind: 'town_captured',
     town: town.id,
@@ -1377,6 +1653,9 @@ function captureTown(state: GameState, town: Town, player: PlayerId): void {
     actor: player,
     at: town.at,
   });
+  // Una ciudad es un nodo: tomarla puede cerrar una región, y los grupos que
+  // la patrullaban se van. Antes de la nota de abajo y sin ser una derrota.
+  dispersarAsaltantes(state);
   // Sin `checkDefeat` aquí, y es a propósito: la captura es UNA parte de lo que
   // pasa, y quien la llama comprueba la derrota al acabar lo suyo. Tomar la base
   // con su héroe dentro es capturar **y después** derrotar al héroe; si la
@@ -1510,6 +1789,44 @@ function defenderSide(state: GameState, foe: BattleFoe): BattleSide {
         moraleBonus: moraleFromBuildings(pueblo),
       };
     }
+    case 'raider':
+      return ladoDeAsaltante(state, foe.raiderId);
+  }
+}
+
+/**
+ * El bando de un grupo de asaltantes, ataque o defienda: su tropa y sin héroe.
+ * El único sitio que lo construye, para que emboscar y ser atacado no puedan
+ * desplegar al mismo grupo de dos maneras.
+ */
+function ladoDeAsaltante(state: GameState, id: string): BattleSide {
+  return { army: troopsAsStacks(ejercitoDe(raiderById(state, id).troops)), hero: null };
+}
+
+/**
+ * Lo que le queda en pie a un grupo después de una batalla, o nada: un grupo
+ * sin nadie deja de existir. La única escritura de la tropa de un grupo y el
+ * único sitio que lo borra, gane, pierda o se disperse.
+ */
+function dejarAsaltante(state: GameState, id: string, army: Army): void {
+  if (army.length > 0) raiderById(state, id).troops = gruposDe(army);
+  else state.raiders = state.raiders.filter((r) => r.id !== id);
+}
+
+/** El grupo de asaltantes con ese id; lanza si ya no está. */
+function raiderById(state: GameState, id: string): Raider {
+  const r = state.raiders.find((x) => x.id === id);
+  if (r === undefined) throw new Error(`grupo de asaltantes desconocido: "${id}"`);
+  return r;
+}
+
+/** El bando que ataca: el héroe con su tropa, o el grupo que embosca. */
+function attackerSide(state: GameState, atacante: Atacante): BattleSide {
+  switch (atacante.kind) {
+    case 'hero':
+      return battleSideForHero(state, heroById(state, atacante.heroId), 'attacker');
+    case 'raider':
+      return ladoDeAsaltante(state, atacante.raiderId);
   }
 }
 
@@ -1524,16 +1841,27 @@ function defenderSide(state: GameState, foe: BattleFoe): BattleSide {
  */
 export function battleOwners(
   state: GameState,
-  pending: PendingBattle,
+  pending: Enfrentamiento,
 ): Readonly<Record<Side, PlayerId | null>> {
   const foe = pending.foe;
-  const defender =
-    foe.kind === 'monster'
-      ? null
-      : foe.kind === 'hero'
-        ? heroById(state, foe.heroId).owner
-        : townById(state, foe.townId).owner;
-  return { attacker: heroById(state, pending.attackerHeroId).owner, defender };
+  let defender: PlayerId | null;
+  switch (foe.kind) {
+    case 'monster':
+    case 'raider':
+      defender = null;
+      break;
+    case 'hero':
+      defender = heroById(state, foe.heroId).owner;
+      break;
+    case 'town':
+      defender = townById(state, foe.townId).owner;
+      break;
+  }
+  // Un grupo de asaltantes no es de nadie: cuando embosca, el atacante es
+  // `null` igual que un monstruo cuando defiende.
+  const attacker =
+    pending.attacker.kind === 'hero' ? heroById(state, pending.attacker.heroId).owner : null;
+  return { attacker, defender };
 }
 
 /**
@@ -1551,7 +1879,7 @@ export function battleOwners(
  * serializable y #10 lo va a guardar: un campo copiado es un campo que puede
  * volver del disco contradiciendo al mapa, que es la forma exacta de #47.
  */
-function lugarDelRival(state: GameState, foe: BattleFoe): Point {
+export function lugarDelRival(state: GameState, foe: BattleFoe): Point {
   switch (foe.kind) {
     case 'monster': {
       const obj = state.map.objects.find((o) => o.id === foe.objectId);
@@ -1562,6 +1890,8 @@ function lugarDelRival(state: GameState, foe: BattleFoe): Point {
       return heroById(state, foe.heroId).at;
     case 'town':
       return townById(state, foe.townId).at;
+    case 'raider':
+      return raiderById(state, foe.raiderId).at;
   }
 }
 
@@ -1589,23 +1919,35 @@ export function sidesOwnedBy(
   return bandos;
 }
 
+/**
+ * El jugador que protagoniza una batalla: el dueño del héroe que ataca o, si
+ * embosca un grupo, el del héroe emboscado. Se lee de `battleOwners`, que es
+ * quien sabe de quién es cada bando, en vez de volver a mirar los héroes.
+ * Siempre hay uno: toda batalla del mapa lleva un héroe dentro, y el tipo
+ * (`Enfrentamiento`) no deja escribir un grupo contra otra cosa.
+ */
+function protagonista(state: GameState, pending: Enfrentamiento): PlayerId {
+  const dueños = battleOwners(state, pending);
+  const quien = dueños.attacker ?? dueños.defender;
+  if (quien === null)
+    throw new Error('una batalla del mapa sin ningún jugador en ninguno de los dos bandos');
+  return quien;
+}
+
 /** Prepara la batalla y la deja pendiente: la juega la IA o el jugador. */
-function startBattle(state: GameState, hero: Hero, foe: BattleFoe, ctx: GameContext): void {
-  const battle = createBattle(
-    battleSideForHero(state, hero, 'attacker'),
-    defenderSide(state, foe),
-    ctx.rng,
-  );
-  const pending = { attackerHeroId: hero.id, foe, battle };
+function abrirBatalla(state: GameState, quienes: Enfrentamiento, ctx: GameContext): void {
+  const { attacker, foe } = quienes;
+  const battle = createBattle(attackerSide(state, attacker), defenderSide(state, foe), ctx.rng);
+  const pending: PendingBattle = { ...quienes, battle };
   state.pendingBattle = pending;
   // La casilla se deriva aquí también, y no se toma del paso que abrió la
   // batalla: así el sitio que dice el `battle_started` y el que dice el
   // `battle_ended` no son dos respuestas que puedan dejar de coincidir.
   emit(state, {
     kind: 'battle_started',
-    attacker: hero.id,
+    attacker,
     foe,
-    actor: hero.owner,
+    actor: protagonista(state, pending),
     at: lugarDelRival(state, foe),
   });
 }
@@ -1638,7 +1980,8 @@ export function settleBattle(state: GameState, _ctx: GameContext): void {
 
   const finished = pending.battle.finished;
   const winner = finished.winner;
-  const hero = heroById(state, pending.attackerHeroId);
+  // Quién la protagoniza, leído ahora, con los dos bandos en pie.
+  const actor = protagonista(state, pending);
   // La casilla, LEÍDA AQUÍ: con los dos bandos todavía en pie. Después hay
   // héroes que salen del mapa y castillos que cambian de bandera, y preguntar
   // entonces sería preguntar por alguien que ya no está. Es el mismo patrón que
@@ -1679,11 +2022,15 @@ export function settleBattle(state: GameState, _ctx: GameContext): void {
   };
 
   const supervivientesDelDefensor = superviviente('defender');
+  const supervivientesDelAtacante = superviviente('attacker');
   // Lo que la batalla les mutó —el maná, y la tropa que queda en pie— vuelve a
   // los DOS héroes aquí, una vez y por la misma función, gane quien gane. Antes
   // se devolvía en tres sitios según quién perdiera, y el defensor que perdía
   // se restauraba dentro de `applyVictory`, que no es su asunto.
-  restoreHeroFromBattle(hero, pending.battle.heroes.attacker, superviviente('attacker'));
+  if (!esEmboscada(pending)) {
+    const atacante = heroById(state, pending.attacker.heroId);
+    restoreHeroFromBattle(atacante, pending.battle.heroes.attacker, supervivientesDelAtacante);
+  }
   if (pending.foe.kind === 'hero') {
     const defensor = heroById(state, pending.foe.heroId);
     restoreHeroFromBattle(defensor, pending.battle.heroes.defender, supervivientesDelDefensor);
@@ -1698,17 +2045,30 @@ export function settleBattle(state: GameState, _ctx: GameContext): void {
     kind: 'battle_ended',
     winner,
     foe: pending.foe,
-    actor: hero.owner,
+    actor,
     at,
   });
   state.pendingBattle = null;
 
-  if (winner === 'attacker') {
-    ganarExperiencia(state, hero, experienceFor(pending, 'attacker'), at);
-    applyVictory(state, hero, pending.foe, precio, at);
+  if (esEmboscada(pending)) {
+    const emboscado = heroById(state, pending.foe.heroId);
+    if (winner === 'attacker') {
+      dejarAsaltante(state, pending.attacker.raiderId, supervivientesDelAtacante);
+      heroeVencido(state, emboscado, precio, at);
+    } else {
+      // Sin héroe no se rinde: perder es caer entero.
+      dejarAsaltante(state, pending.attacker.raiderId, []);
+      ganarExperiencia(state, emboscado, experienceFor(pending, 'defender'), at);
+    }
   } else {
-    heroeVencido(state, hero, precio, at);
-    applyDefenderSurvivors(state, pending, supervivientesDelDefensor, at);
+    const hero = heroById(state, pending.attacker.heroId);
+    if (winner === 'attacker') {
+      ganarExperiencia(state, hero, experienceFor(pending, 'attacker'), at);
+      applyVictory(state, hero, pending.foe, precio, at);
+    } else {
+      heroeVencido(state, hero, precio, at);
+      applyDefenderSurvivors(state, pending, supervivientesDelDefensor, at);
+    }
   }
 
   checkDefeat(state);
@@ -1805,7 +2165,8 @@ function volverABase(state: GameState, hero: Hero, base: Town, precio: number | 
  */
 function casillaDeVuelta(state: GameState, hero: Hero, base: Town): Point {
   const ocupada = (p: Point): boolean =>
-    state.heroes.some((h) => h.id !== hero.id && pointKey(h.at) === pointKey(p));
+    state.heroes.some((h) => h.id !== hero.id && pointKey(h.at) === pointKey(p)) ||
+    state.raiders.some((r) => pointKey(r.at) === pointKey(p));
   if (!ocupada(base.at)) return base.at;
   const vistas = new Set<string>([pointKey(base.at)]);
   const cola: Point[] = [base.at];
@@ -1964,6 +2325,10 @@ function applyVictory(
       captureTown(state, pueblo, hero.owner);
       break;
     }
+    case 'raider':
+      // Un grupo sin héroe no se rinde: perder es caer entero.
+      dejarAsaltante(state, foe.raiderId, []);
+      break;
   }
 }
 
@@ -2001,5 +2366,9 @@ function applyDefenderSurvivors(
       pueblo.garrison = army;
       break;
     }
+    case 'raider':
+      // Repele al héroe y sigue patrullando con lo que le quede.
+      dejarAsaltante(state, foe.raiderId, army);
+      break;
   }
 }

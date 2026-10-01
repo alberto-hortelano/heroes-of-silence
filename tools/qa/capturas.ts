@@ -50,7 +50,8 @@ import { explicacionDeFin, rotuloDeDia } from '../../src/client/views/panels.js'
 import { chooseBattleAction } from '../../src/core/ai/tactics.js';
 import { stackHexes } from '../../src/core/battle/battle.js';
 import type { BattleAction, BattleEvent, BattleStack } from '../../src/core/battle/types.js';
-import { baseOf, heroesOf } from '../../src/core/state/game.js';
+import { casillasPeligrosas } from '../../src/core/state/asaltantes.js';
+import { baseOf, heroesOf, visibleNow } from '../../src/core/state/game.js';
 import type { Point } from '../../src/core/types.js';
 import type {
   AgentHelloMsg,
@@ -60,16 +61,38 @@ import type {
 import { decidir } from './politica.js';
 import { arrancarServidor, type ServidorDePartida } from './servidor.js';
 
-const SEMILLA = 2;
+/**
+ * Las semillas cambiaron todas con el mapa de 28 y los asaltantes (ciclo «el
+ * camino cuesta»): con un grupo en cada región sin dueño, la guardia que se
+ * alcanza hoy SIN pisar la región de un grupo que embosque es rara —3 de las 60
+ * primeras semillas—, y cada pasada necesita una. Se buscaron con el espejo,
+ * como `guardiaALaVista`: la 282 tiene una a tres casillas y, además, una ruta
+ * de dos días a la vista (`rutaDoradaYGris`), que de las candidatas solo tenían
+ * cuatro.
+ *
+ * Se volvieron a probar las de siempre (2, 29 y 4) cuando la IA dejó de entrar
+ * en emboscadas: no cambia nada, porque lo que las descarta es la ruta de la
+ * PERSONA, no la de la IA. En las tres, la única guardia a la que se llega hoy
+ * está detrás de una región que embosca al héroe de salida.
+ */
+const SEMILLA = 282;
 /**
  * La del móvil y la del dedo: en un marco de 364 px de ancho la guardia que se
- * alcanza hoy tiene que caer DENTRO, y en la semilla 2 del mapa de nodos no cae
- * ninguna. La 29 tiene cuatro piqueros a la vista desde el primer día, lejos
- * de los botones de la cámara.
+ * alcanza hoy tiene que caer DENTRO, y en el del dedo —en vertical, con la
+ * cámara pegada al borde de arriba— a dos casillas como mucho. De las 1 500
+ * primeras semillas solo seis la tienen; la 668, a (2,−1) del héroe.
  */
-const SEMILLA_MOVIL = 29;
+const SEMILLA_MOVIL = 668;
 /** La partida cuya guardia más cercana gana: la batalla que se pierde y la vuelta a la base. */
-const SEMILLA_QUE_PIERDE = 4;
+const SEMILLA_QUE_PIERDE = 273;
+/**
+ * La de la emboscada avisada (H2 del ciclo «el camino cuesta»): el día 1, el
+ * grupo de 6 piqueros de la región de casa se ve desde Valdeluz, y la ruta a
+ * (2,10) pisa su región en (1,9). Es la escena que encontró QA: antes la barra
+ * decía «llegas hoy (3 pasos)» y el grupo no estaba ni pintado (H1).
+ */
+const SEMILLA_EMBOSCADA = 1;
+const DESTINO_EMBOSCADA: Point = { x: 2, y: 10 };
 const DESTINO = resolve(process.argv[2] ?? 'docs/agents/2026-10-01-cliente-nuevo/capturas');
 
 /** Los códigos de color ANSI; escritos con `fromCharCode` porque Biome no deja un ESC literal en una regex. */
@@ -632,6 +655,40 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
     log(`el séptimo se rechaza: «${dice}»`);
     await captura(page, 'desktop-05b-castillo-el-septimo-no-cabe');
     await comprobar(page, espejo, 'reclutar el séptimo');
+
+    // Y licenciando uno, el séptimo cabe: el «−1» de la tropa del héroe, pulsado
+    // en la página, y el «+1» otra vez. Es el gesto para cambiar tropa, y deja el
+    // ejército como estaba —el licenciado es el último, y el recluta entra al
+    // final—, así que el resto de la pasada no se entera.
+    const heroe = espejo.selectedHero!;
+    const antes = heroe.army.length;
+    const menos = page.locator(`#side button[data-action="dismiss"][data-creature="${recluta}"]`);
+    if ((await menos.count()) !== 1) {
+      throw new Error(`la tropa del héroe no ofrece licenciar ${recluta} en el castillo`);
+    }
+    await menos.click();
+    espejo.dismiss(heroe.id, recluta, 1);
+    await sleep(200);
+    if (espejo.selectedHero?.army.length !== antes - 1 || espejo.status !== '') {
+      throw new Error(`licenciar uno no ha hecho sitio: ${espejo.status}`);
+    }
+    const tropa = await page.locator('#side h3', { hasText: 'Tropa de' }).count();
+    if (tropa !== 1) throw new Error('el castillo no enseña la tropa del héroe tras licenciar');
+    await captura(page, 'desktop-05c-castillo-licenciado-uno');
+    log(`licenciado un ${recluta}: la tropa pasa de ${antes} a ${antes - 1}`);
+    if ((espejo.activeTown?.available[recluta] ?? 0) > 0) {
+      await page.mouse.click(
+        bb.x + t.x + (uno.x + uno.w / 2) * t.scale,
+        bb.y + t.y + (uno.y + uno.h / 2) * t.scale,
+      );
+      espejo.recruit(recluta, 1);
+      await sleep(200);
+      if (espejo.selectedHero?.army.length !== antes) {
+        throw new Error(`tras licenciar, el séptimo debía caber: ${espejo.status}`);
+      }
+      log(`y el «+1» vuelve a reclutar: ${antes} de ${antes}`);
+    }
+    await comprobar(page, espejo, 'licenciar y volver a reclutar');
   }
   await page.getByRole('button', { name: 'Volver al mapa' }).click();
   espejo.closeTown();
@@ -744,6 +801,9 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
       `dos Espacios seguidos: la página está en «${await page.locator('#day').innerText()}», como el espejo`,
     );
   }
+
+  // La patrulla de los asaltantes, vista pasar de un día a otro.
+  if (espejo.state.finished === null) await patrullaALaVista(page, espejo, mapa, 'desktop-15');
 
   // Pasar días hasta que la partida se acabe.
   for (let d = 0; d < 60 && espejo.state.finished === null; d++) {
@@ -1091,10 +1151,16 @@ async function pixelesDelLienzo(page: Page, x: number, y: number): Promise<numbe
 async function guardiaALaVista(page: Page, mapa: Mapa, espejo: Session): Promise<Point> {
   const b = await caja(page);
   const candidatas: { at: Point; pasos: number }[] = [];
+  // Una ruta que pisa la región de un grupo que embosca no llega a la guardia:
+  // la marcha se para en la emboscada y la batalla es otra.
+  const heroe = espejo.selectedHero;
+  const peligro = heroe === null ? null : casillasPeligrosas(espejo.state, heroe);
+  const W = espejo.state.map.width;
   for (const o of espejo.state.map.objects) {
     if (o.kind !== 'monster' || o.defeated) continue;
     const ruta = espejo.previewPath(o.at);
     if (ruta.length === 0 || !ruta.every((paso) => paso.hoy)) continue;
+    if (ruta.some((paso) => peligro?.[paso.at.y * W + paso.at.x] === 1)) continue;
     candidatas.push({ at: o.at, pasos: ruta.length });
   }
   candidatas.sort((x, y) => x.pasos - y.pasos);
@@ -1110,6 +1176,188 @@ async function guardiaALaVista(page: Page, mapa: Mapa, espejo: Session): Promise
     if (dentro) return c.at;
   }
   throw new Error('no hay a la vista ninguna guardia a la que se llegue hoy');
+}
+
+/**
+ * Un grupo de asaltantes que se mueve de un día a otro, **visto en el lienzo**:
+ * se pasa el día hasta que alguno de los que están a la vista cambie de
+ * casilla en el espejo, y entonces se mira en la página que la figura se ha
+ * ido de la casilla de ayer y ha llegado a la de hoy —los píxeles de las dos
+ * cambian—. Dos capturas: a mitad del deslizamiento y al llegar.
+ *
+ * Lo que se compara es el lienzo de antes de pasar el día con el de después,
+ * casilla a casilla alrededor de cada grupo visible: la casilla de destino no
+ * se sabe hasta que el espejo juega el día.
+ */
+async function patrullaALaVista(
+  page: Page,
+  espejo: Session,
+  mapa: Mapa,
+  prefijo: string,
+): Promise<void> {
+  // Con la vista abierta: la pasada de escritorio llega aquí con el zoom de
+  // antes puesto, y de cerca no cabe nada más que el héroe. La rueda la cuenta
+  // `Mapa`, con los topes del cliente.
+  for (let i = 0; i < 4; i++) await mapa.rueda(-1);
+  const b = await caja(page);
+  const dentro = (p: { x: number; y: number }) =>
+    p.x > b.x + 30 && p.x < b.x + b.width - 30 && p.y > b.y + 30 && p.y < b.y + b.height - 110;
+  const explorada = (p: Point) => espejo.explorado?.has(`${p.x},${p.y}`) ?? true;
+  for (let intento = 0; intento < 4 && espejo.state.finished === null; intento++) {
+    // Lo que se ve de cada grupo hoy, y el lienzo alrededor: dos casillas son
+    // lo más que anda en un día (`pasosPorDia`).
+    const antes = new Map<string, number[]>();
+    const posiciones = new Map(espejo.state.raiders.map((r) => [r.id, { ...r.at }]));
+    for (const r of espejo.state.raiders) {
+      if (!explorada(r.at) || !dentro(await mapa.pixel(r.at))) continue;
+      for (let dy = -2; dy <= 2; dy++) {
+        for (let dx = -2; dx <= 2; dx++) {
+          const p = { x: r.at.x + dx, y: r.at.y + dy };
+          const clave = `${p.x},${p.y}`;
+          if (antes.has(clave)) continue;
+          const px = await mapa.pixel(p);
+          antes.set(clave, await pixelesDelLienzo(page, px.x - b.x, px.y - b.y));
+        }
+      }
+    }
+    if (antes.size === 0) {
+      // Ninguno en lo explorado de la pantalla: se descubre el mapa con el botón
+      // de siempre —el de depurar— en vez de buscar otra semilla. Una vez, y se
+      // dice; si ni así hay ninguno, es rojo.
+      //
+      // Esto era el síntoma de H1 —un grupo que el castillo ve y el lienzo no
+      // pinta—, y por eso antes de descubrir se exige que NO sea eso: si alguno
+      // está a la vista de la persona (`visibleNow`) y fuera de lo explorado, es
+      // rojo. Lo que queda es la geografía de la semilla: la 282 se eligió por
+      // tener una guardia a la que se llega sin pisar la región de un grupo, y
+      // ninguno cae a la vista de su castillo ni de su héroe —tampoco para el
+      // agente—. Que un grupo cercano se pinta sin descubrir nada lo comprueba
+      // `emboscadaAvisada`.
+      if (espejo.revealAll) throw new Error(`${prefijo}: no hay ningún asaltante a la vista`);
+      const mirando = visibleNow(espejo.state, espejo.viewer);
+      const tapado = espejo.state.raiders.find(
+        (r) => mirando.has(`${r.at.x},${r.at.y}`) && !explorada(r.at),
+      );
+      if (tapado !== undefined) {
+        throw new Error(
+          `${prefijo}: ${tapado.id} en (${tapado.at.x},${tapado.at.y}) está a la vista y la niebla lo tapa (H1)`,
+        );
+      }
+      const aLaVista = espejo.state.raiders.filter((r) => mirando.has(`${r.at.x},${r.at.y}`));
+      await page.getByRole('button', { name: 'Ver mapa entero' }).click();
+      espejo.revealAll = true;
+      await sleep(200);
+      log(
+        `${prefijo}: ningún asaltante en lo explorado de la pantalla (${aLaVista.length} a la vista de la persona, ` +
+          `ninguno tapado por la niebla); se descubre el mapa`,
+      );
+      intento--;
+      continue;
+    }
+    await pasarDia(page, espejo);
+    const movido = espejo.state.raiders.find((r) => {
+      const ayer = posiciones.get(r.id);
+      return (
+        ayer !== undefined &&
+        (ayer.x !== r.at.x || ayer.y !== r.at.y) &&
+        antes.has(`${ayer.x},${ayer.y}`) &&
+        antes.has(`${r.at.x},${r.at.y}`)
+      );
+    });
+    if (movido === undefined) continue;
+    const ayer = posiciones.get(movido.id) as Point;
+    await sleep(250);
+    await captura(page, `${prefijo}-asaltante-andando`);
+    // Que llegue: el deslizamiento dura `DURACION_DE_PATRULLA` (900 ms).
+    await sleep(1200);
+    await captura(page, `${prefijo}-asaltante-llegado`);
+    const cambio = async (p: Point): Promise<number> => {
+      const px = await mapa.pixel(p);
+      const ahora = await pixelesDelLienzo(page, px.x - b.x, px.y - b.y);
+      const viejo = antes.get(`${p.x},${p.y}`) ?? [];
+      return ahora.reduce((t, v, i) => t + Math.abs(v - (viejo[i] ?? 0)), 0);
+    };
+    const enAyer = await cambio(ayer);
+    const enHoy = await cambio(movido.at);
+    log(
+      `${prefijo}: ${movido.id} pasa de (${ayer.x},${ayer.y}) a (${movido.at.x},${movido.at.y}); ` +
+        `el lienzo cambia ${enAyer} en la casilla de ayer y ${enHoy} en la de hoy`,
+    );
+    if (enAyer < 2000 || enHoy < 2000) {
+      throw new Error(
+        `${prefijo}: el espejo mueve ${movido.id} y el lienzo no lo enseña (cambia ${enAyer} y ${enHoy})`,
+      );
+    }
+    await comprobar(page, espejo, `${prefijo}: la patrulla`);
+    return;
+  }
+  throw new Error(`${prefijo}: en cuatro días ningún asaltante a la vista se ha movido`);
+}
+
+/**
+ * La ruta que pisa la región de un grupo que embosca: el grupo se ve sin «Ver
+ * mapa entero» (H1), la ruta se pinta en rojo desde la casilla donde salta, la
+ * barra lo dice delante (H2) y, al pulsar, la batalla es contra ese grupo —el
+ * aviso es verdad—.
+ */
+async function emboscadaAvisada(
+  browser: Browser,
+  url: string,
+  problemas: Problemas,
+): Promise<void> {
+  const { page, espejo, mapa } = await abrir(browser, url, problemas, {
+    nombre: 'emboscada avisada',
+    semilla: SEMILLA_EMBOSCADA,
+  });
+  const ruta = espejo.previewPath(DESTINO_EMBOSCADA);
+  const salta = ruta.find((p) => p.emboscada !== undefined);
+  if (salta === undefined || salta.emboscada === undefined) {
+    throw new Error(
+      `semilla ${SEMILLA_EMBOSCADA}: la ruta a (${DESTINO_EMBOSCADA.x},${DESTINO_EMBOSCADA.y}) ya no pisa ninguna emboscada a la vista`,
+    );
+  }
+  const grupo = salta.emboscada;
+  const explorado = espejo.explorado;
+  if (explorado === null || !explorado.has(`${grupo.at.x},${grupo.at.y}`)) {
+    throw new Error(`emboscada: ${grupo.id} embosca y no está pintado: la niebla lo tapa (H1)`);
+  }
+  const b = await caja(page);
+  const enSalto = await mapa.pixel(salta.at);
+  const rojos = (px: number[]): number => {
+    let n = 0;
+    for (let i = 0; i < px.length; i += 4) {
+      if ((px[i] ?? 0) > 170 && (px[i + 1] ?? 0) < 90 && (px[i + 2] ?? 0) < 90) n++;
+    }
+    return n;
+  };
+  const antes = rojos(await pixelesDelLienzo(page, enSalto.x - b.x, enSalto.y - b.y));
+  const destino = await mapa.pixel(DESTINO_EMBOSCADA);
+  await page.mouse.move(destino.x, destino.y);
+  await sleep(250);
+  const despues = rojos(await pixelesDelLienzo(page, enSalto.x - b.x, enSalto.y - b.y));
+  const dice = await page.locator('#status').innerText();
+  log(
+    `emboscada: ${grupo.id} en (${grupo.at.x},${grupo.at.y}) pintado sin descubrir el mapa; ` +
+      `la ruta salta en (${salta.at.x},${salta.at.y}) con ${antes} → ${despues} píxeles rojos — «${dice}»`,
+  );
+  await captura(page, 'emboscada-01-ruta-avisada');
+  if (!dice.startsWith('Cuidado: el camino cruza la región de')) {
+    throw new Error(`emboscada: la barra no avisa: «${dice}»`);
+  }
+  if (despues - antes < 10) {
+    throw new Error(
+      `emboscada: la casilla donde salta no se pinta en rojo (${antes} → ${despues})`,
+    );
+  }
+  await mapa.pulsar(DESTINO_EMBOSCADA);
+  const atacante = espejo.state.pendingBattle?.attacker;
+  if (atacante?.kind !== 'raider' || atacante.raiderId !== grupo.id) {
+    throw new Error(`emboscada: al pulsar no hay batalla con ${grupo.id}: ${espejo.status}`);
+  }
+  await sleep(400);
+  await captura(page, 'emboscada-02-batalla');
+  log(`emboscada: al pulsar, batalla con ${grupo.id} atacando, como avisaba la ruta`);
+  await page.close();
 }
 
 async function batallaPerdida(browser: Browser, url: string, problemas: Problemas): Promise<void> {
@@ -1173,6 +1421,9 @@ async function sinArte(browser: Browser, url: string, problemas: Problemas): Pro
     sinImagenes: /\/(rpg|characters)\/.*\.(png|webp)$/,
   });
   await captura(page, 'sin-arte-01-mapa');
+  // Sin arte la figura no respira y el lienzo no se repinta solo: el
+  // deslizamiento de la patrulla es lo que tiene que pedir los fotogramas.
+  await patrullaALaVista(page, espejo, mapa, 'sin-arte-02');
   await mapa.pulsar(await guardiaALaVista(page, mapa, espejo));
   if (espejo.battle !== null) {
     await esperarCola(espejo.battle.log);
@@ -1236,11 +1487,19 @@ const PLAZO_DEL_FIN_AL_MAPA_MS = 8_000;
 /**
  * Del `game_over` del servidor a que el espectador enseñe quién ganó. Antes eran
  * **22 s** con un agente rápido (H-7 de la QA de la fase 1b); con el telón que
- * cuenta acelerado se miden **~9 s**, y 5 de ellos son los dos finales de
- * batalla que se retienen `FINAL_VISIBLE_MS` cada uno, que no se recortan. El
- * plazo deja holgura para una máquina cargada sin dejar pasar los 22 de antes.
+ * cuenta acelerado se medían ~9 s, y el plazo fue un 12 fijo.
+ *
+ * Con los asaltantes la partida del agente trae más batallas y aquello se fue a
+ * 22,6 s: cuatro finales retenidos 2,5 s **enteros** aunque el espectador fuera
+ * 45 fotogramas atrasado. Durante un ciclo el plazo se derivó de esa cuenta; ya
+ * no hace falta, porque el telón **comprime** los finales al ritmo del atraso
+ * (`retencionDelFinal`), y vuelve a ser un número fijo. Medido en dos pasadas:
+ * **16,1 y 16,2 s**, con 50 y 42 fotogramas atrasados y cinco finales de unos
+ * 0,2 s cada uno. 21 s es esa medida con un 30 % de holgura, el mismo margen que
+ * tenía el 12 sobre los 9. Un telón que no comprima —cinco finales de 2,5 s
+ * enteros, unos 11 s más— no cabe.
  */
-const PLAZO_DEL_GAME_OVER_MS = 12_000;
+const PLAZO_DEL_GAME_OVER_MS = 21_000;
 
 /**
  * El espectador, contra un servidor de verdad y con un agente que juega.
@@ -1391,9 +1650,9 @@ async function espectador(browser: Browser, url: string, problemas: Problemas): 
     ]).finally(() => clearTimeout(plazo));
 
     // Y ahora se espera al espectador, que va detrás: lo que se mide es cuánto.
-    log(
-      `espectador: al llegar el game_over le quedan ${(await mirarAlEspectador(page)).atrasados} fotogramas por poner`,
-    );
+    const atrasados = (await mirarAlEspectador(page)).atrasados;
+    log(`espectador: al llegar el game_over le quedan ${atrasados} fotogramas por poner`);
+    const finesAlLlegar = finesVistos;
     while (finDeLaPartidaVisto === null && Date.now() - servidorAcabó < PLAZO_DEL_GAME_OVER_MS) {
       await sleep(50);
     }
@@ -1403,11 +1662,13 @@ async function espectador(browser: Browser, url: string, problemas: Problemas): 
     if (visto === null) {
       fallos.push(
         `el espectador no enseña el fin de la partida a los ${PLAZO_DEL_GAME_OVER_MS} ms del ` +
-          '`game_over` del servidor',
+          `\`game_over\` del servidor (${atrasados} fotogramas atrasados, ` +
+          `${finesVistos - finesAlLlegar} finales de batalla después)`,
       );
     } else {
       log(
-        `espectador: enseña el fin de la partida ${visto - servidorAcabó} ms después del game_over`,
+        `espectador: enseña el fin de la partida ${visto - servidorAcabó} ms después del game_over ` +
+          `(plazo ${PLAZO_DEL_GAME_OVER_MS} ms; ${atrasados} fotogramas atrasados, ${finesVistos - finesAlLlegar} finales después)`,
       );
       await captura(page, 'espectador-04-fin-de-partida');
     }
@@ -1453,6 +1714,7 @@ async function main(): Promise<void> {
     const ejecutable = chromiumInstalado();
     browser = await chromium.launch(ejecutable === undefined ? {} : { executablePath: ejecutable });
     await jugarEscritorio(browser, arrancado.url, problemas);
+    await emboscadaAvisada(browser, arrancado.url, problemas);
     await batallaPerdida(browser, arrancado.url, problemas);
     await jugarMovil(browser, arrancado.url, problemas);
     await jugarTactil(browser, arrancado.url, problemas);

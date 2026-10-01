@@ -35,6 +35,7 @@
  */
 import { createHash } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
+import { duracion } from './estadistica.js';
 import {
   batallaDeSemilla,
   DIAS_POR_DEFECTO,
@@ -290,11 +291,36 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   `player_defeated`**, y nada más: quitando `"reason":"lost_base",` el
  *   volcado nuevo es byte a byte el de `02bf2610…`. Las 200 son `lost_base`;
  *   `nothing_left` no sale nunca, porque toda partida real tiene base.
+ * - `c1da16a0…` (52 531 líneas): **el camino cuesta** —asaltantes de caminos,
+ *   un mapa de 28×28 en vez de 24×24 elegido midiendo, y **licenciar tropa**—,
+ *   anclado una sola vez para el commit. Otro mapa entero, así que **cero
+ *   semillas idénticas** contra `2a836460…`. Hubo un ancla intermedia que nunca
+ *   llegó a `main`, `d68a0aa6…` (71 469 líneas), y la forma se miró contra las
+ *   dos. Contra ella, que es la que cuenta lo que cambió /simplify, el primer
+ *   hecho distinto es `raider_spawned` en las 200 —los grupos del mapa de
+ *   salida se cuentan ahora, uno por grupo, tras el `day_start` del día 1— y
+ *   **los tipos siguen siendo 20**: sale `raider_moved` (14 694, el 20 % del
+ *   volcado, que no leía nadie: la patrulla es estado, no hecho) y entra
+ *   `dismissed` (683 licencias, 1 503 individuos), y `raider_spawned` pasa de 47
+ *   a 2 022. **Emboscadas: 304 → 0**, de las que el grupo ganaba 270: la IA ya no
+ *   «va igual» cuando el alcance prudente no le da destino, se repliega a su base
+ *   y allí cambia tropa (`planRecruits`) hasta que los grupos dejan de sacarle el
+ *   margen. Ninguna batalla en la que un héroe ataque a un grupo (era 1).
+ *   **0 hechos imposibles**: `game_over` último y único en las 200, ninguna
+ *   batalla anidada ni sin cerrar, ningún grupo que embosque o se disperse
+ *   después de caer o sin haber nacido, ningún `raider_spawned` dos veces ni con
+ *   protagonista, ninguna dispersión ni licencia sin él, y las 200 cuentan sus
+ *   grupos de salida. 200/200 con ganador, **0 sin terminar**. Duración: mediana
+ *   **8** días (como `d68a0aa6…`, desde 5 en `2a836460…`), p90 17 → **15**,
+ *   máximo 49 → **35**; hechos 71 269 → 52 331 (30 662 en `2a836460…`). Ganador
+ *   j0 88 → **100 de 200**. Tiempo de las 200: **~3,4 s** (3 395, 3 450 y
+ *   3 489 ms), desde ~4,1 con `raider_moved` y la ocupación por cadenas, y ~2,15
+ *   en `2a836460…`. `autoResolve` igual (~124 ms).
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '2a836460a0e84bf959cb70ed310bcefb2297a57022cf3d11c1f72ef96a1f47df',
+  sha: 'c1da16a04f81da0655b778aeb62c2237ad8aec8da6fb2e63e5b10cab23bad4af',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);
@@ -302,6 +328,7 @@ const DIAS = Number(sueltos[1] ?? ANCLA.dias);
 
 const lineas: string[] = [];
 const sinTerminar: number[] = [];
+const dias: number[] = [];
 
 const t0 = performance.now();
 for (let semilla = 1; semilla <= SEMILLAS; semilla++) {
@@ -313,6 +340,7 @@ for (let semilla = 1; semilla <= SEMILLAS; semilla++) {
   // sin medir nada.
   const ganador = fin.winner === null ? 'ninguno' : String(fin.winner);
   if (fin.winner === null) sinTerminar.push(semilla);
+  dias.push(state.day);
   lineas.push(`${semilla} fin ganador=${ganador} dia=${state.day} hechos=${state.log.length}`);
   for (const [i, e] of state.log.entries()) lineas.push(`${semilla} ${i} ${JSON.stringify(e)}`);
 }
@@ -326,6 +354,7 @@ console.log(`partidas:      ${SEMILLAS} semillas × ${DIAS} días → ${msPartid
 console.log(`sha256:        ${sha}`);
 console.log(`líneas:        ${lineas.length}`);
 console.log(`sin terminar:  ${resumenSinTerminar(sinTerminar, SEMILLAS)}`);
+console.log(`duración:      ${duracion(dias)} días (mediana / p90 / máximo)`);
 if (fichero !== null) console.log(`volcado:       ${fichero}`);
 
 if (SEMILLAS === ANCLA.semillas && DIAS === ANCLA.dias) {

@@ -19,6 +19,7 @@ import type { BattleAction, BattleStack, BattleState, Side } from '@core/battle/
 import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '@core/hero/troop.js';
 import type { PathStep } from '@core/map/map.js';
 import { createRng } from '@core/rng.js';
+import { emboscadaEnLaRuta, type VistaAsaltante } from '@core/state/asaltantes.js';
 import type { DefeatReason } from '@core/state/events.js';
 import {
   applyAdventureAction,
@@ -46,9 +47,15 @@ import { type Desenlace, desenlaceDe } from './desenlace.js';
 
 export type Scene = 'adventure' | 'town' | 'battle';
 
-/** Un paso de la ruta previsualizada: `hoy` si lo alcanza el movimiento del día. */
+/**
+ * Un paso de la ruta previsualizada: `hoy` si lo alcanza el movimiento del día;
+ * `peligro` desde el paso en que un grupo a la vista emboscaría al héroe —ahí se
+ * para la marcha—, y ese primer paso lleva además quién (`emboscada`).
+ */
 interface RoutePreview extends PathStep {
   readonly hoy: boolean;
+  readonly peligro: boolean;
+  readonly emboscada?: VistaAsaltante;
 }
 
 /** Una entrada del libro de hechizos tal y como la pinta el panel de batalla. */
@@ -304,7 +311,17 @@ export class Session {
     if (hero === null || !this.isPlayersTurn) return [];
     const camino = caminoHasta(this.state, hero, to);
     if (camino === null) return [];
-    return camino.map((paso) => ({ ...paso, hoy: paso.cost <= hero.movePoints }));
+    // Con lo que la persona mira AHORA y no con todo: un grupo que no se ve no
+    // avisa, o la ruta le contaría lo que tapa la niebla. Con «Ver mapa entero»
+    // se mira todo, igual que se pinta todo.
+    const mirando = this.revealAll ? null : this.visibles();
+    const emboscada = emboscadaEnLaRuta(this.state, hero, camino, mirando);
+    return camino.map((paso, i) => ({
+      ...paso,
+      hoy: paso.cost <= hero.movePoints,
+      peligro: emboscada !== null && i >= emboscada.paso,
+      ...(emboscada !== null && i === emboscada.paso ? { emboscada: emboscada.raider } : {}),
+    }));
   }
 
   /**
@@ -550,6 +567,22 @@ export class Session {
       applyAdventureAction(
         this.state,
         { type: 'recruit', town: this.openTownId as string, creature: creatureId, count },
+        this.ctx,
+        this.viewer,
+      ),
+    );
+  }
+
+  /**
+   * Licenciar `count` individuos de un héroe. Sin comprobar nada aquí: el
+   * motivo de un rechazo lo escribe el núcleo (`dismissBlocker`) y sale en la
+   * barra, como el de reclutar.
+   */
+  dismiss(heroId: string, creatureId: string, count: number): void {
+    this.run(() =>
+      applyAdventureAction(
+        this.state,
+        { type: 'dismiss', hero: heroId, creature: creatureId, count },
         this.ctx,
         this.viewer,
       ),

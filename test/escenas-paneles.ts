@@ -290,7 +290,7 @@ function cronicaCompleta(): readonly GameEvent[] {
     {
       ...base,
       kind: 'battle_started',
-      attacker: 'hero-0',
+      attacker: { kind: 'hero', heroId: 'hero-0' },
       foe: { kind: 'monster', objectId: 'obj-1' },
       actor: 0,
     },

@@ -361,6 +361,13 @@ document.addEventListener('click', (ev) => {
     case 'hire-hero':
       session.hireHero();
       break;
+    case 'dismiss':
+      session.dismiss(
+        target.getAttribute('data-hero') as string,
+        target.getAttribute('data-creature') as string,
+        1,
+      );
+      break;
     case 'battle-defend':
     case 'battle-wait':
       session.playBattleAction({ type: action === 'battle-wait' ? 'wait' : 'defend' });

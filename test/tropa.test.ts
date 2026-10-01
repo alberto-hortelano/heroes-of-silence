@@ -9,7 +9,8 @@
  * dejó abierta.
  */
 import { describe, expect, it } from 'vitest';
-import { armyPower, planRecruits, unitPower } from '../src/core/ai/strategy.js';
+import { armyPower, fuerzaDe, unitPower } from '../src/core/ai/fuerza.js';
+import { planRecruits } from '../src/core/ai/strategy.js';
 import { playAiGame } from '../src/core/ai/turn.js';
 import { BOARD_HEIGHT } from '../src/core/battle/board.js';
 import { serializeAdventureTurn } from '../src/core/contract/serialize.js';
@@ -30,6 +31,7 @@ import { CHARACTER_BODY, createCharacter, defaultBuild } from '../src/core/rpg/c
 import { combatProfile } from '../src/core/rpg/stats.js';
 import {
   applyAdventureAction,
+  baseOf,
   destinoDeRecluta,
   type GameContext,
   type GameState,
@@ -381,6 +383,92 @@ describe('la IA de reglas juega dentro del liderazgo', () => {
     expect(masTotal).toBe(2);
     for (const a of masReclutas) applyAdventureAction(state, a, ctx(21), 0);
     expect(hero.army).toHaveLength(CUPO_HEROE);
+  });
+});
+
+describe('licenciar: cambiar tropa barata por otra mejor', () => {
+  it('en su castillo licencia los ÚLTIMOS de esa criatura, conserva el orden del resto y lo cuenta', () => {
+    const { state, hero } = heroeEnCasa(21);
+    hero.army = [
+      { creature: 'peasant' },
+      { creature: 'archer' },
+      { creature: 'peasant' },
+      { creature: 'archer' },
+      { creature: 'peasant' },
+    ];
+    applyAdventureAction(
+      state,
+      { type: 'dismiss', hero: hero.id, creature: 'peasant', count: 2 },
+      ctx(21),
+      0,
+    );
+    expect(hero.army.map((t) => t.creature)).toEqual(['peasant', 'archer', 'archer']);
+    expect(state.log.at(-1)).toMatchObject({
+      kind: 'dismissed',
+      hero: hero.id,
+      creature: 'peasant',
+      count: 2,
+      actor: 0,
+      at: hero.at,
+    });
+  });
+
+  it('fuera de un castillo suyo, de más, de cero o un personaje: lanza con la frase y no toca nada', () => {
+    const { state, hero } = heroeEnCasa(21);
+    const aren = createCharacter('aren', defaultBuild);
+    state.characters = { aren };
+    hero.army = [
+      { creature: 'peasant' },
+      { creature: 'peasant' },
+      { creature: CHARACTER_BODY, member: 'aren' },
+    ];
+    const antes = JSON.stringify(hero.army);
+    const licenciar = (creature: string, count: number) =>
+      applyAdventureAction(state, { type: 'dismiss', hero: hero.id, creature, count }, ctx(21), 0);
+    expect(() => licenciar('peasant', 3)).toThrow(
+      /no se puede licenciar: .* lleva 2 × Campesino y no puede licenciar 3/,
+    );
+    expect(() => licenciar('peasant', 0)).toThrow(/de 1 en adelante, no 0/);
+    expect(() => licenciar(CHARACTER_BODY, 1)).toThrow(/un personaje no se licencia/);
+    // Con el NOMBRE de la criatura y no su id (H4): «"archer"» era una palabra
+    // en inglés en la barra del castillo. Y un id que no existe se dice así.
+    expect(() => licenciar('archer', 1)).toThrow(/no lleva individuos de tipo Arquero$/);
+    expect(() => licenciar('archer', 1)).not.toThrow(/archer/);
+    expect(() => licenciar('dragon', 1)).toThrow(/no existe ninguna criatura "dragon"/);
+    // Fuera del castillo: un paso al lado y ya no se puede.
+    const base = baseOf(state, 0)!;
+    hero.at = { x: base.at.x + 1, y: base.at.y };
+    expect(() => licenciar('peasant', 1)).toThrow(/no está en un castillo suyo/);
+    expect(JSON.stringify(hero.army)).toBe(antes);
+    expect(state.log.some((e) => e.kind === 'dismissed')).toBe(false);
+  });
+
+  it('la IA cambia lo barato por lo mejor cuando no cabe, y lo que pide es legal', () => {
+    const { state, hero, town } = heroeEnCasa(21);
+    hero.army = ejercito({ creature: 'peasant', count: CUPO_HEROE }); // el cupo lleno de lo barato
+    town.available = { swordsman: 10 };
+    state.players[0]!.resources = { ...state.players[0]!.resources, gold: 50_000 };
+    // Sin una morada de espadachines no hay a quién reclutar: se la ponemos.
+    if (!town.buildings.includes('knight_dwelling_4')) town.buildings.push('knight_dwelling_4');
+    const antes = fuerzaDe(hero, undefined);
+    const acciones = planRecruits(state, 0);
+    const despide = acciones.findIndex((a) => a.type === 'dismiss');
+    const recluta = acciones.findIndex((a) => a.type === 'recruit' && a.creature === 'swordsman');
+    expect(despide).toBeGreaterThanOrEqual(0);
+    // Primero se hace sitio y después se recluta: al revés, el `recruit` no cabe.
+    expect(despide).toBeLessThan(recluta);
+    for (const a of acciones) applyAdventureAction(state, a, ctx(21), 0);
+    expect(hero.army.some((t) => t.creature === 'swordsman')).toBe(true);
+    expect(fuerzaDe(hero, undefined)).toBeGreaterThan(antes);
+    expect(armyLeadership(hero.army)).toBeLessThanOrEqual(heroLeadership(hero));
+  });
+
+  it('y no licencia a nadie si lo que hay ya pega más que lo que se ofrece', () => {
+    const { state, hero, town } = heroeEnCasa(21);
+    hero.army = ejercito({ creature: 'swordsman', count: 3 }); // 18 de 20 de liderazgo
+    town.available = { peasant: 50, archer: 50 };
+    state.players[0]!.resources = { ...state.players[0]!.resources, gold: 50_000 };
+    expect(planRecruits(state, 0).some((a) => a.type === 'dismiss')).toBe(false);
   });
 });
 

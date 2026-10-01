@@ -16,6 +16,7 @@ import {
 import type { PlayerId } from '../types.js';
 import {
   chooseHeroDestination,
+  destinoDeRepliegue,
   planBuildings,
   planHires,
   planRecruits,
@@ -100,9 +101,17 @@ export async function playAiTurn(
       // TRES decisiones: elegir a dónde ir, hasta dónde llegar hoy, y por
       // dónde se va — que antes recorrían el mapa una vez cada una desde el
       // mismo origen.
-      const alcance = alcanceDelHeroe(state, hero);
-
-      const destino = chooseHeroDestination(state, hero, alcance);
+      //
+      // Es el alcance PRUDENTE: no pisa las regiones donde a este héroe lo
+      // emboscarían. Si así no tiene a dónde ir, **se repliega**: vuelve a su
+      // base, o se queda en ella, y allí cambia tropa y recluta
+      // (`planRecruits`) hasta que los grupos dejan de sacarle el margen.
+      // Antes iba igual por el alcance de siempre, y eso eran 270 de cada 304
+      // emboscadas perdidas: lo que tapaba no era la IA sino que el héroe no
+      // podía crecer, y desde que puede licenciar, sí.
+      const alcance = alcanceDelHeroe(state, hero, { evitarEmboscadas: true });
+      const destino =
+        chooseHeroDestination(state, hero, alcance) ?? destinoDeRepliegue(state, hero, alcance);
       if (destino === null) continue;
 
       // El objetivo puede estar a varios días: se avanza lo que dé el día.

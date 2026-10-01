@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { armyPower } from '../src/core/ai/fuerza.js';
 import {
-  armyPower,
   chooseBuilding,
   chooseHeroDestination,
   ordenDeConstruccion,
@@ -16,8 +16,9 @@ import {
   factionLineup,
   guarnicionDeBase,
   guarnicionNeutral,
+  LIDERAZGO,
   problemasDeGrupo,
-  problemasDeGuarnicion,
+  problemasDeTopeDeLiderazgo,
 } from '../src/core/data.js';
 import {
   experienceForLevel,
@@ -56,6 +57,7 @@ import {
   createCharacter,
   defaultBuild,
 } from '../src/core/rpg/character.js';
+import { regionDeCasilla } from '../src/core/state/asaltantes.js';
 import {
   type AdventureAction,
   alcanceDelHeroe,
@@ -318,13 +320,15 @@ describe('generación de mapas', () => {
     // 42 de liderazgo donde caben 20. Un monstruo así vale; una ciudad, no.
     const siete = [{ creature: 'swordsman', count: 7 }];
     expect(problemasDeGrupo(siete, 'el monstruo')).toEqual([]);
-    expect(problemasDeGuarnicion(siete, 'la base')).toEqual([
-      'la base ocupa 42 de liderazgo y una guarnición lleva como mucho 20',
-    ]);
+    expect(
+      problemasDeTopeDeLiderazgo(siete, 'la base', LIDERAZGO.guarnicion, 'una guarnición'),
+    ).toEqual(['la base ocupa 42 de liderazgo y una guarnición lleva como mucho 20']);
     // Y las dos tablas de hoy valen, la de la base justo en el tope.
+    const enGuarnicion = (g: Parameters<typeof problemasDeGrupo>[0], q: string) =>
+      problemasDeTopeDeLiderazgo(g, q, LIDERAZGO.guarnicion, 'una guarnición');
     for (const f of ['knight', 'necromancer'] as const) {
-      expect(problemasDeGuarnicion(guarnicionNeutral(f), f)).toEqual([]);
-      expect(problemasDeGuarnicion(guarnicionDeBase(f), f)).toEqual([]);
+      expect(enGuarnicion(guarnicionNeutral(f), f)).toEqual([]);
+      expect(enGuarnicion(guarnicionDeBase(f), f)).toEqual([]);
     }
   });
 
@@ -660,7 +664,19 @@ describe('movimiento de héroes', () => {
     const puntosAntes = hero.movePoints;
     const nieblaAntes = state.players[0]!.fog.size;
 
-    const destino = { x: hero.at.x + 2, y: hero.at.y };
+    // A dos casillas y dentro de la región de casa, buscado y no supuesto: con
+    // el mapa de 28 la casilla dos a la derecha del inicio es montaña, y fuera
+    // de casa puede haber un grupo de asaltantes que pare la marcha.
+    const casa = regionDeCasilla(state.map, hero.at);
+    const alcance = alcanceDelHeroe(state, hero);
+    const destino = [...alcance.costs.entries()]
+      .map(([k, coste]) => ({ p: pointFromKey(k), coste }))
+      .find(
+        ({ p, coste }) =>
+          coste <= hero.movePoints &&
+          Math.max(Math.abs(p.x - hero.at.x), Math.abs(p.y - hero.at.y)) === 2 &&
+          regionDeCasilla(state.map, p) === casa,
+      )!.p;
     applyAdventureAction(
       state,
       { type: 'move_hero', hero: hero.id, to: destino },

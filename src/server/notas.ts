@@ -597,6 +597,8 @@ export function describeAccion(accion: BattleAction | AdventureAction): string {
       return `hire_hero en ${accion.town}`;
     case 'recruit':
       return `recruit ${accion.count}× ${accion.creature} en ${accion.town}`;
+    case 'dismiss':
+      return `dismiss ${accion.count}× ${accion.creature} de ${accion.hero}`;
     case 'build':
       return `build ${accion.building} en ${accion.town}`;
     case 'end_turn':

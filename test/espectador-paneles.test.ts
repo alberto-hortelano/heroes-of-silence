@@ -19,6 +19,7 @@ import {
   FINAL_VISIBLE_MS,
   mismaBatalla,
   RITMO_MAXIMO,
+  retencionDelFinal,
   ritmoDeReproduccion,
   TelonDeBatalla,
 } from '../src/client/espectador/telon.js';
@@ -283,6 +284,28 @@ describe('el telón retiene el final de una batalla', () => {
     );
   });
 
+  it('atrasado, el final se retiene comprimido; con solo el siguiente detrás, entero', () => {
+    const { enCurso, terminada, mapa } = finalDeBatalla();
+    // Al día: el final y el mapa juntos, y nada más. El mínimo entero.
+    expect(retencionDelFinal(1000, 1)).toBe(1000);
+    expect(retencionDelFinal(1000, 0)).toBe(1000);
+    // Con nueve más detrás del mapa, al ritmo de nueve de atraso.
+    expect(retencionDelFinal(1000, 10)).toBe(1000 / ritmoDeReproduccion(9));
+    expect(retencionDelFinal(1000, 10_000)).toBe(1000 / RITMO_MAXIMO);
+
+    const telon = new TelonDeBatalla(batallaTerminada, 1000);
+    telon.llega(enCurso);
+    telon.avanzar(0, false);
+    telon.llega(terminada);
+    for (let i = 0; i < 10; i++) telon.llega(mapa);
+    expect(telon.avanzar(10, false)).toBe(terminada);
+    const corto = retencionDelFinal(1000, 10);
+    expect(telon.avanzar(11, false)).toBeNull();
+    expect(telon.avanzar(11 + corto - 1, false)).toBeNull();
+    // Antes del mínimo entero ya pasa: el final no para la partida.
+    expect(telon.avanzar(11 + corto, false)).toBe(mapa);
+  });
+
   it('nunca aplica dos de golpe: el mapa espera a que el animador acabe, aunque no haya final', () => {
     const { enCurso, mapa } = finalDeBatalla();
     const telon = new TelonDeBatalla(batallaTerminada, 1000);
@@ -418,7 +441,11 @@ describe('el espectador cuenta cada batalla en orden', () => {
 
   it('`mismaBatalla`: la misma crece; otra no, aunque los stacks se llamen igual', () => {
     const a = fotogramasDeUnaBatalla(4, false).map((f) => f.view.battle!.estado);
-    const b = fotogramasDeUnaBatalla(5, false).map((f) => f.view.battle!.estado);
+    // La 6 y no la 5: con el mapa de 28 las semillas 4 y 5 dan la MISMA
+    // batalla —cuatro de tropa contra seis esqueletos, y el héroe abre igual—,
+    // así que su primer fotograma es idéntico y nada podría distinguirlas. Lo
+    // que este test mira es que dos batallas distintas no se confundan.
+    const b = fotogramasDeUnaBatalla(6, false).map((f) => f.view.battle!.estado);
     expect(mismaBatalla(null, a[0]!)).toBe(false);
     expect(mismaBatalla(a[0]!, a[1]!)).toBe(true);
     expect(mismaBatalla(a[0]!, a.at(-1)!)).toBe(true);

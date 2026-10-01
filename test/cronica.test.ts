@@ -336,6 +336,12 @@ describe('la crónica pasa por la niebla', () => {
     await playAiGame(state, { rng: createRng(19) });
 
     const SIN_SITIO = new Set(['day_start', 'turn_start', 'player_defeated', 'game_over']);
+    // Lo que hace el reloj y no un jugador: el día que empieza, y los
+    // asaltantes que patrullan o brotan. Los tres van por el sello —tienen
+    // sitio—, así que no se le entregan a nadie que no los mirara. Un grupo
+    // que se DISPERSA sí tiene protagonista, quien cerró su región, y no
+    // está aquí.
+    const SIN_PROTAGONISTA = new Set(['day_start', 'raider_spawned']);
     for (const e of state.log) {
       // `game_over` no se exime: se le exige que su `actor` SEA el ganador, con
       // `null` solo si de verdad no ganó nadie. Eximirlo habría sido bajar el
@@ -344,7 +350,7 @@ describe('la crónica pasa por la niebla', () => {
       // partida que sí tuvo ganador, que es el fallo que importa.
       if (e.kind === 'game_over') {
         expect(e.actor, 'el game_over no lleva al ganador').toBe(state.finished?.winner ?? null);
-      } else if (e.kind !== 'day_start') {
+      } else if (!SIN_PROTAGONISTA.has(e.kind)) {
         expect(e.actor, `un ${e.kind} sin protagonista`).not.toBeNull();
       }
       if (!SIN_SITIO.has(e.kind)) {

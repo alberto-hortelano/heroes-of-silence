@@ -35,6 +35,17 @@ export function decidir(kind: string, payload: any): unknown {
         acciones.push({ type: 'build', town: town.id, building: town.canBuildNow[0].id });
       }
       const reclutable = town?.recruitable?.find((r: any) => r.available > 0);
+      // Con el héroe dentro y sus 6 individuos llenos, el `recruit` no cabe:
+      // se licencian dos del primero que lleve para hacerle sitio. Es como el
+      // arnés ejercita `dismiss` por el circuito entero.
+      const dentro = payload.heroes?.find(
+        (h: any) => town?.at !== undefined && h.at?.x === town.at.x && h.at?.y === town.at.y,
+      );
+      const lleva = (dentro?.army ?? []).reduce((n: number, g: any) => n + g.count, 0);
+      const primero = dentro?.army?.find((g: any) => g.member === undefined && g.count >= 2);
+      if (reclutable !== undefined && lleva >= 6 && primero !== undefined) {
+        acciones.push({ type: 'dismiss', hero: dentro.id, creature: primero.creature, count: 2 });
+      }
       if (reclutable !== undefined) {
         acciones.push({
           type: 'recruit',

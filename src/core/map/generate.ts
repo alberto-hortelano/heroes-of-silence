@@ -9,9 +9,16 @@
  * **es una red de nodos** (`problemasDeRed`).
  */
 
-import { guarnicionDeBase, guarnicionNeutral, problemasDeGrupo } from '../data.js';
-import { CUPO_GUARNICION, withTroops } from '../hero/troop.js';
+import { ASALTANTES, guarnicionDeBase, guarnicionNeutral, problemasDeGrupo } from '../data.js';
+import { CUPO_GUARNICION, ejercitoDe } from '../hero/troop.js';
 import type { Rng } from '../rng.js';
+import {
+  problemasDeAsaltante,
+  type Raider,
+  type RaiderPlaneado,
+  regionDeCasilla,
+  tocaUnNodo,
+} from '../state/asaltantes.js';
 import { createTown, primeraCiudadDe, type Town } from '../town/town.js';
 import type { Army, FactionId, PlayerId, Point, ResourceKind } from '../types.js';
 import {
@@ -26,8 +33,10 @@ import {
   aPunto,
   type Estructura,
   estructura,
+  juntoANodo,
   problemasDeRed,
   regionesQueToca,
+  territorio,
   VECINAS,
 } from './regiones.js';
 import { isWalkable, type TerrainKind } from './terrain.js';
@@ -107,12 +116,30 @@ export interface MapPlan {
   // `roads?: …` rechaza el `undefined` que produce un `.optional()` de zod, y
   // `mapPlanSchema` y este tipo son la misma cosa declarada dos veces (#27).
   readonly roads?: readonly Point[] | undefined;
+  /**
+   * Los grupos de asaltantes con los que empieza la partida (`state/asaltantes.ts`).
+   * Opcional, con el mismo idioma que `roads`: un plan sin ellos es válido y
+   * la partida empieza sin ninguno —brotarán los lunes—.
+   */
+  readonly raiders?: readonly RaiderPlaneado[] | undefined;
 }
 
 export interface BuiltMap {
   readonly map: GameMap;
   readonly towns: Town[];
+  readonly raiders: Raider[];
 }
+
+/**
+ * El lado del mapa que juega una partida si nadie pide otro: lo leen el
+ * generador y el servidor, que antes lo copiaba a mano (`ws-server.ts`).
+ *
+ * **Elegido midiendo, no a ojo** (ciclo «el camino cuesta», 02-10-2026): con los
+ * asaltantes puestos, el menor lado con mediana ≥ 8 días, p90 ≤ 20 y 0 partidas
+ * sin terminar en 1 000 semillas. La tabla de cada lado está en `CLAUDE.md`, y
+ * cómo se mide en `tools/qa/tamanos.ts`.
+ */
+export const LADO_DEL_MAPA = 28;
 
 /** Los ids que `buildMap` les pone a los objetos que el plan no nombra. */
 const idDeNodo = (i: number): string => `node-${i}`;
@@ -172,6 +199,8 @@ export function validateMapPlan(plan: MapPlan): string[] {
   for (const r of plan.resources) ocupar(r.at, `recurso ${r.resource}`);
   for (const m of plan.monsters) ocupar(m.at, `monstruo ${m.creature}`);
   for (const c of plan.chests) ocupar(c.at, 'cofre');
+  for (const r of plan.raiders ?? [])
+    ocupar(r.at, `el grupo de asaltantes de (${r.at.x},${r.at.y})`);
   // Los inicios también ocupan casilla: dos héroes en la misma o un héroe
   // **encima del castillo rival** daban partidas degeneradas sin reventar.
   for (const i of plan.heroStarts) ocupar(i.at, `el inicio del jugador ${i.player}`);
@@ -241,10 +270,17 @@ export function validateMapPlan(plan: MapPlan): string[] {
   for (const m of plan.monsters) {
     problemas.push(...problemasDeGrupo([m], `el monstruo de (${m.at.x},${m.at.y})`));
   }
+  // Un grupo de asaltantes, además, no pasa del techo de `data/asaltantes.json`:
+  // más fuerte que eso es un muro, y el agente no puede diseñar uno.
+  for (const r of plan.raiders ?? []) {
+    problemas.push(
+      ...problemasDeAsaltante(r.troops, `el grupo de asaltantes de (${r.at.x},${r.at.y})`),
+    );
+  }
 
   if (problemas.length > 0) return problemas;
 
-  const { map } = buildMap(plan);
+  const { map, towns } = buildMap(plan);
 
   // Nada se queda sobre un muro y nada que no sea nodo se pone en un nodo.
   // Antes `buildMap` **saneaba en silencio** el terreno bajo un objeto —lo
@@ -266,6 +302,7 @@ export function validateMapPlan(plan: MapPlan): string[] {
   for (const m of plan.monsters) sobreRegion(m.at, `el monstruo ${m.creature}`);
   for (const c of plan.chests) sobreRegion(c.at, 'el cofre');
   for (const i of plan.heroStarts) sobreRegion(i.at, `el inicio del jugador ${i.player}`);
+  for (const r of plan.raiders ?? []) sobreRegion(r.at, 'el grupo de asaltantes');
   if (problemas.length > 0) return problemas;
 
   // La red, y con ella la conectividad. Aquí había un `findPath` de cada inicio
@@ -274,6 +311,51 @@ export function validateMapPlan(plan: MapPlan): string[] {
   // otras por nodos que no bloquean, así que no queda ciudad a la que no se
   // llegue. Un guardia que ya no puede morder no se deja de adorno.
   problemas.push(...problemasDeRed(map));
+  if (problemas.length > 0) return problemas;
+
+  // Los asaltantes, con la red ya leída: dónde puede vivir uno es una pregunta
+  // de regiones. Las mismas reglas que cumplen los que brotan en partida
+  // (`dondeBrotan`), para que el plan no pueda poner lo que la partida no.
+  problemas.push(...problemasDeAsaltantes(plan, map, towns));
+  return problemas;
+}
+
+/**
+ * Lo que impide que los asaltantes de un plan vivan donde se les pone: dentro
+ * de una región, sin tocar un nodo —taparía un paso—, en una región sin dueño
+ * —se dispersaría antes de empezar— y en una donde no empieza ningún héroe:
+ * un grupo encima de un inicio es una emboscada antes del primer turno.
+ */
+function problemasDeAsaltantes(plan: MapPlan, map: GameMap, towns: readonly Town[]): string[] {
+  const raiders = plan.raiders ?? [];
+  if (raiders.length === 0) return [];
+  const problemas: string[] = [];
+  const t = territorio({ map, towns, players: [] });
+  const conInicio = new Set(plan.heroStarts.map((i) => regionDeCasilla(map, i.at)));
+  for (const r of raiders) {
+    const quien = `el grupo de asaltantes de (${r.at.x},${r.at.y})`;
+    const region = regionDeCasilla(map, r.at);
+    if (region < 0) {
+      problemas.push(`${quien} no está dentro de ninguna región`);
+      continue;
+    }
+    const nombre = map.regions[region]?.id;
+    if (tocaUnNodo(map, r.at)) {
+      problemas.push(
+        `${quien} está pegado a un nodo o a una ciudad: taparía el paso; ponlo al menos a dos casillas de cualquier nodo`,
+      );
+    }
+    if (t.dueñoDeRegion[region] !== null) {
+      problemas.push(
+        `${quien} está en la región "${nombre}", que ya tiene dueño: un asaltante solo vive en una región sin dueño`,
+      );
+    }
+    if (conInicio.has(region)) {
+      problemas.push(
+        `${quien} está en la región "${nombre}", donde empieza un héroe: los asaltantes no nacen donde hay alguien`,
+      );
+    }
+  }
   return problemas;
 }
 
@@ -291,9 +373,7 @@ function guarnicionInicial(t: PlannedTown, towns: readonly PlannedTown[]): Army 
       : primeraCiudadDe(towns, t.owner) === t
         ? guarnicionDeBase(t.faction)
         : [];
-  let army: Army = [];
-  for (const g of grupos) army = withTroops(army, g.creature, g.count);
-  return army;
+  return ejercitoDe(grupos);
 }
 
 export function buildMap(plan: MapPlan): BuiltMap {
@@ -382,7 +462,14 @@ export function buildMap(plan: MapPlan): BuiltMap {
     town.garrison = guarnicionInicial(t, plan.towns);
     return town;
   });
-  return { map, towns };
+  // Los asaltantes no son objetos del mapa sino actores de la partida, así que
+  // salen aparte, con un id que no comparte espacio con ningún objeto.
+  const raiders = (plan.raiders ?? []).map((r, i) => ({
+    id: `raider-${i}`,
+    at: { ...r.at },
+    troops: r.troops,
+  }));
+  return { map, towns, raiders };
 }
 
 // ---------------------------------------------------------------- procedural
@@ -427,8 +514,8 @@ const INTENTOS_DE_RED = 20;
  * auditoría de `test/regiones.test.ts`.
  */
 export function generateMapPlan(rng: Rng, opts: ProceduralOptions = {}): MapPlan {
-  const width = opts.width ?? 24;
-  const height = opts.height ?? 24;
+  const width = opts.width ?? LADO_DEL_MAPA;
+  const height = opts.height ?? LADO_DEL_MAPA;
   for (let intento = 0; intento < INTENTOS_DE_RED; intento++) {
     const plan = intentarRed(rng, width, height, opts);
     if (plan !== null) return plan;
@@ -663,19 +750,13 @@ function intentarRed(rng: Rng, W: number, H: number, opts: ProceduralOptions): M
 
   const ocupadas = new Set<number>(nodos);
   // Lo pegado a un nodo no se usa, para que nada tape la entrada a la región.
-  const juntoANodo = new Uint8Array(W * H);
-  for (const n of red.nodos) {
-    for (const [dx, dy] of VECINAS) {
-      const v = { x: n.at.x + dx, y: n.at.y + dy };
-      if (inBounds(sinNodos, v)) juntoANodo[v.y * W + v.x] = 1;
-    }
-  }
+  const junto = juntoANodo(conNodos);
   // Las casillas que valen de cada región, una vez: abiertas y sin pegarse a un
   // nodo. Lo ocupado se descuenta al pedirlas.
   const candidatas: number[][] = semillas.map(() => []);
   for (let i = 0; i < W * H; i++) {
     const r = regionDe[i] as number;
-    if (r !== -1 && juntoANodo[i] === 0) candidatas[r]?.push(i);
+    if (r !== -1 && junto[i] === 0) candidatas[r]?.push(i);
   }
   const libres = (r: number): number[] => (candidatas[r] ?? []).filter((i) => !ocupadas.has(i));
   // Coloca algo en la región `r` y su espejo en la pareja de `r`: la misma
@@ -689,7 +770,7 @@ function intentarRed(rng: Rng, W: number, H: number, opts: ProceduralOptions): M
     const m = espejo(punto(a));
     const im = m.y * W + m.x;
     let b: number;
-    if (regionDe[im] === pareja(r) && !ocupadas.has(im) && juntoANodo[im] === 0) {
+    if (regionDe[im] === pareja(r) && !ocupadas.has(im) && junto[im] === 0) {
       b = im;
     } else {
       const otra = libres(pareja(r));
@@ -787,6 +868,22 @@ function intentarRed(rng: Rng, W: number, H: number, opts: ProceduralOptions): M
     chests.push({ at: par[0], gold }, { at: par[1], gold });
   }
 
+  // Un grupo de asaltantes en cada región donde no empieza nadie, en espejo y
+  // con la misma tropa: lo que se siembra en un lado se siembra en el otro,
+  // igual que las minas. Las dos de casa se quedan sin, porque en ellas está el
+  // héroe y los asaltantes no nacen donde hay alguien; las que TOCAN una base
+  // sí llevan, que es la corrección del usuario al plan («No, también en
+  // casa»). Va después de todo lo demás para no mover ninguna otra casilla.
+  // Una región llena se queda sin grupo en vez de tirar el intento: un mapa de
+  // nodos bueno no se descarta por no caber un asaltante.
+  const raiders: RaiderPlaneado[] = [];
+  for (let k = 2; k < semillas.length; k += 2) {
+    const troops = rng.pick(ASALTANTES.composiciones);
+    const par = colocarPar(k);
+    if (par === null) continue;
+    raiders.push({ at: par[0], troops }, { at: par[1], troops });
+  }
+
   // Los muros, por tramos de fila. Las casillas de nodo van dentro del tramo y
   // `buildMap` las abre: es la regla declarada, y así el muro se lee entero.
   const walls: PlannedWall[] = [];
@@ -842,6 +939,7 @@ function intentarRed(rng: Rng, W: number, H: number, opts: ProceduralOptions): M
     resources,
     monsters,
     chests,
+    raiders,
   };
 }
 

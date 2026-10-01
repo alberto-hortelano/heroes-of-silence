@@ -11,7 +11,7 @@ import type { BattleAction, BattleStack, BattleState } from '../src/core/battle/
 import { personajeDe } from '../src/core/battle/types.js';
 import type { Hero } from '../src/core/hero/hero.js';
 import type { MapPlan } from '../src/core/map/generate.js';
-import type { MapObject } from '../src/core/map/map.js';
+import { isEnterable, type MapObject, objectAt } from '../src/core/map/map.js';
 import type { Rng } from '../src/core/rng.js';
 import { applyAdventureAction, type GameContext, type GameState } from '../src/core/state/game.js';
 import type { Army, Point, Stack, Troop } from '../src/core/types.js';
@@ -105,7 +105,23 @@ export function forzarBatalla(
   hero: Hero,
   hacia: Point = monstruoVivo(state).at,
 ): void {
-  hero.at = { x: hacia.x - 1, y: hacia.y };
+  // A la izquierda si se puede, que es lo de siempre; si no —el monstruo en el
+  // borde, o una montaña ahí—, la primera vecina que se pise y esté libre. Con
+  // el mapa de 28 el primer monstruo de la semilla 53 cae en la columna 0, y
+  // «a su izquierda» era fuera del mapa.
+  const vecinas = [
+    { x: hacia.x - 1, y: hacia.y },
+    ...[-1, 0, 1].flatMap((dy) => [-1, 0, 1].map((dx) => ({ x: hacia.x + dx, y: hacia.y + dy }))),
+  ];
+  const libre = vecinas.find(
+    (p) =>
+      (p.x !== hacia.x || p.y !== hacia.y) &&
+      isEnterable(state.map, p) &&
+      objectAt(state.map, p) === undefined &&
+      !state.raiders.some((r) => r.at.x === p.x && r.at.y === p.y),
+  );
+  if (libre === undefined) throw new Error(`(${hacia.x},${hacia.y}) no tiene vecina libre`);
+  hero.at = libre;
   hero.movePoints = 5000;
   applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: hacia }, ctx, state.current);
   if (state.pendingBattle === null) {

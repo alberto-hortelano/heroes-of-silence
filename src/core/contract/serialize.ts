@@ -5,11 +5,13 @@
  * estables para que pueda pedir detalles con las tools de consulta. Volcar el
  * mundo completo en cada turno llenaría su contexto de ruido.
  */
+
+import { fuerzaDe, MARGEN_CONTRA_NEUTRALES, poderDe } from '../ai/fuerza.js';
 import { activeStack, legalActions, stackHexes, stackSpeed } from '../battle/battle.js';
 import { stackHp } from '../battle/damage.js';
 import { effectiveLuck } from '../battle/effects.js';
 import type { BattleState, OrigenDelStack, Side } from '../battle/types.js';
-import { creature, isShooter } from '../data.js';
+import { ASALTANTES, creature, isShooter, LIDERAZGO } from '../data.js';
 import { maxMana, maxMovePoints } from '../hero/hero.js';
 import {
   armyLeadership,
@@ -179,6 +181,10 @@ function knownObjects(state: GameState, playerId: PlayerId) {
 export function serializeKnownMap(state: GameState, playerId: PlayerId) {
   const player = playerById(state, playerId);
   const { width, terrain, roads } = state.map;
+  // Los asaltantes se ven AHORA o no se ven, como un héroe enemigo: se mueven
+  // cada día, y un recuerdo de dónde estaban sería ruido con fecha. Por eso no
+  // van en `objects`, que es memoria.
+  const mirando = visibleNow(state, playerId);
 
   return {
     width,
@@ -188,6 +194,9 @@ export function serializeKnownMap(state: GameState, playerId: PlayerId) {
     ),
     roads: [...roads].filter((clave) => player.fog.has(clave)).map(pointFromKey),
     objects: knownObjects(state, playerId),
+    raiders: state.raiders
+      .filter((r) => mirando.has(pointKey(r.at)))
+      .map((r) => ({ id: r.id, at: r.at, troops: r.troops, strength: poderDe(r) })),
   };
 }
 
@@ -241,7 +250,7 @@ const COSTE_CON_CAMINO = `${costeDeEntrada('grass', true, false)} (${costeDeEntr
  * suyo delante —que la tool se puede pedir sin esperar turno, que en el turno ya
  * lo tienes delante—, que es lo único que de verdad las diferencia.
  */
-export const COMO_SE_LEE_EL_MAPA = `  Trae width, height, terrain[], roads[] y objects[]:
+export const COMO_SE_LEE_EL_MAPA = `  Trae width, height, terrain[], roads[], objects[] y raiders[]:
   - "terrain" es un array plano de width×height casillas, indexado y*width+x: la
     casilla {x,y} está en terrain[y*width+x]. Un null NO es un tipo de terreno, es
     una casilla que no has explorado: ahí no sabes nada —ni el suelo, ni si hay
@@ -268,6 +277,19 @@ export const COMO_SE_LEE_EL_MAPA = `  Trae width, height, terrain[], roads[] y o
   - Un héroe enemigo o una ciudad ajena con guarnición se alcanzan pero no se
     cruzan: pedirlos de destino es pedir la batalla, y un "move_hero" a otro
     sitio los rodea por otro paso si lo hay. Si no lo hay, no hay camino.
+  - "raiders" son los grupos de ASALTANTES que ves AHORA, con su tropa
+    ("troops") y su fuerza ("strength"). No son de nadie: viven en una región
+    sin dueño y la patrullan, moviéndose cada día sin salir de ella ni pegarse a
+    un nodo. Si uno no aparece no significa que no esté: puede estar fuera de tu
+    vista. Se dispersan en cuanto su región tiene dueño, y cada lunes puede
+    brotar uno nuevo en cualquier región sin dueño donde no haya nadie.
+  - Un grupo de asaltantes EMBOSCA al héroe que pisa una casilla de su región
+    si su fuerza pasa de ${String(MARGEN_CONTRA_NEUTRALES).replace('.', ',')} veces la del héroe
+    ("heroes[].strength"): la marcha se para ahí y empieza una batalla que tú
+    juegas DEFENDIENDO. Basta con pisar la región, no hace falta acercarse. Un
+    héroe parado no se ataca. Con menos fuerza que eso no embosca, y tú puedes
+    atacarlo pidiendo su casilla de destino: como un héroe enemigo, se alcanza
+    pero no se cruza.
   - Con "terrain" y "roads" eliges la ruta antes de andarla, en vez de descubrirla
     al pisarla:
     - El agua y la montaña NO se cruzan. No hay barcos ni puertos de montaña: una
@@ -328,6 +350,9 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId): un
       // `recruit` que se pase se rechaza: sin las dos cifras delante, el agente
       // solo se enteraría al leer el veredicto.
       leadership: { used: armyLeadership(h.army), max: heroLeadership(h) },
+      // Su fuerza, la misma medida que la de los asaltantes de `knownMap`: sin
+      // las dos cifras el agente no puede saber si un grupo lo emboscará.
+      strength: fuerzaDe(h, state.characters),
     })),
     towns: townsOf(state, playerId).map((t) => ({
       id: t.id,
@@ -395,10 +420,12 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId): un
  * Es obligatorio y no opcional con defecto a propósito. Un defecto hace que el
  * próximo llamante se lleve los secretos por no escribir nada, que es
  * exactamente cómo se abrió esta: `consultas.ts` pasaba `'attacker'` cuando la
- * batalla no era tuya —el rival contra un monstruo neutral— y el atacante es
- * **siempre** un jugador, así que lo que volvía era el héroe de una persona con
- * su maná y su libro. Medido 8/8, y la situación ocurre 111 veces en 200
- * partidas.
+ * batalla no era tuya —el rival contra un monstruo neutral— y el atacante era
+ * entonces siempre un jugador, así que lo que volvía era el héroe de una
+ * persona con su maná y su libro. Medido 8/8, y la situación ocurría 111 veces
+ * en 200 partidas. Desde los asaltantes el atacante puede ser un grupo neutral
+ * que embosca, sin héroe; la vista ajena sigue siendo la que hace falta, porque
+ * no sabe ni le importa quién es el atacante.
  */
 export type VistaDeBatalla = 'propia' | 'ajena';
 
@@ -557,6 +584,15 @@ export function serializeMapRequest(opts: MapRequestOptions): unknown {
       wallTerrains: [...WALL_TERRAINS],
       resources: RESOURCE_KINDS,
       factions: ['knight', 'necromancer'],
+      // Lo que un plan puede poner en `raiders`: el techo y los grupos con los
+      // que brotan en partida, que valen todos. Sale de los datos y no se
+      // copia, igual que el resto de la paleta.
+      raiders: {
+        maxIndividuals: LIDERAZGO.maxPorBando,
+        maxLeadership: ASALTANTES.liderazgoMax,
+        maxStrength: ASALTANTES.fuerzaMax,
+        examples: ASALTANTES.composiciones,
+      },
       creaturesForGuards: [
         'peasant',
         'archer',

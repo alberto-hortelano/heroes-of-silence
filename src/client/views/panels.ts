@@ -278,6 +278,27 @@ function renderArmy(army: Army, characters: Personajes): Html {
   return html`<div class="stack-list">${filas}</div>`;
 }
 
+/**
+ * La tropa del héroe que está en su castillo, con un botón por criatura para
+ * licenciar uno: es donde se cambia tropa barata por otra mejor. Un personaje
+ * va sin botón, porque no se licencia. Sin comprobar reglas: si no se puede,
+ * lo dice el núcleo en la barra.
+ */
+function renderTropaLicenciable(heroId: string, army: Army, characters: Personajes): Html {
+  if (army.length === 0) return renderArmy(army, characters);
+  const filas = unir(
+    troopSummary(army, characters).map((g) => {
+      const marca = isShooter(g.unit) ? ' ↑' : '';
+      const boton =
+        g.member === undefined
+          ? html` <button data-action="dismiss" data-hero="${heroId}" data-creature="${g.creature}" title="Licenciar uno">−1</button>`
+          : NADA;
+      return html`<div class="stack"><span>${g.unit.name}${marca}</span><span class="count">${g.count}${boton}</span></div>`;
+    }),
+  );
+  return html`<div class="stack-list">${filas}</div>`;
+}
+
 // ---------------------------------------------------------------- castillo
 
 function renderTownPanel(session: Session): Html {
@@ -324,8 +345,8 @@ function renderTownPanel(session: Session): Html {
           <button data-action="hire-hero" class="primary" style="margin-top:.7rem">Contratar héroe (2500 oro)</button>`
         : html`<h3>Tropa de ${heroeAqui.name}</h3>
           ${filaLiderazgo(session.liderazgo({ heroe: heroeAqui.id }))}
-          <p class="cost">Lo que reclutes va a su tropa, hasta su liderazgo.</p>
-          ${renderArmy(heroeAqui.army, session.state.characters)}`
+          <p class="cost">Lo que reclutes va a su tropa, hasta su liderazgo. Licencia lo que sobre para hacer sitio a algo mejor.</p>
+          ${renderTropaLicenciable(heroeAqui.id, heroeAqui.army, session.state.characters)}`
     }`;
 }
 
@@ -726,6 +747,10 @@ export function renderLog(log: readonly GameEventDraft[], viewer: number): Html 
           return html`<div${clase(mio, false)}>${
             mio ? 'Reclutados' : `${jugador(e.actor)} recluta`
           } ${e.count} × ${creature(e.creature).name}</div>`;
+        case 'dismissed':
+          return html`<div${clase(mio, false)}>${
+            mio ? 'Licenciados' : `${jugador(e.actor)} licencia`
+          } ${e.count} × ${creature(e.creature).name}</div>`;
         case 'hero_hired':
           return html`<div${clase(mio, false)}>${
             mio ? 'Héroe contratado' : `${jugador(e.actor)} contrata un héroe`
@@ -776,7 +801,7 @@ export function renderLog(log: readonly GameEventDraft[], viewer: number): Html 
           return html`<div${clase(fin === 'ganada', fin === 'perdida')}>Fin de la partida</div>`;
         }
 
-        // Los cuatro que la pantalla NO pinta, escritos uno a uno en vez de
+        // Los que la pantalla NO pinta, escritos uno a uno en vez de
         // caer por un `default`. El núcleo ya te obliga a decidir si un `kind`
         // nuevo se reparte (`visibleTo`); esto te obliga a decidir si se lee, y
         // con el `default` puesto se colaba sin frase y sin ponerse nada rojo
@@ -786,9 +811,27 @@ export function renderLog(log: readonly GameEventDraft[], viewer: number): Html 
         // El turno y la derrota los cuenta ya la barra de arriba, el paso a
         // paso del héroe ahogaría el resto de la crónica, y el principio de una
         // batalla se ve en el propio tablero.
+        case 'battle_started':
+          // El principio de una batalla se ve en el tablero, salvo el de una
+          // emboscada: ahí la batalla no la pidió nadie y hay que decir por qué
+          // se ha parado el héroe.
+          if (e.attacker.kind !== 'raider') return NADA;
+          return html`<div${clase(false, mio)}>${
+            mio
+              ? '¡Emboscada! Unos asaltantes atacan a un héroe tuyo'
+              : `Unos asaltantes emboscan a un héroe ${deJugador(e.actor)}`
+          }</div>`;
+        case 'raider_dispersed':
+          return html`<div${clase(mio, false)}>${
+            mio ? 'Los asaltantes de tu región se dispersan' : 'Unos asaltantes se dispersan'
+          }</div>`;
+        // Que hay un grupo en el mapa es un hecho DE MAPA, y el mapa lo pinta:
+        // contarlo aquí eran catorce líneas el día 1, y esta crónica no pasa por
+        // la niebla. Uno solo —ni los de salida ni los que brotan—, para que la
+        // regla no dependa de cuándo nació el grupo.
+        case 'raider_spawned':
         case 'turn_start':
         case 'hero_moved':
-        case 'battle_started':
         case 'player_defeated':
           return NADA;
       }

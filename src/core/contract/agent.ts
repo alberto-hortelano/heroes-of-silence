@@ -35,6 +35,12 @@ export const adventureActionSchema = z.discriminatedUnion('type', [
     creature: z.string(),
     count: z.number().int().positive(),
   }),
+  z.object({
+    type: z.literal('dismiss'),
+    hero: z.string(),
+    creature: z.string(),
+    count: z.number().int().positive(),
+  }),
   z.object({ type: z.literal('end_turn') }),
 ]);
 
@@ -143,6 +149,22 @@ export const mapPlanSchema = z.object({
   ),
   chests: z.array(z.object({ at: pointSchema, gold: z.number().int().positive() })),
   roads: z.array(pointSchema).optional(),
+  // Las criaturas van como `z.string()` y no como `z.enum`, igual que las de
+  // `monsters`: quien las valida es `validateMapPlan`, la puerta de los dos
+  // productores de planes, y su rechazo nombra las que valen.
+  raiders: z
+    .array(
+      z.object({
+        at: pointSchema,
+        troops: z
+          .array(z.object({ creature: z.string(), count: z.number().int().positive() }))
+          .min(
+            1,
+            'un grupo de asaltantes es de 1 individuo en adelante: "troops" no puede ir vacío',
+          ),
+      }),
+    )
+    .optional(),
 });
 
 export const mapGenerateResponseSchema = z.object({
@@ -195,13 +217,20 @@ Acciones válidas (el turno termina solo, no hace falta enviar end_turn):
   { "type": "move_hero", "hero": "<id>", "to": { "x": N, "y": N } }
   { "type": "build",     "town": "<id>", "building": "<id de edificio>" }
   { "type": "recruit",   "town": "<id>", "creature": "<id>", "count": N }
+  { "type": "dismiss",   "hero": "<id>", "creature": "<id>", "count": N }
   { "type": "hire_hero", "town": "<id>" }
   { "type": "end_turn" }
 
 Notas:
 - "to" puede estar a varios días de marcha: el héroe avanza lo que le dé el día.
-- Mover a la casilla de un monstruo, de un héroe enemigo o de un castillo
-  defendido inicia una batalla, y esa batalla la juegas tú con "battle_turn".
+- Mover a la casilla de un monstruo, de un héroe enemigo, de un grupo de
+  asaltantes o de un castillo defendido inicia una batalla, y esa batalla la
+  juegas tú con "battle_turn".
+- Cuidado con los ASALTANTES ("knownMap.raiders"): pisar la región de un grupo
+  que te saca el margen de fuerza es una EMBOSCADA. El héroe se para en esa
+  casilla aunque le queden puntos, y la batalla la juegas defendiendo. Si va
+  directo a por la base rival por regiones sin conquistar, puede llegar con
+  menos gente de la que salió —o no llegar—.
 - "heroes[].level" sube cuando el héroe acumula experiencia ganando batallas, y
   se cobra también defendiendo. Lo que sí reparte es LIDERAZGO: el tope de su
   ejército crece con el nivel.
@@ -219,6 +248,12 @@ Notas:
   guarnición lo que le quepa; el resto se queda guardándolo. Tu base NACE con
   la guarnición llena: para reclutar en ella el primer día, entra con el héroe
   —y al entrar se lleva la parte que le quepa, que deja de defenderla—.
+- "dismiss" LICENCIA individuos del ejército de un héroe que está en un castillo
+  tuyo (tu base u otro): se van para siempre, no vuelven a la guarnición. Sirve
+  para CAMBIAR tropa: con el liderazgo o los 6 individuos llenos de lo barato,
+  un "recruit" de algo mejor no cabe; licencia primero lo que sobra y recluta
+  después, en el mismo turno y en ese orden. Un personaje no se licencia, y
+  fuera de un castillo tuyo se rechaza diciéndolo.
 - "yourBase" es tu base: el castillo al que vuelve un héroe tuyo que pierde una
   batalla o se rinde. Vuelve con el ejército vacío (o con la tropa que salvó
   rindiéndose) y sin movimiento hasta el día siguiente; la tropa muerta se
@@ -255,9 +290,11 @@ ${COMO_SE_LEE_EL_MAPA}
   "reasoning": "una línea opcional"
 }
 
-Mira "yourSide": puedes ser el atacante o el defensor. Cuando el rival te ataca
-un héroe o un castillo, esta batalla la juegas defendiendo, y "stacks" con ese
-"side" son los tuyos.
+Mira "yourSide": puedes ser el atacante o el defensor. La juegas defendiendo
+cuando el rival te ataca un héroe o un castillo, y también cuando unos
+ASALTANTES emboscan a un héroe tuyo que ha pisado su región: entonces el
+atacante es su grupo, sin héroe, y no se rinde. "stacks" con tu "side" son
+los tuyos.
 
 Acciones válidas para la unidad activa:
   { "type": "move",   "to": { "col": N, "row": N } }
@@ -309,7 +346,7 @@ Notas:
 El plan NO es una imagen ni una rejilla: describe el mapa y el motor lo
 construye. Campos: width, height, baseTerrain, patches[], regions[], walls[],
 nodes[], towns[], heroStarts[], mines[], villages[], resources[], monsters[],
-chests[], roads?.
+chests[], roads?, raiders?.
 
 El mapa es una RED DE NODOS, y eso se comprueba:
 - Una REGIÓN es una zona por la que se anda libre, cerrada por muro. Cada una se
@@ -353,6 +390,18 @@ Reglas que se validan antes de aceptarlo:
 - "monsters[].count" son individuos, un entero de 1 a 7: en batalla ningún
   bando lleva más de 7 (un héroe pelea con 6 más él). Un monstruo de más se
   rechaza diciendo el máximo.
+- "raiders" es OPCIONAL: grupos de asaltantes de caminos con los que empieza la
+  partida, {"at", "troops": [{"creature", "count"}, ...]}. Un plan sin ellos
+  vale, y brotarán solos los lunes en las regiones sin dueño. Cada grupo
+  patrulla la región en la que lo pones y embosca al héroe que la pise si le
+  saca el margen de fuerza. Reglas: sus criaturas, como las de "monsters";
+  entre todos sus grupos, de 1 a "palette.raiders.maxIndividuals" individuos;
+  no más liderazgo que "palette.raiders.maxLeadership" ni más fuerza que
+  "palette.raiders.maxStrength" —la fuerza es, sumada por individuo, el daño
+  medio por los puntos de vida; los de "palette.raiders.examples" valen todos—.
+  Y dónde: dentro de una región, a dos casillas o más de cualquier nodo o
+  ciudad —pegado a uno taparía el paso—, en una región sin dueño y en una donde
+  no empiece ningún héroe. Sí puede ir en las regiones que tocan una base.
 - Un "towns[].owner" tiene que ser un jugador CON posición de inicio en este
   mismo plan. Para dejar una ciudad neutral, "owner": null.
 - Devuelve el "width" y el "height" que se te piden en "want": el servidor

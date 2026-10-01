@@ -6,56 +6,26 @@
  * a su alcance. Es el listón que el agente tiene que superar.
  */
 import { creature } from '../data.js';
-import { type Hero, heroUnit } from '../hero/hero.js';
-import {
-  capacidadDe,
-  type Personajes,
-  troopsThatFit,
-  troopUnit,
-  withTroops,
-} from '../hero/troop.js';
+import type { Hero } from '../hero/hero.js';
+import { capacidadDe, troopRoom, troopsThatFit, withTroops } from '../hero/troop.js';
 import { type MapObject, pointKey, type Reachable } from '../map/map.js';
 import { regionesQueCierra, type Territorio, territorio } from '../map/regiones.js';
 import {
   type AdventureAction,
+  baseOf,
   destinoDeRecluta,
   type GameState,
   HERO_HIRE_COST,
   heroesOf,
   recruitCapacity,
+  sinIndividuos,
   townsOf,
 } from '../state/game.js';
 import { building } from '../town/buildings.js';
 import { availableBuildings, dwellings, recruitCost, type Town } from '../town/town.js';
-import type { Army, FactionId, PlayerId, Point, Resources, UnitInfo } from '../types.js';
-import { subtractResources } from '../types.js';
-
-/** Fuerza bruta de un individuo: lo que pega por lo que aguanta. */
-export function unitPower(info: UnitInfo): number {
-  return ((info.damage[0] + info.damage[1]) / 2) * info.hp;
-}
-
-/**
- * Fuerza bruta de un ejército. Pide los personajes porque un individuo puede
- * serlo, y sus cifras salen de su perfil y no del catálogo.
- */
-export function armyPower(army: Army, characters: Personajes): number {
-  let power = 0;
-  for (const t of army) power += unitPower(troopUnit(t, characters));
-  return power;
-}
-
-/**
- * La fuerza de un héroe con su tropa: lo que pesa su ejército **más su propio
- * cuerpo**, que desde la fase 1b pelea en el tablero.
- *
- * Es la única fuerza de héroe que mira la IA, y existe para que lo sea: sin el
- * cuerpo, un héroe recién vuelto a su base con el ejército vacío valía 0, no
- * perseguía a nadie y no atacaba nada — y la partida podía no acabar.
- */
-export function fuerzaDe(hero: Hero, characters: Personajes): number {
-  return armyPower(hero.army, characters) + unitPower(heroUnit(hero));
-}
+import type { Army, FactionId, PlayerId, Point, Resources } from '../types.js';
+import { canAfford, subtractResources } from '../types.js';
+import { armyPower, fuerzaDe, poderDe, unitPower, ventajaClara } from './fuerza.js';
 
 /** Lo que vale tomar una ciudad ajena que no es la base de nadie. */
 const VALOR_DE_CIUDAD = 40000;
@@ -63,6 +33,17 @@ const VALOR_DE_CIUDAD = 40000;
 const VALOR_DE_NODO = 3000;
 /** Lo que suma cada región que ese nodo dejaría cerrada para mí. */
 const VALOR_POR_REGION_CERRADA = 6000;
+/** Lo que vale quitar de en medio a un grupo neutral: un monstruo o un asaltante. */
+const VALOR_DE_NEUTRAL = 2000;
+
+/**
+ * Lo que vale atacar a un grupo neutral de fuerza `suyo`: lo de un neutral si
+ * le saco el margen, y −1 —no ir— si no. Un prototipo que se suicida no se
+ * puede probar. La misma cuenta para el monstruo quieto y el asaltante.
+ */
+function valorDeNeutral(miPoder: number, suyo: number): number {
+  return ventajaClara(miPoder, suyo) ? VALOR_DE_NEUTRAL : -1;
+}
 
 /**
  * Cuánto vale la pena ir a por este objeto del mapa. `miPoder` es
@@ -130,9 +111,7 @@ function objectValue(
     }
     case 'monster': {
       if (obj.defeated) return 0;
-      const suyo = unitPower(creature(obj.creature)) * obj.count;
-      // Solo se ataca con ventaja clara: un prototipo que se suicida no se puede probar.
-      return miPoder > suyo * 1.6 ? 2000 : -1;
+      return valorDeNeutral(miPoder, unitPower(creature(obj.creature)) * obj.count);
     }
   }
 }
@@ -154,7 +133,9 @@ export function chooseHeroDestination(
   hero: Hero,
   alcance: Reachable,
 ): Point | null {
-  let mejor: { at: Point; score: number } | null = null;
+  // En un objeto y no en un `let`: lo escribe `considerar`, y `tsc` no ve una
+  // escritura dentro de un cierre y lo estrecharía a `null` para siempre.
+  const elegido: { mejor: { at: Point; score: number } | null } = { mejor: null };
   const miPoder = fuerzaDe(hero, state.characters);
   // Una foto del territorio para todos los objetos: no cambia mientras se
   // elige. Perezosa, porque solo la pide un nodo ajeno.
@@ -173,17 +154,28 @@ export function chooseHeroDestination(
     const c = alcance.costs.get(pointKey(p));
     return c === undefined || c === 0 ? null : c;
   };
+  // Un candidato: vale `valor` y se puntúa por rentabilidad, por punto de
+  // movimiento gastado. Gana el primero con la puntuación más alta, en el
+  // orden en que se consideran: ese orden es el desempate.
+  const considerar = (at: Point, valor: number): void => {
+    const coste = costeHasta(at);
+    if (coste === null) return;
+    const score = valor / Math.max(1, coste);
+    if (elegido.mejor === null || score > elegido.mejor.score) elegido.mejor = { at, score };
+  };
 
   for (const obj of state.map.objects) {
     const valor = objectValue(state, foto, obj, hero, miPoder);
-    if (valor <= 0) continue;
+    if (valor > 0) considerar(obj.at, valor);
+  }
 
-    const coste = costeHasta(obj.at);
-    if (coste === null) continue;
-
-    // Rentabilidad por punto de movimiento gastado.
-    const score = valor / Math.max(1, coste);
-    if (mejor === null || score > mejor.score) mejor = { at: obj.at, score };
+  // Un grupo de asaltantes vale lo que un monstruo, con la misma regla: se le
+  // ataca solo con ventaja clara. Lo que lo hace distinto —que se mueve y que
+  // embosca— no es de aquí: lo evita el alcance que no entra en las regiones
+  // donde lo emboscarían (`alcanceDelHeroe` con `evitarEmboscadas`).
+  for (const asaltante of state.raiders) {
+    const valor = valorDeNeutral(miPoder, poderDe(asaltante));
+    if (valor > 0) considerar(asaltante.at, valor);
   }
 
   // Héroe enemigo a tiro. Las dos fuerzas cuentan el cuerpo de cada héroe:
@@ -199,11 +191,8 @@ export function chooseHeroDestination(
   // iniciativa, así que el empate lo rompe quien llega antes.
   for (const enemigo of state.heroes) {
     if (enemigo.owner === hero.owner) continue;
-    const coste = costeHasta(enemigo.at);
-    if (coste === null) continue;
     if (miPoder < fuerzaDe(enemigo, state.characters)) continue;
-    const score = 60000 / Math.max(1, coste);
-    if (mejor === null || score > mejor.score) mejor = { at: enemigo.at, score };
+    considerar(enemigo.at, 60000);
   }
 
   // Defender la casa: si un enemigo ronda mi último pueblo y está peor
@@ -214,15 +203,24 @@ export function chooseHeroDestination(
       const amenaza = state.heroes.some(
         (h) => h.owner !== hero.owner && distanciaAprox(h.at, pueblo.at) <= 6,
       );
-      if (!amenaza) continue;
-      const coste = costeHasta(pueblo.at);
-      if (coste === null) continue;
-      const score = 80000 / Math.max(1, coste);
-      if (mejor === null || score > mejor.score) mejor = { at: pueblo.at, score };
+      if (amenaza) considerar(pueblo.at, 80000);
     }
   }
 
-  return mejor?.at ?? null;
+  return elegido.mejor?.at ?? null;
+}
+
+/**
+ * A dónde se repliega un héroe que no tiene nada que hacer sin entrar en una
+ * emboscada: a su base, si llega a ella por el alcance que le dan, para cambiar
+ * tropa y reclutar allí. `null` si ya está en ella —espera— o si no llega: se
+ * queda donde está, que tampoco es entrar en una emboscada.
+ */
+export function destinoDeRepliegue(state: GameState, hero: Hero, alcance: Reachable): Point | null {
+  const base = baseOf(state, hero.owner);
+  if (base === null) return null;
+  const coste = alcance.costs.get(pointKey(base.at));
+  return coste === undefined || coste === 0 ? null : base.at;
 }
 
 /** Distancia de Chebyshev, suficiente para medir "está rondando mi casa". */
@@ -450,7 +448,7 @@ export function planRecruits(state: GameState, playerId: PlayerId): AdventureAct
   for (const town of townsOf(state, playerId)) {
     // La misma regla que aplica `recruit`: si la IA la copiara, el día que
     // cambie una de las dos pediría lo que el motor rechaza.
-    const { tope, cupo, army, quien } = destinoDeRecluta(state, town);
+    const { tope, cupo, army, quien, hero } = destinoDeRecluta(state, town);
     let destino = army;
 
     for (const { creature: id } of [...dwellings(town)].reverse()) {
@@ -466,13 +464,104 @@ export function planRecruits(state: GameState, playerId: PlayerId): AdventureAct
         { army: destino, tope, cupo, quien },
         purse,
       ).maximo;
-      if (cantidad <= 0) continue;
+      if (cantidad > 0) {
+        acciones.push({ type: 'recruit', town: town.id, creature: id, count: cantidad });
+        purse = subtractResources(purse, recruitCost(id, cantidad));
+        destino = withTroops(destino, id, cantidad);
+        continue;
+      }
 
-      acciones.push({ type: 'recruit', town: town.id, creature: id, count: cantidad });
-      purse = subtractResources(purse, recruitCost(id, cantidad));
-      destino = withTroops(destino, id, cantidad);
+      // No cabe: con un héroe dentro, se mira si sale a cuenta CAMBIAR tropa
+      // —licenciar lo barato para meter esto—. Sin esto un héroe se quedaba
+      // para siempre con lo primero que reclutó: el cupo de 6 se llenaba de
+      // lo barato, su fuerza se paraba en 200-300 y el oro se amontonaba.
+      if (hero === undefined) continue;
+      const cambio = planCambio(town, id, destino, tope, cupo, purse);
+      if (cambio === null) continue;
+      for (const [victima, n] of cambio.licencias) {
+        acciones.push({ type: 'dismiss', hero: hero.id, creature: victima, count: n });
+      }
+      acciones.push({ type: 'recruit', town: town.id, creature: id, count: cambio.cuantos });
+      purse = subtractResources(purse, recruitCost(id, cambio.cuantos));
+      destino = cambio.army;
     }
   }
 
   return acciones;
+}
+
+/** Un cambio de tropa: a quién se licencia, cuántos entran y cómo queda. */
+interface Cambio {
+  readonly licencias: ReadonlyMap<string, number>;
+  readonly cuantos: number;
+  readonly army: Army;
+}
+
+/**
+ * Cuántos de `id` caben en `army` licenciando, uno a uno, lo más barato que
+ * sea más flojo que él. Se para en cuanto no hay con qué pagar el siguiente, no
+ * quedan en el pueblo o no queda nada más flojo que licenciar, y se queda con
+ * lo que tenía al meter el último: no se licencia a nadie para no meter a nadie.
+ * `null` si no entra ninguno, o si lo que sale pesa tanto como lo que entra
+ * —licenciar diez campesinos para meter un caballero que pega menos que los
+ * diez sería perder fuerza pagando—.
+ *
+ * Simula con `sinIndividuos`, la misma función que aplica `dismiss`: lo que la
+ * IA cree que queda es lo que queda.
+ */
+function planCambio(
+  town: Town,
+  id: string,
+  army: Army,
+  tope: number,
+  cupo: number,
+  purse: Resources,
+): Cambio | null {
+  const disponibles = town.available[id] ?? 0;
+  const poder = unitPower(creature(id));
+  let actual = army;
+  let cuantos = 0;
+  const licencias = new Map<string, number>();
+  let firme: Cambio = { licencias: new Map(), cuantos: 0, army };
+  while (cuantos < disponibles && canAfford(purse, recruitCost(id, cuantos + 1))) {
+    if (troopRoom(actual, tope, cupo, id) >= 1) {
+      actual = withTroops(actual, id, 1);
+      cuantos++;
+      firme = { licencias: new Map(licencias), cuantos, army: actual };
+      continue;
+    }
+    const victima = laMasBarata(actual, poder);
+    if (victima === null) break;
+    actual = sinIndividuos(actual, victima, 1);
+    licencias.set(victima, (licencias.get(victima) ?? 0) + 1);
+  }
+  if (firme.cuantos === 0) return null;
+  let sale = 0;
+  for (const [c, n] of firme.licencias) sale += unitPower(creature(c)) * n;
+  return poder * firme.cuantos > sale ? firme : null;
+}
+
+/**
+ * La criatura del catálogo más barata del ejército entre las que pegan menos
+ * que `poder`: la primera que se licencia. A igual precio, la más floja, y a
+ * igualdad de todo, la de id menor, para que no decida el orden del ejército.
+ * Los personajes no entran: no se licencian.
+ */
+function laMasBarata(army: Army, poder: number): string | null {
+  let mejor: { id: string; oro: number; poder: number } | null = null;
+  for (const t of army) {
+    if (t.member !== undefined) continue;
+    const info = creature(t.creature);
+    const suyo = unitPower(info);
+    if (suyo >= poder) continue;
+    const oro = info.cost.gold ?? 0;
+    if (
+      mejor === null ||
+      oro < mejor.oro ||
+      (oro === mejor.oro && (suyo < mejor.poder || (suyo === mejor.poder && t.creature < mejor.id)))
+    ) {
+      mejor = { id: t.creature, oro, poder: suyo };
+    }
+  }
+  return mejor?.id ?? null;
 }

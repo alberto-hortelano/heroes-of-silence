@@ -1039,7 +1039,10 @@ describe('invariantes del proyecto', () => {
       (e) => !/^src\/core\/(?:map\/map\.ts|state\/game\.ts|battle\/)/.test(e),
     );
     expect(ajenas).toEqual([]);
-    // Y que mire algo: las dos de `game.ts` tienen que salir.
+    // Y que mire algo: las dos de `game.ts` tienen que salir. Los asaltantes
+    // trajeron una tercera —el alcance prudente de la IA— y volvió a ser una
+    // opción de `alcanceDelHeroe` (`evitarEmboscadas`): el mismo Dijkstra con
+    // una marca más no es una segunda puerta.
     expect(llamadas.filter((e) => e.startsWith('src/core/state/game.ts:'))).toHaveLength(2);
   });
 

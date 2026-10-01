@@ -150,6 +150,21 @@ function mapaDelEmpate(): ReturnType<typeof createEmptyMap> {
 }
 
 describe('el Dijkstra que usa la frontera, por sus dos puertas', () => {
+  it('una casilla prohibida no se pisa, como un muro; el origen sí, aunque venga marcado', () => {
+    const map = createEmptyMap(4, 4, 'grass');
+    const prohibidas = new Uint8Array(16);
+    // La columna x=1 entera, y el origen.
+    for (let y = 0; y < 4; y++) prohibidas[y * 4 + 1] = 1;
+    prohibidas[0] = 1;
+    const { costs } = reachableFrom(map, { x: 0, y: 0 }, [], prohibidas);
+    expect([...costs.keys()].sort()).toEqual(['0,0', '0,1', '0,2', '0,3']);
+    // Una marca que no es de este mapa lanza: un índice de otro tamaño
+    // señalaría otras casillas sin decirlo.
+    expect(() => reachableFrom(map, { x: 0, y: 0 }, [], new Uint8Array(15))).toThrow(
+      /15 casillas y el mapa 16/,
+    );
+  });
+
   it('findPath elige, entre dos rutas igual de caras, la del primer descubierto', () => {
     // Golden tomado del código de ANTES del montículo, con el `Set`.
     expect(findPath(mapaDelEmpate(), { x: 0, y: 0 }, { x: 2, y: 2 })).toEqual([
