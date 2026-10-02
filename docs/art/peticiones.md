@@ -154,3 +154,20 @@ Lo que queda por hacer, para las ramas nuevas:
   Quaternius trae ciervo, venado y lobo (corredores del bosque élficos).
 - Repasar lo aceptado con reservas: el ataque de rodillas del monje y las marchas
   menos finas (`pnpm taller corregir <id>-atlas "…"`, en su mismo hilo).
+
+## 8. El templario con escudo, definitivo: 8 direcciones (rama `templario-definitivo`)
+
+`assets/unidades/templario-escudo/d0` … `d7`: un atlas de 6 filas por dirección
+(`idle`, `walk`, `charge`, `attack`, `hurt`, `death`), celda de 384 y pies en
+y=342, más `cadaver: { clip: 'death', frame: 6 }`. El `atlas.webp` raíz (3 filas,
+una dirección) se queda como estaba para no romper lo que ya lo lee. Lo que haría
+falta en el juego:
+
+- Elegir la dirección por hacia dónde se mueve o ataca la unidad
+  (`tools/taller/direcciones.ts`: 0 de frente, 2 derecha, 4 espalda, 6 izquierda)
+  y **dejar de espejar**: con la luz fija, el espejo la trae del otro lado.
+- La sombra por silueta: `proyeccionDeSombra()` en lugar del óvalo de `sombra.ts`.
+- Al morir, dejar el fotograma `cadaver` en la casilla (los no muertos lo usan).
+- **La luz del contrato ha cambiado**: `ARTE.luz.direccionSombra` pasa de
+  `(1, 0,6)` a `(1, −0,6)`, así que la sombra que pinta hoy el juego ya cae hacia
+  el fondo.

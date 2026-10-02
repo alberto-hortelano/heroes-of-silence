@@ -75,3 +75,46 @@ es qué clip hace de ataque:
 | `arco` | poses de brazo escritas sobre el rig (no hay clip de arco) |
 
 `liora-walk-v2` está rechazado: no se usa como referencia.
+
+## La luz (02-10-2026)
+
+Una sola luz para todo, la de `ARTE.luz` (`src/shared/arte.ts`): desde la
+izquierda y del lado de la cámara. La sombra cae a la derecha y hacia el fondo,
+unos 31° en pantalla. De ahí salen:
+
+- `luzEnElMundo()`: el sol del render 3D del maniquí, que sustituye a la luz de
+  sprite-forge (venía de la derecha). `test/arte-luz.test.ts` comprueba que,
+  proyectado con la cámara a 25°, da la sombra del contrato.
+- `proyeccionDeSombra()`: la sombra de una figura es su SILUETA aplastada sobre el
+  suelo (una afín y un `drawImage`), no una mancha. La figura se pinta sin sombra
+  en el suelo; el prompt lo pide.
+
+Los edificios y las piezas del mapa ya generados llevan una sombra pintada que no
+sigue esta regla; se rehacen cuando toque.
+
+## Unidades en 8 direcciones
+
+La unidad definitiva tiene 8 direcciones y 6 acciones: quieto, andando, carga,
+ataque, daño y muerte. La muerte arranca de la pose final del daño y su último
+fotograma es el cadáver (`cadaver` en el JSON).
+
+1. **Las poses**, por juego de armas: `npx tsx tools/art/poses.ts --8d` escribe
+   `assets/unidades/_poses/<juego>-8d/`, con dos hojas de 3 filas por dirección
+   (`d<n>-a`: quieto, andando y carga; `d<n>-b`: ataque, daño y muerte) y el giro
+   (`giro.png`, el reposo de las 8). El maniquí:
+   - lleva atrezo gris colocado con la anatomía en cada fotograma: la espada
+     sigue la línea de los nudillos y el escudo cuelga por fuera del antebrazo;
+   - se apoya en el suelo por el punto más bajo de su malla, así que no flota;
+   - al morir no se desplaza (el cadáver cae en su casilla) y el escudo se
+     tumba plano en el suelo.
+2. **El giro**: `pnpm taller encolar <id> --giro`. Es la lámina de identidad por
+   los ocho lados y fija la espalda antes de pintar.
+3. **Las 16 hojas**: `pnpm taller encolar <id> --ocho`. Cada hoja se escala
+   contra su maniquí, celda a celda, y el taller junta las dos de una dirección en
+   `assets/unidades/<id>/d<n>/atlas.webp` (celda de 384). `atlas.composicion.json`
+   apunta de qué hojas sale.
+4. **La vista**: `pnpm taller vista-8d <id>` (o `poses`), con la sombra por silueta.
+
+Las direcciones son las de sprite-forge: 0 mira a la cámara y se gira en el
+sentido de las agujas del reloj visto desde arriba (`tools/taller/direcciones.ts`).
+Ninguna se espeja, porque la luz vendría del otro lado.

@@ -1,0 +1,51 @@
+{
+  "encargo": "templario-escudo-d3-b",
+  "tipo": "atlas",
+  "fecha": "2026-10-02T19:39:15.291Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0fe13-0590-76b0-8e5c-691eea4f892e",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo), copia su largo, su ángulo y su sitio en cada celda: es la guía del arma real.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn templario de infantería: armadura de placas sobre cota de malla, sobrevesta blanca con cruz roja, yelmo cerrado de cubo, escudo de cometa con cruz roja en el brazo izquierdo y espada de una mano en la derecha.\nEn la lámina de giro (imagen 2), la figura 4 en orden de lectura es la que mira hacia «espalda-derecha», como esta hoja: así se ve el personaje desde este lado.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de ATAQUE de la fila 1 de la referencia de pose, golpeando con la espada. Fila 2: las siete poses de RECIBIR DAÑO de la fila 2: encaja un golpe y retrocede. Fila 3: las siete poses de la MUERTE de la fila 3: la primera es EXACTAMENTE la última de la fila 2, luego se desploma, y la última es el cadáver tendido e inmóvil en el suelo, con la espada y el escudo donde los tiene el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «espalda-derecha» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/espada-escudo-8d/d3-b.png",
+      "papel": "pose",
+      "sha256": "fa8f2a70ff7904b9d56ec8bcf10ffedc4d1089154b99c4288afb205fd9d1fae7"
+    },
+    {
+      "ruta": "assets/unidades/templario-escudo/giro.webp",
+      "papel": "identidad",
+      "sha256": "4f6408f7ef89500cc280608b524a96ef48966b0f0a503659eccdeb75e74311a2"
+    },
+    {
+      "ruta": "assets/art/templarios/guerrero-con-escudo.png",
+      "papel": "estilo",
+      "sha256": "be91381e9343b31c50ffa617668920c4d950c59351dbe5e0b71534cffb8e5f28"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0fe13-0590-76b0-8e5c-691eea4f892e/exec-3f6bca7a-dc33-4e48-9e08-a7075aac6bd1.png",
+    "sha256": "43fbb73fd72da004c790aef5737d0a5859af6f5c8e13c1501552dabb84209802",
+    "ancho": 1915,
+    "alto": 821
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.8390, pies en y=342, reposo a 160 px",
+    "WebP calidad 92, alfa sin pérdida",
+    "dirección completa: assets/unidades/templario-escudo/d3/atlas.webp"
+  ],
+  "validacion": {
+    "visibles": 0.04572986421130952,
+    "opacos": 0.9495360366086183,
+    "haloSuelto": 0,
+    "ancho": 2688,
+    "alto": 1152
+  },
+  "salida": {
+    "ruta": "assets/unidades/templario-escudo/d3/hoja-b.webp",
+    "sha256": "47a51acf8e6f35625592e5c1d48fa45e3031f63dd2710fe56e6bb89ec949ae3e"
+  }
+}
