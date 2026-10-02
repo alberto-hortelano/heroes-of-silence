@@ -635,6 +635,17 @@ export const OCHO_DIRECCIONES = {
   /** El cadáver cae hacia la cámara y en 256 se sale por abajo. */
   celda: FIGURA_8D.celda,
   encuadre: { ortho: FIGURA_8D.ortho, objetivo: FIGURA_8D.objetivo },
+  /**
+   * El alto del maniquí de pie en la hoja, en píxeles: el Y Bot mide 1,8047 m y
+   * a 25° se ve por `cos 25°`. Es el mismo en las 8 direcciones (la cámara es
+   * ortográfica), y es contra él contra lo que se escala. Medido por la caja del
+   * reposo salía más alto de espaldas, con la espada asomando sobre la cabeza,
+   * y el personaje pintado quedaba más pequeño.
+   */
+  altoDelManiqui: Math.round(
+    (1.8047 * Math.cos((FIGURA.camara.elevacionGrados * Math.PI) / 180) * FIGURA_8D.celda) /
+      FIGURA_8D.ortho,
+  ),
   hojas: {
     a: [
       { clip: 'idle', anim: 'idle', enBucle: true },

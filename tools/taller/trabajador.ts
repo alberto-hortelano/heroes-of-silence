@@ -34,6 +34,7 @@ import { homedir, tmpdir } from 'node:os';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import sharp from 'sharp';
 import { FIGURA } from '../../src/shared/arte.js';
+import { OCHO_DIRECCIONES } from '../art/poses.js';
 import { CODEX, FalloDeCodex, type Generacion, generar } from './codex.js';
 import { Cola } from './cola.js';
 import { componerAtlasMapa } from './componer-atlas-mapa.js';
@@ -348,9 +349,10 @@ async function escalaDePose(e: Encargo): Promise<EscalaDePose> {
   const celdas = await medir(ruta);
   return {
     alturas: celdas.map((f) => f.map((c) => c.alto)),
-    reposo: reposo.alto,
+    reposo: OCHO_DIRECCIONES.altoDelManiqui,
     apoyos: celdas.map((f) => f.map((c) => c.apoyo)),
     apoyoReposo: reposo.apoyo,
+    posicion: e.ocho?.hoja === 'b',
   };
 }
 

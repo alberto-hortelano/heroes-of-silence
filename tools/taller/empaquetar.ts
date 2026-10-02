@@ -235,6 +235,8 @@ export interface Empaquetado {
     readonly k: number;
     readonly origen: readonly [number, number];
     readonly apoyoReposo: readonly [number, number];
+    /** Si la posición la puso el maniquí; si no, cada figura va por su apoyo. */
+    readonly posicion: boolean;
   };
 }
 
@@ -258,6 +260,13 @@ export interface EscalaDePose {
    */
   readonly apoyos: readonly (readonly (readonly [number, number])[])[];
   readonly apoyoReposo: readonly [number, number];
+  /**
+   * Si la posición la manda el maniquí. Solo en la hoja de ataque, daño y
+   * muerte: en la marcha, el píxel más bajo del maniquí salta de un pie a otro
+   * según cuál esté más cerca de la cámara y, con las piernas pintadas en otra
+   * fase, la figura daba saltitos. Ahí cada figura se apoya por sus pies.
+   */
+  readonly posicion: boolean;
 }
 
 function escalaDesdeLaPose(
@@ -354,7 +363,7 @@ export async function empaquetar(
         return { img, w, h, ax: Math.round(ax * escala), ay: Math.round(ay * escala) };
       }),
     );
-    if (pose !== undefined) {
+    if (pose?.posicion === true) {
       // Cada figura donde el maniquí respecto a su reposo, a la escala de la hoja;
       // si así se saliera de su celda, se mete dentro (lo que entra en la celda manda).
       const k = (alturaObjetivo / pose.reposo) * (escala / pedida);
@@ -413,6 +422,7 @@ export async function empaquetar(
             k: (alturaObjetivo / pose.reposo) * (escala / pedida),
             origen: [Math.round(celda / 2), base] as const,
             apoyoReposo: pose.apoyoReposo,
+            posicion: pose.posicion,
           },
         }),
   };

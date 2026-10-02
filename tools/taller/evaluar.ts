@@ -105,6 +105,7 @@ export function puntuar(
 }
 
 interface DeLaPose {
+  readonly posicion?: boolean;
   readonly k: number;
   readonly origen: readonly [number, number];
   readonly apoyoReposo: readonly [number, number];
@@ -195,8 +196,10 @@ export async function evaluarDireccion(id: string, d: number): Promise<Celda[]> 
     // Las hojas empaquetadas antes de que la pose mandara en la posición no
     // apuntan la transformación: cada celda se alinea por su propio apoyo, como
     // se colocó, con la escala del reposo.
-    const fija = proc.deLaPose as DeLaPose | undefined;
-    const k = fija?.k ?? atlasJson.altura / (await altoDelReposo(rutaPose, lado));
+    const apuntada = proc.deLaPose as DeLaPose | undefined;
+    // Sin `posicion` (las primeras hojas) la posición también la puso la pose.
+    const fija = apuntada !== undefined && apuntada.posicion !== false ? apuntada : undefined;
+    const k = apuntada?.k ?? atlasJson.altura / (await altoDelReposo(rutaPose, lado));
     for (let fila = 0; fila < 3; fila++) {
       const filaAtlas = h * 3 + fila;
       let previa: { maniqui: Mascara; pintada: Mascara } | null = null;
