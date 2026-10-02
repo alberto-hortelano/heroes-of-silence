@@ -12,8 +12,8 @@ El juego es el andamio; lo interesante es lo que se puede enchufar dentro.
 pnpm install
 pnpm dev        # cliente en http://localhost:3100 (juego local contra la IA de reglas)
 pnpm mirar      # MIRAR la partida del agente: /espectador/ contra el servidor
-pnpm verify     # typecheck + lint + 1035 tests, 12,6 s: el bucle rápido
-pnpm test       # 1035 tests: reglas, batalla, partida completa y contrato del agente
+pnpm verify     # typecheck + lint + 1042 tests, 12,6 s: el bucle rápido
+pnpm test       # 1042 tests: reglas, batalla, partida completa y contrato del agente
 pnpm typecheck
 pnpm lint       # Biome: formato y lint en una sola pasada, 40 ms
 pnpm format     # lo mismo, arreglando lo que sepa arreglar
@@ -1115,8 +1115,8 @@ es lo que prueba que no cambió nada más: 194 semillas idénticas, las 6 que
 cambian entre las 19 con un golpe de caballería con `from`. Y la cifra incómoda:
 **en el banco las cargas cobradas pasan de 28 de 218 golpes a 0 de 203** —la IA
 elige primero a quién y después desde dónde, y en esos golpes el elegido nunca
-estaba en la recta; en 10 de los 203 había una carga contra OTRO enemigo—. Que la
-IA busque al cargable es otra decisión y no se ha tomado. 100 semillas en 28×28:
+estaba en la recta; en 10 de los 203 había una carga contra OTRO enemigo—. Lo que
+se hizo después está en «La IA busca la carga», aquí abajo. 100 semillas en 28×28:
 8 / 16 / 25 y j0 43, igual antes y después.
 
 Del mismo pase de QA: **el motivo de no poder actuar contra un enemigo lo escribe
@@ -1142,6 +1142,56 @@ invierte la medida del director **vuelve a salir verde** con una moral extra
 Los topes de jugadas de los cuatro bucles que juegan una batalla acción a acción
 —`autoResolve`, el director, la sesión y `enfrentamiento.ts`— son uno,
 `MAX_JUGADAS`, derivado de `MAX_ROUNDS`.
+
+### La IA busca la carga
+
+Decisión del usuario sobre ese 0 de 203: «Sí, en este ciclo», con la vara de
+siempre —una candidata entra solo si `enfrentamiento.ts` da, en 5 000 parejas, el
+intervalo **entero** por encima del 50 % contra la IA de `c72bcd9`—. Se midieron
+dos, por separado:
+
+| Candidata | 5 000 parejas | 2-0 · 1-1 · 0-2 | ¿Entra? |
+|---|---|---|---|
+| **Paso de lado**: si al objetivo no se le carga desde aquí, un tramo que lo deja en recta y la carga en el tramo siguiente del mismo turno | **50,08 % ± 0,07** (10 000: 50,09 ± 0,05) | 10 · 4 988 · 2 | **sí** |
+| Contar la carga al elegir **a quién** pegar | 50,05 % ± 0,08 | 10 · 4 985 · 5 | no: toca el 50 |
+
+Entró la primera (`pasoParaCargar`, en `ai/tactics.ts`) y **por poco**: lo que
+decide son 12 parejas de 5 000, porque en las batallas de este banco una unidad
+con `charge` tiene una carga a mano muy pocas veces. La recta la decide
+`cargaDesde` sobre la unidad **puesta** en la casilla candidata —la misma regla
+que cobra—, y la función solo enumera casillas. Tres condiciones, cada una vista
+morder con su test: que desde aquí no haya ya carga contra el objetivo (si la
+hay, la cobra `mejorCarga`), que **el paso y la recta quepan en lo que queda**
+—el golpe es de este turno; la candidata del ciclo anterior, que se colocaba un
+turno para cargar al siguiente, dio 49,39 %— y que la casilla **no toque a otro
+enemigo**, porque desde ahí el tramo siguiente le pegaría a ese. Sin el rasgo no
+recorre nada.
+
+La segunda **no entró y se queda fuera** aunque, puesta encima de la primera,
+gane: con las dos, 50,23 % ± 0,11 contra `c72bcd9` y 50,15 ± 0,10 contra el paso
+de lado solo. La vara era contra `c72bcd9`, y cambiarla después de medir sería
+mover la portería; queda para que lo decida el usuario.
+
+`enfrentamiento.ts --carga` mide la regla contra la IA de hoy con el rasgo quitado
+un instante cuando elige un `move` de una unidad con `charge`, y **eso es** la IA
+de `c72bcd9`: contra una copia congelada de aquel `tactics.ts` sale 0 · 5 000 · 0.
+Con el paso de lado dentro, la cifra por defecto (el segundo tramo) pasa de 51,08 a
+51,39 %, porque el rival que cierra tras moverse tampoco puede dar el tramo de
+después del paso.
+
+Re-anclado una vez, `da7609d5…`. Forma del diff contra `290812e6…`: **194
+semillas idénticas**, las 6 que cambian están entre las 17 con algún paso de lado
+y ninguna diverge antes del primero; el primer hecho distinto es una consecuencia
+de batalla. **Cargas cobradas en el banco: 0 de 203 → 64 de 222** (58 de 3, 6 de
+4). Una semilla con otro ganador (j0 95 → 96), duración 9 / 17 / 37 igual,
+`autoResolve` sin coste medible. 100 semillas en 28×28: `8 / 16 / 25`, 0/100, j0
+43, **igual** que antes; barrido 0/40 y 0/100, igual.
+
+Del mismo pase, dos menores de QA en el cliente, sin mover el ancla: la línea de
+ayuda de la carga solo sale si la unidad activa tiene `charge` (N2), y al pasar el
+ratón por un enemigo al que no se puede ni disparar ni golpear, la barra ya dice
+el motivo del núcleo —el mismo `attackRejection` que escribe el clic— y lo quita
+al salir (N3).
 
 ## La partida sabe acabarse, y el mapa no da para más
 

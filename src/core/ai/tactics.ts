@@ -9,6 +9,7 @@ import {
   activeStack,
   applyAction,
   blockedHexes,
+  CARGA_MINIMA,
   canReachMelee,
   cargaDesde,
   enemiesOf,
@@ -16,13 +17,14 @@ import {
   legalActionsAndCosts,
   MAX_JUGADAS,
   type Movibles,
+  pasosQueQuedan,
   splashTargets,
   stackById,
   stackHexes,
   stackSpeed,
   sumaDelBando,
 } from '../battle/battle.js';
-import { hexDistance, hexKey, type Paso } from '../battle/board.js';
+import { hexDistance, hexKey, neighbours, type Paso } from '../battle/board.js';
 import { CHANCE_PER_POINT, cargaEfectiva, stackHp } from '../battle/damage.js';
 import { roundsLeftOf } from '../battle/effects.js';
 import { effectOfSpell, type Spell, spell, spellAmount } from '../battle/spells.js';
@@ -229,6 +231,87 @@ function mejorCarga(
       mejor = a;
       cargaMejor = carga;
       mejorCoste = coste;
+    }
+  }
+  return mejor;
+}
+
+/**
+ * Un tramo que deja al objetivo en recta para cargarle en el SIGUIENTE tramo del
+ * mismo turno: la casilla a la que ir ahora, o `null` si no hace falta o no la
+ * hay.
+ *
+ * La carga se calcula por tramo y desde donde está la unidad al empezarlo
+ * (decisión del usuario, 02-10-2026: «se puede mover un tramo y se vuelve a
+ * calcular»), así que un paso de lado alinea rectas que desde aquí no hay. Con
+ * la regla en recta la IA casi no cargaba —0 de 203 golpes del banco—, porque
+ * esperaba a que la geometría se la diera hecha.
+ *
+ * Tres condiciones, y las tres deciden algo:
+ *
+ * - **Desde aquí no hay carga contra él.** Si la hay, `mejorCarga` la cobra ya
+ *   y el paso de lado solo gastaría presupuesto.
+ * - **En lo que queda caben el paso Y la recta entera**, así que el golpe es de
+ *   este turno: la unidad no se queda plantada delante del enemigo a esperar al
+ *   siguiente. Una candidata que sí lo hacía —colocarse un turno para cargar al
+ *   otro— se midió en el ciclo de los tramos y dio 49,39 % ± 0,18.
+ * - **La casilla no toca a ningún enemigo**: pegada a otro, el tramo siguiente
+ *   le golpearía a ese (la rama de quien ya se alcanza va antes) y la carga se
+ *   perdería.
+ *
+ * La recta la decide `cargaDesde` sobre la unidad PUESTA en esa casilla, la
+ * misma regla que cobra el golpe: aquí solo se enumeran casillas. Entre dos
+ * buenas gana la que más carga y, a igualdad, la primera de la lista legal.
+ * Sin el rasgo no se recorre nada, que es el 100 % de las decisiones de una
+ * partida de hoy sin caballería.
+ *
+ * Medido con `enfrentamiento.ts --carga` contra la IA de antes: **50,08 % ±
+ * 0,07** en 5 000 parejas, el intervalo entero por encima del 50 —por poco: lo
+ * que decide son 12 parejas—. En el banco las cargas cobradas pasan de 0 a 64
+ * de 222 golpes con el rasgo. Contar la carga al elegir a quién pegar, que era
+ * la otra candidata, dio 50,05 ± 0,08 y no entró.
+ */
+function pasoParaCargar(
+  state: BattleState,
+  s: BattleStack,
+  objetivo: BattleStack,
+  enemigos: readonly BattleStack[],
+  golpes: readonly CargaContra[],
+  acciones: readonly BattleAction[],
+  costes: ReadonlyMap<string, Paso>,
+): Hex | null {
+  if (!hasTrait(s.unit, 'charge')) return null;
+  const bloqueadas = blockedHexes(state, s.id);
+  if (golpes.some((a) => cargaDesde(state, s, a.from, objetivo, bloqueadas) > 0)) return null;
+
+  const pasos = pasosQueQuedan(state, s);
+  const tocaEnemigo = (h: Hex): boolean =>
+    enemigos.some((e) => stackHexes(e).some((x) => hexDistance(x, h) <= 1));
+  // Las casillas desde las que se le golpea: libres y pegadas a alguna suya.
+  const desdes = stackHexes(objetivo)
+    .flatMap((h) => neighbours(h))
+    .filter((h) => !bloqueadas.has(hexKey(h)));
+
+  let mejor: Hex | null = null;
+  let cargaMejor = 0;
+  for (const a of acciones) {
+    if (a.type !== 'move') continue;
+    const paso = costes.get(hexKey(a.to));
+    // Inalcanzable salvo que la lista legal y su propio mapa discrepen, como en
+    // `mejorCarga`: los `move` salen de las claves de ese mapa.
+    if (paso === undefined) {
+      throw new Error(`${s.id} no alcanza (${a.to.col},${a.to.row}): la lista legal miente`);
+    }
+    const resto = pasos - paso.steps;
+    if (resto < CARGA_MINIMA || tocaEnemigo(a.to)) continue;
+    const puesta = { ...s, hex: a.to };
+    for (const desde of desdes) {
+      if (hexDistance(a.to, desde) > resto) continue;
+      const carga = cargaEfectiva(cargaDesde(state, puesta, desde, objetivo, bloqueadas));
+      if (carga > cargaMejor) {
+        mejor = a.to;
+        cargaMejor = carga;
+      }
     }
   }
   return mejor;
@@ -443,6 +526,10 @@ function decideAccion(
       (a): a is CargaContra =>
         a.type === 'attack' && a.target === objetivo.id && a.from !== undefined,
     );
+    // Si desde aquí no se le carga pero tras un paso de lado sí, se da ese paso:
+    // el tramo siguiente vuelve aquí y `mejorCarga` cobra la recta nueva.
+    const tramo = pasoParaCargar(state, s, objetivo, enemigos, cargas, acciones, costes);
+    if (tramo !== null) return { type: 'move', to: tramo };
     if (cargas.length > 0) return mejorCarga(state, s, objetivo, cargas, costes);
 
     // Si no llega, avanzar lo máximo posible hacia él. Los hexes ya están en

@@ -43,6 +43,7 @@ import {
   tickEffects,
 } from '../src/core/battle/effects.js';
 import type {
+  BattleAction,
   BattleEvent,
   BattleHero,
   BattleStack,
@@ -1138,6 +1139,104 @@ describe('la IA elige la casilla de ataque por daño esperado (#50)', () => {
     } finally {
       espia.mockImplementation(real);
     }
+  });
+});
+
+/**
+ * La IA busca la carga (decisión del usuario, 02-10-2026): si desde donde está
+ * no se le carga al objetivo, da un tramo de lado que lo deja en recta y le
+ * carga en el SIGUIENTE tramo del mismo turno. El jinete en (0,4) y el zombi en
+ * (5,3): de salida ninguna recta acaba en él; subiendo a (0,3) —un paso— la
+ * fila 3 lleva a (4,3) en cuatro, y 1 + 4 caben en los 6 de la caballería.
+ */
+function escenaDePasoDeLado(otro?: Hex): BattleState {
+  const defensores: Stack[] = [{ creature: 'zombie', count: 10 }];
+  if (otro !== undefined) defensores.push({ creature: 'zombie', count: 10 });
+  const state = createBattle(
+    side([{ creature: 'cavalry', count: 10 }]),
+    side(defensores),
+    createRng(7),
+  );
+  stackById(state, 'attacker-0').hex = { col: 0, row: 4 };
+  stackById(state, 'defender-0').hex = { col: 5, row: 3 };
+  if (otro !== undefined) stackById(state, 'defender-1').hex = otro;
+  return state;
+}
+
+/** El tramo de lado y el golpe de después, con lo que cobra el golpe. */
+function pasoYGolpe(state: BattleState): {
+  paso: BattleAction;
+  golpe: BattleAction;
+  turnos: [number, number];
+  cobrada: number | undefined;
+} {
+  const rng = createRng(1);
+  const n0 = state.turno?.n ?? -1;
+  const paso = chooseBattleAction(state);
+  applyAction(state, paso, rng);
+  const n1 = state.turno?.n ?? -1;
+  const golpe = chooseBattleAction(state);
+  const antes = state.log.length;
+  applyAction(state, golpe, rng);
+  const e = state.log.slice(antes).find((x) => x.kind === 'attack' && !x.retaliation);
+  return { paso, golpe, turnos: [n0, n1], cobrada: e?.kind === 'attack' ? e.charge : undefined };
+}
+
+describe('la IA busca la carga: un tramo de lado y la recta en el siguiente', () => {
+  it('de salida no hay carga; tras un paso a (0,3), carga 4 desde (4,3) en el mismo turno', () => {
+    const state = escenaDePasoDeLado();
+    expect(state.turno?.stack).toBe('attacker-0');
+    const s = stackById(state, 'attacker-0');
+    expect(casillasDeCarga(state, s)).toEqual([]);
+    const { paso, golpe, turnos, cobrada } = pasoYGolpe(state);
+    expect(paso).toEqual({ type: 'move', to: { col: 0, row: 3 } });
+    // Lo que se cobra es lo que el motor anunciaba tras el tramo, y es este turno.
+    expect(golpe).toEqual({ type: 'attack', target: 'defender-0', from: { col: 4, row: 3 } });
+    expect(turnos[0]).toBe(turnos[1]);
+    expect(cobrada).toBe(4);
+  });
+
+  it('sin el rasgo, la misma unidad no da el paso de lado', () => {
+    const state = escenaDePasoDeLado();
+    const s = stackById(state, 'attacker-0');
+    const jinete = creature('cavalry');
+    (s as { unit: UnitInfo }).unit = { ...jinete, traits: [] };
+    const a = chooseBattleAction(state);
+    expect(a.type).toBe('attack');
+  });
+
+  it('no se planta pegado a otro enemigo: con uno junto a (0,3) sube a (1,3) y carga 3', () => {
+    // Pegado a otro, el tramo siguiente le golpearía a ese —la rama de quien ya
+    // se alcanza va antes— y la carga se perdería.
+    const state = escenaDePasoDeLado({ col: 0, row: 2 });
+    const { paso, golpe, turnos, cobrada } = pasoYGolpe(state);
+    expect(paso).toEqual({ type: 'move', to: { col: 1, row: 3 } });
+    expect(golpe).toEqual({ type: 'attack', target: 'defender-0', from: { col: 4, row: 3 } });
+    expect(turnos[0]).toBe(turnos[1]);
+    expect(cobrada).toBe(3);
+  });
+
+  it('si la recta no cabe en lo que queda del tramo, decide como sin el rasgo', () => {
+    // El paso más barato que alinea es (0,3), a 1, con una recta de 4 detrás: le
+    // hacen falta 5. Con 4 no cabe ninguno y la regla no deja al jinete plantado
+    // delante del zombi para el turno que viene, así que hace lo de siempre: lo
+    // mismo que la misma unidad sin `charge`. Con 5, el paso y la carga de 4.
+    const conQuedan = (quedan: number, conRasgo: boolean): BattleState => {
+      const state = escenaDePasoDeLado();
+      const s = stackById(state, 'attacker-0');
+      if (!conRasgo) (s as { unit: UnitInfo }).unit = { ...creature('cavalry'), traits: [] };
+      (state.turno as { gastado: number }).gastado = stackSpeed(s) - quedan;
+      expect(pasosQueQuedan(state, s)).toBe(quedan);
+      return state;
+    };
+    for (const quedan of [3, 4]) {
+      expect(chooseBattleAction(conQuedan(quedan, true))).toEqual(
+        chooseBattleAction(conQuedan(quedan, false)),
+      );
+    }
+    const { paso, cobrada } = pasoYGolpe(conQuedan(5, true));
+    expect(paso).toEqual({ type: 'move', to: { col: 0, row: 3 } });
+    expect(cobrada).toBe(4);
   });
 });
 

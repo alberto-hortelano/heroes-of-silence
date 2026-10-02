@@ -24,7 +24,7 @@ import {
   nivelDeVeterania,
   type Side,
 } from '@core/battle/types.js';
-import { creature, isShooter, nombreDeTipoDeHeroe } from '@core/data.js';
+import { creature, hasTrait, isShooter, nombreDeTipoDeHeroe } from '@core/data.js';
 import {
   cifrasDePieza,
   destinoDeEquipo,
@@ -633,9 +633,8 @@ function renderBattlePanel(session: Session): Html {
        ${renderSpells(session)}
        <p class="cost" style="margin-top:.5rem">
          Haz clic en un hexágono verde para moverte —puedes moverte en varios tramos—,
-         o pasa el ratón por un enemigo y elige desde qué casilla golpearlo. Al
-         enemigo en naranja se le puede cargar: pasa por él y elige la casilla del
-         número («»3»).
+         o pasa el ratón por un enemigo y elige desde qué casilla golpearlo.
+         ${ayudaDeCarga(s)}
          Espacio termina el turno de la unidad.
        </p>`
     : html`<p>Turno del enemigo…</p>`;
@@ -781,6 +780,19 @@ const ETIQUETA_EFECTO: Readonly<Record<EffectKind, string>> = {
  */
 function clase(bueno: boolean, malo: boolean): Html {
   return bueno ? html` class="win"` : malo ? html` class="lose"` : NADA;
+}
+
+/**
+ * La línea de ayuda de la carga, solo si la unidad activa tiene el rasgo: con un
+ * campesino o un arquero es ruido, y quien juega no tiene caballería hasta
+ * varios días después (N2 de QA, 02-10-2026). Se pregunta por el rasgo y no por
+ * si hay casillas de carga ahora: el texto explica cómo se ve, también el turno
+ * en que no sale ninguna.
+ */
+function ayudaDeCarga(s: BattleStack | null): Html {
+  if (s === null || !hasTrait(s.unit, 'charge')) return NADA;
+  return html`Al enemigo en naranja se le puede cargar: pasa por él y elige la casilla del
+         número («»3»).`;
 }
 
 /**

@@ -433,11 +433,23 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   había una carga, contra OTRO enemigo que la IA no eligió. 1 semilla con otro
  *   ganador (la 137; j0 96 → 95). Duración 9 / 17 / 37, igual. H2 y los menores
  *   del mismo pase dejaron `656e567e…` exacto, comprobado antes.
+ * - `da7609d5…` (63 133 líneas): **la IA busca la carga** (decisión del usuario,
+ *   02-10-2026). Si desde donde está no se le carga al objetivo, una unidad con
+ *   `charge` da un tramo de lado que lo deja en recta y le carga en el tramo
+ *   siguiente del mismo turno (`pasoParaCargar`, en `ai/tactics.ts`). Forma del
+ *   diff contra `290812e6…`: **194 semillas idénticas**; las 6 que cambian están
+ *   entre las 17 en las que se da algún paso de lado, y ninguna diverge antes del
+ *   hecho en que se da el primero. El primer hecho distinto es una consecuencia
+ *   de batalla (`troop_level_up` 5, `battle_ended` 1). Cargas cobradas en las
+ *   200: **0 de 203** golpes con el rasgo → **64 de 222** (58 de 3, 6 de 4), con
+ *   64 pasos de lado. 1 semilla con otro ganador (la 158; j0 95 → 96). Duración
+ *   9 / 17 / 37, igual. N2 y N3 de QA, del mismo pase y solo del cliente,
+ *   dejaron `290812e6…` exacto, comprobado antes.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '290812e681c3bd066b9bdfcfbdab8b59580c8acbb4b0c274c6f52dd5c5dd0ba6',
+  sha: 'da7609d5281f71f2aec3e025cccf097ae206b258aee4a2f8d656ee9060d3407b',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

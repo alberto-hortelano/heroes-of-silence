@@ -269,8 +269,25 @@ export class EscenaBatalla {
     // Sobre una casilla a la que ir no se promete carga: el clic ahí solo mueve.
     if (movimiento !== undefined) return null;
     const angulo = this.anguloActual();
-    if (angulo === null) return null;
-    return rotuloDeAngulo(angulo.elegida, cargaContra(s.battleCharges(), angulo));
+    if (angulo !== null) {
+      return rotuloDeAngulo(angulo.elegida, cargaContra(s.battleCharges(), angulo));
+    }
+    return this.motivoSinGolpe();
+  }
+
+  /**
+   * Sobre un enemigo al que la unidad activa no puede ni disparar ni golpear, el
+   * motivo del núcleo: el MISMO que escribe el clic (`attackRejection`), para que
+   * quien explora con el ratón no tenga que pulsar para enterarse (N3 de QA,
+   * 02-10-2026). Si dispararía, no se dice nada, como hasta ahora: el clic ahí
+   * no tiene sorpresa.
+   */
+  private motivoSinGolpe(): string | null {
+    if (this.puntero === null) return null;
+    const { x, y } = this.puntero;
+    const golpe = this.golpeEn(x, y);
+    if (golpe === undefined || this.accionContraEn(x, y) !== undefined) return null;
+    return this.sesion().attackRejection(golpe.objetivo);
   }
 
   private rotular(texto: string | null): void {

@@ -8,8 +8,8 @@
  *
  * **Mide UNA regla a la vez**, la que se elige con la bandera: por defecto la
  * del turno en tramos (02-10-2026) —tras moverse, la IA vuelve a decidir y pega
- * si alcanza, en vez de cerrar el turno—, y con `--espera` la regla de espera
- * (#52). Cualquier otro cambio táctico que salga byte a byte idéntico —#50, sin
+ * si alcanza, en vez de cerrar el turno—, con `--espera` la regla de espera
+ * (#52) y con `--carga` el paso de lado para cargar (02-10-2026). Cualquier otro cambio táctico que salga byte a byte idéntico —#50, sin
  * caballería en el tablero— devolvería aquí un 50,0 % por construcción, y ese
  * 50 % no significaría «no mejora»: significaría «no hay nada que medir». Hay
  * que decirlo al leer la cifra.
@@ -70,7 +70,18 @@
  * siguiente dio **49,39 % ± 0,18**, entera por DEBAJO del 50 — colocarse la deja
  * expuesta sin comprar casi nada de carga.
  *
- * Uso: npx tsx tools/qa/enfrentamiento.ts [parejas=1000] [--espera] [--espejo]
+ * Medido al entrar el paso de lado para cargar (`--carga`, rival = la IA de
+ * `c72bcd9`): **50,08 % ± 0,07** en 5 000 parejas (10 · 4 988 · 2), y en 10 000
+ * 50,09 ± 0,05 (22 · 9 973 · 5). Las cargas cobradas por la IA que lo lleva
+ * pasan de 190 a 1 602 sobre unos 7 000 golpes con el rasgo. Y la otra candidata
+ * de aquel ciclo, que se descartó por la misma vara: contar la carga al elegir A
+ * QUIÉN pegar dio **50,05 % ± 0,08**, con el intervalo tocando el 50.
+ *
+ * Con el paso de lado dentro, la cifra por defecto (el segundo tramo) sale
+ * 51,39 % ± 0,27 en 5 000 parejas, y no el 51,08 de arriba: el rival que cierra
+ * tras moverse tampoco puede dar el tramo de después del paso de lado.
+ *
+ * Uso: npx tsx tools/qa/enfrentamiento.ts [parejas=1000] [--espera] [--carga] [--espejo]
  */
 import { chooseBattleAction } from '../../src/core/ai/tactics.js';
 import {
@@ -84,13 +95,14 @@ import {
 } from '../../src/core/battle/battle.js';
 import type { BattleAction, BattleState, Side } from '../../src/core/battle/types.js';
 import { otroBando } from '../../src/core/battle/types.js';
-import { factionLineup } from '../../src/core/data.js';
+import { factionLineup, hasTrait } from '../../src/core/data.js';
 import { createRng, type Rng } from '../../src/core/rng.js';
-import type { FactionId, Stack } from '../../src/core/types.js';
+import type { FactionId, Stack, UnitInfo } from '../../src/core/types.js';
 
 const args = process.argv.slice(2);
 const ESPEJO = args.includes('--espejo');
 const ESPERA = args.includes('--espera');
+const CARGA = args.includes('--carga');
 const PAREJAS = Number(args.find((a) => !a.startsWith('--')) ?? 1000);
 
 /**
@@ -140,6 +152,37 @@ const sinEspera: Tactica = (state) => {
   const alternativa = chooseBattleAction(state);
   s.waited = false;
   return alternativa;
+};
+
+/**
+ * La heurística de hoy sin el paso de lado para cargar (02-10-2026), que es la
+ * IA de `c72bcd9`.
+ *
+ * Esa regla solo puede elegir un `move` de una unidad con `charge`, así que
+ * ahí, y solo ahí, se le vuelve a preguntar con el rasgo quitado un instante:
+ * sin él `pasoParaCargar` no hace nada, y lo demás que decide un `move` no lo
+ * mira. Lo que SÍ mira el rasgo —`mejorCarga`, al golpear— no sale nunca de
+ * esta segunda pregunta con otra respuesta: si la regla no se dispara, la
+ * primera ya era la de antes y se devuelve tal cual. Se restaura antes de
+ * devolver, porque el rasgo es del motor y no de este banco.
+ *
+ * Que esto ES la IA de `c72bcd9` se comprobó jugándolo contra una copia
+ * congelada de aquel `tactics.ts`: 0 · 5 000 · 0, las 5 000 parejas iguales.
+ */
+const sinPasoParaCargar: Tactica = (state) => {
+  const accion = chooseBattleAction(state);
+  const s = activeStack(state);
+  if (accion.type !== 'move' || s === null || !hasTrait(s.unit, 'charge')) return accion;
+  const conRasgo = s.unit;
+  (s as { unit: UnitInfo }).unit = {
+    ...conRasgo,
+    traits: (conRasgo.traits ?? []).filter((t) => t !== 'charge'),
+  };
+  try {
+    return chooseBattleAction(state);
+  } finally {
+    (s as { unit: UnitInfo }).unit = conRasgo;
+  }
 };
 
 /**
@@ -209,8 +252,14 @@ function batalla(
 // ------------------------------------------------------------------ la tanda
 
 /** El contrincante: la de hoy en el espejo, y si no la de hoy sin la regla medida. */
-const rival: Tactica = ESPEJO ? deHoy : ESPERA ? sinEspera : sinSegundoTramo;
-const REGLA = ESPERA ? 'la espera' : 'el segundo tramo';
+const rival: Tactica = ESPEJO
+  ? deHoy
+  : ESPERA
+    ? sinEspera
+    : CARGA
+      ? sinPasoParaCargar
+      : sinSegundoTramo;
+const REGLA = ESPERA ? 'la espera' : CARGA ? 'el paso de lado para cargar' : 'el segundo tramo';
 
 let victorias = 0;
 let esperas = 0;

@@ -143,9 +143,8 @@
     
        <p class="cost" style="margin-top:.5rem">
          Haz clic en un hexágono verde para moverte —puedes moverte en varios tramos—,
-         o pasa el ratón por un enemigo y elige desde qué casilla golpearlo. Al
-         enemigo en naranja se le puede cargar: pasa por él y elige la casilla del
-         número («»3»).
+         o pasa el ratón por un enemigo y elige desde qué casilla golpearlo.
+         
          Espacio termina el turno de la unidad.
        </p>
     <h3>En el campo</h3><div class="stack-list"><div class="stack empty">
@@ -358,9 +357,8 @@
     
        <p class="cost" style="margin-top:.5rem">
          Haz clic en un hexágono verde para moverte —puedes moverte en varios tramos—,
-         o pasa el ratón por un enemigo y elige desde qué casilla golpearlo. Al
-         enemigo en naranja se le puede cargar: pasa por él y elige la casilla del
-         número («»3»).
+         o pasa el ratón por un enemigo y elige desde qué casilla golpearlo.
+         
          Espacio termina el turno de la unidad.
        </p>
     <h3>En el campo</h3><div class="stack-list"><div class="stack empty">
@@ -438,9 +436,8 @@
     
        <p class="cost" style="margin-top:.5rem">
          Haz clic en un hexágono verde para moverte —puedes moverte en varios tramos—,
-         o pasa el ratón por un enemigo y elige desde qué casilla golpearlo. Al
-         enemigo en naranja se le puede cargar: pasa por él y elige la casilla del
-         número («»3»).
+         o pasa el ratón por un enemigo y elige desde qué casilla golpearlo.
+         
          Espacio termina el turno de la unidad.
        </p>
     <h3>En el campo</h3><div class="stack-list"><div class="stack empty">
@@ -528,9 +525,8 @@
     <p class="cost" style="margin-top:.5rem">Flecha mágica: pulsa sobre la unidad objetivo. Escape cancela.</p>
        <p class="cost" style="margin-top:.5rem">
          Haz clic en un hexágono verde para moverte —puedes moverte en varios tramos—,
-         o pasa el ratón por un enemigo y elige desde qué casilla golpearlo. Al
-         enemigo en naranja se le puede cargar: pasa por él y elige la casilla del
-         número («»3»).
+         o pasa el ratón por un enemigo y elige desde qué casilla golpearlo.
+         
          Espacio termina el turno de la unidad.
        </p>
     <h3>En el campo</h3><div class="stack-list"><div class="stack empty">
@@ -603,9 +599,8 @@
       <div class="stack-list"><div class="stack empty">Este héroe no conoce ninguno</div></div>
        <p class="cost" style="margin-top:.5rem">
          Haz clic en un hexágono verde para moverte —puedes moverte en varios tramos—,
-         o pasa el ratón por un enemigo y elige desde qué casilla golpearlo. Al
-         enemigo en naranja se le puede cargar: pasa por él y elige la casilla del
-         número («»3»).
+         o pasa el ratón por un enemigo y elige desde qué casilla golpearlo.
+         
          Espacio termina el turno de la unidad.
        </p>
     <h3>En el campo</h3><div class="stack-list"><div class="stack empty">

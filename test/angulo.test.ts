@@ -175,6 +175,33 @@ describe('el clic sobre un enemigo al que no se llega', () => {
     expect(s.battle!.log.length).toBe(antes);
     expect(s.status).toBe('No alcanza a esa unidad cuerpo a cuerpo este turno.');
   });
+
+  it('al pasar el ratón ya lo dice, con la misma frase que el clic, y se quita al salir (N3)', () => {
+    const { s, objetivo } = sesionConEnemigoALaVista({ col: 10, row: 2 });
+    const [ancho, alto] = [1086, 778];
+    const rival = s.battle!.stacks.find((x) => x.id === objetivo)!;
+    const escena = new EscenaBatalla(() => s);
+    escena.encuadrar(ancho, alto);
+    const k = cajaDeFigura(tableroPara(ancho, alto), rival, centroDeStack(stackHexes(rival)));
+    const antes = s.battle!.log.length;
+    escena.mover(k.x, k.suelo - k.alto / 2);
+    expect(s.status).toBe(s.attackRejection(objetivo));
+    expect(s.status).toBe('No alcanza a esa unidad cuerpo a cuerpo este turno.');
+    expect(s.battle!.log.length).toBe(antes);
+    escena.salir();
+    expect(s.status).toBe('');
+  });
+
+  it('sobre un enemigo al que sí se golpea no sale motivo, sale el ángulo (N3)', () => {
+    const { s, objetivo } = sesionConEnemigoALaVista();
+    const [ancho, alto] = [1086, 778];
+    const rival = s.battle!.stacks.find((x) => x.id === objetivo)!;
+    const escena = new EscenaBatalla(() => s);
+    escena.encuadrar(ancho, alto);
+    const k = cajaDeFigura(tableroPara(ancho, alto), rival, centroDeStack(stackHexes(rival)));
+    escena.mover(k.x, k.suelo - 2);
+    expect(s.status).toMatch(/^Golpearías desde/);
+  });
 });
 
 describe('el panel dice lo que le queda al tramo', () => {
@@ -193,6 +220,16 @@ describe('el panel dice lo que le queda al tramo', () => {
     const panel = marcadoDe(renderSide(s));
     expect(panel).toContain('<span class="label">Le queda</span><span>1 casilla</span>');
     expect(panel).not.toContain('1 casillas');
+  });
+});
+
+describe('la ayuda de la carga solo con una unidad que carga (QA, N2)', () => {
+  it('con un piquero activo no se habla de cargar; con un jinete, sí', () => {
+    const AYUDA = 'Al enemigo en naranja se le puede cargar';
+    const sinRasgo = sesionConEnemigoALaVista(undefined, 'pikeman');
+    expect(marcadoDe(renderSide(sinRasgo.s))).not.toContain(AYUDA);
+    const conRasgo = sesionConEnemigoALaVista(undefined, 'cavalry');
+    expect(marcadoDe(renderSide(conRasgo.s))).toContain(AYUDA);
   });
 });
 
