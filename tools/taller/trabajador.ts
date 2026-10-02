@@ -14,6 +14,7 @@
  *   pnpm taller reprocesar <id>          rehace el post-proceso sobre el crudo ya generado
  *   pnpm taller derivar <hoja.webp>…     reescribe el JSON de una hoja
  *   pnpm taller componer-atlas-mapa      rehace assets/rpg/map-atlas.png con las piezas pintadas
+ *   pnpm taller vista-ejercitos          una página con todos los ejércitos, para elegir o comparar
  *   pnpm taller vista <unidad>…          láminas de revisión en .cache/taller/vista/
  *
  * Por cada encargo: lanza Codex con las referencias en su orden, recorta el
@@ -50,7 +51,7 @@ import { ESTILOS_DE_MAPA, encargoDeMuestra, encargosDeCeldas, encargosDePiezas }
 import { aRaster, recortar, UMBRALES } from './recorte.js';
 import { encargoDeAtlas, encargoDeIdentidad, unidad } from './unidades.js';
 import { validar } from './validar.js';
-import { vista, vistaEfectos } from './vista.js';
+import { vista, vistaEfectos, vistaEjercitos } from './vista.js';
 
 const RAIZ = resolve(import.meta.dirname, '../..');
 export const COLA = new Cola(join(RAIZ, 'tools/taller/cola'));
@@ -436,6 +437,9 @@ switch (orden) {
     break;
   case 'reprocesar':
     for (const id of resto) await reprocesar(id);
+    break;
+  case 'vista-ejercitos':
+    console.log(`→ ${await vistaEjercitos()}`);
     break;
   case 'vista-efectos':
     console.log(`→ ${await vistaEfectos()}`);
