@@ -139,3 +139,18 @@ para colocarlo por el pie en su solar, y su procedencia.
 
 Qué produce cada uno está en `tools/taller/edificios.ts`. El solar vacío lo pinta la
 pantalla de ciudad, como hoy.
+
+## Cierre de la rama `arte` (02-10-2026)
+
+La rama se cierra aquí: el trabajo de arte que siga irá en ramas nuevas. Pendiente
+de integrar en `main` desde la última integración: los siete commits desde
+`d219d58` (página de ejércitos) hasta `67b2fc9` (jinete y edificios), que traen las
+peticiones 5, 6 y 7 de este documento. Árbol limpio, `pnpm verify` en verde, sin
+encargos en la cola del taller.
+
+Lo que queda por hacer, para las ramas nuevas:
+- Muerte y herida para todas las unidades (decidido, sin empezar).
+- Volver a montar otras unidades con la herramienta del caballo: el pack de
+  Quaternius trae ciervo, venado y lobo (corredores del bosque élficos).
+- Repasar lo aceptado con reservas: el ataque de rodillas del monje y las marchas
+  menos finas (`pnpm taller corregir <id>-atlas "…"`, en su mismo hilo).
