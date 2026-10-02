@@ -180,9 +180,11 @@ export async function derivarAtlas(rutaImagen: string): Promise<AtlasDerivado> {
       throw new Error(`${rutaImagen}: el clip «${def.clip}» tiene una celda vacía en medio`);
     }
     const apoyos = validas.map((c) => apoyoDeCelda(c, lado));
-    // El ancla de cada clip es donde el empaquetado puso sus pies; la del cadáver
-    // también, porque cae en su sitio (las poses bloquean la cadera al morir).
-    const anchor: [number, number] = [
+    // En 6 filas la posición de cada fotograma la dicta el maniquí respecto a su
+    // reposo, así que el ancla es UNA por dirección, la del reposo: la mediana por
+    // clip recentraría el cadáver y la carga.
+    const fija = filas === 6 ? clips.idle?.anchor : undefined;
+    const anchor: readonly [number, number] = fija ?? [
       mediana(apoyos.map((a) => a[0])),
       mediana(apoyos.map((a) => a[1])),
     ];

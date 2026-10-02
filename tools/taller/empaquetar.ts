@@ -227,6 +227,15 @@ export interface Empaquetado {
   readonly alturaFinal: number;
   /** Dónde quedó el apoyo de cada clip en su celda: lo verifica después `derivar`. */
   readonly apoyoPorFila: readonly (readonly [number, number])[];
+  /**
+   * Con la pose mandando en la posición: cómo se pasa de la hoja del maniquí al
+   * atlas, `atlas = origen + k · (pose − apoyoReposo)`. Lo usa el evaluador.
+   */
+  readonly deLaPose?: {
+    readonly k: number;
+    readonly origen: readonly [number, number];
+    readonly apoyoReposo: readonly [number, number];
+  };
 }
 
 /**
@@ -241,6 +250,14 @@ export interface EscalaDePose {
   readonly alturas: readonly (readonly number[])[];
   /** Alto del maniquí en reposo: el que tiene que medir `alturaObjetivo`. */
   readonly reposo: number;
+  /**
+   * El apoyo del maniquí en cada celda y en su reposo (`apoyoEn`). Con ellos la
+   * pose manda también en DÓNDE va cada figura: se coloca desplazada lo mismo que
+   * el maniquí respecto a su reposo. Colocando cada una por su propio apoyo, un
+   * cadáver cuyo píxel más bajo no es el de los pies quedaba levitando.
+   */
+  readonly apoyos: readonly (readonly (readonly [number, number])[])[];
+  readonly apoyoReposo: readonly [number, number];
 }
 
 function escalaDesdeLaPose(
@@ -337,6 +354,24 @@ export async function empaquetar(
         return { img, w, h, ax: Math.round(ax * escala), ay: Math.round(ay * escala) };
       }),
     );
+    if (pose !== undefined) {
+      // Cada figura donde el maniquí respecto a su reposo, a la escala de la hoja;
+      // si así se saliera de su celda, se mete dentro (lo que entra en la celda manda).
+      const k = (alturaObjetivo / pose.reposo) * (escala / pedida);
+      const x0 = Math.round(celda / 2);
+      for (const [col, p] of piezas.entries()) {
+        const a = pose.apoyos[f]?.[col];
+        if (a === undefined)
+          throw new Error(`la pose no tiene apoyo en la celda ${f + 1}·${col + 1}`);
+        const dx = Math.round(k * (a[0] - pose.apoyoReposo[0]));
+        const dy = Math.round(k * (a[1] - pose.apoyoReposo[1]));
+        const izquierda = Math.min(celda - p.w - MARGEN, Math.max(MARGEN, x0 + dx - p.ax));
+        const arriba = Math.min(celda - p.h - MARGEN, Math.max(MARGEN, base + dy - p.ay));
+        capas.push({ input: p.img, left: col * celda + izquierda, top: f * celda + arriba });
+      }
+      apoyoPorFila.push([x0, base]);
+      continue;
+    }
     // La x de apoyo del clip: la más cercana al centro en la que caben todos.
     const minimo = Math.max(...piezas.map((p) => p.ax)) + MARGEN;
     const maximo = Math.min(...piezas.map((p) => celda - (p.w - p.ax))) - MARGEN;
@@ -371,6 +406,15 @@ export async function empaquetar(
     alturaPedida: alturaObjetivo,
     alturaFinal: Math.round(alturaObjetivo * (escala / pedida)),
     apoyoPorFila,
+    ...(pose === undefined
+      ? {}
+      : {
+          deLaPose: {
+            k: (alturaObjetivo / pose.reposo) * (escala / pedida),
+            origen: [Math.round(celda / 2), base] as const,
+            apoyoReposo: pose.apoyoReposo,
+          },
+        }),
   };
 }
 

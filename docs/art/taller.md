@@ -118,3 +118,34 @@ fotograma es el cadáver (`cadaver` en el JSON).
 Las direcciones son las de sprite-forge: 0 mira a la cámara, 2 a la derecha, 4 de
 espaldas y 6 a la izquierda (`tools/taller/direcciones.ts`).
 Ninguna se espeja, porque la luz vendría del otro lado.
+
+### Lo que el maniquí guía, además de la pose
+
+- **La posición.** Cada figura pintada se coloca desplazada lo mismo que el
+  maniquí respecto a su reposo (`EscalaDePose.apoyos`). Antes se colocaba por su
+  propio apoyo y un cadáver tendido quedaba levitando. La transformación se
+  apunta en la procedencia (`deLaPose`).
+- **Las piernas.** En los juegos de armas con `piernasDeColor`, la pierna derecha
+  del maniquí es roja y la izquierda azul. El prompt dice que solo sirven para
+  distinguirlas.
+
+### El evaluador
+
+`pnpm taller evaluar <id>` compara cada figura pintada con su maniquí, llevado
+al atlas con la misma transformación: la silueta del maniquí menos lo que cubre
+la figura. Por fila da el **nivel** (la mediana: la figura entera desviada,
+girada) y el **pico** (el peor fotograma menos la mediana: uno que se encoge o
+pierde el arma). Escribe `.cache/taller/evaluacion/<id>.json` y la vista 8d pone
+un borde rojo en lo que avisa.
+
+Calibrado el 03-10-2026 contra la revisión del usuario del templario del
+mandoble:
+
+- **Lo que ve:** «se gira hacia atrás», «se encoge en un fotograma» y una espada
+  que desaparece en una carga.
+- **Lo que no ve:** una espada fina que falta, una pierna levantada o pasos
+  repetidos.
+- **Falsas alarmas:** en el templario con escudo, ya aprobado, avisa de 9 filas
+  de 48.
+
+Es un aviso de revisión, no una aceptación.

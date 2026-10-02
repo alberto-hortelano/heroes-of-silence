@@ -135,6 +135,9 @@ const ATREZO = `
 function crearAtrezo(model, conf) {
   let material = null;
   model.traverse((n) => { if (!material && n.isMesh) material = Array.isArray(n.material) ? n.material[0] : n.material; });
+  // Una copia: el del maniquí puede pasar a colores de vértice (las piernas) y
+  // el atrezo no los tiene, así que con el mismo material saldría negro.
+  material = material.clone();
   const e = conf.espada;
   const espada = new THREE.Group();
   const hoja = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, e.largo, 8), material);
@@ -245,10 +248,46 @@ function colocarAtrezo(model, prefijo, atrezo, conf, suelo, aplanar, frente) {
 }
 `;
 
+/**
+ * Las piernas del maniquí en dos colores, para que el modelo de imagen no las
+ * confunda en la marcha ni gire la figura de espaldas: la DERECHA roja y la
+ * IZQUIERDA azul (lo dice el prompt, y que el personaje no lleva esos colores).
+ * Cada vértice toma el color de su hueso dominante; el resto del cuerpo, el gris
+ * de siempre.
+ */
+const PIERNAS = `
+function colorearPiernas(model) {
+  const rojo = new THREE.Color(0.8, 0.08, 0.06);
+  const azul = new THREE.Color(0.08, 0.22, 0.85);
+  model.traverse((n) => {
+    if (!n.isSkinnedMesh) return;
+    const g = n.geometry;
+    const indices = g.attributes.skinIndex, pesos = g.attributes.skinWeight;
+    const mats = Array.isArray(n.material) ? n.material : [n.material];
+    const gris = mats[0].color.clone();
+    const total = g.attributes.position.count;
+    const colores = new Float32Array(total * 3);
+    for (let i = 0; i < total; i += 1) {
+      let hueso = 0, peso = -1;
+      for (let k = 0; k < 4; k += 1) {
+        const w = pesos.getComponent(i, k);
+        if (w > peso) { peso = w; hueso = indices.getComponent(i, k); }
+      }
+      const nombre = n.skeleton.bones[hueso]?.name ?? '';
+      const c = /Right(UpLeg|Leg|Foot|Toe)/.test(nombre) ? rojo : /Left(UpLeg|Leg|Foot|Toe)/.test(nombre) ? azul : gris;
+      colores[i * 3] = c.r; colores[i * 3 + 1] = c.g; colores[i * 3 + 2] = c.b;
+    }
+    g.setAttribute('color', new THREE.BufferAttribute(colores, 3));
+    for (const m of mats) { m.vertexColors = true; m.color.set(0xffffff); m.needsUpdate = true; }
+  });
+}
+`;
+
 async function prepararForge(
   temporal: string,
   encuadre: Encuadre = ENCUADRE_DE_FIGURA,
   atrezo: Atrezo | null = null,
+  piernasDeColor = false,
 ): Promise<void> {
   for (const item of ['src', 'bin', 'sets', 'package.json']) {
     await cp(join(FORGE, item), join(temporal, item), { recursive: true });
@@ -335,6 +374,7 @@ async function prepararForge(
   const atrezo = confAtrezo ? crearAtrezo(model, confAtrezo) : null;
   if (atrezo) scene.add(atrezo.espada);
   if (atrezo?.escudo) scene.add(atrezo.escudo);
+  if (${piernasDeColor}) colorearPiernas(model);
   scene.updateMatrixWorld(true);
   const suelo = puntoMasBajo(model);
   Object.assign(state, { renderer, scene, camera, pivot, mixer, clip, model, animId, golpe, suelo, atrezo, confAtrezo, bonePrefix });`,
@@ -366,7 +406,7 @@ async function prepararForge(
       throw new Error(`sprite-forge cambió: falta «${antes}» en page.mjs`);
     pagina = pagina.replace(antes, despues);
   }
-  await writeFile(rutaPagina, pagina + POSE_A_DISTANCIA + PUNTO_MAS_BAJO + ATREZO);
+  await writeFile(rutaPagina, pagina + POSE_A_DISTANCIA + PUNTO_MAS_BAJO + ATREZO + PIERNAS);
 }
 
 interface MetaDeClip {
@@ -526,6 +566,10 @@ export const JUEGOS_DE_ARMAS = {
   'espada-escudo': {
     describe: 'espada de una mano y escudo de cometa',
     ataque: 'quick',
+    // Su arte ya está aprobado con el maniquí gris: cambiarlo dejaría su
+    // referencia de pose sin poder reproducirse. La siguiente unidad que lo use
+    // lo pasa a `true`.
+    piernasDeColor: false,
     atrezo: {
       espada: { largo: 0.85, guarda: 0.2, puño: 0.17, agarre: 0.085 },
       escudo: true,
@@ -545,6 +589,7 @@ export const JUEGOS_DE_ARMAS = {
   'dos-manos': {
     describe: 'espada larga empuñada con las dos manos',
     ataque: 'heavy',
+    piernasDeColor: true,
     atrezo: {
       espada: { largo: 1.1, guarda: 0.3, puño: 0.3, agarre: 0.05 },
       escudo: false,
@@ -558,7 +603,10 @@ export const JUEGOS_DE_ARMAS = {
       estiramiento: 0.7,
     },
   },
-} as const satisfies Record<string, { describe: string; ataque: string; atrezo: Atrezo }>;
+} as const satisfies Record<
+  string,
+  { describe: string; ataque: string; piernasDeColor: boolean; atrezo: Atrezo }
+>;
 export type JuegoDeArmas = keyof typeof JUEGOS_DE_ARMAS;
 
 /** La carpeta de las poses de un juego de armas. */
@@ -646,7 +694,12 @@ export async function renderizarOchoDirecciones(
   const { columnas } = FIGURA;
   const temporal = await mkdtemp(join(tmpdir(), 'heroes-poses-8d-'));
   try {
-    await prepararForge(temporal, encuadre, JUEGOS_DE_ARMAS[juego].atrezo);
+    await prepararForge(
+      temporal,
+      encuadre,
+      JUEGOS_DE_ARMAS[juego].atrezo,
+      JUEGOS_DE_ARMAS[juego].piernasDeColor,
+    );
     const salida = join(temporal, 'out');
     const anims = [...new Set(Object.values(hojas).flatMap((h) => h.map((c) => c.anim)))];
     execFileSync(
@@ -731,6 +784,7 @@ export async function renderizarOchoDirecciones(
           perfil,
           juegoDeArmas: juego,
           atrezo: JUEGOS_DE_ARMAS[juego].atrezo,
+          piernasDeColor: JUEGOS_DE_ARMAS[juego].piernasDeColor,
           model: 'y_bot',
           renderer: 'sprite-forge',
           spriteForgeCommit: forge.trim(),

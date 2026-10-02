@@ -18,6 +18,7 @@
     "codosAdelante": 0.7,
     "estiramiento": 0.7
   },
+  "piernasDeColor": true,
   "model": "y_bot",
   "renderer": "sprite-forge",
   "spriteForgeCommit": "b2d9ba97384c4f78b53aee2903471a70492ecb34",
@@ -139,7 +140,7 @@
       "frame_count": 44,
       "frame_height": 384,
       "frame_width": 384,
-      "generated_at": "2026-10-02T20:48:18",
+      "generated_at": "2026-10-02T22:04:03",
       "model": "y_bot"
     },
     "walk": {
@@ -151,7 +152,7 @@
       "frame_count": 13,
       "frame_height": 384,
       "frame_width": 384,
-      "generated_at": "2026-10-02T20:48:21",
+      "generated_at": "2026-10-02T22:04:06",
       "model": "y_bot"
     },
     "charge": {
@@ -163,7 +164,7 @@
       "frame_count": 8,
       "frame_height": 384,
       "frame_width": 384,
-      "generated_at": "2026-10-02T20:48:23",
+      "generated_at": "2026-10-02T22:04:08",
       "model": "y_bot"
     },
     "attack": {
@@ -175,7 +176,7 @@
       "frame_count": 18,
       "frame_height": 384,
       "frame_width": 384,
-      "generated_at": "2026-10-02T20:48:26",
+      "generated_at": "2026-10-02T22:04:12",
       "model": "y_bot"
     },
     "hurt": {
@@ -187,7 +188,7 @@
       "frame_count": 8,
       "frame_height": 384,
       "frame_width": 384,
-      "generated_at": "2026-10-02T20:48:28",
+      "generated_at": "2026-10-02T22:04:14",
       "model": "y_bot"
     },
     "death": {
@@ -199,27 +200,27 @@
       "frame_count": 28,
       "frame_height": 384,
       "frame_width": 384,
-      "generated_at": "2026-10-02T20:48:34",
+      "generated_at": "2026-10-02T22:04:20",
       "model": "y_bot"
     }
   },
   "sha256": {
-    "d0-a.png": "50c3048776968a578e0edb623cc703da929470769d2411f76079bdf8bc6a1606",
-    "d0-b.png": "3c9535e5a192cff7db9a07ee5770233c91e62b1fa56f814d930a9b28643487dd",
-    "d1-a.png": "a63d8947a2621a6934132862dc0987848004021cdc2112fe421288c0816b2770",
-    "d1-b.png": "f6ed8cddb06c505e2f9e75eef97499ef5d596ada9ef3695f6de6876020554e82",
-    "d2-a.png": "7958919f9b81a692a62d50d225fbdc16cce1492a07b04b946e61827594845b56",
-    "d2-b.png": "b38bb46abe49b7da2eb76c6dd39995a9c438dff65bab82ecd1b853c9e0c09f78",
-    "d3-a.png": "eb6312eeb884137336dc1821cefc1c113a176ab1503dff4ffd595354c6146052",
-    "d3-b.png": "c2431a41c90bf036a6939870e3cc7336247f48039f0449c9dc7469de66e459df",
-    "d4-a.png": "81cf58dcb0630b6de9f0f1b932d24d55c78e3c4a837db3c11d50b7c9148c0445",
-    "d4-b.png": "ef837f9783a9fba33cf96d498ac3843a64b02aed4154a6990a65c52bfe726b9a",
-    "d5-a.png": "aec93ff5d5f0bce616e1a271d414d3d76a5187edab093d97134be124fa0d30c7",
-    "d5-b.png": "9f9f7f117057de5eb71bf0f61cd4b9bd5c7027646852f3ab22eca6dcab2ef660",
-    "d6-a.png": "d2f049241a0d319a4da10d8de863e1ccaf9830d5b15278b75e78087a3a92f477",
-    "d6-b.png": "81378e85216928682393e1774015075f4f17b49c7977856bfb5960b762f97bb2",
-    "d7-a.png": "b4c6b3f97e7034cddfa601a7001ed4382d29163e6b99fc9bf0fb6b9e86a3d0a6",
-    "d7-b.png": "d7b8817e09ecf9a4e06094b95f96d00be71719302e4012f13ba0714092c37b7e",
-    "giro.png": "5e4f7c779828283e0124a4a8b20a71dbe6d9b15a78237ba0fca59ddab2c0073f"
+    "d0-a.png": "a1d9f6fe62f8dd49129892082170ccd7346edbf54d8bbf6ad80a409fc6151068",
+    "d0-b.png": "eed113fbd52cbc196d63d7da649af96ea44ded1a2fb7f5d4eba4776acada42cc",
+    "d1-a.png": "91661a9712d7a5bd78b092439e22d5fa03e4a915cb6041540dd52e3f7b1fb073",
+    "d1-b.png": "5041c8610da939d006455fc8fee28bbfae736d89428a101e4e5f195aa2c23956",
+    "d2-a.png": "cf4668d3a65118bbdc2f7549a004c8744944e7b75dd9ad476c1bc7a023268341",
+    "d2-b.png": "6e70769fe30693905df17abe9afef54d411715961953dbd596c0b37c4aa6c20c",
+    "d3-a.png": "23e15b8bdc46ebda5d36527e7489ffdb8b53b01071236df6b08ed5a1e0ae9db3",
+    "d3-b.png": "2e454213f565c53a85770984e05b264af0a9377ffb1c393bbdd572c1c1838075",
+    "d4-a.png": "fa41bb95e466ea10817c82aee8f59dd62d72f15d652e5e88d40a237e2432288f",
+    "d4-b.png": "11dd825a6cff086a7cee984a9f27c845ac09f8ed875b00dea28ee4b0f6df2547",
+    "d5-a.png": "9137c1c3620a0b5028962ac49813c35b99931a4cceebe7ae1c9da270e5d9f7ae",
+    "d5-b.png": "cafc4864f202cb56abc7e3cc7753d0f0bd0ba2607244f6f544daa75c3078b724",
+    "d6-a.png": "2579f3c47e7517f7ec5d225e805a3c442567d6cc137942460172a3bffbe9dc6a",
+    "d6-b.png": "c9dfe55bc5c7fb3e6706a264fbaded089f18e77e743968c9c9d9ce8bd3b4fa37",
+    "d7-a.png": "cb43c4e17a20b06a648c9cdf66f02d320b2a691a07bb3cdc7ccb1ebff0b12f47",
+    "d7-b.png": "0d42ab659e8d5c2a4115886c30bd6210e9d351f1558be49466e3f52f22c62088",
+    "giro.png": "76a062f2148a0eab3a6d6785c8d4e50f0b5e0473de8d7bdd8ecb56fdf6d31ff2"
   }
 }

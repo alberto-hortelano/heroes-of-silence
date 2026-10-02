@@ -47,8 +47,15 @@ import {
   partirIconos,
   recorteSuave,
 } from './efectos-proceso.js';
-import { baseEnCelda, type EscalaDePose, empaquetar, recortarAlContenido } from './empaquetar.js';
+import {
+  apoyoEn,
+  baseEnCelda,
+  type EscalaDePose,
+  empaquetar,
+  recortarAlContenido,
+} from './empaquetar.js';
 import { type Encargo, promptDe } from './encargo.js';
+import { evaluar } from './evaluar.js';
 import { ESTILOS_DE_MAPA, encargoDeMuestra, encargosDeCeldas, encargosDePiezas } from './mapa.js';
 import { aRaster, recortar, UMBRALES } from './recorte.js';
 import {
@@ -188,7 +195,7 @@ async function postprocesar(
               ? `reposo a ${altura} px`
               : `reposo reducido de ${p.alturaPedida} a ${p.alturaFinal} px para que el fotograma más ancho quepa con margen`),
         );
-        extra = { apoyoPorFila: p.apoyoPorFila };
+        extra = { apoyoPorFila: p.apoyoPorFila, deLaPose: p.deLaPose };
       } else {
         final = await recortarAlContenido(r, 24);
         pasos.push('recortado al contenido con 24 px de margen');
@@ -286,6 +293,7 @@ async function postprocesar(
       },
       postproceso: pasos,
       validacion: informe.medidas,
+      ...(extra.deLaPose === undefined ? {} : { deLaPose: extra.deLaPose }),
       salida: { ruta: relative(RAIZ, rutaSalida), sha256: sha256(webp) },
     };
     await writeFile(
@@ -303,28 +311,47 @@ async function postprocesar(
  */
 async function escalaDePose(e: Encargo): Promise<EscalaDePose> {
   const celda: number = e.celda ?? FIGURA.celda;
-  const alturas = async (ruta: string): Promise<number[][]> => {
+  const medir = async (ruta: string) => {
     const { data, info } = await sharp(join(RAIZ, ruta))
       .ensureAlpha()
       .raw()
       .toBuffer({ resolveWithObject: true });
-    return Array.from({ length: info.height / celda }, (_, f) =>
-      Array.from({ length: info.width / celda }, (_, c) => {
+    const filas = info.height / celda;
+    const columnas = info.width / celda;
+    const alfa = (f: number, c: number) => (x: number, y: number) =>
+      data[((f * celda + y) * info.width + c * celda + x) * 4 + 3] as number;
+    const celdas = Array.from({ length: filas }, (_, f) =>
+      Array.from({ length: columnas }, (_, c) => {
+        let x0 = celda;
         let y0 = celda;
+        let x1 = -1;
         let y1 = -1;
         for (let y = 0; y < celda; y++)
           for (let x = 0; x < celda; x++)
-            if ((data[((f * celda + y) * info.width + c * celda + x) * 4 + 3] as number) >= 40) {
+            if (alfa(f, c)(x, y) >= 40) {
+              if (x < x0) x0 = x;
+              if (x > x1) x1 = x;
               if (y < y0) y0 = y;
               y1 = y;
             }
-        return y1 - y0 + 1;
+        return {
+          alto: y1 - y0 + 1,
+          apoyo: apoyoEn(alfa(f, c), [x0, y0, x1, y1]),
+        };
       }),
     );
+    return celdas;
   };
   const ruta = e.referencias[0]?.ruta as string;
-  const reposo = (await alturas(ruta.replace(/-b\.png$/, '-a.png')))[0]?.[0] as number;
-  return { alturas: await alturas(ruta), reposo };
+  const reposo = (await medir(ruta.replace(/-b\.png$/, '-a.png')))[0]?.[0];
+  if (reposo === undefined) throw new Error(`la pose ${ruta} no tiene reposo`);
+  const celdas = await medir(ruta);
+  return {
+    alturas: celdas.map((f) => f.map((c) => c.alto)),
+    reposo: reposo.alto,
+    apoyos: celdas.map((f) => f.map((c) => c.apoyo)),
+    apoyoReposo: reposo.apoyo,
+  };
 }
 
 /**
@@ -482,7 +509,16 @@ async function encolar(args: readonly string[]): Promise<void> {
   if (args.includes('--giro') || args.includes('--ocho')) {
     for (const a of args.filter((x) => !x.startsWith('--'))) {
       const u = unidad(a);
-      const lista = args.includes('--giro') ? [encargoDeGiro(u)] : encargosDeOchoDirecciones(u);
+      // `--solo d0-a,d3-a`: solo esas hojas, para rehacer las que fallan.
+      const solo = args
+        .find((x) => x.startsWith('--solo='))
+        ?.slice('--solo='.length)
+        .split(',');
+      const lista = args.includes('--giro')
+        ? [encargoDeGiro(u)]
+        : encargosDeOchoDirecciones(u).filter(
+            (e) => solo === undefined || solo.includes(e.id.slice(u.id.length + 1)),
+          );
       for (const bruto of lista) {
         if (args.includes('--rehacer')) await COLA.olvidar(bruto.id);
         console.log(`encolado ${(await COLA.encolar(bruto)).id}`);
@@ -572,6 +608,21 @@ switch (orden) {
     break;
   case 'vista-efectos':
     console.log(`→ ${await vistaEfectos()}`);
+    break;
+  case 'evaluar':
+    for (const id of resto) {
+      const { filas, celdas } = await evaluar(id);
+      const dir = join(RAIZ, '.cache/taller/evaluacion');
+      await mkdir(dir, { recursive: true });
+      await writeFile(join(dir, `${id}.json`), `${JSON.stringify({ filas, celdas }, null, 2)}\n`);
+      console.log(
+        `${id}: ${filas.filter((f) => f.marcada).length} de ${filas.length} filas marcadas`,
+      );
+      for (const f of [...filas].sort((a, b) => b.nivel + b.pico - (a.nivel + a.pico)))
+        console.log(
+          `${f.marcada ? '✘' : ' '} d${f.direccion} ${f.nombre.padEnd(17)} ${f.clip.padEnd(7)} nivel ${f.nivel.toFixed(2)} pico ${f.pico.toFixed(2)} (fotograma ${f.peor + 1})`,
+        );
+    }
     break;
   case 'vista-8d':
     for (const f of resto) console.log(`→ ${await vista8d(f)}`);

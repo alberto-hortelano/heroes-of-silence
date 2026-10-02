@@ -25,11 +25,14 @@ import {
 } from '../art/poses.js';
 import { type AtlasDerivado, derivarAtlas } from './derivar.js';
 import { NOMBRES_DE_DIRECCION } from './direcciones.js';
+import type { Fila } from './evaluar.js';
 import { DIR_VISTA } from './vista.js';
 
 const RAIZ = resolve(import.meta.dirname, '../..');
 
 interface Direccion {
+  /** Las acciones que el evaluador marca para revisar (`pnpm taller evaluar`), con su motivo. */
+  readonly avisos?: Readonly<Record<string, string>>;
   readonly src: string;
   readonly atlas: AtlasDerivado;
 }
@@ -62,6 +65,11 @@ async function desdeLasPoses(juego: JuegoDeArmas): Promise<Direccion[]> {
 
 async function desdeElArte(id: string): Promise<Direccion[]> {
   const fuera: Direccion[] = [];
+  // Lo que marcó el evaluador, si se ha pasado: la vista lo enseña con un borde.
+  const rutaEval = join(RAIZ, '.cache/taller/evaluacion', `${id}.json`);
+  const filas: Fila[] = existsSync(rutaEval)
+    ? (JSON.parse(await readFile(rutaEval, 'utf8')) as { filas: Fila[] }).filas
+    : [];
   for (let d = 0; d < 8; d++) {
     const ruta = join(RAIZ, 'assets/unidades', id, `d${d}`, 'atlas.webp');
     if (!existsSync(ruta))
@@ -69,7 +77,15 @@ async function desdeElArte(id: string): Promise<Direccion[]> {
     const atlas = JSON.parse(
       await readFile(ruta.replace(/\.webp$/, '.json'), 'utf8'),
     ) as AtlasDerivado;
-    fuera.push({ src: relative(DIR_VISTA, ruta), atlas });
+    const avisos = Object.fromEntries(
+      filas
+        .filter((f) => f.direccion === d && f.marcada)
+        .map((f) => [
+          f.clip,
+          `nivel ${f.nivel.toFixed(2)} · pico ${f.pico.toFixed(2)} en el fotograma ${f.peor + 1}`,
+        ]),
+    );
+    fuera.push({ src: relative(DIR_VISTA, ruta), atlas, avisos });
   }
   return fuera;
 }
@@ -92,7 +108,7 @@ function pagina(titulo: string, direcciones: readonly Direccion[]): string {
   <label>Velocidad <input id="vel" type="range" min="0.25" max="2" step="0.25" value="1"><span id="velv">1×</span></label>
   <label>Tamaño <input id="tam" type="range" min="0.5" max="1.5" step="0.1" value="0.8"><span id="tamv">0.8×</span></label>
   <label><input id="som" type="checkbox" checked> Sombra</label>
-  <span class="ayuda">Luz desde la izquierda; la sombra es la silueta del fotograma. La muerte se queda en el cadáver.</span>
+  <span class="ayuda">Luz desde la izquierda; la sombra es la silueta del fotograma. La muerte se queda en el cadáver. Borde rojo: el evaluador avisa (pasa el ratón para ver por qué).</span>
 </header>
 <table id="t"></table>
 <script>
@@ -117,6 +133,8 @@ for (const d of DIRS) {
   const th = document.createElement('th'); th.className = 'dir'; th.textContent = d.nombre; fila.append(th);
   for (const [clip] of ACCIONES) {
     const c = document.createElement('canvas'); c.width = 300; c.height = 190;
+    const aviso = d.avisos && d.avisos[clip];
+    if (aviso) { c.style.outline = '3px solid #e0533d'; c.title = 'El evaluador avisa: ' + aviso; }
     fila.insertCell().append(c);
     piezas.push({ d, img, clip, c });
   }
