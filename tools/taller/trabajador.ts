@@ -46,7 +46,7 @@ import {
   partirIconos,
   recorteSuave,
 } from './efectos-proceso.js';
-import { empaquetar, recortarAlContenido } from './empaquetar.js';
+import { baseEnCelda, empaquetar, recortarAlContenido } from './empaquetar.js';
 import { type Encargo, promptDe } from './encargo.js';
 import { ESTILOS_DE_MAPA, encargoDeMuestra, encargosDeCeldas, encargosDePiezas } from './mapa.js';
 import { aRaster, recortar, UMBRALES } from './recorte.js';
@@ -169,11 +169,12 @@ async function postprocesar(
         );
       } else if (encargo.tipo === 'atlas') {
         const altura = encargo.alturaObjetivo ?? FIGURA.alturaAdulto;
-        const p = await empaquetar(r, 3, altura);
+        const celda = encargo.celda ?? FIGURA.celda;
+        const p = await empaquetar(r, 3, altura, celda);
         final = p.png;
         pasos.push(
-          `figuras localizadas y empaquetadas en ${FIGURA.columnas}×3 celdas de ${FIGURA.celda}, ` +
-            `escala uniforme ${p.escala.toFixed(4)}, pies en y=${FIGURA.base}, ` +
+          `figuras localizadas y empaquetadas en ${FIGURA.columnas}×3 celdas de ${celda}, ` +
+            `escala uniforme ${p.escala.toFixed(4)}, pies en y=${baseEnCelda(celda)}, ` +
             (p.alturaFinal === p.alturaPedida
               ? `reposo a ${altura} px`
               : `reposo reducido de ${p.alturaPedida} a ${p.alturaFinal} px para que el fotograma más ancho quepa con margen`),
@@ -185,7 +186,12 @@ async function postprocesar(
       }
     }
 
-    const informe = await validar(final, encargo.tipo, encargo.fondo === 'opaco');
+    const informe = await validar(
+      final,
+      encargo.tipo,
+      encargo.fondo === 'opaco',
+      encargo.celda ?? FIGURA.celda,
+    );
     if (informe.problemas.length > 0) {
       // El crudo se queda en `~/.codex`; se dice dónde para poder mirarlo.
       throw new Error(`${informe.problemas.join('; ')} (crudo: ${sinHome(gen.crudo)})`);

@@ -209,7 +209,7 @@ tam_.oninput = () => { tam = +tam_.value; document.getElementById('tamv').textCo
 const imagenes = new Map();
 function tarjeta(h) {
   const fig = document.createElement('figure');
-  const c = document.createElement('canvas'); c.width = 600; c.height = 440;
+  const c = document.createElement('canvas'); c.width = 600; c.height = 540;
   const cap = document.createElement('figcaption');
   const f = Object.values(h.atlas.clips).map((k) => k.frames).join('/');
   const a = document.createElement('span'); a.textContent = h.id;
@@ -304,7 +304,8 @@ function dibujar(ahora) {
       // El ataque se repite cada 2 s para poder verlo; en el juego sale una vez.
       const i = clip.loop ? n % clip.frames : Math.min(clip.frames - 1, Math.floor((t % 2) * clip.fps));
       [false, true].forEach((espejo, fila) => {
-        const x = 100 + k * 200, suelo = 200 + fila * 215;
+        // Hueco para la figura más alta: el jinete (celda de 384) a la escala de la infantería.
+        const x = 100 + k * 200, suelo = 262 + fila * 262;
         const alto = h.atlas.altura * esc;
         const r = alto * 0.36;
         ctx.fillStyle = 'rgba(0,0,0,' + (SOMBRA.opacidad + 0.12) + ')';

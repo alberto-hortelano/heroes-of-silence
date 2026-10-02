@@ -93,3 +93,22 @@ asociación habilidad → icono es la de `tools/taller/efectos.ts`.
 
 El humo y los resplandores de los efectos son semitransparentes a propósito: se
 pintan con su alfa, sin teñir.
+
+## 6. El hermano de carga vuelve a ir a caballo (02-10-2026)
+
+Decisión del usuario: la caballería templaria **sustituye** al hermano de carga a pie.
+El id **no cambia** (`templario-hermano-de-carga`); cambia su arte, que ahora es un
+jinete. Lo que tiene que saber quien lo enganche:
+
+- Su atlas tiene **celda de 384**, no de 256: a la escala de la infantería (un
+  adulto a ~160 px) el jinete no cabe en 256. El JSON lo dice (`cell: 384`) y
+  `character.ts` ya dibuja con la celda del atlas, así que no hace falta código
+  nuevo; solo que nadie suponga 256.
+- Su `altura` (289 px, lanza en alto incluida) está medida para que el jinete
+  mida lo mismo que un soldado a pie. Quien escale por `altura` lo verá más alto,
+  y es correcto: va montado.
+- Ocupa más casilla a la vista. Si las reglas lo hacen unidad de dos hexes, el arte
+  ya tiene el tamaño de una; si sigue en uno, pisará algo el hex vecino al pintarlo.
+
+La referencia de pose sale de un caballo 3D CC0 (Quaternius) con el Y Bot sentado,
+renderizados con la cámara del juego: `tools/art/montura.ts`.

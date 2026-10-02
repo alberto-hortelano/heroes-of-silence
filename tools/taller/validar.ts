@@ -52,6 +52,7 @@ export async function validar(
   imagen: Buffer,
   tipo: 'atlas' | 'identidad' | 'imagen' | 'iconos' | 'efecto',
   opaca = false,
+  celda: number = FIGURA.celda,
 ): Promise<Informe> {
   const { data, info } = await sharp(imagen)
     .ensureAlpha()
@@ -77,7 +78,7 @@ export async function validar(
   }
 
   if (tipo === 'atlas') {
-    const { celda, columnas } = FIGURA;
+    const { columnas } = FIGURA;
     if (info.width !== celda * columnas || info.height !== celda * 3) {
       problemas.push(
         `un atlas mide ${celda * columnas}×${celda * 3} y este ${info.width}×${info.height}`,

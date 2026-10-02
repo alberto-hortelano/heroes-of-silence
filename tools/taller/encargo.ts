@@ -55,7 +55,9 @@ export const encargoSchema = z
     /** Ruta de salida SIN extensión: el taller escribe `.webp` (o `.png`) y `.procedencia.json`. */
     salida: ruta,
     /** Atlas: altura de la figura en su celda. Por defecto, la de un adulto. */
-    alturaObjetivo: z.number().int().min(60).max(240).optional(),
+    alturaObjetivo: z.number().int().min(60).max(360).optional(),
+    /** Atlas: lado de la celda. 256 para las figuras a pie; 384 para las montadas, que no caben. */
+    celda: z.union([z.literal(256), z.literal(384)]).optional(),
     /** Imagen: si el fondo se recorta o la imagen es opaca (un fondo de batalla). */
     fondo: z.enum(['transparente', 'opaco']).default('transparente'),
     /** Corrige una generación anterior en su mismo hilo de Codex, que conserva la identidad. */
@@ -114,7 +116,7 @@ function reglasDeAtlas(e: Encargo): string {
     `Hoja de sprites de EXACTAMENTE ${columnas} columnas por 3 filas, ${columnas * 3} figuras del MISMO personaje, separadas con holgura y sin tocarse.`,
     'Fila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete poses de ataque de la fila 3.',
     'Misma cámara ortográfica elevada 25 grados en las tres filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos. El personaje mira a la derecha y al frente como el maniquí.',
-    `Misma escala en todas las celdas: la figura de pie ocupa unos ${altura} de cada 256 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.`,
+    `Misma escala en todas las celdas: la figura de pie ocupa unos ${altura} de cada ${e.celda ?? FIGURA.celda} píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.`,
     // Once de los primeros 52 atlas fallaron por lo mismo: en el ataque, la
     // lanza o la espada de una figura tocaba a la de al lado, y el taller no
     // puede separar dos figuras que se tocan. Se pide de entrada.
@@ -125,7 +127,7 @@ function reglasDeAtlas(e: Encargo): string {
 
 function reglasDeIdentidad(): string {
   return [
-    'UN solo personaje, de cuerpo entero, de pie, en la primera pose de reposo de la referencia de pose.',
+    'UN solo personaje, de cuerpo entero, en la primera pose de reposo de la referencia de pose (de pie o montado, como esté el maniquí).',
     'Cámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.',
     'Lámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.',
     SIN_FONDO,

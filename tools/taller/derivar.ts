@@ -117,11 +117,13 @@ export async function derivarAtlas(rutaImagen: string): Promise<AtlasDerivado> {
     .ensureAlpha()
     .raw()
     .toBuffer({ resolveWithObject: true });
-  const { celda: lado, columnas } = FIGURA;
-  if (info.width !== lado * columnas || info.height !== lado * CLIPS_DE_HOJA.length) {
+  // La celda sale de la imagen: 256 a pie, 384 las monturas; las columnas son siempre las de FIGURA.
+  const { columnas } = FIGURA;
+  const lado = info.width / columnas;
+  if (!Number.isInteger(lado) || info.height !== lado * CLIPS_DE_HOJA.length) {
     throw new Error(
-      `${rutaImagen} mide ${info.width}×${info.height} y una hoja del taller es ` +
-        `${lado * columnas}×${lado * CLIPS_DE_HOJA.length}`,
+      `${rutaImagen} mide ${info.width}×${info.height}: una hoja del taller son ${columnas} columnas ` +
+        `por ${CLIPS_DE_HOJA.length} filas de celdas cuadradas`,
     );
   }
 

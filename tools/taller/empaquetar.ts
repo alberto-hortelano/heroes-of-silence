@@ -234,13 +234,23 @@ export const MARGEN = 4;
 /** Cuánto se acepta encoger la hoja para que quepa un fotograma ancho. Más, es rehacerla. */
 const REDUCCION_MAXIMA = 0.85;
 
-/** La hoja entera: `filas` × `FIGURA.columnas` celdas de `FIGURA.celda`. */
+/**
+ * La línea de los pies en una celda de `celda` píxeles: la de `FIGURA` (228 de
+ * 256), en la misma proporción. Para la celda de 384 de las monturas, 342.
+ */
+export function baseEnCelda(celda: number): number {
+  return Math.round((FIGURA.base * celda) / FIGURA.celda);
+}
+
+/** La hoja entera: `filas` × `FIGURA.columnas` celdas de `celda` (256 a pie, 384 montadas). */
 export async function empaquetar(
   r: Raster,
   filas: number,
   alturaObjetivo: number,
+  celda: number = FIGURA.celda,
 ): Promise<Empaquetado> {
-  const { celda, columnas, base } = FIGURA;
+  const { columnas } = FIGURA;
+  const base = baseEnCelda(celda);
   const figs = figuras(componentes(r), HOLGURA);
   const rejilla = enFilas(figs, filas, columnas);
   const medidas = rejilla.map((fila) =>

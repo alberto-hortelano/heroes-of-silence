@@ -1,0 +1,78 @@
+{
+  "perfil": "montado-lanza",
+  "ataque": "la carga: galope con la lanza bajada hacia delante",
+  "renderer": "tools/art/montura.ts (three.js, la cámara y la luz de sprite-forge)",
+  "caballo": {
+    "fichero": "tools/art/modelos/caballo-quaternius.glb",
+    "sha256": "fae7a7ec91e0d6a33554efb896fac9c4e8c632644183bcb8cc962f673d3ce609",
+    "licencia": "CC0 (ver tools/art/modelos/LICENCIA.md)"
+  },
+  "jinete": {
+    "model": "y_bot",
+    "postura": "sitting_idle + IK de piernas y brazos"
+  },
+  "camera": {
+    "pitchDegrees": -25,
+    "projection": "orthographic",
+    "ortho": 4.199999999999999
+  },
+  "cell": 384,
+  "columns": 7,
+  "clips": [
+    {
+      "clip": "idle",
+      "caballo": "Idle",
+      "postura": "reposo",
+      "indices": [
+        0,
+        11,
+        22,
+        34,
+        45,
+        57,
+        68
+      ],
+      "fps": 24
+    },
+    {
+      "clip": "walk",
+      "caballo": "Walk",
+      "postura": "reposo",
+      "indices": [
+        0,
+        4,
+        8,
+        12,
+        16,
+        20,
+        24
+      ],
+      "fps": 24
+    },
+    {
+      "clip": "attack",
+      "caballo": "Gallop",
+      "postura": "carga",
+      "indices": [
+        0,
+        2,
+        4,
+        6,
+        8,
+        10,
+        12
+      ],
+      "fps": 24
+    }
+  ],
+  "ajuste": {
+    "sillaAdelante": 0.28,
+    "sillaArriba": 0.2,
+    "estriboAdelante": 0.32,
+    "estriboArriba": -0.45,
+    "estriboLado": 0.32,
+    "lanza": 2.6,
+    "sentadoT": 0
+  },
+  "sha256": "2c08f0fd370f824419037ea94c302f9fef34d56b3abe7f794607ca0f83547ca8"
+}

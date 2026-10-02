@@ -22,7 +22,13 @@ export interface Unidad {
   readonly faccion: 'templarios' | 'no-muertos' | 'imperio' | 'elfos' | 'orkos';
   /** El nombre en `NuevaJugabilidad.md`. */
   readonly nombre: string;
-  readonly perfil: Perfil;
+  /**
+   * La hoja de pose: uno de los perfiles de `poses.ts` (sprite-forge), o
+   * `montado-lanza`, la del jinete que renderiza `tools/art/montura.ts`.
+   */
+  readonly perfil: Perfil | 'montado-lanza';
+  /** Lado de la celda del atlas: 384 para las monturas, que a escala humana no caben en 256. */
+  readonly celda?: 256 | 384;
   /**
    * La lámina de referencia de `assets/art/`: fija el aspecto Y el estilo que
    * tienen que seguir la identidad y la animación (decisión del usuario). Los
@@ -80,12 +86,15 @@ export const UNIDADES: readonly Unidad[] = [
   {
     id: 'templario-hermano-de-carga',
     faccion: 'templarios',
-    nombre: 'Hermano de carga (antes Caballero montado)',
-    perfil: 'espada-escudo',
+    nombre: 'Hermano de carga (montado; antes Caballero montado)',
+    perfil: 'montado-lanza',
     concepto: 'assets/art/templarios/caballero-montado.png',
-    altura: 166,
+    celda: 384,
+    // La altura del reposo medida en la hoja de pose montada a escala humana
+    // (lanza en alto incluida): así el jinete mide lo mismo que un soldado a pie.
+    altura: 289,
     aspecto:
-      'Un hermano de carga, A PIE y sin caballo: la armadura de placas completa del jinete del concepto, sobrevesta blanca con cruz roja, yelmo con penacho rojo, lanza de carga en la mano derecha y escudo de cometa en la izquierda. Corpulento, en actitud de embestir.',
+      'Un hermano de carga templario A CABALLO, como el jinete del concepto: armadura de placas completa, sobrevesta blanca con cruz roja, yelmo cerrado con penacho rojo, escudo de cometa blanco con cruz roja en el brazo izquierdo y lanza de carga en la mano derecha. El caballo, castaño, lleva gualdrapa blanca con cruces rojas. Jinete y caballo son UNA sola figura.',
   },
   {
     id: 'templario-penitente',
@@ -585,5 +594,6 @@ export function encargoDeAtlas(u: Unidad): Encargo {
     salida: rutaAtlas(u),
     fondo: 'transparente',
     ...(u.altura === undefined ? {} : { alturaObjetivo: u.altura }),
+    ...(u.celda === undefined ? {} : { celda: u.celda }),
   };
 }

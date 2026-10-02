@@ -36,7 +36,7 @@ El Ent y el artillero con culebrina se quedan.
 | `templario-mandoble` | Guerrero con arma a dos manos | dos-manos |
 | `templario-monje` | Monje | baston |
 | `templario-escudero` | Escudero | espada-escudo |
-| `templario-hermano-de-carga` | Hermano de carga (antes Caballero montado) | espada-escudo |
+| `templario-hermano-de-carga` | Hermano de carga, **montado** (antes Caballero montado) | montado-lanza (celda 384) |
 | `templario-penitente` | Penitente | dos-manos |
 
 ## No muertos
@@ -138,7 +138,7 @@ animado en `pnpm taller vista` y en capturas de batalla.
 | `templario-mandoble` | ✔ | ✔ | |
 | `templario-monje` | ✔ | ✔ | el ataque es `casting`: acaba de rodillas golpeando con el bastón |
 | `templario-escudero` | ✔ | ✔ | |
-| `templario-hermano-de-carga` | ✔ | ✔ | lanza corta: la del concepto no cabía en su celda (corrección `-c1`) |
+| `templario-hermano-de-carga` | ✔ | ✔ | **montado desde el 02-10-2026**: caballo 3D de referencia (`tools/art/montura.ts`) y celda de 384; el arte a pie anterior queda en el historial |
 | `templario-penitente` | ✔ | ✔ | |
 | `esqueleto-guerrero` | ✔ | ✔ | corrección `-c1`: la espada invadía la celda vecina |
 | `esqueleto-arquero` | ✔ | ✔ | |

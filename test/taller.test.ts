@@ -269,3 +269,19 @@ describe('la rejilla de una lámina de iconos', () => {
     expect(() => rejillaDeIconos(6)).toThrow(/hasta 4, o múltiplos de 4/);
   });
 });
+
+describe('la celda de las monturas', () => {
+  it('empaqueta y deriva una hoja de 384 con los pies en su base proporcional', async () => {
+    const { baseEnCelda } = await import('../tools/taller/empaquetar.js');
+    const p = await empaquetar(hojaIrregular(), 3, 240, 384);
+    const meta = await sharp(p.png).metadata();
+    expect([meta.width, meta.height]).toEqual([384 * FIGURA.columnas, 384 * 3]);
+    expect(baseEnCelda(384)).toBe(342);
+    for (const [, y] of p.apoyoPorFila) expect(y).toBe(342);
+    const ruta = join(dir, 'montada.png');
+    await writeFile(ruta, p.png);
+    const d = await derivarAtlas(ruta);
+    expect(d.cell).toBe(384);
+    expect(d.clips.idle.anchor[1]).toBeGreaterThanOrEqual(341);
+  });
+});
