@@ -19,6 +19,7 @@
  * dos, lo que junta son dos reglas distintas bajo un solo nombre.
  */
 import type { BattleStack, BattleState, Side } from '@core/battle/types.js';
+import { nombreDeTipoDeHeroe } from '@core/data.js';
 import type { MapObject, MapRegion } from '@core/map/map.js';
 import type { TerrainKind } from '@core/map/terrain.js';
 import type { VistaAsaltante } from '@core/state/asaltantes.js';
@@ -63,6 +64,14 @@ export interface VistaHeroe {
   readonly name: string;
   readonly at: Point;
   readonly movePoints: number;
+  /**
+   * El NOMBRE del tipo («Monje (Abad)»), no su id: el espectador no tiene la
+   * facción del héroe a mano para buscarlo, y lo único que hace con él es
+   * pintarlo.
+   */
+  readonly nombreDelTipo: string;
+  /** La historia del héroe nacido de la tropa, o `null` si no tiene. */
+  readonly historia: string | null;
 }
 
 export interface VistaPueblo {
@@ -181,6 +190,8 @@ export function construirVista(state: GameState, directorLog: readonly string[])
       name: h.name,
       at: h.at,
       movePoints: h.movePoints,
+      nombreDelTipo: nombreDeTipoDeHeroe(h.faction, h.tipo),
+      historia: h.origen?.historia ?? null,
       // Sin el ejército: ningún panel del espectador lo lee, y desde la tropa
       // de individuos crece con cada uno, en cada fotograma. Si algún panel lo
       // necesita, se manda `troopSummary`, que es el que agrupa.

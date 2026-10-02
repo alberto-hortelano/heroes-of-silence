@@ -34,6 +34,7 @@ import { CHARACTER_BODY, createCharacter, defaultBuild } from '../src/core/rpg/c
 import { combatProfile } from '../src/core/rpg/stats.js';
 import {
   applyAdventureAction,
+  ascenderVeterano,
   type GameState,
   resolvePendingBattle,
 } from '../src/core/state/game.js';
@@ -41,7 +42,12 @@ import { newGame } from '../src/core/state/setup.js';
 import type { Point, UnitInfo } from '../src/core/types.js';
 import { AgentLink } from '../src/server/agent-link.js';
 import { Director } from '../src/server/director.js';
-import { construirVista, type SpectatorView } from '../src/server/vista-espectador.js';
+import {
+  construirVista,
+  type SpectatorView,
+  type VistaHeroe,
+} from '../src/server/vista-espectador.js';
+import { ponVeteranoEnLaBase } from '../tools/qa/veterano-en-la-base.js';
 import { monstruoVivo, sinGuarnicionDeSalida } from './helpers.js';
 
 const abiertos: (() => void)[] = [];
@@ -138,6 +144,28 @@ describe('adaptar: la vuelta del cable', () => {
     expect(escena.map.regions).toEqual(state.map.regions);
     expect(escena.map.regions.length).toBeGreaterThan(0);
     expect(escena.heroes.map((h) => h.id)).toEqual(state.heroes.map((h) => h.id));
+  });
+
+  it('el héroe nacido de la tropa cruza el cable con su tipo y su historia', () => {
+    // El tipo viaja por su NOMBRE —el espectador no sabe la facción del héroe
+    // para buscarlo— y la historia tal cual; los demás, con la suya a `null`.
+    const state = newGame({ seed: 5 });
+    const id = ponVeteranoEnLaBase(state, 1);
+    ascenderVeterano(state, 1, id, {
+      name: 'Ana <la> Paciente',
+      story: 'Guardó la puerta & no se movió.',
+      heroType: 'vampiro',
+    });
+    const escena = adaptarEscena(JSON.parse(JSON.stringify(construirVista(state, []))));
+    const nacida = escena.heroes.find((h) => h.id === `hero-${id}`) as VistaHeroe;
+    expect(nacida).toMatchObject({
+      name: 'Ana <la> Paciente',
+      nombreDelTipo: 'Vampiro',
+      historia: 'Guardó la puerta & no se movió.',
+    });
+    const otros = escena.heroes.filter((h) => h.id !== nacida.id) as VistaHeroe[];
+    expect(otros.map((h) => h.historia)).toEqual(otros.map(() => null));
+    expect(otros.map((h) => h.nombreDelTipo).sort()).toEqual(['Caballero', 'Nigromante']);
   });
 
   it('el terreno que no cambia vuelve como EL MISMO array, para no rehacer la superficie', () => {

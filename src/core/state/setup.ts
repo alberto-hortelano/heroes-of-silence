@@ -1,7 +1,7 @@
 /** Arranque de partida: del plan de mapa a un `GameState` listo para jugar. */
-import { factionLineup } from '../data.js';
+import { factionLineup, tipoDeHeroePorDefecto } from '../data.js';
 import { EXPERIENCIA_INICIAL_DE_HEROE } from '../hero/experiencia.js';
-import { type Hero, maxMana, maxMovePoints } from '../hero/hero.js';
+import { type Hero, heroeRecienHecho, maxMana, maxMovePoints } from '../hero/hero.js';
 import { withTroops } from '../hero/troop.js';
 import { buildMap, generateMapPlan, type MapPlan, validateMapPlan } from '../map/generate.js';
 import { createRng, type Rng } from '../rng.js';
@@ -99,20 +99,23 @@ export function newGame(options: NewGameOptions = {}): GameState {
   const heroes: Hero[] = inicios.map((inicio, i) => {
     const faction = factionOf.get(inicio.player) ?? 'knight';
     const nombres = HERO_NAMES[faction];
+    // La construcción de siempre (`heroeRecienHecho`), con lo que el inicial
+    // tiene de más encima: mejores cifras, su tropa, Flecha mágica y dos
+    // habilidades.
     const hero: Hero = {
-      id: `hero-${inicio.player}`,
-      owner: inicio.player,
-      name: nombres[i % nombres.length] as string,
-      faction,
+      ...heroeRecienHecho({
+        id: `hero-${inicio.player}`,
+        owner: inicio.player,
+        name: nombres[i % nombres.length] as string,
+        faction,
+        at: inicio.at,
+        experience: EXPERIENCIA_INICIAL_DE_HEROE,
+        tipo: tipoDeHeroePorDefecto(faction),
+      }),
       attack: 2,
       defense: 2,
-      spellPower: 1,
       knowledge: 2,
-      mana: 0,
-      experience: EXPERIENCIA_INICIAL_DE_HEROE,
       army: startingArmy(faction, rng),
-      at: inicio.at,
-      movePoints: 0,
       spells: ['magic_arrow'],
       // Sabiduría 1 sube el tope a nivel 3. Hoy no muerde —sin `mage_guild_3`
       // no hay hechizo de nivel 3 que ofrecer—, pero deja la puerta leída y

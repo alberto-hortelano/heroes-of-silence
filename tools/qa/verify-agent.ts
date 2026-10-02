@@ -46,6 +46,8 @@ import { arrancarServidor, type ServidorDePartida } from './servidor.js';
 const TURNOS = Number(process.env.QA_TURNS ?? 6);
 /** El kind de la petición, leído por el marcador que lo escribe `notas.ts`. */
 const RE_KIND = new RegExp(`${MARCA_KIND}(\\w+)`);
+/** El número de la petición, que es por el que se busca después su veredicto. */
+const RE_PETICION = /^Petición (\S+) ·/;
 
 function log(msg: string): void {
   console.log(`\x1b[36m[qa]\x1b[0m ${msg}`);
@@ -111,6 +113,19 @@ const licenciasVistas = new Set<string>();
  * la patrulla dejó de ser un hecho, y lo que queda se mide en vez de suponerse.
  */
 const cuotaDeAsaltantes = { asaltantes: 0, total: 0 };
+/**
+ * El ascenso de la tropa a héroe, cruzado de verdad: la petición
+ * `hero_from_troop` que llegó, el nombre que le dio la política y si el héroe
+ * apareció después en su turno y en `game_state` con su tipo y su historia. La partida del
+ * arnés no produce un nivel 5 sola, así que el servidor se arranca con uno
+ * puesto en la base (`partida-con-veterano.ts`); sin este recuento, un ascenso
+ * que no se pidiera o no se aplicara saldría verde.
+ */
+const ascenso: { requestId: string | null; nombre: string | null; visto: string | null } = {
+  requestId: null,
+  nombre: null,
+  visto: null,
+};
 
 /** Una consulta que tiene que devolver JSON. Si no, es que el puente miente. */
 async function consulta(
@@ -291,6 +306,77 @@ function avisaRendicion(): void {
   console.warn('\x1b[33m[qa] AVISO: ninguna batalla ofreció rendirse en esta partida\x1b[0m');
 }
 
+/**
+ * Que el veterano de la base se hiciera héroe por el circuito entero: se pidió,
+ * su veredicto entró y el héroe está en el turno siguiente y en `game_state`, con
+ * su tipo y su historia.
+ * Rojo en cualquier otro caso, también si no llegó a pedirse: el servidor del
+ * arnés lo pone en la base precisamente para que se pida.
+ */
+function exigeElAscenso(): void {
+  if (ascenso.requestId === null) {
+    throw new Error(
+      'no ha llegado ningún "hero_from_troop": el veterano de nivel 5 de la base no se ha ofrecido al narrador',
+    );
+  }
+  const v = veredictos.find((x) => x.requestId === ascenso.requestId);
+  if (v === undefined) {
+    throw new Error(`el "hero_from_troop" ${ascenso.requestId} no ha recibido veredicto`);
+  }
+  if (!v.ok) throw new Error(`el ascenso se rechazó: ${detalle(v)}`);
+  if (ascenso.visto === null) {
+    throw new Error(
+      `el ascenso entró (${v.nota}) pero ningún "adventure_turn" posterior ha llegado para ver a "${ascenso.nombre}"`,
+    );
+  }
+  log(`ascenso: ${ascenso.visto}`);
+}
+
+/**
+ * Busca al héroe recién nacido en el `adventure_turn` que sigue al ascenso —que
+ * ya trae `type` y `story`, y llega después de aplicarlo, así que no hay nada que
+ * esperar— y lo cruza **una vez** con `game_state`, la otra puerta por la que el
+ * agente lo puede ver: las dos tienen que decir lo mismo de él.
+ */
+async function cruzaElHeroeNacido(client: Client, turno: any): Promise<void> {
+  const enElTurno = (turno.heroes ?? []).find((x: any) => x.name === ascenso.nombre);
+  if (enElTurno === undefined) {
+    throw new Error(
+      `el ascenso entró pero el "adventure_turn" siguiente no trae a "${ascenso.nombre}" entre sus héroes`,
+    );
+  }
+  if (typeof enElTurno.type !== 'string' || typeof enElTurno.story !== 'string') {
+    throw new Error(`el héroe nacido llega sin "type" o sin "story": ${JSON.stringify(enElTurno)}`);
+  }
+  const estado = await consulta(client, 'game_state');
+  const enElEstado = (estado.heroes ?? []).find((x: any) => x.id === enElTurno.id);
+  if (
+    enElEstado === undefined ||
+    enElEstado.type !== enElTurno.type ||
+    enElEstado.story !== enElTurno.story
+  ) {
+    throw new Error(
+      `game_state no dice lo mismo del héroe nacido que su turno: ${JSON.stringify(enElEstado)} frente a ${JSON.stringify(enElTurno)}`,
+    );
+  }
+  // I1: el héroe que queda en la casilla de la base es quien la defiende, solo
+  // con su tropa. Si se queda vacío con guarnición al lado, la base cae ante
+  // dos campesinos esa misma noche.
+  const base = (turno.towns ?? []).find((t: any) => t.id === turno.yourBase);
+  const enLaCasilla = (turno.heroes ?? []).find(
+    (x: any) => base !== undefined && x.at.x === base.at.x && x.at.y === base.at.y,
+  );
+  // `garrison` viaja agrupada por criatura: los individuos son la suma de `count`.
+  const guarnicion = (base?.garrison ?? []).reduce((n: number, g: any) => n + g.count, 0);
+  if (enLaCasilla !== undefined && enLaCasilla.army.length === 0 && guarnicion > 0) {
+    throw new Error(
+      `tras el ascenso, ${enLaCasilla.name} ocupa la base sin tropa y con ${guarnicion} individuos de guarnición que no pelean: la base queda indefensa`,
+    );
+  }
+  const h = enElTurno;
+  ascenso.visto = `${h.name} (${h.id}), tipo ${h.type}, nivel ${h.level}, tropa: ${h.army.length}, «${h.story}»`;
+}
+
 /** Cierra con el resumen de todo lo que se ha verificado. */
 async function terminarBien(
   turnos: number,
@@ -332,10 +418,12 @@ async function terminarBien(
     );
   }
   log(`licencias: ${licenciasVistas.size} en la crónica del agente`);
+  exigeElAscenso();
   log(`consultas ejercitadas: ${[...consultadas].sort().join(', ')}`);
   log(
     `${motivo}: ${mapas} ${mapas === 1 ? 'mapa diseñado' : 'mapas diseñados'}, ` +
-      `${turnos} turnos de mapa y ${batallas} decisiones de batalla`,
+      `${turnos} turnos de mapa, ${batallas} decisiones de batalla y ` +
+      `${ascenso.requestId === null ? 0 : 1} ascenso de tropa a héroe`,
   );
   await terminar(0);
 }
@@ -347,6 +435,9 @@ async function main(): Promise<void> {
   servidor = await arrancarServidor(
     { HEROES_MAX_DAYS: '12', HEROES_WAIT_AGENT_MS: '30000' },
     {
+      // La misma partida con un veterano de nivel 5 en la base del agente: es
+      // como se cruza el ascenso, que la partida sola casi nunca produce.
+      entrada: 'tools/qa/partida-con-veterano.ts',
       eco: (trozo, deError) =>
         deError
           ? process.stderr.write(`\x1b[31m${trozo}\x1b[0m`)
@@ -552,6 +643,10 @@ async function main(): Promise<void> {
     }
 
     if (kind === 'adventure_turn') {
+      // Solo si el ascenso entró: uno rechazado lo cuenta `exigeElAscenso` al
+      // final, con su motivo, en vez de un «no está en el turno» sin contexto.
+      const entro = veredictos.find((x) => x.requestId === ascenso.requestId)?.ok === true;
+      if (entro && ascenso.visto === null) await cruzaElHeroeNacido(client, payload);
       for (const r of payload.knownMap?.raiders ?? []) asaltantesVistos.add(r.id);
       for (const e of payload.recentEvents ?? []) {
         cuotaDeAsaltantes.total++;
@@ -573,9 +668,13 @@ async function main(): Promise<void> {
     // `map_generate` se cuenta aparte y NO como turno de mapa: mezclarlo movería
     // la cifra del informe y dejaría de ser comparable con los 3 turnos y 9
     // decisiones de las pasadas anteriores.
+    // El ascenso tampoco es un turno de mapa: va antes del `adventure_turn`.
     if (kind === 'battle_turn') batallas++;
     else if (kind === 'map_generate') mapas++;
-    else turnos++;
+    else if (kind === 'hero_from_troop') {
+      ascenso.requestId = RE_PETICION.exec(texto)?.[1] ?? null;
+      ascenso.nombre = String((respuesta as { name: string }).name);
+    } else turnos++;
 
     const r = await client.callTool({
       name: 'heroes_respond',

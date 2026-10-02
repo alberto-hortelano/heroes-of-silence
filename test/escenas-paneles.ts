@@ -303,6 +303,26 @@ function cronicaCompleta(): readonly GameEvent[] {
     { ...base, kind: 'recruited', town: 'town-1', creature: 'skeleton', count: 8, actor: 1 },
     { ...base, kind: 'hero_hired', hero: 'hero-2', town: 'town-0', actor: 0 },
     { ...base, kind: 'hero_hired', hero: 'hero-3', town: 'town-1', actor: 1 },
+    // El nombre lo escribe el narrador, así que va con marcado dentro: el ancla
+    // fija que sale escapado.
+    {
+      ...base,
+      kind: 'hero_promoted',
+      hero: 'hero-veterano-0',
+      town: 'town-0',
+      creature: 'pikeman',
+      name: 'Sir <b>Ana</b> & "Co"',
+      actor: 0,
+    },
+    {
+      ...base,
+      kind: 'hero_promoted',
+      hero: 'hero-veterano-1',
+      town: 'town-1',
+      creature: 'skeleton',
+      name: 'Hueso',
+      actor: 1,
+    },
     { ...base, kind: 'garrison_taken', hero: 'hero-0', town: 'town-0', actor: 0 },
     { ...base, kind: 'garrison_taken', hero: 'hero-1', town: 'town-1', actor: 1 },
     {

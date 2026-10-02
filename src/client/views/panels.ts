@@ -23,7 +23,7 @@ import {
   nivelDeVeterania,
   type Side,
 } from '@core/battle/types.js';
-import { creature, isShooter } from '@core/data.js';
+import { creature, isShooter, nombreDeTipoDeHeroe } from '@core/data.js';
 import { nivelDe, nivelDeHeroe, umbral } from '@core/hero/experiencia.js';
 import { maxMana, maxMovePoints } from '@core/hero/hero.js';
 import { elQueSeIria, type Personajes, type TroopGroup, troopSummary } from '@core/hero/troop.js';
@@ -207,8 +207,8 @@ function renderAdventurePanel(session: Session): Html {
     hero === null
       ? html`<p>No tienes héroes en el mapa. Contrata uno en tu castillo.</p>`
       : html`
-        <p class="eyebrow">HÉROE · NIVEL ${nivelDeHeroe(hero)}</p>
-        <h2>${hero.name}</h2>
+        <p class="eyebrow">HÉROE · NIVEL ${nivelDeHeroe(hero)} · ${nombreDeTipoDeHeroe(hero.faction, hero.tipo)}</p>
+        <h2>${hero.name}</h2>${historiaDelHeroe(hero.origen?.historia ?? null)}
         ${filaLiderazgo(session.liderazgo({ heroe: hero.id }))}
         <div class="row"><span class="label">Movimiento</span><span>${hero.movePoints} / ${maxMovePoints(hero, session.state.characters)}</span></div>
         <div class="row"><span class="label">Maná</span><span>${hero.mana} / ${maxMana(hero)}</span></div>
@@ -245,6 +245,15 @@ function renderAdventurePanel(session: Session): Html {
 
   return html`${fin}${heroPanel}${listaHeroes}${listaPueblos}
     <h3>Crónica</h3>${renderLog(session.state.log, session.viewer)}`;
+}
+
+/**
+ * La historia que el narrador le escribió al héroe nacido de la tropa, o nada:
+ * el inicial y el contratado no tienen. Es texto del agente y sale por la puerta
+ * como todo; la comparten el panel del cliente y el del espectador.
+ */
+export function historiaDelHeroe(historia: string | null): Html {
+  return historia === null ? NADA : html`<p class="cost historia">${historia}</p>`;
 }
 
 /**
@@ -809,6 +818,12 @@ export function renderLog(log: readonly GameEventDraft[], viewer: number): Html 
           return html`<div${clase(mio, false)}>${
             mio ? 'Héroe contratado' : `${jugador(e.actor)} contrata un héroe`
           }</div>`;
+        case 'hero_promoted':
+          // El nombre lo escribió el narrador: va en un hueco de texto y la
+          // plantilla lo escapa, como el de cualquier pueblo del agente.
+          return html`<div${clase(mio, false)}>Un ${creature(e.creature).name} ${deJugador(
+            e.actor,
+          )} se hace héroe: ${e.name}</div>`;
         case 'garrison_taken':
           return html`<div${clase(mio, false)}>${
             mio ? 'Guarnición incorporada' : `${jugador(e.actor)} incorpora una guarnición`

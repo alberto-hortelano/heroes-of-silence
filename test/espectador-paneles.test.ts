@@ -187,6 +187,25 @@ describe('el panel del espectador escapa lo ajeno', () => {
     expect(salida).not.toContain('<img');
   });
 
+  it('el tipo y la historia del héroe nacido de la tropa se pintan, escapados', () => {
+    // La historia la escribe el narrador: es prosa ajena, como el `reasoning`.
+    const { vista } = contraUnNeutral(1);
+    const [primero, ...resto] = vista.heroes;
+    const conHistoria: SpectatorView = {
+      ...vista,
+      heroes: [
+        { ...primero!, nombreDelTipo: 'Vampiro', historia: 'Mordió <b>tres</b> veces & volvió' },
+        ...resto,
+      ],
+    };
+    const salida = marcadoDe(panelDelEspectador(conHistoria, null));
+    expect(salida).toContain(`${primero!.name} · Vampiro`);
+    expect(salida).toContain('Mordió &lt;b&gt;tres&lt;/b&gt; veces &amp; volvió');
+    expect(salida).not.toContain('<b>tres');
+    // Sin historia no se pinta la línea: el inicial y el contratado no tienen.
+    expect(marcadoDe(panelDelEspectador(vista, null))).not.toContain('class="cost historia"');
+  });
+
   it('y el `reasoning` del director también, que es el canal más ancho', () => {
     const { vista } = contraUnNeutral(1);
     const conProsaMala: SpectatorView = {

@@ -2,7 +2,7 @@
 <li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>9000</li>
 ### aventura · renderSide
 
-        <p class="eyebrow">HÉROE · NIVEL 5</p>
+        <p class="eyebrow">HÉROE · NIVEL 5 · Caballero</p>
         <h2>Aldo de Valdeluz</h2>
         <div class="row"><span class="label">Liderazgo</span><span>12 / 20</span></div>
     <progress class="liderazgo" max="20" value="12"></progress>
@@ -84,7 +84,7 @@
 <li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>5500</li>
 ### aventura · héroe recién contratado · renderSide
 
-        <p class="eyebrow">HÉROE · NIVEL 5</p>
+        <p class="eyebrow">HÉROE · NIVEL 5 · Caballero</p>
         <h2>Capitán de Valdeluz</h2>
         <div class="row"><span class="label">Liderazgo</span><span>16 / 20</span></div>
     <progress class="liderazgo" max="20" value="16"></progress>
@@ -204,7 +204,7 @@
     <h2>Partida perdida</h2>
     <p>Has perdido tu base: sin ella quedas eliminado, aunque te queden héroes o ciudades.</p>
   </div>
-        <p class="eyebrow">HÉROE · NIVEL 5</p>
+        <p class="eyebrow">HÉROE · NIVEL 5 · Caballero</p>
         <h2>Aldo de Valdeluz</h2>
         <div class="row"><span class="label">Liderazgo</span><span>18 / 20</span></div>
     <progress class="liderazgo" max="20" value="18"></progress>
@@ -236,7 +236,7 @@
 <li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>8000</li>
 ### aventura · turno del rival · renderSide
 
-        <p class="eyebrow">HÉROE · NIVEL 5</p>
+        <p class="eyebrow">HÉROE · NIVEL 5 · Caballero</p>
         <h2>Aldo de Valdeluz</h2>
         <div class="row"><span class="label">Liderazgo</span><span>12 / 20</span></div>
     <progress class="liderazgo" max="20" value="12"></progress>
@@ -696,4 +696,4 @@
 ### batalla · con un veterano · renderLog
 <div class="log"><div>— Día 1 —</div></div>
 ### crónica completa · renderLog
-<div class="log"><div>— Día 4 —</div><div class="win">+2 madera</div><div class="win">Paso tomado</div><div class="win">Paso tomado al jugador 1</div><div class="lose">El jugador 1 te ha quitado un paso</div><div>El jugador 1 toma un paso</div><div class="win">Has capturado un castillo neutral</div><div class="win">Has capturado un castillo del jugador 1</div><div class="lose">El jugador 1 te ha capturado un castillo</div><div>El jugador 1 captura un castillo neutral</div><div class="win">Construido: Casa consistorial</div><div>El jugador 1 construye: Gremio de magia I</div><div class="win">Reclutados 12 × Campesino</div><div>El jugador 1 recluta 8 × Esqueleto</div><div class="win">Héroe contratado</div><div>El jugador 1 contrata un héroe</div><div class="win">Guarnición incorporada</div><div>El jugador 1 incorpora una guarnición</div><div class="win">Aprendido: Prisa, Lentitud</div><div>El jugador 1 aprende: Flecha mágica</div><div>Batalla resuelta</div><div class="lose">Un héroe tuyo ha caído</div><div class="win">Ha caído un héroe del jugador 1</div><div class="lose">Un héroe tuyo vuelve a la base</div><div class="win">Un héroe del jugador 1 vuelve a su base tras rendirse por 190 de oro</div><div class="win">Un héroe tuyo sube a nivel 6</div><div>Un héroe del jugador 1 sube a nivel 7</div><div class="win">Un Piquero tuyo sube a veterano de nivel 2</div><div>Un Esqueleto del jugador 1 sube a veterano de nivel 4</div><div class="win">Fin de la partida</div></div>
+<div class="log"><div>— Día 4 —</div><div class="win">+2 madera</div><div class="win">Paso tomado</div><div class="win">Paso tomado al jugador 1</div><div class="lose">El jugador 1 te ha quitado un paso</div><div>El jugador 1 toma un paso</div><div class="win">Has capturado un castillo neutral</div><div class="win">Has capturado un castillo del jugador 1</div><div class="lose">El jugador 1 te ha capturado un castillo</div><div>El jugador 1 captura un castillo neutral</div><div class="win">Construido: Casa consistorial</div><div>El jugador 1 construye: Gremio de magia I</div><div class="win">Reclutados 12 × Campesino</div><div>El jugador 1 recluta 8 × Esqueleto</div><div class="win">Héroe contratado</div><div>El jugador 1 contrata un héroe</div><div class="win">Un Piquero tuyo se hace héroe: Sir &lt;b&gt;Ana&lt;/b&gt; &amp; "Co"</div><div>Un Esqueleto del jugador 1 se hace héroe: Hueso</div><div class="win">Guarnición incorporada</div><div>El jugador 1 incorpora una guarnición</div><div class="win">Aprendido: Prisa, Lentitud</div><div>El jugador 1 aprende: Flecha mágica</div><div>Batalla resuelta</div><div class="lose">Un héroe tuyo ha caído</div><div class="win">Ha caído un héroe del jugador 1</div><div class="lose">Un héroe tuyo vuelve a la base</div><div class="win">Un héroe del jugador 1 vuelve a su base tras rendirse por 190 de oro</div><div class="win">Un héroe tuyo sube a nivel 6</div><div>Un héroe del jugador 1 sube a nivel 7</div><div class="win">Un Piquero tuyo sube a veterano de nivel 2</div><div>Un Esqueleto del jugador 1 sube a veterano de nivel 4</div><div class="win">Fin de la partida</div></div>

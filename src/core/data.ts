@@ -6,6 +6,7 @@ import experienciaJson from '../../data/experiencia.json' with { type: 'json' };
 import habilidadesJson from '../../data/habilidades.json' with { type: 'json' };
 import heroeJson from '../../data/heroe.json' with { type: 'json' };
 import liderazgoJson from '../../data/liderazgo.json' with { type: 'json' };
+import tiposDeHeroeJson from '../../data/tipos-de-heroe.json' with { type: 'json' };
 import type { Creature, CreatureTrait, FactionId, SpeedTier, UnitInfo } from './types.js';
 import { SPEED_TIERS } from './types.js';
 
@@ -35,6 +36,14 @@ for (const raw of creaturesJson.creatures) {
   };
   byId.set(creature.id, creature);
 }
+
+/**
+ * Las facciones que se juegan: las del catálogo de criaturas, no una lista
+ * aparte. La leen las tablas por facción —guarniciones y tipos de héroe— para
+ * que una facción nueva en el catálogo las ponga en rojo al cargar si le falta
+ * su fila.
+ */
+const FACCIONES: readonly FactionId[] = [...new Set([...byId.values()].map((c) => c.faction))];
 
 /**
  * Un entero que se puede sumar sin perder bits, y ≥ `desde`. Es la única forma
@@ -235,7 +244,7 @@ function tablaDeGuarniciones(
   const tabla = ciudadesJson[clave] as Record<string, readonly GrupoDeTropa[]> | undefined;
   if (tabla === undefined) throw new Error(`data/ciudades.json: falta "${clave}"`);
   const out = {} as Record<FactionId, readonly GrupoDeTropa[]>;
-  for (const faccion of ['knight', 'necromancer'] as const) {
+  for (const faccion of FACCIONES) {
     const grupos = tabla[faccion];
     if (grupos === undefined) {
       throw new Error(`data/ciudades.json: falta ${que} de ${faccion}`);
@@ -461,3 +470,102 @@ export const EXPERIENCIA: ReglasDeExperiencia = validarExperiencia(
   CATALOGO_DE_HABILIDADES,
   [...byId.keys()],
 );
+
+/**
+ * Un tipo de héroe de `data/tipos-de-heroe.json`, sacado del cuaderno con una
+ * expresión regular (`tools/datos/tipos-de-heroe.ts`). **Inerte**: se guarda en
+ * el héroe (`Hero.tipo`), se ve y se serializa, pero no da nada hasta que exista
+ * el motor de habilidades.
+ */
+export interface TipoDeHeroe {
+  readonly id: string;
+  readonly nombre: string;
+  readonly descripcion: string;
+}
+
+/**
+ * Valida el catálogo de tipos contra las facciones del motor y lo devuelve
+ * tipado. **Lanza con todos los problemas a la vez.** Exportada con el JSON de
+ * argumento por lo mismo que `validarExperiencia`: un guardia que solo se prueba
+ * con el fichero bueno es un guardia que no se ha visto morder.
+ *
+ * Cada facción necesita al menos uno porque el primero es el tipo por defecto
+ * del héroe inicial y del contratado: sin él, `newGame` no tendría qué ponerle.
+ */
+export function validarTiposDeHeroe(
+  json: unknown,
+  facciones: readonly FactionId[],
+  fichero = 'data/tipos-de-heroe.json',
+): Readonly<Record<FactionId, readonly TipoDeHeroe[]>> {
+  const problemas: string[] = [];
+  const tipos = ((json ?? {}) as { tipos?: Record<string, unknown> }).tipos ?? {};
+  const out = {} as Record<FactionId, readonly TipoDeHeroe[]>;
+  for (const faccion of facciones) {
+    const lista = tipos[faccion];
+    if (!Array.isArray(lista) || lista.length === 0) {
+      problemas.push(`la facción ${faccion} no tiene ningún tipo de héroe`);
+      continue;
+    }
+    const validos: TipoDeHeroe[] = [];
+    for (const [i, t] of (lista as Record<string, unknown>[]).entries()) {
+      const campos = ['id', 'nombre', 'descripcion'] as const;
+      const malos = campos.filter((c) => typeof t?.[c] !== 'string' || t[c] === '');
+      if (malos.length > 0) {
+        problemas.push(`${faccion}[${i}] no trae ${malos.join(', ')} como texto`);
+        continue;
+      }
+      validos.push({
+        id: t.id as string,
+        nombre: t.nombre as string,
+        descripcion: t.descripcion as string,
+      });
+    }
+    const repetidos = validos.map((t) => t.id).filter((id, i, todos) => todos.indexOf(id) !== i);
+    if (repetidos.length > 0) problemas.push(`${faccion} repite los ids ${repetidos.join(', ')}`);
+    out[faccion] = validos;
+  }
+  for (const faccion of Object.keys(tipos)) {
+    if (!(facciones as readonly string[]).includes(faccion)) {
+      problemas.push(`"${faccion}" no es ninguna facción del motor`);
+    }
+  }
+  if (problemas.length > 0) throw new Error(`${fichero}: ${problemas.join('; ')}`);
+  return out;
+}
+
+const TIPOS_DE_HEROE = validarTiposDeHeroe(tiposDeHeroeJson, FACCIONES);
+
+/** Los tipos de héroe de una facción, en el orden del cuaderno. */
+export function tiposDeHeroe(faction: FactionId): readonly TipoDeHeroe[] {
+  return TIPOS_DE_HEROE[faction];
+}
+
+/**
+ * El id del tipo del héroe que nadie eligió —el inicial y el contratado—: **el
+ * primero de su facción en el cuaderno** (Caballero, Nigromante). El id y no el
+ * tipo entero, porque es lo que guarda `Hero.tipo` y lo único que leen quienes
+ * lo piden. Lo elige así el plan
+ * de este ciclo, y como el tipo es inerte no cambia ninguna partida.
+ */
+export function tipoDeHeroePorDefecto(faction: FactionId): string {
+  return (TIPOS_DE_HEROE[faction][0] as TipoDeHeroe).id;
+}
+
+/** El tipo `id` de la facción, o `null` si esa facción no lo tiene. */
+export function tipoDeHeroe(faction: FactionId, id: string): TipoDeHeroe | null {
+  return TIPOS_DE_HEROE[faction].find((t) => t.id === id) ?? null;
+}
+
+/**
+ * El nombre del tipo `id` para pintarlo («Monje (Abad)»). **Lanza** si la
+ * facción no lo tiene: un héroe con un tipo que no existe es un héroe mal
+ * construido, y pintar el id crudo lo escondería. Lo leen el panel del cliente
+ * y la vista del espectador, que no deben redactarlo cada uno a su manera.
+ */
+export function nombreDeTipoDeHeroe(faction: FactionId, id: string): string {
+  const tipo = tipoDeHeroe(faction, id);
+  if (tipo === null) {
+    throw new Error(`el tipo de héroe "${id}" no existe en ${faction} (data/tipos-de-heroe.json)`);
+  }
+  return tipo.nombre;
+}

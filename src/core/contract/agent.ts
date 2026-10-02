@@ -16,8 +16,10 @@
  * `attacker` o `defender`, no un jugador.
  */
 import { z } from 'zod';
+import { NIVEL_MAXIMO_DE_TROPA } from '../hero/experiencia.js';
 import { WALL_TERRAINS } from '../map/generate.js';
 import { TERRAIN_KINDS } from '../map/terrain.js';
+import { MAX_HEROES_PER_PLAYER } from '../state/game.js';
 import { COMO_SE_LEE_EL_MAPA } from './serialize.js';
 
 // ---------------------------------------------------------------- respuestas
@@ -107,13 +109,29 @@ const idDeMapa = (que: string) =>
       /^[a-z0-9][a-z0-9_-]*$/,
       `un id de ${que} va en minúsculas y solo lleva letras, dígitos, guion y guion bajo, empezando por letra o dígito (p. ej. "town-0")`,
     );
-/** Lo que lee una persona: una sola línea. */
-const nombreDeMapa = (que: string) =>
+/**
+ * Lo que lee una persona: una sola línea **y que se lea**. Sin caracteres de
+ * control —el salto parte el bloque de veredictos, que se lee línea a línea, y
+ * un `\u0000` o un tabulador no los pinta nadie— y con al menos un carácter
+ * visible: QA encontró que `"   "` pasaba, y daba un héroe sin nombre en el
+ * panel, la crónica y el veredicto. «Visible» descuenta también los de formato
+ * (`\p{Cf}`, el espacio de anchura cero), que `trim()` no quita.
+ *
+ * Es la puerta de todos los textos libres que el agente escribe para una persona
+ * —los nombres del plan de mapa (#97) y el nombre y la historia del héroe
+ * nacido—, así que un hueco que se cierra aquí se cierra en todos.
+ */
+const lineaLegible = (max: number, sujeto: string) =>
   z
     .string()
     .min(1)
-    .max(40)
-    .regex(/^[^\n\r]+$/, `el nombre de ${que} es una sola línea, sin saltos`);
+    .max(max)
+    .regex(/^\P{Cc}+$/u, `${sujeto} es una sola línea, sin saltos ni caracteres de control`)
+    .regex(
+      /[^\s\p{Cc}\p{Cf}]/u,
+      `${sujeto} no puede ir en blanco: tiene que llevar algo que se lea`,
+    );
+const nombreDeMapa = (que: string) => lineaLegible(40, `el nombre de ${que}`);
 
 export const mapPlanSchema = z.object({
   width: z.number().int().min(8).max(128),
@@ -172,9 +190,31 @@ export const mapGenerateResponseSchema = z.object({
   reasoning: z.string().max(2000).optional(),
 });
 
+/**
+ * Lo que el narrador devuelve cuando un veterano se hace héroe.
+ *
+ * `name` se acota como los nombres de un plan de mapa (#97): acaba en la crónica,
+ * en el panel y en el bloque de veredictos, que se parsea línea a línea. `story`
+ * igual, con más sitio. `heroType` va como texto libre y NO como `z.enum`, igual
+ * que la criatura de `monsters`: quien lo valida es `ascensoBlocker`, que sabe la
+ * facción del jugador y nombra los que valen en el rechazo; un enum de todas las
+ * facciones aceptaría el tipo de la otra.
+ */
+export const heroFromTroopResponseSchema = z.object({
+  name: nombreDeMapa('un héroe'),
+  story: lineaLegible(280, 'la historia del héroe'),
+  heroType: z.string(),
+  reasoning: z.string().max(2000).optional(),
+});
+
 // ---------------------------------------------------------------- peticiones
 
-export const REQUEST_KINDS = ['adventure_turn', 'battle_turn', 'map_generate'] as const;
+export const REQUEST_KINDS = [
+  'adventure_turn',
+  'battle_turn',
+  'map_generate',
+  'hero_from_troop',
+] as const;
 
 export type RequestKind = (typeof REQUEST_KINDS)[number];
 
@@ -182,6 +222,7 @@ export const responseSchemas = {
   adventure_turn: adventureTurnResponseSchema,
   battle_turn: battleTurnResponseSchema,
   map_generate: mapGenerateResponseSchema,
+  hero_from_troop: heroFromTroopResponseSchema,
 } as const;
 
 /**
@@ -274,6 +315,21 @@ Notas:
   la ciudad cae con su guarnición sin que esta llegue a pelear, y si era tu
   base, pierdes la partida. Lo que el héroe se llevó al entrar sí pelea: ya es
   su tropa.
+- Cada héroe trae su "type", el TIPO de héroe (un id de los de su facción), y
+  el que nació de la tropa trae además su "story". El tipo todavía NO da
+  ninguna habilidad: se guarda y se ve.
+- Un VETERANO de nivel ${NIVEL_MAXIMO_DE_TROPA} —el tope de la tropa— que esté en tu base al empezar
+  tu turno, en la guarnición o en la tropa de un héroe tuyo que esté allí, SE
+  HACE HÉROE: antes de este turno se te pide con "hero_from_troop" que le des
+  nombre, historia y tipo. Nace en la base, con su experiencia y sin movimiento
+  ese día. Quien quede en la casilla del castillo —el nacido, o el héroe tuyo
+  que ya estaba en ella— RECOGE LA GUARNICIÓN que le quepa, como al contratar:
+  la base no se queda defendida por un héroe sin tropa.
+  Con ${MAX_HEROES_PER_PLAYER} héroes no se te pide nada y el veterano ESPERA en la base
+  hasta que haya sitio; mientras espere, el turno te lo dice en
+  "veteransWaiting", que solo viene entonces. A cada veterano se le pregunta
+  una vez; si tu respuesta no vale, no se te vuelve a preguntar hasta que salga
+  de la base y vuelva.
 - "towns[].teaches" son los hechizos que enseña el gremio de ese pueblo: un
   héroe tuyo parado allí los aprende solo, hasta donde le deje su Sabiduría, y
   aparecen en "heroes[].spells". NO hay acción para aprender: basta con llevarlo.
@@ -427,11 +483,41 @@ Reglas que se validan antes de aceptarlo:
   minúsculas, letras, dígitos, guion y guion bajo, empezando por letra o dígito,
   hasta 32 caracteres. "town-0" vale; "Pueblo Uno" no. Y no puede repetirse.
   "node-N" y "village-N" los reserva el motor para los nodos y los pueblos.
-- El "name" es lo que lee una persona: una sola línea, sin saltos, hasta 40
-  caracteres.
+- El "name" es lo que lee una persona: una sola línea, sin saltos ni
+  caracteres de control y no en blanco, hasta 40 caracteres.
 - "heroStarts" tiene que traer EXACTAMENTE los jugadores de "want.players", uno
   por jugador: ahí van sus números, así que no hay nada que deducir. Sin repetir
   ninguno y sin inventarte un tercero. Un inicio de más deja dos héroes con el
   mismo id; un jugador sin inicio se queda sin héroe y sin turnos.
 Si algo falla se te devuelve la lista de problemas para que lo corrijas.`,
+
+  hero_from_troop: `Responde con:
+{
+  "name": "el nombre del héroe",
+  "story": "su historia, en una línea",
+  "heroType": "<id de uno de heroTypes>",
+  "reasoning": "una línea opcional"
+}
+
+Un individuo de tu tropa ha llegado al nivel máximo y está en tu base: se hace
+HÉROE, y lo creas tú a partir de lo que fue. "veteran" es quién era —su
+criatura, su nivel, su experiencia, sus batallas, sus bajas y los héroes
+rivales que derribó—, y "town" dónde está.
+
+- "name": una sola línea, sin saltos ni caracteres de control y no en blanco,
+  hasta 40 caracteres.
+- "story": lo mismo, hasta 280 caracteres. La ve quien juega en el panel del
+  héroe.
+- "heroType": el "id" de uno de "heroTypes", que son los de TU facción. Uno de
+  otra facción o uno inventado se rechaza diciendo los que valen. El tipo
+  todavía NO da ninguna habilidad: se guarda, se ve y se usará cuando exista.
+
+El héroe nace en tu base con la experiencia del veterano (nivel ${NIVEL_MAXIMO_DE_TROPA} o más), las
+cifras de un héroe contratado y SIN MOVIMIENTO hasta mañana. El veterano deja
+de estar donde estaba. Si nace en la casilla del castillo, se lleva la
+guarnición que le quepa, como uno contratado; si la casilla la ocupa otro
+héroe tuyo —el que llevaba al veterano, por ejemplo—, nace al lado sin tropa y
+la guarnición se la lleva el del castillo, que es quien la defiende. Si tu respuesta no vale —o no llega—, no
+pasa nada: la tropa sigue igual y no se te vuelve a preguntar por él hasta que
+salga de la base y vuelva.`,
 };

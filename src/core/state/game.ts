@@ -9,10 +9,17 @@ import { type BattleMember, type BattleSide, createBattle } from '../battle/batt
 import { stackHp } from '../battle/damage.js';
 import type { BattleHero, BattleStack, BattleState, Side } from '../battle/types.js';
 import { personajeDe, SIDES } from '../battle/types.js';
-import { allCreatures, creature } from '../data.js';
-import { EXPERIENCIA_INICIAL_DE_HEROE, nivelDeHeroe, nivelDeTropa } from '../hero/experiencia.js';
+import { allCreatures, creature, tipoDeHeroePorDefecto } from '../data.js';
+import { problemaDeTipo, type VeteranoEnBase, veteranosEn } from '../hero/ascenso.js';
+import {
+  EXPERIENCIA_INICIAL_DE_HEROE,
+  NIVEL_MAXIMO_DE_TROPA,
+  nivelDeHeroe,
+  nivelDeTropa,
+} from '../hero/experiencia.js';
 import {
   type Hero,
+  heroeRecienHecho,
   heroUnit,
   learnable,
   luckBonus,
@@ -365,6 +372,29 @@ export function townsOf(state: GameState, player: PlayerId): Town[] {
   return state.towns.filter((t) => t.owner === player);
 }
 
+/**
+ * El héroe del dueño de `town` que está en su casilla, o `undefined` si no hay
+ * ninguno (o el pueblo no tiene dueño). **Una regla con dos lectores**: a quién
+ * va un recluta (`destinoDeRecluta`) y de qué tropa salen los veteranos de la
+ * base (`veteranosEnSuBase`). Escrita en cada uno, el día que cambie —un héroe
+ * de al lado que también cuente, por ejemplo— el veterano que el narrador ve en
+ * la base no sería el que se puede reclutar con.
+ */
+export function heroeEnElPueblo(state: GameState, town: Town): Hero | undefined {
+  if (town.owner === null) return undefined;
+  return heroesOf(state, town.owner).find((h) => pointKey(h.at) === pointKey(town.at));
+}
+
+/**
+ * Si `player` puede tener un héroe más: el tope (`MAX_HEROES_PER_PLAYER`) escrito
+ * una vez, para los dos caminos por los que nace un héroe —contratarlo y
+ * ascender a un veterano— y para el director, que no pregunta por un ascenso
+ * que el tope no dejaría hacer.
+ */
+export function hayHuecoDeHeroe(state: GameState, player: PlayerId): boolean {
+  return heroesOf(state, player).length < MAX_HEROES_PER_PLAYER;
+}
+
 /** A dónde va lo que se recluta en un pueblo, y con qué tope de liderazgo. */
 export interface DestinoDeRecluta {
   /** El héroe del dueño que está dentro, o `undefined` si va a la guarnición. */
@@ -387,7 +417,7 @@ export interface DestinoDeRecluta {
  */
 export function destinoDeRecluta(state: GameState, town: Town): DestinoDeRecluta {
   if (town.owner === null) throw new Error(`no se puede reclutar en ${town.name}: no tiene dueño`);
-  const hero = heroesOf(state, town.owner).find((h) => pointKey(h.at) === pointKey(town.at));
+  const hero = heroeEnElPueblo(state, town);
   return hero === undefined
     ? {
         hero,
@@ -1205,7 +1235,7 @@ function hireHero(state: GameState, townId: string): void {
   const town = townById(state, townId);
   const player = currentPlayer(state);
   if (town.owner !== player.id) throw new Error('ese pueblo no es tuyo');
-  if (heroesOf(state, player.id).length >= MAX_HEROES_PER_PLAYER) {
+  if (!hayHuecoDeHeroe(state, player.id)) {
     throw new Error('ya tienes el máximo de héroes');
   }
   if (player.resources.gold < HERO_HIRE_COST) throw new Error('oro insuficiente');
@@ -1214,23 +1244,15 @@ function hireHero(state: GameState, townId: string): void {
   }
 
   const id = `hero-${player.id}-${state.heroes.length}-${state.day}`;
-  const hero: Hero = {
+  const hero = heroeRecienHecho({
     id,
     owner: player.id,
     name: `Capitán de ${town.name}`,
     faction: town.faction,
-    attack: 1,
-    defense: 1,
-    spellPower: 1,
-    knowledge: 1,
-    mana: 10,
-    experience: EXPERIENCIA_INICIAL_DE_HEROE,
-    army: [],
     at: town.at,
-    movePoints: 0,
-    spells: [],
-    skills: {},
-  };
+    experience: EXPERIENCIA_INICIAL_DE_HEROE,
+    tipo: tipoDeHeroePorDefecto(town.faction),
+  });
   hero.movePoints = maxMovePoints(hero, state.characters);
 
   player.resources = addResources(player.resources, { gold: -HERO_HIRE_COST });
@@ -1245,6 +1267,139 @@ function hireHero(state: GameState, townId: string): void {
 
   takeGarrison(state, hero, town);
   revealAround(state, hero);
+}
+
+/**
+ * Los veteranos de nivel máximo que `player` tiene en su base ahora mismo: en la
+ * guarnición y en la tropa de su héroe que está allí (`veteranosEn`). Sin base,
+ * ninguno: no hay dónde hacerse héroe.
+ */
+export function veteranosEnSuBase(state: GameState, player: PlayerId): VeteranoEnBase[] {
+  const base = baseOf(state, player);
+  return base === null ? [] : veteranosEn(base, heroeEnElPueblo(state, base));
+}
+
+/**
+ * El veterano `veteranoId` de `player`, si puede hacerse héroe sea del tipo que
+ * sea, o por qué no: la base, el nivel y el hueco de héroe. **La única búsqueda
+ * del veterano**, que leen `ascensoBlocker` para la frase y `ascenderVeterano`
+ * para el resultado, sin volver a buscarlo.
+ *
+ * «No está en tu base» cubre también al que ya se hizo héroe: al ascender sale
+ * de la tropa, así que un segundo intento con el mismo id no lo encuentra. Es lo
+ * que hace que un individuo no dé dos héroes, sin un registro aparte que
+ * mantener al día.
+ */
+function ascensoPosible(
+  state: GameState,
+  player: PlayerId,
+  veteranoId: string,
+): VeteranoEnBase | { readonly motivo: string } {
+  if (baseOf(state, player) === null) {
+    return { motivo: 'no tienes base: un veterano solo se hace héroe en ella' };
+  }
+  const v = veteranosEnSuBase(state, player).find((x) => x.veterania.id === veteranoId);
+  if (v === undefined) {
+    return {
+      motivo: `el veterano "${veteranoId}" no está en tu base con nivel ${NIVEL_MAXIMO_DE_TROPA}: solo se hace héroe quien llega al tope y está allí`,
+    };
+  }
+  if (!hayHuecoDeHeroe(state, player)) {
+    return {
+      motivo: `ya tienes ${MAX_HEROES_PER_PLAYER} de ${MAX_HEROES_PER_PLAYER} héroes: el veterano espera en la base hasta que haya sitio`,
+    };
+  }
+  return v;
+}
+
+/**
+ * Por qué el veterano `veteranoId` de `player` no puede hacerse héroe de tipo
+ * `heroType`, o `null` si puede. **La única que lo decide**: la lee
+ * `ascenderVeterano` para lanzar, y su frase es la que el director le devuelve
+ * al narrador. Por eso está escrita para que la lea él.
+ */
+export function ascensoBlocker(
+  state: GameState,
+  player: PlayerId,
+  veteranoId: string,
+  heroType: string,
+): string | null {
+  const posible = ascensoPosible(state, player, veteranoId);
+  if ('motivo' in posible) return posible.motivo;
+  return problemaDeTipo(playerById(state, player).faction, heroType);
+}
+
+/**
+ * El veterano `veteranoId` de `player` se hace héroe con lo que eligió el
+ * narrador: **nace en la base** —en su casilla o, si la ocupa otro héroe, en la
+ * primera libre de al lado (`casillaDeVuelta`)—, con la experiencia del
+ * individuo (la del tope o más, así que héroe de ese nivel o más: una sola
+ * escala), las cifras del contratado, el ejército vacío y **sin movimiento** el
+ * día en que nace. El individuo sale de donde estaba: la guarnición o la tropa
+ * del héroe que lo llevaba.
+ *
+ * **Quien quede en la casilla del castillo recoge la guarnición** (`takeGarrison`,
+ * la misma puerta que el contratado y el que vuelve vencido): el nacido si nace
+ * en ella, y si no, el héroe del dueño que ya la ocupaba —el portador, cuando
+ * el veterano venía en su tropa—, con el nacido al lado y sin tropa. Antes no la recogía nadie, porque «un héroe sin tropa en su base no
+ * corre peligro». Era falso: con el héroe del dueño dentro la ciudad la defiende
+ * **solo él con su tropa** (regla del usuario), así que la guarnición dejaba de
+ * pelear y la base caía esa misma noche ante dos campesinos —las semillas 11 y
+ * 23 de la sonda de QA, que sin ascenso aguantaban—. La recoge el de la casilla
+ * y no «el nacido» porque es el que defiende: dársela al de al lado dejaba el
+ * mismo agujero con otro nombre. Decisión del usuario: «Recoge la guarnición».
+ *
+ * El id es `hero-<id del veterano>`, único porque el del veterano lo es y porque
+ * el individuo sale de la tropa al ascender, y no el `hero-<jugador>-<n>-<día>`
+ * de `hireHero`, que puede repetirse (#126).
+ *
+ * Lanza con la frase de `ascensoBlocker` si no puede.
+ */
+export function ascenderVeterano(
+  state: GameState,
+  player: PlayerId,
+  veteranoId: string,
+  eleccion: { readonly name: string; readonly story: string; readonly heroType: string },
+): Hero {
+  // Las dos mitades de `ascensoBlocker`, en su orden, sin buscar dos veces.
+  const v = ascensoPosible(state, player, veteranoId);
+  if ('motivo' in v) throw new Error(`no se puede hacer héroe: ${v.motivo}`);
+  const tipoMalo = problemaDeTipo(playerById(state, player).faction, eleccion.heroType);
+  if (tipoMalo !== null) throw new Error(`no se puede hacer héroe: ${tipoMalo}`);
+
+  const fuera = (army: Army): Army => army.filter((t) => t.veterania?.id !== veteranoId);
+  if (v.heroe === null) {
+    v.base.garrison = fuera(v.base.garrison);
+  } else {
+    const portador = heroById(state, v.heroe);
+    portador.army = fuera(portador.army);
+  }
+
+  const hero = heroeRecienHecho({
+    id: `hero-${veteranoId}`,
+    owner: player,
+    name: eleccion.name,
+    faction: playerById(state, player).faction,
+    at: v.base.at,
+    experience: v.veterania.experiencia,
+    tipo: eleccion.heroType,
+    origen: { creature: v.creature, historia: eleccion.story },
+  });
+  hero.at = casillaDeVuelta(state, hero, v.base);
+  state.heroes.push(hero);
+  emit(state, {
+    kind: 'hero_promoted',
+    hero: hero.id,
+    town: v.base.id,
+    creature: v.creature,
+    name: hero.name,
+    actor: player,
+    at: hero.at,
+  });
+  const enLaCasilla = heroeEnElPueblo(state, v.base);
+  if (enLaCasilla !== undefined) takeGarrison(state, enLaCasilla, v.base);
+  revealAround(state, hero);
+  return hero;
 }
 
 /**

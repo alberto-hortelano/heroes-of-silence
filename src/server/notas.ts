@@ -20,6 +20,7 @@
  * pasó. Son papeles distintos, y además `core` no puede importar del servidor.
  */
 import type { BattleAction } from '@core/battle/types.js';
+import type { RequestKind } from '@core/contract/agent.js';
 import {
   type AdventureAction,
   describePlayer,
@@ -345,40 +346,54 @@ export function notaAccionAceptada(
   return `${unidad}: ${describeAccion(accion)}, aplicada.`;
 }
 
+/**
+ * Lo que pasa cuando un ascenso no sale: nada. No lo sustituye nadie —sin
+ * narrador no hay héroe, decisión del usuario— y no se vuelve a preguntar hasta
+ * que el veterano salga de la base y vuelva (`porPreguntar`).
+ */
+const SIN_ASCENSO =
+  'La tropa sigue igual: nadie se hace héroe en tu lugar, y por ese veterano no se te ' +
+  'volverá a preguntar hasta que salga de la base y vuelva.';
+
 /** Lo que pasa con el mapa cuando el del agente no llega o no sirve. */
 const EL_MAPA_LO_PONE_EL_GENERADOR =
   'el mapa lo pone el generador procedimental y la partida empieza igual';
 
 /**
- * Qué se juega en lugar de lo que el agente no entregó.
+ * Qué se juega en lugar de lo que el agente no entregó, kind a kind.
  *
  * `LA_JUEGA_LA_IA` —«juega la IA de reglas en tu lugar»— es cierto para un turno
- * y **falso para un mapa**: un `map_generate` que no llega no lo juega nadie,
- * porque no es un turno y no hay heurística que lo sustituya. Lo que pasa es que
- * el mapa lo pone el generador procedimental y la partida empieza igual, y eso
- * es lo que el agente necesita saber para no quedarse esperando una segunda
- * oportunidad que no va a existir.
+ * y **falso para todo lo demás**: un `map_generate` que no llega no lo juega
+ * nadie —el mapa lo pone el generador procedimental y la partida empieza igual—,
+ * y un `hero_from_troop` tampoco —nadie se hace héroe en su lugar—. Eso es lo que
+ * el agente necesita saber para no quedarse esperando una segunda oportunidad
+ * que no va a existir.
  *
  * Es el mismo fallo que cerró la crítica del ciclo de los veredictos —una nota
  * que afirma lo que no ha pasado— una petición más allá: la cola estaba escrita
  * cuando el único `kind` que se pedía era un turno, y se quedó igual el día en
- * que dejó de serlo.
+ * que dejó de serlo. Por eso **una tabla y no un `if`/`else`**: el `else` decía
+ * «ese turno lo juega la IA de reglas» de todo lo que no fuera un mapa, y con
+ * `hero_from_troop` habría vuelto a mentir, que es la trampa que dejó
+ * `hero_banter` al retirarse. Con `Record<RequestKind, …>` un kind nuevo sin su
+ * frase no compila.
  */
-function enSuLugar(kind: string): string {
-  if (kind === 'map_generate') {
-    return `${mayuscula(EL_MAPA_LO_PONE_EL_GENERADOR)}.`;
-  }
-  return `Ese turno lo ${LA_JUEGA_LA_IA}.`;
-}
+const EN_SU_LUGAR: Readonly<Record<RequestKind, string>> = {
+  adventure_turn: `Ese turno lo ${LA_JUEGA_LA_IA}.`,
+  battle_turn: `Ese turno lo ${LA_JUEGA_LA_IA}.`,
+  map_generate: `${mayuscula(EL_MAPA_LO_PONE_EL_GENERADOR)}.`,
+  hero_from_troop: SIN_ASCENSO,
+};
 
 function mayuscula(texto: string): string {
   return texto.charAt(0).toUpperCase() + texto.slice(1);
 }
 
 /** Su respuesta no encajaba con el esquema y no se aplicó nada de ella. */
-export function notaRespuestaInvalida(kind: string): string {
+export function notaRespuestaInvalida(kind: RequestKind): string {
   return (
-    `Tu respuesta a "${kind}" no encaja con el esquema y no se ha aplicado nada. ` + enSuLugar(kind)
+    `Tu respuesta a "${kind}" no encaja con el esquema y no se ha aplicado nada. ` +
+    EN_SU_LUGAR[kind]
   );
 }
 
@@ -391,9 +406,9 @@ export function notaRespuestaInvalida(kind: string): string {
  * distinguir «se perdió» de «llegó tarde», que es justo lo contrario de lo que
  * el canal promete.
  */
-export function notaSinRespuesta(kind: string, motivo: string): string {
+export function notaSinRespuesta(kind: RequestKind, motivo: string): string {
   return (
-    `No llegó tu respuesta a "${kind}": ${motivo}. ${enSuLugar(kind)} ` +
+    `No llegó tu respuesta a "${kind}": ${motivo}. ${EN_SU_LUGAR[kind]} ` +
     'No la contestes ahora: si la contestas se descarta por llegar tarde. ' +
     'Vuelve a heroes_listen y sigue desde la petición siguiente.'
   );
@@ -434,6 +449,39 @@ export function notaMapaAceptado(width: number, height: number, ciudades: number
     `Tu plan de mapa entró: la partida se juega en ${width}×${height} con ${ciudades} ciudades. ` +
     'A partir de aquí las peticiones son de turno.'
   );
+}
+
+// ---------------------------------------------------------- la tropa se hace héroe
+
+/**
+ * El ascenso entró: quién nace, dónde y con qué. La tropa se dice como quedó, y
+ * no como se supone: decía «nace sin tropa» cuando no recogía la guarnición, y
+ * desde que la recoge (I1) esa frase habría sido falsa en el caso de siempre.
+ */
+export function notaAscenso(
+  heroe: { readonly id: string; readonly name: string; readonly tipo: string },
+  nivel: number,
+  base: string,
+  donde: { readonly enElCastillo: boolean; readonly tropa: number },
+): string {
+  const tropa = !donde.enElCastillo
+    ? 'Nace junto al castillo, que ya ocupa otro héroe tuyo, y sin tropa: la guarnición se la lleva el del castillo, que es quien la defiende.'
+    : donde.tropa > 0
+      ? `Se ha llevado ${donde.tropa} ${donde.tropa === 1 ? 'individuo' : 'individuos'} de la guarnición.`
+      : 'No había guarnición que recoger: nace sin tropa.';
+  return (
+    `${heroe.name} (${heroe.id}) es ya un héroe tuyo de tipo ${heroe.tipo} y nivel ${nivel}, en ` +
+    `${base}. ${tropa} Nace sin movimiento: lo moverás desde mañana.`
+  );
+}
+
+/**
+ * La respuesta encajaba con el esquema y el ascenso no se puede hacer: un tipo
+ * de otra facción, o el tope de héroes lleno entre la pregunta y la respuesta.
+ * El motivo va debajo, en `problems`; aquí lo que pasa con la tropa.
+ */
+export function notaAscensoRechazado(veterano: string): string {
+  return `El veterano ${veterano} no se ha hecho héroe (el motivo, debajo). ${SIN_ASCENSO}`;
 }
 
 // ------------------------------------------------------------ fin de partida

@@ -50,6 +50,7 @@ import { explicacionDeFin, rotuloDeDia } from '../../src/client/views/panels.js'
 import { chooseBattleAction } from '../../src/core/ai/tactics.js';
 import { stackHexes } from '../../src/core/battle/battle.js';
 import type { BattleAction, BattleEvent, BattleStack } from '../../src/core/battle/types.js';
+import { nombreDeTipoDeHeroe } from '../../src/core/data.js';
 import { troopSummary } from '../../src/core/hero/troop.js';
 import { casillasPeligrosas } from '../../src/core/state/asaltantes.js';
 import { baseOf, heroesOf, visibleNow } from '../../src/core/state/game.js';
@@ -581,6 +582,15 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
   });
   await comprobar(page, espejo, 'abrir la partida');
   await captura(page, 'desktop-01-mapa-dia-1');
+
+  // El tipo del héroe en la cabecera de su panel: el inicial lleva el de por
+  // defecto de su facción (la tropa que se hace héroe solo pasa con narrador).
+  const cabecera = (await page.locator('#side .eyebrow').first().innerText()).trim();
+  const tipo = nombreDeTipoDeHeroe(espejo.selectedHero!.faction, espejo.selectedHero!.tipo);
+  if (!cabecera.toUpperCase().includes(tipo.toUpperCase())) {
+    throw new Error(`la cabecera del héroe dice «${cabecera}» y no nombra su tipo, «${tipo}»`);
+  }
+  log(`el panel del héroe enseña su tipo: «${cabecera}»`);
 
   // Pulsar la casilla del propio héroe: decía «No hay camino hasta ahí.».
   const propio = espejo.selectedHero!;
@@ -1618,11 +1628,17 @@ async function espectador(browser: Browser, url: string, problemas: Problemas): 
   let vigilando = false;
   let vigia: Promise<void> = Promise.resolve();
   try {
-    servidor = await arrancarServidor({
-      HEROES_SEED: String(SEMILLA),
-      HEROES_MAX_DAYS: '12',
-      HEROES_WAIT_AGENT_MS: '30000',
-    });
+    servidor = await arrancarServidor(
+      {
+        HEROES_SEED: String(SEMILLA),
+        HEROES_MAX_DAYS: '12',
+        HEROES_WAIT_AGENT_MS: '30000',
+      },
+      // Con un veterano de nivel 5 en la base del agente, como `pnpm qa`: el
+      // héroe que nace de la tropa es lo que el espectador tiene que enseñar
+      // con su tipo y su historia, y la partida sola casi nunca lo da.
+      { entrada: 'tools/qa/partida-con-veterano.ts' },
+    );
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     vigilarConsola(page, 'espectador', problemas);
     await page.goto(`${url}/espectador/?puerto=${servidor.espectador}`);
@@ -1694,6 +1710,14 @@ async function espectador(browser: Browser, url: string, problemas: Problemas): 
       conectado.send(JSON.stringify(msg));
     let mapa = false;
     let turnosDeBatalla = 0;
+    /** El héroe nacido de la tropa, como lo pinta el panel; `null` si no se vio. */
+    let heroeNacido: string | null = null;
+    /** Lo que se esperaba ver en el panel, en cuanto llega el `hero_from_troop`. */
+    let heroeEsperado: string | null = null;
+    /** La espera del panel con el nacido, que se lanza al ascender y se cobra al final. */
+    let verElHeroe: Promise<void> = Promise.resolve();
+    /** Por qué no se vio, si la espera venció o la captura falló. */
+    let heroeSinVer: string | null = null;
     const gameOver = new Promise<number>((ok, mal) => {
       conectado.on('open', () => enviar({ type: 'hello', client: 'capturas' }));
       conectado.on('error', mal);
@@ -1717,11 +1741,35 @@ async function espectador(browser: Browser, url: string, problemas: Problemas): 
               await captura(page, 'espectador-02-batalla');
             }
           }
-          enviar({
-            type: 'response',
-            requestId: msg.requestId,
-            data: decidir(msg.kind, msg.payload),
-          });
+          const data = decidir(msg.kind, msg.payload);
+          enviar({ type: 'response', requestId: msg.requestId, data });
+          // El ascenso: el panel tiene que enseñar al nacido con su nombre, su
+          // tipo y su historia. El espectador va detrás del servidor, así que
+          // hay que esperar a verlo; pero **no aquí**: este manejador es el que
+          // contesta al servidor, y esperar dentro dejaba la partida parada
+          // hasta que el panel se pusiera al día. Se lanza y se cobra al final.
+          if (msg.kind === 'hero_from_troop') {
+            const { name, story } = data as { name: string; story: string };
+            const tipos = (msg.payload as { heroTypes: { id: string; name: string }[] }).heroTypes;
+            const tipo = tipos[0]!.name;
+            heroeEsperado = `«${name} · ${tipo}» con «${story}»`;
+            verElHeroe = page
+              .waitForFunction(
+                ([n, h]) => {
+                  const t = document.getElementById('side')?.textContent ?? '';
+                  return t.includes(n) && t.includes(h);
+                },
+                [`${name} · ${tipo}`, story] as const,
+                { timeout: 10_000 },
+              )
+              .then(async () => {
+                heroeNacido = `${name} · ${tipo} — «${story}»`;
+                await captura(page, 'espectador-00-heroe-nacido');
+              })
+              .catch((err: unknown) => {
+                heroeSinVer = err instanceof Error ? err.message : String(err);
+              });
+          }
         })().catch(mal);
       });
     });
@@ -1763,6 +1811,15 @@ async function espectador(browser: Browser, url: string, problemas: Problemas): 
       );
       await captura(page, 'espectador-04-fin-de-partida');
     }
+    await verElHeroe;
+    if (heroeNacido === null) {
+      fallos.push(
+        heroeEsperado === null
+          ? 'no llegó ningún "hero_from_troop": el veterano de la base no se ofreció al narrador'
+          : `el panel del espectador no enseña al héroe nacido de la tropa: esperaba ${heroeEsperado}` +
+              (heroeSinVer === null ? '' : ` (${heroeSinVer})`),
+      );
+    } else log(`espectador: el héroe nacido de la tropa se ve en el panel: ${heroeNacido}`);
     if (turnosDeBatalla < 2) fallos.push('la partida terminó sin una batalla del agente que mirar');
     if (finesVistos === 0) fallos.push('ninguna batalla del agente enseñó su «Fin» al espectador');
     else

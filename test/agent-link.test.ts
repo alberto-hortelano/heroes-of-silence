@@ -16,8 +16,10 @@ import { createRng } from '../src/core/rng.js';
 import { cronicaPara, sinSello, visibleTo } from '../src/core/state/events.js';
 import {
   applyAdventureAction,
+  baseOf,
   type GameContext,
   type GameState,
+  MAX_HEROES_PER_PLAYER,
   revealEverything,
 } from '../src/core/state/game.js';
 import type { Town } from '../src/core/town/town.js';
@@ -27,6 +29,7 @@ import { responderConsulta } from '../src/server/consultas.js';
 import { Director } from '../src/server/director.js';
 import { pedirMapaAlAgente } from '../src/server/mapa-del-agente.js';
 import { SIN_PARTIDA_TODAVIA } from '../src/server/notas.js';
+import { ponVeteranoEnLaBase } from '../tools/qa/veterano-en-la-base.js';
 import { ejercito, ponerMonstruo, sinGuarnicionDeSalida } from './helpers.js';
 
 /** Agente de mentira: responde leyendo el payload, como haría uno de verdad. */
@@ -1631,5 +1634,242 @@ describe('el agente sabe cómo le fue', () => {
     expect(agent.results[0]!.ok).toBe(false);
     expect(agent.results[0]!.note).toMatch(/IA de reglas/);
     expect(agent.results[0]!.problems?.length).toBeGreaterThan(0);
+  });
+});
+
+describe('la tropa se hace héroe, por el cable', () => {
+  /** El agente que contesta los turnos con nada y el ascenso con lo que le digan. */
+  const narrador =
+    (ascenso: (payload: any) => unknown) =>
+    (kind: string, payload: any): unknown => {
+      if (kind === 'hero_from_troop') return ascenso(payload);
+      if (kind === 'adventure_turn') return { actions: [] };
+      return undefined;
+    };
+  const bueno = (p: any) => ({
+    name: `Héroe de ${p.veteran.id}`,
+    story: `Fue ${p.veteran.creatureName} en ${p.veteran.battles} batallas.`,
+    heroType: p.heroTypes[1].id,
+  });
+
+  it('una respuesta buena crea el héroe antes del turno, y el turno ya lo trae con su tipo', async () => {
+    const { link, agent } = await montar(narrador(bueno));
+    let veterano = '';
+    const director = new Director(link, {
+      seed: 501,
+      agentPlayers: [0],
+      preparar: (s) => {
+        veterano = ponVeteranoEnLaBase(s, 0);
+      },
+    });
+    await director.playTurn();
+    await respira();
+
+    // Primero el ascenso y después el turno: el héroe nacido sale ya en él.
+    expect(agent.seen.map((p) => p.kind)).toEqual(['hero_from_troop', 'adventure_turn']);
+    const peticion = agent.seen[0]!.payload;
+    expect(peticion.veteran).toMatchObject({
+      id: veterano,
+      level: 5,
+      experience: 220,
+      battles: 3,
+      kills: 5,
+      heroesDefeated: ['Sir Arnés'],
+      in: 'garrison',
+    });
+    expect(peticion.you.faction).toBe('knight');
+    expect(peticion.heroTypes.map((t: any) => t.id)).toEqual([
+      'caballero',
+      'monje',
+      'inquisidor',
+      'gran_maestre',
+    ]);
+    expect(peticion.heroes).toEqual({ count: 1, max: 4 });
+
+    const turno = agent.seen[1]!.payload;
+    expect(turno.heroes).toHaveLength(2);
+    const nacido = turno.heroes.find((h: any) => h.name === `Héroe de ${veterano}`);
+    expect(nacido).toMatchObject({ type: 'monje', level: 5, movePoints: 0 });
+    // Nace en la casilla del castillo y se lleva la guarnición (I1): una base
+    // defendida por un héroe sin tropa caía esa noche ante dos campesinos.
+    expect(nacido.at).toEqual(turno.towns.find((t: any) => t.id === turno.yourBase).at);
+    expect(nacido.army.length).toBeGreaterThan(0);
+    expect(nacido.story).toMatch(/batallas/);
+    // El que ya estaba lleva su tipo por defecto y no trae historia.
+    const viejo = turno.heroes.find((h: any) => h.id !== nacido.id);
+    expect(viejo.type).toBe('caballero');
+    expect('story' in viejo).toBe(false);
+
+    const veredicto = agent.results.find((r) => r.requestId === agent.seen[0]!.requestId)!;
+    expect(veredicto.ok).toBe(true);
+    expect(veredicto.note).toMatch(/es ya un héroe tuyo de tipo monje y nivel 5/);
+    // La nota dice la tropa con la que quedó, no la que se suponía.
+    expect(veredicto.note).toMatch(/Se ha llevado \d+ individuos de la guarnición/);
+    expect(veredicto.note).not.toMatch(/sin tropa/);
+  });
+
+  for (const [caso, ascenso, motivo] of [
+    [
+      'un esquema malo (nombre con salto de línea)',
+      (p: any) => ({ ...bueno(p), name: 'Dos\nlíneas' }),
+      /una sola línea/,
+    ],
+    [
+      'un tipo de la otra facción',
+      (p: any) => ({ ...bueno(p), heroType: 'lich' }),
+      /"lich" no es un tipo de héroe de knight/,
+    ],
+  ] as const) {
+    it(`${caso}: el estado queda igual y el veredicto lo dice sin hablar de la IA de reglas`, async () => {
+      const { link, agent } = await montar(narrador(ascenso));
+      const director = new Director(link, {
+        seed: 502,
+        agentPlayers: [0],
+        preparar: (s) => ponVeteranoEnLaBase(s, 0),
+      });
+      const heroes = director.state.heroes.length;
+      const guarnicion = JSON.stringify(director.state.towns.map((t) => t.garrison));
+      await director.playTurn();
+      await respira();
+
+      expect(director.state.heroes).toHaveLength(heroes);
+      // El veterano sigue en la guarnición: ningún individuo se ha movido.
+      const ascensoId = agent.seen.find((p) => p.kind === 'hero_from_troop')!.requestId;
+      expect(JSON.stringify(director.state.towns.map((t) => t.garrison))).toBe(guarnicion);
+      const veredicto = agent.results.find((r) => r.requestId === ascensoId)!;
+      expect(veredicto.ok).toBe(false);
+      expect(veredicto.problems?.join(' ')).toMatch(motivo);
+      expect(veredicto.note).not.toMatch(/IA de reglas/);
+      expect(veredicto.note).toMatch(/no se te volverá a preguntar hasta que salga de la base/);
+      // Y el turno sigue: el ascenso fallido no se come el `adventure_turn`.
+      expect(agent.seen.some((p) => p.kind === 'adventure_turn')).toBe(true);
+    });
+  }
+
+  it('si no contesta a tiempo, nada cambia y el turno sigue', async () => {
+    const { link, agent } = await montar(
+      narrador(() => undefined),
+      300,
+    );
+    const director = new Director(link, {
+      seed: 503,
+      agentPlayers: [0],
+      preparar: (s) => ponVeteranoEnLaBase(s, 0),
+    });
+    const heroes = director.state.heroes.length;
+    await director.playTurn();
+    await respira();
+
+    expect(director.state.heroes).toHaveLength(heroes);
+    const ascensoId = agent.seen.find((p) => p.kind === 'hero_from_troop')!.requestId;
+    const veredicto = agent.results.find((r) => r.requestId === ascensoId)!;
+    expect(veredicto.ok).toBe(false);
+    expect(veredicto.note).toMatch(/no respondiste a tiempo/);
+    expect(veredicto.note).not.toMatch(/IA de reglas/);
+    expect(agent.seen.some((p) => p.kind === 'adventure_turn')).toBe(true);
+  });
+
+  it('no se le vuelve a preguntar por el mismo mientras siga en la base, y sí cuando vuelve', async () => {
+    const { link, agent } = await montar(narrador((p) => ({ ...bueno(p), heroType: 'lich' })));
+    let veterano = '';
+    const director = new Director(link, {
+      seed: 504,
+      agentPlayers: [0],
+      preparar: (s) => {
+        veterano = ponVeteranoEnLaBase(s, 0);
+      },
+    });
+    const ascensos = (): number => agent.seen.filter((p) => p.kind === 'hero_from_troop').length;
+
+    await director.playTurn(); // agente
+    await director.playTurn(); // rival
+    await director.playTurn(); // agente otra vez, el veterano sigue en la base
+    await respira();
+    expect(ascensos()).toBe(1);
+
+    // Un turno sin él en la base —ha salido—, y vuelve.
+    const base = director.state.towns.find((t) => t.owner === 0 && t.garrison.length > 0)!;
+    const el = base.garrison.find((t) => t.veterania?.id === veterano)!;
+    base.garrison = base.garrison.filter((t) => t !== el);
+    await director.playTurn(); // rival
+    await director.playTurn(); // agente, sin el veterano
+    await respira();
+    expect(ascensos()).toBe(1);
+    base.garrison = [el, ...base.garrison];
+    await director.playTurn(); // rival
+    await director.playTurn(); // agente: ha vuelto
+    await respira();
+    expect(ascensos()).toBe(2);
+  });
+
+  it(`con ${MAX_HEROES_PER_PLAYER} héroes no se pregunta nada`, async () => {
+    const { link, agent } = await montar(narrador(bueno));
+    const director = new Director(link, {
+      seed: 505,
+      agentPlayers: [0],
+      preparar: (s) => {
+        ponVeteranoEnLaBase(s, 0);
+        const modelo = s.heroes.find((h) => h.owner === 0)!;
+        for (let i = 1; i < MAX_HEROES_PER_PLAYER; i++) {
+          s.heroes.push({ ...modelo, id: `relleno-${i}`, at: { x: 0, y: i } });
+        }
+      },
+    });
+    await director.playTurn();
+    await respira();
+    expect(agent.seen.map((p) => p.kind)).toEqual(['adventure_turn']);
+    expect(director.log.some((l) => /no se pregunta/.test(l))).toBe(true);
+    // Y se le dice al agente, en su turno y en una línea (M4): antes iba solo a
+    // la consola del director, y el agente tenía que deducirlo.
+    const aviso = agent.seen[0]!.payload.veteransWaiting;
+    expect(aviso).toBe(
+      `1 veterano de nivel 5 espera en tu base para hacerse héroe, pero ya tienes ${MAX_HEROES_PER_PLAYER} de ${MAX_HEROES_PER_PLAYER} héroes: no se te preguntará hasta que haya sitio.`,
+    );
+  });
+
+  it('con dos veteranos en la guarnición, la segunda petición dice dónde está el segundo DESPUÉS del primer ascenso', async () => {
+    // El primer nacido ocupa el castillo y recoge la guarnición (I1), y con ella
+    // al segundo veterano: la petición de este tiene que decir que ya va en la
+    // tropa de ese héroe, no en la guarnición de la foto de antes (N1 de QA).
+    const { link, agent } = await montar(narrador(bueno));
+    let segundo = '';
+    const director = new Director(link, {
+      seed: 11,
+      agentPlayers: [0],
+      preparar: (s) => {
+        ponVeteranoEnLaBase(s, 0);
+        const base = baseOf(s, 0)!;
+        const [primero, otro, ...resto] = base.garrison;
+        segundo = `veterano-${s.siguienteVeterano++}`;
+        base.garrison = [
+          primero!,
+          { ...otro!, veterania: { ...primero!.veterania!, id: segundo } },
+          ...resto,
+        ];
+      },
+    });
+    await director.playTurn();
+    await respira();
+
+    const peticiones = agent.seen.filter((p) => p.kind === 'hero_from_troop');
+    expect(peticiones).toHaveLength(2);
+    expect(peticiones[0]!.payload.veteran.in).toBe('garrison');
+    const nacido = `hero-${peticiones[0]!.payload.veteran.id}`;
+    expect(peticiones[1]!.payload.veteran).toMatchObject({ id: segundo, in: { hero: nacido } });
+  });
+
+  it('sin tope lleno el turno no trae el aviso de veteranos esperando', async () => {
+    const { link, agent } = await montar(narrador(bueno));
+    const director = new Director(link, {
+      seed: 505,
+      agentPlayers: [0],
+      preparar: (s) => {
+        ponVeteranoEnLaBase(s, 0);
+      },
+    });
+    await director.playTurn();
+    await respira();
+    expect(agent.seen.map((p) => p.kind)).toEqual(['hero_from_troop', 'adventure_turn']);
+    expect('veteransWaiting' in agent.seen[1]!.payload).toBe(false);
   });
 });

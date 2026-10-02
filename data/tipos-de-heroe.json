@@ -1,0 +1,49 @@
+{
+  "_comment": "GENERADO por tools/datos/tipos-de-heroe.ts a partir de las secciones «Templarios» (knight) y «No muertos» (necromancer) de NuevaJugabilidad.md (el cuaderno de diseño del usuario, que no se commitea), con una expresión regular y sin teclear ningún nombre. No se edita a mano: se regenera. id = lo que va antes del primer paréntesis, sin tildes y con guion bajo; nombre = sin «(nuevo)»; el primero de cada facción es el tipo por defecto del héroe inicial y del contratado. Los tipos todavía NO tienen efecto (no hay motor de habilidades): se guardan en el héroe, se ven y se serializan.",
+  "tipos": {
+    "knight": [
+      {
+        "id": "caballero",
+        "nombre": "Caballero",
+        "descripcion": "líder de primera línea. Desafío: obliga a un enemigo adyacente a atacarle a él durante un turno."
+      },
+      {
+        "id": "monje",
+        "nombre": "Monje (Abad)",
+        "descripcion": "soporte. Curación en área de 1 hex y Bendición (+1 armadura a un aliado durante 2 turnos)."
+      },
+      {
+        "id": "inquisidor",
+        "nombre": "Inquisidor",
+        "descripcion": "cazador de magos y no muertos. Daño extra contra unidades mágicas o resucitadas, y puede impedir que un enemigo resucite."
+      },
+      {
+        "id": "gran_maestre",
+        "nombre": "Gran Maestre",
+        "descripcion": "héroe de formación. Las tropas adyacentes a él ganan +1 al ataque y no pueden ser empujadas."
+      }
+    ],
+    "necromancer": [
+      {
+        "id": "nigromante",
+        "nombre": "Nigromante",
+        "descripcion": "resucita un cadáver como esqueleto o zombie. Si el cadáver era de un enemigo, puede levantarlo como una versión debilitada de esa misma unidad."
+      },
+      {
+        "id": "vampiro",
+        "nombre": "Vampiro",
+        "descripcion": "se cura al dañar (robo de vida) y puede convertirse en murciélagos para moverse sin ser bloqueado."
+      },
+      {
+        "id": "lich",
+        "nombre": "Lich",
+        "descripcion": "mago oscuro de largo alcance. Puede Drenar para quitar una habilidad a un enemigo."
+      },
+      {
+        "id": "caballero_de_la_muerte",
+        "nombre": "Caballero de la muerte",
+        "descripcion": "el contrapunto oscuro del Caballero templario. Las tropas que mueren a su lado se levantan en el acto con 1 de vida."
+      }
+    ]
+  }
+}

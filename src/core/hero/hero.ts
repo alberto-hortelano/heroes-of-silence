@@ -26,6 +26,64 @@ export interface Hero {
   movePoints: number;
   spells: string[];
   skills: Partial<Record<SkillId, SkillLevel>>;
+  /**
+   * El tipo de héroe, un id de `data/tipos-de-heroe.json` de su facción.
+   * **Inerte**: se guarda, se ve y se serializa, pero no da ninguna habilidad
+   * hasta que exista el motor que las aplique. El héroe inicial y el contratado
+   * llevan el de por defecto (`tipoDeHeroePorDefecto`); el que nace de la tropa,
+   * el que eligió el narrador.
+   */
+  readonly tipo: string;
+  /**
+   * De dónde salió, solo si salió de la tropa (`ascenderVeterano`): la criatura
+   * que era y la historia que le escribió el narrador. El id de su hoja de
+   * servicios no se guarda: es la raíz de su `id` (`hero-<veterano>`). El inicial y el contratado no lo llevan, y no llevan un `null`:
+   * con `exactOptionalPropertyTypes` la ausencia ya dice «no tiene».
+   */
+  readonly origen?: OrigenDelHeroe;
+}
+
+/** Lo que el héroe nacido de la tropa recuerda de cuando era tropa. */
+export interface OrigenDelHeroe {
+  readonly creature: string;
+  readonly historia: string;
+}
+
+/**
+ * Un héroe recién hecho, con las cifras del contratado: ataque, defensa, poder y
+ * conocimiento a 1, el maná lleno, sin tropa, sin hechizos, sin habilidades y
+ * **sin movimiento**. Quien lo llama decide si se le da el del día —el
+ * contratado sí, el que nace de la tropa no—.
+ *
+ * **La única construcción de un `Hero`**: eran dos literales escritos a mano y
+ * los iba a ser tres, y el día que el héroe gane un campo los tres tendrían que
+ * acordarse. El inicial de `setup.ts` también pasa por aquí y sobrescribe lo
+ * suyo (2/2/1/2, su tropa, Flecha mágica, Logística y Sabiduría) encima.
+ */
+export function heroeRecienHecho(datos: {
+  readonly id: string;
+  readonly owner: PlayerId;
+  readonly name: string;
+  readonly faction: FactionId;
+  readonly at: Point;
+  readonly experience: number;
+  readonly tipo: string;
+  readonly origen?: OrigenDelHeroe;
+}): Hero {
+  const hero: Hero = {
+    ...datos,
+    attack: 1,
+    defense: 1,
+    spellPower: 1,
+    knowledge: 1,
+    mana: 0,
+    army: [],
+    movePoints: 0,
+    spells: [],
+    skills: {},
+  };
+  hero.mana = maxMana(hero);
+  return hero;
 }
 
 /**

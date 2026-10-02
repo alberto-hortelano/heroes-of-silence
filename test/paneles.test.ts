@@ -21,8 +21,12 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { marcadoDe } from '../src/client/html.js';
 import { Session } from '../src/client/session.js';
-import { renderTopbar } from '../src/client/views/panels.js';
+import { renderSide, renderTopbar } from '../src/client/views/panels.js';
+import { tiposDeHeroe } from '../src/core/data.js';
+import { ascenderVeterano } from '../src/core/state/game.js';
+import { ponVeteranoEnLaBase } from '../tools/qa/veterano-en-la-base.js';
 import { volcado } from './escenas-paneles.js';
 
 const ANCLA = fileURLToPath(new URL('fixtures/paneles.txt', import.meta.url));
@@ -64,5 +68,24 @@ describe('la barra de arriba cuenta cómo acabó la partida', () => {
 
     session.state.finished = { winner: null };
     expect(renderTopbar(session).turn).toBe('Partida sin resolver');
+  });
+});
+
+describe('el héroe nacido de la tropa en el panel del cliente', () => {
+  it('enseña su tipo en la cabecera y su historia escapada debajo del nombre', () => {
+    const session = new Session(5);
+    const yo = session.viewer;
+    const id = ponVeteranoEnLaBase(session.state, yo);
+    const heroe = ascenderVeterano(session.state, yo, id, {
+      name: 'Ana',
+      story: 'Vio caer <i>tres</i> murallas & siguió.',
+      heroType: tiposDeHeroe(session.state.players.find((p) => p.id === yo)!.faction)[2]!.id,
+    });
+    session.selectedHeroId = heroe.id;
+    const salida = marcadoDe(renderSide(session));
+    const tipo = tiposDeHeroe(heroe.faction)[2]!.nombre;
+    expect(salida).toContain(`HÉROE · NIVEL 5 · ${tipo}`);
+    expect(salida).toContain('Vio caer &lt;i&gt;tres&lt;/i&gt; murallas &amp; siguió.');
+    expect(salida).not.toContain('<i>tres');
   });
 });

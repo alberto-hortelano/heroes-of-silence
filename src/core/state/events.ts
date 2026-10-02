@@ -112,6 +112,13 @@ type Cuerpo =
   /** Un héroe licencia tropa en un castillo suyo, para hacer sitio a otra mejor. */
   | { kind: 'dismissed'; hero: string; creature: string; count: number }
   | { kind: 'hero_hired'; hero: string; town: string }
+  /**
+   * Un veterano de nivel máximo se hace héroe en su base (ciclo B de «la tropa
+   * crece»): `hero` es el id del nuevo, `creature` lo que era y `name` el nombre
+   * que le dio el narrador. Solo ocurre con agente —«solo con narrador»—, así
+   * que en una partida sin él no sale nunca y el volcado del banco no lo ve.
+   */
+  | { kind: 'hero_promoted'; hero: string; town: string; creature: string; name: string }
   | { kind: 'spells_learned'; hero: string; town: string; spells: string[] }
   | { kind: 'garrison_taken'; hero: string; town: string }
   | { kind: 'battle_started'; attacker: Atacante; foe: BattleFoe }
@@ -231,6 +238,7 @@ export function visibleTo(e: GameEvent, p: PlayerId): boolean {
     case 'recruited':
     case 'dismissed':
     case 'hero_hired':
+    case 'hero_promoted':
     case 'spells_learned':
     case 'garrison_taken':
     case 'battle_started':

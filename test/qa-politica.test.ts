@@ -23,7 +23,7 @@
  * puede ponerse rojo es peor que ninguno: ocupa el sitio del que sí.
  */
 import { describe, expect, it } from 'vitest';
-import { REQUEST_KINDS } from '../src/core/contract/agent.js';
+import { heroFromTroopResponseSchema, REQUEST_KINDS } from '../src/core/contract/agent.js';
 import { validateMapPlan } from '../src/core/map/generate.js';
 import { decidir, FIRMA_DEL_MAPA } from '../tools/qa/politica.js';
 
@@ -41,6 +41,10 @@ const PAYLOADS: Record<string, unknown> = {
   },
   battle_turn: { legalActions: [{ type: 'move' }, { type: 'attack', target: 's2' }] },
   map_generate: { want: { width: 24, height: 24, players: 2 } },
+  hero_from_troop: {
+    veteran: { id: 'veterano-3', creatureName: 'Piquero', battles: 4 },
+    heroTypes: [{ id: 'caballero' }, { id: 'monje' }],
+  },
 };
 
 describe('la política del arnés de QA (#44)', () => {
@@ -69,7 +73,7 @@ describe('la política del arnés de QA (#44)', () => {
     }
   });
 
-  it('los tres kinds que sí atiende siguen respondiendo lo que deben', () => {
+  it('los kinds que sí atiende siguen respondiendo lo que deben', () => {
     // Que no lancen ya lo dice el test de arriba; esto mira QUÉ contestan. Si
     // una rama nueva se llevara por delante a las buenas, `pnpm qa` moriría en
     // la primera escucha y este test es más barato que descubrirlo allí.
@@ -80,6 +84,14 @@ describe('la política del arnés de QA (#44)', () => {
     // Pegar va antes que moverse: si no, el arnés pasea sin resolver ninguna
     // batalla y la partida no termina nunca.
     expect(batalla.action.type).toBe('attack');
+
+    // El ascenso: el nombre que el arnés busca después en `game_state` y el
+    // primer tipo que se le ofrece, que es el que nunca falla.
+    const heroe = heroFromTroopResponseSchema.parse(
+      decidir('hero_from_troop', PAYLOADS.hero_from_troop),
+    );
+    expect(heroe.name).toBe('QA veterano-3');
+    expect(heroe.heroType).toBe('caballero');
   });
 
   it('el plan de mapa del arnés es jugable y va FIRMADO (#27)', () => {

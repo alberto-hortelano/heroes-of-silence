@@ -124,6 +124,41 @@ describe('contrato con el agente', () => {
     if (r.success) throw new Error('«Pueblo Uno» debería rechazarse');
     expect(r.error.issues.map((i) => i.message).join(' ')).toMatch(/minúsculas/);
   });
+
+  it('un nombre o una historia en blanco no pasan, ni en el plan ni en el héroe nacido (M1)', () => {
+    // QA: `{name: '   ', story: '   '}` pasaba, y con él un héroe sin nombre
+    // visible en el panel, la crónica y el veredicto. El hueco era el de #97
+    // —«una sola línea» no es «algo que se lea»—, así que se cierra en la puerta
+    // compartida y lo heredan el plan de mapa y el ascenso.
+    const base = generateMapPlan(createRng(13));
+    const conPueblo = (name: string): unknown => ({
+      ...base,
+      towns: [{ ...base.towns[0], name }, base.towns[1]],
+    });
+    const heroe = responseSchemas.hero_from_troop;
+    const bueno = { name: 'Ana la Paciente', story: 'Guardó la puerta.', heroType: 'lich' };
+    expect(heroe.safeParse(bueno).success).toBe(true);
+    expect(mapPlanSchema.safeParse(conPueblo('Valdeluz')).success).toBe(true);
+    // Un nombre con espacios, acentos y un apóstrofo sigue valiendo.
+    expect(heroe.safeParse({ ...bueno, name: "Ño D'Arnés" }).success).toBe(true);
+
+    const blancos = ['   ', '\t', '\u0000', 'Ana\u0000', '\u00a0\u200b', 'A\tB', '\u0007'];
+    for (const malo of blancos) {
+      const n = heroe.safeParse({ ...bueno, name: malo });
+      expect(n.success, `name ${JSON.stringify(malo)} debería rechazarse`).toBe(false);
+      const h = heroe.safeParse({ ...bueno, story: malo });
+      expect(h.success, `story ${JSON.stringify(malo)} debería rechazarse`).toBe(false);
+      const m = mapPlanSchema.safeParse(conPueblo(malo));
+      expect(m.success, `pueblo ${JSON.stringify(malo)} debería rechazarse`).toBe(false);
+    }
+    // Con un motivo que se entiende, que es lo que corrige al agente.
+    const r = heroe.safeParse({ ...bueno, name: '   ' });
+    if (r.success) throw new Error('un nombre en blanco debería rechazarse');
+    expect(r.error.issues.map((i) => i.message).join(' ')).toMatch(/en blanco/);
+    const c = heroe.safeParse({ ...bueno, story: 'Cayó\u0000' });
+    if (c.success) throw new Error('una historia con un carácter de control debería rechazarse');
+    expect(c.error.issues.map((i) => i.message).join(' ')).toMatch(/caracteres de control/);
+  });
 });
 
 describe('lo que ve el agente', () => {
@@ -849,5 +884,54 @@ describe('respuestas del agente', () => {
       },
     });
     expect(r.success).toBe(false);
+  });
+});
+
+describe('la tropa se hace héroe: el contrato', () => {
+  it('el kind nuevo tiene esquema y una prosa que nombra los tres campos', () => {
+    const prosa = RESPONSE_FORMAT.hero_from_troop;
+    for (const campo of ['"name"', '"story"', '"heroType"', 'heroTypes']) {
+      expect(prosa, campo).toContain(campo);
+    }
+    // Lo que el agente tiene que saber antes de elegir: es inerte, nace sin
+    // movimiento y —desde I1— con la guarnición si nace en el castillo, y una
+    // respuesta mala no se reintenta enseguida.
+    expect(prosa).toMatch(/todavía NO da ninguna habilidad/);
+    expect(prosa).toMatch(/SIN MOVIMIENTO hasta mañana/);
+    expect(prosa).toMatch(/se lleva la\s+guarnición que le quepa/);
+    expect(prosa).not.toMatch(/SIN TROPA/);
+    expect(prosa).toMatch(/no se te vuelve a preguntar por él hasta que\s+salga de la base/);
+    // Y el turno de aventura anuncia la regla con el tope interpolado.
+    expect(RESPONSE_FORMAT.adventure_turn).toMatch(/SE\s+HACE HÉROE/);
+    expect(RESPONSE_FORMAT.adventure_turn).toMatch(/Con 4 héroes no se te pide nada/);
+    expect(RESPONSE_FORMAT.adventure_turn).toMatch(/RECOGE LA GUARNICIÓN/);
+    expect(RESPONSE_FORMAT.adventure_turn).toMatch(/"veteransWaiting"/);
+    expect(RESPONSE_FORMAT.adventure_turn).toMatch(/"type"/);
+  });
+
+  it('el esquema acota el nombre y la historia, y deja el tipo para quien sabe la facción', () => {
+    const s = responseSchemas.hero_from_troop;
+    expect(s.safeParse({ name: 'Ana', story: 'Una línea.', heroType: 'lo_que_sea' }).success).toBe(
+      true,
+    );
+    expect(s.safeParse({ name: 'Ana\nB', story: 'x', heroType: 'monje' }).success).toBe(false);
+    expect(s.safeParse({ name: 'x'.repeat(41), story: 'x', heroType: 'monje' }).success).toBe(
+      false,
+    );
+    expect(s.safeParse({ name: 'Ana', story: 'a\nb', heroType: 'monje' }).success).toBe(false);
+    expect(s.safeParse({ name: 'Ana', story: 'x'.repeat(281), heroType: 'monje' }).success).toBe(
+      false,
+    );
+    expect(s.safeParse({ name: 'Ana', story: '', heroType: 'monje' }).success).toBe(false);
+    expect(s.safeParse({ name: 'Ana', story: 'x' }).success).toBe(false);
+  });
+
+  it('cada héroe del turno lleva su tipo, y solo el nacido de la tropa su historia', () => {
+    const state = newGame({ seed: 12 });
+    const turno = serializeAdventureTurn(state, 0) as { heroes: Record<string, unknown>[] };
+    for (const h of turno.heroes) {
+      expect(h.type).toBe('caballero');
+      expect('story' in h).toBe(false);
+    }
   });
 });

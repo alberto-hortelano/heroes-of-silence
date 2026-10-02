@@ -549,6 +549,20 @@ describe('la crónica de la pantalla deja de mentir', () => {
     expect(suyo).not.toContain('win');
   });
 
+  it('la tropa que se hace héroe se cuenta, con el nombre del narrador escapado', () => {
+    const cuerpo = { kind: 'hero_promoted', hero: 'h', town: 't', creature: 'pikeman' };
+    expect(linea({ ...cuerpo, name: 'Ana', actor: 0 })).toBe(
+      '<div class="log"><div class="win">Un Piquero tuyo se hace héroe: Ana</div></div>',
+    );
+    const suyo = linea({ ...cuerpo, name: '<b>X</b>', actor: 1 });
+    expect(suyo).toContain(
+      '<div>Un Piquero del jugador 1 se hace héroe: &lt;b&gt;X&lt;/b&gt;</div>',
+    );
+    // Y le consta a su dueño aunque nadie lo mirara: es «lo tuyo, siempre».
+    expect(visibleTo(evento({ ...cuerpo, name: 'Ana', actor: 0 }), 0)).toBe(true);
+    expect(visibleTo(evento({ ...cuerpo, name: 'Ana', actor: 0 }), 1)).toBe(false);
+  });
+
   it('el empate por días no se pinta en el rojo de derrota', () => {
     // La misma misatribución que la de `hero_defeated`, un evento más allá y
     // por el mismo motivo: la línea preguntaba `actor === viewer`, que es una

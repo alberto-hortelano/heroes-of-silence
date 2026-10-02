@@ -12,15 +12,15 @@ El juego es el andamio; lo interesante es lo que se puede enchufar dentro.
 pnpm install
 pnpm dev        # cliente en http://localhost:3100 (juego local contra la IA de reglas)
 pnpm mirar      # MIRAR la partida del agente: /espectador/ contra el servidor
-pnpm verify     # typecheck + lint + 594 tests, 9,5 s: el bucle rápido
-pnpm test       # 594 tests: reglas, batalla, partida completa y contrato del agente
+pnpm verify     # typecheck + lint + 943 tests, 11,9 s: el bucle rápido
+pnpm test       # 943 tests: reglas, batalla, partida completa y contrato del agente
 pnpm typecheck
 pnpm lint       # Biome: formato y lint en una sola pasada, 40 ms
 pnpm format     # lo mismo, arreglando lo que sepa arreglar
 pnpm banco      # 200 partidas: tiempo y sha256 del volcado, 4,1 s
 
 npx tsx tools/qa/enfrentamiento.ts   # dos tácticas frente a frente, 5000 batallas, 11,8 s
-pnpm capturas   # juega el cliente en Chromium (Playwright) con clics reales y saca capturas, ~40 s
+pnpm capturas   # juega el cliente en Chromium (Playwright) con clics reales y saca capturas, ~87 s
 ```
 
 La partida se abre con una semilla al azar; **`?seed=N` en la URL fija la
@@ -89,7 +89,7 @@ igual que un guardia hay que verlo morder.
 Verificación del circuito entero sin tocar nada a mano:
 
 ```bash
-pnpm qa   # pide el mapa al agente, arranca servidor + puente MCP y juega, 3,1 s
+pnpm qa   # pide el mapa al agente, arranca servidor + puente MCP y juega, 3,0 s
 ```
 
 No solo comprueba que no reviente. Lee el bloque `CÓMO FUE LO ANTERIOR` de cada
@@ -532,19 +532,23 @@ escribe donde se usa —`agent-link.ts` ya tipa `ask()` así— y un tipo que ni
 fuera del repo que justificaría «es API pública» no existe. `MapGenerateResponse`
 se queda porque tiene un consumidor, no porque sea más importante.
 
-Tipos de petición: `adventure_turn`, `battle_turn` y `map_generate`. Y hay
+Tipos de petición: `adventure_turn`, `battle_turn`, `map_generate` y, desde «la
+tropa se hace héroe», `hero_from_troop`. Y hay
 **seis** tools de consulta (`game_state`, `battle_state`, `map`,
 `creature_stats`, `spell_list`, `building_list`) para mirar cosas sin volcarse
 la partida entera en el contexto.
 
-Los tres tipos están vivos y se ejercen. **`hero_banter` era el cuarto y no
+Los cuatro tipos están vivos y se ejercen. **`hero_banter` fue un cuarto que no
 existía**: se le anunciaba a un agente que no podía descubrir la mentira —el
 kind no estaba en `REQUEST_KINDS`, así que nadie se lo iba a pedir nunca y el
 anuncio no tenía forma de ponerse rojo—. Se retiró entero, y de paso se llevó un
 fallo latente: el `else` de `enSuLugar` le habría contestado «ese turno lo juega
 la IA de reglas» **sobre una frase de héroe**. Lo que quedó vigilándolo no es un
 test de que ya no esté —ese no puede ponerse rojo tampoco—, sino uno que compara
-los `case` de `decidir` contra `REQUEST_KINDS` **en las dos direcciones**.
+los `case` de `decidir` contra `REQUEST_KINDS` **en las dos direcciones**. Y mordió
+el día que entró `hero_from_troop`, antes de que tuviera su rama. Ese `else` ya no
+existe: lo que se juega en su lugar es una tabla `Record<RequestKind, string>`
+(`EN_SU_LUGAR`, en `notas.ts`), y un kind sin su frase no compila.
 
 **Y el agente solo pregunta por los suyos.** `game_state`, `battle_state` y `map`
 llevan un parámetro `player`, y hasta hace poco se lo creían: `game_state{player:0}`
@@ -765,6 +769,64 @@ llega al agente y la consola lo dice. **No hay reintento**, igual que con una
 acción de aventura ilegal. Lo que sí cambia y hay que saberlo: cuando el mapa lo
 pone el agente, **la semilla del servidor ya no reproduce esa partida**, y por eso
 lo dice en su consola.
+
+## La tropa se hace héroe (ciclo B)
+
+«Si llegan a nivel máximo se convierten en héroes al llegar a la base. El héroe lo
+crea la IA en base al personaje» (`NuevaJugabilidad.md`), y **solo con narrador**:
+sin agente la tropa se queda en el 5 y no pasa nada más, así que el banco y el
+barrido no se mueven —el ancla `0c8fc759…` siguió igual—.
+
+- **Cuándo**: al empezar el turno del agente y antes de su `adventure_turn`
+  (`Director.ascensos`), no al llegar. El núcleo es síncrono y no puede preguntar a
+  mitad de un `moveHero`, y como el héroe nace sin movimiento nadie distingue «al
+  llegar» de «al empezar el día allí». Cuenta quien esté en la guarnición de la
+  base y en la tropa de un héroe propio que esté en ella (`veteranosEnSuBase`); un
+  personaje no, porque ya tiene nombre.
+- **Una vez por estancia** (`porPreguntar`): a quien ya se preguntó se le recuerda
+  mientras siga en la base al empezar cada turno, haya salido bien o mal; si falta
+  un turno, se le olvida, y al volver se le pregunta otra vez. Es estado del
+  servidor y no del núcleo, por jugador. Con el tope de héroes lleno no se
+  pregunta ni se recuerda: la tropa espera su sitio.
+- **La regla vive en `game.ts`**: `ascensoBlocker` es la única que decide y su
+  frase es la que vuelve al narrador. Las dos buscan al veterano una sola vez
+  (`ascensoPosible`), el tope de héroes se escribe en `hayHuecoDeHeroe` —lo leen
+  también `hireHero` y el director— y «el héroe del dueño en su pueblo» en
+  `heroeEnElPueblo`, que es la misma regla que decide a dónde va un recluta.
+  `ascenderVeterano` crea el héroe —id
+  `hero-<veterano>`, experiencia del individuo, cifras del contratado
+  (`heroeRecienHecho`, la única construcción de héroe: el inicial también pasa
+  por ella), sin movimiento, en `casillaDeVuelta`—, saca al
+  individuo de donde estaba y emite `hero_promoted`. Que un individuo no dé dos
+  héroes no necesita registro: al ascender sale de la tropa.
+- **Quien queda en la casilla del castillo recoge la guarnición** (`takeGarrison`,
+  la puerta del contratado y del que vuelve vencido): el nacido si nace en ella,
+  y si no el héroe del dueño que la ocupaba, con el nacido al lado y sin tropa.
+  La primera versión no la recogía nadie —«un héroe sin tropa en su base no corre
+  peligro»— y era falso: con el héroe del dueño dentro la ciudad la defiende solo
+  él, así que la guarnición dejaba de pelear y la base caía esa noche ante **dos
+  campesinos** (semillas 11 y 23 de QA, que sin ascenso aguantan). Decisión del
+  usuario: «Recoge la guarnición». El turno del agente lleva además
+  `veteransWaiting` cuando un veterano espera por el tope de héroes, que antes
+  solo iba a la consola del director.
+- **Los tipos de héroe están en datos y son inertes**: los cuatro de Templarios y
+  de No muertos, sacados del cuaderno con una expresión regular
+  (`tools/datos/tipos-de-heroe.ts` → `data/tipos-de-heroe.json`). `Hero.tipo` se
+  guarda, se ve —cabecera del panel, espectador, `heroes[].type` del agente— y no
+  da nada hasta el motor de habilidades. El inicial y el contratado llevan el
+  primero de su facción.
+- **`pnpm qa` lo cruza siempre**: arranca `tools/qa/partida-con-veterano.ts`, que
+  es la partida de siempre con un veterano de nivel 5 puesto en la base del agente.
+  Para eso el cuerpo de `ws-server.ts` salió a `src/server/partida.ts` como una
+  función con un `preparar`, que **solo abre un `import` desde `tools/`**: ninguna
+  variable de entorno ni ningún mensaje del cable. El arnés exige el veredicto
+  bueno y el héroe en el `adventure_turn` siguiente con su tipo y su historia,
+  cruzado una vez con `game_state`; con un tipo
+  inventado en la política sale 1. `pnpm capturas` arranca lo mismo y exige ver
+  al nacido en el panel del espectador, y sale 1 si tras el ascenso el héroe de
+  la casilla de la base se queda sin tropa con guarnición al lado. Medido de
+  paso: `pnpm capturas` tarda **~87 s** y no ~40, también en `e9e5d6c` sin este
+  ciclo.
 
 ## Ver jugar al agente, y el marcado que eso abrió
 
@@ -1491,12 +1553,12 @@ aportan en un prototipo. Lo que hay:
 
 | Comprobación | Cuánto tarda | Cuándo |
 |---|---|---|
-| `pnpm verify` | 8,8 s | siempre |
+| `pnpm verify` | 11,9 s | siempre |
 | `test/invariantes.test.ts` | 505 ms | va dentro de `pnpm test` |
 | El navegador | minutos | si el cambio se ve |
 | El espectador en el navegador | minutos | si tocas `html.ts`, `espectador/` o el canal |
-| `pnpm qa` | 3,1 s | si tocas `src/server/` o el contrato |
-| `pnpm capturas` | ~40 s | si el cambio se ve: juega el cliente y el espectador en Chromium y sale 1 con un error en consola |
+| `pnpm qa` | 3,0 s | si tocas `src/server/` o el contrato |
+| `pnpm capturas` | ~87 s | si el cambio se ve: juega el cliente y el espectador en Chromium y sale 1 con un error en consola |
 | `npx tsx tools/qa/barrido-semillas.ts` | 1,1 s | si tocas la IA o la economía |
 | `pnpm banco` | 4,1 s | si tocas el núcleo sin querer cambiar el juego |
 | `tools/qa/enfrentamiento.ts` | 11,8 s | si cambias **cómo decide** la IA de batalla |
@@ -1506,12 +1568,14 @@ Los tiempos están **medidos**, tres pasadas cada uno, no estimados: los que
 había antes decían 3 s y «~1 min» y llevaban ciclos siendo falsos. Que `pnpm qa`
 tarde 5 s y no un minuto no es una mejora: es que la partida se acaba el día 4
 porque el agente defiende y pierde, así que la cobertura real son **1 mapa
-diseñado, 3 turnos de mapa y 15 decisiones de batalla** — eran 2 y 13 antes de
-que la IA aprendiera a esperar y de que el agente diseñara el mapa.
+diseñado, 6 turnos de mapa, 17 decisiones de batalla y 1 ascenso de tropa a
+héroe** — eran 3 y 15 hasta que la base dejó de quedarse indefensa tras un
+ascenso, y 2 y 13 antes de que la IA aprendiera a esperar y de que el agente
+diseñara el mapa.
 
-`pnpm qa` **no entra en `pnpm verify`**: 8,7 + 3,1 = 11,8 s en cada final de
+`pnpm qa` **no entra en `pnpm verify`**: 11,9 + 3,0 = 14,9 s en cada final de
 tarea, para un guardia que solo dice algo cuando se toca `src/server/` o el
-contrato. Ese 3,1 eran 5,4 hasta que se le quitó el envoltorio `npx` al puente. El motivo de antes era otro y ya no existe:
+contrato. Ese 3,0 eran 5,4 hasta que se le quitó el envoltorio `npx` al puente. El motivo de antes era otro y ya no existe:
 abría los puertos **fijos** 9880/9881 y salía 1 con `EADDRINUSE` si había un
 `pnpm partida` levantado —la forma documentada de jugar con el agente—, así que el
 hook `Stop` se ponía rojo por tener el juego abierto. Eso está arreglado: los dos

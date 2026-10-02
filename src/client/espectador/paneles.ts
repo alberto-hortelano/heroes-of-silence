@@ -17,7 +17,13 @@ import type { SpectatorView } from '../../server/vista-espectador.js';
 import { NADIE } from '../desenlace.js';
 import { fondoDeColor, type Html, html, NADA, unir } from '../html.js';
 import { playerColor } from '../render/palette.js';
-import { marcaDeComandante, marcaDeVeterano, renderBattleLog, renderLog } from '../views/panels.js';
+import {
+  historiaDelHeroe,
+  marcaDeComandante,
+  marcaDeVeterano,
+  renderBattleLog,
+  renderLog,
+} from '../views/panels.js';
 import { adaptarBatalla } from './adaptar.js';
 
 /**
@@ -89,8 +95,8 @@ function jugadores(v: SpectatorView): Html {
             // que escriba el agente acaba aquí. Sale por la puerta como todo.
             .map(
               (h) => html`<div class="stack empty">
-                <span>${h.name}</span><span class="count">${h.movePoints}</span>
-              </div>`,
+                <span>${h.name} · ${h.nombreDelTipo}</span><span class="count">${h.movePoints}</span>
+              </div>${historiaDelHeroe(h.historia)}`,
             ),
         )}`;
       }),

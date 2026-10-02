@@ -10,20 +10,30 @@ import { chooseBattleAction } from '@core/ai/tactics.js';
 import { type BattleTakeover, playAiTurn } from '@core/ai/turn.js';
 import { activeStack, applyAction } from '@core/battle/battle.js';
 import type { BattleAction, BattleState } from '@core/battle/types.js';
-import { serializeAdventureTurn, serializeBattleTurn } from '@core/contract/serialize.js';
+import {
+  serializeAdventureTurn,
+  serializeBattleTurn,
+  serializeHeroFromTroop,
+} from '@core/contract/serialize.js';
+import { porPreguntar } from '@core/hero/ascenso.js';
+import { NIVEL_MAXIMO_DE_TROPA, nivelDeHeroe } from '@core/hero/experiencia.js';
 import type { MapPlan } from '@core/map/generate.js';
+import { pointKey } from '@core/map/map.js';
 import { createRng } from '@core/rng.js';
 import {
   type AdventureAction,
   applyAdventureAction,
+  ascenderVeterano,
   battleOwners,
   currentPlayer,
   type GameContext,
   type GameState,
+  hayHuecoDeHeroe,
   playerById,
   resolvePendingBattle,
   settleBattle,
   sidesOwnedBy,
+  veteranosEnSuBase,
 } from '@core/state/game.js';
 import { newGame } from '@core/state/setup.js';
 import type { PlayerId } from '@core/types.js';
@@ -34,6 +44,8 @@ import {
   MOTIVO_TRAS_END_TURN,
   notaAccionAceptada,
   notaAccionSustituida,
+  notaAscenso,
+  notaAscensoRechazado,
   notaTurnoAventura,
 } from './notas.js';
 
@@ -81,6 +93,16 @@ export interface DirectorOptions {
    * a un observador, y eso es otro issue.
    */
   readonly onFrame?: () => void;
+  /**
+   * Retoca la partida recién creada, antes del primer turno.
+   *
+   * Existe para el arnés de QA y para nada más: la partida del arnés produce un
+   * veterano de nivel 5 en 0,06 de cada partida, así que `pnpm qa` no cruzaría
+   * nunca el ascenso por sí solo. **No lo abre ninguna variable de entorno ni
+   * ningún mensaje del cable**: solo un `import` desde `tools/`
+   * (`tools/qa/partida-con-veterano.ts`), que es código que no se despliega.
+   */
+  readonly preparar?: (state: GameState) => void;
 }
 
 export interface TurnReport {
@@ -111,7 +133,18 @@ export class Director {
     this.ctx = { rng: createRng(seed ^ 0xa9e7) };
     this.agentPlayers = new Set(options.agentPlayers ?? [1]);
     this.mirador = options.onFrame ?? null;
+    options.preparar?.(this.state);
   }
+
+  /**
+   * A qué veteranos de cada jugador se les ha preguntado ya **y siguen en la
+   * base desde entonces**. Es estado del servidor y no del núcleo: «no volver a
+   * preguntar» es una regla de conversación con el narrador, y sin narrador no
+   * hay a quién no volver a preguntar. Por jugador, porque `porPreguntar` olvida
+   * a quien no está en la base de quien pregunta, y con un conjunto compartido
+   * cada jugador del agente le borraría los suyos al otro.
+   */
+  private readonly yaPreguntados = new Map<PlayerId, Set<string>>();
 
   /**
    * Un fotograma, si hay quien lo mire.
@@ -188,7 +221,90 @@ export class Director {
     }
   }
 
+  /**
+   * Los veteranos de nivel máximo que `player` tiene en su base se hacen héroes, si
+   * el narrador quiere: uno a uno, un `hero_from_troop` por cada uno.
+   *
+   * Va al empezar el turno del agente, antes de `adventure_turn`, y no al llegar
+   * a la base: el núcleo es síncrono y no puede preguntar a mitad de un
+   * `moveHero`, y desde fuera nadie distingue «al llegar» de «al empezar el día
+   * siguiente allí», porque el héroe nace sin movimiento. Así un solo sitio cubre
+   * la guarnición y la tropa de los héroes, y el héroe recién nacido ya sale en
+   * el `adventure_turn` de este mismo turno.
+   *
+   * A cada veterano se le pregunta **una vez por estancia** (`porPreguntar`) y se
+   * le recuerda haya salido bien o mal: una respuesta mala no se reintenta hasta
+   * que salga y vuelva. Con el tope de héroes lleno no se pregunta nada y nadie
+   * queda recordado: la tropa espera su sitio, y cuando lo haya se le preguntará.
+   */
+  private async ascensos(player: PlayerId): Promise<void> {
+    const enBase = veteranosEnSuBase(this.state, player);
+    if (enBase.length === 0) {
+      // Nadie en la base: no hay a quién recordar, y el jugador sin veteranos
+      // —casi todos los turnos— no deja una entrada vacía en el mapa.
+      this.yaPreguntados.delete(player);
+      return;
+    }
+    const { preguntar, recordar } = porPreguntar(
+      enBase,
+      this.yaPreguntados.get(player) ?? new Set(),
+    );
+    this.yaPreguntados.set(player, recordar);
+
+    for (const preguntado of preguntar) {
+      const id = preguntado.veterania.id;
+      // Se vuelve a localizar antes de cada petición: un ascenso anterior de
+      // este mismo bucle mueve la guarnición —el héroe de la casilla la
+      // recoge—, y con ella al veterano que esperaba en ella. Con la foto de
+      // antes, la petición le diría al narrador que sigue en la guarnición.
+      const v = veteranosEnSuBase(this.state, player).find((x) => x.veterania.id === id);
+      if (v === undefined) continue;
+      if (!hayHuecoDeHeroe(this.state, player)) {
+        this.note(
+          `Hay veteranos de nivel ${NIVEL_MAXIMO_DE_TROPA} esperando en la base del jugador ${player}, pero no le cabe otro héroe: no se pregunta.`,
+        );
+        return;
+      }
+      recordar.add(id);
+
+      // Si `ask` lanza —plazo agotado, esquema malo, canal caído— el enlace ya
+      // se lo ha dicho al agente con su nota (`notaSinRespuesta`,
+      // `notaRespuestaInvalida`); aquí solo queda contarlo en la crónica del
+      // director y seguir: un ascenso que no sale no detiene el turno.
+      const respuesta = await this.link
+        .ask('hero_from_troop', serializeHeroFromTroop(this.state, player, v))
+        .catch((err: unknown) => {
+          this.note(
+            `El veterano ${id} no se hace héroe: ${err instanceof Error ? err.message : String(err)}`,
+          );
+          return null;
+        });
+      if (respuesta === null) continue;
+      if (respuesta.data.reasoning !== undefined) this.note(`Agente: ${respuesta.data.reasoning}`);
+
+      try {
+        const heroe = ascenderVeterano(this.state, player, id, respuesta.data);
+        this.frame();
+        this.note(`${heroe.name} se hace héroe (era el veterano ${id}).`);
+        this.link.report(
+          respuesta.requestId,
+          true,
+          undefined,
+          notaAscenso(heroe, nivelDeHeroe(heroe), v.base.name, {
+            enElCastillo: pointKey(heroe.at) === pointKey(v.base.at),
+            tropa: heroe.army.length,
+          }),
+        );
+      } catch (err) {
+        const motivo = err instanceof Error ? err.message : String(err);
+        this.note(`El veterano ${id} no se hace héroe: ${motivo}`);
+        this.link.report(respuesta.requestId, false, [motivo], notaAscensoRechazado(id));
+      }
+    }
+  }
+
   private async playAgentTurn(playerId: PlayerId): Promise<TurnReport> {
+    await this.ascensos(playerId);
     // El día se anota antes: `end_turn` puede pasar de día y la nota tiene que
     // hablar del turno que el agente acaba de jugar, no del siguiente.
     const dia = this.state.day;

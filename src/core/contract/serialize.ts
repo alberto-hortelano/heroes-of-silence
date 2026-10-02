@@ -16,8 +16,14 @@ import {
   type OrigenDelStack,
   type Side,
 } from '../battle/types.js';
-import { ASALTANTES, creature, isShooter, LIDERAZGO } from '../data.js';
-import { nivelDeHeroe, siguienteUmbral } from '../hero/experiencia.js';
+import { ASALTANTES, creature, isShooter, LIDERAZGO, tiposDeHeroe } from '../data.js';
+import type { VeteranoEnBase } from '../hero/ascenso.js';
+import {
+  NIVEL_MAXIMO_DE_TROPA,
+  nivelDeHeroe,
+  nivelDeTropa,
+  siguienteUmbral,
+} from '../hero/experiencia.js';
 import { maxMana, maxMovePoints } from '../hero/hero.js';
 import {
   armyLeadership,
@@ -33,9 +39,12 @@ import { cronicaPara } from '../state/events.js';
 import {
   baseOf,
   type GameState,
+  hayHuecoDeHeroe,
   heroesOf,
+  MAX_HEROES_PER_PLAYER,
   playerById,
   townsOf,
+  veteranosEnSuBase,
   visibleNow,
   week,
 } from '../state/game.js';
@@ -248,6 +257,31 @@ const COSTE_POR_TERRENO = TERRAIN_KINDS.filter(isWalkable)
 const COSTE_CON_CAMINO = `${costeDeEntrada('grass', true, false)} (${costeDeEntrada('grass', true, true)} en diagonal)`;
 
 /**
+ * La línea que dice al agente que hay veteranos de nivel máximo en su base a
+ * los que **no** se pregunta porque el tope de héroes está lleno, o nada si no
+ * los hay. Antes eso iba solo a la consola del director (M4 de QA): el agente
+ * tenía que deducirlo de un `level: 5` en la guarnición, su cuenta de héroes y
+ * la prosa. Se deriva de las dos mismas preguntas que hace el director para no
+ * preguntar —`veteranosEnSuBase` y `hayHuecoDeHeroe`—, así que no puede decir
+ * otra cosa que lo que pasó. Va solo cuando aplica, como `story`.
+ */
+function veteranosEsperando(
+  state: GameState,
+  playerId: PlayerId,
+): { readonly veteransWaiting?: string } {
+  if (hayHuecoDeHeroe(state, playerId)) return {};
+  const n = veteranosEnSuBase(state, playerId).length;
+  if (n === 0) return {};
+  const quien =
+    n === 1
+      ? `1 veterano de nivel ${NIVEL_MAXIMO_DE_TROPA} espera`
+      : `${n} veteranos de nivel ${NIVEL_MAXIMO_DE_TROPA} esperan`;
+  return {
+    veteransWaiting: `${quien} en tu base para hacerse héroe, pero ya tienes ${MAX_HEROES_PER_PLAYER} de ${MAX_HEROES_PER_PLAYER} héroes: no se te preguntará hasta que haya sitio.`,
+  };
+}
+
+/**
  * **Cómo se lee lo que devuelve `serializeKnownMap`**, en prosa y una sola vez.
  *
  * Vive pegado al serializador porque el fallo que cierra es exactamente el de
@@ -347,9 +381,14 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId): un
     // A dónde vuelve un héroe derrotado o rendido, o `null` si ya no tiene base:
     // decide si rendirse existe y qué cuesta perder un héroe.
     yourBase: baseOf(state, playerId)?.id ?? null,
+    ...veteranosEsperando(state, playerId),
     heroes: heroesOf(state, playerId).map((h) => ({
       id: h.id,
       name: h.name,
+      // El tipo, inerte todavía, y la historia si nació de la tropa. Van con su
+      // línea en `RESPONSE_FORMAT`, como todo campo de aquí.
+      type: h.tipo,
+      ...(h.origen === undefined ? {} : { story: h.origen.historia }),
       at: h.at,
       // El nivel con su experiencia y el umbral del siguiente, como una fila de
       // veterano de `army`: la escala es una sola (el héroe empieza en el 5,
@@ -435,6 +474,48 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId): un
     // en casa— la escribe `cronicaPara`, y el porqué con su medida está en la
     // cabecera de `events.ts`. Aquí solo se dice el tamaño de la ventana.
     recentEvents: cronicaPara(state, playerId, 25),
+  };
+}
+
+/**
+ * La petición `hero_from_troop`: el veterano que se hace héroe, lo que fue y lo
+ * que puede elegir.
+ *
+ * La hoja de servicios viaja entera —batallas, bajas y los nombres de los
+ * héroes que derribó— porque es la materia con la que el narrador escribe la
+ * historia: «el héroe lo crea la IA en base al personaje». `heroTypes` son los
+ * de la facción del JUGADOR, que es la del héroe que nace, y `heroes` el tope,
+ * para que la petición no prometa un sitio que no hay (con el tope lleno no se
+ * pide: `Director`).
+ */
+export function serializeHeroFromTroop(
+  state: GameState,
+  playerId: PlayerId,
+  v: VeteranoEnBase,
+): unknown {
+  const player = playerById(state, playerId);
+  return {
+    kind: 'hero_from_troop',
+    you: { player: playerId, faction: player.faction },
+    veteran: {
+      id: v.veterania.id,
+      creature: v.creature,
+      creatureName: creature(v.creature).name,
+      level: nivelDeTropa(v.veterania),
+      experience: v.veterania.experiencia,
+      battles: v.veterania.batallas,
+      kills: v.veterania.bajas,
+      heroesDefeated: v.veterania.heroes,
+      // Dónde está ahora: en la guarnición o en la tropa de qué héroe.
+      in: v.heroe === null ? 'garrison' : { hero: v.heroe },
+    },
+    town: { id: v.base.id, name: v.base.name },
+    heroTypes: tiposDeHeroe(player.faction).map((t) => ({
+      id: t.id,
+      name: t.nombre,
+      description: t.descripcion,
+    })),
+    heroes: { count: heroesOf(state, playerId).length, max: MAX_HEROES_PER_PLAYER },
   };
 }
 

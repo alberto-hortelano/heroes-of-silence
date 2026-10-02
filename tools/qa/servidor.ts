@@ -37,6 +37,12 @@ interface OpcionesDeArranque {
   readonly eco?: (trozo: string, deError: boolean) => void;
   /** El servidor ha muerto con un código distinto de cero DESPUÉS de arrancar. */
   readonly alMorir?: (codigo: number) => void;
+  /**
+   * El fichero que arranca la partida. Por defecto, el de siempre; `pnpm qa`
+   * pasa `tools/qa/partida-con-veterano.ts`, que es la misma partida con un
+   * veterano de nivel 5 en la base del agente.
+   */
+  readonly entrada?: string;
 }
 
 /**
@@ -48,7 +54,7 @@ export async function arrancarServidor(
   envExtra: Readonly<Record<string, string>>,
   opciones: OpcionesDeArranque = {},
 ): Promise<ServidorDePartida> {
-  const proceso = spawn('node_modules/.bin/tsx', ['src/server/ws-server.ts'], {
+  const proceso = spawn('node_modules/.bin/tsx', [opciones.entrada ?? 'src/server/ws-server.ts'], {
     cwd: process.cwd(),
     env: { ...process.env, ...envExtra, HEROES_AGENT_PORT: '0', HEROES_SPECTATOR_PORT: '0' },
     stdio: ['ignore', 'pipe', 'pipe'],

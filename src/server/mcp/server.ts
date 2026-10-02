@@ -10,6 +10,7 @@
 import { allSpells } from '@core/battle/spells.js';
 import { COMO_SE_LEE_EL_MAPA } from '@core/contract/serialize.js';
 import { allCreatures, creature, factionLineup } from '@core/data.js';
+import { NIVEL_MAXIMO_DE_TROPA } from '@core/hero/experiencia.js';
 import { allBuildings } from '@core/town/buildings.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
@@ -185,6 +186,8 @@ Tipos de petición que puedes recibir:
   "yourSide" en cada petición y no des por hecho que atacas.
 - "map_generate"   → diseña un mapa. No dibujas nada: devuelves un plan
   declarativo y el motor lo construye y lo valida.
+- "hero_from_troop" → un veterano de nivel ${NIVEL_MAXIMO_DE_TROPA} está en tu base y se hace héroe:
+  le das nombre, historia y tipo. Llega antes de tu "adventure_turn".
 
 El ciclo tiene final y te avisa de él: cuando la partida termina recibes un
 mensaje que empieza por "${PREFIJO_FIN}" y te dice quién ganó. Ahí se para

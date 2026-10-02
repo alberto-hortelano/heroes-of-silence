@@ -106,6 +106,19 @@ export function decidir(kind: string, payload: any): unknown {
         reasoning: 'qa: el plan del generador, firmado para que se vea cuál se juega',
       };
     }
+    case 'hero_from_troop': {
+      // El nombre lleva el id del veterano para que el arnés lo reconozca en el
+      // `adventure_turn` siguiente —«QA veterano-N»—, y el tipo es el primero que
+      // se le ofrece: elegir de la lista nunca falla, que es lo que se quiere
+      // ver cruzar. Romperlo a mano es cambiar esto por un tipo inventado.
+      const veterano = String(payload?.veteran?.id ?? '¿?');
+      return {
+        name: `QA ${veterano}`,
+        story: `Un ${payload?.veteran?.creatureName ?? 'soldado'} que sobrevivió a ${payload?.veteran?.battles ?? 0} batallas.`,
+        heroType: payload?.heroTypes?.[0]?.id,
+        reasoning: 'qa: el primer tipo de la lista',
+      };
+    }
     default:
       // Antes esto devolvía `{}`. Un `{}` no valida contra ningún esquema, así
       // que zod lo rechazaba en el servidor… y el arnés lo contaba como turno
