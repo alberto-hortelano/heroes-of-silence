@@ -192,10 +192,28 @@ function colocarAtrezo(model, prefijo, atrezo, conf, suelo, aplanar, frente) {
     agarre.addScaledVector(lateral, -agarre.clone().sub(pechoD).dot(lateral) * conf.centrado);
     const alcance = agarre.clone().sub(pechoD).dot(frente);
     if (alcance < conf.alcanceMinimo) agarre.addScaledVector(frente, conf.alcanceMinimo - alcance);
-    const abajo = new THREE.Vector3(0, -1, 0);
-    poseArm(model, 'Right', agarre, abajo);
+    // Que lo alcancen los dos brazos sin estirarse del todo: con el brazo
+    // recto el codo cae sobre la línea hombro-mano y no hay arco que formar,
+    // y si no llega, la mano se queda corta del puño.
+    for (const lado of ['Right', 'Left']) {
+      const hombro = p(lado + 'Arm');
+      const largo = hombro.distanceTo(p(lado + 'ForeArm')) + p(lado + 'ForeArm').distanceTo(p(lado + 'Hand'));
+      const hasta = agarre.clone().sub(hombro);
+      const maximo = largo * conf.estiramiento;
+      if (hasta.length() > maximo) agarre.copy(hombro).addScaledVector(hasta.normalize(), maximo);
+    }
+    // Los codos hacia fuera de su lado, abajo y algo adelante: con los dos hacia
+    // abajo el brazo derecho se plegaba dentro del pecho, y sin la parte de
+    // delante se iba detrás del torso. Hombro y mano no se mueven; solo gira el
+    // plano del brazo, que forma un arco.
+    const codo = (lado) =>
+      new THREE.Vector3(0, -1, 0)
+        .addScaledVector(lateral, lado * conf.codosAfuera)
+        .addScaledVector(frente, conf.codosAdelante)
+        .normalize();
+    poseArm(model, 'Right', agarre, codo(1));
     const manoIzquierda = agarre.clone().addScaledVector(eje, -conf.separacionManos);
-    poseArm(model, 'Left', manoIzquierda, abajo);
+    poseArm(model, 'Left', manoIzquierda, codo(-1));
     centro.copy(agarre);
     atrezo.espada.position.copy(centro);
   }
@@ -489,6 +507,12 @@ export interface Atrezo {
   readonly alcanceMinimo: number;
   /** A dos manos: distancia entre las dos manos sobre el puño, en metros. */
   readonly separacionManos: number;
+  /** A dos manos: cuánto se abren los codos hacia fuera, frente a hacia abajo (1 = 45°). */
+  readonly codosAfuera: number;
+  /** A dos manos: cuánto se adelantan los codos (en la misma escala). */
+  readonly codosAdelante: number;
+  /** A dos manos: a qué fracción de su largo, como mucho, se estira cada brazo. */
+  readonly estiramiento: number;
 }
 
 /**
@@ -510,6 +534,9 @@ export const JUEGOS_DE_ARMAS = {
       centrado: 0,
       alcanceMinimo: 0,
       separacionManos: 0,
+      codosAfuera: 0,
+      codosAdelante: 0,
+      estiramiento: 1,
     },
   },
   // Los clips son de espada y escudo: la mano izquierda se lleva al puño con IK
@@ -524,8 +551,11 @@ export const JUEGOS_DE_ARMAS = {
       dosManos: true,
       adelanteMinimo: 0.5,
       centrado: 0.85,
-      alcanceMinimo: 0.25,
+      alcanceMinimo: 0.3,
       separacionManos: 0.11,
+      codosAfuera: 1.5,
+      codosAdelante: 0.7,
+      estiramiento: 0.85,
     },
   },
 } as const satisfies Record<string, { describe: string; ataque: string; atrezo: Atrezo }>;
