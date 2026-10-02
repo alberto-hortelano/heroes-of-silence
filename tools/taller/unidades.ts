@@ -29,6 +29,8 @@ export interface Unidad {
   readonly perfil: Perfil | 'montado-lanza';
   /** Lado de la celda del atlas: 384 para las monturas, que a escala humana no caben en 256. */
   readonly celda?: 256 | 384;
+  /** Filas del atlas: 4 las monturas (reposo, paso, carga y ataque parado con espada). */
+  readonly filas?: 3 | 4;
   /**
    * La lámina de referencia de `assets/art/`: fija el aspecto Y el estilo que
    * tienen que seguir la identidad y la animación (decisión del usuario). Los
@@ -90,11 +92,12 @@ export const UNIDADES: readonly Unidad[] = [
     perfil: 'montado-lanza',
     concepto: 'assets/art/templarios/caballero-montado.png',
     celda: 384,
+    filas: 4,
     // La altura del reposo medida en la hoja de pose montada a escala humana
     // (lanza en alto incluida): así el jinete mide lo mismo que un soldado a pie.
     altura: 289,
     aspecto:
-      'Un hermano de carga templario A CABALLO, como el jinete del concepto: armadura de placas completa, sobrevesta blanca con cruz roja, yelmo cerrado con penacho rojo, escudo de cometa blanco con cruz roja en el brazo izquierdo y lanza de carga en la mano derecha. El caballo, castaño, lleva gualdrapa blanca con cruces rojas. Jinete y caballo son UNA sola figura.',
+      'Un hermano de carga templario A CABALLO, como el jinete del concepto: armadura de placas completa, sobrevesta blanca con cruz roja, yelmo cerrado con penacho rojo, escudo de cometa blanco con cruz roja en el brazo izquierdo y lanza de carga en la mano derecha para la carga y espada de una mano para el combate parado. El caballo, castaño, lleva gualdrapa blanca con cruces rojas. Jinete y caballo son UNA sola figura.',
   },
   {
     id: 'templario-penitente',
@@ -595,5 +598,6 @@ export function encargoDeAtlas(u: Unidad): Encargo {
     fondo: 'transparente',
     ...(u.altura === undefined ? {} : { alturaObjetivo: u.altura }),
     ...(u.celda === undefined ? {} : { celda: u.celda }),
+    ...(u.filas === undefined ? {} : { filas: u.filas }),
   };
 }

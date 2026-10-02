@@ -24,16 +24,44 @@ import { FIGURA } from '../../src/shared/arte.js';
 import { ALFA_FIGURA, apoyoEn } from './empaquetar.js';
 
 /** Las filas de una hoja del taller, en orden, con su reloj. El reloj no sale de la imagen. */
-export const CLIPS_DE_HOJA = [
-  { clip: 'idle', fps: 3, loop: true },
-  { clip: 'walk', fps: 8, loop: true },
-  { clip: 'attack', fps: 10, loop: false },
-] as const;
+const RELOJ = {
+  idle: { fps: 3, loop: true },
+  walk: { fps: 8, loop: true },
+  /** La carga de las monturas: la marcha con la lanza bajada, en bucle como ella. */
+  charge: { fps: 8, loop: true },
+  attack: { fps: 10, loop: false },
+} as const;
+export type ClipDeHoja = keyof typeof RELOJ;
+
+/**
+ * Las filas de una hoja según cuántas tenga: 3 a pie (reposo, marcha, ataque) y 4
+ * las monturas, que añaden la carga antes del ataque (decisión del usuario,
+ * 02-10-2026). Se deduce del alto de la imagen, así que volver a derivar una hoja
+ * no necesita saber de qué encargo salió.
+ */
+export const CLIPS_POR_FILAS: Readonly<Record<number, readonly ClipDeHoja[]>> = {
+  3: ['idle', 'walk', 'attack'],
+  4: ['idle', 'walk', 'charge', 'attack'],
+};
+
+export function clipsDeHoja(filas: number): { clip: ClipDeHoja; fps: number; loop: boolean }[] {
+  const clips = CLIPS_POR_FILAS[filas];
+  if (clips === undefined) throw new Error(`una hoja del taller tiene 3 o 4 filas, no ${filas}`);
+  return clips.map((clip) => ({ clip, ...RELOJ[clip] }));
+}
 
 /** Umbral de alfa con el que se mide la altura: el mismo que en `personajes.ts`. */
 const ALFA_ALTURA = 40;
 /** Dos fotogramas son el mismo si difieren en menos de este tanto por uno del alfa. */
 const REPETIDO = 0.004;
+
+export interface ClipDerivado {
+  readonly row: number;
+  readonly frames: number;
+  readonly fps: number;
+  readonly loop: boolean;
+  readonly anchor: readonly [number, number];
+}
 
 export interface AtlasDerivado {
   readonly imagen: string;
@@ -45,16 +73,7 @@ export interface AtlasDerivado {
   /** Relativa al ancla del reposo: [izquierda, arriba, derecha, abajo]. */
   readonly cajaDeClic: readonly [number, number, number, number];
   readonly clips: Readonly<
-    Record<
-      (typeof CLIPS_DE_HOJA)[number]['clip'],
-      {
-        readonly row: number;
-        readonly frames: number;
-        readonly fps: number;
-        readonly loop: boolean;
-        readonly anchor: readonly [number, number];
-      }
-    >
+    Record<'idle' | 'walk' | 'attack', ClipDerivado> & Partial<Record<'charge', ClipDerivado>>
   >;
   readonly derivadoPor: 'tools/taller/derivar.ts';
 }
@@ -120,17 +139,18 @@ export async function derivarAtlas(rutaImagen: string): Promise<AtlasDerivado> {
   // La celda sale de la imagen: 256 a pie, 384 las monturas; las columnas son siempre las de FIGURA.
   const { columnas } = FIGURA;
   const lado = info.width / columnas;
-  if (!Number.isInteger(lado) || info.height !== lado * CLIPS_DE_HOJA.length) {
+  const filas = info.height / lado;
+  if (!Number.isInteger(lado) || CLIPS_POR_FILAS[filas] === undefined) {
     throw new Error(
       `${rutaImagen} mide ${info.width}×${info.height}: una hoja del taller son ${columnas} columnas ` +
-        `por ${CLIPS_DE_HOJA.length} filas de celdas cuadradas`,
+        'por 3 o 4 filas de celdas cuadradas',
     );
   }
 
   const clips = {} as Record<string, AtlasDerivado['clips']['idle']>;
   let cajaDeClic: [number, number, number, number] | null = null;
   let altura = 0;
-  for (const [fila, def] of CLIPS_DE_HOJA.entries()) {
+  for (const [fila, def] of clipsDeHoja(filas).entries()) {
     const celdas = Array.from({ length: columnas }, (_, col) =>
       celda(data, info.width, col, fila, lado),
     );

@@ -50,14 +50,31 @@ const AJUSTE = {
   estriboArriba: -0.45,
   estriboLado: 0.32,
   lanza: 2.6,
+  espada: 0.9,
+  /**
+   * Giro de la espada respecto a la mano derecha (radianes, XYZ). Elegido entre
+   * tres probados sobre el render: con -90° en Z la hoja sale del puño. Se puede
+   * probar otro con `MONTURA_GIRO=x,y,z npx tsx tools/art/montura.ts --prueba`.
+   */
+  espadaGiro: (process.env.MONTURA_GIRO?.split(',').map(Number) ?? [0, 0, -Math.PI / 2]) as [
+    number,
+    number,
+    number,
+  ],
   sentadoT: 0,
 };
 
-/** Las tres filas de la hoja: el clip del caballo y la postura del jinete. */
+/**
+ * Las cuatro filas de la hoja montada (decisión del usuario, 02-10-2026):
+ * reposo y paso con la lanza en alto; la CARGA, que es el paso con la lanza
+ * bajada y en bucle como la marcha; y el ATAQUE ya parado en combate, con el
+ * caballo quieto y el jinete dando un tajo de espada, sin lanza.
+ */
 const FILAS = [
   { clip: 'idle', caballo: 'Idle', postura: 'reposo', enBucle: true },
   { clip: 'walk', caballo: 'Walk', postura: 'reposo', enBucle: true },
-  { clip: 'attack', caballo: 'Gallop', postura: 'carga', enBucle: true },
+  { clip: 'charge', caballo: 'Walk', postura: 'carga', enBucle: true },
+  { clip: 'attack', caballo: 'Idle', postura: 'ataque', enBucle: false },
 ] as const;
 
 const MIME: Record<string, string> = {
@@ -122,6 +139,7 @@ export async function renderizarMontura(prueba: boolean): Promise<string> {
     ['three.js de sprite-forge', join(FORGE, 'node_modules/three/build/three.module.js')],
     ['el y_bot', join(FBX, 'mixamo/y_bot/character.fbx')],
     ['sitting_idle', join(FBX, 'mixamo/ambient_anims/sitting_idle.fbx')],
+    ['el tajo de espada', join(FBX, 'anims/sword_and_shield/sword and shield slash.fbx')],
   ] as const) {
     if (!existsSync(ruta)) throw new Error(`no encuentro ${que} en ${ruta}`);
   }
@@ -150,6 +168,7 @@ export async function renderizarMontura(prueba: boolean): Promise<string> {
       caballo: '/modelos/caballo-quaternius.glb',
       ybot: '/fbx/mixamo/y_bot/character.fbx',
       sentado: '/fbx/mixamo/ambient_anims/sitting_idle.fbx',
+      ataque: '/fbx/anims/sword_and_shield/sword and shield slash.fbx',
       celda: CELDA_MONTADA,
       picado: -FIGURA.camara.elevacionGrados,
       ortho,
@@ -172,15 +191,16 @@ export async function renderizarMontura(prueba: boolean): Promise<string> {
       }),
     ) as Record<string, number>;
     for (const [fila, f] of FILAS.entries()) {
-      const dur = duraciones[f.caballo];
+      // El ataque lo marca el tajo del jinete; lo demás, el clip del caballo.
+      const dur = f.postura === 'ataque' ? (info.duracionAtaque as number) : duraciones[f.caballo];
       if (dur === undefined) throw new Error(`el caballo no tiene ${f.caballo}`);
-      // Se muestrea el clip a 24 fps y se reparten 7 columnas por él.
+      // Se muestrea a 24 fps y se reparten 7 columnas por el clip.
       const total = Math.max(1, Math.round(dur * 24));
       indices[f.clip] = indicesDeClip(total, columnas, f.enBucle);
       for (const [col, i] of (indices[f.clip] as number[]).entries()) {
         const url = (await pagina.evaluate(
-          ([clip, t, postura]) => (window as any).__fotograma(clip, t, postura),
-          [f.caballo, i / 24, f.postura] as const,
+          ([clip, t, postura, tj]) => (window as any).__fotograma(clip, t, postura, tj),
+          [f.caballo, f.postura === 'ataque' ? 0 : i / 24, f.postura, i / 24] as const,
         )) as string;
         celdas.push({ fila, col, png: Buffer.from(url.split(',')[1] as string, 'base64') });
       }
@@ -220,7 +240,8 @@ export async function renderizarMontura(prueba: boolean): Promise<string> {
         `${JSON.stringify(
           {
             perfil: 'montado-lanza',
-            ataque: 'la carga: galope con la lanza bajada hacia delante',
+            ataque:
+              'parado en combate: caballo quieto y tajo de espada; la carga es el paso con la lanza bajada',
             renderer: 'tools/art/montura.ts (three.js, la cámara y la luz de sprite-forge)',
             caballo: {
               fichero: 'tools/art/modelos/caballo-quaternius.glb',

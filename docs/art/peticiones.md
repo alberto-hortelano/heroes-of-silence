@@ -110,5 +110,14 @@ jinete. Lo que tiene que saber quien lo enganche:
 - Ocupa más casilla a la vista. Si las reglas lo hacen unidad de dos hexes, el arte
   ya tiene el tamaño de una; si sigue en uno, pisará algo el hex vecino al pintarlo.
 
+- Su atlas tiene **cuatro filas y cuatro clips**, no tres: `idle`, `walk`,
+  **`charge`** y `attack` (decisión del usuario):
+  - `charge`, la carga: el paso con la lanza bajada, **en bucle** como la marcha.
+    Es lo que se pinta mientras se mueve para cargar.
+  - `attack`: ya parado en combate, caballo quieto y tajo de **espada**, sin lanza.
+  `CharacterClip` en `character.ts` y `comoAtlas` en `personajes.ts` conocen hoy
+  tres clips: hace falta añadir `charge` (opcional; quien no lo tenga, usa `walk`).
+- Pendientes, decididos y aún sin hacer: muerte y herida (para todas las unidades).
+
 La referencia de pose sale de un caballo 3D CC0 (Quaternius) con el Y Bot sentado,
 renderizados con la cámara del juego: `tools/art/montura.ts`.

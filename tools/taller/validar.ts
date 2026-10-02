@@ -53,6 +53,7 @@ export async function validar(
   tipo: 'atlas' | 'identidad' | 'imagen' | 'iconos' | 'efecto',
   opaca = false,
   celda: number = FIGURA.celda,
+  filas = 3,
 ): Promise<Informe> {
   const { data, info } = await sharp(imagen)
     .ensureAlpha()
@@ -79,13 +80,13 @@ export async function validar(
 
   if (tipo === 'atlas') {
     const { columnas } = FIGURA;
-    if (info.width !== celda * columnas || info.height !== celda * 3) {
+    if (info.width !== celda * columnas || info.height !== celda * filas) {
       problemas.push(
-        `un atlas mide ${celda * columnas}×${celda * 3} y este ${info.width}×${info.height}`,
+        `un atlas mide ${celda * columnas}×${celda * filas} y este ${info.width}×${info.height}`,
       );
     }
     // Ninguna figura toca el borde de su celda: se cortaría al dibujarla sola.
-    for (let f = 0; f < 3; f++) {
+    for (let f = 0; f < filas; f++) {
       for (let c = 0; c < columnas; c++) {
         let toca = false;
         for (let i = 0; i < celda && !toca; i++) {

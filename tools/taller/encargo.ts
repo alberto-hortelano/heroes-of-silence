@@ -58,6 +58,8 @@ export const encargoSchema = z
     alturaObjetivo: z.number().int().min(60).max(360).optional(),
     /** Atlas: lado de la celda. 256 para las figuras a pie; 384 para las montadas, que no caben. */
     celda: z.union([z.literal(256), z.literal(384)]).optional(),
+    /** Atlas: 3 filas (reposo, marcha, ataque) o 4 las monturas (con la carga antes del ataque). */
+    filas: z.union([z.literal(3), z.literal(4)]).optional(),
     /** Imagen: si el fondo se recorta o la imagen es opaca (un fondo de batalla). */
     fondo: z.enum(['transparente', 'opaco']).default('transparente'),
     /** Corrige una generación anterior en su mismo hilo de Codex, que conserva la identidad. */
@@ -111,11 +113,14 @@ const SIN_FONDO =
 
 function reglasDeAtlas(e: Encargo): string {
   const { columnas } = FIGURA;
+  const filas = e.filas ?? 3;
   const altura = e.alturaObjetivo ?? FIGURA.alturaAdulto;
   return [
-    `Hoja de sprites de EXACTAMENTE ${columnas} columnas por 3 filas, ${columnas * 3} figuras del MISMO personaje, separadas con holgura y sin tocarse.`,
-    'Fila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete poses de ataque de la fila 3.',
-    'Misma cámara ortográfica elevada 25 grados en las tres filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos. El personaje mira a la derecha y al frente como el maniquí.',
+    `Hoja de sprites de EXACTAMENTE ${columnas} columnas por ${filas} filas, ${columnas * filas} figuras del MISMO personaje, separadas con holgura y sin tocarse.`,
+    filas === 4
+      ? 'Fila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases del paso de la fila 2. Fila 3: las siete fases de la CARGA de la fila 3, el mismo paso con la lanza bajada hacia delante. Fila 4: las siete poses del ATAQUE de la fila 4, parado y golpeando con la espada, sin lanza. Cada fila copia su fila de la referencia, articulación por articulación.'
+      : 'Fila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete poses de ataque de la fila 3.',
+    'Misma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos. El personaje mira a la derecha y al frente como el maniquí.',
     `Misma escala en todas las celdas: la figura de pie ocupa unos ${altura} de cada ${e.celda ?? FIGURA.celda} píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.`,
     // Once de los primeros 52 atlas fallaron por lo mismo: en el ataque, la
     // lanza o la espada de una figura tocaba a la de al lado, y el taller no

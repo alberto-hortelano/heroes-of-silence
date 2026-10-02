@@ -170,10 +170,10 @@ async function postprocesar(
       } else if (encargo.tipo === 'atlas') {
         const altura = encargo.alturaObjetivo ?? FIGURA.alturaAdulto;
         const celda = encargo.celda ?? FIGURA.celda;
-        const p = await empaquetar(r, 3, altura, celda);
+        const p = await empaquetar(r, encargo.filas ?? 3, altura, celda);
         final = p.png;
         pasos.push(
-          `figuras localizadas y empaquetadas en ${FIGURA.columnas}×3 celdas de ${celda}, ` +
+          `figuras localizadas y empaquetadas en ${FIGURA.columnas}×${encargo.filas ?? 3} celdas de ${celda}, ` +
             `escala uniforme ${p.escala.toFixed(4)}, pies en y=${baseEnCelda(celda)}, ` +
             (p.alturaFinal === p.alturaPedida
               ? `reposo a ${altura} px`
@@ -191,6 +191,7 @@ async function postprocesar(
       encargo.tipo,
       encargo.fondo === 'opaco',
       encargo.celda ?? FIGURA.celda,
+      encargo.filas ?? 3,
     );
     if (informe.problemas.length > 0) {
       // El crudo se queda en `~/.codex`; se dice dónde para poder mirarlo.

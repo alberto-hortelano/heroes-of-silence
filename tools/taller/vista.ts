@@ -52,6 +52,7 @@ async function fotograma(
 ): Promise<{ img: Buffer; ancla: [number, number]; lado: number }> {
   const { cell } = h.atlas;
   const c = h.atlas.clips[clip];
+  if (c === undefined) throw new Error(`${h.id} no tiene el clip «${clip}»`);
   const lado = Math.round(cell * escala);
   let img = sharp(h.png)
     .extract({ left: i * cell, top: c.row * cell, width: cell, height: cell })
@@ -192,12 +193,13 @@ function pagina(ejercitos: readonly Ejercito[]): string {
   <div class="ejercitos" id="ejercitos"></div>
   <label>Velocidad <input id="vel" type="range" min="0.25" max="2" step="0.25" value="1"><span id="velv">1×</span></label>
   <label>Tamaño <input id="tam" type="range" min="0.6" max="1.6" step="0.1" value="1"><span id="tamv">1×</span></label>
-  <span class="ayuda">Elige uno, o hasta tres para compararlos · en cada tarjeta: reposo · marcha · ataque; arriba a la derecha, abajo espejado</span>
+  <span class="ayuda">Elige uno, o hasta tres para compararlos · en cada tarjeta: reposo · marcha · (carga) · ataque; arriba a la derecha, abajo espejado</span>
 </header>
 <main id="vista"></main>
 <script>
 const EJERCITOS = ${JSON.stringify(datos)};
-const CLIPS = ['idle', 'walk', 'attack'];
+// Los clips de cada hoja, por su fila: 3 a pie y 4 las monturas (con la carga).
+const clipsDe = (atlas) => Object.keys(atlas.clips).sort((a, b) => atlas.clips[a].row - atlas.clips[b].row);
 const SOMBRA = ${JSON.stringify(sombraDeFigura(100))};
 const MAXIMO = 3;
 let vel = 1, tam = 1;
@@ -298,14 +300,16 @@ function dibujar(ahora) {
     const ctx = c.getContext('2d'); ctx.clearRect(0, 0, c.width, c.height);
     if (!img.complete || img.naturalWidth === 0) continue;
     const cell = h.atlas.cell, esc = 0.85 * tam;
-    CLIPS.forEach((nombre, k) => {
+    clipsDe(h.atlas).forEach((nombre, k) => {
       const clip = h.atlas.clips[nombre];
       const n = Math.floor(t * clip.fps);
       // El ataque se repite cada 2 s para poder verlo; en el juego sale una vez.
       const i = clip.loop ? n % clip.frames : Math.min(clip.frames - 1, Math.floor((t % 2) * clip.fps));
       [false, true].forEach((espejo, fila) => {
         // Hueco para la figura más alta: el jinete (celda de 384) a la escala de la infantería.
-        const x = 100 + k * 200, suelo = 262 + fila * 262;
+        // Todas las tarjetas miden lo mismo: con cuatro clips, las figuras se juntan.
+        const paso = c.width / clipsDe(h.atlas).length;
+        const x = paso / 2 + k * paso, suelo = 262 + fila * 262;
         const alto = h.atlas.altura * esc;
         const r = alto * 0.36;
         ctx.fillStyle = 'rgba(0,0,0,' + (SOMBRA.opacidad + 0.12) + ')';

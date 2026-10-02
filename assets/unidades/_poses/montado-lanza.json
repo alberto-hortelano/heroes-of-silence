@@ -1,6 +1,6 @@
 {
   "perfil": "montado-lanza",
-  "ataque": "la carga: galope con la lanza bajada hacia delante",
+  "ataque": "parado en combate: caballo quieto y tajo de espada; la carga es el paso con la lanza bajada",
   "renderer": "tools/art/montura.ts (three.js, la cámara y la luz de sprite-forge)",
   "caballo": {
     "fichero": "tools/art/modelos/caballo-quaternius.glb",
@@ -50,17 +50,32 @@
       "fps": 24
     },
     {
-      "clip": "attack",
-      "caballo": "Gallop",
+      "clip": "charge",
+      "caballo": "Walk",
       "postura": "carga",
       "indices": [
         0,
-        2,
         4,
-        6,
         8,
-        10,
-        12
+        12,
+        16,
+        20,
+        24
+      ],
+      "fps": 24
+    },
+    {
+      "clip": "attack",
+      "caballo": "Idle",
+      "postura": "ataque",
+      "indices": [
+        0,
+        6,
+        12,
+        18,
+        23,
+        29,
+        35
       ],
       "fps": 24
     }
@@ -72,7 +87,13 @@
     "estriboArriba": -0.45,
     "estriboLado": 0.32,
     "lanza": 2.6,
+    "espada": 0.9,
+    "espadaGiro": [
+      0,
+      0,
+      -1.5707963267948966
+    ],
     "sentadoT": 0
   },
-  "sha256": "2c08f0fd370f824419037ea94c302f9fef34d56b3abe7f794607ca0f83547ca8"
+  "sha256": "2cef5c222acba6995e842d6c8c905b1ac72aed84294ade2a2ca093d4617401cf"
 }

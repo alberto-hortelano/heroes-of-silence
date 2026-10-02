@@ -86,7 +86,16 @@ function cadena(a, b, c, objetivo, pista) {
  * Monta la escena. `o`: { caballo, ybot, sentado, celda, picado, ortho, mira, guinada,
  * altoCaballo, ajuste: {...} } — URLs y números, todo lo decide quien conduce.
  */
-window.__montar = async function montar(o) {
+window.__montar = async function (o) {
+  try {
+    return await montar(o);
+  } catch (e) {
+    // La pila viaja en el mensaje: `page.evaluate` solo devuelve el mensaje.
+    throw new Error(`${e.message}\n${e.stack}`);
+  }
+};
+
+async function montar(o) {
   const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: false, preserveDrawingBuffer: true });
   renderer.setSize(o.celda, o.celda);
   renderer.setClearColor(0x000000, 0);
@@ -154,24 +163,39 @@ window.__montar = async function montar(o) {
   jinete.scale.setScalar(0.01); // Mixamo viene en centímetros
   jinete.add(ybot);
   scene.add(jinete); // en el mundo: se coloca cada fotograma sobre la silla
-  const sentado = (await fbx.loadAsync(o.sentado)).animations[0];
   // El prefijo de las pistas al del esqueleto que las recibe, como `remapTrackPrefix`
   // de sprite-forge: se mira el hueso que acaba en "Hips" de cada lado.
   const huesos = [];
   ybot.traverse((x) => x.isBone && huesos.push(x.name));
   const prefijoHueso = huesos.find((n) => n.endsWith('Hips')).replace(/Hips$/, '');
-  const pistaHips = sentado.tracks.find((t) => t.name.split('.')[0].endsWith('Hips'));
-  if (!pistaHips) throw new Error('sitting_idle no tiene pista de Hips');
-  const prefijoPista = pistaHips.name.split('.')[0].replace(/Hips$/, '');
-  for (const pista of sentado.tracks) {
-    const punto = pista.name.lastIndexOf('.');
-    const nodo = pista.name.slice(0, punto);
-    if (nodo.startsWith(prefijoPista)) {
-      pista.name = prefijoHueso + nodo.slice(prefijoPista.length) + pista.name.slice(punto);
+  const adaptar = (clip, nombre) => {
+    const pistaHips = clip.tracks.find((t) => t.name.split('.')[0].endsWith('Hips'));
+    if (!pistaHips) throw new Error(`${nombre} no tiene pista de Hips`);
+    const prefijoPista = pistaHips.name.split('.')[0].replace(/Hips$/, '');
+    for (const pista of clip.tracks) {
+      const punto = pista.name.lastIndexOf('.');
+      const nodo = pista.name.slice(0, punto);
+      if (nodo.startsWith(prefijoPista)) {
+        pista.name = prefijoHueso + nodo.slice(prefijoPista.length) + pista.name.slice(punto);
+      }
     }
-  }
+    return clip;
+  };
+  const sentado = adaptar((await fbx.loadAsync(o.sentado)).animations[0], 'sitting_idle');
+  // El ataque montado: de cintura para abajo sigue sentado; de cintura para arriba,
+  // el tajo de espada. Se arma un clip nuevo con las pistas de cada uno, en vez de
+  // mezclar dos acciones (que promediarían el torso entre sentado y atacando).
+  const tajo = adaptar((await fbx.loadAsync(o.ataque)).animations[0], 'el ataque');
+  const ARRIBA = /(Spine|Neck|Head|Shoulder|Arm|ForeArm|Hand)/;
+  const nodoDe = (pista) => pista.name.slice(0, pista.name.lastIndexOf('.'));
+  const ataqueMontado = new THREE.AnimationClip('ataque-montado', tajo.duration, [
+    ...sentado.tracks.filter((p) => !ARRIBA.test(nodoDe(p))),
+    ...tajo.tracks.filter((p) => ARRIBA.test(nodoDe(p))),
+  ]);
   const mixJinete = new THREE.AnimationMixer(ybot);
-  mixJinete.clipAction(sentado).play();
+  const accionSentado = mixJinete.clipAction(sentado);
+  const accionAtaque = mixJinete.clipAction(ataqueMontado);
+  accionSentado.play();
 
   // Atrezo: lanza (asta + punta) y escudo de cometa.
   const lanza = new THREE.Group();
@@ -192,28 +216,46 @@ window.__montar = async function montar(o) {
   const escudo = new THREE.Mesh(new THREE.ExtrudeGeometry(forma, { depth: 0.04, bevelEnabled: false }), materialManiqui());
   scene.add(escudo);
 
+  // La espada, de la mano: hoja + guarda, colgada del hueso para que siga el tajo.
+  const espada = new THREE.Group();
+  const hoja = new THREE.Mesh(new THREE.BoxGeometry(0.07, o.ajuste.espada, 0.025), materialManiqui());
+  hoja.position.y = o.ajuste.espada / 2 + 0.08;
+  const guarda = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.03, 0.04), materialManiqui());
+  guarda.position.y = 0.08;
+  espada.add(hoja, guarda);
+  espada.scale.setScalar(100); // el hueso vive en centímetros (el Y Bot va escalado a 0,01)
+  espada.rotation.set(...o.ajuste.espadaGiro);
+  hueso(ybot, `${prefijoHueso}RightHand`).add(espada);
+
   Object.assign(estado, {
+    espada, accionSentado, accionAtaque, duracionAtaque: tajo.duration,
     renderer, scene, camara, pivote, caballo, jinete, ybot, mixCaballo, mixJinete,
     animaciones: gltf.animations, ajuste: o.ajuste, prefijo: prefijoHueso, lanza, escudo,
     sentadoT: o.ajuste.sentadoT ?? 0,
   });
   return {
+    duracionAtaque: tajo.duration,
     clips: gltf.animations.map((a) => `${a.name} (${a.duration.toFixed(2)} s)`),
     escala,
     caja: [caja2.min.toArray(), caja2.max.toArray()],
   };
-};
+}
 
 const v = (x, y, z) => new THREE.Vector3(x, y, z);
 
 /** Coloca caballo, jinete, IK y atrezo para `clip` en el instante `t` (s), y pinta. */
-window.__fotograma = function fotograma(clip, t, postura) {
+window.__fotograma = function fotograma(clip, t, postura, tJinete) {
   const s = estado;
   const aj = s.ajuste;
+  const atacando = postura === 'ataque';
   s.mixCaballo.stopAllAction();
   s.mixCaballo.clipAction(clipDe(s.animaciones, clip)).play();
   s.mixCaballo.setTime(t);
-  s.mixJinete.setTime(s.sentadoT);
+  s.mixJinete.stopAllAction();
+  (atacando ? s.accionAtaque : s.accionSentado).play();
+  s.mixJinete.setTime(atacando ? tJinete : s.sentadoT);
+  s.lanza.visible = !atacando;
+  s.espada.visible = atacando;
   s.scene.updateMatrixWorld(true);
 
   // Los ejes del caballo en el mundo: adelante, arriba y a su izquierda.
@@ -239,6 +281,14 @@ window.__fotograma = function fotograma(clip, t, postura) {
     const estribo = en(torso, aj.estriboAdelante, aj.estriboArriba, signo * aj.estriboLado);
     const pista = adelante.clone().addScaledVector(izquierda, signo * 0.6).normalize();
     cadena(hueso(s.ybot, `${P}${lado}UpLeg`), hueso(s.ybot, `${P}${lado}Leg`), hueso(s.ybot, `${P}${lado}Foot`), estribo, pista);
+  }
+
+  if (atacando) {
+    const antebrazoE = hueso(s.ybot, `${P}LeftForeArm`).getWorldPosition(new THREE.Vector3());
+    s.escudo.position.copy(en(antebrazoE, 0.05, -0.02, 0.1));
+    s.escudo.quaternion.setFromUnitVectors(v(0, 0, 1), izquierda);
+    s.renderer.render(s.scene, s.camara);
+    return s.renderer.domElement.toDataURL('image/png');
   }
 
   // Mano izquierda a las riendas, derecha a la lanza.

@@ -36,7 +36,7 @@ El Ent y el artillero con culebrina se quedan.
 | `templario-mandoble` | Guerrero con arma a dos manos | dos-manos |
 | `templario-monje` | Monje | baston |
 | `templario-escudero` | Escudero | espada-escudo |
-| `templario-hermano-de-carga` | Hermano de carga, **montado** (antes Caballero montado) | montado-lanza (celda 384) |
+| `templario-hermano-de-carga` | Hermano de carga, **montado** (antes Caballero montado) | montado-lanza (celda 384, 4 filas: reposo, paso, carga, ataque con espada) |
 | `templario-penitente` | Penitente | dos-manos |
 
 ## No muertos
