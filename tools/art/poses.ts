@@ -152,7 +152,7 @@ function crearAtrezo(model) {
   const escudo = new THREE.Mesh(new THREE.ExtrudeGeometry(forma, { depth: 0.03, bevelEnabled: false }), material);
   return { espada, escudo };
 }
-function colocarAtrezo(model, prefijo, atrezo) {
+function colocarAtrezo(model, prefijo, atrezo, suelo, aplanar) {
   const p = (nombre) => {
     const h = model.getObjectByName(prefijo + nombre);
     if (!h) throw new Error('el rig no tiene el hueso ' + prefijo + nombre);
@@ -175,6 +175,19 @@ function colocarAtrezo(model, prefijo, atrezo) {
   const lado = new THREE.Vector3().crossVectors(arriba, fuera).normalize();
   atrezo.escudo.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(lado, arriba, fuera));
   atrezo.escudo.position.copy(medio).addScaledVector(fuera, 0.07).addScaledVector(arriba, 0.04);
+  // Al morir, el escudo se tumba con el cuerpo hasta quedar plano en el suelo,
+  // bajo el antebrazo y con la cara hacia arriba.
+  if (aplanar > 0) {
+    const largo = new THREE.Vector3(arriba.x, 0, arriba.z);
+    if (largo.lengthSq() < 1e-6) largo.set(0, 0, 1);
+    largo.normalize();
+    const cara = new THREE.Vector3(0, 1, 0);
+    const ancho = new THREE.Vector3().crossVectors(largo, cara).normalize();
+    const plano = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(ancho, largo, cara));
+    const enSuelo = new THREE.Vector3(medio.x, suelo + 0.005, medio.z);
+    atrezo.escudo.quaternion.slerp(plano, aplanar);
+    atrezo.escudo.position.lerp(enSuelo, aplanar);
+  }
 }
 `;
 
@@ -241,7 +254,10 @@ async function prepararForge(
     pivot.position.y = state.suelo - puntoMasBajo(state.model);
     if (state.atrezo) {
       scene.updateMatrixWorld(true);
-      colocarAtrezo(state.model, state.bonePrefix, state.atrezo);
+      // En la muerte el escudo se aplana entre el 45 % y el 80 % del clip.
+      const avance = Math.min(1, (frameStep * f) / clip.duration);
+      const w = state.animId === 'death' ? Math.min(1, Math.max(0, (avance - 0.45) / 0.35)) : 0;
+      colocarAtrezo(state.model, state.bonePrefix, state.atrezo, state.suelo, w * w * (3 - 2 * w));
     }
     renderer.render(scene, camera);
     out.push(`,
