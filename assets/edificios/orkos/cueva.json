@@ -1,0 +1,11 @@
+{
+  "imagen": "cueva.webp",
+  "sha256": "8fcfa6a3e500c91e303e10cc2ea913706deb9ce730d16e56740af83630825e26",
+  "ancho": 1507,
+  "alto": 1011,
+  "ancla": [
+    970,
+    986
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

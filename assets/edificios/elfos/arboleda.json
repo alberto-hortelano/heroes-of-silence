@@ -1,0 +1,11 @@
+{
+  "imagen": "arboleda.webp",
+  "sha256": "2b86a6b4534a9cd05b7448dd87e340243f34267553da473061f9f0e1f090eeaf",
+  "ancho": 1341,
+  "alto": 1144,
+  "ancla": [
+    668,
+    1119
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

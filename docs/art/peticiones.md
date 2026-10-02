@@ -121,3 +121,21 @@ jinete. Lo que tiene que saber quien lo enganche:
 
 La referencia de pose sale de un caballo 3D CC0 (Quaternius) con el Y Bot sentado,
 renderizados con la cámara del juego: `tools/art/montura.ts`.
+
+## 7. Edificios de ciudad (aprobados el 02-10-2026)
+
+`assets/edificios/<facción>/<id>.webp`, uno por edificio de producción de élite de
+`NuevaJugabilidad.md`, construido y suelto, en el estilo pintado oscuro y a 25°.
+Cada uno lleva su JSON derivado (`ancho`, `alto` y `ancla`, el centro de su base)
+para colocarlo por el pie en su solar, y su procedencia.
+
+| Facción | Edificios (id) |
+|---|---|
+| Templarios | `monasterio`, `establos`, `forja` |
+| No muertos | `cripta`, `mausoleo`, `torre-oscura` |
+| Imperio | `taller`, `armeria`, `fundicion`, `biblioteca` |
+| Elfos | `arboleda`, `cubil`, `pabellon-de-caza` |
+| Orkos | `cueva`, `pocilga`, `totem` |
+
+Qué produce cada uno está en `tools/taller/edificios.ts`. El solar vacío lo pinta la
+pantalla de ciudad, como hoy.

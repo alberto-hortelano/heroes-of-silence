@@ -1,0 +1,11 @@
+{
+  "imagen": "mausoleo.webp",
+  "sha256": "1b2ed69759f7a0064584b14f51e9baffa63f287486f6339c8390e568bee7d0e3",
+  "ancho": 1133,
+  "alto": 1199,
+  "ancla": [
+    617,
+    1186
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

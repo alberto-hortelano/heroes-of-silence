@@ -1,0 +1,46 @@
+{
+  "encargo": "edificio-monasterio",
+  "tipo": "imagen",
+  "fecha": "2026-10-02T09:58:29.397Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0fc0b-4a75-74c1-b178-d9c060fa80f7",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn edificio de la pantalla de ciudad de un juego de estrategia por turnos: un monasterio templario de piedra clara: iglesia con campanario, claustro con arcos, huerto de hierbas medicinales y una cruz roja sobre la puerta.\nUn único edificio construido, entero y centrado, sobre un pequeño trozo de suelo propio. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, como la imagen 1; nunca cenital ni de perfil. La luz viene de arriba a la izquierda.\nEstilo de la imagen 1: ilustración pintada de fantasía medieval oscura, materiales gastados. La imagen 2 da la paleta y los motivos de su facción.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/pintado.webp",
+      "papel": "estilo",
+      "sha256": "2257bd10a5efa8f2c430c2d86609ac895750568961a4dea6dfddd4c8081e1838"
+    },
+    {
+      "ruta": "assets/art/templarios/guerrero-con-escudo.png",
+      "papel": "estilo",
+      "sha256": "be91381e9343b31c50ffa617668920c4d950c59351dbe5e0b71534cffb8e5f28"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0fc0b-4a75-74c1-b178-d9c060fa80f7/exec-a69d618f-5f77-4a12-9457-bc7e5d2e3991.png",
+    "sha256": "02f412b0412fd1790cd6b0973708bc77b92bf3b1d1a38b9f6e15cae7033aeca2",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: 1464×959, ancla en (676,934)"
+  ],
+  "validacion": {
+    "visibles": 0.5182759534351015,
+    "opacos": 0.995424979419966,
+    "haloSuelto": 0,
+    "ancho": 1464,
+    "alto": 959
+  },
+  "salida": {
+    "ruta": "assets/edificios/templarios/monasterio.webp",
+    "sha256": "9df470d2914fa445f4c5daa7c31675aa3514f9b893ebc6b3807bfc3ec4a5a8f7"
+  }
+}

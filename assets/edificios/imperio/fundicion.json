@@ -1,0 +1,11 @@
+{
+  "imagen": "fundicion.webp",
+  "sha256": "2676faf2ff1c2e7e3acc3c5eb6d203f31e386bde571ef54e37538ed4c25a42c9",
+  "ancho": 1307,
+  "alto": 1196,
+  "ancla": [
+    742,
+    1171
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

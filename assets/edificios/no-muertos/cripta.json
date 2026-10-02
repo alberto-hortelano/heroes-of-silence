@@ -1,0 +1,11 @@
+{
+  "imagen": "cripta.webp",
+  "sha256": "f258d90db21afc38698fe4f0abb431d0c386bc2033dc83c550eadc35e84668a3",
+  "ancho": 1173,
+  "alto": 1035,
+  "ancla": [
+    578,
+    1010
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

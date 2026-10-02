@@ -1,0 +1,46 @@
+{
+  "encargo": "edificio-cripta",
+  "tipo": "imagen",
+  "fecha": "2026-10-02T09:54:30.031Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0fc08-1f5a-72c3-8b81-13a0e22d6bed",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn edificio de la pantalla de ciudad de un juego de estrategia por turnos: una cripta: entrada de piedra negra medio hundida en la tierra, escaleras que bajan a la oscuridad, columnas con calaveras talladas y huesos esparcidos.\nUn único edificio construido, entero y centrado, sobre un pequeño trozo de suelo propio. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, como la imagen 1; nunca cenital ni de perfil. La luz viene de arriba a la izquierda.\nEstilo de la imagen 1: ilustración pintada de fantasía medieval oscura, materiales gastados. La imagen 2 da la paleta y los motivos de su facción.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/pintado.webp",
+      "papel": "estilo",
+      "sha256": "2257bd10a5efa8f2c430c2d86609ac895750568961a4dea6dfddd4c8081e1838"
+    },
+    {
+      "ruta": "assets/art/no-muertos/esqueleto-guerrero.png",
+      "papel": "estilo",
+      "sha256": "d6e1aa7c305e2b622f0d90ea3921b2688a8eaabb66a4c5e50a73321b1c1b10c8"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0fc08-1f5a-72c3-8b81-13a0e22d6bed/exec-c095a8d9-bf5f-4545-900f-db01ea09b4dc.png",
+    "sha256": "a2063dca03509ebdaacef54f2849c30353f5fd431ff78182945217d0a909b997",
+    "ancho": 1518,
+    "alto": 1036
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: 1173×1035, ancla en (578,1010)"
+  ],
+  "validacion": {
+    "visibles": 0.4822087961418552,
+    "opacos": 0.9942110729244246,
+    "haloSuelto": 0,
+    "ancho": 1173,
+    "alto": 1035
+  },
+  "salida": {
+    "ruta": "assets/edificios/no-muertos/cripta.webp",
+    "sha256": "f258d90db21afc38698fe4f0abb431d0c386bc2033dc83c550eadc35e84668a3"
+  }
+}

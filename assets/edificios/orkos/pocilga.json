@@ -1,0 +1,11 @@
+{
+  "imagen": "pocilga.webp",
+  "sha256": "70692809e6e57d6014b20a81455c80ef935bfb8a58564a31a87b8a267b1148d6",
+  "ancho": 1197,
+  "alto": 993,
+  "ancla": [
+    613,
+    968
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

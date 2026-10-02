@@ -1,0 +1,46 @@
+{
+  "encargo": "edificio-pocilga",
+  "tipo": "imagen",
+  "fecha": "2026-10-02T09:59:32.074Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0fc0c-2885-7bb0-9da7-98e793a93526",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn edificio de la pantalla de ciudad de un juego de estrategia por turnos: una pocilga orka: cercado de troncos afilados con barro, choza de pieles con cráneos de jabalí, abrevadero sucio y estandarte rojo tosco.\nUn único edificio construido, entero y centrado, sobre un pequeño trozo de suelo propio. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, como la imagen 1; nunca cenital ni de perfil. La luz viene de arriba a la izquierda.\nEstilo de la imagen 1: ilustración pintada de fantasía medieval oscura, materiales gastados. La imagen 2 da la paleta y los motivos de su facción.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/pintado.webp",
+      "papel": "estilo",
+      "sha256": "2257bd10a5efa8f2c430c2d86609ac895750568961a4dea6dfddd4c8081e1838"
+    },
+    {
+      "ruta": "assets/art/orkos/orko-con-hacha-y-escudo.png",
+      "papel": "estilo",
+      "sha256": "cd64488118da9d64d21496454e5a924b3715dcd0b0bae3baec82912d1e894e63"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0fc0c-2885-7bb0-9da7-98e793a93526/exec-afbad5aa-1533-437a-95cc-35c260b7ef57.png",
+    "sha256": "bb6b092b30d95a2e3578404ddf09c2e5f9f7ca025104da121b427062cc10f8f8",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: 1197×993, ancla en (613,968)"
+  ],
+  "validacion": {
+    "visibles": 0.5666213200002356,
+    "opacos": 0.9942553652720573,
+    "haloSuelto": 0,
+    "ancho": 1197,
+    "alto": 993
+  },
+  "salida": {
+    "ruta": "assets/edificios/orkos/pocilga.webp",
+    "sha256": "70692809e6e57d6014b20a81455c80ef935bfb8a58564a31a87b8a267b1148d6"
+  }
+}

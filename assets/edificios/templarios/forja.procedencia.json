@@ -1,0 +1,46 @@
+{
+  "encargo": "edificio-forja",
+  "tipo": "imagen",
+  "fecha": "2026-10-02T09:56:26.743Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0fc0a-2a49-7931-a911-523e167d6268",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn edificio de la pantalla de ciudad de un juego de estrategia por turnos: una forja templaria: taller de piedra con chimenea humeante, yunque y fragua encendida bajo un porche, mandobles y yelmos colgados, cruz roja grabada en la piedra.\nUn único edificio construido, entero y centrado, sobre un pequeño trozo de suelo propio. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, como la imagen 1; nunca cenital ni de perfil. La luz viene de arriba a la izquierda.\nEstilo de la imagen 1: ilustración pintada de fantasía medieval oscura, materiales gastados. La imagen 2 da la paleta y los motivos de su facción.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/pintado.webp",
+      "papel": "estilo",
+      "sha256": "2257bd10a5efa8f2c430c2d86609ac895750568961a4dea6dfddd4c8081e1838"
+    },
+    {
+      "ruta": "assets/art/templarios/guerrero-con-escudo.png",
+      "papel": "estilo",
+      "sha256": "be91381e9343b31c50ffa617668920c4d950c59351dbe5e0b71534cffb8e5f28"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0fc0a-2a49-7931-a911-523e167d6268/exec-468b5e8f-ee23-411c-9e14-a0147dfd87c0.png",
+    "sha256": "7e0d6251e1eae6844abd21c5a2eb696f637b60c7c1ec13bbe7ac86b7ab1fe0f4",
+    "ancho": 1312,
+    "alto": 1199
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: 1310×1192, ancla en (698,1167)"
+  ],
+  "validacion": {
+    "visibles": 0.5670577386136585,
+    "opacos": 0.9945272126052546,
+    "haloSuelto": 0,
+    "ancho": 1310,
+    "alto": 1192
+  },
+  "salida": {
+    "ruta": "assets/edificios/templarios/forja.webp",
+    "sha256": "e23b81aa7b599649429084dd9c461a26f41bea69d2918691a6bbb6554f42531b"
+  }
+}

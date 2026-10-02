@@ -1,0 +1,46 @@
+{
+  "encargo": "edificio-fundicion",
+  "tipo": "imagen",
+  "fecha": "2026-10-02T09:56:35.615Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0fc0a-45eb-75a1-b75f-3c96196c088b",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn edificio de la pantalla de ciudad de un juego de estrategia por turnos: una fundición de cañones: nave de ladrillo con dos chimeneas altas humeantes, horno con resplandor naranja, moldes y cañones de bronce recién fundidos en el patio.\nUn único edificio construido, entero y centrado, sobre un pequeño trozo de suelo propio. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, como la imagen 1; nunca cenital ni de perfil. La luz viene de arriba a la izquierda.\nEstilo de la imagen 1: ilustración pintada de fantasía medieval oscura, materiales gastados. La imagen 2 da la paleta y los motivos de su facción.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/pintado.webp",
+      "papel": "estilo",
+      "sha256": "2257bd10a5efa8f2c430c2d86609ac895750568961a4dea6dfddd4c8081e1838"
+    },
+    {
+      "ruta": "assets/art/imperio/rodelero.png",
+      "papel": "estilo",
+      "sha256": "2f0053280ce460ed9f4d2b8a0eee758be0bfb1d359d5038a88f3a500aa45a3f5"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0fc0a-45eb-75a1-b75f-3c96196c088b/exec-312a8824-7234-479a-8c12-f5625820a9e9.png",
+    "sha256": "1b17faf94d1bda745e15529b4b860a6ed8322f89ea6e55f08bd026ade37977e9",
+    "ancho": 1312,
+    "alto": 1199
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: 1307×1196, ancla en (742,1171)"
+  ],
+  "validacion": {
+    "visibles": 0.5041959554035,
+    "opacos": 0.9843099937194298,
+    "haloSuelto": 0,
+    "ancho": 1307,
+    "alto": 1196
+  },
+  "salida": {
+    "ruta": "assets/edificios/imperio/fundicion.webp",
+    "sha256": "2676faf2ff1c2e7e3acc3c5eb6d203f31e386bde571ef54e37538ed4c25a42c9"
+  }
+}
