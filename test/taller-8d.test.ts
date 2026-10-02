@@ -2,7 +2,8 @@
  * Las hojas de 8 direcciones: 6 filas y el último fotograma de la muerte como
  * cadáver.
  */
-import { existsSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -93,5 +94,38 @@ describe('los encargos de 8 direcciones', () => {
 
   it('una unidad que no está en 8 direcciones no tiene giro', () => {
     expect(() => encargoDeGiro(unidad('templario-mandoble'))).toThrow(/8 direcciones/);
+  });
+});
+
+describe('las direcciones del arte', () => {
+  const UNIDADES = join(RAIZ, 'assets/unidades');
+  const sha = (r: string): string => createHash('sha256').update(readFileSync(r)).digest('hex');
+  const leer = (r: string): any => JSON.parse(readFileSync(r, 'utf8'));
+  const dirs = readdirSync(UNIDADES)
+    .filter((u) => !u.startsWith('_'))
+    .flatMap((u) =>
+      readdirSync(join(UNIDADES, u))
+        .filter((d) => /^d[0-7]$/.test(d))
+        .map((d) => join(UNIDADES, u, d)),
+    );
+
+  it.each(dirs)('%s: el atlas es lo que mide la imagen y sale de sus dos hojas', async (dir) => {
+    const atlas = join(dir, 'atlas.webp');
+    expect(leer(join(dir, 'atlas.json'))).toEqual(
+      JSON.parse(JSON.stringify(await derivarAtlas(atlas))),
+    );
+    const c = leer(join(dir, 'atlas.composicion.json'));
+    expect(c.sha256, 'el atlas cambió sin volver a juntarlo').toBe(sha(atlas));
+    for (const h of c.hojas) {
+      const ruta = join(dir, h.imagen);
+      expect(sha(ruta), h.imagen).toBe(h.sha256);
+      const p = leer(ruta.replace(/\.webp$/, '.procedencia.json'));
+      expect(p.salida.sha256, `${h.imagen} cambió sin registrar de dónde sale`).toBe(sha(ruta));
+      expect(p.hilo).toMatch(/^[0-9a-f-]{36}$/);
+      if (p.reanuda === undefined) {
+        expect(p.referencias[0]?.papel).toBe('pose');
+        expect(p.referencias[1]?.papel).toBe('identidad');
+      }
+    }
   });
 });

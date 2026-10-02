@@ -47,7 +47,7 @@ import {
   partirIconos,
   recorteSuave,
 } from './efectos-proceso.js';
-import { baseEnCelda, empaquetar, recortarAlContenido } from './empaquetar.js';
+import { baseEnCelda, type EscalaDePose, empaquetar, recortarAlContenido } from './empaquetar.js';
 import { type Encargo, promptDe } from './encargo.js';
 import { ESTILOS_DE_MAPA, encargoDeMuestra, encargosDeCeldas, encargosDePiezas } from './mapa.js';
 import { aRaster, recortar, UMBRALES } from './recorte.js';
@@ -178,7 +178,8 @@ async function postprocesar(
       } else if (encargo.tipo === 'atlas') {
         const altura = encargo.alturaObjetivo ?? FIGURA.alturaAdulto;
         const celda = encargo.celda ?? FIGURA.celda;
-        const p = await empaquetar(r, encargo.filas ?? 3, altura, celda);
+        const pose = encargo.ocho === undefined ? undefined : await escalaDePose(encargo);
+        const p = await empaquetar(r, encargo.filas ?? 3, altura, celda, pose);
         final = p.png;
         pasos.push(
           `figuras localizadas y empaquetadas en ${FIGURA.columnas}×${encargo.filas ?? 3} celdas de ${celda}, ` +
@@ -293,6 +294,37 @@ async function postprocesar(
     );
     return { hilo: gen.hilo, salida: relative(RAIZ, rutaSalida) };
   }
+}
+
+/**
+ * Las alturas del maniquí en cada celda de la hoja de pose de un encargo de 8
+ * direcciones, y la de su reposo (la primera celda de la hoja A de su
+ * dirección): con ellas se escalan igual las dos hojas de una figura.
+ */
+async function escalaDePose(e: Encargo): Promise<EscalaDePose> {
+  const celda: number = e.celda ?? FIGURA.celda;
+  const alturas = async (ruta: string): Promise<number[][]> => {
+    const { data, info } = await sharp(join(RAIZ, ruta))
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    return Array.from({ length: info.height / celda }, (_, f) =>
+      Array.from({ length: info.width / celda }, (_, c) => {
+        let y0 = celda;
+        let y1 = -1;
+        for (let y = 0; y < celda; y++)
+          for (let x = 0; x < celda; x++)
+            if ((data[((f * celda + y) * info.width + c * celda + x) * 4 + 3] as number) >= 40) {
+              if (y < y0) y0 = y;
+              y1 = y;
+            }
+        return y1 - y0 + 1;
+      }),
+    );
+  };
+  const ruta = e.referencias[0]?.ruta as string;
+  const reposo = (await alturas(ruta.replace(/-b\.png$/, '-a.png')))[0]?.[0] as number;
+  return { alturas: await alturas(ruta), reposo };
 }
 
 /**

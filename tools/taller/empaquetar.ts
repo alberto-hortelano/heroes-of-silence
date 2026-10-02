@@ -229,6 +229,35 @@ export interface Empaquetado {
   readonly apoyoPorFila: readonly (readonly [number, number])[];
 }
 
+/**
+ * La escala medida contra la referencia de pose, celda a celda. Hace falta
+ * cuando las hojas de una misma figura no empiezan por el reposo: la hoja B de
+ * 8 direcciones empieza por el ataque, con la espada en alto, y medida por su
+ * primera fila salía más pequeña que la A. Como el maniquí lleva el mismo
+ * atrezo, cada figura pintada se compara con la suya del maniquí.
+ */
+export interface EscalaDePose {
+  /** Alto de la figura del maniquí en cada celda, [fila][columna]. */
+  readonly alturas: readonly (readonly number[])[];
+  /** Alto del maniquí en reposo: el que tiene que medir `alturaObjetivo`. */
+  readonly reposo: number;
+}
+
+function escalaDesdeLaPose(
+  rejilla: readonly (readonly Caja[])[],
+  alturaObjetivo: number,
+  pose: EscalaDePose,
+): number {
+  const escalas = rejilla.flatMap((fila, f) =>
+    fila.map((c, col) => {
+      const h = pose.alturas[f]?.[col];
+      if (h === undefined) throw new Error(`la pose no tiene la celda ${f + 1}·${col + 1}`);
+      return (h * alturaObjetivo) / pose.reposo / alto(c);
+    }),
+  );
+  return mediana(escalas);
+}
+
 /** Margen libre dentro de cada celda: una figura que toca el borde se cortaría. */
 export const MARGEN = 4;
 /** Cuánto se acepta encoger la hoja para que quepa un fotograma ancho. Más, es rehacerla. */
@@ -248,6 +277,7 @@ export async function empaquetar(
   filas: number,
   alturaObjetivo: number,
   celda: number = FIGURA.celda,
+  pose?: EscalaDePose,
 ): Promise<Empaquetado> {
   const { columnas } = FIGURA;
   const base = baseEnCelda(celda);
@@ -263,7 +293,10 @@ export async function empaquetar(
   // La escala que pide el reposo, y la mayor con la que cabe cada fila con su
   // margen: en horizontal, el apoyo común de la fila deja sitio a la figura
   // que más sobresale por cada lado; en vertical, los pies están en `base`.
-  const pedida = alturaObjetivo / mediana((rejilla[0] as Caja[]).map(alto));
+  const pedida =
+    pose === undefined
+      ? alturaObjetivo / mediana((rejilla[0] as Caja[]).map(alto))
+      : escalaDesdeLaPose(rejilla, alturaObjetivo, pose);
   const cabe = Math.min(
     ...medidas.map((fila) => {
       const izquierda = Math.max(...fila.map((m) => m.ax));
