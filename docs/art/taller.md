@@ -115,6 +115,6 @@ fotograma es el cadáver (`cadaver` en el JSON).
    apunta de qué hojas sale.
 4. **La vista**: `pnpm taller vista-8d <id>` (o `poses`), con la sombra por silueta.
 
-Las direcciones son las de sprite-forge: 0 mira a la cámara y se gira en el
-sentido de las agujas del reloj visto desde arriba (`tools/taller/direcciones.ts`).
+Las direcciones son las de sprite-forge: 0 mira a la cámara, 2 a la derecha, 4 de
+espaldas y 6 a la izquierda (`tools/taller/direcciones.ts`).
 Ninguna se espeja, porque la luz vendría del otro lado.
