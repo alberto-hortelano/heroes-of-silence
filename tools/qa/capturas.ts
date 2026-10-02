@@ -32,8 +32,14 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { type Browser, chromium, type Page } from 'playwright';
 import WebSocket from 'ws';
 import { DURACION } from '../../src/client/anim.js';
+import { masCercana, opcionesDeGolpe } from '../../src/client/escenas/angulo.js';
 import { focoDe } from '../../src/client/escenas/aventura.js';
-import { AVISO_DE_ESPERA, accionContra, EscenaBatalla } from '../../src/client/escenas/batalla.js';
+import {
+  AVISO_DE_ESPERA,
+  cargaContra,
+  EscenaBatalla,
+  rotuloDeAngulo,
+} from '../../src/client/escenas/batalla.js';
 import { cajaDeFigura, galonesDe } from '../../src/client/render/batalla.js';
 import {
   casillaAPixel,
@@ -48,10 +54,25 @@ import { botonDeRecluta, townLayout, townPlots } from '../../src/client/render/t
 import { Session } from '../../src/client/session.js';
 import { explicacionDeFin, rotuloDeDia } from '../../src/client/views/panels.js';
 import { chooseBattleAction } from '../../src/core/ai/tactics.js';
-import { stackHexes } from '../../src/core/battle/battle.js';
-import type { BattleAction, BattleEvent, BattleStack } from '../../src/core/battle/types.js';
+import {
+  activeStack,
+  applyAction,
+  isAlive,
+  legalActions,
+  mismoTurno,
+  quedanCasillas,
+  stackHexes,
+} from '../../src/core/battle/battle.js';
+import { hexEquals } from '../../src/core/battle/board.js';
+import type {
+  BattleAction,
+  BattleEvent,
+  BattleStack,
+  BattleState,
+} from '../../src/core/battle/types.js';
 import { nombreDeTipoDeHeroe } from '../../src/core/data.js';
 import { troopSummary } from '../../src/core/hero/troop.js';
+import { createRng } from '../../src/core/rng.js';
 import { casillasPeligrosas } from '../../src/core/state/asaltantes.js';
 import { baseOf, heroesOf, visibleNow } from '../../src/core/state/game.js';
 import type { Point } from '../../src/core/types.js';
@@ -396,6 +417,19 @@ async function alcanzar(
 }
 
 /**
+ * Una escena de batalla sobre el espejo, ya en hora y encuadrada en el lienzo de
+ * la página: la MISMA clase que lee los clics allí. Es la única forma que tiene
+ * este guion de convertir un píxel en una acción, así que lo que aplica el
+ * espejo es por construcción lo que manda la página.
+ */
+function escenaDelEspejo(espejo: Session, ancho: number, alto: number): EscenaBatalla {
+  const escena = new EscenaBatalla(() => espejo);
+  escena.sincronizar(Number.MAX_SAFE_INTEGER);
+  escena.encuadrar(ancho, alto);
+  return escena;
+}
+
+/**
  * Dónde pulsar una unidad: un punto de su cuerpo que el cliente lea como ESA
  * unidad. Lo decide una escena de batalla sobre el espejo —la misma clase que en
  * la página—, porque el centro de un hex al que se puede ir gana a la figura que
@@ -405,28 +439,190 @@ async function pixelDeUnidad(
   page: Page,
   espejo: Session,
   s: BattleStack,
-): Promise<{ x: number; y: number }> {
+): Promise<{ x: number; y: number; accion: BattleAction | undefined }> {
   const b0 = await caja(page);
   const t0 = tableroPara(b0.width, b0.height);
   const b = await alcanzar(page, centroHex(t0, s.hex).x);
-  const c = cajaDeFigura(tableroPara(b.width, b.height), s, centroDeStack(stackHexes(s)));
-  const escena = new EscenaBatalla(() => espejo);
-  escena.sincronizar(Number.MAX_SAFE_INTEGER);
-  escena.encuadrar(b.width, b.height);
+  const t = tableroPara(b.width, b.height);
+  const c = cajaDeFigura(t, s, centroDeStack(stackHexes(s)));
+  const escena = escenaDelEspejo(espejo, b.width, b.height);
   for (const alto of [0.5, 0.35, 0.65, 0.8, 0.2]) {
     const y = c.suelo - c.alto * alto;
-    if (escena.objetivoEn(c.x, y)?.id === s.id) return { x: b.x + c.x, y: b.y + y };
+    if (escena.objetivoEn(c.x, y)?.id === s.id) {
+      // La acción que el cliente mandará al pulsar AHÍ: con el ángulo, el píxel
+      // decide desde qué casilla se golpea, así que el espejo tiene que saberlo.
+      return { x: b.x + c.x, y: b.y + y, accion: escena.accionContraEn(c.x, y) };
+    }
   }
   throw new Error(`no hay un punto del cuerpo de ${s.id} que el clic lea como suyo`);
 }
 
-/** Juega un turno de la persona en la batalla con un clic, y lo replica en el espejo. */
+/**
+ * Un plan para «mover dos tramos y atacar desde un ángulo elegido»: dos `move`
+ * de la unidad activa que dejen el turno abierto, y un enemigo con un píxel de
+ * su cuerpo cuya casilla más cercana NO sea la primera opción de la lista —si
+ * lo fuera, el clic no demostraría nada que no hiciera ya el cliente de antes—.
+ *
+ * Se busca en copias del estado con el motor puro: la sesión del espejo no se
+ * toca hasta que hay plan.
+ */
+interface PlanDeAngulo {
+  readonly tramos: readonly [BattleAction, BattleAction];
+  readonly objetivo: string;
+  /** Altura y lado del píxel dentro de la caja de la figura. */
+  readonly alto: number;
+  readonly lado: number;
+}
+
+function planDeAngulo(espejo: Session, ancho: number, alto: number): PlanDeAngulo | null {
+  const turno = espejo.turnoPropio;
+  if (turno === null || espejo.battleLegalActions().some((a) => a.type === 'shoot')) return null;
+  const t = tableroPara(ancho, alto);
+  const copia = (b: BattleState): BattleState => structuredClone(b);
+  const moves = (b: BattleState): BattleAction[] =>
+    legalActions(b).filter((a) => a.type === 'move');
+  const ahora = turno.battle.turno;
+  for (const m1 of moves(turno.battle)) {
+    const b1 = copia(turno.battle);
+    applyAction(b1, m1, createRng(1));
+    // Abierto de verdad: el MISMO turno, por su ordinal. Que la unidad siga
+    // activa no basta —la moral extra le abre otro turno—, y con solo eso el
+    // plan se colaba con un turno nuevo. Y por identidad no se puede: `b1` es
+    // una copia.
+    if (!mismoTurno(ahora, b1.turno)) continue;
+    for (const m2 of moves(b1)) {
+      const b2 = copia(b1);
+      applyAction(b2, m2, createRng(1));
+      if (!mismoTurno(ahora, b2.turno)) continue;
+      const yo = activeStack(b2) as BattleStack;
+      const acciones = legalActions(b2);
+      for (const e of b2.stacks) {
+        if (!isAlive(e) || e.side === yo.side) continue;
+        const opciones = opcionesDeGolpe(acciones, e.id, yo.hex);
+        if (opciones.length < 2) continue;
+        const c = cajaDeFigura(t, e, centroDeStack(stackHexes(e)));
+        for (const lado of [0.45, -0.45, 0.3, -0.3]) {
+          for (const h of [0.05, 0.3, 0.5]) {
+            const elegida = masCercana(opciones, t, c.x + lado * c.ancho, c.suelo - c.alto * h);
+            if (elegida !== undefined && elegida !== opciones[0]) {
+              return { tramos: [m1, m2], objetivo: e.id, alto: h, lado };
+            }
+          }
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Mueve la unidad activa en dos tramos con dos clics, pasa el ratón por el
+ * enemigo hasta que la barra dice desde dónde golpearía, saca la captura y
+ * pulsa. Cada paso se replica en el espejo y se comprueba contra él: el turno
+ * sigue abierto tras cada tramo y el golpe sale de la casilla resaltada.
+ */
+async function moverDosTramosYAtacar(
+  page: Page,
+  espejo: Session,
+  plan: PlanDeAngulo,
+): Promise<readonly BattleEvent[]> {
+  const battle = espejo.battle as BattleState;
+  const activo = espejo.turnoPropio?.stack.id;
+  const turnoDelPlan = battle.turno;
+  for (const [i, tramo] of plan.tramos.entries()) {
+    if (tramo.type !== 'move') throw new Error('un tramo del plan no es un move');
+    const antes = battle.log.length;
+    const b0 = await caja(page);
+    const c = centroHex(tableroPara(b0.width, b0.height), tramo.to);
+    const b = await alcanzar(page, c.x);
+    await page.mouse.click(b.x + c.x, b.y + c.y);
+    espejo.playBattleAction(tramo);
+    await esperarCola(battle.log.slice(antes));
+    await sleep(150);
+    // El mismo turno, por su ordinal: la misma unidad activa en un turno nuevo
+    // (la moral extra) no es el tramo siguiente.
+    if (!mismoTurno(turnoDelPlan, battle.turno)) {
+      throw new Error(`tras el tramo ${i + 1} el turno de ${activo} debía seguir abierto`);
+    }
+    // Y la PÁGINA tiene que decir lo mismo que el espejo: el espejo se mueve
+    // siempre, y si el clic no hubiera movido en la página las dos partidas se
+    // separarían sin que nada lo dijera hasta mucho después.
+    const esperadas = quedanCasillas(espejo.battleStepsLeft() ?? 0)[1];
+    const fila = page.locator('.row', { hasText: /Le queda/ }).first();
+    await fila
+      .filter({ hasText: esperadas })
+      .waitFor({ timeout: 2000 })
+      .catch(async () => {
+        throw new Error(
+          `tras el tramo ${i + 1} la página dice «${await fila.innerText()}» y el espejo «${esperadas}» (barra: «${await page.locator('#status').innerText()}»)`,
+        );
+      });
+  }
+  const quedan = await page
+    .locator('.row', { hasText: /Le queda/ })
+    .first()
+    .innerText();
+  log(`dos tramos: ${activo} sigue activo — «${quedan.replace(/\s+/g, ' ')}»`);
+
+  const objetivo = battle.stacks.find((x) => x.id === plan.objetivo) as BattleStack;
+  const b0 = await caja(page);
+  const b = await alcanzar(page, centroHex(tableroPara(b0.width, b0.height), objetivo.hex).x);
+  const t = tableroPara(b.width, b.height);
+  const k = cajaDeFigura(t, objetivo, centroDeStack(stackHexes(objetivo)));
+  const px = k.x + plan.lado * k.ancho;
+  const py = k.suelo - k.alto * plan.alto;
+  const turno = espejo.turnoPropio;
+  if (turno === null) throw new Error('el turno de la persona se ha cerrado antes de atacar');
+  const accion = escenaDelEspejo(espejo, b.width, b.height).accionContraEn(px, py);
+  if (accion === undefined || accion.type !== 'attack' || accion.target !== objetivo.id) {
+    throw new Error(`el píxel elegido no da un golpe contra ${objetivo.id}`);
+  }
+  const desde = accion.from ?? turno.stack.hex;
+  // El ratón se mueve en dos pasos para que el navegador mande `pointermove`
+  // dentro del lienzo, que es lo que pinta el ángulo y escribe la barra.
+  await page.mouse.move(b.x + px - 8, b.y + py);
+  await page.mouse.move(b.x + px, b.y + py);
+  // La frase exacta, de la misma función que la escribe en la página.
+  const rotulo = rotuloDeAngulo(
+    desde,
+    cargaContra(espejo.battleCharges(), { objetivo: objetivo.id, elegida: desde }),
+  );
+  await page
+    .waitForFunction((r) => document.getElementById('status')?.textContent?.trim() === r, rotulo, {
+      timeout: 2000,
+    })
+    .catch(async () => {
+      throw new Error(
+        `la barra debía decir «${rotulo}» y dice «${await page.locator('#status').innerText()}»`,
+      );
+    });
+  await captura(page, 'desktop-08b-batalla-angulo');
+  log(`ángulo: la barra dice «${await page.locator('#status').innerText()}»`);
+  const antes = battle.log.length;
+  await page.mouse.click(b.x + px, b.y + py);
+  espejo.playBattleAction(accion);
+  const nuevos = battle.log.slice(antes);
+  const golpeDesde = nuevos.find((e) => e.kind === 'move' && e.stack === activo);
+  const llego = golpeDesde?.kind === 'move' ? golpeDesde.to : turno.stack.hex;
+  if (!hexEquals(llego, desde)) {
+    throw new Error(`el golpe debía salir de (${desde.col},${desde.row}) y salió de otra casilla`);
+  }
+  return nuevos;
+}
+
+/**
+ * Juega un turno de la persona en la batalla con un clic, y lo replica en el
+ * espejo. Con `anguloPendiente`, en cuanto hay ocasión juega «mover dos tramos y
+ * atacar desde un ángulo» en vez del clic de siempre, y devuelve si lo ha hecho:
+ * quien llama lleva la cuenta, no una variable del módulo.
+ */
 async function turnoDeBatalla(
   page: Page,
   espejo: Session,
   n: number,
   rendirse = false,
-): Promise<void> {
+  anguloPendiente = false,
+): Promise<boolean> {
   const battle = espejo.battle;
   if (battle === null) throw new Error('no hay batalla en el espejo');
   const antes = battle.log.length;
@@ -437,19 +633,33 @@ async function turnoDeBatalla(
   // acción que cierra la batalla y manda al héroe a casa, y la cuarta ya mira el
   // aviso de espera. Solo la pide la de escritorio: la del móvil juega la suya.
   const hechizo = espejo.spellOptions().find((o) => o.castable);
-  if (rendirse && n === 4 && acciones.some((a) => a.type === 'surrender')) {
+  // La rendición cierra la batalla, así que espera a que se haya jugado el
+  // ángulo si la pasada lo pide: los dos tienen que salir en la misma batalla.
+  const tocaRendirse = rendirse && n >= 4 && !anguloPendiente;
+  if (tocaRendirse && acciones.some((a) => a.type === 'surrender')) {
     await page.getByRole('button', { name: /Rendirse/ }).click();
     espejo.playBattleAction({ type: 'surrender' });
     await esperarCola(battle.log.slice(antes));
     await sleep(300);
     await captura(page, 'desktop-07-rendicion');
     log(`rendición: ${espejo.status}`);
-    return;
+    return false;
+  }
+  const b0 = await caja(page);
+  const plan = anguloPendiente && n >= 3 ? planDeAngulo(espejo, b0.width, b0.height) : null;
+  if (plan !== null) {
+    const nuevos = await moverDosTramosYAtacar(page, espejo, plan);
+    if (n === 3 && nuevos.some((e) => e.kind in DURACION)) {
+      await avisoQueSeRetira(page, nuevos);
+      return true;
+    }
+    await esperarCola(nuevos);
+    return true;
   }
   if (n === 0 && acciones.some((a) => a.type === 'wait')) {
     await page.getByRole('button', { name: 'Esperar' }).click();
     espejo.playBattleAction({ type: 'wait' });
-  } else if (n === 1) {
+  } else if (n === 1 && acciones.some((a) => a.type === 'defend')) {
     await page.getByRole('button', { name: 'Defender' }).click();
     espejo.playBattleAction({ type: 'defend' });
   } else if (n === 2 && hechizo !== undefined) {
@@ -472,12 +682,12 @@ async function turnoDeBatalla(
         ? battle.stacks.find((s) => s.id === ia.target)
         : undefined;
     if (objetivo !== undefined) {
-      // La acción que el cliente emitirá al pulsar ese objetivo: el espejo tiene
-      // que aplicar ESA, no la que eligió la IA.
-      const accion = accionContra(acciones, objetivo.id) as BattleAction;
+      // La acción que el cliente emitirá al pulsar ese objetivo EN ESE PÍXEL: el
+      // espejo tiene que aplicar ESA, no la que eligió la IA.
       const px = await pixelDeUnidad(page, espejo, objetivo);
+      if (px.accion === undefined) throw new Error(`el clic sobre ${objetivo.id} no da acción`);
       await page.mouse.click(px.x, px.y);
-      espejo.playBattleAction(accion);
+      espejo.playBattleAction(px.accion);
     } else if (ia.type === 'move') {
       const b0 = await caja(page);
       const c = centroHex(tableroPara(b0.width, b0.height), ia.to);
@@ -493,6 +703,10 @@ async function turnoDeBatalla(
       // marco estrecho del móvil el objetivo puede quedar fuera.
       await page.getByRole('button', { name: 'Defender' }).click();
       espejo.playBattleAction({ type: 'defend' });
+    } else if (ia.type === 'end_turn') {
+      // Tras un tramo la IA cierra el turno de la unidad: su botón, no «Defender».
+      await page.getByRole('button', { name: 'Terminar turno' }).click();
+      espejo.playBattleAction(ia);
     } else if (ia.type === 'surrender') {
       // La IA puede elegir rendirse (fase 1b): se pulsa SU botón, no «Defender».
       await page.getByRole('button', { name: /Rendirse/ }).click();
@@ -506,9 +720,10 @@ async function turnoDeBatalla(
   const nuevos = battle.log.slice(antes);
   if (n === 3 && nuevos.some((e) => e.kind in DURACION)) {
     await avisoQueSeRetira(page, nuevos);
-    return;
+    return false;
   }
   await esperarCola(nuevos);
+  return false;
 }
 
 /**
@@ -719,9 +934,17 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
     throw new Error(`el espejo no ha entrado en batalla: ${espejo.status}`);
   await esperarCola(espejo.battle.log);
   await captura(page, 'desktop-07-batalla-inicio');
-  for (let n = 0; n < 12 && espejo.battle?.finished === null; n++) {
-    await turnoDeBatalla(page, espejo, n, true);
+  // Hasta 40 jugadas: las de antes eran 12, pero el ángulo necesita que la tropa
+  // se acerque —un campesino anda 2— y la rendición espera a que salga.
+  let anguloPendiente = true;
+  for (let n = 0; n < 40 && espejo.battle?.finished === null; n++) {
+    if (await turnoDeBatalla(page, espejo, n, true, anguloPendiente)) anguloPendiente = false;
     if (n === 3) await captura(page, 'desktop-08-batalla-en-curso');
+  }
+  // El turno en tramos y el ángulo (02-10-2026) se recorren una vez por pasada
+  // de escritorio: si la batalla no dio ocasión, se dice en vez de dar verde.
+  if (anguloPendiente) {
+    throw new Error('la batalla de escritorio no dio ocasión de mover dos tramos y atacar');
   }
   // Lo que hay que comprobar después de una rendición, leído ANTES de cerrarla:
   // con quién se rindió y cuánto le costó.

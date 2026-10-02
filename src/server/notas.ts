@@ -19,6 +19,7 @@
  * anuncia **antes** lo que se puede hacer y esto informa **después** de lo que
  * pasó. Son papeles distintos, y además `core` no puede importar del servidor.
  */
+import { quedanCasillas } from '@core/battle/battle.js';
 import type { BattleAction } from '@core/battle/types.js';
 import type { RequestKind } from '@core/contract/agent.js';
 import {
@@ -271,6 +272,7 @@ export function notaAccionSustituida(
   manaGastado: number,
   heroe: string | null,
   batallaTerminada: boolean,
+  turnoAbierto: TurnoAbierto | null,
 ): string {
   const cabecera = `Tu acción para ${unidad} se descartó (${motivo}); la ${LA_JUEGA_LA_IA}: ${describeAccion(sustituta)}.`;
   // El maná se MIDE, así que un `cast` que no llegó a cobrar no se cobra aquí.
@@ -284,6 +286,15 @@ export function notaAccionSustituida(
     );
   }
 
+  if (turnoAbierto !== null && sustituta.type === 'move') {
+    // Un `move` ya no cierra el turno: lo que se ha ido son casillas, no el
+    // turno. Se MIDE —el director compara el turno de antes y el de después—,
+    // porque si el tramo agotó lo que quedaba el turno sí se cerró solo.
+    return (
+      `${cabecera} Eso NO ha cerrado el turno de ${unidad}: ${leQuedan(turnoAbierto.pasos)} ` +
+      'y se te volverá a pedir acción para ella.'
+    );
+  }
   if (sustituta.type === 'cast') {
     // Un `cast` no consume el turno del stack (`battle.ts`): se te volverá a
     // pedir acción para la misma unidad. Lo que sí se ha ido es el maná.
@@ -333,6 +344,7 @@ export function notaAccionAceptada(
   unidad: string,
   accion: BattleAction,
   pagado: number | null,
+  turnoAbierto: TurnoAbierto | null,
 ): string {
   if (accion.type === 'surrender') {
     if (pagado === null) {
@@ -343,7 +355,26 @@ export function notaAccionAceptada(
       'perdida y tu héroe vuelve a la base con la tropa viva: no habrá más peticiones para ella.'
     );
   }
+  if (accion.type === 'move') {
+    // El tramo puede dejar el turno abierto o cerrarlo solo —si ya no le queda
+    // ni casilla ni enemigo al lado—, y el agente no tiene que adivinar cuál: si
+    // no se le dice, la siguiente petición de otra unidad le pillaría esperando
+    // a esta.
+    return turnoAbierto === null
+      ? `${unidad}: ${describeAccion(accion)}, aplicada. Ya no le quedaba nada que hacer: su turno se ha cerrado.`
+      : `${unidad}: ${describeAccion(accion)}, aplicada. Su turno sigue abierto: ` +
+          `${leQuedan(turnoAbierto.pasos)} y se te volverá a pedir acción para ella.`;
+  }
   return `${unidad}: ${describeAccion(accion)}, aplicada.`;
+}
+
+/**
+ * El turno de la unidad sigue abierto tras la acción, con las casillas que le
+ * quedan. Lo mide quien aplicó la acción —el mismo objeto `turno` antes y
+ * después—: aquí no se deduce del tipo de acción.
+ */
+export interface TurnoAbierto {
+  readonly pasos: number;
 }
 
 /**
@@ -664,4 +695,10 @@ export function describeAccion(accion: BattleAction | AdventureAction): string {
     case 'end_turn':
       return 'end_turn';
   }
+}
+
+/** «le queda 1 casilla», «le quedan 3 casillas»: lo que deja abierto un tramo. */
+export function leQuedan(pasos: number): string {
+  const [verbo, casillas] = quedanCasillas(pasos);
+  return `le ${verbo} ${casillas}`;
 }

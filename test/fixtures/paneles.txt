@@ -127,8 +127,10 @@
     <div class="row"><span class="label">Ronda</span><span>1</span></div>
     <div class="row"><span class="label">Maná</span><span>20 / 20</span></div>
     <h3>Acciones</h3>
+       <div class="row"><span class="label">Le quedan</span><span>4 casillas</span></div>
        <div class="stack-list">
-         <button data-action="battle-defend">Defender</button>
+         <button data-action="battle-end-turn">Terminar turno</button>
+         <button data-action="battle-defend" >Defender</button>
          <button data-action="battle-wait" >Esperar</button>
          <button data-action="battle-surrender">Rendirse (190 oro)</button>
        </div>
@@ -140,7 +142,11 @@
       </button></div>
     
        <p class="cost" style="margin-top:.5rem">
-         Haz clic en un hexágono verde para moverte, o sobre un enemigo para atacarlo.
+         Haz clic en un hexágono verde para moverte —puedes moverte en varios tramos—,
+         o pasa el ratón por un enemigo y elige desde qué casilla golpearlo. Al
+         enemigo en naranja se le puede cargar: pasa por él y elige la casilla del
+         número («»3»).
+         Espacio termina el turno de la unidad.
        </p>
     <h3>En el campo</h3><div class="stack-list"><div class="stack empty">
           <span>◀ Esqueleto</span>
@@ -201,7 +207,7 @@
 ### batalla · terminada · renderLog
 <div class="log"><div>— Día 1 —</div></div>
 ### partida terminada · renderTopbar.resources
-<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>0</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>0</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>1047</li>
+<li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>0</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>3</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>157</li>
 ### partida terminada · renderSide
 <div class="fin ganada">
     <p class="eyebrow">FIN DE LA PARTIDA</p>
@@ -213,16 +219,16 @@
         <div class="row"><span class="label">Liderazgo</span><span>24 / 30</span></div>
     <progress class="liderazgo" max="30" value="24"></progress>
         <div class="row"><span class="label">Movimiento</span><span>340 / 1100</span></div>
-        <div class="row"><span class="label">Maná</span><span>0 / 20</span></div>
+        <div class="row"><span class="label">Maná</span><span>3 / 20</span></div>
         <div class="row"><span class="label">Ataque / Defensa</span><span>4 (+3) / 4 (+3)</span></div>
         <div class="row"><span class="label">Poder / Conocimiento</span><span>1 / 2</span></div>
-        <div class="row"><span class="label">Experiencia</span><span>1042 / 1060</span></div>
+        <div class="row"><span class="label">Experiencia</span><span>977 / 1060</span></div>
         <h3>Hechizos</h3>
-        <div class="stack-list"><div class="stack"><span>Flecha mágica</span><span class="count">3</span></div><div class="stack"><span>Prisa</span><span class="count">3</span></div><div class="stack"><span>Lentitud</span><span class="count">3</span></div></div>
+        <div class="stack-list"><div class="stack"><span>Flecha mágica</span><span class="count">3</span></div></div>
         <h3>Equipo</h3><div class="stack-list"><div class="stack"><span>Arma: Espada de armería<span class="veterania">+2 ataque</span></span><span class="count"><button data-action="unequip" data-hero="hero-0" data-slot="arma" title="Quitársela y guardarla en la mochila">×</button></span></div><div class="stack"><span>Armadura: Cota de malla<span class="veterania">+2 defensa</span></span><span class="count"><button data-action="unequip" data-hero="hero-0" data-slot="armadura" title="Quitársela y guardarla en la mochila">×</button></span></div><div class="stack"><span>Accesorio: Brazal de armería<span class="veterania">+1 ataque, +1 defensa</span></span><span class="count"><button data-action="unequip" data-hero="hero-0" data-slot="accesorio" title="Quitársela y guardarla en la mochila">×</button></span></div></div>
     <h3>Mochila · 0</h3><div class="stack-list"><div class="stack empty"><span>Vacía: el botín y lo que compres caen aquí</span></div></div>
         <h3>Tropa · 6 individuos</h3>
-        <div class="stack-list"><div class="stack"><span>Campesino</span><span class="count">1</span></div><div class="stack"><span>Arquero ↑<span class="veterania">Nivel 1 · 7 / 20 exp</span></span><span class="count">1</span></div><div class="stack"><span>Arquero ↑<span class="veterania">Nivel 1 · 5 / 20 exp</span></span><span class="count">1</span></div><div class="stack"><span>Piquero<span class="veterania">Veterano · nivel 2 · 47 / 60 exp</span></span><span class="count">1</span></div><div class="stack"><span>Espadachín<span class="veterania">Nivel 1 · 19 / 20 exp</span></span><span class="count">1</span></div><div class="stack"><span>Espadachín<span class="veterania">Nivel 1 · 16 / 20 exp</span></span><span class="count">1</span></div></div><h3>Castillos</h3><div class="stack-list"><button data-action="open-town" data-town="town-0" class="stack">
+        <div class="stack-list"><div class="stack"><span>Campesino</span><span class="count">1</span></div><div class="stack"><span>Arquero ↑<span class="veterania">Nivel 1 · 14 / 20 exp</span></span><span class="count">1</span></div><div class="stack"><span>Arquero ↑<span class="veterania">Nivel 1 · 5 / 20 exp</span></span><span class="count">1</span></div><div class="stack"><span>Piquero<span class="veterania">Veterano · nivel 2 · 26 / 60 exp</span></span><span class="count">1</span></div><div class="stack"><span>Espadachín<span class="veterania">Nivel 1 · 15 / 20 exp</span></span><span class="count">1</span></div><div class="stack"><span>Espadachín<span class="veterania">Nivel 1 · 4 / 20 exp</span></span><span class="count">1</span></div></div><h3>Castillos</h3><div class="stack-list"><button data-action="open-town" data-town="town-0" class="stack">
               <span>Valdeluz</span><span class="count">+500</span>
             </button><button data-action="open-town" data-town="town-1" class="stack">
               <span>Cripta Gris</span><span class="count">+1000</span>
@@ -231,11 +237,11 @@
             </button><button data-action="open-town" data-town="town-4" class="stack">
               <span>Alcázar Hondo</span><span class="count">+500</span>
             </button></div>
-    <h3>Crónica</h3><div class="log"><div class="win">+1137 oro</div><div>El jugador 1 construye: Taberna</div><div>El jugador 1 construye: Casa consistorial</div><div class="lose">El jugador 1 te ha capturado un castillo</div><div>— Día 7 —</div><div class="win">Reclutados 2 × Espadachín</div><div class="win">Reclutados 1 × Piquero</div><div class="win">Reclutados 2 × Piquero</div><div class="win">Paso tomado</div><div>El jugador 1 construye: Morada de nivel 2</div><div>El jugador 1 construye: Mejora de nivel 2</div><div>El jugador 1 construye: Mejora de nivel 2</div><div>El jugador 1 recluta 2 × Zombi mutante</div><div>El jugador 1 recluta 6 × Campesino</div><div class="lose">El jugador 1 te ha quitado un paso</div><div>— Día 8 —</div><div class="win">Paso tomado</div><div>Batalla resuelta</div><div class="win">Un Piquero tuyo sube a veterano de nivel 2</div><div class="win">Has capturado un castillo del jugador 1</div><div class="win">Fin de la partida</div></div>
+    <h3>Crónica</h3><div class="log"><div class="win">Paso tomado</div><div class="win">+1137 oro</div><div>El jugador 1 construye: Taberna</div><div>El jugador 1 construye: Casa consistorial</div><div>— Día 7 —</div><div class="win">Construido: Mejora de nivel 3</div><div class="win">Reclutados 6 × Campesino</div><div class="win">Reclutados 1 × Campesino</div><div class="win">Paso tomado</div><div>El jugador 1 construye: Mejora de nivel 2</div><div>El jugador 1 construye: Casa consistorial</div><div class="lose">El jugador 1 te ha capturado un castillo</div><div>— Día 8 —</div><div class="win">Reclutados 1 × Piquero</div><div class="win">Reclutados 1 × Arquero</div><div class="win">Paso tomado</div><div>Batalla resuelta</div><div class="win">Un Piquero tuyo sube a veterano de nivel 2</div><div class="win">Has capturado un castillo del jugador 1</div><div class="win">Fin de la partida</div></div>
 ### partida terminada · renderActions
 <button data-action="restart" class="primary">Partida nueva</button>
 ### partida terminada · renderLog
-<div class="log"><div class="win">+1137 oro</div><div>El jugador 1 construye: Taberna</div><div>El jugador 1 construye: Casa consistorial</div><div class="lose">El jugador 1 te ha capturado un castillo</div><div>— Día 7 —</div><div class="win">Reclutados 2 × Espadachín</div><div class="win">Reclutados 1 × Piquero</div><div class="win">Reclutados 2 × Piquero</div><div class="win">Paso tomado</div><div>El jugador 1 construye: Morada de nivel 2</div><div>El jugador 1 construye: Mejora de nivel 2</div><div>El jugador 1 construye: Mejora de nivel 2</div><div>El jugador 1 recluta 2 × Zombi mutante</div><div>El jugador 1 recluta 6 × Campesino</div><div class="lose">El jugador 1 te ha quitado un paso</div><div>— Día 8 —</div><div class="win">Paso tomado</div><div>Batalla resuelta</div><div class="win">Un Piquero tuyo sube a veterano de nivel 2</div><div class="win">Has capturado un castillo del jugador 1</div><div class="win">Fin de la partida</div></div>
+<div class="log"><div class="win">Paso tomado</div><div class="win">+1137 oro</div><div>El jugador 1 construye: Taberna</div><div>El jugador 1 construye: Casa consistorial</div><div>— Día 7 —</div><div class="win">Construido: Mejora de nivel 3</div><div class="win">Reclutados 6 × Campesino</div><div class="win">Reclutados 1 × Campesino</div><div class="win">Paso tomado</div><div>El jugador 1 construye: Mejora de nivel 2</div><div>El jugador 1 construye: Casa consistorial</div><div class="lose">El jugador 1 te ha capturado un castillo</div><div>— Día 8 —</div><div class="win">Reclutados 1 × Piquero</div><div class="win">Reclutados 1 × Arquero</div><div class="win">Paso tomado</div><div>Batalla resuelta</div><div class="win">Un Piquero tuyo sube a veterano de nivel 2</div><div class="win">Has capturado un castillo del jugador 1</div><div class="win">Fin de la partida</div></div>
 ### aventura · turno del rival · renderTopbar.resources
 <li title="Madera"><span class="swatch" style="background:#8b5a2b"></span>20</li><li title="Mercurio"><span class="swatch" style="background:#b04a86"></span>5</li><li title="Mineral"><span class="swatch" style="background:#8a8a8a"></span>20</li><li title="Azufre"><span class="swatch" style="background:#c8b32c"></span>5</li><li title="Cristal"><span class="swatch" style="background:#7fd4d8"></span>5</li><li title="Gemas"><span class="swatch" style="background:#4fae5e"></span>5</li><li title="Oro"><span class="swatch" style="background:#d9a441"></span>8000</li>
 ### aventura · turno del rival · renderSide
@@ -336,8 +342,10 @@
     <div class="row"><span class="label">Ronda</span><span>1</span></div>
     <div class="row"><span class="label">Maná</span><span>0 / 20</span></div>
     <h3>Acciones</h3>
+       <div class="row"><span class="label">Le quedan</span><span>4 casillas</span></div>
        <div class="stack-list">
-         <button data-action="battle-defend">Defender</button>
+         <button data-action="battle-end-turn">Terminar turno</button>
+         <button data-action="battle-defend" >Defender</button>
          <button data-action="battle-wait" disabled>Esperar</button>
          <button data-action="battle-surrender">Rendirse (190 oro)</button>
        </div>
@@ -349,7 +357,11 @@
       </button></div>
     
        <p class="cost" style="margin-top:.5rem">
-         Haz clic en un hexágono verde para moverte, o sobre un enemigo para atacarlo.
+         Haz clic en un hexágono verde para moverte —puedes moverte en varios tramos—,
+         o pasa el ratón por un enemigo y elige desde qué casilla golpearlo. Al
+         enemigo en naranja se le puede cargar: pasa por él y elige la casilla del
+         número («»3»).
+         Espacio termina el turno de la unidad.
        </p>
     <h3>En el campo</h3><div class="stack-list"><div class="stack empty">
           <span>◀ Esqueleto</span>
@@ -410,8 +422,10 @@
     <div class="row"><span class="label">Ronda</span><span>1</span></div>
     <div class="row"><span class="label">Maná</span><span>20 / 20</span></div>
     <h3>Acciones</h3>
+       <div class="row"><span class="label">Le quedan</span><span>2 casillas</span></div>
        <div class="stack-list">
-         <button data-action="battle-defend">Defender</button>
+         <button data-action="battle-end-turn">Terminar turno</button>
+         <button data-action="battle-defend" >Defender</button>
          <button data-action="battle-wait" >Esperar</button>
          <button data-action="battle-surrender">Rendirse (190 oro)</button>
        </div>
@@ -423,7 +437,11 @@
       </button></div>
     
        <p class="cost" style="margin-top:.5rem">
-         Haz clic en un hexágono verde para moverte, o sobre un enemigo para atacarlo.
+         Haz clic en un hexágono verde para moverte —puedes moverte en varios tramos—,
+         o pasa el ratón por un enemigo y elige desde qué casilla golpearlo. Al
+         enemigo en naranja se le puede cargar: pasa por él y elige la casilla del
+         número («»3»).
+         Espacio termina el turno de la unidad.
        </p>
     <h3>En el campo</h3><div class="stack-list"><div class="stack empty">
           <span>◀ Esqueleto</span>
@@ -494,8 +512,10 @@
     <div class="row"><span class="label">Ronda</span><span>1</span></div>
     <div class="row"><span class="label">Maná</span><span>20 / 20</span></div>
     <h3>Acciones</h3>
+       <div class="row"><span class="label">Le quedan</span><span>4 casillas</span></div>
        <div class="stack-list">
-         <button data-action="battle-defend">Defender</button>
+         <button data-action="battle-end-turn">Terminar turno</button>
+         <button data-action="battle-defend" >Defender</button>
          <button data-action="battle-wait" >Esperar</button>
          <button data-action="battle-surrender">Rendirse (190 oro)</button>
        </div>
@@ -507,7 +527,11 @@
       </button></div>
     <p class="cost" style="margin-top:.5rem">Flecha mágica: pulsa sobre la unidad objetivo. Escape cancela.</p>
        <p class="cost" style="margin-top:.5rem">
-         Haz clic en un hexágono verde para moverte, o sobre un enemigo para atacarlo.
+         Haz clic en un hexágono verde para moverte —puedes moverte en varios tramos—,
+         o pasa el ratón por un enemigo y elige desde qué casilla golpearlo. Al
+         enemigo en naranja se le puede cargar: pasa por él y elige la casilla del
+         número («»3»).
+         Espacio termina el turno de la unidad.
        </p>
     <h3>En el campo</h3><div class="stack-list"><div class="stack empty">
           <span>◀ Esqueleto</span>
@@ -568,15 +592,21 @@
     <div class="row"><span class="label">Ronda</span><span>1</span></div>
     <div class="row"><span class="label">Maná</span><span>20 / 20</span></div>
     <h3>Acciones</h3>
+       <div class="row"><span class="label">Le quedan</span><span>4 casillas</span></div>
        <div class="stack-list">
-         <button data-action="battle-defend">Defender</button>
+         <button data-action="battle-end-turn">Terminar turno</button>
+         <button data-action="battle-defend" >Defender</button>
          <button data-action="battle-wait" >Esperar</button>
          <button data-action="battle-surrender">Rendirse (190 oro)</button>
        </div>
        <h3>Hechizos</h3>
       <div class="stack-list"><div class="stack empty">Este héroe no conoce ninguno</div></div>
        <p class="cost" style="margin-top:.5rem">
-         Haz clic en un hexágono verde para moverte, o sobre un enemigo para atacarlo.
+         Haz clic en un hexágono verde para moverte —puedes moverte en varios tramos—,
+         o pasa el ratón por un enemigo y elige desde qué casilla golpearlo. Al
+         enemigo en naranja se le puede cargar: pasa por él y elige la casilla del
+         número («»3»).
+         Espacio termina el turno de la unidad.
        </p>
     <h3>En el campo</h3><div class="stack-list"><div class="stack empty">
           <span>◀ Esqueleto</span>

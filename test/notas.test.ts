@@ -85,7 +85,15 @@ describe('notas para el agente', () => {
 
   it('una sustituta que consume el turno lo dice, y NO habla de maná', () => {
     const sustituta: BattleAction = { type: 'attack', target: 'd0' };
-    const nota = notaAccionSustituida('a1', 'd9 ya está destruido', sustituta, 0, 'Aldo', false);
+    const nota = notaAccionSustituida(
+      'a1',
+      'd9 ya está destruido',
+      sustituta,
+      0,
+      'Aldo',
+      false,
+      null,
+    );
 
     expect(nota).toContain('a1');
     expect(nota).toContain('ataque a d0');
@@ -95,7 +103,7 @@ describe('notas para el agente', () => {
 
   it('una sustituta que fue hechizo habla del maná, y NO del turno consumido', () => {
     const sustituta: BattleAction = { type: 'cast', spell: 'magic_arrow', target: 'd0' };
-    const nota = notaAccionSustituida('a1', 'no alcanza', sustituta, 3, 'Aldo', false);
+    const nota = notaAccionSustituida('a1', 'no alcanza', sustituta, 3, 'Aldo', false, null);
 
     expect(nota).toContain('hechizo magic_arrow sobre d0');
     expect(nota).toContain('3 de maná');
@@ -112,7 +120,7 @@ describe('notas para el agente', () => {
     // El maná se MIDE. Si la sustituta fue un `cast` pero el héroe no perdió
     // nada, decir «te ha costado 0 de maná» sería ruido con pinta de dato.
     const sustituta: BattleAction = { type: 'cast', spell: 'magic_arrow', target: 'd0' };
-    const nota = notaAccionSustituida('a1', 'no alcanza', sustituta, 0, 'Aldo', false);
+    const nota = notaAccionSustituida('a1', 'no alcanza', sustituta, 0, 'Aldo', false, null);
     expect(nota).not.toMatch(/maná/);
     expect(nota).toContain('Eso NO ha consumido el turno de a1');
   });
@@ -123,7 +131,7 @@ describe('notas para el agente', () => {
     // «Eso ha consumido el turno», que con una espera es falso — el stack
     // vuelve al final de la MISMA ronda.
     const sustituta: BattleAction = { type: 'wait' };
-    const nota = notaAccionSustituida('a1', 'no alcanza', sustituta, 0, 'Aldo', false);
+    const nota = notaAccionSustituida('a1', 'no alcanza', sustituta, 0, 'Aldo', false, null);
 
     expect(nota).toContain('espera');
     expect(nota).toContain('Eso NO ha consumido el turno de a1');
@@ -140,7 +148,7 @@ describe('notas para el agente', () => {
     // guardia de `batallaTerminada` no puede cubrirlo —se mide justo después de
     // aplicar la sustituta, y una espera no cierra una batalla—, así que lo
     // único honesto es no prometerla a secas.
-    const nota = notaAccionSustituida('a1', 'no alcanza', { type: 'wait' }, 0, 'Aldo', false);
+    const nota = notaAccionSustituida('a1', 'no alcanza', { type: 'wait' }, 0, 'Aldo', false, null);
 
     expect(nota).toMatch(/SI llega viva/);
     expect(nota).toContain('la batalla no ha terminado antes');
@@ -154,7 +162,7 @@ describe('notas para el agente', () => {
     // el bucle del director sale por `battle.finished` y no hay más peticiones.
     // Prometer una que no va a llegar deja al agente esperando su turno.
     const sustituta: BattleAction = { type: 'cast', spell: 'magic_arrow', target: 'd0' };
-    const nota = notaAccionSustituida('a1', 'no alcanza', sustituta, 3, 'Aldo', true);
+    const nota = notaAccionSustituida('a1', 'no alcanza', sustituta, 3, 'Aldo', true, null);
 
     expect(nota).toContain('ha TERMINADO la batalla');
     expect(nota).toContain('no habrá más peticiones');
@@ -165,7 +173,15 @@ describe('notas para el agente', () => {
 
   it('una sustituta cualquiera que remata tampoco habla de la ronda que viene', () => {
     const sustituta: BattleAction = { type: 'attack', target: 'd0' };
-    const nota = notaAccionSustituida('a1', 'd9 ya está destruido', sustituta, 0, 'Aldo', true);
+    const nota = notaAccionSustituida(
+      'a1',
+      'd9 ya está destruido',
+      sustituta,
+      0,
+      'Aldo',
+      true,
+      null,
+    );
 
     expect(nota).toContain('ha TERMINADO la batalla');
     expect(nota).not.toMatch(/en esta ronda/);
@@ -173,15 +189,48 @@ describe('notas para el agente', () => {
   });
 
   it('el acuse de una acción que coló es una línea corta', () => {
-    const nota = notaAccionAceptada('a1', { type: 'shoot', target: 'd2' }, null);
+    const nota = notaAccionAceptada('a1', { type: 'shoot', target: 'd2' }, null, null);
     expect(nota).toBe('a1: disparo a d2, aplicada.');
   });
 
+  it('el acuse de un `move` dice si el turno sigue abierto, y con cuántas casillas (02-10-2026)', () => {
+    const abierto = notaAccionAceptada('a1', { type: 'move', to: { col: 2, row: 4 } }, null, {
+      pasos: 3,
+    });
+    expect(abierto).toContain('Su turno sigue abierto: le quedan 3 casillas');
+    expect(abierto).toContain('se te volverá a pedir acción para ella');
+    const cerrado = notaAccionAceptada('a1', { type: 'move', to: { col: 2, row: 4 } }, null, null);
+    expect(cerrado).toContain('su turno se ha cerrado');
+    expect(cerrado).not.toContain('se te volverá a pedir');
+  });
+
+  it('con una casilla, «le queda 1 casilla» y no «le quedan 1 casillas» (QA, H3)', () => {
+    const mueve = { type: 'move', to: { col: 2, row: 4 } } as const;
+    expect(notaAccionAceptada('a1', mueve, null, { pasos: 1 })).toContain(
+      'Su turno sigue abierto: le queda 1 casilla y se te volverá a pedir acción para ella.',
+    );
+    expect(
+      notaAccionSustituida('a1', 'no alcanza', mueve, 0, 'Aldo', false, { pasos: 1 }),
+    ).toContain('Eso NO ha cerrado el turno de a1: le queda 1 casilla y se te volverá');
+    expect(notaAccionAceptada('a1', mueve, null, { pasos: 0 })).toContain('le quedan 0 casillas');
+  });
+
+  it('un `move` sustituto que deja el turno abierto no dice que se gastó el turno', () => {
+    const sustituta = { type: 'move', to: { col: 2, row: 4 } } as const;
+    const abierto = notaAccionSustituida('a1', 'no alcanza', sustituta, 0, 'Aldo', false, {
+      pasos: 2,
+    });
+    expect(abierto).toContain('Eso NO ha cerrado el turno de a1: le quedan 2 casillas');
+    expect(abierto).not.toContain('ha consumido el turno');
+    const cerrado = notaAccionSustituida('a1', 'no alcanza', sustituta, 0, 'Aldo', false, null);
+    expect(cerrado).toContain('Eso ha consumido el turno de a1');
+  });
+
   it('el acuse de una rendición dice cuánto se pagó (H-2), y sin precio no se inventa', () => {
-    const nota = notaAccionAceptada('attacker-0', { type: 'surrender' }, 150);
+    const nota = notaAccionAceptada('attacker-0', { type: 'surrender' }, 150, null);
     expect(nota).toContain('Has pagado 150 de oro');
     expect(nota).toContain('no habrá más peticiones');
-    expect(() => notaAccionAceptada('attacker-0', { type: 'surrender' }, null)).toThrow(
+    expect(() => notaAccionAceptada('attacker-0', { type: 'surrender' }, null, null)).toThrow(
       'no dice qué costó',
     );
   });

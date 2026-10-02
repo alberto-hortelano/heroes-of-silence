@@ -9,45 +9,77 @@
  * puerta no está aquí sino en `main.ts`, una sola para el lienzo, los botones y
  * el teclado: con una por sitio, «Resolver sola» y Escape se colaban.
  */
-import { isAlive, stackHexes } from '@core/battle/battle.js';
+import { type CasillaDeCarga, isAlive, SIN_CARGAS, stackHexes } from '@core/battle/battle.js';
 import { hexEquals } from '@core/battle/board.js';
+import { CHARGE_BONUS_PER_HEX } from '@core/battle/damage.js';
 import type { BattleAction, BattleStack } from '@core/battle/types.js';
 import type { Hex } from '@core/types.js';
 import { BattleAnimator } from '../anim.js';
-import { cajaDeFigura, drawBatalla } from '../render/batalla.js';
+import { type Angulo, cajaDeFigura, drawBatalla } from '../render/batalla.js';
 import { cercaDelCentro, hexEnPixel, type Tablero, tableroPara } from '../render/proyeccion.js';
 import type { Session } from '../session.js';
+import { accionContra, golpeEnPixel } from './angulo.js';
 
 const SIN_NADA: ReadonlySet<string> = new Set();
 
-/** Lo que dice la barra a quien pulsa mientras la jugada se cuenta. */
-export const AVISO_DE_ESPERA = 'Espera a que termine la jugada.';
+/**
+ * La carga dicha para la barra: cuántas casillas y cuánto daño suma, con el
+ * tanto por ciento de la constante del daño. Solo se dice sobre el ENEMIGO: una
+ * casilla vacía de la recta no promete nada, porque el clic ahí solo mueve
+ * (decisión del usuario, 02-10-2026).
+ */
+function rotuloDeCarga(carga: CasillaDeCarga): string {
+  const porciento = Math.round(carga.hexes * CHARGE_BONUS_PER_HEX * 100);
+  return `cargando ${carga.hexes} casillas (+${porciento} % de daño)`;
+}
 
 /**
- * Lo que hace un clic sobre un enemigo: disparar si se puede; si no, golpear sin
- * moverse; si no, el primer golpe que haya, moviéndose hasta él.
- *
- * Exportada y pura porque la usan dos: esta escena, y el guion de capturas, que
- * tiene que aplicar en su espejo la MISMA acción que el cliente va a mandar. Con
- * la regla copiada allí, el día que cambie aquí el espejo se separaría de la
- * página sin que nada lo dijera hasta tres pasos después.
+ * Lo que dice la barra con el puntero sobre un enemigo: desde qué casilla se le
+ * golpearía y, si desde ahí se carga, cuánto. Exportada porque `pnpm capturas`
+ * espera a leer en la página exactamente esta frase.
  */
-export function accionContra(
-  acciones: readonly BattleAction[],
-  objetivo: string,
-): BattleAction | undefined {
-  return (
-    acciones.find((a) => a.type === 'shoot' && a.target === objetivo) ??
-    acciones.find((a) => a.type === 'attack' && a.target === objetivo && a.from === undefined) ??
-    acciones.find((a) => a.type === 'attack' && a.target === objetivo)
-  );
+export function rotuloDeAngulo(elegida: Hex, carga: CasillaDeCarga | undefined): string {
+  const { col, row } = elegida;
+  return `Golpearías desde (${col},${row})${carga === undefined ? '' : `, ${rotuloDeCarga(carga)}`}.`;
 }
+
+/**
+ * La carga del golpe que se elegiría: la de ese enemigo desde esa casilla, si la
+ * hay. Exportada porque `pnpm capturas` la busca igual para esperar la frase.
+ */
+export function cargaContra(
+  cargas: readonly CasillaDeCarga[],
+  angulo: Pick<Angulo, 'objetivo' | 'elegida'>,
+): CasillaDeCarga | undefined {
+  return cargas.find((c) => c.target === angulo.objetivo && hexEquals(c.at, angulo.elegida));
+}
+
+/** Lo que dice la barra a quien pulsa mientras la jugada se cuenta. */
+export const AVISO_DE_ESPERA = 'Espera a que termine la jugada.';
 
 export class EscenaBatalla {
   private readonly animador = new BattleAnimator();
   private tablero: Tablero = tableroPara(1, 1);
   private hoverHex: Hex | null = null;
   private hoverStack: string | null = null;
+  /** Dónde está el puntero, para recalcular el ángulo cuando cambia la jugada. */
+  private puntero: { x: number; y: number } | null = null;
+  /**
+   * El ángulo bajo el puntero y la lista legal con la que se calculó. Se
+   * calcula al mover el ratón y se lee en cada fotograma; si entre tanto la
+   * jugada cambia —la sesión da otra lista—, se recalcula una vez con el
+   * puntero donde está, y no se pinta el de una jugada que ya pasó.
+   */
+  private angulo: {
+    readonly acciones: readonly BattleAction[];
+    readonly valor: Angulo | null;
+  } | null = null;
+  /**
+   * Lo último que esta escena escribió en la barra al señalar. Al dejar de
+   * señalar se quita, pero solo si sigue siendo lo que hay: si la sesión ha
+   * escrito otra cosa entre tanto, manda la sesión.
+   */
+  private rotulo: string | null = null;
   /**
    * Lo que decía la barra antes del aviso de espera, mientras el aviso está
    * puesto. El aviso habla de la jugada que se está contando: acabada, ya no es
@@ -113,6 +145,8 @@ export class EscenaBatalla {
       ancho,
       alto,
       movibles: quieta || s.selectedSpell !== null ? [] : s.battleMovable(),
+      cargas: quieta || s.selectedSpell !== null ? SIN_CARGAS : s.battleCharges(),
+      angulo: quieta ? null : this.anguloActual(),
       atacables,
       objetivosHechizo: s.selectedSpell === null ? SIN_NADA : new Set(s.castTargets()),
       hoverHex: this.hoverHex,
@@ -162,11 +196,92 @@ export class EscenaBatalla {
   }
 
   mover(px: number, py: number): void {
+    this.puntero = { x: px, y: py };
+    this.angulo = null;
     this.hoverHex = hexEnPixel(this.tablero, px, py);
     // Lo que se señala es lo que haría el clic: si el centro de un hex al que se
     // puede ir gana a la figura que lo tapa, la figura no se ilumina.
-    this.hoverStack =
-      this.movimientoEn(px, py) === undefined ? (this.unidadEn(px, py)?.id ?? null) : null;
+    const movimiento = this.movimientoEn(px, py);
+    this.hoverStack = movimiento === undefined ? (this.unidadEn(px, py)?.id ?? null) : null;
+    this.rotular(this.rotuloEn(movimiento));
+  }
+
+  /**
+   * El ángulo del golpe si el puntero está sobre un enemigo al que la unidad
+   * activa —tuya— puede golpear cuerpo a cuerpo: todas las casillas desde las
+   * que lo alcanza y la más cercana al puntero. `null` si dispararía (un tirador
+   * no se acerca a golpear lo que puede tirar), si hay un hechizo elegido o si
+   * no hay a quién.
+   */
+  anguloEn(px: number, py: number): Angulo | null {
+    const golpe = this.golpeEn(px, py);
+    if (golpe === undefined) return null;
+    const { acciones, objetivo, hexActual } = golpe;
+    const g = golpeEnPixel(acciones, objetivo, hexActual, this.tablero, px, py);
+    if (g === undefined || 'disparo' in g) return null;
+    return { objetivo, candidatas: g.opciones.map((o) => o.desde), elegida: g.elegida.desde };
+  }
+
+  /**
+   * Lo que manda un clic en ese punto si cae sobre un enemigo: el disparo o el
+   * golpe desde la casilla resaltada. `undefined` si ahí no hay enemigo o no se
+   * le alcanza. La usan `pulsar` y el espejo de `pnpm capturas`, que tiene que
+   * aplicar la MISMA acción que manda la página.
+   */
+  accionContraEn(px: number, py: number): BattleAction | undefined {
+    const golpe = this.golpeEn(px, py);
+    if (golpe === undefined) return undefined;
+    return accionContra(golpe.acciones, golpe.objetivo, golpe.hexActual, this.tablero, px, py);
+  }
+
+  /** El ángulo del puntero de ahora, calculado una vez por gesto o por jugada. */
+  private anguloActual(): Angulo | null {
+    if (this.puntero === null) return null;
+    const acciones = this.sesion().battleLegalActions();
+    if (this.angulo === null || this.angulo.acciones !== acciones) {
+      this.angulo = { acciones, valor: this.anguloEn(this.puntero.x, this.puntero.y) };
+    }
+    return this.angulo.valor;
+  }
+
+  /**
+   * Lo que hace falta para golpear al enemigo bajo el puntero, si lo hay y la
+   * unidad activa es tuya: la lista legal, a quién y desde dónde está ahora.
+   * Un movimiento que gana el clic, o un hechizo elegido, no son un golpe.
+   */
+  private golpeEn(
+    px: number,
+    py: number,
+  ): { acciones: readonly BattleAction[]; objetivo: string; hexActual: Hex } | undefined {
+    const s = this.sesion();
+    const turno = s.turnoPropio;
+    if (turno === null || s.selectedSpell !== null) return undefined;
+    if (this.movimientoEn(px, py) !== undefined) return undefined;
+    const objetivo = this.unidadEn(px, py);
+    if (objetivo === undefined || objetivo.side === s.miBando) return undefined;
+    return { acciones: s.battleLegalActions(), objetivo: objetivo.id, hexActual: turno.stack.hex };
+  }
+
+  /** Lo que la barra dice de lo señalado, o `null` si no hay nada que decir. */
+  private rotuloEn(movimiento: BattleAction | undefined): string | null {
+    const s = this.sesion();
+    if (this.animador.busy) return null;
+    // Sobre una casilla a la que ir no se promete carga: el clic ahí solo mueve.
+    if (movimiento !== undefined) return null;
+    const angulo = this.anguloActual();
+    if (angulo === null) return null;
+    return rotuloDeAngulo(angulo.elegida, cargaContra(s.battleCharges(), angulo));
+  }
+
+  private rotular(texto: string | null): void {
+    const s = this.sesion();
+    if (texto !== null) {
+      s.status = texto;
+      this.rotulo = texto;
+      return;
+    }
+    if (this.rotulo !== null && s.status === this.rotulo) s.status = '';
+    this.rotulo = null;
   }
 
   /**
@@ -220,6 +335,9 @@ export class EscenaBatalla {
   salir(): void {
     this.hoverHex = null;
     this.hoverStack = null;
+    this.puntero = null;
+    this.angulo = null;
+    this.rotular(null);
   }
 
   private stackEn(hex: Hex): BattleStack | undefined {
@@ -262,14 +380,15 @@ export class EscenaBatalla {
       return;
     }
 
-    // Clic sobre un enemigo: disparar si se puede, si no cargar contra él.
+    // Clic sobre un enemigo: disparar si se puede; si no, golpear desde la
+    // casilla resaltada, la más cercana al puntero.
     if (objetivo !== undefined && objetivo.side !== session.miBando) {
-      const accion = accionContra(acciones, objetivo.id);
+      const accion = this.accionContraEn(px, py);
       if (accion !== undefined) {
         session.playBattleAction(accion);
         return;
       }
-      session.status = 'No alcanzas a esa unidad este turno.';
+      session.status = session.attackRejection(objetivo.id);
       return;
     }
 

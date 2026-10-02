@@ -118,6 +118,17 @@ export function enPantalla(t: Tablero, p: Plano): { x: number; y: number } {
   return { x: t.origenX + p.x * t.paso, y: t.origenY + p.y * t.paso * t.compresion };
 }
 
+/**
+ * La inversa de `enPantalla`: el punto del plano bajo un píxel. Deshacer la
+ * compresión es lo que hace que «la casilla más cercana al puntero» signifique
+ * lo que se ve: en pantalla las filas están aplastadas y la vecina de arriba
+ * queda más cerca que la de al lado, así que medido en píxeles la casilla del
+ * oeste no ganaba nunca dentro del hexágono del enemigo.
+ */
+export function planoDePixel(t: Tablero, px: number, py: number): Plano {
+  return { x: (px - t.origenX) / t.paso, y: (py - t.origenY) / (t.paso * t.compresion) };
+}
+
 export function centroHex(t: Tablero, h: Hex): { x: number; y: number } {
   return enPantalla(t, planoDeHex(h));
 }
@@ -142,8 +153,7 @@ export function verticesHex(t: Tablero, h: Hex): { x: number; y: number }[] {
  * final que el punto caiga de verdad dentro de ese hex.
  */
 export function hexEnPixel(t: Tablero, px: number, py: number): Hex | null {
-  const u = (px - t.origenX) / t.paso;
-  const v = (py - t.origenY) / (t.paso * t.compresion);
+  const { x: u, y: v } = planoDePixel(t, px, py);
   let mejor: Hex | null = null;
   let mejorD = Infinity;
   for (let row = 0; row < BOARD_HEIGHT; row++) {
@@ -178,7 +188,8 @@ const RADIO_DEL_CENTRO = 0.3;
  */
 export function cercaDelCentro(t: Tablero, h: Hex, px: number, py: number): boolean {
   const c = planoDeHex(h);
-  const u = (px - t.origenX) / t.paso - c.x;
-  const v = (py - t.origenY) / (t.paso * t.compresion) - c.y;
+  const p = planoDePixel(t, px, py);
+  const u = p.x - c.x;
+  const v = p.y - c.y;
   return u * u + v * v <= RADIO_DEL_CENTRO * RADIO_DEL_CENTRO;
 }

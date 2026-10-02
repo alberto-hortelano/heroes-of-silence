@@ -8,8 +8,14 @@
 
 import { chooseBattleAction } from '@core/ai/tactics.js';
 import { type BattleTakeover, playAiTurn } from '@core/ai/turn.js';
-import { activeStack, applyAction } from '@core/battle/battle.js';
-import type { BattleAction, BattleState } from '@core/battle/types.js';
+import {
+  activeStack,
+  applyAction,
+  MAX_JUGADAS,
+  mismoTurno,
+  pasosQueQuedan,
+} from '@core/battle/battle.js';
+import type { BattleAction, BattleState, TurnoDeUnidad } from '@core/battle/types.js';
 import {
   serializeAdventureTurn,
   serializeBattleTurn,
@@ -47,6 +53,7 @@ import {
   notaAscenso,
   notaAscensoRechazado,
   notaTurnoAventura,
+  type TurnoAbierto,
 } from './notas.js';
 
 export interface DirectorOptions {
@@ -406,7 +413,7 @@ export class Director {
     const dueños = battleOwners(this.state, pending);
     let guard = 0;
 
-    while (battle.finished === null && guard < 800) {
+    while (battle.finished === null && guard < MAX_JUGADAS) {
       guard++;
       const s = activeStack(battle);
       if (s === null) break;
@@ -436,6 +443,9 @@ export class Director {
       if (respuesta === null) break;
 
       const accion = respuesta.data.action as BattleAction;
+      // El turno de antes, para comparar su ordinal con el de después: si es el
+      // mismo, la acción ha dejado el turno abierto.
+      const turnoAntes = battle.turno;
       try {
         applyAction(battle, accion, this.ctx.rng);
         this.frame();
@@ -443,7 +453,7 @@ export class Director {
           respuesta.requestId,
           true,
           undefined,
-          notaAccionAceptada(s.id, accion, precioPagado(battle)),
+          notaAccionAceptada(s.id, accion, precioPagado(battle), turnoAbierto(battle, turnoAntes)),
         );
       } catch (err) {
         const motivo = err instanceof Error ? err.message : String(err);
@@ -474,6 +484,7 @@ export class Director {
             manaGastado,
             heroe?.name ?? null,
             battle.finished !== null,
+            turnoAbierto(battle, turnoAntes),
           ),
         );
       }
@@ -497,6 +508,18 @@ export class Director {
     this.log.push(line);
     console.log(`[director] ${line}`);
   }
+}
+
+/**
+ * Si el turno de la unidad sigue abierto tras la acción, con lo que le queda; o
+ * `null` si se cerró. Se mide con el ordinal (`mismoTurno`): la moral extra abre
+ * uno NUEVO para la misma unidad, y eso es otro turno, no el mismo.
+ */
+function turnoAbierto(battle: BattleState, antes: TurnoDeUnidad | null): TurnoAbierto | null {
+  if (!mismoTurno(antes, battle.turno)) return null;
+  const s = activeStack(battle);
+  if (s === null) return null;
+  return { pasos: pasosQueQuedan(battle, s) };
 }
 
 /**

@@ -33,6 +33,7 @@ import {
   CABECERA_ESTADO,
   CABECERA_RESPUESTA,
   leeVeredictos,
+  leQuedan,
   MARCA_KIND,
   PREFIJO_CORTE,
   PREFIJO_FIN,
@@ -84,6 +85,18 @@ for (const señal of ['SIGINT', 'SIGTERM'] as const) {
 /** Todo lo que hay que contar al final, en un sitio: el resumen lo lee un humano. */
 const veredictos: Veredicto[] = [];
 const consultadas = new Set<string>();
+/**
+ * Las decisiones de batalla en orden: qué unidad decidía y qué se le mandó. Con
+ * el turno en tramos (02-10-2026) se exige que al menos una unidad encadene dos
+ * `move` aceptados en el mismo turno, leído de los veredictos y no supuesto.
+ */
+const decisionesDeBatalla: {
+  requestId: string;
+  stack: string;
+  turnId: number;
+  accion: string;
+  stepsLeft: number;
+}[] = [];
 /** Qué cambió en la partida por haberlo pedido. `null` = todavía sin comprobar. */
 let cambioAplicado: string | null = null;
 /**
@@ -426,6 +439,47 @@ async function cruzaElEquipo(client: Client, turno: any): Promise<void> {
   equipo.visto = `${primero.fila.creature} ${primero.fila.id} de ${primero.heroe} lleva ${JSON.stringify(primero.fila.equipment)} (cruzado con game_state)`;
 }
 
+/**
+ * Que el turno en tramos haya cruzado el circuito: una unidad del agente con dos
+ * `move` seguidos en el MISMO turno —el mismo `turnId` en las dos peticiones—,
+ * los dos aceptados, y el primero acusado con el turno ABIERTO y las casillas
+ * que le quedan en la segunda petición.
+ *
+ * Las dos mitades hacen falta y miden cosas distintas. El `turnId` es el hecho:
+ * dos `move` seguidos de la misma unidad pueden ser dos turnos (la moral extra,
+ * o el último que queda en pie), y es lo que coló dos veces a quien miraba solo
+ * quién actúa. La nota es lo que mide el director: sin ella, la sonda que
+ * invierte su medida —anunciar «cerrado» cuando sigue abierto— saldría verde.
+ */
+function exigeDosTramos(): void {
+  const veredicto = (id: string) => veredictos.find((v) => v.requestId === id);
+  let tramos = 0;
+  for (let i = 0; i + 1 < decisionesDeBatalla.length; i++) {
+    const a = decisionesDeBatalla[i]!;
+    const b = decisionesDeBatalla[i + 1]!;
+    if (a.turnId !== b.turnId || a.accion !== 'move' || b.accion !== 'move') continue;
+    const va = veredicto(a.requestId);
+    const vb = veredicto(b.requestId);
+    if (
+      va?.ok === true &&
+      vb?.ok === true &&
+      va.nota.includes('Su turno sigue abierto') &&
+      va.nota.includes(leQuedan(b.stepsLeft))
+    ) {
+      if (tramos === 0) log(`dos tramos: ${a.stack} — «${va.nota}»`);
+      tramos++;
+    }
+  }
+  if (tramos === 0) {
+    throw new Error(
+      `ninguna unidad del agente ha encadenado dos "move" aceptados en el mismo turno (${decisionesDeBatalla.length} decisiones de batalla)`,
+    );
+  }
+  log(
+    `turno en tramos: ${tramos} veces dos "move" seguidos en el mismo "turnId", los dos aceptados`,
+  );
+}
+
 /** Cierra con el resumen de todo lo que se ha verificado. */
 async function terminarBien(
   turnos: number,
@@ -434,6 +488,7 @@ async function terminarBien(
   motivo: string,
 ): Promise<void> {
   informaVeredictos();
+  exigeDosTramos();
 
   if (cambioAplicado === null) {
     throw new Error('no se ha llegado a comprobar que ninguna acción se aplicara de verdad');
@@ -700,6 +755,15 @@ async function main(): Promise<void> {
         throw new Error(`"surrender" llega sin su precio: ${JSON.stringify(rendicion)}`);
       }
       rendicionOfrecida ||= rendicion !== undefined;
+      // Lo que le queda de turno a la unidad: sin esto no puede repartir sus
+      // casillas en tramos.
+      for (const campo of ['stepsLeft', 'turnId'] as const) {
+        if (typeof payload[campo] !== 'number') {
+          throw new Error(
+            `el turno de batalla no trae "${campo}": ${JSON.stringify(payload).slice(0, 200)}`,
+          );
+        }
+      }
     }
 
     if (kind === 'adventure_turn') {
@@ -731,8 +795,16 @@ async function main(): Promise<void> {
     // la cifra del informe y dejaría de ser comparable con los 3 turnos y 9
     // decisiones de las pasadas anteriores.
     // El ascenso tampoco es un turno de mapa: va antes del `adventure_turn`.
-    if (kind === 'battle_turn') batallas++;
-    else if (kind === 'map_generate') mapas++;
+    if (kind === 'battle_turn') {
+      batallas++;
+      decisionesDeBatalla.push({
+        requestId: RE_PETICION.exec(texto)?.[1] ?? '',
+        stack: String(payload.activeStack),
+        turnId: Number(payload.turnId),
+        accion: String((respuesta as { action: { type: string } }).action.type),
+        stepsLeft: Number(payload.stepsLeft),
+      });
+    } else if (kind === 'map_generate') mapas++;
     else if (kind === 'hero_from_troop') {
       ascenso.requestId = RE_PETICION.exec(texto)?.[1] ?? null;
       ascenso.nombre = String((respuesta as { name: string }).name);

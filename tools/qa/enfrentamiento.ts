@@ -6,10 +6,13 @@
  * el código hace exactamente lo mismo. Esto pregunta lo que ninguna de las dos
  * puede: si un cambio DELIBERADO de la heurística gana más batallas.
  *
- * **Mide la regla de espera (#52) y nada más.** Cualquier otro cambio táctico
- * que salga byte a byte idéntico —#50, sin caballería en el tablero— devolvería
- * aquí un 50,0 % por construcción, y ese 50 % no significaría «no mejora»:
- * significaría «no hay nada que medir». Hay que decirlo al leer la cifra.
+ * **Mide UNA regla a la vez**, la que se elige con la bandera: por defecto la
+ * del turno en tramos (02-10-2026) —tras moverse, la IA vuelve a decidir y pega
+ * si alcanza, en vez de cerrar el turno—, y con `--espera` la regla de espera
+ * (#52). Cualquier otro cambio táctico que salga byte a byte idéntico —#50, sin
+ * caballería en el tablero— devolvería aquí un 50,0 % por construcción, y ese
+ * 50 % no significaría «no mejora»: significaría «no hay nada que medir». Hay
+ * que decirlo al leer la cifra.
  *
  * Y una advertencia sobre la población: los ejércitos son de este generador, no
  * de una partida. Aquí `charge` sale en el 8,2 % de los stacks y en partida real
@@ -54,12 +57,20 @@
  * ## Qué es "la IA de antes"
  *
  * No es una copia congelada de `tactics.ts` ni un flag en producción: es la
- * MISMA `chooseBattleAction` con la rama de espera desactivada desde fuera —si
- * devuelve `wait`, se marca `waited` un instante y se le vuelve a preguntar—.
- * Así el contrincante no envejece cuando la heurística mejore por otro lado, y
- * `core` no se entera de que este banco existe.
+ * MISMA `chooseBattleAction` con la regla medida desactivada desde fuera. Para
+ * los tramos, si la unidad ya se ha movido se cierra el turno sin preguntarle
+ * —la primera decisión de un turno es idéntica en las dos, así que eso basta—;
+ * para la espera, si devuelve `wait` se marca `waited` un instante y se le
+ * vuelve a preguntar. Así el contrincante no envejece cuando la heurística
+ * mejore por otro lado, y `core` no se entera de que este banco existe.
  *
- * Uso: npx tsx tools/qa/enfrentamiento.ts [parejas=1000] [--espejo]
+ * Medido al entrar los tramos: **51,08 % ± 0,25** en 5 000 parejas (135 ganadas ·
+ * 4 838 empatadas · 27 perdidas). Y una candidata que se descartó por la misma
+ * vara: colocar a la caballería en un tramo para cargar en recta en el
+ * siguiente dio **49,39 % ± 0,18**, entera por DEBAJO del 50 — colocarse la deja
+ * expuesta sin comprar casi nada de carga.
+ *
+ * Uso: npx tsx tools/qa/enfrentamiento.ts [parejas=1000] [--espera] [--espejo]
  */
 import { chooseBattleAction } from '../../src/core/ai/tactics.js';
 import {
@@ -67,7 +78,9 @@ import {
   applyAction,
   type BattleSide,
   createBattle,
+  MAX_JUGADAS,
   MAX_ROUNDS,
+  seHaMovido,
 } from '../../src/core/battle/battle.js';
 import type { BattleAction, BattleState, Side } from '../../src/core/battle/types.js';
 import { otroBando } from '../../src/core/battle/types.js';
@@ -77,6 +90,7 @@ import type { FactionId, Stack } from '../../src/core/types.js';
 
 const args = process.argv.slice(2);
 const ESPEJO = args.includes('--espejo');
+const ESPERA = args.includes('--espera');
 const PAREJAS = Number(args.find((a) => !a.startsWith('--')) ?? 1000);
 
 /**
@@ -95,8 +109,19 @@ const EFECTIVOS = [5, 25] as const;
 
 type Tactica = (state: BattleState) => BattleAction;
 
-/** La heurística de hoy, con la regla de espera puesta. */
-const conEspera: Tactica = chooseBattleAction;
+/** La heurística de hoy, con todas sus reglas puestas. */
+const deHoy: Tactica = chooseBattleAction;
+
+/**
+ * La heurística de hoy sin el segundo tramo: tras moverse cierra el turno, que
+ * es lo que jugaba antes. Basta con eso desde fuera porque la regla solo cambia
+ * las decisiones de una unidad que YA se ha movido.
+ */
+const sinSegundoTramo: Tactica = (state) => {
+  const s = activeStack(state);
+  if (s !== null && seHaMovido(state, s)) return { type: 'end_turn' };
+  return chooseBattleAction(state);
+};
 
 /**
  * La heurística de hoy con la rama de espera apagada, que es la IA de antes.
@@ -151,7 +176,7 @@ interface Resultado {
 function jugar(state: BattleState, rng: Rng, tacticas: Record<Side, Tactica>): Resultado {
   let esperas = 0;
   let defensas = 0;
-  for (let turno = 0; turno < 5000; turno++) {
+  for (let turno = 0; turno < MAX_JUGADAS; turno++) {
     if (state.finished !== null) {
       return { winner: state.finished.winner, rounds: state.round, esperas, defensas };
     }
@@ -162,7 +187,7 @@ function jugar(state: BattleState, rng: Rng, tacticas: Record<Side, Tactica>): R
     if (accion.type === 'defend') defensas++;
     applyAction(state, accion, rng);
   }
-  throw new Error(`una batalla no ha terminado en 5000 turnos (ronda ${state.round})`);
+  throw new Error(`una batalla no ha terminado en ${MAX_JUGADAS} jugadas (ronda ${state.round})`);
 }
 
 /** Los dos ejércitos de una pareja: el mismo par para las dos batallas. */
@@ -183,8 +208,9 @@ function batalla(
 
 // ------------------------------------------------------------------ la tanda
 
-/** El contrincante de la espera: ella misma en el espejo, la de antes si no. */
-const rival: Tactica = ESPEJO ? conEspera : sinEspera;
+/** El contrincante: la de hoy en el espejo, y si no la de hoy sin la regla medida. */
+const rival: Tactica = ESPEJO ? deHoy : ESPERA ? sinEspera : sinSegundoTramo;
+const REGLA = ESPERA ? 'la espera' : 'el segundo tramo';
 
 let victorias = 0;
 let esperas = 0;
@@ -200,11 +226,11 @@ for (let semilla = 1; semilla <= PAREJAS; semilla++) {
   const ejercitos = ejercitosDe(semilla);
   let ganadasAqui = 0;
 
-  // La misma pareja dos veces: primero la espera ataca, después defiende.
+  // La misma pareja dos veces: primero la táctica de hoy ataca, después defiende.
   for (const asiento of ['attacker', 'defender'] as const) {
     const otro = otroBando(asiento);
     const r = batalla(semilla, ejercitos, {
-      [asiento]: conEspera,
+      [asiento]: deHoy,
       [otro]: rival,
     } as Record<Side, Tactica>);
 
@@ -252,7 +278,7 @@ console.log(
 );
 console.log(
   `victorias:     ${victorias}/${batallas} = ${(p * 100).toFixed(2)} % ± ${(ic * 100).toFixed(2)} pp ` +
-    `(IC 95 % pareado)${ESPEJO ? '' : ' de la IA CON espera, contra la de antes'}`,
+    `(IC 95 % pareado)${ESPEJO ? '' : ` de la IA CON ${REGLA}, contra la de antes`}`,
 );
 console.log(
   `parejas 2-0 · 1-1 · 0-2:  ${reparto[2]} ganadas · ${reparto[1]} empatadas · ${reparto[0]} perdidas`,

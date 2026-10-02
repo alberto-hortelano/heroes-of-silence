@@ -7,10 +7,18 @@
  */
 
 import { fuerzaDe, MARGEN_CONTRA_NEUTRALES, poderDe } from '../ai/fuerza.js';
-import { activeStack, legalActions, stackHexes, stackSpeed } from '../battle/battle.js';
+import {
+  activeStack,
+  casillasDeCarga,
+  legalActions,
+  pasosQueQuedan,
+  stackHexes,
+  stackSpeed,
+} from '../battle/battle.js';
 import { stackHp } from '../battle/damage.js';
 import { effectiveLuck } from '../battle/effects.js';
 import {
+  type BattleStack,
   type BattleState,
   nivelDeVeterania,
   type OrigenDelStack,
@@ -685,7 +693,11 @@ export function serializeBattleTurn(
     round: battle.round,
     yourSide: side,
     ...(propia ? { yourGold: oro } : {}),
-    activeStack: battle.activeId,
+    activeStack: battle.turno?.stack ?? null,
+    // El ordinal del turno: lo que dice si la siguiente petición sigue siendo el
+    // MISMO turno de la misma unidad o uno nuevo (la moral extra), que mirando
+    // solo `activeStack` no se distingue.
+    turnId: battle.turno?.n ?? null,
     board: { width: 11, height: 9, layout: 'offset odd-r; el atacante entra por la columna 0' },
     stacks: battle.stacks.filter((s) => s.count > 0).map(stackView),
     hero:
@@ -703,10 +715,38 @@ export function serializeBattleTurn(
     // Todas las acciones legales del stack activo: elegir una nunca falla —
     // cuando te toca. Si el stack activo no es de `side`, esta lista es la de
     // OTRO y sus `cast` son su libro y su maná: no se manda.
+    // Y lo que le queda de turno: con el movimiento en tramos, las casillas que
+    // aún puede andar. Va con la lista porque es del mismo stack y solo se
+    // manda cuando ese stack es tuyo.
+    // Y las cargas que tiene a mano, si hay alguna —a qué enemigo y desde qué
+    // casilla—: la carga se ENSEÑA con el movimiento posible, y sale de
+    // `casillasDeCarga`, la misma regla que la cobra —sin el rasgo `charge` sale
+    // vacía, así que aquí no se pregunta—.
     ...(propia && activo !== null && activo.side === side
-      ? { legalActions: legalActions(battle) }
+      ? {
+          legalActions: legalActions(battle),
+          stepsLeft: pasosQueQuedan(battle, activo),
+          ...chargeFrom(battle, activo),
+        }
       : {}),
     log: battle.log.slice(-30),
+  };
+}
+
+/** Las cargas de `activo` para el cable —contra quién y desde dónde—, o nada si no tiene ninguna. */
+function chargeFrom(
+  battle: BattleState,
+  activo: BattleStack,
+): { chargeFrom?: { target: string; col: number; row: number; hexes: number }[] } {
+  const cargas = casillasDeCarga(battle, activo);
+  if (cargas.length === 0) return {};
+  return {
+    chargeFrom: cargas.map((c) => ({
+      target: c.target,
+      col: c.at.col,
+      row: c.at.row,
+      hexes: c.hexes,
+    })),
   };
 }
 

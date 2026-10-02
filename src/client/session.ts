@@ -10,8 +10,14 @@ import { playAiTurn } from '@core/ai/turn.js';
 import {
   activeStack,
   applyAction,
+  ataqueBlocker,
+  type CasillaDeCarga,
+  casillasDeCarga,
   castBlocker,
   legalActions,
+  MAX_JUGADAS,
+  pasosQueQuedan,
+  SIN_CARGAS,
   surrenderBlocker,
 } from '@core/battle/battle.js';
 import { spell } from '@core/battle/spells.js';
@@ -68,6 +74,14 @@ export interface SpellOption {
   readonly castable: boolean;
   /** Por qué no se puede lanzar, escrito para la persona. Vacío si sí se puede. */
   readonly motivo: string;
+}
+
+/** Lo que la escena de batalla lee en cada fotograma, calculado una vez por jugada. */
+interface CalculoDeBatalla {
+  acciones: BattleAction[];
+  movibles: Hex[];
+  opciones: SpellOption[];
+  cargas: readonly CasillaDeCarga[];
 }
 
 /**
@@ -732,23 +746,20 @@ export class Session {
    *
    * La escena las pide en cada fotograma, y cada petición era el BFS del tablero
    * más un `castBlocker` por hechizo y objetivo. Toda acción aplicada deja una
-   * línea en el registro y cambia el stack activo, así que la clave es esa —el
-   * patrón de `visibles()`—, con la batalla por identidad delante: una
-   * batalla nueva empieza con el registro corto y podría coincidir.
+   * línea en el registro y mueve el turno —su ordinal, o lo gastado en él—, así
+   * que la clave es esa —el patrón de `visibles()`—, con la batalla por
+   * identidad delante: una batalla nueva empieza con el registro corto y podría
+   * coincidir.
    */
-  private calculoDeBatalla(): {
-    acciones: BattleAction[];
-    movibles: Hex[];
-    opciones: SpellOption[];
-  } {
+  private calculoDeBatalla(): CalculoDeBatalla {
     const battle = this.battle;
-    if (battle === null) return { acciones: [], movibles: [], opciones: [] };
+    if (battle === null) return { acciones: [], movibles: [], opciones: [], cargas: SIN_CARGAS };
     // El maná y el «ya lanzó» de los dos héroes van en la clave aunque hoy solo
     // cambien con un `cast` (que ya deja línea): son lo único de lo que dependen
     // los hechizos que no pasa por el registro, y un test que los toca a mano
     // vería una lista vieja.
     const { attacker: ha, defender: hd } = battle.heroes;
-    const clave = `${battle.log.length}|${battle.activeId}|${this.selectedSpell}|${ha?.mana}|${ha?.castThisRound}|${hd?.mana}|${hd?.castThisRound}`;
+    const clave = `${battle.log.length}|${battle.turno?.n}|${battle.turno?.gastado}|${this.selectedSpell}|${ha?.mana}|${ha?.castThisRound}|${hd?.mana}|${hd?.castThisRound}`;
     const c = this.cacheBatalla;
     if (c !== null && c.battle === battle && c.clave === clave) return c.valor;
     const acciones = battle.finished === null ? legalActions(battle) : [];
@@ -758,15 +769,32 @@ export class Session {
     // dar la misma respuesta.
     const movibles =
       turno === null ? [] : acciones.flatMap((a) => (a.type === 'move' ? [a.to] : []));
-    const valor = { acciones, movibles, opciones: this.opcionesDeHechizo(acciones) };
+    // Las cargas se enseñan con el movimiento posible (decisión del usuario):
+    // salen de `casillasDeCarga`, la misma regla que las cobra.
+    const cargas = turno === null ? SIN_CARGAS : casillasDeCarga(turno.battle, turno.stack);
+    const valor = { acciones, movibles, opciones: this.opcionesDeHechizo(acciones), cargas };
     this.cacheBatalla = { battle, clave, valor };
     return valor;
   }
   private cacheBatalla: {
     battle: BattleState;
     clave: string;
-    valor: { acciones: BattleAction[]; movibles: Hex[]; opciones: SpellOption[] };
+    valor: CalculoDeBatalla;
   } | null = null;
+
+  /**
+   * Las cargas que tiene a mano la unidad activa: contra qué enemigo, desde qué
+   * casilla y con cuántas casillas. Vacío si no es tuya o no carga.
+   */
+  battleCharges(): readonly CasillaDeCarga[] {
+    return this.calculoDeBatalla().cargas;
+  }
+
+  /** Las casillas que le quedan este turno a la unidad activa, si es tuya. */
+  battleStepsLeft(): number | null {
+    const turno = this.turnoPropio;
+    return turno === null ? null : pasosQueQuedan(turno.battle, turno.stack);
+  }
 
   /** Hexes a los que puede ir el stack activo, si es de la persona. */
   battleMovable(): readonly Hex[] {
@@ -844,6 +872,23 @@ export class Session {
   }
 
   /**
+   * Por qué la unidad activa no puede actuar contra ese enemigo: ni dispararle
+   * ni golpearlo. Como `castRejection`, la frase es del núcleo (`ataqueBlocker`)
+   * —«ya se ha movido este turno: no puede disparar…»— y aquí solo se le pone
+   * mayúscula y punto. Quien la pide ya ha visto que no hay acción legal contra
+   * él, así que el núcleo TIENE que dar motivo.
+   */
+  attackRejection(targetId: string): string {
+    const turno = this.turnoPropio;
+    if (turno === null) return '';
+    const motivo = ataqueBlocker(turno.battle, targetId);
+    if (motivo === null) {
+      throw new Error(`no se ofrece ninguna acción contra ${targetId} y el núcleo no dice por qué`);
+    }
+    return `${motivo.charAt(0).toUpperCase()}${motivo.slice(1)}.`;
+  }
+
+  /**
    * La rendición tal y como se pinta: cuánto costaría y, si no se puede, por
    * qué. Las dos cosas las da el núcleo en una llamada (`surrenderBlocker`),
    * igual que el motivo de un hechizo sale de `castBlocker`; la pantalla no
@@ -909,7 +954,7 @@ export class Session {
     const mio = this.miBando;
     if (battle === null || mio === null) return;
     let guard = 0;
-    while (battle.finished === null && guard < 500) {
+    while (battle.finished === null && guard < MAX_JUGADAS) {
       const s = activeStack(battle);
       if (s === null || s.side === mio) break;
       applyAction(battle, chooseBattleAction(battle), this.ctx.rng);

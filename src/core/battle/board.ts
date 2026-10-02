@@ -23,16 +23,9 @@ export function hexEquals(a: Hex, b: Hex): boolean {
 
 /** Los 6 vecinos, en orden E, SE, SW, W, NW, NE. Filtrados al tablero. */
 function vecinasCalculadas(h: Hex): Hex[] {
-  const odd = h.row % 2 === 1;
-  const shift = odd ? 1 : 0;
-  const candidates: Hex[] = [
-    { col: h.col + 1, row: h.row },
-    { col: h.col - 1 + shift, row: h.row + 1 },
-    { col: h.col + shift, row: h.row + 1 },
-    { col: h.col - 1, row: h.row },
-    { col: h.col - 1 + shift, row: h.row - 1 },
-    { col: h.col + shift, row: h.row - 1 },
-  ];
+  // Las seis direcciones salen de `vecinaEnDireccion`, la misma que anda en
+  // línea recta para la carga: una sola tabla de desplazamientos odd-r.
+  const candidates: Hex[] = [0, 1, 2, 3, 4, 5].map((dir) => vecinaEnDireccion(h, dir));
   // El orden importa poco, pero los duplicados sí: en odd-r, SE y SW comparten
   // columna cuando shift los junta. Se filtran junto a los de fuera del tablero.
   const seen = new Set<string>();
@@ -45,6 +38,106 @@ function vecinasCalculadas(h: Hex): Hex[] {
     out.push(c);
   }
   return out;
+}
+
+/**
+ * La vecina en una de las 6 direcciones (0..5, el orden de `vecinasCalculadas`),
+ * SIN filtrar al tablero. Repetir la misma dirección es andar en línea recta:
+ * en odd-r el desplazamiento de columna cambia con la paridad de la fila, y por
+ * eso no se puede sumar un vector fijo a `(col, row)` — se recalcula en cada paso.
+ */
+function vecinaEnDireccion(h: Hex, dir: number): Hex {
+  const shift = h.row % 2 === 1 ? 1 : 0;
+  switch (dir) {
+    case 0:
+      return { col: h.col + 1, row: h.row };
+    case 1:
+      return { col: h.col - 1 + shift, row: h.row + 1 };
+    case 2:
+      return { col: h.col + shift, row: h.row + 1 };
+    case 3:
+      return { col: h.col - 1, row: h.row };
+    case 4:
+      return { col: h.col - 1 + shift, row: h.row - 1 };
+    case 5:
+      return { col: h.col + shift, row: h.row - 1 };
+    default:
+      throw new Error(`no hay dirección ${dir} en un hexágono: van de 0 a 5`);
+  }
+}
+
+/**
+ * Las 6 direcciones de `vecinaEnDireccion` en coordenadas cúbicas, `(Δq, Δr)`
+ * por paso y en el mismo orden. En cúbicas una recta es un vector fijo, cosa
+ * que en odd-r no: por eso aquí se averigua la dirección y abajo se anda.
+ */
+const DIRECCIONES_CUBICAS: readonly (readonly [number, number])[] = [
+  [1, 0],
+  [-1, 1],
+  [0, 1],
+  [-1, 0],
+  [0, -1],
+  [1, -1],
+];
+
+/**
+ * Si `hasta` está en línea recta desde `desde` —una de las 6 direcciones de las
+ * caras del hexágono, sin girar— y ninguna casilla INTERMEDIA está en
+ * `bloqueadas`, la distancia; si no, `null`. Ni `desde` ni `hasta` se miran en
+ * `bloqueadas`: dónde se puede acabar lo decide quien pregunta.
+ *
+ * Es la regla de la carga (decisión del usuario, 02-10-2026): «solo en línea
+ * recta, sin hacer giros». El usuario dijo «8 direcciones» pensando en casillas
+ * cuadradas; en hexágonos las rectas sin giro son 6, y las diagonales entre
+ * vértices no se recorren sin zigzag.
+ *
+ * Alineadas son las que comparten una coordenada cúbica, así que la recta se
+ * sabe sin andar; luego se recorre solo esa dirección, para mirar lo de en
+ * medio. Entre dos casillas del tablero lo de en medio también lo es: el
+ * rectángulo odd-r no tiene entrantes.
+ */
+export function rectaLibre(desde: Hex, hasta: Hex, bloqueadas: ReadonlySet<string>): number | null {
+  const recta = rectaEntre(desde, hasta);
+  if (recta === null) return null;
+  let h = desde;
+  for (let paso = 1; paso < recta.d; paso++) {
+    h = vecinaEnDireccion(h, recta.dir);
+    if (bloqueadas.has(hexKey(h))) return null;
+  }
+  return recta.d;
+}
+
+/**
+ * La casilla que sigue a `hasta` en la recta que sale de `desde`, o `null` si no
+ * están en recta o si esa casilla cae fuera del tablero. Es «hacia dónde iba» la
+ * carga: la regla pide que el enemigo esté AHÍ (decisión del usuario,
+ * 02-10-2026: «no se puede cargar contra un enemigo que esté al lado»).
+ */
+export function siguienteEnRecta(desde: Hex, hasta: Hex): Hex | null {
+  const recta = rectaEntre(desde, hasta);
+  if (recta === null) return null;
+  const h = vecinaEnDireccion(hasta, recta.dir);
+  return isInside(h) ? h : null;
+}
+
+/**
+ * La dirección y la longitud de la recta de `desde` a `hasta`, o `null` si no
+ * están alineadas. Alineadas son las que comparten una coordenada cúbica, así
+ * que se sabe sin andar. La leen `rectaLibre` y `siguienteEnRecta`, para que
+ * «estar en recta» se decida en un solo sitio.
+ */
+function rectaEntre(desde: Hex, hasta: Hex): { readonly dir: number; readonly d: number } | null {
+  for (const h of [desde, hasta]) {
+    if (!isInside(h)) throw new Error(`(${h.col},${h.row}) está fuera del tablero: no hay recta`);
+  }
+  const a = toCube(desde);
+  const b = toCube(hasta);
+  if (a.q !== b.q && a.r !== b.r && a.s !== b.s) return null;
+  const d = hexDistance(desde, hasta);
+  if (d === 0) return null;
+  const dq = (b.q - a.q) / d;
+  const dr = (b.r - a.r) / d;
+  return { dir: DIRECCIONES_CUBICAS.findIndex(([q, r]) => q === dq && r === dr), d };
 }
 
 /** Índice plano de una casilla del tablero: `row * BOARD_WIDTH + col`. */

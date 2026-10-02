@@ -36,6 +36,16 @@ export const CHARGE_BONUS_PER_HEX = 0.1;
 export const MAX_CHARGE_HEXES = 5;
 
 /**
+ * Las casillas de carga que se COBRAN de una recta de `casillas`: el tope, y
+ * nada más. Cuándo hay recta lo dice `cargaDesde` (`battle.ts`); esto es lo que
+ * vale, y lo leen el golpe y el anuncio (`casillasDeCarga`), así que un «»7»
+ * pintado no puede acabar cobrando 5.
+ */
+export function cargaEfectiva(casillas: number): number {
+  return Math.min(casillas, MAX_CHARGE_HEXES);
+}
+
+/**
  * El ataque con el que pega un stack: el suyo y sus efectos, sin héroe
  * (`BattleHero` cuenta por qué). Los efectos de `attack` son los que mete el
  * miedo del dragón óseo.
@@ -111,7 +121,7 @@ function applyModifiers(
   if (opts.ranged === true && (opts.distance ?? 0) > 5) base *= 0.5;
 
   // Carga. El contraataque pasa siempre 0 hexes: se contraataca desde el sitio.
-  const charge = hasTrait(info, 'charge') ? Math.min(opts.chargeHexes ?? 0, MAX_CHARGE_HEXES) : 0;
+  const charge = hasTrait(info, 'charge') ? cargaEfectiva(opts.chargeHexes ?? 0) : 0;
   if (charge > 0) base *= 1 + charge * CHARGE_BONUS_PER_HEX;
 
   return { base, charge };

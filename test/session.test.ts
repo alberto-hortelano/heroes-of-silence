@@ -7,7 +7,6 @@
  * veces significara algo; ahora sí, y hay que cerrarlo.
  */
 import { describe, expect, it } from 'vitest';
-import { accionContra } from '../src/client/escenas/batalla.js';
 import { marcadoDe } from '../src/client/html.js';
 import { Session } from '../src/client/session.js';
 import { renderSide } from '../src/client/views/panels.js';
@@ -160,7 +159,7 @@ describe('sesión del cliente: el bando de la persona', () => {
 
   it('con el rival activo no se le puede mover NADA a la persona', () => {
     const { s } = meAtacan(7);
-    const activo = s.battle!.stacks.find((x) => x.id === s.battle!.activeId)!;
+    const activo = s.battle!.stacks.find((x) => x.id === s.battle!.turno?.stack)!;
     expect(activo.side).toBe('attacker');
 
     // Aquí mordía de verdad: dando por hecho que la persona es el atacante, el
@@ -176,7 +175,7 @@ describe('sesión del cliente: el bando de la persona', () => {
 
     const battle = s.battle!;
     if (battle.finished === null) {
-      const activo = battle.stacks.find((x) => x.id === battle.activeId)!;
+      const activo = battle.stacks.find((x) => x.id === battle.turno?.stack)!;
       // Lo contrario de lo que hacía: se paraba al ver un atacante —creyéndolo
       // suyo— y devolvía el mando con el turno del rival a medias.
       expect(activo.side).toBe('defender');
@@ -328,19 +327,6 @@ describe('sesión del cliente: la versión y lo que se guarda entre fotogramas',
     s.playBattleAction({ type: 'defend' });
     expect(s.version).toBeGreaterThan(v);
     expect(s.battleLegalActions()).not.toBe(acciones);
-  });
-});
-
-describe('el clic sobre un enemigo', () => {
-  it('dispara si puede; si no, golpea sin moverse; si no, el primer golpe que haya', () => {
-    const disparo = { type: 'shoot', target: 'e' } as const;
-    const quieto = { type: 'attack', target: 'e' } as const;
-    const andando = { type: 'attack', target: 'e', from: { col: 1, row: 1 } } as const;
-    const otro = { type: 'attack', target: 'x' } as const;
-    expect(accionContra([andando, quieto, disparo], 'e')).toBe(disparo);
-    expect(accionContra([andando, quieto], 'e')).toBe(quieto);
-    expect(accionContra([otro, andando], 'e')).toBe(andando);
-    expect(accionContra([otro], 'e')).toBeUndefined();
   });
 });
 

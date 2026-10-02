@@ -398,11 +398,46 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   (máximo 268 → 66, la 185, con oro de sobra), 3 semillas con otro ganador
  *   (j0 93 → **92**). Duración 8 / 17 / **43**. Re-anclado una vez; todo lo demás
  *   del pase de QA (I1, I4, M1-M5) dejó `7c24a8b4…` exacto, comprobado antes.
+ * - `656e567e…` (63 011 líneas): **el turno en tramos y la carga en línea recta**
+ *   (02-10-2026), en tres pasos y anclado una sola vez al final:
+ *   1. **Tramos** —`move` ya no cierra el turno; la IA cierra tras un tramo—:
+ *      `bd4d4a13…` **byte a byte**, que es lo que demuestra que el núcleo nuevo
+ *      juega igual que el viejo (la moral se sigue tirando en `endTurn`, sin
+ *      una tirada de más).
+ *   2. **La carga en recta** (≥ 3 casillas, sin giros ni unidades en medio, en
+ *      vez de los pasos del camino): `343fbacd…`. **185 semillas idénticas**, y
+ *      las 15 que cambian están entre las 20 en las que una unidad con `charge`
+ *      ataca con `from`, ninguna diverge antes del turno de ese ataque. Cargas
+ *      cobradas en las 200: 109 de 282 golpes con el rasgo → 33 de 300 (las de 1
+ *      y 2 casillas, y las de rodeo, desaparecen). 3 semillas con otro ganador.
+ *   3. **La IA aprovecha el segundo tramo** (tras moverse, si alcanza, pega):
+ *      `656e567e…`. 67 semillas idénticas a las del paso 2; las 133 que cambian
+ *      están entre las 152 con alguna decisión tras un tramo distinta de cerrar,
+ *      y ninguna diverge antes del turno de la primera. El primer hecho
+ *      distinto es una consecuencia de batalla —`troop_level_up` 68,
+ *      `level_up` 17, `battle_ended` 12, `town_captured` 12…—. 39 semillas con
+ *      otro ganador.
+ *   Contra `bd4d4a13…`: 67 iguales, 36 con otro ganador, j0 92 → **96**.
+ *   Duración 8 / 17 / 43 → **9 / 17 / 37**.
+ * - `290812e6…` (62 748 líneas): **la carga es contra un enemigo que está EN la
+ *   recta** (hallazgo H1 de QA, decisión del usuario: «no se puede cargar contra
+ *   un enemigo que esté al lado»). `cargaDesde` exige además que la casilla que
+ *   sigue a `from` sea del objetivo. Comprobado a propósito que es lo ÚNICO que
+ *   cambia: con esa línea quitada sale `656e567e…` exacto. Forma del diff contra
+ *   `656e567e…`: **194 semillas idénticas**, y las 6 que cambian están entre las
+ *   19 en las que una unidad con `charge` ataca con `from`; el primer hecho
+ *   distinto es una consecuencia de batalla (`battle_ended` 2, `troop_level_up`
+ *   2, `hero_defeated` 1, `town_captured` 1). Cargas cobradas en las 200: **28
+ *   de 218** golpes con el rasgo (23 de 3, 4 de 4, 1 de 5) → **0 de 203**: en
+ *   ninguno de esos golpes estaba el objetivo en la recta. En 10 de los 203 sí
+ *   había una carga, contra OTRO enemigo que la IA no eligió. 1 semilla con otro
+ *   ganador (la 137; j0 96 → 95). Duración 9 / 17 / 37, igual. H2 y los menores
+ *   del mismo pase dejaron `656e567e…` exacto, comprobado antes.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: 'bd4d4a13b5190195931bc1e4e184cc3a1429905d682f2606ebf3aaa98d0f38fa',
+  sha: '290812e681c3bd066b9bdfcfbdab8b59580c8acbb4b0c274c6f52dd5c5dd0ba6',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

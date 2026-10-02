@@ -27,7 +27,7 @@ import { maquetarCoste } from '../src/client/render/town.js';
 import { Session } from '../src/client/session.js';
 import { marcaDeComandante } from '../src/client/views/panels.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
-import { isAlive, stackHexes } from '../src/core/battle/battle.js';
+import { isAlive, SIN_CARGAS, stackHexes } from '../src/core/battle/battle.js';
 import type { BattleStack } from '../src/core/battle/types.js';
 import type { Hex } from '../src/core/types.js';
 
@@ -248,7 +248,7 @@ describe('la batalla en el lienzo', () => {
     escena.encuadrar(ancho, alto);
     const { hex: destino, tapa: tapador } = caso;
     const c = centroHex(t, destino);
-    const activo = s.battle!.activeId;
+    const activo = s.battle!.turno?.stack;
     // Antes del arreglo, lo que había bajo ese punto era la figura enemiga.
     expect(escena.objetivoEn(c.x, c.y)).toBeUndefined();
     const vidaAntes = s.battle!.stacks.find((x) => x.id === tapador)!.count;
@@ -313,6 +313,8 @@ describe('el comandante se distingue en el tablero (H-4)', () => {
       ancho: 1086,
       alto: 778,
       movibles: [],
+      cargas: SIN_CARGAS,
+      angulo: null,
       atacables: new Set<string>(),
       objetivosHechizo: new Set<string>(),
       hoverHex: null,

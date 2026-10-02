@@ -23,8 +23,10 @@ import {
   occupiedHexes,
   type Paso,
   reachable,
+  rectaLibre,
+  siguienteEnRecta,
 } from './board.js';
-import { CHANCE_PER_POINT, computeDamage, herir } from './damage.js';
+import { CHANCE_PER_POINT, cargaEfectiva, computeDamage, herir } from './damage.js';
 import {
   applyEffect,
   clampMoraleLuck,
@@ -40,6 +42,7 @@ import type {
   BattleState,
   OrigenDelStack,
   Side,
+  TurnoDeUnidad,
 } from './types.js';
 import { otroBando, SIDES } from './types.js';
 
@@ -231,7 +234,7 @@ export function createBattle(attacker: BattleSide, defender: BattleSide, _rng: R
     round: 0,
     stacks,
     queue: [],
-    activeId: null,
+    turno: null,
     heroes: { attacker: attacker.hero?.mando ?? null, defender: defender.hero?.mando ?? null },
     log: [],
     finished: null,
@@ -398,7 +401,53 @@ export function sumaDelBando(
 }
 
 export function activeStack(state: BattleState): BattleStack | null {
-  return state.activeId === null ? null : stackById(state, state.activeId);
+  return state.turno === null ? null : stackById(state, state.turno.stack);
+}
+
+/**
+ * Las casillas que le quedan a `s` en este turno: su velocidad menos lo que
+ * lleva gastado si es quien está actuando, y la velocidad entera si no. La
+ * velocidad se lee ahora y no al abrir el turno, así que una Lentitud a mitad
+ * de turno recorta lo que queda —sin bajar de 0— en vez de llegar tarde.
+ */
+export function pasosQueQuedan(state: BattleState, s: BattleStack): number {
+  return Math.max(0, stackSpeed(s) - gastadoEn(state, s));
+}
+
+/**
+ * Lo que queda de tramo, dicho: `['queda', '1 casilla']` o `['quedan', '3
+ * casillas']`. Lo escriben el panel («Le queda 1 casilla») y las notas del agente
+ * («le quedan 3 casillas»), y antes los dos ponían el plural fijo.
+ */
+export function quedanCasillas(n: number): readonly [verbo: string, casillas: string] {
+  return n === 1 ? ['queda', '1 casilla'] : ['quedan', `${n} casillas`];
+}
+
+/** Lo que `s` lleva gastado en este turno: 0 si no es quien está actuando. */
+function gastadoEn(state: BattleState, s: BattleStack): number {
+  return state.turno !== null && state.turno.stack === s.id ? state.turno.gastado : 0;
+}
+
+/**
+ * ¿Son `a` y `b` el MISMO turno? Por el ordinal, que es lo único que no se deja
+ * engañar por la moral extra (la misma unidad, otro turno) ni por una copia del
+ * estado (el mismo turno, otro objeto). `null` no es el mismo turno que nada.
+ */
+export function mismoTurno(
+  a: Pick<TurnoDeUnidad, 'n'> | null | undefined,
+  b: Pick<TurnoDeUnidad, 'n'> | null | undefined,
+): boolean {
+  return a != null && b != null && a.n === b.n;
+}
+
+/**
+ * ¿Ha movido ya `s` en este turno? Tras moverse no se dispara, ni se defiende,
+ * ni se espera (decisión del usuario): solo queda moverse más, golpear o
+ * terminar. Cada `move` cuesta al menos una casilla, así que «ha movido» es
+ * «lleva algo gastado».
+ */
+export function seHaMovido(state: BattleState, s: BattleStack): boolean {
+  return gastadoEn(state, s) > 0;
 }
 
 export function stackSpeed(s: BattleStack): number {
@@ -440,6 +489,43 @@ export function canReachMelee(s: BattleStack, target: BattleStack): boolean {
 }
 
 /**
+ * Por qué `s` no puede disparar ahora, o `null` si puede. ÚNICA redacción de la
+ * regla del disparo: la leen `legalActions` para ofrecerlo, `applyAction` para
+ * rechazarlo —con el id delante— y `ataqueBlocker` para explicárselo a la
+ * persona. Antes la lista y el rechazo la escribían cada uno, y el cliente
+ * inventaba una tercera frase («no alcanzas a esa unidad») que a un tirador que
+ * se acababa de mover le decía algo falso con un arco de alcance ilimitado.
+ */
+function disparoBlocker(state: BattleState, s: BattleStack): string | null {
+  if (!isShooter(s.unit)) return 'no es tirador';
+  if (s.shotsLeft <= 0) return 'se ha quedado sin munición';
+  if (seHaMovido(state, s)) return 'ya se ha movido este turno: no puede disparar';
+  if (isEngaged(state, s)) return 'tiene un enemigo encima';
+  return null;
+}
+
+/**
+ * Por qué la unidad activa no puede actuar contra `targetId` —ni dispararle ni
+ * golpearla, moviéndose o no—, o `null` si puede. Es a `attack`/`shoot` lo que
+ * `castBlocker` a un hechizo: la frase la escribe el núcleo, sin sujeto, y la
+ * pantalla la pinta tal cual. Al tirador se le dice primero por qué no dispara,
+ * que es lo que esperaba hacer.
+ */
+export function ataqueBlocker(state: BattleState, targetId: string): string | null {
+  const s = activeStack(state);
+  if (s === null || state.finished !== null) return 'no le toca a ninguna unidad';
+  const target = stackById(state, targetId);
+  if (!isAlive(target)) return `${target.id} ya está destruido`;
+  if (target.side === s.side) return 'no se puede atacar a un aliado';
+  const disparo = disparoBlocker(state, s);
+  if (disparo === null) return null;
+  const { actions } = legalActionsAndCosts(state);
+  if (actions.some((a) => a.type === 'attack' && a.target === targetId)) return null;
+  const golpe = 'no alcanza a esa unidad cuerpo a cuerpo este turno';
+  return isShooter(s.unit) ? `${disparo}, y ${golpe}` : golpe;
+}
+
+/**
  * Hexes a los que el stack puede moverse este turno, con la casilla y los pasos
  * que cuesta llegar a cada uno, indexados por `hexKey`.
  *
@@ -456,6 +542,11 @@ export function canReachMelee(s: BattleStack, target: BattleStack): boolean {
  * creyendo que sigue valiendo.
  */
 export function movableFrom(state: BattleState, s: BattleStack): Map<string, Paso> {
+  // Sin casillas no hay a dónde ir, y no se recorre el tablero para saberlo: es
+  // el caso de cada unidad que acaba de gastar su tramo entero, y preguntar qué
+  // le queda tras moverse (`quedaAlgoQueHacer`) pasa por aquí.
+  const pasos = pasosQueQuedan(state, s);
+  if (pasos === 0) return new Map();
   const info = s.unit;
   const blocked = blockedHexes(state, s.id);
   const size = hexSize(info);
@@ -468,7 +559,7 @@ export function movableFrom(state: BattleState, s: BattleStack): Map<string, Pas
 
   // Los voladores ignoran lo que hay en medio: solo les importa dónde aterrizan.
   const volando = hasTrait(info, 'flying');
-  const dist = reachable(s.hex, stackSpeed(s), volando ? new Set() : blocked);
+  const dist = reachable(s.hex, pasos, volando ? new Set() : blocked);
 
   const out = new Map<string, Paso>();
   for (const [key, paso] of dist) {
@@ -502,13 +593,26 @@ function initiativeOrder(state: BattleState): string[] {
 /** Tope de rondas: una batalla que no converge se cierra, no se cuelga. */
 export const MAX_ROUNDS = 100;
 
+/**
+ * Tope de jugadas de una batalla, para los bucles que la juegan acción a acción:
+ * `autoResolve`, el director, la sesión del cliente y el banco de
+ * enfrentamiento. Uno solo y derivado de `MAX_ROUNDS`, porque eran cuatro
+ * números sueltos (5 000, 800, 500 y 5 000) y con el turno en tramos hubo que
+ * subirlos a mano a la vez.
+ *
+ * Cien por ronda es holgura y no una cota: una ronda normal son una o dos
+ * jugadas por unidad. Quien la alcanza es un bucle que no avanza, y el motor ya
+ * cierra la batalla en `MAX_ROUNDS` mucho antes.
+ */
+export const MAX_JUGADAS = MAX_ROUNDS * 100;
+
 function beginRound(state: BattleState, rng: Rng): void {
   // Comprobar el final ANTES de montar la ronda: si un bando llega vacío (dos
   // héroes recién contratados sin tropas, por ejemplo), montar la cola y
   // volver a llamarse era una recursión infinita.
   checkFinished(state);
   if (state.finished !== null) {
-    state.activeId = null;
+    state.turno = null;
     return;
   }
 
@@ -555,14 +659,14 @@ function finishByExhaustion(state: BattleState): void {
   const vivos = (side: Side): number => sumaDelBando(state, side, (s) => s.count);
   const winner: Side = vivos('attacker') > vivos('defender') ? 'attacker' : 'defender';
   state.finished = { winner };
-  state.activeId = null;
+  state.turno = null;
   state.log.push({ kind: 'finished', winner });
 }
 
 /** Pasa al siguiente stack con turno, saltando muertos y desmoralizados. */
 function advance(state: BattleState, rng: Rng): void {
   if (state.finished !== null) {
-    state.activeId = null;
+    state.turno = null;
     return;
   }
 
@@ -579,7 +683,10 @@ function advance(state: BattleState, rng: Rng): void {
       continue;
     }
 
-    state.activeId = id;
+    // Un objeto nuevo en cada activación: lo gastado no se resetea, nace a 0.
+    // El ordinal sale del turno anterior, que sigue puesto aquí: solo se borra
+    // al terminar la batalla, y entonces ya no se llega a esta línea.
+    state.turno = { n: (state.turno?.n ?? 0) + 1, stack: id, gastado: 0 };
     return;
   }
 
@@ -590,7 +697,7 @@ function advance(state: BattleState, rng: Rng): void {
 function endTurn(state: BattleState, s: BattleStack, rng: Rng): void {
   checkFinished(state);
   if (state.finished !== null) {
-    state.activeId = null;
+    state.turno = null;
     return;
   }
 
@@ -633,21 +740,24 @@ function checkFinished(state: BattleState): void {
   // salpica a los dos comandantes a la vez—, que se resuelve igual.
   const winner: Side = attackerLost ? 'defender' : 'attacker';
   state.finished = { winner };
-  state.activeId = null;
+  state.turno = null;
   state.log.push({ kind: 'finished', winner });
 }
 
 // ---------------------------------------------------------------- acciones
 
 /**
- * El recorrido del tablero que el llamante YA hizo, y de qué stack es.
+ * El recorrido del tablero que el llamante YA hizo, y de cuándo es.
  *
- * `stack` no es redundante: un mapa de costes de otro stack tiene las mismas
- * claves «x,y» y no hay forma de distinguirlo mirándolo. Quien lo calculó dice
- * para quién, y `applyAction` lo compara con el que está actuando.
+ * El «cuándo» no es redundante: un mapa de costes de otro stack, o del mismo
+ * antes de su último tramo, tiene las mismas claves «x,y» y no hay forma de
+ * distinguirlo mirándolo. Quien lo calculó dice de qué turno (`n`) y con
+ * cuánto gastado, y `applyAction` lo compara con el de ahora: el ordinal ya
+ * dice de quién es, y lo gastado, de qué tramo.
  */
 export interface Movibles {
-  readonly stack: string;
+  readonly n: number;
+  readonly gastado: number;
   readonly costs: ReadonlyMap<string, Paso>;
 }
 
@@ -668,14 +778,23 @@ export function applyAction(
 ): void {
   if (state.finished !== null) throw new Error('la batalla ya ha terminado');
   const s = activeStack(state);
-  if (s === null) throw new Error('no hay stack activo');
-  if (movibles !== undefined && movibles.stack !== s.id) {
-    throw new Error(`el recorrido que traes es de ${movibles.stack} y quien actúa es ${s.id}`);
+  const turno = state.turno;
+  if (s === null || turno === null) throw new Error('no hay stack activo');
+  if (
+    movibles !== undefined &&
+    (!mismoTurno(movibles, turno) || movibles.gastado !== turno.gastado)
+  ) {
+    throw new Error(
+      `el recorrido que traes es del turno ${movibles.n} con ${movibles.gastado} casillas gastadas, ` +
+        `y ahora es el turno ${turno.n} de ${s.id} con ${turno.gastado}`,
+    );
   }
 
   switch (action.type) {
     case 'wait': {
       if (s.waited) throw new Error(`${s.id} ya esperó en esta ronda`);
+      if (seHaMovido(state, s))
+        throw new Error(`${s.id} ya se ha movido este turno: no puede esperar`);
       s.waited = true;
       state.log.push({ kind: 'wait', stack: s.id });
       state.queue.push(s.id);
@@ -684,6 +803,9 @@ export function applyAction(
     }
 
     case 'defend': {
+      if (seHaMovido(state, s)) {
+        throw new Error(`${s.id} ya se ha movido este turno: no puede defenderse`);
+      }
       s.defending = true;
       state.log.push({ kind: 'defend', stack: s.id });
       endTurn(state, s, rng);
@@ -691,7 +813,15 @@ export function applyAction(
     }
 
     case 'move': {
+      // Moverse no cierra el turno: gasta casillas y deja a la unidad activa
+      // para que siga, golpee o termine. Solo se cierra solo cuando ya no le
+      // queda nada que hacer, para no pedir un clic que no decide nada.
       moveTo(state, s, action.to, movibles?.costs);
+      if (!quedaAlgoQueHacer(state)) endTurn(state, s, rng);
+      return;
+    }
+
+    case 'end_turn': {
       endTurn(state, s, rng);
       return;
     }
@@ -700,25 +830,25 @@ export function applyAction(
       const target = stackById(state, action.target);
       if (!isAlive(target)) throw new Error(`${target.id} ya está destruido`);
       if (target.side === s.side) throw new Error('no se puede atacar a un aliado');
-      // Los hexes recorridos NO se guardan en el stack: viajan hasta el golpe
-      // como argumento. Un campo `hexesMoved` habría que resetearlo en
-      // `beginRound` y en `endTurn`, y el día que se olvidara uno el
-      // contraatacante cargaría con los hexes de su turno anterior.
-      const recorridos =
-        action.from === undefined ? 0 : moveTo(state, s, action.from, movibles?.costs);
+      // La carga se mide ANTES de mover, desde donde empieza este tramo: es la
+      // regla del usuario, «se puede mover un tramo y se vuelve a calcular».
+      // Lo recorrido en tramos anteriores no cuenta, y por eso no hace falta
+      // guardarlo en ningún sitio: viaja hasta el golpe como argumento. Y se
+      // mide contra ESTE objetivo: carga solo si está en la recta.
+      const carga = action.from === undefined ? 0 : cargaDesde(state, s, action.from, target);
+      if (action.from !== undefined) moveTo(state, s, action.from, movibles?.costs);
       if (!canReachMelee(s, target)) {
         throw new Error(`${s.id} no alcanza a ${target.id} cuerpo a cuerpo`);
       }
-      melee(state, s, target, rng, recorridos);
+      melee(state, s, target, rng, carga);
       endTurn(state, s, rng);
       return;
     }
 
     case 'shoot': {
       const target = stackById(state, action.target);
-      if (!isShooter(s.unit)) throw new Error(`${s.id} no es tirador`);
-      if (s.shotsLeft <= 0) throw new Error(`${s.id} se ha quedado sin munición`);
-      if (isEngaged(state, s)) throw new Error(`${s.id} tiene un enemigo encima`);
+      const motivo = disparoBlocker(state, s);
+      if (motivo !== null) throw new Error(`${s.id} ${motivo}`);
       if (!isAlive(target)) throw new Error(`${target.id} ya está destruido`);
       if (target.side === s.side) throw new Error('no se puede disparar a un aliado');
       shoot(state, s, target, rng);
@@ -744,7 +874,7 @@ export function applyAction(
       const winner = otroBando(s.side);
       state.log.push({ kind: 'surrender', side: s.side });
       state.finished = { winner, surrender: { gold: coste } };
-      state.activeId = null;
+      state.turno = null;
       state.log.push({ kind: 'finished', winner });
       return;
     }
@@ -809,26 +939,119 @@ function motivoParaNoRendirse(state: BattleState, side: Side, coste: number): st
   return null;
 }
 
-/** Mueve el stack y devuelve cuántos hexes ha recorrido de verdad. */
+/**
+ * ¿Le queda algo a la unidad activa tras moverse? Lo dice la lista legal, que es
+ * donde está escrito qué se puede hacer tras un tramo —moverse más o golpear—, y
+ * no una segunda redacción de la misma regla aquí. `cast`, `surrender` y
+ * `end_turn` no cuentan: ninguno es la unidad haciendo algo con su turno —el
+ * hechizo es del héroe y no lo cierra, la rendición es del bando—, y contarlos
+ * dejaría abierto un turno que ya no decide nada.
+ */
+function quedaAlgoQueHacer(state: BattleState): boolean {
+  return legalActionsAndCosts(state).actions.some((a) => a.type === 'move' || a.type === 'attack');
+}
+
+/**
+ * La longitud de la recta de carga si `s` golpeara a `target` desde `from`; 0 si
+ * no carga. ÚNICA regla de CUÁNDO hay carga (decisiones del usuario,
+ * 02-10-2026): solo las criaturas con `charge`, solo si `from` está **en línea
+ * recta** desde donde está ahora —una de las 6 rectas del hexágono, sin giros—,
+ * con la recta libre de unidades, a **`CARGA_MINIMA` casillas o más**, y con
+ * **el enemigo en esa misma recta**: la casilla que sigue a `from` tiene que ser
+ * suya. «El enemigo tiene que estar en la línea recta, no se puede cargar contra
+ * un enemigo que esté al lado»: un golpe que llega a la recta y luego gira para
+ * pegar al de al lado no carga, y uno pegado de salida tampoco —la recta mide 0—.
+ * Con un enemigo de dos casillas basta con que una lo sea. Cuánto suma lo dice
+ * `damage.ts`, que aplica el tope y el bono (`cargaEfectiva`): aquí no se
+ * recorta nada.
+ *
+ * La primera redacción no miraba al enemigo, y la persona veía casillas
+ * naranjas «desde las que cargaría» sin nadie delante (QA, H1). Un volador
+ * también tiene que recorrerla: «sin giros» es la forma del trayecto, no de dónde
+ * aterriza.
+ *
+ * `bloqueadas` es una pista para quien pregunta por muchas casillas a la vez:
+ * las ocupadas no cambian entre una y otra, así que se calculan una vez.
+ */
+export function cargaDesde(
+  state: BattleState,
+  s: BattleStack,
+  from: Hex,
+  target: BattleStack,
+  bloqueadas?: ReadonlySet<string>,
+): number {
+  if (!hasTrait(s.unit, 'charge')) return 0;
+  const d = rectaLibre(s.hex, from, bloqueadas ?? blockedHexes(state, s.id));
+  if (d === null || d < CARGA_MINIMA) return 0;
+  const hacia = siguienteEnRecta(s.hex, from);
+  if (hacia === null || !stackHexes(target).some((h) => hexEquals(h, hacia))) return 0;
+  return d;
+}
+
+/** Por debajo de esto no hay carga: hace falta arrancar (decisión del usuario). */
+export const CARGA_MINIMA = 3;
+
+/**
+ * Las cargas que `s` tiene a mano en este tramo: a qué enemigo, desde qué
+ * casilla a la que puede ir y con cuántas casillas COBRARÍA —ya recortadas por
+ * `cargaEfectiva`—. Es lo que se ENSEÑA —el enemigo marcado y su casilla con su
+ * «»N» en el cliente, el `chargeFrom` del agente— y sale de `cargaDesde` y
+ * `cargaEfectiva`, las mismas que cobran, así que el anuncio no puede discrepar
+ * del golpe. Una casilla vacía de la recta sin enemigo detrás no sale: desde ahí
+ * solo se mueve. Sin el rasgo, `SIN_CARGAS`.
+ */
+export function casillasDeCarga(state: BattleState, s: BattleStack): readonly CasillaDeCarga[] {
+  if (!hasTrait(s.unit, 'charge')) return SIN_CARGAS;
+  const bloqueadas = blockedHexes(state, s.id);
+  const enemigos = enemiesOf(state, s);
+  const out: CasillaDeCarga[] = [];
+  for (const paso of movableFrom(state, s).values()) {
+    for (const e of enemigos) {
+      const recta = cargaDesde(state, s, paso.at, e, bloqueadas);
+      if (recta > 0) out.push({ target: e.id, at: paso.at, hexes: cargaEfectiva(recta) });
+    }
+  }
+  return out;
+}
+
+/** Una carga posible: contra quién, desde qué casilla y con cuántas casillas. */
+export interface CasillaDeCarga {
+  readonly target: string;
+  readonly at: Hex;
+  readonly hexes: number;
+}
+
+/**
+ * Ninguna carga. Una sola instancia para quien no tiene nada que enseñar —sin
+ * el rasgo, sin turno propio, el espectador—, en vez de una lista vacía por cada
+ * sitio que la necesita.
+ */
+export const SIN_CARGAS: readonly CasillaDeCarga[] = Object.freeze([]);
+
+/** Mueve el stack y le apunta al turno lo que cuesta el camino. */
 function moveTo(
   state: BattleState,
   s: BattleStack,
   to: Hex,
   costes?: ReadonlyMap<string, Paso>,
-): number {
+): void {
   // El coste real del camino, no la distancia en línea recta: rodear a un
-  // enemigo cuesta más hexes y la carga tiene que notarlo. Sale del mismo
-  // recorrido que decide si el destino es legal, así que no hay una segunda
-  // cuenta que pueda discrepar de la primera — y si el llamante ya lo hizo, es
-  // literalmente ese, no uno equivalente.
+  // enemigo cuesta más casillas del presupuesto. Sale del mismo recorrido que
+  // decide si el destino es legal, así que no hay una segunda cuenta que pueda
+  // discrepar de la primera — y si el llamante ya lo hizo, es literalmente ese.
   const paso = (costes ?? movableFrom(state, s)).get(hexKey(to));
   if (paso === undefined) {
     throw new Error(`${s.id} no puede moverse a (${to.col},${to.row})`);
   }
 
   s.hex = to;
+  // `moveTo` solo lo llama `applyAction` sobre el stack activo, así que el turno
+  // es el suyo; si no lo fuera, apuntarlo en el de otro sería el fallo callado.
+  if (state.turno === null || state.turno.stack !== s.id) {
+    throw new Error(`${s.id} se mueve fuera de su turno`);
+  }
+  state.turno.gastado += paso.steps;
   state.log.push({ kind: 'move', stack: s.id, to });
-  return paso.steps;
 }
 
 /**
@@ -875,13 +1098,13 @@ function melee(
   attacker: BattleStack,
   target: BattleStack,
   rng: Rng,
-  hexesMoved: number,
+  carga: number,
 ): void {
   const info = attacker.unit;
   const hits = hasTrait(info, 'double_attack') ? 2 : 1;
 
   for (let i = 0; i < hits && isAlive(target); i++) {
-    strike(state, attacker, target, rng, false, hexesMoved);
+    strike(state, attacker, target, rng, false, carga);
   }
 
   // Contraataque: uno por ronda, y solo si el atacante lo permite.
@@ -949,10 +1172,10 @@ function strike(
   target: BattleStack,
   rng: Rng,
   retaliation: boolean,
-  hexesMoved: number,
+  carga: number,
 ): void {
   const info = attacker.unit;
-  const result = computeDamage(attacker, target, rng, { chargeHexes: hexesMoved });
+  const result = computeDamage(attacker, target, rng, { chargeHexes: carga });
   const killed = herir(target, result.damage, attacker);
 
   if (result.lucky) state.log.push({ kind: 'luck', stack: attacker.id, good: true });
@@ -1202,14 +1425,18 @@ export function legalActionsAndCosts(state: BattleState): {
   const s = activeStack(state);
   if (s === null || state.finished !== null) return { actions: [], costs: new Map() };
 
-  const out: BattleAction[] = [{ type: 'defend' }];
-  if (!s.waited) out.push({ type: 'wait' });
+  // Tras moverse solo queda moverse más, golpear o terminar: ni defender, ni
+  // esperar, ni disparar (decisión del usuario). Sin moverse, la lista es la de
+  // siempre y en el mismo orden: `end_turn` va al final para no cambiar lo que
+  // encuentra un `find` de la IA.
+  const movido = seHaMovido(state, s);
+  const out: BattleAction[] = movido ? [] : [{ type: 'defend' }];
+  if (!s.waited && !movido) out.push({ type: 'wait' });
 
   const info = s.unit;
   const enemies = enemiesOf(state, s);
-  const engaged = isEngaged(state, s);
 
-  if (isShooter(info) && s.shotsLeft > 0 && !engaged) {
+  if (disparoBlocker(state, s) === null) {
     for (const e of enemies) out.push({ type: 'shoot', target: e.id });
   }
 
@@ -1259,5 +1486,6 @@ export function legalActionsAndCosts(state: BattleState): {
     }
   }
 
+  out.push({ type: 'end_turn' });
   return { actions: out, costs };
 }

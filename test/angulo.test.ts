@@ -1,0 +1,251 @@
+import { describe, expect, it } from 'vitest';
+import {
+  accionContra,
+  golpeEnPixel,
+  masCercana,
+  opcionesDeGolpe,
+} from '../src/client/escenas/angulo.js';
+import { EscenaBatalla, rotuloDeAngulo } from '../src/client/escenas/batalla.js';
+import { marcadoDe } from '../src/client/html.js';
+import { cajaDeFigura } from '../src/client/render/batalla.js';
+import { centroDeStack, centroHex, tableroPara } from '../src/client/render/proyeccion.js';
+import { Session } from '../src/client/session.js';
+import { renderSide } from '../src/client/views/panels.js';
+import { isAlive, stackHexes } from '../src/core/battle/battle.js';
+import { hexDistance } from '../src/core/battle/board.js';
+import { CHARGE_BONUS_PER_HEX } from '../src/core/battle/damage.js';
+import { creature } from '../src/core/data.js';
+import type { Hex, UnitInfo } from '../src/core/types.js';
+
+/**
+ * Elegir desde dónde golpear (decisión del usuario, 02-10-2026): al pasar por un
+ * enemigo se resaltan las casillas desde las que se le alcanza y la más cercana
+ * al puntero es la del clic. Sustituye a «el primer `from` de la lista».
+ */
+const tablero = tableroPara(1086, 778);
+const enemigo: Hex = { col: 5, row: 4 };
+const golpeDesde = (h: Hex) => ({ type: 'attack', target: 'e', from: h }) as const;
+const oeste = golpeDesde({ col: 4, row: 4 });
+const este = golpeDesde({ col: 6, row: 4 });
+const arriba = golpeDesde({ col: 4, row: 3 });
+
+describe('el ángulo del golpe', () => {
+  it('con el puntero a cada lado del enemigo, gana la casilla de ese lado', () => {
+    const opciones = opcionesDeGolpe([oeste, arriba, este], 'e', { col: 0, row: 0 });
+    const c = centroHex(tablero, enemigo);
+    const paso = tablero.paso;
+    expect(masCercana(opciones, tablero, c.x - paso * 0.3, c.y)?.accion).toBe(oeste);
+    expect(masCercana(opciones, tablero, c.x + paso * 0.3, c.y)?.accion).toBe(este);
+    // Arriba a la izquierda, la de arriba: no es «la primera de la lista». El
+    // desplazamiento vertical va aplastado como el tablero.
+    const arribaIzq = { x: c.x - paso * 0.2, y: c.y - paso * 0.35 * tablero.compresion };
+    expect(masCercana(opciones, tablero, arribaIzq.x, arribaIzq.y)?.accion).toBe(arriba);
+  });
+
+  it('pegado, la casilla en la que ya está es una opción más', () => {
+    const quieto = { type: 'attack', target: 'e' } as const;
+    const aqui: Hex = { col: 4, row: 4 };
+    const opciones = opcionesDeGolpe([quieto, este], 'e', aqui);
+    expect(opciones.map((o) => o.desde)).toEqual([aqui, este.from]);
+    const c = centroHex(tablero, enemigo);
+    expect(masCercana(opciones, tablero, c.x - tablero.paso * 0.3, c.y)?.accion).toBe(quieto);
+    expect(masCercana(opciones, tablero, c.x + tablero.paso * 0.3, c.y)?.accion).toBe(este);
+  });
+
+  it('si se puede disparar, se dispara: el ángulo no cuenta, ni para el clic ni para el resaltado', () => {
+    const disparo = { type: 'shoot', target: 'e' } as const;
+    const c = centroHex(tablero, enemigo);
+    expect(
+      accionContra([oeste, este, disparo], 'e', { col: 0, row: 0 }, tablero, c.x + 30, c.y),
+    ).toBe(disparo);
+    // La regla está escrita una vez: lo que lee el resaltado tampoco trae casillas.
+    expect(
+      golpeEnPixel([oeste, este, disparo], 'e', { col: 0, row: 0 }, tablero, c.x + 30, c.y),
+    ).toEqual({ disparo });
+  });
+
+  it('la barra dice la casilla y, si carga, cuánto, con el tanto por ciento de la constante', () => {
+    expect(rotuloDeAngulo({ col: 4, row: 4 }, undefined)).toBe('Golpearías desde (4,4).');
+    expect(
+      rotuloDeAngulo({ col: 4, row: 4 }, { target: 'e', at: { col: 4, row: 4 }, hexes: 4 }),
+    ).toBe(
+      `Golpearías desde (4,4), cargando 4 casillas (+${Math.round(4 * CHARGE_BONUS_PER_HEX * 100)} % de daño).`,
+    );
+  });
+
+  it('sin golpes contra ese enemigo no hay nada que elegir', () => {
+    const otro = { type: 'attack', target: 'x' } as const;
+    expect(accionContra([otro], 'e', { col: 0, row: 0 }, tablero, 0, 0)).toBeUndefined();
+    expect(masCercana([], tablero, 0, 0)).toBeUndefined();
+  });
+});
+
+/**
+ * Una batalla de la persona con su unidad activa dos filas debajo de un enemigo
+ * en campo abierto, y todo lo demás apartado: el enemigo se alcanza por los dos
+ * lados con cualquier velocidad, porque la más lenta anda 2.
+ */
+function sesionConEnemigoALaVista(
+  enRival: Hex = { col: 5, row: 4 },
+  criatura?: string,
+): {
+  s: Session;
+  activo: string;
+  objetivo: string;
+} {
+  const s = new Session(35);
+  s.clickTile({ x: 8, y: 9 });
+  const b = s.battle;
+  const turno = s.turnoPropio;
+  if (b === null || turno === null)
+    throw new Error('la semilla 35 ya no abre la batalla con turno propio');
+  const rival = b.stacks.find(
+    (x) => isAlive(x) && x.side !== s.miBando && x.unit.shots === undefined,
+  );
+  if (rival === undefined) throw new Error('no hay enemigo cuerpo a cuerpo');
+  let propios = 0;
+  let ajenos = 0;
+  for (const x of b.stacks) {
+    if (x === turno.stack || x === rival) continue;
+    x.hex = x.side === s.miBando ? { col: propios++, row: 0 } : { col: 10 - ajenos++, row: 8 };
+  }
+  turno.stack.hex = { col: 5, row: 6 };
+  rival.hex = enRival;
+  // Antes de la primera lectura de la lista legal: la sesión la guarda por jugada.
+  if (criatura !== undefined) (turno.stack as { unit: UnitInfo }).unit = creature(criatura);
+  if (isShooterActivo(s)) throw new Error('la unidad activa dispara: el ángulo no se ve');
+  return { s, activo: turno.stack.id, objetivo: rival.id };
+}
+
+function isShooterActivo(s: Session): boolean {
+  return s.battleLegalActions().some((a) => a.type === 'shoot');
+}
+
+describe('el clic sobre un enemigo elige el ángulo', () => {
+  it('dos píxeles del mismo enemigo mandan dos `from` distintos, cada uno de su lado', () => {
+    const [ancho, alto] = [1086, 778];
+    const desdeDondeGolpea = (lado: -1 | 1): Hex => {
+      const { s, activo, objetivo } = sesionConEnemigoALaVista();
+      const escena = new EscenaBatalla(() => s);
+      escena.encuadrar(ancho, alto);
+      const rival = s.battle!.stacks.find((x) => x.id === objetivo)!;
+      const k = cajaDeFigura(tableroPara(ancho, alto), rival, centroDeStack(stackHexes(rival)));
+      const px = k.x + lado * k.ancho * 0.45;
+      const py = k.suelo - 2;
+      expect(escena.objetivoEn(px, py)?.id).toBe(objetivo);
+      // Lo resaltado es lo que manda el clic: el ángulo y la acción coinciden.
+      escena.mover(px, py);
+      const angulo = escena.anguloEn(px, py);
+      expect(angulo).not.toBeNull();
+      expect(angulo!.candidatas.length).toBeGreaterThan(1);
+      expect(s.status).toContain(
+        `Golpearías desde (${angulo!.elegida.col},${angulo!.elegida.row})`,
+      );
+      const antes = s.battle!.log.length;
+      escena.pulsar(px, py);
+      const movido = s
+        .battle!.log.slice(antes)
+        .find(
+          (e): e is Extract<typeof e, { kind: 'move' }> => e.kind === 'move' && e.stack === activo,
+        );
+      expect(movido).toBeDefined();
+      expect(movido!.to).toEqual(angulo!.elegida);
+      return movido!.to;
+    };
+    const izquierda = desdeDondeGolpea(-1);
+    const derecha = desdeDondeGolpea(1);
+    expect(izquierda).not.toEqual(derecha);
+    const t = tableroPara(ancho, alto);
+    expect(centroHex(t, izquierda).x).toBeLessThan(centroHex(t, enemigo).x);
+    expect(centroHex(t, derecha).x).toBeGreaterThan(centroHex(t, enemigo).x);
+  });
+});
+
+describe('el clic sobre un enemigo al que no se llega', () => {
+  it('pinta el motivo del núcleo y no una frase del cliente (H2)', () => {
+    // Al otro extremo del tablero, donde no llega en un turno ninguna velocidad.
+    const { s, objetivo } = sesionConEnemigoALaVista({ col: 10, row: 2 });
+    const [ancho, alto] = [1086, 778];
+    const rival = s.battle!.stacks.find((x) => x.id === objetivo)!;
+    const escena = new EscenaBatalla(() => s);
+    escena.encuadrar(ancho, alto);
+    const k = cajaDeFigura(tableroPara(ancho, alto), rival, centroDeStack(stackHexes(rival)));
+    const antes = s.battle!.log.length;
+    escena.pulsar(k.x, k.suelo - k.alto / 2);
+    expect(s.battle!.log.length).toBe(antes);
+    expect(s.status).toBe('No alcanza a esa unidad cuerpo a cuerpo este turno.');
+  });
+});
+
+describe('el panel dice lo que le queda al tramo', () => {
+  it('«Le queda 1 casilla», en singular (QA, H3)', () => {
+    const { s } = sesionConEnemigoALaVista({ col: 10, row: 2 });
+    // Tramos de una casilla hasta que solo quede una.
+    for (let guard = 0; (s.battleStepsLeft() ?? 0) > 1 && guard < 10; guard++) {
+      const aqui = s.turnoPropio!.stack.hex;
+      const paso = s
+        .battleLegalActions()
+        .find((a) => a.type === 'move' && hexDistance(a.to, aqui) === 1);
+      if (paso === undefined) throw new Error('no hay una vecina libre a la que dar un paso');
+      s.playBattleAction(paso);
+    }
+    expect(s.battleStepsLeft()).toBe(1);
+    const panel = marcadoDe(renderSide(s));
+    expect(panel).toContain('<span class="label">Le queda</span><span>1 casilla</span>');
+    expect(panel).not.toContain('1 casillas');
+  });
+});
+
+describe('la carga en el cliente: el enemigo en la recta (QA, H1)', () => {
+  // Jinete en (5,6) y el rival en (9,6): la recta E pasa por (6,6), (7,6) y
+  // (8,6), y desde (8,6) el rival es la casilla siguiente. La única carga.
+  const montar = () => sesionConEnemigoALaVista({ col: 9, row: 6 }, 'cavalry');
+  const [ancho, alto] = [1086, 778];
+  const t = tableroPara(ancho, alto);
+
+  it('se anuncia contra el enemigo y desde la casilla de su recta, y nada más', () => {
+    const { s, objetivo } = montar();
+    expect(s.battleCharges()).toEqual([{ target: objetivo, at: { col: 8, row: 6 }, hexes: 3 }]);
+  });
+
+  it('una casilla vacía de la recta solo mueve, y la barra no promete carga', () => {
+    for (const casilla of [
+      { col: 7, row: 6 },
+      { col: 8, row: 6 },
+    ]) {
+      const { s, activo } = montar();
+      const escena = new EscenaBatalla(() => s);
+      escena.encuadrar(ancho, alto);
+      const c = centroHex(t, casilla);
+      escena.mover(c.x, c.y);
+      expect(s.status).not.toMatch(/carg/i);
+      const antes = s.battle!.log.length;
+      escena.pulsar(c.x, c.y);
+      const nuevos = s.battle!.log.slice(antes);
+      expect(nuevos.map((e) => e.kind)).toEqual(['move']);
+      expect(s.battle!.turno?.stack).toBe(activo);
+    }
+  });
+
+  it('el clic sobre el enemigo, por el lado de la recta, golpea desde ella y carga', () => {
+    const { s, objetivo } = montar();
+    const escena = new EscenaBatalla(() => s);
+    escena.encuadrar(ancho, alto);
+    const rival = s.battle!.stacks.find((x) => x.id === objetivo)!;
+    const k = cajaDeFigura(t, rival, centroDeStack(stackHexes(rival)));
+    // A la altura del centro de su casilla y hacia el oeste: el lado de la recta.
+    const px = k.x - k.ancho * 0.45;
+    const py = centroHex(t, rival.hex).y;
+    expect(escena.objetivoEn(px, py)?.id).toBe(objetivo);
+    escena.mover(px, py);
+    expect(escena.anguloEn(px, py)?.elegida).toEqual({ col: 8, row: 6 });
+    expect(s.status).toBe(
+      rotuloDeAngulo({ col: 8, row: 6 }, { target: objetivo, at: { col: 8, row: 6 }, hexes: 3 }),
+    );
+    expect(s.status).toContain(`(+${Math.round(3 * CHARGE_BONUS_PER_HEX * 100)} % de daño)`);
+    const antes = s.battle!.log.length;
+    escena.pulsar(px, py);
+    const golpe = s.battle!.log.slice(antes).find((e) => e.kind === 'attack' && !e.retaliation);
+    expect(golpe?.kind === 'attack' ? golpe.charge : undefined).toBe(3);
+  });
+});

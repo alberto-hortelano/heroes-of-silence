@@ -1467,12 +1467,17 @@ describe('el agente sabe cómo le fue', () => {
       const diceTurnoGastado = r.note!.includes('Eso ha consumido el turno de');
       const diceNoConsumido = r.note!.includes('Eso NO ha consumido el turno de');
       const diceTerminada = r.note!.includes('ha TERMINADO la batalla');
+      // La cuarta, desde el turno en tramos: un `move` sustituto que deja el
+      // turno abierto no ha consumido nada más que casillas.
+      const diceTramo = r.note!.includes('Eso NO ha cerrado el turno de');
       const diceMana = /de maná/.test(r.note!);
-      // Una de las TRES frases, exactamente: ni dos ni ninguna. La tercera es la
+      // Una de las CUATRO frases, exactamente: ni dos ni ninguna. La tercera es la
       // sustituta que remata, y en esta misma batalla sale (`req-5`): con dos
       // ramas, esa nota hablaba del turno de una unidad en una ronda que ya no
       // iba a jugarse.
-      expect([diceTurnoGastado, diceNoConsumido, diceTerminada].filter(Boolean)).toHaveLength(1);
+      expect(
+        [diceTurnoGastado, diceNoConsumido, diceTerminada, diceTramo].filter(Boolean),
+      ).toHaveLength(1);
       // Y el maná solo se menciona donde el turno NO se consumió.
       if (diceMana) expect(diceTurnoGastado).toBe(false);
       if (diceTurnoGastado) conTurnoGastado++;

@@ -147,7 +147,7 @@ export function batalla(v: SpectatorView, contandoAun = false): Html {
       estado.stacks
         .filter((s) => s.count > 0)
         .map(
-          (s) => html`<div class="stack${s.id === estado.activeId ? '' : ' empty'}">
+          (s) => html`<div class="stack${s.id === estado.turno?.stack ? '' : ' empty'}">
             <span>${bandera(dueños[s.side])} ${marcaDeComandante(s)}${s.unit.name}${marcaDeVeterano(s)}</span>
             <span class="count">${s.count}</span>
           </div>`,

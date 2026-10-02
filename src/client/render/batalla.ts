@@ -12,9 +12,9 @@
  * cae el hechizo llegan hechos de `session.ts`; dónde está cada figura en este
  * instante, del animador.
  */
-import { activeStack, isAlive, stackHexes } from '@core/battle/battle.js';
+import { activeStack, type CasillaDeCarga, isAlive, stackHexes } from '@core/battle/battle.js';
 import { BOARD_HEIGHT, BOARD_WIDTH, hexKey } from '@core/battle/board.js';
-import { stackHp } from '@core/battle/damage.js';
+import { CHARGE_BONUS_PER_HEX, stackHp } from '@core/battle/damage.js';
 import {
   type BattleStack,
   type BattleState,
@@ -28,13 +28,21 @@ import type { Efecto, EstadoFigura } from '../anim.js';
 import { asset } from './assets.js';
 import { pintarFigura } from './figura.js';
 import { COLOR_DE_COMANDANTE, MARCA_DE_COMANDANTE } from './palette.js';
-import { enPantalla, type Plano, type Tablero, verticesHex } from './proyeccion.js';
+import { centroHex, enPantalla, type Plano, type Tablero, verticesHex } from './proyeccion.js';
 
 /** Los colores de los dos bandos: tiñen el maniquí y pintan el aro. */
 const COLOR_BANDO: Readonly<Record<Side, string>> = {
   attacker: '#d9774f',
   defender: '#5a8ad9',
 };
+
+/** Las casillas desde las que se golpearía al enemigo señalado, y la elegida. */
+export interface Angulo {
+  /** El enemigo señalado: su carga, si la tiene, se rotula «+N %» en su casilla. */
+  readonly objetivo: string;
+  readonly candidatas: readonly Hex[];
+  readonly elegida: Hex;
+}
 
 export interface VistaBatalla {
   readonly battle: BattleState;
@@ -43,6 +51,19 @@ export interface VistaBatalla {
   readonly alto: number;
   /** Hexes a los que puede ir la unidad activa, si es tuya. */
   readonly movibles: readonly Hex[];
+  /**
+   * Las cargas a mano: el enemigo que se puede cargar se marca, y la casilla de
+   * su recta lleva otro tono y su «»N», que es como se ENSEÑA la carga con el
+   * movimiento posible (decisión del usuario). Sale entera de `casillasDeCarga`,
+   * así que no trae ninguna casilla que no sea movible ni ninguna sin enemigo
+   * detrás.
+   */
+  readonly cargas: readonly CasillaDeCarga[];
+  /**
+   * Con el puntero sobre un enemigo al que se puede golpear: las casillas desde
+   * las que se le alcanza (suaves) y la que se usaría al hacer clic (fuerte).
+   */
+  readonly angulo: Angulo | null;
   /** Unidades a las que puede atacar o disparar la activa, si es tuya. */
   readonly atacables: ReadonlySet<string>;
   /** Unidades sobre las que cae el hechizo elegido. */
@@ -98,6 +119,17 @@ export function drawBatalla(ctx: CanvasRenderingContext2D, v: VistaBatalla): voi
     for (const h of stackHexes(s)) marcas.add(hexKey(h));
   }
 
+  // Las casillas desde las que se cargaría y los enemigos a los que se cargaría.
+  const deCarga = new Set(v.cargas.map((c) => hexKey(c.at)));
+  const cargables = new Set(v.cargas.map((c) => c.target));
+  const hexCargables = new Set<string>();
+  for (const s of battle.stacks) {
+    if (cargables.has(s.id)) for (const h of stackHexes(s)) hexCargables.add(hexKey(h));
+  }
+
+  const candidatas = new Set((v.angulo?.candidatas ?? []).map(hexKey));
+  const elegida = v.angulo === null ? null : hexKey(v.angulo.elegida);
+
   // 1 · Los hexes, aplastados sobre el suelo.
   const señalado = v.hoverHex === null ? null : hexKey(v.hoverHex);
   for (const { k, camino } of hexesDe(tablero)) {
@@ -105,30 +137,57 @@ export function drawBatalla(ctx: CanvasRenderingContext2D, v: VistaBatalla): voi
     const deActivo = hexDeActivo.has(k);
     const atacable = hexAtacables.has(k);
     const movible = movibles.has(k);
+    const carga = movible && deCarga.has(k);
+    const cargable = hexCargables.has(k);
+    // El ángulo va por encima de todo lo demás: es lo que haría el clic. La
+    // casilla en la que ya está la unidad también puede ser la elegida.
+    if (k === elegida || candidatas.has(k)) {
+      const fuerte = k === elegida;
+      ctx.fillStyle = fuerte ? '#ffd24acc' : '#ffe08a80';
+      ctx.fill(camino);
+      ctx.lineWidth = fuerte ? 3 : 2;
+      ctx.strokeStyle = fuerte ? '#fff4c2' : '#ffe9a8';
+      ctx.stroke(camino);
+      continue;
+    }
     ctx.fillStyle = deActivo
       ? '#edca6066'
-      : atacable
+      : cargable
         ? encima
-          ? '#e2735888'
-          : '#d6624955'
-        : movible
+          ? '#e7884a99'
+          : '#d9773a66'
+        : atacable
           ? encima
-            ? '#7cc8d466'
-            : '#5caab73a'
-          : encima
-            ? '#ffffff22'
-            : '#00000014';
+            ? '#e2735888'
+            : '#d6624955'
+          : carga
+            ? encima
+              ? '#e7a04a88'
+              : '#d98c3a55'
+            : movible
+              ? encima
+                ? '#7cc8d466'
+                : '#5caab73a'
+              : encima
+                ? '#ffffff22'
+                : '#00000014';
     ctx.fill(camino);
-    ctx.lineWidth = deActivo ? 2.5 : 1.2;
+    ctx.lineWidth = deActivo || cargable ? 2.5 : 1.2;
     ctx.strokeStyle = deActivo
       ? '#fbe3a0'
-      : atacable
-        ? '#f39980cc'
-        : movible
-          ? '#b6e3e9aa'
-          : '#f2e6c05c';
+      : cargable
+        ? '#ffc070'
+        : atacable
+          ? '#f39980cc'
+          : carga
+            ? '#f2c084cc'
+            : movible
+              ? '#b6e3e9aa'
+              : '#f2e6c05c';
     ctx.stroke(camino);
   }
+  // Y el número de la carga en cada casilla que carga: cuántas casillas cobra.
+  if (v.cargas.length > 0) pintarCargas(ctx, tablero, v.cargas, v.angulo);
 
   // 2 · Las figuras, de atrás adelante.
   const figuras = battle.stacks
@@ -153,6 +212,36 @@ export function drawBatalla(ctx: CanvasRenderingContext2D, v: VistaBatalla): voi
 
   // 3 · Lo que vuela por encima: proyectiles, hechizos y cifras.
   for (const e of v.efectos) pintarEfecto(ctx, tablero, e);
+  ctx.restore();
+}
+
+/**
+ * El número de casillas de carga, en el centro de cada casilla desde la que se
+ * cargaría: «»N». Con el puntero sobre el enemigo de esa carga, la casilla es una
+ * candidata más del ángulo y dice lo que suma, «+N %», con la constante del daño.
+ */
+function pintarCargas(
+  ctx: CanvasRenderingContext2D,
+  t: Tablero,
+  cargas: readonly CasillaDeCarga[],
+  angulo: Angulo | null,
+): void {
+  ctx.save();
+  ctx.font = `bold ${Math.max(9, Math.round(t.paso * 0.22))}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (const { target, at, hexes } of cargas) {
+    const c = centroHex(t, at);
+    const texto =
+      angulo?.objetivo === target
+        ? `+${Math.round(hexes * CHARGE_BONUS_PER_HEX * 100)} %`
+        : `»${hexes}`;
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#2a1a0acc';
+    ctx.strokeText(texto, c.x, c.y);
+    ctx.fillStyle = '#ffd9a0';
+    ctx.fillText(texto, c.x, c.y);
+  }
   ctx.restore();
 }
 

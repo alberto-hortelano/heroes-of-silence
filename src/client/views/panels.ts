@@ -14,10 +14,11 @@
  * un `.join('')` sobre cadenas era justo el sitio por donde el marcado se
  * escapaba de la puerta.
  */
-import { activeStack } from '@core/battle/battle.js';
+import { activeStack, quedanCasillas } from '@core/battle/battle.js';
 import { type EffectKind, effectiveLuck } from '@core/battle/effects.js';
 import { type Spell, spell } from '@core/battle/spells.js';
 import {
+  type BattleAction,
   type BattleStack,
   type BattleState,
   nivelDeVeterania,
@@ -614,16 +615,28 @@ function renderBattlePanel(session: Session): Html {
         ${isShooter(s.unit) ? html`<div class="row"><span class="label">Munición</span><span>${s.shotsLeft}</span></div>` : NADA}`;
 
   const suTurno = s !== null && s.side === mio;
+  // Qué botones valen lo dice la lista legal, no una regla copiada aquí: tras
+  // moverse ya no se defiende ni se espera (decisión del usuario).
+  const legales = suTurno ? session.battleLegalActions() : [];
+  const puede = (tipo: BattleAction['type']): boolean => legales.some((a) => a.type === tipo);
+  const pasos = session.battleStepsLeft();
+  const quedan = pasos === null ? null : quedanCasillas(pasos);
   const acciones = suTurno
     ? html`<h3>Acciones</h3>
+       ${quedan === null ? NADA : html`<div class="row"><span class="label">Le ${quedan[0]}</span><span>${quedan[1]}</span></div>`}
        <div class="stack-list">
-         <button data-action="battle-defend">Defender</button>
-         <button data-action="battle-wait" ${s.waited ? DESHABILITADO : NADA}>Esperar</button>
+         <button data-action="battle-end-turn">Terminar turno</button>
+         <button data-action="battle-defend" ${puede('defend') ? NADA : DESHABILITADO}>Defender</button>
+         <button data-action="battle-wait" ${puede('wait') ? NADA : DESHABILITADO}>Esperar</button>
          ${renderRendicion(session)}
        </div>
        ${renderSpells(session)}
        <p class="cost" style="margin-top:.5rem">
-         Haz clic en un hexágono verde para moverte, o sobre un enemigo para atacarlo.
+         Haz clic en un hexágono verde para moverte —puedes moverte en varios tramos—,
+         o pasa el ratón por un enemigo y elige desde qué casilla golpearlo. Al
+         enemigo en naranja se le puede cargar: pasa por él y elige la casilla del
+         número («»3»).
+         Espacio termina el turno de la unidad.
        </p>`
     : html`<p>Turno del enemigo…</p>`;
 
@@ -640,7 +653,7 @@ function renderBattlePanel(session: Session): Html {
       .filter((x) => x.count > 0)
       .map(
         (x) =>
-          html`<div class="stack${x.id === battle.activeId ? '' : ' empty'}">
+          html`<div class="stack${x.id === battle.turno?.stack ? '' : ' empty'}">
           <span>${x.side === mio ? '▶' : '◀'} ${marcaDeComandante(x)}${x.unit.name}${marcaDeVeterano(x)}</span>
           <span class="count">${x.count}</span>
         </div>`,

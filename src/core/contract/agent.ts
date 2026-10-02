@@ -16,6 +16,8 @@
  * `attacker` o `defender`, no un jugador.
  */
 import { z } from 'zod';
+import { CARGA_MINIMA } from '../battle/battle.js';
+import { CHARGE_BONUS_PER_HEX, MAX_CHARGE_HEXES } from '../battle/damage.js';
 import { NIVEL_MAXIMO_DE_TROPA } from '../hero/experiencia.js';
 import { WALL_TERRAINS } from '../map/generate.js';
 import { TERRAIN_KINDS } from '../map/terrain.js';
@@ -77,6 +79,7 @@ export const battleActionSchema = z.discriminatedUnion('type', [
   // `gold` es opcional: viene puesto en `legalActions` y devolverla tal cual
   // vale; si se manda, tiene que ser el precio de ahora (`applyAction`).
   z.object({ type: z.literal('surrender'), gold: z.number().int().nonnegative().optional() }),
+  z.object({ type: z.literal('end_turn') }),
 ]);
 
 export const adventureTurnResponseSchema = z.object({
@@ -263,6 +266,9 @@ export const responseSchemas = {
  */
 export type MapGenerateResponse = z.infer<typeof mapGenerateResponseSchema>;
 
+/** El bono de una casilla de carga en tanto por ciento, tal y como se le dice al agente. */
+const PORCIENTO_POR_CASILLA_DE_CARGA = Math.round(CHARGE_BONUS_PER_HEX * 100);
+
 /**
  * Descripción del formato de respuesta que viaja DENTRO de cada petición.
  * Es prosa deliberadamente: el agente lee esto en el mismo mensaje que el
@@ -420,8 +426,19 @@ Acciones válidas para la unidad activa:
   { "type": "defend" }
   { "type": "cast",   "spell": "<id>", "target": "<id de stack>" }
   { "type": "surrender", "gold": N }
+  { "type": "end_turn" }
 
 Notas:
+- "move" NO acaba el turno de la unidad: gasta casillas de su "stepsLeft" y se
+  te vuelve a pedir acción para la misma unidad, así que puedes moverte en
+  varios tramos. Tras moverse solo puede moverse más, atacar cuerpo a cuerpo o
+  terminar con "end_turn": ni disparar, ni "defend", ni "wait". Atacar acaba
+  el turno. Si tras un "move" ya no le queda ni casilla a la que ir ni enemigo
+  al lado, el turno se cierra solo y no se te pregunta por ella.
+- "turnId" numera los turnos de la batalla: mientras sea el mismo, sigues en el
+  mismo turno de la misma unidad, y un "move" no lo cambia. La moral alta
+  puede regalarle a una unidad un turno NUEVO: llega con otro "turnId" y su
+  "stepsLeft" entero.
 - El stack con "commander": true es tu HÉROE, en el tablero: pelea como una
   unidad más y, si cae, PIERDES la batalla aunque te quede tropa. Lo mismo vale
   para el del rival: matarlo gana la batalla. Su magia ("cast") funciona
@@ -440,7 +457,19 @@ Notas:
   de la lista. El veredicto te dice cuánto pagaste. La IA de reglas NUNCA se
   rinde por ti: ni cuando juega una acción tuya que se descartó ni cuando
   resuelve una batalla tuya que no juegas.
-- "from" es opcional en "attack": si se indica, la unidad se mueve ahí y golpea.
+- "from" es opcional en "attack": si se indica, la unidad se mueve ahí (lo que le
+  quede de "stepsLeft") y golpea; sin él golpea desde donde está, si ya está al
+  lado. Puedes ELEGIR desde qué casilla golpear: cualquier "from" de la lista.
+- La CARGA es solo de las unidades con el rasgo "charge": un "attack" con "from"
+  carga si ese "from" está en LÍNEA RECTA desde donde está la unidad ahora (una
+  de las 6 rectas del hexágono, sin giros ni unidades en medio), a ${CARGA_MINIMA} casillas o
+  más, y el "target" está EN ESA RECTA: la casilla que sigue a "from" es suya.
+  Llegar a la recta y girar para pegar al de al lado no carga, ni pegar al que
+  ya tienes pegado. Cada casilla suma un ${PORCIENTO_POR_CASILLA_DE_CARGA} % de daño, hasta ${MAX_CHARGE_HEXES}. Lo andado en
+  tramos anteriores no cuenta: cada tramo se vuelve a medir. "chargeFrom" te
+  lista las cargas que tienes ahora mismo: contra qué "target", desde qué
+  casilla ("col", "row") y con cuántas casillas cobrarías ("hexes"); solo viene
+  cuando hay alguna. Un "move" a esa casilla NO carga: solo mueve.
 - "cast" NO consume el turno de la unidad activa: lanza el héroe, se cobra el
   maná y una tirada por ronda, y después la unidad sigue pudiendo moverse,
   disparar o atacar. Se te volverá a pedir acción para el mismo stack.

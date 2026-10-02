@@ -10,6 +10,7 @@
  * crónica de `views/panels`. Lo único duplicado es el bucle de dibujo, y es más
  * corto que el del cliente que juega porque aquí no hay ratón ni sesión.
  */
+import { SIN_CARGAS } from '@core/battle/battle.js';
 import type { SpectatorSnapshotMsg } from '../../server/protocol.js';
 import type { SpectatorView } from '../../server/vista-espectador.js';
 import { NADA, pintar } from '../html.js';
@@ -203,6 +204,9 @@ function pintarTodo(ahora: number): void {
         ancho: rect.width,
         alto: rect.height,
         movibles: [],
+        // El espectador no tiene turno propio: ni casillas de carga ni ángulo.
+        cargas: SIN_CARGAS,
+        angulo: null,
         atacables: NINGUNO,
         objetivosHechizo: NINGUNO,
         hoverHex: null,

@@ -397,6 +397,9 @@ document.addEventListener('click', (ev) => {
     case 'battle-wait':
       session.playBattleAction({ type: action === 'battle-wait' ? 'wait' : 'defend' });
       break;
+    case 'battle-end-turn':
+      session.playBattleAction({ type: 'end_turn' });
+      break;
     case 'battle-surrender':
       session.playBattleAction({ type: 'surrender' });
       break;
@@ -436,6 +439,18 @@ document.addEventListener('keydown', (ev) => {
     castillo.salir();
   }
   if (ev.key === 'Escape' && session.scene === 'battle' && !jugadaEnCurso()) session.clearSpell();
+  // En batalla, Espacio cierra el turno de la unidad tuya que está actuando: con
+  // el movimiento en tramos es lo que más se pulsa. Pasa por la misma puerta que
+  // el lienzo y los botones, y sin turno propio no hace nada.
+  // Con el foco en un botón, Espacio es pulsar ESE botón —Rendirse, Continuar—,
+  // que es lo que el navegador hace con él: no se le roba la tecla.
+  const enUnBoton = ev.target instanceof Element && ev.target.closest('button') !== null;
+  if (ev.key === ' ' && session.scene === 'battle' && !enUnBoton) {
+    ev.preventDefault();
+    if (!ev.repeat && session.turnoPropio !== null && !jugadaEnCurso()) {
+      session.playBattleAction({ type: 'end_turn' });
+    }
+  }
   if (ev.key === ' ' && session.scene === 'adventure') {
     ev.preventDefault();
     // Dejar el Espacio pulsado repite la tecla: eso no es pedir varios días.

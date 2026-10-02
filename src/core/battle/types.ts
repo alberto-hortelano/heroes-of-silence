@@ -238,18 +238,51 @@ export interface BattleFinish {
   readonly surrender?: { readonly gold: number };
 }
 
+/**
+ * El turno de la unidad que está actuando: cuál es, quién lo juega y cuántas
+ * casillas lleva gastadas en él.
+ *
+ * `gastado` vive aquí, dentro de un objeto que solo crea `advance` —uno nuevo
+ * en cada activación—, y no como un campo del stack, que es lo que avisaba el
+ * comentario de los recorridos de la carga: un `hexesMoved` en el stack había
+ * que resetearlo en `beginRound` y en `endTurn`, y el día que se olvidara uno
+ * la unidad empezaría su turno con el presupuesto de otro. Aquí no hay nada que
+ * resetear: el turno siguiente es otro objeto. La moral extra y `wait` vuelven a
+ * pasar por `advance`, así que también estrenan turno con 0.
+ */
+export interface TurnoDeUnidad {
+  /**
+   * El ordinal del turno en la batalla: 1, 2, 3… Lo pone `advance` y nadie más.
+   * Es lo que responde «¿sigue siendo el MISMO turno?» (`mismoTurno`), y la
+   * respuesta no se puede sacar de quién actúa: la moral extra le abre a la
+   * misma unidad un turno nuevo, y los cuatro sitios que lo deducían cada uno a
+   * su manera —por identidad del objeto, por lo gastado que crece, por la nota—
+   * se dejaron engañar por ella dos veces. Y no se puede sacar de la identidad
+   * del objeto en cuanto el estado cruza un `structuredClone` o el cable.
+   */
+  readonly n: number;
+  readonly stack: string;
+  /** Casillas recorridas en este turno: cada `move` suma lo que cuesta su camino. */
+  gastado: number;
+}
+
 export interface BattleState {
   round: number;
   stacks: BattleStack[];
   /** Ids en orden de iniciativa pendientes de actuar en esta ronda. */
   queue: string[];
-  activeId: string | null;
+  /** El turno abierto, o `null` si no actúa nadie (batalla terminada o sin montar). */
+  turno: TurnoDeUnidad | null;
   heroes: Record<Side, BattleHero | null>;
   log: BattleEvent[];
   finished: BattleFinish | null;
 }
 
 export type BattleAction =
+  /**
+   * Gasta casillas del turno sin cerrarlo: la unidad puede moverse otra vez o
+   * atacar. Se cierra solo si ya no le queda nada que hacer (`quedaAlgoQueHacer`).
+   */
   | { type: 'move'; to: Hex }
   /** Mueve (si hace falta) hasta `from` y golpea a `target`. */
   | { type: 'attack'; target: string; from?: Hex }
@@ -264,4 +297,6 @@ export type BattleAction =
    * pone, tiene que ser el precio de ahora — un precio viejo se rechaza en vez
    * de cobrar otro sin decirlo.
    */
-  | { type: 'surrender'; gold?: number };
+  | { type: 'surrender'; gold?: number }
+  /** Cierra el turno de la unidad activa sin hacer nada más (tras moverse, por ejemplo). */
+  | { type: 'end_turn' };

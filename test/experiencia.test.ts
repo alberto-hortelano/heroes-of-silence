@@ -65,7 +65,7 @@ import {
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import type { Point, Troop, Veterania } from '../src/core/types.js';
-import { ejercito, forzarBatalla, ponerMonstruo } from './helpers.js';
+import { ejercito, forzarBatalla, forzarTurno, ponerMonstruo } from './helpers.js';
 
 const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 
@@ -394,7 +394,7 @@ describe('la veteranía vive en el individuo y lo acompaña (C3)', () => {
     forzarBatalla(state, c, hero);
     const b = state.pendingBattle!.battle;
     // Rendirse se puede en cualquier momento del bando: se fuerza el turno.
-    b.activeId = 'attacker-0';
+    forzarTurno(b, 'attacker-0');
     applyAction(b, { type: 'surrender' }, c.rng);
     expect(b.finished?.surrender).toBeDefined();
     settleBattle(state, c);

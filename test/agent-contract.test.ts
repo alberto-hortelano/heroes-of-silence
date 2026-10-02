@@ -8,7 +8,14 @@ import {
 } from '../src/core/ai/strategy.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import { playAiTurn } from '../src/core/ai/turn.js';
-import { activeStack, createBattle, legalActions } from '../src/core/battle/battle.js';
+import {
+  activeStack,
+  applyAction,
+  CARGA_MINIMA,
+  createBattle,
+  legalActions,
+} from '../src/core/battle/battle.js';
+import { CHARGE_BONUS_PER_HEX, MAX_CHARGE_HEXES } from '../src/core/battle/damage.js';
 import {
   adventureActionSchema,
   battleActionSchema,
@@ -44,7 +51,7 @@ import {
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { mageGuildLevel, townSpells } from '../src/core/town/town.js';
-import { forzarBatalla } from './helpers.js';
+import { forzarBatalla, forzarTurno } from './helpers.js';
 
 describe('contrato con el agente', () => {
   it('cada tipo de petición tiene esquema y formato de respuesta', () => {
@@ -689,6 +696,85 @@ describe('lo que ve el agente', () => {
     expect(() => serializeBattleTurn(batalla, 'attacker', 'propia', null)).toThrow(
       'necesita el oro de su dueño',
     );
+  });
+
+  it('el turno en tramos y la carga viajan en el esquema, en la prosa y en el turno (02-10-2026)', () => {
+    expect(battleActionSchema.safeParse({ type: 'end_turn' }).success).toBe(true);
+    const prosa = RESPONSE_FORMAT.battle_turn;
+    expect(prosa).toContain('{ "type": "end_turn" }');
+    expect(prosa).toContain('"stepsLeft"');
+    expect(prosa).toContain('"chargeFrom"');
+    expect(prosa).toMatch(/"move" NO acaba el turno/);
+    expect(prosa).toMatch(/LÍNEA RECTA/);
+    expect(prosa).toMatch(/el "target" está EN ESA RECTA/);
+    expect(prosa).toMatch(/Un "move" a esa casilla NO carga/);
+
+    // `chargeFrom` solo con el rasgo; `stepsLeft` siempre que el activo sea tuyo.
+    const turno = (criatura: string): Record<string, unknown> => {
+      const battle = createBattle(
+        { army: [{ creature: criatura, count: 5 }], hero: null },
+        { army: [{ creature: 'pikeman', count: 5 }], hero: null },
+        createRng(3),
+      );
+      battle.stacks.find((x) => x.id === 'attacker-0')!.hex = { col: 0, row: 4 };
+      battle.stacks.find((x) => x.id === 'defender-0')!.hex = { col: 5, row: 4 };
+      forzarTurno(battle, 'attacker-0');
+      return serializeBattleTurn(battle, 'attacker', 'propia', 0) as Record<string, unknown>;
+    };
+    const jinetes = turno('cavalry');
+    expect(jinetes.stepsLeft).toBe(6);
+    // Contra quién y desde dónde: la casilla de la recta con el piquero detrás,
+    // y ninguna de las vacías (H1).
+    expect(jinetes.chargeFrom).toEqual([{ target: 'defender-0', col: 4, row: 4, hexes: 4 }]);
+    const espadas = turno('swordsman');
+    expect(espadas.stepsLeft).toBe(4);
+    expect('chargeFrom' in espadas).toBe(false);
+  });
+
+  it('`chargeFrom` viaja cuando hay alguna casilla de carga, no cuando la unidad tiene el rasgo', () => {
+    // Caballería con el tramo entero gastado y pegada al enemigo: le queda
+    // golpear, pero no hay casilla a la que ir ni, por tanto, desde la que cargar.
+    const battle = createBattle(
+      { army: [{ creature: 'cavalry', count: 5 }], hero: null },
+      { army: [{ creature: 'pikeman', count: 5 }], hero: null },
+      createRng(3),
+    );
+    battle.stacks.find((x) => x.id === 'attacker-0')!.hex = { col: 0, row: 4 };
+    battle.stacks.find((x) => x.id === 'defender-0')!.hex = { col: 7, row: 4 };
+    forzarTurno(battle, 'attacker-0');
+    applyAction(battle, { type: 'move', to: { col: 6, row: 4 } }, createRng(1));
+    expect(battle.turno?.stack).toBe('attacker-0');
+    const vista = serializeBattleTurn(battle, 'attacker', 'propia', 0) as Record<string, unknown>;
+    expect(vista.stepsLeft).toBe(0);
+    expect('chargeFrom' in vista).toBe(false);
+  });
+
+  it('`turnId` es el ordinal del turno: no cambia con un tramo y sí con el turno siguiente', () => {
+    const battle = createBattle(
+      { army: [{ creature: 'swordsman', count: 5 }], hero: null },
+      { army: [{ creature: 'pikeman', count: 5 }], hero: null },
+      createRng(3),
+    );
+    battle.stacks.find((x) => x.id === 'attacker-0')!.hex = { col: 0, row: 4 };
+    battle.stacks.find((x) => x.id === 'defender-0')!.hex = { col: 10, row: 4 };
+    forzarTurno(battle, 'attacker-0');
+    const vista = () =>
+      serializeBattleTurn(battle, 'attacker', 'propia', 0) as Record<string, unknown>;
+    const primero = vista().turnId;
+    expect(primero).toBe(battle.turno?.n);
+    applyAction(battle, { type: 'move', to: { col: 1, row: 4 } }, createRng(1));
+    expect(vista().turnId).toBe(primero);
+    applyAction(battle, { type: 'end_turn' }, createRng(1));
+    expect(vista().turnId).toBe((primero as number) + 1);
+  });
+
+  it('la prosa de la carga sale de las constantes que la cobran', () => {
+    const prosa = RESPONSE_FORMAT.battle_turn;
+    expect(prosa).toContain(`a ${CARGA_MINIMA} casillas o\n  más`);
+    expect(prosa).toContain(
+      `suma un ${Math.round(CHARGE_BONUS_PER_HEX * 100)} % de daño, hasta ${MAX_CHARGE_HEXES}`,
+    );
+    expect(prosa).toContain('"turnId"');
   });
 
   it('la prosa dice el tope de 7 por bando y dónde está tu base', () => {

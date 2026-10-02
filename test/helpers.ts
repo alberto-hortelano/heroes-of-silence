@@ -179,7 +179,7 @@ export function avanzarHasta(
   politica: (state: BattleState) => BattleAction = agresiva,
   maxTurnos = 200,
 ): boolean {
-  const llego = typeof hasta === 'string' ? (s: BattleState) => s.activeId === hasta : hasta;
+  const llego = typeof hasta === 'string' ? (s: BattleState) => s.turno?.stack === hasta : hasta;
   for (let n = 0; state.finished === null && n < maxTurnos; n++) {
     if (llego(state)) return true;
     applyAction(state, politica(state), rng);
@@ -188,6 +188,14 @@ export function avanzarHasta(
 }
 
 export { blockedHexes };
+
+/**
+ * Le da el turno a `stack` a mano, como si lo hubiera abierto `advance`: un
+ * ordinal nuevo —el siguiente al de ahora— y lo gastado que diga el test.
+ */
+export function forzarTurno(state: BattleState, stack: string, gastado = 0): void {
+  state.turno = { n: (state.turno?.n ?? 0) + 1, stack, gastado };
+}
 
 /** ¿Es este stack el personaje `id`? Para los `find` de los tests. */
 export const esPersonaje =

@@ -99,6 +99,10 @@ export function decidir(kind: string, payload: any): unknown {
       return { actions: acciones, reasoning: 'qa: construyo, recluto y exploro' };
     }
     case 'battle_turn': {
+      // Golpear si se puede y, si no, el PRIMER `move` de la lista, que es una
+      // casilla vecina: desde el turno en tramos (02-10-2026) eso deja el turno
+      // abierto y se vuelve a preguntar por la misma unidad, que es lo que el
+      // arnés exige ver cruzar el circuito dos veces seguidas.
       const acciones = payload.legalActions as any[];
       const elegida =
         acciones.find((a) => a.type === 'shoot') ??

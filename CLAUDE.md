@@ -12,15 +12,15 @@ El juego es el andamio; lo interesante es lo que se puede enchufar dentro.
 pnpm install
 pnpm dev        # cliente en http://localhost:3100 (juego local contra la IA de reglas)
 pnpm mirar      # MIRAR la partida del agente: /espectador/ contra el servidor
-pnpm verify     # typecheck + lint + 978 tests, 12,6 s: el bucle rápido
-pnpm test       # 978 tests: reglas, batalla, partida completa y contrato del agente
+pnpm verify     # typecheck + lint + 1035 tests, 12,6 s: el bucle rápido
+pnpm test       # 1035 tests: reglas, batalla, partida completa y contrato del agente
 pnpm typecheck
 pnpm lint       # Biome: formato y lint en una sola pasada, 40 ms
 pnpm format     # lo mismo, arreglando lo que sepa arreglar
 pnpm banco      # 200 partidas: tiempo y sha256 del volcado, 4,1 s
 
-npx tsx tools/qa/enfrentamiento.ts   # dos tácticas frente a frente, 5000 batallas, 11,8 s
-pnpm capturas   # juega el cliente en Chromium (Playwright) con clics reales y saca capturas, ~87 s
+npx tsx tools/qa/enfrentamiento.ts   # la IA de hoy contra ella sin su última regla, 2000 batallas, 1,9 s
+pnpm capturas   # juega el cliente en Chromium (Playwright) con clics reales y saca capturas, ~97 s
 ```
 
 La partida se abre con una semilla al azar; **`?seed=N` en la URL fija la
@@ -216,6 +216,8 @@ assets/generated/  arte generado (lo sirve Vite como estático)
 | Duración de Prisa/Lentitud | poder mágico del lanzador, en rondas |
 | Inmunidad de los no-muertos | a la mala suerte: Maldición y `curse_on_hit` |
 | Dos efectos del mismo origen | el segundo REFRESCA la duración, no se acumula |
+| Turno de una unidad | se mueve en **tramos** hasta gastar su velocidad; atacar lo cierra (regla nuestra) |
+| Carga (`charge`) | +10 %/casilla, tope 5, solo en **línea recta** de ≥ 3 desde el inicio del tramo y con **el enemigo en la recta** (regla nuestra) |
 
 Las cifras de criaturas, edificios y hechizos están en `data/*.json` y se
 editan sin recompilar.
@@ -1051,6 +1053,96 @@ Tres cosas que costaron su vuelta de QA y conviene no repetir:
   lado de una identidad algebraica. Ahora comprueba el reparto, que es lo que sí
   dice algo, y el intervalo es **pareado** (±0,20 donde el binomial decía ±0,41).
 
+## El turno en tramos y la carga en línea recta
+
+Lo pidió el usuario jugando (02-10-2026): «si quiero reposicionarme y atacar desde
+otro ángulo no puedo». **Las dos reglas son nuestras, no de HoMM2**, y se citan así.
+
+- **`move` ya no cierra el turno**: gasta casillas de la velocidad y la unidad
+  sigue activa para moverse otra vez, golpear o terminar (`end_turn`, acción nueva
+  del motor, del agente y del cliente: botón y Espacio). Se cierra solo cuando ya
+  no le queda ni casilla ni enemigo al lado. **Atacar lo cierra.** Tras moverse
+  **no se dispara, ni se defiende, ni se espera** (decisión del usuario): ni se
+  ofrece en `legalActions` ni se acepta.
+- **Lo gastado vive en `BattleState.turno`** (`{ n, stack, gastado }`), un objeto
+  que solo crea `advance`, uno nuevo en cada activación y con su **ordinal** `n`.
+  Sustituye a `activeId` y no hay nada que resetear: la moral extra y `wait`
+  estrenan turno con 0. La velocidad se lee al preguntar (`pasosQueQuedan`), así
+  que una Lentitud a mitad de turno recorta lo que queda. Qué se puede hacer
+  tras un tramo lo dice **solo** `legalActions`: el cierre automático
+  (`quedaAlgoQueHacer`) y la cola de la IA la leen en vez de reescribirla.
+- **La carga es por tramo, en recta y CONTRA alguien** (`cargaDesde`, la única
+  regla de CUÁNDO, que recibe el objetivo; el tope lo pone `cargaEfectiva`, en
+  `damage.ts`, y la prosa del agente interpola las tres constantes): un `attack`
+  con `from` carga si `from` está en una de las **6 rectas** del hexágono desde
+  donde está la unidad ahora, sin unidades en medio, a 3 casillas o más, **y la
+  casilla que sigue a `from` en esa recta es del objetivo** (`siguienteEnRecta`;
+  de un enemigo de dos casillas basta una). «El enemigo tiene que estar en la
+  línea recta, no se puede cargar contra un enemigo que esté al lado»: llegar a
+  la recta y girar no carga, y pegar al que ya tienes al lado tampoco. El usuario
+  dijo «8 direcciones», pensando en casillas cuadradas; en hexágonos las rectas
+  sin giro son 6, y se le comunica. Lo que se **enseña** sale de
+  `casillasDeCarga`, que llama a la misma función que cobra y devuelve **contra
+  quién y desde dónde**: en el cliente, el enemigo cargable en naranja y la
+  casilla de su recta con su «»N», que pasa a «+N %» al señalar a ese enemigo; al
+  agente, `chargeFrom` con su `target`. **Una casilla vacía de la recta no
+  promete nada**: el clic ahí solo mueve. Las rectas las da `rectaLibre`
+  (`board.ts`), que comparte con `siguienteEnRecta` la decisión de qué es una
+  recta.
+- **El ángulo se elige al pasar el ratón** (`escenas/angulo.ts`, puro): sobre un
+  enemigo se resaltan todas las casillas desde las que se le golpea y la más
+  cercana al puntero se marca fuerte; la barra dice «Golpearías desde (c,r)». La
+  distancia se mide **en el plano y no en píxeles**: con el tablero aplastado a
+  25°, en píxeles la casilla del oeste no ganaba nunca dentro del hexágono del
+  enemigo. `accionContra` ya no elige sola el `from`, y `pnpm capturas` usa la
+  misma función para su espejo.
+
+Se hizo en tres pasos, verificados por separado: los tramos solos dejaron el
+banco **byte a byte** igual (`bd4d4a13…`); la carga en recta tocó 15 semillas,
+todas con una carga con `from` (cargas cobradas en 200 partidas: 109 → 33); y la
+IA que **pega tras un tramo si ahora alcanza** gana **51,08 % ± 0,25** en 5 000
+parejas. La otra candidata —colocar a la caballería en un tramo para cargar en
+el siguiente— dio **49,39 % ± 0,18**, entera por debajo, y no entró. Anclado una
+vez, `656e567e…`; 100 semillas en 28×28: 8 / 15 / 30 días y j0 43 antes, 8 / 16 /
+25 y j0 43 después.
+
+**La primera redacción de la carga no miraba al enemigo, y lo encontró QA
+jugando** (H1): la persona veía casillas naranjas «desde aquí golpearías
+cargando 5» sin nadie delante, y el clic ahí solo movía y gastaba la carga. La
+regla del objetivo la puso el usuario después de verlo. Re-anclado una vez,
+`290812e6…`, y **con la línea del objetivo quitada sale `656e567e…` exacto**, que
+es lo que prueba que no cambió nada más: 194 semillas idénticas, las 6 que
+cambian entre las 19 con un golpe de caballería con `from`. Y la cifra incómoda:
+**en el banco las cargas cobradas pasan de 28 de 218 golpes a 0 de 203** —la IA
+elige primero a quién y después desde dónde, y en esos golpes el elegido nunca
+estaba en la recta; en 10 de los 203 había una carga contra OTRO enemigo—. Que la
+IA busque al cargable es otra decisión y no se ha tomado. 100 semillas en 28×28:
+8 / 16 / 25 y j0 43, igual antes y después.
+
+Del mismo pase de QA: **el motivo de no poder actuar contra un enemigo lo escribe
+el núcleo** (`ataqueBlocker`, sobre `disparoBlocker`, que es también la única
+redacción de cuándo se dispara para la lista y para el rechazo), y el cliente ya
+no le dice «no alcanzas a esa unidad» a un arquero que se acaba de mover; «le
+queda 1 casilla» va en singular (`quedanCasillas`); y Espacio con el foco en un
+botón pulsa el botón.
+
+Y una trampa que mordió dos veces en el mismo ciclo, en el arnés de `pnpm qa` y
+en el de capturas: **«la misma unidad sigue activa» no es «el turno sigue
+abierto»**. La moral extra le abre a la misma unidad un turno NUEVO, con 0
+gastado, y los dos guardias daban verde con él. Cada sitio lo deducía a su
+manera —el director por identidad del objeto, capturas por lo gastado que
+crece, `verify-agent` por la nota, la caché de la sesión por la unidad—, y por
+eso hoy hay **un ordinal**: `turno.n`, que pone `advance`, se compara con
+`mismoTurno` y viaja al agente como `turnId`. Visto morder: con `advance`
+reutilizando el ordinal para la misma unidad cae el test de la moral extra, y
+con `verify-agent` emparejando por unidad en vez de por `turnId` la sonda que
+invierte la medida del director **vuelve a salir verde** con una moral extra
+(«defender-heroe, le quedan 4»), que es exactamente el fallo de entonces.
+
+Los topes de jugadas de los cuatro bucles que juegan una batalla acción a acción
+—`autoResolve`, el director, la sesión y `enfrentamiento.ts`— son uno,
+`MAX_JUGADAS`, derivado de `MAX_ROUNDS`.
+
 ## La partida sabe acabarse, y el mapa no da para más
 
 Dos cosas de esta tanda, y la segunda es una medida y no un cambio.
@@ -1643,15 +1735,15 @@ aportan en un prototipo. Lo que hay:
 
 | Comprobación | Cuánto tarda | Cuándo |
 |---|---|---|
-| `pnpm verify` | 11,9 s | siempre |
+| `pnpm verify` | 12,6 s | siempre |
 | `test/invariantes.test.ts` | 505 ms | va dentro de `pnpm test` |
 | El navegador | minutos | si el cambio se ve |
 | El espectador en el navegador | minutos | si tocas `html.ts`, `espectador/` o el canal |
 | `pnpm qa` | 3,0 s | si tocas `src/server/` o el contrato |
-| `pnpm capturas` | ~87 s | si el cambio se ve: juega el cliente y el espectador en Chromium y sale 1 con un error en consola |
+| `pnpm capturas` | ~97 s | si el cambio se ve: juega el cliente y el espectador en Chromium y sale 1 con un error en consola |
 | `npx tsx tools/qa/barrido-semillas.ts` | 1,1 s | si tocas la IA o la economía |
 | `pnpm banco` | 4,1 s | si tocas el núcleo sin querer cambiar el juego |
-| `tools/qa/enfrentamiento.ts` | 11,8 s | si cambias **cómo decide** la IA de batalla |
+| `tools/qa/enfrentamiento.ts` | 1,9 s | si cambias **cómo decide** la IA de batalla |
 | CI (`.github/workflows/ci.yml`) | ~1 min | en cada push y cada PR |
 
 Los tiempos están **medidos**, tres pasadas cada uno, no estimados: los que

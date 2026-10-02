@@ -139,12 +139,14 @@ describe('la patrulla', () => {
     let vistos = 0;
     let brotados = 0;
     // Semillas en las que pasan lunes con sitio para brotar —en la mayoría la
-    // partida acaba antes del día 8 con todas las regiones ocupadas—: la 44 y la
-    // 73 dan dos brotes y la 15 uno. Eran la 5, la 16 y la 18 hasta que la
-    // experiencia por daño acortó las partidas, y la 1, la 8 y la 60 hasta que
-    // el héroe pasó a empezar en el nivel 5 (una sola escala con la tropa): las
-    // dos veces se quedaron sin un solo lunes. Buscadas jugando las 80 primeras.
-    for (const semilla of [44, 73, 15]) {
+    // partida acaba antes del día 8 con todas las regiones ocupadas—: la 20, la
+    // 49 y la 51 dan dos brotes cada una. Eran la 5, la 16 y la 18 hasta que la
+    // experiencia por daño acortó las partidas, la 1, la 8 y la 60 hasta que el
+    // héroe pasó a empezar en el nivel 5 (una sola escala con la tropa), y la
+    // 44, la 73 y la 15 hasta el turno en tramos (02-10-2026), que cambia las
+    // batallas: las tres veces se quedaron sin un solo lunes. Buscadas jugando
+    // las 80 primeras.
+    for (const semilla of [20, 49, 51]) {
       const state = newGame({ seed: semilla, maxDays: 60 });
       const ctx = { rng: createRng(semilla) };
       while (state.finished === null) {

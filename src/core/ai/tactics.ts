@@ -8,10 +8,14 @@
 import {
   activeStack,
   applyAction,
+  blockedHexes,
   canReachMelee,
+  cargaDesde,
   enemiesOf,
   isEngaged,
   legalActionsAndCosts,
+  MAX_JUGADAS,
+  type Movibles,
   splashTargets,
   stackById,
   stackHexes,
@@ -19,7 +23,7 @@ import {
   sumaDelBando,
 } from '../battle/battle.js';
 import { hexDistance, hexKey, type Paso } from '../battle/board.js';
-import { CHANCE_PER_POINT, expectedDamage, stackHp } from '../battle/damage.js';
+import { CHANCE_PER_POINT, cargaEfectiva, stackHp } from '../battle/damage.js';
 import { roundsLeftOf } from '../battle/effects.js';
 import { effectOfSpell, type Spell, spell, spellAmount } from '../battle/spells.js';
 import type { BattleAction, BattleHero, BattleStack, BattleState, Side } from '../battle/types.js';
@@ -173,11 +177,15 @@ type CargaContra = Extract<BattleAction, { type: 'attack' }> & { from: Hex };
  *
  * Orden total de tres niveles, y los tres deciden algo:
  *
- * 1. **Máximo daño esperado.** Es lo único que distingue una casilla de otra:
- *    `computeDamage` no mira el hex más que por la carga. Escrito en daño y no
- *    en «cuantos más hexes mejor» a propósito — con el criterio en distancia,
- *    una unidad SIN `charge` se pondría a dar rodeos para no ganar nada.
- * 2. **Coste mínimo**, que es lo que queda cuando el daño empata: sin `charge`
+ * 1. **Máxima carga cobrada.** Es lo único que distingue una casilla de otra:
+ *    `computeDamage` no mira el hex más que por la carga, y el daño crece
+ *    estrictamente con ella —multiplica por `1 + carga × 10 %`—, así que
+ *    ordenar por la carga cobrada es ordenar por daño esperado sin calcularlo.
+ *    La dicen `cargaDesde` y `cargaEfectiva`, las mismas que la cobran: en
+ *    línea recta, a 3 casillas o más, con el objetivo en la recta y con el
+ *    tope de 5 (02-10-2026). Sin el rasgo, `cargaDesde` da 0 en todas y no se
+ *    calcula nada más.
+ * 2. **Coste mínimo**, que es lo que queda cuando la carga empata: sin `charge`
  *    empatan todas.
  * 3. **El primero en el orden de enumeración**, que hoy es el que decide de
  *    verdad: 722 de 1194 decisiones con varias casillas empatan también a
@@ -191,24 +199,21 @@ type CargaContra = Extract<BattleAction, { type: 'attack' }> & { from: Hex };
  * **Y se lee del recorrido que ya se hizo**, el de `legalActionsAndCosts`, en
  * vez de lanzar uno nuevo. Cuando esto pedía su propio `movableFrom`, ese
  * segundo recorrido lo pagaban las 1258 de 1258 decisiones SIN `charge`
- * —+17,6 % en 300 batallas— para responder a una pregunta que solo tiene
- * sentido con el rasgo puesto.
+ * —+17,6 % en 300 batallas—. Las casillas ocupadas, que hacen falta para
+ * medir la recta, se piden una vez por decisión y no una por casilla.
  */
 function mejorCarga(
+  state: BattleState,
   s: BattleStack,
   objetivo: BattleStack,
   cargas: readonly CargaContra[],
   costes: ReadonlyMap<string, Paso>,
 ): BattleAction {
-  // Sin el rasgo, `expectedDamage` da lo MISMO desde cualquier casilla: la
-  // fórmula no mira el hex más que por la carga. No es una optimización, es lo
-  // que significa — evaluarla casilla a casilla sería preguntar seis veces algo
-  // cuya respuesta no depende de la pregunta. Con el daño empatado decide el
-  // desempate, que es lo que decide hoy el 100 % de los casos.
-  const cobraCarga = hasTrait(s.unit, 'charge');
+  // Las ocupadas no cambian de una casilla candidata a otra: se piden una vez.
+  const bloqueadas = blockedHexes(state, s.id);
 
   let mejor = cargas[0] as CargaContra;
-  let mejorDano = -1;
+  let cargaMejor = -1;
   let mejorCoste = Number.POSITIVE_INFINITY;
   for (const a of cargas) {
     const paso = costes.get(hexKey(a.from));
@@ -219,10 +224,10 @@ function mejorCarga(
       throw new Error(`${s.id} no alcanza (${a.from.col},${a.from.row}): la lista legal miente`);
     }
     const coste = paso.steps;
-    const dano = cobraCarga ? expectedDamage(s, objetivo, { chargeHexes: coste }) : 0;
-    if (dano > mejorDano || (dano === mejorDano && coste < mejorCoste)) {
+    const carga = cargaEfectiva(cargaDesde(state, s, a.from, objetivo, bloqueadas));
+    if (carga > cargaMejor || (carga === cargaMejor && coste < mejorCoste)) {
       mejor = a;
-      mejorDano = dano;
+      cargaMejor = carga;
       mejorCoste = coste;
     }
   }
@@ -339,24 +344,24 @@ export function chooseBattleAction(
  * `mejorCarga` lo lee del primero, y `moveTo` el segundo—, 970 de las 3 170
  * llamadas al BFS del tablero de 300 batallas.
  *
- * El `stack` viaja al lado de los costes y no se supone: `applyAction` no puede
- * comprobar que un mapa de costes sea del stack que actúa mirando sus claves
- * —las de otro stack cercano se le parecen—, así que se le dice quién lo
- * calculó y él lo compara con quien está activo.
+ * De qué turno es viaja al lado de los costes y no se supone: `applyAction` no
+ * puede comprobar que un mapa de costes sea de ahora mirando sus claves —las de
+ * otro stack cercano, o las del mismo antes de su último tramo, se le parecen—,
+ * así que se le dice cuándo se calculó (`Movibles`) y él lo compara.
  */
 export function chooseBattleActionAndCosts(
   state: BattleState,
   noSeRinden: ReadonlySet<Side> = NINGUNO,
-): {
-  action: BattleAction;
-  stack: string;
-  costs: Map<string, Paso>;
-} {
+): { action: BattleAction; movibles: Movibles } {
   const s = activeStack(state);
-  if (s === null) throw new Error('no hay stack activo');
+  const turno = state.turno;
+  if (s === null || turno === null) throw new Error('no hay stack activo');
 
   const { actions, costs } = legalActionsAndCosts(state);
-  return { action: decideAccion(state, s, actions, costs, noSeRinden), stack: s.id, costs };
+  return {
+    action: decideAccion(state, s, actions, costs, noSeRinden),
+    movibles: { n: turno.n, gastado: turno.gastado, costs },
+  };
 }
 
 function decideAccion(
@@ -366,8 +371,14 @@ function decideAccion(
   costes: ReadonlyMap<string, Paso>,
   noSeRinden: ReadonlySet<Side>,
 ): BattleAction {
+  // Tras un tramo se vuelve a decidir con lo que queda, en vez de cerrar el
+  // turno sin mirar: si el paso adelante ha dejado a alguien al alcance, se le
+  // pega. Medido con `enfrentamiento.ts` contra la IA que cerraba siempre: 51,08 %
+  // ± 0,25 en 5 000 parejas. Lo que tras moverse no es legal —disparar, esperar,
+  // defender— no sale de aquí porque se elige de la lista legal, que ya no lo
+  // trae: aquí no se vuelve a escribir qué se puede hacer tras un tramo.
   const enemigos = enemiesOf(state, s);
-  if (enemigos.length === 0) return { type: 'defend' };
+  if (enemigos.length === 0) return colaTerminal(acciones);
 
   // Rendirse va antes que todo, incluido el hechizo: si la batalla está
   // perdida, gastar maná en ella es tirarlo. Pero solo por un bando que sea
@@ -432,7 +443,7 @@ function decideAccion(
       (a): a is CargaContra =>
         a.type === 'attack' && a.target === objetivo.id && a.from !== undefined,
     );
-    if (cargas.length > 0) return mejorCarga(s, objetivo, cargas, costes);
+    if (cargas.length > 0) return mejorCarga(state, s, objetivo, cargas, costes);
 
     // Si no llega, avanzar lo máximo posible hacia él. Los hexes ya están en
     // la mano: los `move` de `acciones` SON `movableHexes(state, s)`, en
@@ -457,7 +468,9 @@ function decideAccion(
         // El paso adelante es lo último que se decide, porque es justo el que
         // puede salir caro: si al darlo quedo dentro del alcance de alguien que
         // aún no ha movido, sale más a cuenta esperar y pegarle yo.
-        if (convieneEsperar(s, enemigos, mejor)) return { type: 'wait' };
+        if (acciones.some((a) => a.type === 'wait') && convieneEsperar(s, enemigos, mejor)) {
+          return { type: 'wait' };
+        }
         return { type: 'move', to: mejor };
       }
     }
@@ -468,7 +481,18 @@ function decideAccion(
   // el +20 % de defensa sí. `defend` es la única cola terminal: el `wait` que
   // había aquí era una tautología defensiva que además no se alcanzaba nunca,
   // 0 de 10 440 decisiones.
-  return { type: 'defend' };
+  return colaTerminal(acciones);
+}
+
+/**
+ * Lo que se hace cuando no hay nada mejor: defenderse si la lista lo trae y, si
+ * no —tras un tramo ya no—, cerrar el turno. `end_turn` va siempre en la lista.
+ */
+function colaTerminal(acciones: readonly BattleAction[]): BattleAction {
+  const cola =
+    acciones.find((a) => a.type === 'defend') ?? acciones.find((a) => a.type === 'end_turn');
+  if (cola === undefined) throw new Error('la lista legal no trae ni "defend" ni "end_turn"');
+  return cola;
 }
 
 export interface BattleOutcome {
@@ -485,14 +509,14 @@ export function autoResolve(
   state: BattleState,
   rng: Rng,
   noSeRinden: ReadonlySet<Side> = NINGUNO,
-  maxTurnos = 5000,
+  maxTurnos = MAX_JUGADAS,
 ): BattleOutcome {
   let n = 0;
   while (state.finished === null && n < maxTurnos) {
     // El recorrido con el que se decidió viaja hasta el motor: `moveTo` lo
     // repetía entero para cobrar la carga.
-    const { action, stack, costs } = chooseBattleActionAndCosts(state, noSeRinden);
-    applyAction(state, action, rng, { stack, costs });
+    const { action, movibles } = chooseBattleActionAndCosts(state, noSeRinden);
+    applyAction(state, action, rng, movibles);
     n++;
   }
   if (state.finished === null) {

@@ -11,6 +11,7 @@ import {
   neighbours,
   occupiedHexes,
   reachable,
+  rectaLibre,
 } from '../src/core/battle/board.js';
 import { createRng } from '../src/core/rng.js';
 
@@ -167,5 +168,140 @@ describe('unidades grandes', () => {
       { col: 5, row: 4 },
       { col: 6, row: 4 },
     ]);
+  });
+});
+
+describe('rectaLibre: las 6 rectas del hexágono (la carga, 02-10-2026)', () => {
+  const libre = new Set<string>();
+
+  /**
+   * Las tres primeras casillas de cada recta, escritas a mano y no calculadas:
+   * en odd-r la columna de las diagonales depende de la paridad de la fila, y
+   * una fila par y una impar se equivocan por separado.
+   */
+  const RECTAS: Record<string, Record<string, [number, number][]>> = {
+    'fila par (5,4)': {
+      E: [
+        [6, 4],
+        [7, 4],
+        [8, 4],
+      ],
+      W: [
+        [4, 4],
+        [3, 4],
+        [2, 4],
+      ],
+      abajoDerecha: [
+        [5, 5],
+        [6, 6],
+        [6, 7],
+      ],
+      abajoIzquierda: [
+        [4, 5],
+        [4, 6],
+        [3, 7],
+      ],
+      arribaDerecha: [
+        [5, 3],
+        [6, 2],
+        [6, 1],
+      ],
+      arribaIzquierda: [
+        [4, 3],
+        [4, 2],
+        [3, 1],
+      ],
+    },
+    'fila impar (5,3)': {
+      E: [
+        [6, 3],
+        [7, 3],
+        [8, 3],
+      ],
+      W: [
+        [4, 3],
+        [3, 3],
+        [2, 3],
+      ],
+      abajoDerecha: [
+        [6, 4],
+        [6, 5],
+        [7, 6],
+      ],
+      abajoIzquierda: [
+        [5, 4],
+        [4, 5],
+        [4, 6],
+      ],
+      arribaDerecha: [
+        [6, 2],
+        [6, 1],
+        [7, 0],
+      ],
+      arribaIzquierda: [
+        [5, 2],
+        [4, 1],
+        [4, 0],
+      ],
+    },
+  };
+
+  for (const [nombre, rectas] of Object.entries(RECTAS)) {
+    const desde = nombre.startsWith('fila par') ? { col: 5, row: 4 } : { col: 5, row: 3 };
+    for (const [dir, casillas] of Object.entries(rectas)) {
+      it(`${nombre}, ${dir}: cada casilla a su distancia, y la del medio bloqueada la corta`, () => {
+        casillas.forEach(([col, row], i) => {
+          expect(rectaLibre(desde, { col, row }, libre)).toBe(i + 1);
+        });
+        const [c1, r1] = casillas[1] as [number, number];
+        const [c2, r2] = casillas[2] as [number, number];
+        // Una unidad en medio corta la recta; en el destino no: dónde se puede
+        // acabar lo decide quien pregunta.
+        expect(
+          rectaLibre(desde, { col: c2, row: r2 }, new Set([hexKey({ col: c1, row: r1 })])),
+        ).toBeNull();
+        expect(
+          rectaLibre(desde, { col: c2, row: r2 }, new Set([hexKey({ col: c2, row: r2 })])),
+        ).toBe(3);
+      });
+    }
+  }
+
+  it('fuera de recta, o en el mismo sitio, no hay recta', () => {
+    expect(rectaLibre({ col: 5, row: 4 }, { col: 7, row: 5 }, libre)).toBeNull();
+    expect(rectaLibre({ col: 5, row: 4 }, { col: 5, row: 4 }, libre)).toBeNull();
+  });
+
+  it('una casilla fuera del tablero no tiene recta: se dice, no se mide', () => {
+    // En cúbicas la recta se sabe sin andar, así que sin esto (11,4) daría 6
+    // desde (5,4) como si existiera.
+    expect(() => rectaLibre({ col: 5, row: 4 }, { col: 11, row: 4 }, libre)).toThrow(
+      '(11,4) está fuera del tablero: no hay recta',
+    );
+  });
+
+  it('en todo el tablero, hay recta exactamente cuando una coordenada cúbica no cambia', () => {
+    // Criterio independiente de la implementación: en coordenadas cúbicas las
+    // seis rectas son las que dejan fija una de las tres. La conversión odd-r
+    // se escribe aquí otra vez a propósito, sin pasar por `board.ts`.
+    const cubo = (col: number, row: number) => {
+      const q = col - (row - (row & 1)) / 2;
+      return { q, r: row, s: -q - row };
+    };
+    let rectas = 0;
+    for (const a of allHexes()) {
+      for (const b of allHexes()) {
+        const ca = cubo(a.col, a.row);
+        const cb = cubo(b.col, b.row);
+        const enRecta =
+          (a.col !== b.col || a.row !== b.row) && (ca.q === cb.q || ca.r === cb.r || ca.s === cb.s);
+        const d = rectaLibre(a, b, libre);
+        expect(d, `(${a.col},${a.row}) → (${b.col},${b.row})`).toBe(
+          enRecta ? hexDistance(a, b) : null,
+        );
+        if (enRecta) rectas++;
+      }
+    }
+    expect(rectas).toBeGreaterThan(0);
   });
 });
