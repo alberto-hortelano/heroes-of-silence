@@ -1,0 +1,13 @@
+{
+  "imagen": "veneno.webp",
+  "sha256": "2b84981863b92f1dde11bab88f4f632206c25e67a77c101abc79b21fa8b4cddc",
+  "celda": 256,
+  "fotogramas": 6,
+  "caja": [
+    13,
+    10,
+    245,
+    239
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

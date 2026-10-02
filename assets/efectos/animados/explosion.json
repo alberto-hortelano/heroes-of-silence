@@ -1,0 +1,13 @@
+{
+  "imagen": "explosion.webp",
+  "sha256": "ad35beeb75b322c2bf86a23dcc0f291377e6407a95debc58ec46cc61ad45bd23",
+  "celda": 256,
+  "fotogramas": 6,
+  "caja": [
+    7,
+    0,
+    251,
+    255
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

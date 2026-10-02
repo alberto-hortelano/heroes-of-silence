@@ -1,0 +1,11 @@
+{
+  "imagen": "pabellon-de-caza.webp",
+  "sha256": "06761c1e39abf01cc4e896d007ba9bbf78c67d37353b646743e8d6e082299d81",
+  "ancho": 1241,
+  "alto": 1186,
+  "ancla": [
+    643,
+    1161
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

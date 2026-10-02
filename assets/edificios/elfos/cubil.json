@@ -1,0 +1,11 @@
+{
+  "imagen": "cubil.webp",
+  "sha256": "bcdbe6ec7dfe72e2254515db5ed951d2c9a8c169931c3fefec32d0dc1a1f2b75",
+  "ancho": 1221,
+  "alto": 1017,
+  "ancla": [
+    614,
+    1001
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

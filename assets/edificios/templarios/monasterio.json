@@ -1,0 +1,11 @@
+{
+  "imagen": "monasterio.webp",
+  "sha256": "9df470d2914fa445f4c5daa7c31675aa3514f9b893ebc6b3807bfc3ec4a5a8f7",
+  "ancho": 1464,
+  "alto": 959,
+  "ancla": [
+    676,
+    934
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

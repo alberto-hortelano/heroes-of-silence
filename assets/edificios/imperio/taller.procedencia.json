@@ -1,0 +1,46 @@
+{
+  "encargo": "edificio-taller",
+  "tipo": "imagen",
+  "fecha": "2026-10-02T09:59:14.341Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0fc0c-9c10-79a0-b8fe-de63c556c8f4",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn edificio de la pantalla de ciudad de un juego de estrategia por turnos: un taller de armas imperial: casa de entramado con contraventanas amarillas y negras, ballestas y arcabuces en un banco de trabajo bajo un toldo, barriles de pólvora, águila imperial sobre la puerta.\nUn único edificio construido, entero y centrado, sobre un pequeño trozo de suelo propio. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, como la imagen 1; nunca cenital ni de perfil. La luz viene de arriba a la izquierda.\nEstilo de la imagen 1: ilustración pintada de fantasía medieval oscura, materiales gastados. La imagen 2 da la paleta y los motivos de su facción.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/pintado.webp",
+      "papel": "estilo",
+      "sha256": "2257bd10a5efa8f2c430c2d86609ac895750568961a4dea6dfddd4c8081e1838"
+    },
+    {
+      "ruta": "assets/art/imperio/rodelero.png",
+      "papel": "estilo",
+      "sha256": "2f0053280ce460ed9f4d2b8a0eee758be0bfb1d359d5038a88f3a500aa45a3f5"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0fc0c-9c10-79a0-b8fe-de63c556c8f4/exec-1c0a1f12-59bd-4fe9-8681-c1279a5c12f4.png",
+    "sha256": "de244c213f2bb4a1df2b0810ab79dc40562d0f754b5f93cd11152268be68df7e",
+    "ancho": 1374,
+    "alto": 1145
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: 1295×1137, ancla en (738,1112)"
+  ],
+  "validacion": {
+    "visibles": 0.6066258493699127,
+    "opacos": 0.9962976024540839,
+    "haloSuelto": 0,
+    "ancho": 1295,
+    "alto": 1137
+  },
+  "salida": {
+    "ruta": "assets/edificios/imperio/taller.webp",
+    "sha256": "953b6290c4429f88c2c3d2807d733a9fee0fa05dcda0dc0528830bf4030c6a5a"
+  }
+}

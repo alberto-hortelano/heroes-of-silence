@@ -1,0 +1,11 @@
+{
+  "imagen": "forja.webp",
+  "sha256": "e23b81aa7b599649429084dd9c461a26f41bea69d2918691a6bbb6554f42531b",
+  "ancho": 1310,
+  "alto": 1192,
+  "ancla": [
+    698,
+    1167
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

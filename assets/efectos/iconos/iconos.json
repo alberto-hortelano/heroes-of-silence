@@ -1,0 +1,86 @@
+{
+  "lado": 128,
+  "iconos": [
+    {
+      "nombre": "veneno",
+      "imagen": "veneno.webp",
+      "sha256": "cd4ddc6a15360c93958fe7fc26119fbdd41be4eb47c49cd3ec5dc0db50f15ef7"
+    },
+    {
+      "nombre": "aturdido",
+      "imagen": "aturdido.webp",
+      "sha256": "cbcc85dc94fd2d8030bb6533a85607c26ae88c07aa825b25a9da093db097e2b6"
+    },
+    {
+      "nombre": "recarga",
+      "imagen": "recarga.webp",
+      "sha256": "dffd88b2fc0dc1ab623dc7cf3b84970d0dff66900853aee5885888c54dec2cc2"
+    },
+    {
+      "nombre": "guardia",
+      "imagen": "guardia.webp",
+      "sha256": "5ad5fe8bd390de4569191acf99d4463cd996c35418bd301249f44daed4d39825"
+    },
+    {
+      "nombre": "proteger",
+      "imagen": "proteger.webp",
+      "sha256": "b1b156bc08bfc1b32271ba112b63701e0a33234759a9bf69f04eab766869311a"
+    },
+    {
+      "nombre": "desafio",
+      "imagen": "desafio.webp",
+      "sha256": "fbd751ff2244adc3ba58f8f209c8bcbd6c96ecb7afdf86b57cb80492b4ad512e"
+    },
+    {
+      "nombre": "cobarde",
+      "imagen": "cobarde.webp",
+      "sha256": "bd29d02a261cd80997ddcc2d4323afe05d7db66bda18a6e36b9df80d6a3274cd"
+    },
+    {
+      "nombre": "miedo",
+      "imagen": "miedo.webp",
+      "sha256": "cf6e194585494213d59bdc36aa4489c7b9881f0cf2b01c707ced83aec0c4041c"
+    },
+    {
+      "nombre": "bendecido",
+      "imagen": "bendecido.webp",
+      "sha256": "d9b1e230fdd3914c435d57e8ee5813896ef3a8858047f0caf36e694c4d3f872b"
+    },
+    {
+      "nombre": "regeneracion",
+      "imagen": "regeneracion.webp",
+      "sha256": "81f2defbf848b7e60c088e94904b631740facafcda73afec641f26d497d8fb5e"
+    },
+    {
+      "nombre": "sigilo",
+      "imagen": "sigilo.webp",
+      "sha256": "080c6756ccbc0cc55da9b20ee6ea5960a50a6887ef327c6c4ed9837342e8fdc8"
+    },
+    {
+      "nombre": "estupido",
+      "imagen": "estupido.webp",
+      "sha256": "68a6207bb05e11579e8266b68342d2289a45ae9f7753d47cfb7fbe0ffc36f0ae"
+    },
+    {
+      "nombre": "contraataque",
+      "imagen": "contraataque.webp",
+      "sha256": "2923d61fd17d99c1092684350df163535ed7d6c9367e8beaa1506f6eff5f07ff"
+    },
+    {
+      "nombre": "antiinfanteria",
+      "imagen": "antiinfanteria.webp",
+      "sha256": "2f1eae5b77213b077db702230b0beafc2a80299b1b160cda50a024a0132134ae"
+    },
+    {
+      "nombre": "fe",
+      "imagen": "fe.webp",
+      "sha256": "99f39156233e66c932b086d9d399b6e153c1bb804672ec702aa649892d717154"
+    },
+    {
+      "nombre": "furia",
+      "imagen": "furia.webp",
+      "sha256": "0614b25c9d16a02667d3e4ff463ae9cabbe98028aae585c56ad2cfa477bf8040"
+    }
+  ],
+  "lamina": "iconos.webp"
+}

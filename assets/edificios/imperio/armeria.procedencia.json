@@ -1,0 +1,46 @@
+{
+  "encargo": "edificio-armeria",
+  "tipo": "imagen",
+  "fecha": "2026-10-02T09:53:05.479Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0fc06-cfc7-7bd2-92d7-08c5ef412124",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn edificio de la pantalla de ciudad de un juego de estrategia por turnos: una armería imperial: edificio de piedra robusto con rejas, armaduras completas expuestas en maniquíes, rodelas apiladas y estandarte amarillo y negro.\nUn único edificio construido, entero y centrado, sobre un pequeño trozo de suelo propio. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, como la imagen 1; nunca cenital ni de perfil. La luz viene de arriba a la izquierda.\nEstilo de la imagen 1: ilustración pintada de fantasía medieval oscura, materiales gastados. La imagen 2 da la paleta y los motivos de su facción.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/pintado.webp",
+      "papel": "estilo",
+      "sha256": "2257bd10a5efa8f2c430c2d86609ac895750568961a4dea6dfddd4c8081e1838"
+    },
+    {
+      "ruta": "assets/art/imperio/rodelero.png",
+      "papel": "estilo",
+      "sha256": "2f0053280ce460ed9f4d2b8a0eee758be0bfb1d359d5038a88f3a500aa45a3f5"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0fc06-cfc7-7bd2-92d7-08c5ef412124/exec-2cc19d5c-281b-405b-ad0e-df7ed70394eb.png",
+    "sha256": "c7f2d71d1f654e4a7188f9d18d1cd176be9d347ec1bebc980cee172adc73ca3e",
+    "ancho": 1374,
+    "alto": 1145
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: 1374×1145, ancla en (686,1134)"
+  ],
+  "validacion": {
+    "visibles": 0.6210859187785639,
+    "opacos": 0.9953270406330499,
+    "haloSuelto": 0,
+    "ancho": 1374,
+    "alto": 1145
+  },
+  "salida": {
+    "ruta": "assets/edificios/imperio/armeria.webp",
+    "sha256": "c04ec92094c4c01071d65a82869d0913b8f37eac4b9ba45d6c76d85ee9414c7c"
+  }
+}

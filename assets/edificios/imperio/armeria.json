@@ -1,0 +1,11 @@
+{
+  "imagen": "armeria.webp",
+  "sha256": "c04ec92094c4c01071d65a82869d0913b8f37eac4b9ba45d6c76d85ee9414c7c",
+  "ancho": 1374,
+  "alto": 1145,
+  "ancla": [
+    686,
+    1134
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

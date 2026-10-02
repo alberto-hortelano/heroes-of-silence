@@ -1,0 +1,13 @@
+{
+  "imagen": "curacion.webp",
+  "sha256": "fec85298a662a48f2ad56085289f5efe8ba7a2703395754727c203b9efe42dab",
+  "celda": 256,
+  "fotogramas": 6,
+  "caja": [
+    89,
+    0,
+    175,
+    255
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

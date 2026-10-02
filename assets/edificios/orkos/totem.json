@@ -1,0 +1,11 @@
+{
+  "imagen": "totem.webp",
+  "sha256": "d683b3eb90e74bdeb3432db214a479b11779d091292166b9cb5219ddab982b94",
+  "ancho": 881,
+  "alto": 1266,
+  "ancla": [
+    433,
+    1244
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

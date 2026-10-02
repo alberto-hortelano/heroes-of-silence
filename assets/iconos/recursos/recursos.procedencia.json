@@ -1,0 +1,40 @@
+{
+  "encargo": "iconos-recursos",
+  "tipo": "iconos",
+  "fecha": "2026-10-02T09:46:22.541Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0fc01-1adb-7a43-9baf-c428c2ce175f",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que tiene que seguir cada figura. No copies su pose ni su encuadre, que están de frente y a la altura de los ojos.\n\nIconos de los recursos de un juego de estrategia por turnos, para la barra de recursos y los costes de la interfaz. Se tienen que leer a 20 píxeles: silueta clara y un color dominante cada uno (oro amarillo, piedra gris, madera marrón).\nEstilo de la imagen de estilo: ilustración pintada de fantasía medieval oscura, colores sobrios con los brillos justos para leerse. Los tres con el mismo tratamiento y vistos algo desde arriba, sin marco ni medallón detrás.\nTres iconos sueltos en una fila, en este orden, separados con mucha holgura:\n1. un montoncito de monedas de oro con un lingote.\n2. dos bloques de piedra tallada gris, uno encima del otro.\n3. tres troncos cortados apilados, con la madera clara del corte a la vista.\n\nRejilla de EXACTAMENTE 1 fila por 3 columnas: 3 iconos del mismo tamaño, cada uno compacto y entero, con mucho aire alrededor; ningún icono toca a otro.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/pintado.webp",
+      "papel": "estilo",
+      "sha256": "2257bd10a5efa8f2c430c2d86609ac895750568961a4dea6dfddd4c8081e1838"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0fc01-1adb-7a43-9baf-c428c2ce175f/exec-4b1b5b02-749b-403d-9392-176ff8bc53dc.png",
+    "sha256": "457c0d7dd67e610f91dbaebf9eb63bcc7805ffb6c950e2408c56a1b0aef30bb3",
+    "ancho": 2172,
+    "alto": 724
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "lámina partida en 3 iconos de 128×128, cada uno en su fichero",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.46133704093950834,
+    "opacos": 0.9934676977179482,
+    "haloSuelto": 0,
+    "ancho": 2062,
+    "alto": 556
+  },
+  "salida": {
+    "ruta": "assets/iconos/recursos/recursos.webp",
+    "sha256": "fb7b1014a57c0bdbb0d12ade6c6052d7f69e11830b7ef9700e9d6343fd29b5fc"
+  }
+}

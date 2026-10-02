@@ -1,0 +1,13 @@
+{
+  "imagen": "drenaje.webp",
+  "sha256": "b385517e821199804f536fee7d7ae344b03d701f8070a2a7f1eb42f22616f7af",
+  "celda": 256,
+  "fotogramas": 6,
+  "caja": [
+    64,
+    1,
+    225,
+    243
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

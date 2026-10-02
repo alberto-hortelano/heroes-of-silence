@@ -1,0 +1,46 @@
+{
+  "encargo": "edificio-arboleda",
+  "tipo": "imagen",
+  "fecha": "2026-10-02T09:53:10.080Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0fc06-c804-7bc1-b8cc-ffc80ee7d492",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn edificio de la pantalla de ciudad de un juego de estrategia por turnos: una arboleda sagrada élfica: círculo de árboles antiguos con troncos retorcidos y musgo, piedras talladas con runas y un pequeño santuario de madera clara entre las raíces.\nUn único edificio construido, entero y centrado, sobre un pequeño trozo de suelo propio. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, como la imagen 1; nunca cenital ni de perfil. La luz viene de arriba a la izquierda.\nEstilo de la imagen 1: ilustración pintada de fantasía medieval oscura, materiales gastados. La imagen 2 da la paleta y los motivos de su facción.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/pintado.webp",
+      "papel": "estilo",
+      "sha256": "2257bd10a5efa8f2c430c2d86609ac895750568961a4dea6dfddd4c8081e1838"
+    },
+    {
+      "ruta": "assets/art/elfos/guardia-del-bosque.png",
+      "papel": "estilo",
+      "sha256": "782609dddae805c994ede85fbfc5a72236884072af1209636f302e5b92a71ac1"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0fc06-c804-7bc1-b8cc-ffc80ee7d492/exec-98683d34-aad6-430b-8f69-0c0ce290f8b3.png",
+    "sha256": "09395316afddcacc0d9aa577961c95891124cc036ab376202ac25232928cb4a7",
+    "ancho": 1374,
+    "alto": 1145
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: 1341×1144, ancla en (668,1119)"
+  ],
+  "validacion": {
+    "visibles": 0.6478419976742125,
+    "opacos": 0.982920078039396,
+    "haloSuelto": 0.000011067990666665325,
+    "ancho": 1341,
+    "alto": 1144
+  },
+  "salida": {
+    "ruta": "assets/edificios/elfos/arboleda.webp",
+    "sha256": "2b86a6b4534a9cd05b7448dd87e340243f34267553da473061f9f0e1f090eeaf"
+  }
+}

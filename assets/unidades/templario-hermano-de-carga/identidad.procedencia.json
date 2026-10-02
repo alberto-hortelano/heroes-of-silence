@@ -1,18 +1,18 @@
 {
   "encargo": "templario-hermano-de-carga-identidad",
   "tipo": "identidad",
-  "fecha": "2026-10-01T15:21:53.875Z",
+  "fecha": "2026-10-02T10:09:52.444Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
   },
-  "hilo": "01a0f80d-83ff-7e53-9b3b-427418caa4dc",
-  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUn hermano de carga, A PIE y sin caballo: la armadura de placas completa del jinete del concepto, sobrevesta blanca con cruz roja, yelmo con penacho rojo, lanza de carga en la mano derecha y escudo de cometa en la izquierda. Corpulento, en actitud de embestir.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nUN solo personaje, de cuerpo entero, de pie, en la primera pose de reposo de la referencia de pose.\nCámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.\nLámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "hilo": "01a0fc16-4f8c-7573-a461-98a285e466d3",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUn hermano de carga templario A CABALLO, como el jinete del concepto: armadura de placas completa, sobrevesta blanca con cruz roja, yelmo cerrado con penacho rojo, escudo de cometa blanco con cruz roja en el brazo izquierdo y lanza de carga en la mano derecha. El caballo, castaño, lleva gualdrapa blanca con cruces rojas. Jinete y caballo son UNA sola figura.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nUN solo personaje, de cuerpo entero, en la primera pose de reposo de la referencia de pose (de pie o montado, como esté el maniquí).\nCámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.\nLámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
   "referencias": [
     {
-      "ruta": "assets/unidades/_poses/espada-escudo.png",
+      "ruta": "assets/unidades/_poses/montado-lanza.png",
       "papel": "pose",
-      "sha256": "d9cf91645424ef72f0b52de18c7c202add6af827718c2e809da70eae75964642"
+      "sha256": "2c08f0fd370f824419037ea94c302f9fef34d56b3abe7f794607ca0f83547ca8"
     },
     {
       "ruta": "assets/art/templarios/caballero-montado.png",
@@ -21,8 +21,8 @@
     }
   ],
   "crudo": {
-    "fichero": "~/.codex/generated_images/01a0f80d-83ff-7e53-9b3b-427418caa4dc/exec-e3575664-07b1-40ef-9013-c78b732fc81d.png",
-    "sha256": "7f4d16c4007686becdb21d07fe186195cc9de785569ba6c9cc410a93c553dc2e",
+    "fichero": "~/.codex/generated_images/01a0fc16-4f8c-7573-a461-98a285e466d3/exec-2fa74d72-9de4-433b-a700-0a99585f27f4.png",
+    "sha256": "670ee1da9ab5bafe9b36e212b6216e3661a37891c613b60587aa592636223cf2",
     "ancho": 1254,
     "alto": 1254
   },
@@ -32,14 +32,14 @@
     "WebP calidad 92, alfa sin pérdida"
   ],
   "validacion": {
-    "visibles": 0.2905855406207128,
-    "opacos": 0.9860619412352384,
+    "visibles": 0.32188925263717505,
+    "opacos": 0.9815571395456653,
     "haloSuelto": 0,
-    "ancho": 1113,
-    "alto": 1207
+    "ancho": 684,
+    "alto": 1254
   },
   "salida": {
     "ruta": "assets/unidades/templario-hermano-de-carga/identidad.webp",
-    "sha256": "f8742dc1c3a37b07c26800c8d5833d90d632014f430558cdffad5d1879fed669"
+    "sha256": "1d4bbb1099a55f591d1d637dd5b14793cecb25bbd9c09eb3ac7a540ac3bcdfb7"
   }
 }

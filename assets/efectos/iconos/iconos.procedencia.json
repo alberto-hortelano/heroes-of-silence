@@ -1,0 +1,40 @@
+{
+  "encargo": "efectos-iconos",
+  "tipo": "iconos",
+  "fecha": "2026-10-02T09:45:10.180Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0fbff-4cde-7691-832b-07bba7022551",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que tiene que seguir cada figura. No copies su pose ni su encuadre, que están de frente y a la altura de los ojos.\n\nIconos de estado de un juego de estrategia por turnos, para ponerlos encima de las fichas de batalla. Se tienen que leer a 32 píxeles: silueta clara, pocos detalles, un color dominante cada uno.\nEstilo de la imagen de estilo: ilustración pintada de fantasía medieval oscura, colores sobrios con los brillos justos para leerse. Todos con el mismo tratamiento: dibujo pintado sin marco ni medallón detrás.\nDieciséis iconos sueltos en una rejilla de 4 por 4, en este orden de lectura, separados con mucha holgura:\n1. una gota verde de veneno con una calavera pequeña.\n2. tres estrellas doradas girando en espiral.\n3. un reloj de arena de latón.\n4. un escudo de acero con borde dorado.\n5. un escudo con una flecha curva que rodea a un aliado.\n6. un guantelete de acero arrojado, el gesto de reto.\n7. un signo de exclamación amarillo sobre una gota de sudor.\n8. un cráneo pálido con las cuencas brillando en verde.\n9. un halo dorado con rayos de luz.\n10. una hoja verde con una cruz de luz.\n11. un ojo tachado por una capucha de sombra.\n12. un signo de interrogación torcido con una nube de confusión.\n13. dos espadas cruzadas con una flecha de vuelta.\n14. tres puntas de lanza en abanico, hacia arriba.\n15. una cruz roja templaria sobre un sol pálido.\n16. un cráneo de orko rugiendo con colmillos y fuego rojo.\n\nRejilla de EXACTAMENTE 4 por 4: dieciséis iconos del mismo tamaño, cada uno compacto y entero, con mucho aire alrededor; ningún icono toca a otro.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/pintado.webp",
+      "papel": "estilo",
+      "sha256": "2257bd10a5efa8f2c430c2d86609ac895750568961a4dea6dfddd4c8081e1838"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0fbff-4cde-7691-832b-07bba7022551/exec-c7ad958a-ea74-4c46-b950-c5023ad7c984.png",
+    "sha256": "92c96f679a34bc3a80aafe44d0f2297adf6aadd199b3bd04431dccb4ae85cf6f",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "lámina partida en 16 iconos de 128×128, cada uno en su fichero",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.3308262184564775,
+    "opacos": 0.97695218508577,
+    "haloSuelto": 0,
+    "ancho": 1224,
+    "alto": 1208
+  },
+  "salida": {
+    "ruta": "assets/efectos/iconos/iconos.webp",
+    "sha256": "aafae2004a90eccb22210c8a18888ae42a977b182f1b9f90729496a8616e731f"
+  }
+}

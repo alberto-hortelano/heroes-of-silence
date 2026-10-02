@@ -135,9 +135,9 @@ describe('el recorte del halo', () => {
  * Una «hoja de Codex» de mentira: 3 filas de 7 figuras con tamaños y huecos
  * irregulares, pies (un pie más ancho abajo) y un arma suelta en una de ellas.
  */
-function hojaIrregular(columnas = 7): Raster {
-  const r = lienzo(900, 420);
-  for (let f = 0; f < 3; f++) {
+function hojaIrregular(columnas = 7, filas = 3): Raster {
+  const r = lienzo(900, 140 * filas);
+  for (let f = 0; f < filas; f++) {
     for (let c = 0; c < columnas; c++) {
       const x = 20 + c * 122 + ((c * 7) % 11);
       const alto = 90 + ((c + f) % 3) * 4;
@@ -258,5 +258,47 @@ describe('los efectos', () => {
     recorteSuave(r);
     expect(alfaEn(r, 1, 1)).toBe(0);
     expect(alfaEn(r, 7, 1)).toBe(90);
+  });
+});
+
+describe('la rejilla de una lámina de iconos', () => {
+  it('hasta cuatro van en una fila; más, en filas de cuatro; lo demás se rechaza diciéndolo', async () => {
+    const { rejillaDeIconos } = await import('../tools/taller/encargo.js');
+    expect(rejillaDeIconos(3)).toEqual({ filas: 1, columnas: 3 });
+    expect(rejillaDeIconos(16)).toEqual({ filas: 4, columnas: 4 });
+    expect(() => rejillaDeIconos(6)).toThrow(/hasta 4, o múltiplos de 4/);
+  });
+});
+
+describe('la celda de las monturas', () => {
+  it('empaqueta y deriva una hoja de 384 con los pies en su base proporcional', async () => {
+    const { baseEnCelda } = await import('../tools/taller/empaquetar.js');
+    const p = await empaquetar(hojaIrregular(), 3, 240, 384);
+    const meta = await sharp(p.png).metadata();
+    expect([meta.width, meta.height]).toEqual([384 * FIGURA.columnas, 384 * 3]);
+    expect(baseEnCelda(384)).toBe(342);
+    for (const [, y] of p.apoyoPorFila) expect(y).toBe(342);
+    const ruta = join(dir, 'montada.png');
+    await writeFile(ruta, p.png);
+    const d = await derivarAtlas(ruta);
+    expect(d.cell).toBe(384);
+    expect(d.clips.idle.anchor[1]).toBeGreaterThanOrEqual(341);
+  });
+});
+
+describe('la hoja de cuatro filas de las monturas', () => {
+  it('deriva reposo, marcha, carga en bucle y ataque, en ese orden', async () => {
+    const p = await empaquetar(hojaIrregular(7, 4), 4, 200, 384);
+    const ruta = join(dir, 'cuatro.png');
+    await writeFile(ruta, p.png);
+    const d = await derivarAtlas(ruta);
+    expect(Object.keys(d.clips)).toEqual(['idle', 'walk', 'charge', 'attack']);
+    expect(d.clips.charge?.loop).toBe(true);
+    expect(d.clips.attack.row).toBe(3);
+  });
+
+  it('una hoja de cinco filas no es del taller, y se dice', async () => {
+    const { clipsDeHoja } = await import('../tools/taller/derivar.js');
+    expect(() => clipsDeHoja(5)).toThrow(/3 o 4 filas/);
   });
 });

@@ -1,0 +1,13 @@
+{
+  "imagen": "resurreccion.webp",
+  "sha256": "0941393b4ce0ce4b1a897b2009c13b5770706296b9674ef8f7540f6c5119a261",
+  "celda": 256,
+  "fotogramas": 6,
+  "caja": [
+    15,
+    5,
+    240,
+    241
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

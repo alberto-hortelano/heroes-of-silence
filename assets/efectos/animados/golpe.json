@@ -1,0 +1,13 @@
+{
+  "imagen": "golpe.webp",
+  "sha256": "f073a196347c91d85452b45f24650ed7d238d5f7c64aba9dd34d12e02472beb8",
+  "celda": 256,
+  "fotogramas": 6,
+  "caja": [
+    5,
+    20,
+    237,
+    242
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

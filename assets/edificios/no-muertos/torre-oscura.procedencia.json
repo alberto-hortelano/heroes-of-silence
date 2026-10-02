@@ -1,0 +1,46 @@
+{
+  "encargo": "edificio-torre-oscura",
+  "tipo": "imagen",
+  "fecha": "2026-10-02T09:59:43.743Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0fc0d-10a3-73c1-a47e-064e8a552682",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn edificio de la pantalla de ciudad de un juego de estrategia por turnos: una torre oscura de nigromante: aguja alta y estrecha de piedra negra con ventanas que brillan en verde, cuervos alrededor de la cima y raíces muertas en la base.\nUn único edificio construido, entero y centrado, sobre un pequeño trozo de suelo propio. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, como la imagen 1; nunca cenital ni de perfil. La luz viene de arriba a la izquierda.\nEstilo de la imagen 1: ilustración pintada de fantasía medieval oscura, materiales gastados. La imagen 2 da la paleta y los motivos de su facción.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/pintado.webp",
+      "papel": "estilo",
+      "sha256": "2257bd10a5efa8f2c430c2d86609ac895750568961a4dea6dfddd4c8081e1838"
+    },
+    {
+      "ruta": "assets/art/no-muertos/esqueleto-guerrero.png",
+      "papel": "estilo",
+      "sha256": "d6e1aa7c305e2b622f0d90ea3921b2688a8eaabb66a4c5e50a73321b1c1b10c8"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0fc0d-10a3-73c1-a47e-064e8a552682/exec-4d98299a-a7dd-46a9-81df-5901e9cb2e78.png",
+    "sha256": "d532bf2d15d90edb8baaecaed3f42a69d3f65a99533c0f00f51e4aeb1aff3e17",
+    "ancho": 1024,
+    "alto": 1536
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: 659×1523, ancla en (335,1498)"
+  ],
+  "validacion": {
+    "visibles": 0.34759683836210975,
+    "opacos": 0.979281562080787,
+    "haloSuelto": 0,
+    "ancho": 659,
+    "alto": 1523
+  },
+  "salida": {
+    "ruta": "assets/edificios/no-muertos/torre-oscura.webp",
+    "sha256": "2ab239b56981f49d4c144c39d2544a3063ad854d9718be27cf5f23dedf08c4f5"
+  }
+}

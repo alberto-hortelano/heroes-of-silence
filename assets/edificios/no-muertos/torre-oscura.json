@@ -1,0 +1,11 @@
+{
+  "imagen": "torre-oscura.webp",
+  "sha256": "2ab239b56981f49d4c144c39d2544a3063ad854d9718be27cf5f23dedf08c4f5",
+  "ancho": 659,
+  "alto": 1523,
+  "ancla": [
+    335,
+    1498
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

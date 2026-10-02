@@ -1,0 +1,46 @@
+{
+  "encargo": "edificio-establos",
+  "tipo": "imagen",
+  "fecha": "2026-10-02T09:56:33.140Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0fc09-6985-7343-a60c-87379b30ba7f",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn edificio de la pantalla de ciudad de un juego de estrategia por turnos: unos establos de la orden: nave larga de piedra y madera con tejado de pizarra, portones abiertos, abrevadero, sillas de montar y lanzas apoyadas, estandarte blanco con cruz roja.\nUn único edificio construido, entero y centrado, sobre un pequeño trozo de suelo propio. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, como la imagen 1; nunca cenital ni de perfil. La luz viene de arriba a la izquierda.\nEstilo de la imagen 1: ilustración pintada de fantasía medieval oscura, materiales gastados. La imagen 2 da la paleta y los motivos de su facción.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/pintado.webp",
+      "papel": "estilo",
+      "sha256": "2257bd10a5efa8f2c430c2d86609ac895750568961a4dea6dfddd4c8081e1838"
+    },
+    {
+      "ruta": "assets/art/templarios/guerrero-con-escudo.png",
+      "papel": "estilo",
+      "sha256": "be91381e9343b31c50ffa617668920c4d950c59351dbe5e0b71534cffb8e5f28"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0fc09-6985-7343-a60c-87379b30ba7f/exec-30e60d92-4c2b-43b6-a180-3ea27329943a.png",
+    "sha256": "23421b9a9a655358549f02b5d0c31de12b90645b53e7621a4729d8e5db875923",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: 1535×961, ancla en (1084,936)"
+  ],
+  "validacion": {
+    "visibles": 0.5664701874743667,
+    "opacos": 0.9952346760489218,
+    "haloSuelto": 0,
+    "ancho": 1535,
+    "alto": 961
+  },
+  "salida": {
+    "ruta": "assets/edificios/templarios/establos.webp",
+    "sha256": "55e5fb6e9260327613a8c1cd2c805ee125d410a7745a83f6f45591e8db940324"
+  }
+}

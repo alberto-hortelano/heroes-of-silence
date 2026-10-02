@@ -1,0 +1,11 @@
+{
+  "imagen": "establos.webp",
+  "sha256": "55e5fb6e9260327613a8c1cd2c805ee125d410a7745a83f6f45591e8db940324",
+  "ancho": 1535,
+  "alto": 961,
+  "ancla": [
+    1084,
+    936
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

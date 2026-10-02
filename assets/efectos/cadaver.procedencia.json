@@ -1,0 +1,40 @@
+{
+  "encargo": "efecto-cadaver",
+  "tipo": "imagen",
+  "fecha": "2026-10-01T19:14:29.457Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f8e2-213d-7712-9690-fce7d2469b30",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que tiene que seguir cada figura. No copies su pose ni su encuadre, que están de frente y a la altura de los ojos.\n\nUn elemento del campo de batalla de un juego de estrategia por turnos: un cadáver en el campo de batalla: un caído cubierto por su capa, con un escudo roto y una espada en el suelo; sin sangre.\nUn único objeto, centrado y entero. Estilo de la imagen de estilo: ilustración pintada de fantasía medieval oscura, colores sobrios con los brillos justos para leerse. Cámara ortográfica elevada 25 grados sobre la horizontal, como la imagen de estilo; nunca cenital. La luz viene de arriba a la izquierda.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/pintado.webp",
+      "papel": "estilo",
+      "sha256": "2257bd10a5efa8f2c430c2d86609ac895750568961a4dea6dfddd4c8081e1838"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f8e2-213d-7712-9690-fce7d2469b30/exec-53373695-cafb-48df-ab45-ce589449ce48.png",
+    "sha256": "6644584c1abbd725f071c471291956411d461b70b2dda05b7e24866945e2308e",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.4696574475155849,
+    "opacos": 0.9945436273440824,
+    "haloSuelto": 0,
+    "ancho": 1536,
+    "alto": 909
+  },
+  "salida": {
+    "ruta": "assets/efectos/cadaver.webp",
+    "sha256": "e99e44416dffe53ab5ecf5ef7a7a45670ae799f7625fb6963985ffe0f33d954e"
+  }
+}

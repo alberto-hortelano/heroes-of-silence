@@ -73,3 +73,84 @@ pintarlas. Al lado va `assets/rpg/map-atlas.json` con la caja y el ancla medidas
 de cada celda, para cuando la 2b deje de escalar a ojo (#120). Las piezas sueltas
 están en `assets/mapa/atlas/`, cada una con su procedencia. El castillo ya no
 lleva estandartes: la bandera la pinta el juego.
+
+## 5. Efectos de batalla e iconos de recursos (aprobados el 02-10-2026)
+
+Todo en el estilo pintado oscuro, con su JSON y su procedencia al lado.
+
+| Qué | Dónde | Cómo se usa |
+|---|---|---|
+| 8 efectos animados | `assets/efectos/animados/<id>.webp` | tira de 6 fotogramas de 256; su `.json` dice `fotogramas` y la `caja` que ocupan dentro de la celda. Se pintan una vez centrados en la casilla; la página de revisión los pone a 10 fps |
+| 16 iconos de estado | `assets/efectos/iconos/<id>.webp` | 128×128, pensados para pintarse a ~32 px sobre la ficha. Índice en `iconos.json` |
+| 6 sprites quietos | `assets/efectos/<id>.webp` | cadáver (en el hex del caído), empalizada (obstáculo del ingeniero), trampa (goblin), y flecha, virote y bala de cañón como proyectiles: horizontales y mirando a la derecha, se rotan hacia el blanco |
+| 3 iconos de recursos | `assets/iconos/recursos/{oro,piedra,madera}.webp` | 128×128 para la barra y los costes, legibles a 20 px. Índice en `recursos.json` |
+
+Ids de los efectos: `curacion`, `drenaje`, `explosion`, `fuego`, `golpe`, `raices`,
+`resurreccion`, `veneno`. Iconos de estado: `veneno`, `aturdido`, `recarga`, `guardia`,
+`proteger`, `desafio`, `cobarde`, `miedo`, `bendecido`, `regeneracion`, `sigilo`,
+`estupido`, `contraataque`, `antiinfanteria`, `fe`, `furia` (el ¡Waaagh!). La
+asociación habilidad → icono es la de `tools/taller/efectos.ts`.
+
+El humo y los resplandores de los efectos son semitransparentes a propósito: se
+pintan con su alfa, sin teñir.
+
+## 6. El hermano de carga vuelve a ir a caballo (02-10-2026)
+
+Decisión del usuario: la caballería templaria **sustituye** al hermano de carga a pie.
+El id **no cambia** (`templario-hermano-de-carga`); cambia su arte, que ahora es un
+jinete. Lo que tiene que saber quien lo enganche:
+
+- Su atlas tiene **celda de 384**, no de 256: a la escala de la infantería (un
+  adulto a ~160 px) el jinete no cabe en 256. El JSON lo dice (`cell: 384`) y
+  `character.ts` ya dibuja con la celda del atlas, así que no hace falta código
+  nuevo; solo que nadie suponga 256.
+- Su `altura` (289 px, lanza en alto incluida) está medida para que el jinete
+  mida lo mismo que un soldado a pie. Quien escale por `altura` lo verá más alto,
+  y es correcto: va montado.
+- Ocupa más casilla a la vista. Si las reglas lo hacen unidad de dos hexes, el arte
+  ya tiene el tamaño de una; si sigue en uno, pisará algo el hex vecino al pintarlo.
+
+- Su atlas tiene **cuatro filas y cuatro clips**, no tres: `idle`, `walk`,
+  **`charge`** y `attack` (decisión del usuario):
+  - `charge`, la carga: el paso con la lanza bajada, **en bucle** como la marcha.
+    Es lo que se pinta mientras se mueve para cargar.
+  - `attack`: ya parado en combate, caballo quieto y tajo de **espada**, sin lanza.
+  `CharacterClip` en `character.ts` y `comoAtlas` en `personajes.ts` conocen hoy
+  tres clips: hace falta añadir `charge` (opcional; quien no lo tenga, usa `walk`).
+- Pendientes, decididos y aún sin hacer: muerte y herida (para todas las unidades).
+
+La referencia de pose sale de un caballo 3D CC0 (Quaternius) con el Y Bot sentado,
+renderizados con la cámara del juego: `tools/art/montura.ts`.
+
+## 7. Edificios de ciudad (aprobados el 02-10-2026)
+
+`assets/edificios/<facción>/<id>.webp`, uno por edificio de producción de élite de
+`NuevaJugabilidad.md`, construido y suelto, en el estilo pintado oscuro y a 25°.
+Cada uno lleva su JSON derivado (`ancho`, `alto` y `ancla`, el centro de su base)
+para colocarlo por el pie en su solar, y su procedencia.
+
+| Facción | Edificios (id) |
+|---|---|
+| Templarios | `monasterio`, `establos`, `forja` |
+| No muertos | `cripta`, `mausoleo`, `torre-oscura` |
+| Imperio | `taller`, `armeria`, `fundicion`, `biblioteca` |
+| Elfos | `arboleda`, `cubil`, `pabellon-de-caza` |
+| Orkos | `cueva`, `pocilga`, `totem` |
+
+Qué produce cada uno está en `tools/taller/edificios.ts`. El solar vacío lo pinta la
+pantalla de ciudad, como hoy.
+
+## Cierre de la rama `arte` (02-10-2026)
+
+La rama se cierra aquí: el trabajo de arte que siga irá en ramas nuevas. Pendiente
+de integrar en `main` desde la última integración: los siete commits desde
+`d219d58` (página de ejércitos) hasta `67b2fc9` (jinete y edificios), que traen las
+peticiones 5, 6 y 7 de este documento. Árbol limpio, `pnpm verify` en verde, sin
+encargos en la cola del taller.
+
+Lo que queda por hacer, para las ramas nuevas:
+- Muerte y herida para todas las unidades (decidido, sin empezar).
+- Volver a montar otras unidades con la herramienta del caballo: el pack de
+  Quaternius trae ciervo, venado y lobo (corredores del bosque élficos).
+- Repasar lo aceptado con reservas: el ataque de rodillas del monje y las marchas
+  menos finas (`pnpm taller corregir <id>-atlas "…"`, en su mismo hilo).

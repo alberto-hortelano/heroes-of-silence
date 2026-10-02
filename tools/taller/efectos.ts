@@ -167,3 +167,31 @@ export function encargosDeEfectos(): Encargo[] {
     ...SPRITES_QUIETOS.map((s) => encargoDeSprite(s.id)),
   ];
 }
+
+/** Los tres recursos de la economía nueva (`NuevaJugabilidad.md`). */
+export const RECURSOS = [
+  { id: 'oro', describe: 'un montoncito de monedas de oro con un lingote' },
+  { id: 'piedra', describe: 'dos bloques de piedra tallada gris, uno encima del otro' },
+  {
+    id: 'madera',
+    describe: 'tres troncos cortados apilados, con la madera clara del corte a la vista',
+  },
+] as const;
+
+/** Los iconos de los recursos para la interfaz: barra de arriba, costes y panel de ciudad. */
+export function encargoDeIconosDeRecursos(): Encargo {
+  return {
+    id: 'iconos-recursos',
+    tipo: 'iconos',
+    descripcion: [
+      'Iconos de los recursos de un juego de estrategia por turnos, para la barra de recursos y los costes de la interfaz. Se tienen que leer a 20 píxeles: silueta clara y un color dominante cada uno (oro amarillo, piedra gris, madera marrón).',
+      `${ESTILO} Los tres con el mismo tratamiento y vistos algo desde arriba, sin marco ni medallón detrás.`,
+      'Tres iconos sueltos en una fila, en este orden, separados con mucha holgura:',
+      RECURSOS.map((r, i) => `${i + 1}. ${r.describe}.`).join('\n'),
+    ].join('\n'),
+    referencias: REF,
+    salida: 'assets/iconos/recursos/recursos',
+    fondo: 'transparente',
+    nombres: RECURSOS.map((r) => r.id),
+  };
+}

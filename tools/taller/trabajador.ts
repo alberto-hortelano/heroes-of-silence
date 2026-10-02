@@ -14,6 +14,7 @@
  *   pnpm taller reprocesar <id>          rehace el post-proceso sobre el crudo ya generado
  *   pnpm taller derivar <hoja.webp>…     reescribe el JSON de una hoja
  *   pnpm taller componer-atlas-mapa      rehace assets/rpg/map-atlas.png con las piezas pintadas
+ *   pnpm taller vista-ejercitos          una página con todos los ejércitos, para elegir o comparar
  *   pnpm taller vista <unidad>…          láminas de revisión en .cache/taller/vista/
  *
  * Por cada encargo: lanza Codex con las referencias en su orden, recorta el
@@ -36,7 +37,8 @@ import { CODEX, FalloDeCodex, type Generacion, generar } from './codex.js';
 import { Cola } from './cola.js';
 import { componerAtlasMapa } from './componer-atlas-mapa.js';
 import { escribirDerivado, escribirEfectoDerivado, escribirPiezaDerivada } from './derivar.js';
-import { encargosDeEfectos } from './efectos.js';
+import { encargosDeEdificios } from './edificios.js';
+import { encargoDeIconosDeRecursos, encargosDeEfectos } from './efectos.js';
 import {
   empaquetarEfecto,
   LADO_EFECTO,
@@ -44,13 +46,13 @@ import {
   partirIconos,
   recorteSuave,
 } from './efectos-proceso.js';
-import { empaquetar, recortarAlContenido } from './empaquetar.js';
+import { baseEnCelda, empaquetar, recortarAlContenido } from './empaquetar.js';
 import { type Encargo, promptDe } from './encargo.js';
 import { ESTILOS_DE_MAPA, encargoDeMuestra, encargosDeCeldas, encargosDePiezas } from './mapa.js';
 import { aRaster, recortar, UMBRALES } from './recorte.js';
 import { encargoDeAtlas, encargoDeIdentidad, unidad } from './unidades.js';
 import { validar } from './validar.js';
-import { vista, vistaEfectos } from './vista.js';
+import { vista, vistaEdificios, vistaEfectos, vistaEjercitos } from './vista.js';
 
 const RAIZ = resolve(import.meta.dirname, '../..');
 export const COLA = new Cola(join(RAIZ, 'tools/taller/cola'));
@@ -167,11 +169,12 @@ async function postprocesar(
         );
       } else if (encargo.tipo === 'atlas') {
         const altura = encargo.alturaObjetivo ?? FIGURA.alturaAdulto;
-        const p = await empaquetar(r, 3, altura);
+        const celda = encargo.celda ?? FIGURA.celda;
+        const p = await empaquetar(r, encargo.filas ?? 3, altura, celda);
         final = p.png;
         pasos.push(
-          `figuras localizadas y empaquetadas en ${FIGURA.columnas}×3 celdas de ${FIGURA.celda}, ` +
-            `escala uniforme ${p.escala.toFixed(4)}, pies en y=${FIGURA.base}, ` +
+          `figuras localizadas y empaquetadas en ${FIGURA.columnas}×${encargo.filas ?? 3} celdas de ${celda}, ` +
+            `escala uniforme ${p.escala.toFixed(4)}, pies en y=${baseEnCelda(celda)}, ` +
             (p.alturaFinal === p.alturaPedida
               ? `reposo a ${altura} px`
               : `reposo reducido de ${p.alturaPedida} a ${p.alturaFinal} px para que el fotograma más ancho quepa con margen`),
@@ -183,7 +186,13 @@ async function postprocesar(
       }
     }
 
-    const informe = await validar(final, encargo.tipo, encargo.fondo === 'opaco');
+    const informe = await validar(
+      final,
+      encargo.tipo,
+      encargo.fondo === 'opaco',
+      encargo.celda ?? FIGURA.celda,
+      encargo.filas ?? 3,
+    );
     if (informe.problemas.length > 0) {
       // El crudo se queda en `~/.codex`; se dice dónde para poder mirarlo.
       throw new Error(`${informe.problemas.join('; ')} (crudo: ${sinHome(gen.crudo)})`);
@@ -196,7 +205,11 @@ async function postprocesar(
     pasos.push('WebP calidad 92, alfa sin pérdida');
 
     // Las piezas sueltas del mapa (no las láminas de muestra) llevan su JSON derivado.
-    if (encargo.tipo === 'imagen' && /^assets\/mapa\/[^/]+$/.test(encargo.salida)) {
+    // Y los edificios de ciudad, que se colocan igual: por el centro de su base.
+    if (
+      encargo.tipo === 'imagen' &&
+      /^assets\/(mapa|edificios\/[a-z-]+)\/[^/]+$/.test(encargo.salida)
+    ) {
       const d = await escribirPiezaDerivada(rutaSalida);
       pasos.push(`JSON derivado: ${d.ancho}×${d.alto}, ancla en (${d.ancla})`);
     }
@@ -348,6 +361,19 @@ async function encolar(args: readonly string[]): Promise<void> {
     }
     return;
   }
+  if (args.includes('--edificios')) {
+    for (const bruto of encargosDeEdificios()) {
+      if (args.includes('--rehacer')) await COLA.olvidar(bruto.id);
+      console.log(`encolado ${(await COLA.encolar(bruto)).id}`);
+    }
+    return;
+  }
+  if (args.includes('--iconos-recursos')) {
+    const bruto = encargoDeIconosDeRecursos();
+    if (args.includes('--rehacer')) await COLA.olvidar(bruto.id);
+    console.log(`encolado ${(await COLA.encolar(bruto)).id}`);
+    return;
+  }
   if (args.includes('--efectos')) {
     for (const bruto of encargosDeEfectos()) {
       if (args.includes('--rehacer')) await COLA.olvidar(bruto.id);
@@ -436,6 +462,12 @@ switch (orden) {
     break;
   case 'reprocesar':
     for (const id of resto) await reprocesar(id);
+    break;
+  case 'vista-ejercitos':
+    console.log(`→ ${await vistaEjercitos()}`);
+    break;
+  case 'vista-edificios':
+    console.log(`→ ${await vistaEdificios()}`);
     break;
   case 'vista-efectos':
     console.log(`→ ${await vistaEfectos()}`);

@@ -1,0 +1,11 @@
+{
+  "imagen": "taller.webp",
+  "sha256": "953b6290c4429f88c2c3d2807d733a9fee0fa05dcda0dc0528830bf4030c6a5a",
+  "ancho": 1295,
+  "alto": 1137,
+  "ancla": [
+    738,
+    1112
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

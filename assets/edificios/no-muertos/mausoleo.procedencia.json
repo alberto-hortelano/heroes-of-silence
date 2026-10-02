@@ -1,0 +1,46 @@
+{
+  "encargo": "edificio-mausoleo",
+  "tipo": "imagen",
+  "fecha": "2026-10-02T09:57:29.994Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0fc0b-317a-7c23-921d-bb107ee2c7a2",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn edificio de la pantalla de ciudad de un juego de estrategia por turnos: un mausoleo gótico de mármol gris: columnas, ángeles de piedra rotos, puerta de hierro entreabierta con una luz verde pálida dentro y lápidas alrededor.\nUn único edificio construido, entero y centrado, sobre un pequeño trozo de suelo propio. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, como la imagen 1; nunca cenital ni de perfil. La luz viene de arriba a la izquierda.\nEstilo de la imagen 1: ilustración pintada de fantasía medieval oscura, materiales gastados. La imagen 2 da la paleta y los motivos de su facción.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/pintado.webp",
+      "papel": "estilo",
+      "sha256": "2257bd10a5efa8f2c430c2d86609ac895750568961a4dea6dfddd4c8081e1838"
+    },
+    {
+      "ruta": "assets/art/no-muertos/esqueleto-guerrero.png",
+      "papel": "estilo",
+      "sha256": "d6e1aa7c305e2b622f0d90ea3921b2688a8eaabb66a4c5e50a73321b1c1b10c8"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0fc0b-317a-7c23-921d-bb107ee2c7a2/exec-88d8f697-7844-4681-a6e4-0544bb4fb118.png",
+    "sha256": "4018a2d7b5ee562504c51b964232751b9e0f16d57919f209920af1842610d177",
+    "ancho": 1312,
+    "alto": 1199
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: 1133×1199, ancla en (617,1186)"
+  ],
+  "validacion": {
+    "visibles": 0.5549925025782739,
+    "opacos": 0.9931851250565364,
+    "haloSuelto": 0.0000026527345050461643,
+    "ancho": 1133,
+    "alto": 1199
+  },
+  "salida": {
+    "ruta": "assets/edificios/no-muertos/mausoleo.webp",
+    "sha256": "1b2ed69759f7a0064584b14f51e9baffa63f287486f6339c8390e568bee7d0e3"
+  }
+}

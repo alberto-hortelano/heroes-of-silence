@@ -1,0 +1,11 @@
+{
+  "imagen": "biblioteca.webp",
+  "sha256": "7cce6ee30886680a96a15a80d9192c57b970f1847a3087105937b68d48d53512",
+  "ancho": 1034,
+  "alto": 1251,
+  "ancla": [
+    520,
+    1226
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}
