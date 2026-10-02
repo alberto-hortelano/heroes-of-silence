@@ -41,6 +41,11 @@ const ANIMS_EXTRA = [
   // Recibir daño: de los tres `impact` del pack, el (3) es el que se lee a 160 px
   // (retrocede girando el torso); el primero es un respingo casi quieto.
   { id: 'impact3', file: CLIP_DE_DAÑO },
+  // Los otros reposos del pack, para los juegos de armas a los que la guardia de
+  // lado de `idle` no les sirve.
+  { id: 'idle2', file: 'anims/sword_and_shield/sword and shield idle (2).fbx' },
+  { id: 'idle3', file: 'anims/sword_and_shield/sword and shield idle (3).fbx' },
+  { id: 'idle4', file: 'anims/sword_and_shield/sword and shield idle (4).fbx' },
   { id: 'casting', file: 'anims/sword_and_shield/sword and shield casting.fbx' },
   // El arco no tiene clip de Mixamo: el FBX solo da la postura y los brazos los
   // coloca `POSE_A_DISTANCIA` fotograma a fotograma.
@@ -566,6 +571,7 @@ export const JUEGOS_DE_ARMAS = {
   'espada-escudo': {
     describe: 'espada de una mano y escudo de cometa',
     ataque: 'quick',
+    reposo: 'idle',
     // Su arte ya está aprobado con el maniquí gris: cambiarlo dejaría su
     // referencia de pose sin poder reproducirse. La siguiente unidad que lo use
     // lo pasa a `true`.
@@ -589,6 +595,10 @@ export const JUEGOS_DE_ARMAS = {
   'dos-manos': {
     describe: 'espada larga empuñada con las dos manos',
     ataque: 'heavy',
+    // La guardia de `idle` gira torso y cabeza a media animación y, de frente, el
+    // modelo de imagen lo exageraba hasta enseñar la espalda. `idle (4)` es una
+    // guardia quieta con la espada vertical (elegida entre las cuatro del pack).
+    reposo: 'idle4',
     piernasDeColor: true,
     atrezo: {
       espada: { largo: 1.1, guarda: 0.3, puño: 0.3, agarre: 0.05 },
@@ -605,7 +615,7 @@ export const JUEGOS_DE_ARMAS = {
   },
 } as const satisfies Record<
   string,
-  { describe: string; ataque: string; piernasDeColor: boolean; atrezo: Atrezo }
+  { describe: string; ataque: string; reposo: string; piernasDeColor: boolean; atrezo: Atrezo }
 >;
 export type JuegoDeArmas = keyof typeof JUEGOS_DE_ARMAS;
 
@@ -644,8 +654,9 @@ export type Hoja8d = keyof typeof OCHO_DIRECCIONES.hojas;
 /** Las dos hojas de un juego de armas: las comunes con su ataque. */
 export function hojasDe(j: JuegoDeArmas) {
   const { a, b } = OCHO_DIRECCIONES.hojas;
+  const reposo: string = JUEGOS_DE_ARMAS[j].reposo;
   return {
-    a,
+    a: a.map((c) => (c.clip === 'idle' ? { ...c, anim: reposo } : c)),
     b: b.map((c) => (c.clip === 'attack' ? { ...c, anim: JUEGOS_DE_ARMAS[j].ataque } : c)),
   };
 }
