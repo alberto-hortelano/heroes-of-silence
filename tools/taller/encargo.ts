@@ -16,8 +16,11 @@ export const PAPELES = {
   pose: 'es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación',
   identidad:
     'es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose',
+  // Sin hablar de su cámara: unas referencias de estilo están de frente (las
+  // láminas de `assets/art/`) y otras a 25° (la muestra del mapa). La cámara la
+  // dice cada encargo; aquí decirla mentía a la mitad de ellos.
   estilo:
-    'es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que tiene que seguir cada figura. No copies su pose ni su encuadre, que están de frente y a la altura de los ojos',
+    'es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición',
 } as const;
 export type Papel = keyof typeof PAPELES;
 

@@ -37,6 +37,7 @@ import { CODEX, FalloDeCodex, type Generacion, generar } from './codex.js';
 import { Cola } from './cola.js';
 import { componerAtlasMapa } from './componer-atlas-mapa.js';
 import { escribirDerivado, escribirEfectoDerivado, escribirPiezaDerivada } from './derivar.js';
+import { encargosDeEdificios } from './edificios.js';
 import { encargoDeIconosDeRecursos, encargosDeEfectos } from './efectos.js';
 import {
   empaquetarEfecto,
@@ -51,7 +52,7 @@ import { ESTILOS_DE_MAPA, encargoDeMuestra, encargosDeCeldas, encargosDePiezas }
 import { aRaster, recortar, UMBRALES } from './recorte.js';
 import { encargoDeAtlas, encargoDeIdentidad, unidad } from './unidades.js';
 import { validar } from './validar.js';
-import { vista, vistaEfectos, vistaEjercitos } from './vista.js';
+import { vista, vistaEdificios, vistaEfectos, vistaEjercitos } from './vista.js';
 
 const RAIZ = resolve(import.meta.dirname, '../..');
 export const COLA = new Cola(join(RAIZ, 'tools/taller/cola'));
@@ -197,7 +198,11 @@ async function postprocesar(
     pasos.push('WebP calidad 92, alfa sin pérdida');
 
     // Las piezas sueltas del mapa (no las láminas de muestra) llevan su JSON derivado.
-    if (encargo.tipo === 'imagen' && /^assets\/mapa\/[^/]+$/.test(encargo.salida)) {
+    // Y los edificios de ciudad, que se colocan igual: por el centro de su base.
+    if (
+      encargo.tipo === 'imagen' &&
+      /^assets\/(mapa|edificios\/[a-z-]+)\/[^/]+$/.test(encargo.salida)
+    ) {
       const d = await escribirPiezaDerivada(rutaSalida);
       pasos.push(`JSON derivado: ${d.ancho}×${d.alto}, ancla en (${d.ancla})`);
     }
@@ -349,6 +354,13 @@ async function encolar(args: readonly string[]): Promise<void> {
     }
     return;
   }
+  if (args.includes('--edificios')) {
+    for (const bruto of encargosDeEdificios()) {
+      if (args.includes('--rehacer')) await COLA.olvidar(bruto.id);
+      console.log(`encolado ${(await COLA.encolar(bruto)).id}`);
+    }
+    return;
+  }
   if (args.includes('--iconos-recursos')) {
     const bruto = encargoDeIconosDeRecursos();
     if (args.includes('--rehacer')) await COLA.olvidar(bruto.id);
@@ -446,6 +458,9 @@ switch (orden) {
     break;
   case 'vista-ejercitos':
     console.log(`→ ${await vistaEjercitos()}`);
+    break;
+  case 'vista-edificios':
+    console.log(`→ ${await vistaEdificios()}`);
     break;
   case 'vista-efectos':
     console.log(`→ ${await vistaEfectos()}`);

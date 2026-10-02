@@ -38,6 +38,16 @@ const muestras = existsSync(join(MAPA, 'muestras'))
       .map((f) => join(MAPA, 'muestras', f))
   : [];
 
+/** Los edificios de ciudad, por facción: se colocan por su base, como las piezas del mapa. */
+const EDIFICIOS = join(RAIZ, 'assets/edificios');
+const edificios = existsSync(EDIFICIOS)
+  ? readdirSync(EDIFICIOS).flatMap((f) =>
+      readdirSync(join(EDIFICIOS, f))
+        .filter((x) => x.endsWith('.webp'))
+        .map((x) => join(EDIFICIOS, f, x)),
+    )
+  : [];
+
 const leer = (r: string): any => JSON.parse(readFileSync(r, 'utf8'));
 const sha256 = (r: string): string => createHash('sha256').update(readFileSync(r)).digest('hex');
 
@@ -70,11 +80,11 @@ describe('las hojas del taller', () => {
 });
 
 describe('las piezas del mapa', () => {
-  it.each(piezas)('%s: el JSON es lo que mide la imagen', async (p) => {
+  it.each([...piezas, ...edificios])('%s: el JSON es lo que mide la imagen', async (p) => {
     expect(leer(rutaDelJson(p))).toEqual(JSON.parse(JSON.stringify(await derivarPieza(p))));
   });
 
-  it.each([...piezas, ...muestras])('%s: lleva su procedencia', (p) => {
+  it.each([...piezas, ...muestras, ...edificios])('%s: lleva su procedencia', (p) => {
     const pr = leer(p.replace(/\.webp$/, '.procedencia.json'));
     expect(pr.salida.sha256, 'la imagen cambió sin registrar de dónde sale').toBe(sha256(p));
     expect(pr.hilo).toMatch(/^[0-9a-f-]{36}$/);

@@ -481,3 +481,49 @@ requestAnimationFrame(dibujar);
   await writeFile(ruta, html);
   return ruta;
 }
+
+/** La página de revisión de los edificios de ciudad, agrupados por facción. */
+export async function vistaEdificios(): Promise<string> {
+  const { EDIFICIOS } = await import('./edificios.js');
+  const { UNIDADES } = await import('./unidades.js');
+  const R = '../../../assets';
+  const secciones = Object.entries(NOMBRES_DE_EJERCITO)
+    .map(([fac, nombre]) => {
+      const lista = EDIFICIOS.filter(
+        (e) => e.faccion === fac && existsSync(join(RAIZ, `assets/edificios/${fac}/${e.id}.webp`)),
+      );
+      if (lista.length === 0) return '';
+      // Una tropa de la facción al lado, a escala de figura, para juzgar el tamaño.
+      const tropa = UNIDADES.find((u) => u.faccion === fac);
+      const figura =
+        tropa === undefined
+          ? ''
+          : `<div class="figura" style="background-image:url(${R}/unidades/${tropa.id}/atlas.webp)"></div>`;
+      return `<h2>${nombre}</h2><div class="rejilla">${lista
+        .map(
+          (e) =>
+            `<figure><div class="escena"><img src="${R}/edificios/${fac}/${e.id}.webp">${figura}</div><figcaption><strong>${e.nombre}</strong><span>${e.produce}</span></figcaption></figure>`,
+        )
+        .join('')}</div>`;
+    })
+    .join('');
+  const html = `<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><title>Taller · edificios</title>
+<style>
+  body { margin: 0; background: #1b1d16; color: #e8e2cf; font: 14px system-ui, sans-serif; }
+  h2 { font-size: 16px; padding: 14px 16px 0; margin: 0; }
+  .rejilla { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; padding: 12px 16px; }
+  figure { margin: 0; background: #2a2d22; border-radius: 6px; overflow: hidden; }
+  figcaption { padding: 6px 10px; display: flex; justify-content: space-between; gap: 8px; }
+  figcaption span { color: #b9b29a; text-align: right; }
+  .escena { position: relative; height: 300px; background: url(${R}/rpg/suelo.webp); }
+  .escena img { position: absolute; left: 6%; bottom: 8%; width: 70%; height: 84%; object-fit: contain; object-position: bottom; }
+  /* El primer fotograma de reposo de la hoja: 7×3 celdas de 256, la figura a ~95 px. */
+  .figura { position: absolute; right: 4%; bottom: 6%; width: 160px; height: 160px; background-size: 1120px 480px; background-position: 0 0; }
+</style></head><body>${secciones}</body></html>
+`;
+  const ruta = join(DIR_VISTA, 'edificios.html');
+  await mkdir(DIR_VISTA, { recursive: true });
+  await writeFile(ruta, html);
+  return ruta;
+}
