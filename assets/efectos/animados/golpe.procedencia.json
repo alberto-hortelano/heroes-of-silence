@@ -1,0 +1,41 @@
+{
+  "encargo": "efecto-golpe",
+  "tipo": "efecto",
+  "fecha": "2026-10-01T19:17:26.415Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f8e4-e8e1-7922-8247-c1eef447307b",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que tiene que seguir cada figura. No copies su pose ni su encuadre, que están de frente y a la altura de los ojos.\n\nUn efecto visual de batalla de un juego de estrategia por turnos: el impacto de un golpe de arma: destello blanco, chispas y un arco de corte, muy rápido.\nEstilo de la imagen de estilo: ilustración pintada de fantasía medieval oscura, colores sobrios con los brillos justos para leerse. Cámara ortográfica elevada 25 grados sobre la horizontal, como la imagen de estilo; nunca cenital. La luz viene de arriba a la izquierda. El efecto ocurre sobre una casilla del suelo, sin dibujar el suelo.\n\nHoja de animación de EXACTAMENTE 6 fotogramas del mismo efecto, en 3 columnas por 2 filas, en orden de lectura: del inicio al final del efecto.\nCada fotograma ocupa su celda de una rejilla imaginaria igual para todos, centrado en el mismo punto de su celda y a la misma escala; nada cruza el borde de su celda.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/pintado.webp",
+      "papel": "estilo",
+      "sha256": "2257bd10a5efa8f2c430c2d86609ac895750568961a4dea6dfddd4c8081e1838"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f8e4-e8e1-7922-8247-c1eef447307b/exec-255cd4e6-6d37-43c4-be33-e4c4bbb93c5c.png",
+    "sha256": "0aa19688baad8ab98f16a835a939b9b38c4130e7728377425b59437d50d1c4bb",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "recorte suave: solo se borra lo casi invisible (alfa < 24); el humo y los resplandores conservan su alfa",
+    "fotogramas cortados por la rejilla nominal 3×2 y empaquetados en una tira de 6×256",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: 6 fotogramas, caja 5,20,237,242"
+  ],
+  "validacion": {
+    "visibles": 0.09974161783854167,
+    "opacos": 0,
+    "haloSuelto": 0.08105558388577257,
+    "ancho": 1536,
+    "alto": 256
+  },
+  "salida": {
+    "ruta": "assets/efectos/animados/golpe.webp",
+    "sha256": "f073a196347c91d85452b45f24650ed7d238d5f7c64aba9dd34d12e02472beb8"
+  }
+}

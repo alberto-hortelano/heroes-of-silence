@@ -1,0 +1,40 @@
+{
+  "encargo": "efecto-flecha",
+  "tipo": "imagen",
+  "fecha": "2026-10-01T19:15:46.182Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f8e4-1a5d-77d0-91b6-166b698b4b31",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que tiene que seguir cada figura. No copies su pose ni su encuadre, que están de frente y a la altura de los ojos.\n\nUn elemento del campo de batalla de un juego de estrategia por turnos: una flecha en vuelo, horizontal, apuntando a la derecha, con plumas grises.\nUn único objeto, centrado y entero. Estilo de la imagen de estilo: ilustración pintada de fantasía medieval oscura, colores sobrios con los brillos justos para leerse. Cámara ortográfica elevada 25 grados sobre la horizontal, como la imagen de estilo; nunca cenital. La luz viene de arriba a la izquierda.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/pintado.webp",
+      "papel": "estilo",
+      "sha256": "2257bd10a5efa8f2c430c2d86609ac895750568961a4dea6dfddd4c8081e1838"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f8e4-1a5d-77d0-91b6-166b698b4b31/exec-8c008406-7054-4fd5-bb06-47acfb0b6ae0.png",
+    "sha256": "af2d7261a4b1a4129b1b8b6996120b59de005c728349b935c00d258a1ac51bb7",
+    "ancho": 2172,
+    "alto": 724
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.2885336073500967,
+    "opacos": 0.9830720528845595,
+    "haloSuelto": 0,
+    "ancho": 2112,
+    "alto": 282
+  },
+  "salida": {
+    "ruta": "assets/efectos/flecha.webp",
+    "sha256": "68c4815112f9278d0912b5cda0198637242ebd80077fe06024f519454fd649ac"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "encargo": "efecto-trampa",
+  "tipo": "imagen",
+  "fecha": "2026-10-02T09:43:27.371Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0fbfd-9de2-7643-9021-375869d68c60",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que tiene que seguir cada figura. No copies su pose ni su encuadre, que están de frente y a la altura de los ojos.\n\nUn elemento del campo de batalla de un juego de estrategia por turnos: una trampa de cepo de hierro abierta, medio oculta entre hierba y hojas.\nUn único objeto, centrado y entero. Estilo de la imagen de estilo: ilustración pintada de fantasía medieval oscura, colores sobrios con los brillos justos para leerse. Cámara ortográfica elevada 25 grados sobre la horizontal, como la imagen de estilo; nunca cenital. La luz viene de arriba a la izquierda.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/pintado.webp",
+      "papel": "estilo",
+      "sha256": "2257bd10a5efa8f2c430c2d86609ac895750568961a4dea6dfddd4c8081e1838"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0fbfd-9de2-7643-9021-375869d68c60/exec-368d4e59-f182-4613-a7d8-6ba4b3b68b38.png",
+    "sha256": "fe8329ba348ca05c95e55960de416005d78ea78f8658fd5a2b3e124c5b4c5268",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.445346196492513,
+    "opacos": 0.9859165787493808,
+    "haloSuelto": 0.0000014276149265706262,
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/efectos/trampa.webp",
+    "sha256": "11dc7410e68ed69b9d7568bf374f3add46e90e699fcd5aebf857c2f8534c33e5"
+  }
+}

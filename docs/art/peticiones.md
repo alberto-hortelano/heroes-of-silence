@@ -73,3 +73,23 @@ pintarlas. Al lado va `assets/rpg/map-atlas.json` con la caja y el ancla medidas
 de cada celda, para cuando la 2b deje de escalar a ojo (#120). Las piezas sueltas
 están en `assets/mapa/atlas/`, cada una con su procedencia. El castillo ya no
 lleva estandartes: la bandera la pinta el juego.
+
+## 5. Efectos de batalla e iconos de recursos (aprobados el 02-10-2026)
+
+Todo en el estilo pintado oscuro, con su JSON y su procedencia al lado.
+
+| Qué | Dónde | Cómo se usa |
+|---|---|---|
+| 8 efectos animados | `assets/efectos/animados/<id>.webp` | tira de 6 fotogramas de 256; su `.json` dice `fotogramas` y la `caja` que ocupan dentro de la celda. Se pintan una vez centrados en la casilla; la página de revisión los pone a 10 fps |
+| 16 iconos de estado | `assets/efectos/iconos/<id>.webp` | 128×128, pensados para pintarse a ~32 px sobre la ficha. Índice en `iconos.json` |
+| 6 sprites quietos | `assets/efectos/<id>.webp` | cadáver (en el hex del caído), empalizada (obstáculo del ingeniero), trampa (goblin), y flecha, virote y bala de cañón como proyectiles: horizontales y mirando a la derecha, se rotan hacia el blanco |
+| 3 iconos de recursos | `assets/iconos/recursos/{oro,piedra,madera}.webp` | 128×128 para la barra y los costes, legibles a 20 px. Índice en `recursos.json` |
+
+Ids de los efectos: `curacion`, `drenaje`, `explosion`, `fuego`, `golpe`, `raices`,
+`resurreccion`, `veneno`. Iconos de estado: `veneno`, `aturdido`, `recarga`, `guardia`,
+`proteger`, `desafio`, `cobarde`, `miedo`, `bendecido`, `regeneracion`, `sigilo`,
+`estupido`, `contraataque`, `antiinfanteria`, `fe`, `furia` (el ¡Waaagh!). La
+asociación habilidad → icono es la de `tools/taller/efectos.ts`.
+
+El humo y los resplandores de los efectos son semitransparentes a propósito: se
+pintan con su alfa, sin teñir.

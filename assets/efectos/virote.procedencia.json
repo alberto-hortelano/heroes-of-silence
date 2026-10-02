@@ -1,0 +1,40 @@
+{
+  "encargo": "efecto-virote",
+  "tipo": "imagen",
+  "fecha": "2026-10-02T09:43:34.696Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0fbfe-a82b-7071-81f3-bb9d49a10ce4",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que tiene que seguir cada figura. No copies su pose ni su encuadre, que están de frente y a la altura de los ojos.\n\nUn elemento del campo de batalla de un juego de estrategia por turnos: un virote de ballesta en vuelo, corto y grueso, horizontal, apuntando a la derecha.\nUn único objeto, centrado y entero. Estilo de la imagen de estilo: ilustración pintada de fantasía medieval oscura, colores sobrios con los brillos justos para leerse. Cámara ortográfica elevada 25 grados sobre la horizontal, como la imagen de estilo; nunca cenital. La luz viene de arriba a la izquierda.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/pintado.webp",
+      "papel": "estilo",
+      "sha256": "2257bd10a5efa8f2c430c2d86609ac895750568961a4dea6dfddd4c8081e1838"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0fbfe-a82b-7071-81f3-bb9d49a10ce4/exec-68ad2d0a-6199-4ca7-b29e-2e9293c54a8d.png",
+    "sha256": "0781dce89d26949dace111ea1771d61e807540db02d696717e1de50278e0248c",
+    "ancho": 1774,
+    "alto": 887
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.3906843955590474,
+    "opacos": 0.9866798023552832,
+    "haloSuelto": 0,
+    "ancho": 1436,
+    "alto": 351
+  },
+  "salida": {
+    "ruta": "assets/efectos/virote.webp",
+    "sha256": "d5b3ae316551c0e3c6e3903dd19b616a9ccfdc52565db41f6011c12abd7b3a4e"
+  }
+}

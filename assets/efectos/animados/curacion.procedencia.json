@@ -1,0 +1,41 @@
+{
+  "encargo": "efecto-curacion",
+  "tipo": "efecto",
+  "fecha": "2026-10-01T19:21:07.824Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f8e2-2907-73c2-855f-0484b32cf25d",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que tiene que seguir cada figura. No copies su pose ni su encuadre, que están de frente y a la altura de los ojos.\n\nUn efecto visual de batalla de un juego de estrategia por turnos: una curación: columna de luz dorada suave que sube desde el suelo con chispas, y se apaga.\nEstilo de la imagen de estilo: ilustración pintada de fantasía medieval oscura, colores sobrios con los brillos justos para leerse. Cámara ortográfica elevada 25 grados sobre la horizontal, como la imagen de estilo; nunca cenital. La luz viene de arriba a la izquierda. El efecto ocurre sobre una casilla del suelo, sin dibujar el suelo.\n\nHoja de animación de EXACTAMENTE 6 fotogramas del mismo efecto, en 3 columnas por 2 filas, en orden de lectura: del inicio al final del efecto.\nCada fotograma ocupa su celda de una rejilla imaginaria igual para todos, centrado en el mismo punto de su celda y a la misma escala; nada cruza el borde de su celda.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/pintado.webp",
+      "papel": "estilo",
+      "sha256": "2257bd10a5efa8f2c430c2d86609ac895750568961a4dea6dfddd4c8081e1838"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f8e2-2907-73c2-855f-0484b32cf25d/exec-07fd3e4f-c55c-4561-94bf-4bdf084a51f0.png",
+    "sha256": "6ff2bf1a16add13767cb488aa04e94720e497bbea17b1a1a4c211b0b3107ee8c",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "recorte suave: solo se borra lo casi invisible (alfa < 24); el humo y los resplandores conservan su alfa",
+    "fotogramas cortados por la rejilla nominal 3×2 y empaquetados en una tira de 6×256; 32 píxeles que rozaban las líneas de corte, recortados",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: 6 fotogramas, caja 89,0,175,255"
+  ],
+  "validacion": {
+    "visibles": 0.11988067626953125,
+    "opacos": 0,
+    "haloSuelto": 0.376673242962303,
+    "ancho": 1536,
+    "alto": 256
+  },
+  "salida": {
+    "ruta": "assets/efectos/animados/curacion.webp",
+    "sha256": "fec85298a662a48f2ad56085289f5efe8ba7a2703395754727c203b9efe42dab"
+  }
+}

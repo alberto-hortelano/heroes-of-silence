@@ -1,0 +1,13 @@
+{
+  "imagen": "fuego.webp",
+  "sha256": "243e1cbd24e93e892c8311c9106fcaac0a3df224bbe4efb93101862781384c27",
+  "celda": 256,
+  "fotogramas": 6,
+  "caja": [
+    0,
+    14,
+    255,
+    245
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

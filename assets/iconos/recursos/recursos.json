@@ -1,0 +1,21 @@
+{
+  "lado": 128,
+  "iconos": [
+    {
+      "nombre": "oro",
+      "imagen": "oro.webp",
+      "sha256": "c99df6cc4b83471c81872612dd1858f21b6cca724e29a838cdea72518cd3e27e"
+    },
+    {
+      "nombre": "piedra",
+      "imagen": "piedra.webp",
+      "sha256": "167286c7246e17624e73015e014c719e8251197ba35b68d88385b13fc986cec0"
+    },
+    {
+      "nombre": "madera",
+      "imagen": "madera.webp",
+      "sha256": "28a05787670f00be0ba7f66e4d7059094d62e03d054cfc06bf8532a10f55e03f"
+    }
+  ],
+  "lamina": "recursos.webp"
+}

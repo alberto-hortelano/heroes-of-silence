@@ -1,0 +1,13 @@
+{
+  "imagen": "raices.webp",
+  "sha256": "5e1dae486af98b31df93c7b8e4b4d38e3613827a3549a6a08ef425b871f6288f",
+  "celda": 256,
+  "fotogramas": 6,
+  "caja": [
+    0,
+    6,
+    255,
+    251
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

@@ -1,0 +1,41 @@
+{
+  "encargo": "efecto-explosion",
+  "tipo": "efecto",
+  "fecha": "2026-10-01T19:21:13.803Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f8e3-bd29-7501-a874-bda241e201a9",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que tiene que seguir cada figura. No copies su pose ni su encuadre, que están de frente y a la altura de los ojos.\n\nUn efecto visual de batalla de un juego de estrategia por turnos: la explosión de un barril de pólvora: destello, bola de fuego anaranjada que crece, humo negro y astillas, y se disipa.\nEstilo de la imagen de estilo: ilustración pintada de fantasía medieval oscura, colores sobrios con los brillos justos para leerse. Cámara ortográfica elevada 25 grados sobre la horizontal, como la imagen de estilo; nunca cenital. La luz viene de arriba a la izquierda. El efecto ocurre sobre una casilla del suelo, sin dibujar el suelo.\n\nHoja de animación de EXACTAMENTE 6 fotogramas del mismo efecto, en 3 columnas por 2 filas, en orden de lectura: del inicio al final del efecto.\nCada fotograma ocupa su celda de una rejilla imaginaria igual para todos, centrado en el mismo punto de su celda y a la misma escala; nada cruza el borde de su celda.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/pintado.webp",
+      "papel": "estilo",
+      "sha256": "2257bd10a5efa8f2c430c2d86609ac895750568961a4dea6dfddd4c8081e1838"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f8e3-bd29-7501-a874-bda241e201a9/exec-cf32dfce-2ab7-4df5-82fe-33298d6c08dc.png",
+    "sha256": "f172dc71c7e1e5ea212fed83253a10a79c288317532f5a6cfd0cc6f86d77f370",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "recorte suave: solo se borra lo casi invisible (alfa < 24); el humo y los resplandores conservan su alfa",
+    "fotogramas cortados por la rejilla nominal 3×2 y empaquetados en una tira de 6×256; 41 píxeles que rozaban las líneas de corte, recortados",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: 6 fotogramas, caja 7,0,251,255"
+  ],
+  "validacion": {
+    "visibles": 0.34494272867838544,
+    "opacos": 0,
+    "haloSuelto": 0.059275861306280736,
+    "ancho": 1536,
+    "alto": 256
+  },
+  "salida": {
+    "ruta": "assets/efectos/animados/explosion.webp",
+    "sha256": "ad35beeb75b322c2bf86a23dcc0f291377e6407a95debc58ec46cc61ad45bd23"
+  }
+}
