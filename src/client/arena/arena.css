@@ -72,6 +72,18 @@
   max-width: 100%;
 }
 .puesto .datos { min-width: 0; }
+/* La figura también elige la unidad, no solo su nombre: un botón sin marco
+   alrededor del lienzo, para que se vea la imagen entera y se pueda pulsar. */
+.puesto button.ver {
+  background: none;
+  border: 0;
+  padding: 0;
+  min-height: 0;
+  cursor: pointer;
+  line-height: 0;
+}
+.puesto button.ver:hover canvas.figura,
+.puesto button.ver:focus-visible canvas.figura { border-color: #e0c589; }
 canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
 canvas.figura.grande { width: 200px; height: 230px; }
 

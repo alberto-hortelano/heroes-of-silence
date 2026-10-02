@@ -2228,10 +2228,9 @@ async function jugarArena(
   await añadir('goblin-arquero', 'derecha');
   await page.locator('#bando-izquierda .puesto').nth(1).locator('[data-ia="si"]').click();
 
-  // El ataque del guerrero, por su ficha: el cambio entra al salir del campo.
-  await page
-    .locator('#bando-izquierda [data-arena="editar"][data-hoja="templario-escudo"]')
-    .click();
+  // El ataque del guerrero, por su ficha —abierta pulsando su FIGURA, que también
+  // elige la unidad—: el cambio entra al salir del campo.
+  await page.locator('#bando-izquierda button.ver[data-hoja="templario-escudo"]').click();
   const campo = page.locator('#ficha [data-campo="attack"]');
   await campo.fill(String(ATAQUE_EDITADO));
   await campo.press('Tab');

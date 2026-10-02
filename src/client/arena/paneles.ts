@@ -119,7 +119,9 @@ export function renderBando(
           puestos.map((p) => {
             const u = unidadDe(p.hoja);
             return html`<div class="puesto${p.hoja === elegida ? ' elegida' : ''}" data-puesto="${p.clave}">
-              <canvas class="figura" data-figura="${p.hoja}" width="72" height="88"></canvas>
+              <button class="ver" data-arena="editar" data-hoja="${p.hoja}" title="Ver y editar sus cifras">
+                <canvas class="figura" data-figura="${p.hoja}" width="72" height="88"></canvas>
+              </button>
               <div class="datos">
                 <button class="nombre" data-arena="editar" data-hoja="${p.hoja}" title="Editar sus cifras">${u.name}</button>
                 <span class="cost">${resumenDeCifras(u)}</span>
