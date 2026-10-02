@@ -6,7 +6,15 @@
  * a su alcance. Es el listón que el agente tiene que superar.
  */
 import { creature } from '../data.js';
-import { nivelDeTropa } from '../hero/experiencia.js';
+import {
+  destinoDeEquipo,
+  equipoDe,
+  PIEZAS_DE_ARMERIA,
+  type Portador,
+  pieza,
+  valorDePieza,
+} from '../hero/equipo.js';
+import { cifrasDeCatalogo, nivelDeTropa } from '../hero/experiencia.js';
 import type { Hero } from '../hero/hero.js';
 import {
   capacidadDe,
@@ -25,13 +33,20 @@ import {
   destinoDeRecluta,
   type GameState,
   HERO_HIRE_COST,
+  heroeEnElPueblo,
   heroesOf,
   recruitCapacity,
   townsOf,
 } from '../state/game.js';
 import { building } from '../town/buildings.js';
-import { availableBuildings, dwellings, recruitCost, type Town } from '../town/town.js';
-import type { Army, FactionId, PlayerId, Point, Resources } from '../types.js';
+import {
+  availableBuildings,
+  dwellings,
+  recruitCost,
+  type Town,
+  tieneArmeria,
+} from '../town/town.js';
+import type { Army, Equipo, FactionId, PlayerId, Point, Resources } from '../types.js';
 import { canAfford, subtractResources } from '../types.js';
 import { armyPower, fuerzaDe, poderDe, unitPower, ventajaClara } from './fuerza.js';
 
@@ -326,6 +341,7 @@ const ORDEN_DE_CONSTRUCCION: Readonly<Record<FactionId, readonly string[]>> = {
     'mage_guild_2',
     'tavern',
     'marketplace',
+    'armory',
     // Prebuilt: nunca está disponible, pero la lista tiene que nombrarlo igual.
     'village_hall',
   ],
@@ -352,6 +368,7 @@ const ORDEN_DE_CONSTRUCCION: Readonly<Record<FactionId, readonly string[]>> = {
     'mage_guild_2',
     'tavern',
     'marketplace',
+    'armory',
     'village_hall',
   ],
 };
@@ -598,4 +615,167 @@ function laMasBarata(
     if (gana) mejor = { creature: id, nivel, oro, poder: suyo };
   }
   return mejor === null ? null : { creature: mejor.creature, poder: mejor.poder };
+}
+
+// ---------------------------------------------------------------- equipo
+
+/**
+ * Quién lleva qué, en el orden en que la IA reparte: **el héroe primero** —está en
+ * el nivel 5 o más, por encima de cualquier tropa— y después la tropa de **mayor
+ * nivel** (catálogo + veteranía), y a igual nivel en su orden. Los personajes no
+ * entran —su equipo es de la fase que los traiga— y se apartan **antes** de mirar
+ * nada: su cuerpo es un perfil que no está en el catálogo. El nivel sale de
+ * `cifrasDeCatalogo`, que para un novato devuelve el catálogo tal cual y para un
+ * veterano las cifras que ya recuerda por su hoja: no se fabrica ninguna.
+ */
+function portadores(hero: Hero): { readonly quien: Portador; readonly equipo: Equipo }[] {
+  const tropa = hero.army
+    .map((t, indice) => ({ t, indice }))
+    .filter(({ t }) => t.member === undefined)
+    .map(({ t, indice }) => ({ t, indice, nivel: cifrasDeCatalogo(t.creature, t.veterania).nivel }))
+    .sort((a, b) => b.nivel - a.nivel || a.indice - b.indice)
+    .map(({ indice }) => {
+      const quien: Portador = { indice };
+      return { quien, equipo: equipoDe(hero, quien) };
+    });
+  const elHeroe: Portador = { heroe: true };
+  return [{ quien: elHeroe, equipo: equipoDe(hero, elHeroe) }, ...tropa];
+}
+
+/** Lo que gana `equipo` llevando `id` en vez de lo que lleve en ese hueco. */
+function mejora(equipo: Equipo, id: string): number {
+  const nueva = pieza(id);
+  const actual = equipo[nueva.hueco];
+  return valorDePieza(nueva) - (actual === undefined ? 0 : valorDePieza(pieza(actual)));
+}
+
+/**
+ * Cómo se nombra al portador `quien` en una acción `equip`: el héroe sin más, el
+ * de hoja por su id y el novato por su tipo —el motor elige al primero sin hoja—.
+ */
+function nombrar(
+  hero: Hero,
+  quien: Portador,
+): Pick<Extract<AdventureAction, { type: 'equip' }>, 'veteran' | 'creature'> {
+  if ('heroe' in quien) return {};
+  const t = hero.army[quien.indice]!;
+  return t.veterania !== undefined ? { veteran: t.veterania.id } : { creature: t.creature };
+}
+
+/**
+ * Si nombrar a `quien` le hace llegar la pieza a ÉL. Lo responde el motor
+ * (`destinoDeEquipo`), no una copia de su regla: nombrar a un novato por su tipo
+ * se la pone al primero sin hoja, y con otro delante se la pondría a otro.
+ */
+function leLlega(hero: Hero, quien: Portador): boolean {
+  const destino = destinoDeEquipo(hero, nombrar(hero, quien));
+  if ('motivo' in destino) return false;
+  return 'heroe' in destino
+    ? 'heroe' in quien
+    : 'indice' in quien && destino.indice === quien.indice;
+}
+
+/**
+ * Cuántas piezas le compra la IA a un mismo héroe en un día, como mucho: la tropa
+ * entera de un portador. **Heurística inventada**, como el resto de este bloque.
+ * Sin tope compraba 18 al día —seis individuos por tres huecos— para una tropa
+ * que caía al día siguiente: 1 187 compras del banco en 14 semillas, 268 en una.
+ */
+export const COMPRAS_POR_HEROE_Y_DIA = 3;
+
+/**
+ * El oro que tiene que quedarle a la IA tras pagar para comprarle una pieza a un
+ * **novato** (nivel 1 de tropa): cuatro héroes. Un novato muere antes que nadie y
+ * la pieza se va con él, así que solo se le compra lo que sobra de verdad; al
+ * héroe y a los veteranos les basta con no tocar lo que cuesta un héroe. Inventado.
+ */
+export const ORO_DE_SOBRA_PARA_NOVATOS = 4 * HERO_HIRE_COST;
+
+/**
+ * Para quién compra la IA: el héroe y los veteranos de nivel 2 o más, que son
+ * los que sobreviven —han pasado al menos una batalla con vida— y llevan la
+ * pieza más lejos; un novato, solo si `sobra`. Equipar lo que ya hay en la
+ * mochila no pasa por aquí: eso no cuesta oro, y una pieza que nadie lleva no
+ * pega.
+ */
+function paraQuienSeCompra(hero: Hero, quien: Portador, sobra: boolean): boolean {
+  if ('heroe' in quien || sobra) return true;
+  return nivelDeTropa(hero.army[quien.indice]?.veterania) >= 2;
+}
+
+/**
+ * Cuántas piezas lleva compradas `hero` hoy: los `item_bought` suyos desde el
+ * último `day_start`. Se lee de la crónica y no de un contador porque la IA no
+ * guarda estado entre preguntas, y el hecho ya existe.
+ */
+function compradasHoy(state: GameState, hero: Hero): number {
+  let n = 0;
+  for (let i = state.log.length - 1; i >= 0; i--) {
+    const e = state.log[i]!;
+    if (e.kind === 'day_start') break;
+    if (e.kind === 'item_bought' && e.hero === hero.id) n++;
+  }
+  return n;
+}
+
+/**
+ * La siguiente cosa que hace la IA con el equipo, o `null` si no queda ninguna:
+ * primero **ponerse lo que lleva en la mochila**, y si no hay nada que poner,
+ * **comprar** en la armería del pueblo donde está.
+ *
+ * Una acción cada vez y no un plan entero, porque cada una cambia lo que sigue
+ * —equipar a un novato le abre la hoja, y lo quitado vuelve a la mochila— y
+ * simularlo aquí sería la segunda implementación de `equip`. Quien llama la
+ * aplica y vuelve a preguntar. Termina siempre: cada `equip` sube estrictamente
+ * el valor de lo que se lleva puesto, y cada compra deja menos oro.
+ *
+ * **Heurística inventada**, y la más simple que juega: una pieza va al primer
+ * portador (`portadores`) al que mejora (`valorDePieza`), y se compra la pieza de
+ * armería de un hueco si la mejoraría alguien que vale la pena
+ * (`paraQuienSeCompra`), tras pagarla queda lo que cuesta un héroe y el héroe no
+ * ha llegado hoy a `COMPRAS_POR_HEROE_Y_DIA`. `unitPower` no mira ataque ni defensa, así que el valor de la pieza
+ * es una suma propia y no la fuerza de la IA.
+ */
+export function siguienteDeEquipo(state: GameState, playerId: PlayerId): AdventureAction | null {
+  const player = state.players.find((p) => p.id === playerId);
+  if (player === undefined) return null;
+  for (const hero of heroesOf(state, playerId)) {
+    const lista = portadores(hero);
+    // Lo mejor de la mochila primero: es lo que más gana quien lo reciba.
+    const enMochila = [...new Set(hero.mochila)].sort(
+      (a, b) =>
+        valorDePieza(pieza(b)) - valorDePieza(pieza(a)) ||
+        hero.mochila.indexOf(a) - hero.mochila.indexOf(b),
+    );
+    for (const id of enMochila) {
+      const quien = lista.find((p) => mejora(p.equipo, id) > 0 && leLlega(hero, p.quien));
+      if (quien !== undefined) {
+        return { type: 'equip', hero: hero.id, item: id, ...nombrar(hero, quien.quien) };
+      }
+    }
+  }
+  for (const town of townsOf(state, playerId)) {
+    if (!tieneArmeria(town)) continue;
+    const hero = heroeEnElPueblo(state, town);
+    if (hero === undefined) continue;
+    if (compradasHoy(state, hero) >= COMPRAS_POR_HEROE_Y_DIA) continue;
+    const lista = portadores(hero);
+    for (const p of PIEZAS_DE_ARMERIA) {
+      const queda = player.resources.gold - (p.precio.gold ?? 0);
+      if (queda < HERO_HIRE_COST) continue;
+      if (!canAfford(player.resources, p.precio)) continue;
+      // Quien la recibiría es el primero al que mejora, con el MISMO orden con
+      // el que se reparte la mochila justo después: si ese no vale la pena, no se
+      // compra. Mirar si la mejora «alguien» que vale la pena dejaba comprarla
+      // para un veterano y ponérsela después a un novato de más nivel de catálogo.
+      const quien = lista.find((x) => mejora(x.equipo, p.id) > 0 && leLlega(hero, x.quien));
+      if (
+        quien !== undefined &&
+        paraQuienSeCompra(hero, quien.quien, queda >= ORO_DE_SOBRA_PARA_NOVATOS)
+      ) {
+        return { type: 'buy_item', town: town.id, item: p.id };
+      }
+    }
+  }
+  return null;
 }

@@ -1,7 +1,8 @@
 /** Héroes: atributos, ejército y movimiento diario. */
 import { HEROE } from '../data.js';
-import type { Army, FactionId, PlayerId, Point, SpeedTier, UnitInfo } from '../types.js';
+import type { Army, Equipo, FactionId, PlayerId, Point, SpeedTier, UnitInfo } from '../types.js';
 import { SPEED_TO_MOVE_POINTS } from '../types.js';
+import { conEquipo, EQUIPO_BASE } from './equipo.js';
 import { nivelDeHeroe, subidasDeHeroe } from './experiencia.js';
 import { type Personajes, troopUnit } from './troop.js';
 
@@ -41,6 +42,20 @@ export interface Hero {
    * con `exactOptionalPropertyTypes` la ausencia ya dice «no tiene».
    */
   readonly origen?: OrigenDelHeroe;
+  /**
+   * Lo que lleva puesto (`hero/equipo.ts`). **Nace lleno**: todo héroe trae de
+   * serie la pieza de armería de cada hueco (`EQUIPO_BASE`), y solo mejora con
+   * lo especial que encuentre (decisión del usuario, 02-10-2026). Se sustituye
+   * entero al equipar o desequipar, nunca se muta.
+   */
+  equipo: Equipo;
+  /**
+   * Las piezas que lleva sin ponérselas, por id, en el orden en que llegaron:
+   * el botín, lo comprado, lo que se quita y lo que devuelve la tropa licenciada.
+   * Sin tope (decisión del usuario sobre el plan). Si el héroe cae sin base, se
+   * pierde con él.
+   */
+  mochila: readonly string[];
 }
 
 /** Lo que el héroe nacido de la tropa recuerda de cuando era tropa. */
@@ -51,9 +66,14 @@ export interface OrigenDelHeroe {
 
 /**
  * Un héroe recién hecho, con las cifras del contratado: ataque, defensa, poder y
- * conocimiento a 1, el maná lleno, sin tropa, sin hechizos, sin habilidades y
- * **sin movimiento**. Quien lo llama decide si se le da el del día —el
- * contratado sí, el que nace de la tropa no—.
+ * conocimiento a 1, el maná lleno, sin tropa, sin hechizos, sin habilidades,
+ * **con su equipo base** (`EQUIPO_BASE`), la mochila vacía y **sin
+ * movimiento**. Quien lo llama decide si se le da el del día —el contratado
+ * sí, el que nace de la tropa no—.
+ *
+ * El equipo base sale de aquí y de ningún otro sitio: el inicial, el contratado
+ * y el veterano que asciende pasan todos por esta función, y así ninguno puede
+ * nacer desnudo por haberse olvidado de una línea.
  *
  * **La única construcción de un `Hero`**: eran dos literales escritos a mano y
  * los iba a ser tres, y el día que el héroe gane un campo los tres tendrían que
@@ -81,6 +101,8 @@ export function heroeRecienHecho(datos: {
     movePoints: 0,
     spells: [],
     skills: {},
+    equipo: EQUIPO_BASE,
+    mochila: [],
   };
   hero.mana = maxMana(hero);
   return hero;
@@ -109,11 +131,26 @@ export const HERO_BODY = 'hero';
  *
  * `faction: null` para que no cambie la moral por diversidad del ejército, y
  * sin rasgos: el héroe no es no-muerto aunque mande a los nigromantes.
+ *
+ * Y con su equipo puesto: pide `equipo` sin opcional a propósito, para que nadie
+ * pueda construir el cuerpo de un héroe olvidándose de lo que lleva.
  */
-export function heroUnit(hero: Pick<Hero, 'name' | 'attack' | 'defense' | 'experience'>): UnitInfo {
+export function heroUnit(
+  hero: Pick<Hero, 'name' | 'attack' | 'defense' | 'experience' | 'equipo'>,
+): UnitInfo {
   const c = HEROE.combate;
   const nivel = nivelDeHeroe(hero);
   const subidas = subidasDeHeroe(nivel);
+  // Lo que lleva puesto, con la misma suma que la tropa (`conEquipo`).
+  return conEquipo(cuerpoDesnudo(hero, c, nivel, subidas), hero.equipo);
+}
+
+function cuerpoDesnudo(
+  hero: Pick<Hero, 'name' | 'attack' | 'defense'>,
+  c: (typeof HEROE)['combate'],
+  nivel: number,
+  subidas: number,
+): UnitInfo {
   return {
     name: hero.name,
     faction: null,

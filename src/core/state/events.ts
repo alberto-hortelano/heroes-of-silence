@@ -113,6 +113,14 @@ type Cuerpo =
   | { kind: 'dismissed'; hero: string; creature: string; count: number }
   | { kind: 'hero_hired'; hero: string; town: string }
   /**
+   * El héroe que gana una batalla contra un grupo de asaltantes o toma una ciudad
+   * neutral guarnecida se lleva una pieza de equipo a la mochila (`repartirBotin`).
+   * `from` dice de qué: es lo que la crónica cuenta y lo que mide el arnés.
+   */
+  | { kind: 'loot_found'; hero: string; item: string; from: 'raider' | 'town' }
+  /** Un héroe compra una pieza en la armería de un pueblo suyo. Equipar no es un hecho: es estado. */
+  | { kind: 'item_bought'; hero: string; town: string; item: string }
+  /**
    * Un veterano de nivel máximo se hace héroe en su base (ciclo B de «la tropa
    * crece»): `hero` es el id del nuevo, `creature` lo que era y `name` el nombre
    * que le dio el narrador. Solo ocurre con agente —«solo con narrador»—, así
@@ -238,6 +246,8 @@ export function visibleTo(e: GameEvent, p: PlayerId): boolean {
     case 'recruited':
     case 'dismissed':
     case 'hero_hired':
+    case 'loot_found':
+    case 'item_bought':
     case 'hero_promoted':
     case 'spells_learned':
     case 'garrison_taken':

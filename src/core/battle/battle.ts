@@ -7,7 +7,7 @@
  * que dobla o parte el daño, y un hechizo de héroe por ronda.
  */
 import { HEROE, hasTrait, hexSize, isShooter, LIDERAZGO } from '../data.js';
-import { cifrasDeCatalogo, cifrasVeteranas, nivelDeTropa } from '../hero/experiencia.js';
+import { cifrasDeCatalogo, cifrasDelIndividuo } from '../hero/experiencia.js';
 import { HERO_BODY } from '../hero/hero.js';
 import type { Rng } from '../rng.js';
 import type { CombatProfile } from '../rpg/stats.js';
@@ -339,12 +339,13 @@ function resolveUnit(stack: Stack, slot: number, setup: BattleSide): Entrada {
   }
   // Un personaje no tiene rasgos, así que tampoco la inmunidad del no-muerto:
   // entra herido si lo está, con su moral y su suerte. La veteranía se le suma
-  // con la misma regla que a una criatura (`cifrasVeteranas`), y no cambia sus
+  // con la misma regla que a una criatura (`cifrasDelIndividuo`, que suma también
+  // lo que lleva puesto), y no cambia sus
   // PV: entra con los que trae.
   return {
     slot,
     body: stack.creature,
-    unit: cifrasVeteranas(miembro.profile.unit, nivelDeTropa(stack.veterania)),
+    unit: cifrasDelIndividuo(miembro.profile.unit, stack.veterania),
     origen: { kind: 'personaje', id, veterania: stack.veterania ?? null },
     count: 1,
     topHp: miembro.hp,

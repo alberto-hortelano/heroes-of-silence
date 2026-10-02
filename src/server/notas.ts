@@ -649,6 +649,18 @@ export function describeAccion(accion: BattleAction | AdventureAction): string {
       return `dismiss ${accion.count}× ${accion.creature} de ${accion.hero}`;
     case 'build':
       return `build ${accion.building} en ${accion.town}`;
+    case 'buy_item':
+      return `buy_item ${accion.item} en ${accion.town}`;
+    case 'equip':
+      return `equip ${accion.item} de ${accion.hero}${
+        accion.veteran !== undefined
+          ? ` a ${accion.veteran}`
+          : accion.creature !== undefined
+            ? ` a un ${accion.creature}`
+            : ''
+      }`;
+    case 'unequip':
+      return `unequip ${accion.slot} de ${accion.veteran ?? accion.hero}`;
     case 'end_turn':
       return 'end_turn';
   }

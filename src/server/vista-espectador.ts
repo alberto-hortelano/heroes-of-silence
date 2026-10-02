@@ -20,6 +20,7 @@
  */
 import type { BattleStack, BattleState, Side } from '@core/battle/types.js';
 import { nombreDeTipoDeHeroe } from '@core/data.js';
+import { piezasPuestas } from '@core/hero/equipo.js';
 import type { MapObject, MapRegion } from '@core/map/map.js';
 import type { TerrainKind } from '@core/map/terrain.js';
 import type { VistaAsaltante } from '@core/state/asaltantes.js';
@@ -72,6 +73,11 @@ export interface VistaHeroe {
   readonly nombreDelTipo: string;
   /** La historia del héroe nacido de la tropa, o `null` si no tiene. */
   readonly historia: string | null;
+  /**
+   * Los NOMBRES de lo que lleva puesto, en el orden de los huecos: el espectador
+   * solo lo pinta, y así no tiene que buscar el catálogo para una línea.
+   */
+  readonly equipo: readonly string[];
 }
 
 export interface VistaPueblo {
@@ -99,12 +105,17 @@ export type StackEnCable = Omit<BattleStack, 'unit' | 'ganado' | 'origen'> & {
 };
 
 /**
- * Lo que viaja de un veterano: quién es y la experiencia, que es de donde salen
- * sus cifras y sus galones. **La hoja de servicios —batallas, bajas y héroes
- * derribados— no viaja**: vive en el núcleo porque la usará la tropa que se
- * hace héroe (ciclo B), y el espectador no pinta ninguna de las tres.
+ * Lo que viaja de un veterano: quién es, la experiencia y lo que lleva puesto,
+ * que es de donde salen sus cifras y sus galones. **La hoja de servicios
+ * —batallas, bajas y héroes derribados— no viaja**: vive en el núcleo porque la
+ * usará la tropa que se hace héroe (ciclo B), y el espectador no pinta ninguna
+ * de las tres.
+ *
+ * El equipo sí, y no por pintarlo: sin él, `cifrasDeCatalogo` rehace en el
+ * espectador las cifras de un piquero con espada SIN la espada, y el tablero
+ * enseñaría un ataque que no es el que pelea.
  */
-export type VeteraniaEnCable = Pick<Veterania, 'id' | 'experiencia'>;
+export type VeteraniaEnCable = Pick<Veterania, 'id' | 'experiencia' | 'equipo'>;
 
 /**
  * El origen tal y como viaja: el del núcleo **sin el precio** —`oro` lo lee la
@@ -192,6 +203,7 @@ export function construirVista(state: GameState, directorLog: readonly string[])
       movePoints: h.movePoints,
       nombreDelTipo: nombreDeTipoDeHeroe(h.faction, h.tipo),
       historia: h.origen?.historia ?? null,
+      equipo: piezasPuestas(h.equipo).map((p) => p.nombre),
       // Sin el ejército: ningún panel del espectador lo lee, y desde la tropa
       // de individuos crece con cada uno, en cada fotograma. Si algún panel lo
       // necesita, se manda `troopSummary`, que es el que agrupa.
@@ -248,5 +260,10 @@ function stackAlCable(s: BattleStack): StackEnCable {
 }
 
 function hojaAlCable(v: Veterania | null): VeteraniaEnCable | null {
-  return v === null ? null : { id: v.id, experiencia: v.experiencia };
+  if (v === null) return null;
+  return {
+    id: v.id,
+    experiencia: v.experiencia,
+    ...(v.equipo === undefined ? {} : { equipo: v.equipo }),
+  };
 }

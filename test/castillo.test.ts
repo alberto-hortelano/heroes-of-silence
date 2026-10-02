@@ -9,7 +9,7 @@
 import { describe, expect, it } from 'vitest';
 import { botonDeRecluta, hitAtPixel, townPlots } from '../src/client/render/town.js';
 import { newGame } from '../src/core/state/setup.js';
-import { allBuildings } from '../src/core/town/buildings.js';
+import { allBuildings, buildingsOfFaction } from '../src/core/town/buildings.js';
 
 /** La cadena que el catálogo dicta para un solar, calculada aparte a propósito. */
 function cadenaDelCatalogo(
@@ -53,10 +53,22 @@ describe('solares del castillo', () => {
     }
   });
 
-  it('un solar de morada vacío no existe: las once cadenas tienen al menos un eslabón', () => {
+  it('todo edificio de la facción está en algún solar: ninguno queda sin sitio donde construirse', () => {
+    // El otro sentido del test de arriba. Sin él, un edificio nuevo en los datos
+    // —la armería lo fue— lo construiría la IA y la persona no lo vería nunca en
+    // la pantalla, sin que nada se pusiera rojo.
+    for (const faccion of ['knight', 'necromancer'] as const) {
+      const colocados = new Set(townPlots(faccion).flatMap((s) => s.chain));
+      for (const b of buildingsOfFaction(faccion)) {
+        expect(colocados.has(b.id), `${faccion}: "${b.id}" no está en ningún solar`).toBe(true);
+      }
+    }
+  });
+
+  it('un solar de morada vacío no existe: las doce cadenas tienen al menos un eslabón', () => {
     for (const faccion of ['knight', 'necromancer'] as const) {
       const solares = townPlots(faccion);
-      expect(solares).toHaveLength(11);
+      expect(solares).toHaveLength(12);
       for (const solar of solares) {
         expect(
           solar.chain.length,

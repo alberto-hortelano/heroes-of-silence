@@ -54,7 +54,7 @@ const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 /** Un héroe de batalla con su cuerpo y, si se pide, con monedero para rendirse. */
 function heroeDeBatalla(purse: number | null = null): HeroeDelBando {
   return {
-    cuerpo: heroUnit({ name: 'Prueba', attack: 2, defense: 2, experience: umbral(5) }),
+    cuerpo: heroUnit({ name: 'Prueba', attack: 2, defense: 2, experience: umbral(5), equipo: {} }),
     mando: {
       name: 'Prueba',
       retreat: purse === null ? { blocked: 'no tienes base a la que volver' } : { purse },
@@ -149,7 +149,13 @@ describe('el héroe pisa el tablero (criterio 4)', () => {
   it('el cuerpo sale de `data/heroe.json` y crece con el nivel', () => {
     const c = HEROE.combate;
     // Dos niveles por encima del inicial (el 5): dos `porNivel`.
-    const nivel7 = heroUnit({ name: 'X', attack: 2, defense: 3, experience: umbral(7) });
+    const nivel7 = heroUnit({
+      name: 'X',
+      attack: 2,
+      defense: 3,
+      experience: umbral(7),
+      equipo: {},
+    });
     expect(nivel7.hp).toBe(c.pv.base + 2 * c.pv.porNivel);
     expect(nivel7.attack).toBe(2 + 2 * c.ataquePorNivel);
     expect(nivel7.defense).toBe(3 + 2 * c.defensaPorNivel);

@@ -1,0 +1,663 @@
+/**
+ * El equipo: tres huecos por individuo y por héroe, el catálogo en datos, el
+ * botín, la armería y lo que hace la IA con todo ello.
+ *
+ * Los tests salen de los criterios del plan (`docs/agents/2026-10-02-el-equipo/`)
+ * con la corrección del usuario: el héroe NACE equipado con lo de armería, y el
+ * catálogo distingue calidades.
+ */
+import { readdirSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { describe, expect, it } from 'vitest';
+import {
+  COMPRAS_POR_HEROE_Y_DIA,
+  ORO_DE_SOBRA_PARA_NOVATOS,
+  siguienteDeEquipo,
+} from '../src/core/ai/strategy.js';
+import { createBattle, stackById } from '../src/core/battle/battle.js';
+import { RESPONSE_FORMAT } from '../src/core/contract/agent.js';
+import { creature, EQUIPO, validarEquipo } from '../src/core/data.js';
+import {
+  conEquipo,
+  EQUIPO_BASE,
+  PIEZAS_DE_ARMERIA,
+  PIEZAS_DE_BOTIN,
+  pieza,
+} from '../src/core/hero/equipo.js';
+import { cifrasDeCatalogo } from '../src/core/hero/experiencia.js';
+import { heroeRecienHecho, heroUnit } from '../src/core/hero/hero.js';
+import { troopUnit } from '../src/core/hero/troop.js';
+import { isEnterable, objectAt, pointKey } from '../src/core/map/map.js';
+import { VECINAS } from '../src/core/map/regiones.js';
+import { createRng } from '../src/core/rng.js';
+import { CHARACTER_BODY } from '../src/core/rpg/character.js';
+import { regionDeCasilla, tocaUnNodo } from '../src/core/state/asaltantes.js';
+import {
+  type AdventureAction,
+  applyAdventureAction,
+  ascenderVeterano,
+  baseOf,
+  buyBlocker,
+  type GameContext,
+  type GameState,
+  heroById,
+  heroesOf,
+  resolvePendingBattle,
+  settleBattle,
+} from '../src/core/state/game.js';
+import { newGame } from '../src/core/state/setup.js';
+import { HUECOS, type Point, type Troop, type Veterania } from '../src/core/types.js';
+import { ejercito, forzarBatalla, ponerMonstruo } from './helpers.js';
+
+const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
+
+function hoja(id: string, experiencia: number, extra: Partial<Veterania> = {}): Veterania {
+  return { id, experiencia, batallas: 1, bajas: 0, heroes: [], ...extra };
+}
+
+/** El jugador 0 con su héroe dentro de su base, y la base con armería y oro. */
+function enLaArmeria(seed = 7): {
+  state: GameState;
+  c: GameContext;
+  hero: ReturnType<typeof heroById>;
+} {
+  const state = newGame({ seed });
+  const base = baseOf(state, 0)!;
+  const hero = heroesOf(state, 0)[0]!;
+  hero.at = base.at;
+  base.buildings.push('armory');
+  state.players[0]!.resources = { ...state.players[0]!.resources, gold: 20000 };
+  return { state, c: ctx(seed), hero };
+}
+
+const accion = (state: GameState, a: AdventureAction, c: GameContext): void =>
+  applyAdventureAction(state, a, c, 0);
+
+// ---------------------------------------------------------------- catálogo
+
+describe('el catálogo de equipo, en datos (C2)', () => {
+  it('cada hueco tiene exactamente una pieza de armería, y el equipo base es esa', () => {
+    for (const hueco of HUECOS) {
+      const deArmeria = EQUIPO.filter((p) => p.hueco === hueco && p.calidad === 'armeria');
+      expect(deArmeria).toHaveLength(1);
+      expect(EQUIPO_BASE[hueco]).toBe(deArmeria[0]!.id);
+    }
+    // Lo que vende la armería y lo que cae como botín no se pisan, y entre los
+    // dos son el catálogo entero.
+    const venta = new Set(PIEZAS_DE_ARMERIA.map((p) => p.id));
+    expect(PIEZAS_DE_BOTIN.some((p) => venta.has(p.id))).toBe(false);
+    expect(PIEZAS_DE_ARMERIA.length + PIEZAS_DE_BOTIN.length).toBe(EQUIPO.length);
+    expect(PIEZAS_DE_BOTIN.some((p) => p.calidad === 'especial')).toBe(true);
+  });
+
+  it('el cargador muerde: hueco inventado, cifra negativa, recurso desconocido y hueco sin armería', () => {
+    const bueno = { piezas: EQUIPO.map((p) => ({ ...p })) };
+    const roto = structuredClone(bueno) as { piezas: Record<string, unknown>[] };
+    roto.piezas[0]!.hueco = 'casco';
+    roto.piezas[1]!.ataque = -1;
+    roto.piezas[2]!.precio = { oro: 800 };
+    expect(() => validarEquipo(roto)).toThrow(/va en el hueco "casco", que no existe/);
+    expect(() => validarEquipo(roto)).toThrow(/ataque tiene que ser un entero ≥ 0 y es -1/);
+    expect(() => validarEquipo(roto)).toThrow(/cuesta "oro", que no es un recurso/);
+    // La pieza 2 es la espada de armería: rota, el arma se queda sin ninguna.
+    expect(() => validarEquipo(roto)).toThrow(/el hueco arma tiene 0 piezas de armería/);
+
+    const dosEspadas = structuredClone(bueno) as { piezas: Record<string, unknown>[] };
+    dosEspadas.piezas[0]!.calidad = 'armeria';
+    expect(() => validarEquipo(dosEspadas)).toThrow(/el hueco arma tiene 2 piezas de armería/);
+
+    const calidadFalsa = structuredClone(bueno) as { piezas: Record<string, unknown>[] };
+    calidadFalsa.piezas[0]!.calidad = 'legendaria';
+    expect(() => validarEquipo(calidadFalsa)).toThrow(/calidad "legendaria", que no existe/);
+
+    expect(validarEquipo(bueno)).toHaveLength(EQUIPO.length);
+  });
+});
+
+// ---------------------------------------------------------------- cifras
+
+describe('las cifras se suman en las puertas de siempre (C1)', () => {
+  it('un novato sin equipo sigue siendo la MISMA referencia del catálogo', () => {
+    expect(cifrasDeCatalogo('pikeman', undefined)).toBe(creature('pikeman'));
+    expect(cifrasDeCatalogo('pikeman', hoja('v', 0))).toBe(creature('pikeman'));
+    expect(cifrasDeCatalogo('pikeman', hoja('v', 0, { equipo: {} }))).toBe(creature('pikeman'));
+    expect(conEquipo(creature('pikeman'), undefined)).toBe(creature('pikeman'));
+  });
+
+  it('una pieza suma sus cifras, y la velocidad sube escalones sin pasarse del último', () => {
+    const piquero = cifrasDeCatalogo(
+      'pikeman',
+      hoja('v', 0, { equipo: { arma: 'estoque_ligero', armadura: 'coraza_bendita' } }),
+    );
+    const base = creature('pikeman');
+    expect(piquero.attack).toBe(base.attack + 2);
+    expect(piquero.defense).toBe(base.defense + 2);
+    expect(piquero.hp).toBe(base.hp + 4);
+    expect(base.speed).toBe('average');
+    expect(piquero.speed).toBe('fast');
+    // El campeón ya va en el último escalón: las botas no lo pasan de ahí.
+    const campeon = cifrasDeCatalogo(
+      'champion',
+      hoja('w', 0, { equipo: { accesorio: 'botas_de_marcha' } }),
+    );
+    expect(campeon.speed).toBe('ultra_fast');
+  });
+
+  it('`troopUnit` y lo que pisa el tablero dan lo mismo para un equipado', () => {
+    const equipado: Troop = {
+      creature: 'swordsman',
+      veterania: hoja('v-1', 70, {
+        equipo: { arma: 'espada_de_armeria', accesorio: 'talisman_vital' },
+      }),
+    };
+    const b = createBattle(
+      { army: [{ ...equipado, count: 1 }], hero: null },
+      { army: [{ creature: 'peasant', count: 1 }], hero: null },
+      createRng(1),
+    );
+    expect(stackById(b, 'attacker-0').unit).toEqual(troopUnit(equipado, undefined));
+    expect(stackById(b, 'attacker-0').unit.hp).toBe(creature('swordsman').hp + 5);
+  });
+
+  it('el cuerpo del héroe suma lo que lleva, y desnudo es el de antes', () => {
+    const datos = { name: 'X', attack: 2, defense: 2, experience: 220 };
+    const desnudo = heroUnit({ ...datos, equipo: {} });
+    const vestido = heroUnit({ ...datos, equipo: EQUIPO_BASE });
+    // Espada +2, brazal +1/+1, cota +2.
+    expect(vestido.attack).toBe(desnudo.attack + 3);
+    expect(vestido.defense).toBe(desnudo.defense + 3);
+    expect(vestido.hp).toBe(desnudo.hp);
+  });
+});
+
+// ---------------------------------------------------------------- héroe
+
+describe('el héroe nace equipado (decisión del usuario sobre el plan)', () => {
+  it('el inicial, el contratado y el de `heroeRecienHecho` llevan el equipo base y la mochila vacía', () => {
+    const state = newGame({ seed: 7 });
+    for (const h of state.heroes) {
+      expect(h.equipo).toEqual(EQUIPO_BASE);
+      expect(h.mochila).toEqual([]);
+    }
+    const nuevo = heroeRecienHecho({
+      id: 'h',
+      owner: 0,
+      name: 'H',
+      faction: 'knight',
+      at: { x: 0, y: 0 },
+      experience: 220,
+      tipo: 'caballero',
+    });
+    expect(nuevo.equipo).toEqual(EQUIPO_BASE);
+
+    const base = baseOf(state, 0)!;
+    state.heroes = state.heroes.filter((h) => h.owner !== 0);
+    accion(state, { type: 'hire_hero', town: base.id }, ctx(7));
+    const contratado = heroesOf(state, 0)[0]!;
+    expect(contratado.equipo).toEqual(EQUIPO_BASE);
+  });
+
+  it('el veterano que asciende nace con el equipo base y sus piezas propias van a su mochila', () => {
+    const state = newGame({ seed: 11 });
+    const base = baseOf(state, 1)!;
+    base.garrison = [
+      ...base.garrison,
+      {
+        creature: 'skeleton',
+        veterania: hoja('veterano-9', 220, {
+          equipo: { arma: 'garrote', accesorio: 'talisman_vital' },
+        }),
+      },
+    ];
+    const nacido = ascenderVeterano(state, 1, 'veterano-9', {
+      name: 'Hueso',
+      story: 'Volvió.',
+      heroType: 'nigromante',
+    });
+    expect(nacido.equipo).toEqual(EQUIPO_BASE);
+    expect(nacido.mochila).toEqual(['garrote', 'talisman_vital']);
+  });
+});
+
+// ---------------------------------------------------------------- acciones
+
+describe('equipar y desequipar (C1, C4)', () => {
+  it('equipar a `creature` abre la hoja del primer novato: id del contador y experiencia 0', () => {
+    const { state, c, hero } = enLaArmeria();
+    hero.army = [{ creature: 'pikeman' }, { creature: 'peasant' }, { creature: 'peasant' }];
+    hero.mochila = ['garrote'];
+    const antes = state.siguienteVeterano;
+    accion(state, { type: 'equip', hero: hero.id, item: 'garrote', creature: 'peasant' }, c);
+    expect(hero.army[1]).toEqual({
+      creature: 'peasant',
+      veterania: {
+        id: `veterano-${antes}`,
+        experiencia: 0,
+        batallas: 0,
+        bajas: 0,
+        heroes: [],
+        equipo: { arma: 'garrote' },
+      },
+    });
+    expect(hero.army[2]).toEqual({ creature: 'peasant' });
+    expect(state.siguienteVeterano).toBe(antes + 1);
+    expect(hero.mochila).toEqual([]);
+    // Equipar es estado y no un hecho: la crónica no cuenta nada.
+    expect(state.log.at(-1)?.kind).not.toBe('loot_found');
+  });
+
+  it('lo que ocupaba el hueco vuelve a la mochila, en el héroe y en un veterano', () => {
+    const { state, c, hero } = enLaArmeria();
+    hero.army = [
+      { creature: 'pikeman', veterania: hoja('veterano-1', 30, { equipo: { arma: 'garrote' } }) },
+    ];
+    hero.mochila = ['estoque_ligero', 'hacha_de_lenador'];
+    accion(state, { type: 'equip', hero: hero.id, item: 'estoque_ligero' }, c);
+    expect(hero.equipo.arma).toBe('estoque_ligero');
+    expect(hero.mochila).toEqual(['hacha_de_lenador', 'espada_de_armeria']);
+    accion(
+      state,
+      { type: 'equip', hero: hero.id, item: 'hacha_de_lenador', veteran: 'veterano-1' },
+      c,
+    );
+    expect(hero.army[0]!.veterania?.equipo).toEqual({ arma: 'hacha_de_lenador' });
+    expect(hero.mochila).toEqual(['espada_de_armeria', 'garrote']);
+    // Y conserva lo vivido: la hoja es la misma, con la pieza cambiada.
+    expect(hero.army[0]!.veterania?.experiencia).toBe(30);
+
+    accion(state, { type: 'unequip', hero: hero.id, slot: 'arma', veteran: 'veterano-1' }, c);
+    expect(hero.army[0]!.veterania?.equipo).toEqual({});
+    accion(state, { type: 'unequip', hero: hero.id, slot: 'accesorio' }, c);
+    expect(hero.equipo).toEqual({ arma: 'estoque_ligero', armadura: 'cota_de_malla' });
+    expect(hero.mochila).toEqual([
+      'espada_de_armeria',
+      'garrote',
+      'hacha_de_lenador',
+      'brazal_de_armeria',
+    ]);
+  });
+
+  it('"creature" pide un novato SIN HOJA, no uno sin piezas: lo que dice el contrato es lo que hace', () => {
+    // Un piquero con hoja y sin nada puesto no es «de ese tipo sin id»: se le
+    // nombra por su id. La prosa del contrato decía «que no lleve nada», y eso
+    // es otra regla.
+    const { state, c, hero } = enLaArmeria();
+    hero.army = [{ creature: 'pikeman', veterania: hoja('veterano-1', 30) }];
+    hero.mochila = ['garrote'];
+    expect(() =>
+      accion(state, { type: 'equip', hero: hero.id, item: 'garrote', creature: 'pikeman' }, c),
+    ).toThrow(/no lleva ninguna unidad de Piquero sin id: .* se le nombra con "veteran"/);
+    expect(RESPONSE_FORMAT.adventure_turn).toContain('que todavía no tenga id');
+  });
+
+  it('los rechazos dicen por qué, y no tocan nada', () => {
+    const { state, c, hero } = enLaArmeria();
+    hero.army = [
+      { creature: 'pikeman', veterania: hoja('veterano-1', 30, { equipo: { arma: 'garrote' } }) },
+    ];
+    hero.mochila = ['garrote'];
+    const foto = JSON.stringify({ heroes: state.heroes, siguiente: state.siguienteVeterano });
+    const rechaza = (a: AdventureAction, frase: RegExp) =>
+      expect(() => accion(state, a, c)).toThrow(frase);
+    rechaza(
+      { type: 'equip', hero: hero.id, item: 'coraza_bendita' },
+      /no lleva Coraza bendita en la mochila/,
+    );
+    rechaza(
+      { type: 'equip', hero: hero.id, item: 'excalibur' },
+      /no existe ninguna pieza "excalibur"/,
+    );
+    rechaza(
+      { type: 'equip', hero: hero.id, item: 'garrote', veteran: 'veterano-7' },
+      /no lleva a nadie con el id "veterano-7"/,
+    );
+    rechaza(
+      { type: 'equip', hero: hero.id, item: 'garrote', creature: 'pikeman' },
+      /no lleva ninguna unidad de Piquero sin id/,
+    );
+    // Sin ninguno de ese tipo, la frase no manda a buscar un id que no hay (M4).
+    expect(() =>
+      accion(state, { type: 'equip', hero: hero.id, item: 'garrote', creature: 'bone_dragon' }, c),
+    ).toThrow(/no lleva ninguna unidad de Dragón óseo en su tropa$/);
+    rechaza(
+      { type: 'equip', hero: hero.id, item: 'garrote', veteran: 'veterano-1', creature: 'pikeman' },
+      /con "veteran" o con "creature", no con los dos/,
+    );
+    rechaza(
+      { type: 'unequip', hero: hero.id, slot: 'armadura', veteran: 'veterano-1' },
+      /esa unidad de Piquero no lleva nada en el hueco armadura/,
+    );
+    rechaza(
+      { type: 'equip', hero: heroesOf(state, 1)[0]!.id, item: 'garrote' },
+      /no es de tu bando/,
+    );
+    expect(JSON.stringify({ heroes: state.heroes, siguiente: state.siguienteVeterano })).toBe(foto);
+  });
+
+  it('licenciar devuelve a la mochila lo que llevaban, y se va antes el que lleva menos', () => {
+    const { state, c, hero } = enLaArmeria();
+    hero.army = [
+      { creature: 'peasant', veterania: hoja('veterano-1', 0, { equipo: { arma: 'garrote' } }) },
+      { creature: 'peasant' },
+    ];
+    accion(state, { type: 'dismiss', hero: hero.id, creature: 'peasant', count: 1 }, c);
+    // Los dos sin experiencia: se va el desnudo, aunque el equipado sea el primero.
+    expect(hero.army).toHaveLength(1);
+    expect(hero.army[0]!.veterania?.id).toBe('veterano-1');
+    expect(hero.mochila).toEqual([]);
+    accion(state, { type: 'dismiss', hero: hero.id, creature: 'peasant', count: 1 }, c);
+    expect(hero.army).toEqual([]);
+    expect(hero.mochila).toEqual(['garrote']);
+  });
+});
+
+describe('la armería (C4)', () => {
+  it('compra una pieza de armería para la mochila del héroe que está dentro, y la cobra', () => {
+    const { state, c, hero } = enLaArmeria();
+    const base = baseOf(state, 0)!;
+    const oro = state.players[0]!.resources.gold;
+    accion(state, { type: 'buy_item', town: base.id, item: 'cota_de_malla' }, c);
+    expect(hero.mochila).toEqual(['cota_de_malla']);
+    expect(state.players[0]!.resources.gold).toBe(oro - (pieza('cota_de_malla').precio.gold ?? 0));
+    expect(state.log.at(-1)).toMatchObject({
+      kind: 'item_bought',
+      hero: hero.id,
+      item: 'cota_de_malla',
+      actor: 0,
+    });
+  });
+
+  it('los motivos de no poder comprar: sin armería, sin héroe, pieza de botín, sin oro, pueblo ajeno', () => {
+    const { state, hero } = enLaArmeria();
+    const base = baseOf(state, 0)!;
+    expect(buyBlocker(state, base, 'cota_de_malla', 0)).toBeNull();
+    expect(buyBlocker(state, base, 'talisman_vital', 0)).toMatch(
+      /no vende Talismán vital: es especial y solo cae como botín/,
+    );
+    expect(buyBlocker(state, base, 'nada', 0)).toMatch(/no existe ninguna pieza "nada"/);
+    state.players[0]!.resources = { ...state.players[0]!.resources, gold: 10 };
+    expect(buyBlocker(state, base, 'cota_de_malla', 0)).toMatch(
+      /Cota de malla cuesta 800 oro y no te alcanza/,
+    );
+    expect(buyBlocker(state, base, 'cota_de_malla', 1)).toMatch(/no es de tu bando/);
+    hero.at = { x: 0, y: 0 };
+    expect(buyBlocker(state, base, 'cota_de_malla', 0)).toMatch(/no hay ningún héroe tuyo/);
+    base.buildings.splice(base.buildings.indexOf('armory'), 1);
+    expect(buyBlocker(state, base, 'cota_de_malla', 0)).toMatch(
+      /no tiene armería: constrúyela primero/,
+    );
+  });
+});
+
+// ---------------------------------------------------------------- botín
+
+/** El héroe del 0 en la región del grupo más fuerte, con un paso a otra casilla de ella. */
+function enRegionDeAsaltantes(seed: number) {
+  const state = newGame({ seed });
+  const c = ctx(seed);
+  const grupo = [...state.raiders].sort((a, b) => b.troops.length - a.troops.length)[0]!;
+  const region = regionDeCasilla(state.map, grupo.at);
+  const libre = (p: Point): boolean =>
+    isEnterable(state.map, p) &&
+    regionDeCasilla(state.map, p) === region &&
+    !tocaUnNodo(state.map, p) &&
+    objectAt(state.map, p) === undefined &&
+    !state.raiders.some((r) => pointKey(r.at) === pointKey(p)) &&
+    !state.heroes.some((h) => pointKey(h.at) === pointKey(p));
+  for (let y = 0; y < state.map.height; y++) {
+    for (let x = 0; x < state.map.width; x++) {
+      const desde = { x, y };
+      if (!libre(desde)) continue;
+      for (const [dx, dy] of VECINAS) {
+        const hasta = { x: x + dx, y: y + dy };
+        if (!libre(hasta)) continue;
+        const hero = heroesOf(state, 0)[0]!;
+        hero.at = desde;
+        hero.movePoints = 5000;
+        return { state, c, hero, grupo, hasta };
+      }
+    }
+  }
+  throw new Error(`la semilla ${seed} no deja dos casillas libres juntas en la región`);
+}
+
+describe('el botín (C3)', () => {
+  it('repeler una emboscada deja una pieza en la mochila y un `loot_found` de asaltantes', () => {
+    const { state, c, hero, hasta } = enRegionDeAsaltantes(11);
+    hero.army = [];
+    hero.equipo = {};
+    accion(state, { type: 'move_hero', hero: hero.id, to: hasta }, c);
+    const pending = state.pendingBattle!;
+    expect(pending.attacker.kind).toBe('raider');
+    // Se cierra a favor del héroe a mano: lo que se prueba es el reparto.
+    for (const s of pending.battle.stacks) {
+      if (s.side === 'attacker') {
+        s.count = 0;
+        s.topHp = 0;
+      }
+    }
+    pending.battle.finished = { winner: 'defender' };
+    settleBattle(state, c);
+    const botin = state.log.filter((e) => e.kind === 'loot_found');
+    expect(botin).toHaveLength(1);
+    expect(botin[0]).toMatchObject({ hero: hero.id, from: 'raider', actor: 0 });
+    expect(heroById(state, hero.id).mochila).toEqual([(botin[0] as { item: string }).item]);
+    expect(pieza((botin[0] as { item: string }).item).calidad).not.toBe('armeria');
+  });
+
+  it('vencer a un grupo atacándolo deja una pieza', () => {
+    const { state, c, hero, grupo } = enRegionDeAsaltantes(11);
+    hero.army = ejercito({ creature: 'paladin', count: 6 });
+    forzarBatalla(state, c, hero, grupo.at);
+    expect(state.pendingBattle?.foe).toEqual({ kind: 'raider', raiderId: grupo.id });
+    resolvePendingBattle(state, c);
+    expect(state.log.filter((e) => e.kind === 'loot_found')).toMatchObject([
+      { from: 'raider', hero: hero.id },
+    ]);
+    expect(hero.mochila).toHaveLength(1);
+  });
+
+  it('tomar una ciudad neutral guarnecida deja una pieza; una rival guarnecida, no', () => {
+    const state = newGame({ seed: 7 });
+    const c = ctx(7);
+    const hero = heroesOf(state, 0)[0]!;
+    hero.army = ejercito({ creature: 'paladin', count: 6 });
+    const neutral = state.towns.find((t) => t.owner === null && t.garrison.length > 0)!;
+    forzarBatalla(state, c, hero, neutral.at);
+    resolvePendingBattle(state, c);
+    expect(neutral.owner).toBe(0);
+    expect(state.log.filter((e) => e.kind === 'loot_found')).toMatchObject([
+      { from: 'town', hero: hero.id },
+    ]);
+
+    // La base del rival, guarnecida y sin su héroe dentro: se toma, sin botín.
+    const otro = newGame({ seed: 7 });
+    const c2 = ctx(7);
+    const mio = heroesOf(otro, 0)[0]!;
+    mio.army = ejercito({ creature: 'paladin', count: 6 });
+    const suya = baseOf(otro, 1)!;
+    heroesOf(otro, 1)[0]!.at = { x: 0, y: 0 };
+    forzarBatalla(otro, c2, mio, suya.at);
+    resolvePendingBattle(otro, c2);
+    expect(suya.owner).toBe(0);
+    expect(otro.log.some((e) => e.kind === 'loot_found')).toBe(false);
+  });
+
+  it('misma semilla, misma pieza; y el botín no se come tiradas de batalla', () => {
+    const jugar = (conBotin: boolean) => {
+      const state = newGame({ seed: 7 });
+      const c = ctx(7);
+      const hero = heroesOf(state, 0)[0]!;
+      hero.army = ejercito({ creature: 'paladin', count: 6 });
+      const neutral = state.towns.find((t) => t.owner === null && t.garrison.length > 0)!;
+      if (!conBotin) neutral.owner = 1;
+      forzarBatalla(state, c, hero, neutral.at);
+      resolvePendingBattle(state, c);
+      return {
+        item: state.log.find((e) => e.kind === 'loot_found'),
+        // La siguiente tirada del rng de la partida: si el botín tirara de él,
+        // aquí saldría otra.
+        siguiente: c.rng.next(),
+      };
+    };
+    const a = jugar(true);
+    const b = jugar(true);
+    expect(a.item).toEqual(b.item);
+    expect(a.siguiente).toBe(jugar(false).siguiente);
+  });
+});
+
+// ---------------------------------------------------------------- batalla
+
+describe('el equipo vive en el individuo (C1)', () => {
+  it('quien sobrevive vuelve con su equipo; quien muere lo pierde', () => {
+    const state = newGame({ seed: 31 });
+    const c = ctx(31);
+    const hero = heroesOf(state, 0)[0]!;
+    hero.army = [
+      { creature: 'pikeman', veterania: hoja('veterano-1', 0, { equipo: { arma: 'garrote' } }) },
+      {
+        creature: 'pikeman',
+        veterania: hoja('veterano-2', 0, { equipo: { armadura: 'cota_de_malla' } }),
+      },
+    ];
+    ponerMonstruo(state, 'peasant', 1);
+    forzarBatalla(state, c, hero);
+    const b = state.pendingBattle!.battle;
+    const muerto = stackById(b, 'attacker-1');
+    muerto.count = 0;
+    muerto.topHp = 0;
+    for (const s of b.stacks) {
+      if (s.side === 'defender') {
+        s.count = 0;
+        s.topHp = 0;
+      }
+    }
+    b.finished = { winner: 'attacker' };
+    settleBattle(state, c);
+    const army = heroById(state, hero.id).army;
+    expect(army).toHaveLength(1);
+    expect(army[0]!.veterania).toMatchObject({
+      id: 'veterano-1',
+      batallas: 2,
+      equipo: { arma: 'garrote' },
+    });
+  });
+});
+
+// ---------------------------------------------------------------- IA
+
+describe('la IA compra y equipa (C5)', () => {
+  it('pone en la tropa lo de la mochila que mejora a alguien, y compra con tope por día', () => {
+    const { state, c, hero } = enLaArmeria();
+    hero.army = [{ creature: 'peasant' }, { creature: 'swordsman' }];
+    hero.mochila = ['garrote'];
+    // El garrote no mejora al héroe (lleva la espada): va al de más nivel de la tropa.
+    expect(siguienteDeEquipo(state, 0)).toEqual({
+      type: 'equip',
+      hero: hero.id,
+      item: 'garrote',
+      creature: 'swordsman',
+    });
+    for (let n = 0; n < 30; n++) {
+      const a = siguienteDeEquipo(state, 0);
+      if (a === null) break;
+      accion(state, a, c);
+    }
+    expect(siguienteDeEquipo(state, 0)).toBeNull();
+    // Con 20 000 de oro le sobra para comprarles a dos novatos, pero no más de
+    // `COMPRAS_POR_HEROE_Y_DIA` en el día: sin tope compraba 18 al día (I2).
+    const compradas = state.log.filter((e) => e.kind === 'item_bought');
+    expect(compradas).toHaveLength(COMPRAS_POR_HEROE_Y_DIA);
+    expect(state.players[0]!.resources.gold).toBeGreaterThanOrEqual(ORO_DE_SOBRA_PARA_NOVATOS);
+  });
+
+  it('a un novato solo le compra si le sobra mucho oro; al veterano, con lo que cuesta un héroe (I2)', () => {
+    // Con 5 000 de oro: tras pagar 800 queda más que un héroe (2 500) y menos
+    // que `ORO_DE_SOBRA_PARA_NOVATOS`. La tropa de novatos no se lleva nada:
+    // muere antes que nadie y la pieza con ella.
+    const { state, c, hero } = enLaArmeria();
+    state.players[0]!.resources = { ...state.players[0]!.resources, gold: 5000 };
+    hero.army = [{ creature: 'peasant' }, { creature: 'pikeman' }];
+    expect(siguienteDeEquipo(state, 0)).toBeNull();
+
+    // Un veterano de nivel 2 —ha sobrevivido a una batalla— sí, y la pieza le
+    // llega a él y no a otro.
+    hero.army = [
+      { creature: 'peasant' },
+      { creature: 'pikeman', veterania: hoja('veterano-1', 20) },
+    ];
+    const compra = siguienteDeEquipo(state, 0);
+    expect(compra).toMatchObject({ type: 'buy_item', item: 'espada_de_armeria' });
+    accion(state, compra!, c);
+    expect(siguienteDeEquipo(state, 0)).toEqual({
+      type: 'equip',
+      hero: hero.id,
+      item: 'espada_de_armeria',
+      veteran: 'veterano-1',
+    });
+
+    // Y si quien la recibiría al repartir es un novato —un espadachín, de más
+    // nivel de catálogo que un campesino veterano—, no se compra: comprarla «para
+    // el veterano» y ponérsela al novato sería el mismo derroche por otra puerta.
+    hero.mochila = [];
+    hero.army = [
+      { creature: 'swordsman' },
+      { creature: 'peasant', veterania: hoja('veterano-2', 20) },
+    ];
+    expect(siguienteDeEquipo(state, 0)).toBeNull();
+  });
+
+  it('un personaje en la tropa no la tumba: se aparta antes de mirar su nivel', () => {
+    // Antes se calculaban las cifras de todos y después se filtraba, y las de un
+    // personaje piden su perfil: sin `characters` a mano, `characterOf` lanzaba.
+    const { state, hero } = enLaArmeria();
+    hero.army = [{ creature: CHARACTER_BODY, member: 'aren' }, { creature: 'pikeman' }];
+    hero.mochila = ['garrote'];
+    expect(siguienteDeEquipo(state, 0)).toEqual({
+      type: 'equip',
+      hero: hero.id,
+      item: 'garrote',
+      creature: 'pikeman',
+    });
+  });
+
+  it('una pieza especial mejora al héroe, y lo que se quita lo hereda la tropa', () => {
+    const { state, c, hero } = enLaArmeria();
+    state.players[0]!.resources = { ...state.players[0]!.resources, gold: 0 };
+    hero.army = [{ creature: 'pikeman' }];
+    hero.mochila = ['talisman_vital'];
+    accion(state, siguienteDeEquipo(state, 0)!, c);
+    expect(hero.equipo.accesorio).toBe('talisman_vital');
+    expect(siguienteDeEquipo(state, 0)).toMatchObject({
+      item: 'brazal_de_armeria',
+      creature: 'pikeman',
+    });
+  });
+});
+
+describe('la mochila se escribe en un sitio (M2)', () => {
+  it('fuera de `aLaMochila` nadie le añade nada en `core`: solo se saca con `sacarDeLaMochila`', () => {
+    // El docstring de `aLaMochila` y CLAUDE.md la llamaban «la única escritura
+    // que añade» mientras `repartirBotin` añadía por su cuenta. Se mira el texto
+    // porque es una frase sobre DÓNDE se escribe, no sobre qué resulta.
+    const raiz = fileURLToPath(new URL('../src/core/', import.meta.url));
+    const fuera: string[] = [];
+    for (const f of readdirSync(raiz, { recursive: true }) as string[]) {
+      if (!f.endsWith('.ts')) continue;
+      readFileSync(`${raiz}${f}`, 'utf8')
+        .split('\n')
+        .forEach((linea, i) => {
+          if (!/\.mochila\s*=[^=]/.test(linea)) return;
+          if (linea.includes('= sacarDeLaMochila(')) return;
+          if (
+            linea.trim() === 'if (nuevas.length > 0) hero.mochila = [...hero.mochila, ...nuevas];'
+          ) {
+            return;
+          }
+          fuera.push(`${f}:${i + 1}: ${linea.trim()}`);
+        });
+    }
+    expect(fuera).toEqual([]);
+  });
+});

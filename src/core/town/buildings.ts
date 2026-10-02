@@ -25,6 +25,12 @@ export interface Building {
   readonly mageGuildLevel?: number;
   readonly grantsWalls?: boolean;
   readonly moraleBonus?: number;
+  /**
+   * Vende equipo de calidad de armería (`hero/equipo.ts`) al héroe propio que
+   * esté dentro. Es la armería, que pidió el usuario («Edificio Armería en la
+   * ciudad»); su coste es inventado y lo dice el `_comment` del JSON.
+   */
+  readonly sellsEquipment?: boolean;
 }
 
 const byId = new Map<string, Building>();
@@ -42,6 +48,7 @@ for (const raw of buildingsJson.buildings) {
     ...('mageGuildLevel' in raw ? { mageGuildLevel: raw.mageGuildLevel as number } : {}),
     ...('grantsWalls' in raw ? { grantsWalls: raw.grantsWalls as boolean } : {}),
     ...('moraleBonus' in raw ? { moraleBonus: raw.moraleBonus as number } : {}),
+    ...('sellsEquipment' in raw ? { sellsEquipment: raw.sellsEquipment as boolean } : {}),
   });
 }
 

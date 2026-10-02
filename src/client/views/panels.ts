@@ -24,14 +24,29 @@ import {
   type Side,
 } from '@core/battle/types.js';
 import { creature, isShooter, nombreDeTipoDeHeroe } from '@core/data.js';
+import {
+  cifrasDePieza,
+  destinoDeEquipo,
+  NOMBRE_DE_CALIDAD,
+  PIEZAS_DE_ARMERIA,
+  pieza,
+} from '@core/hero/equipo.js';
 import { nivelDe, nivelDeHeroe, umbral } from '@core/hero/experiencia.js';
-import { maxMana, maxMovePoints } from '@core/hero/hero.js';
+import { type Hero, heroUnit, maxMana, maxMovePoints } from '@core/hero/hero.js';
 import { elQueSeIria, type Personajes, type TroopGroup, troopSummary } from '@core/hero/troop.js';
 import type { DefeatReason, GameEventDraft } from '@core/state/events.js';
+import { buyBlocker } from '@core/state/game.js';
 import { building } from '@core/town/buildings.js';
-import { dailyIncome, dwellings, mageGuildLevel, type Town, townSpells } from '@core/town/town.js';
-import type { Army } from '@core/types.js';
-import { RESOURCE_KINDS } from '@core/types.js';
+import {
+  dailyIncome,
+  dwellings,
+  mageGuildLevel,
+  type Town,
+  tieneArmeria,
+  townSpells,
+} from '@core/town/town.js';
+import type { Army, Hueco } from '@core/types.js';
+import { describirCoste, HUECOS, NOMBRE_DE_RECURSO, RESOURCE_KINDS } from '@core/types.js';
 import { type Desenlace, desenlaceDe } from '../desenlace.js';
 import { fondoDeColor, type Html, html, NADA, srcDeImagen, unir } from '../html.js';
 import { asset } from '../render/assets.js';
@@ -197,6 +212,21 @@ function filaLiderazgo({ ocupado, tope }: { ocupado: number; tope: number }): Ht
     <progress class="liderazgo" max="${tope}" value="${Math.min(ocupado, tope)}"></progress>`;
 }
 
+/**
+ * «3 (+3) / 3 (+3)»: con lo que el héroe pelea sin nada puesto —sus atributos más
+ * lo que le da el nivel— y, entre paréntesis, lo que le suma el equipo. Las dos
+ * cifras salen de `heroUnit`, la misma puerta con la que entra en batalla: sumar
+ * aquí `hero.attack + sumaDeEquipo` se saltaba el nivel, y a un héroe de nivel 6
+ * la ficha le enseñaba uno menos de lo que pegaba.
+ */
+function ataqueYDefensa(hero: Hero): string {
+  const puesto = heroUnit(hero);
+  const desnudo = heroUnit({ ...hero, equipo: {} });
+  const cifra = (base: number, total: number) =>
+    total > base ? `${base} (+${total - base})` : `${base}`;
+  return `${cifra(desnudo.attack, puesto.attack)} / ${cifra(desnudo.defense, puesto.defense)}`;
+}
+
 function renderAdventurePanel(session: Session): Html {
   const hero = session.selectedHero;
   const heroes = session.myHeroes();
@@ -212,13 +242,14 @@ function renderAdventurePanel(session: Session): Html {
         ${filaLiderazgo(session.liderazgo({ heroe: hero.id }))}
         <div class="row"><span class="label">Movimiento</span><span>${hero.movePoints} / ${maxMovePoints(hero, session.state.characters)}</span></div>
         <div class="row"><span class="label">Maná</span><span>${hero.mana} / ${maxMana(hero)}</span></div>
-        <div class="row"><span class="label">Ataque / Defensa</span><span>${hero.attack} / ${hero.defense}</span></div>
+        <div class="row"><span class="label">Ataque / Defensa</span><span>${ataqueYDefensa(hero)}</span></div>
         <div class="row"><span class="label">Poder / Conocimiento</span><span>${hero.spellPower} / ${hero.knowledge}</span></div>
         <div class="row"><span class="label">Experiencia</span><span>${experienciaDeHeroe(hero.experience)}</span></div>
         <h3>Hechizos</h3>
         ${renderSpellbook(hero.spells)}
+        ${renderEquipoDelHeroe(hero, session.selectedItem)}
         <h3>Tropa · ${hero.army.length} ${hero.army.length === 1 ? 'individuo' : 'individuos'}</h3>
-        ${renderArmy(hero.army, session.state.characters)}`;
+        ${renderTropaEquipable(hero, session.selectedItem, session.state.characters)}`;
 
   const listaHeroes =
     heroes.length <= 1
@@ -302,6 +333,121 @@ function lineaDeVeterania(g: TroopGroup): Html {
   return html`<span class="veterania">${quien} · ${falta}</span>`;
 }
 
+/** El nombre de cada hueco, para pintarlo. */
+const NOMBRE_DE_HUECO: Readonly<Record<Hueco, string>> = {
+  arma: 'Arma',
+  armadura: 'Armadura',
+  accesorio: 'Accesorio',
+};
+
+/**
+ * Lo que lleva puesto el individuo de una fila, en una línea, o nada. Solo la
+ * puede tener una fila de uno —quien lleva algo tiene hoja y va solo
+ * (`troopSummary`)—, y por eso basta con mirar su hoja. Con `heroId`, debajo va
+ * una línea aparte con un botón por pieza para devolverla a la mochila de ese
+ * héroe: **una sola línea de equipo**, con o sin los botones.
+ *
+ * Los botones no van dentro de «Lleva:»: metidos entre los nombres eran «×» de
+ * tamaño completo con la coma pegada detrás («[×] , Cota de malla»). En su línea
+ * llevan el nombre de lo que quitan, que es lo que el «×» solo no decía.
+ */
+function lineaDeEquipo(g: TroopGroup, heroId?: string): Html {
+  const hoja = g.veterania;
+  if (hoja === undefined) return NADA;
+  const puestas = HUECOS.flatMap((hueco) => {
+    const id = hoja.equipo?.[hueco];
+    return id === undefined ? [] : [{ hueco, nombre: pieza(id).nombre }];
+  });
+  if (puestas.length === 0) return NADA;
+  const lleva = html`<span class="veterania">Lleva: ${puestas.map((p) => p.nombre).join(', ')}</span>`;
+  if (heroId === undefined) return lleva;
+  const botones = unir(
+    puestas.map(
+      (p) =>
+        html`<button data-action="unequip" data-hero="${heroId}" data-slot="${p.hueco}" data-veteran="${hoja.id}" title="Quitársela y guardarla en la mochila">× ${p.nombre}</button>`,
+    ),
+  );
+  return html`${lleva}<span class="quitar-equipo">${botones}</span>`;
+}
+
+/**
+ * Una fila de la tropa: el nombre, la marca de tirador, la veteranía, lo que
+ * lleva y el recuento, con lo que cada panel le añada —un botón al lado del
+ * recuento, los «×» del equipo—. **La única fila de tropa**: la comparten la del
+ * mapa, la que licencia y la que equipa.
+ */
+function filaDeTropa(
+  g: TroopGroup,
+  extras: { readonly boton?: Html; readonly quitarDe?: string } = {},
+): Html {
+  const marca = isShooter(g.unit) ? ' ↑' : '';
+  return html`<div class="stack"><span>${g.unit.name}${marca}${lineaDeVeterania(g)}${lineaDeEquipo(g, extras.quitarDe)}</span><span class="count">${g.count}${extras.boton ?? NADA}</span></div>`;
+}
+
+/**
+ * El equipo del héroe —los tres huecos, con «×» para quitar— y su mochila, donde
+ * cada pieza se pulsa para elegirla y ponérsela a alguien. Sin reglas: el motivo
+ * de un rechazo lo escribe el núcleo y sale en la barra.
+ */
+function renderEquipoDelHeroe(hero: Hero, elegida: string | null): Html {
+  const huecos = unir(
+    HUECOS.map((hueco) => {
+      const id = hero.equipo[hueco];
+      if (id === undefined) {
+        return html`<div class="stack empty"><span>${NOMBRE_DE_HUECO[hueco]}: —</span></div>`;
+      }
+      const p = pieza(id);
+      return html`<div class="stack"><span>${NOMBRE_DE_HUECO[hueco]}: ${p.nombre}<span class="veterania">${cifrasDePieza(p)}</span></span><span class="count"><button data-action="unequip" data-hero="${hero.id}" data-slot="${hueco}" title="Quitársela y guardarla en la mochila">×</button></span></div>`;
+    }),
+  );
+  const mochila =
+    hero.mochila.length === 0
+      ? html`<div class="stack empty"><span>Vacía: el botín y lo que compres caen aquí</span></div>`
+      : unir(
+          hero.mochila.map((id) => {
+            const p = pieza(id);
+            const marca = id === elegida ? ' ◆' : '';
+            return html`<button data-action="select-item" data-item="${id}" class="stack" title="Elegirla para ponérsela a alguien">
+              <span>${p.nombre}${marca}<span class="veterania">${NOMBRE_DE_HUECO[p.hueco]} ${NOMBRE_DE_CALIDAD[p.calidad]} · ${cifrasDePieza(p)}</span></span>
+            </button>`;
+          }),
+        );
+  const ponersela =
+    elegida === null
+      ? NADA
+      : html`<button data-action="equip" data-hero="${hero.id}" class="primary">Ponérsela a ${hero.name}</button>
+        <p class="cost">O pulsa «Equipar» en una fila de la tropa.</p>`;
+  return html`<h3>Equipo</h3><div class="stack-list">${huecos}</div>
+    <h3>Mochila · ${hero.mochila.length}</h3><div class="stack-list">${mochila}</div>${ponersela}`;
+}
+
+/**
+ * La tropa del héroe en el mapa, con lo que lleva cada uno y, si hay una pieza
+ * elegida, un «Equipar» por fila. En la fila de un individuo con hoja se le pone
+ * a ÉL (`veteran`); en la de novatos, al primero sin equipar de ese tipo
+ * (`creature`), que es a quien se la pone el núcleo (`quienRecibe`).
+ */
+function renderTropaEquipable(hero: Hero, elegida: string | null, characters: Personajes): Html {
+  if (hero.army.length === 0) return renderArmy(hero.army, characters);
+  // A quién iría la pieza desde esta fila lo dice el núcleo (`destinoDeEquipo`):
+  // el de hoja, por su id; una fila de novatos, por su tipo. Un personaje no.
+  const boton = (g: TroopGroup): Html => {
+    if (elegida === null || g.member !== undefined) return NADA;
+    if (g.veterania !== undefined) {
+      return html` <button data-action="equip" data-hero="${hero.id}" data-veteran="${g.veterania.id}">Equipar</button>`;
+    }
+    return 'motivo' in destinoDeEquipo(hero, { creature: g.creature })
+      ? NADA
+      : html` <button data-action="equip" data-hero="${hero.id}" data-creature="${g.creature}">Equipar</button>`;
+  };
+  const filas = unir(
+    troopSummary(hero.army, characters).map((g) =>
+      filaDeTropa(g, { boton: boton(g), quitarDe: hero.id }),
+    ),
+  );
+  return html`<div class="stack-list">${filas}</div>`;
+}
+
 /**
  * El ejército agrupado: una fila por criatura con cuántos individuos lleva, y
  * una por personaje o por veterano, con su nivel y lo que le falta. Agrupa
@@ -311,12 +457,7 @@ function renderArmy(army: Army, characters: Personajes): Html {
   if (army.length === 0) {
     return html`<div class="stack-list"><div class="stack empty"><span>—</span></div></div>`;
   }
-  const filas = unir(
-    troopSummary(army, characters).map((g) => {
-      const marca = isShooter(g.unit) ? ' ↑' : '';
-      return html`<div class="stack"><span>${g.unit.name}${marca}${lineaDeVeterania(g)}</span><span class="count">${g.count}</span></div>`;
-    }),
-  );
+  const filas = unir(troopSummary(army, characters).map((g) => filaDeTropa(g)));
   return html`<div class="stack-list">${filas}</div>`;
 }
 
@@ -340,15 +481,33 @@ function renderTropaLicenciable(heroId: string, army: Army, characters: Personaj
     return t !== null && t.veterania?.id === g.veterania?.id;
   };
   const filas = unir(
-    grupos.map((g) => {
-      const marca = isShooter(g.unit) ? ' ↑' : '';
-      const boton = seIria(g)
-        ? html` <button data-action="dismiss" data-hero="${heroId}" data-creature="${g.creature}" title="Licenciar uno: de cada tipo se va primero el de menos experiencia">−1</button>`
-        : NADA;
-      return html`<div class="stack"><span>${g.unit.name}${marca}${lineaDeVeterania(g)}</span><span class="count">${g.count}${boton}</span></div>`;
-    }),
+    grupos.map((g) =>
+      filaDeTropa(g, {
+        boton: seIria(g)
+          ? html` <button data-action="dismiss" data-hero="${heroId}" data-creature="${g.creature}" title="Licenciar uno: de cada tipo se va primero el de menos experiencia">−1</button>`
+          : NADA,
+      }),
+    ),
   );
   return html`<div class="stack-list">${filas}</div>`;
+}
+
+/**
+ * Lo que vende la armería del castillo, con su precio y un «Comprar» por pieza,
+ * o nada si no la tiene. Si no se puede comprar —sin héroe dentro, sin oro—, el
+ * motivo lo escribe el núcleo (`buyBlocker`) y va en el `title` del botón, que
+ * se puede pulsar igual para leerlo en la barra.
+ */
+function renderArmeria(session: Session, town: Town): Html {
+  if (!tieneArmeria(town)) return NADA;
+  const filas = unir(
+    PIEZAS_DE_ARMERIA.map((p) => {
+      const motivo = buyBlocker(session.state, town, p.id, session.viewer);
+      return html`<div class="stack"><span>${p.nombre}<span class="veterania">${NOMBRE_DE_HUECO[p.hueco]} · ${cifrasDePieza(p)}</span></span><span class="count">${describirCoste(p.precio)} <button data-action="buy-item" data-item="${p.id}" title="${motivo ?? 'Comprarla para la mochila del héroe que está dentro'}">Comprar</button></span></div>`;
+    }),
+  );
+  return html`<h3>Armería</h3><div class="stack-list">${filas}</div>
+    <p class="cost">Lo comprado va a la mochila del héroe que está dentro; pónselo desde su panel.</p>`;
 }
 
 // ---------------------------------------------------------------- castillo
@@ -399,7 +558,7 @@ function renderTownPanel(session: Session): Html {
           ${filaLiderazgo(session.liderazgo({ heroe: heroeAqui.id }))}
           <p class="cost">Lo que reclutes va a su tropa, hasta su liderazgo. Licencia lo que sobre para hacer sitio a algo mejor.</p>
           ${renderTropaLicenciable(heroeAqui.id, heroeAqui.army, session.state.characters)}`
-    }`;
+    }${renderArmeria(session, town)}`;
 }
 
 /**
@@ -780,7 +939,7 @@ export function renderLog(log: readonly GameEventDraft[], viewer: number): Html 
           return html`<div>— Día ${e.day} —</div>`;
         case 'resource_gained':
           return mio
-            ? html`<div class="win">+${e.amount} ${RESOURCE_NAMES[e.resource].toLowerCase()}</div>`
+            ? html`<div class="win">+${e.amount} ${NOMBRE_DE_RECURSO[e.resource]}</div>`
             : NADA;
         case 'node_captured':
           return html`<div${clase(mio, e.from === viewer)}>${
@@ -818,6 +977,18 @@ export function renderLog(log: readonly GameEventDraft[], viewer: number): Html 
           return html`<div${clase(mio, false)}>${
             mio ? 'Héroe contratado' : `${jugador(e.actor)} contrata un héroe`
           }</div>`;
+        case 'loot_found':
+          // El botín se cuenta porque cae en la mochila, que no se ve en el mapa:
+          // sin esta línea la pieza aparecería en el panel sin saber de dónde.
+          return html`<div${clase(mio, false)}>${
+            mio ? 'Botín' : `${jugador(e.actor)} se lleva un botín`
+          } ${e.from === 'raider' ? 'de unos asaltantes' : 'de una ciudad neutral'}: ${
+            pieza(e.item).nombre
+          }</div>`;
+        case 'item_bought':
+          return html`<div${clase(mio, false)}>${
+            mio ? 'Comprado en la armería' : `${jugador(e.actor)} compra en la armería`
+          }: ${pieza(e.item).nombre}</div>`;
         case 'hero_promoted':
           // El nombre lo escribió el narrador: va en un hueco de texto y la
           // plantilla lo escapa, como el de cualquier pueblo del agente.

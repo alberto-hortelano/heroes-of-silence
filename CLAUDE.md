@@ -12,8 +12,8 @@ El juego es el andamio; lo interesante es lo que se puede enchufar dentro.
 pnpm install
 pnpm dev        # cliente en http://localhost:3100 (juego local contra la IA de reglas)
 pnpm mirar      # MIRAR la partida del agente: /espectador/ contra el servidor
-pnpm verify     # typecheck + lint + 943 tests, 11,9 s: el bucle rápido
-pnpm test       # 943 tests: reglas, batalla, partida completa y contrato del agente
+pnpm verify     # typecheck + lint + 978 tests, 12,6 s: el bucle rápido
+pnpm test       # 978 tests: reglas, batalla, partida completa y contrato del agente
 pnpm typecheck
 pnpm lint       # Biome: formato y lint en una sola pasada, 40 ms
 pnpm format     # lo mismo, arreglando lo que sepa arreglar
@@ -827,6 +827,96 @@ barrido no se mueven —el ancla `0c8fc759…` siguió igual—.
   la casilla de la base se queda sin tropa con guarnición al lado. Medido de
   paso: `pnpm capturas` tarda **~87 s** y no ~40, también en `e9e5d6c` sin este
   ciclo.
+
+## El equipo: botín, armería y héroes que nacen equipados
+
+«Las tropas también ganan experiencia y equipo […] En las ciudades puedes construir
+armería y comprar equipo mejorado para la tropa, los héroes ya lo llevan»
+(`NuevaJugabilidad.md`). **Todo inventado y provisional**: HoMM2 no tiene equipo de
+tropa, y `data/equipo.json` lo dice en su `_comment`.
+
+- **Tres huecos —arma, armadura, accesorio— por individuo y por héroe.** El del
+  individuo vive en su hoja (`Veterania.equipo`): un novato es fungible hasta que
+  lleva algo, y **equiparlo le abre la hoja** (experiencia 0, id del contador de
+  siempre). Así la pieza viaja con él por el mismo camino que la experiencia y
+  muere con él. El héroe lleva `Hero.equipo` y una **mochila** sin tope.
+- **Las cifras se suman en una puerta**: `sumaDeEquipo` suma las piezas y
+  `conEquipo` la aplica; la leen también la ficha del héroe, que enseña «2 (+3)»
+  —enseñaba 2 / 2 a un héroe que peleaba con +3/+3—. `conEquipo` lo llaman
+  `cifrasDelIndividuo` (catálogo o personaje + veteranía + equipo, la usan
+  `troopUnit`, `resolveUnit` y el espectador) y `heroUnit`. Sin piezas devuelve la
+  misma referencia del catálogo. Suma ataque, defensa, PV y velocidad (escalones,
+  sin pasar de `ultra_fast`).
+- **La calidad es una propiedad de la pieza** (decisión del usuario): `comun` y
+  `especial` caen como botín; `armeria` —exactamente una por hueco, lo comprueba
+  el cargador— la vende la armería y **es el equipo base de todo héroe**, que sale
+  de `heroeRecienHecho` (`EQUIPO_BASE`, derivado de la calidad) para el inicial,
+  el contratado y el veterano que asciende, cuyas piezas propias pasan a su
+  mochila. El héroe solo mejora con lo especial.
+- **Botín**: vencer a un grupo de asaltantes (atacando o repeliendo su emboscada)
+  o tomar una ciudad **neutral** guarnecida deja una pieza en la mochila del
+  vencedor (`repartirBotin`, hecho `loot_found`). **Se decide en un solo punto**,
+  `botinDe` al cerrar la batalla: el héroe que gana a un bando neutral que no es un
+  monstruo cobra, leído antes de capturar nada. Tira de **su propia corriente**
+  —semilla de la partida y `siguienteBotin`— y no de `ctx.rng`: medido, con solo
+  el botín el volcado del banco **añade 1 045 líneas `loot_found` y no cambia
+  ninguna**.
+- **Armería** (`armory`, rasgo `sellsEquipment`, coste inventado): con un héroe
+  propio dentro se compra (`buy_item`, hecho `item_bought`). `equip` y `unequip`
+  se hacen en cualquier sitio fuera de batalla, y no son hechos: son estado. El
+  hueco de `unequip` viaja como **texto** y lo valida `unequipBlocker`: con un
+  `z.enum`, un `"casco"` tumbaba el turno entero del agente en vez de descartar
+  esa acción.
+  Licenciar devuelve a la mochila lo que llevaban, y a igual experiencia se va
+  antes el que lleva menos (`elQueSeIria`).
+- **Cuatro puertas únicas** que conviene no saltarse: `destinoDeEquipo` lee
+  `veteran`/`creature` y dice a quién va la pieza (la usan las dos acciones, sus
+  *blockers*, la IA y el panel); `aLaMochila` es la única escritura que añade a
+  una mochila —el botín la saltaba mientras su docstring decía lo contrario; hoy
+  lo vigila un test de `equipo.test.ts`—; `seVende` dice qué vende la armería; y `describirCoste` (en
+  `types.ts`, con `NOMBRE_DE_RECURSO`) es el único formateador de precios del
+  núcleo, del agente y del cliente.
+- **La IA** (`siguienteDeEquipo`, una acción cada vez): pone lo de la mochila al
+  primero al que mejora —el héroe, luego la tropa de más nivel—, y **compra solo
+  para quien sobrevive**: si quien recibiría la pieza al repartir es el héroe o un
+  veterano de nivel 2 o más y le quedan 2 500 de oro; a un novato, solo con
+  `ORO_DE_SOBRA_PARA_NOVATOS` (10 000) tras pagar; y como mucho
+  `COMPRAS_POR_HEROE_Y_DIA` (3). Antes compraba 18 piezas al día para una tropa que
+  caía al día siguiente: 1 187 compras del banco en 14 semillas, 268 en una. La armería va **la última** de la lista de
+  construcción, y es una cifra medida (1 000 semillas, dos tandas): delante de
+  `city_hall` o tras las moradas se construía en 82-88 % de las partidas y la
+  **morada 5 caía a la mitad** (228 → 105-117 de 1 000); la última, en ~11 %, con
+  la morada 5 donde estaba (218 / 246).
+
+Medido con `tools/qa/equipo.ts` y **100 semillas** (decisión del usuario: se
+repite a menudo), 02-10-2026:
+
+| | días (mediana / p90 / máx) | sin terminar | gana j0 | emboscadas | botín (especial) | compradas: media · mediana / p90 / máx · partidas con alguna | puestas en tropa al acabar | armería | morada 5 |
+|---|---|---|---|---|---|---|---|---|---|
+| antes (`2b44289`) | 9 / 18 / 35 | 0 | 46 | 0 | — | — | — | — | 26 |
+| equipo base + botín, sin IA de equipo | 9 / 17 / 25 | 0 | 44 | 0 | 5,03 (1,95) | 0 | 0 | 0 | 25 |
+| IA que compra sin freno | 8 / 15 / 30 | 0 | 43 | 0 | 5,01 (1,95) | 2,46 · 0 / 0 / 111 · 4 | 3,08 | 8 | 25 |
+| ídem, semillas 101-200 | 8 / 19 / 42 | 0 | 50 | 0 | 5,34 (2,03) | 9,41 · 0 / 11 / 268 · 10 | 3,83 | 15 | 18 |
+| **final** (compra solo para quien sobrevive) | **8 / 15 / 30** | **0** | **43** | **0** | 5,01 (1,95) | **0,69 · 0 / 0 / 24 · 4** | 2,35 | 8 | 25 |
+| final, semillas 101-200 | 8 / 19 / 43 | 0 | 49 | 0 | 5,34 (2,03) | **1,52 · 0 / 3 / 66 · 10** | 2,54 | 15 | 18 |
+
+**La media de compras miente si se publica sola**: con la IA sin freno, 2,46 por
+partida eran 4 partidas de 100 comprando y 96 sin comprar nada; la de 268 era una
+sola semilla atascada en comprar, atacar, perder y volver. Lo que queda en la cola
+(66 en la 185) es una partida de 43 días con oro de sobra: el tope de 3 al día es
+el que la frena.
+
+Barrido 0/40 y 0/100. El banco se re-ancló dos veces en el ciclo, ninguna
+commiteada sola: `7c24a8b4…` con la forma comprobada por pasos, y `bd4d4a13…` al
+frenar las compras, con **186 de 200 semillas idénticas** y en las 14 restantes el
+primer hecho distinto **un `item_bought` que ya no ocurre** (ver
+`tools/qa/banco.ts`). Lo que no está: las armas mágicas y las misiones
+secundarias, la moral de las piezas, y que `unitPower` mire ataque y defensa —la
+IA y la emboscada solo ven las piezas de PV—. Y dos cosas que se dejan como están
+hasta que el usuario decida: **la armería se levanta en 8 de 100 partidas** (puesta
+antes en la lista sale en el 82-88 %, pero la morada 5 cae a la mitad), y **las
+piezas de velocidad suben también el movimiento en el mapa**, porque cuentan para
+la criatura más lenta (1100 → 1210 con botas en los cinco de la tropa inicial).
 
 ## Ver jugar al agente, y el marcado que eso abrió
 

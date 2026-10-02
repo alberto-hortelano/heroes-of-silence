@@ -261,6 +261,47 @@ describe('enlace con el agente', () => {
     expect(director.state.current).not.toBe(0);
   });
 
+  it('el agente compra y se equipa por el cable, leyendo solo la petición', async () => {
+    const { link, agent } = await montar((kind, payload) => {
+      if (kind !== 'adventure_turn') return {};
+      const town = payload.towns.find((t: any) => t.armory !== undefined);
+      const hero = payload.heroes[0];
+      const pieza = town.armory.find((a: any) => a.slot === 'armadura').item;
+      return {
+        actions: [
+          { type: 'buy_item', town: town.id, item: pieza },
+          { type: 'equip', hero: hero.id, item: pieza, creature: hero.army[0].creature },
+          { type: 'unequip', hero: hero.id, slot: 'arma' },
+          // Y dos que no valen, que se descartan una a una con el motivo del
+          // núcleo. El hueco inventado tumbaba el turno ENTERO cuando `slot` era
+          // un `z.enum`: ni la compra ni el equipo de arriba llegaban (M3).
+          { type: 'equip', hero: hero.id, item: 'talisman_vital' },
+          { type: 'unequip', hero: hero.id, slot: 'casco' },
+        ],
+      };
+    });
+    const director = new Director(link, { seed: 101, agentPlayers: [0] });
+    const base = director.state.towns.find((t) => t.owner === 0)!;
+    const hero = director.state.heroes.find((h) => h.owner === 0)!;
+    hero.at = base.at;
+    base.buildings.push('armory');
+    director.state.players[0]!.resources = { ...director.state.players[0]!.resources, gold: 20000 };
+
+    const informe = await director.playTurn();
+
+    expect(agent.seen[0]?.kind).toBe('adventure_turn');
+    expect(informe.actions).toBe(3);
+    expect(informe.problems).toHaveLength(2);
+    expect(informe.problems[0]).toMatch(/no lleva Talismán vital en la mochila/);
+    expect(informe.problems[1]).toMatch(
+      /no hay ningún hueco "casco": son arma, armadura, accesorio/,
+    );
+    const equipado = hero.army.find((t) => t.veterania?.equipo !== undefined);
+    expect(equipado?.veterania?.equipo).toEqual({ armadura: 'cota_de_malla' });
+    expect(hero.equipo.arma).toBeUndefined();
+    expect(hero.mochila).toEqual(['espada_de_armeria']);
+  });
+
   it('una acción ilegal se descarta, se le cuenta al agente y el turno sigue', async () => {
     const { link } = await montar((kind, payload) => {
       if (kind !== 'adventure_turn') return {};

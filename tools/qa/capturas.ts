@@ -85,8 +85,13 @@ const SEMILLA = 282;
  * primeras semillas solo seis la tienen; la 668, a (2,−1) del héroe.
  */
 const SEMILLA_MOVIL = 668;
-/** La partida cuya guardia más cercana gana: la batalla que se pierde y la vuelta a la base. */
-const SEMILLA_QUE_PIERDE = 273;
+/**
+ * La partida cuya guardia más cercana gana: la batalla que se pierde y la vuelta
+ * a la base. Era la 273 hasta que el héroe nació con su equipo base (+3/+3) y
+ * empezó a ganarla; de las 1 500 primeras, la guardia más cercana que se alcanza
+ * hoy sigue ganando en la 93, 124, 270, 411… (buscado jugando la sesión).
+ */
+const SEMILLA_QUE_PIERDE = 93;
 /** La de los veteranos: la guardia más cercana deja uno y al día siguiente hay otra. */
 const SEMILLA_VETERANOS = 177;
 /**

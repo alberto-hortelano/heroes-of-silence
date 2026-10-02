@@ -220,6 +220,10 @@ function asaltoConDosCampesinos(
   if (junto === undefined) throw new Error(`semilla ${seed}: la base del 1 no tiene vecina libre`);
   atacante.at = junto;
   atacante.army = [{ creature: 'peasant' }, { creature: 'peasant' }];
+  // Sin su equipo de serie: la sonda mide si la BASE aguanta a un asaltante
+  // flojo, y con +3/+3 del equipo base el héroe solo ya toma la guarnición de
+  // salida —que es una pregunta de equilibrio, no la de este test—.
+  atacante.equipo = {};
   atacante.movePoints = 9000;
   state.current = state.players.findIndex((p) => p.id === 0);
   const c = { rng: createRng(seed) };

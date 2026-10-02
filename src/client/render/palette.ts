@@ -1,6 +1,6 @@
 /** Colores del prototipo. Son marcadores: el arte generado llega en la fase 5. */
 
-import { RESOURCE_KINDS, type ResourceKind, type Resources } from '@core/types.js';
+import { NOMBRE_DE_RECURSO, RESOURCE_KINDS, type ResourceKind } from '@core/types.js';
 
 export const RESOURCE_COLORS: Readonly<Record<ResourceKind, string>> = {
   wood: '#8b5a2b',
@@ -12,15 +12,17 @@ export const RESOURCE_COLORS: Readonly<Record<ResourceKind, string>> = {
   gold: '#d9a441',
 };
 
-export const RESOURCE_NAMES: Readonly<Record<ResourceKind, string>> = {
-  wood: 'Madera',
-  mercury: 'Mercurio',
-  ore: 'Mineral',
-  sulfur: 'Azufre',
-  crystal: 'Cristal',
-  gems: 'Gemas',
-  gold: 'Oro',
-};
+/**
+ * El rótulo de cada recurso: el nombre del núcleo (`NOMBRE_DE_RECURSO`) con
+ * mayúscula. Derivado y no escrito: era la segunda lista de los mismos siete
+ * nombres.
+ */
+export const RESOURCE_NAMES: Readonly<Record<ResourceKind, string>> = Object.fromEntries(
+  RESOURCE_KINDS.map((k) => {
+    const nombre = NOMBRE_DE_RECURSO[k];
+    return [k, nombre.charAt(0).toUpperCase() + nombre.slice(1)];
+  }),
+) as Record<ResourceKind, string>;
 
 /**
  * La marca del comandante —el héroe en el tablero, el que si cae pierde la
@@ -60,12 +62,4 @@ export function playerColor(id: number | null): string {
     );
   }
   return color;
-}
-
-/** Coste en prosa: "2500 oro, 5 madera". Lo comparten paneles y castillo. */
-export function costLabel(cost: Partial<Resources>): string {
-  const partes = RESOURCE_KINDS.filter((k) => (cost[k] ?? 0) > 0).map(
-    (k) => `${cost[k]} ${RESOURCE_NAMES[k].toLowerCase()}`,
-  );
-  return partes.length === 0 ? 'gratis' : partes.join(', ');
 }

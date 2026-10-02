@@ -2,13 +2,22 @@
 import asaltantesJson from '../../data/asaltantes.json' with { type: 'json' };
 import ciudadesJson from '../../data/ciudades.json' with { type: 'json' };
 import creaturesJson from '../../data/creatures.json' with { type: 'json' };
+import equipoJson from '../../data/equipo.json' with { type: 'json' };
 import experienciaJson from '../../data/experiencia.json' with { type: 'json' };
 import habilidadesJson from '../../data/habilidades.json' with { type: 'json' };
 import heroeJson from '../../data/heroe.json' with { type: 'json' };
 import liderazgoJson from '../../data/liderazgo.json' with { type: 'json' };
 import tiposDeHeroeJson from '../../data/tipos-de-heroe.json' with { type: 'json' };
-import type { Creature, CreatureTrait, FactionId, SpeedTier, UnitInfo } from './types.js';
-import { SPEED_TIERS } from './types.js';
+import type {
+  Creature,
+  CreatureTrait,
+  FactionId,
+  Hueco,
+  Resources,
+  SpeedTier,
+  UnitInfo,
+} from './types.js';
+import { HUECOS, RESOURCE_KINDS, SPEED_TIERS } from './types.js';
 
 const byId = new Map<string, Creature>();
 
@@ -569,3 +578,109 @@ export function nombreDeTipoDeHeroe(faction: FactionId, id: string): string {
   }
   return tipo.nombre;
 }
+
+// ---------------------------------------------------------------- equipo
+
+/**
+ * De dónde sale una pieza, que es lo que la calidad decide (decisión del usuario,
+ * 02-10-2026): `comun` cae como botín; `armeria` la vende la armería y es lo que
+ * todo héroe trae de serie —una por hueco, la mejor que se compra—; `especial`
+ * cae como botín y trae otra clase de ventaja. Es una propiedad de la pieza y no
+ * una lista aparte, para que «calidad de armería» se pueda preguntar a la pieza.
+ */
+export const CALIDADES = ['comun', 'armeria', 'especial'] as const;
+
+export type Calidad = (typeof CALIDADES)[number];
+
+/** Una pieza de `data/equipo.json`. **Inventada y provisional**, como dice su `_comment`. */
+export interface Pieza {
+  readonly id: string;
+  readonly nombre: string;
+  readonly hueco: Hueco;
+  readonly calidad: Calidad;
+  readonly ataque: number;
+  readonly defensa: number;
+  readonly pv: number;
+  /** Escalones de velocidad que sube a quien la lleva, sin pasar del último. */
+  readonly velocidad: number;
+  readonly precio: Partial<Resources>;
+}
+
+/**
+ * Valida un catálogo de equipo y lo devuelve tipado. **Lanza con todos los
+ * problemas a la vez**, escritos para quien edita el JSON. Exportada con el
+ * JSON de argumento por lo mismo que `validarExperiencia`: un guardia que solo
+ * se prueba con el fichero bueno no se ha visto morder.
+ *
+ * La regla que más importa es la última: **exactamente una pieza de armería por
+ * hueco**. De ella sale el equipo base de todo héroe (`equipoBase`), y con dos
+ * habría que elegir cuál es «la mejor que se puede comprar» con un criterio que
+ * no está en los datos; con ninguna, el héroe nacería con un hueco vacío.
+ */
+export function validarEquipo(json: unknown, fichero = 'data/equipo.json'): readonly Pieza[] {
+  const problemas: string[] = [];
+  const lista = ((json ?? {}) as { piezas?: unknown }).piezas;
+  if (!Array.isArray(lista) || lista.length === 0) {
+    throw new Error(`${fichero}: no trae ninguna pieza en "piezas"`);
+  }
+  const piezas: Pieza[] = [];
+  const vistos = new Set<string>();
+  for (const [i, bruta] of (lista as Record<string, unknown>[]).entries()) {
+    const p = bruta ?? {};
+    const quien = typeof p.id === 'string' && p.id !== '' ? `"${p.id}"` : `la pieza ${i}`;
+    const antes = problemas.length;
+    for (const campo of ['id', 'nombre'] as const) {
+      if (typeof p[campo] !== 'string' || p[campo] === '') {
+        problemas.push(`${quien} no trae ${campo} como texto`);
+      }
+    }
+    if (typeof p.id === 'string' && vistos.has(p.id)) problemas.push(`${quien} está repetida`);
+    if (typeof p.id === 'string') vistos.add(p.id);
+    if (!(HUECOS as readonly unknown[]).includes(p.hueco)) {
+      problemas.push(
+        `${quien} va en el hueco "${p.hueco}", que no existe; valen ${HUECOS.join(', ')}`,
+      );
+    }
+    if (!(CALIDADES as readonly unknown[]).includes(p.calidad)) {
+      problemas.push(
+        `${quien} es de calidad "${p.calidad}", que no existe; valen ${CALIDADES.join(', ')}`,
+      );
+    }
+    for (const campo of ['ataque', 'defensa', 'pv', 'velocidad'] as const) {
+      if (!enteroDesde(p[campo], 0)) {
+        problemas.push(`${quien}: ${campo} tiene que ser un entero ≥ 0 y es ${p[campo]}`);
+      }
+    }
+    const precio = (p.precio ?? null) as Record<string, unknown> | null;
+    if (precio === null || typeof precio !== 'object' || Object.keys(precio).length === 0) {
+      problemas.push(`${quien} no trae precio`);
+    } else {
+      for (const [recurso, cifra] of Object.entries(precio)) {
+        if (!(RESOURCE_KINDS as readonly string[]).includes(recurso)) {
+          problemas.push(
+            `${quien} cuesta "${recurso}", que no es un recurso; valen ${RESOURCE_KINDS.join(', ')}`,
+          );
+        } else if (!enteroDesde(cifra, 0)) {
+          problemas.push(`${quien} cuesta ${cifra} de ${recurso}: tiene que ser un entero ≥ 0`);
+        }
+      }
+    }
+    if (problemas.length === antes) piezas.push(p as unknown as Pieza);
+  }
+  for (const hueco of HUECOS) {
+    const deArmeria = piezas.filter((p) => p.hueco === hueco && p.calidad === 'armeria');
+    if (deArmeria.length !== 1) {
+      problemas.push(
+        `el hueco ${hueco} tiene ${deArmeria.length} piezas de armería y tiene que tener exactamente una: es el equipo base del héroe y lo que vende la armería`,
+      );
+    }
+  }
+  if (!piezas.some((p) => p.calidad !== 'armeria')) {
+    problemas.push('no hay ninguna pieza de botín (común o especial): el botín no tendría qué dar');
+  }
+  if (problemas.length > 0) throw new Error(`${fichero}: ${problemas.join('; ')}`);
+  return piezas;
+}
+
+/** El catálogo de equipo, en el orden del fichero: es el orden del sorteo del botín. */
+export const EQUIPO: readonly Pieza[] = validarEquipo(equipoJson);

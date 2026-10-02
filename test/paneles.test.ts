@@ -25,6 +25,8 @@ import { marcadoDe } from '../src/client/html.js';
 import { Session } from '../src/client/session.js';
 import { renderSide, renderTopbar } from '../src/client/views/panels.js';
 import { tiposDeHeroe } from '../src/core/data.js';
+import { umbral } from '../src/core/hero/experiencia.js';
+import { heroUnit } from '../src/core/hero/hero.js';
 import { ascenderVeterano } from '../src/core/state/game.js';
 import { ponVeteranoEnLaBase } from '../tools/qa/veterano-en-la-base.js';
 import { volcado } from './escenas-paneles.js';
@@ -87,5 +89,68 @@ describe('el héroe nacido de la tropa en el panel del cliente', () => {
     expect(salida).toContain(`HÉROE · NIVEL 5 · ${tipo}`);
     expect(salida).toContain('Vio caer &lt;i&gt;tres&lt;/i&gt; murallas &amp; siguió.');
     expect(salida).not.toContain('<i>tres');
+  });
+});
+
+describe('la ficha del héroe cuenta lo que lleva puesto (I4)', () => {
+  it('ataque y defensa enseñan la suma del equipo con la que pelea, y desnudo no', () => {
+    // La ficha enseñaba «2 / 2» a un héroe que entraba en batalla con +3/+3 de
+    // serie. El «(+N)» sale de `sumaDeEquipo`, la misma suma que aplica
+    // `heroUnit`: aquí se comprueba contra el cuerpo con el que pelea.
+    const session = new Session(12);
+    const heroe = session.myHeroes()[0]!;
+    session.selectedHeroId = heroe.id;
+    const extraA = heroUnit(heroe).attack - heroUnit({ ...heroe, equipo: {} }).attack;
+    const extraD = heroUnit(heroe).defense - heroUnit({ ...heroe, equipo: {} }).defense;
+    expect(extraA).toBeGreaterThan(0);
+    const ficha = `${heroe.attack} (+${extraA}) / ${heroe.defense} (+${extraD})`;
+    expect(marcadoDe(renderSide(session))).toContain(`<span>${ficha}</span>`);
+
+    heroe.equipo = {};
+    expect(marcadoDe(renderSide(session))).toContain(
+      `<span>${heroe.attack} / ${heroe.defense}</span>`,
+    );
+  });
+
+  it('la cifra de fuera incluye lo que da el nivel: un héroe de nivel 6 pega uno más (A2)', () => {
+    // Sumar `hero.attack + equipo` en el panel se saltaba `ataquePorNivel`, y la
+    // ficha de un nivel 6 enseñaba uno menos de lo que pegaba.
+    const session = new Session(12);
+    const heroe = session.myHeroes()[0]!;
+    session.selectedHeroId = heroe.id;
+    heroe.experience = umbral(6);
+    const desnudo = heroUnit({ ...heroe, equipo: {} });
+    const puesto = heroUnit(heroe);
+    expect(desnudo.attack).toBeGreaterThan(heroe.attack);
+    const ficha = `${desnudo.attack} (+${puesto.attack - desnudo.attack}) / ${desnudo.defense} (+${puesto.defense - desnudo.defense})`;
+    expect(marcadoDe(renderSide(session))).toContain(`<span>${ficha}</span>`);
+  });
+});
+
+describe('la fila de un equipado (M5)', () => {
+  it('«Lleva:» es solo texto, y los botones para quitar van en su línea con el nombre de la pieza', () => {
+    const session = new Session(12);
+    const heroe = session.myHeroes()[0]!;
+    session.selectedHeroId = heroe.id;
+    heroe.army = [
+      {
+        creature: 'peasant',
+        veterania: {
+          id: 'veterano-1',
+          experiencia: 0,
+          batallas: 0,
+          bajas: 0,
+          heroes: [],
+          equipo: { arma: 'espada_de_armeria', armadura: 'cota_de_malla' },
+        },
+      },
+    ];
+    const salida = marcadoDe(renderSide(session));
+    expect(salida).toContain(
+      '<span class="veterania">Lleva: Espada de armería, Cota de malla</span><span class="quitar-equipo">',
+    );
+    expect(salida).toMatch(
+      /data-slot="armadura" data-veteran="veterano-1"[^>]*>× Cota de malla<\/button>/,
+    );
   });
 });

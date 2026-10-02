@@ -20,7 +20,8 @@ import { NIVEL_MAXIMO_DE_TROPA } from '../hero/experiencia.js';
 import { WALL_TERRAINS } from '../map/generate.js';
 import { TERRAIN_KINDS } from '../map/terrain.js';
 import { MAX_HEROES_PER_PLAYER } from '../state/game.js';
-import { COMO_SE_LEE_EL_MAPA } from './serialize.js';
+import { HUECOS } from '../types.js';
+import { CATALOGO_DE_EQUIPO_EN_PROSA, COMO_SE_LEE_EL_MAPA } from './serialize.js';
 
 // ---------------------------------------------------------------- respuestas
 
@@ -42,6 +43,26 @@ export const adventureActionSchema = z.discriminatedUnion('type', [
     hero: z.string(),
     creature: z.string(),
     count: z.number().int().positive(),
+  }),
+  // `item`, `veteran` y `creature` van como texto libre: que existan, que sean
+  // suyos y que quepan lo dice el núcleo (`buyBlocker`, `equipBlocker`), y el
+  // motivo viaja en el veredicto como el de cualquier acción descartada. El hueco
+  // sí se acota aquí, porque es una lista cerrada que no depende de la partida.
+  z.object({ type: z.literal('buy_item'), town: z.string(), item: z.string() }),
+  z.object({
+    type: z.literal('equip'),
+    hero: z.string(),
+    item: z.string(),
+    veteran: z.string().optional(),
+    creature: z.string().optional(),
+  }),
+  z.object({
+    type: z.literal('unequip'),
+    hero: z.string(),
+    // Texto, como `item` y `creature`: lo valida el núcleo (`unequipBlocker`) y un
+    // hueco mal escrito descarta esta acción con su motivo, no el turno entero.
+    slot: z.string(),
+    veteran: z.string().optional(),
   }),
   z.object({ type: z.literal('end_turn') }),
 ]);
@@ -259,6 +280,12 @@ Acciones válidas (el turno termina solo, no hace falta enviar end_turn):
   { "type": "build",     "town": "<id>", "building": "<id de edificio>" }
   { "type": "recruit",   "town": "<id>", "creature": "<id>", "count": N }
   { "type": "dismiss",   "hero": "<id>", "creature": "<id>", "count": N }
+  { "type": "buy_item",  "town": "<id>", "item": "<id de pieza>" }
+  { "type": "equip",     "hero": "<id>", "item": "<id de pieza>" }
+  { "type": "equip",     "hero": "<id>", "item": "<id de pieza>", "veteran": "<id de veterano>" }
+  { "type": "equip",     "hero": "<id>", "item": "<id de pieza>", "creature": "<id de criatura>" }
+  { "type": "unequip",   "hero": "<id>", "slot": "${HUECOS.join('" | "')}" }
+  { "type": "unequip",   "hero": "<id>", "slot": "<hueco>", "veteran": "<id de veterano>" }
   { "type": "hire_hero", "town": "<id>" }
   { "type": "end_turn" }
 
@@ -304,6 +331,30 @@ Notas:
   los de MENOS experiencia: el veterano no se va mientras quede un novato de su
   tipo. Un personaje no se licencia, y fuera de un castillo tuyo se rechaza
   diciéndolo.
+- EQUIPO: todo héroe y todo individuo de la tropa tiene tres huecos
+  (${HUECOS.join(', ')}) y en cada uno lleva una pieza o nada; cada pieza suma
+  sus cifras a quien la lleva.
+  "heroes[].equipment" es lo que lleva puesto el héroe (por hueco, el id o null) y
+  "heroes[].backpack" su MOCHILA, las piezas que lleva sin poner. Todo héroe nace
+  con el equipo de calidad de armería puesto en los tres huecos; solo mejora con
+  piezas especiales. De dónde salen las piezas:
+  · BOTÍN: vencer a un grupo de asaltantes —atacándolo o repeliendo su
+    emboscada— o tomar una ciudad NEUTRAL con guarnición deja una pieza común o
+    especial, al azar, en la mochila del héroe que gana. Lo cuenta "recentEvents"
+    con "loot_found".
+  · ARMERÍA: en un castillo tuyo con el edificio "armory" y un héroe tuyo dentro,
+    "buy_item" compra una pieza de calidad de armería para su mochila;
+    "towns[].armory" dice qué vende y a qué precio, y solo viene si la tiene.
+  Cada fila de "army" con "id" lleva su "equipment" con la misma forma.
+  "equip" pone una pieza de la mochila del héroe: sin más, al propio héroe; con
+  "veteran", al individuo de su tropa con ese id (las filas de "army" con "id");
+  con "creature", a un individuo de ese tipo que todavía no tenga id (uno de los
+  que van agrupados en su fila), que pasa a tenerlo y a ir en su propia fila. Lo que ocupaba ese hueco vuelve a la mochila. "unequip"
+  quita la pieza de un hueco y la devuelve a la mochila. Se equipa en cualquier
+  sitio, fuera de batalla. La pieza de un individuo se pierde si muere; si lo
+  licencias, vuelve a la mochila del héroe. Si un héroe cae sin base, pierde
+  equipo y mochila. Las piezas:
+${CATALOGO_DE_EQUIPO_EN_PROSA}
 - "yourBase" es tu base: el castillo al que vuelve un héroe tuyo que pierde una
   batalla o se rinde. Vuelve con el ejército vacío (o con la tropa que salvó
   rindiéndose) y sin movimiento hasta el día siguiente; la tropa muerta se

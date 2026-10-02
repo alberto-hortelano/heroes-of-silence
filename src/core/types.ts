@@ -17,6 +17,34 @@ export type ResourceKind = (typeof RESOURCE_KINDS)[number];
 
 export type Resources = Readonly<Record<ResourceKind, number>>;
 
+/**
+ * El nombre de cada recurso en español, en minúscula: lo que lee una persona y
+ * lo que se le escribe al agente. **Una sola lista**: el cliente la capitaliza
+ * para sus rótulos en vez de tener la suya.
+ */
+export const NOMBRE_DE_RECURSO: Readonly<Record<ResourceKind, string>> = {
+  wood: 'madera',
+  mercury: 'mercurio',
+  ore: 'mineral',
+  sulfur: 'azufre',
+  crystal: 'cristal',
+  gems: 'gemas',
+  gold: 'oro',
+};
+
+/**
+ * Un coste en prosa: «2500 oro, 5 madera», en el orden de `RESOURCE_KINDS` y sin
+ * los ceros; «gratis» si no cuesta nada. **El único formateador de precios**: lo
+ * leen los motivos del núcleo (`buyBlocker`), la prosa del agente y el cliente,
+ * que antes lo escribían cada uno a su manera.
+ */
+export function describirCoste(coste: Partial<Resources>): string {
+  const partes = RESOURCE_KINDS.filter((k) => (coste[k] ?? 0) > 0).map(
+    (k) => `${coste[k]} ${NOMBRE_DE_RECURSO[k]}`,
+  );
+  return partes.length === 0 ? 'gratis' : partes.join(', ');
+}
+
 // ---------------------------------------------------------------- velocidad
 
 /**
@@ -192,7 +220,41 @@ export interface Veterania {
   readonly bajas: number;
   /** Los nombres de los héroes rivales que ha derribado él. */
   readonly heroes: readonly string[];
+  /**
+   * Lo que lleva puesto, si lleva algo (`hero/equipo.ts`). Vive en la hoja y no
+   * al lado de ella porque la hoja ya es «lo que distingue a ESTE individuo de
+   * los demás de su tipo»: lo vivido y, desde el ciclo del equipo, lo que lleva.
+   * Un novato sin hoja es fungible —cuál de tres piqueros recibe la espada no
+   * importa— y deja de serlo al equiparlo, así que equipar a un novato le abre la
+   * hoja (experiencia 0, id del mismo contador). Con eso la pieza viaja con él
+   * por el mismo camino que la experiencia —batalla, guarnición, rendirse— sin
+   * que nadie se acuerde de copiarla, y muere con él.
+   */
+  readonly equipo?: Equipo;
 }
+
+// ---------------------------------------------------------------- equipo
+
+/**
+ * Los tres huecos de equipo de un individuo o de un héroe. Los nombró el
+ * usuario: «arma, armadura y accesorio». Son ids que viajan al agente tal cual
+ * (`unequip.slot`), así que van sin tilde y en minúscula.
+ */
+export const HUECOS = ['arma', 'armadura', 'accesorio'] as const;
+
+export type Hueco = (typeof HUECOS)[number];
+
+/** Si el texto `x` nombra un hueco. Lo lee `unequipBlocker`: el hueco llega del agente como texto. */
+export function esHueco(x: string): x is Hueco {
+  return (HUECOS as readonly string[]).includes(x);
+}
+
+/**
+ * Lo que lleva puesto alguien: el id de una pieza de `data/equipo.json` por
+ * hueco, o nada en ese hueco. Inmutable: equipar escribe un objeto nuevo, y por
+ * eso las cifras de un veterano se pueden recordar por su hoja.
+ */
+export type Equipo = Readonly<Partial<Record<Hueco, string>>>;
 
 /**
  * La entrada del motor de batalla: un tipo y cuántos. El motor sigue sabiendo

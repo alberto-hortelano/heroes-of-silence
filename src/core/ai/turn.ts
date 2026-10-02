@@ -20,11 +20,15 @@ import {
   planBuildings,
   planHires,
   planRecruits,
+  siguienteDeEquipo,
   stepTowards,
 } from './strategy.js';
 
 /** Tope de movimientos por turno: una red contra un bucle de objetivos. */
 const MAX_MOVIMIENTOS_POR_TURNO = 60;
+
+/** Tope de compras y equipamientos por turno: otra red, para lo mismo. */
+const MAX_ACCIONES_DE_EQUIPO = 60;
 
 /**
  * Quien conduce la partida puede quedarse la batalla que acaba de nacer.
@@ -73,6 +77,15 @@ export async function playAiTurn(
     applyAdventureAction(state, accion, ctx, player.id);
   }
   for (const accion of planRecruits(state, player.id)) {
+    applyAdventureAction(state, accion, ctx, player.id);
+  }
+  // El equipo, después de reclutar: la tropa nueva también puede llevar algo, y
+  // lo que se compra no le quita oro a la tropa. Una acción cada vez, porque
+  // cada una cambia lo que sigue (`siguienteDeEquipo`); el tope es una red, no
+  // un límite de juego: cada vuelta sube lo que se lleva puesto o gasta oro.
+  for (let n = 0; n < MAX_ACCIONES_DE_EQUIPO; n++) {
+    const accion = siguienteDeEquipo(state, player.id);
+    if (accion === null) break;
     applyAdventureAction(state, accion, ctx, player.id);
   }
 

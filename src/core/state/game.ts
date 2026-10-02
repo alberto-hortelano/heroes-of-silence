@@ -12,6 +12,20 @@ import { personajeDe, SIDES } from '../battle/types.js';
 import { allCreatures, creature, tipoDeHeroePorDefecto } from '../data.js';
 import { problemaDeTipo, type VeteranoEnBase, veteranosEn } from '../hero/ascenso.js';
 import {
+  conEquipoDe,
+  destinoDeEquipo,
+  equipoDe,
+  idsPuestos,
+  NOMBRE_DE_CALIDAD,
+  PIEZAS_DE_BOTIN,
+  type Portador,
+  piezaSiExiste,
+  ponerPieza,
+  quitarPieza,
+  sacarDeLaMochila,
+  seVende,
+} from '../hero/equipo.js';
+import {
   EXPERIENCIA_INICIAL_DE_HEROE,
   NIVEL_MAXIMO_DE_TROPA,
   nivelDeHeroe,
@@ -35,7 +49,7 @@ import {
   ejercitoDe,
   GARRISON_LEADERSHIP,
   gruposDe,
-  sinIndividuos,
+  licenciar,
   troopBlocker,
   troopRoom,
   troopsAsStacks,
@@ -58,7 +72,7 @@ import {
   visibleFrom,
 } from '../map/map.js';
 import { territorio } from '../map/regiones.js';
-import type { Rng } from '../rng.js';
+import { createRng, type Rng } from '../rng.js';
 import { CHARACTER_BODY, type Character } from '../rpg/character.js';
 import { combatProfile } from '../rpg/stats.js';
 import {
@@ -72,6 +86,7 @@ import {
   recruitBlocker,
   recruitCost,
   type Town,
+  tieneArmeria,
   townSpells,
 } from '../town/town.js';
 import type {
@@ -85,7 +100,16 @@ import type {
   Troop,
   Veterania,
 } from '../types.js';
-import { addResources, canAfford, EMPTY_RESOURCES } from '../types.js';
+import {
+  addResources,
+  canAfford,
+  describirCoste,
+  EMPTY_RESOURCES,
+  esHueco,
+  HUECOS,
+  type Hueco,
+  subtractResources,
+} from '../types.js';
 import {
   casillasPeligrosas,
   dispersados,
@@ -295,6 +319,15 @@ export interface GameState {
    * determinista.
    */
   siguienteVeterano: number;
+  /**
+   * Cuántas piezas de botín se han repartido. Cada reparto tira de **su propia
+   * corriente** (`createRng` sobre la semilla de la partida y este número) y no
+   * de `ctx.rng`: así el botín no desplaza ni una tirada de batalla, y que lo
+   * hiciera se vería en el volcado del banco como partidas distintas en vez de
+   * como líneas de botín añadidas. Es la misma idea que `siguienteVeterano`: un
+   * contador del estado, determinista.
+   */
+  siguienteBotin: number;
 }
 
 export interface GameContext {
@@ -327,6 +360,36 @@ export type AdventureAction =
       readonly hero: string;
       readonly creature: string;
       readonly count: number;
+    }
+  /**
+   * Comprar en la armería de `town` una pieza de calidad de armería (`item`) para
+   * la mochila del héroe propio que está dentro (`buyBlocker`).
+   */
+  | { readonly type: 'buy_item'; readonly town: string; readonly item: string }
+  /**
+   * Ponerle a alguien una pieza de la mochila del héroe `hero`: al héroe si no se
+   * dice a quién; a `veteran`, el individuo de su tropa con esa hoja; o a
+   * `creature`, el primer novato sin hoja de ese tipo, que pasa a tenerla. Lo que
+   * ocupaba el hueco vuelve a la mochila (`equipBlocker`).
+   */
+  | {
+      readonly type: 'equip';
+      readonly hero: string;
+      readonly item: string;
+      readonly veteran?: string;
+      readonly creature?: string;
+    }
+  /**
+   * Quitarle a alguien la pieza de `slot` y devolverla a la mochila
+   * (`unequipBlocker`). `slot` es texto y no `Hueco` a propósito: llega del
+   * agente, y un hueco mal escrito tiene que descartar ESTA acción con su motivo,
+   * no tumbar el turno entero en el esquema como hacía un `z.enum`.
+   */
+  | {
+      readonly type: 'unequip';
+      readonly hero: string;
+      readonly slot: string;
+      readonly veteran?: string;
     }
   | { readonly type: 'end_turn' };
 
@@ -568,6 +631,7 @@ export function createGame(config: GameConfig): GameState {
     finished: null,
     log: [],
     siguienteVeterano: 1,
+    siguienteBotin: 0,
   };
 
   // Los pueblos arrancan con la hornada de la primera semana.
@@ -1161,10 +1225,15 @@ function aplicar(
     case 'dismiss': {
       const hero = heroById(state, action.hero);
       const player = currentPlayer(state);
-      if (hero.owner !== player.id) throw new Error(`${hero.name} no es tuyo`);
+      if (hero.owner !== player.id) throw new Error(`${hero.name} no es de tu bando`);
       const noSe = dismissBlocker(state, hero, action.creature, action.count);
       if (noSe !== null) throw new Error(`no se puede licenciar: ${noSe}`);
-      hero.army = sinIndividuos(hero.army, action.creature, action.count);
+      const { queda, seVan } = licenciar(hero.army, action.creature, action.count);
+      hero.army = queda;
+      // Lo que llevaban puesto vuelve a la mochila: se licencia en un castillo
+      // propio, con el héroe delante, y tirar una espada con quien se va no lo
+      // pidió nadie (decisión del usuario sobre el plan).
+      aLaMochila(hero, ...seVan.flatMap((t) => idsPuestos(t.veterania?.equipo)));
       emit(state, {
         kind: 'dismissed',
         hero: hero.id,
@@ -1175,7 +1244,181 @@ function aplicar(
       });
       return;
     }
+
+    case 'buy_item': {
+      const town = townById(state, action.town);
+      const player = currentPlayer(state);
+      const noSe = buyBlocker(state, town, action.item, player.id);
+      if (noSe !== null) throw new Error(`no se puede comprar: ${noSe}`);
+      // `buyBlocker` ya ha mirado que el héroe está y que la pieza existe.
+      const hero = heroeEnElPueblo(state, town) as Hero;
+      const pieza = piezaSiExiste(action.item)!;
+      player.resources = subtractResources(player.resources, pieza.precio);
+      aLaMochila(hero, pieza.id);
+      emit(state, {
+        kind: 'item_bought',
+        hero: hero.id,
+        town: town.id,
+        item: pieza.id,
+        actor: player.id,
+        at: town.at,
+      });
+      return;
+    }
+
+    case 'equip': {
+      const hero = heroById(state, action.hero);
+      const noSe = equipBlocker(state, currentPlayer(state).id, action);
+      if (noSe !== null) throw new Error(`no se puede equipar: ${noSe}`);
+      // Equipar es estado y no un hecho, como la patrulla de un asaltante: no se
+      // cuenta en la crónica. Lo que cuenta es de dónde salió la pieza.
+      const quien = destinoDeEquipo(hero, action) as Portador;
+      hero.mochila = sacarDeLaMochila(hero.mochila, action.item);
+      const { equipo, quitada } = ponerPieza(equipoDe(hero, quien), action.item);
+      vestir(
+        hero,
+        conEquipoDe(hero, quien, equipo, () => hojaNueva(state)),
+      );
+      aLaMochila(hero, quitada);
+      return;
+    }
+
+    case 'unequip': {
+      const hero = heroById(state, action.hero);
+      const noSe = unequipBlocker(state, currentPlayer(state).id, action);
+      if (noSe !== null) throw new Error(`no se puede desequipar: ${noSe}`);
+      // Los dos `as` los respalda `unequipBlocker`, que acaba de decir que sí.
+      const quien = destinoDeEquipo(hero, action) as Portador;
+      const { equipo, quitada } = quitarPieza(equipoDe(hero, quien), action.slot as Hueco);
+      vestir(hero, conEquipoDe(hero, quien, equipo));
+      aLaMochila(hero, quitada);
+      return;
+    }
   }
+}
+
+/**
+ * Escribe en `hero` lo que calcula `conEquipoDe`, que no lo toca: el estado
+ * guarda la referencia del héroe, así que se cambian sus campos y no el héroe.
+ */
+function vestir(hero: Hero, vestido: Pick<Hero, 'equipo' | 'army'>): void {
+  hero.equipo = vestido.equipo;
+  hero.army = vestido.army;
+}
+
+/**
+ * Echa a la mochila de `hero` las piezas `ids`, en ese orden; un `null` es «no
+ * había nada» y se salta. **La única escritura de la mochila que añade**: la
+ * usan el botín, la compra, lo que se quita al equipar o desequipar, lo que
+ * devuelve la tropa licenciada y lo que trae el veterano que asciende. La
+ * mochila se sustituye entera, nunca se muta.
+ */
+function aLaMochila(hero: Hero, ...ids: readonly (string | null)[]): void {
+  const nuevas = ids.filter((id) => id !== null);
+  if (nuevas.length > 0) hero.mochila = [...hero.mochila, ...nuevas];
+}
+
+/**
+ * Una hoja de servicios en blanco, con su id del contador de siempre. **La única
+ * forma de abrir una**: la abren el novato que gana su primer punto
+ * (`conVeterania`) y el que se equipa. Experiencia 0, así que sigue siendo de
+ * nivel 1 y no cobra nada por tenerla; lo que cambia es que ahora es ALGUIEN.
+ */
+function hojaNueva(state: GameState): Veterania {
+  return {
+    id: `veterano-${state.siguienteVeterano++}`,
+    experiencia: 0,
+    batallas: 0,
+    bajas: 0,
+    heroes: [],
+  };
+}
+
+/**
+ * Por qué `player` no puede comprar `item` en `town` ahora, o `null`. La frase es
+ * para la persona —la enseña el panel del castillo— y para el agente, que la
+ * recibe en su veredicto. En el orden en que se entiende: el pueblo, la armería,
+ * quién recibe, qué se pide y con qué se paga.
+ */
+export function buyBlocker(
+  state: GameState,
+  town: Town,
+  item: string,
+  player: PlayerId,
+): string | null {
+  if (town.owner !== player) return `${town.name} no es de tu bando`;
+  if (!tieneArmeria(town)) return `${town.name} no tiene armería: constrúyela primero`;
+  const hero = heroeEnElPueblo(state, town);
+  if (hero === undefined) {
+    return `no hay ningún héroe tuyo en ${town.name}: lo comprado va a su mochila`;
+  }
+  const pieza = piezaSiExiste(item);
+  if (pieza === null) return `no existe ninguna pieza "${item}"`;
+  if (!seVende(pieza)) {
+    return `la armería no vende ${pieza.nombre}: es ${NOMBRE_DE_CALIDAD[pieza.calidad]} y solo cae como botín`;
+  }
+  const jugador = playerById(state, player);
+  if (!canAfford(jugador.resources, pieza.precio)) {
+    return `${pieza.nombre} cuesta ${describirCoste(pieza.precio)} y no te alcanza`;
+  }
+  return null;
+}
+
+/** El héroe `heroId`, si existe y es de `player`; o por qué no. */
+function heroeSuyo(
+  state: GameState,
+  player: PlayerId,
+  heroId: string,
+): Hero | { readonly motivo: string } {
+  const hero = state.heroes.find((h) => h.id === heroId);
+  if (hero === undefined) return { motivo: `no existe ningún héroe "${heroId}"` };
+  if (hero.owner !== player) return { motivo: `${hero.name} no es de tu bando` };
+  return hero;
+}
+
+/**
+ * Por qué no se puede hacer ese `equip`, o `null`. Se equipa **en cualquier
+ * sitio fuera de batalla** —el botín cae en el camino— y de la mochila del héroe
+ * que se nombra, a él mismo o a un individuo de su tropa.
+ */
+export function equipBlocker(
+  state: GameState,
+  player: PlayerId,
+  action: Extract<AdventureAction, { type: 'equip' }>,
+): string | null {
+  const hero = heroeSuyo(state, player, action.hero);
+  if ('motivo' in hero) return hero.motivo;
+  const pieza = piezaSiExiste(action.item);
+  if (pieza === null) return `no existe ninguna pieza "${action.item}"`;
+  if (!hero.mochila.includes(pieza.id)) {
+    return `${hero.name} no lleva ${pieza.nombre} en la mochila`;
+  }
+  const quien = destinoDeEquipo(hero, action);
+  return 'motivo' in quien ? quien.motivo : null;
+}
+
+/** Por qué no se puede hacer ese `unequip`, o `null`. */
+export function unequipBlocker(
+  state: GameState,
+  player: PlayerId,
+  action: Extract<AdventureAction, { type: 'unequip' }>,
+): string | null {
+  const hero = heroeSuyo(state, player, action.hero);
+  if ('motivo' in hero) return hero.motivo;
+  if (!esHueco(action.slot)) {
+    return `no hay ningún hueco "${action.slot}": son ${HUECOS.join(', ')}`;
+  }
+  const quien = destinoDeEquipo(hero, action);
+  if ('motivo' in quien) return quien.motivo;
+  if (equipoDe(hero, quien)[action.slot] !== undefined) return null;
+  const t = 'heroe' in quien ? null : (hero.army[quien.indice] as Troop);
+  const nombre =
+    t === null
+      ? hero.name
+      : t.member === undefined
+        ? `esa unidad de ${creature(t.creature).name}`
+        : 'ese personaje';
+  return `${nombre} no lleva nada en el hueco ${action.slot}`;
 }
 
 /**
@@ -1385,6 +1628,10 @@ export function ascenderVeterano(
     tipo: eleccion.heroType,
     origen: { creature: v.creature, historia: eleccion.story },
   });
+  // Nace con su equipo base, como todo héroe (`heroeRecienHecho`), y lo que
+  // llevaba puesto de tropa se lo lleva en la mochila: es suyo, y el usuario lo
+  // pidió así en vez de que sustituyera al base.
+  aLaMochila(hero, ...idsPuestos(v.veterania.equipo));
   hero.at = casillaDeVuelta(state, hero, v.base);
   state.heroes.push(hero);
   emit(state, {
@@ -2135,6 +2382,9 @@ export function settleBattle(state: GameState, _ctx: GameContext): void {
   // el `const dueño = hero.owner` de más abajo, y por eso el dato no hace falta
   // guardarlo en `PendingBattle`.
   const at = lugarDelRival(state, pending.foe);
+  // El botín, decidido AQUÍ por la misma razón: si el que pierde es una ciudad
+  // neutral, un instante después de capturarla ya es de quien gana.
+  const botin = botinDe(state, pending, winner);
   // Las heridas, PRIMERO: antes de que el héroe que pierde salga del mapa con
   // su ejército. Lo que se escribe es del personaje, no del héroe, y tiene que
   // quedar escrito pase lo que pase con quien lo llevaba.
@@ -2246,8 +2496,33 @@ export function settleBattle(state: GameState, _ctx: GameContext): void {
       applyDefenderSurvivors(state, pending, supervivientesDelDefensor);
     }
   }
+  // Después de las consecuencias —el grupo disperso, la ciudad ya suya— y antes
+  // de mirar si alguien ha perdido la partida: `game_over` es el último hecho.
+  if (botin !== null) repartirBotin(state, heroById(state, botin.heroId), botin.from, at);
 
   checkDefeat(state);
+}
+
+/**
+ * Quién cobra botín de esta batalla, o `null`: **el héroe que gana a un bando
+ * neutral que no es un monstruo** —un grupo de asaltantes, atacado o
+ * emboscando, o la guarnición de una ciudad neutral—. Una ciudad rival
+ * guarnecida no da: no es una guarnición de nadie, es la del rival. Se pregunta
+ * antes de aplicar nada, porque la ciudad deja de ser neutral al capturarla.
+ */
+function botinDe(
+  state: GameState,
+  pending: PendingBattle,
+  winner: Side,
+): { readonly heroId: string; readonly from: 'raider' | 'town' } | null {
+  const [ganador, perdedor] =
+    winner === 'attacker' ? [pending.attacker, pending.foe] : [pending.foe, pending.attacker];
+  if (ganador.kind !== 'hero') return null;
+  if (perdedor.kind === 'raider') return { heroId: ganador.heroId, from: 'raider' };
+  if (perdedor.kind === 'town' && townById(state, perdedor.townId).owner === null) {
+    return { heroId: ganador.heroId, from: 'town' };
+  }
+  return null;
 }
 
 /**
@@ -2420,12 +2695,18 @@ function conVeterania({ state, dueño, ascensos }: Cobro, base: Troop, s: Battle
   // Aquí no se mira `count`: un bando con dueño se monta siempre con
   // `troopsAsStacks`, que da stacks de 1, y un veterano en un stack de N lo
   // rechaza `createBattle` al entrar. Es la única comprobación, en la puerta.
+  // Parte de la hoja que traía o de una en blanco (`hojaNueva`, la misma que se
+  // abre al equipar): una sola regla de cómo nace una hoja. Y se copia entera:
+  // lo que esta cuenta no toca —el equipo— tiene que volver con él.
+  // Reconstruirla campo a campo lo perdía en la primera batalla sin que nada se
+  // pusiera rojo.
+  const hoja = previa ?? hojaNueva(state);
   const veterania: Veterania = {
-    id: previa?.id ?? `veterano-${state.siguienteVeterano++}`,
-    experiencia: (previa?.experiencia ?? 0) + s.ganado.experiencia,
-    batallas: (previa?.batallas ?? 0) + 1,
-    bajas: (previa?.bajas ?? 0) + s.ganado.bajas,
-    heroes: [...(previa?.heroes ?? []), ...s.ganado.heroes],
+    ...hoja,
+    experiencia: hoja.experiencia + s.ganado.experiencia,
+    batallas: hoja.batallas + 1,
+    bajas: hoja.bajas + s.ganado.bajas,
+    heroes: [...hoja.heroes, ...s.ganado.heroes],
   };
   const antes = nivelDeTropa(previa);
   const despues = nivelDeTropa(veterania);
@@ -2498,6 +2779,30 @@ function applyVictory(
       dejarAsaltante(state, foe.raiderId, []);
       break;
   }
+}
+
+/**
+ * Una pieza de botín a la mochila de `hero`, sorteada entre lo común y lo
+ * especial (`PIEZAS_DE_BOTIN`), y el hecho que lo cuenta. **La única puerta del
+ * botín**, y la llama un solo sitio: el cierre de la batalla, con lo que decide
+ * `botinDe`.
+ *
+ * La tirada sale de **una corriente propia** y no de `ctx.rng`: una semilla
+ * derivada de la de la partida y del número de reparto (`siguienteBotin`). Así
+ * el botín no se come ni una tirada de batalla —el resto de la partida se juega
+ * igual con él que sin él, y eso es lo que deja comprobar en el volcado del
+ * banco que solo añade líneas— y sigue siendo reproducible: misma semilla, mismo
+ * orden de repartos, mismas piezas.
+ */
+function repartirBotin(state: GameState, hero: Hero, from: 'raider' | 'town', at: Point): void {
+  const n = state.siguienteBotin++;
+  // Dos mezclas enteras (`imul`, que el núcleo permite) para que la semilla del
+  // reparto n de una partida no sea la del reparto n+1 de la de al lado.
+  const semilla =
+    (Math.imul(state.seed ^ 0x5bd1e995, 0x9e3779b1) ^ Math.imul(n + 1, 0x85ebca6b)) >>> 0;
+  const pieza = createRng(semilla).pick(PIEZAS_DE_BOTIN);
+  aLaMochila(hero, pieza.id);
+  emit(state, { kind: 'loot_found', hero: hero.id, item: pieza.id, from, actor: hero.owner, at });
 }
 
 function applyDefenderSurvivors(state: GameState, pending: PendingBattle, army: Army): void {

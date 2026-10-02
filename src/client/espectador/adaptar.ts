@@ -136,7 +136,13 @@ function cifrasQueViajan(s: StackEnCable): UnitInfo {
 
 /** La hoja de un veterano sin lo que no viaja: batallas, bajas y héroes, vacíos. */
 function hojaDelCable(v: VeteraniaEnCable | null): Veterania | null {
-  return v === null
-    ? null
-    : { id: v.id, experiencia: v.experiencia, batallas: 0, bajas: 0, heroes: [] };
+  if (v === null) return null;
+  return {
+    id: v.id,
+    experiencia: v.experiencia,
+    batallas: 0,
+    bajas: 0,
+    heroes: [],
+    ...(v.equipo === undefined ? {} : { equipo: v.equipo }),
+  };
 }

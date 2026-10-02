@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { MARGEN_CONTRA_NEUTRALES } from '../src/core/ai/fuerza.js';
-import { planBuildings, planHires, planRecruits } from '../src/core/ai/strategy.js';
+import {
+  planBuildings,
+  planHires,
+  planRecruits,
+  siguienteDeEquipo,
+} from '../src/core/ai/strategy.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import { playAiTurn } from '../src/core/ai/turn.js';
 import { activeStack, createBattle, legalActions } from '../src/core/battle/battle.js';
@@ -13,13 +18,15 @@ import {
   responseSchemas,
 } from '../src/core/contract/agent.js';
 import {
+  CATALOGO_DE_EQUIPO_EN_PROSA,
   COMO_SE_LEE_EL_MAPA,
   serializeAdventureTurn,
   serializeBattleTurn,
   serializeKnownMap,
   serializeMapRequest,
 } from '../src/core/contract/serialize.js';
-import { ASALTANTES, creature } from '../src/core/data.js';
+import { ASALTANTES, creature, EQUIPO } from '../src/core/data.js';
+import { NOMBRE_DE_CALIDAD } from '../src/core/hero/equipo.js';
 import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '../src/core/hero/troop.js';
 import { generateMapPlan } from '../src/core/map/generate.js';
 import { pointFromKey, pointKey } from '../src/core/map/map.js';
@@ -32,6 +39,7 @@ import {
   resolvePendingBattle,
   revealEverything,
   townsOf,
+  unequipBlocker,
   visibleNow,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
@@ -67,6 +75,98 @@ describe('contrato con el agente', () => {
       const r = adventureActionSchema.safeParse(accion);
       expect(r.success, `rechazada: ${JSON.stringify(accion)}`).toBe(true);
     }
+  });
+
+  it('el equipo en el contrato: las tres acciones pasan el esquema, se anuncian y la IA las produce', () => {
+    const state = newGame({ seed: 7 });
+    const hero = heroesOf(state, 0)[0]!;
+    const base = townsOf(state, 0)[0]!;
+    hero.at = base.at;
+    base.buildings.push('armory');
+    state.players[0]!.resources = { ...state.players[0]!.resources, gold: 20000 };
+    const deLaIA = siguienteDeEquipo(state, 0);
+    expect(deLaIA).toMatchObject({ type: 'buy_item' });
+    const acciones = [
+      deLaIA,
+      { type: 'equip', hero: hero.id, item: 'garrote' },
+      { type: 'equip', hero: hero.id, item: 'garrote', veteran: 'veterano-1' },
+      { type: 'equip', hero: hero.id, item: 'garrote', creature: 'peasant' },
+      { type: 'unequip', hero: hero.id, slot: 'arma' },
+      { type: 'unequip', hero: hero.id, slot: 'accesorio', veteran: 'veterano-1' },
+    ];
+    for (const accion of acciones) {
+      const r = adventureActionSchema.safeParse(accion);
+      expect(r.success, `rechazada: ${JSON.stringify(accion)}`).toBe(true);
+    }
+    // El hueco es texto en el esquema, como la pieza y la criatura: uno inventado
+    // lo rechaza el núcleo con su motivo (`unequipBlocker`), y así se descarta
+    // ESA acción y no el turno entero (M3).
+    expect(
+      adventureActionSchema.safeParse({ type: 'unequip', hero: hero.id, slot: 'casco' }).success,
+    ).toBe(true);
+    expect(unequipBlocker(state, 0, { type: 'unequip', hero: hero.id, slot: 'casco' })).toBe(
+      'no hay ningún hueco "casco": son arma, armadura, accesorio',
+    );
+    for (const tipo of ['buy_item', 'equip', 'unequip']) {
+      expect(RESPONSE_FORMAT.adventure_turn).toContain(`"type": "${tipo}"`);
+    }
+  });
+
+  it('el catálogo que se le anuncia al agente sale de `EQUIPO`, pieza a pieza y con sus cifras', () => {
+    for (const p of EQUIPO) {
+      const linea = CATALOGO_DE_EQUIPO_EN_PROSA.split('\n').find((l) =>
+        l.trim().startsWith(`${p.id} (`),
+      );
+      expect(linea, p.id).toBeDefined();
+      expect(linea).toContain(`(${p.hueco}, ${NOMBRE_DE_CALIDAD[p.calidad]})`);
+      if (p.ataque > 0) expect(linea).toContain(`+${p.ataque} ataque`);
+      if (p.pv > 0) expect(linea).toContain(`+${p.pv} PV`);
+      expect(linea?.includes('se compra por'), p.id).toBe(p.calidad === 'armeria');
+    }
+    expect(RESPONSE_FORMAT.adventure_turn).toContain(CATALOGO_DE_EQUIPO_EN_PROSA);
+  });
+
+  it('el turno trae el equipo del héroe, su mochila, el de cada veterano y la armería solo si la hay', () => {
+    const state = newGame({ seed: 7 });
+    const hero = heroesOf(state, 0)[0]!;
+    const base = townsOf(state, 0)[0]!;
+    hero.mochila = ['garrote'];
+    hero.army = [
+      {
+        creature: 'pikeman',
+        veterania: {
+          id: 'veterano-4',
+          experiencia: 0,
+          batallas: 0,
+          bajas: 0,
+          heroes: [],
+          equipo: { armadura: 'cota_de_malla' },
+        },
+      },
+      { creature: 'pikeman' },
+    ];
+    const turno = (): any => serializeAdventureTurn(state, 0);
+    const h = turno().heroes[0];
+    expect(h.equipment).toEqual({
+      arma: 'espada_de_armeria',
+      armadura: 'cota_de_malla',
+      accesorio: 'brazal_de_armeria',
+    });
+    expect(h.backpack).toEqual(['garrote']);
+    // La fila de un individuo lleva el equipo con la misma forma que el héroe.
+    expect(h.army[0]).toMatchObject({
+      id: 'veterano-4',
+      equipment: { arma: null, armadura: 'cota_de_malla', accesorio: null },
+    });
+    expect(h.army[1]).not.toHaveProperty('id');
+    const pueblo = (): any => turno().towns.find((t: any) => t.id === base.id);
+    expect(pueblo()).not.toHaveProperty('armory');
+    base.buildings.push('armory');
+    expect(pueblo().armory.map((x: any) => x.item)).toEqual([
+      'espada_de_armeria',
+      'cota_de_malla',
+      'brazal_de_armeria',
+    ]);
   });
 
   it('las acciones de batalla de la IA pasan su esquema', () => {

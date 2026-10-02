@@ -69,6 +69,14 @@ export function dailyIncome(town: Town): number {
   return best;
 }
 
+/**
+ * Si el pueblo tiene armería: algún edificio con `sellsEquipment`. Se pregunta
+ * al catálogo por el rasgo, como el gremio, y no por el id `armory`.
+ */
+export function tieneArmeria(town: Town): boolean {
+  return town.buildings.some((id) => building(id).sellsEquipment === true);
+}
+
 export function mageGuildLevel(town: Town): number {
   let level = 0;
   for (const id of town.buildings) {

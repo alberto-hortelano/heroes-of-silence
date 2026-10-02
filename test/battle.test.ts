@@ -70,7 +70,13 @@ vi.mock('../src/core/battle/board.js', async (original) => {
 const side = (
   army: readonly Stack[],
   hero: BattleHero | null = null,
-  cuerpo: UnitInfo = heroUnit({ name: 'Prueba', attack: 0, defense: 0, experience: umbral(5) }),
+  cuerpo: UnitInfo = heroUnit({
+    name: 'Prueba',
+    attack: 0,
+    defense: 0,
+    experience: umbral(5),
+    equipo: {},
+  }),
 ): BattleSide => ({
   army,
   hero: hero === null ? null : { mando: hero, cuerpo },
@@ -1445,6 +1451,7 @@ describe('el héroe ya no bonifica a su tropa (fase 1b)', () => {
         attack: ataqueDelHeroe,
         defense: 0,
         experience: umbral(5),
+        equipo: {},
       });
       const state = createBattle(
         side([{ creature: 'pikeman', count: 1 }], hero(), cuerpo),
@@ -1464,7 +1471,9 @@ describe('el héroe ya no bonifica a su tropa (fase 1b)', () => {
     };
     expect(golpe(40)).toBe(golpe(0));
     // Y el cuerpo sí lo lleva: es su propia ficha.
-    expect(heroUnit({ name: 'X', attack: 40, defense: 0, experience: umbral(5) }).attack).toBe(40);
+    expect(
+      heroUnit({ name: 'X', attack: 40, defense: 0, experience: umbral(5), equipo: {} }).attack,
+    ).toBe(40);
   });
 });
 

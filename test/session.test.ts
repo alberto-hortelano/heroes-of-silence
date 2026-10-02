@@ -410,3 +410,26 @@ describe('sin camino, la barra dice qué lo cierra (M2 de la 2a)', () => {
     expect(hero.at).toEqual({ x: 14, y: 4 });
   });
 });
+
+describe('la pieza elegida es de la mochila de un héroe (M1)', () => {
+  it('se suelta al cambiar de héroe y al dejar de estar en su mochila', () => {
+    const session = new Session(12);
+    const aldo = session.myHeroes()[0]!;
+    session.selectedHeroId = aldo.id;
+    session.unequip(aldo.id, 'arma');
+    const espada = aldo.mochila[0]!;
+    session.selectItem(espada);
+    expect(session.selectedItem).toBe(espada);
+
+    // Otro héroe delante: su panel le ofrecía «Ponérsela» con la mochila vacía.
+    session.selectedHeroId = 'otro';
+    expect(session.selectedItem).toBeNull();
+    session.selectedHeroId = aldo.id;
+    expect(session.selectedItem).toBeNull();
+
+    // Y si sale de la mochila por otro camino que el clic de equipar.
+    session.selectItem(espada);
+    aldo.mochila = [];
+    expect(session.selectedItem).toBeNull();
+  });
+});

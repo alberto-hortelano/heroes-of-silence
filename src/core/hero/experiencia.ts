@@ -16,6 +16,7 @@
  */
 import { creature, EXPERIENCIA } from '../data.js';
 import type { Creature, UnitInfo, Veterania } from '../types.js';
+import { conEquipo } from './equipo.js';
 
 /**
  * Lo que cuesta llegar a cada nivel: `UMBRALES[n − 1]` es el del nivel `n`.
@@ -173,12 +174,12 @@ export function cifrasVeteranas<U extends UnitInfo>(unit: U, nivel: number): U {
  * Devuelve la `Creature` —el precio, la morada y el liderazgo siguen siendo los
  * suyos— y, en el nivel 1, **la misma referencia** del catálogo.
  *
- * `veterania` pide solo la experiencia porque es lo único que decide las
- * cifras: por el cable del espectador viaja eso y no la hoja entera.
+ * `veterania` pide la experiencia y el equipo porque es lo único que decide
+ * las cifras: por el cable del espectador viaja eso y no la hoja entera.
  */
 export function cifrasDeCatalogo(
   creatureId: string,
-  veterania: Pick<Veterania, 'experiencia'> | null | undefined,
+  veterania: Pick<Veterania, 'experiencia' | 'equipo'> | null | undefined,
 ): Creature {
   const base = creature(creatureId);
   if (veterania == null) return base;
@@ -190,9 +191,26 @@ export function cifrasDeCatalogo(
   // misma hoja a dos criaturas: entonces se recalcula, no se presta.
   const guardadas = CIFRAS_POR_HOJA.get(veterania);
   if (guardadas !== undefined && guardadas.id === creatureId) return guardadas;
-  const cifras = cifrasVeteranas(base, nivelDeTropa(veterania));
+  const cifras = cifrasDelIndividuo(base, veterania);
   CIFRAS_POR_HOJA.set(veterania, cifras);
   return cifras;
+}
+
+/**
+ * Las cifras de un individuo sobre las de su cuerpo —el catálogo o el perfil de
+ * su personaje—: su veteranía y lo que lleva puesto. **La única regla de
+ * «cuerpo + hoja»**: la llaman `cifrasDeCatalogo` y las dos ramas del personaje,
+ * `troopUnit` y `resolveUnit`. Con el equipo eran tres sitios donde sumar las
+ * piezas, y el que se olvidara de una dejaría a la IA viendo unas cifras y al
+ * tablero jugando otras.
+ *
+ * Sin hoja, o con una de nivel 1 y sin piezas, devuelve **la misma referencia**.
+ */
+export function cifrasDelIndividuo<U extends UnitInfo>(
+  unit: U,
+  hoja: Pick<Veterania, 'experiencia' | 'equipo'> | null | undefined,
+): U {
+  return conEquipo(cifrasVeteranas(unit, nivelDeTropa(hoja)), hoja?.equipo);
 }
 
 /**

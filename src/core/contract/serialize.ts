@@ -16,8 +16,9 @@ import {
   type OrigenDelStack,
   type Side,
 } from '../battle/types.js';
-import { ASALTANTES, creature, isShooter, LIDERAZGO, tiposDeHeroe } from '../data.js';
+import { ASALTANTES, creature, EQUIPO, isShooter, LIDERAZGO, tiposDeHeroe } from '../data.js';
 import type { VeteranoEnBase } from '../hero/ascenso.js';
+import { cifrasDePieza, NOMBRE_DE_CALIDAD, PIEZAS_DE_ARMERIA, seVende } from '../hero/equipo.js';
 import {
   NIVEL_MAXIMO_DE_TROPA,
   nivelDeHeroe,
@@ -54,10 +55,11 @@ import {
   dailyIncome,
   dwellings,
   mageGuildLevel,
+  tieneArmeria,
   townSpells,
 } from '../town/town.js';
-import type { Army, PlayerId } from '../types.js';
-import { RESOURCE_KINDS } from '../types.js';
+import type { Army, Equipo, PlayerId } from '../types.js';
+import { describirCoste, HUECOS, RESOURCE_KINDS } from '../types.js';
 
 /**
  * El ejército tal como lo lee el agente: agrupado por criatura, con cuántos
@@ -80,6 +82,8 @@ function armyView(
   level?: number;
   experience?: number;
   nextLevelAt?: number | null;
+  id?: string;
+  equipment?: Record<string, string | null>;
 }[] {
   return troopSummary(army, characters).map((g) => ({
     creature: g.creature,
@@ -89,11 +93,41 @@ function armyView(
     // Solo en la fila de un veterano, que va sola (`troopSummary`): una fila de
     // novatos no tiene experiencia que contar, y un `level: 1` en cada una
     // engordaría todos los turnos para no decir nada.
+    //
+    // Con su `id`, que es lo que el agente escribe en `equip.veteran` y
+    // `unequip.veteran`, y su `equipment` con la misma forma que el del héroe
+    // —los tres huecos, `null` el vacío—: un novato equipado tiene hoja
+    // (experiencia 0) y por eso va en su fila con las dos cosas.
     ...(g.veterania === undefined
       ? {}
-      : { level: g.nivel, experience: g.veterania.experiencia, nextLevelAt: g.siguiente }),
+      : {
+          id: g.veterania.id,
+          level: g.nivel,
+          experience: g.veterania.experiencia,
+          nextLevelAt: g.siguiente,
+          equipment: equipoView(g.veterania.equipo),
+        }),
   }));
 }
+
+/**
+ * Lo que lleva puesto alguien, por hueco, con `null` en el vacío: los tres huecos
+ * siempre. **Una sola forma** para el héroe y para la fila de un individuo.
+ */
+function equipoView(equipo: Equipo | undefined): Record<string, string | null> {
+  return Object.fromEntries(HUECOS.map((h) => [h, equipo?.[h] ?? null]));
+}
+
+/**
+ * El catálogo de equipo en prosa, **derivado de `EQUIPO`** y no escrito a mano,
+ * con las cifras ya resueltas como los costes del terreno: el agente no tiene
+ * otra forma de saber lo que vale una pieza, y una cifra que se le anuncia y no
+ * cuadra no la descubre nadie. Lo interpola `RESPONSE_FORMAT.adventure_turn`.
+ */
+export const CATALOGO_DE_EQUIPO_EN_PROSA: string = EQUIPO.map((p) => {
+  const venta = seVende(p) ? ` · se compra por ${describirCoste(p.precio)}` : '';
+  return `    ${p.id} (${p.hueco}, ${NOMBRE_DE_CALIDAD[p.calidad]}): ${cifrasDePieza(p)}${venta}`;
+}).join('\n');
 
 /**
  * Los objetos del mapa **tal como los recuerda un jugador**, cada uno con la
@@ -417,6 +451,10 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId): un
       // Su fuerza, la misma medida que la de los asaltantes de `knownMap`: sin
       // las dos cifras el agente no puede saber si un grupo lo emboscará.
       strength: fuerzaDe(h, state.characters),
+      // Lo que lleva puesto y lo que lleva en la mochila, por id: el catálogo
+      // con las cifras va en `RESPONSE_FORMAT`, no en cada turno.
+      equipment: equipoView(h.equipo),
+      backpack: [...h.mochila],
     })),
     towns: townsOf(state, playerId).map((t) => ({
       id: t.id,
@@ -442,6 +480,13 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId): un
       })),
       garrison: armyView(t.garrison, state.characters),
       garrisonLeadership: { used: armyLeadership(t.garrison), max: GARRISON_LEADERSHIP },
+      // Solo si la tiene: lo que vende y a qué precio. Una lista vacía en cada
+      // pueblo sin armería engordaría el turno para no decir nada.
+      ...(tieneArmeria(t)
+        ? {
+            armory: PIEZAS_DE_ARMERIA.map((p) => ({ item: p.id, slot: p.hueco, cost: p.precio })),
+          }
+        : {}),
     })),
     // Solo lo que este jugador ha OBSERVADO, y tal como lo observó. El agente no
     // ve por las paredes, y tampoco ve el futuro de una casilla que dejó atrás:

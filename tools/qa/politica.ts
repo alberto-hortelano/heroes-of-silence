@@ -8,11 +8,13 @@
  * un test normal.
  *
  * No pretende jugar bien. Pretende ejercitar el circuito entero: construir,
- * reclutar, moverse y, en batalla, pegar a algo.
+ * reclutar, comprar y equipar, moverse y, en batalla, pegar a algo.
  */
 
+import { allCreatures } from '../../src/core/data.js';
 import { generateMapPlan } from '../../src/core/map/generate.js';
 import { createRng } from '../../src/core/rng.js';
+import { buildingIfExists } from '../../src/core/town/buildings.js';
 
 /**
  * La firma con la que se reconoce el mapa del arnés.
@@ -31,16 +33,42 @@ export function decidir(kind: string, payload: any): unknown {
     case 'adventure_turn': {
       const acciones: unknown[] = [];
       const town = payload.towns?.[0];
-      if (town?.canBuildNow?.[0] !== undefined) {
-        acciones.push({ type: 'build', town: town.id, building: town.canBuildNow[0].id });
-      }
-      const reclutable = town?.recruitable?.find((r: any) => r.available > 0);
-      // Con el héroe dentro y sus 6 individuos llenos, el `recruit` no cabe:
-      // se licencian dos del primero que lleve para hacerle sitio. Es como el
-      // arnés ejercita `dismiss` por el circuito entero.
+      const obra: string | undefined = town?.canBuildNow?.[0]?.id;
+      if (obra !== undefined) acciones.push({ type: 'build', town: town.id, building: obra });
+      // La foto del turno es de ANTES de construir, y una mejora de morada se
+      // lleva lo disponible de su nivel a la criatura mejorada: pedir después los
+      // zombis que la foto enseñaba es pedir unos que ya no hay. Pasaba el día 7
+      // de `pnpm qa`, fuera de la cuenta del arnés —«1 rechazadas»—, desde que
+      // `ponArmeriaEnLaBase` da oro para pagar la mejora.
+      const nivelMejorado = obra === undefined ? undefined : buildingIfExists(obra)?.upgradesLevel;
+      const reclutable = town?.recruitable?.find(
+        (r: any) =>
+          r.available > 0 &&
+          (nivelMejorado === undefined ||
+            allCreatures().find((c) => c.id === r.creature)?.level !== nivelMejorado),
+      );
       const dentro = payload.heroes?.find(
         (h: any) => town?.at !== undefined && h.at?.x === town.at.x && h.at?.y === town.at.y,
       );
+      // El equipo, antes de licenciar —que podría llevarse al novato elegido—: con
+      // el héroe en una ciudad con armería se compra la primera pieza que vende, y
+      // se le pone al primero de su tropa que todavía no tiene id —un novato, que
+      // pasa a tenerlo—; sin armería, lo primero de la mochila del primer héroe que
+      // lleve algo. Es como el arnés cruza `buy_item` y `equip` por el circuito.
+      const enVenta = dentro === undefined ? undefined : town?.armory?.[0]?.item;
+      if (enVenta !== undefined) acciones.push({ type: 'buy_item', town: town.id, item: enVenta });
+      const portador =
+        enVenta !== undefined
+          ? dentro
+          : payload.heroes?.find((h: any) => (h.backpack?.length ?? 0) > 0);
+      const pieza = enVenta ?? portador?.backpack?.[0];
+      const novato = portador?.army?.find((g: any) => g.member === undefined && g.id === undefined);
+      if (pieza !== undefined && novato !== undefined) {
+        acciones.push({ type: 'equip', hero: portador.id, item: pieza, creature: novato.creature });
+      }
+      // Con el héroe dentro y sus 6 individuos llenos, el `recruit` no cabe:
+      // se licencian dos del primero que lleve para hacerle sitio. Es como el
+      // arnés ejercita `dismiss` por el circuito entero.
       const lleva = (dentro?.army ?? []).reduce((n: number, g: any) => n + g.count, 0);
       const primero = dentro?.army?.find((g: any) => g.member === undefined && g.count >= 2);
       if (reclutable !== undefined && lleva >= 6 && primero !== undefined) {

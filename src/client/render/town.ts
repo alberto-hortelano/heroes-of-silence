@@ -20,10 +20,10 @@ import {
   recruitCost,
   type Town,
 } from '@core/town/town.js';
-import { type FactionId, RESOURCE_KINDS, type Resources } from '@core/types.js';
+import { describirCoste, type FactionId, RESOURCE_KINDS, type Resources } from '@core/types.js';
 import { asset } from './assets.js';
 import { pintarFigura } from './figura.js';
-import { costLabel, RESOURCE_COLORS } from './palette.js';
+import { RESOURCE_COLORS } from './palette.js';
 import { pintarSombra } from './sombra.js';
 
 const TOWN_WIDTH = 1024;
@@ -42,7 +42,8 @@ export interface TownPlot {
 }
 
 /**
- * Los cinco solares de villa: iguales para las dos facciones.
+ * Los seis solares de villa: iguales para las dos facciones. La armería entró
+ * con el ciclo del equipo, y la fila se rehizo de ancho para que quepan seis.
  *
  * La cadena del gremio se DERIVA del catálogo, igual que las de las moradas:
  * los edificios con `mageGuildLevel`, en orden de nivel. Escrita a mano era una
@@ -57,24 +58,29 @@ function solaresDeVilla(catalogo: readonly Building[]): readonly TownPlot[] {
     .sort((a, b) => (a.mageGuildLevel ?? 0) - (b.mageGuildLevel ?? 0))
     .map((b) => b.id);
 
+  // La armería, igual que el gremio: por su rasgo (`sellsEquipment`) y no por su
+  // id, para que una segunda armería en los datos no se quede sin solar.
+  const armeria = catalogo.filter((b) => b.sellsEquipment === true).map((b) => b.id);
+
   return [
-    { id: 'fort', chain: ['castle'], x: 40, y: 30, w: 190, h: 150 },
+    { id: 'fort', chain: ['castle'], x: 28, y: 30, w: 170, h: 150 },
     {
       id: 'hall',
       chain: ['village_hall', 'town_hall', 'city_hall'],
-      x: 258,
+      x: 210,
       y: 30,
-      w: 190,
+      w: 170,
       h: 150,
     },
-    { id: 'guild', chain: gremio, x: 476, y: 30, w: 170, h: 150 },
-    { id: 'tavern', chain: ['tavern'], x: 674, y: 30, w: 150, h: 150 },
-    { id: 'market', chain: ['marketplace'], x: 852, y: 30, w: 132, h: 150 },
+    { id: 'guild', chain: gremio, x: 392, y: 30, w: 150, h: 150 },
+    { id: 'tavern', chain: ['tavern'], x: 554, y: 30, w: 140, h: 150 },
+    { id: 'market', chain: ['marketplace'], x: 706, y: 30, w: 140, h: 150 },
+    { id: 'armory', chain: armeria, x: 858, y: 30, w: 140, h: 150 },
   ];
 }
 
 /**
- * Once solares para los edificios de la facción.
+ * Doce solares para los edificios de la facción.
  *
  * La fila de atrás son los edificios de villa; la de delante, las seis moradas,
  * en orden de nivel y con su franja de reclutamiento justo debajo: la criatura
@@ -646,7 +652,7 @@ export function describeHit(
     if (cuantos === 0) {
       return `${info.name}: no puedes reclutar ninguno ahora${cupo}.`;
     }
-    return `Reclutar ${cuantos} × ${info.name} — ${costLabel(recruitCost(hit.creature, cuantos))}${cupo}`;
+    return `Reclutar ${cuantos} × ${info.name} — ${describirCoste(recruitCost(hit.creature, cuantos))}${cupo}`;
   }
 
   const plot = plotById(town.faction, hit.plot);
@@ -657,5 +663,7 @@ export function describeHit(
   }
   const blocker = buildBlocker(town, next, purse);
   const b = building(next);
-  return blocker === null ? `Construir ${b.name} — ${costLabel(b.cost)}` : `${b.name}: ${blocker}`;
+  return blocker === null
+    ? `Construir ${b.name} — ${describirCoste(b.cost)}`
+    : `${b.name}: ${blocker}`;
 }

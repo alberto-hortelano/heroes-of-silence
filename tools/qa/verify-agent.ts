@@ -108,6 +108,16 @@ const emboscadasVistas = new Set<string>();
  */
 const licenciasVistas = new Set<string>();
 /**
+ * El equipo, cruzado de verdad: las compras que le constan al agente en su
+ * crónica (`item_bought`) y el primer individuo de su tropa que aparece con
+ * `equipment` en un turno, comprobado **una vez** contra `game_state`. El
+ * servidor del arnés pone la armería en la base (`partida-con-veterano.ts`) y la
+ * política compra y equipa (`politica.ts`); sin este recuento, un `buy_item` que
+ * validara y no se aplicara, o un `equip` que se perdiera, saldrían verdes.
+ */
+const comprasVistas = new Set<string>();
+const equipo: { visto: string | null } = { visto: null };
+/**
  * Cuánto de la ventana de `recentEvents` se llevan los hechos de asaltantes.
  * Era un riesgo del plan —la patrulla podía ahogar los 25 hechos que caben—;
  * la patrulla dejó de ser un hecho, y lo que queda se mide en vez de suponerse.
@@ -377,6 +387,45 @@ async function cruzaElHeroeNacido(client: Client, turno: any): Promise<void> {
   ascenso.visto = `${h.name} (${h.id}), tipo ${h.type}, nivel ${h.level}, tropa: ${h.army.length}, «${h.story}»`;
 }
 
+/**
+ * Busca en el turno un individuo con `id` que lleve algo en su `equipment` —un
+ * novato al que se le puso una pieza, o un veterano— y lo cruza con `game_state`: las dos puertas tienen
+ * que decir lo mismo de lo que lleva. Y el héroe tiene que traer sus tres huecos
+ * y su mochila, que es lo que el agente lee para decidir qué ponerse.
+ */
+async function cruzaElEquipo(client: Client, turno: any): Promise<void> {
+  for (const h of turno.heroes ?? []) {
+    if (h.equipment === undefined || !Array.isArray(h.backpack)) {
+      throw new Error(
+        `el héroe ${h.id} llega sin "equipment" o sin "backpack": ${JSON.stringify(h)}`,
+      );
+    }
+  }
+  const conPieza = (turno.heroes ?? []).flatMap((h: any) =>
+    (h.army ?? [])
+      .filter(
+        (g: any) =>
+          typeof g.id === 'string' &&
+          Object.values(g.equipment ?? {}).some((id: unknown) => id !== null),
+      )
+      .map((g: any) => ({ heroe: h.id, fila: g })),
+  );
+  const primero = conPieza[0];
+  if (primero === undefined) return;
+  const estado = await consulta(client, 'game_state');
+  const heroe = (estado.heroes ?? []).find((x: any) => x.id === primero.heroe);
+  const fila = (heroe?.army ?? []).find((g: any) => g.id === primero.fila.id);
+  if (
+    fila === undefined ||
+    JSON.stringify(fila.equipment) !== JSON.stringify(primero.fila.equipment)
+  ) {
+    throw new Error(
+      `game_state no dice lo mismo del individuo equipado que su turno: ${JSON.stringify(fila)} frente a ${JSON.stringify(primero.fila)}`,
+    );
+  }
+  equipo.visto = `${primero.fila.creature} ${primero.fila.id} de ${primero.heroe} lleva ${JSON.stringify(primero.fila.equipment)} (cruzado con game_state)`;
+}
+
 /** Cierra con el resumen de todo lo que se ha verificado. */
 async function terminarBien(
   turnos: number,
@@ -418,6 +467,17 @@ async function terminarBien(
     );
   }
   log(`licencias: ${licenciasVistas.size} en la crónica del agente`);
+  if (comprasVistas.size === 0) {
+    throw new Error(
+      'el agente no ha comprado nada en la armería: `buy_item` no ha cruzado el circuito',
+    );
+  }
+  if (equipo.visto === null) {
+    throw new Error(
+      'ningún individuo de la tropa del agente ha llegado equipado a un turno: `equip` no ha cruzado el circuito',
+    );
+  }
+  log(`equipo: ${comprasVistas.size} compras en la crónica; ${equipo.visto}`);
   exigeElAscenso();
   log(`consultas ejercitadas: ${[...consultadas].sort().join(', ')}`);
   log(
@@ -657,7 +717,9 @@ async function main(): Promise<void> {
           emboscadasVistas.add(JSON.stringify(e));
         }
         if (e.kind === 'dismissed') licenciasVistas.add(JSON.stringify(e));
+        if (e.kind === 'item_bought') comprasVistas.add(JSON.stringify(e));
       }
+      if (equipo.visto === null) await cruzaElEquipo(client, payload);
       if (payload.heroes?.some((h: any) => typeof h.strength !== 'number')) {
         throw new Error(
           'un héroe del turno llega sin "strength": el agente no puede saber si lo emboscan',

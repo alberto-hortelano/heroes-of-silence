@@ -20,9 +20,10 @@ import { creature, type GrupoDeTropa, LIDERAZGO } from '../data.js';
 import type { Character } from '../rpg/character.js';
 import { combatProfile } from '../rpg/stats.js';
 import type { Army, Stack, Troop, UnitInfo, Veterania } from '../types.js';
+import { piezasPuestas } from './equipo.js';
 import {
   cifrasDeCatalogo,
-  cifrasVeteranas,
+  cifrasDelIndividuo,
   NIVEL_MAXIMO_DE_TROPA,
   nivelDeHeroe,
   nivelDeTropa,
@@ -59,7 +60,7 @@ export function troopUnit(t: Troop, characters: Personajes): UnitInfo {
   // test exige que las dos puertas den lo mismo para un veterano.
   if (t.member === undefined) return cifrasDeCatalogo(t.creature, t.veterania);
   const perfil = combatProfile(characterOf(characters, t.member, 'el ejército lleva'));
-  return cifrasVeteranas(perfil.unit, nivelDeTropa(t.veterania));
+  return cifrasDelIndividuo(perfil.unit, t.veterania);
 }
 
 /** Lo que ocupa un individuo en el liderazgo. */
@@ -327,13 +328,19 @@ export function troopSummary(army: Army, characters: Personajes): TroopGroup[] {
 function indiceDelQueSeIria(army: Army, creatureId: string): number {
   let elegido = -1;
   let menos = Number.POSITIVE_INFINITY;
+  let menosPiezas = Number.POSITIVE_INFINITY;
   army.forEach((t, i) => {
     if (t.creature !== creatureId || t.member !== undefined) return;
     const exp = t.veterania?.experiencia ?? 0;
-    // `<=` y no `<`: a igual experiencia gana el de más atrás.
-    if (exp <= menos) {
+    const piezas = piezasPuestas(t.veterania?.equipo).length;
+    // `<=` y no `<`: a igual experiencia y equipo gana el de más atrás. Y a igual
+    // experiencia se va antes el que lleva menos: un novato recién equipado no
+    // tiene experiencia, y sin esta clave se iba él por ser el último en llegar
+    // —sus piezas vuelven a la mochila, pero sobraba el viaje—.
+    if (exp < menos || (exp === menos && piezas <= menosPiezas)) {
       elegido = i;
       menos = exp;
+      menosPiezas = piezas;
     }
   });
   return elegido;
@@ -341,8 +348,9 @@ function indiceDelQueSeIria(army: Army, creatureId: string): number {
 
 /**
  * El individuo de `creatureId` que se iría primero al licenciar uno de ese tipo,
- * o `null` si el ejército no lleva ninguno: **el de menos experiencia** y, a igual
- * experiencia, **el último en llegar**.
+ * o `null` si el ejército no lleva ninguno: **el de menos experiencia**; a igual
+ * experiencia, **el que lleva menos piezas**, y a igualdad de las dos, **el último
+ * en llegar**.
  *
  * Es LA regla de quién se va, y tiene tres lectores: `sinIndividuos` —la acción
  * `dismiss`—, la IA que planea licenciar (`laMasBarata`) y el botón del panel, que
@@ -366,11 +374,26 @@ export function elQueSeIria(army: Army, creatureId: string): Troop | null {
  * tipo.
  */
 export function sinIndividuos(army: Army, creatureId: string, count: number): Army {
-  const out = [...army];
+  return licenciar(army, creatureId, count).queda;
+}
+
+/**
+ * Lo mismo que `sinIndividuos`, y además **quiénes se van**: la acción `dismiss`
+ * los necesita para devolver a la mochila del héroe lo que llevaran puesto. Es
+ * la misma función por debajo, así que lo que se va y lo que queda no pueden
+ * contarse distinto.
+ */
+export function licenciar(
+  army: Army,
+  creatureId: string,
+  count: number,
+): { readonly queda: Army; readonly seVan: readonly Troop[] } {
+  const queda = [...army];
+  const seVan: Troop[] = [];
   for (let n = 0; n < count; n++) {
-    const i = indiceDelQueSeIria(out, creatureId);
+    const i = indiceDelQueSeIria(queda, creatureId);
     if (i === -1) break;
-    out.splice(i, 1);
+    seVan.push(...queda.splice(i, 1));
   }
-  return out;
+  return { queda, seVan };
 }

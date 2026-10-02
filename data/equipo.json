@@ -1,0 +1,148 @@
+{
+  "_comment": "El equipo: las piezas que lleva un individuo de la tropa o un héroe, una por hueco (arma, armadura y accesorio). TODO INVENTADO y PROVISIONAL: lo pide NuevaJugabilidad.md («Las tropas también ganan experiencia y equipo»; «En las ciudades puedes construir armería y comprar equipo mejorado para la tropa, los héroes ya lo llevan») y HoMM2 no tiene equipo de tropa, así que no hay fila que copiar. Que nadie cite estas cifras como del original. Cada pieza suma sus cifras a las de quien la lleva: ataque, defensa, pv y velocidad (escalones de SPEED_TIERS, sin pasar de ultra_fast); todas enteras ≥ 0. La CALIDAD es lo que decide de dónde sale una pieza, y es una propiedad de la pieza y no una lista aparte (decisión del usuario, 02-10-2026): «comun» cae como botín; «armeria» es lo que vende la armería y lo que TODO héroe trae de serie al nacer —hay exactamente una por hueco, la mejor que se puede comprar, y el equipo base se deriva de aquí—; «especial» cae como botín y trae otro tipo de ventaja (velocidad, más PV): es lo único, con las armas mágicas que vendrán, con lo que un héroe mejora lo que ya lleva. El precio es lo que cuesta en la armería; solo se cobra el de las de armería, y las demás lo llevan por si un día se venden. Lo valida src/core/data.ts al cargar.",
+  "piezas": [
+    {
+      "id": "garrote",
+      "nombre": "Garrote",
+      "hueco": "arma",
+      "calidad": "comun",
+      "ataque": 1,
+      "defensa": 0,
+      "pv": 0,
+      "velocidad": 0,
+      "precio": { "gold": 300 }
+    },
+    {
+      "id": "hacha_de_lenador",
+      "nombre": "Hacha de leñador",
+      "hueco": "arma",
+      "calidad": "comun",
+      "ataque": 1,
+      "defensa": 0,
+      "pv": 1,
+      "velocidad": 0,
+      "precio": { "gold": 400 }
+    },
+    {
+      "id": "espada_de_armeria",
+      "nombre": "Espada de armería",
+      "hueco": "arma",
+      "calidad": "armeria",
+      "ataque": 2,
+      "defensa": 0,
+      "pv": 0,
+      "velocidad": 0,
+      "precio": { "gold": 800 }
+    },
+    {
+      "id": "estoque_ligero",
+      "nombre": "Estoque ligero",
+      "hueco": "arma",
+      "calidad": "especial",
+      "ataque": 2,
+      "defensa": 0,
+      "pv": 0,
+      "velocidad": 1,
+      "precio": { "gold": 1500 }
+    },
+    {
+      "id": "jubon_acolchado",
+      "nombre": "Jubón acolchado",
+      "hueco": "armadura",
+      "calidad": "comun",
+      "ataque": 0,
+      "defensa": 1,
+      "pv": 0,
+      "velocidad": 0,
+      "precio": { "gold": 300 }
+    },
+    {
+      "id": "cuero_curtido",
+      "nombre": "Cuero curtido",
+      "hueco": "armadura",
+      "calidad": "comun",
+      "ataque": 0,
+      "defensa": 1,
+      "pv": 1,
+      "velocidad": 0,
+      "precio": { "gold": 400 }
+    },
+    {
+      "id": "cota_de_malla",
+      "nombre": "Cota de malla",
+      "hueco": "armadura",
+      "calidad": "armeria",
+      "ataque": 0,
+      "defensa": 2,
+      "pv": 0,
+      "velocidad": 0,
+      "precio": { "gold": 800 }
+    },
+    {
+      "id": "coraza_bendita",
+      "nombre": "Coraza bendita",
+      "hueco": "armadura",
+      "calidad": "especial",
+      "ataque": 0,
+      "defensa": 2,
+      "pv": 4,
+      "velocidad": 0,
+      "precio": { "gold": 1500 }
+    },
+    {
+      "id": "amuleto_de_hueso",
+      "nombre": "Amuleto de hueso",
+      "hueco": "accesorio",
+      "calidad": "comun",
+      "ataque": 0,
+      "defensa": 0,
+      "pv": 2,
+      "velocidad": 0,
+      "precio": { "gold": 300 }
+    },
+    {
+      "id": "anillo_de_cobre",
+      "nombre": "Anillo de cobre",
+      "hueco": "accesorio",
+      "calidad": "comun",
+      "ataque": 1,
+      "defensa": 0,
+      "pv": 0,
+      "velocidad": 0,
+      "precio": { "gold": 300 }
+    },
+    {
+      "id": "brazal_de_armeria",
+      "nombre": "Brazal de armería",
+      "hueco": "accesorio",
+      "calidad": "armeria",
+      "ataque": 1,
+      "defensa": 1,
+      "pv": 0,
+      "velocidad": 0,
+      "precio": { "gold": 600 }
+    },
+    {
+      "id": "botas_de_marcha",
+      "nombre": "Botas de marcha",
+      "hueco": "accesorio",
+      "calidad": "especial",
+      "ataque": 0,
+      "defensa": 0,
+      "pv": 0,
+      "velocidad": 1,
+      "precio": { "gold": 1500 }
+    },
+    {
+      "id": "talisman_vital",
+      "nombre": "Talismán vital",
+      "hueco": "accesorio",
+      "calidad": "especial",
+      "ataque": 0,
+      "defensa": 0,
+      "pv": 5,
+      "velocidad": 0,
+      "precio": { "gold": 1500 }
+    }
+  ]
+}

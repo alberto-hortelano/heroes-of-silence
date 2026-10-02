@@ -370,11 +370,39 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   pasada (una regla de quién se licencia, el nivel en las cifras, una función
  *   para «catálogo + veteranía», el nivel del héroe derivado de su experiencia…)
  *   dejó `3bb44c4b…` exacto, comprobado tras cada bloque.
+ * - `7c24a8b4…` (66 088 líneas): **el equipo** (botín, equipo base del héroe,
+ *   armería e IA que compra y equipa). Mueve las partidas a propósito, y se
+ *   re-ancló una sola vez al final con la forma comprobada por pasos contra
+ *   `0c8fc759…`, quitando la columna de índice y el recuento de hechos:
+ *   1. **Solo botín y mochila** (el héroe todavía desnudo, sin armería ni IA que
+ *      equipe): **0 líneas quitadas y 1 045 añadidas, las 1 045 `loot_found`**,
+ *      todas `from: town` —la IA no pelea con asaltantes—. El botín tira de su
+ *      propia corriente y no desplaza ni una tirada.
+ *   2. **El equipo base** (+3/+3 a todo héroe): cambia las batallas, como se
+ *      sabía; 185 de 200 semillas distintas, 47 con otro ganador (23 y 24 en
+ *      cada sentido: el jugador 0 gana 92 donde ganaba 91).
+ *   3. **Armería e IA**: 179 de 200 semillas distintas, y en las 179 la primera
+ *      línea distinta va **detrás de un `loot_found`** —la IA se pone el botín—;
+ *      ninguna diverge antes de que haya algo que equipar. 23 partidas levantan
+ *      la armería (está la última de la lista: ver `strategy.ts`), 1 187 compras.
+ *   Duración 8 / 17 / 42 días desde 9 / 18 / 35; el jugador 0 gana 93 de 200.
+ * - `bd4d4a13…` (64 763 líneas): **la IA no derrocha en compras** (hallazgo I2 de
+ *   QA, en el mismo ciclo y sin commitear `7c24a8b4…`). Compraba 18 piezas al día
+ *   —seis novatos por tres huecos— para una tropa que caía al día siguiente: 1 187
+ *   compras en 14 semillas, 268 en la 136. Ahora compra solo si quien la recibiría
+ *   es el héroe o un veterano de nivel 2 o más, a un novato solo con 10 000 de oro
+ *   de sobra, y como mucho 3 por héroe y día. Forma del diff contra `7c24a8b4…`:
+ *   **186 semillas idénticas**, y en **las 14** que cambian —las mismas 14 que
+ *   compraban— el primer hecho distinto del volcado viejo es **un `item_bought`
+ *   que ya no ocurre**; nada diverge antes de una compra. Compras 1 187 → **221**
+ *   (máximo 268 → 66, la 185, con oro de sobra), 3 semillas con otro ganador
+ *   (j0 93 → **92**). Duración 8 / 17 / **43**. Re-anclado una vez; todo lo demás
+ *   del pase de QA (I1, I4, M1-M5) dejó `7c24a8b4…` exacto, comprobado antes.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '0c8fc759950dfd95e11c22bdf7ad7ca33b523c47bbaa3cddb6a8cd569544bc45',
+  sha: 'bd4d4a13b5190195931bc1e4e184cc3a1429905d682f2606ebf3aaa98d0f38fa',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

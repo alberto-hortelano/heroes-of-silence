@@ -94,7 +94,13 @@ const conHeroe = (army: BattleSide['army'], nivel = NIVEL_INICIAL_DE_HEROE): Bat
   army,
   hero: {
     mando: mando(),
-    cuerpo: heroUnit({ name: 'Prueba', attack: 1, defense: 1, experience: umbral(nivel) }),
+    cuerpo: heroUnit({
+      name: 'Prueba',
+      attack: 1,
+      defense: 1,
+      experience: umbral(nivel),
+      equipo: {},
+    }),
   },
 });
 
@@ -737,7 +743,9 @@ describe('una sola escala de niveles: el héroe empieza donde acaba la tropa', (
   it('las cifras se reindexan: uno de nivel 5 tiene lo que antes uno de nivel 1', () => {
     const c = HEROE.combate;
     // Lo que daba la fórmula vieja con `level − 1 = 0`: las bases del JSON.
-    expect(heroUnit({ name: 'X', attack: 2, defense: 2, experience: umbral(5) })).toMatchObject({
+    expect(
+      heroUnit({ name: 'X', attack: 2, defense: 2, experience: umbral(5), equipo: {} }),
+    ).toMatchObject({
       attack: 2,
       defense: 2,
       hp: c.pv.base,
@@ -745,9 +753,9 @@ describe('una sola escala de niveles: el héroe empieza donde acaba la tropa', (
     });
     expect(heroLeadership({ experience: umbral(5) })).toBe(LIDERAZGO.heroe.base);
     // Y cada nivel por encima suma lo de uno, como antes del 1 al 2.
-    expect(heroUnit({ name: 'X', attack: 2, defense: 2, experience: umbral(6) }).hp).toBe(
-      c.pv.base + c.pv.porNivel,
-    );
+    expect(
+      heroUnit({ name: 'X', attack: 2, defense: 2, experience: umbral(6), equipo: {} }).hp,
+    ).toBe(c.pv.base + c.pv.porNivel);
     expect(heroLeadership({ experience: umbral(6) })).toBe(
       LIDERAZGO.heroe.base + LIDERAZGO.heroe.porNivel,
     );
@@ -758,9 +766,9 @@ describe('una sola escala de niveles: el héroe empieza donde acaba la tropa', (
     expect(() => subidasDeHeroe(1)).toThrow(
       'un héroe de nivel 1 no existe: todo héroe empieza en el 5, la escala es la de la tropa',
     );
-    expect(() => heroUnit({ name: 'X', attack: 0, defense: 0, experience: umbral(4) })).toThrow(
-      /nivel 4/,
-    );
+    expect(() =>
+      heroUnit({ name: 'X', attack: 0, defense: 0, experience: umbral(4), equipo: {} }),
+    ).toThrow(/nivel 4/);
     expect(() => heroLeadership({ experience: umbral(4) })).toThrow(/nivel 4/);
   });
 

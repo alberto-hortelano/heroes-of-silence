@@ -268,11 +268,45 @@ export async function escenas(): Promise<readonly Escena[]> {
     ]),
   });
 
+  // 17 · El castillo con ARMERÍA y un héroe dentro: la lista de lo que vende,
+  //      con su «Comprar»; un veterano que lleva una pieza y un novato al que se
+  //      le ha puesto otra (los dos en su fila, con su «Lleva:»).
+  const armeria = new Session(12);
+  const conArmeria = armeria.myTowns()[0]!;
+  const armero = armeria.myHeroes()[0]!;
+  armeria.moveHeroTo(armero.id, conArmeria.at);
+  conArmeria.buildings.push('armory');
+  armero.army = [
+    { creature: 'pikeman', veterania: { ...hoja('veterano-1', 70), equipo: { arma: 'garrote' } } },
+    {
+      creature: 'peasant',
+      veterania: { ...hoja('veterano-2', 0), equipo: { armadura: 'cota_de_malla' } },
+    },
+    { creature: 'peasant' },
+  ];
+  armeria.openTown(conArmeria.id);
+  out.push({ nombre: 'castillo · con armería y tropa equipada', session: armeria });
+
+  // 18 · El héroe en el mapa con la MOCHILA llena y una pieza elegida: su
+  //      «Ponérsela», los «Equipar» de cada fila y los «×» de lo puesto. Le falta
+  //      el accesorio, para que salga el hueco vacío.
+  const mochila = new Session(12);
+  const cargado = mochila.myHeroes()[0]!;
+  cargado.equipo = { arma: 'espada_de_armeria', armadura: 'cota_de_malla' };
+  cargado.mochila = ['talisman_vital', 'garrote'];
+  cargado.army = [
+    { creature: 'pikeman', veterania: { ...hoja('veterano-1', 70), equipo: { arma: 'garrote' } } },
+    { creature: 'peasant' },
+    { creature: 'peasant' },
+  ];
+  mochila.selectItem('talisman_vital');
+  out.push({ nombre: 'aventura · mochila y pieza elegida', session: mochila });
+
   return out;
 }
 
 /**
- * Una crónica con los DIECIOCHO hechos y sus variantes, para anclar
+ * Una crónica con los VEINTE hechos y sus variantes, para anclar
  * `renderLog` entero.
  *
  * Jugando salen doce o trece y siempre los mismos; los que deciden la partida
@@ -303,6 +337,31 @@ function cronicaCompleta(): readonly GameEvent[] {
     { ...base, kind: 'recruited', town: 'town-1', creature: 'skeleton', count: 8, actor: 1 },
     { ...base, kind: 'hero_hired', hero: 'hero-2', town: 'town-0', actor: 0 },
     { ...base, kind: 'hero_hired', hero: 'hero-3', town: 'town-1', actor: 1 },
+    { ...base, kind: 'loot_found', hero: 'hero-0', item: 'garrote', from: 'raider', actor: 0 },
+    {
+      ...base,
+      kind: 'loot_found',
+      hero: 'hero-1',
+      item: 'talisman_vital',
+      from: 'town',
+      actor: 1,
+    },
+    {
+      ...base,
+      kind: 'item_bought',
+      hero: 'hero-0',
+      town: 'town-0',
+      item: 'cota_de_malla',
+      actor: 0,
+    },
+    {
+      ...base,
+      kind: 'item_bought',
+      hero: 'hero-1',
+      town: 'town-1',
+      item: 'brazal_de_armeria',
+      actor: 1,
+    },
     // El nombre lo escribe el narrador, así que va con marcado dentro: el ancla
     // fija que sale escapado.
     {

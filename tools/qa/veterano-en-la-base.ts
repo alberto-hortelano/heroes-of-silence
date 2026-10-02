@@ -35,3 +35,18 @@ export function ponVeteranoEnLaBase(state: GameState, player: PlayerId): string 
   base.garrison = [{ ...primero, veterania }, ...resto];
   return veterania.id;
 }
+
+/**
+ * Levanta la armería en la base de `player` y le deja oro para comprar, y
+ * devuelve el id de la base. Lo que `pnpm qa` necesita para cruzar `buy_item` y
+ * `equip`: la IA la construye tarde y en pocas partidas. Lanza sin base, como
+ * `ponVeteranoEnLaBase`: un arnés que no puede poner su caso no da verde.
+ */
+export function ponArmeriaEnLaBase(state: GameState, player: PlayerId): string {
+  const base = baseOf(state, player);
+  if (base === null) throw new Error(`el jugador ${player} no tiene base donde poner la armería`);
+  if (!base.buildings.includes('armory')) base.buildings.push('armory');
+  const jugador = state.players.find((p) => p.id === player)!;
+  jugador.resources = { ...jugador.resources, gold: jugador.resources.gold + 10000 };
+  return base.id;
+}

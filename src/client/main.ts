@@ -368,6 +368,31 @@ document.addEventListener('click', (ev) => {
         1,
       );
       break;
+    case 'select-item':
+      session.selectItem(target.getAttribute('data-item') as string);
+      break;
+    case 'equip': {
+      const veteran = target.getAttribute('data-veteran');
+      const creature = target.getAttribute('data-creature');
+      session.equip(target.getAttribute('data-hero') as string, {
+        ...(veteran === null ? {} : { veteran }),
+        ...(creature === null ? {} : { creature }),
+      });
+      break;
+    }
+    case 'unequip': {
+      // El hueco lo valida el núcleo (`unequipBlocker`), que es la puerta por la
+      // que entra también el agente: uno mal escrito sale en la barra con su motivo.
+      session.unequip(
+        target.getAttribute('data-hero') as string,
+        target.getAttribute('data-slot') as string,
+        target.getAttribute('data-veteran') ?? undefined,
+      );
+      break;
+    }
+    case 'buy-item':
+      session.buyItem(target.getAttribute('data-item') as string);
+      break;
     case 'battle-defend':
     case 'battle-wait':
       session.playBattleAction({ type: action === 'battle-wait' ? 'wait' : 'defend' });

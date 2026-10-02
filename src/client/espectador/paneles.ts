@@ -96,7 +96,11 @@ function jugadores(v: SpectatorView): Html {
             .map(
               (h) => html`<div class="stack empty">
                 <span>${h.name} · ${h.nombreDelTipo}</span><span class="count">${h.movePoints}</span>
-              </div>${historiaDelHeroe(h.historia)}`,
+              </div>${historiaDelHeroe(h.historia)}${
+                h.equipo.length === 0
+                  ? NADA
+                  : html`<p class="cost">Lleva: ${h.equipo.join(', ')}</p>`
+              }`,
             ),
         )}`;
       }),
