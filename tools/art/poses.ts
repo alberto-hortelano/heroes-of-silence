@@ -180,11 +180,24 @@ function colocarAtrezo(model, prefijo, atrezo, conf, suelo, aplanar, frente) {
   const centro = indice.clone().add(meñique).multiplyScalar(0.5).lerp(p('RightHandMiddle2'), 0.5);
   atrezo.espada.position.copy(centro);
   atrezo.espada.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), eje);
-  // A dos manos: la izquierda agarra el puño por debajo de la derecha, con la
-  // IK de dos huesos de las poses a distancia y el codo hacia abajo.
+  // A dos manos las dos manos cogen el puño delante del cuerpo, en el centro:
+  // del clip se toman la dirección de la hoja y la altura y el alcance de la
+  // mano derecha; se le quita el desvío lateral y se lleva cada mano a su sitio
+  // del puño con la IK de dos huesos (la derecha junto a la guarda, la izquierda
+  // debajo), con los codos hacia abajo.
   if (conf.dosManos) {
-    const agarre = centro.clone().addScaledVector(eje, conf.espada.agarre - conf.espada.puño + 0.07);
-    poseArm(model, 'Left', agarre, new THREE.Vector3(0, -1, 0));
+    const pechoD = p('Spine2');
+    const lateral = new THREE.Vector3().crossVectors(frente, new THREE.Vector3(0, 1, 0)).normalize();
+    const agarre = centro.clone();
+    agarre.addScaledVector(lateral, -agarre.clone().sub(pechoD).dot(lateral) * conf.centrado);
+    const alcance = agarre.clone().sub(pechoD).dot(frente);
+    if (alcance < conf.alcanceMinimo) agarre.addScaledVector(frente, conf.alcanceMinimo - alcance);
+    const abajo = new THREE.Vector3(0, -1, 0);
+    poseArm(model, 'Right', agarre, abajo);
+    const manoIzquierda = agarre.clone().addScaledVector(eje, -conf.separacionManos);
+    poseArm(model, 'Left', manoIzquierda, abajo);
+    centro.copy(agarre);
+    atrezo.espada.position.copy(centro);
   }
   if (!atrezo.escudo) return;
   // El escudo: normal hacia fuera del cuerpo, perpendicular al antebrazo.
@@ -470,6 +483,12 @@ export interface Atrezo {
   readonly dosManos: boolean;
   /** A dos manos: cuánto apunta la hoja, como mínimo, hacia donde mira (coseno). */
   readonly adelanteMinimo: number;
+  /** A dos manos: cuánto se lleva el agarre a la línea central del cuerpo (0 a 1). */
+  readonly centrado: number;
+  /** A dos manos: a cuántos metros por delante del pecho queda el agarre, como mínimo. */
+  readonly alcanceMinimo: number;
+  /** A dos manos: distancia entre las dos manos sobre el puño, en metros. */
+  readonly separacionManos: number;
 }
 
 /**
@@ -488,6 +507,9 @@ export const JUEGOS_DE_ARMAS = {
       escudo: true,
       dosManos: false,
       adelanteMinimo: 0,
+      centrado: 0,
+      alcanceMinimo: 0,
+      separacionManos: 0,
     },
   },
   // Los clips son de espada y escudo: la mano izquierda se lleva al puño con IK
@@ -501,6 +523,9 @@ export const JUEGOS_DE_ARMAS = {
       escudo: false,
       dosManos: true,
       adelanteMinimo: 0.5,
+      centrado: 0.85,
+      alcanceMinimo: 0.25,
+      separacionManos: 0.11,
     },
   },
 } as const satisfies Record<string, { describe: string; ataque: string; atrezo: Atrezo }>;
