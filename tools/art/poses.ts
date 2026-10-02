@@ -23,9 +23,9 @@ import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 import sharp from 'sharp';
-import { FIGURA } from '../../src/shared/arte.js';
+import { FIGURA, FIGURA_8D, luzEnElMundo } from '../../src/shared/arte.js';
 import { POSE_A_DISTANCIA } from './ybot-a-distancia.js';
 
 const RAIZ = resolve(import.meta.dirname, '../..');
@@ -33,8 +33,14 @@ const FORGE = resolve(process.env.SPRITE_FORGE_DIR ?? join(RAIZ, '../sprite-forg
 const FBX = resolve(process.env.SPRITE_FORGE_ASSETS ?? join(RAIZ, '../ne-fan/assets/characters'));
 export const DIR_POSES = join(RAIZ, 'assets/unidades/_poses');
 
+/** El FBX de recibir daño: la fila `hurt` y la pose de la que arranca la muerte. */
+const CLIP_DE_DAÑO = 'anims/sword_and_shield/sword and shield impact (3).fbx';
+
 /** Las animaciones que se le añaden al set de sprite-forge, además de las suyas. */
 const ANIMS_EXTRA = [
+  // Recibir daño: de los tres `impact` del pack, el (3) es el que se lee a 160 px
+  // (retrocede girando el torso); el primero es un respingo casi quieto.
+  { id: 'impact3', file: CLIP_DE_DAÑO },
   { id: 'casting', file: 'anims/sword_and_shield/sword and shield casting.fbx' },
   // El arco no tiene clip de Mixamo: el FBX solo da la postura y los brazos los
   // coloca `POSE_A_DISTANCIA` fotograma a fotograma.
@@ -73,7 +79,25 @@ function sha256(datos: Buffer | string): string {
   return createHash('sha256').update(datos).digest('hex');
 }
 
-async function prepararForge(temporal: string): Promise<void> {
+/** Cómo se encuadra el render: el alto del encuadre en metros y a qué altura mira. */
+interface Encuadre {
+  readonly ortho: number;
+  /** La altura en metros del punto al que apunta la cámara (sprite-forge usa 0,95). */
+  readonly objetivo: number;
+}
+const ENCUADRE_DE_FIGURA: Encuadre = { ortho: FIGURA.camara.ortho, objetivo: 0.95 };
+
+/**
+ * La muerte arranca desde el último fotograma de recibir daño, no desde el
+ * reposo: al preparar el clip `death` se carga además el de `hit_react` y se
+ * funde de su pose final a la muerte en los primeros `FUNDIDO_MUERTE` segundos.
+ */
+const FUNDIDO_MUERTE = 0.4;
+
+async function prepararForge(
+  temporal: string,
+  encuadre: Encuadre = ENCUADRE_DE_FIGURA,
+): Promise<void> {
   for (const item of ['src', 'bin', 'sets', 'package.json']) {
     await cp(join(FORGE, item), join(temporal, item), { recursive: true });
   }
@@ -91,7 +115,7 @@ async function prepararForge(temporal: string): Promise<void> {
     angulos
       .replace('frontal_8:', 'tactical_25:')
       .replace('pitchDeg: -8.0', `pitchDeg: -${FIGURA.camara.elevacionGrados}.0`)
-      .replace('ortho: 2.4', `ortho: ${FIGURA.camara.ortho}`)
+      .replace('ortho: 2.4', `ortho: ${encuadre.ortho}`)
       .replace(
         'front view, eye-level camera',
         'three-quarter view, camera looking down 25 degrees',
@@ -106,10 +130,31 @@ async function prepararForge(temporal: string): Promise<void> {
   // El arco: congela el clip en su primer fotograma y coloca los brazos.
   const rutaPagina = join(temporal, 'src/page.mjs');
   let pagina = await readFile(rutaPagina, 'utf8');
+  const luz = luzEnElMundo();
   const parches: [string, string][] = [
+    // La luz del contrato (`luzEnElMundo`): desde la izquierda, con la sombra hacia
+    // la cámara. La de sprite-forge viene de la derecha y por delante.
+    [
+      'const LIGHT_DIR = new THREE.Vector3(-0.32139380, -0.76604444, -0.55667040);',
+      `const LIGHT_DIR = new THREE.Vector3(${luz.x}, ${luz.y}, ${luz.z});`,
+    ],
+    ['const TARGET_HEIGHT = 0.95;', `const TARGET_HEIGHT = ${encuadre.objetivo};`],
     [
       'Object.assign(state, { renderer, scene, camera, pivot, mixer, clip });',
-      'Object.assign(state, { renderer, scene, camera, pivot, mixer, clip, model, animId });',
+      `let golpe = null;
+  if (animId === 'death') {
+    const urlGolpe = animUrl.replace(/[^/]*death[.]fbx$/, '${encodeURIComponent(basename(CLIP_DE_DAÑO))}');
+    if (urlGolpe === animUrl) throw new Error('no sé dónde está el clip de daño junto a ' + animUrl);
+    const raizGolpe = await loadFbx(urlGolpe);
+    const clipGolpe = raizGolpe.animations.find((c) => c.name === 'mixamo.com') ?? raizGolpe.animations.at(-1);
+    remapTrackPrefix(clipGolpe, detectBonePrefix(clipGolpe.tracks.map((t) => trackNode(t.name).node)), bonePrefix);
+    const accionGolpe = mixer.clipAction(clipGolpe);
+    accionGolpe.setLoop(THREE.LoopOnce, 1);
+    accionGolpe.clampWhenFinished = true;
+    accionGolpe.play();
+    golpe = { accion: accionGolpe, fin: clipGolpe.duration - 1e-4, muerte: action };
+  }
+  Object.assign(state, { renderer, scene, camera, pivot, mixer, clip, model, animId, golpe });`,
     ],
     [
       '    mixer.setTime(Math.min(clip.duration, frameStep * f));',
@@ -119,6 +164,15 @@ async function prepararForge(temporal: string): Promise<void> {
       scene.updateMatrixWorld(true);
       rangedPose(state.model, state.animId, f);
       pivot.rotation.set(0, (2 * Math.PI * dir) / directions, 0);
+    } else if (state.golpe) {
+      const t = Math.min(clip.duration, frameStep * f);
+      const w = Math.min(1, t / ${FUNDIDO_MUERTE});
+      const s = w * w * (3 - 2 * w);
+      mixer.setTime(t);
+      state.golpe.accion.time = state.golpe.fin;
+      state.golpe.accion.setEffectiveWeight(1 - s);
+      state.golpe.muerte.setEffectiveWeight(s);
+      mixer.update(0);
     } else {
       mixer.setTime(Math.min(clip.duration, frameStep * f));
     }`,
@@ -251,9 +305,163 @@ export async function renderizarPerfil(perfil: Perfil): Promise<string> {
   }
 }
 
+/**
+ * La unidad definitiva: 8 direcciones y 6 acciones. Cada dirección se reparte en
+ * dos hojas de 3 filas, que es el tamaño que ChatGPT pinta bien: la A es la
+ * locomoción y la B es ataque, daño y muerte, juntos para que la muerte se pinte
+ * en la misma imagen que el daño del que arranca. No se espeja ninguna
+ * dirección: con la luz fija a la izquierda, espejar la traería de la derecha.
+ */
+export const OCHO_DIRECCIONES = {
+  perfil: 'espada-escudo-8d',
+  /** A 6 fps la carrera da 4 fotogramas para 7 columnas: se repetirían. */
+  fps: 12,
+  /** El cadáver cae hacia la cámara y en 256 se sale por abajo. */
+  celda: FIGURA_8D.celda,
+  encuadre: { ortho: FIGURA_8D.ortho, objetivo: FIGURA_8D.objetivo },
+  hojas: {
+    a: [
+      { clip: 'idle', anim: 'idle', enBucle: true },
+      { clip: 'walk', anim: 'walk', enBucle: true },
+      { clip: 'charge', anim: 'run', enBucle: true },
+    ],
+    b: [
+      { clip: 'attack', anim: 'quick', enBucle: false },
+      { clip: 'hurt', anim: 'impact3', enBucle: false },
+      { clip: 'death', anim: 'death', enBucle: false },
+    ],
+  },
+} as const;
+export type Hoja8d = keyof typeof OCHO_DIRECCIONES.hojas;
+
+/** Renderiza las 16 hojas de pose y devuelve su carpeta. */
+export async function renderizarOchoDirecciones(destino = DIR_POSES): Promise<string> {
+  const { celda, encuadre, hojas, perfil } = OCHO_DIRECCIONES;
+  const { columnas } = FIGURA;
+  const temporal = await mkdtemp(join(tmpdir(), 'heroes-poses-8d-'));
+  try {
+    await prepararForge(temporal, encuadre);
+    const salida = join(temporal, 'out');
+    const anims = [...new Set(Object.values(hojas).flatMap((h) => h.map((c) => c.anim)))];
+    execFileSync(
+      process.execPath,
+      [
+        join(temporal, 'bin/sprite-forge.mjs'),
+        'render',
+        '--assets',
+        FBX,
+        '--models',
+        'y_bot',
+        '--anims',
+        ...anims,
+        '--angle',
+        'tactical_25',
+        '--directions',
+        '8',
+        '--fps',
+        String(OCHO_DIRECCIONES.fps),
+        '--width',
+        String(celda),
+        '--height',
+        String(celda),
+        '--out',
+        join(salida, 'frames'),
+        '--cache',
+        join(salida, 'cache'),
+      ],
+      { stdio: 'inherit' },
+    );
+
+    const carpeta = join(destino, perfil);
+    await mkdir(carpeta, { recursive: true });
+    const meta: Record<string, unknown> = {};
+    const indicesPorClip: Record<string, number[]> = {};
+    for (const filas of Object.values(hojas)) {
+      for (const c of filas) {
+        const dir = join(salida, 'frames/y_bot', c.anim, 'tactical_25');
+        const m = JSON.parse(await readFile(join(dir, 'meta.json'), 'utf8')) as MetaDeClip;
+        meta[c.clip] = m;
+        indicesPorClip[c.clip] = indicesDeClip(m.frame_count, columnas, c.enBucle);
+      }
+    }
+    const shas: Record<string, string> = {};
+    for (let d = 0; d < 8; d += 1) {
+      for (const [hoja, filas] of Object.entries(hojas)) {
+        const capas = filas.flatMap((c, fila) =>
+          (indicesPorClip[c.clip] ?? []).map((i, col) => ({
+            input: join(
+              salida,
+              'frames/y_bot',
+              c.anim,
+              'tactical_25',
+              `dir_${d}_frame_${String(i).padStart(3, '0')}.png`,
+            ),
+            left: col * celda,
+            top: fila * celda,
+          })),
+        );
+        const png = await sharp({
+          create: {
+            width: columnas * celda,
+            height: filas.length * celda,
+            channels: 4,
+            background: { r: 0, g: 0, b: 0, alpha: 0 },
+          },
+        })
+          .composite(capas)
+          .png()
+          .toBuffer();
+        const nombre = `d${d}-${hoja}.png`;
+        await writeFile(join(carpeta, nombre), png);
+        shas[nombre] = sha256(png);
+      }
+    }
+    const forge = execFileSync('git', ['-C', FORGE, 'rev-parse', 'HEAD'], { encoding: 'utf8' });
+    await writeFile(
+      join(carpeta, 'poses.json'),
+      `${JSON.stringify(
+        {
+          perfil,
+          model: 'y_bot',
+          renderer: 'sprite-forge',
+          spriteForgeCommit: forge.trim(),
+          camera: {
+            pitchDegrees: -FIGURA.camara.elevacionGrados,
+            directions: 8,
+            projection: 'orthographic',
+            ortho: encuadre.ortho,
+            target: encuadre.objetivo,
+          },
+          light: luzEnElMundo(),
+          deathStartsFrom: { clip: 'hurt', blendSeconds: FUNDIDO_MUERTE },
+          cell: celda,
+          columns: columnas,
+          sheets: Object.fromEntries(
+            Object.entries(hojas).map(([h, filas]) => [
+              h,
+              filas.map((c) => ({ ...c, indices: indicesPorClip[c.clip] })),
+            ]),
+          ),
+          sourceMetadata: meta,
+          sha256: shas,
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    return carpeta;
+  } finally {
+    await rm(temporal, { recursive: true, force: true });
+  }
+}
+
 const esScript = process.argv[1] !== undefined && resolve(process.argv[1]) === import.meta.filename;
 if (esScript) {
   const arg = process.argv[2];
+  if (arg === '--8d') {
+    console.log(`→ ${await renderizarOchoDirecciones(process.argv[3])}`);
+    process.exit(0);
+  }
   const todos = Object.keys(PERFILES) as Perfil[];
   const pedidos = arg === '--todos' ? todos : [arg as Perfil];
   for (const p of pedidos) {

@@ -30,6 +30,9 @@ const RELOJ = {
   /** La carga de las monturas: la marcha con la lanza bajada, en bucle como ella. */
   charge: { fps: 8, loop: true },
   attack: { fps: 10, loop: false },
+  hurt: { fps: 10, loop: false },
+  /** Se queda en su último fotograma: el cadáver (`cadaver` en el JSON). */
+  death: { fps: 8, loop: false },
 } as const;
 export type ClipDeHoja = keyof typeof RELOJ;
 
@@ -42,11 +45,17 @@ export type ClipDeHoja = keyof typeof RELOJ;
 export const CLIPS_POR_FILAS: Readonly<Record<number, readonly ClipDeHoja[]>> = {
   3: ['idle', 'walk', 'attack'],
   4: ['idle', 'walk', 'charge', 'attack'],
+  /**
+   * Una dirección de una unidad en 8 direcciones (`OCHO_DIRECCIONES` en
+   * `tools/art/poses.ts`): las 6 acciones. La muerte arranca donde acaba el daño.
+   */
+  6: ['idle', 'walk', 'charge', 'attack', 'hurt', 'death'],
 };
 
 export function clipsDeHoja(filas: number): { clip: ClipDeHoja; fps: number; loop: boolean }[] {
   const clips = CLIPS_POR_FILAS[filas];
-  if (clips === undefined) throw new Error(`una hoja del taller tiene 3 o 4 filas, no ${filas}`);
+  if (clips === undefined)
+    throw new Error(`una hoja del taller tiene 3 o 4 filas (6 las de 8 direcciones), no ${filas}`);
   return clips.map((clip) => ({ clip, ...RELOJ[clip] }));
 }
 
@@ -73,8 +82,11 @@ export interface AtlasDerivado {
   /** Relativa al ancla del reposo: [izquierda, arriba, derecha, abajo]. */
   readonly cajaDeClic: readonly [number, number, number, number];
   readonly clips: Readonly<
-    Record<'idle' | 'walk' | 'attack', ClipDerivado> & Partial<Record<'charge', ClipDerivado>>
+    Record<'idle' | 'walk' | 'attack', ClipDerivado> &
+      Partial<Record<'charge' | 'hurt' | 'death', ClipDerivado>>
   >;
+  /** El fotograma que se queda en el suelo al morir, si la hoja tiene muerte. */
+  readonly cadaver?: { readonly clip: 'death'; readonly frame: number };
   readonly derivadoPor: 'tools/taller/derivar.ts';
 }
 
@@ -143,7 +155,7 @@ export async function derivarAtlas(rutaImagen: string): Promise<AtlasDerivado> {
   if (!Number.isInteger(lado) || CLIPS_POR_FILAS[filas] === undefined) {
     throw new Error(
       `${rutaImagen} mide ${info.width}×${info.height}: una hoja del taller son ${columnas} columnas ` +
-        'por 3 o 4 filas de celdas cuadradas',
+        'por 3 o 4 filas (6 las de 8 direcciones) de celdas cuadradas',
     );
   }
 
@@ -168,7 +180,10 @@ export async function derivarAtlas(rutaImagen: string): Promise<AtlasDerivado> {
       throw new Error(`${rutaImagen}: el clip «${def.clip}» tiene una celda vacía en medio`);
     }
     const apoyos = validas.map((c) => apoyoDeCelda(c, lado));
-    const anchor: [number, number] = [
+    // En 6 filas el ancla es UNA por dirección, la del reposo: un cuerpo que cae
+    // tendido no tiene tronco a media altura, y recentrarlo lo movería de su casilla.
+    const fija = filas === 6 ? clips.idle?.anchor : undefined;
+    const anchor: readonly [number, number] = fija ?? [
       mediana(apoyos.map((a) => a[0])),
       mediana(apoyos.map((a) => a[1])),
     ];
@@ -195,6 +210,9 @@ export async function derivarAtlas(rutaImagen: string): Promise<AtlasDerivado> {
     altura,
     cajaDeClic: cajaDeClic as [number, number, number, number],
     clips: clips as AtlasDerivado['clips'],
+    ...(clips.death === undefined
+      ? {}
+      : { cadaver: { clip: 'death' as const, frame: clips.death.frames - 1 } }),
     derivadoPor: 'tools/taller/derivar.ts',
   };
 }

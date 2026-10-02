@@ -53,6 +53,7 @@ import { aRaster, recortar, UMBRALES } from './recorte.js';
 import { encargoDeAtlas, encargoDeIdentidad, unidad } from './unidades.js';
 import { validar } from './validar.js';
 import { vista, vistaEdificios, vistaEfectos, vistaEjercitos } from './vista.js';
+import { vista8d } from './vista-8d.js';
 
 const RAIZ = resolve(import.meta.dirname, '../..');
 export const COLA = new Cola(join(RAIZ, 'tools/taller/cola'));
@@ -472,6 +473,9 @@ switch (orden) {
   case 'vista-efectos':
     console.log(`→ ${await vistaEfectos()}`);
     break;
+  case 'vista-8d':
+    for (const f of resto.length > 0 ? resto : ['poses']) console.log(`→ ${await vista8d(f)}`);
+    break;
   case 'vista':
     for (const r of await vista(resto)) console.log(`→ ${r}`);
     break;
@@ -487,6 +491,6 @@ switch (orden) {
     break;
   default:
     throw new Error(
-      `orden desconocida «${orden}»: trabajar, encolar, corregir, retirar, reprocesar, estado, devolver, derivar, vista, componer-atlas-mapa`,
+      `orden desconocida «${orden}»: trabajar, encolar, corregir, retirar, reprocesar, estado, devolver, derivar, vista, vista-8d, componer-atlas-mapa`,
     );
 }
