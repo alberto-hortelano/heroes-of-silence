@@ -555,7 +555,7 @@ export const JUEGOS_DE_ARMAS = {
       separacionManos: 0.11,
       codosAfuera: 4,
       codosAdelante: 0.7,
-      estiramiento: 0.55,
+      estiramiento: 0.7,
     },
   },
 } as const satisfies Record<string, { describe: string; ataque: string; atrezo: Atrezo }>;
