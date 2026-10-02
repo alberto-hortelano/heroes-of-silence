@@ -15,7 +15,10 @@ export const ARTE = {
   camara: { elevacionGrados: 25 },
   luz: {
     // Coordenadas de pantalla: x a la derecha, y hacia abajo.
-    direccionSombra: { x: 1, y: 0.6 },
+    // Luz desde la izquierda y del lado de la cámara (decisión del usuario,
+    // 02-10-2026): la sombra cae a la derecha y hacia el fondo, unos 31° en
+    // pantalla. Con la sombra hacia la cámara la cara visible quedaba en penumbra.
+    direccionSombra: { x: 1, y: -0.6 },
     longitudPorAltura: 0.42,
     opacidad: 0.18,
     /**
@@ -75,9 +78,8 @@ export function sombraDeFigura(altura: number): { x: number; y: number; opacidad
  * sombra tiene que medir `longitudPorAltura` veces eso; un paso `gz` hacia la
  * cámara sobre el suelo baja `gz·sen 25°` en pantalla.
  *
- * Con la sombra hacia la derecha y hacia la cámara, el sol queda a la izquierda
- * y algo por detrás de la escena: la cara que mira a la cámara recibe poca luz.
- * Es la consecuencia de la regla, no un error del render.
+ * Con la sombra hacia la derecha y hacia el fondo, el sol queda a la izquierda y
+ * del lado de la cámara: la cara que se ve es la iluminada.
  */
 export function luzEnElMundo(): { x: number; y: number; z: number } {
   const { luz } = ARTE;

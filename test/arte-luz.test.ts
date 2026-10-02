@@ -11,11 +11,12 @@ const rad = (ARTE.camara.elevacionGrados * Math.PI) / 180;
 describe('la luz del contrato', () => {
   const d = luzEnElMundo();
 
-  it('es unitaria, baja, viene de la izquierda y empuja la sombra hacia la cámara', () => {
+  it('es unitaria, baja, viene de la izquierda y del lado de la cámara', () => {
     expect(Math.hypot(d.x, d.y, d.z)).toBeCloseTo(1, 12);
     expect(d.y).toBeLessThan(0);
     expect(d.x).toBeGreaterThan(0);
-    expect(d.z).toBeGreaterThan(0);
+    // Viaja hacia el fondo (−z): sale del lado de la cámara.
+    expect(d.z).toBeLessThan(0);
   });
 
   it('proyectada con la cámara a 25° da la sombra de ARTE.luz', () => {

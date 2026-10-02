@@ -94,6 +94,29 @@ const ENCUADRE_DE_FIGURA: Encuadre = { ortho: FIGURA.camara.ortho, objetivo: 0.9
  */
 const FUNDIDO_MUERTE = 0.4;
 
+/**
+ * La altura del punto más bajo de la MALLA deformada, en metros: lo que toca el
+ * suelo. No vale el hueso más bajo: la punta del pie es un hueso dentro de la
+ * bota, y con el pie de puntillas la suela quedaba unos centímetros en el aire.
+ */
+const PUNTO_MAS_BAJO = `
+function puntoMasBajo(model) {
+  let y = Infinity;
+  const v = new THREE.Vector3();
+  model.updateMatrixWorld(true);
+  model.traverse((n) => {
+    if (!n.isSkinnedMesh) return;
+    n.skeleton.update();
+    const total = n.geometry.attributes.position.count;
+    for (let i = 0; i < total; i += 1) {
+      n.getVertexPosition(i, v).applyMatrix4(n.matrixWorld);
+      if (v.y < y) y = v.y;
+    }
+  });
+  return y;
+}
+`;
+
 async function prepararForge(
   temporal: string,
   encuadre: Encuadre = ENCUADRE_DE_FIGURA,
@@ -139,6 +162,24 @@ async function prepararForge(
       `const LIGHT_DIR = new THREE.Vector3(${luz.x}, ${luz.y}, ${luz.z});`,
     ],
     ['const TARGET_HEIGHT = 0.95;', `const TARGET_HEIGHT = ${encuadre.objetivo};`],
+    // El cadáver cae en su sitio (decisión del usuario): la muerte no se desplaza
+    // por el suelo, igual que las locomociones. Los no muertos lo levantan ahí.
+    [
+      'const hipsKeys = lockHipsXZ(clip, animId, locomotion === true);',
+      "const hipsKeys = lockHipsXZ(clip, animId, locomotion === true || animId === 'death');",
+    ],
+    // Ni flota ni se hunde: en cada fotograma el punto más bajo de la malla se
+    // apoya en el suelo, donde está en la pose de reposo del rig. La carrera de
+    // Mixamo tiene una fase de vuelo de 10 cm que se leía flotando, y la muerte
+    // levantaba al personaje al retroceder.
+    [
+      '    renderer.render(scene, camera);\n    out.push(',
+      `    pivot.position.y = 0;
+    scene.updateMatrixWorld(true);
+    pivot.position.y = state.suelo - puntoMasBajo(state.model);
+    renderer.render(scene, camera);
+    out.push(`,
+    ],
     [
       'Object.assign(state, { renderer, scene, camera, pivot, mixer, clip });',
       `let golpe = null;
@@ -154,7 +195,9 @@ async function prepararForge(
     accionGolpe.play();
     golpe = { accion: accionGolpe, fin: clipGolpe.duration - 1e-4, muerte: action };
   }
-  Object.assign(state, { renderer, scene, camera, pivot, mixer, clip, model, animId, golpe });`,
+  scene.updateMatrixWorld(true);
+  const suelo = puntoMasBajo(model);
+  Object.assign(state, { renderer, scene, camera, pivot, mixer, clip, model, animId, golpe, suelo });`,
     ],
     [
       '    mixer.setTime(Math.min(clip.duration, frameStep * f));',
@@ -183,7 +226,7 @@ async function prepararForge(
       throw new Error(`sprite-forge cambió: falta «${antes}» en page.mjs`);
     pagina = pagina.replace(antes, despues);
   }
-  await writeFile(rutaPagina, pagina + POSE_A_DISTANCIA);
+  await writeFile(rutaPagina, pagina + POSE_A_DISTANCIA + PUNTO_MAS_BAJO);
 }
 
 interface MetaDeClip {
