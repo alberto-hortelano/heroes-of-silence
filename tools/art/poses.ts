@@ -119,48 +119,29 @@ function puntoMasBajo(model) {
 
 /**
  * El atrezo del maniquí: una espada (un palo con guarda) en la mano derecha y un
- * escudo de cometa plano en el antebrazo izquierdo, colgados de sus huesos para
- * que sigan cada clip. Con el arma dibujada en la referencia, el modelo de
- * imagen copia su largo y su ángulo en vez de inventarlos (como la lanza del
- * jinete en `montura/escena.js`). Gris como el maniquí: dice forma, no aspecto.
+ * escudo de cometa plano en el antebrazo izquierdo. Con el arma dibujada en la
+ * referencia, el modelo de imagen copia su largo y su ángulo en vez de
+ * inventarlos (como la lanza del jinete en `montura/escena.js`). Gris como el
+ * maniquí: dice forma, no aspecto.
  *
- * Los giros y posiciones van en el sistema del hueso, en centímetros; se
- * ajustan mirando el render (`HEROES_ATREZO` los sobrescribe para probar).
+ * No se cuelgan del hueso con un giro elegido a ojo (la primera vez salió la
+ * hoja por el lado del meñique): se colocan en cada fotograma con la anatomía.
+ *  - La espada va por la línea de los nudillos, del meñique al índice, que es el
+ *    eje del puño cerrado; la hoja sale por el lado del índice y el pulgar.
+ *  - El escudo cuelga por fuera del antebrazo izquierdo, separado de él, con el
+ *    antebrazo cruzando su cara interior y la punta hacia abajo.
  */
-const AJUSTE_ATREZO = (() => {
-  const base = {
-    // La hoja sale hacia el lado del pulgar: en el ataque prolonga el brazo
-    // hacia el enemigo y en reposo apunta abajo y adelante (elegida entre los
-    // cuatro ejes posibles mirando el render).
-    espada: { largo: 0.85, giro: [0, 0, Math.PI / 2], pos: [0, 8, 0] },
-    // Plano, vertical y con la punta abajo, por fuera del antebrazo.
-    escudo: { giro: [0, 0, Math.PI / 2], pos: [0, 12, 6] },
-  };
-  const env = process.env.HEROES_ATREZO;
-  return env === undefined ? base : { ...base, ...(JSON.parse(env) as Partial<typeof base>) };
-})();
-
 const ATREZO = `
-function ponerAtrezo(model, prefijo, ajuste) {
+function crearAtrezo(model) {
   let material = null;
   model.traverse((n) => { if (!material && n.isMesh) material = Array.isArray(n.material) ? n.material[0] : n.material; });
-  const hueso = (nombre) => {
-    const h = model.getObjectByName(prefijo + nombre);
-    if (!h) throw new Error('el rig no tiene el hueso ' + prefijo + nombre);
-    return h;
-  };
   const espada = new THREE.Group();
-  const hoja = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, ajuste.espada.largo, 8), material);
-  hoja.position.y = ajuste.espada.largo / 2 + 0.07;
+  const hoja = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.85, 8), material);
+  hoja.position.y = 0.085 + 0.425;
   const guarda = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.03, 0.035), material);
-  guarda.position.y = 0.07;
-  const puño = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.14, 8), material);
+  guarda.position.y = 0.085;
+  const puño = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.17, 8), material);
   espada.add(hoja, guarda, puño);
-  espada.scale.setScalar(100);
-  espada.rotation.set(...ajuste.espada.giro);
-  espada.position.set(...ajuste.espada.pos);
-  hueso('RightHand').add(espada);
-
   const forma = new THREE.Shape();
   forma.moveTo(-0.24, 0.3);
   forma.lineTo(0.24, 0.3);
@@ -168,13 +149,32 @@ function ponerAtrezo(model, prefijo, ajuste) {
   forma.lineTo(0, -0.45);
   forma.lineTo(-0.2, -0.05);
   forma.closePath();
-  const plano = new THREE.Mesh(new THREE.ExtrudeGeometry(forma, { depth: 0.03, bevelEnabled: false }), material);
-  const escudo = new THREE.Group();
-  escudo.add(plano);
-  escudo.scale.setScalar(100);
-  escudo.rotation.set(...ajuste.escudo.giro);
-  escudo.position.set(...ajuste.escudo.pos);
-  hueso('LeftForeArm').add(escudo);
+  const escudo = new THREE.Mesh(new THREE.ExtrudeGeometry(forma, { depth: 0.03, bevelEnabled: false }), material);
+  return { espada, escudo };
+}
+function colocarAtrezo(model, prefijo, atrezo) {
+  const p = (nombre) => {
+    const h = model.getObjectByName(prefijo + nombre);
+    if (!h) throw new Error('el rig no tiene el hueso ' + prefijo + nombre);
+    return h.getWorldPosition(new THREE.Vector3());
+  };
+  // La espada: el puño en el hueco de los dedos, la hoja hacia el índice.
+  const indice = p('RightHandIndex1'), meñique = p('RightHandPinky1');
+  const eje = indice.clone().sub(meñique).normalize();
+  const centro = indice.clone().add(meñique).multiplyScalar(0.5).lerp(p('RightHandMiddle2'), 0.5);
+  atrezo.espada.position.copy(centro);
+  atrezo.espada.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), eje);
+  // El escudo: normal hacia fuera del cuerpo, perpendicular al antebrazo.
+  const codo = p('LeftForeArm'), muñeca = p('LeftHand'), pecho = p('Spine2');
+  const brazo = muñeca.clone().sub(codo).normalize();
+  const medio = codo.clone().add(muñeca).multiplyScalar(0.5);
+  const fuera = medio.clone().sub(pecho);
+  fuera.addScaledVector(brazo, -fuera.dot(brazo)).normalize();
+  const arriba = new THREE.Vector3().crossVectors(fuera, brazo).normalize();
+  if (arriba.y < 0) arriba.negate();
+  const lado = new THREE.Vector3().crossVectors(arriba, fuera).normalize();
+  atrezo.escudo.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(lado, arriba, fuera));
+  atrezo.escudo.position.copy(medio).addScaledVector(fuera, 0.07).addScaledVector(arriba, 0.04);
 }
 `;
 
@@ -239,6 +239,10 @@ async function prepararForge(
       `    pivot.position.y = 0;
     scene.updateMatrixWorld(true);
     pivot.position.y = state.suelo - puntoMasBajo(state.model);
+    if (state.atrezo) {
+      scene.updateMatrixWorld(true);
+      colocarAtrezo(state.model, state.bonePrefix, state.atrezo);
+    }
     renderer.render(scene, camera);
     out.push(`,
     ],
@@ -257,10 +261,11 @@ async function prepararForge(
     accionGolpe.play();
     golpe = { accion: accionGolpe, fin: clipGolpe.duration - 1e-4, muerte: action };
   }
-  if (${atrezo}) ponerAtrezo(model, bonePrefix, ${JSON.stringify(AJUSTE_ATREZO)});
+  const atrezo = ${atrezo} ? crearAtrezo(model) : null;
+  if (atrezo) scene.add(atrezo.espada, atrezo.escudo);
   scene.updateMatrixWorld(true);
   const suelo = puntoMasBajo(model);
-  Object.assign(state, { renderer, scene, camera, pivot, mixer, clip, model, animId, golpe, suelo });`,
+  Object.assign(state, { renderer, scene, camera, pivot, mixer, clip, model, animId, golpe, suelo, atrezo, bonePrefix });`,
     ],
     [
       '    mixer.setTime(Math.min(clip.duration, frameStep * f));',
