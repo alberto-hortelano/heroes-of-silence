@@ -260,3 +260,12 @@ describe('los efectos', () => {
     expect(alfaEn(r, 7, 1)).toBe(90);
   });
 });
+
+describe('la rejilla de una lámina de iconos', () => {
+  it('hasta cuatro van en una fila; más, en filas de cuatro; lo demás se rechaza diciéndolo', async () => {
+    const { rejillaDeIconos } = await import('../tools/taller/encargo.js');
+    expect(rejillaDeIconos(3)).toEqual({ filas: 1, columnas: 3 });
+    expect(rejillaDeIconos(16)).toEqual({ filas: 4, columnas: 4 });
+    expect(() => rejillaDeIconos(6)).toThrow(/hasta 4, o múltiplos de 4/);
+  });
+});

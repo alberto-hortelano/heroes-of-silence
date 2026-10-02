@@ -37,7 +37,7 @@ import { CODEX, FalloDeCodex, type Generacion, generar } from './codex.js';
 import { Cola } from './cola.js';
 import { componerAtlasMapa } from './componer-atlas-mapa.js';
 import { escribirDerivado, escribirEfectoDerivado, escribirPiezaDerivada } from './derivar.js';
-import { encargosDeEfectos } from './efectos.js';
+import { encargoDeIconosDeRecursos, encargosDeEfectos } from './efectos.js';
 import {
   empaquetarEfecto,
   LADO_EFECTO,
@@ -347,6 +347,12 @@ async function encolar(args: readonly string[]): Promise<void> {
       if (args.includes('--rehacer')) await COLA.olvidar(bruto.id);
       console.log(`encolado ${(await COLA.encolar(bruto)).id}`);
     }
+    return;
+  }
+  if (args.includes('--iconos-recursos')) {
+    const bruto = encargoDeIconosDeRecursos();
+    if (args.includes('--rehacer')) await COLA.olvidar(bruto.id);
+    console.log(`encolado ${(await COLA.encolar(bruto)).id}`);
     return;
   }
   if (args.includes('--efectos')) {

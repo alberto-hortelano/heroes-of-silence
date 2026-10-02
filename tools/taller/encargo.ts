@@ -21,8 +21,15 @@ export const PAPELES = {
 } as const;
 export type Papel = keyof typeof PAPELES;
 
-/** La lámina de iconos es de 4×4. */
-export const FILAS_DE_ICONOS = 4;
+/**
+ * La rejilla de una lámina de iconos según cuántos lleva: hasta cuatro, una
+ * fila; más, filas de cuatro (y entonces tienen que ser múltiplo de cuatro).
+ */
+export function rejillaDeIconos(n: number): { filas: number; columnas: number } {
+  if (n >= 1 && n <= 4) return { filas: 1, columnas: n };
+  if (n > 4 && n % 4 === 0) return { filas: n / 4, columnas: 4 };
+  throw new Error(`una lámina de ${n} iconos no cabe en una rejilla: hasta 4, o múltiplos de 4`);
+}
 /** Un efecto animado son 6 fotogramas en 3 columnas por 2 filas. */
 export const REJILLA_DE_EFECTO = { columnas: 3, filas: 2 } as const;
 
@@ -54,11 +61,12 @@ export const encargoSchema = z
     nombres: z.array(z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/)).optional(),
   })
   .superRefine((e, ctx) => {
-    if (e.tipo === 'iconos' && e.nombres?.length !== FILAS_DE_ICONOS * FILAS_DE_ICONOS) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: `una lámina de iconos lleva ${FILAS_DE_ICONOS * FILAS_DE_ICONOS} nombres, uno por icono`,
-      });
+    if (e.tipo === 'iconos') {
+      try {
+        rejillaDeIconos(e.nombres?.length ?? 0);
+      } catch (err) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: (err as Error).message });
+      }
     }
     const papeles = e.referencias.map((r) => r.papel);
     if (
@@ -121,9 +129,11 @@ function reglasDeIdentidad(): string {
   ].join('\n');
 }
 
-function reglasDeIconos(): string {
+function reglasDeIconos(e: Encargo): string {
+  const n = e.nombres?.length ?? 0;
+  const { filas, columnas } = rejillaDeIconos(n);
   return [
-    `Rejilla de EXACTAMENTE ${FILAS_DE_ICONOS} por ${FILAS_DE_ICONOS}: dieciséis iconos del mismo tamaño, cada uno compacto y entero, con mucho aire alrededor; ningún icono toca a otro.`,
+    `Rejilla de EXACTAMENTE ${filas} fila${filas > 1 ? 's' : ''} por ${columnas} columnas: ${n} iconos del mismo tamaño, cada uno compacto y entero, con mucho aire alrededor; ningún icono toca a otro.`,
     SIN_FONDO,
   ].join('\n');
 }
@@ -144,7 +154,7 @@ function reglas(e: Encargo): string {
     case 'identidad':
       return reglasDeIdentidad();
     case 'iconos':
-      return reglasDeIconos();
+      return reglasDeIconos(e);
     case 'efecto':
       return reglasDeEfecto();
     case 'imagen':

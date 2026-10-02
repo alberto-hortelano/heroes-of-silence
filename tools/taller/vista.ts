@@ -394,6 +394,12 @@ export async function vistaEfectos(): Promise<string> {
         iconos: { nombre: string; imagen: string }[];
       })
     : { iconos: [] };
+  const rutaRecursos = join(RAIZ, 'assets/iconos/recursos/recursos.json');
+  const recursos = existsSync(rutaRecursos)
+    ? (JSON.parse(await readFile(rutaRecursos, 'utf8')) as {
+        iconos: { nombre: string; imagen: string }[];
+      })
+    : { iconos: [] };
   const quietos = (await readdir(base))
     .filter((f) => f.endsWith('.webp'))
     .map((f) => f.slice(0, -5));
@@ -425,6 +431,13 @@ export async function vistaEfectos(): Promise<string> {
     .map(
       (i) =>
         `<div class="icono"><img src="${R}/efectos/iconos/${i.imagen}" width="32" height="32"><img src="${R}/efectos/iconos/${i.imagen}" width="96" height="96">${i.nombre}</div>`,
+    )
+    .join('')}</div>
+<h2>Iconos de recursos, a 20 px (como en la barra) y a 64 px</h2>
+<div class="iconos">${recursos.iconos.length === 0 ? '<p>Todavía no hay iconos de recursos.</p>' : ''}${recursos.iconos
+    .map(
+      (i) =>
+        `<div class="icono"><img src="${R}/iconos/recursos/${i.imagen}" width="20" height="20"><img src="${R}/iconos/recursos/${i.imagen}" width="64" height="64">${i.nombre}</div>`,
     )
     .join('')}</div>
 <h2>Sprites quietos</h2>

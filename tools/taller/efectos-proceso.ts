@@ -4,7 +4,7 @@
  */
 import sharp, { type OverlayOptions } from 'sharp';
 import { ALFA_FIGURA, componentes, enFilas, figuras } from './empaquetar.js';
-import { FILAS_DE_ICONOS, REJILLA_DE_EFECTO } from './encargo.js';
+import { REJILLA_DE_EFECTO, rejillaDeIconos } from './encargo.js';
 import type { Raster } from './recorte.js';
 
 /** Lado de un icono de estado, en píxeles: se pinta a ~32 y se guarda con resolución de sobra. */
@@ -29,12 +29,13 @@ const rawAPng = (r: Raster): Promise<Buffer> =>
     .png()
     .toBuffer();
 
-/** Parte la lámina de 4×4 en un PNG cuadrado por icono, en el orden de `nombres`. */
+/** Parte una lámina de iconos en un PNG cuadrado por icono, en el orden de `nombres`. */
 export async function partirIconos(
   r: Raster,
   nombres: readonly string[],
 ): Promise<{ nombre: string; png: Buffer }[]> {
-  const rejilla = enFilas(figuras(componentes(r), 2), FILAS_DE_ICONOS, FILAS_DE_ICONOS);
+  const { filas, columnas } = rejillaDeIconos(nombres.length);
+  const rejilla = enFilas(figuras(componentes(r), 2), filas, columnas);
   const fuente = await rawAPng(r);
   const fuera: { nombre: string; png: Buffer }[] = [];
   for (const [i, c] of rejilla.flat().entries()) {

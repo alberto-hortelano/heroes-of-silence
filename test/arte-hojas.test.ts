@@ -136,10 +136,19 @@ describe('los efectos de batalla', () => {
     expect(pr.hilo).toMatch(/^[0-9a-f-]{36}$/);
   });
 
-  const indice = join(EF, 'iconos/iconos.json');
-  it.runIf(existsSync(indice))('cada icono es el que apuntó el índice de su lámina', () => {
-    for (const ic of leer(indice).iconos) {
-      expect(sha256(join(EF, 'iconos', ic.imagen)), ic.nombre).toBe(ic.sha256);
-    }
-  });
+  // Cada lámina de iconos apunta el sha256 de los ficheros que salieron de ella.
+  for (const indice of [
+    join(EF, 'iconos/iconos.json'),
+    join(RAIZ, 'assets/iconos/recursos/recursos.json'),
+  ]) {
+    it.runIf(existsSync(indice))(`${indice}: cada icono es el que apuntó su lámina`, () => {
+      const dir = join(indice, '..');
+      const d = leer(indice);
+      for (const ic of d.iconos) expect(sha256(join(dir, ic.imagen)), ic.nombre).toBe(ic.sha256);
+      const lamina = join(dir, d.lamina);
+      expect(leer(lamina.replace(/\.webp$/, '.procedencia.json')).salida.sha256).toBe(
+        sha256(lamina),
+      );
+    });
+  }
 });
