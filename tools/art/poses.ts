@@ -117,9 +117,71 @@ function puntoMasBajo(model) {
 }
 `;
 
+/**
+ * El atrezo del maniquí: una espada (un palo con guarda) en la mano derecha y un
+ * escudo de cometa plano en el antebrazo izquierdo, colgados de sus huesos para
+ * que sigan cada clip. Con el arma dibujada en la referencia, el modelo de
+ * imagen copia su largo y su ángulo en vez de inventarlos (como la lanza del
+ * jinete en `montura/escena.js`). Gris como el maniquí: dice forma, no aspecto.
+ *
+ * Los giros y posiciones van en el sistema del hueso, en centímetros; se
+ * ajustan mirando el render (`HEROES_ATREZO` los sobrescribe para probar).
+ */
+const AJUSTE_ATREZO = (() => {
+  const base = {
+    // La hoja sale hacia el lado del pulgar: en el ataque prolonga el brazo
+    // hacia el enemigo y en reposo apunta abajo y adelante (elegida entre los
+    // cuatro ejes posibles mirando el render).
+    espada: { largo: 0.85, giro: [0, 0, Math.PI / 2], pos: [0, 8, 0] },
+    // Plano, vertical y con la punta abajo, por fuera del antebrazo.
+    escudo: { giro: [0, 0, Math.PI / 2], pos: [0, 12, 6] },
+  };
+  const env = process.env.HEROES_ATREZO;
+  return env === undefined ? base : { ...base, ...(JSON.parse(env) as Partial<typeof base>) };
+})();
+
+const ATREZO = `
+function ponerAtrezo(model, prefijo, ajuste) {
+  let material = null;
+  model.traverse((n) => { if (!material && n.isMesh) material = Array.isArray(n.material) ? n.material[0] : n.material; });
+  const hueso = (nombre) => {
+    const h = model.getObjectByName(prefijo + nombre);
+    if (!h) throw new Error('el rig no tiene el hueso ' + prefijo + nombre);
+    return h;
+  };
+  const espada = new THREE.Group();
+  const hoja = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, ajuste.espada.largo, 8), material);
+  hoja.position.y = ajuste.espada.largo / 2 + 0.07;
+  const guarda = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.03, 0.035), material);
+  guarda.position.y = 0.07;
+  const puño = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.14, 8), material);
+  espada.add(hoja, guarda, puño);
+  espada.scale.setScalar(100);
+  espada.rotation.set(...ajuste.espada.giro);
+  espada.position.set(...ajuste.espada.pos);
+  hueso('RightHand').add(espada);
+
+  const forma = new THREE.Shape();
+  forma.moveTo(-0.24, 0.3);
+  forma.lineTo(0.24, 0.3);
+  forma.lineTo(0.2, -0.05);
+  forma.lineTo(0, -0.45);
+  forma.lineTo(-0.2, -0.05);
+  forma.closePath();
+  const plano = new THREE.Mesh(new THREE.ExtrudeGeometry(forma, { depth: 0.03, bevelEnabled: false }), material);
+  const escudo = new THREE.Group();
+  escudo.add(plano);
+  escudo.scale.setScalar(100);
+  escudo.rotation.set(...ajuste.escudo.giro);
+  escudo.position.set(...ajuste.escudo.pos);
+  hueso('LeftForeArm').add(escudo);
+}
+`;
+
 async function prepararForge(
   temporal: string,
   encuadre: Encuadre = ENCUADRE_DE_FIGURA,
+  atrezo = false,
 ): Promise<void> {
   for (const item of ['src', 'bin', 'sets', 'package.json']) {
     await cp(join(FORGE, item), join(temporal, item), { recursive: true });
@@ -195,6 +257,7 @@ async function prepararForge(
     accionGolpe.play();
     golpe = { accion: accionGolpe, fin: clipGolpe.duration - 1e-4, muerte: action };
   }
+  if (${atrezo}) ponerAtrezo(model, bonePrefix, ${JSON.stringify(AJUSTE_ATREZO)});
   scene.updateMatrixWorld(true);
   const suelo = puntoMasBajo(model);
   Object.assign(state, { renderer, scene, camera, pivot, mixer, clip, model, animId, golpe, suelo });`,
@@ -226,7 +289,7 @@ async function prepararForge(
       throw new Error(`sprite-forge cambió: falta «${antes}» en page.mjs`);
     pagina = pagina.replace(antes, despues);
   }
-  await writeFile(rutaPagina, pagina + POSE_A_DISTANCIA + PUNTO_MAS_BAJO);
+  await writeFile(rutaPagina, pagina + POSE_A_DISTANCIA + PUNTO_MAS_BAJO + ATREZO);
 }
 
 interface MetaDeClip {
@@ -416,7 +479,7 @@ export async function renderizarOchoDirecciones(destino = DIR_POSES): Promise<st
   const { columnas } = FIGURA;
   const temporal = await mkdtemp(join(tmpdir(), 'heroes-poses-8d-'));
   try {
-    await prepararForge(temporal, encuadre);
+    await prepararForge(temporal, encuadre, true);
     const salida = join(temporal, 'out');
     const anims = [...new Set(Object.values(hojas).flatMap((h) => h.map((c) => c.anim)))];
     execFileSync(

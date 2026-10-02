@@ -121,7 +121,7 @@
       "frame_count": 44,
       "frame_height": 384,
       "frame_width": 384,
-      "generated_at": "2026-10-02T18:25:01",
+      "generated_at": "2026-10-02T18:51:37",
       "model": "y_bot"
     },
     "walk": {
@@ -133,7 +133,7 @@
       "frame_count": 13,
       "frame_height": 384,
       "frame_width": 384,
-      "generated_at": "2026-10-02T18:25:04",
+      "generated_at": "2026-10-02T18:51:40",
       "model": "y_bot"
     },
     "charge": {
@@ -145,7 +145,7 @@
       "frame_count": 8,
       "frame_height": 384,
       "frame_width": 384,
-      "generated_at": "2026-10-02T18:25:06",
+      "generated_at": "2026-10-02T18:51:42",
       "model": "y_bot"
     },
     "attack": {
@@ -157,7 +157,7 @@
       "frame_count": 12,
       "frame_height": 384,
       "frame_width": 384,
-      "generated_at": "2026-10-02T18:25:09",
+      "generated_at": "2026-10-02T18:51:44",
       "model": "y_bot"
     },
     "hurt": {
@@ -169,7 +169,7 @@
       "frame_count": 8,
       "frame_height": 384,
       "frame_width": 384,
-      "generated_at": "2026-10-02T18:25:11",
+      "generated_at": "2026-10-02T18:51:46",
       "model": "y_bot"
     },
     "death": {
@@ -181,26 +181,27 @@
       "frame_count": 28,
       "frame_height": 384,
       "frame_width": 384,
-      "generated_at": "2026-10-02T18:25:16",
+      "generated_at": "2026-10-02T18:51:52",
       "model": "y_bot"
     }
   },
   "sha256": {
-    "d0-a.png": "61a9b50141869d2c7b870383c0c131698557c5f3b469ee445628f5b9d9c9d30d",
-    "d0-b.png": "0bfc97fe8b97bc5b4f01f512511e4e6aa92e607d0bb85c4ad9fbf07aceeb4d7e",
-    "d1-a.png": "4e5f1afda33d0898884ff543adc728a5f2ed5a82b65791dccdc36e108eb3c792",
-    "d1-b.png": "f1d55cdc3d953caf0229f62b8a266aa06f00531cb9b24e7951fa1fe6d979a566",
-    "d2-a.png": "94c60328e97a3703b73a8d7067add16000ca5fde538c6a61d59bf0d1a324e839",
-    "d2-b.png": "2a9482f1b76847db659d5bfb470e6050e8f35fd3595c70da006d8e908c4b549e",
-    "d3-a.png": "c377895fbec2e5ed8985b57ebc1ac94d7d8f4af253997bf2254c9298e25cddef",
-    "d3-b.png": "5827ba07b4b35bd3bc5c73d96449a6ecc336a9245d9103efef2413cf6bc9a4fa",
-    "d4-a.png": "ce843ce1d9a854ab32fb06ac5ea6da1e1314cc47b1c9fb26999eb68775a9c683",
-    "d4-b.png": "d9bd8dc56774e669b7ad1da0b2fe7f877e554aa9f138e02b53ccea0411b4a7cc",
-    "d5-a.png": "09bf9cd46495666d7a93ec3316b0f5c6888bfb5710dc5985f16d7b20776d765c",
-    "d5-b.png": "9705f59d7c29d1bc8081e6250d77e2683a91f6654117b923a19dc9c5475d935e",
-    "d6-a.png": "929a4430fe060e7e6e487ef7cac276e7ad6b2855d33c945ad7699691a199098a",
-    "d6-b.png": "f740dd85a70df24b2bbec66d5dba7602ca6bebaf962f666ed5a45aecc0669bd1",
-    "d7-a.png": "fc478ade836258956e5a076974206533a4ae467054b54d886f5f7ea06500aa95",
-    "d7-b.png": "13727dc4e85b1e8bd0f283570ecc48d9a153216f7101bc1ec08fef8cde897fcd"
+    "d0-a.png": "6ac5be23ea952fa73e2bc7121dfd14924aa1499105b15385f8955987b7c5a446",
+    "d0-b.png": "f209c64fcaea8a965b8b5dd34d1e6236bbd447cb002f001b76f93bcbb7e34204",
+    "d1-a.png": "095654dfb5043100685222325f91f0a22d7dd894f2e638f3bb0759fdc466ff85",
+    "d1-b.png": "3a10bb958afc9675dd1c8ba49e33cfff2553d007b19ca4ac7308a700939a0fd9",
+    "d2-a.png": "11fe52d5bbb22291d1d115ccef11e7f8c46a9dd2fcd018666c52596ae04e198a",
+    "d2-b.png": "6b548e12a0bb8332516484b23e3cb8aaef88486df38e1df328132059fad823c5",
+    "d3-a.png": "04bece51a961de6a25033768298981483ddd95d7401b9119262051772e0cd3ee",
+    "d3-b.png": "0edb7c280b50bc71d16a0265c8f7856d03891b61ccc8561a6b7961050407a320",
+    "d4-a.png": "38c8f01cfac89846640f3288532fea35764373f6e15804b67bc87dce80108fda",
+    "d4-b.png": "13b9d7b1515788235ebb3679b2ee63dfbcfe4ab6b9f73108774983a3219e32b9",
+    "d5-a.png": "3bd74c8e2fabb1ef8ffd1727ba1ea6426ba2691d5391cfad726f587094fe4638",
+    "d5-b.png": "3aad29d9bf24abaedd3a3af55433241031102400bebd653d7bbebd572ea8a868",
+    "d6-a.png": "ca13eeed05ea7f4b788249c1cc66cd5b68fea1d06bd92bef07715bb30c87060d",
+    "d6-b.png": "43c5192b6cf4986666d64ec66225abad96fb9fab22f1dd2ce78cd0ccd34c5a07",
+    "d7-a.png": "1a680f30e70d48686967b5acc89345d14865b04de9ba75c181149de6c664b797",
+    "d7-b.png": "97c3272c3ae2ed2dd742871ed0ec93534ab557c3f73a5624bd593e15899372be",
+    "giro.png": "f439ff8afcabc2d421f872e6fd29fb777ae0b95a7ccdd6bddc66364ab7237384"
   }
 }
