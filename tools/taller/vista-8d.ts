@@ -5,7 +5,7 @@
  * aplastada sobre el suelo (`proyeccionDeSombra`). La muerte se queda en el
  * cadáver un rato antes de volver a empezar.
  *
- *   pnpm taller vista-8d poses              # las referencias de pose del maniquí
+ *   pnpm taller vista-8d dos-manos          # las poses del maniquí de un juego de armas
  *   pnpm taller vista-8d templario-escudo   # el arte de la unidad
  *
  * Las poses vienen en dos hojas de 3 filas por dirección; para verlas como el
@@ -17,7 +17,12 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
 import sharp from 'sharp';
 import { proyeccionDeSombra } from '../../src/shared/arte.js';
-import { DIR_POSES, OCHO_DIRECCIONES } from '../art/poses.js';
+import {
+  carpetaDePoses,
+  JUEGOS_DE_ARMAS,
+  type JuegoDeArmas,
+  OCHO_DIRECCIONES,
+} from '../art/poses.js';
 import { type AtlasDerivado, derivarAtlas } from './derivar.js';
 import { NOMBRES_DE_DIRECCION } from './direcciones.js';
 import { DIR_VISTA } from './vista.js';
@@ -30,9 +35,9 @@ interface Direccion {
 }
 
 /** Junta las dos hojas de pose de cada dirección en una de 6 filas y la deriva. */
-async function desdeLasPoses(): Promise<Direccion[]> {
-  const origen = join(DIR_POSES, OCHO_DIRECCIONES.perfil);
-  const destino = join(DIR_VISTA, 'poses-8d');
+async function desdeLasPoses(juego: JuegoDeArmas): Promise<Direccion[]> {
+  const origen = carpetaDePoses(juego);
+  const destino = join(DIR_VISTA, `poses-${juego}-8d`);
   await mkdir(destino, { recursive: true });
   const { celda } = OCHO_DIRECCIONES;
   const fuera: Direccion[] = [];
@@ -175,13 +180,16 @@ requestAnimationFrame(dibujar);
 }
 
 export async function vista8d(fuente: string): Promise<string> {
-  const direcciones = fuente === 'poses' ? await desdeLasPoses() : await desdeElArte(fuente);
+  const esJuego = fuente in JUEGOS_DE_ARMAS;
+  const direcciones = esJuego
+    ? await desdeLasPoses(fuente as JuegoDeArmas)
+    : await desdeElArte(fuente);
   await mkdir(DIR_VISTA, { recursive: true });
-  const ruta = join(DIR_VISTA, `${fuente}-8d.html`);
+  const ruta = join(DIR_VISTA, `${esJuego ? `poses-${fuente}` : fuente}-8d.html`);
   await writeFile(
     ruta,
     pagina(
-      fuente === 'poses' ? 'Poses de referencia · 8 direcciones' : `${fuente} · 8 direcciones`,
+      esJuego ? `Poses de ${fuente} · 8 direcciones` : `${fuente} · 8 direcciones`,
       direcciones,
     ),
   );

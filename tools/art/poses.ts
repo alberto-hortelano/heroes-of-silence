@@ -132,16 +132,19 @@ function puntoMasBajo(model) {
  *    antebrazo cruzando su cara interior y la punta hacia abajo.
  */
 const ATREZO = `
-function crearAtrezo(model) {
+function crearAtrezo(model, conf) {
   let material = null;
   model.traverse((n) => { if (!material && n.isMesh) material = Array.isArray(n.material) ? n.material[0] : n.material; });
+  const e = conf.espada;
   const espada = new THREE.Group();
-  const hoja = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.85, 8), material);
-  hoja.position.y = 0.085 + 0.425;
-  const guarda = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.03, 0.035), material);
-  guarda.position.y = 0.085;
-  const puño = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.17, 8), material);
+  const hoja = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, e.largo, 8), material);
+  hoja.position.y = e.agarre + e.largo / 2;
+  const guarda = new THREE.Mesh(new THREE.BoxGeometry(e.guarda, 0.03, 0.035), material);
+  guarda.position.y = e.agarre;
+  const puño = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, e.puño, 8), material);
+  puño.position.y = e.agarre - e.puño / 2;
   espada.add(hoja, guarda, puño);
+  if (!conf.escudo) return { espada, escudo: null };
   const forma = new THREE.Shape();
   forma.moveTo(-0.24, 0.3);
   forma.lineTo(0.24, 0.3);
@@ -152,7 +155,7 @@ function crearAtrezo(model) {
   const escudo = new THREE.Mesh(new THREE.ExtrudeGeometry(forma, { depth: 0.03, bevelEnabled: false }), material);
   return { espada, escudo };
 }
-function colocarAtrezo(model, prefijo, atrezo, suelo, aplanar) {
+function colocarAtrezo(model, prefijo, atrezo, conf, suelo, aplanar, frente) {
   const p = (nombre) => {
     const h = model.getObjectByName(prefijo + nombre);
     if (!h) throw new Error('el rig no tiene el hueso ' + prefijo + nombre);
@@ -161,9 +164,29 @@ function colocarAtrezo(model, prefijo, atrezo, suelo, aplanar) {
   // La espada: el puño en el hueco de los dedos, la hoja hacia el índice.
   const indice = p('RightHandIndex1'), meñique = p('RightHandPinky1');
   const eje = indice.clone().sub(meñique).normalize();
+  // A dos manos la hoja no puede cruzar el cuerpo: los clips son de espada y
+  // escudo, con la derecha en la cadera, y siguiendo los nudillos la hoja
+  // atravesaba el torso. Se la inclina hacia delante hasta un mínimo.
+  if (conf.dosManos) {
+    const d = eje.dot(frente);
+    if (d < conf.adelanteMinimo) {
+      const resto = eje.clone().addScaledVector(frente, -d);
+      if (resto.lengthSq() < 1e-6) resto.set(0, 1, 0);
+      resto.normalize();
+      const m = conf.adelanteMinimo;
+      eje.copy(resto.multiplyScalar(Math.sqrt(1 - m * m)).addScaledVector(frente, m)).normalize();
+    }
+  }
   const centro = indice.clone().add(meñique).multiplyScalar(0.5).lerp(p('RightHandMiddle2'), 0.5);
   atrezo.espada.position.copy(centro);
   atrezo.espada.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), eje);
+  // A dos manos: la izquierda agarra el puño por debajo de la derecha, con la
+  // IK de dos huesos de las poses a distancia y el codo hacia abajo.
+  if (conf.dosManos) {
+    const agarre = centro.clone().addScaledVector(eje, conf.espada.agarre - conf.espada.puño + 0.07);
+    poseArm(model, 'Left', agarre, new THREE.Vector3(0, -1, 0));
+  }
+  if (!atrezo.escudo) return;
   // El escudo: normal hacia fuera del cuerpo, perpendicular al antebrazo.
   const codo = p('LeftForeArm'), muñeca = p('LeftHand'), pecho = p('Spine2');
   const brazo = muñeca.clone().sub(codo).normalize();
@@ -194,7 +217,7 @@ function colocarAtrezo(model, prefijo, atrezo, suelo, aplanar) {
 async function prepararForge(
   temporal: string,
   encuadre: Encuadre = ENCUADRE_DE_FIGURA,
-  atrezo = false,
+  atrezo: Atrezo | null = null,
 ): Promise<void> {
   for (const item of ['src', 'bin', 'sets', 'package.json']) {
     await cp(join(FORGE, item), join(temporal, item), { recursive: true });
@@ -257,7 +280,7 @@ async function prepararForge(
       // En la muerte el escudo se aplana entre el 45 % y el 80 % del clip.
       const avance = Math.min(1, (frameStep * f) / clip.duration);
       const w = state.animId === 'death' ? Math.min(1, Math.max(0, (avance - 0.45) / 0.35)) : 0;
-      colocarAtrezo(state.model, state.bonePrefix, state.atrezo, state.suelo, w * w * (3 - 2 * w));
+      colocarAtrezo(state.model, state.bonePrefix, state.atrezo, state.confAtrezo, state.suelo, w * w * (3 - 2 * w), new THREE.Vector3(Math.sin(pivot.rotation.y), 0, Math.cos(pivot.rotation.y)));
     }
     renderer.render(scene, camera);
     out.push(`,
@@ -277,11 +300,13 @@ async function prepararForge(
     accionGolpe.play();
     golpe = { accion: accionGolpe, fin: clipGolpe.duration - 1e-4, muerte: action };
   }
-  const atrezo = ${atrezo} ? crearAtrezo(model) : null;
-  if (atrezo) scene.add(atrezo.espada, atrezo.escudo);
+  const confAtrezo = ${JSON.stringify(atrezo)};
+  const atrezo = confAtrezo ? crearAtrezo(model, confAtrezo) : null;
+  if (atrezo) scene.add(atrezo.espada);
+  if (atrezo?.escudo) scene.add(atrezo.escudo);
   scene.updateMatrixWorld(true);
   const suelo = puntoMasBajo(model);
-  Object.assign(state, { renderer, scene, camera, pivot, mixer, clip, model, animId, golpe, suelo, atrezo, bonePrefix });`,
+  Object.assign(state, { renderer, scene, camera, pivot, mixer, clip, model, animId, golpe, suelo, atrezo, confAtrezo, bonePrefix });`,
     ],
     [
       '    mixer.setTime(Math.min(clip.duration, frameStep * f));',
@@ -432,6 +457,58 @@ export async function renderizarPerfil(perfil: Perfil): Promise<string> {
   }
 }
 
+/** El atrezo de un juego de armas, en metros. `agarre`: dónde queda la guarda sobre el puño derecho. */
+export interface Atrezo {
+  readonly espada: {
+    readonly largo: number;
+    readonly guarda: number;
+    readonly puño: number;
+    readonly agarre: number;
+  };
+  readonly escudo: boolean;
+  /** La mano izquierda también en el puño de la espada. */
+  readonly dosManos: boolean;
+  /** A dos manos: cuánto apunta la hoja, como mínimo, hacia donde mira (coseno). */
+  readonly adelanteMinimo: number;
+}
+
+/**
+ * Las referencias de Mixamo por juego de armas: el rig `y_bot` con los clips del
+ * pack de espada y escudo (no hay otros en la máquina) y el atrezo de cada arma.
+ * Cada juego se renderiza una vez en `assets/unidades/_poses/<juego>-8d/` y lo
+ * reutilizan todas las unidades que lleven esas armas; uno nuevo se hace
+ * copiando el más parecido y retocándolo.
+ */
+export const JUEGOS_DE_ARMAS = {
+  'espada-escudo': {
+    describe: 'espada de una mano y escudo de cometa',
+    ataque: 'quick',
+    atrezo: {
+      espada: { largo: 0.85, guarda: 0.2, puño: 0.17, agarre: 0.085 },
+      escudo: true,
+      dosManos: false,
+      adelanteMinimo: 0,
+    },
+  },
+  // Los clips son de espada y escudo: la mano izquierda se lleva al puño con IK
+  // en cada fotograma. El ataque es el tajo amplio, que es el que ya usaba el
+  // perfil `dos-manos` de una dirección.
+  'dos-manos': {
+    describe: 'espada larga empuñada con las dos manos',
+    ataque: 'heavy',
+    atrezo: {
+      espada: { largo: 1.1, guarda: 0.3, puño: 0.3, agarre: 0.05 },
+      escudo: false,
+      dosManos: true,
+      adelanteMinimo: 0.5,
+    },
+  },
+} as const satisfies Record<string, { describe: string; ataque: string; atrezo: Atrezo }>;
+export type JuegoDeArmas = keyof typeof JUEGOS_DE_ARMAS;
+
+/** La carpeta de las poses de un juego de armas. */
+export const carpetaDePoses = (j: JuegoDeArmas): string => join(DIR_POSES, `${j}-8d`);
+
 /**
  * La unidad definitiva: 8 direcciones y 6 acciones. Cada dirección se reparte en
  * dos hojas de 3 filas, que es el tamaño que ChatGPT pinta bien: la A es la
@@ -440,7 +517,6 @@ export async function renderizarPerfil(perfil: Perfil): Promise<string> {
  * dirección: con la luz fija a la izquierda, espejar la traería de la derecha.
  */
 export const OCHO_DIRECCIONES = {
-  perfil: 'espada-escudo-8d',
   /** A 6 fps la carrera da 4 fotogramas para 7 columnas: se repetirían. */
   fps: 12,
   /** El cadáver cae hacia la cámara y en 256 se sale por abajo. */
@@ -453,6 +529,7 @@ export const OCHO_DIRECCIONES = {
       { clip: 'charge', anim: 'run', enBucle: true },
     ],
     b: [
+      // El clip del ataque lo pone el juego de armas (`hojasDe`).
       { clip: 'attack', anim: 'quick', enBucle: false },
       { clip: 'hurt', anim: 'impact3', enBucle: false },
       { clip: 'death', anim: 'death', enBucle: false },
@@ -460,6 +537,15 @@ export const OCHO_DIRECCIONES = {
   },
 } as const;
 export type Hoja8d = keyof typeof OCHO_DIRECCIONES.hojas;
+
+/** Las dos hojas de un juego de armas: las comunes con su ataque. */
+export function hojasDe(j: JuegoDeArmas) {
+  const { a, b } = OCHO_DIRECCIONES.hojas;
+  return {
+    a,
+    b: b.map((c) => (c.clip === 'attack' ? { ...c, anim: JUEGOS_DE_ARMAS[j].ataque } : c)),
+  };
+}
 
 /**
  * La referencia de pose del GIRO: el primer reposo de cada dirección, en 4
@@ -494,13 +580,18 @@ export async function componerGiro(carpeta: string): Promise<string> {
   return sha256(png);
 }
 
-/** Renderiza las 16 hojas de pose y devuelve su carpeta. */
-export async function renderizarOchoDirecciones(destino = DIR_POSES): Promise<string> {
-  const { celda, encuadre, hojas, perfil } = OCHO_DIRECCIONES;
+/** Renderiza las 16 hojas de pose de un juego de armas y devuelve su carpeta. */
+export async function renderizarOchoDirecciones(
+  juego: JuegoDeArmas,
+  destino = DIR_POSES,
+): Promise<string> {
+  const { celda, encuadre } = OCHO_DIRECCIONES;
+  const hojas = hojasDe(juego);
+  const perfil = `${juego}-8d`;
   const { columnas } = FIGURA;
   const temporal = await mkdtemp(join(tmpdir(), 'heroes-poses-8d-'));
   try {
-    await prepararForge(temporal, encuadre, true);
+    await prepararForge(temporal, encuadre, JUEGOS_DE_ARMAS[juego].atrezo);
     const salida = join(temporal, 'out');
     const anims = [...new Set(Object.values(hojas).flatMap((h) => h.map((c) => c.anim)))];
     execFileSync(
@@ -583,6 +674,8 @@ export async function renderizarOchoDirecciones(destino = DIR_POSES): Promise<st
       `${JSON.stringify(
         {
           perfil,
+          juegoDeArmas: juego,
+          atrezo: JUEGOS_DE_ARMAS[juego].atrezo,
           model: 'y_bot',
           renderer: 'sprite-forge',
           spriteForgeCommit: forge.trim(),
@@ -619,12 +712,18 @@ export async function renderizarOchoDirecciones(destino = DIR_POSES): Promise<st
 const esScript = process.argv[1] !== undefined && resolve(process.argv[1]) === import.meta.filename;
 if (esScript) {
   const arg = process.argv[2];
-  if (arg === '--giro') {
-    console.log(await componerGiro(join(DIR_POSES, OCHO_DIRECCIONES.perfil)));
-    process.exit(0);
-  }
-  if (arg === '--8d') {
-    console.log(`→ ${await renderizarOchoDirecciones(process.argv[3])}`);
+  if (arg === '--giro' || arg === '--8d') {
+    const juego = process.argv[3] as JuegoDeArmas;
+    if (!(juego in JUEGOS_DE_ARMAS)) {
+      throw new Error(
+        `juego de armas desconocido «${juego}». Hay: ${Object.keys(JUEGOS_DE_ARMAS).join(', ')}`,
+      );
+    }
+    console.log(
+      arg === '--giro'
+        ? await componerGiro(carpetaDePoses(juego))
+        : `→ ${await renderizarOchoDirecciones(juego, process.argv[4])}`,
+    );
     process.exit(0);
   }
   const todos = Object.keys(PERFILES) as Perfil[];

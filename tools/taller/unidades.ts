@@ -14,7 +14,7 @@
  *     ese estilo (decisión del usuario, 01-10-2026); el atlas de Liora ya no es
  *     referencia de nada.
  */
-import type { Perfil } from '../art/poses.js';
+import type { JuegoDeArmas, Perfil } from '../art/poses.js';
 import { NOMBRES_DE_DIRECCION } from './direcciones.js';
 import type { Encargo } from './encargo.js';
 
@@ -605,12 +605,21 @@ export function encargoDeAtlas(u: Unidad): Encargo {
 
 /**
  * Las unidades definitivas, en 8 direcciones con 6 acciones (`OCHO_DIRECCIONES`
- * en `tools/art/poses.ts`). Hoy solo el templario con escudo; su perfil de pose
- * tiene que ser el de espada y escudo, que es el que se renderizó en 8.
+ * en `tools/art/poses.ts`), y el juego de armas de cada una: sus poses son las de
+ * ese juego (`JUEGOS_DE_ARMAS`).
  */
-export const EN_OCHO_DIRECCIONES = ['templario-escudo'] as const;
+export const EN_OCHO_DIRECCIONES: Readonly<Record<string, JuegoDeArmas>> = {
+  'templario-escudo': 'espada-escudo',
+  'templario-mandoble': 'dos-manos',
+};
 
-const DIR_POSES_8D = 'assets/unidades/_poses/espada-escudo-8d';
+/** Las poses de 8 direcciones de una unidad: las de su juego de armas. */
+function dirPoses8d(u: Unidad): string {
+  const juego = EN_OCHO_DIRECCIONES[u.id];
+  if (juego === undefined)
+    throw new Error(`${u.id} no está en 8 direcciones (EN_OCHO_DIRECCIONES)`);
+  return `assets/unidades/_poses/${juego}-8d`;
+}
 
 export const rutaGiro = (u: Unidad): string => `assets/unidades/${u.id}/giro`;
 
@@ -620,15 +629,12 @@ export const rutaGiro = (u: Unidad): string => `assets/unidades/${u.id}/giro`;
  * `assets/art/`. Fija la espalda antes de pintar las hojas de espaldas.
  */
 export function encargoDeGiro(u: Unidad): Encargo {
-  if (!EN_OCHO_DIRECCIONES.includes(u.id as (typeof EN_OCHO_DIRECCIONES)[number])) {
-    throw new Error(`${u.id} no está en 8 direcciones (EN_OCHO_DIRECCIONES)`);
-  }
   return {
     id: `${u.id}-giro`,
     tipo: 'giro',
     descripcion: `${u.aspecto}\n${PINTURA}`,
     referencias: [
-      { ruta: `${DIR_POSES_8D}/giro.png`, papel: 'pose' },
+      { ruta: `${dirPoses8d(u)}/giro.png`, papel: 'pose' },
       { ruta: `${rutaIdentidad(u)}.webp`, papel: 'identidad' },
       ...(u.concepto === undefined ? [] : [{ ruta: u.concepto, papel: 'estilo' as const }]),
     ],
@@ -651,7 +657,7 @@ export function encargosDeOchoDirecciones(u: Unidad): Encargo[] {
           PINTURA,
         ].join('\n'),
         referencias: [
-          { ruta: `${DIR_POSES_8D}/d${d}-${hoja}.png`, papel: 'pose' },
+          { ruta: `${dirPoses8d(u)}/d${d}-${hoja}.png`, papel: 'pose' },
           { ruta: `${rutaGiro(u)}.webp`, papel: 'identidad' },
           ...(u.concepto === undefined ? [] : [{ ruta: u.concepto, papel: 'estilo' as const }]),
         ],

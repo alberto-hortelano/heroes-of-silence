@@ -574,7 +574,7 @@ switch (orden) {
     console.log(`→ ${await vistaEfectos()}`);
     break;
   case 'vista-8d':
-    for (const f of resto.length > 0 ? resto : ['poses']) console.log(`→ ${await vista8d(f)}`);
+    for (const f of resto) console.log(`→ ${await vista8d(f)}`);
     break;
   case 'vista':
     for (const r of await vista(resto)) console.log(`→ ${r}`);

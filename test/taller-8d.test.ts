@@ -93,7 +93,7 @@ describe('los encargos de 8 direcciones', () => {
   });
 
   it('una unidad que no está en 8 direcciones no tiene giro', () => {
-    expect(() => encargoDeGiro(unidad('templario-mandoble'))).toThrow(/8 direcciones/);
+    expect(() => encargoDeGiro(unidad('templario-monje'))).toThrow(/8 direcciones/);
   });
 });
 
