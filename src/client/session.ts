@@ -7,6 +7,7 @@
  */
 import { chooseBattleAction } from '@core/ai/tactics.js';
 import { playAiTurn } from '@core/ai/turn.js';
+import { batallaDeArena, LADOS, type UnidadDeArena } from '@core/arena.js';
 import {
   activeStack,
   applyAction,
@@ -24,7 +25,7 @@ import { spell } from '@core/battle/spells.js';
 import type { BattleAction, BattleStack, BattleState, Side } from '@core/battle/types.js';
 import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '@core/hero/troop.js';
 import type { PathStep } from '@core/map/map.js';
-import { createRng } from '@core/rng.js';
+import { createRng, type Rng } from '@core/rng.js';
 import { emboscadaEnLaRuta, type VistaAsaltante } from '@core/state/asaltantes.js';
 import type { DefeatReason } from '@core/state/events.js';
 import {
@@ -135,7 +136,119 @@ const AL_CERRARSE_LA_BATALLA: Record<Desenlace, string> = {
   ajena: FIN_AJENO,
 };
 
-export class Session {
+/**
+ * La magia de una batalla tal como la lee la escena: qué hechizo hay elegido,
+ * sobre quién cae y por qué no. Solo la tiene quien lleva héroe —la partida—;
+ * la arena no tiene ni libro ni maná y no declara nada de esto.
+ */
+export interface HechizosDeBatalla {
+  readonly selectedSpell: string | null;
+  castTargets(): readonly string[];
+  castRejection(targetId: string): string;
+}
+
+/**
+ * Lo que la escena de batalla necesita de quien juega: leer la batalla, saber si
+ * le toca a la persona, las listas legales y mandar una acción. Lo implementan la
+ * partida (`Session`) y la arena (`SesionDeArena`), así que el ratón, el ángulo,
+ * la carga y los tramos son el mismo código en las dos pantallas y no una copia.
+ */
+export interface ControlDeBatalla {
+  readonly battle: BattleState | null;
+  /** La barra de estado: la escena escribe en ella lo que señala el puntero. */
+  status: string;
+  /** La batalla y la unidad activa, solo si esa unidad la mueve la persona. */
+  readonly turnoPropio: TurnoPropio | null;
+  /** El bando de la persona; `null` si no lleva ninguno ahora. */
+  readonly miBando: Side | null;
+  /** La magia, o `null` donde no hay héroe que lance. */
+  readonly hechizos: HechizosDeBatalla | null;
+  battleLegalActions(): readonly BattleAction[];
+  battleMovable(): readonly Hex[];
+  battleCharges(): readonly CasillaDeCarga[];
+  attackRejection(targetId: string): string;
+  playBattleAction(action: BattleAction): void;
+}
+
+type TurnoPropio = { battle: BattleState; stack: BattleStack; side: Side };
+
+/** Lo que la batalla ofrece a la persona ahora: lo comparten la partida y la arena. */
+interface AccionesDeBatalla {
+  acciones: BattleAction[];
+  movibles: Hex[];
+  cargas: readonly CasillaDeCarga[];
+}
+
+/**
+ * Las acciones legales y lo que se deriva de ellas, una regla para las dos
+ * sesiones. Las legales se piden aunque no sea tu turno —la escena las usa para
+ * leer el clic y el núcleo rechaza lo que no toca—; lo que se pinta (a dónde ir,
+ * a quién cargar), solo si la unidad activa es tuya.
+ */
+function accionesDeBatalla(battle: BattleState, turno: TurnoPropio | null): AccionesDeBatalla {
+  const acciones = battle.finished === null ? legalActions(battle) : [];
+  return {
+    acciones,
+    // Los hexes a los que ir son las entradas `move` de la misma lista: antes se
+    // pedían aparte con `movableHexes`, que era recorrer el tablero otra vez para
+    // dar la misma respuesta.
+    movibles: turno === null ? [] : acciones.flatMap((a) => (a.type === 'move' ? [a.to] : [])),
+    // Las cargas se enseñan con el movimiento posible (decisión del usuario):
+    // salen de `casillasDeCarga`, la misma regla que las cobra.
+    cargas: turno === null ? SIN_CARGAS : casillasDeCarga(turno.battle, turno.stack),
+  };
+}
+
+/**
+ * «¿Se ha movido la batalla?»: toda acción aplicada deja una línea en el
+ * registro y mueve el turno —su ordinal, o lo gastado en él—. Es la clave de las
+ * cachés de las dos sesiones y la versión de la arena.
+ */
+function claveDeBatalla(b: BattleState): string {
+  return `${b.log.length}|${b.turno?.n}|${b.turno?.gastado}`;
+}
+
+/**
+ * Por qué la unidad activa no puede actuar contra ese enemigo: ni dispararle ni
+ * golpearlo. La frase es del núcleo (`ataqueBlocker`) —«ya se ha movido este
+ * turno: no puede disparar…»— y aquí solo se le pone mayúscula y punto. Quien la
+ * pide ya ha visto que no hay acción legal contra él, así que el núcleo TIENE que
+ * dar motivo.
+ */
+function motivoContra(turno: TurnoPropio | null, targetId: string): string {
+  if (turno === null) return '';
+  const motivo = ataqueBlocker(turno.battle, targetId);
+  if (motivo === null) {
+    throw new Error(`no se ofrece ninguna acción contra ${targetId} y el núcleo no dice por qué`);
+  }
+  return `${motivo.charAt(0).toUpperCase()}${motivo.slice(1)}.`;
+}
+
+/**
+ * La IA juega mientras la unidad activa sea suya, y devuelve cuántas jugadas
+ * hizo. El único bucle de «juega la IA hasta que te toque»: la partida y la
+ * arena solo cambian el predicado. Al tope (`MAX_JUGADAS`) **lanza**, en las
+ * dos: un bucle que no avanza no se corta callando.
+ */
+function jugarIAMientras(
+  battle: BattleState,
+  rng: Rng,
+  laLlevaLaIA: (s: BattleStack) => boolean,
+): number {
+  let jugadas = 0;
+  while (battle.finished === null) {
+    const s = activeStack(battle);
+    if (s === null || !laLlevaLaIA(s)) break;
+    if (jugadas >= MAX_JUGADAS) {
+      throw new Error(`la IA lleva ${MAX_JUGADAS} jugadas seguidas sin soltar la batalla`);
+    }
+    applyAction(battle, chooseBattleAction(battle), rng);
+    jugadas++;
+  }
+  return jugadas;
+}
+
+export class Session implements ControlDeBatalla, HechizosDeBatalla {
   state: GameState;
   readonly ctx: GameContext;
   /** El jugador que maneja la persona sentada delante. */
@@ -697,7 +810,7 @@ export class Session {
 
   // ------------------------------------------------------------ batalla
 
-  get battle() {
+  get battle(): BattleState | null {
     return this.state.pendingBattle?.battle ?? null;
   }
 
@@ -731,7 +844,7 @@ export class Session {
    * copiadas en `battleMovable` y en `spellOptions`, y la escena de batalla las
    * volvía a escribir para saber si marcar objetivos. Ahora la lee también ella.
    */
-  get turnoPropio(): { battle: BattleState; stack: BattleStack; side: Side } | null {
+  get turnoPropio(): TurnoPropio | null {
     const battle = this.battle;
     if (battle === null || battle.finished !== null) return null;
     const side = this.miBando;
@@ -759,20 +872,11 @@ export class Session {
     // los hechizos que no pasa por el registro, y un test que los toca a mano
     // vería una lista vieja.
     const { attacker: ha, defender: hd } = battle.heroes;
-    const clave = `${battle.log.length}|${battle.turno?.n}|${battle.turno?.gastado}|${this.selectedSpell}|${ha?.mana}|${ha?.castThisRound}|${hd?.mana}|${hd?.castThisRound}`;
+    const clave = `${claveDeBatalla(battle)}|${this.selectedSpell}|${ha?.mana}|${ha?.castThisRound}|${hd?.mana}|${hd?.castThisRound}`;
     const c = this.cacheBatalla;
     if (c !== null && c.battle === battle && c.clave === clave) return c.valor;
-    const acciones = battle.finished === null ? legalActions(battle) : [];
-    const turno = this.turnoPropio;
-    // Los hexes a los que ir son las entradas `move` de la misma lista: antes se
-    // pedían aparte con `movableHexes`, que era recorrer el tablero otra vez para
-    // dar la misma respuesta.
-    const movibles =
-      turno === null ? [] : acciones.flatMap((a) => (a.type === 'move' ? [a.to] : []));
-    // Las cargas se enseñan con el movimiento posible (decisión del usuario):
-    // salen de `casillasDeCarga`, la misma regla que las cobra.
-    const cargas = turno === null ? SIN_CARGAS : casillasDeCarga(turno.battle, turno.stack);
-    const valor = { acciones, movibles, opciones: this.opcionesDeHechizo(acciones), cargas };
+    const comunes = accionesDeBatalla(battle, this.turnoPropio);
+    const valor = { ...comunes, opciones: this.opcionesDeHechizo(comunes.acciones) };
     this.cacheBatalla = { battle, clave, valor };
     return valor;
   }
@@ -803,6 +907,11 @@ export class Session {
 
   battleLegalActions(): readonly BattleAction[] {
     return this.calculoDeBatalla().acciones;
+  }
+
+  /** La partida tiene héroe: su magia la lleva esta misma sesión. */
+  get hechizos(): HechizosDeBatalla {
+    return this;
   }
 
   /** El héroe de la persona en la batalla en curso, el de SU bando. */
@@ -879,13 +988,7 @@ export class Session {
    * él, así que el núcleo TIENE que dar motivo.
    */
   attackRejection(targetId: string): string {
-    const turno = this.turnoPropio;
-    if (turno === null) return '';
-    const motivo = ataqueBlocker(turno.battle, targetId);
-    if (motivo === null) {
-      throw new Error(`no se ofrece ninguna acción contra ${targetId} y el núcleo no dice por qué`);
-    }
-    return `${motivo.charAt(0).toUpperCase()}${motivo.slice(1)}.`;
+    return motivoContra(this.turnoPropio, targetId);
   }
 
   /**
@@ -953,14 +1056,7 @@ export class Session {
     const battle = this.battle;
     const mio = this.miBando;
     if (battle === null || mio === null) return;
-    let guard = 0;
-    while (battle.finished === null && guard < MAX_JUGADAS) {
-      const s = activeStack(battle);
-      if (s === null || s.side === mio) break;
-      applyAction(battle, chooseBattleAction(battle), this.ctx.rng);
-      guard++;
-    }
-    if (guard > 0) this.tocar();
+    if (jugarIAMientras(battle, this.ctx.rng, (s) => s.side !== mio) > 0) this.tocar();
     if (battle.finished !== null) this.status = 'La batalla ha terminado.';
   }
 
@@ -1035,6 +1131,161 @@ export class Session {
     return (
       turnBlocker(this.state, this.viewer) ?? 'Espera: el turno del rival aún se está resolviendo.'
     );
+  }
+}
+
+/** Una unidad del montaje de la arena: sus cifras y quién la mueve. */
+export interface PuestoDeArena {
+  readonly unidad: UnidadDeArena;
+  readonly ia: boolean;
+}
+
+/**
+ * La batalla de la arena (`/arena/`): dos bandos de unidades con cifras del
+ * borrador, sin partida alrededor, y en cada unidad decide la persona o la IA.
+ *
+ * Vive aquí porque `session.ts` es la única puerta del cliente al núcleo —lo
+ * vigila `invariantes.test.ts`—, y la arena aplica reglas igual que la partida.
+ * Qué unidades lleva la IA se decide al montar y no cambia: es un conjunto de
+ * ids de stack. Cuál es el «bando de la persona» se deriva de la unidad activa,
+ * porque la persona puede llevar unidades de los dos lados.
+ *
+ * **Montar no es empezar.** El constructor deja la batalla en su primera
+ * jugada, y la IA no mueve hasta `empezar()`. Así quien la pinta puede mirar el
+ * tablero de salida antes: cuando la IA jugaba ya en el constructor, el animador
+ * veía la batalla por primera vez con todo eso hecho, lo daba por contado y, con
+ * todas las unidades en IA, solo se veía el final (H1 de QA).
+ *
+ * No hay hechizos: sin héroe no hay libro ni maná, y `hechizos` es `null`.
+ */
+export class SesionDeArena implements ControlDeBatalla {
+  readonly battle: BattleState;
+  readonly semilla: number;
+  readonly hechizos = null;
+  private readonly rng: Rng;
+  private readonly manejaIA: ReadonlySet<string>;
+  private empezada = false;
+
+  /**
+   * Lo que mira el panel para repintarse: cambia con cada jugada, que es lo
+   * mismo que mira la caché. No hay contador aparte que se pueda desacompasar.
+   */
+  get version(): string {
+    return claveDeBatalla(this.battle);
+  }
+
+  /** No es parte de la versión, por lo mismo que en `Session`: la reescribe el puntero. */
+  status = '';
+
+  constructor(
+    izquierda: readonly PuestoDeArena[],
+    derecha: readonly PuestoDeArena[],
+    semilla: number,
+  ) {
+    this.semilla = semilla;
+    this.rng = createRng(semilla);
+    this.battle = batallaDeArena(
+      izquierda.map((p) => p.unidad),
+      derecha.map((p) => p.unidad),
+      this.rng,
+    );
+    // El stack de cada puesto, por bando y `slot`, que es como lo monta el motor;
+    // no por el formato del id, que es cosa suya.
+    const ia = new Set<string>();
+    for (const [lado, puestos] of [
+      ['izquierda', izquierda],
+      ['derecha', derecha],
+    ] as const) {
+      const bando = LADOS[lado].bando;
+      puestos.forEach((p, slot) => {
+        const st = this.battle.stacks.find((s) => s.side === bando && s.slot === slot);
+        if (st === undefined) throw new Error(`la unidad ${p.unidad.name} no ha salido al campo`);
+        if (p.ia) ia.add(st.id);
+      });
+    }
+    this.manejaIA = ia;
+  }
+
+  /**
+   * Arranca la pelea: la IA juega hasta la primera unidad de la persona, o
+   * entera si las lleva todas. Una vez: llamarla dos veces es un error de quien
+   * monta.
+   */
+  empezar(): void {
+    if (this.empezada) throw new Error('esta batalla de la arena ya ha empezado');
+    this.empezada = true;
+    this.avanzarIA();
+  }
+
+  /** ¿Esta unidad la mueve la IA? */
+  laLlevaLaIA(stackId: string): boolean {
+    return this.manejaIA.has(stackId);
+  }
+
+  get turnoPropio(): TurnoPropio | null {
+    const battle = this.battle;
+    if (!this.empezada || battle.finished !== null) return null;
+    const stack = activeStack(battle);
+    if (stack === null || this.manejaIA.has(stack.id)) return null;
+    return { battle, stack, side: stack.side };
+  }
+
+  get miBando(): Side | null {
+    return this.turnoPropio?.side ?? null;
+  }
+
+  /** Como en `Session`, guardado por jugada: la escena lo pide en cada fotograma. */
+  private calculo(): AccionesDeBatalla {
+    const clave = claveDeBatalla(this.battle);
+    if (this.cache !== null && this.cache.clave === clave) return this.cache.valor;
+    const valor = accionesDeBatalla(this.battle, this.turnoPropio);
+    this.cache = { clave, valor };
+    return valor;
+  }
+  private cache: { clave: string; valor: AccionesDeBatalla } | null = null;
+
+  battleLegalActions(): readonly BattleAction[] {
+    return this.calculo().acciones;
+  }
+
+  battleMovable(): readonly Hex[] {
+    return this.calculo().movibles;
+  }
+
+  battleCharges(): readonly CasillaDeCarga[] {
+    return this.calculo().cargas;
+  }
+
+  /** Las casillas que le quedan este turno a la unidad activa, si es de la persona. */
+  battleStepsLeft(): number | null {
+    const turno = this.turnoPropio;
+    return turno === null ? null : pasosQueQuedan(turno.battle, turno.stack);
+  }
+
+  attackRejection(targetId: string): string {
+    return motivoContra(this.turnoPropio, targetId);
+  }
+
+  /** Aplica la jugada de la persona y deja a la IA mover las suyas hasta la siguiente. */
+  playBattleAction(action: BattleAction): void {
+    if (this.turnoPropio === null) {
+      this.status = 'Ahora no mueve ninguna unidad tuya.';
+      return;
+    }
+    try {
+      applyAction(this.battle, action, this.rng);
+      this.status = '';
+    } catch (err) {
+      this.status = mensaje(err);
+      return;
+    }
+    this.avanzarIA();
+  }
+
+  /** Con todas en IA la batalla se juega entera aquí, de una vez: el animador la cuenta después. */
+  private avanzarIA(): void {
+    jugarIAMientras(this.battle, this.rng, (s) => this.manejaIA.has(s.id));
+    if (this.battle.finished !== null) this.status = 'La batalla ha terminado.';
   }
 }
 

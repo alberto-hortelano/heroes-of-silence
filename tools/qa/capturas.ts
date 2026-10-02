@@ -24,7 +24,15 @@
  * No entra en `pnpm verify`: tarda decenas de segundos (ver `implementacion.md`).
  */
 import { type ChildProcess, spawn } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { createServer } from 'node:net';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -51,9 +59,15 @@ import {
 import { pasosAPintar } from '../../src/client/render/mapa.js';
 import { centroDeStack, centroHex, tableroPara } from '../../src/client/render/proyeccion.js';
 import { botonDeRecluta, townLayout, townPlots } from '../../src/client/render/town.js';
-import { Session } from '../../src/client/session.js';
+import {
+  type ControlDeBatalla,
+  type PuestoDeArena,
+  SesionDeArena,
+  Session,
+} from '../../src/client/session.js';
 import { explicacionDeFin, rotuloDeDia } from '../../src/client/views/panels.js';
 import { chooseBattleAction } from '../../src/core/ai/tactics.js';
+import { LADOS, ladoDe, type UnidadDeArena, unidadPorDefecto } from '../../src/core/arena.js';
 import {
   activeStack,
   applyAction,
@@ -63,7 +77,7 @@ import {
   quedanCasillas,
   stackHexes,
 } from '../../src/core/battle/battle.js';
-import { hexEquals } from '../../src/core/battle/board.js';
+import { hexDistance, hexEquals } from '../../src/core/battle/board.js';
 import type {
   BattleAction,
   BattleEvent,
@@ -81,6 +95,7 @@ import type {
   AgentResponseMsg,
   ServerToAgentMsg,
 } from '../../src/server/protocol.js';
+import { hojasDeArena, leerBorrador, RUTA_DEL_BORRADOR } from '../arena/borrador.js';
 import { decidir } from './politica.js';
 import { arrancarServidor, type ServidorDePartida } from './servidor.js';
 
@@ -422,7 +437,7 @@ async function alcanzar(
  * este guion de convertir un píxel en una acción, así que lo que aplica el
  * espejo es por construcción lo que manda la página.
  */
-function escenaDelEspejo(espejo: Session, ancho: number, alto: number): EscenaBatalla {
+function escenaDelEspejo(espejo: ControlDeBatalla, ancho: number, alto: number): EscenaBatalla {
   const escena = new EscenaBatalla(() => espejo);
   escena.sincronizar(Number.MAX_SAFE_INTEGER);
   escena.encuadrar(ancho, alto);
@@ -437,7 +452,7 @@ function escenaDelEspejo(espejo: Session, ancho: number, alto: number): EscenaBa
  */
 async function pixelDeUnidad(
   page: Page,
-  espejo: Session,
+  espejo: ControlDeBatalla,
   s: BattleStack,
 ): Promise<{ x: number; y: number; accion: BattleAction | undefined }> {
   const b0 = await caja(page);
@@ -2070,6 +2085,332 @@ async function espectador(browser: Browser, url: string, problemas: Problemas): 
   }
 }
 
+// ------------------------------------------------------------------------ arena
+
+/**
+ * La semilla de la pelea de la arena. Con ella, el guerrero con escudo que mueve
+ * la persona tiene que andar al menos un tramo antes de alcanzar a nadie y llega
+ * a golpear antes de que la batalla acabe: el guion lo exige, no lo supone.
+ */
+const SEMILLA_ARENA = 5;
+/** El ataque que se le pone a mano al guerrero, distinto del de por defecto. */
+const ATAQUE_EDITADO = 9;
+
+/** Lo que el panel «En el campo» tiene que decir, sacado del espejo. */
+function campoDelEspejo(s: SesionDeArena): string[] {
+  return s.battle.stacks
+    .filter((x) => isAlive(x))
+    .map((x) => `${x.topHp} PV · ${s.laLlevaLaIA(x.id) ? 'IA' : 'tú'}`);
+}
+
+async function campoDeLaPagina(page: Page): Promise<string[]> {
+  return (await page.locator('#side .stack .count').allInnerTexts()).map((t) =>
+    t.replace(/\s+/g, ' ').trim(),
+  );
+}
+
+/** Comprueba, con el tablero ya quieto, que la página y el espejo pelean la misma batalla. */
+async function mismaPelea(page: Page, espejo: SesionDeArena, paso: string): Promise<void> {
+  const esperado = campoDelEspejo(espejo);
+  const plazo = Date.now() + 8_000;
+  let visto: string[] = [];
+  while (Date.now() < plazo) {
+    visto = await campoDeLaPagina(page);
+    if (JSON.stringify(visto) === JSON.stringify(esperado)) return;
+    await sleep(120);
+  }
+  throw new Error(
+    `arena: tras «${paso}» la página y el espejo se han separado: la página dice ${JSON.stringify(visto)} y el espejo ${JSON.stringify(esperado)}`,
+  );
+}
+
+/**
+ * La arena (`/arena/`), con clics de verdad: monta dos bandos, cambia el ataque
+ * de una unidad en su ficha, deja una en «Yo», pelea —un tramo con un clic en el
+ * tablero, un golpe con un clic en el enemigo— y deja que la IA acabe; vuelve al
+ * montaje, guarda y mira que el archivo lleva la cifra cambiada.
+ *
+ * El borrador que hubiera se aparta antes —la página arrancaría con él y el
+ * espejo no lo sabría— y se deja como estaba al salir, pase lo que pase: la
+ * prueba no puede dejar en el repo un archivo que nadie ha pedido.
+ */
+async function arena(browser: Browser, url: string, problemas: Problemas): Promise<void> {
+  const ruta = join(process.cwd(), RUTA_DEL_BORRADOR);
+  const carpeta = join(process.cwd(), 'data/borradores');
+  const habiaCarpeta = existsSync(carpeta);
+  const antes = existsSync(ruta) ? readFileSync(ruta, 'utf8') : null;
+  if (antes !== null) rmSync(ruta);
+  try {
+    await jugarArena(browser, url, problemas, ruta);
+  } finally {
+    if (antes !== null) writeFileSync(ruta, antes);
+    else if (existsSync(ruta)) rmSync(ruta);
+    if (!habiaCarpeta && existsSync(carpeta) && readdirSync(carpeta).length === 0)
+      rmdirSync(carpeta);
+    log(
+      `arena: borrador ${antes === null ? 'retirado: no había ninguno' : 'devuelto como estaba'}`,
+    );
+  }
+}
+
+/**
+ * Con todas las unidades en IA la pelea tiene que VERSE: el tablero cuenta jugada
+ * a jugada lo que la IA resuelve de golpe. Antes la sesión jugaba ya al montarse,
+ * el animador daba todo por contado y a los 100 ms el panel ya decía quién había
+ * ganado (H1 de QA). Aquí se exige que el resultado tarde al menos la mitad de lo
+ * que dura contar las jugadas del espejo, y que mientras tanto se lea «Contando
+ * la jugada…».
+ */
+async function todoIA(page: Page, izquierda: UnidadDeArena, derecha: UnidadDeArena): Promise<void> {
+  // Tras recargar, el guerrero ya está a la izquierda en «Yo»: se pasa a la IA.
+  await page.locator('#bando-izquierda .puesto').first().locator('[data-ia="si"]').click();
+  await page.locator('[data-hoja-catalogo="orko-berserker"] [data-lado="derecha"]').click();
+  const espejo = new SesionDeArena(
+    [{ unidad: izquierda, ia: true }],
+    [{ unidad: derecha, ia: true }],
+    SEMILLA_ARENA,
+  );
+  espejo.empezar();
+  const fin = espejo.battle.finished;
+  if (fin === null) throw new Error('arena: con todo en IA el espejo no termina la pelea');
+  const cuenta = espejo.battle.log.reduce(
+    (ms, e) => ms + (e.kind in DURACION ? DURACION[e.kind as keyof typeof DURACION] : 0),
+    0,
+  );
+  const ganador = LADOS[ladoDe(fin.winner)].adjetivo;
+  const inicio = Date.now();
+  await page.locator('[data-arena="luchar"]').click();
+  await page
+    .locator('#side', { hasText: 'Contando la jugada…' })
+    .waitFor({ timeout: 1500 })
+    .catch(async () => {
+      throw new Error(
+        `arena: con todo en IA la pelea no se cuenta: el panel dice «${await page.locator('#side').innerText()}»`,
+      );
+    });
+  await captura(page, 'arena-04-todo-ia');
+  await page
+    .locator('#side h2', { hasText: `Gana el bando ${ganador}` })
+    .waitFor({ timeout: cuenta + 10_000 });
+  const tardo = Date.now() - inicio;
+  if (tardo < cuenta / 2) {
+    throw new Error(
+      `arena: con todo en IA el resultado sale a los ${tardo} ms, y contar las jugadas lleva ${cuenta} ms: no se ha visto pelear`,
+    );
+  }
+  log(
+    `arena: todo en IA, la pelea se cuenta en ${tardo} ms (${cuenta} ms de jugadas) y gana el bando ${ganador}`,
+  );
+}
+
+async function jugarArena(
+  browser: Browser,
+  url: string,
+  problemas: Problemas,
+  ruta: string,
+): Promise<void> {
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  vigilarConsola(page, 'arena', problemas);
+  await page.goto(`${url}/arena/?seed=${SEMILLA_ARENA}`, { waitUntil: 'networkidle' });
+  await page.locator('[data-hoja-catalogo]').first().waitFor({ timeout: 5000 });
+
+  // Dos por bando, con clics en el catálogo. La izquierda nace en «Yo» y la
+  // derecha en «IA»; el monje se pasa a la IA, así que la persona lleva una.
+  const añadir = async (hoja: string, lado: 'izquierda' | 'derecha'): Promise<void> => {
+    await page.locator(`[data-hoja-catalogo="${hoja}"] [data-lado="${lado}"]`).click();
+  };
+  await añadir('templario-escudo', 'izquierda');
+  await añadir('templario-monje', 'izquierda');
+  await añadir('orko-berserker', 'derecha');
+  await añadir('goblin-arquero', 'derecha');
+  await page.locator('#bando-izquierda .puesto').nth(1).locator('[data-ia="si"]').click();
+
+  // El ataque del guerrero, por su ficha: el cambio entra al salir del campo.
+  await page
+    .locator('#bando-izquierda [data-arena="editar"][data-hoja="templario-escudo"]')
+    .click();
+  const campo = page.locator('#ficha [data-campo="attack"]');
+  await campo.fill(String(ATAQUE_EDITADO));
+  await campo.press('Tab');
+  const tarjeta = page.locator('#bando-izquierda .puesto').first();
+  await tarjeta
+    .filter({ hasText: `A ${ATAQUE_EDITADO} ·` })
+    .waitFor({ timeout: 2000 })
+    .catch(async () => {
+      throw new Error(
+        `arena: la tarjeta no enseña el ataque cambiado: «${await tarjeta.innerText()}»`,
+      );
+    });
+  await sleep(300);
+  await captura(page, 'arena-01-montaje');
+
+  // El espejo: las mismas unidades —las de por defecto de cada hoja, con el
+  // ataque cambiado— y la misma semilla.
+  const hojas = hojasDeArena(process.cwd());
+  const deHoja = (id: string, cambios: Partial<UnidadDeArena> = {}): UnidadDeArena => {
+    const h = hojas.find((x) => x.id === id);
+    if (h === undefined) throw new Error(`arena: no hay hoja ${id}`);
+    return { ...unidadPorDefecto(h), ...cambios };
+  };
+  const puesto = (unidad: UnidadDeArena, ia: boolean): PuestoDeArena => ({ unidad, ia });
+  const espejo = new SesionDeArena(
+    [
+      puesto(deHoja('templario-escudo', { attack: ATAQUE_EDITADO }), false),
+      puesto(deHoja('templario-monje'), true),
+    ],
+    [puesto(deHoja('orko-berserker'), true), puesto(deHoja('goblin-arquero'), true)],
+    SEMILLA_ARENA,
+  );
+  // La página mira el tablero de salida y DESPUÉS deja jugar a la IA; el espejo
+  // empieza igual, o lo que juega la IA antes del primer turno no cuadraría.
+  espejo.empezar();
+  const mio = espejo.battle.stacks.find(
+    (x) => x.side === 'attacker' && x.slot === 0,
+  ) as BattleStack;
+  if (mio.unit.attack !== ATAQUE_EDITADO)
+    throw new Error('arena: el espejo no lleva el ataque cambiado');
+
+  await page.locator('[data-arena="luchar"]').click();
+  await page.locator('#app[data-escena="battle"]').waitFor({ timeout: 2000 });
+  const semilla = await page.locator('#seed').innerText();
+  if (semilla.trim() !== `semilla ${SEMILLA_ARENA}`) {
+    throw new Error(`arena: la barra debía decir «semilla ${SEMILLA_ARENA}» y dice «${semilla}»`);
+  }
+  await esperarCola(espejo.battle.log);
+  await mismaPelea(page, espejo, 'empezar la pelea');
+
+  let tramos = 0;
+  let golpes = 0;
+  let jugadas = 0;
+  while (espejo.battle.finished === null) {
+    if (++jugadas > 400) throw new Error('arena: la pelea no termina en 400 jugadas de la persona');
+    const turno = espejo.turnoPropio;
+    if (turno === null)
+      throw new Error('arena: el espejo devuelve el control sin que le toque a la persona');
+    const antes = espejo.battle.log.length;
+    const acciones = espejo.battleLegalActions();
+    const enemigos = espejo.battle.stacks.filter((x) => isAlive(x) && x.side !== turno.side);
+    const contra = enemigos.find((e) =>
+      acciones.some((a) => (a.type === 'attack' || a.type === 'shoot') && a.target === e.id),
+    );
+    if (golpes === 0 && contra !== undefined) {
+      // El golpe: un clic en el cuerpo del enemigo. La acción es la que la
+      // escena del espejo lee en ESE píxel, que es la que manda la página.
+      const px = await pixelDeUnidad(page, espejo, contra);
+      if (px.accion === undefined)
+        throw new Error(`arena: el clic sobre ${contra.id} no da acción`);
+      await page.mouse.move(px.x - 6, px.y);
+      await page.mouse.move(px.x, px.y);
+      await sleep(150);
+      if (golpes === 0) await captura(page, 'arena-02-apuntando');
+      await page.mouse.click(px.x, px.y);
+      espejo.playBattleAction(px.accion);
+      golpes++;
+    } else if (golpes === 0 && tramos === 0 && acciones.some((a) => a.type === 'move')) {
+      // Un tramo: el hex al que se puede ir más cerca del enemigo más cercano.
+      const cerca = (h: { col: number; row: number }): number =>
+        Math.min(...enemigos.map((e) => hexDistance(h, e.hex)));
+      const mover = acciones
+        .flatMap((a) => (a.type === 'move' ? [a] : []))
+        .sort((a, b) => cerca(a.to) - cerca(b.to))[0] as BattleAction & { type: 'move' };
+      const b0 = await caja(page);
+      const c = centroHex(tableroPara(b0.width, b0.height), mover.to);
+      const b = await alcanzar(page, c.x);
+      await page.mouse.click(b.x + c.x, b.y + c.y);
+      espejo.playBattleAction(mover);
+      tramos++;
+    } else {
+      // Lo demás lo cierra la persona con «Terminar turno» y deja hacer a la IA.
+      await page.getByRole('button', { name: 'Terminar turno' }).click();
+      espejo.playBattleAction({ type: 'end_turn' });
+    }
+    await esperarCola(espejo.battle.log.slice(antes));
+    // Acabada, el panel ya no enseña el campo sino el resultado: lo mira abajo.
+    if (espejo.battle.finished === null) await mismaPelea(page, espejo, `la jugada ${jugadas}`);
+  }
+  if (tramos === 0 || golpes === 0) {
+    throw new Error(
+      `arena: la persona debía mover un tramo y golpear; movió ${tramos} y golpeó ${golpes}`,
+    );
+  }
+  const ganador = LADOS[ladoDe(espejo.battle.finished.winner)].adjetivo;
+  await page
+    .locator('#side h2', { hasText: `Gana el bando ${ganador}` })
+    .waitFor({ timeout: 10_000 })
+    .catch(async () => {
+      throw new Error(
+        `arena: el panel debía decir que gana el bando ${ganador} y dice «${await page.locator('#side').innerText()}»`,
+      );
+    });
+  await captura(page, 'arena-03-final');
+  log(
+    `arena: ${tramos} tramo, ${golpes} golpe; gana el bando ${ganador} en la ronda ${espejo.battle.round}`,
+  );
+
+  // De vuelta al montaje, con todo conservado, y a guardar.
+  await page.locator('[data-arena="otra-vez"]').click();
+  await tarjeta.filter({ hasText: `A ${ATAQUE_EDITADO} ·` }).waitFor({ timeout: 2000 });
+  await page.locator('[data-arena="guardar"]').click();
+  await page
+    .waitForFunction(
+      (r) =>
+        document.getElementById('status')?.textContent?.startsWith(`Guardado en ${r}`) === true,
+      RUTA_DEL_BORRADOR,
+      { timeout: 4000 },
+    )
+    .catch(async () => {
+      throw new Error(
+        `arena: la barra no dice que se ha guardado: «${await page.locator('#status').innerText()}»`,
+      );
+    });
+  const guardado = leerBorrador(process.cwd()).unidades;
+  const escudo = guardado.find((u) => u.id === 'templario-escudo');
+  if (escudo?.attack !== ATAQUE_EDITADO || !existsSync(ruta)) {
+    throw new Error(
+      `arena: ${RUTA_DEL_BORRADOR} no lleva el ataque cambiado: ${JSON.stringify(escudo)}`,
+    );
+  }
+  if (guardado.length !== 4) {
+    throw new Error(
+      `arena: se guardan las cuatro unidades montadas y el archivo lleva ${guardado.length}`,
+    );
+  }
+  log(`arena: guardado ${RUTA_DEL_BORRADOR} con el ataque ${escudo.attack} del guerrero`);
+
+  // Al volver a abrir, lo guardado se carga: el guerrero entra con su ataque.
+  await page.reload({ waitUntil: 'networkidle' });
+  await page
+    .waitForFunction(
+      (r) =>
+        document.getElementById('status')?.textContent?.startsWith(`Cargado ${r}: 4 unidades.`) ===
+        true,
+      RUTA_DEL_BORRADOR,
+      { timeout: 4000 },
+    )
+    .catch(async () => {
+      throw new Error(
+        `arena: al reabrir no dice que ha cargado el borrador: «${await page.locator('#status').innerText()}»`,
+      );
+    });
+  await añadir('templario-escudo', 'izquierda');
+  await tarjeta
+    .filter({ hasText: `A ${ATAQUE_EDITADO} ·` })
+    .waitFor({ timeout: 2000 })
+    .catch(async () => {
+      throw new Error(
+        `arena: al reabrir, el guerrero no trae el ataque guardado: «${await tarjeta.innerText()}»`,
+      );
+    });
+  log('arena: al reabrir, el borrador se carga y el guerrero trae su ataque');
+
+  await todoIA(
+    page,
+    deHoja('templario-escudo', { attack: ATAQUE_EDITADO }),
+    deHoja('orko-berserker'),
+  );
+  await page.close();
+}
+
 // ------------------------------------------------------------------------ main
 
 async function main(): Promise<void> {
@@ -2097,6 +2438,7 @@ async function main(): Promise<void> {
     await jugarTactil(browser, arrancado.url, problemas);
     await sinArte(browser, arrancado.url, problemas);
     await espectador(browser, arrancado.url, problemas);
+    await arena(browser, arrancado.url, problemas);
   } finally {
     await browser?.close();
     limpiar();

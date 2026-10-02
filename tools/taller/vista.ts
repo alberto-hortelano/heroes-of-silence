@@ -19,7 +19,9 @@ import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import sharp, { type OverlayOptions } from 'sharp';
+import { NOMBRE_DE_FACCION_DE_ARENA } from '../../src/core/arena.js';
 import { sombraDeFigura } from '../../src/shared/arte.js';
+import { tieneAtlas } from '../arena/borrador.js';
 import type { AtlasDerivado } from './derivar.js';
 
 const RAIZ = resolve(import.meta.dirname, '../..');
@@ -331,25 +333,15 @@ requestAnimationFrame(dibujar);
 `;
 }
 
-/** Los nombres de los ejércitos, en el orden de la página. */
-const NOMBRES_DE_EJERCITO: Readonly<Record<string, string>> = {
-  templarios: 'Templarios',
-  'no-muertos': 'No muertos',
-  imperio: 'Imperio',
-  elfos: 'Elfos',
-  orkos: 'Orkos',
-};
-
 /**
  * La página de todos los ejércitos (`ejercitos.html`), con las unidades del
  * taller que ya tienen atlas. Las que no lo tienen todavía no salen.
  */
 export async function vistaEjercitos(): Promise<string> {
   const { HEROES, UNIDADES } = await import('./unidades.js');
-  const conAtlas = (id: string): boolean =>
-    existsSync(join(RAIZ, 'assets/unidades', id, 'atlas.json'));
+  const conAtlas = (id: string): boolean => tieneAtlas(RAIZ, id);
   const ejercitos: Ejercito[] = [];
-  for (const [id, nombre] of Object.entries(NOMBRES_DE_EJERCITO)) {
+  for (const [id, nombre] of Object.entries(NOMBRE_DE_FACCION_DE_ARENA)) {
     const tropas = await Promise.all(
       UNIDADES.filter((u) => u.faccion === id && conAtlas(u.id)).map((u) => cargar(u.id)),
     );
@@ -492,7 +484,7 @@ export async function vistaEdificios(): Promise<string> {
   const { EDIFICIOS } = await import('./edificios.js');
   const { UNIDADES } = await import('./unidades.js');
   const R = '../../../assets';
-  const secciones = Object.entries(NOMBRES_DE_EJERCITO)
+  const secciones = Object.entries(NOMBRE_DE_FACCION_DE_ARENA)
     .map(([fac, nombre]) => {
       const lista = EDIFICIOS.filter(
         (e) => e.faccion === fac && existsSync(join(RAIZ, `assets/edificios/${fac}/${e.id}.webp`)),

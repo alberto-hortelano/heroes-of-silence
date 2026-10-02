@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Heroes of Silence — arena</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="../style.css" />
+    <link rel="stylesheet" href="./arena.css" />
+  </head>
+  <body>
+    <div id="app" data-escena="montaje">
+      <header id="topbar">
+        <span class="marca">ARENA</span>
+        <span id="day">Montaje</span>
+        <span id="turn"></span>
+        <span id="seed"></span>
+        <span id="acciones-arena">
+          <button data-arena="luchar" class="primary">Luchar</button>
+          <button data-arena="guardar">Guardar</button>
+        </span>
+      </header>
+
+      <main id="montaje">
+        <section id="catalogo"></section>
+        <section id="bando-izquierda"></section>
+        <section id="ficha"></section>
+        <section id="bando-derecha"></section>
+      </main>
+
+      <main id="stage">
+        <div id="lienzo" class="map-wrap"><canvas id="canvas" tabindex="0"></canvas></div>
+        <aside id="lateral"><div id="side"></div></aside>
+      </main>
+
+      <footer id="statusbar">
+        <span id="status">Cargando las hojas…</span>
+      </footer>
+    </div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

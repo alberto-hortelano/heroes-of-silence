@@ -13,6 +13,7 @@ import { pintar } from './html.js';
 import { cargarArte } from './render/assets.js';
 import { hayFigurasAnimadas } from './render/figura.js';
 import { ajustarLienzo } from './render/lienzo.js';
+import { semillaSorteada } from './semilla.js';
 import { Session } from './session.js';
 import { renderActions, renderSide, renderTopbar } from './views/panels.js';
 
@@ -37,11 +38,6 @@ const haciaEnemigo = document.getElementById('hacia-enemigo') as HTMLElement;
  */
 function semillaDeLaUrl(): number | null {
   return parseSeed(new URLSearchParams(location.search).get('seed'));
-}
-
-/** Una partida que nadie ha pedido: la de hoy a esta hora. */
-function semillaSorteada(): number {
-  return Date.now() % 100000;
 }
 
 /**

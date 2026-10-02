@@ -615,28 +615,14 @@ function renderBattlePanel(session: Session): Html {
         ${isShooter(s.unit) ? html`<div class="row"><span class="label">Munición</span><span>${s.shotsLeft}</span></div>` : NADA}`;
 
   const suTurno = s !== null && s.side === mio;
-  // Qué botones valen lo dice la lista legal, no una regla copiada aquí: tras
-  // moverse ya no se defiende ni se espera (decisión del usuario).
-  const legales = suTurno ? session.battleLegalActions() : [];
-  const puede = (tipo: BattleAction['type']): boolean => legales.some((a) => a.type === tipo);
-  const pasos = session.battleStepsLeft();
-  const quedan = pasos === null ? null : quedanCasillas(pasos);
   const acciones = suTurno
-    ? html`<h3>Acciones</h3>
-       ${quedan === null ? NADA : html`<div class="row"><span class="label">Le ${quedan[0]}</span><span>${quedan[1]}</span></div>`}
-       <div class="stack-list">
-         <button data-action="battle-end-turn">Terminar turno</button>
-         <button data-action="battle-defend" ${puede('defend') ? NADA : DESHABILITADO}>Defender</button>
-         <button data-action="battle-wait" ${puede('wait') ? NADA : DESHABILITADO}>Esperar</button>
-         ${renderRendicion(session)}
-       </div>
-       ${renderSpells(session)}
-       <p class="cost" style="margin-top:.5rem">
-         Haz clic en un hexágono verde para moverte —puedes moverte en varios tramos—,
-         o pasa el ratón por un enemigo y elige desde qué casilla golpearlo.
-         ${ayudaDeCarga(s)}
-         Espacio termina el turno de la unidad.
-       </p>`
+    ? accionesDeLaUnidad({
+        activa: s,
+        legales: session.battleLegalActions(),
+        pasos: session.battleStepsLeft(),
+        rendicion: renderRendicion(session),
+        hechizos: renderSpells(session),
+      })
     : html`<p>Turno del enemigo…</p>`;
 
   // El maná del héroe, junto a la ficha de la unidad activa: es un recurso de la
@@ -647,17 +633,11 @@ function renderBattlePanel(session: Session): Html {
       ? NADA
       : html`<div class="row"><span class="label">Maná</span><span>${heroe.mana} / ${maxMana(heroe)}</span></div>`;
 
-  const orden = unir(
-    battle.stacks
-      .filter((x) => x.count > 0)
-      .map(
-        (x) =>
-          html`<div class="stack${x.id === battle.turno?.stack ? '' : ' empty'}">
-          <span>${x.side === mio ? '▶' : '◀'} ${marcaDeComandante(x)}${x.unit.name}${marcaDeVeterano(x)}</span>
-          <span class="count">${x.count}</span>
-        </div>`,
-      ),
-  );
+  const orden = listaDelCampo(battle, (x) => ({
+    flecha: x.side === mio ? '▶' : '◀',
+    nombre: `${marcaDeComandante(x)}${x.unit.name}${marcaDeVeterano(x)}`,
+    cuenta: x.count,
+  }));
 
   return html`${activo}
     <div class="row"><span class="label">Ronda</span><span>${battle.round}</span></div>
@@ -665,6 +645,69 @@ function renderBattlePanel(session: Session): Html {
     ${acciones}
     <h3>En el campo</h3><div class="stack-list">${orden}</div>
     <h3>Parte de guerra</h3>${renderBattleLog(battle, mio)}`;
+}
+
+/**
+ * Lo que puede hacer la unidad activa de la persona: las casillas que le quedan,
+ * los tres botones —valen o no según la lista legal, no una regla copiada aquí:
+ * tras moverse ya no se defiende ni se espera (decisión del usuario)— y la
+ * ayuda, con la de la carga si la unidad carga. Lo comparten la partida y la
+ * arena; la partida añade la rendición y el libro, que la arena no tiene.
+ *
+ * Las líneas de la plantilla conservan su sangría de cuando vivían dentro de
+ * `renderBattlePanel`: es marcado que el ancla de `test/fixtures/paneles.txt`
+ * compara byte a byte.
+ */
+export function accionesDeLaUnidad(o: {
+  readonly activa: BattleStack;
+  readonly legales: readonly BattleAction[];
+  readonly pasos: number | null;
+  readonly rendicion: Html;
+  readonly hechizos: Html;
+}): Html {
+  const puede = (tipo: BattleAction['type']): boolean => o.legales.some((a) => a.type === tipo);
+  const quedan = o.pasos === null ? null : quedanCasillas(o.pasos);
+  return html`<h3>Acciones</h3>
+       ${quedan === null ? NADA : html`<div class="row"><span class="label">Le ${quedan[0]}</span><span>${quedan[1]}</span></div>`}
+       <div class="stack-list">
+         <button data-action="battle-end-turn">Terminar turno</button>
+         <button data-action="battle-defend" ${puede('defend') ? NADA : DESHABILITADO}>Defender</button>
+         <button data-action="battle-wait" ${puede('wait') ? NADA : DESHABILITADO}>Esperar</button>
+         ${o.rendicion}
+       </div>
+       ${o.hechizos}
+       <p class="cost" style="margin-top:.5rem">
+         Haz clic en un hexágono verde para moverte —puedes moverte en varios tramos—,
+         o pasa el ratón por un enemigo y elige desde qué casilla golpearlo.
+         ${ayudaDeCarga(o.activa)}
+         Espacio termina el turno de la unidad.
+       </p>`;
+}
+
+/**
+ * «En el campo»: una fila por unidad en pie, la activa resaltada. Qué dice cada
+ * fila lo pone quien llama —la partida, «Tú/Enemigo» y efectivos; la arena, los
+ * PV y quién la mueve—; la forma es una.
+ */
+export function listaDelCampo(
+  battle: BattleState,
+  fila: (x: BattleStack) => {
+    readonly flecha: string;
+    readonly nombre: string;
+    readonly cuenta: string | number;
+  },
+): Html {
+  return unir(
+    battle.stacks
+      .filter((x) => x.count > 0)
+      .map((x) => {
+        const f = fila(x);
+        return html`<div class="stack${x.id === battle.turno?.stack ? '' : ' empty'}">
+          <span>${f.flecha} ${f.nombre}</span>
+          <span class="count">${f.cuenta}</span>
+        </div>`;
+      }),
+  );
 }
 
 /**

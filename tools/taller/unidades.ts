@@ -14,12 +14,14 @@
  *     ese estilo (decisión del usuario, 01-10-2026); el atlas de Liora ya no es
  *     referencia de nada.
  */
+import type { FaccionDeArena } from '../../src/core/arena.js';
 import type { Perfil } from '../art/poses.js';
 import type { Encargo } from './encargo.js';
 
 export interface Unidad {
   readonly id: string;
-  readonly faccion: 'templarios' | 'no-muertos' | 'imperio' | 'elfos' | 'orkos';
+  /** Las cinco facciones se declaran en `src/core/arena.ts`, que es quien las valida al guardar. */
+  readonly faccion: FaccionDeArena;
   /** El nombre en `NuevaJugabilidad.md`. */
   readonly nombre: string;
   /**

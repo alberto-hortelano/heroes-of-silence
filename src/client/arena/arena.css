@@ -1,0 +1,100 @@
+/*
+ * La arena (`/arena/`): el montaje de los dos bandos y, al luchar, el mismo
+ * tablero que el juego. Sobre `style.css`, que da la rejilla de tres franjas.
+ */
+#app[data-escena='montaje'] #stage { display: none; }
+#app[data-escena='battle'] #montaje { display: none; }
+#app[data-escena='battle'] #acciones-arena { display: none; }
+#acciones-arena { display: flex; gap: 0.4rem; }
+
+/* Cuatro columnas que se desplazan cada una por su cuenta: la lista de hojas es
+   larga y no debe empujar fuera de la vista a los bandos ni a la ficha. */
+#montaje {
+  display: grid;
+  grid-template-columns: 16rem minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 14px;
+  padding: 12px 14px;
+  min-height: 0;
+  font-size: 0.86rem;
+}
+#montaje > section { min-height: 0; overflow-y: auto; padding-right: 4px; }
+#catalogo { grid-column: 1; grid-row: 1; }
+#montaje h3 {
+  margin: 0 0 0.4rem;
+  font: 10px system-ui, sans-serif;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--gold);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.3rem;
+}
+.ficha h3 { margin-top: 0.8rem !important; }
+
+.filtros { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-bottom: 0.5rem; }
+.catalogo { display: grid; gap: 0.3rem; }
+.hoja {
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  gap: 0.1rem 0.4rem;
+  padding: 0.25rem;
+  background: var(--panel-alt);
+  border: 1px solid #6e71413d;
+}
+.hoja img { grid-row: span 3; width: 48px; height: 48px; object-fit: contain; background: #0b0f0b; }
+.hoja .nombre { line-height: 1.15; }
+.hoja .botones, .puesto .botones, .retrato .botones { display: flex; flex-wrap: wrap; gap: 0.2rem; }
+.hoja button, .puesto .botones button, .retrato button { min-height: 26px; padding: 0.1rem 0.4rem; font-size: 0.75rem; }
+
+.puesto {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 0.4rem;
+  padding: 0.3rem;
+  background: var(--panel-alt);
+  border: 1px solid #6e71413d;
+}
+.puesto.elegida { border-color: #e0c589; }
+.puesto .datos { display: grid; gap: 0.2rem; align-content: start; }
+.puesto button.nombre {
+  background: none;
+  border: 0;
+  padding: 0;
+  min-height: 0;
+  text-align: left;
+  color: #f2deac;
+  font: 1rem Georgia, serif;
+  text-decoration: underline dotted;
+  /* Los nombres del taller son largos («Hermano de carga (montado; antes…)»):
+     en la tarjeta se recortan, y entero se lee en la ficha (M8 de QA). */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.puesto .datos { min-width: 0; }
+canvas.figura { background: #0b0f0b; border: 1px solid #6e71413d; }
+canvas.figura.grande { width: 200px; height: 230px; }
+
+.ficha { display: grid; grid-template-columns: 1fr 1fr; gap: 0.25rem 0.8rem; }
+.ficha .retrato, .ficha h3, .ficha p, .ficha .rasgos, .ficha .etiquetas { grid-column: 1 / -1; }
+.ficha .retrato { display: flex; gap: 0.6rem; align-items: flex-end; }
+.campo { display: grid; gap: 0.1rem; }
+.campo .label { color: var(--ink-dim); font-size: 0.75rem; }
+.campo input, .campo select {
+  font: 13px system-ui, sans-serif;
+  background: #16201a;
+  color: var(--ink);
+  border: 1px solid #8f784955;
+  padding: 0.25rem 0.35rem;
+}
+.rasgos { display: grid; grid-template-columns: 1fr 1fr; gap: 0.15rem 0.6rem; }
+.rasgo { font-size: 0.8rem; }
+.etiquetas { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.etiqueta { background: #33302a; border: 1px dashed #a68b4d88; padding: 0.1rem 0.3rem; font-size: 0.8rem; }
+.etiqueta button { min-height: 0; padding: 0 0.3rem; background: none; border: 0; }
+
+@media (max-width: 760px) {
+  #montaje { display: block; overflow-y: auto; }
+  #montaje > section { margin-bottom: 14px; overflow: visible; }
+  #acciones-arena { width: 100%; }
+}

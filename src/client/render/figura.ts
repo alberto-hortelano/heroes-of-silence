@@ -8,7 +8,7 @@
  */
 import { asset } from './assets.js';
 import { type CharacterClip, drawCharacter, sampleCharacter } from './character.js';
-import { arteDe, HOJAS_DE_FIGURA, hojaPara } from './personajes.js';
+import { arteDe, hojaPara, hojasDeFigura } from './personajes.js';
 
 /**
  * El maniquí teñido, uno por color. Teñir en cada fotograma serían 54
@@ -62,7 +62,7 @@ export function animarHasta(hasta: number): void {
  */
 export function hayFigurasAnimadas(): boolean {
   if (performance.now() < enMarchaHasta) return true;
-  return HOJAS_DE_FIGURA.some((h) => asset('rpg', h) !== null);
+  return hojasDeFigura().some((h) => asset('rpg', h) !== null);
 }
 
 interface Figura {

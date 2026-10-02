@@ -89,6 +89,31 @@ export const ARTE_RPG = {
 
 export type NombreDeArte = keyof typeof ARTE_RPG;
 
+/**
+ * Una hoja de `assets/unidades/<id>/`: se pide como `asset('rpg', 'unidad/<id>')`
+ * igual que el resto de figuras, pero no se precarga —son medio centenar y la
+ * partida no pinta ninguna—: la carga quien la vaya a pintar
+ * (`cargarHojaDeUnidad`).
+ */
+export type HojaDeUnidad = `unidad/${string}`;
+
+/** El nombre de la hoja de una unidad. Lanza si el id no es de una carpeta del taller. */
+export function hojaDeUnidad(id: string): HojaDeUnidad {
+  if (!/^[a-z0-9-]+$/.test(id)) {
+    throw new Error(`"${id}" no es el id de una hoja de assets/unidades/: minúsculas y guiones`);
+  }
+  return `unidad/${id}`;
+}
+
+/**
+ * Carga la hoja de una unidad y avisa al llegar. Nunca lanza por la red: sin la
+ * imagen se pinta su marcador, como cualquier figura sin arte.
+ */
+export async function cargarHojaDeUnidad(id: string): Promise<void> {
+  await cargarImagen(`rpg/${hojaDeUnidad(id)}`, `/unidades/${id}/atlas.webp`);
+  avisar();
+}
+
 /** Carga la tabla de arriba. Nunca lanza: lo que no llegue se queda en su marcador. */
 async function loadRpgArt(): Promise<void> {
   await Promise.all(
@@ -135,15 +160,20 @@ async function loadAssets(): Promise<boolean> {
 
 /**
  * Pone a cargar todo el arte y avisa con `onCambio` cada vez que entra algo. Es
- * lo único que llaman los dos `main`, el que juega y el espectador: el juego ya
+ * lo único que llaman los `main` —el que juega, el espectador y la arena, que
+ * pasa `manifiesto: false`—: el juego ya
  * es jugable con los marcadores, y el arte entra cuando entra.
  */
-export function cargarArte(onCambio: () => void): void {
+export function cargarArte(onCambio: () => void, { manifiesto = true } = {}): void {
   oyentes.add(onCambio);
-  void loadAssets().then((hay) => {
-    if (hay) console.log(`[assets] ${imagenes.size} imágenes generadas cargadas`);
-    else console.log('[assets] sin arte generado todavía; se pinta con marcadores');
-  });
+  // La arena no pinta ni recursos ni edificios ni castillo: sin el manifiesto se
+  // ahorra sus decenas de peticiones y se queda con las figuras y el tablero.
+  if (manifiesto) {
+    void loadAssets().then((hay) => {
+      if (hay) console.log(`[assets] ${imagenes.size} imágenes generadas cargadas`);
+      else console.log('[assets] sin arte generado todavía; se pinta con marcadores');
+    });
+  }
   void loadRpgArt();
 }
 

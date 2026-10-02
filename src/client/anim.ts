@@ -41,7 +41,14 @@ function trasImpacto(t: number): number {
 }
 
 type Paso =
-  | { readonly tipo: 'move'; readonly stack: string; readonly desde: Plano; readonly hasta: Plano }
+  | {
+      readonly tipo: 'move';
+      readonly stack: string;
+      readonly desde: Plano;
+      readonly hasta: Plano;
+      /** El tramo con el que se carga: el jinete lo anda con la lanza bajada. */
+      readonly carga?: true;
+    }
   | {
       readonly tipo: 'attack' | 'shoot';
       readonly stack: string;
@@ -140,8 +147,18 @@ export class BattleAnimator {
       return;
     }
     for (let i = this.leidos; i < battle.log.length; i++) {
-      const paso = this.traducir(battle.log[i] as BattleEvent);
+      const e = battle.log[i] as BattleEvent;
+      const paso = this.traducir(e);
       if (paso !== null) this.cola.push(paso);
+      // El registro dice que hubo carga en el golpe, no en el paso que lo
+      // precede: se le marca al paso, que sigue en la cola porque la acción
+      // entera —andar y golpear— se lee de una vez.
+      if (e.kind === 'attack' && e.charge !== undefined && !e.retaliation) {
+        const previo = this.cola.at(-2);
+        if (previo?.tipo === 'move' && previo.stack === e.stack) {
+          this.cola[this.cola.length - 2] = { ...previo, carga: true };
+        }
+      }
     }
     this.leidos = battle.log.length;
   }
@@ -242,7 +259,7 @@ export class BattleAnimator {
           x: paso.desde.x + (paso.hasta.x - paso.desde.x) * t,
           y: paso.desde.y + (paso.hasta.y - paso.desde.y) * t,
         };
-        clip = 'walk';
+        clip = paso.carga === true ? 'charge' : 'walk';
         tiempo = desdeInicio;
       } else if ((paso.tipo === 'attack' || paso.tipo === 'shoot') && paso.stack === s.id) {
         clip = 'attack';

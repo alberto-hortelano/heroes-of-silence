@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "vite",
     "mirar": "vite --open /espectador/",
+    "arena": "vite --open /arena/",
     "build": "tsc -b --noEmit && vite build",
     "test": "vitest run",
     "test:watch": "vitest",

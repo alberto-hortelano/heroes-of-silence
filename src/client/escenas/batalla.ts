@@ -17,7 +17,7 @@ import type { Hex } from '@core/types.js';
 import { BattleAnimator } from '../anim.js';
 import { type Angulo, cajaDeFigura, drawBatalla } from '../render/batalla.js';
 import { cercaDelCentro, hexEnPixel, type Tablero, tableroPara } from '../render/proyeccion.js';
-import type { Session } from '../session.js';
+import type { ControlDeBatalla } from '../session.js';
 import { accionContra, golpeEnPixel } from './angulo.js';
 
 const SIN_NADA: ReadonlySet<string> = new Set();
@@ -54,6 +54,11 @@ export function cargaContra(
   return cargas.find((c) => c.target === angulo.objetivo && hexEquals(c.at, angulo.elegida));
 }
 
+/** El hechizo elegido, o `null` también donde no hay magia (la arena). */
+function hechizoElegido(s: ControlDeBatalla): string | null {
+  return s.hechizos?.selectedSpell ?? null;
+}
+
 /** Lo que dice la barra a quien pulsa mientras la jugada se cuenta. */
 export const AVISO_DE_ESPERA = 'Espera a que termine la jugada.';
 
@@ -87,7 +92,7 @@ export class EscenaBatalla {
    */
   private antesDelAviso: string | null = null;
 
-  constructor(private readonly sesion: () => Session) {}
+  constructor(private readonly sesion: () => ControlDeBatalla) {}
 
   /**
    * Pone al animador en hora: lee lo nuevo del registro y avanza la cola hasta
@@ -134,7 +139,7 @@ export class EscenaBatalla {
     const quieta = this.animador.busy;
     const turno = quieta ? null : s.turnoPropio;
     const atacables = new Set<string>();
-    if (turno !== null && s.selectedSpell === null) {
+    if (turno !== null && hechizoElegido(s) === null) {
       for (const a of s.battleLegalActions()) {
         if (a.type === 'attack' || a.type === 'shoot') atacables.add(a.target);
       }
@@ -144,11 +149,12 @@ export class EscenaBatalla {
       tablero: this.tablero,
       ancho,
       alto,
-      movibles: quieta || s.selectedSpell !== null ? [] : s.battleMovable(),
-      cargas: quieta || s.selectedSpell !== null ? SIN_CARGAS : s.battleCharges(),
+      movibles: quieta || hechizoElegido(s) !== null ? [] : s.battleMovable(),
+      cargas: quieta || hechizoElegido(s) !== null ? SIN_CARGAS : s.battleCharges(),
       angulo: quieta ? null : this.anguloActual(),
       atacables,
-      objetivosHechizo: s.selectedSpell === null ? SIN_NADA : new Set(s.castTargets()),
+      objetivosHechizo:
+        hechizoElegido(s) === null ? SIN_NADA : new Set(s.hechizos?.castTargets() ?? []),
       hoverHex: this.hoverHex,
       hoverStack: this.hoverStack,
       figura: (st) => this.animador.figura(st),
@@ -255,7 +261,7 @@ export class EscenaBatalla {
   ): { acciones: readonly BattleAction[]; objetivo: string; hexActual: Hex } | undefined {
     const s = this.sesion();
     const turno = s.turnoPropio;
-    if (turno === null || s.selectedSpell !== null) return undefined;
+    if (turno === null || hechizoElegido(s) !== null) return undefined;
     if (this.movimientoEn(px, py) !== undefined) return undefined;
     const objetivo = this.unidadEn(px, py);
     if (objetivo === undefined || objetivo.side === s.miBando) return undefined;
@@ -313,7 +319,7 @@ export class EscenaBatalla {
    */
   private movimientoEn(px: number, py: number): BattleAction | undefined {
     const s = this.sesion();
-    if (s.selectedSpell !== null) return undefined;
+    if (hechizoElegido(s) !== null) return undefined;
     const hex = hexEnPixel(this.tablero, px, py);
     if (hex === null || !cercaDelCentro(this.tablero, hex, px, py)) return undefined;
     return s.battleLegalActions().find((a) => a.type === 'move' && hexEquals(a.to, hex));
@@ -379,8 +385,9 @@ export class EscenaBatalla {
     const acciones = session.battleLegalActions();
 
     // Con un hechizo elegido, el clic apunta: va ANTES que atacar y moverse.
-    const hechizo = session.selectedSpell;
-    if (hechizo !== null) {
+    const hechizos = session.hechizos;
+    const hechizo = hechizos?.selectedSpell ?? null;
+    if (hechizos !== null && hechizo !== null) {
       if (objetivo === undefined) {
         session.status = 'Elige una unidad sobre la que lanzarlo, o pulsa Escape para cancelar.';
         return;
@@ -393,7 +400,7 @@ export class EscenaBatalla {
         return;
       }
       // La selección se mantiene: quien apuntó mal vuelve a apuntar.
-      session.status = session.castRejection(objetivo.id);
+      session.status = hechizos.castRejection(objetivo.id);
       return;
     }
 

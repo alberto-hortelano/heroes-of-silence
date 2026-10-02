@@ -10,8 +10,8 @@ import {
   ARTE_POR_CUERPO,
   arteDe,
   comoAtlas,
-  HOJAS_DE_FIGURA,
   hojaPara,
+  hojasDeFigura,
   MANIQUI,
 } from '../src/client/render/personajes.js';
 import { allCreatures } from '../src/core/data.js';
@@ -33,7 +33,7 @@ describe('las figuras a 25°', () => {
       for (const clip of ['idle', 'walk', 'attack'] as const) {
         const hoja = hojaPara(arte, clip);
         expect(hoja.atlas.clips[clip].frames).toBeGreaterThan(0);
-        expect(HOJAS_DE_FIGURA).toContain(hoja.imagen);
+        expect(hojasDeFigura()).toContain(hoja.imagen);
       }
     }
   });

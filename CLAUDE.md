@@ -12,15 +12,16 @@ El juego es el andamio; lo interesante es lo que se puede enchufar dentro.
 pnpm install
 pnpm dev        # cliente en http://localhost:3100 (juego local contra la IA de reglas)
 pnpm mirar      # MIRAR la partida del agente: /espectador/ contra el servidor
-pnpm verify     # typecheck + lint + 1042 tests, 12,6 s: el bucle rápido
-pnpm test       # 1042 tests: reglas, batalla, partida completa y contrato del agente
+pnpm arena      # la ARENA: /arena/, montar unidades de las cinco facciones y hacerlas luchar
+pnpm verify     # typecheck + lint + 1133 tests, 13,0 s: el bucle rápido
+pnpm test       # 1133 tests: reglas, batalla, partida completa y contrato del agente
 pnpm typecheck
 pnpm lint       # Biome: formato y lint en una sola pasada, 40 ms
 pnpm format     # lo mismo, arreglando lo que sepa arreglar
 pnpm banco      # 200 partidas: tiempo y sha256 del volcado, 4,1 s
 
 npx tsx tools/qa/enfrentamiento.ts   # la IA de hoy contra ella sin su última regla, 2000 batallas, 1,9 s
-pnpm capturas   # juega el cliente en Chromium (Playwright) con clics reales y saca capturas, ~97 s
+pnpm capturas   # juega el cliente, el espectador y la arena en Chromium (Playwright) con clics reales, ~117 s
 ```
 
 La partida se abre con una semilla al azar; **`?seed=N` en la URL fija la
@@ -109,6 +110,7 @@ arnés daría verde sin haber ejercitado nada de lo que #27 añadió.
 
 ```
 src/core/          TypeScript puro: las reglas. Sin DOM y sin node:*
+  arena.ts         las unidades de la arena: su formato, su validación y su batalla
   battle/          rejilla 11×9, iniciativa, daño, hechizos
   map/             mapa de aventura, pathfinding, niebla, generación y la red de
                    nodos (`regiones.ts`: regiones, dueños y conexión con la base)
@@ -125,9 +127,12 @@ src/client/        Vite + Canvas 2D. Solo pinta y manda intents
 src/shared/        el contrato visual (cámara a 25°, luz) que comparten cliente y taller
   views/           los paneles de HTML del lateral
   espectador/      la otra página: mira la partida del servidor, no juega
+  arena/           la tercera: monta unidades con cifras inventadas y las hace luchar
 tools/gen/         generación de assets con fal.ai
 tools/qa/          verificación de extremo a extremo
+tools/arena/       el disco de la arena: la lista de hojas y el borrador de cifras
 data/              criaturas, edificios y hechizos en JSON editable
+  borradores/      lo que guarda la arena (`unidades.json`); el juego no lo lee
 assets/generated/  arte generado (lo sirve Vite como estático)
 ```
 
@@ -1785,12 +1790,12 @@ aportan en un prototipo. Lo que hay:
 
 | Comprobación | Cuánto tarda | Cuándo |
 |---|---|---|
-| `pnpm verify` | 12,6 s | siempre |
+| `pnpm verify` | 13,0 s | siempre |
 | `test/invariantes.test.ts` | 505 ms | va dentro de `pnpm test` |
 | El navegador | minutos | si el cambio se ve |
 | El espectador en el navegador | minutos | si tocas `html.ts`, `espectador/` o el canal |
 | `pnpm qa` | 3,0 s | si tocas `src/server/` o el contrato |
-| `pnpm capturas` | ~97 s | si el cambio se ve: juega el cliente y el espectador en Chromium y sale 1 con un error en consola |
+| `pnpm capturas` | ~117 s | si el cambio se ve: juega el cliente, el espectador y la arena en Chromium y sale 1 con un error en consola |
 | `npx tsx tools/qa/barrido-semillas.ts` | 1,1 s | si tocas la IA o la economía |
 | `pnpm banco` | 4,1 s | si tocas el núcleo sin querer cambiar el juego |
 | `tools/qa/enfrentamiento.ts` | 1,9 s | si cambias **cómo decide** la IA de batalla |
@@ -1973,6 +1978,76 @@ ahí, así que un `.json` bajo `docs/` ponía la verificación en rojo con el ho
 dormido—, y cuesta 17 ms recorrerlo entero. Con `-z` y `xargs -0`, porque un
 nombre con un espacio se partía en dos y su contenido dejaba de contar **en
 silencio**.
+
+## La arena: unidades con cifras inventadas, a pelear
+
+`pnpm arena` abre `/arena/` (petición del usuario, 02-10-2026): se montan dos bandos
+con las hojas de `assets/unidades/` —la tropa y los héroes de las cinco
+facciones, las que ya tienen `atlas.json`—, se cambian sus cifras en la ficha,
+se elige **Yo o IA por unidad** y se pelea con el tablero y los controles de la
+partida. «Guardar» escribe `data/borradores/unidades.json`. **El juego no cambia
+y no lee ese archivo**: `pnpm banco` sale con el ancla igual.
+
+- **Las cifras no pasan por el catálogo.** Las hojas no tienen fila en
+  `data/creatures.json` —el catálogo solo sabe de caballeros y nigromantes—, así
+  que una unidad de arena entra en `createBattle` por la vía de los personajes
+  (`members`): el motor toma `profile.unit` y no vuelve a llamar a `creature()`.
+  El formato (`UnidadDeArena`, en `src/core/arena.ts`) toma las cifras de
+  `Creature` por `Pick`, así que se llaman igual que en el catálogo —y un cambio
+  de forma allí no compila aquí—, pero **pasar una unidad al juego no es
+  copiarla**: faltan la `faction` del juego (y, si es nueva, su guarnición
+  neutral), `growth`, `upgradesTo` y su fila en `data/experiencia.json`. El
+  `_comment` del archivo lo dice así; decía «copiándola» y QA lo desmintió en una
+  copia del repo.
+- **Una regla de validación**, `validarUnidadDeArena`: la usan el servidor de
+  desarrollo antes de escribir (400 con la frase si no cuadra; un campo que no es
+  de la arena también se rechaza, no se tira), la página al cargar y al editar
+  cada campo, y la batalla. La escritura es atómica (temporal + `rename`). Las
+  cifras por defecto, por perfil de pose, son **inventadas** y lo dicen; los no
+  muertos salen con `undead`.
+- **«Guardar» no pierde nada que no se haya tocado.** El archivo se lee unidad a
+  unidad (`revisarBorradorDeArena`): las que no validan se dicen con su motivo y
+  el servidor las vuelve a escribir tal cual; las válidas sin hoja se cargan y se
+  guardan aunque no se puedan montar; y un archivo que no es JSON no se pisa, se
+  rechaza. Antes una sola unidad editada a mano dejaba la página vacía y el
+  siguiente «Guardar» borraba el resto.
+- **Las habilidades se asignan y no hacen nada**: nombres de
+  `data/habilidades.json`, guardados y marcados «sin efecto todavía». En la pelea
+  solo cuentan los rasgos del motor.
+- **`session.ts` sigue siendo la única puerta**: `SesionDeArena` vive ahí, y
+  `EscenaBatalla` ya no pide una `Session` sino un `ControlDeBatalla`, que
+  implementan las dos; la magia es una parte opcional (`hechizos`), que la arena
+  deja en `null` en vez de fingirla. Las dos sesiones comparten la caché de lo
+  legal, el motivo de un ataque imposible y **un solo bucle de la IA**
+  (`jugarIAMientras`), que lanza al tope de jugadas en las dos. El panel de la
+  arena usa las piezas del de la partida (`accionesDeLaUnidad`, `listaDelCampo`).
+  Qué unidades mueve la IA se fija al montar; el «bando de la persona» se deriva
+  de la unidad activa, porque la persona puede llevar unidades de los dos lados.
+- **Montar no es empezar** (`SesionDeArena.empezar`): la página deja que el
+  animador mire el tablero de salida y solo entonces juega la IA. Cuando la IA
+  jugaba ya en el constructor, el animador daba todo por contado y con todas las
+  unidades en IA solo se veía el final. Mientras el tablero cuenta, el panel y la
+  barra no adelantan ni vidas, ni parte, ni resultado; y un final por tope de
+  rondas se dice «por tiempo», con la regla del motor.
+- **El arte nuevo en el tablero**: `render/personajes.ts` registra a demanda la
+  hoja de `assets/unidades/<id>/` (`registrarHojaDeUnidad`, por `comoAtlas`) en
+  la misma tabla de cuerpos del juego —registrar un cuerpo del juego lanza—, con
+  celda de 384 para el jinete, y `CharacterClip` aprende `charge`, opcional
+  —quien no lo trae pinta la marcha—: el animador lo pone en el tramo que acaba
+  en un golpe con carga. **Se escala con la altura de un adulto (160) y no con la
+  de cada hoja**, como hace el taller: escalar por la de cada hoja igualaría al
+  goblin con el ent y al jinete con un soldado a pie.
+- **Sin `pnpm dev` no hay guardado**, y la página lo dice. `vite build` saca
+  `dist/arena/index.html`, la lista de hojas y un `__arena/unidades` con
+  `guardado: false`, así que la arena construida monta y pelea y sabe que no
+  guarda por un campo explícito. La URL lleva siempre la semilla de la pelea, y
+  cerrar con cifras sin guardar avisa.
+
+`pnpm capturas` la juega con clics de verdad —monta, cambia un ataque, mueve un
+tramo, golpea, deja acabar a la IA, guarda, reabre y comprueba que lo guardado
+se carga, y pelea con todo en IA exigiendo que la pelea **se cuente** y no salga
+el resultado de golpe— contra un espejo `SesionDeArena`, y **deja el borrador
+como estaba**: lo aparta antes y lo devuelve al salir, falle lo que falle.
 
 ## Decisiones tomadas
 

@@ -23,13 +23,17 @@ import ybot from '../../../assets/characters/y-bot-reference/liora-poses-v3.json
 import combate from '../../../assets/rpg/scenes/combat-actions-v1.json';
 import companeros from '../../../assets/rpg/scenes/companions-v3.json';
 import guardia from '../../../assets/rpg/scenes/guards-v3.json';
-import type { NombreDeArte } from './assets.js';
-import type { CharacterAtlas, CharacterClip } from './character.js';
+import { FIGURA } from '../../shared/arte.js';
+import { type HojaDeUnidad, hojaDeUnidad, type NombreDeArte } from './assets.js';
+import type { CharacterAtlas, CharacterClip, ClipObligatorio } from './character.js';
 
 /** Una hoja: la imagen que hay que pedirle a `assets.ts` y cómo se corta. */
 interface Hoja {
-  /** El nombre con el que se carga, en la tabla `ARTE_RPG` de `assets.ts`. */
-  readonly imagen: NombreDeArte;
+  /**
+   * El nombre con el que se carga: uno de la tabla `ARTE_RPG` de `assets.ts`, o
+   * una hoja de `assets/unidades/` (`unidad/<id>`), que se carga a demanda.
+   */
+  readonly imagen: NombreDeArte | HojaDeUnidad;
   readonly atlas: CharacterAtlas;
   /**
    * Cuánto mide la figura dentro de su celda, en píxeles de la hoja: de la
@@ -48,24 +52,33 @@ interface ArteDeCuerpo {
   readonly ataque?: Hoja;
   /** `false` para el maniquí: hay que teñirlo, porque no dice qué es. */
   readonly propio: boolean;
+  /**
+   * Lo que mide la figura en su propia hoja, si es una de `assets/unidades/`:
+   * para encajarla sola en una miniatura, donde no se compara con nadie.
+   */
+  readonly alturaPropia?: number;
 }
 
-const CLIPS: readonly CharacterClip[] = ['idle', 'walk', 'attack'];
+const CLIPS: readonly ClipObligatorio[] = ['idle', 'walk', 'attack'];
 
 /**
  * Un JSON de la rama, comprobado como atlas. Lanza diciendo qué le falta: un
  * clip sin ancla pintaría la figura en la esquina sin que nada se pusiera rojo.
  * Se comprueba al importar el módulo, así que un JSON roto rompe el arranque y
  * el test de `personajes.test.ts`, no una batalla a mitad.
+ *
+ * `charge` no es obligatorio, pero si la hoja lo trae se mira igual: un clip de
+ * carga roto se pintaría justo en la jugada que más se mira.
  */
 export function comoAtlas(valor: unknown, nombre: string): CharacterAtlas {
   const a = valor as Partial<CharacterAtlas> | undefined;
   if (a === undefined || typeof a.cell !== 'number' || typeof a.columns !== 'number') {
     throw new Error(`el atlas ${nombre} no dice el tamaño de celda ni las columnas`);
   }
-  for (const clip of CLIPS) {
+  const opcionales: readonly CharacterClip[] = a.clips?.charge === undefined ? [] : ['charge'];
+  for (const clip of [...CLIPS, ...opcionales]) {
     const c = a.clips?.[clip];
-    if (c === undefined || c.frames <= 0 || c.anchor?.length !== 2) {
+    if (c === undefined || !(c.frames > 0) || c.anchor?.length !== 2) {
       throw new Error(`el atlas ${nombre} no tiene un clip "${clip}" con fotogramas y ancla`);
     }
   }
@@ -164,24 +177,73 @@ export const ARTE_POR_CUERPO: Readonly<Record<string, ArteDeCuerpo>> = {
 
 const DEL_MANIQUI: ArteDeCuerpo = { base: MANIQUI, propio: false };
 
-/** La figura de un cuerpo: la suya si la tiene, el maniquí si no. */
+/**
+ * La tabla de cuerpos que se lee al pintar: la del juego de arriba y, encima,
+ * las hojas de `assets/unidades/` que alguien registre —hoy, la arena, que pide
+ * el `atlas.json` de cada hoja—. Una sola tabla y una sola lista de hojas
+ * derivada de ella: con dos, cada lector de figuras tenía que acordarse de las
+ * dos. El juego no registra ninguna —ninguna criatura del catálogo lleva esos
+ * ids, y registrar un cuerpo del juego lanza—, así que lo que pinta no cambia.
+ */
+const CUERPOS = new Map<string, ArteDeCuerpo>(Object.entries(ARTE_POR_CUERPO));
+
+function hojasDe(cuerpos: Iterable<ArteDeCuerpo>): readonly (NombreDeArte | HojaDeUnidad)[] {
+  return [
+    ...new Set(
+      [...cuerpos, DEL_MANIQUI].flatMap((a) =>
+        a.ataque === undefined ? [a.base.imagen] : [a.base.imagen, a.ataque.imagen],
+      ),
+    ),
+  ];
+}
+
+/**
+ * Las hojas de todas las figuras, recalculadas al registrar y no al pintar: con
+ * una sola cargada ya hay alguien que respira, y el lienzo lo pregunta en cada
+ * fotograma.
+ */
+let hojasDeFiguraActuales = hojasDe(CUERPOS.values());
+
+export function hojasDeFigura(): readonly (NombreDeArte | HojaDeUnidad)[] {
+  return hojasDeFiguraActuales;
+}
+
+/**
+ * Registra la hoja de una unidad con su `atlas.json`, comprobado por `comoAtlas`
+ * (incluida la celda de 384 y el `charge` del jinete).
+ *
+ * **En el tablero se escala con la altura de un adulto (`FIGURA.alturaAdulto`) y
+ * no con la de la hoja.** El `altura` medido de cada hoja es lo que ocupa SU
+ * figura, y escalar por él igualaría a todas: el goblin (121 px) saldría tan alto
+ * como el ent (193) y el jinete (288) como un soldado a pie. Todas las hojas del
+ * taller se dibujan a la misma escala —un adulto, 160 px de celda—, así que con
+ * esa cifra cada una conserva su tamaño, que es lo que hace el taller al
+ * enseñarlas (`tools/taller/vista.ts`). La de la hoja se guarda aparte
+ * (`alturaPropia`): es la que encaja una figura sola en su miniatura.
+ */
+export function registrarHojaDeUnidad(id: string, atlasJson: unknown): void {
+  if (ARTE_POR_CUERPO[id] !== undefined) {
+    throw new Error(`"${id}" es un cuerpo del juego: una hoja de unidad no lo sustituye`);
+  }
+  const atlas = comoAtlas(atlasJson, `unidades/${id}`);
+  const altura = (atlasJson as { altura?: unknown }).altura;
+  if (typeof altura !== 'number' || !(altura > 0)) {
+    throw new Error(`el atlas unidades/${id} no dice cuánto mide su figura (altura)`);
+  }
+  CUERPOS.set(id, {
+    base: { imagen: hojaDeUnidad(id), atlas, altura: FIGURA.alturaAdulto },
+    propio: true,
+    alturaPropia: altura,
+  });
+  hojasDeFiguraActuales = hojasDe(CUERPOS.values());
+}
+
+/** La figura de un cuerpo: la suya si la tiene, o el maniquí. */
 export function arteDe(body: string): ArteDeCuerpo {
-  return ARTE_POR_CUERPO[body] ?? DEL_MANIQUI;
+  return CUERPOS.get(body) ?? DEL_MANIQUI;
 }
 
 /** La hoja que toca para un clip: el ataque sale de su hoja si la tiene. */
 export function hojaPara(arte: ArteDeCuerpo, clip: CharacterClip): Hoja {
   return clip === 'attack' && arte.ataque !== undefined ? arte.ataque : arte.base;
 }
-
-/**
- * Las hojas de todas las figuras. Con una sola cargada ya hay alguien que
- * respira en pantalla, y entonces el lienzo tiene que seguir repintando.
- */
-export const HOJAS_DE_FIGURA: readonly NombreDeArte[] = [
-  ...new Set(
-    [...Object.values(ARTE_POR_CUERPO), DEL_MANIQUI].flatMap((a) =>
-      a.ataque === undefined ? [a.base.imagen] : [a.base.imagen, a.ataque.imagen],
-    ),
-  ),
-];
