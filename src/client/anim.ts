@@ -20,6 +20,7 @@
  */
 import { isAlive, stackHexes } from '@core/battle/battle.js';
 import type { BattleEvent, BattleStack, BattleState } from '@core/battle/types.js';
+import { type Direccion, direccionHacia, tieneLado } from './direccion.js';
 import type { CharacterClip } from './render/character.js';
 import { centroDeStack, type Plano, planoDeHex } from './render/proyeccion.js';
 
@@ -46,6 +47,12 @@ type Paso =
       readonly stack: string;
       readonly desde: Plano;
       readonly hasta: Plano;
+      /**
+       * Las casillas por las que se anda, de `desde` a `hasta` las dos
+       * incluidas: el camino del motor (`path` del hecho). Interpolar en recta
+       * de `desde` a `hasta` cruzaba por encima de unidades que el camino rodea.
+       */
+      readonly camino: readonly Plano[];
       /** El tramo con el que se carga: el jinete lo anda con la lanza bajada. */
       readonly carga?: true;
     }
@@ -70,6 +77,40 @@ export interface EstadoFigura {
   /** Se pinta aunque el estado diga que ha caído: su caída aún no se ha visto. */
   readonly visible: boolean;
   readonly alfa: number;
+  /**
+   * Hacia dónde mira, en ocho sectores (`direccion.ts`): anda mirando a la
+   * casilla siguiente, golpea mirando a su objetivo y se queda mirando a donde
+   * miró la última vez. Es estado del animador, no del núcleo.
+   */
+  readonly mira: Direccion;
+  /**
+   * La última dirección con lado (este u oeste) que tuvo: lo que necesita un
+   * arte que no tiene norte ni sur para no girarse solo al mirar en vertical.
+   */
+  readonly lado: Direccion;
+}
+
+/** Hacia dónde mira una figura y hacia qué lado miraba por última vez. */
+interface Mirada {
+  readonly mira: Direccion;
+  readonly lado: Direccion;
+}
+
+/** La mirada tras girarse hacia `d`: si `d` no tiene lado, el lado se queda. */
+function girar(antes: Mirada, d: Direccion): Mirada {
+  return { mira: d, lado: tieneLado(d) ? d : antes.lado };
+}
+
+/**
+ * La mirada al andar el tramo `i` del camino: la de cada tramo hasta ese,
+ * girándose en cada uno.
+ */
+function miradaEnElTramo(camino: readonly Plano[], i: number, antes: Mirada): Mirada {
+  let m = antes;
+  for (let k = 0; k <= i && k + 1 < camino.length; k++) {
+    m = girar(m, direccionHacia(camino[k] as Plano, camino[k + 1] as Plano, m.mira));
+  }
+  return m;
 }
 
 /** Un efecto suelto encima del tablero: un proyectil o una cifra de daño. */
@@ -77,6 +118,34 @@ export type Efecto =
   | { readonly tipo: 'proyectil'; readonly desde: Plano; readonly hasta: Plano; readonly t: number }
   | { readonly tipo: 'danio'; readonly en: Plano; readonly cifra: number; readonly t: number }
   | { readonly tipo: 'hechizo'; readonly en: Plano; readonly t: number };
+
+/**
+ * Dónde va la figura en la fracción `t` de su paso: por los tramos del camino,
+ * casilla a casilla y al mismo ritmo en todos (todas las casillas están a la
+ * misma distancia de sus vecinas).
+ */
+/** Qué tramo del camino se anda en la fracción `t`: el mismo reparto que `porElCamino`. */
+function tramoEn(camino: readonly Plano[], t: number): number {
+  const tramos = camino.length - 1;
+  return Math.max(0, Math.min(tramos - 1, Math.floor(Math.min(1, Math.max(0, t)) * tramos)));
+}
+
+export function porElCamino(camino: readonly Plano[], t: number): Plano {
+  const tramos = camino.length - 1;
+  if (tramos <= 0) return camino[0] as Plano;
+  const recorrido = Math.min(1, Math.max(0, t)) * tramos;
+  const i = tramoEn(camino, t);
+  const a = camino[i] as Plano;
+  const b = camino[i + 1] as Plano;
+  const f = recorrido - i;
+  return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
+}
+
+/** Cada bando sale mirando al otro: el atacante al este, el defensor al oeste. */
+function miradaDeSalida(s: BattleStack): Mirada {
+  const d: Direccion = s.side === 'defender' ? 'O' : 'E';
+  return { mira: d, lado: d };
+}
 
 export class BattleAnimator {
   /** Qué batalla se está contando: la da quien observa (ver `observe`). */
@@ -109,6 +178,8 @@ export class BattleAnimator {
   private readonly destino = new Map<string, Plano>();
   /** Las que ya cayeron en pantalla. */
   private readonly caidas = new Set<string>();
+  /** Hacia dónde miró cada una la última vez. */
+  private readonly mirada = new Map<string, Mirada>();
   /**
    * De la cabeza al centro de cada unidad, en el plano. En una unidad grande es
    * medio hex hacia atrás, y no cambia en toda la batalla: antes se rehacía con
@@ -137,7 +208,10 @@ export class BattleAnimator {
       this.destino.clear();
       this.caidas.clear();
       this.aCentro.clear();
+      this.mirada.clear();
       for (const s of battle.stacks) {
+        // Cada uno empieza mirando al otro lado del tablero: el defensor, al oeste.
+        this.mirada.set(s.id, miradaDeSalida(s));
         const p = planoDeHex(s.hex);
         this.vista.set(s.id, p);
         this.destino.set(s.id, p);
@@ -169,7 +243,8 @@ export class BattleAnimator {
         const hasta = planoDeHex(e.to);
         const desde = this.destino.get(e.stack) ?? hasta;
         this.destino.set(e.stack, hasta);
-        return { tipo: 'move', stack: e.stack, desde, hasta };
+        const camino = [desde, ...e.path.map(planoDeHex)];
+        return { tipo: 'move', stack: e.stack, desde, hasta, camino };
       }
       case 'attack':
       case 'shoot':
@@ -216,6 +291,17 @@ export class BattleAnimator {
   }
 
   private terminar(p: Paso): void {
+    // La mirada con la que acaba el paso se queda: después de andar o de golpear
+    // no se vuelve a su lado por defecto.
+    if (p.tipo === 'move') {
+      this.mirada.set(
+        p.stack,
+        miradaEnElTramo(p.camino, p.camino.length - 2, this.miradaDe(p.stack)),
+      );
+    }
+    if (p.tipo === 'attack' || p.tipo === 'shoot') {
+      this.mirada.set(p.stack, this.miradaAlObjetivo(p.stack, p.target));
+    }
     if (p.tipo === 'move') this.vista.set(p.stack, p.hasta);
     if (p.tipo === 'perished') this.caidas.add(p.stack);
   }
@@ -243,6 +329,19 @@ export class BattleAnimator {
     return { x: cabeza.x + d.x, y: cabeza.y + d.y };
   }
 
+  private miradaDe(id: string): Mirada {
+    return this.mirada.get(id) ?? { mira: 'E', lado: 'E' };
+  }
+
+  /** Mirando a la casilla del objetivo, desde donde se ve cada uno ahora. */
+  private miradaAlObjetivo(id: string, objetivo: string): Mirada {
+    const antes = this.miradaDe(id);
+    const yo = this.vista.get(id);
+    const el = this.vista.get(objetivo);
+    if (yo === undefined || el === undefined) return antes;
+    return girar(antes, direccionHacia(yo, el, antes.mira));
+  }
+
   figura(s: BattleStack): EstadoFigura {
     const paso = this.actual?.paso;
     const t = this.progreso();
@@ -252,17 +351,17 @@ export class BattleAnimator {
     let tiempo = this.ahora;
     let golpe = 0;
     let alfa = 1;
+    let mirada = this.mirada.get(s.id) ?? miradaDeSalida(s);
 
     if (paso !== undefined) {
       if (paso.tipo === 'move' && paso.stack === s.id) {
-        cabeza = {
-          x: paso.desde.x + (paso.hasta.x - paso.desde.x) * t,
-          y: paso.desde.y + (paso.hasta.y - paso.desde.y) * t,
-        };
+        cabeza = porElCamino(paso.camino, t);
+        mirada = miradaEnElTramo(paso.camino, tramoEn(paso.camino, t), mirada);
         clip = paso.carga === true ? 'charge' : 'walk';
         tiempo = desdeInicio;
       } else if ((paso.tipo === 'attack' || paso.tipo === 'shoot') && paso.stack === s.id) {
         clip = 'attack';
+        mirada = this.miradaAlObjetivo(s.id, paso.target);
         tiempo = desdeInicio;
       } else if (
         // Lo recibe igual un golpe, un disparo o un hechizo: una sola rama.
@@ -278,7 +377,7 @@ export class BattleAnimator {
 
     // Una unidad muerta en el estado sigue en pie hasta que su caída se ve.
     const visible = isAlive(s) || !this.caidas.has(s.id);
-    return { en: this.centro(s, cabeza), clip, tiempo, golpe, visible, alfa };
+    return { en: this.centro(s, cabeza), clip, tiempo, golpe, visible, alfa, ...mirada };
   }
 
   /** Los efectos del paso en curso: el proyectil que vuela y la cifra del golpe. */

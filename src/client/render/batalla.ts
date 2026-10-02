@@ -26,7 +26,7 @@ import type { Hex } from '@core/types.js';
 import { sombraDeFigura } from '../../shared/arte.js';
 import type { Efecto, EstadoFigura } from '../anim.js';
 import { asset } from './assets.js';
-import { pintarFigura } from './figura.js';
+import { espejadoPara, pintarFigura } from './figura.js';
 import { COLOR_DE_COMANDANTE, MARCA_DE_COMANDANTE } from './palette.js';
 import { centroHex, enPantalla, type Plano, type Tablero, verticesHex } from './proyeccion.js';
 
@@ -398,7 +398,7 @@ function pintarUnidad(
     x,
     suelo,
     alto,
-    mirandoIzquierda: s.side === 'defender',
+    mirandoIzquierda: espejadoPara(f.mira, f.lado),
     color,
     alfa: f.alfa,
     // El destello del golpe, que se apaga en el primer 60 % de lo que dura.

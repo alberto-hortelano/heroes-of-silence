@@ -237,6 +237,24 @@ export interface Paso {
   readonly at: Hex;
   /** Pasos desde el origen. */
   readonly steps: number;
+  /**
+   * El paso desde el que se llegó aquí, o `null` en el origen: la cadena hasta
+   * el origen ES el camino que se anda (`caminoDe`). Va en el propio paso y no
+   * en el mapa porque `movableFrom` filtra el mapa —quita el origen y lo que no
+   * cabe— y las casillas de en medio pueden ser de las quitadas.
+   */
+  readonly previo: Paso | null;
+}
+
+/**
+ * Las casillas que se pisan para llegar a `paso`, sin el origen y con el
+ * destino: el camino de la MISMA búsqueda que decidió que el destino es legal y
+ * lo que cuesta. Lo apunta el hecho `move` para que el tablero lo enseñe.
+ */
+export function caminoDe(paso: Paso): Hex[] {
+  const out: Hex[] = [];
+  for (let p: Paso | null = paso; p !== null && p.previo !== null; p = p.previo) out.push(p.at);
+  return out.reverse();
 }
 
 /**
@@ -257,12 +275,17 @@ export function reachable(
       `no se puede buscar camino desde (${from.col},${from.row}): está fuera del tablero`,
     );
   }
-  const dist = new Map<string, Paso>([[hexKey(from), { at: from, steps: 0 }]]);
+  const inicio: Paso = { at: from, steps: 0, previo: null };
+  const dist = new Map<string, Paso>([[hexKey(from), inicio]]);
+  // El paso de cada casilla de la frontera, por índice, para colgar de él el
+  // siguiente: es lo que deja reconstruir el camino sin otra búsqueda.
+  const pasoEn: (Paso | undefined)[] = new Array(BOARD_SIZE);
   // Visitados por índice en vez de `dist.has(clave)`: el `Map` se sigue
   // llenando en el mismo orden, que es lo que leen los llamantes.
   const visto = new Uint8Array(BOARD_SIZE);
   const origen = indiceDe(from);
   visto[origen] = 1;
+  pasoEn[origen] = inicio;
   let frontier: number[] = [origen];
 
   for (let step = 1; step <= maxSteps; step++) {
@@ -273,7 +296,9 @@ export function reachable(
         const c = CASILLAS[n] as Casilla;
         if (blocked.has(c.key)) continue;
         visto[n] = 1;
-        dist.set(c.key, { at: c.hex, steps: step });
+        const paso: Paso = { at: c.hex, steps: step, previo: pasoEn[h] as Paso };
+        pasoEn[n] = paso;
+        dist.set(c.key, paso);
         next.push(n);
       }
     }

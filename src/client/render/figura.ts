@@ -6,6 +6,7 @@
  * hoja no ha llegado, se pinta el marcador de color. Así el juego se juega sin
  * arte, que es un contrato de este repositorio.
  */
+import { type Direccion, tieneLado } from '../direccion.js';
 import { asset } from './assets.js';
 import { type CharacterClip, drawCharacter, sampleCharacter } from './character.js';
 import { arteDe, hojaPara, hojasDeFigura } from './personajes.js';
@@ -63,6 +64,22 @@ export function animarHasta(hasta: number): void {
 export function hayFigurasAnimadas(): boolean {
   if (performance.now() < enMarchaHasta) return true;
   return hojasDeFigura().some((h) => asset('rpg', h) !== null);
+}
+
+/**
+ * Lo que el arte de HOY sabe pintar de una dirección de vista: sus hojas son de
+ * perfil mirando al este, así que el este, el noreste y el sureste van tal cual,
+ * el oeste y sus dos vecinos espejados, y el norte y el sur puros —que el perfil
+ * no tiene— con el último lado que llevaba la figura (`lado`).
+ *
+ * **Es la traducción que cambia cuando llegue el arte de ocho direcciones**
+ * (decisión del usuario, 02-10-2026): entonces el atlas dirá qué direcciones
+ * trae y esto elegirá la fila. La regla que decide la dirección
+ * (`direccion.ts`) y el animador que la guarda no se tocan.
+ */
+export function espejadoPara(mira: Direccion, lado: Direccion): boolean {
+  const d = tieneLado(mira) ? mira : lado;
+  return d === 'O' || d === 'NO' || d === 'SO';
 }
 
 interface Figura {

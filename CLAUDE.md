@@ -13,8 +13,8 @@ pnpm install
 pnpm dev        # cliente en http://localhost:3100 (juego local contra la IA de reglas)
 pnpm mirar      # MIRAR la partida del agente: /espectador/ contra el servidor
 pnpm arena      # la ARENA: /arena/, montar unidades de las cinco facciones y hacerlas luchar
-pnpm verify     # typecheck + lint + 1133 tests, 13,0 s: el bucle rápido
-pnpm test       # 1133 tests: reglas, batalla, partida completa y contrato del agente
+pnpm verify     # typecheck + lint + 1144 tests, 13,0 s: el bucle rápido
+pnpm test       # 1144 tests: reglas, batalla, partida completa y contrato del agente
 pnpm typecheck
 pnpm lint       # Biome: formato y lint en una sola pasada, 40 ms
 pnpm format     # lo mismo, arreglando lo que sepa arreglar
@@ -2011,6 +2011,14 @@ y no lee ese archivo**: `pnpm banco` sale con el ancla igual.
   guardan aunque no se puedan montar; y un archivo que no es JSON no se pisa, se
   rechaza. Antes una sola unidad editada a mano dejaba la página vacía y el
   siguiente «Guardar» borraba el resto.
+- **La velocidad son casillas** (decisión del usuario, 02-10-2026: «la velocidad
+  debería ser el número de casillas que mueve»). El borrador guarda `casillas`,
+  de 2 a 7, y el motor sigue jugando su escalón: la única traducción es
+  `escalonDeCasillas`, la inversa de `SPEED_TO_HEXES`. Un borrador viejo con
+  `speed` se lee convertido. Las de salida van **por unidad y no por perfil**
+  (`tools/arena/velocidades.ts`, con el motivo de cada una). Con una por perfil
+  casi todas empataban, y el empate de iniciativa lo gana el atacante: jugaba un
+  ejército entero y luego el otro.
 - **Las habilidades se asignan y no hacen nada**: nombres de
   `data/habilidades.json`, guardados y marcados «sin efecto todavía». En la pelea
   solo cuentan los rasgos del motor.
@@ -2042,6 +2050,23 @@ y no lee ese archivo**: `pnpm banco` sale con el ancla igual.
   `guardado: false`, así que la arena construida monta y pelea y sabe que no
   guarda por un campo explícito. La URL lleva siempre la semilla de la pelea, y
   cerrar con cifras sin guardar avisa.
+
+**La figura anda por el camino real y mira a donde va**, en la partida, la
+arena y el espectador:
+- El hecho `move` lleva `path`, sacado de la misma búsqueda que valida el
+  movimiento (`Paso.previo` y `caminoDe`, en `board.ts`). Con solo `to`, el
+  animador iba en recta y en 1 de cada 9 movimientos se veía cruzar por encima
+  de una unidad que el camino rodea: eso era lo que el usuario vio «pasar entre
+  dos enemigos». El camino nunca pisó a nadie: lo midió una sonda en 4 598
+  movimientos. El banco no se mueve, porque su volcado es la crónica de la
+  partida y no el registro de cada batalla.
+- La mirada se decide en **ocho sectores** (`src/client/direccion.ts`): hacia la
+  casilla siguiente al andar y hacia el objetivo al golpear, y se queda donde
+  miró la última vez. La guarda el animador, nunca el núcleo.
+- Lo que el arte de perfil de hoy sabe pintar —derecha o espejado— es otra
+  función, `espejadoPara`. **El arte de perfil es temporal** (decisión del
+  usuario: «tendrá las 8 direcciones»): cuando llegue, cambia esa traducción y
+  la regla no.
 
 `pnpm capturas` la juega con clics de verdad —monta, cambia un ataque, mueve un
 tramo, golpea, deja acabar a la IA, guarda, reabre y comprueba que lo guardado

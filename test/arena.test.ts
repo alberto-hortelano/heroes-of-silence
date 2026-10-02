@@ -26,6 +26,7 @@ import {
   batallaDeArena,
   COMENTARIO_DEL_BORRADOR,
   cifrasPorDefecto,
+  escalonDeCasillas,
   finalDeArena,
   PERFILES_DE_ARENA,
   type UnidadDeArena,
@@ -37,12 +38,14 @@ import {
 import { activeStack, isAlive, MAX_ROUNDS } from '../src/core/battle/battle.js';
 import { LIDERAZGO } from '../src/core/data.js';
 import { createRng } from '../src/core/rng.js';
+import { SPEED_TIERS, SPEED_TO_HEXES } from '../src/core/types.js';
 import {
   escribirBorrador,
   hojasDeArena,
   leerBorrador,
   RUTA_DEL_BORRADOR,
 } from '../tools/arena/borrador.js';
+import { VELOCIDAD_DE_SALIDA } from '../tools/arena/velocidades.js';
 import { HEROES, UNIDADES } from '../tools/taller/unidades.js';
 
 const RAIZ = resolve(import.meta.dirname, '..');
@@ -55,6 +58,12 @@ function unidad(id: string, cambios: Partial<UnidadDeArena> = {}): UnidadDeArena
 }
 
 const ia = (u: UnidadDeArena): PuestoDeArena => ({ unidad: u, ia: true });
+
+/** Una unidad como las guardaba el borrador antes de las casillas: sin ellas. */
+function aLaAntigua(u: UnidadDeArena): Omit<UnidadDeArena, 'casillas'> {
+  const { casillas: _fuera, ...resto } = u;
+  return resto;
+}
 
 /** Una sesión montada y empezada: lo que hace la página al pulsar «Luchar». */
 function montada(
@@ -181,7 +190,7 @@ describe('el borrador se valida antes de escribirse', () => {
   });
 
   it('rechaza diciéndolo: velocidad inventada, rasgo inexistente, daño al revés', () => {
-    expect(() => validarUnidadDeArena({ ...base(), speed: 'rapidisima' })).toThrow(
+    expect(() => validarUnidadDeArena({ ...aLaAntigua(base()), speed: 'rapidisima' })).toThrow(
       'la unidad "templario-monje": la velocidad "rapidisima" no existe; valen very_slow, slow, average, fast, very_fast, ultra_fast',
     );
     expect(() => validarUnidadDeArena({ ...base(), traits: ['volar'] })).toThrow(
@@ -228,7 +237,7 @@ describe('el borrador se valida antes de escribirse', () => {
       dir = mkdtempSync(join(tmpdir(), 'arena-'));
       const ruta = join(dir, RUTA_DEL_BORRADOR);
       expect(() =>
-        escribirBorrador(dir as string, { unidades: [{ ...base(), speed: 'x' }] }),
+        escribirBorrador(dir as string, { unidades: [{ ...aLaAntigua(base()), speed: 'x' }] }),
       ).toThrow('la velocidad "x" no existe');
       expect(existsSync(ruta)).toBe(false);
       expect(leerBorrador(dir)).toEqual({ unidades: [], invalidas: [] });
@@ -311,13 +320,18 @@ describe('las hojas de assets/unidades se pintan en el tablero', () => {
     a.observe(b);
     a.tick(0);
     // Dos jugadas escritas a mano en el registro: un paso suelto y una carga.
-    b.log.push({ kind: 'move', stack: jinete.id, to: { col: 3, row: 4 } });
+    b.log.push({
+      kind: 'move',
+      stack: jinete.id,
+      to: { col: 3, row: 4 },
+      path: [{ col: 3, row: 4 }],
+    });
     a.observe(b);
     a.tick(1);
     expect(a.figura(jinete).clip).toBe('walk');
     a.tick(10_000);
     b.log.push(
-      { kind: 'move', stack: jinete.id, to: { col: 7, row: 4 } },
+      { kind: 'move', stack: jinete.id, to: { col: 7, row: 4 }, path: [{ col: 7, row: 4 }] },
       {
         kind: 'attack',
         stack: jinete.id,
@@ -545,5 +559,80 @@ describe('corrección de hallazgos de QA', () => {
     expect(() => registrarHojaDeUnidad('pikeman', jinete)).toThrow(
       '"pikeman" es un cuerpo del juego',
     );
+  });
+});
+
+describe('la velocidad son casillas', () => {
+  it('cada hoja del taller tiene su velocidad de salida, y ninguna sobra', () => {
+    expect(Object.keys(VELOCIDAD_DE_SALIDA).sort()).toEqual(
+      [...UNIDADES, ...HEROES].map((u) => u.id).sort(),
+    );
+    for (const h of HOJAS) {
+      expect(h.casillas, h.id).toBe(VELOCIDAD_DE_SALIDA[h.id]?.[0]);
+      expect(unidadPorDefecto(h).casillas, h.id).toBe(h.casillas);
+    }
+  });
+
+  it('el criterio del usuario se cumple en la tabla', () => {
+    const v = (id: string): number => VELOCIDAD_DE_SALIDA[id]?.[0] ?? Number.NaN;
+    expect(v('templario-escudo')).toBe(4);
+    expect(v('templario-mandoble')).toBe(3);
+    expect(v('imperio-ballestero')).toBe(3);
+    expect(v('zombi')).toBe(2);
+    expect(v('esqueleto-guerrero')).toBe(3);
+    expect(v('elfo-guardia-del-bosque')).toBe(v('templario-escudo') + 1);
+    expect(v('orko-berserker')).toBeGreaterThan(v('orko-hacha-escudo'));
+    // El Danzante, el más rápido de los de a pie: solo el jinete le pasa.
+    const aPie = Object.entries(VELOCIDAD_DE_SALIDA).filter(
+      ([id]) => id !== 'templario-hermano-de-carga',
+    );
+    expect(Math.max(...aPie.map(([, [c]]) => c))).toBe(6);
+    expect(aPie.filter(([, [c]]) => c === 6).map(([id]) => id)).toEqual([
+      'heroe-elfo-danzante-de-espadas',
+    ]);
+    expect(v('templario-hermano-de-carga')).toBeGreaterThan(6);
+    // Y no hay un empate masivo: ninguna velocidad lleva a más de la mitad.
+    const cuenta = new Map<number, number>();
+    for (const [c] of Object.values(VELOCIDAD_DE_SALIDA)) cuenta.set(c, (cuenta.get(c) ?? 0) + 1);
+    expect(Math.max(...cuenta.values())).toBeLessThan(Object.keys(VELOCIDAD_DE_SALIDA).length / 2);
+  });
+
+  it('el motor juega el escalón de esas casillas, y fuera de 2..7 se rechaza diciéndolo', () => {
+    for (const t of SPEED_TIERS) expect(escalonDeCasillas(SPEED_TO_HEXES[t])).toBe(t);
+    expect(() => escalonDeCasillas(8)).toThrow('la velocidad es de 2 a 7 casillas, y es 8');
+    expect(() => validarUnidadDeArena({ ...unidad('zombi'), casillas: 9 })).toThrow(
+      'la unidad "zombi": la velocidad es de 2 a 7 casillas, y es 9',
+    );
+    expect(() => validarUnidadDeArena({ ...unidad('zombi'), casillas: 1 })).toThrow(
+      'la velocidad tiene que ser 2 o más, y es 1',
+    );
+    const b = batallaDeArena(
+      [unidad('heroe-elfo-danzante-de-espadas')],
+      [unidad('zombi')],
+      createRng(1),
+    );
+    expect(b.stacks.map((s) => s.unit.speed)).toEqual(['very_fast', 'very_slow']);
+  });
+
+  it('un borrador de antes, con la velocidad como escalón, se lee convertido', () => {
+    const vieja = { ...aLaAntigua(unidad('zombi')), speed: 'fast' };
+    expect(validarUnidadDeArena(vieja)).toEqual({ ...unidad('zombi'), casillas: 5 });
+    expect(() => validarUnidadDeArena({ ...vieja, casillas: 5 })).toThrow(
+      'trae la velocidad dos veces',
+    );
+  });
+
+  it('con las velocidades de salida ya no juega un ejército entero y luego el otro', () => {
+    const s = new SesionDeArena(
+      ['templario-escudo', 'templario-mandoble', 'templario-escudero'].map((id) => ia(unidad(id))),
+      ['elfo-arquero', 'elfo-ent', 'heroe-elfo-danzante-de-espadas'].map((id) => ia(unidad(id))),
+      1,
+    );
+    const lados = s.battle.queue.map((id) => s.battle.stacks.find((x) => x.id === id)?.side);
+    const actual = s.battle.stacks.find((x) => x.id === s.battle.turno?.stack)?.side;
+    const orden = [actual, ...lados];
+    // Se alternan en algún punto: no son tres de un lado y tres del otro.
+    const cambios = orden.filter((l, i) => i > 0 && l !== orden[i - 1]).length;
+    expect(cambios).toBeGreaterThan(1);
   });
 });

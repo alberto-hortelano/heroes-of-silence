@@ -19,6 +19,16 @@ import {
   validarHojasDeArena,
 } from '../../src/core/arena.js';
 import { HEROES, UNIDADES } from '../taller/unidades.js';
+import { VELOCIDAD_DE_SALIDA } from './velocidades.js';
+
+/** Las casillas de salida de una hoja: una hoja sin la suya es un olvido, y se dice. */
+function velocidadDeSalida(id: string): number {
+  const fila = VELOCIDAD_DE_SALIDA[id];
+  if (fila === undefined) {
+    throw new Error(`la hoja ${id} no tiene velocidad de salida en tools/arena/velocidades.ts`);
+  }
+  return fila[0];
+}
 
 /** Dónde vive el borrador, relativo a la raíz del repo. */
 export const RUTA_DEL_BORRADOR = 'data/borradores/unidades.json';
@@ -51,6 +61,7 @@ export function hojasDeArena(raiz: string): readonly HojaDeArena[] {
         faccion: u.faccion,
         perfil: u.perfil,
         heroe,
+        casillas: velocidadDeSalida(u.id),
         atlas: JSON.parse(
           readFileSync(join(raiz, 'assets/unidades', u.id, 'atlas.json'), 'utf8'),
         ) as unknown,

@@ -2091,8 +2091,11 @@ async function espectador(browser: Browser, url: string, problemas: Problemas): 
  * La semilla de la pelea de la arena. Con ella, el guerrero con escudo que mueve
  * la persona tiene que andar al menos un tramo antes de alcanzar a nadie y llega
  * a golpear antes de que la batalla acabe: el guion lo exige, no lo supone.
+ * Era la 5 hasta que la velocidad pasó a ser por unidad (02-10-2026): con el
+ * orko berserker a 5 casillas, en la 5 el guerrero cae antes de golpear. La 6 se
+ * buscó jugando el espejo con la misma pauta que este guion.
  */
-const SEMILLA_ARENA = 5;
+const SEMILLA_ARENA = 6;
 /** El ataque que se le pone a mano al guerrero, distinto del de por defecto. */
 const ATAQUE_EDITADO = 9;
 

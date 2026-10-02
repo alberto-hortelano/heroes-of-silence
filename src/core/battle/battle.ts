@@ -16,6 +16,7 @@ import { SPEED_TO_HEXES } from '../types.js';
 import {
   areAdjacent,
   BOARD_WIDTH,
+  caminoDe,
   hexDistance,
   hexEquals,
   hexKey,
@@ -1051,7 +1052,10 @@ function moveTo(
     throw new Error(`${s.id} se mueve fuera de su turno`);
   }
   state.turno.gastado += paso.steps;
-  state.log.push({ kind: 'move', stack: s.id, to });
+  // Los voladores se buscan sin bloqueos —ignoran lo que hay en medio—, así que
+  // su cadena de pasos podría cruzar casillas ocupadas: su camino es el aire.
+  const path = hasTrait(s.unit, 'flying') ? [to] : caminoDe(paso);
+  state.log.push({ kind: 'move', stack: s.id, to, path });
 }
 
 /**

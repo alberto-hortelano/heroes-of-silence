@@ -8,6 +8,8 @@
  * por `srcDeImagen`.
  */
 import {
+  CASILLAS_MAX,
+  CASILLAS_MIN,
   FACCIONES_DE_ARENA,
   finalDeArena,
   type HojaDeArena,
@@ -20,7 +22,7 @@ import {
 import { activeStack, isAlive, MAX_ROUNDS } from '@core/battle/battle.js';
 import type { BattleState } from '@core/battle/types.js';
 import { CATALOGO_DE_HABILIDADES, isShooter } from '@core/data.js';
-import { CREATURE_TRAITS, type CreatureTrait, SPEED_TIERS } from '@core/types.js';
+import { CREATURE_TRAITS, type CreatureTrait, SPEED_TO_HEXES } from '@core/types.js';
 import { type Html, html, NADA, srcDeImagen, unir } from '../html.js';
 import type { SesionDeArena } from '../session.js';
 import { accionesDeLaUnidad, listaDelCampo, renderBattleLog } from '../views/panels.js';
@@ -34,17 +36,6 @@ export interface Puesto {
 
 const DESHABILITADO: Html = html`disabled`;
 const MARCADO: Html = html`checked`;
-const ELEGIDO: Html = html`selected`;
-
-/** Cómo se llama cada velocidad en la ficha. */
-const NOMBRE_DE_VELOCIDAD: Readonly<Record<(typeof SPEED_TIERS)[number], string>> = {
-  very_slow: 'muy lenta',
-  slow: 'lenta',
-  average: 'normal',
-  fast: 'rápida',
-  very_fast: 'muy rápida',
-  ultra_fast: 'rapidísima',
-};
 
 /** Qué hace cada rasgo del motor, dicho en corto para la casilla. */
 const NOMBRE_DE_RASGO: Readonly<Record<(typeof CREATURE_TRAITS)[number], string>> = {
@@ -77,7 +68,7 @@ function resumenDeCifras(u: UnidadDeArena): string {
   const tiro = u.shots === undefined ? '' : ` · ${u.shots} tiros`;
   const grande = (u.hexes ?? 1) > 1 ? ` · ${u.hexes} hexes` : '';
   const rasgos = u.traits.length === 0 ? '' : ` · ${rasgosDichos(u.traits)}`;
-  return `A ${u.attack} · D ${u.defense} · ${u.damage[0]}–${u.damage[1]} daño · ${u.hp} PV · ${NOMBRE_DE_VELOCIDAD[u.speed]}${tiro}${grande}${rasgos}`;
+  return `A ${u.attack} · D ${u.defense} · ${u.damage[0]}–${u.damage[1]} daño · ${u.hp} PV · ${u.casillas} casillas${tiro}${grande}${rasgos}`;
 }
 
 // ---------------------------------------------------------------- catálogo
@@ -157,12 +148,6 @@ export function renderFicha(u: UnidadDeArena | null, hoja: HojaDeArena | null): 
   if (u === null || hoja === null) {
     return html`<h3>Ficha</h3><p class="cost">Pulsa el nombre de una unidad de un bando para ver y cambiar sus cifras.</p>`;
   }
-  const velocidades = unir(
-    SPEED_TIERS.map(
-      (v) =>
-        html`<option value="${v}" ${v === u.speed ? ELEGIDO : NADA}>${NOMBRE_DE_VELOCIDAD[v]}</option>`,
-    ),
-  );
   const rasgos = unir(
     CREATURE_TRAITS.map(
       (t) =>
@@ -201,8 +186,7 @@ export function renderFicha(u: UnidadDeArena | null, hoja: HojaDeArena | null): 
       ${numero('damage-min', 'Daño mínimo', u.damage[0], 1)}
       ${numero('damage-max', 'Daño máximo', u.damage[1], 1)}
       ${numero('hp', 'Vida', u.hp, 1)}
-      <label class="campo"><span class="label">Velocidad</span>
-        <select data-campo="speed">${velocidades}</select></label>
+      ${numero('casillas', `Velocidad (casillas, ${CASILLAS_MIN} a ${CASILLAS_MAX})`, u.casillas, CASILLAS_MIN)}
       ${numero('shots', 'Disparos (0 = cuerpo a cuerpo)', u.shots ?? 0, 0)}
       ${numero('hexes', 'Hexes (1 o 2)', u.hexes ?? 1, 1)}
       ${numero('level', 'Nivel', u.level, 1)}
@@ -282,7 +266,7 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
         <div class="row"><span class="label">Vida</span><span>${isAlive(activa) ? activa.topHp : 0} / ${activa.unit.hp}</span></div>
         <div class="row"><span class="label">Ataque / Defensa</span><span>${activa.unit.attack} / ${activa.unit.defense}</span></div>
         <div class="row"><span class="label">Daño</span><span>${activa.unit.damage[0]}–${activa.unit.damage[1]}</span></div>
-        <div class="row"><span class="label">Velocidad</span><span>${NOMBRE_DE_VELOCIDAD[activa.unit.speed]}</span></div>
+        <div class="row"><span class="label">Velocidad</span><span>${SPEED_TO_HEXES[activa.unit.speed]} casillas</span></div>
         ${(activa.unit.hexes ?? 1) > 1 ? html`<div class="row"><span class="label">Hexes</span><span>${activa.unit.hexes ?? 1}</span></div>` : NADA}
         ${rasgos === '' ? NADA : html`<div class="row"><span class="label">Rasgos</span><span>${rasgos}</span></div>`}
         ${isShooter(activa.unit) ? html`<div class="row"><span class="label">Munición</span><span>${activa.shotsLeft}</span></div>` : NADA}`;

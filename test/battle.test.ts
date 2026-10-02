@@ -2037,7 +2037,7 @@ describe('el parte de guerra pinta de quién es cada cosa', () => {
     // `default` que los tapaba tapaba igual al `kind` que se añada mañana; quien
     // lo impide ahora es el `never` del final, roto a mano y visto rojo en `tsc`.
     const mudos = parte([
-      { kind: 'move', stack: 'attacker-0', to: { col: 3, row: 3 } },
+      { kind: 'move', stack: 'attacker-0', to: { col: 3, row: 3 }, path: [{ col: 3, row: 3 }] },
       { kind: 'wait', stack: 'attacker-0' },
       { kind: 'defend', stack: 'attacker-0' },
     ]);

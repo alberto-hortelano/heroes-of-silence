@@ -29,6 +29,8 @@ import {
   type Creature,
   type CreatureTrait,
   SPEED_TIERS,
+  SPEED_TO_HEXES,
+  type SpeedTier,
   type Stack,
   type UnitInfo,
 } from './types.js';
@@ -107,7 +109,6 @@ export interface UnidadDeArena
     | 'defense'
     | 'damage'
     | 'hp'
-    | 'speed'
     | 'shots'
     | 'hexes'
   > {
@@ -115,6 +116,13 @@ export interface UnidadDeArena
   readonly id: string;
   /** Una de las cinco: no es la `faction` del juego, que solo sabe de dos. */
   readonly faction: FaccionDeArena;
+  /**
+   * La velocidad, en **casillas** por turno (decisión del usuario, 02-10-2026:
+   * «la velocidad debería ser el número de casillas que mueve»). El motor sigue
+   * jugando escalones (`SpeedTier`); la traducción es `escalonDeCasillas`, una
+   * sola. Al catálogo pasa como escalón: 2 `very_slow` … 7 `ultra_fast`.
+   */
+  readonly casillas: number;
   /** Rasgos del motor: estos SÍ actúan en la pelea. Siempre presente, aunque vacía. */
   readonly traits: readonly CreatureTrait[];
   /**
@@ -137,6 +145,9 @@ const CAMPOS_DE_UNIDAD: readonly string[] = [
   'defense',
   'damage',
   'hp',
+  'casillas',
+  // Solo para leer borradores de antes de las casillas: se convierte al leer y
+  // no se vuelve a escribir.
   'speed',
   'shots',
   'hexes',
@@ -146,7 +157,7 @@ const CAMPOS_DE_UNIDAD: readonly string[] = [
 ];
 
 /** Lo que una unidad recibe por defecto según su perfil: todo menos quién es. */
-type CifrasPorDefecto = Omit<UnidadDeArena, 'id' | 'name' | 'faction' | 'habilidades'>;
+type CifrasPorDefecto = Omit<UnidadDeArena, 'id' | 'name' | 'faction' | 'habilidades' | 'casillas'>;
 
 /**
  * Las cifras con las que sale una hoja la primera vez, por su perfil de pose.
@@ -154,7 +165,9 @@ type CifrasPorDefecto = Omit<UnidadDeArena, 'id' | 'name' | 'faction' | 'habilid
  * **Inventadas y provisionales**, a ojo del catálogo de HoMM2 que ya hay: son un
  * punto de partida para ajustar en la arena, no una propuesta de equilibrio. El
  * arco y la ballesta tiran, las dos manos pegan más y defienden menos, el bastón
- * es frágil y el jinete es rápido y carga.
+ * es frágil y el jinete carga. **La velocidad no va por perfil sino por unidad**
+ * (`casillas` de cada hoja, `tools/arena/velocidades.ts`): con una por perfil
+ * casi todas empataban y el empate lo gana siempre el atacante.
  */
 const POR_PERFIL: Readonly<Record<PerfilDeArena, CifrasPorDefecto>> = {
   'espada-escudo': {
@@ -164,7 +177,6 @@ const POR_PERFIL: Readonly<Record<PerfilDeArena, CifrasPorDefecto>> = {
     defense: 7,
     damage: [2, 4],
     hp: 15,
-    speed: 'average',
     traits: [],
     cost: { gold: 150 },
   },
@@ -175,7 +187,6 @@ const POR_PERFIL: Readonly<Record<PerfilDeArena, CifrasPorDefecto>> = {
     defense: 4,
     damage: [4, 7],
     hp: 18,
-    speed: 'average',
     traits: [],
     cost: { gold: 250 },
   },
@@ -186,7 +197,6 @@ const POR_PERFIL: Readonly<Record<PerfilDeArena, CifrasPorDefecto>> = {
     defense: 3,
     damage: [1, 3],
     hp: 8,
-    speed: 'slow',
     traits: [],
     cost: { gold: 150 },
   },
@@ -197,7 +207,6 @@ const POR_PERFIL: Readonly<Record<PerfilDeArena, CifrasPorDefecto>> = {
     defense: 3,
     damage: [2, 3],
     hp: 10,
-    speed: 'average',
     shots: 12,
     traits: [],
     cost: { gold: 150 },
@@ -209,7 +218,6 @@ const POR_PERFIL: Readonly<Record<PerfilDeArena, CifrasPorDefecto>> = {
     defense: 4,
     damage: [3, 5],
     hp: 12,
-    speed: 'slow',
     shots: 8,
     traits: [],
     cost: { gold: 200 },
@@ -221,7 +229,6 @@ const POR_PERFIL: Readonly<Record<PerfilDeArena, CifrasPorDefecto>> = {
     defense: 8,
     damage: [5, 9],
     hp: 30,
-    speed: 'very_fast',
     traits: ['charge'],
     cost: { gold: 300 },
   },
@@ -243,6 +250,8 @@ export interface HojaDeArena {
   readonly faccion: FaccionDeArena;
   readonly perfil: PerfilDeArena;
   readonly heroe: boolean;
+  /** Las casillas con las que sale la unidad la primera vez. */
+  readonly casillas: number;
   /** El JSON de la hoja; lo comprueba `comoAtlas` al registrarla para pintarla. */
   readonly atlas: unknown;
 }
@@ -267,6 +276,7 @@ export function validarHojasDeArena(valor: unknown): readonly HojaDeArena[] {
       faccion: deLaLista(h.faccion, FACCIONES_DE_ARENA, 'la facción', quien),
       perfil: deLaLista(h.perfil, PERFILES_DE_ARENA, 'el perfil', quien),
       heroe: h.heroe,
+      casillas: casillasValidas(h.casillas, quien),
       atlas: h.atlas,
     };
   });
@@ -277,17 +287,47 @@ export function validarHojasDeArena(valor: unknown): readonly HojaDeArena[] {
  * muertos salen con `undead`: un esqueleto vivo, con moral, era raro (M7 de QA).
  */
 export function unidadPorDefecto(
-  hoja: Pick<HojaDeArena, 'id' | 'nombre' | 'faccion' | 'perfil'>,
+  hoja: Pick<HojaDeArena, 'id' | 'nombre' | 'faccion' | 'perfil' | 'casillas'>,
 ): UnidadDeArena {
   const cifras = cifrasPorDefecto(hoja.perfil);
   return {
     id: hoja.id,
     name: hoja.nombre,
     faction: hoja.faccion,
+    casillas: hoja.casillas,
     habilidades: [],
     ...cifras,
     traits: hoja.faccion === 'no-muertos' ? [...cifras.traits, 'undead'] : cifras.traits,
   };
+}
+
+// ------------------------------------------------------------- velocidad
+
+/**
+ * El escalón del motor que mueve `n` casillas: la inversa de `SPEED_TO_HEXES`,
+ * que es una biyección (2 a 7). La ÚNICA traducción de casillas a escalón; lo
+ * que no es un escalón se rechaza diciendo cuáles valen.
+ */
+export function escalonDeCasillas(n: number): SpeedTier {
+  const tier = SPEED_TIERS.find((t) => SPEED_TO_HEXES[t] === n);
+  if (tier === undefined) {
+    throw new Error(`la velocidad es de ${CASILLAS_MIN} a ${CASILLAS_MAX} casillas, y es ${n}`);
+  }
+  return tier;
+}
+
+export const CASILLAS_MIN = Math.min(...SPEED_TIERS.map((t) => SPEED_TO_HEXES[t]));
+export const CASILLAS_MAX = Math.max(...SPEED_TIERS.map((t) => SPEED_TO_HEXES[t]));
+
+/** Unas casillas que el motor sabe jugar, o se lanza diciendo de quién. */
+function casillasValidas(valor: unknown, quien: string): number {
+  const n = entero(valor, 'la velocidad', quien, CASILLAS_MIN);
+  if (n > CASILLAS_MAX) {
+    throw new Error(
+      `${quien}: la velocidad es de ${CASILLAS_MIN} a ${CASILLAS_MAX} casillas, y es ${n}`,
+    );
+  }
+  return n;
 }
 
 // ------------------------------------------------------------- validación
@@ -380,7 +420,17 @@ export function validarUnidadDeArena(valor: unknown): UnidadDeArena {
     throw new Error(`${quien}: el daño mínimo (${min}) no puede pasar del máximo (${max})`);
   }
   const hp = entero(u.hp, 'la vida', quien, 1);
-  const speed = deLaLista(u.speed, SPEED_TIERS, 'la velocidad', quien);
+  // Un borrador de antes de las casillas trae `speed` como escalón: se lee
+  // convertido. Con los dos a la vez, cuál manda sería adivinar: se dice.
+  if (u.casillas !== undefined && u.speed !== undefined) {
+    throw new Error(
+      `${quien}: trae la velocidad dos veces, en casillas y como «speed»; deja solo las casillas`,
+    );
+  }
+  const casillas =
+    u.speed !== undefined
+      ? SPEED_TO_HEXES[deLaLista(u.speed, SPEED_TIERS, 'la velocidad', quien)]
+      : casillasValidas(u.casillas, quien);
   const traits = lista(u.traits, 'los rasgos', quien).map((t) =>
     deLaLista(t, CREATURE_TRAITS, 'el rasgo', quien),
   );
@@ -408,7 +458,7 @@ export function validarUnidadDeArena(valor: unknown): UnidadDeArena {
     defense,
     damage: [min, max],
     hp,
-    speed,
+    casillas,
     ...(shots === undefined ? {} : { shots }),
     ...(hexes === undefined ? {} : { hexes }),
     traits,
@@ -425,7 +475,7 @@ export function validarUnidadDeArena(valor: unknown): UnidadDeArena {
  * `experiencia.json`). Quien lea el archivo —una persona o un agente— se lo cree.
  */
 export const COMENTARIO_DEL_BORRADOR =
-  'BORRADOR de la arena (/arena/, pnpm arena): cifras de las unidades de las cinco facciones, INVENTADAS y provisionales, ajustadas a mano peleando. Lo escribe la página al pulsar «Guardar» y lo valida validarUnidadDeArena (src/core/arena.ts); una unidad que no valida se conserva tal cual. El juego NO lo lee. Los campos de cifras se llaman como en data/creatures.json, pero pasar una unidad al catálogo NO es copiarla; hay que añadir: (1) la faction del juego (hoy solo knight o necromancer; una facción nueva pide además su guarnición neutral en data/ciudades.json), (2) growth (crecimiento semanal de su morada), (3) upgradesTo si tiene mejora, (4) su fila en data/experiencia.json (una habilidad por nivel, del 2 al máximo: la lista habilidades de aquí es suelta y no dice a qué nivel va cada una), y quitar id de hoja, faction de la arena y habilidades. habilidades = nombres de data/habilidades.json, sin efecto todavía.';
+  'BORRADOR de la arena (/arena/, pnpm arena): cifras de las unidades de las cinco facciones, INVENTADAS y provisionales, ajustadas a mano peleando. Lo escribe la página al pulsar «Guardar» y lo valida validarUnidadDeArena (src/core/arena.ts); una unidad que no valida se conserva tal cual. El juego NO lo lee. Los campos de cifras se llaman como en data/creatures.json, pero pasar una unidad al catálogo NO es copiarla; hay que añadir: (1) la faction del juego (hoy solo knight o necromancer; una facción nueva pide además su guarnición neutral en data/ciudades.json), (2) speed: el escalón de sus casillas (2 very_slow, 3 slow, 4 average, 5 fast, 6 very_fast, 7 ultra_fast), en lugar de casillas, (3) growth (crecimiento semanal de su morada), (4) upgradesTo si tiene mejora, (5) su fila en data/experiencia.json (una habilidad por nivel, del 2 al máximo: la lista habilidades de aquí es suelta y no dice a qué nivel va cada una), y quitar id de hoja, faction de la arena y habilidades. habilidades = nombres de data/habilidades.json, sin efecto todavía.';
 
 /** Una unidad del archivo que no pasa la regla: se cuenta por qué y se guarda tal cual. */
 export interface UnidadSinValidar {
@@ -495,10 +545,19 @@ export function validarBorradorDeArena(valor: unknown): readonly UnidadDeArena[]
 /** Lo que el motor juega de una unidad de arena: sus cifras, sin economía. */
 function unidadDeCombate(u: UnidadDeArena): UnitInfo {
   // Fuera lo que no pelea; el resto son ya los campos de `UnitInfo`.
-  const { id: _id, faction: _f, level, leadership: _l, habilidades: _h, cost: _c, ...cifras } = u;
+  const {
+    id: _id,
+    faction: _f,
+    level,
+    leadership: _l,
+    habilidades: _h,
+    cost: _c,
+    casillas,
+    ...cifras
+  } = u;
   // Sin facción del juego: las cinco no son `FactionId`, y así tampoco suman ni
   // restan a la moral por diversidad. Su moral es 0 y no la decide nadie.
-  return { ...cifras, faction: null, nivel: level };
+  return { ...cifras, speed: escalonDeCasillas(casillas), faction: null, nivel: level };
 }
 
 function bandoDeArena(unidades: readonly UnidadDeArena[], nombre: string): BattleSide {

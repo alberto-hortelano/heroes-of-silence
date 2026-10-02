@@ -188,7 +188,13 @@ export interface BattleHero {
 
 export type BattleEvent =
   | { kind: 'round_start'; round: number }
-  | { kind: 'move'; stack: string; to: Hex }
+  /**
+   * `path`: las casillas que pisa, sin la de salida y con `to`. El tablero anda
+   * por ahí: con solo `to`, la figura iba en línea recta y se la veía cruzar por
+   * encima de unidades que el camino real rodea (1 de cada 9 movimientos). Un
+   * volador lleva solo `[to]`: va por el aire, en recta.
+   */
+  | { kind: 'move'; stack: string; to: Hex; path: readonly Hex[] }
   | {
       kind: 'attack';
       stack: string;

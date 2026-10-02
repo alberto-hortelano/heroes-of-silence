@@ -46,9 +46,9 @@ describe('el animador de batalla', () => {
     const destino2 = { col: s2.hex.col + 1, row: s2.hex.row };
     // Lo que haría el motor: mover y apuntarlo en el registro.
     s1.hex = destino1;
-    b.log.push({ kind: 'move', stack: s1.id, to: destino1 });
+    b.log.push({ kind: 'move', stack: s1.id, to: destino1, path: [destino1] });
     s2.hex = destino2;
-    b.log.push({ kind: 'move', stack: s2.id, to: destino2 });
+    b.log.push({ kind: 'move', stack: s2.id, to: destino2, path: [destino2] });
     a.observe(b);
     a.tick(t);
 
@@ -110,7 +110,7 @@ describe('el animador de batalla', () => {
     const s1 = b.stacks[0]!;
     const destino = { col: s1.hex.col + 1, row: s1.hex.row };
     s1.hex = destino;
-    b.log.push({ kind: 'move', stack: s1.id, to: destino });
+    b.log.push({ kind: 'move', stack: s1.id, to: destino, path: [destino] });
     a.observe(b);
     a.tick(0);
     // Ya ha pasado de sobra lo que dura el paso, pero nadie ha dado la hora.
@@ -129,7 +129,7 @@ describe('el animador de batalla', () => {
     const s1 = b.stacks[0]!;
     const destino = { col: s1.hex.col + 2, row: s1.hex.row };
     s1.hex = destino;
-    b.log.push({ kind: 'move', stack: s1.id, to: destino });
+    b.log.push({ kind: 'move', stack: s1.id, to: destino, path: [destino] });
     const otraCopia = structuredClone(b);
     a.observe(otraCopia, 1);
     a.tick(DURACION.move / 2);
@@ -149,7 +149,7 @@ describe('el animador de batalla', () => {
     const s1 = b.stacks[0]!;
     const destino = { col: s1.hex.col + 1, row: s1.hex.row };
     s1.hex = destino;
-    b.log.push({ kind: 'move', stack: s1.id, to: destino });
+    b.log.push({ kind: 'move', stack: s1.id, to: destino, path: [destino] });
     a.velocidad = 2;
     a.observe(b);
     a.tick(0);

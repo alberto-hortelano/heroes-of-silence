@@ -243,8 +243,7 @@ function conCampo(u: UnidadDeArena, campo: string, valor: string): unknown {
   switch (campo) {
     case 'name':
       return { ...u, name: valor };
-    case 'speed':
-      return { ...u, speed: valor };
+
     case 'damage-min':
       return { ...u, damage: [n, u.damage[1]] };
     case 'damage-max':
@@ -260,6 +259,7 @@ function conCampo(u: UnidadDeArena, campo: string, valor: string): unknown {
       const { hexes: _fuera, ...resto } = u;
       return n === 1 ? resto : { ...u, hexes: n };
     }
+    case 'casillas':
     case 'attack':
     case 'defense':
     case 'hp':

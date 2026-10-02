@@ -184,7 +184,7 @@ export async function escenas(): Promise<readonly Escena[]> {
   campo.log.length = 0;
   campo.log.push(
     { kind: 'round_start', round: 3 },
-    { kind: 'move', stack: mio.id, to: mio.hex },
+    { kind: 'move', stack: mio.id, to: mio.hex, path: [mio.hex] },
     { kind: 'wait', stack: mio.id },
     { kind: 'defend', stack: mio.id },
     { kind: 'attack', stack: mio.id, target: suyo.id, damage: 12, killed: 2, retaliation: false },
