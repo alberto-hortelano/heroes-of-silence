@@ -377,6 +377,39 @@ export const OCHO_DIRECCIONES = {
 } as const;
 export type Hoja8d = keyof typeof OCHO_DIRECCIONES.hojas;
 
+/**
+ * La referencia de pose del GIRO: el primer reposo de cada dirección, en 4
+ * columnas por 2 filas y en el orden de las direcciones (0 a 3 arriba, 4 a 7
+ * abajo). Es la pose de la lámina de identidad que fija el personaje por los
+ * ocho lados antes de pintar sus hojas. Sale de las hojas ya renderizadas.
+ */
+export async function componerGiro(carpeta: string): Promise<string> {
+  const { celda } = OCHO_DIRECCIONES;
+  const capas = await Promise.all(
+    Array.from({ length: 8 }, async (_, d) => ({
+      input: await sharp(join(carpeta, `d${d}-a.png`))
+        .extract({ left: 0, top: 0, width: celda, height: celda })
+        .png()
+        .toBuffer(),
+      left: (d % 4) * celda,
+      top: Math.floor(d / 4) * celda,
+    })),
+  );
+  const png = await sharp({
+    create: {
+      width: 4 * celda,
+      height: 2 * celda,
+      channels: 4,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    },
+  })
+    .composite(capas)
+    .png()
+    .toBuffer();
+  await writeFile(join(carpeta, 'giro.png'), png);
+  return sha256(png);
+}
+
 /** Renderiza las 16 hojas de pose y devuelve su carpeta. */
 export async function renderizarOchoDirecciones(destino = DIR_POSES): Promise<string> {
   const { celda, encuadre, hojas, perfil } = OCHO_DIRECCIONES;
@@ -459,6 +492,7 @@ export async function renderizarOchoDirecciones(destino = DIR_POSES): Promise<st
         shas[nombre] = sha256(png);
       }
     }
+    shas['giro.png'] = await componerGiro(carpeta);
     const forge = execFileSync('git', ['-C', FORGE, 'rev-parse', 'HEAD'], { encoding: 'utf8' });
     await writeFile(
       join(carpeta, 'poses.json'),
@@ -501,6 +535,10 @@ export async function renderizarOchoDirecciones(destino = DIR_POSES): Promise<st
 const esScript = process.argv[1] !== undefined && resolve(process.argv[1]) === import.meta.filename;
 if (esScript) {
   const arg = process.argv[2];
+  if (arg === '--giro') {
+    console.log(await componerGiro(join(DIR_POSES, OCHO_DIRECCIONES.perfil)));
+    process.exit(0);
+  }
   if (arg === '--8d') {
     console.log(`→ ${await renderizarOchoDirecciones(process.argv[3])}`);
     process.exit(0);

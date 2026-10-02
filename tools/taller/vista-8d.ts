@@ -19,24 +19,10 @@ import sharp from 'sharp';
 import { proyeccionDeSombra } from '../../src/shared/arte.js';
 import { DIR_POSES, OCHO_DIRECCIONES } from '../art/poses.js';
 import { type AtlasDerivado, derivarAtlas } from './derivar.js';
+import { NOMBRES_DE_DIRECCION } from './direcciones.js';
 import { DIR_VISTA } from './vista.js';
 
 const RAIZ = resolve(import.meta.dirname, '../..');
-
-/**
- * Cómo gira sprite-forge al maniquí: `rotation.y = 2π·d/8`, y la 0 mira a la
- * cámara. Lo que dice cada nombre es hacia dónde mira la figura en pantalla.
- */
-export const NOMBRES_DE_DIRECCION = [
-  'frente',
-  'frente-derecha',
-  'derecha',
-  'espalda-derecha',
-  'espalda',
-  'espalda-izquierda',
-  'izquierda',
-  'frente-izquierda',
-] as const;
 
 interface Direccion {
   readonly src: string;

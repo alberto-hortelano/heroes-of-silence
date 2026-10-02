@@ -15,6 +15,7 @@
  *     referencia de nada.
  */
 import type { Perfil } from '../art/poses.js';
+import { NOMBRES_DE_DIRECCION } from './direcciones.js';
 import type { Encargo } from './encargo.js';
 
 export interface Unidad {
@@ -600,4 +601,66 @@ export function encargoDeAtlas(u: Unidad): Encargo {
     ...(u.celda === undefined ? {} : { celda: u.celda }),
     ...(u.filas === undefined ? {} : { filas: u.filas }),
   };
+}
+
+/**
+ * Las unidades definitivas, en 8 direcciones con 6 acciones (`OCHO_DIRECCIONES`
+ * en `tools/art/poses.ts`). Hoy solo el templario con escudo; su perfil de pose
+ * tiene que ser el de espada y escudo, que es el que se renderizó en 8.
+ */
+export const EN_OCHO_DIRECCIONES = ['templario-escudo'] as const;
+
+const DIR_POSES_8D = 'assets/unidades/_poses/espada-escudo-8d';
+
+export const rutaGiro = (u: Unidad): string => `assets/unidades/${u.id}/giro`;
+
+/**
+ * La lámina de identidad por los ocho lados: el maniquí en el reposo de cada
+ * dirección como pose, la identidad a 25° ya aprobada y la lámina de
+ * `assets/art/`. Fija la espalda antes de pintar las hojas de espaldas.
+ */
+export function encargoDeGiro(u: Unidad): Encargo {
+  if (!EN_OCHO_DIRECCIONES.includes(u.id as (typeof EN_OCHO_DIRECCIONES)[number])) {
+    throw new Error(`${u.id} no está en 8 direcciones (EN_OCHO_DIRECCIONES)`);
+  }
+  return {
+    id: `${u.id}-giro`,
+    tipo: 'giro',
+    descripcion: `${u.aspecto}\n${PINTURA}`,
+    referencias: [
+      { ruta: `${DIR_POSES_8D}/giro.png`, papel: 'pose' },
+      { ruta: `${rutaIdentidad(u)}.webp`, papel: 'identidad' },
+      ...(u.concepto === undefined ? [] : [{ ruta: u.concepto, papel: 'estilo' as const }]),
+    ],
+    salida: rutaGiro(u),
+    fondo: 'transparente',
+  };
+}
+
+/** Las 16 hojas: dos por dirección, con su pose y el giro aprobado como identidad. */
+export function encargosDeOchoDirecciones(u: Unidad): Encargo[] {
+  encargoDeGiro(u);
+  return Array.from({ length: 8 }, (_, d) =>
+    (['a', 'b'] as const).map(
+      (hoja): Encargo => ({
+        id: `${u.id}-d${d}-${hoja}`,
+        tipo: 'atlas',
+        descripcion: [
+          u.aspecto,
+          `En la lámina de giro (imagen 2), la figura ${d + 1} en orden de lectura es la que mira hacia «${NOMBRES_DE_DIRECCION[d]}», como esta hoja: así se ve el personaje desde este lado.`,
+          PINTURA,
+        ].join('\n'),
+        referencias: [
+          { ruta: `${DIR_POSES_8D}/d${d}-${hoja}.png`, papel: 'pose' },
+          { ruta: `${rutaGiro(u)}.webp`, papel: 'identidad' },
+          ...(u.concepto === undefined ? [] : [{ ruta: u.concepto, papel: 'estilo' as const }]),
+        ],
+        salida: `assets/unidades/${u.id}/d${d}/hoja-${hoja}`,
+        fondo: 'transparente',
+        celda: 384,
+        filas: 3,
+        ocho: { direccion: d, hoja },
+      }),
+    ),
+  ).flat();
 }

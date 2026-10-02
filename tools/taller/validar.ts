@@ -50,7 +50,7 @@ function medirAlfa(data: Buffer, width: number, height: number): Record<string, 
 
 export async function validar(
   imagen: Buffer,
-  tipo: 'atlas' | 'identidad' | 'imagen' | 'iconos' | 'efecto',
+  tipo: 'atlas' | 'identidad' | 'giro' | 'imagen' | 'iconos' | 'efecto',
   opaca = false,
   celda: number = FIGURA.celda,
   filas = 3,

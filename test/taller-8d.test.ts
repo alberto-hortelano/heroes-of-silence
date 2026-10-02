@@ -1,7 +1,8 @@
 /**
- * Las hojas de 8 direcciones: 6 filas, una sola ancla por dirección (la del
- * reposo) y el último fotograma de la muerte como cadáver.
+ * Las hojas de 8 direcciones: 6 filas y el último fotograma de la muerte como
+ * cadáver.
  */
+import { existsSync } from 'node:fs';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -9,6 +10,10 @@ import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
 import { indicesDeClip, OCHO_DIRECCIONES } from '../tools/art/poses.js';
 import { derivarAtlas } from '../tools/taller/derivar.js';
+import { type Encargo, encargoSchema, promptDe } from '../tools/taller/encargo.js';
+import { encargoDeGiro, encargosDeOchoDirecciones, unidad } from '../tools/taller/unidades.js';
+
+const RAIZ = join(import.meta.dirname, '..');
 
 const C = OCHO_DIRECCIONES.celda;
 
@@ -45,12 +50,10 @@ async function hoja(): Promise<string> {
 }
 
 describe('una dirección de 6 filas', () => {
-  it('tiene las 6 acciones, la misma ancla en todas y el cadáver al final de la muerte', async () => {
+  it('tiene las 6 acciones y el cadáver al final de la muerte', async () => {
     const a = await derivarAtlas(await hoja());
     expect(a.cell).toBe(C);
     expect(Object.keys(a.clips)).toEqual(['idle', 'walk', 'charge', 'attack', 'hurt', 'death']);
-    const ancla = a.clips.idle.anchor;
-    for (const k of Object.values(a.clips)) expect(k.anchor).toEqual(ancla);
     expect(a.clips.death?.loop).toBe(false);
     expect(a.cadaver).toEqual({ clip: 'death', frame: (a.clips.death?.frames ?? 0) - 1 });
   });
@@ -58,5 +61,37 @@ describe('una dirección de 6 filas', () => {
   it('la muerte y el daño no son bucles: su última columna es su último fotograma', () => {
     expect(indicesDeClip(9, 7, false).at(-1)).toBe(8);
     expect(indicesDeClip(28, 7, false)[0]).toBe(0);
+  });
+});
+
+describe('los encargos de 8 direcciones', () => {
+  const u = unidad('templario-escudo');
+
+  it('el giro va con la pose del giro y la identidad aprobada', () => {
+    const g = encargoSchema.parse(encargoDeGiro(u));
+    expect(g.referencias.map((r) => r.papel)).toEqual(['pose', 'identidad', 'estilo']);
+    for (const r of g.referencias) expect(existsSync(join(RAIZ, r.ruta)), r.ruta).toBe(true);
+    expect(promptDe(g)).toMatch(/4 columnas por 2 filas/);
+  });
+
+  it('son 16 hojas, dos por dirección, con su pose y el giro como identidad', () => {
+    const lista = encargosDeOchoDirecciones(u).map((e) => encargoSchema.parse(e));
+    expect(lista).toHaveLength(16);
+    expect(new Set(lista.map((e) => e.id)).size).toBe(16);
+    for (const e of lista) {
+      expect(e.referencias[0]?.ruta).toBe(
+        `assets/unidades/_poses/espada-escudo-8d/d${e.ocho?.direccion}-${e.ocho?.hoja}.png`,
+      );
+      expect(existsSync(join(RAIZ, e.referencias[0]?.ruta ?? ''))).toBe(true);
+      expect(e.referencias[1]?.ruta).toBe('assets/unidades/templario-escudo/giro.webp');
+      expect(e.celda).toBe(OCHO_DIRECCIONES.celda);
+    }
+    const b = lista.find((e) => e.ocho?.hoja === 'b');
+    expect(promptDe(b as Encargo)).toMatch(/la primera es EXACTAMENTE la última de la fila 2/);
+    expect(promptDe(b as Encargo)).toMatch(/NUNCA de perfil/);
+  });
+
+  it('una unidad que no está en 8 direcciones no tiene giro', () => {
+    expect(() => encargoDeGiro(unidad('templario-mandoble'))).toThrow(/8 direcciones/);
   });
 });

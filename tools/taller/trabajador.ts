@@ -28,6 +28,7 @@
  */
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { basename, dirname, join, relative, resolve } from 'node:path';
@@ -50,7 +51,13 @@ import { baseEnCelda, empaquetar, recortarAlContenido } from './empaquetar.js';
 import { type Encargo, promptDe } from './encargo.js';
 import { ESTILOS_DE_MAPA, encargoDeMuestra, encargosDeCeldas, encargosDePiezas } from './mapa.js';
 import { aRaster, recortar, UMBRALES } from './recorte.js';
-import { encargoDeAtlas, encargoDeIdentidad, unidad } from './unidades.js';
+import {
+  encargoDeAtlas,
+  encargoDeGiro,
+  encargoDeIdentidad,
+  encargosDeOchoDirecciones,
+  unidad,
+} from './unidades.js';
 import { validar } from './validar.js';
 import { vista, vistaEdificios, vistaEfectos, vistaEjercitos } from './vista.js';
 import { vista8d } from './vista-8d.js';
@@ -224,7 +231,15 @@ async function postprocesar(
         `${JSON.stringify({ lado: LADO_ICONO, iconos: extra.indiceDeIconos, lamina: basename(rutaSalida) }, null, 2)}\n`,
       );
     }
-    if (encargo.tipo === 'atlas') {
+    if (encargo.tipo === 'atlas' && encargo.ocho !== undefined) {
+      // Media dirección: se deriva al juntarse con la otra hoja.
+      const junta = await juntarDireccion(dirname(rutaSalida));
+      pasos.push(
+        junta === null
+          ? 'media dirección: se junta con la otra hoja cuando esté'
+          : `dirección completa: ${relative(RAIZ, junta)}`,
+      );
+    } else if (encargo.tipo === 'atlas') {
       const d = await escribirDerivado(rutaSalida);
       // El empaquetado puso los pies en un sitio y la derivación los midió: si no
       // coinciden, uno de los dos miente y la figura bailaría en el tablero.
@@ -278,6 +293,48 @@ async function postprocesar(
     );
     return { hilo: gen.hilo, salida: relative(RAIZ, rutaSalida) };
   }
+}
+
+/**
+ * Junta las dos hojas de una dirección (`hoja-a` y `hoja-b`, 3 filas cada una)
+ * en `atlas.webp` de 6 filas y lo deriva. Apunta en `atlas.composicion.json` el
+ * sha256 de cada hoja, que es la que lleva la procedencia. Si falta una, nada.
+ */
+async function juntarDireccion(dir: string): Promise<string | null> {
+  const hojas = ['hoja-a.webp', 'hoja-b.webp'].map((h) => join(dir, h));
+  if (!hojas.every((h) => existsSync(h))) return null;
+  const [a, b] = await Promise.all(hojas.map((h) => readFile(h)));
+  const { width, height } = await sharp(a).metadata();
+  const raw = await sharp({
+    create: { width, height: 2 * height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+  })
+    .composite([
+      { input: a as Buffer, left: 0, top: 0 },
+      { input: b as Buffer, left: 0, top: height },
+    ])
+    .png()
+    .toBuffer();
+  const atlas = join(dir, 'atlas.webp');
+  const webp = await sharp(raw).webp({ lossless: true, effort: 6 }).toBuffer();
+  await writeFile(atlas, webp);
+  await escribirDerivado(atlas);
+  await writeFile(
+    join(dir, 'atlas.composicion.json'),
+    `${JSON.stringify(
+      {
+        atlas: 'atlas.webp',
+        sha256: sha256(webp),
+        hojas: hojas.map((h, i) => ({
+          imagen: basename(h),
+          sha256: sha256([a, b][i] as Buffer),
+          filas: i === 0 ? ['idle', 'walk', 'charge'] : ['attack', 'hurt', 'death'],
+        })),
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  return atlas;
 }
 
 async function trabajar(): Promise<void> {
@@ -387,6 +444,17 @@ async function encolar(args: readonly string[]): Promise<void> {
       const bruto = encargoDeMuestra(estilo);
       if (args.includes('--rehacer')) await COLA.olvidar(bruto.id);
       console.log(`encolado ${(await COLA.encolar(bruto)).id}`);
+    }
+    return;
+  }
+  if (args.includes('--giro') || args.includes('--ocho')) {
+    for (const a of args.filter((x) => !x.startsWith('--'))) {
+      const u = unidad(a);
+      const lista = args.includes('--giro') ? [encargoDeGiro(u)] : encargosDeOchoDirecciones(u);
+      for (const bruto of lista) {
+        if (args.includes('--rehacer')) await COLA.olvidar(bruto.id);
+        console.log(`encolado ${(await COLA.encolar(bruto)).id}`);
+      }
     }
     return;
   }
