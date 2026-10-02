@@ -1,0 +1,94 @@
+{
+  "perfil": "arco",
+  "ataque": "tensar y soltar un arco",
+  "model": "y_bot",
+  "renderer": "sprite-forge",
+  "spriteForgeCommit": "b2d9ba97384c4f78b53aee2903471a70492ecb34",
+  "camera": {
+    "pitchDegrees": -25,
+    "direction": 2,
+    "directions": 8,
+    "projection": "orthographic",
+    "ortho": 2.8
+  },
+  "cell": 256,
+  "columns": 7,
+  "clips": [
+    {
+      "clip": "idle",
+      "anim": "idle",
+      "indices": [
+        0,
+        3,
+        6,
+        9,
+        12,
+        15,
+        18
+      ],
+      "sourceMetadata": {
+        "angle": "tactical_25",
+        "anim": "idle",
+        "directions": 8,
+        "duration": 3.6666666666666665,
+        "fps": 6,
+        "frame_count": 22,
+        "frame_height": 256,
+        "frame_width": 256,
+        "generated_at": "2026-10-01T15:00:21",
+        "model": "y_bot"
+      }
+    },
+    {
+      "clip": "walk",
+      "anim": "walk",
+      "indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "sourceMetadata": {
+        "angle": "tactical_25",
+        "anim": "walk",
+        "directions": 8,
+        "duration": 1.1,
+        "fps": 6,
+        "frame_count": 7,
+        "frame_height": 256,
+        "frame_width": 256,
+        "generated_at": "2026-10-01T15:00:22",
+        "model": "y_bot"
+      }
+    },
+    {
+      "clip": "attack",
+      "anim": "bow",
+      "indices": [
+        0,
+        1,
+        2,
+        3,
+        3,
+        4,
+        5
+      ],
+      "sourceMetadata": {
+        "angle": "tactical_25",
+        "anim": "bow",
+        "directions": 8,
+        "duration": 1,
+        "fps": 6,
+        "frame_count": 6,
+        "frame_height": 256,
+        "frame_width": 256,
+        "generated_at": "2026-10-01T15:00:23",
+        "model": "y_bot"
+      }
+    }
+  ],
+  "sha256": "0cc647db8371233b32dbd4e653313f0053cc8424798c289e67b408f270a6b618"
+}

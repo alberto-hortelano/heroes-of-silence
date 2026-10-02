@@ -1,0 +1,45 @@
+{
+  "encargo": "esqueleto-guerrero-identidad",
+  "tipo": "identidad",
+  "fecha": "2026-10-01T15:20:23.868Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f80c-2d97-7681-8d25-de6f8864bfcb",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUn esqueleto guerrero: huesos amarillentos, cota de malla oxidada y yelmo abollado, escudo redondo de madera en el brazo izquierdo y espada mellada en la derecha.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nUN solo personaje, de cuerpo entero, de pie, en la primera pose de reposo de la referencia de pose.\nCámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.\nLámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/espada-escudo.png",
+      "papel": "pose",
+      "sha256": "d9cf91645424ef72f0b52de18c7c202add6af827718c2e809da70eae75964642"
+    },
+    {
+      "ruta": "assets/art/no-muertos/esqueleto-guerrero.png",
+      "papel": "identidad",
+      "sha256": "d6e1aa7c305e2b622f0d90ea3921b2688a8eaabb66a4c5e50a73321b1c1b10c8"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f80c-2d97-7681-8d25-de6f8864bfcb/exec-bb6a3ee3-dd04-4dcb-be7f-907afc049b65.png",
+    "sha256": "fcb36144c0411999cf9ed0a22ea675a298092a0e6cea629e392b6738efb1469e",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.3500405212655602,
+    "opacos": 0.983918392672751,
+    "haloSuelto": 0,
+    "ancho": 1024,
+    "alto": 1205
+  },
+  "salida": {
+    "ruta": "assets/unidades/esqueleto-guerrero/identidad.webp",
+    "sha256": "e576cbebd8956508840632c064e4ce46bae082fc18daad7b1bbe30f037499bc5"
+  }
+}

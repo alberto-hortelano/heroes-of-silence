@@ -1,0 +1,45 @@
+{
+  "encargo": "esqueleto-arquero-identidad",
+  "tipo": "identidad",
+  "fecha": "2026-10-01T15:20:30.075Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f80c-25b2-7ef2-b96e-a123ceac62c2",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUn esqueleto arquero: huesos amarillentos, capucha y harapos oscuros, carcaj a la espalda y arco largo en la mano izquierda.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nUN solo personaje, de cuerpo entero, de pie, en la primera pose de reposo de la referencia de pose.\nCámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.\nLámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/arco.png",
+      "papel": "pose",
+      "sha256": "0cc647db8371233b32dbd4e653313f0053cc8424798c289e67b408f270a6b618"
+    },
+    {
+      "ruta": "assets/art/no-muertos/esqueleto-arquero.png",
+      "papel": "identidad",
+      "sha256": "04f6c10cdbc8d48c62a46a3a3edcb84fe40ab18063e964c37aa5c29ea71a0b8b"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f80c-25b2-7ef2-b96e-a123ceac62c2/exec-b5ee7729-f759-4c3c-b7fb-8bed67127283.png",
+    "sha256": "170990c95dc305dbefb1a73dd7963263beda3d9d92d2241b393d382c8d0d2828",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.3383186427648165,
+    "opacos": 0.9730722426895455,
+    "haloSuelto": 0,
+    "ancho": 908,
+    "alto": 1169
+  },
+  "salida": {
+    "ruta": "assets/unidades/esqueleto-arquero/identidad.webp",
+    "sha256": "531678e7256ae074ab783591778f7a91a7efd6d2ebee320d9511e1b1fdd28a4c"
+  }
+}

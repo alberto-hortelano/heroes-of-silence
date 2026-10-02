@@ -1,0 +1,51 @@
+{
+  "encargo": "imperio-artillero-culebrina-atlas",
+  "tipo": "atlas",
+  "fecha": "2026-10-01T17:48:56.515Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f893-fd4f-72c0-a578-d68db920d91b",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que tiene que seguir cada figura. No copies su pose ni su encuadre, que están de frente y a la altura de los ojos.\n\nUn artillero: gorra de lana, mandil de cuero tiznado sobre ropa amarilla y negra, guantes gruesos, culebrina de mano (cañón largo y ligero de bronce con culata de madera) empuñada con las dos manos, bolsa de pólvora y botafuego al cinto. Sin cureña.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete poses de ataque de la fila 3.\nMisma cámara ortográfica elevada 25 grados en las tres filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos. El personaje mira a la derecha y al frente como el maniquí.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 256 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/ballesta.png",
+      "papel": "pose",
+      "sha256": "dca0fe826b054a07f1c1f5ced895f06c4a9654115f43873889ccb4cfb7c20008"
+    },
+    {
+      "ruta": "assets/unidades/imperio-artillero-culebrina/identidad.webp",
+      "papel": "identidad",
+      "sha256": "c55b00f517fab146b354666a3cf95c26d4a257433a9393f01ff34e919f9b382c"
+    },
+    {
+      "ruta": "assets/art/imperio/artillero-con-culebrina.png",
+      "papel": "estilo",
+      "sha256": "bf10044f59eeccb79ad4b79698fbfa381903622c71c081a328231a159ab773b6"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f893-fd4f-72c0-a578-d68db920d91b/exec-2445b5ff-9b27-4a4a-8870-0b1b8a845036.png",
+    "sha256": "6646091684afec55bdaae1c4f568fc3f123e447464ad864e1511bbb3510adc3d",
+    "ancho": 1915,
+    "alto": 821
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "figuras localizadas y empaquetadas en 7×3 celdas de 256, escala uniforme 0.6612, pies en y=228, reposo a 160 px",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: altura 158, fotogramas 7/7/7"
+  ],
+  "validacion": {
+    "visibles": 0.10968235560825892,
+    "opacos": 0.9543427999814509,
+    "haloSuelto": 0,
+    "ancho": 1792,
+    "alto": 768
+  },
+  "salida": {
+    "ruta": "assets/unidades/imperio-artillero-culebrina/atlas.webp",
+    "sha256": "403bc1bed8fe01dc1b5acc4efaffed63ac8dca84bb3c41bd7ad87d63eac374e4"
+  }
+}

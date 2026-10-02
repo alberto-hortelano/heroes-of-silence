@@ -1,0 +1,45 @@
+{
+  "encargo": "espectro-identidad",
+  "tipo": "identidad",
+  "fecha": "2026-10-01T15:20:17.058Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f80c-1dd8-78e2-8df8-76125a4c82da",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUn espectro: figura encapuchada con armadura fantasmal y túnica de jirones verde grisáceo que se deshace hacia los pies, rostro oculto en sombra, espada larga en la mano derecha. Pintado OPACO, sin transparencias: lo fantasmal lo dan los colores pálidos y los jirones.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nUN solo personaje, de cuerpo entero, de pie, en la primera pose de reposo de la referencia de pose.\nCámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.\nLámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/espada-escudo.png",
+      "papel": "pose",
+      "sha256": "d9cf91645424ef72f0b52de18c7c202add6af827718c2e809da70eae75964642"
+    },
+    {
+      "ruta": "assets/art/no-muertos/espectro.png",
+      "papel": "identidad",
+      "sha256": "70c84c6115c1018de3af4ec3790f699b3aa122c6196956965ccc15eb6272db01"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f80c-1dd8-78e2-8df8-76125a4c82da/exec-6e1e87f3-2c33-4644-9c5b-7812f74e55ce.png",
+    "sha256": "66ac2dbd761eb5d838f0d674bffdfe4e77e55779923133abe428cc774bcf3379",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.4300747245286727,
+    "opacos": 0.9826210678270623,
+    "haloSuelto": 0,
+    "ancho": 929,
+    "alto": 1205
+  },
+  "salida": {
+    "ruta": "assets/unidades/espectro/identidad.webp",
+    "sha256": "0d124c44450fd6566b16cc4d9628fc6b5adaa401580a3e825559a8db431b3f77"
+  }
+}

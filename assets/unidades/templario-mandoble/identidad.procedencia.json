@@ -1,0 +1,45 @@
+{
+  "encargo": "templario-mandoble-identidad",
+  "tipo": "identidad",
+  "fecha": "2026-10-01T15:21:41.386Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f80d-8465-72c3-b6bb-2e6d2f66c1c0",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: solo define su aspecto (cara, ropa, armadura, armas, colores). No determina la cámara, la anatomía ni la pose.\n\nUn templario pesado: armadura de placas, sobrevesta blanca con cruz roja, capa corta roja, yelmo abierto de casquete y mandoble largo empuñado con las dos manos. Sin escudo.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nUN solo personaje, de cuerpo entero, de pie, en la primera pose de reposo de la referencia de pose.\nCámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.\nLámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/dos-manos.png",
+      "papel": "pose",
+      "sha256": "669d14f9183e2e30fff6f6912dc82a44610b3fa07f107fbbb0f149a544531078"
+    },
+    {
+      "ruta": "assets/art/templarios/guerrero-con-arma-a-dos-manos.png",
+      "papel": "identidad",
+      "sha256": "bed2665ae5749f6a24106a4ab0c219a828672d8e0ea0ba3fed0dd27f05353b8b"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f80d-8465-72c3-b6bb-2e6d2f66c1c0/exec-71d9894f-b029-4b4a-a52d-a635121952eb.png",
+    "sha256": "e3ee15f28bbc031a2ad4c52897d6bae90bdcd5f230b5e75133e5ab953c241010",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.29798437355502033,
+    "opacos": 0.9898903622002263,
+    "haloSuelto": 0,
+    "ancho": 991,
+    "alto": 1233
+  },
+  "salida": {
+    "ruta": "assets/unidades/templario-mandoble/identidad.webp",
+    "sha256": "835686b725fcd3a07d9d5d4dd04f5025978447d108574b045f46b0d2662be28a"
+  }
+}

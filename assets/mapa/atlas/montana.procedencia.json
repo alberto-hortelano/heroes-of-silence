@@ -1,0 +1,45 @@
+{
+  "encargo": "atlas-mapa-montana",
+  "tipo": "imagen",
+  "fecha": "2026-10-01T17:12:20.166Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f872-e206-72f1-a46b-55bf3a4ed2e6",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 2 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que tiene que seguir cada figura. No copies su pose ni su encuadre, que están de frente y a la altura de los ojos.\n\nUna pieza suelta del mapa de aventura de un juego de estrategia por turnos: una montaña suelta, alta y escarpada, de picos nevados, con pinos en la falda.\nEs la pieza 14 de la imagen 1, la de la fila 4 y columna 2: dibuja lo mismo, con su composición, pero NADA de su pixel art ni de sus colores saturados. Píntala en el estilo de la imagen 2: ilustración pintada de fantasía medieval oscura, materiales gastados, paleta sobria y terrosa.\nUn único objeto, centrado y entero, sin estandartes ni banderas. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, como la imagen 2; nunca cenital ni de perfil. La luz viene de arriba a la izquierda.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/rpg/map-atlas.png",
+      "papel": "identidad",
+      "sha256": "92802dc62689eb1309ec4662b86b015a71d9f312d8c9d49430ba895f052152a1"
+    },
+    {
+      "ruta": "assets/mapa/muestras/pintado.webp",
+      "papel": "estilo",
+      "sha256": "2257bd10a5efa8f2c430c2d86609ac895750568961a4dea6dfddd4c8081e1838"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f872-e206-72f1-a46b-55bf3a4ed2e6/exec-bb77695a-36dc-4b5a-97f7-919d53931a3c.png",
+    "sha256": "3d18cc7fd7c6c075f85aef65703fc22072c243a3bd3521c21e02412b866ea3f9",
+    "ancho": 1774,
+    "alto": 887
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.44774274905422445,
+    "opacos": 0.9910785583878118,
+    "haloSuelto": 0,
+    "ancho": 1700,
+    "alto": 793
+  },
+  "salida": {
+    "ruta": "assets/mapa/atlas/montana.webp",
+    "sha256": "ec0b0a86f307b0964fb0204f782c1fe7905369aed8219e19c5e472d9679b0211"
+  }
+}

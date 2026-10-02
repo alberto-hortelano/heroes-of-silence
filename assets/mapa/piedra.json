@@ -1,0 +1,11 @@
+{
+  "imagen": "piedra.webp",
+  "sha256": "b0335d5067568151b099a1b166694bf2af07554a28209fced03b7501649f1a7c",
+  "ancho": 1445,
+  "alto": 1010,
+  "ancla": [
+    845,
+    985
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

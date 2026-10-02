@@ -1,0 +1,45 @@
+{
+  "encargo": "troll-maza-identidad",
+  "tipo": "identidad",
+  "fecha": "2026-10-01T17:39:15.589Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f88b-5daf-7660-9eb4-6ccd5f1fa4cd",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUn troll: gigante de piel gris azulada con musgo, cabeza pequeña, colmillos, grilletes rotos con cadenas en las muñecas, taparrabos, maza de madera con clavos de hierro empuñada a dos manos.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nUN solo personaje, de cuerpo entero, de pie, en la primera pose de reposo de la referencia de pose.\nCámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.\nLámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/dos-manos.png",
+      "papel": "pose",
+      "sha256": "669d14f9183e2e30fff6f6912dc82a44610b3fa07f107fbbb0f149a544531078"
+    },
+    {
+      "ruta": "assets/art/orkos/troll-con-maza.png",
+      "papel": "identidad",
+      "sha256": "426cb3253ba8e36ebe642ea824d2ba62585c7d537ea3f4b57755f8f76e5beedf"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f88b-5daf-7660-9eb4-6ccd5f1fa4cd/exec-e8622217-eb3c-4927-9937-72ae2831386e.png",
+    "sha256": "07b89d761029ac27d325dd0163e4f8d9d8a93fb5df4ef7fc684920b46e72a0f2",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.42759672044789104,
+    "opacos": 0.991272349607399,
+    "haloSuelto": 0,
+    "ancho": 1104,
+    "alto": 1183
+  },
+  "salida": {
+    "ruta": "assets/unidades/troll-maza/identidad.webp",
+    "sha256": "c97b20da608504dfbbf1d4835d6f54c0e953f4eac63254aaa575016e0e828f3a"
+  }
+}

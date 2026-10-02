@@ -1,0 +1,45 @@
+{
+  "encargo": "imperio-artillero-culebrina-identidad",
+  "tipo": "identidad",
+  "fecha": "2026-10-01T17:36:29.970Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f888-fee8-7c31-8c87-a4830079512b",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUn artillero: gorra de lana, mandil de cuero tiznado sobre ropa amarilla y negra, guantes gruesos, culebrina de mano (cañón largo y ligero de bronce con culata de madera) empuñada con las dos manos, bolsa de pólvora y botafuego al cinto. Sin cureña.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nUN solo personaje, de cuerpo entero, de pie, en la primera pose de reposo de la referencia de pose.\nCámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.\nLámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/ballesta.png",
+      "papel": "pose",
+      "sha256": "dca0fe826b054a07f1c1f5ced895f06c4a9654115f43873889ccb4cfb7c20008"
+    },
+    {
+      "ruta": "assets/art/imperio/artillero-con-culebrina.png",
+      "papel": "identidad",
+      "sha256": "bf10044f59eeccb79ad4b79698fbfa381903622c71c081a328231a159ab773b6"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f888-fee8-7c31-8c87-a4830079512b/exec-d08a38eb-8eb3-46d2-8d47-db42fcd6f15c.png",
+    "sha256": "50742a7bbc5e419265d1949490d33e83331f4e0d758535c58a7377fe5f804e8b",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.360418047226908,
+    "opacos": 0.9904237854119049,
+    "haloSuelto": 0,
+    "ancho": 877,
+    "alto": 1189
+  },
+  "salida": {
+    "ruta": "assets/unidades/imperio-artillero-culebrina/identidad.webp",
+    "sha256": "c55b00f517fab146b354666a3cf95c26d4a257433a9393f01ff34e919f9b382c"
+  }
+}

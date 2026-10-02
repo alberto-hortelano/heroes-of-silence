@@ -1,0 +1,45 @@
+{
+  "encargo": "goblin-lancero-identidad",
+  "tipo": "identidad",
+  "fecha": "2026-10-01T17:32:31.624Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f885-3192-7d62-aa6f-0c80bad7a909",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUn goblin lancero: pequeño y flaco, piel verde amarillenta, orejas largas, casco de hierro abollado, harapos, escudo redondo pequeño en la izquierda y lanza larga en la derecha.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nUN solo personaje, de cuerpo entero, de pie, en la primera pose de reposo de la referencia de pose.\nCámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.\nLámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/espada-escudo.png",
+      "papel": "pose",
+      "sha256": "d9cf91645424ef72f0b52de18c7c202add6af827718c2e809da70eae75964642"
+    },
+    {
+      "ruta": "assets/art/orkos/goblin-lancero.png",
+      "papel": "identidad",
+      "sha256": "91ee028e9b3ff9f4d065f3c6d3b5a7f729d574184e797c1c1f3ef079a8af2c96"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f885-3192-7d62-aa6f-0c80bad7a909/exec-22f1cacb-9343-4c8b-a703-1e7f25b0d2f9.png",
+    "sha256": "2a195afdf9fc44be380d6091741bf8e82686bbbfa89280bec3fdbe5c6340a778",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.2890190642281149,
+    "opacos": 0.9835030943785457,
+    "haloSuelto": 0,
+    "ancho": 856,
+    "alto": 1254
+  },
+  "salida": {
+    "ruta": "assets/unidades/goblin-lancero/identidad.webp",
+    "sha256": "7671ab25fe5462bbad46ff8b3f8ded40bd8453911c9d8b067468ce858f59fe17"
+  }
+}

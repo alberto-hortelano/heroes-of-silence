@@ -1,0 +1,45 @@
+{
+  "encargo": "imperio-alabardero-identidad",
+  "tipo": "identidad",
+  "fecha": "2026-10-01T17:36:21.335Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f888-d5a4-7ac0-af76-6eaaba34ebaf",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUn alabardero lansquenete: morrión de acero, peto, mangas y calzas acuchilladas a franjas amarillas y negras con forros rojos, alabarda empuñada a dos manos y espada corta al cinto.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nUN solo personaje, de cuerpo entero, de pie, en la primera pose de reposo de la referencia de pose.\nCámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.\nLámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/dos-manos.png",
+      "papel": "pose",
+      "sha256": "669d14f9183e2e30fff6f6912dc82a44610b3fa07f107fbbb0f149a544531078"
+    },
+    {
+      "ruta": "assets/art/imperio/alabardero.png",
+      "papel": "identidad",
+      "sha256": "8e5f1f2bc3e299002b4c788313742b1386eceeba589cbaef8a2bc2c7296aad1e"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f888-d5a4-7ac0-af76-6eaaba34ebaf/exec-42ddbe47-539c-45a3-ba24-c4ad505b217f.png",
+    "sha256": "7e0353bd15865e118265f438587485092505824f36c42ad074ad178ca2254e84",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.24780716821252718,
+    "opacos": 0.9868173506637533,
+    "haloSuelto": 0,
+    "ancho": 1065,
+    "alto": 1148
+  },
+  "salida": {
+    "ruta": "assets/unidades/imperio-alabardero/identidad.webp",
+    "sha256": "00c933b0495cb334ae42d6ce60004f9856c5d4a8464290b9d2c09a69e6f08ced"
+  }
+}

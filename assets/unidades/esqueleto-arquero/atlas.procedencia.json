@@ -1,0 +1,51 @@
+{
+  "encargo": "esqueleto-arquero-atlas",
+  "tipo": "atlas",
+  "fecha": "2026-10-01T15:30:36.707Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f810-8b26-7d62-b687-4fc2adab7440",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que tiene que seguir cada figura. No copies su pose ni su encuadre, que están de frente y a la altura de los ojos.\n\nUn esqueleto arquero: huesos amarillentos, capucha y harapos oscuros, carcaj a la espalda y arco largo en la mano izquierda.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete poses de ataque de la fila 3.\nMisma cámara ortográfica elevada 25 grados en las tres filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos. El personaje mira a la derecha y al frente como el maniquí.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 256 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/arco.png",
+      "papel": "pose",
+      "sha256": "0cc647db8371233b32dbd4e653313f0053cc8424798c289e67b408f270a6b618"
+    },
+    {
+      "ruta": "assets/unidades/esqueleto-arquero/identidad.webp",
+      "papel": "identidad",
+      "sha256": "531678e7256ae074ab783591778f7a91a7efd6d2ebee320d9511e1b1fdd28a4c"
+    },
+    {
+      "ruta": "assets/art/no-muertos/esqueleto-arquero.png",
+      "papel": "estilo",
+      "sha256": "04f6c10cdbc8d48c62a46a3a3edcb84fe40ab18063e964c37aa5c29ea71a0b8b"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f810-8b26-7d62-b687-4fc2adab7440/exec-74c6a7c6-f52e-4ff0-ab35-0e3272bf0cad.png",
+    "sha256": "3809f57eb5a607f9fb599d3b5362c967a3195169ce2fdc9320072123f72100bb",
+    "ancho": 1915,
+    "alto": 821
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "figuras localizadas y empaquetadas en 7×3 celdas de 256, escala uniforme 0.7960, pies en y=228, reposo a 160 px",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: altura 162, fotogramas 7/7/7"
+  ],
+  "validacion": {
+    "visibles": 0.11457388741629464,
+    "opacos": 0.922857885758135,
+    "haloSuelto": 0,
+    "ancho": 1792,
+    "alto": 768
+  },
+  "salida": {
+    "ruta": "assets/unidades/esqueleto-arquero/atlas.webp",
+    "sha256": "2d0e24c80d67d84fcd359a5d46c9ed03ca9779589e2980f2c98b3869fca7c5c1"
+  }
+}

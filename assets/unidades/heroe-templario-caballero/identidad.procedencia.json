@@ -1,0 +1,45 @@
+{
+  "encargo": "heroe-templario-caballero-identidad",
+  "tipo": "identidad",
+  "fecha": "2026-10-01T15:56:50.026Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f82d-9aa6-7c82-9584-0b92eb361132",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que tiene que seguir cada figura. No copies su pose ni su encuadre, que están de frente y a la altura de los ojos.\n\nUn caballero templario veterano, líder de primera línea: armadura de placas completa y cuidada con filos dorados, sobrevesta blanca impecable con gran cruz roja, capa blanca corta, yelmo abierto con nasal que deja ver un rostro curtido de barba gris, escudo de cometa con cruz roja y espada larga de una mano.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nUN solo personaje, de cuerpo entero, de pie, en la primera pose de reposo de la referencia de pose.\nCámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.\nLámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/espada-escudo.png",
+      "papel": "pose",
+      "sha256": "d9cf91645424ef72f0b52de18c7c202add6af827718c2e809da70eae75964642"
+    },
+    {
+      "ruta": "assets/art/templarios/guerrero-con-escudo.png",
+      "papel": "estilo",
+      "sha256": "be91381e9343b31c50ffa617668920c4d950c59351dbe5e0b71534cffb8e5f28"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f82d-9aa6-7c82-9584-0b92eb361132/exec-ec012164-1e43-470d-8ba2-f7b1327e8330.png",
+    "sha256": "41f1debb89d6c3eb917114da8a0c5e2aa25c4f0fcb3e0b167ab19f0d9362bd76",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.4627915364880998,
+    "opacos": 0.9929438781446834,
+    "haloSuelto": 0,
+    "ancho": 825,
+    "alto": 1193
+  },
+  "salida": {
+    "ruta": "assets/unidades/heroe-templario-caballero/identidad.webp",
+    "sha256": "ef8a70592278c434d39d42aa0255848c513ebcdd88c2bdd80fe5f347aa65f52d"
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "encargo": "goblin-arquero-identidad",
+  "tipo": "identidad",
+  "fecha": "2026-10-01T17:31:33.354Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f884-4297-7a90-9e30-e87ba15fe816",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUn goblin arquero: pequeño, piel verde amarillenta, capucha y pañuelo rojos tapándole la boca, harapos de cuero, carcaj de flechas a la espalda, arco corto tosco.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nUN solo personaje, de cuerpo entero, de pie, en la primera pose de reposo de la referencia de pose.\nCámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.\nLámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/arco.png",
+      "papel": "pose",
+      "sha256": "0cc647db8371233b32dbd4e653313f0053cc8424798c289e67b408f270a6b618"
+    },
+    {
+      "ruta": "assets/art/orkos/goblin-arquero.png",
+      "papel": "identidad",
+      "sha256": "bde90f186612234e7597063286c64a5e222b6f8d5f83f89a74aa404e79e961fa"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f884-4297-7a90-9e30-e87ba15fe816/exec-b074313d-2acf-4762-b541-f776f7e0c657.png",
+    "sha256": "df4a5193b5c875c2018b465b3ca082f89d0d5e6517821a8cb425fa5e8c7bc819",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.39570366795764916,
+    "opacos": 0.9841174707821396,
+    "haloSuelto": 0,
+    "ancho": 869,
+    "alto": 1116
+  },
+  "salida": {
+    "ruta": "assets/unidades/goblin-arquero/identidad.webp",
+    "sha256": "948b84468405aebeec54da0986cfe186a27a4dc6209d71804628e4d32ad8b520"
+  }
+}

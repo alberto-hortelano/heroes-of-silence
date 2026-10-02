@@ -1,0 +1,94 @@
+{
+  "perfil": "dos-manos",
+  "ataque": "tajo amplio con las dos manos",
+  "model": "y_bot",
+  "renderer": "sprite-forge",
+  "spriteForgeCommit": "b2d9ba97384c4f78b53aee2903471a70492ecb34",
+  "camera": {
+    "pitchDegrees": -25,
+    "direction": 2,
+    "directions": 8,
+    "projection": "orthographic",
+    "ortho": 2.8
+  },
+  "cell": 256,
+  "columns": 7,
+  "clips": [
+    {
+      "clip": "idle",
+      "anim": "idle",
+      "indices": [
+        0,
+        3,
+        6,
+        9,
+        12,
+        15,
+        18
+      ],
+      "sourceMetadata": {
+        "angle": "tactical_25",
+        "anim": "idle",
+        "directions": 8,
+        "duration": 3.6666666666666665,
+        "fps": 6,
+        "frame_count": 22,
+        "frame_height": 256,
+        "frame_width": 256,
+        "generated_at": "2026-10-01T15:00:10",
+        "model": "y_bot"
+      }
+    },
+    {
+      "clip": "walk",
+      "anim": "walk",
+      "indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "sourceMetadata": {
+        "angle": "tactical_25",
+        "anim": "walk",
+        "directions": 8,
+        "duration": 1.1,
+        "fps": 6,
+        "frame_count": 7,
+        "frame_height": 256,
+        "frame_width": 256,
+        "generated_at": "2026-10-01T15:00:11",
+        "model": "y_bot"
+      }
+    },
+    {
+      "clip": "attack",
+      "anim": "heavy",
+      "indices": [
+        0,
+        1,
+        3,
+        4,
+        5,
+        7,
+        8
+      ],
+      "sourceMetadata": {
+        "angle": "tactical_25",
+        "anim": "heavy",
+        "directions": 8,
+        "duration": 1.5,
+        "fps": 6,
+        "frame_count": 9,
+        "frame_height": 256,
+        "frame_width": 256,
+        "generated_at": "2026-10-01T15:00:12",
+        "model": "y_bot"
+      }
+    }
+  ],
+  "sha256": "669d14f9183e2e30fff6f6912dc82a44610b3fa07f107fbbb0f149a544531078"
+}

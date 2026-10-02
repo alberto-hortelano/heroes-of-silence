@@ -1,0 +1,52 @@
+{
+  "encargo": "imperio-alabardero-atlas-c1",
+  "tipo": "atlas",
+  "fecha": "2026-10-01T17:54:44.007Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f893-473b-78e3-9532-2b8cc69c5d0b",
+  "reanuda": "01a0f893-473b-78e3-9532-2b8cc69c5d0b",
+  "prompt": "Corrige la última imagen que has generado en esta conversación, con la herramienta de imágenes, conservando la identidad del personaje y todo lo que no se menciona.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que tiene que seguir cada figura. No copies su pose ni su encuadre, que están de frente y a la altura de los ojos.\n\nEn la fila 3, la del ataque, las armas invaden la celda vecina y tocan a la figura de al lado. Repite la hoja ENTERA con las mismas poses, pero con cada figura y su arma dentro de su propia celda: deja al menos 50 píxeles de aire libre entre figuras vecinas y, si un arma extendida no cabe, recoge el brazo o inclina el arma hacia arriba en vez de invadir la celda vecina.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete poses de ataque de la fila 3.\nMisma cámara ortográfica elevada 25 grados en las tres filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos. El personaje mira a la derecha y al frente como el maniquí.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 256 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/dos-manos.png",
+      "papel": "pose",
+      "sha256": "669d14f9183e2e30fff6f6912dc82a44610b3fa07f107fbbb0f149a544531078"
+    },
+    {
+      "ruta": "assets/unidades/imperio-alabardero/identidad.webp",
+      "papel": "identidad",
+      "sha256": "00c933b0495cb334ae42d6ce60004f9856c5d4a8464290b9d2c09a69e6f08ced"
+    },
+    {
+      "ruta": "assets/art/imperio/alabardero.png",
+      "papel": "estilo",
+      "sha256": "8e5f1f2bc3e299002b4c788313742b1386eceeba589cbaef8a2bc2c7296aad1e"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f893-473b-78e3-9532-2b8cc69c5d0b/exec-2185c1dd-c2ff-4a44-bdd2-7624763282cd.png",
+    "sha256": "eaa054d121f139115e98db04b4511f50a14edc0be9b5e5c212cd2a1da866f4b9",
+    "ancho": 1915,
+    "alto": 821
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "figuras localizadas y empaquetadas en 7×3 celdas de 256, escala uniforme 0.7240, pies en y=228, reposo a 160 px",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: altura 161, fotogramas 7/7/7"
+  ],
+  "validacion": {
+    "visibles": 0.09180341448102679,
+    "opacos": 0.9354861688234596,
+    "haloSuelto": 0,
+    "ancho": 1792,
+    "alto": 768
+  },
+  "salida": {
+    "ruta": "assets/unidades/imperio-alabardero/atlas.webp",
+    "sha256": "1e12996534e109e17ad372b2200f0f0e425f5b18864746f3925bfd381d027e3a"
+  }
+}

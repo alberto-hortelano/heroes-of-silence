@@ -1,0 +1,45 @@
+{
+  "encargo": "heroe-imperio-capitan-mercenario-identidad",
+  "tipo": "identidad",
+  "fecha": "2026-10-01T17:33:58.475Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f886-8b25-75c3-a5cb-25b2a6341a37",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que tiene que seguir cada figura. No copies su pose ni su encuadre, que están de frente y a la altura de los ojos.\n\nUn capitán mercenario lansquenete: sombrero enorme con plumas rojas y amarillas, ropa acuchillada llamativa, peto de acero abollado, bigote, espada katzbalger en la derecha y una bolsa de monedas al cinto. Sin escudo.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nUN solo personaje, de cuerpo entero, de pie, en la primera pose de reposo de la referencia de pose.\nCámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.\nLámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/espada-escudo.png",
+      "papel": "pose",
+      "sha256": "d9cf91645424ef72f0b52de18c7c202add6af827718c2e809da70eae75964642"
+    },
+    {
+      "ruta": "assets/art/imperio/rodelero.png",
+      "papel": "estilo",
+      "sha256": "2f0053280ce460ed9f4d2b8a0eee758be0bfb1d359d5038a88f3a500aa45a3f5"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f886-8b25-75c3-a5cb-25b2a6341a37/exec-3fbd62d3-a218-402a-b734-4f78b7cd9361.png",
+    "sha256": "654886412cdc90ec84843ec2c6fac6c100e35d39151df2e331ef9f916d9dbb68",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.31189223548115985,
+    "opacos": 0.9809282926176782,
+    "haloSuelto": 0.000055935892603086204,
+    "ancho": 1053,
+    "alto": 1252
+  },
+  "salida": {
+    "ruta": "assets/unidades/heroe-imperio-capitan-mercenario/identidad.webp",
+    "sha256": "d8060699c6671843299fd444a23b35348aa6c3e84ed010e47f483da3ebcc9fa5"
+  }
+}

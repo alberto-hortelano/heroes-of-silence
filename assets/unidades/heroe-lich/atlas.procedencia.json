@@ -1,0 +1,51 @@
+{
+  "encargo": "heroe-lich-atlas",
+  "tipo": "atlas",
+  "fecha": "2026-10-01T16:00:10.470Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f830-902f-71a0-8254-fff6b4b76db9",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que tiene que seguir cada figura. No copies su pose ni su encuadre, que están de frente y a la altura de los ojos.\n\nUn lich: esqueleto de mago con corona de hierro oxidada, túnica ceremonial negra y verde podrida con hilos de oro deshilachados, manos huesudas con anillos, filacteria colgada al cuello, bastón alto de hueso rematado en una gema verde.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete poses de ataque de la fila 3.\nMisma cámara ortográfica elevada 25 grados en las tres filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos. El personaje mira a la derecha y al frente como el maniquí.\nMisma escala en todas las celdas: la figura de pie ocupa unos 168 de cada 256 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/baston.png",
+      "papel": "pose",
+      "sha256": "ed53da07a9c45eb3e1982b4ffa763ba185b48269b73bc292d18f061eeb10d81a"
+    },
+    {
+      "ruta": "assets/unidades/heroe-lich/identidad.webp",
+      "papel": "identidad",
+      "sha256": "e623082b99f3934f533869f500be739bea3c493f03994f56721f2eba5c2d1096"
+    },
+    {
+      "ruta": "assets/art/no-muertos/esqueleto-guerrero.png",
+      "papel": "estilo",
+      "sha256": "d6e1aa7c305e2b622f0d90ea3921b2688a8eaabb66a4c5e50a73321b1c1b10c8"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f830-902f-71a0-8254-fff6b4b76db9/exec-f5d19387-2441-45af-8cc1-c7ae38c3f7a9.png",
+    "sha256": "0eeb0cbd5e90a5529956ed972f5d19fb3b1fe3fba2cd4963b4e81f62c01c8887",
+    "ancho": 1915,
+    "alto": 821
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "figuras localizadas y empaquetadas en 7×3 celdas de 256, escala uniforme 0.7210, pies en y=228, reposo a 168 px",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: altura 169, fotogramas 7/7/7"
+  ],
+  "validacion": {
+    "visibles": 0.12545485723586308,
+    "opacos": 0.9266584809276142,
+    "haloSuelto": 0.000005791796499438196,
+    "ancho": 1792,
+    "alto": 768
+  },
+  "salida": {
+    "ruta": "assets/unidades/heroe-lich/atlas.webp",
+    "sha256": "e4340b4b8da534bd7f2acb3859705afe90247ed5f74bfb093fb05cb60868bacd"
+  }
+}

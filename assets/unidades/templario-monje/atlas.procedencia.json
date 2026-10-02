@@ -1,0 +1,51 @@
+{
+  "encargo": "templario-monje-atlas",
+  "tipo": "atlas",
+  "fecha": "2026-10-01T15:28:58.206Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f814-082c-74d2-873a-c6ecfc83f638",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que tiene que seguir cada figura. No copies su pose ni su encuadre, que están de frente y a la altura de los ojos.\n\nUn monje sanador: hábito de lana cruda con escapulario y cruz roja, tonsura, bolsa de vendas y hierbas al cinto, bastón alto de madera rematado en cruz en la mano derecha.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete poses de ataque de la fila 3.\nMisma cámara ortográfica elevada 25 grados en las tres filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos. El personaje mira a la derecha y al frente como el maniquí.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 256 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/baston.png",
+      "papel": "pose",
+      "sha256": "ed53da07a9c45eb3e1982b4ffa763ba185b48269b73bc292d18f061eeb10d81a"
+    },
+    {
+      "ruta": "assets/unidades/templario-monje/identidad.webp",
+      "papel": "identidad",
+      "sha256": "a6ba13e846f57533f1bbbb93fa2790062381113407ab24a48f8f644f334a41ad"
+    },
+    {
+      "ruta": "assets/art/templarios/monje.png",
+      "papel": "estilo",
+      "sha256": "c17252f7c9fd4991b31a5679739bcc55e3ff78133051e8dce7b7c14c875581dc"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f814-082c-74d2-873a-c6ecfc83f638/exec-7d783163-66f8-499d-81a2-dcc6c39872d7.png",
+    "sha256": "c59ac1000da80a60ef5006fe954bb12502269391a02d26d8a94dce62b9692408",
+    "ancho": 1915,
+    "alto": 821
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "figuras localizadas y empaquetadas en 7×3 celdas de 256, escala uniforme 0.7656, pies en y=228, reposo a 160 px",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: altura 156, fotogramas 7/7/7"
+  ],
+  "validacion": {
+    "visibles": 0.12570699055989584,
+    "opacos": 0.9508280107511343,
+    "haloSuelto": 0,
+    "ancho": 1792,
+    "alto": 768
+  },
+  "salida": {
+    "ruta": "assets/unidades/templario-monje/atlas.webp",
+    "sha256": "291bc010afa15d43f45566683ea5f4276d6249cb4e2ab1e68bc7ddf2b8ca4366"
+  }
+}

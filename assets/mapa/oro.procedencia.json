@@ -1,0 +1,41 @@
+{
+  "encargo": "mapa-oro",
+  "tipo": "imagen",
+  "fecha": "2026-10-01T16:45:07.884Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f859-6afb-7810-96d8-d0d56f574a68",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que tiene que seguir cada figura. No copies su pose ni su encuadre, que están de frente y a la altura de los ojos.\n\nUna pieza suelta del mapa de aventura de un juego de estrategia por turnos. Dibuja SOLO la pieza 7 de la imagen de estilo (el recurso oro: un montón de monedas y lingotes de oro en un arcón abierto), con su mismo diseño, materiales y colores.\nUn único objeto, centrado y entero. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, la misma de la imagen de estilo; nunca cenital ni de perfil. La luz viene de arriba a la izquierda. Sin estandartes ni banderas: la bandera del dueño la pone el juego.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/pintado.webp",
+      "papel": "estilo",
+      "sha256": "2257bd10a5efa8f2c430c2d86609ac895750568961a4dea6dfddd4c8081e1838"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f859-6afb-7810-96d8-d0d56f574a68/exec-89ba6c23-8c71-4244-92f2-60b60031afb1.png",
+    "sha256": "dd8bf19219436b33eacf490f422f8b5a87afc6f496317484f600ad3610b5f7cb",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: 1308×1024, ancla en (692,1002)"
+  ],
+  "validacion": {
+    "visibles": 0.5841314566609327,
+    "opacos": 0.9959342059687032,
+    "haloSuelto": 0,
+    "ancho": 1308,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/mapa/oro.webp",
+    "sha256": "e503fb7830fd692b03507e105893e157b9ba012fa1d6f577808a90cc0b800a25"
+  }
+}

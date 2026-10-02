@@ -1,0 +1,45 @@
+{
+  "encargo": "heroe-orko-kaudillo-identidad",
+  "tipo": "identidad",
+  "fecha": "2026-10-01T17:35:22.470Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f887-b6b7-74a2-9dc2-5893afbd4cc1",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que tiene que seguir cada figura. No copies su pose ni su encuadre, que están de frente y a la altura de los ojos.\n\nUn kaudillo orko enorme: armadura de placas de chatarra con pinchos y cráneos, capa de piel de lobo, cuernos en el casco, cicatrices, gran cuchilla de carnicero empuñada a dos manos.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nUN solo personaje, de cuerpo entero, de pie, en la primera pose de reposo de la referencia de pose.\nCámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.\nLámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/dos-manos.png",
+      "papel": "pose",
+      "sha256": "669d14f9183e2e30fff6f6912dc82a44610b3fa07f107fbbb0f149a544531078"
+    },
+    {
+      "ruta": "assets/art/orkos/orko-con-hacha-y-escudo.png",
+      "papel": "estilo",
+      "sha256": "cd64488118da9d64d21496454e5a924b3715dcd0b0bae3baec82912d1e894e63"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f887-b6b7-74a2-9dc2-5893afbd4cc1/exec-b210db9c-6ad6-43ab-ad64-4f4497434151.png",
+    "sha256": "91b1fa4d1d6902e4ed2d636d4b3a0a34183e45a5360b522d609368b09222a931",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.4415008004228876,
+    "opacos": 0.9879793669609466,
+    "haloSuelto": 0,
+    "ancho": 1068,
+    "alto": 1247
+  },
+  "salida": {
+    "ruta": "assets/unidades/heroe-orko-kaudillo/identidad.webp",
+    "sha256": "d0271fcbfad3e4a8cfcadbc41190f3a062a7d5379c93dfbab468fbfcdd4c562a"
+  }
+}

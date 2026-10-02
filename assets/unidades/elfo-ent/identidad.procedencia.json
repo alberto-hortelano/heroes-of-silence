@@ -1,0 +1,45 @@
+{
+  "encargo": "elfo-ent-identidad",
+  "tipo": "identidad",
+  "fecha": "2026-10-01T17:30:12.137Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f882-f651-7821-b5a4-dd5ca34f3c0d",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUn ent, guardián arbóreo: gigante de corteza y raíces retorcidas, musgo y ramas en la cabeza, cuerpo de tronco nudoso, brazos largos con manos de raíz. Sin armas. Muy lento y muy duro.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nUN solo personaje, de cuerpo entero, de pie, en la primera pose de reposo de la referencia de pose.\nCámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.\nLámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/dos-manos.png",
+      "papel": "pose",
+      "sha256": "669d14f9183e2e30fff6f6912dc82a44610b3fa07f107fbbb0f149a544531078"
+    },
+    {
+      "ruta": "assets/art/elfos/ent-guardian-arboreo.png",
+      "papel": "identidad",
+      "sha256": "6a55d19f72fe1ea4623957a005123781a75188ac9068f6e7cdca949f987e7996"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f882-f651-7821-b5a4-dd5ca34f3c0d/exec-1c3d6db1-1350-43c6-a337-ef5231b7cdc3.png",
+    "sha256": "e36e5ab18e3b503fa63a751e0bb3253b12d4f0f04a4577a01b901a2a2cfec91d",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.3765466297322253,
+    "opacos": 0.9717285656961969,
+    "haloSuelto": 0.000008917027063177137,
+    "ancho": 950,
+    "alto": 1254
+  },
+  "salida": {
+    "ruta": "assets/unidades/elfo-ent/identidad.webp",
+    "sha256": "08b47eb4089f3772ba7b27102124f0aae8e9b3f57cdcc7335f9af4250b87dd88"
+  }
+}

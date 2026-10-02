@@ -1,0 +1,51 @@
+{
+  "encargo": "heroe-nigromante-atlas",
+  "tipo": "atlas",
+  "fecha": "2026-10-01T16:00:09.861Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f830-97fe-75b3-8a89-a3ab493eb6a7",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que tiene que seguir cada figura. No copies su pose ni su encuadre, que están de frente y a la altura de los ojos.\n\nUn nigromante: túnica larga negra y morada raída, capucha echada hacia atrás, rostro pálido y demacrado, collar de huesos de dedos, bastón de madera negra rematado en un cráneo con un tenue brillo verde en las cuencas.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete poses de ataque de la fila 3.\nMisma cámara ortográfica elevada 25 grados en las tres filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos. El personaje mira a la derecha y al frente como el maniquí.\nMisma escala en todas las celdas: la figura de pie ocupa unos 166 de cada 256 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/baston.png",
+      "papel": "pose",
+      "sha256": "ed53da07a9c45eb3e1982b4ffa763ba185b48269b73bc292d18f061eeb10d81a"
+    },
+    {
+      "ruta": "assets/unidades/heroe-nigromante/identidad.webp",
+      "papel": "identidad",
+      "sha256": "c364ede870e134be1627886754be5e6fe51d23b8fa782bbf47cbbf829d37372e"
+    },
+    {
+      "ruta": "assets/art/no-muertos/esqueleto-guerrero.png",
+      "papel": "estilo",
+      "sha256": "d6e1aa7c305e2b622f0d90ea3921b2688a8eaabb66a4c5e50a73321b1c1b10c8"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f830-97fe-75b3-8a89-a3ab493eb6a7/exec-70d5f2de-c29f-4d41-a8fa-5a5ee05480b6.png",
+    "sha256": "41e80003d531691e56de94a72f6a5ff39fe71472d13907c9bb0ed190f51fa9c2",
+    "ancho": 1915,
+    "alto": 821
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "figuras localizadas y empaquetadas en 7×3 celdas de 256, escala uniforme 0.7981, pies en y=228, reposo a 166 px",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: altura 162, fotogramas 7/7/7"
+  ],
+  "validacion": {
+    "visibles": 0.14801751999627977,
+    "opacos": 0.9290952825094497,
+    "haloSuelto": 0.000004908939178243581,
+    "ancho": 1792,
+    "alto": 768
+  },
+  "salida": {
+    "ruta": "assets/unidades/heroe-nigromante/atlas.webp",
+    "sha256": "ed877f9444fa0745b20b30cd6ffdfcba72c63f535caafd89bb71d831bc316f3e"
+  }
+}

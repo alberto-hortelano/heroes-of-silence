@@ -1,0 +1,45 @@
+{
+  "encargo": "templario-escudo-identidad",
+  "tipo": "identidad",
+  "fecha": "2026-10-01T15:21:39.365Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f80d-6bab-7773-a956-ce39dc6bbf20",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUn templario de infantería: armadura de placas sobre cota de malla, sobrevesta blanca con cruz roja, yelmo cerrado de cubo, escudo de cometa con cruz roja en el brazo izquierdo y espada de una mano en la derecha.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nUN solo personaje, de cuerpo entero, de pie, en la primera pose de reposo de la referencia de pose.\nCámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.\nLámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/espada-escudo.png",
+      "papel": "pose",
+      "sha256": "d9cf91645424ef72f0b52de18c7c202add6af827718c2e809da70eae75964642"
+    },
+    {
+      "ruta": "assets/art/templarios/guerrero-con-escudo.png",
+      "papel": "identidad",
+      "sha256": "be91381e9343b31c50ffa617668920c4d950c59351dbe5e0b71534cffb8e5f28"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f80d-6bab-7773-a956-ce39dc6bbf20/exec-b7ffc197-66d6-44bd-ad3f-4aa5cad16552.png",
+    "sha256": "17f75d94c4fa7ec9f14fd64559d050cd34ca8a2b4a90293ccc2d9b84587cbb71",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.48482157912175633,
+    "opacos": 0.9907774699817835,
+    "haloSuelto": 0,
+    "ancho": 723,
+    "alto": 1173
+  },
+  "salida": {
+    "ruta": "assets/unidades/templario-escudo/identidad.webp",
+    "sha256": "1383b4b4ce453c47a863bbba20e81219a0b28fcdc54f1d43064af04c39eb3fd2"
+  }
+}

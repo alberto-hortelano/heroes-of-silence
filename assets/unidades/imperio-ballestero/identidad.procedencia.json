@@ -1,0 +1,45 @@
+{
+  "encargo": "imperio-ballestero-identidad",
+  "tipo": "identidad",
+  "fecha": "2026-10-01T17:37:39.422Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f889-e4cb-7fe1-8b3f-b36a612bb8b0",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUn ballestero: capacete, jubón acolchado amarillo y negro con mangas rojas, gran pavés con el águila imperial a la espalda, ballesta de acero empuñada con las dos manos y carcaj de virotes al cinto.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nUN solo personaje, de cuerpo entero, de pie, en la primera pose de reposo de la referencia de pose.\nCámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.\nLámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/ballesta.png",
+      "papel": "pose",
+      "sha256": "dca0fe826b054a07f1c1f5ced895f06c4a9654115f43873889ccb4cfb7c20008"
+    },
+    {
+      "ruta": "assets/art/imperio/ballestero.png",
+      "papel": "identidad",
+      "sha256": "fb309b446d9032681cdaf8f569478be45bdce0318b2b952887520e69283e7415"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f889-e4cb-7fe1-8b3f-b36a612bb8b0/exec-b80eb9e2-bbe4-452a-880b-2a452c343ca3.png",
+    "sha256": "d7fe34750e0b634c8ad634f0679c013604cbc84feaf24a6a932ecb52dc6a300e",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.40080209121255417,
+    "opacos": 0.9891013888067446,
+    "haloSuelto": 0,
+    "ancho": 798,
+    "alto": 1163
+  },
+  "salida": {
+    "ruta": "assets/unidades/imperio-ballestero/identidad.webp",
+    "sha256": "183b94b357e067feff5c8aefe7260a8490cde08aef57b6a35b8af64748ef91ff"
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "encargo": "imperio-rodelero-identidad",
+  "tipo": "identidad",
+  "fecha": "2026-10-01T17:37:57.835Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f88a-13ad-71f3-8674-e99afd918b94",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUn rodelero: morrión con pluma roja, peto de acero, ropa acuchillada roja y negra, rodela de acero redonda en el brazo izquierdo y espada ropera en la derecha.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nUN solo personaje, de cuerpo entero, de pie, en la primera pose de reposo de la referencia de pose.\nCámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.\nLámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/espada-escudo.png",
+      "papel": "pose",
+      "sha256": "d9cf91645424ef72f0b52de18c7c202add6af827718c2e809da70eae75964642"
+    },
+    {
+      "ruta": "assets/art/imperio/rodelero.png",
+      "papel": "identidad",
+      "sha256": "2f0053280ce460ed9f4d2b8a0eee758be0bfb1d359d5038a88f3a500aa45a3f5"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f88a-13ad-71f3-8674-e99afd918b94/exec-5385d55a-5422-48cb-8322-c2b0f58ef191.png",
+    "sha256": "d5072f8e951ea10133e8f9cc553ed9b408f85644c1a25a018772deb7a4cf1bf6",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.37472759108223924,
+    "opacos": 0.9867151036650544,
+    "haloSuelto": 0.000007937599881465174,
+    "ancho": 818,
+    "alto": 1233
+  },
+  "salida": {
+    "ruta": "assets/unidades/imperio-rodelero/identidad.webp",
+    "sha256": "948cbba0a98019b86a8cb7c91a98fd220b5868044687c7a069b697ead786e84b"
+  }
+}

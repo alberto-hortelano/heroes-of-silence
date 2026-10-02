@@ -1,0 +1,45 @@
+{
+  "encargo": "atlas-mapa-cofre",
+  "tipo": "imagen",
+  "fecha": "2026-10-01T17:07:15.404Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f86e-1ce7-7df3-a224-8fee4317fde5",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 2 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que tiene que seguir cada figura. No copies su pose ni su encuadre, que están de frente y a la altura de los ojos.\n\nUna pieza suelta del mapa de aventura de un juego de estrategia por turnos: un cofre del tesoro abierto lleno de monedas y joyas.\nEs la pieza 9 de la imagen 1, la de la fila 3 y columna 1: dibuja lo mismo, con su composición, pero NADA de su pixel art ni de sus colores saturados. Píntala en el estilo de la imagen 2: ilustración pintada de fantasía medieval oscura, materiales gastados, paleta sobria y terrosa.\nUn único objeto, centrado y entero, sin estandartes ni banderas. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, como la imagen 2; nunca cenital ni de perfil. La luz viene de arriba a la izquierda.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/rpg/map-atlas.png",
+      "papel": "identidad",
+      "sha256": "7c5cd7364bcefab2ddd4f3f0925decf872fff48a292cc9a6f0a6a7b3f527a55a"
+    },
+    {
+      "ruta": "assets/mapa/muestras/pintado.webp",
+      "papel": "estilo",
+      "sha256": "2257bd10a5efa8f2c430c2d86609ac895750568961a4dea6dfddd4c8081e1838"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f86e-1ce7-7df3-a224-8fee4317fde5/exec-f263146b-8c4d-434f-be5d-fd132c5264ad.png",
+    "sha256": "edf2b690810f7d10f4be3b41ee03740655e07e26afdd434e0c9ea76ed0738508",
+    "ancho": 1223,
+    "alto": 1286
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.624802696734782,
+    "opacos": 0.996739166661112,
+    "haloSuelto": 0,
+    "ancho": 1169,
+    "alto": 1027
+  },
+  "salida": {
+    "ruta": "assets/mapa/atlas/cofre.webp",
+    "sha256": "54d2bac80b18d1d97c9cbc66be41d765aa922b622bd1f2ff9b9a46fd52fb8e24"
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "encargo": "elfo-guardia-del-bosque-atlas-c1",
+  "tipo": "atlas",
+  "fecha": "2026-10-01T17:54:01.608Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f88e-3daf-7680-9e4f-5f38b7c40421",
+  "reanuda": "01a0f88e-3daf-7680-9e4f-5f38b7c40421",
+  "prompt": "Corrige la última imagen que has generado en esta conversación, con la herramienta de imágenes, conservando la identidad del personaje y todo lo que no se menciona.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que tiene que seguir cada figura. No copies su pose ni su encuadre, que están de frente y a la altura de los ojos.\n\nEn la fila 3, la del ataque, las armas invaden la celda vecina y tocan a la figura de al lado. Repite la hoja ENTERA con las mismas poses, pero con cada figura y su arma dentro de su propia celda: deja al menos 50 píxeles de aire libre entre figuras vecinas y, si un arma extendida no cabe, recoge el brazo o inclina el arma hacia arriba en vez de invadir la celda vecina.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete poses de ataque de la fila 3.\nMisma cámara ortográfica elevada 25 grados en las tres filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos. El personaje mira a la derecha y al frente como el maniquí.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 256 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/espada-escudo.png",
+      "papel": "pose",
+      "sha256": "d9cf91645424ef72f0b52de18c7c202add6af827718c2e809da70eae75964642"
+    },
+    {
+      "ruta": "assets/unidades/elfo-guardia-del-bosque/identidad.webp",
+      "papel": "identidad",
+      "sha256": "cd7b45072f398ed712f64db1d46fcdf31c88a02627b1a2d07950eae496ed2cfd"
+    },
+    {
+      "ruta": "assets/art/elfos/guardia-del-bosque.png",
+      "papel": "estilo",
+      "sha256": "782609dddae805c994ede85fbfc5a72236884072af1209636f302e5b92a71ac1"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f88e-3daf-7680-9e4f-5f38b7c40421/exec-88a64204-386d-4e0c-944d-0644dd7f8425.png",
+    "sha256": "0736cb92e2a421ecb7ec083560bf11843fea5ec9355c44c5e2e4fc4d01951b90",
+    "ancho": 1915,
+    "alto": 821
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "figuras localizadas y empaquetadas en 7×3 celdas de 256, escala uniforme 0.8247, pies en y=228, reposo a 160 px",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: altura 158, fotogramas 7/7/7"
+  ],
+  "validacion": {
+    "visibles": 0.13339088076636904,
+    "opacos": 0.9600065366597669,
+    "haloSuelto": 0,
+    "ancho": 1792,
+    "alto": 768
+  },
+  "salida": {
+    "ruta": "assets/unidades/elfo-guardia-del-bosque/atlas.webp",
+    "sha256": "28e6afffc7bf0314ed2573a1140c47316bdb789066e7c3e221d889d10208e41e"
+  }
+}

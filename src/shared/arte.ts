@@ -21,6 +21,28 @@ export const ARTE = {
   },
 } as const;
 
+/**
+ * Cómo es una hoja de figura del taller (`tools/taller`): la rejilla, la cámara
+ * con la que sprite-forge renderiza el maniquí de referencia y dónde caen los
+ * pies. Lo leen el renderizador de poses, el que empaqueta lo que devuelve Codex
+ * y el que deriva el JSON de cada hoja: una sola declaración para los tres.
+ */
+export const FIGURA = {
+  celda: 256,
+  columnas: 7,
+  camara: {
+    elevacionGrados: ARTE.camara.elevacionGrados,
+    /** Alto del encuadre ortográfico en metros: un humanoide de 1,8 m con margen. */
+    ortho: 2.8,
+    /** De las 8 direcciones de sprite-forge, la que mira a la derecha y al frente. */
+    direccion: 2,
+  },
+  /** Altura de un adulto dentro de su celda, en píxeles (la dirección artística pide ~160). */
+  alturaAdulto: 160,
+  /** La línea de los pies dentro de la celda. */
+  base: 228,
+} as const;
+
 /** Cuánto se aplasta el suelo visto a 25°: `sin 25°`. */
 export const COMPRESION_SUELO = Math.sin((ARTE.camara.elevacionGrados * Math.PI) / 180);
 

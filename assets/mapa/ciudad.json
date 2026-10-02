@@ -1,0 +1,11 @@
+{
+  "imagen": "ciudad.webp",
+  "sha256": "8ac4c00a16fde1e53774817b5798ab28fbe95126f504d5c3ab70a9a24dcccb61",
+  "ancho": 1290,
+  "alto": 963,
+  "ancla": [
+    689,
+    938
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

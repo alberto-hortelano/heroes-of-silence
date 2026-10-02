@@ -1,0 +1,41 @@
+{
+  "encargo": "mapa-nodo-torre",
+  "tipo": "imagen",
+  "fecha": "2026-10-01T16:44:37.530Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f859-60a8-7fa3-9500-b03226cc2cc5",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que tiene que seguir cada figura. No copies su pose ni su encuadre, que están de frente y a la altura de los ojos.\n\nUna pieza suelta del mapa de aventura de un juego de estrategia por turnos. Dibuja SOLO la pieza 4 de la imagen de estilo (el mismo nodo con una fortificación de piedra: una torre de vigía cuadrada con almenas y el hito al pie), con su mismo diseño, materiales y colores.\nUn único objeto, centrado y entero. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, la misma de la imagen de estilo; nunca cenital ni de perfil. La luz viene de arriba a la izquierda. Sin estandartes ni banderas: la bandera del dueño la pone el juego.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/pintado.webp",
+      "papel": "estilo",
+      "sha256": "2257bd10a5efa8f2c430c2d86609ac895750568961a4dea6dfddd4c8081e1838"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f859-60a8-7fa3-9500-b03226cc2cc5/exec-e38000ad-46c5-468c-bb1f-9d3033cda3ba.png",
+    "sha256": "199806ae8d304c31ebc7bcbe8f7ebe448f19b14da50f081c10c079589a3ecb94",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: 1144×1153, ancla en (566,1128)"
+  ],
+  "validacion": {
+    "visibles": 0.5802611308899254,
+    "opacos": 0.994636672097499,
+    "haloSuelto": 0,
+    "ancho": 1144,
+    "alto": 1153
+  },
+  "salida": {
+    "ruta": "assets/mapa/nodo-torre.webp",
+    "sha256": "4396fba7973fac54a50712ec26806c3360f056c79b2e928433eca7877697a4f3"
+  }
+}

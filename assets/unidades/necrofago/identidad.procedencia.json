@@ -1,0 +1,45 @@
+{
+  "encargo": "necrofago-identidad",
+  "tipo": "identidad",
+  "fecha": "2026-10-01T15:20:33.617Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f80c-6a0e-7b50-81f2-fc336a50c83c",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: solo define su aspecto (cara, ropa, armadura, armas, colores). No determina la cámara, la anatomía ni la pose.\n\nUn necrófago: humanoide flaco y encorvado sobre DOS piernas, piel cenicienta tirante sobre las costillas, garras largas, taparrabos de harapos, boca de dientes afilados. Sin armas.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nUN solo personaje, de cuerpo entero, de pie, en la primera pose de reposo de la referencia de pose.\nCámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.\nLámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/espada-escudo.png",
+      "papel": "pose",
+      "sha256": "d9cf91645424ef72f0b52de18c7c202add6af827718c2e809da70eae75964642"
+    },
+    {
+      "ruta": "assets/art/no-muertos/necrofago.png",
+      "papel": "identidad",
+      "sha256": "7559fe42e74ead51820f6d3bd30393d5b61198eea014998dc6a8bf76249f1c80"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f80c-6a0e-7b50-81f2-fc336a50c83c/exec-af0633d4-96cf-4aee-9bb8-2f5ff35c2a9d.png",
+    "sha256": "da3c32784395d891a02da6c6debf04c3682fc7f9f7488dbb2ed3fd9c501ce420",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.32694427364441714,
+    "opacos": 0.9607284530646504,
+    "haloSuelto": 0.009340749279940375,
+    "ancho": 738,
+    "alto": 1190
+  },
+  "salida": {
+    "ruta": "assets/unidades/necrofago/identidad.webp",
+    "sha256": "8f47abeea0186f1c6b72e88d4244ab07956757fba3a6bdb9ed8f7eb51d430564"
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "encargo": "mapa-montana-2",
+  "tipo": "imagen",
+  "fecha": "2026-10-01T16:43:24.417Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f857-cb9d-7c80-bf86-03fbe0c26113",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que tiene que seguir cada figura. No copies su pose ni su encuadre, que están de frente y a la altura de los ojos.\n\nUna pieza suelta del mapa de aventura de un juego de estrategia por turnos. Dibuja SOLO una variante nueva de la pieza 1 de la imagen de estilo (un tramo de cordillera infranqueable: picos rocosos altos y escarpados, sin paso posible, que pueda repetirse en cadena para cerrar el mapa): misma roca, misma nieve y misma escala, pero con otra silueta de picos, para que varias seguidas formen una cordillera sin repetirse.\nUn único objeto, centrado y entero. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, la misma de la imagen de estilo; nunca cenital ni de perfil. La luz viene de arriba a la izquierda. Sin estandartes ni banderas: la bandera del dueño la pone el juego.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/pintado.webp",
+      "papel": "estilo",
+      "sha256": "2257bd10a5efa8f2c430c2d86609ac895750568961a4dea6dfddd4c8081e1838"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f857-cb9d-7c80-bf86-03fbe0c26113/exec-28f688fa-eae0-4ff3-821d-bafed6c92e94.png",
+    "sha256": "dfffca7f2b7fcff94ebfd9d2de9bdcad1c57bd63e470cdf6565880babf24a35f",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: 1536×958, ancla en (1090,933)"
+  ],
+  "validacion": {
+    "visibles": 0.5050730960768963,
+    "opacos": 0.9956230347049081,
+    "haloSuelto": 0,
+    "ancho": 1536,
+    "alto": 958
+  },
+  "salida": {
+    "ruta": "assets/mapa/montana-2.webp",
+    "sha256": "ea7e2fb94809528b3b61b53a5c466eeee063f720bcc999f7eb8cb06dabf658c9"
+  }
+}

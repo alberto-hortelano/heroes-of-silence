@@ -1,0 +1,52 @@
+{
+  "encargo": "heroe-caballero-de-la-muerte-atlas-c1",
+  "tipo": "atlas",
+  "fecha": "2026-10-01T16:05:00.618Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f830-8810-7eb3-934b-676f07c653eb",
+  "reanuda": "01a0f830-8810-7eb3-934b-676f07c653eb",
+  "prompt": "Corrige la última imagen que has generado en esta conversación, con la herramienta de imágenes, conservando la identidad del personaje y todo lo que no se menciona.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que tiene que seguir cada figura. No copies su pose ni su encuadre, que están de frente y a la altura de los ojos.\n\nEn la fila 3, la del ataque, las armas invaden la celda vecina y tocan a la figura de al lado. Repite la hoja ENTERA con las mismas poses, pero con cada figura y su arma dentro de su propia celda: deja al menos 40 píxeles de aire libre entre figuras vecinas y, si un arma extendida no cabe, recoge un poco el brazo o inclina el arma hacia arriba en vez de invadir la celda vecina. La espada, como mucho de la altura del personaje.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete poses de ataque de la fila 3.\nMisma cámara ortográfica elevada 25 grados en las tres filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos. El personaje mira a la derecha y al frente como el maniquí.\nMisma escala en todas las celdas: la figura de pie ocupa unos 172 de cada 256 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/dos-manos.png",
+      "papel": "pose",
+      "sha256": "669d14f9183e2e30fff6f6912dc82a44610b3fa07f107fbbb0f149a544531078"
+    },
+    {
+      "ruta": "assets/unidades/heroe-caballero-de-la-muerte/identidad.webp",
+      "papel": "identidad",
+      "sha256": "6de47f1106ae3763fe731f144a16df45e882094b450cf6f8711890b653d096db"
+    },
+    {
+      "ruta": "assets/art/no-muertos/esqueleto-guerrero.png",
+      "papel": "estilo",
+      "sha256": "d6e1aa7c305e2b622f0d90ea3921b2688a8eaabb66a4c5e50a73321b1c1b10c8"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f830-8810-7eb3-934b-676f07c653eb/exec-e32fc7ab-7b50-44f2-bf70-e2a5b44e59a4.png",
+    "sha256": "c97186b78b32e9a15904d44be6a7e5be7984590f23cf5ae6a2f65084222a1dfc",
+    "ancho": 1916,
+    "alto": 821
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "figuras localizadas y empaquetadas en 7×3 celdas de 256, escala uniforme 0.8339, pies en y=228, reposo a 172 px",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: altura 172, fotogramas 7/7/7"
+  ],
+  "validacion": {
+    "visibles": 0.15590340750558035,
+    "opacos": 0.9490592506629755,
+    "haloSuelto": 0.000004660635803936373,
+    "ancho": 1792,
+    "alto": 768
+  },
+  "salida": {
+    "ruta": "assets/unidades/heroe-caballero-de-la-muerte/atlas.webp",
+    "sha256": "e424f82465cb9b2432996e2e78d4befce47f7ea708fb3778319fbe78436598c6"
+  }
+}

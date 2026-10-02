@@ -1,0 +1,51 @@
+{
+  "encargo": "heroe-imperio-ingeniero-atlas",
+  "tipo": "atlas",
+  "fecha": "2026-10-01T17:46:04.707Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f891-99ac-7241-b0f2-dc1be3c71add",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que tiene que seguir cada figura. No copies su pose ni su encuadre, que están de frente y a la altura de los ojos.\n\nUn ingeniero imperial: gafas de latón sobre la frente, mandil de cuero con herramientas, jubón amarillo y negro, rollo de planos a la espalda, martillo de guerra de una mano en la derecha.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete poses de ataque de la fila 3.\nMisma cámara ortográfica elevada 25 grados en las tres filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos. El personaje mira a la derecha y al frente como el maniquí.\nMisma escala en todas las celdas: la figura de pie ocupa unos 164 de cada 256 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/espada-escudo.png",
+      "papel": "pose",
+      "sha256": "d9cf91645424ef72f0b52de18c7c202add6af827718c2e809da70eae75964642"
+    },
+    {
+      "ruta": "assets/unidades/heroe-imperio-ingeniero/identidad.webp",
+      "papel": "identidad",
+      "sha256": "a868f08c746bd4c6c889489e258f879b9a9be6694d9cd3c25f863f49375e69f3"
+    },
+    {
+      "ruta": "assets/art/imperio/rodelero.png",
+      "papel": "estilo",
+      "sha256": "2f0053280ce460ed9f4d2b8a0eee758be0bfb1d359d5038a88f3a500aa45a3f5"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f891-99ac-7241-b0f2-dc1be3c71add/exec-b0d44305-62c5-4640-b318-15c30ceb2cbc.png",
+    "sha256": "d34739309a7112a7f467d4342451741e0801623259aef806f79e122a0449f7fa",
+    "ancho": 1915,
+    "alto": 821
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "figuras localizadas y empaquetadas en 7×3 celdas de 256, escala uniforme 0.7961, pies en y=228, reposo a 164 px",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: altura 162, fotogramas 7/7/7"
+  ],
+  "validacion": {
+    "visibles": 0.12487429664248512,
+    "opacos": 0.9563304802192495,
+    "haloSuelto": 0,
+    "ancho": 1792,
+    "alto": 768
+  },
+  "salida": {
+    "ruta": "assets/unidades/heroe-imperio-ingeniero/atlas.webp",
+    "sha256": "1c099548052d5f81b27d0e1f34b6df04428edebbc955c02d478e3c3c94940eed"
+  }
+}

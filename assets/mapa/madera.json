@@ -1,0 +1,11 @@
+{
+  "imagen": "madera.webp",
+  "sha256": "2068d899b60114f88910a1e5f80358252db6d2d6a7f1347c29eac3989d3bb159",
+  "ancho": 1484,
+  "alto": 979,
+  "ancla": [
+    638,
+    954
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

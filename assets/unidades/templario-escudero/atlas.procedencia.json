@@ -1,0 +1,51 @@
+{
+  "encargo": "templario-escudero-atlas",
+  "tipo": "atlas",
+  "fecha": "2026-10-01T15:26:35.449Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f811-d9c4-7223-a1a0-1906103c473c",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que tiene que seguir cada figura. No copies su pose ni su encuadre, que están de frente y a la altura de los ojos.\n\nUn escudero joven y ligero: capacete de ala, jubón acolchado con sobrevesta corta y cruz roja pequeña, mochila con cuerda y equipo de repuesto a la espalda, lanza en la mano derecha. Sin escudo.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete poses de ataque de la fila 3.\nMisma cámara ortográfica elevada 25 grados en las tres filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos. El personaje mira a la derecha y al frente como el maniquí.\nMisma escala en todas las celdas: la figura de pie ocupa unos 150 de cada 256 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/espada-escudo.png",
+      "papel": "pose",
+      "sha256": "d9cf91645424ef72f0b52de18c7c202add6af827718c2e809da70eae75964642"
+    },
+    {
+      "ruta": "assets/unidades/templario-escudero/identidad.webp",
+      "papel": "identidad",
+      "sha256": "915173ce8bdd3bc088ac045173d73e87a6c8b5daf76a48c183c883da3a0287ba"
+    },
+    {
+      "ruta": "assets/art/templarios/escudero.png",
+      "papel": "estilo",
+      "sha256": "735029aa17cdbc4f25317e983f93e8552b78bc8cb6e812cf71630ecbd4cd9ebb"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f811-d9c4-7223-a1a0-1906103c473c/exec-2aae5916-ab82-437f-9604-5c3972f4fe9e.png",
+    "sha256": "812248a65b949796133eb27c4db86b3af27e17dffb2780e49ce8cf80564881a3",
+    "ancho": 1915,
+    "alto": 821
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "figuras localizadas y empaquetadas en 7×3 celdas de 256, escala uniforme 0.6726, pies en y=228, reposo a 150 px",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: altura 156, fotogramas 7/7/7"
+  ],
+  "validacion": {
+    "visibles": 0.07784016927083333,
+    "opacos": 0.937598013591218,
+    "haloSuelto": 0,
+    "ancho": 1792,
+    "alto": 768
+  },
+  "salida": {
+    "ruta": "assets/unidades/templario-escudero/atlas.webp",
+    "sha256": "75c4a8b0169f5cae8386a5d697d3c1939f7022090f158d0e502c1cb63655ddc6"
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "encargo": "zombi-identidad",
+  "tipo": "identidad",
+  "fecha": "2026-10-01T15:23:00.152Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0f80e-929a-7d02-8c51-11956f99533d",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUn zombi campesino: piel gris verdosa, camisa y calzas de labriego hechas jirones, encorvado, una horca de labranza en la mano derecha.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nUN solo personaje, de cuerpo entero, de pie, en la primera pose de reposo de la referencia de pose.\nCámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.\nLámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/espada-escudo.png",
+      "papel": "pose",
+      "sha256": "d9cf91645424ef72f0b52de18c7c202add6af827718c2e809da70eae75964642"
+    },
+    {
+      "ruta": "assets/art/no-muertos/zombie.png",
+      "papel": "identidad",
+      "sha256": "22d2045819c00a1b294ba0b4755ae6e848d98cce7eba5bd373698cb2064f11a9"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0f80e-929a-7d02-8c51-11956f99533d/exec-887805f4-e928-4736-aab9-403896aa6651.png",
+    "sha256": "9031837618ca7b0b3b60fe10a6b2a07f77937f8b123465a62f219082ce455fac",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.38782847298921563,
+    "opacos": 0.9823520215319439,
+    "haloSuelto": 0.000024523854046282644,
+    "ancho": 749,
+    "alto": 1123
+  },
+  "salida": {
+    "ruta": "assets/unidades/zombi/identidad.webp",
+    "sha256": "a7aeec3979417f97e78f8872e93777db4b20c26135353898f2a85091f71336e3"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "imagen": "oro.webp",
+  "sha256": "e503fb7830fd692b03507e105893e157b9ba012fa1d6f577808a90cc0b800a25",
+  "ancho": 1308,
+  "alto": 1024,
+  "ancla": [
+    692,
+    1002
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}
