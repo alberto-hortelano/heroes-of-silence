@@ -49,7 +49,16 @@ const referencia = z.object({ ruta, papel: z.enum(['pose', 'identidad', 'estilo'
 export const encargoSchema = z
   .object({
     id: z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'el id va en kebab-case'),
-    tipo: z.enum(['identidad', 'giro', 'atlas', 'imagen', 'iconos', 'efecto']),
+    tipo: z.enum([
+      'identidad',
+      'giro',
+      'atlas',
+      'imagen',
+      'iconos',
+      'efecto',
+      'textura',
+      'modulos',
+    ]),
     /** El contenido: quién es, qué lleva. Las reglas de cámara y fondo las pone el taller. */
     descripcion: z.string().min(20),
     referencias: z.array(referencia),
@@ -72,6 +81,8 @@ export const encargoSchema = z
     ocho: z
       .object({ direccion: z.number().int().min(0).max(7), hoja: z.enum(['a', 'b']) })
       .optional(),
+    /** Módulos del escenario: cuántos lleva la hoja, en filas de 4. */
+    cuantos: z.number().int().min(4).max(16).optional(),
     /** Iconos: el nombre de cada uno, en el orden de lectura de la lámina de 4×4. */
     nombres: z.array(z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/)).optional(),
   })
@@ -207,7 +218,33 @@ function reglas(e: Encargo): string {
       return reglasDeEfecto();
     case 'imagen':
       return reglasDeImagen(e);
+    case 'textura':
+      return REGLAS_DE_TEXTURA;
+    case 'modulos':
+      return reglasDeModulos(e);
   }
+}
+
+/**
+ * Las reglas de `tools/gen/prompts.ts`, aprendidas en los laboratorios de
+ * ne-fan: un material visto a 90°, nunca un lugar (pedir «suelo» mete
+ * perspectiva); liso, porque un motivo único canta al repetirse; y sin nombrar
+ * el agua, que alucina ríos. La costura la fabrica el taller (`textura.ts`):
+ * aquí solo se pide que no haya nada que la estropee.
+ */
+const REGLAS_DE_TEXTURA = [
+  'Una muestra plana de MATERIAL vista exactamente desde arriba, a 90 grados, como una muestra de una biblioteca de texturas: sin perspectiva, sin horizonte y sin sombras proyectadas.',
+  'Lisa y uniforme en toda la superficie: sin un motivo central, sin objetos sueltos, sin caminos, sin bordes ni marco, sin figuras y sin texto. Que se pueda repetir en mosaico por los cuatro lados sin que se note.',
+  'Formato cuadrado, imagen opaca de borde a borde.',
+].join('\n');
+
+function reglasDeModulos(e: Encargo): string {
+  const n = e.cuantos ?? e.nombres?.length ?? 16;
+  return [
+    `Rejilla de ${Math.ceil(n / 4)} filas por 4 columnas: ${n} módulos sueltos de la misma familia, con mucho aire alrededor de cada uno; NINGÚN módulo toca a otro, ni con una rama ni con una sombra.`,
+    'Todos con la misma cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, nunca cenital ni de perfil, y a la MISMA escala: un módulo pequeño es pequeño de verdad, no un grande dibujado más chico.',
+    `Todo lo dibujado cabe en la imagen con margen. ${SIN_FONDO}`,
+  ].join('\n');
 }
 
 function reglasDeImagen(e: Encargo): string {
