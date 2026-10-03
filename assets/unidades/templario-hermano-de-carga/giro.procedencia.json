@@ -1,0 +1,50 @@
+{
+  "encargo": "templario-hermano-de-carga-giro",
+  "tipo": "giro",
+  "fecha": "2026-10-03T05:23:39.183Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a10036-7aec-7073-814e-ab4dca19bc00",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo), copia su largo, su ángulo y su sitio en cada celda: es la guía del arma real. Si sus piernas son de color, la ROJA es la pierna DERECHA y la AZUL la IZQUIERDA: sirven para no confundirlas en el paso ni girar la figura de espaldas; el personaje NO lleva esos colores.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn hermano de carga templario A CABALLO, como el jinete del concepto: armadura de placas completa, sobrevesta blanca con cruz roja, yelmo cerrado con penacho rojo, escudo de cometa blanco con cruz roja en el brazo izquierdo y lanza de carga en la mano derecha para la carga y espada de una mano para el combate parado. El caballo, castaño, lleva gualdrapa blanca con cruces rojas. Jinete y caballo son UNA sola figura.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nLámina de GIRO de EXACTAMENTE 4 columnas por 2 filas: el MISMO personaje ocho veces, de cuerpo entero, en la pose de reposo, separadas con holgura y sin tocarse.\nCada figura copia la orientación y la pose del maniquí de su celda en la referencia de pose. En orden de lectura miran hacia: 1. frente, 2. frente-derecha, 3. derecha, 4. espalda-derecha, 5. espalda, 6. espalda-izquierda, 7. izquierda, 8. frente-izquierda. Las que van de espaldas enseñan la espalda del personaje: invéntala coherente con su equipo (la capa o sobrevesta por detrás, la cara interior del escudo, la vaina).\nCámara ortográfica elevada 25 grados en todas, viendo la coronilla y los hombros; NUNCA de perfil ni a la altura de los ojos, aunque la figura mire de lado. Misma escala en las ocho.\nEs la lámina de identidad por los ocho lados: el equipo, los colores y los materiales son idénticos en todas y se leen con claridad.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/montado-lanza-8d/giro.png",
+      "papel": "pose",
+      "sha256": "cbeab3e8840c270f019447936b905c9ef70f13f204cd42b277b71ca978e4cada"
+    },
+    {
+      "ruta": "assets/unidades/templario-hermano-de-carga/identidad.webp",
+      "papel": "identidad",
+      "sha256": "1d4bbb1099a55f591d1d637dd5b14793cecb25bbd9c09eb3ac7a540ac3bcdfb7"
+    },
+    {
+      "ruta": "assets/art/templarios/caballero-montado.png",
+      "papel": "estilo",
+      "sha256": "67b04e452fc5af55dcbdcc50b6fdbbfc5b0e5fa0fe5d4d2057fafb57bbc1193c"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a10036-7aec-7073-814e-ab4dca19bc00/exec-6471cef4-994e-40e4-ac69-567dbb32db26.png",
+    "sha256": "4d00f691d9560c9dc21841cc140ecb547b5e795a3e70921546bb74f9752e4f80",
+    "ancho": 1774,
+    "alto": 887
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.1761000676151832,
+    "opacos": 0.9485689727174315,
+    "haloSuelto": 0.00005270818720326304,
+    "ancho": 1579,
+    "alto": 887
+  },
+  "salida": {
+    "ruta": "assets/unidades/templario-hermano-de-carga/giro.webp",
+    "sha256": "e106fa8d1a1b6fae1074479ed96753b4814a14cc2ea2d3b7942f12dc12575c3a"
+  }
+}
