@@ -1,0 +1,4892 @@
+{
+  "_comment": "Derivado de los PNG de _poses/<juego>-8d con `pnpm taller derivar-poses`: no se edita a mano. Lo lee el cliente (render/personajes.ts).",
+  "derivadoPor": "tools/taller/poses-8d.ts",
+  "juegos": {
+    "espada-escudo": [
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d0-a.png",
+            "sha256": "912bab277bad2de786e65158ac7a353a51f93cf05804ae862efd29a62f2f98eb"
+          },
+          "b": {
+            "imagen": "d0-b.png",
+            "sha256": "87a5fe22f6838639304db173e8775aa72d2120d8c4e4cdc644cdf1af32dd8f90"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 158,
+        "cajaDeClic": [
+          -76,
+          -162,
+          50,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              191,
+              292
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              191,
+              292
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              191,
+              292
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              191,
+              292
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              191,
+              292
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              191,
+              292
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d1-a.png",
+            "sha256": "90fdbf7c9ddd48d9c7703c01414e44dfb23d60f063428e64b672d53159cdfd13"
+          },
+          "b": {
+            "imagen": "d1-b.png",
+            "sha256": "f2a9b8597bc6f6d62d6527d80bd3a435e1171b0a39fc1686585e2f4b753fa38b"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 149,
+        "cajaDeClic": [
+          -77,
+          -150,
+          53,
+          1
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              195,
+              284
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              195,
+              284
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              195,
+              284
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              195,
+              284
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              195,
+              284
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              195,
+              284
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d2-a.png",
+            "sha256": "f645f13bb7c430aa1a79239229ee2c09321d2167578b851e4cc7e28feea3d098"
+          },
+          "b": {
+            "imagen": "d2-b.png",
+            "sha256": "89f2eca36bfaef11fb047d0f3dbe373a3b535088c17a09eec56f6b6c994435d8"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 148,
+        "cajaDeClic": [
+          -55,
+          -150,
+          54,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              202,
+              282
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              202,
+              282
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              202,
+              282
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              202,
+              282
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              202,
+              282
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              202,
+              282
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d3-a.png",
+            "sha256": "694d5c8c019e89a51d673b0a3d5417449d1e98a2b9abb3026f0148cbfcc527fc"
+          },
+          "b": {
+            "imagen": "d3-b.png",
+            "sha256": "0dd387f15420fe7ea8a50a803c8b3c6c79911282a6856864f04c86eb90fdf053"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 163,
+        "cajaDeClic": [
+          -40,
+          -168,
+          65,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              201,
+              290
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              201,
+              290
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              201,
+              290
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              201,
+              290
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              201,
+              290
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              201,
+              290
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d4-a.png",
+            "sha256": "058e3a7b576c0fed1d367f0d20be85d2b6e30e28d26794c07bd030f42ebc4177"
+          },
+          "b": {
+            "imagen": "d4-b.png",
+            "sha256": "82a2afa10ca483018a27c6800b012e74cfa60faa9c60db3d6cb0743bc0c53ae8"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 175,
+        "cajaDeClic": [
+          -53,
+          -181,
+          73,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              195,
+              287
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              195,
+              287
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              195,
+              287
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              195,
+              287
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              195,
+              287
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              195,
+              287
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d5-a.png",
+            "sha256": "2c02a1625dac42fbd1d3ecc4d68eb5ca19c6979b505947fd446e0339fd022255"
+          },
+          "b": {
+            "imagen": "d5-b.png",
+            "sha256": "9a1d0488447d5d2f24783577de24eef58aa20fe6d16999990990a6b4e2166fba"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 171,
+        "cajaDeClic": [
+          -52,
+          -178,
+          78,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              187,
+              276
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              187,
+              276
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              187,
+              276
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              187,
+              276
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              187,
+              276
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              187,
+              276
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d6-a.png",
+            "sha256": "79c030ce48058f5e218da4f33a5ed6bb54c8cfcfd1d57cb7db6ca513dbeb2fc1"
+          },
+          "b": {
+            "imagen": "d6-b.png",
+            "sha256": "bd19932b1f1c21dd22397ab22293f50fea5da342702c2d9118291fcd24cff348"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 164,
+        "cajaDeClic": [
+          -56,
+          -167,
+          53,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              183,
+              274
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              183,
+              274
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              183,
+              274
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              183,
+              274
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              183,
+              274
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              183,
+              274
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d7-a.png",
+            "sha256": "fa20eb7809b253df6c6c4642322ebadbb1410c9d6c2158af797a6ad280f5f5da"
+          },
+          "b": {
+            "imagen": "d7-b.png",
+            "sha256": "075578db5c742cf0bf5e043ef567c28fbadcbe23da40959a51b3bb66d22ad86d"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 163,
+        "cajaDeClic": [
+          -65,
+          -176,
+          40,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              182,
+              287
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              182,
+              287
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              182,
+              287
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              182,
+              287
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              182,
+              287
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              182,
+              287
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      }
+    ],
+    "dos-manos": [
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d0-a.png",
+            "sha256": "964abfcb3a7eea9f41409bd5b084b8a178c33e1236639ecccd2cd6ebe82f93ca"
+          },
+          "b": {
+            "imagen": "d0-b.png",
+            "sha256": "eed113fbd52cbc196d63d7da649af96ea44ded1a2fb7f5d4eba4776acada42cc"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 161,
+        "cajaDeClic": [
+          -26,
+          -160,
+          24,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 1,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              186,
+              292
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              186,
+              292
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              186,
+              292
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              186,
+              292
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              186,
+              292
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              186,
+              292
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d1-a.png",
+            "sha256": "ee616834b99175b527ceaf809e0f879545f018d4f54efe28c85b5d9fb3e77182"
+          },
+          "b": {
+            "imagen": "d1-b.png",
+            "sha256": "5041c8610da939d006455fc8fee28bbfae736d89428a101e4e5f195aa2c23956"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 162,
+        "cajaDeClic": [
+          -51,
+          -161,
+          52,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 1,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              192,
+              285
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              192,
+              285
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              192,
+              285
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              192,
+              285
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              192,
+              285
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              192,
+              285
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d2-a.png",
+            "sha256": "ae2131e1b45d8d38a241bfa7e4715b14b6cf5b85fab753b16c4d59ad28f8f5eb"
+          },
+          "b": {
+            "imagen": "d2-b.png",
+            "sha256": "6e70769fe30693905df17abe9afef54d411715961953dbd596c0b37c4aa6c20c"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 181,
+        "cajaDeClic": [
+          -52,
+          -180,
+          67,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 1,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              200,
+              282
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              200,
+              282
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              200,
+              282
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              200,
+              282
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              200,
+              282
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              200,
+              282
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d3-a.png",
+            "sha256": "019a06096592b5314007e16e6f0b3c61788f198eea0264da3f2e254dbb89ab2a"
+          },
+          "b": {
+            "imagen": "d3-b.png",
+            "sha256": "2e454213f565c53a85770984e05b264af0a9377ffb1c393bbdd572c1c1838075"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 211,
+        "cajaDeClic": [
+          -33,
+          -210,
+          46,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 1,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              201,
+              290
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              201,
+              290
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              201,
+              290
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              201,
+              290
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              201,
+              290
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              201,
+              290
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d4-a.png",
+            "sha256": "7a58299dc88902927d7f284a5de1125c546aad22dc8278e6d6dd38e4e0087f51"
+          },
+          "b": {
+            "imagen": "d4-b.png",
+            "sha256": "11dd825a6cff086a7cee984a9f27c845ac09f8ed875b00dea28ee4b0f6df2547"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 217,
+        "cajaDeClic": [
+          -24,
+          -216,
+          26,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 1,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              197,
+              287
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              197,
+              287
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              197,
+              287
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              197,
+              287
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              197,
+              287
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              197,
+              287
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d5-a.png",
+            "sha256": "2b5cc23711369e4cf9cd6647d0ea113f8b331e52032cd9ef6edd5aa63f2a4b26"
+          },
+          "b": {
+            "imagen": "d5-b.png",
+            "sha256": "cafc4864f202cb56abc7e3cc7753d0f0bd0ba2607244f6f544daa75c3078b724"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 198,
+        "cajaDeClic": [
+          -50,
+          -201,
+          53,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 5,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              189,
+              276
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              189,
+              276
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              189,
+              276
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              189,
+              276
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              189,
+              276
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              189,
+              276
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d6-a.png",
+            "sha256": "de860e7d0c8885fa72cf97b7f205347ab74acd35f08cfcaff45d29832f7b3550"
+          },
+          "b": {
+            "imagen": "d6-b.png",
+            "sha256": "c9dfe55bc5c7fb3e6706a264fbaded089f18e77e743968c9c9d9ce8bd3b4fa37"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 175,
+        "cajaDeClic": [
+          -69,
+          -180,
+          51,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 5,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              184,
+              274
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              184,
+              274
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              184,
+              274
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              184,
+              274
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              184,
+              274
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              184,
+              274
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d7-a.png",
+            "sha256": "499f80b18d0114ce1002c722937786648472487544a4fb72b2e75df0bd1fff0b"
+          },
+          "b": {
+            "imagen": "d7-b.png",
+            "sha256": "0d42ab659e8d5c2a4115886c30bd6210e9d351f1558be49466e3f52f22c62088"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 165,
+        "cajaDeClic": [
+          -48,
+          -164,
+          31,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 1,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              184,
+              287
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              184,
+              287
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              184,
+              287
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              184,
+              287
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              184,
+              287
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              184,
+              287
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      }
+    ],
+    "baston": [
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d0-a.png",
+            "sha256": "53e1135302a03930dde8a3f2086e74e1c739c16e8979901bd6a93e823a2e0d7f"
+          },
+          "b": {
+            "imagen": "d0-b.png",
+            "sha256": "50eadf89b40693bff981c1bf818b71a27ff286573889682fa3ff53c25070b5f6"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 177,
+        "cajaDeClic": [
+          -43,
+          -176,
+          26,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 5,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              184,
+              292
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              184,
+              292
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              184,
+              292
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              184,
+              292
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              184,
+              292
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              184,
+              292
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d1-a.png",
+            "sha256": "ab025aae58c4fe1a7a50d5844eceef60c584043748a2192dc8bb7992c4302711"
+          },
+          "b": {
+            "imagen": "d1-b.png",
+            "sha256": "8e2ea9c2cc8154dbb2d75d7c93697f6006a41308d2e42f50a7efb0a33684f15d"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 167,
+        "cajaDeClic": [
+          -57,
+          -166,
+          46,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 1,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              189,
+              285
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              189,
+              285
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              189,
+              285
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              189,
+              285
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              189,
+              285
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              189,
+              285
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d2-a.png",
+            "sha256": "df913bf1dcf618877a7b018cf90fdc85f089bb45ae24c9769919375e7804cc79"
+          },
+          "b": {
+            "imagen": "d2-b.png",
+            "sha256": "cfb9bbc6e00439d3c4f8940131507a12724da838f2dfa4c69041cdc04ad09b84"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 175,
+        "cajaDeClic": [
+          -48,
+          -174,
+          52,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 1,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              196,
+              282
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              196,
+              282
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              196,
+              282
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              196,
+              282
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              196,
+              282
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              196,
+              282
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d3-a.png",
+            "sha256": "b60b2e748ade97e58335257754bcd84d5801081018a6c979786fff3d35016c85"
+          },
+          "b": {
+            "imagen": "d3-b.png",
+            "sha256": "35d034b7bd0fc60feb6276a8f7173d7c3a4a54176c5c68a052e3aa45035791e5"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 203,
+        "cajaDeClic": [
+          -33,
+          -202,
+          64,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              201,
+              290
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              201,
+              290
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              201,
+              290
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              201,
+              290
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              201,
+              290
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              201,
+              290
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d4-a.png",
+            "sha256": "a176cbe5af200fa6615b6ed4bf753d1078e5406769cd8fc4f4e1f3b3e41f1650"
+          },
+          "b": {
+            "imagen": "d4-b.png",
+            "sha256": "0bf336189dac52161362b5b1d88b720472107fa2e0ab4c11391532b70543b70a"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 217,
+        "cajaDeClic": [
+          -26,
+          -216,
+          43,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              199,
+              287
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              199,
+              287
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              199,
+              287
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              199,
+              287
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              199,
+              287
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              199,
+              287
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d5-a.png",
+            "sha256": "86430c01321f46f1e8202cbd4e7b00ae68265249bfba8e2f8b86fd6f0eae55e6"
+          },
+          "b": {
+            "imagen": "d5-b.png",
+            "sha256": "f5387fe4601ed5a4c58d331d1d6875bc1b2c852f1581fb12ccda9ebe02aa8dcd"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 210,
+        "cajaDeClic": [
+          -46,
+          -210,
+          57,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 5,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              194,
+              276
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              194,
+              276
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              194,
+              276
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              194,
+              276
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              194,
+              276
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              194,
+              276
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d6-a.png",
+            "sha256": "e61f2b909710bd0ae8687fd9277f8d267709425f3ea59858e397ce9532381683"
+          },
+          "b": {
+            "imagen": "d6-b.png",
+            "sha256": "89fe80d0628bfbb41e8fd4ea3084a08d8998376dec92a59e460c5d203f6d3452"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 196,
+        "cajaDeClic": [
+          -52,
+          -195,
+          48,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 1,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              187,
+              274
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              187,
+              274
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              187,
+              274
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              187,
+              274
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              187,
+              274
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              187,
+              274
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d7-a.png",
+            "sha256": "597cb3d43f2302d5bb1b0bae9fa4a988cf736c2a1d164c51e615f722fb8d1fc9"
+          },
+          "b": {
+            "imagen": "d7-b.png",
+            "sha256": "6cc0ddacb8958559e7838d18e7347153f33e072d7b84b4974cc74d21c8af6a70"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 189,
+        "cajaDeClic": [
+          -60,
+          -188,
+          31,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 1,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              184,
+              287
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              184,
+              287
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              184,
+              287
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              184,
+              287
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              184,
+              287
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              184,
+              287
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      }
+    ],
+    "lanza": [
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d0-a.png",
+            "sha256": "290ffa4ad97ecfb48aff1a4e5a4130bda38f45d28e3a13b2f0a577ff21388b70"
+          },
+          "b": {
+            "imagen": "d0-b.png",
+            "sha256": "94219d6ecd01c07181640c54f582ee2dcabff840e4ec425e5b8834dea6fcc84f"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 179,
+        "cajaDeClic": [
+          -42,
+          -178,
+          25,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 5,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              185,
+              292
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              185,
+              292
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              185,
+              292
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              185,
+              292
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              185,
+              292
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              185,
+              292
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d1-a.png",
+            "sha256": "7bce556011f07c14a662e365506abe575fd869c90bd5272fd5cc26c7b670c7c7"
+          },
+          "b": {
+            "imagen": "d1-b.png",
+            "sha256": "6f270a3277b18cafe384de74c248ba0cf0f33dc2e2dba86cbdfd74264682807a"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 172,
+        "cajaDeClic": [
+          -64,
+          -171,
+          46,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 1,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              189,
+              285
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              189,
+              285
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              189,
+              285
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              189,
+              285
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              189,
+              285
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              189,
+              285
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d2-a.png",
+            "sha256": "47cfb6b36611510e2ec209355757b88edfd7c6cb74f10750b3cb88714743793b"
+          },
+          "b": {
+            "imagen": "d2-b.png",
+            "sha256": "3ffc562a13257049036a53b9ff4db825c43f8105c26c08a3f51d498b45db864a"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 188,
+        "cajaDeClic": [
+          -53,
+          -187,
+          75,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              198,
+              282
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              198,
+              282
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              198,
+              282
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              198,
+              282
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              198,
+              282
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              198,
+              282
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d3-a.png",
+            "sha256": "763c226e7020c783d74a45de50ce93fe12d4d3d5062844935caefc1dc2023103"
+          },
+          "b": {
+            "imagen": "d3-b.png",
+            "sha256": "8dce8da0b5b7856d7f6a5a06f4e396d9f7a45a1e6cec4248ce1ee0f95c7ae476"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 225,
+        "cajaDeClic": [
+          -34,
+          -224,
+          78,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              202,
+              290
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              202,
+              290
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              202,
+              290
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              202,
+              290
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              202,
+              290
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              202,
+              290
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d4-a.png",
+            "sha256": "e587382ff89929eb8bfdd2a1c09a6fadc57a8381ae476d52045f769f31e0979f"
+          },
+          "b": {
+            "imagen": "d4-b.png",
+            "sha256": "46c784724c0e25a63116082a5111c9c2dd10033f8f6dbafe462a399254c061ba"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 242,
+        "cajaDeClic": [
+          -26,
+          -241,
+          41,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              199,
+              287
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              199,
+              287
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              199,
+              287
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              199,
+              287
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              199,
+              287
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              199,
+              287
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d5-a.png",
+            "sha256": "875a15f9115a945ce010d81b128d3bb6f03a24eb5a5fd943c61827c424101d56"
+          },
+          "b": {
+            "imagen": "d5-b.png",
+            "sha256": "08fb57a9f3cec6f6561be5272ed0598596307160bf407c010a3337f8bf064301"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 230,
+        "cajaDeClic": [
+          -45,
+          -231,
+          65,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 5,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              193,
+              276
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              193,
+              276
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              193,
+              276
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              193,
+              276
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              193,
+              276
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              193,
+              276
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d6-a.png",
+            "sha256": "ba65bce1d506c410412d041fb927325c7fc81950a28bad121b0b704bfea7c323"
+          },
+          "b": {
+            "imagen": "d6-b.png",
+            "sha256": "85ebded25fe1c28dc699dafd648563facf5f2cf74f29a2844f09429596371d0b"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 208,
+        "cajaDeClic": [
+          -74,
+          -207,
+          52,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 1,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              186,
+              274
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              186,
+              274
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              186,
+              274
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              186,
+              274
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              186,
+              274
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              186,
+              274
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d7-a.png",
+            "sha256": "066a7f8c079a1b4ffc7062d7684f92e2df50bcace5863b4ed49f8fd8badeb1f7"
+          },
+          "b": {
+            "imagen": "d7-b.png",
+            "sha256": "ad4f5fb37f06a6eef2506cf1ed75e06f782d0577923b556145aacc8c9ea5ca97"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 193,
+        "cajaDeClic": [
+          -80,
+          -194,
+          32,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              183,
+              287
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              183,
+              287
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              183,
+              287
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              183,
+              287
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              183,
+              287
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              183,
+              287
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      }
+    ],
+    "maza": [
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d0-a.png",
+            "sha256": "207ebccf710badcfa25848ea82259c3982fa303db6ecf6564d3f722c25b497ac"
+          },
+          "b": {
+            "imagen": "d0-b.png",
+            "sha256": "f530e448a9d5b6db1127c867994c183835e592d0daa309d9b7de9b23b605fe16"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 158,
+        "cajaDeClic": [
+          -39,
+          -157,
+          26,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 1,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              184,
+              292
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              184,
+              292
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              184,
+              292
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              184,
+              292
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              184,
+              292
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              184,
+              292
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d1-a.png",
+            "sha256": "a1e875223202989685f15efe5499fc3725684b15de521989124205a0a7aa64a6"
+          },
+          "b": {
+            "imagen": "d1-b.png",
+            "sha256": "d2712478b9550e3f512a5281493f5b895da3a8bd7bdc67dcd1e3897a8b097c4b"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 149,
+        "cajaDeClic": [
+          -49,
+          -148,
+          45,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 1,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              190,
+              285
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              190,
+              285
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              190,
+              285
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              190,
+              285
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              190,
+              285
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              190,
+              285
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d2-a.png",
+            "sha256": "889b340ad96872c2bb11fd18e6252eb1c1c86dc5a3aba6fbfbccea93b4222537"
+          },
+          "b": {
+            "imagen": "d2-b.png",
+            "sha256": "c475420e810f187f036e17f339991ede813879df9f3c39f967b3ae73038d7dc7"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 148,
+        "cajaDeClic": [
+          -48,
+          -147,
+          50,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 1,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              196,
+              282
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              196,
+              282
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              196,
+              282
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              196,
+              282
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              196,
+              282
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              196,
+              282
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d3-a.png",
+            "sha256": "8ca64cf5e65efafc1d43ed76cc77247688b5ab338fe1786ffd9f1a6345f7bd80"
+          },
+          "b": {
+            "imagen": "d3-b.png",
+            "sha256": "776f22a86dbf3f7d82a720998f1d87df8bbbf4d12657ed39dcc73cf64c0b45be"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 160,
+        "cajaDeClic": [
+          -32,
+          -159,
+          40,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 1,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              200,
+              290
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              200,
+              290
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              200,
+              290
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              200,
+              290
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              200,
+              290
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              200,
+              290
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d4-a.png",
+            "sha256": "18fdfa232cfe606a212a4d5bbd0bdefa2ae6b31e750df1f865387cd6e2e9c8a2"
+          },
+          "b": {
+            "imagen": "d4-b.png",
+            "sha256": "d9a9a682e4612753f06ba24c3c41fef4d639b8b5f41e823222ea63f256cc2ed3"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 161,
+        "cajaDeClic": [
+          -27,
+          -160,
+          38,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 1,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              200,
+              287
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              200,
+              287
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              200,
+              287
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              200,
+              287
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              200,
+              287
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              200,
+              287
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d5-a.png",
+            "sha256": "7dfb4bccb425b8b5a2fd0a5a04454ec023a5eacb899efd1c0071246cd0673aa8"
+          },
+          "b": {
+            "imagen": "d5-b.png",
+            "sha256": "06d71f52a774794cbeb6f7b1e2edef4ee6c2ef38009c2f51f492d72de14dd4e7"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 152,
+        "cajaDeClic": [
+          -46,
+          -151,
+          48,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 1,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              194,
+              276
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              194,
+              276
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              194,
+              276
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              194,
+              276
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              194,
+              276
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              194,
+              276
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d6-a.png",
+            "sha256": "437bdb82d58464b1cc9ca4e6ebe1249248e5fe43aee3459daba89a816e02420e"
+          },
+          "b": {
+            "imagen": "d6-b.png",
+            "sha256": "065ccd31b198067115c0232701d4e05062efb0acab6db69e62a36fb7a0028c14"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 148,
+        "cajaDeClic": [
+          -49,
+          -147,
+          49,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 1,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              186,
+              274
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              186,
+              274
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              186,
+              274
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              186,
+              274
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              186,
+              274
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              186,
+              274
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d7-a.png",
+            "sha256": "d16a92fccf0e5bfbb816f057603ffa4f830ae4bd2279d17616e9d379fe048218"
+          },
+          "b": {
+            "imagen": "d7-b.png",
+            "sha256": "d1712537bc20228b0ce84687ce7e0c30d8438897cb0fd9cf5c972b4c2ec8d877"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 157,
+        "cajaDeClic": [
+          -40,
+          -156,
+          32,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 1,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              183,
+              287
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              183,
+              287
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              183,
+              287
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              183,
+              287
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              183,
+              287
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              183,
+              287
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      }
+    ],
+    "mayal": [
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d0-a.png",
+            "sha256": "bea5bf2a610e5f0580ccaa821efe12c79fd7c099f5590c5a2cdd95973eef6d3a"
+          },
+          "b": {
+            "imagen": "d0-b.png",
+            "sha256": "701eb4448f6a142809eaacbbfe9b5daf2b87dd7428a62c7309e5aba7ede47345"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 158,
+        "cajaDeClic": [
+          -40,
+          -157,
+          25,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 1,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              185,
+              292
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              185,
+              292
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              185,
+              292
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              185,
+              292
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              185,
+              292
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              185,
+              292
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d1-a.png",
+            "sha256": "96ec369d7722224c8f1516e91bee18d4fe884bcfa9165d11c898ac6908cf1267"
+          },
+          "b": {
+            "imagen": "d1-b.png",
+            "sha256": "73944565dc7aabb805d5fc7dc5094196a021768f7ee62cff054f82cf9f6bf63b"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 149,
+        "cajaDeClic": [
+          -49,
+          -148,
+          45,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 1,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              190,
+              285
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              190,
+              285
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              190,
+              285
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              190,
+              285
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              190,
+              285
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              190,
+              285
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d2-a.png",
+            "sha256": "180c15616e763b8ec1cafd1297dfdbfed195c029b880ed16222675255322deec"
+          },
+          "b": {
+            "imagen": "d2-b.png",
+            "sha256": "8f2dc58ae909680e2330a21ff2f93d15fb1861298d39acc6f263279be189b34b"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 148,
+        "cajaDeClic": [
+          -47,
+          -147,
+          51,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 1,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              195,
+              282
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              195,
+              282
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              195,
+              282
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              195,
+              282
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              195,
+              282
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              195,
+              282
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d3-a.png",
+            "sha256": "186c9fe56cefa9a6952738ed356e1c46c3a7c8ba49682c44ed0340281d78b5c8"
+          },
+          "b": {
+            "imagen": "d3-b.png",
+            "sha256": "5b0354de28edf148e52210ab4fe665277492959d380f3e719b729981383633b8"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 160,
+        "cajaDeClic": [
+          -30,
+          -159,
+          39,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 1,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              198,
+              290
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              198,
+              290
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              198,
+              290
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              198,
+              290
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              198,
+              290
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              198,
+              290
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d4-a.png",
+            "sha256": "8b5cf8843d0d2aa2b04a572655cfc4df6335cff832ac65265b584bad3e73f86f"
+          },
+          "b": {
+            "imagen": "d4-b.png",
+            "sha256": "267e5f19c834d31afeb6a757474c41a3cacafb7de4c1279f4b77bccf64d22b6f"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 161,
+        "cajaDeClic": [
+          -26,
+          -160,
+          39,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 1,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              199,
+              287
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              199,
+              287
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              199,
+              287
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              199,
+              287
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              199,
+              287
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              199,
+              287
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d5-a.png",
+            "sha256": "47401e128ffb9e44d3778315b5d87eb504ee96ed583f6ccf2f9a827414461d34"
+          },
+          "b": {
+            "imagen": "d5-b.png",
+            "sha256": "22facf005e272a20dabed46c9dd9e13deee1c6469433af351d4bd5fbe62d6282"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 152,
+        "cajaDeClic": [
+          -46,
+          -151,
+          48,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 1,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              194,
+              276
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              194,
+              276
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              194,
+              276
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              194,
+              276
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              194,
+              276
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              194,
+              276
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d6-a.png",
+            "sha256": "0436ba6b8cca37b63aef6aaa338e93abc8bb89a4cff72e40478d0db93db60583"
+          },
+          "b": {
+            "imagen": "d6-b.png",
+            "sha256": "8ac8d73770c17f45e38e1d9e65e579a40174550b498464493ef9b7102fb2d46a"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 148,
+        "cajaDeClic": [
+          -49,
+          -147,
+          49,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 1,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              186,
+              274
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              186,
+              274
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              186,
+              274
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              186,
+              274
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              186,
+              274
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              186,
+              274
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d7-a.png",
+            "sha256": "8f1d9207de958666bddf765c8acf58c28fda0e793f91e90cf265fff90f36c669"
+          },
+          "b": {
+            "imagen": "d7-b.png",
+            "sha256": "e8c516ffd20cbff1b5dca2c1db18171f93dcfae38354e3dc6fe3bb2fa46e05f6"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 157,
+        "cajaDeClic": [
+          -38,
+          -156,
+          31,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 1,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              184,
+              287
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              184,
+              287
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              184,
+              287
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              184,
+              287
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              184,
+              287
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              184,
+              287
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      }
+    ],
+    "montado-lanza": [
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d0-a.png",
+            "sha256": "7aa4d127e02eea74d677c315fa6b7f3d492194c2be4f90952b4077cbce179d49"
+          },
+          "b": {
+            "imagen": "d0-b.png",
+            "sha256": "acd3059465fd7f1c1697459f22f22dbdbf08c4cbe7642a3f7fbf4b51eff02d0a"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 297,
+        "cajaDeClic": [
+          -41,
+          -296,
+          44,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 1,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              188,
+              317
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              188,
+              317
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              188,
+              317
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              188,
+              317
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              188,
+              317
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              188,
+              317
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d1-a.png",
+            "sha256": "db7c996dc68cdfae693cf030215b2c6c0d5abe5f9117ba583c2a5ceaea4d9306"
+          },
+          "b": {
+            "imagen": "d1-b.png",
+            "sha256": "2d93714db98dbd733433924c8a315b1c8e5a863e9a213d633b11718eaaf637ad"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 290,
+        "cajaDeClic": [
+          -87,
+          -290,
+          80,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              199,
+              315
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              199,
+              315
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              199,
+              315
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              199,
+              315
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              199,
+              315
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              199,
+              315
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d2-a.png",
+            "sha256": "ff10abe27e012688037c70a7aa00e9982a20a6b11a38f4690ec9885f9056a6a6"
+          },
+          "b": {
+            "imagen": "d2-b.png",
+            "sha256": "7ac54d28143c756ede38137e32f680f30a0a98f06a3f04f4ccf762199bbe38e9"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 285,
+        "cajaDeClic": [
+          -92,
+          -286,
+          97,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 4,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              210,
+              302
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              210,
+              302
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              210,
+              302
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              210,
+              302
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              210,
+              302
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              210,
+              302
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d3-a.png",
+            "sha256": "083c14aded54a97452473b5dbd01e0ff8211279a7a709f7aa2ee402eb7d73a1a"
+          },
+          "b": {
+            "imagen": "d3-b.png",
+            "sha256": "91e2e425845c5b6e971434094033b605dce1d5b94f76ccd6b03de9aec962fee7"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 318,
+        "cajaDeClic": [
+          -91,
+          -317,
+          74,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              205,
+              317
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              205,
+              317
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              205,
+              317
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              205,
+              317
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              205,
+              317
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              205,
+              317
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d4-a.png",
+            "sha256": "86fc19f550e4b8affeb9f600e23005848ddea7033b33e9cf4967cb85844a4150"
+          },
+          "b": {
+            "imagen": "d4-b.png",
+            "sha256": "71a5ef0cb2d1ae33e858db6ac9a0ee9f677dbaee4261c64037afcf656866d172"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 321,
+        "cajaDeClic": [
+          -45,
+          -320,
+          40,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 4,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              196,
+              320
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              196,
+              320
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              196,
+              320
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              196,
+              320
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              196,
+              320
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 6,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              196,
+              320
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 5
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d5-a.png",
+            "sha256": "e4cd9f44570cf5592cc132af35c8aca4464ba80c7eaa737e15c6b6dd471c29d1"
+          },
+          "b": {
+            "imagen": "d5-b.png",
+            "sha256": "3de1f9421a55d7049459398eb581d8f6ae0154ebed0a49e51efdbb04359aff6f"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 318,
+        "cajaDeClic": [
+          -77,
+          -317,
+          90,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              181,
+              317
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              181,
+              317
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              181,
+              317
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              181,
+              317
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              181,
+              317
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 6,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              181,
+              317
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 5
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d6-a.png",
+            "sha256": "84998769e6e5e13ab9f715d08b1486298871d788f7f7349b8419284b1b9509ac"
+          },
+          "b": {
+            "imagen": "d6-b.png",
+            "sha256": "dd1c54784bf09a3c4d761fe464cf56c0f596620c15d5828734cf3af7f5f4ed49"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 303,
+        "cajaDeClic": [
+          -97,
+          -302,
+          91,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 1,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              174,
+              302
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              174,
+              302
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              174,
+              302
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              174,
+              302
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              174,
+              302
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              174,
+              302
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      },
+      {
+        "hojas": {
+          "a": {
+            "imagen": "d7-a.png",
+            "sha256": "539e424b1a4b9c4b8faf834ae28a4ef39d98d7eb6f7989f00fe50f6d21b168f5"
+          },
+          "b": {
+            "imagen": "d7-b.png",
+            "sha256": "1360b163eb99a2e96e17a5b73a0456237615c1320fe2d3f90b1ebc618dd02458"
+          }
+        },
+        "cell": 384,
+        "columns": 7,
+        "altura": 311,
+        "cajaDeClic": [
+          -79,
+          -310,
+          85,
+          0
+        ],
+        "clips": {
+          "idle": {
+            "row": 0,
+            "frames": 4,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              183,
+              315
+            ]
+          },
+          "walk": {
+            "row": 1,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              183,
+              315
+            ]
+          },
+          "charge": {
+            "row": 2,
+            "frames": 7,
+            "fps": 8,
+            "loop": true,
+            "anchor": [
+              183,
+              315
+            ]
+          },
+          "attack": {
+            "row": 3,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              183,
+              315
+            ]
+          },
+          "hurt": {
+            "row": 4,
+            "frames": 7,
+            "fps": 10,
+            "loop": false,
+            "anchor": [
+              183,
+              315
+            ]
+          },
+          "death": {
+            "row": 5,
+            "frames": 7,
+            "fps": 8,
+            "loop": false,
+            "anchor": [
+              183,
+              315
+            ]
+          }
+        },
+        "cadaver": {
+          "clip": "death",
+          "frame": 6
+        }
+      }
+    ]
+  }
+}

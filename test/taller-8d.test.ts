@@ -12,7 +12,13 @@ import { describe, expect, it } from 'vitest';
 import { indicesDeClip, OCHO_DIRECCIONES } from '../tools/art/poses.js';
 import { derivarAtlas, ELEVACION_DEL_CADAVER } from '../tools/taller/derivar.js';
 import { type Encargo, encargoSchema, promptDe } from '../tools/taller/encargo.js';
-import { encargoDeGiro, encargosDeOchoDirecciones, unidad } from '../tools/taller/unidades.js';
+import { type AtlasDePoses, derivarDireccionDePoses } from '../tools/taller/poses-8d.js';
+import {
+  encargoDeGiro,
+  encargosDeOchoDirecciones,
+  JUEGOS_EN_8D,
+  unidad,
+} from '../tools/taller/unidades.js';
 
 const RAIZ = join(import.meta.dirname, '..');
 
@@ -137,5 +143,45 @@ describe('las direcciones del arte', () => {
         expect(p.referencias[1]?.papel).toBe('identidad');
       }
     }
+  });
+});
+
+describe('las anclas del Y Bot en 8 direcciones (`_poses/atlas-8d.json`)', () => {
+  const RUTA = join(RAIZ, 'assets/unidades/_poses/atlas-8d.json');
+  const atlas = JSON.parse(readFileSync(RUTA, 'utf8')) as AtlasDePoses;
+  const sha = (r: string): string => createHash('sha256').update(readFileSync(r)).digest('hex');
+
+  it('trae los siete juegos, ocho direcciones cada uno y las 6 acciones con su cadáver', () => {
+    expect(Object.keys(atlas.juegos).sort()).toEqual([...JUEGOS_EN_8D].sort());
+    for (const [juego, dirs] of Object.entries(atlas.juegos)) {
+      expect(dirs, juego).toHaveLength(8);
+      for (const d of dirs) {
+        expect(Object.keys(d.clips)).toEqual(['idle', 'walk', 'charge', 'attack', 'hurt', 'death']);
+        expect(d.cadaver).toEqual({ clip: 'death', frame: (d.clips.death?.frames ?? 0) - 1 });
+      }
+    }
+  });
+
+  it('el sha256 de cada hoja cuadra con el PNG: una pose re-renderizada sin volver a derivar se pone roja', () => {
+    for (const [juego, dirs] of Object.entries(atlas.juegos)) {
+      for (const d of dirs) {
+        for (const h of [d.hojas.a, d.hojas.b]) {
+          const ruta = join(RAIZ, 'assets/unidades/_poses', `${juego}-8d`, h.imagen);
+          expect(sha(ruta), `${juego}/${h.imagen}`).toBe(h.sha256);
+        }
+      }
+    }
+  });
+
+  it('la muerte NO se eleva: el cadáver del render crudo queda a la altura del reposo', () => {
+    // Con los 64 px de las hojas pintadas, el cadáver del Y Bot se hundiría en el suelo.
+    for (const dirs of Object.values(atlas.juegos)) {
+      for (const d of dirs) expect(d.clips.death?.anchor).toEqual(d.clips.idle.anchor);
+    }
+  });
+
+  it('una dirección vuelta a derivar da el mismo JSON (no se toca a mano)', async () => {
+    const d = await derivarDireccionDePoses('espada-escudo', 3);
+    expect(JSON.parse(JSON.stringify(d))).toEqual(atlas.juegos['espada-escudo']?.[3]);
   });
 });

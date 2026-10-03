@@ -12,23 +12,32 @@ import { DURACION, type EstadoFigura } from '../src/client/anim.js';
 import { EscenaAventura, focoDe } from '../src/client/escenas/aventura.js';
 import { AVISO_DE_ESPERA, EscenaBatalla } from '../src/client/escenas/batalla.js';
 import { PAUSA_TRAS_EL_RIVAL, PuertaDeFinDeTurno } from '../src/client/fin-de-turno.js';
+import { msPorCasilla } from '../src/client/marcha.js';
 import {
+  bandosSinDueño,
+  COLOR_BANDO,
   cajaDeCorona,
   cajaDeFigura,
   cajaDeNombre,
+  colorDelBando,
   pintarCorona,
   pintarSobreLaCabeza,
 } from '../src/client/render/batalla.js';
 import { casillaAPixel, centrarEn, TILE_INICIAL } from '../src/client/render/camara-mapa.js';
 import { CELDA, decoracionDe, pasosAPintar } from '../src/client/render/mapa.js';
-import { MARCA_DE_COMANDANTE } from '../src/client/render/palette.js';
-import { centroDeStack, centroHex, tableroPara } from '../src/client/render/proyeccion.js';
+import { COLOR_SIN_DUEÑO, MARCA_DE_COMANDANTE, playerColor } from '../src/client/render/palette.js';
+import {
+  ALTO_DE_FIGURA,
+  centroDeStack,
+  centroHex,
+  tableroPara,
+} from '../src/client/render/proyeccion.js';
 import { maquetarCoste } from '../src/client/render/town.js';
 import { Session } from '../src/client/session.js';
 import { marcaDeComandante } from '../src/client/views/panels.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import { isAlive, SIN_CARGAS, stackHexes } from '../src/core/battle/battle.js';
-import type { BattleStack } from '../src/core/battle/types.js';
+import type { BattleStack, Side } from '../src/core/battle/types.js';
 import { BARRERAS, SUELOS_PISABLES, type TerrainKind } from '../src/core/map/terrain.js';
 import type { Hex } from '../src/core/types.js';
 import {
@@ -201,8 +210,15 @@ describe('la batalla en el lienzo', () => {
     expect(escena.rechazarSiOcupada(20)).toBe(true);
 
     let dura = 0;
-    for (const e of nuevos)
+    for (const e of nuevos) {
       if (e.kind in DURACION) dura += DURACION[e.kind as keyof typeof DURACION];
+      // Un tramo dura sus casillas al paso de quien anda; la marcha de una
+      // figura de un hex es la más lenta que hay.
+      if (e.kind === 'move') {
+        const quien = s.battle!.stacks.find((x) => x.id === e.stack)!;
+        dura += e.path.length * msPorCasilla(quien.body, 'walk', ALTO_DE_FIGURA.normal);
+      }
+    }
     escena.sincronizar(10 + dura + 1000);
     expect(escena.ocupada).toBe(false);
     expect(s.status).toBe(previo);
@@ -310,6 +326,22 @@ describe('el comandante se distingue en el tablero (H-4)', () => {
     return { ctx, textos };
   }
 
+  it('el bando sin dueño se tiñe del gris de lo que no es de nadie, como en el mapa (I1)', () => {
+    const s = sesionEnBatalla();
+    // Contra un monstruo: el atacante es la persona y el defensor no es de nadie.
+    expect(s.dueños).toEqual({ attacker: s.viewer, defender: null });
+    const vista = { sinDueño: bandosSinDueño(s.dueños!) };
+    expect(colorDelBando(vista, 'defender')).toBe(COLOR_SIN_DUEÑO);
+    expect(colorDelBando(vista, 'attacker')).toBe(COLOR_BANDO.attacker);
+    // Es el mismo gris que la bandera de un castillo neutral, no un literal aparte.
+    expect(COLOR_SIN_DUEÑO).toBe(playerColor(null));
+    // La emboscada al revés: el atacante es el que no tiene dueño.
+    expect([...bandosSinDueño({ attacker: null, defender: 1 })]).toEqual(['attacker']);
+    // Entre dos jugadores, ninguno; y en la arena (sin dueños) se queda el del bando.
+    expect(bandosSinDueño({ attacker: 0, defender: 1 }).size).toBe(0);
+    expect(colorDelBando({ sinDueño: new Set() }, 'defender')).toBe(COLOR_BANDO.defender);
+  });
+
   it('el héroe lleva su corona encima, la tropa no; y la misma corona en «En el campo»', () => {
     const s = sesionEnBatalla();
     const batalla = s.battle!;
@@ -330,10 +362,11 @@ describe('el comandante se distingue en el tablero (H-4)', () => {
         throw new Error('no se usa');
       },
       efectos: [],
+      sinDueño: new Set<Side>(),
     };
     const coronas = (x: BattleStack): number => {
       const { ctx, textos } = contextoQueApunta();
-      const f = { en: centroDeStack(stackHexes(x)), alfa: 1 } as EstadoFigura;
+      const f = { en: centroDeStack(stackHexes(x)), alfaDelAro: 1 } as EstadoFigura;
       // La barra no la lleva, y la corona solo la pinta quien la pinta.
       pintarSobreLaCabeza(ctx, vista, x, f);
       expect(textos).not.toContain(MARCA_DE_COMANDANTE);
@@ -353,7 +386,7 @@ describe('el comandante se distingue en el tablero (H-4)', () => {
     // H-8 de la QA de la fase 1b: la chapa del nombre —la que sale en la unidad
     // activa y en la señalada— le caía encima. Las dos cajas no se tocan, y la
     // corona ya no es la de 14 px de antes.
-    const f = { en: centroDeStack(stackHexes(heroe)), alfa: 1 } as EstadoFigura;
+    const f = { en: centroDeStack(stackHexes(heroe)), alfaDelAro: 1 } as EstadoFigura;
     const corona = cajaDeCorona(vista, heroe, f);
     // Un nombre largo de verdad: lo que mide «Aldo de Valdeluz» y algo más.
     const nombre = cajaDeNombre(vista, heroe, f, 160);

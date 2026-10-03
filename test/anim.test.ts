@@ -6,7 +6,10 @@
  */
 import { describe, expect, it } from 'vitest';
 import { BattleAnimator, DURACION } from '../src/client/anim.js';
-import { planoDeHex } from '../src/client/render/proyeccion.js';
+import { msPorCasilla } from '../src/client/marcha.js';
+import { clipQueSePinta } from '../src/client/render/batalla.js';
+import { arteDe, hojaDe } from '../src/client/render/personajes.js';
+import { ALTO_DE_FIGURA, planoDeHex } from '../src/client/render/proyeccion.js';
 import { createBattle } from '../src/core/battle/battle.js';
 import type { BattleState } from '../src/core/battle/types.js';
 import { troopsAsStacks } from '../src/core/hero/troop.js';
@@ -53,7 +56,9 @@ describe('el animador de batalla', () => {
     a.tick(t);
 
     expect(a.busy).toBe(true);
-    t = DURACION.move / 2;
+    // Cada uno tarda lo que tarda en andar SUS casillas: dos el primero, una el segundo.
+    const casilla = msPorCasilla('peasant', 'walk', ALTO_DE_FIGURA.normal);
+    t = casilla;
     a.tick(t);
     const medio = a.figura(s1);
     expect(medio.clip).toBe('walk');
@@ -61,11 +66,11 @@ describe('el animador de batalla', () => {
     // El segundo espera su turno en su sitio de antes.
     expect(a.figura(s2).en).toEqual(desde2);
 
-    t = DURACION.move + 1;
+    t = 2 * casilla + 1;
     a.tick(t);
     expect(a.figura(s1).en).toEqual(planoDeHex(destino1));
     expect(a.figura(s2).clip).toBe('walk');
-    t = DURACION.move * 2 + 2;
+    t = 3 * casilla + 2;
     a.tick(t);
     expect(a.busy).toBe(false);
     expect(a.figura(s2).en).toEqual(planoDeHex(destino2));
@@ -102,6 +107,106 @@ describe('el animador de batalla', () => {
     expect(a.busy).toBe(false);
   });
 
+  it('quien recibe un golpe con daño se duele desde el impacto, y sigue tras el paso hasta acabar su clip', () => {
+    const a = new BattleAnimator();
+    const b = batalla();
+    a.observe(b);
+    a.tick(0);
+    const [atacante, , victima] = b.stacks as BattleState['stacks'];
+    b.log.push({
+      kind: 'attack',
+      stack: atacante!.id,
+      target: victima!.id,
+      damage: 3,
+      killed: 0,
+      retaliation: false,
+    });
+    a.observe(b);
+    a.tick(0);
+    // Antes del impacto, quieta.
+    a.tick(DURACION.attack * 0.3);
+    expect(a.figura(victima!).clip).toBe('idle');
+    // Desde el impacto (55 %), el daño con su reloj desde ahí.
+    const impacto = DURACION.attack * 0.55;
+    a.tick(impacto + 50);
+    expect(a.figura(victima!).clip).toBe('hurt');
+    expect(a.figura(victima!).tiempo).toBeCloseTo(50);
+    // El paso acaba antes que el clip: el daño sigue.
+    a.tick(DURACION.attack + 100);
+    expect(a.busy).toBe(false);
+    expect(a.figura(victima!).clip).toBe('hurt');
+    expect(a.figura(victima!).tiempo).toBeCloseTo(DURACION.attack + 100 - impacto);
+    // Y acaba cuando acaba su clip EN EL ATLAS: el animador da el tiempo desde
+    // el impacto y quien pinta corta con el reloj de la hoja (`clipQueSePinta`).
+    const hurt = hojaDe(arteDe(victima!.body), a.figura(victima!).mira).clips.hurt;
+    const dura = (hurt.frames * 1000) / hurt.fps;
+    a.tick(impacto + dura - 1);
+    expect(clipQueSePinta(victima!.body, a.figura(victima!))).toBe('hurt');
+    a.tick(impacto + dura + 1);
+    expect(clipQueSePinta(victima!.body, a.figura(victima!))).toBe('idle');
+  });
+
+  it('un golpe sin daño no hace dolerse', () => {
+    const a = new BattleAnimator();
+    const b = batalla();
+    a.observe(b);
+    a.tick(0);
+    const [atacante, , victima] = b.stacks as BattleState['stacks'];
+    b.log.push({
+      kind: 'attack',
+      stack: atacante!.id,
+      target: victima!.id,
+      damage: 0,
+      killed: 0,
+      retaliation: false,
+    });
+    a.observe(b);
+    a.tick(0);
+    a.tick(DURACION.attack * 0.8);
+    expect(a.figura(victima!).clip).toBe('idle');
+  });
+
+  it('la que cae lo hace con su muerte y deja el cadáver: `caida` crece desde que EMPEZÓ a caer', () => {
+    const a = new BattleAnimator();
+    const b = batalla();
+    a.observe(b);
+    a.tick(0);
+    const [, , victima] = b.stacks as BattleState['stacks'];
+    victima!.count = 0;
+    b.log.push({ kind: 'perished', stack: victima!.id });
+    a.observe(b);
+    a.tick(0);
+    a.tick(DURACION.perished / 2);
+    const cayendo = a.figura(victima!);
+    expect(cayendo.visible).toBe(true);
+    expect(cayendo.clip).toBe('death');
+    expect(cayendo.tiempo).toBeCloseTo(DURACION.perished / 2);
+    expect(cayendo.caida).toBeNull();
+    a.tick(DURACION.perished + 10);
+    const caida = a.figura(victima!);
+    expect(caida.visible).toBe(false);
+    // El reloj de la caída sigue el de la muerte: no salta al cadáver al acabar el paso.
+    expect(caida.caida).toBeCloseTo(DURACION.perished + 10);
+    a.tick(10_000);
+    expect(a.figura(victima!).caida).toBeCloseTo(10_000);
+  });
+
+  it('la que ya estaba muerta al verse la batalla es cadáver desde siempre, y otra batalla las olvida', () => {
+    const a = new BattleAnimator();
+    const b = batalla();
+    const [, , victima] = b.stacks as BattleState['stacks'];
+    victima!.count = 0;
+    a.observe(b);
+    a.tick(0);
+    expect(a.figura(victima!).visible).toBe(false);
+    expect(a.figura(victima!).caida).toBe(Number.POSITIVE_INFINITY);
+    // Otra batalla: el mismo id ya no es un cadáver.
+    const otra = batalla();
+    a.observe(otra);
+    a.tick(1);
+    expect(a.figura(otra.stacks[2]!).caida).toBeNull();
+  });
+
   it('preguntar si está ocupado no mueve la cola: solo la mueve el reloj', () => {
     const a = new BattleAnimator();
     const b = batalla();
@@ -116,7 +221,7 @@ describe('el animador de batalla', () => {
     // Ya ha pasado de sobra lo que dura el paso, pero nadie ha dado la hora.
     for (let i = 0; i < 3; i++) expect(a.busy).toBe(true);
     expect(a.figura(s1).clip).toBe('walk');
-    a.tick(DURACION.move + 1);
+    a.tick(msPorCasilla('peasant', 'walk', ALTO_DE_FIGURA.normal) + 1);
     expect(a.busy).toBe(false);
   });
 
@@ -132,13 +237,36 @@ describe('el animador de batalla', () => {
     b.log.push({ kind: 'move', stack: s1.id, to: destino, path: [destino] });
     const otraCopia = structuredClone(b);
     a.observe(otraCopia, 1);
-    a.tick(DURACION.move / 2);
+    a.tick(msPorCasilla('peasant', 'walk', ALTO_DE_FIGURA.normal));
     expect(a.busy).toBe(true);
     expect(a.figura(otraCopia.stacks[0]!).clip).toBe('walk');
     // Otra batalla, aunque el registro sea igual de largo, empieza quieta.
     a.observe(structuredClone(b), 2);
-    a.tick(DURACION.move / 2);
+    a.tick(1);
     expect(a.busy).toBe(false);
+  });
+
+  it('un tramo dura lo que tarda su figura en andar sus casillas, y cargando menos', () => {
+    const a = new BattleAnimator();
+    const b = batalla();
+    a.observe(b);
+    a.tick(0);
+    const s1 = b.stacks[0]!;
+    const destino = { col: s1.hex.col + 3, row: s1.hex.row };
+    s1.hex = destino;
+    b.log.push({ kind: 'move', stack: s1.id, to: destino, path: [destino] });
+    a.observe(b);
+    a.tick(0);
+    const casilla = msPorCasilla('peasant', 'walk', ALTO_DE_FIGURA.normal);
+    a.tick(3 * casilla - 1);
+    expect(a.busy).toBe(true);
+    a.tick(3 * casilla + 1);
+    expect(a.busy).toBe(false);
+    // La carrera avanza más por ciclo con el mismo reloj: la casilla dura menos.
+    expect(msPorCasilla('peasant', 'charge', ALTO_DE_FIGURA.normal)).toBeLessThan(casilla);
+    // Y una figura grande da zancadas más largas.
+    expect(msPorCasilla('peasant', 'walk', ALTO_DE_FIGURA.grande)).toBeLessThan(casilla);
+    expect(() => msPorCasilla('peasant', 'attack', 1)).toThrow(/no anda/);
   });
 
   it('a ritmo 2 un paso dura la mitad, y cambiar el ritmo a mitad no mueve el que ya va', () => {
@@ -155,9 +283,10 @@ describe('el animador de batalla', () => {
     a.tick(0);
     // Ya empezado a ritmo 2: volver a 1 no lo estira.
     a.velocidad = 1;
-    a.tick(DURACION.move / 2 - 1);
+    const casilla = msPorCasilla('peasant', 'walk', ALTO_DE_FIGURA.normal);
+    a.tick(casilla / 2 - 1);
     expect(a.busy).toBe(true);
-    a.tick(DURACION.move / 2 + 1);
+    a.tick(casilla / 2 + 1);
     expect(a.busy).toBe(false);
     expect(a.figura(s1).en).toEqual(planoDeHex(destino));
   });

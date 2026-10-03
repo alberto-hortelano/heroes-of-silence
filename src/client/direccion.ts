@@ -3,11 +3,11 @@
  *
  * Es la REGLA, y no sabe nada del arte: sale del vector en pantalla hacia la
  * casilla siguiente del camino o hacia el objetivo, y la guarda el animador
- * (`anim.ts`). Lo que el arte de hoy sabe pintar con ella —derecha o espejado—
- * es otra función, del lado de pintar (`espejadoPara`, en `render/figura.ts`).
- * **El arte de perfil es temporal** (decisión del usuario, 02-10-2026: «tendrá
- * las 8 direcciones»): cuando lleguen las hojas de ocho, cambia esa traducción
- * —el atlas dirá qué direcciones trae— y esta regla no.
+ * (`anim.ts`). Qué hoja pinta cada dirección es otra tabla, del lado de pintar
+ * (`INDICE_DE_HOJA`, en `render/personajes.ts`): toda figura tiene sus ocho
+ * direcciones y ninguna se espeja. El arte de perfil, que solo sabía mirar a la
+ * derecha o espejado, se retiró el 03-10-2026 con la llegada del Y Bot en 8
+ * direcciones como respaldo de toda figura.
  */
 import { COMPRESION_SUELO } from '../shared/arte.js';
 import type { Plano } from './render/proyeccion.js';
@@ -26,15 +26,18 @@ export type Direccion = (typeof DIRECCIONES)[number];
  * no hay hacia dónde girarse y se conserva `antes`.
  */
 export function direccionHacia(desde: Plano, hacia: Plano, antes: Direccion): Direccion {
-  const dx = hacia.x - desde.x;
+  return direccionEnPantalla(hacia.x - desde.x, (hacia.y - desde.y) * COMPRESION_SUELO, antes);
+}
+
+/**
+ * La dirección de un vector YA en pantalla (x a la derecha, y hacia abajo): la
+ * del mapa de aventura, que tiene su propia cámara y no pasa por el plano del
+ * tablero. Sin vector se conserva `antes`.
+ */
+export function direccionEnPantalla(dx: number, dyPantalla: number, antes: Direccion): Direccion {
   // En pantalla la y crece hacia abajo; el norte es hacia arriba.
-  const dy = -(hacia.y - desde.y) * COMPRESION_SUELO;
+  const dy = -dyPantalla;
   if (Math.abs(dx) < 1e-9 && Math.abs(dy) < 1e-9) return antes;
   const sector = Math.round(Math.atan2(dy, dx) / (Math.PI / 4));
   return DIRECCIONES[((sector % 8) + 8) % 8] as Direccion;
-}
-
-/** ¿Tiene lado —este u oeste— esta dirección? El norte y el sur puros, no. */
-export function tieneLado(d: Direccion): boolean {
-  return d !== 'N' && d !== 'S';
 }

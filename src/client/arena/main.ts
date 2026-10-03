@@ -22,13 +22,31 @@ import {
 import { LIDERAZGO } from '@core/data.js';
 import { parseSeed } from '@core/rng.js';
 import type { CreatureTrait } from '@core/types.js';
+import { FIGURA } from '../../shared/arte.js';
+import type { Direccion } from '../direccion.js';
 import { EscenaBatalla } from '../escenas/batalla.js';
 import { pintar } from '../html.js';
-import { asset, cargarArte, cargarHojaDeUnidad, hojaDeUnidad } from '../render/assets.js';
-import { type CharacterClip, drawCharacter, sampleCharacter } from '../render/character.js';
-import { hayFigurasAnimadas } from '../render/figura.js';
+import { cargarArte } from '../render/assets.js';
+import { COLOR_BANDO } from '../render/batalla.js';
+import type { CharacterClip } from '../render/character.js';
+import {
+  claveDelDibujo,
+  colocarFigura,
+  type Figura,
+  hayFigurasAnimadas,
+  pintarFigura,
+  pintarSombraDeFigura,
+} from '../render/figura.js';
 import { ajustarLienzo } from '../render/lienzo.js';
-import { arteDe, registrarHojaDeUnidad } from '../render/personajes.js';
+import { COLOR_NEUTRO } from '../render/palette.js';
+import {
+  arteDe,
+  DIRECCION_DE_HOJA,
+  hojaDe,
+  INDICE_DE_HOJA,
+  MIRADA_DE_PRESENTACION,
+  registrarUnidad,
+} from '../render/personajes.js';
 import { semillaSorteada } from '../semilla.js';
 import { type PuestoDeArena, SesionDeArena } from '../session.js';
 import {
@@ -66,6 +84,11 @@ const montaje: Record<Lado, Puesto[]> = { izquierda: [], derecha: [] };
 let filtro: HojaDeArena['faccion'] | 'todas' = 'todas';
 let elegida: string | null = null;
 let clipDeFicha: CharacterClip = 'idle';
+/**
+ * Hacia dónde mira la figura de la ficha, como posición en `DIRECCION_DE_HOJA`:
+ * «Girar» la pasa por las ocho direcciones en el orden de las hojas.
+ */
+let miraDeFicha = INDICE_DE_HOJA[MIRADA_DE_PRESENTACION];
 let siguienteClave = 1;
 let sesion: SesionDeArena | null = null;
 /** La barra mientras se monta; en la batalla manda la de la sesión. */
@@ -123,7 +146,7 @@ async function arrancar(): Promise<void> {
   const r = await fetch('/__arena/hojas');
   if (!r.ok) throw new Error(`no se ha podido leer la lista de hojas (${r.status})`);
   hojas = validarHojasDeArena(await r.json());
-  for (const h of hojas) registrarHojaDeUnidad(h.id, h.atlas);
+  for (const h of hojas) registrarUnidad(h.id, h);
   const b = await fetch('/__arena/unidades');
   if (!b.ok) throw new Error(`no se ha podido leer el borrador (${b.status})`);
   const cuerpo = (await b.json()) as RespuestaDelBorrador;
@@ -168,7 +191,17 @@ let figuras: {
   ctx: CanvasRenderingContext2D;
   id: string;
   ficha: boolean;
+  /** El bando de la miniatura, que le da el color; `null` en la ficha. */
+  lado: Lado | null;
 }[] = [];
+
+/**
+ * Lo último que se pintó en cada miniatura: se repinta solo si cambia su
+ * fotograma, su clip, su dirección o su hoja. Un reposo a 8 fps repintaba cada
+ * miniatura sesenta veces por segundo para enseñar ocho fotogramas distintos.
+ * Un lienzo nuevo —el montaje se rehace entero— no tiene entrada y se pinta.
+ */
+const pintado = new WeakMap<HTMLCanvasElement, string>();
 
 function repintarMontaje(): void {
   // Repintar quita el foco del campo que se acaba de cambiar: se le devuelve al
@@ -194,7 +227,14 @@ function repintarMontaje(): void {
     const ctx = lienzo instanceof HTMLCanvasElement ? lienzo.getContext('2d') : null;
     if (ctx === null || !(lienzo instanceof HTMLCanvasElement)) continue;
     const id = lienzo.getAttribute('data-figura') as string;
-    figuras.push({ lienzo, ctx, id, ficha: lienzo.getAttribute('data-ficha-clip') === 'si' });
+    const lado = lienzo.getAttribute('data-lado');
+    figuras.push({
+      lienzo,
+      ctx,
+      id,
+      ficha: lienzo.getAttribute('data-ficha-clip') === 'si',
+      lado: lado === 'izquierda' || lado === 'derecha' ? lado : null,
+    });
   }
   pedirFotograma();
 }
@@ -221,7 +261,6 @@ function añadir(lado: Lado, hoja: string, ia: boolean): void {
   }
   montaje[lado].push({ clave: siguienteClave++, hoja, ia });
   elegida = hoja;
-  void cargarHojaDeUnidad(hoja);
   aviso = `${unidadDe(hoja).name} entra en el bando ${adjetivo}.`;
 }
 
@@ -415,19 +454,55 @@ function render(ahora: number): void {
  */
 function dibujarFiguras(ahora: number): boolean {
   if (elStatus.textContent !== aviso) elStatus.textContent = aviso;
-  let alguna = false;
-  for (const { lienzo, ctx, id, ficha } of figuras) {
-    ctx.clearRect(0, 0, lienzo.width, lienzo.height);
-    const imagen = asset('rpg', hojaDeUnidad(id));
+  for (const [i, { lienzo, ctx, id, ficha, lado }] of figuras.entries()) {
     const arte = arteDe(id);
-    if (imagen === null || arte.alturaPropia === undefined) continue;
-    const fotograma = sampleCharacter(imagen, arte.base.atlas, ficha ? clipDeFicha : 'idle', ahora);
-    // En la miniatura cada figura llena su marco: aquí se mira una, no se comparan.
-    const lado = (lienzo.height * 0.86 * arte.base.atlas.cell) / arte.alturaPropia;
-    drawCharacter(ctx, fotograma, lienzo.width / 2, lienzo.height - 6, lado);
-    alguna = true;
+    // En la miniatura cada figura llena su marco: aquí se mira una, no se
+    // comparan. `pintarFigura` escala contra un adulto, así que se le pide el
+    // alto que deja a ESTA figura en el 80 % del marco. Se pinta como en el
+    // tablero —teñida del color de su bando, o el marcador si no ha llegado—.
+    const clip: CharacterClip = ficha ? clipDeFicha : 'idle';
+    // Los dos bandos se miran; la ficha, hacia donde la haya girado quien mira.
+    const mira: Direccion = ficha
+      ? (DIRECCION_DE_HOJA[miraDeFicha] as Direccion)
+      : lado === 'derecha'
+        ? 'SO'
+        : MIRADA_DE_PRESENTACION;
+    // El cadáver tendido es más ancho que alto y cae por debajo de los pies
+    // —hacia la cámara, y en las hojas pintadas su fila va subida en la celda—:
+    // con la muerte la figura se achica y el suelo sube hasta que quepa la celda
+    // entera, o la ficha lo cortaba por abajo y por los lados.
+    const llena = clip === 'death' ? 0.4 : 0.8;
+    const alto = (lienzo.height * llena * FIGURA.alturaAdulto) / arte.alturaPropia;
+    const atlas = hojaDe(arte, mira);
+    const bajoLosPies =
+      clip === 'death'
+        ? ((atlas.cell - atlas.clips.death.anchor[1]) * alto) / FIGURA.alturaAdulto
+        : 8;
+    const figura: Figura = {
+      // El compás va por miniatura y no por hoja: la misma unidad puede estar
+      // en el catálogo y en los dos bandos, y no tiene por qué respirar igual.
+      id: `miniatura-${i}-${id}`,
+      body: id,
+      clip,
+      tiempo: ahora,
+      x: lienzo.width / 2,
+      suelo: lienzo.height - bajoLosPies,
+      alto,
+      mira,
+      color: lado === null ? COLOR_NEUTRO : COLOR_BANDO[LADOS[lado].bando],
+      rotulo: unidadDe(id).name.slice(0, 3),
+    };
+    const colocada = colocarFigura(figura);
+    const clave = claveDelDibujo(colocada);
+    if (pintado.get(lienzo) === clave) continue;
+    pintado.set(lienzo, clave);
+    ctx.clearRect(0, 0, lienzo.width, lienzo.height);
+    pintarSombraDeFigura(ctx, colocada);
+    pintarFigura(ctx, colocada);
   }
-  return alguna;
+  // Con alguna figura con arte en pantalla, respira: el bucle sigue. Sin arte,
+  // la imagen que llegue avisa y repinta.
+  return figuras.length > 0 && hayFigurasAnimadas();
 }
 
 function dibujarBatalla(ahora: number, s: SesionDeArena): void {
@@ -541,6 +616,10 @@ document.addEventListener('click', (ev) => {
       }
       case 'clip':
         clipDeFicha = el.getAttribute('data-clip') as CharacterClip;
+        pedirFotograma();
+        return;
+      case 'girar':
+        miraDeFicha = (miraDeFicha + 1) % DIRECCION_DE_HOJA.length;
         pedirFotograma();
         return;
       case 'quitar-habilidad': {

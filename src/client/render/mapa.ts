@@ -18,10 +18,14 @@ import { type MapObject, type MapRegion, pointFromKey, pointKey } from '@core/ma
 import { isWalkable, type TerrainKind } from '@core/map/terrain.js';
 import type { VistaAsaltante } from '@core/state/asaltantes.js';
 import type { Point } from '@core/types.js';
+import { type Direccion, direccionEnPantalla } from '../direccion.js';
+import { msPorCasilla } from '../marcha.js';
 import { asset, type PiezaDelMapa, versionDelArte } from './assets.js';
 import { type CamaraMapa, casillaAPixel, mundoAPixel } from './camara-mapa.js';
-import { animarHasta, pintarFigura } from './figura.js';
-import { playerColor, RESOURCE_COLORS } from './palette.js';
+import { animarHasta, type Figura, pintarFiguraConSombra } from './figura.js';
+import { densidadDe } from './lienzo.js';
+import { COLOR_NEUTRO, COLOR_SIN_DUEÑO, playerColor, RESOURCE_COLORS } from './palette.js';
+import { MIRADA_DE_PRESENTACION } from './personajes.js';
 import { cajaDePieza, pintarPieza } from './piezas.js';
 import { pintarSombra } from './sombra.js';
 import { terrainSurface } from './terreno.js';
@@ -114,18 +118,22 @@ const PIEZA_DE_RECURSO: Partial<Record<keyof typeof RESOURCE_COLORS, PiezaDelMap
   wood: 'madera',
 };
 
-/** El color de lo hostil sin dueño: los monstruos que guardan el mapa. */
-const COLOR_MONSTRUO = '#b0553f';
 /**
- * El de los asaltantes, otro: un monstruo se queda donde está y un asaltante
- * no, y de un vistazo hay que distinguir lo que guarda de lo que embosca.
+ * El suelo y el estandarte de los asaltantes: la figura es del gris de lo que no
+ * tiene dueño, igual que la de un monstruo, y lo que separa lo que embosca de lo
+ * que guarda es esta mancha morada y el estandarte, no el tinte.
  */
 const COLOR_ASALTANTE = '#8c3b8f';
 /** El tramo de una ruta donde un grupo a la vista emboscaría al héroe. */
 const COLOR_EMBOSCADA = '#d8332a';
 
-/** Lo que tarda un asaltante en deslizarse de su casilla de ayer a la de hoy. */
-const DURACION_DE_PATRULLA = 900;
+/**
+ * Lo que mide la figura de un grupo en el mapa, en casillas: con eso se dibuja y
+ * con eso anda (`msPorCasilla`), así que su patrulla dura lo que tardan sus pies
+ * en cruzar las casillas y no un plazo fijo —eran 900 ms fuera la patrulla de
+ * una casilla o de tres—.
+ */
+export const ALTO_DEL_GRUPO = 0.85;
 
 /**
  * La patrulla que se está viendo: de dónde a dónde va cada grupo y desde
@@ -141,6 +149,8 @@ interface Marcha {
   desde: Point;
   hasta: Point;
   inicio: number;
+  /** Lo que dura, en ms: las casillas de la recta al paso de su figura. */
+  dura: number;
 }
 const marchas = new WeakMap<readonly TerrainKind[], Map<string, Marcha>>();
 
@@ -149,7 +159,7 @@ function posicionDeAsaltante(
   escena: AdventureScene,
   r: AdventureScene['raiders'][number],
   tiempo: number,
-): { x: number; y: number; andando: boolean; haciaIzquierda: boolean } {
+): { x: number; y: number; andando: boolean; mira: Direccion; hasta: number } {
   let deLaPartida = marchas.get(escena.map.terrain);
   if (deLaPartida === undefined) {
     deLaPartida = new Map();
@@ -157,7 +167,7 @@ function posicionDeAsaltante(
   }
   let m = deLaPartida.get(r.id);
   if (m === undefined) {
-    m = { desde: r.at, hasta: r.at, inicio: -DURACION_DE_PATRULLA };
+    m = { desde: r.at, hasta: r.at, inicio: Number.NEGATIVE_INFINITY, dura: 0 };
     deLaPartida.set(r.id, m);
   } else if (m.hasta.x !== r.at.x || m.hasta.y !== r.at.y) {
     // Se ha movido desde la última vez que se pintó: arranca desde donde se le
@@ -166,20 +176,26 @@ function posicionDeAsaltante(
     m.desde = { x: ahora.x, y: ahora.y };
     m.hasta = r.at;
     m.inicio = tiempo;
+    const cuerpo = r.troops[0]?.creature;
+    if (cuerpo === undefined) throw new Error(`el grupo de asaltantes ${r.id} no tiene tropa`);
+    const largo = Math.hypot(m.hasta.x - m.desde.x, m.hasta.y - m.desde.y);
+    m.dura = largo * msPorCasilla(cuerpo, 'walk', ALTO_DEL_GRUPO);
   }
-  return posicionEn(m, tiempo);
+  return { ...posicionEn(m, tiempo), hasta: m.inicio + m.dura };
 }
 
 function posicionEn(
   m: Marcha,
   tiempo: number,
-): { x: number; y: number; andando: boolean; haciaIzquierda: boolean } {
-  const t = Math.min(1, Math.max(0, (tiempo - m.inicio) / DURACION_DE_PATRULLA));
+): { x: number; y: number; andando: boolean; mira: Direccion } {
+  const t = m.dura <= 0 ? 1 : Math.min(1, Math.max(0, (tiempo - m.inicio) / m.dura));
   return {
     x: m.desde.x + (m.hasta.x - m.desde.x) * t,
     y: m.desde.y + (m.hasta.y - m.desde.y) * t,
     andando: t < 1 && (m.desde.x !== m.hasta.x || m.desde.y !== m.hasta.y),
-    haciaIzquierda: m.hasta.x < m.desde.x,
+    // El mapa se ve de frente, sin aplastar: el vector en casillas ya es el de
+    // pantalla. Quieto mira al suroeste, como el monstruo que guarda.
+    mira: direccionEnPantalla(m.hasta.x - m.desde.x, m.hasta.y - m.desde.y, 'SO'),
   };
 }
 
@@ -237,7 +253,7 @@ function fondoDe(ctx: CanvasRenderingContext2D, v: VistaMapa): HTMLCanvasElement
   const { width: W, height: H } = v.escena.map;
   const { camara } = v;
   const suelo = asset('rpg', 'suelo');
-  const dpr = ctx.getTransform().a;
+  const dpr = densidadDe(ctx);
   const lienzoSuperficie = superficieDe(v.escena, v.semilla);
   const clave = `${camara.tile}|${camara.x}|${camara.y}|${v.ancho}|${v.alto}|${dpr}|${suelo !== null}`;
   if (fondo !== null && fondo.clave === clave && fondo.superficie === lienzoSuperficie) {
@@ -770,12 +786,12 @@ function pintarObjeto(ctx: CanvasRenderingContext2D, v: VistaMapa, o: MapObject)
     }
     case 'monster':
       pintarGrupoNeutral(ctx, tile, c, {
+        id: o.id,
         body: o.creature,
         cuantos: o.count,
-        color: COLOR_MONSTRUO,
-        tiempo: v.tiempo + (o.at.x * 211 + o.at.y * 97),
+        tiempo: v.tiempo,
         andando: false,
-        mirandoIzquierda: true,
+        mira: 'SO',
       });
       return;
   }
@@ -807,21 +823,22 @@ function pintarHeroe(
     ctx.stroke();
   }
   ctx.restore();
-  pintarSombra(ctx, c.x, suelo, tile * 0.95);
-  pintarFigura(ctx, {
+  const figura: Figura = {
     // El héroe a pie, con su id de arte: el mismo que lleva en el tablero
-    // (`HERO_BODY`), y `personajes.ts` lo resuelve a la figura de Liora. Todos
-    // los héroes llevan la misma y los distingue el aro del dueño.
+    // (`HERO_BODY`), y `personajes.ts` lo resuelve al Y Bot de su juego de
+    // armas, teñido del color del dueño.
+    id: h.id,
     body: HERO_BODY,
     clip: 'idle',
-    tiempo: v.tiempo + h.at.x * 131,
+    tiempo: v.tiempo,
     x: c.x,
     suelo,
     alto: tile * 0.92,
-    mirandoIzquierda: false,
+    mira: MIRADA_DE_PRESENTACION,
     color,
     rotulo: h.name.charAt(0).toUpperCase(),
-  });
+  };
+  pintarFiguraConSombra(ctx, figura);
 }
 
 /**
@@ -836,7 +853,7 @@ function pintarAsaltante(
 ): void {
   const tile = v.camara.tile;
   const p = posicionDeAsaltante(v.escena, r, v.tiempo);
-  if (p.andando) animarHasta(v.tiempo + DURACION_DE_PATRULLA);
+  if (p.andando) animarHasta(p.hasta);
   const c = mundoAPixel(v.camara, p.x + 0.5, p.y + 0.5);
   const suelo = c.y + tile * 0.32;
   // El suelo RELLENO y no solo el aro discontinuo: con arte, un grupo de
@@ -855,12 +872,12 @@ function pintarAsaltante(
   const cuerpo = r.troops[0]?.creature;
   if (cuerpo === undefined) throw new Error(`el grupo de asaltantes ${r.id} no tiene tropa`);
   pintarGrupoNeutral(ctx, tile, c, {
+    id: r.id,
     body: cuerpo,
     cuantos: individuosDe(r.troops),
-    color: COLOR_ASALTANTE,
-    tiempo: v.tiempo + (r.at.x * 173 + r.at.y * 59),
+    tiempo: v.tiempo,
     andando: p.andando,
-    mirandoIzquierda: p.andando ? p.haciaIzquierda : true,
+    mira: p.mira,
   });
   estandarteDeAsaltante(ctx, c.x - tile * 0.36, c.y - tile * 0.46, tile);
 }
@@ -916,37 +933,39 @@ function estandarteDeAsaltante(
 
 /**
  * Un grupo sin dueño —monstruo que guarda o asaltante que patrulla—: la figura
- * de su criatura en su color, con su sombra y la chapa de cuántos son. Los dos
- * se pintan igual a propósito: lo que los distingue es el color y el aro del
- * asaltante, no la figura.
+ * de su criatura teñida del gris de lo que no tiene dueño, con su sombra y la
+ * chapa de cuántos son. Los dos se pintan igual a propósito: lo que los
+ * distingue es el suelo morado y el estandarte del asaltante, no la figura. Y el
+ * gris es lo que los separa del héroe, que lleva el color de su dueño.
  */
 function pintarGrupoNeutral(
   ctx: CanvasRenderingContext2D,
   tile: number,
   c: { readonly x: number; readonly y: number },
   g: {
+    readonly id: string;
     readonly body: string;
     readonly cuantos: number;
-    readonly color: string;
     readonly tiempo: number;
     readonly andando: boolean;
-    readonly mirandoIzquierda: boolean;
+    readonly mira: Direccion;
   },
 ): void {
   const suelo = c.y + tile * 0.32;
   const cuantos = String(g.cuantos);
-  pintarSombra(ctx, c.x, suelo, tile * 0.9);
-  pintarFigura(ctx, {
+  const figura: Figura = {
+    id: g.id,
     body: g.body,
     clip: g.andando ? 'walk' : 'idle',
     tiempo: g.tiempo,
     x: c.x,
     suelo,
-    alto: tile * 0.85,
-    mirandoIzquierda: g.mirandoIzquierda,
-    color: g.color,
+    alto: tile * ALTO_DEL_GRUPO,
+    mira: g.mira,
+    color: COLOR_SIN_DUEÑO,
     rotulo: cuantos,
-  });
+  };
+  pintarFiguraConSombra(ctx, figura);
   chapa(ctx, cuantos, c.x + tile * 0.3, c.y + tile * 0.32, tile);
 }
 
@@ -1030,7 +1049,7 @@ function chapa(
   ctx.font = `bold ${Math.round(alto * 0.72)}px system-ui, sans-serif`;
   const ancho = ctx.measureText(texto).width + alto * 0.6;
   ctx.fillStyle = 'rgba(25,21,9,0.92)';
-  ctx.strokeStyle = '#cbb780';
+  ctx.strokeStyle = COLOR_NEUTRO;
   ctx.lineWidth = 1;
   ctx.fillRect(x - ancho / 2, y - alto / 2, ancho, alto);
   ctx.strokeRect(x - ancho / 2 + 0.5, y - alto / 2 + 0.5, ancho - 1, alto - 1);

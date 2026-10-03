@@ -1073,6 +1073,18 @@ describe('invariantes del proyecto', () => {
     expect(llamadas.filter((e) => e.startsWith('src/core/state/game.ts:'))).toHaveLength(2);
   });
 
+  it('el arte de una dirección no vuelve: ninguna figura lee `characters/`, `rpg/scenes` ni un `atlas.webp` raíz', () => {
+    // Desde el 03-10-2026 toda figura es de 8 direcciones —las suyas o las del
+    // Y Bot— y el arte de una dirección se borró del repo (decisión del
+    // usuario). Una ruta nueva a él cargaría un 404 y caería al marcador en
+    // silencio. El `atlas.webp` de una dirección vive en `unidades/<id>/`; el de
+    // 8, en `unidades/<id>/dN/`, así que lo que se prohíbe es el que no pasa por
+    // una carpeta `dN` (ni por un `${...}` que la construya). Mira código y
+    // cadenas, no comentarios, que sí pueden contar la historia.
+    const patron = /characters\/|rpg\/scenes|unidades\/[^/'"`]+\/atlas\.(webp|json)/;
+    expect(infractoresDeCodigo([...CLIENTE, ...SERVIDOR, ...CORE], patron)).toEqual([]);
+  });
+
   it('FAL_KEY no llega al navegador', () => {
     // El arte se genera en scripts de línea de órdenes; el cliente solo carga
     // PNGs. Una clave de pago en el bundle es un incidente, no un despiste.

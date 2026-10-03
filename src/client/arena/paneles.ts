@@ -120,7 +120,7 @@ export function renderBando(
             const u = unidadDe(p.hoja);
             return html`<div class="puesto${p.hoja === elegida ? ' elegida' : ''}" data-puesto="${p.clave}">
               <button class="ver" data-arena="editar" data-hoja="${p.hoja}" title="Ver y editar sus cifras">
-                <canvas class="figura" data-figura="${p.hoja}" width="72" height="88"></canvas>
+                <canvas class="figura" data-figura="${p.hoja}" data-lado="${lado}" width="72" height="88"></canvas>
               </button>
               <div class="datos">
                 <button class="nombre" data-arena="editar" data-hoja="${p.hoja}" title="Editar sus cifras">${u.name}</button>
@@ -177,8 +177,11 @@ export function renderFicha(u: UnidadDeArena | null, hoja: HojaDeArena | null): 
         <div class="botones">
           <button data-arena="clip" data-clip="idle">Reposo</button>
           <button data-arena="clip" data-clip="walk">Marcha</button>
+          <button data-arena="clip" data-clip="charge">Carga</button>
           <button data-arena="clip" data-clip="attack">Ataque</button>
-          ${hoja.perfil === 'montado-lanza' ? html`<button data-arena="clip" data-clip="charge">Carga</button>` : NADA}
+          <button data-arena="clip" data-clip="hurt">Daño</button>
+          <button data-arena="clip" data-clip="death">Muerte</button>
+          <button data-arena="girar" title="Pasa la figura por sus ocho direcciones">Girar</button>
         </div>
       </div>
       <label class="campo"><span class="label">Nombre</span>

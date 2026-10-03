@@ -67,11 +67,10 @@ function cargarImagen(clave: string, url: string): Promise<void> {
 }
 
 /**
- * Todo el arte del cliente nuevo, por el nombre con el que se pide a `asset('rpg',
- * …)`: el atlas del mapa, la textura del suelo, el fondo de la batalla y las
- * hojas de personajes a 25°. Una sola tabla: antes las hojas vivían en
- * `personajes.ts` y el resto escrito aquí a mano, y cada `main` tenía que
- * acordarse de pasarle la una a la otra.
+ * El arte fijo del cliente nuevo, por el nombre con el que se pide a `asset('rpg',
+ * …)`: el atlas del mapa, la textura del suelo y el fondo de la batalla. Las
+ * figuras ya no están aquí: son de 8 direcciones y se cargan a demanda, hoja a
+ * hoja, la primera vez que se pinta cada una (`cargarHojaDeFigura`).
  *
  * Va aparte del manifiesto de `generated/` porque no lo produce `tools/gen`: es
  * el arte aprobado que se rescató de la rama `archivo/gpt-rpg`.
@@ -80,11 +79,6 @@ export const ARTE_RPG = {
   mapa: '/rpg/map-atlas.png',
   suelo: '/rpg/suelo.webp',
   campo: '/rpg/campo.webp',
-  liora: '/characters/liora/atlas.png',
-  ybot: '/characters/y-bot-reference/liora-poses-v3.png',
-  companeros: '/rpg/scenes/companions-v3.webp',
-  guardia: '/rpg/scenes/guards-v3.webp',
-  combate: '/rpg/scenes/combat-actions-v1.webp',
 } as const;
 
 export type NombreDeArte = keyof typeof ARTE_RPG;
@@ -109,29 +103,34 @@ export const PIEZAS_DEL_MAPA = [
 
 export type PiezaDelMapa = (typeof PIEZAS_DEL_MAPA)[number];
 
-/**
- * Una hoja de `assets/unidades/<id>/`: se pide como `asset('rpg', 'unidad/<id>')`
- * igual que el resto de figuras, pero no se precarga —son medio centenar y la
- * partida no pinta ninguna—: la carga quien la vaya a pintar
- * (`cargarHojaDeUnidad`).
- */
-export type HojaDeUnidad = `unidad/${string}`;
+/** ¿Ha llegado ya alguna imagen de figura? Con una ya hay alguien que respira. */
+let hayFigura = false;
 
-/** El nombre de la hoja de una unidad. Lanza si el id no es de una carpeta del taller. */
-export function hojaDeUnidad(id: string): HojaDeUnidad {
-  if (!/^[a-z0-9-]+$/.test(id)) {
-    throw new Error(`"${id}" no es el id de una hoja de assets/unidades/: minúsculas y guiones`);
-  }
-  return `unidad/${id}`;
+/**
+ * Carga UNA hoja de figura —una dirección, y en el Y Bot la mitad de ella— y
+ * avisa al llegar. Se pide la que se pinta y no la figura entera: cada hoja son
+ * ~12 MB decodificados, y un cuerpo con sus 16 eran ~200 MB por cuerpo en el
+ * castillo, que solo pinta a cada uno de frente. La clave es la URL, así que los
+ * cuerpos que comparten el Y Bot de un juego de armas comparten sus hojas. Nunca
+ * lanza por la red: sin la imagen se pinta otra dirección o el marcador.
+ */
+export function cargarHojaDeFigura(url: string): void {
+  void cargarImagen(`figura/${url}`, url).then(() => {
+    if (imagenes.has(`figura/${url}`)) hayFigura = true;
+    // Repinta y nada más: una hoja de figura no cambia la superficie del mapa,
+    // que se recompone entera cuando sube `versionDelArte`.
+    for (const fn of oyentes) fn();
+  });
 }
 
-/**
- * Carga la hoja de una unidad y avisa al llegar. Nunca lanza por la red: sin la
- * imagen se pinta su marcador, como cualquier figura sin arte.
- */
-export async function cargarHojaDeUnidad(id: string): Promise<void> {
-  await cargarImagen(`rpg/${hojaDeUnidad(id)}`, `/unidades/${id}/atlas.webp`);
-  avisar();
+/** La imagen de figura de esa URL, si ya ha llegado. */
+export function imagenDeFigura(url: string): HTMLImageElement | null {
+  return imagenes.get(`figura/${url}`) ?? null;
+}
+
+/** ¿Hay alguna figura con su arte cargado? */
+export function hayFiguraCargada(): boolean {
+  return hayFigura;
 }
 
 /**
@@ -153,9 +152,11 @@ type Listener = () => void;
 const oyentes = new Set<Listener>();
 
 /**
- * Cuántas veces ha entrado arte nuevo. Lo que se compone una vez con el arte
- * que hubiera —la superficie del mapa con sus texturas— lo usa de clave de su
- * caché: antes contaba en cada fotograma qué texturas habían llegado.
+ * Cuántas veces ha entrado arte nuevo que no es una figura. Lo que se compone
+ * una vez con el arte que hubiera —la superficie del mapa con sus texturas— lo
+ * usa de clave de su caché: antes contaba en cada fotograma qué texturas habían
+ * llegado. Las hojas de figura no la suben: llegan a demanda, a lo largo de toda
+ * la partida, y cada una rehacía la superficie entera para nada.
  */
 let version = 0;
 

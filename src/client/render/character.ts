@@ -1,93 +1,87 @@
 /**
  * Atlas de clips: la cámara, el reloj y el anclaje pertenecen al arte, no al combate.
  *
- * `charge` es la carga del jinete (petición 6 de `docs/art/peticiones.md`): el
- * paso con la lanza bajada, en bucle. Es el único clip **opcional** —solo lo
- * trae la caballería—, y quien no lo tenga pinta la marcha (`clipDe`).
+ * Toda figura trae las seis acciones de `CLIPS_DE_FIGURA` (`shared/arte.ts`). No
+ * hay clip opcional ni caída a la marcha: el respaldo de quien no tiene arte
+ * propio es el Y Bot, que las tiene todas (decisión del usuario, 03-10-2026).
  */
-export type CharacterClip = 'idle' | 'walk' | 'attack' | 'charge';
+import type { CLIPS_DE_FIGURA } from '../../shared/arte.js';
 
-/** Los tres clips que toda hoja trae; `charge` se añade si la hoja lo tiene. */
-export type ClipObligatorio = Exclude<CharacterClip, 'charge'>;
+export type CharacterClip = (typeof CLIPS_DE_FIGURA)[number];
 
 export interface ClipInfo {
+  /**
+   * La URL de la imagen donde está la fila: una unidad lleva sus seis filas en
+   * un `atlas.webp`, y el Y Bot las reparte en dos PNG de tres (`dN-a`, `dN-b`).
+   */
+  readonly imagen: string;
+  /** La fila dentro de SU imagen. */
   readonly row: number;
   readonly frames: number;
   readonly fps: number;
   readonly loop: boolean;
   readonly anchor: readonly [number, number];
-  /** Atlas generado con filas de distinta altura: conservar la figura completa. */
-  readonly sourceY?: number;
-  readonly sourceHeight?: number;
 }
 
 export interface CharacterAtlas {
-  /** El lado de la celda: 256 la infantería, 384 el jinete. Nadie supone 256. */
+  /** El lado de la celda: 384 en las hojas de 8 direcciones. Nadie supone un número. */
   readonly cell: number;
   readonly columns: number;
-  readonly clips: Readonly<Record<ClipObligatorio, ClipInfo>> & { readonly charge?: ClipInfo };
+  readonly clips: Readonly<Record<CharacterClip, ClipInfo>>;
+  /** El fotograma de la muerte que se queda en el suelo hasta que acaba la batalla. */
+  readonly cadaver: { readonly clip: 'death'; readonly frame: number };
 }
 
-/** El clip que se pinta para `clip`: el suyo, o la marcha si la hoja no carga. */
-export function clipDe(atlas: CharacterAtlas, clip: CharacterClip): ClipInfo {
-  if (clip === 'charge') return atlas.clips.charge ?? atlas.clips.walk;
-  return atlas.clips[clip];
-}
-
-interface CharacterFrame {
+export interface CharacterFrame {
   readonly image: CanvasImageSource;
   readonly x: number;
   readonly y: number;
   readonly size: number;
-  readonly height: number;
   readonly anchor: readonly [number, number];
 }
 
 export function clipFrame(atlas: CharacterAtlas, clip: CharacterClip, elapsedMs: number): number {
-  const info = clipDe(atlas, clip);
+  const info = atlas.clips[clip];
   const elapsed = Math.max(0, Math.floor((elapsedMs * info.fps) / 1000));
   return info.loop ? elapsed % info.frames : Math.min(elapsed, info.frames - 1);
 }
 
-export function sampleCharacter(
+/** La celda de un fotograma concreto de un clip, ya resuelta su imagen. */
+export function celdaDe(
   image: CanvasImageSource,
   atlas: CharacterAtlas,
   clip: CharacterClip,
-  elapsedMs: number,
+  frame: number,
 ): CharacterFrame {
-  const info = clipDe(atlas, clip);
+  const info = atlas.clips[clip];
   return {
     image,
-    x: clipFrame(atlas, clip, elapsedMs) * atlas.cell,
-    y: info.sourceY ?? info.row * atlas.cell,
+    x: frame * atlas.cell,
+    y: info.row * atlas.cell,
     size: atlas.cell,
-    height: info.sourceHeight ?? atlas.cell,
     anchor: info.anchor,
   };
 }
 
-export function drawCharacter(
-  ctx: CanvasRenderingContext2D,
-  frame: CharacterFrame,
-  x: number,
-  groundY: number,
-  size: number,
-  facingLeft = false,
-): void {
-  const scale = size / frame.size;
-  ctx.save();
-  ctx.translate(x, groundY);
-  if (facingLeft) ctx.scale(-1, 1);
-  ctx.drawImage(
-    frame.image,
-    frame.x,
-    frame.y,
-    frame.size,
-    frame.height,
-    -frame.anchor[0] * scale,
-    -frame.anchor[1] * scale,
-    size,
-    frame.height * scale,
-  );
-  ctx.restore();
+/**
+ * El cadáver tras `msDesdeLaCaida`: la muerte sigue su reloj hasta llegar al
+ * fotograma `cadaver` y se queda en él. Así la caída que empezó en la cola del
+ * animador no salta al cadáver cuando acaba su paso, que dura menos que el clip.
+ */
+export function fotogramaDeCaida(atlas: CharacterAtlas, msDesdeLaCaida: number): number {
+  return Math.min(clipFrame(atlas, 'death', msDesdeLaCaida), atlas.cadaver.frame);
+}
+
+/**
+ * ¿Sigue el clip `msDesdeQueEmpezo` después de empezar? Lo dice su reloj en el
+ * atlas —`frames` a `fps`—, no una duración escrita en el animador: el daño que
+ * sigue tras el paso del golpe acaba cuando acaba su clip, sea el que sea.
+ */
+export function clipEnCurso(
+  atlas: CharacterAtlas,
+  clip: CharacterClip,
+  msDesdeQueEmpezo: number,
+): boolean {
+  const info = atlas.clips[clip];
+  return msDesdeQueEmpezo * info.fps < info.frames * 1000;
 }

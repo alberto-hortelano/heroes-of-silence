@@ -20,13 +20,18 @@
  */
 import { isAlive, stackHexes } from '@core/battle/battle.js';
 import type { BattleEvent, BattleStack, BattleState } from '@core/battle/types.js';
-import { type Direccion, direccionHacia, tieneLado } from './direccion.js';
+import { hexSize } from '@core/data.js';
+import { type Direccion, direccionHacia } from './direccion.js';
+import { msPorCasilla } from './marcha.js';
 import type { CharacterClip } from './render/character.js';
-import { centroDeStack, type Plano, planoDeHex } from './render/proyeccion.js';
+import { ALTO_DE_FIGURA, centroDeStack, type Plano, planoDeHex } from './render/proyeccion.js';
 
-/** Lo que dura en pantalla cada paso de la cola, en milisegundos. */
+/**
+ * Lo que dura en pantalla cada paso de la cola, en milisegundos. El de andar no
+ * está: depende de cuántas casillas se andan y de la zancada de quien anda
+ * (`duracionDelTramo`).
+ */
 export const DURACION = {
-  move: 520,
   attack: 560,
   shoot: 620,
   cast: 520,
@@ -55,6 +60,9 @@ type Paso =
       readonly camino: readonly Plano[];
       /** El tramo con el que se carga: el jinete lo anda con la lanza bajada. */
       readonly carga?: true;
+      /** Quién anda y lo alto que se pinta, en pasos: lo que fija su zancada. */
+      readonly body: string;
+      readonly alto: number;
     }
   | {
       readonly tipo: 'attack' | 'shoot';
@@ -76,39 +84,34 @@ export interface EstadoFigura {
   readonly golpe: number;
   /** Se pinta aunque el estado diga que ha caído: su caída aún no se ha visto. */
   readonly visible: boolean;
-  readonly alfa: number;
+  /**
+   * La opacidad del aro, la barra, el nombre y la corona: lo que se funde
+   * cuando cae. La figura con arte no se funde —se queda de cadáver—; sin arte,
+   * su marcador va con el aro (`Figura.alfaSinArte`).
+   */
+  readonly alfaDelAro: number;
+  /**
+   * Cuánto lleva caída, en ms, si ya se vio caer —o desde antes de que la
+   * batalla se viera—: el lienzo deja el cadáver en su casilla hasta el final
+   * (`fotogramaDeCaida`). `null` mientras esté en pie o cayendo en la cola.
+   */
+  readonly caida: number | null;
   /**
    * Hacia dónde mira, en ocho sectores (`direccion.ts`): anda mirando a la
    * casilla siguiente, golpea mirando a su objetivo y se queda mirando a donde
    * miró la última vez. Es estado del animador, no del núcleo.
    */
   readonly mira: Direccion;
-  /**
-   * La última dirección con lado (este u oeste) que tuvo: lo que necesita un
-   * arte que no tiene norte ni sur para no girarse solo al mirar en vertical.
-   */
-  readonly lado: Direccion;
-}
-
-/** Hacia dónde mira una figura y hacia qué lado miraba por última vez. */
-interface Mirada {
-  readonly mira: Direccion;
-  readonly lado: Direccion;
-}
-
-/** La mirada tras girarse hacia `d`: si `d` no tiene lado, el lado se queda. */
-function girar(antes: Mirada, d: Direccion): Mirada {
-  return { mira: d, lado: tieneLado(d) ? d : antes.lado };
 }
 
 /**
  * La mirada al andar el tramo `i` del camino: la de cada tramo hasta ese,
  * girándose en cada uno.
  */
-function miradaEnElTramo(camino: readonly Plano[], i: number, antes: Mirada): Mirada {
+function miradaEnElTramo(camino: readonly Plano[], i: number, antes: Direccion): Direccion {
   let m = antes;
   for (let k = 0; k <= i && k + 1 < camino.length; k++) {
-    m = girar(m, direccionHacia(camino[k] as Plano, camino[k + 1] as Plano, m.mira));
+    m = direccionHacia(camino[k] as Plano, camino[k + 1] as Plano, m);
   }
   return m;
 }
@@ -141,10 +144,60 @@ export function porElCamino(camino: readonly Plano[], t: number): Plano {
   return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
 }
 
+/** Lo largo que es un camino en el plano: casillas, si son vecinas. */
+function largoDe(camino: readonly Plano[]): number {
+  let largo = 0;
+  for (let k = 0; k + 1 < camino.length; k++) {
+    const a = camino[k] as Plano;
+    const b = camino[k + 1] as Plano;
+    largo += Math.hypot(b.x - a.x, b.y - a.y);
+  }
+  return largo;
+}
+
+/**
+ * Lo que dura un paso a ritmo normal. Un tramo dura lo que tarda su figura en
+ * andar sus casillas sin patinar (`msPorCasilla`): con la marcha, o con la carga
+ * si es el tramo con el que carga. Antes eran 520 ms para cualquier tramo, de
+ * una casilla o de seis.
+ */
+export function duracionDelPaso(p: Paso): number {
+  if (p.tipo !== 'move') return DURACION[p.tipo];
+  return largoDe(p.camino) * msPorCasilla(p.body, p.carga === true ? 'charge' : 'walk', p.alto);
+}
+
+/**
+ * Lo que tarda el animador, a ritmo normal, en contar `nuevos`, hechos del
+ * registro de `battle`: la misma cuenta que hace con su cola, para quien tiene
+ * que esperar a que acabe de contar —el guion de capturas— sin un reloj propio
+ * que se quede atrás. Un tramo son sus casillas (`path`) al paso de quien anda,
+ * con la carga si el golpe que lo sigue carga.
+ */
+export function duracionDeLaJugada(battle: BattleState, nuevos: readonly BattleEvent[]): number {
+  let ms = 0;
+  for (const [i, e] of nuevos.entries()) {
+    if (e.kind === 'move') {
+      const s = battle.stacks.find((x) => x.id === e.stack);
+      if (s === undefined)
+        throw new Error(`el registro mueve a ${e.stack}, que no está en la batalla`);
+      const siguiente = nuevos[i + 1];
+      const carga =
+        siguiente?.kind === 'attack' &&
+        siguiente.stack === e.stack &&
+        siguiente.charge !== undefined &&
+        !siguiente.retaliation;
+      const alto = ALTO_DE_FIGURA[hexSize(s.unit) > 1 ? 'grande' : 'normal'];
+      ms += e.path.length * msPorCasilla(s.body, carga ? 'charge' : 'walk', alto);
+    } else if (e.kind in DURACION) {
+      ms += DURACION[e.kind as keyof typeof DURACION];
+    }
+  }
+  return ms;
+}
+
 /** Cada bando sale mirando al otro: el atacante al este, el defensor al oeste. */
-function miradaDeSalida(s: BattleStack): Mirada {
-  const d: Direccion = s.side === 'defender' ? 'O' : 'E';
-  return { mira: d, lado: d };
+function miradaDeSalida(s: BattleStack): Direccion {
+  return s.side === 'defender' ? 'O' : 'E';
 }
 
 export class BattleAnimator {
@@ -176,10 +229,21 @@ export class BattleAnimator {
   private readonly vista = new Map<string, Plano>();
   /** Dónde estará cuando la cola acabe: el `desde` del siguiente movimiento. */
   private readonly destino = new Map<string, Plano>();
-  /** Las que ya cayeron en pantalla. */
-  private readonly caidas = new Set<string>();
+  /**
+   * Las que ya cayeron en pantalla, con el instante en que EMPEZÓ su caída: el
+   * cadáver sigue el reloj de la muerte desde ahí. Las que ya estaban muertas al
+   * verse la batalla, desde siempre.
+   */
+  private readonly caidas = new Map<string, number>();
+  /**
+   * El instante del último impacto que recibió cada una, igual que `caidas`
+   * guarda el de la caída: su clip de daño sigue desde ahí aunque el paso del
+   * golpe ya haya acabado. Cuándo ACABA lo decide quien pinta con el reloj del
+   * clip en el atlas (`clipEnCurso`), que el animador no conoce.
+   */
+  private readonly heridas = new Map<string, number>();
   /** Hacia dónde miró cada una la última vez. */
-  private readonly mirada = new Map<string, Mirada>();
+  private readonly mirada = new Map<string, Direccion>();
   /**
    * De la cabeza al centro de cada unidad, en el plano. En una unidad grande es
    * medio hex hacia atrás, y no cambia en toda la batalla: antes se rehacía con
@@ -207,6 +271,7 @@ export class BattleAnimator {
       this.vista.clear();
       this.destino.clear();
       this.caidas.clear();
+      this.heridas.clear();
       this.aCentro.clear();
       this.mirada.clear();
       for (const s of battle.stacks) {
@@ -215,14 +280,14 @@ export class BattleAnimator {
         const p = planoDeHex(s.hex);
         this.vista.set(s.id, p);
         this.destino.set(s.id, p);
-        if (!isAlive(s)) this.caidas.add(s.id);
+        if (!isAlive(s)) this.caidas.set(s.id, Number.NEGATIVE_INFINITY);
       }
       this.leidos = battle.log.length;
       return;
     }
     for (let i = this.leidos; i < battle.log.length; i++) {
       const e = battle.log[i] as BattleEvent;
-      const paso = this.traducir(e);
+      const paso = this.traducir(e, battle);
       if (paso !== null) this.cola.push(paso);
       // El registro dice que hubo carga en el golpe, no en el paso que lo
       // precede: se le marca al paso, que sigue en la cola porque la acción
@@ -237,14 +302,18 @@ export class BattleAnimator {
     this.leidos = battle.log.length;
   }
 
-  private traducir(e: BattleEvent): Paso | null {
+  private traducir(e: BattleEvent, battle: BattleState): Paso | null {
     switch (e.kind) {
       case 'move': {
         const hasta = planoDeHex(e.to);
         const desde = this.destino.get(e.stack) ?? hasta;
         this.destino.set(e.stack, hasta);
         const camino = [desde, ...e.path.map(planoDeHex)];
-        return { tipo: 'move', stack: e.stack, desde, hasta, camino };
+        const s = battle.stacks.find((x) => x.id === e.stack);
+        if (s === undefined)
+          throw new Error(`el registro mueve a ${e.stack}, que no está en la batalla`);
+        const alto = ALTO_DE_FIGURA[hexSize(s.unit) > 1 ? 'grande' : 'normal'];
+        return { tipo: 'move', stack: e.stack, desde, hasta, camino, body: s.body, alto };
       }
       case 'attack':
       case 'shoot':
@@ -276,7 +345,7 @@ export class BattleAnimator {
       if (this.actual !== null) {
         const fin = this.actual.inicio + this.actual.dura;
         if (ahora < fin) return;
-        this.terminar(this.actual.paso);
+        this.terminar(this.actual);
         this.actual = null;
         libreDesde = fin;
       }
@@ -285,12 +354,12 @@ export class BattleAnimator {
       this.actual = {
         paso: siguiente,
         inicio: libreDesde,
-        dura: DURACION[siguiente.tipo] / this.ritmo,
+        dura: duracionDelPaso(siguiente) / this.ritmo,
       };
     }
   }
 
-  private terminar(p: Paso): void {
+  private terminar({ paso: p, inicio, dura }: { paso: Paso; inicio: number; dura: number }): void {
     // La mirada con la que acaba el paso se queda: después de andar o de golpear
     // no se vuelve a su lado por defecto.
     if (p.tipo === 'move') {
@@ -303,7 +372,13 @@ export class BattleAnimator {
       this.mirada.set(p.stack, this.miradaAlObjetivo(p.stack, p.target));
     }
     if (p.tipo === 'move') this.vista.set(p.stack, p.hasta);
-    if (p.tipo === 'perished') this.caidas.add(p.stack);
+    if (p.tipo === 'perished') this.caidas.set(p.stack, inicio);
+    // El daño sigue después del paso: se apunta cuándo fue el impacto.
+    if (p.tipo === 'attack' || p.tipo === 'shoot' || p.tipo === 'cast') {
+      if (p.target !== null && p.damage > 0) this.heridas.set(p.target, inicio + IMPACTO * dura);
+    }
+    // Quien actúa deja de dolerse: su propio paso manda.
+    if (p.tipo !== 'cast') this.heridas.delete(p.stack);
   }
 
   /** ¿Queda algo por enseñar? Mientras sí, se repinta y no se aceptan clics. */
@@ -329,17 +404,17 @@ export class BattleAnimator {
     return { x: cabeza.x + d.x, y: cabeza.y + d.y };
   }
 
-  private miradaDe(id: string): Mirada {
-    return this.mirada.get(id) ?? { mira: 'E', lado: 'E' };
+  private miradaDe(id: string): Direccion {
+    return this.mirada.get(id) ?? 'E';
   }
 
   /** Mirando a la casilla del objetivo, desde donde se ve cada uno ahora. */
-  private miradaAlObjetivo(id: string, objetivo: string): Mirada {
+  private miradaAlObjetivo(id: string, objetivo: string): Direccion {
     const antes = this.miradaDe(id);
     const yo = this.vista.get(id);
     const el = this.vista.get(objetivo);
     if (yo === undefined || el === undefined) return antes;
-    return girar(antes, direccionHacia(yo, el, antes.mira));
+    return direccionHacia(yo, el, antes);
   }
 
   figura(s: BattleStack): EstadoFigura {
@@ -350,8 +425,15 @@ export class BattleAnimator {
     let clip: CharacterClip = 'idle';
     let tiempo = this.ahora;
     let golpe = 0;
-    let alfa = 1;
+    let alfaDelAro = 1;
     let mirada = this.mirada.get(s.id) ?? miradaDeSalida(s);
+    // El daño de un golpe que ya acabó sigue su clip desde el impacto, si nada
+    // de lo que pasa ahora le toca a esta figura.
+    const herida = this.heridas.get(s.id);
+    if (herida !== undefined) {
+      clip = 'hurt';
+      tiempo = this.ahora - herida;
+    }
 
     if (paso !== undefined) {
       if (paso.tipo === 'move' && paso.stack === s.id) {
@@ -370,14 +452,34 @@ export class BattleAnimator {
         t >= IMPACTO
       ) {
         golpe = trasImpacto(t);
+        if (paso.damage > 0) {
+          // Con daño, se duele: el clip arranca en el impacto.
+          clip = 'hurt';
+          tiempo = desdeInicio - IMPACTO * (this.actual?.dura ?? 0);
+        }
       } else if (paso.tipo === 'perished' && paso.stack === s.id) {
-        alfa = 1 - t;
+        // Cae con su clip de muerte; lo que se funde es el aro y la barra, no
+        // la figura, que se queda en el suelo como cadáver.
+        clip = 'death';
+        tiempo = desdeInicio;
+        alfaDelAro = 1 - t;
       }
     }
 
     // Una unidad muerta en el estado sigue en pie hasta que su caída se ve.
-    const visible = isAlive(s) || !this.caidas.has(s.id);
-    return { en: this.centro(s, cabeza), clip, tiempo, golpe, visible, alfa, ...mirada };
+    const inicioDeLaCaida = isAlive(s) ? undefined : this.caidas.get(s.id);
+    const visible = inicioDeLaCaida === undefined;
+    const caida = inicioDeLaCaida === undefined ? null : this.ahora - inicioDeLaCaida;
+    return {
+      en: this.centro(s, cabeza),
+      clip,
+      tiempo,
+      golpe,
+      visible,
+      alfaDelAro,
+      mira: mirada,
+      caida,
+    };
   }
 
   /** Los efectos del paso en curso: el proyectil que vuela y la cifra del golpe. */

@@ -26,13 +26,31 @@ export const RESOURCE_NAMES: Readonly<Record<ResourceKind, string>> = Object.fro
 
 /**
  * La marca del comandante —el héroe en el tablero, el que si cae pierde la
- * batalla—: una corona, la MISMA en el lienzo y en «En el campo». Con arte, el
- * héroe usa la figura de Liora con el mismo aro que todos; sin arte, era un
- * círculo «Ald» igual que «Cam» y «Arq» (H-4 de la QA de la fase 1b). Un glifo y
- * no un dibujo porque así es un solo hecho para el canvas y para el HTML.
+ * batalla—: una corona, la MISMA en el lienzo y en «En el campo». El héroe es una
+ * figura con el mismo aro que todos —el Y Bot de su juego de armas, teñido—, y
+ * sin arte era un círculo «Ald» igual que «Cam» y «Arq» (H-4 de la QA de la fase
+ * 1b). Un glifo y no un dibujo porque así es un solo hecho para el canvas y para
+ * el HTML.
  */
 export const MARCA_DE_COMANDANTE = '♛';
 export const COLOR_DE_COMANDANTE = '#f5cd4f';
+
+/**
+ * El latón de lo que no es de ningún bando: la figura de la casilla de reclutar,
+ * que dice qué se recluta y no de quién es, y la ficha de la arena. También el
+ * filo de las chapas del mapa.
+ */
+export const COLOR_NEUTRO = '#cbb780';
+
+/**
+ * El gris de lo que no tiene dueño: la bandera de un castillo neutral y, desde
+ * que todo cuerpo es el Y Bot teñido, la figura de un monstruo o de un grupo de
+ * asaltantes, en el mapa y en la batalla. Un rojo ladrillo propio para los
+ * monstruos quedaba a unos 10° del rojo del jugador 0, y a escala de mapa el
+ * héroe y lo que le guarda el paso eran el mismo muñeco rojo (I1 de la QA de las
+ * 8 direcciones).
+ */
+export const COLOR_SIN_DUEÑO = '#7d7364';
 
 /** Color de cada jugador, por índice. */
 export const PLAYER_COLORS = ['#d94f4f', '#4f7fd9', '#4fd97f', '#d9c14f'] as const;
@@ -54,7 +72,7 @@ export const PLAYER_COLORS = ['#d94f4f', '#4f7fd9', '#4fd97f', '#d9c14f'] as con
  * que no existe.
  */
 export function playerColor(id: number | null): string {
-  if (id === null) return '#7d7364';
+  if (id === null) return COLOR_SIN_DUEÑO;
   const color = PLAYER_COLORS[id % PLAYER_COLORS.length];
   if (color === undefined) {
     throw new Error(

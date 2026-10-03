@@ -369,7 +369,17 @@ export function baseEnCelda(celda: number): number {
   return Math.round((FIGURA.base * celda) / FIGURA.celda);
 }
 
-/** La hoja entera: `filas` × `FIGURA.columnas` celdas de `celda` (256 a pie, 384 montadas). */
+/**
+ * La hoja entera: `filas` × `FIGURA.columnas` celdas de `celda` (256 a pie, 384
+ * montadas).
+ *
+ * Sin `pose`, la escala sale de la mediana del reposo pintado: era el camino del
+ * atlas de una dirección, retirado el 03-10-2026. Hoy todo encargo de atlas
+ * lleva `ocho` y el trabajador pasa siempre la pose; el camino sin ella **solo lo
+ * usan los tests del empaquetado**, que prueban la rejilla con hojas de mentira
+ * sin maniquí. Se deja a propósito (decisión de la vuelta de simplify) en vez de
+ * fabricarles una pose.
+ */
 export async function empaquetar(
   r: Raster,
   filas: number,

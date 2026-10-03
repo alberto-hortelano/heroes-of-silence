@@ -14,7 +14,7 @@
     "idle": {
       "row": 0,
       "frames": 4,
-      "fps": 3,
+      "fps": 8,
       "loop": true,
       "anchor": [
         193,

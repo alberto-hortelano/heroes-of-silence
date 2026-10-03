@@ -23,9 +23,8 @@ import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import sharp from 'sharp';
-import { FIGURA } from '../../src/shared/arte.js';
+import { FIGURA, NOMBRES_DE_DIRECCION } from '../../src/shared/arte.js';
 import type { AtlasDerivado } from './derivar.js';
-import { NOMBRES_DE_DIRECCION } from './direcciones.js';
 import { apoyoEn } from './empaquetar.js';
 
 const RAIZ = resolve(import.meta.dirname, '../..');

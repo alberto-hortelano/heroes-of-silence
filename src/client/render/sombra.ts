@@ -1,11 +1,12 @@
 /**
- * La sombra de una figura sobre el suelo, rescatada de `aventura/actor-shadow.ts`
- * de la rama `archivo/gpt-rpg`.
+ * El óvalo de sombra de una figura cuya imagen no ha llegado, rescatado de
+ * `aventura/actor-shadow.ts` de la rama `archivo/gpt-rpg`. Con la imagen, la
+ * sombra es su silueta (`pintarSombraDeFigura`, en `figura.ts`).
  *
- * Se pinta ANTES del sprite y fuera de su transformación de giro: un defensor se
- * dibuja espejado, y su sombra tiene que seguir cayendo hacia donde dice la luz.
+ * Se pinta ANTES de la figura y cae hacia donde dice la luz, que es una para
+ * todas: no depende de hacia dónde mire nadie.
  */
-import { sombraDeFigura } from '../../shared/arte.js';
+import { colorDeSombra, sombraDeFigura } from '../../shared/arte.js';
 
 /**
  * El fundido de la sombra, uno por opacidad. Se dibuja en coordenadas propias
@@ -18,8 +19,8 @@ function fundidoDe(ctx: CanvasRenderingContext2D, opacidad: number): CanvasGradi
   const guardado = fundidos.get(opacidad);
   if (guardado !== undefined) return guardado;
   const fundido = ctx.createRadialGradient(0.42, 0, 0.08, 0.42, 0, 0.6);
-  fundido.addColorStop(0, `rgba(23, 31, 28, ${opacidad})`);
-  fundido.addColorStop(1, 'rgba(23, 31, 28, 0)');
+  fundido.addColorStop(0, colorDeSombra(opacidad));
+  fundido.addColorStop(1, colorDeSombra(0));
   fundidos.set(opacidad, fundido);
   return fundido;
 }
@@ -40,7 +41,7 @@ export function pintarSombra(
   ctx.fillRect(-0.2, -0.65, 1.3, 1.3);
   ctx.restore();
   ctx.save();
-  ctx.fillStyle = 'rgba(23, 31, 28, 0.22)';
+  ctx.fillStyle = colorDeSombra(0.22);
   ctx.beginPath();
   ctx.ellipse(x, y - 2, altura * 0.13, altura * 0.028, 0, 0, Math.PI * 2);
   ctx.fill();

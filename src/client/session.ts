@@ -30,6 +30,7 @@ import { emboscadaEnLaRuta, type VistaAsaltante } from '@core/state/asaltantes.j
 import type { DefeatReason } from '@core/state/events.js';
 import {
   applyAdventureAction,
+  battleOwners,
   caminoHasta,
   destinoDeRecluta,
   type GameContext,
@@ -161,6 +162,11 @@ export interface ControlDeBatalla {
   readonly turnoPropio: TurnoPropio | null;
   /** El bando de la persona; `null` si no lleva ninguno ahora. */
   readonly miBando: Side | null;
+  /**
+   * De quién es cada bando (`battleOwners`), para teñir de gris el que no es de
+   * nadie; `null` donde los bandos no son de jugadores, que es la arena.
+   */
+  readonly dueños: Readonly<Record<Side, PlayerId | null>> | null;
   /** La magia, o `null` donde no hay héroe que lance. */
   readonly hechizos: HechizosDeBatalla | null;
   battleLegalActions(): readonly BattleAction[];
@@ -828,6 +834,11 @@ export class Session implements ControlDeBatalla, HechizosDeBatalla {
    * dos mitades del arreglo no pueden separarse. `null` es «esta batalla no va
    * conmigo»: nada que mover y ningún turno propio.
    */
+  get dueños(): Readonly<Record<Side, PlayerId | null>> | null {
+    const pending = this.state.pendingBattle;
+    return pending === null ? null : battleOwners(this.state, pending);
+  }
+
   get miBando(): Side | null {
     const pending = this.state.pendingBattle;
     if (pending === null) return null;
@@ -1162,6 +1173,8 @@ export class SesionDeArena implements ControlDeBatalla {
   readonly battle: BattleState;
   readonly semilla: number;
   readonly hechizos = null;
+  /** En la arena los bandos no son de ningún jugador: los dos llevan su color de bando. */
+  readonly dueños = null;
   private readonly rng: Rng;
   private readonly manejaIA: ReadonlySet<string>;
   private empezada = false;

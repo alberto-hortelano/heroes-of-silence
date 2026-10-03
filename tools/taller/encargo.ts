@@ -9,8 +9,7 @@
  * palabras, en vez de depender de que cada encargo se acuerde.
  */
 import { z } from 'zod';
-import { FIGURA } from '../../src/shared/arte.js';
-import { NOMBRES_DE_DIRECCION } from './direcciones.js';
+import { FIGURA, NOMBRES_DE_DIRECCION } from '../../src/shared/arte.js';
 
 /** Lo que cada referencia aporta, y nada más. */
 export const PAPELES = {
@@ -55,19 +54,16 @@ export const encargoSchema = z
     referencias: z.array(referencia),
     /** Ruta de salida SIN extensión: el taller escribe `.webp` (o `.png`) y `.procedencia.json`. */
     salida: ruta,
-    /** Atlas: altura de la figura en su celda. Por defecto, la de un adulto. */
-    alturaObjetivo: z.number().int().min(60).max(360).optional(),
-    /** Atlas: lado de la celda. 256 para las figuras a pie; 384 para las montadas, que no caben. */
+    /** Atlas: lado de la celda. 384 en las hojas de 8 direcciones, donde cabe el cadáver. */
     celda: z.union([z.literal(256), z.literal(384)]).optional(),
-    /** Atlas: 3 filas (reposo, marcha, ataque) o 4 las monturas (con la carga antes del ataque). */
-    filas: z.union([z.literal(3), z.literal(4)]).optional(),
     /** Imagen: si el fondo se recorta o la imagen es opaca (un fondo de batalla). */
     fondo: z.enum(['transparente', 'opaco']).default('transparente'),
     /** Corrige una generación anterior en su mismo hilo de Codex, que conserva la identidad. */
     reanudar: z.object({ hilo: z.string().uuid(), correccion: z.string().min(10) }).optional(),
     /**
      * Atlas de una unidad en 8 direcciones: cuál de las 8 y qué hoja. La A es
-     * quieto, andando y carga; la B, ataque, daño y muerte.
+     * quieto, andando y carga; la B, ataque, daño y muerte. Todo atlas lo lleva:
+     * el de una sola dirección se retiró el 03-10-2026.
      */
     ocho: z
       .object({ direccion: z.number().int().min(0).max(7), hoja: z.enum(['a', 'b']) })
@@ -82,6 +78,13 @@ export const encargoSchema = z
       } catch (err) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: (err as Error).message });
       }
+    }
+    if (e.tipo === 'atlas' && e.ocho === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'un atlas es una hoja de una dirección de 8 y lleva `ocho`: el atlas de una sola dirección se retiró el 03-10-2026',
+      });
     }
     const papeles = e.referencias.map((r) => r.papel);
     if (
@@ -130,21 +133,20 @@ const FILAS_OCHO = {
   b: 'Fila 1: las siete poses de ATAQUE de la fila 1 de la referencia de pose, golpeando con la espada. Fila 2: las siete poses de RECIBIR DAÑO de la fila 2: encaja un golpe y retrocede. Fila 3: las siete poses de la MUERTE de la fila 3: la primera es EXACTAMENTE la última de la fila 2, luego se desploma, y la última es el cadáver tendido e inmóvil en el suelo, con sus armas donde las tiene el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.',
 } as const;
 
+/** Las filas de cada hoja de 8 direcciones: la A y la B llevan tres cada una. */
+export const FILAS_POR_HOJA = 3;
+
 function reglasDeAtlas(e: Encargo): string {
+  if (e.ocho === undefined) {
+    throw new Error(`${e.id}: un atlas es una hoja de una dirección de 8 y lleva \`ocho\``);
+  }
   const { columnas } = FIGURA;
-  const filas = e.filas ?? 3;
-  const altura = e.alturaObjetivo ?? FIGURA.alturaAdulto;
-  const mira =
-    e.ocho === undefined
-      ? 'El personaje mira a la derecha y al frente como el maniquí.'
-      : `El personaje mira hacia donde mira el maniquí (dirección «${NOMBRES_DE_DIRECCION[e.ocho.direccion]}» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.`;
+  const filas = FILAS_POR_HOJA;
+  const altura = FIGURA.alturaAdulto;
+  const mira = `El personaje mira hacia donde mira el maniquí (dirección «${NOMBRES_DE_DIRECCION[e.ocho.direccion]}» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.`;
   return [
     `Hoja de sprites de EXACTAMENTE ${columnas} columnas por ${filas} filas, ${columnas * filas} figuras del MISMO personaje, separadas con holgura y sin tocarse.`,
-    e.ocho !== undefined
-      ? FILAS_OCHO[e.ocho.hoja]
-      : filas === 4
-        ? 'Fila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases del paso de la fila 2. Fila 3: las siete fases de la CARGA de la fila 3, el mismo paso con la lanza bajada hacia delante. Fila 4: las siete poses del ATAQUE de la fila 4, parado y golpeando con la espada, sin lanza. Cada fila copia su fila de la referencia, articulación por articulación.'
-        : 'Fila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete poses de ataque de la fila 3.',
+    FILAS_OCHO[e.ocho.hoja],
     `Misma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. ${mira}`,
     `Misma escala en todas las celdas: la figura de pie ocupa unos ${altura} de cada ${e.celda ?? FIGURA.celda} píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.`,
     // Once de los primeros 52 atlas fallaron por lo mismo: en el ataque, la

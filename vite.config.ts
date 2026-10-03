@@ -39,8 +39,8 @@ async function leerCuerpo(req: IncomingMessage): Promise<unknown> {
 function arena(): Plugin {
   const raiz = __dirname;
   /**
-   * La lista de hojas, leída una vez: son 52 `atlas.json` síncronos, y en cada
-   * recarga de la página bloqueaban el bucle de vite. Se olvida cuando cambia
+   * La lista de hojas, leída una vez: son decenas de `dN/atlas.json` síncronos,
+   * y en cada recarga de la página bloqueaban el bucle de vite. Se olvida cuando cambia
    * algo bajo `assets/unidades/`, que es cuando el taller publica una hoja.
    */
   let hojas: string | null = null;

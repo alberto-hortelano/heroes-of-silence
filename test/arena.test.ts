@@ -18,8 +18,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { BattleAnimator } from '../src/client/anim.js';
 import { renderBando, renderFicha, renderPanelDeBatalla } from '../src/client/arena/paneles.js';
 import { marcadoDe } from '../src/client/html.js';
-import { clipDe } from '../src/client/render/character.js';
-import { arteDe, registrarHojaDeUnidad } from '../src/client/render/personajes.js';
+import { arteDe, juegosDelYBot, registrarUnidad } from '../src/client/render/personajes.js';
 import { type PuestoDeArena, SesionDeArena } from '../src/client/session.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import {
@@ -39,6 +38,7 @@ import { activeStack, isAlive, MAX_ROUNDS } from '../src/core/battle/battle.js';
 import { LIDERAZGO } from '../src/core/data.js';
 import { createRng } from '../src/core/rng.js';
 import { SPEED_TIERS, SPEED_TO_HEXES } from '../src/core/types.js';
+import { NOMBRES_DE_DIRECCION } from '../src/shared/arte.js';
 import {
   escribirBorrador,
   hojasDeArena,
@@ -46,7 +46,14 @@ import {
   RUTA_DEL_BORRADOR,
 } from '../tools/arena/borrador.js';
 import { VELOCIDAD_DE_SALIDA } from '../tools/arena/velocidades.js';
-import { HEROES, UNIDADES } from '../tools/taller/unidades.js';
+import {
+  EN_OCHO_DIRECCIONES,
+  HEROES,
+  JUEGO_DEL_YBOT,
+  juegoDelYBot,
+  UNIDADES,
+  unidad as unidadDelTaller,
+} from '../tools/taller/unidades.js';
 
 const RAIZ = resolve(import.meta.dirname, '..');
 const HOJAS = hojasDeArena(RAIZ);
@@ -266,44 +273,77 @@ describe('el borrador se valida antes de escribirse', () => {
 });
 
 describe('las hojas de assets/unidades se pintan en el tablero', () => {
-  it('se ofrece toda hoja del taller que tiene atlas, tropa y héroes', () => {
-    const conAtlas = [...UNIDADES, ...HEROES].filter((u) =>
-      existsSync(join(RAIZ, 'assets/unidades', u.id, 'atlas.json')),
-    );
-    expect(HOJAS.map((h) => h.id)).toEqual(conAtlas.map((u) => u.id));
+  it('se ofrece TODA unidad del taller, tropa y héroes: la que no tiene arte propio va con el Y Bot', () => {
+    expect(HOJAS.map((h) => h.id)).toEqual([...UNIDADES, ...HEROES].map((u) => u.id));
     expect(HOJAS.length).toBeGreaterThan(40);
   });
 
-  it('cada atlas pasa `comoAtlas`, el jinete con su celda de 384 y su carga', () => {
-    for (const h of HOJAS) registrarHojaDeUnidad(h.id, h.atlas);
-    for (const h of HOJAS) {
-      const arte = arteDe(h.id);
-      expect(arte.propio, h.id).toBe(true);
-      expect(arte.base.imagen).toBe(`unidad/${h.id}`);
-      for (const clip of ['idle', 'walk', 'attack'] as const) {
-        expect(arte.base.atlas.clips[clip].frames, `${h.id}/${clip}`).toBeGreaterThan(0);
-      }
-    }
-    const jinete = arteDe('templario-hermano-de-carga').base.atlas;
-    expect(jinete.cell).toBe(384);
-    expect(clipDe(jinete, 'charge')).toBe(jinete.clips.charge);
-    expect(jinete.clips.charge?.row).toBe(2);
-    // Quien no carga, pinta la marcha.
-    const monje = arteDe('templario-monje').base.atlas;
-    expect(clipDe(monje, 'charge')).toBe(monje.clips.walk);
+  it('las de 8 direcciones traen sus ocho atlas; las demás, el juego de su Y Bot', () => {
+    const hoja = (id: string) => HOJAS.find((h) => h.id === id) as (typeof HOJAS)[number];
+    expect(hoja('templario-escudo').direcciones).toHaveLength(8);
+    expect(hoja('templario-escudo').juego).toBe('espada-escudo');
+    expect(hoja('templario-monje').juego).toBe('baston');
+    expect(hoja('zombi').direcciones).toBeNull();
+    expect(hoja('zombi').juego).toBe('lanza');
+    // Cada unidad declarada en 8 direcciones llega con sus ocho.
+    for (const id of Object.keys(EN_OCHO_DIRECCIONES))
+      expect(hoja(id).direcciones, id).not.toBeNull();
   });
 
-  it('un atlas con una carga rota o sin altura se rechaza diciéndolo', () => {
-    const jinete = HOJAS.find((h) => h.id === 'templario-hermano-de-carga')?.atlas as {
-      clips: Record<string, unknown>;
-    };
-    const roto = { ...jinete, clips: { ...jinete.clips, charge: { frames: 0 } } };
-    expect(() => registrarHojaDeUnidad('roto', roto)).toThrow(
-      'el atlas unidades/roto no tiene un clip "charge" con fotogramas y ancla',
-    );
-    expect(() => registrarHojaDeUnidad('roto', { ...jinete, altura: undefined })).toThrow(
-      'no dice cuánto mide su figura',
-    );
+  it('el juego del Y Bot va por el arma de cada unidad: una fila por unidad, y con poses', () => {
+    const ids = [...UNIDADES, ...HEROES].map((u) => u.id);
+    // Ni una unidad sin fila ni una fila sin unidad: la que falte lanzaría al
+    // montar la arena, y la que sobre es una unidad renombrada que nadie movió.
+    expect(Object.keys(JUEGO_DEL_YBOT).sort()).toEqual([...ids].sort());
+    for (const u of [...UNIDADES, ...HEROES]) {
+      expect(juegosDelYBot(), `${u.id} (${JUEGO_DEL_YBOT[u.id]})`).toContain(juegoDelYBot(u));
+    }
+    const juego = (id: string) => juegoDelYBot(unidadDelTaller(id));
+    // Los dos que QA vio mal con el perfil de poses (M2).
+    expect(juego('imperio-piquero')).toBe('lanza');
+    expect(juego('goblin-lancero')).toBe('lanza');
+    expect(juego('imperio-alabardero')).toBe('lanza');
+    expect(juego('heroe-orko-chaman')).toBe('baston');
+    expect(juego('heroe-elfo-druida')).toBe('baston');
+    expect(juego('heroe-imperio-mago')).toBe('baston');
+    expect(juego('templario-mandoble')).toBe('dos-manos');
+    expect(juego('troll-maza')).toBe('maza');
+    expect(juego('templario-penitente')).toBe('mayal');
+    expect(juego('templario-hermano-de-carga')).toBe('montado-lanza');
+    // Sin render de arco en 8 direcciones, los tiradores van con espada y escudo.
+    for (const id of ['elfo-arquero', 'imperio-ballestero', 'imperio-arcabucero'])
+      expect(juego(id), id).toBe('espada-escudo');
+    // El arte propio se pinta sobre las poses de ese mismo juego.
+    for (const [id, j] of Object.entries(EN_OCHO_DIRECCIONES)) expect(j, id).toBe(juego(id));
+  });
+
+  it('una unidad sin fila en la tabla de armas lanza diciendo dónde añadirla', () => {
+    const inventada = { ...unidadDelTaller('zombi'), id: 'zombi-inventado' };
+    expect(() => juegoDelYBot(inventada)).toThrow(/zombi-inventado.*JUEGO_DEL_YBOT/);
+  });
+
+  it('cada hoja se registra para pintarla: con `dN` es arte propio, sin ellas el Y Bot teñido', () => {
+    for (const h of HOJAS) {
+      const arte = registrarUnidad(h.id, h);
+      expect(arteDe(h.id)).toBe(arte);
+      expect(arte.propio, h.id).toBe(h.direcciones !== null);
+      expect(arte.direcciones).toHaveLength(8);
+    }
+    const jinete = arteDe('templario-hermano-de-carga');
+    expect(jinete.direcciones[0]?.cell).toBe(384);
+    expect(jinete.direcciones[0]?.clips.charge.row).toBe(2);
+  });
+
+  it('un atlas con una carga rota se rechaza diciéndolo', () => {
+    const jinete = HOJAS.find((h) => h.id === 'templario-hermano-de-carga');
+    const d0 = jinete?.direcciones?.[0] as { clips: Record<string, unknown> };
+    const roto = { ...d0, clips: { ...d0.clips, charge: { frames: 0 } } };
+    expect(() =>
+      registrarUnidad('roto', {
+        juego: 'montado-lanza',
+        direcciones: [roto, ...(jinete?.direcciones ?? []).slice(1)],
+      }),
+    ).toThrow('el atlas unidades/roto/d0 no tiene un clip "charge" con fotogramas y ancla');
   });
 
   it('el tramo con el que se carga se anda con el clip de carga, y el otro andando', () => {
@@ -357,8 +397,11 @@ describe('el marcado de la arena', () => {
     expect(m).toContain('&lt;b&gt;Monje&lt;/b&gt;');
     expect(m).not.toContain('<b>Monje');
     expect(m).toContain('data-habilidad="Salto"');
-    // Sin el botón de carga: el monje no carga.
-    expect(m).not.toContain('data-clip="charge"');
+    // Las seis acciones y el giro, también la carga: toda figura tiene las seis.
+    for (const clip of ['idle', 'walk', 'charge', 'attack', 'hurt', 'death']) {
+      expect(m).toContain(`data-clip="${clip}"`);
+    }
+    expect(m).toContain('data-arena="girar"');
   });
 
   it('el bando lleva el Yo / IA de cada puesto y no deja duplicar con el bando lleno', () => {
@@ -555,10 +598,20 @@ describe('corrección de hallazgos de QA', () => {
   });
 
   it('una hoja de unidad no sustituye a un cuerpo del juego', () => {
-    const jinete = HOJAS.find((h) => h.id === 'templario-hermano-de-carga')?.atlas;
-    expect(() => registrarHojaDeUnidad('pikeman', jinete)).toThrow(
+    const jinete = HOJAS.find((h) => h.id === 'templario-hermano-de-carga');
+    expect(() => registrarUnidad('pikeman', jinete as (typeof HOJAS)[number])).toThrow(
       '"pikeman" es un cuerpo del juego',
     );
+  });
+
+  it('la lista de hojas rechaza siete direcciones diciéndolo', () => {
+    const buena = HOJAS.find((h) => h.id === 'templario-escudo') as (typeof HOJAS)[number];
+    // El ocho de `core` es `NOMBRES_DE_DIRECCION.length` escrito a mano (`core`
+    // no importa de `shared`): este test los pone en contacto.
+    const n = NOMBRES_DE_DIRECCION.length;
+    expect(() =>
+      validarHojasDeArena([{ ...buena, direcciones: buena.direcciones?.slice(1) }]),
+    ).toThrow(`trae ${n - 1} direcciones, y son ${n} o ninguna`);
   });
 });
 

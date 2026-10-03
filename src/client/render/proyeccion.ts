@@ -40,6 +40,13 @@ export interface Tablero {
 }
 
 const ALTO_DE_FILA = Math.sqrt(3) / 2;
+
+/**
+ * Lo que mide un adulto de pie en el tablero, en pasos: en un hex y en una
+ * unidad grande. Lo leen la caja de la figura (`cajaDeFigura`) y el ritmo de su
+ * marcha (`marcha.ts`): una figura más grande da zancadas más largas.
+ */
+export const ALTO_DE_FIGURA = { normal: 0.95, grande: 1.45 } as const;
 /** Radio del hex (centro a vértice), en pasos. */
 const RADIO = 1 / Math.sqrt(3);
 /**

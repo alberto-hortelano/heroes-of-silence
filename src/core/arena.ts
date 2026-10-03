@@ -241,8 +241,9 @@ export function cifrasPorDefecto(perfil: PerfilDeArena): CifrasPorDefecto {
 
 /**
  * Una hoja tal como la sirve el servidor de desarrollo: quién es, si es un
- * héroe y su `atlas.json`, para pintarla sin otra petición. Una declaración,
- * que leen el servidor (`tools/arena/borrador.ts`) y la página.
+ * héroe y con qué arte se pinta, para pintarla sin otra petición. Una
+ * declaración, que leen el servidor (`tools/arena/borrador.ts`) y la página.
+ * Es un tipo de cable sin regla de juego: el motor no lo lee.
  */
 export interface HojaDeArena {
   readonly id: string;
@@ -252,9 +253,26 @@ export interface HojaDeArena {
   readonly heroe: boolean;
   /** Las casillas con las que sale la unidad la primera vez. */
   readonly casillas: number;
-  /** El JSON de la hoja; lo comprueba `comoAtlas` al registrarla para pintarla. */
-  readonly atlas: unknown;
+  /**
+   * El juego de armas de su Y Bot (`espada-escudo`, `baston`…): con él se pinta
+   * si no tiene sus ocho direcciones.
+   */
+  readonly juego: string;
+  /**
+   * Los ocho `dN/atlas.json` de su arte propio, en el orden de las direcciones,
+   * o `null` si no los tiene todos. Los comprueba `comoDireccion8d` al
+   * registrarla para pintarla.
+   */
+  readonly direcciones: readonly unknown[] | null;
 }
+
+/**
+ * Las direcciones de una figura: las ocho, o ninguna. Es
+ * `NOMBRES_DE_DIRECCION.length` (`src/shared/arte.ts`), escrito aquí porque
+ * `core` no importa de `shared`: si cambia allí, cambia aquí, y el test de la
+ * arena que manda siete lo vigila.
+ */
+const DIRECCIONES_DE_FIGURA = 8;
 
 /**
  * La lista de hojas que llega por la red, comprobada: es la puerta por la que
@@ -277,9 +295,20 @@ export function validarHojasDeArena(valor: unknown): readonly HojaDeArena[] {
       perfil: deLaLista(h.perfil, PERFILES_DE_ARENA, 'el perfil', quien),
       heroe: h.heroe,
       casillas: casillasValidas(h.casillas, quien),
-      atlas: h.atlas,
+      juego: texto(h.juego, 'el juego de armas', quien),
+      direcciones: direccionesValidas(h.direcciones, quien),
     };
   });
+}
+
+function direccionesValidas(valor: unknown, quien: string): readonly unknown[] | null {
+  if (valor === null) return null;
+  if (!Array.isArray(valor) || valor.length !== DIRECCIONES_DE_FIGURA) {
+    throw new Error(
+      `${quien}: trae ${Array.isArray(valor) ? valor.length : 'algo que no es una lista de'} direcciones, y son ${DIRECCIONES_DE_FIGURA} o ninguna`,
+    );
+  }
+  return valor;
 }
 
 /**

@@ -9,7 +9,8 @@
  * encadenado le daba al animador la batalla entera de golpe. Aquí se prueba el
  * encadenado con la misma clase que usa la página.
  */
-import type { BattleState } from '@core/battle/types.js';
+import type { BattleState, Side } from '@core/battle/types.js';
+import type { PlayerId } from '@core/types.js';
 import type { SpectatorSnapshotMsg } from '../../server/protocol.js';
 import { BattleAnimator } from '../anim.js';
 import { adaptarBatalla } from './adaptar.js';
@@ -20,6 +21,8 @@ import {
   ritmoDeReproduccion,
   TelonDeBatalla,
 } from './telon.js';
+
+const SIN_DUEÑOS: Readonly<Record<Side, PlayerId | null>> = { attacker: null, defender: null };
 
 export class Reproductor {
   /** El mismo animador que el cliente que juega: lo lee el lienzo. */
@@ -89,6 +92,14 @@ export class Reproductor {
   /** La batalla que se ve, ya adaptada; `null` si se ve el mapa. */
   get batalla(): BattleState | null {
     return this.batallaActual;
+  }
+
+  /**
+   * De quién es cada bando de la batalla que se ve, tal como viaja en el cable
+   * (`battleOwners` en el servidor). Sin batalla, de nadie.
+   */
+  get dueños(): Readonly<Record<Side, PlayerId | null>> {
+    return this.ultimo?.view.battle?.dueños ?? SIN_DUEÑOS;
   }
 
   /** El número de la batalla que se ve: cambia cuando empieza otra. */

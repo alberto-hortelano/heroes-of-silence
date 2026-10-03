@@ -4,7 +4,7 @@
  * direcciones y de las poses de cada juego de armas. Por unidad, una fila por
  * dirección y una columna por acción, cada clip a su reloj y anclado por sus
  * pies, con la sombra del contrato de luz pintada como la SILUETA del fotograma
- * aplastada sobre el suelo (`proyeccionDeSombra`). La muerte se queda en el
+ * aplastada sobre el suelo (`PROYECCION_DE_SOMBRA`). La muerte se queda en el
  * cadáver un rato antes de volver a empezar.
  *
  *   pnpm taller vista-8d                    # el visor, con la primera unidad
@@ -14,24 +14,22 @@
  * La elección va en el `#` de la URL, así que se puede recargar o compartir.
  *
  * Las poses vienen en dos hojas de 3 filas por dirección; para verlas como el
- * arte se juntan en una de 6 en `.cache/` y se derivan con `derivarAtlas`, el
- * mismo que mide el arte. Se abre con `file://`.
+ * arte se juntan en una de 6 en `.cache/` y se miden con `poses-8d.ts`, lo mismo
+ * que lee el juego. Se abre con `file://`.
  */
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
-import sharp from 'sharp';
-import { proyeccionDeSombra } from '../../src/shared/arte.js';
 import {
-  carpetaDePoses,
-  JUEGOS_DE_ARMAS,
-  type JuegoDeArmas,
-  OCHO_DIRECCIONES,
-} from '../art/poses.js';
-import { type AtlasDerivado, derivarAtlas, ELEVACION_DEL_CADAVER } from './derivar.js';
-import { NOMBRES_DE_DIRECCION } from './direcciones.js';
+  colorDeSombra,
+  NOMBRES_DE_DIRECCION,
+  PROYECCION_DE_SOMBRA,
+} from '../../src/shared/arte.js';
+import { carpetaDePoses, JUEGOS_DE_ARMAS, type JuegoDeArmas } from '../art/poses.js';
+import { type AtlasDerivado, ELEVACION_DEL_CADAVER } from './derivar.js';
 import type { Fila } from './evaluar.js';
-import { EN_OCHO_DIRECCIONES } from './unidades.js';
+import { derivarDireccionDePoses, rutaJunta } from './poses-8d.js';
+import { EN_OCHO_DIRECCIONES, tieneSusOchoDirecciones } from './unidades.js';
 import { DIR_VISTA } from './vista.js';
 
 const RAIZ = resolve(import.meta.dirname, '../..');
@@ -40,31 +38,18 @@ interface Direccion {
   /** Las acciones que el evaluador marca para revisar (`pnpm taller evaluar`), con su motivo. */
   readonly avisos?: Readonly<Record<string, string>>;
   readonly src: string;
-  readonly atlas: AtlasDerivado;
+  readonly atlas: Pick<AtlasDerivado, 'clips' | 'altura' | 'cadaver'>;
 }
 
-/** Junta las dos hojas de pose de cada dirección en una de 6 filas y la deriva. */
+/**
+ * Las poses de un juego, juntadas en hojas de 6 filas y medidas como las mide el
+ * juego (`poses-8d.ts`, sin elevar la muerte: el render crudo no la lleva subida).
+ */
 async function desdeLasPoses(juego: JuegoDeArmas): Promise<Direccion[]> {
-  const origen = carpetaDePoses(juego);
-  const destino = join(DIR_VISTA, `poses-${juego}-8d`);
-  await mkdir(destino, { recursive: true });
-  const { celda } = OCHO_DIRECCIONES;
   const fuera: Direccion[] = [];
-  for (let d = 0; d < 8; d++) {
-    const a = join(origen, `d${d}-a.png`);
-    const b = join(origen, `d${d}-b.png`);
-    const { width } = await sharp(a).metadata();
-    const ruta = join(destino, `d${d}.png`);
-    await sharp({
-      create: { width, height: 6 * celda, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
-    })
-      .composite([
-        { input: a, left: 0, top: 0 },
-        { input: b, left: 0, top: 3 * celda },
-      ])
-      .png()
-      .toFile(ruta);
-    fuera.push({ src: relative(DIR_VISTA, ruta), atlas: await derivarAtlas(ruta) });
+  for (let d = 0; d < NOMBRES_DE_DIRECCION.length; d++) {
+    const atlas = await derivarDireccionDePoses(juego, d);
+    fuera.push({ src: relative(DIR_VISTA, rutaJunta(juego, d)), atlas });
   }
   return fuera;
 }
@@ -76,7 +61,7 @@ async function desdeElArte(id: string): Promise<Direccion[]> {
   const filas: Fila[] = existsSync(rutaEval)
     ? (JSON.parse(await readFile(rutaEval, 'utf8')) as { filas: Fila[] }).filas
     : [];
-  for (let d = 0; d < 8; d++) {
+  for (let d = 0; d < NOMBRES_DE_DIRECCION.length; d++) {
     const ruta = join(RAIZ, 'assets/unidades', id, `d${d}`, 'atlas.webp');
     if (!existsSync(ruta))
       throw new Error(`${id} no tiene todavía la dirección ${d}: falta ${ruta}`);
@@ -135,7 +120,7 @@ function pagina(fuentes: readonly Fuente[]): string {
 <table id="t"></table>
 <script>
 const FUENTES = ${JSON.stringify(fuentes)};
-const SOMBRA = ${JSON.stringify(proyeccionDeSombra())};
+const SOMBRA = ${JSON.stringify(PROYECCION_DE_SOMBRA)};
 const BAJO_LOS_PIES = ${ELEVACION_DEL_CADAVER + 42};
 const ACCIONES = [['idle','quieto'],['walk','andando'],['charge','carga'],['attack','ataque'],['hurt','daño'],['death','muerte']];
 /** Lo que se queda quieto al acabar un clip que no es bucle, en segundos; el cadáver, más. */
@@ -195,7 +180,7 @@ function silueta(img, sx, sy, lado) {
   const g = s.getContext('2d');
   g.drawImage(img, sx, sy, lado, lado, 0, 0, lado, lado);
   g.globalCompositeOperation = 'source-in';
-  g.fillStyle = 'rgb(23, 31, 28)';
+  g.fillStyle = '${colorDeSombra()}';
   g.fillRect(0, 0, lado, lado);
   siluetas.set(k, s);
   return s;
@@ -248,17 +233,14 @@ requestAnimationFrame(dibujar);
 
 /** Las unidades de 8 direcciones que ya tienen las 8, en el orden de `EN_OCHO_DIRECCIONES`. */
 function unidadesCompletas(): string[] {
-  return Object.keys(EN_OCHO_DIRECCIONES).filter((id) =>
-    [0, 1, 2, 3, 4, 5, 6, 7].every((d) =>
-      existsSync(join(RAIZ, 'assets/unidades', id, `d${d}`, 'atlas.webp')),
-    ),
-  );
+  return Object.keys(EN_OCHO_DIRECCIONES).filter((id) => tieneSusOchoDirecciones(RAIZ, id));
 }
 
 /** Los juegos de armas con sus poses de 8 direcciones renderizadas. */
 function juegosConPoses(): JuegoDeArmas[] {
+  const ultima = NOMBRES_DE_DIRECCION.length - 1;
   return (Object.keys(JUEGOS_DE_ARMAS) as JuegoDeArmas[]).filter((j) =>
-    existsSync(join(carpetaDePoses(j), 'd7-b.png')),
+    existsSync(join(carpetaDePoses(j), `d${ultima}-b.png`)),
   );
 }
 

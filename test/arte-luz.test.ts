@@ -4,7 +4,7 @@
  * `ARTE.luz`, en dirección y en largo.
  */
 import { describe, expect, it } from 'vitest';
-import { ARTE, luzEnElMundo, proyeccionDeSombra, sombraDeFigura } from '../src/shared/arte.js';
+import { ARTE, luzEnElMundo, PROYECCION_DE_SOMBRA, sombraDeFigura } from '../src/shared/arte.js';
 
 const rad = (ARTE.camara.elevacionGrados * Math.PI) / 180;
 
@@ -31,7 +31,7 @@ describe('la luz del contrato', () => {
   });
 
   it('la silueta proyectada deja los pies quietos y lleva la cabeza a la punta de la sombra', () => {
-    const m = proyeccionDeSombra();
+    const m = PROYECCION_DE_SOMBRA;
     const aplicar = (x: number, y: number) => ({ x: m.a * x + m.c * y, y: m.b * x + m.d * y });
     const pie = aplicar(7, 0);
     expect(pie.x).toBe(7);

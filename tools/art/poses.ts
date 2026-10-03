@@ -733,8 +733,15 @@ export const JUEGOS_DE_ARMAS = {
 >;
 export type JuegoDeArmas = keyof typeof JUEGOS_DE_ARMAS;
 
-/** La carpeta de las poses de un juego de armas. */
-export const carpetaDePoses = (j: JuegoDeArmas): string => join(DIR_POSES, `${j}-8d`);
+/**
+ * Un juego de armas con poses en 8 direcciones: los de sprite-forge y la
+ * montura, que sale de `tools/art/montura.ts --8d` y no está en
+ * `JUEGOS_DE_ARMAS`.
+ */
+export type JuegoEn8d = JuegoDeArmas | 'montado-lanza';
+
+/** La carpeta de las poses en 8 direcciones de un juego de armas, la montura incluida. */
+export const carpetaDePoses = (j: JuegoEn8d): string => join(DIR_POSES, `${j}-8d`);
 
 /**
  * La unidad definitiva: 8 direcciones y 6 acciones. Cada dirección se reparte en

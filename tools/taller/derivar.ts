@@ -1,7 +1,7 @@
 /**
  * El JSON de una hoja se DERIVA de la imagen; no se escribe a mano (#120).
  *
- *   pnpm taller derivar assets/unidades/templario-escudo/atlas.webp
+ *   pnpm taller derivar assets/unidades/templario-escudo/d1/atlas.webp
  *
  * Mide, sobre el canal alfa de cada celda:
  *  - el **ancla** de cada clip: el punto de apoyo (mediana de x del tronco, fila
@@ -20,12 +20,19 @@ import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import { basename } from 'node:path';
 import sharp from 'sharp';
-import { FIGURA } from '../../src/shared/arte.js';
+import { CLIPS_DE_FIGURA, FIGURA } from '../../src/shared/arte.js';
 import { ALFA_FIGURA, apoyoEn } from './empaquetar.js';
 
 /** Las filas de una hoja del taller, en orden, con su reloj. El reloj no sale de la imagen. */
 const RELOJ = {
-  idle: { fps: 3, loop: true },
+  /**
+   * 8 y no 3 (decisión del usuario, 03-10-2026: «las animaciones de idle son
+   * demasiado lentas»). Las siete columnas muestrean el reposo entero del
+   * maniquí, que dura 3,7 s: a 3 fps la vuelta eran 2,3 s y se leía como una
+   * figura congelada que de vez en cuando se movía; a 8 son 0,9 s, el ritmo de
+   * la marcha.
+   */
+  idle: { fps: 8, loop: true },
   walk: { fps: 8, loop: true },
   /** La carga de las monturas: la marcha con la lanza bajada, en bucle como ella. */
   charge: { fps: 8, loop: true },
@@ -33,7 +40,7 @@ const RELOJ = {
   hurt: { fps: 10, loop: false },
   /** Se queda en su último fotograma: el cadáver (`cadaver` en el JSON). */
   death: { fps: 8, loop: false },
-} as const;
+} as const satisfies Record<(typeof CLIPS_DE_FIGURA)[number], { fps: number; loop: boolean }>;
 export type ClipDeHoja = keyof typeof RELOJ;
 
 /**
@@ -46,27 +53,14 @@ export type ClipDeHoja = keyof typeof RELOJ;
 export const ELEVACION_DEL_CADAVER = 64;
 
 /**
- * Las filas de una hoja según cuántas tenga: 3 a pie (reposo, marcha, ataque) y 4
- * las monturas, que añaden la carga antes del ataque (decisión del usuario,
- * 02-10-2026). Se deduce del alto de la imagen, así que volver a derivar una hoja
- * no necesita saber de qué encargo salió.
+ * Una hoja del taller es una dirección de una unidad en 8 direcciones
+ * (`OCHO_DIRECCIONES` en `tools/art/poses.ts`): una fila por cada una de las
+ * seis acciones de `CLIPS_DE_FIGURA`, en su orden, cada una con su reloj. La
+ * muerte arranca donde acaba el daño. Las hojas de 3 y 4 filas de una sola
+ * dirección se retiraron el 03-10-2026 con su arte.
  */
-export const CLIPS_POR_FILAS: Readonly<Record<number, readonly ClipDeHoja[]>> = {
-  3: ['idle', 'walk', 'attack'],
-  4: ['idle', 'walk', 'charge', 'attack'],
-  /**
-   * Una dirección de una unidad en 8 direcciones (`OCHO_DIRECCIONES` en
-   * `tools/art/poses.ts`): las 6 acciones. La muerte arranca donde acaba el daño.
-   */
-  6: ['idle', 'walk', 'charge', 'attack', 'hurt', 'death'],
-};
-
-export function clipsDeHoja(filas: number): { clip: ClipDeHoja; fps: number; loop: boolean }[] {
-  const clips = CLIPS_POR_FILAS[filas];
-  if (clips === undefined)
-    throw new Error(`una hoja del taller tiene 3 o 4 filas (6 las de 8 direcciones), no ${filas}`);
-  return clips.map((clip) => ({ clip, ...RELOJ[clip] }));
-}
+const FILAS = CLIPS_DE_FIGURA.length;
+const CLIPS = CLIPS_DE_FIGURA.map((clip) => ({ clip, ...RELOJ[clip] }));
 
 /** Umbral de alfa con el que se mide la altura: el mismo que en `personajes.ts`. */
 const ALFA_ALTURA = 40;
@@ -151,7 +145,15 @@ function mediana(v: readonly number[]): number {
   return s[Math.floor(s.length / 2)] as number;
 }
 
-export async function derivarAtlas(rutaImagen: string): Promise<AtlasDerivado> {
+/**
+ * `elevacionDeLaMuerte`: cuánto más arriba va la fila de la muerte en su celda.
+ * Por defecto `ELEVACION_DEL_CADAVER`, la de las hojas pintadas; 0 para el
+ * render crudo del Y Bot (`poses-8d.ts`), que la tiene donde la pone el maniquí.
+ */
+export async function derivarAtlas(
+  rutaImagen: string,
+  { elevacionDeLaMuerte = ELEVACION_DEL_CADAVER }: { elevacionDeLaMuerte?: number } = {},
+): Promise<AtlasDerivado> {
   const bytes = await readFile(rutaImagen);
   const { data, info } = await sharp(bytes)
     .ensureAlpha()
@@ -161,17 +163,17 @@ export async function derivarAtlas(rutaImagen: string): Promise<AtlasDerivado> {
   const { columnas } = FIGURA;
   const lado = info.width / columnas;
   const filas = info.height / lado;
-  if (!Number.isInteger(lado) || CLIPS_POR_FILAS[filas] === undefined) {
+  if (!Number.isInteger(lado) || filas !== FILAS) {
     throw new Error(
       `${rutaImagen} mide ${info.width}×${info.height}: una hoja del taller son ${columnas} columnas ` +
-        'por 3 o 4 filas (6 las de 8 direcciones) de celdas cuadradas',
+        `por ${FILAS} filas (una dirección de 8) de celdas cuadradas`,
     );
   }
 
   const clips = {} as Record<string, AtlasDerivado['clips']['idle']>;
   let cajaDeClic: [number, number, number, number] | null = null;
   let altura = 0;
-  for (const [fila, def] of clipsDeHoja(filas).entries()) {
+  for (const [fila, def] of CLIPS.entries()) {
     const celdas = Array.from({ length: columnas }, (_, col) =>
       celda(data, info.width, col, fila, lado),
     );
@@ -192,14 +194,14 @@ export async function derivarAtlas(rutaImagen: string): Promise<AtlasDerivado> {
     // En 6 filas la posición de cada fotograma la dicta el maniquí respecto a su
     // reposo, así que el ancla es UNA por dirección, la del reposo: la mediana por
     // clip recentraría el cadáver y la carga.
-    const reposo = filas === 6 ? clips.idle?.anchor : undefined;
-    // La muerte va ELEVACION_DEL_CADAVER más arriba en su celda (ver la
-    // constante), y su ancla con ella: en el juego cae donde la pone el maniquí.
+    const reposo = clips.idle?.anchor;
+    // La muerte va `elevacionDeLaMuerte` más arriba en su celda (ver
+    // ELEVACION_DEL_CADAVER), y su ancla con ella: en el juego cae donde la pone el maniquí.
     const fija =
       reposo === undefined
         ? undefined
         : def.clip === 'death'
-          ? ([reposo[0], reposo[1] - ELEVACION_DEL_CADAVER] as const)
+          ? ([reposo[0], reposo[1] - elevacionDeLaMuerte] as const)
           : reposo;
     const anchor: readonly [number, number] = fija ?? [
       mediana(apoyos.map((a) => a[0])),

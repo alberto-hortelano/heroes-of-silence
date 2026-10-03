@@ -16,6 +16,7 @@ import oro from '../../../assets/mapa/oro.json' with { type: 'json' };
 import piedra from '../../../assets/mapa/piedra.json' with { type: 'json' };
 import pueblo from '../../../assets/mapa/pueblo.json' with { type: 'json' };
 import { asset, type PiezaDelMapa } from './assets.js';
+import { densidadDe } from './lienzo.js';
 
 interface Medidas {
   readonly ancho: number;
@@ -113,7 +114,7 @@ export function pintarPieza(
     throw new Error(`la pieza ${pieza} no trae un ancla de dos cifras en su .json`);
   }
   const escala = ancho / m.ancho;
-  const dpr = ctx.getTransform().a;
+  const dpr = densidadDe(ctx);
   const lienzo = reducida(pieza, img, m, Math.max(1, Math.round(ancho * dpr)));
   ctx.drawImage(lienzo, x - ax * escala, suelo - ay * escala, m.ancho * escala, m.alto * escala);
   return true;

@@ -18,7 +18,8 @@ import {
   validarBorradorDeArena,
   validarHojasDeArena,
 } from '../../src/core/arena.js';
-import { HEROES, UNIDADES } from '../taller/unidades.js';
+import { NOMBRES_DE_DIRECCION } from '../../src/shared/arte.js';
+import { HEROES, juegoDelYBot, tieneSusOchoDirecciones, UNIDADES } from '../taller/unidades.js';
 import { VELOCIDAD_DE_SALIDA } from './velocidades.js';
 
 /** Las casillas de salida de una hoja: una hoja sin la suya es un olvido, y se dice. */
@@ -34,18 +35,26 @@ function velocidadDeSalida(id: string): number {
 export const RUTA_DEL_BORRADOR = 'data/borradores/unidades.json';
 
 /**
- * ¿Tiene ya su `atlas.json` esta hoja del taller? Es la definición de «hoja
- * publicada» que leen la arena y la página de ejércitos del taller.
+ * Los ocho `dN/atlas.json` de una unidad, o `null` si le falta alguno: con siete
+ * se mezclarían las luces de dos artes, así que la unidad sale con el Y Bot.
  */
-export function tieneAtlas(raiz: string, id: string): boolean {
-  return existsSync(join(raiz, 'assets/unidades', id, 'atlas.json'));
+export function direccionesDe(raiz: string, id: string): readonly unknown[] | null {
+  if (!tieneSusOchoDirecciones(raiz, id)) return null;
+  return NOMBRES_DE_DIRECCION.map(
+    (_, d) =>
+      JSON.parse(
+        readFileSync(join(raiz, 'assets/unidades', id, `d${d}`, 'atlas.json'), 'utf8'),
+      ) as unknown,
+  );
 }
 
 /**
- * Las hojas del taller que ya tienen `atlas.json`: la tropa primero y los
- * héroes detrás, en el orden de `tools/taller/unidades.ts`. Pasan por la misma
- * validación que la página aplica al recibirlas, así que un perfil que la arena
- * no conoce revienta aquí, al servir la lista, y no a mitad de una pelea.
+ * Todas las unidades del taller, la tropa primero y los héroes detrás, en el
+ * orden de `tools/taller/unidades.ts`: toda figura tiene 8 direcciones —las
+ * suyas o las del Y Bot de su juego de armas (decisión del usuario,
+ * 03-10-2026)—, así que ya no hace falta arte propio para montarla. Pasan por
+ * la misma validación que la página aplica al recibirlas, así que un perfil que
+ * la arena no conoce revienta aquí, al servir la lista, y no a mitad de una pelea.
  */
 export function hojasDeArena(raiz: string): readonly HojaDeArena[] {
   const todas = [
@@ -53,19 +62,16 @@ export function hojasDeArena(raiz: string): readonly HojaDeArena[] {
     ...HEROES.map((u) => ({ u, heroe: true })),
   ];
   return validarHojasDeArena(
-    todas
-      .filter(({ u }) => tieneAtlas(raiz, u.id))
-      .map(({ u, heroe }) => ({
-        id: u.id,
-        nombre: u.nombre,
-        faccion: u.faccion,
-        perfil: u.perfil,
-        heroe,
-        casillas: velocidadDeSalida(u.id),
-        atlas: JSON.parse(
-          readFileSync(join(raiz, 'assets/unidades', u.id, 'atlas.json'), 'utf8'),
-        ) as unknown,
-      })),
+    todas.map(({ u, heroe }) => ({
+      id: u.id,
+      nombre: u.nombre,
+      faccion: u.faccion,
+      perfil: u.perfil,
+      heroe,
+      casillas: velocidadDeSalida(u.id),
+      juego: juegoDelYBot(u),
+      direcciones: direccionesDe(raiz, u.id),
+    })),
   );
 }
 

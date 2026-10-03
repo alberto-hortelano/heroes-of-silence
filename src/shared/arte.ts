@@ -22,12 +22,24 @@ export const ARTE = {
     longitudPorAltura: 0.42,
     opacidad: 0.18,
     /**
-     * La de la sombra por silueta (`proyeccionDeSombra`): es uniforme, no un
+     * La de la sombra por silueta (`PROYECCION_DE_SOMBRA`): es uniforme, no un
      * fundido con el centro en `opacidad`, así que necesita más para leerse igual.
      */
     opacidadSilueta: 0.38,
+    /**
+     * El color de toda sombra, en componentes RGB: la silueta, el óvalo de quien
+     * no tiene arte y el visor del taller. Uno solo, o la sombra de un Y Bot y la
+     * de un marcador saldrían de dos tintas distintas.
+     */
+    colorSombra: [23, 31, 28],
   },
 } as const;
+
+/** El color de la sombra (`ARTE.luz.colorSombra`) como CSS, con su opacidad. */
+export function colorDeSombra(alfa = 1): string {
+  const [r, g, b] = ARTE.luz.colorSombra;
+  return alfa === 1 ? `rgb(${r}, ${g}, ${b})` : `rgba(${r}, ${g}, ${b}, ${alfa})`;
+}
 
 /**
  * Cómo es una hoja de figura del taller (`tools/taller`): la rejilla, la cámara
@@ -55,9 +67,9 @@ export const FIGURA = {
 export const COMPRESION_SUELO = Math.sin((ARTE.camara.elevacionGrados * Math.PI) / 180);
 
 /**
- * La sombra de una figura de `altura` píxeles. No admite la orientación del
- * sprite a propósito: si la tuviera, la sombra de un defensor espejado se
- * invertiría y la luz vendría de dos sitios.
+ * La sombra de una figura de `altura` píxeles. No admite hacia dónde mira la
+ * figura a propósito: la luz es una para todas, y si dependiera de la mirada
+ * vendría de dos sitios.
  */
 export function sombraDeFigura(altura: number): { x: number; y: number; opacidad: number } {
   const { luz } = ARTE;
@@ -102,16 +114,16 @@ export function luzEnElMundo(): { x: number; y: number; z: number } {
  * Supone que cada píxel del sprite está en vertical sobre la línea de los pies;
  * en un cuerpo tendido no lo está, y su sombra sale más larga de lo que es.
  */
-export function proyeccionDeSombra(): {
-  a: number;
-  b: number;
-  c: number;
-  d: number;
-  opacidad: number;
-} {
+export const PROYECCION_DE_SOMBRA: {
+  readonly a: number;
+  readonly b: number;
+  readonly c: number;
+  readonly d: number;
+  readonly opacidad: number;
+} = (() => {
   const s = sombraDeFigura(1);
   return { a: 1, b: 0, c: -s.x, d: -s.y, opacidad: ARTE.luz.opacidadSilueta };
-}
+})();
 
 /**
  * La hoja de una unidad en 8 direcciones: la celda es mayor porque el cadáver
@@ -124,3 +136,40 @@ export const FIGURA_8D = {
   /** La altura en metros a la que apunta la cámara: baja la figura en la celda. */
   objetivo: 0.95,
 } as const;
+
+/**
+ * Los nombres de las 8 direcciones de una figura, en el orden de sprite-forge:
+ * gira al maniquí `rotation.y = 2π·d/8` y la 0 mira a la cámara. Cada nombre
+ * dice hacia dónde mira la figura en pantalla. Lo leen el taller —que encarga
+ * cada dirección por su nombre— y el cliente, que elige la hoja de la dirección
+ * en la que mira la figura (`DIRECCION_DE_HOJA`, en `render/personajes.ts`).
+ *
+ * Su `length` es el número de direcciones de una figura para el taller y el
+ * cliente; `core` no puede importar de aquí y escribe el 8 al lado de un
+ * comentario que lo ata a esta lista (`src/core/arena.ts`).
+ */
+export const NOMBRES_DE_DIRECCION = [
+  'frente',
+  'frente-derecha',
+  'derecha',
+  'espalda-derecha',
+  'espalda',
+  'espalda-izquierda',
+  'izquierda',
+  'frente-izquierda',
+] as const;
+
+/**
+ * Las seis acciones de toda figura, en el orden de las filas de su hoja (§9 de
+ * `docs/art/peticiones.md`): reposo, marcha, carga, ataque, daño y muerte. La
+ * leen el cliente, que comprueba cada atlas contra ella, y el taller, que deriva
+ * cada fila con su nombre.
+ */
+export const CLIPS_DE_FIGURA = ['idle', 'walk', 'charge', 'attack', 'hurt', 'death'] as const;
+
+/**
+ * El juego de armas del Y Bot de quien no declara ninguno (decisión del usuario,
+ * 03-10-2026): lo leen el cliente, para el cuerpo que no está en su tabla, y el
+ * taller, para la unidad cuyo perfil no tiene poses en 8 direcciones.
+ */
+export const JUEGO_POR_DEFECTO = 'espada-escudo';

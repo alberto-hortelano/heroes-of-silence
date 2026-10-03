@@ -22,19 +22,53 @@ import {
   type Side,
 } from '@core/battle/types.js';
 import { hexSize, isShooter } from '@core/data.js';
-import type { Hex } from '@core/types.js';
-import { sombraDeFigura } from '../../shared/arte.js';
+import type { Hex, PlayerId } from '@core/types.js';
 import type { Efecto, EstadoFigura } from '../anim.js';
 import { asset } from './assets.js';
-import { espejadoPara, pintarFigura } from './figura.js';
-import { COLOR_DE_COMANDANTE, MARCA_DE_COMANDANTE } from './palette.js';
-import { centroHex, enPantalla, type Plano, type Tablero, verticesHex } from './proyeccion.js';
+import { type CharacterClip, clipEnCurso } from './character.js';
+import {
+  colocarFigura,
+  type Figura,
+  pintarFigura,
+  pintarFiguraConSombra,
+  pintarSombraDeFigura,
+} from './figura.js';
+import { densidadDe } from './lienzo.js';
+import { COLOR_DE_COMANDANTE, COLOR_SIN_DUEÑO, MARCA_DE_COMANDANTE } from './palette.js';
+import { arteDe, hojaDe } from './personajes.js';
+import {
+  ALTO_DE_FIGURA,
+  centroHex,
+  enPantalla,
+  type Plano,
+  type Tablero,
+  verticesHex,
+} from './proyeccion.js';
 
-/** Los colores de los dos bandos: tiñen el maniquí y pintan el aro. */
-const COLOR_BANDO: Readonly<Record<Side, string>> = {
+/** Los colores de los dos bandos: tiñen el Y Bot y pintan el aro. */
+export const COLOR_BANDO: Readonly<Record<Side, string>> = {
   attacker: '#d9774f',
   defender: '#5a8ad9',
 };
+
+/**
+ * Los bandos sin dueño —un monstruo que defiende, un grupo de asaltantes que
+ * embosca—, sacados de los dueños de la batalla (`battleOwners`). Lo hace aquí
+ * una vez para la partida y el espectador, que tienen los dueños cada uno por su
+ * lado.
+ */
+export function bandosSinDueño(dueños: Readonly<Record<Side, PlayerId | null>>): ReadonlySet<Side> {
+  return new Set((['attacker', 'defender'] as const).filter((s) => dueños[s] === null));
+}
+
+/**
+ * El color de un bando en el tablero: el gris de lo que no tiene dueño si es
+ * neutral, como en el mapa —un monstruo es el mismo muñeco gris en los dos
+ * sitios—, y si no el del bando.
+ */
+export function colorDelBando(v: Pick<VistaBatalla, 'sinDueño'>, side: Side): string {
+  return v.sinDueño.has(side) ? COLOR_SIN_DUEÑO : COLOR_BANDO[side];
+}
 
 /** Las casillas desde las que se golpearía al enemigo señalado, y la elegida. */
 export interface Angulo {
@@ -73,6 +107,8 @@ export interface VistaBatalla {
   /** Dónde y cómo está cada figura ahora: lo dice el animador. */
   readonly figura: (s: BattleStack) => EstadoFigura;
   readonly efectos: readonly Efecto[];
+  /** Los bandos sin dueño, que se tiñen de gris (`bandosSinDueño`); en la arena, ninguno. */
+  readonly sinDueño: ReadonlySet<Side>;
 }
 
 /**
@@ -189,11 +225,15 @@ export function drawBatalla(ctx: CanvasRenderingContext2D, v: VistaBatalla): voi
   // Y el número de la carga en cada casilla que carga: cuántas casillas cobra.
   if (v.cargas.length > 0) pintarCargas(ctx, tablero, v.cargas, v.angulo);
 
-  // 2 · Las figuras, de atrás adelante.
-  const figuras = battle.stacks
+  // 2 · Los cadáveres, debajo de todo lo que sigue en pie: se quedan en su
+  // casilla hasta el final de la batalla, sin aro, sin barra y sin nombre.
+  const todas = battle.stacks
     .map((s) => ({ s, f: v.figura(s) }))
-    .filter(({ f }) => f.visible)
     .sort((a, b) => a.f.en.y - b.f.en.y);
+  for (const { s, f } of todas) if (f.caida !== null) pintarCadaver(ctx, v, s, f);
+
+  // 3 · Las figuras, de atrás adelante.
+  const figuras = todas.filter(({ f }) => f.visible);
   for (const { s, f } of figuras) {
     pintarUnidad(ctx, v, s, f, s.id === activo?.id);
   }
@@ -210,7 +250,7 @@ export function drawBatalla(ctx: CanvasRenderingContext2D, v: VistaBatalla): voi
     if (s.origen.kind === 'heroe') pintarCorona(ctx, v, s, f);
   }
 
-  // 3 · Lo que vuela por encima: proyectiles, hechizos y cifras.
+  // 4 · Lo que vuela por encima: proyectiles, hechizos y cifras.
   for (const e of v.efectos) pintarEfecto(ctx, tablero, e);
   ctx.restore();
 }
@@ -258,7 +298,7 @@ export function cajaDeFigura(
 ): { x: number; suelo: number; alto: number; ancho: number } {
   const grande = hexSize(s.unit) > 1;
   const p = enPantalla(t, en);
-  const alto = t.paso * (grande ? 1.45 : 0.95);
+  const alto = t.paso * ALTO_DE_FIGURA[grande ? 'grande' : 'normal'];
   return {
     x: p.x,
     suelo: p.y + t.paso * 0.24 * t.compresion,
@@ -278,7 +318,7 @@ let fondo: { clave: string; campo: HTMLImageElement | null; lienzo: HTMLCanvasEl
 
 function pintarFondo(ctx: CanvasRenderingContext2D, v: VistaBatalla): void {
   const campo = asset('rpg', 'campo');
-  const dpr = ctx.getTransform().a;
+  const dpr = densidadDe(ctx);
   const clave = `${v.ancho}|${v.alto}|${dpr}|${v.tablero.paso}|${v.tablero.origenY}|${v.tablero.compresion}`;
   if (fondo === null || fondo.clave !== clave || fondo.campo !== campo) {
     const lienzo = fondo?.lienzo ?? document.createElement('canvas');
@@ -343,6 +383,66 @@ function pintarCielo(ctx: CanvasRenderingContext2D, v: VistaBatalla): void {
   ctx.fillRect(0, 0, v.ancho, v.alto);
 }
 
+/**
+ * El clip que se pinta: el que dice el animador, salvo el daño cuyo clip ya ha
+ * acabado en el reloj de su atlas, que vuelve al reposo. El animador apunta solo
+ * el instante del impacto; cuánto dura el daño lo sabe la hoja, no él.
+ */
+export function clipQueSePinta(
+  body: string,
+  f: Pick<EstadoFigura, 'clip' | 'tiempo' | 'mira'>,
+): CharacterClip {
+  if (f.clip === 'hurt' && !clipEnCurso(hojaDe(arteDe(body), f.mira), 'hurt', f.tiempo)) {
+    return 'idle';
+  }
+  return f.clip;
+}
+
+/** La figura de una unidad en este instante, como la pintan el cadáver y la unidad en pie. */
+function figuraDe(
+  v: VistaBatalla,
+  s: BattleStack,
+  f: EstadoFigura,
+  caja: { readonly suelo: number; readonly alto: number },
+  x: number,
+): Figura {
+  return {
+    id: s.id,
+    body: s.body,
+    clip: clipQueSePinta(s.body, f),
+    tiempo: f.tiempo,
+    x,
+    suelo: caja.suelo,
+    alto: caja.alto,
+    mira: f.mira,
+    color: colorDelBando(v, s.side),
+    // Sin arte, el marcador del que cae se funde con su aro: no hay cadáver que
+    // dejar. Con arte la figura no se funde nunca (`Figura.alfaSinArte`).
+    alfaSinArte: f.alfaDelAro,
+    // El destello del golpe, que se apaga en el primer 60 % de lo que dura.
+    destello: f.golpe > 0 && f.golpe < 0.6 ? 1 - f.golpe / 0.6 : 0,
+    rotulo: s.unit.name.slice(0, 3),
+  };
+}
+
+/** El cadáver: el fotograma de la muerte que toca, y al final el `cadaver`, con su sombra. */
+function pintarCadaver(
+  ctx: CanvasRenderingContext2D,
+  v: VistaBatalla,
+  s: BattleStack,
+  f: EstadoFigura,
+): void {
+  const caja = cajaDeFigura(v.tablero, s, f.en);
+  pintarFiguraConSombra(ctx, {
+    ...figuraDe(v, s, f, caja, caja.x),
+    clip: 'death',
+    tiempo: f.caida ?? 0,
+    destello: 0,
+    // Sin arte no hay cadáver: el marcador ya se fundió al caer.
+    alfaSinArte: 0,
+  });
+}
+
 function pintarUnidad(
   ctx: CanvasRenderingContext2D,
   v: VistaBatalla,
@@ -355,19 +455,17 @@ function pintarUnidad(
   const caja = cajaDeFigura(v.tablero, s, f.en);
   // El retroceso del golpe: un temblor que se apaga.
   const x = caja.x + (f.golpe > 0 ? Math.sin(f.golpe * 22) * paso * 0.06 * (1 - f.golpe) : 0);
-  const { suelo, alto } = caja;
-  const color = COLOR_BANDO[s.side];
+  const { suelo } = caja;
+  const color = colorDelBando(v, s.side);
+  const figura = colocarFigura(figuraDe(v, s, f, caja, x));
 
+  // La sombra va debajo del aro: es del suelo, y el aro se lee encima.
+  pintarSombraDeFigura(ctx, figura);
   ctx.save();
-  ctx.globalAlpha = f.alfa;
+  ctx.globalAlpha = f.alfaDelAro;
   // Aro del bando a los pies; dorado y más grueso si es la que actúa.
   const rx = paso * (grande ? 0.75 : 0.36);
   const ry = rx * v.tablero.compresion * 0.95;
-  const sombra = sombraDeFigura(alto);
-  ctx.fillStyle = `rgba(0,0,0,${sombra.opacidad + 0.12})`;
-  ctx.beginPath();
-  ctx.ellipse(x + sombra.x * 0.35, suelo + sombra.y * 0.2, rx * 1.05, ry * 1.05, 0, 0, Math.PI * 2);
-  ctx.fill();
   ctx.lineWidth = activa ? 3 : 2;
   ctx.strokeStyle = activa ? '#fbe3a0' : color;
   ctx.beginPath();
@@ -391,20 +489,7 @@ function pintarUnidad(
   }
   ctx.restore();
 
-  pintarFigura(ctx, {
-    body: s.body,
-    clip: f.clip,
-    tiempo: f.tiempo,
-    x,
-    suelo,
-    alto,
-    mirandoIzquierda: espejadoPara(f.mira, f.lado),
-    color,
-    alfa: f.alfa,
-    // El destello del golpe, que se apaga en el primer 60 % de lo que dura.
-    destello: f.golpe > 0 && f.golpe < 0.6 ? 1 - f.golpe / 0.6 : 0,
-    rotulo: s.unit.name.slice(0, 3),
-  });
+  pintarFigura(ctx, figura);
 }
 
 /** Lo que va encima de la cabeza: dónde, y de qué ancho es la barra. */
@@ -464,7 +549,7 @@ function pintarGalones(
   const total = n * ancho + (n - 1) * hueco;
   const abajo = y - 4;
   ctx.save();
-  ctx.globalAlpha = f.alfa;
+  ctx.globalAlpha = f.alfaDelAro;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   for (let i = 0; i < n; i++) {
@@ -520,7 +605,7 @@ export function pintarCorona(
 ): void {
   const c = cajaDeCorona(v, s, f);
   ctx.save();
-  ctx.globalAlpha = f.alfa;
+  ctx.globalAlpha = f.alfaDelAro;
   ctx.font = `bold ${c.alto}px system-ui, "DejaVu Sans", sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -550,7 +635,7 @@ function pintarVida(
   const { x, y, anchoBarra } = cabezaDe(v, s, f);
   const vida = Math.max(0, Math.min(1, stackHp(s) / Math.max(1, s.unit.hp * s.initialCount)));
   ctx.save();
-  ctx.globalAlpha = f.alfa;
+  ctx.globalAlpha = f.alfaDelAro;
   ctx.fillStyle = 'rgba(12,10,6,0.85)';
   ctx.fillRect(x - anchoBarra / 2 - 1, y - 1, anchoBarra + 2, 6);
   ctx.fillStyle = vida > 0.5 ? '#9fc49a' : vida > 0.25 ? '#e0c060' : '#e3735a';
@@ -573,7 +658,7 @@ function pintarNombre(
   f: EstadoFigura,
 ): void {
   ctx.save();
-  ctx.globalAlpha = f.alfa;
+  ctx.globalAlpha = f.alfaDelAro;
   ctx.font = `${cuerpoDelNombre(v)}px system-ui, sans-serif`;
   const caja = cajaDeNombre(v, s, f, ctx.measureText(s.unit.name).width);
   ctx.fillStyle = 'rgba(25,21,9,0.9)';

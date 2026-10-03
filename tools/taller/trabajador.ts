@@ -4,7 +4,8 @@
  *   pnpm taller                          trabaja hasta vaciar la cola
  *   pnpm taller encolar <unidad|fichero.json>…
  *                                        una unidad de `unidades.ts` encola su
- *                                        identidad, o su atlas con `--atlas`;
+ *                                        identidad, su giro con `--giro` o sus
+ *                                        16 hojas de 8 direcciones con `--ocho`;
  *                                        `--rehacer` olvida el encargo cerrado de antes
  *   pnpm taller corregir <encargo> "<corrección>"
  *                                        reabre el hilo de Codex de un encargo hecho
@@ -13,9 +14,10 @@
  *   pnpm taller retirar <id>…            borra pendientes que ya no valen
  *   pnpm taller reprocesar <id>          rehace el post-proceso sobre el crudo ya generado
  *   pnpm taller derivar <hoja.webp>…     reescribe el JSON de una hoja
+ *   pnpm taller derivar-poses            reescribe `_poses/atlas-8d.json`, las anclas del Y Bot
  *   pnpm taller componer-atlas-mapa      rehace assets/rpg/map-atlas.png con las piezas pintadas
  *   pnpm taller vista-ejercitos          una página con todos los ejércitos, para elegir o comparar
- *   pnpm taller vista <unidad>…          láminas de revisión en .cache/taller/vista/
+ *   pnpm taller vista-8d [unidad|juego]  el visor de 8 direcciones de las unidades y las poses
  *
  * Por cada encargo: lanza Codex con las referencias en su orden, recorta el
  * halo, empaqueta (si es un atlas), valida con sharp, escribe la imagen, su
@@ -60,19 +62,19 @@ import {
   empaquetar,
   recortarAlContenido,
 } from './empaquetar.js';
-import { type Encargo, promptDe } from './encargo.js';
+import { type Encargo, FILAS_POR_HOJA, promptDe } from './encargo.js';
 import { evaluar } from './evaluar.js';
 import { ESTILOS_DE_MAPA, encargoDeMuestra, encargosDeCeldas, encargosDePiezas } from './mapa.js';
+import { escribirAtlasDePoses, RUTA_DEL_ATLAS_8D } from './poses-8d.js';
 import { aRaster, recortar, UMBRALES } from './recorte.js';
 import {
-  encargoDeAtlas,
   encargoDeGiro,
   encargoDeIdentidad,
   encargosDeOchoDirecciones,
   unidad,
 } from './unidades.js';
 import { validar } from './validar.js';
-import { vista, vistaEdificios, vistaEfectos, vistaEjercitos } from './vista.js';
+import { vistaEdificios, vistaEfectos, vistaEjercitos } from './vista.js';
 import { vista8d } from './vista-8d.js';
 
 const RAIZ = resolve(import.meta.dirname, '../..');
@@ -202,13 +204,13 @@ async function postprocesar(
           `lámina partida en ${iconos.length} iconos de ${LADO_ICONO}×${LADO_ICONO}, cada uno en su fichero`,
         );
       } else if (encargo.tipo === 'atlas') {
-        const altura = encargo.alturaObjetivo ?? FIGURA.alturaAdulto;
+        const altura = FIGURA.alturaAdulto;
         const celda = encargo.celda ?? FIGURA.celda;
-        const pose = encargo.ocho === undefined ? undefined : await escalaDePose(encargo);
-        const p = await empaquetar(r, encargo.filas ?? 3, altura, celda, pose);
+        const pose = await escalaDePose(encargo);
+        const p = await empaquetar(r, FILAS_POR_HOJA, altura, celda, pose);
         final = p.png;
         pasos.push(
-          `figuras localizadas y empaquetadas en ${FIGURA.columnas}×${encargo.filas ?? 3} celdas de ${celda}, ` +
+          `figuras localizadas y empaquetadas en ${FIGURA.columnas}×${FILAS_POR_HOJA} celdas de ${celda}, ` +
             `escala uniforme ${p.escala.toFixed(4)}, pies en y=${baseEnCelda(celda)}, ` +
             (p.alturaFinal === p.alturaPedida
               ? `reposo a ${altura} px`
@@ -226,7 +228,7 @@ async function postprocesar(
       encargo.tipo,
       encargo.fondo === 'opaco',
       encargo.celda ?? FIGURA.celda,
-      encargo.filas ?? 3,
+      FILAS_POR_HOJA,
     );
     if (informe.problemas.length > 0) {
       // El crudo se queda en `~/.codex`; se dice dónde para poder mirarlo.
@@ -265,24 +267,6 @@ async function postprocesar(
         junta === null
           ? 'media dirección: se junta con la otra hoja cuando esté'
           : `dirección completa: ${relative(RAIZ, junta)}`,
-      );
-    } else if (encargo.tipo === 'atlas') {
-      const d = await escribirDerivado(rutaSalida);
-      // El empaquetado puso los pies en un sitio y la derivación los midió: si no
-      // coinciden, uno de los dos miente y la figura bailaría en el tablero.
-      const esperado = extra.apoyoPorFila as [number, number][];
-      for (const [i, c] of Object.values(d.clips).entries()) {
-        const e = esperado[i] as [number, number];
-        if (Math.abs(c.anchor[0] - e[0]) > 3 || Math.abs(c.anchor[1] - e[1]) > 2) {
-          throw new Error(
-            `el ancla derivada de la fila ${i + 1} (${c.anchor}) no es donde la puso el empaquetado (${e})`,
-          );
-        }
-      }
-      pasos.push(
-        `JSON derivado: altura ${d.altura}, fotogramas ${Object.values(d.clips)
-          .map((c) => c.frames)
-          .join('/')}`,
       );
     }
 
@@ -552,13 +536,15 @@ async function encolar(args: readonly string[]): Promise<void> {
     }
     return;
   }
-  const atlas = args.includes('--atlas');
+  if (args.includes('--atlas')) {
+    throw new Error(
+      'el atlas de una dirección se retiró el 03-10-2026: toda unidad va en 8 direcciones (`--giro` y después `--ocho`)',
+    );
+  }
   for (const a of args.filter((x) => !x.startsWith('--'))) {
     const bruto = a.endsWith('.json')
       ? JSON.parse(await readFile(a, 'utf8'))
-      : atlas
-        ? encargoDeAtlas(unidad(a))
-        : encargoDeIdentidad(unidad(a));
+      : encargoDeIdentidad(unidad(a));
     if (args.includes('--rehacer') && (await COLA.olvidar(bruto.id))) {
       console.log(`olvidado el ${bruto.id} anterior`);
     }
@@ -654,9 +640,11 @@ switch (orden) {
     // Un solo visor con todas: el argumento solo elige con cuál se abre.
     console.log(`→ ${await vista8d(resto[0])}`);
     break;
-  case 'vista':
-    for (const r of await vista(resto)) console.log(`→ ${r}`);
+  case 'derivar-poses': {
+    const { juegos } = await escribirAtlasDePoses();
+    console.log(`→ ${relative(RAIZ, RUTA_DEL_ATLAS_8D)}: ${Object.keys(juegos).join(', ')}`);
     break;
+  }
   case 'derivar':
     for (const r of resto) {
       const d = await escribirDerivado(r);
@@ -669,6 +657,6 @@ switch (orden) {
     break;
   default:
     throw new Error(
-      `orden desconocida «${orden}»: trabajar, encolar, corregir, retirar, reprocesar, estado, devolver, derivar, vista, vista-8d, componer-atlas-mapa`,
+      `orden desconocida «${orden}»: trabajar, encolar, corregir, retirar, reprocesar, estado, devolver, derivar, derivar-poses, vista-8d, componer-atlas-mapa`,
     );
 }

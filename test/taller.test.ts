@@ -15,7 +15,14 @@ import { derivarAtlas } from '../tools/taller/derivar.js';
 import { empaquetar } from '../tools/taller/empaquetar.js';
 import { encargoSchema, promptDe } from '../tools/taller/encargo.js';
 import { quitarHalo, type Raster } from '../tools/taller/recorte.js';
-import { encargoDeAtlas, encargoDeIdentidad, HEROES, UNIDADES } from '../tools/taller/unidades.js';
+import {
+  EN_OCHO_DIRECCIONES,
+  encargoDeIdentidad,
+  encargosDeOchoDirecciones,
+  HEROES,
+  UNIDADES,
+  unidad,
+} from '../tools/taller/unidades.js';
 
 let dir: string;
 beforeEach(async () => {
@@ -69,11 +76,14 @@ describe('la cola en disco', () => {
 
 describe('el encargo', () => {
   it('un atlas lleva primero la pose y después la identidad', () => {
-    const malo = {
-      ...encargoDeAtlas(UNIDADES[0]!),
-      referencias: [...encargoDeAtlas(UNIDADES[0]!).referencias].reverse(),
-    };
+    const bueno = encargosDeOchoDirecciones(unidad('templario-escudo'))[0]!;
+    const malo = { ...bueno, referencias: [...bueno.referencias].reverse() };
     expect(() => encargoSchema.parse(malo)).toThrow(/primero la referencia de pose/);
+  });
+
+  it('un atlas sin su dirección de 8 no entra: el de una sola dirección se retiró', () => {
+    const { ocho: _, ...sinDireccion } = encargosDeOchoDirecciones(unidad('templario-escudo'))[0]!;
+    expect(() => encargoSchema.parse(sinDireccion)).toThrow(/lleva `ocho`/);
   });
 
   it('una ruta absoluta o con «..» no entra', () => {
@@ -83,7 +93,9 @@ describe('el encargo', () => {
 
   it('el prompt dice el papel de cada imagen con esas palabras, en su orden', () => {
     for (const u of [...UNIDADES, ...HEROES]) {
-      for (const e of [encargoDeIdentidad(u), encargoDeAtlas(u)]) {
+      const atlas =
+        EN_OCHO_DIRECCIONES[u.id] === undefined ? [] : encargosDeOchoDirecciones(u).slice(0, 2);
+      for (const e of [encargoDeIdentidad(u), ...atlas]) {
         encargoSchema.parse(e);
         const p = promptDe(e);
         const pose = p.indexOf('La imagen 1 es la REFERENCIA DE POSE');
@@ -150,6 +162,22 @@ function hojaIrregular(columnas = 7, filas = 3): Raster {
   return r;
 }
 
+/**
+ * Una hoja de 6 filas —la única que se deriva desde que se retiró la de una
+ * dirección— hecha de dos de 3 empaquetadas una encima de otra, como junta el
+ * taller las dos hojas de cada dirección.
+ */
+async function seisFilas(png: Buffer): Promise<Buffer> {
+  const { width, height } = await sharp(png).metadata();
+  return sharp({ create: { width, height: 2 * height, channels: 4, background: '#0000' } })
+    .composite([
+      { input: png, left: 0, top: 0 },
+      { input: png, left: 0, top: height },
+    ])
+    .png()
+    .toBuffer();
+}
+
 describe('el empaquetado y la derivación', () => {
   it('empaqueta figuras irregulares en la rejilla con los pies en la base', async () => {
     const p = await empaquetar(hojaIrregular(), 3, 160);
@@ -158,13 +186,12 @@ describe('el empaquetado y la derivación', () => {
     for (const [, y] of p.apoyoPorFila) expect(y).toBe(FIGURA.base);
 
     const ruta = join(dir, 'atlas.png');
-    await writeFile(ruta, p.png);
+    await writeFile(ruta, await seisFilas(p.png));
     const d = await derivarAtlas(ruta);
-    for (const [i, c] of Object.values(d.clips).entries()) {
-      expect(c.frames).toBe(7);
-      expect(Math.abs(c.anchor[1] - p.apoyoPorFila[i]![1])).toBeLessThanOrEqual(1);
-      expect(Math.abs(c.anchor[0] - p.apoyoPorFila[i]![0])).toBeLessThanOrEqual(3);
-    }
+    for (const c of Object.values(d.clips)) expect(c.frames).toBe(7);
+    // Un ancla por dirección, la del reposo: donde el empaquetado puso los pies.
+    expect(Math.abs(d.clips.idle.anchor[1] - p.apoyoPorFila[0]![1])).toBeLessThanOrEqual(1);
+    expect(Math.abs(d.clips.idle.anchor[0] - p.apoyoPorFila[0]![0])).toBeLessThanOrEqual(3);
     expect(d.altura).toBeGreaterThan(150);
     expect(d.cajaDeClic[1]).toBeLessThan(-150); // la caja sube desde los pies
   });
@@ -176,9 +203,9 @@ describe('el empaquetado y la derivación', () => {
   });
 
   it('el último fotograma que repite al anterior no cuenta, y el JSON lleva el sha256', async () => {
-    const p = await empaquetar(hojaIrregular(), 3, 160);
+    const p = { png: await seisFilas((await empaquetar(hojaIrregular(), 3, 160)).png) };
     const { celda } = FIGURA;
-    // Copia la sexta celda del ataque sobre la séptima.
+    // Copia la sexta celda de la tercera fila (la carga) sobre la séptima.
     const { data, info } = await sharp(p.png).raw().toBuffer({ resolveWithObject: true });
     for (let y = 2 * celda; y < 3 * celda; y++) {
       const fila = y * info.width * 4;
@@ -190,7 +217,7 @@ describe('el empaquetado y la derivación', () => {
     const ruta = join(dir, 'repetida.png');
     await writeFile(ruta, hoja);
     const d = await derivarAtlas(ruta);
-    expect(d.clips.attack.frames).toBe(6);
+    expect(d.clips.charge?.frames).toBe(6);
     expect(d.clips.idle.frames).toBe(7);
     expect(d.sha256).toMatch(/^[0-9a-f]{64}$/);
   });
@@ -278,27 +305,24 @@ describe('la celda de las monturas', () => {
     expect([meta.width, meta.height]).toEqual([384 * FIGURA.columnas, 384 * 3]);
     expect(baseEnCelda(384)).toBe(342);
     for (const [, y] of p.apoyoPorFila) expect(y).toBe(342);
-    const ruta = join(dir, 'montada.png');
-    await writeFile(ruta, p.png);
-    const d = await derivarAtlas(ruta);
-    expect(d.cell).toBe(384);
-    expect(d.clips.idle.anchor[1]).toBeGreaterThanOrEqual(341);
   });
 });
 
-describe('la hoja de cuatro filas de las monturas', () => {
-  it('deriva reposo, marcha, carga en bucle y ataque, en ese orden', async () => {
-    const p = await empaquetar(hojaIrregular(7, 4), 4, 200, 384);
-    const ruta = join(dir, 'cuatro.png');
-    await writeFile(ruta, p.png);
-    const d = await derivarAtlas(ruta);
-    expect(Object.keys(d.clips)).toEqual(['idle', 'walk', 'charge', 'attack']);
-    expect(d.clips.charge?.loop).toBe(true);
-    expect(d.clips.attack.row).toBe(3);
-  });
-
+describe('las filas de una hoja', () => {
   it('una hoja de cinco filas no es del taller, y se dice', async () => {
-    const { clipsDeHoja } = await import('../tools/taller/derivar.js');
-    expect(() => clipsDeHoja(5)).toThrow(/3 o 4 filas/);
+    const lado = 64;
+    const ruta = join(await mkdtemp(join(tmpdir(), 'taller-filas-')), 'cinco.png');
+    await sharp({
+      create: {
+        width: lado * FIGURA.columnas,
+        height: lado * 5,
+        channels: 4,
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      },
+    })
+      .png()
+      .toFile(ruta);
+    await expect(derivarAtlas(ruta)).rejects.toThrow(/por 6 filas/);
+    await rm(join(ruta, '..'), { recursive: true, force: true });
   });
 });

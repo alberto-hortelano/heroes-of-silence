@@ -15,7 +15,7 @@ import type { SpectatorSnapshotMsg } from '../../server/protocol.js';
 import type { SpectatorView } from '../../server/vista-espectador.js';
 import { NADA, pintar } from '../html.js';
 import { cargarArte } from '../render/assets.js';
-import { drawBatalla } from '../render/batalla.js';
+import { bandosSinDueño, drawBatalla } from '../render/batalla.js';
 import { type CamaraMapa, centrarEn, TILE_MIN } from '../render/camara-mapa.js';
 import { hayFigurasAnimadas } from '../render/figura.js';
 import { ajustarLienzo } from '../render/lienzo.js';
@@ -213,6 +213,7 @@ function pintarTodo(ahora: number): void {
         hoverStack: null,
         figura: (s) => animador.figura(s),
         efectos: animador.efectos(enCurso),
+        sinDueño: bandosSinDueño(reproductor.dueños),
       });
       apuntarLoQueSePinta(true);
     } else {

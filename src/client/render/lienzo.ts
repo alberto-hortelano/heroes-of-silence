@@ -56,3 +56,14 @@ export function ajustarLienzo(canvas: HTMLCanvasElement, alCambiar: () => void):
     },
   };
 }
+
+/**
+ * Cuántos píxeles del dispositivo hay por unidad del lienzo de destino, según su
+ * transformación: lo que miden el fondo, la superficie, las piezas y las figuras
+ * para componer a la resolución a la que se verán. Con `hypot` y no solo `a`, por
+ * si la transformación gira: la sombra de la figura se pinta con una afín.
+ */
+export function densidadDe(ctx: CanvasRenderingContext2D): number {
+  const m = ctx.getTransform();
+  return Math.hypot(m.a, m.b);
+}

@@ -39,7 +39,7 @@ import { join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { type Browser, chromium, type Page } from 'playwright';
 import WebSocket from 'ws';
-import { DURACION } from '../../src/client/anim.js';
+import { DURACION, duracionDeLaJugada } from '../../src/client/anim.js';
 import { masCercana, opcionesDeGolpe } from '../../src/client/escenas/angulo.js';
 import { focoDe } from '../../src/client/escenas/aventura.js';
 import {
@@ -48,6 +48,7 @@ import {
   EscenaBatalla,
   rotuloDeAngulo,
 } from '../../src/client/escenas/batalla.js';
+import { msPorCasilla } from '../../src/client/marcha.js';
 import { cajaDeFigura, galonesDe } from '../../src/client/render/batalla.js';
 import {
   casillaAPixel,
@@ -56,7 +57,7 @@ import {
   TILE_INICIAL,
   zoom,
 } from '../../src/client/render/camara-mapa.js';
-import { pasosAPintar } from '../../src/client/render/mapa.js';
+import { ALTO_DEL_GRUPO, pasosAPintar } from '../../src/client/render/mapa.js';
 import { centroDeStack, centroHex, tableroPara } from '../../src/client/render/proyeccion.js';
 import { botonDeRecluta, townLayout, townPlots } from '../../src/client/render/town.js';
 import {
@@ -356,12 +357,8 @@ async function comprobar(page: Page, espejo: Session, paso: string): Promise<voi
 }
 
 /** Espera a que la batalla acabe de contarse: lo que tarda la cola de lo que se acaba de jugar. */
-async function esperarCola(nuevos: readonly BattleEvent[]): Promise<void> {
-  let ms = 250;
-  for (const e of nuevos) {
-    if (e.kind in DURACION) ms += DURACION[e.kind as keyof typeof DURACION];
-  }
-  await sleep(ms);
+async function esperarCola(battle: BattleState, nuevos: readonly BattleEvent[]): Promise<void> {
+  await sleep(250 + duracionDeLaJugada(battle, nuevos));
 }
 
 /**
@@ -606,7 +603,7 @@ async function moverDosTramosYAtacar(
     const b = await alcanzar(page, c.x);
     await page.mouse.click(b.x + c.x, b.y + c.y);
     espejo.playBattleAction(tramo);
-    await esperarCola(battle.log.slice(antes));
+    await esperarCola(battle, battle.log.slice(antes));
     await sleep(150);
     // El mismo turno, por su ordinal: la misma unidad activa en un turno nuevo
     // (la moral extra) no es el tramo siguiente.
@@ -708,7 +705,7 @@ async function turnoDeBatalla(
   if (tocaRendirse && acciones.some((a) => a.type === 'surrender')) {
     await page.getByRole('button', { name: /Rendirse/ }).click();
     espejo.playBattleAction({ type: 'surrender' });
-    await esperarCola(battle.log.slice(antes));
+    await esperarCola(battle, battle.log.slice(antes));
     await sleep(300);
     await captura(page, 'desktop-07-rendicion');
     log(`rendición: ${espejo.status}`);
@@ -718,11 +715,11 @@ async function turnoDeBatalla(
   const plan = anguloPendiente && n >= 3 ? planDeAngulo(espejo, b0.width, b0.height) : null;
   if (plan !== null) {
     const nuevos = await moverDosTramosYAtacar(page, espejo, plan);
-    if (n === 3 && nuevos.some((e) => e.kind in DURACION)) {
-      await avisoQueSeRetira(page, nuevos);
+    if (n === 3 && nuevos.some((e) => e.kind in DURACION || e.kind === 'move')) {
+      await avisoQueSeRetira(page, battle, nuevos);
       return true;
     }
-    await esperarCola(nuevos);
+    await esperarCola(battle, nuevos);
     return true;
   }
   if (n === 0 && acciones.some((a) => a.type === 'wait')) {
@@ -787,11 +784,11 @@ async function turnoDeBatalla(
     }
   }
   const nuevos = battle.log.slice(antes);
-  if (n === 3 && nuevos.some((e) => e.kind in DURACION)) {
-    await avisoQueSeRetira(page, nuevos);
+  if (n === 3 && nuevos.some((e) => e.kind in DURACION || e.kind === 'move')) {
+    await avisoQueSeRetira(page, battle, nuevos);
     return false;
   }
-  await esperarCola(nuevos);
+  await esperarCola(battle, nuevos);
   return false;
 }
 
@@ -800,7 +797,11 @@ async function turnoDeBatalla(
  * espere, y en cuanto la cola se vacía tiene que dejar de decirlo. Antes el
  * aviso se quedaba hasta el siguiente gesto.
  */
-async function avisoQueSeRetira(page: Page, nuevos: readonly BattleEvent[]): Promise<void> {
+async function avisoQueSeRetira(
+  page: Page,
+  battle: BattleState,
+  nuevos: readonly BattleEvent[],
+): Promise<void> {
   const marco = await page.locator('#lienzo').boundingBox();
   if (marco === null) throw new Error('el marco del lienzo no está en la página');
   // Una esquina de arriba: cielo, ni hex ni figura.
@@ -819,7 +820,7 @@ async function avisoQueSeRetira(page: Page, nuevos: readonly BattleEvent[]): Pro
       `un clic durante la jugada debía decir «${AVISO_DE_ESPERA}» y dice «${durante}»`,
     );
   }
-  await esperarCola(nuevos);
+  await esperarCola(battle, nuevos);
   await sleep(100);
   const despues = await page.locator('#status').innerText();
   if (despues === AVISO_DE_ESPERA) {
@@ -1001,7 +1002,7 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
   await mapa.pulsar(monstruo);
   if (espejo.battle === null)
     throw new Error(`el espejo no ha entrado en batalla: ${espejo.status}`);
-  await esperarCola(espejo.battle.log);
+  await esperarCola(espejo.battle, espejo.battle.log);
   await captura(page, 'desktop-07-batalla-inicio');
   // Hasta 40 jugadas: las de antes eran 12, pero el ángulo necesita que la tropa
   // se acerque —un campesino anda 2— y la rendición espera a que salga.
@@ -1079,7 +1080,7 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
     await comprobar(page, espejo, 'pasar al día 2');
     await mapa.pulsar(otra.at);
     if (espejo.battle !== null) {
-      await esperarCola(espejo.battle.log);
+      await esperarCola(espejo.battle, espejo.battle.log);
       await page.getByRole('button', { name: 'Resolver sola' }).click();
       espejo.autoResolveBattle();
       await sleep(300);
@@ -1201,7 +1202,7 @@ async function veteranos(browser: Browser, url: string, problemas: Problemas): P
   await mapa.rueda(-1);
   await mapa.pulsar(await guardiaALaVista(page, mapa, espejo));
   if (espejo.battle === null) throw new Error(`no hubo batalla: ${espejo.status}`);
-  await esperarCola(espejo.battle.log);
+  await esperarCola(espejo.battle, espejo.battle.log);
   await page.getByRole('button', { name: 'Resolver sola' }).click();
   espejo.autoResolveBattle();
   await sleep(400);
@@ -1216,7 +1217,7 @@ async function veteranos(browser: Browser, url: string, problemas: Problemas): P
   await comprobar(page, espejo, 'pasar al día 2 con los veteranos');
   await mapa.pulsar(await guardiaALaVista(page, mapa, espejo));
   if (espejo.battle === null) throw new Error(`no hubo segunda batalla: ${espejo.status}`);
-  await esperarCola(espejo.battle.log);
+  await esperarCola(espejo.battle, espejo.battle.log);
   await veteranoEnElCampo(page, espejo);
   await captura(page, 'veteranos-02-batalla-galones');
   await page.close();
@@ -1291,7 +1292,7 @@ async function jugarMovil(browser: Browser, url: string, problemas: Problemas): 
   await mapa.pulsar(await guardiaALaVista(page, mapa, espejo));
   if (espejo.battle === null)
     throw new Error(`móvil: el espejo no ha entrado en batalla: ${espejo.status}`);
-  await esperarCola(espejo.battle.log);
+  await esperarCola(espejo.battle, espejo.battle.log);
   await captura(page, 'movil-03-batalla');
   // El tablero es más ancho que la pantalla: se desplaza en horizontal.
   const desplazable = await page.evaluate(() => {
@@ -1474,7 +1475,7 @@ async function jugarTactil(browser: Browser, url: string, problemas: Problemas):
   if (otra.battle === null) {
     throw new Error(`táctil: el espejo no ha entrado en batalla: ${otra.status}`);
   }
-  await esperarCola(otra.battle.log);
+  await esperarCola(otra.battle, otra.battle.log);
   await sleep(300);
 
   const pista = page.locator('#hacia-enemigo');
@@ -1664,8 +1665,14 @@ async function patrullaALaVista(
     const ayer = posiciones.get(movido.id) as Point;
     await sleep(250);
     await captura(page, `${prefijo}-asaltante-andando`);
-    // Que llegue: el deslizamiento dura `DURACION_DE_PATRULLA` (900 ms).
-    await sleep(1200);
+    // Que llegue: la patrulla dura sus casillas al paso de su figura
+    // (`msPorCasilla`), y no un plazo fijo.
+    const cuerpo = movido.troops[0]?.creature;
+    if (cuerpo === undefined) throw new Error(`${prefijo}: ${movido.id} no tiene tropa`);
+    const patrulla =
+      Math.hypot(movido.at.x - ayer.x, movido.at.y - ayer.y) *
+      msPorCasilla(cuerpo, 'walk', ALTO_DEL_GRUPO);
+    await sleep(patrulla + 300);
     await captura(page, `${prefijo}-asaltante-llegado`);
     const cambio = async (p: Point): Promise<number> => {
       const px = await mapa.pixel(p);
@@ -1768,7 +1775,7 @@ async function batallaPerdida(browser: Browser, url: string, problemas: Problema
   if (espejo.battle === null) {
     throw new Error(`semilla ${SEMILLA_QUE_PIERDE}: no hubo batalla: ${espejo.status}`);
   }
-  await esperarCola(espejo.battle.log);
+  await esperarCola(espejo.battle, espejo.battle.log);
   await captura(page, 'desktop-13-batalla-que-se-pierde');
   await page.getByRole('button', { name: 'Resolver sola' }).click();
   espejo.autoResolveBattle();
@@ -1825,7 +1832,7 @@ async function sinArte(browser: Browser, url: string, problemas: Problemas): Pro
   await patrullaALaVista(page, espejo, mapa, 'sin-arte-02');
   await mapa.pulsar(await guardiaALaVista(page, mapa, espejo));
   if (espejo.battle !== null) {
-    await esperarCola(espejo.battle.log);
+    await esperarCola(espejo.battle, espejo.battle.log);
     await captura(page, 'sin-arte-02-batalla');
   }
   await page.close();
@@ -1903,8 +1910,20 @@ const PLAZO_DEL_FIN_AL_MAPA_MS = 8_000;
  * pasadas, **21,17 y 21,16 s**, con 76 y 65 fotogramas atrasados. 28 s es esa
  * medida con el mismo 30 % de holgura. El telón sigue comprimiendo —once finales
  * de 2,5 s enteros serían unos 27 s más— y eso es lo que el plazo vigila.
+ *
+ * Y con la marcha que no patina (03-10-2026) un tramo dura sus casillas al paso
+ * de quien anda —~1,3 s por casilla andando, donde antes eran 520 ms el tramo
+ * entero—, así que el espectador va mucho más atrasado: medido en dos pasadas,
+ * **79,8 y 79,7 s**, con 76 y 78 fotogramas atrasados y ocho finales después.
+ * 104 s es esa medida con el mismo 30 % de holgura. El ritmo máximo del telón
+ * (×12) no se tocó: es una decisión de cómo se ve, y queda para el usuario.
+ *
+ * Al verlo, el usuario pidió la marcha «un poco más rápido» (`PRISA_DE_LA_MARCHA`,
+ * ~0,9 s por casilla andando), y el atraso bajó con ella: medido en dos pasadas,
+ * **60,6 y 63,0 s**, con 74 y 77 fotogramas atrasados y ocho finales después.
+ * 82 s es la mayor con el mismo 30 % de holgura.
  */
-const PLAZO_DEL_GAME_OVER_MS = 28_000;
+const PLAZO_DEL_GAME_OVER_MS = 82_000;
 
 /**
  * El espectador, contra un servidor de verdad y con un agente que juega.
@@ -2237,10 +2256,7 @@ async function todoIA(page: Page, izquierda: UnidadDeArena, derecha: UnidadDeAre
   espejo.empezar();
   const fin = espejo.battle.finished;
   if (fin === null) throw new Error('arena: con todo en IA el espejo no termina la pelea');
-  const cuenta = espejo.battle.log.reduce(
-    (ms, e) => ms + (e.kind in DURACION ? DURACION[e.kind as keyof typeof DURACION] : 0),
-    0,
-  );
+  const cuenta = duracionDeLaJugada(espejo.battle, espejo.battle.log);
   const ganador = LADOS[ladoDe(fin.winner)].adjetivo;
   const inicio = Date.now();
   await page.locator('[data-arena="luchar"]').click();
@@ -2277,6 +2293,7 @@ async function jugarArena(
   vigilarConsola(page, 'arena', problemas);
   await page.goto(`${url}/arena/?seed=${SEMILLA_ARENA}`, { waitUntil: 'networkidle' });
   await page.locator('[data-hoja-catalogo]').first().waitFor({ timeout: 5000 });
+  const hojas0 = hojasDeArena(process.cwd());
 
   // Dos por bando, con clics en el catálogo. La izquierda nace en «Yo» y la
   // derecha en «IA»; el monje se pasa a la IA, así que la persona lleva una.
@@ -2306,6 +2323,44 @@ async function jugarArena(
     });
   await sleep(300);
   await captura(page, 'arena-01-montaje');
+
+  // Las 8 direcciones, hoja a hoja: el templario con las suyas y el orco con las
+  // del Y Bot de su juego, y de cada uno SOLO las hojas que se han pintado; y ni
+  // un `atlas.webp` de una dirección, que se borró. Se gira la ficha dos veces
+  // —de frente-derecha (d1) a espalda-derecha (d3)— y se pide la muerte, que
+  // deja el cadáver.
+  await page.locator('#ficha [data-arena="girar"]').click();
+  await page.locator('#ficha [data-arena="girar"]').click();
+  await page.locator('#ficha [data-clip="death"]').click();
+  await sleep(1200);
+  const pedidas = await page.evaluate(() =>
+    performance
+      .getEntriesByType('resource')
+      .map((e) => new URL(e.name).pathname)
+      .filter((p) => p.startsWith('/unidades/')),
+  );
+  const orco = hojas0.find((h) => h.id === 'orko-berserker');
+  // El orco está en el bando derecho, quieto y mirando al suroeste (d7): su
+  // reposo vive en la hoja `a`.
+  const faltan = [
+    '/unidades/templario-escudo/d1/atlas.webp',
+    '/unidades/templario-escudo/d3/atlas.webp',
+    `/unidades/_poses/${orco?.juego}-8d/d7-a.png`,
+  ].filter((u) => !pedidas.includes(u));
+  if (faltan.length > 0)
+    throw new Error(`arena: no se cargaron las hojas que se pintan: ${faltan.join(', ')}`);
+  // Y las que no se pintan, no: la espalda-izquierda del templario (d5) y la
+  // hoja `b` del orco, que no ha atacado ni caído.
+  const sobran = [
+    '/unidades/templario-escudo/d5/atlas.webp',
+    `/unidades/_poses/${orco?.juego}-8d/d7-b.png`,
+  ].filter((u) => pedidas.includes(u));
+  if (sobran.length > 0)
+    throw new Error(`arena: se cargaron hojas que no se pintan: ${sobran.join(', ')}`);
+  const viejas = pedidas.filter((p) => /^\/unidades\/[^/]+\/atlas\.webp$/.test(p));
+  if (viejas.length > 0)
+    throw new Error(`arena: se pidió arte de una dirección: ${viejas.join(', ')}`);
+  await captura(page, 'arena-01b-ficha-girada-cadaver');
 
   // El espejo: las mismas unidades —las de por defecto de cada hoja, con el
   // ataque cambiado— y la misma semilla.
@@ -2339,7 +2394,7 @@ async function jugarArena(
   if (semilla.trim() !== `semilla ${SEMILLA_ARENA}`) {
     throw new Error(`arena: la barra debía decir «semilla ${SEMILLA_ARENA}» y dice «${semilla}»`);
   }
-  await esperarCola(espejo.battle.log);
+  await esperarCola(espejo.battle, espejo.battle.log);
   await mismaPelea(page, espejo, 'empezar la pelea');
 
   let tramos = 0;
@@ -2387,7 +2442,7 @@ async function jugarArena(
       await page.getByRole('button', { name: 'Terminar turno' }).click();
       espejo.playBattleAction({ type: 'end_turn' });
     }
-    await esperarCola(espejo.battle.log.slice(antes));
+    await esperarCola(espejo.battle, espejo.battle.log.slice(antes));
     // Acabada, el panel ya no enseña el campo sino el resultado: lo mira abajo.
     if (espejo.battle.finished === null) await mismaPelea(page, espejo, `la jugada ${jugadas}`);
   }

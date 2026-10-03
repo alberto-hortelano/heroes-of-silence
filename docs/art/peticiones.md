@@ -187,14 +187,17 @@ minimapa (usa los pigmentos). Nada de esto se ha generado ni se ha gastado nada.
 `assets/unidades/templario-escudo/d0` … `d7`: un atlas de 6 filas por dirección
 (`idle`, `walk`, `charge`, `attack`, `hurt`, `death`), celda de 384 y pies en
 y=342, más `cadaver: { clip: 'death', frame: 6 }`. El `atlas.webp` raíz (3 filas,
-una dirección) se queda como estaba para no romper lo que ya lo lee. Lo que haría
-falta en el juego:
+una dirección) **ya no existe**: se borró con el resto del arte de una dirección
+al llevar el juego a las 8 direcciones (`docs/agents/2026-10-03-ocho-direcciones/`),
+y un guardia de `test/invariantes.test.ts` impide que vuelva. Lo que pedía esta
+sección al juego ya está hecho:
 
-- Elegir la dirección por hacia dónde se mueve o ataca la unidad
-  (`tools/taller/direcciones.ts`: 0 de frente, 2 derecha, 4 espalda, 6 izquierda)
-  y **dejar de espejar**: con la luz fija, el espejo la trae del otro lado.
-- La sombra por silueta: `proyeccionDeSombra()` en lugar del óvalo de `sombra.ts`.
-- Al morir, dejar el fotograma `cadaver` en la casilla (los no muertos lo usan).
+- La dirección sale de hacia dónde se mueve o ataca la unidad
+  (`NOMBRES_DE_DIRECCION`, en `src/shared/arte.ts`: 0 de frente, 2 derecha, 4
+  espalda, 6 izquierda) y **no se espeja nunca**: con la luz fija, el espejo la
+  traería del otro lado.
+- La sombra es por silueta, y sin arte vuelve al óvalo.
+- Al morir queda el fotograma `cadaver` en la casilla hasta el final de la batalla.
 - **La luz del contrato ha cambiado**: `ARTE.luz.direccionSombra` pasa de
   `(1, 0,6)` a `(1, −0,6)`, así que la sombra que pinta hoy el juego ya cae hacia
   el fondo.

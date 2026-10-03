@@ -116,7 +116,7 @@ fotograma es el cadáver (`cadaver` en el JSON).
 4. **La vista**: `pnpm taller vista-8d [<id>]` escribe un solo visor, `.cache/taller/vista/visor-8d.html`, con un selector de todas las unidades que ya tienen sus 8 direcciones y de las poses de cada juego de armas; el `<id>` solo elige con cuál se abre (va en el `#` de la URL). Todas a la misma escala, para poder compararlas: el lienzo crece hasta que quepa la más alta. Con la sombra por silueta.
 
 Las direcciones son las de sprite-forge: 0 mira a la cámara, 2 a la derecha, 4 de
-espaldas y 6 a la izquierda (`tools/taller/direcciones.ts`).
+espaldas y 6 a la izquierda (`NOMBRES_DE_DIRECCION`, en `src/shared/arte.ts`).
 Ninguna se espeja, porque la luz vendría del otro lado.
 
 ### Lo que el maniquí guía, además de la pose

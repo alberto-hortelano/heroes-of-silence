@@ -21,7 +21,7 @@ pnpm format     # lo mismo, arreglando lo que sepa arreglar
 pnpm banco      # 200 partidas: tiempo y sha256 del volcado, 5,2 s
 
 npx tsx tools/qa/enfrentamiento.ts   # la IA de hoy contra ella sin su última regla, 2000 batallas, 1,9 s
-pnpm capturas   # juega el cliente, el espectador y la arena en Chromium (Playwright) con clics reales, ~120 s
+pnpm capturas   # juega el cliente, el espectador y la arena en Chromium (Playwright) con clics reales, ~205 s
 ```
 
 La partida se abre con una semilla al azar; **`?seed=N` en la URL fija la
@@ -1963,7 +1963,7 @@ aportan en un prototipo. Lo que hay:
 | El navegador | minutos | si el cambio se ve |
 | El espectador en el navegador | minutos | si tocas `html.ts`, `espectador/` o el canal |
 | `pnpm qa` | 3,2 s | si tocas `src/server/` o el contrato |
-| `pnpm capturas` | ~120 s | si el cambio se ve: juega el cliente, el espectador y la arena en Chromium y sale 1 con un error en consola |
+| `pnpm capturas` | ~205 s | si el cambio se ve: juega el cliente, el espectador y la arena en Chromium y sale 1 con un error en consola |
 | `npx tsx tools/qa/barrido-semillas.ts` | 1,1 s | si tocas la IA o la economía |
 | `pnpm banco` | 5,2 s | si tocas el núcleo sin querer cambiar el juego |
 | `tools/qa/enfrentamiento.ts` | 1,9 s | si cambias **cómo decide** la IA de batalla |
@@ -2152,8 +2152,9 @@ silencio**.
 ## La arena: unidades con cifras inventadas, a pelear
 
 `pnpm arena` abre `/arena/` (petición del usuario, 02-10-2026): se montan dos bandos
-con las hojas de `assets/unidades/` —la tropa y los héroes de las cinco
-facciones, las que ya tienen `atlas.json`—, se cambian sus cifras en la ficha,
+con las unidades de `assets/unidades/` —la tropa y los héroes de las cinco
+facciones, **todas**: la que no tiene arte propio sale con el Y Bot—, se cambian
+sus cifras en la ficha,
 se elige **Yo o IA por unidad** y se pelea con el tablero y los controles de la
 partida. «Guardar» escribe `data/borradores/unidades.json`. **El juego no cambia
 y no lee ese archivo**: `pnpm banco` sale con el ancla igual.
@@ -2207,14 +2208,25 @@ y no lee ese archivo**: `pnpm banco` sale con el ancla igual.
   unidades en IA solo se veía el final. Mientras el tablero cuenta, el panel y la
   barra no adelantan ni vidas, ni parte, ni resultado; y un final por tope de
   rondas se dice «por tiempo», con la regla del motor.
-- **El arte nuevo en el tablero**: `render/personajes.ts` registra a demanda la
-  hoja de `assets/unidades/<id>/` (`registrarHojaDeUnidad`, por `comoAtlas`) en
-  la misma tabla de cuerpos del juego —registrar un cuerpo del juego lanza—, con
-  celda de 384 para el jinete, y `CharacterClip` aprende `charge`, opcional
-  —quien no lo trae pinta la marcha—: el animador lo pone en el tramo que acaba
-  en un golpe con carga. **Se escala con la altura de un adulto (160) y no con la
-  de cada hoja**, como hace el taller: escalar por la de cada hoja igualaría al
-  goblin con el ent y al jinete con un soldado a pie.
+- **El arte en el tablero**: `render/personajes.ts` registra a demanda cada
+  unidad (`registrarUnidad`) en la misma tabla de cuerpos del juego —registrar
+  un cuerpo del juego lanza—, con sus ocho `dN/atlas.json` si los tiene todos
+  y, si no, con el Y Bot de su juego de armas (`juegoDelYBot`, en
+  `tools/taller/unidades.ts`). **El juego va por el arma que lleva cada unidad y
+  no por su perfil de poses** (decisión del usuario): es una tabla,
+  `JUEGO_DEL_YBOT`, con una fila por unidad revisada contra su `aspecto` —pica,
+  alabarda, lanza o jabalina, `lanza`; bastón, `baston`; arma a dos manos,
+  `dos-manos`; maza, `maza`; mayal, `mayal`; a caballo, `montado-lanza`; el
+  resto, tiradores incluidos, `espada-escudo`—. Con el perfil, el piquero salía
+  con mandoble y el goblin lancero con espada. Un test exige una fila por unidad
+  y `juegoDelYBot` lanza sin ella; `EN_OCHO_DIRECCIONES` ya no repite el juego,
+  lo lee de la tabla. La lista que sirve el servidor
+  (`HojaDeArena`) lleva `juego` y `direcciones` —ocho o `null`— y no el
+  `atlas.json` de una dirección, que se borró. **Se escala con la altura de un
+  adulto (160) y no con la de cada hoja**, como hace el taller: escalar por la
+  de cada hoja igualaría al goblin con el ent y al jinete con un soldado a pie.
+  La ficha enseña las seis acciones y un «Girar» que pasa la figura por sus
+  ocho direcciones.
 - **Sin `pnpm dev` no hay guardado**, y la página lo dice. `vite build` saca
   `dist/arena/index.html`, la lista de hojas y un `__arena/unidades` con
   `guardado: false`, así que la arena construida monta y pelea y sabe que no
@@ -2233,10 +2245,119 @@ arena y el espectador:
 - La mirada se decide en **ocho sectores** (`src/client/direccion.ts`): hacia la
   casilla siguiente al andar y hacia el objetivo al golpear, y se queda donde
   miró la última vez. La guarda el animador, nunca el núcleo.
-- Lo que el arte de perfil de hoy sabe pintar —derecha o espejado— es otra
-  función, `espejadoPara`. **El arte de perfil es temporal** (decisión del
-  usuario: «tendrá las 8 direcciones»): cuando llegue, cambia esa traducción y
-  la regla no.
+- **Qué hoja pinta cada dirección es otra tabla, `DIRECCION_DE_HOJA`**
+  (`render/personajes.ts`), una tupla en el orden de las hojas de la que salen
+  `INDICE_DE_HOJA` y el «Girar» de la arena: el sur es «frente» (d0), el este
+  «derecha» (d2), el norte «espalda» (d4), con los nombres de
+  `NOMBRES_DE_DIRECCION` (`src/shared/arte.ts`), y `tsc` exige que las dos
+  listas midan lo mismo. Su `length` es el número de direcciones para el
+  taller y el cliente; `core` escribe el 8 a mano con un comentario y un test
+  de la arena que los pone en contacto. **No se espeja nunca**: con la luz fija a la
+  izquierda, el espejo la traería de la derecha. El arte de perfil y su
+  traducción (`espejadoPara`, `lado`) se retiraron el 03-10-2026, como estaba
+  escrito que pasaría: cambió la traducción y la regla no.
+
+**Toda figura tiene 8 direcciones y las 6 acciones** (decisión del usuario,
+03-10-2026: «la imagen por defecto debería ser el Y Bot, el arte antiguo se
+elimina»), en la batalla de la partida, el espectador, la arena, el mapa y la
+casilla de reclutar del castillo:
+- **Las suyas o las del Y Bot.** Una unidad con `dN/atlas.webp` lleva su arte,
+  sin teñir. Cualquier otra —toda criatura del catálogo, el héroe, y las
+  unidades de la arena sin `dN`— lleva el render del Y Bot de su juego de armas
+  (`_poses/<juego>-8d/dN-a.png` y `dN-b.png`), **teñido del color de su bando**.
+  **Lo que no tiene dueño —monstruo o asaltante— va en el gris de lo neutral**
+  (`COLOR_SIN_DUEÑO`, el mismo de la bandera de un castillo neutral), en el mapa
+  y en la batalla (`bandosSinDueño`, sobre `battleOwners`; en la arena no hay
+  dueños y los dos bandos llevan su color). Con un rojo ladrillo propio, el
+  monstruo quedaba a unos 10° del rojo del jugador 0 y en el mapa el héroe y lo
+  que le guarda el paso eran el mismo muñeco (decisión del usuario). Al
+  asaltante lo separa del monstruo su suelo morado y su estandarte, no el tinte.
+  El juego de cada cuerpo del catálogo es una tabla, `JUEGO_DEL_CUERPO`
+  (decisión del usuario): piquero con lanza, caballería montada, mago con
+  bastón, el resto —arqueros incluidos, hasta que haya arco en 8 direcciones—
+  con espada y escudo. Un test exige una fila por criatura.
+- **Las anclas del Y Bot se derivan y se comprometen**: `pnpm taller
+  derivar-poses` mide los PNG con `derivarAtlas` y escribe
+  `_poses/atlas-8d.json` con el sha256 de cada uno; un test re-deriva una
+  dirección y compara. **La muerte del Y Bot no se eleva** —la de las hojas
+  pintadas sube 64 px en su celda, la del render crudo no—, y sin
+  `elevacionDeLaMuerte: 0` el cadáver se hundiría en el suelo.
+- **Se carga a demanda y hoja a hoja**: se pide la hoja que se pinta —la
+  dirección en la que mira, y en el Y Bot la mitad `a` (reposo, marcha, carga)
+  o `b` (ataque, daño, muerte) según el clip—, por URL, así que los cuerpos del
+  mismo juego comparten imágenes. Mientras no llega, se pinta **la dirección más
+  cercana ya cargada** con ese clip, y si ninguna lo tiene, su reposo: girar no
+  parpadea al marcador. Sin ninguna hoja de la figura, el marcador de color.
+  Las hojas de figura **no suben `versionDelArte`**: la superficie del mapa no
+  se rehace cada vez que llega una. No hay atlas antiguo al que caer: el de una
+  dirección, Liora, el maniquí `liora-poses-v3`, Doran, Nara y la guardia se
+  **borraron** del repo, y un guardia de `invariantes.test.ts` impide que una
+  ruta a ellos vuelva.
+- **El tinte va por celda, no por hoja, y se guarda**: cada celda teñida —por
+  imagen, celda, tamaño y color— va a una caché LRU de 20 MB, y la silueta de la
+  sombra a otra de 4 MB. Teñir en cada fotograma costaba 24 ms por fotograma con
+  14 figuras sin GPU; con las cachés, ~6-7 ms (`figura.ts`). Teñir la hoja
+  entera por color, como al principio, eran ~200 MB más por color. Las
+  miniaturas de la arena solo se repintan si cambia lo que enseñan
+  (`claveDelDibujo`).
+- **Daño, muerte y cadáver**: la víctima de un golpe con daño pasa a `hurt` en
+  el impacto y lo termina aunque el paso acabe antes: el animador guarda solo
+  el instante del impacto, como el de la caída, y **cuándo acaba lo dice el
+  reloj del clip en el atlas** (`clipEnCurso`, que lee `clipQueSePinta`). La
+  que cae lo hace con `death` y **se queda en su casilla con el fotograma
+  `cadaver` hasta el final de la batalla**, debajo de los vivos y sin aro ni
+  barra. La carga se anda con `charge`.
+- **Lo que se funde es el aro, una sola regla**: el animador da `alfaDelAro`
+  (aro, barra, nombre, corona) y la figura con arte no se funde nunca; sin arte,
+  el marcador va con el aro (`Figura.alfaSinArte`) y el cadáver no se pinta.
+- **El reposo va a 8 fps y la marcha no patina** (decisión del usuario,
+  03-10-2026). El reposo iba a 3 y se leía congelado. Un tramo duraba 520 ms
+  fuera de una casilla o de seis; ahora dura **sus casillas al paso de quien
+  anda** (`marcha.ts`): el ciclo del clip (del atlas) dividido por la zancada
+  que mide el Y Bot —112 px de celda por ciclo andando y 186 cargando, sobre
+  160 de adulto— a la altura a la que se pinta. Son **~1,3 s por casilla
+  andando y ~0,8 s cargando** para una figura de un hex, y menos para una
+  grande. `test/marcha.test.ts` vuelve a medir la zancada en los PNG. Lo mismo
+  vale para la patrulla de los asaltantes en el mapa; el héroe del mapa salta
+  de casilla y no se anima. **El precio, medido**: `pnpm capturas` pasó de ~125
+  a ~250 s, y el espectador enseña el fin de la partida **~80 s** después del
+  `game_over` (eran ~21 s), con el plazo del arnés a 104 s. El ritmo máximo del
+  telón (×12) no se tocó: cuánto se acelera un tramo largo para alcanzar la
+  partida es una decisión de cómo se ve, pendiente del usuario.
+- **Al verlo, la marcha va algo más deprisa que sus pies** (usuario,
+  03-10-2026: «el desplazamiento un poco más rápido»). Una sola cifra,
+  `PRISA_DE_LA_MARCHA` (1,45, en `marcha.ts`), divide la duración de cada
+  casilla: **~0,9 s andando y ~0,55 s cargando**, y los pies patinan un poco, que
+  se aceptó. Los `fps` no cambian. Con ella el espectador enseña el fin de la
+  partida **60,6-63,0 s** después del `game_over` (plazo del arnés, 82 s) y `pnpm
+  capturas` tarda **~205 s**.
+- **Sin coreografía: cada figura lleva su compás** (`compas.ts`). Un desfase de
+  ciclo y una velocidad de ±8 % (`RUIDO_DE_VELOCIDAD`) que salen **de un hash del
+  id de la figura** —FNV-1a con el mezclado de MurmurHash3; sin él, `s1` y `s2`
+  coincidían en el fotograma del reposo el 79 % del tiempo—, nunca de
+  `Math.random`: la misma figura respira igual en cada fotograma y en cada pasada
+  de `capturas`. Por eso `Figura.id` es **obligatorio**: el stack en la batalla y
+  la arena, el objeto o el héroe en el mapa, `recluta-<criatura>` en el castillo y
+  `miniatura-<i>-<hoja>` en las fichas de la arena. Sustituye a los desfases a
+  mano por casilla que llevaba el mapa (`x * 211 + y * 97`…). Solo toca los clips
+  **en bucle** (reposo, marcha, carga) y se aplica en un sitio, `colocarFigura`;
+  el golpe, el daño y la muerte arrancan con su hecho y conservan su reloj,
+  porque `clipEnCurso` y `fotogramaDeCaida` lo leen sin desplazar. Es solo del
+  cliente: el banco no se mueve.
+- **La sombra es la silueta** del fotograma aplastada por la luz del contrato
+  (`PROYECCION_DE_SOMBRA`), del color `ARTE.luz.colorSombra`, en todas partes, compuesta a un cuarto de resolución
+  para que el suavizado le difumine el borde. Un `ctx.filter = 'blur()'` por
+  figura y fotograma era lo que no se podía pagar: sin GPU (el Chromium de
+  `pnpm capturas`) el fotograma de batalla pasaba de 300 ms. Sin arte, el óvalo
+  de `sombra.ts`.
+- **La memoria es el precio, y se mide** en imágenes pedidas y lo que pesan
+  decodificadas (ancho × alto × 4): el mapa de la semilla 1, con el castillo
+  abierto, pasó de 32 hojas y 396 MB a **2 y 25 MB** al cargar hoja a hoja; la
+  arena montada con un templario y tres no muertos, de 92 y 1 023 MB a **57 y
+  330 MB**, y tras 15 s de pelea **61 y 416 MB**. La batalla no precarga las
+  direcciones: medido, con o sin precarga se pintó con respaldo en 18 y 12 de
+  ~7 160 figuras, y la memoria salía igual. Si aprieta, la salida es bajar la
+  resolución al cargar (`createImageBitmap` con `resizeWidth`).
 
 `pnpm capturas` la juega con clics de verdad —monta, cambia un ataque, mueve un
 tramo, golpea, deja acabar a la IA, guarda, reabre y comprueba que lo guardado

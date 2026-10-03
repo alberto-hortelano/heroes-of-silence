@@ -11,8 +11,9 @@
 import { describe, expect, it } from 'vitest';
 import { BattleAnimator, DURACION, porElCamino } from '../src/client/anim.js';
 import { type Direccion, direccionHacia } from '../src/client/direccion.js';
-import { espejadoPara } from '../src/client/render/figura.js';
-import { planoDeHex } from '../src/client/render/proyeccion.js';
+import { msPorCasilla } from '../src/client/marcha.js';
+import { arteDe, hojaDe, INDICE_DE_HOJA } from '../src/client/render/personajes.js';
+import { ALTO_DE_FIGURA, planoDeHex } from '../src/client/render/proyeccion.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import {
   activeStack,
@@ -26,6 +27,7 @@ import type { BattleState } from '../src/core/battle/types.js';
 import { hasTrait } from '../src/core/data.js';
 import { troopsAsStacks } from '../src/core/hero/troop.js';
 import { createRng } from '../src/core/rng.js';
+import { NOMBRES_DE_DIRECCION } from '../src/shared/arte.js';
 import { ejercito } from './helpers.js';
 
 function pelea(semilla: number): BattleState {
@@ -131,7 +133,8 @@ describe('la figura anda por el camino', () => {
     s.hex = destino;
     a.observe(b);
     a.tick(1);
-    a.tick(1 + DURACION.move / 2);
+    // Dos casillas: a la mitad del tramo está en la primera.
+    a.tick(1 + msPorCasilla(s.body, 'walk', ALTO_DE_FIGURA.normal));
     const en = a.figura(s).en;
     expect(en.x).toBeCloseTo(planoDeHex(arriba).x);
     expect(en.y).toBeCloseTo(planoDeHex(arriba).y);
@@ -157,22 +160,25 @@ describe('hacia dónde mira', () => {
     expect(direccionHacia(c, c, 'SO')).toBe('SO');
   });
 
-  it('el arte de hoy: el este tal cual, el oeste espejado y el norte y el sur con su lado', () => {
-    const casos: [Direccion, Direccion, boolean][] = [
-      ['E', 'E', false],
-      ['NE', 'O', false],
-      ['SE', 'O', false],
-      ['O', 'E', true],
-      ['NO', 'E', true],
-      ['SO', 'E', true],
-      ['N', 'O', true],
-      ['N', 'E', false],
-      ['S', 'O', true],
-      ['S', 'SE', false],
+  it('cada dirección pinta la hoja que mira hacia allí, y ninguna se espeja', () => {
+    // Los nombres son los del taller: hacia dónde mira la figura en pantalla.
+    const casos: [Direccion, string][] = [
+      ['S', 'frente'],
+      ['SE', 'frente-derecha'],
+      ['E', 'derecha'],
+      ['NE', 'espalda-derecha'],
+      ['N', 'espalda'],
+      ['NO', 'espalda-izquierda'],
+      ['O', 'izquierda'],
+      ['SO', 'frente-izquierda'],
     ];
-    for (const [mira, lado, espejado] of casos) {
-      expect(espejadoPara(mira, lado), `${mira} con lado ${lado}`).toBe(espejado);
+    for (const [mira, nombre] of casos) {
+      expect(NOMBRES_DE_DIRECCION[INDICE_DE_HOJA[mira]], mira).toBe(nombre);
     }
+    // Ocho direcciones, ocho hojas distintas: no hay dos que compartan una espejada.
+    const arte = arteDe('peasant');
+    const hojas = new Set(casos.map(([mira]) => hojaDe(arte, mira)));
+    expect(hojas.size).toBe(8);
   });
 
   it('al andar mira a la siguiente casilla, al golpear al objetivo, y después se queda así', () => {
@@ -194,11 +200,12 @@ describe('hacia dónde mira', () => {
     yo.hex = atras;
     a.observe(b);
     a.tick(1);
-    a.tick(1 + DURACION.move / 2);
+    const tramo = msPorCasilla(yo.body, 'walk', ALTO_DE_FIGURA.normal);
+    a.tick(1 + tramo / 2);
     expect(a.figura(yo).mira).toBe('O');
-    a.tick(2 + DURACION.move);
+    a.tick(2 + tramo);
     expect(a.figura(yo).mira).toBe('O');
-    expect(espejadoPara(a.figura(yo).mira, a.figura(yo).lado)).toBe(true);
+    expect(NOMBRES_DE_DIRECCION[INDICE_DE_HOJA[a.figura(yo).mira]]).toBe('izquierda');
 
     // Golpea al defensor, que está al este: se gira hacia él y se queda.
     b.log.push({
@@ -210,12 +217,12 @@ describe('hacia dónde mira', () => {
       retaliation: false,
     });
     a.observe(b);
-    a.tick(3 + DURACION.move);
-    a.tick(3 + DURACION.move + DURACION.attack / 2);
+    a.tick(3 + tramo);
+    a.tick(3 + tramo + DURACION.attack / 2);
     expect(['E', 'NE', 'SE']).toContain(a.figura(yo).mira);
-    a.tick(4 + DURACION.move + DURACION.attack);
+    a.tick(4 + tramo + DURACION.attack);
     expect(a.busy).toBe(false);
     expect(['E', 'NE', 'SE']).toContain(a.figura(yo).mira);
-    expect(espejadoPara(a.figura(yo).mira, a.figura(yo).lado)).toBe(false);
+    expect(NOMBRES_DE_DIRECCION[INDICE_DE_HOJA[a.figura(yo).mira]]).toMatch(/derecha/);
   });
 });

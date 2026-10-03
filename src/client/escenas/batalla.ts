@@ -12,15 +12,16 @@
 import { type CasillaDeCarga, isAlive, SIN_CARGAS, stackHexes } from '@core/battle/battle.js';
 import { hexEquals } from '@core/battle/board.js';
 import { CHARGE_BONUS_PER_HEX } from '@core/battle/damage.js';
-import type { BattleAction, BattleStack } from '@core/battle/types.js';
+import type { BattleAction, BattleStack, Side } from '@core/battle/types.js';
 import type { Hex } from '@core/types.js';
 import { BattleAnimator } from '../anim.js';
-import { type Angulo, cajaDeFigura, drawBatalla } from '../render/batalla.js';
+import { type Angulo, bandosSinDueño, cajaDeFigura, drawBatalla } from '../render/batalla.js';
 import { cercaDelCentro, hexEnPixel, type Tablero, tableroPara } from '../render/proyeccion.js';
 import type { ControlDeBatalla } from '../session.js';
 import { accionContra, golpeEnPixel } from './angulo.js';
 
 const SIN_NADA: ReadonlySet<string> = new Set();
+const NINGUN_BANDO: ReadonlySet<Side> = new Set();
 
 /**
  * La carga dicha para la barra: cuántas casillas y cuánto daño suma, con el
@@ -159,6 +160,7 @@ export class EscenaBatalla {
       hoverStack: this.hoverStack,
       figura: (st) => this.animador.figura(st),
       efectos: this.animador.efectos(battle),
+      sinDueño: s.dueños === null ? NINGUN_BANDO : bandosSinDueño(s.dueños),
     });
   }
 

@@ -22,9 +22,9 @@ import {
 } from '@core/town/town.js';
 import { describirCoste, type FactionId, RESOURCE_KINDS, type Resources } from '@core/types.js';
 import { asset } from './assets.js';
-import { pintarFigura } from './figura.js';
-import { RESOURCE_COLORS } from './palette.js';
-import { pintarSombra } from './sombra.js';
+import { type Figura, pintarFiguraConSombra } from './figura.js';
+import { COLOR_NEUTRO, RESOURCE_COLORS } from './palette.js';
+import { MIRADA_DE_PRESENTACION } from './personajes.js';
 
 const TOWN_WIDTH = 1024;
 const TOWN_HEIGHT = 576;
@@ -551,18 +551,19 @@ function drawRecruitCell(
 
   // La misma figura a 25° que en el mapa y la batalla, del color del latón: la
   // casilla dice qué se recluta, no de quién es.
-  pintarSombra(ctx, x + w / 2, y + h - 58, 60);
-  pintarFigura(ctx, {
+  const figura: Figura = {
+    id: `recluta-${creatureId}`,
     body: creatureId,
     clip: 'idle',
-    tiempo: view.tiempo + x * 7,
+    tiempo: view.tiempo,
     x: x + w / 2,
     suelo: y + h - 58,
     alto: 66,
-    mirandoIzquierda: false,
-    color: '#cbb780',
+    mira: MIRADA_DE_PRESENTACION,
+    color: COLOR_NEUTRO,
     rotulo: info.name.slice(0, 3),
-  });
+  };
+  pintarFiguraConSombra(ctx, figura);
 
   const plan = view.planes.get(creatureId);
   texto(ctx, info.name, x + w / 2, y + h - 48, '#f2deac', '13px Georgia, serif', w - 8);
