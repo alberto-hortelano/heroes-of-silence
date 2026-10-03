@@ -1,0 +1,161 @@
+{
+  "perfil": "montado-lanza-8d",
+  "renderer": "tools/art/montura.ts (three.js, la cámara y la luz del contrato)",
+  "caballo": {
+    "fichero": "tools/art/modelos/caballo-quaternius.glb",
+    "sha256": "fae7a7ec91e0d6a33554efb896fac9c4e8c632644183bcb8cc962f673d3ce609",
+    "licencia": "CC0 (ver tools/art/modelos/LICENCIA.md)"
+  },
+  "jinete": {
+    "model": "y_bot",
+    "postura": "sitting_idle + IK de piernas y brazos"
+  },
+  "camera": {
+    "pitchDegrees": -25,
+    "directions": 8,
+    "ortho": 4.199999999999999
+  },
+  "light": {
+    "x": 0.28396044362490236,
+    "y": -0.8699660369241592,
+    "z": -0.40314459075475784
+  },
+  "cell": 384,
+  "columns": 7,
+  "sheets": {
+    "a": [
+      {
+        "clip": "idle",
+        "caballo": "Idle",
+        "postura": "reposo",
+        "enBucle": true,
+        "indices": [
+          0,
+          11,
+          22,
+          34,
+          45,
+          57,
+          68
+        ],
+        "fps": 24
+      },
+      {
+        "clip": "walk",
+        "caballo": "Walk",
+        "postura": "reposo",
+        "enBucle": true,
+        "indices": [
+          0,
+          4,
+          8,
+          12,
+          16,
+          20,
+          24
+        ],
+        "fps": 24
+      },
+      {
+        "clip": "charge",
+        "caballo": "Walk",
+        "postura": "carga",
+        "enBucle": true,
+        "indices": [
+          0,
+          4,
+          8,
+          12,
+          16,
+          20,
+          24
+        ],
+        "fps": 24
+      }
+    ],
+    "b": [
+      {
+        "clip": "attack",
+        "caballo": "Idle",
+        "postura": "ataque",
+        "enBucle": false,
+        "indices": [
+          0,
+          6,
+          12,
+          18,
+          23,
+          29,
+          35
+        ],
+        "fps": 24
+      },
+      {
+        "clip": "hurt",
+        "caballo": "Idle_HitReact_Left",
+        "postura": "reposo",
+        "enBucle": false,
+        "indices": [
+          0,
+          3,
+          5,
+          8,
+          10,
+          13,
+          15
+        ],
+        "fps": 24
+      },
+      {
+        "clip": "death",
+        "caballo": "Death",
+        "postura": "reposo",
+        "enBucle": false,
+        "indices": [
+          0,
+          4,
+          8,
+          12,
+          15,
+          19,
+          23
+        ],
+        "fps": 24
+      }
+    ]
+  },
+  "ajuste": {
+    "sillaAdelante": 0.28,
+    "sillaArriba": 0.2,
+    "estriboAdelante": 0.32,
+    "estriboArriba": -0.45,
+    "estriboLado": 0.32,
+    "lanza": 2.6,
+    "espada": 0.9,
+    "espadaGiro": [
+      0,
+      0,
+      -1.5707963267948966
+    ],
+    "sentadoT": 0
+  },
+  "sha256": {
+    "d0-a.png": "7aa4d127e02eea74d677c315fa6b7f3d492194c2be4f90952b4077cbce179d49",
+    "d0-b.png": "acd3059465fd7f1c1697459f22f22dbdbf08c4cbe7642a3f7fbf4b51eff02d0a",
+    "d1-a.png": "db7c996dc68cdfae693cf030215b2c6c0d5abe5f9117ba583c2a5ceaea4d9306",
+    "d1-b.png": "2d93714db98dbd733433924c8a315b1c8e5a863e9a213d633b11718eaaf637ad",
+    "d2-a.png": "ff10abe27e012688037c70a7aa00e9982a20a6b11a38f4690ec9885f9056a6a6",
+    "d2-b.png": "7ac54d28143c756ede38137e32f680f30a0a98f06a3f04f4ccf762199bbe38e9",
+    "d3-a.png": "083c14aded54a97452473b5dbd01e0ff8211279a7a709f7aa2ee402eb7d73a1a",
+    "d3-b.png": "91e2e425845c5b6e971434094033b605dce1d5b94f76ccd6b03de9aec962fee7",
+    "d4-a.png": "86fc19f550e4b8affeb9f600e23005848ddea7033b33e9cf4967cb85844a4150",
+    "d4-b.png": "71a5ef0cb2d1ae33e858db6ac9a0ee9f677dbaee4261c64037afcf656866d172",
+    "d5-a.png": "e4cd9f44570cf5592cc132af35c8aca4464ba80c7eaa737e15c6b6dd471c29d1",
+    "d5-b.png": "3de1f9421a55d7049459398eb581d8f6ae0154ebed0a49e51efdbb04359aff6f",
+    "d6-a.png": "84998769e6e5e13ab9f715d08b1486298871d788f7f7349b8419284b1b9509ac",
+    "d6-b.png": "dd1c54784bf09a3c4d761fe464cf56c0f596620c15d5828734cf3af7f5f4ed49",
+    "d7-a.png": "539e424b1a4b9c4b8faf834ae28a4ef39d98d7eb6f7989f00fe50f6d21b168f5",
+    "d7-b.png": "1360b163eb99a2e96e17a5b73a0456237615c1320fe2d3f90b1ebc618dd02458",
+    "giro.png": "cbeab3e8840c270f019447936b905c9ef70f13f204cd42b277b71ca978e4cada"
+  }
+}

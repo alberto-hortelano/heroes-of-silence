@@ -608,7 +608,7 @@ export function encargoDeAtlas(u: Unidad): Encargo {
  * en `tools/art/poses.ts`), y el juego de armas de cada una: sus poses son las de
  * ese juego (`JUEGOS_DE_ARMAS`).
  */
-export const EN_OCHO_DIRECCIONES: Readonly<Record<string, JuegoDeArmas>> = {
+export const EN_OCHO_DIRECCIONES: Readonly<Record<string, JuegoDeArmas | 'montado-lanza'>> = {
   'templario-escudo': 'espada-escudo',
   'templario-mandoble': 'dos-manos',
   'templario-monje': 'baston',
@@ -618,6 +618,8 @@ export const EN_OCHO_DIRECCIONES: Readonly<Record<string, JuegoDeArmas>> = {
   'heroe-templario-abad': 'baston',
   'heroe-templario-inquisidor': 'maza',
   'heroe-templario-gran-maestre': 'dos-manos',
+  // Su referencia sale de `tools/art/montura.ts --8d`, no de sprite-forge.
+  'templario-hermano-de-carga': 'montado-lanza',
 };
 
 /** Las poses de 8 direcciones de una unidad: las de su juego de armas. */
