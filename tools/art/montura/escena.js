@@ -104,7 +104,9 @@ async function montar(o) {
 
   const scene = new THREE.Scene();
   const luz = new THREE.DirectionalLight(0xffffff, 4.65);
-  luz.position.copy(LIGHT_DIR.clone().multiplyScalar(-10));
+  // La luz del contrato si la pasan (`luzEnElMundo`); si no, la antigua de sprite-forge.
+  const direccionLuz = o.luz ? new THREE.Vector3(o.luz.x, o.luz.y, o.luz.z) : LIGHT_DIR;
+  luz.position.copy(direccionLuz.clone().multiplyScalar(-10));
   luz.target.position.set(0, 0, 0);
   scene.add(luz, luz.target);
 
@@ -154,6 +156,12 @@ async function montar(o) {
   if (mira2.dot(quiero) < 0.95) {
     throw new Error(`el caballo mira a (${mira2.toArray().map((x) => x.toFixed(2))}) y debía mirar a (${quiero.toArray().map((x) => x.toFixed(2))})`);
   }
+
+  // La orientación del torso del caballo en reposo, sin la guiñada: contra ella
+  // se mide cuánto se inclina en cada fotograma.
+  const torsoReposo = hueso(caballo, 'Torso')
+    .getWorldQuaternion(new THREE.Quaternion())
+    .premultiply(pivote.quaternion.clone().invert());
 
   // El jinete: Y Bot sentado.
   const fbx = new FBXLoader();
@@ -229,7 +237,7 @@ async function montar(o) {
 
   Object.assign(estado, {
     espada, accionSentado, accionAtaque, duracionAtaque: tajo.duration,
-    renderer, scene, camara, pivote, caballo, jinete, ybot, mixCaballo, mixJinete,
+    renderer, scene, camara, pivote, caballo, jinete, ybot, mixCaballo, mixJinete, torsoReposo,
     animaciones: gltf.animations, ajuste: o.ajuste, prefijo: prefijoHueso, lanza, escudo,
     sentadoT: o.ajuste.sentadoT ?? 0,
   });
@@ -258,10 +266,18 @@ window.__fotograma = function fotograma(clip, t, postura, tJinete) {
   s.espada.visible = atacando;
   s.scene.updateMatrixWorld(true);
 
-  // Los ejes del caballo en el mundo: adelante, arriba y a su izquierda.
-  const torso = hueso(s.caballo, 'Torso').getWorldPosition(new THREE.Vector3());
-  const adelante = v(0, 0, 1).applyQuaternion(s.pivote.quaternion).normalize();
-  const arriba = v(0, 1, 0);
+  // Los ejes del caballo en el mundo: adelante, arriba y a su izquierda. Siguen
+  // al torso del caballo, no solo a la dirección: al morir se tumba, y el jinete
+  // (y su lanza) tienen que caer con él en vez de quedarse sentados en el aire.
+  const huesoTorso = hueso(s.caballo, 'Torso');
+  const torso = huesoTorso.getWorldPosition(new THREE.Vector3());
+  // ejes = torso ahora · torso en reposo⁻¹ (que ya lleva la guiñada dentro).
+  const ejes = huesoTorso
+    .getWorldQuaternion(new THREE.Quaternion())
+    .multiply(s.torsoReposo.clone().invert());
+  const delta = ejes.clone().multiply(s.pivote.quaternion.clone().invert());
+  const adelante = v(0, 0, 1).applyQuaternion(ejes).normalize();
+  const arriba = v(0, 1, 0).applyQuaternion(delta).normalize();
   const izquierda = arriba.clone().cross(adelante).normalize();
   const en = (base, ad, ar, iz) =>
     base.clone().addScaledVector(adelante, ad).addScaledVector(arriba, ar).addScaledVector(izquierda, iz);
@@ -269,7 +285,7 @@ window.__fotograma = function fotograma(clip, t, postura, tJinete) {
   // El jinete: la cadera sobre la silla.
   const P = s.prefijo;
   const caderas = hueso(s.ybot, `${P}Hips`);
-  s.jinete.quaternion.copy(s.pivote.quaternion);
+  s.jinete.quaternion.copy(ejes);
   s.scene.updateMatrixWorld(true);
   const silla = en(torso, aj.sillaAdelante, aj.sillaArriba, 0);
   const ahora = caderas.getWorldPosition(new THREE.Vector3());
@@ -316,6 +332,12 @@ window.__fotograma = function fotograma(clip, t, postura, tJinete) {
 
   s.renderer.render(s.scene, s.camara);
   return s.renderer.domElement.toDataURL('image/png');
+};
+
+/** Gira caballo y jinete hacia la guiñada pedida (las 8 direcciones de la hoja). */
+window.__girar = function girar(guinada) {
+  estado.pivote.rotation.y = guinada;
+  estado.pivote.updateMatrixWorld(true);
 };
 
 window.__listo = true;

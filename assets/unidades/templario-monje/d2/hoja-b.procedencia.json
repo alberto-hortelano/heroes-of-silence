@@ -1,0 +1,69 @@
+{
+  "encargo": "templario-monje-d2-b-c1",
+  "tipo": "atlas",
+  "fecha": "2026-10-03T10:28:12.505Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a100c2-1e8b-7692-a4fe-52b17f8cf4f0",
+  "reanuda": "01a100c2-1e8b-7692-a4fe-52b17f8cf4f0",
+  "prompt": "Corrige la última imagen que has generado en esta conversación, con la herramienta de imágenes, conservando la identidad del personaje y todo lo que no se menciona.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo), copia su largo, su ángulo y su sitio en cada celda: es la guía del arma real. Si sus piernas son de color, la ROJA es la pierna DERECHA y la AZUL la IZQUIERDA: sirven para no confundirlas en el paso ni girar la figura de espaldas; el personaje NO lleva esos colores. El fondo VERDE de esta hoja es solo fondo, para que se vea el maniquí: no lo copies, el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nFila 3 (muerte), últimos fotogramas: una pierna del cadáver tiene una mancha AZUL. Es el color guía del maniquí y el personaje no lo lleva: píntala con la calza y la bota oscuras del personaje, como la otra pierna. Lo demás de la hoja está bien: no lo cambies.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de ATAQUE de la fila 1 de la referencia de pose, golpeando con la espada. Fila 2: las siete poses de RECIBIR DAÑO de la fila 2: encaja un golpe y retrocede. Fila 3: las siete poses de la MUERTE de la fila 3: la primera es EXACTAMENTE la última de la fila 2, luego se desploma, y la última es el cadáver tendido e inmóvil en el suelo, con sus armas donde las tiene el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «derecha» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/baston-8d/d2-b.png",
+      "papel": "pose",
+      "sha256": "cfb9bbc6e00439d3c4f8940131507a12724da838f2dfa4c69041cdc04ad09b84"
+    },
+    {
+      "ruta": "assets/unidades/templario-monje/giro.webp",
+      "papel": "identidad",
+      "sha256": "807ac91237c4bdc589f67a175ec94c8c5473a1142e464415c22341903bd99be6"
+    },
+    {
+      "ruta": "assets/art/templarios/monje.png",
+      "papel": "estilo",
+      "sha256": "c17252f7c9fd4991b31a5679739bcc55e3ff78133051e8dce7b7c14c875581dc"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a100c2-1e8b-7692-a4fe-52b17f8cf4f0/exec-9aef86f5-fb26-43d2-af48-39da22017c29.png",
+    "sha256": "2607b8bf8911d33c2e66d30ea7fe6c770ce80f50983467eb4a35b9893723c257",
+    "ancho": 1916,
+    "alto": 821
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.9220, pies en y=342, reposo a 160 px",
+    "WebP calidad 92, alfa sin pérdida",
+    "dirección completa: assets/unidades/templario-monje/d2/atlas.webp"
+  ],
+  "validacion": {
+    "visibles": 0.06403847346230158,
+    "opacos": 0.9467927382753404,
+    "haloSuelto": 0.000030257186081694404,
+    "ancho": 2688,
+    "alto": 1152
+  },
+  "deLaPose": {
+    "k": 1.0666666666666667,
+    "origen": [
+      192,
+      342
+    ],
+    "apoyoReposo": [
+      196,
+      282
+    ],
+    "posicion": true,
+    "elevaciones": [
+      0,
+      0,
+      64
+    ]
+  },
+  "salida": {
+    "ruta": "assets/unidades/templario-monje/d2/hoja-b.webp",
+    "sha256": "255f3d76a3c42ceda740e60fc8b6e676913e04a2ec45212d18d50562da1fa909"
+  }
+}

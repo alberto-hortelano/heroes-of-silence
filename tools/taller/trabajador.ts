@@ -28,15 +28,22 @@
  */
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import sharp from 'sharp';
 import { FIGURA } from '../../src/shared/arte.js';
+import { OCHO_DIRECCIONES } from '../art/poses.js';
 import { CODEX, FalloDeCodex, type Generacion, generar } from './codex.js';
 import { Cola } from './cola.js';
 import { componerAtlasMapa } from './componer-atlas-mapa.js';
-import { escribirDerivado, escribirEfectoDerivado, escribirPiezaDerivada } from './derivar.js';
+import {
+  ELEVACION_DEL_CADAVER,
+  escribirDerivado,
+  escribirEfectoDerivado,
+  escribirPiezaDerivada,
+} from './derivar.js';
 import { encargosDeEdificios } from './edificios.js';
 import { encargoDeIconosDeRecursos, encargosDeEfectos } from './efectos.js';
 import {
@@ -46,15 +53,34 @@ import {
   partirIconos,
   recorteSuave,
 } from './efectos-proceso.js';
-import { baseEnCelda, empaquetar, recortarAlContenido } from './empaquetar.js';
+import {
+  apoyoEn,
+  baseEnCelda,
+  type EscalaDePose,
+  empaquetar,
+  recortarAlContenido,
+} from './empaquetar.js';
 import { type Encargo, promptDe } from './encargo.js';
+import { evaluar } from './evaluar.js';
 import { ESTILOS_DE_MAPA, encargoDeMuestra, encargosDeCeldas, encargosDePiezas } from './mapa.js';
 import { aRaster, recortar, UMBRALES } from './recorte.js';
-import { encargoDeAtlas, encargoDeIdentidad, unidad } from './unidades.js';
+import {
+  encargoDeAtlas,
+  encargoDeGiro,
+  encargoDeIdentidad,
+  encargosDeOchoDirecciones,
+  unidad,
+} from './unidades.js';
 import { validar } from './validar.js';
 import { vista, vistaEdificios, vistaEfectos, vistaEjercitos } from './vista.js';
+import { vista8d } from './vista-8d.js';
 
 const RAIZ = resolve(import.meta.dirname, '../..');
+/**
+ * El fondo sobre el que se le enseña la hoja de pose a ChatGPT: verde de croma, no
+ * transparente ni gris (el gris claro se confundía con el maniquí).
+ */
+export const FONDO_DE_POSE = '#00b140';
 export const COLA = new Cola(join(RAIZ, 'tools/taller/cola'));
 
 const sha256 = (b: Buffer): string => createHash('sha256').update(b).digest('hex');
@@ -85,7 +111,15 @@ async function procesar(
       encargo.referencias.map(async (r, i) => {
         const bytes = await readFile(join(RAIZ, r.ruta));
         const png = join(temporal, `ref-${i + 1}-${r.papel}.png`);
-        await sharp(bytes).png().toFile(png);
+        // La pose va sobre verde y no transparente: el transparente le
+        // llega a ChatGPT como negro, y ahí se pierden el atrezo negro (escudo,
+        // asta) y el lado en sombra del maniquí.
+        await (r.papel === 'pose'
+          ? sharp(bytes).flatten({ background: FONDO_DE_POSE })
+          : sharp(bytes)
+        )
+          .png()
+          .toFile(png);
         return { ...r, sha256: sha256(bytes), png };
       }),
     );
@@ -170,7 +204,8 @@ async function postprocesar(
       } else if (encargo.tipo === 'atlas') {
         const altura = encargo.alturaObjetivo ?? FIGURA.alturaAdulto;
         const celda = encargo.celda ?? FIGURA.celda;
-        const p = await empaquetar(r, encargo.filas ?? 3, altura, celda);
+        const pose = encargo.ocho === undefined ? undefined : await escalaDePose(encargo);
+        const p = await empaquetar(r, encargo.filas ?? 3, altura, celda, pose);
         final = p.png;
         pasos.push(
           `figuras localizadas y empaquetadas en ${FIGURA.columnas}×${encargo.filas ?? 3} celdas de ${celda}, ` +
@@ -179,7 +214,7 @@ async function postprocesar(
               ? `reposo a ${altura} px`
               : `reposo reducido de ${p.alturaPedida} a ${p.alturaFinal} px para que el fotograma más ancho quepa con margen`),
         );
-        extra = { apoyoPorFila: p.apoyoPorFila };
+        extra = { apoyoPorFila: p.apoyoPorFila, deLaPose: p.deLaPose };
       } else {
         final = await recortarAlContenido(r, 24);
         pasos.push('recortado al contenido con 24 px de margen');
@@ -223,7 +258,15 @@ async function postprocesar(
         `${JSON.stringify({ lado: LADO_ICONO, iconos: extra.indiceDeIconos, lamina: basename(rutaSalida) }, null, 2)}\n`,
       );
     }
-    if (encargo.tipo === 'atlas') {
+    if (encargo.tipo === 'atlas' && encargo.ocho !== undefined) {
+      // Media dirección: se deriva al juntarse con la otra hoja.
+      const junta = await juntarDireccion(dirname(rutaSalida));
+      pasos.push(
+        junta === null
+          ? 'media dirección: se junta con la otra hoja cuando esté'
+          : `dirección completa: ${relative(RAIZ, junta)}`,
+      );
+    } else if (encargo.tipo === 'atlas') {
       const d = await escribirDerivado(rutaSalida);
       // El empaquetado puso los pies en un sitio y la derivación los midió: si no
       // coinciden, uno de los dos miente y la figura bailaría en el tablero.
@@ -269,6 +312,7 @@ async function postprocesar(
       },
       postproceso: pasos,
       validacion: informe.medidas,
+      ...(extra.deLaPose === undefined ? {} : { deLaPose: extra.deLaPose }),
       salida: { ruta: relative(RAIZ, rutaSalida), sha256: sha256(webp) },
     };
     await writeFile(
@@ -277,6 +321,105 @@ async function postprocesar(
     );
     return { hilo: gen.hilo, salida: relative(RAIZ, rutaSalida) };
   }
+}
+
+/**
+ * Las siluetas del maniquí en cada celda de la hoja de pose de un encargo de 8
+ * direcciones, y la de su reposo (la primera celda de la hoja A de su
+ * dirección): con ellas se escalan igual las dos hojas de una figura.
+ */
+async function escalaDePose(e: Encargo): Promise<EscalaDePose> {
+  const celda: number = e.celda ?? FIGURA.celda;
+  const medir = async (ruta: string) => {
+    const { data, info } = await sharp(join(RAIZ, ruta))
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    const filas = info.height / celda;
+    const columnas = info.width / celda;
+    const alfa = (f: number, c: number) => (x: number, y: number) =>
+      data[((f * celda + y) * info.width + c * celda + x) * 4 + 3] as number;
+    const celdas = Array.from({ length: filas }, (_, f) =>
+      Array.from({ length: columnas }, (_, c) => {
+        let x0 = celda;
+        let y0 = celda;
+        let x1 = -1;
+        let y1 = -1;
+        for (let y = 0; y < celda; y++)
+          for (let x = 0; x < celda; x++)
+            if (alfa(f, c)(x, y) >= 40) {
+              if (x < x0) x0 = x;
+              if (x > x1) x1 = x;
+              if (y < y0) y0 = y;
+              y1 = y;
+            }
+        const silueta = new Uint8Array(celda * celda);
+        for (let y = 0; y < celda; y++)
+          for (let x = 0; x < celda; x++) silueta[y * celda + x] = alfa(f, c)(x, y) >= 40 ? 1 : 0;
+        return {
+          silueta,
+          apoyo: apoyoEn(alfa(f, c), [x0, y0, x1, y1]),
+        };
+      }),
+    );
+    return celdas;
+  };
+  const ruta = e.referencias[0]?.ruta as string;
+  const reposo = (await medir(ruta.replace(/-b\.png$/, '-a.png')))[0]?.[0];
+  if (reposo === undefined) throw new Error(`la pose ${ruta} no tiene reposo`);
+  const celdas = await medir(ruta);
+  return {
+    lado: celda,
+    siluetas: celdas.map((f) => f.map((c) => c.silueta)),
+    reposo: OCHO_DIRECCIONES.altoDelManiqui,
+    apoyos: celdas.map((f) => f.map((c) => c.apoyo)),
+    apoyoReposo: reposo.apoyo,
+    posicion: e.ocho?.hoja === 'b',
+    // La hoja B es ataque, daño y muerte: la muerte, la tercera, sube.
+    ...(e.ocho?.hoja === 'b' ? { elevaciones: [0, 0, ELEVACION_DEL_CADAVER] } : {}),
+  };
+}
+
+/**
+ * Junta las dos hojas de una dirección (`hoja-a` y `hoja-b`, 3 filas cada una)
+ * en `atlas.webp` de 6 filas y lo deriva. Apunta en `atlas.composicion.json` el
+ * sha256 de cada hoja, que es la que lleva la procedencia. Si falta una, nada.
+ */
+async function juntarDireccion(dir: string): Promise<string | null> {
+  const hojas = ['hoja-a.webp', 'hoja-b.webp'].map((h) => join(dir, h));
+  if (!hojas.every((h) => existsSync(h))) return null;
+  const [a, b] = await Promise.all(hojas.map((h) => readFile(h)));
+  const { width, height } = await sharp(a).metadata();
+  const raw = await sharp({
+    create: { width, height: 2 * height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+  })
+    .composite([
+      { input: a as Buffer, left: 0, top: 0 },
+      { input: b as Buffer, left: 0, top: height },
+    ])
+    .png()
+    .toBuffer();
+  const atlas = join(dir, 'atlas.webp');
+  const webp = await sharp(raw).webp({ lossless: true, effort: 6 }).toBuffer();
+  await writeFile(atlas, webp);
+  await escribirDerivado(atlas);
+  await writeFile(
+    join(dir, 'atlas.composicion.json'),
+    `${JSON.stringify(
+      {
+        atlas: 'atlas.webp',
+        sha256: sha256(webp),
+        hojas: hojas.map((h, i) => ({
+          imagen: basename(h),
+          sha256: sha256([a, b][i] as Buffer),
+          filas: i === 0 ? ['idle', 'walk', 'charge'] : ['attack', 'hurt', 'death'],
+        })),
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  return atlas;
 }
 
 async function trabajar(): Promise<void> {
@@ -389,6 +532,26 @@ async function encolar(args: readonly string[]): Promise<void> {
     }
     return;
   }
+  if (args.includes('--giro') || args.includes('--ocho')) {
+    for (const a of args.filter((x) => !x.startsWith('--'))) {
+      const u = unidad(a);
+      // `--solo d0-a,d3-a`: solo esas hojas, para rehacer las que fallan.
+      const solo = args
+        .find((x) => x.startsWith('--solo='))
+        ?.slice('--solo='.length)
+        .split(',');
+      const lista = args.includes('--giro')
+        ? [encargoDeGiro(u)]
+        : encargosDeOchoDirecciones(u).filter(
+            (e) => solo === undefined || solo.includes(e.id.slice(u.id.length + 1)),
+          );
+      for (const bruto of lista) {
+        if (args.includes('--rehacer')) await COLA.olvidar(bruto.id);
+        console.log(`encolado ${(await COLA.encolar(bruto)).id}`);
+      }
+    }
+    return;
+  }
   const atlas = args.includes('--atlas');
   for (const a of args.filter((x) => !x.startsWith('--'))) {
     const bruto = a.endsWith('.json')
@@ -472,6 +635,25 @@ switch (orden) {
   case 'vista-efectos':
     console.log(`→ ${await vistaEfectos()}`);
     break;
+  case 'evaluar':
+    for (const id of resto) {
+      const { filas, celdas } = await evaluar(id);
+      const dir = join(RAIZ, '.cache/taller/evaluacion');
+      await mkdir(dir, { recursive: true });
+      await writeFile(join(dir, `${id}.json`), `${JSON.stringify({ filas, celdas }, null, 2)}\n`);
+      console.log(
+        `${id}: ${filas.filter((f) => f.marcada).length} de ${filas.length} filas marcadas`,
+      );
+      for (const f of [...filas].sort((a, b) => b.nivel + b.pico - (a.nivel + a.pico)))
+        console.log(
+          `${f.marcada ? '✘' : ' '} d${f.direccion} ${f.nombre.padEnd(17)} ${f.clip.padEnd(7)} nivel ${f.nivel.toFixed(2)} pico ${f.pico.toFixed(2)} (fotograma ${f.peor + 1})${f.conAzul.length > 0 ? ` AZUL en ${f.conAzul.map((n) => n + 1).join(', ')}` : ''}`,
+        );
+    }
+    break;
+  case 'vista-8d':
+    // Un solo visor con todas: el argumento solo elige con cuál se abre.
+    console.log(`→ ${await vista8d(resto[0])}`);
+    break;
   case 'vista':
     for (const r of await vista(resto)) console.log(`→ ${r}`);
     break;
@@ -487,6 +669,6 @@ switch (orden) {
     break;
   default:
     throw new Error(
-      `orden desconocida «${orden}»: trabajar, encolar, corregir, retirar, reprocesar, estado, devolver, derivar, vista, componer-atlas-mapa`,
+      `orden desconocida «${orden}»: trabajar, encolar, corregir, retirar, reprocesar, estado, devolver, derivar, vista, vista-8d, componer-atlas-mapa`,
     );
 }

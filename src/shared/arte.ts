@@ -15,9 +15,17 @@ export const ARTE = {
   camara: { elevacionGrados: 25 },
   luz: {
     // Coordenadas de pantalla: x a la derecha, y hacia abajo.
-    direccionSombra: { x: 1, y: 0.6 },
+    // Luz desde la izquierda y del lado de la cámara (decisión del usuario,
+    // 02-10-2026): la sombra cae a la derecha y hacia el fondo, unos 31° en
+    // pantalla. Con la sombra hacia la cámara la cara visible quedaba en penumbra.
+    direccionSombra: { x: 1, y: -0.6 },
     longitudPorAltura: 0.42,
     opacidad: 0.18,
+    /**
+     * La de la sombra por silueta (`proyeccionDeSombra`): es uniforme, no un
+     * fundido con el centro en `opacidad`, así que necesita más para leerse igual.
+     */
+    opacidadSilueta: 0.38,
   },
 } as const;
 
@@ -61,3 +69,58 @@ export function sombraDeFigura(altura: number): { x: number; y: number; opacidad
     opacidad: luz.opacidad,
   };
 }
+
+/**
+ * El sol en el mundo del render 3D (three.js: x a la derecha, y arriba, z hacia
+ * la cámara), como el vector UNITARIO hacia el que viaja la luz. No se escribe a
+ * mano: sale de `ARTE.luz`, que es lo que ya pinta el juego, deshaciendo la
+ * cámara a 25°. Una figura vertical de alto H mide `H·cos 25°` en pantalla y su
+ * sombra tiene que medir `longitudPorAltura` veces eso; un paso `gz` hacia la
+ * cámara sobre el suelo baja `gz·sen 25°` en pantalla.
+ *
+ * Con la sombra hacia la derecha y hacia el fondo, el sol queda a la izquierda y
+ * del lado de la cámara: la cara que se ve es la iluminada.
+ */
+export function luzEnElMundo(): { x: number; y: number; z: number } {
+  const { luz } = ARTE;
+  const rad = (ARTE.camara.elevacionGrados * Math.PI) / 180;
+  const modulo = Math.hypot(luz.direccionSombra.x, luz.direccionSombra.y);
+  const largo = luz.longitudPorAltura * Math.cos(rad);
+  const gx = (largo * luz.direccionSombra.x) / modulo;
+  const gz = (largo * luz.direccionSombra.y) / modulo / Math.sin(rad);
+  const n = Math.hypot(gx, 1, gz);
+  return { x: gx / n, y: -1 / n, z: gz / n };
+}
+
+/**
+ * La sombra de una figura como su SILUETA aplastada sobre el suelo: la afín de
+ * pantalla (`ctx.transform(a, b, c, d, 0, 0)`, con el origen en los pies) que
+ * lleva un punto `h` píxeles por encima de los pies a `h` veces la sombra por
+ * píxel de alto. Lo que está a ras de suelo no se mueve. No depende del alto de
+ * la figura ni de su orientación: la luz es una para todo.
+ *
+ * Supone que cada píxel del sprite está en vertical sobre la línea de los pies;
+ * en un cuerpo tendido no lo está, y su sombra sale más larga de lo que es.
+ */
+export function proyeccionDeSombra(): {
+  a: number;
+  b: number;
+  c: number;
+  d: number;
+  opacidad: number;
+} {
+  const s = sombraDeFigura(1);
+  return { a: 1, b: 0, c: -s.x, d: -s.y, opacidad: ARTE.luz.opacidadSilueta };
+}
+
+/**
+ * La hoja de una unidad en 8 direcciones: la celda es mayor porque el cadáver
+ * cae tendido, y el encuadre crece con ella para que el adulto mida lo mismo
+ * que en `FIGURA`.
+ */
+export const FIGURA_8D = {
+  celda: 384,
+  ortho: (FIGURA.camara.ortho * 384) / FIGURA.celda,
+  /** La altura en metros a la que apunta la cámara: baja la figura en la celda. */
+  objetivo: 0.95,
+} as const;

@@ -24,8 +24,8 @@ import { homedir } from 'node:os';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { chromium } from 'playwright';
 import sharp from 'sharp';
-import { FIGURA } from '../../src/shared/arte.js';
-import { indicesDeClip } from './poses.js';
+import { FIGURA, luzEnElMundo } from '../../src/shared/arte.js';
+import { componerGiro, indicesDeClip } from './poses.js';
 
 const RAIZ = resolve(import.meta.dirname, '../..');
 const FORGE = resolve(process.env.SPRITE_FORGE_DIR ?? join(RAIZ, '../sprite-forge'));
@@ -278,5 +278,151 @@ export async function renderizarMontura(prueba: boolean): Promise<string> {
   }
 }
 
+/**
+ * La unidad montada en 8 direcciones (como `OCHO_DIRECCIONES` de `poses.ts`): dos
+ * hojas por dirección. La A, reposo, paso y carga (el paso con la lanza bajada);
+ * la B, el ataque parado con espada, el daño (el caballo encaja el golpe) y la
+ * muerte, que se queda en su último fotograma. Luz del contrato.
+ */
+const HOJAS_8D = {
+  a: [
+    { clip: 'idle', caballo: 'Idle', postura: 'reposo', enBucle: true },
+    { clip: 'walk', caballo: 'Walk', postura: 'reposo', enBucle: true },
+    { clip: 'charge', caballo: 'Walk', postura: 'carga', enBucle: true },
+  ],
+  b: [
+    { clip: 'attack', caballo: 'Idle', postura: 'ataque', enBucle: false },
+    { clip: 'hurt', caballo: 'Idle_HitReact_Left', postura: 'reposo', enBucle: false },
+    { clip: 'death', caballo: 'Death', postura: 'reposo', enBucle: false },
+  ],
+} as const;
+
+export async function renderizarMontura8d(destino = DIR_POSES): Promise<string> {
+  const servidor = await servir();
+  const puerto = (servidor.address() as AddressInfo).port;
+  const exe = ejecutable();
+  const navegador = await chromium.launch({
+    ...(exe === undefined ? {} : { executablePath: exe }),
+    args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
+  });
+  try {
+    const pagina = await navegador.newPage();
+    const errores: string[] = [];
+    pagina.on('pageerror', (e) => errores.push(e.message));
+    await pagina.goto(`http://127.0.0.1:${puerto}/`);
+    await pagina.waitForFunction(
+      () => (window as unknown as { __listo?: boolean }).__listo === true,
+      null,
+      { timeout: 30_000 },
+    );
+    const ortho = (FIGURA.camara.ortho * CELDA_MONTADA) / FIGURA.celda;
+    const info = await pagina.evaluate((o) => (window as any).__montar(o), {
+      caballo: '/modelos/caballo-quaternius.glb',
+      ybot: '/fbx/mixamo/y_bot/character.fbx',
+      sentado: '/fbx/mixamo/ambient_anims/sitting_idle.fbx',
+      ataque: '/fbx/anims/sword_and_shield/sword and shield slash.fbx',
+      celda: CELDA_MONTADA,
+      picado: -FIGURA.camara.elevacionGrados,
+      ortho,
+      mira: 1.25,
+      guinada: 0,
+      altoCaballo: 1.75,
+      ajuste: AJUSTE,
+      luz: luzEnElMundo(),
+    });
+    if (errores.length > 0) throw new Error(`la escena falló: ${errores.join(' | ')}`);
+    const duraciones = Object.fromEntries(
+      (info.clips as string[]).map((c) => {
+        const m = /^(.*) \(([\d.]+) s\)$/.exec(c);
+        return [m?.[1], Number(m?.[2])];
+      }),
+    ) as Record<string, number>;
+    const { columnas } = FIGURA;
+    const indices: Record<string, number[]> = {};
+    for (const f of [...HOJAS_8D.a, ...HOJAS_8D.b]) {
+      const dur = f.postura === 'ataque' ? (info.duracionAtaque as number) : duraciones[f.caballo];
+      if (dur === undefined) throw new Error(`el caballo no tiene ${f.caballo}`);
+      indices[f.clip] = indicesDeClip(Math.max(1, Math.round(dur * 24)), columnas, f.enBucle);
+    }
+    const carpeta = join(destino, 'montado-lanza-8d');
+    await mkdir(carpeta, { recursive: true });
+    const shas: Record<string, string> = {};
+    for (let d = 0; d < 8; d++) {
+      await pagina.evaluate((g) => (window as any).__girar(g), (2 * Math.PI * d) / 8);
+      for (const [hoja, filas] of Object.entries(HOJAS_8D)) {
+        const capas = [];
+        for (const [fila, f] of filas.entries()) {
+          for (const [col, i] of (indices[f.clip] as number[]).entries()) {
+            const url = (await pagina.evaluate(
+              ([clip, t, postura, tj]) => (window as any).__fotograma(clip, t, postura, tj),
+              [f.caballo, f.postura === 'ataque' ? 0 : i / 24, f.postura, i / 24] as const,
+            )) as string;
+            capas.push({
+              input: Buffer.from(url.split(',')[1] as string, 'base64'),
+              left: col * CELDA_MONTADA,
+              top: fila * CELDA_MONTADA,
+            });
+          }
+        }
+        const png = await sharp({
+          create: {
+            width: columnas * CELDA_MONTADA,
+            height: 3 * CELDA_MONTADA,
+            channels: 4,
+            background: { r: 0, g: 0, b: 0, alpha: 0 },
+          },
+        })
+          .composite(capas)
+          .png()
+          .toBuffer();
+        const nombre = `d${d}-${hoja}.png`;
+        await writeFile(join(carpeta, nombre), png);
+        shas[nombre] = sha256(png);
+      }
+    }
+    if (errores.length > 0) throw new Error(`la escena falló: ${errores.join(' | ')}`);
+    shas['giro.png'] = await componerGiro(carpeta);
+    await writeFile(
+      join(carpeta, 'poses.json'),
+      `${JSON.stringify(
+        {
+          perfil: 'montado-lanza-8d',
+          renderer: 'tools/art/montura.ts (three.js, la cámara y la luz del contrato)',
+          caballo: {
+            fichero: 'tools/art/modelos/caballo-quaternius.glb',
+            sha256: sha256(await readFile(CABALLO)),
+            licencia: 'CC0 (ver tools/art/modelos/LICENCIA.md)',
+          },
+          jinete: { model: 'y_bot', postura: 'sitting_idle + IK de piernas y brazos' },
+          camera: { pitchDegrees: -FIGURA.camara.elevacionGrados, directions: 8, ortho },
+          light: luzEnElMundo(),
+          cell: CELDA_MONTADA,
+          columns: columnas,
+          sheets: Object.fromEntries(
+            Object.entries(HOJAS_8D).map(([h, filas]) => [
+              h,
+              filas.map((f) => ({ ...f, indices: indices[f.clip], fps: 24 })),
+            ]),
+          ),
+          ajuste: AJUSTE,
+          sha256: shas,
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    return carpeta;
+  } finally {
+    await navegador.close();
+    servidor.close();
+  }
+}
+
 const esScript = process.argv[1] !== undefined && resolve(process.argv[1]) === import.meta.filename;
-if (esScript) console.log(`→ ${await renderizarMontura(process.argv.includes('--prueba'))}`);
+if (esScript) {
+  console.log(
+    process.argv.includes('--8d')
+      ? `→ ${await renderizarMontura8d(process.argv[3])}`
+      : `→ ${await renderizarMontura(process.argv.includes('--prueba'))}`,
+  );
+}

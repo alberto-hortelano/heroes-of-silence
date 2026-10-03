@@ -1,0 +1,50 @@
+{
+  "encargo": "templario-monje-giro",
+  "tipo": "giro",
+  "fecha": "2026-10-03T05:25:57.507Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a10037-cd96-74a1-af5f-8f6fa3cd9f4d",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo), copia su largo, su ángulo y su sitio en cada celda: es la guía del arma real. Si sus piernas son de color, la ROJA es la pierna DERECHA y la AZUL la IZQUIERDA: sirven para no confundirlas en el paso ni girar la figura de espaldas; el personaje NO lleva esos colores.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn monje sanador: hábito de lana cruda con escapulario y cruz roja, tonsura, bolsa de vendas y hierbas al cinto, bastón alto de madera rematado en cruz en la mano derecha.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nLámina de GIRO de EXACTAMENTE 4 columnas por 2 filas: el MISMO personaje ocho veces, de cuerpo entero, en la pose de reposo, separadas con holgura y sin tocarse.\nCada figura copia la orientación y la pose del maniquí de su celda en la referencia de pose. En orden de lectura miran hacia: 1. frente, 2. frente-derecha, 3. derecha, 4. espalda-derecha, 5. espalda, 6. espalda-izquierda, 7. izquierda, 8. frente-izquierda. Las que van de espaldas enseñan la espalda del personaje: invéntala coherente con su equipo (la capa o sobrevesta por detrás, la cara interior del escudo, la vaina).\nCámara ortográfica elevada 25 grados en todas, viendo la coronilla y los hombros; NUNCA de perfil ni a la altura de los ojos, aunque la figura mire de lado. Misma escala en las ocho.\nEs la lámina de identidad por los ocho lados: el equipo, los colores y los materiales son idénticos en todas y se leen con claridad.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/baston-8d/giro.png",
+      "papel": "pose",
+      "sha256": "11ed7dacc6b5c1ae86ad10d3bd517e4cc777234ca4f8bec9426e5ec51d7a12d6"
+    },
+    {
+      "ruta": "assets/unidades/templario-monje/identidad.webp",
+      "papel": "identidad",
+      "sha256": "a6ba13e846f57533f1bbbb93fa2790062381113407ab24a48f8f644f334a41ad"
+    },
+    {
+      "ruta": "assets/art/templarios/monje.png",
+      "papel": "estilo",
+      "sha256": "c17252f7c9fd4991b31a5679739bcc55e3ff78133051e8dce7b7c14c875581dc"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a10037-cd96-74a1-af5f-8f6fa3cd9f4d/exec-4792179b-ce24-462e-afa7-72fcab2c9c1c.png",
+    "sha256": "b95558d698b772c1a76166b4232b132f47a37710c3a39192d8566f7be7da2cf4",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.3363425928977344,
+    "opacos": 0.972216397773079,
+    "haloSuelto": 0.0000019596277491127786,
+    "ancho": 1486,
+    "alto": 1021
+  },
+  "salida": {
+    "ruta": "assets/unidades/templario-monje/giro.webp",
+    "sha256": "807ac91237c4bdc589f67a175ec94c8c5473a1142e464415c22341903bd99be6"
+  }
+}

@@ -227,6 +227,133 @@ export interface Empaquetado {
   readonly alturaFinal: number;
   /** Dónde quedó el apoyo de cada clip en su celda: lo verifica después `derivar`. */
   readonly apoyoPorFila: readonly (readonly [number, number])[];
+  /**
+   * Con la pose mandando en la posición: cómo se pasa de la hoja del maniquí al
+   * atlas, `atlas = origen + k · (pose − apoyoReposo)`. Lo usa el evaluador.
+   */
+  readonly deLaPose?: {
+    readonly k: number;
+    readonly origen: readonly [number, number];
+    readonly apoyoReposo: readonly [number, number];
+    /** Si la posición la puso el maniquí; si no, cada figura va por su apoyo. */
+    readonly posicion: boolean;
+    /** Cuánto más arriba va cada fila (`EscalaDePose.elevaciones`): resta a `origen`. */
+    readonly elevaciones?: readonly number[];
+  };
+}
+
+/**
+ * La escala medida contra la referencia de pose, celda a celda. Hace falta
+ * cuando las hojas de una misma figura no empiezan por el reposo: la hoja B de
+ * 8 direcciones empieza por el ataque, con la espada en alto, y medida por su
+ * primera fila salía más pequeña que la A. Como el maniquí lleva el mismo
+ * atrezo, cada figura pintada se compara con la suya del maniquí.
+ */
+export interface EscalaDePose {
+  /** El lado de la celda de la hoja del maniquí. */
+  readonly lado: number;
+  /**
+   * La silueta del maniquí en cada celda, [fila][columna]: `lado`×`lado`, 1 donde
+   * hay maniquí o atrezo. Contra ella se ajusta la escala (`escalaPorSilueta`).
+   */
+  readonly siluetas: readonly (readonly Uint8Array[])[];
+  /** Alto del maniquí en reposo: el que tiene que medir `alturaObjetivo`. */
+  readonly reposo: number;
+  /**
+   * El apoyo del maniquí en cada celda y en su reposo (`apoyoEn`). Con ellos la
+   * pose manda también en DÓNDE va cada figura: se coloca desplazada lo mismo que
+   * el maniquí respecto a su reposo. Colocando cada una por su propio apoyo, un
+   * cadáver cuyo píxel más bajo no es el de los pies quedaba levitando.
+   */
+  readonly apoyos: readonly (readonly (readonly [number, number])[])[];
+  readonly apoyoReposo: readonly [number, number];
+  /**
+   * Si la posición la manda el maniquí. Solo en la hoja de ataque, daño y
+   * muerte: en la marcha, el píxel más bajo del maniquí salta de un pie a otro
+   * según cuál esté más cerca de la cámara y, con las piernas pintadas en otra
+   * fase, la figura daba saltitos. Ahí cada figura se apoya por sus pies.
+   */
+  readonly posicion: boolean;
+  /**
+   * Cuánto más arriba va cada fila de la hoja (`ELEVACION_DEL_CADAVER` en la de
+   * la muerte); su ancla sube lo mismo. Sin él, ninguna.
+   */
+  readonly elevaciones?: readonly number[];
+}
+
+/** Cuánto se busca alrededor de la escala que dan las cajas, por arriba y por abajo. */
+const BUSQUEDA_DE_ESCALA = 0.35;
+
+/**
+ * La escala de la hoja (píxeles del maniquí por píxel pintado) que mejor
+ * superpone cada figura pintada a la del maniquí, apoyadas las dos por su
+ * apoyo: la mediana de la mejor de cada celda. Se compara la SILUETA entera y
+ * no el alto de la caja porque el alto engaña en las dos direcciones: el
+ * maniquí lleva siempre el arma entera y, de espaldas, el asta se le junta con
+ * la cabeza; el pintor la acorta, la tapa o la dibuja más gruesa. Medido por la
+ * caja, el escudero salía 1,7 veces más alto de espaldas que de frente.
+ */
+function escalaPorSilueta(
+  r: Raster,
+  rejilla: readonly (readonly Caja[])[],
+  pose: EscalaDePose,
+): number {
+  const lado = pose.lado;
+  const escalas: number[] = [];
+  for (const [f, fila] of rejilla.entries()) {
+    for (const [col, c] of fila.entries()) {
+      const sil = pose.siluetas[f]?.[col];
+      const ap = pose.apoyos[f]?.[col];
+      if (sil === undefined || ap === undefined)
+        throw new Error(`la pose no tiene la celda ${f + 1}·${col + 1}`);
+      let y0 = lado;
+      let y1 = -1;
+      let x0 = lado;
+      let x1 = -1;
+      for (let y = 0; y < lado; y++)
+        for (let x = 0; x < lado; x++)
+          if (sil[y * lado + x]) {
+            if (y < y0) y0 = y;
+            y1 = y;
+            if (x < x0) x0 = x;
+            if (x > x1) x1 = x;
+          }
+      if (y1 < 0) throw new Error(`la pose está vacía en la celda ${f + 1}·${col + 1}`);
+      const [ax, ay] = apoyo(r, c);
+      const pintada = (x: number, y: number) =>
+        x >= 0 && y >= 0 && x < ancho(c) && y < alto(c)
+          ? (r.data[((c.y0 + y) * r.width + c.x0 + x) * 4 + 3] as number) >= ALFA_FIGURA
+          : false;
+      const s0 = (y1 - y0 + 1) / alto(c);
+      let mejor = s0;
+      let mejorIou = -1;
+      for (let t = 1 - BUSQUEDA_DE_ESCALA; t <= 1 + BUSQUEDA_DE_ESCALA + 1e-9; t += 0.01) {
+        const s = s0 * t;
+        // La región: la caja del maniquí unida a la de la figura llevada a la pose.
+        const rx0 = Math.max(0, Math.min(x0, Math.floor(ap[0] - ax * s)));
+        const rx1 = Math.min(lado - 1, Math.max(x1, Math.ceil(ap[0] + (ancho(c) - ax) * s)));
+        const ry0 = Math.max(0, Math.min(y0, Math.floor(ap[1] - ay * s)));
+        const ry1 = Math.min(lado - 1, Math.max(y1, Math.ceil(ap[1] + (alto(c) - ay) * s)));
+        let inter = 0;
+        let union = 0;
+        for (let y = ry0; y <= ry1; y += 2) {
+          for (let x = rx0; x <= rx1; x += 2) {
+            const m = sil[y * lado + x] === 1;
+            const p = pintada(Math.round(ax + (x - ap[0]) / s), Math.round(ay + (y - ap[1]) / s));
+            if (m || p) union++;
+            if (m && p) inter++;
+          }
+        }
+        const iou = union === 0 ? 0 : inter / union;
+        if (iou > mejorIou) {
+          mejorIou = iou;
+          mejor = s;
+        }
+      }
+      escalas.push(mejor);
+    }
+  }
+  return mediana(escalas);
 }
 
 /** Margen libre dentro de cada celda: una figura que toca el borde se cortaría. */
@@ -248,6 +375,7 @@ export async function empaquetar(
   filas: number,
   alturaObjetivo: number,
   celda: number = FIGURA.celda,
+  pose?: EscalaDePose,
 ): Promise<Empaquetado> {
   const { columnas } = FIGURA;
   const base = baseEnCelda(celda);
@@ -263,7 +391,10 @@ export async function empaquetar(
   // La escala que pide el reposo, y la mayor con la que cabe cada fila con su
   // margen: en horizontal, el apoyo común de la fila deja sitio a la figura
   // que más sobresale por cada lado; en vertical, los pies están en `base`.
-  const pedida = alturaObjetivo / mediana((rejilla[0] as Caja[]).map(alto));
+  const pedida =
+    pose === undefined
+      ? alturaObjetivo / mediana((rejilla[0] as Caja[]).map(alto))
+      : (escalaPorSilueta(r, rejilla, pose) * alturaObjetivo) / pose.reposo;
   const cabe = Math.min(
     ...medidas.map((fila) => {
       const izquierda = Math.max(...fila.map((m) => m.ax));
@@ -304,6 +435,25 @@ export async function empaquetar(
         return { img, w, h, ax: Math.round(ax * escala), ay: Math.round(ay * escala) };
       }),
     );
+    if (pose?.posicion === true) {
+      // Cada figura donde el maniquí respecto a su reposo, a la escala de la hoja;
+      // si así se saliera de su celda, se mete dentro (lo que entra en la celda manda).
+      const k = (alturaObjetivo / pose.reposo) * (escala / pedida);
+      const x0 = Math.round(celda / 2);
+      const suelo = base - (pose.elevaciones?.[f] ?? 0);
+      for (const [col, p] of piezas.entries()) {
+        const a = pose.apoyos[f]?.[col];
+        if (a === undefined)
+          throw new Error(`la pose no tiene apoyo en la celda ${f + 1}·${col + 1}`);
+        const dx = Math.round(k * (a[0] - pose.apoyoReposo[0]));
+        const dy = Math.round(k * (a[1] - pose.apoyoReposo[1]));
+        const izquierda = Math.min(celda - p.w - MARGEN, Math.max(MARGEN, x0 + dx - p.ax));
+        const arriba = Math.min(celda - p.h - MARGEN, Math.max(MARGEN, suelo + dy - p.ay));
+        capas.push({ input: p.img, left: col * celda + izquierda, top: f * celda + arriba });
+      }
+      apoyoPorFila.push([x0, suelo]);
+      continue;
+    }
     // La x de apoyo del clip: la más cercana al centro en la que caben todos.
     const minimo = Math.max(...piezas.map((p) => p.ax)) + MARGEN;
     const maximo = Math.min(...piezas.map((p) => celda - (p.w - p.ax))) - MARGEN;
@@ -338,6 +488,17 @@ export async function empaquetar(
     alturaPedida: alturaObjetivo,
     alturaFinal: Math.round(alturaObjetivo * (escala / pedida)),
     apoyoPorFila,
+    ...(pose === undefined
+      ? {}
+      : {
+          deLaPose: {
+            k: (alturaObjetivo / pose.reposo) * (escala / pedida),
+            origen: [Math.round(celda / 2), base] as const,
+            apoyoReposo: pose.apoyoReposo,
+            posicion: pose.posicion,
+            ...(pose.elevaciones === undefined ? {} : { elevaciones: pose.elevaciones }),
+          },
+        }),
   };
 }
 

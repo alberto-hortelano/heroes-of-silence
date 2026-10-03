@@ -1,0 +1,50 @@
+{
+  "encargo": "templario-mandoble-giro",
+  "tipo": "giro",
+  "fecha": "2026-10-02T20:50:13.780Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0fe60-8e48-7453-a7c9-75da91f0666e",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo), copia su largo, su ángulo y su sitio en cada celda: es la guía del arma real.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn templario pesado: armadura de placas, sobrevesta blanca con cruz roja, capa corta roja, yelmo abierto de casquete y mandoble largo empuñado con las dos manos. Sin escudo.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nLámina de GIRO de EXACTAMENTE 4 columnas por 2 filas: el MISMO personaje ocho veces, de cuerpo entero, en la pose de reposo, separadas con holgura y sin tocarse.\nCada figura copia la orientación y la pose del maniquí de su celda en la referencia de pose. En orden de lectura miran hacia: 1. frente, 2. frente-derecha, 3. derecha, 4. espalda-derecha, 5. espalda, 6. espalda-izquierda, 7. izquierda, 8. frente-izquierda. Las que van de espaldas enseñan la espalda del personaje: invéntala coherente con su equipo (la capa o sobrevesta por detrás, la cara interior del escudo, la vaina).\nCámara ortográfica elevada 25 grados en todas, viendo la coronilla y los hombros; NUNCA de perfil ni a la altura de los ojos, aunque la figura mire de lado. Misma escala en las ocho.\nEs la lámina de identidad por los ocho lados: el equipo, los colores y los materiales son idénticos en todas y se leen con claridad.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/dos-manos-8d/giro.png",
+      "papel": "pose",
+      "sha256": "5e4f7c779828283e0124a4a8b20a71dbe6d9b15a78237ba0fca59ddab2c0073f"
+    },
+    {
+      "ruta": "assets/unidades/templario-mandoble/identidad.webp",
+      "papel": "identidad",
+      "sha256": "835686b725fcd3a07d9d5d4dd04f5025978447d108574b045f46b0d2662be28a"
+    },
+    {
+      "ruta": "assets/art/templarios/guerrero-con-arma-a-dos-manos.png",
+      "papel": "estilo",
+      "sha256": "bed2665ae5749f6a24106a4ab0c219a828672d8e0ea0ba3fed0dd27f05353b8b"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0fe60-8e48-7453-a7c9-75da91f0666e/exec-c1c70eb9-97f6-4f2b-b672-539b4a2fa6b3.png",
+    "sha256": "cb234bddec95239c54d85c8876f7f092d9d3da31d8afa5da551ce604763f34be",
+    "ancho": 1774,
+    "alto": 887
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.1987249658850329,
+    "opacos": 0.9699673125272252,
+    "haloSuelto": 0,
+    "ancho": 1654,
+    "alto": 887
+  },
+  "salida": {
+    "ruta": "assets/unidades/templario-mandoble/giro.webp",
+    "sha256": "2a978577771ec2bd5c2c6db6ac99d473acb904d16241b2b2376ccf6fb001bae8"
+  }
+}

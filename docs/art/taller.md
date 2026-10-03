@@ -75,3 +75,97 @@ es qué clip hace de ataque:
 | `arco` | poses de brazo escritas sobre el rig (no hay clip de arco) |
 
 `liora-walk-v2` está rechazado: no se usa como referencia.
+
+## La luz (02-10-2026)
+
+Una sola luz para todo, la de `ARTE.luz` (`src/shared/arte.ts`): desde la
+izquierda y del lado de la cámara. La sombra cae a la derecha y hacia el fondo,
+unos 31° en pantalla. De ahí salen:
+
+- `luzEnElMundo()`: el sol del render 3D del maniquí, que sustituye a la luz de
+  sprite-forge (venía de la derecha). `test/arte-luz.test.ts` comprueba que,
+  proyectado con la cámara a 25°, da la sombra del contrato.
+- `proyeccionDeSombra()`: la sombra de una figura es su SILUETA aplastada sobre el
+  suelo (una afín y un `drawImage`), no una mancha. La figura se pinta sin sombra
+  en el suelo; el prompt lo pide.
+
+Los edificios y las piezas del mapa ya generados llevan una sombra pintada que no
+sigue esta regla; se rehacen cuando toque.
+
+## Unidades en 8 direcciones
+
+La unidad definitiva tiene 8 direcciones y 6 acciones: quieto, andando, carga,
+ataque, daño y muerte. La muerte arranca de la pose final del daño y su último
+fotograma es el cadáver (`cadaver` en el JSON).
+
+1. **Las poses**, por juego de armas: `npx tsx tools/art/poses.ts --8d` escribe
+   `assets/unidades/_poses/<juego>-8d/`, con dos hojas de 3 filas por dirección
+   (`d<n>-a`: quieto, andando y carga; `d<n>-b`: ataque, daño y muerte) y el giro
+   (`giro.png`, el reposo de las 8). El maniquí:
+   - lleva atrezo gris colocado con la anatomía en cada fotograma: la espada
+     sigue la línea de los nudillos y el escudo cuelga por fuera del antebrazo;
+   - se apoya en el suelo por el punto más bajo de su malla, así que no flota;
+   - al morir no se desplaza (el cadáver cae en su casilla) y el escudo se
+     tumba plano en el suelo.
+2. **El giro**: `pnpm taller encolar <id> --giro`. Es la lámina de identidad por
+   los ocho lados y fija la espalda antes de pintar.
+3. **Las 16 hojas**: `pnpm taller encolar <id> --ocho`. Cada hoja se escala
+   contra su maniquí, celda a celda, y el taller junta las dos de una dirección en
+   `assets/unidades/<id>/d<n>/atlas.webp` (celda de 384). `atlas.composicion.json`
+   apunta de qué hojas sale.
+4. **La vista**: `pnpm taller vista-8d [<id>]` escribe un solo visor, `.cache/taller/vista/visor-8d.html`, con un selector de todas las unidades que ya tienen sus 8 direcciones y de las poses de cada juego de armas; el `<id>` solo elige con cuál se abre (va en el `#` de la URL). Todas a la misma escala, para poder compararlas: el lienzo crece hasta que quepa la más alta. Con la sombra por silueta.
+
+Las direcciones son las de sprite-forge: 0 mira a la cámara, 2 a la derecha, 4 de
+espaldas y 6 a la izquierda (`tools/taller/direcciones.ts`).
+Ninguna se espeja, porque la luz vendría del otro lado.
+
+### Lo que el maniquí guía, además de la pose
+
+- **La posición.** Cada figura pintada se coloca desplazada lo mismo que el
+  maniquí respecto a su reposo (`EscalaDePose.apoyos`). Antes se colocaba por su
+  propio apoyo y un cadáver tendido quedaba levitando. La transformación se
+  apunta en la procedencia (`deLaPose`).
+- **El tamaño.** La escala de cada hoja es la que mejor superpone la SILUETA de
+  cada figura pintada a la del maniquí, apoyadas las dos por su apoyo (la
+  mediana de las 21 celdas, `escalaPorSilueta`). Antes era la razón entre los
+  altos de las cajas, y el alto engaña: el maniquí lleva siempre el arma entera,
+  y de espaldas el asta se le junta con la cabeza. El escudero salía 1,7 veces
+  más alto de espaldas que de frente.
+- **La muerte, más arriba.** En las 6 filas, la de la muerte va
+  `ELEVACION_DEL_CADAVER` (64 px) más arriba en su celda, y su ancla con ella.
+  Bajo los pies solo quedaban 42 px y un cuerpo tendido hacia la cámara ocupa
+  ~70: el empaquetado lo metía en la celda subiéndolo y el cadáver flotaba sobre
+  su sombra.
+- **Las piernas.** En los juegos de armas con `piernasDeColor`, la pierna derecha
+  del maniquí es roja y la izquierda azul. El prompt dice que solo sirven para
+  distinguirlas.
+- **El fondo.** La hoja del maniquí se le enseña a ChatGPT sobre verde de croma
+  (`FONDO_DE_POSE`), no transparente ni gris: el transparente le llega como negro, y ahí
+  se pierden el atrezo negro (escudo, asta) y el lado en sombra del maniquí; el
+  gris claro se confunde con el propio maniquí.
+
+### El evaluador
+
+`pnpm taller evaluar <id>` compara cada figura pintada con su maniquí, llevado
+al atlas con la misma transformación: la silueta del maniquí menos lo que cubre
+la figura. Por fila da el **nivel** (la mediana: la figura entera desviada,
+girada) y el **pico** (el peor fotograma menos la mediana: uno que se encoge o
+pierde el arma). Escribe `.cache/taller/evaluacion/<id>.json` y la vista 8d pone
+un borde rojo en lo que avisa.
+
+Calibrado el 03-10-2026 contra la revisión del usuario del templario del
+mandoble:
+
+- **Lo que ve:** «se gira hacia atrás», «se encoge en un fotograma» y una espada
+  que desaparece en una carga.
+- **Lo que no ve:** una espada fina que falta, una pierna levantada o pasos
+  repetidos.
+- **Falsas alarmas:** en el templario con escudo, ya aprobado, avisa de 9 filas
+  de 48.
+
+Es un aviso de revisión, no una aceptación.
+
+Además avisa, sin ambigüedad, de las celdas con el **azul guía** del maniquí
+copiado en una pierna (`esAzulGuia`, más de `UMBRAL_AZUL` píxeles): ningún
+templario lleva azul. El rojo de la otra pierna no se busca, porque se confunde
+con las cruces.
