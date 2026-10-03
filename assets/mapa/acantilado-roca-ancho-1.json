@@ -1,0 +1,11 @@
+{
+  "imagen": "acantilado-roca-ancho-1.webp",
+  "sha256": "39d658bdd92c60b6ddd920a7d7bced18e2827a097ce2c08a3b98c76621d0ee24",
+  "ancho": 1772,
+  "alto": 740,
+  "ancla": [
+    1435,
+    715
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

@@ -1,0 +1,11 @@
+{
+  "imagen": "arboles-muertos-2.webp",
+  "sha256": "de16d8a24375da34f7805c6a51cbaf8bffae9f5a967f72f5026ca72863162246",
+  "ancho": 1075,
+  "alto": 1024,
+  "ancla": [
+    678,
+    1018
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

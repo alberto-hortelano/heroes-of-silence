@@ -1,0 +1,85 @@
+{
+  "hoja": "pueblos.webp",
+  "modulos": [
+    {
+      "imagen": "1.webp",
+      "sha256": "6feb972855c8170b1aff38f2787a6aa48f6318fa16bd194266264cb86eefb6e9",
+      "ancho": 364,
+      "alto": 324,
+      "ancla": [
+        271,
+        319
+      ]
+    },
+    {
+      "imagen": "2.webp",
+      "sha256": "ae717e6087efd45ed64e2212e0ec5d22314a6217cccbea1d9e638d9724fb4963",
+      "ancho": 374,
+      "alto": 376,
+      "ancla": [
+        211,
+        371
+      ]
+    },
+    {
+      "imagen": "3.webp",
+      "sha256": "f9faec81699aa70473d49cc05353129d4748e7357ce12636b99c1c4babbc3190",
+      "ancho": 354,
+      "alto": 405,
+      "ancla": [
+        164,
+        400
+      ]
+    },
+    {
+      "imagen": "4.webp",
+      "sha256": "f64f20bb382fb80a0a4bda5e24f4a03056f77fc67ca79c5c8a0bb10e4d00d8a0",
+      "ancho": 393,
+      "alto": 417,
+      "ancla": [
+        217,
+        412
+      ]
+    },
+    {
+      "imagen": "5.webp",
+      "sha256": "7ea6557b21d482f190c4c102ab7ae82c148422dd2b93d31ef618387718e38dcc",
+      "ancho": 372,
+      "alto": 386,
+      "ancla": [
+        199,
+        381
+      ]
+    },
+    {
+      "imagen": "6.webp",
+      "sha256": "9b8016ec2a68dcc069394a2f06f98f595b0c255b783ffd5c53ece67d0c357675",
+      "ancho": 375,
+      "alto": 351,
+      "ancla": [
+        162,
+        346
+      ]
+    },
+    {
+      "imagen": "7.webp",
+      "sha256": "69d6072c707c9c62402df441826b8e39a3cbc03845dcf271d5ad429729372e01",
+      "ancho": 345,
+      "alto": 359,
+      "ancla": [
+        90,
+        354
+      ]
+    },
+    {
+      "imagen": "8.webp",
+      "sha256": "0017f43978ba133a334e7b817e0285d79f5f0b431f9f0f3c6813c4f2669d6aaf",
+      "ancho": 382,
+      "alto": 387,
+      "ancla": [
+        216,
+        382
+      ]
+    }
+  ]
+}

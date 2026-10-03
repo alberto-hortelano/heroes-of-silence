@@ -1,0 +1,165 @@
+{
+  "hoja": "paredes-roca.webp",
+  "modulos": [
+    {
+      "imagen": "1.webp",
+      "sha256": "bdaca00a701af790a0991957199263e4b90d563ac4cc91ec91dbcfff4d85eff7",
+      "ancho": 233,
+      "alto": 223,
+      "ancla": [
+        144,
+        218
+      ]
+    },
+    {
+      "imagen": "2.webp",
+      "sha256": "19966e626b74cb5bbe0b689182b9b0c34c8473ff1fd74ab3bef6e21195bf84fc",
+      "ancho": 353,
+      "alto": 228,
+      "ancla": [
+        221,
+        223
+      ]
+    },
+    {
+      "imagen": "3.webp",
+      "sha256": "24b84d50e501e9486b6f0c34dc268bfcef73a06b88776853ccc64b2c38520f2f",
+      "ancho": 389,
+      "alto": 239,
+      "ancla": [
+        274,
+        234
+      ]
+    },
+    {
+      "imagen": "4.webp",
+      "sha256": "f40fea1374438d7d89a8d3db4ab4b2780d55d9ccf2f55ba7aa7fa05e0c7499cf",
+      "ancho": 263,
+      "alto": 226,
+      "ancla": [
+        182,
+        221
+      ]
+    },
+    {
+      "imagen": "5.webp",
+      "sha256": "31c977422a1c73a349a8687943d98f9e2f901ab2e972d9074f8b817fd470bfb8",
+      "ancho": 388,
+      "alto": 230,
+      "ancla": [
+        297,
+        225
+      ]
+    },
+    {
+      "imagen": "6.webp",
+      "sha256": "94b9496903e091a4b2fb772817190046abb9fb101f4a44501e50e274ebfd634d",
+      "ancho": 313,
+      "alto": 250,
+      "ancla": [
+        198,
+        245
+      ]
+    },
+    {
+      "imagen": "7.webp",
+      "sha256": "4042095750e9f6e380a682a1de9d6a9029a4dd267a7a7108b53ce164d3f0f119",
+      "ancho": 287,
+      "alto": 231,
+      "ancla": [
+        199,
+        226
+      ]
+    },
+    {
+      "imagen": "8.webp",
+      "sha256": "95e133428e8d473749b411b7cd04cfc7af440159c227be1af1bd37f8728109c1",
+      "ancho": 349,
+      "alto": 249,
+      "ancla": [
+        220,
+        244
+      ]
+    },
+    {
+      "imagen": "9.webp",
+      "sha256": "26e8395be3d9bd46d9853764e0632ba26f05ec246a2a9429f676d37046bce057",
+      "ancho": 434,
+      "alto": 234,
+      "ancla": [
+        345,
+        229
+      ]
+    },
+    {
+      "imagen": "10.webp",
+      "sha256": "268a8023db9e433e2fcc92db11e18c888ef543808effadacea9ee849da1de343",
+      "ancho": 266,
+      "alto": 229,
+      "ancla": [
+        165,
+        224
+      ]
+    },
+    {
+      "imagen": "11.webp",
+      "sha256": "339678b88eb0366718b9a12e73199d8f9162c8dea54b037edeb04a679a657fd2",
+      "ancho": 387,
+      "alto": 205,
+      "ancla": [
+        288,
+        200
+      ]
+    },
+    {
+      "imagen": "12.webp",
+      "sha256": "c6e8df72e68d8e5b3753fd5daf49c485a17eb761a5b21ca34bfc95167ec8791b",
+      "ancho": 264,
+      "alto": 214,
+      "ancla": [
+        190,
+        209
+      ]
+    },
+    {
+      "imagen": "13.webp",
+      "sha256": "59e5d5d90d01164ef165d7cdee918eb424b3c39f63b0c6633d658f1acab236f1",
+      "ancho": 247,
+      "alto": 217,
+      "ancla": [
+        156,
+        212
+      ]
+    },
+    {
+      "imagen": "14.webp",
+      "sha256": "c7993982b4ee7603e77d96f3c7de8f54fb679168cf73d740ada3785937abe750",
+      "ancho": 304,
+      "alto": 224,
+      "ancla": [
+        206,
+        219
+      ]
+    },
+    {
+      "imagen": "15.webp",
+      "sha256": "27fcf1a0cff8a34511a3634db5421ae6d6330b8ec4789957bc156865e4bad434",
+      "ancho": 430,
+      "alto": 232,
+      "ancla": [
+        299,
+        227
+      ]
+    },
+    {
+      "imagen": "16.webp",
+      "sha256": "d244ecc74fc8d0f6bb092c91dc4b21d58ca09e719cef33b706a67676e32b21e0",
+      "ancho": 285,
+      "alto": 203,
+      "ancla": [
+        185,
+        198
+      ]
+    }
+  ]
+}

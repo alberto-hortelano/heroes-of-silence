@@ -1,0 +1,42 @@
+{
+  "encargo": "mapa-nodo-puerta-hondo-c1",
+  "tipo": "imagen",
+  "fecha": "2026-10-03T20:00:09.240Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a1034a-cad8-7a72-b4d0-22b9ffcd27b3",
+  "reanuda": "01a1034a-cad8-7a72-b4d0-22b9ffcd27b3",
+  "prompt": "Corrige la última imagen que has generado en esta conversación, con la herramienta de imágenes, conservando la identidad del personaje y todo lo que no se menciona.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nGira la muralla noventa grados: ahora va de izquierda a derecha con la puerta de cara a la cámara, y tiene que ALEJARSE hacia el fondo en escorzo, de abajo a la izquierda hacia arriba a la derecha, como un muro visto desde su extremo cercano. La puerta queda en un costado de ese muro, vista de lado y en perspectiva, y el camino la cruza de izquierda a derecha. Misma puerta, mismas torres, mismas antorchas y mismo poste vacío.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/denso-b.webp",
+      "papel": "estilo",
+      "sha256": "a7b0a2a1b884d4909de4f34578e1ba6f1522a5db09f5c4c07c8be14de7a80947"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a1034a-cad8-7a72-b4d0-22b9ffcd27b3/exec-b8b7bf75-d07d-4ba7-97be-83ed28d2240d.png",
+    "sha256": "14265d4bf90c06946d9dc7d2cf82135daaf529556da1d60733a6963f135e60f4",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: 1013×1024, ancla en (228,1004)"
+  ],
+  "validacion": {
+    "visibles": 0.4976043851801579,
+    "opacos": 0.9922564421480479,
+    "haloSuelto": 0.0000019373424698404213,
+    "ancho": 1013,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/mapa/nodo-puerta-hondo.webp",
+    "sha256": "14560c180dd9695aa60c6c2a6fbde9de75150f79f1fad21901d6edad7a7996a3"
+  }
+}

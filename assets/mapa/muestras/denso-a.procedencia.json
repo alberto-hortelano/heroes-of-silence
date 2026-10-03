@@ -1,0 +1,40 @@
+{
+  "encargo": "mapa-denso-lamina-a",
+  "tipo": "imagen",
+  "fecha": "2026-10-03T18:59:47.661Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a10320-ceea-7321-a5e0-a6a9d9c93f69",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nLámina de muestra de piezas sueltas del mapa de aventura de un juego de estrategia por turnos. La imagen de estilo es un mapa entero: de ahí salen los bosques, acantilados, muros, puentes y puertas, y cada pieza tiene que poder recortarse de él sin que se note; no copies su encuadre.\nEstilo de la imagen de estilo, que manda sobre cualquier otra idea: fantasía medieval OSCURA y sombría, pintura digital muy detallada como una maqueta en miniatura, con muchísimo detalle menudo (piedras, matas, grietas, raíces). Paleta APAGADA y poco saturada: verdes oliva y musgo oscuros, grises pizarra, pardos terrosos, rojos óxido; nada de colores vivos ni de aspecto de juego para móvil. Sombras profundas y oclusión marcada entre los detalles, luz tenue y algo fría, con contraste dramático.\nNueve piezas sueltas en una rejilla de 3 por 3, en este orden de lectura, separadas con holgura:\n1. un tramo de BOSQUE DENSO de pinos y abetos verdes oscuros, una masa de copas apretada que se lee como un muro, no como árboles sueltos.\n2. el mismo tramo de bosque denso, NEVADO: abetos cargados de nieve.\n3. el mismo tramo de bosque denso, de CIÉNAGA: árboles muertos retorcidos y sin hojas, con raíces al aire.\n4. un tramo de ACANTILADO de arenisca roja: una cara vertical de roca estriada con su sombra al pie, del lado bajo.\n5. un tramo de ACANTILADO de basalto negro con grietas de brasa: una cara vertical con su sombra al pie.\n6. un tramo de ACANTILADO de roca gris con musgo: una cara vertical con su sombra al pie.\n7. un tramo de MURALLA de piedra con almenas y un torreón pequeño.\n8. una RUINA: un lienzo de muralla derruido, con sillares caídos y hierba entre las piedras.\n9. una ORILLA: el borde de un río visto sin el agua, piedras redondeadas, barro y juncos, larga y baja.\nTodas con la MISMA cámara: ortográfica, elevada 25 grados sobre la horizontal, mirando de frente y algo a la derecha, como en la imagen de estilo; nunca cenital ni de perfil. Misma escala relativa: un tramo de borde mide de largo lo que tres casas y de alto lo que una. La luz viene de arriba a la izquierda. Sin estandartes ni banderas: los postes van vacíos.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/art/mapas/Imagen de ChatGPT 3 oct 2026, 10_05_01.png",
+      "papel": "estilo",
+      "sha256": "a3b78bb6efb486f6c65827e19739696aab723d824331faaa6d58d84c727fe6f5"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a10320-ceea-7321-a5e0-a6a9d9c93f69/exec-a0c8bd1c-5b41-42af-94dc-25653bc81da7.png",
+    "sha256": "539661b836552d7f12d87e8df10e6f719bb8b7d149d2d0eddec6b87c8c82bcd2",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.5804723103841146,
+    "opacos": 0.9841271232108512,
+    "haloSuelto": 0.0000021905709065896755,
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/mapa/muestras/denso-a.webp",
+    "sha256": "b54ea2efe0172b33089168428fa59bce5e6917baf084b50fc21476837b6631eb"
+  }
+}

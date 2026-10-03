@@ -1,0 +1,11 @@
+{
+  "imagen": "pico-3.webp",
+  "sha256": "9867262107f7345c041338507878642eb91e40f6b0de909c8c1d1b069a4c6d1e",
+  "ancho": 1100,
+  "alto": 867,
+  "ancla": [
+    503,
+    842
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

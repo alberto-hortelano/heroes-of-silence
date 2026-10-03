@@ -1,0 +1,36 @@
+{
+  "encargo": "textura-cara-arenisca",
+  "tipo": "textura",
+  "fecha": "2026-10-03T20:58:44.076Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a1038e-eed5-7fe3-a87e-d4c6f6f16a9f",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUna textura para el mapa de aventura de un juego de estrategia: una pared vertical de arenisca roja vista DE FRENTE: estratos y columnas estriadas, rojo óxido. Del mismo acabado que las rocas, el agua y el barro de la imagen de estilo. Estilo de la imagen de estilo: fantasía medieval oscura, pintura digital muy detallada como una maqueta en miniatura, paleta apagada y poco saturada (verdes oliva y musgo oscuros, grises pizarra, pardos, rojos óxido), sombras profundas, luz tenue desde arriba a la izquierda.\n\nUna muestra plana de MATERIAL vista exactamente desde arriba, a 90 grados, como una muestra de una biblioteca de texturas: sin perspectiva, sin horizonte y sin sombras proyectadas.\nLisa y uniforme en toda la superficie: sin un motivo central, sin objetos sueltos, sin caminos, sin bordes ni marco, sin figuras y sin texto. Que se pueda repetir en mosaico por los cuatro lados sin que se note.\nFormato cuadrado, imagen opaca de borde a borde.",
+  "referencias": [
+    {
+      "ruta": "assets/art/mapas/Imagen de ChatGPT 3 oct 2026, 10_05_01.png",
+      "papel": "estilo",
+      "sha256": "a3b78bb6efb486f6c65827e19739696aab723d824331faaa6d58d84c727fe6f5"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a1038e-eed5-7fe3-a87e-d4c6f6f16a9f/exec-29b63488-864c-4150-bbb8-82d49594232b.png",
+    "sha256": "068fe41f43cbe2079070a1c4a0caf7a1621d69dfbbb5d05b99eb4b0e90e1a617",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "cuadrado central a 512×512 y repetible: mezclada eje a eje con su copia desplazada medio lado; costura 0.95 (1 es invisible)",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "ancho": 512,
+    "alto": 512
+  },
+  "salida": {
+    "ruta": "assets/mapa/texturas/cara-arenisca.webp",
+    "sha256": "1a403b641e21321f5b489f60f53580ea6ffbe87fdaf15c6f3a2199726e7d4fb3"
+  }
+}

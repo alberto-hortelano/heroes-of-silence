@@ -1,0 +1,41 @@
+{
+  "encargo": "mapa-bosque-verde-2",
+  "tipo": "imagen",
+  "fecha": "2026-10-03T19:27:29.762Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a1033b-3a1f-77a1-a267-6dabc51acef9",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUna pieza suelta del mapa de aventura de un juego de estrategia por turnos. Dibuja SOLO una variante nueva de la pieza 1 de la imagen de estilo (un tramo de BOSQUE DENSO de pinos y abetos verdes oscuros, una masa de copas apretada que se lee como un muro, no como árboles sueltos): mismos materiales, colores y escala, pero otra silueta, para que varias seguidas formen un tramo sin repetirse.\nEstilo de la imagen de estilo, que manda sobre cualquier otra idea: fantasía medieval OSCURA y sombría, pintura digital muy detallada como una maqueta en miniatura, con muchísimo detalle menudo (piedras, matas, grietas, raíces). Paleta APAGADA y poco saturada: verdes oliva y musgo oscuros, grises pizarra, pardos terrosos, rojos óxido; nada de colores vivos ni de aspecto de juego para móvil. Sombras profundas y oclusión marcada entre los detalles, luz tenue y algo fría, con contraste dramático.\nUn único objeto, centrado y entero. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, la misma de la imagen de estilo; nunca cenital ni de perfil. La luz viene de arriba a la izquierda. Sin estandartes ni banderas.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/denso-a.webp",
+      "papel": "estilo",
+      "sha256": "b54ea2efe0172b33089168428fa59bce5e6917baf084b50fc21476837b6631eb"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a1033b-3a1f-77a1-a267-6dabc51acef9/exec-88bcfc84-7c23-4593-8570-72693ee31df6.png",
+    "sha256": "7a3f6a2a27ff1a67f6b5245deff48b3ff062745bb8bb765117f0c9270454aa0c",
+    "ancho": 1774,
+    "alto": 887
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: 1774×887, ancla en (1433,866)"
+  ],
+  "validacion": {
+    "visibles": 0.5293504192463099,
+    "opacos": 0.9842175969112302,
+    "haloSuelto": 0.000002401095860150573,
+    "ancho": 1774,
+    "alto": 887
+  },
+  "salida": {
+    "ruta": "assets/mapa/bosque-verde-2.webp",
+    "sha256": "226091c9e9f772564b7c1ab8e0c4c94129884841311f7709433eb9a3fe8411d4"
+  }
+}

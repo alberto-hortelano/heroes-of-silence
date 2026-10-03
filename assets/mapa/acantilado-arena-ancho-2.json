@@ -1,0 +1,11 @@
+{
+  "imagen": "acantilado-arena-ancho-2.webp",
+  "sha256": "8428353bf09688cb614333aa079f9656ff6ab7071e76b8122a54f0fb79030cbc",
+  "ancho": 1754,
+  "alto": 777,
+  "ancla": [
+    1501,
+    752
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

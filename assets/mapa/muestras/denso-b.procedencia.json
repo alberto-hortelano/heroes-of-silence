@@ -1,0 +1,40 @@
+{
+  "encargo": "mapa-denso-lamina-b",
+  "tipo": "imagen",
+  "fecha": "2026-10-03T19:03:51.793Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a10325-5619-7ca2-b1ac-cec4b844e600",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nLámina de muestra de piezas sueltas del mapa de aventura de un juego de estrategia por turnos. La imagen de estilo es un mapa entero: de ahí salen los bosques, acantilados, muros, puentes y puertas, y cada pieza tiene que poder recortarse de él sin que se note; no copies su encuadre.\nEstilo de la imagen de estilo, que manda sobre cualquier otra idea: fantasía medieval OSCURA y sombría, pintura digital muy detallada como una maqueta en miniatura, con muchísimo detalle menudo (piedras, matas, grietas, raíces). Paleta APAGADA y poco saturada: verdes oliva y musgo oscuros, grises pizarra, pardos terrosos, rojos óxido; nada de colores vivos ni de aspecto de juego para móvil. Sombras profundas y oclusión marcada entre los detalles, luz tenue y algo fría, con contraste dramático.\nNueve piezas sueltas en una rejilla de 3 por 3, en este orden de lectura, separadas con holgura:\n1. un PUENTE de piedra de un solo arco que cruza un río (el río no se pinta), con un poste de madera VACÍO para la bandera de su dueño en un extremo.\n2. una PUERTA fortificada en un tramo de muralla: un arco con rastrillo entre dos torres, con un poste de madera VACÍO para la bandera.\n3. un PASO DE MONTAÑA: un desfiladero estrecho entre dos peñascos con un hito de piedra y un poste de madera VACÍO para la bandera.\n4. un PASO DE BOSQUE: un claro con un camino que entra entre árboles altos, con un hito de piedra y un poste de madera VACÍO para la bandera.\n5. un PASO DE ACANTILADO: una rampa de piedra tallada que sube por un desnivel, con un poste de madera VACÍO para la bandera arriba.\n6. un tramo de MONTAÑA VOLCÁNICA: picos de basalto negro con ríos de lava incandescente bajando por las laderas.\n7. un PICO suelto de roca gris con algo de nieve, más pequeño que una cordillera: remata el final de un tramo de montaña.\n8. un grupo de ROCAS grandes y peñascos grises, bajo y compacto.\n9. una COLADA de lava solidificada: una lengua de basalto negro con grietas incandescentes, baja.\nTodas con la MISMA cámara: ortográfica, elevada 25 grados sobre la horizontal, mirando de frente y algo a la derecha, como en la imagen de estilo; nunca cenital ni de perfil. Misma escala relativa: un tramo de borde mide de largo lo que tres casas y de alto lo que una. La luz viene de arriba a la izquierda. Sin estandartes ni banderas: los postes van vacíos.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/art/mapas/Imagen de ChatGPT 3 oct 2026, 10_05_01.png",
+      "papel": "estilo",
+      "sha256": "a3b78bb6efb486f6c65827e19739696aab723d824331faaa6d58d84c727fe6f5"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a10325-5619-7ca2-b1ac-cec4b844e600/exec-8ea4ce7b-72af-4fae-8be7-ac5779f12e25.png",
+    "sha256": "5df2b851f2dc219c84fb8d1b7bdfc027a92e2995bdbc140a45f3b59cf98fe8ac",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.4905274709065755,
+    "opacos": 0.9829236079338148,
+    "haloSuelto": 0.0000012961208399381492,
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/mapa/muestras/denso-b.webp",
+    "sha256": "a7b0a2a1b884d4909de4f34578e1ba6f1522a5db09f5c4c07c8be14de7a80947"
+  }
+}

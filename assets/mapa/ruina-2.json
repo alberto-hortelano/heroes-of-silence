@@ -1,0 +1,11 @@
+{
+  "imagen": "ruina-2.webp",
+  "sha256": "749c2790161a7b6db39c7bdc942b66ef0ce2aaebf7105155b9d7411307fd73cc",
+  "ancho": 1536,
+  "alto": 975,
+  "ancla": [
+    1264,
+    950
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

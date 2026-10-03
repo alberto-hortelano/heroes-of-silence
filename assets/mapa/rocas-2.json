@@ -1,0 +1,11 @@
+{
+  "imagen": "rocas-2.webp",
+  "sha256": "9a51fbcba985246e2b820f9b37a2f49116afe5fcee83a4183be2d6ed2a847c43",
+  "ancho": 1513,
+  "alto": 811,
+  "ancla": [
+    921,
+    786
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

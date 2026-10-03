@@ -1,0 +1,11 @@
+{
+  "imagen": "nodo-paso-acantilado.webp",
+  "sha256": "61067c9a36ad7916f4af5cff4d846e656c518d7618ec1c4947d254e1d83c5012",
+  "ancho": 1208,
+  "alto": 1020,
+  "ancla": [
+    434,
+    997
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

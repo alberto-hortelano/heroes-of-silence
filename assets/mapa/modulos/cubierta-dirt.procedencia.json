@@ -1,0 +1,40 @@
+{
+  "encargo": "modulos-cubierta-dirt",
+  "tipo": "modulos",
+  "fecha": "2026-10-03T21:40:49.435Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a1037d-dbc8-7df0-821e-db4cb9e5051b",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUna hoja de módulos para componer el mapa de aventura de un juego de estrategia: dieciséis detalles PEQUEÑOS de tierra de labranza: parcelas de cultivo cuadradas (trigo, coles, barbecho) vistas desde arriba en escorzo, una cerca de madera, un almiar, una carreta, piedras, matas.\nSon piezas para juntar a cientos y formar bosques, cordilleras y murallas continuas como las de la imagen de estilo: cada módulo es el objeto SOLO, sin peana ni trozo de suelo debajo, para posarlo sobre el terreno.\nEstilo de la imagen de estilo: fantasía medieval oscura, pintura digital muy detallada como una maqueta en miniatura, paleta apagada y poco saturada (verdes oliva y musgo oscuros, grises pizarra, pardos, rojos óxido), sombras profundas, luz tenue desde arriba a la izquierda.\n\nRejilla de 4 filas por 4 columnas: 16 módulos sueltos de la misma familia, con mucho aire alrededor de cada uno; NINGÚN módulo toca a otro, ni con una rama ni con una sombra.\nTodos con la misma cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, nunca cenital ni de perfil, y a la MISMA escala: un módulo pequeño es pequeño de verdad, no un grande dibujado más chico.\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/art/mapas/Imagen de ChatGPT 3 oct 2026, 10_05_01.png",
+      "papel": "estilo",
+      "sha256": "a3b78bb6efb486f6c65827e19739696aab723d824331faaa6d58d84c727fe6f5"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a1037d-dbc8-7df0-821e-db4cb9e5051b/exec-77990a0c-b0b8-4255-b7b2-1c33366eabac.png",
+    "sha256": "4da000f70bd3df72bbb574b1b656e7bcd53ea328250a9f84169d8924c7c4ba42",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "hoja partida en 16 módulos a su tamaño nativo, cada uno con su ancla en la base",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.4122486114501953,
+    "opacos": 0.9525470727671184,
+    "haloSuelto": 0.00004626695105419248,
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/mapa/modulos/cubierta-dirt.webp",
+    "sha256": "1870d3c5431a885737e566bc85f32c4084af1c5763ade37b71a19fe85f6f43b3"
+  }
+}

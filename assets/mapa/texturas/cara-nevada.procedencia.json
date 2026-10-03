@@ -1,0 +1,36 @@
+{
+  "encargo": "textura-cara-nevada",
+  "tipo": "textura",
+  "fecha": "2026-10-03T20:59:43.303Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a1038f-e547-7ac0-b7cb-cb6a23bdb8d8",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUna textura para el mapa de aventura de un juego de estrategia: una pared vertical de roca oscura vista DE FRENTE con nieve en los salientes y carámbanos. Del mismo acabado que las rocas, el agua y el barro de la imagen de estilo. Estilo de la imagen de estilo: fantasía medieval oscura, pintura digital muy detallada como una maqueta en miniatura, paleta apagada y poco saturada (verdes oliva y musgo oscuros, grises pizarra, pardos, rojos óxido), sombras profundas, luz tenue desde arriba a la izquierda.\n\nUna muestra plana de MATERIAL vista exactamente desde arriba, a 90 grados, como una muestra de una biblioteca de texturas: sin perspectiva, sin horizonte y sin sombras proyectadas.\nLisa y uniforme en toda la superficie: sin un motivo central, sin objetos sueltos, sin caminos, sin bordes ni marco, sin figuras y sin texto. Que se pueda repetir en mosaico por los cuatro lados sin que se note.\nFormato cuadrado, imagen opaca de borde a borde.",
+  "referencias": [
+    {
+      "ruta": "assets/art/mapas/Imagen de ChatGPT 3 oct 2026, 10_05_01.png",
+      "papel": "estilo",
+      "sha256": "a3b78bb6efb486f6c65827e19739696aab723d824331faaa6d58d84c727fe6f5"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a1038f-e547-7ac0-b7cb-cb6a23bdb8d8/exec-8f5a5b4c-e9c4-44d6-b6c2-302496423041.png",
+    "sha256": "166a66d6259e8fc4d7451312e471ef88a2ce5c3e3776bc264921284392cf4bb4",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "cuadrado central a 512×512 y repetible: mezclada eje a eje con su copia desplazada medio lado; costura 1.24 (1 es invisible)",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "ancho": 512,
+    "alto": 512
+  },
+  "salida": {
+    "ruta": "assets/mapa/texturas/cara-nevada.webp",
+    "sha256": "4a404c7a56cb9ed8f076b6a9974005cbb0f73b7c8539647089e6236c9af3ae89"
+  }
+}

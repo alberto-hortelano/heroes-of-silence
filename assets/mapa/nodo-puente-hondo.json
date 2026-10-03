@@ -1,0 +1,11 @@
+{
+  "imagen": "nodo-puente-hondo.webp",
+  "sha256": "b5134c904f9bfb57884f530a8968710aa42c20ac20eceafd92e313a47740a4f9",
+  "ancho": 1466,
+  "alto": 1024,
+  "ancla": [
+    1063,
+    1003
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

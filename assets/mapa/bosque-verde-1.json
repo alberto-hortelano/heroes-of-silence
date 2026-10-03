@@ -1,0 +1,11 @@
+{
+  "imagen": "bosque-verde-1.webp",
+  "sha256": "a8e2e7cdf11b6f6e4bc48ac3bd375875079515411bf83459306c2c8928df57cb",
+  "ancho": 1485,
+  "alto": 1024,
+  "ancla": [
+    1010,
+    1022
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

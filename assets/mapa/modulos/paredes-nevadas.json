@@ -1,0 +1,165 @@
+{
+  "hoja": "paredes-nevadas.webp",
+  "modulos": [
+    {
+      "imagen": "1.webp",
+      "sha256": "86734ab4aeae4032f7d2d4ec25b8314bd2810fb61f8f7577b6d7adf0d9c554dc",
+      "ancho": 422,
+      "alto": 251,
+      "ancla": [
+        322,
+        246
+      ]
+    },
+    {
+      "imagen": "2.webp",
+      "sha256": "3945676c4ad609314314d62cfad80336b52a3e4d558c3d9b7cee95c7ace580de",
+      "ancho": 274,
+      "alto": 226,
+      "ancla": [
+        191,
+        221
+      ]
+    },
+    {
+      "imagen": "3.webp",
+      "sha256": "feff0f5a2730551926a328f78f0c0d89de1215cbc68309a61d98e90a7daa4003",
+      "ancho": 308,
+      "alto": 207,
+      "ancla": [
+        247,
+        202
+      ]
+    },
+    {
+      "imagen": "4.webp",
+      "sha256": "d3c16cf927db1973a644dcc76b787610733096769b328929dd31daddb19cbe12",
+      "ancho": 164,
+      "alto": 223,
+      "ancla": [
+        99,
+        218
+      ]
+    },
+    {
+      "imagen": "5.webp",
+      "sha256": "43af5e5cdd5fdee87d344226d70ab06c69c16622a31b0f786a09f79059f7955a",
+      "ancho": 410,
+      "alto": 249,
+      "ancla": [
+        319,
+        244
+      ]
+    },
+    {
+      "imagen": "6.webp",
+      "sha256": "4e4e4bbf7c8d4425500fda8933979a399e80f587972667840fdbe32e0a39c303",
+      "ancho": 243,
+      "alto": 250,
+      "ancla": [
+        181,
+        245
+      ]
+    },
+    {
+      "imagen": "7.webp",
+      "sha256": "905aa520690b9ca51891d32141eee58e0176e425ef7a6e4e3cc5650235aae6e9",
+      "ancho": 352,
+      "alto": 223,
+      "ancla": [
+        276,
+        218
+      ]
+    },
+    {
+      "imagen": "8.webp",
+      "sha256": "d0f346156c8ab5d4fded4cae66b415c23bedbe7c2d9181814895936734a67d9c",
+      "ancho": 285,
+      "alto": 235,
+      "ancla": [
+        209,
+        230
+      ]
+    },
+    {
+      "imagen": "9.webp",
+      "sha256": "d2ce5b3db9fb59c72c019e2fb2d4c9181d001889e71abbbd9a08553f80043761",
+      "ancho": 254,
+      "alto": 218,
+      "ancla": [
+        177,
+        213
+      ]
+    },
+    {
+      "imagen": "10.webp",
+      "sha256": "f21ee7686d4bcfb889f34bff9a2e3e65901d3a60a6c321b767fccb6fc0e93567",
+      "ancho": 175,
+      "alto": 239,
+      "ancla": [
+        107,
+        234
+      ]
+    },
+    {
+      "imagen": "11.webp",
+      "sha256": "d6f95464466b73a112770de0391f641461968b7fa56172331cec1d01f068f726",
+      "ancho": 377,
+      "alto": 231,
+      "ancla": [
+        282,
+        226
+      ]
+    },
+    {
+      "imagen": "12.webp",
+      "sha256": "d6b07ad2af0b837d0c70fe83c2672d7ea112ffbd64dc92b2c953aeb081d74513",
+      "ancho": 432,
+      "alto": 229,
+      "ancla": [
+        350,
+        224
+      ]
+    },
+    {
+      "imagen": "13.webp",
+      "sha256": "527c3ae3b1eb6b2fd851c68ea7a15106e8c6eb9dd5207259daabad1f82054904",
+      "ancho": 323,
+      "alto": 229,
+      "ancla": [
+        250,
+        224
+      ]
+    },
+    {
+      "imagen": "14.webp",
+      "sha256": "31f5f4d961701793753f7ad1c2204dec0a27b3eff94162e241a4742642a7fec3",
+      "ancho": 157,
+      "alto": 243,
+      "ancla": [
+        96,
+        238
+      ]
+    },
+    {
+      "imagen": "15.webp",
+      "sha256": "751c0801646fb7743361d1b04910546fd7faea92994f8481983de1b34d833471",
+      "ancho": 360,
+      "alto": 235,
+      "ancla": [
+        274,
+        230
+      ]
+    },
+    {
+      "imagen": "16.webp",
+      "sha256": "30d3ea597a7c5d8e2d65b9be243cc1b30ba32c1ace2e079b35aec8f255c1ef63",
+      "ancho": 262,
+      "alto": 211,
+      "ancla": [
+        184,
+        206
+      ]
+    }
+  ]
+}

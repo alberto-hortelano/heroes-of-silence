@@ -1,0 +1,45 @@
+{
+  "encargo": "modulos-paredes-arenisca",
+  "tipo": "modulos",
+  "fecha": "2026-10-03T21:11:47.144Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a10399-8d13-7be3-a758-dacc936a1434",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUna hoja de módulos para componer el mapa de aventura de un juego de estrategia: dieciséis trozos de PARED DE ACANTILADO de arenisca roja estriada, vistos de frente: caras verticales altas, con el borde de arriba irregular y el pie con bloques caídos; cada uno de un ancho distinto.\nSon piezas para juntar a cientos y formar bosques, cordilleras y murallas continuas como las de la imagen de estilo: cada módulo es el objeto SOLO, sin peana ni trozo de suelo debajo, para posarlo sobre el terreno.\nEstilo de la imagen de estilo: fantasía medieval oscura, pintura digital muy detallada como una maqueta en miniatura, paleta apagada y poco saturada (verdes oliva y musgo oscuros, grises pizarra, pardos, rojos óxido), sombras profundas, luz tenue desde arriba a la izquierda.\n\nRejilla de 4 filas por 4 columnas: 16 módulos sueltos de la misma familia, con mucho aire alrededor de cada uno; NINGÚN módulo toca a otro, ni con una rama ni con una sombra.\nTodos con la misma cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, nunca cenital ni de perfil, y a la MISMA escala: un módulo pequeño es pequeño de verdad, no un grande dibujado más chico.\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/art/mapas/Imagen de ChatGPT 3 oct 2026, 10_05_01.png",
+      "papel": "estilo",
+      "sha256": "a3b78bb6efb486f6c65827e19739696aab723d824331faaa6d58d84c727fe6f5"
+    },
+    {
+      "ruta": "assets/mapa/muestras/denso-a.webp",
+      "papel": "identidad",
+      "sha256": "b54ea2efe0172b33089168428fa59bce5e6917baf084b50fc21476837b6631eb"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a10399-8d13-7be3-a758-dacc936a1434/exec-1ec1cff3-8565-4b59-ba47-0b6a030af0ec.png",
+    "sha256": "2964a3facc2587b6633b784ed235dea859399f63aa140b84195b384963e7db02",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "hoja partida en 16 módulos a su tamaño nativo, cada uno con su ancla en la base",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.5306481662432415,
+    "opacos": 0.989974195861026,
+    "haloSuelto": 0,
+    "ancho": 1505,
+    "alto": 1020
+  },
+  "salida": {
+    "ruta": "assets/mapa/modulos/paredes-arenisca.webp",
+    "sha256": "b4ad88735462352c84b45b4ee2814acf2a095b356b31a589ea0a5e0c87e46d54"
+  }
+}

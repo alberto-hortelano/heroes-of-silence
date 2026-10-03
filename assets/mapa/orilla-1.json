@@ -1,0 +1,11 @@
+{
+  "imagen": "orilla-1.webp",
+  "sha256": "5bdbb525193ab671dd7ca2ecca3e9a57b2f58e541091dcf079feba865f18b257",
+  "ancho": 1738,
+  "alto": 829,
+  "ancla": [
+    1311,
+    804
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}
