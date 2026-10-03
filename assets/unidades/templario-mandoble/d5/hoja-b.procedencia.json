@@ -1,0 +1,63 @@
+{
+  "encargo": "templario-mandoble-d5-b",
+  "tipo": "atlas",
+  "fecha": "2026-10-02T22:38:38.501Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a0fe77-b7e0-7d63-a63e-920cfee25c57",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo), copia su largo, su ángulo y su sitio en cada celda: es la guía del arma real. Si sus piernas son de color, la ROJA es la pierna DERECHA y la AZUL la IZQUIERDA: sirven para no confundirlas en el paso ni girar la figura de espaldas; el personaje NO lleva esos colores.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn templario pesado: armadura de placas, sobrevesta blanca con cruz roja, capa corta roja, yelmo abierto de casquete y mandoble largo empuñado con las dos manos. Sin escudo.\nEn la lámina de giro (imagen 2), la figura 6 en orden de lectura es la que mira hacia «espalda-izquierda», como esta hoja: así se ve el personaje desde este lado.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de ATAQUE de la fila 1 de la referencia de pose, golpeando con la espada. Fila 2: las siete poses de RECIBIR DAÑO de la fila 2: encaja un golpe y retrocede. Fila 3: las siete poses de la MUERTE de la fila 3: la primera es EXACTAMENTE la última de la fila 2, luego se desploma, y la última es el cadáver tendido e inmóvil en el suelo, con sus armas donde las tiene el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «espalda-izquierda» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/dos-manos-8d/d5-b.png",
+      "papel": "pose",
+      "sha256": "cafc4864f202cb56abc7e3cc7753d0f0bd0ba2607244f6f544daa75c3078b724"
+    },
+    {
+      "ruta": "assets/unidades/templario-mandoble/giro.webp",
+      "papel": "identidad",
+      "sha256": "2a978577771ec2bd5c2c6db6ac99d473acb904d16241b2b2376ccf6fb001bae8"
+    },
+    {
+      "ruta": "assets/art/templarios/guerrero-con-arma-a-dos-manos.png",
+      "papel": "estilo",
+      "sha256": "bed2665ae5749f6a24106a4ab0c219a828672d8e0ea0ba3fed0dd27f05353b8b"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a0fe77-b7e0-7d63-a63e-920cfee25c57/exec-21031480-a7ed-4859-b253-3c03b56f8eb1.png",
+    "sha256": "5c33d2a166ad76306bd1e7ce85f30f6631042ffce22910fffb820f4bba5006cc",
+    "ancho": 1915,
+    "alto": 821
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 1.0560, pies en y=342, reposo a 160 px",
+    "WebP calidad 92, alfa sin pérdida",
+    "dirección completa: assets/unidades/templario-mandoble/d5/atlas.webp"
+  ],
+  "validacion": {
+    "visibles": 0.049863139157572754,
+    "opacos": 0.9453644635860238,
+    "haloSuelto": 0,
+    "ancho": 2688,
+    "alto": 1152
+  },
+  "deLaPose": {
+    "k": 1.0666666666666667,
+    "origen": [
+      192,
+      342
+    ],
+    "apoyoReposo": [
+      189,
+      276
+    ],
+    "posicion": true
+  },
+  "salida": {
+    "ruta": "assets/unidades/templario-mandoble/d5/hoja-b.webp",
+    "sha256": "1345879d4c3a72329ae54b5d8f5f758e6444f3060f8805c1e3abac3bdceb52f4"
+  }
+}
