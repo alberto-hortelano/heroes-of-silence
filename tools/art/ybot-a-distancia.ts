@@ -4,11 +4,83 @@
  * inyecta en la copia temporal de `page.mjs` que monta `poses.ts`; el
  * renderizador original no se toca.
  *
- * Rescatado tal cual de `tools/art/ybot-ranged-poses.mjs` de la rama
- * `archivo/gpt-rpg`: el arco (tensar y soltar) y la ballesta (encarar y
- * disparar), que es también la pose del arcabuz y de la culebrina de mano.
+ * Rescatado de `tools/art/ybot-ranged-poses.mjs` de la rama `archivo/gpt-rpg`:
+ * el arco (tensar y soltar) y la ballesta (encarar y disparar), que es también
+ * la pose del arcabuz y de la culebrina de mano. Sus tablas de seis poses son
+ * hoy `CURVAS_DEL_DISPARO`.
  */
-export const POSE_A_DISTANCIA = `
+import { runInNewContext } from 'node:vm';
+
+/**
+ * Cuánto se tensa el arco (o se sube la ballesta) en cada nudo del disparo,
+ * repartidos a la par de 0 a 1 en el progreso del clip. Son las tablas de seis
+ * poses del rig de origen; entre nudos se interpola en línea recta.
+ */
+export const CURVAS_DEL_DISPARO = {
+  bow: [0, 0.45, 1, 1, 0.65, 0],
+  crossbow: [0, 0.7, 1, 1, 0.55, 0],
+} as const;
+
+/** Los clips de ataque que son un disparo: los que tienen curva. */
+export type ClipDeDisparo = keyof typeof CURVAS_DEL_DISPARO;
+
+export function esDisparo(clip: string): clip is ClipDeDisparo {
+  return Object.hasOwn(CURVAS_DEL_DISPARO, clip);
+}
+
+/**
+ * La curva del disparo, sin THREE: depende del PROGRESO del clip, de 0 a 1, y
+ * no del índice del fotograma, así que vale igual a 6 fotogramas y a 12.
+ *
+ * La suelta no es una cifra aparte: es el último nudo en lo más alto de la
+ * curva, donde empieza a aflojar. Así `cuerdaTensa` y la curva no pueden
+ * separarse. Los nudos se calculan como `i / (n − 1)`, que da el mismo double
+ * que escribir 0,2, 0,4… a mano: los píxeles no dependen de cómo se escriban.
+ *
+ * Es texto porque corre en la página de sprite-forge; `DISPARO_EN_NODE` evalúa
+ * este mismo texto, no una copia.
+ */
+export const CURVA_DEL_DISPARO = `
+const CURVAS_DEL_DISPARO = ${JSON.stringify(CURVAS_DEL_DISPARO)};
+function ordenadasDelDisparo(kind) {
+  const c = CURVAS_DEL_DISPARO[kind];
+  if (!c) throw new Error('no hay curva de disparo para «' + kind + '»');
+  return c;
+}
+function progresoDelDisparo(f, n) {
+  return n > 1 ? f / (n - 1) : 0;
+}
+function curvaDelDisparo(kind, p) {
+  const c = ordenadasDelDisparo(kind);
+  if (!(p >= 0 && p <= 1)) throw new Error('el progreso del disparo va de 0 a 1, no ' + p);
+  const ultimo = c.length - 1;
+  // El primer tramo con p por debajo de su final: en un nudo da su valor exacto.
+  for (let i = 0; i < ultimo; i += 1) {
+    const x0 = i / ultimo, x1 = (i + 1) / ultimo;
+    if (p < x1) return c[i] + ((c[i + 1] - c[i]) * (p - x0)) / (x1 - x0);
+  }
+  return c[ultimo];
+}
+function sueltaDelDisparo(kind) {
+  const c = ordenadasDelDisparo(kind);
+  return c.lastIndexOf(Math.max(...c)) / (c.length - 1);
+}
+function cuerdaTensa(kind, p) {
+  return p <= sueltaDelDisparo(kind);
+}
+`;
+
+/** La curva del disparo evaluada en Node: el mismo texto que corre en la página. */
+export const DISPARO_EN_NODE: {
+  progresoDelDisparo(f: number, n: number): number;
+  curvaDelDisparo(kind: string, p: number): number;
+  sueltaDelDisparo(kind: string): number;
+  cuerdaTensa(kind: string, p: number): boolean;
+} = runInNewContext(
+  `${CURVA_DEL_DISPARO}; ({ progresoDelDisparo, curvaDelDisparo, sueltaDelDisparo, cuerdaTensa })`,
+);
+
+export const POSE_A_DISTANCIA = `${CURVA_DEL_DISPARO}
 function turnJoint(bone, child, destination) {
   bone.updateWorldMatrix(true,true);
   const origin=bone.getWorldPosition(new THREE.Vector3());
@@ -35,15 +107,16 @@ function poseArm(model, side, target, hint) {
   const elbow=start.clone().addScaledVector(line,along).addScaledVector(bend,Math.sqrt(Math.max(0,a*a-along*along)));
   turnJoint(upper,lower,elbow); turnJoint(lower,hand,start.clone().addScaledVector(line,distance));
 }
-function rangedPose(model, kind, frame) {
-  if(kind==='bow') {
-    const draw=[0,.45,1,1,.65,0][frame%6];
-    poseArm(model,'Left',new THREE.Vector3(.12,1.22+draw*.18,.40+draw*.20),new THREE.Vector3(.5,-1,0));
-    poseArm(model,'Right',new THREE.Vector3(-.06,1.20+draw*.24,.38-draw*.28),new THREE.Vector3(-1,.15,0));
+// \`tension\`: lo que da la curva del disparo en este fotograma, de 0 a 1.
+function rangedPose(model, kind, tension) {
+  if (kind === 'bow') {
+    poseArm(model,'Left',new THREE.Vector3(.12,1.22+tension*.18,.40+tension*.20),new THREE.Vector3(.5,-1,0));
+    poseArm(model,'Right',new THREE.Vector3(-.06,1.20+tension*.24,.38-tension*.28),new THREE.Vector3(-1,.15,0));
+  } else if (kind === 'crossbow') {
+    poseArm(model,'Left',new THREE.Vector3(.10,1.02+tension*.25,.43),new THREE.Vector3(.5,-1,0));
+    poseArm(model,'Right',new THREE.Vector3(-.10,1.00+tension*.23,.24),new THREE.Vector3(-.5,-1,0));
   } else {
-    const raise=[0,.7,1,1,.55,0][frame%6];
-    poseArm(model,'Left',new THREE.Vector3(.10,1.02+raise*.25,.43),new THREE.Vector3(.5,-1,0));
-    poseArm(model,'Right',new THREE.Vector3(-.10,1.00+raise*.23,.24),new THREE.Vector3(-.5,-1,0));
+    throw new Error('no sé disparar «' + kind + '»: solo bow y crossbow');
   }
 }
 `;

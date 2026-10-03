@@ -9,7 +9,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
-import { indicesDeClip, OCHO_DIRECCIONES } from '../tools/art/poses.js';
+import {
+  clipDeDisparoDe,
+  columnaDeSuelta,
+  indicesDeClip,
+  type JuegoEn8d,
+  OCHO_DIRECCIONES,
+} from '../tools/art/poses.js';
 import { derivarAtlas, ELEVACION_DEL_CADAVER } from '../tools/taller/derivar.js';
 import { type Encargo, encargoSchema, promptDe } from '../tools/taller/encargo.js';
 import { type AtlasDePoses, derivarDireccionDePoses } from '../tools/taller/poses-8d.js';
@@ -63,6 +69,21 @@ describe('una dirección de 6 filas', () => {
     expect(Object.keys(a.clips)).toEqual(['idle', 'walk', 'charge', 'attack', 'hurt', 'death']);
     expect(a.clips.death?.loop).toBe(false);
     expect(a.cadaver).toEqual({ clip: 'death', frame: (a.clips.death?.frames ?? 0) - 1 });
+  });
+
+  it('un ataque con suelta conserva sus 7 columnas aunque casi no cambien; el resto se recorta igual', async () => {
+    // En esta hoja cada columna se mueve 1 px: por debajo de REPETIDO, como el
+    // disparo de frente del arco, que apenas cambia la silueta.
+    const ruta = await hoja();
+    const sin = await derivarAtlas(ruta);
+    expect(sin.clips.attack.frames).toBe(1);
+    const con = await derivarAtlas(ruta, { suelta: 4 });
+    expect(con.clips.attack).toMatchObject({ frames: 7, suelta: 4 });
+    for (const c of ['idle', 'walk', 'charge', 'hurt', 'death'] as const) {
+      expect(con.clips[c], c).toEqual(sin.clips[c]);
+    }
+    expect(sin.clips.attack.suelta).toBeUndefined();
+    await expect(derivarAtlas(ruta, { suelta: 7 })).rejects.toThrow(/no cae dentro del ataque/);
   });
 
   it('un ancla para todas, la del reposo, salvo la muerte: va ELEVACION_DEL_CADAVER más arriba', async () => {
@@ -151,7 +172,7 @@ describe('las anclas del Y Bot en 8 direcciones (`_poses/atlas-8d.json`)', () =>
   const atlas = JSON.parse(readFileSync(RUTA, 'utf8')) as AtlasDePoses;
   const sha = (r: string): string => createHash('sha256').update(readFileSync(r)).digest('hex');
 
-  it('trae los siete juegos, ocho direcciones cada uno y las 6 acciones con su cadáver', () => {
+  it('trae los nueve juegos, ocho direcciones cada uno y las 6 acciones con su cadáver', () => {
     expect(Object.keys(atlas.juegos).sort()).toEqual([...JUEGOS_EN_8D].sort());
     for (const [juego, dirs] of Object.entries(atlas.juegos)) {
       expect(dirs, juego).toHaveLength(8);
@@ -183,5 +204,24 @@ describe('las anclas del Y Bot en 8 direcciones (`_poses/atlas-8d.json`)', () =>
   it('una dirección vuelta a derivar da el mismo JSON (no se toca a mano)', async () => {
     const d = await derivarDireccionDePoses('espada-escudo', 3);
     expect(JSON.parse(JSON.stringify(d))).toEqual(atlas.juegos['espada-escudo']?.[3]);
+    const arco = await derivarDireccionDePoses('arco', 2);
+    expect(JSON.parse(JSON.stringify(arco))).toEqual(atlas.juegos.arco?.[2]);
+  });
+
+  it('el ataque de quien dispara lleva su suelta, la del render; el de quien golpea, ninguna', () => {
+    for (const [juego, dirs] of Object.entries(atlas.juegos)) {
+      const clip = clipDeDisparoDe(juego as JuegoEn8d);
+      const poses = JSON.parse(
+        readFileSync(join(RAIZ, 'assets/unidades/_poses', `${juego}-8d`, 'poses.json'), 'utf8'),
+      ) as { sourceMetadata: { attack: { frame_count: number } } };
+      for (const [n, d] of dirs.entries()) {
+        const esperada =
+          clip === null
+            ? undefined
+            : columnaDeSuelta(clip, poses.sourceMetadata.attack.frame_count, d.columns);
+        expect(d.clips.attack.suelta, `${juego}/d${n}`).toBe(esperada);
+      }
+    }
+    expect(atlas.juegos.arco?.[0]?.clips.attack.suelta).toBe(4);
   });
 });

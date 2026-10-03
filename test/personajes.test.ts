@@ -33,15 +33,15 @@ describe('las figuras a 25°, en 8 direcciones', () => {
     );
   });
 
-  it('la tabla del usuario: piquero con lanza, caballería montada, mago con bastón, el resto con espada y escudo', () => {
+  it('la tabla del usuario: piquero con lanza, caballería montada, mago con bastón, arquero con arco, el resto con espada y escudo', () => {
     expect(JUEGO_DEL_CUERPO.pikeman).toBe('lanza');
     expect(JUEGO_DEL_CUERPO.veteran_pikeman).toBe('lanza');
     expect(JUEGO_DEL_CUERPO.cavalry).toBe('montado-lanza');
     expect(JUEGO_DEL_CUERPO.champion).toBe('montado-lanza');
     expect(JUEGO_DEL_CUERPO.lich).toBe('baston');
     expect(JUEGO_DEL_CUERPO.power_lich).toBe('baston');
-    // Sin render de arco en 8 direcciones, el arquero va con espada y escudo.
-    expect(JUEGO_DEL_CUERPO.archer).toBe('espada-escudo');
+    expect(JUEGO_DEL_CUERPO.archer).toBe('arco');
+    expect(JUEGO_DEL_CUERPO.ranger).toBe('arco');
     expect(JUEGO_DEL_CUERPO.skeleton).toBe('espada-escudo');
     expect(JUEGO_DEL_CUERPO[HERO_BODY]).toBe('espada-escudo');
   });
@@ -70,8 +70,10 @@ describe('las figuras a 25°, en 8 direcciones', () => {
   });
 
   it('cada imagen de cada figura existe en `assets/`', () => {
-    // Los siete juegos del Y Bot: todos tienen poses, aunque la tabla no los use todos.
+    // Los nueve juegos del Y Bot: todos tienen poses, aunque la tabla no los use todos.
     expect([...juegosDelYBot()].sort()).toEqual([
+      'arco',
+      'ballesta',
       'baston',
       'dos-manos',
       'espada-escudo',
@@ -108,8 +110,8 @@ describe('las figuras a 25°, en 8 direcciones', () => {
   });
 
   it('registrar se niega diciéndolo: un juego sin poses, siete direcciones o un cuerpo del juego', () => {
-    expect(() => registrarUnidad('x', { juego: 'arco', direcciones: null })).toThrow(
-      /«arco» no tiene poses en 8 direcciones/,
+    expect(() => registrarUnidad('x', { juego: 'honda', direcciones: null })).toThrow(
+      /«honda» no tiene poses en 8 direcciones/,
     );
     const siete = Array.from({ length: 7 }, (_, d) =>
       leer(join(RAIZ, 'assets/unidades/templario-escudo', `d${d}`, 'atlas.json')),
@@ -138,5 +140,24 @@ describe('las figuras a 25°, en 8 direcciones', () => {
     expect(() => comoDireccion8d({ ...bueno, cadaver: undefined }, 'sin-cadaver', fila)).toThrow(
       /qué fotograma de la muerte es el cadáver/,
     );
+  });
+
+  it('la suelta de un disparo se lee del ataque, y fuera de él o fuera de la hoja se rechaza', () => {
+    const fila = (row: number) => ({ imagen: 'x', row });
+    const bueno = leer(join(RAIZ, 'assets/unidades/templario-escudo/d0/atlas.json')) as {
+      clips: Record<string, Record<string, unknown>>;
+    };
+    const con = (clip: string, suelta: unknown) =>
+      comoDireccion8d(
+        { ...bueno, clips: { ...bueno.clips, [clip]: { ...bueno.clips[clip], suelta } } },
+        'tiro',
+        fila,
+      );
+    expect(con('attack', 4).clips.attack.suelta).toBe(4);
+    expect(comoDireccion8d(bueno, 'sin-tiro', fila).clips.attack.suelta).toBeUndefined();
+    expect(() => con('hurt', 4)).toThrow(/suelta del clip "hurt".*solo el ataque/);
+    for (const mala of [0, 7, 2.5]) {
+      expect(() => con('attack', mala), String(mala)).toThrow(/entre la 1 y la 6/);
+    }
   });
 });

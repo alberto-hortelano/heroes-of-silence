@@ -5,10 +5,11 @@
  * El reloj lo pone `tick`, una vez por fotograma; las lecturas no lo tocan.
  */
 import { describe, expect, it } from 'vitest';
-import { BattleAnimator, DURACION } from '../src/client/anim.js';
+import { BattleAnimator, DURACION, relojDelDisparo, VUELO_MS } from '../src/client/anim.js';
 import { msPorCasilla } from '../src/client/marcha.js';
 import { clipQueSePinta } from '../src/client/render/batalla.js';
-import { arteDe, hojaDe } from '../src/client/render/personajes.js';
+import { clipFrame } from '../src/client/render/character.js';
+import { arteDe, hojaDe, MIRADA_DE_PRESENTACION } from '../src/client/render/personajes.js';
 import { ALTO_DE_FIGURA, planoDeHex } from '../src/client/render/proyeccion.js';
 import { createBattle } from '../src/core/battle/battle.js';
 import type { BattleState } from '../src/core/battle/types.js';
@@ -144,6 +145,75 @@ describe('el animador de batalla', () => {
     expect(clipQueSePinta(victima!.body, a.figura(victima!))).toBe('hurt');
     a.tick(impacto + dura + 1);
     expect(clipQueSePinta(victima!.body, a.figura(victima!))).toBe('idle');
+  });
+
+  /** Una batalla con `tirador` de atacante, y su primer stack disparando al primer defensor. */
+  function disparo(tirador: string) {
+    const a = new BattleAnimator();
+    const b = createBattle(
+      { army: troopsAsStacks(ejercito({ creature: tirador, count: 2 })), hero: null },
+      { army: troopsAsStacks(ejercito({ creature: 'skeleton', count: 2 })), hero: null },
+      createRng(1),
+    );
+    a.observe(b);
+    a.tick(0);
+    const quien = b.stacks.find((s) => s.side === 'attacker')!;
+    const victima = b.stacks.find((s) => s.side === 'defender')!;
+    b.log.push({ kind: 'shoot', stack: quien.id, target: victima.id, damage: 4, killed: 0 });
+    a.observe(b);
+    a.tick(0);
+    const proyectil = () => a.efectos(b).find((e) => e.tipo === 'proyectil');
+    return {
+      a,
+      quien,
+      victima,
+      proyectil,
+      danio: () => a.efectos(b).some((e) => e.tipo === 'danio'),
+    };
+  }
+
+  it('un arquero suelta el proyectil en la columna que su hoja marca como suelta, y el daño llega con él', () => {
+    const info = hojaDe(arteDe('archer'), MIRADA_DE_PRESENTACION).clips.attack;
+    expect(info.suelta, 'el arco de `atlas-8d.json` sin suelta').toBeDefined();
+    const columna = 1000 / info.fps;
+    const desde = (info.suelta as number) * columna;
+    const { dura, impacto } = relojDelDisparo('archer');
+    const { a, quien, victima, proyectil, danio } = disparo('archer');
+    const atlas = hojaDe(arteDe(quien.body), a.figura(quien).mira);
+    // Mientras tensa: el tirador dispara, pero la flecha aún no ha salido.
+    a.tick(desde - 1);
+    expect(a.figura(quien).clip).toBe('attack');
+    expect(proyectil()).toBeUndefined();
+    // Sale con la columna de la suelta en pantalla, desde el tirador…
+    a.tick(desde + 1);
+    expect(clipFrame(atlas, 'attack', a.figura(quien).tiempo)).toBe(info.suelta);
+    expect(proyectil()?.t).toBeCloseTo(0, 1);
+    // …y justo antes del impacto está llegando; la víctima aún no se duele.
+    a.tick(impacto * dura - 1);
+    expect(proyectil()?.t).toBeCloseTo(1, 1);
+    expect(a.figura(victima).clip).toBe('idle');
+    expect(impacto * dura - desde).toBeCloseTo(VUELO_MS);
+    // En el impacto: sin proyectil, la cifra y el daño con su reloj desde ahí.
+    a.tick(impacto * dura + 30);
+    expect(proyectil()).toBeUndefined();
+    expect(danio()).toBe(true);
+    expect(a.figura(victima).clip).toBe('hurt');
+    expect(a.figura(victima).tiempo).toBeCloseTo(30);
+    a.tick(dura + 1);
+    expect(a.busy).toBe(false);
+  });
+
+  it('quien no tiene suelta en su hoja dispara como siempre: el proyectil sale en 0 y el paso dura lo de siempre', () => {
+    // El liche lanza con el bastón y nadie ha medido dónde «suelta» su clip.
+    for (const tirador of ['lich', 'peasant']) {
+      expect(hojaDe(arteDe(tirador), MIRADA_DE_PRESENTACION).clips.attack.suelta).toBeUndefined();
+      expect(relojDelDisparo(tirador)).toEqual({ dura: DURACION.shoot, impacto: 0.55, suelta: 0 });
+      const { a, proyectil } = disparo(tirador);
+      a.tick(1);
+      expect(proyectil()?.t, tirador).toBeCloseTo(0, 1);
+      a.tick(DURACION.shoot + 1);
+      expect(a.busy, tirador).toBe(false);
+    }
   });
 
   it('un golpe sin daño no hace dolerse', () => {

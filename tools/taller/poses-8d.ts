@@ -23,8 +23,15 @@ import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import sharp from 'sharp';
-import { NOMBRES_DE_DIRECCION } from '../../src/shared/arte.js';
-import { carpetaDePoses, DIR_POSES, type JuegoEn8d, OCHO_DIRECCIONES } from '../art/poses.js';
+import { FIGURA, NOMBRES_DE_DIRECCION } from '../../src/shared/arte.js';
+import {
+  carpetaDePoses,
+  clipDeDisparoDe,
+  columnaDeSuelta,
+  DIR_POSES,
+  type JuegoEn8d,
+  OCHO_DIRECCIONES,
+} from '../art/poses.js';
 import { type AtlasDerivado, derivarAtlas } from './derivar.js';
 import { JUEGOS_EN_8D } from './unidades.js';
 
@@ -64,6 +71,8 @@ export async function derivarDireccionDePoses(
       `${origen}/d${d}-a.png mide ${height} de alto: una hoja de poses son 3 filas de ${celda}`,
     );
   }
+  // La hoja tiene las columnas de FIGURA, las mismas con las que mide `derivarAtlas`.
+  const suelta = await sueltaDe(juego, FIGURA.columnas);
   await mkdir(DIR_JUNTAS, { recursive: true });
   const ruta = rutaJunta(juego, d);
   await sharp({
@@ -82,6 +91,7 @@ export async function derivarDireccionDePoses(
     ...atlas
   } = await derivarAtlas(ruta, {
     elevacionDeLaMuerte: 0,
+    ...(suelta === null ? {} : { suelta }),
   });
   return {
     hojas: {
@@ -90,6 +100,25 @@ export async function derivarDireccionDePoses(
     },
     ...atlas,
   };
+}
+
+/**
+ * La columna de suelta del ataque de un juego que dispara, como la da el render:
+ * los fotogramas del clip salen del `poses.json` que escribió, no de suponer el
+ * reloj. `null` si el juego golpea.
+ */
+async function sueltaDe(juego: JuegoEn8d, columnas: number): Promise<number | null> {
+  const clip = clipDeDisparoDe(juego);
+  if (clip === null) return null;
+  const ruta = join(carpetaDePoses(juego), 'poses.json');
+  const poses = JSON.parse(await readFile(ruta, 'utf8')) as {
+    sourceMetadata?: { attack?: { frame_count?: unknown } };
+  };
+  const fotogramas = poses.sourceMetadata?.attack?.frame_count;
+  if (typeof fotogramas !== 'number') {
+    throw new Error(`${ruta} no dice cuántos fotogramas tiene el ataque (sourceMetadata.attack)`);
+  }
+  return columnaDeSuelta(clip, fotogramas, columnas);
 }
 
 export interface AtlasDePoses {

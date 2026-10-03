@@ -73,6 +73,12 @@ export interface ClipDerivado {
   readonly fps: number;
   readonly loop: boolean;
   readonly anchor: readonly [number, number];
+  /**
+   * Solo en el ataque de quien dispara: la primera columna con la cuerda ya
+   * suelta, donde sale el proyectil. No se mide en la imagen; la pone
+   * `poses-8d.ts` con la curva del maniquí.
+   */
+  readonly suelta?: number;
 }
 
 export interface AtlasDerivado {
@@ -146,13 +152,23 @@ function mediana(v: readonly number[]): number {
 }
 
 /**
+ * `suelta`: la columna en la que suelta la cuerda quien dispara (ver
+ * `ClipDerivado.suelta`). Su ataque se queda con TODAS las columnas: de frente,
+ * el disparo apenas mueve la silueta (el alfa cambia un 0,03-0,3 % de una
+ * columna a la siguiente, por debajo de `REPETIDO`) y recortarlo como repetido
+ * dejaba el ataque en un fotograma, sin animar y con la suelta fuera del clip.
+ * El resto de clips se recorta igual que siempre.
+ *
  * `elevacionDeLaMuerte`: cuánto más arriba va la fila de la muerte en su celda.
  * Por defecto `ELEVACION_DEL_CADAVER`, la de las hojas pintadas; 0 para el
  * render crudo del Y Bot (`poses-8d.ts`), que la tiene donde la pone el maniquí.
  */
 export async function derivarAtlas(
   rutaImagen: string,
-  { elevacionDeLaMuerte = ELEVACION_DEL_CADAVER }: { elevacionDeLaMuerte?: number } = {},
+  {
+    elevacionDeLaMuerte = ELEVACION_DEL_CADAVER,
+    suelta,
+  }: { elevacionDeLaMuerte?: number; suelta?: number } = {},
 ): Promise<AtlasDerivado> {
   const bytes = await readFile(rutaImagen);
   const { data, info } = await sharp(bytes)
@@ -177,8 +193,9 @@ export async function derivarAtlas(
     const celdas = Array.from({ length: columnas }, (_, col) =>
       celda(data, info.width, col, fila, lado),
     );
+    const conSuelta = def.clip === 'attack' && suelta !== undefined;
     let frames: number = columnas;
-    while (frames > 0) {
+    while (frames > 0 && !conSuelta) {
       const ultima = celdas[frames - 1] as Celda;
       const previa = celdas[frames - 2];
       if (ultima.vacia || (previa !== undefined && diferencia(ultima, previa) < REPETIDO)) frames--;
@@ -207,7 +224,19 @@ export async function derivarAtlas(
       mediana(apoyos.map((a) => a[0])),
       mediana(apoyos.map((a) => a[1])),
     ];
-    clips[def.clip] = { row: fila, frames, fps: def.fps, loop: def.loop, anchor };
+    if (conSuelta && !(Number.isInteger(suelta) && suelta >= 1 && suelta < frames)) {
+      throw new Error(
+        `${rutaImagen}: la suelta en la columna ${suelta} no cae dentro del ataque (columnas 1 a ${frames - 1})`,
+      );
+    }
+    clips[def.clip] = {
+      row: fila,
+      frames,
+      fps: def.fps,
+      loop: def.loop,
+      anchor,
+      ...(conSuelta ? { suelta } : {}),
+    };
 
     if (def.clip === 'idle') {
       const [, y0, , y1] = caja(validas[0] as Celda, lado, ALFA_ALTURA);

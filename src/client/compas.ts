@@ -14,7 +14,7 @@
  * la marca el hecho, y su final lo leen otros (`clipEnCurso`, `fotogramaDeCaida`)
  * con el mismo reloj sin desplazar.
  */
-import type { ClipInfo } from './render/character.js';
+import { type ClipInfo, msDelClip } from './render/character.js';
 
 /**
  * Cuánto se aparta como mucho la velocidad de una figura de la del atlas, por
@@ -71,6 +71,5 @@ export function compasDe(id: string): Compas {
 export function relojDeFigura(info: ClipInfo, tiempo: number, id: string): number {
   if (!info.loop) return tiempo;
   const { desfase, velocidad } = compasDe(id);
-  const ciclo = (info.frames * 1000) / info.fps;
-  return tiempo * velocidad + desfase * ciclo;
+  return tiempo * velocidad + desfase * msDelClip(info);
 }

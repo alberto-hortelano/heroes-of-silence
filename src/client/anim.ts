@@ -22,14 +22,15 @@ import { isAlive, stackHexes } from '@core/battle/battle.js';
 import type { BattleEvent, BattleStack, BattleState } from '@core/battle/types.js';
 import { hexSize } from '@core/data.js';
 import { type Direccion, direccionHacia } from './direccion.js';
-import { msPorCasilla } from './marcha.js';
+import { msDeSuelta, msPorCasilla } from './marcha.js';
 import type { CharacterClip } from './render/character.js';
 import { ALTO_DE_FIGURA, centroDeStack, type Plano, planoDeHex } from './render/proyeccion.js';
 
 /**
  * Lo que dura en pantalla cada paso de la cola, en milisegundos. El de andar no
  * está: depende de cuántas casillas se andan y de la zancada de quien anda
- * (`duracionDelTramo`).
+ * (`msPorCasilla`). El de disparar es el de quien no tiene suelta medida: quien
+ * sí la tiene tarda lo que diga su hoja (`relojDelDisparo`).
  */
 export const DURACION = {
   attack: 560,
@@ -38,12 +39,41 @@ export const DURACION = {
   perished: 520,
 } as const;
 
-/** En qué fracción del golpe se nota el impacto: el retroceso y la cifra. */
+/** En qué fracción del paso se nota el impacto si nada dice otra cosa: el retroceso y la cifra. */
 const IMPACTO = 0.55;
 
+/** Lo que vuela el proyectil de un disparo con suelta, de la suelta al impacto. */
+export const VUELO_MS = 340;
+/** Lo que se ve tras el impacto de un disparo con suelta: el temblor y la cifra. */
+const TRAS_EL_IMPACTO_MS = 280;
+
+/**
+ * Cómo se reparte en el tiempo un paso que no anda: lo que dura, en qué
+ * fracción llega el impacto y, si vuela algo, en cuál sale (`suelta`; `null`,
+ * nada vuela).
+ */
+interface Reloj {
+  readonly dura: number;
+  readonly impacto: number;
+  readonly suelta: number | null;
+}
+
+/**
+ * El reloj del disparo de `body`. Con la suelta en su hoja (`msDeSuelta`), el
+ * proyectil sale cuando la figura suelta la cuerda, vuela `VUELO_MS` y el paso
+ * acaba `TRAS_EL_IMPACTO_MS` después del impacto. Sin ella, sale en 0 y el paso
+ * dura `DURACION.shoot`, con el impacto en `IMPACTO`.
+ */
+export function relojDelDisparo(body: string): Reloj {
+  const suelta = msDeSuelta(body);
+  if (suelta === null) return { dura: DURACION.shoot, impacto: IMPACTO, suelta: 0 };
+  const dura = suelta + VUELO_MS + TRAS_EL_IMPACTO_MS;
+  return { dura, impacto: (suelta + VUELO_MS) / dura, suelta: suelta / dura };
+}
+
 /** Cuánto lleva lo que pasa DESPUÉS del impacto, de 0 a 1: el temblor y la cifra. */
-function trasImpacto(t: number): number {
-  return (t - IMPACTO) / (1 - IMPACTO);
+function trasImpacto(t: number, impacto: number): number {
+  return (t - impacto) / (1 - impacto);
 }
 
 type Paso =
@@ -64,14 +94,14 @@ type Paso =
       readonly body: string;
       readonly alto: number;
     }
-  | {
+  | ({
       readonly tipo: 'attack' | 'shoot';
       readonly stack: string;
       readonly target: string;
       readonly damage: number;
-    }
-  | { readonly tipo: 'cast'; readonly target: string | null; readonly damage: number }
-  | { readonly tipo: 'perished'; readonly stack: string };
+    } & Reloj)
+  | ({ readonly tipo: 'cast'; readonly target: string | null; readonly damage: number } & Reloj)
+  | { readonly tipo: 'perished'; readonly stack: string; readonly dura: number };
 
 /** Lo que el lienzo necesita de una figura en este instante. */
 export interface EstadoFigura {
@@ -162,8 +192,54 @@ function largoDe(camino: readonly Plano[]): number {
  * una casilla o de seis.
  */
 export function duracionDelPaso(p: Paso): number {
-  if (p.tipo !== 'move') return DURACION[p.tipo];
+  if (p.tipo !== 'move') return p.dura;
   return largoDe(p.camino) * msPorCasilla(p.body, p.carga === true ? 'charge' : 'walk', p.alto);
+}
+
+function stackDe(battle: BattleState, id: string, que: string): BattleStack {
+  const s = battle.stacks.find((x) => x.id === id);
+  if (s === undefined) throw new Error(`el registro ${que} a ${id}, que no está en la batalla`);
+  return s;
+}
+
+/**
+ * El paso de un hecho que no anda, con su reloj ya resuelto: el de un disparo
+ * depende de quién dispara. `null` si el hecho no se cuenta.
+ */
+function pasoDeAccion(e: BattleEvent, battle: BattleState): Exclude<Paso, { tipo: 'move' }> | null {
+  switch (e.kind) {
+    case 'attack':
+      return {
+        tipo: 'attack',
+        stack: e.stack,
+        target: e.target,
+        damage: e.damage,
+        dura: DURACION.attack,
+        impacto: IMPACTO,
+        suelta: null,
+      };
+    case 'shoot':
+      return {
+        tipo: 'shoot',
+        stack: e.stack,
+        target: e.target,
+        damage: e.damage,
+        ...relojDelDisparo(stackDe(battle, e.stack, 'hace disparar').body),
+      };
+    case 'cast':
+      return {
+        tipo: 'cast',
+        target: e.target ?? null,
+        damage: e.damage ?? 0,
+        dura: DURACION.cast,
+        impacto: IMPACTO,
+        suelta: null,
+      };
+    case 'perished':
+      return { tipo: 'perished', stack: e.stack, dura: DURACION.perished };
+    default:
+      return null;
+  }
 }
 
 /**
@@ -177,9 +253,7 @@ export function duracionDeLaJugada(battle: BattleState, nuevos: readonly BattleE
   let ms = 0;
   for (const [i, e] of nuevos.entries()) {
     if (e.kind === 'move') {
-      const s = battle.stacks.find((x) => x.id === e.stack);
-      if (s === undefined)
-        throw new Error(`el registro mueve a ${e.stack}, que no está en la batalla`);
+      const s = stackDe(battle, e.stack, 'mueve');
       const siguiente = nuevos[i + 1];
       const carga =
         siguiente?.kind === 'attack' &&
@@ -188,8 +262,9 @@ export function duracionDeLaJugada(battle: BattleState, nuevos: readonly BattleE
         !siguiente.retaliation;
       const alto = ALTO_DE_FIGURA[hexSize(s.unit) > 1 ? 'grande' : 'normal'];
       ms += e.path.length * msPorCasilla(s.body, carga ? 'charge' : 'walk', alto);
-    } else if (e.kind in DURACION) {
-      ms += DURACION[e.kind as keyof typeof DURACION];
+    } else {
+      const paso = pasoDeAccion(e, battle);
+      if (paso !== null) ms += paso.dura;
     }
   }
   return ms;
@@ -309,21 +384,12 @@ export class BattleAnimator {
         const desde = this.destino.get(e.stack) ?? hasta;
         this.destino.set(e.stack, hasta);
         const camino = [desde, ...e.path.map(planoDeHex)];
-        const s = battle.stacks.find((x) => x.id === e.stack);
-        if (s === undefined)
-          throw new Error(`el registro mueve a ${e.stack}, que no está en la batalla`);
+        const s = stackDe(battle, e.stack, 'mueve');
         const alto = ALTO_DE_FIGURA[hexSize(s.unit) > 1 ? 'grande' : 'normal'];
         return { tipo: 'move', stack: e.stack, desde, hasta, camino, body: s.body, alto };
       }
-      case 'attack':
-      case 'shoot':
-        return { tipo: e.kind, stack: e.stack, target: e.target, damage: e.damage };
-      case 'cast':
-        return { tipo: 'cast', target: e.target ?? null, damage: e.damage ?? 0 };
-      case 'perished':
-        return { tipo: 'perished', stack: e.stack };
       default:
-        return null;
+        return pasoDeAccion(e, battle);
     }
   }
 
@@ -375,7 +441,7 @@ export class BattleAnimator {
     if (p.tipo === 'perished') this.caidas.set(p.stack, inicio);
     // El daño sigue después del paso: se apunta cuándo fue el impacto.
     if (p.tipo === 'attack' || p.tipo === 'shoot' || p.tipo === 'cast') {
-      if (p.target !== null && p.damage > 0) this.heridas.set(p.target, inicio + IMPACTO * dura);
+      if (p.target !== null && p.damage > 0) this.heridas.set(p.target, inicio + p.impacto * dura);
     }
     // Quien actúa deja de dolerse: su propio paso manda.
     if (p.tipo !== 'cast') this.heridas.delete(p.stack);
@@ -449,13 +515,13 @@ export class BattleAnimator {
         // Lo recibe igual un golpe, un disparo o un hechizo: una sola rama.
         (paso.tipo === 'attack' || paso.tipo === 'shoot' || paso.tipo === 'cast') &&
         paso.target === s.id &&
-        t >= IMPACTO
+        t >= paso.impacto
       ) {
-        golpe = trasImpacto(t);
+        golpe = trasImpacto(t, paso.impacto);
         if (paso.damage > 0) {
           // Con daño, se duele: el clip arranca en el impacto.
           clip = 'hurt';
-          tiempo = desdeInicio - IMPACTO * (this.actual?.dura ?? 0);
+          tiempo = desdeInicio - paso.impacto * (this.actual?.dura ?? 0);
         }
       } else if (paso.tipo === 'perished' && paso.stack === s.id) {
         // Cae con su clip de muerte; lo que se funde es el aro y la barra, no
@@ -495,12 +561,14 @@ export class BattleAnimator {
     if (paso.tipo === 'attack' || paso.tipo === 'shoot') {
       const a = donde(paso.stack);
       const b = donde(paso.target);
+      const { impacto, suelta } = paso;
       if (a !== null && b !== null) {
-        if (paso.tipo === 'shoot' && t < IMPACTO) {
-          out.push({ tipo: 'proyectil', desde: a, hasta: b, t: t / IMPACTO });
+        // Lo que vuela, vuela de la suelta al impacto.
+        if (suelta !== null && t >= suelta && t < impacto) {
+          out.push({ tipo: 'proyectil', desde: a, hasta: b, t: (t - suelta) / (impacto - suelta) });
         }
-        if (t >= IMPACTO && paso.damage > 0) {
-          out.push({ tipo: 'danio', en: b, cifra: paso.damage, t: trasImpacto(t) });
+        if (t >= impacto && paso.damage > 0) {
+          out.push({ tipo: 'danio', en: b, cifra: paso.damage, t: trasImpacto(t, impacto) });
         }
       }
     }
@@ -508,8 +576,8 @@ export class BattleAnimator {
       const b = donde(paso.target);
       if (b !== null) {
         out.push({ tipo: 'hechizo', en: b, t });
-        if (t >= IMPACTO && paso.damage > 0) {
-          out.push({ tipo: 'danio', en: b, cifra: paso.damage, t: trasImpacto(t) });
+        if (t >= paso.impacto && paso.damage > 0) {
+          out.push({ tipo: 'danio', en: b, cifra: paso.damage, t: trasImpacto(t, paso.impacto) });
         }
       }
     }

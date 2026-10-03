@@ -26,7 +26,12 @@ import { tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
 import sharp from 'sharp';
 import { FIGURA, FIGURA_8D, luzEnElMundo } from '../../src/shared/arte.js';
-import { POSE_A_DISTANCIA } from './ybot-a-distancia.js';
+import {
+  type ClipDeDisparo,
+  DISPARO_EN_NODE,
+  esDisparo,
+  POSE_A_DISTANCIA,
+} from './ybot-a-distancia.js';
 
 const RAIZ = resolve(import.meta.dirname, '../..');
 const FORGE = resolve(process.env.SPRITE_FORGE_DIR ?? join(RAIZ, '../sprite-forge'));
@@ -137,12 +142,22 @@ function puntoMasBajo(model) {
  *    antebrazo cruzando su cara interior y la punta hacia abajo.
  */
 const ATREZO = `
-function crearAtrezo(model, conf) {
+// Cada arma se crea con su función de colocar: \`crearAtrezo\` elige una vez y en
+// cada fotograma se llama a \`atrezo.colocar(suelo, aplanar, frente, disparo)\`.
+// \`disparo\` es \`{ tension, tensa }\` en un fotograma de disparo y \`null\` en
+// cualquier otro.
+function crearAtrezo(model, prefijo, conf) {
   let material = null;
   model.traverse((n) => { if (!material && n.isMesh) material = Array.isArray(n.material) ? n.material[0] : n.material; });
   // Una copia: el del maniquí puede pasar a colores de vértice (las piernas) y
   // el atrezo no los tiene, así que con el mismo material saldría negro.
   material = material.clone();
+  const p = huesoEn(model, prefijo);
+  if (conf.arco) return crearArco(p, conf, material);
+  if (conf.ballesta) return crearBallesta(model, p, conf, material);
+  return crearArmaDeMano(model, prefijo, p, conf, material);
+}
+function crearArmaDeMano(model, prefijo, p, conf, material) {
   const e = conf.espada;
   const espada = new THREE.Group();
   const r = e.grosor ?? 0.022;
@@ -183,42 +198,150 @@ function crearAtrezo(model, conf) {
   }
   // Un libro en la mano izquierda.
   const libro = conf.libro ? new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.22, 0.06), material) : null;
-  if (!conf.escudo) return { espada, escudo: null, libro };
-  const forma = new THREE.Shape();
-  forma.moveTo(-0.24, 0.3);
-  forma.lineTo(0.24, 0.3);
-  forma.lineTo(0.2, -0.05);
-  forma.lineTo(0, -0.45);
-  forma.lineTo(-0.2, -0.05);
-  forma.closePath();
-  const escudo = new THREE.Mesh(new THREE.ExtrudeGeometry(forma, { depth: 0.03, bevelEnabled: false }), material);
-  return { espada, escudo, libro };
+  let escudo = null;
+  if (conf.escudo) {
+    const forma = new THREE.Shape();
+    forma.moveTo(-0.24, 0.3);
+    forma.lineTo(0.24, 0.3);
+    forma.lineTo(0.2, -0.05);
+    forma.lineTo(0, -0.45);
+    forma.lineTo(-0.2, -0.05);
+    forma.closePath();
+    escudo = new THREE.Mesh(new THREE.ExtrudeGeometry(forma, { depth: 0.03, bevelEnabled: false }), material);
+  }
+  const atrezo = { espada, escudo, libro };
+  return {
+    // El orden de las piezas en la escena es el orden en que se pintan: con
+    // otro, donde dos piezas se tocan podría ganar la otra y cambiar un píxel.
+    piezas: [espada, escudo, libro].filter(Boolean),
+    colocar: (suelo, aplanar, frente) => colocarArmaDeMano(model, prefijo, p, atrezo, conf, suelo, aplanar, frente),
+  };
 }
-function colocarAtrezo(model, prefijo, atrezo, conf, suelo, aplanar, frente) {
-  const p = (nombre) => {
+// Un tramo recto de radio r y largo 1 en y: se coloca y se estira entre dos
+// puntos en cada fotograma (la cuerda, que se tensa).
+function tramo(material, r) {
+  return new THREE.Mesh(new THREE.CylinderGeometry(r, r, 1, 6), material);
+}
+function estirarEntre(tramo, a, b) {
+  const d = b.clone().sub(a);
+  const largo = d.length();
+  tramo.position.copy(a).add(b).multiplyScalar(0.5);
+  tramo.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), largo > 1e-6 ? d.divideScalar(largo) : new THREE.Vector3(0, 1, 0));
+  tramo.scale.set(1, Math.max(1e-4, largo), 1);
+}
+// El arco: la empuñadura en el origen, el eje largo en y y la panza hacia +x;
+// las palas se curvan hacia -x, que es el lado de la cuerda. Así su cara (z) es
+// la que queda arriba cuando se tumba en el suelo, como la del escudo.
+function crearArco(p, conf, material) {
+  const a = conf.arco;
+  const curva = new THREE.QuadraticBezierCurve3(
+    new THREE.Vector3(-a.combadura, -a.largo / 2, 0),
+    new THREE.Vector3(a.combadura, 0, 0),
+    new THREE.Vector3(-a.combadura, a.largo / 2, 0),
+  );
+  const arco = new THREE.Mesh(new THREE.TubeGeometry(curva, 24, a.grosor, 6, false), material);
+  const puntas = [curva.getPoint(0), curva.getPoint(1)];
+  const cuerda = [tramo(material, 0.006), tramo(material, 0.006)];
+  const flecha = tramo(material, 0.008);
+  const piezas = [arco, ...cuerda, flecha];
+  let aljaba = null;
+  if (conf.aljaba) {
+    aljaba = new THREE.Group();
+    const tubo = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.05, 0.55, 10), material);
+    aljaba.add(tubo);
+    // Tres astiles asomando por la boca: sin ellos, a 160 px, es un termo. Con
+    // plumas de caja se leían como dedos o como orejas junto a la cabeza.
+    for (const [x, z] of [[0.025, 0.01], [-0.02, 0.015], [0, -0.025]]) {
+      const astil = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.007, 0.1, 5), material);
+      astil.position.set(x, 0.32, z);
+      aljaba.add(astil);
+    }
+    piezas.push(aljaba);
+  }
+  const atrezo = { arco, puntas, cuerda, flecha, aljaba };
+  return {
+    piezas,
+    colocar: (suelo, aplanar, frente, disparo) => colocarArco(p, atrezo, conf, suelo, aplanar, frente, disparo),
+  };
+}
+// La ballesta: el tablero a lo largo de y, con el agarre en el origen; el arco
+// transversal en x, delante, curvado hacia atrás; la cara de arriba en +z.
+function crearBallesta(model, p, conf, material) {
+  const b = conf.ballesta;
+  const ballesta = new THREE.Group();
+  const tablero = new THREE.Mesh(new THREE.BoxGeometry(0.05, b.delante + b.atras, 0.07), material);
+  tablero.position.y = (b.delante - b.atras) / 2;
+  const curva = new THREE.QuadraticBezierCurve3(
+    new THREE.Vector3(-b.palas / 2, b.delante - b.combadura, 0),
+    new THREE.Vector3(0, b.delante + b.combadura, 0),
+    new THREE.Vector3(b.palas / 2, b.delante - b.combadura, 0),
+  );
+  const palas = new THREE.Mesh(new THREE.TubeGeometry(curva, 20, b.grosor, 6, false), material);
+  const cuerda = tramo(material, 0.006);
+  estirarEntre(cuerda, curva.getPoint(0), curva.getPoint(1));
+  // El virote sobre el tablero: se ve hasta que se dispara.
+  const virote = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, b.delante + 0.06, 5), material);
+  virote.position.set(0, (b.delante + 0.06) / 2, 0.045);
+  ballesta.add(tablero, palas, cuerda, virote);
+  const atrezo = { ballesta, virote };
+  return {
+    piezas: [ballesta],
+    colocar: (suelo, aplanar, frente, disparo) => colocarBallesta(model, p, atrezo, conf, suelo, aplanar, frente, disparo),
+  };
+}
+function huesoEn(model, prefijo) {
+  return (nombre) => {
     const h = model.getObjectByName(prefijo + nombre);
     if (!h) throw new Error('el rig no tiene el hueso ' + prefijo + nombre);
     return h.getWorldPosition(new THREE.Vector3());
   };
-  // La espada: el puño en el hueco de los dedos, la hoja hacia el índice.
-  const indice = p('RightHandIndex1'), meñique = p('RightHandPinky1');
+}
+// El eje del puño cerrado de una mano: la línea de los nudillos, del meñique al
+// índice; y su centro, en el hueco de los dedos.
+function ejeDeNudillos(p, lado) {
+  const indice = p(lado + 'HandIndex1'), meñique = p(lado + 'HandPinky1');
   const eje = indice.clone().sub(meñique).normalize();
+  const centro = indice.clone().add(meñique).multiplyScalar(0.5).lerp(p(lado + 'HandMiddle2'), 0.5);
+  return { eje, centro };
+}
+// Lleva \`eje\` hasta que apunte, como mínimo, \`minimo\` (coseno) hacia \`hacia\`.
+function inclinar(eje, hacia, minimo) {
+  if (!(minimo > 0)) return;
+  const d = eje.dot(hacia);
+  if (d >= minimo) return;
+  const resto = eje.clone().addScaledVector(hacia, -d);
+  if (resto.lengthSq() < 1e-6) resto.set(1, 0, 0);
+  resto.normalize();
+  eje.copy(resto.multiplyScalar(Math.sqrt(1 - minimo * minimo)).addScaledVector(hacia, minimo)).normalize();
+}
+// La pista de la IK para el codo: hacia abajo, abierto \`afuera\` por \`lateral\` y
+// \`adelante\` por \`frente\`.
+function codoHacia(lateral, frente, afuera, adelante) {
+  return new THREE.Vector3(0, -1, 0).addScaledVector(lateral, afuera).addScaledVector(frente, adelante).normalize();
+}
+// Al morir, una pieza plana se tumba con el cuerpo hasta quedar en el suelo con
+// su cara (z) hacia arriba y su largo (y) por donde apuntaba \`eje\`, bajo \`centro\`.
+function tumbar(objeto, eje, centro, suelo, w, alto) {
+  if (!(w > 0)) return;
+  const largo = new THREE.Vector3(eje.x, 0, eje.z);
+  if (largo.lengthSq() < 1e-6) largo.set(0, 0, 1);
+  largo.normalize();
+  const cara = new THREE.Vector3(0, 1, 0);
+  const ancho = new THREE.Vector3().crossVectors(largo, cara).normalize();
+  const plano = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(ancho, largo, cara));
+  const enSuelo = new THREE.Vector3(centro.x, suelo + alto, centro.z);
+  objeto.quaternion.slerp(plano, w);
+  objeto.position.lerp(enSuelo, w);
+}
+function colocarArmaDeMano(model, prefijo, p, atrezo, conf, suelo, aplanar, frente) {
+  // La espada: el puño en el hueco de los dedos, la hoja hacia el índice.
+  const { eje, centro } = ejeDeNudillos(p, 'Right');
   // La hoja (o el asta) no puede cruzar el cuerpo: los clips son de espada y
   // escudo, con la derecha en la cadera, y siguiendo los nudillos una hoja larga
   // atravesaba el torso. Se la inclina hasta un mínimo hacia delante (dos manos,
   // lanza) o hacia arriba (bastón, que va de pie junto al cuerpo).
-  const inclinar = (hacia, minimo) => {
-    if (!(minimo > 0)) return;
-    const d = eje.dot(hacia);
-    if (d >= minimo) return;
-    const resto = eje.clone().addScaledVector(hacia, -d);
-    if (resto.lengthSq() < 1e-6) resto.set(1, 0, 0);
-    resto.normalize();
-    eje.copy(resto.multiplyScalar(Math.sqrt(1 - minimo * minimo)).addScaledVector(hacia, minimo)).normalize();
-  };
-  inclinar(frente, conf.adelanteMinimo);
-  inclinar(new THREE.Vector3(0, 1, 0), conf.arribaMinimo ?? 0);
-  const centro = indice.clone().add(meñique).multiplyScalar(0.5).lerp(p('RightHandMiddle2'), 0.5);
+  inclinar(eje, frente, conf.adelanteMinimo);
+  inclinar(eje, new THREE.Vector3(0, 1, 0), conf.arribaMinimo ?? 0);
   atrezo.espada.position.copy(centro);
   atrezo.espada.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), eje);
   // A dos manos las dos manos cogen el puño delante del cuerpo, en el centro:
@@ -247,11 +370,7 @@ function colocarAtrezo(model, prefijo, atrezo, conf, suelo, aplanar, frente) {
     // abajo el brazo derecho se plegaba dentro del pecho, y sin la parte de
     // delante se iba detrás del torso. Hombro y mano no se mueven; solo gira el
     // plano del brazo, que forma un arco.
-    const codo = (lado) =>
-      new THREE.Vector3(0, -1, 0)
-        .addScaledVector(lateral, lado * conf.codosAfuera)
-        .addScaledVector(frente, conf.codosAdelante)
-        .normalize();
+    const codo = (lado) => codoHacia(lateral, frente, lado * conf.codosAfuera, conf.codosAdelante);
     poseArm(model, 'Right', agarre, codo(1));
     const manoIzquierda = agarre.clone().addScaledVector(eje, -conf.separacionManos);
     poseArm(model, 'Left', manoIzquierda, codo(-1));
@@ -277,17 +396,97 @@ function colocarAtrezo(model, prefijo, atrezo, conf, suelo, aplanar, frente) {
   atrezo.escudo.position.copy(medio).addScaledVector(fuera, 0.07).addScaledVector(arriba, 0.04);
   // Al morir, el escudo se tumba con el cuerpo hasta quedar plano en el suelo,
   // bajo el antebrazo y con la cara hacia arriba.
-  if (aplanar > 0) {
-    const largo = new THREE.Vector3(arriba.x, 0, arriba.z);
-    if (largo.lengthSq() < 1e-6) largo.set(0, 0, 1);
-    largo.normalize();
-    const cara = new THREE.Vector3(0, 1, 0);
-    const ancho = new THREE.Vector3().crossVectors(largo, cara).normalize();
-    const plano = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(ancho, largo, cara));
-    const enSuelo = new THREE.Vector3(medio.x, suelo + 0.005, medio.z);
-    atrezo.escudo.quaternion.slerp(plano, aplanar);
-    atrezo.escudo.position.lerp(enSuelo, aplanar);
+  tumbar(atrezo.escudo, arriba, medio, suelo, aplanar, 0.005);
+}
+// Pone \`objeto\` en \`centro\` con su eje largo (y) por \`eje\` y su x por \`cara\`
+// (la panza del arco, el arco transversal de la ballesta); z sale de las dos.
+function orientar(objeto, centro, eje, cara) {
+  const z = new THREE.Vector3().crossVectors(cara, eje).normalize();
+  objeto.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(cara, eje, z));
+  objeto.position.copy(centro);
+}
+// El arco va en la IZQUIERDA. Fuera del disparo, por la línea de los nudillos
+// como la espada, con la panza hacia donde apunta el antebrazo; en el disparo,
+// vertical y con la panza de la mano de la cuerda a la del arco, para que la
+// derecha quede en su plano y la cuerda no tire de lado.
+function colocarArco(p, atrezo, conf, suelo, aplanar, frente, disparo) {
+  const izq = ejeDeNudillos(p, 'Left');
+  const der = ejeDeNudillos(p, 'Right');
+  const eje = izq.eje.clone();
+  const cara = new THREE.Vector3();
+  if (disparo) {
+    eje.set(0, 1, 0);
+    cara.copy(izq.centro).sub(der.centro).setY(0);
+    if (cara.lengthSq() < 1e-6) cara.copy(frente);
+    cara.normalize();
+    // Con la cuerda floja las dos manos están juntas y su línea es de lado: la
+    // panza no puede apuntar menos que esto hacia donde mira.
+    inclinar(cara, frente, conf.panzaAdelanteMinimo);
+  } else {
+    // Los clips mueven el puño como si llevara espada: a la carrera, por los
+    // nudillos, el arco iba en horizontal como una barra. Se lo pone de pie.
+    inclinar(eje, new THREE.Vector3(0, eje.y < 0 ? -1 : 1, 0), conf.arribaMinimo);
+    cara.copy(p('LeftHand')).sub(p('LeftForeArm'));
+    cara.addScaledVector(eje, -cara.dot(eje));
+    if (cara.lengthSq() < 1e-6) cara.copy(frente);
+    cara.normalize();
   }
+  orientar(atrezo.arco, izq.centro, eje, cara);
+  tumbar(atrezo.arco, eje, izq.centro, suelo, aplanar, conf.arco.grosor);
+  atrezo.arco.updateMatrixWorld(true);
+  const puntas = atrezo.puntas.map((v) => atrezo.arco.localToWorld(v.clone()));
+  // La cuerda va a la mano derecha mientras está tensa; floja (tensión 0,1 o
+  // menos, o ya suelta), recta entre las puntas: con las manos juntas en el
+  // primer fotograma, engancharla daba una V de lado.
+  const tensa = disparo !== null && disparo.tensa && disparo.tension > 0.1;
+  const gancho = tensa ? der.centro : puntas[0].clone().add(puntas[1]).multiplyScalar(0.5);
+  estirarEntre(atrezo.cuerda[0], puntas[0], gancho);
+  estirarEntre(atrezo.cuerda[1], gancho, puntas[1]);
+  // La flecha, solo en la cuerda: de la mano derecha hacia el arco, y asoma por delante.
+  atrezo.flecha.visible = tensa;
+  if (tensa) {
+    const hacia = izq.centro.clone().sub(gancho).normalize();
+    estirarEntre(atrezo.flecha, gancho, gancho.clone().addScaledVector(hacia, conf.flecha));
+  }
+  if (atrezo.aljaba) colocarAljaba(p, atrezo.aljaba);
+}
+// La aljaba, a la espalda y con la boca hacia el hombro derecho, que es por
+// donde saca la flecha. La base sale de los hombros y del cuello, no de los
+// ejes locales del hueso: así no hay que adivinar hacia dónde mira cada uno.
+function colocarAljaba(p, aljaba) {
+  const pecho = p('Spine2');
+  const arriba = p('Neck').sub(p('Spine1')).normalize();
+  const derecha = p('RightArm').sub(p('LeftArm'));
+  derecha.addScaledVector(arriba, -derecha.dot(arriba)).normalize();
+  const atras = new THREE.Vector3().crossVectors(derecha, arriba).normalize();
+  const eje = arriba.clone().multiplyScalar(Math.cos(0.35)).addScaledVector(derecha, Math.sin(0.35)).normalize();
+  const lado = new THREE.Vector3().crossVectors(eje, atras).normalize();
+  aljaba.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(lado, eje, atras));
+  aljaba.position.copy(pecho).addScaledVector(atras, 0.16).addScaledVector(arriba, -0.05);
+}
+// La ballesta va en la DERECHA. En el disparo apunta a donde mira, encarada, y
+// la izquierda sujeta el tablero por delante con la misma IK que el agarre a
+// dos manos, con el codo abierto hacia fuera.
+function colocarBallesta(model, p, atrezo, conf, suelo, aplanar, frente, disparo) {
+  const der = ejeDeNudillos(p, 'Right');
+  const eje = der.eje.clone();
+  const arriba = new THREE.Vector3(0, 1, 0);
+  if (disparo) {
+    eje.copy(frente);
+    const lateral = new THREE.Vector3().crossVectors(frente, arriba).normalize();
+    const apoyo = der.centro.clone().addScaledVector(frente, conf.separacionManos).add(new THREE.Vector3(0, -0.03, 0));
+    poseArm(model, 'Left', apoyo, codoHacia(lateral, frente, -0.5, 0));
+  } else {
+    // Fuera del disparo se lleva baja, apuntando adelante y al suelo, con la
+    // cara de arriba arriba. Por los nudillos, como la lanza, el reposo de
+    // espada la levantaba sobre el hombro y se leía como un pico.
+    eje.copy(frente).multiplyScalar(Math.cos(conf.bajaEnReposo)).add(new THREE.Vector3(0, -Math.sin(conf.bajaEnReposo), 0)).normalize();
+    arriba.addScaledVector(eje, -arriba.dot(eje)).normalize();
+  }
+  const lado = new THREE.Vector3().crossVectors(eje, arriba).normalize();
+  orientar(atrezo.ballesta, der.centro, eje, lado);
+  atrezo.virote.visible = disparo === null || disparo.tensa;
+  tumbar(atrezo.ballesta, eje, der.centro, suelo, aplanar, 0.04);
 }
 `;
 
@@ -331,6 +530,8 @@ async function prepararForge(
   encuadre: Encuadre = ENCUADRE_DE_FIGURA,
   atrezo: Atrezo | null = null,
   piernasDeColor = false,
+  /** El clip de ataque que es un disparo, si el juego dispara: el de su `ataque`. */
+  clipDeDisparo: ClipDeDisparo | null = null,
 ): Promise<void> {
   for (const item of ['src', 'bin', 'sets', 'package.json']) {
     await cp(join(FORGE, item), join(temporal, item), { recursive: true });
@@ -393,7 +594,7 @@ async function prepararForge(
       // En la muerte el escudo se aplana entre el 45 % y el 80 % del clip.
       const avance = Math.min(1, (frameStep * f) / clip.duration);
       const w = state.animId === 'death' ? Math.min(1, Math.max(0, (avance - 0.45) / 0.35)) : 0;
-      colocarAtrezo(state.model, state.bonePrefix, state.atrezo, state.confAtrezo, state.suelo, w * w * (3 - 2 * w), new THREE.Vector3(Math.sin(pivot.rotation.y), 0, Math.cos(pivot.rotation.y)));
+      state.atrezo.colocar(state.suelo, w * w * (3 - 2 * w), new THREE.Vector3(Math.sin(pivot.rotation.y), 0, Math.cos(pivot.rotation.y)), state.disparo);
     }
     renderer.render(scene, camera);
     out.push(`,
@@ -414,22 +615,24 @@ async function prepararForge(
     golpe = { accion: accionGolpe, fin: clipGolpe.duration - 1e-4, muerte: action };
   }
   const confAtrezo = ${JSON.stringify(atrezo)};
-  const atrezo = confAtrezo ? crearAtrezo(model, confAtrezo) : null;
-  if (atrezo) scene.add(atrezo.espada);
-  if (atrezo?.escudo) scene.add(atrezo.escudo);
-  if (atrezo?.libro) scene.add(atrezo.libro);
+  const atrezo = confAtrezo ? crearAtrezo(model, bonePrefix, confAtrezo) : null;
+  for (const pieza of atrezo?.piezas ?? []) scene.add(pieza);
   if (${piernasDeColor}) colorearPiernas(model);
   scene.updateMatrixWorld(true);
   const suelo = puntoMasBajo(model);
-  Object.assign(state, { renderer, scene, camera, pivot, mixer, clip, model, animId, golpe, suelo, atrezo, confAtrezo, bonePrefix });`,
+  Object.assign(state, { renderer, scene, camera, pivot, mixer, clip, model, animId, golpe, suelo, atrezo, clipDeDisparo: ${JSON.stringify(clipDeDisparo)} });`,
     ],
     [
       '    mixer.setTime(Math.min(clip.duration, frameStep * f));',
-      `    if (state.animId === 'bow' || state.animId === 'crossbow') {
+      // El disparo se resuelve una vez por fotograma: lo leen la pose y el atrezo.
+      `    state.disparo = null;
+    if (state.animId === state.clipDeDisparo) {
+      const p = progresoDelDisparo(f, frameCount);
+      state.disparo = { tension: curvaDelDisparo(state.animId, p), tensa: cuerdaTensa(state.animId, p) };
       pivot.rotation.set(0, 0, 0);
       mixer.setTime(0);
       scene.updateMatrixWorld(true);
-      rangedPose(state.model, state.animId, f);
+      rangedPose(state.model, state.animId, state.disparo.tension);
       pivot.rotation.set(0, (2 * Math.PI * dir) / directions, 0);
     } else if (state.golpe) {
       const t = Math.min(clip.duration, frameStep * f);
@@ -474,7 +677,8 @@ export async function renderizarPerfil(perfil: Perfil): Promise<string> {
 
   const temporal = await mkdtemp(join(tmpdir(), 'heroes-poses-'));
   try {
-    await prepararForge(temporal);
+    const ataque = PERFILES[perfil].ataque;
+    await prepararForge(temporal, undefined, null, false, esDisparo(ataque) ? ataque : null);
     const salida = join(temporal, 'out');
     execFileSync(
       process.execPath,
@@ -510,9 +714,7 @@ export async function renderizarPerfil(perfil: Perfil): Promise<string> {
     for (const [fila, c] of clips.entries()) {
       const dir = join(salida, 'frames/y_bot', c.anim, 'tactical_25');
       const meta = JSON.parse(await readFile(join(dir, 'meta.json'), 'utf8')) as MetaDeClip;
-      // El arco y la ballesta son 6 poses escritas a mano, no fotogramas de un clip.
-      const total = c.anim === 'bow' || c.anim === 'crossbow' ? 6 : meta.frame_count;
-      const indices = indicesDeClip(total, columnas, c.enBucle);
+      const indices = indicesDeClip(meta.frame_count, columnas, c.enBucle);
       filas.push({ clip: c.clip, anim: c.anim, indices, sourceMetadata: meta });
       for (const [col, i] of indices.entries()) {
         capas.push({
@@ -572,8 +774,16 @@ export async function renderizarPerfil(perfil: Perfil): Promise<string> {
   }
 }
 
-/** El atrezo de un juego de armas, en metros. `agarre`: dónde queda la guarda sobre el puño derecho. */
-export interface Atrezo {
+/**
+ * El atrezo de un juego de armas, en metros: un arma de mano (la espada y todo
+ * lo que se empuña como ella), un arco o una ballesta. La clave dice cuál es
+ * (`'arco' in a`), y cada rama lleva solo lo suyo: al arco no se le aplican las
+ * reglas de inclinación de la hoja ni el agarre a dos manos.
+ */
+export type Atrezo = AtrezoDeMano | AtrezoDeArco | AtrezoDeBallesta;
+
+/** El arma de la mano derecha. `agarre`: dónde queda la guarda sobre el puño. */
+export interface AtrezoDeMano {
   /**
    * El arma de la mano derecha, en metros: la hoja (o el asta) sale por el lado
    * del índice desde `agarre`, y el puño queda hacia el meñique.
@@ -611,6 +821,47 @@ export interface Atrezo {
   readonly codosAdelante: number;
   /** A dos manos: a qué fracción de su largo, como mucho, se estira cada brazo. */
   readonly estiramiento: number;
+}
+
+/** Un arco en la mano IZQUIERDA; la derecha, vacía, tensa la cuerda al disparar. */
+export interface AtrezoDeArco {
+  readonly arco: {
+    /** De punta a punta, en recto. */
+    readonly largo: number;
+    /** Cuánto se curvan las palas hacia la cuerda. */
+    readonly combadura: number;
+    readonly grosor: number;
+  };
+  /** La aljaba a la espalda. */
+  readonly aljaba: boolean;
+  /** El largo de la flecha que se ve en la cuerda mientras se tensa. */
+  readonly flecha: number;
+  /**
+   * En el disparo, cuánto apunta la panza del arco, como mínimo, hacia donde
+   * mira (coseno): con la cuerda floja las manos están juntas y su línea es de lado.
+   */
+  readonly panzaAdelanteMinimo: number;
+  /** Fuera del disparo, cuánto apunta, como mínimo, en vertical (coseno). */
+  readonly arribaMinimo: number;
+}
+
+/** Una ballesta en la mano DERECHA; al disparar, la izquierda sujeta el tablero. */
+export interface AtrezoDeBallesta {
+  readonly ballesta: {
+    /** Tablero por delante del agarre, hasta el arco transversal. */
+    readonly delante: number;
+    /** Tablero por detrás del agarre: la culata. */
+    readonly atras: number;
+    /** De punta a punta del arco transversal. */
+    readonly palas: number;
+    /** Cuánto se curva el arco transversal hacia atrás. */
+    readonly combadura: number;
+    readonly grosor: number;
+  };
+  /** Al disparar: a cuántos metros por delante de la derecha sujeta la izquierda. */
+  readonly separacionManos: number;
+  /** Fuera del disparo: cuánto apunta hacia el suelo, en radianes bajo la horizontal. */
+  readonly bajaEnReposo: number;
 }
 
 /**
@@ -727,6 +978,35 @@ export const JUEGOS_DE_ARMAS = {
       ...UNA_MANO,
     },
   },
+  // Arco en la izquierda y la derecha vacía, con la aljaba a la espalda: los
+  // arqueros. El ataque son las poses de tensar y soltar de `POSE_A_DISTANCIA`;
+  // el reposo, la guardia quieta de `idle (4)`, como todo juego sin escudo.
+  arco: {
+    describe: 'arco en la mano izquierda y aljaba a la espalda',
+    ataque: 'bow',
+    reposo: 'idle4',
+    piernasDeColor: true,
+    atrezo: {
+      arco: { largo: 1.25, combadura: 0.12, grosor: 0.018 },
+      aljaba: true,
+      flecha: 0.7,
+      panzaAdelanteMinimo: 0.7,
+      arribaMinimo: 0.8,
+    },
+  },
+  // Ballesta en la derecha: el ballestero, y también el arcabucero y la
+  // culebrina de mano, como en una dirección. Al disparar se la sube al hombro.
+  ballesta: {
+    describe: 'ballesta en la mano derecha',
+    ataque: 'crossbow',
+    reposo: 'idle4',
+    piernasDeColor: true,
+    atrezo: {
+      ballesta: { delante: 0.5, atras: 0.2, palas: 0.6, combadura: 0.08, grosor: 0.025 },
+      separacionManos: 0.24,
+      bajaEnReposo: 0.5,
+    },
+  },
 } as const satisfies Record<
   string,
   { describe: string; ataque: string; reposo: string; piernasDeColor: boolean; atrezo: Atrezo }
@@ -793,6 +1073,33 @@ export function hojasDe(j: JuegoDeArmas) {
   };
 }
 
+/** El clip de ataque de un juego si es un disparo (arco, ballesta); `null` si golpea. */
+export function clipDeDisparoDe(j: JuegoEn8d): ClipDeDisparo | null {
+  // El jinete no sale de esta tabla (`montura/`): carga con la lanza, no dispara.
+  if (j === 'montado-lanza') return null;
+  const ataque: string = JUEGOS_DE_ARMAS[j].ataque;
+  return esDisparo(ataque) ? ataque : null;
+}
+
+/**
+ * La primera columna de la fila de ataque en la que la cuerda ya está suelta:
+ * la misma `indicesDeClip` que reparte los fotogramas del render en las
+ * columnas y la misma curva con la que el maniquí deja de pintar la flecha. La
+ * escribe `pnpm taller derivar-poses` en `atlas-8d.json` (`suelta`) y el
+ * cliente suelta ahí el proyectil. Lanza si la cuerda no llega a soltarse.
+ */
+export function columnaDeSuelta(clip: ClipDeDisparo, fotogramas: number, columnas: number): number {
+  const col = indicesDeClip(fotogramas, columnas, false).findIndex(
+    (f) => !DISPARO_EN_NODE.cuerdaTensa(clip, DISPARO_EN_NODE.progresoDelDisparo(f, fotogramas)),
+  );
+  if (col <= 0) {
+    throw new Error(
+      `el disparo «${clip}» en ${fotogramas} fotogramas y ${columnas} columnas no tiene columna de suelta (${col}): o nunca suelta o ya empieza suelto`,
+    );
+  }
+  return col;
+}
+
 /**
  * La referencia de pose del GIRO: el primer reposo de cada dirección, en 4
  * columnas por 2 filas y en el orden de las direcciones (0 a 3 arriba, 4 a 7
@@ -842,6 +1149,7 @@ export async function renderizarOchoDirecciones(
       encuadre,
       JUEGOS_DE_ARMAS[juego].atrezo,
       JUEGOS_DE_ARMAS[juego].piernasDeColor,
+      clipDeDisparoDe(juego),
     );
     const salida = join(temporal, 'out');
     const anims = [...new Set(Object.values(hojas).flatMap((h) => h.map((c) => c.anim)))];

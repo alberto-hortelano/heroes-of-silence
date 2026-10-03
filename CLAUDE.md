@@ -2216,8 +2216,9 @@ y no lee ese archivo**: `pnpm banco` sale con el ancla igual.
   no por su perfil de poses** (decisión del usuario): es una tabla,
   `JUEGO_DEL_YBOT`, con una fila por unidad revisada contra su `aspecto` —pica,
   alabarda, lanza o jabalina, `lanza`; bastón, `baston`; arma a dos manos,
-  `dos-manos`; maza, `maza`; mayal, `mayal`; a caballo, `montado-lanza`; el
-  resto, tiradores incluidos, `espada-escudo`—. Con el perfil, el piquero salía
+  `dos-manos`; maza, `maza`; mayal, `mayal`; a caballo, `montado-lanza`; arco,
+  `arco`; ballesta, arcabuz o culebrina, `ballesta`; el resto, `espada-escudo`—.
+  Con el perfil, el piquero salía
   con mandoble y el goblin lancero con espada. Un test exige una fila por unidad
   y `juegoDelYBot` lanza sin ella; `EN_OCHO_DIRECCIONES` ya no repite el juego,
   lo lee de la tabla. La lista que sirve el servidor
@@ -2274,8 +2275,32 @@ casilla de reclutar del castillo:
   asaltante lo separa del monstruo su suelo morado y su estandarte, no el tinte.
   El juego de cada cuerpo del catálogo es una tabla, `JUEGO_DEL_CUERPO`
   (decisión del usuario): piquero con lanza, caballería montada, mago con
-  bastón, el resto —arqueros incluidos, hasta que haya arco en 8 direcciones—
-  con espada y escudo. Un test exige una fila por criatura.
+  bastón, arquero y montaraz con arco, el resto con espada y escudo. Un test
+  exige una fila por criatura.
+- **El arco en la izquierda y la ballesta en la derecha** (#136): son juegos del
+  Y Bot como los demás (`arco-8d`, `ballesta-8d`). El disparo son poses de brazo
+  escritas sobre el rig (`tools/art/ybot-a-distancia.ts`), y su curva va por el
+  **progreso** del clip y no por el índice del fotograma: con `frame % 6`, a 12
+  fotogramas las siete columnas mezclaban dos disparos. La curva guarda solo
+  sus seis ordenadas (`CURVAS_DEL_DISPARO`) y **la suelta se deriva de ella**:
+  es el último nudo en lo más alto, donde empieza a aflojar, así que la flecha
+  en la cuerda y la curva no pueden separarse.
+- **La suelta es un dato de cada hoja, como el cadáver**: `pnpm taller
+  derivar-poses` escribe en el clip `attack` de `atlas-8d.json` un `suelta`, la
+  primera columna con la cuerda ya suelta (`columnaDeSuelta`: la misma
+  `indicesDeClip` que reparte el render y la misma curva). Hoy es la **4** en
+  arco y ballesta. El cliente la lee con `msDeSuelta(body)` (`marcha.ts`,
+  hermana de `msPorCasilla`): el proyectil sale cuando la figura pinta esa
+  columna (400 ms), vuela 340 y el paso acaba 280 después del impacto, 1 020 ms.
+  **Quien no tiene `suelta` en su hoja dispara como siempre** —620 ms, el
+  proyectil desde el 0—: el liche con su bastón, una unidad con arte propio o
+  el marcador sin arte. Cada paso del animador lleva su reloj ya resuelto
+  (`dura`, `impacto`, `suelta`), y el de cualquier clip sale de un solo
+  `msDelClip` (`frames` a `fps`). **Un ataque con `suelta` no se recorta por
+  fotogramas repetidos** (`derivarAtlas`): de frente el disparo apenas mueve la
+  silueta (0,03-0,3 % del alfa entre columnas, bajo el `REPETIDO` de 0,4 %), y
+  recortado el arco en d0 y la ballesta en d0 y d4 se quedaban en un fotograma,
+  sin animar y con la suelta fuera del clip. Los demás clips se recortan igual.
 - **Las anclas del Y Bot se derivan y se comprometen**: `pnpm taller
   derivar-poses` mide los PNG con `derivarAtlas` y escribe
   `_poses/atlas-8d.json` con el sha256 de cada uno; un test re-deriva una

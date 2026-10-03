@@ -73,6 +73,7 @@ es qué clip hace de ataque:
 | `dos-manos` | `sword and shield slash` |
 | `baston` | `sword and shield casting` |
 | `arco` | poses de brazo escritas sobre el rig (no hay clip de arco) |
+| `ballesta` | las mismas, encarando el arma al hombro |
 
 `liora-walk-v2` está rechazado: no se usa como referencia.
 
@@ -106,7 +107,14 @@ fotograma es el cadáver (`cadaver` en el JSON).
      sigue la línea de los nudillos y el escudo cuelga por fuera del antebrazo;
    - se apoya en el suelo por el punto más bajo de su malla, así que no flota;
    - al morir no se desplaza (el cadáver cae en su casilla) y el escudo se
-     tumba plano en el suelo.
+     tumba plano en el suelo;
+   - en `arco`, el arco va en la mano IZQUIERDA y la derecha tensa la cuerda al
+     disparar, con la flecha en ella hasta la suelta y la aljaba a la espalda; en
+     `ballesta`, el arma va en la DERECHA y al disparar la izquierda sujeta el
+     tablero con la IK del agarre a dos manos. La curva del disparo va por el
+     progreso del clip (la misma en 1 y en 8 direcciones) y suelta en su último
+     nudo alto. `derivar-poses` escribe esa columna en el ataque de
+     `atlas-8d.json` (`suelta`), y el cliente lanza ahí el proyectil.
 2. **El giro**: `pnpm taller encolar <id> --giro`. Es la lámina de identidad por
    los ocho lados y fija la espalda antes de pintar.
 3. **Las 16 hojas**: `pnpm taller encolar <id> --ocho`. Cada hoja se escala

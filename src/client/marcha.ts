@@ -9,8 +9,10 @@
  * zancadas que caben en ella. El ciclo sale del atlas de la figura (`frames` a
  * `fps`) y la zancada, de medir el Y Bot; la escala, de lo alta que se pinta.
  * Y al verlo andar se pidió algo más de prisa: eso es `PRISA_DE_LA_MARCHA`.
+ *
+ * Del mismo reloj sale cuándo suelta la cuerda quien dispara (`msDeSuelta`).
  */
-import type { CharacterClip } from './render/character.js';
+import { type CharacterClip, msDelClip } from './render/character.js';
 import { arteDe, hojaDe, MIRADA_DE_PRESENTACION } from './render/personajes.js';
 
 /**
@@ -65,6 +67,16 @@ export function msPorCasilla(body: string, clip: CharacterClip, alto: number): n
   if (!(alto > 0)) throw new Error(`una figura de ${alto} de alto no puede andar`);
   // El reloj es el mismo en las ocho direcciones: se lee de la de presentación.
   const info = hojaDe(arteDe(body), MIRADA_DE_PRESENTACION).clips[clip];
-  const ciclo = (info.frames * 1000) / info.fps;
-  return ciclo / (ZANCADA[clip] * alto * PRISA_DE_LA_MARCHA);
+  return msDelClip(info) / (ZANCADA[clip] * alto * PRISA_DE_LA_MARCHA);
+}
+
+/**
+ * Cuándo suelta `body` la cuerda en su ataque, en ms desde que empieza: cuando
+ * su atlas pinta la columna `suelta`, a su reloj. `null` si su hoja no lo dice
+ * —golpea, o su disparo no tiene suelta medida (el bastón del liche, el arte
+ * propio de una unidad)—, y entonces el proyectil sale al empezar.
+ */
+export function msDeSuelta(body: string): number | null {
+  const info = hojaDe(arteDe(body), MIRADA_DE_PRESENTACION).clips.attack;
+  return info.suelta === undefined ? null : (info.suelta * 1000) / info.fps;
 }

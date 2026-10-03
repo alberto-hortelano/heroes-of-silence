@@ -310,9 +310,12 @@ describe('las hojas de assets/unidades se pintan en el tablero', () => {
     expect(juego('troll-maza')).toBe('maza');
     expect(juego('templario-penitente')).toBe('mayal');
     expect(juego('templario-hermano-de-carga')).toBe('montado-lanza');
-    // Sin render de arco en 8 direcciones, los tiradores van con espada y escudo.
-    for (const id of ['elfo-arquero', 'imperio-ballestero', 'imperio-arcabucero'])
-      expect(juego(id), id).toBe('espada-escudo');
+    // Los tiradores, con el arma que llevan; el explorador pelea con sus cuchillos.
+    for (const id of ['esqueleto-arquero', 'elfo-arquero', 'goblin-arquero'])
+      expect(juego(id), id).toBe('arco');
+    for (const id of ['imperio-ballestero', 'imperio-arcabucero', 'imperio-artillero-culebrina'])
+      expect(juego(id), id).toBe('ballesta');
+    expect(juego('elfo-explorador')).toBe('espada-escudo');
     // El arte propio se pinta sobre las poses de ese mismo juego.
     for (const [id, j] of Object.entries(EN_OCHO_DIRECCIONES)) expect(j, id).toBe(juego(id));
   });

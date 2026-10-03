@@ -1922,6 +1922,12 @@ const PLAZO_DEL_FIN_AL_MAPA_MS = 8_000;
  * ~0,9 s por casilla andando), y el atraso bajó con ella: medido en dos pasadas,
  * **60,6 y 63,0 s**, con 74 y 77 fotogramas atrasados y ocho finales después.
  * 82 s es la mayor con el mismo 30 % de holgura.
+ *
+ * Con el proyectil en la suelta (#136) el disparo de quien tiene `suelta` en su
+ * hoja —arco y ballesta— dura 1 020 ms y no 620; el de quien no la tiene, como
+ * el liche, sigue en 620. Medido en dos pasadas: **62,0 y 63,8 s**, con 79 y 74
+ * fotogramas atrasados y ocho finales después. Dentro de lo de antes: el telón
+ * acelera lo atrasado, y 82 s sigue siendo la mayor medida con su holgura.
  */
 const PLAZO_DEL_GAME_OVER_MS = 82_000;
 

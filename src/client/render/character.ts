@@ -21,6 +21,17 @@ export interface ClipInfo {
   readonly fps: number;
   readonly loop: boolean;
   readonly anchor: readonly [number, number];
+  /**
+   * Solo en el ataque de quien dispara: la primera columna con la cuerda ya
+   * suelta (la escribe `pnpm taller derivar-poses`). Sin ella, el proyectil sale
+   * al empezar el disparo.
+   */
+  readonly suelta?: number;
+}
+
+/** Lo que dura una vuelta del clip a su reloj, en ms: sus `frames` a sus `fps`. */
+export function msDelClip(info: ClipInfo): number {
+  return (info.frames * 1000) / info.fps;
 }
 
 export interface CharacterAtlas {
@@ -82,6 +93,5 @@ export function clipEnCurso(
   clip: CharacterClip,
   msDesdeQueEmpezo: number,
 ): boolean {
-  const info = atlas.clips[clip];
-  return msDesdeQueEmpezo * info.fps < info.frames * 1000;
+  return msDesdeQueEmpezo < msDelClip(atlas.clips[clip]);
 }

@@ -553,9 +553,12 @@ export function encargoDeIdentidad(u: Unidad): Encargo {
  *  - mandoble, hacha o cuchilla empuñada a dos manos → `dos-manos`;
  *  - maza (y el martillo de guerra del ingeniero) → `maza`; mayal → `mayal`;
  *  - a caballo con lanza → `montado-lanza`;
- *  - el resto —espada, hacha de una mano, dos armas, cuchillos, sin armas, y los
- *    arqueros, ballesteros, arcabuceros y el artillero, que no tienen render de
- *    arco en 8 direcciones— → `espada-escudo`.
+ *  - arco en la mano → `arco` (el explorador elfo no: pelea con sus dos
+ *    cuchillos y el arco lo lleva a la espalda);
+ *  - ballesta, arcabuz o culebrina de mano → `ballesta`, como ya hacía la
+ *    ballesta de una dirección con el arcabuz;
+ *  - el resto —espada, hacha de una mano, dos armas, cuchillos, sin armas— →
+ *    `espada-escudo`.
  * Una fila por unidad, ni una más ni una menos: lo exige `taller.test.ts`, y
  * `juegoDelYBot` lanza con una unidad que no la tenga en vez de adivinarla.
  */
@@ -567,19 +570,19 @@ export const JUEGO_DEL_YBOT: Readonly<Record<string, JuegoEn8d>> = {
   'templario-hermano-de-carga': 'montado-lanza',
   'templario-penitente': 'mayal',
   'esqueleto-guerrero': 'espada-escudo',
-  'esqueleto-arquero': 'espada-escudo',
+  'esqueleto-arquero': 'arco',
   zombi: 'lanza',
   necrofago: 'espada-escudo',
   espectro: 'espada-escudo',
   'golem-de-huesos': 'espada-escudo',
   'imperio-alabardero': 'lanza',
   'imperio-piquero': 'lanza',
-  'imperio-ballestero': 'espada-escudo',
+  'imperio-ballestero': 'ballesta',
   'imperio-coracero': 'espada-escudo',
-  'imperio-arcabucero': 'espada-escudo',
+  'imperio-arcabucero': 'ballesta',
   'imperio-rodelero': 'espada-escudo',
-  'imperio-artillero-culebrina': 'espada-escudo',
-  'elfo-arquero': 'espada-escudo',
+  'imperio-artillero-culebrina': 'ballesta',
+  'elfo-arquero': 'arco',
   'elfo-explorador': 'espada-escudo',
   'elfo-guardia-del-bosque': 'lanza',
   'elfo-corredor-del-bosque': 'lanza',
@@ -588,7 +591,7 @@ export const JUEGO_DEL_YBOT: Readonly<Record<string, JuegoEn8d>> = {
   'orko-hacha-escudo': 'espada-escudo',
   'orko-dos-armas': 'espada-escudo',
   'goblin-lancero': 'lanza',
-  'goblin-arquero': 'espada-escudo',
+  'goblin-arquero': 'arco',
   'troll-maza': 'maza',
   'orko-berserker': 'dos-manos',
   'goblin-fanatico': 'espada-escudo',

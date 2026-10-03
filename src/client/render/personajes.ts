@@ -118,12 +118,24 @@ export function comoDireccion8d(
     ) {
       throw new Error(`el atlas ${nombre} no tiene un clip "${clip}" con fotogramas y ancla`);
     }
+    // La suelta es del ataque, y cae dentro de él: ni en la primera columna,
+    // que sería disparar sin tensar, ni más allá de sus fotogramas.
+    const { suelta } = c;
+    if (
+      suelta !== undefined &&
+      (clip !== 'attack' || !Number.isInteger(suelta) || suelta < 1 || suelta >= c.frames)
+    ) {
+      throw new Error(
+        `el atlas ${nombre} pone la suelta del clip "${clip}" en la columna ${suelta}: solo el ataque la tiene, entre la 1 y la ${c.frames - 1}`,
+      );
+    }
     clips[clip] = {
       ...imagenDeFila(c.row),
       frames: c.frames,
       fps: c.fps,
       loop: c.loop,
       anchor: c.anchor,
+      ...(suelta === undefined ? {} : { suelta }),
     };
   }
   const frame = a.cadaver?.frame;
@@ -204,9 +216,8 @@ function ybot(juego: string): ArteDeFigura {
 
 /**
  * El juego de armas de cada cuerpo del juego (decisión del usuario, 03-10-2026):
- * piquero → lanza, caballería → montado-lanza, monje o mago → bastón, y el resto
- * espada y escudo. Arqueros y ballesteros van con espada y escudo hasta que
- * exista un render de arco en 8 direcciones. Cada mejora lleva el de su base.
+ * piquero → lanza, caballería → montado-lanza, monje o mago → bastón, arquero →
+ * arco, y el resto espada y escudo. Cada mejora lleva el de su base.
  * Un test exige una fila por criatura del catálogo: una criatura nueva sin la
  * suya se pone roja en vez de caer al respaldo sin que nadie lo decida. Las
  * claves no las puede comprobar `tsc` —el catálogo es un JSON con una lista, y
@@ -217,8 +228,8 @@ export const JUEGO_DEL_CUERPO: Readonly<Record<string, JuegoDelYBot>> = {
   [HERO_BODY]: 'espada-escudo',
   [CHARACTER_BODY]: 'espada-escudo',
   peasant: 'espada-escudo',
-  archer: 'espada-escudo',
-  ranger: 'espada-escudo',
+  archer: 'arco',
+  ranger: 'arco',
   pikeman: 'lanza',
   veteran_pikeman: 'lanza',
   swordsman: 'espada-escudo',
