@@ -611,6 +611,13 @@ export function encargoDeAtlas(u: Unidad): Encargo {
 export const EN_OCHO_DIRECCIONES: Readonly<Record<string, JuegoDeArmas>> = {
   'templario-escudo': 'espada-escudo',
   'templario-mandoble': 'dos-manos',
+  'templario-monje': 'baston',
+  'templario-escudero': 'lanza',
+  'templario-penitente': 'mayal',
+  'heroe-templario-caballero': 'espada-escudo',
+  'heroe-templario-abad': 'baston',
+  'heroe-templario-inquisidor': 'maza',
+  'heroe-templario-gran-maestre': 'dos-manos',
 };
 
 /** Las poses de 8 direcciones de una unidad: las de su juego de armas. */

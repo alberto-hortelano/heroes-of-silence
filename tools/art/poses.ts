@@ -145,14 +145,45 @@ function crearAtrezo(model, conf) {
   material = material.clone();
   const e = conf.espada;
   const espada = new THREE.Group();
-  const hoja = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, e.largo, 8), material);
+  const r = e.grosor ?? 0.022;
+  const hoja = new THREE.Mesh(new THREE.CylinderGeometry(r, r, e.largo, 8), material);
   hoja.position.y = e.agarre + e.largo / 2;
-  const guarda = new THREE.Mesh(new THREE.BoxGeometry(e.guarda, 0.03, 0.035), material);
-  guarda.position.y = e.agarre;
-  const puño = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, e.puño, 8), material);
+  // El orden y las medidas de hoja, guarda y puño son los de las espadas ya
+  // aprobadas: cambiarlos movía unos píxeles sus poses.
+  const rp = e.grosor === undefined ? 0.02 : Math.max(0.02, r);
+  const puño = new THREE.Mesh(new THREE.CylinderGeometry(rp, rp, e.puño, 8), material);
   puño.position.y = e.agarre - e.puño / 2;
-  espada.add(hoja, guarda, puño);
-  if (!conf.escudo) return { espada, escudo: null };
+  const punta = e.agarre + e.largo;
+  if (e.guarda > 0) {
+    const guarda = new THREE.Mesh(new THREE.BoxGeometry(e.guarda, 0.03, 0.035), material);
+    guarda.position.y = e.agarre;
+    espada.add(hoja, guarda, puño);
+  } else {
+    espada.add(hoja, puño);
+  }
+  // Una bola en la punta: la cabeza de la maza o la bola del mayal.
+  if (e.cabeza) {
+    const bola = new THREE.Mesh(new THREE.SphereGeometry(e.cabeza, 12, 8), material);
+    bola.position.y = punta;
+    espada.add(bola);
+  }
+  // Un cono: la punta de la lanza.
+  if (e.moharra) {
+    const cono = new THREE.Mesh(new THREE.ConeGeometry(r * 2.6, e.moharra, 8), material);
+    cono.position.y = punta + e.moharra / 2;
+    espada.add(cono);
+  }
+  // Una cruz: el remate del bastón y del báculo.
+  if (e.remate === 'cruz') {
+    const palo = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.24, 0.035), material);
+    palo.position.y = punta + 0.12;
+    const brazo = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.035, 0.035), material);
+    brazo.position.y = punta + 0.16;
+    espada.add(palo, brazo);
+  }
+  // Un libro en la mano izquierda.
+  const libro = conf.libro ? new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.22, 0.06), material) : null;
+  if (!conf.escudo) return { espada, escudo: null, libro };
   const forma = new THREE.Shape();
   forma.moveTo(-0.24, 0.3);
   forma.lineTo(0.24, 0.3);
@@ -161,7 +192,7 @@ function crearAtrezo(model, conf) {
   forma.lineTo(-0.2, -0.05);
   forma.closePath();
   const escudo = new THREE.Mesh(new THREE.ExtrudeGeometry(forma, { depth: 0.03, bevelEnabled: false }), material);
-  return { espada, escudo };
+  return { espada, escudo, libro };
 }
 function colocarAtrezo(model, prefijo, atrezo, conf, suelo, aplanar, frente) {
   const p = (nombre) => {
@@ -172,19 +203,21 @@ function colocarAtrezo(model, prefijo, atrezo, conf, suelo, aplanar, frente) {
   // La espada: el puño en el hueco de los dedos, la hoja hacia el índice.
   const indice = p('RightHandIndex1'), meñique = p('RightHandPinky1');
   const eje = indice.clone().sub(meñique).normalize();
-  // A dos manos la hoja no puede cruzar el cuerpo: los clips son de espada y
-  // escudo, con la derecha en la cadera, y siguiendo los nudillos la hoja
-  // atravesaba el torso. Se la inclina hacia delante hasta un mínimo.
-  if (conf.dosManos) {
-    const d = eje.dot(frente);
-    if (d < conf.adelanteMinimo) {
-      const resto = eje.clone().addScaledVector(frente, -d);
-      if (resto.lengthSq() < 1e-6) resto.set(0, 1, 0);
-      resto.normalize();
-      const m = conf.adelanteMinimo;
-      eje.copy(resto.multiplyScalar(Math.sqrt(1 - m * m)).addScaledVector(frente, m)).normalize();
-    }
-  }
+  // La hoja (o el asta) no puede cruzar el cuerpo: los clips son de espada y
+  // escudo, con la derecha en la cadera, y siguiendo los nudillos una hoja larga
+  // atravesaba el torso. Se la inclina hasta un mínimo hacia delante (dos manos,
+  // lanza) o hacia arriba (bastón, que va de pie junto al cuerpo).
+  const inclinar = (hacia, minimo) => {
+    if (!(minimo > 0)) return;
+    const d = eje.dot(hacia);
+    if (d >= minimo) return;
+    const resto = eje.clone().addScaledVector(hacia, -d);
+    if (resto.lengthSq() < 1e-6) resto.set(1, 0, 0);
+    resto.normalize();
+    eje.copy(resto.multiplyScalar(Math.sqrt(1 - minimo * minimo)).addScaledVector(hacia, minimo)).normalize();
+  };
+  inclinar(frente, conf.adelanteMinimo);
+  inclinar(new THREE.Vector3(0, 1, 0), conf.arribaMinimo ?? 0);
   const centro = indice.clone().add(meñique).multiplyScalar(0.5).lerp(p('RightHandMiddle2'), 0.5);
   atrezo.espada.position.copy(centro);
   atrezo.espada.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), eje);
@@ -224,6 +257,11 @@ function colocarAtrezo(model, prefijo, atrezo, conf, suelo, aplanar, frente) {
     poseArm(model, 'Left', manoIzquierda, codo(-1));
     centro.copy(agarre);
     atrezo.espada.position.copy(centro);
+  }
+  if (atrezo.libro) {
+    const mano = model.getObjectByName(prefijo + 'LeftHand');
+    atrezo.libro.position.copy(p('LeftHand')).lerp(p('LeftHandMiddle2'), 0.6);
+    atrezo.libro.quaternion.copy(mano.getWorldQuaternion(new THREE.Quaternion()));
   }
   if (!atrezo.escudo) return;
   // El escudo: normal hacia fuera del cuerpo, perpendicular al antebrazo.
@@ -379,6 +417,7 @@ async function prepararForge(
   const atrezo = confAtrezo ? crearAtrezo(model, confAtrezo) : null;
   if (atrezo) scene.add(atrezo.espada);
   if (atrezo?.escudo) scene.add(atrezo.escudo);
+  if (atrezo?.libro) scene.add(atrezo.libro);
   if (${piernasDeColor}) colorearPiernas(model);
   scene.updateMatrixWorld(true);
   const suelo = puntoMasBajo(model);
@@ -535,17 +574,31 @@ export async function renderizarPerfil(perfil: Perfil): Promise<string> {
 
 /** El atrezo de un juego de armas, en metros. `agarre`: dónde queda la guarda sobre el puño derecho. */
 export interface Atrezo {
+  /**
+   * El arma de la mano derecha, en metros: la hoja (o el asta) sale por el lado
+   * del índice desde `agarre`, y el puño queda hacia el meñique.
+   */
   readonly espada: {
     readonly largo: number;
     readonly guarda: number;
     readonly puño: number;
     readonly agarre: number;
+    readonly grosor?: number;
+    /** Radio de una bola en la punta (maza, mayal). */
+    readonly cabeza?: number;
+    /** Largo de una punta de lanza. */
+    readonly moharra?: number;
+    readonly remate?: 'cruz';
   };
   readonly escudo: boolean;
+  /** Un libro en la mano izquierda. */
+  readonly libro?: boolean;
   /** La mano izquierda también en el puño de la espada. */
   readonly dosManos: boolean;
-  /** A dos manos: cuánto apunta la hoja, como mínimo, hacia donde mira (coseno). */
+  /** Cuánto apunta la hoja, como mínimo, hacia donde mira (coseno). */
   readonly adelanteMinimo: number;
+  /** Cuánto apunta, como mínimo, hacia arriba (coseno): un bastón va de pie. */
+  readonly arribaMinimo?: number;
   /** A dos manos: cuánto se lleva el agarre a la línea central del cuerpo (0 a 1). */
   readonly centrado: number;
   /** A dos manos: a cuántos metros por delante del pecho queda el agarre, como mínimo. */
@@ -567,15 +620,27 @@ export interface Atrezo {
  * reutilizan todas las unidades que lleven esas armas; uno nuevo se hace
  * copiando el más parecido y retocándolo.
  */
+/** Lo que no usa un arma de una mano: los ajustes del agarre a dos manos, a cero. */
+const UNA_MANO = {
+  escudo: false,
+  dosManos: false,
+  adelanteMinimo: 0,
+  centrado: 0,
+  alcanceMinimo: 0,
+  separacionManos: 0,
+  codosAfuera: 0,
+  codosAdelante: 0,
+  estiramiento: 1,
+} as const;
+
 export const JUEGOS_DE_ARMAS = {
   'espada-escudo': {
     describe: 'espada de una mano y escudo de cometa',
     ataque: 'quick',
     reposo: 'idle',
-    // Su arte ya está aprobado con el maniquí gris: cambiarlo dejaría su
-    // referencia de pose sin poder reproducirse. La siguiente unidad que lo use
-    // lo pasa a `true`.
-    piernasDeColor: false,
+    // El templario con escudo se aprobó con el maniquí gris (su procedencia
+    // apunta aquel render); el caballero, que lo reutiliza, ya va con color.
+    piernasDeColor: true,
     atrezo: {
       espada: { largo: 0.85, guarda: 0.2, puño: 0.17, agarre: 0.085 },
       escudo: true,
@@ -611,6 +676,55 @@ export const JUEGOS_DE_ARMAS = {
       codosAfuera: 4,
       codosAdelante: 0.7,
       estiramiento: 0.7,
+    },
+  },
+  // Bastón o báculo rematado en cruz, en la derecha: el monje y el abad. El
+  // ataque es el lanzamiento con el brazo extendido del perfil `baston`.
+  baston: {
+    describe: 'bastón alto rematado en cruz en la mano derecha',
+    ataque: 'casting',
+    reposo: 'idle4',
+    piernasDeColor: true,
+    atrezo: {
+      espada: { largo: 1.15, guarda: 0, puño: 0.5, agarre: 0, grosor: 0.024, remate: 'cruz' },
+      ...UNA_MANO,
+      arribaMinimo: 0.85,
+    },
+  },
+  // Lanza de infantería en la derecha, sin escudo: el escudero.
+  lanza: {
+    describe: 'lanza en la mano derecha, sin escudo',
+    ataque: 'quick',
+    reposo: 'idle4',
+    piernasDeColor: true,
+    atrezo: {
+      espada: { largo: 1.45, guarda: 0, puño: 0.6, agarre: 0, grosor: 0.02, moharra: 0.25 },
+      ...UNA_MANO,
+      adelanteMinimo: 0.6,
+    },
+  },
+  // Maza de una mano en la derecha y un libro en la izquierda: el inquisidor.
+  maza: {
+    describe: 'maza de una mano en la derecha y un libro en la izquierda',
+    ataque: 'quick',
+    reposo: 'idle4',
+    piernasDeColor: true,
+    atrezo: {
+      espada: { largo: 0.42, guarda: 0, puño: 0.14, agarre: 0, grosor: 0.025, cabeza: 0.07 },
+      ...UNA_MANO,
+      libro: true,
+    },
+  },
+  // Mayal de una mano: mango corto y la bola de pinchos al final de la cadena,
+  // que en el maniquí va rígida. El ataque es el tajo amplio.
+  mayal: {
+    describe: 'mayal de bola de pinchos en la mano derecha',
+    ataque: 'heavy',
+    reposo: 'idle4',
+    piernasDeColor: true,
+    atrezo: {
+      espada: { largo: 0.55, guarda: 0, puño: 0.16, agarre: 0, grosor: 0.012, cabeza: 0.08 },
+      ...UNA_MANO,
     },
   },
 } as const satisfies Record<
