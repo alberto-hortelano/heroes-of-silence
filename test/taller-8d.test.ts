@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
 import { indicesDeClip, OCHO_DIRECCIONES } from '../tools/art/poses.js';
-import { derivarAtlas } from '../tools/taller/derivar.js';
+import { derivarAtlas, ELEVACION_DEL_CADAVER } from '../tools/taller/derivar.js';
 import { type Encargo, encargoSchema, promptDe } from '../tools/taller/encargo.js';
 import { encargoDeGiro, encargosDeOchoDirecciones, unidad } from '../tools/taller/unidades.js';
 
@@ -57,6 +57,16 @@ describe('una dirección de 6 filas', () => {
     expect(Object.keys(a.clips)).toEqual(['idle', 'walk', 'charge', 'attack', 'hurt', 'death']);
     expect(a.clips.death?.loop).toBe(false);
     expect(a.cadaver).toEqual({ clip: 'death', frame: (a.clips.death?.frames ?? 0) - 1 });
+  });
+
+  it('un ancla para todas, la del reposo, salvo la muerte: va ELEVACION_DEL_CADAVER más arriba', async () => {
+    const a = await derivarAtlas(await hoja());
+    const [x, y] = a.clips.idle?.anchor ?? [0, 0];
+    for (const c of ['walk', 'charge', 'attack', 'hurt'] as const)
+      expect(a.clips[c]?.anchor, c).toEqual([x, y]);
+    // Sin subirla, el cadáver tendido hacia la cámara no cabía bajo los pies y
+    // el empaquetado lo metía en la celda subiéndolo: flotaba sobre su sombra.
+    expect(a.clips.death?.anchor).toEqual([x, y - ELEVACION_DEL_CADAVER]);
   });
 
   it('la muerte y el daño no son bucles: su última columna es su último fotograma', () => {

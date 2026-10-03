@@ -1,7 +1,7 @@
 {
   "encargo": "templario-mandoble-d4-a",
   "tipo": "atlas",
-  "fecha": "2026-10-02T22:38:16.702Z",
+  "fecha": "2026-10-03T09:55:43.934Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
@@ -33,13 +33,13 @@
   },
   "postproceso": [
     "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
-    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.9915, pies en y=342, reposo a 160 px",
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.9449, pies en y=342, reposo a 160 px",
     "WebP calidad 92, alfa sin pérdida",
     "dirección completa: assets/unidades/templario-mandoble/d4/atlas.webp"
   ],
   "validacion": {
-    "visibles": 0.04528388775214947,
-    "opacos": 0.9440328044214655,
+    "visibles": 0.04139249286954365,
+    "opacos": 0.9411741759313439,
     "haloSuelto": 0,
     "ancho": 2688,
     "alto": 1152
@@ -58,6 +58,6 @@
   },
   "salida": {
     "ruta": "assets/unidades/templario-mandoble/d4/hoja-a.webp",
-    "sha256": "63590167ebd43f02f906f41067b5dbbf0cd3c45b256c0957089d755dde959494"
+    "sha256": "fbc0e591fce13ca90992a8beb0953a9e4f9720f19298e96bdd6bc5995f421432"
   }
 }

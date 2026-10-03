@@ -113,7 +113,7 @@ fotograma es el cadáver (`cadaver` en el JSON).
    contra su maniquí, celda a celda, y el taller junta las dos de una dirección en
    `assets/unidades/<id>/d<n>/atlas.webp` (celda de 384). `atlas.composicion.json`
    apunta de qué hojas sale.
-4. **La vista**: `pnpm taller vista-8d [<id>]` escribe un solo visor, `.cache/taller/vista/visor-8d.html`, con un selector de todas las unidades que ya tienen sus 8 direcciones y de las poses de cada juego de armas; el `<id>` solo elige con cuál se abre (va en el `#` de la URL). Con la sombra por silueta.
+4. **La vista**: `pnpm taller vista-8d [<id>]` escribe un solo visor, `.cache/taller/vista/visor-8d.html`, con un selector de todas las unidades que ya tienen sus 8 direcciones y de las poses de cada juego de armas; el `<id>` solo elige con cuál se abre (va en el `#` de la URL). Todas a la misma escala, para poder compararlas: el lienzo crece hasta que quepa la más alta. Con la sombra por silueta.
 
 Las direcciones son las de sprite-forge: 0 mira a la cámara, 2 a la derecha, 4 de
 espaldas y 6 a la izquierda (`tools/taller/direcciones.ts`).
@@ -125,9 +125,24 @@ Ninguna se espeja, porque la luz vendría del otro lado.
   maniquí respecto a su reposo (`EscalaDePose.apoyos`). Antes se colocaba por su
   propio apoyo y un cadáver tendido quedaba levitando. La transformación se
   apunta en la procedencia (`deLaPose`).
+- **El tamaño.** La escala de cada hoja es la que mejor superpone la SILUETA de
+  cada figura pintada a la del maniquí, apoyadas las dos por su apoyo (la
+  mediana de las 21 celdas, `escalaPorSilueta`). Antes era la razón entre los
+  altos de las cajas, y el alto engaña: el maniquí lleva siempre el arma entera,
+  y de espaldas el asta se le junta con la cabeza. El escudero salía 1,7 veces
+  más alto de espaldas que de frente.
+- **La muerte, más arriba.** En las 6 filas, la de la muerte va
+  `ELEVACION_DEL_CADAVER` (64 px) más arriba en su celda, y su ancla con ella.
+  Bajo los pies solo quedaban 42 px y un cuerpo tendido hacia la cámara ocupa
+  ~70: el empaquetado lo metía en la celda subiéndolo y el cadáver flotaba sobre
+  su sombra.
 - **Las piernas.** En los juegos de armas con `piernasDeColor`, la pierna derecha
   del maniquí es roja y la izquierda azul. El prompt dice que solo sirven para
   distinguirlas.
+- **El fondo.** La hoja del maniquí se le enseña a ChatGPT sobre verde de croma
+  (`FONDO_DE_POSE`), no transparente ni gris: el transparente le llega como negro, y ahí
+  se pierden el atrezo negro (escudo, asta) y el lado en sombra del maniquí; el
+  gris claro se confunde con el propio maniquí.
 
 ### El evaluador
 
@@ -149,3 +164,8 @@ mandoble:
   de 48.
 
 Es un aviso de revisión, no una aceptación.
+
+Además avisa, sin ambigüedad, de las celdas con el **azul guía** del maniquí
+copiado en una pierna (`esAzulGuia`, más de `UMBRAL_AZUL` píxeles): ningún
+templario lleva azul. El rojo de la otra pierna no se busca, porque se confunde
+con las cruces.

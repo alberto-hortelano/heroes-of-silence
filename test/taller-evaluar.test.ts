@@ -4,7 +4,13 @@
  * brazo «faltan» sube, y desplazada «sobran» sube.
  */
 import { describe, expect, it } from 'vitest';
-import { dilatar, HOLGURA_SOBRAN, type Mascara, puntuar } from '../tools/taller/evaluar.js';
+import {
+  dilatar,
+  esAzulGuia,
+  HOLGURA_SOBRAN,
+  type Mascara,
+  puntuar,
+} from '../tools/taller/evaluar.js';
 
 const L = 64;
 
@@ -37,5 +43,25 @@ describe('el evaluador', () => {
   it('desplazada lejos, «sobran» sube', () => {
     const lejos = figura(false, HOLGURA_SOBRAN + 12);
     expect(puntuar(figura(), lejos, L).sobran).toBeGreaterThan(0.25);
+  });
+
+  it('reconoce el azul guía del maniquí, también apagado, y no los colores de un templario', () => {
+    // El de la pierna del maniquí, medido en su hoja de pose, y el apagado que
+    // dejó el pintor en las fugas del abad.
+    for (const [r, g, b] of [
+      [96, 144, 240],
+      [64, 96, 176],
+      [110, 130, 190],
+    ] as const)
+      expect(esAzulGuia(r, g, b), `${r},${g},${b}`).toBe(true);
+    // Blanco de la sobrevesta, acero, cota oscura, la cruz roja y un acero azulado.
+    for (const [r, g, b] of [
+      [230, 225, 215],
+      [150, 155, 165],
+      [40, 40, 50],
+      [160, 30, 30],
+      [120, 135, 160],
+    ] as const)
+      expect(esAzulGuia(r, g, b), `${r},${g},${b}`).toBe(false);
   });
 });

@@ -38,7 +38,12 @@ import { OCHO_DIRECCIONES } from '../art/poses.js';
 import { CODEX, FalloDeCodex, type Generacion, generar } from './codex.js';
 import { Cola } from './cola.js';
 import { componerAtlasMapa } from './componer-atlas-mapa.js';
-import { escribirDerivado, escribirEfectoDerivado, escribirPiezaDerivada } from './derivar.js';
+import {
+  ELEVACION_DEL_CADAVER,
+  escribirDerivado,
+  escribirEfectoDerivado,
+  escribirPiezaDerivada,
+} from './derivar.js';
 import { encargosDeEdificios } from './edificios.js';
 import { encargoDeIconosDeRecursos, encargosDeEfectos } from './efectos.js';
 import {
@@ -71,6 +76,11 @@ import { vista, vistaEdificios, vistaEfectos, vistaEjercitos } from './vista.js'
 import { vista8d } from './vista-8d.js';
 
 const RAIZ = resolve(import.meta.dirname, '../..');
+/**
+ * El fondo sobre el que se le enseña la hoja de pose a ChatGPT: verde de croma, no
+ * transparente ni gris (el gris claro se confundía con el maniquí).
+ */
+export const FONDO_DE_POSE = '#00b140';
 export const COLA = new Cola(join(RAIZ, 'tools/taller/cola'));
 
 const sha256 = (b: Buffer): string => createHash('sha256').update(b).digest('hex');
@@ -101,7 +111,15 @@ async function procesar(
       encargo.referencias.map(async (r, i) => {
         const bytes = await readFile(join(RAIZ, r.ruta));
         const png = join(temporal, `ref-${i + 1}-${r.papel}.png`);
-        await sharp(bytes).png().toFile(png);
+        // La pose va sobre verde y no transparente: el transparente le
+        // llega a ChatGPT como negro, y ahí se pierden el atrezo negro (escudo,
+        // asta) y el lado en sombra del maniquí.
+        await (r.papel === 'pose'
+          ? sharp(bytes).flatten({ background: FONDO_DE_POSE })
+          : sharp(bytes)
+        )
+          .png()
+          .toFile(png);
         return { ...r, sha256: sha256(bytes), png };
       }),
     );
@@ -306,7 +324,7 @@ async function postprocesar(
 }
 
 /**
- * Las alturas del maniquí en cada celda de la hoja de pose de un encargo de 8
+ * Las siluetas del maniquí en cada celda de la hoja de pose de un encargo de 8
  * direcciones, y la de su reposo (la primera celda de la hoja A de su
  * dirección): con ellas se escalan igual las dos hojas de una figura.
  */
@@ -335,8 +353,11 @@ async function escalaDePose(e: Encargo): Promise<EscalaDePose> {
               if (y < y0) y0 = y;
               y1 = y;
             }
+        const silueta = new Uint8Array(celda * celda);
+        for (let y = 0; y < celda; y++)
+          for (let x = 0; x < celda; x++) silueta[y * celda + x] = alfa(f, c)(x, y) >= 40 ? 1 : 0;
         return {
-          alto: y1 - y0 + 1,
+          silueta,
           apoyo: apoyoEn(alfa(f, c), [x0, y0, x1, y1]),
         };
       }),
@@ -348,11 +369,14 @@ async function escalaDePose(e: Encargo): Promise<EscalaDePose> {
   if (reposo === undefined) throw new Error(`la pose ${ruta} no tiene reposo`);
   const celdas = await medir(ruta);
   return {
-    alturas: celdas.map((f) => f.map((c) => c.alto)),
+    lado: celda,
+    siluetas: celdas.map((f) => f.map((c) => c.silueta)),
     reposo: OCHO_DIRECCIONES.altoDelManiqui,
     apoyos: celdas.map((f) => f.map((c) => c.apoyo)),
     apoyoReposo: reposo.apoyo,
     posicion: e.ocho?.hoja === 'b',
+    // La hoja B es ataque, daño y muerte: la muerte, la tercera, sube.
+    ...(e.ocho?.hoja === 'b' ? { elevaciones: [0, 0, ELEVACION_DEL_CADAVER] } : {}),
   };
 }
 
@@ -622,7 +646,7 @@ switch (orden) {
       );
       for (const f of [...filas].sort((a, b) => b.nivel + b.pico - (a.nivel + a.pico)))
         console.log(
-          `${f.marcada ? '✘' : ' '} d${f.direccion} ${f.nombre.padEnd(17)} ${f.clip.padEnd(7)} nivel ${f.nivel.toFixed(2)} pico ${f.pico.toFixed(2)} (fotograma ${f.peor + 1})`,
+          `${f.marcada ? '✘' : ' '} d${f.direccion} ${f.nombre.padEnd(17)} ${f.clip.padEnd(7)} nivel ${f.nivel.toFixed(2)} pico ${f.pico.toFixed(2)} (fotograma ${f.peor + 1})${f.conAzul.length > 0 ? ` AZUL en ${f.conAzul.map((n) => n + 1).join(', ')}` : ''}`,
         );
     }
     break;

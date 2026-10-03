@@ -37,6 +37,15 @@ const RELOJ = {
 export type ClipDeHoja = keyof typeof RELOJ;
 
 /**
+ * Cuánto más arriba va la fila de la muerte en su celda en las hojas de 8
+ * direcciones, en píxeles de la celda de 384. Bajo los pies quedan 42 px y un
+ * cuerpo tendido hacia la cámara ocupa ~70: el empaquetado lo metía en la celda
+ * subiéndolo, y el cadáver quedaba flotando sobre su sombra. Subida la fila
+ * entera y su ancla con ella, el cadáver cae donde lo pone el maniquí.
+ */
+export const ELEVACION_DEL_CADAVER = 64;
+
+/**
  * Las filas de una hoja según cuántas tenga: 3 a pie (reposo, marcha, ataque) y 4
  * las monturas, que añaden la carga antes del ataque (decisión del usuario,
  * 02-10-2026). Se deduce del alto de la imagen, así que volver a derivar una hoja
@@ -183,7 +192,15 @@ export async function derivarAtlas(rutaImagen: string): Promise<AtlasDerivado> {
     // En 6 filas la posición de cada fotograma la dicta el maniquí respecto a su
     // reposo, así que el ancla es UNA por dirección, la del reposo: la mediana por
     // clip recentraría el cadáver y la carga.
-    const fija = filas === 6 ? clips.idle?.anchor : undefined;
+    const reposo = filas === 6 ? clips.idle?.anchor : undefined;
+    // La muerte va ELEVACION_DEL_CADAVER más arriba en su celda (ver la
+    // constante), y su ancla con ella: en el juego cae donde la pone el maniquí.
+    const fija =
+      reposo === undefined
+        ? undefined
+        : def.clip === 'death'
+          ? ([reposo[0], reposo[1] - ELEVACION_DEL_CADAVER] as const)
+          : reposo;
     const anchor: readonly [number, number] = fija ?? [
       mediana(apoyos.map((a) => a[0])),
       mediana(apoyos.map((a) => a[1])),

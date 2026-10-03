@@ -28,7 +28,7 @@ import {
   type JuegoDeArmas,
   OCHO_DIRECCIONES,
 } from '../art/poses.js';
-import { type AtlasDerivado, derivarAtlas } from './derivar.js';
+import { type AtlasDerivado, derivarAtlas, ELEVACION_DEL_CADAVER } from './derivar.js';
 import { NOMBRES_DE_DIRECCION } from './direcciones.js';
 import type { Fila } from './evaluar.js';
 import { EN_OCHO_DIRECCIONES } from './unidades.js';
@@ -88,7 +88,10 @@ async function desdeElArte(id: string): Promise<Direccion[]> {
         .filter((f) => f.direccion === d && f.marcada)
         .map((f) => [
           f.clip,
-          `nivel ${f.nivel.toFixed(2)} · pico ${f.pico.toFixed(2)} en el fotograma ${f.peor + 1}`,
+          `nivel ${f.nivel.toFixed(2)} · pico ${f.pico.toFixed(2)} en el fotograma ${f.peor + 1}` +
+            ((f.conAzul ?? []).length > 0
+              ? ` · AZUL del maniquí en ${(f.conAzul ?? []).map((n) => n + 1).join(', ')}`
+              : ''),
         ]),
     );
     fuera.push({ src: relative(DIR_VISTA, ruta), atlas, avisos });
@@ -125,7 +128,7 @@ function pagina(fuentes: readonly Fuente[]): string {
 <header>
   <label>Ver <select id="fuente"><optgroup label="Unidades">${opciones('Unidades')}</optgroup><optgroup label="Poses del maniquí">${opciones('Poses del maniquí')}</optgroup></select></label>
   <label>Velocidad <input id="vel" type="range" min="0.25" max="2" step="0.25" value="1"><span id="velv">1×</span></label>
-  <label>Tamaño <input id="tam" type="range" min="0.3" max="1.5" step="0.1" value="0.8"><span id="tamv">0.8×</span></label>
+  <label>Tamaño <input id="tam" type="range" min="0.4" max="1.5" step="0.1" value="0.8"><span id="tamv">0.8×</span></label>
   <label><input id="som" type="checkbox" checked> Sombra</label>
   <span class="ayuda">Luz desde la izquierda; la sombra es la silueta del fotograma. La muerte se queda en el cadáver. Borde rojo: el evaluador avisa (pasa el ratón para ver por qué).</span>
 </header>
@@ -133,27 +136,32 @@ function pagina(fuentes: readonly Fuente[]): string {
 <script>
 const FUENTES = ${JSON.stringify(fuentes)};
 const SOMBRA = ${JSON.stringify(proyeccionDeSombra())};
+const BAJO_LOS_PIES = ${ELEVACION_DEL_CADAVER + 42};
 const ACCIONES = [['idle','quieto'],['walk','andando'],['charge','carga'],['attack','ataque'],['hurt','daño'],['death','muerte']];
 /** Lo que se queda quieto al acabar un clip que no es bucle, en segundos; el cadáver, más. */
 const PAUSA = { attack: 0.6, hurt: 0.6, death: 2.5 };
 let vel = 1, tam = 0.8, conSombra = true;
 const vel_ = document.getElementById('vel'), tam_ = document.getElementById('tam'), som_ = document.getElementById('som');
 vel_.oninput = () => { vel = +vel_.value; document.getElementById('velv').textContent = vel + '×'; };
-tam_.oninput = () => { tam = +tam_.value; document.getElementById('tamv').textContent = tam.toFixed(1) + '×'; };
+tam_.oninput = () => { tam = +tam_.value; document.getElementById('tamv').textContent = tam.toFixed(1) + '×'; ajustarLienzos(); };
 som_.onchange = () => { conSombra = som_.checked; };
 
 const t = document.getElementById('t');
 const sel = document.getElementById('fuente');
 let piezas = [];
+let altoFuente = 0;
+function ajustarLienzos() {
+  // Bajo los pies cabe el cadáver: llega a ELEVACION_DEL_CADAVER + 42 px de la celda.
+  const h = Math.max(260, Math.ceil(altoFuente * tam + 40 + BAJO_LOS_PIES * tam));
+  for (const p of piezas) if (p.c.height !== h) p.c.height = h;
+}
 function mostrar(id) {
   const f = FUENTES.find((x) => x.id === id) ?? FUENTES[0];
   sel.value = f.id;
   document.title = 'Taller · ' + f.titulo;
-  // Que quepa: la montura es más alta que un infante, así que empieza más pequeña.
-  // La menor de las 8: la altura mide la caja del reposo, y una lanza en alto la estira.
-  const alto = Math.min(...f.direcciones.map((d) => d.atlas.altura ?? 0));
-  tam = alto > 0 ? Math.min(0.8, Math.round((130 / alto) * 10) / 10) : 0.8;
-  tam_.value = tam; document.getElementById('tamv').textContent = tam.toFixed(1) + '×';
+  // Todas a la MISMA escala, para poder compararlas: lo que cambia es el lienzo,
+  // que crece hasta que quepa la figura más alta (la montura con la lanza).
+  altoFuente = Math.max(...f.direcciones.map((d) => d.atlas.altura ?? 0));
   if (location.hash.slice(1) !== f.id) history.replaceState(null, '', '#' + f.id);
   t.replaceChildren();
   piezas = [];
@@ -171,6 +179,7 @@ function mostrar(id) {
       piezas.push({ d, img, clip, c });
     }
   }
+  ajustarLienzos();
 }
 sel.onchange = () => mostrar(sel.value);
 window.onhashchange = () => mostrar(location.hash.slice(1));
@@ -210,7 +219,8 @@ function dibujar(ahora) {
       const f = fotograma({ ...k, clip: p.clip }, reloj);
       const lado = a.cell, sx = f * lado, sy = k.row * lado;
       const [ax, ay] = k.anchor;
-      const px = p.c.width / 2, py = p.c.height * 0.72;
+      // Los pies dejan sitio debajo: el cadáver cae hacia la cámara.
+      const px = p.c.width / 2, py = p.c.height - 10 - BAJO_LOS_PIES * tam;
       if (conSombra) {
         ctx.save();
         ctx.translate(px, py);

@@ -48,6 +48,20 @@ export const HOLGURA_SOBRAN = 10;
  */
 export const UMBRAL = { nivel: 0.12, pico: 0.07 } as const;
 
+/**
+ * Píxeles del AZUL guía del maniquí (su pierna izquierda) a partir de los cuales
+ * una celda avisa: el pintor a veces lo copia en una pierna. Ningún templario
+ * lleva azul, así que se busca sin ambigüedad; el rojo de la otra pierna no,
+ * porque se confunde con las cruces. Medido el 03-10-2026: las tres fugas que se
+ * vieron daban 36 a 90 y ninguna celda limpia pasa de 0.
+ */
+export const UMBRAL_AZUL = 25;
+
+/** Si un píxel opaco es del azul guía del maniquí. */
+export function esAzulGuia(r: number, g: number, b: number): boolean {
+  return b > 110 && b - r > 45 && b - g > 15;
+}
+
 /** Una máscara binaria de `lado`×`lado`. */
 export type Mascara = Uint8Array;
 
@@ -109,6 +123,7 @@ interface DeLaPose {
   readonly k: number;
   readonly origen: readonly [number, number];
   readonly apoyoReposo: readonly [number, number];
+  readonly elevaciones?: readonly number[];
 }
 
 async function alfa(ruta: string): Promise<{ data: Buffer; ancho: number }> {
@@ -166,6 +181,8 @@ export interface Celda {
   /** Cuánto cambia del fotograma anterior al este (fracción de píxeles), pintada y maniquí. */
   readonly cambioPintada: number;
   readonly cambioManiqui: number;
+  /** Píxeles del azul guía del maniquí copiados en la figura (`esAzulGuia`). */
+  readonly azul: number;
 }
 
 /** La fracción de píxeles que cambian entre dos máscaras, sobre los que tienen alguna. */
@@ -212,13 +229,25 @@ export async function evaluarDireccion(id: string, d: number): Promise<Celda[]> 
         };
         const maniqui = new Uint8Array(lado * lado);
         const pintada = new Uint8Array(lado * lado);
+        let azul = 0;
         for (let y = 0; y < lado; y++) {
           for (let x = 0; x < lado; x++) {
-            const a = atlas.data[((filaAtlas * lado + y) * atlas.ancho + col * lado + x) * 4 + 3];
+            const i = ((filaAtlas * lado + y) * atlas.ancho + col * lado + x) * 4;
+            const a = atlas.data[i + 3];
             pintada[y * lado + x] = (a as number) >= 64 ? 1 : 0;
+            if (
+              (a as number) >= 128 &&
+              esAzulGuia(
+                atlas.data[i] as number,
+                atlas.data[i + 1] as number,
+                atlas.data[i + 2] as number,
+              )
+            )
+              azul++;
             // El píxel del maniquí que cae aquí: la transformación inversa.
             const px = Math.round(t.apoyoReposo[0] + (x - t.origen[0]) / t.k);
-            const py = Math.round(t.apoyoReposo[1] + (y - t.origen[1]) / t.k);
+            const oy = t.origen[1] - (t.elevaciones?.[fila] ?? 0);
+            const py = Math.round(t.apoyoReposo[1] + (y - oy) / t.k);
             if (px < 0 || py < 0 || px >= lado || py >= lado) continue;
             const b = pose.data[((fila * lado + py) * pose.ancho + col * lado + px) * 4 + 3];
             maniqui[y * lado + x] = (b as number) >= 40 ? 1 : 0;
@@ -231,6 +260,7 @@ export async function evaluarDireccion(id: string, d: number): Promise<Celda[]> 
           ...puntuar(maniqui, pintada, lado),
           cambioPintada: previa === null ? 0 : cambio(previa.pintada, pintada),
           cambioManiqui: previa === null ? 0 : cambio(previa.maniqui, maniqui),
+          azul,
         });
         previa = { maniqui, pintada };
       }
@@ -247,6 +277,8 @@ export interface Fila {
   readonly pico: number;
   /** El fotograma peor de la fila. */
   readonly peor: number;
+  /** Los fotogramas con el azul guía del maniquí copiado (`UMBRAL_AZUL`), desde 0. */
+  readonly conAzul: readonly number[];
   readonly marcada: boolean;
 }
 
@@ -266,6 +298,7 @@ export async function evaluar(id: string): Promise<{ filas: Fila[]; celdas: Celd
       const faltan = de.map((c) => c.faltan);
       const nivel = mediana(faltan);
       const pico = Math.max(...faltan) - nivel;
+      const conAzul = de.filter((c) => c.azul > UMBRAL_AZUL).map((c) => c.fotograma);
       filas.push({
         direccion: d,
         nombre: NOMBRES_DE_DIRECCION[d] as string,
@@ -273,7 +306,8 @@ export async function evaluar(id: string): Promise<{ filas: Fila[]; celdas: Celd
         nivel,
         pico,
         peor: faltan.indexOf(Math.max(...faltan)),
-        marcada: nivel > UMBRAL.nivel || pico > UMBRAL.pico,
+        conAzul,
+        marcada: nivel > UMBRAL.nivel || pico > UMBRAL.pico || conAzul.length > 0,
       });
     }
   }
