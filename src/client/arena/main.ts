@@ -387,7 +387,7 @@ function pedirFotograma(): void {
 }
 
 const principal = ajustarLienzo(canvas, pedirFotograma);
-cargarArte(pedirFotograma, { manifiesto: false });
+cargarArte(pedirFotograma, { manifiesto: false, mapa: false });
 
 let paneles: { version: string; ocupada: boolean } | null = null;
 

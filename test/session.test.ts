@@ -18,6 +18,8 @@ import {
   reachableFrom,
   visibleFrom,
 } from '../src/core/map/map.js';
+import { VECINAS } from '../src/core/map/regiones.js';
+import { isWalkable } from '../src/core/map/terrain.js';
 import {
   applyAdventureAction,
   baseOf,
@@ -117,12 +119,9 @@ describe('sesión del cliente: el turno del rival', () => {
  * partida antes de llegar a la batalla que el test quería ver.
  */
 function pegadoA(s: Session, desde: Point): Point {
-  for (const [dx, dy] of [
-    [1, 0],
-    [-1, 0],
-    [0, 1],
-    [0, -1],
-  ] as const) {
+  // Las ocho y no solo las rectas: con fronteras gruesas, el inicio está en el
+  // pasillo de la base y a veces solo tiene libres las diagonales.
+  for (const [dx, dy] of VECINAS) {
     const at = { x: desde.x + dx, y: desde.y + dy };
     const camino = findPath(s.state.map, desde, at);
     if (camino?.length === 1 && objectAt(s.state.map, at) === undefined) return at;
@@ -232,10 +231,14 @@ describe('sesión del cliente: reclutar lo que cabe y ver la ruta entera', () =>
   it('el liderazgo del héroe es lo que ocupa su ejército sobre su tope', () => {
     const s = new Session(7);
     const heroe = s.selectedHero!;
-    // El 14 es de la semilla: el ejército de salida sale del mismo `rng` que el
-    // mapa, y cada mapa tira distinto —era 14 con el de esquinas, 10 con el de
-    // nodos de 24 y otra vez 14 con el de 28 y sus asaltantes—.
-    expect(s.liderazgo({ heroe: heroe.id })).toEqual({ ocupado: 14, tope: 20 });
+    // Lo ocupado no se escribe con la cifra de la semilla: el ejército de salida
+    // sale del mismo `rng` que el mapa, y cada mapa tira distinto —fue 14 con el
+    // de esquinas, 10 con el de nodos de 24, 14 con el de 28 y 12 con el denso
+    // de 34—. Se pide a la misma suma que la guarnición de abajo; el tope sí es
+    // fijo, el de un héroe de nivel 5.
+    const ocupado = armyLeadership(heroe.army);
+    expect(ocupado).toBeGreaterThan(0);
+    expect(s.liderazgo({ heroe: heroe.id })).toEqual({ ocupado, tope: 20 });
   });
 
   it('la guarnición va por el mismo camino, con el tope de guarnición', () => {
@@ -299,7 +302,7 @@ describe('sesión del cliente: la versión y lo que se guarda entre fotogramas',
       .find(
         (p) =>
           (p.x !== heroe.at.x || p.y !== heroe.at.y) &&
-          s.state.map.terrain[p.y * s.state.map.width + p.x] !== 'mountain',
+          isWalkable(s.state.map.terrain[p.y * s.state.map.width + p.x]!),
       )!;
     s.moveHeroTo(heroe.id, vecina);
     expect(heroe.at).toEqual(vecina);

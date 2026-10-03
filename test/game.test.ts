@@ -214,6 +214,9 @@ describe('generación de mapas', () => {
     const aislado = {
       ...plan,
       patches: [...plan.patches, { terrain: 'water' as const, center: neutral.at, radius: 1.5 }],
+      // Sin caminos: los que llegaban a la ciudad quedarían sobre el agua, y un
+      // camino sobre una barrera se rechaza antes de mirar la red.
+      roads: [],
     };
     expect(validateMapPlan(aislado).join(' ')).toMatch(
       new RegExp(`la ciudad "${neutral.id}" no toca ninguna región`),

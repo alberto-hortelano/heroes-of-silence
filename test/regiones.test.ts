@@ -11,16 +11,24 @@
  * `estructura` y no con las tripas del generador.
  */
 import { describe, expect, it } from 'vitest';
+import barrerasJson from '../data/barreras.json' with { type: 'json' };
 import { mapPlanSchema } from '../src/core/contract/agent.js';
+import { BARRERAS_DEL_MAPA, validarBarreras } from '../src/core/data.js';
 import {
   buildMap,
   generateMapPlan,
+  LADO_DEL_MAPA,
   type MapPlan,
   validateMapPlan,
 } from '../src/core/map/generate.js';
 import { type Estructura, estructura } from '../src/core/map/regiones.js';
+import { BARRERAS, isWalkable, type TerrainKind } from '../src/core/map/terrain.js';
+import { TIPOS_POR_MAPA } from '../src/core/map/vestir.js';
 import { createRng } from '../src/core/rng.js';
-import { planDeNodos } from './helpers.js';
+import { auditarMapaDenso, planDeNodos } from './helpers.js';
+
+/** Los fallos de la auditoría densa de un plan, construyéndolo. */
+const densa = (plan: MapPlan): string[] => auditarMapaDenso(plan, buildMap(plan).map).fallos;
 
 /** El plan de prueba con una cosa cambiada. */
 function con(cambio: Partial<MapPlan>): MapPlan {
@@ -169,6 +177,55 @@ describe('la red se valida: cada rotura se dice con su sitio', () => {
     expect(validateMapPlan(enElPaso)).toEqual(['(11,2) la ocupan dos cosas: un nodo y cofre']);
   });
 
+  it('un camino sobre una barrera se rechaza diciendo la casilla; sobre un nodo vale', () => {
+    // Se aceptaba en silencio y el cliente lo pintaba encima del muro (QA H4).
+    const sobreLaSierra = con({
+      roads: [
+        { x: 10, y: 2 },
+        { x: 11, y: 2 },
+        { x: 11, y: 3 },
+        { x: 40, y: 2 },
+      ],
+    });
+    expect(validateMapPlan(sobreLaSierra)).toEqual([
+      'el camino de (11,3) cae sobre mountain: un camino solo va por casillas que se pisan',
+      'el camino de (40,2) se sale del mapa',
+    ]);
+    // El nodo abre su casilla de muro: un camino que lo cruza es lo normal.
+    expect(
+      validateMapPlan(
+        con({
+          roads: [
+            { x: 10, y: 2 },
+            { x: 11, y: 2 },
+            { x: 12, y: 2 },
+          ],
+        }),
+      ),
+    ).toEqual([]);
+  });
+
+  it('muchos caminos malos dan una frase por clase, con las primeras casillas y cuántas más (N4)', () => {
+    // 500 caminos fuera del mapa devolvían 500 frases al agente.
+    const fuera = Array.from({ length: 500 }, (_, i) => ({ x: 100 + i, y: 0 }));
+    const sobreLaSierra = [0, 1, 8, 3, 4, 5, 7].map((y) => ({ x: 11, y }));
+    expect(validateMapPlan(con({ roads: [...sobreLaSierra, ...fuera] }))).toEqual([
+      '7 casillas de camino caen sobre una barrera —(11,0) sobre mountain, (11,1) sobre mountain, (11,8) sobre mountain, (11,3) sobre mountain, (11,4) sobre mountain y 2 más—: un camino solo va por casillas que se pisan',
+      '500 casillas de camino se salen del mapa: (100,0), (101,0), (102,0), (103,0), (104,0) y 495 más',
+    ]);
+    // Con dos, se nombran las dos y no hay «y N más».
+    expect(
+      validateMapPlan(
+        con({
+          roads: [
+            { x: 40, y: 1 },
+            { x: 41, y: 1 },
+          ],
+        }),
+      ),
+    ).toEqual(['2 casillas de camino se salen del mapa: (40,1), (41,1)']);
+  });
+
   it('un muro torcido o fuera del mapa se rechaza antes de pintarlo', () => {
     const plan = planDeNodos();
     expect(
@@ -201,6 +258,58 @@ describe('la red se valida: cada rotura se dice con su sitio', () => {
     expect(terreno(11, 2)).toBe('dirt');
     expect(terreno(5, 4)).toBe('dirt');
     expect(terreno(11, 3)).toBe('mountain');
+  });
+});
+
+describe('el suelo entero de una región', () => {
+  it('se pinta la región entera y solo ella: ni los nodos ni la de al lado', () => {
+    const plan = planDeNodos();
+    const conSuelo = con({
+      regions: plan.regions.map((r) => (r.id === 'b' ? { ...r, terrain: 'snow' as const } : r)),
+    });
+    expect(validateMapPlan(conSuelo)).toEqual([]);
+    const { map } = buildMap(conSuelo);
+    const t = (x: number, y: number) => map.terrain[y * map.width + x];
+    // La región B son las columnas 6 a 10, de arriba abajo.
+    for (let y = 0; y < 9; y++)
+      for (let x = 6; x <= 10; x++) expect(t(x, y), `(${x},${y})`).toBe('snow');
+    // A su izquierda sigue la hierba de A; los nodos y la base siguen de tierra,
+    // y el muro sigue siendo muro.
+    expect(t(4, 4)).toBe('grass');
+    expect(t(12, 4)).toBe('grass');
+    expect([t(5, 4), t(11, 2), t(11, 6), t(5, 8)]).toEqual(['dirt', 'dirt', 'dirt', 'dirt']);
+    expect(t(5, 0)).toBe('mountain');
+    // Y la región no se guarda con su suelo: el mapa solo sabe de la red.
+    expect(map.regions.find((r) => r.id === 'b')).toEqual({
+      id: 'b',
+      name: 'Vega',
+      at: { x: 8, y: 7 },
+    });
+  });
+
+  it('una barrera como suelo de región se rechaza diciendo cuáles valen', () => {
+    const plan = planDeNodos();
+    const conAgua = con({
+      regions: plan.regions.map((r) => (r.id === 'c' ? { ...r, terrain: 'water' as const } : r)),
+    });
+    expect(validateMapPlan(conAgua)).toEqual([
+      'la región "c" pide de suelo "water", que no se pisa: el suelo de una región es uno de grass, dirt, sand, snow, swamp, lava, rough, y las barreras van en "walls"',
+    ]);
+    // El esquema lo deja pasar: quien lo rechaza es la puerta de los dos productores.
+    expect(mapPlanSchema.safeParse(conAgua).success).toBe(true);
+  });
+
+  it('un suelo inventado se rechaza: no basta con no ser barrera (vuelta 2 de QA, N3)', () => {
+    // `isWalkable` dice que sí a todo lo que no es barrera, y `"ice"` pasaba.
+    const plan = planDeNodos();
+    const conHielo = con({
+      regions: plan.regions.map((r) =>
+        r.id === 'c' ? { ...r, terrain: 'ice' as unknown as TerrainKind } : r,
+      ),
+    });
+    expect(validateMapPlan(conHielo)).toEqual([
+      'la región "c" pide de suelo "ice", que no es ningún terreno: el suelo de una región es uno de grass, dirt, sand, snow, swamp, lava, rough',
+    ]);
   });
 });
 
@@ -260,20 +369,91 @@ function auditar(plan: MapPlan): string[] {
 }
 
 describe('el generador hace redes como las pidió el usuario', () => {
-  it('200 semillas en 24×24 y 20 en 48×48: válidas, ciudades de grado ≥ 3, equilibradas y con dos caminos', () => {
+  it(`200 semillas en ${LADO_DEL_MAPA}×${LADO_DEL_MAPA} y 20 en 48×48: válidas, ciudades de grado ≥ 3, equilibradas, con dos caminos y densas`, () => {
     const fallos: string[] = [];
+    const fronteraTotal = new Set<string>();
+    const conCamino: number[] = [];
+    // Las 200 primeras y, además, las que encontró QA barriendo mil (H5, H6):
+    // 864 y 986 se quedaban en tres barreras de frontera, y 987 con una
+    // frontera de una casilla lejos de un nodo. Ninguna caía en las 200.
+    const deQA = [864, 986, 987];
+    const rango = (n: number) => Array.from({ length: n }, (_, k) => k + 1);
     for (const [lado, semillas] of [
-      [24, 200],
-      [48, 20],
+      [LADO_DEL_MAPA, [...rango(200), ...deQA]],
+      [48, rango(20)],
     ] as const) {
-      for (let s = 1; s <= semillas; s++) {
+      for (const s of semillas) {
         const plan = generateMapPlan(createRng(s), { width: lado, height: lado });
         const dondeFalla = (f: string) => `${lado}×${lado} semilla ${s}: ${f}`;
         fallos.push(...validateMapPlan(plan).map(dondeFalla));
         fallos.push(...auditar(plan).map(dondeFalla));
+        const { map } = buildMap(plan);
+        const { fallos: deDensidad, frontera } = auditarMapaDenso(plan, map);
+        if (lado === LADO_DEL_MAPA) {
+          const pisables = map.terrain.filter((t) => isWalkable(t)).length;
+          conCamino.push(map.roads.size / pisables);
+        }
+        fallos.push(...deDensidad.map(dondeFalla));
+        for (const b of frontera.keys()) fronteraTotal.add(b);
+        // Cuatro barreras que se vean, no cuatro nombres: cada una con su mínimo.
+        const minimo = BARRERAS_DEL_MAPA.casillasMinimasPorTipo;
+        const llenas = [...frontera].filter(([, n]) => n >= minimo);
+        if (llenas.length < TIPOS_POR_MAPA) {
+          const reparto = [...frontera].map(([b, n]) => `${b} ${n}`).join(', ');
+          fallos.push(
+            dondeFalla(
+              `la frontera lleva ${llenas.length} barreras con ${minimo} casillas o más: ${reparto}`,
+            ),
+          );
+        }
       }
     }
     expect(fallos).toEqual([]);
+    // Las cinco barreras salen en alguna frontera.
+    expect([...fronteraTotal].sort()).toEqual([...BARRERAS].sort());
+    // Los caminos son un árbol por región y no una malla: con un camino de cada
+    // nodo a cada otro, la mediana era el 41 % del suelo pisable y salían vías
+    // dobles (QA H3). El árbol con sendas da el 36 %; el techo es una cifra
+    // medida, y lo que guarda es que no vuelva la malla.
+    conCamino.sort((a, b) => a - b);
+    expect(conCamino[conCamino.length >> 1]).toBeLessThan(0.38);
+  });
+
+  it('la auditoría densa muerde: un mapa sin vestir no la pasa', () => {
+    // El plan a mano tiene muro de una casilla, suelo sin declarar, ni un
+    // obstáculo ni un camino: tiene que fallar en las cuatro cosas, o el test
+    // de arriba sería verde por vacío.
+    const fallos = densa(planDeNodos()).join('\n');
+    expect(fallos).toMatch(/frontera de menos de 2 casillas/);
+    expect(fallos).toMatch(/casillas de obstáculo, fuera de/);
+    expect(fallos).toMatch(/no está en un camino/);
+    // Y el de alcance: un monstruo en el único hueco de una fila de bosque deja
+    // la fila de arriba de la región B a la que solo se llega por encima de él.
+    const plan = planDeNodos();
+    const cortada = {
+      ...plan,
+      walls: [
+        ...plan.walls,
+        { terrain: 'forest' as const, from: { x: 6, y: 1 }, to: { x: 7, y: 1 } },
+        { terrain: 'forest' as const, from: { x: 9, y: 1 }, to: { x: 10, y: 1 } },
+      ],
+      monsters: [{ at: { x: 8, y: 1 }, creature: 'peasant', count: 3 }],
+    };
+    expect(validateMapPlan(cortada)).toEqual([]);
+    expect(densa(cortada).join('\n')).toMatch(
+      /en la región b, \(\d+,0\) no se alcanza desde sus nodos sin cruzar un monstruo/,
+    );
+  });
+
+  it('cuando no sale, el error dice en qué fase se agotaron los intentos', () => {
+    // En 12×12 las redes salen y lo que se agota es el vestido: sus fronteras no
+    // dan para tres barreras distintas con su mínimo de casillas cada una (antes
+    // de ese mínimo, en la vuelta 1 de QA, se agotaba en los objetos: no cabían
+    // las catorce minas). Antes de partir el error decía «no sabe repartir
+    // regiones equilibradas» fuera cual fuera la fase, y mentía.
+    expect(() => generateMapPlan(createRng(1), { width: 12, height: 12 })).toThrow(
+      /no sale un mapa de nodos de 12×12 en 20 redes: .*no se dejaron vestir en 10 intentos cada una: \d+ en fronteras \(la última: las fronteras de este mapa .* no admiten \d barreras distintas con 15 casillas cada una\)/,
+    );
   });
 
   it('el plan del generador pasa el esquema del agente: los dos productores hablan igual', () => {
@@ -290,5 +470,23 @@ describe('el generador hace redes como las pidió el usuario', () => {
     const fallos = auditar(planDeNodos());
     expect(fallos).toContain('solo 1 ciudades neutrales');
     expect(fallos).toContain('la ciudad town-2 es de grado 2');
+  });
+});
+
+describe('la tabla de barreras se valida al cargar', () => {
+  it('el fichero bueno pasa, y cada rotura se dice con su sitio', () => {
+    expect(() => validarBarreras(barrerasJson)).not.toThrow();
+    const { snow: _sinNieve, ...frontera } = barrerasJson.frontera;
+    const roto = {
+      ...barrerasJson,
+      frontera: { ...frontera, grass: { forest: 0, lava: 2 } },
+      densidadPorCiento: { min: 20, max: 10 },
+    };
+    expect(() => validarBarreras(roto)).toThrow(/"frontera" no tiene fila para el suelo "snow"/);
+    expect(() => validarBarreras(roto)).toThrow(/"frontera.grass.forest" pesa 0/);
+    expect(() => validarBarreras(roto)).toThrow(
+      /"frontera.grass" pide "lava", que no es una barrera/,
+    );
+    expect(() => validarBarreras(roto)).toThrow(/min \(20\) es mayor que max \(10\)/);
   });
 });

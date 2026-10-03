@@ -41,9 +41,8 @@ import {
   type Personajes,
   troopSummary,
 } from '../hero/troop.js';
-import { WALL_TERRAINS } from '../map/generate.js';
 import { pointFromKey, pointKey } from '../map/map.js';
-import { costeDeEntrada, isWalkable, TERRAIN_KINDS } from '../map/terrain.js';
+import { BARRERAS, costeDeEntrada, SUELOS_PISABLES, TERRAIN_KINDS } from '../map/terrain.js';
 import { cronicaPara } from '../state/events.js';
 import {
   baseOf,
@@ -282,18 +281,29 @@ export function serializeKnownMap(state: GameState, playerId: PlayerId) {
  * mañana el camino deja de ser plano o el redondeo cambia a `floor`, estas
  * cifras cambian solas.
  *
- * Se recorre `TERRAIN_KINDS` y no `Object.entries`, que perdía el tipo de la
- * clave y obligaba a un `as`. El agua se cae sola por `isWalkable`, la misma
- * función que usa el pathfinding: el día que se navegue, aparece sin que nadie
- * se acuerde. Y el orden es por coste, estable sobre el de declaración: ni un
- * `localeCompare`, que sería la única comparación sensible al idioma en un texto
- * que tiene que ser el mismo en dos partidas iguales.
+ * Se recorre `SUELOS_PISABLES` y no `Object.entries`, que perdía el tipo de la
+ * clave y obligaba a un `as`: es la lista de lo que se pisa, derivada con la
+ * misma `isWalkable` que usa el pathfinding, así que el día que se navegue el
+ * agua aparece sin que nadie se acuerde. Y el orden es por coste, estable sobre
+ * el de declaración: ni un `localeCompare`, que sería la única comparación
+ * sensible al idioma en un texto que tiene que ser el mismo en dos partidas
+ * iguales.
  */
-const COSTE_POR_TERRENO = TERRAIN_KINDS.filter(isWalkable)
-  .map((t) => ({ t, recto: costeDeEntrada(t, false, false), obl: costeDeEntrada(t, false, true) }))
+const COSTE_POR_TERRENO = SUELOS_PISABLES.map((t) => ({
+  t,
+  recto: costeDeEntrada(t, false, false),
+  obl: costeDeEntrada(t, false, true),
+}))
   .sort((a, b) => a.recto - b.recto)
   .map(({ t, recto, obl }) => `${t} ${recto} (${obl} en diagonal)`)
   .join(', ');
+
+/**
+ * Lo que no se pisa, **sacado de `BARRERAS`** y no escrito: la frase decía «el
+ * agua y la montaña» a mano, y con tres barreras nuevas habría mentido por
+ * omisión.
+ */
+const BARRERAS_EN_PROSA = BARRERAS.map((t) => `"${t}"`).join(', ');
 
 /** Lo mismo para una casilla con camino: no depende del terreno que haya debajo. */
 const COSTE_CON_CAMINO = `${costeDeEntrada('grass', true, false)} (${costeDeEntrada('grass', true, true)} en diagonal)`;
@@ -360,7 +370,8 @@ export const COMO_SE_LEE_EL_MAPA = `  Trae width, height, terrain[], roads[], ob
     "lastSeen" con el día en que lo viste. Si "lastSeen" es anterior a hoy, el dato
     puede haber caducado —un nodo cambia de dueño y tú sigues viendo la bandera
     vieja hasta que alguien vuelva a mirar—.
-  - El mapa es una RED: regiones cerradas por montaña o agua, y "node" y "town"
+  - El mapa es una RED: regiones cerradas por barreras —las que no se pisan, y
+    se dicen más abajo—, y "node" y "town"
     son los únicos pasos entre ellas. Un "node" se toma pisándolo, de camino o
     parando; una ciudad ("town") es un nodo con guarnición que se toma
     venciéndola, o entrando si está vacía. Una región es tuya cuando lo son TODOS
@@ -390,16 +401,17 @@ export const COMO_SE_LEE_EL_MAPA = `  Trae width, height, terrain[], roads[], ob
     pero no se cruza.
   - Con "terrain" y "roads" eliges la ruta antes de andarla, en vez de descubrirla
     al pisarla:
-    - El agua y la montaña NO se cruzan. No hay barcos ni puertos de montaña: una
-      casilla de "water" o de "mountain" no es un atajo caro, es un muro, y un
-      destino al otro lado obliga a pasar por un nodo.
+    - ${BARRERAS_EN_PROSA} NO se cruzan. No hay barcos ni puertos de montaña: una
+      casilla de una de ellas no es un atajo caro, es un muro, y un destino al otro
+      lado obliga a rodearla o, si separa dos regiones, a pasar por un nodo.
     - Entrar en una casilla cuesta esto en puntos de movimiento, y la cifra entre
       paréntesis es la que se cobra si entras en diagonal —las dos son ya el precio
       final, no hay nada que aplicarles—:
       ${COSTE_POR_TERRENO}.
-    - Si la casilla tiene camino cuesta ${COSTE_CON_CAMINO} se pinte sobre el
-      terreno que se pinte, y por eso un rodeo por carretera sale a menudo más
-      barato que la línea recta por el barro.
+    - Si la casilla tiene camino cuesta ${COSTE_CON_CAMINO} sea cual sea su suelo,
+      y por eso un rodeo por carretera sale a menudo más barato que la línea
+      recta por el barro. Un camino solo está en casillas que se pisan: nunca
+      atraviesa una barrera.
     - Compáralo con los puntos de movimiento que le queden hoy al héroe
       ("movePoints") para saber hasta dónde llegas.`;
 
@@ -778,7 +790,7 @@ export function serializeMapRequest(opts: MapRequestOptions): unknown {
       terrains: [...TERRAIN_KINDS],
       // Con qué se levanta un muro. Derivado igual que los terrenos: es la lista
       // que valida `validateMapPlan`, no una copia.
-      wallTerrains: [...WALL_TERRAINS],
+      wallTerrains: [...BARRERAS],
       resources: RESOURCE_KINDS,
       factions: ['knight', 'necromancer'],
       // Lo que un plan puede poner en `raiders`: el techo y los grupos con los

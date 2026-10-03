@@ -10,7 +10,7 @@
  *   - No se menciona el agua en un terreno sin agua: alucina ríos.
  *   - "pixel art" contamina el estilo aunque no se quiera, así que no aparece.
  */
-import type { TerrainKind } from '@core/map/terrain.js';
+import { SUELOS_PISABLES, type Suelo } from '@core/map/terrain.js';
 import type { ResourceKind } from '@core/types.js';
 
 /** La dirección de arte del proyecto: ilustración pintada, no pixel art. */
@@ -24,7 +24,17 @@ const SWATCH_RULE =
   'from a texture library. Plain and uniform, no landmarks, no single focal ' +
   'motif, no objects, no characters, no text. Seamless and tileable.';
 
-export const TERRAIN_PROMPTS: Readonly<Record<TerrainKind, string>> = {
+/**
+ * Los terrenos con textura generada: los suelos y el agua, que son los que hay
+ * en `assets/generated/terrain/` y los que el mapa trama sobre su pigmento. Las
+ * barreras de tierra —montaña, bosque, acantilado, muro— no se piden como
+ * textura: lo que les falta son piezas de borde (`docs/art/peticiones.md` §8), y
+ * un prompt que no se genera solo engorda la simulación de `pnpm gen`.
+ */
+export type TerrenoConTextura = Suelo | 'water';
+export const TERRENOS_CON_TEXTURA: readonly TerrenoConTextura[] = [...SUELOS_PISABLES, 'water'];
+
+export const TERRAIN_PROMPTS: Readonly<Record<TerrenoConTextura, string>> = {
   grass: `Lush green meadow grass, short dense blades, small clover. ${SWATCH_RULE} ${STYLE_TOKEN}`,
   dirt: `Packed brown earth with fine gravel and dry clay. ${SWATCH_RULE} ${STYLE_TOKEN}`,
   sand: `Fine golden desert sand with soft wind ripples. ${SWATCH_RULE} ${STYLE_TOKEN}`,
@@ -34,9 +44,6 @@ export const TERRAIN_PROMPTS: Readonly<Record<TerrainKind, string>> = {
   rough: `Broken rocky ground, loose grey scree and dry tufts. ${SWATCH_RULE} ${STYLE_TOKEN}`,
   // El agua es el ÚNICO terreno donde se nombra: en los demás, cebaría ríos.
   water: `Deep blue-green sea water with gentle rolling waves seen from directly above. ${SWATCH_RULE} ${STYLE_TOKEN}`,
-  // El muro del mapa de nodos. Sin `--go` no se genera, y el cliente no lo
-  // necesita: sin PNG pinta su pigmento y un pico del atlas por casilla.
-  mountain: `Jagged grey granite crags and rocky ridges seen from directly above. ${SWATCH_RULE} ${STYLE_TOKEN}`,
 };
 
 export const RESOURCE_ICON_PROMPTS: Readonly<Record<ResourceKind, string>> = {

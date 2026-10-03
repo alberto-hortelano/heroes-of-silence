@@ -2,10 +2,13 @@
  * Juega un turno entero de un jugador con la IA de respaldo: construye,
  * recluta, mueve a sus héroes y resuelve las batallas que provoque.
  */
+
+import type { Hero } from '../hero/hero.js';
 import { ROAD_COST } from '../map/terrain.js';
 import {
   alcanceDelHeroe,
   applyAdventureAction,
+  baseOf,
   currentPlayer,
   type GameContext,
   type GameOutcome,
@@ -23,6 +26,12 @@ import {
   siguienteDeEquipo,
   stepTowards,
 } from './strategy.js';
+
+/** Si el héroe está en la casilla de la base de su dueño. */
+function enSuBase(state: GameState, hero: Hero): boolean {
+  const base = baseOf(state, hero.owner);
+  return base !== null && base.at.x === hero.at.x && base.at.y === hero.at.y;
+}
 
 /** Tope de movimientos por turno: una red contra un bucle de objetivos. */
 const MAX_MOVIMIENTOS_POR_TURNO = 60;
@@ -122,9 +131,42 @@ export async function playAiTurn(
       // Antes iba igual por el alcance de siempre, y eso eran 270 de cada 304
       // emboscadas perdidas: lo que tapaba no era la IA sino que el héroe no
       // podía crecer, y desde que puede licenciar, sí.
-      const alcance = alcanceDelHeroe(state, hero, { evitarEmboscadas: true });
-      const destino =
+      let alcance = alcanceDelHeroe(state, hero, { evitarEmboscadas: true });
+      let destino =
         chooseHeroDestination(state, hero, alcance) ?? destinoDeRepliegue(state, hero, alcance);
+      // Y si el alcance prudente es **su propia casilla** —está en mitad de una
+      // región que lo embosca y no tiene un nodo al lado— y **los héroes del
+      // rival están igual**, vuelve a casa por el alcance de siempre. Es un
+      // empate eterno: un grupo no ataca a un héroe parado y se dispersa solo
+      // cuando su región tiene dueño, y con un héroe por bando y los dos
+      // encerrados no hay nadie que lo cambie. Lo destapó la semilla 10 del
+      // banco con los mapas densos (vuelta 1 de QA): los dos héroes, sin tropa
+      // tras vencer a un monstruo, 298 días sin moverse nadie.
+      //
+      // No es el «ve igual» que se quitó, que iba a por objetivos a través de
+      // los grupos: esto solo vuelve a casa, y solo cuando esperar ya no
+      // arregla nada. Que el rival también esté encerrado es lo que lo dice:
+      // sin esa condición (solo «no puede dar ni un paso»), en la semilla 11 el
+      // héroe salía a la emboscada un día antes de que el rival ganara la
+      // partida, y con los mapas de antes cambiaban 21 de las 200 partidas del
+      // banco —45 abierta a «no llega a casa sin cruzar una emboscada»—. Con
+      // ella, ninguna: con el generador de antes, el banco sale igual.
+      if (destino === null && alcance.costs.size <= 1 && !enSuBase(state, hero)) {
+        const rivales = state.heroes.filter((h) => h.owner !== hero.owner);
+        const todosEncerrados =
+          rivales.length > 0 &&
+          rivales.every(
+            (h) => alcanceDelHeroe(state, h, { evitarEmboscadas: true }).costs.size <= 1,
+          );
+        if (todosEncerrados) {
+          const sinPrudencia = alcanceDelHeroe(state, hero);
+          const aCasa = destinoDeRepliegue(state, hero, sinPrudencia);
+          if (aCasa !== null) {
+            alcance = sinPrudencia;
+            destino = aCasa;
+          }
+        }
+      }
       if (destino === null) continue;
 
       // El objetivo puede estar a varios días: se avanza lo que dé el día.

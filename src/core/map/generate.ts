@@ -36,10 +36,28 @@ import {
   juntoANodo,
   problemasDeRed,
   regionesQueToca,
+  rellenar,
   territorio,
   VECINAS,
+  vecindad,
 } from './regiones.js';
-import { isWalkable, type TerrainKind } from './terrain.js';
+import {
+  BARRERAS,
+  type Barrera,
+  esBarrera,
+  isWalkable,
+  SUELOS_PISABLES,
+  type Suelo,
+  type TerrainKind,
+} from './terrain.js';
+import {
+  barreraDe,
+  engordarFronteras,
+  espejoDe,
+  parejaDe,
+  ponerObstaculos,
+  trazarCaminos,
+} from './vestir.js';
 
 /**
  * Una mancha de terreno: solo pinta, no separa nada.
@@ -57,10 +75,6 @@ export interface TerrainPatch {
   readonly radius: number;
 }
 
-/** Los dos terrenos con los que se levanta un muro: la cordillera y el río. */
-export const WALL_TERRAINS = ['mountain', 'water'] as const;
-type WallTerrain = (typeof WALL_TERRAINS)[number];
-
 /**
  * Un tramo de muro, **recto**: `from` y `to` comparten fila o columna, y se
  * pintan los dos extremos y todo lo de en medio.
@@ -70,9 +84,24 @@ type WallTerrain = (typeof WALL_TERRAINS)[number];
  * diagonal. Con tramos rectos ese hueco no se puede escribir.
  */
 export interface PlannedWall {
-  readonly terrain: WallTerrain;
+  readonly terrain: Barrera;
   readonly from: Point;
   readonly to: Point;
+}
+
+/**
+ * Una región tal como la declara un plan: la de la red (`MapRegion`) y, si se
+ * quiere, **el suelo entero** que lleva.
+ *
+ * El suelo es del plan y no del mapa: `buildMap` lo pinta y no lo guarda, así
+ * que `GameMap.regions` sigue siendo la red y nada más. Pintar no cambia qué se
+ * pisa —solo se pinta lo pisable de la región—, de modo que la red que valida
+ * `problemasDeRed` es la misma con suelo o sin él.
+ */
+export interface RegionPlaneada extends MapRegion {
+  // El `| undefined` escrito, por lo mismo que en `roads`: el esquema lo
+  // declara con `.optional()` y con `exactOptionalPropertyTypes` no casarían.
+  readonly terrain?: TerrainKind | undefined;
 }
 
 export interface PlannedTown {
@@ -90,8 +119,8 @@ export interface MapPlan {
   readonly height: number;
   readonly baseTerrain: TerrainKind;
   readonly patches: readonly TerrainPatch[];
-  /** Las regiones del mapa de nodos, tal cual las guarda el mapa (`MapRegion`). */
-  readonly regions: readonly MapRegion[];
+  /** Las regiones del mapa de nodos; el mapa guarda de cada una lo de `MapRegion`. */
+  readonly regions: readonly RegionPlaneada[];
   readonly walls: readonly PlannedWall[];
   /** Los pasos entre regiones que no son ciudad. */
   readonly nodes: readonly Point[];
@@ -134,12 +163,17 @@ export interface BuiltMap {
  * El lado del mapa que juega una partida si nadie pide otro: lo leen el
  * generador y el servidor, que antes lo copiaba a mano (`ws-server.ts`).
  *
- * **Elegido midiendo, no a ojo** (ciclo «el camino cuesta», 02-10-2026): con los
- * asaltantes puestos, el menor lado con mediana ≥ 8 días, p90 ≤ 20 y 0 partidas
- * sin terminar en 1 000 semillas. La tabla de cada lado está en `CLAUDE.md`, y
- * cómo se mide en `tools/qa/tamanos.ts`.
+ * **Elegido midiendo, no a ojo**, con la regla que fijó el usuario: el menor
+ * lado con mediana ≥ 8 días, p90 ≤ 20 y 0 partidas sin terminar en 1 000
+ * semillas. Era 28 desde «el camino cuesta» (02-10-2026); con los mapas densos
+ * (03-10-2026) —fronteras de 2-3 casillas, obstáculos que bloquean, caminos y
+ * `AREA_POR_REGION` de 300— el 32 se queda en mediana 7 y el **34** la cumple en
+ * las dos tandas de mil (8 / 15 / 45 y 8 / 15 / 30, 0 sin terminar). Re-medido
+ * tras la vuelta de simplify, que cambia el mapa de cada semilla: 8 / 15 / 22 en
+ * 100 y 8 / 15 / 31 en 1 000, 0 sin terminar; el 32 sigue en mediana 7. La
+ * tabla de cada lado está en `CLAUDE.md`, y cómo se mide en `tools/qa/tamanos.ts`.
  */
-export const LADO_DEL_MAPA = 28;
+export const LADO_DEL_MAPA = 34;
 
 /** Los ids que `buildMap` les pone a los objetos que el plan no nombra. */
 const idDeNodo = (i: number): string => `node-${i}`;
@@ -172,8 +206,26 @@ export function validateMapPlan(plan: MapPlan): string[] {
         `${tramo} no es recto: un tramo de muro va en una fila o en una columna, y uno en diagonal deja huecos por las esquinas`,
       );
     }
-    if (!(WALL_TERRAINS as readonly string[]).includes(m.terrain)) {
-      problemas.push(`${tramo} es de "${m.terrain}": un muro es ${WALL_TERRAINS.join(' o ')}`);
+    if (!esBarrera(m.terrain)) {
+      problemas.push(`${tramo} es de "${m.terrain}": un muro es ${BARRERAS.join(', ')}`);
+    }
+  }
+
+  // El suelo de una región se pisa: una barrera ahí no la «pinta», la borraría,
+  // y eso es un muro, que va en `walls`.
+  for (const r of plan.regions) {
+    if (r.terrain === undefined) continue;
+    // Contra la lista y no con `isWalkable`, que dice que sí a lo que no es
+    // barrera: un `"ice"` inventado pasaba y `buildMap` pintaba un terreno que
+    // nadie sabe leer (QA de «mapas densos», vuelta 2, N3).
+    if (esBarrera(r.terrain)) {
+      problemas.push(
+        `la región "${r.id}" pide de suelo "${r.terrain}", que no se pisa: el suelo de una región es uno de ${SUELOS_PISABLES.join(', ')}, y las barreras van en "walls"`,
+      );
+    } else if (!(SUELOS_PISABLES as readonly string[]).includes(r.terrain)) {
+      problemas.push(
+        `la región "${r.id}" pide de suelo "${r.terrain}", que no es ningún terreno: el suelo de una región es uno de ${SUELOS_PISABLES.join(', ')}`,
+      );
     }
   }
 
@@ -303,6 +355,40 @@ export function validateMapPlan(plan: MapPlan): string[] {
   for (const c of plan.chests) sobreRegion(c.at, 'el cofre');
   for (const i of plan.heroStarts) sobreRegion(i.at, `el inicio del jugador ${i.player}`);
   for (const r of plan.raiders ?? []) sobreRegion(r.at, 'el grupo de asaltantes');
+  // Un camino tampoco: `map.ts` no lo abre —la barrera sigue sin pisarse—, pero
+  // el cliente lo pinta encima, y una carretera sobre un acantilado le dice a
+  // quien mira, y al agente, que por ahí se pasa. Se aceptaba en silencio (QA de
+  // «mapas densos», H4). Y uno fuera del mapa se tiraba sin decirlo.
+  // Agrupados: un plan con 500 caminos fuera del mapa devolvía 500 frases, y el
+  // agente las recibe todas en su rechazo (QA de «mapas densos», vuelta 2, N4).
+  const caminosFuera: Point[] = [];
+  const caminosSobreBarrera: { p: Point; terreno: TerrainKind }[] = [];
+  for (const p of plan.roads ?? []) {
+    if (!inBounds(plan, p)) {
+      caminosFuera.push(p);
+      continue;
+    }
+    const terreno = map.terrain[p.y * map.width + p.x] as TerrainKind;
+    if (!isWalkable(terreno)) caminosSobreBarrera.push({ p, terreno });
+  }
+  const [unoSobre] = caminosSobreBarrera;
+  if (caminosSobreBarrera.length === 1 && unoSobre !== undefined) {
+    problemas.push(
+      `el camino de (${unoSobre.p.x},${unoSobre.p.y}) cae sobre ${unoSobre.terreno}: un camino solo va por casillas que se pisan`,
+    );
+  } else if (caminosSobreBarrera.length > 1) {
+    problemas.push(
+      `${caminosSobreBarrera.length} casillas de camino caen sobre una barrera —${enumerarCasillas(caminosSobreBarrera.map(({ p, terreno }) => `(${p.x},${p.y}) sobre ${terreno}`))}—: un camino solo va por casillas que se pisan`,
+    );
+  }
+  const [unoFuera] = caminosFuera;
+  if (caminosFuera.length === 1 && unoFuera !== undefined) {
+    problemas.push(`el camino de (${unoFuera.x},${unoFuera.y}) se sale del mapa`);
+  } else if (caminosFuera.length > 1) {
+    problemas.push(
+      `${caminosFuera.length} casillas de camino se salen del mapa: ${enumerarCasillas(caminosFuera.map((p) => `(${p.x},${p.y})`))}`,
+    );
+  }
   if (problemas.length > 0) return problemas;
 
   // La red, y con ella la conectividad. Aquí había un `findPath` de cada inicio
@@ -318,6 +404,14 @@ export function validateMapPlan(plan: MapPlan): string[] {
   // (`dondeBrotan`), para que el plan no pueda poner lo que la partida no.
   problemas.push(...problemasDeAsaltantes(plan, map, towns));
   return problemas;
+}
+
+/** Las primeras casillas de una lista larga y cuántas quedan: la frase no crece con el plan. */
+const CASILLAS_QUE_SE_NOMBRAN = 5;
+function enumerarCasillas(casillas: readonly string[]): string {
+  const nombradas = casillas.slice(0, CASILLAS_QUE_SE_NOMBRAN).join(', ');
+  const resto = casillas.length - CASILLAS_QUE_SE_NOMBRAN;
+  return resto > 0 ? `${nombradas} y ${resto} más` : nombradas;
 }
 
 /**
@@ -378,7 +472,11 @@ function guarnicionInicial(t: PlannedTown, towns: readonly PlannedTown[]): Army 
 
 export function buildMap(plan: MapPlan): BuiltMap {
   const base = createEmptyMap(plan.width, plan.height, plan.baseTerrain);
-  const map: GameMap = { ...base, regions: plan.regions.map((r) => ({ ...r })) };
+  // De cada región, lo de la red: el suelo se pinta aquí abajo y no se guarda.
+  const map: GameMap = {
+    ...base,
+    regions: plan.regions.map((r) => ({ id: r.id, name: r.name, at: { ...r.at } })),
+  };
   const pintar = (p: Point, t: TerrainKind): void => {
     if (inBounds(map, p)) map.terrain[p.y * plan.width + p.x] = t;
   };
@@ -413,6 +511,8 @@ export function buildMap(plan: MapPlan): BuiltMap {
       pintar(p, 'dirt');
     }
   }
+
+  pintarSuelosDeRegion(map, plan);
 
   for (const p of plan.roads ?? []) {
     if (inBounds(map, p)) map.roads.add(pointKey(p));
@@ -472,6 +572,41 @@ export function buildMap(plan: MapPlan): BuiltMap {
   return { map, towns, raiders };
 }
 
+/**
+ * El suelo entero de cada región que lo declara: un relleno 8-conexo desde su
+ * casilla por lo pisable que no es nodo, que es exactamente la definición de
+ * región de `regiones.ts`. Va después de abrir los nodos y no pinta ninguno, así
+ * que lo que se pisa no cambia y la red tampoco: solo el color del suelo.
+ *
+ * Una región declarada sobre un muro no pinta nada, y no se calla: la rechaza
+ * `problemasDeRed` al validar, que es quien sabe decir por qué.
+ */
+function pintarSuelosDeRegion(map: GameMap, plan: MapPlan): void {
+  const W = map.width;
+  const esNodo = new Uint8Array(W * map.height);
+  for (const p of [...plan.nodes, ...plan.towns.map((t) => t.at)]) {
+    if (inBounds(map, p)) esNodo[p.y * W + p.x] = 1;
+  }
+  const libre = (i: number): boolean =>
+    esNodo[i] === 0 && isWalkable(map.terrain[i] as TerrainKind);
+  // Una marca compartida por todas las regiones: dos regiones distintas no se
+  // tocan sin nodo, así que un relleno nunca entra en lo pintado por otro.
+  const visto = new Uint8Array(W * map.height);
+  for (const r of plan.regions) {
+    const suelo = r.terrain;
+    if (suelo === undefined || !inBounds(map, r.at)) continue;
+    const origen = r.at.y * W + r.at.x;
+    if (visto[origen] === 1 || !libre(origen)) continue;
+    visto[origen] = 1;
+    const toma = (j: number): boolean => {
+      if (visto[j] === 1 || !libre(j)) return false;
+      visto[j] = 1;
+      return true;
+    };
+    for (const i of rellenar(W, map.height, origen, toma)) map.terrain[i] = suelo;
+  }
+}
+
 // ---------------------------------------------------------------- procedural
 
 export interface ProceduralOptions {
@@ -482,28 +617,55 @@ export interface ProceduralOptions {
   readonly resourceCount?: number;
 }
 
-/** Intentos del generador antes de rendirse diciéndolo. */
+/**
+ * Redes finas que se trazan antes de rendirse diciéndolo. Mide solo la red: el
+ * vestido tiene sus propios intentos sobre cada una.
+ */
 const INTENTOS_DE_RED = 20;
+/**
+ * Vestidos que se prueban sobre una misma red fina ya validada antes de tirarla.
+ * Un vestido que falla —unos suelos que no admiten cuatro barreras, un engorde
+ * que parte una región, unos obstáculos que no caben— no dice nada malo de la
+ * red, y tirarla con él era pagar otra vez el Voronoi, los nodos y el perfil.
+ */
+const INTENTOS_DE_VESTIDO = 10;
 
 /**
  * Mapa de nodos de dos jugadores. Es el respaldo cuando no hay agente y el
  * ejemplo de referencia de qué forma debe tener un plan.
  *
  * **Voronoi con semillas en espejo**, que es la opción B del plan y la que se
- * midió: cada semilla es una región, las fronteras entre celdas se levantan
- * como cordillera de una casilla, y cada pareja de regiones vecinas tiene un
- * paso en mitad de su frontera. Los cruces de Voronoi son de grado 3 por
- * naturaleza, que es donde van las ciudades neutrales, y el grafo de regiones
- * no es un árbol —con muros rectos de BSP sí lo era, y había un solo camino de
- * la base a cada ciudad—.
+ * midió: cada semilla es una región, las fronteras entre celdas se trazan como
+ * un muro fino de una casilla, y cada pareja de regiones vecinas tiene un paso
+ * en mitad de su frontera. Los cruces de Voronoi son de grado 3 por naturaleza,
+ * que es donde van las ciudades neutrales, y el grafo de regiones no es un
+ * árbol —con muros rectos de BSP sí lo era, y había un solo camino de la base a
+ * cada ciudad—.
+ *
+ * **Esa red fina se valida y solo después se viste** (`vestir.ts`, mapas densos,
+ * 03-10-2026): la frontera engorda a 2-3 casillas con su barrera según los
+ * suelos, cada región lleva su suelo entero, obstáculos que bloquean y caminos.
+ * Vestir solo convierte casillas pisables en barrera, que nunca abre un paso, y
+ * el grafo de regiones y nodos que validó el perfil es el mismo. El nodo queda
+ * en un estrechamiento de una casilla, y es la única excepción al grosor.
  *
  * El espejo de las **semillas** es exacto y el de los **muros** no: un muro de
- * una casilla no se puede reflejar sin abrir huecos (se midió: 75 % de fugas).
+ * una casilla no se puede reflejar sin abrir huecos (se midió: 75 % de fugas);
+ * el engorde y los obstáculos van en espejo cuando el reflejo vale.
  * Así que el equilibrio no se pide por simetría sino por **perfil**: las dos
  * bases tienen que tener sus dos ciudades más cercanas a los mismos saltos, y
- * la más cercana a dos como mucho. Si un intento no lo cumple se tira otro con
- * el mismo `rng`, y tras `INTENTOS_DE_RED` se lanza: medido en 200 semillas, la
- * mediana es 0 reintentos y el máximo 4.
+ * la más cercana a dos como mucho. Si una red no lo cumple se traza otra con
+ * el mismo `rng`, y tras `INTENTOS_DE_RED` se lanza diciendo en qué fase se
+ * agotaron los intentos.
+ *
+ * **Un vestido que falla no tira la red**: se vuelve a vestir la misma hasta
+ * `INTENTOS_DE_VESTIDO` veces. Medido (03-10-2026, 200 semillas por lado de 24
+ * a 48): ninguna semilla necesita más de 14 redes (24×24; 5 o menos de 28 en
+ * adelante), y de las redes equilibradas, entre el 49 y el 81 % se visten a la
+ * primera y entre el 86 y el 96 % en diez intentos. Unas pocas (1-12 de 200) no
+ * se visten ni en cien —los suelos sorteados no son lo que falla, es la forma
+ * de la red—, y para esas es mejor otra red que insistir. Con 20 y 10, 0 planes
+ * sin salir en ningún lado.
  *
  * La red de cada intento la lee `estructura` y la valida `problemasDeRed`, las
  * mismas que leen y validan cualquier plan: el generador no lleva una segunda
@@ -516,13 +678,45 @@ const INTENTOS_DE_RED = 20;
 export function generateMapPlan(rng: Rng, opts: ProceduralOptions = {}): MapPlan {
   const width = opts.width ?? LADO_DEL_MAPA;
   const height = opts.height ?? LADO_DEL_MAPA;
+  let redesMalas = 0;
+  const fallos: Record<FaseDelVestido, { veces: number; ultimo: string }> = {
+    fronteras: { veces: 0, ultimo: '' },
+    objetos: { veces: 0, ultimo: '' },
+    obstáculos: { veces: 0, ultimo: '' },
+  };
   for (let intento = 0; intento < INTENTOS_DE_RED; intento++) {
-    const plan = intentarRed(rng, width, height, opts);
-    if (plan !== null) return plan;
+    const red = intentarRed(rng, width, height);
+    if (red === null) {
+      redesMalas++;
+      continue;
+    }
+    for (let vestido = 0; vestido < INTENTOS_DE_VESTIDO; vestido++) {
+      const plan = vestirRed(rng, red, opts);
+      if (!('fase' in plan)) return plan;
+      fallos[plan.fase].veces++;
+      fallos[plan.fase].ultimo = plan.motivo;
+    }
   }
-  throw new Error(
-    `no sale un mapa de nodos de ${width}×${height} en ${INTENTOS_DE_RED} intentos: el generador no sabe repartir regiones equilibradas en ese tamaño`,
+  const vestidos = FASES_DEL_VESTIDO.filter((fase) => fallos[fase].veces > 0).map(
+    (fase) => `${fallos[fase].veces} en ${fase} (la última: ${fallos[fase].ultimo})`,
   );
+  throw new Error(
+    `no sale un mapa de nodos de ${width}×${height} en ${INTENTOS_DE_RED} redes: ` +
+      `${redesMalas} no salieron equilibradas` +
+      (vestidos.length > 0
+        ? `, y las otras no se dejaron vestir en ${INTENTOS_DE_VESTIDO} intentos cada una: ${vestidos.join('; ')}`
+        : ''),
+  );
+}
+
+/** En qué paso del vestido se rindió un intento, para que el error final lo diga. */
+const FASES_DEL_VESTIDO = ['fronteras', 'objetos', 'obstáculos'] as const;
+type FaseDelVestido = (typeof FASES_DEL_VESTIDO)[number];
+
+/** Un vestido que no vale: en qué fase y por qué. */
+interface VestidoFallido {
+  readonly fase: FaseDelVestido;
+  readonly motivo: string;
 }
 
 const NOMBRES_DE_REGION = [
@@ -570,16 +764,60 @@ const nombre = (lista: readonly string[], i: number): string =>
     : `${lista[i % lista.length]} ${Math.floor(i / lista.length) + 1}`;
 
 /** El terreno de cada pareja de regiones que no es la de casa. */
-const SUELOS: readonly TerrainKind[] = ['grass', 'rough', 'snow', 'swamp', 'sand', 'lava'];
+const SUELOS: readonly Suelo[] = ['grass', 'rough', 'snow', 'swamp', 'sand', 'lava'];
 
+/**
+ * Casillas de mapa por región: cuántas parejas de regiones caben en un lado.
+ *
+ * Era 144, y con la frontera de una casilla y el suelo libre bastaba. Con
+ * fronteras de 2-3 casillas, obstáculos que bloquean y los objetos de siempre,
+ * las regiones de 144 se quedaban en 25-35 casillas pisables y el generador no
+ * encontraba sitio: en 30 semillas de 36×36, 29 sin mapa. La palanca que eligió
+ * el usuario es **dar más área**, no bajar `REGION_MINIMA` ni adelgazar la
+ * frontera («los mapas actuales son muy pequeños, no hay problema por
+ * agrandarlos»). Medido (03-10-2026, 30 semillas por celda): con 200 fallaban
+ * 1-8 de 30; con 300, 0 de 100 en 24, 28, 32, 36, 40 y 48.
+ */
+const AREA_POR_REGION = 300;
 /** Distancia mínima (Chebyshev) entre dos semillas: por debajo, las regiones salen raquíticas. */
 const SEPARACION_DE_SEMILLAS = 6;
 /** Una región más pequeña que esto no tiene sitio para lo que se le reparte. */
 const REGION_MINIMA = 10;
 
-/** Un intento de red: el plan si sale equilibrado, `null` si no. */
-function intentarRed(rng: Rng, W: number, H: number, opts: ProceduralOptions): MapPlan | null {
-  const [f0, f1] = opts.factions ?? (['knight', 'necromancer'] as const);
+/** Si alguna región de `regionDe` tiene menos casillas que `REGION_MINIMA`: la regla, una vez. */
+function hayRegionRaquitica(regionDe: Int32Array, regiones: number): boolean {
+  const tamaño = new Int32Array(regiones);
+  for (const r of regionDe) if (r >= 0) tamaño[r]! += 1;
+  return tamaño.some((t) => t < REGION_MINIMA);
+}
+
+/**
+ * Una red fina ya validada y equilibrada: lo que el vestido necesita para
+ * vestirla, tantas veces como haga falta, sin volver a trazarla.
+ */
+interface RedFina {
+  readonly W: number;
+  readonly H: number;
+  readonly semillas: readonly Point[];
+  readonly etiqueta: Int32Array;
+  readonly muro: Uint8Array;
+  /** Los nodos, por índice plano; los primeros `ciudades` son cruces. */
+  readonly nodos: readonly number[];
+  readonly regions: readonly MapRegion[];
+  /** El mapa provisional con sus nodos como objetos. */
+  readonly conNodos: GameMap;
+  readonly red: Estructura;
+  /** Las dos bases, como índice de nodo. */
+  readonly b0: number;
+  readonly b1: number;
+  readonly neutrales: readonly number[];
+  /** Saltos desde cada base, para la facción de cada ciudad neutral. */
+  readonly d0: ReadonlyMap<number, number>;
+  readonly d1: ReadonlyMap<number, number>;
+}
+
+/** Un intento de red fina: la red si sale válida y equilibrada, `null` si no. */
+function intentarRed(rng: Rng, W: number, H: number): RedFina | null {
   const cheb = (a: Point, b: Point): number => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
   const espejo = (p: Point): Point => ({ x: W - 1 - p.x, y: H - 1 - p.y });
   const punto = (i: number): Point => aPunto(i, W);
@@ -590,7 +828,7 @@ function intentarRed(rng: Rng, W: number, H: number, opts: ProceduralOptions): M
     { x: 3, y: 3 },
     { x: W - 4, y: H - 4 },
   ];
-  const pares = Math.max(2, Math.round((W * H) / 144));
+  const pares = Math.max(2, Math.round((W * H) / AREA_POR_REGION));
   for (let guarda = 0; semillas.length < 2 + pares * 2 && guarda < 1000; guarda++) {
     const p = { x: rng.int(1, W - 2), y: rng.int(1, H - 2) };
     const m = espejo(p);
@@ -647,14 +885,8 @@ function intentarRed(rng: Rng, W: number, H: number, opts: ProceduralOptions): M
   const sinNodos: GameMap = { ...createEmptyMap(W, H, 'grass'), regions };
   for (let i = 0; i < W * H; i++) if (muro[i] === 1) sinNodos.terrain[i] = 'mountain';
   const regionDe = estructura(sinNodos).regionDe;
-  const tamaño = new Int32Array(semillas.length);
-  for (let i = 0; i < W * H; i++) {
-    if (muro[i] === 1) continue;
-    const r = regionDe[i] as number;
-    if (r === -1) return null;
-    tamaño[r]! += 1;
-  }
-  if (tamaño.some((t) => t < REGION_MINIMA)) return null;
+  for (let i = 0; i < W * H; i++) if (muro[i] === 0 && regionDe[i] === -1) return null;
+  if (hayRegionRaquitica(regionDe, semillas.length)) return null;
 
   // 5. Candidatas a nodo: casillas de muro que tocan dos regiones abiertas o más.
   const cruces: number[] = [];
@@ -745,35 +977,100 @@ function intentarRed(rng: Rng, W: number, H: number, opts: ProceduralOptions): M
   // semillas, 01-10-2026): 0 sin terminar, mediana 4 días, p90 7, máximo 20,
   // lo mismo que con el límite. Sobraba y se quitó.
   const neutrales = cruceros;
+  return {
+    W,
+    H,
+    semillas,
+    etiqueta,
+    muro,
+    nodos,
+    regions,
+    conNodos,
+    red,
+    b0,
+    b1,
+    neutrales,
+    d0,
+    d1,
+  };
+}
 
-  // ---- A partir de aquí la red es buena: se viste.
+/**
+ * Viste una red fina (`vestir.ts`): suelos, fronteras gruesas, objetos,
+ * obstáculos y caminos. Todo lo que hace convierte casillas pisables en barrera,
+ * y eso nunca abre un paso. Devuelve el plan, o en qué fase y por qué este
+ * vestido no vale —la red sigue valiendo, y `generateMapPlan` la vuelve a vestir—.
+ */
+function vestirRed(rng: Rng, fina: RedFina, opts: ProceduralOptions): MapPlan | VestidoFallido {
+  const { W, H, semillas, etiqueta, muro, nodos, regions, conNodos, red, b0, b1 } = fina;
+  const { neutrales, d0, d1 } = fina;
+  const [f0, f1] = opts.factions ?? (['knight', 'necromancer'] as const);
+  const N = W * H;
+  const punto = (i: number): Point => aPunto(i, W);
+  const indice = (p: Point): number => p.y * W + p.x;
+  const fallo = (fase: FaseDelVestido, motivo: string): VestidoFallido => ({ fase, motivo });
+
+  // 8. Un suelo por pareja de regiones, en espejo; las de casa, de tierra. Va
+  //    antes que las fronteras porque la barrera de cada una sale de sus suelos.
+  const suelos: Suelo[] = [];
+  for (let k = 0; k < semillas.length; k += 2) {
+    const suelo: Suelo = k === 0 ? 'dirt' : rng.pick(SUELOS);
+    suelos[k] = suelo;
+    suelos[parejaDe(k)] = suelo;
+  }
+
+  // 9. Las fronteras, gruesas y de su tipo. El mapa grueso se vuelve a validar
+  //    entero: lo que se puede haber roto es una región partida o raquítica.
+  const grueso = engordarFronteras({ W, H, etiqueta, muro, nodos, semillas, suelos, rng });
+  if (typeof grueso === 'string') return fallo('fronteras', grueso);
+  const { tipos, pasillo } = grueso;
+  const regionsGruesas = regions.map((r, k) => ({ ...r, at: grueso.semillas[k] as Point }));
+  const mapaGrueso: GameMap = {
+    ...createEmptyMap(W, H, 'grass'),
+    regions: regionsGruesas,
+    objects: conNodos.objects,
+  };
+  for (let i = 0; i < N; i++) {
+    const b = barreraDe(tipos, i);
+    if (b !== null) mapaGrueso.terrain[i] = b;
+  }
+  const problemas = problemasDeRed(mapaGrueso);
+  if (problemas.length > 0) return fallo('fronteras', problemas[0] as string);
+  const redGruesa = estructura(mapaGrueso);
+  const regionGruesa = redGruesa.regionDe;
+  if (hayRegionRaquitica(regionGruesa, semillas.length)) {
+    return fallo('fronteras', `alguna región se queda en menos de ${REGION_MINIMA} casillas`);
+  }
 
   const ocupadas = new Set<number>(nodos);
   // Lo pegado a un nodo no se usa, para que nada tape la entrada a la región.
-  const junto = juntoANodo(conNodos);
-  // Las casillas que valen de cada región, una vez: abiertas y sin pegarse a un
-  // nodo. Lo ocupado se descuenta al pedirlas.
+  const junto = juntoANodo(mapaGrueso);
+  // Las casillas que valen de cada región, una vez: abiertas, sin pegarse a un
+  // nodo y fuera del pasillo de entrada. Lo ocupado se descuenta al pedirlas.
   const candidatas: number[][] = semillas.map(() => []);
-  for (let i = 0; i < W * H; i++) {
-    const r = regionDe[i] as number;
-    if (r !== -1 && junto[i] === 0) candidatas[r]?.push(i);
+  for (let i = 0; i < N; i++) {
+    const r = regionGruesa[i] as number;
+    if (r !== -1 && junto[i] === 0 && pasillo[i] === 0) candidatas[r]?.push(i);
   }
   const libres = (r: number): number[] => (candidatas[r] ?? []).filter((i) => !ocupadas.has(i));
   // Coloca algo en la región `r` y su espejo en la pareja de `r`: la misma
   // casilla reflejada si está libre y es de esa región, si no otra al azar.
-  const pareja = (r: number): number => (r % 2 === 0 ? r + 1 : r - 1);
   const colocarPar = (r: number): [Point, Point] | null => {
     const lista = libres(r);
     if (lista.length === 0) return null;
     const a = rng.pick(lista);
     ocupadas.add(a);
-    const m = espejo(punto(a));
-    const im = m.y * W + m.x;
+    const im = espejoDe(a, N);
     let b: number;
-    if (regionDe[im] === pareja(r) && !ocupadas.has(im) && junto[im] === 0) {
+    if (
+      regionGruesa[im] === parejaDe(r) &&
+      !ocupadas.has(im) &&
+      junto[im] === 0 &&
+      pasillo[im] === 0
+    ) {
       b = im;
     } else {
-      const otra = libres(pareja(r));
+      const otra = libres(parejaDe(r));
       if (otra.length === 0) return null;
       b = rng.pick(otra);
     }
@@ -784,20 +1081,20 @@ function intentarRed(rng: Rng, W: number, H: number, opts: ProceduralOptions): M
   // Los inicios: pegados a la base, dentro de la región de casa.
   const inicio = (b: number, casa: number): Point | null => {
     const at = red.nodos[b]?.at as Point;
-    for (const [dx, dy] of VECINAS) {
-      const v = { x: at.x + dx, y: at.y + dy };
-      if (!inBounds(sinNodos, v)) continue;
-      const j = v.y * W + v.x;
-      if (regionDe[j] === casa && !ocupadas.has(j)) {
-        ocupadas.add(j);
-        return v;
-      }
+    const { desde, vecinas } = vecindad(W, H);
+    for (let k = desde[indice(at)]!; k < desde[indice(at) + 1]!; k++) {
+      const j = vecinas[k]!;
+      if (regionGruesa[j] !== casa || ocupadas.has(j)) continue;
+      ocupadas.add(j);
+      return punto(j);
     }
     return null;
   };
   const startA = inicio(b0, 0);
   const startB = inicio(b1, 1);
-  if (startA === null || startB === null) return null;
+  if (startA === null || startB === null) {
+    return fallo('objetos', 'no queda sitio para un inicio junto a su base');
+  }
 
   // Las regiones de cada lado: las pares son del jugador 0 y las impares su espejo.
   const ladoA = semillas.map((_, k) => k).filter((k) => k % 2 === 0);
@@ -820,7 +1117,7 @@ function intentarRed(rng: Rng, W: number, H: number, opts: ProceduralOptions): M
   for (const [i, resource] of minasPorBando.entries()) {
     const r = i < 3 ? 0 : (fuera[(i - 3) % fuera.length] as number);
     const par = colocarPar(r);
-    if (par === null) return null;
+    if (par === null) return fallo('objetos', 'no hay sitio para las minas');
     mines.push({ at: par[0], resource }, { at: par[1], resource });
   }
 
@@ -828,7 +1125,7 @@ function intentarRed(rng: Rng, W: number, H: number, opts: ProceduralOptions): M
   const villages: { name: string; at: Point }[] = [];
   for (const r of fuera) {
     const par = colocarPar(r);
-    if (par === null) return null;
+    if (par === null) return fallo('objetos', 'no hay sitio para los pueblos');
     villages.push(
       { name: nombre(NOMBRES_DE_PUEBLO, villages.length), at: par[0] },
       { name: nombre(NOMBRES_DE_PUEBLO, villages.length + 1), at: par[1] },
@@ -842,7 +1139,7 @@ function intentarRed(rng: Rng, W: number, H: number, opts: ProceduralOptions): M
     const especie = rng.pick(monstruosPosibles);
     const count = rng.int(3, CUPO_GUARNICION);
     const par = colocarPar(fuera[i % fuera.length] as number);
-    if (par === null) return null;
+    if (par === null) return fallo('objetos', 'no hay sitio para los monstruos');
     monsters.push(
       { at: par[0], creature: especie, count },
       { at: par[1], creature: especie, count },
@@ -856,7 +1153,7 @@ function intentarRed(rng: Rng, W: number, H: number, opts: ProceduralOptions): M
     const resource = rng.pick(recursosSueltos);
     const amount = rng.int(3, 8);
     const par = colocarPar(ladoA[i % ladoA.length] as number);
-    if (par === null) return null;
+    if (par === null) return fallo('objetos', 'no hay sitio para los recursos sueltos');
     resources.push({ at: par[0], resource, amount }, { at: par[1], resource, amount });
   }
 
@@ -864,7 +1161,7 @@ function intentarRed(rng: Rng, W: number, H: number, opts: ProceduralOptions): M
   for (let i = 0; i < 2; i++) {
     const gold = rng.int(500, 2000);
     const par = colocarPar(fuera[(i + 1) % fuera.length] as number);
-    if (par === null) return null;
+    if (par === null) return fallo('objetos', 'no hay sitio para los cofres');
     chests.push({ at: par[0], gold }, { at: par[1], gold });
   }
 
@@ -884,25 +1181,62 @@ function intentarRed(rng: Rng, W: number, H: number, opts: ProceduralOptions): M
     raiders.push({ at: par[0], troops }, { at: par[1], troops });
   }
 
-  // Los muros, por tramos de fila. Las casillas de nodo van dentro del tramo y
-  // `buildMap` las abre: es la regla declarada, y así el muro se lee entero.
+  // 10. Los obstáculos, con todo lo demás ya puesto: no caen sobre nada, no
+  //     tocan la frontera y no dejan nada sin alcanzar desde los nodos.
+  const vetadas = new Uint8Array(N);
+  for (const i of ocupadas) vetadas[i] = 1;
+  for (const r of regionsGruesas) vetadas[indice(r.at)] = 1;
+  for (let i = 0; i < N; i++) if (junto[i] === 1 || pasillo[i] === 1) vetadas[i] = 1;
+  const monstruos = new Uint8Array(N);
+  for (const m of monsters) monstruos[indice(m.at)] = 1;
+  const nodosDeRegion = redGruesa.regiones.map((reg) =>
+    reg.nodos.map((n) => indice(redGruesa.nodos[n]?.at as Point)),
+  );
+  const caben = ponerObstaculos({
+    W,
+    H,
+    tipos,
+    regionDe: regionGruesa,
+    regiones: semillas.length,
+    suelos,
+    nodosDeRegion,
+    vetadas,
+    monstruos,
+    rng,
+  });
+  if (!caben) {
+    return fallo('obstáculos', 'alguna región no llega a la densidad mínima de obstáculos');
+  }
+
+  // 11. Los caminos: un árbol entre los nodos de cada región y una senda a cada mina y pueblo.
+  const destinos: number[][] = semillas.map(() => []);
+  for (const o of [...mines, ...villages]) {
+    destinos[regionGruesa[indice(o.at)] as number]?.push(indice(o.at));
+  }
+  const roads = trazarCaminos({
+    W,
+    H,
+    tipos,
+    regionDe: regionGruesa,
+    regiones: semillas.length,
+    suelos,
+    nodosDeRegion,
+    destinos,
+    monstruos,
+  }).map((i) => punto(i));
+
+  // Los muros, por tramos de fila del mismo tipo: frontera y obstáculos juntos.
+  // Las casillas de nodo van dentro del tramo y `buildMap` las abre: es la
+  // regla declarada, y así el muro se lee entero.
   const walls: PlannedWall[] = [];
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
-      if (muro[y * W + x] === 0) continue;
+      const terrain = barreraDe(tipos, y * W + x);
+      if (terrain === null) continue;
       let fin = x;
-      while (fin + 1 < W && muro[y * W + fin + 1] === 1) fin++;
-      walls.push({ terrain: 'mountain', from: { x, y }, to: { x: fin, y } });
+      while (fin + 1 < W && barreraDe(tipos, y * W + fin + 1) === terrain) fin++;
+      walls.push({ terrain, from: { x, y }, to: { x: fin, y } });
       x = fin;
-    }
-  }
-
-  // Un suelo por pareja de regiones, en espejo; las de casa, de tierra.
-  const patches: TerrainPatch[] = [];
-  for (let k = 0; k < semillas.length; k += 2) {
-    const terrain: TerrainKind = k === 0 ? 'dirt' : rng.pick(SUELOS);
-    for (const s of [semillas[k] as Point, semillas[k + 1] as Point]) {
-      patches.push({ terrain, center: s, radius: 3 });
     }
   }
 
@@ -925,8 +1259,9 @@ function intentarRed(rng: Rng, W: number, H: number, opts: ProceduralOptions): M
     width: W,
     height: H,
     baseTerrain: 'grass',
-    patches,
-    regions,
+    patches: [],
+    // Con su suelo entero, que `buildMap` pinta casilla a casilla.
+    regions: regionsGruesas.map((r, k) => ({ ...r, terrain: suelos[k] as Suelo })),
     walls,
     nodes: nodos.flatMap((_, k) => (ciudadesEnNodo.has(k) ? [] : [en(k)])),
     towns,
@@ -940,6 +1275,7 @@ function intentarRed(rng: Rng, W: number, H: number, opts: ProceduralOptions): M
     monsters,
     chests,
     raiders,
+    roads,
   };
 }
 

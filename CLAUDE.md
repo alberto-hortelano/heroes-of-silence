@@ -13,15 +13,15 @@ pnpm install
 pnpm dev        # cliente en http://localhost:3100 (juego local contra la IA de reglas)
 pnpm mirar      # MIRAR la partida del agente: /espectador/ contra el servidor
 pnpm arena      # la ARENA: /arena/, montar unidades de las cinco facciones y hacerlas luchar
-pnpm verify     # typecheck + lint + 1144 tests, 13,0 s: el bucle rápido
-pnpm test       # 1144 tests: reglas, batalla, partida completa y contrato del agente
+pnpm verify     # typecheck + lint + 1160 tests, 13,7 s: el bucle rápido
+pnpm test       # 1160 tests: reglas, batalla, partida completa y contrato del agente
 pnpm typecheck
 pnpm lint       # Biome: formato y lint en una sola pasada, 40 ms
 pnpm format     # lo mismo, arreglando lo que sepa arreglar
-pnpm banco      # 200 partidas: tiempo y sha256 del volcado, 4,1 s
+pnpm banco      # 200 partidas: tiempo y sha256 del volcado, 5,2 s
 
 npx tsx tools/qa/enfrentamiento.ts   # la IA de hoy contra ella sin su última regla, 2000 batallas, 1,9 s
-pnpm capturas   # juega el cliente, el espectador y la arena en Chromium (Playwright) con clics reales, ~117 s
+pnpm capturas   # juega el cliente, el espectador y la arena en Chromium (Playwright) con clics reales, ~120 s
 ```
 
 La partida se abre con una semilla al azar; **`?seed=N` en la URL fija la
@@ -90,7 +90,7 @@ igual que un guardia hay que verlo morder.
 Verificación del circuito entero sin tocar nada a mano:
 
 ```bash
-pnpm qa   # pide el mapa al agente, arranca servidor + puente MCP y juega, 3,0 s
+pnpm qa   # pide el mapa al agente, arranca servidor + puente MCP y juega, 3,2 s
 ```
 
 No solo comprueba que no reviente. Lee el bloque `CÓMO FUE LO ANTERIOR` de cada
@@ -1281,11 +1281,13 @@ ganador** de 200 a cambio de dos anclas rotas y un 76 % más de crónica.
 Implementarla habría sido vender como fidelidad lo contrario de lo que hace la
 fuente.
 
-**Y el mapa se midió en vez de elegirse**, dos veces. La primera fue con el
-generador de esquinas, antes de la red de nodos, y dejó el 24×24; la segunda, la
-que manda hoy, es del ciclo de los asaltantes («más distancia entre bases… que lo
-decida la medida») y dejó **el 28×28** (`LADO_DEL_MAPA`, en `map/generate.ts`; el
-servidor lo lee de ahí en vez de copiarlo). Se mide con `tools/qa/tamanos.ts`, 1 000
+**Y el mapa se midió en vez de elegirse**, tres veces. La primera fue con el
+generador de esquinas, antes de la red de nodos, y dejó el 24×24; la segunda es
+del ciclo de los asaltantes («más distancia entre bases… que lo decida la
+medida») y dejó el 28×28; la tercera, **la que manda hoy**, es de los mapas densos
+y dejó **el 34×34** (`LADO_DEL_MAPA`, en `map/generate.ts`; el servidor lo lee de
+ahí en vez de copiarlo) — está al final de esta sección. Las dos tablas de aquí
+abajo son historia, con su fecha. Se mide con `tools/qa/tamanos.ts`, 1 000
 semillas por lado, con asaltantes y —en una copia de `main` sin ellos— sin:
 
 | lado | con asaltantes: mediana / p90 / máx | sin terminar | gana j0 | asaltos a la base por día | al llegar: individuos · fuerza | emboscadas por partida | sin asaltantes: mediana / p90 / máx |
@@ -1327,6 +1329,39 @@ había cambiado. Mismas columnas, 1 000 semillas, dos tandas en 26 y 28:
 **El 28 se queda**, y por la misma regla: el 26 no llega a la mediana de 8 en
 ninguna de las dos tandas y deja una sin terminar; el 28 la cumple en las dos.
 
+**Y con los mapas densos (03-10-2026) se midió por tercera vez**, porque el mapa
+dejó de ser el mismo: fronteras de 2-3 casillas, obstáculos que bloquean, caminos
+y **más área por región** (`AREA_POR_REGION` 144 → 300, la palanca que eligió el
+usuario: «los mapas actuales son muy pequeños, no hay problema por agrandarlos»).
+Con 144, en 30 semillas de 36×36 salían 29 sin mapa: las regiones se quedaban en
+25-35 casillas pisables y no cabían los obstáculos. Mismas columnas, 1 000
+semillas, dos tandas en 32, 34 y 36:
+
+| lado | mediana / p90 / máx | sin terminar | gana j0 | asaltos a la base por día | al llegar: individuos · fuerza | emboscadas por partida |
+|---|---|---|---|---|---|---|
+| 30 | 6 / 11 / 20 | 0 | 483 | 0,152 | 4 · 544 | 0 |
+| 32 | 7 / 13 / 24 · 7 / 13 / 27 | 0 · 0 | 472 · 468 | 0,134 | 4 · 585 | 0 |
+| **34** | **8 / 15 / 45 · 8 / 15 / 30** | **0 · 0** | 456 · 489 | 0,119 | 4 · 541 | 0 |
+| 36 | 9 / 16 / 44 · 9 / 16 / 60 | 0 · 0 | 461 · 482 | 0,112 | 4 · 580 | 0 |
+| 38 | 9 / 18 / 49 | 0 | 543 | 0,102 | 4 · 581 | 0 |
+
+**El 34 es el lado de hoy**: el 32 se queda en mediana 7 en las dos tandas, y el
+34 cumple la regla en las dos. Con mapas más grandes la regla sigue marcando el
+**mínimo**, no el lado: subir es posible el día que se quiera, y la tabla dice
+cuánto se alarga la partida.
+
+La vuelta de simplify del mismo día cambió cómo se viste el mapa y con él el de
+cada semilla, así que el 34 se volvió a medir: **8 / 15 / 22**, 0/100 y j0 58 en
+las 100 primeras (9 / 16 / 28, 0/100, j0 48 en las 101-200) y **8 / 15 / 31,
+0/1 000, j0 482** en mil. El 32, en las 100 primeras, sigue en mediana 7
+(7 / 14 / 21). El lado se queda.
+
+Y otra vez con la vuelta 1 de QA del mismo día (caminos en árbol, frontera
+forzada frente a los pasillos largos y la regla de la IA encerrada, abajo), con
+100 semillas como pide la regla para iterar: el 34 da **8 / 16 / 25** y j0 53 en
+las 100 primeras y **9 / 15 / 21**, j0 47, en las 101-200, 0/100 en las dos; el
+32, 8 / 13 / 20 y **7** / 13 / 17. La regla no cambia de lado: el 34 se queda.
+
 ## El mapa es una red de nodos (fase 2a)
 
 Desde la fase 2a de NuevaJugabilidad («la red») el mapa no es un campo abierto con
@@ -1362,7 +1397,7 @@ muro a los dos lados, que es la forma del hueco recto—; una zona pisable sin r
 que un muro cede es la de un nodo o una ciudad, y es una regla declarada.
 
 **El generador es Voronoi con semillas en espejo**: las fronteras de las celdas se
-levantan como cordillera de una casilla, cada pareja de regiones vecinas tiene un
+trazan como un muro fino de una casilla, cada pareja de regiones vecinas tiene un
 paso en mitad de su frontera, y **cada cruce de grado ≥ 3 que no es base es una
 ciudad neutral**. Hubo un límite —las dos más cercanas a cada base— puesto con la
 regla de derrota vieja; medido otra vez con «perder la base elimina» no cambiaba
@@ -1374,7 +1409,125 @@ la red**: cada intento se construye como mapa provisional y lo leen `estructura`
 `problemasDeRed`, las mismas que leen y validan el plan del agente. Los dos caminos
 disjuntos de cada base a sus ciudades cercanas no se comprueban al generar —un
 bucle lo hacía y en 1 050 planes no rechazó ninguno—: los vigila, y muerde, el test
-que audita 200 semillas en 24×24 y 20 en 48×48 **desde fuera**.
+que audita 200 semillas en `LADO_DEL_MAPA` y 20 en 48×48 **desde fuera**.
+
+**Y desde los mapas densos (03-10-2026) esa red fina se valida y después se
+viste** (`map/vestir.ts`), que es lo que hace segura la mitad que daba miedo:
+vestir solo convierte casillas pisables en barrera, y añadir muro nunca abre un
+paso. El grafo de regiones y nodos es el que validó el perfil.
+
+- **Cinco barreras distintas en el motor** (`BARRERAS`, en `terrain.ts`):
+  `mountain`, `water`, `forest`, `cliff` y `wall`. Hoy las cinco bloquean igual;
+  son distintas porque la **infiltración** podrá cruzar unas y otras no (decisión
+  del usuario). `isWalkable` se deriva de la lista, y el esquema, la paleta, la
+  validación y las dos prosas del agente la interpolan. Y el tipo lo dice: lo
+  que se pisa es `Suelo` (`Exclude<TerrainKind, Barrera>`), así que
+  `TERRAIN_COST`, `costeDeEntrada` y las tablas de `data/barreras.json` no
+  llevan entradas muertas para lo que no se pisa.
+- **La barrera de cada frontera sale de los suelos de los dos lados**
+  (`data/barreras.json`, inventado y provisional): cada suelo da sus candidatas
+  con peso y la frontera sortea con la suma. Y **al menos cuatro tipos por mapa**,
+  construidos y no filtrados: primero se reparten cuatro barreras distintas a
+  cuatro fronteras que las admitan (un emparejamiento) y el resto se sortea. Si
+  los suelos del mapa no admiten cuatro, ese vestido no vale y lo dice. **Y
+  cuatro que se vean**: solo cuenta como candidata una frontera con muro fino
+  que **sobreviva** —una pareja cuyo muro eran solo casillas de nodo recibía su
+  barrera y `buildMap` la abría entera (QA, semillas 864 y 986: tres tipos)—, y
+  cada barrera garantizada lleva al menos `casillasMinimasPorTipo` (15) casillas
+  de frontera en el mapa ya grueso, o el vestido no vale. En 1 000 semillas: 4
+  tipos con 15 o más en 458 mapas y 5 en 542; antes, uno de los cuatro quedaba
+  por debajo de 15 en el 9 %.
+- **El grosor es de 2-3 casillas**: por pareja de regiones un lado engorda
+  siempre y el otro donde lo diga un ruido en bloques de 4×4, así que dos
+  casillas pisables de regiones distintas quedan a tres pasos. Quién engorda lo
+  decide la pareja que **se asoma** a cada casilla de muro y no la que le da el
+  tipo: con solo esa, junto a un cruce de tres regiones los dos lados se
+  quedaban flacos (semilla 36 en 34×34, la cazó la auditoría). El nodo es un
+  estrechamiento de una casilla, con un pasillo protegido hacia cada región que
+  toca: es la excepción, aprobada por el usuario, y llega hasta
+  `RADIO_DEL_PASO` (3). Un pasillo largo —una región que bordea el mapa en una
+  tira de dos, donde toda casilla junto al nodo está pegada al muro— dejaba una
+  frontera de una casilla a cuatro del nodo (QA, semilla 987): fuera de ese
+  radio, lo que el pasillo no deja engordar lo engorda **el otro lado**, a la
+  fuerza.
+- **Cada región, de un solo suelo** (`regions[].terrain`, también para el
+  agente): `buildMap` lo pinta por relleno y no cambia por dónde se anda.
+- **Obstáculos que bloquean** (decisión del usuario: «como HoMM2»), en manchas
+  de 1-6 casillas hasta una densidad sorteada entre 10 y 18 % por región. Una
+  mancha entra solo si no cae sobre nada, no toca la frontera —así un obstáculo
+  se reconoce desde fuera— y con ella puesta, desde los nodos de la región se
+  sigue llegando a todo sin cruzar un monstruo. Esa comprobación se rompió a mano
+  y la auditoría se puso roja en 27 sitios.
+- **Caminos: un árbol entre los nodos de cada región y una senda a cada mina y
+  pueblo, con los tramos fundidos** (decisión del usuario en la vuelta 1 de QA,
+  «árbol mínimo + minas»). La red crece desde el primer nodo: cada paso busca
+  desde **toda la red ya trazada** el nodo que queda más cerca y traza ese tramo
+  —Prim, midiendo desde la red—, y después cada mina y pueblo se engancha igual.
+  El coste es el del héroe (`costeDeEntrada` del suelo, la diagonal más cara).
+  Rodea a los monstruos si puede y si no pasa por encima: un guardia que corta la
+  región en dos deja cada mitad alcanzable desde su nodo, pero no desde el
+  primero. La primera versión unía todo con todo y daba **el 41 % del suelo
+  pisable** con camino (mediana de 200), con vías dobles; el árbol da **el 36 %**
+  (28,5-44,3 en 1 000) y los bloques de 2×2 de camino bajan de 6 a 0,8 por mapa.
+  **El 10-15 % que se pidió como orientación no cabe en esta regla**: una región
+  tiene ~68 casillas pisables y ~8 sitios que unir (nodos, minas y pueblo), y
+  solo esas casillas son ya el 8,4 % del suelo. Bajar de ahí es menos sitios o
+  regiones más grandes, y lo decide el usuario. Un test pone el techo de la
+  mediana en el 38 % para que la malla no vuelva.
+- **Un camino del plan sobre una barrera se rechaza** diciendo la casilla, en
+  `validateMapPlan` (la puerta de los dos productores): `map.ts` no lo abría,
+  pero el cliente lo pintaba encima y una carretera sobre un acantilado dice que
+  por ahí se pasa (QA H4).
+- **Un vestido que falla no tira la red**: se vuelve a vestir la misma red fina
+  hasta 10 veces, y solo después se traza otra (hasta 20). Antes de gastar los
+  intentos de manchas se cuenta si caben, y el error final dice **en qué fase**
+  se agotaron —«no sabe repartir regiones equilibradas» mentía cuando lo que no
+  cabía eran los obstáculos—. Medido en 200 semillas por lado de 24 a 48: ninguna
+  necesita más de 14 redes, y de las redes equilibradas el 86-96 % se viste en
+  diez intentos.
+- **La auditoría** (`auditarMapaDenso`, en `test/helpers.ts`) lo mide desde
+  fuera, sin preguntar al generador: grosor, suelo uniforme, densidad, alcance y
+  caminos, más cuatro barreras por mapa con su mínimo de casillas y las cinco en
+  el total. Mira las 200 primeras semillas **y las 864, 986 y 987**, las tres que
+  QA encontró barriendo mil y que el test no veía; se le vio morder con las tres
+  antes de arreglarlas. La auditoría independiente de QA, sobre las semillas
+  1-1 000 en 34×34 y 1-100 en 48×48, sale sin un fallo.
+
+**Cada barrera está a ΔE76 ≥ 20 de cada suelo y de las otras cuatro**, y lo vigila
+`test/pigmentos.test.ts`: el acantilado era un pardo a 11 de la tierra de casa y
+el muro un gris a 15 del `rough`, y se leían como suelo (QA H1 y H2). Hoy el
+acantilado es ocre anaranjado con estrías, filo claro y la sombra del desnivel
+sobre el suelo de abajo; el muro, pizarra oscura con sillares y coronación; la
+montaña, gris lavanda frío; el bosque, verde hondo (`tramarBarreras`, en
+`render/terreno.ts`). El mínimo es 22,1 (muro y agua): en la vuelta 2 de QA el
+muro subió de `[34,32,54]` a `[40,36,64]` porque en el minimapa quedaba a 16,9 del
+fondo de lo inexplorado, y desde entonces el test mide también cada barrera contra
+ese fondo (`FONDO_INEXPLORADO`, en `render/minimapa.ts`; el más cerca, el muro, a
+21,5). Y el ocre del acantilado **no se funde** con la casilla de al lado: dejaba
+un halo naranja sobre la nieve o el agua vecinas (N5).
+
+**Ninguna decoración de un suelo que se pisa parece una barrera, y la de una
+barrera no se sale de ella** (vuelta 2 de QA, N1). En `rough` se pintaba el pico
+de montaña del atlas, y en la semilla 1 se veía una cordillera en mitad de una
+región; hoy lleva un menhir bajo, y pocos. Y la montaña pintada —más de dos
+casillas de ancho— y la copa del bosque tapaban el suelo de al lado: `decoracionDe`
+(`render/mapa.ts`) mide lo que tapa cada una con las medidas de su pieza
+(`cajaDePieza`) y, si pisa una casilla que se anda, la encoge a la celda del atlas
+hasta 0,85, que cabe siempre en la suya. En mitad de una cordillera la pieza sigue
+saliendo una de cada tres casillas; en una de 2-3 de grosor casi nunca. Lo vigilan
+tres tests de `escenas.test.ts`, vistos morder.
+
+El cliente lo pinta con pigmentos por barrera, una franja oscura de borde, las
+montañas de `assets/mapa/` solapadas, árboles y ruinas del atlas, y las texturas de
+`assets/generated/terrain/` como trama: **temporal**. Lo que falta pedir está en
+`docs/art/peticiones.md`, §8. El generador tarda ~1,7 veces más que antes de los
+mapas densos (200 planes de 34×34: 530 ms, desde 313), y ~2,2 veces tras la vuelta
+1 de QA (670-710 ms en caliente: una búsqueda por tramo de camino y más vestidos
+que no llegan al mínimo de casillas). Por debajo de `LADO_DEL_MAPA` el mínimo se
+nota: en 24×24, 2 de 200 semillas ya no dan mapa; de 28 a 48, 0. Y el cliente reduce cada
+pieza una vez por tamaño, no pinta lo que cae fuera de la cámara y solo rehace la
+superficie del mapa cuando entra arte nuevo (`versionDelArte`); la arena no
+descarga las piezas del mapa.
 
 Las reglas que cambiaron por el camino y conviene no deshacer sin medir:
 
@@ -1482,6 +1635,21 @@ aplica `game.ts`, que es el único que llama a `emit`.
   terminar, y el máximo de días baja de 49 a 35. Lo que tiene de malo, dicho: la
   IA **no limpia** grupos —ni una batalla contra uno en 1 000 partidas—, los rodea
   y las regiones se vacían cerrándolas; la IA buena es #115.
+- **Y si los dos se quedan encerrados, el que juega vuelve a casa igual**
+  (`ai/turn.ts`, vuelta 1 de QA de los mapas densos). Si el alcance prudente de
+  un héroe es **su propia casilla** —en mitad de una región que lo embosca, sin
+  un nodo al lado— y los héroes del rival están igual, vuelve a su base por el
+  alcance de siempre. Era un empate eterno: un grupo no ataca a un héroe parado,
+  y con un héroe por bando y los dos encerrados nadie cambia nada (semilla 10 del
+  banco: 298 días sin moverse nadie). La condición del rival no sobra: sin ella,
+  en la semilla 11 el héroe salía a la emboscada un día antes de que el rival
+  ganara, y con los mapas de antes cambiaban 21 de 200 partidas; con ella,
+  ninguna. El precio, a la vista: **1 emboscada** en las 200 del banco, la de esa
+  vuelta a casa.
+  **Dos casos quedan abiertos, no vistos en 2 000 partidas** (vuelta 2 de QA):
+  un rival **sin héroes** —`todosEncerrados` exige que haya alguno, así que el
+  encerrado se queda quieto— y un héroe encerrado en una ciudad propia **que no
+  es su base**. Se dejan hasta que una semilla los dé.
 - **El alcance prudente no pisa la región que embosca, tampoco la suya.** Es una
   opción del mismo Dijkstra (`alcanceDelHeroe(…, { evitarEmboscadas })`, una sola
   puerta), con esas casillas como **muro** y no como final de trayecto —la
@@ -1790,14 +1958,14 @@ aportan en un prototipo. Lo que hay:
 
 | Comprobación | Cuánto tarda | Cuándo |
 |---|---|---|
-| `pnpm verify` | 13,0 s | siempre |
+| `pnpm verify` | 13,7 s | siempre |
 | `test/invariantes.test.ts` | 505 ms | va dentro de `pnpm test` |
 | El navegador | minutos | si el cambio se ve |
 | El espectador en el navegador | minutos | si tocas `html.ts`, `espectador/` o el canal |
-| `pnpm qa` | 3,0 s | si tocas `src/server/` o el contrato |
-| `pnpm capturas` | ~117 s | si el cambio se ve: juega el cliente, el espectador y la arena en Chromium y sale 1 con un error en consola |
+| `pnpm qa` | 3,2 s | si tocas `src/server/` o el contrato |
+| `pnpm capturas` | ~120 s | si el cambio se ve: juega el cliente, el espectador y la arena en Chromium y sale 1 con un error en consola |
 | `npx tsx tools/qa/barrido-semillas.ts` | 1,1 s | si tocas la IA o la economía |
-| `pnpm banco` | 4,1 s | si tocas el núcleo sin querer cambiar el juego |
+| `pnpm banco` | 5,2 s | si tocas el núcleo sin querer cambiar el juego |
 | `tools/qa/enfrentamiento.ts` | 1,9 s | si cambias **cómo decide** la IA de batalla |
 | CI (`.github/workflows/ci.yml`) | ~1 min | en cada push y cada PR |
 
@@ -1805,8 +1973,10 @@ Los tiempos están **medidos**, tres pasadas cada uno, no estimados: los que
 había antes decían 3 s y «~1 min» y llevaban ciclos siendo falsos. Que `pnpm qa`
 tarde 5 s y no un minuto no es una mejora: es que la partida se acaba el día 4
 porque el agente defiende y pierde, así que la cobertura real son **1 mapa
-diseñado, 6 turnos de mapa, 17 decisiones de batalla y 1 ascenso de tropa a
-héroe** — eran 3 y 15 hasta que la base dejó de quedarse indefensa tras un
+diseñado, 6 turnos de mapa, 80 decisiones de batalla y 1 ascenso de tropa a
+héroe** —con el plan de la semilla 3; de la 1 a la 20 cruzan todo el arnés la 3,
+4, 7, 8, 10, 13, 14, 16 y 20, y la 5 dejó de hacerlo con los caminos en árbol de
+la vuelta 1 de QA— — eran 3 y 15 hasta que la base dejó de quedarse indefensa tras un
 ascenso, y 2 y 13 antes de que la IA aprendiera a esperar y de que el agente
 diseñara el mapa.
 

@@ -9,9 +9,18 @@ import {
 import { hexDistance } from '../src/core/battle/board.js';
 import type { BattleAction, BattleStack, BattleState } from '../src/core/battle/types.js';
 import { personajeDe } from '../src/core/battle/types.js';
+import { BARRERAS_DEL_MAPA } from '../src/core/data.js';
 import type { Hero } from '../src/core/hero/hero.js';
 import type { MapPlan } from '../src/core/map/generate.js';
-import { isEnterable, type MapObject, objectAt } from '../src/core/map/map.js';
+import {
+  type GameMap,
+  isEnterable,
+  type MapObject,
+  objectAt,
+  pointKey,
+} from '../src/core/map/map.js';
+import { estructura, juntoANodo, rellenar, vecindad } from '../src/core/map/regiones.js';
+import { esBarrera, type TerrainKind } from '../src/core/map/terrain.js';
 import type { Rng } from '../src/core/rng.js';
 import { applyAdventureAction, type GameContext, type GameState } from '../src/core/state/game.js';
 import type { Army, Point, Stack, Troop } from '../src/core/types.js';
@@ -268,4 +277,221 @@ export function planDeNodos(): MapPlan {
     monsters: [],
     chests: [],
   };
+}
+
+// ---------------------------------------------------------------- mapas densos
+
+/**
+ * Las barreras de un mapa construido, partidas en **frontera** y **obstáculo**
+ * desde fuera, sin preguntarle nada al generador: una componente 8-conexa de
+ * barrera cuyas vecinas pisables (nodos aparte) son todas de UNA región y que
+ * no se pega a ningún nodo es un obstáculo de esa región; el resto es frontera.
+ * Es la definición que el generador se obliga a cumplir al no dejar que una
+ * mancha toque la frontera.
+ */
+export function barrerasDe(map: GameMap): {
+  /** Casillas de frontera de cada barrera: las abiertas por un nodo no cuentan. */
+  frontera: Map<TerrainKind, number>;
+  /** Casillas de obstáculo de cada región, por índice de región. */
+  obstaculo: number[];
+} {
+  const red = estructura(map);
+  const W = map.width;
+  const H = map.height;
+  // Pegada a un nodo es frontera aunque solo toque una región: el nodo y su
+  // pasillo cortan la frontera gruesa en trozos, y el de un lado del paso
+  // puede no tocar más que una (la semilla 80 en 28×28). Un obstáculo nunca
+  // se pega a un nodo: es la misma marca con la que el generador lo veta.
+  const pegadaANodo = juntoANodo(map);
+  const barrera = (i: number) => esBarrera(map.terrain[i] as TerrainKind);
+  const visto = new Uint8Array(W * H);
+  const frontera = new Map<TerrainKind, number>();
+  const obstaculo = map.regions.map(() => 0);
+  for (let i = 0; i < W * H; i++) {
+    if (visto[i] === 1 || !barrera(i)) continue;
+    const regiones = new Set<number>();
+    const toma = (j: number): boolean => {
+      if (!barrera(j)) {
+        if (red.regionDe[j]! >= 0) regiones.add(red.regionDe[j]!);
+        return false;
+      }
+      if (visto[j] === 1) return false;
+      visto[j] = 1;
+      return true;
+    };
+    toma(i);
+    const casillas = rellenar(W, H, i, toma);
+    if (regiones.size === 1 && !casillas.some((c) => pegadaANodo[c] === 1)) {
+      obstaculo[[...regiones][0]!]! += casillas.length;
+    } else {
+      for (const c of casillas) {
+        const t = map.terrain[c] as TerrainKind;
+        frontera.set(t, (frontera.get(t) ?? 0) + 1);
+      }
+    }
+  }
+  return { frontera, obstaculo };
+}
+
+/**
+ * Lo que el usuario pidió de un mapa denso, medido desde fuera del generador
+ * (criterios 1, 4 y 5 de «mapas densos»), sobre el mapa ya construido de
+ * `plan`:
+ *
+ * - **grosor**: dos casillas pisables de regiones distintas están a Chebyshev
+ *   ≥ 3, salvo que alguna esté a ≤ 3 de un nodo (el estrechamiento del paso);
+ * - **suelo**: cada región, de un solo suelo, el que declara el plan;
+ * - **obstáculos**: la densidad de cada región dentro del rango de los datos;
+ * - **alcance**: desde las vecinas de los nodos de cada región, sin cruzar un
+ *   monstruo, se llega a todas sus casillas pisables —objetos, inicios y
+ *   asaltantes incluidos—;
+ * - **caminos**: cada nodo está en `roads`, y por `roads` de la región se va de
+ *   cualquiera de sus nodos a los demás, a sus minas y a sus pueblos.
+ *
+ * Devuelve además cuántas casillas de frontera lleva cada barrera, que es lo
+ * que el test cuenta por mapa: así no se construye el mapa dos veces.
+ */
+export function auditarMapaDenso(
+  plan: MapPlan,
+  map: GameMap,
+): { fallos: string[]; frontera: Map<TerrainKind, number> } {
+  const fallos: string[] = [];
+  const red = estructura(map);
+  const W = map.width;
+  const H = map.height;
+  const N = W * H;
+  const en = (i: number) => `(${i % W},${(i - (i % W)) / W})`;
+  const nodos = red.nodos.map((n) => n.at.y * W + n.at.x);
+
+  // Grosor.
+  const cercaDeNodo = new Uint8Array(N);
+  for (const n of red.nodos) {
+    for (let dy = -3; dy <= 3; dy++)
+      for (let dx = -3; dx <= 3; dx++) {
+        const x = n.at.x + dx;
+        const y = n.at.y + dy;
+        if (x >= 0 && y >= 0 && x < W && y < H) cercaDeNodo[y * W + x] = 1;
+      }
+  }
+  let finas = 0;
+  let primera = '';
+  for (let i = 0; i < N; i++) {
+    const r = red.regionDe[i]!;
+    if (r < 0 || cercaDeNodo[i] === 1) continue;
+    const x = i % W;
+    const y = (i - x) / W;
+    for (let dy = -2; dy <= 2; dy++)
+      for (let dx = -2; dx <= 2; dx++) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+        const j = ny * W + nx;
+        const s = red.regionDe[j]!;
+        if (s >= 0 && s !== r && cercaDeNodo[j] === 0) {
+          finas++;
+          if (primera === '') primera = `${en(i)} y ${en(j)}`;
+        }
+      }
+  }
+  if (finas > 0)
+    fallos.push(`frontera de menos de 2 casillas en ${finas} parejas, la primera ${primera}`);
+
+  // Suelo y densidad: una sola pasada por el mapa para las dos.
+  const suelos = map.regions.map(() => new Set<TerrainKind>());
+  const pisables = map.regions.map(() => 0);
+  for (let i = 0; i < N; i++) {
+    const k = red.regionDe[i]!;
+    if (k < 0) continue;
+    suelos[k]!.add(map.terrain[i] as TerrainKind);
+    pisables[k]!++;
+  }
+  for (const [k, reg] of plan.regions.entries()) {
+    const deAqui = suelos[k]!;
+    if (deAqui.size !== 1 || (reg.terrain !== undefined && !deAqui.has(reg.terrain))) {
+      fallos.push(
+        `la región ${reg.id} tiene de suelo ${[...deAqui].join('+')} y declara ${reg.terrain}`,
+      );
+    }
+  }
+  const { min, max } = BARRERAS_DEL_MAPA.densidadPorCiento;
+  const { frontera, obstaculo } = barrerasDe(map);
+  for (const [k, reg] of map.regions.entries()) {
+    const total = pisables[k]! + obstaculo[k]!;
+    if (obstaculo[k]! * 100 < min * total || obstaculo[k]! * 100 > max * total) {
+      fallos.push(
+        `la región ${reg.id} tiene ${obstaculo[k]} de ${total} casillas de obstáculo, fuera de ${min}-${max} %`,
+      );
+    }
+  }
+
+  // Alcance.
+  const { desde, vecinas } = vecindad(W, H);
+  const monstruo = new Uint8Array(N);
+  for (const o of map.objects) if (o.kind === 'monster') monstruo[o.at.y * W + o.at.x] = 1;
+  for (const [k, reg] of red.regiones.entries()) {
+    const visto = new Uint8Array(N);
+    const cola: number[] = [];
+    const expandir = (a: number) => {
+      for (let v = desde[a]!; v < desde[a + 1]!; v++) {
+        const j = vecinas[v]!;
+        if (visto[j] === 1 || red.regionDe[j] !== k) continue;
+        visto[j] = 1;
+        cola.push(j);
+      }
+    };
+    for (const n of reg.nodos) expandir(nodos[n]!);
+    for (let q = 0; q < cola.length; q++) if (monstruo[cola[q]!] === 0) expandir(cola[q]!);
+    for (let i = 0; i < N; i++) {
+      if (red.regionDe[i] === k && visto[i] === 0) {
+        fallos.push(
+          `en la región ${reg.id}, ${en(i)} no se alcanza desde sus nodos sin cruzar un monstruo`,
+        );
+        break;
+      }
+    }
+  }
+  const sitios = [
+    ...map.objects.filter((o) => o.kind !== 'node' && o.kind !== 'town').map((o) => o.at),
+    ...plan.heroStarts.map((s) => s.at),
+    ...(plan.raiders ?? []).map((r) => r.at),
+  ];
+  for (const p of sitios) {
+    if (red.regionDe[p.y * W + p.x]! < 0)
+      fallos.push(`(${p.x},${p.y}) tiene algo y no es de ninguna región`);
+  }
+
+  // Caminos.
+  const camino = map.roads;
+  for (const [k, reg] of red.regiones.entries()) {
+    const destinos = [
+      ...reg.nodos.map((n) => nodos[n]!),
+      ...map.objects
+        .filter(
+          (o) =>
+            (o.kind === 'mine' || o.kind === 'village') && red.regionDe[o.at.y * W + o.at.x] === k,
+        )
+        .map((o) => o.at.y * W + o.at.x),
+    ];
+    const enCamino = (i: number) => camino.has(pointKey({ x: i % W, y: (i - (i % W)) / W }));
+    const origen = destinos[0];
+    if (origen === undefined) continue;
+    if (!enCamino(origen)) {
+      fallos.push(`el nodo ${en(origen)} de la región ${reg.id} no está en un camino`);
+      continue;
+    }
+    const suyos = new Set(reg.nodos.map((n) => nodos[n]!));
+    const visto = new Set([origen]);
+    // Por sus propios nodos sí se pasa: las vecinas se acotan a la región, así
+    // que cruzar un nodo no lleva a otra.
+    rellenar(W, H, origen, (j) => {
+      if (visto.has(j) || !enCamino(j) || (red.regionDe[j] !== k && !suyos.has(j))) return false;
+      visto.add(j);
+      return true;
+    });
+    for (const d of destinos) {
+      if (!visto.has(d))
+        fallos.push(`en la región ${reg.id}, ningún camino lleva de ${en(origen)} a ${en(d)}`);
+    }
+  }
+  return { fallos, frontera };
 }

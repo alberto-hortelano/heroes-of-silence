@@ -445,11 +445,50 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   64 pasos de lado. 1 semilla con otro ganador (la 158; j0 95 → 96). Duración
  *   9 / 17 / 37, igual. N2 y N3 de QA, del mismo pase y solo del cliente,
  *   dejaron `290812e6…` exacto, comprobado antes.
+ * - `b6b6a07e…` (62 162 líneas): **mapas densos** (03-10-2026, decisión del
+ *   usuario). Fronteras de 2-3 casillas con cinco barreras distintas en el
+ *   motor, obstáculos que bloquean dentro de cada región, caminos generados,
+ *   `AREA_POR_REGION` 144 → 300 y `LADO_DEL_MAPA` 28 → 34. Cambia el mapa de
+ *   todas las partidas, así que la forma del diff es la esperada: **0 semillas
+ *   idénticas**, 91 con otro ganador, j0 96 → **93**, **0 sin terminar**.
+ *   Duración 9 / 17 / 37 → **8 / 15 / 36**. Por tipo de hecho: `hero_moved`
+ *   28 626 → 33 879 (más camino entre sitios), batallas 2 094 → 1 625,
+ *   `town_captured` 1 828 → 1 376, ningún tipo nuevo ni ninguno que desaparezca.
+ *   Se re-ancló una sola vez, al final; los dos pasos sin cambio de mapa
+ *   (terrenos nuevos y `regions[].terrain`) dejaron `da7609d5…` exacto.
+ * - `2398f5d3…` (68 464 líneas): la **vuelta de simplify** de los mapas densos
+ *   (03-10-2026). Un vestido que falla ya no tira la red fina, los cuatro tipos
+ *   de frontera se reparten en vez de re-sortearse, los obstáculos sortean su
+ *   densidad en otro orden y los caminos son un Dijkstra: el generador consume
+ *   el `rng` de otra manera y **cambia el mapa de las 200 semillas** —el primer
+ *   hecho distinto es un `raider_spawned` en las 200—. Lo que prueba que no
+ *   cambió nada más: con el generador de antes y el resto del núcleo de ahora
+ *   (`Suelo`, la vecindad en tabla, los costes sin barreras) sale `b6b6a07e…`
+ *   exacto. Forma: **0 semillas idénticas**, 89 con otro ganador, j0 93 → 106,
+ *   **0 sin terminar**, duración 8 / 15 / 36 → **8 / 15 / 28**; `hero_moved`
+ *   33 879 → 37 301, batallas 1 625 → 1 758, `town_captured` 1 376 → 1 517,
+ *   ningún tipo nuevo ni ninguno que desaparezca. Re-anclado una vez, al final.
+ * - `1b90bfd9…` (65 043 líneas): la **vuelta 1 de QA** de los mapas densos
+ *   (03-10-2026). Cuatro barreras garantizadas solo en fronteras con muro que
+ *   sobrevive y con `casillasMinimasPorTipo` cada una, el otro lado engordado a
+ *   la fuerza frente a un pasillo largo, y los caminos como árbol entre los
+ *   nodos más una senda a cada mina y pueblo (decisión del usuario). Cambia el
+ *   mapa de las 200: el primer hecho distinto es un `raider_spawned` en 129 (el
+ *   generador consume el `rng` de otra manera) y un `hero_moved` en 71 (mismo
+ *   mapa, otros caminos). **0 semillas idénticas**, 72 con otro ganador, j0
+ *   106 → 100, **0 sin terminar**, duración 8 / 15 / 28 → **8 / 15 / 25**;
+ *   `hero_moved` 37 301 → 35 470, batallas 1 758 → 1 685, `town_captured`
+ *   1 517 → 1 446, ningún tipo nuevo ni ninguno que desaparezca. **Una
+ *   emboscada** (0 → 1, semilla 10): sin la regla nueva de `ai/turn.ts` esa
+ *   semilla no terminaba —los dos héroes encerrados en una región que los
+ *   embosca, 298 días quietos—, y con ella el héroe 1 vuelve a casa y cae en el
+ *   intento. Esa regla, con el generador de antes, deja `2398f5d3…` exacto.
+ *   Re-anclado una vez, al final.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: 'da7609d5281f71f2aec3e025cccf097ae206b258aee4a2f8d656ee9060d3407b',
+  sha: '1b90bfd9049a042a6861009095e42a65dc26ff3f41034384cfe5534b1b67d599',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

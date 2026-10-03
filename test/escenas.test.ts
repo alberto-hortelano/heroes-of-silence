@@ -20,7 +20,7 @@ import {
   pintarSobreLaCabeza,
 } from '../src/client/render/batalla.js';
 import { casillaAPixel, centrarEn, TILE_INICIAL } from '../src/client/render/camara-mapa.js';
-import { pasosAPintar } from '../src/client/render/mapa.js';
+import { CELDA, decoracionDe, pasosAPintar } from '../src/client/render/mapa.js';
 import { MARCA_DE_COMANDANTE } from '../src/client/render/palette.js';
 import { centroDeStack, centroHex, tableroPara } from '../src/client/render/proyeccion.js';
 import { maquetarCoste } from '../src/client/render/town.js';
@@ -29,24 +29,22 @@ import { marcaDeComandante } from '../src/client/views/panels.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import { isAlive, SIN_CARGAS, stackHexes } from '../src/core/battle/battle.js';
 import type { BattleStack } from '../src/core/battle/types.js';
+import { BARRERAS, SUELOS_PISABLES, type TerrainKind } from '../src/core/map/terrain.js';
 import type { Hex } from '../src/core/types.js';
+import {
+  destinoDeHoy,
+  rutaConEmboscada,
+  sesionContraMonstruo,
+  sesionesContraMonstruo,
+} from './batalla-de-cliente.js';
 
-/** La semilla 2 tiene una guardia de zombis en (12,3) al alcance del héroe: batalla al primer clic. */
 /**
- * Una batalla en la que la persona ATACA a un monstruo. La semilla 2 y (12,3)
- * dejaron de darla con el mapa de 28 y los asaltantes: allí la marcha se paraba
- * en una emboscada, y la persona defendía —el marco del móvil empieza en el
- * otro lado—. La 35 en (8,9) es un monstruo al que se llega sin cruzar la
- * región de ningún grupo que embosque.
+ * Una batalla en la que la persona ATACA a un monstruo: la busca
+ * `sesionContraMonstruo`, porque las semillas escritas a mano —la 2 en (12,3),
+ * la 35 en (8,9)— las rompía cada cambio del generador.
  */
 function sesionEnBatalla(): Session {
-  const s = new Session(35);
-  s.clickTile({ x: 8, y: 9 });
-  if (s.battle === null) throw new Error(`la semilla 35 ya no da batalla en (8,9): ${s.status}`);
-  if (s.state.pendingBattle?.attacker.kind !== 'hero') {
-    throw new Error('la semilla 35 en (8,9) ya no es la persona atacando: ¿una emboscada?');
-  }
-  return s;
+  return sesionContraMonstruo();
 }
 
 describe('el mapa con el dedo', () => {
@@ -61,7 +59,7 @@ describe('el mapa con el dedo', () => {
       mapaAncho: s.state.map.width,
       mapaAlto: s.state.map.height,
     });
-    const p = casillaAPixel(camara, { x: 6, y: 6 });
+    const p = casillaAPixel(camara, destinoDeHoy(s));
 
     // Lo que manda Chromium tras un toque: pointerdown, pointerup, pointerleave.
     escena.bajar(p.x, p.y);
@@ -89,7 +87,7 @@ describe('el mapa con el dedo', () => {
       mapaAncho: s.state.map.width,
       mapaAlto: s.state.map.height,
     });
-    const p = casillaAPixel(camara, { x: 6, y: 6 });
+    const p = casillaAPixel(camara, destinoDeHoy(s));
     escena.mover(p.x, p.y);
     expect(escena.rutaVisible.length).toBeGreaterThan(0);
     escena.salir();
@@ -107,11 +105,11 @@ describe('el mapa con el dedo', () => {
 });
 
 describe('la ruta avisa de la emboscada (H2)', () => {
-  // Semilla 1, día 1: el grupo de 6 piqueros de la región de casa está a la
-  // vista desde Valdeluz, y una ruta a (2,10) pisa su región en (1,9). Antes, la
-  // barra decía «llegas hoy (3 pasos)» y al pulsar había batalla.
+  // Una ruta que pisa, a la vista, la región de un grupo que embosca: la
+  // primera semilla que la da. Antes, la barra decía «llegas hoy (3 pasos)» y
+  // al pulsar había batalla.
   it('el tramo desde la emboscada va marcado, la barra lo dice delante y la batalla sale donde avisa', () => {
-    const s = new Session(1);
+    const { s, destino } = rutaConEmboscada();
     const escena = new EscenaAventura(() => s);
     escena.encuadrar(800, 600);
     const camara = centrarEn({ tile: TILE_INICIAL, x: 0, y: 0 }, focoDe(s), {
@@ -120,7 +118,6 @@ describe('la ruta avisa de la emboscada (H2)', () => {
       mapaAncho: s.state.map.width,
       mapaAlto: s.state.map.height,
     });
-    const destino = { x: 2, y: 10 };
     const p = casillaAPixel(camara, destino);
     escena.mover(p.x, p.y);
     const ruta = escena.rutaVisible;
@@ -129,7 +126,7 @@ describe('la ruta avisa de la emboscada (H2)', () => {
     expect(ruta.slice(0, donde).every((paso) => paso.peligro === false)).toBe(true);
     expect(ruta.slice(donde).every((paso) => paso.peligro === true)).toBe(true);
     expect(s.status).toMatch(
-      /^Cuidado: el camino cruza la región de 6 asaltantes, que te emboscarían/,
+      /^Cuidado: el camino cruza la región de \d+ asaltantes, que te emboscarían/,
     );
     // El aviso es VERDAD: pulsar da la batalla con ese grupo atacando.
     const quien = ruta[donde]!.emboscada!.id;
@@ -139,8 +136,7 @@ describe('la ruta avisa de la emboscada (H2)', () => {
 
   it('una ruta sin emboscada no avisa', () => {
     const s = new Session(1);
-    const heroe = s.selectedHero!;
-    const ruta = s.previewPath({ x: heroe.at.x + 1, y: heroe.at.y });
+    const ruta = s.previewPath(destinoDeHoy(s, false));
     expect(ruta.length).toBeGreaterThan(0);
     expect(ruta.some((paso) => paso.peligro || paso.emboscada !== undefined)).toBe(false);
   });
@@ -218,31 +214,42 @@ describe('la batalla en el lienzo', () => {
     // encontrarlo: si no, no probaría nada. Va en el lienzo del móvil, donde el
     // suelo sigue a 25°: en escritorio la cámara se levanta, las filas se
     // separan y ya no hay ninguno tapado (0 de 1011, medido).
-    const s = sesionEnBatalla();
+    // Se busca en las batallas por orden, no solo en la primera: si la primera
+    // no lo da (con el mapa de «mapas densos», vuelta 1 de QA, no lo daba),
+    // otra sí, y lo que se prueba es el clic, no la batalla.
     const [ancho, alto] = [860, 380];
     const t = tableroPara(ancho, alto);
+    let s: Session | null = null;
     let caso: { hex: Hex; tapa: string } | null = null;
-    for (let n = 0; n < 80 && caso === null; n++) {
-      const b = s.battle;
-      if (b === null || b.finished !== null) break;
-      for (const a of s.battleLegalActions()) {
-        if (a.type !== 'move') continue;
-        const c = centroHex(t, a.to);
-        const tapa = b.stacks.find((e) => {
-          if (!isAlive(e) || e.side === s.miBando) return false;
-          const k = cajaDeFigura(t, e, centroDeStack(stackHexes(e)));
-          return (
-            Math.abs(c.x - k.x) <= k.ancho / 2 && c.y <= k.suelo + 4 && c.y >= k.suelo - k.alto
-          );
-        });
-        if (tapa !== undefined) {
-          caso = { hex: a.to, tapa: tapa.id };
-          break;
+    let batallas = 0;
+    for (const hallada of sesionesContraMonstruo()) {
+      if (caso !== null || batallas >= 10) break;
+      batallas++;
+      s = hallada.s;
+      for (let n = 0; n < 80 && caso === null; n++) {
+        const b = s.battle;
+        if (b === null || b.finished !== null) break;
+        for (const a of s.battleLegalActions()) {
+          if (a.type !== 'move') continue;
+          const c = centroHex(t, a.to);
+          const tapa = b.stacks.find((e) => {
+            if (!isAlive(e) || e.side === s!.miBando) return false;
+            const k = cajaDeFigura(t, e, centroDeStack(stackHexes(e)));
+            return (
+              Math.abs(c.x - k.x) <= k.ancho / 2 && c.y <= k.suelo + 4 && c.y >= k.suelo - k.alto
+            );
+          });
+          if (tapa !== undefined) {
+            caso = { hex: a.to, tapa: tapa.id };
+            break;
+          }
         }
+        if (caso === null) s.playBattleAction(chooseBattleAction(b));
       }
-      if (caso === null) s.playBattleAction(chooseBattleAction(b));
     }
-    if (caso === null) throw new Error('en 80 jugadas no hay ningún hex alcanzable tapado');
+    if (caso === null || s === null) {
+      throw new Error(`en ${batallas} batallas de 80 jugadas no hay ningún hex alcanzable tapado`);
+    }
 
     const escena = new EscenaBatalla(() => s);
     escena.encuadrar(ancho, alto);
@@ -413,5 +420,57 @@ describe('la ruta no se pinta sobre la niebla (M5 de la 2a)', () => {
     const pintados = pasosAPintar(ruta, explorado);
     expect(pintados.length).toBeGreaterThan(0);
     expect(pintados.every((p) => explorado.has(`${p.at.x},${p.at.y}`))).toBe(true);
+  });
+});
+
+describe('la decoración del mapa no confunde suelo con barrera (vuelta 2 de QA de mapas densos, N1)', () => {
+  const AZARES = Array.from({ length: 97 }, (_, i) => i);
+  /** Un mapa de `lado`×`lado` de `fuera` con un bloque de `dentro` de `bloque`×`bloque` en medio. */
+  const mapa = (lado: number, fuera: TerrainKind, dentro: TerrainKind, bloque: number) => {
+    const t: TerrainKind[] = [];
+    const a = Math.floor((lado - bloque) / 2);
+    for (let y = 0; y < lado; y++)
+      for (let x = 0; x < lado; x++)
+        t.push(x >= a && x < a + bloque && y >= a && y < a + bloque ? dentro : fuera);
+    return t;
+  };
+
+  it('ningún suelo que se pisa lleva la celda de montaña ni una pieza', () => {
+    // En `rough` se pintaba un pico: QA lo vio en la semilla 1 como cordillera
+    // en mitad de una región.
+    const malas: string[] = [];
+    for (const suelo of SUELOS_PISABLES)
+      for (const azar of AZARES) {
+        const d = decoracionDe([suelo], 1, 1, { x: 0, y: 0 }, azar);
+        if (d !== null && (d.celda === CELDA.montana || d.pieza !== undefined))
+          malas.push(`${suelo}/${azar}`);
+      }
+    expect(malas).toEqual([]);
+  });
+
+  it('una barrera rodeada de suelo pinta solo dentro de su casilla', () => {
+    // La pieza de montaña mide más de dos casillas y la copa del bosque casi
+    // una y media: desbordadas, tapaban el suelo de al lado.
+    for (const barrera of BARRERAS)
+      for (const azar of AZARES) {
+        const d = decoracionDe(mapa(3, 'grass', barrera, 1), 3, 3, { x: 1, y: 1 }, azar);
+        if (d === null) continue;
+        const caso = `${barrera}/${azar}`;
+        expect(d.pieza, caso).toBeUndefined();
+        // La celda se apoya a 0,35 bajo el centro y sube `escala`: dentro de
+        // [-0,5, 0,5] en los dos ejes.
+        expect(Math.abs(d.dx) + d.escala / 2, caso).toBeLessThanOrEqual(0.5);
+        expect(0.35 + d.dy, caso).toBeLessThanOrEqual(0.5);
+        expect(0.35 + d.dy - d.escala, caso).toBeGreaterThanOrEqual(-0.5);
+      }
+  });
+
+  it('en mitad de una cordillera la montaña sigue siendo grande', () => {
+    // Que contener no la deje en guijarros: en un bloque de 7×7 el centro lleva
+    // la pieza pintada en una de cada tres casillas, como antes.
+    const conPieza = AZARES.filter(
+      (azar) => decoracionDe(mapa(9, 'grass', 'mountain', 7), 9, 9, { x: 4, y: 4 }, azar)?.pieza,
+    );
+    expect(conPieza.length).toBe(AZARES.filter((a) => a % 3 === 0).length);
   });
 });

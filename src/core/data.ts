@@ -1,5 +1,6 @@
 /** Catálogo de criaturas: carga `data/creatures.json` y lo tipa. */
 import asaltantesJson from '../../data/asaltantes.json' with { type: 'json' };
+import barrerasJson from '../../data/barreras.json' with { type: 'json' };
 import ciudadesJson from '../../data/ciudades.json' with { type: 'json' };
 import creaturesJson from '../../data/creatures.json' with { type: 'json' };
 import equipoJson from '../../data/equipo.json' with { type: 'json' };
@@ -8,6 +9,7 @@ import habilidadesJson from '../../data/habilidades.json' with { type: 'json' };
 import heroeJson from '../../data/heroe.json' with { type: 'json' };
 import liderazgoJson from '../../data/liderazgo.json' with { type: 'json' };
 import tiposDeHeroeJson from '../../data/tipos-de-heroe.json' with { type: 'json' };
+import { BARRERAS, type Barrera, SUELOS_PISABLES, type Suelo } from './map/terrain.js';
 import type {
   Creature,
   CreatureTrait,
@@ -684,3 +686,121 @@ export function validarEquipo(json: unknown, fichero = 'data/equipo.json'): read
 
 /** El catálogo de equipo, en el orden del fichero: es el orden del sorteo del botín. */
 export const EQUIPO: readonly Pieza[] = validarEquipo(equipoJson);
+
+/** Una barrera con su peso en un sorteo. */
+export interface BarreraConPeso {
+  readonly barrera: Barrera;
+  readonly peso: number;
+}
+
+/**
+ * Qué barrera levanta el generador en cada sitio, de `data/barreras.json`.
+ * **Inventado y provisional**, como dice su `_comment`.
+ */
+export interface ReglasDeBarreras {
+  /** Por suelo: las barreras de una frontera que lo toca. Una frontera suma las de sus dos lados. */
+  readonly frontera: Readonly<Record<Suelo, readonly BarreraConPeso[]>>;
+  /** Por suelo: las barreras de las manchas de dentro de una región. */
+  readonly obstaculos: Readonly<Record<Suelo, readonly BarreraConPeso[]>>;
+  /** Qué parte de cada región cubren los obstáculos, en % entero. */
+  readonly densidadPorCiento: { readonly min: number; readonly max: number };
+  /**
+   * Cuántas casillas tiene una mancha. `min` vale para todas **menos la última de
+   * cada región**, que se recorta a lo que falta para la densidad sorteada: con
+   * regiones de treinta casillas, la diferencia entre llegar y no llegar era a
+   * veces una casilla.
+   */
+  readonly mancha: { readonly min: number; readonly max: number };
+  /**
+   * Casillas de frontera que lleva, como poco, cada una de las `TIPOS_POR_MAPA`
+   * barreras que el generador garantiza por mapa. Sin él la garantía era de
+   * nombre: una barrera podía quedarse en dos casillas, o en ninguna si su
+   * única frontera eran casillas de nodo, que `buildMap` abre (QA, semillas 864
+   * y 986 en 34×34).
+   */
+  readonly casillasMinimasPorTipo: number;
+}
+
+/**
+ * Valida la tabla de barreras y la devuelve tipada. **Lanza con todos los
+ * problemas a la vez**. Exportada con el JSON de argumento, como
+ * `validarEquipo`, para que el guardia se pueda ver morder con un fichero roto.
+ *
+ * Que estén **todos** los suelos que se pisan no es capricho: el generador
+ * sortea por el suelo de cada región, y un suelo sin fila daría una frontera
+ * sin candidatas a mitad de un mapa.
+ */
+export function validarBarreras(json: unknown, fichero = 'data/barreras.json'): ReglasDeBarreras {
+  const problemas: string[] = [];
+  const j = (json ?? {}) as Record<string, unknown>;
+  const tabla = (campo: 'frontera' | 'obstaculos'): Record<Suelo, BarreraConPeso[]> => {
+    const bruta = j[campo];
+    // Se rellena entera abajo, o se lanza: el `as` es lo que tarda en llenarse.
+    const salida = {} as Record<Suelo, BarreraConPeso[]>;
+    if (bruta === null || typeof bruta !== 'object') {
+      problemas.push(`no trae "${campo}"`);
+      return salida;
+    }
+    for (const suelo of Object.keys(bruta)) {
+      if (!(SUELOS_PISABLES as readonly string[]).includes(suelo)) {
+        problemas.push(
+          `"${campo}" tiene una fila para "${suelo}", que no es un suelo que se pise; valen ${SUELOS_PISABLES.join(', ')}`,
+        );
+      }
+    }
+    for (const suelo of SUELOS_PISABLES) {
+      const fila = (bruta as Record<string, unknown>)[suelo];
+      if (fila === null || typeof fila !== 'object' || Object.keys(fila).length === 0) {
+        problemas.push(`"${campo}" no tiene fila para el suelo "${suelo}"`);
+        continue;
+      }
+      const lista: BarreraConPeso[] = [];
+      for (const [barrera, peso] of Object.entries(fila)) {
+        if (!(BARRERAS as readonly string[]).includes(barrera)) {
+          problemas.push(
+            `"${campo}.${suelo}" pide "${barrera}", que no es una barrera; valen ${BARRERAS.join(', ')}`,
+          );
+        } else if (!enteroDesde(peso, 1)) {
+          problemas.push(
+            `"${campo}.${suelo}.${barrera}" pesa ${peso}: tiene que ser un entero > 0`,
+          );
+        } else {
+          lista.push({ barrera: barrera as Barrera, peso });
+        }
+      }
+      salida[suelo] = lista;
+    }
+    return salida;
+  };
+  const rango = (campo: 'densidadPorCiento' | 'mancha', desde: number, hasta: number) => {
+    const r = (j[campo] ?? {}) as { min?: unknown; max?: unknown };
+    if (!enteroDesde(r.min, desde) || !enteroDesde(r.max, desde) || r.max > hasta) {
+      problemas.push(
+        `"${campo}" tiene que llevar "min" y "max" enteros entre ${desde} y ${hasta}, y lleva ${JSON.stringify(j[campo])}`,
+      );
+      return { min: 0, max: 0 };
+    }
+    if (r.min > r.max) problemas.push(`"${campo}": min (${r.min}) es mayor que max (${r.max})`);
+    return { min: r.min, max: r.max };
+  };
+  const frontera = tabla('frontera');
+  const obstaculos = tabla('obstaculos');
+  const densidadPorCiento = rango('densidadPorCiento', 0, 90);
+  const mancha = rango('mancha', 1, 50);
+  const casillasMinimasPorTipo = j.casillasMinimasPorTipo;
+  if (!enteroDesde(casillasMinimasPorTipo, 1)) {
+    problemas.push(
+      `"casillasMinimasPorTipo" tiene que ser un entero > 0, y lleva ${JSON.stringify(casillasMinimasPorTipo)}`,
+    );
+  }
+  if (problemas.length > 0) throw new Error(`${fichero}: ${problemas.join('; ')}`);
+  return {
+    frontera,
+    obstaculos,
+    densidadPorCiento,
+    mancha,
+    casillasMinimasPorTipo: casillasMinimasPorTipo as number,
+  };
+}
+
+export const BARRERAS_DEL_MAPA: ReglasDeBarreras = validarBarreras(barrerasJson);

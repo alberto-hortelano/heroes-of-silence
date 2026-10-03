@@ -39,6 +39,7 @@ import {
   baseOf,
   battleOwners,
   caminoHasta,
+  currentPlayer,
   type GameState,
   heroesOf,
   resolvePendingBattle,
@@ -84,12 +85,16 @@ function enSuRegion(semilla: number) {
   const enLibres = new Set(libres.map(pointKey));
   let par: { desde: Point; hasta: Point } | undefined;
   for (const desde of libres) {
+    hero.at = desde;
     for (const [dx, dy] of VECINAS) {
       const hasta = { x: desde.x + dx, y: desde.y + dy };
-      if (enLibres.has(pointKey(hasta)) && isEnterable(state.map, hasta)) {
-        par = { desde, hasta };
-        break;
-      }
+      if (!enLibres.has(pointKey(hasta)) || !isEnterable(state.map, hasta)) continue;
+      // Un paso y no dos: con caminos, ir a la vecina por otra casilla de
+      // camino puede salir más barato que la diagonal, y la marcha se pararía
+      // en la de en medio (semilla 11 de los mapas densos).
+      if (caminoHasta(state, hero, hasta)?.length !== 1) continue;
+      par = { desde, hasta };
+      break;
     }
     if (par !== undefined) break;
   }
@@ -145,8 +150,10 @@ describe('la patrulla', () => {
     // héroe pasó a empezar en el nivel 5 (una sola escala con la tropa), y la
     // 44, la 73 y la 15 hasta el turno en tramos (02-10-2026), que cambia las
     // batallas: las tres veces se quedaron sin un solo lunes. Buscadas jugando
-    // las 80 primeras.
-    for (const semilla of [20, 49, 51]) {
+    // las 80 primeras. Y la 20, la 49 y la 51 hasta los mapas densos
+    // (03-10-2026): con fronteras gruesas y el mapa de 34 se quedaron sin lunes;
+    // la 4, la 12 y la 23 dan un brote cada una.
+    for (const semilla of [4, 12, 23]) {
       const state = newGame({ seed: semilla, maxDays: 60 });
       const ctx = { rng: createRng(semilla) };
       while (state.finished === null) {
@@ -351,6 +358,48 @@ describe('la IA no entra en una emboscada que va a perder', () => {
     // región no es encerrarlo en su casilla.
     const normal = alcanceDelHeroe(state, hero);
     expect(alcance.costs.size).toBeLessThan(normal.costs.size);
+  });
+
+  it('si los dos están encerrados en una región que los embosca, el que juega vuelve a casa; si el rival se mueve, espera', async () => {
+    // La semilla 10 del banco con los mapas densos: los dos héroes, sin tropa,
+    // en mitad de una región que los embosca y sin un nodo al lado. El alcance
+    // prudente era su casilla, el repliegue no llegaba y nadie se movió en 298
+    // días. Se buscan dos casillas así en la región del grupo más fuerte.
+    const montar = () => {
+      const { state, ctx, hero, grupo } = enSuRegion(5);
+      const rival = heroesOf(state, 1)[0]!;
+      hero.army = [];
+      rival.army = [];
+      const encerradas = libresDeSuRegion(state, grupo).filter((p) => {
+        hero.at = p;
+        return alcanceDelHeroe(state, hero, { evitarEmboscadas: true }).costs.size <= 1;
+      });
+      if (encerradas.length < 2) throw new Error('la semilla 5 no deja dos casillas encerradas');
+      hero.at = encerradas[0]!;
+      hero.movePoints = 1500;
+      expect(currentPlayer(state).id).toBe(hero.owner);
+      return { state, ctx, hero, rival, otra: encerradas[1]! };
+    };
+    const seMovio = (state: GameState, id: string) =>
+      state.log.some((e) => e.kind === 'hero_moved' && e.hero === id);
+
+    // El rival en su casa, libre: esperar todavía puede arreglarlo.
+    const libre = montar();
+    expect(
+      alcanceDelHeroe(libre.state, libre.rival, { evitarEmboscadas: true }).costs.size,
+    ).toBeGreaterThan(1);
+    await playAiTurn(libre.state, libre.ctx);
+    expect(seMovio(libre.state, libre.hero.id)).toBe(false);
+
+    // El rival encerrado también: o ha andado hacia casa, o lo han emboscado al
+    // intentarlo. Quieto, no.
+    const empate = montar();
+    empate.rival.at = empate.otra;
+    expect(
+      alcanceDelHeroe(empate.state, empate.rival, { evitarEmboscadas: true }).costs.size,
+    ).toBeLessThanOrEqual(1);
+    await playAiTurn(empate.state, empate.ctx);
+    expect(seMovio(empate.state, empate.hero.id)).toBe(true);
   });
 
   it('en partidas enteras de la IA contra sí misma no hay ni una emboscada', async () => {
@@ -579,12 +628,26 @@ describe('lo que el castillo ve se pinta (H1)', () => {
 
 describe('la ruta que pisa una emboscada (H2)', () => {
   it('avisa en el primer paso de la región del grupo, y solo de un grupo que se ve', () => {
-    const state = newGame({ seed: 1 });
-    const hero = heroesOf(state, 0)[0]!;
-    const camino = caminoHasta(state, hero, { x: 2, y: 10 })!;
-    const mirando = visibleNow(state, 0);
-    const aviso = emboscadaEnLaRuta(state, hero, camino, mirando)!;
-    expect(aviso).not.toBeNull();
+    // La primera semilla con un destino cuya ruta pisa, a la vista, la región de
+    // un grupo que embosca. Eran la semilla 1 y la (2,10), escritas a mano, y
+    // los mapas densos se las llevaron.
+    const hallada = (() => {
+      for (let seed = 1; seed <= 200; seed++) {
+        const state = newGame({ seed });
+        const hero = heroesOf(state, 0)[0]!;
+        const mirando = visibleNow(state, 0);
+        for (let y = 0; y < state.map.height; y++) {
+          for (let x = 0; x < state.map.width; x++) {
+            const camino = caminoHasta(state, hero, { x, y });
+            if (camino === null) continue;
+            const aviso = emboscadaEnLaRuta(state, hero, camino, mirando);
+            if (aviso !== null) return { state, hero, camino, mirando, aviso };
+          }
+        }
+      }
+      throw new Error('ninguna de 200 semillas da una ruta con emboscada a la vista');
+    })();
+    const { state, hero, camino, mirando, aviso } = hallada;
     // La misma regla que la marcha: el paso avisado es donde salta.
     const r = regionDeCasilla(state.map, camino[aviso.paso]!.at);
     expect(regionDeCasilla(state.map, aviso.raider.at)).toBe(r);

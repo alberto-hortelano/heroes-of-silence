@@ -15,11 +15,19 @@ export const TERRAIN_KINDS = [
   'rough',
   'water',
   'mountain',
+  'forest',
+  'cliff',
+  'wall',
 ] as const;
 
 export type TerrainKind = (typeof TERRAIN_KINDS)[number];
 
-export const TERRAIN_COST: Readonly<Record<TerrainKind, number>> = {
+/**
+ * Lo que cuesta entrar en cada suelo. Solo suelos: una barrera no se pisa y no
+ * tiene precio, y desde que el tipo lo dice (`Suelo`) la tabla ya no lleva las
+ * entradas muertas que exigía un `Record` del tipo entero.
+ */
+export const TERRAIN_COST: Readonly<Record<Suelo, number>> = {
   grass: 100,
   dirt: 100,
   lava: 100,
@@ -27,10 +35,6 @@ export const TERRAIN_COST: Readonly<Record<TerrainKind, number>> = {
   snow: 175,
   swamp: 175,
   sand: 200,
-  water: 100,
-  // Existe porque la tabla es un `Record` del tipo entero, no porque se cobre:
-  // la montaña no se pisa (`isWalkable`) y el Dijkstra no llega a preguntar.
-  mountain: 100,
 };
 
 /** Un camino abarata el paso, se pinte sobre el terreno que se pinte. */
@@ -54,18 +58,40 @@ export const DIAGONAL_FACTOR = 1.4;
  * diferencia entre anunciarle lo que se le va a cobrar y anunciarle una cifra
  * que se parece.
  */
-export function costeDeEntrada(terreno: TerrainKind, camino: boolean, diagonal: boolean): number {
+export function costeDeEntrada(terreno: Suelo, camino: boolean, diagonal: boolean): number {
   const base = camino ? ROAD_COST : TERRAIN_COST[terreno];
   return Math.round(diagonal ? base * DIAGONAL_FACTOR : base);
 }
 
 /**
- * Lo que no se pisa: el agua, porque no hay barcos, y la montaña.
+ * **Las barreras**: lo que no se pisa. Con ellas se cierran las regiones del mapa
+ * de nodos (`regiones.ts`) y se levantan los obstáculos de dentro de una región.
  *
- * Son los dos muros con los que se cierran las regiones del mapa de nodos
- * (`regiones.ts`): el agua es el río y la montaña la cordillera. Los dos valen
- * lo mismo para el motor —un muro—, y la diferencia es solo de lo que se ve.
+ * Son cinco y **distintas en el motor**, no solo al pintarlas (decisión del
+ * usuario, 03-10-2026): hoy las cinco bloquean igual, pero la habilidad de
+ * infiltración podrá cruzar unas y otras no, y para eso cada casilla tiene que
+ * recordar qué accidente es. El agua es el río o el lago —no hay barcos—, la
+ * montaña la cordillera, `forest` el bosque denso, `cliff` el acantilado o el
+ * desnivel y `wall` el muro o la ruina.
+ *
+ * La leen el esquema del agente, la paleta, la validación del plan y la prosa:
+ * la lista se escribe aquí y en ningún otro sitio.
  */
-export function isWalkable(t: TerrainKind): boolean {
-  return t !== 'water' && t !== 'mountain';
+export const BARRERAS = ['mountain', 'water', 'forest', 'cliff', 'wall'] as const;
+
+export type Barrera = (typeof BARRERAS)[number];
+
+/** Lo que se pisa: todo terreno que no es barrera. El suelo de una región es uno de estos. */
+export type Suelo = Exclude<TerrainKind, Barrera>;
+
+export function esBarrera(t: TerrainKind): t is Barrera {
+  return (BARRERAS as readonly TerrainKind[]).includes(t);
 }
+
+/** Lo que se pisa: todo lo que no es barrera, derivado y no escrito aparte. */
+export function isWalkable(t: TerrainKind): t is Suelo {
+  return !esBarrera(t);
+}
+
+/** Los suelos, en el orden de `TERRAIN_KINDS`: lo que puede ser el suelo de una región. */
+export const SUELOS_PISABLES: readonly Suelo[] = TERRAIN_KINDS.filter(isWalkable);

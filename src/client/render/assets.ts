@@ -90,6 +90,26 @@ export const ARTE_RPG = {
 export type NombreDeArte = keyof typeof ARTE_RPG;
 
 /**
+ * Las piezas pintadas del mapa (`assets/mapa/`, aprobadas el 01-10-2026), por el
+ * nombre con el que se piden a `asset('mapa', …)`. Se colocan por su `ancla`,
+ * que viene en el `.json` de al lado y lee `render/piezas.ts`. Son **temporales**
+ * hasta que lleguen las piezas de borde por barrera (`docs/art/peticiones.md`).
+ */
+export const PIEZAS_DEL_MAPA = [
+  'montana-1',
+  'montana-2',
+  'montana-3',
+  'nodo-hito',
+  'ciudad',
+  'pueblo',
+  'oro',
+  'piedra',
+  'madera',
+] as const;
+
+export type PiezaDelMapa = (typeof PIEZAS_DEL_MAPA)[number];
+
+/**
  * Una hoja de `assets/unidades/<id>/`: se pide como `asset('rpg', 'unidad/<id>')`
  * igual que el resto de figuras, pero no se precarga —son medio centenar y la
  * partida no pinta ninguna—: la carga quien la vaya a pintar
@@ -114,11 +134,17 @@ export async function cargarHojaDeUnidad(id: string): Promise<void> {
   avisar();
 }
 
-/** Carga la tabla de arriba. Nunca lanza: lo que no llegue se queda en su marcador. */
-async function loadRpgArt(): Promise<void> {
-  await Promise.all(
-    Object.entries(ARTE_RPG).map(([nombre, url]) => cargarImagen(`rpg/${nombre}`, url)),
-  );
+/**
+ * Carga la tabla de arriba y, si se pinta el mapa, sus piezas. Nunca lanza: lo
+ * que no llegue se queda en su marcador.
+ */
+async function loadRpgArt(mapa: boolean): Promise<void> {
+  await Promise.all([
+    ...Object.entries(ARTE_RPG).map(([nombre, url]) => cargarImagen(`rpg/${nombre}`, url)),
+    ...(mapa
+      ? PIEZAS_DEL_MAPA.map((nombre) => cargarImagen(`mapa/${nombre}`, `/mapa/${nombre}.webp`))
+      : []),
+  ]);
   avisar();
 }
 
@@ -126,17 +152,36 @@ async function loadRpgArt(): Promise<void> {
 type Listener = () => void;
 const oyentes = new Set<Listener>();
 
+/**
+ * Cuántas veces ha entrado arte nuevo. Lo que se compone una vez con el arte
+ * que hubiera —la superficie del mapa con sus texturas— lo usa de clave de su
+ * caché: antes contaba en cada fotograma qué texturas habían llegado.
+ */
+let version = 0;
+
+/** La versión del arte cargado: cambia cada vez que entra algo. */
+export function versionDelArte(): number {
+  return version;
+}
+
 function avisar(): void {
+  version++;
   for (const fn of oyentes) fn();
 }
 
 /**
  * Los grupos del manifiesto que se pintan hoy: los iconos de recursos, los
- * edificios y el fondo del castillo. `creatures` y `terrains` ya no los pinta
- * nadie —la batalla y el mapa son de figuras a 25° y superficie continua— y se
- * seguían descargando: 29 peticiones en cada arranque para nada.
+ * edificios, el fondo del castillo y, desde los mapas densos (03-10-2026), las
+ * texturas de terreno, que el mapa usa como trama suave sobre el pigmento de
+ * cada suelo —temporal, a petición del usuario—. `creatures` ya no lo pinta
+ * nadie —la batalla es de figuras a 25°— y se seguía descargando.
  */
-const GRUPOS_QUE_SE_PINTAN: ReadonlySet<string> = new Set(['icons', 'buildings', 'towns']);
+const GRUPOS_QUE_SE_PINTAN: ReadonlySet<string> = new Set([
+  'icons',
+  'buildings',
+  'towns',
+  'terrains',
+]);
 
 /** Carga el manifiesto y precarga las imágenes que se pintan. Nunca lanza. */
 async function loadAssets(): Promise<boolean> {
@@ -161,10 +206,10 @@ async function loadAssets(): Promise<boolean> {
 /**
  * Pone a cargar todo el arte y avisa con `onCambio` cada vez que entra algo. Es
  * lo único que llaman los `main` —el que juega, el espectador y la arena, que
- * pasa `manifiesto: false`—: el juego ya
+ * pasa `manifiesto: false` y `mapa: false`—: el juego ya
  * es jugable con los marcadores, y el arte entra cuando entra.
  */
-export function cargarArte(onCambio: () => void, { manifiesto = true } = {}): void {
+export function cargarArte(onCambio: () => void, { manifiesto = true, mapa = true } = {}): void {
   oyentes.add(onCambio);
   // La arena no pinta ni recursos ni edificios ni castillo: sin el manifiesto se
   // ahorra sus decenas de peticiones y se queda con las figuras y el tablero.
@@ -174,7 +219,9 @@ export function cargarArte(onCambio: () => void, { manifiesto = true } = {}): vo
       else console.log('[assets] sin arte generado todavía; se pinta con marcadores');
     });
   }
-  void loadRpgArt();
+  // La arena no pinta el mapa de aventura: sus piezas serían nueve peticiones
+  // para nada.
+  void loadRpgArt(mapa);
 }
 
 /** Imagen ya cargada, o `null` si ese asset todavía no existe. */

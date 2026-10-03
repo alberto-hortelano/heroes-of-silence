@@ -154,3 +154,30 @@ Lo que queda por hacer, para las ramas nuevas:
   Quaternius trae ciervo, venado y lobo (corredores del bosque élficos).
 - Repasar lo aceptado con reservas: el ataque de rodillas del monje y las marchas
   menos finas (`pnpm taller corregir <id>-atlas "…"`, en su mismo hilo).
+
+## 8. Lo que piden los mapas densos (sesión de reglas, 03-10-2026)
+
+Desde «mapas densos» el generador separa las regiones con fronteras de 2-3
+casillas de **cinco barreras distintas en el motor** —`mountain`, `water`,
+`forest`, `cliff`, `wall`— elegidas según el suelo de los dos lados
+(`data/barreras.json`), pone obstáculos que bloquean dentro de cada región y una red
+de caminos. El cliente lo pinta de momento con pigmentos, una franja oscura de
+borde, las montañas de la petición 3, árboles y ruinas del atlas viejo y las
+texturas de `assets/generated/terrain/` como trama: **todo temporal**. Para
+construir los mapas como la referencia (`assets/art/mapas/`) hace falta:
+
+| Pieza | Para qué | Notas |
+|---|---|---|
+| Textura pintada por suelo: `grass`, `dirt`, `sand`, `snow`, `swamp`, `lava`, `rough` | el suelo entero de cada región | vista a 90°, lisa y sin motivo (las reglas de `prompts.ts`); sustituye la trama de `generated/terrain` |
+| Borde de bosque denso (`forest`) | frontera y obstáculo verde | masa de copas que se lea como muro, no como arboleda suelta; piezas que encajen en tramos de 2-3 casillas |
+| Borde de acantilado o desnivel (`cliff`) | frontera de arena, lava y roca | cara de roca con sombra hacia el lado bajo; hoy no tiene ninguna pieza |
+| Borde de muro o ruina (`wall`) | frontera de las regiones de casa | muralla o lienzo derruido en tramos; hoy, la ruina del atlas pixelado |
+| Orilla de río o lago (`water`) | frontera de pantano y prado | la orilla, no el agua: el agua la da el pigmento |
+| Más montañas (`mountain`) | cordillera de nieve y roca | las tres de la petición 3 bastan para alternar; harían falta piezas de esquina |
+| **Puente** como nodo sobre agua | el paso de una frontera de `water` | con el poste vacío para la bandera, como `nodo-hito` |
+| **Puerta** como nodo en un muro | el paso de una frontera de `wall` | ídem |
+| **Paso** de montaña, de bosque y de acantilado | el resto de nodos | hoy todos son `nodo-hito` |
+| Obstáculos interiores por suelo | las manchas de 1-6 casillas de dentro de una región | bosquecillo y estanque en prado, rocas en roca y nieve, dunas o farallones en arena, coladas en lava, ruinas en tierra; pequeños y que no tapen objetos |
+
+Lo que **no** hace falta: arte para los caminos (el trazo actual vale) ni para el
+minimapa (usa los pigmentos). Nada de esto se ha generado ni se ha gastado nada.

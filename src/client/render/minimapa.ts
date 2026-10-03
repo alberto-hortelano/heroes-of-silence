@@ -18,6 +18,12 @@ const COLOR = Object.fromEntries(
   Object.entries(pigments).map(([t, [r, g, b]]) => [t, `rgb(${r},${g},${b})`]),
 ) as Readonly<Record<TerrainKind, string>>;
 
+/**
+ * El fondo de lo que no se ha explorado. Exportado para que `pigmentos.test.ts`
+ * lo mida contra las barreras: el muro se perdía en él (vuelta 2 de QA, N2).
+ */
+export const FONDO_INEXPLORADO: readonly [number, number, number] = [8, 10, 16];
+
 interface VistaMinimapa {
   readonly escena: AdventureScene;
   readonly explorado: ReadonlySet<string> | null;
@@ -66,7 +72,7 @@ function baseDe(ancho: number, alto: number, v: VistaMinimapa): HTMLCanvasElemen
   const sx = ancho / W;
   const sy = alto / H;
   const explorada = (k: string): boolean => v.explorado === null || v.explorado.has(k);
-  ctx.fillStyle = '#080a10';
+  ctx.fillStyle = `rgb(${FONDO_INEXPLORADO.join(',')})`;
   ctx.fillRect(0, 0, ancho, alto);
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {

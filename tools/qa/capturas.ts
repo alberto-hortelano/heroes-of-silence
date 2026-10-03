@@ -112,32 +112,65 @@ import { arrancarServidor, type ServidorDePartida } from './servidor.js';
  * en emboscadas: no cambia nada, porque lo que las descarta es la ruta de la
  * PERSONA, no la de la IA. En las tres, la única guardia a la que se llega hoy
  * está detrás de una región que embosca al héroe de salida.
+ *
+ * **Y otra vez con los mapas densos (03-10-2026)**: fronteras gruesas,
+ * obstáculos que bloquean y el lado de 34 se llevaron las cinco. Se buscaron con
+ * el espejo, igual que entonces, en las 300 primeras: la 238 tiene una guardia a
+ * tres pasos y una ruta de dos días a la vista; la 21 pierde la suya; en la 208
+ * la guardia deja veterano y al día siguiente hay otra; y la 3 tiene una ruta a
+ * (11,0) que pisa, a la vista, la región de un grupo que embosca. El móvil
+ * comparte la 238: en las 300 primeras ninguna guardia alcanzable cae a dos
+ * casillas del héroe, y la de la 238 está a (1,3).
+ *
+ * **Y una vez más con la vuelta de simplify (03-10-2026)**: el vestido del mapa
+ * consume el `rng` de otra manera y cambió el mapa de todas. Buscadas con el
+ * espejo en las 1 500 primeras —y hasta la 4 000 para los veteranos— y
+ * probadas cada una con su pasada: la 993 tiene una ruta de dos días a la vista
+ * y, tras entrar al castillo, una guardia a (4,−1); la 534 pierde la suya; en la
+ * 1 454 la guardia deja veterano y la del día siguiente cae a (6,1); la 3 sigue
+ * dando emboscada, ahora con la ruta a (11,5); y el móvil pasa a la 810, con la
+ * guardia a (0,2) del castillo. Es la búsqueda que el issue de las semillas de
+ * capturas propone automatizar.
+ *
+ * **Y con la vuelta 1 de QA (03-10-2026)**: los caminos en árbol y la frontera
+ * forzada movieron otra vez el mapa y el camino de todas. Prefiltradas con el
+ * espejo (una `Session` por semilla, sin navegador) y probadas cada una con su
+ * pasada: la 50 tiene la ruta de dos días y la guardia tras el castillo; la 97
+ * pierde la suya; en la 2 199 —de las 5 000 primeras solo seis dejaban veterano
+ * con otra guardia al día siguiente, y solo esta cae dentro del marco— la
+ * guardia está a seis pasos y la del día 2 a ocho; la 3 da la emboscada con la
+ * ruta a (8,8); y el móvil sigue en la 810.
  */
-const SEMILLA = 282;
+const SEMILLA = 50;
 /**
  * La del móvil y la del dedo: en un marco de 364 px de ancho la guardia que se
  * alcanza hoy tiene que caer DENTRO, y en el del dedo —en vertical, con la
- * cámara pegada al borde de arriba— a dos casillas como mucho. De las 1 500
- * primeras semillas solo seis la tienen; la 668, a (2,−1) del héroe.
+ * cámara pegada al borde de arriba— a dos casillas como mucho. Hoy es la 810:
+ * tras entrar al castillo, su guardia cae a (0,2).
  */
-const SEMILLA_MOVIL = 668;
+const SEMILLA_MOVIL = 810;
 /**
  * La partida cuya guardia más cercana gana: la batalla que se pierde y la vuelta
  * a la base. Era la 273 hasta que el héroe nació con su equipo base (+3/+3) y
  * empezó a ganarla; de las 1 500 primeras, la guardia más cercana que se alcanza
- * hoy sigue ganando en la 93, 124, 270, 411… (buscado jugando la sesión).
+ * hoy sigue ganando en la 93, 124, 270, 411… (buscado jugando la sesión). Fue
+ * la 534 hasta la vuelta 1 de QA de los mapas densos; hoy, la 97 (también
+ * pierden la 1 058, 1 186, 1 215…).
  */
-const SEMILLA_QUE_PIERDE = 93;
+const SEMILLA_QUE_PIERDE = 97;
 /** La de los veteranos: la guardia más cercana deja uno y al día siguiente hay otra. */
-const SEMILLA_VETERANOS = 177;
+const SEMILLA_VETERANOS = 2199;
 /**
  * La de la emboscada avisada (H2 del ciclo «el camino cuesta»): el día 1, el
  * grupo de 6 piqueros de la región de casa se ve desde Valdeluz, y la ruta a
  * (2,10) pisa su región en (1,9). Es la escena que encontró QA: antes la barra
- * decía «llegas hoy (3 pasos)» y el grupo no estaba ni pintado (H1).
+ * decía «llegas hoy (3 pasos)» y el grupo no estaba ni pintado (H1). Con los
+ * mapas densos tras simplify, en la 3 eran 7 asaltantes en (12,3) y la ruta a
+ * (11,5); con la vuelta 1 de QA son 7 asaltantes en (2,11), y la ruta a (8,8)
+ * salta en su región al llegar.
  */
-const SEMILLA_EMBOSCADA = 1;
-const DESTINO_EMBOSCADA: Point = { x: 2, y: 10 };
+const SEMILLA_EMBOSCADA = 3;
+const DESTINO_EMBOSCADA: Point = { x: 8, y: 8 };
 const DESTINO = resolve(process.argv[2] ?? 'docs/agents/2026-10-01-cliente-nuevo/capturas');
 
 /** Los códigos de color ANSI; escritos con `fromCharCode` porque Biome no deja un ESC literal en una regex. */
@@ -274,6 +307,27 @@ async function caja(page: Page): Promise<{ x: number; y: number; width: number; 
   const b = await page.locator('#canvas').boundingBox();
   if (b === null) throw new Error('el lienzo no está en la página');
   return b;
+}
+
+/** Lo que se deja libre en cada borde del lienzo al buscar dónde tocar. */
+const MARGEN_DEL_LIENZO = 30;
+/**
+ * Abajo se deja más: ahí van los botones de la cámara, y un toque que cae en el
+ * «+» hace zoom en vez de ir a donde se quería (semilla 238, destino (7,10)).
+ */
+const MARGEN_DE_LOS_BOTONES = 110;
+
+/** Si un píxel de la página cae en el lienzo lejos de sus bordes y de los botones. */
+function tocable(
+  b: { x: number; y: number; width: number; height: number },
+  p: { x: number; y: number },
+): boolean {
+  return (
+    p.x > b.x + MARGEN_DEL_LIENZO &&
+    p.x < b.x + b.width - MARGEN_DEL_LIENZO &&
+    p.y > b.y + MARGEN_DEL_LIENZO &&
+    p.y < b.y + b.height - MARGEN_DE_LOS_BOTONES
+  );
 }
 
 /** Comprueba que la página y el espejo juegan la misma partida. */
@@ -1133,7 +1187,7 @@ async function veteranoEnElCampo(page: Page, espejo: Session): Promise<void> {
  *
  * Pasada propia y no dentro de la de escritorio: allí la primera batalla se
  * juega a clics esperando y defendiendo para enseñar la rendición, y nadie de la
- * tropa llega a pegar. La semilla se buscó con el espejo: en la 177 la guardia
+ * tropa llega a pegar. La semilla se buscó con el espejo: en la 2 199 la guardia
  * más cercana deja un veterano y al día siguiente hay otra a la que se llega.
  */
 async function veteranos(browser: Browser, url: string, problemas: Problemas): Promise<void> {
@@ -1141,6 +1195,10 @@ async function veteranos(browser: Browser, url: string, problemas: Problemas): P
     nombre: 'veteranos',
     semilla: SEMILLA_VETERANOS,
   });
+  // Un paso de zoom hacia fuera: en el mapa de 34 las guardias están a ocho o
+  // más pasos y, con el zoom de salida, fuera del marco (en la 2 199, a seis
+  // y a ocho).
+  await mapa.rueda(-1);
   await mapa.pulsar(await guardiaALaVista(page, mapa, espejo));
   if (espejo.battle === null) throw new Error(`no hubo batalla: ${espejo.status}`);
   await esperarCola(espejo.battle.log);
@@ -1357,13 +1415,10 @@ async function jugarTactil(browser: Browser, url: string, problemas: Problemas):
       const p = { x: desde.x + dx, y: desde.y + dy };
       const r = espejo.previewPath(p);
       if (r.length <= mejor || !r.every((paso) => paso.hoy)) continue;
-      const enPagina = await mapa.pixel(p);
-      const dentro =
-        enPagina.x > b.x + 30 &&
-        enPagina.x < b.x + b.width - 30 &&
-        enPagina.y > b.y + 30 &&
-        enPagina.y < b.y + b.height - 30;
-      if (dentro) {
+      // Explorado: un toque en la niebla no enseña ruta. Con el mapa de antes el
+      // más lejano caía siempre en lo visto; con los obstáculos, no.
+      if (espejo.explorado !== null && !espejo.explorado.has(`${p.x},${p.y}`)) continue;
+      if (tocable(b, await mapa.pixel(p))) {
         destino = p;
         mejor = r.length;
       }
@@ -1404,6 +1459,12 @@ async function jugarTactil(browser: Browser, url: string, problemas: Problemas):
   await sleep(450);
   const otra = new Session(SEMILLA_MOVIL);
   const enOtra = new Mapa(page, otra);
+  // Dos pasos de zoom hacia fuera: con los mapas densos ninguna guardia cae a
+  // dos casillas del héroe recién nacido, y con el zoom de salida la de la
+  // semilla del móvil se queda debajo de los botones de la cámara (pasó con la
+  // 238, y sigue igual con la 810).
+  await enOtra.rueda(-1);
+  await enOtra.rueda(-1);
   const monstruo = await guardiaALaVista(page, enOtra, otra);
   const enMonstruo = await enOtra.pixel(monstruo);
   await page.touchscreen.tap(enMonstruo.x, enMonstruo.y);
@@ -1509,15 +1570,7 @@ async function guardiaALaVista(page: Page, mapa: Mapa, espejo: Session): Promise
   }
   candidatas.sort((x, y) => x.pasos - y.pasos);
   for (const c of candidatas) {
-    const px = await mapa.pixel(c.at);
-    // Abajo, 110 px de margen y no 30: ahí van los botones de la cámara, y un
-    // toque que cae en el «+» hace zoom en vez de ir a la guardia.
-    const dentro =
-      px.x > b.x + 30 &&
-      px.x < b.x + b.width - 30 &&
-      px.y > b.y + 30 &&
-      px.y < b.y + b.height - 110;
-    if (dentro) return c.at;
+    if (tocable(b, await mapa.pixel(c.at))) return c.at;
   }
   throw new Error('no hay a la vista ninguna guardia a la que se llegue hoy');
 }
@@ -1544,8 +1597,7 @@ async function patrullaALaVista(
   // `Mapa`, con los topes del cliente.
   for (let i = 0; i < 4; i++) await mapa.rueda(-1);
   const b = await caja(page);
-  const dentro = (p: { x: number; y: number }) =>
-    p.x > b.x + 30 && p.x < b.x + b.width - 30 && p.y > b.y + 30 && p.y < b.y + b.height - 110;
+  const dentro = (p: { x: number; y: number }) => tocable(b, p);
   const explorada = (p: Point) => espejo.explorado?.has(`${p.x},${p.y}`) ?? true;
   for (let intento = 0; intento < 4 && espejo.state.finished === null; intento++) {
     // Lo que se ve de cada grupo hoy, y el lienzo alrededor: dos casillas son
@@ -1761,8 +1813,11 @@ async function sinArte(browser: Browser, url: string, problemas: Problemas): Pro
     nombre: 'sin arte',
     semilla: SEMILLA,
     // Solo las imágenes: los JSON de las hojas se importan como módulo y viven
-    // en la misma carpeta; negarlos no es «sin arte», es romper la página.
-    sinImagenes: /\/(rpg|characters)\/.*\.(png|webp)$/,
+    // en la misma carpeta; negarlos no es «sin arte», es romper la página. Con
+    // los mapas densos entran también las piezas de `assets/mapa/` y las
+    // texturas de terreno: sin ellas, montañas, nodos, ciudades, pueblos y
+    // recursos caen a su marcador y el suelo a su pigmento.
+    sinImagenes: /\/(rpg|characters|mapa|generated\/terrain)\/.*\.(png|webp)$/,
   });
   await captura(page, 'sin-arte-01-mapa');
   // Sin arte la figura no respira y el lienzo no se repinta solo: el
@@ -1842,8 +1897,14 @@ const PLAZO_DEL_FIN_AL_MAPA_MS = 8_000;
  * 0,2 s cada uno. 21 s es esa medida con un 30 % de holgura, el mismo margen que
  * tenía el 12 sobre los 9. Un telón que no comprima —cinco finales de 2,5 s
  * enteros, unos 11 s más— no cabe.
+ *
+ * Con los mapas densos (03-10-2026) la partida del agente —el plan de la semilla
+ * 3 en 34×34— es más larga y trae **once** finales en vez de cinco: medido en dos
+ * pasadas, **21,17 y 21,16 s**, con 76 y 65 fotogramas atrasados. 28 s es esa
+ * medida con el mismo 30 % de holgura. El telón sigue comprimiendo —once finales
+ * de 2,5 s enteros serían unos 27 s más— y eso es lo que el plazo vigila.
  */
-const PLAZO_DEL_GAME_OVER_MS = 21_000;
+const PLAZO_DEL_GAME_OVER_MS = 28_000;
 
 /**
  * El espectador, contra un servidor de verdad y con un agente que juega.

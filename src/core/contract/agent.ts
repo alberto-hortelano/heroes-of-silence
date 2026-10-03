@@ -19,8 +19,7 @@ import { z } from 'zod';
 import { CARGA_MINIMA } from '../battle/battle.js';
 import { CHARGE_BONUS_PER_HEX, MAX_CHARGE_HEXES } from '../battle/damage.js';
 import { NIVEL_MAXIMO_DE_TROPA } from '../hero/experiencia.js';
-import { WALL_TERRAINS } from '../map/generate.js';
-import { TERRAIN_KINDS } from '../map/terrain.js';
+import { BARRERAS, TERRAIN_KINDS } from '../map/terrain.js';
 import { MAX_HEROES_PER_PLAYER } from '../state/game.js';
 import { HUECOS } from '../types.js';
 import { CATALOGO_DE_EQUIPO_EN_PROSA, COMO_SE_LEE_EL_MAPA } from './serialize.js';
@@ -165,11 +164,18 @@ export const mapPlanSchema = z.object({
     z.object({ terrain: terrainSchema, center: pointSchema, radius: z.number().min(1).max(40) }),
   ),
   regions: z.array(
-    z.object({ id: idDeMapa('región'), name: nombreDeMapa('una región'), at: pointSchema }),
+    z.object({
+      id: idDeMapa('región'),
+      name: nombreDeMapa('una región'),
+      at: pointSchema,
+      // Cualquier terreno en el esquema; que sea un suelo y no una barrera lo
+      // dice `validateMapPlan`, con su frase, para los dos productores.
+      terrain: terrainSchema.optional(),
+    }),
   ),
   // Derivado de la lista que valida `validateMapPlan`, no copiado: el esquema y
   // la validación de los dos productores dicen lo mismo porque es lo mismo.
-  walls: z.array(z.object({ terrain: z.enum(WALL_TERRAINS), from: pointSchema, to: pointSchema })),
+  walls: z.array(z.object({ terrain: z.enum(BARRERAS), from: pointSchema, to: pointSchema })),
   nodes: z.array(pointSchema),
   towns: z.array(
     z.object({
@@ -500,7 +506,12 @@ chests[], roads?, raiders?.
 El mapa es una RED DE NODOS, y eso se comprueba:
 - Una REGIÓN es una zona por la que se anda libre, cerrada por muro. Cada una se
   declara en "regions" con un "id", un "name" y una casilla suya en "at".
-- Un MURO es un tramo RECTO de "mountain" o "water" (los de "palette.wallTerrains"):
+- Un MURO es un tramo RECTO de una barrera: ${BARRERAS.map((b) => `"${b}"`).join(', ')}
+  (los de "palette.wallTerrains"). Las cinco cierran igual —ninguna se pisa—,
+  pero son accidentes distintos y no da lo mismo cuál pongas: el río es "water",
+  la cordillera "mountain", el bosque denso "forest", el acantilado o desnivel
+  "cliff" y el muro o la ruina "wall". También sirven, dentro de una región,
+  como obstáculos que se rodean, siempre que no la partan en dos.
   {"terrain", "from", "to"} con "from" y "to" en la misma fila o en la misma
   columna; se pintan los dos extremos y lo de en medio. Un tramo en diagonal se
   rechaza: deja huecos por las esquinas. Se mueve en 8 direcciones, así que dos
@@ -517,6 +528,9 @@ El mapa es una RED DE NODOS, y eso se comprueba:
 - Una región es de quien tenga TODOS sus nodos, y solo da renta unida a su base.
   Las minas y los pueblos ("villages": {"name", "at"}) no se toman: son de quien
   tenga su región, y por eso no llevan dueño.
+- Una región puede llevar "terrain": su suelo ENTERO, todas sus casillas
+  pisables pintadas de ese terreno (encima de "patches"). Tiene que ser un suelo
+  que se pise, no una barrera. Solo pinta: no cambia por dónde se anda.
 - "patches" solo pintan el suelo (círculos de "terrain", "center" y "radius"): no
   separan nada. Los muros se pintan encima.
 - Una ciudad neutral ("owner": null) nace con guarnición: hay que vencerla para
@@ -531,6 +545,9 @@ Reglas que se validan antes de aceptarlo:
   rechazan.
 - Todo lo que no es nodo ni ciudad —minas, pueblos, recursos, monstruos, cofres
   e inicios— va DENTRO de una región, nunca sobre un muro ni sobre un nodo.
+- Un camino ("roads") solo va por casillas que se pisan —una región, un nodo o
+  una ciudad—. Uno sobre una barrera se rechaza diciendo la casilla: pintado
+  encima de un acantilado diría que por ahí se pasa, y no se pasa.
 - Desde cada inicio se debe poder llegar a pie a todas las ciudades.
 - "monsters[].creature" tiene que ser un id de criatura que exista: usa los de
   "palette.creaturesForGuards", que están escritos como los espera el motor.

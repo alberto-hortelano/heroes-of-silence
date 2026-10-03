@@ -92,6 +92,8 @@ describe('la tropa se hace héroe: el ascenso', () => {
     const { state, base } = conVeteranos();
     const antes = heroesOf(state, 1).length;
     const guarnicion = base.garrison.length;
+    const delQueEstaba = heroesOf(state, 1)[0]!;
+    const tropa = delQueEstaba.army.length;
     const criatura = base.garrison[0]!.creature;
     const heroe = ascenderVeterano(state, 1, 'veterano-guarnicion', {
       name: 'Ana la Paciente',
@@ -118,11 +120,16 @@ describe('la tropa se hace héroe: el ascenso', () => {
     // ocupa el héroe que ya estaba).
     const d = Math.max(Math.abs(heroe.at.x - base.at.x), Math.abs(heroe.at.y - base.at.y));
     expect(d).toBe(1);
-    // El individuo ya no está en la guarnición, y nadie más se ha ido.
-    expect(base.garrison).toHaveLength(guarnicion - 1);
+    // El individuo ya no está en la guarnición, y nadie más se ha ido: lo que
+    // falte de la guarnición lo ha recogido el héroe que ocupa la base, que es
+    // la regla (`takeGarrison`). Cuántos caben depende de la tropa con la que
+    // nace, y esa sale del `rng` después del mapa: contarlo con la semilla era
+    // anclar el mapa de la semilla 7.
+    expect(base.garrison.length + delQueEstaba.army.length).toBe(guarnicion - 1 + tropa);
     expect(base.garrison.some((t) => t.veterania?.id === 'veterano-guarnicion')).toBe(false);
-    // La crónica lo cuenta, con su dueño y la casilla donde nace.
-    const hecho = state.log.at(-1);
+    // La crónica lo cuenta, con su dueño y la casilla donde nace (detrás puede
+    // ir el `garrison_taken` del que ocupa la base).
+    const hecho = [...state.log].reverse().find((e) => e.kind === 'hero_promoted');
     expect(hecho).toMatchObject({
       kind: 'hero_promoted',
       hero: heroe.id,

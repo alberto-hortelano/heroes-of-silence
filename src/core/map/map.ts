@@ -177,11 +177,11 @@ export function isEnterable(map: GameMap, p: Point): boolean {
  * costar cada paso — tres lectores y una sola fórmula.
  */
 export function stepCost(map: GameMap, from: Point, to: Point): number {
-  return costeDeEntrada(
-    terrainAt(map, to),
-    map.roads.has(pointKey(to)),
-    from.x !== to.x && from.y !== to.y,
-  );
+  const terreno = terrainAt(map, to);
+  if (!isWalkable(terreno)) {
+    throw new Error(`no se entra en (${to.x},${to.y}): es ${terreno}, y una barrera no se pisa`);
+  }
+  return costeDeEntrada(terreno, map.roads.has(pointKey(to)), from.x !== to.x && from.y !== to.y);
 }
 
 export interface PathStep {
@@ -338,7 +338,9 @@ function dijkstra(
   const oblicuo = new Int32Array(casillas);
   for (let i = 0; i < casillas; i++) {
     const terreno = map.terrain[i] as TerrainKind;
-    if (isWalkable(terreno)) pisable[i] = 1;
+    // Una barrera no tiene precio: se queda en 0 y no se lee, porque no se pisa.
+    if (!isWalkable(terreno)) continue;
+    pisable[i] = 1;
     recto[i] = costeDeEntrada(terreno, false, false);
     oblicuo[i] = costeDeEntrada(terreno, false, true);
   }
@@ -352,8 +354,11 @@ function dijkstra(
     const { x, y } = pointFromKey(clave);
     if (x < 0 || x >= ancho || y < 0 || y >= map.height) continue;
     const i = y * ancho + x;
-    recto[i] = costeDeEntrada(map.terrain[i] as TerrainKind, true, false);
-    oblicuo[i] = costeDeEntrada(map.terrain[i] as TerrainKind, true, true);
+    const terreno = map.terrain[i] as TerrainKind;
+    // Un camino pintado sobre una barrera no la abre: sigue sin pisarse.
+    if (!isWalkable(terreno)) continue;
+    recto[i] = costeDeEntrada(terreno, true, false);
+    oblicuo[i] = costeDeEntrada(terreno, true, true);
   }
   const bloqueada = new Uint8Array(casillas);
   for (const o of map.objects) {

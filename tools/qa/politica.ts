@@ -120,9 +120,17 @@ export function decidir(kind: string, payload: any): unknown {
       //
       // La semilla es fija y distinta de la del servidor a propósito: así el
       // mapa que se juega no puede coincidir por casualidad con el que habría
-      // salido sin agente.
+      // salido sin agente. Era la 7 hasta los mapas densos (03-10-2026): en el
+      // 34×34 con fronteras gruesas, en seis turnos no daba ni una batalla; fue
+      // la 3 hasta que la vuelta de simplify cambió cómo se viste el mapa, y con
+      // ella el agente ya no llegaba a equipar; la 5 hasta la vuelta 1 de QA
+      // (caminos en árbol), con la que dejó de haber batallas en seis turnos. Y
+      // la cobertura del arnés depende de esta semilla más de lo que parece: de
+      // la 1 a la 20 cruzan todo la 3, 4, 7, 8, 10, 13, 14, 16 y 20 —las demás
+      // no encadenan dos tramos, no ven un asaltante o no llegan a equipar—. La
+      // 3 es la que más batallas da en seis turnos (80).
       const want = payload?.want ?? {};
-      const plan = generateMapPlan(createRng(7), {
+      const plan = generateMapPlan(createRng(3), {
         width: Number(want.width ?? 24),
         height: Number(want.height ?? 24),
       });

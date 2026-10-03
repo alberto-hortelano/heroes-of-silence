@@ -9,13 +9,14 @@ import { EscenaBatalla, rotuloDeAngulo } from '../src/client/escenas/batalla.js'
 import { marcadoDe } from '../src/client/html.js';
 import { cajaDeFigura } from '../src/client/render/batalla.js';
 import { centroDeStack, centroHex, tableroPara } from '../src/client/render/proyeccion.js';
-import { Session } from '../src/client/session.js';
+import type { Session } from '../src/client/session.js';
 import { renderSide } from '../src/client/views/panels.js';
 import { isAlive, stackHexes } from '../src/core/battle/battle.js';
 import { hexDistance } from '../src/core/battle/board.js';
 import { CHARGE_BONUS_PER_HEX } from '../src/core/battle/damage.js';
 import { creature } from '../src/core/data.js';
 import type { Hex, UnitInfo } from '../src/core/types.js';
+import { sesionContraMonstruo } from './batalla-de-cliente.js';
 
 /**
  * Elegir desde dónde golpear (decisión del usuario, 02-10-2026): al pasar por un
@@ -93,12 +94,11 @@ function sesionConEnemigoALaVista(
   activo: string;
   objetivo: string;
 } {
-  const s = new Session(35);
-  s.clickTile({ x: 8, y: 9 });
+  const s = sesionContraMonstruo();
   const b = s.battle;
   const turno = s.turnoPropio;
   if (b === null || turno === null)
-    throw new Error('la semilla 35 ya no abre la batalla con turno propio');
+    throw new Error('la sesión no abre la batalla con turno propio');
   const rival = b.stacks.find(
     (x) => isAlive(x) && x.side !== s.miBando && x.unit.shots === undefined,
   );

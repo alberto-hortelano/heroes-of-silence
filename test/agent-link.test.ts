@@ -1439,7 +1439,9 @@ describe('el agente sabe cómo le fue', () => {
       return { action: { type: 'attack', target: 'no-existe' } };
     });
 
-    const director = new Director(link, { seed: 304, agentPlayers: [1] });
+    // Era la 304: con los mapas densos (03-10-2026) la batalla de esa semilla
+    // ya no sacaba la rama del maná. Lo que se mide es la nota, no el mapa.
+    const director = new Director(link, { seed: 306, agentPlayers: [1] });
     rivalAlAtaque(director.state);
     // Sin oro para rendirse: si no, la heurística sustituta se rinde en la
     // primera decisión —seis paladines contra su tropa— y la batalla acaba
@@ -1597,6 +1599,9 @@ describe('el agente sabe cómo le fue', () => {
       return { actions: [] };
     });
 
+    // La semilla importa: en algunas el rival plantado al lado no ataca. Con los
+    // mapas densos la 305 dejó de valer (307) y volvió a valer al cambiar el
+    // vestido (03-10-2026); 303, 304, 306, 309 y 310 también valen hoy.
     const director = new Director(link, { seed: 305, agentPlayers: [1] });
     rivalAlAtaque(director.state);
 

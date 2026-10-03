@@ -13,7 +13,6 @@
 import { existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { allCreatures } from '@core/data.js';
-import { TERRAIN_KINDS } from '@core/map/terrain.js';
 import { RESOURCE_KINDS } from '@core/types.js';
 import { FalClient } from './fal.js';
 import {
@@ -30,6 +29,7 @@ import {
   creatureSpritePrompt,
   RESOURCE_ICON_PROMPTS,
   TERRAIN_PROMPTS,
+  TERRENOS_CON_TEXTURA,
   TOWN_BACKDROP_PROMPTS,
 } from './prompts.js';
 
@@ -106,7 +106,7 @@ function buildJobs(only: string): Job[] {
   const jobs: Job[] = [];
 
   if (only === 'all' || only === 'terrains') {
-    for (const t of TERRAIN_KINDS) {
+    for (const t of TERRENOS_CON_TEXTURA) {
       jobs.push({
         group: 'terrains',
         name: t,

@@ -77,33 +77,95 @@ export const aPunto = (i: number, width: number): Point => ({
 });
 
 /**
+ * Las ocho vecinas de cada casilla de un mapa de `width × height`, en tabla
+ * compacta: las de `i` son `vecinas[desde[i]]` … `vecinas[desde[i + 1] − 1]`, en
+ * el orden de `VECINAS`, con el límite del mapa comprobado una vez. El vestido
+ * del generador, `rellenar` y la auditoría de los tests recorrían cada uno la
+ * 8-vecindad con su copia del `if` de los bordes; el código de antes de los
+ * mapas densos (`regionesQueToca`, `juntoANodo`, el muro fino) sigue con la suya.
+ *
+ * Una tabla y no una función con *callback* porque es lo que más se recorre del
+ * generador: con un *callback* por vecina, la llamada se volvía megamórfica —un
+ * cierre distinto en cada sitio— y 200 mapas de 34×34 tardaban 740 ms frente a
+ * los 530 de la tabla (medido en la vuelta de simplify, 03-10-2026). Memoizada
+ * por tamaño: el mapa de una partida no cambia de lado.
+ */
+export interface Vecindad {
+  readonly desde: Int32Array;
+  readonly vecinas: Int32Array;
+}
+
+const vecindades = new Map<number, Vecindad>();
+
+export function vecindad(width: number, height: number): Vecindad {
+  const clave = width * 65536 + height;
+  const hecha = vecindades.get(clave);
+  if (hecha !== undefined) return hecha;
+  const desde = new Int32Array(width * height + 1);
+  const vecinas = new Int32Array(width * height * 8);
+  let n = 0;
+  for (let i = 0; i < width * height; i++) {
+    desde[i] = n;
+    const x = i % width;
+    const y = (i - x) / width;
+    for (const [dx, dy] of VECINAS) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+      vecinas[n++] = ny * width + nx;
+    }
+  }
+  desde[width * height] = n;
+  const tabla = { desde, vecinas: vecinas.slice(0, n) };
+  vecindades.set(clave, tabla);
+  return tabla;
+}
+
+/**
+ * El relleno 8-conexo desde `desde`, que **ya tiene que estar tomada**: cada
+ * vecina entra si `toma(j)` dice que sí, y es `toma` quien la marca, así que la
+ * misma casilla no se pregunta dos veces por la misma búsqueda sin que el
+ * relleno guarde un visto propio. Devuelve las casillas en el orden en que se
+ * tomaron. Es la definición de región de este módulo —lo pisable sin nodos,
+ * 8-conexo— y la usan también el generador y su vestido.
+ */
+export function rellenar(
+  width: number,
+  height: number,
+  desde: number,
+  toma: (j: number) => boolean,
+): number[] {
+  const v = vecindad(width, height);
+  const tomadas = [desde];
+  const pila = [desde];
+  while (pila.length > 0) {
+    const a = pila.pop() as number;
+    for (let k = v.desde[a] as number; k < (v.desde[a + 1] as number); k++) {
+      const j = v.vecinas[k] as number;
+      if (!toma(j)) continue;
+      tomadas.push(j);
+      pila.push(j);
+    }
+  }
+  return tomadas;
+}
+
+/**
  * Las componentes 8-conexas de lo pisable sin nodos, numeradas en orden de
  * barrido. Determinista: la misma rejilla da siempre la misma numeración.
  */
 function componentes(r: Rejilla): { comp: Int32Array; total: number } {
   const { width, height } = r;
-  const libre = (i: number): boolean => r.pisable[i] === 1 && r.nodoEn[i] === -1;
   const comp = new Int32Array(width * height).fill(-1);
   let total = 0;
-  const pila: number[] = [];
-  for (let i = 0; i < width * height; i++) {
-    if (comp[i] !== -1 || !libre(i)) continue;
+  const toma = (i: number): boolean => {
+    if (comp[i] !== -1 || r.pisable[i] !== 1 || r.nodoEn[i] !== -1) return false;
     comp[i] = total;
-    pila.push(i);
-    while (pila.length > 0) {
-      const a = pila.pop() as number;
-      const x = a % width;
-      const y = (a - x) / width;
-      for (const [dx, dy] of VECINAS) {
-        const nx = x + dx;
-        const ny = y + dy;
-        if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
-        const j = ny * width + nx;
-        if (comp[j] !== -1 || !libre(j)) continue;
-        comp[j] = total;
-        pila.push(j);
-      }
-    }
+    return true;
+  };
+  for (let i = 0; i < width * height; i++) {
+    if (!toma(i)) continue;
+    rellenar(width, height, i, toma);
     total++;
   }
   return { comp, total };

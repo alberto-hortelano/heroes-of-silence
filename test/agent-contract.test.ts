@@ -35,9 +35,9 @@ import {
 import { ASALTANTES, creature, EQUIPO } from '../src/core/data.js';
 import { NOMBRE_DE_CALIDAD } from '../src/core/hero/equipo.js';
 import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '../src/core/hero/troop.js';
-import { generateMapPlan } from '../src/core/map/generate.js';
+import { generateMapPlan, validateMapPlan } from '../src/core/map/generate.js';
 import { pointFromKey, pointKey } from '../src/core/map/map.js';
-import { costeDeEntrada, isWalkable, TERRAIN_KINDS } from '../src/core/map/terrain.js';
+import { BARRERAS, costeDeEntrada, isWalkable, TERRAIN_KINDS } from '../src/core/map/terrain.js';
 import { createRng } from '../src/core/rng.js';
 import { cronicaPara } from '../src/core/state/events.js';
 import {
@@ -51,7 +51,7 @@ import {
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { mageGuildLevel, townSpells } from '../src/core/town/town.js';
-import { forzarBatalla, forzarTurno } from './helpers.js';
+import { forzarBatalla, forzarTurno, planDeNodos } from './helpers.js';
 
 describe('contrato con el agente', () => {
   it('cada tipo de petición tiene esquema y formato de respuesta', () => {
@@ -418,13 +418,22 @@ describe('lo que ve el agente', () => {
   });
 
   it('lo que se está mirando ahora sí es el presente', () => {
-    const state = newGame({ seed: 92 });
-    revealEverything(state, 0);
-    const mirando = visibleNow(state, 0);
-
-    const cerca = state.map.objects.find((o) => o.kind === 'node' && mirando.has(pointKey(o.at)));
-    expect(cerca, 'la semilla no deja ningún nodo a la vista').toBeDefined();
-    if (cerca === undefined || cerca.kind !== 'node') throw new Error('sin nodo cercano');
+    // La primera semilla con un nodo a la vista al empezar: se busca, porque
+    // la que estaba escrita (la 92) dejó de tenerlo con los mapas densos y
+    // lo que se mira aquí es el presente, no un mapa concreto.
+    const conNodoALaVista = () => {
+      for (let seed = 1; seed <= 200; seed++) {
+        const state = newGame({ seed });
+        revealEverything(state, 0);
+        const mirando = visibleNow(state, 0);
+        const nodo = state.map.objects.find(
+          (o) => o.kind === 'node' && mirando.has(pointKey(o.at)),
+        );
+        if (nodo !== undefined && nodo.kind === 'node') return { state, cerca: nodo };
+      }
+      throw new Error('ninguna de 200 semillas deja un nodo a la vista al empezar');
+    };
+    const { state, cerca } = conNodoALaVista();
 
     state.day = 20;
     cerca.owner = 1;
@@ -834,7 +843,7 @@ describe('lo que ve el agente', () => {
     expect(prosa).toMatch(/no has explorado/);
     expect(prosa).toMatch(/hierba/);
     // El agua no se pisa: es lo que convierte el terreno en una decisión.
-    expect(prosa).toMatch(/agua/i);
+    expect(prosa).toMatch(/"water"[^.]*NO se cruzan/);
 
     // Aquí había dos aserciones —`CADENAS "x,y"` y el ejemplo `"3,7"`— que
     // anclaban una advertencia que ya no hay que dar: `roads` viajaba como
@@ -885,13 +894,15 @@ describe('lo que ve el agente', () => {
     // plano o el redondeo cambie, las dos se mueven juntas o esto se pone rojo.
     const prosa = RESPONSE_FORMAT.adventure_turn;
     for (const kind of TERRAIN_KINDS) {
-      const fila = `${kind} ${costeDeEntrada(kind, false, false)} (${costeDeEntrada(kind, false, true)} en diagonal)`;
       if (isWalkable(kind)) {
+        const fila = `${kind} ${costeDeEntrada(kind, false, false)} (${costeDeEntrada(kind, false, true)} en diagonal)`;
         expect(prosa, `falta el coste de ${kind}`).toContain(fila);
       } else {
-        // El agua no tiene coste que anunciar: no se pisa. Y se cae sola de la
-        // lista porque la filtra `isWalkable`, la misma que usa el pathfinding.
-        expect(prosa, 'el agua no se pisa: no se le anuncia coste').not.toContain(fila);
+        // Una barrera no tiene coste que anunciar —no se pisa, y desde que el
+        // tipo separa `Suelo` de `Barrera` ni siquiera tiene precio en la tabla—.
+        expect(prosa, `${kind} no se pisa: no se le anuncia coste`).not.toMatch(
+          new RegExp(`\\b${kind} \\d+ \\(`),
+        );
       }
     }
     // El camino no depende del terreno de debajo, así que se pregunta por uno
@@ -903,6 +914,39 @@ describe('lo que ve el agente', () => {
     // que le pida multiplicar y redondear es una segunda implementación de
     // `costeDeEntrada` escrita en un sitio donde nada la puede comprobar.
     expect(prosa, 'la prosa no debe reescribir la fórmula').not.toMatch(/multiplica|redondea/i);
+  });
+
+  it('las cinco barreras entran en un plan del agente y la prosa las nombra todas', () => {
+    // El plan de prueba con cada cordillera de un tipo distinto: el esquema y
+    // la validación de los dos productores tienen que dejar pasar las cinco, y
+    // la red sale igual porque las cinco bloquean lo mismo.
+    const plan = planDeNodos();
+    const tipos = ['cliff', 'forest', 'wall', 'water'] as const;
+    const conBarreras = {
+      ...plan,
+      walls: plan.walls.map((m, i) => ({ ...m, terrain: tipos[i % tipos.length]! })),
+    };
+    expect(mapPlanSchema.safeParse(conBarreras).success).toBe(true);
+    expect(validateMapPlan(conBarreras)).toEqual([]);
+    // Un suelo como muro no es una barrera, y se dice cuáles valen.
+    const conHierba = {
+      ...plan,
+      walls: [...plan.walls, { terrain: 'grass', from: { x: 0, y: 0 }, to: { x: 0, y: 0 } }],
+    };
+    expect(mapPlanSchema.safeParse(conHierba).success).toBe(false);
+    // Las dos prosas, derivadas de la misma lista: la del plan y la del turno.
+    for (const b of BARRERAS) {
+      expect(RESPONSE_FORMAT.map_generate, `el plan no nombra ${b}`).toContain(`"${b}"`);
+      expect(RESPONSE_FORMAT.adventure_turn, `el turno no nombra ${b}`).toContain(`"${b}"`);
+      expect(isWalkable(b), `${b} se pisa`).toBe(false);
+    }
+    expect(
+      (
+        serializeMapRequest({ width: 24, height: 24, players: [0, 1] }) as {
+          palette: { wallTerrains: string[] };
+        }
+      ).palette.wallTerrains,
+    ).toEqual([...BARRERAS]);
   });
 
   it('el formato de respuesta avisa de que la crónica pasa por la niebla', () => {
@@ -956,7 +1000,9 @@ describe('lo que ve el agente', () => {
       expect(prosa, campo).toContain(`${campo}[]`);
     }
     expect(prosa).toMatch(/Una CIUDAD \("towns"\) ES un nodo/);
-    expect(prosa).toMatch(/tramo RECTO de "mountain" o "water"/);
+    expect(prosa).toMatch(
+      /tramo RECTO de una barrera: "mountain", "water", "forest", "cliff", "wall"/,
+    );
     expect(prosa).toMatch(/se te dice entre qué dos casillas\s+queda el paso abierto/);
     expect(prosa).toMatch(/ciudad neutral \("owner": null\) nace con guarnición/);
     // Y la base también, y CUÁL es la base: el agente que diseña el mapa decide
@@ -966,7 +1012,7 @@ describe('lo que ve el agente', () => {
     const payload = serializeMapRequest({ width: 24, height: 24, players: [0, 1] }) as {
       palette: { wallTerrains: string[]; terrains: string[] };
     };
-    expect(payload.palette.wallTerrains).toEqual(['mountain', 'water']);
+    expect(payload.palette.wallTerrains).toEqual([...BARRERAS]);
     expect(payload.palette.terrains).toContain('mountain');
   });
 
@@ -986,7 +1032,9 @@ describe('lo que ve el agente', () => {
     ).toBe(true);
     for (const m of objetos.filter((o) => o.kind === 'mine')) expect(m).not.toHaveProperty('owner');
     expect(COMO_SE_LEE_EL_MAPA).not.toMatch(/mina cambia de dueño/);
-    expect(COMO_SE_LEE_EL_MAPA).toMatch(/El agua y la montaña NO se cruzan/);
+    expect(COMO_SE_LEE_EL_MAPA).toMatch(
+      /"mountain", "water", "forest", "cliff", "wall" NO se cruzan/,
+    );
   });
 
   it('la petición de mapa describe la paleta disponible', () => {
