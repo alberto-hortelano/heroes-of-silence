@@ -253,12 +253,9 @@ escenógrafo»). El arte está en `assets/mapa/modulos/` (27 hojas) y
 
 Lo que se pide a la sesión de reglas, de menos a más:
 
-1. **Enganchar la escena.** `componer(map, semilla)` es pura y no toca `core`:
-   `render/mapa.ts` podría pedirle la escena una vez por partida y pintarla como
-   hace `tools/taller/escenario/pintor.ts` —capas de suelo fundido, sombra por
-   nivel, sendas, agua, caras y sprites por orden de y, luz y nubes—. Lo que el
-   juego pinta encima (niebla, héroes, banderas, selección) no cambia. Es la
-   petición que lo hace visible; las dos siguientes lo hacen mejor.
+1. **Enganchar la escena.** Está preparado para que el render no tenga que
+   entender cómo se compone (ver «Contrato del enganche», abajo). Es la petición
+   que lo hace visible; las dos siguientes lo hacen mejor.
 2. **Un nivel por región en el motor.** Hoy el nivel se deduce del suelo y de una
    tirada (`nivelDeRegion`, en `relieve.ts`). Si `regions[]` llevara `nivel`, el
    agente que diseña el mapa podría decidir dónde está la meseta, y el relieve
@@ -269,3 +266,58 @@ Lo que se pide a la sesión de reglas, de menos a más:
    siendo la misma y el río tendría curso.
 4. **Saber qué barrera cruza un nodo.** Igual que en la §10: hoy se deduce de las
    vecinas (`barreraDeNodo`).
+
+### Contrato del enganche (04-10-2026)
+
+Las dos puertas no importan nada de Node —ni `fs`, ni `sharp`, ni Playwright—, y
+lo vigila un test que sigue sus imports (`test/taller-escenario.test.ts`, «lo que
+importaría el juego»):
+
+```ts
+import { componer } from '…/escenario/colocar.js';      // (map, semilla, catalogo) → Escena
+import { imagenesDeEscena, pintarEscena } from '…/escenario/pintar.js';
+import catalogo from '…/assets/mapa/escena.json';         // tipo Catalogo, de catalogo.ts
+```
+
+- **El catálogo** es `assets/mapa/escena.json`: medidas y ancla de los 27 juegos de
+  módulos y de las 71 piezas sueltas, con `src` relativa a `assets/mapa/`. Lo
+  rehace `pnpm taller catalogo-escena`, y un test falla si el del repo no es el
+  que sale del disco.
+- **`componer(map, semilla, catalogo)`** es pura y determinista (su propio azar,
+  no el de la partida): 60-80 ms en 34×34, unos 7 000 sprites y ~1,7 MB de JSON.
+  Se llama **una vez por partida**, con el mapa recién hecho: solo lee terreno,
+  regiones, caminos y la posición de los objetos, que no cambian.
+- **`imagenesDeEscena(escena)`** lista las imágenes que puede pedir (unas 470;
+  `assets/mapa/modulos/` pesa 16 MB). `pintarEscena` no carga nada: recibe
+  `imagen(src)` y, si una no ha llegado, pinta el marcador de color de esa pieza,
+  así que el juego sigue jugándose sin arte. Volver a pintar cuando llegue el arte
+  encaja con `versionDelArte`.
+- **`pintarEscena(ctx, escena, opciones)`** pinta en cualquier contexto 2D
+  (`<canvas>` u `OffscreenCanvas`). Con `margen: 0` la casilla (x, y) empieza en
+  (x·tile, y·tile), la misma rejilla que la del juego. Tarda ~1,4 s en Chromium
+  sin GPU a 48 px por casilla, así que se pinta **una vez** en una superficie
+  aparte y se copia cada fotograma, igual que la superficie del mapa de hoy. Para
+  el juego:
+  ```ts
+  pintarEscena(ctx, escena, {
+    tile, margen: 0, imagen,
+    nubes: false, vineta: false,            // la niebla y el marco son del juego
+    objeto: (o) => o.kind === 'town' || o.kind === 'village' || o.kind === 'node' || o.kind === 'mine',
+  });
+  ```
+  `objeto` decide qué objetos se hornean en la escena. Los que cambian durante la
+  partida —un monstruo vencido, un recurso o un cofre recogidos— no deben ir
+  horneados: los pinta el juego encima, como hoy. Los fijos sí (ciudad, pueblo,
+  nodo, mina), y el juego pone encima la bandera de su dueño.
+- **Encima de la escena, todo lo de hoy**: la niebla, que se pinta con `fog`, los
+  héroes, los asaltantes, las banderas, la selección y el camino del ratón.
+- **Lo que queda abierto, y lo decide quien enganche**:
+  - dónde vive el código —puede quedarse en `tools/taller/escenario/` e
+    importarse desde el cliente, o moverse a `src/client/render/escena/`; las dos
+    puertas no tienen nada que impida moverlas—;
+  - si el minimapa sigue con sus pigmentos;
+  - qué hacer con los mapas que diseña el agente: valen igual, porque `componer`
+    solo lee el `GameMap`.
+
+  Las piezas son a 48 px por casilla; con otro zoom se escala la superficie.
+

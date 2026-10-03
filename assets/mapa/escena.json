@@ -1,0 +1,3693 @@
+{
+ "hojas": {
+  "abetos-nevados": [
+   {
+    "src": "modulos/abetos-nevados/12.webp",
+    "nw": 130,
+    "nh": 162,
+    "ax": 69,
+    "ay": 157,
+    "nombre": "12"
+   },
+   {
+    "src": "modulos/abetos-nevados/7.webp",
+    "nw": 125,
+    "nh": 171,
+    "ax": 69,
+    "ay": 166,
+    "nombre": "7"
+   },
+   {
+    "src": "modulos/abetos-nevados/9.webp",
+    "nw": 185,
+    "nh": 229,
+    "ax": 81,
+    "ay": 224,
+    "nombre": "9"
+   },
+   {
+    "src": "modulos/abetos-nevados/15.webp",
+    "nw": 186,
+    "nh": 229,
+    "ax": 90,
+    "ay": 224,
+    "nombre": "15"
+   },
+   {
+    "src": "modulos/abetos-nevados/16.webp",
+    "nw": 140,
+    "nh": 233,
+    "ax": 70,
+    "ay": 228,
+    "nombre": "16"
+   },
+   {
+    "src": "modulos/abetos-nevados/8.webp",
+    "nw": 211,
+    "nh": 242,
+    "ax": 136,
+    "ay": 237,
+    "nombre": "8"
+   },
+   {
+    "src": "modulos/abetos-nevados/13.webp",
+    "nw": 225,
+    "nh": 248,
+    "ax": 130,
+    "ay": 243,
+    "nombre": "13"
+   },
+   {
+    "src": "modulos/abetos-nevados/5.webp",
+    "nw": 184,
+    "nh": 249,
+    "ax": 91,
+    "ay": 244,
+    "nombre": "5"
+   },
+   {
+    "src": "modulos/abetos-nevados/2.webp",
+    "nw": 205,
+    "nh": 262,
+    "ax": 98,
+    "ay": 257,
+    "nombre": "2"
+   },
+   {
+    "src": "modulos/abetos-nevados/3.webp",
+    "nw": 216,
+    "nh": 262,
+    "ax": 139,
+    "ay": 257,
+    "nombre": "3"
+   },
+   {
+    "src": "modulos/abetos-nevados/11.webp",
+    "nw": 249,
+    "nh": 264,
+    "ax": 173,
+    "ay": 259,
+    "nombre": "11"
+   },
+   {
+    "src": "modulos/abetos-nevados/14.webp",
+    "nw": 203,
+    "nh": 275,
+    "ax": 108,
+    "ay": 270,
+    "nombre": "14"
+   },
+   {
+    "src": "modulos/abetos-nevados/6.webp",
+    "nw": 214,
+    "nh": 276,
+    "ax": 116,
+    "ay": 271,
+    "nombre": "6"
+   },
+   {
+    "src": "modulos/abetos-nevados/4.webp",
+    "nw": 177,
+    "nh": 293,
+    "ax": 91,
+    "ay": 288,
+    "nombre": "4"
+   },
+   {
+    "src": "modulos/abetos-nevados/1.webp",
+    "nw": 171,
+    "nh": 300,
+    "ax": 90,
+    "ay": 295,
+    "nombre": "1"
+   },
+   {
+    "src": "modulos/abetos-nevados/10.webp",
+    "nw": 163,
+    "nh": 300,
+    "ax": 83,
+    "ay": 295,
+    "nombre": "10"
+   }
+  ],
+  "ciudades": [
+   {
+    "src": "modulos/ciudades/8.webp",
+    "nw": 340,
+    "nh": 292,
+    "ax": 166,
+    "ay": 287,
+    "nombre": "8"
+   },
+   {
+    "src": "modulos/ciudades/4.webp",
+    "nw": 412,
+    "nh": 310,
+    "ax": 206,
+    "ay": 305,
+    "nombre": "4"
+   },
+   {
+    "src": "modulos/ciudades/5.webp",
+    "nw": 461,
+    "nh": 337,
+    "ax": 229,
+    "ay": 332,
+    "nombre": "5"
+   },
+   {
+    "src": "modulos/ciudades/2.webp",
+    "nw": 446,
+    "nh": 365,
+    "ax": 120,
+    "ay": 360,
+    "nombre": "2"
+   },
+   {
+    "src": "modulos/ciudades/7.webp",
+    "nw": 462,
+    "nh": 378,
+    "ax": 271,
+    "ay": 373,
+    "nombre": "7"
+   },
+   {
+    "src": "modulos/ciudades/1.webp",
+    "nw": 444,
+    "nh": 402,
+    "ax": 221,
+    "ay": 397,
+    "nombre": "1"
+   },
+   {
+    "src": "modulos/ciudades/3.webp",
+    "nw": 432,
+    "nh": 427,
+    "ax": 181,
+    "ay": 422,
+    "nombre": "3"
+   },
+   {
+    "src": "modulos/ciudades/6.webp",
+    "nw": 375,
+    "nh": 427,
+    "ax": 161,
+    "ay": 422,
+    "nombre": "6"
+   }
+  ],
+  "cubierta-dirt": [
+   {
+    "src": "modulos/cubierta-dirt/13.webp",
+    "nw": 132,
+    "nh": 109,
+    "ax": 66,
+    "ay": 104,
+    "nombre": "13"
+   },
+   {
+    "src": "modulos/cubierta-dirt/14.webp",
+    "nw": 309,
+    "nh": 126,
+    "ax": 148,
+    "ay": 121,
+    "nombre": "14"
+   },
+   {
+    "src": "modulos/cubierta-dirt/16.webp",
+    "nw": 271,
+    "nh": 177,
+    "ax": 138,
+    "ay": 172,
+    "nombre": "16"
+   },
+   {
+    "src": "modulos/cubierta-dirt/15.webp",
+    "nw": 266,
+    "nh": 202,
+    "ax": 144,
+    "ay": 197,
+    "nombre": "15"
+   },
+   {
+    "src": "modulos/cubierta-dirt/12.webp",
+    "nw": 333,
+    "nh": 205,
+    "ax": 192,
+    "ay": 200,
+    "nombre": "12"
+   },
+   {
+    "src": "modulos/cubierta-dirt/9.webp",
+    "nw": 364,
+    "nh": 237,
+    "ax": 312,
+    "ay": 232,
+    "nombre": "9"
+   },
+   {
+    "src": "modulos/cubierta-dirt/8.webp",
+    "nw": 368,
+    "nh": 243,
+    "ax": 179,
+    "ay": 238,
+    "nombre": "8"
+   },
+   {
+    "src": "modulos/cubierta-dirt/11.webp",
+    "nw": 353,
+    "nh": 250,
+    "ax": 59,
+    "ay": 249,
+    "nombre": "11"
+   },
+   {
+    "src": "modulos/cubierta-dirt/6.webp",
+    "nw": 368,
+    "nh": 254,
+    "ax": 177,
+    "ay": 253,
+    "nombre": "6"
+   },
+   {
+    "src": "modulos/cubierta-dirt/7.webp",
+    "nw": 368,
+    "nh": 263,
+    "ax": 175,
+    "ay": 258,
+    "nombre": "7"
+   },
+   {
+    "src": "modulos/cubierta-dirt/5.webp",
+    "nw": 379,
+    "nh": 272,
+    "ax": 204,
+    "ay": 267,
+    "nombre": "5"
+   },
+   {
+    "src": "modulos/cubierta-dirt/3.webp",
+    "nw": 366,
+    "nh": 278,
+    "ax": 172,
+    "ay": 273,
+    "nombre": "3"
+   },
+   {
+    "src": "modulos/cubierta-dirt/10.webp",
+    "nw": 305,
+    "nh": 278,
+    "ax": 152,
+    "ay": 273,
+    "nombre": "10"
+   },
+   {
+    "src": "modulos/cubierta-dirt/4.webp",
+    "nw": 379,
+    "nh": 281,
+    "ax": 186,
+    "ay": 276,
+    "nombre": "4"
+   },
+   {
+    "src": "modulos/cubierta-dirt/1.webp",
+    "nw": 368,
+    "nh": 283,
+    "ax": 182,
+    "ay": 278,
+    "nombre": "1"
+   },
+   {
+    "src": "modulos/cubierta-dirt/2.webp",
+    "nw": 362,
+    "nh": 283,
+    "ax": 182,
+    "ay": 278,
+    "nombre": "2"
+   }
+  ],
+  "cubierta-grass": [
+   {
+    "src": "modulos/cubierta-grass/10.webp",
+    "nw": 247,
+    "nh": 138,
+    "ax": 132,
+    "ay": 133,
+    "nombre": "10"
+   },
+   {
+    "src": "modulos/cubierta-grass/12.webp",
+    "nw": 191,
+    "nh": 151,
+    "ax": 94,
+    "ay": 146,
+    "nombre": "12"
+   },
+   {
+    "src": "modulos/cubierta-grass/14.webp",
+    "nw": 249,
+    "nh": 156,
+    "ax": 155,
+    "ay": 151,
+    "nombre": "14"
+   },
+   {
+    "src": "modulos/cubierta-grass/13.webp",
+    "nw": 293,
+    "nh": 159,
+    "ax": 165,
+    "ay": 154,
+    "nombre": "13"
+   },
+   {
+    "src": "modulos/cubierta-grass/15.webp",
+    "nw": 258,
+    "nh": 162,
+    "ax": 126,
+    "ay": 157,
+    "nombre": "15"
+   },
+   {
+    "src": "modulos/cubierta-grass/4.webp",
+    "nw": 269,
+    "nh": 171,
+    "ax": 128,
+    "ay": 166,
+    "nombre": "4"
+   },
+   {
+    "src": "modulos/cubierta-grass/3.webp",
+    "nw": 244,
+    "nh": 180,
+    "ax": 108,
+    "ay": 175,
+    "nombre": "3"
+   },
+   {
+    "src": "modulos/cubierta-grass/2.webp",
+    "nw": 251,
+    "nh": 182,
+    "ax": 130,
+    "ay": 177,
+    "nombre": "2"
+   },
+   {
+    "src": "modulos/cubierta-grass/9.webp",
+    "nw": 260,
+    "nh": 182,
+    "ax": 132,
+    "ay": 177,
+    "nombre": "9"
+   },
+   {
+    "src": "modulos/cubierta-grass/8.webp",
+    "nw": 215,
+    "nh": 184,
+    "ax": 104,
+    "ay": 179,
+    "nombre": "8"
+   },
+   {
+    "src": "modulos/cubierta-grass/6.webp",
+    "nw": 196,
+    "nh": 188,
+    "ax": 99,
+    "ay": 183,
+    "nombre": "6"
+   },
+   {
+    "src": "modulos/cubierta-grass/5.webp",
+    "nw": 293,
+    "nh": 197,
+    "ax": 159,
+    "ay": 192,
+    "nombre": "5"
+   },
+   {
+    "src": "modulos/cubierta-grass/7.webp",
+    "nw": 214,
+    "nh": 198,
+    "ax": 107,
+    "ay": 193,
+    "nombre": "7"
+   },
+   {
+    "src": "modulos/cubierta-grass/16.webp",
+    "nw": 215,
+    "nh": 202,
+    "ax": 102,
+    "ay": 197,
+    "nombre": "16"
+   },
+   {
+    "src": "modulos/cubierta-grass/1.webp",
+    "nw": 210,
+    "nh": 212,
+    "ax": 96,
+    "ay": 207,
+    "nombre": "1"
+   },
+   {
+    "src": "modulos/cubierta-grass/11.webp",
+    "nw": 218,
+    "nh": 215,
+    "ax": 100,
+    "ay": 210,
+    "nombre": "11"
+   }
+  ],
+  "cubierta-lava": [
+   {
+    "src": "modulos/cubierta-lava/7.webp",
+    "nw": 238,
+    "nh": 145,
+    "ax": 118,
+    "ay": 140,
+    "nombre": "7"
+   },
+   {
+    "src": "modulos/cubierta-lava/13.webp",
+    "nw": 246,
+    "nh": 150,
+    "ax": 78,
+    "ay": 145,
+    "nombre": "13"
+   },
+   {
+    "src": "modulos/cubierta-lava/14.webp",
+    "nw": 222,
+    "nh": 154,
+    "ax": 97,
+    "ay": 149,
+    "nombre": "14"
+   },
+   {
+    "src": "modulos/cubierta-lava/15.webp",
+    "nw": 228,
+    "nh": 162,
+    "ax": 122,
+    "ay": 157,
+    "nombre": "15"
+   },
+   {
+    "src": "modulos/cubierta-lava/9.webp",
+    "nw": 226,
+    "nh": 163,
+    "ax": 89,
+    "ay": 158,
+    "nombre": "9"
+   },
+   {
+    "src": "modulos/cubierta-lava/11.webp",
+    "nw": 247,
+    "nh": 163,
+    "ax": 101,
+    "ay": 158,
+    "nombre": "11"
+   },
+   {
+    "src": "modulos/cubierta-lava/12.webp",
+    "nw": 226,
+    "nh": 167,
+    "ax": 114,
+    "ay": 162,
+    "nombre": "12"
+   },
+   {
+    "src": "modulos/cubierta-lava/3.webp",
+    "nw": 237,
+    "nh": 168,
+    "ax": 133,
+    "ay": 163,
+    "nombre": "3"
+   },
+   {
+    "src": "modulos/cubierta-lava/5.webp",
+    "nw": 247,
+    "nh": 178,
+    "ax": 98,
+    "ay": 173,
+    "nombre": "5"
+   },
+   {
+    "src": "modulos/cubierta-lava/1.webp",
+    "nw": 234,
+    "nh": 204,
+    "ax": 106,
+    "ay": 199,
+    "nombre": "1"
+   },
+   {
+    "src": "modulos/cubierta-lava/4.webp",
+    "nw": 231,
+    "nh": 215,
+    "ax": 103,
+    "ay": 210,
+    "nombre": "4"
+   },
+   {
+    "src": "modulos/cubierta-lava/16.webp",
+    "nw": 205,
+    "nh": 219,
+    "ax": 87,
+    "ay": 214,
+    "nombre": "16"
+   },
+   {
+    "src": "modulos/cubierta-lava/2.webp",
+    "nw": 244,
+    "nh": 225,
+    "ax": 109,
+    "ay": 220,
+    "nombre": "2"
+   },
+   {
+    "src": "modulos/cubierta-lava/10.webp",
+    "nw": 199,
+    "nh": 227,
+    "ax": 96,
+    "ay": 222,
+    "nombre": "10"
+   },
+   {
+    "src": "modulos/cubierta-lava/6.webp",
+    "nw": 201,
+    "nh": 235,
+    "ax": 97,
+    "ay": 230,
+    "nombre": "6"
+   },
+   {
+    "src": "modulos/cubierta-lava/8.webp",
+    "nw": 192,
+    "nh": 236,
+    "ax": 94,
+    "ay": 231,
+    "nombre": "8"
+   }
+  ],
+  "cubierta-rough": [
+   {
+    "src": "modulos/cubierta-rough/4.webp",
+    "nw": 131,
+    "nh": 69,
+    "ax": 60,
+    "ay": 64,
+    "nombre": "4"
+   },
+   {
+    "src": "modulos/cubierta-rough/2.webp",
+    "nw": 122,
+    "nh": 78,
+    "ax": 69,
+    "ay": 73,
+    "nombre": "2"
+   },
+   {
+    "src": "modulos/cubierta-rough/1.webp",
+    "nw": 134,
+    "nh": 80,
+    "ax": 108,
+    "ay": 75,
+    "nombre": "1"
+   },
+   {
+    "src": "modulos/cubierta-rough/3.webp",
+    "nw": 156,
+    "nh": 87,
+    "ax": 100,
+    "ay": 82,
+    "nombre": "3"
+   },
+   {
+    "src": "modulos/cubierta-rough/7.webp",
+    "nw": 200,
+    "nh": 98,
+    "ax": 86,
+    "ay": 93,
+    "nombre": "7"
+   },
+   {
+    "src": "modulos/cubierta-rough/5.webp",
+    "nw": 172,
+    "nh": 102,
+    "ax": 113,
+    "ay": 97,
+    "nombre": "5"
+   },
+   {
+    "src": "modulos/cubierta-rough/8.webp",
+    "nw": 182,
+    "nh": 113,
+    "ax": 95,
+    "ay": 108,
+    "nombre": "8"
+   },
+   {
+    "src": "modulos/cubierta-rough/14.webp",
+    "nw": 202,
+    "nh": 121,
+    "ax": 130,
+    "ay": 116,
+    "nombre": "14"
+   },
+   {
+    "src": "modulos/cubierta-rough/12.webp",
+    "nw": 178,
+    "nh": 126,
+    "ax": 96,
+    "ay": 121,
+    "nombre": "12"
+   },
+   {
+    "src": "modulos/cubierta-rough/13.webp",
+    "nw": 192,
+    "nh": 128,
+    "ax": 114,
+    "ay": 123,
+    "nombre": "13"
+   },
+   {
+    "src": "modulos/cubierta-rough/15.webp",
+    "nw": 202,
+    "nh": 128,
+    "ax": 108,
+    "ay": 123,
+    "nombre": "15"
+   },
+   {
+    "src": "modulos/cubierta-rough/6.webp",
+    "nw": 186,
+    "nh": 131,
+    "ax": 81,
+    "ay": 126,
+    "nombre": "6"
+   },
+   {
+    "src": "modulos/cubierta-rough/9.webp",
+    "nw": 142,
+    "nh": 139,
+    "ax": 80,
+    "ay": 134,
+    "nombre": "9"
+   },
+   {
+    "src": "modulos/cubierta-rough/10.webp",
+    "nw": 148,
+    "nh": 147,
+    "ax": 72,
+    "ay": 142,
+    "nombre": "10"
+   },
+   {
+    "src": "modulos/cubierta-rough/16.webp",
+    "nw": 188,
+    "nh": 149,
+    "ax": 95,
+    "ay": 144,
+    "nombre": "16"
+   },
+   {
+    "src": "modulos/cubierta-rough/11.webp",
+    "nw": 142,
+    "nh": 157,
+    "ax": 70,
+    "ay": 152,
+    "nombre": "11"
+   }
+  ],
+  "cubierta-sand": [
+   {
+    "src": "modulos/cubierta-sand/16.webp",
+    "nw": 225,
+    "nh": 127,
+    "ax": 118,
+    "ay": 122,
+    "nombre": "16"
+   },
+   {
+    "src": "modulos/cubierta-sand/1.webp",
+    "nw": 232,
+    "nh": 128,
+    "ax": 127,
+    "ay": 123,
+    "nombre": "1"
+   },
+   {
+    "src": "modulos/cubierta-sand/3.webp",
+    "nw": 244,
+    "nh": 131,
+    "ax": 149,
+    "ay": 126,
+    "nombre": "3"
+   },
+   {
+    "src": "modulos/cubierta-sand/15.webp",
+    "nw": 236,
+    "nh": 133,
+    "ax": 141,
+    "ay": 128,
+    "nombre": "15"
+   },
+   {
+    "src": "modulos/cubierta-sand/11.webp",
+    "nw": 204,
+    "nh": 145,
+    "ax": 164,
+    "ay": 140,
+    "nombre": "11"
+   },
+   {
+    "src": "modulos/cubierta-sand/14.webp",
+    "nw": 215,
+    "nh": 148,
+    "ax": 134,
+    "ay": 143,
+    "nombre": "14"
+   },
+   {
+    "src": "modulos/cubierta-sand/4.webp",
+    "nw": 221,
+    "nh": 160,
+    "ax": 122,
+    "ay": 155,
+    "nombre": "4"
+   },
+   {
+    "src": "modulos/cubierta-sand/12.webp",
+    "nw": 211,
+    "nh": 166,
+    "ax": 25,
+    "ay": 161,
+    "nombre": "12"
+   },
+   {
+    "src": "modulos/cubierta-sand/2.webp",
+    "nw": 210,
+    "nh": 178,
+    "ax": 113,
+    "ay": 173,
+    "nombre": "2"
+   },
+   {
+    "src": "modulos/cubierta-sand/8.webp",
+    "nw": 263,
+    "nh": 178,
+    "ax": 205,
+    "ay": 173,
+    "nombre": "8"
+   },
+   {
+    "src": "modulos/cubierta-sand/6.webp",
+    "nw": 223,
+    "nh": 192,
+    "ax": 127,
+    "ay": 187,
+    "nombre": "6"
+   },
+   {
+    "src": "modulos/cubierta-sand/13.webp",
+    "nw": 242,
+    "nh": 194,
+    "ax": 90,
+    "ay": 189,
+    "nombre": "13"
+   },
+   {
+    "src": "modulos/cubierta-sand/10.webp",
+    "nw": 219,
+    "nh": 195,
+    "ax": 125,
+    "ay": 190,
+    "nombre": "10"
+   },
+   {
+    "src": "modulos/cubierta-sand/7.webp",
+    "nw": 228,
+    "nh": 218,
+    "ax": 119,
+    "ay": 213,
+    "nombre": "7"
+   },
+   {
+    "src": "modulos/cubierta-sand/5.webp",
+    "nw": 236,
+    "nh": 229,
+    "ax": 147,
+    "ay": 224,
+    "nombre": "5"
+   },
+   {
+    "src": "modulos/cubierta-sand/9.webp",
+    "nw": 191,
+    "nh": 243,
+    "ax": 108,
+    "ay": 238,
+    "nombre": "9"
+   }
+  ],
+  "cubierta-snow": [
+   {
+    "src": "modulos/cubierta-snow/9.webp",
+    "nw": 266,
+    "nh": 113,
+    "ax": 148,
+    "ay": 108,
+    "nombre": "9"
+   },
+   {
+    "src": "modulos/cubierta-snow/12.webp",
+    "nw": 256,
+    "nh": 124,
+    "ax": 143,
+    "ay": 119,
+    "nombre": "12"
+   },
+   {
+    "src": "modulos/cubierta-snow/11.webp",
+    "nw": 269,
+    "nh": 130,
+    "ax": 127,
+    "ay": 125,
+    "nombre": "11"
+   },
+   {
+    "src": "modulos/cubierta-snow/10.webp",
+    "nw": 258,
+    "nh": 136,
+    "ax": 146,
+    "ay": 131,
+    "nombre": "10"
+   },
+   {
+    "src": "modulos/cubierta-snow/15.webp",
+    "nw": 226,
+    "nh": 162,
+    "ax": 101,
+    "ay": 157,
+    "nombre": "15"
+   },
+   {
+    "src": "modulos/cubierta-snow/8.webp",
+    "nw": 222,
+    "nh": 170,
+    "ax": 102,
+    "ay": 165,
+    "nombre": "8"
+   },
+   {
+    "src": "modulos/cubierta-snow/16.webp",
+    "nw": 209,
+    "nh": 186,
+    "ax": 109,
+    "ay": 181,
+    "nombre": "16"
+   },
+   {
+    "src": "modulos/cubierta-snow/14.webp",
+    "nw": 196,
+    "nh": 187,
+    "ax": 100,
+    "ay": 182,
+    "nombre": "14"
+   },
+   {
+    "src": "modulos/cubierta-snow/6.webp",
+    "nw": 226,
+    "nh": 188,
+    "ax": 137,
+    "ay": 183,
+    "nombre": "6"
+   },
+   {
+    "src": "modulos/cubierta-snow/5.webp",
+    "nw": 218,
+    "nh": 198,
+    "ax": 101,
+    "ay": 193,
+    "nombre": "5"
+   },
+   {
+    "src": "modulos/cubierta-snow/13.webp",
+    "nw": 201,
+    "nh": 198,
+    "ax": 97,
+    "ay": 193,
+    "nombre": "13"
+   },
+   {
+    "src": "modulos/cubierta-snow/2.webp",
+    "nw": 178,
+    "nh": 231,
+    "ax": 83,
+    "ay": 226,
+    "nombre": "2"
+   },
+   {
+    "src": "modulos/cubierta-snow/7.webp",
+    "nw": 210,
+    "nh": 242,
+    "ax": 93,
+    "ay": 237,
+    "nombre": "7"
+   },
+   {
+    "src": "modulos/cubierta-snow/3.webp",
+    "nw": 206,
+    "nh": 251,
+    "ax": 114,
+    "ay": 246,
+    "nombre": "3"
+   },
+   {
+    "src": "modulos/cubierta-snow/1.webp",
+    "nw": 196,
+    "nh": 255,
+    "ax": 107,
+    "ay": 250,
+    "nombre": "1"
+   },
+   {
+    "src": "modulos/cubierta-snow/4.webp",
+    "nw": 192,
+    "nh": 256,
+    "ax": 99,
+    "ay": 251,
+    "nombre": "4"
+   }
+  ],
+  "cubierta-swamp": [
+   {
+    "src": "modulos/cubierta-swamp/11.webp",
+    "nw": 158,
+    "nh": 146,
+    "ax": 92,
+    "ay": 141,
+    "nombre": "11"
+   },
+   {
+    "src": "modulos/cubierta-swamp/14.webp",
+    "nw": 182,
+    "nh": 146,
+    "ax": 91,
+    "ay": 141,
+    "nombre": "14"
+   },
+   {
+    "src": "modulos/cubierta-swamp/6.webp",
+    "nw": 320,
+    "nh": 147,
+    "ax": 145,
+    "ay": 142,
+    "nombre": "6"
+   },
+   {
+    "src": "modulos/cubierta-swamp/13.webp",
+    "nw": 185,
+    "nh": 148,
+    "ax": 98,
+    "ay": 143,
+    "nombre": "13"
+   },
+   {
+    "src": "modulos/cubierta-swamp/7.webp",
+    "nw": 321,
+    "nh": 156,
+    "ax": 164,
+    "ay": 151,
+    "nombre": "7"
+   },
+   {
+    "src": "modulos/cubierta-swamp/5.webp",
+    "nw": 315,
+    "nh": 160,
+    "ax": 158,
+    "ay": 155,
+    "nombre": "5"
+   },
+   {
+    "src": "modulos/cubierta-swamp/16.webp",
+    "nw": 301,
+    "nh": 166,
+    "ax": 92,
+    "ay": 161,
+    "nombre": "16"
+   },
+   {
+    "src": "modulos/cubierta-swamp/10.webp",
+    "nw": 278,
+    "nh": 199,
+    "ax": 120,
+    "ay": 194,
+    "nombre": "10"
+   },
+   {
+    "src": "modulos/cubierta-swamp/12.webp",
+    "nw": 314,
+    "nh": 201,
+    "ax": 44,
+    "ay": 196,
+    "nombre": "12"
+   },
+   {
+    "src": "modulos/cubierta-swamp/15.webp",
+    "nw": 321,
+    "nh": 203,
+    "ax": 243,
+    "ay": 198,
+    "nombre": "15"
+   },
+   {
+    "src": "modulos/cubierta-swamp/8.webp",
+    "nw": 254,
+    "nh": 209,
+    "ax": 110,
+    "ay": 204,
+    "nombre": "8"
+   },
+   {
+    "src": "modulos/cubierta-swamp/3.webp",
+    "nw": 223,
+    "nh": 240,
+    "ax": 119,
+    "ay": 235,
+    "nombre": "3"
+   },
+   {
+    "src": "modulos/cubierta-swamp/9.webp",
+    "nw": 235,
+    "nh": 244,
+    "ax": 101,
+    "ay": 239,
+    "nombre": "9"
+   },
+   {
+    "src": "modulos/cubierta-swamp/4.webp",
+    "nw": 268,
+    "nh": 251,
+    "ax": 149,
+    "ay": 246,
+    "nombre": "4"
+   },
+   {
+    "src": "modulos/cubierta-swamp/2.webp",
+    "nw": 266,
+    "nh": 265,
+    "ax": 144,
+    "ay": 260,
+    "nombre": "2"
+   },
+   {
+    "src": "modulos/cubierta-swamp/1.webp",
+    "nw": 267,
+    "nh": 274,
+    "ax": 127,
+    "ay": 269,
+    "nombre": "1"
+   }
+  ],
+  "frondosos": [
+   {
+    "src": "modulos/frondosos/9.webp",
+    "nw": 200,
+    "nh": 204,
+    "ax": 92,
+    "ay": 199,
+    "nombre": "9"
+   },
+   {
+    "src": "modulos/frondosos/5.webp",
+    "nw": 222,
+    "nh": 215,
+    "ax": 107,
+    "ay": 210,
+    "nombre": "5"
+   },
+   {
+    "src": "modulos/frondosos/14.webp",
+    "nw": 220,
+    "nh": 215,
+    "ax": 113,
+    "ay": 210,
+    "nombre": "14"
+   },
+   {
+    "src": "modulos/frondosos/10.webp",
+    "nw": 300,
+    "nh": 219,
+    "ax": 136,
+    "ay": 214,
+    "nombre": "10"
+   },
+   {
+    "src": "modulos/frondosos/11.webp",
+    "nw": 240,
+    "nh": 224,
+    "ax": 130,
+    "ay": 219,
+    "nombre": "11"
+   },
+   {
+    "src": "modulos/frondosos/7.webp",
+    "nw": 256,
+    "nh": 237,
+    "ax": 133,
+    "ay": 232,
+    "nombre": "7"
+   },
+   {
+    "src": "modulos/frondosos/2.webp",
+    "nw": 272,
+    "nh": 244,
+    "ax": 125,
+    "ay": 239,
+    "nombre": "2"
+   },
+   {
+    "src": "modulos/frondosos/12.webp",
+    "nw": 196,
+    "nh": 247,
+    "ax": 103,
+    "ay": 242,
+    "nombre": "12"
+   },
+   {
+    "src": "modulos/frondosos/16.webp",
+    "nw": 271,
+    "nh": 253,
+    "ax": 147,
+    "ay": 248,
+    "nombre": "16"
+   },
+   {
+    "src": "modulos/frondosos/6.webp",
+    "nw": 306,
+    "nh": 254,
+    "ax": 151,
+    "ay": 249,
+    "nombre": "6"
+   },
+   {
+    "src": "modulos/frondosos/4.webp",
+    "nw": 265,
+    "nh": 253,
+    "ax": 137,
+    "ay": 252,
+    "nombre": "4"
+   },
+   {
+    "src": "modulos/frondosos/1.webp",
+    "nw": 322,
+    "nh": 258,
+    "ax": 151,
+    "ay": 253,
+    "nombre": "1"
+   },
+   {
+    "src": "modulos/frondosos/8.webp",
+    "nw": 352,
+    "nh": 264,
+    "ax": 164,
+    "ay": 259,
+    "nombre": "8"
+   },
+   {
+    "src": "modulos/frondosos/3.webp",
+    "nw": 363,
+    "nh": 272,
+    "ax": 200,
+    "ay": 267,
+    "nombre": "3"
+   },
+   {
+    "src": "modulos/frondosos/13.webp",
+    "nw": 352,
+    "nh": 273,
+    "ax": 180,
+    "ay": 268,
+    "nombre": "13"
+   },
+   {
+    "src": "modulos/frondosos/15.webp",
+    "nw": 345,
+    "nh": 277,
+    "ax": 158,
+    "ay": 272,
+    "nombre": "15"
+   }
+  ],
+  "muertos": [
+   {
+    "src": "modulos/muertos/15.webp",
+    "nw": 194,
+    "nh": 249,
+    "ax": 92,
+    "ay": 244,
+    "nombre": "15"
+   },
+   {
+    "src": "modulos/muertos/2.webp",
+    "nw": 196,
+    "nh": 259,
+    "ax": 100,
+    "ay": 254,
+    "nombre": "2"
+   },
+   {
+    "src": "modulos/muertos/7.webp",
+    "nw": 277,
+    "nh": 272,
+    "ax": 149,
+    "ay": 267,
+    "nombre": "7"
+   },
+   {
+    "src": "modulos/muertos/1.webp",
+    "nw": 268,
+    "nh": 273,
+    "ax": 131,
+    "ay": 268,
+    "nombre": "1"
+   },
+   {
+    "src": "modulos/muertos/16.webp",
+    "nw": 252,
+    "nh": 274,
+    "ax": 156,
+    "ay": 269,
+    "nombre": "16"
+   },
+   {
+    "src": "modulos/muertos/9.webp",
+    "nw": 293,
+    "nh": 278,
+    "ax": 133,
+    "ay": 273,
+    "nombre": "9"
+   },
+   {
+    "src": "modulos/muertos/8.webp",
+    "nw": 212,
+    "nh": 282,
+    "ax": 116,
+    "ay": 277,
+    "nombre": "8"
+   },
+   {
+    "src": "modulos/muertos/6.webp",
+    "nw": 285,
+    "nh": 284,
+    "ax": 139,
+    "ay": 283,
+    "nombre": "6"
+   },
+   {
+    "src": "modulos/muertos/12.webp",
+    "nw": 302,
+    "nh": 291,
+    "ax": 149,
+    "ay": 286,
+    "nombre": "12"
+   },
+   {
+    "src": "modulos/muertos/11.webp",
+    "nw": 257,
+    "nh": 292,
+    "ax": 113,
+    "ay": 287,
+    "nombre": "11"
+   },
+   {
+    "src": "modulos/muertos/13.webp",
+    "nw": 357,
+    "nh": 295,
+    "ax": 196,
+    "ay": 290,
+    "nombre": "13"
+   },
+   {
+    "src": "modulos/muertos/4.webp",
+    "nw": 237,
+    "nh": 296,
+    "ax": 129,
+    "ay": 291,
+    "nombre": "4"
+   },
+   {
+    "src": "modulos/muertos/10.webp",
+    "nw": 253,
+    "nh": 304,
+    "ax": 121,
+    "ay": 299,
+    "nombre": "10"
+   },
+   {
+    "src": "modulos/muertos/14.webp",
+    "nw": 314,
+    "nh": 306,
+    "ax": 188,
+    "ay": 301,
+    "nombre": "14"
+   },
+   {
+    "src": "modulos/muertos/3.webp",
+    "nw": 343,
+    "nh": 331,
+    "ax": 176,
+    "ay": 326,
+    "nombre": "3"
+   },
+   {
+    "src": "modulos/muertos/5.webp",
+    "nw": 315,
+    "nh": 334,
+    "ax": 169,
+    "ay": 329,
+    "nombre": "5"
+   }
+  ],
+  "muro": [
+   {
+    "src": "modulos/muro/horizontal.webp",
+    "nw": 489,
+    "nh": 214,
+    "ax": 245,
+    "ay": 209,
+    "nombre": "horizontal"
+   },
+   {
+    "src": "modulos/muro/contrafuerte.webp",
+    "nw": 185,
+    "nh": 216,
+    "ax": 59,
+    "ay": 211,
+    "nombre": "contrafuerte"
+   },
+   {
+    "src": "modulos/muro/extremo.webp",
+    "nw": 423,
+    "nh": 335,
+    "ax": 337,
+    "ay": 330,
+    "nombre": "extremo"
+   },
+   {
+    "src": "modulos/muro/profundidad.webp",
+    "nw": 106,
+    "nh": 357,
+    "ax": 54,
+    "ay": 352,
+    "nombre": "profundidad"
+   },
+   {
+    "src": "modulos/muro/diagonal-sube.webp",
+    "nw": 342,
+    "nh": 364,
+    "ax": 53,
+    "ay": 359,
+    "nombre": "diagonal-sube"
+   },
+   {
+    "src": "modulos/muro/torre-redonda.webp",
+    "nw": 210,
+    "nh": 379,
+    "ax": 105,
+    "ay": 374,
+    "nombre": "torre-redonda"
+   },
+   {
+    "src": "modulos/muro/diagonal-baja.webp",
+    "nw": 368,
+    "nh": 380,
+    "ax": 315,
+    "ay": 375,
+    "nombre": "diagonal-baja"
+   },
+   {
+    "src": "modulos/muro/torre-cuadrada.webp",
+    "nw": 254,
+    "nh": 401,
+    "ax": 126,
+    "ay": 396,
+    "nombre": "torre-cuadrada"
+   }
+  ],
+  "nubes": [
+   {
+    "src": "modulos/nubes/2.webp",
+    "nw": 442,
+    "nh": 183,
+    "ax": 290,
+    "ay": 178,
+    "nombre": "2"
+   },
+   {
+    "src": "modulos/nubes/7.webp",
+    "nw": 469,
+    "nh": 191,
+    "ax": 326,
+    "ay": 186,
+    "nombre": "7"
+   },
+   {
+    "src": "modulos/nubes/6.webp",
+    "nw": 297,
+    "nh": 194,
+    "ax": 196,
+    "ay": 189,
+    "nombre": "6"
+   },
+   {
+    "src": "modulos/nubes/4.webp",
+    "nw": 375,
+    "nh": 211,
+    "ax": 214,
+    "ay": 206,
+    "nombre": "4"
+   },
+   {
+    "src": "modulos/nubes/5.webp",
+    "nw": 439,
+    "nh": 290,
+    "ax": 318,
+    "ay": 285,
+    "nombre": "5"
+   },
+   {
+    "src": "modulos/nubes/8.webp",
+    "nw": 393,
+    "nh": 311,
+    "ax": 214,
+    "ay": 306,
+    "nombre": "8"
+   },
+   {
+    "src": "modulos/nubes/1.webp",
+    "nw": 392,
+    "nh": 338,
+    "ax": 230,
+    "ay": 333,
+    "nombre": "1"
+   },
+   {
+    "src": "modulos/nubes/3.webp",
+    "nw": 387,
+    "nh": 339,
+    "ax": 275,
+    "ay": 334,
+    "nombre": "3"
+   }
+  ],
+  "orilla": [
+   {
+    "src": "modulos/orilla/12.webp",
+    "nw": 148,
+    "nh": 100,
+    "ax": 100,
+    "ay": 95,
+    "nombre": "12"
+   },
+   {
+    "src": "modulos/orilla/11.webp",
+    "nw": 216,
+    "nh": 128,
+    "ax": 81,
+    "ay": 123,
+    "nombre": "11"
+   },
+   {
+    "src": "modulos/orilla/14.webp",
+    "nw": 257,
+    "nh": 132,
+    "ax": 85,
+    "ay": 127,
+    "nombre": "14"
+   },
+   {
+    "src": "modulos/orilla/6.webp",
+    "nw": 232,
+    "nh": 146,
+    "ax": 150,
+    "ay": 141,
+    "nombre": "6"
+   },
+   {
+    "src": "modulos/orilla/5.webp",
+    "nw": 204,
+    "nh": 147,
+    "ax": 100,
+    "ay": 142,
+    "nombre": "5"
+   },
+   {
+    "src": "modulos/orilla/10.webp",
+    "nw": 210,
+    "nh": 153,
+    "ax": 132,
+    "ay": 148,
+    "nombre": "10"
+   },
+   {
+    "src": "modulos/orilla/13.webp",
+    "nw": 212,
+    "nh": 156,
+    "ax": 38,
+    "ay": 151,
+    "nombre": "13"
+   },
+   {
+    "src": "modulos/orilla/16.webp",
+    "nw": 281,
+    "nh": 164,
+    "ax": 188,
+    "ay": 159,
+    "nombre": "16"
+   },
+   {
+    "src": "modulos/orilla/7.webp",
+    "nw": 248,
+    "nh": 185,
+    "ax": 116,
+    "ay": 180,
+    "nombre": "7"
+   },
+   {
+    "src": "modulos/orilla/8.webp",
+    "nw": 316,
+    "nh": 193,
+    "ax": 146,
+    "ay": 188,
+    "nombre": "8"
+   },
+   {
+    "src": "modulos/orilla/9.webp",
+    "nw": 298,
+    "nh": 194,
+    "ax": 48,
+    "ay": 189,
+    "nombre": "9"
+   },
+   {
+    "src": "modulos/orilla/1.webp",
+    "nw": 198,
+    "nh": 203,
+    "ax": 125,
+    "ay": 198,
+    "nombre": "1"
+   },
+   {
+    "src": "modulos/orilla/2.webp",
+    "nw": 264,
+    "nh": 222,
+    "ax": 123,
+    "ay": 217,
+    "nombre": "2"
+   },
+   {
+    "src": "modulos/orilla/15.webp",
+    "nw": 331,
+    "nh": 236,
+    "ax": 51,
+    "ay": 231,
+    "nombre": "15"
+   },
+   {
+    "src": "modulos/orilla/3.webp",
+    "nw": 243,
+    "nh": 291,
+    "ax": 125,
+    "ay": 286,
+    "nombre": "3"
+   },
+   {
+    "src": "modulos/orilla/4.webp",
+    "nw": 311,
+    "nh": 304,
+    "ax": 161,
+    "ay": 299,
+    "nombre": "4"
+   }
+  ],
+  "paredes-arenisca": [
+   {
+    "src": "modulos/paredes-arenisca/7.webp",
+    "nw": 242,
+    "nh": 219,
+    "ax": 156,
+    "ay": 214,
+    "nombre": "7"
+   },
+   {
+    "src": "modulos/paredes-arenisca/3.webp",
+    "nw": 384,
+    "nh": 220,
+    "ax": 270,
+    "ay": 219,
+    "nombre": "3"
+   },
+   {
+    "src": "modulos/paredes-arenisca/14.webp",
+    "nw": 224,
+    "nh": 227,
+    "ax": 127,
+    "ay": 222,
+    "nombre": "14"
+   },
+   {
+    "src": "modulos/paredes-arenisca/2.webp",
+    "nw": 223,
+    "nh": 228,
+    "ax": 136,
+    "ay": 223,
+    "nombre": "2"
+   },
+   {
+    "src": "modulos/paredes-arenisca/6.webp",
+    "nw": 265,
+    "nh": 228,
+    "ax": 172,
+    "ay": 223,
+    "nombre": "6"
+   },
+   {
+    "src": "modulos/paredes-arenisca/13.webp",
+    "nw": 295,
+    "nh": 233,
+    "ax": 191,
+    "ay": 228,
+    "nombre": "13"
+   },
+   {
+    "src": "modulos/paredes-arenisca/16.webp",
+    "nw": 404,
+    "nh": 231,
+    "ax": 301,
+    "ay": 230,
+    "nombre": "16"
+   },
+   {
+    "src": "modulos/paredes-arenisca/4.webp",
+    "nw": 233,
+    "nh": 238,
+    "ax": 154,
+    "ay": 233,
+    "nombre": "4"
+   },
+   {
+    "src": "modulos/paredes-arenisca/12.webp",
+    "nw": 416,
+    "nh": 236,
+    "ax": 299,
+    "ay": 235,
+    "nombre": "12"
+   },
+   {
+    "src": "modulos/paredes-arenisca/10.webp",
+    "nw": 184,
+    "nh": 247,
+    "ax": 106,
+    "ay": 242,
+    "nombre": "10"
+   },
+   {
+    "src": "modulos/paredes-arenisca/5.webp",
+    "nw": 406,
+    "nh": 254,
+    "ax": 261,
+    "ay": 249,
+    "nombre": "5"
+   },
+   {
+    "src": "modulos/paredes-arenisca/11.webp",
+    "nw": 412,
+    "nh": 254,
+    "ax": 297,
+    "ay": 249,
+    "nombre": "11"
+   },
+   {
+    "src": "modulos/paredes-arenisca/9.webp",
+    "nw": 210,
+    "nh": 255,
+    "ax": 122,
+    "ay": 250,
+    "nombre": "9"
+   },
+   {
+    "src": "modulos/paredes-arenisca/15.webp",
+    "nw": 451,
+    "nh": 256,
+    "ax": 329,
+    "ay": 251,
+    "nombre": "15"
+   },
+   {
+    "src": "modulos/paredes-arenisca/8.webp",
+    "nw": 477,
+    "nh": 261,
+    "ax": 355,
+    "ay": 256,
+    "nombre": "8"
+   },
+   {
+    "src": "modulos/paredes-arenisca/1.webp",
+    "nw": 440,
+    "nh": 276,
+    "ax": 340,
+    "ay": 275,
+    "nombre": "1"
+   }
+  ],
+  "paredes-basalto": [
+   {
+    "src": "modulos/paredes-basalto/11.webp",
+    "nw": 399,
+    "nh": 204,
+    "ax": 249,
+    "ay": 199,
+    "nombre": "11"
+   },
+   {
+    "src": "modulos/paredes-basalto/13.webp",
+    "nw": 258,
+    "nh": 204,
+    "ax": 159,
+    "ay": 199,
+    "nombre": "13"
+   },
+   {
+    "src": "modulos/paredes-basalto/12.webp",
+    "nw": 290,
+    "nh": 208,
+    "ax": 193,
+    "ay": 203,
+    "nombre": "12"
+   },
+   {
+    "src": "modulos/paredes-basalto/8.webp",
+    "nw": 374,
+    "nh": 214,
+    "ax": 248,
+    "ay": 209,
+    "nombre": "8"
+   },
+   {
+    "src": "modulos/paredes-basalto/7.webp",
+    "nw": 328,
+    "nh": 215,
+    "ax": 223,
+    "ay": 210,
+    "nombre": "7"
+   },
+   {
+    "src": "modulos/paredes-basalto/9.webp",
+    "nw": 390,
+    "nh": 220,
+    "ax": 224,
+    "ay": 215,
+    "nombre": "9"
+   },
+   {
+    "src": "modulos/paredes-basalto/10.webp",
+    "nw": 159,
+    "nh": 223,
+    "ax": 90,
+    "ay": 218,
+    "nombre": "10"
+   },
+   {
+    "src": "modulos/paredes-basalto/14.webp",
+    "nw": 181,
+    "nh": 224,
+    "ax": 106,
+    "ay": 219,
+    "nombre": "14"
+   },
+   {
+    "src": "modulos/paredes-basalto/6.webp",
+    "nw": 178,
+    "nh": 229,
+    "ax": 104,
+    "ay": 224,
+    "nombre": "6"
+   },
+   {
+    "src": "modulos/paredes-basalto/5.webp",
+    "nw": 408,
+    "nh": 232,
+    "ax": 275,
+    "ay": 227,
+    "nombre": "5"
+   },
+   {
+    "src": "modulos/paredes-basalto/16.webp",
+    "nw": 404,
+    "nh": 229,
+    "ax": 292,
+    "ay": 228,
+    "nombre": "16"
+   },
+   {
+    "src": "modulos/paredes-basalto/3.webp",
+    "nw": 416,
+    "nh": 235,
+    "ax": 286,
+    "ay": 230,
+    "nombre": "3"
+   },
+   {
+    "src": "modulos/paredes-basalto/15.webp",
+    "nw": 390,
+    "nh": 241,
+    "ax": 254,
+    "ay": 236,
+    "nombre": "15"
+   },
+   {
+    "src": "modulos/paredes-basalto/1.webp",
+    "nw": 354,
+    "nh": 249,
+    "ax": 228,
+    "ay": 244,
+    "nombre": "1"
+   },
+   {
+    "src": "modulos/paredes-basalto/2.webp",
+    "nw": 231,
+    "nh": 253,
+    "ax": 166,
+    "ay": 248,
+    "nombre": "2"
+   },
+   {
+    "src": "modulos/paredes-basalto/4.webp",
+    "nw": 293,
+    "nh": 258,
+    "ax": 164,
+    "ay": 253,
+    "nombre": "4"
+   }
+  ],
+  "paredes-nevadas": [
+   {
+    "src": "modulos/paredes-nevadas/3.webp",
+    "nw": 308,
+    "nh": 207,
+    "ax": 247,
+    "ay": 202,
+    "nombre": "3"
+   },
+   {
+    "src": "modulos/paredes-nevadas/16.webp",
+    "nw": 262,
+    "nh": 211,
+    "ax": 184,
+    "ay": 206,
+    "nombre": "16"
+   },
+   {
+    "src": "modulos/paredes-nevadas/9.webp",
+    "nw": 254,
+    "nh": 218,
+    "ax": 177,
+    "ay": 213,
+    "nombre": "9"
+   },
+   {
+    "src": "modulos/paredes-nevadas/4.webp",
+    "nw": 164,
+    "nh": 223,
+    "ax": 99,
+    "ay": 218,
+    "nombre": "4"
+   },
+   {
+    "src": "modulos/paredes-nevadas/7.webp",
+    "nw": 352,
+    "nh": 223,
+    "ax": 276,
+    "ay": 218,
+    "nombre": "7"
+   },
+   {
+    "src": "modulos/paredes-nevadas/2.webp",
+    "nw": 274,
+    "nh": 226,
+    "ax": 191,
+    "ay": 221,
+    "nombre": "2"
+   },
+   {
+    "src": "modulos/paredes-nevadas/12.webp",
+    "nw": 432,
+    "nh": 229,
+    "ax": 350,
+    "ay": 224,
+    "nombre": "12"
+   },
+   {
+    "src": "modulos/paredes-nevadas/13.webp",
+    "nw": 323,
+    "nh": 229,
+    "ax": 250,
+    "ay": 224,
+    "nombre": "13"
+   },
+   {
+    "src": "modulos/paredes-nevadas/11.webp",
+    "nw": 377,
+    "nh": 231,
+    "ax": 282,
+    "ay": 226,
+    "nombre": "11"
+   },
+   {
+    "src": "modulos/paredes-nevadas/8.webp",
+    "nw": 285,
+    "nh": 235,
+    "ax": 209,
+    "ay": 230,
+    "nombre": "8"
+   },
+   {
+    "src": "modulos/paredes-nevadas/15.webp",
+    "nw": 360,
+    "nh": 235,
+    "ax": 274,
+    "ay": 230,
+    "nombre": "15"
+   },
+   {
+    "src": "modulos/paredes-nevadas/10.webp",
+    "nw": 175,
+    "nh": 239,
+    "ax": 107,
+    "ay": 234,
+    "nombre": "10"
+   },
+   {
+    "src": "modulos/paredes-nevadas/14.webp",
+    "nw": 157,
+    "nh": 243,
+    "ax": 96,
+    "ay": 238,
+    "nombre": "14"
+   },
+   {
+    "src": "modulos/paredes-nevadas/5.webp",
+    "nw": 410,
+    "nh": 249,
+    "ax": 319,
+    "ay": 244,
+    "nombre": "5"
+   },
+   {
+    "src": "modulos/paredes-nevadas/6.webp",
+    "nw": 243,
+    "nh": 250,
+    "ax": 181,
+    "ay": 245,
+    "nombre": "6"
+   },
+   {
+    "src": "modulos/paredes-nevadas/1.webp",
+    "nw": 422,
+    "nh": 251,
+    "ax": 322,
+    "ay": 246,
+    "nombre": "1"
+   }
+  ],
+  "paredes-roca": [
+   {
+    "src": "modulos/paredes-roca/16.webp",
+    "nw": 285,
+    "nh": 203,
+    "ax": 185,
+    "ay": 198,
+    "nombre": "16"
+   },
+   {
+    "src": "modulos/paredes-roca/11.webp",
+    "nw": 387,
+    "nh": 205,
+    "ax": 288,
+    "ay": 200,
+    "nombre": "11"
+   },
+   {
+    "src": "modulos/paredes-roca/12.webp",
+    "nw": 264,
+    "nh": 214,
+    "ax": 190,
+    "ay": 209,
+    "nombre": "12"
+   },
+   {
+    "src": "modulos/paredes-roca/13.webp",
+    "nw": 247,
+    "nh": 217,
+    "ax": 156,
+    "ay": 212,
+    "nombre": "13"
+   },
+   {
+    "src": "modulos/paredes-roca/1.webp",
+    "nw": 233,
+    "nh": 223,
+    "ax": 144,
+    "ay": 218,
+    "nombre": "1"
+   },
+   {
+    "src": "modulos/paredes-roca/14.webp",
+    "nw": 304,
+    "nh": 224,
+    "ax": 206,
+    "ay": 219,
+    "nombre": "14"
+   },
+   {
+    "src": "modulos/paredes-roca/4.webp",
+    "nw": 263,
+    "nh": 226,
+    "ax": 182,
+    "ay": 221,
+    "nombre": "4"
+   },
+   {
+    "src": "modulos/paredes-roca/2.webp",
+    "nw": 353,
+    "nh": 228,
+    "ax": 221,
+    "ay": 223,
+    "nombre": "2"
+   },
+   {
+    "src": "modulos/paredes-roca/10.webp",
+    "nw": 266,
+    "nh": 229,
+    "ax": 165,
+    "ay": 224,
+    "nombre": "10"
+   },
+   {
+    "src": "modulos/paredes-roca/5.webp",
+    "nw": 388,
+    "nh": 230,
+    "ax": 297,
+    "ay": 225,
+    "nombre": "5"
+   },
+   {
+    "src": "modulos/paredes-roca/7.webp",
+    "nw": 287,
+    "nh": 231,
+    "ax": 199,
+    "ay": 226,
+    "nombre": "7"
+   },
+   {
+    "src": "modulos/paredes-roca/15.webp",
+    "nw": 430,
+    "nh": 232,
+    "ax": 299,
+    "ay": 227,
+    "nombre": "15"
+   },
+   {
+    "src": "modulos/paredes-roca/9.webp",
+    "nw": 434,
+    "nh": 234,
+    "ax": 345,
+    "ay": 229,
+    "nombre": "9"
+   },
+   {
+    "src": "modulos/paredes-roca/3.webp",
+    "nw": 389,
+    "nh": 239,
+    "ax": 274,
+    "ay": 234,
+    "nombre": "3"
+   },
+   {
+    "src": "modulos/paredes-roca/8.webp",
+    "nw": 349,
+    "nh": 249,
+    "ax": 220,
+    "ay": 244,
+    "nombre": "8"
+   },
+   {
+    "src": "modulos/paredes-roca/6.webp",
+    "nw": 313,
+    "nh": 250,
+    "ax": 198,
+    "ay": 245,
+    "nombre": "6"
+   }
+  ],
+  "picos-afilados": [
+   {
+    "src": "modulos/picos-afilados/7.webp",
+    "nw": 203,
+    "nh": 280,
+    "ax": 87,
+    "ay": 279,
+    "nombre": "7"
+   },
+   {
+    "src": "modulos/picos-afilados/16.webp",
+    "nw": 186,
+    "nh": 285,
+    "ax": 76,
+    "ay": 280,
+    "nombre": "16"
+   },
+   {
+    "src": "modulos/picos-afilados/2.webp",
+    "nw": 190,
+    "nh": 293,
+    "ax": 85,
+    "ay": 288,
+    "nombre": "2"
+   },
+   {
+    "src": "modulos/picos-afilados/10.webp",
+    "nw": 199,
+    "nh": 290,
+    "ax": 90,
+    "ay": 289,
+    "nombre": "10"
+   },
+   {
+    "src": "modulos/picos-afilados/4.webp",
+    "nw": 191,
+    "nh": 299,
+    "ax": 88,
+    "ay": 294,
+    "nombre": "4"
+   },
+   {
+    "src": "modulos/picos-afilados/5.webp",
+    "nw": 222,
+    "nh": 296,
+    "ax": 103,
+    "ay": 295,
+    "nombre": "5"
+   },
+   {
+    "src": "modulos/picos-afilados/12.webp",
+    "nw": 184,
+    "nh": 306,
+    "ax": 85,
+    "ay": 301,
+    "nombre": "12"
+   },
+   {
+    "src": "modulos/picos-afilados/14.webp",
+    "nw": 182,
+    "nh": 303,
+    "ax": 90,
+    "ay": 302,
+    "nombre": "14"
+   },
+   {
+    "src": "modulos/picos-afilados/8.webp",
+    "nw": 222,
+    "nh": 310,
+    "ax": 101,
+    "ay": 305,
+    "nombre": "8"
+   },
+   {
+    "src": "modulos/picos-afilados/15.webp",
+    "nw": 202,
+    "nh": 310,
+    "ax": 96,
+    "ay": 305,
+    "nombre": "15"
+   },
+   {
+    "src": "modulos/picos-afilados/6.webp",
+    "nw": 189,
+    "nh": 307,
+    "ax": 109,
+    "ay": 306,
+    "nombre": "6"
+   },
+   {
+    "src": "modulos/picos-afilados/11.webp",
+    "nw": 199,
+    "nh": 311,
+    "ax": 107,
+    "ay": 306,
+    "nombre": "11"
+   },
+   {
+    "src": "modulos/picos-afilados/13.webp",
+    "nw": 232,
+    "nh": 329,
+    "ax": 108,
+    "ay": 324,
+    "nombre": "13"
+   },
+   {
+    "src": "modulos/picos-afilados/9.webp",
+    "nw": 243,
+    "nh": 332,
+    "ax": 116,
+    "ay": 327,
+    "nombre": "9"
+   },
+   {
+    "src": "modulos/picos-afilados/1.webp",
+    "nw": 228,
+    "nh": 371,
+    "ax": 103,
+    "ay": 366,
+    "nombre": "1"
+   },
+   {
+    "src": "modulos/picos-afilados/3.webp",
+    "nw": 230,
+    "nh": 374,
+    "ax": 100,
+    "ay": 369,
+    "nombre": "3"
+   }
+  ],
+  "picos-arenisca": [
+   {
+    "src": "modulos/picos-arenisca/6.webp",
+    "nw": 326,
+    "nh": 146,
+    "ax": 226,
+    "ay": 141,
+    "nombre": "6"
+   },
+   {
+    "src": "modulos/picos-arenisca/16.webp",
+    "nw": 423,
+    "nh": 170,
+    "ax": 331,
+    "ay": 165,
+    "nombre": "16"
+   },
+   {
+    "src": "modulos/picos-arenisca/12.webp",
+    "nw": 174,
+    "nh": 177,
+    "ax": 78,
+    "ay": 172,
+    "nombre": "12"
+   },
+   {
+    "src": "modulos/picos-arenisca/15.webp",
+    "nw": 218,
+    "nh": 180,
+    "ax": 80,
+    "ay": 175,
+    "nombre": "15"
+   },
+   {
+    "src": "modulos/picos-arenisca/3.webp",
+    "nw": 393,
+    "nh": 195,
+    "ax": 146,
+    "ay": 190,
+    "nombre": "3"
+   },
+   {
+    "src": "modulos/picos-arenisca/4.webp",
+    "nw": 229,
+    "nh": 203,
+    "ax": 141,
+    "ay": 198,
+    "nombre": "4"
+   },
+   {
+    "src": "modulos/picos-arenisca/9.webp",
+    "nw": 458,
+    "nh": 200,
+    "ax": 119,
+    "ay": 199,
+    "nombre": "9"
+   },
+   {
+    "src": "modulos/picos-arenisca/8.webp",
+    "nw": 324,
+    "nh": 205,
+    "ax": 131,
+    "ay": 204,
+    "nombre": "8"
+   },
+   {
+    "src": "modulos/picos-arenisca/13.webp",
+    "nw": 432,
+    "nh": 212,
+    "ax": 251,
+    "ay": 207,
+    "nombre": "13"
+   },
+   {
+    "src": "modulos/picos-arenisca/10.webp",
+    "nw": 299,
+    "nh": 218,
+    "ax": 160,
+    "ay": 213,
+    "nombre": "10"
+   },
+   {
+    "src": "modulos/picos-arenisca/7.webp",
+    "nw": 252,
+    "nh": 229,
+    "ax": 130,
+    "ay": 224,
+    "nombre": "7"
+   },
+   {
+    "src": "modulos/picos-arenisca/5.webp",
+    "nw": 214,
+    "nh": 230,
+    "ax": 93,
+    "ay": 225,
+    "nombre": "5"
+   },
+   {
+    "src": "modulos/picos-arenisca/14.webp",
+    "nw": 218,
+    "nh": 246,
+    "ax": 97,
+    "ay": 241,
+    "nombre": "14"
+   },
+   {
+    "src": "modulos/picos-arenisca/11.webp",
+    "nw": 298,
+    "nh": 257,
+    "ax": 154,
+    "ay": 252,
+    "nombre": "11"
+   },
+   {
+    "src": "modulos/picos-arenisca/1.webp",
+    "nw": 446,
+    "nh": 267,
+    "ax": 217,
+    "ay": 266,
+    "nombre": "1"
+   },
+   {
+    "src": "modulos/picos-arenisca/2.webp",
+    "nw": 202,
+    "nh": 287,
+    "ax": 96,
+    "ay": 282,
+    "nombre": "2"
+   }
+  ],
+  "picos-nevados": [
+   {
+    "src": "modulos/picos-nevados/11.webp",
+    "nw": 382,
+    "nh": 194,
+    "ax": 239,
+    "ay": 189,
+    "nombre": "11"
+   },
+   {
+    "src": "modulos/picos-nevados/16.webp",
+    "nw": 269,
+    "nh": 202,
+    "ax": 111,
+    "ay": 197,
+    "nombre": "16"
+   },
+   {
+    "src": "modulos/picos-nevados/5.webp",
+    "nw": 321,
+    "nh": 216,
+    "ax": 133,
+    "ay": 211,
+    "nombre": "5"
+   },
+   {
+    "src": "modulos/picos-nevados/14.webp",
+    "nw": 322,
+    "nh": 229,
+    "ax": 163,
+    "ay": 224,
+    "nombre": "14"
+   },
+   {
+    "src": "modulos/picos-nevados/4.webp",
+    "nw": 299,
+    "nh": 231,
+    "ax": 128,
+    "ay": 226,
+    "nombre": "4"
+   },
+   {
+    "src": "modulos/picos-nevados/2.webp",
+    "nw": 262,
+    "nh": 232,
+    "ax": 110,
+    "ay": 227,
+    "nombre": "2"
+   },
+   {
+    "src": "modulos/picos-nevados/9.webp",
+    "nw": 356,
+    "nh": 236,
+    "ax": 181,
+    "ay": 231,
+    "nombre": "9"
+   },
+   {
+    "src": "modulos/picos-nevados/15.webp",
+    "nw": 276,
+    "nh": 236,
+    "ax": 135,
+    "ay": 231,
+    "nombre": "15"
+   },
+   {
+    "src": "modulos/picos-nevados/13.webp",
+    "nw": 411,
+    "nh": 240,
+    "ax": 186,
+    "ay": 235,
+    "nombre": "13"
+   },
+   {
+    "src": "modulos/picos-nevados/7.webp",
+    "nw": 241,
+    "nh": 242,
+    "ax": 113,
+    "ay": 237,
+    "nombre": "7"
+   },
+   {
+    "src": "modulos/picos-nevados/8.webp",
+    "nw": 343,
+    "nh": 243,
+    "ax": 181,
+    "ay": 238,
+    "nombre": "8"
+   },
+   {
+    "src": "modulos/picos-nevados/10.webp",
+    "nw": 261,
+    "nh": 246,
+    "ax": 124,
+    "ay": 241,
+    "nombre": "10"
+   },
+   {
+    "src": "modulos/picos-nevados/12.webp",
+    "nw": 293,
+    "nh": 248,
+    "ax": 127,
+    "ay": 243,
+    "nombre": "12"
+   },
+   {
+    "src": "modulos/picos-nevados/3.webp",
+    "nw": 375,
+    "nh": 251,
+    "ax": 141,
+    "ay": 246,
+    "nombre": "3"
+   },
+   {
+    "src": "modulos/picos-nevados/6.webp",
+    "nw": 389,
+    "nh": 252,
+    "ax": 192,
+    "ay": 247,
+    "nombre": "6"
+   },
+   {
+    "src": "modulos/picos-nevados/1.webp",
+    "nw": 378,
+    "nh": 286,
+    "ax": 182,
+    "ay": 281,
+    "nombre": "1"
+   }
+  ],
+  "picos-roca": [
+   {
+    "src": "modulos/picos-roca/14.webp",
+    "nw": 372,
+    "nh": 168,
+    "ax": 192,
+    "ay": 163,
+    "nombre": "14"
+   },
+   {
+    "src": "modulos/picos-roca/16.webp",
+    "nw": 379,
+    "nh": 187,
+    "ax": 182,
+    "ay": 182,
+    "nombre": "16"
+   },
+   {
+    "src": "modulos/picos-roca/7.webp",
+    "nw": 365,
+    "nh": 189,
+    "ax": 198,
+    "ay": 184,
+    "nombre": "7"
+   },
+   {
+    "src": "modulos/picos-roca/2.webp",
+    "nw": 406,
+    "nh": 207,
+    "ax": 192,
+    "ay": 206,
+    "nombre": "2"
+   },
+   {
+    "src": "modulos/picos-roca/5.webp",
+    "nw": 325,
+    "nh": 227,
+    "ax": 125,
+    "ay": 222,
+    "nombre": "5"
+   },
+   {
+    "src": "modulos/picos-roca/9.webp",
+    "nw": 341,
+    "nh": 227,
+    "ax": 160,
+    "ay": 226,
+    "nombre": "9"
+   },
+   {
+    "src": "modulos/picos-roca/13.webp",
+    "nw": 314,
+    "nh": 227,
+    "ax": 190,
+    "ay": 226,
+    "nombre": "13"
+   },
+   {
+    "src": "modulos/picos-roca/11.webp",
+    "nw": 344,
+    "nh": 240,
+    "ax": 159,
+    "ay": 235,
+    "nombre": "11"
+   },
+   {
+    "src": "modulos/picos-roca/12.webp",
+    "nw": 358,
+    "nh": 244,
+    "ax": 157,
+    "ay": 239,
+    "nombre": "12"
+   },
+   {
+    "src": "modulos/picos-roca/10.webp",
+    "nw": 318,
+    "nh": 247,
+    "ax": 161,
+    "ay": 242,
+    "nombre": "10"
+   },
+   {
+    "src": "modulos/picos-roca/15.webp",
+    "nw": 352,
+    "nh": 247,
+    "ax": 185,
+    "ay": 242,
+    "nombre": "15"
+   },
+   {
+    "src": "modulos/picos-roca/8.webp",
+    "nw": 350,
+    "nh": 266,
+    "ax": 161,
+    "ay": 261,
+    "nombre": "8"
+   },
+   {
+    "src": "modulos/picos-roca/6.webp",
+    "nw": 369,
+    "nh": 276,
+    "ax": 246,
+    "ay": 275,
+    "nombre": "6"
+   },
+   {
+    "src": "modulos/picos-roca/4.webp",
+    "nw": 344,
+    "nh": 285,
+    "ax": 126,
+    "ay": 284,
+    "nombre": "4"
+   },
+   {
+    "src": "modulos/picos-roca/3.webp",
+    "nw": 256,
+    "nh": 303,
+    "ax": 125,
+    "ay": 298,
+    "nombre": "3"
+   },
+   {
+    "src": "modulos/picos-roca/1.webp",
+    "nw": 335,
+    "nh": 320,
+    "ax": 191,
+    "ay": 315,
+    "nombre": "1"
+   }
+  ],
+  "picos-volcan": [
+   {
+    "src": "modulos/picos-volcan/1.webp",
+    "nw": 153,
+    "nh": 129,
+    "ax": 76,
+    "ay": 124,
+    "nombre": "1"
+   },
+   {
+    "src": "modulos/picos-volcan/3.webp",
+    "nw": 158,
+    "nh": 144,
+    "ax": 78,
+    "ay": 139,
+    "nombre": "3"
+   },
+   {
+    "src": "modulos/picos-volcan/2.webp",
+    "nw": 142,
+    "nh": 149,
+    "ax": 58,
+    "ay": 144,
+    "nombre": "2"
+   },
+   {
+    "src": "modulos/picos-volcan/4.webp",
+    "nw": 128,
+    "nh": 174,
+    "ax": 58,
+    "ay": 169,
+    "nombre": "4"
+   },
+   {
+    "src": "modulos/picos-volcan/5.webp",
+    "nw": 217,
+    "nh": 174,
+    "ax": 110,
+    "ay": 169,
+    "nombre": "5"
+   },
+   {
+    "src": "modulos/picos-volcan/7.webp",
+    "nw": 218,
+    "nh": 179,
+    "ax": 97,
+    "ay": 174,
+    "nombre": "7"
+   },
+   {
+    "src": "modulos/picos-volcan/8.webp",
+    "nw": 223,
+    "nh": 189,
+    "ax": 126,
+    "ay": 184,
+    "nombre": "8"
+   },
+   {
+    "src": "modulos/picos-volcan/6.webp",
+    "nw": 210,
+    "nh": 220,
+    "ax": 91,
+    "ay": 215,
+    "nombre": "6"
+   },
+   {
+    "src": "modulos/picos-volcan/10.webp",
+    "nw": 310,
+    "nh": 229,
+    "ax": 144,
+    "ay": 224,
+    "nombre": "10"
+   },
+   {
+    "src": "modulos/picos-volcan/12.webp",
+    "nw": 322,
+    "nh": 244,
+    "ax": 141,
+    "ay": 239,
+    "nombre": "12"
+   },
+   {
+    "src": "modulos/picos-volcan/14.webp",
+    "nw": 366,
+    "nh": 258,
+    "ax": 198,
+    "ay": 253,
+    "nombre": "14"
+   },
+   {
+    "src": "modulos/picos-volcan/15.webp",
+    "nw": 344,
+    "nh": 271,
+    "ax": 173,
+    "ay": 266,
+    "nombre": "15"
+   },
+   {
+    "src": "modulos/picos-volcan/9.webp",
+    "nw": 299,
+    "nh": 274,
+    "ax": 163,
+    "ay": 269,
+    "nombre": "9"
+   },
+   {
+    "src": "modulos/picos-volcan/11.webp",
+    "nw": 303,
+    "nh": 274,
+    "ax": 146,
+    "ay": 269,
+    "nombre": "11"
+   },
+   {
+    "src": "modulos/picos-volcan/13.webp",
+    "nw": 336,
+    "nh": 279,
+    "ax": 169,
+    "ay": 274,
+    "nombre": "13"
+   },
+   {
+    "src": "modulos/picos-volcan/16.webp",
+    "nw": 340,
+    "nh": 293,
+    "ax": 178,
+    "ay": 288,
+    "nombre": "16"
+   }
+  ],
+  "pinos": [
+   {
+    "src": "modulos/pinos/12.webp",
+    "nw": 132,
+    "nh": 194,
+    "ax": 65,
+    "ay": 189,
+    "nombre": "12"
+   },
+   {
+    "src": "modulos/pinos/15.webp",
+    "nw": 129,
+    "nh": 202,
+    "ax": 68,
+    "ay": 197,
+    "nombre": "15"
+   },
+   {
+    "src": "modulos/pinos/7.webp",
+    "nw": 184,
+    "nh": 247,
+    "ax": 88,
+    "ay": 242,
+    "nombre": "7"
+   },
+   {
+    "src": "modulos/pinos/10.webp",
+    "nw": 152,
+    "nh": 248,
+    "ax": 74,
+    "ay": 243,
+    "nombre": "10"
+   },
+   {
+    "src": "modulos/pinos/4.webp",
+    "nw": 241,
+    "nh": 260,
+    "ax": 123,
+    "ay": 255,
+    "nombre": "4"
+   },
+   {
+    "src": "modulos/pinos/3.webp",
+    "nw": 225,
+    "nh": 271,
+    "ax": 147,
+    "ay": 266,
+    "nombre": "3"
+   },
+   {
+    "src": "modulos/pinos/5.webp",
+    "nw": 244,
+    "nh": 272,
+    "ax": 164,
+    "ay": 267,
+    "nombre": "5"
+   },
+   {
+    "src": "modulos/pinos/16.webp",
+    "nw": 205,
+    "nh": 276,
+    "ax": 102,
+    "ay": 271,
+    "nombre": "16"
+   },
+   {
+    "src": "modulos/pinos/13.webp",
+    "nw": 155,
+    "nh": 282,
+    "ax": 75,
+    "ay": 277,
+    "nombre": "13"
+   },
+   {
+    "src": "modulos/pinos/9.webp",
+    "nw": 240,
+    "nh": 286,
+    "ax": 121,
+    "ay": 281,
+    "nombre": "9"
+   },
+   {
+    "src": "modulos/pinos/2.webp",
+    "nw": 166,
+    "nh": 291,
+    "ax": 75,
+    "ay": 286,
+    "nombre": "2"
+   },
+   {
+    "src": "modulos/pinos/14.webp",
+    "nw": 251,
+    "nh": 292,
+    "ax": 166,
+    "ay": 287,
+    "nombre": "14"
+   },
+   {
+    "src": "modulos/pinos/6.webp",
+    "nw": 215,
+    "nh": 302,
+    "ax": 108,
+    "ay": 297,
+    "nombre": "6"
+   },
+   {
+    "src": "modulos/pinos/8.webp",
+    "nw": 205,
+    "nh": 319,
+    "ax": 101,
+    "ay": 314,
+    "nombre": "8"
+   },
+   {
+    "src": "modulos/pinos/11.webp",
+    "nw": 220,
+    "nh": 339,
+    "ax": 109,
+    "ay": 334,
+    "nombre": "11"
+   },
+   {
+    "src": "modulos/pinos/1.webp",
+    "nw": 224,
+    "nh": 348,
+    "ax": 120,
+    "ay": 343,
+    "nombre": "1"
+   }
+  ],
+  "pueblos": [
+   {
+    "src": "modulos/pueblos/1.webp",
+    "nw": 364,
+    "nh": 324,
+    "ax": 271,
+    "ay": 319,
+    "nombre": "1"
+   },
+   {
+    "src": "modulos/pueblos/6.webp",
+    "nw": 375,
+    "nh": 351,
+    "ax": 162,
+    "ay": 346,
+    "nombre": "6"
+   },
+   {
+    "src": "modulos/pueblos/7.webp",
+    "nw": 345,
+    "nh": 359,
+    "ax": 90,
+    "ay": 354,
+    "nombre": "7"
+   },
+   {
+    "src": "modulos/pueblos/2.webp",
+    "nw": 374,
+    "nh": 376,
+    "ax": 211,
+    "ay": 371,
+    "nombre": "2"
+   },
+   {
+    "src": "modulos/pueblos/5.webp",
+    "nw": 372,
+    "nh": 386,
+    "ax": 199,
+    "ay": 381,
+    "nombre": "5"
+   },
+   {
+    "src": "modulos/pueblos/8.webp",
+    "nw": 382,
+    "nh": 387,
+    "ax": 216,
+    "ay": 382,
+    "nombre": "8"
+   },
+   {
+    "src": "modulos/pueblos/3.webp",
+    "nw": 354,
+    "nh": 405,
+    "ax": 164,
+    "ay": 400,
+    "nombre": "3"
+   },
+   {
+    "src": "modulos/pueblos/4.webp",
+    "nw": 393,
+    "nh": 417,
+    "ax": 217,
+    "ay": 412,
+    "nombre": "4"
+   }
+  ],
+  "rocas-caidas": [
+   {
+    "src": "modulos/rocas-caidas/14.webp",
+    "nw": 280,
+    "nh": 107,
+    "ax": 139,
+    "ay": 102,
+    "nombre": "14"
+   },
+   {
+    "src": "modulos/rocas-caidas/16.webp",
+    "nw": 225,
+    "nh": 139,
+    "ax": 97,
+    "ay": 134,
+    "nombre": "16"
+   },
+   {
+    "src": "modulos/rocas-caidas/15.webp",
+    "nw": 308,
+    "nh": 144,
+    "ax": 210,
+    "ay": 139,
+    "nombre": "15"
+   },
+   {
+    "src": "modulos/rocas-caidas/2.webp",
+    "nw": 293,
+    "nh": 148,
+    "ax": 162,
+    "ay": 143,
+    "nombre": "2"
+   },
+   {
+    "src": "modulos/rocas-caidas/7.webp",
+    "nw": 325,
+    "nh": 149,
+    "ax": 232,
+    "ay": 144,
+    "nombre": "7"
+   },
+   {
+    "src": "modulos/rocas-caidas/11.webp",
+    "nw": 200,
+    "nh": 149,
+    "ax": 103,
+    "ay": 144,
+    "nombre": "11"
+   },
+   {
+    "src": "modulos/rocas-caidas/4.webp",
+    "nw": 328,
+    "nh": 153,
+    "ax": 228,
+    "ay": 148,
+    "nombre": "4"
+   },
+   {
+    "src": "modulos/rocas-caidas/5.webp",
+    "nw": 224,
+    "nh": 154,
+    "ax": 142,
+    "ay": 149,
+    "nombre": "5"
+   },
+   {
+    "src": "modulos/rocas-caidas/9.webp",
+    "nw": 368,
+    "nh": 167,
+    "ax": 257,
+    "ay": 162,
+    "nombre": "9"
+   },
+   {
+    "src": "modulos/rocas-caidas/8.webp",
+    "nw": 267,
+    "nh": 183,
+    "ax": 123,
+    "ay": 178,
+    "nombre": "8"
+   },
+   {
+    "src": "modulos/rocas-caidas/10.webp",
+    "nw": 279,
+    "nh": 197,
+    "ax": 132,
+    "ay": 192,
+    "nombre": "10"
+   },
+   {
+    "src": "modulos/rocas-caidas/12.webp",
+    "nw": 276,
+    "nh": 199,
+    "ax": 157,
+    "ay": 194,
+    "nombre": "12"
+   },
+   {
+    "src": "modulos/rocas-caidas/6.webp",
+    "nw": 344,
+    "nh": 211,
+    "ax": 181,
+    "ay": 206,
+    "nombre": "6"
+   },
+   {
+    "src": "modulos/rocas-caidas/3.webp",
+    "nw": 303,
+    "nh": 225,
+    "ax": 116,
+    "ay": 220,
+    "nombre": "3"
+   },
+   {
+    "src": "modulos/rocas-caidas/13.webp",
+    "nw": 325,
+    "nh": 228,
+    "ax": 157,
+    "ay": 223,
+    "nombre": "13"
+   },
+   {
+    "src": "modulos/rocas-caidas/1.webp",
+    "nw": 313,
+    "nh": 236,
+    "ax": 152,
+    "ay": 231,
+    "nombre": "1"
+   }
+  ],
+  "ruina": [
+   {
+    "src": "modulos/ruina/contrafuerte.webp",
+    "nw": 224,
+    "nh": 259,
+    "ax": 159,
+    "ay": 254,
+    "nombre": "contrafuerte"
+   },
+   {
+    "src": "modulos/ruina/horizontal.webp",
+    "nw": 483,
+    "nh": 327,
+    "ax": 397,
+    "ay": 322,
+    "nombre": "horizontal"
+   },
+   {
+    "src": "modulos/ruina/extremo.webp",
+    "nw": 374,
+    "nh": 364,
+    "ax": 229,
+    "ay": 359,
+    "nombre": "extremo"
+   },
+   {
+    "src": "modulos/ruina/diagonal-sube.webp",
+    "nw": 360,
+    "nh": 384,
+    "ax": 64,
+    "ay": 379,
+    "nombre": "diagonal-sube"
+   },
+   {
+    "src": "modulos/ruina/diagonal-baja.webp",
+    "nw": 382,
+    "nh": 392,
+    "ax": 318,
+    "ay": 387,
+    "nombre": "diagonal-baja"
+   },
+   {
+    "src": "modulos/ruina/profundidad.webp",
+    "nw": 154,
+    "nh": 393,
+    "ax": 51,
+    "ay": 388,
+    "nombre": "profundidad"
+   },
+   {
+    "src": "modulos/ruina/torre-redonda.webp",
+    "nw": 308,
+    "nh": 432,
+    "ax": 161,
+    "ay": 427,
+    "nombre": "torre-redonda"
+   },
+   {
+    "src": "modulos/ruina/torre-cuadrada.webp",
+    "nw": 305,
+    "nh": 442,
+    "ax": 142,
+    "ay": 437,
+    "nombre": "torre-cuadrada"
+   }
+  ]
+ },
+ "piezas": {
+  "acantilado-arena-ancho-1": {
+   "src": "acantilado-arena-ancho-1.webp",
+   "nw": 1536,
+   "nh": 784,
+   "ax": 1283,
+   "ay": 759
+  },
+  "acantilado-arena-ancho-2": {
+   "src": "acantilado-arena-ancho-2.webp",
+   "nw": 1754,
+   "nh": 777,
+   "ax": 1501,
+   "ay": 752
+  },
+  "acantilado-arena-hondo-1": {
+   "src": "acantilado-arena-hondo-1.webp",
+   "nw": 776,
+   "nh": 1536,
+   "ax": 487,
+   "ay": 1524
+  },
+  "acantilado-lava-ancho-1": {
+   "src": "acantilado-lava-ancho-1.webp",
+   "nw": 1774,
+   "nh": 874,
+   "ax": 1444,
+   "ay": 849
+  },
+  "acantilado-lava-ancho-2": {
+   "src": "acantilado-lava-ancho-2.webp",
+   "nw": 1749,
+   "nh": 799,
+   "ax": 1462,
+   "ay": 774
+  },
+  "acantilado-lava-hondo-1": {
+   "src": "acantilado-lava-hondo-1.webp",
+   "nw": 1025,
+   "nh": 1017,
+   "ax": 720,
+   "ay": 993
+  },
+  "acantilado-roca-ancho-1": {
+   "src": "acantilado-roca-ancho-1.webp",
+   "nw": 1772,
+   "nh": 740,
+   "ax": 1435,
+   "ay": 715
+  },
+  "acantilado-roca-ancho-2": {
+   "src": "acantilado-roca-ancho-2.webp",
+   "nw": 1774,
+   "nh": 858,
+   "ax": 1448,
+   "ay": 833
+  },
+  "acantilado-roca-hondo-1": {
+   "src": "acantilado-roca-hondo-1.webp",
+   "nw": 885,
+   "nh": 1424,
+   "ax": 589,
+   "ay": 1399
+  },
+  "arboles-muertos-1": {
+   "src": "arboles-muertos-1.webp",
+   "nw": 882,
+   "nh": 1017,
+   "ax": 474,
+   "ay": 992
+  },
+  "arboles-muertos-2": {
+   "src": "arboles-muertos-2.webp",
+   "nw": 1075,
+   "nh": 1024,
+   "ax": 678,
+   "ay": 1018
+  },
+  "bosque-nevado-1": {
+   "src": "bosque-nevado-1.webp",
+   "nw": 1482,
+   "nh": 994,
+   "ax": 992,
+   "ay": 969
+  },
+  "bosque-nevado-2": {
+   "src": "bosque-nevado-2.webp",
+   "nw": 1370,
+   "nh": 1014,
+   "ax": 902,
+   "ay": 989
+  },
+  "bosque-nevado-3": {
+   "src": "bosque-nevado-3.webp",
+   "nw": 1472,
+   "nh": 1013,
+   "ax": 1020,
+   "ay": 988
+  },
+  "bosque-pantano-1": {
+   "src": "bosque-pantano-1.webp",
+   "nw": 1483,
+   "nh": 1024,
+   "ax": 1080,
+   "ay": 1004
+  },
+  "bosque-pantano-2": {
+   "src": "bosque-pantano-2.webp",
+   "nw": 1515,
+   "nh": 1017,
+   "ax": 1014,
+   "ay": 992
+  },
+  "bosque-pantano-3": {
+   "src": "bosque-pantano-3.webp",
+   "nw": 1507,
+   "nh": 986,
+   "ax": 1175,
+   "ay": 961
+  },
+  "bosque-verde-1": {
+   "src": "bosque-verde-1.webp",
+   "nw": 1485,
+   "nh": 1024,
+   "ax": 1010,
+   "ay": 1022
+  },
+  "bosque-verde-2": {
+   "src": "bosque-verde-2.webp",
+   "nw": 1774,
+   "nh": 887,
+   "ax": 1433,
+   "ay": 866
+  },
+  "bosque-verde-3": {
+   "src": "bosque-verde-3.webp",
+   "nw": 1482,
+   "nh": 1023,
+   "ax": 1037,
+   "ay": 998
+  },
+  "bosquecillo-1": {
+   "src": "bosquecillo-1.webp",
+   "nw": 1083,
+   "nh": 1015,
+   "ax": 643,
+   "ay": 990
+  },
+  "bosquecillo-2": {
+   "src": "bosquecillo-2.webp",
+   "nw": 1127,
+   "nh": 1106,
+   "ax": 695,
+   "ay": 1081
+  },
+  "ciudad": {
+   "src": "ciudad.webp",
+   "nw": 1290,
+   "nh": 963,
+   "ax": 689,
+   "ay": 938
+  },
+  "colada-1": {
+   "src": "colada-1.webp",
+   "nw": 1536,
+   "nh": 839,
+   "ax": 1193,
+   "ay": 814
+  },
+  "colada-2": {
+   "src": "colada-2.webp",
+   "nw": 1502,
+   "nh": 747,
+   "ax": 1067,
+   "ay": 722
+  },
+  "cono-volcanico-1": {
+   "src": "cono-volcanico-1.webp",
+   "nw": 890,
+   "nh": 669,
+   "ax": 464,
+   "ay": 644
+  },
+  "cono-volcanico-2": {
+   "src": "cono-volcanico-2.webp",
+   "nw": 1090,
+   "nh": 759,
+   "ax": 556,
+   "ay": 734
+  },
+  "farallon-1": {
+   "src": "farallon-1.webp",
+   "nw": 674,
+   "nh": 1245,
+   "ax": 320,
+   "ay": 1220
+  },
+  "farallon-2": {
+   "src": "farallon-2.webp",
+   "nw": 692,
+   "nh": 1155,
+   "ax": 398,
+   "ay": 1130
+  },
+  "madera": {
+   "src": "madera.webp",
+   "nw": 1484,
+   "nh": 979,
+   "ax": 638,
+   "ay": 954
+  },
+  "montana-1": {
+   "src": "montana-1.webp",
+   "nw": 1920,
+   "nh": 818,
+   "ax": 1395,
+   "ay": 797
+  },
+  "montana-2": {
+   "src": "montana-2.webp",
+   "nw": 1536,
+   "nh": 958,
+   "ax": 1090,
+   "ay": 933
+  },
+  "montana-3": {
+   "src": "montana-3.webp",
+   "nw": 1774,
+   "nh": 800,
+   "ax": 967,
+   "ay": 775
+  },
+  "montana-volcan-1": {
+   "src": "montana-volcan-1.webp",
+   "nw": 1326,
+   "nh": 1014,
+   "ax": 744,
+   "ay": 998
+  },
+  "montana-volcan-2": {
+   "src": "montana-volcan-2.webp",
+   "nw": 1488,
+   "nh": 975,
+   "ax": 989,
+   "ay": 950
+  },
+  "muro-ancho-1": {
+   "src": "muro-ancho-1.webp",
+   "nw": 1536,
+   "nh": 892,
+   "ax": 1308,
+   "ay": 867
+  },
+  "muro-ancho-2": {
+   "src": "muro-ancho-2.webp",
+   "nw": 1725,
+   "nh": 770,
+   "ax": 1327,
+   "ay": 745
+  },
+  "muro-hondo-1": {
+   "src": "muro-hondo-1.webp",
+   "nw": 750,
+   "nh": 1492,
+   "ax": 439,
+   "ay": 1467
+  },
+  "muro-hondo-2": {
+   "src": "muro-hondo-2.webp",
+   "nw": 1010,
+   "nh": 1347,
+   "ax": 231,
+   "ay": 1322
+  },
+  "nodo-empalizada": {
+   "src": "nodo-empalizada.webp",
+   "nw": 1141,
+   "nh": 974,
+   "ax": 571,
+   "ay": 949
+  },
+  "nodo-hito": {
+   "src": "nodo-hito.webp",
+   "nw": 776,
+   "nh": 1011,
+   "ax": 218,
+   "ay": 986
+  },
+  "nodo-paso-acantilado": {
+   "src": "nodo-paso-acantilado.webp",
+   "nw": 1208,
+   "nh": 1020,
+   "ax": 434,
+   "ay": 997
+  },
+  "nodo-paso-bosque": {
+   "src": "nodo-paso-bosque.webp",
+   "nw": 1312,
+   "nh": 1199,
+   "ax": 723,
+   "ay": 1181
+  },
+  "nodo-paso-montana": {
+   "src": "nodo-paso-montana.webp",
+   "nw": 1271,
+   "nh": 1024,
+   "ax": 683,
+   "ay": 1007
+  },
+  "nodo-puente-ancho": {
+   "src": "nodo-puente-ancho.webp",
+   "nw": 1116,
+   "nh": 1024,
+   "ax": 467,
+   "ay": 1008
+  },
+  "nodo-puente-hondo": {
+   "src": "nodo-puente-hondo.webp",
+   "nw": 1466,
+   "nh": 1024,
+   "ax": 1063,
+   "ay": 1003
+  },
+  "nodo-puerta-ancho": {
+   "src": "nodo-puerta-ancho.webp",
+   "nw": 1490,
+   "nh": 1017,
+   "ax": 1103,
+   "ay": 1004
+  },
+  "nodo-puerta-hondo": {
+   "src": "nodo-puerta-hondo.webp",
+   "nw": 1013,
+   "nh": 1024,
+   "ax": 228,
+   "ay": 1004
+  },
+  "nodo-torre": {
+   "src": "nodo-torre.webp",
+   "nw": 1144,
+   "nh": 1153,
+   "ax": 566,
+   "ay": 1128
+  },
+  "orilla-1": {
+   "src": "orilla-1.webp",
+   "nw": 1738,
+   "nh": 829,
+   "ax": 1311,
+   "ay": 804
+  },
+  "orilla-2": {
+   "src": "orilla-2.webp",
+   "nw": 1772,
+   "nh": 664,
+   "ax": 1395,
+   "ay": 639
+  },
+  "orilla-3": {
+   "src": "orilla-3.webp",
+   "nw": 1774,
+   "nh": 719,
+   "ax": 1512,
+   "ay": 694
+  },
+  "oro": {
+   "src": "oro.webp",
+   "nw": 1308,
+   "nh": 1024,
+   "ax": 692,
+   "ay": 1002
+  },
+  "pena-1": {
+   "src": "pena-1.webp",
+   "nw": 853,
+   "nh": 934,
+   "ax": 444,
+   "ay": 909
+  },
+  "pena-2": {
+   "src": "pena-2.webp",
+   "nw": 966,
+   "nh": 997,
+   "ax": 480,
+   "ay": 972
+  },
+  "pico-1": {
+   "src": "pico-1.webp",
+   "nw": 1208,
+   "nh": 1028,
+   "ax": 594,
+   "ay": 1003
+  },
+  "pico-2": {
+   "src": "pico-2.webp",
+   "nw": 1036,
+   "nh": 1018,
+   "ax": 668,
+   "ay": 993
+  },
+  "pico-3": {
+   "src": "pico-3.webp",
+   "nw": 1100,
+   "nh": 867,
+   "ax": 503,
+   "ay": 842
+  },
+  "piedra": {
+   "src": "piedra.webp",
+   "nw": 1445,
+   "nh": 1010,
+   "ax": 845,
+   "ay": 985
+  },
+  "pinos-nevados-1": {
+   "src": "pinos-nevados-1.webp",
+   "nw": 863,
+   "nh": 1102,
+   "ax": 499,
+   "ay": 1077
+  },
+  "pinos-nevados-2": {
+   "src": "pinos-nevados-2.webp",
+   "nw": 1194,
+   "nh": 1199,
+   "ax": 767,
+   "ay": 1174
+  },
+  "pueblo": {
+   "src": "pueblo.webp",
+   "nw": 1536,
+   "nh": 995,
+   "ax": 994,
+   "ay": 970
+  },
+  "rocas-1": {
+   "src": "rocas-1.webp",
+   "nw": 1536,
+   "nh": 898,
+   "ax": 843,
+   "ay": 873
+  },
+  "rocas-2": {
+   "src": "rocas-2.webp",
+   "nw": 1513,
+   "nh": 811,
+   "ax": 921,
+   "ay": 786
+  },
+  "rocas-nevadas-1": {
+   "src": "rocas-nevadas-1.webp",
+   "nw": 1386,
+   "nh": 842,
+   "ax": 714,
+   "ay": 817
+  },
+  "rocas-nevadas-2": {
+   "src": "rocas-nevadas-2.webp",
+   "nw": 1268,
+   "nh": 647,
+   "ax": 814,
+   "ay": 622
+  },
+  "ruina-1": {
+   "src": "ruina-1.webp",
+   "nw": 1499,
+   "nh": 951,
+   "ax": 1061,
+   "ay": 926
+  },
+  "ruina-2": {
+   "src": "ruina-2.webp",
+   "nw": 1536,
+   "nh": 975,
+   "ax": 1264,
+   "ay": 950
+  },
+  "ruina-3": {
+   "src": "ruina-3.webp",
+   "nw": 1536,
+   "nh": 987,
+   "ax": 1238,
+   "ay": 962
+  },
+  "atlas/mina": {
+   "src": "atlas/mina.webp",
+   "nw": 1176,
+   "nh": 1076,
+   "ax": 662,
+   "ay": 1051
+  },
+  "atlas/cofre": {
+   "src": "atlas/cofre.webp",
+   "nw": 1169,
+   "nh": 1027,
+   "ax": 471,
+   "ay": 1002
+  }
+ }
+}

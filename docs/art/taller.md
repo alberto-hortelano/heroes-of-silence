@@ -182,6 +182,11 @@ agua, caras, sendas, luces y sprites colocados. El pintor la dibuja en un canvas
   lava, niebla baja sobre agua y ciénaga, nubes en el borde y viñeta.
 - **Primero se reserva**: objetos, caminos y nodos reservan su sitio antes de
   colocar nada, así que nada se apoya encima.
+- **Dos puertas para el juego**: `componer(map, semilla, catalogo)` y
+  `pintarEscena(ctx, escena, opciones)` (`pintar.ts`) no importan nada de Node. El
+  catálogo es `assets/mapa/escena.json` (`pnpm taller catalogo-escena`), y la
+  página del taller empaqueta `pintar.ts` con Vite: la página y el juego pintan
+  con el mismo código. El contrato del enganche está en `peticiones.md` §11.
 
 **Lo que mide** (`.cache/taller/escenario/<semilla>.json`, y lo vigila
 `test/taller-escenario.test.ts`): murallas partidas, piezas sobre una reserva y

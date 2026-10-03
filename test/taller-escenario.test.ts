@@ -4,9 +4,13 @@
  * roca hacia la cámara, el esparcido que llena sin amontonar, y la escena de un
  * mapa real sin nada apoyado sobre un objeto.
  */
+import { readFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { newGame } from '../src/core/state/setup.js';
 import { analizar } from '../tools/taller/escenario/analizar.js';
+import { type Catalogo, RUTA_DEL_CATALOGO } from '../tools/taller/escenario/catalogo.js';
+import { leerCatalogo, textoDelCatalogo } from '../tools/taller/escenario/catalogo-disco.js';
 import { componentesDePasos, componer } from '../tools/taller/escenario/colocar.js';
 import { azarDe, esparcir } from '../tools/taller/escenario/esparcir.js';
 import { ejeDe, esqueleto } from '../tools/taller/escenario/esqueleto.js';
@@ -151,10 +155,17 @@ describe('el esparcido', () => {
   });
 });
 
+const RAIZ = resolve(import.meta.dirname, '..');
+const catalogo = JSON.parse(readFileSync(join(RAIZ, RUTA_DEL_CATALOGO), 'utf8')) as Catalogo;
+
 describe('la escena de un mapa real', () => {
   for (const semilla of [1, 9]) {
     const map = newGame({ seed: semilla }).map;
-    const e = componer(map, semilla);
+    const e = componer(map, semilla, catalogo);
+
+    it(`semilla ${semilla}: con el catálogo del repo no falta ningún módulo`, () => {
+      expect(e.informe.modulosQueFaltan).toEqual([]);
+    });
 
     it(`semilla ${semilla}: nada se apoya sobre un objeto ni un camino, y cada muralla es una línea`, () => {
       expect(e.informe.basesSobreReserva).toBe(0);
@@ -181,4 +192,36 @@ describe('la escena de un mapa real', () => {
       }
     });
   }
+});
+
+describe('lo que importaría el juego', () => {
+  it('el catálogo del repo es el que sale del disco: `pnpm taller catalogo-escena` está al día', async () => {
+    expect(readFileSync(join(RAIZ, RUTA_DEL_CATALOGO), 'utf8')).toBe(
+      textoDelCatalogo(await leerCatalogo()),
+    );
+  });
+
+  it('componer y pintar no arrastran nada de Node: corren en el navegador', () => {
+    // Se sigue cada import relativo desde las dos puertas y se mira qué trae de fuera.
+    const deFuera = new Map<string, string>();
+    const vistos = new Set<string>();
+    const pendientes = ['tools/taller/escenario/colocar.ts', 'tools/taller/escenario/pintar.ts'];
+    for (let f = pendientes.pop(); f !== undefined; f = pendientes.pop()) {
+      if (vistos.has(f)) continue;
+      vistos.add(f);
+      const texto = readFileSync(join(RAIZ, f), 'utf8');
+      for (const m of texto.matchAll(/^\s*(?:import|export)\b[^;]*?from\s*'([^']+)'/gms)) {
+        const ruta = m[1] as string;
+        // `import type` se borra al compilar: no viaja al navegador.
+        if (/^\s*(?:import|export)\s+type\b/.test(m[0])) continue;
+        if (ruta.startsWith('.')) {
+          pendientes.push(join(dirname(f), ruta.replace(/\.js$/, '.ts')));
+        } else deFuera.set(ruta, f);
+      }
+      for (const m of texto.matchAll(/(?:import\s*\(|^\s*import\s*)'([^']+)'/gm))
+        deFuera.set(m[1] as string, f);
+    }
+    expect(vistos.size).toBeGreaterThan(5);
+    expect([...deFuera].map(([r, f]) => `${r} (desde ${f})`)).toEqual([]);
+  });
 });

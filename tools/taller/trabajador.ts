@@ -20,6 +20,7 @@
  *   pnpm taller encolar --modulos | --texturas-relieve [--solo=…]
  *                                        las hojas de módulos del escenógrafo
  *   pnpm taller escenario [semilla…]     el escenógrafo: compone, pinta, captura y mide
+ *   pnpm taller catalogo-escena          rehace assets/mapa/escena.json, el catálogo que lee el juego
  *   pnpm taller vista-ejercitos          una página con todos los ejércitos, para elegir o comparar
  *   pnpm taller vista <unidad>…          láminas de revisión en .cache/taller/vista/
  *
@@ -67,6 +68,7 @@ import {
   recortarAlContenido,
 } from './empaquetar.js';
 import { type Encargo, promptDe } from './encargo.js';
+import { escribirCatalogo } from './escenario/catalogo-disco.js';
 import { escenario } from './escenario/escenario.js';
 import {
   encargoDeTexturaDeRelieve,
@@ -767,6 +769,13 @@ switch (orden) {
           (i.errores.length > 0 ? ` · ERRORES: ${i.errores.join(' | ')}` : ''),
       );
     }
+    break;
+  }
+  case 'catalogo-escena': {
+    const c = await escribirCatalogo();
+    console.log(
+      `→ assets/mapa/escena.json: ${Object.keys(c.hojas).length} hojas, ${Object.keys(c.piezas).length} piezas`,
+    );
     break;
   }
   case 'vista-8d':

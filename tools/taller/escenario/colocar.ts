@@ -11,19 +11,16 @@
  * Es puro salvo por leer los índices de los módulos y las medidas de las piezas
  * del disco; la escena es un JSON que pinta `pintor.ts`.
  */
-import { existsSync, readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
-import type { GameMap } from '../../../src/core/map/map.js';
+import type { GameMap, MapObject } from '../../../src/core/map/map.js';
 import type { Barrera, Suelo } from '../../../src/core/map/terrain.js';
 import { nodoDePaso } from '../mapa-denso.js';
-import { barreraDeNodo } from '../vista-mapa.js';
 import { type Analisis, analizar, type Franja } from './analizar.js';
+import type { Catalogo, Modulo, Pieza } from './catalogo.js';
 import { azarDe, esparcir } from './esparcir.js';
 import { ejeDe, esqueleto } from './esqueleto.js';
+import { barreraDeNodo } from './nodos.js';
 import { ALTO_DE_NIVEL, type Relieve, relieve } from './relieve.js';
 import { type Senda, sendas } from './sendas.js';
-
-const RAIZ = resolve(import.meta.dirname, '../../..');
 
 /** Un sprite de la escena: una imagen apoyada por su ancla en `(x, y)`, en casillas. */
 export interface Sprite {
@@ -47,6 +44,12 @@ export interface Sprite {
   readonly sombra: boolean;
   /** Un filtro de canvas para entonar el módulo con el resto (`brightness(0.8)`). */
   readonly tono?: string;
+  /**
+   * El objeto del mapa que pinta, si pinta uno. Lo que cambia en la partida (un
+   * monstruo vencido, un recurso o un cofre recogidos) no se hornea en la escena:
+   * quien la pinte lo deja fuera con `pintarEscena({ objeto })` y lo pinta él.
+   */
+  readonly objeto?: { readonly id: string; readonly kind: MapObject['kind'] };
   /** Si la imagen es una hoja, el trozo que se pinta: `[sx, sy, sw, sh]`. */
   readonly recorte?: readonly [number, number, number, number];
 }
@@ -84,55 +87,6 @@ export interface Escena {
     readonly casillasDeBarreraSinFormacion: number;
     readonly modulosQueFaltan: readonly string[];
   };
-}
-
-// ---------------------------------------------------------------- los módulos
-
-interface Modulo {
-  readonly src: string;
-  readonly nw: number;
-  readonly nh: number;
-  readonly ax: number;
-  readonly ay: number;
-  readonly nombre: string;
-}
-
-const hojas = new Map<string, Modulo[] | null>();
-
-/** Los módulos de una hoja, ordenados de menor a mayor, o null si la hoja aún no está hecha. */
-export function modulosDe(hoja: string): Modulo[] | null {
-  if (hojas.has(hoja)) return hojas.get(hoja) ?? null;
-  const ruta = join(RAIZ, `assets/mapa/modulos/${hoja}.json`);
-  if (!existsSync(ruta)) {
-    hojas.set(hoja, null);
-    return null;
-  }
-  const j = JSON.parse(readFileSync(ruta, 'utf8')) as {
-    modulos: { imagen: string; ancho: number; alto: number; ancla: [number, number] }[];
-  };
-  const ms = j.modulos
-    .map((m) => ({
-      src: `modulos/${hoja}/${m.imagen}`,
-      nw: m.ancho,
-      nh: m.alto,
-      ax: m.ancla[0],
-      ay: m.ancla[1],
-      nombre: m.imagen.replace(/\.webp$/, ''),
-    }))
-    .sort((a, b) => a.ay - b.ay);
-  hojas.set(hoja, ms);
-  return ms;
-}
-
-function pieza(id: string): Omit<Modulo, 'nombre'> | null {
-  const ruta = join(RAIZ, `assets/mapa/${id}.json`);
-  if (!existsSync(ruta)) return null;
-  const j = JSON.parse(readFileSync(ruta, 'utf8')) as {
-    ancho: number;
-    alto: number;
-    ancla: [number, number];
-  };
-  return { src: `${id}.webp`, nw: j.ancho, nh: j.alto, ax: j.ancla[0], ay: j.ancla[1] };
 }
 
 // ------------------------------------------------------------------ las reglas
@@ -262,9 +216,6 @@ class Reservas {
   }
 }
 
-/** Lo que el escenógrafo pinta de piezas que no traen su JSON (las del atlas viejo), medido fuera. */
-export type PiezasExtra = Readonly<Record<string, Omit<Modulo, 'nombre'>>>;
-
 /** El monstruo que guarda el mapa: el primer fotograma de reposo de una tropa. */
 const MONSTRUO = {
   src: '../unidades/orko-hacha-escudo/atlas.webp',
@@ -275,7 +226,10 @@ const MONSTRUO = {
   recorte: [0, 0, 256, 256] as const,
 };
 
-export function componer(map: GameMap, semilla: number, extra: PiezasExtra = {}): Escena {
+export function componer(map: GameMap, semilla: number, catalogo: Catalogo): Escena {
+  /** Los módulos de una hoja, de menor a mayor, o null si la hoja aún no está hecha. */
+  const modulosDe = (hoja: string): readonly Modulo[] | null => catalogo.hojas[hoja] ?? null;
+  const pieza = (id: string): Pieza | null => catalogo.piezas[id] ?? null;
   const a = analizar(map);
   const rel = relieve(a, semilla);
   const azar = azarDe(semilla * 7919 + 1);
@@ -394,6 +348,7 @@ export function componer(map: GameMap, semilla: number, extra: PiezasExtra = {})
         color: '#b0553f',
         capa: 0,
         sombra: true,
+        objeto: { id: o.id, kind: o.kind },
       });
       continue;
     }
@@ -417,7 +372,7 @@ export function componer(map: GameMap, semilla: number, extra: PiezasExtra = {})
               variantes.length
           ]
         : undefined;
-    const p = variante ?? (id === null ? null : (extra[id] ?? pieza(id)));
+    const p = variante ?? (id === null ? null : pieza(id));
     sprites.push(
       p === null
         ? {
@@ -433,6 +388,7 @@ export function componer(map: GameMap, semilla: number, extra: PiezasExtra = {})
             color: '#c9b27a',
             capa: 0,
             sombra: true,
+            objeto: { id: o.id, kind: o.kind },
           }
         : {
             ...p,
@@ -443,6 +399,7 @@ export function componer(map: GameMap, semilla: number, extra: PiezasExtra = {})
             color: '#c9b27a',
             capa: 0,
             sombra: true,
+            objeto: { id: o.id, kind: o.kind },
           },
     );
   }

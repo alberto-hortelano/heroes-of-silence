@@ -17,8 +17,8 @@ import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { chromium } from 'playwright';
 import { newGame } from '../../../src/core/state/setup.js';
-import { derivarPieza } from '../derivar.js';
-import { componer, type PiezasExtra } from './colocar.js';
+import { leerCatalogo } from './catalogo-disco.js';
+import { componer } from './colocar.js';
 import { paginaDeEscena } from './pintor.js';
 
 const RAIZ = resolve(import.meta.dirname, '../../..');
@@ -77,17 +77,13 @@ export async function escenario(semillas: readonly number[], tile = 48): Promise
   );
   const fuera: Resultado[] = [];
   const { servidor, base } = await servir();
-  // Las piezas del atlas viejo no traen JSON: se miden aquí.
-  const extra: Record<string, PiezasExtra[string]> = {};
-  for (const id of ['atlas/mina', 'atlas/cofre']) {
-    const d = await derivarPieza(join(RAIZ, `assets/mapa/${id}.webp`));
-    extra[id] = { src: `${id}.webp`, nw: d.ancho, nh: d.alto, ax: d.ancla[0], ay: d.ancla[1] };
-  }
+  // Del disco y no de `escena.json`: así se ve al momento una hoja recién cortada.
+  const catalogo = await leerCatalogo();
   try {
     for (const semilla of semillas) {
-      const escena = componer(newGame({ seed: semilla }).map, semilla, extra);
+      const escena = componer(newGame({ seed: semilla }).map, semilla, catalogo);
       const html = join(DIR_ESCENARIO, `${semilla}.html`);
-      await writeFile(html, paginaDeEscena(escena, '../../../assets/mapa/', tile));
+      await writeFile(html, await paginaDeEscena(escena, '../../../assets/mapa/', tile));
       const pagina = await navegador.newPage({ viewport: { width: 1800, height: 1800 } });
       const errores: string[] = [];
       pagina.on('pageerror', (e) => errores.push(String(e)));
