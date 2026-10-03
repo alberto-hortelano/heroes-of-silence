@@ -627,7 +627,8 @@ switch (orden) {
     }
     break;
   case 'vista-8d':
-    for (const f of resto) console.log(`→ ${await vista8d(f)}`);
+    // Un solo visor con todas: el argumento solo elige con cuál se abre.
+    console.log(`→ ${await vista8d(resto[0])}`);
     break;
   case 'vista':
     for (const r of await vista(resto)) console.log(`→ ${r}`);

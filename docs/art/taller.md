@@ -113,7 +113,7 @@ fotograma es el cadáver (`cadaver` en el JSON).
    contra su maniquí, celda a celda, y el taller junta las dos de una dirección en
    `assets/unidades/<id>/d<n>/atlas.webp` (celda de 384). `atlas.composicion.json`
    apunta de qué hojas sale.
-4. **La vista**: `pnpm taller vista-8d <id>` (o `poses`), con la sombra por silueta.
+4. **La vista**: `pnpm taller vista-8d [<id>]` escribe un solo visor, `.cache/taller/vista/visor-8d.html`, con un selector de todas las unidades que ya tienen sus 8 direcciones y de las poses de cada juego de armas; el `<id>` solo elige con cuál se abre (va en el `#` de la URL). Con la sombra por silueta.
 
 Las direcciones son las de sprite-forge: 0 mira a la cámara, 2 a la derecha, 4 de
 espaldas y 6 a la izquierda (`tools/taller/direcciones.ts`).
