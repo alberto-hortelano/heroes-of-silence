@@ -1,0 +1,64 @@
+{
+  "encargo": "templario-penitente-d0-a-c1",
+  "tipo": "atlas",
+  "fecha": "2026-10-03T10:29:39.266Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a1013d-c79a-78d3-91a2-7533093a7fd5",
+  "reanuda": "01a1013d-c79a-78d3-91a2-7533093a7fd5",
+  "prompt": "Corrige la última imagen que has generado en esta conversación, con la herramienta de imágenes, conservando la identidad del personaje y todo lo que no se menciona.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo), copia su largo, su ángulo y su sitio en cada celda: es la guía del arma real. Si sus piernas son de color, la ROJA es la pierna DERECHA y la AZUL la IZQUIERDA: sirven para no confundirlas en el paso ni girar la figura de espaldas; el personaje NO lleva esos colores. El fondo VERDE de esta hoja es solo fondo, para que se vea el maniquí: no lo copies, el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nFila 2 (andando): del fotograma 2 al 7 el personaje ha perdido el mayal. Debe llevarlo en la mano en los 7 fotogramas, como en el fotograma 1 y como el maniquí (la bola con su cadena colgando de la mano). Lo demás de la hoja está bien: no lo cambies.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con las armas como las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «frente» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/mayal-8d/d0-a.png",
+      "papel": "pose",
+      "sha256": "bea5bf2a610e5f0580ccaa821efe12c79fd7c099f5590c5a2cdd95973eef6d3a"
+    },
+    {
+      "ruta": "assets/unidades/templario-penitente/giro.webp",
+      "papel": "identidad",
+      "sha256": "b3683e5cdb53c728462eb50c5455c5a393915b6241ab70311c5af603c4c70b6a"
+    },
+    {
+      "ruta": "assets/art/templarios/penitente.png",
+      "papel": "estilo",
+      "sha256": "13f44100fd9f568ae987daf031d49bb490cf21fa5c8d85a2aed53761250a5d47"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a1013d-c79a-78d3-91a2-7533093a7fd5/exec-62025df4-287d-4542-8cc1-7a0de4384c89.png",
+    "sha256": "69cc4465b3d8117fa3b1e890c2fda57b9ad9c04fbb51af5a30992be0f608e79f",
+    "ancho": 1916,
+    "alto": 821
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.7457, pies en y=342, reposo a 160 px",
+    "WebP calidad 92, alfa sin pérdida",
+    "dirección completa: assets/unidades/templario-penitente/d0/atlas.webp"
+  ],
+  "validacion": {
+    "visibles": 0.04580091042493386,
+    "opacos": 0.9507988662163496,
+    "haloSuelto": 0,
+    "ancho": 2688,
+    "alto": 1152
+  },
+  "deLaPose": {
+    "k": 1.0666666666666667,
+    "origen": [
+      192,
+      342
+    ],
+    "apoyoReposo": [
+      185,
+      292
+    ],
+    "posicion": false
+  },
+  "salida": {
+    "ruta": "assets/unidades/templario-penitente/d0/hoja-a.webp",
+    "sha256": "0f0a579a4eee393d048aedb43fcac3f252f83fe45ebc4df1293e8f66a53cf24a"
+  }
+}
