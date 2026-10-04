@@ -430,5 +430,122 @@
     "generator": "built-in image_gen",
     "sha256": "2fefa7a0bd94ef9ed9bce995bd3f3c41b21eb3d696fe2f1aedebb72917d57723",
     "source_image": "/home/al/.codex/generated_images/01a0f720-5bf7-7710-829c-167dbdea3507/exec-8789adf3-fb10-4dce-80e4-4778564f5a9a.png"
+  },
+  {
+    "id": 34,
+    "faction": "Imperio",
+    "name": "Duelista (héroe)",
+    "path": "assets/art/imperio/duelista.png",
+    "prompt": "Use case: stylized-concept. Asset type: hero design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single character, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, early renaissance dark fantasy. An imperial duelist hero, a lean and fast swordmaster: rapier with an elaborate swept hilt in the right hand and a parrying dagger in the left, fitted black doublet slashed with ochre and crimson, short cape over one shoulder, light gorget, plumed hat, tall boots. Poised fencing stance, weight on the front foot, both blades ready. Palette: black, ochre yellow, crimson, polished steel, touches of gold.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same imperial faction: match their painting style, finish, lighting, grey background and black-ochre-crimson palette exactly, but design a NEW character as described; do not copy their figures.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, shield, heavy armor, katana, two long swords",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "3ba1656e04119a00a9724eedcb3ea745373803f56b57043c7e1bf1e5fbd7b3d1",
+    "source_image": "/home/al/.codex/generated_images/01a10655-1150-7ee0-85d4-7df466bfe47c/exec-26c0f02c-80fc-4ba5-a2f6-afbe19793f5a.png",
+    "references": [
+      "assets/art/imperio/alabardero.png",
+      "assets/art/imperio/arcabucero.png"
+    ],
+    "thread": "01a10655-1150-7ee0-85d4-7df466bfe47c",
+    "approved": "2026-10-04"
+  },
+  {
+    "id": 35,
+    "faction": "Imperio",
+    "name": "Mago de batalla (héroe)",
+    "path": "assets/art/imperio/mago-de-batalla.png",
+    "prompt": "Use case: stylized-concept. Asset type: hero design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single character, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, early renaissance dark fantasy. An imperial battle mage hero: long dark blue robe with gold trim worn over a light steel breastplate, scholar cap, trimmed beard, a book chained to the belt, a metal staff topped with a sphere holding a small contained flame. A faint wisp of fire and mist around the free hand suggesting tactical elemental magic. Upright, commanding stance. Palette: dark blue, gold, black, ochre accents, steel.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same imperial faction: match their painting style, finish, lighting, grey background and black-ochre-crimson palette exactly, but design a NEW character as described; do not copy their figures. The last attached image is this same character as already approved in game: keep his face, costume and colours.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, pointed wizard hat, intense magic glow, long white beard",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "cab88d3575370832ccf4db69d030117e919bcb2632eac13f8a3f38460a0d84fb",
+    "source_image": "/home/al/.codex/generated_images/01a10655-11c8-7872-868d-352ba3423716/exec-095e9206-c7fc-40f5-bf44-65abf487c4d4.png",
+    "references": [
+      "assets/art/imperio/alabardero.png",
+      "assets/art/imperio/arcabucero.png",
+      ".cache/laminas/mago-de-batalla-identidad.png"
+    ],
+    "thread": "01a10655-11c8-7872-868d-352ba3423716",
+    "approved": "2026-10-04"
+  },
+  {
+    "id": 36,
+    "faction": "Imperio",
+    "name": "Capitán mercenario (héroe)",
+    "path": "assets/art/imperio/capitan-mercenario.png",
+    "prompt": "Use case: stylized-concept. Asset type: hero design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single character, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, early renaissance dark fantasy. An imperial mercenary captain hero, a landsknecht officer: enormous slashed hat with red and yellow plumes, flamboyant slashed and puffed doublet and hose, dented steel breastplate, thick moustache, a katzbalger short sword in the right hand, a heavy purse of coins and a rolled contract at the belt. Swaggering, confident stance. No shield. Palette: crimson, ochre yellow, black, steel, gold coins.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same imperial faction: match their painting style, finish, lighting, grey background and black-ochre-crimson palette exactly, but design a NEW character as described; do not copy their figures. The last attached image is this same character as already approved in game: keep his face, costume and colours.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, shield, pirate",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "7ec1df4729834f92e38d2bc767b2ab43197c8f4751a84e68ffd773a2f66f976b",
+    "source_image": "/home/al/.codex/generated_images/01a10655-11ce-7292-95e1-234050a40444/exec-753ee33d-4080-48c5-a8d3-1bbd972cebc0.png",
+    "references": [
+      "assets/art/imperio/alabardero.png",
+      "assets/art/imperio/arcabucero.png",
+      ".cache/laminas/capitan-mercenario-identidad.png"
+    ],
+    "thread": "01a10655-11ce-7292-95e1-234050a40444",
+    "approved": "2026-10-04"
+  },
+  {
+    "id": 37,
+    "faction": "Imperio",
+    "name": "Ingeniero (héroe)",
+    "path": "assets/art/imperio/ingeniero.png",
+    "prompt": "Use case: stylized-concept. Asset type: hero design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single character, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, early renaissance dark fantasy. An imperial military engineer hero: brass goggles pushed up on the forehead, leather apron full of tools over a black and ochre doublet, a roll of plans on the back, a small war hammer at the belt, and a long-barrelled wheel-lock rifle for long range held in both hands. Practical, sharp-eyed stance. Palette: black, ochre yellow, brown leather, brass, dark wood, steel.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same imperial faction: match their painting style, finish, lighting, grey background and black-ochre-crimson palette exactly, but design a NEW character as described; do not copy their figures. The last attached image is this same character as already approved in game: keep his face, costume and colours.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, modern rifle, scope, steampunk gears, robotic parts",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "b280e8ef79e7b5797ce13a26323c3bf89bbee8e645db064336993f172de25cf3",
+    "source_image": "/home/al/.codex/generated_images/01a10655-11c0-7671-bbca-9de2513aa3cd/exec-c126dc65-cc1a-45be-9456-2eb96ef8425c.png",
+    "references": [
+      "assets/art/imperio/alabardero.png",
+      "assets/art/imperio/arcabucero.png",
+      ".cache/laminas/ingeniero-identidad.png"
+    ],
+    "thread": "01a10655-11c0-7671-bbca-9de2513aa3cd",
+    "approved": "2026-10-04"
+  },
+  {
+    "id": 38,
+    "faction": "Imperio",
+    "name": "Pistolero montado",
+    "path": "assets/art/imperio/pistolero-montado.png",
+    "prompt": "Use case: stylized-concept. Asset type: troop design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single mounted character, full body side view and three-quarter front view, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, early renaissance dark fantasy. An imperial mounted pistoleer (reiter) riding a dark bay horse: blackened half armor with an open burgonet helmet, crimson sash, slashed ochre and black sleeves, a wheel-lock pistol raised in the right hand and a sword at the hip, a second pistol in a saddle holster. Light horse harness with ochre and black saddle cloth. Fast, skirmishing posture, about to turn away after firing. Palette: blackened steel, ochre yellow, crimson, dark bay horse, brass.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same imperial faction: match their painting style, finish, lighting, grey background and black-ochre-crimson palette exactly, but design a NEW character as described; do not copy their figures.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, lance, unicorn, fantasy creature mount, extra horse legs, deformed horse anatomy, cowboy",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "9ecc42e1606ee6e9c2573e7fe64700f97a21562f445228e13eaf0997153e2ee8",
+    "source_image": "/home/al/.codex/generated_images/01a10655-1172-7222-957d-cd7dd0ce4da4/exec-0ee89de1-1d79-4dae-ac40-0d436314e1e4.png",
+    "references": [
+      "assets/art/imperio/alabardero.png",
+      "assets/art/imperio/arcabucero.png"
+    ],
+    "thread": "01a10655-1172-7222-957d-cd7dd0ce4da4",
+    "approved": "2026-10-04"
+  },
+  {
+    "id": 39,
+    "faction": "Imperio",
+    "name": "Granadero",
+    "path": "assets/art/imperio/granadero.png",
+    "prompt": "Use case: stylized-concept. Asset type: troop design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single character, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, early renaissance dark fantasy. An imperial grenadier: tall stiff cloth cap, short buff leather coat over a slashed black and ochre doublet, crimson sash, a bandolier and a satchel full of round iron hand grenades, one grenade with a lit fuse held in the raised right hand ready to throw, a slow match wound around the left wrist, short hanger sword at the hip. Strong throwing stance. Palette: black, ochre yellow, crimson, buff leather, dark iron.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same imperial faction: match their painting style, finish, lighting, grey background and black-ochre-crimson palette exactly, but design a NEW character as described; do not copy their figures.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, modern grenade, pineapple grenade, explosion, fire",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "10399212dcdeb7798640ca92b1c363c7766589071341b237973d73f5c45a3c5e",
+    "source_image": "/home/al/.codex/generated_images/01a10655-1195-7271-a437-cbe09d602dd4/exec-1199cd1f-0e2b-479a-882d-6298c688794a.png",
+    "references": [
+      "assets/art/imperio/alabardero.png",
+      "assets/art/imperio/arcabucero.png"
+    ],
+    "thread": "01a10655-1195-7271-a437-cbe09d602dd4",
+    "approved": "2026-10-04"
   }
 ]
