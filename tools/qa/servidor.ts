@@ -11,7 +11,7 @@
  *    abierto (#61). El puerto de verdad se lee de lo que el servidor anuncia
  *    desde `listening`, que es cuando ya escucha.
  *  - **`tsx` y no `npx tsx`**: el envoltorio mete un proceso de más que retiene
- *    las tuberías (ver `CLAUDE.md`, «`pnpm qa` bajó de 5,4 s a 3,1 s»).
+ *    las tuberías (ver `docs/historia.md`, «`pnpm qa` bajó de 5,4 s a 3,1 s»).
  *  - **Su propio grupo de procesos** (`detached`), y se mata por el grupo: así
  *    cae entero y no se lleva nada que no haya arrancado este arnés.
  */
