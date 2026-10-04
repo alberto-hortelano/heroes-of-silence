@@ -16,6 +16,13 @@
  *   pnpm taller derivar <hoja.webp>…     reescribe el JSON de una hoja
  *   pnpm taller derivar-poses            reescribe `_poses/atlas-8d.json`, las anclas del Y Bot
  *   pnpm taller componer-atlas-mapa      rehace assets/rpg/map-atlas.png con las piezas pintadas
+ *   pnpm taller encolar --texturas-suelo | --muestras-densas | --piezas-densas [--solo=…]
+ *                                        el arte de los mapas densos (`mapa-denso.ts`)
+ *   pnpm taller vista-mapa [semilla]     un mapa denso del generador pintado con ese arte
+ *   pnpm taller encolar --modulos | --texturas-relieve [--solo=…]
+ *                                        las hojas de módulos del escenógrafo
+ *   pnpm taller escenario [semilla…]     el escenógrafo: compone, pinta, captura y mide
+ *   pnpm taller catalogo-escena          rehace assets/mapa/escena.json, el catálogo que lee el juego
  *   pnpm taller vista-ejercitos          una página con todos los ejércitos, para elegir o comparar
  *   pnpm taller vista-8d [unidad|juego]  el visor de 8 direcciones de las unidades y las poses
  *
@@ -63,10 +70,20 @@ import {
   recortarAlContenido,
 } from './empaquetar.js';
 import { type Encargo, FILAS_POR_HOJA, promptDe } from './encargo.js';
+import { escribirCatalogo } from './escenario/catalogo-disco.js';
+import { escenario } from './escenario/escenario.js';
+import {
+  encargoDeTexturaDeRelieve,
+  encargosDeModulos,
+  escribirModulos,
+  TEXTURAS_DE_RELIEVE,
+} from './escenario/modulos.js';
 import { evaluar } from './evaluar.js';
 import { ESTILOS_DE_MAPA, encargoDeMuestra, encargosDeCeldas, encargosDePiezas } from './mapa.js';
+import { encargoDeLamina, encargosDePiezasDensas, encargosDeTexturas } from './mapa-denso.js';
 import { escribirAtlasDePoses, RUTA_DEL_ATLAS_8D } from './poses-8d.js';
-import { aRaster, recortar, UMBRALES } from './recorte.js';
+import { aRaster, dePng, recortar, UMBRALES } from './recorte.js';
+import { costura, hacerTeselable, LADO_DE_TEXTURA, UMBRAL_DE_COSTURA } from './textura.js';
 import {
   encargoDeGiro,
   encargoDeIdentidad,
@@ -76,6 +93,7 @@ import {
 import { validar } from './validar.js';
 import { vistaEdificios, vistaEfectos, vistaEjercitos } from './vista.js';
 import { vista8d } from './vista-8d.js';
+import { vistaMapa } from './vista-mapa.js';
 
 const RAIZ = resolve(import.meta.dirname, '../..');
 /**
@@ -166,7 +184,18 @@ async function postprocesar(
     const pasos: string[] = [];
     let final: Buffer;
     let extra: Record<string, unknown> = {};
-    if (encargo.fondo === 'opaco') {
+    if (encargo.tipo === 'textura') {
+      const t = await hacerTeselable(crudo);
+      const c = costura(t);
+      if (c > UMBRAL_DE_COSTURA) {
+        throw new Error(`la costura de la textura se nota: ${c.toFixed(2)} > ${UMBRAL_DE_COSTURA}`);
+      }
+      final = await dePng(t);
+      pasos.push(
+        `cuadrado central a ${LADO_DE_TEXTURA}×${LADO_DE_TEXTURA} y repetible: mezclada eje a eje con su copia desplazada medio lado; costura ${c.toFixed(2)} (1 es invisible)`,
+      );
+      extra = { costura: c };
+    } else if (encargo.fondo === 'opaco') {
       final = crudo;
     } else {
       // Un efecto es semitransparente a propósito (humo, resplandor): recorte suave.
@@ -202,6 +231,18 @@ async function postprocesar(
         final = await recortarAlContenido(r, 24);
         pasos.push(
           `lámina partida en ${iconos.length} iconos de ${LADO_ICONO}×${LADO_ICONO}, cada uno en su fichero`,
+        );
+      } else if (encargo.tipo === 'modulos') {
+        const indice = await escribirModulos(
+          r,
+          join(RAIZ, encargo.salida),
+          encargo.cuantos ?? encargo.nombres?.length ?? 16,
+          encargo.nombres,
+        );
+        extra = { indiceDeModulos: indice };
+        final = await recortarAlContenido(r, 24);
+        pasos.push(
+          `hoja partida en ${indice.length} módulos a su tamaño nativo, cada uno con su ancla en la base`,
         );
       } else if (encargo.tipo === 'atlas') {
         const altura = FIGURA.alturaAdulto;
@@ -253,6 +294,12 @@ async function postprocesar(
     if (encargo.tipo === 'efecto') {
       const d = await escribirEfectoDerivado(rutaSalida);
       pasos.push(`JSON derivado: ${d.fotogramas} fotogramas, caja ${d.caja}`);
+    }
+    if (encargo.tipo === 'modulos') {
+      await writeFile(
+        join(RAIZ, `${encargo.salida}.json`),
+        `${JSON.stringify({ hoja: basename(rutaSalida), modulos: extra.indiceDeModulos }, null, 2)}\n`,
+      );
     }
     if (encargo.tipo === 'iconos') {
       await writeFile(
@@ -508,6 +555,52 @@ async function encolar(args: readonly string[]): Promise<void> {
     }
     return;
   }
+  // Los módulos del escenógrafo y sus texturas (`escenario/modulos.ts`).
+  if (args.includes('--modulos') || args.includes('--texturas-relieve')) {
+    const todos = args.includes('--modulos')
+      ? encargosDeModulos()
+      : TEXTURAS_DE_RELIEVE.map(encargoDeTexturaDeRelieve);
+    const solo = args
+      .find((x) => x.startsWith('--solo='))
+      ?.slice('--solo='.length)
+      .split(',');
+    const lista = todos.filter(
+      (e) => solo === undefined || solo.includes(e.id.replace(/^(modulos|textura)-/, '')),
+    );
+    for (const bruto of lista) {
+      if (args.includes('--rehacer')) await COLA.olvidar(bruto.id);
+      console.log(`encolado ${(await COLA.encolar(bruto)).id}`);
+    }
+    return;
+  }
+  // El arte de los mapas densos (`mapa-denso.ts`). `--solo=a,b` filtra por id
+  // sin el prefijo del encargo (`--solo=grass,lava`, `--solo=bosque-verde-1`).
+  const densas = args.includes('--texturas-suelo')
+    ? encargosDeTexturas()
+    : args.includes('--muestras-densas')
+      ? (['a', 'b'] as const).map(encargoDeLamina)
+      : args.includes('--piezas-densas')
+        ? encargosDePiezasDensas()
+        : null;
+  if (densas !== null) {
+    const solo = args
+      .find((x) => x.startsWith('--solo='))
+      ?.slice('--solo='.length)
+      .split(',');
+    const sinPrefijo = (id: string) => id.replace(/^(suelo|mapa-denso-lamina|mapa)-/, '');
+    const lista = densas.filter((e) => solo === undefined || solo.includes(sinPrefijo(e.id)));
+    if (solo !== undefined && lista.length !== solo.length) {
+      const hay = densas.map((e) => sinPrefijo(e.id));
+      throw new Error(
+        `--solo pide ${solo.filter((x) => !hay.includes(x)).join(', ')}, que no existe${solo.length - lista.length > 1 ? 'n' : ''}. Hay: ${hay.join(', ')}`,
+      );
+    }
+    for (const bruto of lista) {
+      if (args.includes('--rehacer')) await COLA.olvidar(bruto.id);
+      console.log(`encolado ${(await COLA.encolar(bruto)).id}`);
+    }
+    return;
+  }
   if (args.includes('--muestras-mapa')) {
     for (const estilo of ESTILOS_DE_MAPA) {
       const bruto = encargoDeMuestra(estilo);
@@ -636,6 +729,41 @@ switch (orden) {
         );
     }
     break;
+  case 'vista-mapa': {
+    const semilla = resto[0] === undefined ? 1 : Number(resto[0]);
+    if (!Number.isSafeInteger(semilla))
+      throw new Error(`«${resto[0]}» no es una semilla: un entero`);
+    console.log(`→ ${await vistaMapa(semilla)}`);
+    break;
+  }
+  case 'escenario': {
+    const semillas = resto.length === 0 ? [1] : resto.map(Number);
+    if (semillas.some((n) => !Number.isSafeInteger(n))) throw new Error('las semillas son enteros');
+    for (const r of await escenario(semillas)) {
+      const i = r.informe as {
+        desnudo: number;
+        murallasPartidas: number;
+        basesSobreReserva: number;
+        casillasDeBarreraSinFormacion: number;
+        modulosQueFaltan: string[];
+        errores: string[];
+      };
+      console.log(`→ ${r.png}`);
+      console.log(
+        `  suelo desnudo ${(i.desnudo * 100).toFixed(1)} % · murallas partidas ${i.murallasPartidas} · bases sobre reserva ${i.basesSobreReserva} · barrera sin formación ${i.casillasDeBarreraSinFormacion}` +
+          (i.modulosQueFaltan.length > 0 ? ` · faltan ${i.modulosQueFaltan.join(', ')}` : '') +
+          (i.errores.length > 0 ? ` · ERRORES: ${i.errores.join(' | ')}` : ''),
+      );
+    }
+    break;
+  }
+  case 'catalogo-escena': {
+    const c = await escribirCatalogo();
+    console.log(
+      `→ assets/mapa/escena.json: ${Object.keys(c.hojas).length} hojas, ${Object.keys(c.piezas).length} piezas`,
+    );
+    break;
+  }
   case 'vista-8d':
     // Un solo visor con todas: el argumento solo elige con cuál se abre.
     console.log(`→ ${await vista8d(resto[0])}`);
@@ -657,6 +785,6 @@ switch (orden) {
     break;
   default:
     throw new Error(
-      `orden desconocida «${orden}»: trabajar, encolar, corregir, retirar, reprocesar, estado, devolver, derivar, derivar-poses, vista-8d, componer-atlas-mapa`,
+      `orden desconocida «${orden}»: trabajar, encolar, corregir, retirar, reprocesar, estado, devolver, derivar, derivar-poses, vista-ejercitos, vista-edificios, vista-efectos, vista-8d, vista-mapa, escenario, catalogo-escena, evaluar, componer-atlas-mapa`,
     );
 }

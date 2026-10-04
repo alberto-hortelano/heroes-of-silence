@@ -1,0 +1,11 @@
+{
+  "imagen": "acantilado-lava-hondo-1.webp",
+  "sha256": "13ae4980c4ac5266a0b48f948a08dbadd886b466eb1e344a0aaf7eccc7e9e04a",
+  "ancho": 1025,
+  "alto": 1017,
+  "ancla": [
+    720,
+    993
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

@@ -1,0 +1,41 @@
+{
+  "encargo": "mapa-farallon-2",
+  "tipo": "imagen",
+  "fecha": "2026-10-03T19:33:56.994Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a10340-fef5-7510-b0fe-a338a727cc04",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUna pieza suelta del mapa de aventura de un juego de estrategia por turnos. Dibuja una versión PEQUEÑA de la pieza 4 de la imagen de estilo (un tramo de ACANTILADO de arenisca roja: una cara vertical de roca estriada con su sombra al pie, del lado bajo): un farallón suelto de arenisca roja, una peña alta y estrecha, del tamaño de UNA sola casilla del mapa, como un árbol grande al lado de un soldado. Mismos materiales y colores; otra silueta que la primera, para que varias juntas no se repitan.\nEstilo de la imagen de estilo, que manda sobre cualquier otra idea: fantasía medieval OSCURA y sombría, pintura digital muy detallada como una maqueta en miniatura, con muchísimo detalle menudo (piedras, matas, grietas, raíces). Paleta APAGADA y poco saturada: verdes oliva y musgo oscuros, grises pizarra, pardos terrosos, rojos óxido; nada de colores vivos ni de aspecto de juego para móvil. Sombras profundas y oclusión marcada entre los detalles, luz tenue y algo fría, con contraste dramático.\nUn único objeto, centrado y entero. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, la misma de la imagen de estilo; nunca cenital ni de perfil. La luz viene de arriba a la izquierda. Sin estandartes ni banderas.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/denso-a.webp",
+      "papel": "estilo",
+      "sha256": "b54ea2efe0172b33089168428fa59bce5e6917baf084b50fc21476837b6631eb"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a10340-fef5-7510-b0fe-a338a727cc04/exec-f0b4382a-5c97-429a-8b54-2b8998580031.png",
+    "sha256": "c3abdd5db79e6f5d401b43c7034654e9bf098d26f8012bc0120977fdf4dca9ec",
+    "ancho": 1222,
+    "alto": 1287
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: 692×1155, ancla en (398,1130)"
+  ],
+  "validacion": {
+    "visibles": 0.5856442209043365,
+    "opacos": 0.9936400032472943,
+    "haloSuelto": 0.000004272755628287351,
+    "ancho": 692,
+    "alto": 1155
+  },
+  "salida": {
+    "ruta": "assets/mapa/farallon-2.webp",
+    "sha256": "9843bf55d2e7db68ba0be4566632a53366700ff0ade17288b742347df7ac05c4"
+  }
+}

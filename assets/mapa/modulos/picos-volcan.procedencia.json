@@ -1,0 +1,45 @@
+{
+  "encargo": "modulos-picos-volcan",
+  "tipo": "modulos",
+  "fecha": "2026-10-03T20:54:26.197Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a1038a-7c9c-75f0-bc7c-8ba4c057606a",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUna hoja de módulos para componer el mapa de aventura de un juego de estrategia: dieciséis picos volcánicos de basalto negro sueltos, con grietas de lava incandescente, de tamaños muy distintos.\nSon piezas para juntar a cientos y formar bosques, cordilleras y murallas continuas como las de la imagen de estilo: cada módulo es el objeto SOLO, sin peana ni trozo de suelo debajo, para posarlo sobre el terreno.\nEstilo de la imagen de estilo: fantasía medieval oscura, pintura digital muy detallada como una maqueta en miniatura, paleta apagada y poco saturada (verdes oliva y musgo oscuros, grises pizarra, pardos, rojos óxido), sombras profundas, luz tenue desde arriba a la izquierda.\n\nRejilla de 4 filas por 4 columnas: 16 módulos sueltos de la misma familia, con mucho aire alrededor de cada uno; NINGÚN módulo toca a otro, ni con una rama ni con una sombra.\nTodos con la misma cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, nunca cenital ni de perfil, y a la MISMA escala: un módulo pequeño es pequeño de verdad, no un grande dibujado más chico.\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/art/mapas/Imagen de ChatGPT 3 oct 2026, 10_05_01.png",
+      "papel": "estilo",
+      "sha256": "a3b78bb6efb486f6c65827e19739696aab723d824331faaa6d58d84c727fe6f5"
+    },
+    {
+      "ruta": "assets/mapa/muestras/denso-b.webp",
+      "papel": "identidad",
+      "sha256": "a7b0a2a1b884d4909de4f34578e1ba6f1522a5db09f5c4c07c8be14de7a80947"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a1038a-7c9c-75f0-bc7c-8ba4c057606a/exec-c12e70e4-694f-42cd-862d-774f895253b8.png",
+    "sha256": "315aacb7d27490a6cca303d3aeaa010f3fb95b3fa0d30b068f4a6d8e63989bcb",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "hoja partida en 16 módulos a su tamaño nativo, cada uno con su ancla en la base",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.2899009944061456,
+    "opacos": 0.9785372398528546,
+    "haloSuelto": 0,
+    "ancho": 1528,
+    "alto": 1023
+  },
+  "salida": {
+    "ruta": "assets/mapa/modulos/picos-volcan.webp",
+    "sha256": "8ee2ebc440df2e2e67e40d3e8bb242cc269145ee546bb6e8fe82a356325e0633"
+  }
+}

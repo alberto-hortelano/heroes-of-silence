@@ -1,0 +1,41 @@
+{
+  "encargo": "mapa-bosque-pantano-2",
+  "tipo": "imagen",
+  "fecha": "2026-10-03T19:24:58.620Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a10338-2d93-7982-b0f0-3d1e3bf2c68c",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUna pieza suelta del mapa de aventura de un juego de estrategia por turnos. Dibuja SOLO una variante nueva de la pieza 3 de la imagen de estilo (el mismo tramo de bosque denso, de CIÉNAGA: árboles muertos retorcidos y sin hojas, con raíces al aire): mismos materiales, colores y escala, pero otra silueta, para que varias seguidas formen un tramo sin repetirse.\nEstilo de la imagen de estilo, que manda sobre cualquier otra idea: fantasía medieval OSCURA y sombría, pintura digital muy detallada como una maqueta en miniatura, con muchísimo detalle menudo (piedras, matas, grietas, raíces). Paleta APAGADA y poco saturada: verdes oliva y musgo oscuros, grises pizarra, pardos terrosos, rojos óxido; nada de colores vivos ni de aspecto de juego para móvil. Sombras profundas y oclusión marcada entre los detalles, luz tenue y algo fría, con contraste dramático.\nUn único objeto, centrado y entero. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, la misma de la imagen de estilo; nunca cenital ni de perfil. La luz viene de arriba a la izquierda. Sin estandartes ni banderas.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/denso-a.webp",
+      "papel": "estilo",
+      "sha256": "b54ea2efe0172b33089168428fa59bce5e6917baf084b50fc21476837b6631eb"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a10338-2d93-7982-b0f0-3d1e3bf2c68c/exec-4fb9a18e-d687-47de-a9bc-a7fd916220d8.png",
+    "sha256": "45b178bb64feaeef4ceb965ec5ba80222c4e1ccb8a951ceac7815b2496fc5ff4",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: 1515×1017, ancla en (1014,992)"
+  ],
+  "validacion": {
+    "visibles": 0.5367835898634111,
+    "opacos": 0.988628284557682,
+    "haloSuelto": 0,
+    "ancho": 1515,
+    "alto": 1017
+  },
+  "salida": {
+    "ruta": "assets/mapa/bosque-pantano-2.webp",
+    "sha256": "c07c4d249a9d2b64dd73b31a179f5ae2a7358dc21be3cb523ce0f47bad6e0b97"
+  }
+}

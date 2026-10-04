@@ -1,0 +1,165 @@
+{
+  "hoja": "cubierta-sand.webp",
+  "modulos": [
+    {
+      "imagen": "1.webp",
+      "sha256": "54e8677eeacf2435285dc73de9a751ab46589227274c96231424cd106f60bc76",
+      "ancho": 232,
+      "alto": 128,
+      "ancla": [
+        127,
+        123
+      ]
+    },
+    {
+      "imagen": "2.webp",
+      "sha256": "f0299f5de85e83da4136aa2e242180fc7ea366f791566c6196c03722dc6ffb29",
+      "ancho": 210,
+      "alto": 178,
+      "ancla": [
+        113,
+        173
+      ]
+    },
+    {
+      "imagen": "3.webp",
+      "sha256": "16692a76d0d8cabcc29914e6cd83421b6fd267a94d5c29183f201b5ed430b6fb",
+      "ancho": 244,
+      "alto": 131,
+      "ancla": [
+        149,
+        126
+      ]
+    },
+    {
+      "imagen": "4.webp",
+      "sha256": "e2a1d3617d0c5cadbbe521da5e8e89c7107429fa5126a4f4cfdbfd08dfb9ee51",
+      "ancho": 221,
+      "alto": 160,
+      "ancla": [
+        122,
+        155
+      ]
+    },
+    {
+      "imagen": "5.webp",
+      "sha256": "631958911d4038c0e2bc326433d42b3c58bc99c8bdb513ad15422e4ed6294590",
+      "ancho": 236,
+      "alto": 229,
+      "ancla": [
+        147,
+        224
+      ]
+    },
+    {
+      "imagen": "6.webp",
+      "sha256": "cbb0bf6fca939543a8f5370e2a49d9662fe184d3e25aa60a167380d7904dceea",
+      "ancho": 223,
+      "alto": 192,
+      "ancla": [
+        127,
+        187
+      ]
+    },
+    {
+      "imagen": "7.webp",
+      "sha256": "0d71e86dbd5a385ca54d7139d51d3656ad0ec78a45f96e3c0ae4f041d3fbcca8",
+      "ancho": 228,
+      "alto": 218,
+      "ancla": [
+        119,
+        213
+      ]
+    },
+    {
+      "imagen": "8.webp",
+      "sha256": "f7d177e67bd0a569f169a53036ff81e72babffbce866e63ebadefe34a84a1eed",
+      "ancho": 263,
+      "alto": 178,
+      "ancla": [
+        205,
+        173
+      ]
+    },
+    {
+      "imagen": "9.webp",
+      "sha256": "71d073f00136d24a2810ea7a6c0718f92670f7d2c877c63a1e4f79555635cf90",
+      "ancho": 191,
+      "alto": 243,
+      "ancla": [
+        108,
+        238
+      ]
+    },
+    {
+      "imagen": "10.webp",
+      "sha256": "8bbe69edd352a89969a93445161ada260667cc2fd6d38c58224a4bd348fd9d80",
+      "ancho": 219,
+      "alto": 195,
+      "ancla": [
+        125,
+        190
+      ]
+    },
+    {
+      "imagen": "11.webp",
+      "sha256": "2da627706f2faff29a907c604a39c66ae107da019aaacccffc55cc401eacf85b",
+      "ancho": 204,
+      "alto": 145,
+      "ancla": [
+        164,
+        140
+      ]
+    },
+    {
+      "imagen": "12.webp",
+      "sha256": "e084b18762bab6d3680004efb23689f665d62e233d83b64fd01211dd1c54f92f",
+      "ancho": 211,
+      "alto": 166,
+      "ancla": [
+        25,
+        161
+      ]
+    },
+    {
+      "imagen": "13.webp",
+      "sha256": "6cbc261ba15ddb23f5bf2a1462907a0c47473456959f256096c564b2e1bd83bb",
+      "ancho": 242,
+      "alto": 194,
+      "ancla": [
+        90,
+        189
+      ]
+    },
+    {
+      "imagen": "14.webp",
+      "sha256": "6d2798efd8f3dc3a00f7ab7c09c105324fbd3e814808b6bc7af881ec2a165e89",
+      "ancho": 215,
+      "alto": 148,
+      "ancla": [
+        134,
+        143
+      ]
+    },
+    {
+      "imagen": "15.webp",
+      "sha256": "544e3eb7f3cef17b90f19f0df6b7a408e04541431daf12727e09fbd775a8bb11",
+      "ancho": 236,
+      "alto": 133,
+      "ancla": [
+        141,
+        128
+      ]
+    },
+    {
+      "imagen": "16.webp",
+      "sha256": "ff856053efc7c750fb6457110dfd318036ce725793c746fee98df6516f467853",
+      "ancho": 225,
+      "alto": 127,
+      "ancla": [
+        118,
+        122
+      ]
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "imagen": "muro-ancho-1.webp",
+  "sha256": "f695232599659a3850660646c901bf26efb931e0196b4962a4831350e2c384dd",
+  "ancho": 1536,
+  "alto": 892,
+  "ancla": [
+    1308,
+    867
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

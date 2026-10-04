@@ -1,0 +1,11 @@
+{
+  "imagen": "nodo-puente-ancho.webp",
+  "sha256": "b3436de156ba7506bccf1f9ceaf6cf721b424beab724f65944388846076bcbf4",
+  "ancho": 1116,
+  "alto": 1024,
+  "ancla": [
+    467,
+    1008
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

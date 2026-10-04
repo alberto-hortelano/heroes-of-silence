@@ -1,0 +1,11 @@
+{
+  "imagen": "nodo-puerta-ancho.webp",
+  "sha256": "bc9d4be0abc575405759923612795b667363e7eaf580c8ae979703836a24f8ed",
+  "ancho": 1490,
+  "alto": 1017,
+  "ancla": [
+    1103,
+    1004
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

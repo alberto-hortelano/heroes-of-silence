@@ -1,0 +1,11 @@
+{
+  "imagen": "acantilado-lava-ancho-2.webp",
+  "sha256": "4a795969400f7ea5cf267753ab3e63db0c071e1d24842f750189ebb452332369",
+  "ancho": 1749,
+  "alto": 799,
+  "ancla": [
+    1462,
+    774
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

@@ -1,0 +1,11 @@
+{
+  "imagen": "farallon-2.webp",
+  "sha256": "9843bf55d2e7db68ba0be4566632a53366700ff0ade17288b742347df7ac05c4",
+  "ancho": 692,
+  "alto": 1155,
+  "ancla": [
+    398,
+    1130
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

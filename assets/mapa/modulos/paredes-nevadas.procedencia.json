@@ -1,0 +1,45 @@
+{
+  "encargo": "modulos-paredes-nevadas",
+  "tipo": "modulos",
+  "fecha": "2026-10-03T21:13:36.201Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a1039b-d851-7ce2-b5b0-0232b31775dd",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUna hoja de módulos para componer el mapa de aventura de un juego de estrategia: dieciséis trozos de PARED DE ACANTILADO de roca oscura con nieve en el borde de arriba y en los salientes, vistos de frente; caras verticales altas de anchos distintos.\nSon piezas para juntar a cientos y formar bosques, cordilleras y murallas continuas como las de la imagen de estilo: cada módulo es el objeto SOLO, sin peana ni trozo de suelo debajo, para posarlo sobre el terreno.\nEstilo de la imagen de estilo: fantasía medieval oscura, pintura digital muy detallada como una maqueta en miniatura, paleta apagada y poco saturada (verdes oliva y musgo oscuros, grises pizarra, pardos, rojos óxido), sombras profundas, luz tenue desde arriba a la izquierda.\n\nRejilla de 4 filas por 4 columnas: 16 módulos sueltos de la misma familia, con mucho aire alrededor de cada uno; NINGÚN módulo toca a otro, ni con una rama ni con una sombra.\nTodos con la misma cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, nunca cenital ni de perfil, y a la MISMA escala: un módulo pequeño es pequeño de verdad, no un grande dibujado más chico.\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/art/mapas/Imagen de ChatGPT 3 oct 2026, 10_05_01.png",
+      "papel": "estilo",
+      "sha256": "a3b78bb6efb486f6c65827e19739696aab723d824331faaa6d58d84c727fe6f5"
+    },
+    {
+      "ruta": "assets/mapa/muestras/denso-a.webp",
+      "papel": "identidad",
+      "sha256": "b54ea2efe0172b33089168428fa59bce5e6917baf084b50fc21476837b6631eb"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a1039b-d851-7ce2-b5b0-0232b31775dd/exec-a46ce777-7bd4-4859-8d48-6020a29653ba.png",
+    "sha256": "06e22bea254b52538d909cddcfcb0144c34f51d3ab61c8086fe826443d8a02fe",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "hoja partida en 16 módulos a su tamaño nativo, cada uno con su ancla en la base",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.4502193605712848,
+    "opacos": 0.9860571557932895,
+    "haloSuelto": 0,
+    "ancho": 1505,
+    "alto": 1017
+  },
+  "salida": {
+    "ruta": "assets/mapa/modulos/paredes-nevadas.webp",
+    "sha256": "0075bcbff0d2251d0057871ea6f75ba1129b95c243d953375b8aacd1c47b2874"
+  }
+}

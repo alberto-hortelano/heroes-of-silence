@@ -6,6 +6,7 @@
 import sharp from 'sharp';
 import { FIGURA } from '../../src/shared/arte.js';
 import { ALFA_FIGURA } from './empaquetar.js';
+import type { Encargo } from './encargo.js';
 import { UMBRALES } from './recorte.js';
 
 export interface Informe {
@@ -50,7 +51,7 @@ function medirAlfa(data: Buffer, width: number, height: number): Record<string, 
 
 export async function validar(
   imagen: Buffer,
-  tipo: 'atlas' | 'identidad' | 'giro' | 'imagen' | 'iconos' | 'efecto',
+  tipo: Encargo['tipo'],
   opaca = false,
   celda: number = FIGURA.celda,
   filas = 3,

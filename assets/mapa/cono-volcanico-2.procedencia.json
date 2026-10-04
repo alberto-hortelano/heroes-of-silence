@@ -1,0 +1,41 @@
+{
+  "encargo": "mapa-cono-volcanico-2",
+  "tipo": "imagen",
+  "fecha": "2026-10-03T19:32:33.267Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a1033f-f077-72e1-8adc-c5e4be76473c",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUna pieza suelta del mapa de aventura de un juego de estrategia por turnos. Dibuja una versión PEQUEÑA de la pieza 6 de la imagen de estilo (un tramo de MONTAÑA VOLCÁNICA: picos de basalto negro con ríos de lava incandescente bajando por las laderas): un solo cono volcánico bajo con una grieta de lava, del tamaño de UNA sola casilla del mapa, como un árbol grande al lado de un soldado. Mismos materiales y colores; otra silueta que la primera, para que varias juntas no se repitan.\nEstilo de la imagen de estilo, que manda sobre cualquier otra idea: fantasía medieval OSCURA y sombría, pintura digital muy detallada como una maqueta en miniatura, con muchísimo detalle menudo (piedras, matas, grietas, raíces). Paleta APAGADA y poco saturada: verdes oliva y musgo oscuros, grises pizarra, pardos terrosos, rojos óxido; nada de colores vivos ni de aspecto de juego para móvil. Sombras profundas y oclusión marcada entre los detalles, luz tenue y algo fría, con contraste dramático.\nUn único objeto, centrado y entero. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, la misma de la imagen de estilo; nunca cenital ni de perfil. La luz viene de arriba a la izquierda. Sin estandartes ni banderas.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/denso-b.webp",
+      "papel": "estilo",
+      "sha256": "a7b0a2a1b884d4909de4f34578e1ba6f1522a5db09f5c4c07c8be14de7a80947"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a1033f-f077-72e1-8adc-c5e4be76473c/exec-b3b237d6-528c-4387-be37-b97a88f66385.png",
+    "sha256": "ca6499925e4813e85e514b5c240facf02bc1da738c6bb8255f3d1c460cd925bf",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: 1090×759, ancla en (556,734)"
+  ],
+  "validacion": {
+    "visibles": 0.5231122553819004,
+    "opacos": 0.9959378523762871,
+    "haloSuelto": 0,
+    "ancho": 1090,
+    "alto": 759
+  },
+  "salida": {
+    "ruta": "assets/mapa/cono-volcanico-2.webp",
+    "sha256": "a2085b8b320276ff598907fd443ec8052b32d7d80c6943f5224110bf8c61fd12"
+  }
+}

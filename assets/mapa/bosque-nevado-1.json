@@ -1,0 +1,11 @@
+{
+  "imagen": "bosque-nevado-1.webp",
+  "sha256": "1d12da5b32d85df4d4be74805f89dfb8fe55d02a28fe23310bb1b2c1a33c15f7",
+  "ancho": 1482,
+  "alto": 994,
+  "ancla": [
+    992,
+    969
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

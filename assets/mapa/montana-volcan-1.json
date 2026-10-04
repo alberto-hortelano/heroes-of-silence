@@ -1,0 +1,11 @@
+{
+  "imagen": "montana-volcan-1.webp",
+  "sha256": "c776e60b170faef3f0d678feedaf7b43a4af9964ac83f72a212780ccd0957d16",
+  "ancho": 1326,
+  "alto": 1014,
+  "ancla": [
+    744,
+    998
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

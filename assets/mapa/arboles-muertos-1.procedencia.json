@@ -1,0 +1,41 @@
+{
+  "encargo": "mapa-arboles-muertos-1",
+  "tipo": "imagen",
+  "fecha": "2026-10-03T19:19:46.983Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a10334-4c59-75f3-97fb-1053b17d444d",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUna pieza suelta del mapa de aventura de un juego de estrategia por turnos. Dibuja una versión PEQUEÑA de la pieza 3 de la imagen de estilo (el mismo tramo de bosque denso, de CIÉNAGA: árboles muertos retorcidos y sin hojas, con raíces al aire): dos o tres árboles muertos retorcidos, del tamaño de UNA sola casilla del mapa, como un árbol grande al lado de un soldado. Mismos materiales y colores; compacta.\nEstilo de la imagen de estilo, que manda sobre cualquier otra idea: fantasía medieval OSCURA y sombría, pintura digital muy detallada como una maqueta en miniatura, con muchísimo detalle menudo (piedras, matas, grietas, raíces). Paleta APAGADA y poco saturada: verdes oliva y musgo oscuros, grises pizarra, pardos terrosos, rojos óxido; nada de colores vivos ni de aspecto de juego para móvil. Sombras profundas y oclusión marcada entre los detalles, luz tenue y algo fría, con contraste dramático.\nUn único objeto, centrado y entero. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, la misma de la imagen de estilo; nunca cenital ni de perfil. La luz viene de arriba a la izquierda. Sin estandartes ni banderas.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/denso-a.webp",
+      "papel": "estilo",
+      "sha256": "b54ea2efe0172b33089168428fa59bce5e6917baf084b50fc21476837b6631eb"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a10334-4c59-75f3-97fb-1053b17d444d/exec-94e04365-ddf1-43fa-ba2e-efdf2ed21b85.png",
+    "sha256": "98557344536b66b134e759a28c8b80529ba652ae9609f6bc0133fab8f2f2cc00",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: 882×1017, ancla en (474,992)"
+  ],
+  "validacion": {
+    "visibles": 0.4026838529577678,
+    "opacos": 0.9723896402320013,
+    "haloSuelto": 0,
+    "ancho": 882,
+    "alto": 1017
+  },
+  "salida": {
+    "ruta": "assets/mapa/arboles-muertos-1.webp",
+    "sha256": "d31e771d573c7d8e35a067d25da5fc810994cdb0798c6f8b322ebea1b22210bb"
+  }
+}

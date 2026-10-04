@@ -1,0 +1,41 @@
+{
+  "encargo": "mapa-rocas-1",
+  "tipo": "imagen",
+  "fecha": "2026-10-03T19:51:30.493Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a10350-c025-7a43-8eb7-472910c21356",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUna pieza suelta del mapa de aventura de un juego de estrategia por turnos. Dibuja SOLO la pieza 8 de la imagen de estilo (un grupo de ROCAS grandes y peñascos grises, bajo y compacto), con su mismo diseño, materiales y colores.\nEstilo de la imagen de estilo, que manda sobre cualquier otra idea: fantasía medieval OSCURA y sombría, pintura digital muy detallada como una maqueta en miniatura, con muchísimo detalle menudo (piedras, matas, grietas, raíces). Paleta APAGADA y poco saturada: verdes oliva y musgo oscuros, grises pizarra, pardos terrosos, rojos óxido; nada de colores vivos ni de aspecto de juego para móvil. Sombras profundas y oclusión marcada entre los detalles, luz tenue y algo fría, con contraste dramático.\nUn único objeto, centrado y entero. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, la misma de la imagen de estilo; nunca cenital ni de perfil. La luz viene de arriba a la izquierda. Sin estandartes ni banderas.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/denso-b.webp",
+      "papel": "estilo",
+      "sha256": "a7b0a2a1b884d4909de4f34578e1ba6f1522a5db09f5c4c07c8be14de7a80947"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a10350-c025-7a43-8eb7-472910c21356/exec-7d0b747a-0651-4d91-a3fe-1912751ed48e.png",
+    "sha256": "67e698d2f07f8861b8eaf6347f360ed7df9f596937e914713a6d068d1cb1c535",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: 1536×898, ancla en (843,873)"
+  ],
+  "validacion": {
+    "visibles": 0.6047169346232368,
+    "opacos": 0.9961012009308203,
+    "haloSuelto": 0,
+    "ancho": 1536,
+    "alto": 898
+  },
+  "salida": {
+    "ruta": "assets/mapa/rocas-1.webp",
+    "sha256": "ec675e0a22ce5a1fa90334c2972737c872aba2d5423882626be039232c74fa8e"
+  }
+}

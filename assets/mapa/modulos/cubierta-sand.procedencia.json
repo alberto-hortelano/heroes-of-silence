@@ -1,0 +1,40 @@
+{
+  "encargo": "modulos-cubierta-sand",
+  "tipo": "modulos",
+  "fecha": "2026-10-03T20:44:48.913Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a10381-b669-7e80-b03c-155ac9df52a2",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUna hoja de módulos para componer el mapa de aventura de un juego de estrategia: dieciséis detalles PEQUEÑOS de desierto rojo: piedras de arenisca, matojos secos, huesos blanqueados, un cactus pequeño, rocas rojas bajas.\nSon piezas para juntar a cientos y formar bosques, cordilleras y murallas continuas como las de la imagen de estilo: cada módulo es el objeto SOLO, sin peana ni trozo de suelo debajo, para posarlo sobre el terreno.\nEstilo de la imagen de estilo: fantasía medieval oscura, pintura digital muy detallada como una maqueta en miniatura, paleta apagada y poco saturada (verdes oliva y musgo oscuros, grises pizarra, pardos, rojos óxido), sombras profundas, luz tenue desde arriba a la izquierda.\n\nRejilla de 4 filas por 4 columnas: 16 módulos sueltos de la misma familia, con mucho aire alrededor de cada uno; NINGÚN módulo toca a otro, ni con una rama ni con una sombra.\nTodos con la misma cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, nunca cenital ni de perfil, y a la MISMA escala: un módulo pequeño es pequeño de verdad, no un grande dibujado más chico.\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/art/mapas/Imagen de ChatGPT 3 oct 2026, 10_05_01.png",
+      "papel": "estilo",
+      "sha256": "a3b78bb6efb486f6c65827e19739696aab723d824331faaa6d58d84c727fe6f5"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a10381-b669-7e80-b03c-155ac9df52a2/exec-b92c6e66-fd76-4863-bc45-6f10267ebb76.png",
+    "sha256": "dc12d52b96887acb6554a59bb390c49978bfaf49482f2a1931d6e73ed832f407",
+    "ancho": 1238,
+    "alto": 1271
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "hoja partida en 16 módulos a su tamaño nativo, cada uno con su ancla en la base",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.2251225067712626,
+    "opacos": 0.9326669213320578,
+    "haloSuelto": 0.00004056616849158083,
+    "ancho": 1187,
+    "alto": 1107
+  },
+  "salida": {
+    "ruta": "assets/mapa/modulos/cubierta-sand.webp",
+    "sha256": "8f25a69732ef836e6fc8efa77aa235df718ae0475447994d5902ce8b536f58d8"
+  }
+}

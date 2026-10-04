@@ -1,0 +1,85 @@
+{
+  "hoja": "ruina.webp",
+  "modulos": [
+    {
+      "imagen": "horizontal.webp",
+      "sha256": "64d5c5c3e878198142b37fa4d1b80259ea4c110c1ab89cc67c1dc6f0f2261fb5",
+      "ancho": 483,
+      "alto": 327,
+      "ancla": [
+        397,
+        322
+      ]
+    },
+    {
+      "imagen": "profundidad.webp",
+      "sha256": "c4bfff7db73ea2983af66624d30720e2b633492e56635c9e596f947b421bbcdb",
+      "ancho": 154,
+      "alto": 393,
+      "ancla": [
+        51,
+        388
+      ]
+    },
+    {
+      "imagen": "diagonal-baja.webp",
+      "sha256": "c818413e5565f96bc638cc008e81b887e30713fc9a899ac02e1242d405a6d070",
+      "ancho": 382,
+      "alto": 392,
+      "ancla": [
+        318,
+        387
+      ]
+    },
+    {
+      "imagen": "diagonal-sube.webp",
+      "sha256": "c75df00d8fc509bf50d4147fcbbc7c45efff7e5fa4d6fca4ef269daec9c0452f",
+      "ancho": 360,
+      "alto": 384,
+      "ancla": [
+        64,
+        379
+      ]
+    },
+    {
+      "imagen": "torre-redonda.webp",
+      "sha256": "bd6c1feb5cde75817b92af4d0d9754a4d12af6d38b505a46d3981e55097f2ccf",
+      "ancho": 308,
+      "alto": 432,
+      "ancla": [
+        161,
+        427
+      ]
+    },
+    {
+      "imagen": "torre-cuadrada.webp",
+      "sha256": "f6f0b489b0f6eff2fdcc55c54b438ee2f93c9f1b2291dae10bf15ec32f36a467",
+      "ancho": 305,
+      "alto": 442,
+      "ancla": [
+        142,
+        437
+      ]
+    },
+    {
+      "imagen": "extremo.webp",
+      "sha256": "ed206fc5bada2e7caa78448a6f429e98bf36f58c4df762a118465c9fba75565f",
+      "ancho": 374,
+      "alto": 364,
+      "ancla": [
+        229,
+        359
+      ]
+    },
+    {
+      "imagen": "contrafuerte.webp",
+      "sha256": "57b90099b1d29ab3919a2b5b4d6673f58c0201b4a03ebb448f5512ed9ab095e1",
+      "ancho": 224,
+      "alto": 259,
+      "ancla": [
+        159,
+        254
+      ]
+    }
+  ]
+}

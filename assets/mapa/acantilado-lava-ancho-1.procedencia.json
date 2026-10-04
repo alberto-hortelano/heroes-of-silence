@@ -1,0 +1,41 @@
+{
+  "encargo": "mapa-acantilado-lava-ancho-1",
+  "tipo": "imagen",
+  "fecha": "2026-10-03T19:15:53.009Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a10330-c77a-7df1-8321-b43e6989d0f8",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUna pieza suelta del mapa de aventura de un juego de estrategia por turnos. Dibuja SOLO la pieza 5 de la imagen de estilo (un tramo de ACANTILADO de basalto negro con grietas de brasa: una cara vertical con su sombra al pie), con su mismo diseño, materiales y colores. El tramo corre de izquierda a derecha, con su cara hacia la cámara: es una frontera horizontal del mapa.\nEstilo de la imagen de estilo, que manda sobre cualquier otra idea: fantasía medieval OSCURA y sombría, pintura digital muy detallada como una maqueta en miniatura, con muchísimo detalle menudo (piedras, matas, grietas, raíces). Paleta APAGADA y poco saturada: verdes oliva y musgo oscuros, grises pizarra, pardos terrosos, rojos óxido; nada de colores vivos ni de aspecto de juego para móvil. Sombras profundas y oclusión marcada entre los detalles, luz tenue y algo fría, con contraste dramático.\nUn único objeto, centrado y entero. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, la misma de la imagen de estilo; nunca cenital ni de perfil. La luz viene de arriba a la izquierda. Sin estandartes ni banderas.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/denso-a.webp",
+      "papel": "estilo",
+      "sha256": "b54ea2efe0172b33089168428fa59bce5e6917baf084b50fc21476837b6631eb"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a10330-c77a-7df1-8321-b43e6989d0f8/exec-3ac994a4-92bf-45e1-a5fa-1e69b1ea0714.png",
+    "sha256": "103a9e2e5ffa4dd5f0cae5be39313860315b313cac8362c45bfddba8d81cb8a7",
+    "ancho": 1774,
+    "alto": 887
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: 1774×874, ancla en (1444,849)"
+  ],
+  "validacion": {
+    "visibles": 0.5558783238179759,
+    "opacos": 0.9952139286857971,
+    "haloSuelto": 0,
+    "ancho": 1774,
+    "alto": 874
+  },
+  "salida": {
+    "ruta": "assets/mapa/acantilado-lava-ancho-1.webp",
+    "sha256": "5a81512512d35c044297a6b9986cc07bcbe05bf5a1fc88fd53c1618d5000c10d"
+  }
+}

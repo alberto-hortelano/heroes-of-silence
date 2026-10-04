@@ -1,0 +1,11 @@
+{
+  "imagen": "colada-2.webp",
+  "sha256": "7144343dfa6522c7729a04df7d72e2f93a9c4cb78123335df6a6f0aa2836a7ca",
+  "ancho": 1502,
+  "alto": 747,
+  "ancla": [
+    1067,
+    722
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

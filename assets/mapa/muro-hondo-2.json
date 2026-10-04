@@ -1,0 +1,11 @@
+{
+  "imagen": "muro-hondo-2.webp",
+  "sha256": "156103c3c638d49e2ec252a4be2b1727c20795ab8f8f3e0a45f04d1d2b0f0030",
+  "ancho": 1010,
+  "alto": 1347,
+  "ancla": [
+    231,
+    1322
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

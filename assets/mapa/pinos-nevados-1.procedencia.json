@@ -1,0 +1,41 @@
+{
+  "encargo": "mapa-pinos-nevados-1",
+  "tipo": "imagen",
+  "fecha": "2026-10-03T19:49:45.783Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a1034f-8d04-74c0-aff5-129bb4284892",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUna pieza suelta del mapa de aventura de un juego de estrategia por turnos. Dibuja una versión PEQUEÑA de la pieza 2 de la imagen de estilo (el mismo tramo de bosque denso, NEVADO: abetos cargados de nieve): tres o cuatro abetos nevados apretados, del tamaño de UNA sola casilla del mapa, como un árbol grande al lado de un soldado. Mismos materiales y colores; compacta.\nEstilo de la imagen de estilo, que manda sobre cualquier otra idea: fantasía medieval OSCURA y sombría, pintura digital muy detallada como una maqueta en miniatura, con muchísimo detalle menudo (piedras, matas, grietas, raíces). Paleta APAGADA y poco saturada: verdes oliva y musgo oscuros, grises pizarra, pardos terrosos, rojos óxido; nada de colores vivos ni de aspecto de juego para móvil. Sombras profundas y oclusión marcada entre los detalles, luz tenue y algo fría, con contraste dramático.\nUn único objeto, centrado y entero. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, la misma de la imagen de estilo; nunca cenital ni de perfil. La luz viene de arriba a la izquierda. Sin estandartes ni banderas.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/denso-a.webp",
+      "papel": "estilo",
+      "sha256": "b54ea2efe0172b33089168428fa59bce5e6917baf084b50fc21476837b6631eb"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a1034f-8d04-74c0-aff5-129bb4284892/exec-3469d96b-59a8-4e22-8ee0-95d833393ffc.png",
+    "sha256": "fb5580be9757a47a76d73425db74bafe78d0df3b6b98e448e2d4d103d9a9ab04",
+    "ancho": 1374,
+    "alto": 1145
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: 863×1102, ancla en (499,1077)"
+  ],
+  "validacion": {
+    "visibles": 0.5154632996363927,
+    "opacos": 0.9726305997931537,
+    "haloSuelto": 0.00005915723380774715,
+    "ancho": 863,
+    "alto": 1102
+  },
+  "salida": {
+    "ruta": "assets/mapa/pinos-nevados-1.webp",
+    "sha256": "21ce6f961874f4386a1a1e98e50c11416fc3349224998abe64fac3d6214e7ea5"
+  }
+}

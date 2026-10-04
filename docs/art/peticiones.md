@@ -201,3 +201,126 @@ sección al juego ya está hecho:
 - **La luz del contrato ha cambiado**: `ARTE.luz.direccionSombra` pasa de
   `(1, 0,6)` a `(1, −0,6)`, así que la sombra que pinta hoy el juego ya cae hacia
   el fondo.
+
+## 10. El arte de los mapas densos (rama `arte-mapas`, respuesta a la §8 y al #134)
+
+Todo en el estilo del mapa de referencia (`assets/art/mapas/`), que el usuario dio
+por bueno el 03-10-2026 sobre dos láminas de muestra
+(`assets/mapa/muestras/denso-{a,b}.webp`). Cada pieza lleva su `.json` derivado
+(`ancho`, `alto` y `ancla`, el centro de su base) y su procedencia. El catálogo
+y la regla de elección están en `tools/taller/mapa-denso.ts`. La composición de
+prueba, `pnpm taller vista-mapa <semilla>`, pinta un mapa real de `newGame` con
+todo esto: es la propuesta de cómo engancharlo, no el render.
+
+| Qué | Dónde | Notas |
+|---|---|---|
+| Textura de cada suelo | `assets/mapa/suelos/<suelo>.webp` | 512×512, repetible por los cuatro lados (la costura la fabrica el taller). Sustituye a `tramarTexturas` y a `rpg/suelo.webp`. En la composición, una textura cubre 4×4 casillas, anclada al mundo |
+| Bordes | `bosque-{verde,nevado,pantano}-1..3`, `acantilado-{arena,lava,roca}-{ancho-1,ancho-2,hondo-1}`, `muro-{ancho,hondo}-1..2`, `orilla-1..3`, `montana-volcan-1..2`, `pico-1..3` | tramos de unas 2 casillas. `ancho`: la frontera corre a lo ancho de la pantalla; `hondo`: se aleja hacia el fondo. El pico remata los extremos de una cordillera, no la rellena |
+| Obstáculos | `bosquecillo`, `pinos-nevados`, `arboles-muertos`, `rocas`, `rocas-nevadas`, `cono-volcanico`, `colada`, `farallon`, `pena`, `ruina-1..3` (`-1..2` salvo la ruina) | de una casilla, para componer las manchas de 3-6 |
+| Nodos de paso | `nodo-puente-{ancho,hondo}`, `nodo-puerta-{ancho,hondo}`, `nodo-paso-montana`, `nodo-paso-bosque`, `nodo-paso-acantilado` | con el poste vacío para la bandera. En un nodo, el eje es el de la frontera que cruza: en `nodo-puente-ancho` el río corre a lo ancho y el puente va hacia el fondo |
+
+Cómo se elige, y lo que la composición aprendió al probarlo:
+
+- **La pieza de una casilla de barrera** sale de su barrera y del suelo más cercano
+  (`piezaDeCasilla`). Una frontera tiene dos suelos, y la casilla puede tener más
+  cerca el que no la eligió (una montaña junto al prado). Entonces vale cualquier
+  pieza de esa barrera: sin ese respaldo quedaban franjas vacías.
+- **Una mancha interior** es un componente de una sola barrera de 6 casillas o
+  menos que no toca el borde del mapa. El motor no distingue obstáculo de
+  frontera; así se deduce y acierta en las semillas probadas.
+- **Los tramos con cara** (muro, acantilado) van en una casilla de cada dos. En
+  todas, una frontera diagonal se apila como un peine. Las masas (bosque, montaña)
+  sí van en todas.
+- **La orilla** va solo en las casillas de agua que tocan tierra, a unas 1,3
+  casillas de ancho. A 2 parece un tronco flotando.
+- **El nodo** no sabe qué barrera cruza: `buildMap` lo pinta como `dirt` y no se
+  guarda. Se deduce de sus 8 vecinas (`barreraDeNodo`): la barrera que más se repite,
+  y el eje según queden a sus lados o arriba y abajo.
+- **Anchos que se ven bien** a 48 px por casilla: borde 2, obstáculo 1,15, nodo 1,7.
+
+Lo que no cambia: las piezas de la petición 3 (montañas, ciudad, pueblo, recursos)
+siguen valiendo, pero son del estilo anterior, más claras.
+
+**La composición por casilla queda superada por la §11**: el usuario la vio y se
+leía como un mapa con cosas encima. Las piezas de esta sección siguen en el repo
+(los nodos de paso las usa el escenógrafo); la regla de una pieza por casilla, no.
+
+## 11. El escenógrafo: cómo pintar el mapa denso (rama `arte-mapas`, 04-10-2026)
+
+`pnpm taller escenario <semilla>` compone un mapa real de `newGame` como escenario
+continuo: relieve con caras de roca, ríos encajados en barrancos, cordilleras y
+bosques hechos de muchos módulos, muros en 8 direcciones, cubierta en manchas y
+sendas que serpentean. Cómo funciona, en `docs/art/taller.md` («El
+escenógrafo»). El arte está en `assets/mapa/modulos/` (27 hojas) y
+`assets/mapa/texturas/`, cada pieza con su procedencia.
+
+Lo que se pide a la sesión de reglas, de menos a más:
+
+1. **Enganchar la escena.** Está preparado para que el render no tenga que
+   entender cómo se compone (ver «Contrato del enganche», abajo). Es la petición
+   que lo hace visible; las dos siguientes lo hacen mejor.
+2. **Un nivel por región en el motor.** Hoy el nivel se deduce del suelo y de una
+   tirada (`nivelDeRegion`, en `relieve.ts`). Si `regions[]` llevara `nivel`, el
+   agente que diseña el mapa podría decidir dónde está la meseta, y el relieve
+   sería un dato y no una deducción. Sin efecto en las reglas.
+3. **Ríos como líneas.** Una frontera de agua es una franja de 2-3 casillas; el
+   escenógrafo la pinta como río encajado. Si el generador trazara los ríos como
+   líneas que bajan de nivel (con su cascada donde cambian), la red seguiría
+   siendo la misma y el río tendría curso.
+4. **Saber qué barrera cruza un nodo.** Igual que en la §10: hoy se deduce de las
+   vecinas (`barreraDeNodo`).
+
+### Contrato del enganche (04-10-2026)
+
+Las dos puertas no importan nada de Node —ni `fs`, ni `sharp`, ni Playwright—, y
+lo vigila un test que sigue sus imports (`test/taller-escenario.test.ts`, «lo que
+importaría el juego»):
+
+```ts
+import { componer } from '…/escenario/colocar.js';      // (map, semilla, catalogo) → Escena
+import { imagenesDeEscena, pintarEscena } from '…/escenario/pintar.js';
+import catalogo from '…/assets/mapa/escena.json';         // tipo Catalogo, de catalogo.ts
+```
+
+- **El catálogo** es `assets/mapa/escena.json`: medidas y ancla de los 27 juegos de
+  módulos y de las 71 piezas sueltas, con `src` relativa a `assets/mapa/`. Lo
+  rehace `pnpm taller catalogo-escena`, y un test falla si el del repo no es el
+  que sale del disco.
+- **`componer(map, semilla, catalogo)`** es pura y determinista (su propio azar,
+  no el de la partida): 60-80 ms en 34×34, unos 7 000 sprites y ~1,7 MB de JSON.
+  Se llama **una vez por partida**, con el mapa recién hecho: solo lee terreno,
+  regiones, caminos y la posición de los objetos, que no cambian.
+- **`imagenesDeEscena(escena)`** lista las imágenes que puede pedir (unas 470;
+  `assets/mapa/modulos/` pesa 16 MB). `pintarEscena` no carga nada: recibe
+  `imagen(src)` y, si una no ha llegado, pinta el marcador de color de esa pieza,
+  así que el juego sigue jugándose sin arte. Volver a pintar cuando llegue el arte
+  encaja con `versionDelArte`.
+- **`pintarEscena(ctx, escena, opciones)`** pinta en cualquier contexto 2D
+  (`<canvas>` u `OffscreenCanvas`). Con `margen: 0` la casilla (x, y) empieza en
+  (x·tile, y·tile), la misma rejilla que la del juego. Tarda ~1,4 s en Chromium
+  sin GPU a 48 px por casilla, así que se pinta **una vez** en una superficie
+  aparte y se copia cada fotograma, igual que la superficie del mapa de hoy. Para
+  el juego:
+  ```ts
+  pintarEscena(ctx, escena, {
+    tile, margen: 0, imagen,
+    nubes: false, vineta: false,            // la niebla y el marco son del juego
+    objeto: (o) => o.kind === 'town' || o.kind === 'village' || o.kind === 'node' || o.kind === 'mine',
+  });
+  ```
+  `objeto` decide qué objetos se hornean en la escena. Los que cambian durante la
+  partida —un monstruo vencido, un recurso o un cofre recogidos— no deben ir
+  horneados: los pinta el juego encima, como hoy. Los fijos sí (ciudad, pueblo,
+  nodo, mina), y el juego pone encima la bandera de su dueño.
+- **Encima de la escena, todo lo de hoy**: la niebla, que se pinta con `fog`, los
+  héroes, los asaltantes, las banderas, la selección y el camino del ratón.
+- **Lo que queda abierto, y lo decide quien enganche**:
+  - dónde vive el código —puede quedarse en `tools/taller/escenario/` e
+    importarse desde el cliente, o moverse a `src/client/render/escena/`; las dos
+    puertas no tienen nada que impida moverlas—;
+  - si el minimapa sigue con sus pigmentos;
+  - qué hacer con los mapas que diseña el agente: valen igual, porque `componer`
+    solo lee el `GameMap`.
+
+  Las piezas son a 48 px por casilla; con otro zoom se escala la superficie.
+

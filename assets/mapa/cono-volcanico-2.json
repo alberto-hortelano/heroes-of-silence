@@ -1,0 +1,11 @@
+{
+  "imagen": "cono-volcanico-2.webp",
+  "sha256": "a2085b8b320276ff598907fd443ec8052b32d7d80c6943f5224110bf8c61fd12",
+  "ancho": 1090,
+  "alto": 759,
+  "ancla": [
+    556,
+    734
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

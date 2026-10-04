@@ -93,6 +93,108 @@ unos 31° en pantalla. De ahí salen:
 Los edificios y las piezas del mapa ya generados llevan una sombra pintada que no
 sigue esta regla; se rehacen cuando toque.
 
+## Los mapas densos (§8 de `peticiones.md`, issue #134)
+
+```bash
+pnpm taller encolar --muestras-densas          # las dos láminas de 3×3: bordes, y nodos y montes
+pnpm taller encolar --texturas-suelo           # las siete texturas del suelo
+pnpm taller encolar --piezas-densas [--solo=bosque-verde-1,nodo-puente-ancho]
+pnpm taller vista-mapa [semilla]               # .cache/taller/vista/mapa-denso.html
+```
+
+El catálogo está en `tools/taller/mapa-denso.ts`. Se produce como el mapa del
+01-10: primero las láminas, que aprueba el usuario, y después cada pieza copiando
+la suya de la lámina. Las referencias de estilo son la muestra elegida
+(`assets/mapa/muestras/pintado.webp`) y el mapa que eligió el usuario
+(`assets/art/mapas/`).
+
+- **Las piezas van con el suelo**, no solo con la barrera (decisión del usuario,
+  03-10-2026): bosque verde, nevado y de ciénaga; acantilado de arenisca, de
+  basalto y de roca. Una familia dice qué barrera viste, junto a qué suelos y si
+  es borde u obstáculo. `test/taller-mapa-denso.test.ts` comprueba que cada
+  pareja de barrera y suelo de `data/barreras.json` tenga la suya.
+- **Los tramos con cara** (acantilado, muro) se piden en dos orientaciones:
+  - `ancho`: la frontera corre a lo ancho de la pantalla;
+  - `hondo`: la frontera se aleja hacia el fondo.
+
+  El puente y la puerta, también: en un nodo el eje es el de la frontera que
+  cruzan.
+- **Los obstáculos** son versiones de una casilla de una pieza de la lámina, para
+  componer las manchas de 3-6.
+- **Las texturas** son el tipo `textura`, con las reglas de `tools/gen/prompts.ts`
+  en español: material a 90°, liso y sin nombrar el agua. La costura no se le pide
+  a ChatGPT, la fabrica `textura.ts`:
+  - cada eje se mezcla con su copia desplazada medio lado, con un peso que vale 1
+    en el centro y 0 en el borde;
+  - salen a 512×512;
+  - el taller rechaza una textura con la costura por encima de `UMBRAL_DE_COSTURA`.
+
+  Eje a eje y no con una sola máscara: con una máscara a cero en todo el borde, la
+  costura de la copia asoma en mitad del borde izquierdo.
+- **La composición de prueba** pinta un mapa de `newGame` con todo esto. Por
+  casilla de barrera, la regla es `piezaDeCasilla`; por nodo, `nodoDePaso` con
+  `barreraDeNodo`. Lo que falta sale con su pigmento. No es el render del juego:
+  es la propuesta para la sesión de reglas.
+
+## El escenógrafo: el mapa como escenario continuo (04-10-2026)
+
+```bash
+pnpm taller encolar --modulos [--solo=pinos,muro] [--rehacer]   # hojas de módulos
+pnpm taller encolar --texturas-relieve                          # caras de roca, agua, barro
+pnpm taller escenario 1 3 9                                     # compone, pinta, captura y mide
+```
+
+La composición de una pieza por casilla (arriba) se leía como «un mapa con cosas
+encima»: piezas montadas, tramos de muro en paralelo y ni alturas ni ríos. El
+usuario pidió formaciones grandes hechas de módulos que encajen, muros en 8
+direcciones, relieve, ríos y barrancos, y casi nada de suelo desnudo, sin tocar el
+código del juego. Todo vive en `tools/taller/escenario/` y es una **función pura
+del `GameMap` y la semilla** (`componer`), que devuelve una escena: suelo, niveles,
+agua, caras, sendas, luces y sprites colocados. El pintor la dibuja en un canvas y
+`escenario.ts` la captura con Chromium y la mide.
+
+- **Módulos, no tramos.** Cada hoja es una rejilla de 4×4 (o 4×2) de piezas
+  pequeñas del mismo tipo, pedida con el mapa de referencia como única referencia
+  de estilo (`tools/taller/escenario/modulos.ts`, `HOJAS`). Se corta por
+  componentes conexas a tamaño nativo, con el ancla en la base, en
+  `assets/mapa/modulos/<hoja>/`. Si una hoja da más trozos que módulos —un pueblo
+  de casas, pozo y huerto; un campo con su cerca—, se agrupan por celda de la
+  rejilla. `pnpm taller reprocesar` rehace el corte desde la imagen cruda sin
+  volver a pedirla.
+- **El relieve no separa regiones** (corrección del usuario): la ciénaga va abajo,
+  la nieve, la lava y lo montañoso arriba, y el resto a nivel 1 o 2 según una
+  tirada. Dos regiones al mismo nivel se separan por su río o por un cañón. Cada
+  franja toma un solo nivel de sus dos orillas (`relieve.ts`): el agua uno por
+  debajo de la más baja, el acantilado de borde el de la más alta o un cañón. Las
+  caras cuelgan siempre hacia el sur de pantalla.
+- **Muros en 8 direcciones.** La franja se adelgaza a su línea central
+  (`esqueleto.ts`, Zhang–Suen) y cada paso se pinta con el segmento de su eje,
+  con una torre en cada giro, cada extremo y cada tres pasos: la torre tapa la
+  junta, así que dos imágenes no tienen que casar al píxel. Una línea por franja.
+- **Masas** de bosque y montaña por disco de Poisson, con el tamaño creciendo con
+  la distancia al borde de la franja: picos grandes en el centro de la cordillera.
+  Junto a un camino que cruza, los de delante van bajos para que el paso se vea.
+- **Cubierta en manchas**, no en motas: un ruido suave decide dónde hay
+  bosquecillo, campos (junto a pueblos y ciudades) o claro de prado. Junto a un
+  bosque de frontera el bosque sigue sobre el suelo que se pisa, más claro.
+- **Sendas**: los tramos de camino se encadenan de cruce a cruce y se suavizan
+  con un vaivén menor que su reserva (`sendas.ts`).
+- **Luz y aire**: resplandor de ciudades y pueblos, brasas en el interior de la
+  lava, niebla baja sobre agua y ciénaga, nubes en el borde y viñeta.
+- **Primero se reserva**: objetos, caminos y nodos reservan su sitio antes de
+  colocar nada, así que nada se apoya encima.
+- **Dos puertas para el juego**: `componer(map, semilla, catalogo)` y
+  `pintarEscena(ctx, escena, opciones)` (`pintar.ts`) no importan nada de Node. El
+  catálogo es `assets/mapa/escena.json` (`pnpm taller catalogo-escena`), y la
+  página del taller empaqueta `pintar.ts` con Vite: la página y el juego pintan
+  con el mismo código. El contrato del enganche está en `peticiones.md` §11.
+
+**Lo que mide** (`.cache/taller/escenario/<semilla>.json`, y lo vigila
+`test/taller-escenario.test.ts`): murallas partidas, piezas sobre una reserva y
+casillas de barrera sin formación —las tres a 0— y el suelo desnudo, objetivo
+< 20 %. En las semillas 1, 3, 9, 5 y 12: 13,1 / 20,1 / 16,1 / 16,6 / 13,9 %. La
+semilla 3 roza el objetivo por los claros de prado, que son a propósito.
+
 ## Unidades en 8 direcciones
 
 La unidad definitiva tiene 8 direcciones y 6 acciones: quieto, andando, carga,

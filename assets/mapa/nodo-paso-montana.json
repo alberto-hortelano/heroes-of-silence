@@ -1,0 +1,11 @@
+{
+  "imagen": "nodo-paso-montana.webp",
+  "sha256": "c75243657dbe55659177b608f7029daccb45bde17dff66fd2560d8b71b09a190",
+  "ancho": 1271,
+  "alto": 1024,
+  "ancla": [
+    683,
+    1007
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

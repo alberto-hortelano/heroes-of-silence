@@ -1,0 +1,11 @@
+{
+  "imagen": "bosque-pantano-3.webp",
+  "sha256": "599a4d75b5451edd36af2d94374794fd177c804a8cad73cae235acebbef70d0f",
+  "ancho": 1507,
+  "alto": 986,
+  "ancla": [
+    1175,
+    961
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

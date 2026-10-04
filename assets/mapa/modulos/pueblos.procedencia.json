@@ -1,0 +1,45 @@
+{
+  "encargo": "modulos-pueblos",
+  "tipo": "modulos",
+  "fecha": "2026-10-03T21:40:21.613Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a103b2-ce22-7df1-b088-cd9aca41d080",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUna hoja de módulos para componer el mapa de aventura de un juego de estrategia: ocho PUEBLOS abiertos distintos, sin murallas: grupos de cuatro a siete casas de piedra y entramado con tejados de paja o teja, un pozo, una capilla o un molino, huertos y cercas; sin estandartes ni banderas.\nSon piezas para juntar a cientos y formar bosques, cordilleras y murallas continuas como las de la imagen de estilo: cada módulo es el objeto SOLO, sin peana ni trozo de suelo debajo, para posarlo sobre el terreno.\nEstilo de la imagen de estilo: fantasía medieval oscura, pintura digital muy detallada como una maqueta en miniatura, paleta apagada y poco saturada (verdes oliva y musgo oscuros, grises pizarra, pardos, rojos óxido), sombras profundas, luz tenue desde arriba a la izquierda.\n\nRejilla de 2 filas por 4 columnas: 8 módulos sueltos de la misma familia, con mucho aire alrededor de cada uno; NINGÚN módulo toca a otro, ni con una rama ni con una sombra.\nTodos con la misma cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, nunca cenital ni de perfil, y a la MISMA escala: un módulo pequeño es pequeño de verdad, no un grande dibujado más chico.\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/art/mapas/Imagen de ChatGPT 3 oct 2026, 10_05_01.png",
+      "papel": "estilo",
+      "sha256": "a3b78bb6efb486f6c65827e19739696aab723d824331faaa6d58d84c727fe6f5"
+    },
+    {
+      "ruta": "assets/mapa/pueblo.webp",
+      "papel": "identidad",
+      "sha256": "457b227e7fc82b43fc6f7492e0b810b0b5e80a2dd35d2fec931ef654f27fda7d"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a103b2-ce22-7df1-b088-cd9aca41d080/exec-a31777be-43cf-4ebf-9852-13af37cc6ddf.png",
+    "sha256": "a3ffdf999c11ac234101a22ca077613f019a87ae2bdd5407e1898d8867568893",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "hoja partida en 8 módulos a su tamaño nativo, cada uno con su ancla en la base",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.41432565637689184,
+    "opacos": 0.9691424514463007,
+    "haloSuelto": 0,
+    "ancho": 1536,
+    "alto": 903
+  },
+  "salida": {
+    "ruta": "assets/mapa/modulos/pueblos.webp",
+    "sha256": "a09cedaa5dee199187796cd4f5f89ebc8540279c01688c03007e12ac6d488dde"
+  }
+}

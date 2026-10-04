@@ -1,0 +1,41 @@
+{
+  "encargo": "mapa-pena-1",
+  "tipo": "imagen",
+  "fecha": "2026-10-03T19:46:52.104Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a1034c-e86a-7f13-b405-14057adbc5cc",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUna pieza suelta del mapa de aventura de un juego de estrategia por turnos. Dibuja una versión PEQUEÑA de la pieza 6 de la imagen de estilo (un tramo de ACANTILADO de roca gris con musgo: una cara vertical con su sombra al pie): una peña suelta de roca gris con una cara cortada a pico, del tamaño de UNA sola casilla del mapa, como un árbol grande al lado de un soldado. Mismos materiales y colores; compacta.\nEstilo de la imagen de estilo, que manda sobre cualquier otra idea: fantasía medieval OSCURA y sombría, pintura digital muy detallada como una maqueta en miniatura, con muchísimo detalle menudo (piedras, matas, grietas, raíces). Paleta APAGADA y poco saturada: verdes oliva y musgo oscuros, grises pizarra, pardos terrosos, rojos óxido; nada de colores vivos ni de aspecto de juego para móvil. Sombras profundas y oclusión marcada entre los detalles, luz tenue y algo fría, con contraste dramático.\nUn único objeto, centrado y entero. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, la misma de la imagen de estilo; nunca cenital ni de perfil. La luz viene de arriba a la izquierda. Sin estandartes ni banderas.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/denso-a.webp",
+      "papel": "estilo",
+      "sha256": "b54ea2efe0172b33089168428fa59bce5e6917baf084b50fc21476837b6631eb"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a1034c-e86a-7f13-b405-14057adbc5cc/exec-23adfaf6-6c39-4ceb-bb2a-dba8b93c1c24.png",
+    "sha256": "f48ec674444f9c4723eed377ad8710ae4b549446381c633a69e2096bc48f0554",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: 853×934, ancla en (444,909)"
+  ],
+  "validacion": {
+    "visibles": 0.6056153994843744,
+    "opacos": 0.9951626441724785,
+    "haloSuelto": 0.0000062176810122384685,
+    "ancho": 853,
+    "alto": 934
+  },
+  "salida": {
+    "ruta": "assets/mapa/pena-1.webp",
+    "sha256": "f7334e16d49618685c5a1353ea7610a8ace9ea549c13f19aab1d0732a5ebf413"
+  }
+}

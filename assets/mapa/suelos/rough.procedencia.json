@@ -1,0 +1,36 @@
+{
+  "encargo": "suelo-rough",
+  "tipo": "textura",
+  "fecha": "2026-10-03T19:06:57.702Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a10328-a36f-74d3-81ef-ef14c91a199b",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nLa textura del suelo de un mapa de aventura de fantasía medieval oscura: suelo rocoso y quebrado, guijarros grises sueltos y matas secas. De la imagen de estilo copia SOLO el material y el acabado pintado del suelo de las tierras rocosas de abajo, no sus objetos, su relieve ni su perspectiva. Oscura y apagada como ese suelo, de grano fino y con mucho detalle menudo: vista desde arriba, una casilla del mapa ocupa la cuarta parte de la imagen. Estilo de la imagen de estilo, que manda sobre cualquier otra idea: fantasía medieval OSCURA y sombría, pintura digital muy detallada como una maqueta en miniatura, con muchísimo detalle menudo (piedras, matas, grietas, raíces). Paleta APAGADA y poco saturada: verdes oliva y musgo oscuros, grises pizarra, pardos terrosos, rojos óxido; nada de colores vivos ni de aspecto de juego para móvil. Sombras profundas y oclusión marcada entre los detalles, luz tenue y algo fría, con contraste dramático.\n\nUna muestra plana de MATERIAL vista exactamente desde arriba, a 90 grados, como una muestra de una biblioteca de texturas: sin perspectiva, sin horizonte y sin sombras proyectadas.\nLisa y uniforme en toda la superficie: sin un motivo central, sin objetos sueltos, sin caminos, sin bordes ni marco, sin figuras y sin texto. Que se pueda repetir en mosaico por los cuatro lados sin que se note.\nFormato cuadrado, imagen opaca de borde a borde.",
+  "referencias": [
+    {
+      "ruta": "assets/art/mapas/Imagen de ChatGPT 3 oct 2026, 10_05_01.png",
+      "papel": "estilo",
+      "sha256": "a3b78bb6efb486f6c65827e19739696aab723d824331faaa6d58d84c727fe6f5"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a10328-a36f-74d3-81ef-ef14c91a199b/exec-53fd151c-80c9-4849-949a-7716478f7f23.png",
+    "sha256": "e65cc5a98723c5b9a1f1a8e603a054ab81732593152251cd5a0b94e4ab10730a",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "cuadrado central a 512×512 y repetible: mezclada eje a eje con su copia desplazada medio lado; costura 1.13 (1 es invisible)",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "ancho": 512,
+    "alto": 512
+  },
+  "salida": {
+    "ruta": "assets/mapa/suelos/rough.webp",
+    "sha256": "98fe5f1d1f1ee9f2a50098bf2fe9d935e4e6c94c2516b6d3dd76ae1ca4c2e895"
+  }
+}

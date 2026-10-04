@@ -1,0 +1,11 @@
+{
+  "imagen": "nodo-paso-bosque.webp",
+  "sha256": "3a2220a294704901c5622c514a0b77edaa7aaf0db7f8a51b6943ca77988ae827",
+  "ancho": 1312,
+  "alto": 1199,
+  "ancla": [
+    723,
+    1181
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

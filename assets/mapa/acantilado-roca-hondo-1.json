@@ -1,0 +1,11 @@
+{
+  "imagen": "acantilado-roca-hondo-1.webp",
+  "sha256": "5e0f5131d45d49d2721f1d04c157393e495d85cc0489b9bf9be237bc9695fe3b",
+  "ancho": 885,
+  "alto": 1424,
+  "ancla": [
+    589,
+    1399
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

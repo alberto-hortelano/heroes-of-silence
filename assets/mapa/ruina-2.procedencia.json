@@ -1,0 +1,41 @@
+{
+  "encargo": "mapa-ruina-2",
+  "tipo": "imagen",
+  "fecha": "2026-10-03T19:54:41.730Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a10353-b8bb-7622-ba3b-2a36ad22ea85",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUna pieza suelta del mapa de aventura de un juego de estrategia por turnos. Dibuja SOLO una variante nueva de la pieza 8 de la imagen de estilo (una RUINA: un lienzo de muralla derruido, con sillares caídos y hierba entre las piedras): mismos materiales, colores y escala, pero otra silueta, para que varias seguidas formen un tramo sin repetirse.\nEstilo de la imagen de estilo, que manda sobre cualquier otra idea: fantasía medieval OSCURA y sombría, pintura digital muy detallada como una maqueta en miniatura, con muchísimo detalle menudo (piedras, matas, grietas, raíces). Paleta APAGADA y poco saturada: verdes oliva y musgo oscuros, grises pizarra, pardos terrosos, rojos óxido; nada de colores vivos ni de aspecto de juego para móvil. Sombras profundas y oclusión marcada entre los detalles, luz tenue y algo fría, con contraste dramático.\nUn único objeto, centrado y entero. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, la misma de la imagen de estilo; nunca cenital ni de perfil. La luz viene de arriba a la izquierda. Sin estandartes ni banderas.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/denso-a.webp",
+      "papel": "estilo",
+      "sha256": "b54ea2efe0172b33089168428fa59bce5e6917baf084b50fc21476837b6631eb"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a10353-b8bb-7622-ba3b-2a36ad22ea85/exec-d7832d94-0bd3-4156-b649-4add812724ff.png",
+    "sha256": "ccdb4f2e8bef75e9c922d77b6cdebec145834d1ceaa89d268a388f0a2acb1f27",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: 1536×975, ancla en (1264,950)"
+  ],
+  "validacion": {
+    "visibles": 0.4513434829059829,
+    "opacos": 0.9930451583887137,
+    "haloSuelto": 0,
+    "ancho": 1536,
+    "alto": 975
+  },
+  "salida": {
+    "ruta": "assets/mapa/ruina-2.webp",
+    "sha256": "749c2790161a7b6db39c7bdc942b66ef0ce2aaebf7105155b9d7411307fd73cc"
+  }
+}

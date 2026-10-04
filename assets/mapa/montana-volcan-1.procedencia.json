@@ -1,0 +1,41 @@
+{
+  "encargo": "mapa-montana-volcan-1",
+  "tipo": "imagen",
+  "fecha": "2026-10-03T19:35:20.992Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a10341-bfdf-7eb2-afd6-7c935ca67b38",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUna pieza suelta del mapa de aventura de un juego de estrategia por turnos. Dibuja SOLO la pieza 6 de la imagen de estilo (un tramo de MONTAÑA VOLCÁNICA: picos de basalto negro con ríos de lava incandescente bajando por las laderas), con su mismo diseño, materiales y colores.\nEstilo de la imagen de estilo, que manda sobre cualquier otra idea: fantasía medieval OSCURA y sombría, pintura digital muy detallada como una maqueta en miniatura, con muchísimo detalle menudo (piedras, matas, grietas, raíces). Paleta APAGADA y poco saturada: verdes oliva y musgo oscuros, grises pizarra, pardos terrosos, rojos óxido; nada de colores vivos ni de aspecto de juego para móvil. Sombras profundas y oclusión marcada entre los detalles, luz tenue y algo fría, con contraste dramático.\nUn único objeto, centrado y entero. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, la misma de la imagen de estilo; nunca cenital ni de perfil. La luz viene de arriba a la izquierda. Sin estandartes ni banderas.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/denso-b.webp",
+      "papel": "estilo",
+      "sha256": "a7b0a2a1b884d4909de4f34578e1ba6f1522a5db09f5c4c07c8be14de7a80947"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a10341-bfdf-7eb2-afd6-7c935ca67b38/exec-70ede2a6-831d-429d-a2ab-9ac94a748413.png",
+    "sha256": "0346df4ed7f186dfde920b4407bbebcc057d715b0dfe7fbeb5b3ceaa9976f80f",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: 1326×1014, ancla en (744,998)"
+  ],
+  "validacion": {
+    "visibles": 0.507199359792468,
+    "opacos": 0.9951316935547728,
+    "haloSuelto": 0.000001466357363020227,
+    "ancho": 1326,
+    "alto": 1014
+  },
+  "salida": {
+    "ruta": "assets/mapa/montana-volcan-1.webp",
+    "sha256": "c776e60b170faef3f0d678feedaf7b43a4af9964ac83f72a212780ccd0957d16"
+  }
+}

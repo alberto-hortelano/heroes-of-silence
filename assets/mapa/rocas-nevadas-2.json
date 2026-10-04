@@ -1,0 +1,11 @@
+{
+  "imagen": "rocas-nevadas-2.webp",
+  "sha256": "5d9d2759bcccb785e9e7464f6550678d67ed8ff57633ba0c048a0241145f4dbb",
+  "ancho": 1268,
+  "alto": 647,
+  "ancla": [
+    814,
+    622
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

@@ -1,0 +1,11 @@
+{
+  "imagen": "pena-2.webp",
+  "sha256": "fca0f73a12c709f7273eb99e5d12114f174f7f0c5d9f227b325bfbf54cfd6469",
+  "ancho": 966,
+  "alto": 997,
+  "ancla": [
+    480,
+    972
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

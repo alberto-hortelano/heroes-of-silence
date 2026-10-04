@@ -1,0 +1,11 @@
+{
+  "imagen": "bosquecillo-1.webp",
+  "sha256": "372d94d443a32e81b44f184bdfedabb01dafa8fdbe85735c5f3bc8bcdd0e9f92",
+  "ancho": 1083,
+  "alto": 1015,
+  "ancla": [
+    643,
+    990
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

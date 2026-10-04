@@ -1,0 +1,11 @@
+{
+  "imagen": "nodo-puerta-hondo.webp",
+  "sha256": "14560c180dd9695aa60c6c2a6fbde9de75150f79f1fad21901d6edad7a7996a3",
+  "ancho": 1013,
+  "alto": 1024,
+  "ancla": [
+    228,
+    1004
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

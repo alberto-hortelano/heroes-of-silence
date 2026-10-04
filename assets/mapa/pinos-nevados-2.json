@@ -1,0 +1,11 @@
+{
+  "imagen": "pinos-nevados-2.webp",
+  "sha256": "cb55ba30bd9293e051e81db6a142b4f0c7ade3c50582892c436b37077cf8dbde",
+  "ancho": 1194,
+  "alto": 1199,
+  "ancla": [
+    767,
+    1174
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}
