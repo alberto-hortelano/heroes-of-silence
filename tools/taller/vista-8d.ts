@@ -13,26 +13,50 @@
  *
  * La elección va en el `#` de la URL, así que se puede recargar o compartir.
  *
- * Las poses vienen en dos hojas de 3 filas por dirección; para verlas como el
- * arte se juntan en una de 6 en `.cache/` y se miden con `poses-8d.ts`, lo mismo
- * que lee el juego. Se abre con `file://`.
+ * Las poses vienen en dos hojas de 3 filas por dirección, y una tercera de una
+ * fila con el disparo de quien dispara; para verlas como el arte se juntan en
+ * una de 6 o 7 en `.cache/` y se miden con `poses-8d.ts`, lo mismo que lee el
+ * juego. Se abre con `file://`. Quien no dispara deja vacía la columna del disparo.
  */
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
 import {
+  type ClipDeFigura,
   colorDeSombra,
+  FILAS_DEL_ATLAS,
   NOMBRES_DE_DIRECCION,
   PROYECCION_DE_SOMBRA,
 } from '../../src/shared/arte.js';
 import { carpetaDePoses, JUEGOS_DE_ARMAS, type JuegoDeArmas } from '../art/poses.js';
-import { type AtlasDerivado, ELEVACION_DEL_CADAVER } from './derivar.js';
+import { type AtlasDerivado, ELEVACION_DEL_CADAVER, RELOJ } from './derivar.js';
 import type { Fila } from './evaluar.js';
 import { derivarDireccionDePoses, rutaJunta } from './poses-8d.js';
 import { EN_OCHO_DIRECCIONES, tieneSusOchoDirecciones } from './unidades.js';
 import { DIR_VISTA } from './vista.js';
 
 const RAIZ = resolve(import.meta.dirname, '../..');
+
+/** La cabecera de cada columna del visor: una por fila del atlas. */
+const NOMBRE_DE_ACCION: Readonly<Record<ClipDeFigura, string>> = {
+  idle: 'quieto',
+  walk: 'andando',
+  charge: 'carga',
+  attack: 'ataque',
+  hurt: 'daño',
+  death: 'muerte',
+  shoot: 'disparo',
+};
+
+/**
+ * Lo que se queda quieto al acabar cada clip que no es bucle (`RELOJ`), en
+ * segundos; el cadáver, más.
+ */
+const PAUSA = Object.fromEntries(
+  Object.entries(RELOJ)
+    .filter(([, r]) => !r.loop)
+    .map(([clip]) => [clip, clip === 'death' ? 2.5 : 0.6]),
+);
 
 interface Direccion {
   /** Las acciones que el evaluador marca para revisar (`pnpm taller evaluar`), con su motivo. */
@@ -122,9 +146,8 @@ function pagina(fuentes: readonly Fuente[]): string {
 const FUENTES = ${JSON.stringify(fuentes)};
 const SOMBRA = ${JSON.stringify(PROYECCION_DE_SOMBRA)};
 const BAJO_LOS_PIES = ${ELEVACION_DEL_CADAVER + 42};
-const ACCIONES = [['idle','quieto'],['walk','andando'],['charge','carga'],['attack','ataque'],['hurt','daño'],['death','muerte']];
-/** Lo que se queda quieto al acabar un clip que no es bucle, en segundos; el cadáver, más. */
-const PAUSA = { attack: 0.6, hurt: 0.6, death: 2.5 };
+const ACCIONES = ${JSON.stringify(FILAS_DEL_ATLAS.map((c) => [c, NOMBRE_DE_ACCION[c]]))};
+const PAUSA = ${JSON.stringify(PAUSA)};
 let vel = 1, tam = 0.8, conSombra = true;
 const vel_ = document.getElementById('vel'), tam_ = document.getElementById('tam'), som_ = document.getElementById('som');
 vel_.oninput = () => { vel = +vel_.value; document.getElementById('velv').textContent = vel + '×'; };

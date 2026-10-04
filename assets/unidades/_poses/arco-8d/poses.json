@@ -10,7 +10,28 @@
     "aljaba": true,
     "flecha": 0.7,
     "panzaAdelanteMinimo": 0.7,
-    "arribaMinimo": 0.8
+    "arribaMinimo": 0.8,
+    "cuerpoACuerpo": {
+      "describe": "una daga corta en la mano derecha",
+      "atrezo": {
+        "espada": {
+          "largo": 0.3,
+          "guarda": 0.1,
+          "puño": 0.1,
+          "agarre": 0.06,
+          "grosor": 0.012
+        },
+        "escudo": false,
+        "dosManos": false,
+        "adelanteMinimo": 0,
+        "centrado": 0,
+        "alcanceMinimo": 0,
+        "separacionManos": 0,
+        "codosAfuera": 0,
+        "codosAdelante": 0,
+        "estiramiento": 1
+      }
+    }
   },
   "piernasDeColor": true,
   "model": "y_bot",
@@ -82,7 +103,7 @@
     "b": [
       {
         "clip": "attack",
-        "anim": "bow",
+        "anim": "quick",
         "enBucle": false,
         "indices": [
           0,
@@ -122,6 +143,22 @@
           27
         ]
       }
+    ],
+    "c": [
+      {
+        "clip": "shoot",
+        "anim": "bow",
+        "enBucle": false,
+        "indices": [
+          0,
+          2,
+          4,
+          6,
+          7,
+          9,
+          11
+        ]
+      }
     ]
   },
   "sourceMetadata": {
@@ -134,7 +171,7 @@
       "frame_count": 30,
       "frame_height": 384,
       "frame_width": 384,
-      "generated_at": "2026-10-03T21:54:21",
+      "generated_at": "2026-10-04T19:16:23",
       "model": "y_bot"
     },
     "walk": {
@@ -146,7 +183,7 @@
       "frame_count": 13,
       "frame_height": 384,
       "frame_width": 384,
-      "generated_at": "2026-10-03T21:54:24",
+      "generated_at": "2026-10-04T19:16:26",
       "model": "y_bot"
     },
     "charge": {
@@ -158,19 +195,19 @@
       "frame_count": 8,
       "frame_height": 384,
       "frame_width": 384,
-      "generated_at": "2026-10-03T21:54:26",
+      "generated_at": "2026-10-04T19:16:28",
       "model": "y_bot"
     },
     "attack": {
       "angle": "tactical_25",
-      "anim": "bow",
+      "anim": "quick",
       "directions": 8,
       "duration": 1,
       "fps": 12,
       "frame_count": 12,
       "frame_height": 384,
       "frame_width": 384,
-      "generated_at": "2026-10-03T21:54:29",
+      "generated_at": "2026-10-04T19:16:31",
       "model": "y_bot"
     },
     "hurt": {
@@ -182,7 +219,7 @@
       "frame_count": 8,
       "frame_height": 384,
       "frame_width": 384,
-      "generated_at": "2026-10-03T21:54:31",
+      "generated_at": "2026-10-04T19:16:33",
       "model": "y_bot"
     },
     "death": {
@@ -194,27 +231,47 @@
       "frame_count": 28,
       "frame_height": 384,
       "frame_width": 384,
-      "generated_at": "2026-10-03T21:54:36",
+      "generated_at": "2026-10-04T19:16:39",
+      "model": "y_bot"
+    },
+    "shoot": {
+      "angle": "tactical_25",
+      "anim": "bow",
+      "directions": 8,
+      "duration": 1,
+      "fps": 12,
+      "frame_count": 12,
+      "frame_height": 384,
+      "frame_width": 384,
+      "generated_at": "2026-10-04T19:16:42",
       "model": "y_bot"
     }
   },
   "sha256": {
     "d0-a.png": "eb2d1ee621827753f4d588596c027acded97443d2f8b1fb72ad2779cd0fce12b",
-    "d0-b.png": "907b56450b584685a5df746084d297b929c883bbaee7accd97669306bb39ae9f",
+    "d0-b.png": "0c3729f2ce15f6248f71300a50db3f3dd612aa3b34cdb2328828b5c312647f33",
+    "d0-c.png": "f6666760012915e171ce7640ebbfa5f0b452400a097f48406e0c4b55f4b159fc",
     "d1-a.png": "d3ebc91295963cf9c11ac6f3161227f9893c3e95c773a653b946487b998f20ad",
-    "d1-b.png": "4bab11de607791a0363280b3a0c623fa4d453f6893ba521e40b975f66e4054de",
+    "d1-b.png": "b2edaffdaac491637fa7ecbab4281a4e16725f37cc3bf7009ec005a3ea13ecf6",
+    "d1-c.png": "c333927cf5a999edf33d8b35ee462557718aeafe92fc9ca95594bd8e7b6ebf71",
     "d2-a.png": "3699d013887c6481dd8678eba3c78da123465b98d905570930c8d9fe9cf2e377",
-    "d2-b.png": "c70990e960ef2b9eb497f513f9349aed6cc441899303b8ed88b55af85b57412c",
+    "d2-b.png": "74903fb1cc152abcd3ac481d8f4616703b169d607da3e6e4cfba4eaa317acfab",
+    "d2-c.png": "06fba62bc3154eea01b7d4585e5461bf1b975334c18490c6f908f1cb31d58d64",
     "d3-a.png": "2ad4d9d3073a16fab23ad9b8b014c4851df5390067ac653cf8ab15dda73650ef",
-    "d3-b.png": "2ab783cc188d55d0fa7abb791523f290f67b50ad74dc0d69dd5e95cfa6eddf66",
+    "d3-b.png": "bfb682cf9d9c22cff6db226ef29772fa00d4a318d8dddfbe0b3340a2c7c9a0ae",
+    "d3-c.png": "879ff90d2dd63750ec2cf3e1b3e20426e3add3153bacb553487b891521282623",
     "d4-a.png": "ad49b532bc19c8f15608903272c1492db49920519c1f8ad918743e3a8363e6bc",
-    "d4-b.png": "5ce02a00d58bfae58cfc63ddc68ba18be73d620991851a6e8c4c58d4a3da5308",
+    "d4-b.png": "2cc4c62039e9f601793160b264982f0104e1a2b78fd09fad94d8160cffafacdc",
+    "d4-c.png": "9652974ace2a78bcdb9bf3008be4db1ad59e1f6f67ae5007af77c9c74718f5a8",
     "d5-a.png": "323bf8dce629c1b52077d637f40c471fe622a6434d05306a64a133cccdb021ba",
-    "d5-b.png": "f0b8819e76c8a95ac04e76bf999f9054d775393809dcadb8df41ccc80ef31eac",
+    "d5-b.png": "bdceca98d704e5ea01abd0cc056b675d6792739ea29a2915617cea8d0929b57f",
+    "d5-c.png": "0e35df2a489e21282d3f30af0147bb6937facae8a2510d38885a68dfe77c2726",
     "d6-a.png": "caa3a8ae4acaf3f44cad8dd3fc8faa8ff2a79c260ee5c161892488cab3d62ec2",
-    "d6-b.png": "a2f6ed1a5e5a97d849a853874b42abcdbf598acbb2edebe3e6a786882496e328",
+    "d6-b.png": "6d7ce0a966ad56b76c043bc6d28c029d3f56473bfae43d3ed683183640dcc088",
+    "d6-c.png": "3a9c9fa554b9ef81477f3bdd11e11f6f8d61cc76a7e12511b043d422c59bbbc3",
     "d7-a.png": "67369f3440f62f239193a55c6be9899c8324a7d8c48686e260ce0d55e8c612b0",
-    "d7-b.png": "babb44a6f13eac791a6321f71ed3d8218c28e45efbfab3386cfe3fe3b4b0b76d",
+    "d7-b.png": "e03a59fe58883b91297357672fb930616a78eec199b594d3cdb48eeb8ac9fafa",
+    "d7-c.png": "439db63e888c5f4629925b94e3ed2d30d950917211d3a0d47cc650ca578f89d3",
     "giro.png": "ce78c4f3275ac51eb9aac3a910e8950dd5e5d53990032ad9abfa84b9d9504d8d"
   }
 }

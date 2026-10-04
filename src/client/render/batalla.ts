@@ -32,6 +32,7 @@ import {
   pintarFigura,
   pintarFiguraConSombra,
   pintarSombraDeFigura,
+  precargarDisparo,
 } from './figura.js';
 import { densidadDe } from './lienzo.js';
 import { COLOR_DE_COMANDANTE, COLOR_SIN_DUEÑO, MARCA_DE_COMANDANTE } from './palette.js';
@@ -457,6 +458,8 @@ function pintarUnidad(
   const x = caja.x + (f.golpe > 0 ? Math.sin(f.golpe * 22) * paso * 0.06 * (1 - f.golpe) : 0);
   const { suelo } = caja;
   const color = colorDelBando(v, s.side);
+  // Quien dispara tiene su disparo en otra hoja: se pide antes del primer tiro.
+  if (isShooter(s.unit)) precargarDisparo(s.body, f.mira);
   const figura = colocarFigura(figuraDe(v, s, f, caja, x));
 
   // La sombra va debajo del aro: es del suelo, y el aro se lee encima.

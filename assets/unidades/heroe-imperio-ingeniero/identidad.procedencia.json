@@ -1,28 +1,28 @@
 {
   "encargo": "heroe-imperio-ingeniero-identidad",
   "tipo": "identidad",
-  "fecha": "2026-10-01T17:33:57.213Z",
+  "fecha": "2026-10-04T10:16:03.735Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
   },
-  "hilo": "01a0f886-9aea-7e42-a5e7-6dcc3527b44b",
-  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que tiene que seguir cada figura. No copies su pose ni su encuadre, que están de frente y a la altura de los ojos.\n\nUn ingeniero imperial: gafas de latón sobre la frente, mandil de cuero con herramientas, jubón amarillo y negro, rollo de planos a la espalda, martillo de guerra de una mano en la derecha.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nUN solo personaje, de cuerpo entero, de pie, en la primera pose de reposo de la referencia de pose.\nCámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.\nLámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "hilo": "01a10668-a364-7a90-a9eb-e3563738753c",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo), copia su largo, su ángulo y su sitio en cada celda: es la guía del arma real. Si sus piernas son de color, la ROJA es la pierna DERECHA y la AZUL la IZQUIERDA: sirven para no confundirlas en el paso ni girar la figura de espaldas; el personaje NO lleva esos colores. El fondo VERDE de esta hoja es solo fondo, para que se vea el maniquí: no lo copies, el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUn ingeniero imperial: gafas de latón sobre la frente, mandil de cuero con herramientas, jubón amarillo y negro, rollo de planos a la espalda, martillo pequeño al cinto y un rifle largo de llave de rueda, para tirar de lejos, empuñado con las dos manos.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nUN solo personaje, de cuerpo entero, en la primera pose de reposo de la referencia de pose (de pie o montado, como esté el maniquí).\nCámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.\nLámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
   "referencias": [
     {
-      "ruta": "assets/unidades/_poses/espada-escudo.png",
+      "ruta": "assets/unidades/_poses/ballesta.png",
       "papel": "pose",
-      "sha256": "d9cf91645424ef72f0b52de18c7c202add6af827718c2e809da70eae75964642"
+      "sha256": "dca0fe826b054a07f1c1f5ced895f06c4a9654115f43873889ccb4cfb7c20008"
     },
     {
-      "ruta": "assets/art/imperio/rodelero.png",
-      "papel": "estilo",
-      "sha256": "2f0053280ce460ed9f4d2b8a0eee758be0bfb1d359d5038a88f3a500aa45a3f5"
+      "ruta": "assets/art/imperio/ingeniero.png",
+      "papel": "identidad",
+      "sha256": "b280e8ef79e7b5797ce13a26323c3bf89bbee8e645db064336993f172de25cf3"
     }
   ],
   "crudo": {
-    "fichero": "~/.codex/generated_images/01a0f886-9aea-7e42-a5e7-6dcc3527b44b/exec-8433fc95-8bd5-4b7e-8bf9-1d35e94d15a2.png",
-    "sha256": "4281b963015938ccbd0d6fe97c07fb253847aa43c980ef9609ae0bca5501b1b3",
+    "fichero": "~/.codex/generated_images/01a10668-a364-7a90-a9eb-e3563738753c/exec-0b3ef095-0e7d-4fbd-8b6e-1272d866c3c1.png",
+    "sha256": "6d763a2e942790032c818aa8df342b1a90214c195e12607ad19363b0977a606c",
     "ancho": 1254,
     "alto": 1254
   },
@@ -32,14 +32,14 @@
     "WebP calidad 92, alfa sin pérdida"
   ],
   "validacion": {
-    "visibles": 0.3785928636517607,
-    "opacos": 0.9888751950117322,
-    "haloSuelto": 0,
-    "ancho": 877,
-    "alto": 1195
+    "visibles": 0.3260005975946814,
+    "opacos": 0.9882383133562624,
+    "haloSuelto": 0.000022913864491988167,
+    "ancho": 1100,
+    "alto": 1217
   },
   "salida": {
     "ruta": "assets/unidades/heroe-imperio-ingeniero/identidad.webp",
-    "sha256": "a868f08c746bd4c6c889489e258f879b9a9be6694d9cd3c25f863f49375e69f3"
+    "sha256": "a23ab75d04d012976d71af29dd0f7de97bacbbfb26d63bbbcfad0b1d0b49fc06"
   }
 }

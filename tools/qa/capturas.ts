@@ -58,6 +58,7 @@ import {
   zoom,
 } from '../../src/client/render/camara-mapa.js';
 import { ALTO_DEL_GRUPO, pasosAPintar } from '../../src/client/render/mapa.js';
+import { registrarUnidad } from '../../src/client/render/personajes.js';
 import { centroDeStack, centroHex, tableroPara } from '../../src/client/render/proyeccion.js';
 import { botonDeRecluta, townLayout, townPlots } from '../../src/client/render/town.js';
 import {
@@ -2371,6 +2372,12 @@ async function jugarArena(
   // El espejo: las mismas unidades —las de por defecto de cada hoja, con el
   // ataque cambiado— y la misma semilla.
   const hojas = hojasDeArena(process.cwd());
+  // Las figuras de la arena, registradas también aquí como en la página
+  // (`arena/main.ts`): el espejo mide lo que dura cada jugada con el reloj de
+  // su figura, y sin registrarla el goblin arquero disparaba con el reloj del
+  // Y Bot por defecto, que no es el que pinta la página (lo destapó el aviso de
+  // `clipDelDisparo`, 04-10-2026).
+  for (const h of hojas) registrarUnidad(h.id, h);
   const deHoja = (id: string, cambios: Partial<UnidadDeArena> = {}): UnidadDeArena => {
     const h = hojas.find((x) => x.id === id);
     if (h === undefined) throw new Error(`arena: no hay hoja ${id}`);

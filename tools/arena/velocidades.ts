@@ -23,7 +23,7 @@ export const VELOCIDAD_DE_SALIDA: Readonly<
   'templario-mandoble': [3, 'templario pesado con mandoble a dos manos'],
   'templario-monje': [4, 'a pie y sin armadura, pero sanador y no corredor'],
   'templario-escudero': [5, 'joven y ligero, sin escudo ni placas'],
-  'templario-hermano-de-carga': [7, 'el único a caballo: el más rápido de la arena'],
+  'templario-hermano-de-carga': [7, 'a caballo: el más rápido de la arena'],
   'templario-penitente': [4, 'mayal a dos manos, pero sin armadura y descalzo'],
   // No muertos
   'esqueleto-guerrero': [3, 'esqueleto: lento, como pide el criterio'],
@@ -40,6 +40,9 @@ export const VELOCIDAD_DE_SALIDA: Readonly<
   'imperio-arcabucero': [3, 'tirador pesado con arcabuz y horquilla'],
   'imperio-rodelero': [5, 'rodela y ropera: infantería ligera de asalto'],
   'imperio-artillero-culebrina': [3, 'tirador pesado: la culebrina pesa'],
+  // 5 y no 7: `test/arena.test.ts` da al hermano de carga por único jinete (docs/art/peticiones.md §12).
+  'imperio-pistolero-montado': [5, 'a caballo, pero hostigador: se acerca, dispara y se va'],
+  'imperio-granadero': [4, 'a pie y sin armadura: como un humano'],
   // Elfos
   'elfo-arquero': [5, 'arquero ligero (4 en un humano), más uno por elfo'],
   'elfo-explorador': [5, 'explorador agazapado, ligero; por debajo del Danzante'],
@@ -67,10 +70,10 @@ export const VELOCIDAD_DE_SALIDA: Readonly<
   'heroe-vampiro': [5, 'noble con coraza ligera: rápido para un no muerto'],
   'heroe-lich': [3, 'esqueleto de mago: lento'],
   'heroe-caballero-de-la-muerte': [3, 'placas negras y arma a dos manos'],
-  'heroe-imperio-noble': [4, 'coraza ligera y ropera: como un humano'],
+  'heroe-imperio-duelista': [5, 'espada y daga, sin armadura: rápido, como pide su ficha'],
   'heroe-imperio-mago': [4, 'mago con coraza ligera: como un humano'],
   'heroe-imperio-capitan-mercenario': [4, 'lansquenete sin escudo: como un humano'],
-  'heroe-imperio-ingeniero': [3, 'cargado de herramientas y planos'],
+  'heroe-imperio-ingeniero': [3, 'cargado de herramientas, planos y un rifle largo'],
   'heroe-elfo-danzante-de-espadas': [6, 'el más rápido de los de a pie, como pide el usuario'],
   'heroe-elfo-druida': [5, 'maga (4 en un humano), más uno por elfa'],
   'heroe-elfo-senor-de-las-bestias': [5, 'cazador (4), más uno por elfo'],

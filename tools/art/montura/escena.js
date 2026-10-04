@@ -12,6 +12,13 @@
  * llevados con IK de dos huesos —la de `tools/art/ybot-a-distancia.ts`— a los
  * estribos, las riendas y la lanza. La lanza y el escudo son primitivas: son lo
  * que más ayuda a que el modelo de imagen no invente el arma en cada fotograma.
+ *
+ * Con `arma: 'pistola'` (el pistolero montado, 04-10-2026) el jinete no lleva
+ * lanza ni escudo: una pistola en la derecha, alzada al paso, apuntando al
+ * frente en la carga, y en el disparo (`postura: 'disparo'`) el brazo se
+ * extiende, dispara y vuelve con la curva del disparo que le pasa quien
+ * conduce. Su ataque es cuerpo a cuerpo, el tajo de espada del de la lanza, con
+ * la pistola guardada.
  */
 import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
@@ -224,6 +231,18 @@ async function montar(o) {
   const escudo = new THREE.Mesh(new THREE.ExtrudeGeometry(forma, { depth: 0.04, bevelEnabled: false }), materialManiqui());
   scene.add(escudo);
 
+  // La pistola: culata y cañón, con el cañón a lo largo de +Y desde la mano.
+  const pistola = new THREE.Group();
+  // Más grande que una de verdad (las de rueda medían medio metro) para que se lea a 160 px.
+  const culata = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.2, 0.08), materialManiqui());
+  culata.position.set(0, -0.04, -0.07);
+  culata.rotation.x = -0.9;
+  const canon = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.035, 0.5, 8), materialManiqui());
+  canon.position.y = 0.22;
+  pistola.add(culata, canon);
+  pistola.visible = false;
+  scene.add(pistola);
+
   // La espada, de la mano: hoja + guarda, colgada del hueso para que siga el tajo.
   const espada = new THREE.Group();
   const hoja = new THREE.Mesh(new THREE.BoxGeometry(0.07, o.ajuste.espada, 0.025), materialManiqui());
@@ -236,7 +255,7 @@ async function montar(o) {
   hueso(ybot, `${prefijoHueso}RightHand`).add(espada);
 
   Object.assign(estado, {
-    espada, accionSentado, accionAtaque, duracionAtaque: tajo.duration,
+    espada, pistola, arma: o.arma ?? 'lanza', accionSentado, accionAtaque, duracionAtaque: tajo.duration,
     renderer, scene, camara, pivote, caballo, jinete, ybot, mixCaballo, mixJinete, torsoReposo,
     animaciones: gltf.animations, ajuste: o.ajuste, prefijo: prefijoHueso, lanza, escudo,
     sentadoT: o.ajuste.sentadoT ?? 0,
@@ -252,52 +271,19 @@ async function montar(o) {
 const v = (x, y, z) => new THREE.Vector3(x, y, z);
 
 /** Coloca caballo, jinete, IK y atrezo para `clip` en el instante `t` (s), y pinta. */
-window.__fotograma = function fotograma(clip, t, postura, tJinete) {
+window.__fotograma = function fotograma(clip, t, postura, tJinete, disparo) {
   const s = estado;
-  const aj = s.ajuste;
+  // El ataque del pistolero es el tajo de espada de siempre, sin escudo ni
+  // pistola (decisión del usuario, 04-10-2026: el ataque es cuerpo a cuerpo).
+  if (s.arma === 'pistola' && postura !== 'ataque') return fotogramaConPistola(clip, t, postura, disparo);
+  s.pistola.visible = false;
+  s.escudo.visible = s.arma !== 'pistola';
   const atacando = postura === 'ataque';
-  s.mixCaballo.stopAllAction();
-  s.mixCaballo.clipAction(clipDe(s.animaciones, clip)).play();
-  s.mixCaballo.setTime(t);
-  s.mixJinete.stopAllAction();
-  (atacando ? s.accionAtaque : s.accionSentado).play();
-  s.mixJinete.setTime(atacando ? tJinete : s.sentadoT);
   s.lanza.visible = !atacando;
   s.espada.visible = atacando;
-  s.scene.updateMatrixWorld(true);
-
-  // Los ejes del caballo en el mundo: adelante, arriba y a su izquierda. Siguen
-  // al torso del caballo, no solo a la dirección: al morir se tumba, y el jinete
-  // (y su lanza) tienen que caer con él en vez de quedarse sentados en el aire.
-  const huesoTorso = hueso(s.caballo, 'Torso');
-  const torso = huesoTorso.getWorldPosition(new THREE.Vector3());
-  // ejes = torso ahora · torso en reposo⁻¹ (que ya lleva la guiñada dentro).
-  const ejes = huesoTorso
-    .getWorldQuaternion(new THREE.Quaternion())
-    .multiply(s.torsoReposo.clone().invert());
-  const delta = ejes.clone().multiply(s.pivote.quaternion.clone().invert());
-  const adelante = v(0, 0, 1).applyQuaternion(ejes).normalize();
-  const arriba = v(0, 1, 0).applyQuaternion(delta).normalize();
-  const izquierda = arriba.clone().cross(adelante).normalize();
-  const en = (base, ad, ar, iz) =>
-    base.clone().addScaledVector(adelante, ad).addScaledVector(arriba, ar).addScaledVector(izquierda, iz);
-
-  // El jinete: la cadera sobre la silla.
-  const P = s.prefijo;
-  const caderas = hueso(s.ybot, `${P}Hips`);
-  s.jinete.quaternion.copy(ejes);
-  s.scene.updateMatrixWorld(true);
-  const silla = en(torso, aj.sillaAdelante, aj.sillaArriba, 0);
-  const ahora = caderas.getWorldPosition(new THREE.Vector3());
-  s.jinete.position.add(silla.clone().sub(ahora));
-  s.scene.updateMatrixWorld(true);
-
-  // Piernas a los estribos, rodillas hacia delante y afuera.
-  for (const [lado, signo] of [['Left', 1], ['Right', -1]]) {
-    const estribo = en(torso, aj.estriboAdelante, aj.estriboArriba, signo * aj.estriboLado);
-    const pista = adelante.clone().addScaledVector(izquierda, signo * 0.6).normalize();
-    cadena(hueso(s.ybot, `${P}${lado}UpLeg`), hueso(s.ybot, `${P}${lado}Leg`), hueso(s.ybot, `${P}${lado}Foot`), estribo, pista);
-  }
+  const { adelante, arriba, izquierda, en, P } = atacando
+    ? montarJinete(clip, t, s.accionAtaque, tJinete)
+    : montarJinete(clip, t);
 
   if (atacando) {
     const antebrazoE = hueso(s.ybot, `${P}LeftForeArm`).getWorldPosition(new THREE.Vector3());
@@ -333,6 +319,94 @@ window.__fotograma = function fotograma(clip, t, postura, tJinete) {
   s.renderer.render(s.scene, s.camara);
   return s.renderer.domElement.toDataURL('image/png');
 };
+
+/**
+ * Caballo y jinete colocados para `clip` en `t`: los ejes del caballo, el jinete
+ * sobre la silla —sentado, o con `accionJinete` en `tJinete`, el tajo— y las
+ * piernas en los estribos. Devuelve con qué colocar lo demás.
+ */
+function montarJinete(clip, t, accionJinete = estado.accionSentado, tJinete = estado.sentadoT) {
+  const s = estado;
+  const aj = s.ajuste;
+  s.mixCaballo.stopAllAction();
+  s.mixCaballo.clipAction(clipDe(s.animaciones, clip)).play();
+  s.mixCaballo.setTime(t);
+  s.mixJinete.stopAllAction();
+  accionJinete.play();
+  s.mixJinete.setTime(tJinete);
+  s.scene.updateMatrixWorld(true);
+  // Los ejes del caballo en el mundo: adelante, arriba y a su izquierda. Siguen
+  // al torso del caballo, no solo a la dirección: al morir se tumba, y el jinete
+  // (y su lanza) tienen que caer con él en vez de quedarse sentados en el aire.
+  const huesoTorso = hueso(s.caballo, 'Torso');
+  const torso = huesoTorso.getWorldPosition(new THREE.Vector3());
+  // ejes = torso ahora · torso en reposo⁻¹ (que ya lleva la guiñada dentro).
+  const ejes = huesoTorso
+    .getWorldQuaternion(new THREE.Quaternion())
+    .multiply(s.torsoReposo.clone().invert());
+  const delta = ejes.clone().multiply(s.pivote.quaternion.clone().invert());
+  const adelante = v(0, 0, 1).applyQuaternion(ejes).normalize();
+  const arriba = v(0, 1, 0).applyQuaternion(delta).normalize();
+  const izquierda = arriba.clone().cross(adelante).normalize();
+  const en = (base, ad, ar, iz) =>
+    base.clone().addScaledVector(adelante, ad).addScaledVector(arriba, ar).addScaledVector(izquierda, iz);
+  // El jinete: la cadera sobre la silla.
+  const P = s.prefijo;
+  const caderas = hueso(s.ybot, `${P}Hips`);
+  s.jinete.quaternion.copy(ejes);
+  s.scene.updateMatrixWorld(true);
+  const silla = en(torso, aj.sillaAdelante, aj.sillaArriba, 0);
+  const ahora = caderas.getWorldPosition(new THREE.Vector3());
+  s.jinete.position.add(silla.clone().sub(ahora));
+  s.scene.updateMatrixWorld(true);
+  // Piernas a los estribos, rodillas hacia delante y afuera.
+  for (const [lado, signo] of [['Left', 1], ['Right', -1]]) {
+    const estribo = en(torso, aj.estriboAdelante, aj.estriboArriba, signo * aj.estriboLado);
+    const pista = adelante.clone().addScaledVector(izquierda, signo * 0.6).normalize();
+    cadena(hueso(s.ybot, `${P}${lado}UpLeg`), hueso(s.ybot, `${P}${lado}Leg`), hueso(s.ybot, `${P}${lado}Foot`), estribo, pista);
+  }
+  return { adelante, arriba, izquierda, en, P };
+}
+
+/**
+ * El pistolero: riendas en la izquierda y la pistola en la derecha. Al paso, en
+ * alto junto al hombro; en la carga, el brazo extendido apuntando al frente; en
+ * el disparo, de la cadera al brazo extendido con `disparo.tension`, y tras la
+ * suelta el cañón da el culatazo hacia arriba.
+ */
+function fotogramaConPistola(clip, t, postura, disparo) {
+  const s = estado;
+  s.lanza.visible = false;
+  s.escudo.visible = false;
+  s.espada.visible = false;
+  s.pistola.visible = true;
+  const { adelante, arriba, izquierda, en, P } = montarJinete(clip, t);
+  const cuello = hueso(s.caballo, 'Neck1').getWorldPosition(new THREE.Vector3());
+  const riendas = en(cuello, -0.15, 0.05, 0.12);
+  cadena(hueso(s.ybot, `${P}LeftArm`), hueso(s.ybot, `${P}LeftForeArm`), hueso(s.ybot, `${P}LeftHand`), riendas, v(0, -1, 0).addScaledVector(izquierda, 0.5));
+  const hombro = hueso(s.ybot, `${P}RightArm`).getWorldPosition(new THREE.Vector3());
+  // Alzada junto a la cabeza con el cañón arriba; apuntando, el brazo extendido
+  // a la altura del hombro, hacia delante y algo hacia fuera de su lado.
+  const alzada = en(hombro, 0.08, 0.18, -0.22);
+  const apuntando = en(hombro, 0.42, 0.24, -0.24);
+  let mano = alzada, canon = arriba.clone().addScaledVector(adelante, 0.25).normalize();
+  if (postura === 'carga') {
+    mano = apuntando;
+    canon = adelante.clone();
+  } else if (postura === 'disparo') {
+    const k = disparo ? disparo.tension : 0;
+    mano = alzada.clone().lerp(apuntando, k);
+    canon = canon.clone().lerp(adelante, k).normalize();
+    // El culatazo: tras la suelta el cañón sube.
+    if (disparo && !disparo.tensa) canon.addScaledVector(arriba, 0.5 * k).normalize();
+  }
+  cadena(hueso(s.ybot, `${P}RightArm`), hueso(s.ybot, `${P}RightForeArm`), hueso(s.ybot, `${P}RightHand`), mano, v(0, -1, 0).addScaledVector(izquierda, -0.4));
+  s.scene.updateMatrixWorld(true);
+  s.pistola.position.copy(hueso(s.ybot, `${P}RightHand`).getWorldPosition(new THREE.Vector3()));
+  s.pistola.quaternion.setFromUnitVectors(v(0, 1, 0), canon);
+  s.renderer.render(s.scene, s.camara);
+  return s.renderer.domElement.toDataURL('image/png');
+}
 
 /** Gira caballo y jinete hacia la guiñada pedida (las 8 direcciones de la hoja). */
 window.__girar = function girar(guinada) {

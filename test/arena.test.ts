@@ -395,7 +395,7 @@ describe('el marcado de la arena', () => {
   it('la ficha dice que las habilidades no tienen efecto, y escapa lo que se escribe', () => {
     const hoja = HOJAS.find((h) => h.id === 'templario-monje') ?? null;
     const u = { ...unidad('templario-monje'), name: '<b>Monje</b>', habilidades: ['Salto'] };
-    const m = marcadoDe(renderFicha(u, hoja));
+    const m = marcadoDe(renderFicha(u, hoja, false));
     expect(m).toContain('sin efecto todavía');
     expect(m).toContain('&lt;b&gt;Monje&lt;/b&gt;');
     expect(m).not.toContain('<b>Monje');
@@ -405,6 +405,9 @@ describe('el marcado de la arena', () => {
       expect(m).toContain(`data-clip="${clip}"`);
     }
     expect(m).toContain('data-arena="girar"');
+    // El disparo, solo en la ficha de quien lo trae.
+    expect(m).not.toContain('data-clip="shoot"');
+    expect(marcadoDe(renderFicha(u, hoja, true))).toContain('data-clip="shoot"');
   });
 
   it('el bando lleva el Yo / IA de cada puesto y no deja duplicar con el bando lleno', () => {

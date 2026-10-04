@@ -146,7 +146,16 @@ function numero(campo: string, rotulo: string, valor: number, minimo: number): H
     <input type="number" data-campo="${campo}" value="${valor}" min="${minimo}" step="1"></label>`;
 }
 
-export function renderFicha(u: UnidadDeArena | null, hoja: HojaDeArena | null): Html {
+/**
+ * La ficha de la unidad elegida. `dispara`: si su figura trae el clip del
+ * disparo (`ArteDeFigura.dispara`); solo entonces lleva su botón, porque a
+ * quien no lo trae no hay disparo que enseñarle.
+ */
+export function renderFicha(
+  u: UnidadDeArena | null,
+  hoja: HojaDeArena | null,
+  dispara: boolean,
+): Html {
   if (u === null || hoja === null) {
     return html`<h3>Ficha</h3><p class="cost">Pulsa el nombre de una unidad de un bando para ver y cambiar sus cifras.</p>`;
   }
@@ -179,6 +188,7 @@ export function renderFicha(u: UnidadDeArena | null, hoja: HojaDeArena | null): 
           <button data-arena="clip" data-clip="walk">Marcha</button>
           <button data-arena="clip" data-clip="charge">Carga</button>
           <button data-arena="clip" data-clip="attack">Ataque</button>
+          ${dispara ? html`<button data-arena="clip" data-clip="shoot">Disparo</button>` : NADA}
           <button data-arena="clip" data-clip="hurt">Daño</button>
           <button data-arena="clip" data-clip="death">Muerte</button>
           <button data-arena="girar" title="Pasa la figura por sus ocho direcciones">Girar</button>

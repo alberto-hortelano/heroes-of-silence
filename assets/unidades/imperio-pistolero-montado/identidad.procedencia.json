@@ -1,0 +1,45 @@
+{
+  "encargo": "imperio-pistolero-montado-identidad",
+  "tipo": "identidad",
+  "fecha": "2026-10-04T11:30:48.525Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a106ad-2c4e-7bc2-82cf-cfdddf88f5a3",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo), copia su largo, su ángulo y su sitio en cada celda: es la guía del arma real. Si sus piernas son de color, la ROJA es la pierna DERECHA y la AZUL la IZQUIERDA: sirven para no confundirlas en el paso ni girar la figura de espaldas; el personaje NO lleva esos colores. El fondo VERDE de esta hoja es solo fondo, para que se vea el maniquí: no lo copies, el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUn pistolero montado (reitre) A CABALLO, como el del concepto: media armadura ennegrecida, morrión abierto, banda roja, mangas acuchilladas amarillas y negras, pistola de rueda en la mano derecha y espada al cinto. SIN lanza y SIN escudo. El caballo, castaño oscuro, lleva gualdrapa amarilla y negra. Jinete y caballo son UNA sola figura.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nUN solo personaje, de cuerpo entero, en la primera pose de reposo de la referencia de pose (de pie o montado, como esté el maniquí).\nCámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.\nLámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/montado-lanza.png",
+      "papel": "pose",
+      "sha256": "2cef5c222acba6995e842d6c8c905b1ac72aed84294ade2a2ca093d4617401cf"
+    },
+    {
+      "ruta": "assets/art/imperio/pistolero-montado.png",
+      "papel": "identidad",
+      "sha256": "9ecc42e1606ee6e9c2573e7fe64700f97a21562f445228e13eaf0997153e2ee8"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a106ad-2c4e-7bc2-82cf-cfdddf88f5a3/exec-0119dfc2-5941-45a1-ad8f-01f42cc722f1.png",
+    "sha256": "dd8801283c89e00c405de40c60225bdddfac44bbf8729e8637059e870e549d06",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.411078880958399,
+    "opacos": 0.972936043958189,
+    "haloSuelto": 0.00017079669337601624,
+    "ancho": 858,
+    "alto": 1162
+  },
+  "salida": {
+    "ruta": "assets/unidades/imperio-pistolero-montado/identidad.webp",
+    "sha256": "929e31c6a3ca9de303ccd420cabd5765ea53878545a7b092bc9319c51c86e299"
+  }
+}

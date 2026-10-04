@@ -5,7 +5,8 @@
  *   pnpm taller encolar <unidad|fichero.json>…
  *                                        una unidad de `unidades.ts` encola su
  *                                        identidad, su giro con `--giro` o sus
- *                                        16 hojas de 8 direcciones con `--ocho`;
+ *                                        16 hojas de 8 direcciones con `--ocho`
+ *                                        (24 si dispara: la C es el disparo);
  *                                        `--rehacer` olvida el encargo cerrado de antes
  *   pnpm taller corregir <encargo> "<corrección>"
  *                                        reabre el hilo de Codex de un encargo hecho
@@ -15,6 +16,7 @@
  *   pnpm taller reprocesar <id>          rehace el post-proceso sobre el crudo ya generado
  *   pnpm taller derivar <hoja.webp>…     reescribe el JSON de una hoja
  *   pnpm taller derivar-poses            reescribe `_poses/atlas-8d.json`, las anclas del Y Bot
+ *   pnpm taller maniqui <unidad>…        el maniquí propio de una unidad, en `_poses/unidades/<id>-8d/`
  *   pnpm taller componer-atlas-mapa      rehace assets/rpg/map-atlas.png con las piezas pintadas
  *   pnpm taller encolar --texturas-suelo | --muestras-densas | --piezas-densas [--solo=…]
  *                                        el arte de los mapas densos (`mapa-denso.ts`)
@@ -37,13 +39,18 @@
  */
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import sharp from 'sharp';
-import { FIGURA } from '../../src/shared/arte.js';
-import { OCHO_DIRECCIONES } from '../art/poses.js';
+import { type ClipDeFigura, FIGURA, HOJAS_DE_FIGURA } from '../../src/shared/arte.js';
+import {
+  DIR_MANIQUIES,
+  JUEGOS_DE_ARMAS,
+  type JuegoDeArmas,
+  OCHO_DIRECCIONES,
+  renderizarOchoDirecciones,
+} from '../art/poses.js';
 import { CODEX, FalloDeCodex, type Generacion, generar } from './codex.js';
 import { Cola } from './cola.js';
 import { componerAtlasMapa } from './componer-atlas-mapa.js';
@@ -69,7 +76,7 @@ import {
   empaquetar,
   recortarAlContenido,
 } from './empaquetar.js';
-import { type Encargo, FILAS_POR_HOJA, promptDe } from './encargo.js';
+import { type Encargo, filasDeAtlas, promptDe } from './encargo.js';
 import { escribirCatalogo } from './escenario/catalogo-disco.js';
 import { escenario } from './escenario/escenario.js';
 import {
@@ -79,15 +86,17 @@ import {
   TEXTURAS_DE_RELIEVE,
 } from './escenario/modulos.js';
 import { evaluar } from './evaluar.js';
+import { juntarDireccion } from './juntar.js';
 import { ESTILOS_DE_MAPA, encargoDeMuestra, encargosDeCeldas, encargosDePiezas } from './mapa.js';
 import { encargoDeLamina, encargosDePiezasDensas, encargosDeTexturas } from './mapa-denso.js';
-import { escribirAtlasDePoses, RUTA_DEL_ATLAS_8D } from './poses-8d.js';
+import { escribirAtlasDePoses, RUTA_DEL_ATLAS_8D, sueltaDeUnidad } from './poses-8d.js';
 import { aRaster, dePng, recortar, UMBRALES } from './recorte.js';
 import { costura, hacerTeselable, LADO_DE_TEXTURA, UMBRAL_DE_COSTURA } from './textura.js';
 import {
   encargoDeGiro,
   encargoDeIdentidad,
   encargosDeOchoDirecciones,
+  juegoDelYBot,
   unidad,
 } from './unidades.js';
 import { validar } from './validar.js';
@@ -248,10 +257,11 @@ async function postprocesar(
         const altura = FIGURA.alturaAdulto;
         const celda = encargo.celda ?? FIGURA.celda;
         const pose = await escalaDePose(encargo);
-        const p = await empaquetar(r, FILAS_POR_HOJA, altura, celda, pose);
+        const filas = filasDeAtlas(encargo);
+        const p = await empaquetar(r, filas, altura, celda, pose);
         final = p.png;
         pasos.push(
-          `figuras localizadas y empaquetadas en ${FIGURA.columnas}×${FILAS_POR_HOJA} celdas de ${celda}, ` +
+          `figuras localizadas y empaquetadas en ${FIGURA.columnas}×${filas} celdas de ${celda}, ` +
             `escala uniforme ${p.escala.toFixed(4)}, pies en y=${baseEnCelda(celda)}, ` +
             (p.alturaFinal === p.alturaPedida
               ? `reposo a ${altura} px`
@@ -269,7 +279,7 @@ async function postprocesar(
       encargo.tipo,
       encargo.fondo === 'opaco',
       encargo.celda ?? FIGURA.celda,
-      FILAS_POR_HOJA,
+      encargo.tipo === 'atlas' ? filasDeAtlas(encargo) : undefined,
     );
     if (informe.problemas.length > 0) {
       // El crudo se queda en `~/.codex`; se dice dónde para poder mirarlo.
@@ -357,7 +367,7 @@ async function postprocesar(
 /**
  * Las siluetas del maniquí en cada celda de la hoja de pose de un encargo de 8
  * direcciones, y la de su reposo (la primera celda de la hoja A de su
- * dirección): con ellas se escalan igual las dos hojas de una figura.
+ * dirección): con ellas se escalan igual todas las hojas de una figura.
  */
 async function escalaDePose(e: Encargo): Promise<EscalaDePose> {
   const celda: number = e.celda ?? FIGURA.celda;
@@ -395,8 +405,10 @@ async function escalaDePose(e: Encargo): Promise<EscalaDePose> {
     );
     return celdas;
   };
+  const clips: readonly ClipDeFigura[] | undefined =
+    e.ocho === undefined ? undefined : HOJAS_DE_FIGURA[e.ocho.hoja];
   const ruta = e.referencias[0]?.ruta as string;
-  const reposo = (await medir(ruta.replace(/-b\.png$/, '-a.png')))[0]?.[0];
+  const reposo = (await medir(ruta.replace(/-[bc]\.png$/, '-a.png')))[0]?.[0];
   if (reposo === undefined) throw new Error(`la pose ${ruta} no tiene reposo`);
   const celdas = await medir(ruta);
   return {
@@ -405,52 +417,14 @@ async function escalaDePose(e: Encargo): Promise<EscalaDePose> {
     reposo: OCHO_DIRECCIONES.altoDelManiqui,
     apoyos: celdas.map((f) => f.map((c) => c.apoyo)),
     apoyoReposo: reposo.apoyo,
-    posicion: e.ocho?.hoja === 'b',
-    // La hoja B es ataque, daño y muerte: la muerte, la tercera, sube.
-    ...(e.ocho?.hoja === 'b' ? { elevaciones: [0, 0, ELEVACION_DEL_CADAVER] } : {}),
+    // Fuera de la locomoción (los clips en bucle) la posición la manda el
+    // maniquí: el ataque, el daño, la muerte y el disparo se pintan parados.
+    posicion: clips !== undefined && !clips.some((c) => OCHO_DIRECCIONES.enBucle.includes(c)),
+    // La muerte sube en su celda (ELEVACION_DEL_CADAVER), en la hoja que la lleve.
+    ...(clips?.includes('death')
+      ? { elevaciones: clips.map((c) => (c === 'death' ? ELEVACION_DEL_CADAVER : 0)) }
+      : {}),
   };
-}
-
-/**
- * Junta las dos hojas de una dirección (`hoja-a` y `hoja-b`, 3 filas cada una)
- * en `atlas.webp` de 6 filas y lo deriva. Apunta en `atlas.composicion.json` el
- * sha256 de cada hoja, que es la que lleva la procedencia. Si falta una, nada.
- */
-async function juntarDireccion(dir: string): Promise<string | null> {
-  const hojas = ['hoja-a.webp', 'hoja-b.webp'].map((h) => join(dir, h));
-  if (!hojas.every((h) => existsSync(h))) return null;
-  const [a, b] = await Promise.all(hojas.map((h) => readFile(h)));
-  const { width, height } = await sharp(a).metadata();
-  const raw = await sharp({
-    create: { width, height: 2 * height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
-  })
-    .composite([
-      { input: a as Buffer, left: 0, top: 0 },
-      { input: b as Buffer, left: 0, top: height },
-    ])
-    .png()
-    .toBuffer();
-  const atlas = join(dir, 'atlas.webp');
-  const webp = await sharp(raw).webp({ lossless: true, effort: 6 }).toBuffer();
-  await writeFile(atlas, webp);
-  await escribirDerivado(atlas);
-  await writeFile(
-    join(dir, 'atlas.composicion.json'),
-    `${JSON.stringify(
-      {
-        atlas: 'atlas.webp',
-        sha256: sha256(webp),
-        hojas: hojas.map((h, i) => ({
-          imagen: basename(h),
-          sha256: sha256([a, b][i] as Buffer),
-          filas: i === 0 ? ['idle', 'walk', 'charge'] : ['attack', 'hurt', 'death'],
-        })),
-      },
-      null,
-      2,
-    )}\n`,
-  );
-  return atlas;
 }
 
 async function trabajar(): Promise<void> {
@@ -768,6 +742,24 @@ switch (orden) {
     // Un solo visor con todas: el argumento solo elige con cuál se abre.
     console.log(`→ ${await vista8d(resto[0])}`);
     break;
+  case 'maniqui':
+    // El maniquí propio de cada unidad que lo declara (`maniqui` en unidades.ts).
+    for (const id of resto) {
+      const u = unidad(id);
+      const juego = juegoDelYBot(u);
+      if (u.maniqui === undefined)
+        throw new Error(`${id} no declara maniquí propio: usa el de «${juego}»`);
+      if (!(juego in JUEGOS_DE_ARMAS))
+        throw new Error(
+          `${id}: el maniquí propio parte de un juego del Y Bot a pie, no de «${juego}»`,
+        );
+      const carpeta = await renderizarOchoDirecciones(juego as JuegoDeArmas, DIR_MANIQUIES, {
+        id,
+        atrezo: u.maniqui,
+      });
+      console.log(`→ ${relative(RAIZ, carpeta)}`);
+    }
+    break;
   case 'derivar-poses': {
     const { juegos } = await escribirAtlasDePoses();
     console.log(`→ ${relative(RAIZ, RUTA_DEL_ATLAS_8D)}: ${Object.keys(juegos).join(', ')}`);
@@ -775,7 +767,11 @@ switch (orden) {
   }
   case 'derivar':
     for (const r of resto) {
-      const d = await escribirDerivado(r);
+      // Con la suelta del maniquí de su unidad, la carpeta de encima de `dN/`:
+      // `derivarAtlas` lanza si la hoja no tiene la fila del disparo que la unidad
+      // dispara, o al revés.
+      const suelta = await sueltaDeUnidad(basename(dirname(dirname(resolve(r)))));
+      const d = await escribirDerivado(r, suelta === null ? {} : { suelta });
       console.log(
         `${r}: altura ${d.altura}, fotogramas ${Object.values(d.clips)
           .map((c) => c.frames)
@@ -785,6 +781,6 @@ switch (orden) {
     break;
   default:
     throw new Error(
-      `orden desconocida «${orden}»: trabajar, encolar, corregir, retirar, reprocesar, estado, devolver, derivar, derivar-poses, vista-ejercitos, vista-edificios, vista-efectos, vista-8d, vista-mapa, escenario, catalogo-escena, evaluar, componer-atlas-mapa`,
+      `orden desconocida «${orden}»: trabajar, encolar, corregir, retirar, reprocesar, estado, devolver, derivar, derivar-poses, maniqui, vista-ejercitos, vista-edificios, vista-efectos, vista-8d, vista-mapa, escenario, catalogo-escena, evaluar, componer-atlas-mapa`,
     );
 }

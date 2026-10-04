@@ -20,11 +20,16 @@ import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import { basename } from 'node:path';
 import sharp from 'sharp';
-import { CLIPS_DE_FIGURA, FIGURA } from '../../src/shared/arte.js';
+import {
+  CLIPS_DE_FIGURA,
+  type ClipDeFigura,
+  FIGURA,
+  FILAS_DEL_ATLAS,
+} from '../../src/shared/arte.js';
 import { ALFA_FIGURA, apoyoEn } from './empaquetar.js';
 
 /** Las filas de una hoja del taller, en orden, con su reloj. El reloj no sale de la imagen. */
-const RELOJ = {
+export const RELOJ = {
   /**
    * 8 y no 3 (decisión del usuario, 03-10-2026: «las animaciones de idle son
    * demasiado lentas»). Las siete columnas muestrean el reposo entero del
@@ -40,7 +45,9 @@ const RELOJ = {
   hurt: { fps: 10, loop: false },
   /** Se queda en su último fotograma: el cadáver (`cadaver` en el JSON). */
   death: { fps: 8, loop: false },
-} as const satisfies Record<(typeof CLIPS_DE_FIGURA)[number], { fps: number; loop: boolean }>;
+  /** El disparo, al reloj que tenía cuando era la fila del ataque: la suelta cae donde caía. */
+  shoot: { fps: 10, loop: false },
+} as const satisfies Record<ClipDeFigura, { fps: number; loop: boolean }>;
 export type ClipDeHoja = keyof typeof RELOJ;
 
 /**
@@ -55,12 +62,14 @@ export const ELEVACION_DEL_CADAVER = 64;
 /**
  * Una hoja del taller es una dirección de una unidad en 8 direcciones
  * (`OCHO_DIRECCIONES` en `tools/art/poses.ts`): una fila por cada una de las
- * seis acciones de `CLIPS_DE_FIGURA`, en su orden, cada una con su reloj. La
- * muerte arranca donde acaba el daño. Las hojas de 3 y 4 filas de una sola
- * dirección se retiraron el 03-10-2026 con su arte.
+ * seis acciones de `CLIPS_DE_FIGURA`, en su orden, cada una con su reloj, y la
+ * séptima, el disparo, en quien dispara (`FILAS_DEL_ATLAS`). La muerte arranca
+ * donde acaba el daño. Las hojas de 3 y 4 filas de una sola dirección se
+ * retiraron el 03-10-2026 con su arte.
  */
-const FILAS = CLIPS_DE_FIGURA.length;
-const CLIPS = CLIPS_DE_FIGURA.map((clip) => ({ clip, ...RELOJ[clip] }));
+const FILAS_SIN_DISPARO = CLIPS_DE_FIGURA.length;
+const FILAS_CON_DISPARO = FILAS_DEL_ATLAS.length;
+const CLIPS = FILAS_DEL_ATLAS.map((clip) => ({ clip, ...RELOJ[clip] }));
 
 /** Umbral de alfa con el que se mide la altura: el mismo que en `personajes.ts`. */
 const ALFA_ALTURA = 40;
@@ -74,9 +83,9 @@ export interface ClipDerivado {
   readonly loop: boolean;
   readonly anchor: readonly [number, number];
   /**
-   * Solo en el ataque de quien dispara: la primera columna con la cuerda ya
-   * suelta, donde sale el proyectil. No se mide en la imagen; la pone
-   * `poses-8d.ts` con la curva del maniquí.
+   * Solo en el disparo (`shoot`): la primera columna con la cuerda ya suelta,
+   * donde sale el proyectil. No se mide en la imagen; la pone `poses-8d.ts` con
+   * la curva del maniquí. El ataque no la tiene nunca: es cuerpo a cuerpo.
    */
   readonly suelta?: number;
 }
@@ -92,7 +101,7 @@ export interface AtlasDerivado {
   readonly cajaDeClic: readonly [number, number, number, number];
   readonly clips: Readonly<
     Record<'idle' | 'walk' | 'attack', ClipDerivado> &
-      Partial<Record<'charge' | 'hurt' | 'death', ClipDerivado>>
+      Partial<Record<'charge' | 'hurt' | 'death' | 'shoot', ClipDerivado>>
   >;
   /** El fotograma que se queda en el suelo al morir, si la hoja tiene muerte. */
   readonly cadaver?: { readonly clip: 'death'; readonly frame: number };
@@ -153,11 +162,12 @@ function mediana(v: readonly number[]): number {
 
 /**
  * `suelta`: la columna en la que suelta la cuerda quien dispara (ver
- * `ClipDerivado.suelta`). Su ataque se queda con TODAS las columnas: de frente,
- * el disparo apenas mueve la silueta (el alfa cambia un 0,03-0,3 % de una
- * columna a la siguiente, por debajo de `REPETIDO`) y recortarlo como repetido
- * dejaba el ataque en un fotograma, sin animar y con la suelta fuera del clip.
- * El resto de clips se recorta igual que siempre.
+ * `ClipDerivado.suelta`). Va con la séptima fila, el disparo, y solo con ella:
+ * una hoja de 7 filas sin suelta, o una de 6 con ella, lanza. El disparo se
+ * queda con TODAS las columnas: de frente apenas mueve la silueta (el alfa
+ * cambia un 0,03-0,3 % de una columna a la siguiente, por debajo de `REPETIDO`)
+ * y recortarlo como repetido lo dejaba en un fotograma, sin animar y con la
+ * suelta fuera del clip. El resto de clips se recorta igual que siempre.
  *
  * `elevacionDeLaMuerte`: cuánto más arriba va la fila de la muerte en su celda.
  * Por defecto `ELEVACION_DEL_CADAVER`, la de las hojas pintadas; 0 para el
@@ -179,23 +189,31 @@ export async function derivarAtlas(
   const { columnas } = FIGURA;
   const lado = info.width / columnas;
   const filas = info.height / lado;
-  if (!Number.isInteger(lado) || filas !== FILAS) {
+  if (!Number.isInteger(lado) || (filas !== FILAS_SIN_DISPARO && filas !== FILAS_CON_DISPARO)) {
     throw new Error(
       `${rutaImagen} mide ${info.width}×${info.height}: una hoja del taller son ${columnas} columnas ` +
-        `por ${FILAS} filas (una dirección de 8) de celdas cuadradas`,
+        `por ${FILAS_SIN_DISPARO} filas, o ${FILAS_CON_DISPARO} con el disparo (una dirección de 8), de celdas cuadradas`,
+    );
+  }
+  // La suelta va con la fila del disparo y solo con ella.
+  if ((suelta !== undefined) !== (filas === FILAS_CON_DISPARO)) {
+    throw new Error(
+      suelta === undefined
+        ? `${rutaImagen} tiene la fila del disparo y nadie dice en qué columna suelta: deriva con la suelta de su maniquí (\`sueltaDeUnidad\`)`
+        : `${rutaImagen}: la suelta es del disparo y esta hoja no tiene: son ${filas} filas, sin la de «shoot»`,
     );
   }
 
   const clips = {} as Record<string, AtlasDerivado['clips']['idle']>;
   let cajaDeClic: [number, number, number, number] | null = null;
   let altura = 0;
-  for (const [fila, def] of CLIPS.entries()) {
+  for (const [fila, def] of CLIPS.slice(0, filas).entries()) {
     const celdas = Array.from({ length: columnas }, (_, col) =>
       celda(data, info.width, col, fila, lado),
     );
-    const conSuelta = def.clip === 'attack' && suelta !== undefined;
+    const esDisparo = def.clip === 'shoot';
     let frames: number = columnas;
-    while (frames > 0 && !conSuelta) {
+    while (frames > 0 && !esDisparo) {
       const ultima = celdas[frames - 1] as Celda;
       const previa = celdas[frames - 2];
       if (ultima.vacia || (previa !== undefined && diferencia(ultima, previa) < REPETIDO)) frames--;
@@ -224,9 +242,12 @@ export async function derivarAtlas(
       mediana(apoyos.map((a) => a[0])),
       mediana(apoyos.map((a) => a[1])),
     ];
-    if (conSuelta && !(Number.isInteger(suelta) && suelta >= 1 && suelta < frames)) {
+    if (
+      esDisparo &&
+      !(suelta !== undefined && Number.isInteger(suelta) && suelta >= 1 && suelta < frames)
+    ) {
       throw new Error(
-        `${rutaImagen}: la suelta en la columna ${suelta} no cae dentro del ataque (columnas 1 a ${frames - 1})`,
+        `${rutaImagen}: la suelta en la columna ${suelta} no cae dentro del disparo (columnas 1 a ${frames - 1})`,
       );
     }
     clips[def.clip] = {
@@ -235,7 +256,7 @@ export async function derivarAtlas(
       fps: def.fps,
       loop: def.loop,
       anchor,
-      ...(conSuelta ? { suelta } : {}),
+      ...(esDisparo ? { suelta } : {}),
     };
 
     if (def.clip === 'idle') {
@@ -271,8 +292,11 @@ export function rutaDelJson(rutaImagen: string): string {
   return rutaImagen.replace(/\.(webp|png)$/, '.json');
 }
 
-export async function escribirDerivado(rutaImagen: string): Promise<AtlasDerivado> {
-  const derivado = await derivarAtlas(rutaImagen);
+export async function escribirDerivado(
+  rutaImagen: string,
+  opciones: { readonly suelta?: number } = {},
+): Promise<AtlasDerivado> {
+  const derivado = await derivarAtlas(rutaImagen, opciones);
   await writeFile(rutaDelJson(rutaImagen), `${JSON.stringify(derivado, null, 2)}\n`);
   return derivado;
 }

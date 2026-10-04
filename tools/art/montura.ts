@@ -5,6 +5,8 @@
  *
  *   npx tsx tools/art/montura.ts            → assets/unidades/_poses/montado-lanza.png + .json
  *   npx tsx tools/art/montura.ts --prueba   → fotogramas sueltos en .cache/taller/montura/
+ *   npx tsx tools/art/montura.ts --8d [destino] [--pistola]
+ *                                           → _poses/montado-lanza-8d/ (o montado-pistola-8d/)
  *
  * No parchea sprite-forge: aquí hay dos modelos, uno en glTF y otro que no es un
  * humanoide de Mixamo, y todos sus guardias suponen lo contrario. Monta su propia
@@ -24,8 +26,21 @@ import { homedir } from 'node:os';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { chromium } from 'playwright';
 import sharp from 'sharp';
-import { FIGURA, luzEnElMundo } from '../../src/shared/arte.js';
-import { componerGiro, indicesDeClip } from './poses.js';
+import {
+  type ClipDeFigura,
+  FIGURA,
+  HOJAS_DE_FIGURA,
+  hojasDeFigura,
+  luzEnElMundo,
+} from '../../src/shared/arte.js';
+import {
+  clipDeDisparoDe,
+  componerGiro,
+  indicesDeClip,
+  JUEGOS_MONTADOS,
+  type JuegoMontado,
+} from './poses.js';
+import { DISPARO_EN_NODE } from './ybot-a-distancia.js';
 
 const RAIZ = resolve(import.meta.dirname, '../..');
 const FORGE = resolve(process.env.SPRITE_FORGE_DIR ?? join(RAIZ, '../sprite-forge'));
@@ -279,25 +294,48 @@ export async function renderizarMontura(prueba: boolean): Promise<string> {
 }
 
 /**
- * La unidad montada en 8 direcciones (como `OCHO_DIRECCIONES` de `poses.ts`): dos
- * hojas por dirección. La A, reposo, paso y carga (el paso con la lanza bajada);
- * la B, el ataque parado con espada, el daño (el caballo encaja el golpe) y la
- * muerte, que se queda en su último fotograma. Luz del contrato.
+ * Cada acción de la unidad montada en 8 direcciones (como `OCHO_DIRECCIONES` de
+ * `poses.ts`), repartidas en hojas como `HOJAS_DE_FIGURA`. La A, reposo, paso y
+ * carga (el paso con la lanza bajada); la B, el ataque parado con espada, el
+ * daño (el caballo encaja el golpe) y la muerte, que se queda en su último
+ * fotograma; la C, solo con pistola, el disparo parado. Luz del contrato.
  */
-const HOJAS_8D = {
-  a: [
-    { clip: 'idle', caballo: 'Idle', postura: 'reposo', enBucle: true },
-    { clip: 'walk', caballo: 'Walk', postura: 'reposo', enBucle: true },
-    { clip: 'charge', caballo: 'Walk', postura: 'carga', enBucle: true },
-  ],
-  b: [
-    { clip: 'attack', caballo: 'Idle', postura: 'ataque', enBucle: false },
-    { clip: 'hurt', caballo: 'Idle_HitReact_Left', postura: 'reposo', enBucle: false },
-    { clip: 'death', caballo: 'Death', postura: 'reposo', enBucle: false },
-  ],
-} as const;
+const FILA_MONTADA = {
+  idle: { caballo: 'Idle', postura: 'reposo', enBucle: true },
+  walk: { caballo: 'Walk', postura: 'reposo', enBucle: true },
+  charge: { caballo: 'Walk', postura: 'carga', enBucle: true },
+  attack: { caballo: 'Idle', postura: 'ataque', enBucle: false },
+  hurt: { caballo: 'Idle_HitReact_Left', postura: 'reposo', enBucle: false },
+  death: { caballo: 'Death', postura: 'reposo', enBucle: false },
+  shoot: { caballo: 'Idle', postura: 'disparo', enBucle: false },
+} as const satisfies Record<
+  ClipDeFigura,
+  { caballo: string; postura: 'reposo' | 'carga' | 'ataque' | 'disparo'; enBucle: boolean }
+>;
 
-export async function renderizarMontura8d(destino = DIR_POSES): Promise<string> {
+/**
+ * Qué lleva el jinete: la lanza del hermano de carga o la pistola del pistolero
+ * montado (04-10-2026), que no lleva lanza ni escudo. El pistolero ataca con el
+ * tajo de espada, como el de la lanza, y dispara (hoja C) con su curva de
+ * `JUEGOS_MONTADOS`.
+ */
+export type ArmaMontada = 'lanza' | 'pistola';
+
+/** Las hojas montadas del jinete: la del disparo, solo si dispara. */
+function hojasMontadas(juego: JuegoMontado) {
+  return Object.fromEntries(
+    hojasDeFigura(clipDeDisparoDe(juego) !== null).map((h) => [
+      h,
+      HOJAS_DE_FIGURA[h].map((clip) => ({ clip, ...FILA_MONTADA[clip] })),
+    ]),
+  );
+}
+
+export async function renderizarMontura8d(
+  destino = DIR_POSES,
+  arma: ArmaMontada = 'lanza',
+): Promise<string> {
+  const juego: JuegoMontado = `montado-${arma}`;
   const servidor = await servir();
   const puerto = (servidor.address() as AddressInfo).port;
   const exe = ejecutable();
@@ -329,6 +367,7 @@ export async function renderizarMontura8d(destino = DIR_POSES): Promise<string> 
       altoCaballo: 1.75,
       ajuste: AJUSTE,
       luz: luzEnElMundo(),
+      arma,
     });
     if (errores.length > 0) throw new Error(`la escena falló: ${errores.join(' | ')}`);
     const duraciones = Object.fromEntries(
@@ -338,24 +377,50 @@ export async function renderizarMontura8d(destino = DIR_POSES): Promise<string> 
       }),
     ) as Record<string, number>;
     const { columnas } = FIGURA;
+    const { duracionDelDisparo } = JUEGOS_MONTADOS[juego];
+    const curva = clipDeDisparoDe(juego);
+    const hojas = hojasMontadas(juego);
+    // Parado, la duración es la del jinete: el tajo de espada en los dos y el
+    // disparo, que no sale de un clip. El resto sigue al caballo.
+    const duracionDe: Partial<Record<(typeof FILA_MONTADA)[ClipDeFigura]['postura'], number>> = {
+      ataque: info.duracionAtaque as number,
+      ...(duracionDelDisparo === undefined ? {} : { disparo: duracionDelDisparo }),
+    };
+    const fotogramas: Partial<Record<ClipDeFigura, number>> = {};
     const indices: Record<string, number[]> = {};
-    for (const f of [...HOJAS_8D.a, ...HOJAS_8D.b]) {
-      const dur = f.postura === 'ataque' ? (info.duracionAtaque as number) : duraciones[f.caballo];
+    for (const f of Object.values(hojas).flat()) {
+      const dur = duracionDe[f.postura] ?? duraciones[f.caballo];
       if (dur === undefined) throw new Error(`el caballo no tiene ${f.caballo}`);
-      indices[f.clip] = indicesDeClip(Math.max(1, Math.round(dur * 24)), columnas, f.enBucle);
+      fotogramas[f.clip] = Math.max(1, Math.round(dur * 24));
+      indices[f.clip] = indicesDeClip(fotogramas[f.clip] as number, columnas, f.enBucle);
     }
-    const carpeta = join(destino, 'montado-lanza-8d');
+    // El disparo de la pistola en el fotograma `i`, por el progreso del clip, como el del maniquí.
+    const enElDisparo = (i: number) => {
+      if (curva === null || fotogramas.shoot === undefined)
+        throw new Error(`«${juego}» no dispara y su hoja tiene la fila del disparo`);
+      const p = DISPARO_EN_NODE.progresoDelDisparo(i, fotogramas.shoot);
+      return {
+        tension: DISPARO_EN_NODE.curvaDelDisparo(curva, p),
+        tensa: DISPARO_EN_NODE.cuerdaTensa(curva, p),
+      };
+    };
+    const carpeta = join(destino, `${juego}-8d`);
     await mkdir(carpeta, { recursive: true });
     const shas: Record<string, string> = {};
     for (let d = 0; d < 8; d++) {
       await pagina.evaluate((g) => (window as any).__girar(g), (2 * Math.PI * d) / 8);
-      for (const [hoja, filas] of Object.entries(HOJAS_8D)) {
+      for (const [hoja, filas] of Object.entries(hojas)) {
         const capas = [];
         for (const [fila, f] of filas.entries()) {
           for (const [col, i] of (indices[f.clip] as number[]).entries()) {
+            const disparo = f.postura === 'disparo' ? enElDisparo(i) : null;
+            // Parado, el caballo está quieto en su primer fotograma; el jinete
+            // sigue el reloj del tajo.
+            const parado = f.postura === 'ataque' || f.postura === 'disparo';
             const url = (await pagina.evaluate(
-              ([clip, t, postura, tj]) => (window as any).__fotograma(clip, t, postura, tj),
-              [f.caballo, f.postura === 'ataque' ? 0 : i / 24, f.postura, i / 24] as const,
+              ([clip, t, postura, tj, dsp]) =>
+                (window as any).__fotograma(clip, t, postura, tj, dsp),
+              [f.caballo, parado ? 0 : i / 24, f.postura, i / 24, disparo] as const,
             )) as string;
             capas.push({
               input: Buffer.from(url.split(',')[1] as string, 'base64'),
@@ -367,7 +432,7 @@ export async function renderizarMontura8d(destino = DIR_POSES): Promise<string> 
         const png = await sharp({
           create: {
             width: columnas * CELDA_MONTADA,
-            height: 3 * CELDA_MONTADA,
+            height: filas.length * CELDA_MONTADA,
             channels: 4,
             background: { r: 0, g: 0, b: 0, alpha: 0 },
           },
@@ -386,7 +451,8 @@ export async function renderizarMontura8d(destino = DIR_POSES): Promise<string> 
       join(carpeta, 'poses.json'),
       `${JSON.stringify(
         {
-          perfil: 'montado-lanza-8d',
+          perfil: `${juego}-8d`,
+          arma,
           renderer: 'tools/art/montura.ts (three.js, la cámara y la luz del contrato)',
           caballo: {
             fichero: 'tools/art/modelos/caballo-quaternius.glb',
@@ -394,12 +460,16 @@ export async function renderizarMontura8d(destino = DIR_POSES): Promise<string> 
             licencia: 'CC0 (ver tools/art/modelos/LICENCIA.md)',
           },
           jinete: { model: 'y_bot', postura: 'sitting_idle + IK de piernas y brazos' },
+          // Lo que lee `pnpm taller derivar-poses` para la columna de suelta del disparo.
+          ...(fotogramas.shoot === undefined
+            ? {}
+            : { sourceMetadata: { shoot: { frame_count: fotogramas.shoot } } }),
           camera: { pitchDegrees: -FIGURA.camara.elevacionGrados, directions: 8, ortho },
           light: luzEnElMundo(),
           cell: CELDA_MONTADA,
           columns: columnas,
           sheets: Object.fromEntries(
-            Object.entries(HOJAS_8D).map(([h, filas]) => [
+            Object.entries(hojas).map(([h, filas]) => [
               h,
               filas.map((f) => ({ ...f, indices: indices[f.clip], fps: 24 })),
             ]),
@@ -422,7 +492,10 @@ const esScript = process.argv[1] !== undefined && resolve(process.argv[1]) === i
 if (esScript) {
   console.log(
     process.argv.includes('--8d')
-      ? `→ ${await renderizarMontura8d(process.argv[3])}`
+      ? `→ ${await renderizarMontura8d(
+          process.argv.slice(3).find((a) => !a.startsWith('--')),
+          process.argv.includes('--pistola') ? 'pistola' : 'lanza',
+        )}`
       : `→ ${await renderizarMontura(process.argv.includes('--prueba'))}`,
   );
 }

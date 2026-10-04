@@ -1,18 +1,23 @@
 /**
  * Atlas de clips: la cámara, el reloj y el anclaje pertenecen al arte, no al combate.
  *
- * Toda figura trae las seis acciones de `CLIPS_DE_FIGURA` (`shared/arte.ts`). No
- * hay clip opcional ni caída a la marcha: el respaldo de quien no tiene arte
- * propio es el Y Bot, que las tiene todas (decisión del usuario, 03-10-2026).
+ * Toda figura trae las seis acciones de `CLIPS_DE_FIGURA` (`shared/arte.ts`): el
+ * respaldo de quien no tiene arte propio es el Y Bot, que las tiene todas
+ * (decisión del usuario, 03-10-2026). La séptima, el disparo (`shoot`), solo la
+ * pinta quien dispara; a quien no, `figuraDe` (`personajes.ts`) le pone el
+ * ataque como disparo al cargar su arte, así que todo atlas tiene las siete y
+ * nadie que lee un clip pregunta si está. `ArteDeFigura.dispara` dice si el
+ * disparo es suyo.
  */
-import type { CLIPS_DE_FIGURA } from '../../shared/arte.js';
+import type { ClipDeFigura } from '../../shared/arte.js';
 
-export type CharacterClip = (typeof CLIPS_DE_FIGURA)[number];
+/** Las siete acciones que se pintan: las seis de toda figura y el disparo. */
+export type CharacterClip = ClipDeFigura;
 
 export interface ClipInfo {
   /**
-   * La URL de la imagen donde está la fila: una unidad lleva sus seis filas en
-   * un `atlas.webp`, y el Y Bot las reparte en dos PNG de tres (`dN-a`, `dN-b`).
+   * La URL de la imagen donde está la fila: una unidad lleva sus filas en un
+   * `atlas.webp`, y el Y Bot las reparte en sus hojas (`dN-a`, `dN-b`, `dN-c`).
    */
   readonly imagen: string;
   /** La fila dentro de SU imagen. */
@@ -22,9 +27,10 @@ export interface ClipInfo {
   readonly loop: boolean;
   readonly anchor: readonly [number, number];
   /**
-   * Solo en el ataque de quien dispara: la primera columna con la cuerda ya
-   * suelta (la escribe `pnpm taller derivar-poses`). Sin ella, el proyectil sale
-   * al empezar el disparo.
+   * Solo en el disparo (`shoot`) de quien lo pinta: la primera columna con la
+   * cuerda ya suelta (la escribe `pnpm taller derivar-poses`), donde sale el
+   * proyectil. Sin ella —el disparo de quien no lo pinta es su ataque—, el
+   * proyectil sale al empezar.
    */
   readonly suelta?: number;
 }

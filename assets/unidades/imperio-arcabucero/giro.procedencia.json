@@ -1,0 +1,50 @@
+{
+  "encargo": "imperio-arcabucero-giro",
+  "tipo": "giro",
+  "fecha": "2026-10-04T09:56:33.986Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a10656-e358-7440-963d-a7251d7cc686",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo), copia su largo, su ángulo y su sitio en cada celda: es la guía del arma real. Si sus piernas son de color, la ROJA es la pierna DERECHA y la AZUL la IZQUIERDA: sirven para no confundirlas en el paso ni girar la figura de espaldas; el personaje NO lleva esos colores. El fondo VERDE de esta hoja es solo fondo, para que se vea el maniquí: no lo copies, el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn arcabucero: sombrero de ala ancha con pluma roja, jubón acuchillado amarillo y negro, bandolera de cargas, banda roja a la cintura, arcabuz de mecha empuñado con las dos manos y la horquilla colgada.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nLámina de GIRO de EXACTAMENTE 4 columnas por 2 filas: el MISMO personaje ocho veces, de cuerpo entero, en la pose de reposo, separadas con holgura y sin tocarse.\nCada figura copia la orientación y la pose del maniquí de su celda en la referencia de pose. En orden de lectura miran hacia: 1. frente, 2. frente-derecha, 3. derecha, 4. espalda-derecha, 5. espalda, 6. espalda-izquierda, 7. izquierda, 8. frente-izquierda. Las que van de espaldas enseñan la espalda del personaje: invéntala coherente con su equipo (la capa o sobrevesta por detrás, la cara interior del escudo, la vaina).\nCámara ortográfica elevada 25 grados en todas, viendo la coronilla y los hombros; NUNCA de perfil ni a la altura de los ojos, aunque la figura mire de lado. Misma escala en las ocho.\nEs la lámina de identidad por los ocho lados: el equipo, los colores y los materiales son idénticos en todas y se leen con claridad.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/ballesta-8d/giro.png",
+      "papel": "pose",
+      "sha256": "1ba0e7c6c96b0264949d66366472b3908688828bcf5c35cf4a10fd209a2c4c96"
+    },
+    {
+      "ruta": "assets/unidades/imperio-arcabucero/identidad.webp",
+      "papel": "identidad",
+      "sha256": "04c051b9cea7fa49a32c56b35d9cc459e1d517450abadccc5b60557a368701ab"
+    },
+    {
+      "ruta": "assets/art/imperio/arcabucero.png",
+      "papel": "estilo",
+      "sha256": "7f36e63a0121971da5ff711840511e2cf3b6674c6ab0c3fbe9886eb08cc5cccd"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a10656-e358-7440-963d-a7251d7cc686/exec-4ca48320-fe93-4ab0-9da0-483ecea1a2eb.png",
+    "sha256": "217410c1ef2340203338408eb365b509a970e994d42632284a191706ef93e164",
+    "ancho": 1774,
+    "alto": 887
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.254942055511687,
+    "opacos": 0.9703773802064017,
+    "haloSuelto": 0.000005115285752650358,
+    "ancho": 1729,
+    "alto": 887
+  },
+  "salida": {
+    "ruta": "assets/unidades/imperio-arcabucero/giro.webp",
+    "sha256": "10ad25cb0770b335f775c696e7386426f9fa47d0210a71eacf9665092aea185e"
+  }
+}

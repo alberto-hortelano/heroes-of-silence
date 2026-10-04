@@ -9,7 +9,8 @@
  *     `dN/atlas.webp` (los templarios, hoy). Se registra a demanda
  *     (`registrarUnidad`); no se tiñe, la distingue el aro.
  *  2. **El Y Bot de su juego de armas**: los renders de
- *     `_poses/<juego>-8d/dN-a.png` y `dN-b.png`, con las anclas medidas en
+ *     `_poses/<juego>-8d/dN-a.png`, `dN-b.png` y, si dispara, `dN-c.png`
+ *     (`HOJAS_DE_FIGURA`), con las anclas medidas en
  *     `_poses/atlas-8d.json` (`pnpm taller derivar-poses`). Es el de toda
  *     criatura del catálogo, del héroe y de toda unidad sin `dN`, y se tiñe del
  *     color de su bando porque no dice qué es.
@@ -22,7 +23,14 @@
 import { HERO_BODY } from '@core/hero/hero.js';
 import { CHARACTER_BODY } from '@core/rpg/character.js';
 import atlasDePoses from '../../../assets/unidades/_poses/atlas-8d.json';
-import { CLIPS_DE_FIGURA, JUEGO_POR_DEFECTO, NOMBRES_DE_DIRECCION } from '../../shared/arte.js';
+import {
+  type CLIPS_DE_FIGURA,
+  CLIPS_OPCIONALES,
+  FILAS_DEL_ATLAS,
+  hojaDeLaFila,
+  JUEGO_POR_DEFECTO,
+  NOMBRES_DE_DIRECCION,
+} from '../../shared/arte.js';
 import type { Direccion } from '../direccion.js';
 import type { CharacterAtlas, ClipInfo } from './character.js';
 
@@ -32,6 +40,15 @@ export interface ArteDeFigura {
   readonly direcciones: readonly CharacterAtlas[];
   /** `false` para el Y Bot: hay que teñirlo, porque no dice qué es. */
   readonly propio: boolean;
+  /** Quién es, para decirlo en un aviso: `la unidad <id>` o `el Y Bot «<juego>»`. */
+  readonly nombre: string;
+  /**
+   * Si su arte pinta el disparo (`shoot`) en sus ocho direcciones. Lo pinta el Y
+   * Bot de quien dispara; no lo pinta quien golpea, ni el arte pintado antes de
+   * que existiera la hoja C, ni el bastón del liche: a esos su `shoot` es su
+   * `attack` (`figuraDe`).
+   */
+  readonly dispara: boolean;
   /** Lo que mide la figura en su propia hoja: para encajarla sola en una miniatura. */
   readonly alturaPropia: number;
   /**
@@ -75,20 +92,33 @@ export const INDICE_DE_HOJA = Object.fromEntries(
 /** La vista con la que se presenta una figura quieta: de frente-derecha. */
 export const MIRADA_DE_PRESENTACION: Direccion = 'SE';
 
-/** La fila de un atlas de 6 filas, resuelta a su imagen y a la fila dentro de ella. */
+/**
+ * Una dirección tal como la trae su JSON, comprobada: las seis acciones de toda
+ * figura y el disparo solo si lo pinta. `figuraDe` la completa.
+ */
+export interface DireccionComprobada extends Omit<CharacterAtlas, 'clips'> {
+  readonly clips: Readonly<Record<(typeof CLIPS_DE_FIGURA)[number], ClipInfo>> &
+    Readonly<Partial<Record<(typeof CLIPS_OPCIONALES)[number], ClipInfo>>>;
+  readonly altura: number;
+}
+
+const OPCIONAL = new Set<string>(CLIPS_OPCIONALES);
+
+/** La fila de un atlas (`FILAS_DEL_ATLAS`), resuelta a su imagen y a la fila dentro de ella. */
 type ImagenDeFila = (fila: number) => { readonly imagen: string; readonly row: number };
 
 /**
- * Un JSON de una dirección, comprobado como atlas de 6 acciones. Lanza diciendo
- * qué le falta: un clip sin ancla pintaría la figura en la esquina sin que nada
- * se pusiera rojo. El del Y Bot se comprueba al importar el módulo, así que un
- * JSON roto rompe el arranque y `personajes.test.ts`, no una batalla a mitad.
+ * Un JSON de una dirección, comprobado como atlas de 6 acciones y, si lo trae,
+ * el disparo. Lanza diciendo qué le falta: un clip sin ancla pintaría la figura
+ * en la esquina sin que nada se pusiera rojo. El del Y Bot se comprueba al
+ * importar el módulo, así que un JSON roto rompe el arranque y
+ * `personajes.test.ts`, no una batalla a mitad.
  */
 export function comoDireccion8d(
   valor: unknown,
   nombre: string,
   imagenDeFila: ImagenDeFila,
-): CharacterAtlas & { readonly altura: number } {
+): DireccionComprobada {
   const a = valor as
     | {
         cell?: unknown;
@@ -104,9 +134,10 @@ export function comoDireccion8d(
   if (typeof a.altura !== 'number' || !(a.altura > 0)) {
     throw new Error(`el atlas ${nombre} no dice cuánto mide su figura (altura)`);
   }
-  const clips = {} as Record<(typeof CLIPS_DE_FIGURA)[number], ClipInfo>;
-  for (const clip of CLIPS_DE_FIGURA) {
+  const clips: Partial<Record<string, ClipInfo>> = {};
+  for (const clip of FILAS_DEL_ATLAS) {
     const c = a.clips?.[clip];
+    if (c === undefined && OPCIONAL.has(clip)) continue;
     if (
       c === undefined ||
       typeof c.row !== 'number' ||
@@ -118,15 +149,20 @@ export function comoDireccion8d(
     ) {
       throw new Error(`el atlas ${nombre} no tiene un clip "${clip}" con fotogramas y ancla`);
     }
-    // La suelta es del ataque, y cae dentro de él: ni en la primera columna,
-    // que sería disparar sin tensar, ni más allá de sus fotogramas.
+    // La suelta es del disparo, y solo de él: el ataque es cuerpo a cuerpo. Cae
+    // dentro del clip: ni en la primera columna, que sería disparar sin tensar,
+    // ni más allá de sus fotogramas. Y un disparo sin ella no sabría cuándo sale
+    // el proyectil.
     const { suelta } = c;
+    if (clip === 'shoot' && suelta === undefined) {
+      throw new Error(`el atlas ${nombre} tiene disparo y no dice en qué columna suelta`);
+    }
     if (
       suelta !== undefined &&
-      (clip !== 'attack' || !Number.isInteger(suelta) || suelta < 1 || suelta >= c.frames)
+      (clip !== 'shoot' || !Number.isInteger(suelta) || suelta < 1 || suelta >= c.frames)
     ) {
       throw new Error(
-        `el atlas ${nombre} pone la suelta del clip "${clip}" en la columna ${suelta}: solo el ataque la tiene, entre la 1 y la ${c.frames - 1}`,
+        `el atlas ${nombre} pone la suelta del clip "${clip}" en la columna ${suelta}: solo el disparo la tiene, entre la 1 y la ${c.frames - 1}`,
       );
     }
     clips[clip] = {
@@ -139,21 +175,29 @@ export function comoDireccion8d(
     };
   }
   const frame = a.cadaver?.frame;
-  if (a.cadaver?.clip !== 'death' || typeof frame !== 'number' || frame >= clips.death.frames) {
+  const muerte = clips.death as ClipInfo;
+  if (a.cadaver?.clip !== 'death' || typeof frame !== 'number' || frame >= muerte.frames) {
     throw new Error(`el atlas ${nombre} no dice qué fotograma de la muerte es el cadáver`);
   }
   return {
     cell: a.cell,
     columns: a.columns,
-    clips,
+    // Las seis de `CLIPS_DE_FIGURA` están: el bucle ha lanzado con la que faltara.
+    clips: clips as DireccionComprobada['clips'],
     cadaver: { clip: 'death', frame },
     altura: a.altura,
   };
 }
 
-/** Una figura de ocho direcciones ya comprobadas. */
+/**
+ * Una figura de ocho direcciones ya comprobadas. El disparo, en las ocho o en
+ * ninguna: con él en unas sí y en otras no, la figura dispararía según hacia
+ * dónde mire. Quien no lo pinta dispara con su ataque: su `shoot` es su
+ * `attack`, puesto aquí una vez para que ningún lector de clips tenga que
+ * preguntar si está. Quien lo note lo dice el animador (`anim.ts`).
+ */
 function figuraDe(
-  direcciones: readonly (CharacterAtlas & { readonly altura: number })[],
+  direcciones: readonly DireccionComprobada[],
   propio: boolean,
   nombre: string,
 ): ArteDeFigura {
@@ -162,19 +206,27 @@ function figuraDe(
       `${nombre} trae ${direcciones.length} direcciones y una figura tiene ${NOMBRES_DE_DIRECCION.length}: con menos se mezclarían luces de dos artes`,
     );
   }
+  const conDisparo = direcciones.filter((d) => d.clips.shoot !== undefined).length;
+  if (conDisparo !== 0 && conDisparo !== direcciones.length) {
+    const sin = direcciones.flatMap((d, n) => (d.clips.shoot === undefined ? [`d${n}`] : []));
+    throw new Error(
+      `${nombre} trae el disparo en ${conDisparo} de sus ${direcciones.length} direcciones (le falta en ${sin.join(', ')}): en todas o en ninguna`,
+    );
+  }
+  const completas: CharacterAtlas[] = direcciones.map((d) => ({
+    ...d,
+    clips: { ...d.clips, shoot: d.clips.shoot ?? d.clips.attack },
+  }));
   return {
-    direcciones,
+    direcciones: completas,
     propio,
-    alturaPropia: (direcciones[INDICE_DE_HOJA[MIRADA_DE_PRESENTACION]] as { altura: number })
+    nombre,
+    dispara: conDisparo > 0,
+    alturaPropia: (direcciones[INDICE_DE_HOJA[MIRADA_DE_PRESENTACION]] as DireccionComprobada)
       .altura,
-    imagenes: [
-      ...new Set(direcciones.flatMap((d) => CLIPS_DE_FIGURA.map((c) => d.clips[c].imagen))),
-    ],
+    imagenes: [...new Set(completas.flatMap((d) => FILAS_DEL_ATLAS.map((c) => d.clips[c].imagen)))],
   };
 }
-
-/** Las filas 0-2 viven en `dN-a.png` y las 3-5 en `dN-b.png`. */
-const FILAS_POR_HOJA = 3;
 
 /** Los juegos de armas con Y Bot en 8 direcciones: las claves de `atlas-8d.json`. */
 export type JuegoDelYBot = keyof typeof atlasDePoses.juegos;
@@ -185,12 +237,9 @@ const YBOT: ReadonlyMap<string, ArteDeFigura> = new Map(
     juego,
     figuraDe(
       dirs.map((d, n) =>
-        comoDireccion8d(d, `_poses/${juego}-8d/d${n}`, (fila) => {
-          const hoja = fila < FILAS_POR_HOJA ? 'a' : 'b';
-          return {
-            imagen: `/unidades/_poses/${juego}-8d/d${n}-${hoja}.png`,
-            row: fila % FILAS_POR_HOJA,
-          };
+        comoDireccion8d(d, `_poses/${juego}-8d/d${n}`, (filaDelAtlas) => {
+          const { hoja, fila } = hojaDeLaFila(filaDelAtlas);
+          return { imagen: `/unidades/_poses/${juego}-8d/d${n}-${hoja}.png`, row: fila };
         }),
       ),
       false,

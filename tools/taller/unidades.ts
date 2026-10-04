@@ -17,8 +17,25 @@
 import { existsSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import type { FaccionDeArena } from '../../src/core/arena.js';
-import { NOMBRES_DE_DIRECCION } from '../../src/shared/arte.js';
-import { carpetaDePoses, JUEGOS_DE_ARMAS, type JuegoEn8d, type Perfil } from '../art/poses.js';
+import {
+  type ClipDeFigura,
+  HOJAS_DE_FIGURA,
+  hojasDeFigura,
+  NOMBRES_DE_DIRECCION,
+} from '../../src/shared/arte.js';
+import {
+  type Atrezo,
+  type CuerpoACuerpo,
+  carpetaDeManiqui,
+  carpetaDePoses,
+  clipDeDisparoDe,
+  cuerpoACuerpoDe,
+  ESPADA_CORTA,
+  JUEGOS_DE_ARMAS,
+  type JuegoEn8d,
+  type Perfil,
+  UNA_MANO,
+} from '../art/poses.js';
 import type { Encargo } from './encargo.js';
 
 export interface Unidad {
@@ -41,7 +58,52 @@ export interface Unidad {
   readonly concepto?: string;
   /** El aspecto. La cámara, la pose y el fondo los pone el taller. */
   readonly aspecto: string;
+  /**
+   * El atrezo de SU maniquí, si el de su juego de armas no se parece a lo que
+   * lleva: los clips son los del juego y el atrezo, este (decisión del
+   * usuario, 04-10-2026: el Y Bot no es sagrado). Se renderiza con
+   * `pnpm taller maniqui <id>` en `_poses/unidades/<id>-8d/`, y sus hojas se
+   * pintan sobre él. El juego de `JUEGO_DEL_YBOT` sigue siendo el respaldo del
+   * cliente mientras no hay arte propio.
+   */
+  readonly maniqui?: Atrezo;
 }
+
+/** El arma de mano de espada y escudo, para cambiarle lo que haga falta. */
+const ESPADA_Y_ESCUDO = JUEGOS_DE_ARMAS['espada-escudo'].atrezo;
+/**
+ * Un arma de fuego al hombro: la ballesta sin arco, cuerda ni virote. Con su
+ * arma de cuerpo a cuerpo, que es la del ataque: el arma de fuego es la del
+ * disparo (decisión del usuario, 04-10-2026).
+ */
+const armaDeFuego = (
+  delante: number,
+  atras: number,
+  grosor: number,
+  cuerpoACuerpo: CuerpoACuerpo,
+): Atrezo => ({
+  ballesta: { delante, atras, palas: 0, combadura: 0, grosor },
+  separacionManos: 0.24,
+  bajaEnReposo: 0.5,
+  cuerpoACuerpo,
+});
+/** El artillero golpea con el botafuego: un palo de un metro, sin punta. */
+const BOTAFUEGO: CuerpoACuerpo = {
+  describe: 'el botafuego (una vara de madera de un metro con la mecha en la punta)',
+  atrezo: {
+    espada: { largo: 1.0, guarda: 0, puño: 0.3, agarre: 0, grosor: 0.018 },
+    ...UNA_MANO,
+    adelanteMinimo: 0.5,
+  },
+};
+/** El ingeniero, con su martillo: el de la maza, más corto y con menos cabeza. */
+const MARTILLO: CuerpoACuerpo = {
+  describe: 'su martillo pequeño de una mano en la derecha',
+  atrezo: {
+    espada: { largo: 0.36, guarda: 0, puño: 0.14, agarre: 0, grosor: 0.022, cabeza: 0.06 },
+    ...UNA_MANO,
+  },
+};
 
 const PINTURA =
   'Estilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.';
@@ -161,6 +223,19 @@ export const UNIDADES: readonly Unidad[] = [
     nombre: 'Alabardero',
     perfil: 'dos-manos',
     concepto: 'assets/art/imperio/alabardero.png',
+    maniqui: {
+      espada: {
+        largo: 1.6,
+        guarda: 0,
+        puño: 0.6,
+        agarre: 0,
+        grosor: 0.02,
+        moharra: 0.25,
+        remate: 'hacha',
+      },
+      ...UNA_MANO,
+      adelanteMinimo: 0.6,
+    },
     aspecto:
       'Un alabardero lansquenete: morrión de acero, peto, mangas y calzas acuchilladas a franjas amarillas y negras con forros rojos, alabarda empuñada a dos manos y espada corta al cinto.',
   },
@@ -170,6 +245,11 @@ export const UNIDADES: readonly Unidad[] = [
     nombre: 'Piquero',
     perfil: 'dos-manos',
     concepto: 'assets/art/imperio/piquero.png',
+    maniqui: {
+      espada: { largo: 1.9, guarda: 0, puño: 0.6, agarre: 0, grosor: 0.02, moharra: 0.2 },
+      ...UNA_MANO,
+      adelanteMinimo: 0.6,
+    },
     aspecto:
       'Un piquero lansquenete: morrión, peto de acero, ropa acuchillada a franjas amarillas y negras, pica larga (una vez y media su altura) empuñada a dos manos, inclinada y nunca más larga que eso.',
   },
@@ -188,6 +268,11 @@ export const UNIDADES: readonly Unidad[] = [
     nombre: 'Coracero',
     perfil: 'espada-escudo',
     concepto: 'assets/art/imperio/coracero.png',
+    maniqui: {
+      ...ESPADA_Y_ESCUDO,
+      espada: { largo: 0.95, guarda: 0.22, puño: 0.2, agarre: 0.085 },
+      escudo: false,
+    },
     aspecto:
       'Un coracero: armadura de placas pesada y oscura casi completa, banda roja cruzada al pecho, borgoñota cerrada, espada de lazo de una mano. Sin escudo. Muy duro y lento.',
   },
@@ -197,6 +282,7 @@ export const UNIDADES: readonly Unidad[] = [
     nombre: 'Arcabucero',
     perfil: 'ballesta',
     concepto: 'assets/art/imperio/arcabucero.png',
+    maniqui: armaDeFuego(0.75, 0.25, 0.022, ESPADA_CORTA),
     aspecto:
       'Un arcabucero: sombrero de ala ancha con pluma roja, jubón acuchillado amarillo y negro, bandolera de cargas, banda roja a la cintura, arcabuz de mecha empuñado con las dos manos y la horquilla colgada.',
   },
@@ -206,6 +292,11 @@ export const UNIDADES: readonly Unidad[] = [
     nombre: 'Rodelero',
     perfil: 'espada-escudo',
     concepto: 'assets/art/imperio/rodelero.png',
+    maniqui: {
+      ...ESPADA_Y_ESCUDO,
+      espada: { largo: 0.9, guarda: 0.12, puño: 0.14, agarre: 0.07, grosor: 0.014 },
+      rodela: 0.25,
+    },
     aspecto:
       'Un rodelero: morrión con pluma roja, peto de acero, ropa acuchillada roja y negra, rodela de acero redonda en el brazo izquierdo y espada ropera en la derecha.',
   },
@@ -215,8 +306,28 @@ export const UNIDADES: readonly Unidad[] = [
     nombre: 'Artillero con culebrina',
     perfil: 'ballesta',
     concepto: 'assets/art/imperio/artillero-con-culebrina.png',
+    maniqui: armaDeFuego(0.85, 0.2, 0.038, BOTAFUEGO),
     aspecto:
       'Un artillero: gorra de lana, mandil de cuero tiznado sobre ropa amarilla y negra, guantes gruesos, culebrina de mano (cañón largo y ligero de bronce con culata de madera) empuñada con las dos manos, bolsa de pólvora y botafuego al cinto. Sin cureña.',
+  },
+  {
+    id: 'imperio-pistolero-montado',
+    faccion: 'imperio',
+    nombre: 'Pistolero montado',
+    // La hoja de una dirección es la del jinete con lanza: el aspecto dice que no la lleva.
+    perfil: 'montado-lanza',
+    concepto: 'assets/art/imperio/pistolero-montado.png',
+    aspecto:
+      'Un pistolero montado (reitre) A CABALLO, como el del concepto: media armadura ennegrecida, morrión abierto, banda roja, mangas acuchilladas amarillas y negras, pistola de rueda en la mano derecha y espada al cinto. SIN lanza y SIN escudo. El caballo, castaño oscuro, lleva gualdrapa amarilla y negra. Jinete y caballo son UNA sola figura.',
+  },
+  {
+    id: 'imperio-granadero',
+    faccion: 'imperio',
+    nombre: 'Granadero',
+    perfil: 'ballesta',
+    concepto: 'assets/art/imperio/granadero.png',
+    aspecto:
+      'Un granadero: gorro alto de tela a franjas amarillas y negras con cinta roja, coleto de cuero sobre ropa acuchillada amarilla y negra, banda roja a la cintura, bandolera y bolsa de granadas de hierro, una granada redonda con la mecha encendida en la mano derecha, mecha lenta enrollada en la muñeca izquierda y un sable al cinto, con el que pelea cuerpo a cuerpo.',
   },
   {
     id: 'elfo-arquero',
@@ -407,18 +518,31 @@ export const HEROES: readonly Unidad[] = [
       'Un caballero de la muerte, contrapunto oscuro del templario: armadura de placas negra y abollada con remaches de hierro, sobrevesta negra hecha jirones con una cruz rota desteñida, yelmo cerrado con cuernos cortos y un brillo verde frío tras la visera, gran espadón mellado empuñado a dos manos.',
   },
   {
-    id: 'heroe-imperio-noble',
+    id: 'heroe-imperio-duelista',
     faccion: 'imperio',
-    nombre: 'Noble (héroe)',
+    nombre: 'Duelista (héroe; sustituye al Noble)',
     perfil: 'espada-escudo',
+    concepto: 'assets/art/imperio/duelista.png',
+    maniqui: {
+      ...ESPADA_Y_ESCUDO,
+      espada: { largo: 1.0, guarda: 0.12, puño: 0.14, agarre: 0.07, grosor: 0.012 },
+      escudo: false,
+      daga: { largo: 0.3 },
+    },
     aspecto:
-      'Un noble imperial: sombrero de ala con plumas, jubón de terciopelo negro y oro, gorguera, coraza ligera grabada, banda roja de mando, ropera en la derecha y bastón de mando en la izquierda.',
+      'Un duelista imperial, maestro de esgrima delgado y rápido: sombrero de ala con plumas roja y amarilla, gola de acero, jubón negro acuchillado de amarillo y rojo, media capa al hombro con el águila, botas altas, ropera de lazo en la mano derecha y daga de parada en la izquierda. Sin escudo.',
   },
   {
     id: 'heroe-imperio-mago',
     faccion: 'imperio',
     nombre: 'Mago de batalla (héroe)',
     perfil: 'baston',
+    concepto: 'assets/art/imperio/mago-de-batalla.png',
+    maniqui: {
+      espada: { largo: 1.15, guarda: 0, puño: 0.5, agarre: 0, grosor: 0.024, remate: 'esfera' },
+      ...UNA_MANO,
+      arribaMinimo: 0.85,
+    },
     aspecto:
       'Un mago de batalla imperial: túnica larga azul oscuro con ribetes dorados sobre coraza ligera, birrete, barba recortada, libro atado al cinto, bastón de metal rematado en una esfera con llamas.',
   },
@@ -427,6 +551,12 @@ export const HEROES: readonly Unidad[] = [
     faccion: 'imperio',
     nombre: 'Capitán mercenario (héroe)',
     perfil: 'espada-escudo',
+    concepto: 'assets/art/imperio/capitan-mercenario.png',
+    maniqui: {
+      ...ESPADA_Y_ESCUDO,
+      espada: { largo: 0.7, guarda: 0.22, puño: 0.15, agarre: 0.08, grosor: 0.03 },
+      escudo: false,
+    },
     aspecto:
       'Un capitán mercenario lansquenete: sombrero enorme con plumas rojas y amarillas, ropa acuchillada llamativa, peto de acero abollado, bigote, espada katzbalger en la derecha y una bolsa de monedas al cinto. Sin escudo.',
   },
@@ -434,9 +564,11 @@ export const HEROES: readonly Unidad[] = [
     id: 'heroe-imperio-ingeniero',
     faccion: 'imperio',
     nombre: 'Ingeniero (héroe)',
-    perfil: 'espada-escudo',
+    perfil: 'ballesta',
+    concepto: 'assets/art/imperio/ingeniero.png',
+    maniqui: armaDeFuego(0.9, 0.3, 0.018, MARTILLO),
     aspecto:
-      'Un ingeniero imperial: gafas de latón sobre la frente, mandil de cuero con herramientas, jubón amarillo y negro, rollo de planos a la espalda, martillo de guerra de una mano en la derecha.',
+      'Un ingeniero imperial: gafas de latón sobre la frente, mandil de cuero con herramientas, jubón amarillo y negro, rollo de planos a la espalda, martillo pequeño al cinto y un rifle largo de llave de rueda, para tirar de lejos, empuñado con las dos manos.',
   },
   {
     id: 'heroe-elfo-danzante-de-espadas',
@@ -551,11 +683,12 @@ export function encargoDeIdentidad(u: Unidad): Encargo {
  *  - pica, alabarda, lanza o jabalina → `lanza` (también la horca del zombi);
  *  - bastón o báculo de monje, mago, chamán, druida, nigromante o liche → `baston`;
  *  - mandoble, hacha o cuchilla empuñada a dos manos → `dos-manos`;
- *  - maza (y el martillo de guerra del ingeniero) → `maza`; mayal → `mayal`;
- *  - a caballo con lanza → `montado-lanza`;
+ *  - maza → `maza`; mayal → `mayal`;
+ *  - a caballo con lanza → `montado-lanza`; a caballo con pistola → `montado-pistola`;
+ *  - granada de mano → `granada`;
  *  - arco en la mano → `arco` (el explorador elfo no: pelea con sus dos
  *    cuchillos y el arco lo lleva a la espalda);
- *  - ballesta, arcabuz o culebrina de mano → `ballesta`, como ya hacía la
+ *  - ballesta, arcabuz, culebrina de mano o el rifle del ingeniero → `ballesta`, como ya hacía la
  *    ballesta de una dirección con el arcabuz;
  *  - el resto —espada, hacha de una mano, dos armas, cuchillos, sin armas— →
  *    `espada-escudo`.
@@ -582,6 +715,8 @@ export const JUEGO_DEL_YBOT: Readonly<Record<string, JuegoEn8d>> = {
   'imperio-arcabucero': 'ballesta',
   'imperio-rodelero': 'espada-escudo',
   'imperio-artillero-culebrina': 'ballesta',
+  'imperio-pistolero-montado': 'montado-pistola',
+  'imperio-granadero': 'granada',
   'elfo-arquero': 'arco',
   'elfo-explorador': 'espada-escudo',
   'elfo-guardia-del-bosque': 'lanza',
@@ -603,10 +738,10 @@ export const JUEGO_DEL_YBOT: Readonly<Record<string, JuegoEn8d>> = {
   'heroe-vampiro': 'espada-escudo',
   'heroe-lich': 'baston',
   'heroe-caballero-de-la-muerte': 'dos-manos',
-  'heroe-imperio-noble': 'espada-escudo',
+  'heroe-imperio-duelista': 'espada-escudo',
   'heroe-imperio-mago': 'baston',
   'heroe-imperio-capitan-mercenario': 'espada-escudo',
-  'heroe-imperio-ingeniero': 'maza',
+  'heroe-imperio-ingeniero': 'ballesta',
   'heroe-elfo-danzante-de-espadas': 'espada-escudo',
   'heroe-elfo-druida': 'baston',
   'heroe-elfo-senor-de-las-bestias': 'lanza',
@@ -650,6 +785,21 @@ const IDS_EN_OCHO_DIRECCIONES = [
   'heroe-templario-gran-maestre',
   // Su referencia sale de `tools/art/montura.ts --8d`, no de sprite-forge.
   'templario-hermano-de-carga',
+  // El Imperio (04-10-2026).
+  'imperio-alabardero',
+  'imperio-piquero',
+  'imperio-ballestero',
+  'imperio-coracero',
+  'imperio-arcabucero',
+  'imperio-rodelero',
+  'imperio-artillero-culebrina',
+  'imperio-granadero',
+  // Como el hermano de carga, de `montura.ts --8d --pistola`.
+  'imperio-pistolero-montado',
+  'heroe-imperio-duelista',
+  'heroe-imperio-mago',
+  'heroe-imperio-capitan-mercenario',
+  'heroe-imperio-ingeniero',
 ] as const;
 
 export const EN_OCHO_DIRECCIONES: Readonly<Record<string, JuegoEn8d>> = Object.fromEntries(
@@ -660,6 +810,7 @@ export const EN_OCHO_DIRECCIONES: Readonly<Record<string, JuegoEn8d>> = Object.f
 export const JUEGOS_EN_8D: readonly JuegoEn8d[] = [
   ...(Object.keys(JUEGOS_DE_ARMAS) as (keyof typeof JUEGOS_DE_ARMAS)[]),
   'montado-lanza',
+  'montado-pistola',
 ];
 
 const RAIZ = resolve(import.meta.dirname, '../..');
@@ -691,7 +842,7 @@ function dirPoses8d(u: Unidad): string {
   const juego = EN_OCHO_DIRECCIONES[u.id];
   if (juego === undefined)
     throw new Error(`${u.id} no está en 8 direcciones (EN_OCHO_DIRECCIONES)`);
-  return relative(RAIZ, carpetaDePoses(juego));
+  return relative(RAIZ, u.maniqui === undefined ? carpetaDePoses(juego) : carpetaDeManiqui(u.id));
 }
 
 export const rutaGiro = (u: Unidad): string => `assets/unidades/${u.id}/giro`;
@@ -716,17 +867,32 @@ export function encargoDeGiro(u: Unidad): Encargo {
   };
 }
 
-/** Las 16 hojas: dos por dirección, con su pose y el giro aprobado como identidad. */
+/**
+ * Las hojas de una unidad por dirección, con su pose y el giro aprobado como
+ * identidad: la A y la B, 16, y la C del disparo si su juego dispara, 24. Quien
+ * no dispara genera exactamente lo mismo que antes de existir la C.
+ */
 export function encargosDeOchoDirecciones(u: Unidad): Encargo[] {
   encargoDeGiro(u);
+  const juego = EN_OCHO_DIRECCIONES[u.id] as JuegoEn8d;
+  const cuerpoACuerpo = cuerpoACuerpoDe(juego, u.maniqui);
+  const hojas = hojasDeFigura(clipDeDisparoDe(juego) !== null);
   return Array.from({ length: NOMBRES_DE_DIRECCION.length }, (_, d) =>
-    (['a', 'b'] as const).map(
+    hojas.map(
       (hoja): Encargo => ({
         id: `${u.id}-d${d}-${hoja}`,
         tipo: 'atlas',
         descripcion: [
           u.aspecto,
           `En la lámina de giro (imagen 2), la figura ${d + 1} en orden de lectura es la que mira hacia «${NOMBRES_DE_DIRECCION[d]}», como esta hoja: así se ve el personaje desde este lado.`,
+          // Quien dispara lleva su arma de tiro en todas sus hojas menos en el
+          // ataque: ahí pelea de cerca y el pintor tiene que saber con qué.
+          ...((HOJAS_DE_FIGURA[hoja] as readonly ClipDeFigura[]).includes('attack') &&
+          cuerpoACuerpo !== null
+            ? [
+                `El ATAQUE de esta hoja es cuerpo a cuerpo con ${cuerpoACuerpo}: no dispara, y el arma de tiro no se ve mientras golpea.`,
+              ]
+            : []),
           PINTURA,
         ].join('\n'),
         referencias: [

@@ -1,0 +1,50 @@
+{
+  "encargo": "heroe-imperio-duelista-giro",
+  "tipo": "giro",
+  "fecha": "2026-10-04T10:23:56.293Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a1066f-f706-7d80-8bbc-9af09955ffc9",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo), copia su largo, su ángulo y su sitio en cada celda: es la guía del arma real. Si sus piernas son de color, la ROJA es la pierna DERECHA y la AZUL la IZQUIERDA: sirven para no confundirlas en el paso ni girar la figura de espaldas; el personaje NO lleva esos colores. El fondo VERDE de esta hoja es solo fondo, para que se vea el maniquí: no lo copies, el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn duelista imperial, maestro de esgrima delgado y rápido: sombrero de ala con plumas roja y amarilla, gola de acero, jubón negro acuchillado de amarillo y rojo, media capa al hombro con el águila, botas altas, ropera de lazo en la mano derecha y daga de parada en la izquierda. Sin escudo.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nLámina de GIRO de EXACTAMENTE 4 columnas por 2 filas: el MISMO personaje ocho veces, de cuerpo entero, en la pose de reposo, separadas con holgura y sin tocarse.\nCada figura copia la orientación y la pose del maniquí de su celda en la referencia de pose. En orden de lectura miran hacia: 1. frente, 2. frente-derecha, 3. derecha, 4. espalda-derecha, 5. espalda, 6. espalda-izquierda, 7. izquierda, 8. frente-izquierda. Las que van de espaldas enseñan la espalda del personaje: invéntala coherente con su equipo (la capa o sobrevesta por detrás, la cara interior del escudo, la vaina).\nCámara ortográfica elevada 25 grados en todas, viendo la coronilla y los hombros; NUNCA de perfil ni a la altura de los ojos, aunque la figura mire de lado. Misma escala en las ocho.\nEs la lámina de identidad por los ocho lados: el equipo, los colores y los materiales son idénticos en todas y se leen con claridad.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/espada-escudo-8d/giro.png",
+      "papel": "pose",
+      "sha256": "8f9912fe21b9508f3af485335754bca6601eb10a5d80af59e0fd4f18dd31e442"
+    },
+    {
+      "ruta": "assets/unidades/heroe-imperio-duelista/identidad.webp",
+      "papel": "identidad",
+      "sha256": "2d22f8022630df70aca9611c9f2fdc73a8b4ebd65478c61c02b9d3bf2a7107a8"
+    },
+    {
+      "ruta": "assets/art/imperio/duelista.png",
+      "papel": "estilo",
+      "sha256": "3ba1656e04119a00a9724eedcb3ea745373803f56b57043c7e1bf1e5fbd7b3d1"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a1066f-f706-7d80-8bbc-9af09955ffc9/exec-087fdf93-cfd2-4226-a909-4183d3a7ca8e.png",
+    "sha256": "60438a61f4787c2483cc9cea4f1482a019058c24ff329f397b2c4fcfd3771985",
+    "ancho": 1774,
+    "alto": 887
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.18724904256922492,
+    "opacos": 0.9526557755033179,
+    "haloSuelto": 0.00003163311213586773,
+    "ancho": 1713,
+    "alto": 887
+  },
+  "salida": {
+    "ruta": "assets/unidades/heroe-imperio-duelista/giro.webp",
+    "sha256": "d235c574c9b08fd858527455dfc2ce75f1e60fefaac2386f2e6aee3373df089b"
+  }
+}

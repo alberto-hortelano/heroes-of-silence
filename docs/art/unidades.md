@@ -82,10 +82,12 @@ todas por la espada invadiendo la celda vecina en el ataque.
 | `imperio-arcabucero` | Arcabucero | ballesta |
 | `imperio-rodelero` | Rodelero | espada-escudo |
 | `imperio-artillero-culebrina` | Artillero con culebrina | ballesta |
-| `heroe-imperio-noble` | Noble (héroe) | espada-escudo |
+| `imperio-pistolero-montado` | Pistolero montado (04-10-2026) | montado-lanza (Y Bot: `montado-pistola`) |
+| `imperio-granadero` | Granadero (04-10-2026) | ballesta (Y Bot: `granada`) |
+| `heroe-imperio-duelista` | Duelista (héroe; sustituye al Noble, 04-10-2026) | espada-escudo |
 | `heroe-imperio-mago` | Mago de batalla (héroe) | baston |
 | `heroe-imperio-capitan-mercenario` | Capitán mercenario (héroe) | espada-escudo |
-| `heroe-imperio-ingeniero` | Ingeniero (héroe) | espada-escudo |
+| `heroe-imperio-ingeniero` | Ingeniero (héroe; con rifle desde el 04-10-2026) | ballesta |
 
 ## Elfos
 

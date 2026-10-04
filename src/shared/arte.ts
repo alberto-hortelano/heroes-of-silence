@@ -160,12 +160,78 @@ export const NOMBRES_DE_DIRECCION = [
 ] as const;
 
 /**
- * Las seis acciones de toda figura, en el orden de las filas de su hoja (§9 de
- * `docs/art/peticiones.md`): reposo, marcha, carga, ataque, daño y muerte. La
- * leen el cliente, que comprueba cada atlas contra ella, y el taller, que deriva
- * cada fila con su nombre.
+ * Cómo se reparten las acciones de una figura en las hojas que se pintan por
+ * dirección, en el orden de sus filas. Es el ÚNICO sitio que lo dice: de aquí
+ * leen el maniquí (`tools/art/poses.ts`, `montura.ts`), el taller (encargos,
+ * empaquetado, derivado) y el cliente, que resuelve cada fila a su imagen.
+ *
+ *  - **A**: reposo, marcha y carga: la locomoción.
+ *  - **B**: ataque, daño y muerte, juntos para que la muerte se pinte en la
+ *    misma imagen que el daño del que arranca. El ataque es SIEMPRE cuerpo a
+ *    cuerpo, también en quien dispara (decisión del usuario, 04-10-2026: «el
+ *    granadero tendrá lanzar la granada y sable, los arqueros disparo y daga»).
+ *  - **C**: el disparo, una sola fila y solo en quien dispara. Va aparte para
+ *    no repintar las hojas A y B que ya estaban pintadas.
  */
-export const CLIPS_DE_FIGURA = ['idle', 'walk', 'charge', 'attack', 'hurt', 'death'] as const;
+export const HOJAS_DE_FIGURA = {
+  a: ['idle', 'walk', 'charge'],
+  b: ['attack', 'hurt', 'death'],
+  c: ['shoot'],
+} as const;
+export type HojaDeFigura = keyof typeof HOJAS_DE_FIGURA;
+
+/**
+ * Las seis acciones de TODA figura, en el orden de las filas de su atlas (§9 de
+ * `docs/art/peticiones.md`): las hojas A y B. La leen el cliente, que comprueba
+ * cada atlas contra ella, y el taller, que deriva cada fila con su nombre.
+ */
+export const CLIPS_DE_FIGURA = [...HOJAS_DE_FIGURA.a, ...HOJAS_DE_FIGURA.b] as const;
+
+/** Las acciones que solo tiene quien las hace: el disparo (hoja C). Sin ellas la figura vale. */
+export const CLIPS_OPCIONALES = HOJAS_DE_FIGURA.c;
+
+/** Las filas de un atlas completo, en orden: las seis de toda figura y, si dispara, `shoot`. */
+export const FILAS_DEL_ATLAS = [...CLIPS_DE_FIGURA, ...CLIPS_OPCIONALES] as const;
+export type ClipDeFigura = (typeof FILAS_DEL_ATLAS)[number];
+
+const TODAS_LAS_HOJAS = Object.keys(HOJAS_DE_FIGURA) as HojaDeFigura[];
+const OPCIONAL = new Set<string>(CLIPS_OPCIONALES);
+
+/** Si la hoja `h` solo la tiene quien hace lo suyo: todos sus clips son opcionales. */
+export const esHojaOpcional = (h: HojaDeFigura): boolean =>
+  HOJAS_DE_FIGURA[h].every((clip) => OPCIONAL.has(clip));
+
+/**
+ * Las hojas que tiene una figura, en orden: todas las de clips obligatorios y,
+ * si `dispara`, también las que solo llevan clips opcionales. Es la única
+ * respuesta a «¿qué hojas se pintan, se juntan o se miden?» del maniquí, el
+ * taller y sus tests: nadie escribe la letra de la hoja del disparo a mano.
+ */
+export function hojasDeFigura(dispara: boolean): HojaDeFigura[] {
+  return TODAS_LAS_HOJAS.filter((h) => dispara || !esHojaOpcional(h));
+}
+
+/** La fila del atlas (`FILAS_DEL_ATLAS`) en la que empieza la hoja `hoja`. */
+export function primeraFilaDe(hoja: HojaDeFigura): number {
+  return FILAS_DEL_ATLAS.indexOf(HOJAS_DE_FIGURA[hoja][0]);
+}
+
+/**
+ * La hoja en la que se pinta la fila `fila` de un atlas (`FILAS_DEL_ATLAS`) y
+ * su fila dentro de esa hoja. Lanza fuera del atlas: una fila 7 no es de nadie.
+ */
+export function hojaDeLaFila(fila: number): { readonly hoja: HojaDeFigura; readonly fila: number } {
+  const clip = Number.isInteger(fila) ? FILAS_DEL_ATLAS[fila] : undefined;
+  const hoja = TODAS_LAS_HOJAS.find((h) =>
+    (HOJAS_DE_FIGURA[h] as readonly string[]).includes(clip as string),
+  );
+  if (clip === undefined || hoja === undefined) {
+    throw new Error(
+      `la fila ${fila} no está en el atlas: tiene ${FILAS_DEL_ATLAS.length} (${FILAS_DEL_ATLAS.join(', ')})`,
+    );
+  }
+  return { hoja, fila: fila - primeraFilaDe(hoja) };
+}
 
 /**
  * El juego de armas del Y Bot de quien no declara ninguno (decisión del usuario,

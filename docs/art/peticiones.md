@@ -324,3 +324,80 @@ import catalogo from '…/assets/mapa/escena.json';         // tipo Catalogo, de
 
   Las piezas son a 48 px por casilla; con otro zoom se escala la superficie.
 
+
+## 12. El Imperio en 8 direcciones, y dos juegos de armas nuevos (rama `arte-mapas`, 04-10-2026)
+
+Lo pidió el usuario: animar el Imperio de `NuevaJugabilidad.md` y crear el arte
+que faltara en `assets/art/imperio/`. Decisiones suyas del 04-10-2026:
+
+- **El Duelista sustituye al Noble.** `heroe-imperio-noble` desaparece del
+  taller (`tools/taller/unidades.ts`), de `tools/arena/velocidades.ts` y de
+  `assets/unidades/`, y entra `heroe-imperio-duelista` (ropera y daga).
+- **El Ingeniero lleva rifle**, como dice su ficha: identidad rehecha, juego
+  del Y Bot `ballesta` en vez de `maza`.
+- **Dos unidades nuevas**: `imperio-pistolero-montado` e `imperio-granadero`.
+- **Poses nuevas** para ellas, en vez de aproximarlas:
+  - `granada`: el Y Bot arma el brazo sobre el hombro y lanza; suelta en la
+    columna 4 (`atlas-8d.json`);
+  - `montado-pistola`: el jinete de `montura.ts` sin lanza ni escudo, con la
+    pistola alzada al paso, apuntando en la carga y disparando en el ataque;
+    suelta también en la 4.
+
+  El usuario autorizó ampliar la lista de juegos de `test/personajes.test.ts`
+  con los dos nombres; no se tocó nada más de ese test.
+
+**Lo que queda para la sesión de reglas:**
+
+1. **El perfil de la arena** (`PERFILES_DE_ARENA`, `src/core/arena.ts`). Las dos
+   unidades nuevas usan perfiles que ya existen, solo por sus cifras:
+   - el pistolero, `montado-lanza`, que le da carga y no disparos;
+   - el granadero, `ballesta`, que le da disparos.
+
+   Si el pistolero tiene que disparar en la arena, hace falta un perfil o un
+   rasgo para él.
+2. **El proyectil.** El cliente suelta el mismo proyectil para todo disparo. Una
+   granada debería volar en parábola, por encima de las tropas, y rebotar, como
+   dice su ficha; la pistola, un fogonazo corto. `efecto-bala-de-canon` y
+   `efecto-explosion` ya existen y pueden servir.
+3. **Ids del catálogo**: cuando lleguen las facciones nuevas a `data/`, el
+   Duelista es `heroe-imperio-duelista` (docs/art/unidades.md).
+4. **La velocidad del pistolero.** Va a 5 casillas (`tools/arena/velocidades.ts`),
+   como los hostigadores, porque `test/arena.test.ts` da al hermano de carga
+   por único jinete y exige que solo el Danzante llegue a 6. Si debe correr
+   como el otro jinete (7), hay que cambiar ese test.
+
+### Estado al cerrar el 04-10-2026 (sin commitear)
+
+**Hecho**
+- **Las 13 unidades del Imperio en 8 direcciones**:
+  - 10 de ellas pintadas sobre su maniquí propio (`maniqui` en
+    `tools/taller/unidades.ts`, `pnpm taller maniqui <id>`, carpetas
+    `_poses/unidades/<id>-8d/`);
+  - el granadero, sobre su juego `granada`, y el pistolero, sobre el suyo,
+    `montado-pistola`.
+- **La séptima acción, `shoot`** (ciclo `docs/agents/2026-10-04-ataque-y-disparo/`,
+  QA apto con reservas):
+  - `attack` es siempre cuerpo a cuerpo y `shoot` va en una hoja C de una fila;
+  - la suelta va en `shoot`;
+  - el cliente pinta `shoot` y precarga la hoja C;
+  - si al arte le falta `shoot`, se pinta con `attack` y avisa una vez.
+- **Los 6 tiradores con su `shoot` pintado**, con su hoja B de cuerpo a cuerpo
+  nueva: granadero, arcabucero, artillero, ingeniero, ballestero y pistolero
+  montado.
+
+**Pendiente para la próxima sesión**
+1. **La hoja C de una fila falla mucho con armas largas de perfil**: el
+   rifle toca a la figura vecina y el recorte las cuenta juntas.
+   - La tira de 7×1 no la pinta bien ChatGPT, que no hace imágenes tan anchas.
+   - Hay que valorar una hoja C en dos filas (4+3) o un recorte que separe por
+     columnas.
+2. **Fusionar `main`** (enganche del escenógrafo, ba057bd) en `arte-mapas`
+   después del commit de este trabajo.
+3. **Backlog del ciclo**:
+   - quitar las poses de una dirección (`renderizarPerfil`/`PERFILES`), que no
+     tienen llamante;
+   - un remate `martillo` para el ingeniero;
+   - el CLI `derivar` lanza con el atlas de 6 filas de un tirador;
+   - `escalaDePose` sin test;
+   - unificar el registro de hojas de la arena con su espejo en
+     `tools/qa/capturas.ts`.
