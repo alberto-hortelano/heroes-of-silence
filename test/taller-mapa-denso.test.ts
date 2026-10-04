@@ -9,6 +9,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { barreraDeNodo, NODOS, nodoDePaso } from '../src/client/render/escenario/nodos.js';
 import { BARRERAS, type Barrera, SUELOS_PISABLES, type Suelo } from '../src/core/map/terrain.js';
 import { encargoSchema, promptDe } from '../tools/taller/encargo.js';
 import {
@@ -18,12 +19,9 @@ import {
   familiasConIds,
   familiasPara,
   LAMINAS,
-  NODOS,
-  nodoDePaso,
   piezaDeCasilla,
   TEXTURAS,
 } from '../tools/taller/mapa-denso.js';
-import { barreraDeNodo } from '../tools/taller/vista-mapa.js';
 
 const barreras = JSON.parse(
   readFileSync(join(import.meta.dirname, '../data/barreras.json'), 'utf8'),

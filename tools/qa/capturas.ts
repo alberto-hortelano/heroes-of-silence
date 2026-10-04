@@ -57,6 +57,7 @@ import {
   TILE_INICIAL,
   zoom,
 } from '../../src/client/render/camara-mapa.js';
+import { escenarioDe, topeDeAlejar } from '../../src/client/render/escenario/superficie.js';
 import { ALTO_DEL_GRUPO, pasosAPintar } from '../../src/client/render/mapa.js';
 import { centroDeStack, centroHex, tableroPara } from '../../src/client/render/proyeccion.js';
 import { botonDeRecluta, townLayout, townPlots } from '../../src/client/render/town.js';
@@ -293,6 +294,8 @@ function vigilarConsola(
   page.on('console', (m) => {
     if (m.type() !== 'error') return;
     if (esperados?.test(m.location().url) === true) return;
+    // Sin imágenes, el suelo del mapa dice que se pinta sin ellas: también es la prueba.
+    if (esperados !== undefined && m.text().startsWith('el suelo del mapa se pinta sin')) return;
     problemas.lista.push(`[${nombre}] consola: ${m.text()} (${m.location().url})`);
   });
   page.on('pageerror', (e) => problemas.lista.push(`[${nombre}] excepción: ${e.message}`));
@@ -422,7 +425,8 @@ async function pasarDia(page: Page, espejo: Session): Promise<void> {
 // ------------------------------------------------------------ el mapa en píxeles
 
 class Mapa {
-  private tile = TILE_INICIAL;
+  /** Píxeles por casilla de la cámara, tal y como la lleva la cuenta de aquí. */
+  tile = TILE_INICIAL;
   constructor(
     private readonly page: Page,
     private readonly espejo: Session,
@@ -430,8 +434,18 @@ class Mapa {
 
   private async encuadre(): Promise<{ b: { x: number; y: number }; e: Encuadre }> {
     const b = await caja(this.page);
-    const { width, height } = this.espejo.state.map;
-    return { b, e: { ancho: b.width, alto: b.height, mapaAncho: width, mapaAlto: height } };
+    const { map, seed } = this.espejo.state;
+    return {
+      b,
+      e: {
+        ancho: b.width,
+        alto: b.height,
+        mapaAncho: map.width,
+        mapaAlto: map.height,
+        // El tope de alejar, con la misma cuenta que el cliente.
+        tileMinimo: topeDeAlejar(escenarioDe(map, seed), b.width, b.height),
+      },
+    };
   }
 
   /** Dónde cae en la página el centro de una casilla, con la cámara centrada en el héroe. */
@@ -1600,6 +1614,20 @@ async function patrullaALaVista(
   const b = await caja(page);
   const dentro = (p: { x: number; y: number }) => tocable(b, p);
   const explorada = (p: Point) => espejo.explorado?.has(`${p.x},${p.y}`) ?? true;
+  /**
+   * El centro de la casilla y el sitio de la chapa. Una figura puede quedar
+   * detrás de un árbol y el centro de su casilla no cambiar; la chapa de cuántos
+   * son va siempre encima, así que es lo que dice que el grupo se ha movido
+   * aunque su figura no se vea.
+   */
+  const muestraDeCasilla = async (p: Point): Promise<number[]> => {
+    const px = await mapa.pixel(p);
+    const t = mapa.tile;
+    return [
+      ...(await pixelesDelLienzo(page, px.x - b.x, px.y - b.y)),
+      ...(await pixelesDelLienzo(page, px.x - b.x + t * 0.3, px.y - b.y + t * 0.32)),
+    ];
+  };
   for (let intento = 0; intento < 4 && espejo.state.finished === null; intento++) {
     // Lo que se ve de cada grupo hoy, y el lienzo alrededor: dos casillas son
     // lo más que anda en un día (`pasosPorDia`).
@@ -1612,8 +1640,7 @@ async function patrullaALaVista(
           const p = { x: r.at.x + dx, y: r.at.y + dy };
           const clave = `${p.x},${p.y}`;
           if (antes.has(clave)) continue;
-          const px = await mapa.pixel(p);
-          antes.set(clave, await pixelesDelLienzo(page, px.x - b.x, px.y - b.y));
+          antes.set(clave, await muestraDeCasilla(p));
         }
       }
     }
@@ -1675,8 +1702,7 @@ async function patrullaALaVista(
     await sleep(patrulla + 300);
     await captura(page, `${prefijo}-asaltante-llegado`);
     const cambio = async (p: Point): Promise<number> => {
-      const px = await mapa.pixel(p);
-      const ahora = await pixelesDelLienzo(page, px.x - b.x, px.y - b.y);
+      const ahora = await muestraDeCasilla(p);
       const viejo = antes.get(`${p.x},${p.y}`) ?? [];
       return ahora.reduce((t, v, i) => t + Math.abs(v - (viejo[i] ?? 0)), 0);
     };

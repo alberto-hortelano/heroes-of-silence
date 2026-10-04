@@ -18,7 +18,7 @@ pnpm verify     # typecheck + lint + tests, ~14 s: el bucle rápido
 pnpm test | pnpm typecheck | pnpm lint | pnpm format
 pnpm banco      # 200 partidas: tiempo y sha256 del volcado, anclado en el fichero
 pnpm qa         # circuito entero del agente (mapa, servidor, puente MCP), ~3 s
-pnpm capturas   # juega cliente, espectador y arena en Chromium con clics reales, ~205 s
+pnpm capturas   # juega cliente, espectador y arena en Chromium con clics reales, ~210 s
 npx tsx tools/qa/barrido-semillas.ts   # cuántas partidas no terminan (hoy 0)
 npx tsx tools/qa/enfrentamiento.ts     # IA de batalla de hoy contra su versión anterior
 ```
@@ -217,6 +217,31 @@ lugar y qué costó.
   `_poses/atlas-8d.json` (`pnpm taller derivar-poses`).
 - Ritmo: `marcha.ts` (`PRISA_DE_LA_MARCHA`), compás propio por figura con hash
   del id (`compas.ts`), sombra por silueta, carga hoja a hoja con cachés LRU.
+- **Mapa de aventura**: lo pinta el escenógrafo (`render/escenario/`, `componer`
+  con la semilla de la partida, la misma en cliente, espectador y taller), en una
+  tarea aparte del primer fotograma (`escenarioListo`). **El suelo** (texturas,
+  relieve, caras de roca, agua, sendas, cubierta baja) lo pinta **un Worker**
+  (`escenario/pintor-del-suelo.ts`, `OffscreenCanvas`, las imágenes como
+  `ImageBitmap` que pide él) una vez por partida a `PX_DEL_SUELO` (72) con su
+  mitad; mientras, se ve el sucedáneo de pigmentos. Sin Worker —o si falla, que
+  se dice— lo pinta el hilo principal con la misma función. **Los volúmenes**
+  (árboles, picos, muros, paredes, lo que pase de `UMBRAL_DE_VOLUMEN` = 0,6
+  casillas, y ciudad, pueblo, nodo y mina horneados) se pintan a cada fotograma,
+  en píxeles de dispositivo, desde copias reducidas de una caché LRU de 40 MB
+  (`render/copias.ts`, la de las piezas también), como mucho
+  `COPIAS_NUEVAS_POR_FOTOGRAMA` nuevas por fotograma, fundidos por profundidad con
+  las figuras (`fundirPorProfundidad`): **una figura puede quedar detrás de un
+  árbol**, pero no de lo horneado de su casilla (`claveDeFigura`). Se recortan al
+  mapa por los lados y por abajo, no por arriba. Lo que dice quién está en una
+  casilla —inicial del héroe, chapa, estandarte, bandera, icono de la mina— va en
+  una pasada encima de todo y bajo la niebla. Monstruos, recursos y cofres los
+  pinta el juego (`seHornea`, en `escenario/horneado.ts`). Tope de alejar:
+  `topeDeAlejar`, ≤ 2 000 volúmenes a la vista y nunca bajo 40 px por casilla;
+  si ni a 110 px caben (7680×4320) lo avisa en consola. **Y un presupuesto de
+  píxeles**: el mapa no pinta más de `PIXELES_DEL_MAPA` (1,5 M) píxeles de
+  dispositivo por fotograma; en una pantalla mayor baja la densidad y el
+  navegador lo amplía (`preparar(pixelesMaximos)`). El taller (`pnpm taller
+  escenario N`) pinta con la misma `separar`.
 - **Castillo**: solares fijos con cadenas derivadas del catálogo (`townPlots`);
   las moradas son de cada facción.
 - **Arena** (`pnpm arena`): cifras que no pasan por el catálogo, validadas por
@@ -271,7 +296,7 @@ ocupado por algo ajeno no se libera: se reporta.**
 | `pnpm verify` | ~14 s | siempre |
 | El navegador / el espectador | minutos | si el cambio se ve, o tocas `html.ts`, `espectador/` o el canal |
 | `pnpm qa` | ~3 s | si tocas `src/server/` o el contrato |
-| `pnpm capturas` | ~205 s | si el cambio se ve; sale 1 con un error en consola |
+| `pnpm capturas` | ~210 s | si el cambio se ve; sale 1 con un error en consola |
 | `barrido-semillas.ts` | ~1 s | si tocas la IA o la economía: una sola semilla sin terminar es regresión |
 | `pnpm banco` | ~5 s | si tocas el núcleo sin querer cambiar el juego |
 | `enfrentamiento.ts` | ~2 s | si cambias cómo decide la IA de batalla: entra solo con el intervalo entero > 50 % en 5 000 parejas |

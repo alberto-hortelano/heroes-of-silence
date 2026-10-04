@@ -1,6 +1,11 @@
 /**
- * El mapa de aventura del cliente nuevo: superficie continua, atlas pintado y
- * niebla de dos tonos.
+ * El mapa de aventura: la escena del escenógrafo (`render/escenario/`), las
+ * figuras del juego entre sus volúmenes y la niebla de dos tonos.
+ *
+ * El suelo es una superficie fija que se pinta una vez por partida; los
+ * volúmenes —árboles, picos, muros y lo horneado: ciudad, pueblo, nodo y mina—
+ * se pintan a cada fotograma, solo los que se ven, fundidos por profundidad con
+ * los héroes, los monstruos, los asaltantes, los cofres y los recursos.
  *
  * Las ideas son las de `aventura/map-view.ts` de la rama `archivo/gpt-rpg`; lo
  * que se pinta es el `GameMap` del núcleo y no el mundo de GPT, con varios héroes
@@ -14,21 +19,43 @@
 
 import { HERO_BODY } from '@core/hero/hero.js';
 import { individuosDe } from '@core/hero/troop.js';
-import { type MapObject, type MapRegion, pointFromKey, pointKey } from '@core/map/map.js';
-import { isWalkable, type TerrainKind } from '@core/map/terrain.js';
+import { type MapObject, type MapRegion, pointKey } from '@core/map/map.js';
+import type { TerrainKind } from '@core/map/terrain.js';
 import type { VistaAsaltante } from '@core/state/asaltantes.js';
 import type { Point } from '@core/types.js';
 import { type Direccion, direccionEnPantalla } from '../direccion.js';
 import { msPorCasilla } from '../marcha.js';
-import { asset, type PiezaDelMapa, versionDelArte } from './assets.js';
-import { type CamaraMapa, casillaAPixel, mundoAPixel } from './camara-mapa.js';
+import { asset, imagenDeEscena, type PiezaDelMapa } from './assets.js';
+import {
+  type CamaraMapa,
+  casillaAPixel,
+  MARGEN_DE_VOLUMEN,
+  type Margen,
+  mundoAPixel,
+  ventanaDeCasillas,
+} from './camara-mapa.js';
+import { empezarFotogramaDeCopias } from './copias.js';
+import { seHornea } from './escenario/horneado.js';
+import {
+  type Imagen,
+  type OpcionesDePintura,
+  pintarSprite,
+  type Volumen,
+} from './escenario/pintar.js';
+import {
+  claveDeFigura,
+  copiaDeVolumen,
+  type Escenario,
+  escenarioListo,
+  sueloDelMapa,
+  type VolumenDelMapa,
+} from './escenario/superficie.js';
 import { animarHasta, type Figura, pintarFiguraConSombra } from './figura.js';
 import { densidadDe } from './lienzo.js';
 import { COLOR_NEUTRO, COLOR_SIN_DUEÑO, playerColor, RESOURCE_COLORS } from './palette.js';
 import { MIRADA_DE_PRESENTACION } from './personajes.js';
-import { cajaDePieza, pintarPieza } from './piezas.js';
+import { pintarPieza } from './piezas.js';
 import { pintarSombra } from './sombra.js';
-import { terrainSurface } from './terreno.js';
 
 /**
  * Lo que este lienzo necesita de una partida, y **nada más**.
@@ -87,29 +114,14 @@ export interface VistaMapa {
   readonly ruta: readonly PasoDeRuta[];
   readonly seleccionado: string | null;
   readonly hover: Point | null;
-  /** Para que la vegetación no sea la misma en todas las partidas. */
+  /**
+   * La semilla de la partida, que es la de la escena (`componer`): la misma en
+   * el cliente, el espectador y el taller, así que los tres ven el mismo mapa.
+   */
   readonly semilla: number;
   /** Reloj de la animación de reposo, en milisegundos. */
   readonly tiempo: number;
-  /**
-   * Sube cada vez que cambia algo del mapa: un objeto recogido, un héroe que se
-   * mueve, un castillo que cambia de manos. Con la misma `escena` y la misma
-   * versión, lo que se pinta quieto se reutiliza del fotograma anterior.
-   */
-  readonly version: number;
 }
-
-/** Celdas del atlas de 4×4 de `map-atlas.png`, en orden de lectura. */
-export const CELDA = {
-  castillo: 0,
-  ruinas: 2,
-  mina: 7,
-  cofre: 8,
-  arboleda: 11,
-  pinar: 12,
-  montana: 13,
-  piedraRunica: 14,
-} as const;
 
 /** Los recursos sueltos que tienen pieza pintada; el resto, su icono. */
 const PIEZA_DE_RECURSO: Partial<Record<keyof typeof RESOURCE_COLORS, PiezaDelMapa>> = {
@@ -154,12 +166,21 @@ interface Marcha {
 }
 const marchas = new WeakMap<readonly TerrainKind[], Map<string, Marcha>>();
 
+/** Dónde se pinta un grupo AHORA, si está andando, hacia dónde mira y cuándo llega. */
+interface PosicionDeAsaltante {
+  readonly x: number;
+  readonly y: number;
+  readonly andando: boolean;
+  readonly mira: Direccion;
+  readonly hasta: number;
+}
+
 /** Dónde pintar un grupo AHORA, y si está andando. */
 function posicionDeAsaltante(
   escena: AdventureScene,
   r: AdventureScene['raiders'][number],
   tiempo: number,
-): { x: number; y: number; andando: boolean; mira: Direccion; hasta: number } {
+): PosicionDeAsaltante {
   let deLaPartida = marchas.get(escena.map.terrain);
   if (deLaPartida === undefined) {
     deLaPartida = new Map();
@@ -199,66 +220,23 @@ function posicionEn(
   };
 }
 
-// ------------------------------------------------------------------ superficie
+// ------------------------------------------------------------------ el suelo
 
 /**
- * La superficie se rehace solo cuando cambia el terreno, y eso se mira por la
- * identidad del array de terreno. Antes la clave era el terreno entero unido
- * con comas —576 casillas, una cadena nueva por fotograma— porque el espectador
- * recibe un mapa nuevo con cada fotograma del cable; ahora es `adaptar.ts` quien
- * conserva el array mientras no cambie, y aquí basta con compararlo.
+ * El suelo tal y como se ve ahora: la superficie del escenógrafo
+ * (`sueloDelMapa`) copiada a la cámara, recortada al lienzo. Se compone fuera de
+ * pantalla y se guarda mientras la cámara no se mueva: copiar la superficie de
+ * 72 px escalada a 1280×800 cuesta 7-13 ms, y copiar esta, 0,12.
  */
-let superficie: {
-  terrain: readonly TerrainKind[];
-  semilla: number;
-  arte: number;
-  lienzo: HTMLCanvasElement;
-} | null = null;
+let fondo: { clave: string; suelo: Imagen; lienzo: HTMLCanvasElement } | null = null;
 
-function superficieDe(escena: AdventureScene, semilla: number): HTMLCanvasElement {
-  const { width, height, terrain } = escena.map;
-  // Las texturas llegan cuando llegan: la superficie se rehace cuando entra arte.
-  const arte = versionDelArte();
-  if (
-    superficie === null ||
-    superficie.terrain !== terrain ||
-    superficie.semilla !== semilla ||
-    superficie.arte !== arte
-  ) {
-    superficie = {
-      terrain,
-      semilla,
-      arte,
-      lienzo: terrainSurface(width, height, terrain, semilla % 997, (t) => asset('terrains', t)),
-    };
-  }
-  return superficie.lienzo;
-}
-
-/**
- * El suelo tal y como se ve ahora: la superficie y, encima, la textura en luz
- * suave, recortados al lienzo. Se compone fuera de pantalla y se guarda mientras
- * la cámara no se mueva.
- *
- * La mezcla `soft-light` sobre todo el lienzo era lo más caro de cada fotograma
- * —se medía el hilo principal al 100 % con el mapa quieto— y para un mapa quieto
- * da siempre lo mismo. Se rehace al arrastrar o al cambiar de zoom, que es
- * cuando de verdad cambia.
- */
-let fondo: { clave: string; superficie: HTMLCanvasElement; lienzo: HTMLCanvasElement } | null =
-  null;
-let patron: { imagen: HTMLImageElement; patron: CanvasPattern } | null = null;
-
-function fondoDe(ctx: CanvasRenderingContext2D, v: VistaMapa): HTMLCanvasElement {
+function fondoDe(ctx: CanvasRenderingContext2D, v: VistaMapa, esc: Escenario): HTMLCanvasElement {
   const { width: W, height: H } = v.escena.map;
   const { camara } = v;
-  const suelo = asset('rpg', 'suelo');
   const dpr = densidadDe(ctx);
-  const lienzoSuperficie = superficieDe(v.escena, v.semilla);
-  const clave = `${camara.tile}|${camara.x}|${camara.y}|${v.ancho}|${v.alto}|${dpr}|${suelo !== null}`;
-  if (fondo !== null && fondo.clave === clave && fondo.superficie === lienzoSuperficie) {
-    return fondo.lienzo;
-  }
+  const suelo = sueloDelMapa(esc, camara.tile);
+  const clave = `${camara.tile}|${camara.x}|${camara.y}|${v.ancho}|${v.alto}|${dpr}`;
+  if (fondo !== null && fondo.clave === clave && fondo.suelo === suelo.lienzo) return fondo.lienzo;
   const lienzo = fondo?.lienzo ?? document.createElement('canvas');
   lienzo.width = Math.max(1, Math.ceil(v.ancho * dpr));
   lienzo.height = Math.max(1, Math.ceil(v.alto * dpr));
@@ -269,97 +247,55 @@ function fondoDe(ctx: CanvasRenderingContext2D, v: VistaMapa): HTMLCanvasElement
   c.imageSmoothingQuality = 'high';
   c.fillStyle = '#080a10';
   c.fillRect(0, 0, v.ancho, v.alto);
-  const tile = camara.tile;
   const origen = mundoAPixel(camara, 0, 0);
-  c.drawImage(lienzoSuperficie, origen.x, origen.y, W * tile, H * tile);
-  if (suelo !== null) {
-    if (patron === null || patron.imagen !== suelo) {
-      const p = c.createPattern(suelo, 'repeat');
-      if (p === null) throw new Error('no se ha podido hacer un patrón con la textura del suelo');
-      patron = { imagen: suelo, patron: p };
-    }
-    // Solo lo que se ve del mapa: fuera del lienzo no hay nada que mezclar.
-    const x0 = Math.max(origen.x, 0);
-    const y0 = Math.max(origen.y, 0);
-    const x1 = Math.min(origen.x + W * tile, v.ancho);
-    const y1 = Math.min(origen.y + H * tile, v.alto);
-    if (x1 > x0 && y1 > y0) {
-      c.save();
-      c.beginPath();
-      c.rect(x0, y0, x1 - x0, y1 - y0);
-      c.clip();
-      c.translate(origen.x, origen.y);
-      c.scale(tile / 180, tile / 180);
-      c.globalCompositeOperation = 'soft-light';
-      c.globalAlpha = 0.68;
-      c.fillStyle = patron.patron;
-      c.fillRect(
-        ((x0 - origen.x) * 180) / tile,
-        ((y0 - origen.y) * 180) / tile,
-        ((x1 - x0) * 180) / tile,
-        ((y1 - y0) * 180) / tile,
-      );
-      c.restore();
-    }
-  }
-  fondo = { clave, superficie: lienzoSuperficie, lienzo };
+  c.drawImage(suelo.lienzo, origen.x, origen.y, W * camara.tile, H * camara.tile);
+  fondo = { clave, suelo: suelo.lienzo, lienzo };
   return lienzo;
 }
 
-/** Un entero de 0 a 96 que depende solo de la casilla y la partida. */
-function azarDeCasilla(x: number, y: number, semilla: number): number {
-  return (((x * 73856093) ^ (y * 19349663) ^ (semilla * 83492791)) >>> 0) % 97;
-}
-
 // ---------------------------------------------------------------------- dibujo
+
+/**
+ * Los píxeles de dispositivo que se pintan, como mucho, en un fotograma del mapa
+ * (`ajustarLienzo().preparar`): en una pantalla mayor el mapa se pinta a menos
+ * densidad y el navegador lo amplía. El tope de alejar cuenta volúmenes, pero en
+ * un lienzo grande el tope sube y cada volumen ocupa más: lo caro pasa a ser el
+ * relleno y no el número.
+ *
+ * Es lo que ya pinta el lienzo de una ventana de 1920×1080 (1 560×957), que no
+ * cambia. Medido en el Chromium sin GPU de `pnpm capturas`, al tope y
+ * arrastrando, en fps: con 2 073 600 (una pantalla de 1920×1080 entera), 32 en
+ * 2560×1440; con 1 750 000, 38; con 1 500 000, 43, y 39 en 3840×2160, donde sin
+ * presupuesto eran 7. El coste no crece en línea: con 1 000 000, 60.
+ */
+export const PIXELES_DEL_MAPA = 1_500_000;
 
 export function drawMapa(ctx: CanvasRenderingContext2D, v: VistaMapa): void {
   const { escena, camara } = v;
   const { width: W, height: H } = escena.map;
   const tile = camara.tile;
+  const esc = escenarioListo(escena.map, v.semilla);
+  if (esc === null) {
+    // La escena se está componiendo aparte: un fotograma o dos del fondo vacío.
+    ctx.fillStyle = '#080a10';
+    ctx.fillRect(0, 0, v.ancho, v.alto);
+    return;
+  }
 
   ctx.save();
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
 
-  // 1 · El suelo: superficie continua y, si hay arte, la textura en luz suave.
-  ctx.drawImage(fondoDe(ctx, v), 0, 0, v.ancho, v.alto);
+  // 1 · El suelo: la superficie fija del escenógrafo.
+  ctx.drawImage(fondoDe(ctx, v, esc), 0, 0, v.ancho, v.alto);
 
-  // 2 · Caminos: trazos curvos de tierra, solo por lo explorado.
-  pintarCaminos(ctx, v);
+  // 2 · Lo que tiene altura —los volúmenes de la escena y las figuras del juego—,
+  //     en un solo orden de profundidad: una figura puede quedar detrás de un árbol.
+  const cosas = cosasDe(v, esc);
+  pintarLoQueTieneAltura(ctx, v, volumenesALaVista(v, esc), cosas);
 
-  // 3 · Todo lo que tiene altura, ordenado por profundidad. Lo que cae fuera
-  //     de la cámara no se pinta: con el mapa denso son más de mil cosas y a
-  //     zoom de juego se ve una de cada cuatro.
-  const fuera = (en: { x: number; y: number }): boolean =>
-    en.x < camara.x - MARGEN_DE_COSA ||
-    en.y < camara.y - MARGEN_DE_COSA ||
-    en.x > camara.x + v.ancho / tile + MARGEN_DE_COSA ||
-    en.y > camara.y + v.alto / tile + MARGEN_DE_COSA;
-  for (const c of cosasDe(v)) {
-    if (fuera(c.en)) continue;
-    switch (c.tipo) {
-      case 'celda': {
-        if (c.pieza !== undefined) {
-          const p = mundoAPixel(camara, c.en.x + 0.5, c.en.y + 0.5);
-          if (pintarPieza(ctx, c.pieza, p.x, p.y + tile * PIE_DE_LA_CELDA, tile * c.escala)) break;
-          pintarCelda(ctx, camara, c.celda, c.en, ESCALA_SIN_PIEZA);
-          break;
-        }
-        pintarCelda(ctx, camara, c.celda, c.en, c.escala);
-        break;
-      }
-      case 'objeto':
-        pintarObjeto(ctx, v, c.objeto);
-        break;
-      case 'heroe':
-        pintarHeroe(ctx, v, c.heroe);
-        break;
-      case 'asaltante':
-        pintarAsaltante(ctx, v, c.asaltante);
-        break;
-    }
-  }
+  // 3 · Lo que dice quién está en cada casilla, encima de todo lo que tiene altura.
+  for (const cosa of cosas) pintarIdentificador(ctx, v, cosa);
 
   // 4 · La niebla: negra sobre lo desconocido, tenue sobre lo que no se mira.
   pintarNiebla(ctx, v);
@@ -376,128 +312,236 @@ export function drawMapa(ctx: CanvasRenderingContext2D, v: VistaMapa): void {
 }
 
 /**
- * Cuántas casillas fuera de la cámara se sigue pintando una cosa: lo más ancho
- * que se pinta —una montaña pintada, de hasta 2,65 casillas— asoma desde fuera.
+ * Cuántas casillas fuera de la cámara se sigue pintando una figura: lo más ancho
+ * que lleva —la chapa, el estandarte— asoma desde la casilla de al lado.
  */
-const MARGEN_DE_COSA = 3;
-/** La escala de la celda del atlas que sustituye a una pieza que no ha llegado. */
-const ESCALA_SIN_PIEZA = 1.25;
-/** Cuánto bajo el centro de su casilla, en casillas, apoya el pie una celda o una pieza. */
-const PIE_DE_LA_CELDA = 0.35;
+const MARGEN_DE_COSA: Margen = { lados: 2, arriba: 2, abajo: 2 };
 
-/** Algo con altura que se pinta sobre el suelo, en coordenadas de casilla. */
+/**
+ * Dónde apoya los pies cada figura, en casillas bajo el borde de arriba de su
+ * casilla: la misma convención que `Sprite.y` de la escena —la `y` de la base—,
+ * que es lo que deja ordenar figuras y volúmenes juntos. Un pino con la base en
+ * y + 0,9 tapa al héroe de esa casilla, que la tiene en y + 0,8.
+ */
+export const PIES = { heroe: 0.8, grupo: 0.82, suelto: 0.85 } as const;
+
+/** Algo del juego que se pinta entre los volúmenes, con su clave de profundidad. */
 type Cosa =
-  | {
-      readonly tipo: 'celda';
-      readonly y: number;
-      /** La celda del atlas; si hay `pieza`, la que va en su lugar mientras no llega. */
-      readonly celda: number;
-      readonly en: Point;
-      /** Con `pieza`, el ancho en casillas. */
-      readonly escala: number;
-      readonly pieza?: PiezaDelMapa | undefined;
-    }
-  | { readonly tipo: 'objeto'; readonly y: number; readonly en: Point; readonly objeto: MapObject }
+  | { readonly tipo: 'objeto'; readonly clave: number; readonly objeto: MapObject }
+  | { readonly tipo: 'horneado'; readonly clave: number; readonly objeto: MapObject }
   | {
       readonly tipo: 'heroe';
-      readonly y: number;
-      readonly en: Point;
+      readonly clave: number;
       readonly heroe: AdventureScene['heroes'][number];
     }
   | {
       readonly tipo: 'asaltante';
-      readonly y: number;
-      readonly en: Point;
+      readonly clave: number;
       readonly asaltante: AdventureScene['raiders'][number];
+      readonly en: PosicionDeAsaltante;
     };
 
 /**
- * La vegetación, los objetos y los héroes, ya ordenados de atrás adelante.
- *
- * La lista solo cambia cuando cambia el mapa —la `version`—, lo explorado o la
- * partida, y se recorría entera en cada fotograma: 576 casillas, un `Set` de
- * claves y una ordenación. Ahora se hace al cambiar y se pinta a cada fotograma,
- * que es lo único que de verdad hace falta repetir: las figuras respiran.
+ * Las figuras del juego que caen en la vista, de atrás adelante. Se rehace a cada
+ * fotograma —son unas decenas— porque los asaltantes andan y su clave con ellos.
  */
-let cosas: {
-  escena: AdventureScene;
-  version: number;
-  explorado: ReadonlySet<string> | null;
-  vistos: number;
-  semilla: number;
-  lista: readonly Cosa[];
-} | null = null;
-
-function cosasDe(v: VistaMapa): readonly Cosa[] {
-  const { escena, explorado, semilla, version } = v;
-  const vistos = explorado?.size ?? -1;
-  if (
-    cosas !== null &&
-    cosas.escena === escena &&
-    cosas.version === version &&
-    cosas.explorado === explorado &&
-    cosas.vistos === vistos &&
-    cosas.semilla === semilla
-  ) {
-    return cosas.lista;
-  }
-  const { width: W, height: H } = escena.map;
-  const explorada = (k: string): boolean => explorado === null || explorado.has(k);
+function cosasDe(v: VistaMapa, esc: Escenario): Cosa[] {
+  const { escena, camara, explorado } = v;
+  const explorada = (p: Point): boolean => explorado === null || explorado.has(pointKey(p));
+  const { x0, y0, x1, y1 } = ventanaDeCasillas(camara, v.ancho, v.alto, MARGEN_DE_COSA);
+  const enVista = (p: Point) => p.x >= x0 && p.y >= y0 && p.x < x1 && p.y < y1;
   const lista: Cosa[] = [];
-  const ocupadas = new Set<string>();
-  const cercaDeCastillo = new Set<string>();
   for (const o of escena.map.objects) {
-    ocupadas.add(pointKey(o.at));
-    if (o.kind === 'town') {
-      for (let dy = -1; dy <= 1; dy++)
-        for (let dx = -1; dx <= 1; dx++)
-          cercaDeCastillo.add(pointKey({ x: o.at.x + dx, y: o.at.y + dy }));
+    if (!enVista(o.at) || !explorada(o.at) || !presente(o)) continue;
+    if (seHornea(o.kind)) {
+      // Su volumen lo pinta la escena; aquí va, justo después de él, lo que cambia.
+      const clave = esc.claveDeObjeto.get(o.id);
+      if (clave === undefined)
+        throw new Error(`${o.kind} ${o.id} se hornea y la escena no lo pinta`);
+      lista.push({ tipo: 'horneado', clave, objeto: o });
+    } else {
+      const pies = o.kind === 'monster' ? PIES.grupo : PIES.suelto;
+      lista.push({ tipo: 'objeto', clave: claveDeFigura(esc, o.at.x, o.at.y + pies), objeto: o });
     }
-  }
-  for (const h of escena.heroes) ocupadas.add(pointKey(h.at));
-  for (const r of escena.raiders) ocupadas.add(pointKey(r.at));
-
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      const k = pointKey({ x, y });
-      if (!explorada(k) || ocupadas.has(k) || cercaDeCastillo.has(k) || escena.map.roads.has(k))
-        continue;
-      const deco = decoracionDe(
-        escena.map.terrain as readonly TerrainKind[],
-        W,
-        H,
-        { x, y },
-        azarDeCasilla(x, y, semilla),
-      );
-      if (deco === null) continue;
-      const en = { x: x + deco.dx, y: y + deco.dy };
-      lista.push({
-        tipo: 'celda',
-        y: en.y,
-        celda: deco.celda,
-        en,
-        escala: deco.escala,
-        pieza: deco.pieza,
-      });
-    }
-  }
-  for (const o of escena.map.objects) {
-    if (!explorada(pointKey(o.at)) || !presente(o)) continue;
-    lista.push({ tipo: 'objeto', y: o.at.y, en: o.at, objeto: o });
   }
   for (const h of escena.heroes) {
-    if (!explorada(pointKey(h.at))) continue;
-    lista.push({ tipo: 'heroe', y: h.at.y + 0.01, en: h.at, heroe: h });
+    if (!enVista(h.at) || !explorada(h.at)) continue;
+    lista.push({ tipo: 'heroe', clave: claveDeFigura(esc, h.at.x, h.at.y + PIES.heroe), heroe: h });
   }
   // Como los héroes rivales: se pintan sobre lo explorado (#64 cuenta por qué
   // el lienzo del cliente mira `fog` y no lo que se ve ahora).
   for (const r of escena.raiders) {
-    if (!explorada(pointKey(r.at))) continue;
-    lista.push({ tipo: 'asaltante', y: r.at.y + 0.01, en: r.at, asaltante: r });
+    if (!enVista(r.at) || !explorada(r.at)) continue;
+    const en = posicionDeAsaltante(escena, r, v.tiempo);
+    const clave = claveDeFigura(esc, en.x, en.y + PIES.grupo);
+    lista.push({ tipo: 'asaltante', clave, asaltante: r, en });
   }
-  lista.sort((a, b) => a.y - b.y);
-  cosas = { escena, version, explorado, vistos, semilla, lista };
-  return lista;
+  return lista.sort((a, b) => a.clave - b.clave);
+}
+
+/**
+ * Los volúmenes de la escena que asoman en la vista, en su orden: se recorren
+ * solo las filas visibles.
+ *
+ * Los volúmenes se pintan también sobre lo que no se ha explorado: la niebla
+ * los tapa después, y lo que asoma por encima de lo explorado es la copa de una
+ * formación cuya raíz sigue en la niebla (aceptado por el usuario). Lo horneado
+ * no: una ciudad asomando diría dónde hay una ciudad.
+ */
+function volumenesALaVista(v: VistaMapa, esc: Escenario): VolumenDelMapa[] {
+  const { camara, explorado } = v;
+  const { x0, y0, x1, y1 } = ventanaDeCasillas(camara, v.ancho, v.alto, MARGEN_DE_VOLUMEN);
+  const fuera: VolumenDelMapa[] = [];
+  for (let fila = Math.max(0, y0); fila < Math.min(esc.porFila.length, y1); fila++)
+    for (const vol of esc.porFila[fila] as readonly VolumenDelMapa[]) {
+      // Con la base por encima de la vista no asoma: crece hacia arriba.
+      if (vol.s.x < x0 || vol.s.x >= x1 || vol.s.y < camara.y) continue;
+      if (vol.niebla !== null && explorado !== null && !explorado.has(vol.niebla)) continue;
+      fuera.push(vol);
+    }
+  return fuera;
+}
+
+/**
+ * Los volúmenes y las figuras fundidos por su clave. Los volúmenes se pintan en
+ * píxeles de dispositivo con el origen del mapa en un píxel entero, que es lo que
+ * pide su copia reducida (`OpcionesDePintura.reducida`); las figuras, en los de
+ * la pantalla.
+ */
+function pintarLoQueTieneAltura(
+  ctx: CanvasRenderingContext2D,
+  v: VistaMapa,
+  volumenes: readonly VolumenDelMapa[],
+  cosas: readonly Cosa[],
+): void {
+  const enPantalla = ctx.getTransform();
+  const dpr = densidadDe(ctx);
+  const origen = mundoAPixel(v.camara, 0, 0);
+  const ox = Math.round(enPantalla.e + origen.x * dpr);
+  const oy = Math.round(enPantalla.f + origen.y * dpr);
+  // Lo que no cupo en este fotograma (`copiaReducidaSiCabe`) sale en los
+  // siguientes: el lienzo tiene que seguir pidiéndolos aunque nada respire.
+  let aplazado = false;
+  empezarFotogramaDeCopias();
+  const opciones: OpcionesDePintura = {
+    tile: v.camara.tile * dpr,
+    imagen: imagenDeEscena,
+    reducida: (s, ancho, alto) => {
+      const r = copiaDeVolumen(s, ancho, alto);
+      if (r === null) aplazado = true;
+      return r;
+    },
+  };
+  // Lo que tiene altura no sale del mapa por los lados ni por abajo: una muralla
+  // de la columna 0 asomaba ~50 px sobre el margen negro (H3 de la vuelta 1 de
+  // QA). Por arriba sí: el borde de arriba es el fondo del mapa, y lo que se
+  // levanta en la fila 0 sube por encima como sube sobre cualquier otra fila,
+  // igual que en el taller, que pinta la escena con margen. Recortarlo cortaba
+  // las copas de la fila 0 en una línea recta.
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.beginPath();
+  ctx.rect(
+    ox,
+    oy - ARRIBA_SIN_RECORTE,
+    Math.round(v.escena.map.width * opciones.tile),
+    ARRIBA_SIN_RECORTE + Math.round(v.escena.map.height * opciones.tile),
+  );
+  ctx.clip();
+  ctx.setTransform(enPantalla);
+  let enElMapa = false;
+  fundirPorProfundidad(
+    volumenes,
+    cosas,
+    (vol) => {
+      if (!enElMapa) ctx.setTransform(1, 0, 0, 1, ox, oy);
+      enElMapa = true;
+      pintarSprite(ctx, vol.s, opciones);
+    },
+    (cosa) => {
+      if (enElMapa) ctx.setTransform(enPantalla);
+      enElMapa = false;
+      pintarCosa(ctx, v, cosa);
+    },
+  );
+  ctx.restore();
+  if (aplazado) animarHasta(performance.now() + 100);
+}
+
+/** Cuánto, en píxeles de dispositivo, puede subir sobre el borde de arriba lo que tiene altura: sin tope. */
+const ARRIBA_SIN_RECORTE = 1e6;
+
+/**
+ * Funde dos listas ya ordenadas por `clave`: los volúmenes de la escena y las
+ * figuras del juego. A igual clave va antes el volumen, y la figura se apoya
+ * delante. Es la regla que decide si un héroe queda detrás de un árbol.
+ */
+export function fundirPorProfundidad<V extends Volumen, C extends { readonly clave: number }>(
+  volumenes: readonly V[],
+  cosas: readonly C[],
+  alVolumen: (v: V) => void,
+  aLaCosa: (c: C) => void,
+): void {
+  let i = 0;
+  for (const vol of volumenes) {
+    while (i < cosas.length && (cosas[i] as C).clave < vol.clave) aLaCosa(cosas[i++] as C);
+    alVolumen(vol);
+  }
+  while (i < cosas.length) aLaCosa(cosas[i++] as C);
+}
+
+/** El cuerpo de una cosa, en su sitio del orden de profundidad: un árbol lo puede tapar. */
+function pintarCosa(ctx: CanvasRenderingContext2D, v: VistaMapa, c: Cosa): void {
+  switch (c.tipo) {
+    case 'objeto':
+      pintarObjeto(ctx, v, c.objeto);
+      return;
+    case 'horneado':
+      pintarDueñoDeLoHorneado(ctx, v, c.objeto);
+      return;
+    case 'heroe':
+      pintarHeroe(ctx, v, c.heroe);
+      return;
+    case 'asaltante':
+      pintarAsaltante(ctx, v, c.asaltante, c.en);
+      return;
+  }
+}
+
+/**
+ * Lo que dice quién o qué está en la casilla de una cosa —la inicial del héroe,
+ * la chapa de cuántos son, el estandarte del asaltante, la bandera del dueño, lo
+ * que da una mina—, encima de todo lo que tiene altura y por debajo de la niebla.
+ * El cuerpo puede quedar detrás de un árbol (decisión del usuario), pero lo que
+ * dice que está ahí se ve siempre: un grupo escondido en un bosque sin que nada
+ * lo diga es una emboscada que no se ve venir.
+ */
+function pintarIdentificador(ctx: CanvasRenderingContext2D, v: VistaMapa, c: Cosa): void {
+  const tile = v.camara.tile;
+  switch (c.tipo) {
+    case 'objeto': {
+      if (c.objeto.kind !== 'monster') return;
+      const p = casillaAPixel(v.camara, c.objeto.at);
+      chapa(ctx, String(c.objeto.count), p.x + tile * 0.3, p.y + tile * 0.32, tile);
+      return;
+    }
+    case 'horneado':
+      pintarBanderaDeLoHorneado(ctx, v, c.objeto);
+      return;
+    case 'heroe': {
+      const p = casillaAPixel(v.camara, c.heroe.at);
+      const letra = c.heroe.name.charAt(0).toUpperCase();
+      inicial(ctx, letra, p.x, p.y - tile * 0.7, tile, playerColor(c.heroe.owner));
+      return;
+    }
+    case 'asaltante': {
+      const p = mundoAPixel(v.camara, c.en.x + 0.5, c.en.y + 0.5);
+      const cuantos = String(individuosDe(c.asaltante.troops));
+      chapa(ctx, cuantos, p.x + tile * 0.3, p.y + tile * 0.32, tile);
+      estandarteDeAsaltante(ctx, p.x - tile * 0.36, p.y - tile * 0.46, tile);
+      return;
+    }
+  }
 }
 
 function presente(o: MapObject): boolean {
@@ -506,274 +550,24 @@ function presente(o: MapObject): boolean {
   return true;
 }
 
-/** Lo que se pinta encima de una casilla: una celda del atlas o una pieza. */
-export interface Decoracion {
-  readonly celda: number;
-  /** Con `pieza`, el ancho en casillas; sin ella, el lado de la celda. */
-  readonly escala: number;
-  readonly dx: number;
-  readonly dy: number;
-  readonly pieza?: PiezaDelMapa | undefined;
-}
-
-/** Los tamaños a los que se encoge la celda de una barrera que no cabe, del mayor al menor. */
-const ESCALAS_QUE_CABEN = [ESCALA_SIN_PIEZA, 1.0, 0.85] as const;
-
-/**
- * La decoración de la casilla `p`, **contenida en la barrera**: la montaña
- * pintada mide más de dos casillas y la copa del bosque casi una y media, y
- * desbordadas sobre la casilla de al lado tapaban suelo que se pisa con algo que
- * dice «aquí no se pasa» (vuelta 2 de QA, N1). Si lo que toca no cabe entre
- * barreras, se prueba la celda a los tamaños de `ESCALAS_QUE_CABEN`, centrada; a
- * 0,85 cabe siempre en su casilla. Los suelos no se tocan: su decoración es baja
- * y no parece una barrera.
- */
-export function decoracionDe(
-  terreno: readonly TerrainKind[],
-  W: number,
-  H: number,
-  p: Point,
-  azar: number,
-): Decoracion | null {
-  const t = terreno[p.y * W + p.x];
-  if (t === undefined)
-    throw new Error(`la casilla (${p.x},${p.y}) está fuera del mapa de ${W}×${H}`);
-  const deco = vegetacion(t, azar);
-  if (deco === null || isWalkable(t)) return deco;
-  const sePisa = (x: number, y: number): boolean =>
-    x >= 0 && y >= 0 && x < W && y < H && isWalkable(terreno[y * W + x]!);
-  const cabe = (d: Decoracion): boolean =>
-    cajasDe(d).every((c) => casillasQueTapa(c, d).every(([x, y]) => !sePisa(p.x + x, p.y + y)));
-  if (cabe(deco)) return deco;
-  for (const escala of ESCALAS_QUE_CABEN) {
-    if (escala > deco.escala && deco.pieza === undefined) continue;
-    const celda: Decoracion = { celda: deco.celda, escala, dx: 0, dy: 0 };
-    if (cabe(celda)) return celda;
-  }
-  throw new Error(`la celda de ${t} en (${p.x},${p.y}) no cabe ni a ${ESCALAS_QUE_CABEN.at(-1)}`);
-}
-
-/** Una caja en casillas, relativa al centro de la casilla de la decoración. */
-interface Caja {
-  readonly x0: number;
-  readonly x1: number;
-  readonly y0: number;
-  readonly y1: number;
-}
-
-/**
- * Lo que tapa una decoración tal como la pinta `pintarCosas`: la celda, de
- * `escala` de lado con el pie a 0,35 bajo el centro; la pieza, por su ancla, y
- * además la celda a `ESCALA_SIN_PIEZA` que la sustituye mientras no llega.
- */
-function cajasDe(d: Decoracion): Caja[] {
-  const celda = (escala: number): Caja => ({
-    x0: -escala / 2,
-    x1: escala / 2,
-    y0: PIE_DE_LA_CELDA - escala,
-    y1: PIE_DE_LA_CELDA,
-  });
-  if (d.pieza === undefined) return [celda(d.escala)];
-  const c = cajaDePieza(d.pieza, d.escala);
-  return [
-    {
-      x0: -c.izquierda,
-      x1: c.derecha,
-      y0: PIE_DE_LA_CELDA - c.arriba,
-      y1: PIE_DE_LA_CELDA + c.abajo,
-    },
-    celda(ESCALA_SIN_PIEZA),
-  ];
-}
-
-/** Las casillas, relativas a la propia, que una caja desplazada por `d` pisa de verdad (no solo roza). */
-function casillasQueTapa(c: Caja, d: { dx: number; dy: number }): [number, number][] {
-  const EPS = 1e-9;
-  const de = (a: number, b: number): number[] => {
-    const r: number[] = [];
-    for (let i = Math.round(a); i <= Math.round(b); i++)
-      if (a < i + 0.5 - EPS && b > i - 0.5 + EPS) r.push(i);
-    return r;
-  };
-  const xs = de(c.x0 + d.dx, c.x1 + d.dx);
-  const ys = de(c.y0 + d.dy, c.y1 + d.dy);
-  return xs.flatMap((x) => ys.map((y): [number, number] => [x, y]));
-}
-
-/** Las tres montañas pintadas, que se alternan para que la cordillera no se repita. */
-const MONTANAS: readonly PiezaDelMapa[] = ['montana-1', 'montana-2', 'montana-3'];
-
-/**
- * Lo que se pinta encima de cada casilla según su terreno.
- *
- * **Las barreras van llenas** —cada casilla con su pico, su copa o su ruina—
- * para que se lean como accidente y no como un color; **los suelos, ralos**:
- * desde que los obstáculos de dentro de una región bloquean (mapas densos,
- * 03-10-2026), un árbol decorativo en la hierba no tiene que parecerse a un
- * bosque que no se cruza. Con `pieza`, la escala es el ancho en casillas.
- */
-function vegetacion(t: TerrainKind, azar: number): Decoracion | null {
-  const dx = ((azar % 5) - 2) * 0.08;
-  const dy = ((azar % 7) - 3) * 0.05;
-  switch (t) {
-    case 'grass':
-      return azar < 5
-        ? {
-            celda: azar % 3 === 0 ? CELDA.pinar : CELDA.arboleda,
-            escala: 1.0 + (azar % 4) * 0.08,
-            dx,
-            dy,
-          }
-        : null;
-    case 'dirt':
-    case 'swamp':
-      return azar < 3 ? { celda: CELDA.arboleda, escala: 1.0 + (azar % 3) * 0.08, dx, dy } : null;
-    case 'snow':
-      return azar < 5 ? { celda: CELDA.pinar, escala: 1.0 + (azar % 4) * 0.08, dx, dy } : null;
-    // Un menhir bajo, y pocos: aquí iba el pico de montaña, y sobre un suelo
-    // que se pisa parecía una barrera (vuelta 2 de QA, N1). Ningún suelo lleva
-    // la celda de montaña ni una pieza: lo vigila `escenas.test.ts`.
-    case 'rough':
-      return azar < 3 ? { celda: CELDA.piedraRunica, escala: 0.55, dx, dy } : null;
-    // La montaña no se pisa: cada casilla lleva su pico, y una de cada tres una
-    // de las montañas pintadas, más ancha que la casilla para que se solapen y la
-    // cordillera se lea como muro (petición 3 de `docs/art/peticiones.md`). Sin
-    // la pieza, el pico del atlas.
-    case 'mountain':
-      return azar % 3 === 0
-        ? {
-            celda: CELDA.montana,
-            escala: 2.2 + (azar % 4) * 0.15,
-            dx: dx * 0.5,
-            dy: dy * 0.5,
-            pieza: MONTANAS[Math.floor(azar / 3) % MONTANAS.length]!,
-          }
-        : { celda: CELDA.montana, escala: 1.25 + (azar % 3) * 0.1, dx: dx * 0.5, dy: dy * 0.5 };
-    // El bosque denso, como la montaña: una copa grande en cada casilla, para
-    // que el muro verde se lea entero y no como una arboleda suelta.
-    case 'forest':
-      return {
-        celda: azar % 2 === 0 ? CELDA.pinar : CELDA.arboleda,
-        escala: 1.35 + (azar % 3) * 0.1,
-        dx: dx * 0.5,
-        dy: dy * 0.5,
-      };
-    // El muro, con la ruina del atlas cada pocas casillas: los sillares de la
-    // superficie (`tramarBarreras`) son los que dicen que es muro.
-    case 'wall':
-      return azar < 40 ? { celda: CELDA.ruinas, escala: 1.0, dx: dx * 0.3, dy: dy * 0.3 } : null;
-    // El acantilado no tiene pieza todavía: su ocre, sus estrías y la sombra
-    // del desnivel lo marcan (`tramarBarreras`).
-    case 'cliff':
-    case 'sand':
-    case 'lava':
-    case 'water':
-      return null;
-  }
-}
-
-/** Una celda del atlas, apoyada en la casilla `p` (que puede tener decimales). */
-function pintarCelda(
-  ctx: CanvasRenderingContext2D,
-  camara: CamaraMapa,
-  celda: number,
-  p: Point,
-  escala: number,
-): boolean {
-  const atlas = asset('rpg', 'mapa');
-  if (atlas === null) return false;
-  const c = mundoAPixel(camara, p.x + 0.5, p.y + 0.5);
-  const lado = camara.tile * escala;
-  const w = atlas.naturalWidth / 4;
-  const h = atlas.naturalHeight / 4;
-  ctx.drawImage(
-    atlas,
-    (celda % 4) * w,
-    Math.floor(celda / 4) * h,
-    w,
-    h,
-    c.x - lado / 2,
-    c.y - lado + camara.tile * PIE_DE_LA_CELDA,
-    lado,
-    lado,
-  );
-  return true;
-}
-
 function pintarObjeto(ctx: CanvasRenderingContext2D, v: VistaMapa, o: MapObject): void {
   const { camara } = v;
   const tile = camara.tile;
   const c = casillaAPixel(camara, o.at);
   switch (o.kind) {
-    case 'town': {
-      base(ctx, c, tile * 0.62, playerColor(o.owner));
-      if (
-        !pintarPieza(ctx, 'ciudad', c.x, c.y + tile * 0.35, tile * 2.4) &&
-        !pintarCelda(ctx, camara, CELDA.castillo, o.at, 1.7)
-      ) {
-        ctx.fillStyle = playerColor(o.owner);
-        ctx.fillRect(c.x - tile * 0.38, c.y - tile * 0.35, tile * 0.76, tile * 0.6);
-      }
-      bandera(ctx, c.x - tile * 0.55, c.y - tile * 1.05, tile, playerColor(o.owner));
-      return;
-    }
-    case 'node': {
-      // El paso entre regiones: un hito de piedra con la bandera de su dueño.
-      // Sin dueño, gris y sin bandera: se ve qué falta por tomar.
-      base(ctx, c, tile * 0.4, playerColor(o.owner));
-      if (!pintarPieza(ctx, 'nodo-hito', c.x, c.y + tile * 0.35, tile * 1.15)) {
-        ctx.fillStyle = '#8a8172';
-        ctx.strokeStyle = 'rgba(0,0,0,0.6)';
-        ctx.lineWidth = 1;
-        ctx.fillRect(c.x - tile * 0.09, c.y - tile * 0.45, tile * 0.18, tile * 0.6);
-        ctx.strokeRect(c.x - tile * 0.09, c.y - tile * 0.45, tile * 0.18, tile * 0.6);
-      }
-      if (o.owner !== null) bandera(ctx, c.x, c.y - tile * 0.85, tile * 0.75, playerColor(o.owner));
-      return;
-    }
-    case 'village': {
-      // Un pueblo: la pieza pintada, o tres tejados. Sin dueño propio —es de
-      // quien tenga su región—, así que no lleva bandera.
-      if (pintarPieza(ctx, 'pueblo', c.x, c.y + tile * 0.35, tile * 1.9)) return;
-      ctx.fillStyle = '#7a5a3a';
-      ctx.strokeStyle = 'rgba(0,0,0,0.6)';
-      ctx.lineWidth = 1;
-      for (const [dx, dy] of [
-        [-0.22, 0.05],
-        [0.18, 0.1],
-        [-0.02, -0.12],
-      ] as const) {
-        const x = c.x + dx * tile;
-        const y = c.y + dy * tile;
-        ctx.fillRect(x - tile * 0.11, y, tile * 0.22, tile * 0.16);
-        ctx.beginPath();
-        ctx.moveTo(x - tile * 0.14, y);
-        ctx.lineTo(x, y - tile * 0.13);
-        ctx.lineTo(x + tile * 0.14, y);
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-      }
-      return;
-    }
-    case 'mine': {
-      if (!pintarCelda(ctx, camara, CELDA.mina, o.at, 1.2)) {
-        ctx.fillStyle = '#6b6152';
-        ctx.beginPath();
-        ctx.moveTo(c.x, c.y - tile * 0.4);
-        ctx.lineTo(c.x + tile * 0.4, c.y + tile * 0.3);
-        ctx.lineTo(c.x - tile * 0.4, c.y + tile * 0.3);
-        ctx.fill();
-      }
-      // Sin bandera: una mina no se toma, es de quien tenga su región.
-      icono(ctx, o.resource, c.x + tile * 0.32, c.y + tile * 0.12, tile * 0.36);
-      return;
-    }
     case 'chest': {
-      if (!pintarCelda(ctx, camara, CELDA.cofre, o.at, 0.75)) {
+      // El cofre es la celda 8 del atlas de 4×4 de `map-atlas.png`, a tres
+      // cuartos de casilla y con el pie 0,35 bajo el centro.
+      const atlas = asset('rpg', 'mapa');
+      if (atlas === null) {
         ctx.fillStyle = '#a8762c';
         ctx.fillRect(c.x - tile * 0.22, c.y - tile * 0.12, tile * 0.44, tile * 0.3);
+        return;
       }
+      const w = atlas.naturalWidth / 4;
+      const h = atlas.naturalHeight / 4;
+      const lado = tile * 0.75;
+      ctx.drawImage(atlas, 0, 2 * h, w, h, c.x - lado / 2, c.y - lado + tile * 0.35, lado, lado);
       return;
     }
     case 'resource': {
@@ -794,6 +588,65 @@ function pintarObjeto(ctx: CanvasRenderingContext2D, v: VistaMapa, o: MapObject)
         mira: 'SO',
       });
       return;
+    case 'town':
+    case 'node':
+    case 'village':
+    case 'mine':
+      throw new Error(
+        `${o.kind} ${o.id} se hornea en la escena: lo suyo es pintarDueñoDeLoHorneado`,
+      );
+  }
+}
+
+/**
+ * El óvalo del dueño bajo la ciudad y el nodo, justo después de su volumen: se
+ * lee de lejos qué es de quién, y el nodo sin dueño, gris, dice qué falta por
+ * tomar. El pueblo y la mina no llevan: son de quien tenga su región.
+ */
+function pintarDueñoDeLoHorneado(ctx: CanvasRenderingContext2D, v: VistaMapa, o: MapObject): void {
+  const tile = v.camara.tile;
+  const c = casillaAPixel(v.camara, o.at);
+  switch (o.kind) {
+    case 'town':
+      base(ctx, c, tile * 0.62, playerColor(o.owner));
+      return;
+    case 'node':
+      base(ctx, c, tile * 0.4, playerColor(o.owner));
+      return;
+    case 'mine':
+    case 'village':
+      return;
+    case 'chest':
+    case 'resource':
+    case 'monster':
+      throw new Error(`${o.kind} ${o.id} no se hornea en la escena: lo pinta pintarObjeto`);
+  }
+}
+
+/** La bandera del dueño de la ciudad y del nodo, y en la mina el icono de lo que da. */
+function pintarBanderaDeLoHorneado(
+  ctx: CanvasRenderingContext2D,
+  v: VistaMapa,
+  o: MapObject,
+): void {
+  const tile = v.camara.tile;
+  const c = casillaAPixel(v.camara, o.at);
+  switch (o.kind) {
+    case 'town':
+      bandera(ctx, c.x - tile * 0.55, c.y - tile * 1.05, tile, playerColor(o.owner));
+      return;
+    case 'node':
+      if (o.owner !== null) bandera(ctx, c.x, c.y - tile * 0.85, tile * 0.75, playerColor(o.owner));
+      return;
+    case 'mine':
+      icono(ctx, o.resource, c.x + tile * 0.32, c.y + tile * 0.12, tile * 0.36);
+      return;
+    case 'village':
+      return;
+    case 'chest':
+    case 'resource':
+    case 'monster':
+      throw new Error(`${o.kind} ${o.id} no se hornea en la escena: no lleva bandera`);
   }
 }
 
@@ -842,17 +695,17 @@ function pintarHeroe(
 }
 
 /**
- * Un grupo de asaltantes: la figura de su primera criatura en su color, con la
- * chapa de cuántos son, deslizándose de la casilla de ayer a la de hoy con el
- * clip de andar.
+ * Un grupo de asaltantes: la figura de su primera criatura en su color, sobre su
+ * suelo morado, deslizándose de la casilla de ayer a la de hoy con el clip de
+ * andar. La chapa y el estandarte van en `pintarIdentificador`.
  */
 function pintarAsaltante(
   ctx: CanvasRenderingContext2D,
   v: VistaMapa,
   r: AdventureScene['raiders'][number],
+  p: PosicionDeAsaltante,
 ): void {
   const tile = v.camara.tile;
-  const p = posicionDeAsaltante(v.escena, r, v.tiempo);
   if (p.andando) animarHasta(p.hasta);
   const c = mundoAPixel(v.camara, p.x + 0.5, p.y + 0.5);
   const suelo = c.y + tile * 0.32;
@@ -879,7 +732,6 @@ function pintarAsaltante(
     andando: p.andando,
     mira: p.mira,
   });
-  estandarteDeAsaltante(ctx, c.x - tile * 0.36, c.y - tile * 0.46, tile);
 }
 
 /**
@@ -933,10 +785,10 @@ function estandarteDeAsaltante(
 
 /**
  * Un grupo sin dueño —monstruo que guarda o asaltante que patrulla—: la figura
- * de su criatura teñida del gris de lo que no tiene dueño, con su sombra y la
- * chapa de cuántos son. Los dos se pintan igual a propósito: lo que los
- * distingue es el suelo morado y el estandarte del asaltante, no la figura. Y el
- * gris es lo que los separa del héroe, que lleva el color de su dueño.
+ * de su criatura teñida del gris de lo que no tiene dueño, con su sombra. Los dos
+ * se pintan igual a propósito: lo que los distingue es el suelo morado y el
+ * estandarte del asaltante, no la figura. Y el gris es lo que los separa del
+ * héroe, que lleva el color de su dueño.
  */
 function pintarGrupoNeutral(
   ctx: CanvasRenderingContext2D,
@@ -951,22 +803,44 @@ function pintarGrupoNeutral(
     readonly mira: Direccion;
   },
 ): void {
-  const suelo = c.y + tile * 0.32;
-  const cuantos = String(g.cuantos);
-  const figura: Figura = {
+  pintarFiguraConSombra(ctx, {
     id: g.id,
     body: g.body,
     clip: g.andando ? 'walk' : 'idle',
     tiempo: g.tiempo,
     x: c.x,
-    suelo,
+    suelo: c.y + tile * 0.32,
     alto: tile * ALTO_DEL_GRUPO,
     mira: g.mira,
     color: COLOR_SIN_DUEÑO,
-    rotulo: cuantos,
-  };
-  pintarFiguraConSombra(ctx, figura);
-  chapa(ctx, cuantos, c.x + tile * 0.3, c.y + tile * 0.32, tile);
+    rotulo: String(g.cuantos),
+  });
+}
+
+/** La inicial de un héroe en un disco del color de su dueño, sobre su cabeza. */
+function inicial(
+  ctx: CanvasRenderingContext2D,
+  letra: string,
+  x: number,
+  y: number,
+  tile: number,
+  color: string,
+): void {
+  const r = Math.max(8, tile * 0.13);
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.strokeStyle = 'rgba(20,17,13,0.85)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#fbf6ea';
+  ctx.font = `bold ${Math.round(r * 1.2)}px system-ui, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(letra, x, y + 0.5);
+  ctx.restore();
 }
 
 /** Un óvalo del color del dueño bajo lo que se posee: se lee de lejos. */
@@ -1036,7 +910,7 @@ function icono(
   ctx.stroke();
 }
 
-/** Una cifra en una chapa oscura: los efectivos de un monstruo. */
+/** Una cifra en una chapa oscura: cuántos son en un grupo sin dueño. */
 function chapa(
   ctx: CanvasRenderingContext2D,
   texto: string,
@@ -1057,82 +931,6 @@ function chapa(
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(texto, x, y + 0.5);
-  ctx.restore();
-}
-
-/**
- * Los caminos explorados, trazados una vez en coordenadas de casilla. Se
- * pintan escalando por el zoom, así que el trazo no se rehace al moverse la
- * cámara: solo cuando cambian los caminos o lo explorado.
- */
-let caminos: {
-  roads: ReadonlySet<string>;
-  explorado: ReadonlySet<string> | null;
-  vistos: number;
-  semilla: number;
-  trazo: Path2D;
-} | null = null;
-
-function trazoDeCaminos(v: VistaMapa): Path2D {
-  const { roads } = v.escena.map;
-  const vistos = v.explorado?.size ?? -1;
-  if (
-    caminos !== null &&
-    caminos.roads === roads &&
-    caminos.explorado === v.explorado &&
-    caminos.vistos === vistos &&
-    caminos.semilla === v.semilla
-  ) {
-    return caminos.trazo;
-  }
-  const trazo = new Path2D();
-  for (const clave of roads) {
-    if (v.explorado !== null && !v.explorado.has(clave)) continue;
-    const { x, y } = pointFromKey(clave);
-    // En casillas: el centro de la casilla es (x + ½, y + ½).
-    const a = { x: x + 0.5, y: y + 0.5 };
-    for (const d of [
-      { x: 1, y: 0 },
-      { x: 0, y: 1 },
-      { x: 1, y: 1 },
-      { x: 1, y: -1 },
-    ]) {
-      const q = { x: x + d.x, y: y + d.y };
-      if (!roads.has(pointKey(q))) continue;
-      const b = { x: q.x + 0.5, y: q.y + 0.5 };
-      const curva = (((x * 17 + y * 8 + v.semilla) % 5) - 2) * 0.05;
-      trazo.moveTo(a.x, a.y);
-      trazo.quadraticCurveTo(
-        (a.x + b.x) / 2 - d.y * curva,
-        (a.y + b.y) / 2 + d.x * curva,
-        b.x,
-        b.y,
-      );
-    }
-  }
-  caminos = { roads, explorado: v.explorado, vistos, semilla: v.semilla, trazo };
-  return trazo;
-}
-
-function pintarCaminos(ctx: CanvasRenderingContext2D, v: VistaMapa): void {
-  if (v.escena.map.roads.size === 0) return;
-  const trazo = trazoDeCaminos(v);
-  const o = mundoAPixel(v.camara, 0, 0);
-  ctx.save();
-  ctx.translate(o.x, o.y);
-  ctx.scale(v.camara.tile, v.camara.tile);
-  ctx.lineCap = 'round';
-  // Los anchos, en casillas: con el lienzo escalado por el zoom, 0,3 es el 30 %
-  // de una casilla a cualquier zoom, que es lo que era `tile * 0.3`.
-  for (const [ancho, color] of [
-    [0.3, '#372e2444'],
-    [0.23, '#85705088'],
-    [0.13, '#a18b6566'],
-  ] as const) {
-    ctx.lineWidth = ancho;
-    ctx.strokeStyle = color;
-    ctx.stroke(trazo);
-  }
   ctx.restore();
 }
 
@@ -1208,6 +1006,11 @@ function pintarNiebla(ctx: CanvasRenderingContext2D, v: VistaMapa): void {
   const o = mundoAPixel(v.camara, -1, -1);
   ctx.save();
   ctx.imageSmoothingEnabled = true;
+  // Bilineal y no la de alta calidad de `drawMapa`: la máscara es de un píxel
+  // por casilla y se amplía a la pantalla entera a cada fotograma. Sin GPU, la
+  // alta calidad costaba 10 fps en 2560×1440 (22 → 32) para un borde difuminado
+  // que se ve igual.
+  ctx.imageSmoothingQuality = 'low';
   ctx.drawImage(mascaraDeNiebla(v), o.x, o.y, (W + 2) * v.camara.tile, (H + 2) * v.camara.tile);
   ctx.restore();
 }

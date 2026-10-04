@@ -5,7 +5,7 @@
  * la tierra de casa y el muro a 15 del `rough`, y quien jugaba veía mesetas y
  * plazas donde había barreras. La distancia es la ΔE76 de CIELAB (sRGB, D65):
  * por debajo de ~10 dos colores se toman por el mismo en un mapa; el umbral de
- * 20 es el que pidió QA. La trama de `tramarBarreras` ayuda encima, pero el
+ * 20 es el que pidió QA. El mapa grande lo pinta hoy el escenógrafo, pero el
  * color tiene que bastar solo —es lo que lee el minimapa—.
  */
 import { describe, expect, it } from 'vitest';

@@ -3,7 +3,21 @@
  * `buildMap` pinta la casilla de un nodo como `dirt` y no guarda la barrera, así
  * que sale de sus ocho vecinas (petición 4 de la §11 de `peticiones.md`).
  */
-import { type Barrera, esBarrera, type TerrainKind } from '../../../src/core/map/terrain.js';
+import { type Barrera, esBarrera, type TerrainKind } from '@core/map/terrain.js';
+
+/** Los nodos de paso, uno por barrera; puente y puerta en las dos orientaciones de la frontera. */
+export const NODOS: readonly {
+  id: string;
+  n: number;
+  barrera: Barrera;
+  variantes: readonly string[];
+}[] = [
+  { id: 'nodo-puente', n: 1, barrera: 'water', variantes: ['ancho', 'hondo'] },
+  { id: 'nodo-puerta', n: 2, barrera: 'wall', variantes: ['ancho', 'hondo'] },
+  { id: 'nodo-paso-montana', n: 3, barrera: 'mountain', variantes: [''] },
+  { id: 'nodo-paso-bosque', n: 4, barrera: 'forest', variantes: [''] },
+  { id: 'nodo-paso-acantilado', n: 5, barrera: 'cliff', variantes: [''] },
+];
 
 /** La barrera que cruza un nodo y el eje de su frontera, por las casillas de alrededor. */
 export function barreraDeNodo(
@@ -29,4 +43,11 @@ export function barreraDeNodo(
   const barrera = [...cuenta.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
   // La frontera se estrecha a una casilla en el nodo: la barrera queda a sus lados.
   return { barrera, eje: lados >= arribaAbajo ? 'ancho' : 'hondo' };
+}
+
+/** El nodo de paso según la barrera que cruza y el eje de la frontera. */
+export function nodoDePaso(barrera: Barrera | null, eje: 'ancho' | 'hondo'): string {
+  const nodo = NODOS.find((n) => n.barrera === barrera);
+  if (nodo === undefined) return 'nodo-hito';
+  return nodo.variantes.includes(eje) ? `${nodo.id}-${eje}` : nodo.id;
 }

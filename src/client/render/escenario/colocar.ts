@@ -11,14 +11,13 @@
  * Es puro salvo por leer los índices de los módulos y las medidas de las piezas
  * del disco; la escena es un JSON que pinta `pintor.ts`.
  */
-import type { GameMap, MapObject } from '../../../src/core/map/map.js';
-import type { Barrera, Suelo } from '../../../src/core/map/terrain.js';
-import { nodoDePaso } from '../mapa-denso.js';
-import { type Analisis, analizar, type Franja } from './analizar.js';
+import type { MapObject } from '@core/map/map.js';
+import type { Barrera, Suelo } from '@core/map/terrain.js';
+import { type Analisis, analizar, type Franja, type MapaDeEscena } from './analizar.js';
 import type { Catalogo, Modulo, Pieza } from './catalogo.js';
 import { azarDe, esparcir } from './esparcir.js';
 import { ejeDe, esqueleto } from './esqueleto.js';
-import { barreraDeNodo } from './nodos.js';
+import { barreraDeNodo, nodoDePaso } from './nodos.js';
 import { ALTO_DE_NIVEL, type Relieve, relieve } from './relieve.js';
 import { type Senda, sendas } from './sendas.js';
 
@@ -216,9 +215,15 @@ class Reservas {
   }
 }
 
-/** El monstruo que guarda el mapa: el primer fotograma de reposo de una tropa. */
+/**
+ * El monstruo que guarda el mapa. Sin imagen: el juego no lo hornea —cambia en
+ * la partida— y lo pinta con su figura, y el taller con su marcador. Apuntaba al
+ * `atlas.webp` de una dirección de una tropa, que se borró con el arte de una
+ * dirección: el 404 de esa ruta salía en la consola de cada página que la
+ * pidiera, y `pnpm capturas` sale 1 con un error en la consola.
+ */
 const MONSTRUO = {
-  src: '../unidades/orko-hacha-escudo/atlas.webp',
+  src: null,
   nw: 256,
   nh: 256,
   ax: 128,
@@ -226,7 +231,7 @@ const MONSTRUO = {
   recorte: [0, 0, 256, 256] as const,
 };
 
-export function componer(map: GameMap, semilla: number, catalogo: Catalogo): Escena {
+export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo): Escena {
   /** Los módulos de una hoja, de menor a mayor, o null si la hoja aún no está hecha. */
   const modulosDe = (hoja: string): readonly Modulo[] | null => catalogo.hojas[hoja] ?? null;
   const pieza = (id: string): Pieza | null => catalogo.piezas[id] ?? null;

@@ -148,6 +148,12 @@ export interface VistaBatalla {
 }
 
 export interface SpectatorView {
+  /**
+   * La semilla de la partida. No reproduce la partida —con el mapa del agente no
+   * lo hace—, pero es la de la escena del mapa (`componer(mapa, semilla)`): sin
+   * ella, el espectador vestía el mismo mapa con otros árboles que quien juega.
+   */
+  readonly seed: number;
   readonly map: VistaMapa;
   readonly players: readonly VistaJugador[];
   readonly heroes: readonly VistaHeroe[];
@@ -180,6 +186,7 @@ export interface SpectatorView {
 export function construirVista(state: GameState, directorLog: readonly string[]): SpectatorView {
   const pending = state.pendingBattle;
   return {
+    seed: state.seed,
     map: {
       width: state.map.width,
       height: state.map.height,

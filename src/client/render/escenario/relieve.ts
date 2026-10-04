@@ -7,7 +7,7 @@
  * La cámara mira desde el sur: una caída hacia abajo en pantalla enseña su cara
  * de roca; una caída hacia arriba queda de espaldas y solo se ve el reborde.
  */
-import type { Suelo } from '../../../src/core/map/terrain.js';
+import type { Suelo } from '@core/map/terrain.js';
 import type { Analisis } from './analizar.js';
 
 /**

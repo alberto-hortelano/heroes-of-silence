@@ -270,6 +270,15 @@ Lo que se pide a la sesión de reglas, de menos a más:
 4. **Saber qué barrera cruza un nodo.** Igual que en la §10: hoy se deduce de las
    vecinas (`barreraDeNodo`).
 
+**La 1 está hecha (04-10-2026)**, con una forma algo distinta de la de abajo —
+decisión del usuario—: el código puro vive ahora en `src/client/render/escenario/`
+(con `git mv`), y la escena no se pinta entera en una superficie: el **suelo** sí
+(`pintarSuelo`, a 72 px), y los **volúmenes** se pintan a cada fotograma
+(`separar`, `pintarVolumen`) mezclados con las figuras por profundidad.
+`pintarEscena` es hoy las dos cosas seguidas, y la página del taller enseña
+exactamente lo que pinta el juego. Detalle en
+`docs/agents/2026-10-04-escena-del-mapa/`. Las 2-4 siguen abiertas.
+
 ### Contrato del enganche (04-10-2026)
 
 Las dos puertas no importan nada de Node —ni `fs`, ni `sharp`, ni Playwright—, y

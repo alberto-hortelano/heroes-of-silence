@@ -13,6 +13,8 @@
  * la nieve y de árboles muertos en el pantano; el acantilado, rojo en la arena,
  * de basalto en la lava y gris en la roca.
  */
+
+import { NODOS } from '../../src/client/render/escenario/nodos.js';
 import { type Barrera, SUELOS_PISABLES, type Suelo } from '../../src/core/map/terrain.js';
 import type { Encargo } from './encargo.js';
 
@@ -358,20 +360,6 @@ export const FAMILIAS_EXISTENTES: readonly Omit<Familia, 'lamina' | 'n'>[] = [
   },
 ];
 
-/** Los nodos de paso, uno por barrera; puente y puerta en las dos orientaciones de la frontera. */
-export const NODOS: readonly {
-  id: string;
-  n: number;
-  barrera: Barrera;
-  variantes: readonly string[];
-}[] = [
-  { id: 'nodo-puente', n: 1, barrera: 'water', variantes: ['ancho', 'hondo'] },
-  { id: 'nodo-puerta', n: 2, barrera: 'wall', variantes: ['ancho', 'hondo'] },
-  { id: 'nodo-paso-montana', n: 3, barrera: 'mountain', variantes: [''] },
-  { id: 'nodo-paso-bosque', n: 4, barrera: 'forest', variantes: [''] },
-  { id: 'nodo-paso-acantilado', n: 5, barrera: 'cliff', variantes: [''] },
-];
-
 /** El id de cada pieza de una familia, en el orden de sus variantes. */
 export function idsDe(f: { id: string; variantes: readonly string[] }): string[] {
   return f.variantes.map((v) => (v === '' ? f.id : `${f.id}-${v}`));
@@ -497,11 +485,4 @@ export function piezaDeCasilla(
   const conEje = ids.filter((i) => i.includes(`-${eje}`));
   const lista = conEje.length > 0 ? conEje : ids;
   return lista[Math.floor(azar / familias.length) % lista.length] as string;
-}
-
-/** El nodo de paso según la barrera que cruza y el eje de la frontera. */
-export function nodoDePaso(barrera: Barrera | null, eje: 'ancho' | 'hondo'): string {
-  const nodo = NODOS.find((n) => n.barrera === barrera);
-  if (nodo === undefined) return 'nodo-hito';
-  return nodo.variantes.includes(eje) ? `${nodo.id}-${eje}` : nodo.id;
 }

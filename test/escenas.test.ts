@@ -24,7 +24,8 @@ import {
   pintarSobreLaCabeza,
 } from '../src/client/render/batalla.js';
 import { casillaAPixel, centrarEn, TILE_INICIAL } from '../src/client/render/camara-mapa.js';
-import { CELDA, decoracionDe, pasosAPintar } from '../src/client/render/mapa.js';
+import type { Volumen } from '../src/client/render/escenario/pintar.js';
+import { fundirPorProfundidad, PIES, pasosAPintar } from '../src/client/render/mapa.js';
 import { COLOR_SIN_DUEÑO, MARCA_DE_COMANDANTE, playerColor } from '../src/client/render/palette.js';
 import {
   ALTO_DE_FIGURA,
@@ -38,7 +39,6 @@ import { marcaDeComandante } from '../src/client/views/panels.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import { isAlive, SIN_CARGAS, stackHexes } from '../src/core/battle/battle.js';
 import type { BattleStack, Side } from '../src/core/battle/types.js';
-import { BARRERAS, SUELOS_PISABLES, type TerrainKind } from '../src/core/map/terrain.js';
 import type { Hex } from '../src/core/types.js';
 import {
   destinoDeHoy,
@@ -456,54 +456,59 @@ describe('la ruta no se pinta sobre la niebla (M5 de la 2a)', () => {
   });
 });
 
-describe('la decoración del mapa no confunde suelo con barrera (vuelta 2 de QA de mapas densos, N1)', () => {
-  const AZARES = Array.from({ length: 97 }, (_, i) => i);
-  /** Un mapa de `lado`×`lado` de `fuera` con un bloque de `dentro` de `bloque`×`bloque` en medio. */
-  const mapa = (lado: number, fuera: TerrainKind, dentro: TerrainKind, bloque: number) => {
-    const t: TerrainKind[] = [];
-    const a = Math.floor((lado - bloque) / 2);
-    for (let y = 0; y < lado; y++)
-      for (let x = 0; x < lado; x++)
-        t.push(x >= a && x < a + bloque && y >= a && y < a + bloque ? dentro : fuera);
-    return t;
+describe('una figura puede quedar detrás de un árbol', () => {
+  /** Un pino con la base en `y`, como los pone el escenógrafo. */
+  const pino = (x: number, y: number): Volumen => ({
+    clave: y,
+    s: {
+      src: 'modulos/pinos/1.webp',
+      nw: 100,
+      nh: 160,
+      ax: 50,
+      ay: 155,
+      x,
+      y,
+      alto: 1.1,
+      clase: 'masa',
+      color: '#1f3a22',
+      capa: 0,
+      sombra: true,
+    },
+  });
+  const orden = (volumenes: Volumen[], cosas: { clave: number; nombre: string }[]) => {
+    const fuera: string[] = [];
+    fundirPorProfundidad(
+      volumenes,
+      cosas,
+      (v) => fuera.push(`pino ${v.clave}`),
+      (c) => fuera.push(c.nombre),
+    );
+    return fuera;
   };
 
-  it('ningún suelo que se pisa lleva la celda de montaña ni una pieza', () => {
-    // En `rough` se pintaba un pico: QA lo vio en la semilla 1 como cordillera
-    // en mitad de una región.
-    const malas: string[] = [];
-    for (const suelo of SUELOS_PISABLES)
-      for (const azar of AZARES) {
-        const d = decoracionDe([suelo], 1, 1, { x: 0, y: 0 }, azar);
-        if (d !== null && (d.celda === CELDA.montana || d.pieza !== undefined))
-          malas.push(`${suelo}/${azar}`);
-      }
-    expect(malas).toEqual([]);
+  it('un héroe con los pies en y + 0,8 tras un pino con la base en y + 0,9 se pinta antes: el pino lo tapa', () => {
+    const y = 5;
+    expect(orden([pino(3.5, y + 0.9)], [{ clave: y + PIES.heroe, nombre: 'héroe' }])).toEqual([
+      'héroe',
+      'pino 5.9',
+    ]);
   });
 
-  it('una barrera rodeada de suelo pinta solo dentro de su casilla', () => {
-    // La pieza de montaña mide más de dos casillas y la copa del bosque casi
-    // una y media: desbordadas, tapaban el suelo de al lado.
-    for (const barrera of BARRERAS)
-      for (const azar of AZARES) {
-        const d = decoracionDe(mapa(3, 'grass', barrera, 1), 3, 3, { x: 1, y: 1 }, azar);
-        if (d === null) continue;
-        const caso = `${barrera}/${azar}`;
-        expect(d.pieza, caso).toBeUndefined();
-        // La celda se apoya a 0,35 bajo el centro y sube `escala`: dentro de
-        // [-0,5, 0,5] en los dos ejes.
-        expect(Math.abs(d.dx) + d.escala / 2, caso).toBeLessThanOrEqual(0.5);
-        expect(0.35 + d.dy, caso).toBeLessThanOrEqual(0.5);
-        expect(0.35 + d.dy - d.escala, caso).toBeGreaterThanOrEqual(-0.5);
-      }
+  it('delante del pino —el pino en la fila de arriba— se pinta después', () => {
+    const y = 5;
+    expect(orden([pino(3.5, y - 1 + 0.9)], [{ clave: y + PIES.heroe, nombre: 'héroe' }])).toEqual([
+      'pino 4.9',
+      'héroe',
+    ]);
   });
 
-  it('en mitad de una cordillera la montaña sigue siendo grande', () => {
-    // Que contener no la deje en guijarros: en un bloque de 7×7 el centro lleva
-    // la pieza pintada en una de cada tres casillas, como antes.
-    const conPieza = AZARES.filter(
-      (azar) => decoracionDe(mapa(9, 'grass', 'mountain', 7), 9, 9, { x: 4, y: 4 }, azar)?.pieza,
-    );
-    expect(conPieza.length).toBe(AZARES.filter((a) => a % 3 === 0).length);
+  it('a igual clave va antes el volumen, y no se pierde ni se repite nada', () => {
+    const volumenes = [pino(1, 2), pino(2, 3), pino(3, 3)];
+    const cosas = [
+      { clave: 1, nombre: 'a' },
+      { clave: 3, nombre: 'b' },
+      { clave: 9, nombre: 'c' },
+    ];
+    expect(orden(volumenes, cosas)).toEqual(['a', 'pino 2', 'pino 3', 'pino 3', 'b', 'c']);
   });
 });

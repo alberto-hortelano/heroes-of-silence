@@ -4,15 +4,25 @@
  * interior, qué suelo tienen al lado y a qué distancia del borde de su franja
  * está cada casilla (de ahí sale el tamaño de los picos y los árboles).
  *
- * Es puro: un `GameMap` entra y un análisis sale, sin DOM y sin ficheros.
+ * Es puro: un mapa entra y un análisis sale, sin DOM y sin ficheros.
  */
-import type { GameMap, MapObject } from '../../../src/core/map/map.js';
-import {
-  type Barrera,
-  esBarrera,
-  type Suelo,
-  type TerrainKind,
-} from '../../../src/core/map/terrain.js';
+import type { MapObject } from '@core/map/map.js';
+import { type Barrera, esBarrera, type Suelo, type TerrainKind } from '@core/map/terrain.js';
+
+/**
+ * Lo que el escenógrafo lee de un mapa, y nada más: ni las regiones declaradas
+ * ni nada que cambie en la partida salvo los objetos, de los que solo mira dónde
+ * están y de qué clase son. Así lo cumplen tal cual el `GameMap` del núcleo y el
+ * mapa que rehace el espectador al otro lado del cable, y la escena de los dos
+ * sale de la misma lectura.
+ */
+export interface MapaDeEscena {
+  readonly width: number;
+  readonly height: number;
+  readonly terrain: readonly TerrainKind[];
+  readonly roads: ReadonlySet<string>;
+  readonly objects: readonly MapObject[];
+}
 
 /** Una mancha interior tiene a lo sumo este tamaño; lo que pasa de ahí es frontera. */
 export const MANCHA_MAXIMA = 6;
@@ -59,10 +69,10 @@ const VECINAS4 = [
   [0, -1],
 ] as const;
 
-export function analizar(map: GameMap): Analisis {
+export function analizar(map: MapaDeEscena): Analisis {
   const W = map.width;
   const H = map.height;
-  const terreno = map.terrain as readonly TerrainKind[];
+  const terreno = map.terrain;
   const ocupadas = new Set(map.objects.map((o) => o.at.y * W + o.at.x));
   const nodos = new Set(
     map.objects.filter((o) => o.kind === 'node').map((o) => o.at.y * W + o.at.x),

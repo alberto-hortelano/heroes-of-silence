@@ -19,10 +19,14 @@
  *     bando del color de su jugador sin rederivar `battleOwners` por su cuenta.
  */
 import { once } from 'node:events';
+import { readFileSync } from 'node:fs';
 import type { AddressInfo } from 'node:net';
+import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
 import { adaptarBatalla, adaptarEscena } from '../src/client/espectador/adaptar.js';
+import { type Catalogo, RUTA_DEL_CATALOGO } from '../src/client/render/escenario/catalogo.js';
+import { componer } from '../src/client/render/escenario/colocar.js';
 import type { AdventureScene } from '../src/client/render/mapa.js';
 import { createBattle } from '../src/core/battle/battle.js';
 import type { BattleStack, BattleState } from '../src/core/battle/types.js';
@@ -179,6 +183,21 @@ describe('adaptar: la vuelta del cable', () => {
     const cambiado = adaptarEscena(cable()).map.terrain;
     expect(cambiado).not.toBe(primero);
     expect(cambiado).toEqual(state.map.terrain);
+  });
+
+  it('la escena del mapa que sale del cable es la de la partida: misma semilla, mismo mapa vestido', () => {
+    // Antes el espectador componía con la semilla 0: el mismo mapa con otros
+    // árboles, otras rocas y otros caminos que quien juega.
+    const state = newGame({ seed: 7 });
+    const vista: SpectatorView = JSON.parse(JSON.stringify(construirVista(state, [])));
+    expect(vista.seed).toBe(7);
+    const escena = adaptarEscena(vista);
+    const catalogo = JSON.parse(
+      readFileSync(join(import.meta.dirname, '..', RUTA_DEL_CATALOGO), 'utf8'),
+    ) as Catalogo;
+    expect(JSON.stringify(componer(escena.map, vista.seed, catalogo))).toBe(
+      JSON.stringify(componer(state.map, state.seed, catalogo)),
+    );
   });
 
   it('un `GameState` satisface `AdventureScene` sin adaptar nada', () => {

@@ -1534,6 +1534,31 @@ pieza una vez por tamaño, no pinta lo que cae fuera de la cámara y solo rehace
 superficie del mapa cuando entra arte nuevo (`versionDelArte`); la arena no
 descarga las piezas del mapa.
 
+**Todo ese pintado se retiró el 04-10-2026**, al enganchar la escena del
+escenógrafo (`render/escenario/`, docs/agents/2026-10-04-escena-del-mapa/):
+`terrainSurface` y sus dos tramas, `decoracionDe` y su contención en la barrera,
+las montañas, el hito y la ciudad y el pueblo sueltos de `assets/mapa/`, los
+caminos trazados por el lienzo y la textura `soft-light` de `rpg/suelo.webp`. Los
+pigmentos se quedan —el minimapa y el suelo de un píxel por casilla que se ve
+mientras llega el arte— y con ellos su test de ΔE. Los tres tests de
+`decoracionDe` se borraron con ella: guardaban una regla que ya no pinta nadie.
+
+**La vuelta de `/simplify` de la escena (04-10-2026)** dejó un canal de carga y una versión del arte (`versionDelArte`): el suelo espera a que no quede ninguna tanda en camino y, al pintarse, suelta las imágenes que solo pinta él. Hay una caché de copias reducidas de 40 MB (`render/copias.ts`) con la clave numérica, para que volver a un zoom anterior salga de ella. Los volúmenes se pintan en píxeles de dispositivo. Lo que dice quién está en una casilla va en una pasada encima de todo.
+
+Dos cosas salieron de verlas, no de razonarlas:
+
+- **El héroe que nace al norte de su castillo** (semilla 1) quedaba tapado entero por él, que mide casi dos casillas de alto. Por eso la figura que pisa una casilla cubierta por algo horneado sube a la clave de lo horneado (`claveDeFigura`).
+- **Un grupo de asaltantes llegó detrás de los triángulos de montaña** de `pnpm capturas` sin arte y dejó de verse del todo. Por eso la chapa y el estandarte van encima.
+
+La propuesta de bajar la clave de lo horneado al borde de arriba de su figura se probó y se descartó. Pone encima de una ciudad las rocas que tiene detrás (taller: 0,3-0,7 % de píxeles), y en la semilla 1 pinta la mina sobre la iglesia del pueblo. La regla tiene dos clases: la figura de esa franja va delante, y el volumen, detrás. Una sola clave en lo horneado no puede dar las dos cosas.
+
+**La vuelta 1 de QA de la escena (04-10-2026)** cerró cuatro hallazgos, todos medidos en el Chromium sin GPU de `pnpm capturas`:
+
+- **El tope cuenta también los píxeles** (H1, decisión del usuario). En 3840×2160 el tope sube a 75-94 px y lo caro era el relleno: 7 fps, frente a 15-35 de `b3ff334`. Ahora el mapa no pinta más de `PIXELES_DEL_MAPA` = 1 500 000 píxeles de dispositivo por fotograma —lo que ya pintaba el lienzo de una ventana de 1920×1080—, y en una pantalla mayor baja la densidad. El coste no crece en línea: con 2 073 600, 32 fps arrastrando en 2560×1440; con 1 500 000, 43; con 1 000 000, 60. De paso, la niebla se amplía con muestreo bilineal y no de alta calidad: la máscara es de un píxel por casilla y la alta calidad costaba 10 fps en 2560×1440. Lo que se paga: en esas pantallas el mapa se ve más blando, y con el mapa entero a la vista (sin niebla) en 2560×1440 baja de 60/58 a 54-56/45, porque ampliar el lienzo también cuesta.
+- **El suelo se pinta en un Worker** (H2). Era una tarea de 1,7-2,2 s en cada partida. Hicieron falta otras tres cosas para que ninguna tarea del hilo principal pasara de ~100 ms al cargar: las imágenes de la escena llegan como `ImageBitmap` (un `<img>` se decodificaba en el primer fotograma que lo pintaba; `img.decode()` no lo evita, porque el lienzo no usa lo que decodifica), `componer` va en una tarea aparte del primer fotograma (`escenarioListo`) y un fotograma no hace más de 200 copias reducidas nuevas. **Igual al píxel no sale, y es por las imágenes y no por el Worker**: el Worker y el hilo principal dan el mismo suelo con las mismas `ImageBitmap` (0 píxeles distintos en las semillas 1, 3 y 9), pero un `<img>` el navegador lo decodifica a la escala a la que se pinta y un `ImageBitmap` no, y en un Worker no hay `<img>`. Con `imageSmoothingQuality = 'medium'` la diferencia con el suelo de antes queda en un 4-6 % de píxeles a más de 16 niveles.
+- **El tope dice cuándo no se puede cumplir** (H4): en 7680×4320 ni a 110 px caben los volúmenes, y `topeDeAlejar` lo avisa en consola una vez.
+- **Lo que tiene altura se recorta al mapa por los lados y por abajo** (H3). Por arriba no: lo que se levanta en la fila 0 sube sobre el borde, como en el taller.
+
 Las reglas que cambiaron por el camino y conviene no deshacer sin medir:
 
 - **Perder la base elimina en el acto**, aunque queden héroes o ciudades. Es la
