@@ -1,18 +1,18 @@
 {
   "encargo": "heroe-imperio-ingeniero-d2-b",
   "tipo": "atlas",
-  "fecha": "2026-10-04T20:47:10.805Z",
+  "fecha": "2026-10-05T08:59:49.946Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
   },
-  "hilo": "01a108aa-8ef8-76c3-9f3f-3799f868bccc",
+  "hilo": "01a10b48-e840-78c2-a99b-762a5ecd861e",
   "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo, una ballesta, una bola), es solo un PUNTO DE PARTIDA: dice dónde están las manos que empuñan, hacia dónde apunta el arma y cuándo se dispara o se suelta. El arma que se pinta es la del PERSONAJE (la de su identidad): cambia la forma, el largo y las piezas del atrezo para que sea la suya —un arcabuz donde el maniquí lleva ballesta, una daga en la izquierda donde lleva escudo, nada donde el personaje no lleva arma— sin cambiar la pose del cuerpo. Si sus piernas son de color, la ROJA es la pierna DERECHA y la AZUL la IZQUIERDA: sirven para no confundirlas en el paso ni girar la figura de espaldas; el personaje NO lleva esos colores. El fondo VERDE de esta hoja es solo fondo, para que se vea el maniquí: no lo copies, el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn ingeniero imperial: gafas de latón sobre la frente, mandil de cuero con herramientas, jubón amarillo y negro, rollo de planos a la espalda, martillo pequeño al cinto y un rifle largo de llave de rueda, para tirar de lejos, empuñado con las dos manos.\nEn la lámina de giro (imagen 2), la figura 3 en orden de lectura es la que mira hacia «derecha», como esta hoja: así se ve el personaje desde este lado.\nEl ATAQUE de esta hoja es cuerpo a cuerpo con su martillo pequeño de una mano en la derecha: no dispara, y el arma de tiro no se ve mientras golpea.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de ATAQUE de la fila 1 de la referencia de pose, atacando con el arma del personaje. Fila 2: las siete poses de RECIBIR DAÑO de la fila 2: encaja un golpe y retrocede. Fila 3: las siete poses de la MUERTE de la fila 3: la primera es EXACTAMENTE la última de la fila 2, luego se desploma, y la última es el cadáver tendido e inmóvil en el suelo, con sus armas en el suelo donde las tiene el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «derecha» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
   "referencias": [
     {
       "ruta": "assets/unidades/_poses/unidades/heroe-imperio-ingeniero-8d/d2-b.png",
       "papel": "pose",
-      "sha256": "17af95491bf9e0ccdb9739eb6a5959274133f9e5b730e5d6ee702cfe8bab2992"
+      "sha256": "b307b4f656c3f80e218d9f4b59800093e82110edb64c6b0c88f0ae69ddbcae24"
     },
     {
       "ruta": "assets/unidades/heroe-imperio-ingeniero/giro.webp",
@@ -26,20 +26,20 @@
     }
   ],
   "crudo": {
-    "fichero": "~/.codex/generated_images/01a108aa-8ef8-76c3-9f3f-3799f868bccc/exec-07c86a1a-85e4-4c95-9192-e73832a90e50.png",
-    "sha256": "43795747e22e8541aced1d76fce72d6bae461d63d2f306991d3fb28ca02aa97d",
-    "ancho": 1915,
+    "fichero": "~/.codex/generated_images/01a10b48-e840-78c2-a99b-762a5ecd861e/exec-fb1d499c-e7c8-47c7-8b8b-c77b2817a52d.png",
+    "sha256": "2c5a093c94fc36a65a9d2dd3147a12e6ce6c12c96708728dec567f9f7ee5fc93",
+    "ancho": 1916,
     "alto": 821
   },
   "postproceso": [
     "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
-    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.8424, pies en y=342, reposo a 160 px",
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.7336, pies en y=342, reposo a 160 px",
     "WebP calidad 92, alfa sin pérdida",
-    "media dirección: se junta con la otra hoja cuando esté"
+    "dirección completa: assets/unidades/heroe-imperio-ingeniero/d2/atlas.webp"
   ],
   "validacion": {
-    "visibles": 0.05364053716104497,
-    "opacos": 0.9473155049307053,
+    "visibles": 0.050196410486937834,
+    "opacos": 0.9482555633472082,
     "haloSuelto": 0,
     "ancho": 2688,
     "alto": 1152
@@ -51,7 +51,7 @@
       342
     ],
     "apoyoReposo": [
-      195,
+      206,
       282
     ],
     "posicion": true,
@@ -63,6 +63,6 @@
   },
   "salida": {
     "ruta": "assets/unidades/heroe-imperio-ingeniero/d2/hoja-b.webp",
-    "sha256": "7c2c63f5f58892673d4704c5cf680f1c352f754e89d101f22df60cecc76527da"
+    "sha256": "190c738d7cc3fb8824d6122f0f23d689bf9e2572c9d5074c88fa47357a5dc189"
   }
 }

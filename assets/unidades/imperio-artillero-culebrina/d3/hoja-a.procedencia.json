@@ -1,18 +1,18 @@
 {
   "encargo": "imperio-artillero-culebrina-d3-a",
   "tipo": "atlas",
-  "fecha": "2026-10-04T19:13:11.415Z",
+  "fecha": "2026-10-05T09:18:48.357Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
   },
-  "hilo": "01a10854-6195-7083-8894-51e8db729d26",
+  "hilo": "01a10b5a-7665-70f1-9155-a5508b20ec20",
   "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo, una ballesta, una bola), es solo un PUNTO DE PARTIDA: dice dónde están las manos que empuñan, hacia dónde apunta el arma y cuándo se dispara o se suelta. El arma que se pinta es la del PERSONAJE (la de su identidad): cambia la forma, el largo y las piezas del atrezo para que sea la suya —un arcabuz donde el maniquí lleva ballesta, una daga en la izquierda donde lleva escudo, nada donde el personaje no lleva arma— sin cambiar la pose del cuerpo. Si sus piernas son de color, la ROJA es la pierna DERECHA y la AZUL la IZQUIERDA: sirven para no confundirlas en el paso ni girar la figura de espaldas; el personaje NO lleva esos colores. El fondo VERDE de esta hoja es solo fondo, para que se vea el maniquí: no lo copies, el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn artillero: gorra de lana, mandil de cuero tiznado sobre ropa amarilla y negra, guantes gruesos, culebrina de mano (cañón largo y ligero de bronce con culata de madera) empuñada con las dos manos, bolsa de pólvora y botafuego al cinto. Sin cureña.\nEn la lámina de giro (imagen 2), la figura 4 en orden de lectura es la que mira hacia «espalda-derecha», como esta hoja: así se ve el personaje desde este lado.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «espalda-derecha» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
   "referencias": [
     {
       "ruta": "assets/unidades/_poses/unidades/imperio-artillero-culebrina-8d/d3-a.png",
       "papel": "pose",
-      "sha256": "27185592fee12a9f8ea6219e9a4b74d4886270206f8582b0e865ce3916f134af"
+      "sha256": "e99845e6bf9a25aeff1738a1a2ae71fc43155719390908649bf41742fdd1ed65"
     },
     {
       "ruta": "assets/unidades/imperio-artillero-culebrina/giro.webp",
@@ -26,20 +26,20 @@
     }
   ],
   "crudo": {
-    "fichero": "~/.codex/generated_images/01a10854-6195-7083-8894-51e8db729d26/exec-bdca2cb3-73df-4e0f-99d9-c184c7574dba.png",
-    "sha256": "ffb52553c7f5dc66d2fd959286c38a35bf9188b37c3cef621ede53bc07ed7636",
+    "fichero": "~/.codex/generated_images/01a10b5a-7665-70f1-9155-a5508b20ec20/exec-07f6c5cf-4f16-444c-90ab-d7a9d557baa2.png",
+    "sha256": "af9fffa310467e2fe132d8619759616a3dd8114ebd74fb406b8fea3812f3470f",
     "ancho": 1915,
     "alto": 821
   },
   "postproceso": [
     "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
-    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.7428, pies en y=342, reposo a 160 px",
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.9023, pies en y=342, reposo a 160 px",
     "WebP calidad 92, alfa sin pérdida",
     "dirección completa: assets/unidades/imperio-artillero-culebrina/d3/atlas.webp"
   ],
   "validacion": {
-    "visibles": 0.0368704013723545,
-    "opacos": 0.9439442245033809,
+    "visibles": 0.041370210193452384,
+    "opacos": 0.9465286559567858,
     "haloSuelto": 0,
     "ancho": 2688,
     "alto": 1152
@@ -51,13 +51,13 @@
       342
     ],
     "apoyoReposo": [
-      200,
+      202,
       290
     ],
     "posicion": false
   },
   "salida": {
     "ruta": "assets/unidades/imperio-artillero-culebrina/d3/hoja-a.webp",
-    "sha256": "d362d447aed1e79194f3189a0f91ee5fa9b8bb8ca6bc4a9f11c21fe47cbfc05b"
+    "sha256": "5a4c4231534423e7c26b3eacd083aa710927c9591f99390fa73824be3d8dcd73"
   }
 }

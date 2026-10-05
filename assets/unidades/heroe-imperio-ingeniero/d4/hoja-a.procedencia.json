@@ -1,18 +1,18 @@
 {
   "encargo": "heroe-imperio-ingeniero-d4-a",
   "tipo": "atlas",
-  "fecha": "2026-10-04T18:49:33.929Z",
+  "fecha": "2026-10-05T09:01:42.437Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
   },
-  "hilo": "01a1083e-aeff-7c73-8b79-e8a3407c287b",
+  "hilo": "01a10b4a-e408-7190-be4c-f258685033cc",
   "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo, una ballesta, una bola), es solo un PUNTO DE PARTIDA: dice dónde están las manos que empuñan, hacia dónde apunta el arma y cuándo se dispara o se suelta. El arma que se pinta es la del PERSONAJE (la de su identidad): cambia la forma, el largo y las piezas del atrezo para que sea la suya —un arcabuz donde el maniquí lleva ballesta, una daga en la izquierda donde lleva escudo, nada donde el personaje no lleva arma— sin cambiar la pose del cuerpo. Si sus piernas son de color, la ROJA es la pierna DERECHA y la AZUL la IZQUIERDA: sirven para no confundirlas en el paso ni girar la figura de espaldas; el personaje NO lleva esos colores. El fondo VERDE de esta hoja es solo fondo, para que se vea el maniquí: no lo copies, el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn ingeniero imperial: gafas de latón sobre la frente, mandil de cuero con herramientas, jubón amarillo y negro, rollo de planos a la espalda, martillo pequeño al cinto y un rifle largo de llave de rueda, para tirar de lejos, empuñado con las dos manos.\nEn la lámina de giro (imagen 2), la figura 5 en orden de lectura es la que mira hacia «espalda», como esta hoja: así se ve el personaje desde este lado.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «espalda» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
   "referencias": [
     {
       "ruta": "assets/unidades/_poses/unidades/heroe-imperio-ingeniero-8d/d4-a.png",
       "papel": "pose",
-      "sha256": "7cd09c28ebb0490402282ebc2e56315c300cda6decd8ba0268bfd6f5a92b6381"
+      "sha256": "1346cff8108e2766da7062d34136e0647036b95c3d0bba4ebe5bc9335df642f3"
     },
     {
       "ruta": "assets/unidades/heroe-imperio-ingeniero/giro.webp",
@@ -26,20 +26,20 @@
     }
   ],
   "crudo": {
-    "fichero": "~/.codex/generated_images/01a1083e-aeff-7c73-8b79-e8a3407c287b/exec-06e5d2ce-e551-4782-ad6c-36cb445fe331.png",
-    "sha256": "01a499e7580787c3232063b4e2675725d2d6ec091af2924f15527f93272128e8",
+    "fichero": "~/.codex/generated_images/01a10b4a-e408-7190-be4c-f258685033cc/exec-e410bb76-1473-4421-a60c-81f2f2cbb06e.png",
+    "sha256": "6b154d72b7a25a79644ec290486b7fc8b1a29027a47b34e33286e20f4b1a631a",
     "ancho": 1915,
     "alto": 821
   },
   "postproceso": [
     "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
-    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.7584, pies en y=342, reposo a 160 px",
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.6858, pies en y=342, reposo a 160 px",
     "WebP calidad 92, alfa sin pérdida",
     "dirección completa: assets/unidades/heroe-imperio-ingeniero/d4/atlas.webp"
   ],
   "validacion": {
-    "visibles": 0.04534524584573413,
-    "opacos": 0.949998219563437,
+    "visibles": 0.039454222986937834,
+    "opacos": 0.9523708184296039,
     "haloSuelto": 0,
     "ancho": 2688,
     "alto": 1152
@@ -51,13 +51,13 @@
       342
     ],
     "apoyoReposo": [
-      199,
+      196,
       287
     ],
     "posicion": false
   },
   "salida": {
     "ruta": "assets/unidades/heroe-imperio-ingeniero/d4/hoja-a.webp",
-    "sha256": "2067b7c3f48027d8aa9b3a9bb7552095e6c2371bd3c77dec2586fb556b096334"
+    "sha256": "917d115a0262d81d7f84c80664afd667462fdb626d4320b9915db9ca33bc1c9c"
   }
 }

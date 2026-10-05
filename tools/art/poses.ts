@@ -316,7 +316,7 @@ function crearBallesta(model, p, conf, material) {
     const atrezo = { ballesta, virote: null };
     return {
       piezas: [ballesta],
-      colocar: (suelo, aplanar, frente, disparo) => colocarBallesta(model, p, atrezo, conf, suelo, aplanar, frente, disparo),
+      colocar: (suelo, aplanar, frente, disparo, anim) => colocarBallesta(model, p, atrezo, conf, suelo, aplanar, frente, disparo, anim),
     };
   }
   const tablero = new THREE.Mesh(new THREE.BoxGeometry(0.05, b.delante + b.atras, 0.07), material);
@@ -336,7 +336,7 @@ function crearBallesta(model, p, conf, material) {
   const atrezo = { ballesta, virote };
   return {
     piezas: [ballesta],
-    colocar: (suelo, aplanar, frente, disparo) => colocarBallesta(model, p, atrezo, conf, suelo, aplanar, frente, disparo),
+    colocar: (suelo, aplanar, frente, disparo, anim) => colocarBallesta(model, p, atrezo, conf, suelo, aplanar, frente, disparo, anim),
   };
 }
 // La granada: una bola de hierro con la mecha asomando, en el puño derecho
@@ -544,20 +544,41 @@ function colocarAljaba(p, aljaba) {
 // La ballesta va en la DERECHA. En el disparo apunta a donde mira, encarada, y
 // la izquierda sujeta el tablero por delante con la misma IK que el agarre a
 // dos manos, con el codo abierto hacia fuera.
-function colocarBallesta(model, p, atrezo, conf, suelo, aplanar, frente, disparo) {
+function colocarBallesta(model, p, atrezo, conf, suelo, aplanar, frente, disparo, anim) {
+  const arriba = new THREE.Vector3(0, 1, 0);
+  // Fuera del disparo y de la muerte se lleva con las DOS manos delante del
+  // cuerpo, terciada y algo baja, siguiendo al torso en cada fotograma: con
+  // los clips de espada la derecha iba en la cadera con la ballesta colgando
+  // al lado y la izquierda libre, y el modelo de imagen la pintaba flotando o
+  // cogida con una mano (lo vio el usuario el 05-10-2026). En la muerte se
+  // suelta y cae con la mano, como antes.
+  if (!disparo && anim !== 'death') {
+    const lateral = new THREE.Vector3().crossVectors(frente, arriba).normalize();
+    const agarre = p('Spine2')
+      .addScaledVector(frente, 0.3)
+      .addScaledVector(arriba, -0.24)
+      .addScaledVector(lateral, 0.1);
+    const eje = frente.clone().multiplyScalar(Math.cos(conf.bajaEnReposo)).addScaledVector(arriba, -Math.sin(conf.bajaEnReposo))
+      .addScaledVector(lateral, -0.35).normalize();
+    poseArm(model, 'Right', agarre, codoHacia(lateral, frente, 0.6, 0));
+    poseArm(model, 'Left', agarre.clone().addScaledVector(eje, conf.separacionManos), codoHacia(lateral, frente, -0.6, 0));
+  }
   const der = ejeDeNudillos(p, 'Right');
   const eje = der.eje.clone();
-  const arriba = new THREE.Vector3(0, 1, 0);
   if (disparo) {
     eje.copy(frente);
     const lateral = new THREE.Vector3().crossVectors(frente, arriba).normalize();
     const apoyo = der.centro.clone().addScaledVector(frente, conf.separacionManos).add(new THREE.Vector3(0, -0.03, 0));
     poseArm(model, 'Left', apoyo, codoHacia(lateral, frente, -0.5, 0));
   } else {
-    // Fuera del disparo se lleva baja, apuntando adelante y al suelo, con la
-    // cara de arriba arriba. Por los nudillos, como la lanza, el reposo de
-    // espada la levantaba sobre el hombro y se leía como un pico.
-    eje.copy(frente).multiplyScalar(Math.cos(conf.bajaEnReposo)).add(new THREE.Vector3(0, -Math.sin(conf.bajaEnReposo), 0)).normalize();
+    // Fuera del disparo apunta adelante, algo baja y cruzada hacia la
+    // izquierda, de la mano derecha a la izquierda, con la cara de arriba
+    // arriba. Por los nudillos, como la lanza, el reposo de espada la
+    // levantaba sobre el hombro y se leía como un pico.
+    const lateral = new THREE.Vector3().crossVectors(frente, arriba).normalize();
+    eje.copy(frente).multiplyScalar(Math.cos(conf.bajaEnReposo)).add(new THREE.Vector3(0, -Math.sin(conf.bajaEnReposo), 0));
+    if (anim !== 'death') eje.addScaledVector(lateral, -0.35);
+    eje.normalize();
     arriba.addScaledVector(eje, -arriba.dot(eje)).normalize();
   }
   const lado = new THREE.Vector3().crossVectors(eje, arriba).normalize();
@@ -671,7 +692,7 @@ async function prepararForge(
       // En la muerte el escudo se aplana entre el 45 % y el 80 % del clip.
       const avance = Math.min(1, (frameStep * f) / clip.duration);
       const w = state.animId === 'death' ? Math.min(1, Math.max(0, (avance - 0.45) / 0.35)) : 0;
-      state.atrezo.colocar(state.suelo, w * w * (3 - 2 * w), new THREE.Vector3(Math.sin(pivot.rotation.y), 0, Math.cos(pivot.rotation.y)), state.disparo);
+      state.atrezo.colocar(state.suelo, w * w * (3 - 2 * w), new THREE.Vector3(Math.sin(pivot.rotation.y), 0, Math.cos(pivot.rotation.y)), state.disparo, state.animId);
     }
     renderer.render(scene, camera);
     out.push(`,

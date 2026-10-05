@@ -5013,11 +5013,11 @@
         "hojas": {
           "a": {
             "imagen": "d0-a.png",
-            "sha256": "9cf104adb7ecefdc26029460a6e943884bcb704931f459743268017e9be3427a"
+            "sha256": "79eb75f577df653a64d4c311eadd84e3a248997016df1a83b3da78ebf3ac46b8"
           },
           "b": {
             "imagen": "d0-b.png",
-            "sha256": "08a73dc2a3afa1aa73de4b38eed66685ee87e5eca15f0010cd845e9648aec1cf"
+            "sha256": "69cf62224a1a376327872c009df4e57961cde31a4d0cadb9abdf3c2fe2efe8b2"
           },
           "c": {
             "imagen": "d0-c.png",
@@ -5028,9 +5028,9 @@
         "columns": 7,
         "altura": 158,
         "cajaDeClic": [
-          -61,
+          -26,
           -157,
-          28,
+          30,
           0
         ],
         "clips": {
@@ -5040,7 +5040,7 @@
             "fps": 8,
             "loop": true,
             "anchor": [
-              182,
+              186,
               292
             ]
           },
@@ -5050,7 +5050,7 @@
             "fps": 8,
             "loop": true,
             "anchor": [
-              182,
+              186,
               292
             ]
           },
@@ -5060,7 +5060,7 @@
             "fps": 8,
             "loop": true,
             "anchor": [
-              182,
+              186,
               292
             ]
           },
@@ -5070,7 +5070,7 @@
             "fps": 10,
             "loop": false,
             "anchor": [
-              182,
+              186,
               292
             ]
           },
@@ -5080,7 +5080,7 @@
             "fps": 10,
             "loop": false,
             "anchor": [
-              182,
+              186,
               292
             ]
           },
@@ -5090,7 +5090,7 @@
             "fps": 8,
             "loop": false,
             "anchor": [
-              182,
+              186,
               292
             ]
           },
@@ -5100,7 +5100,7 @@
             "fps": 10,
             "loop": false,
             "anchor": [
-              182,
+              186,
               292
             ],
             "suelta": 4
@@ -5115,11 +5115,11 @@
         "hojas": {
           "a": {
             "imagen": "d1-a.png",
-            "sha256": "4640d5c6f447846fa1ed9dd13f4c0993b4568dca3caf3306e13a108a66795b50"
+            "sha256": "7303690fc35536900dce3a1959f51027595ee2779220e0a5dbc1bbc50679052e"
           },
           "b": {
             "imagen": "d1-b.png",
-            "sha256": "7dc45a2709a1e7bd7c6067081459c142051dc6423ee13f1573f5a90c16dbffbf"
+            "sha256": "42ad908ea5acec3713b27f14085e0a595add051d0f9f119c5e94348b8bf39cdb"
           },
           "c": {
             "imagen": "d1-c.png",
@@ -5130,9 +5130,9 @@
         "columns": 7,
         "altura": 149,
         "cajaDeClic": [
-          -48,
+          -61,
           -148,
-          48,
+          53,
           0
         ],
         "clips": {
@@ -5142,7 +5142,7 @@
             "fps": 8,
             "loop": true,
             "anchor": [
-              187,
+              202,
               285
             ]
           },
@@ -5152,7 +5152,7 @@
             "fps": 8,
             "loop": true,
             "anchor": [
-              187,
+              202,
               285
             ]
           },
@@ -5162,7 +5162,7 @@
             "fps": 8,
             "loop": true,
             "anchor": [
-              187,
+              202,
               285
             ]
           },
@@ -5172,7 +5172,7 @@
             "fps": 10,
             "loop": false,
             "anchor": [
-              187,
+              202,
               285
             ]
           },
@@ -5182,7 +5182,7 @@
             "fps": 10,
             "loop": false,
             "anchor": [
-              187,
+              202,
               285
             ]
           },
@@ -5192,7 +5192,7 @@
             "fps": 8,
             "loop": false,
             "anchor": [
-              187,
+              202,
               285
             ]
           },
@@ -5202,7 +5202,7 @@
             "fps": 10,
             "loop": false,
             "anchor": [
-              187,
+              202,
               285
             ],
             "suelta": 4
@@ -5217,11 +5217,11 @@
         "hojas": {
           "a": {
             "imagen": "d2-a.png",
-            "sha256": "076119fccf42ff94a24e0ad922fad3243b825c555c0aa883ec503f24f15c7ea1"
+            "sha256": "e9e51f8a9685fe26af8ce90cc335b80429beca6b3164da28763b02a08fed3128"
           },
           "b": {
             "imagen": "d2-b.png",
-            "sha256": "cca3f532a30f0fa63ec8571b4ca796342ca36cd141cb891a0dba0ea136e2b1dc"
+            "sha256": "d2481616f82461fabac18eff07a4eba7fcdc328210352fc26cef9eab9cc1c763"
           },
           "c": {
             "imagen": "d2-c.png",
@@ -5232,9 +5232,9 @@
         "columns": 7,
         "altura": 148,
         "cajaDeClic": [
-          -49,
+          -59,
           -147,
-          49,
+          70,
           0
         ],
         "clips": {
@@ -5244,7 +5244,7 @@
             "fps": 8,
             "loop": true,
             "anchor": [
-              197,
+              207,
               282
             ]
           },
@@ -5254,7 +5254,7 @@
             "fps": 8,
             "loop": true,
             "anchor": [
-              197,
+              207,
               282
             ]
           },
@@ -5264,7 +5264,7 @@
             "fps": 8,
             "loop": true,
             "anchor": [
-              197,
+              207,
               282
             ]
           },
@@ -5274,7 +5274,7 @@
             "fps": 10,
             "loop": false,
             "anchor": [
-              197,
+              207,
               282
             ]
           },
@@ -5284,7 +5284,7 @@
             "fps": 10,
             "loop": false,
             "anchor": [
-              197,
+              207,
               282
             ]
           },
@@ -5294,7 +5294,7 @@
             "fps": 8,
             "loop": false,
             "anchor": [
-              197,
+              207,
               282
             ]
           },
@@ -5304,7 +5304,7 @@
             "fps": 10,
             "loop": false,
             "anchor": [
-              197,
+              207,
               282
             ],
             "suelta": 4
@@ -5319,11 +5319,11 @@
         "hojas": {
           "a": {
             "imagen": "d3-a.png",
-            "sha256": "d1891f831f1ac985d2b9c3bd9afb3e58345014e7d442112e3c8387ea88202b28"
+            "sha256": "20cd699d0ac4c2a6c6a55ed1febab95233afb463035395f7ea2b9ff4952ac058"
           },
           "b": {
             "imagen": "d3-b.png",
-            "sha256": "207a12088e813c9bc9c564413129961f13c3f6d6f221ddd552e4137b36933f5d"
+            "sha256": "53f71de59b11f7465c5abb712a2066074499ee30978575d7693a5dfda38c13b2"
           },
           "c": {
             "imagen": "d3-c.png",
@@ -5334,9 +5334,9 @@
         "columns": 7,
         "altura": 160,
         "cajaDeClic": [
-          -32,
+          -34,
           -159,
-          56,
+          68,
           0
         ],
         "clips": {
@@ -5346,7 +5346,7 @@
             "fps": 8,
             "loop": true,
             "anchor": [
-              200,
+              202,
               290
             ]
           },
@@ -5356,7 +5356,7 @@
             "fps": 8,
             "loop": true,
             "anchor": [
-              200,
+              202,
               290
             ]
           },
@@ -5366,7 +5366,7 @@
             "fps": 8,
             "loop": true,
             "anchor": [
-              200,
+              202,
               290
             ]
           },
@@ -5376,7 +5376,7 @@
             "fps": 10,
             "loop": false,
             "anchor": [
-              200,
+              202,
               290
             ]
           },
@@ -5386,7 +5386,7 @@
             "fps": 10,
             "loop": false,
             "anchor": [
-              200,
+              202,
               290
             ]
           },
@@ -5396,7 +5396,7 @@
             "fps": 8,
             "loop": false,
             "anchor": [
-              200,
+              202,
               290
             ]
           },
@@ -5406,7 +5406,7 @@
             "fps": 10,
             "loop": false,
             "anchor": [
-              200,
+              202,
               290
             ],
             "suelta": 4
@@ -5421,11 +5421,11 @@
         "hojas": {
           "a": {
             "imagen": "d4-a.png",
-            "sha256": "790b8a891a5dc1cd42a3a5dfcb28adae55bbd79e744468dde074cb12ba2c8d32"
+            "sha256": "96045d7cfb480f5a7e4b431a0901d3345569778c7b1e1472ed0ee7dfc053fcc4"
           },
           "b": {
             "imagen": "d4-b.png",
-            "sha256": "cf42abc525a7d183a327bd6e69e643629876ca2adfdb92fa0ab30018b61ac99e"
+            "sha256": "dab626abf5581ffba1d1f414e838ebd7dffac167b514143e3f8594e35efe8990"
           },
           "c": {
             "imagen": "d4-c.png",
@@ -5436,9 +5436,9 @@
         "columns": 7,
         "altura": 161,
         "cajaDeClic": [
-          -27,
+          -28,
           -160,
-          61,
+          27,
           0
         ],
         "clips": {
@@ -5448,7 +5448,7 @@
             "fps": 8,
             "loop": true,
             "anchor": [
-              200,
+              196,
               287
             ]
           },
@@ -5458,7 +5458,7 @@
             "fps": 8,
             "loop": true,
             "anchor": [
-              200,
+              196,
               287
             ]
           },
@@ -5468,7 +5468,7 @@
             "fps": 8,
             "loop": true,
             "anchor": [
-              200,
+              196,
               287
             ]
           },
@@ -5478,7 +5478,7 @@
             "fps": 10,
             "loop": false,
             "anchor": [
-              200,
+              196,
               287
             ]
           },
@@ -5488,7 +5488,7 @@
             "fps": 10,
             "loop": false,
             "anchor": [
-              200,
+              196,
               287
             ]
           },
@@ -5498,7 +5498,7 @@
             "fps": 8,
             "loop": false,
             "anchor": [
-              200,
+              196,
               287
             ]
           },
@@ -5508,7 +5508,7 @@
             "fps": 10,
             "loop": false,
             "anchor": [
-              200,
+              196,
               287
             ],
             "suelta": 4
@@ -5523,11 +5523,11 @@
         "hojas": {
           "a": {
             "imagen": "d5-a.png",
-            "sha256": "5ff12b0017a6da682159412a5b4e79bcad45541c57d18c8334fc2b06a3cccfbc"
+            "sha256": "e141d3d8c3a853e062e6d46fb81606a857ad3ba55ebc004acf58669fc28ababc"
           },
           "b": {
             "imagen": "d5-b.png",
-            "sha256": "ccc8730b479fdf85a4d2e93284d92ce591acae241e11aa380cc9f35db4e56e29"
+            "sha256": "0554bdbb7aabf62b1f9e54a499458fb5e3a80ed6d628ce158ea06550d4cfdbd2"
           },
           "c": {
             "imagen": "d5-c.png",
@@ -5538,9 +5538,9 @@
         "columns": 7,
         "altura": 152,
         "cajaDeClic": [
-          -47,
+          -57,
           -151,
-          49,
+          57,
           0
         ],
         "clips": {
@@ -5550,7 +5550,7 @@
             "fps": 8,
             "loop": true,
             "anchor": [
-              195,
+              185,
               276
             ]
           },
@@ -5560,7 +5560,7 @@
             "fps": 8,
             "loop": true,
             "anchor": [
-              195,
+              185,
               276
             ]
           },
@@ -5570,7 +5570,7 @@
             "fps": 8,
             "loop": true,
             "anchor": [
-              195,
+              185,
               276
             ]
           },
@@ -5580,7 +5580,7 @@
             "fps": 10,
             "loop": false,
             "anchor": [
-              195,
+              185,
               276
             ]
           },
@@ -5590,7 +5590,7 @@
             "fps": 10,
             "loop": false,
             "anchor": [
-              195,
+              185,
               276
             ]
           },
@@ -5600,7 +5600,7 @@
             "fps": 8,
             "loop": false,
             "anchor": [
-              195,
+              185,
               276
             ]
           },
@@ -5610,7 +5610,7 @@
             "fps": 10,
             "loop": false,
             "anchor": [
-              195,
+              185,
               276
             ],
             "suelta": 4
@@ -5625,11 +5625,11 @@
         "hojas": {
           "a": {
             "imagen": "d6-a.png",
-            "sha256": "910f07894254be78005060cd5df0abb80f5c66752ad1fdf8eb19cf06cc24ad32"
+            "sha256": "d2dea66e9f9753be7fbda31be45897f552389d19a11153443980d35768f2f120"
           },
           "b": {
             "imagen": "d6-b.png",
-            "sha256": "8a25049d84d6690ad5a70b575a5226ff49f83908b46b8603a651c921790348ab"
+            "sha256": "0a2cc0f27bfaa5ccc1f6c7a950730089c5ac35a4277f5c24c1b5a2369a6f77f9"
           },
           "c": {
             "imagen": "d6-c.png",
@@ -5640,9 +5640,9 @@
         "columns": 7,
         "altura": 148,
         "cajaDeClic": [
-          -47,
+          -71,
           -147,
-          51,
+          58,
           0
         ],
         "clips": {
@@ -5652,7 +5652,7 @@
             "fps": 8,
             "loop": true,
             "anchor": [
-              184,
+              177,
               274
             ]
           },
@@ -5662,7 +5662,7 @@
             "fps": 8,
             "loop": true,
             "anchor": [
-              184,
+              177,
               274
             ]
           },
@@ -5672,7 +5672,7 @@
             "fps": 8,
             "loop": true,
             "anchor": [
-              184,
+              177,
               274
             ]
           },
@@ -5682,7 +5682,7 @@
             "fps": 10,
             "loop": false,
             "anchor": [
-              184,
+              177,
               274
             ]
           },
@@ -5692,7 +5692,7 @@
             "fps": 10,
             "loop": false,
             "anchor": [
-              184,
+              177,
               274
             ]
           },
@@ -5702,7 +5702,7 @@
             "fps": 8,
             "loop": false,
             "anchor": [
-              184,
+              177,
               274
             ]
           },
@@ -5712,7 +5712,7 @@
             "fps": 10,
             "loop": false,
             "anchor": [
-              184,
+              177,
               274
             ],
             "suelta": 4
@@ -5727,11 +5727,11 @@
         "hojas": {
           "a": {
             "imagen": "d7-a.png",
-            "sha256": "f00ab4e41daaefca89e4f4e9f738909f0fa178dc5439b43ac3cb5aa334a0a138"
+            "sha256": "7909b0b3812ee9190a92ca2835e53c4d7bed2eb386390bcadde5ef63da7e8d94"
           },
           "b": {
             "imagen": "d7-b.png",
-            "sha256": "53401c3b53089060c60fd667722da244600a7268107b58d75cdd0e92711e7a3c"
+            "sha256": "01555593fdab7345b8529e30867fb0a98349b40c45fec5de930913a84398c76b"
           },
           "c": {
             "imagen": "d7-c.png",
@@ -5742,9 +5742,9 @@
         "columns": 7,
         "altura": 157,
         "cajaDeClic": [
-          -56,
+          -66,
           -156,
-          34,
+          37,
           0
         ],
         "clips": {
@@ -5754,7 +5754,7 @@
             "fps": 8,
             "loop": true,
             "anchor": [
-              181,
+              178,
               287
             ]
           },
@@ -5764,7 +5764,7 @@
             "fps": 8,
             "loop": true,
             "anchor": [
-              181,
+              178,
               287
             ]
           },
@@ -5774,7 +5774,7 @@
             "fps": 8,
             "loop": true,
             "anchor": [
-              181,
+              178,
               287
             ]
           },
@@ -5784,7 +5784,7 @@
             "fps": 10,
             "loop": false,
             "anchor": [
-              181,
+              178,
               287
             ]
           },
@@ -5794,7 +5794,7 @@
             "fps": 10,
             "loop": false,
             "anchor": [
-              181,
+              178,
               287
             ]
           },
@@ -5804,7 +5804,7 @@
             "fps": 8,
             "loop": false,
             "anchor": [
-              181,
+              178,
               287
             ]
           },
@@ -5814,7 +5814,7 @@
             "fps": 10,
             "loop": false,
             "anchor": [
-              181,
+              178,
               287
             ],
             "suelta": 4
