@@ -664,5 +664,102 @@
     ],
     "thread": "01a10b77-4767-7b93-9932-3efc58adafd1",
     "approved": "2026-10-05"
+  },
+  {
+    "id": 46,
+    "faction": "Orkos",
+    "name": "Kaudillo (héroe)",
+    "path": "assets/art/orkos/kaudillo.png",
+    "prompt": "Use case: stylized-concept. Asset type: hero design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single character, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, dark fantasy. A huge orc warlord hero, the Kaudillo, who grows stronger the more orcs fight around him and whose war cry stops goblins from fleeing: dark olive-green skin, massive tusks, scars, armor of hammered scrap plates with spikes and trophy skulls, a wolf-fur cloak, a horned iron helmet, a giant butcher cleaver held in both hands. Mid-roar, commanding stance. Palette: olive green skin, rust iron, dark fur, bone, war paint red.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same orc and goblin faction: match their painting style, finish, lighting, grey background and olive-green, rust and war-paint-red palette exactly, but design a NEW character as described; do not copy their figures. The last attached image is this same character as already approved in game: keep his face, costume and colours.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, crown, cape of royalty, clean shiny armor",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "8e847d3e018b7a4efaad074fd2eaf2bd463789cd750c3c2dda7b33f5f449a536",
+    "source_image": "/home/al/.codex/generated_images/01a10bf2-9ad9-71e2-9263-a237c3164b54/exec-563d1e16-1231-436f-a180-929bfc8d7eb3.png",
+    "references": [
+      "assets/art/orkos/orko-con-hacha-y-escudo.png",
+      "assets/art/orkos/goblin-lancero.png",
+      ".cache/laminas/kaudillo-identidad.png"
+    ],
+    "thread": "01a10bf2-9ad9-71e2-9263-a237c3164b54",
+    "approved": "2026-10-05"
+  },
+  {
+    "id": 47,
+    "faction": "Orkos",
+    "name": "Jefe goblin (héroe)",
+    "path": "assets/art/orkos/jefe-goblin.png",
+    "prompt": "Use case: stylized-concept. Asset type: hero design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single character, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, dark fantasy. A goblin boss hero, dirty and treacherous, who sets hidden traps: small and wiry, about half the height of a human, sickly yellow-green skin, huge pointed ears, sly grin with crooked teeth, a crooked brass crown, an oversized ragged red cloak, many trinkets and amulets, a poisoned dagger in the right hand dripping green, a rusty bear trap hanging from his belt. Sneaky, scheming stance. Palette: yellow-green skin, faded red cloth, tarnished brass, rust iron, poison green.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same orc and goblin faction: match their painting style, finish, lighting, grey background and olive-green, rust and war-paint-red palette exactly, but design a NEW character as described; do not copy their figures. The last attached image is this same character as already approved in game: keep his face, costume and colours.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, tall, muscular, clean clothes, noble look",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "13ef647d48bdd7763d313bcfb09ec5ab14cea6edef6f7151d23147622f87bd2d",
+    "source_image": "/home/al/.codex/generated_images/01a10bf2-975e-7c31-acdf-2a51ef22c69f/exec-04b104ce-e0da-4b1e-8c4f-a432c0023b56.png",
+    "references": [
+      "assets/art/orkos/orko-con-hacha-y-escudo.png",
+      "assets/art/orkos/goblin-lancero.png",
+      ".cache/laminas/jefe-goblin-identidad.png"
+    ],
+    "thread": "01a10bf2-975e-7c31-acdf-2a51ef22c69f",
+    "approved": "2026-10-05"
+  },
+  {
+    "id": 48,
+    "faction": "Orkos",
+    "name": "Chamán goblin (héroe)",
+    "path": "assets/art/orkos/chaman-goblin.png",
+    "prompt": "Use case: stylized-concept. Asset type: hero design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single character, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, dark fantasy. A goblin shaman hero with unstable magic that may unleash a great fireball or backfire on himself: small and hunched, about half the height of a human, sickly yellow-green skin, huge pointed ears, wild eyes, a headdress of feathers and a small animal skull, necklaces of bones and teeth, white bone paint, scraps of fur, a gnarled staff topped with a cracked skull holding an unstable sputtering flame, singed robe edges and a few scorch marks on himself. Twitchy, half-mad stance. Palette: yellow-green skin, bone white, dirty fur brown, orange-green flame.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same orc and goblin faction: match their painting style, finish, lighting, grey background and olive-green, rust and war-paint-red palette exactly, but design a NEW character as described; do not copy their figures.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, orc, tall, muscular, pointed wizard hat, huge explosion",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "43e340f473702f04e4a12043e07e7575344fdc3b32b7eb7ddfde33e196196987",
+    "source_image": "/home/al/.codex/generated_images/01a10bf2-9759-7220-9e98-431ea08c1637/exec-ebb9b48f-a33f-4cc5-87fd-e5451f1f64cb.png",
+    "references": [
+      "assets/art/orkos/orko-con-hacha-y-escudo.png",
+      "assets/art/orkos/goblin-lancero.png"
+    ],
+    "thread": "01a10bf2-9759-7220-9e98-431ea08c1637",
+    "approved": "2026-10-05"
+  },
+  {
+    "id": 49,
+    "faction": "Orkos",
+    "name": "Jinete de hiena (goblin)",
+    "path": "assets/art/orkos/jinete-de-hiena.png",
+    "prompt": "Use case: stylized-concept. Asset type: troop design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single mounted character, full body side view and three-quarter front view, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, dark fantasy. A goblin rider on a big spotted war hyena; the hyena also bites in battle, with snarling open jaws: the hyena has a sloping back, shaggy mane, mangy spotted fur, a crude leather harness with iron studs and a small saddle; the goblin rider is small and scrawny, sickly yellow-green skin, huge pointed ears, dented helmet, ragged leather, holding a short spear and a small round shield. Lunging, harrying posture. Palette: yellow-green skin, sandy spotted fur, rust iron, faded red rags.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same orc and goblin faction: match their painting style, finish, lighting, grey background and olive-green, rust and war-paint-red palette exactly, but design a NEW character as described; do not copy their figures.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, boar, wolf, dog, horse, orc rider, deformed animal anatomy, extra legs",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "caa944e3e289e5ccae602a1e06dbe03c05ddf68f76d71b3b013d9fdea718dd9e",
+    "source_image": "/home/al/.codex/generated_images/01a10bf2-9b8c-75c1-9de2-4bf4e5b0dbe7/exec-0afc4b98-31c2-4b73-a4e7-e6a427d0c89d.png",
+    "references": [
+      "assets/art/orkos/orko-con-hacha-y-escudo.png",
+      "assets/art/orkos/goblin-lancero.png"
+    ],
+    "thread": "01a10bf2-9b8c-75c1-9de2-4bf4e5b0dbe7",
+    "approved": "2026-10-05"
+  },
+  {
+    "id": 50,
+    "faction": "Orkos",
+    "name": "Orko con armadura pesada",
+    "path": "assets/art/orkos/orko-armadura-pesada.png",
+    "prompt": "Use case: stylized-concept. Asset type: troop design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single character, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, dark fantasy. A heavily armored orc, slower and tougher than the rest: dark olive-green skin, tusks showing through a full-face iron helmet with a slit visor and small horns, thick layered armor of hammered black iron plates riveted over mail and leather, huge spiked pauldrons, iron boots, a massive double-bitten great axe held in both hands. Heavy, immovable stance. Palette: olive green skin, blackened iron, rust brown, war paint red accents.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same orc and goblin faction: match their painting style, finish, lighting, grey background and olive-green, rust and war-paint-red palette exactly, but design a NEW character as described; do not copy their figures.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, shield, clean shiny knight armor, cape",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "f86f5f9325f15adfcc41d5cdf62657786c870a2abb987cf22dcf0b77997a79fe",
+    "source_image": "/home/al/.codex/generated_images/01a10bf2-9917-7050-9901-76004478466c/exec-32107076-9afa-4ce8-a169-712f9357216f.png",
+    "references": [
+      "assets/art/orkos/orko-con-hacha-y-escudo.png",
+      "assets/art/orkos/goblin-lancero.png"
+    ],
+    "thread": "01a10bf2-9917-7050-9901-76004478466c",
+    "approved": "2026-10-05"
   }
 ]
