@@ -334,7 +334,162 @@ import catalogo from '…/assets/mapa/escena.json';         // tipo Catalogo, de
   Las piezas son a 48 px por casilla; con otro zoom se escala la superficie.
 
 
-## 12. Volúmenes que no llegan al zoom máximo (sesión de reglas, 05-10-2026)
+## 12. El Imperio en 8 direcciones, y dos juegos de armas nuevos (rama `arte-mapas`, 04-10-2026)
+
+Lo pidió el usuario: animar el Imperio de `NuevaJugabilidad.md` y crear el arte
+que faltara en `assets/art/imperio/`. Decisiones suyas del 04-10-2026:
+
+- **El Duelista sustituye al Noble.** `heroe-imperio-noble` desaparece del
+  taller (`tools/taller/unidades.ts`), de `tools/arena/velocidades.ts` y de
+  `assets/unidades/`, y entra `heroe-imperio-duelista` (ropera y daga).
+- **El Ingeniero lleva rifle**, como dice su ficha: identidad rehecha, juego
+  del Y Bot `ballesta` en vez de `maza`.
+- **Dos unidades nuevas**: `imperio-pistolero-montado` e `imperio-granadero`.
+- **Poses nuevas** para ellas, en vez de aproximarlas:
+  - `granada`: el Y Bot arma el brazo sobre el hombro y lanza; suelta en la
+    columna 4 (`atlas-8d.json`);
+  - `montado-pistola`: el jinete de `montura.ts` sin lanza ni escudo, con la
+    pistola alzada al paso, apuntando en la carga y disparando en el ataque;
+    suelta también en la 4.
+
+  El usuario autorizó ampliar la lista de juegos de `test/personajes.test.ts`
+  con los dos nombres; no se tocó nada más de ese test.
+
+**Lo que queda para la sesión de reglas:**
+
+1. **El perfil de la arena** (`PERFILES_DE_ARENA`, `src/core/arena.ts`). Las dos
+   unidades nuevas usan perfiles que ya existen, solo por sus cifras:
+   - el pistolero, `montado-lanza`, que le da carga y no disparos;
+   - el granadero, `ballesta`, que le da disparos.
+
+   Si el pistolero tiene que disparar en la arena, hace falta un perfil o un
+   rasgo para él.
+2. **El proyectil.** El cliente suelta el mismo proyectil para todo disparo. Una
+   granada debería volar en parábola, por encima de las tropas, y rebotar, como
+   dice su ficha; la pistola, un fogonazo corto. `efecto-bala-de-canon` y
+   `efecto-explosion` ya existen y pueden servir.
+3. **Ids del catálogo**: cuando lleguen las facciones nuevas a `data/`, el
+   Duelista es `heroe-imperio-duelista` (docs/art/unidades.md).
+4. **La velocidad del pistolero.** Va a 5 casillas (`tools/arena/velocidades.ts`),
+   como los hostigadores, porque `test/arena.test.ts` da al hermano de carga
+   por único jinete y exige que solo el Danzante llegue a 6. Si debe correr
+   como el otro jinete (7), hay que cambiar ese test. Lo mismo vale para el
+   jinete elfo (`elfo-jinete`, 05-10-2026), también a 5.
+
+### Estado al cerrar el 04-10-2026 (sin commitear)
+
+**Hecho**
+- **Las 13 unidades del Imperio en 8 direcciones**:
+  - 10 de ellas pintadas sobre su maniquí propio (`maniqui` en
+    `tools/taller/unidades.ts`, `pnpm taller maniqui <id>`, carpetas
+    `_poses/unidades/<id>-8d/`);
+  - el granadero, sobre su juego `granada`, y el pistolero, sobre el suyo,
+    `montado-pistola`.
+- **La séptima acción, `shoot`** (ciclo `docs/agents/2026-10-04-ataque-y-disparo/`,
+  QA apto con reservas):
+  - `attack` es siempre cuerpo a cuerpo y `shoot` va en una hoja C de una fila;
+  - la suelta va en `shoot`;
+  - el cliente pinta `shoot` y precarga la hoja C;
+  - si al arte le falta `shoot`, se pinta con `attack` y avisa una vez.
+- **Los 6 tiradores con su `shoot` pintado**, con su hoja B de cuerpo a cuerpo
+  nueva: granadero, arcabucero, artillero, ingeniero, ballestero y pistolero
+  montado.
+
+**Pendiente para la próxima sesión**
+1. **La hoja C de una fila falla mucho con armas largas de perfil**: el
+   rifle toca a la figura vecina y el recorte las cuenta juntas.
+   - La tira de 7×1 no la pinta bien ChatGPT, que no hace imágenes tan anchas.
+   - Hay que valorar una hoja C en dos filas (4+3) o un recorte que separe por
+     columnas.
+2. **Fusionar `main`** (enganche del escenógrafo, ba057bd) en `arte-mapas`
+   después del commit de este trabajo.
+3. **Backlog del ciclo**:
+   - quitar las poses de una dirección (`renderizarPerfil`/`PERFILES`), que no
+     tienen llamante;
+   - un remate `martillo` para el ingeniero;
+   - el CLI `derivar` lanza con el atlas de 6 filas de un tirador;
+   - `escalaDePose` sin test;
+   - unificar el registro de hojas de la arena con su espejo en
+     `tools/qa/capturas.ts`.
+
+## 13. Los Orkos en 8 direcciones (rama `arte-mapas`, 05-10-2026)
+
+Mandan las unidades de `NuevaJugabilidad.md` (decisión del usuario). Ya está:
+- **Unidades** (`tools/taller/unidades.ts`, velocidades y `docs/art/unidades.md`):
+  - salen el berserker, el fanático y el señor de la guerra;
+  - el chamán orko pasa a ser `heroe-goblin-chaman`;
+  - entran `goblin-jinete-de-hiena` (montado-lanza, a 5 como el jinete elfo) y
+    `orko-armadura-pesada` (gran hacha, a 3);
+  - los tests de la arena y `tools/qa/capturas.ts` usan `orko-dos-armas`
+    donde estaba el berserker.
+- **Láminas nuevas** en `assets/art/orkos/`: kaudillo, jefe goblin, chamán
+  goblin, jinete de hiena y orko con armadura pesada. Su procedencia candidata
+  está en `.cache/laminas/entradas-orkos.json` y pasa a `assets/art/prompts.json`
+  con el visto bueno del usuario.
+- **Maniquí propio** para 8 Orkos (todos menos el arquero y el jinete), ya
+  renderizado en `_poses/unidades/<id>-8d/`.
+- **Identidad** de las 3 unidades nuevas y **giro** de las 10, salvo el del
+  chamán y el del armado, que están en la cola.
+
+**Parado**: Codex agotó su cuota hasta el **09-10-2026 a las 23:11**.
+
+**Para seguir:**
+1. **Volver a meter los 10 ids de Orkos en `IDS_EN_OCHO_DIRECCIONES` antes de
+   arrancar ningún trabajador.** El trabajador lee la lista al arrancar y, sin
+   ellos, tira el posproceso de cada hoja. Así cayeron las 16 del arquero, que
+   se recuperaron con `pnpm taller reprocesar <id>`. Hoy no están en la lista
+   porque `test/arena.test.ts` exige los 8 atlas de cada id que haya en ella.
+2. **Devolver al árbol las 6 direcciones ya pintadas del arquero**, de
+   `.cache/laminas/aparcado/goblin-arquero/d0`…`d5` a `assets/unidades/goblin-arquero/`.
+   Se apartaron porque con 5 de 8 la guarda `tieneSusOchoDirecciones` lanza.
+3. **La cola tiene 122 encargos pendientes**:
+   - los giros del chamán y del armado;
+   - las 8 direcciones de los 7 Orkos que ya tenían giro (el arquero, desde
+     `d5-b`).
+   
+   Al terminar esos dos giros, hay que encolar las 8 direcciones del chamán y
+   del armado (`--ocho`).
+
+**Terminado tras volver la cuota.** Se siguieron los tres pasos de arriba. Los
+10 Orkos están en 8 direcciones (el arquero, con su hoja C de disparo), sin
+ningún encargo fallido, y `pnpm verify` pasa.
+
+**La talla** (petición del usuario: «el troll con maza es más pequeño que un
+goblin»). Todas las hojas iban a la altura de un adulto. Ahora cada unidad puede
+declarar su `talla` (docs/art/taller.md): los goblins van a 0,7 y el troll a
+1,45, y sus 88 hojas se reprocesaron sin repintar. La `d3-b` del troll no cabía y
+se redujo a 214 px, en vez de 232. El jinete de hiena va también a 0,7: su
+jinete es un goblin y la hiena es mucho más baja que el caballo del maniquí.
+
+## 14. Los No muertos en 8 direcciones (rama `arte-mapas`, 05-10-2026)
+
+Mandan las unidades de `NuevaJugabilidad.md` (decisión del usuario), con las
+láminas que puso el usuario en `assets/art/no-muertos/`:
+- **Cambios de unidades:**
+  - salen el necrófago y el gólem de huesos;
+  - el caballero de la muerte pasa de héroe a élite (`caballero-de-la-muerte`,
+    con su identidad de antes);
+  - entra el jinete de plaga, a caballo y a 5, como el jinete elfo;
+  - el zombi lleva espada (juego `espada-escudo`, identidad repintada).
+- **Láminas y maniquíes:**
+  - las láminas nuevas del nigromante, el vampiro, el lich y el caballero de la
+    muerte salen de su identidad aprobada;
+  - el esqueleto guerrero, el espectro, el zombi y los tres héroes tienen
+    maniquí propio.
+- **8 direcciones:** las tienen los 9. Hubo 9 hojas con dos figuras pegadas,
+  todas arregladas en su hilo (`-c1`): 5 del jinete de plaga, por el
+  estandarte, 2 del lich y 1 del esqueleto guerrero y del vampiro.
+- **Ninguna unidad del taller cae ya al Y Bot.** Por eso cambian tres
+  comprobaciones que se apoyaban en una unidad sin arte:
+  - `test/arena.test.ts` exige ahora las 8 direcciones de todas las unidades;
+  - `test/taller-8d.test.ts` prueba la guarda del giro con una unidad
+    inventada;
+  - `tools/qa/capturas.ts` mira los atlas del orco, no las hojas del Y Bot.
+
+  El respaldo del Y Bot ya solo lo ejercitan los tests con unidades
+  inventadas.
+
+## 15. Volúmenes que no llegan al zoom máximo (sesión de reglas, 05-10-2026)
 
 Desde el ciclo `2026-10-05-nitidez-del-mapa`, el mapa se pinta para el zoom
 máximo: `TILE_MAX` = 110 px CSS por casilla, que en la pantalla del usuario

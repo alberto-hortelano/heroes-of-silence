@@ -1,0 +1,91 @@
+{
+  "imagen": "atlas.webp",
+  "sha256": "d6687d97750d31eb2321d8ab757b44a114b18fa30192c2ad97f6e7baa3e414f7",
+  "cell": 384,
+  "columns": 7,
+  "altura": 260,
+  "cajaDeClic": [
+    -81,
+    -261,
+    70,
+    0
+  ],
+  "clips": {
+    "idle": {
+      "row": 0,
+      "frames": 7,
+      "fps": 8,
+      "loop": true,
+      "anchor": [
+        193,
+        342
+      ]
+    },
+    "walk": {
+      "row": 1,
+      "frames": 7,
+      "fps": 8,
+      "loop": true,
+      "anchor": [
+        193,
+        342
+      ]
+    },
+    "charge": {
+      "row": 2,
+      "frames": 7,
+      "fps": 8,
+      "loop": true,
+      "anchor": [
+        193,
+        342
+      ]
+    },
+    "attack": {
+      "row": 3,
+      "frames": 7,
+      "fps": 10,
+      "loop": false,
+      "anchor": [
+        193,
+        342
+      ]
+    },
+    "hurt": {
+      "row": 4,
+      "frames": 7,
+      "fps": 10,
+      "loop": false,
+      "anchor": [
+        193,
+        342
+      ]
+    },
+    "death": {
+      "row": 5,
+      "frames": 7,
+      "fps": 8,
+      "loop": false,
+      "anchor": [
+        193,
+        278
+      ]
+    },
+    "shoot": {
+      "row": 6,
+      "frames": 7,
+      "fps": 10,
+      "loop": false,
+      "anchor": [
+        193,
+        342
+      ],
+      "suelta": 4
+    }
+  },
+  "cadaver": {
+    "clip": "death",
+    "frame": 6
+  },
+  "derivadoPor": "tools/taller/derivar.ts"
+}

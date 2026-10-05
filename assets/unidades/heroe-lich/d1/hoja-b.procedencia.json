@@ -1,0 +1,69 @@
+{
+  "encargo": "heroe-lich-d1-b-c1",
+  "tipo": "atlas",
+  "fecha": "2026-10-05T16:25:20.137Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a10cdf-6a7a-75a1-afb8-fa5179d9905b",
+  "reanuda": "01a10cdf-6a7a-75a1-afb8-fa5179d9905b",
+  "prompt": "Corrige la última imagen que has generado en esta conversación, con la herramienta de imágenes, conservando la identidad del personaje y todo lo que no se menciona.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo, una ballesta, una bola), es solo un PUNTO DE PARTIDA: dice dónde están las manos que empuñan, hacia dónde apunta el arma y cuándo se dispara o se suelta. El arma que se pinta es la del PERSONAJE (la de su identidad): cambia la forma, el largo y las piezas del atrezo para que sea la suya —un arcabuz donde el maniquí lleva ballesta, una daga en la izquierda donde lleva escudo, nada donde el personaje no lleva arma— sin cambiar la pose del cuerpo. Si sus piernas son de color, la ROJA es la pierna DERECHA y la AZUL la IZQUIERDA: sirven para no confundirlas en el paso ni girar la figura de espaldas; el personaje NO lleva esos colores. El fondo VERDE de esta hoja es solo fondo, para que se vea el maniquí: no lo copies, el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nDos figuras se tocan y se cuentan como una: cada fila tiene que tener 7 figuras. Repite la hoja con las 7 figuras de cada fila bien separadas por fondo vacío, más pequeñas si hace falta; el bastón alto y los jirones de la túnica no pueden tocar la figura vecina.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de ATAQUE de la fila 1 de la referencia de pose, atacando con el arma del personaje. Fila 2: las siete poses de RECIBIR DAÑO de la fila 2: encaja un golpe y retrocede. Fila 3: las siete poses de la MUERTE de la fila 3: la primera es EXACTAMENTE la última de la fila 2, luego se desploma, y la última es el cadáver tendido e inmóvil en el suelo, con sus armas en el suelo donde las tiene el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «frente-derecha» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/unidades/heroe-lich-8d/d1-b.png",
+      "papel": "pose",
+      "sha256": "29cb45bd9da0436d7fcb4f5e4079699567b411ad0e0e6d489d25b4bea88b9bb6"
+    },
+    {
+      "ruta": "assets/unidades/heroe-lich/giro.webp",
+      "papel": "identidad",
+      "sha256": "07bade1e6b12a4b5df8af0d33e01057d68e27f855e674e9fe524390ca22a7140"
+    },
+    {
+      "ruta": "assets/art/no-muertos/lich.png",
+      "papel": "estilo",
+      "sha256": "17d08632eda11e43b5fc4e6e15171582447c6d320d45b03bb6d712e8ad7d07cb"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a10cdf-6a7a-75a1-afb8-fa5179d9905b/exec-da70ccfb-c101-4a77-bd3a-a9efbbee91e3.png",
+    "sha256": "2e5178843602d0740cdecf9dcb768016dea7644a44a0307b3ee965140cafb390",
+    "ancho": 1916,
+    "alto": 821
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.8744, pies en y=342, reposo a 160 px",
+    "WebP calidad 92, alfa sin pérdida",
+    "dirección completa: assets/unidades/heroe-lich/d1/atlas.webp"
+  ],
+  "validacion": {
+    "visibles": 0.06934078156001984,
+    "opacos": 0.9280780927630997,
+    "haloSuelto": 0.000027943498246545486,
+    "ancho": 2688,
+    "alto": 1152
+  },
+  "deLaPose": {
+    "k": 1.0666666666666667,
+    "origen": [
+      192,
+      342
+    ],
+    "apoyoReposo": [
+      189,
+      285
+    ],
+    "posicion": true,
+    "elevaciones": [
+      0,
+      0,
+      64
+    ]
+  },
+  "salida": {
+    "ruta": "assets/unidades/heroe-lich/d1/hoja-b.webp",
+    "sha256": "344f5103efbb17e8cce333b6acbbc3d7324f2f0b27100c563e9186f41f57d03f"
+  }
+}

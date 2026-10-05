@@ -1,0 +1,193 @@
+{
+  "perfil": "montado-pistola-8d",
+  "arma": "pistola",
+  "renderer": "tools/art/montura.ts (three.js, la cámara y la luz del contrato)",
+  "caballo": {
+    "fichero": "tools/art/modelos/caballo-quaternius.glb",
+    "sha256": "fae7a7ec91e0d6a33554efb896fac9c4e8c632644183bcb8cc962f673d3ce609",
+    "licencia": "CC0 (ver tools/art/modelos/LICENCIA.md)"
+  },
+  "jinete": {
+    "model": "y_bot",
+    "postura": "sitting_idle + IK de piernas y brazos"
+  },
+  "sourceMetadata": {
+    "shoot": {
+      "frame_count": 24
+    }
+  },
+  "camera": {
+    "pitchDegrees": -25,
+    "directions": 8,
+    "ortho": 4.199999999999999
+  },
+  "light": {
+    "x": 0.28396044362490236,
+    "y": -0.8699660369241592,
+    "z": -0.40314459075475784
+  },
+  "cell": 384,
+  "columns": 7,
+  "sheets": {
+    "a": [
+      {
+        "clip": "idle",
+        "caballo": "Idle",
+        "postura": "reposo",
+        "enBucle": true,
+        "indices": [
+          0,
+          11,
+          22,
+          34,
+          45,
+          57,
+          68
+        ],
+        "fps": 24
+      },
+      {
+        "clip": "walk",
+        "caballo": "Walk",
+        "postura": "reposo",
+        "enBucle": true,
+        "indices": [
+          0,
+          4,
+          8,
+          12,
+          16,
+          20,
+          24
+        ],
+        "fps": 24
+      },
+      {
+        "clip": "charge",
+        "caballo": "Walk",
+        "postura": "carga",
+        "enBucle": true,
+        "indices": [
+          0,
+          4,
+          8,
+          12,
+          16,
+          20,
+          24
+        ],
+        "fps": 24
+      }
+    ],
+    "b": [
+      {
+        "clip": "attack",
+        "caballo": "Idle",
+        "postura": "ataque",
+        "enBucle": false,
+        "indices": [
+          0,
+          6,
+          12,
+          18,
+          23,
+          29,
+          35
+        ],
+        "fps": 24
+      },
+      {
+        "clip": "hurt",
+        "caballo": "Idle_HitReact_Left",
+        "postura": "reposo",
+        "enBucle": false,
+        "indices": [
+          0,
+          3,
+          5,
+          8,
+          10,
+          13,
+          15
+        ],
+        "fps": 24
+      },
+      {
+        "clip": "death",
+        "caballo": "Death",
+        "postura": "reposo",
+        "enBucle": false,
+        "indices": [
+          0,
+          4,
+          8,
+          12,
+          15,
+          19,
+          23
+        ],
+        "fps": 24
+      }
+    ],
+    "c": [
+      {
+        "clip": "shoot",
+        "caballo": "Idle",
+        "postura": "disparo",
+        "enBucle": false,
+        "indices": [
+          0,
+          4,
+          8,
+          12,
+          15,
+          19,
+          23
+        ],
+        "fps": 24
+      }
+    ]
+  },
+  "ajuste": {
+    "sillaAdelante": 0.28,
+    "sillaArriba": 0.2,
+    "estriboAdelante": 0.32,
+    "estriboArriba": -0.45,
+    "estriboLado": 0.32,
+    "lanza": 2.6,
+    "espada": 0.9,
+    "espadaGiro": [
+      0,
+      0,
+      -1.5707963267948966
+    ],
+    "sentadoT": 0
+  },
+  "sha256": {
+    "d0-a.png": "7ddf1b6f1ceb2f26d63d655704b477c8615fada4bdf4099add6ec7a36c792568",
+    "d0-b.png": "88057614bb2061467e47b940f02bdf8a3d457102963fc558d63061cfb56372e4",
+    "d0-c.png": "bf366562dd0b057aa25befd700c8ddc26cbd39e4f5ae2d295e3a049210070832",
+    "d1-a.png": "e0c8a84ecd5dff45443a127a8ef8450a905b5677c93e9324bfeab1ef7a33b0dc",
+    "d1-b.png": "91d4fa25896db68abe4d4d4aa2685162b88fab24eebc66be0a7d648dc1832ef1",
+    "d1-c.png": "94fafe4177c056545ceb0d0c07d7c3be2867d471ebcb646aae81d037fe16ba18",
+    "d2-a.png": "229574c1bd58ff40d47c76de1694df316837988464e26ad8457c6b347016b57a",
+    "d2-b.png": "717bb7bf4a29ed84d2ad93d2cdc838848d7cd89eeb1fb3582119cc23b38ee9b8",
+    "d2-c.png": "36272cbc61e51bf79c7f3ccf3c8f6aca26f878acf6f4abef0fb8ba79fa97d583",
+    "d3-a.png": "d9b8cc7fa8299fa024f89545c9f3d70937320dddadb7f7440d9572b66da75a06",
+    "d3-b.png": "a25358606c6d0ce9825e6e313e63a71119397bb7bd1da59cb52277e80a39a547",
+    "d3-c.png": "c081b9103742e0ded64707d3c85b52a3d14eb6177c8a924a7115d407f4c70726",
+    "d4-a.png": "0b5865eac2d3880d8395f14c7e317bb614f19364d7a02c63466c8c521999201c",
+    "d4-b.png": "57083e771e4b52656525c2839c8f4f3ed3ef96294043420a5ae66a595f69dd7a",
+    "d4-c.png": "4680f7c3c4064949ebd305dc38f48364fb2b6c72a0ba5f223eee9ba4b25c3542",
+    "d5-a.png": "1f17556010758086cb84f161efb3c0288665fdc31f3f3a1ba863d487e58972a3",
+    "d5-b.png": "98dd41bd6b55acefb7e08c5818516f8fec76f5a8d0dfb1d9764b77cc95c1d004",
+    "d5-c.png": "390b10ebe636079eb71b3c3fb336ef6baf851687d6ef48109e3d2211814145ff",
+    "d6-a.png": "6e888338b862141b7e83c9e5e1180aa5ef2b31697c21c5388b7a493c7ad0ec08",
+    "d6-b.png": "2a017a2dd0bed1febc01d8617435fcac58e6f9766572f1fa57260da7afe26364",
+    "d6-c.png": "a7fba12dd244bdce234a94200dfa164bc86472c9ee7a62248c5a435d3a7b5fc7",
+    "d7-a.png": "e93d2dcd114f2052250d3b8f062f28d3c7994ecbee850e0fe1c3620117a61148",
+    "d7-b.png": "73fbe148b10c5ac768d0adae406b1c0e01e320f99928b213c05ff90718490e0a",
+    "d7-c.png": "5ee3fd8d782d5347fcc3072afc2c31d8376c918fdd80f37d60c8d4c14de101a4",
+    "giro.png": "a84f9bc700aaa85a43b69a7837d248aa13c36e3609cffcfe961ad70420192db7"
+  }
+}

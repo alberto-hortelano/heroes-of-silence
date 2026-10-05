@@ -1,0 +1,50 @@
+{
+  "encargo": "imperio-artillero-culebrina-giro",
+  "tipo": "giro",
+  "fecha": "2026-10-04T09:57:49.444Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a10657-f453-7190-ac67-ac7ec715e1cc",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo), copia su largo, su ángulo y su sitio en cada celda: es la guía del arma real. Si sus piernas son de color, la ROJA es la pierna DERECHA y la AZUL la IZQUIERDA: sirven para no confundirlas en el paso ni girar la figura de espaldas; el personaje NO lleva esos colores. El fondo VERDE de esta hoja es solo fondo, para que se vea el maniquí: no lo copies, el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn artillero: gorra de lana, mandil de cuero tiznado sobre ropa amarilla y negra, guantes gruesos, culebrina de mano (cañón largo y ligero de bronce con culata de madera) empuñada con las dos manos, bolsa de pólvora y botafuego al cinto. Sin cureña.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nLámina de GIRO de EXACTAMENTE 4 columnas por 2 filas: el MISMO personaje ocho veces, de cuerpo entero, en la pose de reposo, separadas con holgura y sin tocarse.\nCada figura copia la orientación y la pose del maniquí de su celda en la referencia de pose. En orden de lectura miran hacia: 1. frente, 2. frente-derecha, 3. derecha, 4. espalda-derecha, 5. espalda, 6. espalda-izquierda, 7. izquierda, 8. frente-izquierda. Las que van de espaldas enseñan la espalda del personaje: invéntala coherente con su equipo (la capa o sobrevesta por detrás, la cara interior del escudo, la vaina).\nCámara ortográfica elevada 25 grados en todas, viendo la coronilla y los hombros; NUNCA de perfil ni a la altura de los ojos, aunque la figura mire de lado. Misma escala en las ocho.\nEs la lámina de identidad por los ocho lados: el equipo, los colores y los materiales son idénticos en todas y se leen con claridad.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/ballesta-8d/giro.png",
+      "papel": "pose",
+      "sha256": "1ba0e7c6c96b0264949d66366472b3908688828bcf5c35cf4a10fd209a2c4c96"
+    },
+    {
+      "ruta": "assets/unidades/imperio-artillero-culebrina/identidad.webp",
+      "papel": "identidad",
+      "sha256": "c55b00f517fab146b354666a3cf95c26d4a257433a9393f01ff34e919f9b382c"
+    },
+    {
+      "ruta": "assets/art/imperio/artillero-con-culebrina.png",
+      "papel": "estilo",
+      "sha256": "bf10044f59eeccb79ad4b79698fbfa381903622c71c081a328231a159ab773b6"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a10657-f453-7190-ac67-ac7ec715e1cc/exec-27f99bb8-94ac-42cb-8d70-e8f6934e18e0.png",
+    "sha256": "189c22a83a9cbb91fba777a5aa9de90d704440f10c372c8044d424f17ed2023f",
+    "ancho": 1774,
+    "alto": 887
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.24891873098709832,
+    "opacos": 0.9781613197642826,
+    "haloSuelto": 0,
+    "ancho": 1717,
+    "alto": 887
+  },
+  "salida": {
+    "ruta": "assets/unidades/imperio-artillero-culebrina/giro.webp",
+    "sha256": "b85520863315fd3d4372f1100da6af4edb872c64fbeab36ebfb78a204294798a"
+  }
+}

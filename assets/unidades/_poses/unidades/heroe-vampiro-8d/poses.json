@@ -1,0 +1,228 @@
+{
+  "perfil": "heroe-vampiro-8d",
+  "juegoDeArmas": "espada-escudo",
+  "unidad": "heroe-vampiro",
+  "atrezo": {
+    "espada": {
+      "largo": 0.95,
+      "guarda": 0.12,
+      "puño": 0.14,
+      "agarre": 0.07,
+      "grosor": 0.012
+    },
+    "escudo": false,
+    "dosManos": false,
+    "adelanteMinimo": 0,
+    "centrado": 0,
+    "alcanceMinimo": 0,
+    "separacionManos": 0,
+    "codosAfuera": 0,
+    "codosAdelante": 0,
+    "estiramiento": 1
+  },
+  "piernasDeColor": true,
+  "model": "y_bot",
+  "renderer": "sprite-forge",
+  "spriteForgeCommit": "b2d9ba97384c4f78b53aee2903471a70492ecb34",
+  "camera": {
+    "pitchDegrees": -25,
+    "directions": 8,
+    "projection": "orthographic",
+    "ortho": 4.199999999999999,
+    "target": 0.95
+  },
+  "light": {
+    "x": 0.28396044362490236,
+    "y": -0.8699660369241592,
+    "z": -0.40314459075475784
+  },
+  "deathStartsFrom": {
+    "clip": "hurt",
+    "blendSeconds": 0.4
+  },
+  "cell": 384,
+  "columns": 7,
+  "sheets": {
+    "a": [
+      {
+        "clip": "idle",
+        "anim": "idle",
+        "enBucle": true,
+        "indices": [
+          0,
+          6,
+          12,
+          18,
+          25,
+          31,
+          37
+        ]
+      },
+      {
+        "clip": "walk",
+        "anim": "walk",
+        "enBucle": true,
+        "indices": [
+          0,
+          1,
+          3,
+          5,
+          7,
+          9,
+          11
+        ]
+      },
+      {
+        "clip": "charge",
+        "anim": "run",
+        "enBucle": true,
+        "indices": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ]
+      }
+    ],
+    "b": [
+      {
+        "clip": "attack",
+        "anim": "quick",
+        "enBucle": false,
+        "indices": [
+          0,
+          2,
+          4,
+          6,
+          7,
+          9,
+          11
+        ]
+      },
+      {
+        "clip": "hurt",
+        "anim": "impact3",
+        "enBucle": false,
+        "indices": [
+          0,
+          1,
+          2,
+          4,
+          5,
+          6,
+          7
+        ]
+      },
+      {
+        "clip": "death",
+        "anim": "death",
+        "enBucle": false,
+        "indices": [
+          0,
+          5,
+          9,
+          14,
+          18,
+          23,
+          27
+        ]
+      }
+    ]
+  },
+  "sourceMetadata": {
+    "idle": {
+      "angle": "tactical_25",
+      "anim": "idle",
+      "directions": 8,
+      "duration": 3.6666666666666665,
+      "fps": 12,
+      "frame_count": 44,
+      "frame_height": 384,
+      "frame_width": 384,
+      "generated_at": "2026-10-05T15:41:00",
+      "model": "y_bot"
+    },
+    "walk": {
+      "angle": "tactical_25",
+      "anim": "walk",
+      "directions": 8,
+      "duration": 1.1,
+      "fps": 12,
+      "frame_count": 13,
+      "frame_height": 384,
+      "frame_width": 384,
+      "generated_at": "2026-10-05T15:41:03",
+      "model": "y_bot"
+    },
+    "charge": {
+      "angle": "tactical_25",
+      "anim": "run",
+      "directions": 8,
+      "duration": 0.7,
+      "fps": 12,
+      "frame_count": 8,
+      "frame_height": 384,
+      "frame_width": 384,
+      "generated_at": "2026-10-05T15:41:06",
+      "model": "y_bot"
+    },
+    "attack": {
+      "angle": "tactical_25",
+      "anim": "quick",
+      "directions": 8,
+      "duration": 1,
+      "fps": 12,
+      "frame_count": 12,
+      "frame_height": 384,
+      "frame_width": 384,
+      "generated_at": "2026-10-05T15:41:09",
+      "model": "y_bot"
+    },
+    "hurt": {
+      "angle": "tactical_25",
+      "anim": "impact3",
+      "directions": 8,
+      "duration": 0.7,
+      "fps": 12,
+      "frame_count": 8,
+      "frame_height": 384,
+      "frame_width": 384,
+      "generated_at": "2026-10-05T15:41:11",
+      "model": "y_bot"
+    },
+    "death": {
+      "angle": "tactical_25",
+      "anim": "death",
+      "directions": 8,
+      "duration": 2.3,
+      "fps": 12,
+      "frame_count": 28,
+      "frame_height": 384,
+      "frame_width": 384,
+      "generated_at": "2026-10-05T15:41:18",
+      "model": "y_bot"
+    }
+  },
+  "sha256": {
+    "d0-a.png": "98f51eae8e92ba9db3e0ff1345f87798647d19d341d6899d7f9d6b32742632c0",
+    "d0-b.png": "a7e6d522579fc14a446330f819828c5c4036556cf11c73ff231a8e66f3fc971d",
+    "d1-a.png": "38344cb8e7cae76d7f1f47541cded85db9581de15725bce4fa6a45429f617517",
+    "d1-b.png": "280414bf5be410452b66551eac6946a31f6a9c86d631ea7b45d7c3616fe79aa7",
+    "d2-a.png": "6006beb331613bf3dd11c4ca8822a0dcd6249b30b96001f90f5d7b6d2c5b708a",
+    "d2-b.png": "c6417d13ab0b8198ae69678cea215f0a618e846ddc0ff805fabdff1f4af39365",
+    "d3-a.png": "96015e0fc5baecd177d95c4c79bdd8485f9eea0066f4fcaf3109af4587f920c7",
+    "d3-b.png": "2032cca58d1f7bcbe834f34877ba5cefaa877f58646f15a9ecdf447c181164e6",
+    "d4-a.png": "f493fdd7352ce2bb27b9c9e28b27b6feb6a02a193cfc3abed21b228765ae0ce0",
+    "d4-b.png": "9fc134eaaf430a9e55e4e84825e841aca73d681f7e29a81486bcfb443b24f632",
+    "d5-a.png": "6cf3dfa7864ef89e800ede1160ad73d62ccbe7a41bae7f3d268d64e66d556ca8",
+    "d5-b.png": "955d813fbe9ea71c1e2de76e35c7e33499b2d3520bea1927828f6919d10053bd",
+    "d6-a.png": "e0c42251cb2fd5075acf79448b89c3a354215245afc2d3c2485432c129f26ea6",
+    "d6-b.png": "9ecbab7060b835d7e21043e8e98a8c77f6c305649b3f7f59e71780a87466d0fb",
+    "d7-a.png": "88cf6146f272e015ffd87fe33e3d51bc0324cfb914b04f0eacb56664ab02ead5",
+    "d7-b.png": "08b671aa4f1bb57034ce9356e721b62e7d0035315e8781b6ff97d04065f17a2a",
+    "giro.png": "c01666c78943bb088e4869339032e3daad5d5e04920695b98a7325b7aaa93cde"
+  }
+}

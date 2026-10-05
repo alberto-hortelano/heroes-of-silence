@@ -25,7 +25,7 @@ import {
 } from './character.js';
 import { CacheDeLienzos } from './copias.js';
 import { densidadDe } from './lienzo.js';
-import { type ArteDeFigura, arteDe, hojasPorCercania } from './personajes.js';
+import { type ArteDeFigura, arteDe, hojaDe, hojasPorCercania } from './personajes.js';
 import { pintarSombra } from './sombra.js';
 
 /** Hasta cuándo hay alguna figura en marcha, en el reloj de `performance.now()`. */
@@ -67,6 +67,18 @@ function pedir(url: string): void {
   if (pedidas.has(url)) return;
   pedidas.add(url);
   cargarHojaDeFigura(url);
+}
+
+/**
+ * Pide de antemano la hoja del disparo de `body`, la de la dirección en la que
+ * mira, si su arte lo pinta. El disparo es la única acción que va en su propia
+ * hoja (la C) y llega de golpe: sin pedirla antes, el primer disparo salía
+ * quieto (el reposo de `hojaQueSePinta`) mientras la hoja llegaba. La batalla
+ * la pide al pintar a cada tirador; `pedir` no la vuelve a cargar.
+ */
+export function precargarDisparo(body: string, mira: Direccion): void {
+  const arte = arteDe(body);
+  if (arte.dispara) pedir(hojaDe(arte, mira).clips.shoot.imagen);
 }
 
 export interface Figura {

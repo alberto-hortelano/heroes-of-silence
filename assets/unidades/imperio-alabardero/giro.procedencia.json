@@ -1,0 +1,50 @@
+{
+  "encargo": "imperio-alabardero-giro",
+  "tipo": "giro",
+  "fecha": "2026-10-04T09:56:29.540Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a10656-d690-7f63-b7e8-6d807fa6b794",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo), copia su largo, su ángulo y su sitio en cada celda: es la guía del arma real. Si sus piernas son de color, la ROJA es la pierna DERECHA y la AZUL la IZQUIERDA: sirven para no confundirlas en el paso ni girar la figura de espaldas; el personaje NO lleva esos colores. El fondo VERDE de esta hoja es solo fondo, para que se vea el maniquí: no lo copies, el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn alabardero lansquenete: morrión de acero, peto, mangas y calzas acuchilladas a franjas amarillas y negras con forros rojos, alabarda empuñada a dos manos y espada corta al cinto.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nLámina de GIRO de EXACTAMENTE 4 columnas por 2 filas: el MISMO personaje ocho veces, de cuerpo entero, en la pose de reposo, separadas con holgura y sin tocarse.\nCada figura copia la orientación y la pose del maniquí de su celda en la referencia de pose. En orden de lectura miran hacia: 1. frente, 2. frente-derecha, 3. derecha, 4. espalda-derecha, 5. espalda, 6. espalda-izquierda, 7. izquierda, 8. frente-izquierda. Las que van de espaldas enseñan la espalda del personaje: invéntala coherente con su equipo (la capa o sobrevesta por detrás, la cara interior del escudo, la vaina).\nCámara ortográfica elevada 25 grados en todas, viendo la coronilla y los hombros; NUNCA de perfil ni a la altura de los ojos, aunque la figura mire de lado. Misma escala en las ocho.\nEs la lámina de identidad por los ocho lados: el equipo, los colores y los materiales son idénticos en todas y se leen con claridad.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/lanza-8d/giro.png",
+      "papel": "pose",
+      "sha256": "dff901a50798867fb56054400074729c7cfacd9d67c4911eea3babb1ed580f4e"
+    },
+    {
+      "ruta": "assets/unidades/imperio-alabardero/identidad.webp",
+      "papel": "identidad",
+      "sha256": "00c933b0495cb334ae42d6ce60004f9856c5d4a8464290b9d2c09a69e6f08ced"
+    },
+    {
+      "ruta": "assets/art/imperio/alabardero.png",
+      "papel": "estilo",
+      "sha256": "8e5f1f2bc3e299002b4c788313742b1386eceeba589cbaef8a2bc2c7296aad1e"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a10656-d690-7f63-b7e8-6d807fa6b794/exec-20787226-5b50-4cb4-82f3-d3dc6267f341.png",
+    "sha256": "346340a4390bb19ec267772895f07e8c947d5ed70548105b4152652a92d62276",
+    "ancho": 1774,
+    "alto": 887
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.15757017181062832,
+    "opacos": 0.9576480829273275,
+    "haloSuelto": 0,
+    "ancho": 1611,
+    "alto": 887
+  },
+  "salida": {
+    "ruta": "assets/unidades/imperio-alabardero/giro.webp",
+    "sha256": "e7b5f292848954d1e76d567f779731c08e5c151fd8bc86a66f05c7c4b505caea"
+  }
+}

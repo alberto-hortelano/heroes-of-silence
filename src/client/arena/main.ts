@@ -84,6 +84,10 @@ const montaje: Record<Lado, Puesto[]> = { izquierda: [], derecha: [] };
 let filtro: HojaDeArena['faccion'] | 'todas' = 'todas';
 let elegida: string | null = null;
 let clipDeFicha: CharacterClip = 'idle';
+/** Cuándo se eligió el clip de la ficha: los que no van en bucle se repiten desde ahí. */
+let inicioDelClip = 0;
+/** Lo que se queda quieto el último fotograma antes de repetir un clip que no va en bucle. */
+const PAUSA_DE_LA_FICHA_MS = 700;
 /**
  * Hacia dónde mira la figura de la ficha, como posición en `DIRECCION_DE_HOJA`:
  * «Girar» la pasa por las ocho direcciones en el orden de las hojas.
@@ -215,6 +219,7 @@ function repintarMontaje(): void {
     renderFicha(
       elegida === null ? null : unidadDe(elegida),
       elegida === null ? null : hojaPorId(elegida),
+      elegida !== null && arteDe(elegida).dispara,
     ),
   );
   pintar(elCatalogo, renderCatalogo(hojas, filtro));
@@ -452,6 +457,12 @@ function render(ahora: number): void {
  * ninguna —al arrancar, con los bandos vacíos y sin ficha— no hay nada que
  * repintar, y el bucle se para hasta el siguiente gesto o la siguiente imagen.
  */
+/** El instante dentro de un clip que no va en bucle, repetido con una pausa al final. */
+function repeticion(ahora: number, c: { readonly frames: number; readonly fps: number }): number {
+  const dura = (c.frames / c.fps) * 1000;
+  return (ahora - inicioDelClip) % (dura + PAUSA_DE_LA_FICHA_MS);
+}
+
 function dibujarFiguras(ahora: number): boolean {
   if (elStatus.textContent !== aviso) elStatus.textContent = aviso;
   for (const [i, { lienzo, ctx, id, ficha, lado }] of figuras.entries()) {
@@ -484,7 +495,9 @@ function dibujarFiguras(ahora: number): boolean {
       id: `miniatura-${i}-${id}`,
       body: id,
       clip,
-      tiempo: ahora,
+      // Un clip que no va en bucle (ataque, disparo, daño, muerte) se repite en
+      // la ficha: con el reloj de siempre se quedaba en su último fotograma.
+      tiempo: ficha && !atlas.clips[clip].loop ? repeticion(ahora, atlas.clips[clip]) : ahora,
       x: lienzo.width / 2,
       suelo: lienzo.height - bajoLosPies,
       alto,
@@ -616,6 +629,7 @@ document.addEventListener('click', (ev) => {
       }
       case 'clip':
         clipDeFicha = el.getAttribute('data-clip') as CharacterClip;
+        inicioDelClip = performance.now();
         pedirFotograma();
         return;
       case 'girar':

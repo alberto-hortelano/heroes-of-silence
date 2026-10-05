@@ -384,7 +384,7 @@
     "name": "Zombie",
     "path": "assets/art/no-muertos/zombie.png",
     "prompt": "Use case: stylized-concept. Landscape 3:2 character design reference sheet for a medieval fantasy strategy game. Exactly two views of the SAME fictional undead peasant: full body front view and three-quarter back view side by side, all feet and equipment fully visible with generous margins. Neutral light grey studio background, painterly digital concept art, realistic proportions, readable silhouette, soft even lighting. A slow, shambling medieval zombie with INTACT grey-green waxy skin, tired cloudy eyes and a slack expression, wearing a torn muddy linen tunic and trousers. One arm reaches forward gently, one foot drags, and an old broken wooden farming tool hangs loosely from the other hand. Dirt stains on clothes, muted mud brown and faded linen palette with subtle desaturated green accents. Eerie and pitiful fantasy creature, a calm nonviolent character study. All anatomy is fully intact and covered normally; no injuries, no wounds, no exposed internal anatomy, no blood, no gore, no attacking, no victim, no horror shock imagery. No text, labels, logo, watermark, border, scenery, modern objects, modern clothes, cartoon, anime, neon, glowing outlines or additional characters.",
-    "status": "generated",
+    "status": "replaced by user (2026-10-05)",
     "width": 1536,
     "height": 1024,
     "generator": "built-in image_gen",
@@ -398,7 +398,7 @@
     "name": "Necrófago",
     "path": "assets/art/no-muertos/necrofago.png",
     "prompt": "Use case: stylized-concept. Asset type: troop design reference sheet. Landscape 3:2 composition.\nCreature concept art sheet, single creature, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, believable lean anatomy, dark fantasy. A ghoul corpse-eater, gaunt and wiry, pale grey translucent skin stretched over ribs, long limbs, crouched on all fours like a predator, elongated jaw with needle teeth, long dirty claws, scraps of a burial shroud hanging from the waist, milky white eyes. Fast, feral, hungry. Palette: pale grey skin, dirty white shroud, dark grey shadows, dull toxic green eyes.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, gore, eating a body, vampire, werewolf",
-    "status": "generated",
+    "status": "retired by user (2026-10-05)",
     "width": 1536,
     "height": 1024,
     "generator": "built-in image_gen",
@@ -424,11 +424,444 @@
     "name": "Gólem de huesos",
     "path": "assets/art/no-muertos/golem-de-huesos.png",
     "prompt": "Use case: stylized-concept. Asset type: troop design reference sheet. Landscape 3:2 composition.\nCreature concept art sheet, single creature, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, believable heavy construction, dark fantasy. A towering bone golem, three times the height of a human, built from hundreds of fused human and animal bones bound with black iron bands and chains, a ribcage chest with a dull green flame inside, massive arms ending in fists made of skulls and vertebrae, a horned beast skull as the head. Slow, enormous, assembled from the dead. Palette: yellowed bone, black iron, rust, dull toxic green flame.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, flesh, blood, gore, clean white bones, robot",
-    "status": "generated",
+    "status": "retired by user (2026-10-05)",
     "width": 1536,
     "height": 1024,
     "generator": "built-in image_gen",
     "sha256": "2fefa7a0bd94ef9ed9bce995bd3f3c41b21eb3d696fe2f1aedebb72917d57723",
     "source_image": "/home/al/.codex/generated_images/01a0f720-5bf7-7710-829c-167dbdea3507/exec-8789adf3-fb10-4dce-80e4-4778564f5a9a.png"
+  },
+  {
+    "id": 34,
+    "faction": "Imperio",
+    "name": "Duelista (héroe)",
+    "path": "assets/art/imperio/duelista.png",
+    "prompt": "Use case: stylized-concept. Asset type: hero design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single character, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, early renaissance dark fantasy. An imperial duelist hero, a lean and fast swordmaster: rapier with an elaborate swept hilt in the right hand and a parrying dagger in the left, fitted black doublet slashed with ochre and crimson, short cape over one shoulder, light gorget, plumed hat, tall boots. Poised fencing stance, weight on the front foot, both blades ready. Palette: black, ochre yellow, crimson, polished steel, touches of gold.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same imperial faction: match their painting style, finish, lighting, grey background and black-ochre-crimson palette exactly, but design a NEW character as described; do not copy their figures.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, shield, heavy armor, katana, two long swords",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "3ba1656e04119a00a9724eedcb3ea745373803f56b57043c7e1bf1e5fbd7b3d1",
+    "source_image": "/home/al/.codex/generated_images/01a10655-1150-7ee0-85d4-7df466bfe47c/exec-26c0f02c-80fc-4ba5-a2f6-afbe19793f5a.png",
+    "references": [
+      "assets/art/imperio/alabardero.png",
+      "assets/art/imperio/arcabucero.png"
+    ],
+    "thread": "01a10655-1150-7ee0-85d4-7df466bfe47c",
+    "approved": "2026-10-04"
+  },
+  {
+    "id": 35,
+    "faction": "Imperio",
+    "name": "Mago de batalla (héroe)",
+    "path": "assets/art/imperio/mago-de-batalla.png",
+    "prompt": "Use case: stylized-concept. Asset type: hero design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single character, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, early renaissance dark fantasy. An imperial battle mage hero: long dark blue robe with gold trim worn over a light steel breastplate, scholar cap, trimmed beard, a book chained to the belt, a metal staff topped with a sphere holding a small contained flame. A faint wisp of fire and mist around the free hand suggesting tactical elemental magic. Upright, commanding stance. Palette: dark blue, gold, black, ochre accents, steel.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same imperial faction: match their painting style, finish, lighting, grey background and black-ochre-crimson palette exactly, but design a NEW character as described; do not copy their figures. The last attached image is this same character as already approved in game: keep his face, costume and colours.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, pointed wizard hat, intense magic glow, long white beard",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "cab88d3575370832ccf4db69d030117e919bcb2632eac13f8a3f38460a0d84fb",
+    "source_image": "/home/al/.codex/generated_images/01a10655-11c8-7872-868d-352ba3423716/exec-095e9206-c7fc-40f5-bf44-65abf487c4d4.png",
+    "references": [
+      "assets/art/imperio/alabardero.png",
+      "assets/art/imperio/arcabucero.png",
+      ".cache/laminas/mago-de-batalla-identidad.png"
+    ],
+    "thread": "01a10655-11c8-7872-868d-352ba3423716",
+    "approved": "2026-10-04"
+  },
+  {
+    "id": 36,
+    "faction": "Imperio",
+    "name": "Capitán mercenario (héroe)",
+    "path": "assets/art/imperio/capitan-mercenario.png",
+    "prompt": "Use case: stylized-concept. Asset type: hero design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single character, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, early renaissance dark fantasy. An imperial mercenary captain hero, a landsknecht officer: enormous slashed hat with red and yellow plumes, flamboyant slashed and puffed doublet and hose, dented steel breastplate, thick moustache, a katzbalger short sword in the right hand, a heavy purse of coins and a rolled contract at the belt. Swaggering, confident stance. No shield. Palette: crimson, ochre yellow, black, steel, gold coins.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same imperial faction: match their painting style, finish, lighting, grey background and black-ochre-crimson palette exactly, but design a NEW character as described; do not copy their figures. The last attached image is this same character as already approved in game: keep his face, costume and colours.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, shield, pirate",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "7ec1df4729834f92e38d2bc767b2ab43197c8f4751a84e68ffd773a2f66f976b",
+    "source_image": "/home/al/.codex/generated_images/01a10655-11ce-7292-95e1-234050a40444/exec-753ee33d-4080-48c5-a8d3-1bbd972cebc0.png",
+    "references": [
+      "assets/art/imperio/alabardero.png",
+      "assets/art/imperio/arcabucero.png",
+      ".cache/laminas/capitan-mercenario-identidad.png"
+    ],
+    "thread": "01a10655-11ce-7292-95e1-234050a40444",
+    "approved": "2026-10-04"
+  },
+  {
+    "id": 37,
+    "faction": "Imperio",
+    "name": "Ingeniero (héroe)",
+    "path": "assets/art/imperio/ingeniero.png",
+    "prompt": "Use case: stylized-concept. Asset type: hero design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single character, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, early renaissance dark fantasy. An imperial military engineer hero: brass goggles pushed up on the forehead, leather apron full of tools over a black and ochre doublet, a roll of plans on the back, a small war hammer at the belt, and a long-barrelled wheel-lock rifle for long range held in both hands. Practical, sharp-eyed stance. Palette: black, ochre yellow, brown leather, brass, dark wood, steel.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same imperial faction: match their painting style, finish, lighting, grey background and black-ochre-crimson palette exactly, but design a NEW character as described; do not copy their figures. The last attached image is this same character as already approved in game: keep his face, costume and colours.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, modern rifle, scope, steampunk gears, robotic parts",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "b280e8ef79e7b5797ce13a26323c3bf89bbee8e645db064336993f172de25cf3",
+    "source_image": "/home/al/.codex/generated_images/01a10655-11c0-7671-bbca-9de2513aa3cd/exec-c126dc65-cc1a-45be-9456-2eb96ef8425c.png",
+    "references": [
+      "assets/art/imperio/alabardero.png",
+      "assets/art/imperio/arcabucero.png",
+      ".cache/laminas/ingeniero-identidad.png"
+    ],
+    "thread": "01a10655-11c0-7671-bbca-9de2513aa3cd",
+    "approved": "2026-10-04"
+  },
+  {
+    "id": 38,
+    "faction": "Imperio",
+    "name": "Pistolero montado",
+    "path": "assets/art/imperio/pistolero-montado.png",
+    "prompt": "Use case: stylized-concept. Asset type: troop design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single mounted character, full body side view and three-quarter front view, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, early renaissance dark fantasy. An imperial mounted pistoleer (reiter) riding a dark bay horse: blackened half armor with an open burgonet helmet, crimson sash, slashed ochre and black sleeves, a wheel-lock pistol raised in the right hand and a sword at the hip, a second pistol in a saddle holster. Light horse harness with ochre and black saddle cloth. Fast, skirmishing posture, about to turn away after firing. Palette: blackened steel, ochre yellow, crimson, dark bay horse, brass.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same imperial faction: match their painting style, finish, lighting, grey background and black-ochre-crimson palette exactly, but design a NEW character as described; do not copy their figures.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, lance, unicorn, fantasy creature mount, extra horse legs, deformed horse anatomy, cowboy",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "9ecc42e1606ee6e9c2573e7fe64700f97a21562f445228e13eaf0997153e2ee8",
+    "source_image": "/home/al/.codex/generated_images/01a10655-1172-7222-957d-cd7dd0ce4da4/exec-0ee89de1-1d79-4dae-ac40-0d436314e1e4.png",
+    "references": [
+      "assets/art/imperio/alabardero.png",
+      "assets/art/imperio/arcabucero.png"
+    ],
+    "thread": "01a10655-1172-7222-957d-cd7dd0ce4da4",
+    "approved": "2026-10-04"
+  },
+  {
+    "id": 39,
+    "faction": "Imperio",
+    "name": "Granadero",
+    "path": "assets/art/imperio/granadero.png",
+    "prompt": "Use case: stylized-concept. Asset type: troop design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single character, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, early renaissance dark fantasy. An imperial grenadier: tall stiff cloth cap, short buff leather coat over a slashed black and ochre doublet, crimson sash, a bandolier and a satchel full of round iron hand grenades, one grenade with a lit fuse held in the raised right hand ready to throw, a slow match wound around the left wrist, short hanger sword at the hip. Strong throwing stance. Palette: black, ochre yellow, crimson, buff leather, dark iron.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same imperial faction: match their painting style, finish, lighting, grey background and black-ochre-crimson palette exactly, but design a NEW character as described; do not copy their figures.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, modern grenade, pineapple grenade, explosion, fire",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "10399212dcdeb7798640ca92b1c363c7766589071341b237973d73f5c45a3c5e",
+    "source_image": "/home/al/.codex/generated_images/01a10655-1195-7271-a437-cbe09d602dd4/exec-1199cd1f-0e2b-479a-882d-6298c688794a.png",
+    "references": [
+      "assets/art/imperio/alabardero.png",
+      "assets/art/imperio/arcabucero.png"
+    ],
+    "thread": "01a10655-1195-7271-a437-cbe09d602dd4",
+    "approved": "2026-10-04"
+  },
+  {
+    "id": 40,
+    "faction": "Elfos",
+    "name": "Danzante de espadas (héroe)",
+    "path": "assets/art/elfos/danzante-de-espadas.png",
+    "prompt": "Use case: stylized-concept. Asset type: hero design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single character, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, dark fantasy. An elven blade dancer hero, the fastest of the elves: long white hair tied back, light armor of golden leaf-shaped scales, flowing green cloth tassets that swirl with movement, a curved elven sword in each hand. Mid-spin, graceful and lethal stance, infiltrator and harrier. Palette: moss green, gold, silver, pale skin, amber accents.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same elven faction: match their painting style, finish, lighting, grey background and moss-green, silver and pale-wood palette exactly, but design a NEW character as described; do not copy their figures. The last attached image is this same character as already approved in game: keep his face, costume and colours.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, heavy armor, shield, katana, ninja",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "c2b15e4d42bb5658c07f4ef65505759a315dce4a4066a44c8db47455601b712d",
+    "source_image": "/home/al/.codex/generated_images/01a10b77-4611-7560-9c8c-13527f82421e/exec-c8528433-1ed2-4f38-bcd0-f6003ee74b88.png",
+    "references": [
+      "assets/art/elfos/arquero.png",
+      "assets/art/elfos/guardia-del-bosque.png",
+      ".cache/laminas/danzante-de-espadas-identidad.png"
+    ],
+    "thread": "01a10b77-4611-7560-9c8c-13527f82421e",
+    "approved": "2026-10-05"
+  },
+  {
+    "id": 41,
+    "faction": "Elfos",
+    "name": "Druida (héroe)",
+    "path": "assets/art/elfos/druida.png",
+    "prompt": "Use case: stylized-concept. Asset type: hero design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single character, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, dark fantasy. An elven druid hero who controls the terrain: robes of living leaves and moss, a small crown of antlers and flowers, long copper hair, a twisted staff of living wood with green shoots and a soft green light at the tip, thin roots curling around her bare feet as if growing from the ground. Calm, commanding stance. Palette: moss green, bark brown, copper, pale green light.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same elven faction: match their painting style, finish, lighting, grey background and moss-green, silver and pale-wood palette exactly, but design a NEW character as described; do not copy their figures. The last attached image is this same character as already approved in game: keep his face, costume and colours.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, pointed wizard hat, intense magic glow, fire",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "b21807d25b2303ec1fc372c834d9e3be54790f0792e1198ab09f7b5ca38a4dd9",
+    "source_image": "/home/al/.codex/generated_images/01a10b77-470a-7930-b518-b577966e791b/exec-a1712071-cfa6-41e8-98b1-705b83aed5e3.png",
+    "references": [
+      "assets/art/elfos/arquero.png",
+      "assets/art/elfos/guardia-del-bosque.png",
+      ".cache/laminas/druida-identidad.png"
+    ],
+    "thread": "01a10b77-470a-7930-b518-b577966e791b",
+    "approved": "2026-10-05"
+  },
+  {
+    "id": 42,
+    "faction": "Elfos",
+    "name": "Cantora (héroe)",
+    "path": "assets/art/elfos/cantora.png",
+    "prompt": "Use case: stylized-concept. Asset type: hero design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single character, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, dark fantasy. An elven songstress hero, a support leader whose song inspires allies: long green and silver gown with a light chain shirt beneath, a diadem of silver leaves, very long blond hair, a small harp of pale wood held in the left arm, the right hand raised as she sings. Serene, uplifting stance. Palette: moss green, silver, pale gold, pale wood.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same elven faction: match their painting style, finish, lighting, grey background and moss-green, silver and pale-wood palette exactly, but design a NEW character as described; do not copy their figures. The last attached image is this same character as already approved in game: keep his face, costume and colours.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, fairy wings, microphone, sexualized pose",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "0c638f041d205e0a29a6e42e88cf5167f1fb2dcd9b9a8ff438f116643f671b58",
+    "source_image": "/home/al/.codex/generated_images/01a10b77-466d-70d3-a73a-653d0f4a13a4/exec-f29fad42-9511-41c1-b5a7-a2fa60d14481.png",
+    "references": [
+      "assets/art/elfos/arquero.png",
+      "assets/art/elfos/guardia-del-bosque.png",
+      ".cache/laminas/cantora-identidad.png"
+    ],
+    "thread": "01a10b77-466d-70d3-a73a-653d0f4a13a4",
+    "approved": "2026-10-05"
+  },
+  {
+    "id": 43,
+    "faction": "Elfos",
+    "name": "Jinete elfo (a caballo)",
+    "path": "assets/art/elfos/jinete.png",
+    "prompt": "Use case: stylized-concept. Asset type: troop design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single mounted character, full body side view and three-quarter front view, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, dark fantasy. An elven rider, the fastest unit of the game, mounted on a slender grey elven horse with a leaf-embossed bridle and a moss-green saddle cloth: light leaf-scale armor, flowing green cloak, a long slender lance with a leaf-shaped blade couched for the charge, a recurved bow and quiver on the back and a curved sword at the hip. Swift, harrying posture. Palette: moss green, silver, dappled grey horse, pale wood, amber accents.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same elven faction: match their painting style, finish, lighting, grey background and moss-green, silver and pale-wood palette exactly, but design a NEW character as described; do not copy their figures.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, stag, deer, unicorn, antlers, fantasy creature mount, extra horse legs, deformed horse anatomy",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "d60c673063c16852c5b1559e99f8ec826cbc7e9a113a4634d6993ac39b94abc8",
+    "source_image": "/home/al/.codex/generated_images/01a10b77-4659-7483-868a-3cb5c5eb9030/exec-0aadbba4-1a27-47a7-942b-e2313ed30aa9.png",
+    "references": [
+      "assets/art/elfos/arquero.png",
+      "assets/art/elfos/guardia-del-bosque.png"
+    ],
+    "thread": "01a10b77-4659-7483-868a-3cb5c5eb9030",
+    "approved": "2026-10-05"
+  },
+  {
+    "id": 44,
+    "faction": "Elfos",
+    "name": "Sacerdotisa",
+    "path": "assets/art/elfos/sacerdotisa.png",
+    "prompt": "Use case: stylized-concept. Asset type: troop design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single character, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, dark fantasy. An elven priestess of protection, healing and concealment: layered white and moss-green robes with a silver leaf-scale mantle, a hood that can shadow her face, long silver hair, a slender staff of pale wood topped with a crescent of silver leaves, a faint soft mist curling around her free hand. Calm, protective stance. Palette: white, moss green, silver, pale wood, soft mist.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same elven faction: match their painting style, finish, lighting, grey background and moss-green, silver and pale-wood palette exactly, but design a NEW character as described; do not copy their figures.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, intense magic glow, heavy armor, nun habit, sexualized pose",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "f79fe22ebda259d65d2016730e6ce4360e78b4a3b52696665c1490f4ede144dd",
+    "source_image": "/home/al/.codex/generated_images/01a10b77-45be-7681-b442-ca3ad813ec68/exec-024a8d4a-3055-400c-bb94-e9f459bb0cfd.png",
+    "references": [
+      "assets/art/elfos/arquero.png",
+      "assets/art/elfos/guardia-del-bosque.png"
+    ],
+    "thread": "01a10b77-45be-7681-b442-ca3ad813ec68",
+    "approved": "2026-10-05"
+  },
+  {
+    "id": 45,
+    "faction": "Elfos",
+    "name": "Asesino",
+    "path": "assets/art/elfos/asesino.png",
+    "prompt": "Use case: stylized-concept. Asset type: troop design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single character, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, dark fantasy. An elven assassin who appears from the flanks and poisons: dark hooded leather armor wrapped tightly, a mask of dark cloth over the lower face, only sharp amber eyes visible, two short curved daggers with a faint green poison sheen on the blades, small vials at the belt, soft boots. Low, coiled stance ready to slip between enemies. Palette: dark moss green, charcoal, bark brown, poison green, amber eyes.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same elven faction: match their painting style, finish, lighting, grey background and moss-green, silver and pale-wood palette exactly, but design a NEW character as described; do not copy their figures.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, ninja, katana, glowing weapon, gore",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "70877379e0847f46ad199a838ae0ce3adc44e282e7767f1771f668891e558fa2",
+    "source_image": "/home/al/.codex/generated_images/01a10b77-4767-7b93-9932-3efc58adafd1/exec-e7f572c7-9959-4321-bae2-1d0e89915ba4.png",
+    "references": [
+      "assets/art/elfos/arquero.png",
+      "assets/art/elfos/guardia-del-bosque.png"
+    ],
+    "thread": "01a10b77-4767-7b93-9932-3efc58adafd1",
+    "approved": "2026-10-05"
+  },
+  {
+    "id": 46,
+    "faction": "Orkos",
+    "name": "Kaudillo (héroe)",
+    "path": "assets/art/orkos/kaudillo.png",
+    "prompt": "Use case: stylized-concept. Asset type: hero design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single character, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, dark fantasy. A huge orc warlord hero, the Kaudillo, who grows stronger the more orcs fight around him and whose war cry stops goblins from fleeing: dark olive-green skin, massive tusks, scars, armor of hammered scrap plates with spikes and trophy skulls, a wolf-fur cloak, a horned iron helmet, a giant butcher cleaver held in both hands. Mid-roar, commanding stance. Palette: olive green skin, rust iron, dark fur, bone, war paint red.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same orc and goblin faction: match their painting style, finish, lighting, grey background and olive-green, rust and war-paint-red palette exactly, but design a NEW character as described; do not copy their figures. The last attached image is this same character as already approved in game: keep his face, costume and colours.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, crown, cape of royalty, clean shiny armor",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "8e847d3e018b7a4efaad074fd2eaf2bd463789cd750c3c2dda7b33f5f449a536",
+    "source_image": "/home/al/.codex/generated_images/01a10bf2-9ad9-71e2-9263-a237c3164b54/exec-563d1e16-1231-436f-a180-929bfc8d7eb3.png",
+    "references": [
+      "assets/art/orkos/orko-con-hacha-y-escudo.png",
+      "assets/art/orkos/goblin-lancero.png",
+      ".cache/laminas/kaudillo-identidad.png"
+    ],
+    "thread": "01a10bf2-9ad9-71e2-9263-a237c3164b54",
+    "approved": "2026-10-05"
+  },
+  {
+    "id": 47,
+    "faction": "Orkos",
+    "name": "Jefe goblin (héroe)",
+    "path": "assets/art/orkos/jefe-goblin.png",
+    "prompt": "Use case: stylized-concept. Asset type: hero design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single character, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, dark fantasy. A goblin boss hero, dirty and treacherous, who sets hidden traps: small and wiry, about half the height of a human, sickly yellow-green skin, huge pointed ears, sly grin with crooked teeth, a crooked brass crown, an oversized ragged red cloak, many trinkets and amulets, a poisoned dagger in the right hand dripping green, a rusty bear trap hanging from his belt. Sneaky, scheming stance. Palette: yellow-green skin, faded red cloth, tarnished brass, rust iron, poison green.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same orc and goblin faction: match their painting style, finish, lighting, grey background and olive-green, rust and war-paint-red palette exactly, but design a NEW character as described; do not copy their figures. The last attached image is this same character as already approved in game: keep his face, costume and colours.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, tall, muscular, clean clothes, noble look",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "13ef647d48bdd7763d313bcfb09ec5ab14cea6edef6f7151d23147622f87bd2d",
+    "source_image": "/home/al/.codex/generated_images/01a10bf2-975e-7c31-acdf-2a51ef22c69f/exec-04b104ce-e0da-4b1e-8c4f-a432c0023b56.png",
+    "references": [
+      "assets/art/orkos/orko-con-hacha-y-escudo.png",
+      "assets/art/orkos/goblin-lancero.png",
+      ".cache/laminas/jefe-goblin-identidad.png"
+    ],
+    "thread": "01a10bf2-975e-7c31-acdf-2a51ef22c69f",
+    "approved": "2026-10-05"
+  },
+  {
+    "id": 48,
+    "faction": "Orkos",
+    "name": "Chamán goblin (héroe)",
+    "path": "assets/art/orkos/chaman-goblin.png",
+    "prompt": "Use case: stylized-concept. Asset type: hero design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single character, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, dark fantasy. A goblin shaman hero with unstable magic that may unleash a great fireball or backfire on himself: small and hunched, about half the height of a human, sickly yellow-green skin, huge pointed ears, wild eyes, a headdress of feathers and a small animal skull, necklaces of bones and teeth, white bone paint, scraps of fur, a gnarled staff topped with a cracked skull holding an unstable sputtering flame, singed robe edges and a few scorch marks on himself. Twitchy, half-mad stance. Palette: yellow-green skin, bone white, dirty fur brown, orange-green flame.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same orc and goblin faction: match their painting style, finish, lighting, grey background and olive-green, rust and war-paint-red palette exactly, but design a NEW character as described; do not copy their figures.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, orc, tall, muscular, pointed wizard hat, huge explosion",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "43e340f473702f04e4a12043e07e7575344fdc3b32b7eb7ddfde33e196196987",
+    "source_image": "/home/al/.codex/generated_images/01a10bf2-9759-7220-9e98-431ea08c1637/exec-ebb9b48f-a33f-4cc5-87fd-e5451f1f64cb.png",
+    "references": [
+      "assets/art/orkos/orko-con-hacha-y-escudo.png",
+      "assets/art/orkos/goblin-lancero.png"
+    ],
+    "thread": "01a10bf2-9759-7220-9e98-431ea08c1637",
+    "approved": "2026-10-05"
+  },
+  {
+    "id": 49,
+    "faction": "Orkos",
+    "name": "Jinete de hiena (goblin)",
+    "path": "assets/art/orkos/jinete-de-hiena.png",
+    "prompt": "Use case: stylized-concept. Asset type: troop design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single mounted character, full body side view and three-quarter front view, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, dark fantasy. A goblin rider on a big spotted war hyena; the hyena also bites in battle, with snarling open jaws: the hyena has a sloping back, shaggy mane, mangy spotted fur, a crude leather harness with iron studs and a small saddle; the goblin rider is small and scrawny, sickly yellow-green skin, huge pointed ears, dented helmet, ragged leather, holding a short spear and a small round shield. Lunging, harrying posture. Palette: yellow-green skin, sandy spotted fur, rust iron, faded red rags.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same orc and goblin faction: match their painting style, finish, lighting, grey background and olive-green, rust and war-paint-red palette exactly, but design a NEW character as described; do not copy their figures.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, boar, wolf, dog, horse, orc rider, deformed animal anatomy, extra legs",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "caa944e3e289e5ccae602a1e06dbe03c05ddf68f76d71b3b013d9fdea718dd9e",
+    "source_image": "/home/al/.codex/generated_images/01a10bf2-9b8c-75c1-9de2-4bf4e5b0dbe7/exec-0afc4b98-31c2-4b73-a4e7-e6a427d0c89d.png",
+    "references": [
+      "assets/art/orkos/orko-con-hacha-y-escudo.png",
+      "assets/art/orkos/goblin-lancero.png"
+    ],
+    "thread": "01a10bf2-9b8c-75c1-9de2-4bf4e5b0dbe7",
+    "approved": "2026-10-05"
+  },
+  {
+    "id": 50,
+    "faction": "Orkos",
+    "name": "Orko con armadura pesada",
+    "path": "assets/art/orkos/orko-armadura-pesada.png",
+    "prompt": "Use case: stylized-concept. Asset type: troop design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single character, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, dark fantasy. A heavily armored orc, slower and tougher than the rest: dark olive-green skin, tusks showing through a full-face iron helmet with a slit visor and small horns, thick layered armor of hammered black iron plates riveted over mail and leather, huge spiked pauldrons, iron boots, a massive double-bitten great axe held in both hands. Heavy, immovable stance. Palette: olive green skin, blackened iron, rust brown, war paint red accents.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same orc and goblin faction: match their painting style, finish, lighting, grey background and olive-green, rust and war-paint-red palette exactly, but design a NEW character as described; do not copy their figures.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, shield, clean shiny knight armor, cape",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "f86f5f9325f15adfcc41d5cdf62657786c870a2abb987cf22dcf0b77997a79fe",
+    "source_image": "/home/al/.codex/generated_images/01a10bf2-9917-7050-9901-76004478466c/exec-32107076-9afa-4ce8-a169-712f9357216f.png",
+    "references": [
+      "assets/art/orkos/orko-con-hacha-y-escudo.png",
+      "assets/art/orkos/goblin-lancero.png"
+    ],
+    "thread": "01a10bf2-9917-7050-9901-76004478466c",
+    "approved": "2026-10-05"
+  },
+  {
+    "id": 51,
+    "faction": "No muertos",
+    "name": "Nigromante (héroe)",
+    "path": "assets/art/no-muertos/nigromante.png",
+    "prompt": "Use case: stylized-concept. Asset type: hero design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single character, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, dark fantasy. A necromancer hero who works magic with corpses and commands zombies: long ragged black and purple robes, hood thrown back, pale gaunt face with sunken eyes, a necklace of finger bones, pouches and small bone fetishes at the belt, a staff of black wood topped with a human skull with a faint green glow in its eye sockets. Cold, commanding stance, one hand raised as if calling the dead. Palette: black, faded purple, bone, pale skin, sickly green glow.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same undead faction: match their painting style, finish, lighting, grey background and bone, rust, black and sickly-green palette exactly, but design a NEW character as described; do not copy their figures. The last attached image is this same character as already approved in game: keep his face, costume and colours.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, pointed wizard hat, crown, intense magic glow, fire",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "375b2cb6b14d31a1b702e9636ae238871cee20d2f5c44ba639abbdacec666334",
+    "source_image": "/home/al/.codex/generated_images/01a10cb6-a43e-7af1-8f28-b847f000baa9/exec-1cef1c1f-d285-4ff0-9c46-59ddd4027364.png",
+    "references": [
+      "assets/art/no-muertos/esqueleto-guerrero.png",
+      "assets/art/no-muertos/espectro.png",
+      ".cache/laminas/nigromante-identidad.png"
+    ],
+    "thread": "01a10cb6-a43e-7af1-8f28-b847f000baa9",
+    "approved": "2026-10-05"
+  },
+  {
+    "id": 52,
+    "faction": "No muertos",
+    "name": "Vampiro (héroe)",
+    "path": "assets/art/no-muertos/vampiro.png",
+    "prompt": "Use case: stylized-concept. Asset type: hero design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single character, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, dark fantasy. A vampire lord hero who heals by draining life and bends minds: aristocrat with very pale skin and long black hair, a garnet velvet doublet with black embroidery, a light black cuirass, a high-collared black cloak lined with red, a slender rapier in the right hand and the clawed left hand free and raised. Elegant, predatory stance. Palette: black, garnet red, deathly pale skin, steel.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same undead faction: match their painting style, finish, lighting, grey background and bone, rust, black and sickly-green palette exactly, but design a NEW character as described; do not copy their figures. The last attached image is this same character as already approved in game: keep his face, costume and colours.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, bat wings, fangs dripping blood, shield, sexualized pose",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "f0869aebb96f1a649280c947aacfe9f2c9b6ba691e820d4a3a4f426d38c897c3",
+    "source_image": "/home/al/.codex/generated_images/01a10cb6-a455-77f3-8320-d842b9edc535/exec-2c1a845c-d6a0-41ce-a4b6-3d4af8f93dd2.png",
+    "references": [
+      "assets/art/no-muertos/esqueleto-guerrero.png",
+      "assets/art/no-muertos/espectro.png",
+      ".cache/laminas/vampiro-identidad.png"
+    ],
+    "thread": "01a10cb6-a455-77f3-8320-d842b9edc535",
+    "approved": "2026-10-05"
+  },
+  {
+    "id": 53,
+    "faction": "No muertos",
+    "name": "Lich (héroe)",
+    "path": "assets/art/no-muertos/lich.png",
+    "prompt": "Use case: stylized-concept. Asset type: hero design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single character, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, dark fantasy. A lich hero, a long-range dark mage who drains abilities from enemies: the skeleton of a sorcerer with a rusted iron crown, rotten black and green ceremonial robes with frayed gold threads, bony hands with rings, a phylactery hanging at the neck, a tall staff of bone topped with a green gem, faint green light in the eye sockets. Tall, ominous stance. Palette: bone, black, rotten green, tarnished gold, pale green light.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same undead faction: match their painting style, finish, lighting, grey background and bone, rust, black and sickly-green palette exactly, but design a NEW character as described; do not copy their figures. The last attached image is this same character as already approved in game: keep his face, costume and colours.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, flesh on the face, intense magic glow, fire",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "17d08632eda11e43b5fc4e6e15171582447c6d320d45b03bb6d712e8ad7d07cb",
+    "source_image": "/home/al/.codex/generated_images/01a10cb6-a495-7410-b35c-45ed2b4f6594/exec-85dceaef-12a0-4362-9a83-fa36b91e38f0.png",
+    "references": [
+      "assets/art/no-muertos/esqueleto-guerrero.png",
+      "assets/art/no-muertos/espectro.png",
+      ".cache/laminas/lich-identidad.png"
+    ],
+    "thread": "01a10cb6-a495-7410-b35c-45ed2b4f6594",
+    "approved": "2026-10-05"
+  },
+  {
+    "id": 54,
+    "faction": "No muertos",
+    "name": "Caballero de la muerte",
+    "path": "assets/art/no-muertos/caballero-de-la-muerte.png",
+    "prompt": "Use case: stylized-concept. Asset type: troop design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single character, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, dark fantasy. A death knight, the dark counterpart of the templar knight, around whom the fallen rise again: dented black plate armor with iron rivets, a tattered black surcoat with a faded broken cross, a closed helm with short horns and a cold green glow behind the visor, a great notched two-handed sword. Heavy, implacable stance. Palette: black iron, faded bone white, rust, cold green glow.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same undead faction: match their painting style, finish, lighting, grey background and bone, rust, black and sickly-green palette exactly, but design a NEW character as described; do not copy their figures. The last attached image is this same character as already approved in game: keep his face, costume and colours.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, horse, shield, clean shiny armor, bright red cross",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "0536b0fa1b912f03729958c9b1fc0a9fc88fb9589a82a11013db678c49e9b881",
+    "source_image": "/home/al/.codex/generated_images/01a10cb6-a462-7ac3-a5bc-54c71790fc49/exec-7af0319c-7daa-4941-bc46-b5b088721999.png",
+    "references": [
+      "assets/art/no-muertos/esqueleto-guerrero.png",
+      "assets/art/no-muertos/espectro.png",
+      ".cache/laminas/caballero-de-la-muerte-identidad.png"
+    ],
+    "thread": "01a10cb6-a462-7ac3-a5bc-54c71790fc49",
+    "approved": "2026-10-05"
+  },
+  {
+    "id": 55,
+    "faction": "No muertos",
+    "name": "Zombie",
+    "path": "assets/art/no-muertos/zombie.png",
+    "status": "provided by user",
+    "width": 1448,
+    "height": 1086,
+    "sha256": "4841b3030295aa656e9968c90c12fcd2864fc619b843ede936a85fd5ec848e25",
+    "approved": "2026-10-05"
+  },
+  {
+    "id": 56,
+    "faction": "No muertos",
+    "name": "Jinete de plaga",
+    "path": "assets/art/no-muertos/jinete-de-plaga.png",
+    "status": "provided by user",
+    "width": 1448,
+    "height": 1086,
+    "sha256": "e5779d3c996752ee82e7c398a1029e4a05f09d37c9f8777465d6c2b115715cba",
+    "approved": "2026-10-05"
   }
 ]

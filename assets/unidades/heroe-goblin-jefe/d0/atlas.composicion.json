@@ -1,0 +1,24 @@
+{
+  "atlas": "atlas.webp",
+  "sha256": "7c4fa9329e41330932b3f39d32e96ff797debfd857b35afaeebc85c09a132231",
+  "hojas": [
+    {
+      "imagen": "hoja-a.webp",
+      "sha256": "a2a2860fec4321d5cf2d93ebc8ffc6a7f2e092707d2c2d551617c33e7fdeb6cb",
+      "filas": [
+        "idle",
+        "walk",
+        "charge"
+      ]
+    },
+    {
+      "imagen": "hoja-b.webp",
+      "sha256": "4d7bf10630a07806f37ab9c2ce9caf5c883d7afa89b049e830335d79a7d32825",
+      "filas": [
+        "attack",
+        "hurt",
+        "death"
+      ]
+    }
+  ]
+}

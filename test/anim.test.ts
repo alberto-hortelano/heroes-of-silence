@@ -4,7 +4,7 @@
  *
  * El reloj lo pone `tick`, una vez por fotograma; las lecturas no lo tocan.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { BattleAnimator, DURACION, relojDelDisparo, VUELO_MS } from '../src/client/anim.js';
 import { msPorCasilla } from '../src/client/marcha.js';
 import { clipQueSePinta } from '../src/client/render/batalla.js';
@@ -147,8 +147,11 @@ describe('el animador de batalla', () => {
     expect(clipQueSePinta(victima!.body, a.figura(victima!))).toBe('idle');
   });
 
-  /** Una batalla con `tirador` de atacante, y su primer stack disparando al primer defensor. */
-  function disparo(tirador: string) {
+  /**
+   * Una batalla con `tirador` de atacante, y su primer stack disparando al
+   * primer defensor (o golpeándolo, con `tipo: 'attack'`).
+   */
+  function disparo(tirador: string, tipo: 'shoot' | 'attack' = 'shoot') {
     const a = new BattleAnimator();
     const b = createBattle(
       { army: troopsAsStacks(ejercito({ creature: tirador, count: 2 })), hero: null },
@@ -159,7 +162,12 @@ describe('el animador de batalla', () => {
     a.tick(0);
     const quien = b.stacks.find((s) => s.side === 'attacker')!;
     const victima = b.stacks.find((s) => s.side === 'defender')!;
-    b.log.push({ kind: 'shoot', stack: quien.id, target: victima.id, damage: 4, killed: 0 });
+    const hecho = { stack: quien.id, target: victima.id, damage: 4, killed: 0 };
+    b.log.push(
+      tipo === 'shoot'
+        ? { kind: 'shoot', ...hecho }
+        : { kind: 'attack', ...hecho, retaliation: false },
+    );
     a.observe(b);
     a.tick(0);
     const proyectil = () => a.efectos(b).find((e) => e.tipo === 'proyectil');
@@ -172,9 +180,10 @@ describe('el animador de batalla', () => {
     };
   }
 
-  it('un arquero suelta el proyectil en la columna que su hoja marca como suelta, y el daño llega con él', () => {
-    const info = hojaDe(arteDe('archer'), MIRADA_DE_PRESENTACION).clips.attack;
-    expect(info.suelta, 'el arco de `atlas-8d.json` sin suelta').toBeDefined();
+  it('un arquero dispara con su clip `shoot`, suelta el proyectil en su columna de suelta, y el daño llega con él', () => {
+    const info = hojaDe(arteDe('archer'), MIRADA_DE_PRESENTACION).clips.shoot;
+    expect(info?.suelta, 'el arco de `atlas-8d.json` sin suelta en el disparo').toBeDefined();
+    if (info === undefined) return;
     const columna = 1000 / info.fps;
     const desde = (info.suelta as number) * columna;
     const { dura, impacto } = relojDelDisparo('archer');
@@ -182,11 +191,11 @@ describe('el animador de batalla', () => {
     const atlas = hojaDe(arteDe(quien.body), a.figura(quien).mira);
     // Mientras tensa: el tirador dispara, pero la flecha aún no ha salido.
     a.tick(desde - 1);
-    expect(a.figura(quien).clip).toBe('attack');
+    expect(a.figura(quien).clip).toBe('shoot');
     expect(proyectil()).toBeUndefined();
     // Sale con la columna de la suelta en pantalla, desde el tirador…
     a.tick(desde + 1);
-    expect(clipFrame(atlas, 'attack', a.figura(quien).tiempo)).toBe(info.suelta);
+    expect(clipFrame(atlas, 'shoot', a.figura(quien).tiempo)).toBe(info.suelta);
     expect(proyectil()?.t).toBeCloseTo(0, 1);
     // …y justo antes del impacto está llegando; la víctima aún no se duele.
     a.tick(impacto * dura - 1);
@@ -203,16 +212,44 @@ describe('el animador de batalla', () => {
     expect(a.busy).toBe(false);
   });
 
-  it('quien no tiene suelta en su hoja dispara como siempre: el proyectil sale en 0 y el paso dura lo de siempre', () => {
-    // El liche lanza con el bastón y nadie ha medido dónde «suelta» su clip.
-    for (const tirador of ['lich', 'peasant']) {
-      expect(hojaDe(arteDe(tirador), MIRADA_DE_PRESENTACION).clips.attack.suelta).toBeUndefined();
-      expect(relojDelDisparo(tirador)).toEqual({ dura: DURACION.shoot, impacto: 0.55, suelta: 0 });
-      const { a, proyectil } = disparo(tirador);
-      a.tick(1);
-      expect(proyectil()?.t, tirador).toBeCloseTo(0, 1);
-      a.tick(DURACION.shoot + 1);
-      expect(a.busy, tirador).toBe(false);
+  it('el mismo arquero, cuerpo a cuerpo, golpea con su ataque: la daga, no el arco', () => {
+    const { a, quien } = disparo('archer', 'attack');
+    a.tick(10);
+    expect(a.figura(quien).clip).toBe('attack');
+  });
+
+  it('quien dispara sin clip `shoot` cae al ataque, lo avisa, y el proyectil sale en 0 con el paso de siempre', () => {
+    // El liche lanza con el bastón: su Y Bot no tiene disparo ni suelta.
+    const aviso = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      for (const tirador of ['lich', 'peasant', 'power_lich']) {
+        const hoja = hojaDe(arteDe(tirador), MIRADA_DE_PRESENTACION);
+        expect(arteDe(tirador).dispara, tirador).toBe(false);
+        expect(hoja.clips.shoot, tirador).toBe(hoja.clips.attack);
+        expect(relojDelDisparo(tirador)).toEqual({
+          dura: DURACION.shoot,
+          impacto: 0.55,
+          suelta: 0,
+        });
+        const { a, quien, proyectil } = disparo(tirador);
+        a.tick(1);
+        // Pinta el paso tal cual, `shoot`, y en su hoja eso es la fila del ataque.
+        expect(a.figura(quien).clip, tirador).toBe('shoot');
+        expect(hoja.clips[a.figura(quien).clip], tirador).toBe(hoja.clips.attack);
+        expect(proyectil()?.t, tirador).toBeCloseTo(0, 1);
+        a.tick(DURACION.shoot + 1);
+        expect(a.busy, tirador).toBe(false);
+      }
+      // Una vez por arte, aunque dispare muchas veces, y diciendo de qué arte:
+      // el de `power_lich` es el mismo Y Bot «baston» que el del liche.
+      const disparoOtraVez = disparo('lich');
+      disparoOtraVez.a.tick(1);
+      expect(aviso.mock.calls.map((c) => String(c[0]))).toEqual([
+        'lich dispara y su arte (el Y Bot «baston») no tiene clip shoot: se pinta con attack',
+        'peasant dispara y su arte (el Y Bot «espada-escudo») no tiene clip shoot: se pinta con attack',
+      ]);
+    } finally {
+      aviso.mockRestore();
     }
   });
 

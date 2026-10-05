@@ -17,8 +17,25 @@
 import { existsSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import type { FaccionDeArena } from '../../src/core/arena.js';
-import { NOMBRES_DE_DIRECCION } from '../../src/shared/arte.js';
-import { carpetaDePoses, JUEGOS_DE_ARMAS, type JuegoEn8d, type Perfil } from '../art/poses.js';
+import {
+  type ClipDeFigura,
+  HOJAS_DE_FIGURA,
+  hojasDeFigura,
+  NOMBRES_DE_DIRECCION,
+} from '../../src/shared/arte.js';
+import {
+  type Atrezo,
+  type CuerpoACuerpo,
+  carpetaDeManiqui,
+  carpetaDePoses,
+  clipDeDisparoDe,
+  cuerpoACuerpoDe,
+  ESPADA_CORTA,
+  JUEGOS_DE_ARMAS,
+  type JuegoEn8d,
+  type Perfil,
+  UNA_MANO,
+} from '../art/poses.js';
 import type { Encargo } from './encargo.js';
 
 export interface Unidad {
@@ -41,7 +58,59 @@ export interface Unidad {
   readonly concepto?: string;
   /** El aspecto. La cámara, la pose y el fondo los pone el taller. */
   readonly aspecto: string;
+  /**
+   * El atrezo de SU maniquí, si el de su juego de armas no se parece a lo que
+   * lleva: los clips son los del juego y el atrezo, este (decisión del
+   * usuario, 04-10-2026: el Y Bot no es sagrado). Se renderiza con
+   * `pnpm taller maniqui <id>` en `_poses/unidades/<id>-8d/`, y sus hojas se
+   * pintan sobre él. El juego de `JUEGO_DEL_YBOT` sigue siendo el respaldo del
+   * cliente mientras no hay arte propio.
+   */
+  readonly maniqui?: Atrezo;
+  /**
+   * Su altura frente a la de un adulto humano, que es 1: el goblin, «la mitad
+   * de un humano» en sus láminas, y el troll, «más del doble que un orko». Las
+   * hojas se empaquetan con el reposo a esa altura (`alturaDelReposo`), y como
+   * el cliente escala por la celda, se ve así en el tablero. Sin talla, 1.
+   */
+  readonly talla?: number;
 }
+
+/** El arma de mano de espada y escudo, para cambiarle lo que haga falta. */
+const ESPADA_Y_ESCUDO = JUEGOS_DE_ARMAS['espada-escudo'].atrezo;
+/**
+ * Un arma de fuego al hombro: la ballesta sin arco, cuerda ni virote. Con su
+ * arma de cuerpo a cuerpo, que es la del ataque: el arma de fuego es la del
+ * disparo (decisión del usuario, 04-10-2026).
+ */
+const armaDeFuego = (
+  delante: number,
+  atras: number,
+  grosor: number,
+  cuerpoACuerpo: CuerpoACuerpo,
+): Atrezo => ({
+  ballesta: { delante, atras, palas: 0, combadura: 0, grosor },
+  separacionManos: 0.24,
+  bajaEnReposo: 0.5,
+  cuerpoACuerpo,
+});
+/** El artillero golpea con el botafuego: un palo de un metro, sin punta. */
+const BOTAFUEGO: CuerpoACuerpo = {
+  describe: 'el botafuego (una vara de madera de un metro con la mecha en la punta)',
+  atrezo: {
+    espada: { largo: 1.0, guarda: 0, puño: 0.3, agarre: 0, grosor: 0.018 },
+    ...UNA_MANO,
+    adelanteMinimo: 0.5,
+  },
+};
+/** El ingeniero, con su martillo: el de la maza, más corto y con menos cabeza. */
+const MARTILLO: CuerpoACuerpo = {
+  describe: 'su martillo pequeño de una mano en la derecha',
+  atrezo: {
+    espada: { largo: 0.36, guarda: 0, puño: 0.14, agarre: 0, grosor: 0.022, cabeza: 0.06 },
+    ...UNA_MANO,
+  },
+};
 
 const PINTURA =
   'Estilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.';
@@ -107,6 +176,11 @@ export const UNIDADES: readonly Unidad[] = [
     nombre: 'Esqueleto guerrero',
     perfil: 'espada-escudo',
     concepto: 'assets/art/no-muertos/esqueleto-guerrero.png',
+    maniqui: {
+      ...ESPADA_Y_ESCUDO,
+      espada: { largo: 0.8, guarda: 0.16, puño: 0.16, agarre: 0.08 },
+      rodela: 0.27,
+    },
     aspecto:
       'Un esqueleto guerrero: huesos amarillentos, cota de malla oxidada y yelmo abollado, escudo redondo de madera en el brazo izquierdo y espada mellada en la derecha.',
   },
@@ -125,17 +199,13 @@ export const UNIDADES: readonly Unidad[] = [
     nombre: 'Zombie',
     perfil: 'espada-escudo',
     concepto: 'assets/art/no-muertos/zombie.png',
+    maniqui: {
+      ...ESPADA_Y_ESCUDO,
+      espada: { largo: 1.0, guarda: 0.2, puño: 0.2, agarre: 0.08 },
+      escudo: false,
+    },
     aspecto:
-      'Un zombi campesino: piel gris verdosa, camisa y calzas de labriego hechas jirones, encorvado, una horca de labranza en la mano derecha.',
-  },
-  {
-    id: 'necrofago',
-    faccion: 'no-muertos',
-    nombre: 'Necrófago (Ghoul)',
-    perfil: 'espada-escudo',
-    concepto: 'assets/art/no-muertos/necrofago.png',
-    aspecto:
-      'Un necrófago: humanoide flaco y encorvado sobre DOS piernas, piel cenicienta tirante sobre las costillas, garras largas, taparrabos de harapos, boca de dientes afilados. Sin armas.',
+      'Un zombi: cadáver demacrado de piel gris cenicienta con la carne podrida, pelo ralo y largo, boca abierta, túnica oscura y harapos hechos jirones manchados de sangre, cuerda por cinturón, encorvado y arrastrando los pies, espada larga oxidada y manchada de sangre en la mano derecha, la izquierda en garra.',
   },
   {
     id: 'espectro',
@@ -143,17 +213,31 @@ export const UNIDADES: readonly Unidad[] = [
     nombre: 'Espectro',
     perfil: 'espada-escudo',
     concepto: 'assets/art/no-muertos/espectro.png',
+    maniqui: {
+      ...ESPADA_Y_ESCUDO,
+      espada: { largo: 1.0, guarda: 0.2, puño: 0.2, agarre: 0.08 },
+      escudo: false,
+    },
     aspecto:
       'Un espectro: figura encapuchada con armadura fantasmal y túnica de jirones verde grisáceo que se deshace hacia los pies, rostro oculto en sombra, espada larga en la mano derecha. Pintado OPACO, sin transparencias: lo fantasmal lo dan los colores pálidos y los jirones.',
   },
   {
-    id: 'golem-de-huesos',
+    id: 'caballero-de-la-muerte',
     faccion: 'no-muertos',
-    nombre: 'Gólem de huesos',
+    nombre: 'Caballero de la muerte',
     perfil: 'dos-manos',
-    concepto: 'assets/art/no-muertos/golem-de-huesos.png',
+    concepto: 'assets/art/no-muertos/caballero-de-la-muerte.png',
     aspecto:
-      'Un gólem de huesos: coloso de huesos atados con cadenas y bandas de hierro, costillar con un resplandor verde, cráneo astado como cabeza, puños enormes de huesos. Sin armas.',
+      'Un caballero de la muerte, contrapunto oscuro del templario: armadura de placas negra y abollada con remaches de hierro, sobrevesta negra hecha jirones con una cruz rota desteñida, yelmo cerrado con cuernos cortos y un brillo verde frío tras la visera, gran espadón mellado empuñado a dos manos.',
+  },
+  {
+    id: 'jinete-de-plaga',
+    faccion: 'no-muertos',
+    nombre: 'Jinete de plaga (a caballo)',
+    perfil: 'montado-lanza',
+    concepto: 'assets/art/no-muertos/jinete-de-plaga.png',
+    aspecto:
+      'Un jinete de plaga A CABALLO, como el del concepto: caballo negro con testera de hierro y gualdrapa negra hecha jirones con cruces blancas de serpiente; el jinete con máscara de médico de la peste de pico largo, capucha y túnica negra raída sobre armadura, lanza larga con un estandarte negro desgarrado con la misma cruz. Sin escudo. Jinete y caballo son UNA sola figura.',
   },
   {
     id: 'imperio-alabardero',
@@ -161,6 +245,19 @@ export const UNIDADES: readonly Unidad[] = [
     nombre: 'Alabardero',
     perfil: 'dos-manos',
     concepto: 'assets/art/imperio/alabardero.png',
+    maniqui: {
+      espada: {
+        largo: 1.6,
+        guarda: 0,
+        puño: 0.6,
+        agarre: 0,
+        grosor: 0.02,
+        moharra: 0.25,
+        remate: 'hacha',
+      },
+      ...UNA_MANO,
+      adelanteMinimo: 0.6,
+    },
     aspecto:
       'Un alabardero lansquenete: morrión de acero, peto, mangas y calzas acuchilladas a franjas amarillas y negras con forros rojos, alabarda empuñada a dos manos y espada corta al cinto.',
   },
@@ -170,6 +267,11 @@ export const UNIDADES: readonly Unidad[] = [
     nombre: 'Piquero',
     perfil: 'dos-manos',
     concepto: 'assets/art/imperio/piquero.png',
+    maniqui: {
+      espada: { largo: 1.9, guarda: 0, puño: 0.6, agarre: 0, grosor: 0.02, moharra: 0.2 },
+      ...UNA_MANO,
+      adelanteMinimo: 0.6,
+    },
     aspecto:
       'Un piquero lansquenete: morrión, peto de acero, ropa acuchillada a franjas amarillas y negras, pica larga (una vez y media su altura) empuñada a dos manos, inclinada y nunca más larga que eso.',
   },
@@ -188,6 +290,11 @@ export const UNIDADES: readonly Unidad[] = [
     nombre: 'Coracero',
     perfil: 'espada-escudo',
     concepto: 'assets/art/imperio/coracero.png',
+    maniqui: {
+      ...ESPADA_Y_ESCUDO,
+      espada: { largo: 0.95, guarda: 0.22, puño: 0.2, agarre: 0.085 },
+      escudo: false,
+    },
     aspecto:
       'Un coracero: armadura de placas pesada y oscura casi completa, banda roja cruzada al pecho, borgoñota cerrada, espada de lazo de una mano. Sin escudo. Muy duro y lento.',
   },
@@ -197,6 +304,7 @@ export const UNIDADES: readonly Unidad[] = [
     nombre: 'Arcabucero',
     perfil: 'ballesta',
     concepto: 'assets/art/imperio/arcabucero.png',
+    maniqui: armaDeFuego(0.75, 0.25, 0.022, ESPADA_CORTA),
     aspecto:
       'Un arcabucero: sombrero de ala ancha con pluma roja, jubón acuchillado amarillo y negro, bandolera de cargas, banda roja a la cintura, arcabuz de mecha empuñado con las dos manos y la horquilla colgada.',
   },
@@ -206,6 +314,11 @@ export const UNIDADES: readonly Unidad[] = [
     nombre: 'Rodelero',
     perfil: 'espada-escudo',
     concepto: 'assets/art/imperio/rodelero.png',
+    maniqui: {
+      ...ESPADA_Y_ESCUDO,
+      espada: { largo: 0.9, guarda: 0.12, puño: 0.14, agarre: 0.07, grosor: 0.014 },
+      rodela: 0.25,
+    },
     aspecto:
       'Un rodelero: morrión con pluma roja, peto de acero, ropa acuchillada roja y negra, rodela de acero redonda en el brazo izquierdo y espada ropera en la derecha.',
   },
@@ -215,8 +328,28 @@ export const UNIDADES: readonly Unidad[] = [
     nombre: 'Artillero con culebrina',
     perfil: 'ballesta',
     concepto: 'assets/art/imperio/artillero-con-culebrina.png',
+    maniqui: armaDeFuego(0.85, 0.2, 0.038, BOTAFUEGO),
     aspecto:
       'Un artillero: gorra de lana, mandil de cuero tiznado sobre ropa amarilla y negra, guantes gruesos, culebrina de mano (cañón largo y ligero de bronce con culata de madera) empuñada con las dos manos, bolsa de pólvora y botafuego al cinto. Sin cureña.',
+  },
+  {
+    id: 'imperio-pistolero-montado',
+    faccion: 'imperio',
+    nombre: 'Pistolero montado',
+    // La hoja de una dirección es la del jinete con lanza: el aspecto dice que no la lleva.
+    perfil: 'montado-lanza',
+    concepto: 'assets/art/imperio/pistolero-montado.png',
+    aspecto:
+      'Un pistolero montado (reitre) A CABALLO, como el del concepto: media armadura ennegrecida, morrión abierto, banda roja, mangas acuchilladas amarillas y negras, pistola de rueda en la mano derecha y espada al cinto. SIN lanza y SIN escudo. El caballo, castaño oscuro, lleva gualdrapa amarilla y negra. Jinete y caballo son UNA sola figura.',
+  },
+  {
+    id: 'imperio-granadero',
+    faccion: 'imperio',
+    nombre: 'Granadero',
+    perfil: 'ballesta',
+    concepto: 'assets/art/imperio/granadero.png',
+    aspecto:
+      'Un granadero: gorro alto de tela a franjas amarillas y negras con cinta roja, coleto de cuero sobre ropa acuchillada amarilla y negra, banda roja a la cintura, bandolera y bolsa de granadas de hierro, una granada redonda con la mecha encendida en la mano derecha, mecha lenta enrollada en la muñeca izquierda y un sable al cinto, con el que pelea cuerpo a cuerpo.',
   },
   {
     id: 'elfo-arquero',
@@ -233,6 +366,12 @@ export const UNIDADES: readonly Unidad[] = [
     nombre: 'Explorador',
     perfil: 'espada-escudo',
     concepto: 'assets/art/elfos/explorador.png',
+    maniqui: {
+      ...ESPADA_Y_ESCUDO,
+      espada: { largo: 0.45, guarda: 0.06, puño: 0.12, agarre: 0.06, grosor: 0.014 },
+      escudo: false,
+      daga: { largo: 0.4 },
+    },
     aspecto:
       'Un explorador elfo: capucha y capa de camuflaje hecha de hojas secas, máscara de tela, ropa de cuero oscuro, dos cuchillos curvos, uno en cada mano, arco corto a la espalda. Agazapado.',
   },
@@ -242,34 +381,52 @@ export const UNIDADES: readonly Unidad[] = [
     nombre: 'Guardia del bosque',
     perfil: 'espada-escudo',
     concepto: 'assets/art/elfos/guardia-del-bosque.png',
+    maniqui: {
+      espada: { largo: 1.6, guarda: 0, puño: 0.6, agarre: 0, grosor: 0.02, moharra: 0.25 },
+      ...UNA_MANO,
+      escudo: true,
+      adelanteMinimo: 0.6,
+    },
     aspecto:
       'Un guardia del bosque elfo: armadura de escamas en forma de hoja verde oliva, yelmo alto con alas de hoja, capa verde, escudo oval de madera tallada en el brazo izquierdo y lanza larga élfica en la derecha.',
   },
   {
-    id: 'elfo-corredor-del-bosque',
+    id: 'elfo-jinete',
     faccion: 'elfos',
-    nombre: 'Corredores del bosque (antes Jinetes de ciervo)',
-    perfil: 'espada-escudo',
-    concepto: 'assets/art/elfos/jinete-de-ciervo.png',
+    nombre: 'Jinete (a caballo)',
+    perfil: 'montado-lanza',
+    concepto: 'assets/art/elfos/jinete.png',
     aspecto:
-      'Un corredor del bosque elfo, A PIE y sin montura: el jinete del concepto bajado del ciervo, ligero y veloz, armadura de cuero con hojas, capa verde al viento, pelo rubio largo, lanza corta en la derecha y escudo redondo pequeño en la izquierda.',
+      'Un jinete elfo A CABALLO, como el del concepto: caballo gris moteado esbelto con brida de hojas y gualdrapa verde musgo; el jinete con armadura ligera de escamas de hoja, capa verde al viento, lanza larga de hoja élfica para la carga, arco curvo y carcaj a la espalda y espada curva al cinto. Sin escudo. Jinete y caballo son UNA sola figura.',
   },
   {
-    id: 'elfo-ent',
+    id: 'elfo-sacerdotisa',
     faccion: 'elfos',
-    nombre: 'Ent o Guardián arbóreo',
-    perfil: 'dos-manos',
-    concepto: 'assets/art/elfos/ent-guardian-arboreo.png',
+    nombre: 'Sacerdotisa',
+    perfil: 'baston',
+    concepto: 'assets/art/elfos/sacerdotisa.png',
+    maniqui: {
+      espada: { largo: 1.15, guarda: 0, puño: 0.5, agarre: 0, grosor: 0.022, remate: 'esfera' },
+      ...UNA_MANO,
+      arribaMinimo: 0.85,
+    },
     aspecto:
-      'Un ent, guardián arbóreo: gigante de corteza y raíces retorcidas, musgo y ramas en la cabeza, cuerpo de tronco nudoso, brazos largos con manos de raíz. Sin armas. Muy lento y muy duro.',
+      'Una sacerdotisa elfa de protección, curación y ocultación: túnicas blancas y verde musgo con manto de escamas de hoja plateadas, capucha, pelo plateado largo, bastón esbelto de madera clara rematado en una media luna de hojas de plata y una bruma suave en la mano libre.',
   },
   {
-    id: 'elfo-hostigador',
+    id: 'elfo-asesino',
     faccion: 'elfos',
-    nombre: 'Hostigador elfo (antes Halcón o Lobo)',
+    nombre: 'Asesino',
     perfil: 'espada-escudo',
+    concepto: 'assets/art/elfos/asesino.png',
+    maniqui: {
+      ...ESPADA_Y_ESCUDO,
+      espada: { largo: 0.3, guarda: 0.08, puño: 0.1, agarre: 0.05, grosor: 0.012 },
+      escudo: false,
+      daga: { largo: 0.28 },
+    },
     aspecto:
-      'Un hostigador elfo, tropa barata y rápida: capa de piel de lobo gris con la cabeza del lobo como capucha, plumas de halcón trenzadas en el pelo, ropa de cuero ligera, jabalina corta en la mano derecha y otras dos a la espalda.',
+      'Un asesino elfo: armadura de cuero oscuro ceñida y capa de jirones de hoja, capucha y máscara de tela sobre la cara, solo los ojos ámbar a la vista, una daga curva con brillo verde de veneno en cada mano, frascos al cinto, botas blandas. Agazapado.',
   },
   {
     id: 'orko-hacha-escudo',
@@ -277,6 +434,11 @@ export const UNIDADES: readonly Unidad[] = [
     nombre: 'Orko con hacha y escudo',
     perfil: 'espada-escudo',
     concepto: 'assets/art/orkos/orko-con-hacha-y-escudo.png',
+    maniqui: {
+      ...ESPADA_Y_ESCUDO,
+      espada: { largo: 0.75, guarda: 0, puño: 0.45, agarre: 0.05, grosor: 0.024, remate: 'hacha' },
+      rodela: 0.3,
+    },
     aspecto:
       'Un orko de piel verde oliva: colmillos, pelo negro recogido, armadura de cuero y placas oxidadas con pieles, faldón de cuero, escudo redondo de madera reforzado en la izquierda y hacha de una mano en la derecha.',
   },
@@ -286,6 +448,12 @@ export const UNIDADES: readonly Unidad[] = [
     nombre: 'Orko con dos armas',
     perfil: 'dos-manos',
     concepto: 'assets/art/orkos/orko-con-dos-armas.png',
+    maniqui: {
+      ...ESPADA_Y_ESCUDO,
+      espada: { largo: 0.6, guarda: 0.04, puño: 0.14, agarre: 0.06, grosor: 0.03 },
+      escudo: false,
+      daga: { largo: 0.55 },
+    },
     aspecto:
       'Un orko de piel verde, torso casi desnudo con pinturas de guerra rojas, hombrera de pinchos, faldón de pieles, una cuchilla tosca en cada mano. Sin defensa, rugiendo.',
   },
@@ -295,6 +463,13 @@ export const UNIDADES: readonly Unidad[] = [
     nombre: 'Goblin lancero',
     perfil: 'espada-escudo',
     concepto: 'assets/art/orkos/goblin-lancero.png',
+    maniqui: {
+      ...JUEGOS_DE_ARMAS.lanza.atrezo,
+      espada: { largo: 1.6, guarda: 0, puño: 0.6, agarre: 0, grosor: 0.018, moharra: 0.2 },
+      escudo: true,
+      rodela: 0.18,
+    },
+    talla: 0.7,
     aspecto:
       'Un goblin lancero: pequeño y flaco, piel verde amarillenta, orejas largas, casco de hierro abollado, harapos, escudo redondo pequeño en la izquierda y lanza larga en la derecha.',
   },
@@ -304,6 +479,7 @@ export const UNIDADES: readonly Unidad[] = [
     nombre: 'Goblin arquero',
     perfil: 'arco',
     concepto: 'assets/art/orkos/goblin-arquero.png',
+    talla: 0.7,
     aspecto:
       'Un goblin arquero: pequeño, piel verde amarillenta, capucha y pañuelo rojos tapándole la boca, harapos de cuero, carcaj de flechas a la espalda, arco corto tosco.',
   },
@@ -313,26 +489,36 @@ export const UNIDADES: readonly Unidad[] = [
     nombre: 'Troll con maza',
     perfil: 'dos-manos',
     concepto: 'assets/art/orkos/troll-con-maza.png',
+    maniqui: {
+      ...JUEGOS_DE_ARMAS['dos-manos'].atrezo,
+      espada: { largo: 1.0, guarda: 0, puño: 0.4, agarre: 0, grosor: 0.05, cabeza: 0.13 },
+    },
+    talla: 1.45,
     aspecto:
       'Un troll: gigante de piel gris azulada con musgo, cabeza pequeña, colmillos, grilletes rotos con cadenas en las muñecas, taparrabos, maza de madera con clavos de hierro empuñada a dos manos.',
   },
   {
-    id: 'orko-berserker',
+    id: 'goblin-jinete-de-hiena',
     faccion: 'orkos',
-    nombre: 'Orko berserker (antes Jinete de jabalí)',
-    perfil: 'dos-manos',
-    concepto: 'assets/art/orkos/jinete-de-jabali.png',
+    nombre: 'Jinete de hiena (goblin)',
+    perfil: 'montado-lanza',
+    concepto: 'assets/art/orkos/jinete-de-hiena.png',
+    talla: 0.7,
     aspecto:
-      'Un orko berserker, A PIE y sin montura: el jinete del concepto bajado del jabalí, armadura de cuero con trofeos de cráneo y pinturas rojas, sin escudo, hacha grande empuñada a dos manos, enloquecido.',
+      'Un jinete goblin A LOMOS DE UNA HIENA, como el del concepto: hiena grande de lomo caído, crin hirsuta y pelaje moteado sarnoso, arnés de cuero con tachuelas y silla pequeña, las fauces abiertas; el goblin pequeño y flaco, piel verde amarillenta, orejas largas, casco abollado, cuero raído, lanza corta y escudo redondo pequeño. Jinete y hiena son UNA sola figura, mucho más baja que un caballo.',
   },
   {
-    id: 'goblin-fanatico',
+    id: 'orko-armadura-pesada',
     faccion: 'orkos',
-    nombre: 'Goblin fanático',
-    perfil: 'espada-escudo',
-    concepto: 'assets/art/orkos/goblin-fanatico.png',
+    nombre: 'Orko con armadura pesada',
+    perfil: 'dos-manos',
+    concepto: 'assets/art/orkos/orko-armadura-pesada.png',
+    maniqui: {
+      ...JUEGOS_DE_ARMAS['dos-manos'].atrezo,
+      espada: { largo: 1.1, guarda: 0, puño: 0.55, agarre: 0.05, grosor: 0.026, remate: 'hacha' },
+    },
     aspecto:
-      'Un goblin fanático: pequeño, sonrisa enloquecida, pañuelo rojo en la cabeza, harapos, dos barriles de pólvora atados a la espalda con la mecha encendida, una bomba en la mano derecha. Sin armas.',
+      'Un orko con armadura pesada: piel verde oliva, yelmo cerrado de hierro con mirilla y cuernos cortos, placas de hierro ennegrecido remachadas sobre malla y cuero, hombreras enormes con pinchos, botas de hierro, gran hacha de doble filo empuñada a dos manos. Sin escudo. Pesado e inamovible.',
   },
 ];
 
@@ -379,6 +565,12 @@ export const HEROES: readonly Unidad[] = [
     faccion: 'no-muertos',
     nombre: 'Nigromante (héroe)',
     perfil: 'baston',
+    concepto: 'assets/art/no-muertos/nigromante.png',
+    maniqui: {
+      espada: { largo: 1.15, guarda: 0, puño: 0.5, agarre: 0, grosor: 0.024, remate: 'esfera' },
+      ...UNA_MANO,
+      arribaMinimo: 0.85,
+    },
     aspecto:
       'Un nigromante: túnica larga negra y morada raída, capucha echada hacia atrás, rostro pálido y demacrado, collar de huesos de dedos, bastón de madera negra rematado en un cráneo con un tenue brillo verde en las cuencas.',
   },
@@ -387,6 +579,12 @@ export const HEROES: readonly Unidad[] = [
     faccion: 'no-muertos',
     nombre: 'Vampiro (héroe)',
     perfil: 'espada-escudo',
+    concepto: 'assets/art/no-muertos/vampiro.png',
+    maniqui: {
+      ...ESPADA_Y_ESCUDO,
+      espada: { largo: 0.95, guarda: 0.12, puño: 0.14, agarre: 0.07, grosor: 0.012 },
+      escudo: false,
+    },
     aspecto:
       'Un señor vampiro: noble de piel muy pálida y pelo negro largo, jubón de terciopelo granate con bordados negros, coraza ligera negra, capa negra de cuello alto con forro rojo, ropera fina de una mano en la derecha y la mano izquierda libre con garras. Sin escudo.',
   },
@@ -395,30 +593,41 @@ export const HEROES: readonly Unidad[] = [
     faccion: 'no-muertos',
     nombre: 'Lich (héroe)',
     perfil: 'baston',
+    concepto: 'assets/art/no-muertos/lich.png',
+    maniqui: {
+      espada: { largo: 1.15, guarda: 0, puño: 0.5, agarre: 0, grosor: 0.024, remate: 'esfera' },
+      ...UNA_MANO,
+      arribaMinimo: 0.85,
+    },
     aspecto:
       'Un lich: esqueleto de mago con corona de hierro oxidada, túnica ceremonial negra y verde podrida con hilos de oro deshilachados, manos huesudas con anillos, filacteria colgada al cuello, bastón alto de hueso rematado en una gema verde.',
   },
   {
-    id: 'heroe-caballero-de-la-muerte',
-    faccion: 'no-muertos',
-    nombre: 'Caballero de la muerte (héroe)',
-    perfil: 'dos-manos',
-    aspecto:
-      'Un caballero de la muerte, contrapunto oscuro del templario: armadura de placas negra y abollada con remaches de hierro, sobrevesta negra hecha jirones con una cruz rota desteñida, yelmo cerrado con cuernos cortos y un brillo verde frío tras la visera, gran espadón mellado empuñado a dos manos.',
-  },
-  {
-    id: 'heroe-imperio-noble',
+    id: 'heroe-imperio-duelista',
     faccion: 'imperio',
-    nombre: 'Noble (héroe)',
+    nombre: 'Duelista (héroe; sustituye al Noble)',
     perfil: 'espada-escudo',
+    concepto: 'assets/art/imperio/duelista.png',
+    maniqui: {
+      ...ESPADA_Y_ESCUDO,
+      espada: { largo: 1.0, guarda: 0.12, puño: 0.14, agarre: 0.07, grosor: 0.012 },
+      escudo: false,
+      daga: { largo: 0.3 },
+    },
     aspecto:
-      'Un noble imperial: sombrero de ala con plumas, jubón de terciopelo negro y oro, gorguera, coraza ligera grabada, banda roja de mando, ropera en la derecha y bastón de mando en la izquierda.',
+      'Un duelista imperial, maestro de esgrima delgado y rápido: sombrero de ala con plumas roja y amarilla, gola de acero, jubón negro acuchillado de amarillo y rojo, media capa al hombro con el águila, botas altas, ropera de lazo en la mano derecha y daga de parada en la izquierda. Sin escudo.',
   },
   {
     id: 'heroe-imperio-mago',
     faccion: 'imperio',
     nombre: 'Mago de batalla (héroe)',
     perfil: 'baston',
+    concepto: 'assets/art/imperio/mago-de-batalla.png',
+    maniqui: {
+      espada: { largo: 1.15, guarda: 0, puño: 0.5, agarre: 0, grosor: 0.024, remate: 'esfera' },
+      ...UNA_MANO,
+      arribaMinimo: 0.85,
+    },
     aspecto:
       'Un mago de batalla imperial: túnica larga azul oscuro con ribetes dorados sobre coraza ligera, birrete, barba recortada, libro atado al cinto, bastón de metal rematado en una esfera con llamas.',
   },
@@ -427,6 +636,12 @@ export const HEROES: readonly Unidad[] = [
     faccion: 'imperio',
     nombre: 'Capitán mercenario (héroe)',
     perfil: 'espada-escudo',
+    concepto: 'assets/art/imperio/capitan-mercenario.png',
+    maniqui: {
+      ...ESPADA_Y_ESCUDO,
+      espada: { largo: 0.7, guarda: 0.22, puño: 0.15, agarre: 0.08, grosor: 0.03 },
+      escudo: false,
+    },
     aspecto:
       'Un capitán mercenario lansquenete: sombrero enorme con plumas rojas y amarillas, ropa acuchillada llamativa, peto de acero abollado, bigote, espada katzbalger en la derecha y una bolsa de monedas al cinto. Sin escudo.',
   },
@@ -434,15 +649,24 @@ export const HEROES: readonly Unidad[] = [
     id: 'heroe-imperio-ingeniero',
     faccion: 'imperio',
     nombre: 'Ingeniero (héroe)',
-    perfil: 'espada-escudo',
+    perfil: 'ballesta',
+    concepto: 'assets/art/imperio/ingeniero.png',
+    maniqui: armaDeFuego(0.9, 0.3, 0.018, MARTILLO),
     aspecto:
-      'Un ingeniero imperial: gafas de latón sobre la frente, mandil de cuero con herramientas, jubón amarillo y negro, rollo de planos a la espalda, martillo de guerra de una mano en la derecha.',
+      'Un ingeniero imperial: gafas de latón sobre la frente, mandil de cuero con herramientas, jubón amarillo y negro, rollo de planos a la espalda, martillo pequeño al cinto y un rifle largo de llave de rueda, para tirar de lejos, empuñado con las dos manos.',
   },
   {
     id: 'heroe-elfo-danzante-de-espadas',
     faccion: 'elfos',
     nombre: 'Danzante de espadas (héroe)',
     perfil: 'espada-escudo',
+    concepto: 'assets/art/elfos/danzante-de-espadas.png',
+    maniqui: {
+      ...ESPADA_Y_ESCUDO,
+      espada: { largo: 0.8, guarda: 0.1, puño: 0.14, agarre: 0.07, grosor: 0.014 },
+      escudo: false,
+      daga: { largo: 0.7 },
+    },
     aspecto:
       'Un danzante de espadas elfo: pelo blanco largo recogido, armadura ligera de escamas de hoja dorada, faldones de tela verde que vuelan, una espada élfica curva en cada mano. Ágil y elegante.',
   },
@@ -451,22 +675,29 @@ export const HEROES: readonly Unidad[] = [
     faccion: 'elfos',
     nombre: 'Druida (héroe)',
     perfil: 'baston',
+    concepto: 'assets/art/elfos/druida.png',
+    maniqui: {
+      espada: { largo: 1.15, guarda: 0, puño: 0.5, agarre: 0, grosor: 0.026 },
+      ...UNA_MANO,
+      arribaMinimo: 0.85,
+    },
     aspecto:
       'Una druida elfa: túnica de hojas y musgo, corona de astas pequeñas y flores, pelo largo cobrizo, bastón retorcido de madera viva con brotes verdes y una luz verde en la punta.',
-  },
-  {
-    id: 'heroe-elfo-senor-de-las-bestias',
-    faccion: 'elfos',
-    nombre: 'Señor de las bestias (héroe)',
-    perfil: 'espada-escudo',
-    aspecto:
-      'Un señor de las bestias elfo: capa de piel de oso, cuernos de ciervo en el yelmo de cuero, pinturas de guerra verdes, un halcón posado en el hombro, lanza de caza en la derecha.',
   },
   {
     id: 'heroe-elfo-cantora',
     faccion: 'elfos',
     nombre: 'Cantora (héroe)',
     perfil: 'baston',
+    concepto: 'assets/art/elfos/cantora.png',
+    // El arpa va en la izquierda: el libro del maniquí es su sitio; en la
+    // derecha, una daga corta para el cuerpo a cuerpo.
+    maniqui: {
+      ...ESPADA_Y_ESCUDO,
+      espada: { largo: 0.25, guarda: 0.06, puño: 0.1, agarre: 0.05, grosor: 0.012 },
+      escudo: false,
+      libro: true,
+    },
     aspecto:
       'Una cantora elfa: vestido largo verde y plata, diadema de hojas de plata, pelo rubio muy largo, arpa pequeña de madera clara sujeta en el brazo izquierdo y la mano derecha alzada.',
   },
@@ -475,6 +706,11 @@ export const HEROES: readonly Unidad[] = [
     faccion: 'orkos',
     nombre: 'Kaudillo (héroe)',
     perfil: 'dos-manos',
+    concepto: 'assets/art/orkos/kaudillo.png',
+    maniqui: {
+      ...JUEGOS_DE_ARMAS['dos-manos'].atrezo,
+      espada: { largo: 1.0, guarda: 0, puño: 0.5, agarre: 0.05, grosor: 0.026, remate: 'hacha' },
+    },
     aspecto:
       'Un kaudillo orko enorme: armadura de placas de chatarra con pinchos y cráneos, capa de piel de lobo, cuernos en el casco, cicatrices, gran cuchilla de carnicero empuñada a dos manos.',
   },
@@ -483,24 +719,30 @@ export const HEROES: readonly Unidad[] = [
     faccion: 'orkos',
     nombre: 'Jefe goblin (héroe)',
     perfil: 'espada-escudo',
+    concepto: 'assets/art/orkos/jefe-goblin.png',
+    maniqui: {
+      ...ESPADA_Y_ESCUDO,
+      espada: { largo: 0.3, guarda: 0.06, puño: 0.1, agarre: 0.05, grosor: 0.012 },
+      escudo: false,
+    },
+    talla: 0.7,
     aspecto:
       'Un jefe goblin: pequeño y astuto, corona torcida de latón, capa roja raída demasiado grande, muchos amuletos, daga envenenada en la derecha y una trampa de cepo colgando del cinto.',
   },
   {
-    id: 'heroe-orko-chaman',
+    id: 'heroe-goblin-chaman',
     faccion: 'orkos',
-    nombre: 'Chamán (héroe)',
+    nombre: 'Chamán goblin (héroe)',
     perfil: 'baston',
+    concepto: 'assets/art/orkos/chaman-goblin.png',
+    maniqui: {
+      espada: { largo: 1.0, guarda: 0, puño: 0.45, agarre: 0, grosor: 0.024, remate: 'esfera' },
+      ...UNA_MANO,
+      arribaMinimo: 0.85,
+    },
+    talla: 0.7,
     aspecto:
-      'Un chamán orko: tocado de plumas y cráneo de animal, collares de huesos y dientes, pinturas blancas, pieles, bastón nudoso con una calavera en llamas verdes.',
-  },
-  {
-    id: 'heroe-orko-senor-de-la-guerra',
-    faccion: 'orkos',
-    nombre: 'Señor de la guerra a pie (héroe)',
-    perfil: 'dos-manos',
-    aspecto:
-      'Un señor de la guerra orko, A PIE y sin montura: corpulento, armadura pesada de chatarra con trofeos, estandarte pequeño de guerra atado a la espalda, hacha a dos manos enorme. Carga brutal.',
+      'Un chamán goblin: pequeño y encorvado, piel verde amarillenta, orejas enormes, ojos desquiciados, tocado de plumas con un cráneo de animal, collares de huesos y dientes, pinturas blancas, pieles, bastón nudoso rematado por una calavera agrietada con una llama inestable, chamuscones en la ropa.',
   },
 ];
 
@@ -542,20 +784,56 @@ export function encargoDeIdentidad(u: Unidad): Encargo {
 }
 
 /**
+ * Las tropas de élite de cada ejército: las de «Elite» en `NuevaJugabilidad.md`
+ * y, las que su ficha no nombra, las que produce una ciudad en su tabla de
+ * edificios (Armería → rodeleros, Fundición → culebrinas). El resto de `UNIDADES` es
+ * tropa y `HEROES`, héroes. Lo lee el visor de 8 direcciones para agruparlas.
+ */
+export const ELITE: ReadonlySet<string> = new Set([
+  'templario-monje',
+  'templario-hermano-de-carga',
+  'templario-penitente',
+  'caballero-de-la-muerte',
+  'espectro',
+  'jinete-de-plaga',
+  'imperio-coracero',
+  'imperio-arcabucero',
+  'imperio-rodelero',
+  'imperio-artillero-culebrina',
+  'imperio-pistolero-montado',
+  'imperio-granadero',
+  'elfo-jinete',
+  'elfo-sacerdotisa',
+  'elfo-asesino',
+  'troll-maza',
+  'goblin-jinete-de-hiena',
+  'orko-armadura-pesada',
+]);
+
+export type RangoDeUnidad = 'heroe' | 'elite' | 'tropa';
+
+/** Héroe, élite o tropa: el héroe por estar en `HEROES`, la élite por `ELITE`. */
+export function rangoDe(u: Unidad): RangoDeUnidad {
+  if (HEROES.includes(u)) return 'heroe';
+  return ELITE.has(u.id) ? 'elite' : 'tropa';
+}
+
+/**
  * El juego de armas del Y Bot de cada unidad, **por lo que lleva en la mano** y
  * no por su perfil de poses (decisión del usuario, vuelta 1 de QA de las 8
  * direcciones): con el perfil, el piquero salía con mandoble y el goblin lancero
  * con espada y escudo, porque el perfil se eligió para pintar una hoja de una
  * dirección y no para decir qué arma lleva. La regla con la que se rellenó, fila
  * a fila contra el `aspecto` de cada unidad:
- *  - pica, alabarda, lanza o jabalina → `lanza` (también la horca del zombi);
+ *  - pica, alabarda, lanza o jabalina → `lanza`;
  *  - bastón o báculo de monje, mago, chamán, druida, nigromante o liche → `baston`;
  *  - mandoble, hacha o cuchilla empuñada a dos manos → `dos-manos`;
- *  - maza (y el martillo de guerra del ingeniero) → `maza`; mayal → `mayal`;
- *  - a caballo con lanza → `montado-lanza`;
+ *  - maza → `maza`; mayal → `mayal`;
+ *  - a caballo con lanza → `montado-lanza`; con pistola → `montado-pistola`; con arco → `montado-arco`;
+ *  - granada de mano → `granada`;
  *  - arco en la mano → `arco` (el explorador elfo no: pelea con sus dos
  *    cuchillos y el arco lo lleva a la espalda);
- *  - ballesta, arcabuz o culebrina de mano → `ballesta`, como ya hacía la
+ *  - ballesta, arcabuz, culebrina de mano o el rifle del ingeniero → `ballesta`, como ya hacía la
  *    ballesta de una dirección con el arcabuz;
  *  - el resto —espada, hacha de una mano, dos armas, cuchillos, sin armas— →
  *    `espada-escudo`.
@@ -571,10 +849,10 @@ export const JUEGO_DEL_YBOT: Readonly<Record<string, JuegoEn8d>> = {
   'templario-penitente': 'mayal',
   'esqueleto-guerrero': 'espada-escudo',
   'esqueleto-arquero': 'arco',
-  zombi: 'lanza',
-  necrofago: 'espada-escudo',
+  zombi: 'espada-escudo',
+  'caballero-de-la-muerte': 'dos-manos',
   espectro: 'espada-escudo',
-  'golem-de-huesos': 'espada-escudo',
+  'jinete-de-plaga': 'montado-lanza',
   'imperio-alabardero': 'lanza',
   'imperio-piquero': 'lanza',
   'imperio-ballestero': 'ballesta',
@@ -582,19 +860,21 @@ export const JUEGO_DEL_YBOT: Readonly<Record<string, JuegoEn8d>> = {
   'imperio-arcabucero': 'ballesta',
   'imperio-rodelero': 'espada-escudo',
   'imperio-artillero-culebrina': 'ballesta',
+  'imperio-pistolero-montado': 'montado-pistola',
+  'imperio-granadero': 'granada',
   'elfo-arquero': 'arco',
   'elfo-explorador': 'espada-escudo',
   'elfo-guardia-del-bosque': 'lanza',
-  'elfo-corredor-del-bosque': 'lanza',
-  'elfo-ent': 'espada-escudo',
-  'elfo-hostigador': 'lanza',
+  'elfo-jinete': 'montado-arco',
+  'elfo-sacerdotisa': 'baston',
+  'elfo-asesino': 'espada-escudo',
   'orko-hacha-escudo': 'espada-escudo',
   'orko-dos-armas': 'espada-escudo',
   'goblin-lancero': 'lanza',
   'goblin-arquero': 'arco',
   'troll-maza': 'maza',
-  'orko-berserker': 'dos-manos',
-  'goblin-fanatico': 'espada-escudo',
+  'goblin-jinete-de-hiena': 'montado-lanza',
+  'orko-armadura-pesada': 'dos-manos',
   'heroe-templario-caballero': 'espada-escudo',
   'heroe-templario-abad': 'baston',
   'heroe-templario-inquisidor': 'maza',
@@ -602,19 +882,16 @@ export const JUEGO_DEL_YBOT: Readonly<Record<string, JuegoEn8d>> = {
   'heroe-nigromante': 'baston',
   'heroe-vampiro': 'espada-escudo',
   'heroe-lich': 'baston',
-  'heroe-caballero-de-la-muerte': 'dos-manos',
-  'heroe-imperio-noble': 'espada-escudo',
+  'heroe-imperio-duelista': 'espada-escudo',
   'heroe-imperio-mago': 'baston',
   'heroe-imperio-capitan-mercenario': 'espada-escudo',
-  'heroe-imperio-ingeniero': 'maza',
+  'heroe-imperio-ingeniero': 'ballesta',
   'heroe-elfo-danzante-de-espadas': 'espada-escudo',
   'heroe-elfo-druida': 'baston',
-  'heroe-elfo-senor-de-las-bestias': 'lanza',
   'heroe-elfo-cantora': 'espada-escudo',
   'heroe-orko-kaudillo': 'dos-manos',
   'heroe-goblin-jefe': 'espada-escudo',
-  'heroe-orko-chaman': 'baston',
-  'heroe-orko-senor-de-la-guerra': 'dos-manos',
+  'heroe-goblin-chaman': 'baston',
 };
 
 /**
@@ -650,6 +927,51 @@ const IDS_EN_OCHO_DIRECCIONES = [
   'heroe-templario-gran-maestre',
   // Su referencia sale de `tools/art/montura.ts --8d`, no de sprite-forge.
   'templario-hermano-de-carga',
+  // El Imperio (04-10-2026).
+  'imperio-alabardero',
+  'imperio-piquero',
+  'imperio-ballestero',
+  'imperio-coracero',
+  'imperio-arcabucero',
+  'imperio-rodelero',
+  'imperio-artillero-culebrina',
+  'imperio-granadero',
+  // Como el hermano de carga, de `montura.ts --8d --pistola`.
+  'imperio-pistolero-montado',
+  'heroe-imperio-duelista',
+  'heroe-imperio-mago',
+  'heroe-imperio-capitan-mercenario',
+  'heroe-imperio-ingeniero',
+  // Los Elfos (05-10-2026).
+  'elfo-arquero',
+  'elfo-explorador',
+  'elfo-guardia-del-bosque',
+  'elfo-sacerdotisa',
+  'elfo-asesino',
+  'heroe-elfo-danzante-de-espadas',
+  'heroe-elfo-druida',
+  'heroe-elfo-cantora',
+  // Como el hermano de carga, de `montura.ts --8d --arco`.
+  'elfo-jinete',
+  'orko-hacha-escudo',
+  'orko-dos-armas',
+  'goblin-lancero',
+  'goblin-arquero',
+  'troll-maza',
+  'goblin-jinete-de-hiena',
+  'orko-armadura-pesada',
+  'heroe-orko-kaudillo',
+  'heroe-goblin-jefe',
+  'heroe-goblin-chaman',
+  'esqueleto-guerrero',
+  'esqueleto-arquero',
+  'zombi',
+  'caballero-de-la-muerte',
+  'espectro',
+  'jinete-de-plaga',
+  'heroe-nigromante',
+  'heroe-vampiro',
+  'heroe-lich',
 ] as const;
 
 export const EN_OCHO_DIRECCIONES: Readonly<Record<string, JuegoEn8d>> = Object.fromEntries(
@@ -660,6 +982,8 @@ export const EN_OCHO_DIRECCIONES: Readonly<Record<string, JuegoEn8d>> = Object.f
 export const JUEGOS_EN_8D: readonly JuegoEn8d[] = [
   ...(Object.keys(JUEGOS_DE_ARMAS) as (keyof typeof JUEGOS_DE_ARMAS)[]),
   'montado-lanza',
+  'montado-pistola',
+  'montado-arco',
 ];
 
 const RAIZ = resolve(import.meta.dirname, '../..');
@@ -691,7 +1015,7 @@ function dirPoses8d(u: Unidad): string {
   const juego = EN_OCHO_DIRECCIONES[u.id];
   if (juego === undefined)
     throw new Error(`${u.id} no está en 8 direcciones (EN_OCHO_DIRECCIONES)`);
-  return relative(RAIZ, carpetaDePoses(juego));
+  return relative(RAIZ, u.maniqui === undefined ? carpetaDePoses(juego) : carpetaDeManiqui(u.id));
 }
 
 export const rutaGiro = (u: Unidad): string => `assets/unidades/${u.id}/giro`;
@@ -716,17 +1040,32 @@ export function encargoDeGiro(u: Unidad): Encargo {
   };
 }
 
-/** Las 16 hojas: dos por dirección, con su pose y el giro aprobado como identidad. */
+/**
+ * Las hojas de una unidad por dirección, con su pose y el giro aprobado como
+ * identidad: la A y la B, 16, y la C del disparo si su juego dispara, 24. Quien
+ * no dispara genera exactamente lo mismo que antes de existir la C.
+ */
 export function encargosDeOchoDirecciones(u: Unidad): Encargo[] {
   encargoDeGiro(u);
+  const juego = EN_OCHO_DIRECCIONES[u.id] as JuegoEn8d;
+  const cuerpoACuerpo = cuerpoACuerpoDe(juego, u.maniqui);
+  const hojas = hojasDeFigura(clipDeDisparoDe(juego) !== null);
   return Array.from({ length: NOMBRES_DE_DIRECCION.length }, (_, d) =>
-    (['a', 'b'] as const).map(
+    hojas.map(
       (hoja): Encargo => ({
         id: `${u.id}-d${d}-${hoja}`,
         tipo: 'atlas',
         descripcion: [
           u.aspecto,
           `En la lámina de giro (imagen 2), la figura ${d + 1} en orden de lectura es la que mira hacia «${NOMBRES_DE_DIRECCION[d]}», como esta hoja: así se ve el personaje desde este lado.`,
+          // Quien dispara lleva su arma de tiro en todas sus hojas menos en el
+          // ataque: ahí pelea de cerca y el pintor tiene que saber con qué.
+          ...((HOJAS_DE_FIGURA[hoja] as readonly ClipDeFigura[]).includes('attack') &&
+          cuerpoACuerpo !== null
+            ? [
+                `El ATAQUE de esta hoja es cuerpo a cuerpo con ${cuerpoACuerpo}: no dispara, y el arma de tiro no se ve mientras golpea.`,
+              ]
+            : []),
           PINTURA,
         ].join('\n'),
         referencias: [
@@ -737,6 +1076,7 @@ export function encargosDeOchoDirecciones(u: Unidad): Encargo[] {
         salida: `assets/unidades/${u.id}/d${d}/hoja-${hoja}`,
         fondo: 'transparente',
         celda: 384,
+        ...(u.talla === undefined ? {} : { talla: u.talla }),
         ocho: { direccion: d, hoja },
       }),
     ),

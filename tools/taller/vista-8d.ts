@@ -13,26 +13,51 @@
  *
  * La elección va en el `#` de la URL, así que se puede recargar o compartir.
  *
- * Las poses vienen en dos hojas de 3 filas por dirección; para verlas como el
- * arte se juntan en una de 6 en `.cache/` y se miden con `poses-8d.ts`, lo mismo
- * que lee el juego. Se abre con `file://`.
+ * Las poses vienen en dos hojas de 3 filas por dirección, y una tercera de una
+ * fila con el disparo de quien dispara; para verlas como el arte se juntan en
+ * una de 6 o 7 en `.cache/` y se miden con `poses-8d.ts`, lo mismo que lee el
+ * juego. Se abre con `file://`. Quien no dispara deja vacía la columna del disparo.
  */
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
+import { NOMBRE_DE_FACCION_DE_ARENA } from '../../src/core/arena.js';
 import {
+  type ClipDeFigura,
   colorDeSombra,
+  FILAS_DEL_ATLAS,
   NOMBRES_DE_DIRECCION,
   PROYECCION_DE_SOMBRA,
 } from '../../src/shared/arte.js';
 import { carpetaDePoses, JUEGOS_DE_ARMAS, type JuegoDeArmas } from '../art/poses.js';
-import { type AtlasDerivado, ELEVACION_DEL_CADAVER } from './derivar.js';
+import { type AtlasDerivado, ELEVACION_DEL_CADAVER, RELOJ } from './derivar.js';
 import type { Fila } from './evaluar.js';
 import { derivarDireccionDePoses, rutaJunta } from './poses-8d.js';
-import { EN_OCHO_DIRECCIONES, tieneSusOchoDirecciones } from './unidades.js';
+import { EN_OCHO_DIRECCIONES, rangoDe, tieneSusOchoDirecciones, unidad } from './unidades.js';
 import { DIR_VISTA } from './vista.js';
 
 const RAIZ = resolve(import.meta.dirname, '../..');
+
+/** La cabecera de cada columna del visor: una por fila del atlas. */
+const NOMBRE_DE_ACCION: Readonly<Record<ClipDeFigura, string>> = {
+  idle: 'quieto',
+  walk: 'andando',
+  charge: 'carga',
+  attack: 'ataque',
+  hurt: 'daño',
+  death: 'muerte',
+  shoot: 'disparo',
+};
+
+/**
+ * Lo que se queda quieto al acabar cada clip que no es bucle (`RELOJ`), en
+ * segundos; el cadáver, más.
+ */
+const PAUSA = Object.fromEntries(
+  Object.entries(RELOJ)
+    .filter(([, r]) => !r.loop)
+    .map(([clip]) => [clip, clip === 'death' ? 2.5 : 0.6]),
+);
 
 interface Direccion {
   /** Las acciones que el evaluador marca para revisar (`pnpm taller evaluar`), con su motivo. */
@@ -84,19 +109,27 @@ async function desdeElArte(id: string): Promise<Direccion[]> {
   return fuera;
 }
 
+/** El primer selector: un ejército, o las poses del maniquí. */
+const POSES = 'Poses del maniquí';
+/** Dentro de un ejército, el segundo selector agrupa en este orden. */
+const RANGOS = [
+  ['heroe', 'Héroes'],
+  ['elite', 'Élite'],
+  ['tropa', 'Tropa'],
+] as const;
+
 interface Fuente {
   readonly id: string;
   readonly titulo: string;
-  readonly grupo: 'Unidades' | 'Poses del maniquí';
+  /** El ejército de la unidad (su nombre), o `POSES`. */
+  readonly ejercito: string;
+  /** Héroes, Élite o Tropa; las poses no lo tienen. */
+  readonly rango: string | null;
   readonly direcciones: readonly (Direccion & { readonly nombre: string })[];
 }
 
 function pagina(fuentes: readonly Fuente[]): string {
-  const opciones = (grupo: Fuente['grupo']) =>
-    fuentes
-      .filter((f) => f.grupo === grupo)
-      .map((f) => `<option value="${f.id}">${f.titulo}</option>`)
-      .join('');
+  const ejercitos = [...new Set(fuentes.map((f) => f.ejercito))];
   return `<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><title>Taller · 8 direcciones</title>
 <style>
@@ -111,7 +144,8 @@ function pagina(fuentes: readonly Fuente[]): string {
   .ayuda { color: #b9b29a; }
 </style></head><body>
 <header>
-  <label>Ver <select id="fuente"><optgroup label="Unidades">${opciones('Unidades')}</optgroup><optgroup label="Poses del maniquí">${opciones('Poses del maniquí')}</optgroup></select></label>
+  <label>Ejército <select id="ejercito">${ejercitos.map((e) => `<option>${e}</option>`).join('')}</select></label>
+  <label>Ver <select id="fuente"></select></label>
   <label>Velocidad <input id="vel" type="range" min="0.25" max="2" step="0.25" value="1"><span id="velv">1×</span></label>
   <label>Tamaño <input id="tam" type="range" min="0.4" max="1.5" step="0.1" value="0.8"><span id="tamv">0.8×</span></label>
   <label><input id="som" type="checkbox" checked> Sombra</label>
@@ -120,11 +154,11 @@ function pagina(fuentes: readonly Fuente[]): string {
 <table id="t"></table>
 <script>
 const FUENTES = ${JSON.stringify(fuentes)};
+const RANGOS = ${JSON.stringify(RANGOS.map(([, n]) => n))};
 const SOMBRA = ${JSON.stringify(PROYECCION_DE_SOMBRA)};
 const BAJO_LOS_PIES = ${ELEVACION_DEL_CADAVER + 42};
-const ACCIONES = [['idle','quieto'],['walk','andando'],['charge','carga'],['attack','ataque'],['hurt','daño'],['death','muerte']];
-/** Lo que se queda quieto al acabar un clip que no es bucle, en segundos; el cadáver, más. */
-const PAUSA = { attack: 0.6, hurt: 0.6, death: 2.5 };
+const ACCIONES = ${JSON.stringify(FILAS_DEL_ATLAS.map((c) => [c, NOMBRE_DE_ACCION[c]]))};
+const PAUSA = ${JSON.stringify(PAUSA)};
 let vel = 1, tam = 0.8, conSombra = true;
 const vel_ = document.getElementById('vel'), tam_ = document.getElementById('tam'), som_ = document.getElementById('som');
 vel_.oninput = () => { vel = +vel_.value; document.getElementById('velv').textContent = vel + '×'; };
@@ -140,8 +174,32 @@ function ajustarLienzos() {
   const h = Math.max(260, Math.ceil(altoFuente * tam + 40 + BAJO_LOS_PIES * tam));
   for (const p of piezas) if (p.c.height !== h) p.c.height = h;
 }
+// El segundo selector, con las fuentes del ejército elegido: las unidades en
+// Héroes, Élite y Tropa, y las poses sin agrupar.
+const selEjercito = document.getElementById('ejercito');
+function llenarFuentes(ejercito) {
+  const del = FUENTES.filter((x) => x.ejercito === ejercito);
+  const opcion = (x) => { const o = document.createElement('option'); o.value = x.id; o.textContent = x.titulo; return o; };
+  sel.replaceChildren();
+  if (del.every((x) => x.rango === null)) { for (const x of del) sel.append(opcion(x)); return; }
+  for (const r of RANGOS) {
+    const suyas = del.filter((x) => x.rango === r);
+    if (suyas.length === 0) continue;
+    const g = document.createElement('optgroup'); g.label = r;
+    for (const x of suyas) g.append(opcion(x));
+    sel.append(g);
+  }
+}
+selEjercito.onchange = () => {
+  llenarFuentes(selEjercito.value);
+  mostrar(sel.options[0].value);
+};
 function mostrar(id) {
   const f = FUENTES.find((x) => x.id === id) ?? FUENTES[0];
+  if (selEjercito.value !== f.ejercito || sel.options.length === 0) {
+    selEjercito.value = f.ejercito;
+    llenarFuentes(f.ejercito);
+  }
   sel.value = f.id;
   document.title = 'Taller · ' + f.titulo;
   // Todas a la MISMA escala, para poder compararlas: lo que cambia es el lienzo,
@@ -263,18 +321,26 @@ export async function vista8d(elegida?: string): Promise<string> {
       `«${elegida}» no está en el visor: ni es una unidad con sus 8 direcciones (${unidades.join(', ')}) ni un juego de armas con poses (${juegos.join(', ')})`,
     );
   const fuentes: Fuente[] = [];
-  for (const id of unidades)
+  for (const id of unidades) {
+    const u = unidad(id);
     fuentes.push({
       id,
-      titulo: id,
-      grupo: 'Unidades',
+      // Dentro del grupo Héroes, el «(héroe…)» del nombre sobra.
+      titulo: u.nombre.replace(/,? *\(?héroe[^)]*\)?/, '').trim(),
+      ejercito: NOMBRE_DE_FACCION_DE_ARENA[u.faccion],
+      rango: (RANGOS.find(([r]) => r === rangoDe(u)) as (typeof RANGOS)[number])[1],
       direcciones: nombrar(await desdeElArte(id)),
     });
+  }
+  // El orden de los ejércitos es el de `NOMBRE_DE_FACCION_DE_ARENA`.
+  const orden = Object.values(NOMBRE_DE_FACCION_DE_ARENA) as string[];
+  fuentes.sort((a, b) => orden.indexOf(a.ejercito) - orden.indexOf(b.ejercito));
   for (const j of juegos)
     fuentes.push({
       id: j,
       titulo: `poses: ${j}`,
-      grupo: 'Poses del maniquí',
+      ejercito: POSES,
+      rango: null,
       direcciones: nombrar(await desdeLasPoses(j)),
     });
   await mkdir(DIR_VISTA, { recursive: true });

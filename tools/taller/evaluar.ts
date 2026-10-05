@@ -23,7 +23,13 @@ import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import sharp from 'sharp';
-import { FIGURA, NOMBRES_DE_DIRECCION } from '../../src/shared/arte.js';
+import {
+  FIGURA,
+  HOJAS_DE_FIGURA,
+  hojasDeFigura,
+  NOMBRES_DE_DIRECCION,
+  primeraFilaDe,
+} from '../../src/shared/arte.js';
 import type { AtlasDerivado } from './derivar.js';
 import { apoyoEn } from './empaquetar.js';
 
@@ -197,14 +203,17 @@ function cambio(a: Mascara, b: Mascara): number {
   return union === 0 ? 0 : distintos / union;
 }
 
-/** Puntúa las 42 celdas de una dirección de una unidad. */
+/** Puntúa las celdas de una dirección de una unidad: 42, o 49 con el disparo. */
 export async function evaluarDireccion(id: string, d: number): Promise<Celda[]> {
   const dir = join(RAIZ, 'assets/unidades', id, `d${d}`);
   const atlasJson = JSON.parse(await readFile(join(dir, 'atlas.json'), 'utf8')) as AtlasDerivado;
   const lado = atlasJson.cell;
   const atlas = await alfa(join(dir, 'atlas.webp'));
   const fuera: Celda[] = [];
-  for (const [h, hoja] of (['a', 'b'] as const).entries()) {
+  // Las hojas que tiene la dirección: la del disparo solo si su atlas la lleva.
+  for (const hoja of hojasDeFigura(atlasJson.clips.shoot !== undefined)) {
+    const filasDeLaHoja = HOJAS_DE_FIGURA[hoja].length;
+    const desde = primeraFilaDe(hoja);
     const proc = JSON.parse(await readFile(join(dir, `hoja-${hoja}.procedencia.json`), 'utf8'));
     const rutaPose = join(RAIZ, proc.referencias[0].ruta as string);
     if (!existsSync(rutaPose)) throw new Error(`no encuentro la pose ${rutaPose}`);
@@ -216,8 +225,8 @@ export async function evaluarDireccion(id: string, d: number): Promise<Celda[]> 
     // Sin `posicion` (las primeras hojas) la posición también la puso la pose.
     const fija = apuntada !== undefined && apuntada.posicion !== false ? apuntada : undefined;
     const k = apuntada?.k ?? atlasJson.altura / (await altoDelReposo(rutaPose, lado));
-    for (let fila = 0; fila < 3; fila++) {
-      const filaAtlas = h * 3 + fila;
+    for (let fila = 0; fila < filasDeLaHoja; fila++) {
+      const filaAtlas = desde + fila;
       let previa: { maniqui: Mascara; pintada: Mascara } | null = null;
       const clip = Object.entries(atlasJson.clips).find(([, c]) => c.row === filaAtlas)?.[0] ?? '?';
       for (let col = 0; col < FIGURA.columnas; col++) {
@@ -286,14 +295,17 @@ function mediana(v: readonly number[]): number {
   return s[Math.floor(s.length / 2)] as number;
 }
 
-/** Las 48 filas de una unidad, con su peor celda y si pasan del umbral. */
+/** Las filas de una unidad (48, o 56 con el disparo), con su peor celda y si pasan del umbral. */
 export async function evaluar(id: string): Promise<{ filas: Fila[]; celdas: Celda[] }> {
   const celdas: Celda[] = [];
   for (let d = 0; d < 8; d++) celdas.push(...(await evaluarDireccion(id, d)));
   const filas: Fila[] = [];
   for (let d = 0; d < 8; d++) {
-    for (const clip of ['idle', 'walk', 'charge', 'attack', 'hurt', 'death']) {
-      const de = celdas.filter((c) => c.direccion === d && c.clip === clip);
+    // Las acciones que tiene la dirección, en el orden de sus filas: el disparo
+    // solo si su atlas lo trae.
+    const deLaDireccion = celdas.filter((c) => c.direccion === d);
+    for (const clip of new Set(deLaDireccion.map((c) => c.clip))) {
+      const de = deLaDireccion.filter((c) => c.clip === clip);
       const faltan = de.map((c) => c.faltan);
       const nivel = mediana(faltan);
       const pico = Math.max(...faltan) - nivel;

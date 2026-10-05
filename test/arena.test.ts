@@ -119,7 +119,7 @@ describe('la arena pelea con las cifras del borrador', () => {
     );
     // Lo que cabe, cabe: siete grandes en un bando también.
     const grandes = Array.from({ length: LIDERAZGO.maxPorBando }, () =>
-      unidad('elfo-ent', { hexes: 2 }),
+      unidad('troll-maza', { hexes: 2 }),
     );
     expect(() => batallaDeArena(grandes, grandes, createRng(1))).not.toThrow();
   });
@@ -128,7 +128,7 @@ describe('la arena pelea con las cifras del borrador', () => {
     for (const semilla of [1, 2, 3, 4, 5]) {
       const s = montada(
         [ia(unidad('templario-escudo')), ia(unidad('templario-hermano-de-carga'))],
-        [ia(unidad('orko-berserker')), ia(unidad('goblin-arquero'))],
+        [ia(unidad('orko-dos-armas')), ia(unidad('goblin-arquero'))],
         semilla,
       );
       expect(s.battle.finished, `semilla ${semilla}`).not.toBeNull();
@@ -140,7 +140,7 @@ describe('la arena pelea con las cifras del borrador', () => {
     for (const semilla of [1, 7, 12]) {
       const s = montada(
         [yo(unidad('templario-escudo')), ia(unidad('templario-mandoble'))],
-        [ia(unidad('orko-berserker')), ia(unidad('goblin-arquero'))],
+        [ia(unidad('orko-dos-armas')), ia(unidad('goblin-arquero'))],
         semilla,
       );
       const mio = s.battle.stacks.find((x) => x.side === 'attacker' && x.slot === 0);
@@ -278,14 +278,17 @@ describe('las hojas de assets/unidades se pintan en el tablero', () => {
     expect(HOJAS.length).toBeGreaterThan(40);
   });
 
-  it('las de 8 direcciones traen sus ocho atlas; las demás, el juego de su Y Bot', () => {
+  it('las de 8 direcciones traen sus ocho atlas y el juego de su Y Bot', () => {
     const hoja = (id: string) => HOJAS.find((h) => h.id === id) as (typeof HOJAS)[number];
     expect(hoja('templario-escudo').direcciones).toHaveLength(8);
     expect(hoja('templario-escudo').juego).toBe('espada-escudo');
     expect(hoja('templario-monje').juego).toBe('baston');
-    expect(hoja('zombi').direcciones).toBeNull();
-    expect(hoja('zombi').juego).toBe('lanza');
-    // Cada unidad declarada en 8 direcciones llega con sus ocho.
+    // El zombi lleva espada desde su lámina nueva (05-10-2026).
+    expect(hoja('zombi').direcciones).toHaveLength(8);
+    expect(hoja('zombi').juego).toBe('espada-escudo');
+    // Desde los No muertos (05-10-2026), todas las del taller están en 8
+    // direcciones, y cada una llega con sus ocho.
+    expect(Object.keys(EN_OCHO_DIRECCIONES).sort()).toEqual(HOJAS.map((h) => h.id).sort());
     for (const id of Object.keys(EN_OCHO_DIRECCIONES))
       expect(hoja(id).direcciones, id).not.toBeNull();
   });
@@ -303,7 +306,7 @@ describe('las hojas de assets/unidades se pintan en el tablero', () => {
     expect(juego('imperio-piquero')).toBe('lanza');
     expect(juego('goblin-lancero')).toBe('lanza');
     expect(juego('imperio-alabardero')).toBe('lanza');
-    expect(juego('heroe-orko-chaman')).toBe('baston');
+    expect(juego('heroe-goblin-chaman')).toBe('baston');
     expect(juego('heroe-elfo-druida')).toBe('baston');
     expect(juego('heroe-imperio-mago')).toBe('baston');
     expect(juego('templario-mandoble')).toBe('dos-manos');
@@ -395,7 +398,7 @@ describe('el marcado de la arena', () => {
   it('la ficha dice que las habilidades no tienen efecto, y escapa lo que se escribe', () => {
     const hoja = HOJAS.find((h) => h.id === 'templario-monje') ?? null;
     const u = { ...unidad('templario-monje'), name: '<b>Monje</b>', habilidades: ['Salto'] };
-    const m = marcadoDe(renderFicha(u, hoja));
+    const m = marcadoDe(renderFicha(u, hoja, false));
     expect(m).toContain('sin efecto todavía');
     expect(m).toContain('&lt;b&gt;Monje&lt;/b&gt;');
     expect(m).not.toContain('<b>Monje');
@@ -405,6 +408,9 @@ describe('el marcado de la arena', () => {
       expect(m).toContain(`data-clip="${clip}"`);
     }
     expect(m).toContain('data-arena="girar"');
+    // El disparo, solo en la ficha de quien lo trae.
+    expect(m).not.toContain('data-clip="shoot"');
+    expect(marcadoDe(renderFicha(u, hoja, true))).toContain('data-clip="shoot"');
   });
 
   it('el bando lleva el Yo / IA de cada puesto y no deja duplicar con el bando lleno', () => {
@@ -437,7 +443,7 @@ describe('corrección de hallazgos de QA', () => {
   it('H1: montar no juega; la IA mueve al empezar, y una sola vez', () => {
     const s = new SesionDeArena(
       [ia(unidad('templario-escudo'))],
-      [ia(unidad('orko-berserker'))],
+      [ia(unidad('orko-dos-armas'))],
       5,
     );
     // Recién montada, la batalla está en su salida: nadie ha movido ni pegado.
@@ -457,7 +463,7 @@ describe('corrección de hallazgos de QA', () => {
   it('H1: el animador que mira la salida cuenta luego todo lo que juega la IA', () => {
     const s = new SesionDeArena(
       [ia(unidad('templario-escudo'))],
-      [ia(unidad('orko-berserker'))],
+      [ia(unidad('orko-dos-armas'))],
       5,
     );
     const a = new BattleAnimator();
@@ -549,7 +555,7 @@ describe('corrección de hallazgos de QA', () => {
     const muro = { hp: 100_000, defense: 500, attack: 0 };
     const eterna = montada(
       [ia(unidad('templario-monje', muro))],
-      [ia(unidad('orko-berserker', muro))],
+      [ia(unidad('orko-dos-armas', muro))],
       11,
     );
     expect(eterna.battle.round).toBe(MAX_ROUNDS);
@@ -637,7 +643,7 @@ describe('la velocidad son casillas', () => {
     expect(v('zombi')).toBe(2);
     expect(v('esqueleto-guerrero')).toBe(3);
     expect(v('elfo-guardia-del-bosque')).toBe(v('templario-escudo') + 1);
-    expect(v('orko-berserker')).toBeGreaterThan(v('orko-hacha-escudo'));
+    expect(v('goblin-jinete-de-hiena')).toBeGreaterThan(v('orko-hacha-escudo'));
     // El Danzante, el más rápido de los de a pie: solo el jinete le pasa.
     const aPie = Object.entries(VELOCIDAD_DE_SALIDA).filter(
       ([id]) => id !== 'templario-hermano-de-carga',
@@ -681,7 +687,7 @@ describe('la velocidad son casillas', () => {
   it('con las velocidades de salida ya no juega un ejército entero y luego el otro', () => {
     const s = new SesionDeArena(
       ['templario-escudo', 'templario-mandoble', 'templario-escudero'].map((id) => ia(unidad(id))),
-      ['elfo-arquero', 'elfo-ent', 'heroe-elfo-danzante-de-espadas'].map((id) => ia(unidad(id))),
+      ['elfo-arquero', 'troll-maza', 'heroe-elfo-danzante-de-espadas'].map((id) => ia(unidad(id))),
       1,
     );
     const lados = s.battle.queue.map((id) => s.battle.stacks.find((x) => x.id === id)?.side);

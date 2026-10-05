@@ -71,12 +71,12 @@ export function msPorCasilla(body: string, clip: CharacterClip, alto: number): n
 }
 
 /**
- * Cuándo suelta `body` la cuerda en su ataque, en ms desde que empieza: cuando
- * su atlas pinta la columna `suelta`, a su reloj. `null` si su hoja no lo dice
- * —golpea, o su disparo no tiene suelta medida (el bastón del liche, el arte
- * propio de una unidad)—, y entonces el proyectil sale al empezar.
+ * Cuándo suelta `body` la cuerda en su disparo, en ms desde que empieza: cuando
+ * su atlas pinta la columna `suelta` de `shoot`, a su reloj. `null` si no la
+ * tiene —no pinta el disparo y su `shoot` es su ataque: el bastón del liche, el
+ * arte pintado antes de la hoja C—, y entonces el proyectil sale al empezar.
  */
 export function msDeSuelta(body: string): number | null {
-  const info = hojaDe(arteDe(body), MIRADA_DE_PRESENTACION).clips.attack;
+  const info = hojaDe(arteDe(body), MIRADA_DE_PRESENTACION).clips.shoot;
   return info.suelta === undefined ? null : (info.suelta * 1000) / info.fps;
 }

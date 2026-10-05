@@ -24,6 +24,7 @@ import { hexSize } from '@core/data.js';
 import { type Direccion, direccionHacia } from './direccion.js';
 import { msDeSuelta, msPorCasilla } from './marcha.js';
 import type { CharacterClip } from './render/character.js';
+import { type ArteDeFigura, arteDe } from './render/personajes.js';
 import { ALTO_DE_FIGURA, centroDeStack, type Plano, planoDeHex } from './render/proyeccion.js';
 
 /**
@@ -69,6 +70,26 @@ export function relojDelDisparo(body: string): Reloj {
   if (suelta === null) return { dura: DURACION.shoot, impacto: IMPACTO, suelta: 0 };
   const dura = suelta + VUELO_MS + TRAS_EL_IMPACTO_MS;
   return { dura, impacto: (suelta + VUELO_MS) / dura, suelta: suelta / dura };
+}
+
+/** Las artes de las que ya se ha dicho que disparan sin pintar el disparo: una vez cada una. */
+const SIN_DISPARO_AVISADAS = new WeakSet<ArteDeFigura>();
+
+/**
+ * Si el núcleo hace disparar a `body` y su arte no pinta `shoot`, se pinta con
+ * su ataque y se dice UNA vez por arte con un `console.warn`: pasa con el arte
+ * pintado antes de que existiera la hoja C (los tiradores del Imperio hasta que
+ * se repinten) y con quien dispara en el núcleo sin arma de tiro (el bastón del
+ * liche). Es un aviso y no un error: la figura se pinta, y `pnpm capturas` solo
+ * falla con errores.
+ */
+function avisarSiNoPintaElDisparo(body: string): void {
+  const arte = arteDe(body);
+  if (arte.dispara || SIN_DISPARO_AVISADAS.has(arte)) return;
+  SIN_DISPARO_AVISADAS.add(arte);
+  console.warn(
+    `${body} dispara y su arte (${arte.nombre}) no tiene clip shoot: se pinta con attack`,
+  );
 }
 
 /** Cuánto lleva lo que pasa DESPUÉS del impacto, de 0 a 1: el temblor y la cifra. */
@@ -218,14 +239,17 @@ function pasoDeAccion(e: BattleEvent, battle: BattleState): Exclude<Paso, { tipo
         impacto: IMPACTO,
         suelta: null,
       };
-    case 'shoot':
+    case 'shoot': {
+      const { body } = stackDe(battle, e.stack, 'hace disparar');
+      avisarSiNoPintaElDisparo(body);
       return {
         tipo: 'shoot',
         stack: e.stack,
         target: e.target,
         damage: e.damage,
-        ...relojDelDisparo(stackDe(battle, e.stack, 'hace disparar').body),
+        ...relojDelDisparo(body),
       };
+    }
     case 'cast':
       return {
         tipo: 'cast',
@@ -508,7 +532,9 @@ export class BattleAnimator {
         clip = paso.carga === true ? 'charge' : 'walk';
         tiempo = desdeInicio;
       } else if ((paso.tipo === 'attack' || paso.tipo === 'shoot') && paso.stack === s.id) {
-        clip = 'attack';
+        // El golpe con su ataque, cuerpo a cuerpo; el disparo con su clip, que
+        // en quien no lo pinta es su ataque (`figuraDe`).
+        clip = paso.tipo;
         mirada = this.miradaAlObjetivo(s.id, paso.target);
         tiempo = desdeInicio;
       } else if (

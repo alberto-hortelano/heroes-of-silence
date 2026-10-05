@@ -59,6 +59,7 @@ import {
 } from '../../src/client/render/camara-mapa.js';
 import { escenarioDe, topeDeAlejar } from '../../src/client/render/escenario/superficie.js';
 import { ALTO_DEL_GRUPO, pasosAPintar } from '../../src/client/render/mapa.js';
+import { registrarUnidad } from '../../src/client/render/personajes.js';
 import { centroDeStack, centroHex, tableroPara } from '../../src/client/render/proyeccion.js';
 import { botonDeRecluta, townLayout, townPlots } from '../../src/client/render/town.js';
 import {
@@ -2279,7 +2280,7 @@ async function arena(browser: Browser, url: string, problemas: Problemas): Promi
 async function todoIA(page: Page, izquierda: UnidadDeArena, derecha: UnidadDeArena): Promise<void> {
   // Tras recargar, el guerrero ya está a la izquierda en «Yo»: se pasa a la IA.
   await page.locator('#bando-izquierda .puesto').first().locator('[data-ia="si"]').click();
-  await page.locator('[data-hoja-catalogo="orko-berserker"] [data-lado="derecha"]').click();
+  await page.locator('[data-hoja-catalogo="orko-dos-armas"] [data-lado="derecha"]').click();
   const espejo = new SesionDeArena(
     [{ unidad: izquierda, ia: true }],
     [{ unidad: derecha, ia: true }],
@@ -2334,7 +2335,7 @@ async function jugarArena(
   };
   await añadir('templario-escudo', 'izquierda');
   await añadir('templario-monje', 'izquierda');
-  await añadir('orko-berserker', 'derecha');
+  await añadir('orko-dos-armas', 'derecha');
   await añadir('goblin-arquero', 'derecha');
   await page.locator('#bando-izquierda .puesto').nth(1).locator('[data-ia="si"]').click();
 
@@ -2356,8 +2357,9 @@ async function jugarArena(
   await sleep(300);
   await captura(page, 'arena-01-montaje');
 
-  // Las 8 direcciones, hoja a hoja: el templario con las suyas y el orco con las
-  // del Y Bot de su juego, y de cada uno SOLO las hojas que se han pintado; y ni
+  // Las 8 direcciones, dirección a dirección: el templario y el orco con las
+  // suyas (desde el 05-10-2026 todas las unidades del taller tienen arte propio,
+  // y el Y Bot ya no sale aquí), y de cada uno SOLO las que se pintan; y ni
   // un `atlas.webp` de una dirección, que se borró. Se gira la ficha dos veces
   // —de frente-derecha (d1) a espalda-derecha (d3)— y se pide la muerte, que
   // deja el cadáver.
@@ -2371,21 +2373,19 @@ async function jugarArena(
       .map((e) => new URL(e.name).pathname)
       .filter((p) => p.startsWith('/unidades/')),
   );
-  const orco = hojas0.find((h) => h.id === 'orko-berserker');
-  // El orco está en el bando derecho, quieto y mirando al suroeste (d7): su
-  // reposo vive en la hoja `a`.
+  const orco = hojas0.find((h) => h.id === 'orko-dos-armas');
+  // El orco está en el bando derecho, quieto y mirando al suroeste (d7).
   const faltan = [
     '/unidades/templario-escudo/d1/atlas.webp',
     '/unidades/templario-escudo/d3/atlas.webp',
-    `/unidades/_poses/${orco?.juego}-8d/d7-a.png`,
+    `/unidades/${orco?.id}/d7/atlas.webp`,
   ].filter((u) => !pedidas.includes(u));
   if (faltan.length > 0)
     throw new Error(`arena: no se cargaron las hojas que se pintan: ${faltan.join(', ')}`);
-  // Y las que no se pintan, no: la espalda-izquierda del templario (d5) y la
-  // hoja `b` del orco, que no ha atacado ni caído.
+  // Y las que no se pintan, no: la espalda-izquierda del templario y del orco (d5).
   const sobran = [
     '/unidades/templario-escudo/d5/atlas.webp',
-    `/unidades/_poses/${orco?.juego}-8d/d7-b.png`,
+    `/unidades/${orco?.id}/d5/atlas.webp`,
   ].filter((u) => pedidas.includes(u));
   if (sobran.length > 0)
     throw new Error(`arena: se cargaron hojas que no se pintan: ${sobran.join(', ')}`);
@@ -2397,6 +2397,12 @@ async function jugarArena(
   // El espejo: las mismas unidades —las de por defecto de cada hoja, con el
   // ataque cambiado— y la misma semilla.
   const hojas = hojasDeArena(process.cwd());
+  // Las figuras de la arena, registradas también aquí como en la página
+  // (`arena/main.ts`): el espejo mide lo que dura cada jugada con el reloj de
+  // su figura, y sin registrarla el goblin arquero disparaba con el reloj del
+  // Y Bot por defecto, que no es el que pinta la página (lo destapó el aviso de
+  // `clipDelDisparo`, 04-10-2026).
+  for (const h of hojas) registrarUnidad(h.id, h);
   const deHoja = (id: string, cambios: Partial<UnidadDeArena> = {}): UnidadDeArena => {
     const h = hojas.find((x) => x.id === id);
     if (h === undefined) throw new Error(`arena: no hay hoja ${id}`);
@@ -2408,7 +2414,7 @@ async function jugarArena(
       puesto(deHoja('templario-escudo', { attack: ATAQUE_EDITADO }), false),
       puesto(deHoja('templario-monje'), true),
     ],
-    [puesto(deHoja('orko-berserker'), true), puesto(deHoja('goblin-arquero'), true)],
+    [puesto(deHoja('orko-dos-armas'), true), puesto(deHoja('goblin-arquero'), true)],
     SEMILLA_ARENA,
   );
   // La página mira el tablero de salida y DESPUÉS deja jugar a la IA; el espejo
@@ -2556,7 +2562,7 @@ async function jugarArena(
   await todoIA(
     page,
     deHoja('templario-escudo', { attack: ATAQUE_EDITADO }),
-    deHoja('orko-berserker'),
+    deHoja('orko-dos-armas'),
   );
   await page.close();
 }

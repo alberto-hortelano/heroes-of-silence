@@ -1,0 +1,45 @@
+{
+  "encargo": "goblin-jinete-de-hiena-identidad",
+  "tipo": "identidad",
+  "fecha": "2026-10-05T12:19:56.785Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a10c00-7042-7840-96e4-911095d5e5fa",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo, una ballesta, una bola), es solo un PUNTO DE PARTIDA: dice dónde están las manos que empuñan, hacia dónde apunta el arma y cuándo se dispara o se suelta. El arma que se pinta es la del PERSONAJE (la de su identidad): cambia la forma, el largo y las piezas del atrezo para que sea la suya —un arcabuz donde el maniquí lleva ballesta, una daga en la izquierda donde lleva escudo, nada donde el personaje no lleva arma— sin cambiar la pose del cuerpo. Si sus piernas son de color, la ROJA es la pierna DERECHA y la AZUL la IZQUIERDA: sirven para no confundirlas en el paso ni girar la figura de espaldas; el personaje NO lleva esos colores. El fondo VERDE de esta hoja es solo fondo, para que se vea el maniquí: no lo copies, el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUn jinete goblin A LOMOS DE UNA HIENA, como el del concepto: hiena grande de lomo caído, crin hirsuta y pelaje moteado sarnoso, arnés de cuero con tachuelas y silla pequeña, las fauces abiertas; el goblin pequeño y flaco, piel verde amarillenta, orejas largas, casco abollado, cuero raído, lanza corta y escudo redondo pequeño. Jinete y hiena son UNA sola figura, mucho más baja que un caballo.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nUN solo personaje, de cuerpo entero, en la primera pose de reposo de la referencia de pose (de pie o montado, como esté el maniquí).\nCámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.\nLámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/montado-lanza.png",
+      "papel": "pose",
+      "sha256": "2cef5c222acba6995e842d6c8c905b1ac72aed84294ade2a2ca093d4617401cf"
+    },
+    {
+      "ruta": "assets/art/orkos/jinete-de-hiena.png",
+      "papel": "identidad",
+      "sha256": "caa944e3e289e5ccae602a1e06dbe03c05ddf68f76d71b3b013d9fdea718dd9e"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a10c00-7042-7840-96e4-911095d5e5fa/exec-f625c9bf-c687-4e14-a600-e6e8a4684a6b.png",
+    "sha256": "628bfa334023696bfdee6b6f0a881d91f897424d3a8446da3d2ac1682119f0fa",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.3960167589106708,
+    "opacos": 0.9829795202955912,
+    "haloSuelto": 0.000006312453840181293,
+    "ancho": 957,
+    "alto": 1254
+  },
+  "salida": {
+    "ruta": "assets/unidades/goblin-jinete-de-hiena/identidad.webp",
+    "sha256": "e737f426f8b4dd1045cfc3ccdb8b51a843de7c65a42199425edf4005a5e465d5"
+  }
+}

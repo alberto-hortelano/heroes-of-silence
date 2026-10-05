@@ -7,7 +7,8 @@
  * Rescatado de `tools/art/ybot-ranged-poses.mjs` de la rama `archivo/gpt-rpg`:
  * el arco (tensar y soltar) y la ballesta (encarar y disparar), que es también
  * la pose del arcabuz y de la culebrina de mano. Sus tablas de seis poses son
- * hoy `CURVAS_DEL_DISPARO`.
+ * hoy `CURVAS_DEL_DISPARO`. La granada (04-10-2026) es nueva: armar el brazo por
+ * encima del hombro y lanzar.
  */
 import { runInNewContext } from 'node:vm';
 
@@ -19,6 +20,12 @@ import { runInNewContext } from 'node:vm';
 export const CURVAS_DEL_DISPARO = {
   bow: [0, 0.45, 1, 1, 0.65, 0],
   crossbow: [0, 0.7, 1, 1, 0.55, 0],
+  // Armar el brazo detrás de la cabeza, soltar en lo más alto y acompañar el
+  // tiro hacia delante y abajo mientras la curva vuelve a 0.
+  grenade: [0, 0.6, 1, 1, 0.6, 0],
+  // La pistola del jinete (`tools/art/montura/escena.js`): extender el brazo,
+  // disparar y bajarla con el culatazo.
+  pistol: [0, 0.8, 1, 1, 0.5, 0],
 } as const;
 
 /** Los clips de ataque que son un disparo: los que tienen curva. */
@@ -107,16 +114,29 @@ function poseArm(model, side, target, hint) {
   const elbow=start.clone().addScaledVector(line,along).addScaledVector(bend,Math.sqrt(Math.max(0,a*a-along*along)));
   turnJoint(upper,lower,elbow); turnJoint(lower,hand,start.clone().addScaledVector(line,distance));
 }
-// \`tension\`: lo que da la curva del disparo en este fotograma, de 0 a 1.
-function rangedPose(model, kind, tension) {
+// \`tension\`: lo que da la curva del disparo en este fotograma, de 0 a 1;
+// \`tensa\`: si aún no ha soltado. Solo la granada lo usa: antes de soltar la
+// curva arma el brazo hacia atrás, y después lo lleva hacia delante.
+function rangedPose(model, kind, tension, tensa) {
   if (kind === 'bow') {
     poseArm(model,'Left',new THREE.Vector3(.12,1.22+tension*.18,.40+tension*.20),new THREE.Vector3(.5,-1,0));
     poseArm(model,'Right',new THREE.Vector3(-.06,1.20+tension*.24,.38-tension*.28),new THREE.Vector3(-1,.15,0));
   } else if (kind === 'crossbow') {
     poseArm(model,'Left',new THREE.Vector3(.10,1.02+tension*.25,.43),new THREE.Vector3(.5,-1,0));
     poseArm(model,'Right',new THREE.Vector3(-.10,1.00+tension*.23,.24),new THREE.Vector3(-.5,-1,0));
+  } else if (kind === 'grenade') {
+    const mezcla = (a, b, t) => new THREE.Vector3(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t);
+    // La izquierda apunta al blanco con el brazo alzado en lo más alto del tiro.
+    const apunta = [0.16, 1.4, 0.5];
+    if (tensa) {
+      poseArm(model,'Left',mezcla([0.2,1.05,0.25],apunta,tension),new THREE.Vector3(.5,-1,0));
+      poseArm(model,'Right',mezcla([-0.22,1.05,0.22],[-0.26,1.62,-0.24],tension),new THREE.Vector3(-1,-.5,.2));
+    } else {
+      poseArm(model,'Left',mezcla([0.25,0.98,0.1],apunta,tension),new THREE.Vector3(.5,-1,0));
+      poseArm(model,'Right',mezcla([0.06,0.95,0.42],[-0.14,1.56,0.46],tension),new THREE.Vector3(-.5,-1,0));
+    }
   } else {
-    throw new Error('no sé disparar «' + kind + '»: solo bow y crossbow');
+    throw new Error('no sé disparar «' + kind + '»: solo bow, crossbow y grenade');
   }
 }
 `;

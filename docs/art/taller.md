@@ -217,12 +217,43 @@ fotograma es el cadáver (`cadaver` en el JSON).
      progreso del clip (la misma en 1 y en 8 direcciones) y suelta en su último
      nudo alto. `derivar-poses` escribe esa columna en el ataque de
      `atlas-8d.json` (`suelta`), y el cliente lanza ahí el proyectil.
+   En `granada` (04-10-2026) el ataque arma el brazo derecho sobre el hombro
+   con la granada en el puño, la suelta en lo más alto y acompaña el tiro
+   hacia delante; la curva es `grenade` y la granada desaparece al soltarla.
+   - El jinete sale de `npx tsx tools/art/montura.ts --8d`, con la lanza; con
+     `--pistola` sale `montado-pistola-8d`, sin lanza ni escudo, con la pistola
+     alzada al paso, apuntando en la carga y disparando en el ataque (curva
+     `pistol`, un segundo de clip).
+     Con `--arco` sale `montado-arco-8d`, el jinete elfo (05-10-2026): la
+     lanza en alto al paso y bajada en la carga, el arco a la espalda y sin
+     escudo; el ataque es el tajo de espada, y el disparo (hoja C), el arco en
+     la izquierda extendida y la derecha tensando hasta la mejilla, con la curva
+     `bow` del arquero a pie y el arco de su mismo atrezo. Un jinete nuevo es
+     una fila de `JUEGOS_MONTADOS`: su arma sale de la clave (`--<arma>`).
+   - **El maniquí de una unidad** (04-10-2026): el Y Bot no es sagrado. Si el
+     atrezo de su juego no se parece a lo que lleva el personaje —una daga y no
+     un escudo, un arcabuz y no una ballesta, una rodela, una alabarda—, la
+     unidad declara su `maniqui` en `tools/taller/unidades.ts` y
+     `pnpm taller maniqui <id>` lo renderiza en `_poses/unidades/<id>-8d/` con
+     los clips de su juego. Sus hojas se pintan sobre él. El juego de
+     `JUEGO_DEL_YBOT` sigue siendo el respaldo del cliente mientras no hay arte.
+     El atrezo nuevo: `daga` en la izquierda, `rodela`, `remate` `esfera` y
+     `hacha`, y la ballesta con `palas: 0`, que es un arma de fuego.
+     Además, el prompt trata el atrezo como punto de partida: el arma que se
+     pinta es la del personaje.
 2. **El giro**: `pnpm taller encolar <id> --giro`. Es la lámina de identidad por
    los ocho lados y fija la espalda antes de pintar.
 3. **Las 16 hojas**: `pnpm taller encolar <id> --ocho`. Cada hoja se escala
    contra su maniquí, celda a celda, y el taller junta las dos de una dirección en
    `assets/unidades/<id>/d<n>/atlas.webp` (celda de 384). `atlas.composicion.json`
    apunta de qué hojas sale.
+   - **La talla** (05-10-2026): el reposo se empaqueta a la altura de un adulto
+     (`FIGURA.alturaAdulto`, 160 px) por la `talla` de la unidad, que vale 1 si
+     no la declara: los goblins y el jinete de hiena van a 0,7, y el troll a 1,45. El cliente escala
+     por la celda, así que en el tablero se ve con esa talla. Si el fotograma más
+     ancho no cabe, el post-proceso reduce esa hoja y lo dice en su procedencia.
+     Para cambiar la talla no hace falta volver a pintar: se pone `talla` en la
+     ficha de cada hoja hecha de la cola y se pasa `pnpm taller reprocesar <id>`.
 4. **La vista**: `pnpm taller vista-8d [<id>]` escribe un solo visor, `.cache/taller/vista/visor-8d.html`, con un selector de todas las unidades que ya tienen sus 8 direcciones y de las poses de cada juego de armas; el `<id>` solo elige con cuál se abre (va en el `#` de la URL). Todas a la misma escala, para poder compararlas: el lienzo crece hasta que quepa la más alta. Con la sombra por silueta.
 
 Las direcciones son las de sprite-forge: 0 mira a la cámara, 2 a la derecha, 4 de

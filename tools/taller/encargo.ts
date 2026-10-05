@@ -9,11 +9,19 @@
  * palabras, en vez de depender de que cada encargo se acuerde.
  */
 import { z } from 'zod';
-import { FIGURA, NOMBRES_DE_DIRECCION } from '../../src/shared/arte.js';
+import {
+  FIGURA,
+  HOJAS_DE_FIGURA,
+  type HojaDeFigura,
+  NOMBRES_DE_DIRECCION,
+} from '../../src/shared/arte.js';
+
+/** Las hojas de una dirección (`HOJAS_DE_FIGURA`), como las admite un encargo. */
+const LETRAS_DE_HOJA = Object.keys(HOJAS_DE_FIGURA) as [HojaDeFigura, ...HojaDeFigura[]];
 
 /** Lo que cada referencia aporta, y nada más. */
 export const PAPELES = {
-  pose: 'es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo), copia su largo, su ángulo y su sitio en cada celda: es la guía del arma real. Si sus piernas son de color, la ROJA es la pierna DERECHA y la AZUL la IZQUIERDA: sirven para no confundirlas en el paso ni girar la figura de espaldas; el personaje NO lleva esos colores. El fondo VERDE de esta hoja es solo fondo, para que se vea el maniquí: no lo copies, el resultado va sobre transparente',
+  pose: 'es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo, una ballesta, una bola), es solo un PUNTO DE PARTIDA: dice dónde están las manos que empuñan, hacia dónde apunta el arma y cuándo se dispara o se suelta. El arma que se pinta es la del PERSONAJE (la de su identidad): cambia la forma, el largo y las piezas del atrezo para que sea la suya —un arcabuz donde el maniquí lleva ballesta, una daga en la izquierda donde lleva escudo, nada donde el personaje no lleva arma— sin cambiar la pose del cuerpo. Si sus piernas son de color, la ROJA es la pierna DERECHA y la AZUL la IZQUIERDA: sirven para no confundirlas en el paso ni girar la figura de espaldas; el personaje NO lleva esos colores. El fondo VERDE de esta hoja es solo fondo, para que se vea el maniquí: no lo copies, el resultado va sobre transparente',
   identidad:
     'es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose',
   // Sin hablar de su cámara: unas referencias de estilo están de frente (las
@@ -65,17 +73,20 @@ export const encargoSchema = z
     salida: ruta,
     /** Atlas: lado de la celda. 384 en las hojas de 8 direcciones, donde cabe el cadáver. */
     celda: z.union([z.literal(256), z.literal(384)]).optional(),
+    /** Atlas: la altura del reposo frente a la de un adulto (`FIGURA.alturaAdulto`). Un goblin, menos; un troll, más. */
+    talla: z.number().positive().optional(),
     /** Imagen: si el fondo se recorta o la imagen es opaca (un fondo de batalla). */
     fondo: z.enum(['transparente', 'opaco']).default('transparente'),
     /** Corrige una generación anterior en su mismo hilo de Codex, que conserva la identidad. */
     reanudar: z.object({ hilo: z.string().uuid(), correccion: z.string().min(10) }).optional(),
     /**
-     * Atlas de una unidad en 8 direcciones: cuál de las 8 y qué hoja. La A es
-     * quieto, andando y carga; la B, ataque, daño y muerte. Todo atlas lo lleva:
-     * el de una sola dirección se retiró el 03-10-2026.
+     * Atlas de una unidad en 8 direcciones: cuál de las 8 y qué hoja de
+     * `HOJAS_DE_FIGURA`. La A es quieto, andando y carga; la B, ataque, daño y
+     * muerte; la C, el disparo de quien dispara. Todo atlas lo lleva: el de una
+     * sola dirección se retiró el 03-10-2026.
      */
     ocho: z
-      .object({ direccion: z.number().int().min(0).max(7), hoja: z.enum(['a', 'b']) })
+      .object({ direccion: z.number().int().min(0).max(7), hoja: z.enum(LETRAS_DE_HOJA) })
       .optional(),
     /** Módulos del escenario: cuántos lleva la hoja, en filas de 4. */
     cuantos: z.number().int().min(4).max(16).optional(),
@@ -140,30 +151,55 @@ const SIN_FONDO =
 
 /** Lo que pinta cada fila de una hoja de 8 direcciones. */
 const FILAS_OCHO = {
-  a: 'Fila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con las armas como las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.',
-  b: 'Fila 1: las siete poses de ATAQUE de la fila 1 de la referencia de pose, golpeando con la espada. Fila 2: las siete poses de RECIBIR DAÑO de la fila 2: encaja un golpe y retrocede. Fila 3: las siete poses de la MUERTE de la fila 3: la primera es EXACTAMENTE la última de la fila 2, luego se desploma, y la última es el cadáver tendido e inmóvil en el suelo, con sus armas donde las tiene el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.',
-} as const;
+  a: 'Fila 1: las siete poses de reposo de la fila 1 de la referencia de pose. Fila 2: las siete fases de marcha de la fila 2, con apoyo y paso alternando pierna cercana y lejana y los brazos en oposición. Fila 3: las siete fases de la CARGA de la fila 3: corriendo al ataque con sus armas donde las lleva el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.',
+  b: 'Fila 1: las siete poses de ATAQUE de la fila 1 de la referencia de pose, atacando con el arma del personaje. Fila 2: las siete poses de RECIBIR DAÑO de la fila 2: encaja un golpe y retrocede. Fila 3: las siete poses de la MUERTE de la fila 3: la primera es EXACTAMENTE la última de la fila 2, luego se desploma, y la última es el cadáver tendido e inmóvil en el suelo, con sus armas en el suelo donde las tiene el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.',
+  // Una sola fila (`HOJAS_DE_FIGURA.c`): el pintor no ha visto nunca una tira de
+  // siete, así que se le dice que es una y que no la reparta en más.
+  c: 'UNA SOLA FILA: las siete poses de DISPARO de la referencia de pose, disparando con el arma a distancia del personaje (la de su identidad: arco, ballesta, arcabuz, culebrina, rifle, pistola o granada). En las primeras columnas apunta o carga el tiro; en la columna en la que el maniquí suelta, el proyectil sale y ya no se ve en la mano ni en el arma, ni tampoco en el aire: NO pintes la flecha, el virote, la bala ni la granada volando (el juego los dibuja aparte); como mucho, un fogonazo o un poco de humo en la boca de un arma de fuego. Después, el arma vuelve. Copia la fila de la referencia, articulación por articulación.',
+} as const satisfies Record<keyof typeof HOJAS_DE_FIGURA, string>;
 
-/** Las filas de cada hoja de 8 direcciones: la A y la B llevan tres cada una. */
-export const FILAS_POR_HOJA = 3;
-
-function reglasDeAtlas(e: Encargo): string {
+/** La hoja de un atlas de 8 direcciones; lanza si el encargo no dice cuál. */
+function ochoDe(e: Encargo): NonNullable<Encargo['ocho']> {
   if (e.ocho === undefined) {
     throw new Error(`${e.id}: un atlas es una hoja de una dirección de 8 y lleva \`ocho\``);
   }
+  return e.ocho;
+}
+
+/** Las filas de la hoja de un atlas de 8 direcciones: las de su hoja en `HOJAS_DE_FIGURA`. */
+export function filasDeAtlas(e: Encargo): number {
+  return HOJAS_DE_FIGURA[ochoDe(e).hoja].length;
+}
+
+/** Los píxeles de alto del reposo de un atlas: los de un adulto por la talla de la unidad. */
+export function alturaDelReposo(e: Encargo): number {
+  return Math.round(FIGURA.alturaAdulto * (e.talla ?? 1));
+}
+
+function reglasDeAtlas(e: Encargo): string {
+  const ocho = ochoDe(e);
   const { columnas } = FIGURA;
-  const filas = FILAS_POR_HOJA;
-  const altura = FIGURA.alturaAdulto;
-  const mira = `El personaje mira hacia donde mira el maniquí (dirección «${NOMBRES_DE_DIRECCION[e.ocho.direccion]}» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.`;
+  const filas = filasDeAtlas(e);
+  // La hoja del disparo es de una sola fila: el prompt la nombra en singular.
+  const una = filas === 1;
+  const altura = alturaDelReposo(e);
+  const mira = `El personaje mira hacia donde mira el maniquí (dirección «${NOMBRES_DE_DIRECCION[ocho.direccion]}» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.`;
   return [
-    `Hoja de sprites de EXACTAMENTE ${columnas} columnas por ${filas} filas, ${columnas * filas} figuras del MISMO personaje, separadas con holgura y sin tocarse.`,
-    FILAS_OCHO[e.ocho.hoja],
-    `Misma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. ${mira}`,
+    `Hoja de sprites de EXACTAMENTE ${columnas} columnas por ${filas} ${una ? 'fila' : 'filas'}, ${columnas * filas} figuras del MISMO personaje, separadas con holgura y sin tocarse.`,
+    FILAS_OCHO[ocho.hoja],
+    `Misma cámara ortográfica elevada 25 grados en ${una ? 'toda la fila' : 'todas las filas'}, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. ${mira}`,
     `Misma escala en todas las celdas: la figura de pie ocupa unos ${altura} de cada ${e.celda ?? FIGURA.celda} píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.`,
     // Once de los primeros 52 atlas fallaron por lo mismo: en el ataque, la
     // lanza o la espada de una figura tocaba a la de al lado, y el taller no
     // puede separar dos figuras que se tocan. Se pide de entrada.
-    'Deja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.',
+    `Deja al menos 40 píxeles de aire libre entre una figura y la siguiente en ${una ? 'la fila' : 'las tres filas'}. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.`,
+    // Una sola fila es una tira muy apaisada: sin esto, ChatGPT agranda las
+    // figuras hasta el alto de la imagen y se tocan (y el recorte cuenta menos).
+    ...(una
+      ? [
+          'Las SIETE figuras separadas, cada una en su séptima parte del ancho: ninguna toca a la vecina, ni con el brazo extendido ni con el arma. Del mismo tamaño que en una hoja de tres filas; mejor pequeñas y con mucho aire que grandes y juntas. Entre una figura y la siguiente tiene que quedar una franja de fondo vacío de arriba abajo. Un arma larga (rifle, arcabuz, culebrina, pica) apunta algo hacia arriba o en escorzo hacia la cámara para no alcanzar a la figura de al lado; el fogonazo, pequeño y pegado a la boca del arma.',
+        ]
+      : []),
     SIN_FONDO,
   ].join('\n');
 }
