@@ -411,3 +411,52 @@ que faltara en `assets/art/imperio/`. Decisiones suyas del 04-10-2026:
    - `escalaDePose` sin test;
    - unificar el registro de hojas de la arena con su espejo en
      `tools/qa/capturas.ts`.
+
+## 13. Los Orkos en 8 direcciones (rama `arte-mapas`, 05-10-2026)
+
+Mandan las unidades de `NuevaJugabilidad.md` (decisión del usuario). Ya está:
+- **Unidades** (`tools/taller/unidades.ts`, velocidades y `docs/art/unidades.md`):
+  - salen el berserker, el fanático y el señor de la guerra;
+  - el chamán orko pasa a ser `heroe-goblin-chaman`;
+  - entran `goblin-jinete-de-hiena` (montado-lanza, a 5 como el jinete elfo) y
+    `orko-armadura-pesada` (gran hacha, a 3);
+  - los tests de la arena y `tools/qa/capturas.ts` usan `orko-dos-armas`
+    donde estaba el berserker.
+- **Láminas nuevas** en `assets/art/orkos/`: kaudillo, jefe goblin, chamán
+  goblin, jinete de hiena y orko con armadura pesada. Su procedencia candidata
+  está en `.cache/laminas/entradas-orkos.json` y pasa a `assets/art/prompts.json`
+  con el visto bueno del usuario.
+- **Maniquí propio** para 8 Orkos (todos menos el arquero y el jinete), ya
+  renderizado en `_poses/unidades/<id>-8d/`.
+- **Identidad** de las 3 unidades nuevas y **giro** de las 10, salvo el del
+  chamán y el del armado, que están en la cola.
+
+**Parado**: Codex agotó su cuota hasta el **09-10-2026 a las 23:11**.
+
+**Para seguir:**
+1. **Volver a meter los 10 ids de Orkos en `IDS_EN_OCHO_DIRECCIONES` antes de
+   arrancar ningún trabajador.** El trabajador lee la lista al arrancar y, sin
+   ellos, tira el posproceso de cada hoja. Así cayeron las 16 del arquero, que
+   se recuperaron con `pnpm taller reprocesar <id>`. Hoy no están en la lista
+   porque `test/arena.test.ts` exige los 8 atlas de cada id que haya en ella.
+2. **Devolver al árbol las 6 direcciones ya pintadas del arquero**, de
+   `.cache/laminas/aparcado/goblin-arquero/d0`…`d5` a `assets/unidades/goblin-arquero/`.
+   Se apartaron porque con 5 de 8 la guarda `tieneSusOchoDirecciones` lanza.
+3. **La cola tiene 122 encargos pendientes**:
+   - los giros del chamán y del armado;
+   - las 8 direcciones de los 7 Orkos que ya tenían giro (el arquero, desde
+     `d5-b`).
+   
+   Al terminar esos dos giros, hay que encolar las 8 direcciones del chamán y
+   del armado (`--ocho`).
+
+**Terminado tras volver la cuota.** Se siguieron los tres pasos de arriba. Los
+10 Orkos están en 8 direcciones (el arquero, con su hoja C de disparo), sin
+ningún encargo fallido, y `pnpm verify` pasa.
+
+**La talla** (petición del usuario: «el troll con maza es más pequeño que un
+goblin»). Todas las hojas iban a la altura de un adulto. Ahora cada unidad puede
+declarar su `talla` (docs/art/taller.md): los goblins van a 0,7 y el troll a
+1,45, y sus 88 hojas se reprocesaron sin repintar. La `d3-b` del troll no cabía y
+se redujo a 214 px, en vez de 232. El jinete de hiena va también a 0,7: su
+jinete es un goblin y la hiena es mucho más baja que el caballo del maniquí.

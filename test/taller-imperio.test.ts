@@ -8,6 +8,7 @@ import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { clipDeDisparoDe, JUEGOS_DE_ARMAS, type JuegoEn8d } from '../tools/art/poses.js';
 import {
+  EN_OCHO_DIRECCIONES,
   encargosDeOchoDirecciones,
   HEROES,
   JUEGO_DEL_YBOT,
@@ -66,10 +67,13 @@ describe('el maniquí propio de una unidad', () => {
     expect(conManiqui.map((u) => u.id)).toContain('imperio-arcabucero');
     for (const u of conManiqui) {
       const carpeta = `assets/unidades/_poses/unidades/${u.id}-8d`;
-      for (const e of encargosDeOchoDirecciones(u))
-        expect(e.referencias[0]?.ruta, e.id).toBe(
-          `${carpeta}/d${e.ocho?.direccion}-${e.ocho?.hoja}.png`,
-        );
+      // Un maniquí se renderiza antes de pintar: hasta que la unidad entra en
+      // 8 direcciones no tiene encargos, pero su maniquí ya está completo.
+      if (u.id in EN_OCHO_DIRECCIONES)
+        for (const e of encargosDeOchoDirecciones(u))
+          expect(e.referencias[0]?.ruta, e.id).toBe(
+            `${carpeta}/d${e.ocho?.direccion}-${e.ocho?.hoja}.png`,
+          );
       const dispara = clipDeDisparoDe(JUEGO_DEL_YBOT[u.id] as JuegoEn8d) !== null;
       for (let d = 0; d < 8; d++)
         for (const h of dispara ? ['a', 'b', 'c'] : ['a', 'b'])

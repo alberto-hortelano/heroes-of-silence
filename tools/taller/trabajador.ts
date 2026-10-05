@@ -76,7 +76,7 @@ import {
   empaquetar,
   recortarAlContenido,
 } from './empaquetar.js';
-import { type Encargo, filasDeAtlas, promptDe } from './encargo.js';
+import { alturaDelReposo, type Encargo, filasDeAtlas, promptDe } from './encargo.js';
 import { escribirCatalogo } from './escenario/catalogo-disco.js';
 import { escenario } from './escenario/escenario.js';
 import {
@@ -254,7 +254,7 @@ async function postprocesar(
           `hoja partida en ${indice.length} módulos a su tamaño nativo, cada uno con su ancla en la base`,
         );
       } else if (encargo.tipo === 'atlas') {
-        const altura = FIGURA.alturaAdulto;
+        const altura = alturaDelReposo(encargo);
         const celda = encargo.celda ?? FIGURA.celda;
         const pose = await escalaDePose(encargo);
         const filas = filasDeAtlas(encargo);

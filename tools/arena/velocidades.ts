@@ -10,7 +10,8 @@
  * más que su equivalente humano; el Danzante de espadas es el más rápido de los
  * de a pie (6); el jinete y los hostigadores, rápidos; los no muertos, lentos
  * (zombi 2, esqueleto 3), salvo lo que su papel diga otra cosa; y los orkos como
- * los humanos, con el berserker más rápido. Cada fila se ajusta con lo que dice
+ * los humanos, con el berserker más rápido (desde el 05-10-2026, que el
+ * berserker sale de la ficha, el jinete de hiena). Cada fila se ajusta con lo que dice
  * de la unidad su descripción en `tools/taller/unidades.ts`.
  *
  * Un test exige que estén todas las hojas del taller y ninguna más.
@@ -57,8 +58,9 @@ export const VELOCIDAD_DE_SALIDA: Readonly<
   'goblin-lancero': [4, 'goblin de línea con lanza: como un humano'],
   'goblin-arquero': [4, 'tirador ligero'],
   'troll-maza': [3, 'gigante con maza a dos manos'],
-  'orko-berserker': [5, 'berserker enloquecido, antes jinete de jabalí: el orko más rápido'],
-  'goblin-fanatico': [5, 'pequeño y lanzado a inmolarse con su pólvora'],
+  // 5 y no 7, como el jinete elfo (docs/art/peticiones.md §12).
+  'goblin-jinete-de-hiena': [5, 'a lomos de una hiena: el orko más rápido, en lugar del berserker'],
+  'orko-armadura-pesada': [3, '«más lento y más duro», con hacha a dos manos'],
   // Héroes
   'heroe-templario-caballero': [4, 'líder de primera línea a pie'],
   'heroe-templario-abad': [4, 'sanador con cota de malla bajo el hábito'],
@@ -77,9 +79,5 @@ export const VELOCIDAD_DE_SALIDA: Readonly<
   'heroe-elfo-cantora': [5, 'maga (4 en un humano), más uno por elfa'],
   'heroe-orko-kaudillo': [3, 'enorme, con placas de chatarra y arma a dos manos'],
   'heroe-goblin-jefe': [5, 'pequeño y astuto'],
-  'heroe-orko-chaman': [4, 'chamán a pie: como un humano'],
-  'heroe-orko-senor-de-la-guerra': [
-    4,
-    'armadura pesada, pero «carga brutal»: entre el pesado y el berserker',
-  ],
+  'heroe-goblin-chaman': [4, 'chamán goblin a pie: como un humano'],
 };

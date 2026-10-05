@@ -67,6 +67,13 @@ export interface Unidad {
    * cliente mientras no hay arte propio.
    */
   readonly maniqui?: Atrezo;
+  /**
+   * Su altura frente a la de un adulto humano, que es 1: el goblin, «la mitad
+   * de un humano» en sus láminas, y el troll, «más del doble que un orko». Las
+   * hojas se empaquetan con el reposo a esa altura (`alturaDelReposo`), y como
+   * el cliente escala por la celda, se ve así en el tablero. Sin talla, 1.
+   */
+  readonly talla?: number;
 }
 
 /** El arma de mano de espada y escudo, para cambiarle lo que haga falta. */
@@ -412,6 +419,11 @@ export const UNIDADES: readonly Unidad[] = [
     nombre: 'Orko con hacha y escudo',
     perfil: 'espada-escudo',
     concepto: 'assets/art/orkos/orko-con-hacha-y-escudo.png',
+    maniqui: {
+      ...ESPADA_Y_ESCUDO,
+      espada: { largo: 0.75, guarda: 0, puño: 0.45, agarre: 0.05, grosor: 0.024, remate: 'hacha' },
+      rodela: 0.3,
+    },
     aspecto:
       'Un orko de piel verde oliva: colmillos, pelo negro recogido, armadura de cuero y placas oxidadas con pieles, faldón de cuero, escudo redondo de madera reforzado en la izquierda y hacha de una mano en la derecha.',
   },
@@ -421,6 +433,12 @@ export const UNIDADES: readonly Unidad[] = [
     nombre: 'Orko con dos armas',
     perfil: 'dos-manos',
     concepto: 'assets/art/orkos/orko-con-dos-armas.png',
+    maniqui: {
+      ...ESPADA_Y_ESCUDO,
+      espada: { largo: 0.6, guarda: 0.04, puño: 0.14, agarre: 0.06, grosor: 0.03 },
+      escudo: false,
+      daga: { largo: 0.55 },
+    },
     aspecto:
       'Un orko de piel verde, torso casi desnudo con pinturas de guerra rojas, hombrera de pinchos, faldón de pieles, una cuchilla tosca en cada mano. Sin defensa, rugiendo.',
   },
@@ -430,6 +448,13 @@ export const UNIDADES: readonly Unidad[] = [
     nombre: 'Goblin lancero',
     perfil: 'espada-escudo',
     concepto: 'assets/art/orkos/goblin-lancero.png',
+    maniqui: {
+      ...JUEGOS_DE_ARMAS.lanza.atrezo,
+      espada: { largo: 1.6, guarda: 0, puño: 0.6, agarre: 0, grosor: 0.018, moharra: 0.2 },
+      escudo: true,
+      rodela: 0.18,
+    },
+    talla: 0.7,
     aspecto:
       'Un goblin lancero: pequeño y flaco, piel verde amarillenta, orejas largas, casco de hierro abollado, harapos, escudo redondo pequeño en la izquierda y lanza larga en la derecha.',
   },
@@ -439,6 +464,7 @@ export const UNIDADES: readonly Unidad[] = [
     nombre: 'Goblin arquero',
     perfil: 'arco',
     concepto: 'assets/art/orkos/goblin-arquero.png',
+    talla: 0.7,
     aspecto:
       'Un goblin arquero: pequeño, piel verde amarillenta, capucha y pañuelo rojos tapándole la boca, harapos de cuero, carcaj de flechas a la espalda, arco corto tosco.',
   },
@@ -448,26 +474,36 @@ export const UNIDADES: readonly Unidad[] = [
     nombre: 'Troll con maza',
     perfil: 'dos-manos',
     concepto: 'assets/art/orkos/troll-con-maza.png',
+    maniqui: {
+      ...JUEGOS_DE_ARMAS['dos-manos'].atrezo,
+      espada: { largo: 1.0, guarda: 0, puño: 0.4, agarre: 0, grosor: 0.05, cabeza: 0.13 },
+    },
+    talla: 1.45,
     aspecto:
       'Un troll: gigante de piel gris azulada con musgo, cabeza pequeña, colmillos, grilletes rotos con cadenas en las muñecas, taparrabos, maza de madera con clavos de hierro empuñada a dos manos.',
   },
   {
-    id: 'orko-berserker',
+    id: 'goblin-jinete-de-hiena',
     faccion: 'orkos',
-    nombre: 'Orko berserker (antes Jinete de jabalí)',
-    perfil: 'dos-manos',
-    concepto: 'assets/art/orkos/jinete-de-jabali.png',
+    nombre: 'Jinete de hiena (goblin)',
+    perfil: 'montado-lanza',
+    concepto: 'assets/art/orkos/jinete-de-hiena.png',
+    talla: 0.7,
     aspecto:
-      'Un orko berserker, A PIE y sin montura: el jinete del concepto bajado del jabalí, armadura de cuero con trofeos de cráneo y pinturas rojas, sin escudo, hacha grande empuñada a dos manos, enloquecido.',
+      'Un jinete goblin A LOMOS DE UNA HIENA, como el del concepto: hiena grande de lomo caído, crin hirsuta y pelaje moteado sarnoso, arnés de cuero con tachuelas y silla pequeña, las fauces abiertas; el goblin pequeño y flaco, piel verde amarillenta, orejas largas, casco abollado, cuero raído, lanza corta y escudo redondo pequeño. Jinete y hiena son UNA sola figura, mucho más baja que un caballo.',
   },
   {
-    id: 'goblin-fanatico',
+    id: 'orko-armadura-pesada',
     faccion: 'orkos',
-    nombre: 'Goblin fanático',
-    perfil: 'espada-escudo',
-    concepto: 'assets/art/orkos/goblin-fanatico.png',
+    nombre: 'Orko con armadura pesada',
+    perfil: 'dos-manos',
+    concepto: 'assets/art/orkos/orko-armadura-pesada.png',
+    maniqui: {
+      ...JUEGOS_DE_ARMAS['dos-manos'].atrezo,
+      espada: { largo: 1.1, guarda: 0, puño: 0.55, agarre: 0.05, grosor: 0.026, remate: 'hacha' },
+    },
     aspecto:
-      'Un goblin fanático: pequeño, sonrisa enloquecida, pañuelo rojo en la cabeza, harapos, dos barriles de pólvora atados a la espalda con la mecha encendida, una bomba en la mano derecha. Sin armas.',
+      'Un orko con armadura pesada: piel verde oliva, yelmo cerrado de hierro con mirilla y cuernos cortos, placas de hierro ennegrecido remachadas sobre malla y cuero, hombreras enormes con pinchos, botas de hierro, gran hacha de doble filo empuñada a dos manos. Sin escudo. Pesado e inamovible.',
   },
 ];
 
@@ -645,6 +681,11 @@ export const HEROES: readonly Unidad[] = [
     faccion: 'orkos',
     nombre: 'Kaudillo (héroe)',
     perfil: 'dos-manos',
+    concepto: 'assets/art/orkos/kaudillo.png',
+    maniqui: {
+      ...JUEGOS_DE_ARMAS['dos-manos'].atrezo,
+      espada: { largo: 1.0, guarda: 0, puño: 0.5, agarre: 0.05, grosor: 0.026, remate: 'hacha' },
+    },
     aspecto:
       'Un kaudillo orko enorme: armadura de placas de chatarra con pinchos y cráneos, capa de piel de lobo, cuernos en el casco, cicatrices, gran cuchilla de carnicero empuñada a dos manos.',
   },
@@ -653,24 +694,30 @@ export const HEROES: readonly Unidad[] = [
     faccion: 'orkos',
     nombre: 'Jefe goblin (héroe)',
     perfil: 'espada-escudo',
+    concepto: 'assets/art/orkos/jefe-goblin.png',
+    maniqui: {
+      ...ESPADA_Y_ESCUDO,
+      espada: { largo: 0.3, guarda: 0.06, puño: 0.1, agarre: 0.05, grosor: 0.012 },
+      escudo: false,
+    },
+    talla: 0.7,
     aspecto:
       'Un jefe goblin: pequeño y astuto, corona torcida de latón, capa roja raída demasiado grande, muchos amuletos, daga envenenada en la derecha y una trampa de cepo colgando del cinto.',
   },
   {
-    id: 'heroe-orko-chaman',
+    id: 'heroe-goblin-chaman',
     faccion: 'orkos',
-    nombre: 'Chamán (héroe)',
+    nombre: 'Chamán goblin (héroe)',
     perfil: 'baston',
+    concepto: 'assets/art/orkos/chaman-goblin.png',
+    maniqui: {
+      espada: { largo: 1.0, guarda: 0, puño: 0.45, agarre: 0, grosor: 0.024, remate: 'esfera' },
+      ...UNA_MANO,
+      arribaMinimo: 0.85,
+    },
+    talla: 0.7,
     aspecto:
-      'Un chamán orko: tocado de plumas y cráneo de animal, collares de huesos y dientes, pinturas blancas, pieles, bastón nudoso con una calavera en llamas verdes.',
-  },
-  {
-    id: 'heroe-orko-senor-de-la-guerra',
-    faccion: 'orkos',
-    nombre: 'Señor de la guerra a pie (héroe)',
-    perfil: 'dos-manos',
-    aspecto:
-      'Un señor de la guerra orko, A PIE y sin montura: corpulento, armadura pesada de chatarra con trofeos, estandarte pequeño de guerra atado a la espalda, hacha a dos manos enorme. Carga brutal.',
+      'Un chamán goblin: pequeño y encorvado, piel verde amarillenta, orejas enormes, ojos desquiciados, tocado de plumas con un cráneo de animal, collares de huesos y dientes, pinturas blancas, pieles, bastón nudoso rematado por una calavera agrietada con una llama inestable, chamuscones en la ropa.',
   },
 ];
 
@@ -715,7 +762,7 @@ export function encargoDeIdentidad(u: Unidad): Encargo {
  * Las tropas de élite de cada ejército: las de «Elite» en `NuevaJugabilidad.md`
  * y, las que su ficha no nombra, las que produce una ciudad en su tabla de
  * edificios (Armería → rodeleros, Fundición → culebrinas, Cripta → necrófagos
- * y gólems, Pocilga y Tótem → berserker y fanático). El resto de `UNIDADES` es
+ * y gólems). El resto de `UNIDADES` es
  * tropa y `HEROES`, héroes. Lo lee el visor de 8 direcciones para agruparlas.
  */
 export const ELITE: ReadonlySet<string> = new Set([
@@ -735,8 +782,8 @@ export const ELITE: ReadonlySet<string> = new Set([
   'elfo-sacerdotisa',
   'elfo-asesino',
   'troll-maza',
-  'orko-berserker',
-  'goblin-fanatico',
+  'goblin-jinete-de-hiena',
+  'orko-armadura-pesada',
 ]);
 
 export type RangoDeUnidad = 'heroe' | 'elite' | 'tropa';
@@ -802,8 +849,8 @@ export const JUEGO_DEL_YBOT: Readonly<Record<string, JuegoEn8d>> = {
   'goblin-lancero': 'lanza',
   'goblin-arquero': 'arco',
   'troll-maza': 'maza',
-  'orko-berserker': 'dos-manos',
-  'goblin-fanatico': 'espada-escudo',
+  'goblin-jinete-de-hiena': 'montado-lanza',
+  'orko-armadura-pesada': 'dos-manos',
   'heroe-templario-caballero': 'espada-escudo',
   'heroe-templario-abad': 'baston',
   'heroe-templario-inquisidor': 'maza',
@@ -821,8 +868,7 @@ export const JUEGO_DEL_YBOT: Readonly<Record<string, JuegoEn8d>> = {
   'heroe-elfo-cantora': 'espada-escudo',
   'heroe-orko-kaudillo': 'dos-manos',
   'heroe-goblin-jefe': 'espada-escudo',
-  'heroe-orko-chaman': 'baston',
-  'heroe-orko-senor-de-la-guerra': 'dos-manos',
+  'heroe-goblin-chaman': 'baston',
 };
 
 /**
@@ -884,6 +930,16 @@ const IDS_EN_OCHO_DIRECCIONES = [
   'heroe-elfo-cantora',
   // Como el hermano de carga, de `montura.ts --8d --arco`.
   'elfo-jinete',
+  'orko-hacha-escudo',
+  'orko-dos-armas',
+  'goblin-lancero',
+  'goblin-arquero',
+  'troll-maza',
+  'goblin-jinete-de-hiena',
+  'orko-armadura-pesada',
+  'heroe-orko-kaudillo',
+  'heroe-goblin-jefe',
+  'heroe-goblin-chaman',
 ] as const;
 
 export const EN_OCHO_DIRECCIONES: Readonly<Record<string, JuegoEn8d>> = Object.fromEntries(
@@ -988,6 +1044,7 @@ export function encargosDeOchoDirecciones(u: Unidad): Encargo[] {
         salida: `assets/unidades/${u.id}/d${d}/hoja-${hoja}`,
         fondo: 'transparente',
         celda: 384,
+        ...(u.talla === undefined ? {} : { talla: u.talla }),
         ocho: { direccion: d, hoja },
       }),
     ),

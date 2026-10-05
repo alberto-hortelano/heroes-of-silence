@@ -1,0 +1,68 @@
+{
+  "encargo": "heroe-goblin-chaman-d4-b",
+  "tipo": "atlas",
+  "fecha": "2026-10-05T14:57:14.386Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a10c4c-604a-7052-97eb-8f02f4d784e8",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo, una ballesta, una bola), es solo un PUNTO DE PARTIDA: dice dónde están las manos que empuñan, hacia dónde apunta el arma y cuándo se dispara o se suelta. El arma que se pinta es la del PERSONAJE (la de su identidad): cambia la forma, el largo y las piezas del atrezo para que sea la suya —un arcabuz donde el maniquí lleva ballesta, una daga en la izquierda donde lleva escudo, nada donde el personaje no lleva arma— sin cambiar la pose del cuerpo. Si sus piernas son de color, la ROJA es la pierna DERECHA y la AZUL la IZQUIERDA: sirven para no confundirlas en el paso ni girar la figura de espaldas; el personaje NO lleva esos colores. El fondo VERDE de esta hoja es solo fondo, para que se vea el maniquí: no lo copies, el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn chamán goblin: pequeño y encorvado, piel verde amarillenta, orejas enormes, ojos desquiciados, tocado de plumas con un cráneo de animal, collares de huesos y dientes, pinturas blancas, pieles, bastón nudoso rematado por una calavera agrietada con una llama inestable, chamuscones en la ropa.\nEn la lámina de giro (imagen 2), la figura 5 en orden de lectura es la que mira hacia «espalda», como esta hoja: así se ve el personaje desde este lado.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de ATAQUE de la fila 1 de la referencia de pose, atacando con el arma del personaje. Fila 2: las siete poses de RECIBIR DAÑO de la fila 2: encaja un golpe y retrocede. Fila 3: las siete poses de la MUERTE de la fila 3: la primera es EXACTAMENTE la última de la fila 2, luego se desploma, y la última es el cadáver tendido e inmóvil en el suelo, con sus armas en el suelo donde las tiene el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «espalda» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 112 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/unidades/heroe-goblin-chaman-8d/d4-b.png",
+      "papel": "pose",
+      "sha256": "01b52ee549d2ca21e156b9e14f34f03c791b2aa69d14ec4fc04466daf6369f3a"
+    },
+    {
+      "ruta": "assets/unidades/heroe-goblin-chaman/giro.webp",
+      "papel": "identidad",
+      "sha256": "95654a5695715cd6d2f90d31807c7aa3fe02620bfa9c651a05201e8c3b648650"
+    },
+    {
+      "ruta": "assets/art/orkos/chaman-goblin.png",
+      "papel": "estilo",
+      "sha256": "43e340f473702f04e4a12043e07e7575344fdc3b32b7eb7ddfde33e196196987"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a10c4c-604a-7052-97eb-8f02f4d784e8/exec-d6fb49b1-367e-466a-8964-3da1ee7c579c.png",
+    "sha256": "84c080d15fdfe24801329fbd8390448b43630eda683332e1d28c53cfa70d0557",
+    "ancho": 1915,
+    "alto": 821
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.5743, pies en y=342, reposo a 112 px",
+    "WebP calidad 92, alfa sin pérdida",
+    "dirección completa: assets/unidades/heroe-goblin-chaman/d4/atlas.webp"
+  ],
+  "validacion": {
+    "visibles": 0.02870073268022487,
+    "opacos": 0.9053153903278799,
+    "haloSuelto": 0,
+    "ancho": 2688,
+    "alto": 1152
+  },
+  "deLaPose": {
+    "k": 0.7466666666666667,
+    "origen": [
+      192,
+      342
+    ],
+    "apoyoReposo": [
+      199,
+      287
+    ],
+    "posicion": true,
+    "elevaciones": [
+      0,
+      0,
+      64
+    ]
+  },
+  "salida": {
+    "ruta": "assets/unidades/heroe-goblin-chaman/d4/hoja-b.webp",
+    "sha256": "4cefb1ea46c265b27bbdc5e852633183b5b56e1eb97171b945756596d1d37cb9"
+  }
+}

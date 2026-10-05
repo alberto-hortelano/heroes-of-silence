@@ -2280,7 +2280,7 @@ async function arena(browser: Browser, url: string, problemas: Problemas): Promi
 async function todoIA(page: Page, izquierda: UnidadDeArena, derecha: UnidadDeArena): Promise<void> {
   // Tras recargar, el guerrero ya está a la izquierda en «Yo»: se pasa a la IA.
   await page.locator('#bando-izquierda .puesto').first().locator('[data-ia="si"]').click();
-  await page.locator('[data-hoja-catalogo="orko-berserker"] [data-lado="derecha"]').click();
+  await page.locator('[data-hoja-catalogo="orko-dos-armas"] [data-lado="derecha"]').click();
   const espejo = new SesionDeArena(
     [{ unidad: izquierda, ia: true }],
     [{ unidad: derecha, ia: true }],
@@ -2335,7 +2335,7 @@ async function jugarArena(
   };
   await añadir('templario-escudo', 'izquierda');
   await añadir('templario-monje', 'izquierda');
-  await añadir('orko-berserker', 'derecha');
+  await añadir('orko-dos-armas', 'derecha');
   await añadir('goblin-arquero', 'derecha');
   await page.locator('#bando-izquierda .puesto').nth(1).locator('[data-ia="si"]').click();
 
@@ -2372,7 +2372,7 @@ async function jugarArena(
       .map((e) => new URL(e.name).pathname)
       .filter((p) => p.startsWith('/unidades/')),
   );
-  const orco = hojas0.find((h) => h.id === 'orko-berserker');
+  const orco = hojas0.find((h) => h.id === 'orko-dos-armas');
   // El orco está en el bando derecho, quieto y mirando al suroeste (d7): su
   // reposo vive en la hoja `a`.
   const faltan = [
@@ -2415,7 +2415,7 @@ async function jugarArena(
       puesto(deHoja('templario-escudo', { attack: ATAQUE_EDITADO }), false),
       puesto(deHoja('templario-monje'), true),
     ],
-    [puesto(deHoja('orko-berserker'), true), puesto(deHoja('goblin-arquero'), true)],
+    [puesto(deHoja('orko-dos-armas'), true), puesto(deHoja('goblin-arquero'), true)],
     SEMILLA_ARENA,
   );
   // La página mira el tablero de salida y DESPUÉS deja jugar a la IA; el espejo
@@ -2563,7 +2563,7 @@ async function jugarArena(
   await todoIA(
     page,
     deHoja('templario-escudo', { attack: ATAQUE_EDITADO }),
-    deHoja('orko-berserker'),
+    deHoja('orko-dos-armas'),
   );
   await page.close();
 }

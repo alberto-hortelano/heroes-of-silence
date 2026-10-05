@@ -1,0 +1,45 @@
+{
+  "encargo": "orko-armadura-pesada-identidad",
+  "tipo": "identidad",
+  "fecha": "2026-10-05T12:22:47.991Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a10c03-043c-7bc0-8b77-b51ad7070d8f",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo, una ballesta, una bola), es solo un PUNTO DE PARTIDA: dice dónde están las manos que empuñan, hacia dónde apunta el arma y cuándo se dispara o se suelta. El arma que se pinta es la del PERSONAJE (la de su identidad): cambia la forma, el largo y las piezas del atrezo para que sea la suya —un arcabuz donde el maniquí lleva ballesta, una daga en la izquierda donde lleva escudo, nada donde el personaje no lleva arma— sin cambiar la pose del cuerpo. Si sus piernas son de color, la ROJA es la pierna DERECHA y la AZUL la IZQUIERDA: sirven para no confundirlas en el paso ni girar la figura de espaldas; el personaje NO lleva esos colores. El fondo VERDE de esta hoja es solo fondo, para que se vea el maniquí: no lo copies, el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUn orko con armadura pesada: piel verde oliva, yelmo cerrado de hierro con mirilla y cuernos cortos, placas de hierro ennegrecido remachadas sobre malla y cuero, hombreras enormes con pinchos, botas de hierro, gran hacha de doble filo empuñada a dos manos. Sin escudo. Pesado e inamovible.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nUN solo personaje, de cuerpo entero, en la primera pose de reposo de la referencia de pose (de pie o montado, como esté el maniquí).\nCámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.\nLámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/dos-manos.png",
+      "papel": "pose",
+      "sha256": "669d14f9183e2e30fff6f6912dc82a44610b3fa07f107fbbb0f149a544531078"
+    },
+    {
+      "ruta": "assets/art/orkos/orko-armadura-pesada.png",
+      "papel": "identidad",
+      "sha256": "f86f5f9325f15adfcc41d5cdf62657786c870a2abb987cf22dcf0b77997a79fe"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a10c03-043c-7bc0-8b77-b51ad7070d8f/exec-0c26700b-5c9f-4cce-ae94-847a1551b20f.png",
+    "sha256": "b6bd33e7c52b62a1832201b8f78e6a8616be6865c84a6d5355d1d35f8becd252",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.39679137220752253,
+    "opacos": 0.9887416411093292,
+    "haloSuelto": 0,
+    "ancho": 1095,
+    "alto": 1227
+  },
+  "salida": {
+    "ruta": "assets/unidades/orko-armadura-pesada/identidad.webp",
+    "sha256": "d154351e161d2f0a40d46a8dc624167c4db37caedc3033b4d7134c2fdf812cef"
+  }
+}

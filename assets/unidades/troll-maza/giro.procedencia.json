@@ -1,0 +1,50 @@
+{
+  "encargo": "troll-maza-giro",
+  "tipo": "giro",
+  "fecha": "2026-10-05T12:24:06.722Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a10c04-4320-7391-b085-04bd1506c34f",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo, una ballesta, una bola), es solo un PUNTO DE PARTIDA: dice dónde están las manos que empuñan, hacia dónde apunta el arma y cuándo se dispara o se suelta. El arma que se pinta es la del PERSONAJE (la de su identidad): cambia la forma, el largo y las piezas del atrezo para que sea la suya —un arcabuz donde el maniquí lleva ballesta, una daga en la izquierda donde lleva escudo, nada donde el personaje no lleva arma— sin cambiar la pose del cuerpo. Si sus piernas son de color, la ROJA es la pierna DERECHA y la AZUL la IZQUIERDA: sirven para no confundirlas en el paso ni girar la figura de espaldas; el personaje NO lleva esos colores. El fondo VERDE de esta hoja es solo fondo, para que se vea el maniquí: no lo copies, el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn troll: gigante de piel gris azulada con musgo, cabeza pequeña, colmillos, grilletes rotos con cadenas en las muñecas, taparrabos, maza de madera con clavos de hierro empuñada a dos manos.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nLámina de GIRO de EXACTAMENTE 4 columnas por 2 filas: el MISMO personaje ocho veces, de cuerpo entero, en la pose de reposo, separadas con holgura y sin tocarse.\nCada figura copia la orientación y la pose del maniquí de su celda en la referencia de pose. En orden de lectura miran hacia: 1. frente, 2. frente-derecha, 3. derecha, 4. espalda-derecha, 5. espalda, 6. espalda-izquierda, 7. izquierda, 8. frente-izquierda. Las que van de espaldas enseñan la espalda del personaje: invéntala coherente con su equipo (la capa o sobrevesta por detrás, la cara interior del escudo, la vaina).\nCámara ortográfica elevada 25 grados en todas, viendo la coronilla y los hombros; NUNCA de perfil ni a la altura de los ojos, aunque la figura mire de lado. Misma escala en las ocho.\nEs la lámina de identidad por los ocho lados: el equipo, los colores y los materiales son idénticos en todas y se leen con claridad.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/unidades/troll-maza-8d/giro.png",
+      "papel": "pose",
+      "sha256": "5224640aa64cfaa81cde24f0cc1c00515d60b3ca238da3b92c8b3ea2ffd406e8"
+    },
+    {
+      "ruta": "assets/unidades/troll-maza/identidad.webp",
+      "papel": "identidad",
+      "sha256": "c97b20da608504dfbbf1d4835d6f54c0e953f4eac63254aaa575016e0e828f3a"
+    },
+    {
+      "ruta": "assets/art/orkos/troll-con-maza.png",
+      "papel": "estilo",
+      "sha256": "426cb3253ba8e36ebe642ea824d2ba62585c7d537ea3f4b57755f8f76e5beedf"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a10c04-4320-7391-b085-04bd1506c34f/exec-35bd6202-f14e-40ed-99e5-b1d0cebe2ab3.png",
+    "sha256": "acb6a4d0c28f5348593e17b4951a145dc74211b2e3a42353841fb054e743023e",
+    "ancho": 1774,
+    "alto": 887
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.21926450202147843,
+    "opacos": 0.9697834887239536,
+    "haloSuelto": 0.000006213553624521168,
+    "ancho": 1655,
+    "alto": 887
+  },
+  "salida": {
+    "ruta": "assets/unidades/troll-maza/giro.webp",
+    "sha256": "c08d402ed555db845155d7def615a8ef5ff0f58d2068e3cc6d0114dcad05e494"
+  }
+}

@@ -114,12 +114,15 @@ Las de `NuevaJugabilidad.md` (decisión del usuario, 05-10-2026): fuera el ent, 
 | `goblin-lancero` | Goblin lancero | espada-escudo |
 | `goblin-arquero` | Goblin arquero | arco |
 | `troll-maza` | Troll con maza | dos-manos |
-| `orko-berserker` | Orko berserker (antes Jinete de jabalí) | dos-manos |
-| `goblin-fanatico` | Goblin fanático | espada-escudo |
+| `goblin-jinete-de-hiena` | Jinete de hiena, goblin (05-10-2026) | montado-lanza |
+| `orko-armadura-pesada` | Orko con armadura pesada (05-10-2026) | dos-manos |
 | `heroe-orko-kaudillo` | Kaudillo (héroe) | dos-manos |
 | `heroe-goblin-jefe` | Jefe goblin (héroe) | espada-escudo |
-| `heroe-orko-chaman` | Chamán (héroe) | baston |
-| `heroe-orko-senor-de-la-guerra` | Señor de la guerra a pie (héroe) | dos-manos |
+| `heroe-goblin-chaman` | Chamán goblin (héroe, 05-10-2026) | baston |
+
+Desde el 05-10-2026 mandan las unidades de `NuevaJugabilidad.md` (decisión del
+usuario): salen el berserker, el fanático, el señor de la guerra y el chamán orko,
+que pasa a ser goblin.
 
 Lote 3 (Imperio, Elfos y Orkos, tropas y héroes): **aprobado por el usuario el
 01-10-2026**, visto animado. Corregidos en su hilo (`-c1`), por el arma invadiendo

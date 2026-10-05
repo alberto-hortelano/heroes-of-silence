@@ -128,7 +128,7 @@ describe('la arena pelea con las cifras del borrador', () => {
     for (const semilla of [1, 2, 3, 4, 5]) {
       const s = montada(
         [ia(unidad('templario-escudo')), ia(unidad('templario-hermano-de-carga'))],
-        [ia(unidad('orko-berserker')), ia(unidad('goblin-arquero'))],
+        [ia(unidad('orko-dos-armas')), ia(unidad('goblin-arquero'))],
         semilla,
       );
       expect(s.battle.finished, `semilla ${semilla}`).not.toBeNull();
@@ -140,7 +140,7 @@ describe('la arena pelea con las cifras del borrador', () => {
     for (const semilla of [1, 7, 12]) {
       const s = montada(
         [yo(unidad('templario-escudo')), ia(unidad('templario-mandoble'))],
-        [ia(unidad('orko-berserker')), ia(unidad('goblin-arquero'))],
+        [ia(unidad('orko-dos-armas')), ia(unidad('goblin-arquero'))],
         semilla,
       );
       const mio = s.battle.stacks.find((x) => x.side === 'attacker' && x.slot === 0);
@@ -303,7 +303,7 @@ describe('las hojas de assets/unidades se pintan en el tablero', () => {
     expect(juego('imperio-piquero')).toBe('lanza');
     expect(juego('goblin-lancero')).toBe('lanza');
     expect(juego('imperio-alabardero')).toBe('lanza');
-    expect(juego('heroe-orko-chaman')).toBe('baston');
+    expect(juego('heroe-goblin-chaman')).toBe('baston');
     expect(juego('heroe-elfo-druida')).toBe('baston');
     expect(juego('heroe-imperio-mago')).toBe('baston');
     expect(juego('templario-mandoble')).toBe('dos-manos');
@@ -440,7 +440,7 @@ describe('corrección de hallazgos de QA', () => {
   it('H1: montar no juega; la IA mueve al empezar, y una sola vez', () => {
     const s = new SesionDeArena(
       [ia(unidad('templario-escudo'))],
-      [ia(unidad('orko-berserker'))],
+      [ia(unidad('orko-dos-armas'))],
       5,
     );
     // Recién montada, la batalla está en su salida: nadie ha movido ni pegado.
@@ -460,7 +460,7 @@ describe('corrección de hallazgos de QA', () => {
   it('H1: el animador que mira la salida cuenta luego todo lo que juega la IA', () => {
     const s = new SesionDeArena(
       [ia(unidad('templario-escudo'))],
-      [ia(unidad('orko-berserker'))],
+      [ia(unidad('orko-dos-armas'))],
       5,
     );
     const a = new BattleAnimator();
@@ -552,7 +552,7 @@ describe('corrección de hallazgos de QA', () => {
     const muro = { hp: 100_000, defense: 500, attack: 0 };
     const eterna = montada(
       [ia(unidad('templario-monje', muro))],
-      [ia(unidad('orko-berserker', muro))],
+      [ia(unidad('orko-dos-armas', muro))],
       11,
     );
     expect(eterna.battle.round).toBe(MAX_ROUNDS);
@@ -640,7 +640,7 @@ describe('la velocidad son casillas', () => {
     expect(v('zombi')).toBe(2);
     expect(v('esqueleto-guerrero')).toBe(3);
     expect(v('elfo-guardia-del-bosque')).toBe(v('templario-escudo') + 1);
-    expect(v('orko-berserker')).toBeGreaterThan(v('orko-hacha-escudo'));
+    expect(v('goblin-jinete-de-hiena')).toBeGreaterThan(v('orko-hacha-escudo'));
     // El Danzante, el más rápido de los de a pie: solo el jinete le pasa.
     const aPie = Object.entries(VELOCIDAD_DE_SALIDA).filter(
       ([id]) => id !== 'templario-hermano-de-carga',

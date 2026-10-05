@@ -247,6 +247,13 @@ fotograma es el cadáver (`cadaver` en el JSON).
    contra su maniquí, celda a celda, y el taller junta las dos de una dirección en
    `assets/unidades/<id>/d<n>/atlas.webp` (celda de 384). `atlas.composicion.json`
    apunta de qué hojas sale.
+   - **La talla** (05-10-2026): el reposo se empaqueta a la altura de un adulto
+     (`FIGURA.alturaAdulto`, 160 px) por la `talla` de la unidad, que vale 1 si
+     no la declara: los goblins y el jinete de hiena van a 0,7, y el troll a 1,45. El cliente escala
+     por la celda, así que en el tablero se ve con esa talla. Si el fotograma más
+     ancho no cabe, el post-proceso reduce esa hoja y lo dice en su procedencia.
+     Para cambiar la talla no hace falta volver a pintar: se pone `talla` en la
+     ficha de cada hoja hecha de la cola y se pasa `pnpm taller reprocesar <id>`.
 4. **La vista**: `pnpm taller vista-8d [<id>]` escribe un solo visor, `.cache/taller/vista/visor-8d.html`, con un selector de todas las unidades que ya tienen sus 8 direcciones y de las poses de cada juego de armas; el `<id>` solo elige con cuál se abre (va en el `#` de la URL). Todas a la misma escala, para poder compararlas: el lienzo crece hasta que quepa la más alta. Con la sombra por silueta.
 
 Las direcciones son las de sprite-forge: 0 mira a la cámara, 2 a la derecha, 4 de

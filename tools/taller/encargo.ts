@@ -73,6 +73,8 @@ export const encargoSchema = z
     salida: ruta,
     /** Atlas: lado de la celda. 384 en las hojas de 8 direcciones, donde cabe el cadáver. */
     celda: z.union([z.literal(256), z.literal(384)]).optional(),
+    /** Atlas: la altura del reposo frente a la de un adulto (`FIGURA.alturaAdulto`). Un goblin, menos; un troll, más. */
+    talla: z.number().positive().optional(),
     /** Imagen: si el fondo se recorta o la imagen es opaca (un fondo de batalla). */
     fondo: z.enum(['transparente', 'opaco']).default('transparente'),
     /** Corrige una generación anterior en su mismo hilo de Codex, que conserva la identidad. */
@@ -169,13 +171,18 @@ export function filasDeAtlas(e: Encargo): number {
   return HOJAS_DE_FIGURA[ochoDe(e).hoja].length;
 }
 
+/** Los píxeles de alto del reposo de un atlas: los de un adulto por la talla de la unidad. */
+export function alturaDelReposo(e: Encargo): number {
+  return Math.round(FIGURA.alturaAdulto * (e.talla ?? 1));
+}
+
 function reglasDeAtlas(e: Encargo): string {
   const ocho = ochoDe(e);
   const { columnas } = FIGURA;
   const filas = filasDeAtlas(e);
   // La hoja del disparo es de una sola fila: el prompt la nombra en singular.
   const una = filas === 1;
-  const altura = FIGURA.alturaAdulto;
+  const altura = alturaDelReposo(e);
   const mira = `El personaje mira hacia donde mira el maniquí (dirección «${NOMBRES_DE_DIRECCION[ocho.direccion]}» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.`;
   return [
     `Hoja de sprites de EXACTAMENTE ${columnas} columnas por ${filas} ${una ? 'fila' : 'filas'}, ${columnas * filas} figuras del MISMO personaje, separadas con holgura y sin tocarse.`,
