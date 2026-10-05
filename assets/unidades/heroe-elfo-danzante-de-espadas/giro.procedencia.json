@@ -1,0 +1,50 @@
+{
+  "encargo": "heroe-elfo-danzante-de-espadas-giro",
+  "tipo": "giro",
+  "fecha": "2026-10-05T10:08:24.120Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a10b87-de4f-7830-9c55-4b5ec0c403f9",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo, una ballesta, una bola), es solo un PUNTO DE PARTIDA: dice dónde están las manos que empuñan, hacia dónde apunta el arma y cuándo se dispara o se suelta. El arma que se pinta es la del PERSONAJE (la de su identidad): cambia la forma, el largo y las piezas del atrezo para que sea la suya —un arcabuz donde el maniquí lleva ballesta, una daga en la izquierda donde lleva escudo, nada donde el personaje no lleva arma— sin cambiar la pose del cuerpo. Si sus piernas son de color, la ROJA es la pierna DERECHA y la AZUL la IZQUIERDA: sirven para no confundirlas en el paso ni girar la figura de espaldas; el personaje NO lleva esos colores. El fondo VERDE de esta hoja es solo fondo, para que se vea el maniquí: no lo copies, el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn danzante de espadas elfo: pelo blanco largo recogido, armadura ligera de escamas de hoja dorada, faldones de tela verde que vuelan, una espada élfica curva en cada mano. Ágil y elegante.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nLámina de GIRO de EXACTAMENTE 4 columnas por 2 filas: el MISMO personaje ocho veces, de cuerpo entero, en la pose de reposo, separadas con holgura y sin tocarse.\nCada figura copia la orientación y la pose del maniquí de su celda en la referencia de pose. En orden de lectura miran hacia: 1. frente, 2. frente-derecha, 3. derecha, 4. espalda-derecha, 5. espalda, 6. espalda-izquierda, 7. izquierda, 8. frente-izquierda. Las que van de espaldas enseñan la espalda del personaje: invéntala coherente con su equipo (la capa o sobrevesta por detrás, la cara interior del escudo, la vaina).\nCámara ortográfica elevada 25 grados en todas, viendo la coronilla y los hombros; NUNCA de perfil ni a la altura de los ojos, aunque la figura mire de lado. Misma escala en las ocho.\nEs la lámina de identidad por los ocho lados: el equipo, los colores y los materiales son idénticos en todas y se leen con claridad.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/unidades/heroe-elfo-danzante-de-espadas-8d/giro.png",
+      "papel": "pose",
+      "sha256": "6469d0ef50db913a2704eb6081df3f6eba1683b7234c2710b9efff6560fe448b"
+    },
+    {
+      "ruta": "assets/unidades/heroe-elfo-danzante-de-espadas/identidad.webp",
+      "papel": "identidad",
+      "sha256": "15f623410c38f396cd7af91cac3710b34ca6fa96b1a57fd345e1021a5c47e88d"
+    },
+    {
+      "ruta": "assets/art/elfos/danzante-de-espadas.png",
+      "papel": "estilo",
+      "sha256": "c2b15e4d42bb5658c07f4ef65505759a315dce4a4066a44c8db47455601b712d"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a10b87-de4f-7830-9c55-4b5ec0c403f9/exec-7fbd1130-8b6f-42b5-ac69-04c8906df530.png",
+    "sha256": "7af0342153ddf42672fb2c8807edeed5b385774d94031b6e503d7d7c37ff42ad",
+    "ancho": 1774,
+    "alto": 887
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.21542661259752763,
+    "opacos": 0.956845369960124,
+    "haloSuelto": 0.000015823786315589593,
+    "ancho": 1684,
+    "alto": 871
+  },
+  "salida": {
+    "ruta": "assets/unidades/heroe-elfo-danzante-de-espadas/giro.webp",
+    "sha256": "c44200fe367417be3a17b4c1a9b903df7f055828a00d553936d14b8c41af3c56"
+  }
+}

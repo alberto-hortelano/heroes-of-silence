@@ -373,7 +373,8 @@ que faltara en `assets/art/imperio/`. Decisiones suyas del 04-10-2026:
 4. **La velocidad del pistolero.** Va a 5 casillas (`tools/arena/velocidades.ts`),
    como los hostigadores, porque `test/arena.test.ts` da al hermano de carga
    por único jinete y exige que solo el Danzante llegue a 6. Si debe correr
-   como el otro jinete (7), hay que cambiar ese test.
+   como el otro jinete (7), hay que cambiar ese test. Lo mismo vale para el
+   jinete elfo (`elfo-jinete`, 05-10-2026), también a 5.
 
 ### Estado al cerrar el 04-10-2026 (sin commitear)
 

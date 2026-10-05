@@ -47,12 +47,10 @@ export const VELOCIDAD_DE_SALIDA: Readonly<
   'elfo-arquero': [5, 'arquero ligero (4 en un humano), más uno por elfo'],
   'elfo-explorador': [5, 'explorador agazapado, ligero; por debajo del Danzante'],
   'elfo-guardia-del-bosque': [5, 'infantería de escudo y lanza (4), más uno por elfo'],
-  'elfo-corredor-del-bosque': [
-    5,
-    '«ligero y veloz», antes jinete: tope de los de a pie sin ser el Danzante',
-  ],
-  'elfo-ent': [2, 'guardián arbóreo: «muy lento y muy duro»'],
-  'elfo-hostigador': [5, 'hostigador: «tropa barata y rápida»'],
+  // 5 y no 7: `test/arena.test.ts` da al hermano de carga por único jinete (docs/art/peticiones.md §12).
+  'elfo-jinete': [5, 'a caballo, «los más rápidos del juego»: tope que admite hoy la arena'],
+  'elfo-sacerdotisa': [5, 'maga (4 en un humano), más uno por elfa'],
+  'elfo-asesino': [5, 'infiltrador ligero, por debajo del Danzante'],
   // Orkos
   'orko-hacha-escudo': [4, 'el orko de línea: como un humano'],
   'orko-dos-armas': [4, 'sin defensa pero sin peso: como un humano'],
@@ -76,7 +74,6 @@ export const VELOCIDAD_DE_SALIDA: Readonly<
   'heroe-imperio-ingeniero': [3, 'cargado de herramientas, planos y un rifle largo'],
   'heroe-elfo-danzante-de-espadas': [6, 'el más rápido de los de a pie, como pide el usuario'],
   'heroe-elfo-druida': [5, 'maga (4 en un humano), más uno por elfa'],
-  'heroe-elfo-senor-de-las-bestias': [5, 'cazador (4), más uno por elfo'],
   'heroe-elfo-cantora': [5, 'maga (4 en un humano), más uno por elfa'],
   'heroe-orko-kaudillo': [3, 'enorme, con placas de chatarra y arma a dos manos'],
   'heroe-goblin-jefe': [5, 'pequeño y astuto'],

@@ -1207,12 +1207,13 @@ export type JuegoEn8d = JuegoDeArmas | JuegoMontado;
 /**
  * Los jinetes, que salen de `tools/art/montura.ts --8d` y no de
  * `JUEGOS_DE_ARMAS`: con qué pelean de cerca —el tajo de espada desde la silla,
- * los dos— y, quien dispara, con qué curva (`CURVAS_DEL_DISPARO`) y cuánto dura
- * el disparo, que no sale de un clip de Mixamo.
+ * los tres— y, quien dispara, con qué curva (`CURVAS_DEL_DISPARO`) y cuánto dura
+ * el disparo, que no sale de un clip de Mixamo. La clave es `montado-<arma>`, y
+ * esa arma es la que `montura.ts` pone en la mano (`ArmaMontada`, `--<arma>`).
  */
 export const JUEGOS_MONTADOS: Readonly<
   Record<
-    'montado-lanza' | 'montado-pistola',
+    'montado-lanza' | 'montado-pistola' | 'montado-arco',
     {
       readonly cuerpoACuerpo: string;
       readonly disparo?: ClipDeDisparo;
@@ -1227,6 +1228,14 @@ export const JUEGOS_MONTADOS: Readonly<
   'montado-pistola': {
     cuerpoACuerpo: 'una espada de una mano, con un tajo desde la silla',
     disparo: 'pistol',
+    duracionDelDisparo: 1,
+  },
+  // El jinete elfo (decisión del usuario, 05-10-2026): arco, espada y lanza para
+  // la carga. Tensa y suelta con la curva del arquero a pie, así que suelta en
+  // la misma columna; el arco es el atrezo de `JUEGOS_DE_ARMAS.arco`.
+  'montado-arco': {
+    cuerpoACuerpo: 'una espada de una mano, con un tajo desde la silla',
+    disparo: 'bow',
     duracionDelDisparo: 1,
   },
 };

@@ -91,17 +91,18 @@ todas por la espada invadiendo la celda vecina en el ataque.
 
 ## Elfos
 
+Las de `NuevaJugabilidad.md` (decisión del usuario, 05-10-2026): fuera el ent, el hostigador, el corredor del bosque y el señor de las bestias; entran el jinete, la sacerdotisa y el asesino.
+
 | id | Unidad | Perfil de pose |
 |---|---|---|
 | `elfo-arquero` | Arquero | arco |
 | `elfo-explorador` | Explorador | espada-escudo |
 | `elfo-guardia-del-bosque` | Guardia del bosque | espada-escudo |
-| `elfo-corredor-del-bosque` | Corredores del bosque (antes Jinetes de ciervo) | espada-escudo |
-| `elfo-ent` | Ent o Guardián arbóreo | dos-manos |
-| `elfo-hostigador` | Hostigador elfo (antes Halcón o Lobo) | espada-escudo |
+| `elfo-jinete` | Jinete a caballo (05-10-2026) | montado-lanza (Y Bot: `montado-arco`) |
+| `elfo-sacerdotisa` | Sacerdotisa (05-10-2026) | baston |
+| `elfo-asesino` | Asesino (05-10-2026) | espada-escudo |
 | `heroe-elfo-danzante-de-espadas` | Danzante de espadas (héroe) | espada-escudo |
 | `heroe-elfo-druida` | Druida (héroe) | baston |
-| `heroe-elfo-senor-de-las-bestias` | Señor de las bestias (héroe) | espada-escudo |
 | `heroe-elfo-cantora` | Cantora (héroe) | baston |
 
 ## Orkos

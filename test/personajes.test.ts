@@ -108,7 +108,7 @@ describe('las figuras a 25°, en 8 direcciones', () => {
   });
 
   it('cada imagen de cada figura existe en `assets/`', () => {
-    // Los once juegos del Y Bot: todos tienen poses, aunque la tabla no los use todos.
+    // Los doce juegos del Y Bot: todos tienen poses, aunque la tabla no los use todos.
     expect([...juegosDelYBot()].sort()).toEqual([
       'arco',
       'ballesta',
@@ -119,6 +119,7 @@ describe('las figuras a 25°, en 8 direcciones', () => {
       'lanza',
       'mayal',
       'maza',
+      'montado-arco',
       'montado-lanza',
       'montado-pistola',
     ]);

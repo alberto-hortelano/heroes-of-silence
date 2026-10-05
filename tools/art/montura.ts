@@ -5,8 +5,9 @@
  *
  *   npx tsx tools/art/montura.ts            → assets/unidades/_poses/montado-lanza.png + .json
  *   npx tsx tools/art/montura.ts --prueba   → fotogramas sueltos en .cache/taller/montura/
- *   npx tsx tools/art/montura.ts --8d [destino] [--pistola]
- *                                           → _poses/montado-lanza-8d/ (o montado-pistola-8d/)
+ *   npx tsx tools/art/montura.ts --8d [destino] [--pistola | --arco]
+ *                                           → _poses/montado-lanza-8d/ (o montado-pistola-8d/,
+ *                                             montado-arco-8d/)
  *
  * No parchea sprite-forge: aquí hay dos modelos, uno en glTF y otro que no es un
  * humanoide de Mixamo, y todos sus guardias suponen lo contrario. Monta su propia
@@ -37,6 +38,7 @@ import {
   clipDeDisparoDe,
   componerGiro,
   indicesDeClip,
+  JUEGOS_DE_ARMAS,
   JUEGOS_MONTADOS,
   type JuegoMontado,
 } from './poses.js';
@@ -314,12 +316,39 @@ const FILA_MONTADA = {
 >;
 
 /**
- * Qué lleva el jinete: la lanza del hermano de carga o la pistola del pistolero
- * montado (04-10-2026), que no lleva lanza ni escudo. El pistolero ataca con el
- * tajo de espada, como el de la lanza, y dispara (hoja C) con su curva de
- * `JUEGOS_MONTADOS`.
+ * Qué lleva el jinete: la lanza del hermano de carga, la pistola del pistolero
+ * montado (04-10-2026), que no lleva lanza ni escudo, o el arco del jinete elfo
+ * (05-10-2026), con la lanza para la carga y sin escudo. Los tres atacan con el
+ * tajo de espada, y quien dispara (hoja C) lo hace con su curva de
+ * `JUEGOS_MONTADOS`. Sale de las claves de esa tabla: un jinete nuevo es una
+ * fila allí y su postura en `montura/escena.js`.
  */
-export type ArmaMontada = 'lanza' | 'pistola';
+export type ArmaMontada = JuegoMontado extends `montado-${infer A}` ? A : never;
+
+/** Las armas montadas, en el orden de `JUEGOS_MONTADOS`; la primera, la lanza, es la de omisión. */
+export const ARMAS_MONTADAS = Object.keys(JUEGOS_MONTADOS).map((j) =>
+  j.slice('montado-'.length),
+) as ArmaMontada[];
+
+/** El arma de la línea de órdenes: `--pistola`, `--arco`…; sin ninguna, la lanza. Dos, lanza. */
+export function armaDeLaOrden(args: readonly string[]): ArmaMontada {
+  const pedidas = ARMAS_MONTADAS.filter((a) => args.includes(`--${a}`));
+  if (pedidas.length > 1)
+    throw new Error(
+      `un jinete lleva un juego de armas y me pides ${pedidas.map((a) => `--${a}`).join(' y ')}`,
+    );
+  return pedidas[0] ?? 'lanza';
+}
+
+/**
+ * El arco del jinete es el del arquero a pie (`JUEGOS_DE_ARMAS.arco`): mismas
+ * palas, misma combadura y la misma flecha en la cuerda. Se le pasa a la escena
+ * siempre; solo se ve en `montado-arco`.
+ */
+const ARCO_DEL_JINETE = {
+  ...JUEGOS_DE_ARMAS.arco.atrezo.arco,
+  flecha: JUEGOS_DE_ARMAS.arco.atrezo.flecha,
+};
 
 /** Las hojas montadas del jinete: la del disparo, solo si dispara. */
 function hojasMontadas(juego: JuegoMontado) {
@@ -368,6 +397,7 @@ export async function renderizarMontura8d(
       ajuste: AJUSTE,
       luz: luzEnElMundo(),
       arma,
+      arco: ARCO_DEL_JINETE,
     });
     if (errores.length > 0) throw new Error(`la escena falló: ${errores.join(' | ')}`);
     const duraciones = Object.fromEntries(
@@ -394,7 +424,7 @@ export async function renderizarMontura8d(
       fotogramas[f.clip] = Math.max(1, Math.round(dur * 24));
       indices[f.clip] = indicesDeClip(fotogramas[f.clip] as number, columnas, f.enBucle);
     }
-    // El disparo de la pistola en el fotograma `i`, por el progreso del clip, como el del maniquí.
+    // El disparo (pistola o arco) en el fotograma `i`, por el progreso del clip, como el del maniquí.
     const enElDisparo = (i: number) => {
       if (curva === null || fotogramas.shoot === undefined)
         throw new Error(`«${juego}» no dispara y su hoja tiene la fila del disparo`);
@@ -494,7 +524,7 @@ if (esScript) {
     process.argv.includes('--8d')
       ? `→ ${await renderizarMontura8d(
           process.argv.slice(3).find((a) => !a.startsWith('--')),
-          process.argv.includes('--pistola') ? 'pistola' : 'lanza',
+          armaDeLaOrden(process.argv),
         )}`
       : `→ ${await renderizarMontura(process.argv.includes('--prueba'))}`,
   );

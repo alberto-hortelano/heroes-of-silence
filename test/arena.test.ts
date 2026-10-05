@@ -119,7 +119,7 @@ describe('la arena pelea con las cifras del borrador', () => {
     );
     // Lo que cabe, cabe: siete grandes en un bando también.
     const grandes = Array.from({ length: LIDERAZGO.maxPorBando }, () =>
-      unidad('elfo-ent', { hexes: 2 }),
+      unidad('troll-maza', { hexes: 2 }),
     );
     expect(() => batallaDeArena(grandes, grandes, createRng(1))).not.toThrow();
   });
@@ -684,7 +684,7 @@ describe('la velocidad son casillas', () => {
   it('con las velocidades de salida ya no juega un ejército entero y luego el otro', () => {
     const s = new SesionDeArena(
       ['templario-escudo', 'templario-mandoble', 'templario-escudero'].map((id) => ia(unidad(id))),
-      ['elfo-arquero', 'elfo-ent', 'heroe-elfo-danzante-de-espadas'].map((id) => ia(unidad(id))),
+      ['elfo-arquero', 'troll-maza', 'heroe-elfo-danzante-de-espadas'].map((id) => ia(unidad(id))),
       1,
     );
     const lados = s.battle.queue.map((id) => s.battle.stacks.find((x) => x.id === id)?.side);

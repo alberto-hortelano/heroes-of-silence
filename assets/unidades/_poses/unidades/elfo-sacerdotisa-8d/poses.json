@@ -1,0 +1,230 @@
+{
+  "perfil": "elfo-sacerdotisa-8d",
+  "juegoDeArmas": "baston",
+  "unidad": "elfo-sacerdotisa",
+  "atrezo": {
+    "espada": {
+      "largo": 1.15,
+      "guarda": 0,
+      "puño": 0.5,
+      "agarre": 0,
+      "grosor": 0.022,
+      "remate": "esfera"
+    },
+    "escudo": false,
+    "dosManos": false,
+    "adelanteMinimo": 0,
+    "centrado": 0,
+    "alcanceMinimo": 0,
+    "separacionManos": 0,
+    "codosAfuera": 0,
+    "codosAdelante": 0,
+    "estiramiento": 1,
+    "arribaMinimo": 0.85
+  },
+  "piernasDeColor": true,
+  "model": "y_bot",
+  "renderer": "sprite-forge",
+  "spriteForgeCommit": "b2d9ba97384c4f78b53aee2903471a70492ecb34",
+  "camera": {
+    "pitchDegrees": -25,
+    "directions": 8,
+    "projection": "orthographic",
+    "ortho": 4.199999999999999,
+    "target": 0.95
+  },
+  "light": {
+    "x": 0.28396044362490236,
+    "y": -0.8699660369241592,
+    "z": -0.40314459075475784
+  },
+  "deathStartsFrom": {
+    "clip": "hurt",
+    "blendSeconds": 0.4
+  },
+  "cell": 384,
+  "columns": 7,
+  "sheets": {
+    "a": [
+      {
+        "clip": "idle",
+        "anim": "idle4",
+        "enBucle": true,
+        "indices": [
+          0,
+          4,
+          8,
+          12,
+          17,
+          21,
+          25
+        ]
+      },
+      {
+        "clip": "walk",
+        "anim": "walk",
+        "enBucle": true,
+        "indices": [
+          0,
+          1,
+          3,
+          5,
+          7,
+          9,
+          11
+        ]
+      },
+      {
+        "clip": "charge",
+        "anim": "run",
+        "enBucle": true,
+        "indices": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ]
+      }
+    ],
+    "b": [
+      {
+        "clip": "attack",
+        "anim": "casting",
+        "enBucle": false,
+        "indices": [
+          0,
+          6,
+          12,
+          18,
+          23,
+          29,
+          35
+        ]
+      },
+      {
+        "clip": "hurt",
+        "anim": "impact3",
+        "enBucle": false,
+        "indices": [
+          0,
+          1,
+          2,
+          4,
+          5,
+          6,
+          7
+        ]
+      },
+      {
+        "clip": "death",
+        "anim": "death",
+        "enBucle": false,
+        "indices": [
+          0,
+          5,
+          9,
+          14,
+          18,
+          23,
+          27
+        ]
+      }
+    ]
+  },
+  "sourceMetadata": {
+    "idle": {
+      "angle": "tactical_25",
+      "anim": "idle4",
+      "directions": 8,
+      "duration": 2.533333333333333,
+      "fps": 12,
+      "frame_count": 30,
+      "frame_height": 384,
+      "frame_width": 384,
+      "generated_at": "2026-10-05T09:59:06",
+      "model": "y_bot"
+    },
+    "walk": {
+      "angle": "tactical_25",
+      "anim": "walk",
+      "directions": 8,
+      "duration": 1.1,
+      "fps": 12,
+      "frame_count": 13,
+      "frame_height": 384,
+      "frame_width": 384,
+      "generated_at": "2026-10-05T09:59:09",
+      "model": "y_bot"
+    },
+    "charge": {
+      "angle": "tactical_25",
+      "anim": "run",
+      "directions": 8,
+      "duration": 0.7,
+      "fps": 12,
+      "frame_count": 8,
+      "frame_height": 384,
+      "frame_width": 384,
+      "generated_at": "2026-10-05T09:59:11",
+      "model": "y_bot"
+    },
+    "attack": {
+      "angle": "tactical_25",
+      "anim": "casting",
+      "directions": 8,
+      "duration": 2.966666666666667,
+      "fps": 12,
+      "frame_count": 36,
+      "frame_height": 384,
+      "frame_width": 384,
+      "generated_at": "2026-10-05T09:59:18",
+      "model": "y_bot"
+    },
+    "hurt": {
+      "angle": "tactical_25",
+      "anim": "impact3",
+      "directions": 8,
+      "duration": 0.7,
+      "fps": 12,
+      "frame_count": 8,
+      "frame_height": 384,
+      "frame_width": 384,
+      "generated_at": "2026-10-05T09:59:20",
+      "model": "y_bot"
+    },
+    "death": {
+      "angle": "tactical_25",
+      "anim": "death",
+      "directions": 8,
+      "duration": 2.3,
+      "fps": 12,
+      "frame_count": 28,
+      "frame_height": 384,
+      "frame_width": 384,
+      "generated_at": "2026-10-05T09:59:26",
+      "model": "y_bot"
+    }
+  },
+  "sha256": {
+    "d0-a.png": "2f9d9804a0cdeebd8a2ddd485e4620e80216b3edfa892a393749546fb8944597",
+    "d0-b.png": "1851886a6a802dccb39e2b43fcefb8fc9c881062bd3dfdeeedd8dde57363d732",
+    "d1-a.png": "f489f9dc38357fad376c7a8862cf7ab8dd45c49f9146a867e4456d4d20609646",
+    "d1-b.png": "28e5418ad5c3da3cb81fe5cc8b8bbec858a1788a226811bae90a6d24719d0b21",
+    "d2-a.png": "3fc97e8d8fb517ae4eaf93f58f119d9d084398bea86f348959ce0a8c3a535ef1",
+    "d2-b.png": "2b0ab66bc0495412fed7fbb571c2492290ba9c46b616f74d91cba5e52408d26c",
+    "d3-a.png": "9cb568bc0433fd148952362edc4ad7cc4cc05ab733ec82fd0d790b3128c5c173",
+    "d3-b.png": "c6c968a7f4aef235aa0a22d3b4046501b6e3343d8ce04e45b888f4752232593a",
+    "d4-a.png": "71a5c9ec47ee14f985812e441a0ec64ba1788c1eec29fabf792ea939ef12ae03",
+    "d4-b.png": "2b963acc89000e60654763f4a4b651fb73192d59c79529c2d28776ad5e5e1027",
+    "d5-a.png": "043eb570810473409248c60982ddb178794e085901de473e095c52a1ea878313",
+    "d5-b.png": "052292e809a29c4fb4cb5206de4f2ee4ef642730cb1065977e9e4331072f06b5",
+    "d6-a.png": "e2ce839e10398766eb3a85c0ef0aa625aba077773e6011c68f5890d4f2686a07",
+    "d6-b.png": "5da8a152f8797e851fa60446e50285261e770bd8462edda8dd3cbefa08651ace",
+    "d7-a.png": "3429b9763ac76d38602f5e329c3d37ff6a7df34945d93fa1cdad239303472443",
+    "d7-b.png": "d77b60595c0f7865d2ea169c2efd15fd94ccd962a2fffe54b36ae38a894c70fe",
+    "giro.png": "d01ba6d4a3ae17c1e7343e7267d767f9377f1e844a25dd673f3c0ac53732bf9a"
+  }
+}

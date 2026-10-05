@@ -19,6 +19,13 @@
  * extiende, dispara y vuelve con la curva del disparo que le pasa quien
  * conduce. Su ataque es cuerpo a cuerpo, el tajo de espada del de la lanza, con
  * la pistola guardada.
+ *
+ * Con `arma: 'arco'` (el jinete elfo, 05-10-2026) lleva la lanza como el
+ * hermano de carga pero sin escudo, y el arco a la espalda. En el disparo
+ * suelta la lanza y las riendas: el arco en la izquierda, extendida hacia
+ * delante, y la derecha tensa la cuerda hasta la mejilla y suelta, con la curva
+ * del arco a pie. El arco es el de `poses.ts` (palas curvas y cuerda), con las
+ * medidas que le pasa quien conduce.
  */
 import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
@@ -254,8 +261,14 @@ async function montar(o) {
   espada.rotation.set(...o.ajuste.espadaGiro);
   hueso(ybot, `${prefijoHueso}RightHand`).add(espada);
 
+  // El arco, como `crearArco` de `poses.ts`: la empuñadura en el origen, el eje
+  // largo en y, la panza hacia +x y las palas curvándose hacia -x, que es el
+  // lado de la cuerda. La cuerda son dos tramos de las puntas a donde tire.
+  const arco = o.arco ? crearArco(o.arco) : null;
+  if (arco) scene.add(arco.grupo);
+
   Object.assign(estado, {
-    espada, pistola, arma: o.arma ?? 'lanza', accionSentado, accionAtaque, duracionAtaque: tajo.duration,
+    espada, pistola, arco, arma: o.arma ?? 'lanza', accionSentado, accionAtaque, duracionAtaque: tajo.duration,
     renderer, scene, camara, pivote, caballo, jinete, ybot, mixCaballo, mixJinete, torsoReposo,
     animaciones: gltf.animations, ajuste: o.ajuste, prefijo: prefijoHueso, lanza, escudo,
     sentadoT: o.ajuste.sentadoT ?? 0,
@@ -270,20 +283,105 @@ async function montar(o) {
 
 const v = (x, y, z) => new THREE.Vector3(x, y, z);
 
+/** Un cilindro de alto 1 que `estirarEntre` lleva de un punto a otro. */
+function tramo(r) {
+  return new THREE.Mesh(new THREE.CylinderGeometry(r, r, 1, 6), materialManiqui());
+}
+
+function estirarEntre(t, a, b) {
+  const d = b.clone().sub(a);
+  const largo = d.length();
+  t.position.copy(a).add(b).multiplyScalar(0.5);
+  t.quaternion.setFromUnitVectors(v(0, 1, 0), largo > 1e-6 ? d.divideScalar(largo) : v(0, 1, 0));
+  t.scale.set(1, Math.max(1e-4, largo), 1);
+}
+
+function crearArco(a) {
+  const curva = new THREE.QuadraticBezierCurve3(
+    v(-a.combadura, -a.largo / 2, 0),
+    v(a.combadura, 0, 0),
+    v(-a.combadura, a.largo / 2, 0),
+  );
+  const palas = new THREE.Mesh(new THREE.TubeGeometry(curva, 24, a.grosor, 6, false), materialManiqui());
+  const cuerda = [tramo(0.006), tramo(0.006)];
+  const flecha = tramo(0.008);
+  const grupo = new THREE.Group();
+  grupo.add(palas, ...cuerda, flecha);
+  grupo.visible = false;
+  return { grupo, palas, puntas: [curva.getPoint(0), curva.getPoint(1)], cuerda, flecha, largoFlecha: a.flecha };
+}
+
+/**
+ * Coloca el arco con su empuñadura en `centro`, el eje largo en `eje` y la panza
+ * hacia `cara`, y tiende la cuerda: hasta `gancho` si lo hay (tensa, con la
+ * flecha en ella apuntando al arco) o recta entre las puntas.
+ */
+function colocarArco(centro, eje, cara, gancho) {
+  const a = estado.arco;
+  const z = new THREE.Vector3().crossVectors(cara, eje).normalize();
+  a.palas.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(cara, eje, z));
+  a.palas.position.copy(centro);
+  a.palas.updateMatrixWorld(true);
+  const puntas = a.puntas.map((p) => a.palas.localToWorld(p.clone()));
+  const medio = gancho ?? puntas[0].clone().add(puntas[1]).multiplyScalar(0.5);
+  estirarEntre(a.cuerda[0], puntas[0], medio);
+  estirarEntre(a.cuerda[1], medio, puntas[1]);
+  a.flecha.visible = gancho !== null;
+  if (gancho) {
+    const hacia = centro.clone().sub(gancho).normalize();
+    estirarEntre(a.flecha, gancho, gancho.clone().addScaledVector(hacia, a.largoFlecha));
+  }
+  a.grupo.visible = true;
+}
+
+/** Los ejes del tronco del jinete, de sus huesos: así no hay que adivinar los locales. */
+function ejesDelTronco(P) {
+  const p = (n) => hueso(estado.ybot, `${P}${n}`).getWorldPosition(new THREE.Vector3());
+  const arriba = p('Neck').sub(p('Spine1')).normalize();
+  const derecha = p('RightArm').sub(p('LeftArm'));
+  derecha.addScaledVector(arriba, -derecha.dot(arriba)).normalize();
+  const atras = new THREE.Vector3().crossVectors(derecha, arriba).normalize();
+  return { p, arriba, derecha, atras };
+}
+
+/**
+ * El arco a la espalda, terciado del hombro derecho a la cadera izquierda como
+ * se lleva colgado, con la panza hacia fuera y la cuerda floja contra el lomo.
+ */
+function arcoALaEspalda(P) {
+  const { p, arriba, derecha, atras } = ejesDelTronco(P);
+  const eje = arriba.clone().multiplyScalar(Math.cos(0.6)).addScaledVector(derecha, Math.sin(0.6)).normalize();
+  colocarArco(p('Spine2').addScaledVector(atras, 0.17).addScaledVector(arriba, -0.05), eje, atras, null);
+}
+
+/** La mano que agarra, un poco más allá de la muñeca: el hueso Hand es la muñeca. */
+function agarre(P, lado) {
+  const mano = hueso(estado.ybot, `${P}${lado}Hand`).getWorldPosition(new THREE.Vector3());
+  const antebrazo = hueso(estado.ybot, `${P}${lado}ForeArm`).getWorldPosition(new THREE.Vector3());
+  return mano.clone().addScaledVector(mano.clone().sub(antebrazo).normalize(), 0.08);
+}
+
 /** Coloca caballo, jinete, IK y atrezo para `clip` en el instante `t` (s), y pinta. */
 window.__fotograma = function fotograma(clip, t, postura, tJinete, disparo) {
   const s = estado;
   // El ataque del pistolero es el tajo de espada de siempre, sin escudo ni
   // pistola (decisión del usuario, 04-10-2026: el ataque es cuerpo a cuerpo).
   if (s.arma === 'pistola' && postura !== 'ataque') return fotogramaConPistola(clip, t, postura, disparo);
+  if (postura === 'disparo') {
+    if (s.arma !== 'arco') throw new Error(`el jinete con ${s.arma} no dispara`);
+    return fotogramaConArco(clip, t, disparo);
+  }
   s.pistola.visible = false;
-  s.escudo.visible = s.arma !== 'pistola';
+  // Escudo solo el hermano de carga: ni el pistolero ni el jinete elfo lo llevan.
+  s.escudo.visible = s.arma === 'lanza';
   const atacando = postura === 'ataque';
   s.lanza.visible = !atacando;
   s.espada.visible = atacando;
   const { adelante, arriba, izquierda, en, P } = atacando
     ? montarJinete(clip, t, s.accionAtaque, tJinete)
     : montarJinete(clip, t);
+  if (s.arco) s.arco.grupo.visible = false;
+  if (s.arma === 'arco') arcoALaEspalda(P);
 
   if (atacando) {
     const antebrazoE = hueso(s.ybot, `${P}LeftForeArm`).getWorldPosition(new THREE.Vector3());
@@ -404,6 +502,50 @@ function fotogramaConPistola(clip, t, postura, disparo) {
   s.scene.updateMatrixWorld(true);
   s.pistola.position.copy(hueso(s.ybot, `${P}RightHand`).getWorldPosition(new THREE.Vector3()));
   s.pistola.quaternion.setFromUnitVectors(v(0, 1, 0), canon);
+  s.renderer.render(s.scene, s.camara);
+  return s.renderer.domElement.toDataURL('image/png');
+}
+
+/**
+ * El jinete elfo dispara: suelta riendas y lanza, alza el arco en la izquierda,
+ * extendida hacia delante, y la derecha tira de la cuerda hasta la mejilla y la
+ * suelta. Las manos van de donde las pone `rangedPose('bow')` a pie —juntas
+ * delante del pecho con la cuerda floja, y la izquierda estirada y la derecha
+ * junto a la cara con `tension` 1—, medidas desde los hombros del jinete.
+ */
+function fotogramaConArco(clip, t, disparo) {
+  const s = estado;
+  if (!disparo) throw new Error('el disparo del arco necesita su tensión y si la cuerda está tensa');
+  s.lanza.visible = false;
+  s.escudo.visible = false;
+  s.espada.visible = false;
+  s.pistola.visible = false;
+  const { adelante, arriba, izquierda, en, P } = montarJinete(clip, t);
+  const k = disparo.tension;
+  const hombroI = hueso(s.ybot, `${P}LeftArm`).getWorldPosition(new THREE.Vector3());
+  const hombroD = hueso(s.ybot, `${P}RightArm`).getWorldPosition(new THREE.Vector3());
+  const pecho = hombroI.clone().add(hombroD).multiplyScalar(0.5);
+  // La izquierda, del arco a medio alzar al brazo entero hacia delante y algo
+  // por encima del hombro: a la altura del hombro, de perfil, el cuello del
+  // caballo tapaba media pala de abajo.
+  const manoArco = en(pecho, 0.4 + 0.22 * k, -0.16 + 0.22 * k, 0.12);
+  // La derecha, de junto al arco a la mejilla (más alta que el hombro y pegada a la cara).
+  const manoCuerda = en(pecho, 0.36 - 0.3 * k, -0.22 + 0.32 * k, -0.04);
+  cadena(hueso(s.ybot, `${P}LeftArm`), hueso(s.ybot, `${P}LeftForeArm`), hueso(s.ybot, `${P}LeftHand`), manoArco, v(0, -1, 0).addScaledVector(izquierda, 0.5));
+  cadena(hueso(s.ybot, `${P}RightArm`), hueso(s.ybot, `${P}RightForeArm`), hueso(s.ybot, `${P}RightHand`), manoCuerda, izquierda.clone().negate().addScaledVector(arriba, 0.15));
+  s.scene.updateMatrixWorld(true);
+  const izq = agarre(P, 'Left');
+  const der = agarre(P, 'Right');
+  // De pie y con la panza de la mano de la cuerda a la del arco, para que la
+  // cuerda quede en su plano; con las manos juntas, al menos hacia delante.
+  const cara = izq.clone().sub(der).addScaledVector(arriba, -izq.clone().sub(der).dot(arriba));
+  if (cara.lengthSq() < 1e-6 || cara.clone().normalize().dot(adelante) < 0.7) cara.copy(adelante);
+  cara.normalize();
+  const eje = arriba.clone().addScaledVector(adelante, -arriba.dot(adelante));
+  eje.addScaledVector(cara, -eje.dot(cara)).normalize();
+  // La cuerda va a la mano derecha mientras está tensa; floja (0,1 o menos, o
+  // ya suelta), recta entre las puntas, como la del arquero a pie.
+  colocarArco(izq, eje, cara, disparo.tensa && k > 0.1 ? der : null);
   s.renderer.render(s.scene, s.camara);
   return s.renderer.domElement.toDataURL('image/png');
 }

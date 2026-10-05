@@ -224,6 +224,12 @@ fotograma es el cadáver (`cadaver` en el JSON).
      `--pistola` sale `montado-pistola-8d`, sin lanza ni escudo, con la pistola
      alzada al paso, apuntando en la carga y disparando en el ataque (curva
      `pistol`, un segundo de clip).
+     Con `--arco` sale `montado-arco-8d`, el jinete elfo (05-10-2026): la
+     lanza en alto al paso y bajada en la carga, el arco a la espalda y sin
+     escudo; el ataque es el tajo de espada, y el disparo (hoja C), el arco en
+     la izquierda extendida y la derecha tensando hasta la mejilla, con la curva
+     `bow` del arquero a pie y el arco de su mismo atrezo. Un jinete nuevo es
+     una fila de `JUEGOS_MONTADOS`: su arma sale de la clave (`--<arma>`).
    - **El maniquí de una unidad** (04-10-2026): el Y Bot no es sagrado. Si el
      atrezo de su juego no se parece a lo que lleva el personaje —una daga y no
      un escudo, un arcabuz y no una ballesta, una rodela, una alabarda—, la

@@ -344,6 +344,12 @@ export const UNIDADES: readonly Unidad[] = [
     nombre: 'Explorador',
     perfil: 'espada-escudo',
     concepto: 'assets/art/elfos/explorador.png',
+    maniqui: {
+      ...ESPADA_Y_ESCUDO,
+      espada: { largo: 0.45, guarda: 0.06, puño: 0.12, agarre: 0.06, grosor: 0.014 },
+      escudo: false,
+      daga: { largo: 0.4 },
+    },
     aspecto:
       'Un explorador elfo: capucha y capa de camuflaje hecha de hojas secas, máscara de tela, ropa de cuero oscuro, dos cuchillos curvos, uno en cada mano, arco corto a la espalda. Agazapado.',
   },
@@ -353,34 +359,52 @@ export const UNIDADES: readonly Unidad[] = [
     nombre: 'Guardia del bosque',
     perfil: 'espada-escudo',
     concepto: 'assets/art/elfos/guardia-del-bosque.png',
+    maniqui: {
+      espada: { largo: 1.6, guarda: 0, puño: 0.6, agarre: 0, grosor: 0.02, moharra: 0.25 },
+      ...UNA_MANO,
+      escudo: true,
+      adelanteMinimo: 0.6,
+    },
     aspecto:
       'Un guardia del bosque elfo: armadura de escamas en forma de hoja verde oliva, yelmo alto con alas de hoja, capa verde, escudo oval de madera tallada en el brazo izquierdo y lanza larga élfica en la derecha.',
   },
   {
-    id: 'elfo-corredor-del-bosque',
+    id: 'elfo-jinete',
     faccion: 'elfos',
-    nombre: 'Corredores del bosque (antes Jinetes de ciervo)',
-    perfil: 'espada-escudo',
-    concepto: 'assets/art/elfos/jinete-de-ciervo.png',
+    nombre: 'Jinete (a caballo)',
+    perfil: 'montado-lanza',
+    concepto: 'assets/art/elfos/jinete.png',
     aspecto:
-      'Un corredor del bosque elfo, A PIE y sin montura: el jinete del concepto bajado del ciervo, ligero y veloz, armadura de cuero con hojas, capa verde al viento, pelo rubio largo, lanza corta en la derecha y escudo redondo pequeño en la izquierda.',
+      'Un jinete elfo A CABALLO, como el del concepto: caballo gris moteado esbelto con brida de hojas y gualdrapa verde musgo; el jinete con armadura ligera de escamas de hoja, capa verde al viento, lanza larga de hoja élfica para la carga, arco curvo y carcaj a la espalda y espada curva al cinto. Sin escudo. Jinete y caballo son UNA sola figura.',
   },
   {
-    id: 'elfo-ent',
+    id: 'elfo-sacerdotisa',
     faccion: 'elfos',
-    nombre: 'Ent o Guardián arbóreo',
-    perfil: 'dos-manos',
-    concepto: 'assets/art/elfos/ent-guardian-arboreo.png',
+    nombre: 'Sacerdotisa',
+    perfil: 'baston',
+    concepto: 'assets/art/elfos/sacerdotisa.png',
+    maniqui: {
+      espada: { largo: 1.15, guarda: 0, puño: 0.5, agarre: 0, grosor: 0.022, remate: 'esfera' },
+      ...UNA_MANO,
+      arribaMinimo: 0.85,
+    },
     aspecto:
-      'Un ent, guardián arbóreo: gigante de corteza y raíces retorcidas, musgo y ramas en la cabeza, cuerpo de tronco nudoso, brazos largos con manos de raíz. Sin armas. Muy lento y muy duro.',
+      'Una sacerdotisa elfa de protección, curación y ocultación: túnicas blancas y verde musgo con manto de escamas de hoja plateadas, capucha, pelo plateado largo, bastón esbelto de madera clara rematado en una media luna de hojas de plata y una bruma suave en la mano libre.',
   },
   {
-    id: 'elfo-hostigador',
+    id: 'elfo-asesino',
     faccion: 'elfos',
-    nombre: 'Hostigador elfo (antes Halcón o Lobo)',
+    nombre: 'Asesino',
     perfil: 'espada-escudo',
+    concepto: 'assets/art/elfos/asesino.png',
+    maniqui: {
+      ...ESPADA_Y_ESCUDO,
+      espada: { largo: 0.3, guarda: 0.08, puño: 0.1, agarre: 0.05, grosor: 0.012 },
+      escudo: false,
+      daga: { largo: 0.28 },
+    },
     aspecto:
-      'Un hostigador elfo, tropa barata y rápida: capa de piel de lobo gris con la cabeza del lobo como capucha, plumas de halcón trenzadas en el pelo, ropa de cuero ligera, jabalina corta en la mano derecha y otras dos a la espalda.',
+      'Un asesino elfo: armadura de cuero oscuro ceñida y capa de jirones de hoja, capucha y máscara de tela sobre la cara, solo los ojos ámbar a la vista, una daga curva con brillo verde de veneno en cada mano, frascos al cinto, botas blandas. Agazapado.',
   },
   {
     id: 'orko-hacha-escudo',
@@ -575,6 +599,13 @@ export const HEROES: readonly Unidad[] = [
     faccion: 'elfos',
     nombre: 'Danzante de espadas (héroe)',
     perfil: 'espada-escudo',
+    concepto: 'assets/art/elfos/danzante-de-espadas.png',
+    maniqui: {
+      ...ESPADA_Y_ESCUDO,
+      espada: { largo: 0.8, guarda: 0.1, puño: 0.14, agarre: 0.07, grosor: 0.014 },
+      escudo: false,
+      daga: { largo: 0.7 },
+    },
     aspecto:
       'Un danzante de espadas elfo: pelo blanco largo recogido, armadura ligera de escamas de hoja dorada, faldones de tela verde que vuelan, una espada élfica curva en cada mano. Ágil y elegante.',
   },
@@ -583,22 +614,29 @@ export const HEROES: readonly Unidad[] = [
     faccion: 'elfos',
     nombre: 'Druida (héroe)',
     perfil: 'baston',
+    concepto: 'assets/art/elfos/druida.png',
+    maniqui: {
+      espada: { largo: 1.15, guarda: 0, puño: 0.5, agarre: 0, grosor: 0.026 },
+      ...UNA_MANO,
+      arribaMinimo: 0.85,
+    },
     aspecto:
       'Una druida elfa: túnica de hojas y musgo, corona de astas pequeñas y flores, pelo largo cobrizo, bastón retorcido de madera viva con brotes verdes y una luz verde en la punta.',
-  },
-  {
-    id: 'heroe-elfo-senor-de-las-bestias',
-    faccion: 'elfos',
-    nombre: 'Señor de las bestias (héroe)',
-    perfil: 'espada-escudo',
-    aspecto:
-      'Un señor de las bestias elfo: capa de piel de oso, cuernos de ciervo en el yelmo de cuero, pinturas de guerra verdes, un halcón posado en el hombro, lanza de caza en la derecha.',
   },
   {
     id: 'heroe-elfo-cantora',
     faccion: 'elfos',
     nombre: 'Cantora (héroe)',
     perfil: 'baston',
+    concepto: 'assets/art/elfos/cantora.png',
+    // El arpa va en la izquierda: el libro del maniquí es su sitio; en la
+    // derecha, una daga corta para el cuerpo a cuerpo.
+    maniqui: {
+      ...ESPADA_Y_ESCUDO,
+      espada: { largo: 0.25, guarda: 0.06, puño: 0.1, agarre: 0.05, grosor: 0.012 },
+      escudo: false,
+      libro: true,
+    },
     aspecto:
       'Una cantora elfa: vestido largo verde y plata, diadema de hojas de plata, pelo rubio muy largo, arpa pequeña de madera clara sujeta en el brazo izquierdo y la mano derecha alzada.',
   },
@@ -674,6 +712,42 @@ export function encargoDeIdentidad(u: Unidad): Encargo {
 }
 
 /**
+ * Las tropas de élite de cada ejército: las de «Elite» en `NuevaJugabilidad.md`
+ * y, las que su ficha no nombra, las que produce una ciudad en su tabla de
+ * edificios (Armería → rodeleros, Fundición → culebrinas, Cripta → necrófagos
+ * y gólems, Pocilga y Tótem → berserker y fanático). El resto de `UNIDADES` es
+ * tropa y `HEROES`, héroes. Lo lee el visor de 8 direcciones para agruparlas.
+ */
+export const ELITE: ReadonlySet<string> = new Set([
+  'templario-monje',
+  'templario-hermano-de-carga',
+  'templario-penitente',
+  'necrofago',
+  'espectro',
+  'golem-de-huesos',
+  'imperio-coracero',
+  'imperio-arcabucero',
+  'imperio-rodelero',
+  'imperio-artillero-culebrina',
+  'imperio-pistolero-montado',
+  'imperio-granadero',
+  'elfo-jinete',
+  'elfo-sacerdotisa',
+  'elfo-asesino',
+  'troll-maza',
+  'orko-berserker',
+  'goblin-fanatico',
+]);
+
+export type RangoDeUnidad = 'heroe' | 'elite' | 'tropa';
+
+/** Héroe, élite o tropa: el héroe por estar en `HEROES`, la élite por `ELITE`. */
+export function rangoDe(u: Unidad): RangoDeUnidad {
+  if (HEROES.includes(u)) return 'heroe';
+  return ELITE.has(u.id) ? 'elite' : 'tropa';
+}
+
+/**
  * El juego de armas del Y Bot de cada unidad, **por lo que lleva en la mano** y
  * no por su perfil de poses (decisión del usuario, vuelta 1 de QA de las 8
  * direcciones): con el perfil, el piquero salía con mandoble y el goblin lancero
@@ -684,7 +758,7 @@ export function encargoDeIdentidad(u: Unidad): Encargo {
  *  - bastón o báculo de monje, mago, chamán, druida, nigromante o liche → `baston`;
  *  - mandoble, hacha o cuchilla empuñada a dos manos → `dos-manos`;
  *  - maza → `maza`; mayal → `mayal`;
- *  - a caballo con lanza → `montado-lanza`; a caballo con pistola → `montado-pistola`;
+ *  - a caballo con lanza → `montado-lanza`; con pistola → `montado-pistola`; con arco → `montado-arco`;
  *  - granada de mano → `granada`;
  *  - arco en la mano → `arco` (el explorador elfo no: pelea con sus dos
  *    cuchillos y el arco lo lleva a la espalda);
@@ -720,9 +794,9 @@ export const JUEGO_DEL_YBOT: Readonly<Record<string, JuegoEn8d>> = {
   'elfo-arquero': 'arco',
   'elfo-explorador': 'espada-escudo',
   'elfo-guardia-del-bosque': 'lanza',
-  'elfo-corredor-del-bosque': 'lanza',
-  'elfo-ent': 'espada-escudo',
-  'elfo-hostigador': 'lanza',
+  'elfo-jinete': 'montado-arco',
+  'elfo-sacerdotisa': 'baston',
+  'elfo-asesino': 'espada-escudo',
   'orko-hacha-escudo': 'espada-escudo',
   'orko-dos-armas': 'espada-escudo',
   'goblin-lancero': 'lanza',
@@ -744,7 +818,6 @@ export const JUEGO_DEL_YBOT: Readonly<Record<string, JuegoEn8d>> = {
   'heroe-imperio-ingeniero': 'ballesta',
   'heroe-elfo-danzante-de-espadas': 'espada-escudo',
   'heroe-elfo-druida': 'baston',
-  'heroe-elfo-senor-de-las-bestias': 'lanza',
   'heroe-elfo-cantora': 'espada-escudo',
   'heroe-orko-kaudillo': 'dos-manos',
   'heroe-goblin-jefe': 'espada-escudo',
@@ -800,6 +873,17 @@ const IDS_EN_OCHO_DIRECCIONES = [
   'heroe-imperio-mago',
   'heroe-imperio-capitan-mercenario',
   'heroe-imperio-ingeniero',
+  // Los Elfos (05-10-2026).
+  'elfo-arquero',
+  'elfo-explorador',
+  'elfo-guardia-del-bosque',
+  'elfo-sacerdotisa',
+  'elfo-asesino',
+  'heroe-elfo-danzante-de-espadas',
+  'heroe-elfo-druida',
+  'heroe-elfo-cantora',
+  // Como el hermano de carga, de `montura.ts --8d --arco`.
+  'elfo-jinete',
 ] as const;
 
 export const EN_OCHO_DIRECCIONES: Readonly<Record<string, JuegoEn8d>> = Object.fromEntries(
@@ -811,6 +895,7 @@ export const JUEGOS_EN_8D: readonly JuegoEn8d[] = [
   ...(Object.keys(JUEGOS_DE_ARMAS) as (keyof typeof JUEGOS_DE_ARMAS)[]),
   'montado-lanza',
   'montado-pistola',
+  'montado-arco',
 ];
 
 const RAIZ = resolve(import.meta.dirname, '../..');
