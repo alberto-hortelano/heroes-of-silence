@@ -719,12 +719,13 @@ switch (orden) {
         murallasPartidas: number;
         basesSobreReserva: number;
         casillasDeBarreraSinFormacion: number;
+        spritesSobreSenda: number;
         modulosQueFaltan: string[];
         errores: string[];
       };
       console.log(`→ ${r.png}`);
       console.log(
-        `  suelo desnudo ${(i.desnudo * 100).toFixed(1)} % · murallas partidas ${i.murallasPartidas} · bases sobre reserva ${i.basesSobreReserva} · barrera sin formación ${i.casillasDeBarreraSinFormacion}` +
+        `  suelo desnudo ${(i.desnudo * 100).toFixed(1)} % · murallas partidas ${i.murallasPartidas} · bases sobre reserva ${i.basesSobreReserva} · barrera sin formación ${i.casillasDeBarreraSinFormacion} · sprites sobre la senda ${i.spritesSobreSenda}` +
           (i.modulosQueFaltan.length > 0 ? ` · faltan ${i.modulosQueFaltan.join(', ')}` : '') +
           (i.errores.length > 0 ? ` · ERRORES: ${i.errores.join(' | ')}` : ''),
       );

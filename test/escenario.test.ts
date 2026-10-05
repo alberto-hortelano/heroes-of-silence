@@ -44,6 +44,9 @@ interface Llamada {
   readonly metodo: string;
   readonly args: readonly unknown[];
   readonly fillStyle: unknown;
+  /** El contexto que la recibió, por orden de creación: 0 es el primero que se pide. */
+  readonly contexto: number;
+  readonly filter: unknown;
 }
 
 /**
@@ -57,21 +60,31 @@ function registro(): {
   lienzos: Set<object>;
   contexto: () => CanvasRenderingContext2D;
   lienzo: NonNullable<OpcionesDePintura['lienzo']>;
+  contextoDe: Map<object, number>;
 } {
   const llamadas: Llamada[] = [];
   const lienzos = new Set<object>();
+  let contextos = 0;
+  const contextoDe = new Map<object, number>();
   const contexto = (): CanvasRenderingContext2D => {
     const estado: Record<string | symbol, unknown> = {};
+    const id = contextos++;
     return new Proxy(estado, {
       get(t, k) {
         if (k in t) return t[k];
         if (k === 'createImageData')
           return (w: number, h: number) => ({ data: new Uint8ClampedArray(w * h * 4) });
         if (k === 'createLinearGradient' || k === 'createRadialGradient')
-          return () => ({ addColorStop: () => undefined });
+          return () => ({ degradado: k, addColorStop: () => undefined });
         if (k === 'createPattern') return () => null;
         return (...args: unknown[]) => {
-          llamadas.push({ metodo: String(k), args, fillStyle: t.fillStyle });
+          llamadas.push({
+            metodo: String(k),
+            args,
+            fillStyle: t.fillStyle,
+            contexto: id,
+            filter: t.filter,
+          });
         };
       },
       set(t, k, v) {
@@ -81,11 +94,23 @@ function registro(): {
     }) as unknown as CanvasRenderingContext2D;
   };
   const lienzo = (ancho: number, alto: number) => {
-    const l = { width: ancho, height: alto, getContext: () => contexto() };
+    // Un contexto por lienzo, como en el navegador: `contextoDe` dice de quién es.
+    let suyo: CanvasRenderingContext2D | undefined;
+    const l = {
+      width: ancho,
+      height: alto,
+      getContext: () => {
+        if (suyo === undefined) {
+          suyo = contexto();
+          contextoDe.set(l, contextos - 1);
+        }
+        return suyo;
+      },
+    };
     lienzos.add(l);
     return l as unknown as HTMLCanvasElement;
   };
-  return { llamadas, lienzos, contexto, lienzo };
+  return { llamadas, lienzos, contexto, lienzo, contextoDe };
 }
 
 describe('separar: el suelo fijo y los volúmenes', () => {
@@ -153,6 +178,33 @@ describe('sin arte se pinta igual: cada pieza, su marcador de color', () => {
     for (const l of copias) expect(r.lienzos.has(l.args[0] as object)).toBe(true);
   });
 
+  it('los cantos no van nítidos al suelo: en un lienzo aparte que se copia entero difuminado', () => {
+    // Pintados franja a franja sobre el suelo, cada canto era un rectángulo de
+    // bordes duros: la costura recta del nivel y del agua junto a los caminos
+    // (QA de los caminos despejados, 05-10-2026).
+    expect(e.relieve.cantos.length).toBeGreaterThan(0);
+    const r = registro();
+    pintarSuelo(r.contexto(), e, sep, { ...sinImagenes, lienzo: r.lienzo });
+    const lineal = (l: Llamada) =>
+      l.metodo === 'fillRect' &&
+      (l.fillStyle as { degradado?: string } | undefined)?.degradado === 'createLinearGradient';
+    // En el suelo, el único degradado lineal es el de cada cara de roca.
+    expect(r.llamadas.filter((l) => l.contexto === 0 && lineal(l))).toHaveLength(
+      e.relieve.caras.length,
+    );
+    const franjas = r.llamadas.filter((l) => l.contexto !== 0 && lineal(l));
+    expect(franjas).toHaveLength(e.relieve.cantos.length);
+    const nitido = new Set(franjas.map((l) => l.contexto));
+    expect(nitido.size).toBe(1);
+    // Y ese lienzo se copia una sola vez, con desenfoque, a otro que no es el suelo.
+    const copias = r.llamadas.filter(
+      (l) => l.metodo === 'drawImage' && nitido.has(r.contextoDe.get(l.args[0] as object) ?? -1),
+    );
+    expect(copias).toHaveLength(1);
+    expect(copias[0]?.contexto).not.toBe(0);
+    expect(String(copias[0]?.filter)).toMatch(/^blur\(/);
+  });
+
   it('los volúmenes: uno a uno, su marcador y ninguna imagen', () => {
     const r = registro();
     const ctx = r.contexto();
@@ -214,6 +266,8 @@ describe('la escena es de la partida entera: no cambia al jugarla', () => {
     const e = componer(state.map, 11, catalogo);
     expect(e.informe.modulosQueFaltan).toEqual([]);
     expect(e.informe.basesSobreReserva).toBe(0);
+    expect(e.informe.spritesSobreSenda).toBe(0);
+    expect(e.informe.casillasDeBarreraSinFormacion).toBe(0);
     const horneados = e.sprites.filter((s) => s.objeto !== undefined && seHornea(s.objeto.kind));
     expect(horneados.length).toBe(state.map.objects.filter((o) => seHornea(o.kind)).length);
     const antes = JSON.stringify(e);

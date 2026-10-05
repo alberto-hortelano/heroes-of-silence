@@ -18,8 +18,14 @@ import type { Catalogo, Modulo, Pieza } from './catalogo.js';
 import { azarDe, esparcir } from './esparcir.js';
 import { ejeDe, esqueleto } from './esqueleto.js';
 import { barreraDeNodo, nodoDePaso } from './nodos.js';
+import { cajaDeSprite, Pasillo } from './pasillo.js';
 import { ALTO_DE_NIVEL, type Relieve, relieve } from './relieve.js';
-import { type Senda, sendas } from './sendas.js';
+import {
+  SEMIANCHO_DEL_PASILLO,
+  SEMIANCHO_DEL_PASILLO_DE_MASA,
+  type Senda,
+  sendas,
+} from './sendas.js';
 
 /** Un sprite de la escena: una imagen apoyada por su ancla en `(x, y)`, en casillas. */
 export interface Sprite {
@@ -84,9 +90,38 @@ export interface Escena {
     readonly murallasPartidas: number;
     readonly basesSobreReserva: number;
     readonly casillasDeBarreraSinFormacion: number;
+    /**
+     * Sprites de una clase que se aparta del camino (`APARTE`) cuyo rectángulo
+     * pisa su pasillo (`pasillo.ts`): tiene que ser 0.
+     */
+    readonly spritesSobreSenda: number;
     readonly modulosQueFaltan: readonly string[];
   };
 }
+
+/**
+ * Lo que encoge una clase baja junto a la senda: por debajo de esta fracción de
+ * su alto se quita (decisión del usuario, 05-10-2026: encoger antes que quitar).
+ */
+const ENCOGER_HASTA = 0.4;
+
+/** Una masa encogida por debajo de este alto, en casillas, ya no se lee como árbol ni como pico. */
+const ALTO_MINIMO_DE_MASA = 0.3;
+
+/**
+ * Dónde se prueba a poner el relleno de una casilla de bosque o cordillera sin
+ * ningún dardo, relativo a su esquina: una rejilla de 4 × 4, de más cerca a más
+ * lejos del centro de su mitad baja (el pie de un sprite va abajo; la imagen
+ * crece hacia arriba).
+ */
+const SITIOS_DE_RELLENO: readonly (readonly [number, number])[] = [0.125, 0.375, 0.625, 0.875]
+  .flatMap((dx) => [0.3, 0.5, 0.7, 0.9].map((dy) => [dx, dy] as const))
+  .sort(
+    (p, q) =>
+      Math.hypot(p[0] - 0.5, p[1] - 0.65) - Math.hypot(q[0] - 0.5, q[1] - 0.65) ||
+      p[1] - q[1] ||
+      p[0] - q[0],
+  );
 
 // ------------------------------------------------------------------ las reglas
 
@@ -164,10 +199,74 @@ const CUBIERTA: Readonly<Record<Suelo, { radio: number; alto: number }>> = {
   rough: { radio: 0.25, alto: 0.38 },
 };
 
-/** Hojas de piedra clara que se pintan más oscuras para no salpicar. */
-const PALIDAS = new Set(['rocas-caidas', 'cubierta-rough', 'cubierta-sand']);
-/** Y las de arenisca, que salen de un rojo que grita al lado del resto. */
-const CHILLONAS = new Set(['picos-arenisca']);
+/** La mata más baja, en veces el alto de la cubierta de su suelo; la más alta, 0,6 más. */
+const MATA_MAS_BAJA = 0.7;
+
+const ARBOLES = ['pinos', 'frondosos', 'muertos', 'abetos-nevados'];
+const PICOS = ['picos-roca', 'picos-afilados', 'picos-nevados', 'picos-volcan', 'picos-arenisca'];
+
+/** Cómo se aparta una clase del camino. */
+export interface Aparte {
+  /** La media anchura del pasillo que no pisa su rectángulo, en casillas. */
+  readonly semiancho: number;
+  /** Por debajo de este alto, encogida para no pisarlo, ya no se pone. */
+  readonly minimo: (alto: number) => number;
+  /**
+   * Las hojas de las que sale. La más estrecha de cada una es su reserva cuando
+   * la elegida no cabe, y la más estrecha de todas, al alto mínimo, es el sprite
+   * con el que pregunta el dardo. `poner` lanza con una hoja que no esté aquí.
+   */
+  readonly hojas: readonly string[];
+}
+
+/**
+ * Qué clases se apartan del camino y cómo. Las de `null` pueden tocarlo —el
+ * muro y la pared son la barrera que el camino cruza; el objeto, su destino— y
+ * solo esquivan las reservas de los objetos.
+ */
+export const APARTE: Readonly<Record<Sprite['clase'], Aparte | null>> = {
+  cubierta: {
+    semiancho: SEMIANCHO_DEL_PASILLO,
+    minimo: (alto) => ENCOGER_HASTA * alto,
+    hojas: [...Object.keys(MEZCLA).map((s) => `cubierta-${s}`), ...ARBOLES],
+  },
+  roca: {
+    semiancho: SEMIANCHO_DEL_PASILLO,
+    minimo: (alto) => ENCOGER_HASTA * alto,
+    hojas: ['rocas-caidas', ...PICOS],
+  },
+  orilla: {
+    semiancho: SEMIANCHO_DEL_PASILLO,
+    minimo: (alto) => ENCOGER_HASTA * alto,
+    hojas: ['orilla'],
+  },
+  masa: {
+    semiancho: SEMIANCHO_DEL_PASILLO_DE_MASA,
+    minimo: () => ALTO_MINIMO_DE_MASA,
+    hojas: [...ARBOLES, ...PICOS],
+  },
+  muro: null,
+  pared: null,
+  objeto: null,
+  nube: null,
+};
+
+/**
+ * El filtro con el que se entona cada hoja al pintarla. Las piedras claras
+ * (rocas caídas, cubierta de roca y de arena) salpicaban el mapa de motas
+ * blancas; la arenisca sale de un rojo que grita al lado del resto; y la roca
+ * gris de las paredes salió casi beige.
+ */
+const PALIDA = 'brightness(0.78) saturate(0.9)';
+const CHILLONA = 'brightness(0.8) saturate(0.72)';
+const TONO: Readonly<Record<string, string>> = {
+  'rocas-caidas': PALIDA,
+  'cubierta-rough': PALIDA,
+  'cubierta-sand': PALIDA,
+  'picos-arenisca': CHILLONA,
+  'paredes-arenisca': CHILLONA,
+  'paredes-roca': 'brightness(0.72) saturate(0.85)',
+};
 
 /**
  * Lo ancho que se pinta cada tramo de muro, en casillas, para que cubra su paso
@@ -244,6 +343,17 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   const reservas = new Reservas(W, H);
   let basesSobreReserva = 0;
 
+  const estrechos = new Map<string, Modulo | undefined>();
+  /** El módulo más estrecho de una hoja (ancho entre alto), si la hoja está hecha. */
+  const masEstrecho = (hoja: string): Modulo | undefined => {
+    if (!estrechos.has(hoja))
+      estrechos.set(
+        hoja,
+        [...(modulosDe(hoja) ?? [])].sort((p, q) => p.nw / p.nh - q.nw / q.nh)[0],
+      );
+    return estrechos.get(hoja);
+  };
+
   /** Un sprite de una hoja: elige el módulo por tamaño relativo `t` (0 pequeño, 1 grande). */
   const deHoja = (
     hoja: string,
@@ -257,7 +367,6 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     nombre?: string,
     porAncho?: number,
   ): Sprite => {
-    if (clase !== 'objeto' && clase !== 'nube' && reservas.tomada(x, y)) basesSobreReserva++;
     const ms = modulosDe(hoja);
     if (ms === null || ms.length === 0) {
       faltan.add(hoja);
@@ -284,15 +393,9 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       const k = Math.max(0, Math.min(ms.length - 1, centro + Math.round((azar() - 0.5) * 4)));
       m = ms[k] as Modulo;
     }
-    // Las piedras claras (rocas caídas, cubierta de roca y de nieve) salpicaban
-    // el mapa de motas blancas: se entonan para que no compitan con las formas.
-    const tono = PALIDAS.has(hoja)
-      ? { tono: 'brightness(0.78) saturate(0.9)' }
-      : CHILLONAS.has(hoja)
-        ? { tono: 'brightness(0.8) saturate(0.72)' }
-        : {};
+    const tono = TONO[hoja];
     return {
-      ...tono,
+      ...(tono === undefined ? {} : { tono }),
       src: m.src,
       nw: m.nw,
       nh: m.nh,
@@ -409,12 +512,11 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     );
   }
 
-  // 2 · Los caminos: reservan su franja.
+  // 2 · Los caminos: se encadenan en sendas y cada senda abre su pasillo.
   const caminos: [number, number, number, number][] = [];
   for (const i of a.caminos) {
     const x = i % W;
     const y = (i - x) / W;
-    reservas.reservar(x + 0.5, y + 0.5, 0.38);
     for (const [dx, dy] of [
       [1, 0],
       [0, 1],
@@ -435,6 +537,84 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   // Los nodos y los objetos llevan su camino hasta la puerta: se reserva la casilla entera.
   for (const o of a.objetos)
     if (o.kind === 'node') reservas.reservar(o.at.x + 0.5, o.at.y + 0.5, 0.75);
+  // El pasillo se mide sobre el trazo que se pinta, no sobre la casilla: la
+  // senda ondula y entre dos casillas no hay centro que reservar.
+  const trazos = sendas(caminos, semilla);
+  const pasillo = new Pasillo(
+    trazos,
+    Math.max(...Object.values(APARTE).map((r) => r?.semiancho ?? 0)),
+  );
+  /** El sprite más estrecho de cada clase que se aparta: el que pregunta el dardo. */
+  const moldes = new Map<Sprite['clase'], Pick<Sprite, 'nw' | 'nh' | 'ax' | 'ay'>>();
+  for (const [clase, r] of Object.entries(APARTE) as [Sprite['clase'], Aparte | null][]) {
+    if (r === null) continue;
+    const ms = r.hojas.flatMap((h) => masEstrecho(h) ?? []);
+    moldes.set(
+      clase,
+      ms.sort((p, q) => p.nw / p.nh - q.nw / q.nh)[0] ?? { nw: 1, nh: 1, ax: 0.5, ay: 1 },
+    );
+  }
+  /**
+   * Si `s` entra en su sitio: ni su pie sobre la reserva de un objeto ni,
+   * encogido hasta su mínimo, su rectángulo sobre el pasillo de su clase. Es la
+   * pregunta de `poner` y la del dardo.
+   */
+  const entra = (s: Pick<Sprite, 'x' | 'y' | 'nw' | 'nh' | 'ax' | 'ay' | 'alto' | 'clase'>) => {
+    if (reservas.tomada(s.x, s.y)) return false;
+    const r = APARTE[s.clase];
+    return r === null || !pasillo.pisa(cajaDeSprite(s, r.minimo(s.alto)), r.semiancho);
+  };
+  /**
+   * El dardo de una clase en `(x, y)`: si entraría su sprite más estrecho con el
+   * alto más bajo que vaya a tener. Así no se gasta un dardo donde `poner` no
+   * podría poner nada, que dejaba el hueco pelado.
+   */
+  const entraria = (clase: Sprite['clase'], x: number, y: number, alto: number) => {
+    const m = moldes.get(clase);
+    if (m === undefined) return !reservas.tomada(x, y);
+    return entra({ nw: m.nw, nh: m.nh, ax: m.ax, ay: m.ay, x, y, alto, clase });
+  };
+  const meter = (s: Sprite): true => {
+    if (reservas.tomada(s.x, s.y)) basesSobreReserva++;
+    sprites.push(s);
+    return true;
+  };
+  /** `s` con el mayor alto, hasta el suyo, con el que no pisa el pasillo de su clase. */
+  const ajustado = (s: Sprite, r: Aparte): Sprite => {
+    const alto = pasillo.altoLibre(s, r.semiancho);
+    return alto === s.alto ? s : { ...s, alto };
+  };
+  /**
+   * La única puerta de lo que no es objeto ni nube a la escena; dice si entró.
+   * Lo que se aparta del camino entra si `entra`, tan alto como quepa; si no,
+   * se prueba el módulo más estrecho de su hoja, y si tampoco, no entra.
+   */
+  const poner = (
+    hoja: string,
+    x: number,
+    y: number,
+    alto: number,
+    t: number,
+    clase: Sprite['clase'],
+    color: string,
+    sombra: boolean,
+    nombre?: string,
+    porAncho?: number,
+  ): boolean => {
+    const s = deHoja(hoja, x, y, alto, t, clase, color, sombra, nombre, porAncho);
+    const r = APARTE[clase];
+    if (r === null) return meter(s);
+    if (!r.hojas.includes(hoja))
+      throw new Error(`la hoja «${hoja}» no está entre las de la clase ${clase} (APARTE)`);
+    if (entra(s)) return meter(ajustado(s, r));
+    const e = masEstrecho(hoja);
+    if (e === undefined || e.src === s.src) return false;
+    const estrecho = { ...s, src: e.src, nw: e.nw, nh: e.nh, ax: e.ax, ay: e.ay };
+    return entra(estrecho) && meter(ajustado(estrecho, r));
+  };
+  const mata = (hoja: string, x: number, y: number, alto: number) =>
+    poner(hoja, x, y, alto, azar(), 'cubierta', MARCADOR.cubierta as string, false);
+  const altoDeMata = (s: Suelo) => CUBIERTA[s].alto * (MATA_MAS_BAJA + azar() * 0.6);
 
   // 3 · Las formaciones, franja a franja.
   let murallasPartidas = 0;
@@ -472,6 +652,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     if (f.barrera === 'forest' || f.barrera === 'mountain') {
       // Masa: puntos densos, desbordando un poco la franja para que el borde no sea recto.
       const forma = FORMA[f.barrera];
+      const altoMasBajo = forma.alto(1) * 0.75;
       const puntos = esparcir(
         [caja[0] - 0.2, caja[1] - 0.2, caja[2] + 0.2, caja[3] + 0.35],
         (x, y) => forma.radio(a.hondura[casillaDe(x, y)] ?? 1),
@@ -480,12 +661,14 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
             Math.min(Math.max(x, 0), W - 0.01),
             Math.min(Math.max(y, 0), H - 0.01),
           );
-          if (reservas.tomada(x, y)) return false;
-          if (dentro.has(i)) return true;
           // Un poco fuera, solo si la casilla de al lado es de la franja.
           const cx = Math.round(x - 0.5);
           const cy = Math.round(y - 0.5);
-          return dentro.has(cy * W + cx) && Math.hypot(x - (cx + 0.5), y - (cy + 0.5)) < 0.75;
+          return (
+            (dentro.has(i) ||
+              (dentro.has(cy * W + cx) && Math.hypot(x - (cx + 0.5), y - (cy + 0.5)) < 0.75)) &&
+            entraria('masa', x, y, altoMasBajo)
+          );
         },
         azar,
       );
@@ -496,41 +679,38 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         );
         const h = a.hondura[i] ?? 1;
         const hoja = hojaDeMasa(f.barrera, a.suelo[i] as Suelo, azar, h);
-        // Justo al sur de un paso va bajo: un pico entero taparía el camino que cruza.
-        // Solo los caminos, no los objetos: cerca de una ciudad la cordillera se
-        // quedaba en nada. Un pico es más ancho que su casilla: se mira a los lados.
-        const tapa = [0.4, 0.8].some((dy) =>
-          [-0.35, 0, 0.35].some((dx) => {
-            const cx = Math.floor(p.x + dx);
-            const cy = Math.floor(p.y - dy);
-            return (
-              cx >= 0 &&
-              cy >= 0 &&
-              cx < W &&
-              a.caminos.has(cy * W + cx) &&
-              Math.hypot(p.x + dx - cx - 0.5, p.y - dy - cy - 0.5) < 0.45
-            );
-          }),
-        );
-        const alto = forma.alto(h) * (0.85 + azar() * 0.3) * (tapa ? 0.55 : 1);
+        // Un pico al sur de un paso lo taparía entero: `poner` lo encoge hasta
+        // que su rectángulo sale del pasillo.
+        const alto = forma.alto(h) * (0.85 + azar() * 0.3);
         const t = Math.min(1, (h - 1) / 3) * 0.7 + azar() * 0.3;
-        sprites.push(deHoja(hoja, p.x, p.y, alto, t, 'masa', MARCADOR[f.barrera] as string, true));
-        marcar(p.x, p.y);
+        if (poner(hoja, p.x, p.y, alto, t, 'masa', MARCADOR[f.barrera] as string, true))
+          marcar(p.x, p.y);
       }
-      // La casilla en la que no cayó ningún dardo se rellena desde su centro:
-      // si no, una casilla que bloquea se leería como un claro que se pisa.
+      // La casilla en la que no cayó ningún dardo se rellena: si no, una casilla
+      // que bloquea se leería como un claro que se pisa. Se prueba cerca del
+      // centro y, si ahí no entra, por el resto de la casilla, de más cerca a más
+      // lejos: una casilla suelta con caminos por tres lados queda mordida en
+      // las esquinas por los tramos en diagonal.
       for (const i of f.casillas) {
         if (puestos.has(i)) continue;
-        const x = (i % W) + 0.3 + azar() * 0.4;
-        const y = Math.floor(i / W) + 0.45 + azar() * 0.4;
-        if (reservas.tomada(x, y)) continue;
+        const cx = i % W;
+        const cy = Math.floor(i / W);
         const h = a.hondura[i] ?? 1;
         const hoja = hojaDeMasa(f.barrera, a.suelo[i] as Suelo, azar, h);
         const alto = forma.alto(h) * (0.75 + azar() * 0.25);
-        sprites.push(
-          deHoja(hoja, x, y, alto, azar() * 0.5, 'masa', MARCADOR[f.barrera] as string, true),
-        );
-        marcar(x, y);
+        const t = azar() * 0.5;
+        const sitios = [
+          [cx + 0.3 + azar() * 0.4, cy + 0.45 + azar() * 0.4] as const,
+          ...SITIOS_DE_RELLENO.map(([dx, dy]) => [cx + dx, cy + dy] as const),
+        ];
+        for (const [x, y] of sitios)
+          if (
+            entraria('masa', x, y, alto) &&
+            poner(hoja, x, y, alto, t, 'masa', MARCADOR[f.barrera] as string, true)
+          ) {
+            marcar(x, y);
+            break;
+          }
       }
     } else if (f.barrera === 'wall') {
       // Una sola línea por franja, con torres en las juntas y cada pocos pasos.
@@ -540,31 +720,27 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       for (const p of e.pasos) {
         const mx = (p.a[0] + p.b[0]) / 2 + 0.5;
         const my = (p.a[1] + p.b[1]) / 2 + 0.5;
-        if (reservas.tomada(mx, my + 0.25)) continue;
-        sprites.push(
-          deHoja(
-            hoja,
-            mx,
-            my + 0.25,
-            1.05,
-            0.5,
-            'muro',
-            MARCADOR.wall as string,
-            true,
-            ejeDe(p),
-            ANCHO_DE_TRAMO[ejeDe(p)],
-          ),
+        if (!entraria('muro', mx, my + 0.25, 1.05)) continue;
+        poner(
+          hoja,
+          mx,
+          my + 0.25,
+          1.05,
+          0.5,
+          'muro',
+          MARCADOR.wall as string,
+          true,
+          ejeDe(p),
+          ANCHO_DE_TRAMO[ejeDe(p)],
         );
       }
       const juntas = new Set(e.juntas.map(([x, y]) => `${x},${y}`));
       let n = 0;
       for (const [x, y] of e.casillas) {
         n++;
-        if ((juntas.has(`${x},${y}`) || n % 3 === 0) && !reservas.tomada(x + 0.5, y + 0.75)) {
+        if ((juntas.has(`${x},${y}`) || n % 3 === 0) && entraria('muro', x + 0.5, y + 0.75, 1.4)) {
           const torre = (x + y) % 2 === 0 ? 'torre-redonda' : 'torre-cuadrada';
-          sprites.push(
-            deHoja(hoja, x + 0.5, y + 0.75, 1.4, 0.5, 'muro', MARCADOR.wall as string, true, torre),
-          );
+          poner(hoja, x + 0.5, y + 0.75, 1.4, 0.5, 'muro', MARCADOR.wall as string, true, torre);
         }
       }
       for (const i of f.casillas) puestos.add(i);
@@ -582,7 +758,6 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         [caja[0] - 0.3, caja[1] - 0.3, caja[2] + 0.3, caja[3] + 0.3],
         () => 0.28,
         (x, y) => {
-          if (reservas.tomada(x, y)) return false;
           const cx = Math.floor(x);
           const cy = Math.floor(y);
           // En la raya entre agua y tierra, a ambos lados.
@@ -599,7 +774,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
             if (dentro.has(ny * W + nx) !== enAgua) {
               const borde = dx !== 0 ? (dx > 0 ? cx + 1 : cx) : dy > 0 ? cy + 1 : cy;
               const d = dx !== 0 ? Math.abs(x - borde) : Math.abs(y - borde);
-              if (d < 0.22) return true;
+              if (d < 0.22) return entraria('orilla', x, y, 0.3);
             }
           }
           return false;
@@ -607,9 +782,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         azar,
       );
       for (const p of puntos)
-        sprites.push(
-          deHoja('orilla', p.x, p.y, 0.3 + azar() * 0.12, azar(), 'orilla', '#5a5030', false),
-        );
+        poner('orilla', p.x, p.y, 0.3 + azar() * 0.12, azar(), 'orilla', '#5a5030', false);
     }
     return puestos;
   }
@@ -628,10 +801,18 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     roca: number,
   ): void {
     const caja = cajaDe(f.casillas, W);
+    // El dardo pregunta por una mata, que es lo que sale casi siempre; la roca
+    // se aparta con el mismo pasillo.
     const puntos = esparcir(
       caja,
       () => radio,
-      (x, y) => dentro.has(Math.floor(y) * W + Math.floor(x)) && !reservas.tomada(x, y),
+      (x, y) => {
+        const i = Math.floor(y) * W + Math.floor(x);
+        return (
+          dentro.has(i) &&
+          entraria('cubierta', x, y, CUBIERTA[a.suelo[i] as Suelo].alto * MATA_MAS_BAJA)
+        );
+      },
       azar,
     );
     for (const p of puntos) {
@@ -639,44 +820,28 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       const s = a.suelo[i] as Suelo;
       const tirada = azar();
       if (tirada < roca * 0.5 && f.barrera === 'cliff')
-        sprites.push(
-          deHoja(
-            hojaDeMasa('mountain', s, azar),
-            p.x,
-            p.y,
-            alto * (0.9 + azar() * 0.6),
-            azar() * 0.4,
-            'roca',
-            MARCADOR.cliff as string,
-            true,
-          ),
+        poner(
+          hojaDeMasa('mountain', s, azar),
+          p.x,
+          p.y,
+          alto * (0.9 + azar() * 0.6),
+          azar() * 0.4,
+          'roca',
+          MARCADOR.cliff as string,
+          true,
         );
       else if (tirada < roca)
-        sprites.push(
-          deHoja(
-            'rocas-caidas',
-            p.x,
-            p.y,
-            alto * 0.6 * (0.8 + azar() * 0.5),
-            azar() * 0.6,
-            'roca',
-            MARCADOR.cliff as string,
-            true,
-          ),
+        poner(
+          'rocas-caidas',
+          p.x,
+          p.y,
+          alto * 0.6 * (0.8 + azar() * 0.5),
+          azar() * 0.6,
+          'roca',
+          MARCADOR.cliff as string,
+          true,
         );
-      else
-        sprites.push(
-          deHoja(
-            hojaDeCubierta(s, azar()),
-            p.x,
-            p.y,
-            CUBIERTA[s].alto * (0.7 + azar() * 0.6),
-            azar(),
-            'cubierta',
-            MARCADOR.cubierta as string,
-            false,
-          ),
-        );
+      else mata(hojaDeCubierta(s, azar()), p.x, p.y, altoDeMata(s));
     }
   }
 
@@ -712,34 +877,30 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     for (let x = desde; x <= hasta; x += 0.42 + azar() * 0.22) {
       const py = pieEn(x) + 0.05 + (azar() - 0.5) * 0.12;
       const px = x + (azar() - 0.5) * 0.1;
-      // Donde un camino baja por la caída no hay pared: allí hay rampa.
-      if (reservas.tomada(px, py) || reservas.tomada(px, py - 0.9)) continue;
-      sprites.push({
-        ...deHoja(
-          hoja,
-          px,
-          py,
-          c.caida * ALTO_DE_NIVEL + 0.35 + azar() * 0.2,
-          azar(),
-          'pared',
-          '#4c463e',
-          true,
-        ),
-        // La roca gris de la hoja salió casi beige: se oscurece al pintarla.
-        ...(hoja === 'paredes-roca'
-          ? { tono: 'brightness(0.72) saturate(0.85)' }
-          : hoja === 'paredes-arenisca'
-            ? { tono: 'brightness(0.8) saturate(0.72)' }
-            : {}),
-      });
+      // Donde un camino baja por la caída —su pasillo pasa a la vez por el pie
+      // y por el filo— no hay pared: allí hay rampa. Uno que solo corre al pie
+      // o por arriba la deja.
+      const filo = c.y + 1;
+      const rampa =
+        pasillo.contiene(px, py, SEMIANCHO_DEL_PASILLO_DE_MASA) &&
+        pasillo.contiene(px, filo, SEMIANCHO_DEL_PASILLO_DE_MASA);
+      if (rampa || reservas.tomada(px, py) || reservas.tomada(px, filo)) continue;
+      poner(
+        hoja,
+        px,
+        py,
+        c.caida * ALTO_DE_NIVEL + 0.35 + azar() * 0.2,
+        azar(),
+        'pared',
+        '#4c463e',
+        true,
+      );
     }
     for (let x = c.x0; x <= c.x1 + 0.99; x += 0.35 + azar() * 0.3) {
       const px = x + azar() * 0.2;
       const py = pie + 0.1 + azar() * 0.2;
-      if (reservas.tomada(px, py)) continue;
-      sprites.push(
-        deHoja('rocas-caidas', px, py, 0.28 + azar() * 0.25, azar() * 0.7, 'roca', '#5a5248', true),
-      );
+      if (!entraria('roca', px, py, 0.28)) continue;
+      poner('rocas-caidas', px, py, 0.28 + azar() * 0.25, azar() * 0.7, 'roca', '#5a5248', true);
     }
   }
   // Las caídas al este y al oeste: el canto lo oscurece el pintor; aquí, peñascos.
@@ -747,10 +908,8 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     for (let k = 0; k < 2; k++) {
       const px = lado === 'este' ? x + 1.05 : x - 0.05;
       const py = y + 0.3 + k * 0.45 + azar() * 0.2;
-      if (reservas.tomada(px, py)) continue;
-      sprites.push(
-        deHoja('rocas-caidas', px, py, 0.35 + azar() * 0.2, azar() * 0.8, 'roca', '#5a5248', true),
-      );
+      if (!entraria('roca', px, py, 0.35)) continue;
+      poner('rocas-caidas', px, py, 0.35 + azar() * 0.2, azar() * 0.8, 'roca', '#5a5248', true);
     }
   }
 
@@ -795,7 +954,10 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   const pisable = (x: number, y: number) => {
     if (x < 0 || y < 0 || x >= W || y >= H) return false;
     const i = Math.floor(y) * W + Math.floor(x);
-    return a.franjaDe[i] === -1 && !reservas.tomada(x, y);
+    return (
+      a.franjaDe[i] === -1 &&
+      entraria('cubierta', x, y, CUBIERTA[a.suelo[i] as Suelo].alto * MATA_MAS_BAJA)
+    );
   };
   const puntos = esparcir(
     [0, 0, W, H],
@@ -813,13 +975,13 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   for (const p of puntos) {
     const i = Math.floor(p.y) * W + Math.floor(p.x);
     const s = a.suelo[i] as Suelo;
-    const c = CUBIERTA[s];
     const mancha = enMancha(p.x, p.y);
     // En la mancha de prado, ciénaga o nieve, arbolillos: así salen los bosquecillos.
     const arbol =
       mancha &&
       cercaDePueblo[i] !== 1 &&
-      // Un árbol justo al sur de un camino o un objeto lo taparía: ahí, solo mata baja.
+      // Un árbol justo al sur de un objeto lo taparía: ahí, solo mata baja. Del
+      // camino se aparta solo, en `poner`.
       !reservas.tomada(p.x, p.y - 0.45) &&
       !reservas.tomada(p.x, p.y - 0.8) &&
       azar() < (lindeDeBosque[i] === 1 ? 0.75 : 0.55)
@@ -834,32 +996,19 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
           )[s]
         : undefined;
     if (arbol !== undefined) {
-      sprites.push(
-        deHoja(
-          arbol,
-          p.x,
-          p.y,
-          0.55 + azar() * 0.35,
-          azar() * 0.5,
-          'cubierta',
-          MARCADOR.forest as string,
-          true,
-        ),
+      poner(
+        arbol,
+        p.x,
+        p.y,
+        0.55 + azar() * 0.35,
+        azar() * 0.5,
+        'cubierta',
+        MARCADOR.forest as string,
+        true,
       );
       continue;
     }
-    sprites.push(
-      deHoja(
-        hojaDeCubierta(s, azar()),
-        p.x,
-        p.y,
-        c.alto * (0.7 + azar() * 0.6),
-        azar(),
-        'cubierta',
-        MARCADOR.cubierta as string,
-        false,
-      ),
-    );
+    mata(hojaDeCubierta(s, azar()), p.x, p.y, altoDeMata(s));
   }
 
   // 6 · Nubes en el borde del mapa, como en la referencia.
@@ -888,16 +1037,28 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     relieve: { caras: rel.caras, cantos: rel.cantos, rebordes: rel.rebordes },
     altoDeNivel: ALTO_DE_NIVEL,
     caminos,
-    sendas: sendas(caminos, semilla),
+    sendas: trazos,
     luces: luces(a, rel.nivel, azarDe(semilla * 31 + 5)),
     sprites,
     informe: {
       murallasPartidas,
       basesSobreReserva,
       casillasDeBarreraSinFormacion: sinFormacion,
+      spritesSobreSenda: sobreLaSenda(sprites, pasillo).length,
       modulosQueFaltan: [...faltan].sort(),
     },
   };
+}
+
+/**
+ * Los sprites de una clase que se aparta del camino cuyo rectángulo pisa su
+ * pasillo. Lo cuenta el informe y lo recuenta el test por su cuenta.
+ */
+export function sobreLaSenda(sprites: readonly Sprite[], pasillo: Pasillo): Sprite[] {
+  return sprites.filter((s) => {
+    const r = APARTE[s.clase];
+    return r !== null && s.capa === 0 && pasillo.pisa(cajaDeSprite(s), r.semiancho);
+  });
 }
 
 /** Ruido de valor suave, de 0 a 1, con celdas de `escala` casillas: dónde hay mancha. */

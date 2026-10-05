@@ -259,6 +259,7 @@ lugar y qué costó.
   (`presupuestoConHolgura`). Es plena o nada; en 4K se queda el presupuesto
   (densidad 0,46, decisión del usuario).
   El taller (`pnpm taller escenario N`) pinta con la misma `separar`.
+  **El pasillo de la senda** (`pasillo.ts`): la tabla `APARTE` (`colocar.ts`) dice por clase qué media anchura respeta —cubierta, roca y orilla 0,1 + `MARGEN_DE_SENDA` (0,3); masas 0,1 + `MARGEN_DE_MASA` (0,2); muro, pared y objeto, ninguna—, su mínimo al encoger y sus hojas. Se mide el rectángulo del sprite (`cajaDeSprite`) contra el trazo suavizado, con un solo índice. El dardo y `poner` hacen la misma pregunta (`entra`); `poner` encoge (`altoLibre`), prueba el módulo más estrecho y, si no, quita. Bajo la senda va un arcén del color del suelo, a 16 px por casilla, y `informe.spritesSobreSenda` = 0.
 - **Castillo**: solares fijos con cadenas derivadas del catálogo (`townPlots`);
   las moradas son de cada facción.
 - **Arena** (`pnpm arena`): cifras que no pasan por el catálogo, validadas por

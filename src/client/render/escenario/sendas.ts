@@ -5,8 +5,8 @@
  *
  * Una senda va de una junta a otra (un extremo o un cruce de tres o más): así un
  * cruce sigue siendo un punto común y no se abre al suavizar. El vaivén es un
- * desplazamiento lateral suave, menor que la reserva del camino, para que la
- * senda no se meta bajo lo que se colocó al lado.
+ * desplazamiento lateral suave; lo colocado al lado se aparta del trazo ya
+ * suavizado (`pasillo.ts`), no de la casilla, así que el vaivén no lo tapa.
  */
 import { azarDe } from './esparcir.js';
 
@@ -15,6 +15,29 @@ export type Senda = readonly (readonly [number, number])[];
 
 /** Cuánto se aparta como mucho la senda de la línea de casillas, en casillas. */
 export const VAIVEN = 0.18;
+
+/** Lo ancho de la senda pintada, en casillas: su orla oscura (`pintarSuelo`). */
+export const ANCHO_DE_SENDA = 0.2;
+
+/**
+ * El arcén de lo bajo, en casillas, contado desde el borde de la senda: ninguna
+ * mata, piedra, labranza, orilla ni roca de relleno lo pisa. 0,3 por decisión
+ * del usuario (05-10-2026); se ajusta a ojo con `pnpm taller escenario`.
+ */
+export const MARGEN_DE_SENDA = 0.3;
+
+/**
+ * El arcén de las masas (árboles y picos de bosque y cordillera), menor: el
+ * camino va DENTRO de los bosques y las cordilleras, y con el margen de lo bajo
+ * se vaciaban. 0,2 por decisión del usuario (05-10-2026).
+ */
+export const MARGEN_DE_MASA = 0.2;
+
+/** Media anchura del pasillo de lo bajo: la de la senda más su arcén. */
+export const SEMIANCHO_DEL_PASILLO = ANCHO_DE_SENDA / 2 + MARGEN_DE_SENDA;
+
+/** Media anchura del pasillo de las masas. */
+export const SEMIANCHO_DEL_PASILLO_DE_MASA = ANCHO_DE_SENDA / 2 + MARGEN_DE_MASA;
 
 const clave = (x: number, y: number) => `${x},${y}`;
 

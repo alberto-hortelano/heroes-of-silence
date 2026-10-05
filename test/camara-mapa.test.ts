@@ -166,7 +166,9 @@ describe('el tope de alejar sale de los volúmenes que caben', () => {
       expect(topeDeAlejar(esc, 7680, 4320)).toBe(TILE_MAX);
       expect(topeDeAlejar(esc, 7680, 4320)).toBe(TILE_MAX);
       expect(aviso).toHaveBeenCalledTimes(1);
-      expect(String(aviso.mock.calls[0]?.[0])).toMatch(/7680×4320.*hasta 2464/);
+      // 2 028 volúmenes con el pasillo de la senda (05-10-2026): sigue sin
+      // caber, que es lo que se mira.
+      expect(String(aviso.mock.calls[0]?.[0])).toMatch(/7680×4320.*hasta 2028/);
       // En una pantalla normal, ni un aviso.
       topeDeAlejar(esc, 1920, 1080);
       expect(aviso).toHaveBeenCalledTimes(1);

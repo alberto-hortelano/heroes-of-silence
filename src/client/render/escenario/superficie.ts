@@ -31,6 +31,7 @@ import type { MapaDeEscena } from './analizar.js';
 import type { Catalogo } from './catalogo.js';
 import { componer, type Escena, type Sprite } from './colocar.js';
 import { horneado } from './horneado.js';
+import { cajaDeSprite } from './pasillo.js';
 import {
   type EscenaSeparada,
   type Imagen,
@@ -214,10 +215,7 @@ export function escenarioListo(map: MapaDeEscena, semilla: number): Escenario | 
  */
 function cubrir(cubiertas: Map<number, number>, v: Volumen, W: number, H: number): void {
   const { s } = v;
-  const k = s.alto / s.nh;
-  const x0 = s.x - s.ax * k;
-  const x1 = s.x + (s.nw - s.ax) * k;
-  const y0 = s.y - s.ay * k;
+  const [x0, y0, x1] = cajaDeSprite(s);
   for (let y = Math.max(0, Math.ceil(y0 - 0.5)); y < H && y + 0.5 <= s.y; y++)
     for (let x = Math.max(0, Math.ceil(x0 - 0.5)); x < W && x + 0.5 <= x1; x++) {
       const i = y * W + x;

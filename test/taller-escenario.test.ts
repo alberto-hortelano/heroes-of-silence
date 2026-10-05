@@ -9,11 +9,19 @@ import { dirname, join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { analizar } from '../src/client/render/escenario/analizar.js';
 import { type Catalogo, RUTA_DEL_CATALOGO } from '../src/client/render/escenario/catalogo.js';
-import { componentesDePasos, componer } from '../src/client/render/escenario/colocar.js';
+import { APARTE, componentesDePasos, componer } from '../src/client/render/escenario/colocar.js';
 import { azarDe, esparcir } from '../src/client/render/escenario/esparcir.js';
 import { ejeDe, esqueleto } from '../src/client/render/escenario/esqueleto.js';
+import { cajaDeSprite, Pasillo } from '../src/client/render/escenario/pasillo.js';
 import { nivelDeRegion, relieve } from '../src/client/render/escenario/relieve.js';
-import { encadenar, suavizar, VAIVEN } from '../src/client/render/escenario/sendas.js';
+import {
+  encadenar,
+  SEMIANCHO_DEL_PASILLO,
+  SEMIANCHO_DEL_PASILLO_DE_MASA,
+  type Senda,
+  suavizar,
+  VAIVEN,
+} from '../src/client/render/escenario/sendas.js';
 import { newGame } from '../src/core/state/setup.js';
 import { leerCatalogo, textoDelCatalogo } from '../tools/taller/escenario/catalogo-disco.js';
 
@@ -119,6 +127,90 @@ describe('las sendas', () => {
   });
 });
 
+describe('el pasillo de la senda', () => {
+  const S = SEMIANCHO_DEL_PASILLO;
+  // Una L (de la casilla 0,0 a la 1,0 y bajando a la 1,1) y una diagonal suelta.
+  const ele: Senda = [
+    [0.5, 0.5],
+    [1.5, 0.5],
+    [1.5, 1.5],
+  ];
+  const diagonal: Senda = [
+    [4.5, 0.5],
+    [5.5, 1.5],
+  ];
+  const p = new Pasillo([ele, diagonal], S);
+
+  it('cubre la unión entre dos casillas, el codo de una L y el medio de una diagonal', () => {
+    // Lejos del centro de toda casilla: un disco por casilla no los cubriría.
+    expect(p.contiene(1.0, 0.5 + S - 0.05, S)).toBe(true);
+    const k = (S - 0.05) / Math.SQRT2;
+    expect(p.contiene(5.0 + k, 1.0 - k, S)).toBe(true);
+    expect(p.contiene(1.5 + S - 0.05, 0.5, S)).toBe(true);
+  });
+
+  it('no pasa de la media anchura que se pregunta', () => {
+    expect(p.contiene(1.0, 0.5 + S + 0.1, S)).toBe(false);
+    const k = (S + 0.1) / Math.SQRT2;
+    expect(p.contiene(5.0 + k, 1.0 - k, S)).toBe(false);
+    // El mismo índice contesta por una media anchura menor.
+    const m = SEMIANCHO_DEL_PASILLO_DE_MASA;
+    expect(p.contiene(1.0, 0.5 + m - 0.05, m)).toBe(true);
+    expect(p.contiene(1.0, 0.5 + m + 0.05, m)).toBe(false);
+  });
+
+  it('mide el rectángulo del sprite, no su pie', () => {
+    // Una mata ancha (2:1) con el pie 0,6 por debajo de la senda: el pie está
+    // fuera del pasillo y la imagen, que crece hacia arriba, lo cruza.
+    const mata = { x: 1.0, y: 0.5 + S + 0.2, nw: 200, nh: 100, ax: 100, ay: 98, alto: 1 };
+    expect(p.contiene(mata.x, mata.y, S)).toBe(false);
+    expect(p.pisa(cajaDeSprite(mata), S)).toBe(true);
+    const alto = p.altoLibre(mata, S);
+    expect(alto).toBeGreaterThan(0);
+    expect(alto).toBeLessThan(mata.alto);
+    expect(p.pisa(cajaDeSprite(mata, alto), S)).toBe(false);
+    expect(p.pisa(cajaDeSprite(mata, alto + 0.01), S)).toBe(true);
+    // Lejos de la senda, su alto entero.
+    expect(p.altoLibre({ ...mata, y: 4 }, S)).toBe(mata.alto);
+  });
+
+  it('con el pie dentro, `altoLibre` contesta 0 por atajo, sin bisección: es lo que daría', () => {
+    const pie = { x: 1.0, y: 0.55, nw: 200, nh: 100, ax: 100, ay: 98, alto: 1 };
+    expect(p.contiene(pie.x, pie.y, S)).toBe(true);
+    expect(p.altoLibre(pie, S)).toBe(0);
+    // Ni el alto más pequeño saca la caja del pasillo: el pie ya está dentro.
+    expect(p.pisa(cajaDeSprite(pie, 1e-6), S)).toBe(true);
+  });
+
+  it('el marcador (sin imagen) mide lo que pinta: un cuadrado de su alto con el pie abajo en medio', () => {
+    const caja = cajaDeSprite({ x: 2, y: 3, nw: 1, nh: 1, ax: 0.5, ay: 1, alto: 0.8 });
+    for (const [k, v] of [1.6, 2.2, 2.4, 3].entries()) expect(caja[k]).toBeCloseTo(v, 9);
+  });
+
+  it('lanza con una media anchura que no es positiva o que pasa de la que se construyó', () => {
+    expect(() => new Pasillo([ele], 0)).toThrow(/media anchura positiva/);
+    expect(() => p.contiene(1, 1, S + 0.01)).toThrow(/hasta 0.4/);
+    expect(() => p.pisa([0, 0, 1, 1], 0)).toThrow(/no se puede preguntar/);
+  });
+
+  it('un tramo que cae en varias casillas y un trozo de muchos tramos se miden igual que sueltos', () => {
+    // Una senda larga y fina: varios trozos y tramos en muchas casillas.
+    const larga: Senda = Array.from({ length: 60 }, (_, i) => [
+      0.5 + i * 0.1,
+      3.5 + (i % 3) * 0.02,
+    ]);
+    const junta = new Pasillo([larga], S);
+    const sueltos = larga
+      .slice(1)
+      .map((b, i) => new Pasillo([[larga[i] as readonly [number, number], b]], S));
+    for (let x = 0; x < 7; x += 0.37)
+      for (let y = 2.5; y < 4.6; y += 0.13) {
+        const caja = [x, y, x + 0.3, y + 0.2] as const;
+        expect(junta.pisa(caja, S)).toBe(sueltos.some((q) => q.pisa(caja, S)));
+      }
+  });
+});
+
 describe('el esparcido', () => {
   it('ningún punto más cerca de otro que su radio, y nada fuera de donde se pide', () => {
     const azar = azarDe(3);
@@ -159,7 +251,7 @@ const RAIZ = resolve(import.meta.dirname, '..');
 const catalogo = JSON.parse(readFileSync(join(RAIZ, RUTA_DEL_CATALOGO), 'utf8')) as Catalogo;
 
 describe('la escena de un mapa real', () => {
-  for (const semilla of [1, 9]) {
+  for (const semilla of [1, 3, 7, 9]) {
     const map = newGame({ seed: semilla }).map;
     const e = componer(map, semilla, catalogo);
 
@@ -174,6 +266,31 @@ describe('la escena de un mapa real', () => {
 
     it(`semilla ${semilla}: toda casilla de barrera queda bajo su formación o bajo un objeto`, () => {
       expect(e.informe.casillasDeBarreraSinFormacion).toBe(0);
+    });
+
+    it(`semilla ${semilla}: ninguna mata, roca, orilla, árbol ni pico corta el pasillo de la senda`, () => {
+      expect(e.informe.spritesSobreSenda).toBe(0);
+      // Y medido aquí, no solo con la cuenta del informe: con los trazos que se
+      // pintan, el rectángulo con el que se pinta cada sprite y la tabla de
+      // qué clase se aparta cuánto.
+      const pasillo = new Pasillo(e.sendas, SEMIANCHO_DEL_PASILLO);
+      const cortan = e.sprites.filter((s) => {
+        const r = APARTE[s.clase];
+        return s.capa === 0 && r !== null && pasillo.pisa(cajaDeSprite(s), r.semiancho);
+      });
+      expect(cortan.map((s) => `${s.clase} ${s.src} en ${s.x},${s.y}`)).toEqual([]);
+      // Que el guardia no mire al vacío: hay sendas, y hay de todo lo que vigila.
+      expect(e.sendas.length).toBeGreaterThan(10);
+      for (const [clase, r] of Object.entries(APARTE))
+        if (r !== null) expect(e.sprites.some((s) => s.clase === clase)).toBe(true);
+    });
+
+    it(`semilla ${semilla}: lo que se aparta sale de las hojas que su clase declara`, () => {
+      for (const s of e.sprites) {
+        const r = APARTE[s.clase];
+        if (r === null || s.src === null) continue;
+        expect(r.hojas).toContain(s.src.split('/')[1]);
+      }
     });
 
     it(`semilla ${semilla}: ninguna masa ni muro se apoya en una casilla que se pisa lejos de su franja`, () => {

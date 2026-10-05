@@ -15,6 +15,7 @@
  * Capas del suelo, de abajo arriba:
  *   1. el suelo de cada región, fundido con el de al lado por una máscara borrosa;
  *   2. la sombra de cada nivel (lo bajo, más oscuro);
+ *   2b. el arcén: el pasillo de la senda, en el color de su suelo;
  *   3. las sendas;
  *   4. el agua, con su barro y su espuma;
  *   5. los cantos de las caídas al este y al oeste;
@@ -33,7 +34,9 @@
  */
 
 import type { Escena, Luz, Sprite } from './colocar.js';
+import { cajaDeSprite } from './pasillo.js';
 import type { Cara } from './relieve.js';
+import { ANCHO_DE_SENDA, SEMIANCHO_DEL_PASILLO } from './sendas.js';
 
 /** Lo que el pintor acepta como imagen: cargada (`<img>`) o ya pintada (`<canvas>`). */
 export type Imagen = HTMLImageElement | HTMLCanvasElement | OffscreenCanvas | ImageBitmap;
@@ -134,6 +137,13 @@ const PIGMENTO: Readonly<Record<string, string>> = {
   snow: '#a7acab',
   lava: '#553328',
 };
+/** El de un suelo sin pigmento. */
+const SIN_PIGMENTO = '#666666';
+const pigmento = (suelo: string) => PIGMENTO[suelo] ?? SIN_PIGMENTO;
+/** Los mismos, en sus tres componentes, para escribirlos píxel a píxel. */
+const PIGMENTO_RGB: Readonly<Record<string, readonly [number, number, number]>> =
+  Object.fromEntries(Object.entries(PIGMENTO).map(([s, hex]) => [s, rgb(hex)]));
+const RGB_SIN_PIGMENTO = rgb(SIN_PIGMENTO);
 
 /**
  * Las texturas aprobadas son oscuras y la referencia tiene praderas vivas: el
@@ -299,12 +309,14 @@ export function pintarSprite(c: Contexto, s: Sprite, o: OpcionesDePintura): void
   const T = o.tile;
   const silueta = o.silueta === true;
   const original = s.src === null ? undefined : o.imagen(s.src);
-  const k = (s.alto * T) / s.nh;
   if (lista(original)) {
-    const dx = s.x * T - s.ax * k;
-    const dy = s.y * T - s.ay * k;
-    const ancho = s.nw * k;
-    const alto = s.nh * k;
+    // El rectángulo es el que mide el pasillo: lo que se aparta del camino se
+    // aparta de lo que se pinta.
+    const [x0, y0, x1, y1] = cajaDeSprite(s);
+    const dx = x0 * T;
+    const dy = y0 * T;
+    const ancho = (x1 - x0) * T;
+    const alto = (y1 - y0) * T;
     const reducida = silueta || s.recorte !== undefined ? undefined : o.reducida?.(s, ancho, alto);
     if (reducida === null) return;
     if (reducida !== undefined) {
@@ -350,10 +362,7 @@ export function pintarSuelo(
   const silueta = o.silueta === true;
 
   const mascara = (pred: (i: number) => boolean, desenfoque: number): Lienzo => {
-    const { lienzo: chico, c: cc } = lienzoCon(e.W, e.H, nuevo);
-    const d = cc.createImageData(e.W, e.H);
-    for (let i = 0; i < e.W * e.H; i++) if (pred(i)) d.data[i * 4 + 3] = 255;
-    cc.putImageData(d, 0, 0);
+    const chico = campoPorCasilla(e, nuevo, (i) => (pred(i) ? NEGRO : null));
     const { lienzo: grande, c: g } = lienzoCon(e.W * T, e.H * T, nuevo);
     g.imageSmoothingEnabled = true;
     g.filter = `blur(${desenfoque}px)`;
@@ -399,15 +408,7 @@ export function pintarSuelo(
     c.fillStyle = gr;
     c.fillRect(x, y, w, h);
   };
-  const trazarSendas = () => {
-    c.beginPath();
-    for (const l of e.sendas) {
-      const [p0, ...resto] = l;
-      if (p0 === undefined) continue;
-      c.moveTo(p0[0] * T, p0[1] * T);
-      for (const [x, y] of resto) c.lineTo(x * T, y * T);
-    }
-  };
+  const trazarSendas = () => trazar(c, e, T);
   const agua = new Set(e.agua);
   const aguaHonda = (i: number) => agua.has(i) && [1, -1, e.W, -e.W].every((d) => agua.has(i + d));
 
@@ -415,10 +416,12 @@ export function pintarSuelo(
   c.lineCap = 'round';
   c.lineJoin = 'round';
   if (silueta) {
-    // En la silueta cuenta como cubierto lo que tapa el suelo desnudo.
+    // En la silueta cuenta como cubierto lo que tapa el suelo desnudo. El
+    // pasillo entero cuenta como cubierto: está despejado a propósito, y así
+    // `sueloDesnudo` mide lo desnudo FUERA de él, que es lo que se compara.
     c.fillStyle = '#fff';
     c.strokeStyle = '#fff';
-    c.lineWidth = 0.2 * T;
+    c.lineWidth = 2 * SEMIANCHO_DEL_PASILLO * T;
     trazarSendas();
     c.stroke();
     for (const i of e.agua) c.fillRect((i % e.W) * T, Math.floor(i / e.W) * T, T, T);
@@ -429,7 +432,7 @@ export function pintarSuelo(
     for (const s of new Set(e.suelo)) {
       const capa = mascara((i) => e.suelo[i] === s, T * 0.45);
       c.filter = VIVEZA[s] ?? 'none';
-      c.drawImage(rellenar(capa, `suelos/${s}.webp`, PIGMENTO[s] ?? '#666', 4), 0, 0);
+      c.drawImage(rellenar(capa, `suelos/${s}.webp`, pigmento(s), 4), 0, 0);
       c.filter = 'none';
     }
     // 2 · La sombra de cada nivel: lo bajo, más oscuro.
@@ -441,9 +444,15 @@ export function pintarSuelo(
       g.fillRect(0, 0, capa.width, capa.height);
       c.drawImage(capa, 0, 0);
     }
+    // 2b · El arcén: el pasillo despejado, con el color de su suelo encima y el
+    //      borde difuminado, para que lo despejado no se lea como un claro.
+    c.globalAlpha = ALFA_DEL_ARCEN;
+    c.imageSmoothingEnabled = true;
+    c.drawImage(arcen(e, nuevo), 0, 0, e.W * T, e.H * T);
+    c.globalAlpha = 1;
     // 3 · Las sendas: finas, con orla oscura y huella clara.
     for (const [w, color] of [
-      [0.2, 'rgba(30,22,15,0.45)'],
+      [ANCHO_DE_SENDA, 'rgba(30,22,15,0.45)'],
       [0.12, 'rgba(138,112,78,0.92)'],
       [0.05, 'rgba(176,150,108,0.55)'],
     ] as const) {
@@ -490,15 +499,9 @@ export function pintarSuelo(
     gh.fillStyle = 'rgba(5,15,30,0.45)';
     gh.fillRect(0, 0, hondo.width, hondo.height);
     c.drawImage(hondo, 0, 0);
-    // 5 · Los cantos de las caídas al este y al oeste.
-    for (const [x, y, lado] of e.relieve.cantos) {
-      const gx = lado === 'este' ? (x + 1) * T : x * T;
-      const gr = c.createLinearGradient(gx, 0, gx + (lado === 'este' ? 0.35 : -0.35) * T, 0);
-      gr.addColorStop(0, 'rgba(0,0,0,0.45)');
-      gr.addColorStop(1, 'rgba(0,0,0,0)');
-      c.fillStyle = gr;
-      c.fillRect(lado === 'este' ? gx : gx - 0.35 * T, y * T, 0.35 * T, T);
-    }
+    // 5 · Los cantos de las caídas al este y al oeste, difuminados.
+    c.imageSmoothingEnabled = true;
+    c.drawImage(cantos(e, nuevo), 0, 0, e.W * T, e.H * T);
     // 6 · Las sombras al pie de lo que tiene volumen: también de los volúmenes,
     //     que se pintan después, cada uno encima de la suya.
     for (const s of e.sprites) {
@@ -542,6 +545,125 @@ export function pintarSuelo(
       c.restore();
     }
   c.restore();
+}
+
+/** Lo que se ve el arcén: más, y el pasillo se lee como una carretera ancha. */
+const ALFA_DEL_ARCEN = 0.4;
+/** El borde difuminado del arcén, en casillas. */
+const DESENFOQUE_DEL_ARCEN = 0.15;
+/**
+ * Los píxeles por casilla a los que se pinta el arcén antes de ampliarlo: es
+ * borroso y casi transparente, y a esta resolución no se distingue del pintado
+ * a la del suelo.
+ */
+const PX_DEL_ARCEN = 16;
+
+const NEGRO = [0, 0, 0] as const;
+
+/** Las sendas como un camino del lienzo, a `T` píxeles por casilla. */
+function trazar(g: Contexto, e: Escena, T: number): void {
+  g.beginPath();
+  for (const l of e.sendas) {
+    const [p0, ...resto] = l;
+    if (p0 === undefined) continue;
+    g.moveTo(p0[0] * T, p0[1] * T);
+    for (const [x, y] of resto) g.lineTo(x * T, y * T);
+  }
+}
+
+/**
+ * Un lienzo de una casilla por píxel con el color que dé `color` para cada una
+ * (transparente si da null): ampliado con suavizado, los colores se funden de
+ * casilla a casilla.
+ */
+function campoPorCasilla(
+  e: Escena,
+  nuevo: NuevoLienzo,
+  color: (i: number) => readonly [number, number, number] | null,
+): Lienzo {
+  const { lienzo, c } = lienzoCon(e.W, e.H, nuevo);
+  const d = c.createImageData(e.W, e.H);
+  for (let i = 0; i < e.W * e.H; i++) {
+    const rgb = color(i);
+    if (rgb === null) continue;
+    d.data[i * 4] = rgb[0];
+    d.data[i * 4 + 1] = rgb[1];
+    d.data[i * 4 + 2] = rgb[2];
+    d.data[i * 4 + 3] = 255;
+  }
+  c.putImageData(d, 0, 0);
+  return lienzo;
+}
+
+/**
+ * El arcén, a `PX_DEL_ARCEN` por casilla: el trazo de las sendas al ancho del
+ * pasillo, difuminado, relleno del pigmento del suelo de cada casilla. No pide
+ * imágenes: el pintor del suelo lo pinta igual en el Worker.
+ */
+function arcen(e: Escena, nuevo: NuevoLienzo): Lienzo {
+  const k = PX_DEL_ARCEN;
+  const { lienzo, c: g } = lienzoCon(e.W * k, e.H * k, nuevo);
+  g.lineCap = 'round';
+  g.lineJoin = 'round';
+  g.strokeStyle = '#000';
+  g.lineWidth = 2 * SEMIANCHO_DEL_PASILLO * k;
+  g.filter = `blur(${DESENFOQUE_DEL_ARCEN * k}px)`;
+  trazar(g, e, k);
+  g.stroke();
+  g.filter = 'none';
+  g.globalCompositeOperation = 'source-in';
+  g.imageSmoothingEnabled = true;
+  const campo = campoPorCasilla(
+    e,
+    nuevo,
+    (i) => PIGMENTO_RGB[e.suelo[i] as string] ?? RGB_SIN_PIGMENTO,
+  );
+  g.drawImage(campo, 0, 0, e.W * k, e.H * k);
+  g.globalCompositeOperation = 'source-over';
+  return lienzo;
+}
+
+/** El borde difuminado de los cantos, en casillas. */
+const DESENFOQUE_DE_LOS_CANTOS = 0.15;
+/** Los píxeles por casilla de los cantos antes de ampliarlos: como el arcén, borrosos. */
+const PX_DE_LOS_CANTOS = 16;
+
+/**
+ * Los cantos de las caídas al este y al oeste: una franja oscura de 0,35
+ * casillas al pie de cada una, desde el filo hacia lo bajo.
+ *
+ * Se pintaban de una en una, en nítido, encima del suelo: el filo era una raya
+ * recta en el borde de la casilla y cada franja acababa en seco arriba y abajo.
+ * Una hondonada de 2×3 casillas salía como un rectángulo dibujado, y el agua
+ * encajada, como un estanque de bordes rectos, mientras que el nivel y el agua
+ * de debajo se funden por máscaras borrosas. Las rocas al pie lo tapaban; al
+ * apartarlas del camino quedó a la vista (QA de los caminos, 05-10-2026). Ahora
+ * se pintan todas en un lienzo pequeño y el lienzo entero se difumina de una
+ * vez: dos franjas seguidas no dejan costura donde se tocan, y la columna acaba
+ * en un degradado.
+ */
+function cantos(e: Escena, nuevo: NuevoLienzo): Lienzo {
+  const k = PX_DE_LOS_CANTOS;
+  const { lienzo: nitido, c: n } = lienzoCon(e.W * k, e.H * k, nuevo);
+  for (const [x, y, lado] of e.relieve.cantos) {
+    const gx = lado === 'este' ? (x + 1) * k : x * k;
+    const gr = n.createLinearGradient(gx, 0, gx + (lado === 'este' ? 0.35 : -0.35) * k, 0);
+    gr.addColorStop(0, 'rgba(0,0,0,0.45)');
+    gr.addColorStop(1, 'rgba(0,0,0,0)');
+    n.fillStyle = gr;
+    n.fillRect(lado === 'este' ? gx : gx - 0.35 * k, y * k, 0.35 * k, k);
+  }
+  const { lienzo, c: g } = lienzoCon(e.W * k, e.H * k, nuevo);
+  g.filter = `blur(${DESENFOQUE_DE_LOS_CANTOS * k}px)`;
+  g.drawImage(nitido, 0, 0);
+  g.filter = 'none';
+  return lienzo;
+}
+
+/** `#rrggbb` en sus tres componentes. */
+function rgb(hex: string): [number, number, number] {
+  if (!/^#[0-9a-f]{6}$/i.test(hex)) throw new Error(`«${hex}» no es un color #rrggbb`);
+  return [1, 3, 5].map((k) => Number.parseInt(hex.slice(k, k + 2), 16)) as [number, number, number];
 }
 
 /**
