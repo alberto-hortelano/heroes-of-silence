@@ -333,3 +333,41 @@ import catalogo from '…/assets/mapa/escena.json';         // tipo Catalogo, de
 
   Las piezas son a 48 px por casilla; con otro zoom se escala la superficie.
 
+
+## 12. Volúmenes que no llegan al zoom máximo (sesión de reglas, 05-10-2026)
+
+Desde el ciclo `2026-10-05-nitidez-del-mapa`, el mapa se pinta para el zoom
+máximo: `TILE_MAX` = 110 px CSS por casilla, que en la pantalla del usuario
+(dpr 1,09) son **120 px de dispositivo**. El suelo ya se pinta a 120 y lo plano
+llega de sobra (mínimo 141 px por casilla). Estos 13 módulos de volumen no: con
+el tamaño al que los coloca `componer`, su arte da menos de 120 px por casilla y
+en el zoom máximo se amplían, así que se ven algo más blandos que lo de al lado.
+No se arregla en el render; hace falta arte de más resolución.
+
+La cifra es la altura nativa del módulo entre la altura a la que se coloca, en
+casillas, en el peor caso de las semillas 1 y 7 (las dos lo usan). «Veces» es
+cuántas veces sale en esas dos escenas.
+
+| Módulo (`assets/mapa/`) | Tamaño nativo | px por casilla | Veces |
+|---|---|---|---|
+| `modulos/picos-roca/14.webp` | 372×168 | 92 | 87 |
+| `modulos/picos-roca/16.webp` | 379×187 | 102 | 75 |
+| `modulos/picos-roca/10.webp` | 318×247 | 103 | 2 |
+| `modulos/picos-roca/7.webp` | 365×189 | 104 | 85 |
+| `modulos/picos-roca/11.webp` | 344×240 | 104 | 4 |
+| `modulos/picos-roca/5.webp` | 325×227 | 105 | 87 |
+| `modulos/picos-roca/9.webp` | 341×227 | 105 | 39 |
+| `modulos/picos-roca/13.webp` | 314×227 | 106 | 17 |
+| `modulos/picos-nevados/11.webp` | 382×194 | 106 | 52 |
+| `modulos/picos-nevados/16.webp` | 269×202 | 110 | 28 |
+| `modulos/picos-roca/2.webp` | 406×207 | 115 | 77 |
+| `modulos/picos-nevados/5.webp` | 321×216 | 118 | 49 |
+| `modulos/paredes-roca/16.webp` | 285×203 | 118 | 9 |
+
+- **Qué pedir**: el mismo módulo a ≥ 1,3× su tamaño de hoy (el peor, `picos-roca/14`,
+  necesita ×1,3 para 120 px por casilla), con la misma silueta y proporciones.
+- Al engancharlo se rehace el catálogo (`pnpm taller catalogo-escena`) y se mira
+  si cambia la escena de alguna semilla; no lo he comprobado, porque depende de
+  cómo lea `componer` el tamaño nuevo.
+- Se sacó con `escenarioDe` + `separar` (la misma cuenta que el plan de
+  `docs/agents/2026-10-05-nitidez-del-mapa/plan.md`, §2).

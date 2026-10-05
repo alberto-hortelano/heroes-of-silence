@@ -73,8 +73,9 @@ export interface OpcionesDePintura {
    * fotograma. Por eso quien la da pinta con el contexto en píxeles de
    * dispositivo y trasladado un número entero de ellos.
    *
-   * Si la que da es de otro tamaño, se escala; si da `null`, el sprite no se
-   * pinta en este fotograma: quien pinta la tendrá en uno de los siguientes.
+   * Si la que da es de otro tamaño, se escala con la calidad que tenga el
+   * contexto, que la decide quien la da; si da `null`, el sprite no se pinta en
+   * este fotograma: quien pinta la tendrá en uno de los siguientes.
    */
   readonly reducida?: (s: Sprite, ancho: number, alto: number) => Imagen | null | undefined;
 }

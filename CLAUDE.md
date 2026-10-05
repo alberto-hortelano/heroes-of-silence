@@ -222,14 +222,26 @@ lugar y qué costó.
   tarea aparte del primer fotograma (`escenarioListo`). **El suelo** (texturas,
   relieve, caras de roca, agua, sendas, cubierta baja) lo pinta **un Worker**
   (`escenario/pintor-del-suelo.ts`, `OffscreenCanvas`, las imágenes como
-  `ImageBitmap` que pide él) una vez por partida a `PX_DEL_SUELO` (72) con su
-  mitad; mientras, se ve el sucedáneo de pigmentos. Sin Worker —o si falla, que
-  se dice— lo pinta el hilo principal con la misma función. **Los volúmenes**
+  `ImageBitmap` que pide él) una vez por partida y **para el zoom máximo**: un
+  encargo que pinta en serie el esbozo a `PX_DEL_ESBOZO` (60, ~2 s) y el bueno a
+  `PX_DEL_SUELO` (120 = ⌈110 × 1,09⌉, ~5,5 s más; 83 MB los dos), cada uno en un
+  Worker que se termina al contestar (uno vivo para los dos no suelta las máscaras).
+  Mientras, se ve el sucedáneo de pigmentos y luego el esbozo
+  (`#app[data-escenario]`: `cargando`, `esbozado`, `pintado`). Cada fotograma
+  copia, bilineal, la superficie más pequeña que no se amplía (`nivelDelSuelo`;
+  por debajo de ×0,5 saca mitades del esbozo) a un fondo que mide lo mismo que
+  el lienzo (`ctx.canvas`) y se copia píxel a píxel. Sin Worker —o si falla, que
+  se dice, y solo lo que faltaba— lo pinta este hilo con la misma secuencia
+  (`enEsteHilo`, `pintarSueloA`). Otro mapa termina el pintor del anterior y
+  cierra lo pintado. **Los volúmenes**
   (árboles, picos, muros, paredes, lo que pase de `UMBRAL_DE_VOLUMEN` = 0,6
   casillas, y ciudad, pueblo, nodo y mina horneados) se pintan a cada fotograma,
-  en píxeles de dispositivo, desde copias reducidas de una caché LRU de 40 MB
-  (`render/copias.ts`, la de las piezas también), como mucho
-  `COPIAS_NUEVAS_POR_FOTOGRAMA` nuevas por fotograma, fundidos por profundidad con
+  en píxeles de dispositivo, desde copias reducidas al tamaño exacto que se
+  copian 1:1, de una caché LRU de 80 MB (`render/copias.ts`, la de las piezas
+  también; copias por niveles reescaladas costaban 15-20 fps en 2560×1440), como mucho
+  `PIXELES_NUEVOS_POR_FOTOGRAMA` (1,5 M) píxeles de copias nuevas por fotograma
+  (13 módulos de picos y paredes no llegan a 120 px por casilla: pedidos en
+  `docs/art/peticiones.md` §12), fundidos por profundidad con
   las figuras (`fundirPorProfundidad`): **una figura puede quedar detrás de un
   árbol**, pero no de lo horneado de su casilla (`claveDeFigura`). Se recortan al
   mapa por los lados y por abajo, no por arriba. Lo que dice quién está en una
@@ -238,10 +250,15 @@ lugar y qué costó.
   pinta el juego (`seHornea`, en `escenario/horneado.ts`). Tope de alejar:
   `topeDeAlejar`, ≤ 2 000 volúmenes a la vista y nunca bajo 40 px por casilla;
   si ni a 110 px caben (7680×4320) lo avisa en consola. **Y un presupuesto de
-  píxeles**: el mapa no pinta más de `PIXELES_DEL_MAPA` (1,5 M) píxeles de
-  dispositivo por fotograma; en una pantalla mayor baja la densidad y el
-  navegador lo amplía (`preparar(pixelesMaximos)`). El taller (`pnpm taller
-  escenario N`) pinta con la misma `separar`.
+  píxeles según el zoom** (`presupuestoDelMapa`): al tope de alejar, el mapa no
+  pinta más de `PIXELES_DEL_MAPA` (1,5 M) píxeles de dispositivo por fotograma y
+  en una pantalla mayor baja la densidad (`preparar(presupuesto)`, que lo pide
+  con la caja de ahora); acercando, cabe (tile/tope)² veces más, y cuando cubre
+  el lienzo entero —hasta `PIXELES_AL_ACERCAR` (3 M, 2560×1440)— se pinta a
+  densidad plena, con un paso de rueda de holgura para salir
+  (`presupuestoConHolgura`). Es plena o nada; en 4K se queda el presupuesto
+  (densidad 0,46, decisión del usuario).
+  El taller (`pnpm taller escenario N`) pinta con la misma `separar`.
 - **Castillo**: solares fijos con cadenas derivadas del catálogo (`townPlots`);
   las moradas son de cada facción.
 - **Arena** (`pnpm arena`): cifras que no pasan por el catálogo, validadas por

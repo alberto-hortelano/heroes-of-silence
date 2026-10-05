@@ -40,11 +40,15 @@ export class CacheDeLienzos<K, L extends { readonly width: number; readonly heig
  * Las copias reducidas, una por (imagen, tono, tamaño en píxeles de dispositivo),
  * de todos los zooms que quepan en el tope. Escalar desde el módulo nativo en
  * cada fotograma costaba 13-16 ms por cada 1 000 volúmenes; una copia 1:1,
- * 3,5-4,7 ms. Un zoom de la escena en 1920×1080 son 8-14 MB de copias, así que
- * con 40 MB caben los pasos de ida y vuelta de un gesto de rueda: volver a un
- * zoom de antes sale de aquí y no rehace nada.
+ * 3,5-4,7 ms. Volver a un zoom de antes sale de aquí y no rehace nada.
+ *
+ * 80 MB: lo menos con lo que el zoom máximo de 2560×1440 a densidad plena no se
+ * rehace (0-48 copias rehechas al acercar; con 60, 19-99, y con 40 se rehacen
+ * sin parar). Una partida entera, recorriendo el mapa y yendo y volviendo al
+ * tope, pide 140-300 MB de copias distintas (medido el 2026-10-05, semillas 1
+ * y 7).
  */
-const reducidas = new CacheDeLienzos<number, Lienzo>(40_000_000);
+const reducidas = new CacheDeLienzos<number, Lienzo>(80_000_000);
 
 /**
  * Un número por cada (imagen, tono) que se ha reducido alguna vez: con él la
@@ -81,17 +85,20 @@ const LADO_MAXIMO = 8192;
 const ultimas = new Map<number, Lienzo>();
 
 /**
- * Cuántas copias nuevas se hacen como mucho en un fotograma. Hacer una cuesta
- * poco, pero el primer fotograma con volúmenes las hace todas a la vez —500-900
- * en 1920×1080, y otras tantas a cada paso de rueda— y era una tarea de 80-137 ms
- * al cargar. Lo que no cabe se hace en los fotogramas siguientes.
+ * Cuántos píxeles de copias nuevas se hacen como mucho en un fotograma: el
+ * primer fotograma con volúmenes las pide todas a la vez, y otras tantas cada
+ * paso de rueda. Lo que no cabe se hace en los fotogramas siguientes. Se cuentan
+ * píxeles y no copias porque lo que cuesta es el tamaño; una copia que sola pase
+ * del tope se hace igual, sola en su fotograma. Con 1,5 M, ninguna tarea de más
+ * de 100 ms al hacer zoom en 1920×1080, 2560×1440, 3840×2160 ni la pantalla del
+ * usuario (medido el 2026-10-05).
  */
-export const COPIAS_NUEVAS_POR_FOTOGRAMA = 200;
-let nuevasEnEsteFotograma = 0;
+export const PIXELES_NUEVOS_POR_FOTOGRAMA = 1_500_000;
+let pixelesEnEsteFotograma = 0;
 
 /** Empieza la cuenta de copias nuevas de un fotograma. */
 export function empezarFotogramaDeCopias(): void {
-  nuevasEnEsteFotograma = 0;
+  pixelesEnEsteFotograma = 0;
 }
 
 function claveDe(src: string, tono: string | undefined, w: number, h: number): number {
@@ -123,8 +130,8 @@ export function copiaReducida(
 }
 
 /**
- * Como `copiaReducida`, pero sin pasar de `COPIAS_NUEVAS_POR_FOTOGRAMA` copias
- * nuevas en el fotograma: si ya no cabe hacerla, la última copia de esa imagen
+ * Como `copiaReducida`, pero sin pasar de `PIXELES_NUEVOS_POR_FOTOGRAMA` píxeles
+ * de copias nuevas en el fotograma: si ya no cabe hacerla, la última copia de esa imagen
  * y tono de otro tamaño, y si no hay ninguna, `null` (la de este fotograma no se
  * pinta). Quien la pinte mira el tamaño.
  */
@@ -139,8 +146,8 @@ export function copiaReducidaSiCabe(
   const h = Math.max(1, Math.round(alto));
   const hecha = reducidas.get(claveDe(src, tono, w, h));
   if (hecha !== undefined) return hecha;
-  if (nuevasEnEsteFotograma >= COPIAS_NUEVAS_POR_FOTOGRAMA)
+  if (pixelesEnEsteFotograma >= PIXELES_NUEVOS_POR_FOTOGRAMA)
     return ultimas.get(fuenteDe(src, tono ?? '')) ?? null;
-  nuevasEnEsteFotograma++;
+  pixelesEnEsteFotograma += w * h;
   return copiaReducida(im, src, tono, w, h);
 }

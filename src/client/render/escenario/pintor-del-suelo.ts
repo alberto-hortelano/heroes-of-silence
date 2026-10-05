@@ -10,9 +10,11 @@
  * `ImageBitmap` que el Worker pide él mismo: el hilo principal no descarga ni
  * decodifica ninguna textura del suelo.
  *
- * Recibe una `PeticionDelSuelo` y contesta con una `RespuestaDelSuelo`, una vez:
- * quien lo arranca lo termina al recibirla, y con él se va la memoria de las
- * texturas.
+ * Recibe una `PeticionDelSuelo` y contesta primero con lo que no le llegó y
+ * luego con un `MensajeDelSuelo` por cada superficie, en orden, transfiriéndola.
+ * Quien lo arranca le pide una sola y lo termina al recibirla (`enUnWorker`, en
+ * `superficie.ts`): con él se va la memoria de las texturas y de las máscaras,
+ * que un Worker vivo no soltaba antes de pintar la siguiente.
  */
 import { urlDeImagenSegura } from '../../html.js';
 import type { Escena } from './colocar.js';
@@ -30,21 +32,20 @@ import {
 
 export interface PeticionDelSuelo {
   readonly escena: Escena;
-  /** Píxeles por casilla de la superficie. */
-  readonly px: number;
+  /** Píxeles por casilla de cada superficie, en el orden en que se pintan. */
+  readonly px: readonly number[];
   /** De dónde se piden las imágenes de la escena: la URL absoluta de `assets/mapa/`. */
   readonly base: string;
 }
 
-export type RespuestaDelSuelo =
+/** Lo que contesta el Worker: primero lo que no llegó, luego cada superficie, o el fallo. */
+export type MensajeDelSuelo =
   | {
-      readonly entero: ImageBitmap;
-      /** La misma superficie a la mitad: la que se copia por debajo de 50 px por casilla. */
-      readonly mitad: ImageBitmap;
       readonly imagenes: number;
       /** Las que no llegaron ni al volver a pedirlas, con su motivo: salen con su color plano. */
       readonly faltan: readonly string[];
     }
+  | { readonly px: number; readonly lienzo: ImageBitmap }
   | { readonly error: string };
 
 /**
@@ -71,16 +72,17 @@ async function cargar(base: string, src: string): Promise<ImageBitmap | string> 
 }
 
 /**
- * El suelo de una escena a `px` por casilla, y su mitad. Es la pintura misma, la
- * que hace el Worker y, sin él, el hilo principal: las dos salen iguales al píxel
- * con las mismas imágenes.
+ * El suelo de una escena a `px` por casilla. Es la pintura misma, la que hace el
+ * Worker y, sin él, el hilo principal: las dos salen iguales al píxel con las
+ * mismas imágenes. Las copias entonadas que deja (`olvidarEntonadas`) sirven a
+ * la siguiente resolución: las suelta quien pinta la última.
  */
-export function pintarSueloConSuMitad(
+export function pintarSueloA(
   escena: Escena,
   separada: EscenaSeparada,
   px: number,
   imagen: (src: string) => Imagen | undefined,
-): { readonly entero: Lienzo; readonly mitad: Lienzo } {
+): Lienzo {
   const { lienzo, c } = lienzoCon(escena.W * px, escena.H * px);
   // Un `ImageBitmap` no se muestrea como un `<img>`: el navegador decodifica el
   // `<img>` a la escala a la que se pinta, y el mapa de bits se reduce entero.
@@ -90,18 +92,18 @@ export function pintarSueloConSuMitad(
   // ninguno.
   c.imageSmoothingQuality = 'medium';
   pintarSuelo(c, escena, separada, { tile: px, imagen, objeto: horneado });
-  // Reducir la de 72 a cada arrastre costaba 12,7 ms: la mitad se saca una vez.
-  const mitad = lienzoCon(Math.ceil(lienzo.width / 2), Math.ceil(lienzo.height / 2));
-  mitad.c.imageSmoothingEnabled = true;
-  mitad.c.imageSmoothingQuality = 'high';
-  mitad.c.drawImage(lienzo, 0, 0, mitad.lienzo.width, mitad.lienzo.height);
-  olvidarEntonadas();
-  return { entero: lienzo, mitad: mitad.lienzo };
+  return lienzo;
 }
 
-/** Pinta el suelo de `p` y lo devuelve. Exportada para probarla sin Worker. */
-export async function pintarSueloAparte(p: PeticionDelSuelo): Promise<RespuestaDelSuelo> {
-  const { escena, px } = p;
+/**
+ * Pinta el suelo de `p` a cada una de sus resoluciones y se lo `envia` a quien
+ * lo pidió, mensaje a mensaje. Exportada para probarla sin Worker.
+ */
+export async function pintarSueloAparte(
+  p: PeticionDelSuelo,
+  enviar: (m: MensajeDelSuelo, transferir?: Transferable[]) => void,
+): Promise<void> {
+  const { escena } = p;
   const separada = separar(escena, { objeto: horneado });
   const srcs = imagenesDelSuelo(escena, separada);
   const cargadas = await Promise.all(srcs.map((src) => cargar(p.base, src)));
@@ -111,30 +113,32 @@ export async function pintarSueloAparte(p: PeticionDelSuelo): Promise<RespuestaD
     if (typeof c === 'string') faltan.push(c);
     else imagenes.set(srcs[i] as string, c);
   });
-  const { entero, mitad } = pintarSueloConSuMitad(escena, separada, px, (src) => imagenes.get(src));
-  for (const im of imagenes.values()) im.close();
-  if (!('transferToImageBitmap' in entero) || !('transferToImageBitmap' in mitad))
-    throw new Error('el pintor del suelo necesita OffscreenCanvas para devolver lo pintado');
-  return {
-    entero: entero.transferToImageBitmap(),
-    mitad: mitad.transferToImageBitmap(),
-    imagenes: srcs.length,
-    faltan,
-  };
+  enviar({ imagenes: srcs.length, faltan });
+  try {
+    for (const px of p.px) {
+      const lienzo = pintarSueloA(escena, separada, px, (src) => imagenes.get(src));
+      if (!('transferToImageBitmap' in lienzo))
+        throw new Error('el pintor del suelo necesita OffscreenCanvas para devolver lo pintado');
+      const pintado = lienzo.transferToImageBitmap();
+      enviar({ px, lienzo: pintado }, [pintado]);
+    }
+  } finally {
+    for (const im of imagenes.values()) im.close();
+    olvidarEntonadas();
+  }
 }
 
 /** El ámbito del Worker, con lo poco que se usa de él: sin `lib: webworker`, que choca con el DOM. */
 interface AmbitoDelWorker {
   addEventListener(tipo: 'message', fn: (e: MessageEvent<PeticionDelSuelo>) => void): void;
-  postMessage(m: RespuestaDelSuelo, transferir?: Transferable[]): void;
+  postMessage(m: MensajeDelSuelo, transferir?: Transferable[]): void;
 }
 
 // Solo se escucha si de verdad es un Worker: importado desde un test, no hace nada.
 if (typeof document === 'undefined' && typeof self !== 'undefined' && 'postMessage' in self) {
   const ambito = self as unknown as AmbitoDelWorker;
   ambito.addEventListener('message', (e) => {
-    pintarSueloAparte(e.data).then(
-      (r) => ambito.postMessage(r, 'error' in r ? [] : [r.entero, r.mitad]),
+    pintarSueloAparte(e.data, (m, transferir) => ambito.postMessage(m, transferir ?? [])).catch(
       (err: unknown) =>
         ambito.postMessage({ error: err instanceof Error ? err.message : String(err) }),
     );

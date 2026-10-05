@@ -10,23 +10,28 @@
  */
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { arteCargando, imagenDeEscena } from '../src/client/render/assets.js';
+import { TILE_MAX } from '../src/client/render/camara-mapa.js';
 import {
-  COPIAS_NUEVAS_POR_FOTOGRAMA,
   copiaReducida,
   copiaReducidaSiCabe,
   empezarFotogramaDeCopias,
+  PIXELES_NUEVOS_POR_FOTOGRAMA,
 } from '../src/client/render/copias.js';
 import { pintarSprite } from '../src/client/render/escenario/pintar.js';
 import {
-  type PeticionDelSuelo,
+  type MensajeDelSuelo,
   pintarSueloAparte,
-  type RespuestaDelSuelo,
 } from '../src/client/render/escenario/pintor-del-suelo.js';
 import {
+  type AvisosDelSuelo,
   apuntarElSueloEn,
   type Escenario,
   escenarioDe,
   escenarioListo,
+  type NivelesDelSuelo,
+  nivelDelSuelo,
+  type PintorDelSuelo,
+  PX_DEL_ESBOZO,
   PX_DEL_SUELO,
   sueloDelMapa,
   topeDeAlejar,
@@ -46,7 +51,7 @@ const pedidas: string[] = [];
 
 /** Un contexto 2D que no pinta: apunta cada llamada con el `fillStyle` del momento. */
 function contexto(): CanvasRenderingContext2D {
-  const estado: Record<string | symbol, unknown> = {};
+  const estado: Record<string | symbol, unknown> = { canvas: { width: 900, height: 600 } };
   let transformacion = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
   return new Proxy(estado, {
     get(t, k) {
@@ -131,13 +136,36 @@ beforeAll(() => {
   usarPintorDelSuelo(null);
 });
 
+/**
+ * Una página de mentira que apunta cada estado del suelo por el que pasa, y con
+ * él si en ese momento seguía cargado todo lo que solo pinta el suelo.
+ */
+function paginaQueApunta(esc?: () => Escenario) {
+  const estados: string[] = [];
+  const conSuArte: Record<string, boolean> = {};
+  const dataset = new Proxy({} as Record<string, string>, {
+    set(t, k, v: string) {
+      t[k as string] = v;
+      if (k === 'escenario') {
+        estados.push(v);
+        const e = esc?.();
+        if (e !== undefined)
+          conSuArte[v] = e.soloDelSuelo.every((src) => imagenDeEscena(src) !== undefined);
+      }
+      return true;
+    },
+  });
+  const pagina = { dataset } as unknown as HTMLElement;
+  apuntarElSueloEn(pagina);
+  return { pagina, estados, conSuArte };
+}
+
 describe('el suelo se pinta una vez y suelta lo que solo servía para eso', () => {
-  it('pide la escena una vez, enseña el sucedáneo mientras llega, pinta y suelta lo del suelo', async () => {
-    const pagina = { dataset: {} as Record<string, string> } as unknown as HTMLElement;
-    apuntarElSueloEn(pagina);
+  it('pide la escena una vez, enseña el sucedáneo, luego el esbozo, luego el bueno, y suelta lo del suelo', async () => {
+    const esc = escenarioDe(newGame({ seed: 1 }).map, 1);
+    const { pagina, estados, conSuArte } = paginaQueApunta(() => esc);
     expect(pagina.dataset.escenario).toBe('sin-mapa');
 
-    const esc = escenarioDe(newGame({ seed: 1 }).map, 1);
     const mientras = sueloDelMapa(esc, 70);
     expect(pagina.dataset.escenario).toBe('cargando');
     expect(mientras.px).toBe(1);
@@ -147,9 +175,14 @@ describe('el suelo se pinta una vez y suelta lo que solo servía para eso', () =
     expect(pedidas.length).toBe(esc.imagenes.length);
 
     await vi.waitFor(() => expect(arteCargando()).toBe(false));
+    // Primero el esbozo, en su tarea, y luego el bueno, en la suya; mientras se
+    // pintaba el bueno no se había soltado nada, que lo necesitaba.
+    expect(estados.slice(-3)).toEqual(['cargando', 'esbozado', 'pintado']);
+    expect(conSuArte.esbozado).toBe(true);
     const pintado = sueloDelMapa(esc, 70);
-    expect(pagina.dataset.escenario).toBe('pintado');
     expect(pintado.px).toBe(PX_DEL_SUELO);
+    // A 60 px de dispositivo o menos se copia el esbozo, que no se amplía.
+    expect(sueloDelMapa(esc, 50).px).toBe(PX_DEL_ESBOZO);
 
     // Lo que solo pinta el suelo se ha soltado; lo de los volúmenes sigue.
     expect(esc.soloDelSuelo.length).toBeGreaterThan(0);
@@ -177,43 +210,92 @@ describe('el suelo se pinta una vez y suelta lo que solo servía para eso', () =
   });
 });
 
+describe('a qué resolución se pinta el suelo (nitidez en el zoom máximo)', () => {
+  it('el suelo bueno no se amplía en el zoom máximo de la pantalla del usuario (dpr 1,09)', () => {
+    expect(PX_DEL_SUELO).toBeGreaterThanOrEqual(Math.ceil(TILE_MAX * 1.09));
+    expect(PX_DEL_ESBOZO).toBeLessThan(PX_DEL_SUELO);
+  });
+
+  const superficie = (px: number) => {
+    const lienzo = new LienzoFalso();
+    lienzo.width = 34 * px;
+    lienzo.height = 34 * px;
+    return { lienzo: lienzo as unknown as HTMLCanvasElement, px };
+  };
+  const niveles = (esbozo: boolean, bueno: boolean): NivelesDelSuelo => ({
+    esbozo: esbozo ? superficie(PX_DEL_ESBOZO) : null,
+    bueno: bueno ? superficie(PX_DEL_SUELO) : null,
+    menores: [],
+  });
+
+  it('elige la superficie más pequeña que no se amplía, o la mayor que haya', () => {
+    const n = niveles(true, true);
+    expect(nivelDelSuelo(n, 110)).toBe(n.bueno);
+    expect(nivelDelSuelo(n, 120)).toBe(n.bueno);
+    expect(nivelDelSuelo(n, 61)).toBe(n.bueno);
+    expect(nivelDelSuelo(n, 60)).toBe(n.esbozo);
+    expect(nivelDelSuelo(n, 31)).toBe(n.esbozo);
+    // Más allá de la mayor, la mayor: ampliada, pero la mejor que hay.
+    expect(nivelDelSuelo(n, 200)).toBe(n.bueno);
+    // Con solo el esbozo, el esbozo, aunque se amplíe; con solo el bueno, el bueno.
+    const soloEsbozo = niveles(true, false);
+    expect(nivelDelSuelo(soloEsbozo, 110)).toBe(soloEsbozo.esbozo);
+    const soloBueno = niveles(false, true);
+    expect(nivelDelSuelo(soloBueno, 30)).toBe(soloBueno.bueno);
+    expect(nivelDelSuelo(niveles(false, false), 110)).toBeUndefined();
+  });
+
+  it('alejando en una pantalla grande saca la mitad del esbozo, una vez: nunca se reduce a menos de ×0,5', () => {
+    const n = niveles(true, true);
+    // 7680×4320 al tope: ~24 px de dispositivo por casilla; más lejos aún, ~17.
+    const lejos = nivelDelSuelo(n, 17);
+    expect(lejos?.px).toBe(PX_DEL_ESBOZO / 2);
+    expect(lejos?.lienzo.width).toBe((34 * PX_DEL_ESBOZO) / 2);
+    expect(nivelDelSuelo(n, 20)).toBe(lejos);
+    expect(n.menores).toHaveLength(1);
+    // Más lejos aún, la mitad de la mitad, sacada de la mitad.
+    expect(nivelDelSuelo(n, 9)?.px).toBe(PX_DEL_ESBOZO / 4);
+    expect(n.menores).toHaveLength(2);
+    for (let px = 8; px <= PX_DEL_SUELO; px++) {
+      const elegido = nivelDelSuelo(n, px);
+      expect(elegido?.px, `${px}`).toBeGreaterThanOrEqual(px);
+      expect(px / (elegido?.px ?? 1), `${px}`).toBeGreaterThan(0.5);
+    }
+  });
+});
+
 describe('una imagen del suelo que no llega no se da por pintada', () => {
   const AGUA = 'texturas/agua.webp';
   const veces = (src: string) => pedidas.filter((u) => u === `/mapa/${src}`).length;
 
   it('falla la primera vez y llega la segunda: el suelo espera y se pinta con ella', async () => {
-    const pagina = { dataset: {} as Record<string, string> } as unknown as HTMLElement;
-    apuntarElSueloEn(pagina);
-    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const esc = escenarioDe(newGame({ seed: 5 }).map, 5);
+    const { pagina, estados } = paginaQueApunta();
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     expect(esc.soloDelSuelo).toContain(AGUA);
     const antes = veces(AGUA);
     fallos.set(`/mapa/${AGUA}`, 1);
     sueloDelMapa(esc, 70);
     await vi.waitFor(() => expect(arteCargando()).toBe(false));
-    // La tanda se cerró con el agua fallida: no se pinta, se vuelve a pedir.
-    expect(sueloDelMapa(esc, 70).px).toBe(1);
-    expect(pagina.dataset.escenario).toBe('cargando');
+    // La primera tanda se cerró con el agua fallida: no se pintó, se volvió a pedir.
     expect(veces(AGUA)).toBe(antes + 2);
-    await vi.waitFor(() => expect(arteCargando()).toBe(false));
+    expect(estados.slice(-3)).toEqual(['cargando', 'esbozado', 'pintado']);
     expect(sueloDelMapa(esc, 70).px).toBe(PX_DEL_SUELO);
     expect(pagina.dataset.escenario).toBe('pintado');
     expect(error).not.toHaveBeenCalled();
     error.mockRestore();
   });
 
-  it('si tampoco llega al volver a pedirla, lo dice como error y pinta con su color', async () => {
-    const pagina = { dataset: {} as Record<string, string> } as unknown as HTMLElement;
-    apuntarElSueloEn(pagina);
+  it('si tampoco llega al volver a pedirla, lo dice como error, una vez, y pinta con su color', async () => {
+    const { pagina } = paginaQueApunta();
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const esc = escenarioDe(newGame({ seed: 6 }).map, 6);
     fallos.set(`/mapa/${AGUA}`, 2);
     sueloDelMapa(esc, 70);
     await vi.waitFor(() => expect(arteCargando()).toBe(false));
-    sueloDelMapa(esc, 70);
-    await vi.waitFor(() => expect(arteCargando()).toBe(false));
     expect(sueloDelMapa(esc, 70).px).toBe(PX_DEL_SUELO);
     expect(pagina.dataset.escenario).toBe('pintado');
+    // Una vez, aunque se pinten dos superficies.
     expect(error).toHaveBeenCalledTimes(1);
     expect(String(error.mock.calls[0]?.[0])).toContain(AGUA);
     error.mockRestore();
@@ -223,29 +305,38 @@ describe('una imagen del suelo que no llega no se da por pintada', () => {
 describe('con Worker, el suelo se pinta aparte (H2 de la vuelta 1 de QA)', () => {
   /** Un pintor que no contesta hasta que se le dice: así se ve el «mientras tanto». */
   function pintorEnEspera() {
-    const peticiones: PeticionDelSuelo[] = [];
-    let contestar: (r: RespuestaDelSuelo) => void = () => undefined;
-    let fallar: (e: Error) => void = () => undefined;
-    const pintor = (p: PeticionDelSuelo) => {
-      peticiones.push(p);
-      return new Promise<RespuestaDelSuelo>((res, rej) => {
-        contestar = res;
+    const encargos: {
+      readonly esc: Escenario;
+      readonly resoluciones: readonly number[];
+      readonly avisos: AvisosDelSuelo;
+      terminado: boolean;
+      acabar: () => void;
+      fallar: (e: Error) => void;
+    }[] = [];
+    const pintor: PintorDelSuelo = (esc, resoluciones, avisos) => {
+      let acabar: () => void = () => undefined;
+      let fallar: (e: Error) => void = () => undefined;
+      const hecho = new Promise<void>((res, rej) => {
+        acabar = res;
         fallar = rej;
       });
+      const e = { esc, resoluciones, avisos, terminado: false, acabar, fallar };
+      encargos.push(e);
+      return {
+        hecho,
+        terminar: () => {
+          e.terminado = true;
+          acabar();
+        },
+      };
     };
-    return {
-      pintor,
-      peticiones,
-      contestar: (r: RespuestaDelSuelo) => contestar(r),
-      fallar: (e: Error) => fallar(e),
-    };
+    return { pintor, encargos };
   }
-  const mapaDeBits = (w: number) =>
-    ({ width: w, height: w, close: () => undefined }) as unknown as ImageBitmap;
+  const mapaDeBits = (px: number, close: () => void = () => undefined) =>
+    ({ width: 34 * px, height: 34 * px, close }) as unknown as ImageBitmap;
 
-  it('mientras pinta se ve el sucedáneo y el hilo principal solo pide los volúmenes', async () => {
-    const pagina = { dataset: {} as Record<string, string> } as unknown as HTMLElement;
-    apuntarElSueloEn(pagina);
+  it('un solo encargo para el esbozo y el bueno; mientras, el sucedáneo, y el hilo principal solo pide los volúmenes', async () => {
+    const { pagina } = paginaQueApunta();
     const p = pintorEnEspera();
     usarPintorDelSuelo(p.pintor);
     try {
@@ -253,9 +344,9 @@ describe('con Worker, el suelo se pinta aparte (H2 de la vuelta 1 de QA)', () =>
       const antes = pedidas.length;
       expect(sueloDelMapa(esc, 70).px).toBe(1);
       expect(pagina.dataset.escenario).toBe('cargando');
-      expect(p.peticiones).toHaveLength(1);
-      expect(p.peticiones[0]?.escena).toBe(esc.escena);
-      expect(p.peticiones[0]?.px).toBe(PX_DEL_SUELO);
+      expect(p.encargos).toHaveLength(1);
+      expect(p.encargos[0]?.esc).toBe(esc);
+      expect(p.encargos[0]?.resoluciones).toEqual([PX_DEL_ESBOZO, PX_DEL_SUELO]);
       // Ni una textura del suelo en el hilo principal: las pide el Worker.
       // (Las de los volúmenes que ya pidieron las partidas de antes no se repiten.)
       const pedidasAqui = pedidas.slice(antes);
@@ -265,59 +356,100 @@ describe('con Worker, el suelo se pinta aparte (H2 de la vuelta 1 de QA)', () =>
       for (const src of esc.soloDelSuelo) expect(pedidasAqui).not.toContain(`/mapa/${src}`);
       // Otro fotograma mientras pinta: ni otra petición ni otro encargo.
       sueloDelMapa(esc, 70);
-      expect(p.peticiones).toHaveLength(1);
+      expect(p.encargos).toHaveLength(1);
 
-      const entero = mapaDeBits(34 * PX_DEL_SUELO);
-      const mitad = mapaDeBits(17 * PX_DEL_SUELO);
-      p.contestar({ entero, mitad, imagenes: 40, faltan: [] });
-      await vi.waitFor(() => expect(pagina.dataset.escenario).toBe('pintado'));
-      expect(sueloDelMapa(esc, 70)).toEqual({ lienzo: entero, px: PX_DEL_SUELO });
-      // La mitad es la del Worker: el hilo principal no reduce nada.
-      expect(sueloDelMapa(esc, 40)).toEqual({ lienzo: mitad, px: PX_DEL_SUELO / 2 });
-      expect(p.peticiones).toHaveLength(1);
+      // Llega el esbozo: se ve a cualquier zoom, ampliado si hace falta.
+      const e = p.encargos[0]!;
+      const esbozo = mapaDeBits(PX_DEL_ESBOZO);
+      e.avisos.superficie({ lienzo: esbozo, px: PX_DEL_ESBOZO });
+      expect(pagina.dataset.escenario).toBe('esbozado');
+      expect(sueloDelMapa(esc, 120)).toEqual({ lienzo: esbozo, px: PX_DEL_ESBOZO });
+
+      const bueno = mapaDeBits(PX_DEL_SUELO);
+      e.avisos.superficie({ lienzo: bueno, px: PX_DEL_SUELO });
+      e.acabar();
+      expect(pagina.dataset.escenario).toBe('pintado');
+      expect(sueloDelMapa(esc, 110)).toEqual({ lienzo: bueno, px: PX_DEL_SUELO });
+      // Alejado, el esbozo: el hilo principal no reduce nada.
+      expect(sueloDelMapa(esc, 50)).toEqual({ lienzo: esbozo, px: PX_DEL_ESBOZO });
+      await vi.waitFor(() => expect(arteCargando()).toBe(false));
+      expect(p.encargos).toHaveLength(1);
     } finally {
       usarPintorDelSuelo(null);
     }
   });
 
-  it('lo que no le llegó al Worker se dice como error, una vez, con su nombre', async () => {
-    const pagina = { dataset: {} as Record<string, string> } as unknown as HTMLElement;
-    apuntarElSueloEn(pagina);
+  it('otro mapa termina el encargo del anterior, cierra lo que pintó y lo que llegue tarde', async () => {
+    const { pagina } = paginaQueApunta();
+    const p = pintorEnEspera();
+    usarPintorDelSuelo(p.pintor);
+    try {
+      const esc = escenarioDe(newGame({ seed: 17 }).map, 17);
+      sueloDelMapa(esc, 70);
+      const viejo = p.encargos[0]!;
+      const cerrarEsbozo = vi.fn();
+      viejo.avisos.superficie({
+        lienzo: mapaDeBits(PX_DEL_ESBOZO, cerrarEsbozo),
+        px: PX_DEL_ESBOZO,
+      });
+      const otro = escenarioDe(newGame({ seed: 18 }).map, 18);
+      sueloDelMapa(otro, 70);
+      // El Worker del mapa viejo se para, y su esbozo se suelta.
+      expect(viejo.terminado).toBe(true);
+      expect(cerrarEsbozo).toHaveBeenCalledTimes(1);
+      // Lo que aún llegue de él se cierra y no se pone.
+      const cerrarTarde = vi.fn();
+      viejo.avisos.superficie({ lienzo: mapaDeBits(PX_DEL_SUELO, cerrarTarde), px: PX_DEL_SUELO });
+      expect(cerrarTarde).toHaveBeenCalledTimes(1);
+      expect(sueloDelMapa(otro, 70).px).toBe(1);
+      expect(pagina.dataset.escenario).toBe('cargando');
+      // El otro sigue a lo suyo (y no quedan tandas abiertas).
+      const nuevo = p.encargos[1]!;
+      expect(nuevo.terminado).toBe(false);
+      nuevo.avisos.superficie({ lienzo: mapaDeBits(PX_DEL_ESBOZO), px: PX_DEL_ESBOZO });
+      nuevo.avisos.superficie({ lienzo: mapaDeBits(PX_DEL_SUELO), px: PX_DEL_SUELO });
+      nuevo.acabar();
+      expect(pagina.dataset.escenario).toBe('pintado');
+      expect(sueloDelMapa(otro, 110).px).toBe(PX_DEL_SUELO);
+      await vi.waitFor(() => expect(arteCargando()).toBe(false));
+    } finally {
+      usarPintorDelSuelo(null);
+    }
+  });
+
+  it('lo que no le llegó al Worker se dice como error, con su nombre', async () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const p = pintorEnEspera();
     usarPintorDelSuelo(p.pintor);
     try {
       const esc = escenarioDe(newGame({ seed: 12 }).map, 12);
       sueloDelMapa(esc, 70);
-      p.contestar({
-        entero: mapaDeBits(1),
-        mitad: mapaDeBits(1),
-        imagenes: 40,
-        faltan: ['texturas/agua.webp: HTTP 404'],
-      });
-      await vi.waitFor(() => expect(pagina.dataset.escenario).toBe('pintado'));
+      p.encargos[0]!.avisos.faltan(['texturas/agua.webp: HTTP 404'], 40);
       expect(error).toHaveBeenCalledTimes(1);
       expect(String(error.mock.calls[0]?.[0])).toContain('sin 1 de sus 40');
       expect(String(error.mock.calls[0]?.[0])).toContain('texturas/agua.webp');
+      p.encargos[0]!.acabar();
+      await vi.waitFor(() => expect(arteCargando()).toBe(false));
     } finally {
       usarPintorDelSuelo(null);
       error.mockRestore();
     }
   });
 
-  it('si el Worker falla, se dice y el suelo se pinta en el hilo principal', async () => {
-    const pagina = { dataset: {} as Record<string, string> } as unknown as HTMLElement;
-    apuntarElSueloEn(pagina);
+  it('si el Worker falla de entrada, se dice y el suelo entero se pinta en el hilo principal', async () => {
+    const { pagina, estados } = paginaQueApunta();
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const p = pintorEnEspera();
     usarPintorDelSuelo(p.pintor);
     try {
       const esc = escenarioDe(newGame({ seed: 13 }).map, 13);
       sueloDelMapa(esc, 70);
-      p.fallar(new Error('sin OffscreenCanvas en el Worker'));
+      p.encargos[0]!.fallar(new Error('sin OffscreenCanvas en el Worker'));
       await vi.waitFor(() => expect(error).toHaveBeenCalledTimes(1));
       expect(String(error.mock.calls[0]?.[0])).toContain('sin OffscreenCanvas en el Worker');
+      expect(String(error.mock.calls[0]?.[0])).toContain(`a ${PX_DEL_ESBOZO} y ${PX_DEL_SUELO} px`);
       await vi.waitFor(() => expect(arteCargando()).toBe(false));
+      expect(estados.slice(-3)).toEqual(['cargando', 'esbozado', 'pintado']);
       expect(sueloDelMapa(esc, 70).px).toBe(PX_DEL_SUELO);
       expect(pagina.dataset.escenario).toBe('pintado');
     } finally {
@@ -326,7 +458,29 @@ describe('con Worker, el suelo se pinta aparte (H2 de la vuelta 1 de QA)', () =>
     }
   });
 
-  it('el pintor del Worker pide cada imagen del suelo, reintenta una vez y dice lo que no llegó', async () => {
+  it('si el Worker falla tras el esbozo, el hilo principal pinta solo el bueno', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const p = pintorEnEspera();
+    usarPintorDelSuelo(p.pintor);
+    try {
+      const esc = escenarioDe(newGame({ seed: 19 }).map, 19);
+      sueloDelMapa(esc, 70);
+      const esbozo = mapaDeBits(PX_DEL_ESBOZO);
+      p.encargos[0]!.avisos.superficie({ lienzo: esbozo, px: PX_DEL_ESBOZO });
+      p.encargos[0]!.fallar(new Error('el Worker se ha quedado sin memoria'));
+      await vi.waitFor(() => expect(error).toHaveBeenCalledTimes(1));
+      expect(String(error.mock.calls[0]?.[0])).toContain(`a ${PX_DEL_SUELO} px`);
+      await vi.waitFor(() => expect(arteCargando()).toBe(false));
+      expect(sueloDelMapa(esc, 110).px).toBe(PX_DEL_SUELO);
+      // El esbozo es el del Worker: no se ha vuelto a pintar.
+      expect(sueloDelMapa(esc, 50).lienzo).toBe(esbozo);
+    } finally {
+      usarPintorDelSuelo(null);
+      error.mockRestore();
+    }
+  });
+
+  it('el pintor del Worker carga una vez, dice lo que no llegó y contesta una superficie por resolución, en orden', async () => {
     class LienzoAparte extends LienzoFalso {
       constructor(w: number, h: number) {
         super();
@@ -334,7 +488,7 @@ describe('con Worker, el suelo se pinta aparte (H2 de la vuelta 1 de QA)', () =>
         this.height = h;
       }
       transferToImageBitmap() {
-        return mapaDeBits(this.width);
+        return { width: this.width, height: this.height, close: () => undefined };
       }
     }
     vi.stubGlobal('OffscreenCanvas', LienzoAparte);
@@ -344,14 +498,30 @@ describe('con Worker, el suelo se pinta aparte (H2 de la vuelta 1 de QA)', () =>
       const AGUA = 'http://x/mapa/texturas/agua.webp';
       fallos.set(AGUA, 5);
       const antes = pedidas.length;
-      const r = await pintarSueloAparte({ escena: esc.escena, px: 8, base: 'http://x/mapa/' });
-      if ('error' in r) throw new Error(r.error);
+      const mensajes: { m: MensajeDelSuelo; transferir?: Transferable[] }[] = [];
+      await pintarSueloAparte({ escena: esc.escena, px: [8, 16], base: 'http://x/mapa/' }, (m, t) =>
+        mensajes.push({ m, ...(t === undefined ? {} : { transferir: t }) }),
+      );
       const pedidasAqui = pedidas.slice(antes);
-      expect(r.imagenes).toBe(new Set(pedidasAqui).size);
+      expect(mensajes).toHaveLength(3);
+      const [primero, esbozo, bueno] = mensajes.map((x) => x.m);
+      // Cada imagen se pide una vez para las dos resoluciones; la que falla, dos.
+      expect(primero).toEqual({
+        imagenes: new Set(pedidasAqui).size,
+        faltan: ['texturas/agua.webp: HTTP 404'],
+      });
       expect(pedidasAqui.filter((u) => u === AGUA)).toHaveLength(2);
-      expect(r.faltan).toEqual(['texturas/agua.webp: HTTP 404']);
-      expect(r.entero.width).toBe(esc.escena.W * 8);
-      expect(r.mitad.width).toBe(Math.ceil((esc.escena.W * 8) / 2));
+      expect(pedidasAqui.length).toBe(new Set(pedidasAqui).size + 1);
+      for (const [m, px] of [
+        [esbozo, 8],
+        [bueno, 16],
+      ] as const) {
+        if (m === undefined || !('px' in m)) throw new Error('falta una superficie');
+        expect(m.px).toBe(px);
+        expect(m.lienzo.width).toBe(esc.escena.W * px);
+      }
+      // Cada superficie se transfiere: el Worker no se queda con ella.
+      expect(mensajes[1]?.transferir).toEqual([(esbozo as { lienzo: unknown }).lienzo]);
       fallos.delete(AGUA);
     } finally {
       vi.unstubAllGlobals();
@@ -419,22 +589,36 @@ describe('una sola caché de copias reducidas, de ida y vuelta', () => {
     expect(copia(100, 'brightness(0.8)')).not.toBe(copia(100));
   });
 
-  it('un fotograma no hace más de COPIAS_NUEVAS_POR_FOTOGRAMA copias nuevas: lo demás espera', () => {
+  it('un fotograma no hace más de PIXELES_NUEVOS_POR_FOTOGRAMA píxeles de copias nuevas: lo demás espera', () => {
     const im = imagen as unknown as HTMLImageElement;
     empezarFotogramaDeCopias();
-    for (let i = 0; i < COPIAS_NUEVAS_POR_FOTOGRAMA; i++)
-      expect(copiaReducidaSiCabe(im, `modulos/n${i}.webp`, undefined, 50, 25)).not.toBeNull();
+    // Copias de 100×100: caben justas las que llenan el tope.
+    const caben = Math.ceil(PIXELES_NUEVOS_POR_FOTOGRAMA / (100 * 100));
+    for (let i = 0; i < caben; i++)
+      expect(copiaReducidaSiCabe(im, `modulos/p${i}.webp`, undefined, 100, 100)).not.toBeNull();
     // Una imagen que no tiene copia de ningún tamaño: este fotograma no se pinta.
-    expect(copiaReducidaSiCabe(im, 'modulos/otra.webp', undefined, 50, 25)).toBeNull();
+    expect(copiaReducidaSiCabe(im, 'modulos/otra-p.webp', undefined, 50, 25)).toBeNull();
     // Una que la tiene de otro tamaño: esa, que quien pinta escala.
-    const vieja = copiaReducidaSiCabe(im, 'modulos/n0.webp', undefined, 80, 40);
-    expect(vieja?.width).toBe(50);
+    const vieja = copiaReducidaSiCabe(im, 'modulos/p0.webp', undefined, 80, 40);
+    expect(vieja?.width).toBe(100);
     // Las ya hechas salen siempre.
-    expect(copiaReducidaSiCabe(im, 'modulos/n1.webp', undefined, 50, 25)?.width).toBe(50);
+    expect(copiaReducidaSiCabe(im, 'modulos/p1.webp', undefined, 100, 100)?.width).toBe(100);
     // El fotograma siguiente las hace.
     empezarFotogramaDeCopias();
-    expect(copiaReducidaSiCabe(im, 'modulos/otra.webp', undefined, 50, 25)?.width).toBe(50);
-    expect(copiaReducidaSiCabe(im, 'modulos/n0.webp', undefined, 80, 40)?.width).toBe(80);
+    expect(copiaReducidaSiCabe(im, 'modulos/otra-p.webp', undefined, 50, 25)?.width).toBe(50);
+    expect(copiaReducidaSiCabe(im, 'modulos/p0.webp', undefined, 80, 40)?.width).toBe(80);
+  });
+
+  it('cuenta píxeles y no copias: las pequeñas caben a cientos y las grandes llenan antes el fotograma', () => {
+    const im = imagen as unknown as HTMLImageElement;
+    empezarFotogramaDeCopias();
+    for (let i = 0; i < 400; i++)
+      expect(copiaReducidaSiCabe(im, `modulos/q${i}.webp`, undefined, 20, 20)).not.toBeNull();
+    empezarFotogramaDeCopias();
+    // Una sola copia mayor que el tope se hace igual, pero llena el fotograma.
+    const lado = Math.ceil(Math.sqrt(PIXELES_NUEVOS_POR_FOTOGRAMA)) + 1;
+    expect(copiaReducidaSiCabe(im, 'modulos/enorme.webp', undefined, lado, lado)?.width).toBe(lado);
+    expect(copiaReducidaSiCabe(im, 'modulos/tras-la-enorme.webp', undefined, 10, 10)).toBeNull();
   });
 
   it('pintarSprite no pinta lo aplazado y escala una copia de otro tamaño', () => {

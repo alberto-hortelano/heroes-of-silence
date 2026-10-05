@@ -19,8 +19,8 @@ import { bandosSinDueño, drawBatalla } from '../render/batalla.js';
 import { type CamaraMapa, centrarEn, TILE_LEGIBLE } from '../render/camara-mapa.js';
 import { apuntarElSueloEn, escenarioListo, topeDeAlejar } from '../render/escenario/superficie.js';
 import { hayFigurasAnimadas } from '../render/figura.js';
-import { ajustarLienzo } from '../render/lienzo.js';
-import { type AdventureScene, drawMapa, PIXELES_DEL_MAPA } from '../render/mapa.js';
+import { ajustarLienzo, pixelesDe } from '../render/lienzo.js';
+import { type AdventureScene, drawMapa, presupuestoConHolgura } from '../render/mapa.js';
 import { tableroPara } from '../render/proyeccion.js';
 import { rotuloDeDia } from '../views/panels.js';
 import { adaptarEscena, centroDeLaEscena } from './adaptar.js';
@@ -101,6 +101,11 @@ let finDe: FinDePartida | null = null;
  * lejano de todos y `centrarEn` lo sube hasta el tope de la escena y del lienzo.
  */
 const LO_MAS_LEJOS: CamaraMapa = { tile: TILE_LEGIBLE, x: 0, y: 0 };
+/**
+ * El presupuesto de píxeles del mapa, la misma cuenta que en el cliente. Como el
+ * espectador mira siempre al tope, le sale `PIXELES_DEL_MAPA`.
+ */
+const presupuestoDelMapa = presupuestoConHolgura();
 /** Los paneles se rehacen cuando llega algo nuevo, no a cada fotograma. */
 let panelesPendientes = true;
 /** Si el panel se pintó con el tablero aún contando: entonces calla el final. */
@@ -187,6 +192,24 @@ function dibujar(ahora: number): void {
   }
 }
 
+/**
+ * Lo que mira el espectador en un lienzo de `ancho × alto`: todo, lo más lejos
+ * que deja el tope de alejar. Sin partida aún, la cámara de `LO_MAS_LEJOS`.
+ */
+function encuadreDelMapa(ancho: number, alto: number): { camara: CamaraMapa; tope: number } {
+  if (vista === null || escena === null) return { camara: LO_MAS_LEJOS, tope: TILE_LEGIBLE };
+  const esc = escenarioListo(escena.map, vista.seed);
+  const tope = esc === null ? TILE_LEGIBLE : topeDeAlejar(esc, ancho, alto);
+  const camara = centrarEn(LO_MAS_LEJOS, centroDeLaEscena(vista), {
+    ancho,
+    alto,
+    mapaAncho: escena.map.width,
+    mapaAlto: escena.map.height,
+    tileMinimo: tope,
+  });
+  return { camara, tope };
+}
+
 function pintarTodo(ahora: number): void {
   const batalla = reproductor.batalla;
   const nueva = batalla === null ? 'adventure' : 'battle';
@@ -194,7 +217,14 @@ function pintarTodo(ahora: number): void {
     app.dataset.escena = nueva;
     principal.remedir();
   }
-  const rect = principal.preparar(batalla === null ? PIXELES_DEL_MAPA : undefined);
+  const rect = principal.preparar(
+    batalla === null
+      ? (medida, dpr) => {
+          const { camara, tope } = encuadreDelMapa(medida.width, medida.height);
+          return presupuestoDelMapa(camara.tile, tope, pixelesDe(medida.width, medida.height, dpr));
+        }
+      : undefined,
+  );
   ctx.clearRect(0, 0, rect.width, rect.height);
 
   if (vista !== null && escena !== null) {
@@ -222,14 +252,7 @@ function pintarTodo(ahora: number): void {
       apuntarLoQueSePinta(true);
     } else {
       apuntarLoQueSePinta(false);
-      const esc = escenarioListo(escena.map, vista.seed);
-      const camara = centrarEn(LO_MAS_LEJOS, centroDeLaEscena(vista), {
-        ancho: rect.width,
-        alto: rect.height,
-        mapaAncho: escena.map.width,
-        mapaAlto: escena.map.height,
-        ...(esc === null ? {} : { tileMinimo: topeDeAlejar(esc, rect.width, rect.height) }),
-      });
+      const { camara } = encuadreDelMapa(rect.width, rect.height);
       // Un espectador lo ve TODO: eso es lo que es. Por eso #64 no aplica aquí.
       drawMapa(ctx, {
         escena,

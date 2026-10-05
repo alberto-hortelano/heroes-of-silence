@@ -107,9 +107,8 @@ let hayFigura = false;
 export function cargarHojaDeFigura(url: string): void {
   void cargarImagen(`figura/${url}`, url).then(() => {
     if (imagenes.has(`figura/${url}`)) hayFigura = true;
-    // Repinta y nada más: una hoja de figura no cambia el suelo del mapa, que
-    // se pinta de nuevo cuando sube `versionDelArte`.
-    for (const fn of oyentes) fn();
+    // Repinta y nada más: no es una tanda, así que no hace esperar a nadie.
+    avisarDeArteNuevo();
   });
 }
 
@@ -127,41 +126,29 @@ export function hayFiguraCargada(): boolean {
 type Listener = () => void;
 const oyentes = new Set<Listener>();
 
-/**
- * Cuántas tandas de arte que no es de figura se han cerrado: el arte fijo, el
- * manifiesto y las imágenes de la escena del mapa. Lo que se pinta una vez con
- * el arte que hubiera —el suelo del mapa— lo usa de clave. Las hojas de figura
- * no la suben: llegan a demanda, a lo largo de toda la partida, y cada una
- * repintaría el suelo entero para nada.
- */
-let version = 0;
-/** Las tandas que siguen en camino: mientras haya alguna, el suelo no se pinta. */
+/** Las tandas que siguen en camino. */
 let tandasEnVuelo = 0;
 
-/** La versión del arte cargado: cambia cada vez que se cierra una tanda. */
-export function versionDelArte(): number {
-  return version;
-}
-
-/** Si queda alguna tanda en camino: quien pinta una vez con todo lo que haya, espera. */
+/** Si queda alguna tanda en camino: el arte, la escena o el suelo del mapa. */
 export function arteCargando(): boolean {
   return tandasEnVuelo > 0;
 }
 
+/** Avisa a quien pinta de que ha entrado arte nuevo: repinta. */
+export function avisarDeArteNuevo(): void {
+  for (const fn of oyentes) fn();
+}
+
 /**
  * Una tanda: cuenta mientras está en camino y, al cerrarse —llegue lo que
- * llegue—, sube la versión y avisa UNA vez. El suelo del mapa que pinta un
- * Worker es una tanda más: cuando llega, la página repinta. No avisa por imagen a propósito: el
- * suelo del mapa se pinta una sola vez con todo lo que haya —cuesta ~1,5 s sin
- * GPU—, y repintarlo con cada una de las ~300 que llegan sería pagarlo
- * trescientas veces.
+ * llegue—, avisa UNA vez. No avisa por imagen a propósito: las ~300 de la
+ * escena llegan casi juntas, y cada aviso es un fotograma entero.
  */
 export function tandaDeArte(carga: Promise<unknown>): void {
   tandasEnVuelo++;
   void carga.finally(() => {
     tandasEnVuelo--;
-    version++;
-    for (const fn of oyentes) fn();
+    avisarDeArteNuevo();
   });
 }
 
@@ -184,8 +171,12 @@ const GRUPOS_QUE_SE_PINTAN: ReadonlySet<string> = new Set(['icons', 'buildings',
 
 // ------------------------------------------------------------ la escena del mapa
 
-/** Las imágenes de la escena que ya se han pedido: una tanda nueva solo pide lo que falta. */
-const pedidasDeEscena = new Set<string>();
+/**
+ * Las imágenes de la escena que ya se han pedido, con la carga de cada una: una
+ * tanda nueva solo pide lo que falta, y quien espera a una ya pedida espera a la
+ * misma carga.
+ */
+const pedidasDeEscena = new Map<string, Promise<void>>();
 
 /**
  * Las imágenes de la escena, ya decodificadas. Van como `ImageBitmap` y no como
@@ -219,15 +210,23 @@ async function cargarDeEscena(src: string): Promise<void> {
 
 /**
  * Pide las imágenes del escenógrafo que falten (`src` relativa a
- * `assets/mapa/`, como las da `imagenesDeEscena`), en una tanda. Dice si ha
- * pedido alguna. Nunca lanza.
+ * `assets/mapa/`, como las da `imagenesDeEscena`), en una tanda, y se cumple
+ * cuando han llegado —o fallado— todas, también las que ya estaban pedidas.
+ * Nunca falla: lo que no llega se queda sin imagen (`imagenDeEscena`).
  */
-export function cargarArteDeEscena(srcs: readonly string[]): boolean {
-  const nuevas = srcs.filter((s) => !pedidasDeEscena.has(s));
-  if (nuevas.length === 0) return false;
-  for (const s of nuevas) pedidasDeEscena.add(s);
-  tandaDeArte(Promise.all(nuevas.map(cargarDeEscena)));
-  return true;
+export function cargarArteDeEscena(srcs: readonly string[]): Promise<void> {
+  const nuevas: Promise<void>[] = [];
+  const todas = srcs.map((s) => {
+    let carga = pedidasDeEscena.get(s);
+    if (carga === undefined) {
+      carga = cargarDeEscena(s);
+      pedidasDeEscena.set(s, carga);
+      nuevas.push(carga);
+    }
+    return carga;
+  });
+  if (nuevas.length > 0) tandaDeArte(Promise.all(nuevas));
+  return Promise.all(todas).then(() => undefined);
 }
 
 /**
@@ -249,9 +248,9 @@ export function soltarArteDeEscena(srcs: readonly string[]): void {
  * nueva, como la primera. Lo usa el suelo, que no se pinta sin ellas a la
  * primera falta.
  */
-export function volverAPedirArteDeEscena(srcs: readonly string[]): void {
+export function volverAPedirArteDeEscena(srcs: readonly string[]): Promise<void> {
   for (const s of srcs) pedidasDeEscena.delete(s);
-  cargarArteDeEscena(srcs);
+  return cargarArteDeEscena(srcs);
 }
 
 /** La imagen de la escena de esa `src`, si ya ha llegado. */

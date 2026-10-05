@@ -22,8 +22,13 @@ import {
   zoom,
 } from '../src/client/render/camara-mapa.js';
 import { escenarioDe, topeDeAlejar } from '../src/client/render/escenario/superficie.js';
-import { ajustarLienzo, densidadConPresupuesto } from '../src/client/render/lienzo.js';
-import { PIXELES_DEL_MAPA } from '../src/client/render/mapa.js';
+import { ajustarLienzo, densidadConPresupuesto, pixelesDe } from '../src/client/render/lienzo.js';
+import {
+  PIXELES_AL_ACERCAR,
+  PIXELES_DEL_MAPA,
+  presupuestoConHolgura,
+  presupuestoDelMapa,
+} from '../src/client/render/mapa.js';
 import { newGame } from '../src/core/state/setup.js';
 
 const E: Encuadre = { ancho: 1000, alto: 700, mapaAncho: 24, mapaAlto: 24 };
@@ -232,7 +237,13 @@ describe('el mapa no pinta más píxeles que su presupuesto (H1 de la vuelta 1 d
     try {
       const lienzo = ajustarLienzo(canvas as unknown as HTMLCanvasElement, () => undefined);
       expect([canvas.width, canvas.height]).toEqual([3480, 2036]);
-      const medida = lienzo.preparar(PIXELES_DEL_MAPA);
+      // El presupuesto se pide con la caja y la densidad de ahora, no con las del fotograma anterior.
+      const pedidos: [number, number, number][] = [];
+      const medida = lienzo.preparar((caja, dpr) => {
+        pedidos.push([caja.width, caja.height, dpr]);
+        return PIXELES_DEL_MAPA;
+      });
+      expect(pedidos).toEqual([[3480, 2036, 1]]);
       // Quien pinta sigue en píxeles CSS: la caja no cambia, cambia el lienzo.
       expect(medida).toEqual({ width: 3480, height: 2036 });
       expect(canvas.width * canvas.height).toBeLessThanOrEqual(PIXELES_DEL_MAPA);
@@ -244,5 +255,87 @@ describe('el mapa no pinta más píxeles que su presupuesto (H1 de la vuelta 1 d
       globales.window = antes.window;
       globales.ResizeObserver = antes.ResizeObserver;
     }
+  });
+});
+
+describe('el presupuesto de píxeles depende del zoom: al acercar, densidad plena', () => {
+  const plenos = pixelesDe;
+  const USUARIO = plenos(1623, 930, 1.09);
+  const QHD = plenos(2200, 1317, 1);
+  const CUATRO_K = plenos(3480, 2037, 1);
+
+  it('al tope de alejar se queda el presupuesto de siempre en cuanto el lienzo lo pasa', () => {
+    for (const [p, tope] of [
+      [USUARIO, 52],
+      [QHD, 46],
+      [QHD, 63],
+      [CUATRO_K, 80],
+    ] as const)
+      expect(presupuestoDelMapa(tope, tope, p)).toBe(PIXELES_DEL_MAPA);
+    // Un lienzo que ya cabe no cambia: con o sin presupuesto, la misma densidad.
+    expect(presupuestoDelMapa(46, 46, plenos(1560, 957, 1))).toBeUndefined();
+  });
+
+  it('en el zoom máximo, densidad plena en la pantalla del usuario y en 2560×1440 (semillas 1 y 7)', () => {
+    for (const seed of [1, 7]) {
+      const esc = escenarioDe(newGame({ seed }).map, seed);
+      for (const [w, h, dpr] of [
+        [1623, 930, 1.09],
+        [2200, 1317, 1],
+      ] as const) {
+        const tope = topeDeAlejar(esc, w, h);
+        expect(presupuestoDelMapa(TILE_MAX, tope, plenos(w, h, dpr)), `${seed} ${w}×${h}`).toBe(
+          undefined,
+        );
+      }
+    }
+    // Y con los topes que se midieron en 2560×1440.
+    expect(presupuestoDelMapa(TILE_MAX, 46, QHD)).toBeUndefined();
+    expect(presupuestoDelMapa(TILE_MAX, 63, QHD)).toBeUndefined();
+  });
+
+  it('en 3840×2160 el presupuesto se queda también en el zoom máximo (decisión del usuario)', () => {
+    expect(CUATRO_K).toBeGreaterThan(PIXELES_AL_ACERCAR);
+    expect(presupuestoDelMapa(TILE_MAX, 80, CUATRO_K)).toBe(PIXELES_DEL_MAPA);
+  });
+
+  it('es monótono: acercando no se vuelve nunca al presupuesto', () => {
+    for (const p of [USUARIO, QHD, CUATRO_K, plenos(1560, 957, 1)])
+      for (const tope of [40, 46, 63, 80]) {
+        let plena = false;
+        for (let tile = tope; tile <= TILE_MAX; tile++) {
+          const r = presupuestoDelMapa(tile, tope, p);
+          if (plena) expect(r, `${p} ${tope} ${tile}`).toBeUndefined();
+          plena = r === undefined;
+        }
+      }
+  });
+
+  it('con holgura: la rueda que va y viene en el umbral no cambia de densidad a cada paso', () => {
+    // 2560×1440 con el tope de la semilla 7: entra a plena entre 87 y 99.
+    expect(presupuestoDelMapa(87, 63, QHD)).toBe(PIXELES_DEL_MAPA);
+    expect(presupuestoDelMapa(99, 63, QHD)).toBeUndefined();
+    const presupuesto = presupuestoConHolgura();
+    const pasos = [75, 87, 99, 87, 99, 87, 75, 87, 99].map((tile) => presupuesto(tile, 63, QHD));
+    expect(pasos).toEqual([
+      PIXELES_DEL_MAPA,
+      PIXELES_DEL_MAPA,
+      undefined,
+      // Un paso atrás sigue a plena…
+      undefined,
+      undefined,
+      undefined,
+      // …y dos ya no.
+      PIXELES_DEL_MAPA,
+      PIXELES_DEL_MAPA,
+      undefined,
+    ]);
+    // Al tope de alejar, la holgura no deja la pantalla del usuario a plena.
+    expect(presupuestoDelMapa(52, 52, USUARIO, true)).toBe(PIXELES_DEL_MAPA);
+  });
+
+  it('una casilla que no mide nada se rechaza diciéndolo', () => {
+    expect(() => presupuestoDelMapa(0, 46, QHD)).toThrow(/casillas/);
+    expect(() => presupuestoDelMapa(110, Number.NaN, QHD)).toThrow(/casillas/);
   });
 });

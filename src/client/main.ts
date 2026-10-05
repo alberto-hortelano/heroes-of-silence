@@ -14,7 +14,6 @@ import { cargarArte } from './render/assets.js';
 import { apuntarElSueloEn } from './render/escenario/superficie.js';
 import { hayFigurasAnimadas } from './render/figura.js';
 import { ajustarLienzo } from './render/lienzo.js';
-import { PIXELES_DEL_MAPA } from './render/mapa.js';
 import { semillaSorteada } from './semilla.js';
 import { Session } from './session.js';
 import { renderActions, renderSide, renderTopbar } from './views/panels.js';
@@ -152,8 +151,8 @@ function dibujarFotograma(ahora: number): void {
   const enCastillo = escena === 'town' && session.activeTown !== null;
   const enBatalla = escena === 'battle' && session.battle !== null;
   // Solo el mapa tiene presupuesto de píxeles: es la única pantalla que pinta
-  // miles de sprites a cada fotograma.
-  const rect = principal.preparar(enCastillo || enBatalla ? undefined : PIXELES_DEL_MAPA);
+  // miles de sprites a cada fotograma. Depende del zoom: acercando, plena.
+  const rect = principal.preparar(enCastillo || enBatalla ? undefined : aventura.presupuesto);
   ctx.clearRect(0, 0, rect.width, rect.height);
   if (enCastillo) {
     castillo.dibujar(ctx, rect.width, rect.height, ahora);

@@ -12,12 +12,11 @@ import { pointKey } from '@core/map/map.js';
 import type { TerrainKind } from '@core/map/terrain.js';
 import catalogoDelRepo from '../../../../assets/mapa/escena.json' with { type: 'json' };
 import {
-  arteCargando,
+  avisarDeArteNuevo,
   cargarArteDeEscena,
   imagenDeEscena,
   soltarArteDeEscena,
   tandaDeArte,
-  versionDelArte,
   volverAPedirArteDeEscena,
 } from '../assets.js';
 import {
@@ -37,14 +36,11 @@ import {
   type Imagen,
   imagenesDeEscena,
   lienzoCon,
+  olvidarEntonadas,
   separar,
   type Volumen,
 } from './pintar.js';
-import {
-  type PeticionDelSuelo,
-  pintarSueloConSuMitad,
-  type RespuestaDelSuelo,
-} from './pintor-del-suelo.js';
+import { type MensajeDelSuelo, type PeticionDelSuelo, pintarSueloA } from './pintor-del-suelo.js';
 
 /**
  * El catálogo de `assets/mapa/escena.json`, que rehace `pnpm taller
@@ -54,14 +50,23 @@ import {
 const CATALOGO: Catalogo = catalogoDelRepo;
 
 /**
- * Píxeles por casilla de la superficie del suelo. Medido en el Chromium sin GPU
- * de `pnpm capturas` (34×34): a 48, 10,7 MB y ~0,9 s; a 72, 24 MB y ~1,5 s; a 96,
- * 42,6 MB y ~2,7 s. Con la cámara entre 40 y 110 px por casilla, a 72 el suelo se
- * amplía como mucho ×1,5.
+ * Píxeles por casilla de la superficie del suelo: los del zoom máximo en la
+ * pantalla del usuario, ⌈`TILE_MAX` × 1,09⌉, para que el suelo no se amplíe y
+ * se vea tan nítido como los volúmenes, que se pintan desde su arte. El arte
+ * llega: las texturas son 128 px por casilla (agua y barro, 171), y lo plano,
+ * 141 como mínimo (2026-10-05).
+ *
+ * Medido en el Chromium sin GPU de `pnpm capturas` (34×34, 2026-10-05), el
+ * Worker tarda en pintarlo 5,5 s; el 90 % son las capas 1-6, máscaras a mapa
+ * entero. Son 67 MB; con el esbozo, 83.
  */
-export const PX_DEL_SUELO = 72;
-/** Por debajo de esta casilla en pantalla, el suelo se copia de una mitad ya reducida. */
-const TILE_DE_LA_MITAD = 50;
+export const PX_DEL_SUELO = 120;
+/**
+ * El esbozo: el mismo suelo a la mitad, que se pinta primero (~1,4 s) para no
+ * tener el sucedáneo de pigmentos los 5,5 s que tarda el bueno, y que se copia
+ * cuando la casilla en pantalla no pasa de 60 píxeles de dispositivo.
+ */
+export const PX_DEL_ESBOZO = 60;
 
 /**
  * Un volumen de la escena tal y como lo recorre cada fotograma: con la clave de
@@ -148,42 +153,58 @@ export function escenarioDe(map: MapaDeEscena, semilla: number): Escenario {
   return escenario;
 }
 
-/** El escenario que se está componiendo aparte, o el fallo con el que acabó. */
+/**
+ * Una tarea aparte del fotograma que cuenta como tanda de arte: al acabar, la
+ * página repinta. Si falla, `relanzar` lanza el fallo en el siguiente
+ * fotograma, que es donde la página lo dice: un fallo en una tarea suelta no lo
+ * vería nadie, y la página se quedaría esperando lo que no va a llegar.
+ */
+interface TareaAparte {
+  relanzar(): void;
+}
+
+function aparte(trabajo: () => unknown): TareaAparte {
+  let fallo: unknown;
+  tandaDeArte(
+    new Promise<void>((resolve) =>
+      setTimeout(() => {
+        Promise.resolve()
+          .then(trabajo)
+          .catch((err: unknown) => {
+            fallo = err;
+          })
+          .finally(resolve);
+      }, 0),
+    ),
+  );
+  return {
+    relanzar() {
+      if (fallo !== undefined) throw fallo;
+    },
+  };
+}
+
+/** El escenario que se está componiendo aparte. */
 let preparando: {
   readonly terreno: MapaDeEscena['terrain'];
   readonly semilla: number;
-  fallo: unknown;
+  readonly tarea: TareaAparte;
 } | null = null;
 
 /**
  * El escenario de un mapa si ya está compuesto; si no, lo compone en una tarea
- * aparte y devuelve `null` hasta entonces, y al acabar la página repinta (cuenta
- * como una tanda de arte). Es lo que llaman las páginas a cada fotograma:
- * `componer` cuesta ~60 ms y, en el mismo fotograma que el primer pintado, hacía
- * una tarea de ~130 ms al abrir la partida. Si `componer` falla, el fallo se
- * relanza en el siguiente fotograma, que es donde la página lo dice.
+ * aparte (`aparte`) y devuelve `null` hasta entonces. `componer` cuesta ~60 ms
+ * y, en el mismo fotograma que el primer pintado, hacía una tarea de ~130 ms al
+ * abrir la partida.
  */
 export function escenarioListo(map: MapaDeEscena, semilla: number): Escenario | null {
   if (memo !== null && memo.escenario.terreno === map.terrain && memo.semilla === semilla)
     return memo.escenario;
   if (preparando !== null && preparando.terreno === map.terrain && preparando.semilla === semilla) {
-    if (preparando.fallo !== undefined) throw preparando.fallo;
+    preparando.tarea.relanzar();
     return null;
   }
-  const este = { terreno: map.terrain, semilla, fallo: undefined as unknown };
-  preparando = este;
-  tandaDeArte(
-    new Promise<void>((resolve) =>
-      setTimeout(() => {
-        try {
-          escenarioDe(map, semilla);
-        } catch (err) {
-          este.fallo = err;
-        }
-        resolve();
-      }, 0),
-    ),
-  );
+  preparando = { terreno: map.terrain, semilla, tarea: aparte(() => escenarioDe(map, semilla)) };
   return null;
 }
 
@@ -243,83 +264,190 @@ export function topeDeAlejar(esc: Escenario, ancho: number, alto: number): numbe
 // ------------------------------------------------------------ el suelo
 
 /** La superficie del suelo, a `px` píxeles por casilla. */
-interface SueloPintado {
+export interface SueloPintado {
   readonly lienzo: Imagen;
   readonly px: number;
 }
 
-/** El suelo de un escenario aún sin pintar: el sucedáneo de pigmentos. */
-const SIN_PINTAR = -1;
-
-/**
- * Quién pinta el suelo de verdad: un Worker con `OffscreenCanvas`
- * (`pintor-del-suelo.ts`), si el navegador lo deja, o nadie, y entonces se pinta
- * aquí. Se puede cambiar para probar (`usarPintorDelSuelo`).
- */
-type PintorDelSuelo = (p: PeticionDelSuelo) => Promise<RespuestaDelSuelo>;
-
-function enUnWorker(p: PeticionDelSuelo): Promise<RespuestaDelSuelo> {
-  return new Promise((resolve, reject) => {
-    const w = new Worker(new URL('./pintor-del-suelo.ts', import.meta.url), { type: 'module' });
-    w.addEventListener('message', (e: MessageEvent<RespuestaDelSuelo>) => {
-      w.terminate();
-      resolve(e.data);
-    });
-    w.addEventListener('error', (e) => {
-      w.terminate();
-      reject(new Error(e.message || 'el Worker no ha arrancado'));
-    });
-    w.postMessage(p);
-  });
+/** Lo que avisa un pintor del suelo mientras trabaja. */
+export interface AvisosDelSuelo {
+  /** Lo que no llegó ni al volver a pedirlo, de las `de` imágenes que pinta: sale con su color plano. */
+  faltan(faltan: readonly string[], de: number): void;
+  /** Una superficie ya pintada, en el orden en que se pidieron. */
+  superficie(s: SueloPintado): void;
 }
 
-let pintor: PintorDelSuelo | null | undefined;
+/**
+ * Un encargo de pintar el suelo: `hecho` se cumple tras la última superficie, o
+ * falla con el motivo; `terminar` lo para, y entonces se cumple sin más.
+ */
+export interface EncargoDelSuelo {
+  readonly hecho: Promise<void>;
+  terminar(): void;
+}
 
-function pintorDelSuelo(): PintorDelSuelo | null {
+/**
+ * Quién pinta el suelo de un escenario a las resoluciones que se le piden, una
+ * detrás de otra: un Worker con `OffscreenCanvas` (`pintor-del-suelo.ts`) si el
+ * navegador lo deja, o este hilo. Se puede cambiar para probar
+ * (`usarPintorDelSuelo`).
+ */
+export type PintorDelSuelo = (
+  esc: Escenario,
+  resoluciones: readonly number[],
+  avisos: AvisosDelSuelo,
+) => EncargoDelSuelo;
+
+/**
+ * El pintor del Worker: un encargo para todas las resoluciones, que pinta en
+ * serie, cada una en un Worker que se termina al contestar. Un solo Worker para
+ * las dos cargaría las texturas una vez (~0,1 s), pero no suelta las máscaras de
+ * la primera antes de pintar la segunda: el pico de memoria del navegador subía
+ * 130-380 MB (2026-10-05). Terminarlo lo suelta todo en el acto. Lo que no llegó
+ * lo dice el primero; el segundo pide las mismas imágenes.
+ */
+const enUnWorker: PintorDelSuelo = (esc, resoluciones, avisos) => {
+  let actual: Worker | null = null;
+  let terminado = false;
+  const base = new URL('/mapa/', location.href).href;
+  const una = (px: number, primera: boolean) =>
+    new Promise<void>((resolve, reject) => {
+      const w = new Worker(new URL('./pintor-del-suelo.ts', import.meta.url), { type: 'module' });
+      actual = w;
+      const acabar = (fallo?: Error) => {
+        w.terminate();
+        actual = null;
+        if (fallo === undefined) resolve();
+        else reject(fallo);
+      };
+      w.addEventListener('message', (e: MessageEvent<MensajeDelSuelo>) => {
+        const m = e.data;
+        if ('error' in m) acabar(new Error(m.error));
+        else if ('faltan' in m) {
+          if (primera && m.faltan.length > 0) avisos.faltan(m.faltan, m.imagenes);
+        } else {
+          avisos.superficie({ lienzo: m.lienzo, px: m.px });
+          acabar();
+        }
+      });
+      w.addEventListener('error', (e) =>
+        acabar(new Error(e.message || 'el Worker no ha arrancado')),
+      );
+      const peticion: PeticionDelSuelo = { escena: esc.escena, px: [px], base };
+      w.postMessage(peticion);
+    });
+  let parar = (): void => undefined;
+  const hecho = new Promise<void>((resolve, reject) => {
+    parar = resolve;
+    (async () => {
+      for (const [i, px] of resoluciones.entries()) {
+        if (terminado) return;
+        await una(px, i === 0);
+      }
+    })().then(resolve, reject);
+  });
+  return {
+    hecho,
+    terminar: () => {
+      terminado = true;
+      (actual as Worker | null)?.terminate();
+      parar();
+    },
+  };
+};
+
+/** La siguiente tarea del bucle: lo que va detrás no cae en el fotograma de ahora. */
+const otraTarea = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+/**
+ * El pintor de este hilo, sin Worker —o si el Worker falla, que se dice—: la
+ * misma secuencia. Pide el arte del suelo (y lo que no llegue, una vez más), y
+ * pinta cada resolución en su propia tarea, para que el esbozo se vea mientras
+ * se pinta el bueno. Al acabar suelta lo que solo servía para pintarlo. El bueno
+ * es una tarea de ~5,5 s con la página quieta: es el camino de reserva.
+ */
+const enEsteHilo: PintorDelSuelo = (esc, resoluciones, avisos) => {
+  let terminado = false;
+  const hecho = (async () => {
+    await cargarArteDeEscena(esc.imagenes);
+    const sinLlegar = () => esc.imagenes.filter((src) => imagenDeEscena(src) === undefined);
+    if (sinLlegar().length > 0) await volverAPedirArteDeEscena(sinLlegar());
+    if (terminado) return;
+    const faltan = sinLlegar();
+    if (faltan.length > 0) avisos.faltan(faltan, esc.imagenes.length);
+    for (const px of resoluciones) {
+      await otraTarea();
+      if (terminado) return;
+      avisos.superficie({
+        lienzo: pintarSueloA(esc.escena, esc.separada, px, imagenDeEscena),
+        px,
+      });
+    }
+    olvidarEntonadas();
+    soltarArteDeEscena(esc.soloDelSuelo);
+  })();
+  return {
+    hecho,
+    terminar: () => {
+      terminado = true;
+    },
+  };
+};
+
+let pintor: PintorDelSuelo | undefined;
+
+function pintorDelSuelo(): PintorDelSuelo {
   pintor ??=
     typeof Worker !== 'undefined' &&
     typeof OffscreenCanvas !== 'undefined' &&
     typeof createImageBitmap !== 'undefined'
       ? enUnWorker
-      : null;
+      : enEsteHilo;
   return pintor;
 }
 
-/** Cambia quién pinta el suelo de los escenarios que vengan: `null` es pintarlo aquí. */
+/** Cambia quién pinta el suelo de los escenarios que vengan: `null` es este hilo. */
 export function usarPintorDelSuelo(p: PintorDelSuelo | null): void {
-  pintor = p;
+  pintor = p ?? enEsteHilo;
 }
 
-let suelo: {
-  readonly escenario: Escenario;
+/** Las superficies del suelo de un escenario, de las que se elige una por zoom (`nivelDelSuelo`). */
+export interface NivelesDelSuelo {
+  esbozo: SueloPintado | null;
+  bueno: SueloPintado | null;
   /**
-   * Si lo está pintando el Worker. Mientras, se ve el sucedáneo; si falla, se
-   * pinta aquí como sin Worker.
+   * El esbozo a la mitad, a la cuarta parte…, que se sacan cuando una pantalla
+   * grande aleja tanto que el esbozo se reduciría a menos de la mitad.
    */
-  aparte: boolean;
-  /** La `versionDelArte` con la que se pintó, o `SIN_PINTAR`. */
-  version: number;
-  /** Si ya se volvió a pedir lo que no llegó: se reintenta una vez por escenario. */
-  reintentado: boolean;
-  entero: SueloPintado;
-  mitad: SueloPintado | null;
-} | null = null;
+  readonly menores: SueloPintado[];
+}
+
+interface SueloDelEscenario extends NivelesDelSuelo {
+  readonly escenario: Escenario;
+  readonly sucedaneo: SueloPintado;
+  encargo: EncargoDelSuelo;
+  tarea: TareaAparte;
+}
+
+let suelo: SueloDelEscenario | null = null;
 
 /** Cómo va el suelo del último mapa: lo apunta cada página en `#app[data-escenario]`. */
-type EstadoDelSuelo = 'sin-mapa' | 'cargando' | 'pintado';
+type EstadoDelSuelo = 'sin-mapa' | 'cargando' | 'esbozado' | 'pintado';
 
 function estadoDelSuelo(): EstadoDelSuelo {
   if (suelo === null) return 'sin-mapa';
-  return suelo.version === SIN_PINTAR ? 'cargando' : 'pintado';
+  if (suelo.bueno !== null) return 'pintado';
+  return suelo.esbozo !== null ? 'esbozado' : 'cargando';
 }
 
 const quienesMiran = new Set<(estado: EstadoDelSuelo) => void>();
 
 /**
  * Apunta en `el.dataset.escenario` cómo va el suelo, ahora y cada vez que
- * cambie: `cargando` mientras se ve el sucedáneo de pigmentos, `pintado` cuando
- * ya es el del escenógrafo. Es para quien mire la página desde fuera: `pnpm
- * capturas` espera a `pintado` antes de un gesto que tiene que ver el suelo.
+ * cambie: `cargando` mientras se ve el sucedáneo de pigmentos, `esbozado` con el
+ * esbozo de `PX_DEL_ESBOZO` y `pintado` cuando ya está el de `PX_DEL_SUELO`. Es
+ * para quien mire la página desde fuera: quien mide o captura el mapa espera a
+ * `pintado` antes de un gesto que tiene que ver el suelo.
  */
 export function apuntarElSueloEn(el: HTMLElement): void {
   const apuntar = (estado: EstadoDelSuelo) => {
@@ -335,121 +463,150 @@ function anunciar(): void {
 }
 
 /**
- * El suelo del mapa para una cámara de `tile` px por casilla.
+ * El suelo del mapa para una cámara de `pxDeDispositivo` píxeles de dispositivo
+ * por casilla (la casilla CSS por la densidad del lienzo): de lo ya pintado, la
+ * superficie que se reduce menos sin ampliarse (`nivelDelSuelo`).
  *
- * La primera vez lo encarga y, mientras tanto, devuelve un lienzo de un píxel
- * por casilla con el pigmento de cada terreno, que cuesta nada.
- *
- * Con Worker, lo pinta el Worker UNA vez a `PX_DEL_SUELO`, con su mitad, y el
- * hilo principal solo pide las imágenes de los volúmenes: pintarlo aquí era una
- * tarea de ~2 s en la que la página no respondía. Sin Worker —o si el Worker
- * falla, que se dice—, se pinta aquí: cuando ha entrado arte nuevo y no queda
- * ninguna tanda en camino, una vez, y se suelta lo que solo servía para eso.
+ * La primera vez lo encarga —el esbozo y luego el bueno— y, mientras tanto,
+ * devuelve un lienzo de un píxel por casilla con el pigmento de cada terreno,
+ * que cuesta nada. Con Worker, el hilo principal solo pide las imágenes de los
+ * volúmenes: pintarlo aquí es una tarea de 5,5 s con la página quieta.
  */
-export function sueloDelMapa(esc: Escenario, tile: number): SueloPintado {
-  if (suelo === null || suelo.escenario !== esc) {
-    const quien = pintorDelSuelo();
-    suelo = {
-      escenario: esc,
-      aparte: quien !== null,
-      version: SIN_PINTAR,
-      reintentado: false,
-      entero: sucedaneo(esc),
-      mitad: null,
-    };
-    if (quien === null) cargarArteDeEscena(esc.imagenes);
-    else {
-      cargarArteDeEscena(esc.deVolumenes);
-      encargarElSuelo(esc, quien);
-    }
-    anunciar();
+export function sueloDelMapa(esc: Escenario, pxDeDispositivo: number): SueloPintado {
+  if (suelo === null || suelo.escenario !== esc) empezarElSuelo(esc);
+  const s = suelo as SueloDelEscenario;
+  s.tarea.relanzar();
+  return nivelDelSuelo(s, pxDeDispositivo) ?? s.sucedaneo;
+}
+
+function empezarElSuelo(esc: Escenario): void {
+  // Lo del mapa anterior ya no se ve: se para su pintor y se suelta lo pintado.
+  if (suelo !== null) {
+    suelo.encargo.terminar();
+    for (const n of [suelo.esbozo, suelo.bueno, ...suelo.menores]) cerrar(n);
   }
-  if (
-    !suelo.aparte &&
-    suelo.version !== versionDelArte() &&
-    !arteCargando() &&
-    !cargarArteDeEscena(esc.imagenes) &&
-    !faltaArte(esc)
-  ) {
-    const { entero, mitad } = pintarSueloConSuMitad(
-      esc.escena,
-      esc.separada,
-      PX_DEL_SUELO,
-      imagenDeEscena,
-    );
-    suelo.entero = { lienzo: entero, px: PX_DEL_SUELO };
-    suelo.mitad = { lienzo: mitad, px: PX_DEL_SUELO / 2 };
-    suelo.version = versionDelArte();
-    soltarArteDeEscena(esc.soloDelSuelo);
-    anunciar();
-  }
-  if (suelo.mitad === null || tile >= TILE_DE_LA_MITAD) return suelo.entero;
-  return suelo.mitad;
+  const quien = pintorDelSuelo();
+  const s: SueloDelEscenario = {
+    escenario: esc,
+    sucedaneo: sucedaneo(esc),
+    esbozo: null,
+    bueno: null,
+    menores: [],
+    encargo: { hecho: Promise.resolve(), terminar: () => undefined },
+    tarea: { relanzar: () => undefined },
+  };
+  suelo = s;
+  if (quien !== enEsteHilo) void cargarArteDeEscena(esc.deVolumenes);
+  encargar(s, quien, [PX_DEL_ESBOZO, PX_DEL_SUELO]);
+  anunciar();
 }
 
 /**
- * Encarga el suelo de `esc` a `quien` y lo pone cuando llega, si sigue siendo el
- * del mapa que se pinta. Lo que no llegó ni al volver a pedirlo sale con su
- * color plano, y se dice como error, igual que sin Worker. Si el Worker falla, se
- * dice también, y el suelo se pinta aquí: el juego no se queda con el sucedáneo.
- * Cuenta como una tanda de arte: al acabar, la página repinta.
+ * Encarga a `quien` las `resoluciones` del suelo de `s`. Si el que falla es el
+ * Worker, se dice y se pintan en este hilo las que no llegaron: el juego no se
+ * queda con el sucedáneo, ni se vuelve a pintar el esbozo que ya está. Si falla
+ * este hilo, el fallo sale en el siguiente fotograma.
  */
-function encargarElSuelo(esc: Escenario, quien: PintorDelSuelo): void {
-  const peticion: PeticionDelSuelo = {
-    escena: esc.escena,
-    px: PX_DEL_SUELO,
-    base: new URL('/mapa/', location.href).href,
-  };
-  tandaDeArte(
-    quien(peticion)
-      .then((r) => {
-        if ('error' in r) throw new Error(r.error);
-        if (suelo === null || suelo.escenario !== esc) {
-          r.entero.close();
-          r.mitad.close();
-          return;
-        }
-        if (r.faltan.length > 0) avisarDeLoQueFalta(r.faltan, r.imagenes);
-        suelo.entero = { lienzo: r.entero, px: PX_DEL_SUELO };
-        suelo.mitad = { lienzo: r.mitad, px: PX_DEL_SUELO / 2 };
-        suelo.version = versionDelArte();
-        anunciar();
-      })
-      .catch((err: unknown) => {
-        console.error(
-          `el suelo del mapa no se ha podido pintar aparte (${err instanceof Error ? err.message : String(err)}): se pinta en el hilo principal`,
-        );
-        if (suelo === null || suelo.escenario !== esc) return;
-        suelo.aparte = false;
-        cargarArteDeEscena(esc.imagenes);
-      }),
+function encargar(s: SueloDelEscenario, quien: PintorDelSuelo, resoluciones: readonly number[]) {
+  const encargo = quien(s.escenario, resoluciones, {
+    faltan: avisarDeLoQueFalta,
+    superficie: (n) => ponerSuperficie(s, n),
+  });
+  // El `catch` va ya, y no en la tarea aparte: un rechazo sin manejar hasta
+  // entonces sería un error de la página.
+  const hecho = encargo.hecho.catch((err: unknown) => {
+    if (quien === enEsteHilo) throw err;
+    const faltan = resoluciones.filter(
+      (px) => (px === PX_DEL_ESBOZO ? s.esbozo : s.bueno) === null,
+    );
+    console.error(
+      `el suelo del mapa no se ha podido pintar aparte (${err instanceof Error ? err.message : String(err)}): se pinta en el hilo principal a ${faltan.join(' y ')} px por casilla`,
+    );
+    if (suelo === s && faltan.length > 0) encargar(s, enEsteHilo, faltan);
+  });
+  s.encargo = encargo;
+  s.tarea = aparte(() => hecho);
+}
+
+/** Pone una superficie que acaba de llegar, si sigue siendo la del mapa que se pinta; si no, la cierra. */
+function ponerSuperficie(s: SueloDelEscenario, n: SueloPintado): void {
+  if (suelo !== s) {
+    cerrar(n);
+    return;
+  }
+  if (n.px === PX_DEL_ESBOZO) {
+    for (const m of [s.esbozo, ...s.menores]) cerrar(m);
+    s.menores.length = 0;
+    s.esbozo = n;
+  } else if (n.px === PX_DEL_SUELO) {
+    cerrar(s.bueno);
+    s.bueno = n;
+  } else {
+    cerrar(n);
+    throw new Error(
+      `el pintor del suelo ha devuelto una superficie de ${n.px} px por casilla, que nadie ha pedido`,
+    );
+  }
+  anunciar();
+  avisarDeArteNuevo();
+}
+
+/** Suelta lo que ocupa una superficie que ya no se pinta. */
+function cerrar(n: SueloPintado | null): void {
+  if (n === null) return;
+  if ('close' in n.lienzo) n.lienzo.close();
+  else {
+    // Un lienzo no se cierra: a 0×0 suelta su memoria.
+    n.lienzo.width = 0;
+    n.lienzo.height = 0;
+  }
+}
+
+/**
+ * De las superficies pintadas, la que se copia a `px` píxeles por casilla: la
+ * más pequeña que no se amplía, que es la más barata de reducir y se reduce a
+ * ×0,5-1, donde la bilineal no pierde nada. Si ninguna llega, la mayor.
+ * `undefined` si aún no hay ninguna.
+ *
+ * Por debajo de la mitad del esbozo saca su mitad, y la de esta, las que hagan
+ * falta: la bilineal por debajo de ×0,5 se salta píxeles y hace dientes de
+ * sierra. En 3840×2160 al tope no hace falta (la casilla queda a 33-45 píxeles
+ * de dispositivo en las semillas 1 y 7, ×0,54-0,74 del esbozo); en 7680×4320 sí
+ * (~24).
+ */
+export function nivelDelSuelo(n: NivelesDelSuelo, px: number): SueloPintado | undefined {
+  const { esbozo, bueno } = n;
+  if (esbozo === null || (bueno !== null && px > esbozo.px)) return bueno ?? undefined;
+  let elegido = esbozo;
+  for (let i = 0; px * 2 <= elegido.px && elegido.px >= 2; i++)
+    elegido = n.menores[i] ?? mitadDe(n, elegido);
+  return elegido;
+}
+
+/**
+ * La mitad de una superficie, apuntada en `n.menores`. A ×0,5 justo, la
+ * bilineal promedia cada 2×2: es una reducción limpia, y barata (2 ms la del
+ * esbozo en 7680×4320, sin GPU, 2026-10-05).
+ */
+function mitadDe(n: NivelesDelSuelo, s: SueloPintado): SueloPintado {
+  const ancho = 'naturalWidth' in s.lienzo ? s.lienzo.naturalWidth : s.lienzo.width;
+  const alto = 'naturalHeight' in s.lienzo ? s.lienzo.naturalHeight : s.lienzo.height;
+  const { lienzo, c } = lienzoCon(
+    Math.max(1, Math.round(ancho / 2)),
+    Math.max(1, Math.round(alto / 2)),
   );
+  c.imageSmoothingEnabled = true;
+  c.imageSmoothingQuality = 'low';
+  c.drawImage(s.lienzo, 0, 0, lienzo.width, lienzo.height);
+  const mitad = { lienzo, px: s.px / 2 };
+  n.menores.push(mitad);
+  return mitad;
 }
 
 function avisarDeLoQueFalta(faltan: readonly string[], de: number): void {
   console.error(
     `el suelo del mapa se pinta sin ${faltan.length} de sus ${de} imágenes, que no han llegado ni al volver a pedirlas (${faltan.slice(0, 5).join(', ')}${faltan.length > 5 ? ', …' : ''}): salen con su color plano`,
   );
-}
-
-/**
- * Si el suelo tiene que esperar porque una imagen de la escena se pidió y no
- * llegó. La primera vez la vuelve a pedir y espera a esa tanda; si tampoco llega,
- * lo dice como error y deja pintar: lo que falta sale con su marcador de color.
- * Sin esto, una tanda que se cerraba con fallos daba el suelo por pintado con las
- * texturas en su color plano, y no se volvía a intentar nunca.
- */
-function faltaArte(esc: Escenario): boolean {
-  if (suelo === null) throw new Error('faltaArte sin suelo: lo llama sueloDelMapa');
-  const faltan = esc.imagenes.filter((src) => imagenDeEscena(src) === undefined);
-  if (faltan.length === 0) return false;
-  if (!suelo.reintentado) {
-    suelo.reintentado = true;
-    volverAPedirArteDeEscena(faltan);
-    return true;
-  }
-  avisarDeLoQueFalta(faltan, esc.imagenes.length);
-  return false;
 }
 
 /** Un píxel por casilla con el pigmento de su terreno: lo que se ve mientras llega el arte. */

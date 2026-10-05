@@ -225,8 +225,9 @@ function posicionEn(
 /**
  * El suelo tal y como se ve ahora: la superficie del escenógrafo
  * (`sueloDelMapa`) copiada a la cámara, recortada al lienzo. Se compone fuera de
- * pantalla y se guarda mientras la cámara no se mueva: copiar la superficie de
- * 72 px escalada a 1280×800 cuesta 7-13 ms, y copiar esta, 0,12.
+ * pantalla y se guarda mientras la cámara no se mueva —o hasta que llega una
+ * superficie mejor—: escalar la superficie a 1280×800 cuesta 7-13 ms, y copiar
+ * esta, 0,12.
  */
 let fondo: { clave: string; suelo: Imagen; lienzo: HTMLCanvasElement } | null = null;
 
@@ -234,17 +235,24 @@ function fondoDe(ctx: CanvasRenderingContext2D, v: VistaMapa, esc: Escenario): H
   const { width: W, height: H } = v.escena.map;
   const { camara } = v;
   const dpr = densidadDe(ctx);
-  const suelo = sueloDelMapa(esc, camara.tile);
-  const clave = `${camara.tile}|${camara.x}|${camara.y}|${v.ancho}|${v.alto}|${dpr}`;
+  // La casilla en píxeles de dispositivo: es lo que decide si una superficie se amplía.
+  const suelo = sueloDelMapa(esc, camara.tile * dpr);
+  // Mide lo mismo que el lienzo de la página, para copiarlo píxel a píxel.
+  const { width: ancho, height: alto } = ctx.canvas;
+  const clave = `${camara.tile}|${camara.x}|${camara.y}|${ancho}|${alto}|${dpr}`;
   if (fondo !== null && fondo.clave === clave && fondo.suelo === suelo.lienzo) return fondo.lienzo;
   const lienzo = fondo?.lienzo ?? document.createElement('canvas');
-  lienzo.width = Math.max(1, Math.ceil(v.ancho * dpr));
-  lienzo.height = Math.max(1, Math.ceil(v.alto * dpr));
+  lienzo.width = ancho;
+  lienzo.height = alto;
   const c = lienzo.getContext('2d');
   if (c === null) throw new Error('este navegador no tiene canvas 2D para el suelo del mapa');
   c.setTransform(dpr, 0, 0, dpr, 0, 0);
   c.imageSmoothingEnabled = true;
-  c.imageSmoothingQuality = 'high';
+  // Bilineal y no de alta calidad: `sueloDelMapa` da una superficie que se
+  // reduce a ×0,5-1, y ahí la bilineal no pierde nada. La alta calidad, desde la
+  // superficie de 120, costaba 23 ms por fotograma arrastrando en 2560×1440 y
+  // 95 ms la primera vez (2026-10-05).
+  c.imageSmoothingQuality = 'low';
   c.fillStyle = '#080a10';
   c.fillRect(0, 0, v.ancho, v.alto);
   const origen = mundoAPixel(camara, 0, 0);
@@ -257,7 +265,7 @@ function fondoDe(ctx: CanvasRenderingContext2D, v: VistaMapa, esc: Escenario): H
 
 /**
  * Los píxeles de dispositivo que se pintan, como mucho, en un fotograma del mapa
- * (`ajustarLienzo().preparar`): en una pantalla mayor el mapa se pinta a menos
+ * alejado (`presupuestoDelMapa`): en una pantalla mayor el mapa se pinta a menos
  * densidad y el navegador lo amplía. El tope de alejar cuenta volúmenes, pero en
  * un lienzo grande el tope sube y cada volumen ocupa más: lo caro pasa a ser el
  * relleno y no el número.
@@ -269,6 +277,71 @@ function fondoDe(ctx: CanvasRenderingContext2D, v: VistaMapa, esc: Escenario): H
  * presupuesto eran 7. El coste no crece en línea: con 1 000 000, 60.
  */
 export const PIXELES_DEL_MAPA = 1_500_000;
+
+/**
+ * Hasta cuántos píxeles de dispositivo se pinta el lienzo del mapa a densidad
+ * plena al acercar: el de una ventana de 2560×1440 (2 200×1 317 = 2,9 M). En
+ * 3840×2160 (7,1 M) el presupuesto se queda siempre: a densidad plena en el zoom
+ * máximo iba a 28/20 fps (quieto/arrastrando), frente a 36/33 con él (decisión
+ * del usuario, 2026-10-05).
+ */
+export const PIXELES_AL_ACERCAR = 3_000_000;
+
+/**
+ * Cuánto más se puede alejar a densidad plena antes de volver al presupuesto,
+ * en píxeles: (98/86)², un paso de rueda (`TILE_PASO`) cerca del umbral. Sin
+ * ella, la rueda que va y viene alrededor del umbral reasignaba el lienzo a
+ * cada paso.
+ */
+const HOLGURA_DE_LA_PLENA = 1.3;
+
+/**
+ * El presupuesto de píxeles del mapa para una cámara de `tile` px por casilla
+ * con el tope de alejar en `tope`, en un lienzo de `pixelesPlenos` píxeles de
+ * dispositivo a la densidad de la pantalla.
+ *
+ * `PIXELES_DEL_MAPA` se midió al tope de alejar, que es donde hay más volúmenes
+ * a la vista; acercando, los que se ven bajan con 1/tile², así que el mismo
+ * coste deja pintar (tile/tope)² veces más píxeles. Cuando eso cubre el lienzo
+ * entero —y no pasa de `PIXELES_AL_ACERCAR`—, `undefined`: densidad plena. Con
+ * el presupuesto fijo, la pantalla del usuario (1 623×930 a dpr 1,09) se pintaba
+ * a 0,997 y 2560×1440 a 0,72 también en el zoom máximo, y se veía blando.
+ *
+ * Es plena o nada, sin densidades intermedias: en 4K, una de 0,65 en el zoom
+ * máximo iba a 28/20 fps, frente a 36/33 con la de 0,46. Si ya estaba a plena
+ * (`plenaAntes`), aguanta `HOLGURA_DE_LA_PLENA` más, salvo en el tope.
+ */
+export function presupuestoDelMapa(
+  tile: number,
+  tope: number,
+  pixelesPlenos: number,
+  plenaAntes = false,
+): number | undefined {
+  if (!(tile > 0) || !(tope > 0))
+    throw new Error(`el presupuesto del mapa necesita casillas de más de 0 px (${tile} y ${tope})`);
+  const proporcion = tile / tope;
+  // Al tope no hay holgura: ahí se midió `PIXELES_DEL_MAPA`, y la pantalla del
+  // usuario lo pasa solo un 19 %.
+  const holgura = plenaAntes && tile > tope ? HOLGURA_DE_LA_PLENA : 1;
+  const caben = PIXELES_DEL_MAPA * proporcion * proporcion * holgura;
+  return pixelesPlenos <= PIXELES_AL_ACERCAR && pixelesPlenos <= caben
+    ? undefined
+    : PIXELES_DEL_MAPA;
+}
+
+/** `presupuestoDelMapa` con memoria de lo que dio la última vez: uno por página. */
+export function presupuestoConHolgura(): (
+  tile: number,
+  tope: number,
+  pixelesPlenos: number,
+) => number | undefined {
+  let plena = false;
+  return (tile, tope, pixelesPlenos) => {
+    const p = presupuestoDelMapa(tile, tope, pixelesPlenos, plena);
+    plena = p === undefined;
+    return p;
+  };
+}
 
 export function drawMapa(ctx: CanvasRenderingContext2D, v: VistaMapa): void {
   const { escena, camara } = v;
@@ -287,7 +360,15 @@ export function drawMapa(ctx: CanvasRenderingContext2D, v: VistaMapa): void {
   ctx.imageSmoothingQuality = 'high';
 
   // 1 · El suelo: la superficie fija del escenógrafo.
-  ctx.drawImage(fondoDe(ctx, v, esc), 0, 0, v.ancho, v.alto);
+  //     Píxel a píxel, sin la transformación: el fondo mide lo mismo que el
+  //     lienzo, y con la caja CSS como destino la escala no es exactamente 1 y
+  //     la copia pasa a ser un reescalado (23 ms por fotograma en 2560×1440,
+  //     frente a ~1 de la copia directa, 2026-10-05).
+  const suelo = fondoDe(ctx, v, esc);
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.drawImage(suelo, 0, 0);
+  ctx.restore();
 
   // 2 · Lo que tiene altura —los volúmenes de la escena y las figuras del juego—,
   //     en un solo orden de profundidad: una figura puede quedar detrás de un árbol.
@@ -454,12 +535,23 @@ function pintarLoQueTieneAltura(
     volumenes,
     cosas,
     (vol) => {
-      if (!enElMapa) ctx.setTransform(1, 0, 0, 1, ox, oy);
+      if (!enElMapa) {
+        ctx.setTransform(1, 0, 0, 1, ox, oy);
+        // Las copias de los volúmenes miden lo que se pinta y se copian 1:1;
+        // solo se escala la de otro tamaño que se ve uno o pocos fotogramas
+        // mientras se hace la suya (`copiaReducidaSiCabe`), y esa, en bilineal:
+        // en alta calidad, los ~1 000 volúmenes que cambian de tamaño a cada
+        // paso de rueda hacían tareas de 100-127 ms en 2560×1440 (2026-10-05).
+        ctx.imageSmoothingQuality = 'low';
+      }
       enElMapa = true;
       pintarSprite(ctx, vol.s, opciones);
     },
     (cosa) => {
-      if (enElMapa) ctx.setTransform(enPantalla);
+      if (enElMapa) {
+        ctx.setTransform(enPantalla);
+        ctx.imageSmoothingQuality = 'high';
+      }
       enElMapa = false;
       pintarCosa(ctx, v, cosa);
     },

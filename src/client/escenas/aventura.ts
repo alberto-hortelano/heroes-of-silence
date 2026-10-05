@@ -16,10 +16,12 @@ import {
   type Encuadre,
   pixelACasilla,
   TILE_INICIAL,
+  topeDe,
   zoom,
 } from '../render/camara-mapa.js';
 import { escenarioListo, topeDeAlejar } from '../render/escenario/superficie.js';
-import { drawMapa, type PasoDeRuta } from '../render/mapa.js';
+import { type Medida, pixelesDe } from '../render/lienzo.js';
+import { drawMapa, type PasoDeRuta, presupuestoConHolgura } from '../render/mapa.js';
 import { casillaDelMinimapa, drawMinimapa } from '../render/minimapa.js';
 import type { Session } from '../session.js';
 
@@ -106,6 +108,21 @@ export class EscenaAventura {
       this.camara = acotar(this.camara, this.encuadre);
     }
   }
+
+  private readonly presupuestoDelMapa = presupuestoConHolgura();
+
+  /**
+   * Los píxeles a los que se pinta el mapa en este fotograma (el `Presupuesto`
+   * de `preparar`): con la cámara ya encuadrada en la caja de ahora.
+   */
+  readonly presupuesto = (medida: Medida, dpr: number): number | undefined => {
+    this.encuadrar(medida.width, medida.height);
+    return this.presupuestoDelMapa(
+      this.camara.tile,
+      topeDe(this.encuadre),
+      pixelesDe(medida.width, medida.height, dpr),
+    );
+  };
 
   dibujar(ctx: CanvasRenderingContext2D, ancho: number, alto: number, ahora: number): void {
     const s = this.sesion();

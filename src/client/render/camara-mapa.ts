@@ -186,9 +186,14 @@ export function tileMinimo(
   return { tile: alto_, exceso: 0 };
 }
 
+/** El tope de alejar de un encuadre: el suyo, o `TILE_LEGIBLE` mientras no lo tenga. */
+export function topeDe(e: Encuadre): number {
+  return e.tileMinimo ?? TILE_LEGIBLE;
+}
+
 /** El tile dentro de sus topes. */
 function enSusTopes(tile: number, e: Encuadre): number {
-  return Math.max(e.tileMinimo ?? TILE_LEGIBLE, Math.min(TILE_MAX, tile));
+  return Math.max(topeDe(e), Math.min(TILE_MAX, tile));
 }
 
 /** El centro de una casilla en pantalla. */

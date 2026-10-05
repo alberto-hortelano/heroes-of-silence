@@ -6,19 +6,33 @@
  * veces por segundo para un tamaño que casi nunca cambia—; ahora lo vigila un
  * `ResizeObserver` y el fotograma solo lee lo ya medido.
  */
+/** La caja del lienzo, en píxeles CSS. */
+export interface Medida {
+  readonly width: number;
+  readonly height: number;
+}
+
+/**
+ * Cuántos píxeles de dispositivo se pintan como mucho en una caja de `medida` a
+ * la densidad `dpr` de la pantalla, o `undefined` si todos los que tenga.
+ */
+export type Presupuesto = (medida: Medida, dpr: number) => number | undefined;
+
 interface Lienzo {
   readonly ctx: CanvasRenderingContext2D;
   /**
    * El tamaño en píxeles CSS, con el contexto ya escalado por la densidad de la
    * pantalla: quien pinta trabaja en CSS y sale nítido en una pantalla retina.
    *
-   * Con `pixelesMaximos`, el lienzo no pasa de esos píxeles de dispositivo: si
-   * la caja los pasa, se pinta a menos densidad que la de la pantalla y el
-   * navegador lo amplía al componer (`densidadConPresupuesto`). Quien pinta no se
-   * entera: sigue trabajando en CSS, y lo que mide la densidad (`densidadDe`)
-   * lee la reducida.
+   * Con `presupuesto`, el lienzo no pasa de los píxeles de dispositivo que diga
+   * para la caja de ahora: si la caja los pasa, se pinta a menos densidad que la
+   * de la pantalla y el navegador lo amplía al componer
+   * (`densidadConPresupuesto`). Quien pinta no se entera: sigue trabajando en
+   * CSS, y lo que mide la densidad (`densidadDe`) lee la reducida. Se le pasa la
+   * caja y no se le pide la cifra antes porque la caja se mide aquí: con la del
+   * fotograma anterior, el presupuesto iba un fotograma tarde.
    */
-  preparar(pixelesMaximos?: number): { readonly width: number; readonly height: number };
+  preparar(presupuesto?: Presupuesto): Medida;
   /**
    * Mide YA, sin esperar al observador. Para cuando quien pinta acaba de cambiar
    * algo que mueve la caja —la escena, que en el móvil cambia el ancho del
@@ -36,7 +50,7 @@ export function ajustarLienzo(canvas: HTMLCanvasElement, alCambiar: () => void):
   if (ctx === null) throw new Error('este navegador no tiene canvas 2D');
   let medida = { width: 1, height: 1 };
   let dpr = 1;
-  /** El presupuesto del último `preparar`, y la densidad que sale de él. */
+  /** Los píxeles del último `preparar`, y la densidad que sale de ellos. */
   let presupuesto: number | undefined;
   let densidad = 1;
   const dimensionar = (): void => {
@@ -66,7 +80,8 @@ export function ajustarLienzo(canvas: HTMLCanvasElement, alCambiar: () => void):
   return {
     ctx,
     remedir: medir,
-    preparar(pixelesMaximos) {
+    preparar(pedir) {
+      const pixelesMaximos = pedir?.(medida, dpr);
       if (pixelesMaximos !== presupuesto) {
         presupuesto = pixelesMaximos;
         dimensionar();
@@ -91,8 +106,13 @@ export function densidadConPresupuesto(
   if (!(pixelesMaximos > 0))
     throw new Error(`el presupuesto de un lienzo son píxeles, y ${pixelesMaximos} no lo es`);
   const area = ancho * alto;
-  if (area <= 0 || area * dpr * dpr <= pixelesMaximos) return dpr;
+  if (area <= 0 || pixelesDe(ancho, alto, dpr) <= pixelesMaximos) return dpr;
   return Math.sqrt(pixelesMaximos / area);
+}
+
+/** Los píxeles de dispositivo de una caja de `ancho × alto` px CSS a la densidad `dpr`. */
+export function pixelesDe(ancho: number, alto: number, dpr: number): number {
+  return ancho * alto * dpr * dpr;
 }
 
 /**
