@@ -547,5 +547,122 @@
     ],
     "thread": "01a10655-1195-7271-a437-cbe09d602dd4",
     "approved": "2026-10-04"
+  },
+  {
+    "id": 40,
+    "faction": "Elfos",
+    "name": "Danzante de espadas (héroe)",
+    "path": "assets/art/elfos/danzante-de-espadas.png",
+    "prompt": "Use case: stylized-concept. Asset type: hero design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single character, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, dark fantasy. An elven blade dancer hero, the fastest of the elves: long white hair tied back, light armor of golden leaf-shaped scales, flowing green cloth tassets that swirl with movement, a curved elven sword in each hand. Mid-spin, graceful and lethal stance, infiltrator and harrier. Palette: moss green, gold, silver, pale skin, amber accents.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same elven faction: match their painting style, finish, lighting, grey background and moss-green, silver and pale-wood palette exactly, but design a NEW character as described; do not copy their figures. The last attached image is this same character as already approved in game: keep his face, costume and colours.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, heavy armor, shield, katana, ninja",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "c2b15e4d42bb5658c07f4ef65505759a315dce4a4066a44c8db47455601b712d",
+    "source_image": "/home/al/.codex/generated_images/01a10b77-4611-7560-9c8c-13527f82421e/exec-c8528433-1ed2-4f38-bcd0-f6003ee74b88.png",
+    "references": [
+      "assets/art/elfos/arquero.png",
+      "assets/art/elfos/guardia-del-bosque.png",
+      ".cache/laminas/danzante-de-espadas-identidad.png"
+    ],
+    "thread": "01a10b77-4611-7560-9c8c-13527f82421e",
+    "approved": "2026-10-05"
+  },
+  {
+    "id": 41,
+    "faction": "Elfos",
+    "name": "Druida (héroe)",
+    "path": "assets/art/elfos/druida.png",
+    "prompt": "Use case: stylized-concept. Asset type: hero design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single character, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, dark fantasy. An elven druid hero who controls the terrain: robes of living leaves and moss, a small crown of antlers and flowers, long copper hair, a twisted staff of living wood with green shoots and a soft green light at the tip, thin roots curling around her bare feet as if growing from the ground. Calm, commanding stance. Palette: moss green, bark brown, copper, pale green light.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same elven faction: match their painting style, finish, lighting, grey background and moss-green, silver and pale-wood palette exactly, but design a NEW character as described; do not copy their figures. The last attached image is this same character as already approved in game: keep his face, costume and colours.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, pointed wizard hat, intense magic glow, fire",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "b21807d25b2303ec1fc372c834d9e3be54790f0792e1198ab09f7b5ca38a4dd9",
+    "source_image": "/home/al/.codex/generated_images/01a10b77-470a-7930-b518-b577966e791b/exec-a1712071-cfa6-41e8-98b1-705b83aed5e3.png",
+    "references": [
+      "assets/art/elfos/arquero.png",
+      "assets/art/elfos/guardia-del-bosque.png",
+      ".cache/laminas/druida-identidad.png"
+    ],
+    "thread": "01a10b77-470a-7930-b518-b577966e791b",
+    "approved": "2026-10-05"
+  },
+  {
+    "id": 42,
+    "faction": "Elfos",
+    "name": "Cantora (héroe)",
+    "path": "assets/art/elfos/cantora.png",
+    "prompt": "Use case: stylized-concept. Asset type: hero design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single character, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, dark fantasy. An elven songstress hero, a support leader whose song inspires allies: long green and silver gown with a light chain shirt beneath, a diadem of silver leaves, very long blond hair, a small harp of pale wood held in the left arm, the right hand raised as she sings. Serene, uplifting stance. Palette: moss green, silver, pale gold, pale wood.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same elven faction: match their painting style, finish, lighting, grey background and moss-green, silver and pale-wood palette exactly, but design a NEW character as described; do not copy their figures. The last attached image is this same character as already approved in game: keep his face, costume and colours.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, fairy wings, microphone, sexualized pose",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "0c638f041d205e0a29a6e42e88cf5167f1fb2dcd9b9a8ff438f116643f671b58",
+    "source_image": "/home/al/.codex/generated_images/01a10b77-466d-70d3-a73a-653d0f4a13a4/exec-f29fad42-9511-41c1-b5a7-a2fa60d14481.png",
+    "references": [
+      "assets/art/elfos/arquero.png",
+      "assets/art/elfos/guardia-del-bosque.png",
+      ".cache/laminas/cantora-identidad.png"
+    ],
+    "thread": "01a10b77-466d-70d3-a73a-653d0f4a13a4",
+    "approved": "2026-10-05"
+  },
+  {
+    "id": 43,
+    "faction": "Elfos",
+    "name": "Jinete elfo (a caballo)",
+    "path": "assets/art/elfos/jinete.png",
+    "prompt": "Use case: stylized-concept. Asset type: troop design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single mounted character, full body side view and three-quarter front view, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, dark fantasy. An elven rider, the fastest unit of the game, mounted on a slender grey elven horse with a leaf-embossed bridle and a moss-green saddle cloth: light leaf-scale armor, flowing green cloak, a long slender lance with a leaf-shaped blade couched for the charge, a recurved bow and quiver on the back and a curved sword at the hip. Swift, harrying posture. Palette: moss green, silver, dappled grey horse, pale wood, amber accents.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same elven faction: match their painting style, finish, lighting, grey background and moss-green, silver and pale-wood palette exactly, but design a NEW character as described; do not copy their figures.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, stag, deer, unicorn, antlers, fantasy creature mount, extra horse legs, deformed horse anatomy",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "d60c673063c16852c5b1559e99f8ec826cbc7e9a113a4634d6993ac39b94abc8",
+    "source_image": "/home/al/.codex/generated_images/01a10b77-4659-7483-868a-3cb5c5eb9030/exec-0aadbba4-1a27-47a7-942b-e2313ed30aa9.png",
+    "references": [
+      "assets/art/elfos/arquero.png",
+      "assets/art/elfos/guardia-del-bosque.png"
+    ],
+    "thread": "01a10b77-4659-7483-868a-3cb5c5eb9030",
+    "approved": "2026-10-05"
+  },
+  {
+    "id": 44,
+    "faction": "Elfos",
+    "name": "Sacerdotisa",
+    "path": "assets/art/elfos/sacerdotisa.png",
+    "prompt": "Use case: stylized-concept. Asset type: troop design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single character, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, dark fantasy. An elven priestess of protection, healing and concealment: layered white and moss-green robes with a silver leaf-scale mantle, a hood that can shadow her face, long silver hair, a slender staff of pale wood topped with a crescent of silver leaves, a faint soft mist curling around her free hand. Calm, protective stance. Palette: white, moss green, silver, pale wood, soft mist.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same elven faction: match their painting style, finish, lighting, grey background and moss-green, silver and pale-wood palette exactly, but design a NEW character as described; do not copy their figures.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, intense magic glow, heavy armor, nun habit, sexualized pose",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "f79fe22ebda259d65d2016730e6ce4360e78b4a3b52696665c1490f4ede144dd",
+    "source_image": "/home/al/.codex/generated_images/01a10b77-45be-7681-b442-ca3ad813ec68/exec-024a8d4a-3055-400c-bb94-e9f459bb0cfd.png",
+    "references": [
+      "assets/art/elfos/arquero.png",
+      "assets/art/elfos/guardia-del-bosque.png"
+    ],
+    "thread": "01a10b77-45be-7681-b442-ca3ad813ec68",
+    "approved": "2026-10-05"
+  },
+  {
+    "id": 45,
+    "faction": "Elfos",
+    "name": "Asesino",
+    "path": "assets/art/elfos/asesino.png",
+    "prompt": "Use case: stylized-concept. Asset type: troop design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single character, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, dark fantasy. An elven assassin who appears from the flanks and poisons: dark hooded leather armor wrapped tightly, a mask of dark cloth over the lower face, only sharp amber eyes visible, two short curved daggers with a faint green poison sheen on the blades, small vials at the belt, soft boots. Low, coiled stance ready to slip between enemies. Palette: dark moss green, charcoal, bark brown, poison green, amber eyes.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same elven faction: match their painting style, finish, lighting, grey background and moss-green, silver and pale-wood palette exactly, but design a NEW character as described; do not copy their figures.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, ninja, katana, glowing weapon, gore",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "70877379e0847f46ad199a838ae0ce3adc44e282e7767f1771f668891e558fa2",
+    "source_image": "/home/al/.codex/generated_images/01a10b77-4767-7b93-9932-3efc58adafd1/exec-e7f572c7-9959-4321-bae2-1d0e89915ba4.png",
+    "references": [
+      "assets/art/elfos/arquero.png",
+      "assets/art/elfos/guardia-del-bosque.png"
+    ],
+    "thread": "01a10b77-4767-7b93-9932-3efc58adafd1",
+    "approved": "2026-10-05"
   }
 ]
