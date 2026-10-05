@@ -1,0 +1,69 @@
+{
+  "encargo": "jinete-de-plaga-d3-b-c1",
+  "tipo": "atlas",
+  "fecha": "2026-10-05T16:56:26.279Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a10cfb-986e-7f81-84ee-a64a3a5761c7",
+  "reanuda": "01a10cfb-986e-7f81-84ee-a64a3a5761c7",
+  "prompt": "Corrige la última imagen que has generado en esta conversación, con la herramienta de imágenes, conservando la identidad del personaje y todo lo que no se menciona.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo, una ballesta, una bola), es solo un PUNTO DE PARTIDA: dice dónde están las manos que empuñan, hacia dónde apunta el arma y cuándo se dispara o se suelta. El arma que se pinta es la del PERSONAJE (la de su identidad): cambia la forma, el largo y las piezas del atrezo para que sea la suya —un arcabuz donde el maniquí lleva ballesta, una daga en la izquierda donde lleva escudo, nada donde el personaje no lleva arma— sin cambiar la pose del cuerpo. Si sus piernas son de color, la ROJA es la pierna DERECHA y la AZUL la IZQUIERDA: sirven para no confundirlas en el paso ni girar la figura de espaldas; el personaje NO lleva esos colores. El fondo VERDE de esta hoja es solo fondo, para que se vea el maniquí: no lo copies, el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nEn la fila 2 (el daño) dos jinetes se tocan y se cuentan como uno: hay 6 y tienen que ser 7. Repite la hoja con los 7 jinetes de cada fila separados por una franja de fondo vacío, más pequeños si hace falta, con la lanza vertical y el estandarte recogido junto al asta.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de ATAQUE de la fila 1 de la referencia de pose, atacando con el arma del personaje. Fila 2: las siete poses de RECIBIR DAÑO de la fila 2: encaja un golpe y retrocede. Fila 3: las siete poses de la MUERTE de la fila 3: la primera es EXACTAMENTE la última de la fila 2, luego se desploma, y la última es el cadáver tendido e inmóvil en el suelo, con sus armas en el suelo donde las tiene el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «espalda-derecha» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/montado-lanza-8d/d3-b.png",
+      "papel": "pose",
+      "sha256": "91e2e425845c5b6e971434094033b605dce1d5b94f76ccd6b03de9aec962fee7"
+    },
+    {
+      "ruta": "assets/unidades/jinete-de-plaga/giro.webp",
+      "papel": "identidad",
+      "sha256": "f4a9f9f3b02b3e59b67e5ec1c4019ac7248ebf6de729e0e0a2f631d3026b390c"
+    },
+    {
+      "ruta": "assets/art/no-muertos/jinete-de-plaga.png",
+      "papel": "estilo",
+      "sha256": "e5779d3c996752ee82e7c398a1029e4a05f09d37c9f8777465d6c2b115715cba"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a10cfb-986e-7f81-84ee-a64a3a5761c7/exec-a1ea39b0-217d-446a-8297-2ff4be2d90a7.png",
+    "sha256": "ea4ec7354489865218cc701adc7d0b49188a37557f03a95f2a46259fe991bfb6",
+    "ancho": 1915,
+    "alto": 821
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 1.0916, pies en y=342, reposo a 160 px",
+    "WebP calidad 92, alfa sin pérdida",
+    "dirección completa: assets/unidades/jinete-de-plaga/d3/atlas.webp"
+  ],
+  "validacion": {
+    "visibles": 0.11249909577546297,
+    "opacos": 0.9518518093247829,
+    "haloSuelto": 0.0000028705771582434365,
+    "ancho": 2688,
+    "alto": 1152
+  },
+  "deLaPose": {
+    "k": 1.0666666666666667,
+    "origen": [
+      192,
+      342
+    ],
+    "apoyoReposo": [
+      205,
+      317
+    ],
+    "posicion": true,
+    "elevaciones": [
+      0,
+      0,
+      64
+    ]
+  },
+  "salida": {
+    "ruta": "assets/unidades/jinete-de-plaga/d3/hoja-b.webp",
+    "sha256": "269ca7a159e8fbed88fd06db7a419bf195ab3532ce0259d34fcef2e49a9235e8"
+  }
+}

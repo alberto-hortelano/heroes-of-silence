@@ -1,0 +1,68 @@
+{
+  "encargo": "esqueleto-guerrero-d3-b",
+  "tipo": "atlas",
+  "fecha": "2026-10-05T16:17:50.029Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a10cda-2de1-7ae0-b85f-5cf996ac7070",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo, una ballesta, una bola), es solo un PUNTO DE PARTIDA: dice dónde están las manos que empuñan, hacia dónde apunta el arma y cuándo se dispara o se suelta. El arma que se pinta es la del PERSONAJE (la de su identidad): cambia la forma, el largo y las piezas del atrezo para que sea la suya —un arcabuz donde el maniquí lleva ballesta, una daga en la izquierda donde lleva escudo, nada donde el personaje no lleva arma— sin cambiar la pose del cuerpo. Si sus piernas son de color, la ROJA es la pierna DERECHA y la AZUL la IZQUIERDA: sirven para no confundirlas en el paso ni girar la figura de espaldas; el personaje NO lleva esos colores. El fondo VERDE de esta hoja es solo fondo, para que se vea el maniquí: no lo copies, el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn esqueleto guerrero: huesos amarillentos, cota de malla oxidada y yelmo abollado, escudo redondo de madera en el brazo izquierdo y espada mellada en la derecha.\nEn la lámina de giro (imagen 2), la figura 4 en orden de lectura es la que mira hacia «espalda-derecha», como esta hoja: así se ve el personaje desde este lado.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nHoja de sprites de EXACTAMENTE 7 columnas por 3 filas, 21 figuras del MISMO personaje, separadas con holgura y sin tocarse.\nFila 1: las siete poses de ATAQUE de la fila 1 de la referencia de pose, atacando con el arma del personaje. Fila 2: las siete poses de RECIBIR DAÑO de la fila 2: encaja un golpe y retrocede. Fila 3: las siete poses de la MUERTE de la fila 3: la primera es EXACTAMENTE la última de la fila 2, luego se desploma, y la última es el cadáver tendido e inmóvil en el suelo, con sus armas en el suelo donde las tiene el maniquí. Cada fila copia su fila de la referencia, articulación por articulación.\nMisma cámara ortográfica elevada 25 grados en todas las filas, viendo la coronilla y los dos hombros; NUNCA de perfil ni a la altura de los ojos: aunque el personaje mire de lado, se le ve desde arriba. El personaje mira hacia donde mira el maniquí (dirección «espalda-derecha» vista desde la cámara), en todas las celdas: copia su orientación, no la de la identidad.\nMisma escala en todas las celdas: la figura de pie ocupa unos 160 de cada 384 píxeles de alto. Todo el personaje y su arma caben dentro de su celda con margen.\nDeja al menos 40 píxeles de aire libre entre una figura y la siguiente en las tres filas. Ningún arma invade la celda vecina: si una lanza, pica, espada o maza extendida no cabe, recoge el brazo o inclina el arma hacia arriba.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/unidades/esqueleto-guerrero-8d/d3-b.png",
+      "papel": "pose",
+      "sha256": "85549be00b7094dc5f29495696e09c8c1bdeaf5173c11c3774bfadaceae74353"
+    },
+    {
+      "ruta": "assets/unidades/esqueleto-guerrero/giro.webp",
+      "papel": "identidad",
+      "sha256": "9c5c1958aba108fd75da09206b954af71633f84a96fc5e31cf5daf480ed606d3"
+    },
+    {
+      "ruta": "assets/art/no-muertos/esqueleto-guerrero.png",
+      "papel": "estilo",
+      "sha256": "d6e1aa7c305e2b622f0d90ea3921b2688a8eaabb66a4c5e50a73321b1c1b10c8"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a10cda-2de1-7ae0-b85f-5cf996ac7070/exec-1389c739-7a95-44ba-9bc1-1626499a1e2e.png",
+    "sha256": "59920f76949973693361b78ce3c0b93aafb0b6c388e4f9f33fe64498ae78af72",
+    "ancho": 1916,
+    "alto": 821
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "figuras localizadas y empaquetadas en 7×3 celdas de 384, escala uniforme 0.9017, pies en y=342, reposo a 160 px",
+    "WebP calidad 92, alfa sin pérdida",
+    "dirección completa: assets/unidades/esqueleto-guerrero/d3/atlas.webp"
+  ],
+  "validacion": {
+    "visibles": 0.04415166945684524,
+    "opacos": 0.9353710896071504,
+    "haloSuelto": 0,
+    "ancho": 2688,
+    "alto": 1152
+  },
+  "deLaPose": {
+    "k": 1.0666666666666667,
+    "origen": [
+      192,
+      342
+    ],
+    "apoyoReposo": [
+      201,
+      290
+    ],
+    "posicion": true,
+    "elevaciones": [
+      0,
+      0,
+      64
+    ]
+  },
+  "salida": {
+    "ruta": "assets/unidades/esqueleto-guerrero/d3/hoja-b.webp",
+    "sha256": "6eebf56b4c62a26875ce6e757ccdff18df0af6572686e9117a6ee0aca20d3ad3"
+  }
+}

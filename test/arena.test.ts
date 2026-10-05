@@ -278,14 +278,17 @@ describe('las hojas de assets/unidades se pintan en el tablero', () => {
     expect(HOJAS.length).toBeGreaterThan(40);
   });
 
-  it('las de 8 direcciones traen sus ocho atlas; las demás, el juego de su Y Bot', () => {
+  it('las de 8 direcciones traen sus ocho atlas y el juego de su Y Bot', () => {
     const hoja = (id: string) => HOJAS.find((h) => h.id === id) as (typeof HOJAS)[number];
     expect(hoja('templario-escudo').direcciones).toHaveLength(8);
     expect(hoja('templario-escudo').juego).toBe('espada-escudo');
     expect(hoja('templario-monje').juego).toBe('baston');
-    expect(hoja('zombi').direcciones).toBeNull();
-    expect(hoja('zombi').juego).toBe('lanza');
-    // Cada unidad declarada en 8 direcciones llega con sus ocho.
+    // El zombi lleva espada desde su lámina nueva (05-10-2026).
+    expect(hoja('zombi').direcciones).toHaveLength(8);
+    expect(hoja('zombi').juego).toBe('espada-escudo');
+    // Desde los No muertos (05-10-2026), todas las del taller están en 8
+    // direcciones, y cada una llega con sus ocho.
+    expect(Object.keys(EN_OCHO_DIRECCIONES).sort()).toEqual(HOJAS.map((h) => h.id).sort());
     for (const id of Object.keys(EN_OCHO_DIRECCIONES))
       expect(hoja(id).direcciones, id).not.toBeNull();
   });

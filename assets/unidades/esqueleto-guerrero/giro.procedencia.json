@@ -1,0 +1,50 @@
+{
+  "encargo": "esqueleto-guerrero-giro",
+  "tipo": "giro",
+  "fecha": "2026-10-05T15:45:09.442Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a10cbc-45b7-7163-8a6d-d46ba5fc682f",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo, una ballesta, una bola), es solo un PUNTO DE PARTIDA: dice dónde están las manos que empuñan, hacia dónde apunta el arma y cuándo se dispara o se suelta. El arma que se pinta es la del PERSONAJE (la de su identidad): cambia la forma, el largo y las piezas del atrezo para que sea la suya —un arcabuz donde el maniquí lleva ballesta, una daga en la izquierda donde lleva escudo, nada donde el personaje no lleva arma— sin cambiar la pose del cuerpo. Si sus piernas son de color, la ROJA es la pierna DERECHA y la AZUL la IZQUIERDA: sirven para no confundirlas en el paso ni girar la figura de espaldas; el personaje NO lleva esos colores. El fondo VERDE de esta hoja es solo fondo, para que se vea el maniquí: no lo copies, el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUn esqueleto guerrero: huesos amarillentos, cota de malla oxidada y yelmo abollado, escudo redondo de madera en el brazo izquierdo y espada mellada en la derecha.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nLámina de GIRO de EXACTAMENTE 4 columnas por 2 filas: el MISMO personaje ocho veces, de cuerpo entero, en la pose de reposo, separadas con holgura y sin tocarse.\nCada figura copia la orientación y la pose del maniquí de su celda en la referencia de pose. En orden de lectura miran hacia: 1. frente, 2. frente-derecha, 3. derecha, 4. espalda-derecha, 5. espalda, 6. espalda-izquierda, 7. izquierda, 8. frente-izquierda. Las que van de espaldas enseñan la espalda del personaje: invéntala coherente con su equipo (la capa o sobrevesta por detrás, la cara interior del escudo, la vaina).\nCámara ortográfica elevada 25 grados en todas, viendo la coronilla y los hombros; NUNCA de perfil ni a la altura de los ojos, aunque la figura mire de lado. Misma escala en las ocho.\nEs la lámina de identidad por los ocho lados: el equipo, los colores y los materiales son idénticos en todas y se leen con claridad.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/unidades/esqueleto-guerrero-8d/giro.png",
+      "papel": "pose",
+      "sha256": "6c13c84d3cd69cb83cb74f9446d880fca2e26d86939839101c221817e364b4ba"
+    },
+    {
+      "ruta": "assets/unidades/esqueleto-guerrero/identidad.webp",
+      "papel": "identidad",
+      "sha256": "e576cbebd8956508840632c064e4ce46bae082fc18daad7b1bbe30f037499bc5"
+    },
+    {
+      "ruta": "assets/art/no-muertos/esqueleto-guerrero.png",
+      "papel": "estilo",
+      "sha256": "d6e1aa7c305e2b622f0d90ea3921b2688a8eaabb66a4c5e50a73321b1c1b10c8"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a10cbc-45b7-7163-8a6d-d46ba5fc682f/exec-1948e421-a020-449c-b5bc-6306f2a8f2bb.png",
+    "sha256": "56f14f7229d7c42a84dbd2bc51ce6705dceedbe348055555af05c3ce683a0d71",
+    "ancho": 1774,
+    "alto": 887
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.21220289847160081,
+    "opacos": 0.9520495520122465,
+    "haloSuelto": 0.00006110385726138944,
+    "ancho": 1652,
+    "alto": 887
+  },
+  "salida": {
+    "ruta": "assets/unidades/esqueleto-guerrero/giro.webp",
+    "sha256": "9c5c1958aba108fd75da09206b954af71633f84a96fc5e31cf5daf480ed606d3"
+  }
+}

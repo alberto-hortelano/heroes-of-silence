@@ -239,7 +239,9 @@ describe('los encargos de 8 direcciones', () => {
   });
 
   it('una unidad que no está en 8 direcciones no tiene giro', () => {
-    expect(() => encargoDeGiro(unidad('zombi'))).toThrow(/8 direcciones/);
+    // Todas las del taller lo están (05-10-2026): la guarda se mira con una inventada.
+    const inventada = { ...unidad('zombi'), id: 'zombi-inventado' };
+    expect(() => encargoDeGiro(inventada)).toThrow(/8 direcciones/);
   });
 });
 

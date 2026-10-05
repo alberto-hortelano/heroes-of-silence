@@ -460,3 +460,31 @@ declarar su `talla` (docs/art/taller.md): los goblins van a 0,7 y el troll a
 1,45, y sus 88 hojas se reprocesaron sin repintar. La `d3-b` del troll no cabía y
 se redujo a 214 px, en vez de 232. El jinete de hiena va también a 0,7: su
 jinete es un goblin y la hiena es mucho más baja que el caballo del maniquí.
+
+## 14. Los No muertos en 8 direcciones (rama `arte-mapas`, 05-10-2026)
+
+Mandan las unidades de `NuevaJugabilidad.md` (decisión del usuario), con las
+láminas que puso el usuario en `assets/art/no-muertos/`:
+- **Cambios de unidades:**
+  - salen el necrófago y el gólem de huesos;
+  - el caballero de la muerte pasa de héroe a élite (`caballero-de-la-muerte`,
+    con su identidad de antes);
+  - entra el jinete de plaga, a caballo y a 5, como el jinete elfo;
+  - el zombi lleva espada (juego `espada-escudo`, identidad repintada).
+- **Láminas y maniquíes:**
+  - las láminas nuevas del nigromante, el vampiro, el lich y el caballero de la
+    muerte salen de su identidad aprobada;
+  - el esqueleto guerrero, el espectro, el zombi y los tres héroes tienen
+    maniquí propio.
+- **8 direcciones:** las tienen los 9. Hubo 9 hojas con dos figuras pegadas,
+  todas arregladas en su hilo (`-c1`): 5 del jinete de plaga, por el
+  estandarte, 2 del lich y 1 del esqueleto guerrero y del vampiro.
+- **Ninguna unidad del taller cae ya al Y Bot.** Por eso cambian tres
+  comprobaciones que se apoyaban en una unidad sin arte:
+  - `test/arena.test.ts` exige ahora las 8 direcciones de todas las unidades;
+  - `test/taller-8d.test.ts` prueba la guarda del giro con una unidad
+    inventada;
+  - `tools/qa/capturas.ts` mira los atlas del orco, no las hojas del Y Bot.
+
+  El respaldo del Y Bot ya solo lo ejercitan los tests con unidades
+  inventadas.

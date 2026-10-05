@@ -46,9 +46,15 @@ El Ent y el artillero con culebrina se quedan.
 | `esqueleto-guerrero` | Esqueleto guerrero | espada-escudo |
 | `esqueleto-arquero` | Esqueleto arquero | arco |
 | `zombi` | Zombie | espada-escudo |
-| `necrofago` | Necrófago o Ghoul | espada-escudo |
+| `caballero-de-la-muerte` | Caballero de la muerte (antes héroe, 05-10-2026) | dos-manos |
 | `espectro` | Espectro | espada-escudo |
-| `golem-de-huesos` | Gólem de huesos | dos-manos |
+| `jinete-de-plaga` | Jinete de plaga, a caballo (05-10-2026) | montado-lanza |
+
+Desde el 05-10-2026 mandan las unidades de `NuevaJugabilidad.md` (decisión del
+usuario): salen el necrófago y el gólem de huesos, el caballero de la muerte pasa
+de héroe a élite (`caballero-de-la-muerte`, con la misma identidad), entra el
+jinete de plaga con la lámina del usuario y el zombi lleva espada, como en su
+lámina nueva.
 
 ## Héroes
 
@@ -64,7 +70,6 @@ lámina de su facción (`ESTILO_DE_FACCION` en `tools/taller/unidades.ts`).
 | `heroe-nigromante` | Nigromante | baston |
 | `heroe-vampiro` | Vampiro | espada-escudo |
 | `heroe-lich` | Lich | baston |
-| `heroe-caballero-de-la-muerte` | Caballero de la muerte | dos-manos |
 
 Lote 2 (héroes): **aprobado por el usuario el 01-10-2026**, visto animado.
 Correcciones en su hilo: `heroe-templario-caballero` y
@@ -149,9 +154,7 @@ animado en `pnpm taller vista` y en capturas de batalla.
 | `esqueleto-guerrero` | ✔ | ✔ | corrección `-c1`: la espada invadía la celda vecina |
 | `esqueleto-arquero` | ✔ | ✔ | |
 | `zombi` | ✔ | ✔ | |
-| `necrofago` | ✔ | ✔ | |
 | `espectro` | ✔ | ✔ | corrección `-c1`: la espada invadía la celda vecina |
-| `golem-de-huesos` | ✔ | ✔ | |
 
 **Pendiente conocido, aceptado:** algunos ciclos de marcha no son del todo finos
 (los pies no siempre alternan limpios). Es un límite del modelo de imagen al

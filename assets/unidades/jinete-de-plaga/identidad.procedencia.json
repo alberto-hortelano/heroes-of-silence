@@ -1,0 +1,45 @@
+{
+  "encargo": "jinete-de-plaga-identidad",
+  "tipo": "identidad",
+  "fecha": "2026-10-05T16:39:20.413Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a10ced-be75-7242-96ef-8d85ff603392",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo, una ballesta, una bola), es solo un PUNTO DE PARTIDA: dice dónde están las manos que empuñan, hacia dónde apunta el arma y cuándo se dispara o se suelta. El arma que se pinta es la del PERSONAJE (la de su identidad): cambia la forma, el largo y las piezas del atrezo para que sea la suya —un arcabuz donde el maniquí lleva ballesta, una daga en la izquierda donde lleva escudo, nada donde el personaje no lleva arma— sin cambiar la pose del cuerpo. Si sus piernas son de color, la ROJA es la pierna DERECHA y la AZUL la IZQUIERDA: sirven para no confundirlas en el paso ni girar la figura de espaldas; el personaje NO lleva esos colores. El fondo VERDE de esta hoja es solo fondo, para que se vea el maniquí: no lo copies, el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUn jinete de plaga A CABALLO, como el del concepto: caballo negro con testera de hierro y gualdrapa negra hecha jirones con cruces blancas de serpiente; el jinete con máscara de médico de la peste de pico largo, capucha y túnica negra raída sobre armadura, lanza larga con un estandarte negro desgarrado con la misma cruz. Sin escudo. Jinete y caballo son UNA sola figura.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nUN solo personaje, de cuerpo entero, en la primera pose de reposo de la referencia de pose (de pie o montado, como esté el maniquí).\nCámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.\nLámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/unidades/_poses/montado-lanza.png",
+      "papel": "pose",
+      "sha256": "2cef5c222acba6995e842d6c8c905b1ac72aed84294ade2a2ca093d4617401cf"
+    },
+    {
+      "ruta": "assets/art/no-muertos/jinete-de-plaga.png",
+      "papel": "identidad",
+      "sha256": "e5779d3c996752ee82e7c398a1029e4a05f09d37c9f8777465d6c2b115715cba"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a10ced-be75-7242-96ef-8d85ff603392/exec-a5e484a5-7b67-4e0a-8d2f-86233f6c4a02.png",
+    "sha256": "9cc5fa22a74dfd6ff935fea4823741032aa0c977f954226603b82cf863dae8c6",
+    "ancho": 1254,
+    "alto": 1254
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.3634577112938222,
+    "opacos": 0.9787870882704268,
+    "haloSuelto": 0.0000027460079908832534,
+    "ancho": 799,
+    "alto": 1254
+  },
+  "salida": {
+    "ruta": "assets/unidades/jinete-de-plaga/identidad.webp",
+    "sha256": "566a3c911a1649750d5c5056be52b529a9677ee4e758b4ccb54c1bcc1420c10c"
+  }
+}

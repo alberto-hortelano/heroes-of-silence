@@ -30,9 +30,10 @@ export const VELOCIDAD_DE_SALIDA: Readonly<
   'esqueleto-guerrero': [3, 'esqueleto: lento, como pide el criterio'],
   'esqueleto-arquero': [3, 'esqueleto, y tirador'],
   zombi: [2, 'zombi encorvado: el más lento de la tropa'],
-  necrofago: [5, 'carroñero flaco de garras: su papel es caer encima rápido'],
+  'caballero-de-la-muerte': [3, 'placas negras y arma a dos manos'],
   espectro: [5, 'figura fantasmal que se desliza: no anda como un muerto'],
-  'golem-de-huesos': [2, 'coloso de huesos y cadenas'],
+  // 5 y no 7, como el jinete elfo (docs/art/peticiones.md §12).
+  'jinete-de-plaga': [5, 'a caballo: tope que admite hoy la arena'],
   // Imperio
   'imperio-alabardero': [3, 'alabarda a dos manos'],
   'imperio-piquero': [3, 'pica larga a dos manos'],
@@ -69,7 +70,6 @@ export const VELOCIDAD_DE_SALIDA: Readonly<
   'heroe-nigromante': [4, 'mago humano: como un humano'],
   'heroe-vampiro': [5, 'noble con coraza ligera: rápido para un no muerto'],
   'heroe-lich': [3, 'esqueleto de mago: lento'],
-  'heroe-caballero-de-la-muerte': [3, 'placas negras y arma a dos manos'],
   'heroe-imperio-duelista': [5, 'espada y daga, sin armadura: rápido, como pide su ficha'],
   'heroe-imperio-mago': [4, 'mago con coraza ligera: como un humano'],
   'heroe-imperio-capitan-mercenario': [4, 'lansquenete sin escudo: como un humano'],

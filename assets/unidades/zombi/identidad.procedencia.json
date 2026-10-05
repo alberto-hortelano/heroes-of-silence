@@ -1,13 +1,13 @@
 {
   "encargo": "zombi-identidad",
   "tipo": "identidad",
-  "fecha": "2026-10-01T15:23:00.152Z",
+  "fecha": "2026-10-05T16:39:42.958Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
   },
-  "hilo": "01a0f80e-929a-7d02-8c51-11956f99533d",
-  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUn zombi campesino: piel gris verdosa, camisa y calzas de labriego hechas jirones, encorvado, una horca de labranza en la mano derecha.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nUN solo personaje, de cuerpo entero, de pie, en la primera pose de reposo de la referencia de pose.\nCámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.\nLámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación suave desde arriba a la izquierda, sin contraluz fuerte.",
+  "hilo": "01a10cee-4f33-7ad3-8764-cddad74d7d56",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la REFERENCIA DE POSE: el maniquí Y Bot renderizado con cámara ortográfica elevada 25 grados. Manda en la cámara, la anatomía, la escala y el movimiento de cada celda. Copia cada pose articulación por articulación. Si el maniquí lleva atrezo gris (un palo por espada, un plano por escudo, una ballesta, una bola), es solo un PUNTO DE PARTIDA: dice dónde están las manos que empuñan, hacia dónde apunta el arma y cuándo se dispara o se suelta. El arma que se pinta es la del PERSONAJE (la de su identidad): cambia la forma, el largo y las piezas del atrezo para que sea la suya —un arcabuz donde el maniquí lleva ballesta, una daga en la izquierda donde lleva escudo, nada donde el personaje no lleva arma— sin cambiar la pose del cuerpo. Si sus piernas son de color, la ROJA es la pierna DERECHA y la AZUL la IZQUIERDA: sirven para no confundirlas en el paso ni girar la figura de espaldas; el personaje NO lleva esos colores. El fondo VERDE de esta hoja es solo fondo, para que se vea el maniquí: no lo copies, el resultado va sobre transparente.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUn zombi: cadáver demacrado de piel gris cenicienta con la carne podrida, pelo ralo y largo, boca abierta, túnica oscura y harapos hechos jirones manchados de sangre, cuerda por cinturón, encorvado y arrastrando los pies, espada larga oxidada y manchada de sangre en la mano derecha, la izquierda en garra.\nEstilo: el de la lámina de referencia de la unidad —ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria, silueta clara—; nada de acabado de juguete, de dibujo animado ni de render 3D.\n\nUN solo personaje, de cuerpo entero, en la primera pose de reposo de la referencia de pose (de pie o montado, como esté el maniquí).\nCámara ortográfica elevada 25 grados, viendo la coronilla y los hombros; NUNCA de perfil. Mira a la derecha y al frente.\nLámina de identidad: el equipo, los colores y los materiales se leen con claridad. Formato cuadrado, el personaje centrado con margen.\nFondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
   "referencias": [
     {
       "ruta": "assets/unidades/_poses/espada-escudo.png",
@@ -17,12 +17,12 @@
     {
       "ruta": "assets/art/no-muertos/zombie.png",
       "papel": "identidad",
-      "sha256": "22d2045819c00a1b294ba0b4755ae6e848d98cce7eba5bd373698cb2064f11a9"
+      "sha256": "4841b3030295aa656e9968c90c12fcd2864fc619b843ede936a85fd5ec848e25"
     }
   ],
   "crudo": {
-    "fichero": "~/.codex/generated_images/01a0f80e-929a-7d02-8c51-11956f99533d/exec-887805f4-e928-4736-aab9-403896aa6651.png",
-    "sha256": "9031837618ca7b0b3b60fe10a6b2a07f77937f8b123465a62f219082ce455fac",
+    "fichero": "~/.codex/generated_images/01a10cee-4f33-7ad3-8764-cddad74d7d56/exec-8821431e-a251-4370-9e6c-7ceb9753cf99.png",
+    "sha256": "6dd6485f20c733513d6a23c4e7dedb61aa53230b0b8309639a94d9a7c7460ae7",
     "ancho": 1254,
     "alto": 1254
   },
@@ -32,14 +32,14 @@
     "WebP calidad 92, alfa sin pérdida"
   ],
   "validacion": {
-    "visibles": 0.38782847298921563,
-    "opacos": 0.9823520215319439,
-    "haloSuelto": 0.000024523854046282644,
-    "ancho": 749,
-    "alto": 1123
+    "visibles": 0.2995410485913896,
+    "opacos": 0.9712934773823315,
+    "haloSuelto": 0.000013470916291726164,
+    "ancho": 1051,
+    "alto": 1179
   },
   "salida": {
     "ruta": "assets/unidades/zombi/identidad.webp",
-    "sha256": "a7aeec3979417f97e78f8872e93777db4b20c26135353898f2a85091f71336e3"
+    "sha256": "7f6402db33e7c5c81ecc4aee32d3ca44ad1ef83ae534b6e67c70143079804cfc"
   }
 }

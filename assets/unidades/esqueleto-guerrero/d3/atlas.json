@@ -1,0 +1,80 @@
+{
+  "imagen": "atlas.webp",
+  "sha256": "90e98979465ffc89dec0aa5fa28ada5e99aa1fe759650b353d70854ae93ed41c",
+  "cell": 384,
+  "columns": 7,
+  "altura": 175,
+  "cajaDeClic": [
+    -40,
+    -177,
+    66,
+    0
+  ],
+  "clips": {
+    "idle": {
+      "row": 0,
+      "frames": 7,
+      "fps": 8,
+      "loop": true,
+      "anchor": [
+        192,
+        342
+      ]
+    },
+    "walk": {
+      "row": 1,
+      "frames": 7,
+      "fps": 8,
+      "loop": true,
+      "anchor": [
+        192,
+        342
+      ]
+    },
+    "charge": {
+      "row": 2,
+      "frames": 7,
+      "fps": 8,
+      "loop": true,
+      "anchor": [
+        192,
+        342
+      ]
+    },
+    "attack": {
+      "row": 3,
+      "frames": 7,
+      "fps": 10,
+      "loop": false,
+      "anchor": [
+        192,
+        342
+      ]
+    },
+    "hurt": {
+      "row": 4,
+      "frames": 7,
+      "fps": 10,
+      "loop": false,
+      "anchor": [
+        192,
+        342
+      ]
+    },
+    "death": {
+      "row": 5,
+      "frames": 7,
+      "fps": 8,
+      "loop": false,
+      "anchor": [
+        192,
+        278
+      ]
+    }
+  },
+  "cadaver": {
+    "clip": "death",
+    "frame": 6
+  },
+  "derivadoPor": "tools/taller/derivar.ts"
+}

@@ -2357,8 +2357,9 @@ async function jugarArena(
   await sleep(300);
   await captura(page, 'arena-01-montaje');
 
-  // Las 8 direcciones, hoja a hoja: el templario con las suyas y el orco con las
-  // del Y Bot de su juego, y de cada uno SOLO las hojas que se han pintado; y ni
+  // Las 8 direcciones, dirección a dirección: el templario y el orco con las
+  // suyas (desde el 05-10-2026 todas las unidades del taller tienen arte propio,
+  // y el Y Bot ya no sale aquí), y de cada uno SOLO las que se pintan; y ni
   // un `atlas.webp` de una dirección, que se borró. Se gira la ficha dos veces
   // —de frente-derecha (d1) a espalda-derecha (d3)— y se pide la muerte, que
   // deja el cadáver.
@@ -2373,20 +2374,18 @@ async function jugarArena(
       .filter((p) => p.startsWith('/unidades/')),
   );
   const orco = hojas0.find((h) => h.id === 'orko-dos-armas');
-  // El orco está en el bando derecho, quieto y mirando al suroeste (d7): su
-  // reposo vive en la hoja `a`.
+  // El orco está en el bando derecho, quieto y mirando al suroeste (d7).
   const faltan = [
     '/unidades/templario-escudo/d1/atlas.webp',
     '/unidades/templario-escudo/d3/atlas.webp',
-    `/unidades/_poses/${orco?.juego}-8d/d7-a.png`,
+    `/unidades/${orco?.id}/d7/atlas.webp`,
   ].filter((u) => !pedidas.includes(u));
   if (faltan.length > 0)
     throw new Error(`arena: no se cargaron las hojas que se pintan: ${faltan.join(', ')}`);
-  // Y las que no se pintan, no: la espalda-izquierda del templario (d5) y la
-  // hoja `b` del orco, que no ha atacado ni caído.
+  // Y las que no se pintan, no: la espalda-izquierda del templario y del orco (d5).
   const sobran = [
     '/unidades/templario-escudo/d5/atlas.webp',
-    `/unidades/_poses/${orco?.juego}-8d/d7-b.png`,
+    `/unidades/${orco?.id}/d5/atlas.webp`,
   ].filter((u) => pedidas.includes(u));
   if (sobran.length > 0)
     throw new Error(`arena: se cargaron hojas que no se pintan: ${sobran.join(', ')}`);

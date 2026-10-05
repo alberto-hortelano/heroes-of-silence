@@ -176,6 +176,11 @@ export const UNIDADES: readonly Unidad[] = [
     nombre: 'Esqueleto guerrero',
     perfil: 'espada-escudo',
     concepto: 'assets/art/no-muertos/esqueleto-guerrero.png',
+    maniqui: {
+      ...ESPADA_Y_ESCUDO,
+      espada: { largo: 0.8, guarda: 0.16, puño: 0.16, agarre: 0.08 },
+      rodela: 0.27,
+    },
     aspecto:
       'Un esqueleto guerrero: huesos amarillentos, cota de malla oxidada y yelmo abollado, escudo redondo de madera en el brazo izquierdo y espada mellada en la derecha.',
   },
@@ -194,17 +199,13 @@ export const UNIDADES: readonly Unidad[] = [
     nombre: 'Zombie',
     perfil: 'espada-escudo',
     concepto: 'assets/art/no-muertos/zombie.png',
+    maniqui: {
+      ...ESPADA_Y_ESCUDO,
+      espada: { largo: 1.0, guarda: 0.2, puño: 0.2, agarre: 0.08 },
+      escudo: false,
+    },
     aspecto:
-      'Un zombi campesino: piel gris verdosa, camisa y calzas de labriego hechas jirones, encorvado, una horca de labranza en la mano derecha.',
-  },
-  {
-    id: 'necrofago',
-    faccion: 'no-muertos',
-    nombre: 'Necrófago (Ghoul)',
-    perfil: 'espada-escudo',
-    concepto: 'assets/art/no-muertos/necrofago.png',
-    aspecto:
-      'Un necrófago: humanoide flaco y encorvado sobre DOS piernas, piel cenicienta tirante sobre las costillas, garras largas, taparrabos de harapos, boca de dientes afilados. Sin armas.',
+      'Un zombi: cadáver demacrado de piel gris cenicienta con la carne podrida, pelo ralo y largo, boca abierta, túnica oscura y harapos hechos jirones manchados de sangre, cuerda por cinturón, encorvado y arrastrando los pies, espada larga oxidada y manchada de sangre en la mano derecha, la izquierda en garra.',
   },
   {
     id: 'espectro',
@@ -212,17 +213,31 @@ export const UNIDADES: readonly Unidad[] = [
     nombre: 'Espectro',
     perfil: 'espada-escudo',
     concepto: 'assets/art/no-muertos/espectro.png',
+    maniqui: {
+      ...ESPADA_Y_ESCUDO,
+      espada: { largo: 1.0, guarda: 0.2, puño: 0.2, agarre: 0.08 },
+      escudo: false,
+    },
     aspecto:
       'Un espectro: figura encapuchada con armadura fantasmal y túnica de jirones verde grisáceo que se deshace hacia los pies, rostro oculto en sombra, espada larga en la mano derecha. Pintado OPACO, sin transparencias: lo fantasmal lo dan los colores pálidos y los jirones.',
   },
   {
-    id: 'golem-de-huesos',
+    id: 'caballero-de-la-muerte',
     faccion: 'no-muertos',
-    nombre: 'Gólem de huesos',
+    nombre: 'Caballero de la muerte',
     perfil: 'dos-manos',
-    concepto: 'assets/art/no-muertos/golem-de-huesos.png',
+    concepto: 'assets/art/no-muertos/caballero-de-la-muerte.png',
     aspecto:
-      'Un gólem de huesos: coloso de huesos atados con cadenas y bandas de hierro, costillar con un resplandor verde, cráneo astado como cabeza, puños enormes de huesos. Sin armas.',
+      'Un caballero de la muerte, contrapunto oscuro del templario: armadura de placas negra y abollada con remaches de hierro, sobrevesta negra hecha jirones con una cruz rota desteñida, yelmo cerrado con cuernos cortos y un brillo verde frío tras la visera, gran espadón mellado empuñado a dos manos.',
+  },
+  {
+    id: 'jinete-de-plaga',
+    faccion: 'no-muertos',
+    nombre: 'Jinete de plaga (a caballo)',
+    perfil: 'montado-lanza',
+    concepto: 'assets/art/no-muertos/jinete-de-plaga.png',
+    aspecto:
+      'Un jinete de plaga A CABALLO, como el del concepto: caballo negro con testera de hierro y gualdrapa negra hecha jirones con cruces blancas de serpiente; el jinete con máscara de médico de la peste de pico largo, capucha y túnica negra raída sobre armadura, lanza larga con un estandarte negro desgarrado con la misma cruz. Sin escudo. Jinete y caballo son UNA sola figura.',
   },
   {
     id: 'imperio-alabardero',
@@ -550,6 +565,12 @@ export const HEROES: readonly Unidad[] = [
     faccion: 'no-muertos',
     nombre: 'Nigromante (héroe)',
     perfil: 'baston',
+    concepto: 'assets/art/no-muertos/nigromante.png',
+    maniqui: {
+      espada: { largo: 1.15, guarda: 0, puño: 0.5, agarre: 0, grosor: 0.024, remate: 'esfera' },
+      ...UNA_MANO,
+      arribaMinimo: 0.85,
+    },
     aspecto:
       'Un nigromante: túnica larga negra y morada raída, capucha echada hacia atrás, rostro pálido y demacrado, collar de huesos de dedos, bastón de madera negra rematado en un cráneo con un tenue brillo verde en las cuencas.',
   },
@@ -558,6 +579,12 @@ export const HEROES: readonly Unidad[] = [
     faccion: 'no-muertos',
     nombre: 'Vampiro (héroe)',
     perfil: 'espada-escudo',
+    concepto: 'assets/art/no-muertos/vampiro.png',
+    maniqui: {
+      ...ESPADA_Y_ESCUDO,
+      espada: { largo: 0.95, guarda: 0.12, puño: 0.14, agarre: 0.07, grosor: 0.012 },
+      escudo: false,
+    },
     aspecto:
       'Un señor vampiro: noble de piel muy pálida y pelo negro largo, jubón de terciopelo granate con bordados negros, coraza ligera negra, capa negra de cuello alto con forro rojo, ropera fina de una mano en la derecha y la mano izquierda libre con garras. Sin escudo.',
   },
@@ -566,16 +593,14 @@ export const HEROES: readonly Unidad[] = [
     faccion: 'no-muertos',
     nombre: 'Lich (héroe)',
     perfil: 'baston',
+    concepto: 'assets/art/no-muertos/lich.png',
+    maniqui: {
+      espada: { largo: 1.15, guarda: 0, puño: 0.5, agarre: 0, grosor: 0.024, remate: 'esfera' },
+      ...UNA_MANO,
+      arribaMinimo: 0.85,
+    },
     aspecto:
       'Un lich: esqueleto de mago con corona de hierro oxidada, túnica ceremonial negra y verde podrida con hilos de oro deshilachados, manos huesudas con anillos, filacteria colgada al cuello, bastón alto de hueso rematado en una gema verde.',
-  },
-  {
-    id: 'heroe-caballero-de-la-muerte',
-    faccion: 'no-muertos',
-    nombre: 'Caballero de la muerte (héroe)',
-    perfil: 'dos-manos',
-    aspecto:
-      'Un caballero de la muerte, contrapunto oscuro del templario: armadura de placas negra y abollada con remaches de hierro, sobrevesta negra hecha jirones con una cruz rota desteñida, yelmo cerrado con cuernos cortos y un brillo verde frío tras la visera, gran espadón mellado empuñado a dos manos.',
   },
   {
     id: 'heroe-imperio-duelista',
@@ -761,17 +786,16 @@ export function encargoDeIdentidad(u: Unidad): Encargo {
 /**
  * Las tropas de élite de cada ejército: las de «Elite» en `NuevaJugabilidad.md`
  * y, las que su ficha no nombra, las que produce una ciudad en su tabla de
- * edificios (Armería → rodeleros, Fundición → culebrinas, Cripta → necrófagos
- * y gólems). El resto de `UNIDADES` es
+ * edificios (Armería → rodeleros, Fundición → culebrinas). El resto de `UNIDADES` es
  * tropa y `HEROES`, héroes. Lo lee el visor de 8 direcciones para agruparlas.
  */
 export const ELITE: ReadonlySet<string> = new Set([
   'templario-monje',
   'templario-hermano-de-carga',
   'templario-penitente',
-  'necrofago',
+  'caballero-de-la-muerte',
   'espectro',
-  'golem-de-huesos',
+  'jinete-de-plaga',
   'imperio-coracero',
   'imperio-arcabucero',
   'imperio-rodelero',
@@ -801,7 +825,7 @@ export function rangoDe(u: Unidad): RangoDeUnidad {
  * con espada y escudo, porque el perfil se eligió para pintar una hoja de una
  * dirección y no para decir qué arma lleva. La regla con la que se rellenó, fila
  * a fila contra el `aspecto` de cada unidad:
- *  - pica, alabarda, lanza o jabalina → `lanza` (también la horca del zombi);
+ *  - pica, alabarda, lanza o jabalina → `lanza`;
  *  - bastón o báculo de monje, mago, chamán, druida, nigromante o liche → `baston`;
  *  - mandoble, hacha o cuchilla empuñada a dos manos → `dos-manos`;
  *  - maza → `maza`; mayal → `mayal`;
@@ -825,10 +849,10 @@ export const JUEGO_DEL_YBOT: Readonly<Record<string, JuegoEn8d>> = {
   'templario-penitente': 'mayal',
   'esqueleto-guerrero': 'espada-escudo',
   'esqueleto-arquero': 'arco',
-  zombi: 'lanza',
-  necrofago: 'espada-escudo',
+  zombi: 'espada-escudo',
+  'caballero-de-la-muerte': 'dos-manos',
   espectro: 'espada-escudo',
-  'golem-de-huesos': 'espada-escudo',
+  'jinete-de-plaga': 'montado-lanza',
   'imperio-alabardero': 'lanza',
   'imperio-piquero': 'lanza',
   'imperio-ballestero': 'ballesta',
@@ -858,7 +882,6 @@ export const JUEGO_DEL_YBOT: Readonly<Record<string, JuegoEn8d>> = {
   'heroe-nigromante': 'baston',
   'heroe-vampiro': 'espada-escudo',
   'heroe-lich': 'baston',
-  'heroe-caballero-de-la-muerte': 'dos-manos',
   'heroe-imperio-duelista': 'espada-escudo',
   'heroe-imperio-mago': 'baston',
   'heroe-imperio-capitan-mercenario': 'espada-escudo',
@@ -940,6 +963,15 @@ const IDS_EN_OCHO_DIRECCIONES = [
   'heroe-orko-kaudillo',
   'heroe-goblin-jefe',
   'heroe-goblin-chaman',
+  'esqueleto-guerrero',
+  'esqueleto-arquero',
+  'zombi',
+  'caballero-de-la-muerte',
+  'espectro',
+  'jinete-de-plaga',
+  'heroe-nigromante',
+  'heroe-vampiro',
+  'heroe-lich',
 ] as const;
 
 export const EN_OCHO_DIRECCIONES: Readonly<Record<string, JuegoEn8d>> = Object.fromEntries(
