@@ -23,6 +23,7 @@ import {
   clipFrame,
   fotogramaDeCaida,
 } from './character.js';
+import { CacheDeLienzos } from './copias.js';
 import { densidadDe } from './lienzo.js';
 import { type ArteDeFigura, arteDe, hojaDe, hojasPorCercania } from './personajes.js';
 import { pintarSombra } from './sombra.js';
@@ -119,37 +120,6 @@ export interface Figura {
 }
 
 /**
- * Una caché acotada por bytes que olvida lo menos usado. Un `Map` recuerda el
- * orden de inserción: leer una entrada la vuelve a meter al final, así que la
- * primera es siempre la que hace más que no se usa.
- */
-class CacheDeLienzos {
-  private readonly lienzos = new Map<string, HTMLCanvasElement>();
-  private bytes = 0;
-
-  constructor(private readonly tope: number) {}
-
-  get(clave: string): HTMLCanvasElement | undefined {
-    const c = this.lienzos.get(clave);
-    if (c !== undefined) {
-      this.lienzos.delete(clave);
-      this.lienzos.set(clave, c);
-    }
-    return c;
-  }
-
-  set(clave: string, lienzo: HTMLCanvasElement): void {
-    this.lienzos.set(clave, lienzo);
-    this.bytes += lienzo.width * lienzo.height * 4;
-    for (const [vieja, c] of this.lienzos) {
-      if (this.bytes <= this.tope) break;
-      this.lienzos.delete(vieja);
-      this.bytes -= c.width * c.height * 4;
-    }
-  }
-}
-
-/**
  * Las celdas ya teñidas, por imagen, celda, tamaño y color. Teñir es componer
  * tres veces sobre un lienzo de paso, y se hacía en cada fotograma por figura:
  * con 14 figuras y sin GPU eran 18 ms por fotograma, 1,1 ms con la caché (el
@@ -158,14 +128,14 @@ class CacheDeLienzos {
  * de 200 px) cabe eso con holgura y no deja crecer la caché al hacer zoom, que
  * cambia el tamaño de todas.
  */
-const teñidas = new CacheDeLienzos(20_000_000);
+const teñidas = new CacheDeLienzos<string, HTMLCanvasElement>(20_000_000);
 
 /**
  * Las siluetas de la sombra, por imagen, celda y tamaño: no dependen del color.
  * Son a un cuarto de resolución (ver `pintarSombraDeFigura`), así que pesan un
  * dieciseisavo que una celda teñida.
  */
-const siluetas = new CacheDeLienzos(4_000_000);
+const siluetas = new CacheDeLienzos<string, HTMLCanvasElement>(4_000_000);
 
 function lienzoNuevo(lado: number): CanvasRenderingContext2D {
   const lienzo = document.createElement('canvas');

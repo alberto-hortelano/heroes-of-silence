@@ -3,8 +3,14 @@
  * carga las imágenes, pinta con `pintarEscena`, mide el suelo desnudo y deja el
  * informe en `window.__informe`. Es lo mismo que haría el juego, más la medida.
  */
-import type { Escena } from './colocar.js';
-import { imagenesDeEscena, MARGEN, pintarEscena, sueloDesnudo, tamanoDeEscena } from './pintar.js';
+import type { Escena } from '../../../src/client/render/escenario/colocar.js';
+import {
+  imagenesDeEscena,
+  MARGEN,
+  pintarEscena,
+  sueloDesnudo,
+  tamanoDeEscena,
+} from '../../../src/client/render/escenario/pintar.js';
 
 interface Ventana {
   __escena: Escena;

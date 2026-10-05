@@ -16,9 +16,9 @@ import type { AddressInfo } from 'node:net';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { chromium } from 'playwright';
+import { componer } from '../../../src/client/render/escenario/colocar.js';
 import { newGame } from '../../../src/core/state/setup.js';
 import { leerCatalogo } from './catalogo-disco.js';
-import { componer } from './colocar.js';
 import { paginaDeEscena } from './pintor.js';
 
 const RAIZ = resolve(import.meta.dirname, '../../..');

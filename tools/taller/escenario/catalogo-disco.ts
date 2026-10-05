@@ -9,9 +9,9 @@
  */
 import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
+import type { Catalogo, Modulo, Pieza } from '../../../src/client/render/escenario/catalogo.js';
+import { RUTA_DEL_CATALOGO } from '../../../src/client/render/escenario/catalogo.js';
 import { derivarPieza } from '../derivar.js';
-import type { Catalogo, Modulo, Pieza } from './catalogo.js';
-import { RUTA_DEL_CATALOGO } from './catalogo.js';
 
 const RAIZ = resolve(import.meta.dirname, '../../..');
 const MAPA = join(RAIZ, 'assets/mapa');

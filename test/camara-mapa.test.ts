@@ -1,25 +1,35 @@
 /**
  * La cámara del mapa: que el clic caiga en la casilla que se ve, a cualquier
- * zoom, y que la vista no se salga del mapa.
+ * zoom, que la vista no se salga del mapa y que no se aleje más de lo que se
+ * puede pintar.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   acotar,
   arrastrar,
   type CamaraMapa,
   casillaAPixel,
   centrarEn,
+  contarVolumenes,
   type Encuadre,
+  MAX_VOLUMENES_VISIBLES,
   pixelACasilla,
+  TILE_LEGIBLE,
   TILE_MAX,
-  TILE_MIN,
+  tileMinimo,
+  volumenesALoSumo,
+  volumenesEn,
   zoom,
 } from '../src/client/render/camara-mapa.js';
+import { escenarioDe, topeDeAlejar } from '../src/client/render/escenario/superficie.js';
+import { ajustarLienzo, densidadConPresupuesto } from '../src/client/render/lienzo.js';
+import { PIXELES_DEL_MAPA } from '../src/client/render/mapa.js';
+import { newGame } from '../src/core/state/setup.js';
 
 const E: Encuadre = { ancho: 1000, alto: 700, mapaAncho: 24, mapaAlto: 24 };
 
 describe('la cámara del mapa', () => {
-  for (const tile of [TILE_MIN, 70, TILE_MAX]) {
+  for (const tile of [TILE_LEGIBLE, 70, TILE_MAX]) {
     it(`casilla → píxel → casilla vuelve a la misma a ${tile} px`, () => {
       const c: CamaraMapa = { tile, x: 3.37, y: -0.25 };
       for (let y = 0; y < 10; y++) {
@@ -43,9 +53,9 @@ describe('la cámara del mapa', () => {
   });
 
   it('un mapa que cabe entero se centra en vez de pegarse a una esquina', () => {
-    const c = acotar({ tile: TILE_MIN, x: 0, y: 0 }, { ...E, mapaAncho: 8, mapaAlto: 8 });
-    const izquierda = casillaAPixel(c, { x: 0, y: 0 }).x - TILE_MIN / 2;
-    const derecha = casillaAPixel(c, { x: 7, y: 0 }).x + TILE_MIN / 2;
+    const c = acotar({ tile: TILE_LEGIBLE, x: 0, y: 0 }, { ...E, mapaAncho: 8, mapaAlto: 8 });
+    const izquierda = casillaAPixel(c, { x: 0, y: 0 }).x - TILE_LEGIBLE / 2;
+    const derecha = casillaAPixel(c, { x: 7, y: 0 }).x + TILE_LEGIBLE / 2;
     expect(izquierda).toBeCloseTo(E.ancho - derecha);
   });
 
@@ -71,6 +81,168 @@ describe('la cámara del mapa', () => {
     for (let i = 0; i < 20; i++) tope = zoom(tope, 1, E);
     expect(tope.tile).toBe(TILE_MAX);
     for (let i = 0; i < 20; i++) tope = zoom(tope, -1, E);
-    expect(tope.tile).toBe(TILE_MIN);
+    expect(tope.tile).toBe(TILE_LEGIBLE);
+  });
+});
+
+describe('el tope de alejar sale de los volúmenes que caben', () => {
+  /** `n` volúmenes en cada casilla de un mapa de `lado`×`lado`. */
+  const uniforme = (lado: number, n: number) =>
+    contarVolumenes(
+      lado,
+      lado,
+      Array.from({ length: lado * lado * n }, (_, i) => {
+        const k = Math.floor(i / n);
+        return { x: (k % lado) + 0.5, y: Math.floor(k / lado) + 0.9 };
+      }),
+    );
+
+  it('la suma prefija cuenta lo de cada ventana, y una base fuera del mapa cuenta en su borde', () => {
+    const c = contarVolumenes(4, 3, [
+      { x: 0.5, y: 0.5 },
+      { x: 3.9, y: 2.9 },
+      { x: 3.2, y: 2.1 },
+      { x: -1, y: 7 },
+    ]);
+    expect(volumenesEn(c, 0, 0, 4, 3)).toBe(4);
+    expect(volumenesEn(c, 3, 2, 4, 3)).toBe(2);
+    expect(volumenesEn(c, 0, 2, 1, 3)).toBe(1);
+    expect(volumenesEn(c, 1, 0, 3, 2)).toBe(0);
+    expect(volumenesEn(c, -10, -10, 99, 99)).toBe(4);
+  });
+
+  it('sin volúmenes, el tope es el de legibilidad', () => {
+    expect(tileMinimo(contarVolumenes(34, 34, []), 1280, 800)).toEqual({
+      tile: TILE_LEGIBLE,
+      exceso: 0,
+    });
+  });
+
+  it('con más densidad, el tope sube; y a ese tope la ventana más densa cabe', () => {
+    const ralo = uniforme(60, 1);
+    const denso = uniforme(60, 4);
+    const tRalo = tileMinimo(ralo, 1280, 800).tile;
+    const tDenso = tileMinimo(denso, 1280, 800).tile;
+    expect(tDenso).toBeGreaterThan(tRalo);
+    expect(volumenesALoSumo(denso, tDenso, 1280, 800)).toBeLessThanOrEqual(MAX_VOLUMENES_VISIBLES);
+    // Y es el menor: un píxel menos ya no cabe.
+    expect(volumenesALoSumo(denso, tDenso - 1, 1280, 800)).toBeGreaterThan(MAX_VOLUMENES_VISIBLES);
+  });
+
+  it('con un lienzo mayor, el tope sube: cuántos caben depende de la pantalla', () => {
+    const c = uniforme(80, 3);
+    expect(tileMinimo(c, 1920, 1080).tile).toBeGreaterThan(tileMinimo(c, 1280, 800).tile);
+  });
+
+  it('nunca pasa de TILE_MAX, por denso que sea, y entonces dice cuántos sobran (H4)', () => {
+    const c = uniforme(40, 400);
+    const { tile, exceso } = tileMinimo(c, 1920, 1080);
+    expect(tile).toBe(TILE_MAX);
+    expect(exceso).toBe(volumenesALoSumo(c, TILE_MAX, 1920, 1080) - MAX_VOLUMENES_VISIBLES);
+    expect(exceso).toBeGreaterThan(0);
+  });
+
+  it('cuando sí cabe, el exceso es 0', () => {
+    const c = uniforme(80, 3);
+    for (const [w, h] of [
+      [1280, 800],
+      [1920, 1080],
+    ] as const) {
+      const { tile, exceso } = tileMinimo(c, w, h);
+      expect(exceso).toBe(0);
+      expect(volumenesALoSumo(c, tile, w, h)).toBeLessThanOrEqual(MAX_VOLUMENES_VISIBLES);
+    }
+  });
+
+  it('en 7680×4320 el mapa real no cabe: se avisa en consola, una vez por escena y lienzo', () => {
+    const esc = escenarioDe(newGame({ seed: 4242 }).map, 4242);
+    const aviso = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      expect(topeDeAlejar(esc, 7680, 4320)).toBe(TILE_MAX);
+      expect(topeDeAlejar(esc, 7680, 4320)).toBe(TILE_MAX);
+      expect(aviso).toHaveBeenCalledTimes(1);
+      expect(String(aviso.mock.calls[0]?.[0])).toMatch(/7680×4320.*hasta 2464/);
+      // En una pantalla normal, ni un aviso.
+      topeDeAlejar(esc, 1920, 1080);
+      expect(aviso).toHaveBeenCalledTimes(1);
+    } finally {
+      aviso.mockRestore();
+    }
+  });
+
+  it('la cámara no se aleja más allá del tope que se le da', () => {
+    const e: Encuadre = { ...E, tileMinimo: 62 };
+    let c = centrarEn({ tile: 70, x: 0, y: 0 }, { x: 12, y: 12 }, e);
+    for (let i = 0; i < 20; i++) c = zoom(c, -1, e);
+    expect(c.tile).toBe(62);
+    expect(acotar({ tile: 10, x: 0, y: 0 }, e).tile).toBe(62);
+  });
+
+  it('en un mapa de verdad, al tope no se pintan más de 2 000 volúmenes mire donde mire', () => {
+    const map = newGame({ seed: 1 }).map;
+    const { conteo, separada } = escenarioDe(map, 1);
+    const t = tileMinimo(conteo, 1280, 800).tile;
+    expect(t).toBeGreaterThanOrEqual(TILE_LEGIBLE);
+    // La premisa: el mapa entero no cabría en un fotograma de un solo golpe.
+    expect(separada.volumenes.length).toBeGreaterThan(MAX_VOLUMENES_VISIBLES / 2);
+    expect(volumenesALoSumo(conteo, t, 1280, 800)).toBeLessThanOrEqual(MAX_VOLUMENES_VISIBLES);
+  });
+});
+
+describe('el mapa no pinta más píxeles que su presupuesto (H1 de la vuelta 1 de QA)', () => {
+  it('el lienzo de una ventana de 1920×1080 cabe entero: no cambia nada', () => {
+    expect(densidadConPresupuesto(1, 1560, 957, PIXELES_DEL_MAPA)).toBe(1);
+    expect(densidadConPresupuesto(2, 390, 520, PIXELES_DEL_MAPA)).toBe(2);
+  });
+
+  it('en una pantalla mayor la densidad baja hasta llenar el presupuesto, y no más', () => {
+    for (const [dpr, w, h] of [
+      [1, 3480, 2036],
+      [1, 2200, 1316],
+      [2, 1080, 768],
+      [1, 7320, 4196],
+    ] as const) {
+      const d = densidadConPresupuesto(dpr, w, h, PIXELES_DEL_MAPA);
+      expect(d).toBeLessThan(dpr);
+      const pixeles = Math.floor(w * d) * Math.floor(h * d);
+      expect(pixeles).toBeLessThanOrEqual(PIXELES_DEL_MAPA);
+      expect(pixeles).toBeGreaterThan(PIXELES_DEL_MAPA * 0.99);
+    }
+  });
+
+  it('un presupuesto que no son píxeles se rechaza diciéndolo', () => {
+    expect(() => densidadConPresupuesto(1, 100, 100, 0)).toThrow(/presupuesto/);
+    expect(() => densidadConPresupuesto(1, 100, 100, Number.NaN)).toThrow(/presupuesto/);
+  });
+
+  it('`preparar` con presupuesto encoge el lienzo y escala el contexto; sin él, vuelve a la pantalla', () => {
+    const transformaciones: number[] = [];
+    const canvas = {
+      width: 0,
+      height: 0,
+      getBoundingClientRect: () => ({ width: 3480, height: 2036 }),
+      getContext: () => ({ setTransform: (a: number) => transformaciones.push(a) }),
+    };
+    const globales = globalThis as Record<string, unknown>;
+    const antes = { window: globales.window, ResizeObserver: globales.ResizeObserver };
+    globales.window = { devicePixelRatio: 1, addEventListener: () => undefined };
+    globales.ResizeObserver = class {
+      observe(): void {}
+    };
+    try {
+      const lienzo = ajustarLienzo(canvas as unknown as HTMLCanvasElement, () => undefined);
+      expect([canvas.width, canvas.height]).toEqual([3480, 2036]);
+      const medida = lienzo.preparar(PIXELES_DEL_MAPA);
+      // Quien pinta sigue en píxeles CSS: la caja no cambia, cambia el lienzo.
+      expect(medida).toEqual({ width: 3480, height: 2036 });
+      expect(canvas.width * canvas.height).toBeLessThanOrEqual(PIXELES_DEL_MAPA);
+      expect(transformaciones.at(-1)).toBeCloseTo(canvas.width / 3480, 3);
+      lienzo.preparar();
+      expect([canvas.width, canvas.height]).toEqual([3480, 2036]);
+      expect(transformaciones.at(-1)).toBe(1);
+    } finally {
+      globales.window = antes.window;
+      globales.ResizeObserver = antes.ResizeObserver;
+    }
   });
 });

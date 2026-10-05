@@ -18,6 +18,7 @@ import {
   TILE_INICIAL,
   zoom,
 } from '../render/camara-mapa.js';
+import { escenarioListo, topeDeAlejar } from '../render/escenario/superficie.js';
 import { drawMapa, type PasoDeRuta } from '../render/mapa.js';
 import { casillaDelMinimapa, drawMinimapa } from '../render/minimapa.js';
 import type { Session } from '../session.js';
@@ -86,7 +87,16 @@ export class EscenaAventura {
    */
   encuadrar(ancho: number, alto: number): void {
     const s = this.sesion();
-    this.encuadre = { ancho, alto, mapaAncho: s.state.map.width, mapaAlto: s.state.map.height };
+    // Mientras se compone la escena, el tope es el de legibilidad: la cámara se
+    // reacota en cuanto llega.
+    const esc = escenarioListo(s.state.map, s.state.seed);
+    this.encuadre = {
+      ancho,
+      alto,
+      mapaAncho: s.state.map.width,
+      mapaAlto: s.state.map.height,
+      ...(esc === null ? {} : { tileMinimo: topeDeAlejar(esc, ancho, alto) }),
+    };
     const foco = focoDe(s);
     const clave = `${s.selectedHeroId ?? ''}@${pointKey(foco)}`;
     if (clave !== this.seguido && this.arrastre === null) {
@@ -113,7 +123,6 @@ export class EscenaAventura {
       hover: this.hover,
       semilla: state.seed,
       tiempo: ahora,
-      version: s.version,
     });
   }
 

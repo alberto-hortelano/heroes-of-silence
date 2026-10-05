@@ -68,7 +68,7 @@ function cargarImagen(clave: string, url: string): Promise<void> {
 
 /**
  * El arte fijo del cliente nuevo, por el nombre con el que se pide a `asset('rpg',
- * …)`: el atlas del mapa, la textura del suelo y el fondo de la batalla. Las
+ * …)`: el atlas del mapa (del que sale el cofre) y el fondo de la batalla. Las
  * figuras ya no están aquí: son de 8 direcciones y se cargan a demanda, hoja a
  * hoja, la primera vez que se pinta cada una (`cargarHojaDeFigura`).
  *
@@ -77,29 +77,19 @@ function cargarImagen(clave: string, url: string): Promise<void> {
  */
 export const ARTE_RPG = {
   mapa: '/rpg/map-atlas.png',
-  suelo: '/rpg/suelo.webp',
   campo: '/rpg/campo.webp',
 } as const;
 
 export type NombreDeArte = keyof typeof ARTE_RPG;
 
 /**
- * Las piezas pintadas del mapa (`assets/mapa/`, aprobadas el 01-10-2026), por el
- * nombre con el que se piden a `asset('mapa', …)`. Se colocan por su `ancla`,
- * que viene en el `.json` de al lado y lee `render/piezas.ts`. Son **temporales**
- * hasta que lleguen las piezas de borde por barrera (`docs/art/peticiones.md`).
+ * Las piezas sueltas que el juego pinta él (`assets/mapa/`), por el nombre con el
+ * que se piden a `asset('mapa', …)`: los recursos, que cambian en la partida y no
+ * se hornean en la escena. Se colocan por su `ancla`, que viene en el `.json` de
+ * al lado y lee `render/piezas.ts`. Todo lo demás del mapa lo pone el
+ * escenógrafo (`cargarArteDeEscena`).
  */
-export const PIEZAS_DEL_MAPA = [
-  'montana-1',
-  'montana-2',
-  'montana-3',
-  'nodo-hito',
-  'ciudad',
-  'pueblo',
-  'oro',
-  'piedra',
-  'madera',
-] as const;
+export const PIEZAS_DEL_MAPA = ['oro', 'piedra', 'madera'] as const;
 
 export type PiezaDelMapa = (typeof PIEZAS_DEL_MAPA)[number];
 
@@ -117,8 +107,8 @@ let hayFigura = false;
 export function cargarHojaDeFigura(url: string): void {
   void cargarImagen(`figura/${url}`, url).then(() => {
     if (imagenes.has(`figura/${url}`)) hayFigura = true;
-    // Repinta y nada más: una hoja de figura no cambia la superficie del mapa,
-    // que se recompone entera cuando sube `versionDelArte`.
+    // Repinta y nada más: una hoja de figura no cambia el suelo del mapa, que
+    // se pinta de nuevo cuando sube `versionDelArte`.
     for (const fn of oyentes) fn();
   });
 }
@@ -133,56 +123,141 @@ export function hayFiguraCargada(): boolean {
   return hayFigura;
 }
 
-/**
- * Carga la tabla de arriba y, si se pinta el mapa, sus piezas. Nunca lanza: lo
- * que no llegue se queda en su marcador.
- */
-async function loadRpgArt(mapa: boolean): Promise<void> {
-  await Promise.all([
-    ...Object.entries(ARTE_RPG).map(([nombre, url]) => cargarImagen(`rpg/${nombre}`, url)),
-    ...(mapa
-      ? PIEZAS_DEL_MAPA.map((nombre) => cargarImagen(`mapa/${nombre}`, `/mapa/${nombre}.webp`))
-      : []),
-  ]);
-  avisar();
-}
-
 /** Se avisa cuando entra arte nuevo, para repintar. */
 type Listener = () => void;
 const oyentes = new Set<Listener>();
 
 /**
- * Cuántas veces ha entrado arte nuevo que no es una figura. Lo que se compone
- * una vez con el arte que hubiera —la superficie del mapa con sus texturas— lo
- * usa de clave de su caché: antes contaba en cada fotograma qué texturas habían
- * llegado. Las hojas de figura no la suben: llegan a demanda, a lo largo de toda
- * la partida, y cada una rehacía la superficie entera para nada.
+ * Cuántas tandas de arte que no es de figura se han cerrado: el arte fijo, el
+ * manifiesto y las imágenes de la escena del mapa. Lo que se pinta una vez con
+ * el arte que hubiera —el suelo del mapa— lo usa de clave. Las hojas de figura
+ * no la suben: llegan a demanda, a lo largo de toda la partida, y cada una
+ * repintaría el suelo entero para nada.
  */
 let version = 0;
+/** Las tandas que siguen en camino: mientras haya alguna, el suelo no se pinta. */
+let tandasEnVuelo = 0;
 
-/** La versión del arte cargado: cambia cada vez que entra algo. */
+/** La versión del arte cargado: cambia cada vez que se cierra una tanda. */
 export function versionDelArte(): number {
   return version;
 }
 
-function avisar(): void {
-  version++;
-  for (const fn of oyentes) fn();
+/** Si queda alguna tanda en camino: quien pinta una vez con todo lo que haya, espera. */
+export function arteCargando(): boolean {
+  return tandasEnVuelo > 0;
 }
 
 /**
- * Los grupos del manifiesto que se pintan hoy: los iconos de recursos, los
- * edificios, el fondo del castillo y, desde los mapas densos (03-10-2026), las
- * texturas de terreno, que el mapa usa como trama suave sobre el pigmento de
- * cada suelo —temporal, a petición del usuario—. `creatures` ya no lo pinta
- * nadie —la batalla es de figuras a 25°— y se seguía descargando.
+ * Una tanda: cuenta mientras está en camino y, al cerrarse —llegue lo que
+ * llegue—, sube la versión y avisa UNA vez. El suelo del mapa que pinta un
+ * Worker es una tanda más: cuando llega, la página repinta. No avisa por imagen a propósito: el
+ * suelo del mapa se pinta una sola vez con todo lo que haya —cuesta ~1,5 s sin
+ * GPU—, y repintarlo con cada una de las ~300 que llegan sería pagarlo
+ * trescientas veces.
  */
-const GRUPOS_QUE_SE_PINTAN: ReadonlySet<string> = new Set([
-  'icons',
-  'buildings',
-  'towns',
-  'terrains',
-]);
+export function tandaDeArte(carga: Promise<unknown>): void {
+  tandasEnVuelo++;
+  void carga.finally(() => {
+    tandasEnVuelo--;
+    version++;
+    for (const fn of oyentes) fn();
+  });
+}
+
+/** El arte fijo y, si se pinta el mapa, sus piezas. Nunca lanza: lo que no llegue se queda en su marcador. */
+function loadRpgArt(mapa: boolean): Promise<unknown> {
+  return Promise.all([
+    ...Object.entries(ARTE_RPG).map(([nombre, url]) => cargarImagen(`rpg/${nombre}`, url)),
+    ...(mapa
+      ? PIEZAS_DEL_MAPA.map((nombre) => cargarImagen(`mapa/${nombre}`, `/mapa/${nombre}.webp`))
+      : []),
+  ]);
+}
+
+/**
+ * Los grupos del manifiesto que se pintan: los iconos de recursos, los edificios
+ * y el fondo del castillo. Ni `creatures` —la batalla es de figuras a 25°— ni
+ * `terrains`: el suelo del mapa lo pinta el escenógrafo con sus texturas.
+ */
+const GRUPOS_QUE_SE_PINTAN: ReadonlySet<string> = new Set(['icons', 'buildings', 'towns']);
+
+// ------------------------------------------------------------ la escena del mapa
+
+/** Las imágenes de la escena que ya se han pedido: una tanda nueva solo pide lo que falta. */
+const pedidasDeEscena = new Set<string>();
+
+/**
+ * Las imágenes de la escena, ya decodificadas. Van como `ImageBitmap` y no como
+ * `<img>`: `createImageBitmap` decodifica fuera del hilo principal, y un `<img>`
+ * se decodifica la primera vez que se pinta. Los volúmenes del mapa pintan
+ * ~250 módulos en el primer fotograma, y decodificarlos ahí era una tarea de
+ * ~250 ms al cargar; `img.decode()` no lo evitaba, porque el lienzo no usa lo
+ * que decodifica.
+ */
+const deEscena = new Map<string, ImageBitmap>();
+
+/** Carga una imagen de la escena (`src` relativa a `assets/mapa/`). Nunca lanza: lo que falla se dice. */
+async function cargarDeEscena(src: string): Promise<void> {
+  let url: string;
+  try {
+    url = urlDeImagenSegura(`/mapa/${src}`);
+  } catch (err) {
+    console.warn(`[assets] no se carga escena/${src}: ${err instanceof Error ? err.message : err}`);
+    return;
+  }
+  try {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    deEscena.set(src, await createImageBitmap(await r.blob()));
+  } catch (err) {
+    console.warn(
+      `[assets] no ha cargado escena/${src} (${url}): ${err instanceof Error ? err.message : err}`,
+    );
+  }
+}
+
+/**
+ * Pide las imágenes del escenógrafo que falten (`src` relativa a
+ * `assets/mapa/`, como las da `imagenesDeEscena`), en una tanda. Dice si ha
+ * pedido alguna. Nunca lanza.
+ */
+export function cargarArteDeEscena(srcs: readonly string[]): boolean {
+  const nuevas = srcs.filter((s) => !pedidasDeEscena.has(s));
+  if (nuevas.length === 0) return false;
+  for (const s of nuevas) pedidasDeEscena.add(s);
+  tandaDeArte(Promise.all(nuevas.map(cargarDeEscena)));
+  return true;
+}
+
+/**
+ * Suelta las imágenes de la escena que ya no hacen falta —las que solo pinta el
+ * suelo, una vez pintado—: el navegador puede liberar lo que ocupan
+ * decodificadas. Quedan como no pedidas, así que se vuelven a pedir si el suelo
+ * se tiene que pintar otra vez.
+ */
+export function soltarArteDeEscena(srcs: readonly string[]): void {
+  for (const s of srcs) {
+    deEscena.get(s)?.close();
+    deEscena.delete(s);
+    pedidasDeEscena.delete(s);
+  }
+}
+
+/**
+ * Vuelve a pedir imágenes de la escena que se pidieron y no llegaron: una tanda
+ * nueva, como la primera. Lo usa el suelo, que no se pinta sin ellas a la
+ * primera falta.
+ */
+export function volverAPedirArteDeEscena(srcs: readonly string[]): void {
+  for (const s of srcs) pedidasDeEscena.delete(s);
+  cargarArteDeEscena(srcs);
+}
+
+/** La imagen de la escena de esa `src`, si ya ha llegado. */
+export function imagenDeEscena(src: string): ImageBitmap | undefined {
+  return deEscena.get(src);
+}
 
 /** Carga el manifiesto y precarga las imágenes que se pintan. Nunca lanza. */
 async function loadAssets(): Promise<boolean> {
@@ -200,7 +275,6 @@ async function loadAssets(): Promise<boolean> {
       .filter((f) => GRUPOS_QUE_SE_PINTAN.has(f.group))
       .map((f) => cargarImagen(`${f.group}/${f.name}`, `/generated/${f.path.replace(/\\/g, '/')}`)),
   );
-  avisar();
   return imagenes.size > 0;
 }
 
@@ -215,14 +289,16 @@ export function cargarArte(onCambio: () => void, { manifiesto = true, mapa = tru
   // La arena no pinta ni recursos ni edificios ni castillo: sin el manifiesto se
   // ahorra sus decenas de peticiones y se queda con las figuras y el tablero.
   if (manifiesto) {
-    void loadAssets().then((hay) => {
-      if (hay) console.log(`[assets] ${imagenes.size} imágenes generadas cargadas`);
-      else console.log('[assets] sin arte generado todavía; se pinta con marcadores');
-    });
+    tandaDeArte(
+      loadAssets().then((hay) => {
+        if (hay) console.log(`[assets] ${imagenes.size} imágenes generadas cargadas`);
+        else console.log('[assets] sin arte generado todavía; se pinta con marcadores');
+      }),
+    );
   }
   // La arena no pinta el mapa de aventura: sus piezas serían nueve peticiones
   // para nada.
-  void loadRpgArt(mapa);
+  tandaDeArte(loadRpgArt(mapa));
 }
 
 /** Imagen ya cargada, o `null` si ese asset todavía no existe. */

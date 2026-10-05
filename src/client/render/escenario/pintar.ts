@@ -4,23 +4,32 @@
  * recibe un `imagen(src)` que devuelve la ya cargada, o nada, y entonces pinta
  * el marcador de color de esa pieza (el juego se juega sin arte).
  *
- * Capas, de abajo arriba:
+ * La escena se parte en dos (`separar`): lo PLANO —el suelo, el agua, las
+ * sendas, las caras de roca, la cubierta baja— y los VOLÚMENES —árboles, picos,
+ * muros, paredes, objetos horneados y lo que pase de `UMBRAL_DE_VOLUMEN`—. Lo
+ * plano se pinta una vez en una superficie (`pintarSuelo`); los volúmenes, a
+ * cada fotograma y solo los que se ven (`pintarSprite`), mezclados por
+ * profundidad con las figuras del juego. `pintarEscena`, la del taller, es las
+ * dos cosas seguidas.
+ *
+ * Capas del suelo, de abajo arriba:
  *   1. el suelo de cada región, fundido con el de al lado por una máscara borrosa;
  *   2. la sombra de cada nivel (lo bajo, más oscuro);
  *   3. las sendas;
  *   4. el agua, con su barro y su espuma;
  *   5. los cantos de las caídas al este y al oeste;
- *   6. la sombra al pie de lo que tiene volumen;
- *   7. por orden de y, las caras de roca y los sprites;
- *   8. la luz y la niebla baja;
- *   9. las nubes del borde y la viñeta (las dos, opcionales).
+ *   6. la sombra al pie de lo que tiene volumen (también de los volúmenes);
+ *   7. por orden de y, las caras de roca y lo plano;
+ *   8. la luz y la niebla baja.
+ * Encima, los volúmenes por su `y`, y en el taller (9) las nubes del borde y la
+ * viñeta, las dos opcionales.
  *
  * Todo en píxeles de un mapa de `tile` por casilla, desplazado `margen` píxeles
  * (el sitio de las nubes): con `margen: 0` la casilla (x, y) empieza en
  * (x·tile, y·tile).
  *
- * Es caro —miles de sprites y una docena de máscaras desenfocadas—: se pinta una
- * vez por mapa en una superficie aparte y se copia, no en cada fotograma.
+ * El suelo es caro —miles de sprites y una docena de máscaras desenfocadas—: se
+ * pinta una vez por mapa en una superficie aparte y se copia.
  */
 
 import type { Escena, Luz, Sprite } from './colocar.js';
@@ -28,7 +37,7 @@ import type { Cara } from './relieve.js';
 
 /** Lo que el pintor acepta como imagen: cargada (`<img>`) o ya pintada (`<canvas>`). */
 export type Imagen = HTMLImageElement | HTMLCanvasElement | OffscreenCanvas | ImageBitmap;
-type Lienzo = HTMLCanvasElement | OffscreenCanvas;
+export type Lienzo = HTMLCanvasElement | OffscreenCanvas;
 type Contexto = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
 export interface OpcionesDePintura {
@@ -53,6 +62,21 @@ export interface OpcionesDePintura {
    * lo que mide el taller. Lo demás no se pinta.
    */
   readonly silueta?: boolean;
+  /** El alto, en casillas, desde el que un sprite es volumen (`UMBRAL_DE_VOLUMEN`). */
+  readonly umbral?: number;
+  /**
+   * La imagen de `s` ya entonada y reducida a `ancho × alto`, si quien pinta la
+   * tiene: se copia 1:1 en una unidad entera del contexto. Es lo que hace barato
+   * pintar volúmenes a cada fotograma: escalar desde el módulo nativo (hasta
+   * ~1 700 px) cuesta tres o cuatro veces más, y una copia en una posición con
+   * decimales el navegador la remuestrea, que sin GPU es lo que costaba el
+   * fotograma. Por eso quien la da pinta con el contexto en píxeles de
+   * dispositivo y trasladado un número entero de ellos.
+   *
+   * Si la que da es de otro tamaño, se escala; si da `null`, el sprite no se
+   * pinta en este fotograma: quien pinta la tendrá en uno de los siguientes.
+   */
+  readonly reducida?: (s: Sprite, ancho: number, alto: number) => Imagen | null | undefined;
 }
 
 /** El margen de la página del taller, en casillas: el sitio de las nubes. */
@@ -69,12 +93,33 @@ export function tamanoDeEscena(
 
 const TEXTURAS = ['agua', 'barro', 'cara-roca', 'cara-arenisca', 'cara-basalto', 'cara-nevada'];
 
+/**
+ * Si `s` se pinta con el filtro `objeto`: lo que el filtro deja fuera no se
+ * pinta, no se pide y no va a ninguna lista, porque lo pinta quien llama (el
+ * juego pinta él los monstruos, los recursos y los cofres).
+ */
+function seVe(s: Sprite, objeto: OpcionesDePintura['objeto']): boolean {
+  return s.objeto === undefined || objeto === undefined || objeto(s.objeto);
+}
+
 /** Todas las imágenes que puede pedir la escena: para cargarlas antes de pintar. */
-export function imagenesDeEscena(e: Escena): string[] {
+export function imagenesDeEscena(e: Escena, objeto?: OpcionesDePintura['objeto']): string[] {
   const fuera = new Set<string>();
   for (const s of new Set(e.suelo)) fuera.add(`suelos/${s}.webp`);
   for (const t of TEXTURAS) fuera.add(`texturas/${t}.webp`);
-  for (const s of e.sprites) if (s.src !== null) fuera.add(s.src);
+  for (const s of e.sprites) if (s.src !== null && seVe(s, objeto)) fuera.add(s.src);
+  return [...fuera];
+}
+
+/**
+ * Las imágenes que pide `pintarSuelo`: las texturas y lo plano. Es lo que carga
+ * el pintor del suelo, que no necesita las de los volúmenes.
+ */
+export function imagenesDelSuelo(e: Escena, sep: EscenaSeparada): string[] {
+  const fuera = new Set<string>();
+  for (const s of new Set(e.suelo)) fuera.add(`suelos/${s}.webp`);
+  for (const t of TEXTURAS) fuera.add(`texturas/${t}.webp`);
+  for (const s of sep.planos) if (s.src !== null) fuera.add(s.src);
   return [...fuera];
 }
 
@@ -114,6 +159,8 @@ const altoNatural = (im: Imagen) => ('naturalHeight' in im ? im.naturalHeight : 
 const lista = (im: Imagen | undefined): im is Imagen =>
   im !== undefined && anchoNatural(im) > 0 && (!('complete' in im) || im.complete);
 
+type NuevoLienzo = (ancho: number, alto: number) => Lienzo;
+
 function lienzoPorDefecto(ancho: number, alto: number): Lienzo {
   if (typeof OffscreenCanvas !== 'undefined') return new OffscreenCanvas(ancho, alto);
   const c = document.createElement('canvas');
@@ -128,29 +175,185 @@ function contexto(l: Lienzo): Contexto {
   return c;
 }
 
-/**
- * Las copias entonadas: un filtro de canvas por sprite es lentísimo en Chromium
- * (miles de piedras), así que cada imagen se entona una vez por tono. Se guarda
- * por imagen, así que dura lo que dure la imagen.
- */
-const entonadas = new WeakMap<Imagen, Map<string, Lienzo>>();
+/** Un lienzo nuevo de `ancho × alto` y su contexto: el de las máscaras, el suelo y las copias. */
+export function lienzoCon(
+  ancho: number,
+  alto: number,
+  nuevo: NuevoLienzo = lienzoPorDefecto,
+): { readonly lienzo: Lienzo; readonly c: Contexto } {
+  const lienzo = nuevo(ancho, alto);
+  return { lienzo, c: contexto(lienzo) };
+}
 
-export function pintarEscena(c: Contexto, e: Escena, o: OpcionesDePintura): void {
+/**
+ * `im` copiada a `ancho × alto` con su `tono`. Es el único sitio que entona: lo
+ * usan la copia a tamaño natural de aquí abajo y las reducidas de cada fotograma
+ * (`render/copias.ts`), así que las dos salen con el mismo color.
+ */
+export function copiaEntonada(
+  im: Imagen,
+  tono: string | undefined,
+  ancho: number,
+  alto: number,
+  nuevo: NuevoLienzo = lienzoPorDefecto,
+): Lienzo {
+  const { lienzo, c } = lienzoCon(ancho, alto, nuevo);
+  c.imageSmoothingEnabled = true;
+  c.imageSmoothingQuality = 'high';
+  if (tono !== undefined) c.filter = tono;
+  c.drawImage(im, 0, 0, ancho, alto);
+  return lienzo;
+}
+
+/**
+ * Las copias entonadas a tamaño natural: un filtro de canvas por sprite es
+ * lentísimo en Chromium (miles de piedras), así que cada imagen se entona una
+ * vez por tono. Se guarda por imagen, y quien ya no las necesite las suelta
+ * (`olvidarEntonadas`): son copias del tamaño del módulo nativo.
+ */
+let entonadas = new WeakMap<Imagen, Map<string, Lienzo>>();
+
+function entonada(im: Imagen, tono: string, nuevo: NuevoLienzo): Lienzo {
+  let porTono = entonadas.get(im);
+  if (porTono === undefined) {
+    porTono = new Map();
+    entonadas.set(im, porTono);
+  }
+  let copia = porTono.get(tono);
+  if (copia === undefined) {
+    copia = copiaEntonada(im, tono, anchoNatural(im), altoNatural(im), nuevo);
+    porTono.set(tono, copia);
+  }
+  return copia;
+}
+
+/**
+ * Suelta las copias entonadas. El juego las necesita solo para pintar el suelo
+ * una vez: los volúmenes de cada fotograma salen de las reducidas.
+ */
+export function olvidarEntonadas(): void {
+  entonadas = new WeakMap();
+}
+
+/**
+ * Lo que tiene volumen, con su clave de profundidad: la `y` de la base, en
+ * casillas, que es donde se apoya el ancla. Es la misma convención con la que el
+ * juego ordena sus figuras, así que una figura puede quedar detrás de un árbol.
+ */
+export interface Volumen {
+  readonly clave: number;
+  readonly s: Sprite;
+}
+
+/** Una escena partida en lo que se pinta una vez y lo que se pinta a cada fotograma. */
+export interface EscenaSeparada {
+  /** Lo plano, en su orden de `y`: va a la superficie del suelo con las caras de roca. */
+  readonly planos: readonly Sprite[];
+  /** Lo que tapa, ordenado por `clave` y, a igualdad, por `x`. */
+  readonly volumenes: readonly Volumen[];
+}
+
+/**
+ * Lo que pasa de este alto, en casillas, ya tapa a una figura y va a los
+ * volúmenes (decisión del usuario). Con 0,6 una mata no tapa nunca a una figura
+ * y los arbolillos de un bosquecillo sí.
+ */
+export const UMBRAL_DE_VOLUMEN = 0.6;
+
+/**
+ * Las clases que tapan sea cual sea su alto. Las caras de roca NO son sprites ni
+ * volumen: cuelgan hacia el sur, no tapan a nadie, y llevan rocas caídas
+ * solapadas a su pie que tienen que quedar encima; van al suelo, por `y`.
+ */
+const SIEMPRE_VOLUMEN: ReadonlySet<Sprite['clase']> = new Set(['masa', 'muro', 'pared', 'objeto']);
+
+/**
+ * Parte la escena: cada sprite de la capa del suelo va a una sola lista, y las
+ * nubes a ninguna. Lo que el filtro `objeto` deja fuera no va a ninguna (`seVe`).
+ */
+export function separar(
+  e: Escena,
+  o: Pick<OpcionesDePintura, 'umbral' | 'objeto'> = {},
+): EscenaSeparada {
+  const umbral = o.umbral ?? UMBRAL_DE_VOLUMEN;
+  const planos: Sprite[] = [];
+  const volumenes: Volumen[] = [];
+  for (const s of e.sprites) {
+    if (s.capa !== 0 || !seVe(s, o.objeto)) continue;
+    if (SIEMPRE_VOLUMEN.has(s.clase) || s.alto > umbral) volumenes.push({ clave: s.y, s });
+    else planos.push(s);
+  }
+  // `componer` ya los da por (capa, y, x); se ordena igual por si un día no.
+  volumenes.sort((p, q) => p.clave - q.clave || p.s.x - q.s.x);
+  return { planos, volumenes };
+}
+
+/**
+ * Un sprite, en píxeles del mapa (la casilla (x, y) empieza en (x·tile, y·tile)):
+ * su imagen por su ancla, la copia ya reducida si la hay, o su marcador. Es lo
+ * que el juego pinta a cada fotograma por cada volumen, mezclado con sus figuras
+ * por la clave; quien lo pinte en una cámara traslada antes el contexto.
+ */
+export function pintarSprite(c: Contexto, s: Sprite, o: OpcionesDePintura): void {
   const T = o.tile;
-  const M = o.margen ?? 0;
-  const nuevo = o.lienzo ?? lienzoPorDefecto;
   const silueta = o.silueta === true;
-  const seVe = (s: Sprite) =>
-    s.objeto === undefined || o.objeto === undefined || o.objeto(s.objeto);
+  const original = s.src === null ? undefined : o.imagen(s.src);
+  const k = (s.alto * T) / s.nh;
+  if (lista(original)) {
+    const dx = s.x * T - s.ax * k;
+    const dy = s.y * T - s.ay * k;
+    const ancho = s.nw * k;
+    const alto = s.nh * k;
+    const reducida = silueta || s.recorte !== undefined ? undefined : o.reducida?.(s, ancho, alto);
+    if (reducida === null) return;
+    if (reducida !== undefined) {
+      if (
+        anchoNatural(reducida) === Math.max(1, Math.round(ancho)) &&
+        altoNatural(reducida) === Math.max(1, Math.round(alto))
+      )
+        c.drawImage(reducida, Math.round(dx), Math.round(dy));
+      else c.drawImage(reducida, dx, dy, ancho, alto);
+      return;
+    }
+    const im = s.tono !== undefined && !silueta ? entonada(original, s.tono, nuevoDe(o)) : original;
+    if (s.recorte === undefined) c.drawImage(im, dx, dy, ancho, alto);
+    else c.drawImage(im, ...s.recorte, dx, dy, ancho, alto);
+    return;
+  }
+  // Sin su imagen, su marcador: un triángulo de su color.
+  c.fillStyle = silueta ? '#fff' : s.color;
+  c.beginPath();
+  const w = s.alto * T * 0.45;
+  c.moveTo(s.x * T - w, s.y * T);
+  c.lineTo(s.x * T, s.y * T - s.alto * T);
+  c.lineTo(s.x * T + w, s.y * T);
+  c.fill();
+}
+
+const nuevoDe = (o: OpcionesDePintura) => o.lienzo ?? lienzoPorDefecto;
+
+/**
+ * Todo lo plano, una vez: las capas 1-6, los planos y las caras de roca por su
+ * `y`, y la luz encima. En píxeles del mapa, sin margen. La luz va aquí y no
+ * encima de los volúmenes porque tiñe el suelo: pintarla aparte costaría otra
+ * copia escalada por fotograma.
+ */
+export function pintarSuelo(
+  c: Contexto,
+  e: Escena,
+  sep: EscenaSeparada,
+  o: OpcionesDePintura,
+): void {
+  const T = o.tile;
+  const nuevo = nuevoDe(o);
+  const silueta = o.silueta === true;
 
   const mascara = (pred: (i: number) => boolean, desenfoque: number): Lienzo => {
-    const chico = nuevo(e.W, e.H);
-    const cc = contexto(chico);
+    const { lienzo: chico, c: cc } = lienzoCon(e.W, e.H, nuevo);
     const d = cc.createImageData(e.W, e.H);
     for (let i = 0; i < e.W * e.H; i++) if (pred(i)) d.data[i * 4 + 3] = 255;
     cc.putImageData(d, 0, 0);
-    const grande = nuevo(e.W * T, e.H * T);
-    const g = contexto(grande);
+    const { lienzo: grande, c: g } = lienzoCon(e.W * T, e.H * T, nuevo);
     g.imageSmoothingEnabled = true;
     g.filter = `blur(${desenfoque}px)`;
     g.drawImage(chico, 0, 0, e.W * T, e.H * T);
@@ -169,44 +372,6 @@ export function pintarEscena(c: Contexto, e: Escena, o: OpcionesDePintura): void
     g.fillRect(0, 0, capa.width, capa.height);
     g.globalCompositeOperation = 'source-over';
     return capa;
-  };
-  const entonada = (im: Imagen, tono: string): Imagen | Lienzo => {
-    let porTono = entonadas.get(im);
-    if (porTono === undefined) {
-      porTono = new Map();
-      entonadas.set(im, porTono);
-    }
-    let copia = porTono.get(tono);
-    if (copia === undefined) {
-      copia = nuevo(anchoNatural(im), altoNatural(im));
-      const g = contexto(copia);
-      g.filter = tono;
-      g.drawImage(im, 0, 0);
-      porTono.set(tono, copia);
-    }
-    return copia;
-  };
-  const pintarSprite = (s: Sprite) => {
-    const original = s.src === null ? undefined : o.imagen(s.src);
-    const k = (s.alto * T) / s.nh;
-    if (lista(original)) {
-      const im = s.tono !== undefined && !silueta ? entonada(original, s.tono) : original;
-      const dx = s.x * T - s.ax * k;
-      const dy = s.y * T - s.ay * k;
-      if (s.recorte !== undefined) {
-        const [sx, sy, sw, sh] = s.recorte;
-        c.drawImage(im, sx, sy, sw, sh, dx, dy, s.nw * k, s.nh * k);
-      } else c.drawImage(im, dx, dy, s.nw * k, s.nh * k);
-      return;
-    }
-    // Sin su imagen, su marcador: un triángulo de su color.
-    c.fillStyle = silueta ? '#fff' : s.color;
-    c.beginPath();
-    const w = s.alto * T * 0.45;
-    c.moveTo(s.x * T - w, s.y * T);
-    c.lineTo(s.x * T, s.y * T - s.alto * T);
-    c.lineTo(s.x * T + w, s.y * T);
-    c.fill();
   };
   const pintarCara = (f: Cara) => {
     const x = f.x0 * T;
@@ -246,7 +411,6 @@ export function pintarEscena(c: Contexto, e: Escena, o: OpcionesDePintura): void
   const aguaHonda = (i: number) => agua.has(i) && [1, -1, e.W, -e.W].every((d) => agua.has(i + d));
 
   c.save();
-  c.translate(M, M);
   c.lineCap = 'round';
   c.lineJoin = 'round';
   if (silueta) {
@@ -334,9 +498,10 @@ export function pintarEscena(c: Contexto, e: Escena, o: OpcionesDePintura): void
       c.fillStyle = gr;
       c.fillRect(lado === 'este' ? gx : gx - 0.35 * T, y * T, 0.35 * T, T);
     }
-    // 6 · Las sombras al pie de lo que tiene volumen.
+    // 6 · Las sombras al pie de lo que tiene volumen: también de los volúmenes,
+    //     que se pintan después, cada uno encima de la suya.
     for (const s of e.sprites) {
-      if (!s.sombra || !seVe(s)) continue;
+      if (!s.sombra || !seVe(s, o.objeto)) continue;
       const r = s.alto * T * 0.42;
       const gr = c.createRadialGradient(
         s.x * T + r * 0.3,
@@ -352,19 +517,14 @@ export function pintarEscena(c: Contexto, e: Escena, o: OpcionesDePintura): void
       c.fillRect(s.x * T - r, s.y * T - r, 2.3 * r, 2 * r);
     }
   }
-  // 7 · En orden de profundidad: las caras de roca y los sprites.
+  // 7 · En orden de profundidad: las caras de roca y lo plano.
   const orden: ({ y: number; cara: Cara } | { y: number; s: Sprite })[] = [
     ...e.relieve.caras.map((f) => ({ y: f.y + 1 - 0.01, cara: f })),
-    ...e.sprites.filter((s) => s.capa === 0 && seVe(s)).map((s) => ({ y: s.y, s })),
+    ...sep.planos.map((s) => ({ y: s.y, s })),
   ].sort((p, q) => p.y - q.y);
-  for (const p of orden) 'cara' in p ? pintarCara(p.cara) : pintarSprite(p.s);
-  c.restore();
-  if (silueta) return;
-
+  for (const p of orden) 'cara' in p ? pintarCara(p.cara) : pintarSprite(c, p.s, o);
   // 8 · La luz y la niebla baja.
-  c.save();
-  c.translate(M, M);
-  if (o.luces !== false)
+  if (!silueta && o.luces !== false)
     for (const l of e.luces) {
       const [r, g, b, al] = COLOR_DE_LUZ[l.clase];
       c.globalCompositeOperation = l.clase === 'niebla' ? 'screen' : 'lighter';
@@ -380,15 +540,33 @@ export function pintarEscena(c: Contexto, e: Escena, o: OpcionesDePintura): void
       c.fillRect((l.x - l.r) * T, (l.y - l.r) * T, 2 * l.r * T, 2 * l.r * T);
       c.restore();
     }
-  c.globalCompositeOperation = 'source-over';
+  c.restore();
+}
+
+/**
+ * La escena entera: el suelo y, encima, los volúmenes en su orden, con la MISMA
+ * `separar` que usa el juego, así que el taller enseña exactamente lo que pinta
+ * el juego (menos sus figuras). Después, las nubes del borde y la viñeta.
+ */
+export function pintarEscena(c: Contexto, e: Escena, o: OpcionesDePintura): void {
+  const T = o.tile;
+  const M = o.margen ?? 0;
+  const sep = separar(e, {
+    ...(o.umbral === undefined ? {} : { umbral: o.umbral }),
+    ...(o.objeto === undefined ? {} : { objeto: o.objeto }),
+  });
+  c.save();
+  c.translate(M, M);
+  pintarSuelo(c, e, sep, o);
+  for (const v of sep.volumenes) pintarSprite(c, v.s, o);
   // 9 · Las nubes del borde y la viñeta.
-  if (o.nubes !== false) {
+  if (o.silueta !== true && o.nubes !== false) {
     c.globalAlpha = 0.92;
-    for (const s of e.sprites) if (s.capa === 1) pintarSprite(s);
+    for (const s of e.sprites) if (s.capa === 1) pintarSprite(c, s, o);
     c.globalAlpha = 1;
   }
   c.restore();
-  if (o.vineta !== false) {
+  if (o.silueta !== true && o.vineta !== false) {
     const { ancho, alto } = tamanoDeEscena(e, T, M);
     const v = c.createRadialGradient(
       ancho / 2,
@@ -410,9 +588,7 @@ export function pintarEscena(c: Contexto, e: Escena, o: OpcionesDePintura): void
  * silueta y se cuentan los píxeles transparentes. Es la medida del taller.
  */
 export function sueloDesnudo(e: Escena, o: Omit<OpcionesDePintura, 'silueta' | 'margen'>): number {
-  const nuevo = o.lienzo ?? lienzoPorDefecto;
-  const l = nuevo(e.W * o.tile, e.H * o.tile);
-  const c = contexto(l);
+  const { lienzo: l, c } = lienzoCon(e.W * o.tile, e.H * o.tile, o.lienzo);
   pintarEscena(c, e, { ...o, margen: 0, silueta: true });
   const d = c.getImageData(0, 0, l.width, l.height).data;
   let desnudo = 0;

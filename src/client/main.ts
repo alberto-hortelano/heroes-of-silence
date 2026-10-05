@@ -11,8 +11,10 @@ import { EscenaCastillo } from './escenas/castillo.js';
 import { PuertaDeFinDeTurno } from './fin-de-turno.js';
 import { pintar } from './html.js';
 import { cargarArte } from './render/assets.js';
+import { apuntarElSueloEn } from './render/escenario/superficie.js';
 import { hayFigurasAnimadas } from './render/figura.js';
 import { ajustarLienzo } from './render/lienzo.js';
+import { PIXELES_DEL_MAPA } from './render/mapa.js';
 import { semillaSorteada } from './semilla.js';
 import { Session } from './session.js';
 import { renderActions, renderSide, renderTopbar } from './views/panels.js';
@@ -113,6 +115,7 @@ cargarArte(() => {
   arteLlegado++;
   pedirFotograma();
 });
+apuntarElSueloEn(app);
 
 let escenaPintada = '';
 
@@ -146,11 +149,15 @@ function dibujarFotograma(ahora: number): void {
     escenaPintada = escena;
   }
 
-  const rect = principal.preparar();
+  const enCastillo = escena === 'town' && session.activeTown !== null;
+  const enBatalla = escena === 'battle' && session.battle !== null;
+  // Solo el mapa tiene presupuesto de píxeles: es la única pantalla que pinta
+  // miles de sprites a cada fotograma.
+  const rect = principal.preparar(enCastillo || enBatalla ? undefined : PIXELES_DEL_MAPA);
   ctx.clearRect(0, 0, rect.width, rect.height);
-  if (escena === 'town' && session.activeTown !== null) {
+  if (enCastillo) {
     castillo.dibujar(ctx, rect.width, rect.height, ahora);
-  } else if (escena === 'battle' && session.battle !== null) {
+  } else if (enBatalla) {
     batalla.sincronizar(ahora);
     batalla.dibujar(ctx, rect.width, rect.height);
     seguirALaActiva();
@@ -158,7 +165,7 @@ function dibujarFotograma(ahora: number): void {
     aventura.dibujar(ctx, rect.width, rect.height, ahora);
     aventura.dibujarMinimapa(minimapa);
   }
-  señalarEnemigo(escena === 'battle' && session.battle !== null);
+  señalarEnemigo(enBatalla);
 
   if (
     paneles === null ||

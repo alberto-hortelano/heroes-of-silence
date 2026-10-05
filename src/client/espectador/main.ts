@@ -16,10 +16,11 @@ import type { SpectatorView } from '../../server/vista-espectador.js';
 import { NADA, pintar } from '../html.js';
 import { cargarArte } from '../render/assets.js';
 import { bandosSinDueño, drawBatalla } from '../render/batalla.js';
-import { type CamaraMapa, centrarEn, TILE_MIN } from '../render/camara-mapa.js';
+import { type CamaraMapa, centrarEn, TILE_LEGIBLE } from '../render/camara-mapa.js';
+import { apuntarElSueloEn, escenarioListo, topeDeAlejar } from '../render/escenario/superficie.js';
 import { hayFigurasAnimadas } from '../render/figura.js';
 import { ajustarLienzo } from '../render/lienzo.js';
-import { type AdventureScene, drawMapa } from '../render/mapa.js';
+import { type AdventureScene, drawMapa, PIXELES_DEL_MAPA } from '../render/mapa.js';
 import { tableroPara } from '../render/proyeccion.js';
 import { rotuloDeDia } from '../views/panels.js';
 import { adaptarEscena, centroDeLaEscena } from './adaptar.js';
@@ -91,12 +92,15 @@ function destino(): Destino {
 let vista: SpectatorView | null = null;
 /** Lo que se pinta, adaptado una vez por fotograma del cable y no a cada fotograma de pantalla. */
 let escena: AdventureScene | null = null;
-/** Cuántos fotogramas del cable han llegado: la versión de lo que se pinta quieto. */
-let fotogramasDelCable = 0;
 let dia = 0;
 let turnoDe = 0;
 let finDe: FinDePartida | null = null;
-let camara: CamaraMapa = { tile: TILE_MIN, x: 0, y: 0 };
+/**
+ * El espectador mira desde lo más lejos que deja el tope de alejar: es quien
+ * quiere ver más mapa, y no tiene rueda con la que pedirlo. Pide el zoom más
+ * lejano de todos y `centrarEn` lo sube hasta el tope de la escena y del lienzo.
+ */
+const LO_MAS_LEJOS: CamaraMapa = { tile: TILE_LEGIBLE, x: 0, y: 0 };
 /** Los paneles se rehacen cuando llega algo nuevo, no a cada fotograma. */
 let panelesPendientes = true;
 /** Si el panel se pintó con el tablero aún contando: entonces calla el final. */
@@ -190,7 +194,7 @@ function pintarTodo(ahora: number): void {
     app.dataset.escena = nueva;
     principal.remedir();
   }
-  const rect = principal.preparar();
+  const rect = principal.preparar(batalla === null ? PIXELES_DEL_MAPA : undefined);
   ctx.clearRect(0, 0, rect.width, rect.height);
 
   if (vista !== null && escena !== null) {
@@ -218,11 +222,13 @@ function pintarTodo(ahora: number): void {
       apuntarLoQueSePinta(true);
     } else {
       apuntarLoQueSePinta(false);
-      camara = centrarEn(camara, centroDeLaEscena(vista), {
+      const esc = escenarioListo(escena.map, vista.seed);
+      const camara = centrarEn(LO_MAS_LEJOS, centroDeLaEscena(vista), {
         ancho: rect.width,
         alto: rect.height,
         mapaAncho: escena.map.width,
         mapaAlto: escena.map.height,
+        ...(esc === null ? {} : { tileMinimo: topeDeAlejar(esc, rect.width, rect.height) }),
       });
       // Un espectador lo ve TODO: eso es lo que es. Por eso #64 no aplica aquí.
       drawMapa(ctx, {
@@ -235,9 +241,9 @@ function pintarTodo(ahora: number): void {
         ruta: [],
         seleccionado: null,
         hover: null,
-        semilla: 0,
+        // La de la partida: la escena es la misma que ve quien juega.
+        semilla: vista.seed,
         tiempo: ahora,
-        version: fotogramasDelCable,
       });
     }
   }
@@ -293,7 +299,6 @@ function pintarPaneles(): void {
 function aplicar(snapshot: SpectatorSnapshotMsg): void {
   vista = snapshot.view;
   escena = adaptarEscena(vista);
-  fotogramasDelCable++;
   dia = snapshot.day;
   turnoDe = snapshot.current;
   finDe = snapshot.finished;
@@ -402,5 +407,6 @@ cargarArte(() => {
   panelesPendientes = true;
   pedirFotograma();
 });
+apuntarElSueloEn(app);
 conectar();
 pedirFotograma();

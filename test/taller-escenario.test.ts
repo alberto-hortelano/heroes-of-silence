@@ -1,5 +1,5 @@
 /**
- * Las reglas puras del escenógrafo (`tools/taller/escenario/`): el esqueleto
+ * Las reglas puras del escenógrafo (`src/client/render/escenario/`): el esqueleto
  * que hace de una franja de muro UNA muralla, el relieve que pone las caras de
  * roca hacia la cámara, el esparcido que llena sin amontonar, y la escena de un
  * mapa real sin nada apoyado sobre un objeto.
@@ -7,15 +7,15 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { analizar } from '../src/client/render/escenario/analizar.js';
+import { type Catalogo, RUTA_DEL_CATALOGO } from '../src/client/render/escenario/catalogo.js';
+import { componentesDePasos, componer } from '../src/client/render/escenario/colocar.js';
+import { azarDe, esparcir } from '../src/client/render/escenario/esparcir.js';
+import { ejeDe, esqueleto } from '../src/client/render/escenario/esqueleto.js';
+import { nivelDeRegion, relieve } from '../src/client/render/escenario/relieve.js';
+import { encadenar, suavizar, VAIVEN } from '../src/client/render/escenario/sendas.js';
 import { newGame } from '../src/core/state/setup.js';
-import { analizar } from '../tools/taller/escenario/analizar.js';
-import { type Catalogo, RUTA_DEL_CATALOGO } from '../tools/taller/escenario/catalogo.js';
 import { leerCatalogo, textoDelCatalogo } from '../tools/taller/escenario/catalogo-disco.js';
-import { componentesDePasos, componer } from '../tools/taller/escenario/colocar.js';
-import { azarDe, esparcir } from '../tools/taller/escenario/esparcir.js';
-import { ejeDe, esqueleto } from '../tools/taller/escenario/esqueleto.js';
-import { nivelDeRegion, relieve } from '../tools/taller/escenario/relieve.js';
-import { encadenar, suavizar, VAIVEN } from '../tools/taller/escenario/sendas.js';
 
 function franja(filas: readonly string[]): [number, number][] {
   const c: [number, number][] = [];
@@ -205,7 +205,10 @@ describe('lo que importaría el juego', () => {
     // Se sigue cada import relativo desde las dos puertas y se mira qué trae de fuera.
     const deFuera = new Map<string, string>();
     const vistos = new Set<string>();
-    const pendientes = ['tools/taller/escenario/colocar.ts', 'tools/taller/escenario/pintar.ts'];
+    const pendientes = [
+      'src/client/render/escenario/colocar.ts',
+      'src/client/render/escenario/pintar.ts',
+    ];
     for (let f = pendientes.pop(); f !== undefined; f = pendientes.pop()) {
       if (vistos.has(f)) continue;
       vistos.add(f);
@@ -216,6 +219,9 @@ describe('lo que importaría el juego', () => {
         if (/^\s*(?:import|export)\s+type\b/.test(m[0])) continue;
         if (ruta.startsWith('.')) {
           pendientes.push(join(dirname(f), ruta.replace(/\.js$/, '.ts')));
+        } else if (ruta.startsWith('@core/')) {
+          // El núcleo es puro por su propio guardia: se sigue igual, por si acaso.
+          pendientes.push(join('src/core', ruta.slice('@core/'.length).replace(/\.js$/, '.ts')));
         } else deFuera.set(ruta, f);
       }
       for (const m of texto.matchAll(/(?:import\s*\(|^\s*import\s*)'([^']+)'/gm))
