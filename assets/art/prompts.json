@@ -384,7 +384,7 @@
     "name": "Zombie",
     "path": "assets/art/no-muertos/zombie.png",
     "prompt": "Use case: stylized-concept. Landscape 3:2 character design reference sheet for a medieval fantasy strategy game. Exactly two views of the SAME fictional undead peasant: full body front view and three-quarter back view side by side, all feet and equipment fully visible with generous margins. Neutral light grey studio background, painterly digital concept art, realistic proportions, readable silhouette, soft even lighting. A slow, shambling medieval zombie with INTACT grey-green waxy skin, tired cloudy eyes and a slack expression, wearing a torn muddy linen tunic and trousers. One arm reaches forward gently, one foot drags, and an old broken wooden farming tool hangs loosely from the other hand. Dirt stains on clothes, muted mud brown and faded linen palette with subtle desaturated green accents. Eerie and pitiful fantasy creature, a calm nonviolent character study. All anatomy is fully intact and covered normally; no injuries, no wounds, no exposed internal anatomy, no blood, no gore, no attacking, no victim, no horror shock imagery. No text, labels, logo, watermark, border, scenery, modern objects, modern clothes, cartoon, anime, neon, glowing outlines or additional characters.",
-    "status": "generated",
+    "status": "replaced by user (2026-10-05)",
     "width": 1536,
     "height": 1024,
     "generator": "built-in image_gen",
@@ -398,7 +398,7 @@
     "name": "Necrófago",
     "path": "assets/art/no-muertos/necrofago.png",
     "prompt": "Use case: stylized-concept. Asset type: troop design reference sheet. Landscape 3:2 composition.\nCreature concept art sheet, single creature, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, believable lean anatomy, dark fantasy. A ghoul corpse-eater, gaunt and wiry, pale grey translucent skin stretched over ribs, long limbs, crouched on all fours like a predator, elongated jaw with needle teeth, long dirty claws, scraps of a burial shroud hanging from the waist, milky white eyes. Fast, feral, hungry. Palette: pale grey skin, dirty white shroud, dark grey shadows, dull toxic green eyes.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, gore, eating a body, vampire, werewolf",
-    "status": "generated",
+    "status": "retired by user (2026-10-05)",
     "width": 1536,
     "height": 1024,
     "generator": "built-in image_gen",
@@ -424,7 +424,7 @@
     "name": "Gólem de huesos",
     "path": "assets/art/no-muertos/golem-de-huesos.png",
     "prompt": "Use case: stylized-concept. Asset type: troop design reference sheet. Landscape 3:2 composition.\nCreature concept art sheet, single creature, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, believable heavy construction, dark fantasy. A towering bone golem, three times the height of a human, built from hundreds of fused human and animal bones bound with black iron bands and chains, a ribcage chest with a dull green flame inside, massive arms ending in fists made of skulls and vertebrae, a horned beast skull as the head. Slow, enormous, assembled from the dead. Palette: yellowed bone, black iron, rust, dull toxic green flame.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, flesh, blood, gore, clean white bones, robot",
-    "status": "generated",
+    "status": "retired by user (2026-10-05)",
     "width": 1536,
     "height": 1024,
     "generator": "built-in image_gen",
@@ -760,6 +760,108 @@
       "assets/art/orkos/goblin-lancero.png"
     ],
     "thread": "01a10bf2-9917-7050-9901-76004478466c",
+    "approved": "2026-10-05"
+  },
+  {
+    "id": 51,
+    "faction": "No muertos",
+    "name": "Nigromante (héroe)",
+    "path": "assets/art/no-muertos/nigromante.png",
+    "prompt": "Use case: stylized-concept. Asset type: hero design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single character, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, dark fantasy. A necromancer hero who works magic with corpses and commands zombies: long ragged black and purple robes, hood thrown back, pale gaunt face with sunken eyes, a necklace of finger bones, pouches and small bone fetishes at the belt, a staff of black wood topped with a human skull with a faint green glow in its eye sockets. Cold, commanding stance, one hand raised as if calling the dead. Palette: black, faded purple, bone, pale skin, sickly green glow.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same undead faction: match their painting style, finish, lighting, grey background and bone, rust, black and sickly-green palette exactly, but design a NEW character as described; do not copy their figures. The last attached image is this same character as already approved in game: keep his face, costume and colours.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, pointed wizard hat, crown, intense magic glow, fire",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "375b2cb6b14d31a1b702e9636ae238871cee20d2f5c44ba639abbdacec666334",
+    "source_image": "/home/al/.codex/generated_images/01a10cb6-a43e-7af1-8f28-b847f000baa9/exec-1cef1c1f-d285-4ff0-9c46-59ddd4027364.png",
+    "references": [
+      "assets/art/no-muertos/esqueleto-guerrero.png",
+      "assets/art/no-muertos/espectro.png",
+      ".cache/laminas/nigromante-identidad.png"
+    ],
+    "thread": "01a10cb6-a43e-7af1-8f28-b847f000baa9",
+    "approved": "2026-10-05"
+  },
+  {
+    "id": 52,
+    "faction": "No muertos",
+    "name": "Vampiro (héroe)",
+    "path": "assets/art/no-muertos/vampiro.png",
+    "prompt": "Use case: stylized-concept. Asset type: hero design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single character, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, dark fantasy. A vampire lord hero who heals by draining life and bends minds: aristocrat with very pale skin and long black hair, a garnet velvet doublet with black embroidery, a light black cuirass, a high-collared black cloak lined with red, a slender rapier in the right hand and the clawed left hand free and raised. Elegant, predatory stance. Palette: black, garnet red, deathly pale skin, steel.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same undead faction: match their painting style, finish, lighting, grey background and bone, rust, black and sickly-green palette exactly, but design a NEW character as described; do not copy their figures. The last attached image is this same character as already approved in game: keep his face, costume and colours.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, bat wings, fangs dripping blood, shield, sexualized pose",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "f0869aebb96f1a649280c947aacfe9f2c9b6ba691e820d4a3a4f426d38c897c3",
+    "source_image": "/home/al/.codex/generated_images/01a10cb6-a455-77f3-8320-d842b9edc535/exec-2c1a845c-d6a0-41ce-a4b6-3d4af8f93dd2.png",
+    "references": [
+      "assets/art/no-muertos/esqueleto-guerrero.png",
+      "assets/art/no-muertos/espectro.png",
+      ".cache/laminas/vampiro-identidad.png"
+    ],
+    "thread": "01a10cb6-a455-77f3-8320-d842b9edc535",
+    "approved": "2026-10-05"
+  },
+  {
+    "id": 53,
+    "faction": "No muertos",
+    "name": "Lich (héroe)",
+    "path": "assets/art/no-muertos/lich.png",
+    "prompt": "Use case: stylized-concept. Asset type: hero design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single character, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, dark fantasy. A lich hero, a long-range dark mage who drains abilities from enemies: the skeleton of a sorcerer with a rusted iron crown, rotten black and green ceremonial robes with frayed gold threads, bony hands with rings, a phylactery hanging at the neck, a tall staff of bone topped with a green gem, faint green light in the eye sockets. Tall, ominous stance. Palette: bone, black, rotten green, tarnished gold, pale green light.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same undead faction: match their painting style, finish, lighting, grey background and bone, rust, black and sickly-green palette exactly, but design a NEW character as described; do not copy their figures. The last attached image is this same character as already approved in game: keep his face, costume and colours.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, flesh on the face, intense magic glow, fire",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "17d08632eda11e43b5fc4e6e15171582447c6d320d45b03bb6d712e8ad7d07cb",
+    "source_image": "/home/al/.codex/generated_images/01a10cb6-a495-7410-b35c-45ed2b4f6594/exec-85dceaef-12a0-4362-9a83-fa36b91e38f0.png",
+    "references": [
+      "assets/art/no-muertos/esqueleto-guerrero.png",
+      "assets/art/no-muertos/espectro.png",
+      ".cache/laminas/lich-identidad.png"
+    ],
+    "thread": "01a10cb6-a495-7410-b35c-45ed2b4f6594",
+    "approved": "2026-10-05"
+  },
+  {
+    "id": 54,
+    "faction": "No muertos",
+    "name": "Caballero de la muerte",
+    "path": "assets/art/no-muertos/caballero-de-la-muerte.png",
+    "prompt": "Use case: stylized-concept. Asset type: troop design reference sheet. Landscape 3:2 composition.\nCharacter concept art sheet, single character, full body front view and three-quarter back view side by side, neutral light grey background, painterly digital concept art, strong readable silhouette, grounded realistic proportions, dark fantasy. A death knight, the dark counterpart of the templar knight, around whom the fallen rise again: dented black plate armor with iron rivets, a tattered black surcoat with a faded broken cross, a closed helm with short horns and a cold green glow behind the visor, a great notched two-handed sword. Heavy, implacable stance. Palette: black iron, faded bone white, rust, cold green glow.\nSoft even lighting, believable worn materials, high detail on armor and equipment. Show the SAME subject in the two requested views, consistently designed; no additional characters. Fit the entire subject and all equipment in the frame with comfortable margins. No labels or text.\nThe attached images are approved concept sheets of the same undead faction: match their painting style, finish, lighting, grey background and bone, rust, black and sickly-green palette exactly, but design a NEW character as described; do not copy their figures. The last attached image is this same character as already approved in game: keep his face, costume and colours.\nAvoid: text, letters, watermark, signature, logo, UI, frame, border, cropped body, cut-off feet, close-up portrait, multiple characters, crowd, busy background, landscape, scenery, modern clothing, modern weapons, sci-fi elements, anime, manga, chibi, cartoon, toy, plastic look, 3D render, photograph, oversaturated colors, neon, glowing outlines, blurry, deformed hands, extra fingers, extra limbs, asymmetrical eyes, bikini armor, sexualized pose, gore, blood splatter, horse, shield, clean shiny armor, bright red cross",
+    "status": "generated",
+    "generator": "built-in image_gen",
+    "width": 1536,
+    "height": 1024,
+    "sha256": "0536b0fa1b912f03729958c9b1fc0a9fc88fb9589a82a11013db678c49e9b881",
+    "source_image": "/home/al/.codex/generated_images/01a10cb6-a462-7ac3-a5bc-54c71790fc49/exec-7af0319c-7daa-4941-bc46-b5b088721999.png",
+    "references": [
+      "assets/art/no-muertos/esqueleto-guerrero.png",
+      "assets/art/no-muertos/espectro.png",
+      ".cache/laminas/caballero-de-la-muerte-identidad.png"
+    ],
+    "thread": "01a10cb6-a462-7ac3-a5bc-54c71790fc49",
+    "approved": "2026-10-05"
+  },
+  {
+    "id": 55,
+    "faction": "No muertos",
+    "name": "Zombie",
+    "path": "assets/art/no-muertos/zombie.png",
+    "status": "provided by user",
+    "width": 1448,
+    "height": 1086,
+    "sha256": "4841b3030295aa656e9968c90c12fcd2864fc619b843ede936a85fd5ec848e25",
+    "approved": "2026-10-05"
+  },
+  {
+    "id": 56,
+    "faction": "No muertos",
+    "name": "Jinete de plaga",
+    "path": "assets/art/no-muertos/jinete-de-plaga.png",
+    "status": "provided by user",
+    "width": 1448,
+    "height": 1086,
+    "sha256": "e5779d3c996752ee82e7c398a1029e4a05f09d37c9f8777465d6c2b115715cba",
     "approved": "2026-10-05"
   }
 ]
