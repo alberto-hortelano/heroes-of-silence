@@ -15,6 +15,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { derivarCeldas } from '../tools/taller/componer-atlas-mapa.js';
 import { derivarEfecto, derivarPieza, rutaDelJson } from '../tools/taller/derivar.js';
+import { puenteDerivado } from '../tools/taller/paredes-puentes.js';
 
 const RAIZ = join(import.meta.dirname, '..');
 const UNIDADES = join(RAIZ, 'assets/unidades');
@@ -68,7 +69,11 @@ describe('las hojas del taller', () => {
 
 describe('las piezas del mapa', () => {
   it.each([...piezas, ...edificios])('%s: el JSON es lo que mide la imagen', async (p) => {
-    expect(leer(rutaDelJson(p))).toEqual(JSON.parse(JSON.stringify(await derivarPieza(p))));
+    // Un puente se ancla en el centro del tablero, no en la base (§17).
+    const esperado = /\/puente-[^/]+\.webp$/.test(p)
+      ? await puenteDerivado(p)
+      : await derivarPieza(p);
+    expect(leer(rutaDelJson(p))).toEqual(JSON.parse(JSON.stringify(esperado)));
   });
 
   it.each([...piezas, ...muestras, ...edificios])('%s: lleva su procedencia', (p) => {

@@ -195,6 +195,20 @@ casillas de barrera sin formación —las tres a 0— y el suelo desnudo, objeti
 < 20 %. En las semillas 1, 3, 9, 5 y 12: 13,1 / 20,1 / 16,1 / 16,6 / 13,9 %. La
 semilla 3 roza el objetivo por los claros de prado, que son a propósito.
 
+## Paredes laterales y puentes (§16-§17 de `peticiones.md`, 06-10-2026)
+
+```bash
+pnpm taller guias                                   # las guías de geometría, en assets/mapa/guias/
+pnpm taller encolar --paredes-puentes [--solo=…]    # puentes y hojas de paredes laterales
+pnpm taller derivar-puentes assets/mapa/puente-*.webp
+```
+
+Lo que tiene que casar con la rejilla (un puente recto, una pared que cae al
+este) lleva una **guía de geometría** (`papel: 'guia'`): un volumen gris con la
+proyección del mapa que manda en la orientación y la forma. Con palabras solas,
+el puente salía torcido. La guía guarda en su `.json` el centro del tablero y la
+casilla, y de ahí sale el ancla del puente (`paredes-puentes.ts`).
+
 ## Unidades en 8 direcciones
 
 La unidad definitiva tiene 8 direcciones y 6 acciones: quieto, andando, carga,

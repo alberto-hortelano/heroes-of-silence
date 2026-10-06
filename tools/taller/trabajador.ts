@@ -23,6 +23,10 @@
  *   pnpm taller vista-mapa [semilla]     un mapa denso del generador pintado con ese arte
  *   pnpm taller encolar --modulos | --texturas-relieve [--solo=…]
  *                                        las hojas de módulos del escenógrafo
+ *   pnpm taller encolar --paredes-puentes [--solo=…]
+ *                                        paredes laterales y puentes (§16-§17), con su guía
+ *   pnpm taller guias                    escribe las guías de geometría de `paredes-puentes.ts`
+ *   pnpm taller derivar-puentes <puente.webp>…  rehace su ancla (centro del tablero) y su casilla
  *   pnpm taller escenario [semilla…]     el escenógrafo: compone, pinta, captura y mide
  *   pnpm taller catalogo-escena          rehace assets/mapa/escena.json, el catálogo que lee el juego
  *   pnpm taller vista-ejercitos          una página con todos los ejércitos, para elegir o comparar
@@ -90,6 +94,11 @@ import { evaluar } from './evaluar.js';
 import { juntarDireccion } from './juntar.js';
 import { ESTILOS_DE_MAPA, encargoDeMuestra, encargosDeCeldas, encargosDePiezas } from './mapa.js';
 import { encargoDeLamina, encargosDePiezasDensas, encargosDeTexturas } from './mapa-denso.js';
+import {
+  encargosDeParedesYPuentes,
+  escribirGuias,
+  escribirPuenteDerivado,
+} from './paredes-puentes.js';
 import { escribirAtlasDePoses, RUTA_DEL_ATLAS_8D, sueltaDeUnidad } from './poses-8d.js';
 import { aRaster, dePng, recortar, UMBRALES } from './recorte.js';
 import { costura, hacerTeselable, LADO_DE_TEXTURA, UMBRAL_DE_COSTURA } from './textura.js';
@@ -301,6 +310,11 @@ async function postprocesar(
     ) {
       const d = await escribirPiezaDerivada(rutaSalida);
       pasos.push(`JSON derivado: ${d.ancho}×${d.alto}, ancla en (${d.ancla})`);
+      // Un puente se ancla en el centro del tablero, no en la base (§17).
+      if (encargo.referencias.some((r) => r.papel === 'guia') && /\/puente-/.test(encargo.salida)) {
+        await escribirPuenteDerivado(rutaSalida);
+        pasos.push('ancla llevada al centro del tablero desde la guía de geometría');
+      }
     }
     if (encargo.tipo === 'efecto') {
       const d = await escribirEfectoDerivado(rutaSalida);
@@ -530,6 +544,24 @@ async function encolar(args: readonly string[]): Promise<void> {
     }
     return;
   }
+  // Paredes laterales y puentes (§16-§17, `paredes-puentes.ts`): primero las guías.
+  if (args.includes('--paredes-puentes')) {
+    await escribirGuias();
+    const solo = args
+      .find((x) => x.startsWith('--solo='))
+      ?.slice('--solo='.length)
+      .split(',');
+    const sinPrefijo = (id: string) => id.replace(/^(mapa|modulos)-/, '');
+    const todos = encargosDeParedesYPuentes();
+    const lista = todos.filter((e) => solo === undefined || solo.includes(sinPrefijo(e.id)));
+    if (solo !== undefined && lista.length !== solo.length)
+      throw new Error(`--solo: hay ${todos.map((e) => sinPrefijo(e.id)).join(', ')}`);
+    for (const bruto of lista) {
+      if (args.includes('--rehacer')) await COLA.olvidar(bruto.id);
+      console.log(`encolado ${(await COLA.encolar(bruto)).id}`);
+    }
+    return;
+  }
   // Los módulos del escenógrafo y sus texturas (`escenario/modulos.ts`).
   if (args.includes('--modulos') || args.includes('--texturas-relieve')) {
     const todos = args.includes('--modulos')
@@ -726,6 +758,16 @@ switch (orden) {
     }
     break;
   }
+  case 'guias':
+    for (const g of await escribirGuias()) console.log(`→ ${g}`);
+    break;
+  case 'derivar-puentes':
+    // El ancla y la casilla de cada puente pintado, otra vez desde su guía.
+    for (const f of resto) {
+      await escribirPuenteDerivado(resolve(f));
+      console.log(`→ ${f.replace(/\.webp$/, '.json')}`);
+    }
+    break;
   case 'catalogo-escena': {
     const c = await escribirCatalogo();
     console.log(

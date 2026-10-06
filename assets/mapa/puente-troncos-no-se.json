@@ -1,0 +1,18 @@
+{
+  "imagen": "puente-troncos-no-se.webp",
+  "sha256": "50e7a1fa131e900cd6525d550dc8343548a63c85ab4f54a71137ece48f267dd3",
+  "ancho": 1231,
+  "alto": 1237,
+  "ancla": [
+    611,
+    473
+  ],
+  "derivadoPor": "tools/taller/derivar.ts",
+  "anclaEs": "el centro del tablero (§17), llevado desde la guía de geometría por las cajas",
+  "pxPorCasilla": 550,
+  "escalaGuia": [
+    1.353,
+    1.399
+  ],
+  "guia": "assets/mapa/guias/puente-troncos-no-se.png"
+}

@@ -1,0 +1,52 @@
+{
+  "encargo": "mapa-puente-troncos-eo",
+  "tipo": "imagen",
+  "fecha": "2026-10-06T16:11:53.885Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a111fa-c924-78f3-9793-ecc3d4fa5df3",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la GUÍA DE GEOMETRÍA: un volumen gris sin acabado, dibujado con la cámara del juego. Manda en la ORIENTACIÓN, la forma, las proporciones, el tamaño y la posición de cada pieza dentro de la imagen: cópialas con exactitud, sin girar ni torcer nada. NO copies su gris liso, sus aristas de esquema ni su fondo plano: el material, el detalle y la luz son los de la imagen de estilo.\n\nUna pieza suelta del mapa de aventura de un juego de estrategia por turnos. Un PUENTE RUDIMENTARIO: cinco troncos de pino descortezados y gastados tendidos uno al lado del otro, con dos travesaños atados con cuerda encima, cerca de cada punta, que los cosen en un solo suelo; en medio del río, un montón de piedras redondeadas del río donde apoyan; en cada orilla, sus puntas descansan en un estribo de tierra con piedras. Los mismos troncos y piedras húmedas de la imagen 2. Deja claro que se cruza, pero sin calzada, sin barandilla y sin tablas: solo troncos, cuerda, piedras y tierra, con algo de musgo y barro. Los troncos forman UNA BALSA VISTA DESDE ARRIBA: todos en el mismo plano, juntos como las tablas de un suelo, y de cada uno se ve sobre todo su CARA DE ARRIBA, una franja larga y redondeada con su veta a lo largo; solo el tronco de delante enseña un poco de costado. Nunca apilados unos sobre otros como una pila de leña vista de frente.\nOrientación: el puente cruza de OESTE a ESTE: el tablero va recto de izquierda a derecha, horizontal en la imagen; el río corre hacia el fondo por debajo. Se ve el tablero desde arriba y, de frente, el costado del puente con su gran arco sobre el agua, entre los dos estribos de tierra.\nLa orientación, la forma, las proporciones y el sitio en la imagen los da la guía de geometría (imagen 3), dibujada con la cámara del juego: cópialos con exactitud, el tablero PARALELO a la guía, sin girarlo, sin torcerlo y sin escorzo de perspectiva (los dos extremos del tablero son igual de anchos). Sin el agua y sin suelo llano alrededor: lo que no es el puente ni sus estribos de tierra es transparente.\nLos ESTRIBOS NACEN DE LA ORILLA, no se posan encima: en cada punta, el puente se hunde en un terraplén de tierra parda y roca que forma parte de la orilla, con taludes a los dos lados que bajan hasta el suelo y, por el lado del río, hasta el agua, con peñascos y piedras medio enterradas al pie y matas y hierba creciendo en la tierra. Por la punta, el tablero sigue en una rampa de tierra apisonada que baja hasta el suelo. Los bordes de toda esa tierra se deshacen en matas, terrones y piedras sueltas, con un contorno irregular y nunca un corte recto, para fundirse con el suelo del mapa que el juego pone debajo. En la guía, lo pardo es esa tierra (taludes y rampa), lo verdoso son matas y lo redondo, piedras.\nEstilo de la imagen de estilo, que manda sobre cualquier otra idea: fantasía medieval OSCURA y sombría, pintura digital muy detallada como una maqueta en miniatura, con muchísimo detalle menudo (piedras, matas, grietas, raíces). Paleta APAGADA y poco saturada: verdes oliva y musgo oscuros, grises pizarra, pardos terrosos, rojos óxido; nada de colores vivos ni de aspecto de juego para móvil. Sombras profundas y oclusión marcada entre los detalles, luz tenue y algo fría, con contraste dramático.\nCámara ortográfica elevada, la misma de la imagen de estilo; nunca de perfil. La luz viene de arriba a la izquierda. Imagen apaisada.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/art/mapas/Imagen de ChatGPT 3 oct 2026, 10_05_01.png",
+      "papel": "estilo",
+      "sha256": "a3b78bb6efb486f6c65827e19739696aab723d824331faaa6d58d84c727fe6f5"
+    },
+    {
+      "ruta": "assets/mapa/modulos/orilla.webp",
+      "papel": "identidad",
+      "sha256": "c7b583d94651d86257322993318b5a539559af1e2e96a451c57bbab425b113c7"
+    },
+    {
+      "ruta": "assets/mapa/guias/puente-troncos-eo.png",
+      "papel": "guia",
+      "sha256": "bc839d23938b24b9a4e9cae36df5869352033ba5aa585df9407c730e496e539e"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a111fa-c924-78f3-9793-ecc3d4fa5df3/exec-8d453a08-f068-45e0-8740-ab5af131b14f.png",
+    "sha256": "6dd9534fb90d1d8f39cfa4aff0f9b2069d6fa312331d7e60811eb52488dec530",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: 1505×850, ancla en (458,825)",
+    "ancla llevada al centro del tablero desde la guía de geometría"
+  ],
+  "validacion": {
+    "visibles": 0.5261059214383428,
+    "opacos": 0.9900434013203154,
+    "haloSuelto": 0.000008915026425624164,
+    "ancho": 1505,
+    "alto": 850
+  },
+  "salida": {
+    "ruta": "assets/mapa/puente-troncos-eo.webp",
+    "sha256": "789290058cf6e8d1e4912d4f182f1518c52dc9ae552acd35b4b03da08c85b398"
+  }
+}

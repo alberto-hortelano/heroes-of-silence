@@ -591,3 +591,117 @@ no tienen unión con las zonas que conectan». Diagnóstico con las semillas 1-1
 tapón de tierra; ancla y escala a las orillas; la senda hasta los estribos; que
 la pared de la cara de detrás no tape el puente; piedra si el nodo lleva camino
 y troncos si no.
+
+## 18. Respuesta a la §16 y la §17: paredes laterales y puentes (rama `arte-paredes-puentes`, 06-10-2026)
+
+Generado con `pnpm taller` (Codex por la suscripción), sin fal.ai. Hojas de
+contacto a 110 px por casilla en `docs/art/revision-paredes-puentes/`
+(`puentes.png`, `paredes-{roca,arenisca,basalto,nevadas}.png`; las rehace
+`python3 docs/art/revision-paredes-puentes/hojas.py`). Son maquetas, no el
+escenógrafo: nada está enganchado (#156, #157).
+
+**Cómo se consiguió la orientación.** Cada encargo lleva una tercera
+referencia, una **guía de geometría** (`papel: 'guia'`, nuevo en
+`encargo.ts`): un volumen gris dibujado con la proyección del mapa (suelo en
+casillas cuadradas, un nivel = 0,6 casillas hacia arriba). La escribe
+`tools/taller/paredes-puentes.ts` en `assets/mapa/guias/` (`pnpm taller guias`).
+Con ella los puentes salen rectos a la primera; sin ella salían torcidos.
+
+```bash
+pnpm taller encolar --paredes-puentes [--solo=puente-piedra-ns,laterales-roca-este] [--rehacer]
+pnpm taller derivar-puentes assets/mapa/puente-*.webp
+```
+
+### §17 · Puentes (`assets/mapa/puente-*.webp`)
+
+| Pieza | Qué es |
+|---|---|
+| `puente-piedra-{ns,eo}` | piedra, un arco, tablero paralelo a la rejilla |
+| `puente-piedra-{ne-so,no-se}` | las dos diagonales, generadas por separado |
+| `puente-piedra-{ns,eo}-sube` | orillas a distinto nivel: sube un nivel hacia el norte (N-S) o hacia el este (E-O) |
+| `puente-troncos-{ns,eo,ne-so,no-se}` | cuatro troncos atados sobre tres montones de piedras, sin calzada |
+
+- **El ancla es el centro del tablero** (`ancla` en su `.json`, con
+  `anclaEs`), llevada desde la guía por las cajas; `pxPorCasilla` dice cuánto
+  mide una casilla en la pieza, medida a lo largo del puente (la luz es una
+  casilla). Todas pasan de 370 px por casilla: sobran para 120.
+  `test/arte-hojas.test.ts` comprueba ese JSON como el de las demás piezas.
+- Largo: la fábrica, unas 2,2 casillas la piedra y 1,8 los troncos (una
+  casilla de agua y media de estribo en cada orilla), más la rampa de tierra
+  de cada punta (ver los retoques, abajo). Sin agua y **sin el poste de la
+  bandera** (lo pone el juego).
+
+### §16 · Paredes laterales (`assets/mapa/modulos/laterales-<material>-<lado>/`)
+
+Una hoja de 8 módulos por material (`roca`, `arenisca`, `basalto`, `nevadas`)
+y lado (`este`, `oeste`), el oeste generado aparte con su luz: `tramo-1-{a,b,c}`
+y `tramo-2-{a,b,c}` (una casilla de norte a sur, caída de 1 y 2 niveles) y
+`esquina-1`, `esquina-2` (la frontal que gira y sube hacia el fondo). El filo
+de la meseta es una vertical; la ladera cae en talud, porque en la proyección
+del mapa una cara vertical que mira al este no se vería. Unos 200 px por
+casilla en su hoja. Roca y nieve se rehicieron una vez (al pie salían tres
+bolas en fila); el prompt ya lo dice.
+
+### Lo que queda para quien enganche, o para decidir
+
+- **Tono.** Los frontales de roca y arenisca se pintan con filtro (`TONO`, en
+  `colocar.ts`); las laterales no lo necesitan igual: en las hojas van sin él.
+- Faltan las subidas al sur y al oeste, y las de las diagonales (o estribos
+  separables).
+- `assets/mapa/escena.json` está rehecho (`pnpm taller catalogo-escena`): lleva
+  las piezas y hojas nuevas, que `componer` aún no usa.
+
+### Retoques de los puentes tras la revisión del usuario (06-10-2026)
+
+Las paredes laterales valen tal cual y no se han tocado. De los puentes, el
+usuario pidió tres cosas: «Los arcos de los puentes deben ser más grandes o
+integrados con el fondo, no veo cómo conectan con la tierra alrededor»; que el
+N-S que sube se distinga del llano, y que los troncos E-O no se lean apilados.
+Se rehicieron los diez puentes desde cero (sin `resume`), con guías nuevas y
+otro prompt. **Antes y después, pareja a pareja:**
+`docs/art/revision-paredes-puentes/puentes-antes-despues.png`. La primera tanda
+se guarda en `docs/art/revision-paredes-puentes/antes/`, con sus JSON y sus guías.
+
+- **Estribos de tierra (los diez).** La primera tanda pedía «solo el puente,
+  sin las orillas», y por eso los puentes acababan en seco sobre la hierba. Ahora
+  la guía dibuja en cada punta un estribo de tierra (`estribo()`): taludes a los
+  dos lados que bajan al suelo y, por el lado del río, hasta el agua, con
+  peñascos al pie, y una rampa de tierra por la que se sube al tablero. El
+  prompt (`ESTRIBO_DICHO`) pide que los bordes se deshagan en matas, terrones y
+  piedras sueltas, sin corte recto, para fundirse con el suelo del juego. El
+  fondo sigue transparente: ni agua ni suelo llano.
+- **Arcos más grandes** (piedra E-O, NE-SO, NO-SE y E-O que sube). Son de
+  medio punto y salvan la casilla de agua entera, de orilla a orilla: antes
+  medían 0,88 casillas. Arrancan del agua, llevan un anillo de dovelas y el
+  tablero sube a 0,4. Bajo el arco queda transparente, así que se ve el agua
+  del juego.
+- **Piedra N-S.** Con esta cámara el arco de un puente N-S queda debajo del
+  tablero y no se ve, así que la integración la llevan el estribo y la rampa de
+  tierra de delante. El primer intento se inventó dos arcos en los taludes del
+  norte; el prompt ahora lo prohíbe y se rehízo.
+- **Piedra N-S que sube: escalones.** Una rampa que sube hacia el fondo solo
+  alarga el tablero en pantalla. Un escalón, en cambio, enseña su tabica, que
+  mira al sur, a la cámara. El tablero son cinco tramos escalonados (`ESCALONES`)
+  de 0,15 casillas de tabica cada uno (unos 16 px a 110 px por casilla), con los
+  pretiles escalonados también. A 110 px se leen como cuatro franjas de sillar
+  cruzadas: es la señal de subida que mejor se ve a esa escala. El primer
+  intento las pintó oscuras, como vigas, y con arcos falsos en el estribo alto;
+  el prompt pide ahora tabicas iluminadas y ningún arco.
+- **Troncos.** Son cinco troncos tendidos como una balsa vista desde arriba,
+  con dos travesaños atados encima, de través, que los cosen en un solo suelo.
+  Los montones de piedras de las orillas pasan a estribos de tierra con
+  piedras, y queda un solo montón en medio del río. En E-O los travesaños son
+  lo que hace leer los troncos uno al lado del otro y no apilados.
+- **Medidas.** El ancla sigue en el centro del tablero (en el N-S que sube, el
+  del escalón del medio). La guía se encaja sola en su lienzo (`encajar`). Van
+  de 378 a 621 px por casilla, siempre por encima de 120. La pieza es más larga
+  que antes porque lleva los estribos de tierra: unas 3 casillas la piedra y
+  2,3 los troncos.
+- `assets/mapa/escena.json` está rehecho (`pnpm taller catalogo-escena`).
+
+**Revisión del usuario (06-10-2026): aprobado.** Las paredes laterales, tal cual;
+los puentes, tras los retoques. Quedan dos detalles por si se ven mal al
+engancharlos (#156, #157): en `puente-piedra-ns-sube` los taludes de detrás salen
+como dos brazos sobre el agua, y en las diagonales hay más tierra en el extremo de
+delante que en el de detrás. Las hojas de revisión (`docs/art/revision-paredes-puentes/*.png`
+y `antes/`) no se commitean por su peso (unos 24 MB); se rehacen con `hojas.py`.

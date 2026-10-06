@@ -1,0 +1,85 @@
+{
+  "hoja": "laterales-nevadas-este.webp",
+  "modulos": [
+    {
+      "imagen": "tramo-1-a.webp",
+      "sha256": "5638b693280d961eaac8d349f467119bc0a22a2f82feaf15582efb4239052147",
+      "ancho": 228,
+      "alto": 344,
+      "ancla": [
+        169,
+        339
+      ]
+    },
+    {
+      "imagen": "tramo-1-b.webp",
+      "sha256": "de0560fbbed0eb124ad9cfe630cb55dc7dd931919ee155308bc3784b6d92f940",
+      "ancho": 234,
+      "alto": 348,
+      "ancla": [
+        176,
+        343
+      ]
+    },
+    {
+      "imagen": "tramo-1-c.webp",
+      "sha256": "5b404a182762270c55c725d4aeabe4747ab0ab76c4ce90be9ac4b176a8a3c335",
+      "ancho": 232,
+      "alto": 351,
+      "ancla": [
+        176,
+        346
+      ]
+    },
+    {
+      "imagen": "esquina-1.webp",
+      "sha256": "f9a5a728448141c1f0f6d6056682bc9601d9f85abe8bf9bed1cf830586a4251d",
+      "ancho": 301,
+      "alto": 320,
+      "ancla": [
+        136,
+        315
+      ]
+    },
+    {
+      "imagen": "tramo-2-a.webp",
+      "sha256": "371c58be62c48e51320af90801382b2409a98c629c9e11e8f0cbaf0951371f56",
+      "ancho": 261,
+      "alto": 471,
+      "ancla": [
+        182,
+        466
+      ]
+    },
+    {
+      "imagen": "tramo-2-b.webp",
+      "sha256": "9aba3236f84241f72c018fb9093fd203e02205807d29bd12a5eab023a5b0b75e",
+      "ancho": 268,
+      "alto": 471,
+      "ancla": [
+        189,
+        466
+      ]
+    },
+    {
+      "imagen": "tramo-2-c.webp",
+      "sha256": "5e93de4b79213aeb7230727a49bab4bc78483cf080ef6b8c7414a95ce0078deb",
+      "ancho": 271,
+      "alto": 471,
+      "ancla": [
+        196,
+        466
+      ]
+    },
+    {
+      "imagen": "esquina-2.webp",
+      "sha256": "6c0e5f2cf6764aae688e482a14558e60413d7404c73c7994209bc2300a982f14",
+      "ancho": 325,
+      "alto": 431,
+      "ancla": [
+        157,
+        426
+      ]
+    }
+  ]
+}

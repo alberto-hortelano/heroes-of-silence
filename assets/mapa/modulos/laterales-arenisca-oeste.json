@@ -1,0 +1,85 @@
+{
+  "hoja": "laterales-arenisca-oeste.webp",
+  "modulos": [
+    {
+      "imagen": "tramo-1-a.webp",
+      "sha256": "30bc6cd3760bc914ed3734b01769ca063ab4ccd4fe28f6099592bcd3affaecb6",
+      "ancho": 204,
+      "alto": 333,
+      "ancla": [
+        40,
+        328
+      ]
+    },
+    {
+      "imagen": "tramo-1-b.webp",
+      "sha256": "f81c6df0da3bba225276c891bcca335cdaa35e3f8e8595314ce7dc1f80c80ce1",
+      "ancho": 209,
+      "alto": 335,
+      "ancla": [
+        41,
+        330
+      ]
+    },
+    {
+      "imagen": "tramo-1-c.webp",
+      "sha256": "7b6d7d0e62bee1204ae1134235bf41d111c3f9b2e25b9276fd1ac7be6e73a0bf",
+      "ancho": 209,
+      "alto": 337,
+      "ancla": [
+        40,
+        332
+      ]
+    },
+    {
+      "imagen": "esquina-1.webp",
+      "sha256": "adee1e7eb1ec110d08de203ef757c29b4a06e3e6a0f4907b2e4a5c4f4397fc62",
+      "ancho": 289,
+      "alto": 344,
+      "ancla": [
+        173,
+        339
+      ]
+    },
+    {
+      "imagen": "tramo-2-a.webp",
+      "sha256": "09e58955915e3a1b1e7513c45f3740bfd0e617bf45b3a9668194d14bf5aec2e0",
+      "ancho": 241,
+      "alto": 475,
+      "ancla": [
+        60,
+        470
+      ]
+    },
+    {
+      "imagen": "tramo-2-b.webp",
+      "sha256": "16d59db806d92edcda3b8f5946676a6ece8c027e3ad24b8b14064de936707552",
+      "ancho": 246,
+      "alto": 476,
+      "ancla": [
+        61,
+        471
+      ]
+    },
+    {
+      "imagen": "tramo-2-c.webp",
+      "sha256": "54fbeecb8afbad8084d72b3e9523ead22e5c38c48244e90e07f9b05082e598a2",
+      "ancho": 249,
+      "alto": 473,
+      "ancla": [
+        61,
+        468
+      ]
+    },
+    {
+      "imagen": "esquina-2.webp",
+      "sha256": "23b222b75f2abcbef16ac5cbc96ecc085f8a6698a2ae79c7a66510a72ac6a34b",
+      "ancho": 340,
+      "alto": 469,
+      "ancla": [
+        186,
+        464
+      ]
+    }
+  ]
+}

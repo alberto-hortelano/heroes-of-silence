@@ -1,0 +1,85 @@
+{
+  "hoja": "laterales-roca-oeste.webp",
+  "modulos": [
+    {
+      "imagen": "tramo-1-a.webp",
+      "sha256": "7f1dcf4f6c2f1bc0d2484c52fad51285692480ec4eed1f14b2407c1305f8f43d",
+      "ancho": 228,
+      "alto": 323,
+      "ancla": [
+        70,
+        318
+      ]
+    },
+    {
+      "imagen": "tramo-1-b.webp",
+      "sha256": "827f4a7e31a46fb886f61d1d750a41e5eb767ccda9206d83e16954f96e248aff",
+      "ancho": 219,
+      "alto": 324,
+      "ancla": [
+        63,
+        319
+      ]
+    },
+    {
+      "imagen": "tramo-1-c.webp",
+      "sha256": "0c13778eb771942514d9e83e4ca6c52a994883e6c2439ac29563a670c6a9e282",
+      "ancho": 220,
+      "alto": 322,
+      "ancla": [
+        68,
+        317
+      ]
+    },
+    {
+      "imagen": "esquina-1.webp",
+      "sha256": "e235b159d86c17aa434ce82aea7409673a72c0c98a3ddfd3e70245ec476b5ab2",
+      "ancho": 298,
+      "alto": 326,
+      "ancla": [
+        170,
+        321
+      ]
+    },
+    {
+      "imagen": "tramo-2-a.webp",
+      "sha256": "4a7f2ef53a15f856179034926ac577fd9a140fc131270e322bf61aece6f4b5b1",
+      "ancho": 256,
+      "alto": 471,
+      "ancla": [
+        57,
+        466
+      ]
+    },
+    {
+      "imagen": "tramo-2-b.webp",
+      "sha256": "06903ac60040fa9850e52c2ac11a9252c6d449e8eb43bfbba583c262fb91b0d4",
+      "ancho": 266,
+      "alto": 482,
+      "ancla": [
+        59,
+        477
+      ]
+    },
+    {
+      "imagen": "tramo-2-c.webp",
+      "sha256": "63a2791ab4235711a8b0c21ad2d556c9eee0162f763ddd8e143255afcd6e16f2",
+      "ancho": 262,
+      "alto": 477,
+      "ancla": [
+        56,
+        472
+      ]
+    },
+    {
+      "imagen": "esquina-2.webp",
+      "sha256": "06f78eff52f7f7533fb367ca3cd6d03a5420708344dfb1c361d9a415926f70be",
+      "ancho": 362,
+      "alto": 483,
+      "ancla": [
+        212,
+        478
+      ]
+    }
+  ]
+}

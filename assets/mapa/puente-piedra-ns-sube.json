@@ -1,0 +1,18 @@
+{
+  "imagen": "puente-piedra-ns-sube.webp",
+  "sha256": "430b1f07a27980425d1d5e261a4b184c52b0299556527a99cc3cd9d7dd34fde8",
+  "ancho": 641,
+  "alto": 1497,
+  "ancla": [
+    321,
+    620
+  ],
+  "derivadoPor": "tools/taller/derivar.ts",
+  "anclaEs": "el centro del tablero (§17), llevado desde la guía de geometría por las cajas",
+  "pxPorCasilla": 378,
+  "escalaGuia": [
+    1.148,
+    1.101
+  ],
+  "guia": "assets/mapa/guias/puente-piedra-ns-sube.png"
+}

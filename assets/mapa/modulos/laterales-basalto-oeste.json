@@ -1,0 +1,85 @@
+{
+  "hoja": "laterales-basalto-oeste.webp",
+  "modulos": [
+    {
+      "imagen": "tramo-1-a.webp",
+      "sha256": "062c80f4ceecbfede6e49c11012c14f4a1212330ad19d33fae97fbf59d7a4f48",
+      "ancho": 207,
+      "alto": 313,
+      "ancla": [
+        46,
+        308
+      ]
+    },
+    {
+      "imagen": "tramo-1-b.webp",
+      "sha256": "8b21c984ff15176da01fc0bf91ce2fa407f6116050573562d1049b61bf479b51",
+      "ancho": 193,
+      "alto": 312,
+      "ancla": [
+        37,
+        307
+      ]
+    },
+    {
+      "imagen": "tramo-1-c.webp",
+      "sha256": "e2b664d2849d30f044d57e74edd133487dfbc0b126bb61b4e1d4bf9ca9244051",
+      "ancho": 225,
+      "alto": 314,
+      "ancla": [
+        46,
+        309
+      ]
+    },
+    {
+      "imagen": "esquina-1.webp",
+      "sha256": "d5685635e96f38646becd09b5554a602d7e0097c96e7fdf4d1580005302111e7",
+      "ancho": 277,
+      "alto": 320,
+      "ancla": [
+        161,
+        315
+      ]
+    },
+    {
+      "imagen": "tramo-2-a.webp",
+      "sha256": "e40bff443d3b4987e723e1307a57e00228c8aef1e1d2723b5fe0c27c70da04aa",
+      "ancho": 232,
+      "alto": 431,
+      "ancla": [
+        53,
+        426
+      ]
+    },
+    {
+      "imagen": "tramo-2-b.webp",
+      "sha256": "579b3a88256f5066ab3cedb06f22de0ee73e384cd25fc1c0f42e041728710b67",
+      "ancho": 228,
+      "alto": 432,
+      "ancla": [
+        53,
+        427
+      ]
+    },
+    {
+      "imagen": "tramo-2-c.webp",
+      "sha256": "be208d0c8b6fbb09c4e89c50643a25a9b964ef3820e03065019ec147e4c107e3",
+      "ancho": 245,
+      "alto": 436,
+      "ancla": [
+        55,
+        431
+      ]
+    },
+    {
+      "imagen": "esquina-2.webp",
+      "sha256": "5a50a44efbd2db963c32335581b655587507329eeac6c8ce3dcc5a057d4ecaeb",
+      "ancho": 303,
+      "alto": 452,
+      "ancla": [
+        184,
+        447
+      ]
+    }
+  ]
+}
