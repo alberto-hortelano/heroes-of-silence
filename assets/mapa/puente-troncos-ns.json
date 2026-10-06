@@ -1,0 +1,18 @@
+{
+  "imagen": "puente-troncos-ns.webp",
+  "sha256": "52aab7c604a9b2d883d2dd75b30011425186c7a6d98fe0d5308cf3a56fe5bb13",
+  "ancho": 821,
+  "alto": 1526,
+  "ancla": [
+    411,
+    613
+  ],
+  "derivadoPor": "tools/taller/derivar.ts",
+  "anclaEs": "el centro del tablero (§17), llevado desde la guía de geometría por las cajas",
+  "pxPorCasilla": 621,
+  "escalaGuia": [
+    1.108,
+    1.119
+  ],
+  "guia": "assets/mapa/guias/puente-troncos-ns.png"
+}

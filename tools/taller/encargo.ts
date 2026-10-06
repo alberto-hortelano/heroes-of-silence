@@ -29,6 +29,10 @@ export const PAPELES = {
   // dice cada encargo; aquí decirla mentía a la mitad de ellos.
   estilo:
     'es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición',
+  // Para piezas cuya geometría tiene que casar con la rejilla del mapa (un
+  // puente recto, una pared que cae al este): la orientación no se consigue
+  // con palabras, y la referencia de estilo arrastra la suya.
+  guia: 'es la GUÍA DE GEOMETRÍA: un volumen gris sin acabado, dibujado con la cámara del juego. Manda en la ORIENTACIÓN, la forma, las proporciones, el tamaño y la posición de cada pieza dentro de la imagen: cópialas con exactitud, sin girar ni torcer nada. NO copies su gris liso, sus aristas de esquema ni su fondo plano: el material, el detalle y la luz son los de la imagen de estilo',
 } as const;
 export type Papel = keyof typeof PAPELES;
 
@@ -51,7 +55,7 @@ const ruta = z
     message: 'la ruta va relativa a la raíz del repo y sin «..»',
   });
 
-const referencia = z.object({ ruta, papel: z.enum(['pose', 'identidad', 'estilo']) });
+const referencia = z.object({ ruta, papel: z.enum(['pose', 'identidad', 'estilo', 'guia']) });
 
 export const encargoSchema = z
   .object({

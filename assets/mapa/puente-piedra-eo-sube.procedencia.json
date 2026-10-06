@@ -1,0 +1,52 @@
+{
+  "encargo": "mapa-puente-piedra-eo-sube",
+  "tipo": "imagen",
+  "fecha": "2026-10-06T16:07:05.377Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a111f6-824e-7af2-aebd-e9c5e90b9445",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la GUÍA DE GEOMETRÍA: un volumen gris sin acabado, dibujado con la cámara del juego. Manda en la ORIENTACIÓN, la forma, las proporciones, el tamaño y la posición de cada pieza dentro de la imagen: cópialas con exactitud, sin girar ni torcer nada. NO copies su gris liso, sus aristas de esquema ni su fondo plano: el material, el detalle y la luz son los de la imagen de estilo.\n\nUna pieza suelta del mapa de aventura de un juego de estrategia por turnos. Un PUENTE DE PIEDRA de un solo arco, de la misma piedra gris con musgo y la misma fábrica de sillares del puente de la imagen 2 (de ella se toman el material, el acabado y cómo sus estribos se agarran a la roca, NO su forma ni su orientación, que vienen torcidas). Tablero recto y plano, empedrado, con un pretil bajo de sillares a cada lado y un poste de piedra en cada extremo del pretil. El ARCO ES GRANDE: un medio punto que salva la casilla de agua ENTERA, de orilla a orilla, que arranca del agua y sube casi hasta el tablero, con un anillo de dovelas bien marcado alrededor y la sombra honda bajo él: es lo que más se ve del costado. Sin el poste de madera ni bandera: el juego pone la bandera encima.\nOrientación: el puente cruza de OESTE a ESTE: el tablero va recto de izquierda a derecha, horizontal en la imagen; el río corre hacia el fondo por debajo. Se ve el tablero desde arriba y, de frente, el costado del puente con su gran arco sobre el agua, entre los dos estribos de tierra.\nLas dos orillas están a DISTINTO NIVEL: la del este (derecha) es un nivel más alta que la del oeste (izquierda). El tablero sube en una rampa recta y suave de izquierda a derecha, y el estribo de la derecha, más alto, se hunde en la orilla alta: un talud alto de tierra y roca que baja hasta el agua; el arco queda más alto por ese lado.\nLa orientación, la forma, las proporciones y el sitio en la imagen los da la guía de geometría (imagen 3), dibujada con la cámara del juego: cópialos con exactitud, el tablero PARALELO a la guía, sin girarlo, sin torcerlo y sin escorzo de perspectiva (los dos extremos del tablero son igual de anchos). Sin el agua y sin suelo llano alrededor: lo que no es el puente ni sus estribos de tierra es transparente.\nLos ESTRIBOS NACEN DE LA ORILLA, no se posan encima: en cada punta, el puente se hunde en un terraplén de tierra parda y roca que forma parte de la orilla, con taludes a los dos lados que bajan hasta el suelo y, por el lado del río, hasta el agua, con peñascos y piedras medio enterradas al pie y matas y hierba creciendo en la tierra. Por la punta, el tablero sigue en una rampa de tierra apisonada que baja hasta el suelo. Los bordes de toda esa tierra se deshacen en matas, terrones y piedras sueltas, con un contorno irregular y nunca un corte recto, para fundirse con el suelo del mapa que el juego pone debajo. En la guía, lo pardo es esa tierra (taludes y rampa), lo verdoso son matas y lo redondo, piedras.\nEstilo de la imagen de estilo, que manda sobre cualquier otra idea: fantasía medieval OSCURA y sombría, pintura digital muy detallada como una maqueta en miniatura, con muchísimo detalle menudo (piedras, matas, grietas, raíces). Paleta APAGADA y poco saturada: verdes oliva y musgo oscuros, grises pizarra, pardos terrosos, rojos óxido; nada de colores vivos ni de aspecto de juego para móvil. Sombras profundas y oclusión marcada entre los detalles, luz tenue y algo fría, con contraste dramático.\nCámara ortográfica elevada, la misma de la imagen de estilo; nunca de perfil. La luz viene de arriba a la izquierda. Imagen apaisada.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/art/mapas/Imagen de ChatGPT 3 oct 2026, 10_05_01.png",
+      "papel": "estilo",
+      "sha256": "a3b78bb6efb486f6c65827e19739696aab723d824331faaa6d58d84c727fe6f5"
+    },
+    {
+      "ruta": "assets/mapa/nodo-puente-ancho.webp",
+      "papel": "identidad",
+      "sha256": "b3436de156ba7506bccf1f9ceaf6cf721b424beab724f65944388846076bcbf4"
+    },
+    {
+      "ruta": "assets/mapa/guias/puente-piedra-eo-sube.png",
+      "papel": "guia",
+      "sha256": "87de831bcd9c0368626a524c59568ab4b1617c4814bdbc73db4314937afdb7bd"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a111f6-824e-7af2-aebd-e9c5e90b9445/exec-d474cb08-2cc2-485c-83bf-eaf2d711c839.png",
+    "sha256": "555133afcdc8298ed51aa1a6896cc35377b4e6da65b963b85dfd33a9348a9ff9",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: 1504×976, ancla en (386,951)",
+    "ancla llevada al centro del tablero desde la guía de geometría"
+  ],
+  "validacion": {
+    "visibles": 0.46782623386815486,
+    "opacos": 0.994850915360465,
+    "haloSuelto": 0.0000014561890948911062,
+    "ancho": 1504,
+    "alto": 976
+  },
+  "salida": {
+    "ruta": "assets/mapa/puente-piedra-eo-sube.webp",
+    "sha256": "97eaa89c845578924cd5c8e00c0726aa213130bb05f5f5cf66524977b5137d8d"
+  }
+}

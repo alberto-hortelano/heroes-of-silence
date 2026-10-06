@@ -1,0 +1,50 @@
+{
+  "encargo": "modulos-laterales-roca-oeste",
+  "tipo": "modulos",
+  "fecha": "2026-10-06T15:46:21.328Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a111e3-5a64-7d23-b72b-f9b0bc602f81",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la GUÍA DE GEOMETRÍA: un volumen gris sin acabado, dibujado con la cámara del juego. Manda en la ORIENTACIÓN, la forma, las proporciones, el tamaño y la posición de cada pieza dentro de la imagen: cópialas con exactitud, sin girar ni torcer nada. NO copies su gris liso, sus aristas de esquema ni su fondo plano: el material, el detalle y la luz son los de la imagen de estilo.\n\nUna hoja de 8 módulos de RISCO VISTO DE LADO para el mapa de aventura de un juego de estrategia: el borde de una meseta que cae hacia el OESTE, de roca gris columnar con musgo, el borde de arriba cubierto de matas y rocas caídas al pie. Es la misma pared de acantilado de los módulos de la imagen 2, pero corriendo de delante a atrás en vez de a lo ancho: el filo de la meseta, arriba a la derecha, baja en una ladera de roca muy empinada hacia la IZQUIERDA, y cada módulo es un trozo de UNA casilla de largo que encadena con el siguiente hacia el fondo (por arriba) y hacia delante (por abajo).\nFila 1: tres tramos que caen UN nivel (como los módulos de la imagen 2, de altura parecida) y una ESQUINA de un nivel. Fila 2: tres tramos que caen DOS niveles (el doble de altos) y una ESQUINA de dos niveles. Los tres tramos de cada fila tienen la misma forma y medidas, distintos solo en el detalle de la roca, para poder alternarlos.\nLa esquina es donde la caída gira: a la derecha, un trozo corto de pared de frente que mira a la cámara, exactamente como los módulos de la imagen 2, y la ladera lateral sale de ella y sube hacia el fondo, sin junta entre las dos: es la misma roca doblando la esquina.\nLa forma, el tamaño y el sitio de cada módulo los da la guía de geometría (imagen 3): el filo de la meseta es una línea recta VERTICAL en la imagen, la ladera ocupa la franja que marca la guía y el pie es otra vertical. Nada se tuerce ni se inclina hacia un lado: encadenados uno debajo de otro forman una pared recta de norte a sur.\nAl pie, un pedregal IRREGULAR de bloques angulosos de tamaños distintos, amontonados contra la ladera y algo hundidos en el suelo, como al pie de los módulos de la imagen 2: nunca bolas redondas puestas en fila. Arriba, la roca termina a ras de la meseta, coronada por su borde (matas, o nieve), sin pilares que asomen por encima. La ladera tiene volumen —estratos, salientes, grietas y repisas—, no es una lámina plana.\nLa ladera mira al OESTE (a la izquierda de la imagen) y la luz viene de arriba a la izquierda: la ladera recibe la luz de lleno y es lo más iluminado de cada módulo; las sombras propias de las grietas caen hacia la derecha.\nEstilo de la imagen de estilo, que manda sobre cualquier otra idea: fantasía medieval OSCURA y sombría, pintura digital muy detallada como una maqueta en miniatura, con muchísimo detalle menudo (piedras, matas, grietas, raíces). Paleta APAGADA y poco saturada: verdes oliva y musgo oscuros, grises pizarra, pardos terrosos, rojos óxido; nada de colores vivos ni de aspecto de juego para móvil. Sombras profundas y oclusión marcada entre los detalles, luz tenue y algo fría, con contraste dramático.\n\nRejilla de 2 filas por 4 columnas: 8 módulos sueltos de la misma familia, con mucho aire alrededor de cada uno; NINGÚN módulo toca a otro, ni con una rama ni con una sombra.\nTodos con la misma cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, nunca cenital ni de perfil, y a la MISMA escala: un módulo pequeño es pequeño de verdad, no un grande dibujado más chico.\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/art/mapas/Imagen de ChatGPT 3 oct 2026, 10_05_01.png",
+      "papel": "estilo",
+      "sha256": "a3b78bb6efb486f6c65827e19739696aab723d824331faaa6d58d84c727fe6f5"
+    },
+    {
+      "ruta": "assets/mapa/modulos/paredes-roca.webp",
+      "papel": "identidad",
+      "sha256": "02199c7c866dd6fd088369a5c3b2045ddf17f09d4d3af0cc4ce55568d4f7e1be"
+    },
+    {
+      "ruta": "assets/mapa/guias/laterales-oeste.png",
+      "papel": "guia",
+      "sha256": "d8e935f9111197e5d295d0ae6d16d7838c5808b04874203d559001abf115fc89"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a111e3-5a64-7d23-b72b-f9b0bc602f81/exec-b684abe4-7cd8-4ba9-b23b-541bc29dd352.png",
+    "sha256": "35b3d2ef54f7c2d5b4250e8cab80ad8aaee1781f5a67c9b67f113816f552287d",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "hoja partida en 8 módulos a su tamaño nativo, cada uno con su ancla en la base",
+    "WebP calidad 92, alfa sin pérdida"
+  ],
+  "validacion": {
+    "visibles": 0.3422325679485994,
+    "opacos": 0.9845308717792874,
+    "haloSuelto": 0,
+    "ancho": 1492,
+    "alto": 928
+  },
+  "salida": {
+    "ruta": "assets/mapa/modulos/laterales-roca-oeste.webp",
+    "sha256": "ba7834eb0260991bec42d00081228d306c88cc5afe220ef1b5586f10c096247b"
+  }
+}

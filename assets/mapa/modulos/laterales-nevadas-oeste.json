@@ -1,0 +1,85 @@
+{
+  "hoja": "laterales-nevadas-oeste.webp",
+  "modulos": [
+    {
+      "imagen": "tramo-1-a.webp",
+      "sha256": "b90c280acc5ae3b6722d7a85d2f6cebfd924e49af25bc54e099ae7bf2e02cd66",
+      "ancho": 202,
+      "alto": 340,
+      "ancla": [
+        45,
+        335
+      ]
+    },
+    {
+      "imagen": "tramo-1-b.webp",
+      "sha256": "528fda414fb8487fe254f5c34d415f8e3b478a3f966808bb3c777f439f378513",
+      "ancho": 214,
+      "alto": 347,
+      "ancla": [
+        58,
+        342
+      ]
+    },
+    {
+      "imagen": "tramo-1-c.webp",
+      "sha256": "6243c0f191c2e1f240ad3429b4634a36d73b270db4283b94370f281df0db7f31",
+      "ancho": 206,
+      "alto": 363,
+      "ancla": [
+        39,
+        358
+      ]
+    },
+    {
+      "imagen": "esquina-1.webp",
+      "sha256": "233952aee84108005a011e73835e4b72bb3ee30f4315228b3215d4cc278fe261",
+      "ancho": 281,
+      "alto": 335,
+      "ancla": [
+        175,
+        330
+      ]
+    },
+    {
+      "imagen": "tramo-2-a.webp",
+      "sha256": "78eedba1ea0caedd5f49a7dd4c3c90f2175fae222a2b2c206ce9f1aa095ad623",
+      "ancho": 229,
+      "alto": 433,
+      "ancla": [
+        53,
+        428
+      ]
+    },
+    {
+      "imagen": "tramo-2-b.webp",
+      "sha256": "e093a3838358c7f38b4f0121315f22dfc8ce062991d5d461d806af05db197898",
+      "ancho": 232,
+      "alto": 434,
+      "ancla": [
+        51,
+        429
+      ]
+    },
+    {
+      "imagen": "tramo-2-c.webp",
+      "sha256": "52b64f39693729db2d3b60e926c06e1eb0acfb8dc2c9a683b2abcb4039c9ea4e",
+      "ancho": 230,
+      "alto": 426,
+      "ancla": [
+        53,
+        421
+      ]
+    },
+    {
+      "imagen": "esquina-2.webp",
+      "sha256": "b7032ffe07ab2409986ece27eec9076fe3052e0dc1716c968b70d5949f28fd3f",
+      "ancho": 296,
+      "alto": 417,
+      "ancla": [
+        196,
+        412
+      ]
+    }
+  ]
+}

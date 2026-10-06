@@ -1,0 +1,18 @@
+{
+  "imagen": "puente-piedra-ne-so.webp",
+  "sha256": "230ea9ec15583fe541734324a199e85bc1494c78cdb13ca76a49a8b9fd1ed254",
+  "ancho": 1249,
+  "alto": 1249,
+  "ancla": [
+    627,
+    519
+  ],
+  "derivadoPor": "tools/taller/derivar.ts",
+  "anclaEs": "el centro del tablero (§17), llevado desde la guía de geometría por las cajas",
+  "pxPorCasilla": 437,
+  "escalaGuia": [
+    1.514,
+    1.365
+  ],
+  "guia": "assets/mapa/guias/puente-piedra-ne-so.png"
+}

@@ -1236,6 +1236,534 @@
     "nombre": "15"
    }
   ],
+  "laterales-arenisca-este": [
+   {
+    "src": "modulos/laterales-arenisca-este/esquina-1.webp",
+    "nw": 347,
+    "nh": 376,
+    "ax": 150,
+    "ay": 371,
+    "nombre": "esquina-1"
+   },
+   {
+    "src": "modulos/laterales-arenisca-este/tramo-1-a.webp",
+    "nw": 255,
+    "nh": 420,
+    "ax": 189,
+    "ay": 419,
+    "nombre": "tramo-1-a"
+   },
+   {
+    "src": "modulos/laterales-arenisca-este/tramo-1-b.webp",
+    "nw": 248,
+    "nh": 422,
+    "ax": 187,
+    "ay": 421,
+    "nombre": "tramo-1-b"
+   },
+   {
+    "src": "modulos/laterales-arenisca-este/tramo-1-c.webp",
+    "nw": 270,
+    "nh": 423,
+    "ax": 207,
+    "ay": 422,
+    "nombre": "tramo-1-c"
+   },
+   {
+    "src": "modulos/laterales-arenisca-este/esquina-2.webp",
+    "nw": 361,
+    "nh": 508,
+    "ax": 172,
+    "ay": 503,
+    "nombre": "esquina-2"
+   },
+   {
+    "src": "modulos/laterales-arenisca-este/tramo-2-a.webp",
+    "nw": 281,
+    "nh": 552,
+    "ax": 202,
+    "ay": 547,
+    "nombre": "tramo-2-a"
+   },
+   {
+    "src": "modulos/laterales-arenisca-este/tramo-2-b.webp",
+    "nw": 299,
+    "nh": 558,
+    "ax": 210,
+    "ay": 553,
+    "nombre": "tramo-2-b"
+   },
+   {
+    "src": "modulos/laterales-arenisca-este/tramo-2-c.webp",
+    "nw": 297,
+    "nh": 568,
+    "ax": 219,
+    "ay": 563,
+    "nombre": "tramo-2-c"
+   }
+  ],
+  "laterales-arenisca-oeste": [
+   {
+    "src": "modulos/laterales-arenisca-oeste/tramo-1-a.webp",
+    "nw": 204,
+    "nh": 333,
+    "ax": 40,
+    "ay": 328,
+    "nombre": "tramo-1-a"
+   },
+   {
+    "src": "modulos/laterales-arenisca-oeste/tramo-1-b.webp",
+    "nw": 209,
+    "nh": 335,
+    "ax": 41,
+    "ay": 330,
+    "nombre": "tramo-1-b"
+   },
+   {
+    "src": "modulos/laterales-arenisca-oeste/tramo-1-c.webp",
+    "nw": 209,
+    "nh": 337,
+    "ax": 40,
+    "ay": 332,
+    "nombre": "tramo-1-c"
+   },
+   {
+    "src": "modulos/laterales-arenisca-oeste/esquina-1.webp",
+    "nw": 289,
+    "nh": 344,
+    "ax": 173,
+    "ay": 339,
+    "nombre": "esquina-1"
+   },
+   {
+    "src": "modulos/laterales-arenisca-oeste/esquina-2.webp",
+    "nw": 340,
+    "nh": 469,
+    "ax": 186,
+    "ay": 464,
+    "nombre": "esquina-2"
+   },
+   {
+    "src": "modulos/laterales-arenisca-oeste/tramo-2-c.webp",
+    "nw": 249,
+    "nh": 473,
+    "ax": 61,
+    "ay": 468,
+    "nombre": "tramo-2-c"
+   },
+   {
+    "src": "modulos/laterales-arenisca-oeste/tramo-2-a.webp",
+    "nw": 241,
+    "nh": 475,
+    "ax": 60,
+    "ay": 470,
+    "nombre": "tramo-2-a"
+   },
+   {
+    "src": "modulos/laterales-arenisca-oeste/tramo-2-b.webp",
+    "nw": 246,
+    "nh": 476,
+    "ax": 61,
+    "ay": 471,
+    "nombre": "tramo-2-b"
+   }
+  ],
+  "laterales-basalto-este": [
+   {
+    "src": "modulos/laterales-basalto-este/esquina-1.webp",
+    "nw": 361,
+    "nh": 347,
+    "ax": 171,
+    "ay": 342,
+    "nombre": "esquina-1"
+   },
+   {
+    "src": "modulos/laterales-basalto-este/tramo-1-a.webp",
+    "nw": 277,
+    "nh": 395,
+    "ax": 209,
+    "ay": 390,
+    "nombre": "tramo-1-a"
+   },
+   {
+    "src": "modulos/laterales-basalto-este/tramo-1-b.webp",
+    "nw": 279,
+    "nh": 397,
+    "ax": 209,
+    "ay": 392,
+    "nombre": "tramo-1-b"
+   },
+   {
+    "src": "modulos/laterales-basalto-este/tramo-1-c.webp",
+    "nw": 277,
+    "nh": 397,
+    "ax": 211,
+    "ay": 392,
+    "nombre": "tramo-1-c"
+   },
+   {
+    "src": "modulos/laterales-basalto-este/esquina-2.webp",
+    "nw": 368,
+    "nh": 461,
+    "ax": 177,
+    "ay": 456,
+    "nombre": "esquina-2"
+   },
+   {
+    "src": "modulos/laterales-basalto-este/tramo-2-a.webp",
+    "nw": 313,
+    "nh": 506,
+    "ax": 218,
+    "ay": 501,
+    "nombre": "tramo-2-a"
+   },
+   {
+    "src": "modulos/laterales-basalto-este/tramo-2-c.webp",
+    "nw": 311,
+    "nh": 507,
+    "ax": 224,
+    "ay": 502,
+    "nombre": "tramo-2-c"
+   },
+   {
+    "src": "modulos/laterales-basalto-este/tramo-2-b.webp",
+    "nw": 308,
+    "nh": 513,
+    "ax": 223,
+    "ay": 508,
+    "nombre": "tramo-2-b"
+   }
+  ],
+  "laterales-basalto-oeste": [
+   {
+    "src": "modulos/laterales-basalto-oeste/tramo-1-b.webp",
+    "nw": 193,
+    "nh": 312,
+    "ax": 37,
+    "ay": 307,
+    "nombre": "tramo-1-b"
+   },
+   {
+    "src": "modulos/laterales-basalto-oeste/tramo-1-a.webp",
+    "nw": 207,
+    "nh": 313,
+    "ax": 46,
+    "ay": 308,
+    "nombre": "tramo-1-a"
+   },
+   {
+    "src": "modulos/laterales-basalto-oeste/tramo-1-c.webp",
+    "nw": 225,
+    "nh": 314,
+    "ax": 46,
+    "ay": 309,
+    "nombre": "tramo-1-c"
+   },
+   {
+    "src": "modulos/laterales-basalto-oeste/esquina-1.webp",
+    "nw": 277,
+    "nh": 320,
+    "ax": 161,
+    "ay": 315,
+    "nombre": "esquina-1"
+   },
+   {
+    "src": "modulos/laterales-basalto-oeste/tramo-2-a.webp",
+    "nw": 232,
+    "nh": 431,
+    "ax": 53,
+    "ay": 426,
+    "nombre": "tramo-2-a"
+   },
+   {
+    "src": "modulos/laterales-basalto-oeste/tramo-2-b.webp",
+    "nw": 228,
+    "nh": 432,
+    "ax": 53,
+    "ay": 427,
+    "nombre": "tramo-2-b"
+   },
+   {
+    "src": "modulos/laterales-basalto-oeste/tramo-2-c.webp",
+    "nw": 245,
+    "nh": 436,
+    "ax": 55,
+    "ay": 431,
+    "nombre": "tramo-2-c"
+   },
+   {
+    "src": "modulos/laterales-basalto-oeste/esquina-2.webp",
+    "nw": 303,
+    "nh": 452,
+    "ax": 184,
+    "ay": 447,
+    "nombre": "esquina-2"
+   }
+  ],
+  "laterales-nevadas-este": [
+   {
+    "src": "modulos/laterales-nevadas-este/esquina-1.webp",
+    "nw": 301,
+    "nh": 320,
+    "ax": 136,
+    "ay": 315,
+    "nombre": "esquina-1"
+   },
+   {
+    "src": "modulos/laterales-nevadas-este/tramo-1-a.webp",
+    "nw": 228,
+    "nh": 344,
+    "ax": 169,
+    "ay": 339,
+    "nombre": "tramo-1-a"
+   },
+   {
+    "src": "modulos/laterales-nevadas-este/tramo-1-b.webp",
+    "nw": 234,
+    "nh": 348,
+    "ax": 176,
+    "ay": 343,
+    "nombre": "tramo-1-b"
+   },
+   {
+    "src": "modulos/laterales-nevadas-este/tramo-1-c.webp",
+    "nw": 232,
+    "nh": 351,
+    "ax": 176,
+    "ay": 346,
+    "nombre": "tramo-1-c"
+   },
+   {
+    "src": "modulos/laterales-nevadas-este/esquina-2.webp",
+    "nw": 325,
+    "nh": 431,
+    "ax": 157,
+    "ay": 426,
+    "nombre": "esquina-2"
+   },
+   {
+    "src": "modulos/laterales-nevadas-este/tramo-2-a.webp",
+    "nw": 261,
+    "nh": 471,
+    "ax": 182,
+    "ay": 466,
+    "nombre": "tramo-2-a"
+   },
+   {
+    "src": "modulos/laterales-nevadas-este/tramo-2-b.webp",
+    "nw": 268,
+    "nh": 471,
+    "ax": 189,
+    "ay": 466,
+    "nombre": "tramo-2-b"
+   },
+   {
+    "src": "modulos/laterales-nevadas-este/tramo-2-c.webp",
+    "nw": 271,
+    "nh": 471,
+    "ax": 196,
+    "ay": 466,
+    "nombre": "tramo-2-c"
+   }
+  ],
+  "laterales-nevadas-oeste": [
+   {
+    "src": "modulos/laterales-nevadas-oeste/esquina-1.webp",
+    "nw": 281,
+    "nh": 335,
+    "ax": 175,
+    "ay": 330,
+    "nombre": "esquina-1"
+   },
+   {
+    "src": "modulos/laterales-nevadas-oeste/tramo-1-a.webp",
+    "nw": 202,
+    "nh": 340,
+    "ax": 45,
+    "ay": 335,
+    "nombre": "tramo-1-a"
+   },
+   {
+    "src": "modulos/laterales-nevadas-oeste/tramo-1-b.webp",
+    "nw": 214,
+    "nh": 347,
+    "ax": 58,
+    "ay": 342,
+    "nombre": "tramo-1-b"
+   },
+   {
+    "src": "modulos/laterales-nevadas-oeste/tramo-1-c.webp",
+    "nw": 206,
+    "nh": 363,
+    "ax": 39,
+    "ay": 358,
+    "nombre": "tramo-1-c"
+   },
+   {
+    "src": "modulos/laterales-nevadas-oeste/esquina-2.webp",
+    "nw": 296,
+    "nh": 417,
+    "ax": 196,
+    "ay": 412,
+    "nombre": "esquina-2"
+   },
+   {
+    "src": "modulos/laterales-nevadas-oeste/tramo-2-c.webp",
+    "nw": 230,
+    "nh": 426,
+    "ax": 53,
+    "ay": 421,
+    "nombre": "tramo-2-c"
+   },
+   {
+    "src": "modulos/laterales-nevadas-oeste/tramo-2-a.webp",
+    "nw": 229,
+    "nh": 433,
+    "ax": 53,
+    "ay": 428,
+    "nombre": "tramo-2-a"
+   },
+   {
+    "src": "modulos/laterales-nevadas-oeste/tramo-2-b.webp",
+    "nw": 232,
+    "nh": 434,
+    "ax": 51,
+    "ay": 429,
+    "nombre": "tramo-2-b"
+   }
+  ],
+  "laterales-roca-este": [
+   {
+    "src": "modulos/laterales-roca-este/esquina-1.webp",
+    "nw": 338,
+    "nh": 382,
+    "ax": 153,
+    "ay": 377,
+    "nombre": "esquina-1"
+   },
+   {
+    "src": "modulos/laterales-roca-este/tramo-1-a.webp",
+    "nw": 203,
+    "nh": 383,
+    "ax": 155,
+    "ay": 378,
+    "nombre": "tramo-1-a"
+   },
+   {
+    "src": "modulos/laterales-roca-este/tramo-1-c.webp",
+    "nw": 217,
+    "nh": 383,
+    "ax": 169,
+    "ay": 378,
+    "nombre": "tramo-1-c"
+   },
+   {
+    "src": "modulos/laterales-roca-este/tramo-1-b.webp",
+    "nw": 213,
+    "nh": 387,
+    "ax": 165,
+    "ay": 382,
+    "nombre": "tramo-1-b"
+   },
+   {
+    "src": "modulos/laterales-roca-este/esquina-2.webp",
+    "nw": 350,
+    "nh": 465,
+    "ax": 156,
+    "ay": 460,
+    "nombre": "esquina-2"
+   },
+   {
+    "src": "modulos/laterales-roca-este/tramo-2-a.webp",
+    "nw": 241,
+    "nh": 493,
+    "ax": 193,
+    "ay": 488,
+    "nombre": "tramo-2-a"
+   },
+   {
+    "src": "modulos/laterales-roca-este/tramo-2-c.webp",
+    "nw": 257,
+    "nh": 495,
+    "ax": 201,
+    "ay": 490,
+    "nombre": "tramo-2-c"
+   },
+   {
+    "src": "modulos/laterales-roca-este/tramo-2-b.webp",
+    "nw": 255,
+    "nh": 496,
+    "ax": 202,
+    "ay": 491,
+    "nombre": "tramo-2-b"
+   }
+  ],
+  "laterales-roca-oeste": [
+   {
+    "src": "modulos/laterales-roca-oeste/tramo-1-c.webp",
+    "nw": 220,
+    "nh": 322,
+    "ax": 68,
+    "ay": 317,
+    "nombre": "tramo-1-c"
+   },
+   {
+    "src": "modulos/laterales-roca-oeste/tramo-1-a.webp",
+    "nw": 228,
+    "nh": 323,
+    "ax": 70,
+    "ay": 318,
+    "nombre": "tramo-1-a"
+   },
+   {
+    "src": "modulos/laterales-roca-oeste/tramo-1-b.webp",
+    "nw": 219,
+    "nh": 324,
+    "ax": 63,
+    "ay": 319,
+    "nombre": "tramo-1-b"
+   },
+   {
+    "src": "modulos/laterales-roca-oeste/esquina-1.webp",
+    "nw": 298,
+    "nh": 326,
+    "ax": 170,
+    "ay": 321,
+    "nombre": "esquina-1"
+   },
+   {
+    "src": "modulos/laterales-roca-oeste/tramo-2-a.webp",
+    "nw": 256,
+    "nh": 471,
+    "ax": 57,
+    "ay": 466,
+    "nombre": "tramo-2-a"
+   },
+   {
+    "src": "modulos/laterales-roca-oeste/tramo-2-c.webp",
+    "nw": 262,
+    "nh": 477,
+    "ax": 56,
+    "ay": 472,
+    "nombre": "tramo-2-c"
+   },
+   {
+    "src": "modulos/laterales-roca-oeste/tramo-2-b.webp",
+    "nw": 266,
+    "nh": 482,
+    "ax": 59,
+    "ay": 477,
+    "nombre": "tramo-2-b"
+   },
+   {
+    "src": "modulos/laterales-roca-oeste/esquina-2.webp",
+    "nw": 362,
+    "nh": 483,
+    "ax": 212,
+    "ay": 478,
+    "nombre": "esquina-2"
+   }
+  ],
   "muertos": [
    {
     "src": "modulos/muertos/15.webp",
@@ -3625,6 +4153,76 @@
    "nh": 995,
    "ax": 994,
    "ay": 970
+  },
+  "puente-piedra-eo-sube": {
+   "src": "puente-piedra-eo-sube.webp",
+   "nw": 1504,
+   "nh": 976,
+   "ax": 752,
+   "ay": 330
+  },
+  "puente-piedra-eo": {
+   "src": "puente-piedra-eo.webp",
+   "nw": 1370,
+   "nh": 837,
+   "ax": 685,
+   "ay": 240
+  },
+  "puente-piedra-ne-so": {
+   "src": "puente-piedra-ne-so.webp",
+   "nw": 1249,
+   "nh": 1249,
+   "ax": 627,
+   "ay": 519
+  },
+  "puente-piedra-no-se": {
+   "src": "puente-piedra-no-se.webp",
+   "nw": 1156,
+   "nh": 1239,
+   "ax": 578,
+   "ay": 514
+  },
+  "puente-piedra-ns-sube": {
+   "src": "puente-piedra-ns-sube.webp",
+   "nw": 641,
+   "nh": 1497,
+   "ax": 321,
+   "ay": 620
+  },
+  "puente-piedra-ns": {
+   "src": "puente-piedra-ns.webp",
+   "nw": 763,
+   "nh": 1461,
+   "ax": 381,
+   "ay": 590
+  },
+  "puente-troncos-eo": {
+   "src": "puente-troncos-eo.webp",
+   "nw": 1505,
+   "nh": 850,
+   "ax": 753,
+   "ay": 251
+  },
+  "puente-troncos-ne-so": {
+   "src": "puente-troncos-ne-so.webp",
+   "nw": 1224,
+   "nh": 1254,
+   "ax": 612,
+   "ay": 484
+  },
+  "puente-troncos-no-se": {
+   "src": "puente-troncos-no-se.webp",
+   "nw": 1231,
+   "nh": 1237,
+   "ax": 611,
+   "ay": 473
+  },
+  "puente-troncos-ns": {
+   "src": "puente-troncos-ns.webp",
+   "nw": 821,
+   "nh": 1526,
+   "ax": 411,
+   "ay": 613
   },
   "rocas-1": {
    "src": "rocas-1.webp",
