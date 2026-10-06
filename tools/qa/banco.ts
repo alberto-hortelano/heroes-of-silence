@@ -513,11 +513,21 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   1 577 → 1 477, `node_captured` 1 443 → 1 284; ningún tipo nuevo ni ninguno
  *   que desaparezca. El Dijkstra más barato de la misma vuelta no mueve el
  *   hash: con la búsqueda ingenua da el mismo `642241f8…`.
+ * - `020ccc58…` (67 071 líneas): **los caminos como tramos** (#153,
+ *   06-10-2026). El mapa guarda los tramos que traza `trazarCaminos` y ya no
+ *   hay fase de fallo `caminos`, que volvía a vestir el mapa cuando lo dibujado
+ *   por adyacencia rozaba un nodo ajeno. Las casillas de camino no cambian
+ *   —enderezar las horquillas en L solo cambia tramos—, así que solo cambian
+ *   las semillas en las que esa fase se disparaba: **exactamente 43, 60, 64,
+ *   70, 87, 167 y 177**, todas con otro mapa desde el primer hecho que lo
+ *   dice (el `raider_spawned` del índice 1; el 0 es el `day_start`). Las otras
+ *   193, idénticas línea a línea. Dos con otro ganador (64 y 87), **0 sin
+ *   terminar**, duración 8 / 15 / 39 igual. Re-anclado una vez, al final.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '642241f8443684533336eb0df8e84d6c0f2c4daadf99761af4bbfc25378c67f4',
+  sha: '020ccc584552b1bae38d02cbc57879a488d5c39c08b20b51ab28eafc1ab27e36',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

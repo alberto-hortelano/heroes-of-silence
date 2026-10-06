@@ -1525,7 +1525,8 @@ paso. El grafo de regiones y nodos es el que validó el perfil.
       16 vestidos; con un coste por pisar junto a un nodo ajeno al radio, 14:
       no compensaba y se quitó;
     - **una sola regla de aristas** (`aristasDeCamino`, `map.ts`) para el
-      pintor, el generador y la auditoría;
+      pintor, el generador y la auditoría (desde #153 solo queda para el plan
+      del agente, como `tramosDeCasillas`);
     - **el Dijkstra, más barato sin cambiar nada**: para al sacar el objetivo,
       reutiliza `coste` y `previo`, `pegada` crece con la red, máscaras en vez
       de `Set` y el centro solo sobre las casillas de la región. Con la versión
@@ -1553,11 +1554,87 @@ paso. El grafo de regiones y nodos es el que validó el perfil.
     de varias regiones, y esos acortan de verdad.
   - Lo que queda dentro de una región (1,15 por mapa) es el pintor cosiendo
     casillas vecinas que el trazado no une; el arreglo de raíz es que `roads`
-    lleve tramos y no casillas, y eso toca el plan del agente.
+    lleve tramos y no casillas. Se hizo en #153 (abajo) sin tocar el plan del
+    agente.
   - El test denso pone techos medidos con holgura: mediana del camino < 33 %,
-    de los ciclos ≤ 10 y de los de dentro ≤ 3. **El 10-15 % que se pidió como
+    de los ciclos ≤ 10 y de los de dentro ≤ 3 (desde #153, ninguno: máximo 0). **El 10-15 % que se pidió como
     orientación sigue sin caber**: ~8 sitios que unir por región de ~68
     casillas son ya el 8,4 % del suelo.
+- **Los caminos como tramos** (#153, 06-10-2026; alternativa B de la crítica,
+  elegida por el usuario). `GameMap.roads` (casillas) pasa a
+  `GameMap.caminos`, una `RedDeCaminos` con los **tramos** como hecho y las
+  casillas derivadas; constructor privado y campo privado, para que no se
+  pueda fabricar con las dos caras desiguales. `trazarCaminos` devuelve los
+  tramos que traza (un árbol por región) y desaparece la fase de fallo
+  `caminos`, que solo existía porque el pintor unía por adyacencia lo que el
+  trazado no unía. **El contrato del agente no cambia**: escribe y lee
+  casillas (lo que le importa es el coste, que va por casilla). Lee **el
+  mismo conjunto, en otro orden**: `serializeKnownMap.roads` sale ahora en el
+  de los tramos canónicos y no en el del trazado, así que el JSON de s1, s2,
+  s3, s7 y s10 no es byte a byte el de antes; ni `COMO_SE_LEE_EL_MAPA` ni los
+  tests prometen un orden (H3 de la QA). Y
+  `caminosDelPlan` deriva sus tramos con la regla de siempre
+  (`tramosDeCasillas`). El espectador recibe los tramos por el cable.
+  - **Horquillas en L** (punto de control del plan). El arquitecto propuso
+    pintar los tramos tal cual (horquillas en Y); el usuario vio las capturas
+    (`caminos-como-tramos/capturas/`) y no las quiso: le pesaron un cruce en X
+    de la semilla 1 y seis ramales de un punto en la 7. `enderezarHorquillas`
+    (`vestir.ts`; hoy `ArbolDeCaminos`, ver la vuelta de /simplify) cambia cada diagonal con una esquina de camino de su región
+    por un tramo recto colgado de esa esquina, del lado que conserva el árbol.
+    **Un nodo no sirve de esquina**: la primera versión colgaba también de los
+    nodos y el test denso se puso rojo en 60, 64, 177 y 986 («le llegan 2
+    tramos»): eran justo los mapas que la fase `caminos` tiraba. Ahí la
+    diagonal se queda, 1 por mapa en esos 4 de 203 y 0 en los demás.
+  - Medido en las semillas 1-10: 177-223 casillas y 181-228 tramos por mapa;
+    ciclos dentro de una región **1,2 → 0** (los 12 tramos espurios que unía
+    el pintor, 0-4 por mapa, ya no están); horquillas en Y 0, cruces en X 0, y
+    ningún punto con más de 4 ramales que no tuviera antes. En el test denso
+    (203 mapas), 0 ciclos dentro de una región en todos. Las casillas no se
+    mueven, así que el coste tampoco: el banco cambia **solo** en las 7
+    semillas donde la fase `caminos` volvía a vestir (43, 60, 64, 70, 87, 167,
+    177), con otro mapa desde el primer `raider_spawned`.
+  - **Un plan del procedimental copiado al agente pierde los caminos**: zod
+    quita `tramos`, que el esquema no tiene. `pnpm qa` lo cazó (la política de
+    QA reenvía el plan de la semilla 3 y dejó de haber batallas en seis
+    turnos); la política le pasa ahora las casillas de los tramos como
+    `roads`.
+  - **Vuelta de /simplify** (06-10-2026):
+    - **Las horquillas, donde nacen.** `enderezarHorquillas` era una segunda
+      pasada con un BFS por diagonal; ahora `trazarCaminos` cuelga el radio
+      desde la red hacia fuera en un `ArbolDeCaminos` (padre por casilla), y
+      cada casilla que entra en diagonal junto a una esquina de la red se
+      cuelga de la esquina sin buscar (todo lo que es red está del lado de
+      su padre); la que entra en la esquina de una diagonal vieja la parte en
+      dos rectos, subiendo por los padres para saber de qué lado queda. Las
+      casillas no cambian: banco idéntico, y en 1-10 solo 3 mapas (2, 4 y 6)
+      cuelgan una casilla de otra vecina recta (un tramo cada uno); 1, 3 y 7
+      salen píxel a píxel iguales.
+    - **La Y junto a un nodo no se puede quitar sin mover casillas.** Se probó
+      en la búsqueda: prohibir el paso en diagonal junto a un nodo de la red
+      deja un objetivo sin camino (semilla 60, «no llega a (12,15)»), y
+      cobrarlo como `pegada` no cambia nada (banco idéntico y las mismas 4 Y:
+      60, 64, 177 y 986). En las cuatro la otra esquina es muro, agua, risco o
+      bosque: el radio no tiene otro sitio por donde pasar. Se queda el cobro,
+      y el guardia admite solo esa Y **obligada** (esquina en nodo y la otra
+      esquina barrera) en vez de cualquier esquina que sea nodo.
+    - **Un solo paso del plan procedimental al del agente**: `planDelAgente`
+      (`generate.ts`). Lo usa la política de `pnpm qa`, así que el mapa que
+      juega `pnpm qa` lleva las casillas del agente y sus tramos salen de la
+      **regla de adyacencia** (`tramosDeCasillas`), no del trazado: es el
+      contrato del agente, y está bien que sea lo que se prueba ahí.
+    - **`MapPlan` es una unión**: `PlanConCasillas` (el del agente) o
+      `PlanConTramos` (el procedimental); se fue el `throw` de los dos a la
+      vez. **`RedDeCaminos` conoce el mapa**: lanza con lo que cae fuera
+      (`validateMapPlan` lo dice antes, y mira lo demás en el mapa sin
+      caminos para dar todas las clases de problema de una vez), la casilla
+      suelta va en `sueltas` y no como tramo `[p, p]`, y precalcula una
+      marca por índice para `stepCost` y el Dijkstra.
+    - **El cable del espectador, plano**: los tramos como índices
+      `[i, k, i, k, …]` y las sueltas aparte. Medido en la vista de la
+      semilla 1: los caminos 6 886 → 1 683 B y la vista entera 27 559 →
+      22 369 B (s1-10: 27,0-28,4 KB → 22,0-23,1 KB), y va un mensaje por
+      acción. El pintor lee `map.caminos.tramos`
+      directamente (se fue `Analisis.caminos`).
 - **Un camino del plan sobre una barrera se rechaza** diciendo la casilla, en
   `validateMapPlan` (la puerta de los dos productores): `map.ts` no lo abría,
   pero el cliente lo pintaba encima y una carretera sobre un acantilado dice que

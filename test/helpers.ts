@@ -11,17 +11,16 @@ import type { BattleAction, BattleStack, BattleState } from '../src/core/battle/
 import { personajeDe } from '../src/core/battle/types.js';
 import { BARRERAS_DEL_MAPA } from '../src/core/data.js';
 import type { Hero } from '../src/core/hero/hero.js';
-import type { MapPlan } from '../src/core/map/generate.js';
+import type { MapPlan, PlanConCasillas } from '../src/core/map/generate.js';
 import {
-  aristasDeCamino,
   type GameMap,
   isEnterable,
   type MapObject,
   objectAt,
   pointFromKey,
-  pointKey,
+  RedDeCaminos,
 } from '../src/core/map/map.js';
-import { aPunto, estructura, juntoANodo, rellenar, vecindad } from '../src/core/map/regiones.js';
+import { estructura, juntoANodo, rellenar, vecindad } from '../src/core/map/regiones.js';
 import { esBarrera, type TerrainKind } from '../src/core/map/terrain.js';
 import type { Rng } from '../src/core/rng.js';
 import { applyAdventureAction, type GameContext, type GameState } from '../src/core/state/game.js';
@@ -236,7 +235,7 @@ export const esPersonaje =
  * Una mina en cada una de A, B y C: ore (2,2), gold (8,4) y wood (14,4).
  * Inicios en (4,4) y (23,4), pegados a cada base.
  */
-export function planDeNodos(): MapPlan {
+export function planDeNodos(): PlanConCasillas {
   const columna = (x: number) => ({
     terrain: 'mountain' as const,
     from: { x, y: 0 },
@@ -369,8 +368,9 @@ export function barrerasDe(map: GameMap): {
  *   pueblo está en la red de su región —el camino de la región es una sola
  *   pieza y los lleva—, la base en la de su casa, cada nodo con camino es una
  *   **hoja** de la red de cada región que se lo lleva, entre cada pareja de
- *   regiones vecinas hay **exactamente un** nodo con camino, y `roads` del mapa
- *   es una sola pieza.
+ *   regiones vecinas hay **exactamente un** nodo con camino, y la red de
+ *   caminos del mapa es una sola pieza. Todo por sus **tramos** (#153), no por
+ *   la adyacencia de las casillas.
  *
  * Devuelve además cuántas casillas de frontera lleva cada barrera, que es lo
  * que el test cuenta por mapa: así no se construye el mapa dos veces.
@@ -484,13 +484,10 @@ export function auditarMapaDenso(
       fallos.push(`(${p.x},${p.y}) tiene algo y no es de ninguna región`);
   }
 
-  // Caminos, tal como se dibujan (`aristasDeCamino`, la regla del pintor): a
-  // un nodo le «llega el camino» de una región si está unido a una casilla de
-  // camino de ella.
-  const camino = map.roads;
-  const enCamino = (i: number) => camino.has(pointKey(aPunto(i, W)));
-  const todas = casillasDeCamino(map);
-  const unidas = unidasPorCamino(new Set(todas), W, H);
+  // Caminos, por sus tramos (#153): a un nodo le «llega el camino» de una
+  // región si un tramo lo une a una casilla de ella.
+  const { todas, unidas } = grafoDeCaminos(map);
+  const camino = new Set(todas);
   const tramosDesde = (n: number, k: number): number =>
     (unidas.get(n) ?? []).filter((j) => red.regionDe[j] === k).length;
   const leLlegaDe = (n: number, k: number): boolean => tramosDesde(n, k) > 0;
@@ -504,18 +501,13 @@ export function auditarMapaDenso(
       .map((o) => o.at.y * W + o.at.x);
     // El camino de la región, sin sus nodos: un radio no cruza un nodo, así
     // que tiene que ser de una pieza por las casillas de la región.
-    const suCamino = todas.filter((c) => red.regionDe[c] === k).sort((a, b) => a - b);
+    const suCamino = todas.filter((c) => red.regionDe[c] === k);
     const origen = suCamino[0];
     if (origen === undefined) {
       fallos.push(`la región ${reg.id} no tiene ni una casilla de camino`);
       continue;
     }
-    const visto = new Set([origen]);
-    rellenar(W, H, origen, (j) => {
-      if (visto.has(j) || !enCamino(j) || red.regionDe[j] !== k) return false;
-      visto.add(j);
-      return true;
-    });
+    const visto = pieza(unidas, origen, (j) => red.regionDe[j] === k);
     const sueltas = suCamino.filter((c) => !visto.has(c));
     if (sueltas.length > 0) {
       fallos.push(
@@ -523,7 +515,7 @@ export function auditarMapaDenso(
       );
     }
     for (const d of destinos) {
-      if (!enCamino(d))
+      if (!camino.has(d))
         fallos.push(`la mina o el pueblo ${en(d)} de la región ${reg.id} no está en un camino`);
     }
     // Radial: a un nodo se llega, no se cruza, así que es una hoja de la red
@@ -568,12 +560,7 @@ export function auditarMapaDenso(
   }
   // Y la red del mapa, de una pieza.
   if (todas.length > 0) {
-    const visto = new Set([todas[0]!]);
-    rellenar(W, H, todas[0]!, (j) => {
-      if (visto.has(j) || !enCamino(j)) return false;
-      visto.add(j);
-      return true;
-    });
+    const visto = pieza(unidas, todas[0]!, () => true);
     const fuera = todas.filter((c) => !visto.has(c));
     if (fuera.length > 0) {
       fallos.push(
@@ -584,50 +571,81 @@ export function auditarMapaDenso(
   return { fallos, frontera };
 }
 
-/** Las casillas de camino del mapa, por índice plano. */
-function casillasDeCamino(map: GameMap): number[] {
-  return [...map.roads].map((c) => {
-    const p = pointFromKey(c);
-    return p.y * map.width + p.x;
-  });
-}
-
-/** Con qué casillas de camino está unida cada una en el dibujo (`aristasDeCamino`). */
-function unidasPorCamino(casillas: ReadonlySet<number>, W: number, H: number) {
-  const unidas = new Map<number, number[]>();
-  for (const [p, q] of aristasDeCamino(casillas, W, H)) {
-    unidas.set(p, [...(unidas.get(p) ?? []), q]);
-    unidas.set(q, [...(unidas.get(q) ?? []), p]);
-  }
-  return unidas;
+/**
+ * El mismo mapa con camino también en estas casillas, sueltas. Es lo que hacían
+ * los tests con `map.roads.add` antes de que el mapa guardara tramos (#153): la
+ * red es de un solo hecho y no se muta, se rehace.
+ */
+export function conCaminos(map: GameMap, ...claves: string[]): GameMap {
+  const { tramos, sueltas } = map.caminos;
+  const caminos = RedDeCaminos.desdeTramos(tramos, map.width, map.height, [
+    ...sueltas,
+    ...claves.map(pointFromKey),
+  ]);
+  return { ...map, caminos };
 }
 
 /**
- * Cuántos ciclos independientes tiene la red de caminos tal como se dibuja, y
- * cuántos de ellos caben dentro de una sola región: μ = aristas − casillas +
- * piezas, con las aristas del pintor (`aristasDeCamino`). Es la medida del
- * criterio 1 de «menos caminos» (#149).
+ * Los caminos del mapa por índice plano: sus casillas, en orden, sus tramos y
+ * con qué casillas une cada una un tramo.
+ */
+export function grafoDeCaminos(map: GameMap): {
+  todas: number[];
+  unidas: Map<number, number[]>;
+  aristas: [number, number][];
+} {
+  const W = map.width;
+  const indice = (p: Point) => p.y * W + p.x;
+  const todas = [...map.caminos.indices].sort((a, b) => a - b);
+  const aristas = map.caminos.tramos.map(([p, q]): [number, number] => [indice(p), indice(q)]);
+  const unidas = new Map<number, number[]>();
+  for (const [i, k] of aristas) {
+    unidas.set(i, [...(unidas.get(i) ?? []), k]);
+    unidas.set(k, [...(unidas.get(k) ?? []), i]);
+  }
+  return { todas, unidas, aristas };
+}
+
+/** Lo que se alcanza desde `origen` andando por tramos, sin salir de lo que `vale`. */
+function pieza(
+  unidas: ReadonlyMap<number, readonly number[]>,
+  origen: number,
+  vale: (j: number) => boolean,
+): Set<number> {
+  const visto = new Set([origen]);
+  const cola = [origen];
+  for (let q = 0; q < cola.length; q++) {
+    for (const j of unidas.get(cola[q]!) ?? []) {
+      if (visto.has(j) || !vale(j)) continue;
+      visto.add(j);
+      cola.push(j);
+    }
+  }
+  return visto;
+}
+
+/**
+ * Cuántos ciclos independientes tiene la red de caminos, y cuántos de ellos
+ * caben dentro de una sola región: μ = tramos − casillas + piezas, con las
+ * piezas por `pieza`, la misma búsqueda por tramos de la auditoría. Es la
+ * medida del criterio 1 de «menos caminos» (#149) y de «los caminos como
+ * tramos» (#153): dentro de una región la red es un árbol, así que `dentro` es 0.
  */
 export function ciclosDeCamino(map: GameMap): { total: number; dentro: number } {
   const W = map.width;
-  const H = map.height;
   const red = estructura(map);
   const nodoDe = new Map(red.nodos.map((n) => [n.at.y * W + n.at.x, n.regiones]));
-  const todas = casillasDeCamino(map);
+  const { todas, aristas, unidas } = grafoDeCaminos(map);
   const mu = (casillas: ReadonlySet<number>): number => {
+    const vistas = new Set<number>();
     let piezas = 0;
-    const visto = new Set<number>();
-    for (const s of casillas) {
-      if (visto.has(s)) continue;
+    for (const c of casillas) {
+      if (vistas.has(c)) continue;
       piezas++;
-      visto.add(s);
-      rellenar(W, H, s, (j) => {
-        if (visto.has(j) || !casillas.has(j)) return false;
-        visto.add(j);
-        return true;
-      });
+      for (const j of pieza(unidas, c, (j) => casillas.has(j))) vistas.add(j);
     }
-    return aristasDeCamino(casillas, W, H).length - casillas.size + piezas;
+    const dentro = aristas.filter(([i, k]) => casillas.has(i) && casillas.has(k)).length;
+    return dentro - casillas.size + piezas;
   };
   let dentro = 0;
   for (let k = 0; k < red.regiones.length; k++) {

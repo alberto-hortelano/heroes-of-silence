@@ -35,8 +35,15 @@ import {
 import { ASALTANTES, creature, EQUIPO } from '../src/core/data.js';
 import { NOMBRE_DE_CALIDAD } from '../src/core/hero/equipo.js';
 import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '../src/core/hero/troop.js';
-import { generateMapPlan, validateMapPlan } from '../src/core/map/generate.js';
-import { pointFromKey, pointKey } from '../src/core/map/map.js';
+import {
+  buildMap,
+  caminosDelPlan,
+  generateMapPlan,
+  type MapPlan,
+  planDelAgente,
+  validateMapPlan,
+} from '../src/core/map/generate.js';
+import { pointFromKey, pointKey, RedDeCaminos, stepCost } from '../src/core/map/map.js';
 import { BARRERAS, costeDeEntrada, isWalkable, TERRAIN_KINDS } from '../src/core/map/terrain.js';
 import { createRng } from '../src/core/rng.js';
 import { cronicaPara } from '../src/core/state/events.js';
@@ -51,7 +58,7 @@ import {
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { mageGuildLevel, townSpells } from '../src/core/town/town.js';
-import { forzarBatalla, forzarTurno, planDeNodos } from './helpers.js';
+import { conCaminos, forzarBatalla, forzarTurno, planDeNodos } from './helpers.js';
 
 describe('contrato con el agente', () => {
   it('cada tipo de petición tiene esquema y formato de respuesta', () => {
@@ -268,6 +275,106 @@ describe('contrato con el agente', () => {
   });
 });
 
+describe('los caminos del plan del agente: casillas, y los tramos se derivan (#153)', () => {
+  const en = (x: number, y: number) => ({ x, y });
+  const clave = (tramos: RedDeCaminos['tramos']) =>
+    tramos.map(([p, q]) => `${p.x},${p.y}-${q.x},${q.y}`);
+
+  it('en L, en un bloque 2×2 y suelto: los tramos de la regla con que siempre se pintaron', () => {
+    const plan = planDeNodos();
+    const roads = [
+      // Una L: el codo es camino, así que la diagonal no se traza.
+      en(1, 1),
+      en(2, 1),
+      en(2, 2),
+      // Un bloque 2×2: sus cuatro lados, ninguna diagonal.
+      en(1, 4),
+      en(2, 4),
+      en(1, 5),
+      en(2, 5),
+      // Una casilla suelta: sin tramo, va en las sueltas.
+      en(4, 7),
+    ];
+    const red = caminosDelPlan({ ...plan, roads });
+    expect(clave(red.tramos)).toEqual([
+      '1,1-2,1',
+      '2,1-2,2',
+      '1,4-2,4',
+      '1,4-1,5',
+      '2,4-2,5',
+      '1,5-2,5',
+    ]);
+    expect(red.sueltas).toEqual([en(4, 7)]);
+    expect([...red.casillas].sort()).toEqual(roads.map(pointKey).sort());
+    // Y la suelta abarata entrar en ella, como cualquier casilla de camino.
+    const { map } = buildMap({ ...plan, roads });
+    const sin = buildMap({ ...plan, roads: [] }).map;
+    expect(stepCost(map, en(3, 7), en(4, 7))).toBeLessThan(stepCost(sin, en(3, 7), en(4, 7)));
+  });
+
+  it('el esquema del agente no conoce los tramos: zod los quita del plan del procedimental', () => {
+    const plan = generateMapPlan(createRng(1));
+    expect(plan.tramos.length).toBeGreaterThan(0);
+    expect(plan.roads).toBeUndefined();
+    expect(mapPlanSchema.parse(plan)).not.toHaveProperty('tramos');
+  });
+
+  it('planDelAgente: el plan procedimental pasa por el esquema con sus caminos', () => {
+    // Lo que hace la política de `pnpm qa`: reenviar al agente un plan del
+    // generador. Sin la conversión, zod quita `tramos` y el mapa sale sin un
+    // camino; con ella, las casillas de camino son las mismas.
+    for (const semilla of [1, 3]) {
+      const plan = generateMapPlan(createRng(semilla));
+      const casillas = (p: MapPlan) => [...buildMap(p).map.caminos.casillas].sort();
+      const delAgente = mapPlanSchema.parse(planDelAgente(plan));
+      expect(casillas(delAgente).length, `semilla ${semilla}`).toBeGreaterThan(0);
+      expect(casillas(delAgente), `semilla ${semilla}`).toEqual(casillas(plan));
+    }
+  });
+
+  it('un plan con casillas y tramos a la vez no compila', () => {
+    const plan = planDeNodos();
+    // @ts-expect-error: un plan lleva sus caminos de una manera, no de las dos.
+    const doble: MapPlan = { ...plan, roads: [en(1, 1)], tramos: [[en(1, 1), en(2, 1)]] };
+    expect(doble.roads).toEqual([en(1, 1)]);
+  });
+
+  it('la red lanza con lo que no es una red: tramos de no vecinas o repetidos, fuera del mapa, sueltas repetidas', () => {
+    const red = (tramos: RedDeCaminos['tramos'], sueltas: { x: number; y: number }[] = []) =>
+      RedDeCaminos.desdeTramos(tramos, 10, 10, sueltas);
+    expect(() => red([[en(1, 1), en(3, 1)]])).toThrow(
+      /de \(1,1\) a \(3,1\) no une dos casillas vecinas distintas/,
+    );
+    expect(() => red([[en(1, 1), en(1, 1)]])).toThrow(
+      /de \(1,1\) a \(1,1\) no une dos casillas vecinas distintas/,
+    );
+    expect(() =>
+      red([
+        [en(1, 1), en(2, 1)],
+        [en(2, 1), en(1, 1)],
+      ]),
+    ).toThrow(/de \(1,1\) a \(2,1\) está repetido/);
+    expect(() => red([[en(9, 9), en(10, 9)]])).toThrow(
+      /el camino de \(10,9\) cae fuera del mapa de 10×10/,
+    );
+    expect(() => red([], [en(-1, 0)])).toThrow(/el camino de \(-1,0\) cae fuera del mapa/);
+    expect(() => red([[en(1, 1), en(2, 1)]], [en(2, 1)])).toThrow(
+      /el camino suelto de \(2,1\) está repetido o ya va en un tramo/,
+    );
+    expect(() => red([], [en(5, 5), en(5, 5)])).toThrow(/el camino suelto de \(5,5\)/);
+    // Lo que no es una casilla (H2 de la QA de #153): con `NaN` cada `<` da
+    // falso y pasaba todos los filtros; es lo que deja un cable al que le falta
+    // un índice. Y media casilla está «dentro» y «a menos de una» de la otra.
+    expect(() => red([[en(1, 1), en(Number.NaN, Number.NaN)]])).toThrow(
+      /el camino de \(NaN,NaN\) no cae en una casilla: van de enteros/,
+    );
+    expect(() => red([[en(1, 1), en(1.5, 1)]])).toThrow(
+      /el camino de \(1\.5,1\) no cae en una casilla/,
+    );
+    expect(() => red([], [en(2, 0.5)])).toThrow(/el camino de \(2,0\.5\) no cae en una casilla/);
+  });
+});
+
 describe('lo que ve el agente', () => {
   it('el estado del turno viaja como JSON sin perder nada', () => {
     const state = newGame({ seed: 91 });
@@ -326,8 +433,7 @@ describe('lo que ve el agente', () => {
         'la semilla 92 ya no deja una casilla fuera de la diagonal dentro de la niebla del 0 y otra fuera',
       );
     }
-    state.map.roads.add(dentro);
-    state.map.roads.add(fuera);
+    state.map = conCaminos(state.map, dentro, fuera);
     // Y la niebla tiene que ser ASIMÉTRICA, o el barrido de abajo tampoco puede
     // morder: el generador pone los inicios en la diagonal de un mapa cuadrado
     // —(4,4) y (19,19)—, así que hasta el día 3 la niebla es simétrica bajo

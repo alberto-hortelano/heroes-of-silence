@@ -93,6 +93,7 @@ import {
   type Resources,
 } from '../src/core/types.js';
 import {
+  conCaminos,
   ejercito,
   esPersonaje,
   forzarBatalla,
@@ -215,8 +216,9 @@ describe('generación de mapas', () => {
       ...plan,
       patches: [...plan.patches, { terrain: 'water' as const, center: neutral.at, radius: 1.5 }],
       // Sin caminos: los que llegaban a la ciudad quedarían sobre el agua, y un
-      // camino sobre una barrera se rechaza antes de mirar la red.
-      roads: [],
+      // camino sobre una barrera se rechaza antes de mirar la red. El
+      // procedimental los escribe como tramos (#153).
+      tramos: [],
     };
     expect(validateMapPlan(aislado).join(' ')).toMatch(
       new RegExp(`la ciudad "${neutral.id}" no toca ninguna región`),
@@ -644,8 +646,8 @@ describe('movimiento de héroes', () => {
     for (const terreno of TERRAIN_KINDS) {
       if (!isWalkable(terreno)) continue;
       for (const conCamino of [false, true]) {
-        const map = createEmptyMap(3, 3, terreno);
-        if (conCamino) map.roads.add(pointKey({ x: 1, y: 1 }));
+        const vacio = createEmptyMap(3, 3, terreno);
+        const map = conCamino ? conCaminos(vacio, pointKey({ x: 1, y: 1 })) : vacio;
         // Ortogonal y diagonal, que es la otra mitad de la fórmula.
         for (const desde of [
           { x: 0, y: 1 },

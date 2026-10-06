@@ -30,17 +30,19 @@ import { battleOwners, type GameState } from '@core/state/game.js';
 import type { FactionId, PlayerId, Point, Resources, UnitInfo, Veterania } from '@core/types.js';
 
 /**
- * El mapa sin `Set`: `roads` viaja como array de claves `"x,y"`.
- *
- * `JSON.stringify` deja un `Set` en `{}` sin decir nada —lo mismo que avisa #10
- * para el guardado—, así que la conversión es obligatoria y va aquí, no en el
- * llamante. `adaptar.ts`, en el cliente, es su inversa exacta.
+ * El mapa tal como viaja. Los caminos van como **tramos** (#153), los mismos que
+ * pinta el cliente, y **planos**: índices `y * width + x`, dos por tramo
+ * (`[i, k, i, k, …]`), y las casillas sueltas aparte. Como pares de `{x, y}`
+ * la vista de la semilla 1 pesaba 27,6 KB y así pesa 22,4, y va un mensaje
+ * por acción. `adaptar.ts`, en el cliente, es su inversa exacta: rehace la red
+ * con `desdeTramos`.
  */
 export interface VistaMapa {
   readonly width: number;
   readonly height: number;
   readonly terrain: readonly TerrainKind[];
-  readonly roads: readonly string[];
+  readonly tramos: readonly number[];
+  readonly sueltas: readonly number[];
   readonly objects: readonly MapObject[];
   /**
    * Las regiones declaradas del mapa de nodos (fase 2a). Viajan ya, aunque el
@@ -185,13 +187,15 @@ export interface SpectatorView {
  */
 export function construirVista(state: GameState, directorLog: readonly string[]): SpectatorView {
   const pending = state.pendingBattle;
+  const indice = (p: Point): number => p.y * state.map.width + p.x;
   return {
     seed: state.seed,
     map: {
       width: state.map.width,
       height: state.map.height,
       terrain: state.map.terrain,
-      roads: [...state.map.roads],
+      tramos: state.map.caminos.tramos.flatMap(([p, q]) => [indice(p), indice(q)]),
+      sueltas: state.map.caminos.sueltas.map(indice),
       objects: state.map.objects,
       regions: state.map.regions,
     },

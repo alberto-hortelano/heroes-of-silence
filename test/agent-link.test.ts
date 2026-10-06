@@ -30,7 +30,7 @@ import { Director } from '../src/server/director.js';
 import { pedirMapaAlAgente } from '../src/server/mapa-del-agente.js';
 import { SIN_PARTIDA_TODAVIA } from '../src/server/notas.js';
 import { ponVeteranoEnLaBase } from '../tools/qa/veterano-en-la-base.js';
-import { ejercito, ponerMonstruo, sinGuarnicionDeSalida } from './helpers.js';
+import { conCaminos, ejercito, ponerMonstruo, sinGuarnicionDeSalida } from './helpers.js';
 
 /** Agente de mentira: responde leyendo el payload, como haría uno de verdad. */
 interface FakeAgent {
@@ -1037,8 +1037,7 @@ describe('la consulta `map` pasa por la niebla', () => {
       .map((i) => pointKey({ x: i % state.map.width, y: Math.floor(i / state.map.width) }))
       .find((clave) => !mio.fog.has(clave));
     if (ignorada === undefined) throw new Error('la semilla 407 ya no deja nada sin explorar');
-    state.map.roads.add(explorada);
-    state.map.roads.add(ignorada);
+    state.map = conCaminos(state.map, explorada, ignorada);
 
     const mapa = JSON.parse(entregado(director, 'map', { player: 1 })) as {
       width: number;
@@ -1093,7 +1092,7 @@ describe('la consulta `map` pasa por la niebla', () => {
     });
     if (explorada === undefined)
       throw new Error('la semilla 410 ya no deja una casilla fuera de la diagonal');
-    state.map.roads.add(explorada);
+    state.map = conCaminos(state.map, explorada);
 
     const porLaTool = responderConsulta(director, 'map', { player: 1 }) as Record<string, unknown>;
     const porElTurno = (

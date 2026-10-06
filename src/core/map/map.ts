@@ -94,8 +94,12 @@ export interface GameMap {
   readonly regions: readonly MapRegion[];
   /** Terreno por casilla, en orden de filas. */
   readonly terrain: TerrainKind[];
-  /** Casillas con camino, por clave "x,y". */
-  readonly roads: Set<string>;
+  /**
+   * Los caminos: los tramos que se pintan y, derivadas de ellos, las casillas
+   * que abaratan el paso. Un solo campo para los dos hechos, para que no puedan
+   * discrepar (#153).
+   */
+  readonly caminos: RedDeCaminos;
   readonly objects: MapObject[];
 }
 
@@ -131,34 +135,177 @@ export function pointFromKey(clave: string): Point {
   return p;
 }
 
+/** La casilla de un índice plano `y*width+x`; la inversa de `p.y * width + p.x`. */
+export const aPunto = (i: number, width: number): Point => ({
+  x: i % width,
+  y: (i - (i % width)) / width,
+});
+
+/** Un tramo de camino: dos casillas 8-vecinas distintas. */
+export type TramoDeCamino = readonly [Point, Point];
+
 /**
- * Las aristas de una red de caminos tal como se dibuja, por índice plano: dos
- * casillas de camino vecinas se unen, y en diagonal solo si ninguna de sus dos
- * esquinas es camino (si lo es, el trazo pasa por ella). Es la regla del pintor
- * del mapa, y la misma con la que el generador y la auditoría preguntan a qué
- * llega un camino: si cada uno la escribe a su manera, lo que se mide no es lo
- * que se ve. En el orden de `caminos` y, por casilla, derecha, abajo y las dos
- * diagonales de abajo: el pintor encadena las sendas en ese orden.
+ * La red de caminos de un mapa: los **tramos** son el hecho y las casillas se
+ * derivan de ellos. Un camino de una sola casilla no tiene trazo: va en
+ * `sueltas`, que abarata el paso pero no se pinta.
+ *
+ * Antes el mapa guardaba casillas y el pintor deducía los tramos por adyacencia
+ * (8-vecindad, la diagonal solo si ninguna esquina es camino). Así dos radios
+ * vecinos se unían solos y cerraban ~1,2 bucles por mapa que nadie había
+ * trazado, y el generador tenía que comprobar lo dibujado y vestir otra vez el
+ * mapa cuando un radio rozaba un nodo ajeno (#153). Con los tramos guardados lo
+ * que se pinta es lo que se trazó.
+ *
+ * Constructor privado y campo privado: el campo hace la clase nominal, así que
+ * no se puede fabricar una red con las dos caras desiguales a base de un objeto
+ * literal. Se entra por `desdeTramos` o por `vacia`, que conocen el mapa: lo
+ * que caiga fuera lanza aquí, y no hay que filtrarlo en cada lector.
  */
-export function aristasDeCamino(
-  caminos: ReadonlySet<number>,
+export class RedDeCaminos {
+  private readonly claves: ReadonlySet<string>;
+  /** Una marca por índice plano: `stepCost` y el Dijkstra no abren cadenas. */
+  private readonly marca: Uint8Array;
+  /** Las casillas con camino por índice plano, en el orden de `casillas`. */
+  readonly indices: readonly number[];
+
+  private constructor(
+    readonly tramos: readonly TramoDeCamino[],
+    readonly sueltas: readonly Point[],
+    private readonly width: number,
+    private readonly height: number,
+  ) {
+    const claves = new Set<string>();
+    const indices: number[] = [];
+    const marca = new Uint8Array(width * height);
+    for (const p of [...tramos.flat(), ...sueltas]) {
+      const i = p.y * width + p.x;
+      if (marca[i] === 1) continue;
+      marca[i] = 1;
+      indices.push(i);
+      claves.add(pointKey(p));
+    }
+    this.claves = claves;
+    this.marca = marca;
+    this.indices = indices;
+  }
+
+  /** Las casillas con camino, por clave "x,y": las de algún tramo y las sueltas. */
+  get casillas(): ReadonlySet<string> {
+    return this.claves;
+  }
+
+  /** ¿Hay camino en esta casilla? Fuera del mapa no lo hay. */
+  tiene(p: Point): boolean {
+    if (p.x < 0 || p.x >= this.width || p.y < 0 || p.y >= this.height) return false;
+    return this.marca[p.y * this.width + p.x] === 1;
+  }
+
+  static vacia(width: number, height: number): RedDeCaminos {
+    return new RedDeCaminos([], [], width, height);
+  }
+
+  /**
+   * **Lanza** si una casilla cae fuera del mapa, si un tramo no une dos
+   * casillas 8-vecinas distintas, si un tramo se repite o si una suelta está
+   * repetida o también en un tramo: todos son fallos de programa, porque los
+   * tramos los escribe el generador o los deriva `tramosDeCasillas`, nunca el
+   * agente, y lo que el agente escribe fuera del mapa lo rechaza antes
+   * `validateMapPlan`.
+   *
+   * Canoniza: dentro de cada tramo va primero la casilla de fila menor (y de
+   * columna menor si comparten fila), y los tramos van ordenados igual. Así el
+   * orden en que el pintor encadena las sendas no depende del orden del trazado.
+   */
+  static desdeTramos(
+    tramos: readonly TramoDeCamino[],
+    width: number,
+    height: number,
+    sueltas: readonly Point[] = [],
+  ): RedDeCaminos {
+    for (const p of [...tramos.flat(), ...sueltas]) dentroDelMapa(p, width, height);
+    const canonicos = tramos.map(([p, q]): TramoDeCamino => {
+      const lejos = Math.abs(p.x - q.x) > 1 || Math.abs(p.y - q.y) > 1;
+      if (lejos || comparaEnLectura(p, q) === 0) {
+        throw new Error(
+          `el tramo de camino de (${p.x},${p.y}) a (${q.x},${q.y}) no une dos casillas vecinas distintas`,
+        );
+      }
+      return comparaEnLectura(q, p) < 0 ? [q, p] : [p, q];
+    });
+    canonicos.sort(([a, b], [c, d]) => comparaEnLectura(a, c) || comparaEnLectura(b, d));
+    for (let k = 1; k < canonicos.length; k++) {
+      const [a, b] = canonicos[k - 1] as TramoDeCamino;
+      const [c, d] = canonicos[k] as TramoDeCamino;
+      if (comparaEnLectura(a, c) === 0 && comparaEnLectura(b, d) === 0) {
+        throw new Error(`el tramo de camino de (${a.x},${a.y}) a (${b.x},${b.y}) está repetido`);
+      }
+    }
+    const conTramo = new Set(canonicos.flat().map(pointKey));
+    for (const p of sueltas) {
+      if (conTramo.has(pointKey(p))) {
+        throw new Error(`el camino suelto de (${p.x},${p.y}) está repetido o ya va en un tramo`);
+      }
+      conTramo.add(pointKey(p));
+    }
+    return new RedDeCaminos(canonicos, sueltas, width, height);
+  }
+}
+
+/**
+ * Lanza si una casilla de camino cae fuera del mapa: la red conoce el mapa. Y
+ * si no es de enteros: con `NaN` todas las comparaciones de abajo dan falso y
+ * la casilla se colaba (lo que llegaba de un cable con un índice de menos).
+ */
+function dentroDelMapa(p: Point, width: number, height: number): void {
+  if (!Number.isInteger(p.x) || !Number.isInteger(p.y)) {
+    throw new Error(`el camino de (${p.x},${p.y}) no cae en una casilla: van de enteros`);
+  }
+  if (p.x < 0 || p.x >= width || p.y < 0 || p.y >= height) {
+    throw new Error(`el camino de (${p.x},${p.y}) cae fuera del mapa de ${width}×${height}`);
+  }
+}
+
+/** Orden de lectura: por fila y, dentro de la fila, por columna. Es el del índice plano. */
+function comparaEnLectura(p: Point, q: Point): number {
+  return p.y - q.y || p.x - q.x;
+}
+
+/**
+ * Los tramos de un camino escrito como casillas —el del plan del agente—, con
+ * la regla con la que se pintaba antes de #153: dos casillas de camino vecinas
+ * se unen, y en diagonal solo si ninguna de sus dos esquinas es camino (si lo
+ * es, el trazo pasa por ella). Una casilla sin vecina de camino va en
+ * `sueltas`, para que siga abaratando el paso. **Lanza** con una casilla fuera
+ * del mapa, como `RedDeCaminos.desdeTramos`: `validateMapPlan` la rechaza antes.
+ */
+export function tramosDeCasillas(
+  puntos: readonly Point[],
   width: number,
   height: number,
-): [number, number][] {
-  const aristas: [number, number][] = [];
+): { tramos: TramoDeCamino[]; sueltas: Point[] } {
+  const caminos = new Set<number>();
+  for (const p of puntos) {
+    dentroDelMapa(p, width, height);
+    caminos.add(p.y * width + p.x);
+  }
+  const conTramo = new Set<number>();
+  const tramos: TramoDeCamino[] = [];
   for (const i of caminos) {
     const x = i % width;
     const y = (i - x) / width;
     for (const [dx, dy] of LADOS_DE_ARISTA) {
       const nx = x + dx;
       const ny = y + dy;
-      if (nx < 0 || nx >= width || ny >= height || !caminos.has(ny * width + nx)) continue;
+      const j = ny * width + nx;
+      if (nx < 0 || nx >= width || ny >= height || !caminos.has(j)) continue;
       if (dx !== 0 && dy !== 0 && (caminos.has(y * width + nx) || caminos.has(ny * width + x)))
         continue;
-      aristas.push([i, ny * width + nx]);
+      tramos.push([aPunto(i, width), aPunto(j, width)]);
+      conTramo.add(i).add(j);
     }
   }
-  return aristas;
+  const sueltas = [...caminos].filter((i) => !conTramo.has(i)).map((i) => aPunto(i, width));
+  return { tramos, sueltas };
 }
 const LADOS_DE_ARISTA = [
   [1, 0],
@@ -217,7 +364,7 @@ export function stepCost(map: GameMap, from: Point, to: Point): number {
   if (!isWalkable(terreno)) {
     throw new Error(`no se entra en (${to.x},${to.y}): es ${terreno}, y una barrera no se pisa`);
   }
-  return costeDeEntrada(terreno, map.roads.has(pointKey(to)), from.x !== to.x && from.y !== to.y);
+  return costeDeEntrada(terreno, map.caminos.tiene(to), from.x !== to.x && from.y !== to.y);
 }
 
 export interface PathStep {
@@ -380,16 +527,8 @@ function dijkstra(
     recto[i] = costeDeEntrada(terreno, false, false);
     oblicuo[i] = costeDeEntrada(terreno, false, true);
   }
-  // Los caminos vienen por clave, así que aquí sí se abre una cadena — pero
-  // una por casilla CON camino, no una por casilla del mapa. Una clave que no
-  // sea una casilla de este mapa se salta, que es lo que hacía el `roads.has`
-  // de antes: nunca se le preguntaba por una casilla de fuera. Lo que ya no se
-  // abre aquí es la clave: eso lo hace `pointFromKey`, que es la inversa de
-  // `pointKey` y vive a su lado.
-  for (const clave of map.roads) {
-    const { x, y } = pointFromKey(clave);
-    if (x < 0 || x >= ancho || y < 0 || y >= map.height) continue;
-    const i = y * ancho + x;
+  // Las casillas con camino, por índice: la red las trae ya dentro del mapa.
+  for (const i of map.caminos.indices) {
     const terreno = map.terrain[i] as TerrainKind;
     // Un camino pintado sobre una barrera no la abre: sigue sin pisarse.
     if (!isWalkable(terreno)) continue;
@@ -578,7 +717,7 @@ export function createEmptyMap(
     height,
     regions: [],
     terrain: new Array<TerrainKind>(width * height).fill(fill),
-    roads: new Set<string>(),
+    caminos: RedDeCaminos.vacia(width, height),
     objects: [],
   };
 }

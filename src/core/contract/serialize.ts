@@ -240,19 +240,22 @@ function knownObjects(state: GameState, playerId: PlayerId) {
  * quiere decir que ahí no se sabe nada de nada.
  *
  * **Y salen como `{x, y}`, no como la clave `"x,y"` con la que se guardan.** El
- * `Set<string>` es cómo `GameMap` almacena los caminos, no cómo se cuentan: lo
- * que se filtraba a la red era el detalle de almacenamiento. En este mismo
- * contrato el agente **escribe** los caminos como puntos —`mapPlanSchema.roads`
- * es `z.array(pointSchema)`— así que leerlos como cadenas era pedirle dos
- * formatos para el mismo hecho, y era el único campo del payload que no venía
- * como `{x, y}`. Cuesta unos 800 B por cada 100 casillas con camino, y **cero**
- * en toda partida procedimental, porque `generateMapPlan` no dibuja ninguno; a
- * cambio se cae la advertencia que había que escribirle al agente para que
- * supiera leer el campo, que es un guardia que no existía.
+ * `Set<string>` de `GameMap.caminos.casillas` es cómo se preguntan los caminos,
+ * no cómo se cuentan: lo que se filtraba a la red era el detalle de
+ * almacenamiento. En este mismo contrato el agente **escribe** los caminos como
+ * puntos —`mapPlanSchema.roads` es `z.array(pointSchema)`— así que leerlos como
+ * cadenas era pedirle dos formatos para el mismo hecho, y era el único campo
+ * del payload que no venía como `{x, y}`. Cuesta unos 800 B por cada 100
+ * casillas con camino; a cambio se cae la advertencia que había que escribirle
+ * al agente para que supiera leer el campo, que es un guardia que no existía.
+ *
+ * **Casillas y no tramos**, también desde que el mapa guarda tramos (#153): lo
+ * que el agente necesita del camino es lo que cuesta pisar cada casilla, y eso
+ * va por casilla. Los tramos son cómo se pinta.
  */
 export function serializeKnownMap(state: GameState, playerId: PlayerId) {
   const player = playerById(state, playerId);
-  const { width, terrain, roads } = state.map;
+  const { width, terrain, caminos } = state.map;
   // Los asaltantes se ven AHORA o no se ven, como un héroe enemigo: se mueven
   // cada día, y un recuerdo de dónde estaban sería ruido con fecha. Por eso no
   // van en `objects`, que es memoria.
@@ -264,7 +267,7 @@ export function serializeKnownMap(state: GameState, playerId: PlayerId) {
     terrain: terrain.map((t, i) =>
       player.fog.has(pointKey({ x: i % width, y: Math.floor(i / width) })) ? t : null,
     ),
-    roads: [...roads].filter((clave) => player.fog.has(clave)).map(pointFromKey),
+    roads: [...caminos.casillas].filter((clave) => player.fog.has(clave)).map(pointFromKey),
     objects: knownObjects(state, playerId),
     raiders: state.raiders
       .filter((r) => mirando.has(pointKey(r.at)))

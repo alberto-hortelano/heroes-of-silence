@@ -96,6 +96,13 @@ let dia = 0;
 let turnoDe = 0;
 let finDe: FinDePartida | null = null;
 /**
+ * Por qué no se entendió el último fotograma del cable, o `null` si se entendió.
+ * Mientras no es `null` la barra lo dice y se sigue enseñando el último bueno:
+ * ni el siguiente fotograma de pantalla ni un mensaje nuevo lo tapan con un
+ * «Mirando la partida». Solo lo quita un fotograma que sí se entienda.
+ */
+let ilegible: string | null = null;
+/**
  * El espectador mira desde lo más lejos que deja el tope de alejar: es quien
  * quiere ver más mapa, y no tiene rueda con la que pedirlo. Pide el zoom más
  * lejano de todos y `centrarEn` lo sube hasta el tope de la escena y del lienzo.
@@ -173,7 +180,7 @@ function dibujar(ahora: number): void {
     pintarTodo(ahora);
     if (fallandoAlPintar) {
       fallandoAlPintar = false;
-      elStatus.textContent = `Mirando la partida en ${urlDelCanal}.`;
+      decirQueSeMira();
     }
     // El telón también pide fotogramas: mientras retiene un final, el reloj que
     // lo suelta solo avanza si alguien vuelve a mirar.
@@ -318,10 +325,49 @@ function pintarPaneles(): void {
 
 // --------------------------------------------------------------- el cable
 
-/** Pone en pantalla un fotograma del cable, cuando el telón lo suelta. */
+/**
+ * La barra en marcha normal: «Mirando la partida», salvo que el último
+ * fotograma del cable no se entendiera, que entonces se sigue diciendo eso.
+ */
+function decirQueSeMira(): void {
+  // Apuntado en el `#app` para quien lo compruebe desde fuera, como `data-escenario`.
+  if (ilegible === null) delete app.dataset.ilegible;
+  else app.dataset.ilegible = ilegible;
+  elStatus.textContent =
+    ilegible === null
+      ? `Mirando la partida en ${urlDelCanal}.`
+      : `No se entiende el último fotograma que llegó de ${urlDelCanal}: ${ilegible}. ` +
+        'Se sigue enseñando el último que se entendió.';
+}
+
+/**
+ * Pone en pantalla un fotograma del cable, cuando el telón lo suelta.
+ *
+ * **Adapta antes de asignar.** Antes se asignaba `vista` y luego se adaptaba:
+ * con un fotograma que no se entendía (un `pnpm partida` de antes de #153, que
+ * manda `roads`) `adaptarEscena` lanzaba con `vista` ya cambiada y `escena`
+ * vieja; el `catch` de `dibujar` lo decía, pero el fotograma siguiente pintaba
+ * sin fallar, borraba el aviso y dejaba la pantalla negra diciendo «Mirando la
+ * partida». Ahora lo que no se entiende no sustituye a nada y se dice hasta que
+ * llegue algo que sí.
+ */
 function aplicar(snapshot: SpectatorSnapshotMsg): void {
+  let nueva: AdventureScene;
+  try {
+    nueva = adaptarEscena(snapshot.view);
+  } catch (err) {
+    const motivo = err instanceof Error ? err.message : String(err);
+    console.error('[espectador] fotograma del cable que no se entiende', err);
+    ilegible = motivo;
+    decirQueSeMira();
+    return;
+  }
   vista = snapshot.view;
-  escena = adaptarEscena(vista);
+  escena = nueva;
+  if (ilegible !== null) {
+    ilegible = null;
+    decirQueSeMira();
+  }
   dia = snapshot.day;
   turnoDe = snapshot.current;
   finDe = snapshot.finished;
@@ -389,7 +435,7 @@ function conectar(): void {
       elStatus.textContent = `Mensaje que este espectador no entiende: ${JSON.stringify(msg).slice(0, 120)}`;
       return;
     }
-    if (vista === null) elStatus.textContent = `Mirando la partida en ${url}.`;
+    if (vista === null) decirQueSeMira();
     reproductor.llega(msg as SpectatorSnapshotMsg);
     pedirFotograma();
   });

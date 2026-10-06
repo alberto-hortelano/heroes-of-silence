@@ -18,7 +18,7 @@
  */
 import type { Town } from '../town/town.js';
 import type { PlayerId, Point } from '../types.js';
-import { type GameMap, inBounds, type MapObject, type MapRegion } from './map.js';
+import { aPunto, type GameMap, inBounds, type MapObject, type MapRegion } from './map.js';
 import { isWalkable, type TerrainKind } from './terrain.js';
 
 /** Un nodo de la red: un objeto `node` o un castillo. */
@@ -70,11 +70,9 @@ export const VECINAS: readonly (readonly [number, number])[] = [
   [1, 1],
 ];
 
-/** La casilla de un índice plano `y*width+x`. */
-export const aPunto = (i: number, width: number): Point => ({
-  x: i % width,
-  y: (i - (i % width)) / width,
-});
+// `aPunto` vive con `pointKey` en `map.ts`; se reexporta para quien ya lo
+// importaba de aquí.
+export { aPunto };
 
 /**
  * Las ocho vecinas de cada casilla de un mapa de `width × height`, en tabla

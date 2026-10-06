@@ -11,7 +11,7 @@
  * Es puro salvo por leer los índices de los módulos y las medidas de las piezas
  * del disco; la escena es un JSON que pinta `pintor.ts`.
  */
-import { aristasDeCamino, type MapObject } from '@core/map/map.js';
+import type { MapObject } from '@core/map/map.js';
 import type { Barrera, Suelo } from '@core/map/terrain.js';
 import { type Analisis, analizar, type Franja, type MapaDeEscena } from './analizar.js';
 import type { Catalogo, Modulo, Pieza } from './catalogo.js';
@@ -513,10 +513,12 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   }
 
   // 2 · Los caminos: se encadenan en sendas y cada senda abre su pasillo.
-  const caminos: [number, number, number, number][] = [];
-  for (const [i, k] of aristasDeCamino(a.caminos, W, H)) {
-    caminos.push([(i % W) + 0.5, Math.floor(i / W) + 0.5, (k % W) + 0.5, Math.floor(k / W) + 0.5]);
-  }
+  const caminos = map.caminos.tramos.map(([p, q]): [number, number, number, number] => [
+    p.x + 0.5,
+    p.y + 0.5,
+    q.x + 0.5,
+    q.y + 0.5,
+  ]);
   // Los nodos y los objetos llevan su camino hasta la puerta: se reserva la casilla entera.
   for (const o of a.objetos)
     if (o.kind === 'node') reservas.reservar(o.at.x + 0.5, o.at.y + 0.5, 0.75);

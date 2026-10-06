@@ -113,6 +113,23 @@ function registro(): {
   return { llamadas, lienzos, contexto, lienzo, contextoDe };
 }
 
+describe('los caminos que se pintan son los que se trazaron', () => {
+  it('las aristas de la escena son los tramos del mapa (#153)', () => {
+    for (const semilla of [1, 2, 3]) {
+      const { map } = newGame({ seed: semilla });
+      const e = escenaDe(semilla);
+      const clave = (x1: number, y1: number, x2: number, y2: number) =>
+        `${x1 - 0.5},${y1 - 0.5}-${x2 - 0.5},${y2 - 0.5}`;
+      const pintadas = e.caminos.map(([x1, y1, x2, y2]) => clave(x1, y1, x2, y2)).sort();
+      const trazadas = map.caminos.tramos
+        .map(([p, q]) => clave(p.x + 0.5, p.y + 0.5, q.x + 0.5, q.y + 0.5))
+        .sort();
+      expect(trazadas.length, `semilla ${semilla}`).toBeGreaterThan(0);
+      expect(pintadas, `semilla ${semilla}`).toEqual(trazadas);
+    }
+  });
+});
+
 describe('separar: el suelo fijo y los volúmenes', () => {
   for (const semilla of [1, 9]) {
     const e = escenaDe(semilla);

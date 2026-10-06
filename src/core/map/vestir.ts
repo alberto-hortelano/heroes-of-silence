@@ -19,7 +19,6 @@
 import { BARRERAS_DEL_MAPA, type BarreraConPeso } from '../data.js';
 import type { Rng } from '../rng.js';
 import { Frontera } from './frontera.js';
-import { aristasDeCamino } from './map.js';
 import { aPunto, rellenar, vecindad } from './regiones.js';
 import { BARRERAS, type Barrera, costeDeEntrada, type Suelo } from './terrain.js';
 
@@ -683,7 +682,8 @@ class Busqueda {
   readonly previo: Int32Array;
   /** Las casillas de la región, en orden de índice. */
   readonly casillas: readonly number[];
-  private readonly nodo: Uint8Array;
+  /** Los nodos de la región: se llega a ellos, no se cruzan. */
+  readonly nodo: Uint8Array;
   private readonly recto: number;
   private readonly diagonal: number;
   private readonly pisarMonstruo: number;
@@ -744,6 +744,18 @@ class Busqueda {
           monstruos[j] === 1 ? this.pisarMonstruo : enDiagonal ? this.diagonal : this.recto;
         if (red?.[j] === 1) paso = Math.floor(paso / 2);
         else if (!enLaRed && pegada?.[j] === 1) paso += this.recto;
+        // Pasar en diagonal junto a un nodo de la red cobra como arrimarse: ese
+        // tramo saldría en Y, y no se puede colgar en L de un nodo, que es una
+        // hoja (`ArbolDeCaminos`). Se cobra y no se prohíbe: a veces es el
+        // único paso (semilla 60), y sin él el objetivo se queda sin camino.
+        if (enDiagonal && red !== undefined) {
+          const jx = j % W;
+          const k1 = y * W + jx;
+          const k2 = j - jx + x;
+          if ((nodo[k1] === 1 && red[k1] === 1) || (nodo[k2] === 1 && red[k2] === 1)) {
+            paso += this.recto;
+          }
+        }
         const c = hastaAqui + paso;
         if (coste[j] !== -1 && (coste[j] as number) <= c) continue;
         coste[j] = c;
@@ -802,9 +814,17 @@ export function centroDeRegion(
  *    índice). Para cada uno, un Dijkstra **desde el centro** en el que lo ya
  *    trazado cuesta la mitad —los radios comparten el tronco y se abren donde
  *    hace falta— y arrimarse a la red viniendo de fuera cuesta un paso recto
- *    más: si no, un radio nuevo corre pegado a uno viejo y el pintor
- *    (`aristasDeCamino`) cose los dos en rombos.
- * 3. Se recorre el tramo hacia atrás hasta tocar la red.
+ *    más: si no, un radio nuevo corre pegado a uno viejo, y dos trazos
+ *    paralelos a una casilla se leen como una calzada ancha.
+ * 3. Se recorre el tramo hacia atrás hasta tocar la red, y sus casillas se
+ *    cuelgan del árbol de la región (`ArbolDeCaminos`), que endereza en L las
+ *    horquillas en diagonal al colgarlas.
+ *
+ * Devuelve los **tramos**, que son lo que se guarda y se pinta (#153): con
+ * casillas, el pintor unía por adyacencia dos radios vecinos y dibujaba bucles
+ * que nadie había trazado, y aquí había que comprobar lo dibujado y vestir otra
+ * vez el mapa cuando un radio rozaba un nodo ajeno. Con tramos no hay nada que
+ * comprobar.
  *
  * Un nodo es final de tramo, así que no hay tramo de paso a paso: cada nodo con
  * camino es una hoja de la red de su región. El coste es el del héroe, así que
@@ -819,18 +839,12 @@ export function centroDeRegion(
  * `Frontera`, y con ella el desempate por orden de descubrimiento. No tira del
  * `rng`: cambiar los caminos no mueve nada más del mapa.
  *
- * Devuelve por qué cuando lo dibujado no es radial: un nodo al que le llegan
- * dos tramos de una región, o uno de una región que no lo lleva —sería un
- * segundo cruce de la pareja—. Pasa cuando el único pasillo hacia un objetivo
- * va pegado a otro nodo; es un vestido raro y el generador viste otro. Lanza si un objetivo no se alcanza ni pasando por monstruos: la red ya
- * está validada y los obstáculos no parten la región, así que sería un fallo de
+ * Lanza si un objetivo no se alcanza ni pasando por monstruos: la red ya está
+ * validada y los obstáculos no parten la región, así que sería un fallo de
  * programa, no un mapa raro.
  */
-export function trazarCaminos(e: EntradaDeCaminos): number[] | string {
-  const { W, H, regionDe } = e;
-  const N = W * H;
-  const { desde, vecinas } = vecindad(W, H);
-  const todas = new Set<number>();
+export function trazarCaminos(e: EntradaDeCaminos): [number, number][] {
+  const tramos: [number, number][] = [];
   for (let r = 0; r < e.regiones; r++) {
     const b = new Busqueda(e, r);
     const centro = centroDeRegion(e, r, b);
@@ -840,46 +854,159 @@ export function trazarCaminos(e: EntradaDeCaminos): number[] | string {
     const objetivos = [...(e.objetivos[r] ?? [])].sort(
       (x, y) => (hastaElCentro[x] as number) - (hastaElCentro[y] as number) || x - y,
     );
-    const red = new Uint8Array(N);
-    const pegada = new Uint8Array(N);
-    const añadir = (c: number): void => {
-      red[c] = 1;
-      todas.add(c);
-      for (let k = desde[c]!; k < desde[c + 1]!; k++) pegada[vecinas[k]!] = 1;
-    };
-    añadir(centro);
+    const arbol = new ArbolDeCaminos(e.W, e.H, b.nodo, centro);
     for (const o of objetivos) {
-      if (red[o] === 1) continue;
-      b.buscar(centro, red, pegada, o);
+      if (arbol.red[o] === 1) continue;
+      b.buscar(centro, arbol.red, arbol.pegada, o);
       if (b.previo[o] === -1) {
-        const p = aPunto(o, W);
+        const p = aPunto(o, e.W);
         throw new Error(
           `el camino de la región ${r} no llega a (${p.x},${p.y}): la red y los obstáculos tenían que dejarlo alcanzable`,
         );
       }
-      for (let c = o; red[c] !== 1; c = b.previo[c] as number) añadir(c);
+      // El radio, del objetivo hacia atrás hasta tocar la red; se cuelga al
+      // revés, desde la red, para que cada casilla entre ya unida al árbol.
+      const radio: number[] = [];
+      for (let c = o; arbol.red[c] !== 1; c = b.previo[c] as number) radio.push(c);
+      for (let k = radio.length - 1; k >= 0; k--) {
+        const c = radio[k] as number;
+        arbol.colgar(c, b.previo[c] as number);
+      }
+    }
+    tramos.push(...arbol.tramos());
+  }
+  return tramos;
+}
+
+/**
+ * El árbol de caminos de una región mientras se traza: cada casilla de la red
+ * con su padre, hacia el centro. Los tramos son `[padre, casilla]`.
+ *
+ * **Las horquillas salen en L y no en Y** (decisión del usuario, punto de
+ * control de #153). El trazado bifurca a menudo en diagonal: de una casilla
+ * salen un tramo recto y otro oblicuo cuya esquina es la casilla del recto.
+ * Pintado tal cual, los dos trazos salen del mismo punto, se solapan con el
+ * ancho de la senda y donde confluyen tres ramales se lee un cruce en X o una
+ * estrella. El pintor de antes de #153 lo dibujaba en codo de 90° porque su
+ * regla de adyacencia quitaba la diagonal con esquina de camino, y así se
+ * quiere seguir viendo. Se resuelve donde nace, al colgar cada casilla, y sin
+ * cambiar las casillas: solo cuál es su padre.
+ *
+ * - Una casilla que se cuelga en diagonal y tiene una esquina ya en la red se
+ *   cuelga de la esquina. No hace falta buscar de qué lado queda: la casilla
+ *   entra como hoja, así que todo lo que ya es red está del lado de su padre.
+ * - Una casilla que entra en la esquina de una diagonal vieja la parte en dos
+ *   rectos. Ahí sí hay que saber de qué lado de la diagonal ha quedado, y lo
+ *   dice subir por los padres: si se llega al hijo de la diagonal, está debajo
+ *   de él y se le da la vuelta al trozo de rama que los une.
+ *
+ * Un nodo nunca hace de esquina: colgar de él le haría llegar dos tramos de la
+ * región, y un nodo es una hoja (se llega, no se cruza). Por eso la búsqueda
+ * cobra de más el paso en diagonal junto a un nodo de la red (`Busqueda`).
+ * Aun así queda la Y **obligada**, cuando la otra esquina es barrera y el radio
+ * no tiene por dónde más pasar: 4 de 223 mapas del test denso (60, 64, 177 y
+ * 986). Prohibir ese paso deja el objetivo sin camino (semilla 60), y quitarla
+ * de otro modo movería casillas. Una esquina de otra región tampoco se usa (no
+ * está en `red`): unirla sería el segundo cruce de la pareja que la red no
+ * eligió.
+ */
+export class ArbolDeCaminos {
+  /** Las casillas de la red: el centro y las ya colgadas. */
+  readonly red: Uint8Array;
+  /** Las 8-vecinas de la red: arrimarse a ella cuesta un paso recto más. */
+  readonly pegada: Uint8Array;
+  private readonly padre: Int32Array;
+  /** Las casillas colgadas, en el orden en que entraron. */
+  private readonly colgadas: number[] = [];
+
+  constructor(
+    private readonly W: number,
+    H: number,
+    /** Los nodos de la región: nunca hacen de esquina. */
+    private readonly nodo: Uint8Array,
+    centro: number,
+  ) {
+    this.red = new Uint8Array(W * H);
+    this.pegada = new Uint8Array(W * H);
+    this.padre = new Int32Array(W * H).fill(-1);
+    this.marcar(centro);
+  }
+
+  /** Cuelga `c`, que no es red, de `p`, que sí lo es. */
+  colgar(c: number, p: number): void {
+    const { red, padre, W } = this;
+    const nodo = this.nodo;
+    if (red[c] === 1 || red[p] !== 1) {
+      const [a, b] = [aPunto(c, W), aPunto(p, W)];
+      throw new Error(
+        `no se cuelga (${a.x},${a.y}) de (${b.x},${b.y}): se cuelga de la red una casilla que no es de ella`,
+      );
+    }
+    const esquina = this.esquinas(p, c).find((k) => red[k] === 1 && nodo[k] !== 1);
+    padre[c] = esquina ?? p;
+    this.marcar(c);
+    this.colgadas.push(c);
+    if (nodo[c] === 1) return;
+    // `c` como esquina de una diagonal vieja: sus dos vecinas rectas de cada
+    // cuadrante, unidas entre sí por un tramo.
+    const x = c % W;
+    for (const [dx, dy] of CUADRANTES) {
+      if (x + dx < 0 || x + dx >= W) continue;
+      const u = c + dx;
+      const v = c + dy * W;
+      if (v < 0 || v >= red.length || red[u] !== 1 || red[v] !== 1) continue;
+      if (padre[u] === v) this.partir(v, u, c);
+      else if (padre[v] === u) this.partir(u, v, c);
     }
   }
 
-  // Lo que se dibuja manda: a un nodo le llegan tantos tramos de una región
-  // como casillas de camino de ella unidas a él.
-  const unidas = new Map<number, number[]>();
-  for (const [p, q] of aristasDeCamino(todas, W, H)) {
-    unidas.set(p, [...(unidas.get(p) ?? []), q]);
-    unidas.set(q, [...(unidas.get(q) ?? []), p]);
+  /** Los tramos del árbol, `[padre, casilla]`, en el orden en que entraron. */
+  tramos(): [number, number][] {
+    return this.colgadas.map((c) => [this.padre[c] as number, c]);
   }
-  for (const [r, nodos] of e.nodosDeRegion.entries()) {
-    const lleva = new Set(e.objetivos[r] ?? []);
-    for (const n of nodos) {
-      const tramos = (unidas.get(n) ?? []).filter((j) => regionDe[j] === r).length;
-      const { x, y } = aPunto(n, W);
-      if (!lleva.has(n) && tramos > 0) {
-        return `el camino de la región ${r} toca el nodo (${x},${y}), que no lleva: sería un segundo cruce con camino`;
-      }
-      if (tramos > 1) {
-        return `al nodo (${x},${y}) le llegan ${tramos} tramos de la región ${r}: el único paso a otro objetivo va pegado a él`;
-      }
+
+  /**
+   * Cambia la diagonal `padre`→`hijo` por dos rectos a través de `esquina`, que
+   * ya es red. Si la esquina no cuelga del hijo, el hijo se cuelga de ella; si
+   * cuelga, se le da la vuelta a la rama de la esquina al hijo y la esquina se
+   * cuelga del padre.
+   */
+  private partir(padreDeLaDiagonal: number, hijo: number, esquina: number): void {
+    const { padre } = this;
+    const rama = [esquina];
+    for (let k = padre[esquina] as number; k !== -1 && k !== hijo; k = padre[k] as number) {
+      rama.push(k);
     }
+    const debajo = padre[rama[rama.length - 1] as number] === hijo;
+    if (!debajo) {
+      padre[hijo] = esquina;
+      return;
+    }
+    rama.push(hijo);
+    for (let k = rama.length - 1; k > 0; k--) padre[rama[k] as number] = rama[k - 1] as number;
+    padre[esquina] = padreDeLaDiagonal;
   }
-  return [...todas].sort((a, b) => a - b);
+
+  /** Las dos esquinas del paso de `p` a `c`, o ninguna si es recto. */
+  private esquinas(p: number, c: number): number[] {
+    const W = this.W;
+    const px = p % W;
+    const cx = c % W;
+    if (px === cx || p - px === c - cx) return [];
+    return [p - px + cx, c - cx + px];
+  }
+
+  private marcar(c: number): void {
+    this.red[c] = 1;
+    const { desde, vecinas } = vecindad(this.W, this.red.length / this.W);
+    for (let k = desde[c]!; k < desde[c + 1]!; k++) this.pegada[vecinas[k]!] = 1;
+  }
 }
+
+/** Las vecinas rectas de cada cuadrante de una casilla: horizontal y vertical. */
+const CUADRANTES = [
+  [-1, -1],
+  [1, -1],
+  [-1, 1],
+  [1, 1],
+] as const;

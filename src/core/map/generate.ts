@@ -28,6 +28,9 @@ import {
   type MapObject,
   type MapRegion,
   pointKey,
+  RedDeCaminos,
+  type TramoDeCamino,
+  tramosDeCasillas,
 } from './map.js';
 import {
   aPunto,
@@ -114,7 +117,8 @@ export interface PlannedTown {
   readonly owner: PlayerId | null;
 }
 
-export interface MapPlan {
+/** Lo que llevan los planes de los dos productores, el agente y el procedimental. */
+interface PlanComun {
   readonly width: number;
   readonly height: number;
   readonly baseTerrain: TerrainKind;
@@ -141,10 +145,6 @@ export interface MapPlan {
     readonly count: number;
   }[];
   readonly chests: readonly { readonly at: Point; readonly gold: number }[];
-  // El `| undefined` escrito no es ruido: con `exactOptionalPropertyTypes` un
-  // `roads?: …` rechaza el `undefined` que produce un `.optional()` de zod, y
-  // `mapPlanSchema` y este tipo son la misma cosa declarada dos veces (#27).
-  readonly roads?: readonly Point[] | undefined;
   /**
    * Los grupos de asaltantes con los que empieza la partida (`state/asaltantes.ts`).
    * Opcional, con el mismo idioma que `roads`: un plan sin ellos es válido y
@@ -152,6 +152,34 @@ export interface MapPlan {
    */
   readonly raiders?: readonly RaiderPlaneado[] | undefined;
 }
+
+/**
+ * El plan del agente, el que sale de `mapPlanSchema`: los caminos como
+ * **casillas**, `roads`, de las que `caminosDelPlan` deriva los tramos.
+ */
+export interface PlanConCasillas extends PlanComun {
+  // El `| undefined` escrito no es ruido: con `exactOptionalPropertyTypes` un
+  // `roads?: …` rechaza el `undefined` que produce un `.optional()` de zod.
+  readonly roads?: readonly Point[] | undefined;
+  readonly tramos?: undefined;
+}
+
+/**
+ * El plan del procedimental: los caminos como **tramos**, tal como los traza
+ * `trazarCaminos` (#153). El esquema del agente no los tiene —zod los quitaría
+ * sin decir nada—, así que lo que tenga que pasar por él va antes por
+ * `planDelAgente`.
+ */
+export interface PlanConTramos extends PlanComun {
+  readonly tramos: readonly TramoDeCamino[];
+  readonly roads?: undefined;
+}
+
+/**
+ * Un plan de mapa, del agente o del procedimental. Sus caminos van de una de
+ * las dos maneras y nunca de las dos: lo impide el tipo, no un `throw`.
+ */
+export type MapPlan = PlanConCasillas | PlanConTramos;
 
 export interface BuiltMap {
   readonly map: GameMap;
@@ -332,7 +360,12 @@ export function validateMapPlan(plan: MapPlan): string[] {
 
   if (problemas.length > 0) return problemas;
 
-  const { map, towns } = buildMap(plan);
+  // Un camino fuera del mapa no se puede construir (`RedDeCaminos` lanza), y
+  // el agente recibe todas las clases de problema de una vez (N4): con alguno
+  // fuera, lo demás se mira en el mapa sin caminos, que tiene el mismo terreno.
+  const caminosFuera = casillasDelPlan(plan).filter((p) => !inBounds(plan, p));
+  const { roads: _roads, tramos: _tramos, ...sinCaminos } = plan;
+  const { map, towns } = buildMap(caminosFuera.length === 0 ? plan : sinCaminos);
 
   // Nada se queda sobre un muro y nada que no sea nodo se pone en un nodo.
   // Antes `buildMap` **saneaba en silencio** el terreno bajo un objeto —lo
@@ -361,13 +394,9 @@ export function validateMapPlan(plan: MapPlan): string[] {
   // «mapas densos», H4). Y uno fuera del mapa se tiraba sin decirlo.
   // Agrupados: un plan con 500 caminos fuera del mapa devolvía 500 frases, y el
   // agente las recibe todas en su rechazo (QA de «mapas densos», vuelta 2, N4).
-  const caminosFuera: Point[] = [];
   const caminosSobreBarrera: { p: Point; terreno: TerrainKind }[] = [];
-  for (const p of plan.roads ?? []) {
-    if (!inBounds(plan, p)) {
-      caminosFuera.push(p);
-      continue;
-    }
+  for (const p of casillasDelPlan(plan)) {
+    if (!inBounds(plan, p)) continue;
     const terreno = map.terrain[p.y * map.width + p.x] as TerrainKind;
     if (!isWalkable(terreno)) caminosSobreBarrera.push({ p, terreno });
   }
@@ -470,12 +499,50 @@ function guarnicionInicial(t: PlannedTown, towns: readonly PlannedTown[]): Army 
   return ejercitoDe(grupos);
 }
 
+/**
+ * Las casillas de camino de un plan, las escriba quien las escriba: las de
+ * `roads` (el agente) o los extremos de `tramos` (el procedimental). Es lo que
+ * valida `validateMapPlan`, con el mismo texto para los dos.
+ */
+function casillasDelPlan(plan: MapPlan): readonly Point[] {
+  return plan.tramos !== undefined ? plan.tramos.flat() : (plan.roads ?? []);
+}
+
+/**
+ * **La puerta** de los caminos de un plan al mapa (#153). El procedimental trae
+ * sus tramos y van tal cual; el agente escribe casillas y sus tramos los deriva
+ * `tramosDeCasillas`, con la regla con la que siempre se le pintaron. Lanza con
+ * una casilla fuera del mapa (`RedDeCaminos`): `validateMapPlan` la rechaza
+ * antes de construir nada.
+ */
+export function caminosDelPlan(plan: MapPlan): RedDeCaminos {
+  const { width, height } = plan;
+  if (plan.tramos !== undefined) return RedDeCaminos.desdeTramos(plan.tramos, width, height);
+  const { tramos, sueltas } = tramosDeCasillas(plan.roads ?? [], width, height);
+  return RedDeCaminos.desdeTramos(tramos, width, height, sueltas);
+}
+
+/**
+ * El plan procedimental escrito como lo escribe el agente: los caminos como
+ * casillas. Es **la única conversión** de uno a otro, y la necesita quien hace
+ * pasar un plan del generador por `mapPlanSchema` (la política de `pnpm qa`):
+ * zod quita `tramos` sin decir nada y el mapa saldría sin un camino. Las
+ * casillas son las de la red de los tramos; sus tramos, al construirlo, los
+ * vuelve a derivar `tramosDeCasillas` con la regla de adyacencia del agente.
+ */
+export function planDelAgente(plan: PlanConTramos): PlanConCasillas {
+  const { tramos: _, ...comun } = plan;
+  const red = caminosDelPlan(plan);
+  return { ...comun, roads: red.indices.map((i) => aPunto(i, plan.width)) };
+}
+
 export function buildMap(plan: MapPlan): BuiltMap {
   const base = createEmptyMap(plan.width, plan.height, plan.baseTerrain);
   // De cada región, lo de la red: el suelo se pinta aquí abajo y no se guarda.
   const map: GameMap = {
     ...base,
     regions: plan.regions.map((r) => ({ id: r.id, name: r.name, at: { ...r.at } })),
+    caminos: caminosDelPlan(plan),
   };
   const pintar = (p: Point, t: TerrainKind): void => {
     if (inBounds(map, p)) map.terrain[p.y * plan.width + p.x] = t;
@@ -513,10 +580,6 @@ export function buildMap(plan: MapPlan): BuiltMap {
   }
 
   pintarSuelosDeRegion(map, plan);
-
-  for (const p of plan.roads ?? []) {
-    if (inBounds(map, p)) map.roads.add(pointKey(p));
-  }
 
   const objects: MapObject[] = [];
   for (const t of plan.towns) objects.push({ kind: 'town', id: t.id, at: t.at, owner: t.owner });
@@ -675,7 +738,7 @@ const INTENTOS_DE_VESTIDO = 10;
  * ninguno, porque el dual de Voronoi ya lo da. Lo vigila, y muerde, la
  * auditoría de `test/regiones.test.ts`.
  */
-export function generateMapPlan(rng: Rng, opts: ProceduralOptions = {}): MapPlan {
+export function generateMapPlan(rng: Rng, opts: ProceduralOptions = {}): PlanConTramos {
   const width = opts.width ?? LADO_DEL_MAPA;
   const height = opts.height ?? LADO_DEL_MAPA;
   let redesMalas = 0;
@@ -683,7 +746,6 @@ export function generateMapPlan(rng: Rng, opts: ProceduralOptions = {}): MapPlan
     fronteras: { veces: 0, ultimo: '' },
     objetos: { veces: 0, ultimo: '' },
     obstáculos: { veces: 0, ultimo: '' },
-    caminos: { veces: 0, ultimo: '' },
   };
   for (let intento = 0; intento < INTENTOS_DE_RED; intento++) {
     const red = intentarRed(rng, width, height);
@@ -711,7 +773,7 @@ export function generateMapPlan(rng: Rng, opts: ProceduralOptions = {}): MapPlan
 }
 
 /** En qué paso del vestido se rindió un intento, para que el error final lo diga. */
-const FASES_DEL_VESTIDO = ['fronteras', 'objetos', 'obstáculos', 'caminos'] as const;
+const FASES_DEL_VESTIDO = ['fronteras', 'objetos', 'obstáculos'] as const;
 type FaseDelVestido = (typeof FASES_DEL_VESTIDO)[number];
 
 /** Un vestido que no vale: en qué fase y por qué. */
@@ -1123,7 +1185,11 @@ export function crucesConCamino(
  * y eso nunca abre un paso. Devuelve el plan, o en qué fase y por qué este
  * vestido no vale —la red sigue valiendo, y `generateMapPlan` la vuelve a vestir—.
  */
-function vestirRed(rng: Rng, fina: RedFina, opts: ProceduralOptions): MapPlan | VestidoFallido {
+function vestirRed(
+  rng: Rng,
+  fina: RedFina,
+  opts: ProceduralOptions,
+): PlanConTramos | VestidoFallido {
   const { W, H, semillas, etiqueta, muro, nodos, regions, conNodos, red, b0, b1 } = fina;
   const { neutrales, d0, d1 } = fina;
   const [f0, f1] = opts.factions ?? (['knight', 'necromancer'] as const);
@@ -1348,8 +1414,7 @@ function vestirRed(rng: Rng, fina: RedFina, opts: ProceduralOptions): MapPlan | 
     monstruos,
     ocupadas,
   });
-  if (typeof trazado === 'string') return fallo('caminos', trazado);
-  const roads = trazado.map((i) => punto(i));
+  const tramos = trazado.map(([p, q]): TramoDeCamino => [punto(p), punto(q)]);
 
   // Los muros, por tramos de fila del mismo tipo: frontera y obstáculos juntos.
   // Las casillas de nodo van dentro del tramo y `buildMap` las abre: es la
@@ -1401,7 +1466,7 @@ function vestirRed(rng: Rng, fina: RedFina, opts: ProceduralOptions): MapPlan | 
     monsters,
     chests,
     raiders,
-    roads,
+    tramos,
   };
 }
 

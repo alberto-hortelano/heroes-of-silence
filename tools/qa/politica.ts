@@ -12,7 +12,7 @@
  */
 
 import { allCreatures } from '../../src/core/data.js';
-import { generateMapPlan } from '../../src/core/map/generate.js';
+import { generateMapPlan, planDelAgente } from '../../src/core/map/generate.js';
 import { createRng } from '../../src/core/rng.js';
 import { buildingIfExists } from '../../src/core/town/buildings.js';
 
@@ -134,9 +134,13 @@ export function decidir(kind: string, payload: any): unknown {
         width: Number(want.width ?? 24),
         height: Number(want.height ?? 24),
       });
+      // El generador guarda sus caminos como tramos y el esquema del agente no
+      // los tiene: zod los quitaba sin decir nada y el mapa salía sin un camino
+      // (con #153, `pnpm qa` dejó de ver batallas por eso). `planDelAgente` lo
+      // escribe como lo escribe el agente.
       return {
         plan: {
-          ...plan,
+          ...planDelAgente(plan),
           towns: plan.towns.map((t, i) => ({
             ...t,
             id: `${FIRMA_DEL_MAPA}${i}`,

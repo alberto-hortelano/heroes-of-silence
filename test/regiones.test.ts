@@ -20,13 +20,15 @@ import {
   generateMapPlan,
   LADO_DEL_MAPA,
   type MapPlan,
+  type PlanConCasillas,
   validateMapPlan,
 } from '../src/core/map/generate.js';
-import { pointKey } from '../src/core/map/map.js';
+import { type GameMap, pointKey, RedDeCaminos, type TramoDeCamino } from '../src/core/map/map.js';
 import { aPunto, type Estructura, estructura, vecindad } from '../src/core/map/regiones.js';
 import { BARRERAS, isWalkable, type TerrainKind } from '../src/core/map/terrain.js';
 import {
   ABIERTA,
+  ArbolDeCaminos,
   centroDeRegion,
   type EntradaDeCaminos,
   TIPOS_POR_MAPA,
@@ -40,7 +42,7 @@ import { auditarMapaDenso, ciclosDeCamino, planDeNodos } from './helpers.js';
 const densa = (plan: MapPlan): string[] => auditarMapaDenso(plan, buildMap(plan).map).fallos;
 
 /** El plan de prueba con una cosa cambiada. */
-function con(cambio: Partial<MapPlan>): MapPlan {
+function con(cambio: Partial<PlanConCasillas>): MapPlan {
   return { ...planDeNodos(), ...cambio };
 }
 
@@ -377,6 +379,45 @@ function auditar(plan: MapPlan): string[] {
   return fallos;
 }
 
+/**
+ * Las horquillas como no las quiere el usuario (punto de control de #153): un
+ * tramo en diagonal con una esquina que es camino —se pinta en Y, con los dos
+ * trazos solapados— o dos diagonales en un mismo 2×2, que es un cruce en X. El
+ * pintor de antes de #153 no daba ninguna de las dos.
+ *
+ * La única Y que se admite es la **obligada**: la esquina es un nodo (colgar
+ * de él lo haría dejar de ser hoja) y la otra esquina es barrera, así que el
+ * radio no tenía otra forma de pasar que en diagonal junto al nodo. La
+ * búsqueda cobra de más ese paso, y aun así sale en 4 de los 223 mapas (60,
+ * 64, 177 y 986), los cuatro con la otra esquina de muro, agua, risco o
+ * bosque. Prohibir el paso deja el objetivo sin camino (semilla 60).
+ */
+function horquillasNuevas(map: GameMap): string[] {
+  const nodos = new Set(estructura(map).nodos.map((n) => pointKey(n.at)));
+  const pisable = (p: Point) => isWalkable(map.terrain[p.y * map.width + p.x]!);
+  const diagonales = map.caminos.tramos.filter(([p, q]) => p.x !== q.x && p.y !== q.y);
+  const fallos: string[] = [];
+  const en = (p: Point) => `(${p.x},${p.y})`;
+  const deUn2x2 = new Map<string, number>();
+  for (const [p, q] of diagonales) {
+    const esquinas = [
+      { x: q.x, y: p.y },
+      { x: p.x, y: q.y },
+    ];
+    const obligada = esquinas.some(
+      (k, n) => nodos.has(pointKey(k)) && !pisable(esquinas[1 - n] as Point),
+    );
+    if (!obligada && esquinas.some((k) => map.caminos.casillas.has(pointKey(k))))
+      fallos.push(
+        `el tramo ${en(p)}-${en(q)} va en diagonal con una esquina de camino: horquilla en Y`,
+      );
+    const cuadro = pointKey({ x: Math.min(p.x, q.x), y: p.y });
+    deUn2x2.set(cuadro, (deUn2x2.get(cuadro) ?? 0) + 1);
+  }
+  for (const [cuadro, n] of deUn2x2) if (n > 1) fallos.push(`cruce en X en el 2×2 de (${cuadro})`);
+  return fallos;
+}
+
 describe('el generador hace redes como las pidió el usuario', () => {
   it(`200 semillas en ${LADO_DEL_MAPA}×${LADO_DEL_MAPA} y 20 en 48×48: válidas, ciudades de grado ≥ 3, equilibradas, con dos caminos y densas`, () => {
     const fallos: string[] = [];
@@ -402,11 +443,13 @@ describe('el generador hace redes como las pidió el usuario', () => {
         const { fallos: deDensidad, frontera } = auditarMapaDenso(plan, map);
         if (lado === LADO_DEL_MAPA) {
           const pisables = map.terrain.filter((t) => isWalkable(t)).length;
-          conCamino.push(map.roads.size / pisables);
+          conCamino.push(map.caminos.casillas.size / pisables);
           const { total, dentro } = ciclosDeCamino(map);
           ciclos.push(total);
           ciclosDentro.push(dentro);
         }
+        // En los dos lados: las cifras de arriba son de 34×34, las horquillas no.
+        fallos.push(...horquillasNuevas(map).map(dondeFalla));
         fallos.push(...deDensidad.map(dondeFalla));
         for (const b of frontera.keys()) fronteraTotal.add(b);
         // Cuatro barreras que se vean, no cuatro nombres: cada una con su mínimo.
@@ -431,7 +474,9 @@ describe('el generador hace redes como las pidió el usuario', () => {
     const mediana = (xs: number[]) => [...xs].sort((a, b) => a - b)[xs.length >> 1]!;
     expect(mediana(conCamino)).toBeLessThan(0.33);
     expect(mediana(ciclos)).toBeLessThanOrEqual(10);
-    expect(mediana(ciclosDentro)).toBeLessThanOrEqual(3);
+    // Y dentro de una región, ni uno (#153): cada región traza un árbol y el
+    // mapa guarda sus tramos, así que ya no hay bucles por adyacencia.
+    expect(Math.max(...ciclosDentro)).toBe(0);
   });
 
   it('la auditoría densa muerde: un mapa sin vestir no la pasa', () => {
@@ -461,94 +506,95 @@ describe('el generador hace redes como las pidió el usuario', () => {
   });
 
   it('la auditoría de caminos muerde: sin cruce, con dos, sin hoja, sin base, una mina suelta y la red partida', () => {
-    // Un mapa que la pasa, y cada rotura a mano sobre una copia de sus caminos.
+    // Un mapa que la pasa, y cada rotura a mano sobre una copia de sus tramos.
     const plan = generateMapPlan(createRng(1));
     const { map } = buildMap(plan);
-    const caminos = (roads: Set<string>) =>
-      auditarMapaDenso(plan, { ...map, roads }).fallos.filter((f) =>
-        /camino|cruce|hoja|base/.test(f),
-      );
-    expect(caminos(map.roads)).toEqual([]);
+    const caminos = (tramos: readonly TramoDeCamino[], sueltas: Point[] = []) =>
+      auditarMapaDenso(plan, {
+        ...map,
+        caminos: RedDeCaminos.desdeTramos(tramos, map.width, map.height, sueltas),
+      }).fallos.filter((f) => /camino|cruce|hoja|base/.test(f));
+    const tramos = map.caminos.tramos;
+    expect(caminos(tramos)).toEqual([]);
     const red = estructura(map);
     const W = map.width;
     const { desde, vecinas } = vecindad(W, map.height);
-    const clave = (i: number) => pointKey(aPunto(i, W));
     const indice = (p: Point) => p.y * W + p.x;
     const vecinasDe = (i: number) => [...vecinas.subarray(desde[i]!, desde[i + 1]!)];
+    const toca = (t: TramoDeCamino, p: Point) => t.some((q) => pointKey(q) === pointKey(p));
     const pasos = red.nodos.filter((n) => !n.ciudad && n.regiones.length === 2);
 
     // Una pareja con un paso sin camino: la que se rompe.
-    const sinCamino = pasos.find((n) => !map.roads.has(pointKey(n.at)));
+    const sinCamino = pasos.find((n) => !map.caminos.casillas.has(pointKey(n.at)));
     expect(sinCamino, 'la semilla 1 tiene que dejar algún paso sin camino').toBeDefined();
     const [a, b] = sinCamino!.regiones as [number, number];
     const pareja = new RegExp(
       `entre las regiones ${red.regiones[a]!.id} y ${red.regiones[b]!.id} hay (\\d) cruces`,
     );
-    const cuantos = (roads: Set<string>) => caminos(roads).join('\n').match(pareja)?.[1];
+    const cuantos = (ts: readonly TramoDeCamino[]) => caminos(ts).join('\n').match(pareja)?.[1];
 
-    // Sin cruce: el nodo con camino de esa pareja pierde el suyo.
+    // Sin cruce: el nodo con camino de esa pareja pierde sus tramos.
     const cruce = red.nodos.find(
-      (n) => n.regiones.includes(a) && n.regiones.includes(b) && map.roads.has(pointKey(n.at)),
+      (n) =>
+        n.regiones.includes(a) &&
+        n.regiones.includes(b) &&
+        map.caminos.casillas.has(pointKey(n.at)),
     )!;
-    const sinCruce = new Set(map.roads);
-    sinCruce.delete(pointKey(cruce.at));
-    expect(cuantos(sinCruce)).toBe('0');
+    expect(cuantos(tramos.filter((t) => !toca(t, cruce.at)))).toBe('0');
 
-    // Dos cruces: el paso sin camino, con camino y una casilla de camino a cada lado.
-    const dos = new Set(map.roads);
-    const i = indice(sinCamino!.at);
-    dos.add(clave(i));
-    for (const r of [a, b]) dos.add(clave(vecinasDe(i).find((j) => red.regionDe[j] === r)!));
+    // Dos cruces: el paso sin camino, con un tramo a cada lado.
+    const dos: TramoDeCamino[] = [...tramos];
+    for (const r of [a, b]) {
+      const lado = vecinasDe(indice(sinCamino!.at)).find((j) => red.regionDe[j] === r)!;
+      dos.push([sinCamino!.at, aPunto(lado, W)]);
+    }
     expect(cuantos(dos)).toBe('2');
 
-    // Sin hoja: un nodo con dos vecinas en cruz de la misma región, y camino
-    // en las tres casillas: le llegan dos tramos de esa región.
-    const enCruz = (j: number, n: Point) => j % W === n.x || Math.floor(j / W) === n.y;
+    // Sin hoja: a un nodo le llegan dos tramos de la misma región.
     const hoja = red.nodos.flatMap((n) =>
       n.regiones.flatMap((k) => {
-        const lados = vecinasDe(indice(n.at)).filter(
-          (j) => red.regionDe[j] === k && enCruz(j, n.at),
-        );
+        const lados = vecinasDe(indice(n.at)).filter((j) => red.regionDe[j] === k);
         return lados.length >= 2 ? [{ n, k, lados }] : [];
       }),
     )[0];
     expect(
       hoja,
-      'la semilla 1 tiene que tener un nodo con dos vecinas en cruz de una región',
+      'la semilla 1 tiene que tener un nodo con dos vecinas de una región',
     ).toBeDefined();
-    const conTramo = new Set([...map.roads, pointKey(hoja!.n.at), ...hoja!.lados.map(clave)]);
-    expect(caminos(conTramo).join('\n')).toMatch(
+    const conDos: TramoDeCamino[] = [
+      ...tramos.filter((t) => !toca(t, hoja!.n.at)),
+      ...hoja!.lados.slice(0, 2).map((j): TramoDeCamino => [hoja!.n.at, aPunto(j, W)]),
+    ];
+    expect(caminos(conDos).join('\n')).toMatch(
       new RegExp(
         `el nodo \\(${hoja!.n.at.x},${hoja!.n.at.y}\\) no es una hoja de la red de la región ${red.regiones[hoja!.k]!.id}: le llegan 2 tramos`,
       ),
     );
 
-    // Sin base: la base del jugador 0 pierde el camino de su casa.
+    // Sin base: la base del jugador 0 pierde el tramo de su casa.
     const base = plan.towns.find((t) => t.owner === 0)!;
     const casa = red.regionDe[indice(plan.heroStarts[0]!.at)]!;
-    const sinBase = new Set(map.roads);
-    for (const j of vecinasDe(indice(base.at)))
-      if (red.regionDe[j] === casa) sinBase.delete(clave(j));
+    const sinBase = tramos.filter(
+      (t) => !(toca(t, base.at) && t.some((q) => red.regionDe[indice(q)] === casa)),
+    );
     expect(caminos(sinBase).join('\n')).toMatch(
       /la base del jugador 0 .* no está en la red de su región de casa/,
     );
 
     // Una mina sin camino.
     const mina = map.objects.find((o) => o.kind === 'mine')!;
-    const sinMina = new Set(map.roads);
-    sinMina.delete(pointKey(mina.at));
-    expect(caminos(sinMina).join('\n')).toMatch(
+    expect(caminos(tramos.filter((t) => !toca(t, mina.at))).join('\n')).toMatch(
       new RegExp(`la mina o el pueblo \\(${mina.at.x},${mina.at.y}\\) .* no está en un camino`),
     );
 
-    // Una casilla de camino suelta, lejos de todo: ni su región ni el mapa son
-    // de una pieza.
-    const suelta = new Set(map.roads);
+    // Un camino de una casilla, suelto y lejos de todo: ni su región ni el mapa
+    // son de una pieza.
     const lejos = [...Array(map.width * map.height).keys()].find(
-      (i) => red.regionDe[i]! >= 0 && ![i, ...vecinasDe(i)].some((j) => map.roads.has(clave(j))),
+      (i) =>
+        red.regionDe[i]! >= 0 &&
+        ![i, ...vecinasDe(i)].some((j) => map.caminos.casillas.has(pointKey(aPunto(j, W)))),
     )!;
-    suelta.add(clave(lejos));
-    const fallos = caminos(suelta).join('\n');
+    const fallos = caminos(tramos, [aPunto(lejos, W)]).join('\n');
     expect(fallos).toMatch(/el camino de la región .* va en más de un trozo/);
     expect(fallos).toMatch(/la red de caminos del mapa va en más de un trozo/);
   });
@@ -613,11 +659,8 @@ describe('los caminos de cada región salen de su centro', () => {
       ocupadas: new Set([i(3, 3), i(7, 3), arriba, abajo]),
     };
   };
-  const trazar = (e: EntradaDeCaminos) => {
-    const t = trazarCaminos(e);
-    if (typeof t === 'string') throw new Error(t);
-    return new Set(t);
-  };
+  /** Las casillas de los tramos trazados. */
+  const trazar = (e: EntradaDeCaminos) => new Set(trazarCaminos(e).flat());
 
   it('lleva camino a lo que se le pide y a nada más, y el centro no cae en lo ocupado', () => {
     const e = entrada([
@@ -636,16 +679,85 @@ describe('los caminos de cada región salen de su centro', () => {
     }
   });
 
-  it('un radio pegado a un nodo que su región no lleva es un vestido que no vale, y lo dice', () => {
-    // La mina de la izquierda, junto al paso de abajo, que lleva solo la derecha.
+  it('un radio pegado a un nodo que su región no lleva no lo toca: los tramos son los trazados', () => {
+    // La mina de la izquierda, junto al paso de abajo, que lleva solo la
+    // derecha. Antes de #153 el pintor unía por adyacencia la mina con el nodo
+    // y este vestido se tiraba; con tramos no hay unión que no se trazara.
+    const tramos = trazarCaminos(
+      entrada([
+        [arriba, i(4, 5)],
+        [arriba, abajo],
+      ]),
+    );
+    const deLaIzquierda = tramos.filter(([p, q]) => p % W < 5 || q % W < 5);
+    expect(new Set(deLaIzquierda.flat()).has(i(4, 5))).toBe(true);
+    expect(deLaIzquierda.some((t) => t.includes(abajo))).toBe(false);
+    // Y cada región es un árbol: tantos tramos como casillas menos una.
+    for (const lado of [(x: number) => x <= 5, (x: number) => x >= 5]) {
+      const suyos = tramos.filter(([p, q]) => lado(p % W) && lado(q % W));
+      expect(suyos.length).toBe(new Set(suyos.flat()).size - 1);
+    }
+  });
+
+  it('una horquilla en diagonal sale en L al colgarla, de un lado o del otro, y nunca de un nodo', () => {
+    const sinNodos = new Uint8Array(W * H);
+    const arbol = (centro: number, colgar: [number, number][], nodo = sinNodos) => {
+      const a = new ArbolDeCaminos(W, H, nodo, centro);
+      for (const [c, p] of colgar) a.colgar(c, p);
+      return new Set(a.tramos().map(([p, c]) => `${p}-${c}`));
+    };
+    const L = new Set([`${i(1, 1)}-${i(2, 1)}`, `${i(2, 1)}-${i(2, 2)}`]);
+    // Del centro (1,1) salen un tramo a (2,1) y otro, oblicuo, a (2,2): la
+    // esquina (2,1) ya es red, y el oblicuo se cuelga de ella.
     expect(
-      trazarCaminos(
-        entrada([
-          [arriba, i(4, 5)],
-          [arriba, abajo],
-        ]),
+      arbol(i(1, 1), [
+        [i(2, 1), i(1, 1)],
+        [i(2, 2), i(1, 1)],
+      ]),
+    ).toEqual(L);
+    // Al revés: primero el oblicuo y luego la esquina, colgada del centro. La
+    // diagonal se parte y (2,2) pasa a colgar de la esquina.
+    expect(
+      arbol(i(1, 1), [
+        [i(2, 2), i(1, 1)],
+        [i(2, 1), i(1, 1)],
+      ]),
+    ).toEqual(L);
+    // La esquina llega por debajo del hijo, dando la vuelta: (2,2) → (3,2) →
+    // (3,1) → (2,1). Se le da la vuelta a esa rama y la esquina cuelga del
+    // centro: un árbol sin la diagonal.
+    expect(
+      arbol(i(1, 1), [
+        [i(2, 2), i(1, 1)],
+        [i(3, 2), i(2, 2)],
+        [i(3, 1), i(3, 2)],
+        [i(2, 1), i(3, 1)],
+      ]),
+    ).toEqual(
+      new Set([
+        `${i(1, 1)}-${i(2, 1)}`,
+        `${i(2, 1)}-${i(3, 1)}`,
+        `${i(3, 1)}-${i(3, 2)}`,
+        `${i(3, 2)}-${i(2, 2)}`,
+      ]),
+    );
+    // Con la esquina en un nodo, el oblicuo se queda: si no, al nodo le
+    // llegarían dos tramos de la región. Por eso el trazado no lo da (lo
+    // comprueba `horquillasNuevas` en los mapas de verdad).
+    const nodo = new Uint8Array(W * H);
+    nodo[i(2, 1)] = 1;
+    expect(
+      arbol(
+        i(1, 1),
+        [
+          [i(2, 1), i(1, 1)],
+          [i(2, 2), i(1, 1)],
+        ],
+        nodo,
       ),
-    ).toMatch(/el camino de la región 0 toca el nodo \(5,5\), que no lleva/);
+    ).toEqual(new Set([`${i(1, 1)}-${i(2, 1)}`, `${i(1, 1)}-${i(2, 2)}`]));
+    // Y colgar de lo que no es red es un fallo de programa.
+    expect(() => arbol(i(1, 1), [[i(3, 3), i(2, 2)]])).toThrow(/no se cuelga \(3,3\) de \(2,2\)/);
   });
 });
 

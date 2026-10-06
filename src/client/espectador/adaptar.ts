@@ -2,9 +2,11 @@
  * La inversa exacta de `construirVista`, y el ÚNICO sitio que rehace los `Set`.
  *
  * No es una tercera serialización del mapa —`ws-server.ts` ya avisa por escrito
- * de las dos que hay—: es la vuelta de la única que va por este cable. Lo que
- * hace son dos `new Set(...)`, porque `JSON.stringify` deja un `Set` en `{}` sin
- * decir nada y el emisor los manda como listas de claves `"x,y"`.
+ * de las dos que hay—: es la vuelta de la única que va por este cable. Rehace la
+ * niebla con un `new Set(...)`, porque `JSON.stringify` deja un `Set` en `{}`
+ * sin decir nada y el emisor la manda como lista de claves `"x,y"`. Y la red de
+ * caminos, que viaja plana —índices, dos por tramo— y se rehace con
+ * `RedDeCaminos.desdeTramos`, la misma puerta que la del servidor (#153).
  *
  * Y no fabrica un `GameState` falso: `drawMapa` pide un
  * `AdventureScene` —los campos que de verdad lee— en vez de la partida entera,
@@ -15,6 +17,7 @@
 
 import type { BattleStack, BattleState } from '@core/battle/types.js';
 import { cifrasDeCatalogo } from '@core/hero/experiencia.js';
+import { aPunto, RedDeCaminos, type TramoDeCamino } from '@core/map/map.js';
 import type { TerrainKind } from '@core/map/terrain.js';
 import type { UnitInfo, Veterania } from '@core/types.js';
 import type {
@@ -22,6 +25,7 @@ import type {
   StackEnCable,
   VeteraniaEnCable,
   VistaBatalla,
+  VistaMapa,
 } from '../../server/vista-espectador.js';
 import type { AdventureScene } from '../render/mapa.js';
 
@@ -47,13 +51,47 @@ function terrenoEstable(terreno: readonly TerrainKind[]): readonly TerrainKind[]
   return terreno;
 }
 
+/**
+ * La red de caminos de la vista: los índices, otra vez tramos de casillas.
+ *
+ * **Lanza** con lo que no es una red: además de lo que rechaza `desdeTramos`,
+ * una vista sin `tramos` —la de un `pnpm partida` arrancado antes de #153, que
+ * aún manda `roads`— y una lista de longitud impar, que dejaría el último
+ * tramo con una punta `undefined` y, sin esto, se pintaba en silencio sin él.
+ */
+function redDelCable(m: VistaMapa): RedDeCaminos {
+  if (!Array.isArray(m.tramos) || !Array.isArray(m.sueltas)) {
+    throw new Error(
+      'el mapa llega sin `tramos` ni `sueltas`: el servidor habla el formato de antes de #153 ' +
+        '(`roads`). Reinicia `pnpm partida` con el código de ahora',
+    );
+  }
+  if (m.tramos.length % 2 !== 0) {
+    throw new Error(
+      `los tramos de camino llegan con ${m.tramos.length} índices, y van dos por tramo`,
+    );
+  }
+  const punto = (i: number) => aPunto(i, m.width);
+  const tramos: TramoDeCamino[] = [];
+  for (let k = 0; k < m.tramos.length; k += 2) {
+    tramos.push([punto(m.tramos[k] as number), punto(m.tramos[k + 1] as number)]);
+  }
+  return RedDeCaminos.desdeTramos(tramos, m.width, m.height, m.sueltas.map(punto));
+}
+
+/**
+ * **Lanza** si la vista no se entiende (hoy, solo por la red de caminos). Por
+ * eso la red se rehace antes que el terreno: un fotograma que se rechaza no
+ * debe tocar `terrenoAnterior`.
+ */
 export function adaptarEscena(view: SpectatorView): AdventureScene {
+  const caminos = redDelCable(view.map);
   return {
     map: {
       width: view.map.width,
       height: view.map.height,
       terrain: terrenoEstable(view.map.terrain),
-      roads: new Set(view.map.roads),
+      caminos,
       objects: view.map.objects,
       regions: view.map.regions,
     },

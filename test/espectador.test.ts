@@ -9,7 +9,8 @@
  * Lo que se mira aquí:
  *
  *  1. que el viaje por JSON no le quite nada —es la trampa de #10: un `Set` se
- *     queda en `{}` sin decir nada, y la vista lleva DOS (`roads` y `fog`)—;
+ *     queda en `{}` sin decir nada, y la vista lleva uno, `fog`; los caminos
+ *     van como tramos—;
  *  2. que un turno de N acciones dé N fotogramas, que es lo que #30 necesita
  *     para enseñar una batalla acción a acción en vez de un pase de
  *     diapositivas;
@@ -32,7 +33,8 @@ import { createBattle } from '../src/core/battle/battle.js';
 import type { BattleStack, BattleState } from '../src/core/battle/types.js';
 import { allCreatures } from '../src/core/data.js';
 import type { Hero } from '../src/core/hero/hero.js';
-import { pointKey, reachableFrom } from '../src/core/map/map.js';
+import { aPunto, pointKey, reachableFrom } from '../src/core/map/map.js';
+import { isWalkable } from '../src/core/map/terrain.js';
 import { createRng } from '../src/core/rng.js';
 import { CHARACTER_BODY, createCharacter, defaultBuild } from '../src/core/rpg/character.js';
 import { combatProfile } from '../src/core/rpg/stats.js';
@@ -52,7 +54,7 @@ import {
   type VistaHeroe,
 } from '../src/server/vista-espectador.js';
 import { ponVeteranoEnLaBase } from '../tools/qa/veterano-en-la-base.js';
-import { monstruoVivo, sinGuarnicionDeSalida } from './helpers.js';
+import { conCaminos, monstruoVivo, sinGuarnicionDeSalida } from './helpers.js';
 
 const abiertos: (() => void)[] = [];
 afterEach(() => {
@@ -95,16 +97,13 @@ function vecina(state: GameState, desde: Point): Point {
 
 describe('la vista del espectador', () => {
   it('sobrevive a un JSON de ida y vuelta, que es donde mueren los `Set`', () => {
-    // `roads` y `fog` son `Set` en el estado. `JSON.stringify` los deja en `{}`
-    // sin decir nada —lo mismo que avisa #10 para el guardado—, así que un mapa
-    // sin caminos y una niebla vacía habrían llegado al espectador sin que nada
-    // se pusiera rojo. Aquí se comprueba que salen como listas y que vuelven.
+    // `fog` es un `Set` en el estado. `JSON.stringify` lo deja en `{}` sin
+    // decir nada —lo mismo que avisa #10 para el guardado—, así que una niebla
+    // vacía habría llegado al espectador sin que nada se pusiera rojo. Aquí se
+    // comprueba que sale como lista y que vuelve.
     const state = newGame({ seed: 5 });
-    state.map.roads.add(pointKey({ x: 2, y: 2 }));
     const vista = construirVista(state, ['una nota del director']);
 
-    expect(vista.map.roads).toContain('2,2');
-    expect(Array.isArray(vista.map.roads)).toBe(true);
     expect(Array.isArray(vista.players[0]?.fog)).toBe(true);
 
     const ida: SpectatorView = JSON.parse(JSON.stringify(vista));
@@ -133,21 +132,69 @@ describe('adaptar: la vuelta del cable', () => {
     // justo lo que se desincroniza. Aquí se cierra el círculo entero: estado →
     // vista → JSON → escena, y lo que sale tiene que ser lo que entró.
     const state = newGame({ seed: 5 });
-    state.map.roads.add(pointKey({ x: 2, y: 2 }));
-    state.map.roads.add(pointKey({ x: 3, y: 2 }));
     state.players[0]?.fog.add(pointKey({ x: 9, y: 9 }));
+    // Una casilla de camino suelta, que viaja aparte de los tramos.
+    const libre = state.map.terrain.findIndex(
+      (t, i) => isWalkable(t) && !state.map.caminos.indices.includes(i),
+    );
+    state.map = conCaminos(state.map, pointKey(aPunto(libre, state.map.width)));
 
     const escena = adaptarEscena(JSON.parse(JSON.stringify(construirVista(state, []))));
 
-    // Los `Set`, que es lo que el JSON destruye y esta función rehace.
-    expect(escena.map.roads).toEqual(state.map.roads);
+    // El `Set`, que es lo que el JSON destruye y esta función rehace.
     expect(escena.players[0]?.fog).toEqual(state.players[0]?.fog);
-    expect(escena.map.roads.has('2,2')).toBe(true);
+    // Y la red de caminos, que viaja plana: los mismos tramos y las mismas
+    // sueltas, así que el espectador pinta lo que pinta el cliente (#153).
+    expect(state.map.caminos.tramos.length).toBeGreaterThan(0);
+    expect(escena.map.caminos).toEqual(state.map.caminos);
     expect(escena.map.width).toBe(state.map.width);
     expect(escena.map.terrain).toEqual(state.map.terrain);
     expect(escena.map.regions).toEqual(state.map.regions);
     expect(escena.map.regions.length).toBeGreaterThan(0);
     expect(escena.heroes.map((h) => h.id)).toEqual(state.heroes.map((h) => h.id));
+  });
+
+  it('un mapa que no es una red de caminos lanza diciendo por qué, y no toca el terreno guardado', () => {
+    // H1 y H2 de la QA de #153. El espectador adapta ANTES de enseñar (`aplicar`
+    // en `main.ts`), así que lo que lanza aquí no sustituye a la vista buena y
+    // su motivo es lo que sale en la barra: tiene que leerse.
+    const state = newGame({ seed: 5 });
+    const buena: SpectatorView = JSON.parse(JSON.stringify(construirVista(state, [])));
+    const terreno = adaptarEscena(buena).map.terrain;
+    const otroTerreno = [...buena.map.terrain];
+    otroTerreno[0] = otroTerreno[0] === 'water' ? 'grass' : 'water';
+    const con = (map: Partial<SpectatorView['map']> & Record<string, unknown>): SpectatorView => ({
+      ...buena,
+      // Con una casilla de terreno cambiada: si el fotograma malo llegara a
+      // guardarlo, el siguiente bueno ya no devolvería el array de antes.
+      map: { ...buena.map, terrain: otroTerreno, ...map },
+    });
+
+    // El formato de antes de #153: un `pnpm partida` sin actualizar manda `roads`.
+    const { tramos: _t, sueltas: _s, ...sinTramos } = buena.map;
+    const vieja = {
+      ...buena,
+      map: { ...sinTramos, terrain: otroTerreno, roads: ['1,1'] },
+    } as unknown as SpectatorView;
+    expect(() => adaptarEscena(vieja)).toThrow(
+      /el mapa llega sin `tramos` ni `sueltas`: el servidor habla el formato de antes de #153/,
+    );
+    // Un índice de menos: antes salía un tramo con una punta en (NaN,NaN).
+    expect(() => adaptarEscena(con({ tramos: buena.map.tramos.slice(0, -1) }))).toThrow(
+      /los tramos de camino llegan con \d+ índices, y van dos por tramo/,
+    );
+    const W = buena.map.width;
+    expect(() => adaptarEscena(con({ tramos: [0, 2 * W + 2] }))).toThrow(
+      /de \(0,0\) a \(2,2\) no une dos casillas vecinas distintas/,
+    );
+    expect(() => adaptarEscena(con({ tramos: [0, 1, 1, 0] }))).toThrow(/está repetido/);
+    expect(() => adaptarEscena(con({ tramos: [W * buena.map.height, 0] }))).toThrow(
+      /cae fuera del mapa/,
+    );
+    // Ninguno de los rechazados ha cambiado el terreno guardado: uno bueno con
+    // un array recién copiado recibe el de antes, no el suyo.
+    const copia = { ...buena, map: { ...buena.map, terrain: [...buena.map.terrain] } };
+    expect(adaptarEscena(copia).map.terrain).toBe(terreno);
   });
 
   it('el héroe nacido de la tropa cruza el cable con su tipo y su historia', () => {

@@ -123,6 +123,7 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 | Camino de un héroe (con lo hostil) | `alcanceDelHeroe`, `caminoHasta`; nadie fuera de `game.ts` llama a `findPath`/`reachableFrom` |
 | Territorio y renta | `territorio(state)`, `dueñoComun` |
 | Validar un plan de mapa (agente y procedimental) | `validateMapPlan` → `problemasDeRed` |
+| Caminos de un plan al mapa | `caminosDelPlan` |
 | Carga | `cargaDesde` (cuándo), `cargaEfectiva` (tope), `casillasDeCarga` (qué se enseña) |
 | Turno de batalla | `BattleState.turno` (`n`, ordinal); `mismoTurno`; viaja como `turnId` |
 | Tope de jugadas | `MAX_JUGADAS` |
@@ -173,9 +174,14 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   Los caminos del procedimental son **radiales** desde el centro de cada región
   y entre dos vecinas **solo un nodo lleva camino**, que elige la red
   (`crucesConCamino`) y traza `trazarCaminos`; los demás pasos se cruzan sin
-  él, y los pasos van a Chebyshev ≥ 3 de todo nodo. Las aristas de un camino,
-  para el pintor y para quien lo mida, salen de `aristasDeCamino`. Los del
-  agente, tal cual.
+  él, y los pasos van a Chebyshev ≥ 3 de todo nodo. **El mapa guarda los
+  tramos** (`GameMap.caminos`, una `RedDeCaminos`) y las casillas que abaratan
+  el paso salen de ellos; el procedimental guarda los que traza, con las
+  horquillas en L hechas al colgar cada casilla (`ArbolDeCaminos`, nunca de un
+  nodo), y el plan del agente escribe casillas, cuyos tramos deriva
+  `tramosDeCasillas`. `MapPlan` lleva `roads` o `tramos`, nunca los dos (lo
+  dice el tipo), y `planDelAgente` es la única conversión del uno al otro. El
+  agente lee casillas; el espectador recibe tramos planos (índices).
   Lado del mapa: `LADO_DEL_MAPA` (34), elegido con la regla «menor lado con
   mediana ≥ 8 días, p90 ≤ 20 y 0 sin terminar».
 - **Asaltantes**: grupos neutrales que patrullan regiones sin dueño y emboscan

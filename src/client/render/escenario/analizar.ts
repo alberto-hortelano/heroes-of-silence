@@ -6,7 +6,7 @@
  *
  * Es puro: un mapa entra y un análisis sale, sin DOM y sin ficheros.
  */
-import type { MapObject } from '@core/map/map.js';
+import type { MapObject, TramoDeCamino } from '@core/map/map.js';
 import { type Barrera, esBarrera, type Suelo, type TerrainKind } from '@core/map/terrain.js';
 
 /**
@@ -20,7 +20,7 @@ export interface MapaDeEscena {
   readonly width: number;
   readonly height: number;
   readonly terrain: readonly TerrainKind[];
-  readonly roads: ReadonlySet<string>;
+  readonly caminos: { readonly tramos: readonly TramoDeCamino[] };
   readonly objects: readonly MapObject[];
 }
 
@@ -56,7 +56,6 @@ export interface Analisis {
   readonly franjas: readonly Franja[];
   /** Distancia (en casillas, 8-vecinas) de cada casilla de barrera a la primera que no es de su franja. */
   readonly hondura: Int32Array;
-  readonly caminos: ReadonlySet<number>;
   readonly objetos: readonly MapObject[];
   /** Las casillas que ocupan los objetos y los nodos. */
   readonly ocupadas: ReadonlySet<number>;
@@ -77,11 +76,6 @@ export function analizar(map: MapaDeEscena): Analisis {
   const nodos = new Set(
     map.objects.filter((o) => o.kind === 'node').map((o) => o.at.y * W + o.at.x),
   );
-  const caminos = new Set<number>();
-  for (const k of map.roads) {
-    const [x, y] = k.split(',').map(Number) as [number, number];
-    caminos.add(y * W + x);
-  }
 
   // Las franjas: componentes 4-conexos de una misma barrera.
   const franjaDe = new Int32Array(W * H).fill(-1);
@@ -221,7 +215,6 @@ export function analizar(map: MapaDeEscena): Analisis {
     franjaDe,
     franjas,
     hondura,
-    caminos,
     objetos: map.objects,
     ocupadas,
   };

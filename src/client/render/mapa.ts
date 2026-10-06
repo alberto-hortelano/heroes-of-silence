@@ -19,7 +19,7 @@
 
 import { HERO_BODY } from '@core/hero/hero.js';
 import { individuosDe } from '@core/hero/troop.js';
-import { type MapObject, type MapRegion, pointKey } from '@core/map/map.js';
+import { type MapObject, type MapRegion, pointKey, type TramoDeCamino } from '@core/map/map.js';
 import type { TerrainKind } from '@core/map/terrain.js';
 import type { VistaAsaltante } from '@core/state/asaltantes.js';
 import type { Point } from '@core/types.js';
@@ -63,15 +63,16 @@ import { pintarSombra } from './sombra.js';
  * Es el tipo estructural que antes vivía en `render/adventure.ts`, y por el
  * mismo motivo: `GameState` lo satisface tal cual y la vista adaptada del
  * espectador también, sin que ninguno tenga que fabricar una partida falsa.
- * Los `Set` son parte del contrato: `roads` y `fog` se preguntan con `.has()`
- * por clave `"x,y"`, y es `adaptar.ts` quien los rehace al otro lado del cable.
+ * La niebla es un `Set` que se pregunta con `.has()` por clave `"x,y"`, y es
+ * `adaptar.ts` quien lo rehace al otro lado del cable. De los caminos se leen
+ * solo los tramos: `RedDeCaminos` los cumple y el espectador los trae tal cual.
  */
 export interface AdventureScene {
   readonly map: {
     readonly width: number;
     readonly height: number;
     readonly terrain: readonly TerrainKind[];
-    readonly roads: ReadonlySet<string>;
+    readonly caminos: { readonly tramos: readonly TramoDeCamino[] };
     readonly objects: readonly MapObject[];
     /** Las regiones del mapa de nodos. Las pintará el territorio de la 2b. */
     readonly regions: readonly MapRegion[];
