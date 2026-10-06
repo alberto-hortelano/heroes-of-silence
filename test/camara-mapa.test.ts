@@ -160,15 +160,17 @@ describe('el tope de alejar sale de los volúmenes que caben', () => {
   });
 
   it('en 7680×4320 el mapa real no cabe: se avisa en consola, una vez por escena y lienzo', () => {
-    const esc = escenarioDe(newGame({ seed: 4242 }).map, 4242);
+    // En 48×48 y no en el lado de siempre: el de 34 anda cerca del tope y
+    // cruza la raya cada vez que cambia lo que despeja el pasillo de la senda
+    // (historia.md, «Caminos»). Lo que se mira es el aviso, no los caminos.
+    const esc = escenarioDe(newGame({ seed: 4242, width: 48, height: 48 }).map, 4242);
     const aviso = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     try {
       expect(topeDeAlejar(esc, 7680, 4320)).toBe(TILE_MAX);
       expect(topeDeAlejar(esc, 7680, 4320)).toBe(TILE_MAX);
       expect(aviso).toHaveBeenCalledTimes(1);
-      // 2 028 volúmenes con el pasillo de la senda (05-10-2026): sigue sin
-      // caber, que es lo que se mira.
-      expect(String(aviso.mock.calls[0]?.[0])).toMatch(/7680×4320.*hasta 2028/);
+      const cuantos = String(aviso.mock.calls[0]?.[0]).match(/7680×4320.*hasta (\d+)/)?.[1];
+      expect(Number(cuantos)).toBeGreaterThan(MAX_VOLUMENES_VISIBLES);
       // En una pantalla normal, ni un aviso.
       topeDeAlejar(esc, 1920, 1080);
       expect(aviso).toHaveBeenCalledTimes(1);

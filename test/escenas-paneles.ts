@@ -129,13 +129,28 @@ export async function escenas(): Promise<readonly Escena[]> {
   }
   out.push({ nombre: 'batalla · terminada', session: batallaFin });
 
-  // 7 · Partida terminada: el botón de partida nueva y el «fin de la partida»
-  //     de la crónica, que es el último hecho que se pinta.
-  const terminada = new Session(3);
-  // Sin comprobar que terminó: `playAiGame` no vuelve de otra manera, y lo dice
-  // su tipo de retorno.
-  await playAiGame(terminada.state, terminada.ctx);
-  out.push({ nombre: 'partida terminada', session: terminada });
+  // 7 · Partida terminada, ganada y perdida: el botón de partida nueva y el
+  //     «fin de la partida» de la crónica, que es el último hecho que se pinta.
+  //     Las dos ramas, y la semilla de cada una la busca la escena: con una
+  //     semilla fija, cualquier cambio que moviera la partida cambiaba de rama
+  //     sin decirlo y el ancla dejaba de cubrir la otra (pasó con #149).
+  for (const [nombre, gana] of [
+    ['partida ganada', 0],
+    ['partida perdida', 1],
+  ] as const) {
+    let terminada: Session | undefined;
+    for (let semilla = 3; semilla < 43 && terminada === undefined; semilla++) {
+      const s = new Session(semilla);
+      // Sin comprobar que terminó: `playAiGame` no vuelve de otra manera, y lo
+      // dice su tipo de retorno.
+      await playAiGame(s.state, s.ctx);
+      if (s.state.finished?.winner === gana) terminada = s;
+    }
+    if (terminada === undefined) {
+      throw new Error(`ninguna de cuarenta semillas da una ${nombre} para el jugador 0`);
+    }
+    out.push({ nombre, session: terminada });
+  }
 
   // 8 · Aventura en turno del rival: es la única forma de que salga el botón
   //     de fin de turno DESHABILITADO, que es uno de los tres huecos que se

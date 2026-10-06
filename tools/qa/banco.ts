@@ -484,11 +484,40 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   embosca, 298 días quietos—, y con ella el héroe 1 vuelve a casa y cae en el
  *   intento. Esa regla, con el generador de antes, deja `2398f5d3…` exacto.
  *   Re-anclado una vez, al final.
+ * - `6bb678bc…` (71 418 líneas): **caminos radiales con un cruce por pareja**
+ *   (#149, 06-10-2026, variante B que eligió el usuario). Cada región traza sus
+ *   radios desde un centro; entre dos vecinas, un solo nodo lleva camino.
+ *   Mismo mapa, otros caminos —`trazarCaminos` no tira del `rng`—, y lo dice la
+ *   forma: el primer hecho distinto es un **`hero_moved` en las 200** (el
+ *   índice 11-66 de la crónica, el día 1 en 199 y el 2 en una; el mismo paso
+ *   cuesta otra cosa, p. ej. s1: 105 → 140). Un `raider_spawned` o un
+ *   `day_start` primero habría querido decir que se movió algo más. **0
+ *   semillas idénticas**, 85 con otro ganador, j0 100 → 89 (en 600 semillas del
+ *   barrido, 286 → 290: ruido), **0 sin terminar**, duración 8 / 15 / 25 →
+ *   **9 / 17 / 34**: menos camino, más días andando. `hero_moved` 35 470 →
+ *   38 586, batallas 1 685 → 1 870, `town_captured` 1 446 → 1 577,
+ *   `node_captured` 1 599 → 1 443, ningún tipo nuevo ni ninguno que
+ *   desaparezca. Re-anclado una vez, al final.
+ * - `642241f8…` (vuelta de /simplify de #149, 06-10-2026): **los pasos se
+ *   separan de los demás nodos como las ciudades** (Chebyshev ≥ 3) y el cruce
+ *   con camino de cada pareja lo elige la red, por cercanía a las semillas. Lo
+ *   primero cambia la red: en las 200 semillas, **169 con otra red** (unos 2,6
+ *   pasos menos por mapa, ninguna pareja de vecinas perdida), 1 con la misma
+ *   red y otro vestido, 29 con el mismo mapa y otros caminos y 1 idéntico. La
+ *   forma lo dice: con el mismo mapa, el primer hecho distinto es un
+ *   **`hero_moved` en 25** y las otras 4 se juegan igual; con otra red, el
+ *   primero es el que toque en otro mapa (`raider_spawned` 132, `hero_moved`
+ *   23, `node_captured` 12, `turn_start` 2). 5 idénticas, 83 con otro ganador,
+ *   j0 89 → 92, **0 sin terminar**, duración 9 / 17 / 34 → **8 / 15 / 39**.
+ *   `hero_moved` 38 586 → 36 521, batallas 1 870 → 1 773, `town_captured`
+ *   1 577 → 1 477, `node_captured` 1 443 → 1 284; ningún tipo nuevo ni ninguno
+ *   que desaparezca. El Dijkstra más barato de la misma vuelta no mueve el
+ *   hash: con la búsqueda ingenua da el mismo `642241f8…`.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '1b90bfd9049a042a6861009095e42a65dc26ff3f41034384cfe5534b1b67d599',
+  sha: '642241f8443684533336eb0df8e84d6c0f2c4daadf99761af4bbfc25378c67f4',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

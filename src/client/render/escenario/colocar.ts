@@ -11,7 +11,7 @@
  * Es puro salvo por leer los índices de los módulos y las medidas de las piezas
  * del disco; la escena es un JSON que pinta `pintor.ts`.
  */
-import type { MapObject } from '@core/map/map.js';
+import { aristasDeCamino, type MapObject } from '@core/map/map.js';
 import type { Barrera, Suelo } from '@core/map/terrain.js';
 import { type Analisis, analizar, type Franja, type MapaDeEscena } from './analizar.js';
 import type { Catalogo, Modulo, Pieza } from './catalogo.js';
@@ -514,25 +514,8 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
 
   // 2 · Los caminos: se encadenan en sendas y cada senda abre su pasillo.
   const caminos: [number, number, number, number][] = [];
-  for (const i of a.caminos) {
-    const x = i % W;
-    const y = (i - x) / W;
-    for (const [dx, dy] of [
-      [1, 0],
-      [0, 1],
-      [1, 1],
-      [-1, 1],
-    ] as const) {
-      const k = (y + dy) * W + x + dx;
-      if (!a.caminos.has(k) || x + dx < 0 || x + dx >= W || y + dy >= H) continue;
-      if (
-        dx !== 0 &&
-        dy !== 0 &&
-        (a.caminos.has(y * W + x + dx) || a.caminos.has((y + dy) * W + x))
-      )
-        continue;
-      caminos.push([x + 0.5, y + 0.5, x + dx + 0.5, y + dy + 0.5]);
-    }
+  for (const [i, k] of aristasDeCamino(a.caminos, W, H)) {
+    caminos.push([(i % W) + 0.5, Math.floor(i / W) + 0.5, (k % W) + 0.5, Math.floor(k / W) + 0.5]);
   }
   // Los nodos y los objetos llevan su camino hasta la puerta: se reserva la casilla entera.
   for (const o of a.objetos)

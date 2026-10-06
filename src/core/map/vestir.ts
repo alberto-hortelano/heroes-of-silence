@@ -19,6 +19,7 @@
 import { BARRERAS_DEL_MAPA, type BarreraConPeso } from '../data.js';
 import type { Rng } from '../rng.js';
 import { Frontera } from './frontera.js';
+import { aristasDeCamino } from './map.js';
 import { aPunto, rellenar, vecindad } from './regiones.js';
 import { BARRERAS, type Barrera, costeDeEntrada, type Suelo } from './terrain.js';
 
@@ -660,118 +661,225 @@ export interface EntradaDeCaminos {
   readonly regiones: number;
   /** El suelo de cada región: el camino se busca con lo que cuesta andarlo. */
   readonly suelos: readonly Suelo[];
-  /** Los nodos de cada región, por índice plano de su casilla. */
+  /** Los nodos de cada región, por índice plano: se llega a ellos, no se cruzan. */
   readonly nodosDeRegion: readonly (readonly number[])[];
-  /** Lo que cada región une con sus nodos: minas y pueblos, por índice plano. */
-  readonly destinos: readonly (readonly number[])[];
+  /**
+   * Adónde lleva camino cada región, por índice plano: los nodos que le tocan
+   * en el reparto de la red (`crucesConCamino`), sus minas y sus pueblos.
+   */
+  readonly objetivos: readonly (readonly number[])[];
   readonly monstruos: Uint8Array;
+  /** Lo ya puesto —nodos, inicios, objetos, asaltantes—: el centro no cae encima. */
+  readonly ocupadas: ReadonlySet<number>;
 }
 
 /**
- * La red de caminos de cada región: **un árbol que une sus nodos y una senda a
- * cada mina y pueblo, con los tramos fundidos** (decisión del usuario en la
- * vuelta 1 de QA: «árbol mínimo + minas»).
+ * El Dijkstra de una región con el coste del héroe: lo de `red` a mitad de
+ * precio y un paso recto de más por arrimarse a ella viniendo de fuera.
+ * Reutiliza `coste` y `previo` de una búsqueda a otra.
+ */
+class Busqueda {
+  readonly coste: Int32Array;
+  readonly previo: Int32Array;
+  /** Las casillas de la región, en orden de índice. */
+  readonly casillas: readonly number[];
+  private readonly nodo: Uint8Array;
+  private readonly recto: number;
+  private readonly diagonal: number;
+  private readonly pisarMonstruo: number;
+
+  constructor(
+    private readonly e: EntradaDeCaminos,
+    private readonly r: number,
+  ) {
+    const N = e.W * e.H;
+    this.coste = new Int32Array(N);
+    this.previo = new Int32Array(N);
+    this.nodo = new Uint8Array(N);
+    for (const n of e.nodosDeRegion[r] ?? []) this.nodo[n] = 1;
+    const casillas: number[] = [];
+    for (let i = 0; i < N; i++) {
+      if (e.regionDe[i] === r && e.tipos[i] === ABIERTA) casillas.push(i);
+    }
+    this.casillas = casillas;
+    const suelo = e.suelos[r] as Suelo;
+    this.recto = costeDeEntrada(suelo, false, false);
+    this.diagonal = costeDeEntrada(suelo, false, true);
+    // Más que cualquier rodeo dentro del mapa.
+    this.pisarMonstruo = N * this.diagonal;
+  }
+
+  /**
+   * Desde `origen`. Con `red` (y su `pegada`: las casillas 8-vecinas de la red),
+   * lo trazado cuesta la mitad y arrimarse, un paso recto más. Con `hasta`, se
+   * para al sacarlo: lo que se lee después es su `previo`, que ya no cambia.
+   */
+  buscar(origen: number, red?: Uint8Array, pegada?: Uint8Array, hasta?: number): void {
+    const { W, H, regionDe, tipos, monstruos } = this.e;
+    const { desde, vecinas } = vecindad(W, H);
+    const { coste, previo, nodo } = this;
+    const r = this.r;
+    coste.fill(-1);
+    previo.fill(-1);
+    const frontera = new Frontera(W * H);
+    coste[origen] = 0;
+    frontera.push(origen, 0);
+    for (let sale = frontera.pop(); sale !== undefined; sale = frontera.pop()) {
+      const a = sale.key;
+      const hastaAqui = sale.cost;
+      if (hastaAqui > (coste[a] as number)) continue;
+      if (a === hasta) return;
+      // Un nodo es final de tramo: se llega, no se cruza (llevaría a otra
+      // región). Una mina o un pueblo sí se cruzan: hacerlos final de tramo
+      // obliga a rodearlos con un radio paralelo (historia.md, «Caminos»).
+      if (nodo[a] === 1 && a !== origen) continue;
+      const x = a % W;
+      const y = (a - x) / W;
+      const enLaRed = red?.[a] === 1;
+      for (let k = desde[a]!; k < desde[a + 1]!; k++) {
+        const j = vecinas[k]!;
+        if (!((regionDe[j] === r && tipos[j] === ABIERTA) || nodo[j] === 1)) continue;
+        const enDiagonal = j % W !== x && (j - (j % W)) / W !== y;
+        let paso =
+          monstruos[j] === 1 ? this.pisarMonstruo : enDiagonal ? this.diagonal : this.recto;
+        if (red?.[j] === 1) paso = Math.floor(paso / 2);
+        else if (!enLaRed && pegada?.[j] === 1) paso += this.recto;
+        const c = hastaAqui + paso;
+        if (coste[j] !== -1 && (coste[j] as number) <= c) continue;
+        coste[j] = c;
+        previo[j] = a;
+        frontera.push(j, c);
+      }
+    }
+  }
+}
+
+/**
+ * El centro de la región `r`: la casilla abierta y libre —sin monstruo ni nada
+ * de `ocupadas`— que menos le cuesta al héroe sumando lo que hay hasta cada uno
+ * de sus objetivos. Desempata el índice menor. Es un hecho derivado: el plan
+ * guarda en `regions[].at` la semilla del Voronoi, que puede tener un monstruo
+ * encima. `-1` si la región no lleva camino a nada.
+ */
+export function centroDeRegion(
+  e: EntradaDeCaminos,
+  r: number,
+  b: Busqueda = new Busqueda(e, r),
+): number {
+  const objetivos = e.objetivos[r] ?? [];
+  if (objetivos.length === 0) return -1;
+  const suma = new Map<number, number>(b.casillas.map((i) => [i, 0]));
+  for (const o of objetivos) {
+    b.buscar(o);
+    for (const [i, t] of suma) {
+      const v = b.coste[i] as number;
+      if (v < 0) suma.delete(i);
+      else suma.set(i, t + v);
+    }
+  }
+  let mejor = -1;
+  for (const [i, t] of suma) {
+    if (e.monstruos[i] === 1 || e.ocupadas.has(i)) continue;
+    if (mejor === -1 || t < (suma.get(mejor) as number)) mejor = i;
+  }
+  if (mejor === -1) {
+    throw new Error(
+      `la región ${r} no tiene una casilla libre desde la que se llegue a todos sus objetivos: no hay dónde poner el centro de sus caminos`,
+    );
+  }
+  return mejor;
+}
+
+/**
+ * La red de caminos del mapa: **radial dentro de cada región** (decisión del
+ * usuario, #149). Qué nodos lleva cada región lo decide antes la red
+ * (`crucesConCamino`, en `generate.ts`); aquí solo se trazan los radios.
  *
- * La primera versión unía cada nodo con todos los demás y con cada mina por el
- * camino más corto, y después un árbol de caminos más cortos desde el primer
- * nodo; las dos daban una malla: **el 41 % del suelo pisable era camino**, con
- * rombos y vías dobles, y cuando media región es camino el camino deja de
- * señalar adónde ir.
+ * Por región:
  *
- * Se hace creciendo la red desde el primer nodo: cada paso busca desde **toda la
- * red ya trazada a la vez** el nodo que queda más cerca, y traza ese tramo. Es
- * el árbol mínimo entre los nodos (Prim), pero midiendo desde la red y no desde
- * los nodos, así que un tramo nuevo sale del punto del camino que le pilla más
- * cerca y no corre paralelo a otro: los tramos se funden solos. Con los nodos
- * unidos, cada mina y pueblo se engancha igual, por la senda más corta hasta la
- * red. El coste es el del héroe (`costeDeEntrada` del suelo de la región, con la
- * diagonal más cara), así que un camino va por donde se anda.
+ * 1. Su centro (`centroDeRegion`).
+ * 2. Los objetivos, del más cercano al centro al más lejano (desempata el
+ *    índice). Para cada uno, un Dijkstra **desde el centro** en el que lo ya
+ *    trazado cuesta la mitad —los radios comparten el tronco y se abren donde
+ *    hace falta— y arrimarse a la red viniendo de fuera cuesta un paso recto
+ *    más: si no, un radio nuevo corre pegado a uno viejo y el pintor
+ *    (`aristasDeCamino`) cose los dos en rombos.
+ * 3. Se recorre el tramo hacia atrás hasta tocar la red.
  *
- * 8-vecindad, por lo pisable de la región; un nodo que no está en la red es
- * final de tramo, no se atraviesa —llevaría a otra región—.
- *
- * **Rodea a los monstruos si puede, y si no, pasa por encima**: pisar uno cuesta
- * más que cualquier rodeo posible, así que la misma búsqueda da las dos cosas.
- * Un guardia que corta la región en dos deja cada mitad alcanzable desde su
- * nodo —es lo que piden los obstáculos—, pero el tramo que une esos dos nodos
- * tiene que pasar por él. Un guardia sobre el camino es lo que hace un mapa de
- * HoMM; un camino que no llega es un dibujo roto. Lo encontró la semilla 47 en
- * 40×40, que lanzaba aquí.
+ * Un nodo es final de tramo, así que no hay tramo de paso a paso: cada nodo con
+ * camino es una hoja de la red de su región. El coste es el del héroe, así que
+ * un camino va por donde se anda. **Rodea a los monstruos si puede, y si no,
+ * pasa por encima**: un guardia que corta la región en dos deja cada mitad
+ * alcanzable desde su nodo, pero el radio que va de una a la otra tiene que
+ * pasar por él.
  *
  * Es un Dijkstra sobre la rejilla provisional del generador, no el del mapa: el
  * invariante que guarda que nadie llame a `findPath` fuera de `game.ts` es por
  * lo hostil de una partida, que aquí no existe todavía. Comparte con aquel la
- * `Frontera`, y con ella el desempate por orden de descubrimiento.
+ * `Frontera`, y con ella el desempate por orden de descubrimiento. No tira del
+ * `rng`: cambiar los caminos no mueve nada más del mapa.
  *
- * Lanza si un destino no se alcanza ni pasando por monstruos: la red ya está
- * validada y los obstáculos no parten la región, así que sería un fallo de
+ * Devuelve por qué cuando lo dibujado no es radial: un nodo al que le llegan
+ * dos tramos de una región, o uno de una región que no lo lleva —sería un
+ * segundo cruce de la pareja—. Pasa cuando el único pasillo hacia un objetivo
+ * va pegado a otro nodo; es un vestido raro y el generador viste otro. Lanza si un objetivo no se alcanza ni pasando por monstruos: la red ya
+ * está validada y los obstáculos no parten la región, así que sería un fallo de
  * programa, no un mapa raro.
  */
-export function trazarCaminos(e: EntradaDeCaminos): number[] {
-  const { W, H, tipos, regionDe, monstruos } = e;
+export function trazarCaminos(e: EntradaDeCaminos): number[] | string {
+  const { W, H, regionDe } = e;
   const N = W * H;
   const { desde, vecinas } = vecindad(W, H);
-  const caminos = new Set<number>();
-  const coste = new Int32Array(N);
-  const previo = new Int32Array(N);
+  const todas = new Set<number>();
   for (let r = 0; r < e.regiones; r++) {
-    const nodos = e.nodosDeRegion[r] ?? [];
-    const primero = nodos[0];
-    if (primero === undefined) continue;
-    const suelo = e.suelos[r] as Suelo;
-    const recto = costeDeEntrada(suelo, false, false);
-    const diagonal = costeDeEntrada(suelo, false, true);
-    // Más que cualquier rodeo dentro del mapa.
-    const pisarMonstruo = N * diagonal;
-    const esNodoDeAqui = new Set(nodos);
-    const red = new Set<number>([primero]);
-    const pisable = (j: number): boolean =>
-      (regionDe[j] === r && tipos[j] === ABIERTA) || esNodoDeAqui.has(j);
-
-    /** Desde toda la red a la vez, el más barato de `pendientes`, y su tramo. */
-    const engancharElMasCercano = (pendientes: Set<number>): void => {
-      coste.fill(-1);
-      previo.fill(-1);
-      const frontera = new Frontera(N);
-      for (const c of [...red].sort((a, b) => a - b)) {
-        coste[c] = 0;
-        frontera.push(c, 0);
-      }
-      for (let nodo = frontera.pop(); nodo !== undefined; nodo = frontera.pop()) {
-        const { key: a, cost: hastaAqui } = nodo;
-        if (hastaAqui > (coste[a] as number)) continue;
-        if (pendientes.has(a)) {
-          for (let c = a; !red.has(c); c = previo[c] as number) red.add(c);
-          pendientes.delete(a);
-          return;
-        }
-        // Un nodo fuera de la red es final de tramo: se llega, no se cruza.
-        if (esNodoDeAqui.has(a) && !red.has(a)) continue;
-        const { x, y } = aPunto(a, W);
-        for (let k = desde[a]!; k < desde[a + 1]!; k++) {
-          const j = vecinas[k]!;
-          if (!pisable(j)) continue;
-          const enDiagonal = j % W !== x && Math.floor(j / W) !== y;
-          const c =
-            hastaAqui + (monstruos[j] === 1 ? pisarMonstruo : enDiagonal ? diagonal : recto);
-          if (coste[j] !== -1 && (coste[j] as number) <= c) continue;
-          coste[j] = c;
-          previo[j] = a;
-          frontera.push(j, c);
-        }
-      }
-      const p = aPunto([...pendientes][0] as number, W);
-      throw new Error(
-        `el camino de la región ${r} no llega a (${p.x},${p.y}): la red y los obstáculos tenían que dejarlo alcanzable`,
-      );
+    const b = new Busqueda(e, r);
+    const centro = centroDeRegion(e, r, b);
+    if (centro === -1) continue;
+    b.buscar(centro);
+    const hastaElCentro = Int32Array.from(b.coste);
+    const objetivos = [...(e.objetivos[r] ?? [])].sort(
+      (x, y) => (hastaElCentro[x] as number) - (hastaElCentro[y] as number) || x - y,
+    );
+    const red = new Uint8Array(N);
+    const pegada = new Uint8Array(N);
+    const añadir = (c: number): void => {
+      red[c] = 1;
+      todas.add(c);
+      for (let k = desde[c]!; k < desde[c + 1]!; k++) pegada[vecinas[k]!] = 1;
     };
-
-    // Primero el árbol entre los nodos; después, las sendas a minas y pueblos.
-    for (const grupo of [nodos.slice(1), e.destinos[r] ?? []]) {
-      const pendientes = new Set(grupo.filter((d) => !red.has(d)));
-      while (pendientes.size > 0) engancharElMasCercano(pendientes);
+    añadir(centro);
+    for (const o of objetivos) {
+      if (red[o] === 1) continue;
+      b.buscar(centro, red, pegada, o);
+      if (b.previo[o] === -1) {
+        const p = aPunto(o, W);
+        throw new Error(
+          `el camino de la región ${r} no llega a (${p.x},${p.y}): la red y los obstáculos tenían que dejarlo alcanzable`,
+        );
+      }
+      for (let c = o; red[c] !== 1; c = b.previo[c] as number) añadir(c);
     }
-    for (const c of red) caminos.add(c);
   }
-  return [...caminos].sort((a, b) => a - b);
+
+  // Lo que se dibuja manda: a un nodo le llegan tantos tramos de una región
+  // como casillas de camino de ella unidas a él.
+  const unidas = new Map<number, number[]>();
+  for (const [p, q] of aristasDeCamino(todas, W, H)) {
+    unidas.set(p, [...(unidas.get(p) ?? []), q]);
+    unidas.set(q, [...(unidas.get(q) ?? []), p]);
+  }
+  for (const [r, nodos] of e.nodosDeRegion.entries()) {
+    const lleva = new Set(e.objetivos[r] ?? []);
+    for (const n of nodos) {
+      const tramos = (unidas.get(n) ?? []).filter((j) => regionDe[j] === r).length;
+      const { x, y } = aPunto(n, W);
+      if (!lleva.has(n) && tramos > 0) {
+        return `el camino de la región ${r} toca el nodo (${x},${y}), que no lleva: sería un segundo cruce con camino`;
+      }
+      if (tramos > 1) {
+        return `al nodo (${x},${y}) le llegan ${tramos} tramos de la región ${r}: el único paso a otro objetivo va pegado a él`;
+      }
+    }
+  }
+  return [...todas].sort((a, b) => a - b);
 }

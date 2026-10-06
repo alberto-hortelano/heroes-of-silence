@@ -170,6 +170,12 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   (`mountain`, `water`, `forest`, `cliff`, `wall`), pasos de una casilla entre
   ellas. Una ciudad es un nodo; un nodo se toma pisándolo. Una mina produce solo
   si su región está unida a la base. Nada del territorio se guarda: se deriva.
+  Los caminos del procedimental son **radiales** desde el centro de cada región
+  y entre dos vecinas **solo un nodo lleva camino**, que elige la red
+  (`crucesConCamino`) y traza `trazarCaminos`; los demás pasos se cruzan sin
+  él, y los pasos van a Chebyshev ≥ 3 de todo nodo. Las aristas de un camino,
+  para el pintor y para quien lo mida, salen de `aristasDeCamino`. Los del
+  agente, tal cual.
   Lado del mapa: `LADO_DEL_MAPA` (34), elegido con la regla «menor lado con
   mediana ≥ 8 días, p90 ≤ 20 y 0 sin terminar».
 - **Asaltantes**: grupos neutrales que patrullan regiones sin dueño y emboscan

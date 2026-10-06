@@ -3,6 +3,7 @@
  * lienzo, y saca las capturas que se le enseñan al usuario.
  *
  *     pnpm capturas [carpeta]          # por defecto, la del ciclo del cliente nuevo
+ *     CAPTURAS_SOLO=emboscada,veteranos pnpm capturas   # solo esas pasadas
  *
  * Existe porque la extensión del navegador no servía para esto: los eventos
  * sintéticos sobre el canvas no llegaban, daba tiempos de espera y capturas en
@@ -41,7 +42,6 @@ import { type Browser, chromium, type Page } from 'playwright';
 import WebSocket from 'ws';
 import { DURACION, duracionDeLaJugada } from '../../src/client/anim.js';
 import { masCercana, opcionesDeGolpe } from '../../src/client/escenas/angulo.js';
-import { focoDe } from '../../src/client/escenas/aventura.js';
 import {
   AVISO_DE_ESPERA,
   cargaContra,
@@ -50,14 +50,7 @@ import {
 } from '../../src/client/escenas/batalla.js';
 import { msPorCasilla } from '../../src/client/marcha.js';
 import { cajaDeFigura, galonesDe } from '../../src/client/render/batalla.js';
-import {
-  casillaAPixel,
-  centrarEn,
-  type Encuadre,
-  TILE_INICIAL,
-  zoom,
-} from '../../src/client/render/camara-mapa.js';
-import { escenarioDe, topeDeAlejar } from '../../src/client/render/escenario/superficie.js';
+import { type Encuadre, TILE_INICIAL, zoom } from '../../src/client/render/camara-mapa.js';
 import { ALTO_DEL_GRUPO, pasosAPintar } from '../../src/client/render/mapa.js';
 import { registrarUnidad } from '../../src/client/render/personajes.js';
 import { centroDeStack, centroHex, tableroPara } from '../../src/client/render/proyeccion.js';
@@ -90,7 +83,6 @@ import type {
 import { nombreDeTipoDeHeroe } from '../../src/core/data.js';
 import { troopSummary } from '../../src/core/hero/troop.js';
 import { createRng } from '../../src/core/rng.js';
-import { casillasPeligrosas } from '../../src/core/state/asaltantes.js';
 import { baseOf, heroesOf, visibleNow } from '../../src/core/state/game.js';
 import type { Point } from '../../src/core/types.js';
 import type {
@@ -99,6 +91,17 @@ import type {
   ServerToAgentMsg,
 } from '../../src/server/protocol.js';
 import { hojasDeArena, leerBorrador, RUTA_DEL_BORRADOR } from '../arena/borrador.js';
+import {
+  buscarDerrota,
+  buscarEmboscada,
+  buscarVeteranos,
+  type Caja,
+  encuadreDe,
+  guardiaEnElMarco,
+  pixelDeCasilla,
+  tocable,
+  VETERANOS,
+} from './escenas-de-capturas.js';
 import { decidir } from './politica.js';
 import { arrancarServidor, type ServidorDePartida } from './servidor.js';
 
@@ -143,6 +146,14 @@ import { arrancarServidor, type ServidorDePartida } from './servidor.js';
  * con otra guardia al día siguiente, y solo esta cae dentro del marco— la
  * guardia está a seis pasos y la del día 2 a ocho; la 3 da la emboscada con la
  * ruta a (8,8); y el móvil sigue en la 810.
+ *
+ * **Con «menos caminos» (06-10-2026)** la emboscada y los veteranos se
+ * quedaron sin escena, y dejaron de fijarse a mano: las buscan sus pasadas
+ * (`buscarEmboscada`, `buscarVeteranos`), y con ellas la que pierde
+ * (`buscarDerrota`). Las que siguen aquí (la 50 y la 810) aguantaron ese
+ * cambio, pero su escena no se deja buscar barata —la del escritorio es una
+ * partida entera y la del móvil se mide en otro marco—; la próxima vez que
+ * caigan, que se pasen a buscar igual.
  */
 const SEMILLA = 50;
 /**
@@ -152,28 +163,11 @@ const SEMILLA = 50;
  * tras entrar al castillo, su guardia cae a (0,2).
  */
 const SEMILLA_MOVIL = 810;
-/**
- * La partida cuya guardia más cercana gana: la batalla que se pierde y la vuelta
- * a la base. Era la 273 hasta que el héroe nació con su equipo base (+3/+3) y
- * empezó a ganarla; de las 1 500 primeras, la guardia más cercana que se alcanza
- * hoy sigue ganando en la 93, 124, 270, 411… (buscado jugando la sesión). Fue
- * la 534 hasta la vuelta 1 de QA de los mapas densos; hoy, la 97 (también
- * pierden la 1 058, 1 186, 1 215…).
- */
-const SEMILLA_QUE_PIERDE = 97;
-/** La de los veteranos: la guardia más cercana deja uno y al día siguiente hay otra. */
-const SEMILLA_VETERANOS = 2199;
-/**
- * La de la emboscada avisada (H2 del ciclo «el camino cuesta»): el día 1, el
- * grupo de 6 piqueros de la región de casa se ve desde Valdeluz, y la ruta a
- * (2,10) pisa su región en (1,9). Es la escena que encontró QA: antes la barra
- * decía «llegas hoy (3 pasos)» y el grupo no estaba ni pintado (H1). Con los
- * mapas densos tras simplify, en la 3 eran 7 asaltantes en (12,3) y la ruta a
- * (11,5); con la vuelta 1 de QA son 7 asaltantes en (2,11), y la ruta a (8,8)
- * salta en su región al llegar.
- */
-const SEMILLA_EMBOSCADA = 3;
-const DESTINO_EMBOSCADA: Point = { x: 8, y: 8 };
+// Las semillas de la emboscada avisada, de los veteranos y de la batalla que se
+// pierde ya no se escriben aquí: las buscan sus pasadas en el espejo
+// (`escenas-de-capturas.ts`). Eran la 3 con destino (8,8), la 2 199 y la 97;
+// «menos caminos» (06-10-2026) rompió las dos primeras a la vez, como cada
+// cambio del generador antes, y la 97 había caído ya dos veces.
 const DESTINO = resolve(process.argv[2] ?? 'docs/agents/2026-10-01-cliente-nuevo/capturas');
 
 /** Los códigos de color ANSI; escritos con `fromCharCode` porque Biome no deja un ESC literal en una regex. */
@@ -308,31 +302,10 @@ async function captura(page: Page, nombre: string): Promise<void> {
   log(`captura ${nombre}.png`);
 }
 
-async function caja(page: Page): Promise<{ x: number; y: number; width: number; height: number }> {
+async function caja(page: Page): Promise<Caja> {
   const b = await page.locator('#canvas').boundingBox();
   if (b === null) throw new Error('el lienzo no está en la página');
   return b;
-}
-
-/** Lo que se deja libre en cada borde del lienzo al buscar dónde tocar. */
-const MARGEN_DEL_LIENZO = 30;
-/**
- * Abajo se deja más: ahí van los botones de la cámara, y un toque que cae en el
- * «+» hace zoom en vez de ir a donde se quería (semilla 238, destino (7,10)).
- */
-const MARGEN_DE_LOS_BOTONES = 110;
-
-/** Si un píxel de la página cae en el lienzo lejos de sus bordes y de los botones. */
-function tocable(
-  b: { x: number; y: number; width: number; height: number },
-  p: { x: number; y: number },
-): boolean {
-  return (
-    p.x > b.x + MARGEN_DEL_LIENZO &&
-    p.x < b.x + b.width - MARGEN_DEL_LIENZO &&
-    p.y > b.y + MARGEN_DEL_LIENZO &&
-    p.y < b.y + b.height - MARGEN_DE_LOS_BOTONES
-  );
 }
 
 /** Comprueba que la página y el espejo juegan la misma partida. */
@@ -433,28 +406,15 @@ class Mapa {
     private readonly espejo: Session,
   ) {}
 
-  private async encuadre(): Promise<{ b: { x: number; y: number }; e: Encuadre }> {
+  async encuadre(): Promise<{ b: Caja; e: Encuadre }> {
     const b = await caja(this.page);
-    const { map, seed } = this.espejo.state;
-    return {
-      b,
-      e: {
-        ancho: b.width,
-        alto: b.height,
-        mapaAncho: map.width,
-        mapaAlto: map.height,
-        // El tope de alejar, con la misma cuenta que el cliente.
-        tileMinimo: topeDeAlejar(escenarioDe(map, seed), b.width, b.height),
-      },
-    };
+    return { b, e: encuadreDe(b, this.espejo) };
   }
 
   /** Dónde cae en la página el centro de una casilla, con la cámara centrada en el héroe. */
   async pixel(p: Point): Promise<{ x: number; y: number }> {
     const { b, e } = await this.encuadre();
-    const camara = centrarEn({ tile: this.tile, x: 0, y: 0 }, focoDe(this.espejo), e);
-    const c = casillaAPixel(camara, p);
-    return { x: b.x + c.x, y: b.y + c.y };
+    return pixelDeCasilla(b, e, this.tile, this.espejo, p);
   }
 
   /**
@@ -846,12 +806,36 @@ async function avisoQueSeRetira(
 
 // --------------------------------------------------------------------- partidas
 
+/**
+ * La caja del lienzo de escritorio, medida en una página de verdad: lo que una
+ * búsqueda en el espejo llama «a la vista» depende de ella, y la partida no la
+ * cambia (`abrir` lo comprueba con `esperada`). Se mide una vez por corrida.
+ */
+let cajaMedida: Promise<Caja> | null = null;
+function cajaDeEscritorio(browser: Browser, url: string, problemas: Problemas): Promise<Caja> {
+  cajaMedida ??= (async () => {
+    const { page } = await abrir(browser, url, problemas, {
+      nombre: 'medir el lienzo',
+      semilla: SEMILLA,
+    });
+    const b = await caja(page);
+    await page.close();
+    log(
+      `lienzo de escritorio: ${b.width}×${b.height} en (${b.x},${b.y}), con el que se buscan las escenas`,
+    );
+    return b;
+  })();
+  return cajaMedida;
+}
+
 interface Pasada {
   readonly nombre: string;
   readonly semilla: number;
   readonly movil?: boolean;
   /** Imágenes que se le niegan al navegador; su 404 es la prueba, no un fallo. */
   readonly sinImagenes?: RegExp;
+  /** La caja con la que se buscó la escena en el espejo: si la página da otra, lo buscado no vale. */
+  readonly esperada?: Caja;
 }
 
 /**
@@ -877,6 +861,16 @@ async function abrir(
   const espejo = new Session(p.semilla);
   await page.goto(`${url}/?seed=${p.semilla}`, { waitUntil: 'networkidle' });
   await sleep(450);
+  if (p.esperada !== undefined) {
+    const b = await caja(page);
+    const e = p.esperada;
+    if (b.x !== e.x || b.y !== e.y || b.width !== e.width || b.height !== e.height) {
+      throw new Error(
+        `${p.nombre}: la escena se buscó con el lienzo en ${e.width}×${e.height} (${e.x},${e.y}) ` +
+          `y la semilla ${p.semilla} lo abre en ${b.width}×${b.height} (${b.x},${b.y})`,
+      );
+    }
+  }
   return { page, espejo, mapa: new Mapa(page, espejo) };
 }
 
@@ -1013,7 +1007,7 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
   await sleep(200);
 
   // Una batalla de varios individuos por bando, jugada a clics.
-  const monstruo = await guardiaALaVista(page, mapa, espejo);
+  const monstruo = await guardiaALaVista(mapa, espejo);
   await mapa.pulsar(monstruo);
   if (espejo.battle === null)
     throw new Error(`el espejo no ha entrado en batalla: ${espejo.status}`);
@@ -1203,26 +1197,31 @@ async function veteranoEnElCampo(page: Page, espejo: Session): Promise<void> {
  *
  * Pasada propia y no dentro de la de escritorio: allí la primera batalla se
  * juega a clics esperando y defendiendo para enseñar la rendición, y nadie de la
- * tropa llega a pegar. La semilla se buscó con el espejo: en la 2 199 la guardia
- * más cercana deja un veterano y al día siguiente hay otra a la que se llega.
+ * tropa llega a pegar. La semilla la busca el espejo antes de abrir la página
+ * (`buscarVeteranos`): la batalla más cercana a la vista —guardia, o el grupo
+ * que embosca por el camino— deja un veterano y al día siguiente hay otra.
  */
 async function veteranos(browser: Browser, url: string, problemas: Problemas): Promise<void> {
+  const b = await cajaDeEscritorio(browser, url, problemas);
+  const semilla = await buscarVeteranos(b);
+  log(`veteranos: semilla ${semilla}, buscada en el espejo`);
   const { page, espejo, mapa } = await abrir(browser, url, problemas, {
     nombre: 'veteranos',
-    semilla: SEMILLA_VETERANOS,
+    semilla,
+    esperada: b,
   });
   // Un paso de zoom hacia fuera: en el mapa de 34 las guardias están a ocho o
-  // más pasos y, con el zoom de salida, fuera del marco (en la 2 199, a seis
-  // y a ocho).
+  // más pasos y, con el zoom de salida, fuera del marco. La búsqueda mira con
+  // este mismo zoom (`tileDeLosVeteranos`).
   await mapa.rueda(-1);
-  await mapa.pulsar(await guardiaALaVista(page, mapa, espejo));
+  await mapa.pulsar(await guardiaALaVista(mapa, espejo, VETERANOS));
   if (espejo.battle === null) throw new Error(`no hubo batalla: ${espejo.status}`);
   await esperarCola(espejo.battle, espejo.battle.log);
   await page.getByRole('button', { name: 'Resolver sola' }).click();
   espejo.autoResolveBattle();
   await sleep(400);
-  await comprobar(page, espejo, 'resolver la guardia de los veteranos');
-  await veteranosEnElPanel(page, espejo, 'tras la primera guardia');
+  await comprobar(page, espejo, 'resolver la primera batalla de los veteranos');
+  await veteranosEnElPanel(page, espejo, 'tras la primera batalla');
   const cronica = await page.locator('#side').innerText();
   if (!cronica.includes('sube a veterano de nivel')) {
     throw new Error('la crónica de la página no cuenta el ascenso de la tropa');
@@ -1230,7 +1229,7 @@ async function veteranos(browser: Browser, url: string, problemas: Problemas): P
   await captura(page, 'veteranos-01-panel');
   await pasarDia(page, espejo);
   await comprobar(page, espejo, 'pasar al día 2 con los veteranos');
-  await mapa.pulsar(await guardiaALaVista(page, mapa, espejo));
+  await mapa.pulsar(await guardiaALaVista(mapa, espejo, VETERANOS));
   if (espejo.battle === null) throw new Error(`no hubo segunda batalla: ${espejo.status}`);
   await esperarCola(espejo.battle, espejo.battle.log);
   await veteranoEnElCampo(page, espejo);
@@ -1304,7 +1303,7 @@ async function jugarMovil(browser: Browser, url: string, problemas: Problemas): 
   espejo.closeTown();
   await sleep(200);
   await comprobar(page, espejo, 'móvil: volver del castillo');
-  await mapa.pulsar(await guardiaALaVista(page, mapa, espejo));
+  await mapa.pulsar(await guardiaALaVista(mapa, espejo));
   if (espejo.battle === null)
     throw new Error(`móvil: el espejo no ha entrado en batalla: ${espejo.status}`);
   await esperarCola(espejo.battle, espejo.battle.log);
@@ -1481,7 +1480,7 @@ async function jugarTactil(browser: Browser, url: string, problemas: Problemas):
   // 238, y sigue igual con la 810).
   await enOtra.rueda(-1);
   await enOtra.rueda(-1);
-  const monstruo = await guardiaALaVista(page, enOtra, otra);
+  const monstruo = await guardiaALaVista(enOtra, otra);
   const enMonstruo = await enOtra.pixel(monstruo);
   await page.touchscreen.tap(enMonstruo.x, enMonstruo.y);
   await sleep(200);
@@ -1569,26 +1568,15 @@ async function pixelesDelLienzo(page: Page, x: number, y: number): Promise<numbe
  * sin batalla. Lo de «se ve» es del móvil: allí el marco es estrecho, la más
  * cercana caía fuera y el toque iba a otra parte mientras el espejo peleaba.
  */
-async function guardiaALaVista(page: Page, mapa: Mapa, espejo: Session): Promise<Point> {
-  const b = await caja(page);
-  const candidatas: { at: Point; pasos: number }[] = [];
-  // Una ruta que pisa la región de un grupo que embosca no llega a la guardia:
-  // la marcha se para en la emboscada y la batalla es otra.
-  const heroe = espejo.selectedHero;
-  const peligro = heroe === null ? null : casillasPeligrosas(espejo.state, heroe);
-  const W = espejo.state.map.width;
-  for (const o of espejo.state.map.objects) {
-    if (o.kind !== 'monster' || o.defeated) continue;
-    const ruta = espejo.previewPath(o.at);
-    if (ruta.length === 0 || !ruta.every((paso) => paso.hoy)) continue;
-    if (ruta.some((paso) => peligro?.[paso.at.y * W + paso.at.x] === 1)) continue;
-    candidatas.push({ at: o.at, pasos: ruta.length });
-  }
-  candidatas.sort((x, y) => x.pasos - y.pasos);
-  for (const c of candidatas) {
-    if (tocable(b, await mapa.pixel(c.at))) return c.at;
-  }
-  throw new Error('no hay a la vista ninguna guardia a la que se llegue hoy');
+async function guardiaALaVista(
+  mapa: Mapa,
+  espejo: Session,
+  opciones: { readonly aunqueEmbosquen?: boolean } = {},
+): Promise<Point> {
+  const { b, e } = await mapa.encuadre();
+  const guardia = guardiaEnElMarco(b, e, mapa.tile, espejo, opciones);
+  if (guardia === null) throw new Error('no hay a la vista ninguna guardia a la que se llegue hoy');
+  return guardia;
 }
 
 /**
@@ -1735,15 +1723,24 @@ async function emboscadaAvisada(
   url: string,
   problemas: Problemas,
 ): Promise<void> {
+  const b0 = await cajaDeEscritorio(browser, url, problemas);
+  const escena = buscarEmboscada(b0);
+  const adonde = escena.destino;
+  log(
+    `emboscada: semilla ${escena.semilla} y destino (${adonde.x},${adonde.y}), buscados en el espejo`,
+  );
   const { page, espejo, mapa } = await abrir(browser, url, problemas, {
     nombre: 'emboscada avisada',
-    semilla: SEMILLA_EMBOSCADA,
+    semilla: escena.semilla,
+    esperada: b0,
   });
-  const ruta = espejo.previewPath(DESTINO_EMBOSCADA);
+  const ruta = espejo.previewPath(adonde);
   const salta = ruta.find((p) => p.emboscada !== undefined);
+  // La búsqueda ya lo exigió en otro espejo; si aquí no sale, espejo y búsqueda
+  // no juegan la misma partida.
   if (salta === undefined || salta.emboscada === undefined) {
     throw new Error(
-      `semilla ${SEMILLA_EMBOSCADA}: la ruta a (${DESTINO_EMBOSCADA.x},${DESTINO_EMBOSCADA.y}) ya no pisa ninguna emboscada a la vista`,
+      `semilla ${escena.semilla}: la búsqueda dio una emboscada en la ruta a (${adonde.x},${adonde.y}) y el espejo no la ve`,
     );
   }
   const grupo = salta.emboscada;
@@ -1761,7 +1758,7 @@ async function emboscadaAvisada(
     return n;
   };
   const antes = rojos(await pixelesDelLienzo(page, enSalto.x - b.x, enSalto.y - b.y));
-  const destino = await mapa.pixel(DESTINO_EMBOSCADA);
+  const destino = await mapa.pixel(adonde);
   await page.mouse.move(destino.x, destino.y);
   await sleep(250);
   const despues = rojos(await pixelesDelLienzo(page, enSalto.x - b.x, enSalto.y - b.y));
@@ -1779,7 +1776,7 @@ async function emboscadaAvisada(
       `emboscada: la casilla donde salta no se pinta en rojo (${antes} → ${despues})`,
     );
   }
-  await mapa.pulsar(DESTINO_EMBOSCADA);
+  await mapa.pulsar(adonde);
   const atacante = espejo.state.pendingBattle?.attacker;
   if (atacante?.kind !== 'raider' || atacante.raiderId !== grupo.id) {
     throw new Error(`emboscada: al pulsar no hay batalla con ${grupo.id}: ${espejo.status}`);
@@ -1791,16 +1788,20 @@ async function emboscadaAvisada(
 }
 
 async function batallaPerdida(browser: Browser, url: string, problemas: Problemas): Promise<void> {
+  // Era una semilla fija —la 273, la 534, la 97…— que caía cada vez que el
+  // héroe o el mapa cambiaban; la busca el espejo (`buscarDerrota`).
+  const b = await cajaDeEscritorio(browser, url, problemas);
+  const semilla = buscarDerrota(b);
+  log(`batalla perdida: semilla ${semilla}, buscada en el espejo`);
   const { page, espejo, mapa } = await abrir(browser, url, problemas, {
     nombre: 'batalla perdida',
-    // La 4 y no la 6: con el mapa de nodos la guardia más cercana de la 6 cae
-    // y la de la 4 (cinco arqueros) gana. Se busca igual que las demás.
-    semilla: SEMILLA_QUE_PIERDE,
+    semilla,
+    esperada: b,
   });
-  const guardia = { at: await guardiaALaVista(page, mapa, espejo) };
+  const guardia = { at: await guardiaALaVista(mapa, espejo) };
   await mapa.pulsar(guardia.at);
   if (espejo.battle === null) {
-    throw new Error(`semilla ${SEMILLA_QUE_PIERDE}: no hubo batalla: ${espejo.status}`);
+    throw new Error(`semilla ${semilla}: no hubo batalla: ${espejo.status}`);
   }
   await esperarCola(espejo.battle, espejo.battle.log);
   await captura(page, 'desktop-13-batalla-que-se-pierde');
@@ -1810,7 +1811,7 @@ async function batallaPerdida(browser: Browser, url: string, problemas: Problema
   await comprobar(page, espejo, 'resolver la batalla perdida');
   const final = [...espejo.state.log].reverse().find((e) => e.kind === 'battle_ended');
   const perdida = final?.kind === 'battle_ended' && final.winner === 'defender';
-  log(`batalla de la semilla ${SEMILLA_QUE_PIERDE}: ${perdida ? 'PERDIDA' : 'ganada'}`);
+  log(`batalla de la semilla ${semilla}: ${perdida ? 'PERDIDA' : 'ganada'}`);
   if (!perdida) throw new Error('la batalla que debía perderse se ha ganado: cambia de guardia');
   // El héroe derrotado vuelve a la base: en el castillo, sin tropa y sin
   // movimiento, y la crónica lo cuenta en ese orden.
@@ -1857,7 +1858,7 @@ async function sinArte(browser: Browser, url: string, problemas: Problemas): Pro
   // Sin arte la figura no respira y el lienzo no se repinta solo: el
   // deslizamiento de la patrulla es lo que tiene que pedir los fotogramas.
   await patrullaALaVista(page, espejo, mapa, 'sin-arte-02');
-  await mapa.pulsar(await guardiaALaVista(page, mapa, espejo));
+  await mapa.pulsar(await guardiaALaVista(mapa, espejo));
   if (espejo.battle !== null) {
     await esperarCola(espejo.battle, espejo.battle.log);
     await captura(page, 'sin-arte-02-batalla');
@@ -2569,7 +2570,43 @@ async function jugarArena(
 
 // ------------------------------------------------------------------------ main
 
+type Paso = (browser: Browser, url: string, problemas: Problemas) => Promise<void>;
+
+/** Las pasadas, en el orden en que se juegan. Los nombres son los de `CAPTURAS_SOLO`. */
+const PASADAS: readonly (readonly [string, Paso])[] = [
+  ['escritorio', jugarEscritorio],
+  ['emboscada', emboscadaAvisada],
+  ['perdida', batallaPerdida],
+  ['veteranos', veteranos],
+  ['movil', jugarMovil],
+  ['tactil', jugarTactil],
+  ['sin-arte', sinArte],
+  ['espectador', espectador],
+  ['arena', arena],
+];
+
+/**
+ * `CAPTURAS_SOLO=emboscada,veteranos pnpm capturas` juega solo esas pasadas:
+ * para arreglar una sin esperar los tres minutos de todas. Un nombre que no es
+ * de ninguna pasada se rechaza diciéndolo; vacía o sin poner, se juegan todas.
+ * La pasada de cierre es siempre la entera.
+ */
+function pasadasPedidas(): readonly (readonly [string, Paso])[] {
+  const solo = (process.env.CAPTURAS_SOLO ?? '').trim();
+  if (solo === '') return PASADAS;
+  const pedidas = solo.split(',').map((n) => n.trim());
+  const desconocidas = pedidas.filter((n) => !PASADAS.some(([nombre]) => nombre === n));
+  if (desconocidas.length > 0) {
+    throw new Error(
+      `CAPTURAS_SOLO: no hay ninguna pasada «${desconocidas.join('», «')}»; las hay ${PASADAS.map(([n]) => n).join(', ')}`,
+    );
+  }
+  return PASADAS.filter(([nombre]) => pedidas.includes(nombre));
+}
+
 async function main(): Promise<void> {
+  // Antes de arrancar nada: un nombre mal escrito no merece un vite.
+  const pasadas = pasadasPedidas();
   mkdirSync(DESTINO, { recursive: true });
   const inicio = Date.now();
   const problemas: Problemas = { lista: [] };
@@ -2586,15 +2623,10 @@ async function main(): Promise<void> {
     log(`vite en ${arrancado.url} (grupo ${vite.pid})`);
     const ejecutable = chromiumInstalado();
     browser = await chromium.launch(ejecutable === undefined ? {} : { executablePath: ejecutable });
-    await jugarEscritorio(browser, arrancado.url, problemas);
-    await emboscadaAvisada(browser, arrancado.url, problemas);
-    await batallaPerdida(browser, arrancado.url, problemas);
-    await veteranos(browser, arrancado.url, problemas);
-    await jugarMovil(browser, arrancado.url, problemas);
-    await jugarTactil(browser, arrancado.url, problemas);
-    await sinArte(browser, arrancado.url, problemas);
-    await espectador(browser, arrancado.url, problemas);
-    await arena(browser, arrancado.url, problemas);
+    for (const [nombre, pasada] of pasadas) {
+      log(`pasada «${nombre}»`);
+      await pasada(browser, arrancado.url, problemas);
+    }
   } finally {
     await browser?.close();
     limpiar();

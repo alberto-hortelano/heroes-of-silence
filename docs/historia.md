@@ -1463,22 +1463,101 @@ paso. El grafo de regiones y nodos es el que validó el perfil.
   se reconoce desde fuera— y con ella puesta, desde los nodos de la región se
   sigue llegando a todo sin cruzar un monstruo. Esa comprobación se rompió a mano
   y la auditoría se puso roja en 27 sitios.
-- **Caminos: un árbol entre los nodos de cada región y una senda a cada mina y
-  pueblo, con los tramos fundidos** (decisión del usuario en la vuelta 1 de QA,
-  «árbol mínimo + minas»). La red crece desde el primer nodo: cada paso busca
-  desde **toda la red ya trazada** el nodo que queda más cerca y traza ese tramo
-  —Prim, midiendo desde la red—, y después cada mina y pueblo se engancha igual.
-  El coste es el del héroe (`costeDeEntrada` del suelo, la diagonal más cara).
-  Rodea a los monstruos si puede y si no pasa por encima: un guardia que corta la
-  región en dos deja cada mitad alcanzable desde su nodo, pero no desde el
-  primero. La primera versión unía todo con todo y daba **el 41 % del suelo
-  pisable** con camino (mediana de 200), con vías dobles; el árbol da **el 36 %**
-  (28,5-44,3 en 1 000) y los bloques de 2×2 de camino bajan de 6 a 0,8 por mapa.
-  **El 10-15 % que se pidió como orientación no cabe en esta regla**: una región
-  tiene ~68 casillas pisables y ~8 sitios que unir (nodos, minas y pueblo), y
-  solo esas casillas son ya el 8,4 % del suelo. Bajar de ahí es menos sitios o
-  regiones más grandes, y lo decide el usuario. Un test pone el techo de la
-  mediana en el 38 % para que la malla no vuelva.
+- **Caminos: radiales desde el centro de cada región, y un solo cruce con
+  camino por pareja de vecinas** (#149, 06-10-2026; absorbe #133). Historia,
+  porque cada paso lo pidió una captura:
+  - La primera versión unía todo con todo: **el 41 % del suelo pisable** con
+    camino (mediana de 200), con vías dobles.
+  - Luego, «árbol mínimo + minas» (decisión del usuario en la vuelta 1 de QA):
+    un Prim por región entre sus nodos, midiendo desde la red, y una senda a
+    cada mina y pueblo. **El 36 %** (28,5-44,3 en 1 000) y los bloques de 2×2
+    bajaron de 6 a 0,8 por mapa. Pero el árbol era **por región**, y μ(unión) =
+    Σμ(regiones) + μ(grafo región–nodo): una frontera con dos o tres pasos tenía
+    un camino de paso a paso a cada lado de la barrera, dos vías paralelas que
+    se cerraban en anillo. **18,5 ciclos por mapa, 16,7 entre regiones**. El
+    usuario lo vio en `caminos-despejados/capturas-qa/s7-acantilado.jpg`: «se ve
+    un cuadrado formado por caminos que no aportan nada».
+  - Se le dieron tres salidas y eligió «dentro de una región una estructura de
+    caminos radial». El prototipo enseñó que radial solo no basta: los radios de
+    los dos lados hacia dos pasos cercanos son dos «V» que se cierran (37 % y
+    los mismos anillos). Eligió la variante B: **entre dos regiones vecinas,
+    solo un nodo lleva camino**; los demás pasos se cruzan igual, sin camino.
+  - Cómo queda (`trazarCaminos`, `vestir.ts`): cada región tiene un **centro**,
+    la casilla libre que menos suma hasta lo que lleva —sus cruces, minas y
+    pueblos— (la semilla
+    del Voronoi tenía un monstruo encima en 26 de 100 mapas). Los radios salen
+    de ahí, del objetivo más cercano al más lejano, con lo ya trazado a mitad de
+    precio para que compartan tronco y un paso de más por arrimarse a la red
+    viniendo de fuera, porque el pintor cose dos casillas de camino vecinas en
+    rombo. Un nodo es final de tramo; una mina o un pueblo no (hacerlos final
+    subía el camino al 34 % y los ciclos dentro de una región de 1,2 a 6,4).
+  - **Un cruce por pareja** (`crucesConCamino`): a un nodo le llega el camino
+    de una región si tiene al lado una casilla de camino de ella, que es lo que
+    se dibuja. Una ciudad toca tres regiones y con camino desde las tres es el
+    cruce de las tres parejas, así que **se prefiere ciudad a paso** (tres
+    radios por tres parejas; la más barata sin más daba 32,8 % y μ 9,9) y se
+    reparte con vuelta atrás para que ninguna pareja tenga dos. El prototipo
+    daba camino a toda ciudad desde todas sus regiones y dejaba dos cruces en
+    3,7 parejas por mapa. La base está siempre en la red de su casa; toda
+    ciudad, en la de alguna de sus regiones.
+  - **Vuelta de /simplify** (mismo día, A1 + A2 aprobados por el usuario: «sí,
+    separar y repartir en la red»). La primera versión repartía los cruces
+    *después* de trazar, con el coste desde los centros, y cuando dos nodos
+    estaban a dos casillas la única entrada a uno quedaba pegada al otro
+    (semilla 8): el contacto se daba por hecho, se volvía a repartir y se
+    trazaba otra vez, con un coste «ajeno» para no pisar junto a un nodo con
+    camino de otra región. Ahora:
+    - **los pasos se separan de los demás nodos como las ciudades**
+      (Chebyshev ≥ 3, `intentarRed`): ninguna casilla es vecina de dos nodos.
+      Es regla del generador y no de `problemasDeRed`, porque los caminos del
+      agente los escribe él. Cambia la red: en las semillas 1-10, **14,5 → 11,9
+      pasos por mapa**, las parejas de vecinas 17,4 → 17,8 (ninguna perdida) y
+      las redes descartadas 4 → 5;
+    - **el cruce lo elige la red** (`RedFina.conCamino`), por la suma de
+      distancias de Chebyshev a las semillas de las dos regiones; un reparto
+      imposible tira la red antes de vestirla (0 veces en 1-10);
+    - **`trazarCaminos` solo traza radios** a los objetivos que recibe y
+      comprueba lo dibujado: un nodo al que le llegan dos tramos de una región
+      (deja de ser hoja) o uno de una región que no lo lleva es un vestido que
+      no vale (fase `caminos`). Pasa cuando el único pasillo hacia un objetivo
+      va pegado a otro nodo a tres casillas (semilla 43: (14,16) y (17,16)), y
+      eso no lo evita ningún coste. En las 203 semillas del test denso fallan
+      16 vestidos; con un coste por pisar junto a un nodo ajeno al radio, 14:
+      no compensaba y se quitó;
+    - **una sola regla de aristas** (`aristasDeCamino`, `map.ts`) para el
+      pintor, el generador y la auditoría;
+    - **el Dijkstra, más barato sin cambiar nada**: para al sacar el objetivo,
+      reutiliza `coste` y `previo`, `pegada` crece con la red, máscaras en vez
+      de `Set` y el centro solo sobre las casillas de la región. Con la versión
+      ingenua el banco da el mismo hash; 200 planes pasan de 1,07-1,25 s a
+      0,86-1,03 s y el banco de 5,6-5,7 s a 5,0-5,1 s.
+
+    Medido en las semillas 1-10 (antes → después de la vuelta): camino 30,2 →
+    30,3 % (mediana 31,2 → 30,8); μ 7,0 → 7,1, dentro de una región 1,6 → 1,2;
+    anillos de ≤ 12 casillas 0 → 0; nodos sin camino 9,2 → 6,7 por mapa (hay
+    menos pasos). Barrido (40, el de serie): 7 / 18 / 21 → 7 / 15 / 27 días,
+    0 sin terminar; la mediana de 40 ya era 7 antes de la vuelta (la de 100
+    era 9). Banco: 9 / 17 / 34 → 8 / 15 / 39.
+  - **Tests que fijaban semillas**, de paso: los asaltantes buscan ellos sus
+    brotes, la crónica busca su partida larga, la escena 7 de los paneles se
+    parte en ganada y perdida buscando la semilla de cada una, y el aviso de
+    7680×4320 se mira en 48×48 (el mapa de 34 anda en el tope de 2 000
+    volúmenes y lo cruzaba cada vez que cambiaba el pasillo de la senda).
+  - **Medido en las semillas 1-100**, con las aristas del pintor (antes →
+    después): camino **36,1 → 30,5 %** del suelo pisable; μ **18,5 → 7,4**
+    ciclos por mapa (dentro de una región 1,8 → 1,15; entre regiones 16,7 →
+    6,3); anillos de ≤ 12 casillas entre dos nodos de la misma pareja **689 →
+    0**; nodos sin camino 0 → 8,0 de 21 por mapa. Duración del barrido (100):
+    8 / 16 / 25 → **9 / 17 / 32** días, dentro de la regla del lado (mediana ≥
+    8, p90 ≤ 20, 0 sin terminar). Los ciclos que quedan pasan por los centros
+    de varias regiones, y esos acortan de verdad.
+  - Lo que queda dentro de una región (1,15 por mapa) es el pintor cosiendo
+    casillas vecinas que el trazado no une; el arreglo de raíz es que `roads`
+    lleve tramos y no casillas, y eso toca el plan del agente.
+  - El test denso pone techos medidos con holgura: mediana del camino < 33 %,
+    de los ciclos ≤ 10 y de los de dentro ≤ 3. **El 10-15 % que se pidió como
+    orientación sigue sin caber**: ~8 sitios que unir por región de ~68
+    casillas son ya el 8,4 % del suelo.
 - **Un camino del plan sobre una barrera se rechaza** diciendo la casilla, en
   `validateMapPlan` (la puerta de los dos productores): `map.ts` no lo abría,
   pero el cliente lo pintaba encima y una carretera sobre un acantilado dice que
@@ -1493,7 +1572,12 @@ paso. El grafo de regiones y nodos es el que validó el perfil.
 - **La auditoría** (`auditarMapaDenso`, en `test/helpers.ts`) lo mide desde
   fuera, sin preguntar al generador: grosor, suelo uniforme, densidad, alcance y
   caminos, más cuatro barreras por mapa con su mínimo de casillas y las cinco en
-  el total. Mira las 200 primeras semillas **y las 864, 986 y 987**, las tres que
+  el total. Los caminos, desde #149: cada mina, pueblo y ciudad en la red de su
+  región, la base en la de su casa, cada nodo con camino **hoja** de la red de
+  cada región que lo lleva, el camino de cada región de una pieza, **exactamente
+  un cruce con camino por pareja de vecinas** y la red del mapa de una pieza (antes pedía ir
+  por camino de cada nodo a todos los de su región, que es justo lo que
+  trazaba los anillos). Mira las 200 primeras semillas **y las 864, 986 y 987**, las tres que
   QA encontró barriendo mil y que el test no veía; se le vio morder con las tres
   antes de arreglarlas. La auditoría independiente de QA, sobre las semillas
   1-1 000 en 34×34 y 1-100 en 48×48, sale sin un fallo.

@@ -683,6 +683,7 @@ export function generateMapPlan(rng: Rng, opts: ProceduralOptions = {}): MapPlan
     fronteras: { veces: 0, ultimo: '' },
     objetos: { veces: 0, ultimo: '' },
     obstáculos: { veces: 0, ultimo: '' },
+    caminos: { veces: 0, ultimo: '' },
   };
   for (let intento = 0; intento < INTENTOS_DE_RED; intento++) {
     const red = intentarRed(rng, width, height);
@@ -710,7 +711,7 @@ export function generateMapPlan(rng: Rng, opts: ProceduralOptions = {}): MapPlan
 }
 
 /** En qué paso del vestido se rindió un intento, para que el error final lo diga. */
-const FASES_DEL_VESTIDO = ['fronteras', 'objetos', 'obstáculos'] as const;
+const FASES_DEL_VESTIDO = ['fronteras', 'objetos', 'obstáculos', 'caminos'] as const;
 type FaseDelVestido = (typeof FASES_DEL_VESTIDO)[number];
 
 /** Un vestido que no vale: en qué fase y por qué. */
@@ -814,6 +815,8 @@ interface RedFina {
   /** Saltos desde cada base, para la facción de cada ciudad neutral. */
   readonly d0: ReadonlyMap<number, number>;
   readonly d1: ReadonlyMap<number, number>;
+  /** Los nodos que llevan camino desde cada región (`crucesConCamino`). */
+  readonly conCamino: readonly (readonly number[])[];
 }
 
 /** Un intento de red fina: la red si sale válida y equilibrada, `null` si no. */
@@ -913,10 +916,14 @@ function intentarRed(rng: Rng, W: number, H: number): RedFina | null {
   }
   const ciudades = nodos.length;
   // Un paso por pareja de regiones vecinas, en el medio de su frontera, salvo
-  // que caiga pegado a otro nodo: dos nodos vecinos no valen (`problemasDeRed`).
+  // que caiga a dos casillas o menos de otro nodo, igual que las ciudades. Dos
+  // nodos vecinos no valen (`problemasDeRed`), y a dos casillas comparten
+  // vecinas: el camino que llega a uno quedaría unido, en el dibujo, al otro.
+  // La regla es del generador y no de `problemasDeRed`: los caminos del agente
+  // los escribe él, y un plan con dos nodos a dos casillas es jugable.
   for (const lista of porPareja.values()) {
     const n = lista[Math.floor(lista.length / 2)] as number;
-    if (cerca(n, 1)) continue;
+    if (cerca(n, 2)) continue;
     nodos.push(n);
   }
 
@@ -977,6 +984,15 @@ function intentarRed(rng: Rng, W: number, H: number): RedFina | null {
   // semillas, 01-10-2026): 0 sin terminar, mediana 4 días, p90 7, máximo 20,
   // lo mismo que con el límite. Sobraba y se quitó.
   const neutrales = cruceros;
+
+  // Qué nodo lleva camino entre cada pareja de vecinas: si no hay reparto, la
+  // red no vale y se traza otra, sin pagar el vestido.
+  const conCamino = crucesConCamino(red, [
+    { nodo: b0, casa: 0 },
+    { nodo: b1, casa: 1 },
+    ...neutrales.map((nodo) => ({ nodo })),
+  ]);
+  if (conCamino === null) return null;
   return {
     W,
     H,
@@ -992,7 +1008,113 @@ function intentarRed(rng: Rng, W: number, H: number): RedFina | null {
     neutrales,
     d0,
     d1,
+    conCamino,
   };
+}
+
+/**
+ * Qué nodos llevan camino desde cada región, por índice de nodo: **exactamente
+ * un cruce con camino por pareja de regiones vecinas** (decisión del usuario,
+ * variante B de #149). Un nodo es cruce de la pareja (a, b) si le llega camino
+ * desde las dos; los demás nodos que comparten se cruzan igual, sin camino.
+ *
+ * Cada pareja prefiere una ciudad a un paso —una ciudad toca tres regiones, y
+ * con camino desde las tres es el cruce de tres parejas con tres radios— y,
+ * entre iguales, el nodo más cerca (Chebyshev) de las semillas de las dos;
+ * desempata el índice. Pero una ciudad con camino desde a, b y c ya es el cruce
+ * de las tres parejas y ninguna puede tener otro, así que se reparte con vuelta
+ * atrás: las parejas con menos nodos comunes primero y, en cada una, el primer
+ * nodo que no le dé a otra pareja un segundo cruce.
+ *
+ * Las ciudades con `casa` (las bases) llevan camino desde ella; toda otra
+ * ciudad que no sea cruce de nada lleva un radio desde su región más cercana,
+ * que no la hace cruce de nada. `null` si no hay reparto: la red se descarta
+ * antes de vestirla.
+ */
+export function crucesConCamino(
+  red: Estructura,
+  ciudades: readonly { readonly nodo: number; readonly casa?: number }[],
+): number[][] | null {
+  const cheb = (a: Point, b: Point): number => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+  const cuesta = (n: number, regiones: readonly number[]): number =>
+    regiones.reduce((t, r) => t + cheb(red.nodos[n]?.at as Point, red.regiones[r]?.at as Point), 0);
+  const pareja = (a: number, b: number): string => (a < b ? `${a}|${b}` : `${b}|${a}`);
+  const esCiudad = new Set(ciudades.map((c) => c.nodo));
+
+  /** Desde qué regiones llega el camino a cada nodo. */
+  const llegaDesde = new Map<number, ReadonlySet<number>>();
+  for (const { nodo, casa } of ciudades) {
+    if (casa === undefined) continue;
+    if (!(red.nodos[nodo]?.regiones ?? []).includes(casa)) {
+      throw new Error(`la base del nodo ${nodo} no toca su región de casa, la ${casa}`);
+    }
+    llegaDesde.set(nodo, new Set([casa]));
+  }
+  /** Las parejas que ya tienen su cruce. */
+  const servida = new Set<string>();
+  /** Las parejas de las que `n` pasaría a ser cruce si le llegara camino desde `a` y `b`. */
+  const parejasNuevas = (n: number, a: number, b: number): string[] => {
+    const ya = llegaDesde.get(n) ?? new Set<number>();
+    const desde = [...new Set([...ya, a, b])].sort((x, y) => x - y);
+    const nuevas: string[] = [];
+    for (const [i, x] of desde.entries()) {
+      for (const y of desde.slice(i + 1)) if (!(ya.has(x) && ya.has(y))) nuevas.push(pareja(x, y));
+    }
+    return nuevas;
+  };
+
+  const comunes = new Map<string, { a: number; b: number; nodos: number[] }>();
+  for (const [n, nodo] of red.nodos.entries()) {
+    for (const [i, a] of nodo.regiones.entries()) {
+      for (const b of nodo.regiones.slice(i + 1)) {
+        const p = comunes.get(pareja(a, b)) ?? { a: Math.min(a, b), b: Math.max(a, b), nodos: [] };
+        p.nodos.push(n);
+        comunes.set(pareja(a, b), p);
+      }
+    }
+  }
+  const parejas = [...comunes.values()];
+  for (const p of parejas) {
+    p.nodos.sort(
+      (x, y) =>
+        Number(esCiudad.has(y)) - Number(esCiudad.has(x)) ||
+        cuesta(x, [p.a, p.b]) - cuesta(y, [p.a, p.b]) ||
+        x - y,
+    );
+  }
+  parejas.sort((p, q) => p.nodos.length - q.nodos.length || p.a - q.a || p.b - q.b);
+
+  const repartir = (k: number): boolean => {
+    const p = parejas[k];
+    if (p === undefined) return true;
+    if (servida.has(pareja(p.a, p.b))) return repartir(k + 1);
+    for (const n of p.nodos) {
+      const nuevas = parejasNuevas(n, p.a, p.b);
+      if (nuevas.some((q) => servida.has(q))) continue;
+      const antes = llegaDesde.get(n);
+      llegaDesde.set(n, new Set([...(antes ?? []), p.a, p.b]));
+      for (const q of nuevas) servida.add(q);
+      if (repartir(k + 1)) return true;
+      for (const q of nuevas) servida.delete(q);
+      if (antes === undefined) llegaDesde.delete(n);
+      else llegaDesde.set(n, antes);
+    }
+    return false;
+  };
+  if (!repartir(0)) return null;
+
+  for (const { nodo } of ciudades) {
+    if (llegaDesde.has(nodo)) continue;
+    const regiones = red.nodos[nodo]?.regiones ?? [];
+    const mejor = [...regiones].sort((x, y) => cuesta(nodo, [x]) - cuesta(nodo, [y]) || x - y)[0];
+    if (mejor === undefined) throw new Error(`la ciudad del nodo ${nodo} no toca ninguna región`);
+    llegaDesde.set(nodo, new Set([mejor]));
+  }
+  const lleva: number[][] = red.regiones.map(() => []);
+  for (const [n, desde] of [...llegaDesde].sort((x, y) => x[0] - y[0])) {
+    for (const r of desde) lleva[r]?.push(n);
+  }
+  return lleva;
 }
 
 /**
@@ -1208,12 +1330,13 @@ function vestirRed(rng: Rng, fina: RedFina, opts: ProceduralOptions): MapPlan | 
     return fallo('obstáculos', 'alguna región no llega a la densidad mínima de obstáculos');
   }
 
-  // 11. Los caminos: un árbol entre los nodos de cada región y una senda a cada mina y pueblo.
-  const destinos: number[][] = semillas.map(() => []);
+  // 11. Los caminos: radiales desde el centro de cada región a sus minas, sus
+  //     pueblos y los nodos que le tocan en el reparto de la red.
+  const objetivos = fina.conCamino.map((ks) => ks.map((k) => nodos[k] as number));
   for (const o of [...mines, ...villages]) {
-    destinos[regionGruesa[indice(o.at)] as number]?.push(indice(o.at));
+    objetivos[regionGruesa[indice(o.at)] as number]?.push(indice(o.at));
   }
-  const roads = trazarCaminos({
+  const trazado = trazarCaminos({
     W,
     H,
     tipos,
@@ -1221,9 +1344,12 @@ function vestirRed(rng: Rng, fina: RedFina, opts: ProceduralOptions): MapPlan | 
     regiones: semillas.length,
     suelos,
     nodosDeRegion,
-    destinos,
+    objetivos,
     monstruos,
-  }).map((i) => punto(i));
+    ocupadas,
+  });
+  if (typeof trazado === 'string') return fallo('caminos', trazado);
+  const roads = trazado.map((i) => punto(i));
 
   // Los muros, por tramos de fila del mismo tipo: frontera y obstáculos juntos.
   // Las casillas de nodo van dentro del tramo y `buildMap` las abre: es la

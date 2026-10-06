@@ -13,13 +13,15 @@ import { BARRERAS_DEL_MAPA } from '../src/core/data.js';
 import type { Hero } from '../src/core/hero/hero.js';
 import type { MapPlan } from '../src/core/map/generate.js';
 import {
+  aristasDeCamino,
   type GameMap,
   isEnterable,
   type MapObject,
   objectAt,
+  pointFromKey,
   pointKey,
 } from '../src/core/map/map.js';
-import { estructura, juntoANodo, rellenar, vecindad } from '../src/core/map/regiones.js';
+import { aPunto, estructura, juntoANodo, rellenar, vecindad } from '../src/core/map/regiones.js';
 import { esBarrera, type TerrainKind } from '../src/core/map/terrain.js';
 import type { Rng } from '../src/core/rng.js';
 import { applyAdventureAction, type GameContext, type GameState } from '../src/core/state/game.js';
@@ -259,9 +261,27 @@ export function planDeNodos(): MapPlan {
       { x: 11, y: 6 },
     ],
     towns: [
-      { id: 'town-0', name: 'Valdeluz', faction: 'knight', at: { x: 5, y: 4 }, owner: 0 },
-      { id: 'town-1', name: 'Cripta Gris', faction: 'necromancer', at: { x: 22, y: 4 }, owner: 1 },
-      { id: 'town-2', name: 'Torreblanca', faction: 'knight', at: { x: 17, y: 4 }, owner: null },
+      {
+        id: 'town-0',
+        name: 'Valdeluz',
+        faction: 'knight',
+        at: { x: 5, y: 4 },
+        owner: 0,
+      },
+      {
+        id: 'town-1',
+        name: 'Cripta Gris',
+        faction: 'necromancer',
+        at: { x: 22, y: 4 },
+        owner: 1,
+      },
+      {
+        id: 'town-2',
+        name: 'Torreblanca',
+        faction: 'knight',
+        at: { x: 17, y: 4 },
+        owner: null,
+      },
     ],
     heroStarts: [
       { player: 0, at: { x: 4, y: 4 } },
@@ -345,8 +365,12 @@ export function barrerasDe(map: GameMap): {
  * - **alcance**: desde las vecinas de los nodos de cada región, sin cruzar un
  *   monstruo, se llega a todas sus casillas pisables —objetos, inicios y
  *   asaltantes incluidos—;
- * - **caminos**: cada nodo está en `roads`, y por `roads` de la región se va de
- *   cualquiera de sus nodos a los demás, a sus minas y a sus pueblos.
+ * - **caminos** (#149, radiales con un cruce por pareja): cada ciudad, mina y
+ *   pueblo está en la red de su región —el camino de la región es una sola
+ *   pieza y los lleva—, la base en la de su casa, cada nodo con camino es una
+ *   **hoja** de la red de cada región que se lo lleva, entre cada pareja de
+ *   regiones vecinas hay **exactamente un** nodo con camino, y `roads` del mapa
+ *   es una sola pieza.
  *
  * Devuelve además cuántas casillas de frontera lleva cada barrera, que es lo
  * que el test cuenta por mapa: así no se construye el mapa dos veces.
@@ -460,38 +484,156 @@ export function auditarMapaDenso(
       fallos.push(`(${p.x},${p.y}) tiene algo y no es de ninguna región`);
   }
 
-  // Caminos.
+  // Caminos, tal como se dibujan (`aristasDeCamino`, la regla del pintor): a
+  // un nodo le «llega el camino» de una región si está unido a una casilla de
+  // camino de ella.
   const camino = map.roads;
+  const enCamino = (i: number) => camino.has(pointKey(aPunto(i, W)));
+  const todas = casillasDeCamino(map);
+  const unidas = unidasPorCamino(new Set(todas), W, H);
+  const tramosDesde = (n: number, k: number): number =>
+    (unidas.get(n) ?? []).filter((j) => red.regionDe[j] === k).length;
+  const leLlegaDe = (n: number, k: number): boolean => tramosDesde(n, k) > 0;
+  const nodosDe = red.regiones.map((reg) => new Set(reg.nodos.map((n) => nodos[n]!)));
   for (const [k, reg] of red.regiones.entries()) {
-    const destinos = [
-      ...reg.nodos.map((n) => nodos[n]!),
-      ...map.objects
-        .filter(
-          (o) =>
-            (o.kind === 'mine' || o.kind === 'village') && red.regionDe[o.at.y * W + o.at.x] === k,
-        )
-        .map((o) => o.at.y * W + o.at.x),
-    ];
-    const enCamino = (i: number) => camino.has(pointKey({ x: i % W, y: (i - (i % W)) / W }));
-    const origen = destinos[0];
-    if (origen === undefined) continue;
-    if (!enCamino(origen)) {
-      fallos.push(`el nodo ${en(origen)} de la región ${reg.id} no está en un camino`);
+    const destinos = map.objects
+      .filter(
+        (o) =>
+          (o.kind === 'mine' || o.kind === 'village') && red.regionDe[o.at.y * W + o.at.x] === k,
+      )
+      .map((o) => o.at.y * W + o.at.x);
+    // El camino de la región, sin sus nodos: un radio no cruza un nodo, así
+    // que tiene que ser de una pieza por las casillas de la región.
+    const suCamino = todas.filter((c) => red.regionDe[c] === k).sort((a, b) => a - b);
+    const origen = suCamino[0];
+    if (origen === undefined) {
+      fallos.push(`la región ${reg.id} no tiene ni una casilla de camino`);
       continue;
     }
-    const suyos = new Set(reg.nodos.map((n) => nodos[n]!));
     const visto = new Set([origen]);
-    // Por sus propios nodos sí se pasa: las vecinas se acotan a la región, así
-    // que cruzar un nodo no lleva a otra.
     rellenar(W, H, origen, (j) => {
-      if (visto.has(j) || !enCamino(j) || (red.regionDe[j] !== k && !suyos.has(j))) return false;
+      if (visto.has(j) || !enCamino(j) || red.regionDe[j] !== k) return false;
       visto.add(j);
       return true;
     });
+    const sueltas = suCamino.filter((c) => !visto.has(c));
+    if (sueltas.length > 0) {
+      fallos.push(
+        `el camino de la región ${reg.id} va en más de un trozo: ${en(origen)} no llega a ${en(sueltas[0]!)}`,
+      );
+    }
     for (const d of destinos) {
-      if (!visto.has(d))
-        fallos.push(`en la región ${reg.id}, ningún camino lleva de ${en(origen)} a ${en(d)}`);
+      if (!enCamino(d))
+        fallos.push(`la mina o el pueblo ${en(d)} de la región ${reg.id} no está en un camino`);
+    }
+    // Radial: a un nodo se llega, no se cruza, así que es una hoja de la red
+    // de cada región que le lleva camino.
+    for (const n of nodosDe[k]!) {
+      const tramos = tramosDesde(n, k);
+      if (tramos > 1)
+        fallos.push(
+          `el nodo ${en(n)} no es una hoja de la red de la región ${reg.id}: le llegan ${tramos} tramos`,
+        );
+    }
+  }
+  // Toda ciudad, en la red de alguna de sus regiones; la base, en la de su
+  // casa, que es la región donde empieza su héroe.
+  for (const n of red.nodos) {
+    const i = n.at.y * W + n.at.x;
+    if (n.ciudad && !n.regiones.some((k) => leLlegaDe(i, k)))
+      fallos.push(`la ciudad ${en(i)} no está en un camino de ninguna de sus regiones`);
+  }
+  for (const inicio of plan.heroStarts) {
+    const base = plan.towns.find((t) => t.owner === inicio.player);
+    if (base === undefined) continue;
+    const casa = red.regionDe[inicio.at.y * W + inicio.at.x]!;
+    if (!leLlegaDe(base.at.y * W + base.at.x, casa))
+      fallos.push(
+        `la base del jugador ${inicio.player} en (${base.at.x},${base.at.y}) no está en la red de su región de casa, ${red.regiones[casa]?.id}`,
+      );
+  }
+  // Un solo cruce con camino por pareja de vecinas: un nodo común al que le
+  // llega el camino de las dos.
+  for (let a = 0; a < red.regiones.length; a++) {
+    for (let b = a + 1; b < red.regiones.length; b++) {
+      const comunes = [...nodosDe[a]!].filter((n) => nodosDe[b]!.has(n));
+      if (comunes.length === 0) continue;
+      const cruces = comunes.filter((n) => leLlegaDe(n, a) && leLlegaDe(n, b));
+      if (cruces.length !== 1) {
+        fallos.push(
+          `entre las regiones ${red.regiones[a]!.id} y ${red.regiones[b]!.id} hay ${cruces.length} cruces con camino (${cruces.map(en).join(', ')}), y tiene que haber uno`,
+        );
+      }
+    }
+  }
+  // Y la red del mapa, de una pieza.
+  if (todas.length > 0) {
+    const visto = new Set([todas[0]!]);
+    rellenar(W, H, todas[0]!, (j) => {
+      if (visto.has(j) || !enCamino(j)) return false;
+      visto.add(j);
+      return true;
+    });
+    const fuera = todas.filter((c) => !visto.has(c));
+    if (fuera.length > 0) {
+      fallos.push(
+        `la red de caminos del mapa va en más de un trozo: ${en(todas[0]!)} no llega a ${en(fuera[0]!)}`,
+      );
     }
   }
   return { fallos, frontera };
+}
+
+/** Las casillas de camino del mapa, por índice plano. */
+function casillasDeCamino(map: GameMap): number[] {
+  return [...map.roads].map((c) => {
+    const p = pointFromKey(c);
+    return p.y * map.width + p.x;
+  });
+}
+
+/** Con qué casillas de camino está unida cada una en el dibujo (`aristasDeCamino`). */
+function unidasPorCamino(casillas: ReadonlySet<number>, W: number, H: number) {
+  const unidas = new Map<number, number[]>();
+  for (const [p, q] of aristasDeCamino(casillas, W, H)) {
+    unidas.set(p, [...(unidas.get(p) ?? []), q]);
+    unidas.set(q, [...(unidas.get(q) ?? []), p]);
+  }
+  return unidas;
+}
+
+/**
+ * Cuántos ciclos independientes tiene la red de caminos tal como se dibuja, y
+ * cuántos de ellos caben dentro de una sola región: μ = aristas − casillas +
+ * piezas, con las aristas del pintor (`aristasDeCamino`). Es la medida del
+ * criterio 1 de «menos caminos» (#149).
+ */
+export function ciclosDeCamino(map: GameMap): { total: number; dentro: number } {
+  const W = map.width;
+  const H = map.height;
+  const red = estructura(map);
+  const nodoDe = new Map(red.nodos.map((n) => [n.at.y * W + n.at.x, n.regiones]));
+  const todas = casillasDeCamino(map);
+  const mu = (casillas: ReadonlySet<number>): number => {
+    let piezas = 0;
+    const visto = new Set<number>();
+    for (const s of casillas) {
+      if (visto.has(s)) continue;
+      piezas++;
+      visto.add(s);
+      rellenar(W, H, s, (j) => {
+        if (visto.has(j) || !casillas.has(j)) return false;
+        visto.add(j);
+        return true;
+      });
+    }
+    return aristasDeCamino(casillas, W, H).length - casillas.size + piezas;
+  };
+  let dentro = 0;
+  for (let k = 0; k < red.regiones.length; k++) {
+    dentro += mu(
+      new Set(todas.filter((i) => red.regionDe[i] === k || nodoDe.get(i)?.includes(k) === true)),
+    );
+  }
+  return { total: mu(new Set(todas)), dentro };
 }

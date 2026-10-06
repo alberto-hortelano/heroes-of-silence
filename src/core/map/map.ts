@@ -131,6 +131,42 @@ export function pointFromKey(clave: string): Point {
   return p;
 }
 
+/**
+ * Las aristas de una red de caminos tal como se dibuja, por índice plano: dos
+ * casillas de camino vecinas se unen, y en diagonal solo si ninguna de sus dos
+ * esquinas es camino (si lo es, el trazo pasa por ella). Es la regla del pintor
+ * del mapa, y la misma con la que el generador y la auditoría preguntan a qué
+ * llega un camino: si cada uno la escribe a su manera, lo que se mide no es lo
+ * que se ve. En el orden de `caminos` y, por casilla, derecha, abajo y las dos
+ * diagonales de abajo: el pintor encadena las sendas en ese orden.
+ */
+export function aristasDeCamino(
+  caminos: ReadonlySet<number>,
+  width: number,
+  height: number,
+): [number, number][] {
+  const aristas: [number, number][] = [];
+  for (const i of caminos) {
+    const x = i % width;
+    const y = (i - x) / width;
+    for (const [dx, dy] of LADOS_DE_ARISTA) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (nx < 0 || nx >= width || ny >= height || !caminos.has(ny * width + nx)) continue;
+      if (dx !== 0 && dy !== 0 && (caminos.has(y * width + nx) || caminos.has(ny * width + x)))
+        continue;
+      aristas.push([i, ny * width + nx]);
+    }
+  }
+  return aristas;
+}
+const LADOS_DE_ARISTA = [
+  [1, 0],
+  [0, 1],
+  [1, 1],
+  [-1, 1],
+] as const;
+
 export function inBounds(map: Pick<GameMap, 'width' | 'height'>, p: Point): boolean {
   return p.x >= 0 && p.x < map.width && p.y >= 0 && p.y < map.height;
 }

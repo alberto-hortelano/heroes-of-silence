@@ -7,7 +7,7 @@
  * viene detrás: uno mecánico, sobre líneas que ningún test mira, donde un
  * espacio de más o un `&lt;` donde había un `<` no lo ve nadie.
  *
- * Las catorce escenas están en `escenas-paneles.ts` y buscan ramas, no realismo:
+ * Las quince escenas están en `escenas-paneles.ts` y buscan ramas, no realismo:
  * el castillo con héroe dentro y sin él, la batalla en marcha y terminada, el
  * turno del rival —lo único que enseña un botón deshabilitado—, y dos volcados
  * sintéticos con los quince hechos del parte de guerra y los diecisiete de la

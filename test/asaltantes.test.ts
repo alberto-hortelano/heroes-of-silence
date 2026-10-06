@@ -143,17 +143,13 @@ describe('la patrulla', () => {
     // El invariante del plan, sobre partidas de verdad y turno a turno.
     let vistos = 0;
     let brotados = 0;
-    // Semillas en las que pasan lunes con sitio para brotar —en la mayoría la
-    // partida acaba antes del día 8 con todas las regiones ocupadas—: la 20, la
-    // 49 y la 51 dan dos brotes cada una. Eran la 5, la 16 y la 18 hasta que la
-    // experiencia por daño acortó las partidas, la 1, la 8 y la 60 hasta que el
-    // héroe pasó a empezar en el nivel 5 (una sola escala con la tropa), y la
-    // 44, la 73 y la 15 hasta el turno en tramos (02-10-2026), que cambia las
-    // batallas: las tres veces se quedaron sin un solo lunes. Buscadas jugando
-    // las 80 primeras. Y la 20, la 49 y la 51 hasta los mapas densos
-    // (03-10-2026): con fronteras gruesas y el mapa de 34 se quedaron sin lunes;
-    // la 4, la 12 y la 23 dan un brote cada una.
-    for (const semilla of [4, 12, 23]) {
+    // Hacen falta partidas en las que pasen lunes con sitio para brotar, y en
+    // la mayoría la partida acaba antes con todas las regiones ocupadas. Las
+    // semillas se fijaban a mano y cada cambio que movía a los héroes las dejaba
+    // sin brote —cinco veces, la última con los caminos radiales (#149)—, así
+    // que las busca el test: juega desde la 1 hasta reunir tres brotes (cada
+    // partida, ~30 ms), mirando el invariante en todas las que juega.
+    for (let semilla = 1; semilla <= 80 && brotados < 3; semilla++) {
       const state = newGame({ seed: semilla, maxDays: 60 });
       const ctx = { rng: createRng(semilla) };
       while (state.finished === null) {
