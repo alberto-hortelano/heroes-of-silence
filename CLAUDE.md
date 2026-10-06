@@ -18,7 +18,7 @@ pnpm verify     # typecheck + lint + tests, ~14 s: el bucle rápido
 pnpm test | pnpm typecheck | pnpm lint | pnpm format
 pnpm banco      # 200 partidas: tiempo y sha256 del volcado, anclado en el fichero
 pnpm qa         # circuito entero del agente (mapa, servidor, puente MCP), ~3 s
-pnpm capturas   # juega cliente, espectador y arena en Chromium con clics reales, ~210 s
+pnpm capturas   # juega cliente, espectador y arena en Chromium con clics reales, ~245 s; deja los PNG en .cache/capturas/ o en la carpeta que se le pase
 npx tsx tools/qa/barrido-semillas.ts   # cuántas partidas no terminan (hoy 0)
 npx tsx tools/qa/enfrentamiento.ts     # IA de batalla de hoy contra su versión anterior
 ```
@@ -327,7 +327,7 @@ ocupado por algo ajeno no se libera: se reporta.**
 | `pnpm verify` | ~14 s | siempre |
 | El navegador / el espectador | minutos | si el cambio se ve, o tocas `html.ts`, `espectador/` o el canal |
 | `pnpm qa` | ~3 s | si tocas `src/server/` o el contrato |
-| `pnpm capturas` | ~210 s | si el cambio se ve; sale 1 con un error en consola |
+| `pnpm capturas` | ~245 s | si el cambio se ve; sale 1 con un error en consola |
 | `barrido-semillas.ts` | ~1 s | si tocas la IA o la economía: una sola semilla sin terminar es regresión |
 | `pnpm banco` | ~5 s | si tocas el núcleo sin querer cambiar el juego |
 | `enfrentamiento.ts` | ~2 s | si cambias cómo decide la IA de batalla: entra solo con el intervalo entero > 50 % en 5 000 parejas |
