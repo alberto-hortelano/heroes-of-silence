@@ -26,7 +26,7 @@ pnpm format     # lo mismo, arreglando lo que sepa arreglar
 pnpm banco      # 200 partidas: tiempo y sha256 del volcado, 5,2 s
 
 npx tsx tools/qa/enfrentamiento.ts   # la IA de hoy contra ella sin su última regla, 2000 batallas, 1,9 s
-pnpm capturas   # juega el cliente, el espectador y la arena en Chromium (Playwright) con clics reales, ~205 s
+pnpm capturas   # juega el cliente, el espectador y la arena en Chromium (Playwright) con clics reales, ~245 s; PNG en .cache/capturas/ o en la carpeta que se le pase
 ```
 
 La partida se abre con una semilla al azar; **`?seed=N` en la URL fija la
@@ -2178,11 +2178,23 @@ aportan en un prototipo. Lo que hay:
 | El navegador | minutos | si el cambio se ve |
 | El espectador en el navegador | minutos | si tocas `html.ts`, `espectador/` o el canal |
 | `pnpm qa` | 3,2 s | si tocas `src/server/` o el contrato |
-| `pnpm capturas` | ~205 s | si el cambio se ve: juega el cliente, el espectador y la arena en Chromium y sale 1 con un error en consola |
+| `pnpm capturas` | ~245 s | si el cambio se ve: juega el cliente, el espectador y la arena en Chromium y sale 1 con un error en consola |
 | `npx tsx tools/qa/barrido-semillas.ts` | 1,1 s | si tocas la IA o la economía |
 | `pnpm banco` | 5,2 s | si tocas el núcleo sin querer cambiar el juego |
 | `tools/qa/enfrentamiento.ts` | 1,9 s | si cambias **cómo decide** la IA de batalla |
 | CI (`.github/workflows/ci.yml`) | ~1 min | en cada push y cada PR |
+
+**`pnpm capturas` espera al suelo pintado (06-10-2026, #154).** Capturaba el
+mapa del espectador a los 800 ms y el del cliente a los 450 ms, con el
+sucedáneo de pigmentos todavía a la vista: sin texturas ni caminos. Ahora cada
+página del cliente, y el espectador antes de su primera captura del mapa,
+esperan a `#app[data-escenario="pintado"]` (`esperarElSuelo`), con un tope que
+falla diciendo en qué estado se quedó: 60 s en el cliente y 25 s en el
+espectador, por debajo de los 30 de `HEROES_WAIT_AGENT_MS`. Son ~7-8 s por
+página: la corrida pasó de 194 a 244 s, medido una vez cada una. Por defecto
+deja los PNG en `.cache/capturas/` (ignorada por git y de cada checkout), no en
+la carpeta del ciclo del cliente nuevo; un ciclo que quiera guardarlas le pasa
+la suya.
 
 Los tiempos están **medidos**, tres pasadas cada uno, no estimados: los que
 había antes decían 3 s y «~1 min» y llevaban ciclos siendo falsos. Que `pnpm qa`

@@ -2,7 +2,7 @@
  * Juega el cliente en un navegador de verdad, con clics de ratón sobre el
  * lienzo, y saca las capturas que se le enseñan al usuario.
  *
- *     pnpm capturas [carpeta]          # por defecto, la del ciclo del cliente nuevo
+ *     pnpm capturas [carpeta]          # por defecto, .cache/capturas (ignorada por git)
  *     CAPTURAS_SOLO=emboscada,veteranos pnpm capturas   # solo esas pasadas
  *
  * Existe porque la extensión del navegador no servía para esto: los eventos
@@ -168,7 +168,9 @@ const SEMILLA_MOVIL = 810;
 // (`escenas-de-capturas.ts`). Eran la 3 con destino (8,8), la 2 199 y la 97;
 // «menos caminos» (06-10-2026) rompió las dos primeras a la vez, como cada
 // cambio del generador antes, y la 97 había caído ya dos veces.
-const DESTINO = resolve(process.argv[2] ?? 'docs/agents/2026-10-01-cliente-nuevo/capturas');
+// Por defecto, una carpeta ignorada por git y de este checkout (dos worktrees no
+// se pisan); un ciclo que quiera guardarlas le pasa la suya.
+const DESTINO = resolve(process.argv[2] ?? '.cache/capturas');
 
 /** Los códigos de color ANSI; escritos con `fromCharCode` porque Biome no deja un ESC literal en una regex. */
 const COLORES_DE_TERMINAL = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g');
@@ -294,6 +296,24 @@ function vigilarConsola(
     problemas.lista.push(`[${nombre}] consola: ${m.text()} (${m.location().url})`);
   });
   page.on('pageerror', (e) => problemas.lista.push(`[${nombre}] excepción: ${e.message}`));
+}
+
+/**
+ * Espera a que el suelo del mapa esté pintado a resolución plena
+ * (`#app[data-escenario="pintado"]`, que apunta `apuntarElSueloEn`): antes se
+ * ve el sucedáneo de pigmentos o el esbozo, sin texturas ni caminos.
+ */
+async function esperarElSuelo(page: Page, quien: string, tope: number): Promise<void> {
+  const desde = Date.now();
+  await page
+    .waitForSelector('#app[data-escenario="pintado"]', { timeout: tope })
+    .catch(async () => {
+      const estado = await page.locator('#app').getAttribute('data-escenario');
+      throw new Error(
+        `${quien}: el suelo del mapa no llegó a «pintado» en ${tope / 1000} s (está en «${estado}»)`,
+      );
+    });
+  log(`${quien}: suelo pintado en ${((Date.now() - desde) / 1000).toFixed(1)} s`);
 }
 
 async function captura(page: Page, nombre: string): Promise<void> {
@@ -817,6 +837,7 @@ function cajaDeEscritorio(browser: Browser, url: string, problemas: Problemas): 
     const { page } = await abrir(browser, url, problemas, {
       nombre: 'medir el lienzo',
       semilla: SEMILLA,
+      sinSuelo: true,
     });
     const b = await caja(page);
     await page.close();
@@ -836,6 +857,8 @@ interface Pasada {
   readonly sinImagenes?: RegExp;
   /** La caja con la que se buscó la escena en el espejo: si la página da otra, lo buscado no vale. */
   readonly esperada?: Caja;
+  /** Solo mide la página y no saca capturas: no espera a que se pinte el suelo. */
+  readonly sinSuelo?: boolean;
 }
 
 /**
@@ -860,6 +883,7 @@ async function abrir(
   }
   const espejo = new Session(p.semilla);
   await page.goto(`${url}/?seed=${p.semilla}`, { waitUntil: 'networkidle' });
+  if (p.sinSuelo !== true) await esperarElSuelo(page, p.nombre, 60_000);
   await sleep(450);
   if (p.esperada !== undefined) {
     const b = await caja(page);
@@ -1416,6 +1440,7 @@ async function jugarTactil(browser: Browser, url: string, problemas: Problemas):
   vigilarConsola(page, 'táctil', problemas);
   const espejo = new Session(SEMILLA_MOVIL);
   await page.goto(`${url}/?seed=${SEMILLA_MOVIL}`, { waitUntil: 'networkidle' });
+  await esperarElSuelo(page, 'táctil', 60_000);
   await sleep(450);
   const mapa = new Mapa(page, espejo);
 
@@ -2085,7 +2110,10 @@ async function espectador(browser: Browser, url: string, problemas: Problemas): 
           if (msg.type !== 'request') return;
           if (msg.kind === 'adventure_turn' && !mapa) {
             mapa = true;
-            await sleep(800);
+            // Por debajo de HEROES_WAIT_AGENT_MS (30 s): mientras se espera, el
+            // servidor no juega por el agente y el mapa sigue siendo el del día 1.
+            await esperarElSuelo(page, 'espectador', 25_000);
+            await sleep(300);
             await captura(page, 'espectador-01-mapa');
           }
           // El fotograma sale por acción APLICADA: en la primera petición de
