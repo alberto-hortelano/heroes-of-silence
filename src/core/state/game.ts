@@ -328,6 +328,14 @@ export interface GameState {
    * contador del estado, determinista.
    */
   siguienteBotin: number;
+  /**
+   * El número del próximo héroe contratado (`hireHero`). Antes el id salía de
+   * `hero-<jugador>-<cuántos héroes hay>-<día>`, y eso se repetía: con tres
+   * jugadores, el 0 contrata, el 2 pierde la base y su héroe sale de
+   * `state.heroes`, y la segunda contratación del 0 ese mismo día recibía el
+   * mismo id que la primera (#126). Un contador no depende de cuántos quedan.
+   */
+  siguienteHeroe: number;
 }
 
 export interface GameContext {
@@ -632,6 +640,7 @@ export function createGame(config: GameConfig): GameState {
     log: [],
     siguienteVeterano: 1,
     siguienteBotin: 0,
+    siguienteHeroe: 1,
   };
 
   // Los pueblos arrancan con la hornada de la primera semana.
@@ -1486,7 +1495,9 @@ function hireHero(state: GameState, townId: string): void {
     throw new Error('ya hay un héroe en el pueblo');
   }
 
-  const id = `hero-${player.id}-${state.heroes.length}-${state.day}`;
+  // La `c` (de «contratado») lo separa del inicial, `hero-<jugador>`, y del
+  // ascendido, `hero-veterano-<n>`: los tres viven en el mismo espacio de ids.
+  const id = `hero-${player.id}-c${state.siguienteHeroe++}`;
   const hero = heroeRecienHecho({
     id,
     owner: player.id,
@@ -1593,8 +1604,8 @@ export function ascensoBlocker(
  * mismo agujero con otro nombre. Decisión del usuario: «Recoge la guarnición».
  *
  * El id es `hero-<id del veterano>`, único porque el del veterano lo es y porque
- * el individuo sale de la tropa al ascender, y no el `hero-<jugador>-<n>-<día>`
- * de `hireHero`, que puede repetirse (#126).
+ * el individuo sale de la tropa al ascender; el de `hireHero` es
+ * `hero-<jugador>-c<n>`, con su propio contador (`siguienteHeroe`).
  *
  * Lanza con la frase de `ascensoBlocker` si no puede.
  */

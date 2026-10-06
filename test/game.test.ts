@@ -56,6 +56,7 @@ import {
   defaultBuild,
 } from '../src/core/rpg/character.js';
 import { regionDeCasilla } from '../src/core/state/asaltantes.js';
+import { finDePartida } from '../src/core/state/desenlace.js';
 import {
   type AdventureAction,
   alcanceDelHeroe,
@@ -93,6 +94,7 @@ import {
   type Resources,
 } from '../src/core/types.js';
 import {
+  acabarPorLaBase,
   conCaminos,
   ejercito,
   esPersonaje,
@@ -2341,5 +2343,99 @@ describe('el mapa de nodos se juega', () => {
     const conGuardia = objetivo(true);
     expect(conGuardia).not.toEqual({ x: 22, y: 4 });
     expect(conGuardia).not.toEqual({ x: 17, y: 4 });
+  });
+});
+
+describe('el id de un héroe contratado no se repite (#126)', () => {
+  it('con tres jugadores: contratar, caer otro héroe y volver a contratar el mismo día', () => {
+    // La colisión solo se alcanza con tres jugadores: un héroe sale de
+    // `state.heroes` únicamente si cae sin base a la que volver, y con dos,
+    // quedarse sin base acaba la partida. Aquí el 2 tiene base en `town-2`.
+    const plan = planDeNodos();
+    const state = newGame({
+      seed: 41,
+      plan: {
+        ...plan,
+        towns: plan.towns.map((t) => (t.id === 'town-2' ? { ...t, owner: 2 } : t)),
+        heroStarts: [...plan.heroStarts, { player: 2, at: { x: 18, y: 4 } }],
+      },
+    });
+    const c = ctx(41);
+    expect(state.players.map((p) => p.id)).toEqual([0, 1, 2]);
+    const dia = state.day;
+    state.players[0]!.resources = { ...state.players[0]!.resources, gold: 10 * HERO_HIRE_COST };
+    const casa = state.towns.find((t) => t.id === 'town-0')!;
+    const suya = state.towns.find((t) => t.id === 'town-2')!;
+    const otro = heroById(state, 'hero-2');
+    const contratar = () => {
+      applyAdventureAction(state, { type: 'hire_hero', town: casa.id }, c, 0);
+      const nuevo = state.heroes.at(-1)!;
+      // Fuera del pueblo, para que el siguiente quepa; con tropa de sobra para
+      // ganar lo que le toque pelear.
+      nuevo.at = { x: 3, y: 6 };
+      nuevo.army = ejercito({ creature: 'paladin', count: 6 });
+      return nuevo;
+    };
+
+    const primero = contratar();
+    // El 2 pierde su base: el primero contratado la toma. Su héroe está fuera.
+    forzarBatalla(state, c, primero, suya.at);
+    resolvePendingBattle(state, c);
+    expect(baseOf(state, 2)).toBeNull();
+    expect(state.finished).toBeNull();
+    // Y su héroe cae sin base a la que volver: sale de `state.heroes`.
+    otro.army = ejercito({ creature: 'peasant', count: 1 });
+    const cazador = heroById(state, 'hero-0');
+    cazador.army = ejercito({ creature: 'paladin', count: 6 });
+    forzarBatalla(state, c, cazador, otro.at);
+    resolvePendingBattle(state, c);
+    expect(state.heroes.some((h) => h.id === otro.id)).toBe(false);
+
+    const segundo = contratar();
+    expect(state.day).toBe(dia);
+    // Con `hero-<jugador>-<héroes en juego>-<día>`, los dos salían iguales.
+    expect(segundo.id).not.toBe(primero.id);
+    const contratados = state.log.flatMap((e) => (e.kind === 'hero_hired' ? [e.hero] : []));
+    expect(contratados).toEqual([primero.id, segundo.id]);
+    const todos = [...state.heroes.map((h) => h.id), ...contratados, otro.id];
+    expect(new Set(todos).size).toBe(state.heroes.length + 1);
+  });
+});
+
+describe('cómo acabó la partida, en el núcleo (#123)', () => {
+  it('el desenlace y la causa: la del perdedor para quien perdió, la del último eliminado para el resto', () => {
+    const viva = newGame({ seed: 7 });
+    expect(finDePartida(viva, new Set([0]))).toBeNull();
+    const state = acabarPorLaBase(newGame({ seed: 7 }), 0, 1, ctx(7));
+    expect(finDePartida(state, new Set([1]))).toEqual({
+      desenlace: 'perdida',
+      ganador: 0,
+      causa: 'lost_base',
+    });
+    expect(finDePartida(state, new Set([0]))).toEqual({
+      desenlace: 'ganada',
+      ganador: 0,
+      causa: 'lost_base',
+    });
+    expect(finDePartida(state, new Set())).toEqual({
+      desenlace: 'ajena',
+      ganador: 0,
+      causa: 'lost_base',
+    });
+  });
+
+  it('sin ganador no hay causa; con ganador y sin eliminado, la partida está rota', () => {
+    const state = newGame({ seed: 7 });
+    state.finished = { winner: null };
+    // Sin resolver lo está para todos, también para quien no lleva a nadie.
+    expect(finDePartida(state, new Set())).toEqual({
+      desenlace: 'sin resolver',
+      ganador: null,
+      causa: null,
+    });
+    state.finished = { winner: 1 };
+    expect(() => finDePartida(state, new Set())).toThrow(
+      'la partida la ganó el jugador 1 y la crónica no dice quién quedó eliminado ni por qué',
+    );
   });
 });

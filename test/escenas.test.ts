@@ -9,7 +9,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { DURACION, type EstadoFigura } from '../src/client/anim.js';
-import { EscenaAventura, focoDe } from '../src/client/escenas/aventura.js';
+import { EscenaAventura, focoDe, llegadaDeLaRuta } from '../src/client/escenas/aventura.js';
 import { AVISO_DE_ESPERA, EscenaBatalla } from '../src/client/escenas/batalla.js';
 import { PAUSA_TRAS_EL_RIVAL, PuertaDeFinDeTurno } from '../src/client/fin-de-turno.js';
 import { msPorCasilla } from '../src/client/marcha.js';
@@ -101,6 +101,61 @@ describe('el mapa con el dedo', () => {
     expect(escena.rutaVisible.length).toBeGreaterThan(0);
     escena.salir();
     expect(escena.rutaVisible).toHaveLength(0);
+  });
+
+  it('olvidar la ruta borra su frase, y solo la suya: al pasar el turno la barra vuelve vacía (#123)', async () => {
+    const s = new Session(2);
+    const escena = new EscenaAventura(() => s);
+    escena.encuadrar(800, 600);
+    const camara = centrarEn({ tile: TILE_INICIAL, x: 0, y: 0 }, focoDe(s), {
+      ancho: 800,
+      alto: 600,
+      mapaAncho: s.state.map.width,
+      mapaAlto: s.state.map.height,
+    });
+    const p = casillaAPixel(camara, destinoDeHoy(s));
+    escena.mover(p.x, p.y);
+    expect(s.status).toContain('llegas hoy');
+    // Lo que hace `pasarTurno` en `main.ts`: olvidar la ruta y pasar. La frase
+    // seguía ahí al volver el turno, sin mover el puntero, con el día cambiado.
+    escena.olvidarRuta();
+    const dia = s.state.day;
+    await s.endTurn();
+    expect(s.state.day).toBe(dia + 1);
+    expect(s.desenlace).toBeNull();
+    expect(s.status).toBe('');
+
+    // Lo que escribió después la sesión no es de la escena, y se queda.
+    escena.mover(p.x, p.y);
+    expect(s.status).not.toBe('');
+    s.clickTile(s.selectedHero!.at);
+    const suya = s.status;
+    escena.olvidarRuta();
+    expect(s.status).toBe(suya);
+  });
+
+  it('señalar una casilla en la niebla no dice dos veces «tierras desconocidas» (QA de #123)', () => {
+    // La casilla de la comprobación en vivo: semilla 3, (2,0), con la ruta
+    // entrando en la niebla. La barra decía «Tierras desconocidas · … sigue por
+    // tierras desconocidas».
+    const s = new Session(3);
+    const destino = { x: 2, y: 0 };
+    expect(s.explorado!.has('2,0')).toBe(false);
+    expect(s.previewPath(destino).length).toBeGreaterThan(0);
+    const escena = new EscenaAventura(() => s);
+    escena.encuadrar(800, 600);
+    const camara = centrarEn({ tile: TILE_INICIAL, x: 0, y: 0 }, focoDe(s), {
+      ancho: 800,
+      alto: 600,
+      mapaAncho: s.state.map.width,
+      mapaAlto: s.state.map.height,
+    });
+    const p = casillaAPixel(camara, destino);
+    escena.mover(p.x, p.y);
+    expect(s.status).toMatch(
+      /^Tierras desconocidas · hoy andas \d+ de los \d+ pasos? que se ven\.$/,
+    );
+    expect(s.status.toLowerCase().split('tierras desconocidas')).toHaveLength(2);
   });
 
   it('pulsar la casilla del propio héroe dice algo verdadero, no «No hay camino»', () => {
@@ -453,6 +508,37 @@ describe('la ruta no se pinta sobre la niebla (M5 de la 2a)', () => {
     const pintados = pasosAPintar(ruta, explorado);
     expect(pintados.length).toBeGreaterThan(0);
     expect(pintados.every((p) => explorado.has(`${p.at.x},${p.at.y}`))).toBe(true);
+  });
+
+  it('la barra cuenta los pasos que se ven, no los de la niebla (#123)', () => {
+    // Cinco pasos, tres de hoy, y los dos últimos en la niebla: contados sobre
+    // la ruta entera, la barra decía «hoy llegas a 3 de 5 pasos» y el 5
+    // delataba el rodeo que el trazo ya no pinta.
+    const ruta = [paso(1, true), paso(2, true), paso(3, true), paso(4, false), paso(5, false)];
+    const explorado = new Set(['1,0', '2,0', '3,0']);
+    const frase = llegadaDeLaRuta(ruta, explorado);
+    // El destino está en la niebla: la barra ya empieza por «Tierras
+    // desconocidas», así que la frase no lo repite (H3 de QA).
+    expect(frase).toBe('hoy andas 3 de los 3 pasos que se ven');
+    expect(frase).not.toContain('llegas hoy');
+    expect(frase).not.toContain('5');
+    // Con parte de hoy a la vista y el resto en la niebla, lo mismo con su cuenta.
+    const corta = [paso(1, true), paso(2, false), paso(3, false), paso(4, false)];
+    expect(llegadaDeLaRuta(corta, new Set(['1,0', '2,0']))).toBe(
+      'hoy andas 1 de los 2 pasos que se ven',
+    );
+    // Con el destino a la vista y la niebla en medio, la frase elegida entera.
+    expect(llegadaDeLaRuta(ruta, new Set(['1,0', '2,0', '3,0', '5,0']))).toBe(
+      'hoy andas 3 de los 4 pasos que se ven; sigue por tierras desconocidas',
+    );
+    // Viéndolo todo, o con la ruta entera explorada, las frases de siempre.
+    expect(llegadaDeLaRuta(ruta, null)).toBe(
+      'hoy llegas a 3 de 5 pasos: dorado hoy, gris otro día',
+    );
+    expect(llegadaDeLaRuta(ruta.slice(0, 3), explorado)).toBe('llegas hoy (3 pasos)');
+    expect(llegadaDeLaRuta([paso(1, false)], null)).toBe(
+      'hoy no te queda movimiento para dar ni un paso',
+    );
   });
 });
 

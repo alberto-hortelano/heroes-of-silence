@@ -22,6 +22,8 @@
 import { quedanCasillas } from '@core/battle/battle.js';
 import type { BattleAction } from '@core/battle/types.js';
 import type { RequestKind } from '@core/contract/agent.js';
+import { type Desenlace, finDePartida } from '@core/state/desenlace.js';
+import type { DefeatReason } from '@core/state/events.js';
 import {
   type AdventureAction,
   describePlayer,
@@ -530,7 +532,7 @@ export function notaFinDePartida(state: GameState, tuyos: ReadonlySet<PlayerId>)
   // Lo primero, como las demás guardas de este fichero: contar el final de una
   // partida viva es un fallo del llamante, no un final que redactar. Antes se
   // contestaba «sin resolver», que es lo que decía también el empate de verdad.
-  const fin = state.finished;
+  const fin = finDePartida(state, tuyos);
   if (fin === null) {
     throw new Error('no se puede contar cómo acabó una partida que no ha terminado');
   }
@@ -542,15 +544,36 @@ export function notaFinDePartida(state: GameState, tuyos: ReadonlySet<PlayerId>)
   // Sin jugadores del agente no se dice «has perdido»: no llevaba a nadie.
   const cola = balance === '' ? '' : ` Tú ${balance}.`;
 
-  const ganador = fin.winner;
-  if (ganador === null) {
+  if (fin.desenlace === 'sin resolver') {
     const dias = `${state.day} ${state.day === 1 ? 'día' : 'días'}`;
     return `La partida se ha quedado sin resolver tras ${dias}: no gana nadie.${cola}`;
   }
 
-  const veredicto = tuyos.size === 0 ? '' : tuyos.has(ganador) ? ' — has ganado' : ' — has perdido';
-  return `La partida ha terminado el día ${state.day}. Gana el ${describePlayer(state, ganador)}${veredicto}.${cola}`;
+  // La causa sale de la misma derivación que la barra del cliente: antes la
+  // nota decía quién ganó pero no por qué, y el agente no sabía si había
+  // perdido la base o si le habían barrido del mapa (#123).
+  const porQue = POR_QUE_ACABO[fin.causa][fin.desenlace];
+  return `La partida ha terminado el día ${state.day}. Gana el ${describePlayer(state, fin.ganador)} — ${porQue}.${cola}`;
 }
+
+/**
+ * La causa del final dicha desde cada lado. `ganada` habla del último rival
+ * eliminado; `ajena`, para quien no lleva a nadie, del último en caer: no se le
+ * dice «has ganado» ni «has perdido», porque no llevaba a nadie. Ninguna dice
+ * quién tomó la base: eso no lo sella el hecho, y no se adivina.
+ */
+const POR_QUE_ACABO: Record<DefeatReason, Record<Exclude<Desenlace, 'sin resolver'>, string>> = {
+  lost_base: {
+    ganada: 'has ganado: ha caído la última base rival',
+    perdida: 'has perdido: tu base cayó',
+    ajena: 'el último eliminado se quedó sin base',
+  },
+  nothing_left: {
+    ganada: 'has ganado: el último rival se quedó sin héroes ni castillos',
+    perdida: 'has perdido: te quedaste sin héroes ni castillos',
+    ajena: 'el último eliminado se quedó sin héroes ni castillos',
+  },
+};
 
 /** Fin de partida, tal y como lo recibe el agente: qué pasó y qué puede hacer. */
 export function textoDeFin(nota: string): string {

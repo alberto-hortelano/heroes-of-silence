@@ -35,6 +35,7 @@ import {
 import { nivelDe, nivelDeHeroe, umbral } from '@core/hero/experiencia.js';
 import { type Hero, heroUnit, maxMana, maxMovePoints } from '@core/hero/hero.js';
 import { elQueSeIria, type Personajes, type TroopGroup, troopSummary } from '@core/hero/troop.js';
+import { type Desenlace, desenlaceDe } from '@core/state/desenlace.js';
 import type { DefeatReason, GameEventDraft } from '@core/state/events.js';
 import { buyBlocker } from '@core/state/game.js';
 import { building } from '@core/town/buildings.js';
@@ -48,7 +49,7 @@ import {
 } from '@core/town/town.js';
 import type { Army, Hueco } from '@core/types.js';
 import { describirCoste, HUECOS, NOMBRE_DE_RECURSO, RESOURCE_KINDS } from '@core/types.js';
-import { type Desenlace, desenlaceDe } from '../desenlace.js';
+import { quienesDe } from '../desenlace.js';
 import { fondoDeColor, type Html, html, NADA, srcDeImagen, unir } from '../html.js';
 import { asset } from '../render/assets.js';
 import { MARCA_DE_COMANDANTE, RESOURCE_COLORS, RESOURCE_NAMES } from '../render/palette.js';
@@ -1112,7 +1113,7 @@ export function renderLog(log: readonly GameEventDraft[], viewer: number): Html 
           // rojo de derrota. Es el mismo fallo que `desenlaceDe` existe para
           // impedir, un panel más allá, y esta línea la pinta también el
           // espectador, que no tiene bando.
-          const fin = desenlaceDe(e.actor, viewer);
+          const fin = desenlaceDe(e.actor, quienesDe(viewer));
           return html`<div${clase(fin === 'ganada', fin === 'perdida')}>Fin de la partida</div>`;
         }
 

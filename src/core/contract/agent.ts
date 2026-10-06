@@ -140,6 +140,24 @@ const idDeMapa = (que: string) =>
  * panel, la crónica y el veredicto. «Visible» descuenta también los de formato
  * (`\p{Cf}`, el espacio de anchura cero), que `trim()` no quita.
  *
+ * #128 cerró lo que aún se colaba, en tres preguntas separadas porque cada una
+ * tiene su motivo:
+ * - **Una línea** descarta también U+2028/U+2029 (`\p{Zl}`, `\p{Zp}`), que no
+ *   son `\p{Cc}` pero parten la línea igual, y los controles de dirección
+ *   (`\p{Bidi_Control}`: el RLO U+202E da la vuelta a lo que viene detrás, en
+ *   el veredicto también).
+ * - **Algo que se lea** descarta lo que se pinta en blanco sin ser espacio: el
+ *   braille vacío U+2800, los rellenos coreanos U+3164, U+FFA0 y U+115F
+ *   (`\p{Default_Ignorable_Code_Point}`) y las marcas combinantes. Lo ignorable
+ *   va SOLO aquí: incluye el selector de variante U+FE0F de ❤️ y el ZWJ U+200D
+ *   de 👨‍👩‍👧, que dentro de un texto son legítimos; prohibirlos en la primera
+ *   regla rompería los emojis compuestos.
+ * - **Sin empezar por una marca**: un acento combinante suelto al principio se
+ *   pega a lo que haya antes en la línea donde se pinte.
+ * - **Caracteres que existen** (QA de #128): ni uso privado, ni sin asignar, ni
+ *   no-caracteres, ni sustitutos sueltos. `\p{Cn}` sigue la versión de Unicode
+ *   del motor: un emoji más nuevo que el Node del servidor se rechazaría.
+ *
  * Es la puerta de todos los textos libres que el agente escribe para una persona
  * —los nombres del plan de mapa (#97) y el nombre y la historia del héroe
  * nacido—, así que un hueco que se cierra aquí se cierra en todos.
@@ -149,10 +167,25 @@ const lineaLegible = (max: number, sujeto: string) =>
     .string()
     .min(1)
     .max(max)
-    .regex(/^\P{Cc}+$/u, `${sujeto} es una sola línea, sin saltos ni caracteres de control`)
     .regex(
-      /[^\s\p{Cc}\p{Cf}]/u,
+      /^[^\p{Cc}\p{Zl}\p{Zp}\p{Bidi_Control}]+$/u,
+      `${sujeto} es una sola línea, sin saltos, caracteres de control ni marcas de dirección`,
+    )
+    .regex(
+      // `\p{Cf}` no sobra al lado de lo ignorable: hay `Cf` que no son
+      // ignorables y tampoco se leen, como U+0600–0605 y U+06DD.
+      /[^\s\p{Cc}\p{Cf}\p{M}\p{Default_Ignorable_Code_Point}\u2800]/u,
       `${sujeto} no puede ir en blanco: tiene que llevar algo que se lea`,
+    )
+    .regex(/^\P{M}/u, `${sujeto} no puede empezar por un acento o una marca suelta`)
+    .regex(
+      // Uso privado (`Co`), sin asignar y no-caracteres (`Cn`: U+0378, U+FFFF,
+      // U+FDD0) y sustitutos sueltos (`Cs`): no son nada que se lea, y cada
+      // pantalla pinta otra cosa —una caja, un hueco, un glifo de una fuente
+      // privada—. Las etiquetas de la bandera de Escocia (U+E0020–E007F) son
+      // `Cf`, no `Co`, y siguen pasando.
+      /^[^\p{Co}\p{Cn}\p{Cs}]+$/u,
+      `${sujeto} solo puede llevar caracteres que existen: nada de uso privado, sin asignar ni sustitutos sueltos`,
     );
 const nombreDeMapa = (que: string) => lineaLegible(40, `el nombre de ${que}`);
 
@@ -580,8 +613,9 @@ Reglas que se validan antes de aceptarlo:
   minúsculas, letras, dígitos, guion y guion bajo, empezando por letra o dígito,
   hasta 32 caracteres. "town-0" vale; "Pueblo Uno" no. Y no puede repetirse.
   "node-N" y "village-N" los reserva el motor para los nodos y los pueblos.
-- El "name" es lo que lee una persona: una sola línea, sin saltos ni
-  caracteres de control y no en blanco, hasta 40 caracteres.
+- El "name" es lo que lee una persona: una sola línea, sin saltos, caracteres
+  de control ni marcas de dirección, sin empezar por un acento suelto, no en
+  blanco y sin caracteres de uso privado ni sin asignar, hasta 40 caracteres.
 - "heroStarts" tiene que traer EXACTAMENTE los jugadores de "want.players", uno
   por jugador: ahí van sus números, así que no hay nada que deducir. Sin repetir
   ninguno y sin inventarte un tercero. Un inicio de más deja dos héroes con el
@@ -601,8 +635,9 @@ HÉROE, y lo creas tú a partir de lo que fue. "veteran" es quién era —su
 criatura, su nivel, su experiencia, sus batallas, sus bajas y los héroes
 rivales que derribó—, y "town" dónde está.
 
-- "name": una sola línea, sin saltos ni caracteres de control y no en blanco,
-  hasta 40 caracteres.
+- "name": una sola línea, sin saltos, caracteres de control ni marcas de
+  dirección, sin empezar por un acento suelto, no en blanco y sin caracteres de
+  uso privado ni sin asignar, hasta 40 caracteres.
 - "story": lo mismo, hasta 280 caracteres. La ve quien juega en el panel del
   héroe.
 - "heroType": el "id" de uno de "heroTypes", que son los de TU facción. Uno de

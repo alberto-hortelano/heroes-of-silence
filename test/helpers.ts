@@ -17,6 +17,7 @@ import { BARRERAS_DEL_MAPA } from '../src/core/data.js';
 import type { Hero } from '../src/core/hero/hero.js';
 import type { MapPlan, PlanConCasillas } from '../src/core/map/generate.js';
 import {
+  findPath,
   type GameMap,
   isEnterable,
   type MapObject,
@@ -24,12 +25,18 @@ import {
   pointFromKey,
   RedDeCaminos,
 } from '../src/core/map/map.js';
-import { estructura, juntoANodo, rellenar, vecindad } from '../src/core/map/regiones.js';
+import { estructura, juntoANodo, rellenar, VECINAS, vecindad } from '../src/core/map/regiones.js';
 import { esBarrera, type TerrainKind } from '../src/core/map/terrain.js';
 import type { Rng } from '../src/core/rng.js';
-import { applyAdventureAction, type GameContext, type GameState } from '../src/core/state/game.js';
+import {
+  applyAdventureAction,
+  baseOf,
+  type GameContext,
+  type GameState,
+  heroesOf,
+} from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
-import type { Army, Point, Stack, Troop } from '../src/core/types.js';
+import type { Army, PlayerId, Point, Stack, Troop } from '../src/core/types.js';
 
 /**
  * Vacía la guarnición con la que nace la base de cada jugador
@@ -142,6 +149,64 @@ export function forzarBatalla(
   if (state.pendingBattle === null) {
     throw new Error(`pisar (${hacia.x},${hacia.y}) no abrió ninguna batalla`);
   }
+}
+
+/**
+ * Una casilla pegada a `desde` a la que se llega de un paso, sin objeto: donde
+ * plantar a un héroe para que entre en batalla sin cruzar nada por el camino.
+ * Desde que perder la base elimina y el castillo no bloquea, mandar al héroe
+ * de una punta a otra del mapa cruzaba la base rival vacía y acababa la
+ * partida antes de llegar a la batalla que el test quería ver.
+ */
+export function pegadoA(state: GameState, desde: Point): Point {
+  // Las ocho y no solo las rectas: con fronteras gruesas, el inicio está en el
+  // pasillo de la base y a veces solo tiene libres las diagonales.
+  for (const [dx, dy] of VECINAS) {
+    const at = { x: desde.x + dx, y: desde.y + dy };
+    const camino = findPath(state.map, desde, at);
+    if (camino?.length === 1 && objectAt(state.map, at) === undefined) return at;
+  }
+  throw new Error(`(${desde.x},${desde.y}) no tiene ninguna casilla vecina libre`);
+}
+
+/**
+ * Pone a `quien` pegado a la base de `victima`, con la base vacía y el héroe
+ * de la víctima lejos de ella, junto a la base de `quien`: pisar la base la
+ * toma y acaba la partida con un `player_defeated` de verdad, con el héroe de
+ * la víctima todavía en el mapa. Los finales escritos a mano
+ * (`state.finished = { winner }`) no dejan hecho en la crónica, y la causa del
+ * final se lee de ahí.
+ */
+export function anteLaBase(state: GameState, quien: PlayerId, victima: PlayerId) {
+  const base = baseOf(state, victima)!;
+  base.garrison = [];
+  const atacante = heroesOf(state, quien)[0]!;
+  const defensor = heroesOf(state, victima)[0]!;
+  defensor.at = pegadoA(state, baseOf(state, quien)!.at);
+  atacante.at = pegadoA(state, base.at);
+  atacante.movePoints = 100000;
+  return { base, atacante };
+}
+
+/**
+ * Una partida acabada de verdad: `quien` pisa la base vacía de `victima`, que
+ * queda eliminada con su héroe en el mapa y un `player_defeated` en la crónica.
+ */
+export function acabarPorLaBase(
+  state: GameState,
+  quien: PlayerId,
+  victima: PlayerId,
+  ctx: GameContext,
+): GameState {
+  const { base, atacante } = anteLaBase(state, quien, victima);
+  state.current = state.players.findIndex((p) => p.id === quien);
+  applyAdventureAction(state, { type: 'move_hero', hero: atacante.id, to: base.at }, ctx, quien);
+  if (state.finished?.winner !== quien) {
+    throw new Error(
+      `el jugador ${quien} pisó la base del ${victima} y la partida no acabó con él de ganador`,
+    );
+  }
+  return state;
 }
 
 /**
