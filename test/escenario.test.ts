@@ -6,12 +6,10 @@
  * QUÉ se pinta y con qué, no cómo queda; lo que se ve lo mira `pnpm taller
  * escenario` y `pnpm capturas`.
  */
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import type { Catalogo } from '../src/client/render/escenario/catalogo.js';
-import { RUTA_DEL_CATALOGO } from '../src/client/render/escenario/catalogo.js';
-import { componer, type Escena } from '../src/client/render/escenario/colocar.js';
+import { componer } from '../src/client/render/escenario/colocar.js';
 import { seHornea } from '../src/client/render/escenario/horneado.js';
 import {
   imagenesDeEscena,
@@ -26,19 +24,10 @@ import type { MapPlan } from '../src/core/map/generate.js';
 import { createRng } from '../src/core/rng.js';
 import { newGame } from '../src/core/state/setup.js';
 import { decidir } from '../tools/qa/politica.js';
+import { catalogoDelDisco, escenaDe } from './helpers.js';
 
 const RAIZ = resolve(import.meta.dirname, '..');
-const catalogo = JSON.parse(readFileSync(join(RAIZ, RUTA_DEL_CATALOGO), 'utf8')) as Catalogo;
-
-const escenas = new Map<number, Escena>();
-function escenaDe(semilla: number): Escena {
-  let e = escenas.get(semilla);
-  if (e === undefined) {
-    e = componer(newGame({ seed: semilla }).map, semilla, catalogo);
-    escenas.set(semilla, e);
-  }
-  return e;
-}
+const catalogo = catalogoDelDisco();
 
 interface Llamada {
   readonly metodo: string;
@@ -112,6 +101,11 @@ function registro(): {
   };
   return { llamadas, lienzos, contexto, lienzo, contextoDe };
 }
+
+/** Un relleno con un degradado lineal: el de cada cara de roca y el de cada canto. */
+const lineal = (l: Llamada) =>
+  l.metodo === 'fillRect' &&
+  (l.fillStyle as { degradado?: string } | undefined)?.degradado === 'createLinearGradient';
 
 describe('los caminos que se pintan son los que se trazaron', () => {
   it('las aristas de la escena son los tramos del mapa (#153)', () => {
@@ -202,9 +196,6 @@ describe('sin arte se pinta igual: cada pieza, su marcador de color', () => {
     expect(e.relieve.cantos.length).toBeGreaterThan(0);
     const r = registro();
     pintarSuelo(r.contexto(), e, sep, { ...sinImagenes, lienzo: r.lienzo });
-    const lineal = (l: Llamada) =>
-      l.metodo === 'fillRect' &&
-      (l.fillStyle as { degradado?: string } | undefined)?.degradado === 'createLinearGradient';
     // En el suelo, el único degradado lineal es el de cada cara de roca.
     expect(r.llamadas.filter((l) => l.contexto === 0 && lineal(l))).toHaveLength(
       e.relieve.caras.length,
@@ -220,6 +211,31 @@ describe('sin arte se pinta igual: cada pieza, su marcador de color', () => {
     expect(copias).toHaveLength(1);
     expect(copias[0]?.contexto).not.toBe(0);
     expect(String(copias[0]?.filter)).toMatch(/^blur\(/);
+  });
+
+  it('una cara con rampa se pinta sin su tajo: la cara menos un trapecio por rampa, en `evenodd`', () => {
+    // La cara se pintaba encima de la senda que baja por ella: la tapaba
+    // siempre, con pared o sin ella (#150).
+    const conRampa = e.relieve.caras.filter((f) => f.rampas.length > 0).sort((p, q) => p.y - q.y);
+    expect(conRampa.length).toBeGreaterThan(0);
+    const r = registro();
+    pintarSuelo(r.contexto(), e, sep, { ...sinImagenes, lienzo: r.lienzo });
+    const suelo = r.llamadas.filter((l) => l.contexto === 0);
+    const recortes = suelo.flatMap((l, i) => (l.metodo === 'clip' ? [i] : []));
+    expect(recortes.map((i) => suelo[i]?.args)).toEqual(conRampa.map(() => ['evenodd']));
+    for (const [n, i] of recortes.entries()) {
+      // El camino del recorte: el rectángulo de la cara y un trapecio por rampa.
+      const desde = suelo.map((l) => l.metodo).lastIndexOf('beginPath', i);
+      const camino = suelo.slice(desde, i).map((l) => l.metodo);
+      expect(camino.filter((m) => m === 'rect')).toHaveLength(1);
+      expect(camino.filter((m) => m === 'closePath')).toHaveLength(
+        conRampa[n]?.rampas.length ?? -1,
+      );
+      // Dentro, la textura y el degradado de la cara, y se deshace antes de lo siguiente.
+      const hasta = suelo.findIndex((l, k) => k > i && l.metodo === 'restore');
+      expect(suelo.slice(i + 1, hasta).map((l) => l.metodo)).toEqual(['fillRect', 'fillRect']);
+      expect(lineal(suelo[hasta - 1] as Llamada)).toBe(true);
+    }
   });
 
   it('los volúmenes: uno a uno, su marcador y ninguna imagen', () => {

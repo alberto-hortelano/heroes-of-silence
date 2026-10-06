@@ -1,3 +1,7 @@
+import { readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { type Catalogo, RUTA_DEL_CATALOGO } from '../src/client/render/escenario/catalogo.js';
+import { componer, type Escena } from '../src/client/render/escenario/colocar.js';
 import {
   activeStack,
   applyAction,
@@ -24,6 +28,7 @@ import { estructura, juntoANodo, rellenar, vecindad } from '../src/core/map/regi
 import { esBarrera, type TerrainKind } from '../src/core/map/terrain.js';
 import type { Rng } from '../src/core/rng.js';
 import { applyAdventureAction, type GameContext, type GameState } from '../src/core/state/game.js';
+import { newGame } from '../src/core/state/setup.js';
 import type { Army, Point, Stack, Troop } from '../src/core/types.js';
 
 /**
@@ -654,4 +659,26 @@ export function ciclosDeCamino(map: GameMap): { total: number; dentro: number } 
     );
   }
   return { total: mu(new Set(todas)), dentro };
+}
+
+/** El catálogo de la escena que está en el repo (`assets/mapa/escena.json`). */
+export function catalogoDelDisco(): Catalogo {
+  return JSON.parse(
+    readFileSync(join(resolve(import.meta.dirname, '..'), RUTA_DEL_CATALOGO), 'utf8'),
+  ) as Catalogo;
+}
+
+const escenas = new Map<number, Escena>();
+
+/**
+ * La escena del mapa de la partida nueva de `semilla`, con el catálogo del repo.
+ * Una vez por semilla y fichero de tests: `componer` un mapa entero cuesta.
+ */
+export function escenaDe(semilla: number): Escena {
+  let e = escenas.get(semilla);
+  if (e === undefined) {
+    e = componer(newGame({ seed: semilla }).map, semilla, catalogoDelDisco());
+    escenas.set(semilla, e);
+  }
+  return e;
 }

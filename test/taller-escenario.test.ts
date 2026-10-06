@@ -8,12 +8,25 @@ import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { analizar } from '../src/client/render/escenario/analizar.js';
-import { type Catalogo, RUTA_DEL_CATALOGO } from '../src/client/render/escenario/catalogo.js';
-import { APARTE, componentesDePasos, componer } from '../src/client/render/escenario/colocar.js';
+import { RUTA_DEL_CATALOGO } from '../src/client/render/escenario/catalogo.js';
+import {
+  APARTE,
+  componentesDePasos,
+  paredesFueraDelPie,
+  paredesSobreRampa,
+  pasilloDeLaPared,
+} from '../src/client/render/escenario/colocar.js';
 import { azarDe, esparcir } from '../src/client/render/escenario/esparcir.js';
 import { ejeDe, esqueleto } from '../src/client/render/escenario/esqueleto.js';
-import { cajaDeSprite, Pasillo } from '../src/client/render/escenario/pasillo.js';
-import { nivelDeRegion, relieve } from '../src/client/render/escenario/relieve.js';
+import { cajaDeSprite, Pasillo, tramoEnCaja } from '../src/client/render/escenario/pasillo.js';
+import {
+  bandaDeCara,
+  HOLGURA_DE_RAMPA,
+  nivelDeRegion,
+  rampas,
+  relieve,
+  SEMIANCHO_DE_PARED,
+} from '../src/client/render/escenario/relieve.js';
 import {
   encadenar,
   SEMIANCHO_DEL_PASILLO,
@@ -24,6 +37,7 @@ import {
 } from '../src/client/render/escenario/sendas.js';
 import { newGame } from '../src/core/state/setup.js';
 import { leerCatalogo, textoDelCatalogo } from '../tools/taller/escenario/catalogo-disco.js';
+import { escenaDe } from './helpers.js';
 
 function franja(filas: readonly string[]): [number, number][] {
   const c: [number, number][] = [];
@@ -140,30 +154,32 @@ describe('el pasillo de la senda', () => {
     [5.5, 1.5],
   ];
   const p = new Pasillo([ele, diagonal], S);
+  /** Un punto como caja: el pasillo lo cubre si alguno de sus tramos le queda a menos de la media anchura. */
+  const punto = (x: number, y: number) => [x, y, x, y] as const;
 
   it('cubre la unión entre dos casillas, el codo de una L y el medio de una diagonal', () => {
     // Lejos del centro de toda casilla: un disco por casilla no los cubriría.
-    expect(p.contiene(1.0, 0.5 + S - 0.05, S)).toBe(true);
+    expect(p.pisa(punto(1.0, 0.5 + S - 0.05), S)).toBe(true);
     const k = (S - 0.05) / Math.SQRT2;
-    expect(p.contiene(5.0 + k, 1.0 - k, S)).toBe(true);
-    expect(p.contiene(1.5 + S - 0.05, 0.5, S)).toBe(true);
+    expect(p.pisa(punto(5.0 + k, 1.0 - k), S)).toBe(true);
+    expect(p.pisa(punto(1.5 + S - 0.05, 0.5), S)).toBe(true);
   });
 
   it('no pasa de la media anchura que se pregunta', () => {
-    expect(p.contiene(1.0, 0.5 + S + 0.1, S)).toBe(false);
+    expect(p.pisa(punto(1.0, 0.5 + S + 0.1), S)).toBe(false);
     const k = (S + 0.1) / Math.SQRT2;
-    expect(p.contiene(5.0 + k, 1.0 - k, S)).toBe(false);
+    expect(p.pisa(punto(5.0 + k, 1.0 - k), S)).toBe(false);
     // El mismo índice contesta por una media anchura menor.
     const m = SEMIANCHO_DEL_PASILLO_DE_MASA;
-    expect(p.contiene(1.0, 0.5 + m - 0.05, m)).toBe(true);
-    expect(p.contiene(1.0, 0.5 + m + 0.05, m)).toBe(false);
+    expect(p.pisa(punto(1.0, 0.5 + m - 0.05), m)).toBe(true);
+    expect(p.pisa(punto(1.0, 0.5 + m + 0.05), m)).toBe(false);
   });
 
   it('mide el rectángulo del sprite, no su pie', () => {
     // Una mata ancha (2:1) con el pie 0,6 por debajo de la senda: el pie está
     // fuera del pasillo y la imagen, que crece hacia arriba, lo cruza.
     const mata = { x: 1.0, y: 0.5 + S + 0.2, nw: 200, nh: 100, ax: 100, ay: 98, alto: 1 };
-    expect(p.contiene(mata.x, mata.y, S)).toBe(false);
+    expect(p.pisa(punto(mata.x, mata.y), S)).toBe(false);
     expect(p.pisa(cajaDeSprite(mata), S)).toBe(true);
     const alto = p.altoLibre(mata, S);
     expect(alto).toBeGreaterThan(0);
@@ -176,7 +192,7 @@ describe('el pasillo de la senda', () => {
 
   it('con el pie dentro, `altoLibre` contesta 0 por atajo, sin bisección: es lo que daría', () => {
     const pie = { x: 1.0, y: 0.55, nw: 200, nh: 100, ax: 100, ay: 98, alto: 1 };
-    expect(p.contiene(pie.x, pie.y, S)).toBe(true);
+    expect(p.pisa(punto(pie.x, pie.y), S)).toBe(true);
     expect(p.altoLibre(pie, S)).toBe(0);
     // Ni el alto más pequeño saca la caja del pasillo: el pie ya está dentro.
     expect(p.pisa(cajaDeSprite(pie, 1e-6), S)).toBe(true);
@@ -187,9 +203,35 @@ describe('el pasillo de la senda', () => {
     for (const [k, v] of [1.6, 2.2, 2.4, 3].entries()) expect(caja[k]).toBeCloseTo(v, 9);
   });
 
+  it('un tramo corta una caja si comparte con ella un trozo, no si solo la toca en un punto', () => {
+    const t: [number, number] = [0, 0];
+    // La atraviesa: de x = 1 a 3 sobre un tramo de 0 a 4.
+    expect(tramoEnCaja(0, 1, 4, 1, 1, 0, 3, 2, t)).toBe(true);
+    expect(t).toEqual([0.25, 0.75]);
+    // Corre por un borde: lo comparte entero.
+    expect(tramoEnCaja(0, 0, 4, 0, 1, 0, 3, 2)).toBe(true);
+    // Pasa por una esquina o acaba en un borde: un punto, no un trozo.
+    expect(tramoEnCaja(0, 2, 2, 0, 1, 1, 3, 3)).toBe(false);
+    expect(tramoEnCaja(0, 1, 1, 1, 1, 0, 3, 2)).toBe(false);
+    // Y lejos, nada.
+    expect(tramoEnCaja(0, 5, 4, 5, 1, 0, 3, 2)).toBe(false);
+    // Para el pasillo, tocar en un punto es estar a distancia 0: la esquina pisa.
+    expect(
+      new Pasillo(
+        [
+          [
+            [0, 2],
+            [2, 0],
+          ],
+        ],
+        S,
+      ).pisa([1, 1, 3, 3], 0.01),
+    ).toBe(true);
+  });
+
   it('lanza con una media anchura que no es positiva o que pasa de la que se construyó', () => {
     expect(() => new Pasillo([ele], 0)).toThrow(/media anchura positiva/);
-    expect(() => p.contiene(1, 1, S + 0.01)).toThrow(/hasta 0.4/);
+    expect(() => p.pisa(punto(1, 1), S + 0.01)).toThrow(/hasta 0.4/);
     expect(() => p.pisa([0, 0, 1, 1], 0)).toThrow(/no se puede preguntar/);
   });
 
@@ -248,12 +290,11 @@ describe('el esparcido', () => {
 });
 
 const RAIZ = resolve(import.meta.dirname, '..');
-const catalogo = JSON.parse(readFileSync(join(RAIZ, RUTA_DEL_CATALOGO), 'utf8')) as Catalogo;
 
 describe('la escena de un mapa real', () => {
   for (const semilla of [1, 3, 7, 9]) {
     const map = newGame({ seed: semilla }).map;
-    const e = componer(map, semilla, catalogo);
+    const e = escenaDe(semilla);
 
     it(`semilla ${semilla}: con el catálogo del repo no falta ningún módulo`, () => {
       expect(e.informe.modulosQueFaltan).toEqual([]);
@@ -308,8 +349,64 @@ describe('la escena de un mapa real', () => {
         expect(cerca).toBe(true);
       }
     });
+
+    // Las rampas (#150): las de las caras a mano están en `rampas.test.ts`.
+    const rs = e.relieve.caras.flatMap((c) => c.rampas.map((r) => ({ c, r })));
+
+    it(`semilla ${semilla}: ninguna pared pisa la senda que baja ni la de junto a ella, y ninguna va cortada`, () => {
+      // Recontado aquí, con la senda de junto a las rampas derivada otra vez de la escena.
+      const junto = rampas(e.relieve.caras, e.sendas).junto;
+      const pisan = paredesSobreRampa(e.sprites, pasilloDeLaPared(junto));
+      expect(pisan.map((s) => `${s.src} en ${s.x},${s.y}`)).toEqual([]);
+      expect(e.informe.paredesSobreRampa).toBe(0);
+      // Sin cortes rectos (decisión del usuario, 06-10-2026): una pared se
+      // encoge, se corre o se quita, pero nunca lleva `recorte`.
+      const cortadas = e.sprites.filter((s) => s.clase === 'pared' && s.recorte !== undefined);
+      expect(cortadas.map((s) => `${s.src} en ${s.x},${s.y}`)).toEqual([]);
+    });
+
+    it(`semilla ${semilla}: toda pared se apoya en el pie de su cara, y su pedregal, en su banda y fuera de la senda`, () => {
+      // Recontado aquí y no solo en el informe. Una pared corrida que conservaba
+      // la y de su sitio quedaba de pie en el río, bajo su acantilado (#150, N1).
+      const fuera = paredesFueraDelPie(e.sprites, e.relieve.caras);
+      expect(fuera.map((s) => `${s.src} en ${s.x},${s.y}`)).toEqual([]);
+      expect(e.informe.paredesFueraDelPie).toBe(0);
+      // El pedregal no pisa ninguna senda, tampoco la que no baja (N3).
+      const pasillo = new Pasillo(e.sendas, SEMIANCHO_DE_PARED);
+      const peñascos = e.sprites.filter(
+        (s) => s.clase === 'pared' && s.src?.includes('/rocas-caidas/') === true,
+      );
+      expect(peñascos.length).toBeGreaterThan(10);
+      const pisan = peñascos.filter((s) => pasillo.pisa(cajaDeSprite(s), SEMIANCHO_DE_PARED));
+      expect(pisan.map((s) => `${s.src} en ${s.x},${s.y}`)).toEqual([]);
+    });
+
+    it(`semilla ${semilla}: hay rampas, alguna en diagonal, y cada tajo cae en su cara y solo llega a un extremo si la senda pasa a la holgura de él`, () => {
+      expect(rs.some(({ r }) => cajaDe(r.trazos)[2] - cajaDe(r.trazos)[0] >= 0.3)).toBe(true);
+      for (const { c, r } of rs) {
+        const [x0, y0, x1, y1] = bandaDeCara(c);
+        const [tx0, ty0, tx1, ty1] = cajaDe(r.trazos);
+        expect(r.a).toBeGreaterThanOrEqual(x0);
+        expect(r.b).toBeLessThanOrEqual(x1);
+        expect(r.a).toBeLessThan(r.b);
+        expect([tx0 >= r.a, tx1 <= r.b, ty0 >= y0 - 1e-9, ty1 <= y1 + 1e-9]).toEqual([
+          true,
+          true,
+          true,
+          true,
+        ]);
+        expect(r.dentro).toEqual([tx0 - HOLGURA_DE_RAMPA > x0, tx1 + HOLGURA_DE_RAMPA < x1]);
+      }
+    });
   }
 });
+
+/** La caja de todos los puntos de unos trazos: `[x0, y0, x1, y1]`. */
+function cajaDe(trazos: readonly Senda[]): [number, number, number, number] {
+  const xs = trazos.flat().map(([x]) => x);
+  const ys = trazos.flat().map(([, y]) => y);
+  return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+}
 
 describe('lo que importaría el juego', () => {
   it('el catálogo del repo es el que sale del disco: `pnpm taller catalogo-escena` está al día', async () => {

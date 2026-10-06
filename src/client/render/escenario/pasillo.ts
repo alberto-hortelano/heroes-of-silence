@@ -234,12 +234,6 @@ export class Pasillo {
     return this.recorrer(x0, y0, x1, y1, r, false);
   }
 
-  /** Si el punto cae dentro del pasillo de media anchura `r`. */
-  contiene(x: number, y: number, r: number): boolean {
-    this.comprobarRadio(r);
-    return this.recorrer(x, y, x, y, r, false);
-  }
-
   /**
    * El mayor alto con el que `s` no pisa el pasillo de media anchura `r`, hasta
    * el suyo. La caja crece con el alto sin moverse del ancla, que está dentro
@@ -289,8 +283,20 @@ function puntoATramo2(x: number, y: number, ax: number, ay: number, bx: number, 
   return ex * ex + ey * ey;
 }
 
-/** Si el tramo `a → b` corta la caja (Liang-Barsky, con sus cuatro bordes a mano). */
-function corta(
+/** Lo que se tolera en `t` al decidir si un tramo corta una caja o solo la toca. */
+const EPS = 1e-6;
+
+/**
+ * Si el tramo `a → b` corta la caja `[x0, y0, x1, y1]` (Liang-Barsky): si
+ * comparte con ella un trozo de largo positivo. Lo que tiene dentro va de `t0`
+ * a `t1` sobre el tramo, y se deja en `t` si se pasa.
+ *
+ * Tocar la caja en un solo punto no es cortarla. Ese punto es un extremo del
+ * tramo o una esquina de la caja, así que `distancia2` lo mide igual (da 0); y
+ * para `rampas` un trozo de largo nulo no es senda. Sin tupla que devolver: va
+ * en el camino caliente del índice.
+ */
+export function tramoEnCaja(
   ax: number,
   ay: number,
   bx: number,
@@ -299,12 +305,12 @@ function corta(
   y0: number,
   x1: number,
   y1: number,
+  t?: [number, number],
 ): boolean {
   let t0 = 0;
   let t1 = 1;
   const dx = bx - ax;
   const dy = by - ay;
-  // Cada borde es `p·t ≤ q`: izquierdo, derecho, de arriba y de abajo.
   if (dx === 0) {
     if (ax < x0 || ax > x1) return false;
   } else {
@@ -313,7 +319,7 @@ function corta(
     if (dx < 0) [ra, rb] = [rb, ra];
     if (ra > t0) t0 = ra;
     if (rb < t1) t1 = rb;
-    if (t0 > t1) return false;
+    if (t1 - t0 < EPS) return false;
   }
   if (dy === 0) {
     if (ay < y0 || ay > y1) return false;
@@ -323,7 +329,11 @@ function corta(
     if (dy < 0) [ra, rb] = [rb, ra];
     if (ra > t0) t0 = ra;
     if (rb < t1) t1 = rb;
-    if (t0 > t1) return false;
+    if (t1 - t0 < EPS) return false;
+  }
+  if (t !== undefined) {
+    t[0] = t0;
+    t[1] = t1;
   }
   return true;
 }
@@ -343,7 +353,7 @@ function distancia2(
   x1: number,
   y1: number,
 ): number {
-  if (corta(ax, ay, bx, by, x0, y0, x1, y1)) return 0;
+  if (tramoEnCaja(ax, ay, bx, by, x0, y0, x1, y1)) return 0;
   return Math.min(
     puntoACaja2(ax, ay, x0, y0, x1, y1),
     puntoACaja2(bx, by, x0, y0, x1, y1),

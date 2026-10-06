@@ -526,3 +526,68 @@ cuántas veces sale en esas dos escenas.
   cómo lea `componer` el tamaño nuevo.
 - Se sacó con `escenarioDe` + `separar` (la misma cuenta que el plan de
   `docs/agents/2026-10-05-nitidez-del-mapa/plan.md`, §2).
+
+## 16. Paredes de acantilado vistas de lado: este y oeste (sesión de reglas, 06-10-2026)
+
+El usuario: «Un problema que veo es que hay paredes de roca y en el mapa van
+todas con la misma orientación». Y sobre el oeste: «Se pide nuevo arte» (no se
+espeja el del este).
+
+- **Hoy**: el relieve (`escenario/relieve.ts`) solo dibuja pared en las caídas
+  hacia el sur (`caras`), con los 16 módulos frontales de cada material
+  (`modulos/paredes-{roca,arenisca,basalto,nevadas}`). Las caídas al este y al
+  oeste (`cantos`) son un borde oscurecido y peñascos (`rocas-caidas`), y las del
+  norte (`rebordes`), solo el reborde. Por eso toda pared corre de este a oeste y
+  mira a cámara, y un risco que baja de norte a sur se lee como una escalera de
+  paredes frontales.
+- **Qué pedir**, por material (roca, arenisca, basalto, nevada):
+  - **pared que cae al este**: la cara mira al este y se ve en escorzo con la
+    cámara de siempre (25°, `src/shared/`), la parte alta a la izquierda y la
+    cara de roca a la derecha, en módulos que encadenan de norte a sur;
+  - **pared que cae al oeste**: su simétrica, **generada aparte** (no espejada),
+    para que la luz (`src/shared/`, la del resto del mapa) caiga bien en las dos;
+  - el mismo estilo, paleta y textura que el módulo frontal del mismo material
+    (referencia: `modulos/paredes-roca/*.webp` y `acantilado-roca-ancho-1.webp`);
+  - alturas para caídas de 1 y 2 niveles (`ALTO_DE_NIVEL`), y una pieza de
+    esquina por lado para empalmar con la pared frontal donde la caída gira;
+  - resolución para 120 px por casilla en el zoom máximo (ver §15).
+- **Al engancharlo** (ciclo aparte, issue en GitHub): `relieve` da caras laterales
+  con su material, `colocar` pone esos módulos a lo largo del canto y las rampas
+  de #150 también cortan esas caras.
+- **Abierto**: si las caídas al norte (de espaldas) piden algo más que el
+  reborde. Mientras no se diga, se quedan como hoy.
+
+## 17. Puentes que casan con el río (sesión de reglas, 06-10-2026)
+
+El usuario: «Otro problema son los puentes, van todos con la misma orientación y
+no tienen unión con las zonas que conectan». Diagnóstico con las semillas 1-10:
+26 puentes, 17 cruces rectos (8 N-S y 9 E-O) y 9 en diagonal. La variante
+`ancho`/`hondo` acierta en los 17 rectos. Lo que no funciona:
+
+- los dos dibujos (`nodo-puente-{ancho,hondo}.webp`) vienen torcidos de origen:
+  `ancho` se desvía unos 20° al noreste y `hondo` baja hacia la derecha, en
+  escorzo y con la misma piedra, así que se leen como uno solo;
+- no hay arte para los cruces en diagonal (35 %);
+- en 21 de 26 cruces las orillas están a distinto nivel.
+
+**Qué pedir:**
+- **Puente de piedra recto de verdad**, en dos piezas, una **N-S** (cruza de
+  delante al fondo) y otra **E-O** (cruza de izquierda a derecha), con la cámara
+  de siempre (25°, `src/shared/`). Tablero paralelo a la rejilla, una casilla de
+  agua de luz y estribos que llegan al borde de las dos casillas de orilla.
+- **Dos diagonales** de piedra: **NE-SO** y **NO-SE**, generadas por separado.
+- **Estribos para orillas a distinto nivel**: el puente sube de la orilla baja a
+  la alta, un nivel (`ALTO_DE_NIVEL`), o estribos separables.
+- **Puentes rudimentarios para los pasos sin camino** (16 de 26: entre dos
+  regiones solo un paso lleva camino desde #149). Lo pidió el usuario: «Otro
+  tipo de puentes, rudimentarios con unos cuantos troncos y rocas». Unos troncos
+  sobre piedras del río, en las mismas cuatro orientaciones (N-S, E-O, NE-SO y
+  NO-SE). Dejan claro que se cruza, pero sin calzada.
+- Resolución para 120 px por casilla (§15). El ancla, en el centro del tablero
+  y no en la mediana de la fila de abajo (la de `derivar.ts` está pensada para
+  figuras y descentra `hondo` 0,38 casillas).
+
+**Lo que se hace en código** (issue aparte): agua bajo el puente en vez del
+tapón de tierra; ancla y escala a las orillas; la senda hasta los estribos; que
+la pared de la cara de detrás no tape el puente; piedra si el nodo lleva camino
+y troncos si no.
