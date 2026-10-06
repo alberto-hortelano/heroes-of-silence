@@ -127,6 +127,7 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 | Carga | `cargaDesde` (cuándo), `cargaEfectiva` (tope), `casillasDeCarga` (qué se enseña) |
 | Turno de batalla | `BattleState.turno` (`n`, ordinal); `mismoTurno`; viaja como `turnId` |
 | Tope de jugadas | `MAX_JUGADAS` |
+| Desenlace y causa del final (barra, crónica y nota del agente) | `finDePartida`, `desenlaceDe` (`state/desenlace.ts`) |
 | Ventaja para atacar/emboscar | `ventajaClara` (`ai/fuerza.ts`) |
 
 `test/invariantes.test.ts` vigila las fronteras de esta sección. Todos nacen en

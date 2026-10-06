@@ -273,6 +273,75 @@ describe('contrato con el agente', () => {
     if (c.success) throw new Error('una historia con un carácter de control debería rechazarse');
     expect(c.error.issues.map((i) => i.message).join(' ')).toMatch(/caracteres de control/);
   });
+
+  it('lo que parte la línea, le da la vuelta o se pinta en blanco tampoco pasa; lo legible, sí (#128)', () => {
+    const base = generateMapPlan(createRng(13));
+    const conPueblo = (name: string): unknown => ({
+      ...base,
+      towns: [{ ...base.towns[0], name }, base.towns[1]],
+    });
+    const heroe = responseSchemas.hero_from_troop;
+    const bueno = { name: 'Ana la Paciente', story: 'Guardó la puerta.', heroType: 'lich' };
+    const motivos = (r: { success: boolean; error?: { issues: { message: string }[] } }) =>
+      r.success ? '' : r.error!.issues.map((i) => i.message).join(' ');
+
+    // Cada uno con el motivo que le corresponde: es lo que corrige al agente.
+    const malos: [string, RegExp][] = [
+      ['Ana\u2028Bo', /marcas de dirección/], // separador de línea
+      ['Ana\u2029Bo', /marcas de dirección/], // separador de párrafo
+      ['Ana\u202eoB', /marcas de dirección/], // RLO: da la vuelta al resto
+      ['\u2066Ana', /marcas de dirección/], // aislamiento de dirección
+      ['Ana\u200e', /marcas de dirección/], // marca de izquierda a derecha
+      ['\u2800', /en blanco/], // braille vacío
+      ['\u3164', /en blanco/], // relleno coreano
+      ['\uffa0', /en blanco/], // relleno coreano de media anchura
+      ['\u115f', /en blanco/], // relleno de inicial coreana
+      ['\u2800\u3164 \u0301', /en blanco/],
+      ['\u0301', /acento o una marca suelta/], // acento combinante solo
+      ['\u0301abc', /acento o una marca suelta/], // y delante de un texto
+      ['Ana\ue000', /caracteres que existen/], // uso privado
+      ['Ana\u{f0000}', /caracteres que existen/], // uso privado suplementario
+      ['Ana\u0378', /caracteres que existen/], // sin asignar
+      ['Ana\uffff', /caracteres que existen/], // no-carácter
+      ['Ana\ufdd0', /caracteres que existen/], // no-carácter
+      ['Ana\ud800', /caracteres que existen/], // sustituto suelto
+    ];
+    // La regla entera, sobre una superficie: el nombre del héroe.
+    for (const [malo, motivo] of malos) {
+      const r = heroe.safeParse({ ...bueno, name: malo });
+      expect(r.success, `${JSON.stringify(malo)} debería rechazarse`).toBe(false);
+      expect(motivos(r), JSON.stringify(malo)).toMatch(motivo);
+    }
+
+    // Lo legible de hoy sigue pasando: la ñ escrita de las dos formas, un emoji,
+    // el corazón con su selector de variante (U+FE0F) y la familia unida con ZWJ
+    // (U+200D), que son ignorables y por eso no pueden ir en la primera regla.
+    const buenos = [
+      'Peña',
+      'Pen\u0303a',
+      '🐉',
+      '❤️',
+      '👨‍👩‍👧',
+      'Ana ❤️ Bo',
+      '🇪🇸 Valdeluz',
+      'هران',
+      '한강',
+      '🇪🇸',
+      '🏴\u{e0067}\u{e0062}\u{e0073}\u{e0063}\u{e0074}\u{e007f}', // Escocia, con etiquetas (Cf)
+      '🏳️‍🌈',
+      '1️⃣',
+    ];
+    for (const b of buenos) {
+      expect(motivos(heroe.safeParse({ ...bueno, name: b })), JSON.stringify(b)).toBe('');
+    }
+
+    // Y el cableado del otro esquema: el nombre de un pueblo del plan de mapa
+    // pasa por la misma puerta.
+    expect(motivos(mapPlanSchema.safeParse(conPueblo('Ana\u202eoB')))).toMatch(
+      /marcas de dirección/,
+    );
+    expect(motivos(mapPlanSchema.safeParse(conPueblo('Ana ❤️ Bo')))).toBe('');
+  });
 });
 
 describe('los caminos del plan del agente: casillas, y los tramos se derivan (#153)', () => {

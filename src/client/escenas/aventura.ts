@@ -21,7 +21,7 @@ import {
 } from '../render/camara-mapa.js';
 import { escenarioListo, topeDeAlejar } from '../render/escenario/superficie.js';
 import { type Medida, pixelesDe } from '../render/lienzo.js';
-import { drawMapa, type PasoDeRuta, presupuestoConHolgura } from '../render/mapa.js';
+import { drawMapa, type PasoDeRuta, pasosAPintar, presupuestoConHolgura } from '../render/mapa.js';
 import { casillaDelMinimapa, drawMinimapa } from '../render/minimapa.js';
 import type { Session } from '../session.js';
 
@@ -52,6 +52,12 @@ export class EscenaAventura {
   private arrastre: { x: number; y: number; camara: CamaraMapa; movido: boolean } | null = null;
   /** En pantalla táctil no hay «pasar por encima»: el primer toque enseña la ruta. */
   private tocada: string | null = null;
+  /**
+   * La última frase que esta escena escribió en la barra, para borrar solo la
+   * suya al olvidar la ruta: lo que haya escrito después la sesión —el motivo
+   * de un movimiento rechazado, el final— no es de la escena y se queda.
+   */
+  private fraseDeLaRuta: string | null = null;
   private encuadre: Encuadre = { ancho: 1, alto: 1, mapaAncho: 1, mapaAlto: 1 };
 
   constructor(private readonly sesion: () => Session) {}
@@ -70,11 +76,20 @@ export class EscenaAventura {
     this.camara = zoom(this.camara, direccion, this.encuadre, ancla);
   }
 
-  /** Olvida la ruta: tras un movimiento o al cambiar de héroe ya no vale. */
+  /**
+   * Olvida la ruta: tras un movimiento, al cambiar de héroe o al pasar el turno
+   * ya no vale. Y con ella la frase que la contaba: «hoy llegas a 7 de 20 pasos»
+   * seguía en la barra al volver el turno, sin mover el puntero, con los puntos
+   * ya repuestos (#123). Se borra aquí y no en `Session.endTurn` porque la
+   * escribió la escena, y así vale para todos los que olvidan la ruta.
+   */
   olvidarRuta(): void {
     this.ruta = [];
     this.claveRuta = null;
     this.tocada = null;
+    const s = this.sesion();
+    if (this.fraseDeLaRuta !== null && s.status === this.fraseDeLaRuta) s.status = '';
+    this.fraseDeLaRuta = null;
   }
 
   /** La ruta que se está enseñando: la del puntero encima, o la del primer toque. */
@@ -191,6 +206,7 @@ export class EscenaAventura {
     this.claveRuta = clave;
     this.ruta = s.previewPath(casilla);
     s.status = describirCasilla(s, casilla, this.ruta);
+    this.fraseDeLaRuta = s.status;
   }
 
   /**
@@ -208,6 +224,7 @@ export class EscenaAventura {
       this.señalar(casilla);
       this.tocada = pointKey(casilla);
       if (this.ruta.length > 0) s.status = `${s.status} · Toca otra vez para ir.`;
+      this.fraseDeLaRuta = s.status;
       return;
     }
     s.clickTile(casilla);
@@ -268,13 +285,7 @@ function describirCasilla(s: Session, p: Point, ruta: readonly PasoDeRuta[]): st
   else if (objeto?.kind === 'chest' && !objeto.taken) que = 'Un cofre';
   else if (objeto?.kind === 'resource' && !objeto.taken) que = 'Recursos sueltos';
   if (ruta.length === 0) return que === '' ? '' : `${que}.`;
-  const hoy = ruta.filter((r) => r.hoy).length;
-  const llegada =
-    hoy === ruta.length
-      ? `llegas hoy (${ruta.length} ${ruta.length === 1 ? 'paso' : 'pasos'})`
-      : hoy === 0
-        ? 'hoy no te queda movimiento para dar ni un paso'
-        : `hoy llegas a ${hoy} de ${ruta.length} pasos: dorado hoy, gris otro día`;
+  const llegada = llegadaDeLaRuta(ruta, s.explorado);
   // La emboscada va DELANTE: es lo que cambia la decisión, y una barra larga se
   // corta por el final en pantallas estrechas.
   const emboscada = ruta.find((r) => r.emboscada !== undefined)?.emboscada;
@@ -283,4 +294,34 @@ function describirCasilla(s: Session, p: Point, ruta: readonly PasoDeRuta[]): st
       ? ''
       : `Cuidado: el camino cruza la región de ${individuosDe(emboscada.troops)} asaltantes, que te emboscarían (en rojo) · `;
   return que === '' ? `${aviso}Ruta: ${llegada}.` : `${aviso}${que} · ${llegada}.`;
+}
+
+/**
+ * Cuánto se anda hoy de la ruta, contado sobre **lo mismo que pinta el trazo**
+ * (`pasosAPintar`, la misma llamada y no otra lectura de la niebla). Contada
+ * sobre la ruta entera, la barra decía «hoy llegas a 7 de 20 pasos» con la mitad
+ * en la niebla, y el número delataba el rodeo que el trazo ya callaba (#123).
+ * Cuando parte de la ruta no se ve, no se dice «llegas hoy» ni el total: solo
+ * lo que se ve, y que sigue más allá si el destino se ve.
+ */
+export function llegadaDeLaRuta(
+  ruta: readonly PasoDeRuta[],
+  explorado: ReadonlySet<string> | null,
+): string {
+  const vistos = pasosAPintar(ruta, explorado);
+  const hoy = vistos.filter((r) => r.hoy).length;
+  if (hoy === 0) return 'hoy no te queda movimiento para dar ni un paso';
+  if (vistos.length === ruta.length) {
+    return hoy === ruta.length
+      ? `llegas hoy (${ruta.length} ${ruta.length === 1 ? 'paso' : 'pasos'})`
+      : `hoy llegas a ${hoy} de ${ruta.length} pasos: dorado hoy, gris otro día`;
+  }
+  const queSeVen = `hoy andas ${hoy} de los ${vistos.length} ${vistos.length === 1 ? 'paso' : 'pasos'} que se ven`;
+  // Si el destino está en la niebla, la barra ya empieza por «Tierras
+  // desconocidas» y la cola lo repetía (QA de #123, H3): solo se dice que sigue
+  // por la niebla cuando el destino se ve y la niebla queda en medio. Frase
+  // elegida por el usuario en el punto de control del plan.
+  return vistos.at(-1)?.marca === 'destino'
+    ? `${queSeVen}; sigue por tierras desconocidas`
+    : queSeVen;
 }

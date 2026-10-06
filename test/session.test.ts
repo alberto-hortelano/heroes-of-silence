@@ -11,24 +11,11 @@ import { marcadoDe } from '../src/client/html.js';
 import { Session } from '../src/client/session.js';
 import { renderSide } from '../src/client/views/panels.js';
 import { armyLeadership, GARRISON_LEADERSHIP } from '../src/core/hero/troop.js';
-import {
-  findPath,
-  objectAt,
-  pointFromKey,
-  reachableFrom,
-  visibleFrom,
-} from '../src/core/map/map.js';
-import { VECINAS } from '../src/core/map/regiones.js';
+import { pointFromKey, reachableFrom, visibleFrom } from '../src/core/map/map.js';
 import { isWalkable } from '../src/core/map/terrain.js';
-import {
-  applyAdventureAction,
-  baseOf,
-  HERO_SCOUT_RADIUS,
-  heroesOf,
-} from '../src/core/state/game.js';
+import { applyAdventureAction, HERO_SCOUT_RADIUS, heroesOf } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
-import type { PlayerId, Point } from '../src/core/types.js';
-import { planDeNodos } from './helpers.js';
+import { anteLaBase, pegadoA, planDeNodos } from './helpers.js';
 
 describe('sesión del cliente: el turno del rival', () => {
   it('mientras juega el rival no es tu turno, y pulsar otra vez no hace nada', async () => {
@@ -111,24 +98,6 @@ describe('sesión del cliente: el turno del rival', () => {
   });
 });
 
-/**
- * Una casilla pegada a `desde` a la que se llega de un paso, sin objeto: donde
- * plantar a un héroe para que entre en batalla sin cruzar nada por el camino.
- * Desde que perder la base elimina y el castillo no bloquea, mandar al héroe
- * de una punta a otra del mapa cruzaba la base rival vacía y acababa la
- * partida antes de llegar a la batalla que el test quería ver.
- */
-function pegadoA(s: Session, desde: Point): Point {
-  // Las ocho y no solo las rectas: con fronteras gruesas, el inicio está en el
-  // pasillo de la base y a veces solo tiene libres las diagonales.
-  for (const [dx, dy] of VECINAS) {
-    const at = { x: desde.x + dx, y: desde.y + dy };
-    const camino = findPath(s.state.map, desde, at);
-    if (camino?.length === 1 && objectAt(s.state.map, at) === undefined) return at;
-  }
-  throw new Error(`(${desde.x},${desde.y}) no tiene ninguna casilla vecina libre`);
-}
-
 describe('sesión del cliente: el bando de la persona', () => {
   /**
    * Una batalla en la que la persona DEFIENDE. Hoy no llega ninguna al cliente
@@ -140,7 +109,7 @@ describe('sesión del cliente: el bando de la persona', () => {
     const mio = heroesOf(s.state, 0)[0]!;
     const suyo = heroesOf(s.state, 1)[0]!;
     s.state.current = 1;
-    suyo.at = pegadoA(s, mio.at);
+    suyo.at = pegadoA(s.state, mio.at);
     suyo.movePoints = 100000;
     applyAdventureAction(s.state, { type: 'move_hero', hero: suyo.id, to: mio.at }, s.ctx, 1);
     if (s.state.pendingBattle === null) throw new Error('el rival no llegó a atacar');
@@ -314,7 +283,7 @@ describe('sesión del cliente: la versión y lo que se guarda entre fotogramas',
     const mio = heroesOf(s.state, 0)[0]!;
     const suyo = heroesOf(s.state, 1)[0]!;
     // La persona ataca: su héroe entra en la casilla del rival.
-    mio.at = pegadoA(s, suyo.at);
+    mio.at = pegadoA(s.state, suyo.at);
     mio.movePoints = 100000;
     applyAdventureAction(s.state, { type: 'move_hero', hero: mio.id, to: suyo.at }, s.ctx, 0);
     if (s.state.pendingBattle === null) throw new Error('no hubo batalla');
@@ -334,26 +303,9 @@ describe('sesión del cliente: la versión y lo que se guarda entre fotogramas',
 });
 
 describe('el fin de partida cuenta la causa que selló el núcleo (I1 de la 2a)', () => {
-  /**
-   * Pone a `quien` pegado a la base de `victima`, con la base vacía y el héroe
-   * de la víctima lejos de ella: lo que se mide es qué se cuenta al perder la
-   * base con el héroe todavía en el mapa, que es justo cuando la frase de antes
-   * —«no te quedan castillos ni héroes»— mentía.
-   */
-  function anteLaBase(s: Session, quien: PlayerId, victima: PlayerId) {
-    const base = baseOf(s.state, victima)!;
-    base.garrison = [];
-    const atacante = heroesOf(s.state, quien)[0]!;
-    const defensor = heroesOf(s.state, victima)[0]!;
-    defensor.at = pegadoA(s, baseOf(s.state, quien)!.at);
-    atacante.at = pegadoA(s, base.at);
-    atacante.movePoints = 100000;
-    return { base, atacante };
-  }
-
   it('al perder la base: «has perdido tu base», con el héroe vivo en el mapa', async () => {
     const s = new Session(5);
-    anteLaBase(s, 1, 0);
+    anteLaBase(s.state, 1, 0);
     await s.endTurn();
     expect(s.desenlace).toBe('perdida');
     expect(heroesOf(s.state, 0)).toHaveLength(1);
@@ -366,7 +318,7 @@ describe('el fin de partida cuenta la causa que selló el núcleo (I1 de la 2a)'
 
   it('al tomar la base rival: «has tomado la base rival»', () => {
     const s = new Session(5);
-    const { base, atacante } = anteLaBase(s, 0, 1);
+    const { base, atacante } = anteLaBase(s.state, 0, 1);
     s.moveHeroTo(atacante.id, base.at);
     expect(s.desenlace).toBe('ganada');
     expect(heroesOf(s.state, 1)).toHaveLength(1);

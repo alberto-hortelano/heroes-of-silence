@@ -1,17 +1,11 @@
 /**
- * Cómo acabó la partida **para quien mira**, en un solo sitio.
+ * Quién mira, dicho como lo pregunta el núcleo.
  *
- * `finished.winner` admite tres respuestas —la ganaste, la perdiste, no la ganó
- * nadie— y la trampa es que la tercera **no la caza `tsc`**: `winner === viewer`
- * con un `null` delante es `false`, así que un ternario de dos compila y contesta
- * «has perdido» a un empate por días.
- *
- * Y son **cuatro** y no tres, que es la mitad que se escapó la primera vez: quien
- * mira sin llevar bando no gana ni pierde **ninguna** partida, tampoco las que
- * gana alguien. Con `NADIE` como `viewer`, `winner === viewer` vuelve a ser
- * `false` por el mismo motivo de siempre, y el espectador veía «Fin de la
- * partida» en el rojo de derrota **en la misma pantalla que decía "has ganado"**.
- * La respuesta a eso no es «perdida»: es `ajena`.
+ * Cómo acabó la partida lo contesta `desenlaceDe` (`core/state/desenlace.ts`),
+ * con cuatro respuestas, y la cuarta —`ajena`— es la de quien mira **sin llevar
+ * bando**: no gana ni pierde ninguna partida, tampoco las que gana alguien. El
+ * núcleo la pregunta con un conjunto vacío; el cliente lleva un solo `viewer`, y
+ * el espectador es `NADIE`. Esto traduce lo uno a lo otro.
  *
  * `NADIE` vive aquí y no en el paquete del espectador porque es esta pregunta la
  * que lo necesita: es el único sitio que tiene que distinguir «no es tu bando»
@@ -30,24 +24,12 @@ import type { PlayerId } from '@core/types.js';
 
 /**
  * Quien mira sin llevar bando. **No es el id de nadie**: es el hueco donde iría
- * uno, y por eso `desenlaceDe` lo compara a propósito en vez de dejar que caiga
- * por el `!==` de abajo.
+ * uno, y por eso `quienesDe` lo convierte a propósito en «nadie» en vez de dejar
+ * que caiga por el `!==` de un ganador.
  */
 export const NADIE = -1;
 
-export type Desenlace = 'ganada' | 'perdida' | 'sin resolver' | 'ajena';
-
-/**
- * `winner` es el `finished.winner` del núcleo, o el `actor` de un `game_over`,
- * que es el mismo dato: `finishGame` sella el evento con el ganador.
- *
- * El orden de las dos preguntas importa y no es intercambiable: una partida sin
- * resolver lo está **para todos**, también para quien no lleva bando, así que
- * `sin resolver` gana a `ajena`. Al revés, el espectador dejaría de enterarse de
- * que nadie ganó.
- */
-export function desenlaceDe(winner: PlayerId | null, viewer: PlayerId): Desenlace {
-  if (winner === null) return 'sin resolver';
-  if (viewer === NADIE) return 'ajena';
-  return winner === viewer ? 'ganada' : 'perdida';
+/** Los jugadores que lleva quien mira: ninguno si es `NADIE`. */
+export function quienesDe(viewer: PlayerId): ReadonlySet<PlayerId> {
+  return new Set(viewer === NADIE ? [] : [viewer]);
 }

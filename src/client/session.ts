@@ -27,6 +27,7 @@ import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '@core/hero/
 import type { PathStep } from '@core/map/map.js';
 import { createRng, type Rng } from '@core/rng.js';
 import { emboscadaEnLaRuta, type VistaAsaltante } from '@core/state/asaltantes.js';
+import { type Desenlace, desenlaceDe, finDePartida } from '@core/state/desenlace.js';
 import type { DefeatReason } from '@core/state/events.js';
 import {
   applyAdventureAction,
@@ -51,7 +52,7 @@ import {
 } from '@core/state/game.js';
 import { newGame } from '@core/state/setup.js';
 import type { Hex, PlayerId, Point } from '@core/types.js';
-import { type Desenlace, desenlaceDe } from './desenlace.js';
+import { quienesDe } from './desenlace.js';
 
 export type Scene = 'adventure' | 'town' | 'battle';
 
@@ -374,33 +375,18 @@ export class Session implements ControlDeBatalla, HechizosDeBatalla {
   }
 
   /**
-   * Por qué acabó la partida, leído del `player_defeated` que la cerró, o `null`
-   * si sigue viva o se agotaron los días. La causa la decide `checkDefeat` y la
-   * sella en el hecho: aquí solo se busca, no se deduce del mapa.
-   *
-   * Si perdiste, la tuya; si ganaste, la del último rival eliminado. Una partida
-   * con ganador y sin ningún `player_defeated` es una partida rota, y se dice.
+   * Por qué acabó la partida para quien mira: la tuya si perdiste, la del último
+   * rival eliminado si ganaste, `null` si sigue viva o se agotaron los días. La
+   * busca el núcleo (`finDePartida`), que es quien la lee también para el agente.
    */
   get causaDelFinal(): DefeatReason | null {
-    const fin = this.state.finished;
-    if (fin === null || fin.winner === null) return null;
-    const perdiYo = fin.winner !== this.viewer;
-    const derrotas = this.state.log.filter(
-      (e) => e.kind === 'player_defeated' && (!perdiYo || e.actor === this.viewer),
-    );
-    const ultima = derrotas.at(-1);
-    if (ultima === undefined || ultima.kind !== 'player_defeated') {
-      throw new Error(
-        `la partida la ganó el jugador ${fin.winner} y la crónica no dice quién quedó eliminado ni por qué`,
-      );
-    }
-    return ultima.reason;
+    return finDePartida(this.state, quienesDe(this.viewer))?.causa ?? null;
   }
 
   /** Cómo acabó la partida para quien mira, o `null` si sigue viva. */
   get desenlace(): Desenlace | null {
     const fin = this.state.finished;
-    return fin === null ? null : desenlaceDe(fin.winner, this.viewer);
+    return fin === null ? null : desenlaceDe(fin.winner, quienesDe(this.viewer));
   }
 
   get selectedHero() {

@@ -8,7 +8,9 @@
  */
 import { describe, expect, it } from 'vitest';
 import type { BattleAction } from '../src/core/battle/types.js';
+import { createRng } from '../src/core/rng.js';
 import { newGame } from '../src/core/state/setup.js';
+import type { PlayerId } from '../src/core/types.js';
 import { ColaDeVeredictos } from '../src/server/mcp/veredictos.js';
 import {
   describeAccion,
@@ -32,6 +34,7 @@ import {
   textoDeFin,
 } from '../src/server/notas.js';
 import type { AgentRequestMsg } from '../src/server/protocol.js';
+import { acabarPorLaBase } from './helpers.js';
 
 /** Una petición cualquiera, para mirar cómo se compone la escucha. */
 const PETICION: AgentRequestMsg = {
@@ -340,32 +343,33 @@ describe('notas para el agente', () => {
 });
 
 describe('cómo acabó la partida, contado al agente', () => {
-  it('cuando gana el rival lo dice, y dice con qué se queda el agente', () => {
-    const state = newGame({ seed: 7 });
-    state.day = 4;
-    state.finished = { winner: 0 };
-    // Al agente le han barrido: sin castillos y sin héroes, como en la partida
-    // del arnés de QA que destapó el cuelgue.
-    state.towns = state.towns.filter((t) => t.owner !== 1);
-    state.heroes = state.heroes.filter((h) => h.owner !== 1);
+  // Antes estos tests escribían `state.finished = { winner }` a mano, un final
+  // sin `player_defeated` en la crónica, y la nota no tenía causa que contar
+  // (#123).
+  const acabada = (quien: PlayerId, victima: PlayerId) =>
+    acabarPorLaBase(newGame({ seed: 7 }), quien, victima, { rng: createRng(7) });
+
+  it('cuando gana el rival lo dice, con la causa y con qué se queda el agente', () => {
+    const state = acabada(0, 1);
 
     const nota = notaFinDePartida(state, new Set([1]));
-    expect(nota).toContain('día 4');
+    expect(nota).toContain(`día ${state.day}`);
     expect(nota).toContain('Gana el jugador 0');
-    expect(nota).toContain('has perdido');
-    expect(nota).toContain('0 castillos y 0 héroes');
+    expect(nota).toContain('has perdido: tu base cayó');
+    // El verbo, una vez: decía «has perdido: has perdido tu base» (QA de #123).
+    expect(nota.match(/perdido/g)).toHaveLength(1);
+    expect(nota).toContain('0 castillos y 1 héroe');
     // No es un muro de texto: lo que hace falta para decidir y parar.
     expect(nota.split('\n')).toHaveLength(1);
   });
 
-  it('cuando gana el agente dice que ha ganado', () => {
-    const state = newGame({ seed: 7 });
-    state.day = 30;
-    state.finished = { winner: 1 };
+  it('cuando gana el agente dice que ha ganado, y por qué', () => {
+    const state = acabada(1, 0);
 
     const nota = notaFinDePartida(state, new Set([1]));
     expect(nota).toContain('Gana el jugador 1');
-    expect(nota).toContain('has ganado');
+    expect(nota).toContain('has ganado: ha caído la última base rival');
+    expect(nota.match(/ganado/g)).toHaveLength(1);
     expect(nota).not.toContain('has perdido');
   });
 
@@ -393,13 +397,13 @@ describe('cómo acabó la partida, contado al agente', () => {
     expect(() => notaFinDePartida(state, new Set([1]))).toThrow(/no ha terminado/);
   });
 
-  it('sin jugadores del agente no le atribuye ni victoria ni derrota', () => {
+  it('sin jugadores del agente no le atribuye ni victoria ni derrota, pero sí la causa', () => {
     // Una partida que mira sin jugar: decirle «has perdido» sería mentirle.
-    const state = newGame({ seed: 7 });
-    state.finished = { winner: 0 };
+    const state = acabada(0, 1);
 
     const nota = notaFinDePartida(state, new Set());
     expect(nota).toContain('Gana el jugador 0');
+    expect(nota).toContain('el último eliminado se quedó sin base');
     expect(nota).not.toMatch(/has (ganado|perdido)|Tú llevabas/);
   });
 });

@@ -716,6 +716,60 @@ la persona, que pinta con `fog`, no lo veía — en 96 de 200 semillas el día 1
 volcado no se movió**: el sello `seen` ya salía de `visibleNowAt` y ninguna IA lee
 `fog`, así que lo único que cambia es lo que se pinta y lo que lee el agente.
 
+### Tres arreglos pequeños: la causa del final, el id del contratado y lo que no se lee (#123, #126, #128)
+
+06-10-2026, en paralelo a #150 y en su propio worktree.
+
+- **La nota de fin no decía por qué.** El agente recibía quién ganó y su
+  recuento, pero no si había perdido la base: la causa estaba sellada en
+  `player_defeated.reason` y solo la buscaba `Session.causaDelFinal`, en el
+  cliente, donde el servidor no puede importarla. Bajó al núcleo junto con el
+  desenlace: `finDePartida(state, quienes)` (`core/state/desenlace.ts`) da
+  `{ desenlace, ganador, causa }`, y el tipo garantiza la causa cuando hay
+  ganador, así que la nota indexa su tabla sin ternario y sin `!`. «Ganada,
+  perdida o ajena» se calculaba en tres sitios (la nota, la causa y
+  `desenlaceDe` del cliente) y ahora en uno; el cliente solo traduce su
+  `viewer` a un conjunto (`quienesDe`, con `NADIE` vacío). Hubo un guardia que
+  prohibía comparar con `'player_defeated'` fuera de esa función, y se quitó en
+  la vuelta de /simplify: una línea legítima que solo **cuenta** hechos —un
+  recuento de eliminados, una crónica que diga la causa— salta igual que una
+  búsqueda copiada, y no hay patrón que distinga las dos; queda la fila de
+  «Puertas únicas». Los tests de la nota escribían `state.finished = { winner }`
+  a mano, un final sin hecho en la crónica: ahora acaban la partida de verdad
+  (`acabarPorLaBase`, en `helpers.ts`).
+  El espectador también la recibe: el servidor le manda
+  `notaFinDePartida(state, SIN_BANDO)` (`partida.ts`), así que enseña la causa
+  («el último eliminado se quedó sin base»). **Diferencia deliberada**: el
+  lateral del cliente, para quien no lleva bando, sigue diciendo solo «La
+  partida ha terminado». Cambiarlo quedaba fuera de estos tres issues. La nota
+  no repite el verbo: decía «has perdido: has perdido tu base» y dice «has
+  perdido: tu base cayó».
+- **La barra contaba pasos en la niebla.** «Hoy llegas a 7 de 20 pasos» con la
+  mitad de la ruta sin explorar delataba el rodeo que el trazo ya callaba. Ahora
+  cuenta sobre `pasosAPintar`, la misma llamada que el trazo, y si parte no se
+  ve dice «hoy andas N de los M pasos que se ven; sigue por tierras
+  desconocidas» (frase del usuario). Si lo que se señala está en la niebla, la
+  barra ya empieza por «Tierras desconocidas» y la frase acaba en «que se ven»,
+  para no decirlo dos veces. Y la frase del día cerrado seguía en la
+  barra al volver el turno: la borra `olvidarRuta()` de la escena, que es quien
+  la escribió, y solo si sigue siendo la suya. Así vale también al cambiar de
+  héroe, al cerrar una batalla y al reiniciar, y no pisa lo que la sesión
+  escribió después (un rechazo, el final). La primera versión la vaciaba en
+  `Session.endTurn`, que solo cubría pasar el turno.
+- **El id del contratado podía repetirse.** `hero-<jugador>-<héroes en
+  juego>-<día>` daba el mismo id dos veces si entre dos contrataciones del mismo
+  día salía un héroe de `state.heroes`, lo que solo pasa con tres jugadores
+  (con dos, perder la base acaba la partida). Ahora es `hero-<jugador>-c<n>`
+  con el contador `GameState.siguienteHeroe`. El banco no se movió: sus 200
+  partidas no contratan a nadie (0 `hero_hired`). Sí se movió el ancla de los
+  paneles, solo en ese id.
+- **`lineaLegible` dejaba pasar lo que no se lee**: U+2028/2029 parten la línea
+  sin ser `\p{Cc}`, el RLO (U+202E) da la vuelta al veredicto, y el braille
+  vacío, los rellenos coreanos o un acento suelto se pintan en blanco. Lo
+  ignorable (`\p{Default_Ignorable_Code_Point}`) va solo en la regla de «algo
+  que se lea», nunca en la de «una línea»: incluye el U+FE0F de ❤️ y el ZWJ de
+  👨‍👩‍👧, que dentro de un texto son legítimos.
+
 ## El mapa lo diseña el agente, y el plan se valida entero
 
 En `map_generate` el agente **no dibuja**: devuelve un plan declarativo y
