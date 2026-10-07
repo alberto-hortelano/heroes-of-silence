@@ -9888,12 +9888,26 @@
    "ax": 571,
    "ay": 949
   },
-  "nodo-hito": {
-   "src": "nodo-hito.webp",
-   "nw": 372,
-   "nh": 602,
-   "ax": 175,
-   "ay": 577
+  "nodo-hito-miliar": {
+   "src": "nodo-hito-miliar.webp",
+   "nw": 838,
+   "nh": 835,
+   "ax": 490,
+   "ay": 810
+  },
+  "nodo-hito-mojon": {
+   "src": "nodo-hito-mojon.webp",
+   "nw": 923,
+   "nh": 947,
+   "ax": 464,
+   "ay": 922
+  },
+  "nodo-hito-tablilla": {
+   "src": "nodo-hito-tablilla.webp",
+   "nw": 868,
+   "nh": 875,
+   "ax": 328,
+   "ay": 850
   },
   "nodo-paso-acantilado": {
    "src": "nodo-paso-acantilado.webp",

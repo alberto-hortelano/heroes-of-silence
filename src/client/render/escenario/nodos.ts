@@ -11,7 +11,7 @@ import { type Barrera, esBarrera, type TerrainKind } from '@core/map/terrain.js'
  * frontera. El agua no está: su nodo es un puente, y lo decide `puentes.ts` por
  * las orillas (#157). El acantilado tampoco: su pieza de escaleras subía siempre
  * hacia el mismo lado, sin casar con el desnivel ni con el camino (#168); lleva
- * el hito, y lo que baja lo pinta la rampa. `n` es su sitio en la lámina `b` de
+ * un hito (`HITOS`), y lo que baja lo pinta la rampa. `n` es su sitio en la lámina `b` de
  * `mapa-denso.ts`.
  */
 export const NODOS: readonly {
@@ -52,13 +52,37 @@ export function barreraDeNodo(
 }
 
 /**
- * El nodo de paso según la barrera que cruza y el eje de la frontera; el hito
- * si no hay pieza para esa barrera (el agua: su puente sale de `puenteDe`).
+ * Los hitos del nodo que no tiene pieza de paso: el de acantilado y el que no
+ * cruza ninguna barrera. Tres, porque uno solo repetido por un llano se leía como
+ * un cementerio (#176): el de la lámina llevaba una cruz y parecía una lápida.
  */
-export function nodoDePaso(barrera: Barrera | null, eje: 'ancho' | 'hondo'): string {
+export const HITOS = ['nodo-hito-miliar', 'nodo-hito-mojon', 'nodo-hito-tablilla'] as const;
+
+/**
+ * Una de `n` variantes por el id de lo que se pinta: siempre la misma para el
+ * mismo objeto, en el cliente, el espectador y el taller, y sin tocar el azar de
+ * la escena (que movería todo lo que se siembra después).
+ */
+export function varianteDeId(id: string, n: number): number {
+  if (!Number.isInteger(n) || n < 1)
+    throw new Error(`no se elige variante de ${id} entre ${n}: hace falta al menos una`);
+  return [...id].reduce((h, ch) => (Math.imul(h, 31) + ch.charCodeAt(0)) >>> 0, 7) % n;
+}
+
+/**
+ * La pieza de un nodo de paso según la barrera que cruza y el eje de la
+ * frontera; sin pieza para esa barrera, uno de los hitos, por su id (el agua no
+ * llega aquí: su puente sale de `puenteDe`).
+ */
+export function nodoDePaso(id: string, barrera: Barrera | null, eje: 'ancho' | 'hondo'): string {
   const nodo = NODOS.find((n) => n.barrera === barrera);
-  if (nodo === undefined) return 'nodo-hito';
+  if (nodo === undefined) return HITOS[varianteDeId(id, HITOS.length)] as string;
   return nodo.variantes.includes(eje) ? `${nodo.id}-${eje}` : nodo.id;
+}
+
+/** ¿Es `pieza` uno de los hitos? Se miden por el alto, no por el ancho. */
+export function esHito(pieza: string | null): boolean {
+  return (HITOS as readonly (string | null)[]).includes(pieza);
 }
 
 /** ¿Llega algún tramo de camino a la casilla del nodo? Con camino, el puente es de piedra. */

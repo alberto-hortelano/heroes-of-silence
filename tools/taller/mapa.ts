@@ -140,9 +140,12 @@ export function encargoDePieza(id: string, variante?: number): Encargo {
   };
 }
 
-/** Todas las piezas del mapa, con las variantes de la montaña. */
+/**
+ * Todas las piezas del mapa, con las variantes de la montaña. Menos el hito de la
+ * lámina, retirado por su cruz (#176): lo sustituyen los de `HITOS_DE_NODO`.
+ */
 export function encargosDePiezas(): Encargo[] {
-  return PIEZAS_DE_MAPA.flatMap((p) =>
+  return PIEZAS_DE_MAPA.filter((p) => p.id !== 'nodo-hito').flatMap((p) =>
     p.id === 'montana'
       ? Array.from({ length: VARIANTES_DE_MONTANA }, (_, i) => encargoDePieza(p.id, i + 1))
       : [encargoDePieza(p.id)],
@@ -222,4 +225,54 @@ export function encargosDeCeldas(): Encargo[] {
   return CELDAS_DEL_ATLAS.filter((c) => !(c.id in CELDAS_REUTILIZADAS)).map((c) =>
     encargoDeCelda(c.id),
   );
+}
+
+/**
+ * Los hitos del nodo sin pieza de paso (el acantilado y el que no cruza nada),
+ * tres para que un llano con varios no repita la misma piedra (#176). El de la
+ * lámina llevaba una cruz tallada y, solo y repetido en mitad de un llano, se
+ * leía como una lápida: ninguno lleva cruz ni símbolo. Tampoco poste alto: la
+ * bandera la planta el juego con su propio mástil, y el poste con brazo se leía
+ * como una horca (#168).
+ */
+export const HITOS_DE_NODO = [
+  {
+    id: 'nodo-hito-miliar',
+    describe:
+      'un miliario romano: una columna cilíndrica corta y gruesa de piedra, de tapa PLANA, desgastada y con líquenes, sobre un pedestal cuadrado bajo, con unas pocas piedras sueltas al pie. Nada de tapa redondeada ni de losa: no es una lápida',
+  },
+  {
+    id: 'nodo-hito-mojon',
+    describe:
+      'un mojón de piedras: un montón cónico de piedras sueltas de campo apiladas a mano, del que asoma un poste de madera corto y grueso, apenas un palmo más alto que las piedras, atado con una cuerda',
+  },
+  {
+    id: 'nodo-hito-tablilla',
+    describe:
+      'un poste de camino: un poste de madera grueso clavado entre cuatro o cinco piedras que lo calzan, con UNA tablilla de madera en punta de flecha clavada en su remate que sale hacia UN SOLO lado, la derecha; el poste NO asoma por encima de la tablilla y al otro lado no hay nada. Lisa, sin letras ni dibujos. Nada de travesaño que cruce el poste: no es una cruz',
+  },
+] as const;
+
+/** Un hito suelto, con la piedra y la madera de la lámina elegida. */
+export function encargoDeHito(id: string): Encargo {
+  const hito = HITOS_DE_NODO.find((h) => h.id === id);
+  if (hito === undefined)
+    throw new Error(`no hay hito «${id}». Hay: ${HITOS_DE_NODO.map((h) => h.id).join(', ')}`);
+  return {
+    id: `mapa-${hito.id}`,
+    tipo: 'imagen',
+    descripcion: [
+      `Una pieza suelta del mapa de aventura de un juego de estrategia por turnos, el hito que marca un cruce de la red de caminos: ${hito.describe}.`,
+      'Píntalo con la piedra clara y gastada y la madera oscura de las piezas de la imagen de estilo, su mismo acabado y su misma paleta. Pequeño y modesto: una figura humana le llegaría por encima de la cintura.',
+      'NADA de cruces, runas, letras, inscripciones ni símbolos tallados o pintados: no es una tumba ni una lápida. Sin estandartes, banderas ni mástil: la bandera del dueño la pone el juego.',
+      'Un único objeto, centrado y entero. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, la misma de la imagen de estilo; nunca cenital ni de perfil. La luz viene de arriba a la izquierda.',
+    ].join('\n'),
+    referencias: [{ ruta: MUESTRA_ELEGIDA, papel: 'estilo' }],
+    salida: `assets/mapa/${hito.id}`,
+    fondo: 'transparente',
+  };
+}
+
+export function encargosDeHitos(): Encargo[] {
+  return HITOS_DE_NODO.map((h) => encargoDeHito(h.id));
 }

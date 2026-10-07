@@ -9,7 +9,13 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { barreraDeNodo, NODOS, nodoDePaso } from '../src/client/render/escenario/nodos.js';
+import {
+  barreraDeNodo,
+  esHito,
+  HITOS,
+  NODOS,
+  nodoDePaso,
+} from '../src/client/render/escenario/nodos.js';
 import { BARRERAS, type Barrera, SUELOS_PISABLES, type Suelo } from '../src/core/map/terrain.js';
 import { encargoSchema, promptDe } from '../tools/taller/encargo.js';
 import {
@@ -48,9 +54,9 @@ describe('el catálogo de los mapas densos', () => {
 
   it('cada barrera tiene su nodo de paso, menos el agua (puente) y el acantilado (hito, #168)', () => {
     for (const b of BARRERAS)
-      if (b !== 'water' && b !== 'cliff') expect(nodoDePaso(b, 'ancho')).not.toBe('nodo-hito');
-    expect(nodoDePaso('cliff', 'ancho')).toBe('nodo-hito');
-    expect(nodoDePaso(null, 'ancho')).toBe('nodo-hito');
+      if (b !== 'water' && b !== 'cliff') expect(esHito(nodoDePaso('n1', b, 'ancho'))).toBe(false);
+    expect(HITOS).toContain(nodoDePaso('n1', 'cliff', 'ancho'));
+    expect(HITOS).toContain(nodoDePaso('n1', null, 'ancho'));
     expect(NODOS.some((n) => n.barrera === 'water' || n.barrera === 'cliff')).toBe(false);
   });
 

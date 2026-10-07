@@ -64,7 +64,7 @@ import {
   PASO_DEL_RUIDO,
   radioDePico,
 } from './macizo.js';
-import { nodoDePaso, type PasoALaVista, pasosALaVista } from './nodos.js';
+import { esHito, nodoDePaso, type PasoALaVista, pasosALaVista, varianteDeId } from './nodos.js';
 import { type Caja, cajaDeSprite, Pasillo } from './pasillo.js';
 import { esVolumen, ordenDeVolumenes, separar, UMBRAL_DE_VOLUMEN } from './pintar.js';
 import {
@@ -601,7 +601,12 @@ const MONSTRUO = {
 /** La media anchura con la que una pared mira el tablero de un puente que taparía: la de las masas. */
 export const SEMIANCHO_DE_PARED = SEMIANCHO_DEL_PASILLO_DE_MASA;
 
-/** Ancho del mojón de un nodo, en casillas: mide una casilla de alto (#168). */
+/**
+ * El hito de un nodo se mide por el alto, una casilla (#168): las tres variantes
+ * (#176) tienen proporciones distintas y por el ancho el mojón, más ancho que
+ * alto, se quedaba en un guijarro. Sin arte, el marcador mide `ANCHO_DEL_HITO`.
+ */
+const ALTO_DEL_HITO = 1;
 const ANCHO_DEL_HITO = 0.6;
 
 export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo): Escena {
@@ -758,7 +763,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
                 // El de agua ya salió arriba, con su puente.
                 const paso = a.pasos.get(o.id);
                 if (paso === undefined) throw new Error(`el nodo ${o.id} no está en el análisis`);
-                return nodoDePaso(paso.barrera, paso.eje);
+                return nodoDePaso(o.id, paso.barrera, paso.eje);
               })()
             : o.kind === 'resource'
               ? // Mercurio, azufre, cristal y gemas no tienen pieza: van como tesoro.
@@ -786,12 +791,11 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     }
     // Ancho en casillas: los de la composición de prueba, que se veían bien. El
     // hito, más estrecho: con su poste, a 1,7 medía 2,2 casillas de alto, más que una mina.
-    const ancho =
-      id === 'nodo-hito'
-        ? ANCHO_DEL_HITO
-        : ({ town: 2.4, village: 1.9, node: 1.7, resource: 0.95, mine: 1.2, chest: 0.6 }[
-            o.kind as 'town'
-          ] ?? 0.5);
+    const ancho = esHito(id)
+      ? ANCHO_DEL_HITO
+      : ({ town: 2.4, village: 1.9, node: 1.7, resource: 0.95, mine: 1.2, chest: 0.6 }[
+          o.kind as 'town'
+        ] ?? 0.5);
     // Ciudades y pueblos, cada uno con su variante de la hoja (por su id, siempre
     // la misma); sin la hoja, la pieza única de antes.
     const variantes =
@@ -802,13 +806,11 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
           : null;
     const variante =
       variantes !== null && variantes.length > 0
-        ? variantes[
-            [...o.id].reduce((h, ch) => (Math.imul(h, 31) + ch.charCodeAt(0)) >>> 0, 7) %
-              variantes.length
-          ]
+        ? variantes[varianteDeId(o.id, variantes.length)]
         : undefined;
     const p = variante ?? (id === null ? null : pieza(id));
-    sprites.push(deObjeto(o, p, x, y + 0.35, p === null ? ancho : (ancho * p.nh) / p.nw));
+    const alto = p === null ? ancho : esHito(id) ? ALTO_DEL_HITO : (ancho * p.nh) / p.nw;
+    sprites.push(deObjeto(o, p, x, y + 0.35, alto));
   }
 
   // 2 · Los caminos: se encadenan en sendas y cada senda abre su pasillo.

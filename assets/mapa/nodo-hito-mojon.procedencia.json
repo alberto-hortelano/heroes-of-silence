@@ -1,0 +1,41 @@
+{
+  "encargo": "mapa-nodo-hito-mojon",
+  "tipo": "imagen",
+  "fecha": "2026-10-07T21:22:27.888Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a1183d-9dfd-7dc0-a3cf-610039656104",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUna pieza suelta del mapa de aventura de un juego de estrategia por turnos, el hito que marca un cruce de la red de caminos: un mojón de piedras: un montón cónico de piedras sueltas de campo apiladas a mano, del que asoma un poste de madera corto y grueso, apenas un palmo más alto que las piedras, atado con una cuerda.\nPíntalo con la piedra clara y gastada y la madera oscura de las piezas de la imagen de estilo, su mismo acabado y su misma paleta. Pequeño y modesto: una figura humana le llegaría por encima de la cintura.\nNADA de cruces, runas, letras, inscripciones ni símbolos tallados o pintados: no es una tumba ni una lápida. Sin estandartes, banderas ni mástil: la bandera del dueño la pone el juego.\nUn único objeto, centrado y entero. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, la misma de la imagen de estilo; nunca cenital ni de perfil. La luz viene de arriba a la izquierda.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/pintado.webp",
+      "papel": "estilo",
+      "sha256": "2257bd10a5efa8f2c430c2d86609ac895750568961a4dea6dfddd4c8081e1838"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a1183d-9dfd-7dc0-a3cf-610039656104/exec-7a404248-3933-4911-bebd-11c65bae18e6.png",
+    "sha256": "3a3d28ebaeb234fc40af94c5e4707c01466b5c1bd4a65a1b96c571871894bfae",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: 923×947, ancla en (464,922)"
+  ],
+  "validacion": {
+    "visibles": 0.49231936170675256,
+    "opacos": 0.9961401445877205,
+    "haloSuelto": 0,
+    "ancho": 923,
+    "alto": 947
+  },
+  "salida": {
+    "ruta": "assets/mapa/nodo-hito-mojon.webp",
+    "sha256": "ec4cac5291b696f15995e687d57347b1a0a860f299374c7c045cf365e600936d"
+  }
+}

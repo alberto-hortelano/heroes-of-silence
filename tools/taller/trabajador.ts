@@ -17,6 +17,7 @@
  *   pnpm taller derivar <hoja.webp>…     reescribe el JSON de una hoja
  *   pnpm taller derivar-poses            reescribe `_poses/atlas-8d.json`, las anclas del Y Bot
  *   pnpm taller maniqui <unidad>…        el maniquí propio de una unidad, en `_poses/unidades/<id>-8d/`
+ *   pnpm taller encolar --hitos          los hitos de los nodos sin pieza de paso (#176, `mapa.ts`)
  *   pnpm taller componer-atlas-mapa      rehace assets/rpg/map-atlas.png con las piezas pintadas
  *   pnpm taller encolar --texturas-suelo | --muestras-densas | --piezas-densas [--solo=…]
  *                                        el arte de los mapas densos (`mapa-denso.ts`)
@@ -117,7 +118,13 @@ import {
 import { evaluar } from './evaluar.js';
 import { juntarDireccion } from './juntar.js';
 import { encargosDeLaderas, escribirGuiasDeLaderas, escribirLaderasDerivadas } from './laderas.js';
-import { ESTILOS_DE_MAPA, encargoDeMuestra, encargosDeCeldas, encargosDePiezas } from './mapa.js';
+import {
+  ESTILOS_DE_MAPA,
+  encargoDeMuestra,
+  encargosDeCeldas,
+  encargosDeHitos,
+  encargosDePiezas,
+} from './mapa.js';
 import { encargoDeLamina, encargosDePiezasDensas, encargosDeTexturas } from './mapa-denso.js';
 import {
   encargosDeParedesYPuentes,
@@ -550,6 +557,13 @@ async function encolar(args: readonly string[]): Promise<void> {
   if (args.includes('--piezas-mapa') || args.includes('--atlas-mapa')) {
     const lista = args.includes('--atlas-mapa') ? encargosDeCeldas() : encargosDePiezas();
     for (const bruto of lista) {
+      if (args.includes('--rehacer')) await COLA.olvidar(bruto.id);
+      console.log(`encolado ${(await COLA.encolar(bruto)).id}`);
+    }
+    return;
+  }
+  if (args.includes('--hitos')) {
+    for (const bruto of encargosDeHitos()) {
       if (args.includes('--rehacer')) await COLA.olvidar(bruto.id);
       console.log(`encolado ${(await COLA.encolar(bruto)).id}`);
     }

@@ -1,0 +1,11 @@
+{
+  "imagen": "nodo-hito-miliar.webp",
+  "sha256": "1f69b53bd716c97c9b6eb52e5f3177374719d58dfa98629d86b9e90f6c3ef17d",
+  "ancho": 838,
+  "alto": 835,
+  "ancla": [
+    490,
+    810
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

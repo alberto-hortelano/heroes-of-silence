@@ -13,7 +13,12 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import { barreraDeNodo, NODOS, nodoDePaso } from '../../src/client/render/escenario/nodos.js';
+import {
+  barreraDeNodo,
+  HITOS,
+  NODOS,
+  nodoDePaso,
+} from '../../src/client/render/escenario/nodos.js';
 import { pigments } from '../../src/client/render/terreno.js';
 import type { MapObject } from '../../src/core/map/map.js';
 import {
@@ -221,7 +226,7 @@ function cosaDeObjeto(o: MapObject, W: number, terreno: readonly TerrainKind[]):
   switch (o.kind) {
     case 'node': {
       const { barrera, eje } = barreraDeNodo(o.at, W, terreno);
-      const pieza = nodoDePaso(barrera, eje);
+      const pieza = nodoDePaso(o.id, barrera, eje);
       return [
         {
           pieza,
@@ -289,7 +294,7 @@ export async function vistaMapa(semilla = 1): Promise<string> {
   const catalogo = [
     ...familiasConIds().flatMap(({ ids }) => ids),
     ...NODOS.flatMap(idsDe),
-    'nodo-hito',
+    ...HITOS,
     'ciudad',
     'pueblo',
     'oro',

@@ -1,0 +1,11 @@
+{
+  "imagen": "nodo-hito-mojon.webp",
+  "sha256": "ec4cac5291b696f15995e687d57347b1a0a860f299374c7c045cf365e600936d",
+  "ancho": 923,
+  "alto": 947,
+  "ancla": [
+    464,
+    922
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

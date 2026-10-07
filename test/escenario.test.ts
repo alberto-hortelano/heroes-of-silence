@@ -9,8 +9,10 @@
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { analizar } from '../src/client/render/escenario/analizar.js';
 import { componer } from '../src/client/render/escenario/colocar.js';
 import { seHornea } from '../src/client/render/escenario/horneado.js';
+import { esHito, HITOS, nodoDePaso, varianteDeId } from '../src/client/render/escenario/nodos.js';
 import {
   imagenesDeEscena,
   type OpcionesDePintura,
@@ -24,7 +26,7 @@ import type { MapPlan } from '../src/core/map/generate.js';
 import { createRng } from '../src/core/rng.js';
 import { newGame } from '../src/core/state/setup.js';
 import { decidir } from '../tools/qa/politica.js';
-import { catalogoDelDisco, escenaDe, primeraSemillaCon } from './helpers.js';
+import { catalogoDelDisco, escenaDe, partidaDe, primeraSemillaCon } from './helpers.js';
 
 const RAIZ = resolve(import.meta.dirname, '..');
 const catalogo = catalogoDelDisco();
@@ -284,6 +286,70 @@ describe('sin arte se pinta igual: cada pieza, su marcador de color', () => {
     expect(r.llamadas.filter((l) => l.metodo === 'fill').map((l) => l.fillStyle)).toEqual(
       sep.volumenes.map((v) => v.s.color),
     );
+  });
+});
+
+describe('los hitos de los nodos (#176): tres, por el id, ninguno con cruz', () => {
+  /** El hito de cada nodo que lleva uno en el mapa de `semilla`, por su id. */
+  const hitosDe = (semilla: number): Map<string, string> => {
+    const map = newGame({ seed: semilla }).map;
+    const a = analizar(map);
+    const hitos = new Map<string, string>();
+    for (const o of map.objects) {
+      if (o.kind !== 'node' || a.puentes.has(o.id)) continue;
+      const paso = a.pasos.get(o.id);
+      if (paso === undefined) throw new Error(`el nodo ${o.id} no está en el análisis`);
+      const pieza = nodoDePaso(o.id, paso.barrera, paso.eje);
+      if (esHito(pieza)) hitos.set(o.id, pieza);
+    }
+    return hitos;
+  };
+
+  it('el mismo id da siempre el mismo hito, y la variante no depende de la barrera', () => {
+    for (const id of ['n0', 'n7', 'n13', 'nodo-raro'])
+      expect(nodoDePaso(id, 'cliff', 'ancho')).toBe(nodoDePaso(id, null, 'hondo'));
+    expect(nodoDePaso('n0', 'cliff', 'ancho')).toBe(HITOS[varianteDeId('n0', HITOS.length)]);
+    expect(() => varianteDeId('n0', 0)).toThrow(/al menos una/);
+  });
+
+  it('en las semillas 1-40 salen los tres, y ninguno domina', () => {
+    const cuenta = new Map<string, number>(HITOS.map((h) => [h, 0]));
+    for (let s = 1; s <= 40; s++)
+      for (const h of hitosDe(s).values()) cuenta.set(h, (cuenta.get(h) ?? 0) + 1);
+    const total = [...cuenta.values()].reduce((a, b) => a + b, 0);
+    expect(total).toBeGreaterThan(30);
+    for (const [h, n] of cuenta) expect(n, h).toBeGreaterThan(total / 6);
+  });
+
+  it('la escena pinta cada hito con su pieza, de una casilla de alto, y la de la cruz no existe', () => {
+    const { semilla } = primeraSemillaCon('dos hitos o más', (s) =>
+      hitosDe(s).size >= 2 ? s : undefined,
+    );
+    const hitos = hitosDe(semilla);
+    const { escena } = partidaDe(semilla);
+    for (const [id, pieza] of hitos) {
+      const s = escena.sprites.find((x) => x.objeto?.id === id);
+      expect(s?.src, id).toBe(`${pieza}.webp`);
+      expect(s?.alto).toBe(1);
+    }
+    expect(escena.sprites.some((x) => x.src === 'nodo-hito.webp')).toBe(false);
+    expect(existsSync(join(RAIZ, 'assets/mapa/nodo-hito.webp'))).toBe(false);
+  });
+
+  it('sin el arte de los hitos, cada uno cae a su marcador', () => {
+    const { semilla } = primeraSemillaCon('dos hitos o más', (s) =>
+      hitosDe(s).size >= 2 ? s : undefined,
+    );
+    const { map } = partidaDe(semilla);
+    const piezas = Object.fromEntries(
+      Object.entries(catalogo.piezas).filter(([id]) => !esHito(id)),
+    );
+    const escena = componer(map, semilla, { ...catalogo, piezas });
+    for (const id of hitosDe(semilla).keys()) {
+      const s = escena.sprites.find((x) => x.objeto?.id === id);
+      expect(s?.src, id).toBeNull();
+      expect(s?.alto).toBeCloseTo(0.6);
+    }
   });
 });
 

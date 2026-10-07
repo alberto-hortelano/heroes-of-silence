@@ -27,7 +27,7 @@ escribirlos a mano. `personajes.ts` sí lo puedo tocar yo al enganchar las hojas
 | Pieza | Fichero | Para qué |
 |---|---|---|
 | Montaña infranqueable | `montana-1`, `montana-2`, `montana-3` | cordillera: alternar variantes y solaparlas para que se lea como muro |
-| Nodo sin fortificar | `nodo-hito` | hito con poste vacío |
+| Nodo sin fortificar | ~~`nodo-hito`~~ (retirado por su cruz, §24) | hito con poste vacío |
 | Nodo con empalizada | `nodo-empalizada` | fortificación de nivel 1 |
 | Nodo con torre | `nodo-torre` | fortificación de nivel 2 (incluye la empalizada) |
 | Ciudad (punto fuerte) | `ciudad` | murallas de serie |
@@ -176,7 +176,7 @@ construir los mapas como la referencia (`assets/art/mapas/`) hace falta:
 | Más montañas (`mountain`) | cordillera de nieve y roca | las tres de la petición 3 bastan para alternar; harían falta piezas de esquina |
 | **Puente** como nodo sobre agua | el paso de una frontera de `water` | con el poste vacío para la bandera, como `nodo-hito` |
 | **Puerta** como nodo en un muro | el paso de una frontera de `wall` | ídem |
-| **Paso** de montaña, de bosque y de acantilado | el resto de nodos | hoy todos son `nodo-hito` |
+| **Paso** de montaña, de bosque y de acantilado | el resto de nodos | hoy todos son `nodo-hito` (luego los hitos de la §24) |
 | Obstáculos interiores por suelo | las manchas de 1-6 casillas de dentro de una región | bosquecillo y estanque en prado, rocas en roca y nieve, dunas o farallones en arena, coladas en lava, ruinas en tierra; pequeños y que no tapen objetos |
 
 Lo que **no** hace falta: arte para los caminos (el trazo actual vale) ni para el
@@ -1201,3 +1201,36 @@ la de 2. Codex por la suscripción, sin fal.ai y sin `resume`: **27 generaciones
 - **Flojo**: el basalto de diagonales y laderas, más claro que su frontal (heredado de
   §20); el suroeste algo más en bloques que el sureste; en las cóncavas estrechas de caída 2
   aún asoma un canto claro, como el de las laderas.
+
+## 24. Hitos sin cruz para los nodos sin pieza de paso (#176, rama `mojones`, 07-10-2026)
+
+**Petición.** El nodo de acantilado y el que no cruza barrera llevaban `nodo-hito`, la pieza
+2 de la lámina pintada: un mojón con una **cruz** tallada que, recortado sin su poste (#168)
+y repetido por los llanos (22 en las semillas 1-6), se leía como una **lápida**. Se piden
+tres hitos **sin cruz ni símbolo**, del mismo estilo y cámara que las piezas del mapa, que
+el juego reparte por el id del nodo (`HITOS` y `varianteDeId`, `nodos.ts`):
+
+| Pieza | Qué es |
+|---|---|
+| `nodo-hito-miliar` | miliario: columna cilíndrica corta de tapa plana sobre un pedestal bajo |
+| `nodo-hito-mojon` | montón de piedras de campo con un poste corto atado |
+| `nodo-hito-tablilla` | poste calzado con piedras y una tablilla en flecha hacia un solo lado |
+
+Sin poste alto ni bandera: la bandera la planta el juego con su mástil. Encargos en
+`tools/taller/mapa.ts` (`HITOS_DE_NODO`, `pnpm taller encolar --hitos`); referencia de
+estilo, la lámina elegida (`muestras/pintado.webp`), sin pedir copiar su pieza 2 para que
+no herede la cruz. Se miden por el alto (una casilla), no por el ancho.
+
+### Respuesta (rama `mojones`, 07-10-2026)
+
+Codex por la suscripción, sin fal.ai y sin `resume`: **5 generaciones**, de 73 a 101 s,
+ninguna fallida. `nodo-hito` (la de la cruz) se retira de `assets/mapa/` y de
+`encargosDePiezas`.
+
+- **Rehechas desde cero**: la tablilla (la 1.ª, una tabla atravesada en el poste, **era una
+  cruz**: el prompt dice ahora una sola flecha hacia la derecha, sin que el poste asome por
+  encima) y el miliario (la 1.ª, una losa de tapa redonda con banda, seguía pareciendo una
+  lápida: ahora columna de tapa plana).
+- **Reparto en las semillas 1-40**: mojón 52, tablilla 41, miliario 40.
+- Recortes antes/después de la semilla 34 en `docs/agents/2026-10-07-mojones/capturas/`.
+- **Flojo**: el miliario se ve algo más desde arriba que los 25° de la cámara.
