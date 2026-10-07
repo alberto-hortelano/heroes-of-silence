@@ -7,8 +7,18 @@
  * `docs/agents/2026-10-07-cumbres/`; aquí, las reglas que lo sostienen.
  */
 import { describe, expect, it } from 'vitest';
+import { PX_AL_ZOOM_MAXIMO } from '../src/client/render/camara-mapa.js';
 import { analizar } from '../src/client/render/escenario/analizar.js';
-import { ALTO_DE_FALDA, macizoDe, radioDePico } from '../src/client/render/escenario/macizo.js';
+import {
+  ALTO_DE_FALDA,
+  AMPLIACION_MAXIMA,
+  altoMaximoDe,
+  type MaterialDePico,
+  macizoDe,
+  materialDeLosMacizos,
+  radioDePico,
+} from '../src/client/render/escenario/macizo.js';
+import type { Suelo } from '../src/core/map/terrain.js';
 import { escenaDe, partidaDe } from './helpers.js';
 import { rango, segunPrisa } from './lento.js';
 
@@ -140,4 +150,144 @@ describe('la escena: los picos de una cordillera crecen hacia dentro', () => {
       expect(picos / casillas, `semilla ${semilla}`).toBeLessThan(2.9);
     }
   });
+});
+
+describe('el material de un macizo: uno solo, el que domina (defecto C de la auditoría 2)', () => {
+  const W = 8;
+  const H = 4;
+  /** Un mapa de `W × H` con el suelo de cada casilla de la cadena (fila a fila, `.` es hierba). */
+  const suelos = (filas: string): Suelo[] =>
+    [...filas.replace(/\s/g, '')].map(
+      (c) => ({ n: 'snow', l: 'lava', a: 'sand', r: 'rough', '.': 'grass' })[c] as Suelo,
+    );
+  const montana = (filas: string): number[] =>
+    [...filas.replace(/\s/g, '')].flatMap((c, i) => (c === '.' ? [] : [i]));
+
+  it('las franjas unidas en diagonal son un macizo, y lo viste el material de más casillas', () => {
+    const f = `
+      nnl.....
+      ...l.aa.
+      ...l..a.
+      ........`;
+    const m = materialDeLosMacizos(montana(f), W, H, suelos(f));
+    // 3 de lava y 2 de nieve, unidas por la diagonal (2,0)-(3,1): todo lava.
+    for (const i of [0, 1, 2, 11, 19]) expect(m.get(i)).toBe('lava');
+    // La otra, aparte: arena.
+    for (const i of [13, 14, 22]) expect(m.get(i)).toBe('arena');
+  });
+
+  it('la hierba, la tierra y el pedregal son la misma roca', () => {
+    const f = `
+      rr......
+      ........
+      ........
+      ........`;
+    const s = suelos(f);
+    s[1] = 'dirt';
+    const m = materialDeLosMacizos(montana(f), W, H, s);
+    expect([m.get(0), m.get(1)]).toEqual(['roca', 'roca']);
+  });
+
+  it('en un empate, la lava pierde: sus módulos son los de menos resolución', () => {
+    const f = `
+      nnll....
+      ........
+      ........
+      ........`;
+    const m = materialDeLosMacizos(montana(f), W, H, suelos(f));
+    expect(new Set([0, 1, 2, 3].map((i) => m.get(i)))).toEqual(new Set<MaterialDePico>(['nieve']));
+  });
+
+  it('una casilla del macizo sin suelo lanza diciéndolo', () => {
+    expect(() => materialDeLosMacizos([0, 40], W, H, suelos('nn......'.repeat(4)))).toThrow(
+      'la casilla 40 del macizo no tiene suelo',
+    );
+  });
+});
+
+describe('las cumbres, nítidas y de un material (defecto C de la auditoría 2)', () => {
+  it('el tope de alto de un módulo es su alto en píxeles por 1,3 sobre el zoom máximo', () => {
+    // `picos-volcan/2`, la aguja de s9: 149 px dan 1,61 casillas, no 3.
+    expect(altoMaximoDe({ nh: 149 })).toBeCloseTo((149 * 1.3) / 120, 9);
+    expect(PX_AL_ZOOM_MAXIMO).toBe(120);
+  });
+
+  const familia = (src: string): MaterialDePico => {
+    const hoja = src.split('/')[1];
+    const m = (
+      {
+        'picos-nevados': 'nieve',
+        'picos-volcan': 'lava',
+        'picos-arenisca': 'arena',
+        'picos-roca': 'roca',
+        'picos-afilados': 'roca',
+      } as Record<string, MaterialDePico>
+    )[hoja ?? ''];
+    if (m === undefined) throw new Error(`hoja de pico desconocida: ${src}`);
+    return m;
+  };
+
+  // s9 llevaba la aguja de lava a ×2,4 y s57 la gris entre arenisca; la 1 es la
+  // cordillera que salió bien y no debe empeorar.
+  for (const semilla of segunPrisa([1, 9, 57], [...rango(1, 10), 13, 24, 34, 57])) {
+    it(`semilla ${semilla}: ningún pico pasa de ×1,3 al zoom máximo`, () => {
+      const picos = escenaDe(semilla).sprites.filter(
+        (s) => s.src?.startsWith('modulos/picos-') === true,
+      );
+      expect(picos.length).toBeGreaterThan(0);
+      const borrosos = picos
+        .filter((s) => (s.alto * PX_AL_ZOOM_MAXIMO) / s.nh > AMPLIACION_MAXIMA + 1e-9)
+        .map(
+          (s) =>
+            `${s.src} en (${s.x.toFixed(1)}, ${s.y.toFixed(1)}) a ×${((s.alto * PX_AL_ZOOM_MAXIMO) / s.nh).toFixed(2)}`,
+        );
+      expect(borrosos).toEqual([]);
+    });
+
+    it(`semilla ${semilla}: cada macizo, de un solo material`, () => {
+      const { map } = partidaDe(semilla);
+      const a = analizar(map);
+      const montana = a.franjas.filter((f) => f.barrera === 'mountain').flatMap((f) => f.casillas);
+      // El macizo de cada casilla, por la casilla de montaña con que empieza su
+      // componente: el mismo recorrido que la regla, pero aquí solo se agrupa.
+      const material = materialDeLosMacizos(montana, a.W, a.H, a.suelo);
+      const raiz = new Map<number, number>();
+      const es = new Set(montana);
+      for (const i of montana) {
+        if (raiz.has(i)) continue;
+        const pila = [i];
+        raiz.set(i, i);
+        while (pila.length > 0) {
+          const j = pila.pop() as number;
+          for (let dy = -1; dy <= 1; dy++)
+            for (let dx = -1; dx <= 1; dx++) {
+              const x = (j % a.W) + dx;
+              const y = Math.floor(j / a.W) + dy;
+              const k = y * a.W + x;
+              if (x < 0 || y < 0 || x >= a.W || y >= a.H || !es.has(k) || raiz.has(k)) continue;
+              raiz.set(k, i);
+              pila.push(k);
+            }
+        }
+      }
+      const vistos = new Map<number, Set<MaterialDePico>>();
+      for (const s of escenaDe(semilla).sprites) {
+        if (s.clase !== 'masa' || s.src?.startsWith('modulos/picos-') !== true) continue;
+        const i =
+          Math.floor(Math.min(s.y, a.H - 0.01)) * a.W + Math.floor(Math.min(s.x, a.W - 0.01));
+        const r = raiz.get(i);
+        if (r === undefined) continue;
+        const v = vistos.get(r) ?? new Set();
+        v.add(familia(s.src));
+        vistos.set(r, v);
+      }
+      expect(vistos.size).toBeGreaterThan(0);
+      const mezclados = [...vistos]
+        .filter(([, v]) => v.size > 1)
+        .map(([r, v]) => `macizo de (${r % a.W}, ${Math.floor(r / a.W)}): ${[...v].join(', ')}`);
+      expect(mezclados).toEqual([]);
+      // Y el material que lleva es el que domina, no uno cualquiera de los suyos.
+      for (const [r, v] of vistos) expect([...v][0]).toBe(material.get(r));
+    });
+  }
 });

@@ -11,6 +11,13 @@ import type { Point } from '@core/types.js';
 
 export const TILE_MAX = 110;
 /**
+ * Píxeles de dispositivo por casilla al zoom máximo en la pantalla del usuario,
+ * ⌈`TILE_MAX` × 1,09⌉ (su densidad). Es la vara de lo nítido: el suelo se pinta
+ * a esto (`PX_DEL_SUELO`) y un pico no se amplía más de ×1,3 sobre esto
+ * (`altoMaximoDe`, `macizo.ts`).
+ */
+export const PX_AL_ZOOM_MAXIMO = 120;
+/**
  * Por debajo de esto no se aleja, quepan los volúmenes que quepan: a 40 px una
  * figura ya se lee (decisión del usuario). El resto del mapa se ve en el
  * minimapa.

@@ -26,7 +26,15 @@ import {
 } from './catalogo.js';
 import { azarDe, esparcir } from './esparcir.js';
 import { ejeDe, esqueleto } from './esqueleto.js';
-import { macizoDe, PASO_DEL_RUIDO, radioDePico } from './macizo.js';
+import {
+  altoMaximoDe,
+  type MaterialDePico,
+  macizoDe,
+  materialDeLosMacizos,
+  materialDePico,
+  PASO_DEL_RUIDO,
+  radioDePico,
+} from './macizo.js';
 import { nodoDePaso } from './nodos.js';
 import { cajaDeSprite, Pasillo } from './pasillo.js';
 import { esVolumen, ordenDeVolumenes, separar } from './pintar.js';
@@ -235,22 +243,28 @@ function hojaDeMasa(b: Barrera, s: Suelo, azar: () => number, hondura = 1): stri
     if (s === 'grass' || s === 'dirt') return azar() < 0.65 ? 'pinos' : 'frondosos';
     return 'pinos';
   }
-  return hojaDePico(s, azar, hondura >= 2 ? 0.625 : 0);
+  return hojaDePico(materialDePico(s), azar, hondura >= 2 ? 0.625 : 0);
 }
 
 /** Por debajo de esta `cumbre` (`Macizo.cumbre`), la roca es de falda: nunca agujas. */
 const CUMBRE_DE_AGUJAS = 0.25;
 
 /**
- * La hoja de un pico según su suelo y lo alto que cae en el macizo: en las
+ * La hoja de un pico según su material y lo alto que cae en el macizo: en las
  * cumbres, agujas; en las faldas, los achaparrados. La nieve, la lava y la arena
  * tienen una sola hoja.
  */
-function hojaDePico(s: Suelo, azar: () => number, cumbre: number): string {
-  if (s === 'snow') return 'picos-nevados';
-  if (s === 'lava') return 'picos-volcan';
-  if (s === 'sand') return 'picos-arenisca';
-  return cumbre >= CUMBRE_DE_AGUJAS && azar() < Math.min(0.95, 1.5 * cumbre)
+function hojaDePico(material: MaterialDePico, azar: () => number, cumbre: number): string {
+  // La tirada de la aguja se hace siempre, aunque el material no tenga agujas:
+  // así el material no cambia cuántas tiradas gasta un pico, y vestir un macizo
+  // de otro material no mueve los picos de las franjas que vienen detrás (con
+  // la tirada solo en la roca, dar a cada macizo un material barajaba la
+  // cresta de las semillas 3 y 9 y el guardia de #171 lo leía como peor).
+  const tirada = azar();
+  if (material === 'nieve') return 'picos-nevados';
+  if (material === 'lava') return 'picos-volcan';
+  if (material === 'arena') return 'picos-arenisca';
+  return cumbre >= CUMBRE_DE_AGUJAS && tirada < Math.min(0.95, 1.5 * cumbre)
     ? 'picos-afilados'
     : 'picos-roca';
 }
@@ -925,13 +939,26 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   /** La cresta de todos los macizos: dónde una cumbre y dónde un collado. */
   const ruidoDeCresta = ruidoSuave(semilla * 131 + 71, PASO_DEL_RUIDO);
   const esbeltos = new Map<string, readonly Modulo[]>();
+  /** El material de cada casilla de cordillera: uno por macizo (`materialDeLosMacizos`). */
+  const materialDeMacizo = materialDeLosMacizos(
+    a.franjas.filter((f) => f.barrera === 'mountain').flatMap((f) => f.casillas),
+    W,
+    H,
+    a.suelo,
+  );
   /**
-   * El nombre de un módulo de `hoja` por su silueta: con `cumbre` 0, de los más
-   * chatos (ancho entre alto); con 1, de los más esbeltos, con algo de azar
-   * para que no se repitan. El orden del catálogo es el de las imágenes y no
-   * dice nada del tamaño: elegir por él (`t`) no elegía nada.
+   * Un módulo de `hoja` por su silueta: con `cumbre` 0, de los más chatos
+   * (ancho entre alto); con 1, de los más esbeltos, con algo de azar para que
+   * no se repitan. El orden del catálogo es el de las imágenes y no dice nada
+   * del tamaño: elegir por él (`t`) no elegía nada.
+   *
+   * Y que llegue a `alto` sin ampliarse más de `AMPLIACION_MAXIMA`: en el
+   * volcán los más esbeltos son los más pequeños (130-175 px), y la cumbre se
+   * quedaba con la imagen más pequeña estirada al alto mayor. Si el elegido no
+   * llega, el más cercano en silueta que sí, primero hacia los menos esbeltos;
+   * si ninguno, el más grande, y quien lo pone baja el alto a su tope.
    */
-  const siluetaDe = (hoja: string, cumbre: number): string | undefined => {
+  const siluetaDe = (hoja: string, cumbre: number, alto: number): Modulo | undefined => {
     let ms = esbeltos.get(hoja);
     if (ms === undefined) {
       ms = [...(modulosDe(hoja) ?? [])].sort((p, q) => q.nw / q.nh - p.nw / p.nh);
@@ -940,7 +967,12 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     if (ms.length === 0) return undefined;
     const centro = Math.round(cumbre * (ms.length - 1));
     const k = Math.max(0, Math.min(ms.length - 1, centro + Math.round((azar() - 0.5) * 4)));
-    return ms[k]?.nombre;
+    for (let d = 0; d < ms.length; d++)
+      for (const j of d === 0 ? [k] : [k - d, k + d]) {
+        const m = ms[j];
+        if (m !== undefined && altoMaximoDe(m) >= alto) return m;
+      }
+    return ms.reduce((p, q) => (q.nh > p.nh ? q : p));
   };
   /**
    * Cómo crece una masa: el bosque por la hondura de `analizar`, más alto hacia
@@ -976,20 +1008,26 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       };
     }
     const macizo = macizoDe(f.casillas, W, H, ruidoDeCresta);
+    // De la franja y no de la casilla del pico: un pico que desborda la franja
+    // cae en una casilla de fuera, que no es de ningún macizo.
+    const material = materialDeMacizo.get(f.casillas[0] as number);
+    if (material === undefined) throw new Error(`la franja ${f.id} de cordillera no tiene macizo`);
     return {
       radio: (x, y) => radioDePico(macizo.alto(x, y)),
       altoMasBajo: (x, y) => macizo.alto(x, y) * 0.75,
-      modulo: (i, x, y, factor) => {
+      modulo: (_i, x, y, factor) => {
         const cumbre = macizo.cumbre(x, y);
-        const hoja = hojaDePico(a.suelo[i] as Suelo, azar, cumbre);
-        const nombre = siluetaDe(hoja, cumbre);
+        const hoja = hojaDePico(material, azar, cumbre);
+        const alto = macizo.alto(x, y) * factor;
+        const m = siluetaDe(hoja, cumbre, alto);
         const luz = luzDeCumbre(cumbre);
         const tono = [tonoDe(hoja), luz].filter((t) => t !== undefined).join(' ');
         return {
           hoja,
-          alto: macizo.alto(x, y) * factor,
+          // Sin módulo (la hoja aún no está hecha) va el marcador, que no se amplía.
+          alto: m === undefined ? alto : Math.min(alto, altoMaximoDe(m)),
           t: cumbre,
-          ...(nombre === undefined ? {} : { nombre }),
+          ...(m === undefined ? {} : { nombre: m.nombre }),
           ...(luz === undefined ? {} : { tono }),
         };
       },

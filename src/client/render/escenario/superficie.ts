@@ -23,6 +23,7 @@ import {
   type ConteoDeVolumenes,
   contarVolumenes,
   MAX_VOLUMENES_VISIBLES,
+  PX_AL_ZOOM_MAXIMO,
   tileMinimo,
 } from '../camara-mapa.js';
 import { copiaReducidaSiCabe } from '../copias.js';
@@ -63,7 +64,7 @@ const CATALOGO: Catalogo = catalogoValidado(catalogoDelRepo);
  * Worker tarda en pintarlo 5,5 s; el 90 % son las capas 1-6, máscaras a mapa
  * entero. Son 67 MB; con el esbozo, 83.
  */
-export const PX_DEL_SUELO = 120;
+export const PX_DEL_SUELO = PX_AL_ZOOM_MAXIMO;
 /**
  * El esbozo: el mismo suelo a la mitad, que se pinta primero (~1,4 s) para no
  * tener el sucedáneo de pigmentos los 5,5 s que tarda el bueno, y que se copia

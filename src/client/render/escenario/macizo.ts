@@ -15,7 +15,13 @@
  * cumbres y deja collados entre ellas.
  *
  * Es puro y determinista, como el resto del escenógrafo.
+ *
+ * Y dos reglas de cómo se viste (defecto C de la auditoría 2, 07-10-2026): un
+ * macizo es de un solo material, y ningún pico se amplía más de
+ * `AMPLIACION_MAXIMA` al zoom máximo.
  */
+import type { Suelo } from '@core/map/terrain.js';
+import { PX_AL_ZOOM_MAXIMO } from '../camara-mapa.js';
 
 /** Hasta dónde se mira el borde, en casillas: más hondo, la cumbre ya no sube. */
 const HONDURA_MAXIMA = 4;
@@ -111,3 +117,80 @@ export function macizoDe(
 
 /** El radio entre picos, en casillas, para su alto: la falda apretada, las cumbres espaciadas. */
 export const radioDePico = (alto: number): number => 0.3 + 0.2 * alto;
+
+/**
+ * Lo más que se amplía un pico al zoom máximo (`PX_AL_ZOOM_MAXIMO`). La aguja de
+ * lava de s9 (`picos-volcan/2`, 149 px de alto) iba a 3 casillas: ×2,4, una
+ * mancha desenfocada entre picos nítidos.
+ */
+export const AMPLIACION_MAXIMA = 1.3;
+
+/** El alto, en casillas, al que un módulo de `nh` píxeles llega sin pasar de `AMPLIACION_MAXIMA`. */
+export const altoMaximoDe = (m: { readonly nh: number }): number =>
+  (m.nh * AMPLIACION_MAXIMA) / PX_AL_ZOOM_MAXIMO;
+
+/**
+ * El material de un pico. La roca lleva dos hojas, `picos-roca` en la falda y
+ * `picos-afilados` en la cumbre, pero es la misma piedra gris.
+ */
+export type MaterialDePico = 'nieve' | 'lava' | 'arena' | 'roca';
+
+export const materialDePico = (s: Suelo): MaterialDePico =>
+  s === 'snow' ? 'nieve' : s === 'lava' ? 'lava' : s === 'sand' ? 'arena' : 'roca';
+
+/**
+ * En un empate, el de antes. El volcán el último: sus módulos son los de menos
+ * resolución (130-290 px de alto), y un empate entre lava y nieve no debe
+ * darle a la lava el macizo entero.
+ */
+const PREFERENCIA: readonly MaterialDePico[] = ['nieve', 'arena', 'roca', 'lava'];
+
+/**
+ * El material de cada macizo: el de más casillas entre las suyas (su `suelo`,
+ * el del llano más cercano). Un macizo son las casillas de montaña unidas en 8
+ * vecinas, aunque `analizar` las parta en varias franjas: las franjas de un
+ * mismo macizo se ven como una sola montaña, y una aguja de lava entre picos
+ * nevados es lo que se veía en s9 (9,8, 21,5) aunque cada franja fuera de un
+ * material. Devuelve el de cada casilla de `montana`.
+ */
+export function materialDeLosMacizos(
+  montana: readonly number[],
+  W: number,
+  H: number,
+  suelo: readonly Suelo[],
+): Map<number, MaterialDePico> {
+  const es = new Set(montana);
+  const fuera = new Map<number, MaterialDePico>();
+  for (const semilla of montana) {
+    if (fuera.has(semilla)) continue;
+    const macizo: number[] = [];
+    const visto = new Set([semilla]);
+    const pila = [semilla];
+    while (pila.length > 0) {
+      const i = pila.pop() as number;
+      macizo.push(i);
+      const x = i % W;
+      const y = Math.floor(i / W);
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          const nx = x + dx;
+          const ny = y + dy;
+          const j = ny * W + nx;
+          if (nx < 0 || ny < 0 || nx >= W || ny >= H || !es.has(j) || visto.has(j)) continue;
+          visto.add(j);
+          pila.push(j);
+        }
+    }
+    const cuenta = new Map<MaterialDePico, number>();
+    for (const i of macizo) {
+      const s = suelo[i];
+      if (s === undefined) throw new Error(`la casilla ${i} del macizo no tiene suelo`);
+      const m = materialDePico(s);
+      cuenta.set(m, (cuenta.get(m) ?? 0) + 1);
+    }
+    let elegido = PREFERENCIA[0] as MaterialDePico;
+    for (const m of PREFERENCIA) if ((cuenta.get(m) ?? 0) > (cuenta.get(elegido) ?? 0)) elegido = m;
+    for (const i of macizo) fuera.set(i, elegido);
+  }
+  return fuera;
+}

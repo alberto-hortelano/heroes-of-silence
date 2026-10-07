@@ -1000,3 +1000,29 @@ Las piezas `nodo-puente-{ancho,hondo}` de la primera tanda se borraron con
 #157: ya no las usaba nada (su `.procedencia.json` y su encargo están en la
 historia de git). El encargo de los puentes de piedra las llevaba como
 identidad; ahora lleva `puente-piedra-eo.webp`.
+
+## 22. Agujas esbeltas con resolución para las cumbres (defecto C de la auditoría 2, 07-10-2026)
+
+Desde `2026-10-07-cumbres-nitidas`, ningún pico se amplía más de ×1,3 al zoom
+máximo (120 px de dispositivo por casilla): un módulo de `nh` px de alto llega
+como mucho a `nh × 1,3 / 120` casillas (`altoMaximoDe`, `macizo.ts`). Una cumbre
+del macizo pide hasta ~4 casillas (las agujas grises llegan a 3,62 en las
+semillas 1-10, 13, 24, 34 y 57; la auditoría midió cumbres de 2,9 a 3,6), y la cresta quiere los módulos más esbeltos.
+
+Las agujas de roca (`picos-afilados`, 280-374 px, nw/nh 0,60-0,75) llegan. Las
+de los otros tres materiales no: sus módulos esbeltos son los de menos
+resolución, así que en la cumbre `siluetaDe` cae a uno más chato que sí llega
+o, si ninguno llega, baja el alto de la cumbre.
+
+| Hoja (`assets/mapa/modulos/`) | Esbeltos (nw/nh ≤ 1,0) | Llegan a | Cumbres rebajadas (14 semillas) |
+|---|---|---|---|
+| `picos-volcan` | 6 (210×220), 2 (142×149), 4 (128×174) | 2,38 / 1,61 / 1,89 casillas | 0, pero sus cumbres salen con módulos chatos |
+| `picos-nevados` | 7 (241×242) | 2,62 casillas | 3 (a 3,10, el tope del 1) |
+| `picos-arenisca` | 2 (202×287), 14 (218×246), 5 (214×230), 12 (174×177) | 3,11 / 2,67 / 2,49 / 1,92 casillas | 3 (a 3,11) |
+
+- **Qué pedir**: 4-6 agujas por hoja de volcán, nieve y arenisca con nw/nh ≤ 0,8
+  y **≥ 370 px de alto** (370 × 1,3 / 120 = 4 casillas), como las de
+  `picos-afilados`, con el material de su hoja.
+- Al engancharlas, `siluetaDe` las escoge solas por esbeltez; no hace falta tocar
+  el código. Se mira con `pnpm taller escenario 9 57` y el test «ningún pico pasa
+  de ×1,3» de `test/macizo.test.ts`.
