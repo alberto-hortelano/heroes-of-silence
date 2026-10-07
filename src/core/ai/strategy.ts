@@ -139,6 +139,9 @@ function objectValue(
   }
 }
 
+/** Sin veto: todo candidato vale. */
+const SIN_VETO = (): boolean => true;
+
 /**
  * Objetivo del héroe, esté a un paso o a diez días de marcha.
  *
@@ -150,11 +153,16 @@ function objectValue(
  * El Dijkstra llega hecho: lo lanza el llamante una sola vez y se lo pasa a
  * esta función y a `stepTowards`, que antes hacían uno cada una **desde el
  * mismo origen**. Esto queda como pura elección.
+ *
+ * `admite` veta candidatos sin cambiar el orden de los demás: lo usa el turno
+ * para sacar al héroe de un vaivén (`vueltaDelVaiven`), descartando los
+ * objetivos cuyo paso de hoy cerraría otra vuelta.
  */
 export function chooseHeroDestination(
   state: GameState,
   hero: Hero,
   alcance: Reachable,
+  admite: (at: Point) => boolean = SIN_VETO,
 ): Point | null {
   // En un objeto y no en un `let`: lo escribe `considerar`, y `tsc` no ve una
   // escritura dentro de un cierre y lo estrecharía a `null` para siempre.
@@ -182,7 +190,7 @@ export function chooseHeroDestination(
   // orden en que se consideran: ese orden es el desempate.
   const considerar = (at: Point, valor: number): void => {
     const coste = costeHasta(at);
-    if (coste === null) return;
+    if (coste === null || !admite(at)) return;
     const score = valor / Math.max(1, coste);
     if (elegido.mejor === null || score > elegido.mejor.score) elegido.mejor = { at, score };
   };
