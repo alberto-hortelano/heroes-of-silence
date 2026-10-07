@@ -79,6 +79,22 @@ export type Niveles = 1 | 2 | 3;
 export const LABIO = 0.06;
 /** A qué fracción de la caída se rompe el escarpe en derrubio. */
 const ROTURA = 0.42;
+/**
+ * `inicio` no acaba en punta. Con el corte norte por la línea de máxima
+ * pendiente, el filo y ese corte se juntaban en un ángulo agudo que se pintaba
+ * como un pico (§20, 07-10-2026; #160). En caída 1 y 2 la ladera:
+ *
+ * - baja algo de alto en la primera `LOMA` de la casilla, sin que el filo deje
+ *   de subir en pantalla (la pendiente en pantalla, a lo más `PENDIENTE_DE_LOMA`);
+ * - y su cara da la vuelta por el norte en un morro: en pantalla, el corte baja
+ *   del filo al pie en un hombro convexo, con un derrame de derrubio que se
+ *   deshace en el suelo.
+ *
+ * En caída 3 sigue el morro de antes (`morro`): su hoja nueva se probó y se
+ * descartó (§20), y la de HEAD se pintó con esta guía.
+ */
+const LOMA = 0.6;
+const PENDIENTE_DE_LOMA = 0.6;
 /** Lo que el cono de derrubio de `inicio` y `fin` sale más allá de su junta, en casillas. */
 const CONO = 0.26;
 
@@ -297,19 +313,33 @@ function dibujarPieza(g: Guia, p: Pieza, niveles: Niveles, s: 1 | -1): void {
   };
   const ruidoFilo = suave(0.04, 3, 6);
   const ruidoPie = suave(0.05, 3, 7);
-  const filo = (i: number): number => p.filo(ts[i] as number) + ruidoFilo(ts[i] as number);
-  const pie = (i: number): number => d + p.pie(ts[i] as number) + ruidoPie(ts[i] as number);
+  const loma = inicio && niveles < 3;
+  // Lo que conserva del alto cada punto: menos de 1 solo en la loma de `inicio`.
+  // Lo que se baja en la loma: lo que deja el filo subiendo en pantalla.
+  const baja = Math.min(0.3, (2 * LOMA * PENDIENTE_DE_LOMA) / (PI * H));
+  const alzado = (t: number): number =>
+    loma && t < LOMA ? 1 - baja * (0.5 + 0.5 * Math.cos((PI * t) / LOMA)) : 1;
+  const alto = (i: number): number => H * alzado(ts[i] as number);
+  // Donde baja, la loma se redondea hacia fuera y su talud se estrecha.
+  const filo = (i: number): number =>
+    p.filo(ts[i] as number) + ruidoFilo(ts[i] as number) + 0.3 * (1 - alzado(ts[i] as number));
+  const pie = (i: number): number => {
+    const llano = d + p.pie(ts[i] as number) + ruidoPie(ts[i] as number);
+    const a = alzado(ts[i] as number);
+    return a === 1 ? llano : filo(i) + (llano - filo(i)) * (0.45 + 0.55 * a);
+  };
   // La rotura entre el escarpe y el derrubio, a `ROTURA` de alto.
   const rotura = (i: number): number => {
     const f = filo(i);
     return f + (pie(i) - f) * (0.55 + 0.1 * Math.sin(5 * PI * (ts[i] as number) + 1));
   };
   const zRotura = H * (1 - ROTURA);
+  const zRot = (i: number): number => alto(i) * (1 - ROTURA);
 
   // El labio de roca del filo: estrecho, con lóbulos, abierto en las juntas.
   const lobulos = suave(0.5, 3, 7);
-  const borde = ts.map((t, i) => [X(filo(i)), yDe(t), H] as P3);
-  const dentro = ts.map((t, i) => [X(filo(i) - LABIO * (1 + lobulos(t))), yDe(t), H] as P3);
+  const borde = ts.map((t, i) => [X(filo(i)), yDe(t), alto(i)] as P3);
+  const dentro = ts.map((t, i) => [X(filo(i) - LABIO * (1 + lobulos(t))), yDe(t), alto(i)] as P3);
   // Al norte de `inicio` el labio no dobla: el reborde norte lo pinta el juego,
   // y doblado salía como una lengua de piedra plana (07-10-2026).
   const norte: P3[] = [];
@@ -364,8 +394,8 @@ function dibujarPieza(g: Guia, p: Pieza, niveles: Niveles, s: 1 | -1): void {
   const pies: P3[] = [];
   for (let i = 0; i <= pasos; i++) {
     const y = yDe(ts[i] as number);
-    escarpe.push([X(filo(i)), y, H]);
-    derrubio.push([X(rotura(i)), y, zRotura]);
+    escarpe.push([X(filo(i)), y, alto(i)]);
+    derrubio.push([X(rotura(i)), y, zRot(i)]);
     pies.push([X(pie(i)), y, 0]);
   }
   // En la esquina, el pie de la lateral se dobla hacia el de la frontal.
@@ -383,10 +413,11 @@ function dibujarPieza(g: Guia, p: Pieza, niveles: Niveles, s: 1 | -1): void {
       escarpe.push([X(f0 - R + R * Math.cos(a)), yFin + R * Math.sin(a), H]);
     }
   }
-  // `inicio` y `fin`: el corte se redondea en un morro (la ladera dobla la
-  // esquina y su silueta sale convexa más allá de la junta) y, en `fin`, el
-  // derrubio se derrama en un cono por delante. Al norte el cono no se vería:
-  // lo tapa la propia ladera.
+  // `fin`: el corte se redondea en un morro (la ladera dobla la esquina y su
+  // silueta sale convexa más allá de la junta) y el derrubio se derrama en un
+  // cono por delante. `inicio` de caída 1 y 2: la loma ya llega baja a la junta
+  // norte, y allí el escarpe se redondea y el derrubio la rodea hasta el suelo.
+  // El de caída 3, el morro de antes; al norte el cono no se vería.
   const morro = (i: number, y: number, hacia: 1 | -1) => ({
     alto: [X(rotura(i) * 0.45), y + hacia * 0.09, (H + zRotura) / 2] as P3,
     bajo: [X((rotura(i) + pie(i)) / 2), y + hacia * 0.11, zRotura * 0.45] as P3,
@@ -395,10 +426,37 @@ function dibujarPieza(g: Guia, p: Pieza, niveles: Niveles, s: 1 | -1): void {
   const derrubioN: P3[] = [];
   const escarpeS: P3[] = [];
   const derrubioS: P3[] = [];
-  if (inicio) {
+  if (inicio && !loma) {
     const m = morro(0, 0, -1);
     escarpeN.push(m.alto);
     derrubioN.push(m.bajo);
+  }
+  if (loma) {
+    const f0 = filo(0);
+    const r0 = rotura(0);
+    const p0 = pie(0);
+    const ur = (r0 - f0) / Math.max(0.01, p0 - f0);
+    // El corte norte: `u` = 0 en el filo y 1 en el pie. En pantalla baja del
+    // filo al pie en un hombro convexo (`sy`), por encima de la recta de antes;
+    // en el mundo, eso es la cara dando la vuelta hacia el fondo (`y` < 0).
+    const zDe = (u: number): number =>
+      u < ur ? alto(0) - (alto(0) - zRot(0)) * (u / ur) : zRot(0) * ((1 - u) / (1 - ur)) ** 1.4;
+    const sy = (u: number): number => -alto(0) * Math.cos((PI * u) / 2) ** 0.7;
+    const norte = (u: number): number => Math.min(0, sy(u) + zDe(u));
+    const xDe = (u: number) => f0 + (p0 - f0) * u;
+    for (let k = 1; k < 6; k++) {
+      const u = ur * (1 - k / 6);
+      escarpeN.push([X(xDe(u)), norte(u), zDe(u)]);
+    }
+    // Al pie, el derrame se abre algo más y se deshace en el suelo.
+    for (let k = 0; k <= 8; k++) {
+      const u = 1 - (1 - ur) * (k / 8);
+      derrubioN.push([
+        X(xDe(u) + 0.05 * (1 - k / 8)),
+        norte(u) - 0.05 * Math.sin(PI * u) ** 2,
+        zDe(u),
+      ]);
+    }
   }
   if (fin) {
     const m = morro(pasos, L, 1);
@@ -427,15 +485,17 @@ function dibujarPieza(g: Guia, p: Pieza, niveles: Niveles, s: 1 | -1): void {
     const ancho = 0.07 + azar() * 0.04;
     const f = filo(i);
     const r = rotura(i);
+    const h = alto(i);
+    const zr = zRot(i);
     const medio = (k: number) => f + (r - f) * k;
     g.poligono(
       [
-        [X(f + 0.04), y, H - 0.05],
-        [X(medio(0.5)), y - ancho * 0.45, H - (H - zRotura) * 0.5],
-        [X(r), y - ancho, zRotura],
-        [X(r + 0.04), y + ancho * 0.2, zRotura * 0.9],
-        [X(r + 0.02), y + ancho * 1.2, zRotura],
-        [X(medio(0.55)), y + ancho * 0.55, H - (H - zRotura) * 0.55],
+        [X(f + 0.04), y, h - 0.05],
+        [X(medio(0.5)), y - ancho * 0.45, h - (h - zr) * 0.5],
+        [X(r), y - ancho, zr],
+        [X(r + 0.04), y + ancho * 0.2, zr * 0.9],
+        [X(r + 0.02), y + ancho * 1.2, zr],
+        [X(medio(0.55)), y + ancho * 0.55, h - (h - zr) * 0.55],
       ],
       DERRUBIO,
     );
@@ -445,7 +505,7 @@ function dibujarPieza(g: Guia, p: Pieza, niveles: Niveles, s: 1 | -1): void {
   for (let k = 0; k < 3 * L; k++) {
     const t = 0.1 + 0.8 * azar();
     const i = Math.round(t * pasos);
-    mata(g, X(filo(i) - 0.03 - azar() * 0.1), yDe(t), H, 0.03 + azar() * 0.03, azar);
+    mata(g, X(filo(i) - 0.03 - azar() * 0.1), yDe(t), alto(i), 0.03 + azar() * 0.03, azar);
   }
 
   // Bloques: sueltos por el derrubio y amontonados al pie, de tamaños muy
@@ -458,7 +518,7 @@ function dibujarPieza(g: Guia, p: Pieza, niveles: Niveles, s: 1 | -1): void {
     const enPie = azar() < 0.6;
     const r = enPie ? 0.04 + azar() * 0.06 : 0.03 + azar() * 0.04;
     const x = enPie ? pie(i) - 0.02 + azar() * 0.1 : rotura(i) + (pie(i) - rotura(i)) * azar();
-    const z = enPie ? 0 : zRotura * (1 - (x - rotura(i)) / Math.max(0.01, pie(i) - rotura(i)));
+    const z = enPie ? 0 : zRot(i) * (1 - (x - rotura(i)) / Math.max(0.01, pie(i) - rotura(i)));
     bloques.push({ x: X(x), y: yDe(t), r, h: r * (0.7 + azar() * 0.6), z });
   }
   if (fin)
@@ -587,9 +647,13 @@ const LUZ_DEL_LADO: Readonly<Record<Lado, string>> = {
     'La ladera mira al OESTE (a la izquierda de la imagen) y la luz viene de arriba a la izquierda: la ladera recibe la luz de lleno y es lo más iluminado de cada módulo; las sombras propias de las grietas y de los bloques caen hacia la derecha y hacia abajo. Es otra pieza distinta, no el reflejo de una ladera al este.',
 };
 
+/** El `inicio` de caída 3, como se pintó su hoja (el nuevo, con loma, solo en caída 1 y 2). */
+const INICIO_DE_TRES =
+  'INICIO (una casilla): donde empieza el risco, en la esquina de la meseta. Por ARRIBA la ladera dobla la esquina: el filo se curva hacia la meseta y la ladera termina en un MORRO redondeado de roca rota que se hunde en su propio derrubio, sin ninguna cara plana ni bloque cuadrado y sin lengua ni losa que salga hacia la meseta; por abajo, abierta como los tramos.';
+
 const NOMBRES_DICHOS: Readonly<Record<string, string>> = {
   inicio:
-    'INICIO (una casilla): donde empieza el risco, en la esquina de la meseta. Por ARRIBA la ladera dobla la esquina: el filo se curva hacia la meseta y la ladera termina en un MORRO redondeado de roca rota que se hunde en su propio derrubio, sin ninguna cara plana ni bloque cuadrado y sin lengua ni losa que salga hacia la meseta; por abajo, abierta como los tramos.',
+    'INICIO (una casilla): donde empieza el risco. Por ARRIBA NO acaba en punta, pico, aguja ni arista afilada: la ladera da la vuelta en un MORRO ANCHO Y REDONDEADO, como el hombro de una loma, algo más bajo que el filo de los tramos, y por ese lado la roca se deshace en un derrame de piedras y tierra que se funde con el suelo. La silueta de arriba es la curva suave y abombada de la guía. Sin cara plana, bloque cuadrado, lengua ni losa hacia la meseta; por abajo, abierta como los tramos.',
   'medio-a':
     'TRAMO con un ENTRANTE (una casilla): el filo muerde la meseta en una vaguada y por el pie sale un cono de derrubio.',
   'medio-b':
@@ -611,7 +675,7 @@ export function encargoDeLaderas(material: Material, lado: Lado, niveles: Nivele
   const orden = nombres
     .map(
       (n, i) =>
-        `${filas > 1 ? `fila ${Math.floor(i / 4) + 1}, ` : ''}columna ${(i % 4) + 1}: ${NOMBRES_DICHOS[n] ?? n}`,
+        `${filas > 1 ? `fila ${Math.floor(i / 4) + 1}, ` : ''}columna ${(i % 4) + 1}: ${n === 'inicio' && niveles === 3 ? INICIO_DE_TRES : (NOMBRES_DICHOS[n] ?? n)}`,
     )
     .join('\n');
   return {

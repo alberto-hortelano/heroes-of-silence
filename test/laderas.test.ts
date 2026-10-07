@@ -556,7 +556,11 @@ describe('las juntas de cada ladera salen de su guía (`pnpm taller derivar-lade
         for (const [x, y] of [m.ladera.filo, m.ladera.pie]) {
           expect(x, donde).toBeGreaterThanOrEqual(0);
           expect(x, donde).toBeLessThan(m.nw);
-          expect(y, donde).toBeGreaterThanOrEqual(0);
+          // El `inicio` llega a su junta norte en una loma más baja que el filo
+          // (#160): ese filo es la referencia de la junta y puede caer algo por
+          // encima de lo pintado.
+          const holgura = m.ladera.papel === 'inicio' && y === fy ? 0.12 * m.nh : 0;
+          expect(y, donde).toBeGreaterThanOrEqual(-holgura);
           expect(y, donde).toBeLessThanOrEqual(m.nh);
         }
         // El pie, abajo y hacia donde cae: la ladera mira al este o al oeste.

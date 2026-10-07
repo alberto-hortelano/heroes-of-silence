@@ -889,6 +889,83 @@ aprobó las maquetas («Valen: commit y enganchar»). Cómo quedó:
   sin preguntar. Desde /simplify no van en el catálogo, y su encargo y su guía
   salen de `paredes-puentes.ts` (están en la historia de git).
 
+### Retoques del arte (#160, rama `arte-laderas-3`, 07-10-2026)
+
+Se atacaron dos de los flojos de arriba: el `inicio` que acababa en punta y las
+losas de caída 3. El usuario, al ver las maquetas: «Quedarse los comienzos, no
+la caída 3».
+
+**Entra: el `inicio` nuevo de caída 1 y 2.** En las 16 hojas
+(`tools/taller/laderas.ts`):
+
+- **El problema.** El filo y el corte norte se juntaban en un ángulo agudo, y
+  eso se pintaba como un pico.
+- **La guía.** El risco pierde algo de alto en la primera `LOMA` (0,6) de la
+  casilla, como mucho lo que deja el filo subiendo en pantalla
+  (`PENDIENTE_DE_LOMA`). El corte norte baja del filo al pie en un hombro
+  convexo: la cara da la vuelta hacia el fondo y el derrubio se deshace en el
+  suelo.
+- **El prompt.** Pide «un morro ancho y redondeado, como el hombro de una loma».
+  Prohíbe la punta, el pico, la aguja y la arista.
+- **La junta norte.** El filo norte del `inicio` es la referencia de la junta,
+  más alta que la loma, y en seis módulos cae hasta 21 px por encima de lo
+  pintado. `test/laderas.test.ts` lo admite solo en el `inicio`, hasta el 12 %
+  de su alto.
+- **Regeneración.** El taller rehace hojas, no piezas. Se rehicieron las 16
+  hojas y de cada una se quedó solo el `inicio`
+  (`docs/art/revision-laderas-3/conservar.py`):
+  - los otros siete módulos y sus entradas del índice son los de antes, con el
+    mismo sha;
+  - la hoja `.webp` y su procedencia son las de la generación nueva.
+- **Guía de la fila 1.** Se reparte por el ancho del `inicio`, así que sus
+  otras piezas se corren unos píxeles en x. Al volver a registrar, sus juntas se
+  mueven 1 px, salvo `roca-oeste-2/medio-c`, que se mueve 13 px. El registro ya
+  erraba hasta 34 px.
+- **Lo que quedó flojo.** La mayoría acaba ya en morro, pero `roca-oeste-2`,
+  `nevadas-oeste-2` y `basalto-este-1` siguen bastante afilados, y alguno sale
+  como un bloque. El `inicio` es de otra generación que sus hermanos: en roca
+  sale algo más claro y gris.
+
+**Se probó y se descartó: la caída 3 sin losas.** Las 8 hojas de caída 3, su
+guía y su prompt siguen como en HEAD. `laderas.ts` dibuja su `inicio` con el
+morro de antes (`INICIO_DE_TRES` en el prompt). La guía y el prompt que salen
+hoy son, byte a byte, los de sus hojas. Lo aprendido:
+
+- **De dónde salían las losas.** De la guía: los canales de derrubio de caída 3
+  son largos y van en diagonal por la línea de máxima pendiente, y el pintor los
+  calcaba como losas lisas.
+- **Lo que se probó.**
+  - Un escarpe corto bajo el filo (0,22 de la caída).
+  - Debajo, dos bandas de estrato roto cortadas a trozos.
+  - De quinta referencia de material, la hoja de caída 1 de su material y lado.
+
+  Las losas desaparecieron, pero el talud salió grumoso, se leía como un
+  pedregal y en nieve se perdía casi toda la nieve.
+- **Por qué no vale lo obvio.** Cualquier cosa sobre una ladera que mira al este
+  o al oeste sale estrecha en pantalla: o en tiras verticales (columnas) o en
+  diagonal (losas). Partir el escarpe en trozos pequeños quita las dos cosas,
+  pero también la roca.
+- **Si se retoma.** Pedir pocos trozos grandes de roca y no muchos pequeños,
+  conservar la nieve en las repisas, y no tomar la caída 1 como referencia de
+  material: arrastra su escala.
+
+**Coste.** 25 generaciones de Codex por la suscripción, sin fal.ai, de las que
+se aprovechan 16:
+
+- 2 pilotos (`roca-este-3` y `roca-este-1`);
+- las 23 hojas restantes.
+
+Además, Codex cortó («websocket closed») 2 intentos de corregir `roca-este-1`
+en su hilo, sin generar nada.
+
+**Revisión** (en `docs/art/revision-laderas-3/`, no se commitea):
+
+- `laderas-<material>-<lado>.png`: después arriba y antes abajo, a 110 px por
+  casilla. Los recortes de caída 3 de «después» son los descartados.
+- `inicios.png`: los 24 `inicio`, antes y después.
+- `juego/{antes,despues}/`: el escenógrafo a 110 px de s5, s6, s8, s9 y s22.
+- `juego/par-*.png`: recortes antes y después.
+
 ## 21. Lo que falta de los puentes al engancharlos (#157, 07-10-2026)
 
 Los puentes de la §17-§18 ya van en el mapa: la pieza sale de las orillas que
