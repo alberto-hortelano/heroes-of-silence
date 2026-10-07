@@ -25,15 +25,15 @@ const RAIZ = resolve(import.meta.dirname, '../..');
 export const DIR_GUIAS = 'assets/mapa/guias';
 
 /** Lo que mide en pantalla un nivel de altura, en casillas (`ALTO_DE_NIVEL` del escenógrafo). */
-const NIVEL = 0.6;
+export const NIVEL = 0.6;
 
 // ------------------------------------------------------------------ la guía
 
-type P2 = readonly [number, number];
-type P3 = readonly [number, number, number];
+export type P2 = readonly [number, number];
+export type P3 = readonly [number, number, number];
 
 /** Un lienzo de guía: casilla de `t` px y el origen del mundo en `(ox, oy)`. */
-class Guia {
+export class Guia {
   private readonly capas: string[] = [];
   /** La caja de lo dibujado, en píxeles: para encajar la guía en su lienzo (`encajar`). */
   readonly caja = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
@@ -103,13 +103,13 @@ function encajar(ancho: number, alto: number, lleno: number, dibujar: (g: Guia) 
   return g;
 }
 
-const FONDO = '#7d7d7d';
+export const FONDO = '#7d7d7d';
 /** Lo que mira arriba, lo que mira a la cámara (iluminado), y lo que queda en sombra. */
-const ARRIBA = '#dcdcdc';
-const FRENTE = '#b0b0b0';
-const SOMBRA = '#5e5e5e';
+export const ARRIBA = '#dcdcdc';
+export const FRENTE = '#b0b0b0';
+export const SOMBRA = '#5e5e5e';
 const HUECO = '#2c2c2c';
-const MATAS = '#c9cfbf';
+export const MATAS = '#c9cfbf';
 /** La tierra del estribo (talud y rampa): parda, para que no se lea como sillar. */
 const TIERRA = '#9a9080';
 const RAMPA = '#bdb4a2';
@@ -809,7 +809,7 @@ export async function escribirGuias(): Promise<string[]> {
 }
 
 /** La caja de lo que no es fondo en una guía. */
-async function cajaDeGuia(png: Buffer): Promise<[number, number, number, number]> {
+export async function cajaDeGuia(png: Buffer): Promise<[number, number, number, number]> {
   const { data, info } = await sharp(png).raw().toBuffer({ resolveWithObject: true });
   const fondo = [0x7d, 0x7d, 0x7d];
   let x0 = info.width;

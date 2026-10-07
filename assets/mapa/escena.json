@@ -1236,6 +1236,1590 @@
     "nombre": "15"
    }
   ],
+  "laderas-arenisca-este-1": [
+   {
+    "src": "modulos/laderas-arenisca-este-1/medio-b.webp",
+    "nw": 205,
+    "nh": 364,
+    "ax": 133,
+    "ay": 359,
+    "nombre": "medio-b"
+   },
+   {
+    "src": "modulos/laderas-arenisca-este-1/medio-a.webp",
+    "nw": 236,
+    "nh": 365,
+    "ax": 166,
+    "ay": 360,
+    "nombre": "medio-a"
+   },
+   {
+    "src": "modulos/laderas-arenisca-este-1/medio-c.webp",
+    "nw": 241,
+    "nh": 369,
+    "ax": 172,
+    "ay": 364,
+    "nombre": "medio-c"
+   },
+   {
+    "src": "modulos/laderas-arenisca-este-1/inicio.webp",
+    "nw": 202,
+    "nh": 385,
+    "ax": 149,
+    "ay": 380,
+    "nombre": "inicio"
+   },
+   {
+    "src": "modulos/laderas-arenisca-este-1/esquina.webp",
+    "nw": 356,
+    "nh": 392,
+    "ax": 177,
+    "ay": 387,
+    "nombre": "esquina"
+   },
+   {
+    "src": "modulos/laderas-arenisca-este-1/fin.webp",
+    "nw": 252,
+    "nh": 416,
+    "ax": 151,
+    "ay": 411,
+    "nombre": "fin"
+   },
+   {
+    "src": "modulos/laderas-arenisca-este-1/largo-b.webp",
+    "nw": 230,
+    "nh": 542,
+    "ax": 142,
+    "ay": 537,
+    "nombre": "largo-b"
+   },
+   {
+    "src": "modulos/laderas-arenisca-este-1/largo-a.webp",
+    "nw": 247,
+    "nh": 545,
+    "ax": 185,
+    "ay": 540,
+    "nombre": "largo-a"
+   }
+  ],
+  "laderas-arenisca-este-2": [
+   {
+    "src": "modulos/laderas-arenisca-este-2/medio-a.webp",
+    "nw": 197,
+    "nh": 408,
+    "ax": 159,
+    "ay": 403,
+    "nombre": "medio-a"
+   },
+   {
+    "src": "modulos/laderas-arenisca-este-2/medio-b.webp",
+    "nw": 191,
+    "nh": 408,
+    "ax": 137,
+    "ay": 403,
+    "nombre": "medio-b"
+   },
+   {
+    "src": "modulos/laderas-arenisca-este-2/inicio.webp",
+    "nw": 177,
+    "nh": 410,
+    "ax": 128,
+    "ay": 405,
+    "nombre": "inicio"
+   },
+   {
+    "src": "modulos/laderas-arenisca-este-2/medio-c.webp",
+    "nw": 196,
+    "nh": 416,
+    "ax": 154,
+    "ay": 411,
+    "nombre": "medio-c"
+   },
+   {
+    "src": "modulos/laderas-arenisca-este-2/esquina.webp",
+    "nw": 323,
+    "nh": 420,
+    "ax": 143,
+    "ay": 415,
+    "nombre": "esquina"
+   },
+   {
+    "src": "modulos/laderas-arenisca-este-2/fin.webp",
+    "nw": 190,
+    "nh": 435,
+    "ax": 98,
+    "ay": 430,
+    "nombre": "fin"
+   },
+   {
+    "src": "modulos/laderas-arenisca-este-2/largo-b.webp",
+    "nw": 201,
+    "nh": 556,
+    "ax": 147,
+    "ay": 551,
+    "nombre": "largo-b"
+   },
+   {
+    "src": "modulos/laderas-arenisca-este-2/largo-a.webp",
+    "nw": 193,
+    "nh": 557,
+    "ax": 137,
+    "ay": 552,
+    "nombre": "largo-a"
+   }
+  ],
+  "laderas-arenisca-este-3": [
+   {
+    "src": "modulos/laderas-arenisca-este-3/medio-b.webp",
+    "nw": 199,
+    "nh": 497,
+    "ax": 152,
+    "ay": 492,
+    "nombre": "medio-b"
+   },
+   {
+    "src": "modulos/laderas-arenisca-este-3/medio-a.webp",
+    "nw": 219,
+    "nh": 503,
+    "ax": 181,
+    "ay": 498,
+    "nombre": "medio-a"
+   },
+   {
+    "src": "modulos/laderas-arenisca-este-3/fin.webp",
+    "nw": 221,
+    "nh": 504,
+    "ax": 130,
+    "ay": 499,
+    "nombre": "fin"
+   },
+   {
+    "src": "modulos/laderas-arenisca-este-3/medio-c.webp",
+    "nw": 205,
+    "nh": 506,
+    "ax": 172,
+    "ay": 501,
+    "nombre": "medio-c"
+   },
+   {
+    "src": "modulos/laderas-arenisca-este-3/inicio.webp",
+    "nw": 223,
+    "nh": 523,
+    "ax": 185,
+    "ay": 518,
+    "nombre": "inicio"
+   },
+   {
+    "src": "modulos/laderas-arenisca-este-3/esquina.webp",
+    "nw": 291,
+    "nh": 539,
+    "ax": 126,
+    "ay": 534,
+    "nombre": "esquina"
+   },
+   {
+    "src": "modulos/laderas-arenisca-este-3/largo-b.webp",
+    "nw": 229,
+    "nh": 671,
+    "ax": 168,
+    "ay": 666,
+    "nombre": "largo-b"
+   },
+   {
+    "src": "modulos/laderas-arenisca-este-3/largo-a.webp",
+    "nw": 242,
+    "nh": 675,
+    "ax": 174,
+    "ay": 670,
+    "nombre": "largo-a"
+   }
+  ],
+  "laderas-arenisca-oeste-1": [
+   {
+    "src": "modulos/laderas-arenisca-oeste-1/medio-b.webp",
+    "nw": 219,
+    "nh": 388,
+    "ax": 63,
+    "ay": 383,
+    "nombre": "medio-b"
+   },
+   {
+    "src": "modulos/laderas-arenisca-oeste-1/inicio.webp",
+    "nw": 201,
+    "nh": 393,
+    "ax": 67,
+    "ay": 388,
+    "nombre": "inicio"
+   },
+   {
+    "src": "modulos/laderas-arenisca-oeste-1/medio-c.webp",
+    "nw": 215,
+    "nh": 397,
+    "ax": 45,
+    "ay": 392,
+    "nombre": "medio-c"
+   },
+   {
+    "src": "modulos/laderas-arenisca-oeste-1/medio-a.webp",
+    "nw": 240,
+    "nh": 401,
+    "ax": 67,
+    "ay": 400,
+    "nombre": "medio-a"
+   },
+   {
+    "src": "modulos/laderas-arenisca-oeste-1/esquina.webp",
+    "nw": 366,
+    "nh": 417,
+    "ax": 201,
+    "ay": 412,
+    "nombre": "esquina"
+   },
+   {
+    "src": "modulos/laderas-arenisca-oeste-1/fin.webp",
+    "nw": 238,
+    "nh": 441,
+    "ax": 126,
+    "ay": 436,
+    "nombre": "fin"
+   },
+   {
+    "src": "modulos/laderas-arenisca-oeste-1/largo-b.webp",
+    "nw": 206,
+    "nh": 573,
+    "ax": 58,
+    "ay": 568,
+    "nombre": "largo-b"
+   },
+   {
+    "src": "modulos/laderas-arenisca-oeste-1/largo-a.webp",
+    "nw": 244,
+    "nh": 578,
+    "ax": 83,
+    "ay": 573,
+    "nombre": "largo-a"
+   }
+  ],
+  "laderas-arenisca-oeste-2": [
+   {
+    "src": "modulos/laderas-arenisca-oeste-2/medio-c.webp",
+    "nw": 191,
+    "nh": 387,
+    "ax": 34,
+    "ay": 382,
+    "nombre": "medio-c"
+   },
+   {
+    "src": "modulos/laderas-arenisca-oeste-2/inicio.webp",
+    "nw": 193,
+    "nh": 388,
+    "ax": 57,
+    "ay": 383,
+    "nombre": "inicio"
+   },
+   {
+    "src": "modulos/laderas-arenisca-oeste-2/medio-a.webp",
+    "nw": 200,
+    "nh": 388,
+    "ax": 51,
+    "ay": 383,
+    "nombre": "medio-a"
+   },
+   {
+    "src": "modulos/laderas-arenisca-oeste-2/medio-b.webp",
+    "nw": 178,
+    "nh": 388,
+    "ax": 49,
+    "ay": 383,
+    "nombre": "medio-b"
+   },
+   {
+    "src": "modulos/laderas-arenisca-oeste-2/esquina.webp",
+    "nw": 309,
+    "nh": 399,
+    "ax": 170,
+    "ay": 394,
+    "nombre": "esquina"
+   },
+   {
+    "src": "modulos/laderas-arenisca-oeste-2/fin.webp",
+    "nw": 202,
+    "nh": 412,
+    "ax": 88,
+    "ay": 407,
+    "nombre": "fin"
+   },
+   {
+    "src": "modulos/laderas-arenisca-oeste-2/largo-a.webp",
+    "nw": 219,
+    "nh": 548,
+    "ax": 61,
+    "ay": 543,
+    "nombre": "largo-a"
+   },
+   {
+    "src": "modulos/laderas-arenisca-oeste-2/largo-b.webp",
+    "nw": 198,
+    "nh": 558,
+    "ax": 48,
+    "ay": 553,
+    "nombre": "largo-b"
+   }
+  ],
+  "laderas-arenisca-oeste-3": [
+   {
+    "src": "modulos/laderas-arenisca-oeste-3/inicio.webp",
+    "nw": 210,
+    "nh": 478,
+    "ax": 43,
+    "ay": 473,
+    "nombre": "inicio"
+   },
+   {
+    "src": "modulos/laderas-arenisca-oeste-3/medio-c.webp",
+    "nw": 197,
+    "nh": 484,
+    "ax": 26,
+    "ay": 479,
+    "nombre": "medio-c"
+   },
+   {
+    "src": "modulos/laderas-arenisca-oeste-3/medio-b.webp",
+    "nw": 211,
+    "nh": 490,
+    "ax": 45,
+    "ay": 485,
+    "nombre": "medio-b"
+   },
+   {
+    "src": "modulos/laderas-arenisca-oeste-3/medio-a.webp",
+    "nw": 214,
+    "nh": 491,
+    "ax": 38,
+    "ay": 486,
+    "nombre": "medio-a"
+   },
+   {
+    "src": "modulos/laderas-arenisca-oeste-3/esquina.webp",
+    "nw": 286,
+    "nh": 509,
+    "ax": 166,
+    "ay": 504,
+    "nombre": "esquina"
+   },
+   {
+    "src": "modulos/laderas-arenisca-oeste-3/fin.webp",
+    "nw": 199,
+    "nh": 516,
+    "ax": 77,
+    "ay": 511,
+    "nombre": "fin"
+   },
+   {
+    "src": "modulos/laderas-arenisca-oeste-3/largo-b.webp",
+    "nw": 211,
+    "nh": 619,
+    "ax": 47,
+    "ay": 614,
+    "nombre": "largo-b"
+   },
+   {
+    "src": "modulos/laderas-arenisca-oeste-3/largo-a.webp",
+    "nw": 234,
+    "nh": 626,
+    "ax": 66,
+    "ay": 621,
+    "nombre": "largo-a"
+   }
+  ],
+  "laderas-basalto-este-1": [
+   {
+    "src": "modulos/laderas-basalto-este-1/medio-a.webp",
+    "nw": 248,
+    "nh": 389,
+    "ax": 166,
+    "ay": 384,
+    "nombre": "medio-a"
+   },
+   {
+    "src": "modulos/laderas-basalto-este-1/medio-b.webp",
+    "nw": 211,
+    "nh": 391,
+    "ax": 146,
+    "ay": 386,
+    "nombre": "medio-b"
+   },
+   {
+    "src": "modulos/laderas-basalto-este-1/medio-c.webp",
+    "nw": 233,
+    "nh": 391,
+    "ax": 169,
+    "ay": 386,
+    "nombre": "medio-c"
+   },
+   {
+    "src": "modulos/laderas-basalto-este-1/inicio.webp",
+    "nw": 203,
+    "nh": 392,
+    "ax": 151,
+    "ay": 387,
+    "nombre": "inicio"
+   },
+   {
+    "src": "modulos/laderas-basalto-este-1/esquina.webp",
+    "nw": 340,
+    "nh": 393,
+    "ax": 162,
+    "ay": 388,
+    "nombre": "esquina"
+   },
+   {
+    "src": "modulos/laderas-basalto-este-1/fin.webp",
+    "nw": 214,
+    "nh": 422,
+    "ax": 115,
+    "ay": 417,
+    "nombre": "fin"
+   },
+   {
+    "src": "modulos/laderas-basalto-este-1/largo-b.webp",
+    "nw": 228,
+    "nh": 577,
+    "ax": 141,
+    "ay": 572,
+    "nombre": "largo-b"
+   },
+   {
+    "src": "modulos/laderas-basalto-este-1/largo-a.webp",
+    "nw": 217,
+    "nh": 586,
+    "ax": 172,
+    "ay": 581,
+    "nombre": "largo-a"
+   }
+  ],
+  "laderas-basalto-este-2": [
+   {
+    "src": "modulos/laderas-basalto-este-2/medio-c.webp",
+    "nw": 191,
+    "nh": 380,
+    "ax": 146,
+    "ay": 375,
+    "nombre": "medio-c"
+   },
+   {
+    "src": "modulos/laderas-basalto-este-2/medio-a.webp",
+    "nw": 188,
+    "nh": 385,
+    "ax": 141,
+    "ay": 380,
+    "nombre": "medio-a"
+   },
+   {
+    "src": "modulos/laderas-basalto-este-2/medio-b.webp",
+    "nw": 206,
+    "nh": 390,
+    "ax": 139,
+    "ay": 385,
+    "nombre": "medio-b"
+   },
+   {
+    "src": "modulos/laderas-basalto-este-2/inicio.webp",
+    "nw": 188,
+    "nh": 402,
+    "ax": 135,
+    "ay": 397,
+    "nombre": "inicio"
+   },
+   {
+    "src": "modulos/laderas-basalto-este-2/esquina.webp",
+    "nw": 333,
+    "nh": 407,
+    "ax": 148,
+    "ay": 402,
+    "nombre": "esquina"
+   },
+   {
+    "src": "modulos/laderas-basalto-este-2/fin.webp",
+    "nw": 208,
+    "nh": 416,
+    "ax": 100,
+    "ay": 411,
+    "nombre": "fin"
+   },
+   {
+    "src": "modulos/laderas-basalto-este-2/largo-b.webp",
+    "nw": 201,
+    "nh": 548,
+    "ax": 149,
+    "ay": 543,
+    "nombre": "largo-b"
+   },
+   {
+    "src": "modulos/laderas-basalto-este-2/largo-a.webp",
+    "nw": 213,
+    "nh": 558,
+    "ax": 158,
+    "ay": 553,
+    "nombre": "largo-a"
+   }
+  ],
+  "laderas-basalto-este-3": [
+   {
+    "src": "modulos/laderas-basalto-este-3/medio-c.webp",
+    "nw": 195,
+    "nh": 459,
+    "ax": 158,
+    "ay": 454,
+    "nombre": "medio-c"
+   },
+   {
+    "src": "modulos/laderas-basalto-este-3/medio-a.webp",
+    "nw": 207,
+    "nh": 460,
+    "ax": 164,
+    "ay": 455,
+    "nombre": "medio-a"
+   },
+   {
+    "src": "modulos/laderas-basalto-este-3/medio-b.webp",
+    "nw": 196,
+    "nh": 463,
+    "ax": 149,
+    "ay": 458,
+    "nombre": "medio-b"
+   },
+   {
+    "src": "modulos/laderas-basalto-este-3/inicio.webp",
+    "nw": 195,
+    "nh": 482,
+    "ax": 158,
+    "ay": 477,
+    "nombre": "inicio"
+   },
+   {
+    "src": "modulos/laderas-basalto-este-3/esquina.webp",
+    "nw": 295,
+    "nh": 492,
+    "ax": 131,
+    "ay": 487,
+    "nombre": "esquina"
+   },
+   {
+    "src": "modulos/laderas-basalto-este-3/fin.webp",
+    "nw": 213,
+    "nh": 516,
+    "ax": 125,
+    "ay": 511,
+    "nombre": "fin"
+   },
+   {
+    "src": "modulos/laderas-basalto-este-3/largo-b.webp",
+    "nw": 200,
+    "nh": 634,
+    "ax": 148,
+    "ay": 629,
+    "nombre": "largo-b"
+   },
+   {
+    "src": "modulos/laderas-basalto-este-3/largo-a.webp",
+    "nw": 219,
+    "nh": 640,
+    "ax": 155,
+    "ay": 635,
+    "nombre": "largo-a"
+   }
+  ],
+  "laderas-basalto-oeste-1": [
+   {
+    "src": "modulos/laderas-basalto-oeste-1/medio-a.webp",
+    "nw": 191,
+    "nh": 313,
+    "ax": 44,
+    "ay": 308,
+    "nombre": "medio-a"
+   },
+   {
+    "src": "modulos/laderas-basalto-oeste-1/inicio.webp",
+    "nw": 165,
+    "nh": 320,
+    "ax": 47,
+    "ay": 315,
+    "nombre": "inicio"
+   },
+   {
+    "src": "modulos/laderas-basalto-oeste-1/medio-c.webp",
+    "nw": 188,
+    "nh": 326,
+    "ax": 44,
+    "ay": 321,
+    "nombre": "medio-c"
+   },
+   {
+    "src": "modulos/laderas-basalto-oeste-1/medio-b.webp",
+    "nw": 174,
+    "nh": 330,
+    "ax": 46,
+    "ay": 325,
+    "nombre": "medio-b"
+   },
+   {
+    "src": "modulos/laderas-basalto-oeste-1/esquina.webp",
+    "nw": 335,
+    "nh": 365,
+    "ax": 185,
+    "ay": 360,
+    "nombre": "esquina"
+   },
+   {
+    "src": "modulos/laderas-basalto-oeste-1/fin.webp",
+    "nw": 198,
+    "nh": 401,
+    "ax": 104,
+    "ay": 396,
+    "nombre": "fin"
+   },
+   {
+    "src": "modulos/laderas-basalto-oeste-1/largo-a.webp",
+    "nw": 221,
+    "nh": 545,
+    "ax": 59,
+    "ay": 540,
+    "nombre": "largo-a"
+   },
+   {
+    "src": "modulos/laderas-basalto-oeste-1/largo-b.webp",
+    "nw": 184,
+    "nh": 548,
+    "ax": 42,
+    "ay": 543,
+    "nombre": "largo-b"
+   }
+  ],
+  "laderas-basalto-oeste-2": [
+   {
+    "src": "modulos/laderas-basalto-oeste-2/medio-a.webp",
+    "nw": 220,
+    "nh": 394,
+    "ax": 51,
+    "ay": 389,
+    "nombre": "medio-a"
+   },
+   {
+    "src": "modulos/laderas-basalto-oeste-2/medio-b.webp",
+    "nw": 185,
+    "nh": 394,
+    "ax": 38,
+    "ay": 389,
+    "nombre": "medio-b"
+   },
+   {
+    "src": "modulos/laderas-basalto-oeste-2/medio-c.webp",
+    "nw": 188,
+    "nh": 394,
+    "ax": 34,
+    "ay": 389,
+    "nombre": "medio-c"
+   },
+   {
+    "src": "modulos/laderas-basalto-oeste-2/inicio.webp",
+    "nw": 193,
+    "nh": 395,
+    "ax": 50,
+    "ay": 390,
+    "nombre": "inicio"
+   },
+   {
+    "src": "modulos/laderas-basalto-oeste-2/esquina.webp",
+    "nw": 298,
+    "nh": 401,
+    "ax": 165,
+    "ay": 396,
+    "nombre": "esquina"
+   },
+   {
+    "src": "modulos/laderas-basalto-oeste-2/fin.webp",
+    "nw": 202,
+    "nh": 424,
+    "ax": 74,
+    "ay": 419,
+    "nombre": "fin"
+   },
+   {
+    "src": "modulos/laderas-basalto-oeste-2/largo-b.webp",
+    "nw": 192,
+    "nh": 536,
+    "ax": 47,
+    "ay": 531,
+    "nombre": "largo-b"
+   },
+   {
+    "src": "modulos/laderas-basalto-oeste-2/largo-a.webp",
+    "nw": 221,
+    "nh": 537,
+    "ax": 66,
+    "ay": 532,
+    "nombre": "largo-a"
+   }
+  ],
+  "laderas-basalto-oeste-3": [
+   {
+    "src": "modulos/laderas-basalto-oeste-3/medio-a.webp",
+    "nw": 230,
+    "nh": 468,
+    "ax": 38,
+    "ay": 463,
+    "nombre": "medio-a"
+   },
+   {
+    "src": "modulos/laderas-basalto-oeste-3/medio-b.webp",
+    "nw": 211,
+    "nh": 469,
+    "ax": 49,
+    "ay": 464,
+    "nombre": "medio-b"
+   },
+   {
+    "src": "modulos/laderas-basalto-oeste-3/inicio.webp",
+    "nw": 215,
+    "nh": 470,
+    "ax": 43,
+    "ay": 465,
+    "nombre": "inicio"
+   },
+   {
+    "src": "modulos/laderas-basalto-oeste-3/fin.webp",
+    "nw": 204,
+    "nh": 478,
+    "ax": 79,
+    "ay": 473,
+    "nombre": "fin"
+   },
+   {
+    "src": "modulos/laderas-basalto-oeste-3/medio-c.webp",
+    "nw": 211,
+    "nh": 480,
+    "ax": 24,
+    "ay": 475,
+    "nombre": "medio-c"
+   },
+   {
+    "src": "modulos/laderas-basalto-oeste-3/esquina.webp",
+    "nw": 280,
+    "nh": 499,
+    "ax": 154,
+    "ay": 494,
+    "nombre": "esquina"
+   },
+   {
+    "src": "modulos/laderas-basalto-oeste-3/largo-b.webp",
+    "nw": 213,
+    "nh": 623,
+    "ax": 32,
+    "ay": 618,
+    "nombre": "largo-b"
+   },
+   {
+    "src": "modulos/laderas-basalto-oeste-3/largo-a.webp",
+    "nw": 240,
+    "nh": 645,
+    "ax": 66,
+    "ay": 640,
+    "nombre": "largo-a"
+   }
+  ],
+  "laderas-nevadas-este-1": [
+   {
+    "src": "modulos/laderas-nevadas-este-1/medio-b.webp",
+    "nw": 187,
+    "nh": 362,
+    "ax": 134,
+    "ay": 357,
+    "nombre": "medio-b"
+   },
+   {
+    "src": "modulos/laderas-nevadas-este-1/medio-c.webp",
+    "nw": 219,
+    "nh": 363,
+    "ax": 163,
+    "ay": 358,
+    "nombre": "medio-c"
+   },
+   {
+    "src": "modulos/laderas-nevadas-este-1/inicio.webp",
+    "nw": 165,
+    "nh": 366,
+    "ax": 120,
+    "ay": 361,
+    "nombre": "inicio"
+   },
+   {
+    "src": "modulos/laderas-nevadas-este-1/medio-a.webp",
+    "nw": 242,
+    "nh": 367,
+    "ax": 177,
+    "ay": 362,
+    "nombre": "medio-a"
+   },
+   {
+    "src": "modulos/laderas-nevadas-este-1/fin.webp",
+    "nw": 210,
+    "nh": 423,
+    "ax": 120,
+    "ay": 418,
+    "nombre": "fin"
+   },
+   {
+    "src": "modulos/laderas-nevadas-este-1/esquina.webp",
+    "nw": 357,
+    "nh": 427,
+    "ax": 166,
+    "ay": 422,
+    "nombre": "esquina"
+   },
+   {
+    "src": "modulos/laderas-nevadas-este-1/largo-a.webp",
+    "nw": 224,
+    "nh": 557,
+    "ax": 177,
+    "ay": 552,
+    "nombre": "largo-a"
+   },
+   {
+    "src": "modulos/laderas-nevadas-este-1/largo-b.webp",
+    "nw": 238,
+    "nh": 567,
+    "ax": 153,
+    "ay": 562,
+    "nombre": "largo-b"
+   }
+  ],
+  "laderas-nevadas-este-2": [
+   {
+    "src": "modulos/laderas-nevadas-este-2/medio-a.webp",
+    "nw": 199,
+    "nh": 390,
+    "ax": 161,
+    "ay": 385,
+    "nombre": "medio-a"
+   },
+   {
+    "src": "modulos/laderas-nevadas-este-2/medio-c.webp",
+    "nw": 186,
+    "nh": 393,
+    "ax": 154,
+    "ay": 388,
+    "nombre": "medio-c"
+   },
+   {
+    "src": "modulos/laderas-nevadas-este-2/medio-b.webp",
+    "nw": 223,
+    "nh": 395,
+    "ax": 159,
+    "ay": 390,
+    "nombre": "medio-b"
+   },
+   {
+    "src": "modulos/laderas-nevadas-este-2/esquina.webp",
+    "nw": 311,
+    "nh": 403,
+    "ax": 132,
+    "ay": 398,
+    "nombre": "esquina"
+   },
+   {
+    "src": "modulos/laderas-nevadas-este-2/inicio.webp",
+    "nw": 206,
+    "nh": 413,
+    "ax": 154,
+    "ay": 408,
+    "nombre": "inicio"
+   },
+   {
+    "src": "modulos/laderas-nevadas-este-2/fin.webp",
+    "nw": 192,
+    "nh": 425,
+    "ax": 109,
+    "ay": 420,
+    "nombre": "fin"
+   },
+   {
+    "src": "modulos/laderas-nevadas-este-2/largo-a.webp",
+    "nw": 210,
+    "nh": 556,
+    "ax": 161,
+    "ay": 551,
+    "nombre": "largo-a"
+   },
+   {
+    "src": "modulos/laderas-nevadas-este-2/largo-b.webp",
+    "nw": 211,
+    "nh": 558,
+    "ax": 158,
+    "ay": 553,
+    "nombre": "largo-b"
+   }
+  ],
+  "laderas-nevadas-este-3": [
+   {
+    "src": "modulos/laderas-nevadas-este-3/medio-c.webp",
+    "nw": 222,
+    "nh": 499,
+    "ax": 180,
+    "ay": 494,
+    "nombre": "medio-c"
+   },
+   {
+    "src": "modulos/laderas-nevadas-este-3/medio-b.webp",
+    "nw": 219,
+    "nh": 514,
+    "ax": 159,
+    "ay": 509,
+    "nombre": "medio-b"
+   },
+   {
+    "src": "modulos/laderas-nevadas-este-3/medio-a.webp",
+    "nw": 226,
+    "nh": 515,
+    "ax": 187,
+    "ay": 510,
+    "nombre": "medio-a"
+   },
+   {
+    "src": "modulos/laderas-nevadas-este-3/inicio.webp",
+    "nw": 215,
+    "nh": 520,
+    "ax": 169,
+    "ay": 515,
+    "nombre": "inicio"
+   },
+   {
+    "src": "modulos/laderas-nevadas-este-3/esquina.webp",
+    "nw": 292,
+    "nh": 528,
+    "ax": 128,
+    "ay": 523,
+    "nombre": "esquina"
+   },
+   {
+    "src": "modulos/laderas-nevadas-este-3/fin.webp",
+    "nw": 217,
+    "nh": 541,
+    "ax": 106,
+    "ay": 536,
+    "nombre": "fin"
+   },
+   {
+    "src": "modulos/laderas-nevadas-este-3/largo-a.webp",
+    "nw": 241,
+    "nh": 650,
+    "ax": 174,
+    "ay": 645,
+    "nombre": "largo-a"
+   },
+   {
+    "src": "modulos/laderas-nevadas-este-3/largo-b.webp",
+    "nw": 221,
+    "nh": 650,
+    "ax": 157,
+    "ay": 645,
+    "nombre": "largo-b"
+   }
+  ],
+  "laderas-nevadas-oeste-1": [
+   {
+    "src": "modulos/laderas-nevadas-oeste-1/medio-a.webp",
+    "nw": 210,
+    "nh": 340,
+    "ax": 50,
+    "ay": 335,
+    "nombre": "medio-a"
+   },
+   {
+    "src": "modulos/laderas-nevadas-oeste-1/medio-b.webp",
+    "nw": 211,
+    "nh": 343,
+    "ax": 71,
+    "ay": 338,
+    "nombre": "medio-b"
+   },
+   {
+    "src": "modulos/laderas-nevadas-oeste-1/medio-c.webp",
+    "nw": 198,
+    "nh": 345,
+    "ax": 45,
+    "ay": 340,
+    "nombre": "medio-c"
+   },
+   {
+    "src": "modulos/laderas-nevadas-oeste-1/inicio.webp",
+    "nw": 185,
+    "nh": 353,
+    "ax": 61,
+    "ay": 348,
+    "nombre": "inicio"
+   },
+   {
+    "src": "modulos/laderas-nevadas-oeste-1/esquina.webp",
+    "nw": 336,
+    "nh": 381,
+    "ax": 162,
+    "ay": 376,
+    "nombre": "esquina"
+   },
+   {
+    "src": "modulos/laderas-nevadas-oeste-1/fin.webp",
+    "nw": 232,
+    "nh": 439,
+    "ax": 125,
+    "ay": 434,
+    "nombre": "fin"
+   },
+   {
+    "src": "modulos/laderas-nevadas-oeste-1/largo-b.webp",
+    "nw": 206,
+    "nh": 540,
+    "ax": 59,
+    "ay": 535,
+    "nombre": "largo-b"
+   },
+   {
+    "src": "modulos/laderas-nevadas-oeste-1/largo-a.webp",
+    "nw": 220,
+    "nh": 548,
+    "ax": 89,
+    "ay": 543,
+    "nombre": "largo-a"
+   }
+  ],
+  "laderas-nevadas-oeste-2": [
+   {
+    "src": "modulos/laderas-nevadas-oeste-2/inicio.webp",
+    "nw": 217,
+    "nh": 400,
+    "ax": 57,
+    "ay": 395,
+    "nombre": "inicio"
+   },
+   {
+    "src": "modulos/laderas-nevadas-oeste-2/medio-b.webp",
+    "nw": 193,
+    "nh": 407,
+    "ax": 45,
+    "ay": 402,
+    "nombre": "medio-b"
+   },
+   {
+    "src": "modulos/laderas-nevadas-oeste-2/medio-a.webp",
+    "nw": 225,
+    "nh": 408,
+    "ax": 55,
+    "ay": 403,
+    "nombre": "medio-a"
+   },
+   {
+    "src": "modulos/laderas-nevadas-oeste-2/medio-c.webp",
+    "nw": 212,
+    "nh": 408,
+    "ax": 39,
+    "ay": 403,
+    "nombre": "medio-c"
+   },
+   {
+    "src": "modulos/laderas-nevadas-oeste-2/esquina.webp",
+    "nw": 345,
+    "nh": 441,
+    "ax": 190,
+    "ay": 436,
+    "nombre": "esquina"
+   },
+   {
+    "src": "modulos/laderas-nevadas-oeste-2/fin.webp",
+    "nw": 203,
+    "nh": 454,
+    "ax": 85,
+    "ay": 449,
+    "nombre": "fin"
+   },
+   {
+    "src": "modulos/laderas-nevadas-oeste-2/largo-a.webp",
+    "nw": 229,
+    "nh": 547,
+    "ax": 69,
+    "ay": 542,
+    "nombre": "largo-a"
+   },
+   {
+    "src": "modulos/laderas-nevadas-oeste-2/largo-b.webp",
+    "nw": 211,
+    "nh": 559,
+    "ax": 51,
+    "ay": 554,
+    "nombre": "largo-b"
+   }
+  ],
+  "laderas-nevadas-oeste-3": [
+   {
+    "src": "modulos/laderas-nevadas-oeste-3/medio-c.webp",
+    "nw": 186,
+    "nh": 441,
+    "ax": 24,
+    "ay": 436,
+    "nombre": "medio-c"
+   },
+   {
+    "src": "modulos/laderas-nevadas-oeste-3/inicio.webp",
+    "nw": 205,
+    "nh": 452,
+    "ax": 42,
+    "ay": 447,
+    "nombre": "inicio"
+   },
+   {
+    "src": "modulos/laderas-nevadas-oeste-3/medio-b.webp",
+    "nw": 212,
+    "nh": 455,
+    "ax": 43,
+    "ay": 450,
+    "nombre": "medio-b"
+   },
+   {
+    "src": "modulos/laderas-nevadas-oeste-3/medio-a.webp",
+    "nw": 229,
+    "nh": 464,
+    "ax": 41,
+    "ay": 459,
+    "nombre": "medio-a"
+   },
+   {
+    "src": "modulos/laderas-nevadas-oeste-3/fin.webp",
+    "nw": 194,
+    "nh": 469,
+    "ax": 96,
+    "ay": 464,
+    "nombre": "fin"
+   },
+   {
+    "src": "modulos/laderas-nevadas-oeste-3/esquina.webp",
+    "nw": 282,
+    "nh": 469,
+    "ax": 154,
+    "ay": 464,
+    "nombre": "esquina"
+   },
+   {
+    "src": "modulos/laderas-nevadas-oeste-3/largo-b.webp",
+    "nw": 200,
+    "nh": 623,
+    "ax": 34,
+    "ay": 618,
+    "nombre": "largo-b"
+   },
+   {
+    "src": "modulos/laderas-nevadas-oeste-3/largo-a.webp",
+    "nw": 238,
+    "nh": 625,
+    "ax": 60,
+    "ay": 620,
+    "nombre": "largo-a"
+   }
+  ],
+  "laderas-roca-este-1": [
+   {
+    "src": "modulos/laderas-roca-este-1/medio-a.webp",
+    "nw": 209,
+    "nh": 361,
+    "ax": 146,
+    "ay": 356,
+    "nombre": "medio-a"
+   },
+   {
+    "src": "modulos/laderas-roca-este-1/inicio.webp",
+    "nw": 176,
+    "nh": 366,
+    "ax": 125,
+    "ay": 361,
+    "nombre": "inicio"
+   },
+   {
+    "src": "modulos/laderas-roca-este-1/medio-b.webp",
+    "nw": 192,
+    "nh": 368,
+    "ax": 132,
+    "ay": 363,
+    "nombre": "medio-b"
+   },
+   {
+    "src": "modulos/laderas-roca-este-1/medio-c.webp",
+    "nw": 220,
+    "nh": 380,
+    "ax": 160,
+    "ay": 375,
+    "nombre": "medio-c"
+   },
+   {
+    "src": "modulos/laderas-roca-este-1/esquina.webp",
+    "nw": 343,
+    "nh": 420,
+    "ax": 163,
+    "ay": 415,
+    "nombre": "esquina"
+   },
+   {
+    "src": "modulos/laderas-roca-este-1/fin.webp",
+    "nw": 206,
+    "nh": 435,
+    "ax": 114,
+    "ay": 430,
+    "nombre": "fin"
+   },
+   {
+    "src": "modulos/laderas-roca-este-1/largo-a.webp",
+    "nw": 216,
+    "nh": 573,
+    "ax": 168,
+    "ay": 568,
+    "nombre": "largo-a"
+   },
+   {
+    "src": "modulos/laderas-roca-este-1/largo-b.webp",
+    "nw": 235,
+    "nh": 587,
+    "ax": 144,
+    "ay": 582,
+    "nombre": "largo-b"
+   }
+  ],
+  "laderas-roca-este-2": [
+   {
+    "src": "modulos/laderas-roca-este-2/inicio.webp",
+    "nw": 213,
+    "nh": 403,
+    "ax": 160,
+    "ay": 398,
+    "nombre": "inicio"
+   },
+   {
+    "src": "modulos/laderas-roca-este-2/medio-a.webp",
+    "nw": 207,
+    "nh": 403,
+    "ax": 166,
+    "ay": 398,
+    "nombre": "medio-a"
+   },
+   {
+    "src": "modulos/laderas-roca-este-2/medio-b.webp",
+    "nw": 216,
+    "nh": 408,
+    "ax": 152,
+    "ay": 403,
+    "nombre": "medio-b"
+   },
+   {
+    "src": "modulos/laderas-roca-este-2/medio-c.webp",
+    "nw": 202,
+    "nh": 408,
+    "ax": 156,
+    "ay": 403,
+    "nombre": "medio-c"
+   },
+   {
+    "src": "modulos/laderas-roca-este-2/esquina.webp",
+    "nw": 346,
+    "nh": 436,
+    "ax": 146,
+    "ay": 431,
+    "nombre": "esquina"
+   },
+   {
+    "src": "modulos/laderas-roca-este-2/fin.webp",
+    "nw": 188,
+    "nh": 437,
+    "ax": 96,
+    "ay": 432,
+    "nombre": "fin"
+   },
+   {
+    "src": "modulos/laderas-roca-este-2/largo-a.webp",
+    "nw": 224,
+    "nh": 556,
+    "ax": 168,
+    "ay": 551,
+    "nombre": "largo-a"
+   },
+   {
+    "src": "modulos/laderas-roca-este-2/largo-b.webp",
+    "nw": 200,
+    "nh": 556,
+    "ax": 147,
+    "ay": 551,
+    "nombre": "largo-b"
+   }
+  ],
+  "laderas-roca-este-3": [
+   {
+    "src": "modulos/laderas-roca-este-3/medio-c.webp",
+    "nw": 202,
+    "nh": 454,
+    "ax": 166,
+    "ay": 449,
+    "nombre": "medio-c"
+   },
+   {
+    "src": "modulos/laderas-roca-este-3/esquina.webp",
+    "nw": 312,
+    "nh": 493,
+    "ax": 142,
+    "ay": 488,
+    "nombre": "esquina"
+   },
+   {
+    "src": "modulos/laderas-roca-este-3/medio-b.webp",
+    "nw": 206,
+    "nh": 495,
+    "ax": 153,
+    "ay": 490,
+    "nombre": "medio-b"
+   },
+   {
+    "src": "modulos/laderas-roca-este-3/inicio.webp",
+    "nw": 203,
+    "nh": 505,
+    "ax": 154,
+    "ay": 500,
+    "nombre": "inicio"
+   },
+   {
+    "src": "modulos/laderas-roca-este-3/medio-a.webp",
+    "nw": 225,
+    "nh": 507,
+    "ax": 181,
+    "ay": 502,
+    "nombre": "medio-a"
+   },
+   {
+    "src": "modulos/laderas-roca-este-3/fin.webp",
+    "nw": 221,
+    "nh": 519,
+    "ax": 129,
+    "ay": 514,
+    "nombre": "fin"
+   },
+   {
+    "src": "modulos/laderas-roca-este-3/largo-b.webp",
+    "nw": 208,
+    "nh": 608,
+    "ax": 144,
+    "ay": 603,
+    "nombre": "largo-b"
+   },
+   {
+    "src": "modulos/laderas-roca-este-3/largo-a.webp",
+    "nw": 239,
+    "nh": 621,
+    "ax": 171,
+    "ay": 616,
+    "nombre": "largo-a"
+   }
+  ],
+  "laderas-roca-oeste-1": [
+   {
+    "src": "modulos/laderas-roca-oeste-1/medio-c.webp",
+    "nw": 201,
+    "nh": 363,
+    "ax": 41,
+    "ay": 358,
+    "nombre": "medio-c"
+   },
+   {
+    "src": "modulos/laderas-roca-oeste-1/medio-a.webp",
+    "nw": 213,
+    "nh": 368,
+    "ax": 60,
+    "ay": 363,
+    "nombre": "medio-a"
+   },
+   {
+    "src": "modulos/laderas-roca-oeste-1/inicio.webp",
+    "nw": 189,
+    "nh": 369,
+    "ax": 62,
+    "ay": 364,
+    "nombre": "inicio"
+   },
+   {
+    "src": "modulos/laderas-roca-oeste-1/medio-b.webp",
+    "nw": 207,
+    "nh": 369,
+    "ax": 57,
+    "ay": 364,
+    "nombre": "medio-b"
+   },
+   {
+    "src": "modulos/laderas-roca-oeste-1/esquina.webp",
+    "nw": 318,
+    "nh": 376,
+    "ax": 179,
+    "ay": 371,
+    "nombre": "esquina"
+   },
+   {
+    "src": "modulos/laderas-roca-oeste-1/fin.webp",
+    "nw": 208,
+    "nh": 409,
+    "ax": 113,
+    "ay": 404,
+    "nombre": "fin"
+   },
+   {
+    "src": "modulos/laderas-roca-oeste-1/largo-b.webp",
+    "nw": 196,
+    "nh": 549,
+    "ax": 51,
+    "ay": 544,
+    "nombre": "largo-b"
+   },
+   {
+    "src": "modulos/laderas-roca-oeste-1/largo-a.webp",
+    "nw": 222,
+    "nh": 553,
+    "ax": 74,
+    "ay": 548,
+    "nombre": "largo-a"
+   }
+  ],
+  "laderas-roca-oeste-2": [
+   {
+    "src": "modulos/laderas-roca-oeste-2/medio-b.webp",
+    "nw": 182,
+    "nh": 402,
+    "ax": 37,
+    "ay": 397,
+    "nombre": "medio-b"
+   },
+   {
+    "src": "modulos/laderas-roca-oeste-2/inicio.webp",
+    "nw": 201,
+    "nh": 406,
+    "ax": 51,
+    "ay": 401,
+    "nombre": "inicio"
+   },
+   {
+    "src": "modulos/laderas-roca-oeste-2/medio-c.webp",
+    "nw": 208,
+    "nh": 409,
+    "ax": 34,
+    "ay": 404,
+    "nombre": "medio-c"
+   },
+   {
+    "src": "modulos/laderas-roca-oeste-2/medio-a.webp",
+    "nw": 221,
+    "nh": 412,
+    "ax": 49,
+    "ay": 407,
+    "nombre": "medio-a"
+   },
+   {
+    "src": "modulos/laderas-roca-oeste-2/esquina.webp",
+    "nw": 315,
+    "nh": 422,
+    "ax": 174,
+    "ay": 417,
+    "nombre": "esquina"
+   },
+   {
+    "src": "modulos/laderas-roca-oeste-2/fin.webp",
+    "nw": 206,
+    "nh": 430,
+    "ax": 79,
+    "ay": 425,
+    "nombre": "fin"
+   },
+   {
+    "src": "modulos/laderas-roca-oeste-2/largo-a.webp",
+    "nw": 206,
+    "nh": 534,
+    "ax": 48,
+    "ay": 529,
+    "nombre": "largo-a"
+   },
+   {
+    "src": "modulos/laderas-roca-oeste-2/largo-b.webp",
+    "nw": 188,
+    "nh": 535,
+    "ax": 44,
+    "ay": 530,
+    "nombre": "largo-b"
+   }
+  ],
+  "laderas-roca-oeste-3": [
+   {
+    "src": "modulos/laderas-roca-oeste-3/medio-b.webp",
+    "nw": 222,
+    "nh": 500,
+    "ax": 52,
+    "ay": 495,
+    "nombre": "medio-b"
+   },
+   {
+    "src": "modulos/laderas-roca-oeste-3/inicio.webp",
+    "nw": 215,
+    "nh": 503,
+    "ax": 40,
+    "ay": 498,
+    "nombre": "inicio"
+   },
+   {
+    "src": "modulos/laderas-roca-oeste-3/medio-a.webp",
+    "nw": 237,
+    "nh": 513,
+    "ax": 44,
+    "ay": 508,
+    "nombre": "medio-a"
+   },
+   {
+    "src": "modulos/laderas-roca-oeste-3/fin.webp",
+    "nw": 217,
+    "nh": 539,
+    "ax": 92,
+    "ay": 534,
+    "nombre": "fin"
+   },
+   {
+    "src": "modulos/laderas-roca-oeste-3/medio-c.webp",
+    "nw": 217,
+    "nh": 548,
+    "ax": 35,
+    "ay": 543,
+    "nombre": "medio-c"
+   },
+   {
+    "src": "modulos/laderas-roca-oeste-3/esquina.webp",
+    "nw": 309,
+    "nh": 551,
+    "ax": 172,
+    "ay": 546,
+    "nombre": "esquina"
+   },
+   {
+    "src": "modulos/laderas-roca-oeste-3/largo-a.webp",
+    "nw": 247,
+    "nh": 678,
+    "ax": 74,
+    "ay": 673,
+    "nombre": "largo-a"
+   },
+   {
+    "src": "modulos/laderas-roca-oeste-3/largo-b.webp",
+    "nw": 223,
+    "nh": 698,
+    "ax": 49,
+    "ay": 693,
+    "nombre": "largo-b"
+   }
+  ],
   "laterales-arenisca-este": [
    {
     "src": "modulos/laterales-arenisca-este/esquina-1.webp",

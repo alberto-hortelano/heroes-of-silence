@@ -1,0 +1,85 @@
+{
+  "hoja": "laderas-nevadas-este-2.webp",
+  "modulos": [
+    {
+      "imagen": "inicio.webp",
+      "sha256": "7ef1ebfaec93c88e19728315163d76a3b13695efda339e052d7dc379d832dc98",
+      "ancho": 206,
+      "alto": 413,
+      "ancla": [
+        154,
+        408
+      ]
+    },
+    {
+      "imagen": "medio-a.webp",
+      "sha256": "9746714a9909fc73152756cac11f835cf5b753ffa40ac5b22b78624b3916c8f2",
+      "ancho": 199,
+      "alto": 390,
+      "ancla": [
+        161,
+        385
+      ]
+    },
+    {
+      "imagen": "medio-b.webp",
+      "sha256": "b175df0594da12af645616d369f91d4d12222ff0c4f973b7824686056e678cc3",
+      "ancho": 223,
+      "alto": 395,
+      "ancla": [
+        159,
+        390
+      ]
+    },
+    {
+      "imagen": "medio-c.webp",
+      "sha256": "f20f2b8b3c01f0fe9095d380c5061b8f4606e8f64692cec12b95187ae22edbb3",
+      "ancho": 186,
+      "alto": 393,
+      "ancla": [
+        154,
+        388
+      ]
+    },
+    {
+      "imagen": "largo-a.webp",
+      "sha256": "09a020be97a0ef0092caa32022f4a46a94b16c34aca47463d77d52b6c8cab451",
+      "ancho": 210,
+      "alto": 556,
+      "ancla": [
+        161,
+        551
+      ]
+    },
+    {
+      "imagen": "largo-b.webp",
+      "sha256": "44e75638496d70f560ec0ef69d3607d02e0e033e3c2af8f5446dd96c40a53c44",
+      "ancho": 211,
+      "alto": 558,
+      "ancla": [
+        158,
+        553
+      ]
+    },
+    {
+      "imagen": "fin.webp",
+      "sha256": "c68bbf8156af7bd227e447c686b484126b752fdf3298fc5e454d2eaac8981c21",
+      "ancho": 192,
+      "alto": 425,
+      "ancla": [
+        109,
+        420
+      ]
+    },
+    {
+      "imagen": "esquina.webp",
+      "sha256": "54b35eaa11edaf0489bfb4d4a23de4837732bc617f13e31d5c91764ea05b2817",
+      "ancho": 311,
+      "alto": 403,
+      "ancla": [
+        132,
+        398
+      ]
+    }
+  ]
+}

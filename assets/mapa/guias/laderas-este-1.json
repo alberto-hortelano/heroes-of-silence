@@ -1,0 +1,225 @@
+{
+ "ancho": 1536,
+ "alto": 1024,
+ "casilla": 187,
+ "talud": 0.45,
+ "labio": 0.06,
+ "piezas": [
+  {
+   "nombre": "inicio",
+   "largo": 1,
+   "niveles": 1,
+   "filoNorte": [
+    205,
+    80
+   ],
+   "pieNorte": [
+    289,
+    192
+   ],
+   "filoSur": [
+    205,
+    267
+   ],
+   "pieSur": [
+    289,
+    379
+   ],
+   "caja": [
+    182,
+    80,
+    318,
+    379
+   ]
+  },
+  {
+   "nombre": "medio-a",
+   "largo": 1,
+   "niveles": 1,
+   "filoNorte": [
+    548,
+    80
+   ],
+   "pieNorte": [
+    632,
+    192
+   ],
+   "filoSur": [
+    548,
+    267
+   ],
+   "pieSur": [
+    632,
+    379
+   ],
+   "caja": [
+    500,
+    80,
+    677,
+    379
+   ]
+  },
+  {
+   "nombre": "medio-b",
+   "largo": 1,
+   "niveles": 1,
+   "filoNorte": [
+    881,
+    80
+   ],
+   "pieNorte": [
+    965,
+    192
+   ],
+   "filoSur": [
+    881,
+    267
+   ],
+   "pieSur": [
+    965,
+    379
+   ],
+   "caja": [
+    859,
+    80,
+    999,
+    379
+   ]
+  },
+  {
+   "nombre": "medio-c",
+   "largo": 1,
+   "niveles": 1,
+   "filoNorte": [
+    1232,
+    80
+   ],
+   "pieNorte": [
+    1316,
+    192
+   ],
+   "filoSur": [
+    1232,
+    267
+   ],
+   "pieSur": [
+    1316,
+    379
+   ],
+   "caja": [
+    1182,
+    80,
+    1354,
+    379
+   ]
+  },
+  {
+   "nombre": "largo-a",
+   "largo": 2,
+   "niveles": 1,
+   "filoNorte": [
+    210,
+    458
+   ],
+   "pieNorte": [
+    294,
+    570
+   ],
+   "filoSur": [
+    210,
+    832
+   ],
+   "pieSur": [
+    294,
+    944
+   ],
+   "caja": [
+    156,
+    458,
+    322,
+    944
+   ]
+  },
+  {
+   "nombre": "largo-b",
+   "largo": 2,
+   "niveles": 1,
+   "filoNorte": [
+    521,
+    458
+   ],
+   "pieNorte": [
+    605,
+    570
+   ],
+   "filoSur": [
+    521,
+    832
+   ],
+   "pieSur": [
+    605,
+    944
+   ],
+   "caja": [
+    479,
+    458,
+    646,
+    944
+   ]
+  },
+  {
+   "nombre": "fin",
+   "largo": 1,
+   "niveles": 1,
+   "filoNorte": [
+    839,
+    596
+   ],
+   "pieNorte": [
+    923,
+    708
+   ],
+   "filoSur": [
+    839,
+    783
+   ],
+   "pieSur": [
+    923,
+    895
+   ],
+   "caja": [
+    802,
+    596,
+    964,
+    944
+   ]
+  },
+  {
+   "nombre": "esquina",
+   "largo": 1,
+   "niveles": 1,
+   "filoNorte": [
+    1280,
+    615
+   ],
+   "pieNorte": [
+    1364,
+    727
+   ],
+   "filoSur": [
+    1280,
+    802
+   ],
+   "pieSur": [
+    1364,
+    914
+   ],
+   "caja": [
+    1121,
+    615,
+    1380,
+    944
+   ]
+  }
+ ]
+}

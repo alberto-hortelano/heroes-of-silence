@@ -25,7 +25,9 @@
  *                                        las hojas de módulos del escenógrafo
  *   pnpm taller encolar --paredes-puentes [--solo=…]
  *                                        paredes laterales y puentes (§16-§17), con su guía
- *   pnpm taller guias                    escribe las guías de geometría de `paredes-puentes.ts`
+ *   pnpm taller encolar --laderas [--solo=roca-este-1,…]
+ *                                        las laderas laterales que encadenan (§20, `laderas.ts`), con su guía
+ *   pnpm taller guias                    escribe las guías de geometría de `paredes-puentes.ts` y `laderas.ts`
  *   pnpm taller derivar-puentes <puente.webp>…  rehace su ancla (centro del tablero) y su casilla
  *   pnpm taller escenario [semilla…]     el escenógrafo: compone, pinta, captura y mide
  *   pnpm taller catalogo-escena          rehace assets/mapa/escena.json, el catálogo que lee el juego
@@ -92,6 +94,7 @@ import {
 } from './escenario/modulos.js';
 import { evaluar } from './evaluar.js';
 import { juntarDireccion } from './juntar.js';
+import { encargosDeLaderas, escribirGuiasDeLaderas } from './laderas.js';
 import { ESTILOS_DE_MAPA, encargoDeMuestra, encargosDeCeldas, encargosDePiezas } from './mapa.js';
 import { encargoDeLamina, encargosDePiezasDensas, encargosDeTexturas } from './mapa-denso.js';
 import {
@@ -562,6 +565,24 @@ async function encolar(args: readonly string[]): Promise<void> {
     }
     return;
   }
+  // Las laderas laterales que encadenan (§20, `laderas.ts`): primero las guías.
+  if (args.includes('--laderas')) {
+    await escribirGuiasDeLaderas();
+    const solo = args
+      .find((x) => x.startsWith('--solo='))
+      ?.slice('--solo='.length)
+      .split(',');
+    const sinPrefijo = (id: string) => id.replace(/^modulos-laderas-/, '');
+    const todos = encargosDeLaderas();
+    const lista = todos.filter((e) => solo === undefined || solo.includes(sinPrefijo(e.id)));
+    if (solo !== undefined && lista.length !== solo.length)
+      throw new Error(`--solo: hay ${todos.map((e) => sinPrefijo(e.id)).join(', ')}`);
+    for (const bruto of lista) {
+      if (args.includes('--rehacer')) await COLA.olvidar(bruto.id);
+      console.log(`encolado ${(await COLA.encolar(bruto)).id}`);
+    }
+    return;
+  }
   // Los módulos del escenógrafo y sus texturas (`escenario/modulos.ts`).
   if (args.includes('--modulos') || args.includes('--texturas-relieve')) {
     const todos = args.includes('--modulos')
@@ -759,7 +780,8 @@ switch (orden) {
     break;
   }
   case 'guias':
-    for (const g of await escribirGuias()) console.log(`→ ${g}`);
+    for (const g of [...(await escribirGuias()), ...(await escribirGuiasDeLaderas())])
+      console.log(`→ ${g}`);
     break;
   case 'derivar-puentes':
     // El ancla y la casilla de cada puente pintado, otra vez desde su guía.

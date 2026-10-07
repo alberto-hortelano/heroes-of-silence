@@ -1,0 +1,85 @@
+{
+  "hoja": "laderas-roca-oeste-1.webp",
+  "modulos": [
+    {
+      "imagen": "inicio.webp",
+      "sha256": "095596a7947242fa6c31dc46f5d774bce3147101621f9f61536cad2fa54f4a5b",
+      "ancho": 189,
+      "alto": 369,
+      "ancla": [
+        62,
+        364
+      ]
+    },
+    {
+      "imagen": "medio-a.webp",
+      "sha256": "2b48c508ddf91a9ba0b30fdd0fa60e14d17d6e5c8b98712bf6459cc9baf0facc",
+      "ancho": 213,
+      "alto": 368,
+      "ancla": [
+        60,
+        363
+      ]
+    },
+    {
+      "imagen": "medio-b.webp",
+      "sha256": "09a3f42dbeb8e5e7e3e6be0349b48e813d85c02ea79566e10e1e2c3e61bcdc48",
+      "ancho": 207,
+      "alto": 369,
+      "ancla": [
+        57,
+        364
+      ]
+    },
+    {
+      "imagen": "medio-c.webp",
+      "sha256": "5316a49b3698ebcaed1b362ff94264ea31505dcf564b52565f423fc7a1b3adae",
+      "ancho": 201,
+      "alto": 363,
+      "ancla": [
+        41,
+        358
+      ]
+    },
+    {
+      "imagen": "largo-a.webp",
+      "sha256": "28b9e8047e0131aefb5c5aedc5be4d38d9344fa72b6456cad418e222a046d1a2",
+      "ancho": 222,
+      "alto": 553,
+      "ancla": [
+        74,
+        548
+      ]
+    },
+    {
+      "imagen": "largo-b.webp",
+      "sha256": "7b9695201ad51f817a877b3b25fe0bdacf931b2a2deb3a24ae545f19b24133b7",
+      "ancho": 196,
+      "alto": 549,
+      "ancla": [
+        51,
+        544
+      ]
+    },
+    {
+      "imagen": "fin.webp",
+      "sha256": "6fcbd4710ca3857d61d32c3c5c90a35ef57ccc0a52df43b317a840a125f342fa",
+      "ancho": 208,
+      "alto": 409,
+      "ancla": [
+        113,
+        404
+      ]
+    },
+    {
+      "imagen": "esquina.webp",
+      "sha256": "7e112cbb1ffe6eed6a40ee9cad2103233011b93d00d02a7f9b3bf2b1e8597ebc",
+      "ancho": 318,
+      "alto": 376,
+      "ancla": [
+        179,
+        371
+      ]
+    }
+  ]
+}
