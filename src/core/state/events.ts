@@ -100,6 +100,16 @@ type Cuerpo =
   | { kind: 'day_start'; day: number; week: number }
   | { kind: 'turn_start' }
   | { kind: 'hero_moved'; hero: string; to: Point; spent: number }
+  /**
+   * La marcha de un héroe se acaba porque no le quedan puntos para el paso
+   * siguiente, sin haber llegado (#121). `at` es donde se queda y `faltan` los
+   * pasos que le quedaban del camino calculado al salir. La escribe `moveHero`,
+   * que es quien sabe por qué paró: una batalla o el final paran por otro motivo
+   * y no la escriben. La IA recorta antes (`stepTowards`) y no la escribe nunca.
+   * `at` se repite aquí solo para estrecharlo: siempre hay casilla, y quien lo
+   * cuenta no tiene que preguntar por `null`.
+   */
+  | { kind: 'march_cut'; hero: string; faltan: number; at: Point }
   | { kind: 'resource_gained'; resource: ResourceKind; amount: number }
   /**
    * Un nodo de la red cambia de dueño al pisarlo (fase 2a). Sustituye a
@@ -248,6 +258,7 @@ export function visibleTo(e: GameEvent, p: PlayerId): boolean {
       return e.actor === p || e.from === p || e.seen.includes(p);
 
     case 'hero_moved':
+    case 'march_cut':
     case 'resource_gained':
     case 'node_captured':
     case 'built':

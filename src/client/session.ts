@@ -48,7 +48,7 @@ import {
   heroById,
   heroesOf,
   type Player,
-  porQueNoLlega,
+  pasosDeHoy,
   type RecruitCapacity,
   recruitCapacity,
   resolvePendingBattle,
@@ -237,7 +237,7 @@ function motivoContra(turno: TurnoPropio | null, targetId: string): string {
   if (motivo === null) {
     throw new Error(`no se ofrece ninguna acción contra ${targetId} y el núcleo no dice por qué`);
   }
-  return `${motivo.charAt(0).toUpperCase()}${motivo.slice(1)}.`;
+  return comoFrase(motivo);
 }
 
 /**
@@ -447,9 +447,10 @@ export class Session implements ControlDeBatalla, HechizosDeBatalla {
     // se mira todo, igual que se pinta todo.
     const mirando = this.revealAll ? null : this.visibles();
     const emboscada = emboscadaEnLaRuta(this.state, hero, camino, mirando);
+    const hoy = pasosDeHoy(camino, hero);
     return camino.map((paso, i) => ({
       ...paso,
-      hoy: paso.cost <= hero.movePoints,
+      hoy: i < hoy,
       peligro: emboscada !== null && i >= emboscada.paso,
       ...(emboscada !== null && i === emboscada.paso ? { emboscada: emboscada.raider } : {}),
     }));
@@ -548,33 +549,19 @@ export class Session implements ControlDeBatalla, HechizosDeBatalla {
       this.status = `${hero.name} ya está en esa casilla: pulsa otra para moverlo.`;
       return;
     }
-    const camino = caminoHasta(this.state, hero, to);
-    if (camino === null || camino.length === 0) {
-      // La frase la escribe el núcleo, que sabe si lo cierra el mapa o alguien
-      // plantado en el paso (M2 de la 2a); aquí solo se le pone la mayúscula.
-      const motivo = porQueNoLlega(this.state, hero, to);
-      this.status = `${motivo.charAt(0).toUpperCase()}${motivo.slice(1)}.`;
-      return;
-    }
-
-    // Se avanza hasta donde alcance el movimiento del día.
-    const alcanzable = camino.filter((paso) => paso.cost <= hero.movePoints);
-    if (alcanzable.length === 0) {
-      this.status = 'No te quedan puntos de movimiento para dar ni un paso.';
-      return;
-    }
-
-    const destino = alcanzable.at(-1)!.at;
+    // Se manda el destino tal cual: el núcleo anda lo que dé el día y, si no
+    // hay camino o no da ni un paso, lo dice él con su frase —quién cierra el
+    // paso, si es alguien (M2 de la 2a)—; aquí solo se le pone la mayúscula.
     try {
       applyAdventureAction(
         this.state,
-        { type: 'move_hero', hero: heroId, to: destino },
+        { type: 'move_hero', hero: heroId, to },
         this.ctx,
         this.viewer,
       );
       this.status = '';
     } catch (err) {
-      this.status = mensaje(err);
+      this.status = comoFrase(mensaje(err));
       return;
     }
     this.tocar();
@@ -605,7 +592,8 @@ export class Session implements ControlDeBatalla, HechizosDeBatalla {
       this.status = this.alAcabarseElMapa(desenlace);
       return;
     }
-    const pueblo = this.myTowns().find((t) => sameTile(t.at, destino));
+    // Donde se quedó, que es el destino o el último paso pagable del día.
+    const pueblo = this.myTowns().find((t) => sameTile(t.at, hero.at));
     if (pueblo !== undefined) this.openTown(pueblo.id);
   }
 
@@ -1330,4 +1318,9 @@ function sameTile(a: Point, b: Point): boolean {
 /** Los errores del núcleo llevan un mensaje escrito para la persona. */
 function mensaje(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+/** Un motivo del núcleo («no quedan puntos…») como frase de la barra. */
+function comoFrase(motivo: string): string {
+  return `${motivo.charAt(0).toUpperCase()}${motivo.slice(1)}.`;
 }

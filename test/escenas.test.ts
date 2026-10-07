@@ -34,6 +34,7 @@ import {
   tableroPara,
 } from '../src/client/render/proyeccion.js';
 import { maquetarCoste } from '../src/client/render/town.js';
+import { repartirClic } from '../src/client/reparto-del-clic.js';
 import { Session } from '../src/client/session.js';
 import { marcaDeComandante } from '../src/client/views/panels.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
@@ -46,6 +47,7 @@ import {
   sesionContraMonstruo,
   sesionesContraMonstruo,
 } from './batalla-de-cliente.js';
+import { anteLaBase } from './helpers.js';
 
 /**
  * Una batalla en la que la persona ATACA a un monstruo: la busca
@@ -54,6 +56,36 @@ import {
  */
 function sesionEnBatalla(): Session {
   return sesionContraMonstruo();
+}
+
+/** La escena de batalla de esa sesión, encuadrada y con su primera lectura hecha, que no anima. */
+function escenaDeBatalla(sesion: () => Session): EscenaBatalla {
+  const escena = new EscenaBatalla(sesion);
+  escena.encuadrar(1086, 778);
+  escena.sincronizar(0);
+  return escena;
+}
+
+/**
+ * Mueve la unidad activa un tramo y devuelve lo que tarda en contarse, en ms:
+ * a partir de ahí la cola tiene algo dentro.
+ */
+function jugarUnTramo(s: Session): number {
+  const antes = s.battle!.log.length;
+  const paso = s.battleLegalActions().find((a) => a.type === 'move');
+  if (paso === undefined) throw new Error('la unidad activa no tiene a dónde moverse');
+  s.playBattleAction(paso);
+  let dura = 0;
+  for (const e of s.battle!.log.slice(antes)) {
+    if (e.kind in DURACION) dura += DURACION[e.kind as keyof typeof DURACION];
+    // Un tramo dura sus casillas al paso de quien anda; la marcha de una
+    // figura de un hex es la más lenta que hay.
+    if (e.kind === 'move') {
+      const quien = s.battle!.stacks.find((x) => x.id === e.stack)!;
+      dura += e.path.length * msPorCasilla(quien.body, 'walk', ALTO_DE_FIGURA.normal);
+    }
+  }
+  return dura;
 }
 
 describe('el mapa con el dedo', () => {
@@ -132,6 +164,32 @@ describe('el mapa con el dedo', () => {
     const suya = s.status;
     escena.olvidarRuta();
     expect(s.status).toBe(suya);
+  });
+
+  it('con la partida terminada, pasar el puntero no tapa el desenlace de la barra (#158 c)', () => {
+    const s = new Session(2);
+    const escena = new EscenaAventura(() => s);
+    escena.encuadrar(800, 600);
+    const camara = centrarEn({ tile: TILE_INICIAL, x: 0, y: 0 }, focoDe(s), {
+      ancho: 800,
+      alto: 600,
+      mapaAncho: s.state.map.width,
+      mapaAlto: s.state.map.height,
+    });
+    const p = casillaAPixel(camara, destinoDeHoy(s));
+    // Quien juega pisa la base vacía del rival por el clic de siempre: la barra
+    // la escribe la sesión al acabarse el mapa, no el test.
+    const { base, atacante } = anteLaBase(s.state, 0, 1);
+    s.moveHeroTo(atacante.id, base.at);
+    expect(s.desenlace).toBe('ganada');
+    const fin = s.status;
+    expect(fin).toBe('¡Victoria! Has tomado la base rival.');
+    escena.mover(p.x, p.y);
+    expect(s.status).toBe(fin);
+    expect(escena.rutaVisible).toHaveLength(0);
+    // Y otra casilla, por si la primera coincidía con una clave guardada.
+    escena.mover(p.x + 40, p.y + 40);
+    expect(s.status).toBe(fin);
   });
 
   it('señalar una casilla en la niebla no dice dos veces «tierras desconocidas» (QA de #123)', () => {
@@ -249,34 +307,83 @@ describe('«Fin de turno»', () => {
 describe('la batalla en el lienzo', () => {
   it('el aviso de espera se borra solo cuando acaba la jugada', () => {
     const s = sesionEnBatalla();
-    const escena = new EscenaBatalla(() => s);
-    escena.encuadrar(1086, 778);
-    escena.sincronizar(0); // la primera lectura no anima
+    const escena = escenaDeBatalla(() => s);
     s.status = '¡Batalla!';
-    const antes = s.battle!.log.length;
-    const paso = s.battleLegalActions().find((a) => a.type === 'move');
-    if (paso === undefined) throw new Error('la unidad activa no tiene a dónde moverse');
-    s.playBattleAction(paso);
+    const dura = jugarUnTramo(s);
     const previo = s.status;
-    const nuevos = s.battle!.log.slice(antes);
     expect(escena.rechazarSiOcupada(10)).toBe(true);
     expect(s.status).toBe(AVISO_DE_ESPERA);
     // Un segundo gesto durante la misma jugada no pierde lo que decía antes.
     expect(escena.rechazarSiOcupada(20)).toBe(true);
 
-    let dura = 0;
-    for (const e of nuevos) {
-      if (e.kind in DURACION) dura += DURACION[e.kind as keyof typeof DURACION];
-      // Un tramo dura sus casillas al paso de quien anda; la marcha de una
-      // figura de un hex es la más lenta que hay.
-      if (e.kind === 'move') {
-        const quien = s.battle!.stacks.find((x) => x.id === e.stack)!;
-        dura += e.path.length * msPorCasilla(quien.body, 'walk', ALTO_DE_FIGURA.normal);
-      }
-    }
     escena.sincronizar(10 + dura + 1000);
     expect(escena.ocupada).toBe(false);
     expect(s.status).toBe(previo);
+  });
+
+  it('un gesto que espera a la jugada se hace al acabarla, una vez y sin aviso de espera (#158 d)', () => {
+    const s = sesionEnBatalla();
+    const escena = escenaDeBatalla(() => s);
+    s.status = '¡Batalla!';
+    const dura = jugarUnTramo(s);
+    const previo = s.status;
+
+    // Lo que hace «Continuar» con la última muerte aún contándose.
+    let veces = 0;
+    escena.alAcabar(10, () => veces++);
+    expect(escena.ocupada).toBe(true);
+    expect(veces).toBe(0);
+    expect(s.status).not.toBe(AVISO_DE_ESPERA);
+    expect(s.status).toBe(previo);
+    escena.sincronizar(20);
+    expect(veces).toBe(0);
+
+    escena.sincronizar(10 + dura + 1000);
+    expect(escena.ocupada).toBe(false);
+    expect(veces).toBe(1);
+    escena.sincronizar(10 + dura + 2000);
+    expect(veces).toBe(1);
+
+    // Con la cola vacía, se hace en el acto.
+    escena.alAcabar(10 + dura + 3000, () => veces++);
+    expect(veces).toBe(2);
+  });
+
+  it('«Continuar» se atiende antes de preguntar si la jugada sigue, y no pone el aviso (#158 d)', () => {
+    // Lo que hace `main.ts` con un clic en un botón. Preguntar por la jugada en
+    // curso ya escribe el aviso de espera, así que «Continuar» no puede pasar
+    // por ahí: la pregunta no se tiene que hacer siquiera.
+    let preguntas = 0;
+    const enCurso = () => {
+      preguntas++;
+      return true;
+    };
+    expect(repartirClic('finish-battle', 'battle', enCurso)).toBe('al-acabar');
+    expect(repartirClic('ver-enemigo', 'battle', enCurso)).toBe('mirar');
+    expect(preguntas).toBe(0);
+    // Los demás botones sí esperan a la jugada.
+    expect(repartirClic('auto-battle', 'battle', enCurso)).toBe('nada');
+    expect(preguntas).toBe(1);
+    expect(repartirClic('auto-battle', 'battle', () => false)).toBe('gesto');
+    expect(repartirClic(null, 'battle', () => false)).toBe('nada');
+    // Fuera de la batalla, «Continuar» es un gesto más.
+    expect(repartirClic('finish-battle', 'adventure', () => false)).toBe('gesto');
+  });
+
+  it('un gesto que espera a la jugada se olvida si la batalla ya no es la misma (#158 d)', () => {
+    const s = sesionEnBatalla();
+    let actual: Session = s;
+    const escena = escenaDeBatalla(() => actual);
+    jugarUnTramo(s);
+    let veces = 0;
+    escena.alAcabar(10, () => veces++);
+    expect(veces).toBe(0);
+    // Otra sesión, otra batalla: el «Continuar» de la anterior no se hace aquí.
+    actual = sesionEnBatalla();
+    escena.sincronizar(1_000_000);
+    actual = s;
+    escena.sincronizar(2_000_000);
+    expect(veces).toBe(0);
   });
 
   it('pulsar el centro de un hex alcanzable que tapa una figura enemiga mueve, no ataca', () => {

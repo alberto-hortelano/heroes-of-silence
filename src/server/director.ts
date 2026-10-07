@@ -52,6 +52,7 @@ import {
   notaAccionSustituida,
   notaAscenso,
   notaAscensoRechazado,
+  notaMarchaParcial,
   notaTurnoAventura,
   type TurnoAbierto,
 } from './notas.js';
@@ -323,6 +324,9 @@ export class Director {
     if (plan.reasoning !== undefined) this.note(`Agente: ${plan.reasoning}`);
 
     const problems: string[] = [];
+    // Las marchas que anduvieron sin llegar (#121): entran, y van aparte de los
+    // rechazos para no mezclar en `problems` un veredicto con un descarte.
+    const parciales: string[] = [];
     let aplicadas = 0;
 
     /** Lo que ya no se va a intentar, contado una por una y con su motivo. */
@@ -344,17 +348,23 @@ export class Director {
         break;
       }
 
+      const a = accion as AdventureAction;
+      const desde = this.state.log.length;
       try {
-        applyAdventureAction(this.state, accion as AdventureAction, this.ctx, playerId);
+        applyAdventureAction(this.state, a, this.ctx, playerId);
         aplicadas++;
         this.frame();
       } catch (err) {
         // Una acción ilegal se descarta y se le cuenta al agente, tal y como
         // promete el contrato; las siguientes siguen aplicándose.
-        problems.push(
-          `${describeAccion(accion as AdventureAction)}: ${err instanceof Error ? err.message : String(err)}`,
-        );
+        problems.push(`${describeAccion(a)}: ${err instanceof Error ? err.message : String(err)}`);
         continue;
+      }
+      // Si la marcha se cortó lo dice el núcleo con un hecho; aquí solo se cuenta.
+      for (const hecho of this.state.log.slice(desde)) {
+        if (hecho.kind === 'march_cut' && a.type === 'move_hero') {
+          parciales.push(notaMarchaParcial(a, hecho));
+        }
       }
 
       if (this.state.pendingBattle !== null) {
@@ -386,7 +396,7 @@ export class Director {
       // Intentadas es exactamente lo que entró más lo que se rechazó: un
       // segundo contador que subir en el orden correcto dentro de un bucle con
       // `continue` miente el día que alguien meta un `break`.
-      notaTurnoAventura(dia, aplicadas, aplicadas + problems.length, problems),
+      notaTurnoAventura(dia, aplicadas, aplicadas + problems.length, problems, parciales),
     );
     return { player: playerId, by: 'agent', actions: aplicadas, problems };
   }

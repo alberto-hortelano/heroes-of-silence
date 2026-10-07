@@ -1960,6 +1960,63 @@ describe('el mapa de nodos se juega', () => {
     expect(hero.movePoints).toBe(lento);
   });
 
+  it('una marcha de varios días anda lo que le da el día y no lanza (#121)', () => {
+    const { state, c } = enLaRed();
+    const hero = heroById(state, 'hero-0');
+    hero.at = { x: 9, y: 2 };
+    const destino = { x: 13, y: 2 };
+    const camino = caminoHasta(state, hero, destino);
+    if (camino === null || camino.length < 3) throw new Error('hace falta un camino de 3 pasos');
+    // Le alcanza para dos pasos y no para el tercero.
+    const puntos = (camino[1]!.cost + camino[2]!.cost) >> 1;
+    hero.movePoints = puntos;
+    expect(puntos).toBeGreaterThanOrEqual(camino[1]!.cost);
+    expect(puntos).toBeLessThan(camino[2]!.cost);
+    const antes = state.log.length;
+
+    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: destino }, c, 0);
+
+    expect(hero.at).toEqual(camino[1]!.at);
+    // Lo que sobra no paga el paso siguiente.
+    expect(hero.movePoints).toBe(puntos - camino[1]!.cost);
+    expect(hero.movePoints).toBeLessThan(camino[2]!.cost - camino[1]!.cost);
+    const pasos = state.log.slice(antes).filter((e) => e.kind === 'hero_moved');
+    expect(pasos.map((e) => (e as { to: unknown }).to)).toEqual([camino[0]!.at, camino[1]!.at]);
+    // El núcleo dice que se cortó, dónde y cuánto faltaba del camino de salida:
+    // de (9,2) a (13,2) son 4 pasos en línea y se dieron 2.
+    expect(camino.length).toBe(4);
+    expect(state.log.at(-1)).toMatchObject({
+      kind: 'march_cut',
+      hero: hero.id,
+      faltan: 2,
+      actor: 0,
+      at: camino[1]!.at,
+    });
+  });
+
+  it('una marcha que llega entera no dice que se cortó (#121)', () => {
+    const { state, c } = enLaRed();
+    const hero = heroById(state, 'hero-0');
+    hero.at = { x: 9, y: 2 };
+    const antes = state.log.length;
+    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: { x: 13, y: 2 } }, c, 0);
+    expect(hero.at).toEqual({ x: 13, y: 2 });
+    expect(state.log.slice(antes).some((e) => e.kind === 'march_cut')).toBe(false);
+  });
+
+  it('una marcha que no puede dar ni un paso sí lanza, diciéndolo, y no mueve (#121)', () => {
+    const { state, c } = enLaRed();
+    const hero = heroById(state, 'hero-0');
+    hero.at = { x: 9, y: 2 };
+    hero.movePoints = 0;
+    const antes = state.log.length;
+    expect(() =>
+      applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: { x: 13, y: 2 } }, c, 0),
+    ).toThrow('no quedan puntos de movimiento para dar ni un paso');
+    expect(hero.at).toEqual({ x: 9, y: 2 });
+    expect(state.log.length).toBe(antes);
+  });
+
   it('un héroe enemigo en un paso se rodea por el otro, sin batalla', () => {
     // Lo hostil se alcanza pero no se cruza, en el camino de TODOS: la persona
     // y el agente mueven por `move_hero` sin alcance, y eso es `caminoHasta`.

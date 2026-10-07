@@ -770,6 +770,39 @@ volcado no se movió**: el sello `seen` ya salía de `visibleNowAt` y ninguna IA
   que se lea», nunca en la de «una línea»: incluye el U+FE0F de ❤️ y el ZWJ de
   👨‍👩‍👧, que dentro de un texto son legítimos.
 
+### Los restos del agente: la marcha de varios días, los invisibles y «Continuar» (#121, #122, #158)
+
+07-10-2026.
+
+- **Una marcha de varios días contaba como descartada (#121).** `moveHero`
+  andaba casilla a casilla y lanzaba al quedarse sin puntos, con la marcha ya
+  hecha: el héroe se había movido, pero el director lo contaba como rechazo, el
+  agente leía «descartada», repetía el mismo `move_hero` creyendo que no se
+  había movido, y el `syncSpellbooks` del final de la acción no corría. Ahora
+  anda lo que paga el día (`pasosDeHoy`, el mismo cálculo que pinta la ruta del
+  cliente), lanza solo si no da ni un paso y, si el camino seguía, escribe en la
+  crónica un `march_cut` con los pasos que faltaban del camino de salida. La
+  primera versión lo deducía desde el director: comparaba dónde quedó el héroe
+  con el destino, repetía los motivos de parada del núcleo (batalla, final) y
+  lanzaba otro `caminoHasta` desde donde se quedó, que no es el camino que se
+  calculó al salir. En /simplify se decidió que lo diga quien sabe por qué paró.
+  La IA recorta antes con `stepTowards` y nunca lo escribe: el banco no se movió.
+- **El emoji que CI rechazaba (#158 b).** La regla de «caracteres que existen»
+  prohibía lo sin asignar (`\p{Cn}`), que sigue la tabla Unicode del motor: el
+  Node 24.11 de CI (Unicode 16) rechazaba U+1FAEA, un emoji de Unicode 17 que el
+  Node 26 local aceptaba, y un solo nombre rechazado tira el plan de mapa entero.
+  Se quitó `Cn` y se prohíben en su lugar los invisibles salvo los que forman un
+  emoji. Se probó a mano con las dos tablas; que CI corra las dos es #163.
+- **«Continuar» pedía dos clics (#158 d).** El botón sale en cuanto la batalla
+  termina, con la última muerte aún contándose, y la puerta de los gestos lo
+  rechazaba con el aviso de espera: había que pulsar otra vez. Ahora se atiende
+  antes de esa puerta (`repartirClic`) y espera a que se vacíe la cola
+  (`EscenaBatalla.alAcabar`).
+- **El puntero tapaba el desenlace (#158 c).** Con la partida terminada, pasar
+  el puntero por el mapa describía la casilla en la barra encima de «Derrota…».
+- **`map_generate` prometía un reintento que no existe (#122)**: «para que lo
+  corrijas». Si el plan no vale se juega el procedimental y no se vuelve a pedir.
+
 ## El mapa lo diseña el agente, y el plan se valida entero
 
 En `map_generate` el agente **no dibuja**: devuelve un plan declarativo y

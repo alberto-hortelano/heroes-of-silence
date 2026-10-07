@@ -17,6 +17,7 @@ import { cronicaPara, sinSello, visibleTo } from '../src/core/state/events.js';
 import {
   applyAdventureAction,
   baseOf,
+  caminoHasta,
   type GameContext,
   type GameState,
   MAX_HEROES_PER_PLAYER,
@@ -1345,6 +1346,48 @@ describe('el agente sabe cómo le fue', () => {
     expect(veredictos[0]!.ok).toBe(true);
     expect(veredictos[0]!.note).toMatch(/1 acción/);
     expect(veredictos[0]!.problems).toBeUndefined();
+  });
+
+  it('una marcha de varios días entra parcialmente: no es un problema ni una descartada (#121)', async () => {
+    let destino: Point | null = null;
+    const { link, agent } = await montar((kind, payload) => {
+      if (kind !== 'adventure_turn') return {};
+      return { actions: [{ type: 'move_hero', hero: payload.heroes[0].id, to: destino }] };
+    });
+
+    const director = new Director(link, { seed: 303, agentPlayers: [0] });
+    // Sin asaltantes: en esta semilla una emboscada para la marcha antes de
+    // gastar los puntos (probado quitándolo: el turno sale «entero»), y esa es
+    // una batalla, no una marcha cortada.
+    director.state.raiders.length = 0;
+    const heroe = director.state.heroes.find((h) => h.owner === 0)!;
+    // La base rival: a varios días de marcha en un mapa de 34.
+    destino = director.state.towns.find((t) => t.owner === 1)!.at;
+    const camino = caminoHasta(director.state, heroe, destino)!;
+    expect(camino.at(-1)!.cost).toBeGreaterThan(heroe.movePoints);
+    const desde = heroe.at;
+    const antes = director.state.log.length;
+    const informe = await director.playTurn();
+    await respira();
+
+    expect(informe.problems).toEqual([]);
+    expect(informe.actions).toBe(1);
+    expect(heroe.at).not.toEqual(desde);
+    expect(heroe.at).not.toEqual(destino);
+    // Lo que falta es el camino de salida menos lo andado, no un camino nuevo
+    // calculado desde donde se quedó.
+    const andados = director.state.log
+      .slice(antes)
+      .filter((e) => e.kind === 'hero_moved' && e.hero === heroe.id).length;
+    const faltan = camino.length - andados;
+    const aventura = agent.seen.find((p) => p.kind === 'adventure_turn')!;
+    const veredicto = agent.results.find((r) => r.requestId === aventura.requestId)!;
+    expect(veredicto.ok).toBe(true);
+    expect(veredicto.problems).toBeUndefined();
+    expect(veredicto.note).toMatch(/entró parcialmente/);
+    expect(veredicto.note).toContain(`se quedó en (${heroe.at.x},${heroe.at.y})`);
+    expect(veredicto.note).toContain(`faltan ${faltan} pasos`);
+    expect(veredicto.note).not.toMatch(/descartad/);
   });
 
   it('un turno con una acción ilegal lo cuenta con su motivo', async () => {

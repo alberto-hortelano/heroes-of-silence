@@ -23,7 +23,7 @@ import { quedanCasillas } from '@core/battle/battle.js';
 import type { BattleAction } from '@core/battle/types.js';
 import type { RequestKind } from '@core/contract/agent.js';
 import { type Desenlace, finDePartida } from '@core/state/desenlace.js';
-import type { DefeatReason } from '@core/state/events.js';
+import type { DefeatReason, GameEvent } from '@core/state/events.js';
 import {
   type AdventureAction,
   describePlayer,
@@ -193,28 +193,66 @@ export function leeVeredictos(texto: string): Veredicto[] {
 
 // -------------------------------------------------------- turnos y acciones
 
+/**
+ * Una marcha que anduvo y no llegó: entró, pero no entera. Se dice dónde se
+ * quedó y cuánto le faltaba del camino que se calculó al salir, que es lo que
+ * el agente necesita para no repetir el mismo `move_hero` creyendo que no se
+ * movió. Lo de «entró parcialmente» lo dice una vez `notaTurnoAventura`, que la
+ * enmarca: repetirlo aquí lo escribía dos veces en la misma frase (QA, M-3).
+ */
+export function notaMarchaParcial(
+  accion: Extract<AdventureAction, { type: 'move_hero' }>,
+  corte: Extract<GameEvent, { kind: 'march_cut' }>,
+): string {
+  const faltan = corte.faltan === 1 ? 'falta 1 paso' : `faltan ${corte.faltan} pasos`;
+  return `${describeAccion(accion)}: se quedó en (${corte.at.x},${corte.at.y}) y le ${faltan}`;
+}
+
 /** Resumen de un turno de aventura ya aplicado. */
 export function notaTurnoAventura(
   dia: number,
   aplicadas: number,
   pedidas: number,
   rechazos: readonly string[],
+  parciales: readonly string[] = [],
 ): string {
-  if (rechazos.length === 0) {
+  if (rechazos.length === 0 && parciales.length === 0) {
     return `Turno del día ${dia} aplicado entero: ${aplicadas} ${aplicadas === 1 ? 'acción' : 'acciones'}.`;
   }
-  const descartadas = rechazos.length === 1 ? '1 descartada' : `${rechazos.length} descartadas`;
+  const frases: string[] = [];
+  if (rechazos.length === 0) {
+    frases.push(
+      `Turno del día ${dia}: ${aplicadas === 1 ? '1 acción aplicada' : `${aplicadas} acciones aplicadas`}.`,
+    );
+  } else {
+    const descartadas = rechazos.length === 1 ? '1 descartada' : `${rechazos.length} descartadas`;
+    frases.push(
+      `Turno del día ${dia}: ${aplicadas} de ${pedidas} acciones aplicadas, ${descartadas} ` +
+        '(el motivo de cada una, debajo).',
+    );
+  }
+  // Las parciales cuentan como aplicadas —el héroe anduvo— y se dicen aparte,
+  // nunca como descartadas; pero con una, el turno ya no es «entero».
+  if (parciales.length > 0) {
+    const cuantas =
+      parciales.length === 1 ? 'Una marcha entró' : `${parciales.length} marchas entraron`;
+    frases.push(`${cuantas} parcialmente, sin llegar: ${parciales.join('; ')}.`);
+  }
+  if (rechazos.length > 0) frases.push(consejoTrasRechazos(rechazos));
+  return frases.join(' ');
+}
+
+/** Qué hacer con lo descartado. */
+function consejoTrasRechazos(rechazos: readonly string[]): string {
   // No hay «turno que viene» si la partida ya se acabó: prometerlo sería la misma
   // mentira amable que este módulo existe para no decir, y encima en el mismo
   // mensaje que explica que había terminado.
-  const seAcabo = rechazos.every((r) => r.includes(MOTIVO_PARTIDA_TERMINADA));
-  const consejo = seAcabo
-    ? 'No hay nada que reintentar: la partida ya había terminado.'
-    : 'Las descartadas NO se reintentan solas: si todavía te interesan, vuelve a ' +
-      'pedirlas el turno que viene corrigiendo el motivo.';
+  if (rechazos.every((r) => r.includes(MOTIVO_PARTIDA_TERMINADA))) {
+    return 'No hay nada que reintentar: la partida ya había terminado.';
+  }
   return (
-    `Turno del día ${dia}: ${aplicadas} de ${pedidas} acciones aplicadas, ${descartadas} ` +
-    `(el motivo de cada una, debajo). ${consejo}`
+    'Las descartadas NO se reintentan solas: si todavía te interesan, vuelve a ' +
+    'pedirlas el turno que viene corrigiendo el motivo.'
   );
 }
 

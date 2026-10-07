@@ -154,14 +154,67 @@ const idDeMapa = (que: string) =>
  *   regla rompería los emojis compuestos.
  * - **Sin empezar por una marca**: un acento combinante suelto al principio se
  *   pega a lo que haya antes en la línea donde se pinte.
- * - **Caracteres que existen** (QA de #128): ni uso privado, ni sin asignar, ni
- *   no-caracteres, ni sustitutos sueltos. `\p{Cn}` sigue la versión de Unicode
- *   del motor: un emoji más nuevo que el Node del servidor se rechazaría.
+ * - **Sin invisibles entre lo visible**: un U+200B, un WORD JOINER, un guion
+ *   blando o un ZWJ entre dos letras hacen que «Ana​Bo» se vea «AnaBo» y sea
+ *   otro nombre; las etiquetas U+E0020–E007F, igual. Se prohíbe todo `Cf` y
+ *   todo ignorable salvo lo que forma un emoji (`SECUENCIA_DE_EMOJI`). Se pierde
+ *   a propósito el guion blando en nombres largos, los selectores de variante
+ *   CJK (U+E0100+) y los rellenos jamo dentro de una palabra.
+ *   **Lo que no se cierra del todo**: la regla mira la forma de la secuencia,
+ *   no la lista de emojis que existen, que cambia con cada versión y que el
+ *   Node del servidor no trae. Así que se cuela un ZWJ entre dos pictográficos
+ *   que no formen secuencia reconocida (🐉‍🐉 se ve como dos emojis, igual
+ *   que sin el ZWJ), y un U+FE0E/FE0F tras un pictográfico que no lo admite,
+ *   que a la vista no cambia nada. Las banderas de etiquetas sí se cierran por
+ *   lista (las tres del Reino Unido) y el selector de una tecla exige el
+ *   U+20E3 que la cierra (QA de #158, M-1).
+ * - **Caracteres que existen**: ni uso privado, ni no-caracteres, ni sustitutos
+ *   sueltos, que el estándar fija para siempre. Lo sin asignar (`\p{Cn}`) NO se
+ *   prohíbe: sigue la tabla Unicode del motor, así que un emoji más nuevo que el
+ *   Node del servidor se rechazaría, y un solo nombre rechazado tira el plan de
+ *   mapa entero; un sin asignar se pinta como una caja, que es mucho más barato.
+ *   `Extended_Pictographic` reserva de antemano los huecos de emoji futuros, así
+ *   que el ZWJ de un emoji nuevo tampoco depende de la versión.
+ * - **Lo que queda acotado a la versión**: `\p{M}` y `\p{Cf}` de caracteres
+ *   asignados después de la tabla del Node: una marca nueva al principio o un
+ *   `Cf` nuevo pasarían por sin asignar. El test se ha corrido a mano con las dos
+ *   tablas (Node v24.11.1, Unicode 16, y v26, Unicode 17); CI solo corre una, y
+ *   correr las dos es #163.
  *
  * Es la puerta de todos los textos libres que el agente escribe para una persona
  * —los nombres del plan de mapa (#97) y el nombre y la historia del héroe
  * nacido—, así que un hueco que se cierra aquí se cierra en todos.
  */
+/**
+ * La bandera de etiquetas: 🏴 + etiquetas + U+E007F. Solo las tres que existen
+ * como emoji (Inglaterra, Escocia y Gales): otra subdivisión, aunque tenga forma
+ * válida, se pinta como la bandera negra sola y sería otro nombre que se ve
+ * igual. Cuando Unicode añada una, se añade aquí.
+ */
+const BANDERA_DE_ETIQUETAS =
+  /\u{1F3F4}\u{E0067}\u{E0062}(?:\u{E0065}\u{E006E}\u{E0067}|\u{E0073}\u{E0063}\u{E0074}|\u{E0077}\u{E006C}\u{E0073})\u{E007F}/u;
+/**
+ * El selector de variante tras un pictográfico (❤️) o en una tecla (1️⃣). Tras
+ * un dígito, `#` o `*` solo vale si le sigue el U+20E3 que cierra la tecla:
+ * «Bo1» + U+FE0F sin él se ve «Bo1».
+ */
+const SELECTOR_TRAS_PICTOGRAFICO =
+  /(?<=\p{Extended_Pictographic})[\uFE0E\uFE0F]|(?<=[0-9#*])[\uFE0E\uFE0F](?=\u20E3)/u;
+/**
+ * El ZWJ entre pictográficos, también tras un tono de piel o tras el selector de
+ * un pictográfico: 👨‍👩‍👧, 👩🏽‍💻, ❤️‍🔥. El selector de una tecla a medias no
+ * cuenta: «Bo1» + U+FE0F + ZWJ + 🐉 se ve «Bo1🐉».
+ */
+const ZWJ_ENTRE_PICTOGRAFICOS =
+  /(?<=[\p{Extended_Pictographic}\p{Emoji_Modifier}]|\p{Extended_Pictographic}\uFE0F)\u200D(?=\p{Extended_Pictographic})/u;
+/** Lo invisible que sí se deja: lo que forma un emoji. */
+const SECUENCIA_DE_EMOJI = new RegExp(
+  [BANDERA_DE_ETIQUETAS, SELECTOR_TRAS_PICTOGRAFICO, ZWJ_ENTRE_PICTOGRAFICOS]
+    .map((r) => r.source)
+    .join('|'),
+  'gu',
+);
+const INVISIBLE = /[\p{Cf}\p{Default_Ignorable_Code_Point}]/u;
 const lineaLegible = (max: number, sujeto: string) =>
   z
     .string()
@@ -179,13 +232,16 @@ const lineaLegible = (max: number, sujeto: string) =>
     )
     .regex(/^\P{M}/u, `${sujeto} no puede empezar por un acento o una marca suelta`)
     .regex(
-      // Uso privado (`Co`), sin asignar y no-caracteres (`Cn`: U+0378, U+FFFF,
-      // U+FDD0) y sustitutos sueltos (`Cs`): no son nada que se lea, y cada
-      // pantalla pinta otra cosa —una caja, un hueco, un glifo de una fuente
-      // privada—. Las etiquetas de la bandera de Escocia (U+E0020–E007F) son
-      // `Cf`, no `Co`, y siguen pasando.
-      /^[^\p{Co}\p{Cn}\p{Cs}]+$/u,
-      `${sujeto} solo puede llevar caracteres que existen: nada de uso privado, sin asignar ni sustitutos sueltos`,
+      // Uso privado (`Co`), no-caracteres (U+FFFF, U+FDD0) y sustitutos sueltos
+      // (`Cs`): no son nada que se lea, y cada pantalla pinta otra cosa —una
+      // caja, un hueco, un glifo de una fuente privada—.
+      /^[^\p{Co}\p{Cs}\p{Noncharacter_Code_Point}]+$/u,
+      `${sujeto} solo puede llevar caracteres que existen: nada de uso privado, no-caracteres ni sustitutos sueltos`,
+    )
+    // El último: `refine` cierra la cadena de `z.string()`.
+    .refine(
+      (s) => !INVISIBLE.test(s.replace(SECUENCIA_DE_EMOJI, '')),
+      `${sujeto} no puede llevar caracteres invisibles: solo los que unen un emoji`,
     );
 const nombreDeMapa = (que: string) => lineaLegible(40, `el nombre de ${que}`);
 
@@ -335,7 +391,8 @@ Acciones válidas (el turno termina solo, no hace falta enviar end_turn):
   { "type": "end_turn" }
 
 Notas:
-- "to" puede estar a varios días de marcha: el héroe avanza lo que le dé el día.
+- "to" puede estar a varios días de marcha: el héroe avanza lo que le dé el
+  día, y el veredicto dice dónde se quedó y cuántos pasos le faltan.
 - Mover a la casilla de un monstruo, de un héroe enemigo, de un grupo de
   asaltantes o de un castillo defendido inicia una batalla, y esa batalla la
   juegas tú con "battle_turn".
@@ -619,12 +676,14 @@ Reglas que se validan antes de aceptarlo:
   "node-N" y "village-N" los reserva el motor para los nodos y los pueblos.
 - El "name" es lo que lee una persona: una sola línea, sin saltos, caracteres
   de control ni marcas de dirección, sin empezar por un acento suelto, no en
-  blanco y sin caracteres de uso privado ni sin asignar, hasta 40 caracteres.
+  blanco, sin caracteres invisibles (salvo los que forman un emoji) ni de uso
+  privado, hasta 40 caracteres.
 - "heroStarts" tiene que traer EXACTAMENTE los jugadores de "want.players", uno
   por jugador: ahí van sus números, así que no hay nada que deducir. Sin repetir
   ninguno y sin inventarte un tercero. Un inicio de más deja dos héroes con el
   mismo id; un jugador sin inicio se queda sin héroe y sin turnos.
-Si algo falla se te devuelve la lista de problemas para que lo corrijas.`,
+Si el plan no vale, se juega el mapa del generador procedimental y te llega la
+lista de problemas como aviso: no se te vuelve a pedir.`,
 
   hero_from_troop: `Responde con:
 {
@@ -640,8 +699,9 @@ criatura, su nivel, su experiencia, sus batallas, sus bajas y los héroes
 rivales que derribó—, y "town" dónde está.
 
 - "name": una sola línea, sin saltos, caracteres de control ni marcas de
-  dirección, sin empezar por un acento suelto, no en blanco y sin caracteres de
-  uso privado ni sin asignar, hasta 40 caracteres.
+  dirección, sin empezar por un acento suelto, no en blanco, sin caracteres
+  invisibles (salvo los que forman un emoji) ni de uso privado, hasta 40
+  caracteres.
 - "story": lo mismo, hasta 280 caracteres. La ve quien juega en el panel del
   héroe.
 - "heroType": el "id" de uno de "heroTypes", que son los de TU facción. Uno de
