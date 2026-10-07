@@ -37,6 +37,7 @@ import {
 import { createRng } from '../src/core/rng.js';
 import type { Point } from '../src/core/types.js';
 import { auditarMapaDenso, ciclosDeCamino, planDeNodos } from './helpers.js';
+import { rango, segunPrisa } from './lento.js';
 
 /** Los fallos de la auditoría densa de un plan, construyéndolo. */
 const densa = (plan: MapPlan): string[] => auditarMapaDenso(plan, buildMap(plan).map).fallos;
@@ -428,11 +429,12 @@ describe('el generador hace redes como las pidió el usuario', () => {
     // Las 200 primeras y, además, las que encontró QA barriendo mil (H5, H6):
     // 864 y 986 se quedaban en tres barreras de frontera, y 987 con una
     // frontera de una casilla lejos de un nodo. Ninguna caía en las 200.
+    // En `pnpm verify`, las tres de QA y tres más, y una de 48×48 (#167): las
+    // 223 son 6 s con la máquina cargada.
     const deQA = [864, 986, 987];
-    const rango = (n: number) => Array.from({ length: n }, (_, k) => k + 1);
     for (const [lado, semillas] of [
-      [LADO_DEL_MAPA, [...rango(200), ...deQA]],
-      [48, rango(20)],
+      [LADO_DEL_MAPA, [...segunPrisa(rango(1, 3), rango(1, 200)), ...deQA]],
+      [48, segunPrisa([1], rango(1, 20))],
     ] as const) {
       for (const s of semillas) {
         const plan = generateMapPlan(createRng(s), { width: lado, height: lado });

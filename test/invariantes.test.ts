@@ -83,6 +83,7 @@ import { createRng } from '../src/core/rng.js';
 import type { GameState } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { CREATURE_TRAITS } from '../src/core/types.js';
+import { rango, segunPrisa } from './lento.js';
 
 // `new URL(...).pathname` devuelve la ruta PERCENT-ENCODED: en un checkout que
 // viva en una ruta con espacios o paréntesis daba `…/ruta%20con%20(…)/repo` y
@@ -934,13 +935,16 @@ describe('invariantes del proyecto', () => {
     //
     // Veinte semillas y no doscientas porque cuestan 0,4 s y ya cazan cuatro de
     // aquellas treinta y cuatro (3, 11, 16 y 17): para un guardia lo que hace
-    // falta es que muerda, no que cuente.
+    // falta es que muerda, no que cuente. Y en `pnpm verify`, tres (#167): las
+    // veinte siguen en `pnpm verify:lento`. De las veinte, el 07-10-2026 solo
+    // la 7 cazaba el `if` quitado (ahora lanza `emit`, con la frase del hecho
+    // colado), así que la 7 va entre las tres.
     //
     // Se rompió a mano quitando el `if (state.finished === null)` de
     // `applyAdventureAction` y se miró rojo, con la semilla y el hecho colado
     // en el mensaje, antes de darlo por bueno.
     const colados: string[] = [];
-    for (let semilla = 1; semilla <= 20; semilla++) {
+    for (const semilla of segunPrisa([1, 2, 7], rango(1, 20))) {
       const state = newGame({ seed: semilla });
       await playAiGame(state, { rng: createRng(semilla) });
       const fin = state.log.findIndex((e) => e.kind === 'game_over');

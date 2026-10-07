@@ -11,6 +11,7 @@
     "arena": "vite --open /arena/",
     "build": "tsc -b --noEmit && vite build",
     "test": "vitest run",
+    "test:lento": "HEROES_LENTO=1 vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
@@ -23,7 +24,8 @@
     "capturas": "tsx tools/qa/capturas.ts",
     "banco": "tsx tools/qa/banco.ts",
     "marcas": "tsx tools/marcas/cli.ts",
-    "verify": "pnpm typecheck && pnpm lint && pnpm test"
+    "verify": "pnpm typecheck && pnpm lint && pnpm test",
+    "verify:lento": "pnpm typecheck && pnpm lint && pnpm test:lento"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",

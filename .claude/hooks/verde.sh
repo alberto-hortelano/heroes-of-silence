@@ -5,7 +5,7 @@
 # Por qué existe: "creo que funciona" y "pnpm verify está verde" no son lo
 # mismo, y la diferencia solo se nota cuando ya se ha dicho que estaba hecho.
 #
-# Por qué no estorba: `pnpm verify` son seis segundos (typecheck + lint + 208
+# Por qué no estorba: `pnpm verify` son unos 17 segundos (typecheck + lint + ~2 000
 # tests), y ni siquiera se lanza si no ha cambiado nada en el repo desde la
 # última vez que salió verde. En una conversación de preguntas no se ejecuta una
 # sola vez.
@@ -31,7 +31,7 @@ command -v pnpm >/dev/null 2>&1 || exit 0
 # guardia de rutas absolutas de `test/invariantes.test.ts` SÍ mira los ficheros
 # de máquina que vivan ahí, así que un `.json` con una ruta dentro de
 # `assets/generated/` ponía `pnpm verify` en rojo sin despertar al hook. Que el
-# hook corra de más cuesta seis segundos; que no corra cuando debía es
+# hook corra de más cuesta unos 17 segundos; que no corra cuando debía es
 # exactamente el fallo que este guardia existe para evitar.
 #
 # Con `-z` y `xargs -0` porque un nombre con un espacio se partía en dos y `cat`

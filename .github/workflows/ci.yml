@@ -50,6 +50,12 @@ jobs:
       # rojo dice «verify» y hay que abrir el log para ver si fue tsc, biome o
       # vitest—; sale más barato que dos definiciones que se separan solas.
       - run: pnpm verify
+      # La orden lenta (#167): los mismos tests con todas las semillas y todo el
+      # arte vuelto a derivar, que en el bucle rápido van con una muestra
+      # (`test/lento.ts`). Solo los tests: el typecheck y Biome ya los pasó
+      # `verify`. Va además de él y no en su lugar porque algunos tests
+      # comprueban cifras distintas con la muestra que con todas.
+      - run: pnpm test:lento
       # `vite build` a secas, no `pnpm build`: ese encadena un `tsc -b --noEmit`
       # que NO es incremental y repite el typecheck que acaba de hacer `verify`.
       - run: npx vite build

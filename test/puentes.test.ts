@@ -59,9 +59,15 @@ import {
 import { PIES } from '../src/client/render/mapa.js';
 import { Session } from '../src/client/session.js';
 import { catalogoDelDisco, partidaDe } from './helpers.js';
+import { itLento, rango, segunPrisa } from './lento.js';
 
-/** Las semillas de los recuentos: 26 puentes. Las cifras de 1-40 están en `medir.ts` de la tarea. */
-const SEMILLAS = Array.from({ length: 10 }, (_, k) => k + 1);
+/**
+ * Las semillas de los recuentos: 1-10 en la orden lenta, 26 puentes (las cifras
+ * de 1-40 están en `medir.ts` de la tarea). En `pnpm verify`, dos con de todo
+ * (#167): la 5 lleva rectos N-S y E-O de troncos y un quebrado en diagonal, y la
+ * 8 dos quebrados de piedra, uno con el medio fuera de su nodo.
+ */
+const SEMILLAS = segunPrisa([5, 8], rango(1, 10));
 
 const SUELO: Readonly<Record<string, TerrainKind>> = {
   '.': 'grass',
@@ -205,7 +211,7 @@ describe('la pieza sale de las orillas, no de las vecinas', () => {
     expect(s?.src).toBeNull();
   });
 
-  it('en las semillas 1-10 salen los cruces del diagnóstico', () => {
+  itLento('en las semillas 1-10 salen los cruces del diagnóstico', () => {
     const rectos: Record<string, number> = {};
     let piedra = 0;
     let total = 0;
@@ -250,7 +256,7 @@ describe('la pieza se apoya por el centro de su tablero', () => {
         vistos++;
       }
     }
-    expect(vistos).toBe(26);
+    expect(vistos).toBe(segunPrisa(8, 26));
   });
 
   it('el catálogo lanza con un puente sin medidas, con medidas que no son de un puente o que no valen', () => {
@@ -571,8 +577,9 @@ describe('pulsar el puente lleva a su nodo (H2 del QA de #157)', () => {
 
   it('en las semillas 1-40, el medio del tablero cae en la casilla del nodo salvo en 4, y ahí la toca', () => {
     // El medio alzado fuera de la casilla del nodo: 26 de 101 antes del arreglo.
+    // En `pnpm verify`, las dos semillas de 1-40 donde cae fuera la 8 y la 16 (#167).
     let fuera = 0;
-    for (let s = 1; s <= 40; s++) {
+    for (const s of segunPrisa([8, 16], rango(1, 40))) {
       const { map, escena } = partidaDe(s);
       for (const pu of escena.puentes) {
         const o = map.objects.find((x) => x.id === pu.id) as MapObject;
@@ -583,7 +590,7 @@ describe('pulsar el puente lleva a su nodo (H2 del QA de #157)', () => {
         expect(toca.some(enElNodo), `s${s} ${pu.id}`).toBe(true);
       }
     }
-    expect(fuera).toBe(4);
+    expect(fuera).toBe(segunPrisa(2, 4));
   });
 
   it('en el cliente, s15: pulsar el tablero del puente de (16,1) sobre el agua lo señala y anda hacia él', () => {
@@ -746,7 +753,7 @@ describe('la senda llega al estribo por tierra (H4 del QA de #157)', () => {
       sinVados += sendasDeEstriboEnAgua(e.sendas, e.puentes, [], esAgua).length;
       for (const v of e.vados) expect(v.length, `s${s}`).toBeGreaterThan(1);
     }
-    expect(sinVados).toBe(7);
+    expect(sinVados).toBe(segunPrisa(4, 7));
   });
 });
 
@@ -778,6 +785,6 @@ describe('la cara que cede su pared a un puente y se queda abre lo que la pared 
         }
       }
     }
-    expect(huecos).toBe(5);
+    expect(huecos).toBe(segunPrisa(1, 5));
   });
 });

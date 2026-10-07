@@ -53,6 +53,7 @@ import {
 import { newGame } from '../src/core/state/setup.js';
 import type { Point } from '../src/core/types.js';
 import { ejercito } from './helpers.js';
+import { segunPrisa } from './lento.js';
 
 /**
  * Las casillas libres de la región de `r` con la regla de la patrulla: sin
@@ -152,8 +153,9 @@ describe('la patrulla', () => {
     // semillas se fijaban a mano y cada cambio que movía a los héroes las dejaba
     // sin brote —cinco veces, la última con los caminos radiales (#149)—, así
     // que las busca el test: juega desde la 1 hasta reunir tres brotes (cada
-    // partida, ~30 ms), mirando el invariante en todas las que juega.
-    for (let semilla = 1; semilla <= 80 && brotados < 3; semilla++) {
+    // partida, ~30 ms), mirando el invariante en todas las que juega. En
+    // `pnpm verify` basta el primer brote (#167): tres costaban 2,6 s y uno, 1 s.
+    for (let semilla = 1; semilla <= 80 && brotados < segunPrisa(1, 3); semilla++) {
       const state = newGame({ seed: semilla, maxDays: 60 });
       const ctx = { rng: createRng(semilla) };
       while (state.finished === null) {

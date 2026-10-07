@@ -43,6 +43,7 @@ import {
   JUEGOS_EN_8D,
   unidad,
 } from '../tools/taller/unidades.js';
+import { segunPrisa } from './lento.js';
 
 const RAIZ = join(import.meta.dirname, '..');
 
@@ -97,11 +98,23 @@ async function png(filas: number, desde = 0, celda: number = C): Promise<Buffer>
     .toBuffer();
 }
 
-/** Un atlas de mentira de `filas` filas (6, o 7 con el disparo), en un fichero. */
-async function hoja(filas = 6): Promise<string> {
-  const ruta = join(await temporal('taller-8d-'), 'atlas.png');
-  await writeFile(ruta, await png(filas));
-  return ruta;
+/**
+ * Un atlas de mentira de `filas` filas (6, o 7 con el disparo), en un fichero.
+ * Uno por número de filas y fichero de tests: `derivarAtlas` solo lo lee, y
+ * componerlo con sharp costaba más que derivarlo (#167).
+ */
+const hojas = new Map<number, Promise<string>>();
+function hoja(filas = 6): Promise<string> {
+  let h = hojas.get(filas);
+  if (h === undefined) {
+    h = (async () => {
+      const ruta = join(await temporal('taller-8d-'), 'atlas.png');
+      await writeFile(ruta, await png(filas));
+      return ruta;
+    })();
+    hojas.set(filas, h);
+  }
+  return h;
 }
 
 describe('una dirección de 6 filas', () => {
@@ -344,13 +357,31 @@ describe('las direcciones del arte', () => {
   const UNIDADES = join(RAIZ, 'assets/unidades');
   const sha = (r: string): string => createHash('sha256').update(readFileSync(r)).digest('hex');
   const leer = (r: string): any => JSON.parse(readFileSync(r, 'utf8'));
-  const dirs = readdirSync(UNIDADES)
+  const todas = readdirSync(UNIDADES)
     .filter((u) => !u.startsWith('_'))
     .flatMap((u) =>
       readdirSync(join(UNIDADES, u))
         .filter((d) => /^d[0-7]$/.test(d))
         .map((d) => join(UNIDADES, u, d)),
     );
+  // Volver a derivar un atlas cuesta ~150 ms y hay ~400 direcciones: un minuto
+  // entero de `pnpm verify` (#167). El bucle rápido deriva la primera de cada
+  // forma de hoja —celda y filas, que es lo que cambia la cuenta de
+  // `derivarAtlas`— y la orden lenta, todas. Los sha256 de abajo, que son lo que
+  // caza un atlas o una hoja cambiados sin volver a juntar, los mira cada
+  // dirección en las dos.
+  const formaDe = (dir: string): string => {
+    const json = leer(join(dir, 'atlas.json'));
+    return `${json.cell}×${json.clips.shoot === undefined ? 6 : 7}`;
+  };
+  const primeras = new Map<string, string>();
+  for (const d of todas) if (!primeras.has(formaDe(d))) primeras.set(formaDe(d), d);
+  const derivadas = new Set(segunPrisa([...primeras.values()], todas));
+
+  it('el bucle rápido deriva al menos una hoja sin disparo y una con él', () => {
+    // Hoy todas las celdas son de 384 (07-10-2026): si mañana hay otra, entra sola.
+    expect(new Set([...primeras.keys()].map((k) => k.split('×')[1]))).toEqual(new Set(['6', '7']));
+  });
 
   // Una vez por unidad, no por dirección: lee el `poses.json` de su maniquí.
   const sueltas = new Map<string, Promise<number | null>>();
@@ -360,15 +391,18 @@ describe('las direcciones del arte', () => {
     return s;
   };
 
-  it.each(dirs)('%s: el atlas es lo que mide la imagen y sale de sus hojas', async (dir) => {
+  it.each(todas)('%s: el atlas es lo que mide la imagen y sale de sus hojas', async (dir) => {
     const atlas = join(dir, 'atlas.webp');
     const json = leer(join(dir, 'atlas.json'));
-    // Con la fila del disparo, la suelta es la de su maniquí: la misma cuenta que al juntarlo.
-    const suelta =
-      json.clips.shoot === undefined ? undefined : await sueltaDe(basename(dirname(dir)));
-    expect(json).toEqual(
-      JSON.parse(JSON.stringify(await derivarAtlas(atlas, suelta == null ? {} : { suelta }))),
-    );
+    expect(json.sha256, 'el atlas cambió sin volver a derivar su JSON').toBe(sha(atlas));
+    if (derivadas.has(dir)) {
+      // Con la fila del disparo, la suelta es la de su maniquí: la misma cuenta que al juntarlo.
+      const suelta =
+        json.clips.shoot === undefined ? undefined : await sueltaDe(basename(dirname(dir)));
+      expect(json).toEqual(
+        JSON.parse(JSON.stringify(await derivarAtlas(atlas, suelta == null ? {} : { suelta }))),
+      );
+    }
     const c = leer(join(dir, 'atlas.composicion.json'));
     expect(c.sha256, 'el atlas cambió sin volver a juntarlo').toBe(sha(atlas));
     for (const h of c.hojas) {

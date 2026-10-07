@@ -14,7 +14,8 @@ pnpm install
 pnpm dev        # cliente en http://localhost:3100 (juego local contra la IA de reglas)
 pnpm mirar      # /espectador/: mira la partida del agente contra el servidor
 pnpm arena      # /arena/: monta unidades de las cinco facciones y hazlas luchar
-pnpm verify     # typecheck + lint + tests, ~14 s: el bucle rápido
+pnpm verify     # typecheck + lint + tests, ~17 s: el bucle rápido
+pnpm verify:lento  # lo mismo con todas las semillas y todo el arte rederivado, ~75 s; corre en CI
 pnpm test | pnpm typecheck | pnpm lint | pnpm format
 pnpm banco      # 200 partidas: tiempo y sha256 del volcado, anclado en el fichero
 pnpm marcas     # fallos del mapa marcados en pnpm dev (M o «Marcar»): lista, ver <id>, resolver <id> <ref>, recorte <id>
@@ -28,8 +29,8 @@ npx tsx tools/qa/enfrentamiento.ts     # IA de batalla de hoy contra su versión
   es semilla se rechaza diciéndolo (`parseSeed`, en `core`). `?seed=` vacío =
   sin semilla. Si el agente diseña el mapa, la semilla del servidor ya no
   reproduce la partida, y la consola lo dice.
-- **CI** (`.github/workflows/ci.yml`): `pnpm verify`, `pnpm banco`, `vite build`
-  y `pnpm qa`. No gasta un céntimo: nada de `tools/gen/`.
+- **CI** (`.github/workflows/ci.yml`): `pnpm verify`, `pnpm test:lento`, `pnpm banco`,
+  `vite build` y `pnpm qa`. No gasta un céntimo: nada de `tools/gen/`.
 - Un hook `Stop` (`.claude/hooks/verde.sh`) impide cerrar una tarea con
   `pnpm verify` en rojo.
 
@@ -352,7 +353,8 @@ ocupado por algo ajeno no se libera: se reporta.**
 
 | Comprobación | Tarda | Cuándo |
 |---|---|---|
-| `pnpm verify` | ~14 s | siempre |
+| `pnpm verify` | ~17 s | siempre |
+| `pnpm verify:lento` | ~75 s | al cerrar un ciclo, si tocas el escenógrafo, la generación del mapa o el arte de `assets/`; corre en CI |
 | El navegador / el espectador | minutos | si el cambio se ve, o tocas `html.ts`, `espectador/` o el canal |
 | `pnpm qa` | ~3 s | si tocas `src/server/` o el contrato |
 | `pnpm capturas` | ~245 s | si el cambio se ve; sale 1 con un error en consola |
@@ -360,6 +362,13 @@ ocupado por algo ajeno no se libera: se reporta.**
 | `pnpm banco` | ~5 s | si tocas el núcleo sin querer cambiar el juego |
 | `enfrentamiento.ts` | ~2 s | si cambias cómo decide la IA de batalla: entra solo con el intervalo entero > 50 % en 5 000 parejas |
 
+- **Bucle rápido y orden lenta** (`test/lento.ts`, #167): un guardia que recorre
+  muchas semillas o todo el arte corre en `verify` con una muestra que muerde
+  (las semillas donde pasa lo que vigila, una imagen de cada forma de derivar)
+  y en `verify:lento` (`HEROES_LENTO=1`) con todo; las medidas sobre muchas
+  semillas, con `itLento`. Antes de mover un test, se abarata. Un JSON de arte
+  retocado a mano fuera de la muestra lo caza solo la lenta; una imagen
+  sustituida sin rederivar, las dos (sha256).
 - **`pnpm banco`**: si el hash cambia a propósito, se re-ancla en
   `tools/qa/banco.ts` y se juzga **la forma del diff** (qué semillas cambian y
   cuál es el primer hecho distinto), no el hash.

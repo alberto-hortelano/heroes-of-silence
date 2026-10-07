@@ -138,8 +138,15 @@ async function conectaAgente(
   await once(socket, 'open');
 
   socket.send(JSON.stringify({ type: 'hello', client: 'test' }));
-  // Un respiro para que el servidor registre la conexión.
-  await respira(50);
+  // Una consulta de ida y vuelta para saber que el servidor ya registró la
+  // conexión y leyó el `hello`: el socket entrega en orden, así que su
+  // respuesta llega detrás. Era un respiro fijo de 50 ms en cada test (#167);
+  // la consulta no existe, nadie la responde con datos y no cuenta en
+  // `results` ni en `seen`.
+  await new Promise<void>((resolve) => {
+    esperando.set('conectado', () => resolve());
+    socket.send(JSON.stringify({ type: 'query', queryId: 'conectado', what: '-', args: {} }));
+  });
 
   abiertos.push(() => socket.close());
   const pregunta: FakeAgent['pregunta'] = (what, args = {}) => {

@@ -16,6 +16,7 @@ import { derivarCeldas } from '../tools/taller/componer-atlas-mapa.js';
 import { derivarEfecto, derivarPieza, rutaDelJson } from '../tools/taller/derivar.js';
 import { puenteDerivado } from '../tools/taller/paredes-puentes.js';
 import { sha256 } from './helpers.js';
+import { segunPrisa } from './lento.js';
 
 const RAIZ = join(import.meta.dirname, '..');
 const UNIDADES = join(RAIZ, 'assets/unidades');
@@ -66,13 +67,36 @@ describe('las hojas del taller', () => {
   });
 });
 
+/** Un puente se ancla en el centro del tablero, no en la base (§17). */
+const esPuente = (p: string): boolean => /\/puente-[^/]+\.webp$/.test(p);
+
+/**
+ * Las que se vuelven a derivar en `pnpm verify`: la primera pieza suelta, el
+ * primer puente y el primer edificio, que son las tres cuentas distintas (#167).
+ * Derivarlas todas eran ~100 imágenes y 10 s con la máquina cargada; eso queda
+ * en `pnpm verify:lento`. El sha256 del JSON, que caza la imagen sustituida sin
+ * volver a derivar, lo miran todas en las dos.
+ */
+const derivadas = new Set(
+  segunPrisa(
+    [piezas.find((p) => !esPuente(p)), piezas.find(esPuente), edificios[0]].filter(
+      (p) => p !== undefined,
+    ),
+    [...piezas, ...edificios],
+  ),
+);
+
 describe('las piezas del mapa', () => {
+  it('el bucle rápido deriva una de cada cuenta: pieza suelta, puente y edificio', () => {
+    expect(derivadas.size).toBe(segunPrisa(3, piezas.length + edificios.length));
+  });
+
   it.each([...piezas, ...edificios])('%s: el JSON es lo que mide la imagen', async (p) => {
-    // Un puente se ancla en el centro del tablero, no en la base (§17).
-    const esperado = /\/puente-[^/]+\.webp$/.test(p)
-      ? await puenteDerivado(p)
-      : await derivarPieza(p);
-    expect(leer(rutaDelJson(p))).toEqual(JSON.parse(JSON.stringify(esperado)));
+    const json = leer(rutaDelJson(p));
+    expect(json.sha256, 'la imagen cambió sin volver a derivar su JSON').toBe(sha256(p));
+    if (!derivadas.has(p)) return;
+    const esperado = esPuente(p) ? await puenteDerivado(p) : await derivarPieza(p);
+    expect(json).toEqual(JSON.parse(JSON.stringify(esperado)));
   });
 
   it.each([...piezas, ...muestras, ...edificios])('%s: lleva su procedencia', (p) => {
