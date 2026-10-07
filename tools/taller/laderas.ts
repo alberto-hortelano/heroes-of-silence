@@ -13,8 +13,9 @@
  *
  * - **Contrato de junta.** Cada pieza va de una junta a otra a lo largo del
  *   canto (norte arriba, sur abajo). En cada junta el filo pasa por la línea de
- *   referencia (x = 0, alto `niveles · NIVEL`) y el pie por `TALUD[niveles]`
- *   casillas más allá, con tangente recta: así cualquier pieza empalma con
+ *   referencia (x = 0, alto `niveles · NIVEL`) y el pie por
+ *   `TALUD_DE_LADERA[niveles]` casillas más allá (`relieve.ts`: lo lee también
+ *   `componer`), con tangente recta: así cualquier pieza empalma con
  *   cualquier otra de su caída. Entre junta y junta, el filo y el pie giran
  *   (entrantes, espolones, conos de derrubio), nada de rectas.
  * - **Juntas abiertas.** Los extremos se cortan por la línea de máxima
@@ -39,9 +40,16 @@
  *
  *   pnpm taller encolar --laderas [--solo=roca-este-1,roca-este-2]
  */
-import { writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import sharp from 'sharp';
+import {
+  esHojaDeLadera,
+  type JuntasDeLadera,
+  type PapelDeLadera,
+} from '../../src/client/render/escenario/catalogo.js';
+import { FRONTAL_DE_ESQUINA, TALUD_DE_LADERA } from '../../src/client/render/escenario/relieve.js';
+import { mascaraDeGuia, registrarLadera } from './derivar.js';
 import type { Encargo } from './encargo.js';
 import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './mapa-denso.js';
 import {
@@ -51,6 +59,7 @@ import {
   Guia,
   type Lado,
   MATAS,
+  MATERIALES,
   type Material,
   NIVEL,
   type P2,
@@ -62,16 +71,12 @@ const RAIZ = resolve(import.meta.dirname, '../..');
 
 export type Niveles = 1 | 2 | 3;
 
-/** Lo que avanza el pie desde el filo, en casillas, por caída: el talud. */
-export const TALUD: Readonly<Record<Niveles, number>> = { 1: 0.45, 2: 0.65, 3: 0.85 };
 /**
  * Lo que entra en la meseta el labio de roca del filo, en casillas. No hay
  * franja de hierba: el prado lo pinta el juego, y la franja verde de la primera
  * tanda del piloto se leía como una cinta amarilla (07-10-2026).
  */
 export const LABIO = 0.06;
-/** Lo que corre hacia el oeste (al este, al revés) la pared frontal de la esquina. */
-export const FRONTAL_DE_ESQUINA = 0.85;
 /** A qué fracción de la caída se rompe el escarpe en derrubio. */
 const ROTURA = 0.42;
 /** Lo que el cono de derrubio de `inicio` y `fin` sale más allá de su junta, en casillas. */
@@ -246,7 +251,7 @@ function mata(g: Guia, x: number, y: number, z: number, r: number, azar: () => n
 /** La geometría que cuenta de cada pieza de la guía, en píxeles de la guía. */
 export interface GeometriaDeLadera {
   readonly nombre: string;
-  readonly largo: number;
+  readonly largo: 1 | 2;
   readonly niveles: Niveles;
   /** El filo y el pie en la junta norte y en la sur (la sur de la esquina es su rincón). */
   readonly filoNorte: P2;
@@ -263,7 +268,7 @@ export interface GeometriaDeLadera {
  */
 function dibujarPieza(g: Guia, p: Pieza, niveles: Niveles, s: 1 | -1): void {
   const H = niveles * NIVEL;
-  const d = TALUD[niveles];
+  const d = TALUD_DE_LADERA[niveles];
   const L = p.largo;
   const X = (x: number) => s * x;
   const azar = azarDe(`${p.nombre}-${niveles}-${s}`);
@@ -480,7 +485,7 @@ function geometria(
   caja: GeometriaDeLadera['caja'],
 ): GeometriaDeLadera {
   const H = niveles * NIVEL;
-  const d = TALUD[niveles];
+  const d = TALUD_DE_LADERA[niveles];
   const r = (q: P2): P2 => [Math.round(q[0]), Math.round(q[1])];
   return {
     nombre: p.nombre,
@@ -645,8 +650,7 @@ export const NIVELES: readonly Niveles[] = [1, 2, 3];
 
 export function encargosDeLaderas(): Encargo[] {
   const lados: Lado[] = ['este', 'oeste'];
-  const materiales: Material[] = ['roca', 'arenisca', 'basalto', 'nevadas'];
-  return materiales.flatMap((m) =>
+  return MATERIALES.flatMap((m) =>
     lados.flatMap((l) => NIVELES.map((n) => encargoDeLaderas(m, l, n))),
   );
 }
@@ -662,9 +666,70 @@ export async function escribirGuiasDeLaderas(): Promise<string[]> {
       await writeFile(join(RAIZ, DIR_GUIAS, `${nombre}.png`), png);
       await writeFile(
         join(RAIZ, DIR_GUIAS, `${nombre}.json`),
-        `${JSON.stringify({ ancho: guia.ancho, alto: guia.alto, casilla, talud: TALUD[n], labio: LABIO, piezas }, null, 1)}\n`,
+        `${JSON.stringify({ ancho: guia.ancho, alto: guia.alto, casilla, talud: TALUD_DE_LADERA[n], labio: LABIO, piezas }, null, 1)}\n`,
       );
       escritas.push(`${DIR_GUIAS}/${nombre}.png`);
     }
+  return escritas;
+}
+
+/**
+ * Su papel en la cadena (`JuntasDeLadera.papel`): los tramos de una casilla
+ * van en medio y los de dos son largos; los demás rematan o doblan.
+ */
+export function papelDe(p: Pieza): PapelDeLadera {
+  if (p.clase !== 'tramo') return p.clase;
+  return p.largo === 2 ? 'largo' : 'medio';
+}
+
+/** La guía de una hoja de laderas: `laderas-roca-este-1` sale de `laderas-este-1`. */
+export function guiaDeHoja(hoja: string): string {
+  if (!esHojaDeLadera(hoja))
+    throw new Error(`«${hoja}» no es una hoja de laderas (laderas-<material>-<lado>-<1|2|3>)`);
+  const [, , lado, niveles] = hoja.split('-');
+  return `laderas-${lado}-${niveles}`;
+}
+
+/**
+ * Apunta en el índice de cada hoja de laderas (`assets/mapa/modulos/<hoja>.json`)
+ * las juntas de cada módulo (`JuntasDeLadera`): dónde caen, en píxeles del
+ * módulo, el filo de la junta norte y el pie de la sur de su pieza de la guía
+ * (`registrarLadera`), cuántas casillas cubre y su papel en la cadena.
+ * `componer` coloca y encadena cada módulo por eso.
+ *
+ * Se escribe una vez, como el ancla de un puente, porque registrar cuesta
+ * ~0,35 s por módulo (70 s las 24 hojas). Lo comprueba `test/laderas.test.ts`:
+ * el sha256 de cada módulo sigue siendo el que se midió, y un módulo se vuelve
+ * a registrar.
+ *
+ *   pnpm taller derivar-laderas [laderas-roca-este-1 …]
+ */
+export async function escribirLaderasDerivadas(hojas?: readonly string[]): Promise<string[]> {
+  const dir = join(RAIZ, 'assets/mapa/modulos');
+  const todas =
+    hojas ?? encargosDeLaderas().map((e) => e.salida.replace(/^assets\/mapa\/modulos\//, ''));
+  const escritas: string[] = [];
+  for (const hoja of todas) {
+    const guia = join(RAIZ, DIR_GUIAS, guiaDeHoja(hoja));
+    const geometrias = (
+      JSON.parse(await readFile(`${guia}.json`, 'utf8')) as { piezas: GeometriaDeLadera[] }
+    ).piezas;
+    const mascara = await mascaraDeGuia(`${guia}.png`);
+    const ruta = join(dir, `${hoja}.json`);
+    const indice = JSON.parse(await readFile(ruta, 'utf8')) as {
+      modulos: { imagen: string; ladera?: JuntasDeLadera }[];
+    };
+    for (const mod of indice.modulos) {
+      const nombre = mod.imagen.replace(/\.webp$/, '');
+      const geometria = geometrias.find((p) => p.nombre === nombre);
+      if (geometria === undefined)
+        throw new Error(`${hoja}: la guía no tiene la pieza «${nombre}»`);
+      const p = pieza(nombre);
+      const { filo, pie } = await registrarLadera(join(dir, hoja, mod.imagen), mascara, geometria);
+      mod.ladera = { filo, pie, largo: p.largo, papel: papelDe(p) };
+    }
+    await writeFile(ruta, `${JSON.stringify(indice, null, 2)}\n`);
+    escritas.push(ruta.replace(`${RAIZ}/`, ''));
+  }
   return escritas;
 }

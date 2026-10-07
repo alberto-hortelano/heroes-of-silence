@@ -1,6 +1,6 @@
 /**
- * Paredes de acantilado vistas de lado y puentes que casan con el río
- * (`docs/art/peticiones.md` §16 y §17).
+ * Puentes que casan con el río (`docs/art/peticiones.md` §17), y la guía de
+ * geometría que comparten con las laderas (`laderas.ts`).
  *
  * Lo que las piezas de antes no consiguieron con palabras es la ORIENTACIÓN: el
  * puente `ancho` salió torcido 20° y el `hondo` en escorzo. Así que cada encargo
@@ -12,7 +12,7 @@
  * de cada una se guarda en su `.json`: de ahí sale el ancla del puente (el
  * centro del tablero) y cuántos píxeles mide una casilla en la pieza pintada.
  *
- *   pnpm taller encolar --paredes-puentes [--solo=puente-piedra-ns,laterales-roca-este]
+ *   pnpm taller encolar --paredes-puentes [--solo=puente-piedra-ns,puente-troncos-eo]
  */
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
@@ -103,7 +103,18 @@ function encajar(ancho: number, alto: number, lleno: number, dibujar: (g: Guia) 
   return g;
 }
 
+/** El gris de fondo de toda guía: lo demás es dibujo. */
 export const FONDO = '#7d7d7d';
+const gris = Number.parseInt(FONDO.slice(1, 3), 16);
+/**
+ * Si un píxel de una guía es fondo: a una distancia (suma por canal) de 6 o
+ * menos del gris. El suavizado de los bordes deja píxeles a 5 o 6. Lo leen la
+ * caja de una guía (`cajaDeGuia`) y su silueta (`mascaraDeGuia`): con dos
+ * umbrales, cada una decía otra cosa del mismo borde.
+ */
+export function esFondoDeGuia(r: number, g: number, b: number): boolean {
+  return Math.abs(r - gris) + Math.abs(g - gris) + Math.abs(b - gris) <= 6;
+}
 /** Lo que mira arriba, lo que mira a la cámara (iluminado), y lo que queda en sombra. */
 export const ARRIBA = '#dcdcdc';
 export const FRENTE = '#b0b0b0';
@@ -501,190 +512,15 @@ function guiaDePuente(clase: Clase, eje: Eje, sube = false): { guia: Guia; geo: 
 
 // ----------------------------------------------------------- las paredes
 
+/**
+ * Las paredes laterales de la primera vuelta de #156 (§18, `laterales-*`) se
+ * encargaban aquí; las sustituyeron las laderas (§20, `laderas.ts`). Sus hojas
+ * siguen en disco y su encargo y su guía, en la historia de git.
+ */
 export type Lado = 'este' | 'oeste';
 export type Material = 'roca' | 'arenisca' | 'basalto' | 'nevadas';
 
-/** Los módulos de una hoja lateral, en el orden de la rejilla de 4×2. */
-export const PIEZAS_LATERALES = [
-  'tramo-1-a',
-  'tramo-1-b',
-  'tramo-1-c',
-  'esquina-1',
-  'tramo-2-a',
-  'tramo-2-b',
-  'tramo-2-c',
-  'esquina-2',
-] as const;
-
-/**
- * Un tramo lateral de un metro de risco que cae al ESTE (`s = 1`) o al OESTE
- * (`s = -1`): el borde de la meseta, la ladera de roca y peñascos al pie, a lo
- * largo de una casilla de norte a sur. La ladera no es vertical: en la
- * proyección del mapa una cara vertical que mira al este no se ve, así que cae
- * en talud (`d` casillas de ancho por nivel).
- */
-function tramoLateral(g: Guia, s: 1 | -1, niveles: 1 | 2, largo: number, var_: number): void {
-  const H = niveles * NIVEL;
-  const d = (niveles === 1 ? 0.42 : 0.62) + var_ * 0.03;
-  const y0 = -largo / 2;
-  const y1 = largo / 2;
-  const X = (x: number) => s * x;
-  // La meseta: una franja de su borde, con matas.
-  g.poligono(
-    [
-      [X(-0.24), y0, H],
-      [X(0), y0, H],
-      [X(0), y1, H],
-      [X(-0.24), y1, H],
-    ],
-    MATAS,
-  );
-  // La ladera: del filo (x = 0, alto H) al pie (x = d, alto 0).
-  g.poligono(
-    [
-      [X(0), y0, H],
-      [X(0), y1, H],
-      [X(d), y1, 0],
-      [X(d), y0, 0],
-    ],
-    s > 0 ? SOMBRA : FRENTE,
-  );
-  // Peñascos al pie.
-  for (const [k, r] of [
-    [0.12, 0.11],
-    [0.45, 0.14],
-    [0.8, 0.1],
-  ] as const) {
-    const y = y0 + (k + var_ * 0.05) * largo;
-    penasco(g, X(d + 0.04), y, r, 0.08);
-  }
-}
-
-/**
- * La esquina donde la caída gira: la pared FRONTAL (mira a la cámara, como los
- * módulos `paredes-*`) por un lado y la lateral subiendo hacia el fondo por el
- * otro. Al este, la frontal queda a la izquierda; al oeste, a la derecha.
- */
-function esquinaLateral(g: Guia, s: 1 | -1, niveles: 1 | 2): void {
-  const H = niveles * NIVEL;
-  const d = niveles === 1 ? 0.42 : 0.62;
-  const e = 0.12;
-  const X = (x: number) => s * x;
-  const yS = 0.35; // el borde sur de la meseta
-  const yN = yS - 0.85; // hasta dónde sube la lateral
-  const xW = -0.85; // hasta dónde corre la frontal
-  // La meseta, en L.
-  g.poligono(
-    [
-      [X(xW), yS - 0.24, H],
-      [X(-0.24), yS - 0.24, H],
-      [X(-0.24), yN, H],
-      [X(0), yN, H],
-      [X(0), yS, H],
-      [X(xW), yS, H],
-    ],
-    MATAS,
-  );
-  // La frontal: casi vertical, mira al sur.
-  g.poligono(
-    [
-      [X(xW), yS, H],
-      [X(0), yS, H],
-      [X(d * 0.5), yS + e, 0],
-      [X(xW), yS + e, 0],
-    ],
-    FRENTE,
-  );
-  // La lateral, en talud.
-  g.poligono(
-    [
-      [X(0), yN, H],
-      [X(0), yS, H],
-      [X(d * 0.5), yS + e, 0],
-      [X(d), yS - 0.1, 0],
-      [X(d), yN, 0],
-    ],
-    s > 0 ? SOMBRA : FRENTE,
-  );
-  for (const [x, y, r] of [
-    [-0.6, yS + e + 0.03, 0.09],
-    [-0.25, yS + e + 0.05, 0.1],
-    [d * 0.7, yS + 0.02, 0.11],
-    [d + 0.06, yS - 0.45, 0.09],
-  ] as const)
-    penasco(g, X(x), y, r, 0.06);
-}
-
-function guiaDeParedes(lado: Lado): Guia {
-  const s: 1 | -1 = lado === 'este' ? 1 : -1;
-  const ancho = 1536;
-  const alto = 1024;
-  const t = 190;
-  const g = new Guia(ancho, alto, t, 0, 0);
-  PIEZAS_LATERALES.forEach((nombre, i) => {
-    const col = i % 4;
-    const fila = Math.floor(i / 4);
-    const cx = (col + 0.5) * (ancho / 4);
-    const pie = (fila + 0.86) * (alto / 2);
-    const niveles: 1 | 2 = nombre.endsWith('-2') || nombre.startsWith('tramo-2') ? 2 : 1;
-    const esquina = nombre.startsWith('esquina');
-    // El origen de cada celda, para que la pieza quede centrada y con el pie en `pie`.
-    g.ox = esquina ? cx + s * 0.2 * t : cx - s * 0.15 * t;
-    g.oy = esquina ? pie - (0.35 + 0.12) * t : pie - 0.55 * t;
-    if (esquina) esquinaLateral(g, s, niveles);
-    else tramoLateral(g, s, niveles, 1, col);
-  });
-  return g;
-}
-
 // ------------------------------------------------------------- los encargos
-
-const MATERIAL: Readonly<Record<Material, string>> = {
-  roca: 'roca gris columnar con musgo, el borde de arriba cubierto de matas y rocas caídas al pie',
-  arenisca:
-    'arenisca roja estriada en estratos, el borde de arriba irregular y bloques caídos al pie',
-  basalto: 'basalto negro en columnas, con alguna grieta de brasa y piedras negras al pie',
-  nevadas: 'roca oscura con nieve en el borde de arriba y en los salientes, y rocas nevadas al pie',
-};
-
-const LUZ_DEL_LADO: Readonly<Record<Lado, string>> = {
-  este: 'La ladera mira al ESTE (a la derecha de la imagen) y la luz viene de arriba a la IZQUIERDA: la ladera queda en penumbra, con la luz rozando solo los salientes y el filo de arriba; el borde de la meseta, a la izquierda, sí está iluminado.',
-  oeste:
-    'La ladera mira al OESTE (a la izquierda de la imagen) y la luz viene de arriba a la izquierda: la ladera recibe la luz de lleno y es lo más iluminado de cada módulo; las sombras propias de las grietas caen hacia la derecha.',
-};
-
-function encargoDeLaterales(material: Material, lado: Lado): Encargo {
-  const hacia = lado === 'este' ? 'la DERECHA' : 'la IZQUIERDA';
-  const arriba = lado === 'este' ? 'izquierda' : 'derecha';
-  const frontal = lado === 'este' ? 'izquierda' : 'derecha';
-  return {
-    id: `modulos-laterales-${material}-${lado}`,
-    tipo: 'modulos',
-    descripcion: [
-      `Una hoja de 8 módulos de RISCO VISTO DE LADO para el mapa de aventura de un juego de estrategia: el borde de una meseta que cae hacia el ${lado.toUpperCase()}, de ${MATERIAL[material]}. Es la misma pared de acantilado de los módulos de la imagen 2, pero corriendo de delante a atrás en vez de a lo ancho: el filo de la meseta, arriba a la ${arriba}, baja en una ladera de roca muy empinada hacia ${hacia}, y cada módulo es un trozo de UNA casilla de largo que encadena con el siguiente hacia el fondo (por arriba) y hacia delante (por abajo).`,
-      'Fila 1: tres tramos que caen UN nivel (como los módulos de la imagen 2, de altura parecida) y una ESQUINA de un nivel. Fila 2: tres tramos que caen DOS niveles (el doble de altos) y una ESQUINA de dos niveles. Los tres tramos de cada fila tienen la misma forma y medidas, distintos solo en el detalle de la roca, para poder alternarlos.',
-      `La esquina es donde la caída gira: a la ${frontal}, un trozo corto de pared de frente que mira a la cámara, exactamente como los módulos de la imagen 2, y la ladera lateral sale de ella y sube hacia el fondo, sin junta entre las dos: es la misma roca doblando la esquina.`,
-      'La forma, el tamaño y el sitio de cada módulo los da la guía de geometría (imagen 3): el filo de la meseta es una línea recta VERTICAL en la imagen, la ladera ocupa la franja que marca la guía y el pie es otra vertical. Nada se tuerce ni se inclina hacia un lado: encadenados uno debajo de otro forman una pared recta de norte a sur.',
-      // La primera tanda (06-10-2026) puso tres bolas en fila al pie y pilares
-      // asomando por el filo, y en la nieve una ladera plana como una lámina.
-      'Al pie, un pedregal IRREGULAR de bloques angulosos de tamaños distintos, amontonados contra la ladera y algo hundidos en el suelo, como al pie de los módulos de la imagen 2: nunca bolas redondas puestas en fila. Arriba, la roca termina a ras de la meseta, coronada por su borde (matas, o nieve), sin pilares que asomen por encima. La ladera tiene volumen —estratos, salientes, grietas y repisas—, no es una lámina plana.',
-      LUZ_DEL_LADO[lado],
-      ESTILO_DEL_MAPA,
-    ].join('\n'),
-    referencias: [
-      { ruta: REFERENCIA_DE_MAPAS, papel: 'estilo' },
-      {
-        ruta: `assets/mapa/modulos/paredes-${material}.webp`,
-        papel: 'identidad',
-      },
-      { ruta: `${DIR_GUIAS}/laterales-${lado}.png`, papel: 'guia' },
-    ],
-    salida: `assets/mapa/modulos/laterales-${material}-${lado}`,
-    fondo: 'transparente',
-    cuantos: 8,
-    nombres: [...PIEZAS_LATERALES],
-  };
-}
 
 const EJE_DICHO: Readonly<Record<Eje, string>> = {
   ns: 'de NORTE a SUR: el tablero va recto de abajo (delante, cerca de la cámara) arriba (al fondo), como una franja vertical en la imagen; el río corre a lo ancho por debajo. Se ve el tablero desde arriba, los dos pretiles y, delante, la rampa de tierra por la que se sube; a los dos lados de cada punta, los taludes de tierra y roca del estribo. Con esta cámara el arco queda DEBAJO del tablero y no se ve: nada de arcos ni bocas a los lados ni en los taludes, que son tierra y roca',
@@ -762,18 +598,12 @@ export function encargosDeParedesYPuentes(): Encargo[] {
     encargoDePuente('piedra', 'eo'),
     encargoDePuente('troncos', 'ns'),
     encargoDePuente('troncos', 'eo'),
-    encargoDeLaterales('roca', 'este'),
-    encargoDeLaterales('roca', 'oeste'),
     encargoDePuente('piedra', 'ne-so'),
     encargoDePuente('piedra', 'no-se'),
     encargoDePuente('troncos', 'ne-so'),
     encargoDePuente('troncos', 'no-se'),
     encargoDePuente('piedra', 'ns', true),
     encargoDePuente('piedra', 'eo', true),
-    ...MATERIALES.filter((m) => m !== 'roca').flatMap((m) => [
-      encargoDeLaterales(m, 'este'),
-      encargoDeLaterales(m, 'oeste'),
-    ]),
   ];
 }
 
@@ -803,15 +633,12 @@ export async function escribirGuias(): Promise<string[]> {
     const { guia, geo } = guiaDePuente('piedra', eje, true);
     await escribir(`puente-piedra-${eje}-sube`, guia, geo);
   }
-  for (const lado of ['este', 'oeste'] as const)
-    await escribir(`laterales-${lado}`, guiaDeParedes(lado));
   return escritas;
 }
 
 /** La caja de lo que no es fondo en una guía. */
 export async function cajaDeGuia(png: Buffer): Promise<[number, number, number, number]> {
   const { data, info } = await sharp(png).raw().toBuffer({ resolveWithObject: true });
-  const fondo = [0x7d, 0x7d, 0x7d];
   let x0 = info.width;
   let y0 = info.height;
   let x1 = -1;
@@ -819,13 +646,7 @@ export async function cajaDeGuia(png: Buffer): Promise<[number, number, number, 
   for (let y = 0; y < info.height; y++)
     for (let x = 0; x < info.width; x++) {
       const i = (y * info.width + x) * info.channels;
-      if (
-        Math.abs((data[i] as number) - (fondo[0] as number)) +
-          Math.abs((data[i + 1] as number) - (fondo[1] as number)) +
-          Math.abs((data[i + 2] as number) - (fondo[2] as number)) <
-        6
-      )
-        continue;
+      if (esFondoDeGuia(data[i] as number, data[i + 1] as number, data[i + 2] as number)) continue;
       if (x < x0) x0 = x;
       if (x > x1) x1 = x;
       if (y < y0) y0 = y;

@@ -11,16 +11,28 @@ import { analizar } from '../src/client/render/escenario/analizar.js';
 import { RUTA_DEL_CATALOGO } from '../src/client/render/escenario/catalogo.js';
 import {
   APARTE,
+  colocarLadera,
   componentesDePasos,
+  hojaDeLadera,
+  juegoDeLadera,
+  juntasColocadas,
+  laderasEnfrentadas,
+  laderasMalCubiertas,
+  modulosDeLadera,
   paredesFueraDelPie,
   paredesSobreRampa,
   pasilloDeLaPared,
+  SOLAPE_DE_ESQUINA,
 } from '../src/client/render/escenario/colocar.js';
 import { azarDe, esparcir } from '../src/client/render/escenario/esparcir.js';
 import { ejeDe, esqueleto } from '../src/client/render/escenario/esqueleto.js';
 import { cajaDeSprite, Pasillo, tramoEnCaja } from '../src/client/render/escenario/pasillo.js';
 import {
+  ALTO_DE_NIVEL,
   bandaDeCara,
+  type Cara,
+  esquinas,
+  FRONTAL_DE_ESQUINA,
   HOLGURA_DE_RAMPA,
   nivelDeRegion,
   rampas,
@@ -37,7 +49,7 @@ import {
 } from '../src/client/render/escenario/sendas.js';
 import { newGame } from '../src/core/state/setup.js';
 import { leerCatalogo, textoDelCatalogo } from '../tools/taller/escenario/catalogo-disco.js';
-import { escenaDe } from './helpers.js';
+import { catalogoDelDisco, escenaDe } from './helpers.js';
 
 function franja(filas: readonly string[]): [number, number][] {
   const c: [number, number][] = [];
@@ -292,9 +304,12 @@ describe('el esparcido', () => {
 const RAIZ = resolve(import.meta.dirname, '..');
 
 describe('la escena de un mapa real', () => {
+  const catalogo = catalogoDelDisco();
   for (const semilla of [1, 3, 7, 9]) {
     const map = newGame({ seed: semilla }).map;
     const e = escenaDe(semilla);
+    // Las laderas no viajan en la escena: se sacan del relieve, como `componer`.
+    const { laderas } = relieve(analizar(map), semilla);
 
     it(`semilla ${semilla}: con el catálogo del repo no falta ningún módulo`, () => {
       expect(e.informe.modulosQueFaltan).toEqual([]);
@@ -355,8 +370,14 @@ describe('la escena de un mapa real', () => {
 
     it(`semilla ${semilla}: ninguna pared pisa la senda que baja ni la de junto a ella, y ninguna va cortada`, () => {
       // Recontado aquí, con la senda de junto a las rampas derivada otra vez de la escena.
-      const junto = rampas(e.relieve.caras, e.sendas).junto;
-      const pisan = paredesSobreRampa(e.sprites, pasilloDeLaPared(junto));
+      // Las laderas se miden también contra lo que baja por una ladera; la
+      // frontal, no (QA de #156, H2).
+      const { junto, juntoDeLadera } = rampas(e.relieve.caras, laderas, e.sendas);
+      const deLadera = modulosDeLadera(catalogo);
+      const pisan = paredesSobreRampa(e.sprites, pasilloDeLaPared(junto), {
+        pasillo: pasilloDeLaPared([...junto, ...juntoDeLadera]),
+        es: (s) => s.src !== null && deLadera.has(s.src),
+      });
       expect(pisan.map((s) => `${s.src} en ${s.x},${s.y}`)).toEqual([]);
       expect(e.informe.paredesSobreRampa).toBe(0);
       // Sin cortes rectos (decisión del usuario, 06-10-2026): una pared se
@@ -379,6 +400,84 @@ describe('la escena de un mapa real', () => {
       expect(peñascos.length).toBeGreaterThan(10);
       const pisan = peñascos.filter((s) => pasillo.pisa(cajaDeSprite(s), SEMIANCHO_DE_PARED));
       expect(pisan.map((s) => `${s.src} en ${s.x},${s.y}`)).toEqual([]);
+    });
+
+    // Las laderas (#156, §20): las de a mano están en `laderas.test.ts`.
+    const puestas = e.sprites.filter((s) => s.src?.includes('/laderas-') === true);
+
+    it(`semilla ${semilla}: las caídas al este y al oeste llevan ladera de su lado, con sus remates y esquinas`, () => {
+      for (const lado of ['este', 'oeste'])
+        expect(puestas.filter((s) => s.src?.includes(`-${lado}-`)).length).toBeGreaterThan(5);
+      for (const nombre of ['inicio', 'medio-', 'fin', 'esquina'])
+        expect(
+          puestas.some((s) => s.src?.includes(`/${nombre}`)),
+          nombre,
+        ).toBe(true);
+      expect(puestas.every((s) => s.clase === 'pared' && s.recorte === undefined)).toBe(true);
+    });
+
+    it(`semilla ${semilla}: ningún barranco de una casilla lleva laderas de los dos lados`, () => {
+      // Recontado desde los sprites: los pies de dos laderas enfrentadas en la
+      // misma casilla tapaban el agua del fondo (QA de #156, H1).
+      expect(laderasEnfrentadas(e.sprites, modulosDeLadera(catalogo))).toEqual([]);
+      expect(e.informe.laderasEnfrentadas).toBe(0);
+    });
+
+    it(`semilla ${semilla}: cada casilla de ladera lleva una ladera, los peñascos del canto o nada`, () => {
+      // Recontado aquí desde los sprites. Lo que el test no sabe es si en una
+      // casilla vacía cabía una ladera (las reservas viven en \`componer\`):
+      // eso lo cuenta solo el informe.
+      expect(
+        laderasMalCubiertas(e.sprites, laderas, modulosDeLadera(catalogo), () => false),
+      ).toEqual([]);
+      expect(e.informe.laderasMalCubiertas).toBe(0);
+      // Y hay de los tres: el recuento no pasa en blanco.
+      const deCanto = e.sprites.filter(
+        (s) => s.clase === 'roca' && s.src?.includes('/rocas-caidas/') === true,
+      );
+      expect(puestas.length).toBeGreaterThan(0);
+      expect(deCanto.length).toBeGreaterThan(0);
+    });
+
+    it(`semilla ${semilla}: ninguna frontal monta sobre la frontal de una esquina más de SOLAPE_DE_ESQUINA`, () => {
+      // La frontal de la esquina corre \`FRONTAL_DE_ESQUINA\` hacia la meseta
+      // desde el filo de la esquina puesta (sus juntas); la caja del sprite no
+      // sirve, que lleva el derrubio (de 0,89 a 1,3 casillas dentro de la cara).
+      const rel = relieve(analizar(map), semilla);
+      let vistas = 0;
+      for (const [k, es] of esquinas(rel.caras, laderas).entries())
+        for (const l of [es.oeste, es.este]) {
+          if (l === undefined) continue;
+          const c = rel.caras[k] as Cara;
+          const hoja = hojaDeLadera(l);
+          const m = juegoDeLadera(hoja, catalogo.hojas[hoja] ?? []).esquina;
+          const p = colocarLadera(m, l, l.y1);
+          const esquina = e.sprites.find((s) => s.src === m.src && s.x === p.x && s.y === p.y);
+          if (esquina === undefined) continue;
+          vistas++;
+          const borde = juntasColocadas(m, esquina).filo[0];
+          const pie = c.y + 1 + c.caida * ALTO_DE_NIVEL;
+          // Lo que cada frontal de la cara entra en la frontal de la esquina, por
+          // su ancla (que lleva hasta 0,05 de azar).
+          const montan = e.sprites
+            .filter(
+              (s) =>
+                s.src?.includes('/paredes-') === true &&
+                Math.abs(s.y - pie - 0.05) <= 0.07 &&
+                s.x >= c.x0 - 0.6 &&
+                s.x <= c.x1 + 1.6,
+            )
+            .map((s) => ({
+              s,
+              entra:
+                l.lado === 'este'
+                  ? s.x - (borde - FRONTAL_DE_ESQUINA)
+                  : borde + FRONTAL_DE_ESQUINA - s.x,
+            }))
+            .filter(({ entra }) => entra > SOLAPE_DE_ESQUINA + 0.051);
+          expect(montan.map(({ s, entra }) => `${s.src} en ${s.x}: ${entra}`)).toEqual([]);
+        }
+      expect(vistas).toBeGreaterThan(0);
     });
 
     it(`semilla ${semilla}: hay rampas, alguna en diagonal, y cada tajo cae en su cara y solo llega a un extremo si la senda pasa a la holgura de él`, () => {

@@ -55,12 +55,40 @@ export interface Cara {
   readonly material: string;
 }
 
+/**
+ * Una caída al este o al oeste en una columna, de norte a sur (#156): los
+ * cantos seguidos con la misma caída y el mismo material, cortados como las
+ * caras. La lleva una cadena de laderas.
+ */
+export interface Ladera {
+  /** La columna de las casillas altas: la pared cuelga de su borde este u oeste. */
+  readonly x: number;
+  /** De qué fila a qué fila (incluidas) corre. */
+  readonly y0: number;
+  readonly y1: number;
+  /** Hacia dónde cae: la cara mira hacia ahí. */
+  readonly lado: 'este' | 'oeste';
+  readonly caida: number;
+  readonly material: string;
+}
+
 export interface Relieve {
   readonly nivel: Int8Array;
   /** Caídas hacia el sur: se ve la cara. */
   readonly caras: readonly Cara[];
-  /** Caídas al este o al oeste, como `[x, y, lado]`: un canto y rocas. */
+  /**
+   * Las casillas de las caídas al este o al oeste, una a una, como
+   * `[x, y, lado]` (`cantosDe`): las de las `laderas` y las de los barrancos
+   * que se quitan de ellas. La franja difuminada que pinta el pintor bajo la
+   * ladera, y los peñascos donde no quedó ladera.
+   */
   readonly cantos: readonly (readonly [number, number, 'este' | 'oeste'])[];
+  /**
+   * Las caídas al este o al oeste en cadenas de norte a sur: lo que lleva la
+   * ladera. Sin las filas de un barranco de una casilla (`sinBarrancos`), que sí
+   * están en `cantos`.
+   */
+  readonly laderas: readonly Ladera[];
   /** Caídas hacia el norte (de espaldas): solo el reborde, como `[x, y]` de la casilla alta. */
   readonly rebordes: readonly (readonly [number, number])[];
 }
@@ -137,8 +165,20 @@ export function relieve(a: Analisis, semilla = 1): Relieve {
       }
   }
 
+  return { nivel, ...caidas(nivel, W, H, suelo) };
+}
+
+/**
+ * Las caídas de un relieve ya hecho: las caras, los cantos, los rebordes y las
+ * laderas. Separado del nivel para que un test lo mida sobre una rejilla a mano.
+ */
+export function caidas(
+  nivel: ArrayLike<number>,
+  W: number,
+  H: number,
+  suelo: readonly Suelo[],
+): Omit<Relieve, 'nivel'> {
   const caras: Cara[] = [];
-  const cantos: [number, number, 'este' | 'oeste'][] = [];
   const rebordes: [number, number][] = [];
   for (let y = 0; y < H; y++) {
     let tramo: { x0: number; caida: number; material: string } | null = null;
@@ -161,12 +201,192 @@ export function relieve(a: Analisis, semilla = 1): Relieve {
         }
       } else cerrar(x);
       if (y > 0 && aqui > (nivel[i - W] as number)) rebordes.push([x, y]);
-      if (x + 1 < W && aqui > (nivel[i + 1] as number)) cantos.push([x, y, 'este']);
-      if (x > 0 && aqui > (nivel[i - 1] as number)) cantos.push([x, y, 'oeste']);
     }
     cerrar(W);
   }
-  return { nivel, caras, cantos, rebordes };
+  const todas = laderasDe(nivel, W, H, suelo);
+  // Los cantos, de todas: el del barranco lleva sus peñascos, como antes de
+  // las laderas.
+  return { caras, cantos: cantosDe(todas), rebordes, laderas: sinBarrancos(todas) };
+}
+
+/**
+ * Las laderas sin las filas de un barranco de una casilla: una casilla baja
+ * entre dos altas, en la misma fila. Ahí la ladera este de la de su oeste y la
+ * oeste de la de su este bajan las dos hasta ella, sus pies caen en la misma
+ * casilla y se montan: el agua o el suelo del fondo desaparecía bajo una espina
+ * de roca doble, y lo bajo se leía como lo alto (QA de #156, H1: 212 casillas
+ * en las semillas 1-40, 136 de agua). No va ninguna de las dos, y el canto
+ * queda como antes de las laderas, con sus peñascos si caben. La cadena se
+ * parte por esa fila.
+ */
+function sinBarrancos(laderas: readonly Ladera[]): Ladera[] {
+  /** Las filas de cada casilla baja a la que cae una ladera, por lado, como `x,y`. */
+  const alPie = { este: new Set<string>(), oeste: new Set<string>() };
+  for (const l of laderas)
+    for (let y = l.y0; y <= l.y1; y++)
+      alPie[l.lado].add(`${l.lado === 'este' ? l.x + 1 : l.x - 1},${y}`);
+  const fuera: Ladera[] = [];
+  for (const l of laderas) {
+    const opuesto = alPie[l.lado === 'este' ? 'oeste' : 'este'];
+    const bajo = l.lado === 'este' ? l.x + 1 : l.x - 1;
+    let y0: number | null = null;
+    for (let y = l.y0; y <= l.y1 + 1; y++) {
+      const sigue = y <= l.y1 && !opuesto.has(`${bajo},${y}`);
+      if (sigue && y0 === null) y0 = y;
+      if (!sigue && y0 !== null) {
+        fuera.push(y0 === l.y0 && y - 1 === l.y1 ? l : { ...l, y0, y1: y - 1 });
+        y0 = null;
+      }
+    }
+  }
+  return fuera;
+}
+
+/**
+ * Las casillas de las laderas, una a una: los cantos. Salen de ellas y no de
+ * otro recorrido, que con su propia condición podía dejar de casar con las
+ * laderas (`componer` pone peñascos en el canto que no lleva ladera, y volvían
+ * bajo las laderas sin que nada avisara). En el orden de la rejilla, fila a
+ * fila y el este antes que el oeste: el azar de los peñascos va en ese orden.
+ */
+function cantosDe(laderas: readonly Ladera[]): [number, number, 'este' | 'oeste'][] {
+  return laderas
+    .flatMap((l) =>
+      Array.from({ length: l.y1 - l.y0 + 1 }, (_, k): [number, number, 'este' | 'oeste'] => [
+        l.x,
+        l.y0 + k,
+        l.lado,
+      ]),
+    )
+    .sort((p, q) => p[1] - q[1] || p[0] - q[0] || (p[2] === q[2] ? 0 : p[2] === 'este' ? -1 : 1));
+}
+
+/** Las cadenas de cantos de norte a sur, cortadas donde cambia la caída o el material. */
+function laderasDe(
+  nivel: ArrayLike<number>,
+  W: number,
+  H: number,
+  suelo: readonly Suelo[],
+): Ladera[] {
+  const fuera: Ladera[] = [];
+  for (const lado of ['este', 'oeste'] as const) {
+    const dx = lado === 'este' ? 1 : -1;
+    for (let x = 0; x < W; x++) {
+      if (x + dx < 0 || x + dx >= W) continue;
+      let tramo: { y0: number; caida: number; material: string } | null = null;
+      const cerrar = (y: number) => {
+        if (tramo !== null) fuera.push({ x, y1: y - 1, lado, ...tramo });
+        tramo = null;
+      };
+      for (let y = 0; y < H; y++) {
+        const i = y * W + x;
+        const caida = (nivel[i] as number) - (nivel[i + dx] as number);
+        if (caida <= 0) {
+          cerrar(y);
+          continue;
+        }
+        const material = CARA_DE_SUELO[suelo[i] as Suelo];
+        const t = tramo as { y0: number; caida: number; material: string } | null;
+        if (t === null || t.caida !== caida || t.material !== material) {
+          cerrar(y);
+          tramo = { y0: y, caida, material };
+        }
+      }
+      cerrar(H);
+    }
+  }
+  return fuera;
+}
+
+/**
+ * Lo que el pie de una ladera se aparta de su filo, en casillas, por caída: en
+ * la proyección del mapa una pared que mira al este no se vería, y cae en
+ * talud. Es el contrato de junta de las guías del arte (`tools/taller/laderas.ts`,
+ * §20), que lo leen de aquí. Una caída de más de 3 lleva el de 3.
+ */
+export const TALUD_DE_LADERA: Readonly<Record<1 | 2 | 3, number>> = { 1: 0.45, 2: 0.65, 3: 0.85 };
+
+/** Las laderas no tienen arte de más de 3 niveles: una caída mayor usa la hoja de 3. */
+export const caidaDeLadera = (caida: number): 1 | 2 | 3 => (caida >= 3 ? 3 : caida <= 1 ? 1 : 2);
+
+/**
+ * Lo que corre hacia la meseta la pared frontal de una esquina de ladera, en
+ * casillas, desde el borde de la casilla: lo dibuja así la guía (§20), y la
+ * frontal de la cara para ahí.
+ */
+export const FRONTAL_DE_ESQUINA = 0.85;
+
+/** El filo de una ladera, en x: el borde este u oeste de su columna alta. */
+export const bordeDeLadera = (l: Ladera): number => (l.lado === 'este' ? l.x + 1 : l.x);
+
+/**
+ * El pie de la ladera `l` bajo su fila `fila`, en casillas: a lo que se aparta
+ * su talud del filo y `caida` niveles bajo el borde de abajo de la fila. Ahí
+ * acaba la junta sur del módulo que cubre esa fila; lo leen la banda de la
+ * ladera, quien la coloca (`colocarLadera`) y quien mide que está en su sitio.
+ */
+export function pieDeLadera(l: Ladera, fila: number): readonly [number, number] {
+  const talud = TALUD_DE_LADERA[caidaDeLadera(l.caida)];
+  return [
+    bordeDeLadera(l) + (l.lado === 'este' ? talud : -talud),
+    fila + 1 + l.caida * ALTO_DE_NIVEL,
+  ];
+}
+
+/**
+ * La banda que ocupa una ladera, en casillas: del filo a lo que se aparta su
+ * talud, y de su primera fila al pie de la última.
+ */
+export function bandaDeLadera(l: Ladera): Caja {
+  const borde = bordeDeLadera(l);
+  const [x, pie] = pieDeLadera(l, l.y1);
+  return [Math.min(borde, x), l.y0, Math.max(borde, x), pie];
+}
+
+/** Las laderas que empalman en esquina con una cara, por su extremo (#156). */
+export interface EsquinasDeCara {
+  /** La que cae al oeste desde su primera columna. */
+  readonly oeste: Ladera | undefined;
+  /** La que cae al este desde su última columna. */
+  readonly este: Ladera | undefined;
+}
+
+/**
+ * Las esquinas del relieve, por índice de cara: una ladera cuya última casilla
+ * es el extremo de una cara al sur con la misma caída y el mismo material. Ahí
+ * va la pieza de esquina, la frontal que gira y sube hacia el fondo, y la cara
+ * deja de poner pared frontal donde la pone la esquina. Con otra caída no hay
+ * esquina: la de una caída no empalma con una cara de otra.
+ *
+ * Una cara de una sola casilla con ladera a los dos lados lleva una sola, la
+ * del este: dos esquinas en la misma casilla se pisan la frontal.
+ *
+ * Es el único sitio donde se decide: lo leen la pasada de las laderas y la de
+ * las caras.
+ */
+export function esquinas(caras: readonly Cara[], laderas: readonly Ladera[]): EsquinasDeCara[] {
+  const clave = (x: number, y: number, lado: string, caida: number, material: string) =>
+    `${x},${y},${lado},${caida},${material}`;
+  const extremos = new Map<string, number>();
+  for (const [k, c] of caras.entries()) {
+    extremos.set(clave(c.x0, c.y, 'oeste', c.caida, c.material), k);
+    extremos.set(clave(c.x1, c.y, 'este', c.caida, c.material), k);
+  }
+  const fuera: { oeste: Ladera | undefined; este: Ladera | undefined }[] = caras.map(() => ({
+    oeste: undefined,
+    este: undefined,
+  }));
+  for (const l of laderas) {
+    const k = extremos.get(clave(l.x, l.y1, l.lado, l.caida, l.material));
+    const e = k === undefined ? undefined : fuera[k];
+    if (e !== undefined) e[l.lado] = l;
+  }
+  for (const [k, e] of fuera.entries()) {
+    const c = caras[k] as Cara;
+    if (c.x0 === c.x1 && e.este !== undefined) e.oeste = undefined;
+  }
+  return fuera;
 }
 
 /** La banda que pinta una cara, en casillas: de su filo, `y + 1`, a su pie, `caida` niveles más abajo. */
@@ -194,7 +414,8 @@ export interface PieDeCara {
  * acababa de pie en el río, una casilla bajo su acantilado (#150, N1).
  */
 export function pieDeCara(c: Cara, caras: readonly Cara[]): PieDeCara {
-  const pie = c.y + 1 + c.caida * ALTO_DE_NIVEL;
+  const pieDe = (o: Cara) => o.y + 1 + o.caida * ALTO_DE_NIVEL;
+  const pie = pieDe(c);
   const sigue = (x: number) =>
     caras.find(
       (o) => Math.abs(o.y - c.y) === 1 && o.x0 <= x && x <= o.x1 && o.material === c.material,
@@ -205,12 +426,53 @@ export function pieDeCara(c: Cara, caras: readonly Cara[]): PieDeCara {
     pie,
     izquierda,
     derecha,
+    // Hacia el pie de la de al lado, no una fila por casilla: con otra caída
+    // (una escalera de 2 que sigue por una de 1) bajaba 0,4 de más por casilla,
+    // y la frontal que seguía por la escalera acababa en el pie de la cara de
+    // debajo, montada sobre su esquina (s7 x5 y18, al quitar los barrancos).
     en: (x) => {
-      if (derecha !== undefined && x > c.x1) return pie + (derecha.y - c.y) * (x - c.x1);
+      if (derecha !== undefined && x > c.x1) return pie + (pieDe(derecha) - pie) * (x - c.x1);
       if (izquierda !== undefined && x < c.x0 + 1)
-        return pie + (izquierda.y - c.y) * (c.x0 + 1 - x);
+        return pie + (pieDe(izquierda) - pie) * (c.x0 + 1 - x);
       return pie;
     },
+  };
+}
+
+/**
+ * Cómo acaba la pared frontal de una cara por un extremo:
+ *
+ * - `esquina`: en la suya, que trae su propia frontal;
+ * - `esquina-vecina`: la cara de la fila de al lado sigue donde esta acaba
+ *   (`pieDeCara`), pero empieza en su esquina, que ya sube hasta aquí: seguir
+ *   la ponía encima (una escalera de esquinas);
+ * - `sigue`: la cara de al lado sigue, y la frontal sigue por ella;
+ * - `suelto`: no sigue nada.
+ */
+export type Tope = 'esquina' | 'esquina-vecina' | 'sigue' | 'suelto';
+
+/**
+ * Los dos topes de la cara `k` (`Tope`), con las esquinas que de verdad entraron
+ * (`puestas`, por índice de cara: una esquina que no cabe no para nada).
+ */
+export function topesDeCara(
+  k: number,
+  caras: readonly Cara[],
+  puestas: readonly { readonly oeste: boolean; readonly este: boolean }[],
+): { readonly oeste: Tope; readonly este: Tope } {
+  const { izquierda, derecha } = pieDeCara(caras[k] as Cara, caras);
+  const tope = (propia: boolean, vecina: Cara | undefined, suExtremo: 'oeste' | 'este'): Tope =>
+    propia
+      ? 'esquina'
+      : vecina === undefined
+        ? 'suelto'
+        : puestas[caras.indexOf(vecina)]?.[suExtremo] === true
+          ? 'esquina-vecina'
+          : 'sigue';
+  const p = puestas[k];
+  return {
+    oeste: tope(p?.oeste === true, izquierda, 'este'),
+    este: tope(p?.este === true, derecha, 'oeste'),
   };
 }
 
@@ -273,15 +535,57 @@ export const RAMPA_MINIMA = 0.25;
  */
 export const ENTORNO_DE_RAMPA = 1.5;
 
+/**
+ * El entorno de lo que baja por una ladera, en casillas: menos que el de una
+ * cara. La ladera es estrecha (su talud, de 0,45 a 0,85) y no abre tajo; con
+ * `ENTORNO_DE_RAMPA` cada senda que bajaba por un canto quitaba también las
+ * laderas y las frontales de casilla y media alrededor. Medido en las semillas
+ * 1-40 (07-10-2026): con 1,5, 3 563 casillas de canto con ladera; con 0,5,
+ * 3 731, y los cuatro guardias a 0 con los dos.
+ */
+export const ENTORNO_DE_LADERA = 0.5;
+
 /** Lo que se tolera al comparar puntos recortados, en casillas. */
 const EPS = 1e-6;
 
-/** Los trozos de `s` que caen en la caja: uno nuevo cada vez que sale y vuelve a entrar. */
-function trozosEnCaja(s: Senda, [x0, y0, x1, y1]: Caja): [number, number][][] {
+/** La caja de cada tramo de una senda, `[x0, y0, x1, y1]` seguidas: lo que mira `trozosEnCaja` antes de recortar. */
+function cajasDeTramos(s: Senda): Float64Array {
+  const c = new Float64Array(Math.max(0, s.length - 1) * 4);
+  for (let i = 0; i + 1 < s.length; i++) {
+    const [ax, ay] = s[i] as readonly [number, number];
+    const [bx, by] = s[i + 1] as readonly [number, number];
+    c[i * 4] = Math.min(ax, bx);
+    c[i * 4 + 1] = Math.min(ay, by);
+    c[i * 4 + 2] = Math.max(ax, bx);
+    c[i * 4 + 3] = Math.max(ay, by);
+  }
+  return c;
+}
+
+/**
+ * Los trozos de `s` que caen en la caja: uno nuevo cada vez que sale y vuelve a
+ * entrar. Con las cajas de sus tramos (`cajasDeTramos`) se salta sin recortar
+ * el que no toca la caja ni por su caja.
+ */
+function trozosEnCaja(
+  s: Senda,
+  [x0, y0, x1, y1]: Caja,
+  cajas?: Float64Array,
+): [number, number][][] {
   const fuera: [number, number][][] = [];
   let actual: [number, number][] | undefined;
   const t: [number, number] = [0, 0];
   for (let i = 0; i + 1 < s.length; i++) {
+    if (
+      cajas !== undefined &&
+      ((cajas[i * 4] as number) > x1 ||
+        (cajas[i * 4 + 1] as number) > y1 ||
+        (cajas[i * 4 + 2] as number) < x0 ||
+        (cajas[i * 4 + 3] as number) < y0)
+    ) {
+      actual = undefined;
+      continue;
+    }
     const [ax, ay] = s[i] as readonly [number, number];
     const [bx, by] = s[i + 1] as readonly [number, number];
     if (!tramoEnCaja(ax, ay, bx, by, x0, y0, x1, y1, t)) {
@@ -326,10 +630,19 @@ export interface Bajadas {
   readonly porCara: readonly (readonly Rampa[])[];
   /**
    * La senda que baja por alguna cara —abra tajo o solo roce una esquina— y
-   * toda la que pasa a menos de `ENTORNO_DE_RAMPA` de lo que baja. Ninguna pared, de
-   * esa cara o de otra, la pisa (`SEMIANCHO_DE_PARED`): se encoge o se quita.
+   * toda la que pasa a menos de `ENTORNO_DE_RAMPA` de lo que baja. Ninguna
+   * pared, de esa cara o de otra, la pisa (`SEMIANCHO_DE_PARED`): se encoge o
+   * se quita.
    */
   readonly junto: readonly Senda[];
+  /**
+   * La senda que baja por una ladera y la que pasa a menos de
+   * `ENTORNO_DE_LADERA` de ella. Solo la apartan las laderas, que tampoco
+   * pisan `junto`. La frontal de una cara no: al pie de una cara ajena, la
+   * senda que acaba de bajar por un canto le quitaba la pared y la dejaba lisa,
+   * con sus bordes rectos (QA de #156, H2: s19 x27 y5).
+   */
+  readonly juntoDeLadera: readonly Senda[];
 }
 
 /**
@@ -340,7 +653,9 @@ export interface Bajadas {
  * de una misma senda que se tocan —pasa de una cara a la de al lado sin salir
  * de las bandas, como en un acantilado en escalera— forman una cadena, y la
  * cadena baja si alguno toca el filo: la senda viene de arriba. La que solo
- * corre por el pie no baja y no abre nada.
+ * corre por el pie no baja y no abre nada. Lo que baja por una ladera
+ * (`bandaDeLadera`, con su filo al lado alto) no abre tajo: cuenta para
+ * `juntoDeLadera`.
  *
  * El tajo de cada trozo es lo que ocupa en x más `HOLGURA_DE_RAMPA` por lado,
  * dentro de la cara. Solo llega a un extremo si la senda sale por él o pasa
@@ -348,18 +663,29 @@ export interface Bajadas {
  * de una casilla no se queda pelado. Lo que corre menos de `RAMPA_MINIMA` por
  * su cara no abre tajo.
  */
-export function rampas(caras: readonly Cara[], sendas: readonly Senda[]): Bajadas {
+export function rampas(
+  caras: readonly Cara[],
+  laderas: readonly Ladera[],
+  sendas: readonly Senda[],
+): Bajadas {
   const bandas = caras.map(bandaDeCara);
   const porCara: Senda[][] = caras.map(() => []);
-  /** Alrededor de cada cadena que baja, hasta `ENTORNO_DE_RAMPA`. */
+  /** Alrededor de cada cadena que baja por las caras, hasta `ENTORNO_DE_RAMPA`. */
   const entornos: Caja[] = [];
-  for (const s of sendas) {
-    // Casi todas las sendas quedan lejos de casi todas las caras.
-    const [sx0, sy0, sx1, sy1] = cajaDe(s);
+  /** Alrededor de cada trozo que baja por una ladera, hasta `ENTORNO_DE_LADERA`. */
+  const entornosDeLadera: Caja[] = [];
+  // Casi todas las sendas quedan lejos de casi todas las caras y laderas, y
+  // cruzan una por unos pocos de sus tramos: se descartan por su caja antes de
+  // recortarlos. Con las laderas, recortar cada senda entera por cada una que
+  // tocaba su caja costaba 0,8 ms por mapa (07-10-2026).
+  const cajas = sendas.map(cajaDe);
+  const tramos = sendas.map(cajasDeTramos);
+  for (const [k, s] of sendas.entries()) {
+    const [sx0, sy0, sx1, sy1] = cajas[k] as Caja;
     const trozos = bandas.flatMap((banda, cara) => {
       const [x0, y0, x1, y1] = banda;
       if (sx0 > x1 || sx1 < x0 || sy0 > y1 || sy1 < y0) return [];
-      return trozosEnCaja(s, banda).map((puntos) => ({ cara, puntos }));
+      return trozosEnCaja(s, banda, tramos[k]).map((puntos) => ({ cara, puntos }));
     });
     // Las cadenas: trozos de esta senda con un extremo común.
     const raiz = trozos.map((_, i) => i);
@@ -392,6 +718,34 @@ export function rampas(caras: readonly Cara[], sendas: readonly Senda[]): Bajada
       entornos.push([x0 - e, y0 - e, x1 + e, y1 + e]);
     }
   }
+  // Lo que baja por una ladera (#156) no abre tajo —no hay cara pintada que
+  // recortar— pero aparta las laderas: su entorno entra en `juntoDeLadera`. Cada
+  // trozo por su cuenta, sin encadenarlo con las caras: una senda que baja por
+  // un canto y sigue al pie de una cara no baja por esa cara, y encadenada le
+  // abría un tajo.
+  //
+  for (const l of laderas) {
+    const banda = bandaDeLadera(l);
+    const [x0, y0, x1, y1] = banda;
+    // El filo es el lado alto, a lo largo de sus casillas: más abajo la banda
+    // es el pie que cuelga, y lo que pasa por ahí no viene de la meseta.
+    const enElFilo = ([x, y]: readonly [number, number]) =>
+      y <= l.y1 + 1 + EPS && (l.lado === 'este' ? x <= x0 + EPS : x >= x1 - EPS);
+    for (const [k, s] of sendas.entries()) {
+      const [sx0, sy0, sx1, sy1] = cajas[k] as Caja;
+      if (sx0 > x1 || sx1 < x0 || sy0 > y1 || sy1 < y0) continue;
+      for (const trozo of trozosEnCaja(s, banda, tramos[k])) {
+        if (!trozo.some(enElFilo)) continue;
+        const [tx0, ty0, tx1, ty1] = cajaDe(trozo);
+        entornosDeLadera.push([
+          tx0 - ENTORNO_DE_LADERA,
+          ty0 - ENTORNO_DE_LADERA,
+          tx1 + ENTORNO_DE_LADERA,
+          ty1 + ENTORNO_DE_LADERA,
+        ]);
+      }
+    }
+  }
   const tajos = porCara.map((trazos, k) => tajosDe(caras[k] as Cara, trazos));
   // Toda senda que pasa por el entorno de lo que baja, no solo la que baja: en
   // un cruce junto a la rampa (una mina al pie, s8) la senda sigue por otra.
@@ -408,15 +762,16 @@ export function rampas(caras: readonly Cara[], sendas: readonly Senda[]): Bajada
     bandas.some(
       ([x0, y0, x1, y1], k) => tajos[k]?.length === 0 && x > x0 && x < x1 && y > y0 && y < y1,
     ) && !cercaDeUnTajo.some(([x0, y0, x1, y1]) => x > x0 && x < x1 && y > y0 && y < y1);
-  const junto = sendas.flatMap((s) => {
-    const [sx0, sy0, sx1, sy1] = cajaDe(s);
-    return entornos.flatMap((caja) => {
-      const [x0, y0, x1, y1] = caja;
-      if (sx0 > x1 || sx1 < x0 || sy0 > y1 || sy1 < y0) return [];
-      return trozosEnCaja(s, caja).flatMap((t) => sinLoTapado(t, tapada));
+  const juntoA = (alrededor: readonly Caja[]) =>
+    sendas.flatMap((s, k) => {
+      const [sx0, sy0, sx1, sy1] = cajas[k] as Caja;
+      return alrededor.flatMap((caja) => {
+        const [x0, y0, x1, y1] = caja;
+        if (sx0 > x1 || sx1 < x0 || sy0 > y1 || sy1 < y0) return [];
+        return trozosEnCaja(s, caja, tramos[k]).flatMap((t) => sinLoTapado(t, tapada));
+      });
     });
-  });
-  return { junto, porCara: tajos };
+  return { junto: juntoA(entornos), juntoDeLadera: juntoA(entornosDeLadera), porCara: tajos };
 }
 
 /**

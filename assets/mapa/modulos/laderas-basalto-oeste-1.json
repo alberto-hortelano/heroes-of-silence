@@ -9,7 +9,19 @@
       "ancla": [
         47,
         315
-      ]
+      ],
+      "ladera": {
+        "filo": [
+          136,
+          7
+        ],
+        "pie": [
+          52,
+          306
+        ],
+        "largo": 1,
+        "papel": "inicio"
+      }
     },
     {
       "imagen": "medio-a.webp",
@@ -19,7 +31,19 @@
       "ancla": [
         44,
         308
-      ]
+      ],
+      "ladera": {
+        "filo": [
+          131,
+          4
+        ],
+        "pie": [
+          47,
+          303
+        ],
+        "largo": 1,
+        "papel": "medio"
+      }
     },
     {
       "imagen": "medio-b.webp",
@@ -29,7 +53,19 @@
       "ancla": [
         46,
         325
-      ]
+      ],
+      "ladera": {
+        "filo": [
+          137,
+          14
+        ],
+        "pie": [
+          52,
+          313
+        ],
+        "largo": 1,
+        "papel": "medio"
+      }
     },
     {
       "imagen": "medio-c.webp",
@@ -39,7 +75,19 @@
       "ancla": [
         44,
         321
-      ]
+      ],
+      "ladera": {
+        "filo": [
+          124,
+          11
+        ],
+        "pie": [
+          40,
+          310
+        ],
+        "largo": 1,
+        "papel": "medio"
+      }
     },
     {
       "imagen": "largo-a.webp",
@@ -49,7 +97,19 @@
       "ancla": [
         59,
         540
-      ]
+      ],
+      "ladera": {
+        "filo": [
+          146,
+          23
+        ],
+        "pie": [
+          62,
+          509
+        ],
+        "largo": 2,
+        "papel": "largo"
+      }
     },
     {
       "imagen": "largo-b.webp",
@@ -59,7 +119,19 @@
       "ancla": [
         42,
         543
-      ]
+      ],
+      "ladera": {
+        "filo": [
+          136,
+          19
+        ],
+        "pie": [
+          52,
+          505
+        ],
+        "largo": 2,
+        "papel": "largo"
+      }
     },
     {
       "imagen": "fin.webp",
@@ -69,7 +141,19 @@
       "ancla": [
         104,
         396
-      ]
+      ],
+      "ladera": {
+        "filo": [
+          150,
+          17
+        ],
+        "pie": [
+          66,
+          316
+        ],
+        "largo": 1,
+        "papel": "fin"
+      }
     },
     {
       "imagen": "esquina.webp",
@@ -79,7 +163,19 @@
       "ancla": [
         185,
         360
-      ]
+      ],
+      "ladera": {
+        "filo": [
+          128,
+          22
+        ],
+        "pie": [
+          44,
+          321
+        ],
+        "largo": 1,
+        "papel": "esquina"
+      }
     }
   ]
 }

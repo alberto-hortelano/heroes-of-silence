@@ -20,6 +20,7 @@ import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import { basename } from 'node:path';
 import sharp from 'sharp';
+import type { JuntasDeLadera } from '../../src/client/render/escenario/catalogo.js';
 import {
   CLIPS_DE_FIGURA,
   type ClipDeFigura,
@@ -27,6 +28,8 @@ import {
   FILAS_DEL_ATLAS,
 } from '../../src/shared/arte.js';
 import { ALFA_FIGURA, apoyoEn } from './empaquetar.js';
+import type { GeometriaDeLadera } from './laderas.js';
+import { esFondoDeGuia } from './paredes-puentes.js';
 
 /** Las filas de una hoja del taller, en orden, con su reloj. El reloj no sale de la imagen. */
 export const RELOJ = {
@@ -344,6 +347,184 @@ export async function derivarPieza(rutaImagen: string): Promise<PiezaDerivada> {
     alto: info.height,
     ancla: [xs[Math.floor(xs.length / 2)] as number, y1],
     derivadoPor: 'tools/taller/derivar.ts',
+  };
+}
+
+/** Lo que `registrarLadera` lee de una pieza de la guía: su caja y sus juntas (`laderas.ts`). */
+export type PiezaDeGuia = Pick<GeometriaDeLadera, 'nombre' | 'filoNorte' | 'pieSur' | 'caja'>;
+
+/** La silueta de una guía: lo que no es su fondo (`esFondoDeGuia`). */
+export interface MascaraDeGuia {
+  readonly ancho: number;
+  readonly alto: number;
+  readonly dentro: Uint8Array;
+}
+
+export async function mascaraDeGuia(rutaPng: string): Promise<MascaraDeGuia> {
+  const { data, info } = await sharp(await readFile(rutaPng))
+    .removeAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const dentro = new Uint8Array(info.width * info.height);
+  for (let i = 0; i < dentro.length; i++)
+    dentro[i] = esFondoDeGuia(
+      data[i * 3] as number,
+      data[i * 3 + 1] as number,
+      data[i * 3 + 2] as number,
+    )
+      ? 0
+      : 1;
+  return { ancho: info.width, alto: info.height, dentro };
+}
+
+/** FFT compleja en el sitio, radix 2: `re` e `im` miden una potencia de 2, con paso `paso` desde `desde`. */
+function fft(
+  re: Float64Array,
+  im: Float64Array,
+  n: number,
+  desde: number,
+  paso: number,
+  inversa: boolean,
+) {
+  for (let i = 1, j = 0; i < n; i++) {
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) {
+      const a = desde + i * paso;
+      const b = desde + j * paso;
+      [re[a], re[b]] = [re[b] as number, re[a] as number];
+      [im[a], im[b]] = [im[b] as number, im[a] as number];
+    }
+  }
+  for (let largo = 2; largo <= n; largo <<= 1) {
+    const ang = ((inversa ? 2 : -2) * Math.PI) / largo;
+    const wr = Math.cos(ang);
+    const wi = Math.sin(ang);
+    for (let i = 0; i < n; i += largo) {
+      let cr = 1;
+      let ci = 0;
+      for (let k = 0; k < largo / 2; k++) {
+        const a = desde + (i + k) * paso;
+        const b = a + (largo / 2) * paso;
+        const br = (re[b] as number) * cr - (im[b] as number) * ci;
+        const bi = (re[b] as number) * ci + (im[b] as number) * cr;
+        re[b] = (re[a] as number) - br;
+        im[b] = (im[a] as number) - bi;
+        re[a] = (re[a] as number) + br;
+        im[a] = (im[a] as number) + bi;
+        const t = cr * wr - ci * wi;
+        ci = cr * wi + ci * wr;
+        cr = t;
+      }
+    }
+  }
+}
+
+function fft2(re: Float64Array, im: Float64Array, w: number, h: number, inversa: boolean) {
+  for (let y = 0; y < h; y++) fft(re, im, w, y * w, 1, inversa);
+  for (let x = 0; x < w; x++) fft(re, im, h, x, w, inversa);
+}
+
+const potencia = (n: number) => {
+  let p = 1;
+  while (p < n) p <<= 1;
+  return p;
+};
+
+/**
+ * Dónde cae la guía en un módulo de ladera ya pintado (§20, #156): el filo norte
+ * y el pie sur de su pieza, en píxeles del módulo. El pintor respeta la escala
+ * de la guía pero no su sitio —en las 24 hojas, hasta 104 px de lo que diría
+ * alinear las cajas—, así que se busca el desplazamiento que más solapa las dos
+ * siluetas: la de la guía dentro de la caja de su pieza y lo opaco del módulo.
+ *
+ * Es una correlación lineal por FFT sobre la caja de la pieza (de dónde sale y
+ * en qué difiere de la maqueta de la §20: `docs/historia.md`, #156). Una
+ * búsqueda de grueso a fino, más barata, caía en otro sitio en 85 de los 192
+ * módulos.
+ *
+ * Tarda ~0,35 s por módulo: corre en `pnpm taller derivar-laderas`, que lo
+ * apunta en el índice de la hoja, no en cada lectura del catálogo.
+ */
+export async function registrarLadera(
+  rutaModulo: string,
+  guia: MascaraDeGuia,
+  pieza: PiezaDeGuia,
+): Promise<Pick<JuntasDeLadera, 'filo' | 'pie'>> {
+  const { data, info } = await sharp(await readFile(rutaModulo))
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const [cx0, cy0, cx1, cy1] = pieza.caja;
+  const cw = cx1 - cx0 + 1;
+  const ch = cy1 - cy0 + 1;
+  const W = potencia(cw + info.width - 1);
+  const H = potencia(ch + info.height - 1);
+  const gr = new Float64Array(W * H);
+  const gi = new Float64Array(W * H);
+  const mr = new Float64Array(W * H);
+  const mi = new Float64Array(W * H);
+  let algo = false;
+  for (let y = 0; y < ch; y++)
+    for (let x = 0; x < cw; x++) {
+      const gx = cx0 + x;
+      const gy = cy0 + y;
+      if (gx < guia.ancho && gy < guia.alto && guia.dentro[gy * guia.ancho + gx] === 1) {
+        gr[y * W + x] = 1;
+        algo = true;
+      }
+    }
+  if (!algo) throw new Error(`la pieza «${pieza.nombre}» no tiene silueta en su caja de la guía`);
+  for (let y = 0; y < info.height; y++)
+    for (let x = 0; x < info.width; x++)
+      if ((data[(y * info.width + x) * 4 + 3] as number) >= ALFA_FIGURA) mr[y * W + x] = 1;
+  fft2(gr, gi, W, H, false);
+  fft2(mr, mi, W, H, false);
+  // G · conj(M): la correlación c[o] = Σ G[p + o] · M[p].
+  for (let k = 0; k < W * H; k++) {
+    const a = gr[k] as number;
+    const b = gi[k] as number;
+    const c = mr[k] as number;
+    const d = -(mi[k] as number);
+    gr[k] = a * c - b * d;
+    gi[k] = a * d + b * c;
+  }
+  fft2(gr, gi, W, H, true);
+  // El módulo suele ser más grande que la silueta de la guía (el pintor añade
+  // peñascos y derrubio), y la silueta cabe entera en toda una meseta de
+  // desplazamientos con el mismo solape, de hasta 40 px: cualquier máximo lo
+  // elegiría el ruido de la FFT. Se toma el centro de la meseta. El solape va
+  // redondeado: son cuentas de píxeles.
+  let max = -1;
+  let n = 0;
+  let sx = 0;
+  let sy = 0;
+  for (let oy = -info.height + 1; oy < ch; oy++) {
+    const iy = oy < 0 ? oy + H : oy;
+    for (let ox = -info.width + 1; ox < cw; ox++) {
+      const ix = ox < 0 ? ox + W : ox;
+      const v = Math.round((gr[iy * W + ix] as number) / (W * H));
+      if (v > max) {
+        max = v;
+        n = 0;
+        sx = 0;
+        sy = 0;
+      }
+      if (v === max) {
+        n++;
+        sx += ox;
+        sy += oy;
+      }
+    }
+  }
+  const o = [Math.round(sx / n), Math.round(sy / n)] as const;
+  // Punto del módulo = punto de la guía − desplazamiento.
+  const ox = o[0] + cx0;
+  const oy = o[1] + cy0;
+  return {
+    filo: [pieza.filoNorte[0] - ox, pieza.filoNorte[1] - oy],
+    pie: [pieza.pieSur[0] - ox, pieza.pieSur[1] - oy],
   };
 }
 

@@ -28,7 +28,7 @@ import {
 import { copiaReducidaSiCabe } from '../copias.js';
 import { pigments } from '../terreno.js';
 import type { MapaDeEscena } from './analizar.js';
-import type { Catalogo } from './catalogo.js';
+import { type Catalogo, catalogoValidado } from './catalogo.js';
 import { componer, type Escena, type Sprite } from './colocar.js';
 import { horneado } from './horneado.js';
 import { cajaDeSprite } from './pasillo.js';
@@ -46,9 +46,10 @@ import { type MensajeDelSuelo, type PeticionDelSuelo, pintarSueloA } from './pin
 /**
  * El catálogo de `assets/mapa/escena.json`, que rehace `pnpm taller
  * catalogo-escena` (un test comprueba que está al día). Va dentro del guion: son
- * 60 KB y `componer` lo necesita antes del primer fotograma.
+ * 60 KB y `componer` lo necesita antes del primer fotograma. Se comprueba al
+ * cargarlo (`catalogoValidado`): una ladera sin sus juntas lanza aquí.
  */
-const CATALOGO: Catalogo = catalogoDelRepo;
+const CATALOGO: Catalogo = catalogoValidado(catalogoDelRepo);
 
 /**
  * Píxeles por casilla de la superficie del suelo: los del zoom máximo en la

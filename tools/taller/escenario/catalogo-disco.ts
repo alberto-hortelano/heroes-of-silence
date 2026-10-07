@@ -9,8 +9,15 @@
  */
 import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import type { Catalogo, Modulo, Pieza } from '../../../src/client/render/escenario/catalogo.js';
-import { RUTA_DEL_CATALOGO } from '../../../src/client/render/escenario/catalogo.js';
+import {
+  type Catalogo,
+  type CatalogoEnBruto,
+  catalogoValidado,
+  type JuntasDeLadera,
+  type Modulo,
+  type Pieza,
+  RUTA_DEL_CATALOGO,
+} from '../../../src/client/render/escenario/catalogo.js';
 import { derivarPieza } from '../derivar.js';
 
 const RAIZ = resolve(import.meta.dirname, '../../..');
@@ -25,6 +32,8 @@ interface IndiceDeHoja {
     readonly ancho: number;
     readonly alto: number;
     readonly ancla: readonly [number, number];
+    /** Solo las laderas (§20): `pnpm taller derivar-laderas` las lleva de la guía al módulo. */
+    readonly ladera?: JuntasDeLadera;
   }[];
 }
 
@@ -36,11 +45,19 @@ interface PiezaDerivadaEnDisco {
 
 const porNombre = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
+/**
+ * Las hojas que siguen en disco pero el juego ya no usa: las laterales de la
+ * vuelta 1 de #156 (§18), que sustituyeron las laderas (§20). No se borran sin
+ * preguntar; así no viajan en el catálogo.
+ */
+const RETIRADAS = /^laterales-/;
+
 export async function leerCatalogo(): Promise<Catalogo> {
   const hojas: Record<string, Modulo[]> = {};
   for (const f of (await readdir(join(MAPA, 'modulos'))).sort(porNombre)) {
     if (!f.endsWith('.json') || f.endsWith('.procedencia.json')) continue;
     const hoja = f.slice(0, -'.json'.length);
+    if (RETIRADAS.test(hoja)) continue;
     const j = JSON.parse(await readFile(join(MAPA, 'modulos', f), 'utf8')) as IndiceDeHoja;
     hojas[hoja] = j.modulos
       .map((m) => ({
@@ -50,6 +67,7 @@ export async function leerCatalogo(): Promise<Catalogo> {
         ax: m.ancla[0],
         ay: m.ancla[1],
         nombre: m.imagen.replace(/\.webp$/, ''),
+        ...(m.ladera === undefined ? {} : { ladera: m.ladera }),
       }))
       .sort((a, b) => a.ay - b.ay);
   }
@@ -65,7 +83,8 @@ export async function leerCatalogo(): Promise<Catalogo> {
     const d = await derivarPieza(join(MAPA, `${id}.webp`));
     piezas[id] = { src: `${id}.webp`, nw: d.ancho, nh: d.alto, ax: d.ancla[0], ay: d.ancla[1] };
   }
-  return { hojas, piezas };
+  // Lo que lee el juego: una ladera sin sus juntas lanza aquí, no al pintar.
+  return catalogoValidado({ hojas, piezas } satisfies CatalogoEnBruto);
 }
 
 export function textoDelCatalogo(c: Catalogo): string {

@@ -1,7 +1,14 @@
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { type Catalogo, RUTA_DEL_CATALOGO } from '../src/client/render/escenario/catalogo.js';
+import {
+  type Catalogo,
+  type CatalogoEnBruto,
+  catalogoValidado,
+  RUTA_DEL_CATALOGO,
+} from '../src/client/render/escenario/catalogo.js';
 import { componer, type Escena } from '../src/client/render/escenario/colocar.js';
+import type { Senda } from '../src/client/render/escenario/sendas.js';
 import {
   activeStack,
   applyAction,
@@ -726,11 +733,26 @@ export function ciclosDeCamino(map: GameMap): { total: number; dentro: number } 
   return { total: mu(new Set(todas)), dentro };
 }
 
-/** El catálogo de la escena que está en el repo (`assets/mapa/escena.json`). */
+/** El catálogo de la escena que está en el repo (`assets/mapa/escena.json`), comprobado como lo carga el juego. */
 export function catalogoDelDisco(): Catalogo {
-  return JSON.parse(
-    readFileSync(join(resolve(import.meta.dirname, '..'), RUTA_DEL_CATALOGO), 'utf8'),
-  ) as Catalogo;
+  return catalogoValidado(
+    JSON.parse(
+      readFileSync(join(resolve(import.meta.dirname, '..'), RUTA_DEL_CATALOGO), 'utf8'),
+    ) as CatalogoEnBruto,
+  );
+}
+
+/** El sha256 de un fichero, en hexadecimal. */
+export const sha256 = (ruta: string): string =>
+  createHash('sha256').update(readFileSync(ruta)).digest('hex');
+
+/** Una senda recta de `p` a `q`, partida en tramos de una décima, como las suavizadas. */
+export function recta(p: readonly [number, number], q: readonly [number, number]): Senda {
+  const n = Math.ceil(Math.hypot(q[0] - p[0], q[1] - p[1]) / 0.1);
+  return Array.from({ length: n + 1 }, (_, i) => [
+    p[0] + ((q[0] - p[0]) * i) / n,
+    p[1] + ((q[1] - p[1]) * i) / n,
+  ]);
 }
 
 const escenas = new Map<number, Escena>();

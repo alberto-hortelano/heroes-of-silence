@@ -21,6 +21,7 @@ import {
   rampas,
 } from '../src/client/render/escenario/relieve.js';
 import type { Senda } from '../src/client/render/escenario/sendas.js';
+import { recta } from './helpers.js';
 
 const cara = (y: number, x0: number, x1: number, caida = 1): Cara => ({
   y,
@@ -30,22 +31,13 @@ const cara = (y: number, x0: number, x1: number, caida = 1): Cara => ({
   material: 'cara-roca',
 });
 
-/** Una senda recta de `p` a `q`, partida en tramos de una décima, como las suavizadas. */
-function recta(p: readonly [number, number], q: readonly [number, number]): Senda {
-  const n = Math.ceil(Math.hypot(q[0] - p[0], q[1] - p[1]) / 0.1);
-  return Array.from({ length: n + 1 }, (_, i) => [
-    p[0] + ((q[0] - p[0]) * i) / n,
-    p[1] + ((q[1] - p[1]) * i) / n,
-  ]);
-}
-
 const cerca = (a: number, b: number) => expect(a).toBeCloseTo(b, 6);
 
 describe('las rampas de una cara a mano', () => {
   // Cuelga del borde de abajo de la fila 2: su banda va de y = 3 a 3,6.
   const c = cara(2, 3, 6);
   /** Las rampas de una sola cara. */
-  const de = (k: Cara, sendas: readonly Senda[]) => rampas([k], sendas).porCara[0] ?? [];
+  const de = (k: Cara, sendas: readonly Senda[]) => rampas([k], [], sendas).porCara[0] ?? [];
 
   it('una senda que baja en vertical abre un tajo de su ancho más su arcén, ni más', () => {
     const [r, ...otras] = de(c, [recta([4.5, 2.5], [4.5, 4.5])]);
@@ -86,7 +78,7 @@ describe('las rampas de una cara a mano', () => {
     // bandas: en B no toca el filo, pero es la misma cadena y también baja.
     const a = cara(2, 3, 4, 1);
     const b = cara(2, 5, 6, 2);
-    expect(rampas([a, b], [recta([4, 2.5], [6.5, 5])]).porCara.map((rs) => rs.length)).toEqual([
+    expect(rampas([a, b], [], [recta([4, 2.5], [6.5, 5])]).porCara.map((rs) => rs.length)).toEqual([
       1, 1,
     ]);
     // Y la misma senda, pero entrando ya por debajo del filo de B, no abre nada.
@@ -126,11 +118,11 @@ describe('lo que roza una esquina no abre tajo, y la pared se aparta de la senda
   it('una senda que solo roza la esquina de la cara no abre tajo, pero cuenta para la pared', () => {
     // Entra por el filo en x = 3,1 y sale por la izquierda en y = 3,1: 0,14 dentro, menos de `RAMPA_MINIMA`.
     const roce = recta([3.3, 2.8], [2.6, 3.5]);
-    const b = rampas([peldano], [roce]);
+    const b = rampas([peldano], [], [roce]);
     expect(b.porCara[0]).toEqual([]);
     expect(b.junto.length).toBeGreaterThan(0);
     // La misma senda, metida más adentro, ya abre su tajo.
-    expect(rampas([peldano], [recta([3.2, 2.5], [3.5, 4.5])]).porCara[0]).toHaveLength(1);
+    expect(rampas([peldano], [], [recta([3.2, 2.5], [3.5, 4.5])]).porCara[0]).toHaveLength(1);
     expect(RAMPA_MINIMA).toBe(0.25);
   });
 
@@ -140,7 +132,7 @@ describe('lo que roza una esquina no abre tajo, y la pared se aparta de la senda
     const baja = recta([3.6, 2.5], [2, 4.5]);
     const otra = recta([2, 4.5], [-2, 4.5]);
     const lejos = recta([20, 2], [25, 2]);
-    const { junto } = rampas([peldano], [baja, otra, lejos]);
+    const { junto } = rampas([peldano], [], [baja, otra, lejos]);
     const puntos = junto.flat();
     // Fuera de la banda (y > 4,2) y a la izquierda de la cara.
     expect(puntos.some(([x, y]) => y > 4.3 && x < 2.5)).toBe(true);
@@ -158,7 +150,7 @@ describe('lo que roza una esquina no abre tajo, y la pared se aparta de la senda
     const ancha = cara(10, 0, 9, 3);
     const roce = recta([9.7, 10.6], [10.4, 11.3]);
     const pie = recta([0, 11.6], [9, 11.6]);
-    const { porCara, junto } = rampas([ancha], [roce, pie]);
+    const { porCara, junto } = rampas([ancha], [], [roce, pie]);
     expect(porCara[0]).toEqual([]);
     // Lo que corre por la banda (y = 11,6) lo tapa la cara: no está en `junto`.
     expect(junto.flat().some(([x, y]) => y === 11.6 && x < 8)).toBe(false);
@@ -180,7 +172,7 @@ describe('lo que roza una esquina no abre tajo, y la pared se aparta de la senda
       capa: 0,
       sombra: true,
     };
-    const { junto } = rampas([peldano], [recta([3.6, 2.5], [2, 4.5])]);
+    const { junto } = rampas([peldano], [], [recta([3.6, 2.5], [2, 4.5])]);
     const p = pasilloDeLaPared(junto);
     expect(paredesSobreRampa([pared], p)).toEqual([pared]);
     // Corrida dos casillas a la izquierda ya no la pisa.
@@ -218,6 +210,18 @@ describe('la pared se apoya en el pie de su cara, también corrida por una escal
     cerca(p.en(5), pieDeCara(baja, caras).pie);
     // La de abajo, al revés: su primera casilla sube hacia la alta.
     cerca(pieDeCara(baja, caras).en(5.5), pieDeCara(baja, caras).pie - 0.5);
+  });
+
+  it('con otra caída, el pie se inclina hasta el de la de al lado, no una fila por casilla', () => {
+    // Una escalera de caída 2 que sigue por una de 1: bajaba 1 por casilla y
+    // en la última quedaba 0,6 bajo el pie de la de al lado (s7 x5 y18).
+    const dos = { ...alta, caida: 2 };
+    const conDos = [dos, baja];
+    const p = pieDeCara(dos, conDos);
+    expect(p.derecha).toBe(baja);
+    cerca(p.en(5), pieDeCara(baja, conDos).pie);
+    cerca(p.en(4.5), (p.pie + pieDeCara(baja, conDos).pie) / 2);
+    cerca(pieDeCara(baja, conDos).en(5), p.pie);
   });
 
   it('una pared en el pie no cuenta; corrida con la y de su sitio, sí', () => {

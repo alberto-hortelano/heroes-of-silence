@@ -14,22 +14,38 @@
 import type { MapObject } from '@core/map/map.js';
 import type { Barrera, Suelo } from '@core/map/terrain.js';
 import { type Analisis, analizar, type Franja, type MapaDeEscena } from './analizar.js';
-import type { Catalogo, Modulo, Pieza } from './catalogo.js';
+import {
+  type Catalogo,
+  esHojaDeLadera,
+  type Modulo,
+  type ModuloDeLadera,
+  moduloDeLadera,
+  type PapelDeLadera,
+  type Pieza,
+} from './catalogo.js';
 import { azarDe, esparcir } from './esparcir.js';
 import { ejeDe, esqueleto } from './esqueleto.js';
 import { barreraDeNodo, nodoDePaso } from './nodos.js';
 import { cajaDeSprite, Pasillo } from './pasillo.js';
 import {
   ALTO_DE_NIVEL,
+  bordeDeLadera,
   CARA_DE_SUELO,
   type Cara,
   type CaraConRampas,
+  caidaDeLadera,
+  esquinas,
+  FRONTAL_DE_ESQUINA,
+  type Ladera,
   pieDeCara,
+  pieDeLadera,
   type Relieve,
   rampas,
   relieve,
   SEMIANCHO_DE_PARED,
   SOLAPE,
+  type Tope,
+  topesDeCara,
 } from './relieve.js';
 import {
   SEMIANCHO_DEL_PASILLO,
@@ -119,6 +135,17 @@ export interface Escena {
      * cara ni caen dentro de su banda (`paredesFueraDelPie`): tiene que ser 0.
      */
     readonly paredesFueraDelPie: number;
+    /**
+     * Casillas de ladera sin exactamente una cosa —un módulo de ladera, los
+     * peñascos del canto, o nada donde no cabía—, y laderas fuera de su sitio
+     * (`laderasMalCubiertas`): tiene que ser 0.
+     */
+    readonly laderasMalCubiertas: number;
+    /**
+     * Casillas bajas a las que bajan laderas de los dos lados en la misma fila,
+     * con los pies montados (`laderasEnfrentadas`): tiene que ser 0.
+     */
+    readonly laderasEnfrentadas: number;
     readonly modulosQueFaltan: readonly string[];
   };
 }
@@ -289,6 +316,17 @@ export const APARTE: Readonly<Record<Sprite['clase'], Aparte | null>> = {
  */
 const PALIDA = 'brightness(0.78) saturate(0.9)';
 const CHILLONA = 'brightness(0.8) saturate(0.72)';
+/**
+ * Las laderas de basalto se leían como una franja gris lisa y clara junto a la
+ * ceniza rojiza (el usuario, 07-10-2026: más oscuras y un poco más cálidas). Sin
+ * filtro dan luz 62 y R−B 11; con `contrast(0.8) brightness(0.8)`, el de antes,
+ * 60 y 7 (más fría aún); con este, 53 y 15. La frontal de basalto da 71 y 20, y
+ * el suelo de ceniza, 42 y 18 (`tono-basalto.mts` en
+ * `docs/agents/2026-10-06-paredes-laterales/`). Uno más fuerte (luz 53, R−B 18,
+ * con contraste 0,8) las fundía con la ceniza y perdían el relieve.
+ */
+const BASALTO_DE_LADERA =
+  'contrast(0.9) brightness(0.72) sepia(0.3) saturate(1.3) hue-rotate(-10deg)';
 const TONO: Readonly<Record<string, string>> = {
   'rocas-caidas': PALIDA,
   'cubierta-rough': PALIDA,
@@ -296,21 +334,67 @@ const TONO: Readonly<Record<string, string>> = {
   'picos-arenisca': CHILLONA,
   'paredes-arenisca': CHILLONA,
   'paredes-roca': 'brightness(0.72) saturate(0.85)',
+  // Las laderas (§20), por familia —todas sus caídas—, medidas contra su
+  // frontal entonada (07-10-2026, `docs/agents/2026-10-06-paredes-laterales/
+  // tono-laderas.mts`). La arenisca del oeste, de cara a la luz, sale más clara
+  // y naranja (luz 86 contra 69): con CHILLONA queda en la de su frontal.
+  'laderas-arenisca-oeste': CHILLONA,
+  'laderas-basalto-este': BASALTO_DE_LADERA,
+  'laderas-basalto-oeste': BASALTO_DE_LADERA,
+};
+
+/** El tono de una hoja: el suyo o, en una hoja de laderas, el de su familia (sin la caída). */
+function tonoDe(hoja: string): string | undefined {
+  return (
+    TONO[hoja] ?? (hoja.startsWith('laderas-') ? TONO[hoja.replace(/-[123]$/, '')] : undefined)
+  );
+}
+
+/** Lo que pone cada material de cara (`CARA_DE_SUELO`). */
+interface MaterialDeCara {
+  /** La hoja de la pared frontal, la de las caídas al sur. */
+  readonly pared: string;
+  /** La familia de laderas, sin el lado ni la caída (`hojaDeLadera`). */
+  readonly ladera: string;
+  /**
+   * El tono de los peñascos de una cara (su pedregal, el remate del tajo y los
+   * del pie), de un canto y de lo alto de un acantilado: la hoja es gris, y
+   * sobre la arenisca se leían como cascotes traídos de otro sitio (#150, N3).
+   */
+  readonly pedregal: string;
+}
+
+const MATERIAL_DE_CARA: Readonly<Record<string, MaterialDeCara>> = {
+  'cara-roca': { pared: 'paredes-roca', ladera: 'laderas-roca', pedregal: PALIDA },
+  'cara-arenisca': {
+    pared: 'paredes-arenisca',
+    ladera: 'laderas-arenisca',
+    pedregal: 'sepia(1) saturate(2.2) hue-rotate(-28deg) brightness(0.62)',
+  },
+  'cara-basalto': {
+    pared: 'paredes-basalto',
+    ladera: 'laderas-basalto',
+    pedregal: 'brightness(0.5) saturate(0.7)',
+  },
+  'cara-nevada': {
+    pared: 'paredes-nevadas',
+    ladera: 'laderas-nevadas',
+    pedregal: 'brightness(1.02) saturate(0.4)',
+  },
 };
 
 /**
- * El tono de los peñascos de una cara (su pedregal, el remate del tajo y los
- * del pie), de un canto y de lo alto de un acantilado, por el material de su
- * cara (`CARA_DE_SUELO`): la hoja es gris, y sobre la arenisca
- * se leían como cascotes traídos de otro sitio (#150, N3). La roca se queda
- * con el de su hoja.
+ * Las hojas y el tono de un material de cara. Lanza con uno que no está en la
+ * tabla: caer en silencio a la roca pintaba roca gris sobre un material nuevo.
  */
-const TONO_DEL_PEDREGAL: Readonly<Record<string, string>> = {
-  'cara-roca': PALIDA,
-  'cara-arenisca': 'sepia(1) saturate(2.2) hue-rotate(-28deg) brightness(0.62)',
-  'cara-basalto': 'brightness(0.5) saturate(0.7)',
-  'cara-nevada': 'brightness(1.02) saturate(0.4)',
-};
+export function materialDeCara(material: string): MaterialDeCara {
+  const m = MATERIAL_DE_CARA[material];
+  if (m === undefined)
+    throw new Error(
+      `no hay paredes para el material de cara «${material}»: añádelo a MATERIAL_DE_CARA (colocar.ts)`,
+    );
+  return m;
+}
 
 /**
  * Lo ancho que se pinta cada tramo de muro, en casillas, para que cubra su paso
@@ -437,7 +521,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       const k = Math.max(0, Math.min(ms.length - 1, centro + Math.round((azar() - 0.5) * 4)));
       m = ms[k] as Modulo;
     }
-    const tono = TONO[hoja];
+    const tono = tonoDe(hoja);
     return {
       ...(tono === undefined ? {} : { tono }),
       src: m.src,
@@ -574,11 +658,13 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     Math.max(...Object.values(APARTE).map((r) => r?.semiancho ?? 0)),
   );
   // Por dónde bajan las sendas por las caras: el único sitio donde se decide.
-  const bajadas = rampas(rel.caras, trazos);
+  const bajadas = rampas(rel.caras, rel.laderas, trazos);
   const caras = rel.caras.map(
     (c, k): CaraConRampas => ({ ...c, rampas: bajadas.porCara[k] ?? [] }),
   );
   const pasilloDePared = pasilloDeLaPared(bajadas.junto);
+  /** El de las laderas: además, lo que baja por una ladera (`Bajadas.juntoDeLadera`). */
+  const pasilloDeLadera = pasilloDeLaPared([...bajadas.junto, ...bajadas.juntoDeLadera]);
   /** El sprite más estrecho de cada clase que se aparta: el que pregunta el dardo. */
   const moldes = new Map<Sprite['clase'], Pick<Sprite, 'nw' | 'nh' | 'ax' | 'ay'>>();
   for (const [clase, r] of Object.entries(APARTE) as [Sprite['clase'], Aparte | null][]) {
@@ -650,45 +736,61 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     const estrecho = { ...s, src: e.src, nw: e.nw, nh: e.nh, ax: e.ax, ay: e.ay };
     return entra(estrecho) && meter(ajustado(estrecho, r));
   };
+  /** `s` y, si es otro, el módulo más estrecho de su hoja en su sitio: lo que prueba `ponerPared`. */
+  const yElMasEstrecho = (s: Sprite, hoja: string): [Sprite, ...Sprite[]] => {
+    const e = masEstrecho(hoja);
+    return e === undefined || e.src === s.src
+      ? [s]
+      : [s, { ...s, src: e.src, nw: e.nw, nh: e.nh, ax: e.ax, ay: e.ay }];
+  };
   /**
-   * La puerta de la pared y de su remate: no pisan la senda que baja por una
-   * cara ni la que sigue junto a ella (`pasilloDePared`). Si la pisa, se prueba
+   * La puerta de la pared y de su remate: no pisan `pasilloP`, la senda que
+   * baja por una cara y la que sigue junto a ella (`pasilloDePared`; el de las
+   * laderas, también la que baja por una ladera). Si la pisa, se prueba
    * en cada `xs` (de más a menos preferido; el primero, su sitio, sin la
-   * reserva de un objeto ni al pie ni en `filo`), encogida sin bajar del primero de `minimos` y con el
-   * módulo más estrecho de su hoja; luego con el siguiente mínimo. Si nada
-   * cabe, no va. Nunca se corta.
+   * reserva de un objeto ni al pie ni en `yQueTapa`) cada uno de `modulos`, en
+   * su orden, encogido sin bajar del primero de `minimos`; luego con el
+   * siguiente mínimo. Si nada cabe, no va. Nunca se corta.
+   *
+   * La frontal y los peñascos prueban también el módulo más estrecho de su
+   * hoja (`yElMasEstrecho`); una ladera, solo el suyo: se coloca por las juntas
+   * de SU módulo, y otro en su sitio quedaría descolgado de la cadena.
    *
    * Corrida a otra `x`, se apoya donde diga `yEn` en esa `x`: en una escalera
    * el pie se inclina, y la que conservaba la `y` de su sitio quedaba hasta una
    * casilla bajo su acantilado, de pie en el río (#150, N1).
    */
-  const ponerPared = (
-    s: Sprite,
-    hoja: string,
-    minimos: readonly number[],
-    xs: readonly number[],
-    filo: number,
-    yEn: (x: number) => number = () => s.y,
-  ): boolean => {
-    const e = masEstrecho(hoja);
-    const modulos =
-      e === undefined || e.src === s.src
-        ? [s]
-        : [s, { ...s, src: e.src, nw: e.nw, nh: e.nh, ax: e.ax, ay: e.ay }];
-    // Junto a un objeto, ni al pie ni en el filo, que lo taparía: donde la
-    // reserva quita la pared, correrla la ponía encima de otro.
-    const libre = (x: number) => !reservas.tomada(x, yEn(x)) && !reservas.tomada(x, filo);
-    if (!libre(xs[0] ?? s.x)) return false;
-    const libres = xs.filter(libre);
-    for (const minimo of minimos)
-      for (const x of libres)
-        for (const m of modulos) {
-          const aqui = x === m.x ? m : { ...m, x, y: yEn(x) };
-          const alto = pasilloDePared.altoLibre(aqui, SEMIANCHO_DE_PARED);
-          if (alto >= minimo) return meter(alto === aqui.alto ? aqui : { ...aqui, alto });
-        }
-    return false;
-  };
+  const paredQueNoPisa =
+    (pasilloP: Pasillo) =>
+    (
+      modulos: readonly [Sprite, ...Sprite[]],
+      minimos: readonly number[],
+      xs: readonly number[],
+      yQueTapa: number,
+      yEn: (x: number) => number = () => modulos[0].y,
+    ): boolean => {
+      const s = modulos[0];
+      // Junto a un objeto, ni al pie ni en lo que tapa por encima (el filo de una
+      // cara, el medio de una ladera): donde la reserva quita la pared, correrla
+      // la ponía encima de otro.
+      const libre = (x: number) => !reservas.tomada(x, yEn(x)) && !reservas.tomada(x, yQueTapa);
+      if (!libre(xs[0] ?? s.x)) return false;
+      const libres = xs.filter(libre);
+      for (const minimo of minimos)
+        for (const x of libres)
+          for (const m of modulos) {
+            const aqui = x === m.x ? m : { ...m, x, y: yEn(x) };
+            const alto = pasilloP.altoLibre(aqui, SEMIANCHO_DE_PARED);
+            if (alto >= minimo) return meter(alto === aqui.alto ? aqui : { ...aqui, alto });
+          }
+      return false;
+    };
+  const ponerPared = paredQueNoPisa(pasilloDePared);
+  /**
+   * La de las laderas, que se apartan también de lo que baja por una ladera:
+   * la frontal no (`Bajadas.juntoDeLadera`).
+   */
+  const ponerLadera = paredQueNoPisa(pasilloDeLadera);
   const mata = (hoja: string, x: number, y: number, alto: number) =>
     poner(hoja, x, y, alto, azar(), 'cubierta', MARCADOR.cubierta as string, false);
   const altoDeMata = (s: Suelo) => CUBIERTA[s].alto * (MATA_MAS_BAJA + azar() * 0.6);
@@ -919,7 +1021,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
           true,
           undefined,
           undefined,
-          TONO_DEL_PEDREGAL[CARA_DE_SUELO[s]],
+          materialDeCara(CARA_DE_SUELO[s]).pedregal,
         );
       else mata(hojaDeCubierta(s, azar()), p.x, p.y, altoDeMata(s));
     }
@@ -928,18 +1030,97 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   // 4 · El relieve: una pared de acantilado a lo largo de cada caída, hecha de
   // trozos que se solapan, y rocas caídas al pie. La textura de la cara (la pinta
   // el pintor) queda detrás como fondo, por si un trozo deja hueco.
-  const PARED_DE_CARA: Readonly<Record<string, string>> = {
-    'cara-roca': 'paredes-roca',
-    'cara-arenisca': 'paredes-arenisca',
-    'cara-basalto': 'paredes-basalto',
-    'cara-nevada': 'paredes-nevadas',
+  // Las caídas al este y al oeste (#156): una ladera de norte a sur por cada
+  // caída (§20), con su remate al norte y al sur y la esquina donde la caída
+  // gira hacia la cámara. Van antes que las caras porque la cara deja de poner
+  // frontal donde entró una esquina, y con su propio azar: así la pared frontal
+  // de cada cara sale como antes.
+  const azarDeLaderas = azarDe(semilla * 6007 + 11);
+  /** La cara en cuya esquina acaba cada ladera, por su índice. */
+  const caraDeEsquina = new Map<Ladera, number>();
+  for (const [k, e] of esquinas(rel.caras, rel.laderas).entries())
+    for (const l of [e.oeste, e.este]) if (l !== undefined) caraDeEsquina.set(l, k);
+  /** Las esquinas que entraron, por índice de cara: solo esas paran la frontal. */
+  const puestas = rel.caras.map(() => ({ oeste: false, este: false }));
+  /** Las casillas de canto con ladera puesta, como `x,y,lado`. */
+  const conLadera = new Set<string>();
+  const juegos = new Map<string, JuegoDeLadera | null>();
+  /** El juego de una hoja de laderas, o null sin su arte. */
+  const juegoDe = (hoja: string): JuegoDeLadera | null => {
+    let j = juegos.get(hoja);
+    if (j === undefined) {
+      const ms = modulosDe(hoja);
+      j = ms === null || ms.length === 0 ? null : juegoDeLadera(hoja, ms);
+      juegos.set(hoja, j);
+    }
+    return j;
   };
-  for (const c of caras) {
-    const { pie, izquierda, derecha, en: pieEn } = pieDeCara(c, rel.caras);
-    const hoja = PARED_DE_CARA[c.material] ?? 'paredes-roca';
-    const tonoDelPedregal = TONO_DEL_PEDREGAL[c.material];
-    const desde = izquierda === undefined ? c.x0 + 0.2 : c.x0 + 0.5;
-    const hasta = derecha === undefined ? c.x1 + 0.85 : c.x1 + 1.5;
+  /** El sprite del módulo `m` desde la casilla `y` de `l` (`colocarLadera`). */
+  const spriteDeLadera = (m: ModuloDeLadera, hoja: string, l: Ladera, y: number): Sprite => {
+    const tono = tonoDe(hoja);
+    const sitio = colocarLadera(m, l, y);
+    return {
+      ...(tono === undefined ? {} : { tono }),
+      src: m.src,
+      nw: m.nw,
+      nh: m.nh,
+      ax: m.ax,
+      ay: m.ay,
+      x: sitio.x,
+      y: sitio.y,
+      alto: sitio.alto,
+      clase: 'pared',
+      color: '#4c463e',
+      capa: 0,
+      sombra: true,
+    };
+  };
+  const laderasPorColumna = indiceDeLaderas(rel.laderas);
+  for (const l of rel.laderas) {
+    const hoja = hojaDeLadera(l);
+    const juego = juegoDe(hoja);
+    if (juego === null) {
+      // Sin el arte, una marca por casilla, del filo al pie.
+      for (let y = l.y0; y <= l.y1; y++) {
+        const largo = 1 + l.caida * ALTO_DE_NIVEL;
+        const s = deHoja(hoja, bordeDeLadera(l), y + largo, largo, 0, 'pared', '#4c463e', true);
+        if (ponerLadera([s], [s.alto], [s.x], y + 0.5)) conLadera.add(`${l.x},${y},${l.lado}`);
+      }
+      continue;
+    }
+    const cara = caraDeEsquina.get(l);
+    const poner = (m: ModuloDeLadera, y: number): boolean => {
+      const s = spriteDeLadera(m, hoja, l, y);
+      // Ni se corre ni se encoge: rompería la cadena. Si pisa la senda que
+      // baja o la reserva de un objeto, no va.
+      if (!ponerLadera([s], [s.alto], [s.x], y + m.ladera.largo / 2)) return false;
+      for (let k = 0; k < m.ladera.largo; k++) conLadera.add(`${l.x},${y + k},${l.lado}`);
+      if (cara !== undefined && m === juego.esquina)
+        (puestas[cara] as { oeste: boolean; este: boolean })[l.lado] = true;
+      return true;
+    };
+    // Lo que no entra se prueba casilla a casilla con los módulos de una, que
+    // son más estrechos que un largo y que una esquina; la esquina, antes con
+    // el remate del sur. Si nada entra, quedan los peñascos del canto.
+    const enLugarDeLaEsquina = [juego.fin, ...juego.medios];
+    const piezas = piezasDeLadera(
+      l,
+      { ...rematesDeLadera(l, laderasPorColumna), esquina: cara !== undefined },
+      juego,
+      azarDeLaderas,
+    );
+    for (const p of piezas) {
+      if (poner(p.modulo, p.y)) continue;
+      const otros = p.modulo === juego.esquina ? enLugarDeLaEsquina : juego.medios;
+      for (let y = p.y; y < p.y + p.modulo.ladera.largo; y++)
+        for (const m of otros) if (m !== p.modulo && poner(m, y)) break;
+    }
+  }
+
+  for (const [k, c] of caras.entries()) {
+    const { pie, en: pieEn } = pieDeCara(c, rel.caras);
+    const { pared: hoja, pedregal: tonoDelPedregal } = materialDeCara(c.material);
+    const { desde, hasta, izq, der } = tramoDeFrontal(c, topesDeCara(k, rel.caras, puestas));
     const filo = c.y + 1;
     // Lo más bajo que se deja una pared al apartarse: lo que mide la cara. Más
     // baja, la cara asomaría lisa por encima.
@@ -966,15 +1147,11 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
           '#5a5248',
           true,
         );
-        const roca =
-          deLaHoja.src === null || tonoDelPedregal === undefined
-            ? deLaHoja
-            : { ...deLaHoja, tono: tonoDelPedregal };
+        const roca = deLaHoja.src === null ? deLaHoja : { ...deLaHoja, tono: tonoDelPedregal };
         const libre = pasillo.altoLibre(roca, SEMIANCHO_DE_PARED);
         if (libre < ENCOGER_HASTA * alto) continue;
         ponerPared(
-          libre === alto ? roca : { ...roca, alto: libre },
-          'rocas-caidas',
+          yElMasEstrecho(libre === alto ? roca : { ...roca, alto: libre }, 'rocas-caidas'),
           [ENCOGER_HASTA * alto],
           [px],
           y,
@@ -994,13 +1171,6 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         true,
         nombre,
       );
-    // Lo que puede correrse una pared que pisa la senda: hasta una casilla, y
-    // su ancla, como mucho media fuera del acantilado. Un módulo de una cara de
-    // caída 2 mide más de una casilla de ancho: así sigue montando sobre su
-    // cara. Tampoco más si la cara de al lado sigue: allí el pie inclinado ya
-    // pasa del de esa cara, y a una casilla quedaba otra entera bajo él (#150, N1).
-    const izq = c.x0 - 0.5;
-    const der = c.x1 + 1.5;
     const cerca = (x: number) =>
       [x, ...DESVIOS.flatMap((d) => [x - d, x + d])].filter((v) => v >= izq && v <= der);
     // Cada borde de un tajo que cae dentro de la cara lleva su pared, el módulo
@@ -1019,8 +1189,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         const [x0, , x1] = cajaDeSprite(s);
         const pegada = s.x + borde - fuera * SOLAPE - (fuera < 0 ? x1 : x0);
         ponerPared(
-          s,
-          hoja,
+          yElMasEstrecho(s, hoja),
           [minimo],
           [0, ...DESVIOS].map((d) => pegada + fuera * d).filter((x) => x >= izq && x <= der),
           filo,
@@ -1044,7 +1213,13 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       // en su propio pie, así que no sube encima del objeto. Dentro de la banda
       // de su cara: el pie inclinado de la escalera lo sacaba por abajo.
       if (
-        !ponerPared(s, hoja, [minimo, minimo * BAJA_JUNTO_A_LA_SENDA], cerca(s.x), filo, yEn) &&
+        !ponerPared(
+          yElMasEstrecho(s, hoja),
+          [minimo, minimo * BAJA_JUNTO_A_LA_SENDA],
+          cerca(s.x),
+          filo,
+          yEn,
+        ) &&
         !reservas.tomada(s.x, s.y) &&
         s.x >= c.x0 &&
         s.x <= c.x1 + 1
@@ -1073,8 +1248,10 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     }
   }
 
-  // Las caídas al este y al oeste: el canto lo oscurece el pintor; aquí, peñascos.
+  // Las caídas al este y al oeste sin ladera (la quitó una senda que baja o la
+  // reserva de un objeto): el canto lo oscurece el pintor; aquí, peñascos.
   for (const [x, y, lado] of rel.cantos) {
+    if (conLadera.has(`${x},${y},${lado}`)) continue;
     for (let k = 0; k < 2; k++) {
       const px = lado === 'este' ? x + 1.05 : x - 0.05;
       const py = y + 0.3 + k * 0.45 + azar() * 0.2;
@@ -1090,7 +1267,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         true,
         undefined,
         undefined,
-        TONO_DEL_PEDREGAL[CARA_DE_SUELO[a.suelo[y * W + x] as Suelo]],
+        materialDeCara(CARA_DE_SUELO[a.suelo[y * W + x] as Suelo]).pedregal,
       );
     }
   }
@@ -1209,6 +1386,20 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   }
 
   sprites.sort((p, q) => p.capa - q.capa || p.y - q.y || p.x - q.x);
+  /** Qué sprite es una ladera: cualquier módulo de laderas del catálogo, no solo los que se usaron. */
+  const deLadera = modulosDeLadera(catalogo);
+  /** Si en la casilla `fila` de `l` cabría uno de sus `medio`: la misma pregunta que `ponerLadera`. */
+  const cabeUnMedio = (l: Ladera, fila: number) => {
+    const hoja = hojaDeLadera(l);
+    return (juegoDe(hoja)?.medios ?? []).some((m) => {
+      const s = spriteDeLadera(m, hoja, l, fila);
+      return (
+        !reservas.tomada(s.x, s.y) &&
+        !reservas.tomada(s.x, fila + m.ladera.largo / 2) &&
+        pasilloDeLadera.altoLibre(s, SEMIANCHO_DE_PARED) >= s.alto
+      );
+    });
+  };
   return {
     semilla,
     W,
@@ -1227,8 +1418,15 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       basesSobreReserva,
       casillasDeBarreraSinFormacion: sinFormacion,
       spritesSobreSenda: sobreLaSenda(sprites, pasillo).length,
-      paredesSobreRampa: paredesSobreRampa(sprites, pasilloDePared).length,
+      paredesSobreRampa: paredesSobreRampa(sprites, pasilloDePared, {
+        pasillo: pasilloDeLadera,
+        es: (s) => s.src !== null && deLadera.has(s.src),
+      }).length,
       paredesFueraDelPie: paredesFueraDelPie(sprites, rel.caras).length,
+      // Recontadas desde lo puesto, con cualquier módulo de ladera del
+      // catálogo y no solo los de las hojas que se usaron.
+      laderasMalCubiertas: laderasMalCubiertas(sprites, rel.laderas, deLadera, cabeUnMedio).length,
+      laderasEnfrentadas: laderasEnfrentadas(sprites, deLadera).length,
       modulosQueFaltan: [...faltan].sort(),
     },
   };
@@ -1268,20 +1466,348 @@ export function pasilloDeLaPared(junto: readonly Senda[]): Pasillo {
 /**
  * Las paredes de acantilado, y los peñascos que rematan un tajo, cuyo rectángulo
  * pisa el pasillo de la pared. No filtra nada: mide lo que dejó `ponerPared`.
+ * Con `deLadera`, las que `es` una ladera se miden contra su propio pasillo,
+ * que lleva también lo que baja por una ladera (`Bajadas.juntoDeLadera`).
  */
-export function paredesSobreRampa(sprites: readonly Sprite[], pasillo: Pasillo): Sprite[] {
+export function paredesSobreRampa(
+  sprites: readonly Sprite[],
+  pasillo: Pasillo,
+  deLadera?: { readonly pasillo: Pasillo; readonly es: (s: Sprite) => boolean },
+): Sprite[] {
   return sprites.filter(
-    (s) => s.clase === 'pared' && pasillo.pisa(cajaDeSprite(s), SEMIANCHO_DE_PARED),
+    (s) =>
+      s.clase === 'pared' &&
+      (deLadera?.es(s) ? deLadera.pasillo : pasillo).pisa(cajaDeSprite(s), SEMIANCHO_DE_PARED),
   );
 }
 
 /** Lo más lejos de su pie, en casillas, que se apoya una pared: su ancla va 0,05 ± 0,06 por debajo. */
 const HOLGURA_DEL_PIE = 0.25;
 
+/** La hoja de laderas de una ladera: `laderas-<material>-<lado>-<caída>` (§20). Nunca se espeja. */
+export function hojaDeLadera(l: Ladera): string {
+  return `${materialDeCara(l.material).ladera}-${l.lado}-${caidaDeLadera(l.caida)}`;
+}
+
+/** Lo que la última frontal de una cara monta sobre la frontal de su esquina, en casillas. */
+export const SOLAPE_DE_ESQUINA = 0.15;
+
+/**
+ * Por dónde corre la frontal de una cara, según cómo acaba cada extremo
+ * (`topesDeCara`): sus módulos van de `desde` a `hasta`, y uno que pisa la
+ * senda se corre entre `izq` y `der`.
+ *
+ * - En su esquina para donde empieza la frontal de la esquina, a
+ *   `FRONTAL_DE_ESQUINA` del extremo, montando `SOLAPE_DE_ESQUINA` sobre ella,
+ *   y no se corre más allá.
+ * - Junto a la esquina del peldaño de al lado para como suelta, pero no se
+ *   corre hacia ella: la esquina ya trae frontal y ladera que suben hasta aquí.
+ * - Si la cara de al lado sigue, la frontal sigue media casilla por ella; suelta,
+ *   para un poco antes del extremo.
+ * - Corrida, hasta media casilla fuera del acantilado: un módulo de una cara de
+ *   caída 2 mide más de una casilla de ancho, y así sigue montando sobre su
+ *   cara. Tampoco más si la de al lado sigue: allí el pie inclinado ya pasa del
+ *   de esa cara, y a una casilla quedaba otra entera bajo él (#150, N1).
+ */
+export function tramoDeFrontal(
+  c: Cara,
+  topes: { readonly oeste: Tope; readonly este: Tope },
+): { readonly desde: number; readonly hasta: number; readonly izq: number; readonly der: number } {
+  const desde = {
+    esquina: c.x0 + FRONTAL_DE_ESQUINA - SOLAPE_DE_ESQUINA,
+    'esquina-vecina': c.x0 + 0.2,
+    sigue: c.x0 + 0.5,
+    suelto: c.x0 + 0.2,
+  }[topes.oeste];
+  const hasta = {
+    esquina: c.x1 + 1 - FRONTAL_DE_ESQUINA + SOLAPE_DE_ESQUINA,
+    'esquina-vecina': c.x1 + 0.85,
+    sigue: c.x1 + 1.5,
+    suelto: c.x1 + 0.85,
+  }[topes.este];
+  const seCorre = (t: Tope) => t === 'sigue' || t === 'suelto';
+  return {
+    desde,
+    hasta,
+    izq: seCorre(topes.oeste) ? c.x0 - 0.5 : desde,
+    der: seCorre(topes.este) ? c.x1 + 1.5 : hasta,
+  };
+}
+
+/** Los módulos de una hoja de laderas por su papel en la cadena (§20). */
+export interface JuegoDeLadera {
+  readonly inicio: ModuloDeLadera;
+  readonly fin: ModuloDeLadera;
+  readonly esquina: ModuloDeLadera;
+  /** Lo que va en medio, por nombre: los de una casilla y los de dos. */
+  readonly medios: readonly ModuloDeLadera[];
+  readonly largos: readonly ModuloDeLadera[];
+}
+
+/**
+ * El juego de una hoja de laderas, por el papel que trae cada módulo en sus
+ * juntas (`JuntasDeLadera.papel`, del índice de la hoja). Lanza si a un módulo
+ * le faltan las juntas o a la hoja un papel.
+ */
+export function juegoDeLadera(hoja: string, modulos: readonly Modulo[]): JuegoDeLadera {
+  const ms = modulos
+    .map((m) => moduloDeLadera(m, hoja))
+    .sort((p, q) => (p.nombre < q.nombre ? -1 : p.nombre > q.nombre ? 1 : 0));
+  const de = (papel: PapelDeLadera) => ms.filter((m) => m.ladera.papel === papel);
+  const uno = (papel: PapelDeLadera): ModuloDeLadera => {
+    const [m, ...otros] = de(papel);
+    if (m === undefined || otros.length > 0)
+      throw new Error(`«${hoja}» lleva un módulo «${papel}», y trae ${de(papel).length}`);
+    return m;
+  };
+  const medios = de('medio');
+  // Sin repetir el de al lado hacen falta dos.
+  if (medios.length < 2)
+    throw new Error(`«${hoja}» lleva al menos dos módulos «medio», y trae ${medios.length}`);
+  return {
+    inicio: uno('inicio'),
+    fin: uno('fin'),
+    esquina: uno('esquina'),
+    medios,
+    largos: de('largo'),
+  };
+}
+
+/** Un módulo de ladera en su sitio de la cadena: desde la casilla `y`, `largo` casillas hacia el sur. */
+export interface PiezaDeLadera {
+  readonly modulo: ModuloDeLadera;
+  readonly y: number;
+}
+
+/** Las laderas por columna y lado (`x,lado`): las que pueden seguir a una de norte a sur. */
+export function indiceDeLaderas(
+  laderas: readonly Ladera[],
+): ReadonlyMap<string, readonly Ladera[]> {
+  const indice = new Map<string, Ladera[]>();
+  for (const l of laderas) {
+    const clave = `${l.x},${l.lado}`;
+    const ya = indice.get(clave);
+    if (ya === undefined) indice.set(clave, [l]);
+    else ya.push(l);
+  }
+  return indice;
+}
+
+/**
+ * Si una ladera remata al norte (`inicio`) y al sur (`fin`): donde no sigue
+ * otra ladera de su columna y su lado (`indiceDeLaderas`). En un escalón de
+ * caída remata la mayor y la menor sigue sin remate, tapada por ella; con la
+ * misma caída (cambia el material) siguen las dos.
+ */
+export function rematesDeLadera(
+  l: Ladera,
+  porColumna: ReadonlyMap<string, readonly Ladera[]>,
+): { readonly inicio: boolean; readonly fin: boolean } {
+  const columna = porColumna.get(`${l.x},${l.lado}`) ?? [];
+  const junto = (y: number) => columna.find((o) => o.y0 <= y && o.y1 >= y);
+  const alNorte = junto(l.y0 - 1);
+  const alSur = junto(l.y1 + 1);
+  return {
+    inicio: alNorte === undefined || alNorte.caida < l.caida,
+    fin: alSur === undefined || alSur.caida < l.caida,
+  };
+}
+
+/**
+ * Qué módulos lleva una ladera, de norte a sur (§20):
+ *
+ * - `inicio` al norte si la cadena empieza ahí (`extremos.inicio`); `esquina`
+ *   al sur si la tiene (`esquinas`) y, si no, `fin` cuando la cadena acaba ahí.
+ *   En un escalón de caída rematan las dos puntas de la mayor; la menor sigue
+ *   con un medio, y la mayor la tapa.
+ * - En medio, al azar entre los `medios` y los `largos`, sin repetir el de al
+ *   lado; uno solo si le caben sus casillas antes del remate.
+ * - Con una sola casilla, la esquina gana al `fin` y el `fin` al `inicio`: el
+ *   sur es lo que mira a la cámara.
+ */
+export function piezasDeLadera(
+  l: Ladera,
+  extremos: { readonly inicio: boolean; readonly fin: boolean; readonly esquina: boolean },
+  juego: JuegoDeLadera,
+  azar: () => number,
+): PiezaDeLadera[] {
+  const sur = extremos.esquina ? juego.esquina : extremos.fin ? juego.fin : null;
+  const norte = extremos.inicio && (sur === null || l.y1 > l.y0) ? juego.inicio : null;
+  const fuera: PiezaDeLadera[] = [];
+  if (norte !== null) fuera.push({ modulo: norte, y: l.y0 });
+  const hasta = sur === null ? l.y1 : l.y1 - 1;
+  let anterior = norte;
+  for (let y = norte === null ? l.y0 : l.y0 + 1; y <= hasta; ) {
+    const caben = hasta - y + 1;
+    const candidatos = [...juego.medios, ...juego.largos].filter(
+      (m) => m !== anterior && m.ladera.largo <= caben,
+    );
+    const modulo = candidatos[Math.floor(azar() * candidatos.length)] as ModuloDeLadera;
+    fuera.push({ modulo, y });
+    anterior = modulo;
+    y += modulo.ladera.largo;
+  }
+  if (sur !== null) fuera.push({ modulo: sur, y: l.y1 });
+  return fuera;
+}
+
+/**
+ * Dónde va el módulo `m` de ladera que empieza en la casilla `y` de `l`, y con
+ * qué alto.
+ *
+ * El filo de su junta norte va en el borde de la ladera (`bordeDeLadera`), en la
+ * fila de arriba de su casilla; el pie de su junta sur, en el pie de su última
+ * fila (`pieDeLadera`). De esos dos puntos sale su escala, y el talud ya lo trae
+ * la guía. El ancla, por debajo del pie, es el cono de derrubio.
+ */
+export function colocarLadera(
+  m: ModuloDeLadera,
+  l: Ladera,
+  y: number,
+): { readonly x: number; readonly y: number; readonly alto: number } {
+  const {
+    filo: [fx, fy],
+    pie: [, py],
+    largo,
+  } = m.ladera;
+  const k = (pieDeLadera(l, y + largo - 1)[1] - y) / (py - fy);
+  return { x: bordeDeLadera(l) + (m.ax - fx) * k, y: y + (m.ay - fy) * k, alto: m.nh * k };
+}
+
+/** Dónde quedaron el filo y el pie de un módulo de ladera ya colocado: lo inverso de `colocarLadera`. */
+export function juntasColocadas(
+  m: ModuloDeLadera,
+  s: Pick<Sprite, 'x' | 'y' | 'alto'>,
+): { readonly filo: readonly [number, number]; readonly pie: readonly [number, number] } {
+  const k = s.alto / m.nh;
+  const en = ([px, py]: readonly [number, number]) =>
+    [s.x - (m.ax - px) * k, s.y - (m.ay - py) * k] as const;
+  return { filo: en(m.ladera.filo), pie: en(m.ladera.pie) };
+}
+
+/** Los módulos de las hojas de laderas del catálogo por su `src`: qué sprite es una ladera, y de qué hoja. */
+export function modulosDeLadera(
+  catalogo: Catalogo,
+): Map<string, { readonly modulo: ModuloDeLadera; readonly hoja: string }> {
+  const fuera = new Map<string, { readonly modulo: ModuloDeLadera; readonly hoja: string }>();
+  for (const [hoja, ms] of Object.entries(catalogo.hojas))
+    if (esHojaDeLadera(hoja))
+      for (const m of ms) fuera.set(m.src, { modulo: moduloDeLadera(m, hoja), hoja });
+  return fuera;
+}
+
+/**
+ * Las casillas bajas con laderas de los dos lados al pie, en la misma fila: la
+ * del este de la casilla de su oeste y la del oeste de la de su este, con los
+ * pies en la misma columna. Es el barranco de una casilla que `sinBarrancos`
+ * deja sin laderas (QA de #156, H1); `laderasMalCubiertas` no lo veía, porque
+ * cuenta por casilla de canto y son dos distintas. Mide desde lo puesto: el pie
+ * de cada sprite de ladera (`juntasColocadas`) y las filas que cubre su filo.
+ */
+export function laderasEnfrentadas(
+  sprites: readonly Sprite[],
+  modulos: ReadonlyMap<string, { readonly modulo: ModuloDeLadera; readonly hoja: string }>,
+): string[] {
+  const alPie = { este: new Set<string>(), oeste: new Set<string>() };
+  for (const s of sprites) {
+    const m = s.src === null ? undefined : modulos.get(s.src);
+    if (m === undefined) continue;
+    const { filo, pie } = juntasColocadas(m.modulo, s);
+    const lado = pie[0] > filo[0] ? 'este' : 'oeste';
+    const fila = Math.round(filo[1]);
+    for (let k = 0; k < m.modulo.ladera.largo; k++)
+      alPie[lado].add(`${Math.floor(pie[0])},${fila + k}`);
+  }
+  return [...alPie.este]
+    .filter((c) => alPie.oeste.has(c))
+    .map((c) => `${c}: laderas de los dos lados al pie`);
+}
+
+/** Lo que se tolera entre dónde quedó una junta de ladera y dónde debía, en casillas. */
+const HOLGURA_DE_JUNTA = 0.02;
+
+/**
+ * Las casillas de ladera mal cubiertas, cada una con lo que le pasa. Cada
+ * casilla de cada ladera lleva exactamente una cosa: un módulo de ladera, los
+ * peñascos del canto, o nada si ahí no cabe ninguna ladera (`cabe`). Se
+ * reconstruye desde lo puesto, por la geometría de cada sprite (dónde quedaron
+ * sus juntas, `juntasColocadas`), no por lo que `componer` apuntó al ponerlo:
+ *
+ * - una ladera fuera de sitio: su filo fuera del borde de una fila de una ladera
+ *   de su hoja (lado, caída y material), o su pie fuera del de esa ladera;
+ * - una casilla con dos laderas (un módulo corrido sobre el de al lado) o con
+ *   ladera y peñascos (que van solo donde no quedó ladera);
+ * - un hueco: una casilla sin ladera donde cabía uno de sus `medio`.
+ *
+ * `modulos` dice qué sprites son laderas: los módulos de las hojas de laderas
+ * por su `src`. Sin arte no hay ninguno, y no se mide.
+ */
+export function laderasMalCubiertas(
+  sprites: readonly Sprite[],
+  laderas: readonly Ladera[],
+  modulos: ReadonlyMap<string, { readonly modulo: ModuloDeLadera; readonly hoja: string }>,
+  cabe: (l: Ladera, fila: number) => boolean,
+): string[] {
+  const porColumna = indiceDeLaderas(laderas);
+  const hojaDe = new Map(laderas.map((l) => [l, hojaDeLadera(l)]));
+  const casilla = (x: number, y: number, lado: string) => `${x},${y},${lado}`;
+  const conLadera = new Map<string, number>();
+  const mal: string[] = [];
+  for (const s of sprites) {
+    const m = s.src === null ? undefined : modulos.get(s.src);
+    if (m === undefined) continue;
+    const { filo, pie } = juntasColocadas(m.modulo, s);
+    const fila = Math.round(filo[1]);
+    const ultima = fila + m.modulo.ladera.largo - 1;
+    const suya = (['este', 'oeste'] as const)
+      .flatMap(
+        (lado) =>
+          porColumna.get(`${Math.round(filo[0]) - (lado === 'este' ? 1 : 0)},${lado}`) ?? [],
+      )
+      .find((l) => hojaDe.get(l) === m.hoja && l.y0 <= fila && ultima <= l.y1);
+    if (
+      suya === undefined ||
+      Math.abs(filo[0] - bordeDeLadera(suya)) > HOLGURA_DE_JUNTA ||
+      Math.abs(filo[1] - fila) > HOLGURA_DE_JUNTA ||
+      Math.abs(pie[1] - pieDeLadera(suya, ultima)[1]) > HOLGURA_DE_JUNTA
+    ) {
+      mal.push(
+        `${s.src} con el filo en ${filo[0].toFixed(2)},${filo[1].toFixed(2)}: fuera de toda ladera de su hoja`,
+      );
+      continue;
+    }
+    for (let y = fila; y <= ultima; y++) {
+      const c = casilla(suya.x, y, suya.lado);
+      conLadera.set(c, (conLadera.get(c) ?? 0) + 1);
+    }
+  }
+  // Un peñasco del canto se apoya justo fuera del filo (x + 1,05 al este,
+  // x − 0,05 al oeste) y entre 0,3 y 1 por debajo del borde de arriba de su fila.
+  const conPeñascos = new Set<string>();
+  for (const s of sprites) {
+    if (s.clase !== 'roca' || s.src?.includes('/rocas-caidas/') !== true) continue;
+    const fila = Math.floor(s.y - 0.3);
+    for (const [lado, x] of [
+      ['este', s.x - 1.05],
+      ['oeste', s.x + 0.05],
+    ] as const)
+      if (Math.abs(x - Math.round(x)) < 1e-9) conPeñascos.add(casilla(Math.round(x), fila, lado));
+  }
+  for (const l of laderas)
+    for (let y = l.y0; y <= l.y1; y++) {
+      const c = casilla(l.x, y, l.lado);
+      const n = conLadera.get(c) ?? 0;
+      if (n > 1) mal.push(`${c}: ${n} laderas`);
+      else if (n === 1 && conPeñascos.has(c)) mal.push(`${c}: ladera y peñascos`);
+      else if (n === 0 && cabe(l, y)) mal.push(`${c}: hueco, y cabía una ladera`);
+    }
+  return mal;
+}
+
 /**
  * Las paredes de acantilado que no se apoyan en el pie de ninguna cara, y los
  * peñascos de su pedregal que caen fuera de toda banda. No filtra nada: mide lo
- * que dejó `ponerPared`.
+ * que dejó `ponerPared`. Las laderas las mide `laderasMalCubiertas`.
  *
  * - Un módulo, con su ancla a menos de `HOLGURA_DEL_PIE` del pie de una cara
  *   (`pieDeCara`, inclinado en la escalera) hasta media casilla más allá de
@@ -1308,7 +1834,7 @@ export function paredesFueraDelPie(sprites: readonly Sprite[], caras: readonly C
       return s.x >= c.x0 - 0.55 && s.x <= c.x1 + 1.55 && Math.abs(y - en(s.x)) <= HOLGURA_DEL_PIE;
     });
   return sprites.filter((s) => {
-    if (s.clase !== 'pared' || s.src === null) return false;
+    if (s.clase !== 'pared' || s.src === null || s.src.includes('/laderas-')) return false;
     return s.src.includes('/rocas-caidas/') ? !enLaBanda(s) : !enElPie(s);
   });
 }

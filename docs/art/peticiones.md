@@ -706,6 +706,31 @@ como dos brazos sobre el agua, y en las diagonales hay más tierra en el extremo
 delante que en el de detrás. Las hojas de revisión (`docs/art/revision-paredes-puentes/*.png`
 y `antes/`) no se commitean por su peso (unos 24 MB); se rehacen con `hojas.py`.
 
+## 19. Lo que falta de las paredes laterales al engancharlas (#156, 06-10-2026)
+
+Las laterales de la §16 ya van en el mapa (`componer`, sección de las
+laterales; `docs/agents/2026-10-06-paredes-laterales/`). Lo que el arte no
+tiene y se suple con la pieza más cercana:
+
+- **Caída de 3 niveles: tramo y esquina.** En las semillas 1-10 hay 88 cantos
+  de caída 3 (de 1 775). Hoy llevan el tramo y la esquina de 2, estirados hasta
+  su pie (`colocarLateral`): más anchos que los demás de su cadena, sin hueco.
+  Se piden `tramo-3-{a,b,c}` y `esquina-3` en las ocho hojas, con la misma guía
+  (`tramoLateral` y `esquinaLateral` en `tools/taller/paredes-puentes.ts`, con
+  `niveles` = 3).
+- **Esquina entre caídas distintas** (opcional). Donde la cara al sur y la
+  lateral caen distinto (76 de 577 esquinas posibles en las semillas 1-10) no
+  se pone esquina: van tramo y frontal, como antes. Solo si las capturas lo
+  piden.
+- **Tramos que encadenen sin corona** (para valorar). En una cadena larga, cada
+  tramo enseña arriba su corona de matas, y en las hojas de roca y nieve se lee
+  como una muesca en el filo a cada casilla (`capturas-ingeniero/s8-x15-y5-*`).
+  Un tramo «de en medio» con el filo continuo arriba y abajo lo evitaría.
+
+**Resuelto con la §20 (07-10-2026):** las laderas traen caída 3 (`laderas-*-3`),
+no tienen corona y su `esquina` se usa en todas las caídas. Sigue sin esquina
+entre caídas distintas: allí va el remate (`fin`) y la frontal entera.
+
 ## 20. Laderas: paredes laterales que encadenan (rama `arte-laterales-2`, 07-10-2026)
 
 El usuario vio las laterales de la §18 en el juego (#156; capturas en
@@ -834,5 +859,32 @@ Por hoja:
 `assets/mapa/escena.json` está rehecho (59 hojas). `componer` aún no usa
 las laderas.
 
-**Pendiente:** que el usuario mire `resumen.png` y las maquetas por hoja.
-Después, el enganche (#156).
+**Enganchado (#156, vuelta 2, 07-10-2026;
+`docs/agents/2026-10-06-paredes-laterales/capturas-vuelta2/pares/`).** El usuario
+aprobó las maquetas («Valen: commit y enganchar»). Cómo quedó:
+
+- **Registro.** `registrarLadera` (`tools/taller/derivar.ts`) es el `registro()`
+  de la maqueta por FFT, salvo que toma el **centro** de la meseta de
+  desplazamientos con el solape máximo (la guía cabe entera en el módulo en una
+  zona de hasta 40 px) en lugar del que dé el ruido de la FFT. Frente a la
+  maqueta: 187 de los 192 módulos a ≤ 16 px, el peor a 34. `pnpm taller
+  derivar-laderas` apunta las juntas de cada módulo en el índice de su hoja
+  (`ladera`: `filo`, `pie`, `largo` y `papel`, que es lo que lee la cadena); el
+  trabajador lo hace solo al terminar una hoja de laderas. La maqueta
+  correlaciona en circular sobre la guía entera; el registro, en lineal sobre
+  la caja de la pieza (igual salvo cuando la silueta da la vuelta por el borde).
+- **Elección.** La propuesta, tal cual, más dos reglas: una cadena de una casilla
+  lleva la esquina, si no el `fin`, si no el `inicio`; y lo que no entra (senda o
+  reserva) se prueba casilla a casilla con los `medio-*`, y la esquina antes con
+  el `fin`. `largo-*` sale poco (casi todas las cadenas miden 1-3 casillas).
+- **Tono.** La arenisca oeste, `CHILLONA`; el basalto (los dos lados), desde
+  /simplify (07-10-2026), `contrast(0.9) brightness(0.72) sepia(0.3)
+  saturate(1.3) hue-rotate(-10deg)`: más oscuro y algo más cálido, sin el labio
+  claro (antes, `contrast(0.8) brightness(0.8)`, que lo dejaba gris y frío).
+  Medido con `tono-laderas.mts` y `tono-basalto.mts` en
+  `docs/agents/2026-10-06-paredes-laterales/`.
+- **Caídas de 4 o más** (raras: alguna en nieve) usan la hoja de 3, estirada.
+- **Pendiente para el arte:** si el basalto entonado no basta, rehacerlo con
+  «labio negro». Las `laterales-*` (§18) quedan en disco sin usar: no se borran
+  sin preguntar. Desde /simplify no van en el catálogo, y su encargo y su guía
+  salen de `paredes-puentes.ts` (están en la historia de git).

@@ -24,12 +24,13 @@
  *   pnpm taller encolar --modulos | --texturas-relieve [--solo=…]
  *                                        las hojas de módulos del escenógrafo
  *   pnpm taller encolar --paredes-puentes [--solo=…]
- *                                        paredes laterales y puentes (§16-§17), con su guía
+ *                                        los puentes (§17), con su guía
  *   pnpm taller encolar --laderas [--solo=roca-este-1,…]
- *                                        las laderas laterales que encadenan (§20, `laderas.ts`), con su guía
+ *                                        las laderas que encadenan (§20, `laderas.ts`), con su guía
  *   pnpm taller guias                    escribe las guías de geometría de `paredes-puentes.ts` y `laderas.ts`
  *   pnpm taller derivar-puentes <puente.webp>…  rehace su ancla (centro del tablero) y su casilla
  *   pnpm taller escenario [semilla…]     el escenógrafo: compone, pinta, captura y mide
+ *   pnpm taller derivar-laderas [hoja…]  apunta las juntas de cada módulo de ladera (§20): filo y pie desde su guía, largo y papel
  *   pnpm taller catalogo-escena          rehace assets/mapa/escena.json, el catálogo que lee el juego
  *   pnpm taller vista-ejercitos          una página con todos los ejércitos, para elegir o comparar
  *   pnpm taller vista-8d [unidad|juego]  el visor de 8 direcciones de las unidades y las poses
@@ -49,6 +50,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import sharp from 'sharp';
+import { esHojaDeLadera } from '../../src/client/render/escenario/catalogo.js';
 import type { Escena } from '../../src/client/render/escenario/colocar.js';
 import { type ClipDeFigura, FIGURA, HOJAS_DE_FIGURA } from '../../src/shared/arte.js';
 import {
@@ -94,7 +96,7 @@ import {
 } from './escenario/modulos.js';
 import { evaluar } from './evaluar.js';
 import { juntarDireccion } from './juntar.js';
-import { encargosDeLaderas, escribirGuiasDeLaderas } from './laderas.js';
+import { encargosDeLaderas, escribirGuiasDeLaderas, escribirLaderasDerivadas } from './laderas.js';
 import { ESTILOS_DE_MAPA, encargoDeMuestra, encargosDeCeldas, encargosDePiezas } from './mapa.js';
 import { encargoDeLamina, encargosDePiezasDensas, encargosDeTexturas } from './mapa-denso.js';
 import {
@@ -328,6 +330,11 @@ async function postprocesar(
         join(RAIZ, `${encargo.salida}.json`),
         `${JSON.stringify({ hoja: basename(rutaSalida), modulos: extra.indiceDeModulos }, null, 2)}\n`,
       );
+      // Una hoja de laderas se coloca y encadena por sus juntas, llevadas desde la guía.
+      if (esHojaDeLadera(basename(encargo.salida))) {
+        await escribirLaderasDerivadas([basename(encargo.salida)]);
+        pasos.push('las juntas de cada módulo, registradas sobre la guía');
+      }
     }
     if (encargo.tipo === 'iconos') {
       await writeFile(
@@ -547,7 +554,7 @@ async function encolar(args: readonly string[]): Promise<void> {
     }
     return;
   }
-  // Paredes laterales y puentes (§16-§17, `paredes-puentes.ts`): primero las guías.
+  // Los puentes (§17, `paredes-puentes.ts`): primero las guías.
   if (args.includes('--paredes-puentes')) {
     await escribirGuias();
     const solo = args
@@ -565,7 +572,7 @@ async function encolar(args: readonly string[]): Promise<void> {
     }
     return;
   }
-  // Las laderas laterales que encadenan (§20, `laderas.ts`): primero las guías.
+  // Las laderas que encadenan (§20, `laderas.ts`): primero las guías.
   if (args.includes('--laderas')) {
     await escribirGuiasDeLaderas();
     const solo = args
@@ -790,6 +797,11 @@ switch (orden) {
       console.log(`→ ${f.replace(/\.webp$/, '.json')}`);
     }
     break;
+  case 'derivar-laderas':
+    // El filo y el pie de cada módulo de ladera, desde su guía (§20, #156).
+    for (const f of await escribirLaderasDerivadas(resto.length === 0 ? undefined : resto))
+      console.log(`→ ${f}`);
+    break;
   case 'catalogo-escena': {
     const c = await escribirCatalogo();
     console.log(
@@ -840,6 +852,6 @@ switch (orden) {
     break;
   default:
     throw new Error(
-      `orden desconocida «${orden}»: trabajar, encolar, corregir, retirar, reprocesar, estado, devolver, derivar, derivar-poses, maniqui, vista-ejercitos, vista-edificios, vista-efectos, vista-8d, vista-mapa, escenario, catalogo-escena, evaluar, componer-atlas-mapa`,
+      `orden desconocida «${orden}»: trabajar, encolar, corregir, retirar, reprocesar, estado, devolver, derivar, derivar-poses, derivar-laderas, maniqui, vista-ejercitos, vista-edificios, vista-efectos, vista-8d, vista-mapa, escenario, catalogo-escena, evaluar, componer-atlas-mapa`,
     );
 }

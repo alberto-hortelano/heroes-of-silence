@@ -9,13 +9,13 @@
  * primera referencia de un atlas es la pose del maniquí y la segunda la
  * identidad; una mención a Y Bot en el prompt no demuestra que se usara.
  */
-import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { derivarCeldas } from '../tools/taller/componer-atlas-mapa.js';
 import { derivarEfecto, derivarPieza, rutaDelJson } from '../tools/taller/derivar.js';
 import { puenteDerivado } from '../tools/taller/paredes-puentes.js';
+import { sha256 } from './helpers.js';
 
 const RAIZ = join(import.meta.dirname, '..');
 const UNIDADES = join(RAIZ, 'assets/unidades');
@@ -51,7 +51,6 @@ const edificios = existsSync(EDIFICIOS)
   : [];
 
 const leer = (r: string): any => JSON.parse(readFileSync(r, 'utf8'));
-const sha256 = (r: string): string => createHash('sha256').update(readFileSync(r)).digest('hex');
 
 describe('las hojas del taller', () => {
   it.each(hojas)('%s: lleva su procedencia', (h) => {
