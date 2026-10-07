@@ -523,11 +523,21 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   dice (el `raider_spawned` del índice 1; el 0 es el `day_start`). Las otras
  *   193, idénticas línea a línea. Dos con otro ganador (64 y 87), **0 sin
  *   terminar**, duración 8 / 15 / 39 igual. Re-anclado una vez, al final.
+ * - `6157d75a…` (67 071 líneas): **un grupo de asaltantes se ve al ver su
+ *   región** (#130, 07-10-2026). Cambia solo el sello `seen` de
+ *   `raider_spawned` (346 líneas) y `raider_dispersed` (81): 427 líneas en 153
+ *   semillas, **todas ganando un jugador** que veía la región y no la casilla.
+ *   Ninguna línea `fin` distinta, ningún otro campo, ningún `march_halted` ni
+ *   `march_cut` (la IA esquiva las regiones que emboscan y recorta sus marchas
+ *   antes, así que no se para nunca). El primer cambio, en la semilla 2: los
+ *   `raider_spawned` de `raider-4`, `raider-5` y `raider-6`. Medido tras fusionar
+ *   los restos del agente (#121), que no mueven el hash. Aprobado por el
+ *   usuario con esa forma.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '020ccc584552b1bae38d02cbc57879a488d5c39c08b20b51ab28eafc1ab27e36',
+  sha: '6157d75a464b8ab6b20a5c092e57cf3eb2b5e9ec48f0035b1fe3bf40b0a8ce89',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

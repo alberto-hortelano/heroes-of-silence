@@ -129,6 +129,9 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 | Tope de jugadas | `MAX_JUGADAS` |
 | Desenlace y causa del final (barra, crónica y nota del agente) | `finDePartida`, `desenlaceDe` (`state/desenlace.ts`) |
 | Ventaja para atacar/emboscar | `ventajaClara` (`ai/fuerza.ts`) |
+| Lo que se anda hoy (marcha y ruta) | `pasosDeHoy` (`state/game.ts`) |
+| Qué grupo de asaltantes se ve | `asaltantesALaVista` (lista con la marca `AsaltantesALaVista`; sin niebla, `todosALaVista`); para un grupo suelto, `grupoALaVistaDesde` |
+| Por qué una marcha no llegó (veredicto del agente) | `paradaDeLaMarcha` → `notaMarchaParcial` (`server/notas.ts`) |
 | Material de una cara (pared, ladera, pedregal) | `materialDeCara` (`render/escenario/colocar.ts`) |
 
 `test/invariantes.test.ts` vigila las fronteras de esta sección. Todos nacen en
@@ -188,7 +191,13 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   mediana ≥ 8 días, p90 ≤ 20 y 0 sin terminar».
 - **Asaltantes**: grupos neutrales que patrullan regiones sin dueño y emboscan
   al pisar si les sacan `ventajaClara`. Son actores (`GameState.raiders`), no
-  objetos del mapa.
+  objetos del mapa. Un grupo se ve en cuanto se ve una casilla de su región
+  (`asaltantesALaVista`, la única regla, que leen ruta, lienzo, barra, `knownMap`
+  y el sello de la crónica), y la marcha se para donde ve uno que la emboscaría
+  más adelante con la fuerza de ahora y que no es el que la ruta avisaba al salir
+  (`vigiaDeLaMarcha`, `march_halted`). **Ventaja declarada de la IA de reglas**:
+  mira `state.raiders` sin niebla (`casillasPeligrosas`, `strategy.ts`); si debe
+  tener niebla es de #115 (#164).
 - **Base**: nace con guarnición (`data/ciudades.json`). Con el héroe del dueño
   dentro, la defiende solo él con su tropa.
 - **Magia**: el gremio enseña por derivación (`townSpells`), `syncSpellbooks`
@@ -205,6 +214,14 @@ petición trae el formato de respuesta embebido, el agente responde una vez con
 `heroes_respond`, y el veredicto de lo anterior llega pegado a la siguiente
 petición — **siempre, también cuando acertó**. Un rechazo dice qué se jugó en su
 lugar y qué costó.
+Un `move_hero` a varios días anda lo que da el día (`pasosDeHoy`, la misma
+cuenta que pinta la ruta) y, si no llega, `moveHero` escribe `march_cut` con los
+pasos que faltaban; el director solo lo formatea. Solo se descarta si no da ni un
+paso. Los textos libres del agente (`lineaLegible`) no admiten invisibles salvo
+los que unen un emoji, ni dependen de la tabla Unicode del Node para lo sin asignar.
+Una marcha que no llega entra como parcial y dice por qué: le faltaron puntos
+(`march_cut`), vio un grupo que la emboscaría (`march_halted`) o la emboscaron
+antes del destino (`battle_started` con `faltan`).
 
 - Peticiones: `adventure_turn`, `battle_turn`, `map_generate`,
   `hero_from_troop`. Un test compara los `case` de `decidir` con `REQUEST_KINDS`
@@ -260,7 +277,9 @@ lugar y qué costó.
   árbol**, pero no de lo horneado de su casilla (`claveDeFigura`). Se recortan al
   mapa por los lados y por abajo, no por arriba. Lo que dice quién está en una
   casilla —inicial del héroe, chapa, estandarte, bandera, icono de la mina— va en
-  una pasada encima de todo y bajo la niebla. Monstruos, recursos y cofres los
+  una pasada encima de todo y bajo la niebla. **Excepción**: un grupo de
+  asaltantes que se ve por su región con la casilla sin explorar se pinta, figura
+  y chapa, encima de la niebla (`cosasDe` → `sobreLaNiebla`). Monstruos, recursos y cofres los
   pinta el juego (`seHornea`, en `escenario/horneado.ts`). Tope de alejar:
   `topeDeAlejar`, ≤ 2 000 volúmenes a la vista y nunca bajo 40 px por casilla;
   si ni a 110 px caben (7680×4320) lo avisa en consola. **Y un presupuesto de

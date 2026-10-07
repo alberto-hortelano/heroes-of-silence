@@ -100,6 +100,16 @@ type Cuerpo =
   | { kind: 'day_start'; day: number; week: number }
   | { kind: 'turn_start' }
   | { kind: 'hero_moved'; hero: string; to: Point; spent: number }
+  /**
+   * La marcha de un héroe se acaba porque no le quedan puntos para el paso
+   * siguiente, sin haber llegado (#121). `at` es donde se queda y `faltan` los
+   * pasos que le quedaban del camino calculado al salir. La escribe `moveHero`,
+   * que es quien sabe por qué paró: una batalla o el final paran por otro motivo
+   * y no la escriben. La IA recorta antes (`stepTowards`) y no la escribe nunca.
+   * `at` se repite aquí solo para estrecharlo: siempre hay casilla, y quien lo
+   * cuenta no tiene que preguntar por `null`.
+   */
+  | { kind: 'march_cut'; hero: string; faltan: number; at: Point }
   | { kind: 'resource_gained'; resource: ResourceKind; amount: number }
   /**
    * Un nodo de la red cambia de dueño al pisarlo (fase 2a). Sustituye a
@@ -130,6 +140,20 @@ type Cuerpo =
   | { kind: 'spells_learned'; hero: string; town: string; spells: string[] }
   | { kind: 'garrison_taken'; hero: string; town: string }
   | { kind: 'battle_started'; attacker: Atacante; foe: BattleFoe }
+  /**
+   * Un grupo embosca a un héroe **antes de que llegue** a donde iba: `faltan`
+   * son los pasos del camino que le quedaban (> 0). Lo escribe `moveHero`, que
+   * es quien sabe a dónde iba; la emboscada en el destino es la variante de
+   * arriba, porque ahí la marcha llegó. Así quien cuenta la marcha —la nota del
+   * agente— lee el hecho y no deduce nada comparando casillas.
+   */
+  | {
+      kind: 'battle_started';
+      attacker: Extract<Atacante, { readonly kind: 'raider' }>;
+      foe: Extract<BattleFoe, { readonly kind: 'hero' }>;
+      faltan: number;
+      at: Point;
+    }
   | { kind: 'battle_ended'; winner: 'attacker' | 'defender'; foe: BattleFoe }
   /**
    * Un grupo de asaltantes está en el mapa: los del mapa de salida al empezar
@@ -143,6 +167,22 @@ type Cuerpo =
    * quien la cerró: es su hecho, aunque el grupo esté lejos de donde la cerró.
    */
   | { kind: 'raider_dispersed'; raider: string }
+  /**
+   * La marcha de un héroe se para porque, andando, ve un grupo (`raider`) que lo
+   * emboscaría más adelante en la ruta con la fuerza de ahora y que no es el que
+   * la ruta avisaba al salir (#130; la regla, en `vigiaDeLaMarcha`). `at` es
+   * donde se queda; lo andado y lo gastado cuentan. `troops` es la tropa del
+   * grupo al verlo, para contarlo sin ir a buscarlo al estado. El grupo avisado
+   * no para nada: quien pidió la ruta decidió pisarlo. `at` se estrecha como en
+   * `march_cut`: siempre hay casilla.
+   */
+  | {
+      kind: 'march_halted';
+      hero: string;
+      raider: string;
+      troops: readonly GrupoDeTropa[];
+      at: Point;
+    }
   | { kind: 'hero_defeated'; hero: string }
   /**
    * El héroe vuelve a su base tras perder una batalla (fase 1b). Va DESPUÉS de
@@ -186,6 +226,47 @@ export type GameEventDraft = Con<Cuerpo, Origen>;
  * con ocho líneas de docstring justo porque es delicado.
  */
 export type GameEvent = Con<Cuerpo, Origen & Sello>;
+
+/**
+ * Con qué vara se sella cada hecho que tiene sitio (`emit`): por su casilla; por
+ * la región, que es como se ve un grupo de asaltantes (#130); o, la marcha que
+ * se para por un grupo, por la casilla del héroe **y** el grupo: el hecho lleva
+ * su id y su tropa, y al rival que mira al héroe sin ver la región del grupo se
+ * los contaría la crónica (H4 de QA). Exhaustivo por `kind`: un hecho nuevo de
+ * un grupo no puede olvidarse de decirlo. Los que no tienen sitio no se sellan;
+ * dicen `casilla` por decir algo.
+ */
+export const SE_VE_POR: Readonly<
+  Record<GameEvent['kind'], 'casilla' | 'region' | 'casilla y grupo'>
+> = {
+  day_start: 'casilla',
+  turn_start: 'casilla',
+  hero_moved: 'casilla',
+  march_cut: 'casilla',
+  resource_gained: 'casilla',
+  node_captured: 'casilla',
+  town_captured: 'casilla',
+  built: 'casilla',
+  recruited: 'casilla',
+  dismissed: 'casilla',
+  hero_hired: 'casilla',
+  loot_found: 'casilla',
+  item_bought: 'casilla',
+  hero_promoted: 'casilla',
+  spells_learned: 'casilla',
+  garrison_taken: 'casilla',
+  battle_started: 'casilla',
+  battle_ended: 'casilla',
+  raider_spawned: 'region',
+  raider_dispersed: 'region',
+  march_halted: 'casilla y grupo',
+  hero_defeated: 'casilla',
+  hero_returned: 'casilla',
+  level_up: 'casilla',
+  troop_level_up: 'casilla',
+  player_defeated: 'casilla',
+  game_over: 'casilla',
+};
 
 /**
  * Si a `p` le consta ese hecho. **La única función que lo decide.**
@@ -240,6 +321,7 @@ export function visibleTo(e: GameEvent, p: PlayerId): boolean {
       return e.actor === p || e.from === p || e.seen.includes(p);
 
     case 'hero_moved':
+    case 'march_cut':
     case 'resource_gained':
     case 'node_captured':
     case 'built':
@@ -259,6 +341,7 @@ export function visibleTo(e: GameEvent, p: PlayerId): boolean {
     case 'troop_level_up':
     case 'raider_spawned':
     case 'raider_dispersed':
+    case 'march_halted':
       return e.actor === p || e.seen.includes(p);
   }
 }

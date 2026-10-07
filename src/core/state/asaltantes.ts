@@ -24,13 +24,17 @@
  *  - **Embosca al pisar**, no al pasar la noche: la marcha del héroe se para en
  *    la casilla de la región en la que el grupo le saca el margen
  *    (`ventajaClara`). Un héroe parado no se ataca.
+ *  - **Se ve al ver su región** (`asaltantesALaVista`), y la marcha que
+ *    descubre por el camino un grupo que la emboscaría más adelante se para
+ *    donde lo ve (`march_halted`, #130): nadie pisa una emboscada sin aviso.
  *  - **Se dispersa** cuando su región tiene dueño (`territorio`), y **brota**
  *    los lunes en regiones sin dueño y sin héroe, en una casilla libre.
  */
 import { fuerzaDe, poderDe, ventajaClara } from '../ai/fuerza.js';
 import { ASALTANTES, type GrupoDeTropa, problemasDeTopeDeLiderazgo } from '../data.js';
 import type { Hero } from '../hero/hero.js';
-import { type GameMap, inBounds } from '../map/map.js';
+import { individuosDe } from '../hero/troop.js';
+import { type GameMap, inBounds, type Mirada, pointFromKey } from '../map/map.js';
 import {
   aPunto,
   type Estructura,
@@ -251,9 +255,153 @@ export function emboscador(state: GameState, hero: Hero): Raider | null {
 }
 
 /**
+ * Las regiones que se están mirando: las de alguna casilla de `mirando`. Los
+ * muros, nodos y casillas fuera de región (−1) no cuentan.
+ */
+function regionesALaVista(map: GameMap, mirando: ReadonlySet<string>): Set<number> {
+  const out = new Set<number>();
+  for (const clave of mirando) {
+    const r = regionDeCasilla(map, pointFromKey(clave));
+    if (r >= 0) out.add(r);
+  }
+  return out;
+}
+
+declare const aLaVista: unique symbol;
+
+/**
+ * Una lista de grupos que ya ha pasado por la niebla de quien mira. Solo la
+ * fabrican `asaltantesALaVista` y, para quien lo ve todo, `todosALaVista`: así
+ * lo que enseña grupos —el lienzo, la ruta— no compila con `state.raiders` a
+ * secas ni con un `.filter` encima, que devuelve un array sin la marca. Es lo
+ * que el guardia de `invariantes.test.ts`, un grep, no podía ver: `escena:
+ * state` pintando todos los grupos.
+ */
+export type AsaltantesALaVista<T extends VistaAsaltante = Raider> = readonly T[] & {
+  readonly [aLaVista]: true;
+};
+
+/**
+ * Los grupos de quien no tiene niebla: el espectador, que lo ve todo porque eso
+ * es lo que es, y «Ver mapa entero». Es la otra puerta de la marca y no filtra
+ * nada; quien la llama dice con ello que mira sin niebla.
+ */
+export function todosALaVista<T extends VistaAsaltante>(
+  grupos: readonly T[],
+): AsaltantesALaVista<T> {
+  return grupos as AsaltantesALaVista<T>;
+}
+
+/**
+ * Los grupos que ve quien mira `mirando` (`visibleNow`; `null` es «todo», la
+ * convención del cliente para «Ver mapa entero»). **La única regla de qué
+ * grupo se ve**: la leen la ruta (`emboscadaEnLaRuta`), el lienzo y la barra
+ * del cliente (`Session.asaltantesALaVista`) y el agente (`serializeKnownMap`).
+ * La crónica y la parada de la marcha preguntan lo mismo por un solo grupo y
+ * sin el `Set` (`grupoALaVistaDesde`). El espectador lo ve todo.
+ *
+ * **Un grupo se ve en cuanto se ve cualquier casilla de su región**, aunque la
+ * suya siga en la niebla (opción C de #130): un grupo que patrulla una región
+ * se nota desde su borde; lo que no se regala es el terreno, que sigue siendo
+ * `fog`. El porqué y las medidas, en `docs/historia.md`.
+ */
+export function asaltantesALaVista(
+  state: GameState,
+  mirando: ReadonlySet<string> | null,
+): AsaltantesALaVista {
+  if (mirando === null) return todosALaVista([...state.raiders]);
+  const seVe = grupoALaVista(state.map, mirando);
+  return todosALaVista(state.raiders.filter((r) => seVe(r.at)));
+}
+
+/**
+ * La regla de `asaltantesALaVista` para un grupo que está —o estaba— en `at`.
+ * Un grupo fuera de toda región no existe (`pasoDePatrulla` lanza) y no se ve.
+ */
+export function grupoALaVista(map: GameMap, mirando: ReadonlySet<string>): (at: Point) => boolean {
+  const regiones = regionesALaVista(map, mirando);
+  return (at) => regiones.has(regionDeCasilla(map, at));
+}
+
+/**
+ * La misma regla para un solo grupo, sin levantar el `Set` de lo visible: se
+ * recorren las `miradas` del jugador (`miradasDe`, en `game.ts`). Primero la
+ * casilla del grupo, que es lo barato y lo que casi siempre decide; si no, el
+ * cuadrado de cada mirada sobre `regionDe` hasta dar con su región.
+ *
+ * Es lo que preguntan el sello de la crónica (`raider_dispersed` se sella con el
+ * grupo ya fuera de `state.raiders`) y la parada de la marcha a cada paso:
+ * construir `visibleNow` y sus regiones para una casilla era el 2,1 % del
+ * banco. Que dice lo mismo que `grupoALaVista` lo ata un test grupo a grupo.
+ */
+export function grupoALaVistaDesde(map: GameMap, miradas: readonly Mirada[], at: Point): boolean {
+  const region = regionDeCasilla(map, at);
+  if (region < 0) return false;
+  for (const { centro, radio } of miradas) {
+    if (Math.max(Math.abs(centro.x - at.x), Math.abs(centro.y - at.y)) <= radio) return true;
+  }
+  const { regionDe } = estructura(map);
+  const W = map.width;
+  for (const { centro, radio } of miradas) {
+    const x0 = Math.max(0, centro.x - radio);
+    const x1 = Math.min(W - 1, centro.x + radio);
+    const y0 = Math.max(0, centro.y - radio);
+    const y1 = Math.min(map.height - 1, centro.y + radio);
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) if (regionDe[y * W + x] === region) return true;
+    }
+  }
+  return false;
+}
+
+/** Un grupo que le saca el margen a un héroe, con su región. */
+interface GrupoConMargen {
+  readonly raider: Raider;
+  readonly region: number;
+}
+
+/**
+ * Los grupos que le sacan el margen (`ventajaClara`) a `hero`, en el orden de
+ * `state.raiders` —el de `emboscador`—, entre los que pasan `cuales`. La fuerza
+ * del héroe se mide solo si alguno pasa: la IA pregunta por cada marcha y casi
+ * nunca hay un grupo en su ruta. Lo leen la ruta que avisa, la parada de la
+ * marcha y el alcance prudente de la IA.
+ */
+function gruposConMargen(
+  state: GameState,
+  hero: Hero,
+  cuales: (raider: Raider, region: number) => boolean = () => true,
+): GrupoConMargen[] {
+  const out: GrupoConMargen[] = [];
+  let suya: number | undefined;
+  for (const raider of state.raiders) {
+    const region = regionDeCasilla(state.map, raider.at);
+    if (region < 0 || !cuales(raider, region)) continue;
+    suya ??= fuerzaDe(hero, state.characters);
+    if (ventajaClara(poderDe(raider), suya)) out.push({ raider, region });
+  }
+  return out;
+}
+
+/** El primer paso de `ruta` que pisa la región de uno de `grupos`, y cuál. */
+function primeroEnLaRuta(
+  map: GameMap,
+  ruta: readonly { readonly at: Point }[],
+  grupos: readonly GrupoConMargen[],
+): { readonly paso: number; readonly raider: Raider } | null {
+  if (grupos.length === 0) return null;
+  for (let i = 0; i < ruta.length; i++) {
+    const region = regionDeCasilla(map, (ruta[i] as { at: Point }).at);
+    if (region < 0) continue;
+    const grupo = grupos.find((g) => g.region === region);
+    if (grupo !== undefined) return { paso: i, raider: grupo.raider };
+  }
+  return null;
+}
+
+/**
  * Dónde emboscarían a `hero` si anduviera `ruta`, contando SOLO con los grupos
- * que su dueño está mirando (`mirando`, que es `visibleNow`; `null` es «todo»,
- * la convención del cliente para «Ver mapa entero»): el índice del
+ * que su dueño ve (`vistos`, que solo da `asaltantesALaVista`): el índice del
  * primer paso que pisa la región de un grupo que le saca el margen, y quién es;
  * o `null`.
  *
@@ -261,31 +409,91 @@ export function emboscador(state: GameState, hero: Hero): Raider | null {
  * `state.raiders`— con una restricción que no se puede quitar: un grupo que no
  * se ve **no avisa**. Avisar de él sería decirle a la persona lo que la niebla le
  * tapa, que es la fuga que el agente no tiene. Lo pide la pantalla para marcar
- * la ruta (H2 del ciclo «el camino cuesta»): antes, la barra decía «llegas hoy
- * (3 pasos)» sobre una casilla de emboscada y la explicación solo salía con el
- * ratón encima del propio grupo.
+ * la ruta (H2 del ciclo «el camino cuesta»).
  */
 export function emboscadaEnLaRuta(
   state: GameState,
   hero: Hero,
   ruta: readonly { readonly at: Point }[],
-  mirando: ReadonlySet<string> | null,
+  vistos: AsaltantesALaVista<VistaAsaltante>,
 ): { readonly paso: number; readonly raider: Raider } | null {
-  const vistos =
-    mirando === null
-      ? state.raiders
-      : state.raiders.filter((r) => mirando.has(`${r.at.x},${r.at.y}`));
   if (vistos.length === 0) return null;
-  const suya = fuerzaDe(hero, state.characters);
-  const peligrosos = vistos.filter((r) => ventajaClara(poderDe(r), suya));
-  if (peligrosos.length === 0) return null;
-  for (let i = 0; i < ruta.length; i++) {
-    const region = regionDeCasilla(state.map, (ruta[i] as { at: Point }).at);
-    if (region < 0) continue;
-    const raider = peligrosos.find((r) => regionDeCasilla(state.map, r.at) === region);
-    if (raider !== undefined) return { paso: i, raider };
+  const ids = new Set(vistos.map((r) => r.id));
+  return primeroEnLaRuta(
+    state.map,
+    ruta,
+    gruposConMargen(state, hero, (r) => ids.has(r.id)),
+  );
+}
+
+/** Los grupos que le sacan el margen a `hero` con su fuerza de ahora y patrullan una región de `ruta`. */
+function conMargenEnLaRuta(
+  state: GameState,
+  hero: Hero,
+  ruta: readonly { readonly at: Point }[],
+): GrupoConMargen[] {
+  const pisadas = new Set<number>();
+  for (const paso of ruta) pisadas.add(regionDeCasilla(state.map, paso.at));
+  return gruposConMargen(state, hero, (_, region) => pisadas.has(region));
+}
+
+/**
+ * Lo que vigila la marcha de `hero` por `ruta` (`moveHero`, #130). Devuelve la
+ * pregunta que la marcha hace tras cada paso: «¿hay que pararse aquí?», con el
+ * índice del primer paso que queda y si algo cambió en ese paso (un hecho más
+ * que el `hero_moved`); la respuesta es el grupo por el que se para, o `null`.
+ *
+ * **La regla**: la marcha se para en cuanto se ve un grupo que, con la fuerza de
+ * ahora, la emboscaría en lo que queda de ruta y que no es el que la ruta avisaba
+ * al salir. Ese lo vio quien la pidió y decidió pisarlo; cualquier otro, no.
+ *
+ * Por qué «no es el avisado» y no «no se veía al salir» (H1 de QA, `?seed=198`):
+ * el héroe que recoge la guarnición de camino deja de temer al grupo avisado y
+ * pasa a emboscarlo uno posterior, que pudo verse desde el principio sin que la
+ * ruta lo nombrara —la ruta nombra uno—. Al salir las dos reglas dicen lo mismo:
+ * el primero que embosca, si se ve, es el avisado.
+ *
+ * Quién embosca se recalcula solo cuando el paso cambió algo —la guarnición
+ * recogida sube la fuerza, un nodo tomado dispersa grupos—: ninguna otra cosa
+ * de una marcha cambia la respuesta. Si no se recalculara, la marcha se pararía
+ * por un grupo que ya no la emboscaría (H2, `?seed=6`). Las `miradas` se piden
+ * solo si hay un grupo con margen en la ruta, y por eso es una función: la IA no
+ * pisa esas regiones (`casillasPeligrosas`), así que en sus marchas —casi todas
+ * las del banco— no se miran.
+ */
+export function vigiaDeLaMarcha(
+  state: GameState,
+  hero: Hero,
+  ruta: readonly { readonly at: Point }[],
+  miradas: () => readonly Mirada[],
+): (siguiente: number, cambio: boolean) => Raider | null {
+  const { map } = state;
+  const alSalir = conMargenEnLaRuta(state, hero, ruta);
+  // El que nombra la ruta al salir: el primero de la ruta entre los que se ven
+  // (`emboscadaEnLaRuta`, que es lo que pinta el cliente y lo que lee el agente).
+  let avisado: Raider | null = null;
+  if (alSalir.length > 0) {
+    const vistas = miradas();
+    const vistos = alSalir.filter((g) => grupoALaVistaDesde(map, vistas, g.raider.at));
+    avisado = primeroEnLaRuta(map, ruta, vistos)?.raider ?? null;
   }
-  return null;
+  let amenaza = primeroEnLaRuta(map, ruta, alSalir)?.raider ?? null;
+  return (siguiente, cambio) => {
+    if (cambio) {
+      const resto = ruta.slice(siguiente);
+      amenaza = primeroEnLaRuta(map, resto, conMargenEnLaRuta(state, hero, resto))?.raider ?? null;
+    }
+    if (amenaza === null || amenaza === avisado) return null;
+    return grupoALaVistaDesde(map, miradas(), amenaza.at) ? amenaza : null;
+  };
+}
+
+/**
+ * Lo que vio la marcha que se para (`march_halted`), dicho una vez: lo leen la
+ * barra, la crónica y la nota del agente, que le añade el id del grupo.
+ */
+export function loQueLaPara(troops: readonly GrupoDeTropa[]): string {
+  return `ve ${individuosDe(troops)} asaltantes que lo emboscarían más adelante`;
 }
 
 /**
@@ -304,13 +512,7 @@ export function emboscadaEnLaRuta(
  * partidas sin terminar.
  */
 export function casillasPeligrosas(state: GameState, hero: Hero): Uint8Array | null {
-  if (state.raiders.length === 0) return null;
-  const suya = fuerzaDe(hero, state.characters);
-  const regiones = new Set<number>();
-  for (const raider of state.raiders) {
-    if (ventajaClara(poderDe(raider), suya)) regiones.add(regionDeCasilla(state.map, raider.at));
-  }
-  regiones.delete(-1);
+  const regiones = new Set(gruposConMargen(state, hero).map((g) => g.region));
   if (regiones.size === 0) return null;
   const { regionDe } = estructura(state.map);
   const marca = new Uint8Array(regionDe.length);

@@ -21,7 +21,7 @@ import { HERO_BODY } from '@core/hero/hero.js';
 import { individuosDe } from '@core/hero/troop.js';
 import { type MapObject, type MapRegion, pointKey, type TramoDeCamino } from '@core/map/map.js';
 import type { TerrainKind } from '@core/map/terrain.js';
-import type { VistaAsaltante } from '@core/state/asaltantes.js';
+import type { AsaltantesALaVista, VistaAsaltante } from '@core/state/asaltantes.js';
 import type { Point } from '@core/types.js';
 import { type Direccion, direccionEnPantalla } from '../direccion.js';
 import { msPorCasilla } from '../marcha.js';
@@ -85,11 +85,6 @@ export interface AdventureScene {
     readonly name: string;
     readonly at: Point;
   }[];
-  /**
-   * Los grupos de asaltantes, con su tropa contada: la figura lleva el cuerpo
-   * de su primera criatura, que es lo que se ve venir, y la chapa cuántos son.
-   */
-  readonly raiders: readonly VistaAsaltante[];
 }
 
 /**
@@ -106,6 +101,14 @@ export interface PasoDeRuta {
 
 export interface VistaMapa {
   readonly escena: AdventureScene;
+  /**
+   * Los grupos de asaltantes que se pintan, con su tropa contada: la figura
+   * lleva el cuerpo de su primera criatura y la chapa cuántos son. Un campo
+   * aparte de `escena` y con la marca de la niebla: solo lo fabrican
+   * `asaltantesALaVista` —quien juega— y `todosALaVista` —el espectador—, así
+   * que pintar `state.raiders` sin filtrar no compila.
+   */
+  readonly asaltantes: AsaltantesALaVista<VistaAsaltante>;
   readonly camara: CamaraMapa;
   readonly ancho: number;
   readonly alto: number;
@@ -152,7 +155,8 @@ export const ALTO_DEL_GRUPO = 0.85;
 /**
  * La patrulla que se está viendo: de dónde a dónde va cada grupo y desde
  * cuándo. El núcleo mueve al grupo de golpe al empezar el día; quien desliza
- * la figura es el lienzo, recordando la última casilla en la que la pintó.
+ * la figura es el lienzo, recordando la última casilla en la que la pintó
+ * mientras la siga pintando (`olvidarLosQueNoSePintan`).
  *
  * Por partida, con el array de terreno como llave: es lo único que no cambia en
  * toda una partida ni entre fotogramas del espectador (`adaptar.ts` lo conserva),
@@ -180,7 +184,7 @@ interface PosicionDeAsaltante {
 /** Dónde pintar un grupo AHORA, y si está andando. */
 function posicionDeAsaltante(
   escena: AdventureScene,
-  r: AdventureScene['raiders'][number],
+  r: VistaAsaltante,
   tiempo: number,
 ): PosicionDeAsaltante {
   let deLaPartida = marchas.get(escena.map.terrain);
@@ -205,6 +209,21 @@ function posicionDeAsaltante(
     m.dura = largo * msPorCasilla(cuerpo, 'walk', ALTO_DEL_GRUPO);
   }
   return { ...posicionEn(m, tiempo), hasta: m.inicio + m.dura };
+}
+
+/**
+ * Olvida dónde se pintó cada grupo que este fotograma no pinta —salió de la
+ * vista de quien juega o de la cámara—: el que vuelve aparece en su casilla, sin
+ * deslizarse desde la última en la que se le vio, que puede ser de hace días.
+ * Desde #130 los grupos entran y salen de la vista con su región, y uno que
+ * reaparecía cruzaba media pantalla andando desde un recuerdo (H3 de QA: el
+ * grupo de la semilla 50 de `pnpm capturas` estaba a mitad de ese paseo cuando
+ * se tomó la foto de «antes» de su patrulla).
+ */
+function olvidarLosQueNoSePintan(escena: AdventureScene, pintados: ReadonlySet<string>): void {
+  const deLaPartida = marchas.get(escena.map.terrain);
+  if (deLaPartida === undefined) return;
+  for (const id of deLaPartida.keys()) if (!pintados.has(id)) deLaPartida.delete(id);
 }
 
 function posicionEn(
@@ -374,7 +393,7 @@ export function drawMapa(ctx: CanvasRenderingContext2D, v: VistaMapa): void {
 
   // 2 · Lo que tiene altura —los volúmenes de la escena y las figuras del juego—,
   //     en un solo orden de profundidad: una figura puede quedar detrás de un árbol.
-  const cosas = cosasDe(v, esc);
+  const { cosas, sobreLaNiebla } = cosasDe(v, esc);
   pintarLoQueTieneAltura(ctx, v, volumenesALaVista(v, esc), cosas);
 
   // 3 · Lo que dice quién está en cada casilla, encima de todo lo que tiene altura.
@@ -382,6 +401,13 @@ export function drawMapa(ctx: CanvasRenderingContext2D, v: VistaMapa): void {
 
   // 4 · La niebla: negra sobre lo desconocido, tenue sobre lo que no se mira.
   pintarNiebla(ctx, v);
+  //     Y encima, los grupos que se ven sin haber explorado su casilla: se ven
+  //     porque se ve su región (#130), y bajo la niebla negra no se verían. Es
+  //     la excepción a «lo que dice quién está en una casilla va bajo la niebla».
+  for (const cosa of sobreLaNiebla) {
+    pintarCosa(ctx, v, cosa);
+    pintarIdentificador(ctx, v, cosa);
+  }
 
   // 5 · Encima de todo, lo que es de quien juega: la ruta y la casilla señalada.
   pintarRuta(ctx, camara, esc, pasosAPintar(v.ruta, v.explorado));
@@ -430,20 +456,26 @@ type Cosa =
   | {
       readonly tipo: 'asaltante';
       readonly clave: number;
-      readonly asaltante: AdventureScene['raiders'][number];
+      readonly asaltante: VistaAsaltante;
       readonly en: PosicionDeAsaltante;
     };
 
 /**
  * Las figuras del juego que caen en la vista, de atrás adelante. Se rehace a cada
  * fotograma —son unas decenas— porque los asaltantes andan y su clave con ellos.
+ *
+ * Los grupos llegan ya filtrados por la regla del núcleo (`asaltantesALaVista`)
+ * y aquí solo se reparten, en la misma pasada: los de casilla explorada, entre
+ * los volúmenes; los de casilla sin explorar, en `sobreLaNiebla`, que se pinta
+ * encima de ella y sin volúmenes que los tapen —su terreno no se conoce—.
  */
-function cosasDe(v: VistaMapa, esc: Escenario): Cosa[] {
+function cosasDe(v: VistaMapa, esc: Escenario): { cosas: Cosa[]; sobreLaNiebla: Cosa[] } {
   const { escena, camara, explorado } = v;
   const explorada = (p: Point): boolean => explorado === null || explorado.has(pointKey(p));
   const { x0, y0, x1, y1 } = ventanaDeCasillas(camara, v.ancho, v.alto, MARGEN_DE_COSA);
   const enVista = (p: Point) => p.x >= x0 && p.y >= y0 && p.x < x1 && p.y < y1;
   const lista: Cosa[] = [];
+  const sobreLaNiebla: Cosa[] = [];
   for (const o of escena.map.objects) {
     if (!enVista(o.at) || !explorada(o.at) || !presente(o)) continue;
     if (seHornea(o.kind)) {
@@ -466,15 +498,17 @@ function cosasDe(v: VistaMapa, esc: Escenario): Cosa[] {
     const pie = pisada(esc, h.at, PIES.heroe);
     lista.push({ tipo: 'heroe', clave: pie.clave, heroe: h, pie });
   }
-  // Como los héroes rivales: se pintan sobre lo explorado (#64 cuenta por qué
-  // el lienzo del cliente mira `fog` y no lo que se ve ahora).
-  for (const r of escena.raiders) {
-    if (!enVista(r.at) || !explorada(r.at)) continue;
+  const pintados = new Set<string>();
+  for (const r of v.asaltantes) {
+    if (!enVista(r.at)) continue;
+    pintados.add(r.id);
     const en = posicionDeAsaltante(escena, r, v.tiempo);
     const clave = claveDeFigura(esc, en.x, en.y + PIES.grupo);
-    lista.push({ tipo: 'asaltante', clave, asaltante: r, en });
+    (explorada(r.at) ? lista : sobreLaNiebla).push({ tipo: 'asaltante', clave, asaltante: r, en });
   }
-  return lista.sort((a, b) => a.clave - b.clave);
+  olvidarLosQueNoSePintan(escena, pintados);
+  const porClave = (a: Cosa, b: Cosa): number => a.clave - b.clave;
+  return { cosas: lista.sort(porClave), sobreLaNiebla: sobreLaNiebla.sort(porClave) };
 }
 
 /**
@@ -826,7 +860,7 @@ function pintarHeroe(
 function pintarAsaltante(
   ctx: CanvasRenderingContext2D,
   v: VistaMapa,
-  r: AdventureScene['raiders'][number],
+  r: VistaAsaltante,
   p: PosicionDeAsaltante,
 ): void {
   const tile = v.camara.tile;

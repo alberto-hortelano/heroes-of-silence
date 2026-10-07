@@ -13,9 +13,15 @@ import { renderSide } from '../src/client/views/panels.js';
 import { armyLeadership, GARRISON_LEADERSHIP } from '../src/core/hero/troop.js';
 import { pointFromKey, reachableFrom, visibleFrom } from '../src/core/map/map.js';
 import { isWalkable } from '../src/core/map/terrain.js';
-import { applyAdventureAction, HERO_SCOUT_RADIUS, heroesOf } from '../src/core/state/game.js';
+import { asaltantesALaVista } from '../src/core/state/asaltantes.js';
+import {
+  applyAdventureAction,
+  HERO_SCOUT_RADIUS,
+  heroesOf,
+  visibleNow,
+} from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
-import { anteLaBase, pegadoA, planDeNodos } from './helpers.js';
+import { anteLaBase, pegadoA, planDeNodos, primeraMarchaQueSePara } from './helpers.js';
 
 describe('sesión del cliente: el turno del rival', () => {
   it('mientras juega el rival no es tu turno, y pulsar otra vez no hace nada', async () => {
@@ -372,5 +378,29 @@ describe('la pieza elegida es de la mochila de un héroe (M1)', () => {
     session.selectItem(espada);
     aldo.mochila = [];
     expect(session.selectedItem).toBeNull();
+  });
+});
+
+describe('los asaltantes que se ven y la marcha que se para (#130)', () => {
+  it('la sesión ve los grupos con la regla del núcleo, y la barra dice por qué se para el héroe', () => {
+    let probadas = 0;
+    for (let seed = 1; seed <= 40; seed++) {
+      const s = new Session(seed);
+      expect(s.asaltantesALaVista().map((r) => r.id)).toEqual(
+        asaltantesALaVista(s.state, visibleNow(s.state, s.viewer)).map((r) => r.id),
+      );
+      const hero = s.selectedHero!;
+      const destino = primeraMarchaQueSePara(s.state, hero);
+      if (destino === null) continue;
+      const antes = s.asaltantesALaVista().length;
+      s.moveHeroTo(hero.id, destino);
+      probadas++;
+      expect(s.state.log.at(-1)?.kind).toBe('march_halted');
+      expect(s.status).toMatch(new RegExp(`^${hero.name} se detiene: ve \\d+ asaltantes`));
+      // La caché de la sesión no se queda con los de antes de andar.
+      expect(s.asaltantesALaVista().length).toBeGreaterThan(antes);
+      break;
+    }
+    expect(probadas).toBe(1);
   });
 });

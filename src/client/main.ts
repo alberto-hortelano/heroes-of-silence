@@ -14,6 +14,7 @@ import { cargarArte } from './render/assets.js';
 import { apuntarElSueloEn } from './render/escenario/superficie.js';
 import { hayFigurasAnimadas } from './render/figura.js';
 import { ajustarLienzo } from './render/lienzo.js';
+import { repartirClic } from './reparto-del-clic.js';
 import { semillaSorteada } from './semilla.js';
 import { Session } from './session.js';
 import { renderActions, renderSide, renderTopbar } from './views/panels.js';
@@ -133,7 +134,10 @@ function render(ahora: number): void {
     console.error('[cliente] fallo al pintar', err);
     elStatus.textContent = `No se ha podido pintar la pantalla: ${motivo}`;
   } finally {
-    if (hayAnimacion()) pedirFotograma();
+    // También si la escena cambió mientras se pintaba —un «Continuar» que
+    // esperaba a la jugada vuelve al mapa en `batalla.sincronizar`—: este
+    // fotograma pintó la de antes.
+    if (hayAnimacion() || session.scene !== escenaPintada) pedirFotograma();
   }
 }
 
@@ -332,13 +336,23 @@ document.addEventListener('click', (ev) => {
   const target = (ev.target as HTMLElement).closest('[data-action]');
   if (target === null) return;
   const action = target.getAttribute('data-action');
-  // Mirar al enemigo no es un gesto de la batalla: se puede mientras se cuenta.
-  if (action === 'ver-enemigo') {
+  const reparto = repartirClic(action, session.scene, jugadaEnCurso);
+  if (reparto === 'mirar') {
     const izquierda = haciaEnemigo.dataset.lado === 'izquierda' ? 0 : lienzo.scrollWidth;
     lienzo.scrollTo({ left: izquierda, behavior: 'smooth' });
     return;
   }
-  if (action === null || jugadaEnCurso()) return;
+  if (reparto === 'al-acabar') {
+    // Si espera, la vuelta al mapa ocurre dentro de un fotograma, y `render`
+    // pide el siguiente al ver que la escena cambió.
+    batalla.alAcabar(performance.now(), () => {
+      session.finishBattle();
+      aventura.olvidarRuta();
+    });
+    pedirFotograma();
+    return;
+  }
+  if (reparto === 'nada') return;
   pedirFotograma();
 
   switch (action) {
@@ -410,10 +424,6 @@ document.addEventListener('click', (ev) => {
       break;
     case 'auto-battle':
       session.autoResolveBattle();
-      break;
-    case 'finish-battle':
-      session.finishBattle();
-      aventura.olvidarRuta();
       break;
     case 'zoom-in':
       aventura.zoom(1);

@@ -63,6 +63,7 @@ import {
   inBounds,
   isEnterable,
   type MapObject,
+  type Mirada,
   objectAt,
   type PathStep,
   pathFromReachable,
@@ -115,11 +116,19 @@ import {
   dispersados,
   dondeBrotan,
   emboscador,
+  grupoALaVistaDesde,
   mascaraDeOcupacion,
   pasoDePatrulla,
   type Raider,
+  vigiaDeLaMarcha,
 } from './asaltantes.js';
-import type { Atacante, BattleFoe, GameEvent, GameEventDraft } from './events.js';
+import {
+  type Atacante,
+  type BattleFoe,
+  type GameEvent,
+  type GameEventDraft,
+  SE_VE_POR,
+} from './events.js';
 
 export interface Player {
   readonly id: PlayerId;
@@ -729,13 +738,24 @@ export function revealEverything(state: GameState, playerId: PlayerId): void {
  */
 export function visibleNow(state: GameState, playerId: PlayerId): Set<string> {
   const claves = new Set<string>();
-  for (const hero of heroesOf(state, playerId)) {
-    for (const key of visibleFrom(state.map, hero.at, HERO_SCOUT_RADIUS)) claves.add(key);
-  }
-  for (const town of townsOf(state, playerId)) {
-    for (const key of visibleFrom(state.map, town.at, TOWN_SCOUT_RADIUS)) claves.add(key);
+  for (const { centro, radio } of miradasDe(state, playerId)) {
+    for (const key of visibleFrom(state.map, centro, radio)) claves.add(key);
   }
   return claves;
+}
+
+/**
+ * Desde dónde mira AHORA un jugador: cada héroe y cada pueblo suyo, con su
+ * radio. Es `visibleNow` sin levantar las claves, para quien pregunta por una
+ * región y no por todo (`grupoALaVistaDesde`).
+ */
+export function miradasDe(state: GameState, playerId: PlayerId): Mirada[] {
+  const out: Mirada[] = [];
+  for (const hero of heroesOf(state, playerId))
+    out.push({ centro: hero.at, radio: HERO_SCOUT_RADIUS });
+  for (const town of townsOf(state, playerId))
+    out.push({ centro: town.at, radio: TOWN_SCOUT_RADIUS });
+  return out;
 }
 
 /**
@@ -825,10 +845,41 @@ function emit(state: GameState, draft: GameEventDraft): void {
   // no tienen casilla —el día, el turno, la derrota y el fin— van siempre.
   if (sitio !== null) {
     for (const p of state.players) {
-      if (visibleNowAt(state, p.id, sitio)) seen.push(p.id);
+      if (observa(state, p.id, draft, sitio)) seen.push(p.id);
     }
   }
   (state.log as GameEvent[]).push({ ...draft, seen });
+}
+
+/**
+ * Si `p` observa un hecho ocurrido en `sitio`, con la vara que dice `SE_VE_POR`:
+ * lo de un grupo de asaltantes —que brota o se dispersa— con la regla de qué
+ * grupo se ve (basta mirar su región, #130); la marcha que se para por un grupo,
+ * por la casilla del héroe **y** el grupo; lo demás, por su casilla. Si no, la
+ * crónica diría «nadie lo vio» de un grupo que el mapa y el agente sí enseñan, o
+ * le contaría al rival que mira al héroe un grupo y su tropa que su niebla le
+ * tapa (H4 de QA).
+ */
+function observa(state: GameState, p: PlayerId, draft: GameEventDraft, sitio: Point): boolean {
+  switch (SE_VE_POR[draft.kind]) {
+    case 'region':
+      return grupoALaVistaDesde(state.map, miradasDe(state, p), sitio);
+    case 'casilla':
+      return visibleNowAt(state, p, sitio);
+    case 'casilla y grupo': {
+      if (draft.kind !== 'march_halted') {
+        throw new Error(`"${draft.kind}" se sella por su grupo y no lleva grupo`);
+      }
+      const grupo = state.raiders.find((r) => r.id === draft.raider);
+      if (grupo === undefined) {
+        throw new Error(`la marcha se para por el grupo ${draft.raider}, que no está en el mapa`);
+      }
+      return (
+        visibleNowAt(state, p, sitio) &&
+        grupoALaVistaDesde(state.map, miradasDe(state, p), grupo.at)
+      );
+    }
+  }
 }
 
 // ---------------------------------------------------------------- turnos
@@ -1759,6 +1810,17 @@ function caminoEsquivando(
 }
 
 /**
+ * Cuántos pasos de `camino` se pagan hoy con los puntos que le quedan a `hero`:
+ * el héroe anda eso y lo demás es de otro día. El coste del camino es acumulado
+ * y creciente, así que lo de hoy es siempre un prefijo. Lo leen la marcha
+ * (`moveHero`) y la ruta que se pinta, y tienen que decir lo mismo.
+ */
+export function pasosDeHoy(camino: readonly PathStep[], hero: Hero): number {
+  const primeroQueNo = camino.findIndex((paso) => paso.cost > hero.movePoints);
+  return primeroQueNo === -1 ? camino.length : primeroQueNo;
+}
+
+/**
  * Por qué `hero` no llega a `to`, en una frase para la persona, o el agente.
  *
  * Decía siempre «no hay camino hasta (x,y)», y con «lo hostil se alcanza pero
@@ -1853,13 +1915,23 @@ function moveHero(
   const camino = caminoDelHeroe(state, hero, to, alcance);
   if (camino === null) throw new Error(porQueNoLlega(state, hero, to));
   if (camino.length === 0) return;
+  // El héroe anda lo que le dé el día y la marcha entra aunque no llegue: se
+  // lanza solo si no da ni un paso, antes de tocar nada.
+  const hoy = pasosDeHoy(camino, hero);
+  if (hoy === 0) throw new Error('no quedan puntos de movimiento para dar ni un paso');
 
-  for (let i = 0; i < camino.length; i++) {
+  // Si por el camino se ve un grupo que la emboscaría y que la ruta no avisaba,
+  // la marcha se para donde lo ve (#130; la regla, en `vigiaDeLaMarcha`). Casi
+  // siempre no hay —la IA no pisa esas regiones—, y entonces el bucle no paga
+  // nada. De un solo paso no hay «más adelante», y mirarlo mediría la fuerza
+  // del héroe antes que la batalla, que es quien tiene que lanzar si su
+  // ejército no vale.
+  const miradas = (): readonly Mirada[] => miradasDe(state, player.id);
+  const vigia = camino.length > 1 ? vigiaDeLaMarcha(state, hero, camino, miradas) : null;
+
+  for (let i = 0; i < hoy; i++) {
     const paso = camino[i] as (typeof camino)[number];
     const coste = paso.cost - (camino[i - 1]?.cost ?? 0);
-    if (hero.movePoints < coste) {
-      throw new Error('no quedan puntos de movimiento para llegar');
-    }
 
     // Un enemigo en la casilla destino desencadena batalla y detiene la marcha.
     const enemigo = enemyAt(state, paso.at, player.id);
@@ -1880,6 +1952,7 @@ function moveHero(
       actor: hero.owner,
       at: paso.at,
     });
+    const antesDeRecoger = state.log.length;
     collectAt(state, hero, paso.at);
     // Desde que el castillo no bloquea, se puede tomar la base del rival a
     // MITAD de camino, y eso acaba la partida: seguir andando escribiría
@@ -1891,16 +1964,40 @@ function moveHero(
     // de camino pudo dispersar al grupo antes de que lo viera.
     const asaltante = emboscador(state, hero);
     if (asaltante !== null) {
-      abrirBatalla(
-        state,
-        {
-          attacker: { kind: 'raider', raiderId: asaltante.id },
-          foe: { kind: 'hero', heroId: hero.id },
-        },
-        ctx,
-      );
+      emboscar(state, asaltante, hero, camino.length - 1 - i, ctx);
       return;
     }
+    if (vigia === null || i === camino.length - 1) continue;
+    // Ver por el camino al que la emboscaría para la marcha aquí, con lo andado
+    // ya andado y gastado: la ruta no lo avisaba al salir, y quien la pidió
+    // tiene ocasión de cambiar de idea (#130). Lo que recoge el paso —guarnición,
+    // un nodo que dispersa grupos— cambia quién la emboscaría, y siempre deja un
+    // hecho en la crónica. También en el último paso de hoy: la parada gana al
+    // `march_cut`, porque dice por qué conviene no seguir y no solo que se acabó
+    // el día.
+    const visto = vigia(i + 1, state.log.length > antesDeRecoger);
+    if (visto !== null) {
+      emit(state, {
+        kind: 'march_halted',
+        hero: hero.id,
+        raider: visto.id,
+        troops: visto.troops,
+        actor: hero.owner,
+        at: hero.at,
+      });
+      return;
+    }
+  }
+  // Llegó al final de lo de hoy sin batalla, ni parada, ni final: si el camino
+  // seguía, se dice aquí, que es donde se sabe por qué paró.
+  if (hoy < camino.length) {
+    emit(state, {
+      kind: 'march_cut',
+      hero: hero.id,
+      faltan: camino.length - hoy,
+      actor: hero.owner,
+      at: hero.at,
+    });
   }
 }
 
@@ -2342,19 +2439,53 @@ function protagonista(state: GameState, pending: Enfrentamiento): PlayerId {
 /** Prepara la batalla y la deja pendiente: la juega la IA o el jugador. */
 function abrirBatalla(state: GameState, quienes: Enfrentamiento, ctx: GameContext): void {
   const { attacker, foe } = quienes;
-  const battle = createBattle(attackerSide(state, attacker), defenderSide(state, foe), ctx.rng);
+  emit(state, { kind: 'battle_started', attacker, foe, ...dejarPendiente(state, quienes, ctx) });
+}
+
+/**
+ * Un grupo embosca a un héroe que anda. `faltan` son los pasos del camino que
+ * le quedaban: si no es 0, la marcha se ha cortado antes del destino y el hecho
+ * lo lleva escrito, para que quien la cuenta —la nota del agente— no tenga que
+ * deducirlo comparando casillas. Emboscado en el destino, llegó: sin `faltan`.
+ */
+function emboscar(
+  state: GameState,
+  raider: Raider,
+  hero: Hero,
+  faltan: number,
+  ctx: GameContext,
+): void {
+  const attacker = { kind: 'raider', raiderId: raider.id } as const;
+  const foe = { kind: 'hero', heroId: hero.id } as const;
+  const lugar = dejarPendiente(state, { attacker, foe }, ctx);
+  emit(
+    state,
+    faltan > 0
+      ? { kind: 'battle_started', attacker, foe, ...lugar, faltan }
+      : { kind: 'battle_started', attacker, foe, ...lugar },
+  );
+}
+
+/**
+ * Crea la batalla, la deja en `pendingBattle` y dice de quién es y dónde, que
+ * es lo que lleva el `battle_started`.
+ */
+function dejarPendiente(
+  state: GameState,
+  quienes: Enfrentamiento,
+  ctx: GameContext,
+): { actor: PlayerId; at: Point } {
+  const battle = createBattle(
+    attackerSide(state, quienes.attacker),
+    defenderSide(state, quienes.foe),
+    ctx.rng,
+  );
   const pending: PendingBattle = { ...quienes, battle };
   state.pendingBattle = pending;
   // La casilla se deriva aquí también, y no se toma del paso que abrió la
   // batalla: así el sitio que dice el `battle_started` y el que dice el
   // `battle_ended` no son dos respuestas que puedan dejar de coincidir.
-  emit(state, {
-    kind: 'battle_started',
-    attacker,
-    foe,
-    actor: protagonista(state, pending),
-    at: lugarDelRival(state, foe),
-  });
+  return { actor: protagonista(state, pending), at: lugarDelRival(state, quienes.foe) };
 }
 
 /**

@@ -1681,7 +1681,8 @@ async function patrullaALaVista(
           `${prefijo}: ${tapado.id} en (${tapado.at.x},${tapado.at.y}) está a la vista y la niebla lo tapa (H1)`,
         );
       }
-      const aLaVista = espejo.state.raiders.filter((r) => mirando.has(`${r.at.x},${r.at.y}`));
+      // Los que ve la persona, con la regla del núcleo (basta su región, #130).
+      const aLaVista = espejo.asaltantesALaVista();
       await page.getByRole('button', { name: 'Ver mapa entero' }).click();
       espejo.revealAll = true;
       await sleep(200);

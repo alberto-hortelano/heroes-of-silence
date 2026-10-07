@@ -8,7 +8,15 @@
  */
 import { describe, expect, it } from 'vitest';
 import type { BattleAction } from '../src/core/battle/types.js';
+import { pointFromKey, pointKey } from '../src/core/map/map.js';
 import { createRng } from '../src/core/rng.js';
+import type { GameEvent } from '../src/core/state/events.js';
+import {
+  alcanceDelHeroe,
+  applyAdventureAction,
+  type GameState,
+  heroesOf,
+} from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import type { PlayerId } from '../src/core/types.js';
 import { ColaDeVeredictos } from '../src/server/mcp/veredictos.js';
@@ -23,12 +31,14 @@ import {
   notaFinDePartida,
   notaMapaAceptado,
   notaMapaRechazado,
+  notaMarchaParcial,
   notaRespuestaInvalida,
   notaSinRespuesta,
   notaTurnoAventura,
   PREFIJO_CORTE,
   PREFIJO_FIN,
   PREFIJO_RELEVO,
+  paradaDeLaMarcha,
   textoDeCorte,
   textoDeEscucha,
   textoDeFin,
@@ -63,6 +73,155 @@ describe('notas para el agente', () => {
     expect(nota).toContain('2 de 4');
     expect(nota).toContain('2 descartadas');
     expect(nota).toMatch(/NO se reintentan/);
+  });
+
+  it('una marcha que anduvo sin llegar entró parcialmente, no se descartó (#121)', () => {
+    const corte = (at: { x: number; y: number }, faltan: number) =>
+      ({ kind: 'march_cut', hero: 'h1', faltan, actor: 0, at, seen: [0] }) as const;
+    const parcial = notaMarchaParcial(
+      { type: 'move_hero', hero: 'h1', to: { x: 20, y: 5 } },
+      corte({ x: 12, y: 4 }, 7),
+    );
+    expect(parcial).toContain('move_hero h1');
+    expect(parcial).toBe('move_hero h1 → (20,5): se quedó en (12,4) y le faltan 7 pasos');
+    const uno = notaMarchaParcial(
+      { type: 'move_hero', hero: 'h1', to: { x: 1, y: 1 } },
+      corte({ x: 0, y: 0 }, 1),
+    );
+    expect(uno).toContain('falta 1 paso');
+
+    const nota = notaTurnoAventura(5, 3, 3, [], [parcial]);
+    expect(nota).toContain('3 acciones aplicadas');
+    // Sin descartes, «3 de 3» no dice nada que no diga «3».
+    expect(nota).not.toContain('3 de 3');
+    // La frase entera, con «entró parcialmente» una sola vez (QA, M-3).
+    expect(nota).toBe(
+      'Turno del día 5: 3 acciones aplicadas. Una marcha entró parcialmente, sin llegar: ' +
+        'move_hero h1 → (20,5): se quedó en (12,4) y le faltan 7 pasos.',
+    );
+    expect(nota.split('parcialmente').length - 1).toBe(1);
+    expect(nota).not.toMatch(/descartad/);
+    expect(nota).not.toMatch(/aplicado entero/);
+
+    // Con un descarte de verdad al lado, cada cosa en su sitio.
+    const mixta = notaTurnoAventura(5, 2, 3, ['build: ese pueblo no es tuyo'], [parcial]);
+    expect(mixta).toContain('1 descartada');
+    expect(mixta).toContain('entró parcialmente');
+  });
+
+  it('una marcha parada por un grupo a la vista o emboscada antes de llegar también es parcial (#130)', () => {
+    const accion = { type: 'move_hero', hero: 'h1', to: { x: 20, y: 5 } } as const;
+    const sello = { actor: 0, seen: [0] } as const;
+    const parada: GameEvent = {
+      kind: 'march_halted',
+      hero: 'h1',
+      raider: 'raider-4',
+      troops: [{ creature: 'mummy', count: 5 }],
+      at: { x: 4, y: 6 },
+      ...sello,
+    };
+    // Con `faltan` la escribe el núcleo cuando la emboscada corta la marcha;
+    // sin él, la de quien llegó.
+    const emboscada = (at: { x: number; y: number }, heroId = 'h1', faltan = 3): GameEvent =>
+      faltan > 0
+        ? {
+            kind: 'battle_started',
+            attacker: { kind: 'raider', raiderId: 'raider-2' },
+            foe: { kind: 'hero', heroId },
+            faltan,
+            at,
+            ...sello,
+          }
+        : {
+            kind: 'battle_started',
+            attacker: { kind: 'raider', raiderId: 'raider-2' },
+            foe: { kind: 'hero', heroId },
+            at,
+            ...sello,
+          };
+
+    expect(paradaDeLaMarcha(accion, [parada])).toBe(parada);
+    expect(notaMarchaParcial(accion, paradaDeLaMarcha(accion, [parada])!)).toBe(
+      'move_hero h1 → (20,5): se paró en (4,6), donde ve 5 asaltantes que lo ' +
+        'emboscarían más adelante (raider-4); lo andado cuenta',
+    );
+    // M-4: la emboscada en el último paso del día no escribe `march_cut` —la
+    // batalla para antes— y el turno salía «aplicado entero».
+    const antes = paradaDeLaMarcha(accion, [emboscada({ x: 9, y: 5 })])!;
+    expect(notaMarchaParcial(accion, antes)).toBe(
+      'move_hero h1 → (20,5): lo emboscó el grupo raider-2 en (9,5), antes de llegar',
+    );
+    const nota = notaTurnoAventura(2, 1, 1, [], [notaMarchaParcial(accion, antes)]);
+    expect(nota).toMatch(/Una marcha entró parcialmente/);
+    expect(nota).not.toMatch(/aplicado entero/);
+
+    // Emboscado EN el destino, llegó; lo de otro héroe no es suyo; y atacar lo
+    // que había en `to` es llegar.
+    expect(paradaDeLaMarcha(accion, [emboscada({ x: 20, y: 5 }, 'h1', 0)])).toBeNull();
+    expect(paradaDeLaMarcha(accion, [emboscada({ x: 9, y: 5 }, 'h2')])).toBeNull();
+    expect(
+      paradaDeLaMarcha(accion, [
+        {
+          kind: 'battle_started',
+          attacker: { kind: 'hero', heroId: 'h1' },
+          foe: { kind: 'monster', objectId: 'm1' },
+          at: { x: 20, y: 5 },
+          ...sello,
+        },
+      ]),
+    ).toBeNull();
+    expect(paradaDeLaMarcha({ ...accion, hero: 'h2' }, [parada])).toBeNull();
+  });
+
+  it('en partidas de verdad, cada marcha del día 1 que no llega lo dice, y la que llega no (#130)', () => {
+    // Lo que el director contaría como parcial tiene que ser exactamente lo que
+    // no llegó. Una de cada dos casillas que el héroe alcanza en las semillas 1
+    // y 2, hoy o en días: salen las cuatro cosas —llegar, cortarse, pararse y
+    // emboscado antes— y cuesta medio segundo. Todas en 6 semillas eran 3,5 s
+    // de clonar y andar, y filtrar por las rutas que pisan una región peligrosa
+    // no ahorraba nada: lo son nueve de cada diez.
+    const vistas = { halted: 0, emboscada: 0, enteras: 0 };
+    for (let seed = 1; seed <= 2; seed++) {
+      const inicio = newGame({ seed });
+      const heroe = heroesOf(inicio, 0)[0]!;
+      let n = 0;
+      for (const clave of alcanceDelHeroe(inicio, heroe).costs.keys()) {
+        const to = pointFromKey(clave);
+        if (pointKey(to) === pointKey(heroe.at) || n++ % 2 === 1) continue;
+        const state: GameState = structuredClone(inicio);
+        const desde = state.log.length;
+        const accion = { type: 'move_hero', hero: heroe.id, to } as const;
+        applyAdventureAction(state, accion, { rng: createRng(seed) }, 0);
+        const hechos = state.log.slice(desde);
+        const parada = paradaDeLaMarcha(accion, hechos);
+        // Atacar lo que hay en `to` deja al héroe al lado, y eso es llegar.
+        const llego =
+          pointKey(heroesOf(state, 0)[0]!.at) === pointKey(to) ||
+          hechos.some(
+            (h) =>
+              h.kind === 'battle_started' &&
+              h.attacker.kind === 'hero' &&
+              h.at !== null &&
+              pointKey(h.at) === pointKey(to),
+          );
+        // `march_halted` y `march_cut` no salen nunca juntos: la parada gana.
+        expect(
+          hechos.filter((h) => h.kind === 'march_halted' || h.kind === 'march_cut').length,
+        ).toBeLessThanOrEqual(1);
+        if (parada === null) {
+          expect(llego, `semilla ${seed} → ${clave}: no llegó y nadie lo dice`).toBe(true);
+          vistas.enteras++;
+        } else {
+          expect(llego, `semilla ${seed} → ${clave}: llegó y se cuenta como parcial`).toBe(false);
+          if (parada.kind === 'march_halted') vistas.halted++;
+          if (parada.kind === 'battle_started') vistas.emboscada++;
+        }
+      }
+    }
+    // Que mire algo: en estas semillas hay de las dos.
+    expect(vistas.halted).toBeGreaterThan(0);
+    expect(vistas.emboscada).toBeGreaterThan(0);
+    expect(vistas.enteras).toBeGreaterThan(0);
   });
 
   it('si la partida ya había terminado, no promete un turno que viene', () => {

@@ -26,7 +26,13 @@ import type { BattleAction, BattleStack, BattleState, Side } from '@core/battle/
 import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '@core/hero/troop.js';
 import type { PathStep } from '@core/map/map.js';
 import { createRng, type Rng } from '@core/rng.js';
-import { emboscadaEnLaRuta, type VistaAsaltante } from '@core/state/asaltantes.js';
+import {
+  type AsaltantesALaVista,
+  asaltantesALaVista,
+  emboscadaEnLaRuta,
+  loQueLaPara,
+  type VistaAsaltante,
+} from '@core/state/asaltantes.js';
 import { type Desenlace, desenlaceDe, finDePartida } from '@core/state/desenlace.js';
 import type { DefeatReason } from '@core/state/events.js';
 import {
@@ -39,7 +45,7 @@ import {
   heroById,
   heroesOf,
   type Player,
-  porQueNoLlega,
+  pasosDeHoy,
   type RecruitCapacity,
   recruitCapacity,
   resolvePendingBattle,
@@ -228,7 +234,7 @@ function motivoContra(turno: TurnoPropio | null, targetId: string): string {
   if (motivo === null) {
     throw new Error(`no se ofrece ninguna acción contra ${targetId} y el núcleo no dice por qué`);
   }
-  return `${motivo.charAt(0).toUpperCase()}${motivo.slice(1)}.`;
+  return comoFrase(motivo);
 }
 
 /**
@@ -433,14 +439,13 @@ export class Session implements ControlDeBatalla, HechizosDeBatalla {
     if (hero === null || !this.isPlayersTurn) return [];
     const camino = caminoHasta(this.state, hero, to);
     if (camino === null) return [];
-    // Con lo que la persona mira AHORA y no con todo: un grupo que no se ve no
-    // avisa, o la ruta le contaría lo que tapa la niebla. Con «Ver mapa entero»
-    // se mira todo, igual que se pinta todo.
-    const mirando = this.revealAll ? null : this.visibles();
-    const emboscada = emboscadaEnLaRuta(this.state, hero, camino, mirando);
+    // Con los grupos que la persona ve y no con todos: uno que no se ve no
+    // avisa, o la ruta le contaría lo que tapa la niebla.
+    const emboscada = emboscadaEnLaRuta(this.state, hero, camino, this.asaltantesALaVista());
+    const hoy = pasosDeHoy(camino, hero);
     return camino.map((paso, i) => ({
       ...paso,
-      hoy: paso.cost <= hero.movePoints,
+      hoy: i < hoy,
       peligro: emboscada !== null && i >= emboscada.paso,
       ...(emboscada !== null && i === emboscada.paso ? { emboscada: emboscada.raider } : {}),
     }));
@@ -461,6 +466,27 @@ export class Session implements ControlDeBatalla, HechizosDeBatalla {
     return this.cacheVisibles.casillas;
   }
   private cacheVisibles: { clave: string; casillas: ReadonlySet<string> } | null = null;
+
+  /**
+   * Los grupos de asaltantes que la persona ve: los que pinta el lienzo, lee la
+   * barra y avisan en la ruta. La regla es del núcleo (`asaltantesALaVista`:
+   * basta ver su región). Con «Ver mapa entero», todos y sin caché.
+   */
+  asaltantesALaVista(): AsaltantesALaVista {
+    if (this.revealAll) return asaltantesALaVista(this.state, null);
+    // Se guarda mientras `visibles()` devuelva el mismo `Set`: los grupos se
+    // mueven al pasar de día y se van con un hecho de la crónica, que son justo
+    // las dos cosas que lo renuevan.
+    const mirando = this.visibles();
+    if (this.cacheAsaltantes?.mirando !== mirando) {
+      this.cacheAsaltantes = { mirando, grupos: asaltantesALaVista(this.state, mirando) };
+    }
+    return this.cacheAsaltantes.grupos;
+  }
+  private cacheAsaltantes: {
+    mirando: ReadonlySet<string>;
+    grupos: AsaltantesALaVista;
+  } | null = null;
 
   /**
    * El liderazgo que ocupa una tropa y su tope: la de un héroe, o la guarnición
@@ -522,33 +548,19 @@ export class Session implements ControlDeBatalla, HechizosDeBatalla {
       this.status = `${hero.name} ya está en esa casilla: pulsa otra para moverlo.`;
       return;
     }
-    const camino = caminoHasta(this.state, hero, to);
-    if (camino === null || camino.length === 0) {
-      // La frase la escribe el núcleo, que sabe si lo cierra el mapa o alguien
-      // plantado en el paso (M2 de la 2a); aquí solo se le pone la mayúscula.
-      const motivo = porQueNoLlega(this.state, hero, to);
-      this.status = `${motivo.charAt(0).toUpperCase()}${motivo.slice(1)}.`;
-      return;
-    }
-
-    // Se avanza hasta donde alcance el movimiento del día.
-    const alcanzable = camino.filter((paso) => paso.cost <= hero.movePoints);
-    if (alcanzable.length === 0) {
-      this.status = 'No te quedan puntos de movimiento para dar ni un paso.';
-      return;
-    }
-
-    const destino = alcanzable.at(-1)!.at;
+    // Se manda el destino tal cual: el núcleo anda lo que dé el día y, si no
+    // hay camino o no da ni un paso, lo dice él con su frase —quién cierra el
+    // paso, si es alguien (M2 de la 2a)—; aquí solo se le pone la mayúscula.
     try {
       applyAdventureAction(
         this.state,
-        { type: 'move_hero', hero: heroId, to: destino },
+        { type: 'move_hero', hero: heroId, to },
         this.ctx,
         this.viewer,
       );
       this.status = '';
     } catch (err) {
-      this.status = mensaje(err);
+      this.status = comoFrase(mensaje(err));
       return;
     }
     this.tocar();
@@ -562,6 +574,15 @@ export class Session implements ControlDeBatalla, HechizosDeBatalla {
       return;
     }
 
+    // La marcha se ha parado al descubrir un grupo que la emboscaría (#130), y
+    // se dice. `applyAdventureAction` no devuelve nada: el hecho es el último
+    // de la crónica porque la parada vuelve justo después de escribirlo.
+    const ultimo = this.state.log.at(-1);
+    if (ultimo?.kind === 'march_halted' && ultimo.hero === heroId) {
+      this.status = `${hero.name} se detiene: ${loQueLaPara(ultimo.troops)}.`;
+      return;
+    }
+
     // Entrar en la base rival vacía acaba la partida, y abría su castillo
     // encima: el fin y su causa se quedaban detrás de una pantalla de compras
     // que ya no sirve de nada.
@@ -570,7 +591,8 @@ export class Session implements ControlDeBatalla, HechizosDeBatalla {
       this.status = this.alAcabarseElMapa(desenlace);
       return;
     }
-    const pueblo = this.myTowns().find((t) => sameTile(t.at, destino));
+    // Donde se quedó, que es el destino o el último paso pagable del día.
+    const pueblo = this.myTowns().find((t) => sameTile(t.at, hero.at));
     if (pueblo !== undefined) this.openTown(pueblo.id);
   }
 
@@ -1295,4 +1317,9 @@ function sameTile(a: Point, b: Point): boolean {
 /** Los errores del núcleo llevan un mensaje escrito para la persona. */
 function mensaje(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+/** Un motivo del núcleo («no quedan puntos…») como frase de la barra. */
+function comoFrase(motivo: string): string {
+  return `${motivo.charAt(0).toUpperCase()}${motivo.slice(1)}.`;
 }
