@@ -13,7 +13,8 @@
  * dos cosas seguidas.
  *
  * Capas del suelo, de abajo arriba:
- *   1. el suelo de cada región, fundido con el de al lado por una máscara borrosa;
+ *   1. el suelo de cada región, con la frontera cortada por ruido y por la
+ *      altura de las texturas (`fronteras.ts`);
  *   2. la sombra de cada nivel (lo bajo, más oscuro);
  *   2b. el arcén: el pasillo de la senda, en el color de su suelo;
  *   3. las sendas;
@@ -35,6 +36,12 @@
 
 import { columnasDeCara } from './caras.js';
 import type { Escena, Luz, Sprite } from './colocar.js';
+import {
+  type AlturaDeSuelo,
+  CASILLAS_POR_TEXTURA,
+  fronterasDelSuelo,
+  PX_DE_LAS_FRONTERAS,
+} from './fronteras.js';
 import { cajaDeSprite } from './pasillo.js';
 import { bandaDeCara, type CaraDeEscena, SOLAPE } from './relieve.js';
 import {
@@ -146,10 +153,6 @@ const PIGMENTO: Readonly<Record<string, string>> = {
 /** El de un suelo sin pigmento. */
 const SIN_PIGMENTO = '#666666';
 const pigmento = (suelo: string) => PIGMENTO[suelo] ?? SIN_PIGMENTO;
-/** Los mismos, en sus tres componentes, para escribirlos píxel a píxel. */
-const PIGMENTO_RGB: Readonly<Record<string, readonly [number, number, number]>> =
-  Object.fromEntries(Object.entries(PIGMENTO).map(([s, hex]) => [s, rgb(hex)]));
-const RGB_SIN_PIGMENTO = rgb(SIN_PIGMENTO);
 
 /**
  * Las texturas aprobadas son oscuras y la referencia tiene praderas vivas: el
@@ -529,15 +532,32 @@ export function pintarSuelo(
     c.stroke();
     for (const i of e.agua) c.fillRect((i % e.W) * T, Math.floor(i / e.W) * T, T, T);
   } else {
-    // 1 · El suelo: cada suelo con su máscara difuminada, así las regiones se funden.
+    // 1 · El suelo: cada suelo con su alfa (`fronterasDelSuelo`), que corta la
+    //     frontera con ruido y la altura de las texturas.
     c.fillStyle = PIGMENTO.dirt as string;
     c.fillRect(0, 0, e.W * T, e.H * T);
-    for (const s of new Set(e.suelo)) {
-      const capa = mascara((i) => e.suelo[i] === s, T * 0.45);
+    const fr = fronterasDelSuelo(e, (s) => alturaDeTextura(o.imagen(`suelos/${s}.webp`), nuevo));
+    // El pigmento de cada punto con las mismas fronteras: el del arcén. Con el
+    // de la casilla, donde la nieve se metía en la tierra el arcén la teñía de pardo.
+    const { lienzo: pigmentos, c: gp } = lienzoCon(fr.ancho, fr.alto, nuevo);
+    fr.suelos.forEach((s, k) => {
+      const { lienzo: chico, c: g } = lienzoCon(fr.ancho, fr.alto, nuevo);
+      const d = g.createImageData(fr.ancho, fr.alto);
+      const alfa = fr.alfas[k] as Uint8ClampedArray;
+      for (let p = 0; p < alfa.length; p++) d.data[p * 4 + 3] = alfa[p] as number;
+      g.putImageData(d, 0, 0);
+      const { lienzo: capa, c: gc } = lienzoCon(e.W * T, e.H * T, nuevo);
+      gc.imageSmoothingEnabled = true;
+      gc.imageSmoothingQuality = 'medium';
+      gc.drawImage(chico, 0, 0, e.W * T, e.H * T);
       c.filter = VIVEZA[s] ?? 'none';
-      c.drawImage(rellenar(capa, `suelos/${s}.webp`, pigmento(s), 4), 0, 0);
+      c.drawImage(rellenar(capa, `suelos/${s}.webp`, pigmento(s), CASILLAS_POR_TEXTURA), 0, 0);
       c.filter = 'none';
-    }
+      g.globalCompositeOperation = 'source-in';
+      g.fillStyle = pigmento(s);
+      g.fillRect(0, 0, fr.ancho, fr.alto);
+      gp.drawImage(chico, 0, 0);
+    });
     // 2 · La sombra de cada nivel: lo bajo, más oscuro.
     for (const n of [-1, 0, 1]) {
       const capa = mascara((i) => e.nivel[i] === n, T * 0.3);
@@ -551,7 +571,7 @@ export function pintarSuelo(
     //      borde difuminado, para que lo despejado no se lea como un claro.
     c.globalAlpha = ALFA_DEL_ARCEN;
     c.imageSmoothingEnabled = true;
-    c.drawImage(arcen(e, nuevo), 0, 0, e.W * T, e.H * T);
+    c.drawImage(arcen(e, pigmentos, nuevo), 0, 0, e.W * T, e.H * T);
     c.globalAlpha = 1;
     // 3 · Las sendas: finas, con orla oscura y huella clara.
     for (const [w, color] of [
@@ -718,10 +738,11 @@ function campoPorCasilla(
 
 /**
  * El arcén, a `PX_DEL_ARCEN` por casilla: el trazo de las sendas al ancho del
- * pasillo, difuminado, relleno del pigmento del suelo de cada casilla. No pide
- * imágenes: el pintor del suelo lo pinta igual en el Worker.
+ * pasillo, difuminado, relleno de `pigmentos` (el del suelo de cada punto, con
+ * las fronteras del suelo). No pide imágenes: el pintor del suelo lo pinta igual
+ * en el Worker.
  */
-function arcen(e: Escena, nuevo: NuevoLienzo): Lienzo {
+function arcen(e: Escena, pigmentos: Lienzo, nuevo: NuevoLienzo): Lienzo {
   const k = PX_DEL_ARCEN;
   const { lienzo, c: g } = lienzoCon(e.W * k, e.H * k, nuevo);
   g.lineCap = 'round';
@@ -734,12 +755,7 @@ function arcen(e: Escena, nuevo: NuevoLienzo): Lienzo {
   g.filter = 'none';
   g.globalCompositeOperation = 'source-in';
   g.imageSmoothingEnabled = true;
-  const campo = campoPorCasilla(
-    e,
-    nuevo,
-    (i) => PIGMENTO_RGB[e.suelo[i] as string] ?? RGB_SIN_PIGMENTO,
-  );
-  g.drawImage(campo, 0, 0, e.W * k, e.H * k);
+  g.drawImage(pigmentos, 0, 0, e.W * k, e.H * k);
   g.globalCompositeOperation = 'source-over';
   return lienzo;
 }
@@ -781,11 +797,44 @@ function cantos(e: Escena, nuevo: NuevoLienzo): Lienzo {
   return lienzo;
 }
 
-/** `#rrggbb` en sus tres componentes. */
-function rgb(hex: string): [number, number, number] {
-  if (!/^#[0-9a-f]{6}$/i.test(hex)) throw new Error(`«${hex}» no es un color #rrggbb`);
-  return [1, 3, 5].map((k) => Number.parseInt(hex.slice(k, k + 2), 16)) as [number, number, number];
+/**
+ * La luminancia de la textura de un suelo, a `CASILLAS_POR_TEXTURA ×
+ * PX_DE_LAS_FRONTERAS` muestras por lado: la altura con la que se reparte la
+ * frontera. Sin la textura, nada: la frontera sale solo con el ruido.
+ */
+function alturaDeTextura(im: Imagen | undefined, nuevo: NuevoLienzo): AlturaDeSuelo | undefined {
+  if (!lista(im)) return undefined;
+  const lado = CASILLAS_POR_TEXTURA * PX_DE_LAS_FRONTERAS;
+  const { c } = lienzoCon(lado, lado, nuevo);
+  c.imageSmoothingEnabled = true;
+  c.imageSmoothingQuality = 'high';
+  c.drawImage(im, 0, 0, lado, lado);
+  let datos: Uint8ClampedArray;
+  try {
+    datos = c.getImageData(0, 0, lado, lado).data;
+  } catch (err) {
+    // La página del taller abierta desde `file://`: la textura contamina el
+    // lienzo y no se puede leer. Se pinta igual, y se dice.
+    if (err instanceof DOMException && err.name === 'SecurityError') {
+      if (!avisadoSinAltura)
+        console.warn(
+          'el suelo se pinta sin la altura de sus texturas: no se pueden leer (¿file://?)',
+        );
+      avisadoSinAltura = true;
+      return undefined;
+    }
+    throw err;
+  }
+  const luz = new Float32Array(lado * lado);
+  for (let i = 0; i < luz.length; i++)
+    luz[i] =
+      (0.2126 * (datos[i * 4] as number) +
+        0.7152 * (datos[i * 4 + 1] as number) +
+        0.0722 * (datos[i * 4 + 2] as number)) /
+      255;
+  return { lado, luz };
 }
+let avisadoSinAltura = false;
 
 /**
  * La escena entera: el suelo y, encima, los volúmenes en su orden, con la MISMA

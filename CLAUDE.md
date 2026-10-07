@@ -267,7 +267,7 @@ antes del destino (`battle_started` con `faltan`).
   encargo que pinta en serie el esbozo a `PX_DEL_ESBOZO` (60, ~2 s) y el bueno a
   `PX_DEL_SUELO` (120 = ⌈110 × 1,09⌉, ~5,5 s más; 83 MB los dos), cada uno en un
   Worker que se termina al contestar (uno vivo para los dos no suelta las máscaras).
-  Mientras, se ve el sucedáneo de pigmentos y luego el esbozo
+  **Las fronteras entre suelos** (`fronteras.ts`, `fronterasDelSuelo`): el alfa de cada suelo a `PX_DE_LAS_FRONTERAS` (16) por casilla, el mismo en el esbozo y en el bueno: el campo del suelo leído en un punto deformado (±1,1 casillas, el serpenteo), más un ruido por suelo y la luminancia de su textura (mezcla por altura), con el ruido de la semilla de la escena; los alfas van acumulados y el arcén toma el pigmento con las mismas fronteras. Mientras, se ve el sucedáneo de pigmentos y luego el esbozo
   (`#app[data-escenario]`: `cargando`, `esbozado`, `pintado`). Cada fotograma
   copia, bilineal, la superficie más pequeña que no se amplía (`nivelDelSuelo`;
   por debajo de ×0,5 saca mitades del esbozo) a un fondo que mide lo mismo que

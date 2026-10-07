@@ -2911,3 +2911,5 @@ enfrentadas; la crítica lo reencuadró, medido:
   reglas —que no son protegibles— y el arte se genera.
 - **Dos facciones**: caballeros y nigromantes, seis criaturas cada una con sus
   mejoras.
+
+- **Fronteras de suelo con ruido (R1, 07-10-2026).** La máscara de 1 px por casilla desenfocada dejaba las fronteras de región como rectas difuminadas. `fronterasDelSuelo` lee el campo del suelo en un punto deformado y mezcla por altura con la textura (técnica de Mishkinis; la comparación con VCMI, AoE2 y otros está en `docs/agents/2026-10-07-arquitectura-mapa/comparacion.md`). Medido alternando con la máquina cargada: esbozo +0,15 s, bueno −0,3 s. Se probó primero solo con ruido y altura, y una frontera de 15 casillas seguía leyéndose recta al tope de alejar: hizo falta deformar.
