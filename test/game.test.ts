@@ -55,13 +55,19 @@ import {
   createCharacter,
   defaultBuild,
 } from '../src/core/rpg/character.js';
-import { regionDeCasilla } from '../src/core/state/asaltantes.js';
+import {
+  asaltantesALaVista,
+  emboscadaEnLaRuta,
+  regionDeCasilla,
+} from '../src/core/state/asaltantes.js';
 import { finDePartida } from '../src/core/state/desenlace.js';
+import { cronicaPara } from '../src/core/state/events.js';
 import {
   type AdventureAction,
   alcanceDelHeroe,
   applyAdventureAction,
   baseOf,
+  caminoHasta,
   currentPlayer,
   dayOfWeek,
   type GameContext,
@@ -72,6 +78,7 @@ import {
   MINE_YIELD,
   resolvePendingBattle,
   townsOf,
+  visibleNow,
   week,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
@@ -2437,5 +2444,94 @@ describe('cómo acabó la partida, en el núcleo (#123)', () => {
     expect(() => finDePartida(state, new Set())).toThrow(
       'la partida la ganó el jugador 1 y la crónica no dice quién quedó eliminado ni por qué',
     );
+  });
+});
+
+// ---------------------------------------------------------------- la marcha que se para (#130)
+
+/**
+ * La primera marcha del día 1 que se para al descubrir un grupo: semilla, a
+ * dónde iba y la partida tal como estaba al salir (cada intento sobre una copia).
+ * Se busca y no se escribe a mano: los mapas densos ya se llevaron las semillas
+ * escritas a mano de la ruta que avisa (H2).
+ */
+function primeraParada(): { seed: number; destino: Point; antes: GameState } {
+  for (let seed = 1; seed <= 40; seed++) {
+    const state = newGame({ seed });
+    const hero = heroesOf(state, 0)[0]!;
+    for (const [clave, coste] of alcanceDelHeroe(state, hero).costs) {
+      if (coste === 0 || coste > hero.movePoints) continue;
+      const destino = pointFromKey(clave);
+      const prueba = structuredClone(state);
+      applyAdventureAction(prueba, { type: 'move_hero', hero: hero.id, to: destino }, ctx(seed), 0);
+      if (prueba.log.at(-1)?.kind === 'march_halted') return { seed, destino, antes: state };
+    }
+  }
+  throw new Error('ninguna marcha del día 1 se para en 40 semillas');
+}
+
+describe('la marcha se para al descubrir un grupo que la emboscaría (#130)', () => {
+  it('se queda donde lo ve, sin batalla, con lo andado gastado; y el grupo ya se ve', () => {
+    const { seed, destino, antes } = primeraParada();
+    const state = structuredClone(antes);
+    const hero = heroesOf(state, 0)[0]!;
+    const puntos = hero.movePoints;
+    const camino = caminoHasta(state, hero, destino)!;
+    // Al salir no avisaba: es lo que hace de la parada la única ocasión de saberlo.
+    expect(emboscadaEnLaRuta(state, hero, camino, visibleNow(state, 0))).toBeNull();
+    const desde = state.log.length;
+
+    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: destino }, ctx(seed), 0);
+
+    const parada = state.log.at(-1)!;
+    if (parada.kind !== 'march_halted') throw new Error(`acabó en ${parada.kind}`);
+    expect(parada).toMatchObject({ hero: hero.id, actor: 0, at: hero.at, seen: [0] });
+    expect(state.pendingBattle).toBeNull();
+    expect(state.log.slice(desde).some((e) => e.kind === 'battle_started')).toBe(false);
+    const grupo = state.raiders.find((r) => r.id === parada.raider)!;
+    expect(parada.troops).toEqual(grupo.troops);
+    // Antes de su región, y no en el destino.
+    expect(regionDeCasilla(state.map, hero.at)).not.toBe(regionDeCasilla(state.map, grupo.at));
+    expect(pointKey(hero.at)).not.toBe(pointKey(destino));
+    // Lo andado cuenta: se ha gastado lo que cuesta llegar a donde se paró.
+    const andado = camino.find((p) => pointKey(p.at) === pointKey(hero.at))!;
+    expect(hero.movePoints).toBe(puntos - andado.cost);
+    // Y ahora se ve, por la misma regla que pinta el cliente y lee el agente.
+    expect(asaltantesALaVista(state, visibleNow(state, 0)).map((r) => r.id)).toContain(grupo.id);
+    // La crónica del dueño la cuenta: es su hecho.
+    expect(cronicaPara(state, 0, 5).some((e) => e.kind === 'march_halted')).toBe(true);
+  });
+
+  it('un grupo que ya se ve al salir no para nada: pedir la misma marcha otra vez es la emboscada', () => {
+    const { seed, destino, antes } = primeraParada();
+    const state = structuredClone(antes);
+    const hero = heroesOf(state, 0)[0]!;
+    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: destino }, ctx(seed), 0);
+    const parada = state.log.at(-1)!;
+    if (parada.kind !== 'march_halted') throw new Error(`acabó en ${parada.kind}`);
+    // Desde donde se paró, la ruta ya avisa: quien la pide sabe lo que pisa.
+    const resto = caminoHasta(state, hero, destino)!;
+    expect(emboscadaEnLaRuta(state, hero, resto, visibleNow(state, 0))?.raider.id).toBe(
+      parada.raider,
+    );
+    const desde = state.log.length;
+
+    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: destino }, ctx(seed), 0);
+
+    expect(state.log.slice(desde).some((e) => e.kind === 'march_halted')).toBe(false);
+    const batalla = state.log.slice(desde).find((e) => e.kind === 'battle_started');
+    expect(batalla).toMatchObject({ attacker: { kind: 'raider', raiderId: parada.raider } });
+    expect(state.pendingBattle).not.toBeNull();
+  });
+
+  it('un héroe al que nadie le saca el margen anda entero', () => {
+    const { seed, destino, antes } = primeraParada();
+    const state = structuredClone(antes);
+    const hero = heroesOf(state, 0)[0]!;
+    hero.army = ejercito({ creature: 'paladin', count: 7 });
+    hero.movePoints = 100_000;
+    applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: destino }, ctx(seed), 0);
+    expect(state.log.some((e) => e.kind === 'march_halted')).toBe(false);
+    expect(pointKey(hero.at)).toBe(pointKey(destino));
   });
 });

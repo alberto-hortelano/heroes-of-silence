@@ -144,7 +144,9 @@ export class EscenaAventura {
     const state = s.state;
     this.encuadrar(ancho, alto);
     drawMapa(ctx, {
-      escena: state,
+      // Los grupos, los que se ven (`asaltantesALaVista`): el lienzo no decide
+      // qué grupo se ve, lo pinta.
+      escena: { ...state, raiders: s.asaltantesALaVista() },
       camara: this.camara,
       ancho,
       alto,
@@ -261,14 +263,16 @@ function describirCasilla(s: Session, p: Point, ruta: readonly PasoDeRuta[]): st
   const explorada = s.explorado?.has(pointKey(p)) ?? true;
   const objeto = objectAt(map, p);
   const heroe = s.state.heroes.find((h) => h.at.x === p.x && h.at.y === p.y);
-  const asaltante = s.state.raiders.find((r) => r.at.x === p.x && r.at.y === p.y);
+  const asaltante = s.asaltantesALaVista().find((r) => r.at.x === p.x && r.at.y === p.y);
   let que = '';
+  // Un grupo a la vista se dice aunque su casilla siga en la niebla: se ve
+  // porque se ve su región (#130), y el lienzo lo pinta encima de la niebla.
+  if (asaltante !== undefined)
+    que = `${individuosDe(asaltante.troops)} asaltantes: emboscan a quien pise su región si le sacan ventaja`;
   // Lo desconocido se dice, pero la ruta también: el héroe puede ir a explorarlo.
-  if (!explorada) que = 'Tierras desconocidas';
+  else if (!explorada) que = 'Tierras desconocidas';
   else if (heroe !== undefined)
     que = heroe.owner === s.viewer ? heroe.name : `${heroe.name}, héroe enemigo`;
-  else if (asaltante !== undefined)
-    que = `${individuosDe(asaltante.troops)} asaltantes: emboscan a quien pise su región si le sacan ventaja`;
   else if (objeto?.kind === 'town') {
     const t = s.state.towns.find((x) => x.id === objeto.id);
     const dueño =

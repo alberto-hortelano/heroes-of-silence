@@ -114,7 +114,10 @@ import {
   casillasPeligrosas,
   dispersados,
   dondeBrotan,
+  emboscadaEnLaRuta,
+  emboscadasOcultas,
   emboscador,
+  grupoALaVista,
   mascaraDeOcupacion,
   pasoDePatrulla,
   type Raider,
@@ -825,10 +828,29 @@ function emit(state: GameState, draft: GameEventDraft): void {
   // no tienen casilla —el día, el turno, la derrota y el fin— van siempre.
   if (sitio !== null) {
     for (const p of state.players) {
-      if (visibleNowAt(state, p.id, sitio)) seen.push(p.id);
+      if (observa(state, p.id, draft.kind, sitio)) seen.push(p.id);
     }
   }
   (state.log as GameEvent[]).push({ ...draft, seen });
+}
+
+/**
+ * Si `p` observa un hecho de `kind` ocurrido en `sitio`. Lo de un grupo de
+ * asaltantes —que brota o se dispersa— se ve con la regla de qué grupo se ve
+ * (`grupoALaVista`: basta mirar su región, #130); lo demás, por su casilla. Si
+ * no, la crónica diría «nadie lo vio» de un grupo que el mapa y el agente sí
+ * enseñan.
+ */
+function observa(
+  state: GameState,
+  p: PlayerId,
+  kind: GameEventDraft['kind'],
+  sitio: Point,
+): boolean {
+  if (kind === 'raider_spawned' || kind === 'raider_dispersed') {
+    return grupoALaVista(state.map, visibleNow(state, p))(sitio);
+  }
+  return visibleNowAt(state, p, sitio);
 }
 
 // ---------------------------------------------------------------- turnos
@@ -1853,6 +1875,14 @@ function moveHero(
   const camino = caminoDelHeroe(state, hero, to, alcance);
   if (camino === null) throw new Error(porQueNoLlega(state, hero, to));
   if (camino.length === 0) return;
+  // Los grupos que la emboscarían y que su dueño no ve al salir (#130): si uno
+  // aparece a la vista por el camino, la marcha se para donde lo ve. Vacío casi
+  // siempre —la IA no pisa esas regiones—, y entonces el bucle no paga nada.
+  // De un solo paso no hay «más adelante» en el que pararse.
+  const ocultas =
+    camino.length > 1
+      ? emboscadasOcultas(state, hero, camino, () => visibleNow(state, player.id))
+      : new Set<string>();
 
   for (let i = 0; i < camino.length; i++) {
     const paso = camino[i] as (typeof camino)[number];
@@ -1900,6 +1930,29 @@ function moveHero(
         ctx,
       );
       return;
+    }
+    // Descubrir por el camino un grupo que la emboscaría más adelante para la
+    // marcha aquí, con lo andado ya andado y gastado: quien la pidió no lo veía
+    // al salir y ahora tiene ocasión de cambiar de idea (#130). Se mira con la
+    // misma pregunta que la ruta pintada, sobre lo que queda por andar.
+    if (ocultas.size > 0 && i < camino.length - 1) {
+      const delante = emboscadaEnLaRuta(
+        state,
+        hero,
+        camino.slice(i + 1),
+        visibleNow(state, player.id),
+      );
+      if (delante !== null && ocultas.has(delante.raider.id)) {
+        emit(state, {
+          kind: 'march_halted',
+          hero: hero.id,
+          raider: delante.raider.id,
+          troops: delante.raider.troops,
+          actor: hero.owner,
+          at: hero.at,
+        });
+        return;
+      }
     }
   }
 }

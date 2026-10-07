@@ -381,6 +381,12 @@ export function drawMapa(ctx: CanvasRenderingContext2D, v: VistaMapa): void {
 
   // 4 · La niebla: negra sobre lo desconocido, tenue sobre lo que no se mira.
   pintarNiebla(ctx, v);
+  //     Y encima, los grupos que se ven sin haber explorado su casilla: se ven
+  //     porque se ve su región (#130), y bajo la niebla negra no se verían.
+  for (const cosa of asaltantesSobreLaNiebla(v, esc)) {
+    pintarCosa(ctx, v, cosa);
+    pintarIdentificador(ctx, v, cosa);
+  }
 
   // 5 · Encima de todo, lo que es de quien juega: la ruta y la casilla señalada.
   pintarRuta(ctx, camara, pasosAPintar(v.ruta, v.explorado));
@@ -450,10 +456,32 @@ function cosasDe(v: VistaMapa, esc: Escenario): Cosa[] {
     if (!enVista(h.at) || !explorada(h.at)) continue;
     lista.push({ tipo: 'heroe', clave: claveDeFigura(esc, h.at.x, h.at.y + PIES.heroe), heroe: h });
   }
-  // Como los héroes rivales: se pintan sobre lo explorado (#64 cuenta por qué
-  // el lienzo del cliente mira `fog` y no lo que se ve ahora).
+  // Los grupos llegan ya filtrados por la regla del núcleo (`asaltantesALaVista`):
+  // aquí van los de casilla explorada, metidos entre los volúmenes. Los que se
+  // ven sobre la niebla los pinta `asaltantesSobreLaNiebla`, encima de ella.
   for (const r of escena.raiders) {
     if (!enVista(r.at) || !explorada(r.at)) continue;
+    const en = posicionDeAsaltante(escena, r, v.tiempo);
+    const clave = claveDeFigura(esc, en.x, en.y + PIES.grupo);
+    lista.push({ tipo: 'asaltante', clave, asaltante: r, en });
+  }
+  return lista.sort((a, b) => a.clave - b.clave);
+}
+
+/**
+ * Los grupos de la escena cuya casilla está sin explorar: si llegan aquí es que
+ * se ven (la lista viene filtrada por `asaltantesALaVista`), así que se pintan
+ * sobre la niebla, sin volúmenes que los tapen —su terreno no se conoce—. Con
+ * `explorado` a `null` (el espectador, «Ver mapa entero») no hay ninguno.
+ */
+function asaltantesSobreLaNiebla(v: VistaMapa, esc: Escenario): Cosa[] {
+  const { escena, camara, explorado } = v;
+  if (explorado === null) return [];
+  const { x0, y0, x1, y1 } = ventanaDeCasillas(camara, v.ancho, v.alto, MARGEN_DE_COSA);
+  const lista: Cosa[] = [];
+  for (const r of escena.raiders) {
+    if (r.at.x < x0 || r.at.y < y0 || r.at.x >= x1 || r.at.y >= y1) continue;
+    if (explorado.has(pointKey(r.at))) continue;
     const en = posicionDeAsaltante(escena, r, v.tiempo);
     const clave = claveDeFigura(esc, en.x, en.y + PIES.grupo);
     lista.push({ tipo: 'asaltante', clave, asaltante: r, en });

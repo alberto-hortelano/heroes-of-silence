@@ -46,6 +46,7 @@ import {
 import { pointFromKey, pointKey, RedDeCaminos, stepCost } from '../src/core/map/map.js';
 import { BARRERAS, costeDeEntrada, isWalkable, TERRAIN_KINDS } from '../src/core/map/terrain.js';
 import { createRng } from '../src/core/rng.js';
+import { asaltantesALaVista } from '../src/core/state/asaltantes.js';
 import { cronicaPara } from '../src/core/state/events.js';
 import {
   applyAdventureAction,
@@ -649,9 +650,10 @@ describe('lo que ve el agente', () => {
       knownMap: { raiders: { id: string }[] };
     };
     const ids = (m: { raiders: { id: string }[] }) => m.raiders.map((r) => r.id);
-    const vistos = visibleNow(state, 0);
+    // La regla es la del núcleo (`asaltantesALaVista`: basta ver su región), no
+    // una copia aquí.
     expect(ids(lejos.knownMap)).toEqual(
-      state.raiders.filter((r) => vistos.has(pointKey(r.at))).map((r) => r.id),
+      asaltantesALaVista(state, visibleNow(state, 0)).map((r) => r.id),
     );
     expect(ids(lejos.knownMap)).not.toContain(grupo.id);
     expect(ids(serializeKnownMap(state, 0))).toEqual(ids(lejos.knownMap));
@@ -696,6 +698,10 @@ describe('lo que ve el agente', () => {
     // El margen sale de la regla y no de un número escrito a mano.
     expect(COMO_SE_LEE_EL_MAPA).toContain(String(MARGEN_CONTRA_NEUTRALES).replace('.', ','));
     expect(RESPONSE_FORMAT.adventure_turn).toMatch(/EMBOSCADA/);
+    // Qué grupo se ve y la marcha que se para (#130): si la regla cambia sin la
+    // prosa, el agente creerá que «no aparece» es «no está cerca».
+    expect(COMO_SE_LEE_EL_MAPA).toMatch(/cualquier casilla de su región/);
+    expect(RESPONSE_FORMAT.adventure_turn).toMatch(/march_halted/);
     expect(RESPONSE_FORMAT.battle_turn).toMatch(/ASALTANTES emboscan/);
     expect(RESPONSE_FORMAT.map_generate).toMatch(/raiders\?/);
     expect(RESPONSE_FORMAT.map_generate).toMatch(/palette\.raiders\.maxStrength/);

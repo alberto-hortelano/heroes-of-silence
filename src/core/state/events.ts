@@ -143,6 +143,14 @@ type Cuerpo =
    * quien la cerró: es su hecho, aunque el grupo esté lejos de donde la cerró.
    */
   | { kind: 'raider_dispersed'; raider: string }
+  /**
+   * La marcha de un héroe se para porque, andando, ha descubierto un grupo
+   * (`raider`) que lo emboscaría más adelante en la ruta y que al salir no veía
+   * (#130). `at` es donde se queda; lo andado y lo gastado cuentan. `troops` es
+   * la tropa del grupo al verlo, para contarlo sin ir a buscarlo al estado. Un
+   * grupo que ya se veía al salir no para nada: ese lo avisó la ruta.
+   */
+  | { kind: 'march_halted'; hero: string; raider: string; troops: readonly GrupoDeTropa[] }
   | { kind: 'hero_defeated'; hero: string }
   /**
    * El héroe vuelve a su base tras perder una batalla (fase 1b). Va DESPUÉS de
@@ -259,6 +267,7 @@ export function visibleTo(e: GameEvent, p: PlayerId): boolean {
     case 'troop_level_up':
     case 'raider_spawned':
     case 'raider_dispersed':
+    case 'march_halted':
       return e.actor === p || e.seen.includes(p);
   }
 }

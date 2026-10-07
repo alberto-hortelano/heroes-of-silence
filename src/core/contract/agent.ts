@@ -344,6 +344,10 @@ Notas:
   casilla aunque le queden puntos, y la batalla la juegas defendiendo. Si va
   directo a por la base rival por regiones sin conquistar, puede llegar con
   menos gente de la que salió —o no llegar—.
+- Si al andar descubres un grupo que te emboscaría más adelante en la ruta y
+  que al salir no veías, el héroe se para donde lo ve ("march_halted" en
+  recentEvents) y conserva lo andado. Las acciones que vengan detrás se siguen
+  aplicando; con el grupo ya a la vista decides el turno que viene si sigues.
 - La EXPERIENCIA se gana por daño: quien quita PV a un enemigo —criatura o
   héroe, con golpes, disparos o hechizos— gana "PV quitados × nivel del que los
   recibe", gane o pierda la batalla. La escala de niveles es UNA para tropa y

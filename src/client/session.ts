@@ -23,10 +23,19 @@ import {
 } from '@core/battle/battle.js';
 import { spell } from '@core/battle/spells.js';
 import type { BattleAction, BattleStack, BattleState, Side } from '@core/battle/types.js';
-import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '@core/hero/troop.js';
+import {
+  armyLeadership,
+  GARRISON_LEADERSHIP,
+  heroLeadership,
+  individuosDe,
+} from '@core/hero/troop.js';
 import type { PathStep } from '@core/map/map.js';
 import { createRng, type Rng } from '@core/rng.js';
-import { emboscadaEnLaRuta, type VistaAsaltante } from '@core/state/asaltantes.js';
+import {
+  asaltantesALaVista,
+  emboscadaEnLaRuta,
+  type VistaAsaltante,
+} from '@core/state/asaltantes.js';
 import { type Desenlace, desenlaceDe, finDePartida } from '@core/state/desenlace.js';
 import type { DefeatReason } from '@core/state/events.js';
 import {
@@ -463,6 +472,23 @@ export class Session implements ControlDeBatalla, HechizosDeBatalla {
   private cacheVisibles: { clave: string; casillas: ReadonlySet<string> } | null = null;
 
   /**
+   * Los grupos de asaltantes que la persona ve: los que pinta el lienzo y lee la
+   * barra. La regla es del núcleo (`asaltantesALaVista`: basta ver su región) y
+   * se le pasa lo mismo que a la ruta. Con «Ver mapa entero», todos.
+   */
+  asaltantesALaVista(): readonly VistaAsaltante[] {
+    // La clave de `visibles()` más el modo: los grupos se mueven al pasar de día
+    // y se van con un hecho de la crónica, que son justo las dos cosas que mira.
+    const clave = `${this.state.log.length}|${this.state.day}|${this.state.current}|${this.revealAll}`;
+    if (this.cacheAsaltantes === null || this.cacheAsaltantes.clave !== clave) {
+      const mirando = this.revealAll ? null : this.visibles();
+      this.cacheAsaltantes = { clave, grupos: asaltantesALaVista(this.state, mirando) };
+    }
+    return this.cacheAsaltantes.grupos;
+  }
+  private cacheAsaltantes: { clave: string; grupos: readonly VistaAsaltante[] } | null = null;
+
+  /**
    * El liderazgo que ocupa una tropa y su tope: la de un héroe, o la guarnición
    * de un castillo. Las dos por el mismo camino, para que el panel pinte la
    * misma fila con una sola llamada.
@@ -559,6 +585,15 @@ export class Session implements ControlDeBatalla, HechizosDeBatalla {
       // Si la iniciativa la tiene el enemigo, mueve él primero: sin esto la
       // batalla se quedaba esperando a una persona que no podía hacer nada.
       this.advanceEnemyTurns();
+      return;
+    }
+
+    // La marcha se ha parado al descubrir un grupo que la emboscaría (#130):
+    // sin decirlo, el héroe se quedaba a medio camino con puntos de sobra y
+    // parecía un fallo. La frase sale del hecho, que es lo que pasó.
+    const ultimo = this.state.log.at(-1);
+    if (ultimo?.kind === 'march_halted' && ultimo.hero === heroId) {
+      this.status = `${hero.name} se detiene: ve ${individuosDe(ultimo.troops)} asaltantes que lo emboscarían más adelante.`;
       return;
     }
 

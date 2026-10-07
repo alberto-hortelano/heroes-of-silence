@@ -1090,6 +1090,45 @@ describe('invariantes del proyecto', () => {
     expect(llamadas.filter((e) => e.startsWith('src/core/state/game.ts:'))).toHaveLength(2);
   });
 
+  it('qué grupo de asaltantes se ve lo decide `asaltantesALaVista`, nadie más', () => {
+    // #130: un grupo se ve en cuanto se ve una casilla de su región. Esa regla
+    // estaba escrita TRES veces —la ruta, `serializeKnownMap` y el lienzo— y
+    // las tres decían «su casilla»; cambiar una sola habría dejado a la persona
+    // y al agente viendo grupos distintos. Ahora la escribe una función y la
+    // leen todos: el cliente (fuera del espectador, que lo ve todo) y el
+    // contrato no leen `state.raiders`, y fuera de `asaltantes.ts` nadie filtra
+    // grupos para enseñarlos. La IA de reglas sí lee `state.raiders` sin niebla: es su ventaja
+    // declarada (#115), y por eso `ai/` no entra en la primera mitad.
+    const lectores = infractoresDeCodigo(
+      [
+        ...CLIENTE.filter((r) => !r.startsWith('src/client/espectador/')),
+        ...CORE.filter((r) => r.startsWith('src/core/contract/')),
+        ...SERVIDOR.filter((r) => r !== 'src/server/vista-espectador.ts'),
+      ],
+      /\bstate\.raiders\b/,
+    );
+    expect(lectores).toEqual([]);
+    // Filtrar grupos, en nadie que enseñe algo: ni el cliente —espectador
+    // incluido—, ni el contrato, ni el servidor. (`game.ts` filtra para QUITAR
+    // un grupo de la partida, que es mutación y no vista.)
+    const filtros = infractoresDeCodigo(
+      [...CLIENTE, ...CORE.filter((r) => r.startsWith('src/core/contract/')), ...SERVIDOR],
+      /\b(?:raiders|asaltantesALaVista\([^)]*\))\s*\.\s*filter\s*\(/,
+    );
+    expect(filtros).toEqual([]);
+    // Y que mire algo: la puerta filtra, y el espectador, que no pasa por ella,
+    // lee el estado. Sin esto, un patrón que no casara nada pasaría por vacío.
+    // Lo que NO ve: un filtro sobre la lista con otro nombre (`vistos.filter`)
+    // o un `continue` dentro de un bucle —el lienzo aparta así los de casilla
+    // sin explorar para pintarlos encima de la niebla, que es dónde y no si—.
+    expect(
+      infractoresDeCodigo(['src/core/state/asaltantes.ts'], /\braiders\s*\.\s*filter\s*\(/),
+    ).not.toEqual([]);
+    expect(
+      infractoresDeCodigo(['src/server/vista-espectador.ts'], /\bstate\.raiders\b/),
+    ).not.toEqual([]);
+  });
+
   it('el arte de una dirección no vuelve: ninguna figura lee `characters/`, `rpg/scenes` ni un `atlas.webp` raíz', () => {
     // Desde el 03-10-2026 toda figura es de 8 direcciones —las suyas o las del
     // Y Bot— y el arte de una dirección se borró del repo (decisión del

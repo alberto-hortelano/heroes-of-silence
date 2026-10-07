@@ -1964,6 +1964,23 @@ aplica `game.ts`, que es el único que llama a `emit`.
   primera casilla ya es la emboscada— y el origen respetado, que es lo que deja
   salir por el nodo de al lado a un héroe que se ha quedado mermado dentro de una.
   Dejándole andar por la suya eran 23 de las 33 emboscadas que quedaban.
+- **Un grupo se ve al ver su región, y la marcha se para al descubrirlo** (#130,
+  07-10-2026, opción C elegida por el usuario). Con «se ve su casilla», el héroe
+  —ve a 4 casillas y anda unas 11 el día 1— se metía en regiones que nadie había
+  mirado: medido en 100 semillas, en **81** había alguna casilla alcanzable el
+  día 1 que acababa en emboscada sin rombo ni barra (2 228 de 12 420 rutas).
+  Ahora `asaltantesALaVista` (en `asaltantes.ts`, la única regla) ve el grupo
+  en cuanto se ve una casilla de su región —también sobre la niebla negra: el
+  terreno no se regala—, y `moveHero` se para con `march_halted` si, andando,
+  aparece un grupo que lo emboscaría más adelante y que al salir no se veía.
+  Medido igual: **0 de 100**, 0 rutas; 429 marchas paradas. Lo leen la ruta, el
+  lienzo, la barra, el agente (`knownMap.raiders`) y el sello de la crónica
+  (`raider_spawned`/`raider_dispersed`). En el banco cambian **solo** 427 sellos
+  `seen` de esos dos hechos, todos ganando al jugador que mira la región, y
+  ningún `march_halted`: la IA no pisa esas regiones.
+  **La ventaja que queda, declarada**: la IA de reglas mira `state.raiders` sin
+  niebla (`casillasPeligrosas`, `strategy.ts`), así que evita regiones que la
+  persona y el agente todavía no ven. Es de #115 decidir si debe tener niebla.
 - **Licenciar** (`dismiss`): en un castillo propio, un héroe licencia individuos
   de su tropa —se van, no vuelven a la guarnición—, desde el final, con su
   `dismissBlocker` y su frase. Va en el contrato con su prosa, en el castillo del

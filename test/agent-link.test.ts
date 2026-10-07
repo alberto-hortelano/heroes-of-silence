@@ -478,6 +478,16 @@ describe('enlace con el agente', () => {
   });
 });
 
+/**
+ * Sin grupos de asaltantes, para que la batalla sea la del monstruo al que se
+ * manda al héroe. Con ellos, en la semilla 106 la ruta cruza la región de unas
+ * momias que no se ven al salir: antes la batalla era esa emboscada, y desde
+ * #130 la marcha se para al verlas y la batalla no llega en este turno.
+ */
+function sinAsaltantes(state: { raiders: unknown[] }): void {
+  state.raiders.splice(0);
+}
+
 describe('el agente se rinde (fase 1b)', () => {
   it('la rendición se le ofrece, entra por el contrato y el héroe vuelve a su base', async () => {
     // Lo cubría `pnpm qa` reescribiendo el mapa para forzar la batalla; ahora
@@ -510,6 +520,7 @@ describe('el agente se rinde (fase 1b)', () => {
     // Vacía: de camino al monstruo el héroe pasa por casa, y con la guarnición
     // de salida dentro se la llevaría y el precio ya no sería el de dos arqueros.
     sinGuarnicionDeSalida(director.state);
+    sinAsaltantes(director.state);
     const heroe = director.state.heroes[0]!;
     heroe.army = ejercito({ creature: 'archer', count: 2 });
     heroe.movePoints = 20000;
@@ -567,6 +578,7 @@ describe('el agente se rinde (fase 1b)', () => {
 
     const director = new Director(link, { seed: 106, agentPlayers: [0] });
     revealEverything(director.state, 0);
+    sinAsaltantes(director.state);
     const heroe = director.state.heroes[0]!;
     heroe.army = ejercito({ creature: 'peasant', count: 2 });
     heroe.movePoints = 20000;
