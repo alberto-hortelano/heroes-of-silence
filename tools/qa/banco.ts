@@ -550,11 +550,24 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   batallas 1 774 → 1 715, `town_captured` 1 493 → 1 427, `node_captured`
  *   1 287 → 1 316; ningún tipo nuevo ni ninguno que desaparezca. Re-anclado
  *   una vez, al final.
+ * - `105a3604…` (68 715 líneas): **bordes de barrera sin tramos rectos** (#169,
+ *   07-10-2026). El engorde va casilla a casilla, con una reparación donde
+ *   dos regiones quedarían a dos pasos y el lado que engorda dado la vuelta a
+ *   trechos de 4 (`vestir.ts`); el paso de cada pareja se elige con eje pleno
+ *   (`conEjePleno`, `generate.ts`), en las mismas parejas que antes, y las
+ *   redes suben de 20 a 30. Cambian todos los mapas: **0 semillas idénticas**;
+ *   el primer hecho distinto es un **`raider_spawned`** (índice 1 en 199, 3 en
+ *   una): otro mapa, otra casilla. autoResolve igual (300 batallas, 2 280
+ *   rondas): las batallas no dependen del mapa. 92 con otro ganador, j0 93 →
+ *   93, **0 sin terminar**, duración 9 / 16 / 43 → **9 / 16 / 45**.
+ *   `hero_moved` 37 005 → 37 254, batallas 1 715 → 1 777, `town_captured`
+ *   1 427 → 1 489, `node_captured` 1 316 → 1 310; ningún tipo nuevo ni
+ *   ninguno que desaparezca. Re-anclado una vez, al final.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '82123423a45779f39035aad58158cf3e74ead85e9ca9422a46d2fb3a6e8f35e1',
+  sha: '105a36041c084b850cd53e9c3ec503eec6b29f29f50c03ee30594078477b9631',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

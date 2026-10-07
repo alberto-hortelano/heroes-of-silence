@@ -8,6 +8,7 @@ import {
   RUTA_DEL_CATALOGO,
 } from '../src/client/render/escenario/catalogo.js';
 import { componer, type Escena } from '../src/client/render/escenario/colocar.js';
+import type { Puente } from '../src/client/render/escenario/puentes.js';
 import type { Senda } from '../src/client/render/escenario/sendas.js';
 import {
   activeStack,
@@ -157,6 +158,55 @@ export function forzarBatalla(
   if (state.pendingBattle === null) {
     throw new Error(`pisar (${hacia.x},${hacia.y}) no abrió ninguna batalla`);
   }
+}
+
+/**
+ * La primera semilla de `desde` a `hasta` cuyo caso cumple `pred`, o lanza
+ * diciendo qué se buscaba. Un test que necesita un caso del mapa —un puente
+ * N-S, un vado, un héroe que nace al norte de su castillo— lo busca en vez de
+ * escribir su semilla: cada cambio del generador (#169, que cambia todos los
+ * mapas) se llevaba las semillas escritas a mano y obligaba a cambiar un
+ * número por otro sin que el test dijera nada nuevo.
+ */
+export function primeraSemillaCon<T>(
+  que: string,
+  pred: (semilla: number) => T | undefined,
+  desde = 1,
+  hasta = 80,
+): { semilla: number; caso: T } {
+  for (let semilla = desde; semilla <= hasta; semilla++) {
+    const caso = pred(semilla);
+    if (caso !== undefined) return { semilla, caso };
+  }
+  throw new Error(`ninguna semilla de ${desde} a ${hasta} tiene ${que}`);
+}
+
+/**
+ * Un puente cuyo tablero, hacia su extremo de la derecha (el 70 % del tablero,
+ * de un estribo al otro), se ve sobre el agua de una casilla que no es la de su
+ * nodo: el caso de H2 de #157, donde pulsar el tablero decía «No hay camino».
+ * Era el de (16,1) en la semilla 15 hasta que #169 cambió los mapas.
+ */
+export function puenteSobreElAgua(): {
+  semilla: number;
+  caso: { puente: Puente; sobreElAgua: [number, number]; casilla: Point };
+} {
+  return primeraSemillaCon('un puente con el tablero sobre el agua de otra casilla', (s) => {
+    const e = partidaDe(s).escena;
+    const agua = new Set(e.agua);
+    for (const puente of e.puentes) {
+      const [a, b] = [puente.tablero[1], puente.tablero[2]] as [[number, number], [number, number]];
+      const sobreElAgua: [number, number] = [
+        a[0] + 0.7 * (b[0] - a[0]),
+        a[1] + 0.7 * (b[1] - a[1]),
+      ];
+      const [x, y] = sobreElAgua.map(Math.floor) as [number, number];
+      const nodo = { x: Math.floor(puente.nodo[0]), y: Math.floor(puente.nodo[1]) };
+      if ((x !== nodo.x || y !== nodo.y) && agua.has(y * e.W + x))
+        return { puente, sobreElAgua, casilla: { x, y } };
+    }
+    return undefined;
+  });
 }
 
 /**

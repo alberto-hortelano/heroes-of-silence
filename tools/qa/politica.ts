@@ -128,9 +128,11 @@ export function decidir(kind: string, payload: any): unknown {
       // la cobertura del arnés depende de esta semilla más de lo que parece: de
       // la 1 a la 20 cruzan todo la 3, 4, 7, 8, 10, 13, 14, 16 y 20 —las demás
       // no encadenan dos tramos, no ven un asaltante o no llegan a equipar—. La
-      // 3 es la que más batallas da en seis turnos (80).
+      // 3 era la que más batallas daba en seis turnos (80). Con los bordes de
+      // #169 (07-10-2026) la 3 se quedó sin batallas; cruzan todo la 2, 4, 5, 6,
+      // 7, 9, 11, 12, 13, 14, 18 y 20, y la 9 es la que más da (135).
       const want = payload?.want ?? {};
-      const plan = generateMapPlan(createRng(3), {
+      const plan = generateMapPlan(createRng(9), {
         width: Number(want.width ?? 24),
         height: Number(want.height ?? 24),
       });

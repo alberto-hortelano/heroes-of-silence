@@ -42,6 +42,7 @@ import { drawMapa, PIES, recortadoArriba } from '../src/client/render/mapa.js';
 import { pointKey } from '../src/core/map/map.js';
 import { todosALaVista } from '../src/core/state/asaltantes.js';
 import { newGame } from '../src/core/state/setup.js';
+import { primeraSemillaCon } from './helpers.js';
 
 interface Llamada {
   readonly metodo: string;
@@ -792,13 +793,23 @@ describe('qué tapa a qué en el mapa', () => {
     });
   });
 
-  it('semilla 1: el héroe que nace al norte de su castillo se pinta delante de él', () => {
-    const state = newGame({ seed: 1 });
+  it('el héroe que nace al norte de su castillo se pinta delante de él', () => {
+    // La premisa: nace justo encima de su castillo, que mide casi dos casillas
+    // de alto. Se busca la semilla (era la 1 hasta que #169 cambió los mapas).
+    const { semilla } = primeraSemillaCon('un héroe que nace al norte de su castillo', (s) => {
+      const st = newGame({ seed: s });
+      const h = st.heroes[0]!;
+      return st.map.objects.some(
+        (o) => o.kind === 'town' && o.at.x === h.at.x && o.at.y === h.at.y + 1,
+      )
+        ? true
+        : undefined;
+    });
+    const state = newGame({ seed: semilla });
     const heroe = state.heroes[0]!;
     const castillo = state.map.objects.find(
       (o) => o.kind === 'town' && o.at.x === heroe.at.x && o.at.y === heroe.at.y + 1,
     );
-    // La premisa: nace justo encima de su castillo, que mide casi dos casillas de alto.
     expect(castillo).toBeDefined();
     const { esc, registro } = pintarMapa(state, heroe.at);
     const volumen = esc.separada.volumenes.find((v) => v.s.objeto?.id === castillo!.id);

@@ -47,7 +47,7 @@ import {
   sesionContraMonstruo,
   sesionesContraMonstruo,
 } from './batalla-de-cliente.js';
-import { anteLaBase } from './helpers.js';
+import { anteLaBase, primeraSemillaCon } from './helpers.js';
 
 /**
  * Una batalla en la que la persona ATACA a un monstruo: la busca
@@ -193,12 +193,28 @@ describe('el mapa con el dedo', () => {
   });
 
   it('señalar una casilla en la niebla no dice dos veces «tierras desconocidas» (QA de #123)', () => {
-    // La casilla de la comprobación en vivo: semilla 3, (2,0), con la ruta
-    // entrando en la niebla. La barra decía «Tierras desconocidas · … sigue por
-    // tierras desconocidas».
-    const s = new Session(3);
-    const destino = { x: 2, y: 0 };
-    expect(s.explorado!.has('2,0')).toBe(false);
+    // Una casilla sin explorar junto al héroe con la ruta entrando en la
+    // niebla. La barra decía «Tierras desconocidas · … sigue por tierras
+    // desconocidas». Era la semilla 3, (2,0), de la comprobación en vivo; se
+    // busca, que #169 cambió los mapas y esa ya estaba explorada.
+    const { semilla, caso: destino } = primeraSemillaCon(
+      'una casilla en la niebla junto al héroe con ruta',
+      (sem) => {
+        const otra = new Session(sem);
+        const h = otra.selectedHero!.at;
+        for (let dy = -7; dy <= 7; dy++)
+          for (let dx = -7; dx <= 7; dx++) {
+            const p = { x: h.x + dx, y: h.y + dy };
+            if (p.x < 0 || p.y < 0 || p.x >= otra.state.map.width || p.y >= otra.state.map.height)
+              continue;
+            if (otra.explorado!.has(`${p.x},${p.y}`)) continue;
+            if (otra.previewPath(p).length > 0) return p;
+          }
+        return undefined;
+      },
+    );
+    const s = new Session(semilla);
+    expect(s.explorado!.has(`${destino.x},${destino.y}`)).toBe(false);
     expect(s.previewPath(destino).length).toBeGreaterThan(0);
     const escena = new EscenaAventura(() => s);
     escena.encuadrar(800, 600);

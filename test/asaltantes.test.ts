@@ -240,8 +240,13 @@ describe('la emboscada', () => {
     // Con dos campesinos contra el grupo, la IA para sí se rinde —pesa menos de
     // un tercio y hay base—; por la persona pelea, pero no paga.
     const desenlace = (vetada: boolean) => {
-      const { state, ctx, hero, hasta } = enSuRegion(11);
+      const { state, ctx, hero, grupo, hasta } = enSuRegion(11);
       hero.army = ejercito({ creature: 'peasant', count: 2 });
+      // El grupo, fijo: los cuatro vampiros con los que se escribió. El más
+      // fuerte de la semilla depende del mapa, y con los bordes de #169 eran
+      // cinco momias, contra las que la IA no llegaba a rendirse (un desenlace
+      // de la batalla, no del veto, que es lo que mira este test).
+      (grupo as { troops: unknown }).troops = [{ creature: 'vampire', count: 4 }];
       applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: hasta }, ctx, 0);
       resolvePendingBattle(state, ctx, vetada ? new Set([0]) : new Set());
       return state.log.find((e) => e.kind === 'hero_returned');

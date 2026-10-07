@@ -190,7 +190,10 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   `vestir.ts`): dos vecinas opuestas (recta, diagonal con codo o, junto al borde, corta)
   protegidas hasta la segunda casilla, y los pasillos hasta lo libre van en cruz; nada se
   siembra en `n ± 2d` (`delanteDeNodo`). El ~1 % de pasos cuya red fina no tiene vecinas
-  opuestas se viste sin eje. **El mapa guarda los
+  opuestas se viste sin eje. El engorde de la frontera va casilla a casilla, y donde dos regiones quedarían
+  a dos pasos engorda una (`engordarFronteras`, paso 4b), con el lado que engorda dado la vuelta
+  a trechos de `TRECHO_DEL_LADO` (4) para que el borde no copie el muro fino (#169). El paso de
+  cada pareja es el más cercano al medio con eje pleno (`conEjePleno`). **El mapa guarda los
   tramos** (`GameMap.caminos`, una `RedDeCaminos`) y las casillas que abaratan
   el paso salen de ellos; el procedimental guarda los que traza, con las
   horquillas en L hechas al colgar cada casilla (`ArbolDeCaminos`, nunca de un
@@ -373,6 +376,7 @@ ocupado por algo ajeno no se libera: se reporta.**
 | `pnpm capturas` | ~245 s | si el cambio se ve; sale 1 con un error en consola |
 | `barrido-semillas.ts` | ~1 s | si tocas la IA o la economía: una sola semilla sin terminar es regresión |
 | `pnpm banco` | ~5 s | si tocas el núcleo sin querer cambiar el juego |
+| `npx tsx tools/qa/rectitud.ts` | ~20 s | si tocas `generate.ts` o `vestir.ts`: tramos rectos en 1-1000 (≥ 8 ≤ 140, caras ≥ 8 ≤ 115, mapas con tramo ≥ 10 ≤ 8) |
 | `enfrentamiento.ts` | ~2 s | si cambias cómo decide la IA de batalla: entra solo con el intervalo entero > 50 % en 5 000 parejas |
 
 - **Bucle rápido y orden lenta** (`test/lento.ts`, #167): un guardia que recorre

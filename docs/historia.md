@@ -2901,6 +2901,54 @@ enfrentadas; la crítica lo reencuadró, medido:
   táctil y sin arte buscan su semilla en el espejo, como ya hacían emboscada,
   veteranos y la batalla perdida.
 
+## Bordes de barrera sin tramos rectos (#169, 07-10-2026)
+
+- **El problema**: filas de 10-16 frontales iguales y fronteras rectas (s24,
+  s2, s13). Medido en 300 semillas, de los 633 tramos rectos de ≥ 6 casillas,
+  468 (74 %) salían **del engorde** y no del Voronoi: el lado gordo de cada
+  pareja engordaba entero —la dilatación del muro fino, que alarga cada tramo
+  y funde los escalones— y el flaco iba en bloques de 4×4. Cifras y scripts en
+  `docs/agents/2026-10-07-regiones-con-ruido/`.
+- **Lo que se hizo** (`vestir.ts`, `generate.ts`): el ruido del engorde va
+  **casilla a casilla**; donde dos pisables de regiones distintas quedarían a
+  dos pasos, la **reparación** (paso 4b) engorda una, la del lado gordo de la
+  pareja **dado la vuelta a trechos de 4** (`TRECHO_DEL_LADO`). Con el lado
+  gordo fijo, en un muro recto cada casilla abierta de un lado obliga a
+  engordar las cinco de enfrente y el lado gordo salía entero otra vez (10 de
+  10 tiradas en el test de la reparación; a trechos, 2 de 20 lados). El paso
+  de cada pareja se elige **con eje pleno** (`conEjePleno`) en **las mismas
+  parejas que antes**: buscar un paso lejos del nodo vecino daba ~1,4 pasos
+  más por mapa, y la densidad de pasos no era de esta tarea. Las redes suben
+  de 20 a 30.
+- **Descartado, medido**: el Voronoi con dominio deformado (con 40 semillas
+  parecía −35 %, con 1 000 se quedó en 6-16 %; con amplitud ≥ 5 funde regiones)
+  y el crecimiento competitivo a lo fheroes2 (sin cambio). **No hay giros a
+  gran escala**: la frontera sigue el bisector; lo que cambia es el borde.
+- **El criterio se redefinió** dos veces. «El tramo más largo ≤ 4-5» no lo da
+  ningún ruido (un borde al azar ya tiene máximos de 7-12 en 34×34). Se
+  cuentan tramos largos en muchas semillas, y **en 1-1000, no en 1-300**: en
+  300 las cuentas bailan ±10 con cualquier cambio del azar (elegir el paso de
+  otra forma movió los tramos ≥ 8 de 1-300 de 38 a 45). En 1-1000
+  (`tools/qa/rectitud.ts`, y tramos y mapas también en un test lento): tramos
+  ≥ 8, 216 → 110 (techo 140); caras ≥ 8, 138 → 94 (techo 115, con el relieve
+  de #174); mapas con un tramo ≥ 10, 14 → 5 (techo 8).
+- **Nodos**: 12 309 → 12 342 en 1-1000; nodos sin eje, 119 → 17.
+- **Lo que no cambia**: el equilibrio (j0 518 y 484 de 1 000 en 1-1000 y
+  1001-2000, z ≈ 0,04 juntas), la regla del lado (9 / 16 / 45, 0 sin terminar
+  en 1-1000), 0 mapas sin salir en 34 y 48, 1 de 2 000 en 24×24 (eran 9).
+- **Dos partidas colgadas con variantes intermedias**, que destapan la IA y
+  van a una issue aparte: s775 (dos héroes que se persiguen por turnos, cada
+  uno a donde estaba el otro; `chooseHeroDestination` sin nada que rompa el
+  ciclo) y s1393 (un héroe sin tropa encerrado en una región que lo embosca y
+  un rival libre que no entra; la salida de `todosEncerrados` pide que lo
+  estén todos). Con el código final, ninguna en 1-2000.
+- Banco `82123423…` → `105a3604…`, forma en `tools/qa/banco.ts`.
+- **Tests atados a semillas**: buscan su caso (`primeraSemillaCon`,
+  `puenteSobreElAgua` en `test/helpers.ts`) en vez de llevar la semilla
+  escrita. Los paneles se re-anclaron (es un volcado). `pnpm qa` pasó de la
+  semilla 3 a la 9 en `politica.ts`: con la 3 ya no había batalla en seis
+  turnos.
+
 ## Decisiones tomadas
 
 - **MCP antes que API key.** El usuario tiene Claude Max: el agente entra por

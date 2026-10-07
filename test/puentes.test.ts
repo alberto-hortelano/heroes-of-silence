@@ -51,17 +51,34 @@ import {
 } from '../src/client/render/escenario/superficie.js';
 import { PIES } from '../src/client/render/mapa.js';
 import { Session } from '../src/client/session.js';
-import { catalogoDelDisco, partidaDe } from './helpers.js';
-import { itLento, rango, segunPrisa } from './lento.js';
+import { catalogoDelDisco, partidaDe, primeraSemillaCon, puenteSobreElAgua } from './helpers.js';
+import { itLento, LENTO, rango, segunPrisa } from './lento.js';
 
 /**
- * Las semillas de los recuentos: 1-10 en la orden lenta, 16 puentes (las cifras
- * de 1-40 y 1-80 están en `medir-nodos.ts` y `medir-orillas.ts` de la tarea
- * 2026-10-07-orillas-del-puente). En `pnpm verify`, dos con de todo (#167): la 5
- * lleva cuatro puentes y la única senda de 1-10 que sin vado pasaría por agua, y
- * la 8 el único hueco de cara junto a un puente. Desde #161 ninguno es quebrado.
+ * Las semillas de los recuentos: 1-10 en la orden lenta, 15 puentes desde #169
+ * (las cifras de 1-40 y 1-80 de antes están en `medir-nodos.ts` y
+ * `medir-orillas.ts` de la tarea 2026-10-07-orillas-del-puente). En
+ * `pnpm verify`, dos con de todo (#167), **buscadas**: la primera con una senda
+ * de estribo que sin vado pasaría por agua y la primera con un puente en
+ * diagonal. Eran la 5 y la 8 escritas a mano, y #169 dejó la 5 sin puentes.
  */
-const SEMILLAS = segunPrisa([5, 8], rango(1, 10));
+const SEMILLAS = LENTO ? rango(1, 10) : dosConDeTodo();
+
+function dosConDeTodo(): number[] {
+  const conVado = primeraSemillaCon('una senda de estribo que sin vado pasaría por agua', (s) => {
+    const e = partidaDe(s).escena;
+    const agua = new Set(e.agua);
+    const esAgua = (x: number, y: number) =>
+      x >= 0 && y >= 0 && x < e.W && y < e.H && agua.has(y * e.W + x);
+    return sendasDeEstriboEnAgua(e.sendas, e.puentes, [], esAgua).length > 0 ? true : undefined;
+  }).semilla;
+  const diagonal = primeraSemillaCon('un puente en diagonal', (s) =>
+    partidaDe(s).escena.puentes.some((p) => p.eje === 'ne-so' || p.eje === 'no-se')
+      ? true
+      : undefined,
+  ).semilla;
+  return [...new Set([conVado, diagonal])];
+}
 
 const SUELO: Readonly<Record<string, TerrainKind>> = {
   '.': 'grass',
@@ -218,14 +235,17 @@ describe('la pieza sale de las orillas, no de las vecinas', () => {
           rectos[p.eje] = (rectos[p.eje] ?? 0) + 1;
         else quebrados++;
       }
-    expect(total).toBe(16);
     // Todos entre orillas enfrentadas, también los diagonales: el vestido abre
     // cada nodo por un eje (`ejeDelNodo`, #161). Antes eran 26 con 9 quebrados
     // que `asentar` encajaba; ahora ninguno, y `asentar` queda para los planes
     // del agente (su test, con una rejilla a mano, en «los cruces quebrados se asientan…»).
-    expect(rectos).toEqual({ ns: 4, eo: 4, 'ne-so': 6, 'no-se': 2 });
+    // Cuántos de cada eje es del mapa y no de la regla: desde #169, 15 puentes
+    // (6 N-S, 2 E-O y 7 NE-SO; 5 de piedra), antes 16.
     expect(quebrados).toBe(0);
-    expect(piedra).toBe(8);
+    expect(total).toBeGreaterThan(10);
+    expect(Object.values(rectos).reduce((a, b) => a + b, 0)).toBe(total);
+    expect(piedra).toBeGreaterThan(0);
+    expect(piedra).toBeLessThan(total);
   });
 });
 
@@ -247,7 +267,8 @@ describe('la pieza se apoya por el centro de su tablero', () => {
         vistos++;
       }
     }
-    expect(vistos).toBe(segunPrisa(6, 16));
+    // Que no pase en vacío (en 1-10, 15 desde #169).
+    expect(vistos).toBeGreaterThanOrEqual(segunPrisa(2, 10));
   });
 
   it('el catálogo lanza con un puente sin medidas, con medidas que no son de un puente o que no valen', () => {
@@ -533,7 +554,7 @@ describe('pulsar el puente lleva a su nodo (H2 del QA de #157)', () => {
     // eje (#161) ningún puente de 1-40 es quebrado, y ninguno cae fuera. En
     // `pnpm verify`, una muestra (#167).
     let puentes = 0;
-    for (const s of segunPrisa([5, 8], rango(1, 40))) {
+    for (const s of segunPrisa(SEMILLAS, rango(1, 40))) {
       const { map, escena } = partidaDe(s);
       for (const pu of escena.puentes) {
         const o = map.objects.find((x) => x.id === pu.id) as MapObject;
@@ -542,12 +563,15 @@ describe('pulsar el puente lleva a su nodo (H2 del QA de #157)', () => {
         puentes++;
       }
     }
-    expect(puentes).toBe(segunPrisa(6, 89));
+    // Que no pase en vacío: en 1-40, 100 desde #169 (89 antes).
+    expect(puentes).toBeGreaterThanOrEqual(segunPrisa(2, 80));
   });
 
-  it('en el cliente, s15: pulsar el tablero del puente de (16,1) sobre el agua lo señala y anda hacia él', () => {
-    // Antes: «No hay camino hasta (16,0).», y el héroe no se movía.
-    const s = new Session(15);
+  it('en el cliente: pulsar el tablero de un puente sobre el agua de otra casilla lo señala y anda hacia él', () => {
+    // Antes: «No hay camino hasta (16,0).», y el héroe no se movía (era s15,
+    // el puente de (16,1); se busca, que los mapas cambian).
+    const { semilla, caso } = puenteSobreElAgua();
+    const s = new Session(semilla);
     s.revealAll = true;
     const esc = escenarioDe(s.state.map, s.state.seed);
     const escena = new EscenaAventura(() => s);
@@ -560,14 +584,14 @@ describe('pulsar el puente lleva a su nodo (H2 del QA de #157)', () => {
       mapaAlto: s.state.map.height,
       tileMinimo: topeDeAlejar(esc, ancho, alto),
     });
-    const nodo = s.state.map.objects.find(
-      (o) => o.kind === 'node' && o.at.x === 16 && o.at.y === 1,
-    ) as MapObject;
-    const pu = esc.escena.puentes.find((p) => p.id === nodo.id);
-    if (pu === undefined) throw new Error('s15 ya no tiene el puente de (16,1)');
-    // Hacia el noreste del medio: el tablero se ve sobre el agua de (16,0).
+    const pu = esc.escena.puentes.find((p) => p.id === caso.puente.id);
+    if (pu === undefined)
+      throw new Error(`s${semilla} no compone el puente que encontró la búsqueda`);
+    // Sin grupos: la barra avisaría de la emboscada del camino antes que del paso.
+    s.state.raiders.splice(0);
+    // Hacia el extremo del tablero: se ve sobre el agua de otra casilla.
     const punto = enElTablero(pu, 0.2);
-    expect(punto.map(Math.floor)).toEqual([16, 0]);
+    expect(punto.map(Math.floor)).toEqual([caso.casilla.x, caso.casilla.y]);
     const p = mundoAPixel(camara, ...punto);
     escena.mover(p.x, p.y);
     expect(s.status).toMatch(/^Paso sin dueño · /);
@@ -577,14 +601,55 @@ describe('pulsar el puente lleva a su nodo (H2 del QA de #157)', () => {
     expect(s.status).not.toMatch(/No hay camino/);
     expect(s.selectedHero!.at).not.toEqual(antes);
   });
-  it('en el cliente, s35: pulsar al héroe que espera en la orilla norte de un N-S no lo baja al puente (H9)', () => {
-    // El tablero alzado de (2,11) tapa en pantalla la casilla de la orilla
-    // norte, (2,10): pulsar las piernas del héroe que esperaba en ella lo bajaba
-    // al puente y lo tomaba. (Era s18 (4,10); con las entradas en eje, #161,
-    // s18 ya no tiene ese puente.)
-    const s = new Session(35);
+  it('en el cliente: pulsar al héroe que espera en la orilla norte de un N-S no lo baja al puente (H9)', () => {
+    // El tablero alzado tapa en pantalla la casilla de la orilla norte: pulsar
+    // las piernas del héroe que esperaba en ella lo bajaba al puente y lo
+    // tomaba. Se busca el puente (fue s18 (4,10), luego s35 (2,11), y cada
+    // cambio del mapa se lo llevaba): un N-S cuyo tablero tapa el centro de su
+    // orilla norte, que se pisa.
+    const { semilla, caso: nodo } = primeraSemillaCon(
+      'un puente N-S que tape en pantalla su orilla norte',
+      (sem) => {
+        const { map, escena } = partidaDe(sem);
+        const pisable = pisableEn(map);
+        for (const pu of escena.puentes) {
+          const [x, y] = pu.nodo.map(Math.floor) as [number, number];
+          if (pu.eje !== 'ns' || !pisable(x, y - 1)) continue;
+          if (puenteBajo(escena.puentes, x + 0.5, y - 0.45, () => false) === pu) return { x, y };
+        }
+        return undefined;
+      },
+    );
+    const s = new Session(semilla);
     s.revealAll = true;
+    s.state.raiders.splice(0);
     const esc = escenarioDe(s.state.map, s.state.seed);
+    const pu = esc.escena.puentes.find(
+      (p) => p.nodo.map(Math.floor).join(',') === `${nodo.x},${nodo.y}`,
+    );
+    if (pu === undefined)
+      throw new Error(`s${semilla} no compone el puente que encontró la búsqueda`);
+    const orilla = { x: nodo.x, y: nodo.y - 1 };
+    // El héroe, a un paso de la orilla y por su lado: el test mira el clic, no la marcha.
+    const pisable = pisableEn(s.state.map);
+    const heroe = s.selectedHero!;
+    const junto = [
+      [-1, -1],
+      [0, -1],
+      [1, -1],
+      [-1, 0],
+      [1, 0],
+    ]
+      .map(([dx, dy]) => ({ x: orilla.x + dx!, y: orilla.y + dy! }))
+      .find(
+        (p) =>
+          pisable(p.x, p.y) && !s.state.map.objects.some((o) => o.at.x === p.x && o.at.y === p.y),
+      );
+    if (junto === undefined)
+      throw new Error(`s${semilla}: la orilla de ${nodo.x},${nodo.y} no tiene dónde esperar`);
+    heroe.at = junto;
+    heroe.movePoints = 5000;
+    // La cámara se encuadra con el héroe ya en su sitio: la que calcula el test es la misma.
     const escena = new EscenaAventura(() => s);
     const [ancho, alto] = [1600, 1000];
     escena.encuadrar(ancho, alto);
@@ -595,12 +660,6 @@ describe('pulsar el puente lleva a su nodo (H2 del QA de #157)', () => {
       mapaAlto: s.state.map.height,
       tileMinimo: topeDeAlejar(esc, ancho, alto),
     });
-    const nodo = s.state.map.objects.find(
-      (o) => o.kind === 'node' && o.at.x === 2 && o.at.y === 11,
-    ) as MapObject;
-    const pu = esc.escena.puentes.find((p) => p.id === nodo.id);
-    if (pu === undefined) throw new Error('s35 ya no tiene el puente de (2,11)');
-    expect(pu.eje).toBe('ns');
     const pulsar = (x: number, y: number): void => {
       const p = mundoAPixel(camara, x, y);
       escena.mover(p.x, p.y);
@@ -608,22 +667,20 @@ describe('pulsar el puente lleva a su nodo (H2 del QA de #157)', () => {
       if (escena.soltar()) escena.pulsar(p.x, p.y, false);
     };
     // Las piernas y el centro de la orilla caen bajo el tablero: que la prueba no pase en vacío.
-    const pisable = pisableEn(s.state.map);
-    expect(puenteBajo(esc.escena.puentes, 2.5, 10.55, () => false)).toBe(pu);
-    expect(puenteBajo(esc.escena.puentes, 2.5, 10.55, pisable)).toBeNull();
-    expect(puenteBajo(esc.escena.puentes, 4.5, 9.5, pisable)).toBeNull();
+    expect(puenteBajo(esc.escena.puentes, orilla.x + 0.5, orilla.y + 0.55, () => false)).toBe(pu);
+    expect(puenteBajo(esc.escena.puentes, orilla.x + 0.5, orilla.y + 0.55, pisable)).toBeNull();
     // Al centro de la orilla norte: el héroe llega a ella, no al puente.
-    pulsar(2.5, 10.5);
-    expect(s.selectedHero!.at).toEqual({ x: 2, y: 10 });
+    pulsar(orilla.x + 0.5, orilla.y + 0.5);
+    expect(heroe.at).toEqual(orilla);
     // Sus piernas: ya está ahí, y no se mueve.
-    const p = mundoAPixel(camara, 2.5, 10.55);
+    const p = mundoAPixel(camara, orilla.x + 0.5, orilla.y + 0.55);
     escena.mover(p.x, p.y);
     expect(s.status).not.toMatch(/^Paso sin dueño/);
-    pulsar(2.5, 10.55);
-    expect(s.selectedHero!.at).toEqual({ x: 2, y: 10 });
+    pulsar(orilla.x + 0.5, orilla.y + 0.55);
+    expect(heroe.at).toEqual(orilla);
     // Y el tablero sobre el nodo sigue llevando al puente.
     pulsar(...enElTablero(pu, 0));
-    expect(s.selectedHero!.at).toEqual({ x: 2, y: 11 });
+    expect(heroe.at).toEqual(nodo);
   });
 });
 
@@ -706,6 +763,7 @@ describe('la senda llega al estribo por tierra (H4 del QA de #157)', () => {
       sinVados += sendasDeEstriboEnAgua(e.sendas, e.puentes, [], esAgua).length;
       for (const v of e.vados) expect(v.length, `s${s}`).toBeGreaterThan(1);
     }
-    expect(sinVados).toBe(1);
+    // Que no pase en vacío: alguna la necesitaba (SEMILLAS lleva una buscada).
+    expect(sinVados).toBeGreaterThan(0);
   });
 });

@@ -9,10 +9,10 @@ import { EscenaAventura } from '../src/client/escenas/aventura.js';
 import { cajaEnPixeles, mundoAPixel, pixelAMundo } from '../src/client/render/camara-mapa.js';
 import { queHayEn } from '../src/client/render/escenario/inspeccion.js';
 import { cajaDeSprite } from '../src/client/render/escenario/pasillo.js';
-import type { Punto } from '../src/client/render/escenario/puentes.js';
 import { bandaDeCara } from '../src/client/render/escenario/relieve.js';
 import { escenarioDe } from '../src/client/render/escenario/superficie.js';
 import { Session } from '../src/client/session.js';
+import { puenteSobreElAgua } from './helpers.js';
 
 describe('queHayEn', () => {
   const s = new Session(1);
@@ -72,25 +72,22 @@ describe('queHayEn', () => {
   });
 
   it('un clic en el tablero de un puente marca la casilla de su nodo, como el puntero', () => {
-    // s15, el puente de (16,1): hacia el noreste del medio, el tablero se ve
-    // sobre el agua de (16,0). La marca dice la casilla que señalaría el
-    // puntero, y su `queHay` el mismo puente (`puenteEnElTerreno`, una sola cuenta).
-    const s15 = new Session(15);
-    s15.revealAll = true;
-    const e = escenarioDe(s15.state.map, s15.state.seed);
-    const escena = new EscenaAventura(() => s15);
+    // Hacia el extremo del tablero, el puente se ve sobre el agua de otra
+    // casilla (era s15, el puente de (16,1) sobre (16,0); se busca, que los
+    // mapas cambian). La marca dice la casilla que señalaría el puntero, y su
+    // `queHay` el mismo puente (`puenteEnElTerreno`, una sola cuenta).
+    const { semilla, caso } = puenteSobreElAgua();
+    const sesion = new Session(semilla);
+    sesion.revealAll = true;
+    const e = escenarioDe(sesion.state.map, sesion.state.seed);
+    const escena = new EscenaAventura(() => sesion);
     escena.encuadrar(1600, 1000);
-    const nodo = s15.state.map.objects.find(
-      (o) => o.kind === 'node' && o.at.x === 16 && o.at.y === 1,
-    );
-    const pu = e.escena.puentes.find((p) => p.id === nodo?.id);
-    if (pu === undefined) throw new Error('s15 ya no tiene el puente de (16,1)');
-    const [a, b] = [pu.tablero[1], pu.tablero[2]] as [Punto, Punto];
-    const sobreElAgua: Punto = [a[0] + 0.7 * (b[0] - a[0]), a[1] + 0.7 * (b[1] - a[1])];
-    expect(sobreElAgua.map(Math.floor)).toEqual([16, 0]);
-    const p = mundoAPixel(escena.camaraActual, ...sobreElAgua);
+    const pu = e.escena.puentes.find((p) => p.id === caso.puente.id);
+    if (pu === undefined)
+      throw new Error(`s${semilla} no compone el puente que encontró la búsqueda`);
+    const p = mundoAPixel(escena.camaraActual, ...caso.sobreElAgua);
     const { mundo, casilla } = escena.puntoBajo(p.x, p.y);
-    expect(casilla).toEqual({ x: 16, y: 1 });
+    expect(casilla).toEqual({ x: Math.floor(pu.nodo[0]), y: Math.floor(pu.nodo[1]) });
     expect(queHayEn(e, mundo, casilla).puente?.id).toBe(pu.id);
   });
 

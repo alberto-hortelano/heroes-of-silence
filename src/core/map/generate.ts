@@ -55,6 +55,7 @@ import {
 } from './terrain.js';
 import {
   barreraDe,
+  conEjePleno,
   engordarFronteras,
   espejoDe,
   parejaDe,
@@ -682,9 +683,10 @@ export interface ProceduralOptions {
 
 /**
  * Redes finas que se trazan antes de rendirse diciéndolo. Mide solo la red: el
- * vestido tiene sus propios intentos sobre cada una.
+ * vestido tiene sus propios intentos sobre cada una. Se exporta para que el
+ * test del mensaje de error no lleve la cifra escrita.
  */
-const INTENTOS_DE_RED = 20;
+export const INTENTOS_DE_RED = 30;
 /**
  * Vestidos que se prueban sobre una misma red fina ya validada antes de tirarla.
  * Un vestido que falla —unos suelos que no admiten cuatro barreras, un engorde
@@ -728,7 +730,9 @@ const INTENTOS_DE_VESTIDO = 10;
  * primera y entre el 86 y el 96 % en diez intentos. Unas pocas (1-12 de 200) no
  * se visten ni en cien —los suelos sorteados no son lo que falla, es la forma
  * de la red—, y para esas es mejor otra red que insistir. Con 20 y 10, 0 planes
- * sin salir en ningún lado.
+ * sin salir en ningún lado. Con el engorde casilla a casilla de #169
+ * (07-10-2026) el vestido falla más en 24×24, y con 20 redes no salían 18 de
+ * 2 000; con 30, 1 (eran 9 antes de #169). En 34×34 y 48×48, 0 con las dos.
  *
  * La red de cada intento la lee `estructura` y la valida `problemasDeRed`, las
  * mismas que leen y validan cualquier plan: el generador no lleva una segunda
@@ -1005,8 +1009,26 @@ function intentarRed(rng: Rng, W: number, H: number): RedFina | null {
   // vecinas: el camino que llega a uno quedaría unido, en el dibujo, al otro.
   // La regla es del generador y no de `problemasDeRed`: los caminos del agente
   // los escribe él, y un plan con dos nodos a dos casillas es jugable.
+  //
+  // Del medio, el más cercano que tenga **eje pleno** (`conEjePleno`, dos
+  // casillas de su región a cada lado) y no caiga junto a otro nodo: el medio a
+  // secas caía a veces en un escalón del muro, sin dos vecinas opuestas, y el
+  // vestido lo dejaba en esquina (119 de 12 309 nodos en 1-1000; así, 17 de 12 342).
+  // Qué parejas llevan paso no cambia: si el medio cae junto a otro nodo, la
+  // pareja se queda sin él, como antes. Buscar un paso lejos de ese nodo daba
+  // ~1,4 pasos más por mapa (12 309 → 13 683 en 1-1000), y la densidad de
+  // pasos no es cosa de #169 (decisión del coordinador). Si ninguno tiene eje,
+  // el medio.
   for (const lista of porPareja.values()) {
-    const n = lista[Math.floor(lista.length / 2)] as number;
+    const medio = Math.floor(lista.length / 2);
+    if (cerca(lista[medio] as number, 2)) continue;
+    let elegido = -1;
+    for (const [k, c] of lista.entries()) {
+      if (elegido !== -1 && Math.abs(k - medio) >= Math.abs(elegido - medio)) continue;
+      if (cerca(c, 2) || !conEjePleno(W, H, c, etiqueta, muro)) continue;
+      elegido = k;
+    }
+    const n = lista[elegido === -1 ? medio : elegido] as number;
     if (cerca(n, 2)) continue;
     nodos.push(n);
   }

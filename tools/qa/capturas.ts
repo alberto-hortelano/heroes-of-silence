@@ -1499,21 +1499,45 @@ async function jugarTactil(browser: Browser, url: string, problemas: Problemas):
   if (destino === null) {
     throw new Error('táctil: no hay a la vista un destino de hoy a tres pasos o más');
   }
+  // Los pasos intermedios, y de ellos el que más cambia. Uno solo —el del
+  // medio— podía caer bajo un árbol o una peña que se pinta encima de la ruta:
+  // con los bordes de #169 la semilla 19 lo tenía así, y la pasada daba rojo
+  // con la ruta pintada. Lo que esto vigila es que el `pointerleave` del toque
+  // no la borre, y entonces no cambia ninguno.
+  // Lejos del héroe y del destino (Chebyshev ≥ 2): la figura que respira al
+  // lado movería píxeles sin ruta ninguna.
   const ruta = espejo.previewPath(destino);
-  const medio = ruta[Math.floor((ruta.length - 1) / 2)] as (typeof ruta)[number];
-  const enMedio = await mapa.pixel(medio.at);
-  const antes = await pixelesDelLienzo(page, enMedio.x - b.x, enMedio.y - b.y);
+  const heroe = espejo.selectedHero?.at ?? destino;
+  const lejos = (p: Point, q: Point) => Math.max(Math.abs(p.x - q.x), Math.abs(p.y - q.y)) >= 2;
+  const lejosDeLosDos = ruta.filter((paso) => lejos(paso.at, heroe) && lejos(paso.at, destino));
+  const intermedios =
+    lejosDeLosDos.length > 0
+      ? lejosDeLosDos
+      : [ruta[Math.floor((ruta.length - 1) / 2)] as (typeof ruta)[number]];
+  const enLienzo = await Promise.all(intermedios.map((paso) => mapa.pixel(paso.at)));
+  const antes = await Promise.all(
+    enLienzo.map((p) => pixelesDelLienzo(page, p.x - b.x, p.y - b.y)),
+  );
   const px = await mapa.pixel(destino);
   await page.touchscreen.tap(px.x, px.y);
   await sleep(300);
-  const despues = await pixelesDelLienzo(page, enMedio.x - b.x, enMedio.y - b.y);
-  const cambio = antes.reduce((t, v, i) => t + Math.abs(v - (despues[i] ?? 0)), 0);
+  const despues = await Promise.all(
+    enLienzo.map((p) => pixelesDelLienzo(page, p.x - b.x, p.y - b.y)),
+  );
+  const cambios = antes.map((a, k) =>
+    a.reduce((t, v, i) => t + Math.abs(v - (despues[k]?.[i] ?? 0)), 0),
+  );
+  const cambio = Math.max(0, ...cambios);
+  const elQueMas = intermedios[cambios.indexOf(cambio)]?.at;
   const dice = await page.locator('#status').innerText();
-  log(`táctil: primer toque → «${dice}»; el paso (${medio.at.x},${medio.at.y}) cambia ${cambio}`);
+  log(
+    `táctil: primer toque → «${dice}»; de ${intermedios.length} pasos intermedios, el que más cambia ` +
+      `(${elQueMas?.x},${elQueMas?.y}) cambia ${cambio}`,
+  );
   if (!dice.includes('Toca otra vez')) throw new Error(`táctil: el primer toque dice «${dice}»`);
   if (cambio < 2000) {
     throw new Error(
-      `táctil: tras el primer toque la ruta no se ha pintado (el paso intermedio cambia ${cambio})`,
+      `táctil: tras el primer toque la ruta no se ha pintado (ningún paso intermedio cambia más de ${cambio})`,
     );
   }
   await captura(page, 'tactil-01-ruta-tras-el-primer-toque');

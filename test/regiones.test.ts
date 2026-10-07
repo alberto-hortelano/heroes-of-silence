@@ -18,6 +18,7 @@ import {
   buildMap,
   crucesConCamino,
   generateMapPlan,
+  INTENTOS_DE_RED,
   LADO_DEL_MAPA,
   type MapPlan,
   type PlanConCasillas,
@@ -37,8 +38,9 @@ import {
 } from '../src/core/map/vestir.js';
 import { createRng } from '../src/core/rng.js';
 import type { Point } from '../src/core/types.js';
+import { tramosRectos } from '../tools/qa/rectitud.js';
 import { auditarMapaDenso, ciclosDeCamino, planDeNodos } from './helpers.js';
-import { rango, segunPrisa } from './lento.js';
+import { itLento, rango, segunPrisa } from './lento.js';
 
 /** Los fallos de la auditoría densa de un plan, construyéndolo. */
 const densa = (plan: MapPlan): string[] => auditarMapaDenso(plan, buildMap(plan).map).fallos;
@@ -609,7 +611,9 @@ describe('el generador hace redes como las pidió el usuario', () => {
     // las catorce minas). Antes de partir el error decía «no sabe repartir
     // regiones equilibradas» fuera cual fuera la fase, y mentía.
     expect(() => generateMapPlan(createRng(1), { width: 12, height: 12 })).toThrow(
-      /no sale un mapa de nodos de 12×12 en 20 redes: .*no se dejaron vestir en 10 intentos cada una: \d+ en fronteras \(la última: las fronteras de este mapa .* no admiten \d barreras distintas con 15 casillas cada una\)/,
+      new RegExp(
+        `no sale un mapa de nodos de 12×12 en ${INTENTOS_DE_RED} redes: .*no se dejaron vestir en 10 intentos cada una: \\d+ en fronteras \\(la última: las fronteras de este mapa .* no admiten \\d barreras distintas con 15 casillas cada una\\)`,
+      ),
     );
   });
 
@@ -628,17 +632,89 @@ describe('el generador hace redes como las pidió el usuario', () => {
     const fallos: string[] = [];
     let nodos = 0;
     // En `pnpm verify`, tres semillas: con el vestido de antes ya dan los tres
-    // fallos. En `pnpm verify:lento`, 1-10 (#167): en 1-40 hay 4 pasos
-    // cuya red fina no tiene vecinas opuestas (s17 (1,14), s30 (7,9) y (26,24),
-    // s38 (1,15)), y eso es de la red, no del vestido.
-    for (const s of segunPrisa(rango(1, 3), rango(1, 10))) {
+    // fallos. En `pnpm verify:lento`, 1-40: antes solo 1-10, porque en 1-40
+    // había 4 pasos cuya red fina no tenía vecinas opuestas (s17 (1,14), s30
+    // (7,9) y (26,24), s38 (1,15)). Desde #169 el generador elige el paso de
+    // cada pareja con eje pleno (`conEjePleno`) y en 1-40 no queda ninguno; en
+    // 1-1000, 17 de 12 342 nodos, casi todos junto al borde.
+    for (const s of segunPrisa(rango(1, 3), rango(1, 40))) {
       const { map } = buildMap(generateMapPlan(createRng(s)));
       fallos.push(...entradasDeNodo(map).map((f) => `semilla ${s}: ${f}`));
       nodos += estructura(map).nodos.length;
     }
     expect(fallos).toEqual([]);
-    // Que no pase en vacío: 56 nodos (ciudades incluidas) en 1-3, 187 en 1-10.
-    expect(nodos).toBeGreaterThan(segunPrisa(50, 180));
+    // Que no pase en vacío: 62 nodos (ciudades incluidas) en 1-3, 813 en 1-40.
+    expect(nodos).toBeGreaterThan(segunPrisa(55, 750));
+  });
+
+  it('el engorde va casilla a casilla y la reparación deja tres pasos entre regiones (#169)', () => {
+    // Un muro fino recto (x = 8) entre dos regiones: sus casillas pisables de
+    // al lado, (7, y) y (9, y), quedan a dos pasos. El ruido engorda cada una a
+    // cara o cruz, y donde no engorda ninguna de las dos la reparación (paso 4b)
+    // engorda una. Antes un lado entero engordaba siempre —el borde copiaba el
+    // muro—, y sin la reparación una fila de cada cuatro quedaba a dos pasos.
+    const W = 16;
+    const N = W * W;
+    const etiqueta = new Int32Array(N);
+    const muro = new Uint8Array(N);
+    for (let i = 0; i < N; i++) {
+      const { x } = aPunto(i, W);
+      etiqueta[i] = x < 8 ? 0 : 1;
+      muro[i] = x === 8 ? 1 : 0;
+    }
+    let enteros = 0;
+    for (let semilla = 1; semilla <= 10; semilla++) {
+      const hecho = engordarFronteras({
+        W,
+        H: W,
+        etiqueta,
+        muro,
+        nodos: [],
+        semillas: [
+          { x: 3, y: 3 },
+          { x: 12, y: 12 },
+        ],
+        suelos: ['grass', 'grass'],
+        rng: createRng(semilla),
+      });
+      if (typeof hecho === 'string') throw new Error(hecho);
+      const libre = (x: number, y: number) =>
+        muro[y * W + x] === 0 && hecho.tipos[y * W + x] === ABIERTA;
+      const cerca: string[] = [];
+      for (let y = 0; y < W; y++)
+        for (let x = 0; x < 8; x++)
+          for (let y2 = Math.max(0, y - 2); y2 <= Math.min(W - 1, y + 2); y2++)
+            for (let x2 = 9; x2 <= Math.min(W - 1, x + 2); x2++)
+              if (libre(x, y) && libre(x2, y2)) cerca.push(`(${x},${y})-(${x2},${y2})`);
+      expect(cerca, `semilla ${semilla}`).toEqual([]);
+      const engordadas = (x: number) => rango(0, W - 1).filter((y) => !libre(x, y)).length;
+      if (engordadas(7) === W) enteros++;
+      if (engordadas(9) === W) enteros++;
+    }
+    // Y el borde no es el muro dilatado: un lado entero engordado es la
+    // excepción (cuatro trechos que salen del mismo lado), no la regla. Con el
+    // lado gordo fijo por pareja salía en las 10 semillas; a trechos, en 2 de
+    // los 20 lados.
+    expect(enteros).toBeLessThanOrEqual(3);
+  });
+
+  itLento('los bordes de barrera no van en tramos rectos largos (#169)', () => {
+    // Un tramo recto: casillas de barrera seguidas en una fila o columna con la
+    // de al lado, del mismo lado, pisable (`tramosRectos`, la misma cuenta que
+    // `tools/qa/rectitud.ts`). En 1-1000: tramos de ≥ 8, 216 antes de #169
+    // (engorde del lado gordo entero y ruido en bloques de 4×4) y 110 después;
+    // mapas con uno de ≥ 10, 14 antes y 5 después. Los techos dejan margen
+    // para una tirada de monedas: en 1-300 los tramos bailaban de 38 a 45 con
+    // solo cambiar cómo se elige el paso.
+    let largos = 0;
+    let mapas = 0;
+    for (const s of rango(1, 1000)) {
+      const { map } = buildMap(generateMapPlan(createRng(s)));
+      largos += tramosRectos(map, 8).largos;
+      if (tramosRectos(map, 10).largos > 0) mapas++;
+    }
+    expect(largos).toBeLessThanOrEqual(140);
+    expect(mapas).toBeLessThanOrEqual(8);
   });
 
   it('el vestido abre el nodo por su eje aunque la primera recta de cada región sea otra', () => {

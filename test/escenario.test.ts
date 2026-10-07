@@ -24,7 +24,7 @@ import type { MapPlan } from '../src/core/map/generate.js';
 import { createRng } from '../src/core/rng.js';
 import { newGame } from '../src/core/state/setup.js';
 import { decidir } from '../tools/qa/politica.js';
-import { catalogoDelDisco, escenaDe } from './helpers.js';
+import { catalogoDelDisco, escenaDe, primeraSemillaCon } from './helpers.js';
 
 const RAIZ = resolve(import.meta.dirname, '..');
 const catalogo = catalogoDelDisco();
@@ -266,9 +266,12 @@ describe('sin arte se pinta igual: cada pieza, su marcador de color', () => {
     }
   });
 
-  it('junto a un puente (#157), semilla 5: cada vado se quita del barro, del agua y de la espuma', () => {
-    const conVados = escenaDe(5);
-    expect(conVados.vados.length).toBeGreaterThan(0);
+  it('junto a un puente (#157): cada vado se quita del barro, del agua y de la espuma', () => {
+    // La primera semilla con vados (era la 5, escrita a mano, hasta #169).
+    const { caso: conVados } = primeraSemillaCon('vados junto a un puente', (s) => {
+      const e = escenaDe(s);
+      return e.vados.length > 0 ? e : undefined;
+    });
     const r = registro();
     pintarSuelo(r.contexto(), conVados, separar(conVados), { ...sinImagenes, lienzo: r.lienzo });
     const T = sinImagenes.tile;

@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest';
 import { acantiladosARas } from '../src/client/render/escenario/relieve.js';
 import type { TerrainKind } from '../src/core/map/terrain.js';
 import { partidaDe } from './helpers.js';
-import { rango, segunPrisa } from './lento.js';
+import { LENTO, rango } from './lento.js';
 
 /** Una rejilla a mano: cada fila, una cadena de letras (`.` llano, `C` acantilado, `~` agua). */
 function rejilla(filas: readonly string[]): { terreno: TerrainKind[]; W: number; H: number } {
@@ -46,8 +46,28 @@ describe('acantiladosARas: la casilla de acantilado sin desnivel con lo que se p
   });
 });
 
-/** s1, s24, s34 y s57: las de la auditoría. En la orden lenta, 1-40 y las cuatro. */
-const SEMILLAS = segunPrisa([1, 57], [...rango(1, 40), 57]);
+/**
+ * En la orden lenta, 1-40 y la 57 (s1, s24, s34 y s57 eran las de la
+ * auditoría). En `pnpm verify`, las dos primeras con un acantilado sobre
+ * hierba, **buscadas**, para que la prueba de que el informe muerde no pase en
+ * vacío: eran la 1 y la 57, y con los bordes de #169 la 57 se quedó sin él.
+ */
+const SEMILLAS = LENTO ? [...rango(1, 40), 57] : dosConAcantiladoSobreHierba();
+
+function dosConAcantiladoSobreHierba(): number[] {
+  const halladas: number[] = [];
+  for (let s = 1; halladas.length < 2; s++) {
+    if (s > 80)
+      throw new Error('no hay dos semillas de la 1 a la 80 con un acantilado sobre hierba');
+    const { map } = partidaDe(s);
+    const W = map.width;
+    const hay = map.terrain.some(
+      (t, k) => t === 'cliff' && k + W < W * map.height && map.terrain[k + W] === 'grass',
+    );
+    if (hay) halladas.push(s);
+  }
+  return halladas;
+}
 
 describe('en los mapas reales', () => {
   for (const semilla of SEMILLAS) {

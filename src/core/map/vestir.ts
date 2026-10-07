@@ -152,6 +152,16 @@ export interface Engordado {
  */
 export const RADIO_DEL_PASO = 3;
 
+/**
+ * Cada cuántas casillas de frontera puede cambiar de lado el que engorda donde
+ * dos regiones quedarían a dos pasos (`engordarFronteras`, paso 4b). Medido en
+ * un prototipo (#169, 07-10-2026, tramos rectos de ≥ 8 en 1-300): con 2, 36;
+ * con 4, 23; con 6, 22, y la de 6 con más mapas con un tramo de ≥ 10. Son
+ * cuentas que bailan ±10 con otra tirada de monedas: 4 es «de 3 a 6», no un
+ * óptimo.
+ */
+export const TRECHO_DEL_LADO = 4;
+
 /** Cuántos tipos de barrera distintos lleva, como poco, la frontera de un mapa (criterio del usuario). */
 export const TIPOS_POR_MAPA = 4;
 
@@ -165,11 +175,15 @@ export const TIPOS_POR_MAPA = 4;
  *   por pesos. Una tabla de pesos decide qué va con qué; la variedad del mapa
  *   entero no la puede garantizar una tabla, así que se construye.
  * - **El grosor**: cada casilla de muro fino es de la pareja (su celda, la menor
- *   de sus vecinas). Por pareja se sortea un lado que engorda siempre una
- *   casilla; el otro engorda donde lo diga un ruido grueso en bloques de 4×4,
- *   reflejado. Así dos casillas pisables de regiones distintas quedan a tres
- *   pasos como poco —una de muro fino y una de cada lado, o dos de uno—, y el
- *   borde no sale recto.
+ *   de sus vecinas). Cada casilla pegada al muro engorda o no a cara o cruz,
+ *   casilla a casilla y reflejado; y donde así quedarían dos casillas pisables
+ *   de regiones distintas a menos de tres pasos, engorda una de las dos, la del
+ *   lado que la pareja sorteó (`ladoGordo`, que ya solo desempata). Así quedan
+ *   a tres pasos como poco —una de muro fino y una de cada lado, o dos de uno—
+ *   y el borde no copia el muro fino. Antes el lado gordo engordaba entero y el
+ *   flaco iba en bloques de 4×4: el gordo era la dilatación del bisector de
+ *   Voronoi, con sus escalones fundidos, y el 74 % de los tramos rectos de ≥ 6
+ *   casillas salían de ahí (#169, medido el 07-10-2026 en 300 semillas).
  * - **Los pasillos**: el nodo es un estrechamiento de una casilla, y desde él
  *   hasta la primera casilla que no se engorda de cada región que toca se
  *   protege un camino. Es la excepción al grosor, y es la que el usuario aprobó.
@@ -262,7 +276,8 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
   if (distintas === null) {
     return `las fronteras de este mapa (suelos ${[...new Set(suelos)].join(', ')}) no admiten ${hacenFalta} barreras distintas con ${casillasMinimasPorTipo} casillas cada una`;
   }
-  // Por clave de pareja: su barrera (índice en `BARRERAS`) y el lado que engorda siempre.
+  // Por clave de pareja: su barrera (índice en `BARRERAS`) y el lado que engorda
+  // cuando hay que elegir (la reparación del paso 4b).
   const tipoDePareja = new Int8Array(regiones * regiones).fill(ABIERTA);
   const ladoGordo = new Int32Array(regiones * regiones).fill(-1);
   for (const [f, b] of distintas) {
@@ -285,28 +300,26 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
     if (muro[i] === 1) tipos[i] = tipoDePareja[parejaDeMuro[i] as number] as number;
   }
 
-  // 3. El ruido del lado flaco: bloques de 4×4, y la mitad de abajo, reflejo de
-  //    la de arriba.
-  const BLOQUE = 4;
-  const bw = Math.ceil(W / BLOQUE);
-  const bh = Math.ceil(H / BLOQUE);
-  const bloques = Array.from({ length: bw * bh }, () => (rng.chance(0.5) ? 1 : 0));
-  const ruido = (i: number): number => {
-    const { x, y } = aPunto(Math.min(i, espejoDe(i, N)), W);
-    return bloques[Math.floor(y / BLOQUE) * bw + Math.floor(x / BLOQUE)] as number;
-  };
+  // 3. El ruido: una tirada por casilla de la mitad de arriba, y la de abajo,
+  //    su reflejo. Por casilla y no en bloques: un bloque de 4×4 deja bordes
+  //    de cuatro alineados a la rejilla, y uno de 2×2 aún daba el doble de
+  //    tramos de ≥ 8 que por casilla (medidas.txt de #169).
+  const caras = Array.from({ length: Math.ceil(N / 2) }, () => rng.chance(0.5));
+  const ruido = (i: number): boolean => caras[Math.min(i, espejoDe(i, N))] as boolean;
 
-  // 4. Qué casilla pegada al muro se engorda, y con qué.
+  // 4. Qué casilla pegada al muro se engorda, y con qué. La barrera es la de la
+  //    pareja de la que es lado gordo, si lo es de alguna; si no, la del primer
+  //    muro que toca.
   const engorda = new Int8Array(N).fill(ABIERTA);
   // La barrera que tocaría a cada casilla pegada al muro, la engorde el ruido o
-  // no: la usa el paso 5 cuando tiene que engordar a la fuerza.
+  // no: la usan la reparación y el paso 5 cuando tienen que engordar a la fuerza.
   const pegada = new Int8Array(N).fill(ABIERTA);
   for (let i = 0; i < N; i++) {
     if (muro[i] === 1) continue;
     const propia = etiqueta[i] as number;
     let tipo = ABIERTA;
-    let siempre = false;
-    for (let v = desde[i]!; v < desde[i + 1]! && !siempre; v++) {
+    let delGordo = false;
+    for (let v = desde[i]!; v < desde[i + 1]! && !delGordo; v++) {
       const j = vecinas[v]!;
       if (muro[j] === 0) continue;
       if (tipo === ABIERTA) tipo = tipos[j] as number;
@@ -315,14 +328,64 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
         const k = clave(propia, otra);
         if (ladoGordo[k] === propia) {
           tipo = tipoDePareja[k] as number;
-          siempre = true;
+          delGordo = true;
           break;
         }
       }
     }
     if (tipo === ABIERTA) continue;
     pegada[i] = tipo;
-    if (siempre || ruido(i) === 1) engorda[i] = tipo;
+    if (ruido(i)) engorda[i] = tipo;
+  }
+  // 4b. La reparación: el ruido deja sitios donde dos casillas pisables de
+  //     regiones distintas quedan a Chebyshev ≤ 2, y ahí engorda una de las dos;
+  //     si esa no está pegada al muro —no hay barrera que darle—, la otra. Es la
+  //     regla de antes («dos pisables de regiones distintas, a tres pasos como
+  //     poco») aplicada donde hace falta y no a todo el lado de la pareja.
+  //
+  //     Cuál de las dos lo dice el lado gordo de la pareja, **dado la vuelta a
+  //     trechos** de `TRECHO_DEL_LADO` casillas a lo largo de la frontera. Con
+  //     el lado gordo fijo, en un muro recto cada casilla abierta de un lado
+  //     obliga a engordar las cinco de enfrente, y el lado gordo salía entero:
+  //     el muro dilatado, recto, otra vez (s24 y s2 de #169). A trechos, los dos
+  //     lados se reparten lo recto. Medido en 1-2000 (34×34) contra el lado
+  //     fijo: tramos de ≥ 8, 256 → 214; filas de caras de ≥ 10, 52 → 29.
+  //     La moneda del trecho va en espejo: la pareja reflejada da la vuelta en
+  //     el trecho reflejado, y su lado gordo ya es el reflejado.
+  const bw = Math.ceil((2 * W - 1) / (2 * TRECHO_DEL_LADO));
+  const bh = Math.ceil((2 * H - 1) / (2 * TRECHO_DEL_LADO));
+  const trechos = Array.from({ length: bw * bh }, () => rng.chance(0.5));
+  // Por el punto medio de las dos casillas, en coordenadas dobladas para que
+  // sea entero: la misma moneda la vea quien la vea de las dos.
+  const trecho = (sx: number, sy: number): number =>
+    Math.floor(sy / (2 * TRECHO_DEL_LADO)) * bw + Math.floor(sx / (2 * TRECHO_DEL_LADO));
+  const elQueEngorda = (i: number, q: number): number => {
+    const a = etiqueta[i] as number;
+    const b = etiqueta[q] as number;
+    const gordo = ladoGordo[clave(a, b)] as number;
+    if (gordo === -1) return a;
+    const sx = (i % W) + (q % W);
+    const sy = Math.floor(i / W) + Math.floor(q / W);
+    const vuelta = trechos[Math.min(trecho(sx, sy), trecho(2 * W - 2 - sx, 2 * H - 2 - sy))];
+    return vuelta ? (gordo === a ? b : a) : gordo;
+  };
+  for (let i = 0; i < N; i++) {
+    if (muro[i] === 1 || engorda[i] !== ABIERTA || pegada[i] === ABIERTA) continue;
+    const a = etiqueta[i] as number;
+    const { x, y } = aPunto(i, W);
+    for (let dy = -2; dy <= 2 && engorda[i] === ABIERTA; dy++) {
+      for (let dx = -2; dx <= 2; dx++) {
+        if (x + dx < 0 || y + dy < 0 || x + dx >= W || y + dy >= H) continue;
+        const q = (y + dy) * W + x + dx;
+        if (muro[q] === 1 || engorda[q] !== ABIERTA || etiqueta[q] === a) continue;
+        if (elQueEngorda(i, q) !== a && pegada[q] !== ABIERTA) {
+          engorda[q] = pegada[q] as number;
+          continue;
+        }
+        engorda[i] = pegada[i] as number;
+        break;
+      }
+    }
   }
 
   // 5. Los pasillos. Primero el eje de cada nodo: dos entradas opuestas que
@@ -531,6 +594,24 @@ function ejeDelNodo(
     }
   }
   return null;
+}
+
+/**
+ * Si un nodo en la casilla `n` de la red fina tendría eje **pleno** (recto o
+ * diagonal, dos casillas de su región a cada lado), que es lo que el generador
+ * busca al elegir el paso de cada pareja. El corto, el de junto al borde, no
+ * cuenta: con él la casilla de detrás puede engordar y dejar la entrada unida
+ * a su región solo por una diagonal.
+ */
+export function conEjePleno(
+  W: number,
+  H: number,
+  n: number,
+  etiqueta: Int32Array,
+  muro: Uint8Array,
+): boolean {
+  const eje = ejeDelNodo(W, H, n % W, Math.floor(n / W), etiqueta, muro);
+  return eje !== null && (eje[0]?.length ?? 0) >= 2;
 }
 
 /**

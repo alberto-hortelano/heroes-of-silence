@@ -20,7 +20,7 @@ import {
 } from '../src/client/render/escenario/macizo.js';
 import type { Suelo } from '../src/core/map/terrain.js';
 import { escenaDe, partidaDe } from './helpers.js';
-import { rango, segunPrisa } from './lento.js';
+import { LENTO, rango, segunPrisa } from './lento.js';
 
 /** Las casillas `[x0, x1) × [y0, y1)` de un mapa de ancho `W`. */
 function rectangulo(W: number, x0: number, y0: number, x1: number, y1: number): number[] {
@@ -90,49 +90,76 @@ describe('el campo del macizo', () => {
   });
 });
 
+/** Los picos de las montañas de una semilla, en la falda y en la cresta de su macizo. */
+function picosDelMacizo(semilla: number) {
+  const { map } = partidaDe(semilla);
+  const escena = escenaDe(semilla);
+  const a = analizar(map);
+  const franjas = a.franjas.filter((f) => f.barrera === 'mountain');
+  const macizos = franjas.map((f) => ({
+    dentro: new Set(f.casillas),
+    // El ruido no cambia la hondura: llega con el llano.
+    macizo: macizoDe(f.casillas, a.W, a.H, llano),
+  }));
+  const picos = escena.sprites.filter(
+    (s) => s.clase === 'masa' && s.src?.startsWith('modulos/picos-') === true,
+  );
+  const falda: (typeof picos)[number][] = [];
+  const cresta: (typeof picos)[number][] = [];
+  for (const s of picos) {
+    const i = Math.floor(Math.min(s.y, a.H - 0.01)) * a.W + Math.floor(Math.min(s.x, a.W - 0.01));
+    const suyo = macizos.find((m) => m.dentro.has(i));
+    if (suyo === undefined) continue;
+    const d = suyo.macizo.hondura(s.x, s.y);
+    if (d < 0.25) falda.push(s);
+    else if (d >= 0.75) cresta.push(s);
+  }
+  return { falda, cresta };
+}
+
+/** Si la semilla tiene una cordillera que mirar: ≥ 10 picos de falda y 5 de cresta. */
+const conCordillera = (semilla: number): boolean => {
+  const { falda, cresta } = picosDelMacizo(semilla);
+  return falda.length > 10 && cresta.length > 5;
+};
+
+/** Las `n` primeras semillas desde la 1 que cumplen `pred`. */
+function lasPrimeras(n: number, pred: (semilla: number) => boolean): number[] {
+  const halladas: number[] = [];
+  for (let s = 1; halladas.length < n; s++) {
+    if (s > 80) throw new Error(`no hay ${n} semillas de la 1 a la 80 que valgan`);
+    if (pred(s)) halladas.push(s);
+  }
+  return halladas;
+}
+
 describe('la escena: los picos de una cordillera crecen hacia dentro', () => {
-  // En la lenta, las de 1-10 con una cordillera que mirar (≥ 10 picos de falda y 5
-  // de cresta): desde #161, la 2, la 4 y la 5 no la tienen.
-  const semillas = segunPrisa([1, 57], [1, 3, 6, 7, 8, 9, 10]);
+  // Las semillas con una cordillera que mirar, **buscadas**: las de 1-10 en la
+  // lenta y las dos primeras en `pnpm verify`. Eran listas escritas a mano, y
+  // cada cambio del mapa (#161, #169) dejaba alguna sin cordillera.
+  const semillas = LENTO ? rango(1, 10).filter(conCordillera) : lasPrimeras(2, conCordillera);
   for (const semilla of semillas)
     it(`semilla ${semilla}: más altos, más esbeltos y más claros en la cresta que en la falda`, () => {
-      const { map } = partidaDe(semilla);
-      const escena = escenaDe(semilla);
-      const a = analizar(map);
-      const franjas = a.franjas.filter((f) => f.barrera === 'mountain');
-      const macizos = franjas.map((f) => ({
-        dentro: new Set(f.casillas),
-        // El ruido no cambia la hondura: llega con el llano.
-        macizo: macizoDe(f.casillas, a.W, a.H, llano),
-      }));
-      const picos = escena.sprites.filter(
-        (s) => s.clase === 'masa' && s.src?.startsWith('modulos/picos-') === true,
-      );
-      const falda: (typeof picos)[number][] = [];
-      const cresta: (typeof picos)[number][] = [];
-      for (const s of picos) {
-        const i =
-          Math.floor(Math.min(s.y, a.H - 0.01)) * a.W + Math.floor(Math.min(s.x, a.W - 0.01));
-        const suyo = macizos.find((m) => m.dentro.has(i));
-        if (suyo === undefined) continue;
-        const d = suyo.macizo.hondura(s.x, s.y);
-        if (d < 0.25) falda.push(s);
-        else if (d >= 0.75) cresta.push(s);
-      }
-      expect(falda.length).toBeGreaterThan(10);
-      expect(cresta.length).toBeGreaterThan(5);
+      const { falda, cresta } = picosDelMacizo(semilla);
       const media = (l: readonly number[]) => l.reduce((x, y) => x + y, 0) / l.length;
       // El alto: lo que hace que se lea como macizo y no como alfombra.
       expect(media(cresta.map((s) => s.alto))).toBeGreaterThan(
         1.5 * media(falda.map((s) => s.alto)),
       );
       // La silueta: los esbeltos arriba.
-      const esbeltez = (s: (typeof picos)[number]) => s.nh / s.nw;
+      const esbeltez = (s: (typeof falda)[number]) => s.nh / s.nw;
       expect(media(cresta.map(esbeltez))).toBeGreaterThan(media(falda.map(esbeltez)));
-      // La luz: la falda en sombra.
-      const oscura = (s: (typeof picos)[number]) => s.tono?.includes('brightness(0.78)') === true;
-      expect(falda.filter(oscura).length / falda.length).toBeGreaterThan(0.5);
-      expect(cresta.filter(oscura).length / cresta.length).toBeLessThan(0.2);
+      // La luz: la falda en sombra, y en la cresta, como mucho un tercio de lo
+      // que se oscurece la falda. Era «menos del 20 %» a secas, y en una
+      // versión de los bordes de #169 la semilla 1 dio un 21 % en la cresta
+      // frente a un 96 % en la falda. Con la final (07-10-2026), en 1-30 la
+      // cresta da 0-19 % (la s1, 19 %) y la falda 75-95 %: el techo cae en un
+      // 25-32 %, y el collado del ruido que oscurece algún pico de cresta no lo
+      // pone en rojo por una tirada.
+      const oscura = (s: (typeof falda)[number]) => s.tono?.includes('brightness(0.78)') === true;
+      const enSombra = (l: readonly (typeof falda)[number][]) => l.filter(oscura).length / l.length;
+      expect(enSombra(falda)).toBeGreaterThan(0.5);
+      expect(enSombra(cresta)).toBeLessThan(enSombra(falda) / 3);
     });
 
   it('no hay más picos que antes por casilla de montaña: el tope de volúmenes no se gasta aquí', () => {

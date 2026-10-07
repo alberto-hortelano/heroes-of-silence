@@ -2,6 +2,7 @@ import { once } from 'node:events';
 import type { AddressInfo } from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
+import { playAiTurn } from '../src/core/ai/turn.js';
 import { activeStack, applyAction } from '../src/core/battle/battle.js';
 import { creature } from '../src/core/data.js';
 import { type Hero, heroUnit } from '../src/core/hero/hero.js';
@@ -24,6 +25,7 @@ import {
   MAX_HEROES_PER_PLAYER,
   revealEverything,
 } from '../src/core/state/game.js';
+import { newGame } from '../src/core/state/setup.js';
 import type { Town } from '../src/core/town/town.js';
 import type { Point } from '../src/core/types.js';
 import { AgentLink } from '../src/server/agent-link.js';
@@ -37,6 +39,7 @@ import {
   ejercito,
   ponerMonstruo,
   primeraMarchaQueSePara,
+  primeraSemillaCon,
   sinGuarnicionDeSalida,
 } from './helpers.js';
 
@@ -169,10 +172,18 @@ async function montar(
   return { link, agent };
 }
 
-/** La casilla pisable más cercana a `desde`, para plantar a alguien al lado. */
-function vecina(state: GameState, desde: Point): Point {
+/**
+ * La casilla pisable más cercana a `desde`, para plantar a alguien al lado; si
+ * se da `lejosDe`, una que no la toque.
+ */
+function vecina(state: GameState, desde: Point, lejosDe?: Point): Point {
+  const toca = (clave: string): boolean => {
+    if (lejosDe === undefined) return false;
+    const [x, y] = clave.split(',').map(Number) as [number, number];
+    return Math.max(Math.abs(x - lejosDe.x), Math.abs(y - lejosDe.y)) <= 1;
+  };
   const [clave] = [...reachableFrom(state.map, desde).costs.entries()]
-    .filter(([, coste]) => coste > 0)
+    .filter(([c, coste]) => coste > 0 && !toca(c))
     .sort((a, b) => a[1] - b[1])[0]!;
   const [x, y] = clave.split(',').map(Number);
   return { x: x as number, y: y as number };
@@ -186,9 +197,9 @@ function vecina(state: GameState, desde: Point): Point {
  * que entonces perdía la partida en el mismo turno — y el test dejaba de medir
  * lo que decía medir.
  */
-function plantarRival(state: GameState, objetivo: Point): Hero {
+function plantarRival(state: GameState, objetivo: Point, lejosDe?: Point): Hero {
   const rival = state.heroes.find((h) => h.owner === 0) as Hero;
-  rival.at = vecina(state, objetivo);
+  rival.at = vecina(state, objetivo, lejosDe);
   rival.army = ejercito({ creature: 'paladin', count: 6 });
   rival.movePoints = reachableFrom(state.map, rival.at).costs.get(pointKey(objetivo)) ?? 200;
   return rival;
@@ -203,8 +214,30 @@ function plantarRival(state: GameState, objetivo: Point): Hero {
  */
 function rivalAlAtaque(state: GameState): Hero {
   const mio = state.heroes.find((h) => h.owner === 1) as Hero;
-  plantarRival(state, mio.at);
+  // Pegado al héroe y no a su base: con el héroe fuera de ella y el rival
+  // tocando las dos, la IA tomaba la base vacía y ganaba la partida, y el test
+  // no veía ninguna batalla del héroe (semilla 201 con los bordes de #169).
+  const base = state.towns.find((t) => t.owner === 1) as Town;
+  plantarRival(state, mio.at, base.at);
   return mio;
+}
+
+/**
+ * La primera semilla desde `desde` en la que el rival plantado por
+ * `rivalAlAtaque` ataca de verdad al héroe del agente en su turno: la misma
+ * partida y el mismo azar que le da el `Director`, jugada por la IA sola.
+ */
+async function semillaEnQueElRivalAtaca(desde: number): Promise<number> {
+  for (let seed = desde; seed < desde + 40; seed++) {
+    const state = newGame({ seed });
+    const mio = rivalAlAtaque(state);
+    await playAiTurn(state, { rng: createRng(seed ^ 0xa9e7) }, { noSeRinden: new Set([1]) });
+    const atacado = state.log.some(
+      (e) => e.kind === 'battle_started' && e.foe.kind === 'hero' && e.foe.heroId === mio.id,
+    );
+    if (atacado) return seed;
+  }
+  throw new Error(`en ninguna semilla de ${desde} a ${desde + 39} ataca el rival plantado`);
 }
 
 /**
@@ -501,6 +534,16 @@ function sinAsaltantes(state: { raiders: unknown[] }): void {
   state.raiders.splice(0);
 }
 
+/**
+ * Sin montones ni cofres: el oro que dicen estos tests es el de antes de la
+ * batalla, y el héroe que va al monstruo recogía lo que pillase de camino
+ * según cayera el mapa (con los bordes de #169, 824 de oro en la semilla 106).
+ */
+function sinRecogidas(state: GameState): void {
+  const quedan = state.map.objects.filter((o) => o.kind !== 'resource' && o.kind !== 'chest');
+  state.map.objects.splice(0, state.map.objects.length, ...quedan);
+}
+
 describe('el agente se rinde (fase 1b)', () => {
   it('la rendición se le ofrece, entra por el contrato y el héroe vuelve a su base', async () => {
     // Lo cubría `pnpm qa` reescribiendo el mapa para forzar la batalla; ahora
@@ -534,6 +577,7 @@ describe('el agente se rinde (fase 1b)', () => {
     // de salida dentro se la llevaría y el precio ya no sería el de dos arqueros.
     sinGuarnicionDeSalida(director.state);
     sinAsaltantes(director.state);
+    sinRecogidas(director.state);
     const heroe = director.state.heroes[0]!;
     heroe.army = ejercito({ creature: 'archer', count: 2 });
     heroe.movePoints = 20000;
@@ -592,6 +636,7 @@ describe('el agente se rinde (fase 1b)', () => {
     const director = new Director(link, { seed: 106, agentPlayers: [0] });
     revealEverything(director.state, 0);
     sinAsaltantes(director.state);
+    sinRecogidas(director.state);
     const heroe = director.state.heroes[0]!;
     heroe.army = ejercito({ creature: 'peasant', count: 2 });
     heroe.movePoints = 20000;
@@ -1411,12 +1456,19 @@ describe('el agente sabe cómo le fue', () => {
       return { actions: [{ type: 'move_hero', hero: payload.heroes[0].id, to: destino }] };
     });
 
-    // La primera casilla de hoy cuya marcha se para. La del issue era la
-    // semilla 1, que con las entradas de nodo en eje (#161) ya no para ninguna.
-    const director = new Director(link, { seed: 2, agentPlayers: [0] });
+    // La primera semilla con una marcha de hoy que se para, y en ella la
+    // primera casilla. Se busca: la del issue era la semilla 1, que con las
+    // entradas de nodo en eje (#161) ya no paraba ninguna, y la 2 dejó de
+    // valer con los bordes de #169.
+    const { semilla } = primeraSemillaCon('una marcha de hoy que se pare', (s) => {
+      const state = newGame({ seed: s });
+      const h = state.heroes.find((x) => x.owner === 0)!;
+      return primeraMarchaQueSePara(state, h) ?? undefined;
+    });
+    const director = new Director(link, { seed: semilla, agentPlayers: [0] });
     const heroe = director.state.heroes.find((h) => h.owner === 0)!;
     destino = primeraMarchaQueSePara(director.state, heroe);
-    if (destino === null) throw new Error('en la semilla 2 ninguna marcha de hoy se para');
+    if (destino === null) throw new Error(`en la semilla ${semilla} ninguna marcha de hoy se para`);
     const antes = director.state.log.length;
     const informe = await director.playTurn();
     await respira();
@@ -1699,10 +1751,11 @@ describe('el agente sabe cómo le fue', () => {
       return { actions: [] };
     });
 
-    // La semilla importa: en algunas el rival plantado al lado no ataca. Con los
-    // mapas densos la 305 dejó de valer (307) y volvió a valer al cambiar el
-    // vestido (03-10-2026); 303, 304, 306, 309 y 310 también valen hoy.
-    const director = new Director(link, { seed: 305, agentPlayers: [1] });
+    // La semilla importa: en algunas el rival plantado al lado no ataca. Se
+    // busca: escrita a mano, cada cambio del mapa se la llevaba (la 305 dejó de
+    // valer con los mapas densos, volvió con el vestido y se fue con #169).
+    const seed = await semillaEnQueElRivalAtaca(301);
+    const director = new Director(link, { seed, agentPlayers: [1] });
     rivalAlAtaque(director.state);
 
     await director.playTurn(); // turno del rival: batalla defendida
