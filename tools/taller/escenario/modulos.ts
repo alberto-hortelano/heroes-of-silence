@@ -383,6 +383,11 @@ export function recortarCaja(r: Raster, c: Caja, margen = MARGEN): Raster {
   return { data, width: w, height: h };
 }
 
+/** Cuántos módulos lleva cada fila de una hoja de `n`: de cuatro en cuatro, y la última con lo que quede. */
+export function modulosPorFila(n: number): number[] {
+  return Array.from({ length: Math.ceil(n / 4) }, (_, f) => Math.min(4, n - 4 * f));
+}
+
 /**
  * Las cajas de los módulos de una hoja. Con nombres, la rejilla exacta (lanza si
  * no sale); sin ellos, todas las figuras, en orden de lectura, y al menos la
@@ -397,7 +402,7 @@ export function cajasDeModulos(r: Raster, cuantos: number, nombres?: readonly st
     return enFilas(
       figs.filter((c) => c.area >= mayor * 0.02),
       Math.ceil(nombres.length / 4),
-      4,
+      modulosPorFila(nombres.length),
     ).flat();
   }
   // Lo que no llega al 2 % del mayor es una mota suelta, no un módulo.

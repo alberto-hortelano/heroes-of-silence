@@ -14,6 +14,8 @@ import {
   type CatalogoEnBruto,
   catalogoValidado,
   conPerfil,
+  type JuntasDeBajada,
+  type JuntasDeDiagonal,
   type JuntasDeLadera,
   type MedidasDePuente,
   type Modulo,
@@ -34,8 +36,13 @@ interface IndiceDeHoja {
     readonly ancho: number;
     readonly alto: number;
     readonly ancla: readonly [number, number];
-    /** Solo las laderas (§20): `pnpm taller derivar-laderas` las lleva de la guía al módulo. */
+    /**
+     * Solo las hojas del relieve: laderas (§20), diagonales y bajadas (§23).
+     * `pnpm taller derivar-relieve` las lleva de la guía al módulo.
+     */
     readonly ladera?: JuntasDeLadera;
+    readonly diagonal?: JuntasDeDiagonal;
+    readonly bajada?: JuntasDeBajada;
   }[];
 }
 
@@ -80,6 +87,8 @@ export async function leerCatalogo(): Promise<Catalogo> {
         ay: m.ancla[1],
         nombre: m.imagen.replace(/\.webp$/, ''),
         ...(m.ladera === undefined ? {} : { ladera: m.ladera }),
+        ...(m.diagonal === undefined ? {} : { diagonal: m.diagonal }),
+        ...(m.bajada === undefined ? {} : { bajada: m.bajada }),
         ...(perfiles === undefined ? {} : { perfil: perfiles[k] as number[] }),
       }))
       .sort((a, b) => a.ay - b.ay);
@@ -107,7 +116,7 @@ export async function leerCatalogo(): Promise<Catalogo> {
     const d = await derivarPieza(join(MAPA, `${id}.webp`));
     piezas[id] = { src: `${id}.webp`, nw: d.ancho, nh: d.alto, ax: d.ancla[0], ay: d.ancla[1] };
   }
-  // Lo que lee el juego: una ladera sin sus juntas lanza aquí, no al pintar.
+  // Lo que lee el juego: una pieza del relieve sin sus juntas lanza aquí, no al pintar.
   return catalogoValidado({ hojas, piezas } satisfies CatalogoEnBruto);
 }
 

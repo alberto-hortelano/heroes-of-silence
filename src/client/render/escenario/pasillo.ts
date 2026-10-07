@@ -16,7 +16,7 @@ import type { Senda } from './sendas.js';
 export type Caja = readonly [number, number, number, number];
 
 /** Lo que hace falta de un sprite para saber dónde cae su imagen. */
-type ConImagen = Pick<Sprite, 'x' | 'y' | 'nw' | 'nh' | 'ax' | 'ay' | 'alto'>;
+type ConImagen = Pick<Sprite, 'x' | 'y' | 'nw' | 'nh' | 'ax' | 'ay' | 'alto' | 'ancho'>;
 
 /**
  * El rectángulo que ocupa la imagen de `s` con el alto `alto`, en casillas. Es
@@ -26,9 +26,11 @@ type ConImagen = Pick<Sprite, 'x' | 'y' | 'nw' | 'nh' | 'ax' | 'ay' | 'alto'>;
  */
 export function cajaDeSprite(s: ConImagen, alto = s.alto): Caja {
   const k = alto / s.nh;
-  const x0 = s.x - s.ax * k;
+  // Estirado en alto (`Sprite.ancho`), el ancho no sigue a su proporción; encogido, encoge igual.
+  const kx = s.ancho === undefined ? k : (s.ancho / s.nw) * (alto / s.alto);
+  const x0 = s.x - s.ax * kx;
   const y0 = s.y - s.ay * k;
-  return [x0, y0, x0 + s.nw * k, y0 + s.nh * k];
+  return [x0, y0, x0 + s.nw * kx, y0 + s.nh * k];
 }
 
 /** Pasos de la bisección de `altoLibre`: con 10, el error es una milésima del alto. */
@@ -246,9 +248,11 @@ export class Pasillo {
   altoLibre(s: ConImagen, r: number): number {
     this.comprobarRadio(r);
     const k = s.alto / s.nh;
-    const ix = s.x - s.ax * k;
+    // Lo ancho por unidad de alto: el de su proporción o, estirado, el suyo (`cajaDeSprite`).
+    const porAlto = s.ancho === undefined ? 1 / s.nh : s.ancho / s.nw / s.alto;
+    const ix = s.x - s.ax * s.alto * porAlto;
     const iy = s.y - s.ay * k;
-    this.recorrer(ix, iy, ix + s.nw * k, iy + s.nh * k, r, true);
+    this.recorrer(ix, iy, ix + s.nw * s.alto * porAlto, iy + s.nh * k, r, true);
     if (this.candidatos.length === 0) return s.alto;
     if (this.algunCandidato(s.x, s.y, s.x, s.y, r)) return 0;
     let libre = 0;
@@ -256,9 +260,10 @@ export class Pasillo {
     for (let paso = 0; paso < PASOS_DE_BISECCION; paso++) {
       const medio = (libre + pisado) / 2;
       const m = medio / s.nh;
-      const x0 = s.x - s.ax * m;
+      const mx = medio * porAlto;
+      const x0 = s.x - s.ax * mx;
       const y0 = s.y - s.ay * m;
-      if (this.algunCandidato(x0, y0, x0 + s.nw * m, y0 + s.nh * m, r)) pisado = medio;
+      if (this.algunCandidato(x0, y0, x0 + s.nw * mx, y0 + s.nh * m, r)) pisado = medio;
       else libre = medio;
     }
     return libre;

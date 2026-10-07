@@ -66,7 +66,11 @@ export const esquemaDeQueHay = z.object({
       caida: numero,
       material: z.string(),
       banda: caja,
-      rampas: z.array(tramo),
+      /**
+       * Los tajos por donde bajaba una senda: las marcas de antes del relieve por
+       * celdas (R4/R5) los traen; ahora la bajada es una pieza (`celdas`, `bajadas`).
+       */
+      rampas: z.array(tramo).optional(),
       /**
        * Los tramos en x que no se pintan, `[a, b]`: donde ninguna pared la tapa
        * (`CaraDeEscena.pintada`). Las marcas de antes de #159 no lo traen.
@@ -74,6 +78,32 @@ export const esquemaDeQueHay = z.object({
       abierto: z.array(z.tuple([numero, numero]).readonly()).optional(),
     }),
   ),
+  /**
+   * Las paredes del relieve por celdas cuya celda corta la casilla (R4), con su
+   * vértice, su tipo y su caída. Las marcas de antes no lo traen.
+   */
+  celdas: z
+    .array(
+      z.object({
+        vx: numero,
+        vy: numero,
+        tipo: z.string(),
+        caida: numero,
+        material: z.string(),
+      }),
+    )
+    .optional(),
+  /** Las bajadas cuyo `arriba` cae en la casilla (R5). Las marcas de antes no lo traen. */
+  bajadas: z
+    .array(
+      z.object({
+        rumbo: z.string(),
+        caida: numero,
+        material: z.string(),
+        arriba: z.tuple([numero, numero]).readonly(),
+      }),
+    )
+    .optional(),
   puente: z
     .object({
       id: z.string(),

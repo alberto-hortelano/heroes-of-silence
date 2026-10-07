@@ -291,7 +291,9 @@ const REGLAS_DE_TEXTURA = [
 function reglasDeModulos(e: Encargo): string {
   const n = e.cuantos ?? e.nombres?.length ?? 16;
   return [
-    `Rejilla de ${Math.ceil(n / 4)} filas por 4 columnas: ${n} módulos sueltos de la misma familia, con mucho aire alrededor de cada uno; NINGÚN módulo toca a otro, ni con una rama ni con una sombra.`,
+    // Con la última fila incompleta (las cinco bajadas) se dice cuántos lleva;
+    // las hojas llenas conservan el texto con el que se pintaron.
+    `${n % 4 === 0 ? `Rejilla de ${n / 4} filas por 4 columnas` : `Rejilla de ${Math.ceil(n / 4)} filas: 4 módulos por fila y ${n % 4} en la última`}: ${n} módulos sueltos de la misma familia, con mucho aire alrededor de cada uno; NINGÚN módulo toca a otro, ni con una rama ni con una sombra.`,
     'Todos con la misma cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, nunca cenital ni de perfil, y a la MISMA escala: un módulo pequeño es pequeño de verdad, no un grande dibujado más chico.',
     `Todo lo dibujado cabe en la imagen con margen. ${SIN_FONDO}`,
   ].join('\n');

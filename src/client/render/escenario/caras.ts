@@ -150,8 +150,7 @@ export interface CaraLisa {
 }
 
 /**
- * Los trozos lisos de las caras: lo que se pinta de cada una (`pintada`, fuera
- * de las rampas) y no queda bajo la silueta de ninguna pared. Una columna es
+ * Los trozos lisos de las caras: lo que se pinta de cada una (`pintada`) y no queda bajo la silueta de ninguna pared. Una columna es
  * lisa si, medida cada `PASO_EN_ALTO`, al menos `CARA_LISA_MINIMA` de su alto no
  * lo tapa nada; cuenta el trozo de columnas lisas seguidas que mide al menos
  * `CARA_LISA_MINIMA` de ancho. Lee lo que el pintor pinta, no la regla que lo
@@ -176,7 +175,7 @@ export function carasLisas(
     for (const [i, x] of xs.entries()) {
       const tramo = c.pintada[i];
       let lisa = 0;
-      if (tramo != null && !c.rampas.some((r) => x >= r.a && x <= r.b))
+      if (tramo != null)
         for (let y = tramo[0] + PASO_EN_ALTO / 2; y < tramo[1]; y += PASO_EN_ALTO)
           if (!paredes.some(({ s, caja }) => bajoLaSilueta(s, perfilDe(s), x, y, caja)))
             lisa += PASO_EN_ALTO;

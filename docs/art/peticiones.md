@@ -1026,3 +1026,151 @@ o, si ninguno llega, baja el alto de la cumbre.
 - Al engancharlas, `siluetaDe` las escoge solas por esbeltez; no hace falta tocar
   el código. Se mira con `pnpm taller escenario 9 57` y el test «ningún pico pasa
   de ×1,3» de `test/macizo.test.ts`.
+
+## 23. Diagonales y bajadas del relieve por celdas: piloto de roca, caída 1 (R4/R5, 07-10-2026)
+
+**Estado: propuesta, pendiente del visto bueno del usuario.** Diseño en
+`docs/agents/2026-10-07-relieve-esquinas/plan.md`; los conteos salen de
+`prototipo.ts`, en la misma carpeta.
+
+**Por qué.** El relieve pasa a leerse por **celdas de vértice** (*dual grid*):
+cada vértice mira sus cuatro casillas y da un tipo de pared. Medido en las
+semillas 1-40, el **54 %** de las paredes que se ven son **diagonales**, y hoy
+salen como escaleras de frontal y ladera (#160). Las rectas ya tienen arte:
+al sur, `paredes-*`; al este y al oeste, los `medio`/`largo`/`inicio`/`fin` de
+las laderas (§20). Falta la diagonal, en sus dos formas:
+
+- la **convexa**, que es la esquina de una meseta, cortada a 45°;
+- la **cóncava**, que es el rincón.
+
+Las bajadas tampoco tienen pieza. De las 287 que se ven, 192 bajan en
+diagonal hacia la cámara (SE y SO).
+
+**Contrato de junta**, igual que el de §20. La junta cae en el medio de un lado
+de casilla, y su tipo lo fija ese lado, no la pieza:
+
+- **Junta S** (lado horizontal): el filo está en la junta y el pie justo debajo,
+  a `c · ALTO_DE_NIVEL` (0,6 por nivel).
+- **Junta E/O** (lado vertical): el pie se aparta además `TALUD_DE_LADERA[c]`
+  (0,45 en caída 1) hacia fuera de la meseta, como en las laderas.
+
+Así casan con todo lo que ya hay. Con el vértice en (0, 0) y las casillas en
+±0,5:
+
+| Pieza | Junta de un extremo | Junta del otro extremo |
+|---|---|---|
+| `convexa` SE | E en (0, −0,5) | S en (−0,5, 0) |
+| `concava` SE | S en (0,5, 0) | E en (0, 0,5) |
+| `convexa` SO | O en (0, −0,5) | S en (0,5, 0) |
+| `concava` SO | S en (−0,5, 0) | O en (0, 0,5) |
+
+Entre una junta y otra, el filo y el pie giran (con `joroba` y `onda`, como en
+§20). Las juntas son abiertas: se cortan por la línea de máxima pendiente, y la
+pieza de delante pinta encima.
+
+### Lo que se pide (piloto: solo roca y caída 1)
+
+| Hoja | Módulos | Qué es |
+|---|---|---|
+| `diagonales-roca-se-1` | `convexa-a`, `convexa-b`, `concava-a`, `concava-b` | La pared que mira al sureste. La convexa remata la esquina de la meseta a 45° (la parte de arriba hacia el noroeste); la cóncava es el rincón donde una frontal se encuentra con una ladera este. |
+| `diagonales-roca-so-1` | los mismos | La que mira al suroeste, **generada aparte, con su luz**. Nunca se espeja. |
+| `bajadas-roca-1` | `s`, `se`, `so`, `e`, `o` | Un paso de tierra pisada que baja la caída en cada rumbo hacia la cámara, entre dos hombros de roca que se deshacen en la pared. Sin escalones tallados ni corte recto: la escalera fija de #168 no seguía el camino. Al norte no hace falta nada, porque se baja de espaldas. |
+
+- **Cámara**: la de siempre, a 25° (`src/shared/`). Por encima de 120 px por
+  casilla; las laderas de caída 1 van a unos 186.
+- **Guías**, que escribe `pnpm taller guias`, en
+  `tools/taller/diagonales.ts` y `bajadas.ts`, con la `Guia`, `NIVEL` y las
+  curvas de `laderas.ts`:
+  - **Diagonal.** La meseta en su esquina, en `ARRIBA`. La cara, del filo al pie,
+    con el escarpe en `SOMBRA` y el derrubio en `DERRUBIO`, como §20. Lleva los
+    canales de derrubio en diagonal desde la caída 2.
+  - **Bajada.** La cuña de la rampa, del filo de una pared de su rumbo al pie,
+    con la senda en un gris claro de 0,25 casillas de ancho y los dos hombros
+    en `SOMBRA`. Sus juntas:
+    - `arriba`: en el filo;
+    - `abajo`: en el pie, que está a `c · 0,6` y además, en E y O, a `±TALUD`;
+      en SE y SO, a `±TALUD/2`.
+- **Referencias**, como en §20:
+  - estilo;
+  - **identidad**: `rocas-caidas`, para la forma;
+  - **material**: `paredes-roca`, solo para el color;
+  - la guía.
+  Para las bajadas, además, el estribo de tierra de `puente-piedra-eo`, que en
+  §18 salió bien fundido con el suelo.
+- **Prompt**:
+  - calcar la silueta de la guía;
+  - ni corona ni cinta en el filo, solo el labio de §20;
+  - roca en bloques grandes, sin columnas ni losas;
+  - la cóncava, con el relieve de las paredes, nunca una losa lisa;
+  - la bajada, con el camino del mismo color que las sendas del juego y bordes
+    que se deshacen en terrones y matas.
+
+### Cómo se derivan sus juntas
+
+`pnpm taller derivar-relieve` sustituye a `derivar-laderas` y vale para las tres
+familias. Registra cada módulo sobre su guía con `registrarPieza`, que es la FFT
+de `registrarLadera` sin nada propio de la ladera. Después apunta en el índice
+de la hoja:
+
+- en las diagonales: `filo` (los dos puntos de junta) y `papel` (`convexa` o
+  `concava`);
+- en las bajadas: `arriba` y `abajo`.
+
+Después, `pnpm taller catalogo-escena`. Si un módulo no tiene juntas,
+`catalogoValidado` lanza. Se acepta un error de registro de hasta 34 px, el peor
+de §20.
+
+### Coste y revisión
+
+Unas 5 generaciones de Codex por la suscripción: las 3 hojas y un par de
+rehechas, sin fal.ai. El usuario las ve:
+
+- **en el juego**: `pnpm taller escenario 5` a 110 px, antes y después, en la
+  rama `relieve-esquinas`, donde lo que no es roca-1 va con marcador;
+- **sobre su guía**: una hoja de contacto de cada módulo.
+
+Solo con su visto bueno se pide el resto. Por material, las diagonales SE y SO
+de caída 1 y 2 (más la 3, si se decide no estirarla) y las bajadas de caída 1 y
+2: de 6 a 8 hojas por material, de 24 a 32 en total.
+
+### Respuesta del piloto (rama `relieve-esquinas`, 07-10-2026)
+
+Generado con `pnpm taller encolar --relieve --solo=…` (Codex por la suscripción,
+sin fal.ai): `diagonales-roca-se-1`, `diagonales-roca-so-1` y `bajadas-roca-1`,
+cada una con su `.json` (las juntas, `pnpm taller derivar-relieve`) y su
+`.procedencia.json`. Lámina y capturas en
+`docs/agents/2026-10-07-relieve-esquinas/capturas/` (no se commitean;
+`lamina.py` y `capturar.ts` las rehacen).
+
+- **Guías.** La diagonal no es un chaflán a 45°: es un cuarto de círculo de
+  media casilla, centrado en la casilla alta (convexa) o en la baja (cóncava),
+  que sale de cada junta con la dirección de su vecina (vertical en la de la
+  ladera, horizontal en la de la frontal). Con el chaflán quedaba un codo de 45°
+  en cada junta.
+- **La bajada sigue a la senda pintada**, no a la pared. La primera guía bajaba
+  por la línea de máxima pendiente (del filo al pie): de cara a la cámara casaba,
+  pero de lado y en diagonal la rampa acababa hasta 0,6 casillas por debajo de
+  la senda, que en el juego no sube ni baja (s40). La segunda guía lleva la rampa
+  en la dirección de la senda en pantalla (`largoDeBajada`, `rampaDe`): de lado
+  sale casi horizontal, entre ribazos de roca. `arriba` y `abajo` siguen siendo
+  el filo y el pie de la pared bajo él: solo dan la escala.
+- **Lo que salió bien.** Las tres hojas calcan la silueta, el sitio y el rumbo
+  de su guía a la primera; el registro pone los dos filos de cada diagonal sobre
+  el labio pintado (lámina de registro). La bajada al sur se lee como un paso
+  por el risco (s37).
+- **Lo que salió flojo.**
+  - **El labio sale como un bordillo** de piedras en hilera, en las dos hojas de
+    diagonales y en las dos tandas, aunque el prompt de la segunda lo prohíbe. A
+    110 px se lee como un canto claro; a 60, como una línea que recorre el
+    contorno (como el labio de las laderas, algo más marcado).
+  - **La del suroeste sale en bloques cúbicos** y algo columnar, de cara a la
+    luz; la del sureste, mejor. Cubos grandes al pie en las dos.
+  - **El `resume` no funciona**: 6 intentos de corregir en su hilo (3 por hoja de
+    diagonales) cortaron con «websocket closed by server», sin imagen. Se
+    rehicieron desde cero con la corrección en el prompt.
+- **Coste.** 6 generaciones (2 por hoja) y 6 `resume` fallidos, sin fal.ai.
+- **Lo que queda para el lote entero** (14 hojas de diagonales y 7 de bajadas,
+  con la caída 3 estirada de la 2): quitar el labio claro de la guía de las
+  diagonales o dibujarlo roto (en trozos), y pedir la roca «como las laderas de
+  la imagen N» con una ladera de su material como segunda referencia de
+  material, que es su vecina en el mapa.

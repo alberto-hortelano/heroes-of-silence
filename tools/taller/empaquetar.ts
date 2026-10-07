@@ -147,7 +147,11 @@ const HOLGURA = 2;
  * Las figuras en `filas` filas, ordenadas. Las filas se cortan por los
  * `filas - 1` saltos mayores entre centros verticales consecutivos.
  */
-export function enFilas(figs: readonly Caja[], filas: number, columnas: number): Caja[][] {
+export function enFilas(
+  figs: readonly Caja[],
+  filas: number,
+  porFila: number | readonly number[],
+): Caja[][] {
   const porY = [...figs].sort((a, b) => a.y0 + a.y1 - (b.y0 + b.y1));
   const centros = porY.map((c) => (c.y0 + c.y1) / 2);
   const saltos = centros
@@ -160,6 +164,8 @@ export function enFilas(figs: readonly Caja[], filas: number, columnas: number):
   const cortes = [0, ...saltos, porY.length];
   const resultado: Caja[][] = [];
   for (let f = 0; f < filas; f++) {
+    // Una hoja cuya última fila va incompleta (cinco bajadas: cuatro y una) dice cuántas lleva cada fila.
+    const columnas = typeof porFila === 'number' ? porFila : (porFila[f] ?? 0);
     const fila = fundirSobrantes(
       porY.slice(cortes[f], cortes[f + 1]).map((c) => ({ ...c })),
       columnas,

@@ -28,6 +28,7 @@
  */
 import { resolve } from 'node:path';
 import { analizar } from '../../src/client/render/escenario/analizar.js';
+import { caidas } from '../../src/client/render/escenario/celdas.js';
 import { relieve } from '../../src/client/render/escenario/relieve.js';
 import type { GameMap } from '../../src/core/map/map.js';
 import { esBarrera, type TerrainKind } from '../../src/core/map/terrain.js';
@@ -73,8 +74,12 @@ export function tramosRectos(map: GameMap, minimo: number): { largos: number; ma
 export function carasEnFila(map: GameMap, semilla: number, minimo: number): number {
   const W = map.width;
   const cara = new Uint8Array(W * map.height);
-  for (const c of relieve(analizar(map), semilla).caras) {
-    for (let x = c.x0; x <= c.x1; x++) cara[c.y * W + x] = 1;
+  const a = analizar(map);
+  const { nivel } = relieve(a, semilla);
+  // Por celdas (R4) una cara va de junta a junta: de `x0 = a − 0,5` a `x1 + 1`.
+  // Se cuenta por vértice, que es una casilla de largo igual que antes.
+  for (const c of caidas(nivel, a.W, a.H, a.suelo).caras) {
+    for (let x = c.x0 + 0.5; x <= c.x1 + 0.5; x++) cara[c.y * W + x] = 1;
   }
   let largas = 0;
   for (let y = 0; y < map.height; y++) {

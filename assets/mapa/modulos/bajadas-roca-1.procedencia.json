@@ -1,0 +1,61 @@
+{
+  "encargo": "modulos-bajadas-roca-1",
+  "tipo": "modulos",
+  "fecha": "2026-10-07T19:34:41.450Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a117da-4fc6-7422-9779-49a940445c39",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de MATERIAL: de ella se toman SOLO el color, la textura y la paleta de la roca y de lo que crece en ella, para que case con estas piezas. NO copies su forma (columnas, prismas, bloques en fila) ni su composición.\nLa imagen 4 es la referencia de MATERIAL: de ella se toman SOLO el color, la textura y la paleta de la roca y de lo que crece en ella, para que case con estas piezas. NO copies su forma (columnas, prismas, bloques en fila) ni su composición.\nLa imagen 5 es la GUÍA DE GEOMETRÍA: un volumen gris sin acabado, dibujado con la cámara del juego. Manda en la ORIENTACIÓN, la forma, las proporciones, el tamaño y la posición de cada pieza dentro de la imagen: cópialas con exactitud, sin girar ni torcer nada. NO copies su gris liso, sus aristas de esquema ni su fondo plano: el material, el detalle y la luz son los de la imagen de estilo.\n\nUna hoja de 5 módulos de BAJADA POR UN RISCO para el mapa de aventura de un juego de estrategia: en cada uno, un camino de tierra pisada baja UN nivel por el borde de una meseta de roca gris pizarra con musgo oliva oscuro, del color de las paredes de la imagen 3, en un rumbo distinto.\nCada módulo es una RAMPA de tierra pisada, con un camino claro y gastado en medio, entre DOS RIBAZOS de roca rota que la flanquean: altos y anchos junto al filo de la meseta, donde siguen la pared del risco, y más bajos rampa abajo, hasta deshacerse en derrubio donde la rampa se derrama en el suelo llano. Es un paso natural abierto en el risco, NO una escalera: sin escalones tallados, sin peldaños, sin barandillas ni muros, y sin ningún corte recto.\nEl camino de la rampa es del color de los caminos del juego (tierra parda clara y polvorienta, como la tierra de los estribos del puente de la imagen 4) y sus bordes se deshacen en terrones, matas y piedras sueltas. Arriba, la meseta (un prado de hierba corta verde oliva OSCURO y apagado) la pone el juego: encima del filo solo el labio de los hombros y unas matas.\nLA SILUETA DE CADA MÓDULO ES LA DE LA GUÍA (imagen 5), CALCADA: mismo sitio, mismo alto, mismo ancho y el MISMO RUMBO de la rampa, sin girarla ni torcerla. Lo pardo es la rampa y la franja clara, el camino; lo gris oscuro y medio, los ribazos de roca; las líneas claras, el labio roto de su filo; los polígonos claros, bloques.\nLa roca de los ribazos: losas y estratos ROTOS y bloques angulosos de tamaños distintos, como los peñascos de la imagen 2; nunca columnas, prismas ni sillares, y el labio de su filo es roca rota con musgo, nunca un bordillo de piedras puestas en hilera.\nfila 1, columna 1: S: baja DE FRENTE hacia la cámara, de arriba abajo de la imagen. Arriba, el filo de la meseta; los ribazos de roca, altos junto al filo, se deshacen en derrubio al pie.\nfila 1, columna 2: SE: baja en DIAGONAL hacia abajo a la DERECHA, como marca la guía.\nfila 1, columna 3: SO: baja en DIAGONAL hacia abajo a la IZQUIERDA, como marca la guía.\nfila 1, columna 4: E: cruza DE LADO una ladera que cae a la derecha. En la imagen va casi HORIZONTAL, de izquierda a derecha, como la guía: arranca a la izquierda en el filo, entre los dos ribazos más altos, y baja tendida hacia la derecha, donde se abre en el suelo llano.\nfila 2, columna 1: O: cruza DE LADO una ladera que cae a la izquierda. En la imagen va casi HORIZONTAL, de derecha a izquierda, como la guía: arranca a la derecha en el filo, entre los dos ribazos más altos, y baja tendida hacia la izquierda, donde se abre en el suelo llano.\nLa luz viene de arriba a la izquierda; las sombras de los hombros y de los bloques caen hacia la derecha y hacia abajo.\nEstilo de la imagen de estilo, que manda sobre cualquier otra idea: fantasía medieval OSCURA y sombría, pintura digital muy detallada como una maqueta en miniatura, con muchísimo detalle menudo (piedras, matas, grietas, raíces). Paleta APAGADA y poco saturada: verdes oliva y musgo oscuros, grises pizarra, pardos terrosos, rojos óxido; nada de colores vivos ni de aspecto de juego para móvil. Sombras profundas y oclusión marcada entre los detalles, luz tenue y algo fría, con contraste dramático.\n\nRejilla de 2 filas: 4 módulos por fila y 1 en la última: 5 módulos sueltos de la misma familia, con mucho aire alrededor de cada uno; NINGÚN módulo toca a otro, ni con una rama ni con una sombra.\nTodos con la misma cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, nunca cenital ni de perfil, y a la MISMA escala: un módulo pequeño es pequeño de verdad, no un grande dibujado más chico.\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/art/mapas/Imagen de ChatGPT 3 oct 2026, 10_05_01.png",
+      "papel": "estilo",
+      "sha256": "a3b78bb6efb486f6c65827e19739696aab723d824331faaa6d58d84c727fe6f5"
+    },
+    {
+      "ruta": "assets/mapa/modulos/rocas-caidas.webp",
+      "papel": "identidad",
+      "sha256": "30da35f07c78ccf648360b9713a4e6181744110b633e7cd9736a49d6cb98b485"
+    },
+    {
+      "ruta": "assets/mapa/modulos/paredes-roca.webp",
+      "papel": "material",
+      "sha256": "02199c7c866dd6fd088369a5c3b2045ddf17f09d4d3af0cc4ce55568d4f7e1be"
+    },
+    {
+      "ruta": "assets/mapa/puente-piedra-eo.webp",
+      "papel": "material",
+      "sha256": "fe2efe1c411b5c697e2a39a220d302cd33dc6cb572d0a7c93f07caabd3bc3e90"
+    },
+    {
+      "ruta": "assets/mapa/guias/bajadas-1.png",
+      "papel": "guia",
+      "sha256": "c7b155902fc4939a62988a5d808c16136c61e39bec9264357217fcfa5a2d62c1"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a117da-4fc6-7422-9779-49a940445c39/exec-2d7b1b63-685f-47f1-b9a4-1ae1c04cd08f.png",
+    "sha256": "cde9888c806ef5ab7a379b5b8366ba500b894887b2cfe4dfc8669a982fba6b4c",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "hoja partida en 5 módulos a su tamaño nativo, cada uno con su ancla en la base",
+    "WebP calidad 92, alfa sin pérdida",
+    "las juntas de cada módulo, registradas sobre la guía"
+  ],
+  "validacion": {
+    "visibles": 0.30667975332201464,
+    "opacos": 0.9819148936170212,
+    "haloSuelto": 0,
+    "ancho": 1497,
+    "alto": 733
+  },
+  "salida": {
+    "ruta": "assets/mapa/modulos/bajadas-roca-1.webp",
+    "sha256": "87a37dd4202d50fa16a72b9f2b3a53fdcd58d70c50ae3819629adbc02e13afe5"
+  }
+}

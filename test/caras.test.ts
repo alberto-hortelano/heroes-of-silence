@@ -70,7 +70,6 @@ const roca = catalogo.hojas['paredes-roca']?.[0] as Modulo;
 /** La cara con lo que se pintaría de ella con `sprites`. */
 const conPintada = (sprites: readonly Sprite[]): CaraDeEscena => ({
   ...CARA,
-  rampas: [],
   pintada: pintadaDeCara(CARA, sprites, perfilDe),
 });
 
@@ -170,10 +169,11 @@ describe('el perfil de un módulo: lo deriva el taller y lo comprueba el catálo
   });
 
   it('toda pared, ladera y peñasco del catálogo del repo trae su perfil, y nada más lo trae', () => {
+    // Las paredes, las laderas, las piezas del relieve por celdas (R4/R5) y los peñascos.
     for (const [hoja, ms] of Object.entries(catalogo.hojas))
       for (const m of ms)
         expect(m.perfil !== undefined, `${hoja}/${m.nombre}`).toBe(
-          /^(paredes|laderas)-/.test(hoja) || hoja === 'rocas-caidas',
+          /^(paredes|laderas|diagonales|bajadas)-/.test(hoja) || hoja === 'rocas-caidas',
         );
   });
 
@@ -269,17 +269,18 @@ describe('en los mapas reales', () => {
 
   // La marca del usuario: s2 (23, 9), «Cuadrado de fondo», un bloque liso bajo el
   // castillo. #161 cambió la red de s2 y ese castillo ya no está ahí: se busca el
-  // primer caso igual, una cara de caída ≥ 2 bajo una ciudad que con la banda
-  // entera se contaba lisa.
+  // primer caso igual, una cara bajo una ciudad que con la banda entera se
+  // contaba lisa. Con el relieve por celdas (R4) la cara va de junta a junta y
+  // con #180 cambian los niveles: ya no hay ninguna de caída ≥ 2 en 1-40.
   it('bajo una ciudad al borde de un acantilado, la cara deja de ser un bloque liso', () => {
     for (let s = 1; s <= 40; s++) {
       const { map, escena: e } = partidaDe(s);
       const ciudades = map.objects.filter((o) => o.kind === 'town');
       const c = e.relieve.caras.find(
         (f) =>
-          f.caida >= 2 &&
-          ciudades.some((o) => o.at.y === f.y && o.at.x >= f.x0 && o.at.x <= f.x1) &&
-          carasLisas([entera(f)], e.sprites, perfilDe).length > 0,
+          ciudades.some(
+            (o) => o.at.y === f.y && o.at.x + 0.5 >= f.x0 && o.at.x + 0.5 <= f.x1 + 1,
+          ) && carasLisas([entera(f)], e.sprites, perfilDe).length > 0,
       );
       if (c === undefined) continue;
       expect(carasLisas([c], e.sprites, perfilDe), `s${s} cara ${c.y} ${c.x0}-${c.x1}`).toEqual([]);

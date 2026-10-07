@@ -21,10 +21,13 @@ import {
   type CatalogoEnBruto,
   catalogoValidado,
 } from '../src/client/render/escenario/catalogo.js';
+import { caidas, celdas } from '../src/client/render/escenario/celdas.js';
 import {
   altoLibreAnteLosPuentes,
+  celdasBajoLosPuentes,
   componer,
   puentesTapados,
+  SEMIANCHO_DE_PARED,
   type Sprite,
   tablerosAlPaso,
   tapaUnTablero,
@@ -40,7 +43,7 @@ import {
   tramosHastaLosEstribos,
   vadosDeLosEstribos,
 } from '../src/client/render/escenario/puentes.js';
-import { rampas, relieve, SEMIANCHO_DE_PARED } from '../src/client/render/escenario/relieve.js';
+import { relieve } from '../src/client/render/escenario/relieve.js';
 import {
   claveDeFigura,
   escenarioDe,
@@ -147,7 +150,8 @@ describe('la casilla del nodo de agua es agua (#157)', () => {
     expect(rel.nivel[nodo]).toBe(Math.max(-1, Math.min(...orillas) - 1));
     expect(rel.nivel[nodo]).toBe(rel.nivel[2 * 5]);
     // Ninguna cara cuelga de la casilla del nodo: el agua es lo bajo.
-    expect(rel.caras.some((c) => c.y === 2 && c.x0 <= 2 && c.x1 >= 2)).toBe(false);
+    const { caras } = caidas(rel.nivel, a.W, a.H, a.suelo);
+    expect(caras.some((c) => c.y === 2 && c.x0 <= 2.5 && c.x1 + 1 >= 2.5)).toBe(false);
   });
 
   it('en las semillas 1-10, toda casilla de puente está en el agua de la escena', () => {
@@ -393,18 +397,40 @@ describe('nada que se pinte encima tapa un puente', () => {
     });
   });
 
-  it('la línea del puente abre tajo en la cara como una senda, pero no aparta la pared como ella', () => {
-    const cara = { y: 2, x0: 0, x1: 8, caida: 1, material: 'cara-roca' };
-    const linea = [
-      [4.5, 2.5],
-      [4.5, 4.5],
-    ] as const;
-    const comoSenda = rampas([cara], [], [linea]);
-    const comoCorte = rampas([cara], [], [], [linea]);
-    expect(comoCorte.porCara).toEqual(comoSenda.porCara);
-    expect(comoCorte.porCara[0]).toHaveLength(1);
-    expect(comoSenda.junto.length).toBeGreaterThan(0);
-    expect(comoCorte.junto).toEqual([]);
+  it('la pared que cruza la línea del puente no lleva pieza: la tapa su estribo', () => {
+    // Sustituye al tajo que la línea abría en la cara (`cortes`, #157): la cara
+    // de detrás del puente se queda sin pared, y bajo el tablero se ve el agua.
+    const nivel = [2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1].concat(
+      Array.from({ length: 9 }, () => 1),
+    );
+    const cs = celdas(
+      nivel,
+      9,
+      3,
+      Array.from({ length: 27 }, () => 'grass' as const),
+    );
+    const fuera = celdasBajoLosPuentes(cs, [
+      {
+        extremos: [
+          [4.4, 0.5],
+          [4.4, 2.5],
+        ],
+      },
+    ]);
+    // La caída al sur entre las filas 0 y 1: la línea en x 4,4 cruza la celda del vértice (4, 1).
+    expect([...fuera]).toEqual(['4,1,S,2']);
+    expect(
+      caidas(
+        nivel,
+        9,
+        3,
+        Array.from({ length: 27 }, () => 'grass'),
+        fuera,
+      ).caras,
+    ).toEqual([
+      { y: 0, x0: 0.5, x1: 2.5, caida: 1, material: 'cara-roca' },
+      { y: 0, x0: 4.5, x1: 7.5, caida: 1, material: 'cara-roca' },
+    ]);
   });
 });
 

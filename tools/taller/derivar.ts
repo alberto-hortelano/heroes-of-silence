@@ -489,6 +489,22 @@ export async function registrarLadera(
   guia: MascaraDeGuia,
   pieza: PiezaDeGuia,
 ): Promise<Pick<JuntasDeLadera, 'filo' | 'pie'>> {
+  const enElModulo = await registrarPieza(rutaModulo, guia, pieza);
+  return { filo: enElModulo(pieza.filoNorte), pie: enElModulo(pieza.pieSur) };
+}
+
+/**
+ * Dónde cae la guía en un módulo de cualquier familia del relieve (laderas,
+ * diagonales y bajadas, §20 y §23): la misma correlación que `registrarLadera`,
+ * sin nada propio de la ladera. Devuelve cómo llevar un punto de la guía al
+ * módulo; cada familia lleva los suyos (el filo y el pie, los dos filos, arriba y
+ * abajo).
+ */
+export async function registrarPieza(
+  rutaModulo: string,
+  guia: MascaraDeGuia,
+  pieza: Pick<PiezaDeGuia, 'nombre' | 'caja'>,
+): Promise<(p: readonly [number, number]) => [number, number]> {
   const { data, info } = await sharp(await readFile(rutaModulo))
     .ensureAlpha()
     .raw()
@@ -559,10 +575,7 @@ export async function registrarLadera(
   // Punto del módulo = punto de la guía − desplazamiento.
   const ox = o[0] + cx0;
   const oy = o[1] + cy0;
-  return {
-    filo: [pieza.filoNorte[0] - ox, pieza.filoNorte[1] - oy],
-    pie: [pieza.pieSur[0] - ox, pieza.pieSur[1] - oy],
-  };
+  return ([x, y]) => [x - ox, y - oy];
 }
 
 export async function escribirPiezaDerivada(rutaImagen: string): Promise<PiezaDerivada> {

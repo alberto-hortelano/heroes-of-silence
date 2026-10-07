@@ -11,7 +11,7 @@ import { columnasDeCara } from './caras.js';
 import { type Catalogo, esHojaDeLadera } from './catalogo.js';
 import { type Caja, cajaDeSprite } from './pasillo.js';
 import { puenteEnElTerreno } from './puentes.js';
-import { bandaDeCara, type CaraDeEscena, type Rampa } from './relieve.js';
+import { bandaDeCara, type CaraDeEscena } from './relieve.js';
 import type { Escenario } from './superficie.js';
 
 /** De qué hoja y módulo, o de qué pieza suelta, sale una `src` del catálogo. */
@@ -31,17 +31,6 @@ function origenesDe(c: Catalogo): ReadonlyMap<string, Origen> {
   indices.set(c, indice);
   return indice;
 }
-
-/** Un tajo de una cara, sin lo que solo usa el pintor. */
-const tramoDe = ({
-  a,
-  b,
-  dentro,
-}: Pick<Rampa, 'a' | 'b' | 'dentro'>): CaraAhi['rampas'][number] => ({
-  a,
-  b,
-  dentro,
-});
 
 /** Los tramos en x de una cara que no se pintan (`CaraDeEscena.pintada`, los `null`), como `[a, b]`. */
 function tramosSinPintar(c: CaraDeEscena): [number, number][] {
@@ -66,7 +55,8 @@ const contiene = (a: Caja, x: number, y: number): boolean =>
  * Lo que hay en `punto` (casillas con decimales) y en `casilla`: los sprites
  * cuya caja contiene el punto o corta la casilla, en el orden de la escena; el
  * suelo, el terreno y el nivel de la casilla; las caras cuya banda la corta,
- * con sus rampas, y el puente que se pulsaría ahí o el de su nodo.
+ * las paredes del relieve cuya celda la corta y las bajadas que arrancan en
+ * ella (R4/R5), y el puente que se pulsaría ahí o el de su nodo.
  *
  * Lanza si la casilla cae fuera del mapa: una marca fuera no señala nada.
  */
@@ -127,10 +117,22 @@ export function queHayEn(
       caida: c.caida,
       material: c.material,
       banda,
-      rampas: c.rampas.map(tramoDe),
       abierto: tramosSinPintar(c),
     });
   }
+
+  // La celda de un vértice es el cuadrado de una casilla centrado en él.
+  const celdas = escena.relieve.celdas
+    .filter((c) => corta([c.vx - 0.5, c.vy - 0.5, c.vx + 0.5, c.vy + 0.5], cuadro))
+    .map(({ vx, vy, tipo, caida, material }) => ({ vx, vy, tipo, caida, material }));
+  const bajadas = escena.relieve.bajadas
+    .filter((b) => contiene(cuadro, b.arriba[0], b.arriba[1]))
+    .map(({ rumbo, caida, material, arriba }) => ({
+      rumbo,
+      caida,
+      material,
+      arriba: [arriba[0], arriba[1]] as const,
+    }));
 
   // El puente que se pulsaría en el punto (como `casillaBajo`), o si no, el
   // del nodo de esta casilla: un tablero alzado no cae encima de su nodo.
@@ -155,6 +157,8 @@ export function queHayEn(
     agua: escena.agua.includes(i),
     sprites,
     caras,
+    celdas,
+    bajadas,
     puente:
       bajo === null
         ? null

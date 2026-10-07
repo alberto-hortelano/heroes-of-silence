@@ -227,41 +227,31 @@ describe('sin arte se pinta igual: cada pieza, su marcador de color', () => {
     expect(String(copias[0]?.filter)).toMatch(/^blur\(/);
   });
 
-  it('cada cara se pinta solo bajo la silueta de su pared (#159): un recorte por su contorno y, con rampa, otro sin su tajo en `evenodd`', () => {
+  it('cada cara se pinta solo bajo la silueta de su pared (#159): un recorte por su contorno, sin tajos', () => {
     // La cara se pintaba entera, un rectángulo de bordes rectos donde la pared
-    // no entraba; y encima de la senda que baja por ella (#150).
+    // no entraba. Con el relieve por celdas (R4/R5) la senda que baja ya no le
+    // abre un tajo en `evenodd`: la bajada se pinta encima de la pared.
     const pintadas = e.relieve.caras
       .filter((f) => f.pintada.some((t) => t !== null))
       .sort((p, q) => p.y - q.y);
-    expect(pintadas.some((f) => f.rampas.length > 0)).toBe(true);
+    expect(pintadas.length).toBeGreaterThan(0);
     // Que el guardia no mire al vacío: alguna cara tiene columnas sin pintar.
     expect(e.relieve.caras.some((f) => f.pintada.some((t) => t === null))).toBe(true);
     const r = registro();
     pintarSuelo(r.contexto(), e, sep, { ...sinImagenes, lienzo: r.lienzo });
     const suelo = r.llamadas.filter((l) => l.contexto === 0);
     const recortes = suelo.flatMap((l, i) => (l.metodo === 'clip' ? [i] : []));
-    expect(recortes.map((i) => suelo[i]?.args)).toEqual(
-      pintadas.flatMap((f) => (f.rampas.length > 0 ? [[], ['evenodd']] : [[]])),
-    );
-    let k = 0;
-    for (const f of pintadas) {
-      const i = recortes[k++] as number;
+    expect(recortes.map((i) => suelo[i]?.args)).toEqual(pintadas.map(() => []));
+    for (const [k, f] of pintadas.entries()) {
+      const i = recortes[k] as number;
       // El contorno: un trozo cerrado por cada racha de columnas pintadas.
       const desde = suelo.map((l) => l.metodo).lastIndexOf('beginPath', i);
       const camino = suelo.slice(desde, i).map((l) => l.metodo);
       expect(camino.filter((m) => m === 'rect')).toHaveLength(0);
       expect(camino.filter((m) => m === 'closePath')).toHaveLength(rachas(f.pintada));
-      let ultimo = i;
-      if (f.rampas.length > 0) {
-        // El tajo: el rectángulo de la cara y un trapecio por rampa.
-        ultimo = recortes[k++] as number;
-        const deTajo = suelo.slice(i + 1, ultimo).map((l) => l.metodo);
-        expect(deTajo.filter((m) => m === 'rect')).toHaveLength(1);
-        expect(deTajo.filter((m) => m === 'closePath')).toHaveLength(f.rampas.length);
-      }
       // Dentro, la textura y el degradado de la cara, y se deshace antes de lo siguiente.
-      const hasta = suelo.findIndex((l, n) => n > ultimo && l.metodo === 'restore');
-      expect(suelo.slice(ultimo + 1, hasta).map((l) => l.metodo)).toEqual(['fillRect', 'fillRect']);
+      const hasta = suelo.findIndex((l, n) => n > i && l.metodo === 'restore');
+      expect(suelo.slice(i + 1, hasta).map((l) => l.metodo)).toEqual(['fillRect', 'fillRect']);
       expect(lineal(suelo[hasta - 1] as Llamada)).toBe(true);
     }
   });
@@ -345,7 +335,8 @@ describe('la escena es de la partida entera: no cambia al jugarla', () => {
     const state = newGame({ seed: 11, plan });
     expect(state.towns.some((t) => t.id.startsWith('qa-town-'))).toBe(true);
     const e = componer(state.map, 11, catalogo);
-    expect(e.informe.modulosQueFaltan).toEqual([]);
+    // En la rama del piloto (R4/R5) las diagonales y bajadas por pedir van con marcador (§23).
+    expect(e.informe.modulosQueFaltan.filter((h) => !/^(diagonales|bajadas)-/.test(h))).toEqual([]);
     expect(e.informe.basesSobreReserva).toBe(0);
     expect(e.informe.spritesSobreSenda).toBe(0);
     expect(e.informe.casillasDeBarreraSinFormacion).toBe(0);

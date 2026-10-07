@@ -48,7 +48,7 @@ import {
   type JuntasDeLadera,
   type PapelDeLadera,
 } from '../../src/client/render/escenario/catalogo.js';
-import { FRONTAL_DE_ESQUINA, TALUD_DE_LADERA } from '../../src/client/render/escenario/relieve.js';
+import { TALUD_DE_LADERA } from '../../src/client/render/escenario/relieve.js';
 import { mascaraDeGuia, registrarLadera } from './derivar.js';
 import type { Encargo } from './encargo.js';
 import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './mapa-denso.js';
@@ -78,7 +78,7 @@ export type Niveles = 1 | 2 | 3;
  */
 export const LABIO = 0.06;
 /** A qué fracción de la caída se rompe el escarpe en derrubio. */
-const ROTURA = 0.42;
+export const ROTURA = 0.42;
 /**
  * `inicio` no acaba en punta. Con el corte norte por la línea de máxima
  * pendiente, el filo y ese corte se juntaban en un ángulo agudo que se pintaba
@@ -95,11 +95,18 @@ const ROTURA = 0.42;
  */
 const LOMA = 0.6;
 const PENDIENTE_DE_LOMA = 0.6;
+/**
+ * Lo que corre hacia la meseta la frontal de la `esquina`, en casillas, desde el
+ * borde de su casilla. Con el relieve por celdas (R4) el juego ya no usa las
+ * esquinas —dobla la diagonal—, pero la guía de sus hojas se dibuja igual.
+ */
+const FRONTAL_DE_ESQUINA = 0.85;
+
 /** Lo que el cono de derrubio de `inicio` y `fin` sale más allá de su junta, en casillas. */
 const CONO = 0.26;
 
 /** El derrubio, entre el escarpe en sombra y la tapa de los bloques. */
-const DERRUBIO = '#8e8e8e';
+export const DERRUBIO = '#8e8e8e';
 
 /** Una pieza de la familia. */
 export interface Pieza {
@@ -118,8 +125,8 @@ export interface Pieza {
 
 const PI = Math.PI;
 /** Una joroba de 0 a 0 con tangente nula en los extremos: lo que pide la junta. */
-const joroba = (t: number) => Math.sin(PI * t) ** 2;
-const onda = (k: number) => (t: number) => Math.sin(PI * t) * Math.sin(k * PI * t);
+export const joroba = (t: number) => Math.sin(PI * t) ** 2;
+export const onda = (k: number) => (t: number) => Math.sin(PI * t) * Math.sin(k * PI * t);
 
 /**
  * Las piezas: las variantes se distinguen en el CONTORNO, no solo en el detalle,
@@ -210,7 +217,7 @@ const pieza = (nombre: string): Pieza => {
 };
 
 /** Un azar con semilla, para que la guía salga igual cada vez. */
-function azarDe(texto: string): () => number {
+export function azarDe(texto: string): () => number {
   let h = 2166136261;
   for (const c of texto) h = Math.imul(h ^ (c.codePointAt(0) as number), 16777619);
   return () => {
@@ -225,7 +232,7 @@ function azarDe(texto: string): () => number {
  * Un bloque anguloso (no una bola): tapa de 5-7 lados irregulares a alto `h` y
  * su costado hacia la cámara.
  */
-function bloque(
+export function bloque(
   g: Guia,
   x: number,
   y: number,
@@ -254,7 +261,14 @@ function bloque(
 }
 
 /** Una mata: un borrón de 7 lados en la meseta, junto al filo. */
-function mata(g: Guia, x: number, y: number, z: number, r: number, azar: () => number): void {
+export function mata(
+  g: Guia,
+  x: number,
+  y: number,
+  z: number,
+  r: number,
+  azar: () => number,
+): void {
   const pts: P3[] = [];
   for (let i = 0; i < 7; i++) {
     const a = (2 * PI * i) / 7;
@@ -623,7 +637,7 @@ export function guiaDeLaderas(
  * La roca de cada material, con el color de su pared frontal (`paredes-*`, que
  * va de referencia de material) para que casen en la esquina.
  */
-const MATERIAL: Readonly<Record<Material, string>> = {
+export const MATERIAL: Readonly<Record<Material, string>> = {
   roca: 'roca gris pizarra con musgo oliva oscuro, del color de las paredes de la imagen 3',
   arenisca:
     'arenisca rojiza y ocre en estratos, del color de las paredes de la imagen 3, apagada y polvorienta, con bloques caídos',
@@ -634,7 +648,7 @@ const MATERIAL: Readonly<Record<Material, string>> = {
 };
 
 /** El suelo de la meseta de cada material: lo que el labio y las matas no pueden desentonar. */
-const MESETA: Readonly<Record<Material, string>> = {
+export const MESETA: Readonly<Record<Material, string>> = {
   roca: 'un prado de hierba corta verde oliva OSCURO y apagado',
   arenisca: 'arena parda rojiza apagada',
   basalto: 'ceniza y tierra negra con brasas',

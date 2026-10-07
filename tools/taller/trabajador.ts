@@ -27,10 +27,12 @@
  *                                        los puentes (§17), con su guía
  *   pnpm taller encolar --laderas [--solo=roca-este-1,…]
  *                                        las laderas que encadenan (§20, `laderas.ts`), con su guía
- *   pnpm taller guias                    escribe las guías de geometría de `paredes-puentes.ts` y `laderas.ts`
+ *   pnpm taller encolar --relieve [--solo=diagonales-roca-se-1,bajadas-roca-1,…]
+ *                                        las diagonales y las bajadas del relieve por celdas (§23), con su guía
+ *   pnpm taller guias                    escribe las guías de geometría de `paredes-puentes.ts`, `laderas.ts`, `diagonales.ts` y `bajadas.ts`
  *   pnpm taller derivar-puentes <puente.webp>…  rehace su ancla (centro del tablero) y su casilla
  *   pnpm taller escenario [semilla…]     el escenógrafo: compone, pinta, captura y mide
- *   pnpm taller derivar-laderas [hoja…]  apunta las juntas de cada módulo de ladera (§20): filo y pie desde su guía, largo y papel
+ *   pnpm taller derivar-relieve [hoja…]  apunta las juntas de cada módulo del relieve desde su guía: laderas (§20), diagonales y bajadas (§23)
  *   pnpm taller catalogo-escena          rehace assets/mapa/escena.json, el catálogo que lee el juego
  *   pnpm taller vista-ejercitos          una página con todos los ejércitos, para elegir o comparar
  *   pnpm taller vista-8d [unidad|juego]  el visor de 8 direcciones de las unidades y las poses
@@ -46,11 +48,16 @@
  */
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import sharp from 'sharp';
-import { esHojaDeLadera } from '../../src/client/render/escenario/catalogo.js';
+import {
+  esHojaDeBajada,
+  esHojaDeDiagonal,
+  esHojaDeLadera,
+  esHojaDeRelieve,
+} from '../../src/client/render/escenario/catalogo.js';
 import type { Escena } from '../../src/client/render/escenario/colocar.js';
 import { type ClipDeFigura, FIGURA, HOJAS_DE_FIGURA } from '../../src/shared/arte.js';
 import {
@@ -60,6 +67,12 @@ import {
   OCHO_DIRECCIONES,
   renderizarOchoDirecciones,
 } from '../art/poses.js';
+import {
+  encargoDeBajadas,
+  escribirBajadasDerivadas,
+  escribirGuiasDeBajadas,
+  NIVELES_DE_BAJADA,
+} from './bajadas.js';
 import { CODEX, FalloDeCodex, type Generacion, generar } from './codex.js';
 import { Cola } from './cola.js';
 import { componerAtlasMapa } from './componer-atlas-mapa.js';
@@ -69,6 +82,13 @@ import {
   escribirEfectoDerivado,
   escribirPiezaDerivada,
 } from './derivar.js';
+import {
+  encargoDeDiagonales,
+  escribirDiagonalesDerivadas,
+  escribirGuiasDeDiagonales,
+  LADOS_DE_DIAGONAL,
+  NIVELES_DE_DIAGONAL,
+} from './diagonales.js';
 import { encargosDeEdificios } from './edificios.js';
 import { encargoDeIconosDeRecursos, encargosDeEfectos } from './efectos.js';
 import {
@@ -103,6 +123,7 @@ import {
   encargosDeParedesYPuentes,
   escribirGuias,
   escribirPuenteDerivado,
+  MATERIALES,
 } from './paredes-puentes.js';
 import { escribirAtlasDePoses, RUTA_DEL_ATLAS_8D, sueltaDeUnidad } from './poses-8d.js';
 import { aRaster, dePng, recortar, UMBRALES } from './recorte.js';
@@ -330,9 +351,9 @@ async function postprocesar(
         join(RAIZ, `${encargo.salida}.json`),
         `${JSON.stringify({ hoja: basename(rutaSalida), modulos: extra.indiceDeModulos }, null, 2)}\n`,
       );
-      // Una hoja de laderas se coloca y encadena por sus juntas, llevadas desde la guía.
-      if (esHojaDeLadera(basename(encargo.salida))) {
-        await escribirLaderasDerivadas([basename(encargo.salida)]);
+      // Una hoja del relieve se coloca y encadena por sus juntas, llevadas desde la guía.
+      if (esHojaDeRelieve(basename(encargo.salida))) {
+        await escribirRelieveDerivado([basename(encargo.salida)]);
         pasos.push('las juntas de cada módulo, registradas sobre la guía');
       }
     }
@@ -590,6 +611,25 @@ async function encolar(args: readonly string[]): Promise<void> {
     }
     return;
   }
+  // El relieve por celdas (§23): las diagonales y las bajadas, primero sus guías.
+  if (args.includes('--relieve')) {
+    await escribirGuiasDeDiagonales();
+    await escribirGuiasDeBajadas();
+    const solo = args
+      .find((x) => x.startsWith('--solo='))
+      ?.slice('--solo='.length)
+      .split(',');
+    const sinPrefijo = (id: string) => id.replace(/^modulos-/, '');
+    const todos = encargosDelRelieve();
+    const lista = todos.filter((e) => solo === undefined || solo.includes(sinPrefijo(e.id)));
+    if (solo !== undefined && lista.length !== solo.length)
+      throw new Error(`--solo: hay ${todos.map((e) => sinPrefijo(e.id)).join(', ')}`);
+    for (const bruto of lista) {
+      if (args.includes('--rehacer')) await COLA.olvidar(bruto.id);
+      console.log(`encolado ${(await COLA.encolar(bruto)).id}`);
+    }
+    return;
+  }
   // Los módulos del escenógrafo y sus texturas (`escenario/modulos.ts`).
   if (args.includes('--modulos') || args.includes('--texturas-relieve')) {
     const todos = args.includes('--modulos')
@@ -701,6 +741,37 @@ async function corregir(id: string, correccion: string): Promise<void> {
   console.log(`encolado ${e.id} sobre el hilo ${hilo}`);
 }
 
+/** Los encargos del relieve por celdas (§23): diagonales de caída 1-3 y bajadas de caída 1-2, por material. */
+function encargosDelRelieve() {
+  return MATERIALES.flatMap((m) => [
+    ...LADOS_DE_DIAGONAL.flatMap((l) =>
+      NIVELES_DE_DIAGONAL.map((n) => encargoDeDiagonales(m, l, n)),
+    ),
+    ...NIVELES_DE_BAJADA.map((n) => encargoDeBajadas(m, n)),
+  ]);
+}
+
+/**
+ * Las juntas de las hojas del relieve que se pidan, o de todas las que hay en
+ * disco: cada una con la derivación de su familia.
+ */
+async function escribirRelieveDerivado(hojas?: readonly string[]): Promise<string[]> {
+  const todas =
+    hojas ??
+    (await readdir(join(RAIZ, 'assets/mapa/modulos')))
+      .filter((f) => f.endsWith('.json') && !f.endsWith('.procedencia.json'))
+      .map((f) => f.slice(0, -'.json'.length))
+      .filter(esHojaDeRelieve);
+  const escritas: string[] = [];
+  for (const hoja of todas) {
+    if (esHojaDeLadera(hoja)) escritas.push(...(await escribirLaderasDerivadas([hoja])));
+    else if (esHojaDeDiagonal(hoja)) escritas.push(await escribirDiagonalesDerivadas(hoja));
+    else if (esHojaDeBajada(hoja)) escritas.push(await escribirBajadasDerivadas(hoja));
+    else throw new Error(`«${hoja}» no es una hoja del relieve (laderas, diagonales o bajadas)`);
+  }
+  return escritas;
+}
+
 const [orden, ...resto] = process.argv.slice(2);
 switch (orden) {
   case undefined:
@@ -779,7 +850,7 @@ switch (orden) {
       const i = r.informe as Escena['informe'] & { desnudo: number; errores: string[] };
       console.log(`→ ${r.png}`);
       console.log(
-        `  suelo desnudo ${(i.desnudo * 100).toFixed(1)} % · murallas partidas ${i.murallasPartidas} · bases sobre reserva ${i.basesSobreReserva} · barrera sin formación ${i.casillasDeBarreraSinFormacion} · sprites sobre la senda ${i.spritesSobreSenda} · paredes sobre una rampa ${i.paredesSobreRampa} · pasos tapados ${i.pasosTapados}` +
+        `  suelo desnudo ${(i.desnudo * 100).toFixed(1)} % · murallas partidas ${i.murallasPartidas} · bases sobre reserva ${i.basesSobreReserva} · barrera sin formación ${i.casillasDeBarreraSinFormacion} · sprites sobre la senda ${i.spritesSobreSenda} · celdas mal cubiertas ${i.celdasMalCubiertas} · bajadas sin pieza ${i.bajadasSinPieza} · bajadas tapadas ${i.bajadasTapadas} · pasos tapados ${i.pasosTapados}` +
           (i.modulosQueFaltan.length > 0 ? ` · faltan ${i.modulosQueFaltan.join(', ')}` : '') +
           (i.errores.length > 0 ? ` · ERRORES: ${i.errores.join(' | ')}` : ''),
       );
@@ -787,7 +858,12 @@ switch (orden) {
     break;
   }
   case 'guias':
-    for (const g of [...(await escribirGuias()), ...(await escribirGuiasDeLaderas())])
+    for (const g of [
+      ...(await escribirGuias()),
+      ...(await escribirGuiasDeLaderas()),
+      ...(await escribirGuiasDeDiagonales()),
+      ...(await escribirGuiasDeBajadas()),
+    ])
       console.log(`→ ${g}`);
     break;
   case 'derivar-puentes':
@@ -797,9 +873,10 @@ switch (orden) {
       console.log(`→ ${f.replace(/\.webp$/, '.json')}`);
     }
     break;
-  case 'derivar-laderas':
-    // El filo y el pie de cada módulo de ladera, desde su guía (§20, #156).
-    for (const f of await escribirLaderasDerivadas(resto.length === 0 ? undefined : resto))
+  case 'derivar-relieve':
+    // Las juntas de cada módulo del relieve, desde su guía: laderas (§20),
+    // diagonales y bajadas (§23). Sin hojas, todas las que hay en disco.
+    for (const f of await escribirRelieveDerivado(resto.length === 0 ? undefined : resto))
       console.log(`→ ${f}`);
     break;
   case 'catalogo-escena': {
@@ -852,6 +929,6 @@ switch (orden) {
     break;
   default:
     throw new Error(
-      `orden desconocida «${orden}»: trabajar, encolar, corregir, retirar, reprocesar, estado, devolver, derivar, derivar-poses, derivar-laderas, maniqui, vista-ejercitos, vista-edificios, vista-efectos, vista-8d, vista-mapa, escenario, catalogo-escena, evaluar, componer-atlas-mapa`,
+      `orden desconocida «${orden}»: trabajar, encolar, corregir, retirar, reprocesar, estado, devolver, derivar, derivar-poses, derivar-relieve, maniqui, vista-ejercitos, vista-edificios, vista-efectos, vista-8d, vista-mapa, escenario, catalogo-escena, evaluar, componer-atlas-mapa`,
     );
 }

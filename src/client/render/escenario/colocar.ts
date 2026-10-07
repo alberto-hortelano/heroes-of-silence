@@ -14,16 +14,44 @@
 import type { MapObject } from '@core/map/map.js';
 import type { Barrera, Suelo } from '@core/map/terrain.js';
 import { type Analisis, analizar, type Franja, type MapaDeEscena } from './analizar.js';
-import { carasLisas, perfilesDelCatalogo, pintadaDeCara } from './caras.js';
+import {
+  bajoLaSilueta,
+  carasLisas,
+  type PerfilDe,
+  perfilesDelCatalogo,
+  pintadaDeCara,
+} from './caras.js';
 import {
   type Catalogo,
+  esHojaDeBajada,
+  esHojaDeDiagonal,
   esHojaDeLadera,
   type Modulo,
+  type ModuloDeBajada,
+  type ModuloDeDiagonal,
   type ModuloDeLadera,
   moduloDeLadera,
   type PapelDeLadera,
   type Pieza,
 } from './catalogo.js';
+import {
+  abajoDe,
+  type Bajada,
+  bajadasDe,
+  type Caidas,
+  type Celda,
+  caidas,
+  cantosDe,
+  celdas as celdasDe,
+  claveDeCelda,
+  esVisto,
+  filosDe,
+  JUNTAS,
+  pieDeJunta,
+  rampaDe,
+  rebordesDe,
+  taludDeBajada as taludDeBajadaDe,
+} from './celdas.js';
 import { azarDe, esparcir } from './esparcir.js';
 import { ejeDe, esqueleto } from './esqueleto.js';
 import {
@@ -36,7 +64,7 @@ import {
   radioDePico,
 } from './macizo.js';
 import { nodoDePaso, type PasoALaVista, pasosALaVista } from './nodos.js';
-import { cajaDeSprite, Pasillo } from './pasillo.js';
+import { type Caja, cajaDeSprite, Pasillo } from './pasillo.js';
 import { esVolumen, ordenDeVolumenes, separar, UMBRAL_DE_VOLUMEN } from './pintar.js';
 import {
   type Puente,
@@ -50,22 +78,11 @@ import {
   acantiladosARas,
   bordeDeLadera,
   CARA_DE_SUELO,
-  type Cara,
-  type CaraConRampas,
   type CaraDeEscena,
   caidaDeLadera,
-  esquinas,
-  FRONTAL_DE_ESQUINA,
   type Ladera,
-  pieDeCara,
   pieDeLadera,
-  type Relieve,
-  rampas,
   relieve,
-  SEMIANCHO_DE_PARED,
-  SOLAPE,
-  type Tope,
-  topesDeCara,
 } from './relieve.js';
 import {
   SEMIANCHO_DEL_PASILLO,
@@ -99,6 +116,12 @@ export interface Sprite {
   readonly y: number;
   /** Alto en pantalla, en casillas. */
   readonly alto: number;
+  /**
+   * Ancho en pantalla, en casillas, si no es el de su proporción: una pieza del
+   * relieve de caída 2 estirada en alto hasta una caída 3 (decisión del usuario,
+   * 07-10-2026). Sin él, `alto × nw / nh`.
+   */
+  readonly ancho?: number;
   /** Qué es: para medir y para el marcador. */
   readonly clase: (typeof CLASES_DE_SPRITE)[number];
   readonly color: string;
@@ -133,13 +156,21 @@ export interface Escena {
   readonly suelo: readonly Suelo[];
   readonly nivel: readonly number[];
   readonly agua: readonly number[];
-  readonly relieve: Pick<Relieve, 'cantos' | 'rebordes'> & {
-    /**
-     * Las caras con sus rampas (`rampas`) y lo que se pinta de ellas
-     * (`pintada`): por donde baja una senda, y donde no hay pared, la cara no
-     * se pinta.
-     */
+  readonly relieve: {
+    /** Las caídas al sur con lo que se pinta de ellas (`pintada`): donde no hay pared, no se pinta. */
     readonly caras: readonly CaraDeEscena[];
+    /** Las casillas de las caídas al este y al oeste: la franja difuminada del pie (`cantosDe`). */
+    readonly cantos: readonly (readonly [number, number, 'este' | 'oeste'])[];
+    /** Las casillas más altas que la de su norte: el reborde de lo que cae de espaldas (`rebordesDe`). */
+    readonly rebordes: readonly (readonly [number, number])[];
+    /**
+     * Las paredes que se ven, una por celda de vértice y grupo de umbrales
+     * (`celdas.ts`, R4), sin las que cruza un puente. Lo que mide el informe
+     * (`celdasMalCubiertas`) y lo que guarda una marca.
+     */
+    readonly celdas: readonly Celda[];
+    /** Por dónde bajan las sendas hacia la cámara o de lado: una pieza encima de la pared cada una (R5). */
+    readonly bajadas: readonly Bajada[];
   };
   readonly altoDeNivel: number;
   readonly caminos: readonly (readonly [number, number, number, number])[];
@@ -169,21 +200,22 @@ export interface Escena {
      */
     readonly spritesSobreSenda: number;
     /**
-     * Paredes de acantilado (y su remate) cuyo rectángulo pisa la senda que baja
-     * por una cara o la que sigue junto a ella (`paredesSobreRampa`): tiene que ser 0.
+     * Paredes vistas sin exactamente su pieza en su sitio —una frontal, una
+     * ladera o una diagonal (o su marcador) con sus juntas en las de su celda—,
+     * salvo las vacías por una razón declarada: la reserva de un objeto o un
+     * barranco (`celdasMalCubiertas`): tiene que ser 0.
      */
-    readonly paredesSobreRampa: number;
+    readonly celdasMalCubiertas: number;
     /**
-     * Paredes de acantilado (y su remate) que no se apoyan en el pie de ninguna
-     * cara ni caen dentro de su banda (`paredesFueraDelPie`): tiene que ser 0.
+     * Bajadas sin su pieza (o su marcador) con su `arriba` donde la senda cruza
+     * el filo (`bajadasSinPieza`): tiene que ser 0.
      */
-    readonly paredesFueraDelPie: number;
+    readonly bajadasSinPieza: number;
     /**
-     * Casillas de ladera sin exactamente una cosa —un módulo de ladera, los
-     * peñascos del canto, o nada donde no cabía—, y laderas fuera de su sitio
-     * (`laderasMalCubiertas`): tiene que ser 0.
+     * Bajadas cuyo camino tapa algo que se pinta después, contado desde el orden
+     * del pintor (`bajadasTapadas`), como los puentes: tiene que ser 0.
      */
-    readonly laderasMalCubiertas: number;
+    readonly bajadasTapadas: number;
     /**
      * Trozos de cara de acantilado que se pintan y no tapa la silueta de
      * ninguna pared, de al menos 0,3 de ancho y de alto (`carasLisas`): tiene
@@ -448,6 +480,8 @@ function tonoDe(hoja: string): string | undefined {
 
 /** Lo que pone cada material de cara (`CARA_DE_SUELO`). */
 interface MaterialDeCara {
+  /** El nombre del material en las hojas del relieve (`diagonales-<nombre>-…`, `bajadas-<nombre>-…`). */
+  readonly nombre: string;
   /** La hoja de la pared frontal, la de las caídas al sur. */
   readonly pared: string;
   /** La familia de laderas, sin el lado ni la caída (`hojaDeLadera`). */
@@ -461,18 +495,21 @@ interface MaterialDeCara {
 }
 
 const MATERIAL_DE_CARA: Readonly<Record<string, MaterialDeCara>> = {
-  'cara-roca': { pared: 'paredes-roca', ladera: 'laderas-roca', pedregal: PALIDA },
+  'cara-roca': { nombre: 'roca', pared: 'paredes-roca', ladera: 'laderas-roca', pedregal: PALIDA },
   'cara-arenisca': {
+    nombre: 'arenisca',
     pared: 'paredes-arenisca',
     ladera: 'laderas-arenisca',
     pedregal: 'sepia(1) saturate(2.2) hue-rotate(-28deg) brightness(0.62)',
   },
   'cara-basalto': {
+    nombre: 'basalto',
     pared: 'paredes-basalto',
     ladera: 'laderas-basalto',
     pedregal: 'brightness(0.5) saturate(0.7)',
   },
   'cara-nevada': {
+    nombre: 'nevadas',
     pared: 'paredes-nevadas',
     ladera: 'laderas-nevadas',
     pedregal: 'brightness(1.02) saturate(0.4)',
@@ -554,6 +591,9 @@ const MONSTRUO = {
   recorte: [0, 0, 256, 256] as const,
 };
 
+/** La media anchura con la que una pared mira el tablero de un puente que taparía: la de las masas. */
+export const SEMIANCHO_DE_PARED = SEMIANCHO_DEL_PASILLO_DE_MASA;
+
 /** Ancho del mojón de un nodo, en casillas: mide una casilla de alto (#168). */
 const ANCHO_DEL_HITO = 0.6;
 
@@ -562,7 +602,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   const modulosDe = (hoja: string): readonly Modulo[] | null => catalogo.hojas[hoja] ?? null;
   const pieza = (id: string): Pieza | null => catalogo.piezas[id] ?? null;
   const a = analizar(map);
-  const rel = relieve(a, semilla);
+  const { nivel } = relieve(a, semilla);
   const azar = azarDe(semilla * 7919 + 1);
   const { W, H } = a;
   const sprites: Sprite[] = [];
@@ -681,7 +721,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       // El puente se apoya por el centro de su tablero, bajado al suelo: el
       // ancla de la pieza es ese centro (§17), y su escala, la casilla de la
       // guía. Sin sombra: la mancha de su pie, en el centro, oscurecía el arco.
-      const pu = puenteDe(o, a, rel.nivel, map.caminos.tramos, catalogo);
+      const pu = puenteDe(o, a, nivel, map.caminos.tramos, catalogo);
       puentes.push(pu);
       const p = pieza(pu.pieza);
       const [cx, cy] = pu.centro;
@@ -792,22 +832,35 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   // distinguía de la cordillera (#173).
   const pasos = pasosALaVista(map, a.puentes);
   const pasilloDeLosPasos = pasilloDeLosPasosDe(pasos);
-  // Por dónde bajan las sendas por las caras: el único sitio donde se decide.
-  // La línea de cada puente, de estribo a estribo, abre su tajo como una senda
-  // (se ve el agua bajo el tablero y la pared remata sus bordes): sin él,
-  // quedaba a cada lado del tablero una tira de cara lisa.
-  const bajadas = rampas(
-    rel.caras,
-    rel.laderas,
+  // Las paredes del relieve por celdas (R4), sin las que cruza un puente: las
+  // tapa su estribo, y debajo del tablero se ve el agua.
+  const rel = caidas(
+    nivel,
+    W,
+    H,
+    a.suelo,
+    celdasBajoLosPuentes(celdasDe(nivel, W, H, a.suelo), puentes),
+  );
+  // Por dónde bajan las sendas (R5): una pieza encima de la pared cada una. La
+  // que llega a un puente no: el puente es su paso.
+  const nodosDePuente = new Set(
+    a.objetos.filter((o) => a.puentes.has(o.id)).map((o) => `${o.at.x},${o.at.y}`),
+  );
+  const bajadas = bajadasDe(
+    nivel,
+    W,
+    a.suelo,
+    rel.celdas,
+    map.caminos.tramos,
     trazos,
-    puentes.map((p) => p.extremos),
+    (p, q) => nodosDePuente.has(`${p.x},${p.y}`) || nodosDePuente.has(`${q.x},${q.y}`),
   );
-  const caras = rel.caras.map(
-    (c, k): CaraConRampas => ({ ...c, rampas: bajadas.porCara[k] ?? [] }),
+  // Lo que se aparta del camino se aparta también de la rampa de cada bajada,
+  // más ancha que la senda y con sus ribazos (R5).
+  const pasilloDeLasBajadas = new Pasillo(
+    bajadas.map(rampaDe),
+    Math.max(...Object.values(APARTE).map((r) => r?.semiancho ?? 0)),
   );
-  const pasilloDePared = pasilloDeLaPared(bajadas.junto);
-  /** El de las laderas: además, lo que baja por una ladera (`Bajadas.juntoDeLadera`). */
-  const pasilloDeLadera = pasilloDeLaPared([...bajadas.junto, ...bajadas.juntoDeLadera]);
   /** El sprite más estrecho de cada clase que se aparta: el que pregunta el dardo. */
   const moldes = new Map<Sprite['clase'], Pick<Sprite, 'nw' | 'nh' | 'ax' | 'ay'>>();
   for (const [clase, r] of Object.entries(APARTE) as [Sprite['clase'], Aparte | null][]) {
@@ -830,6 +883,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     const minimo = r.minimo(s.alto);
     return (
       !pasillo.pisa(cajaDeSprite(s, minimo), r.semiancho) &&
+      !pasilloDeLasBajadas.pisa(cajaDeSprite(s, minimo), r.semiancho) &&
       !tapaUnTablero(s, tableros, r.semiancho, minimo) &&
       !tapaUnPaso(s, pasilloDeLosPasos, minimo)
     );
@@ -854,6 +908,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   const ajustado = (s: Sprite, r: Aparte): Sprite => {
     const alto = Math.min(
       pasillo.altoLibre(s, r.semiancho),
+      pasilloDeLasBajadas.altoLibre(s, r.semiancho),
       altoLibreAnteLosPuentes(s, tableros, r.semiancho),
       altoLibreAnteLosPasos(s, pasilloDeLosPasos),
     );
@@ -897,59 +952,47 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       : [s, { ...s, src: e.src, nw: e.nw, nh: e.nh, ax: e.ax, ay: e.ay }];
   };
   /**
-   * La puerta de la pared y de su remate: no pisan `pasilloP`, la senda que
-   * baja por una cara y la que sigue junto a ella (`pasilloDePared`; el de las
-   * laderas, también la que baja por una ladera). Si la pisa, se prueba
-   * en cada `xs` (de más a menos preferido; el primero, su sitio, sin la
-   * reserva de un objeto ni al pie ni en `yQueTapa`) cada uno de `modulos`, en
-   * su orden, encogido sin bajar del primero de `minimos`; luego con el
-   * siguiente mínimo. Si nada cabe, no va. Nunca se corta. Tampoco tapa un
-   * tablero (`altoLibreAnteLosPuentes`). Dice si se puso.
+   * La puerta de la pared (frontal, ladera, diagonal y peñascos): ningún punto
+   * de `puntos` (su pie y lo que tapa por encima: el filo, el medio de una
+   * ladera, las juntas de una diagonal) cae en la reserva de un objeto, y no
+   * tapa ningún tablero (`altoLibreAnteLosPuentes`): se prueba cada uno de
+   * `modulos` en su orden, encogido sin bajar de `minimo`. Dice si se puso.
    *
-   * La frontal y los peñascos prueban también el módulo más estrecho de su
-   * hoja (`yElMasEstrecho`); una ladera, solo el suyo: se coloca por las juntas
-   * de SU módulo, y otro en su sitio quedaría descolgado de la cadena.
-   *
-   * Corrida a otra `x`, se apoya donde diga `yEn` en esa `x`: en una escalera
-   * el pie se inclina, y la que conservaba la `y` de su sitio quedaba hasta una
-   * casilla bajo su acantilado, de pie en el río (#150, N1).
+   * Con el relieve por celdas (R4/R5) la pared ya no se aparta de la senda que
+   * baja: ni se corre, ni se encoge, ni se quita por ella, y nunca se corta. La
+   * bajada se pinta encima. El muro bajo junto a la senda (#172) era eso.
    */
-  const paredQueNoPisa =
-    (pasilloP: Pasillo) =>
-    (
-      modulos: readonly [Sprite, ...Sprite[]],
-      minimos: readonly number[],
-      xs: readonly number[],
-      yQueTapa: number,
-      yEn: (x: number) => number = () => modulos[0].y,
-    ): boolean => {
-      const s = modulos[0];
-      // Junto a un objeto, ni al pie ni en lo que tapa por encima (el filo de una
-      // cara, el medio de una ladera): donde la reserva quita la pared, correrla
-      // la ponía encima de otro.
-      const libre = (x: number) => !reservas.tomada(x, yEn(x)) && !reservas.tomada(x, yQueTapa);
-      if (!libre(xs[0] ?? s.x)) return false;
-      const libres = xs.filter(libre);
-      for (const minimo of minimos)
-        for (const x of libres)
-          for (const m of modulos) {
-            const aqui = x === m.x ? m : { ...m, x, y: yEn(x) };
-            const enElPasillo = pasilloP.altoLibre(aqui, SEMIANCHO_DE_PARED);
-            if (enElPasillo < minimo) continue;
-            const alto = Math.min(
-              enElPasillo,
-              altoLibreAnteLosPuentes(aqui, tableros, SEMIANCHO_DE_PARED),
-            );
-            if (alto >= minimo) return meter(alto === aqui.alto ? aqui : { ...aqui, alto });
-          }
-      return false;
-    };
-  const ponerPared = paredQueNoPisa(pasilloDePared);
   /**
-   * La de las laderas, que se apartan también de lo que baja por una ladera:
-   * la frontal no (`Bajadas.juntoDeLadera`).
+   * Las cajas de las paredes que la puerta no dejó entrar, con el porqué (la
+   * reserva de un objeto o un puente que taparían): la razón declarada de las
+   * celdas que quedan vacías ahí (`vaciaPorque`).
    */
-  const ponerLadera = paredQueNoPisa(pasilloDeLadera);
+  const rechazos: Rechazo[] = [];
+  const ponerPared = (
+    modulos: readonly [Sprite, ...Sprite[]],
+    minimo: number,
+    puntos: readonly (readonly [number, number])[],
+  ): boolean => {
+    if (puntos.some(([x, y]) => reservas.tomada(x, y))) {
+      rechazos.push({ caja: cajaDeSprite(modulos[0]), razon: 'reserva' });
+      return false;
+    }
+    for (const m of modulos) {
+      const alto = altoLibreAnteLosPuentes(m, tableros, SEMIANCHO_DE_PARED);
+      if (alto >= minimo)
+        return meter(
+          alto === m.alto
+            ? m
+            : {
+                ...m,
+                alto,
+                ...(m.ancho === undefined ? {} : { ancho: (m.ancho * alto) / m.alto }),
+              },
+        );
+    }
+    rechazos.push({ caja: cajaDeSprite(modulos[0]), razon: 'puente' });
+    return false;
+  };
   const mata = (hoja: string, x: number, y: number, alto: number) =>
     poner(hoja, x, y, alto, azar(), 'cubierta', MARCADOR.cubierta as string, false);
   const altoDeMata = (s: Suelo) => CUBIERTA[s].alto * (MATA_MAS_BAJA + azar() * 0.6);
@@ -1303,31 +1346,20 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     }
   }
 
-  // 4 · El relieve: una pared de acantilado a lo largo de cada caída, hecha de
-  // trozos que se solapan, y rocas caídas al pie. La textura de la cara (la pinta
-  // el pintor) queda detrás como fondo, por si un trozo deja hueco.
-  // Las caídas al este y al oeste (#156): una ladera de norte a sur por cada
-  // caída (§20), con su remate al norte y al sur y la esquina donde la caída
-  // gira hacia la cámara. Van antes que las caras porque la cara deja de poner
-  // frontal donde entró una esquina, y con su propio azar: así la pared frontal
-  // de cada cara sale como antes.
+  /** La silueta de cada módulo que tapa una cara: la de las paredes, para lo que pintan encima. */
+  const perfilDe = perfilesDelCatalogo(catalogo);
+  // 4 · El relieve por celdas (R4): una pieza por pared, de junta a junta. Las
+  // caídas al sur llevan las frontales de siempre, libres; las del este y el
+  // oeste, su cadena de laderas; cada diagonal, su pieza; y donde una senda
+  // cruza una caída hacia la cámara o de lado, la bajada encima (R5). Ninguna
+  // pared se aparta de la senda: lo que baja lo pinta la bajada. Donde falta el
+  // arte de un material o una caída va un marcador visible, no el sistema viejo.
   const azarDeLaderas = azarDe(semilla * 6007 + 11);
-  /** La cara en cuya esquina acaba cada ladera, por su índice. */
-  const caraDeEsquina = new Map<Ladera, number>();
-  for (const [k, e] of esquinas(rel.caras, rel.laderas).entries())
-    for (const l of [e.oeste, e.este]) if (l !== undefined) caraDeEsquina.set(l, k);
-  /** Las esquinas que entraron, por índice de cara: solo esas paran la frontal. */
-  const puestas = rel.caras.map(() => ({ oeste: false, este: false }));
-  /**
-   * La frontal de cada esquina puesta: su filo, el pie de su cara y hacia dónde
-   * corre. Los topes de una cara (`tramoDeFrontal`) solo miran sus esquinas y
-   * las de la fila de al lado; en una escalera en diagonal, la frontal de la
-   * cara de dos filas más abajo subía por la escalera hasta el pie de esta y se
-   * le montaba encima (s7 (28, 7), al subir el acantilado a cresta).
-   */
-  const frontalesDeEsquina: { borde: number; pie: number; lado: 'oeste' | 'este' }[] = [];
-  /** Las casillas de canto con ladera puesta, como `x,y,lado`. */
+  const azarDelRelieve = azarDe(semilla * 4801 + 3);
+  /** Las paredes E y O con ladera puesta, como `vx,vy,lado` de su celda. */
   const conLadera = new Set<string>();
+  const celdaDeLadera = (l: Ladera, fila: number) =>
+    `${l.lado === 'este' ? l.x + 1 : l.x},${fila + 0.5},${l.lado}`;
   const juegos = new Map<string, JuegoDeLadera | null>();
   /** El juego de una hoja de laderas, o null sin su arte. */
   const juegoDe = (hoja: string): JuegoDeLadera | null => {
@@ -1339,7 +1371,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     }
     return j;
   };
-  /** El sprite del módulo `m` desde la casilla `y` de `l` (`colocarLadera`). */
+  /** El sprite del módulo `m` desde la fila `y` de `l` (`colocarLadera`). */
   const spriteDeLadera = (m: ModuloDeLadera, hoja: string, l: Ladera, y: number): Sprite => {
     const tono = tonoDe(hoja);
     const sitio = colocarLadera(m, l, y);
@@ -1359,112 +1391,118 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       sombra: true,
     };
   };
-  const laderasPorColumna = indiceDeLaderas(rel.laderas);
   for (const l of rel.laderas) {
     const hoja = hojaDeLadera(l);
     const juego = juegoDe(hoja);
     if (juego === null) {
-      // Sin el arte, una marca por casilla, del filo al pie.
+      // Sin el arte, una marca por fila, del filo al pie.
       for (let y = l.y0; y <= l.y1; y++) {
         const largo = 1 + l.caida * ALTO_DE_NIVEL;
         const s = deHoja(hoja, bordeDeLadera(l), y + largo, largo, 0, 'pared', '#4c463e', true);
-        if (ponerLadera([s], [s.alto], [s.x], y + 0.5)) conLadera.add(`${l.x},${y},${l.lado}`);
+        if (
+          ponerPared([s], s.alto, [
+            [s.x, s.y],
+            [s.x, y + 0.5],
+          ])
+        )
+          conLadera.add(celdaDeLadera(l, y));
       }
       continue;
     }
-    const cara = caraDeEsquina.get(l);
-    const poner = (m: ModuloDeLadera, y: number): boolean => {
+    // Ni se corre ni se encoge: rompería la cadena. Si cae en la reserva de un
+    // objeto o taparía un puente, no va.
+    const ponerUna = (m: ModuloDeLadera, y: number): boolean => {
       const s = spriteDeLadera(m, hoja, l, y);
-      // Ni se corre ni se encoge: rompería la cadena. Si pisa la senda que
-      // baja o la reserva de un objeto, no va.
-      if (!ponerLadera([s], [s.alto], [s.x], y + m.ladera.largo / 2)) return false;
-      for (let k = 0; k < m.ladera.largo; k++) conLadera.add(`${l.x},${y + k},${l.lado}`);
-      if (cara !== undefined && m === juego.esquina) {
-        (puestas[cara] as { oeste: boolean; este: boolean })[l.lado] = true;
-        const c = rel.caras[cara] as Cara;
-        frontalesDeEsquina.push({
-          borde: juntasColocadas(m, s).filo[0],
-          pie: c.y + 1 + c.caida * ALTO_DE_NIVEL,
-          lado: l.lado,
-        });
-      }
+      if (
+        !ponerPared([s], s.alto, [
+          [s.x, s.y],
+          [s.x, y + m.ladera.largo / 2],
+        ])
+      )
+        return false;
+      for (let k = 0; k < m.ladera.largo; k++) conLadera.add(celdaDeLadera(l, y + k));
       return true;
     };
-    // Lo que no entra se prueba casilla a casilla con los módulos de una, que
-    // son más estrechos que un largo y que una esquina; la esquina, antes con
-    // el remate del sur. Si nada entra, quedan los peñascos del canto.
-    const enLugarDeLaEsquina = [juego.fin, ...juego.medios];
-    const piezas = piezasDeLadera(
-      l,
-      { ...rematesDeLadera(l, laderasPorColumna), esquina: cara !== undefined },
-      juego,
-      azarDeLaderas,
-    );
-    for (const p of piezas) {
-      if (poner(p.modulo, p.y)) continue;
-      const otros = p.modulo === juego.esquina ? enLugarDeLaEsquina : juego.medios;
+    // Lo que no entra se prueba fila a fila con los módulos de una, más
+    // estrechos que un largo; si nada entra, quedan los peñascos del canto.
+    for (const p of piezasDeLadera(l, l, juego, azarDeLaderas)) {
+      if (ponerUna(p.modulo, p.y)) continue;
       for (let y = p.y; y < p.y + p.modulo.ladera.largo; y++)
-        for (const m of otros) if (m !== p.modulo && poner(m, y)) break;
+        for (const m of juego.medios) if (m !== p.modulo && ponerUna(m, y)) break;
     }
+  }
+
+  // Las diagonales: una pieza por celda, por sus dos filos (`colocarDiagonal`).
+  for (const c of rel.diagonales) {
+    const hoja = hojaDeDiagonal(c);
+    const papel = c.tipo.endsWith('convexa') ? 'convexa' : 'concava';
+    const ms = (modulosDe(hoja) ?? []).filter(
+      (m): m is ModuloDeDiagonal => m.diagonal?.papel === papel,
+    );
+    const m = ms[Math.floor(azarDelRelieve() * ms.length)];
+    if (m === undefined) faltan.add(hoja);
+    const s = m === undefined ? marcadorDeDiagonal(c) : spriteDeDiagonal(m, hoja, c);
+    ponerPared([s], s.alto, puntosDeCelda(c));
   }
 
   /**
    * El pedregal de cada cara, por su índice en `sprites`: los peñascos (donde
-   * no entró una pared y en el canto de un tajo) y las rocas de su pie. Su tono
-   * se decide con todo puesto (`tonoDelPedregalSuelto`).
+   * no entró una pared) y las rocas de su pie. Su tono se decide con todo puesto
+   * (`tonoDelPedregalSuelto`).
    */
   const pedregalDeCara: number[] = [];
-  for (const [k, c] of caras.entries()) {
-    const { pie, en: pieEn } = pieDeCara(c, rel.caras);
+  /**
+   * Peñascos de `rocas-caidas` de `desde` hacia `filo`, cada uno en la `x` que
+   * se le pida a su altura, entonados con `tono`, fuera de toda senda y por la
+   * puerta de la pared:
+   * donde una frontal no cupo (la reserva de un objeto), y en el canto de un
+   * barranco o de una ladera que no entró.
+   */
+  const peñascos = (desde: number, filo: number, xEn: (y: number) => number, tono: string) => {
+    for (let y = desde + 0.05; y > filo + 0.15; y -= 0.26 + azar() * 0.12) {
+      const deLaHoja = deHoja(
+        'rocas-caidas',
+        xEn(y),
+        y,
+        0.3 + azar() * 0.18,
+        azar() * 0.6,
+        'pared',
+        '#5a5248',
+        true,
+      );
+      const roca = deLaHoja.src === null ? deLaHoja : { ...deLaHoja, tono };
+      // Como pedregal que es, apartado de toda senda con el margen de su pared,
+      // no solo de la que baja: 4 pisaban una senda al pie (#150, N3).
+      const libre = pasillo.altoLibre(roca, SEMIANCHO_DE_PARED);
+      if (libre < ENCOGER_HASTA * roca.alto) continue;
+      if (
+        ponerPared(
+          yElMasEstrecho(libre === roca.alto ? roca : { ...roca, alto: libre }, 'rocas-caidas'),
+          ENCOGER_HASTA * roca.alto,
+          [[roca.x, y]],
+        ) &&
+        roca.src !== null
+      )
+        pedregalDeCara.push(sprites.length - 1);
+    }
+  };
+  // Las caídas al sur: las frontales de siempre, de junta a junta. Sus módulos
+  // miden de 1 a 2 casillas de ancho; ninguno se sale de su tramo más de
+  // `SALE_DE_SU_TRAMO`, que en un extremo está la diagonal que dobla la esquina.
+  for (const c of rel.caras) {
     const { pared: hoja, pedregal: tonoDelPedregal } = materialDeCara(c.material);
-    const { desde, hasta, izq, der } = tramoDeFrontal(c, topesDeCara(k, rel.caras, puestas));
     const filo = c.y + 1;
-    // Lo más bajo que se deja una pared al apartarse: lo que mide la cara. Más
-    // baja, la cara asomaría lisa por encima.
+    const pie = filo + c.caida * ALTO_DE_NIVEL;
+    const desde = c.x0;
+    const hasta = c.x1 + 1;
+    // Lo más bajo que se deja una pared: lo que mide la cara. Más baja, la cara
+    // asomaría lisa por encima.
     const minimo = c.caida * ALTO_DE_NIVEL;
-    /**
-     * Peñascos de la misma hoja que los de los cantos, de `desde` hacia el filo,
-     * cada uno en la `x` que se le pida a su altura. Son el remate de la pared y
-     * pasan por su puerta. Entonados al material de la cara (el gris de la hoja
-     * sobre la arenisca se leía como cascotes de otro sitio) y, como pedregal
-     * que son, apartados de toda senda con el margen de su pared, no solo de la
-     * que baja: 4 pisaban una senda al pie (#150, N3).
-     */
-    const peñascos = (desde: number, xEn: (y: number) => number) => {
-      for (let y = desde + 0.05; y > filo + 0.15; y -= 0.26 + azar() * 0.12) {
-        const px = xEn(y);
-        const alto = 0.3 + azar() * 0.18;
-        const deLaHoja = deHoja(
-          'rocas-caidas',
-          px,
-          y,
-          alto,
-          azar() * 0.6,
-          'pared',
-          '#5a5248',
-          true,
-        );
-        const roca = deLaHoja.src === null ? deLaHoja : { ...deLaHoja, tono: tonoDelPedregal };
-        const libre = pasillo.altoLibre(roca, SEMIANCHO_DE_PARED);
-        if (libre < ENCOGER_HASTA * alto) continue;
-        if (
-          ponerPared(
-            yElMasEstrecho(libre === alto ? roca : { ...roca, alto: libre }, 'rocas-caidas'),
-            [ENCOGER_HASTA * alto],
-            [px],
-            y,
-          ) &&
-          roca.src !== null
-        )
-          pedregalDeCara.push(sprites.length - 1);
-      }
-    };
-    /** El módulo anclado cerca de `x`, en su pie. */
-    const pared = (x: number, pieDeX: number, nombre?: string) =>
+    const pared = (x: number, nombre?: string) =>
       deHoja(
         hoja,
         x + (azar() - 0.5) * 0.1,
-        pieDeX + 0.05 + (azar() - 0.5) * 0.12,
+        pie + 0.05 + (azar() - 0.5) * 0.12,
         c.caida * ALTO_DE_NIVEL + 0.35 + azar() * 0.2,
         azar(),
         'pared',
@@ -1472,69 +1510,59 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         true,
         nombre,
       );
-    /** Si una frontal en `x`, con el pie en `y`, montaría la de una esquina más de `SOLAPE_DE_ESQUINA`. */
-    const sobreUnaEsquina = (x: number, y: number) =>
-      frontalesDeEsquina.some(
-        (f) =>
-          Math.abs(y - f.pie - 0.05) <= 0.15 &&
-          (f.lado === 'este'
-            ? x <= f.borde && x - (f.borde - FRONTAL_DE_ESQUINA) > SOLAPE_DE_ESQUINA
-            : x >= f.borde && f.borde + FRONTAL_DE_ESQUINA - x > SOLAPE_DE_ESQUINA),
-      );
-    const cerca = (x: number) =>
-      [x, ...DESVIOS.flatMap((d) => [x - d, x + d])].filter((v) => v >= izq && v <= der);
-    // Cada borde de un tajo que cae dentro de la cara lleva su pared, el módulo
-    // más estrecho pegado a la senda (que monte `SOLAPE` sobre el tajo, y si aun
-    // así la pisa, un poco más afuera), y un remate de peñascos a lo largo del
-    // canto del tajo, que deja de leerse como una ranura recta. Apoyada en el
-    // pie recto de su cara: inclinada hacia la de al lado, en el último peldaño
-    // de una escalera que sube subía y dejaba la cara lisa junto a la senda.
-    for (const r of c.rampas)
-      for (const [dentro, borde, fuera] of [
-        [r.dentro[0], r.a, -1],
-        [r.dentro[1], r.b, 1],
-      ] as const) {
-        if (!dentro) continue;
-        const s = pared(borde, pie, masEstrecho(hoja)?.nombre);
-        const [x0, , x1] = cajaDeSprite(s);
-        const pegada = s.x + borde - fuera * SOLAPE - (fuera < 0 ? x1 : x0);
-        ponerPared(
-          yElMasEstrecho(s, hoja),
-          [minimo],
-          [0, ...DESVIOS].map((d) => pegada + fuera * d).filter((x) => x >= izq && x <= der),
-          filo,
-          // Sobre su cara baja con la escalera, como las demás, pero no sube con
-          // ella (arriba). Pasada su cara, ya está en el peldaño de al lado y
-          // sigue su pie: con el pie recto quedaba una casilla bajo él, en el río.
-          (x) => s.y + (x >= c.x0 && x <= c.x1 + 1 ? Math.max(0, pieEn(x) - pie) : pieEn(x) - pie),
-        );
-        // El canto del tajo, a cada altura: inclinado `SOLAPE` hacia dentro en el filo.
-        peñascos(pie, (y) => {
-          const canto = borde - (fuera * SOLAPE * (pie - Math.min(y, pie))) / (pie - filo);
-          return canto + fuera * (0.06 + azar() * 0.08);
-        });
+    /**
+     * `s` dentro de su tramo: corrido hacia dentro; si no cabe, el módulo más
+     * estrecho, y si tampoco, encogido sin bajar de `minimo`. En un tramo de una
+     * casilla de caída 3 ni así cabe: va el más estrecho al mínimo, en el medio,
+     * y lo que sobresale lo tapa la diagonal de al lado, que se pinta después.
+     */
+    const dentroDelTramo = (s: Sprite): Sprite => {
+      const lo = desde - SALE_DE_SU_TRAMO;
+      const hi = hasta + SALE_DE_SU_TRAMO;
+      const modulos = yElMasEstrecho(s, hoja);
+      for (const m of modulos) {
+        const [x0, , x1] = cajaDeSprite(m);
+        if (x1 - x0 > hi - lo) continue;
+        const dx = x0 < lo ? lo - x0 : x1 > hi ? hi - x1 : 0;
+        return dx === 0 ? m : { ...m, x: m.x + dx };
       }
-    for (let x = desde; x <= hasta; x += 0.42 + azar() * 0.22) {
-      const s = pared(x, pieEn(x));
-      // Corrida, sobre el pie de donde acabe, con el mismo azar que traía.
-      const yEn = (x: number) => s.y + pieEn(x) - pieEn(s.x);
-      const puesta = ponerPared(
-        yElMasEstrecho(s, hoja),
-        [minimo, minimo * BAJA_JUNTO_A_LA_SENDA],
-        cerca(s.x).filter((x) => !sobreUnaEsquina(x, yEn(x))),
-        filo,
-        yEn,
-      );
-      // Donde no cabe ninguna pared, junto a la senda o a un objeto, un pedregal
-      // por la cara: sin él quedaba una losa lisa. Cada peñasco mira la reserva
-      // en su propio pie, así que no sube encima del objeto. Dentro de la banda
-      // de su cara: el pie inclinado de la escalera lo sacaba por abajo.
-      if (!puesta && !reservas.tomada(s.x, s.y) && s.x >= c.x0 && s.x <= c.x1 + 1)
-        peñascos(Math.min(s.y, pie), () =>
-          Math.min(c.x1 + 0.95, Math.max(c.x0 + 0.05, s.x + (azar() - 0.5) * 0.3)),
-        );
+      const e = modulos.at(-1) as Sprite;
+      const alto = Math.max(minimo, Math.min(e.alto, ((hi - lo) * e.nh) / e.nw));
+      const [x0, , x1] = cajaDeSprite(e, alto);
+      return { ...e, alto, x: e.x + (lo + hi) / 2 - (x0 + x1) / 2 };
+    };
+    // Cada frontal, a un paso de la anterior, pero nunca más allá de lo que esa
+    // cubrió: un módulo estrecho (los de nieve miden 0,65 de ancho por alto)
+    // dejaba media celda sin pared. Al final, otra si el tramo no llegó a su junta.
+    let cubierto = desde;
+    let x = desde + 0.25;
+    const ultima = hasta - 0.25 + 1e-9;
+    while (x <= ultima || cubierto < hasta - 0.1) {
+      const aqui = Math.min(x, hasta - 0.25);
+      const s = dentroDelTramo(pared(aqui));
+      if (
+        ponerPared([s], minimo, [
+          [s.x, s.y],
+          [s.x, filo],
+        ])
+      )
+        cubierto = Math.max(cubierto, cajaDeSprite(sprites.at(-1) as Sprite)[2]);
+      else {
+        cubierto = Math.max(cubierto, aqui + 0.3);
+        // Donde no cabe ninguna pared, junto a un objeto, un pedregal por la cara:
+        // sin él quedaba una losa lisa. Cada peñasco mira la reserva en su propio pie.
+        if (!reservas.tomada(aqui, pie))
+          peñascos(
+            pie,
+            filo,
+            () => Math.min(hasta - 0.05, Math.max(desde + 0.05, aqui + (azar() - 0.5) * 0.3)),
+            tonoDelPedregal,
+          );
+      }
+      if (aqui >= hasta - 0.25) break;
+      x = Math.min(x + 0.42 + azar() * 0.22, cubierto + 0.2);
     }
-    for (let x = c.x0; x <= c.x1 + 0.99; x += 0.35 + azar() * 0.3) {
+    for (let x = desde; x <= hasta - 0.01; x += 0.35 + azar() * 0.3) {
       const px = x + azar() * 0.2;
       const py = pie + 0.1 + azar() * 0.2;
       if (!entraria('roca', px, py, 0.28)) continue;
@@ -1556,13 +1584,48 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     }
   }
 
-  // Las caídas al este y al oeste sin ladera (la quitó una senda que baja o la
+  // Las bajadas (R5): encima de la pared, en el rumbo de la senda.
+  for (const b of bajadas) {
+    const hoja = hojaDeBajada(b);
+    const m = (modulosDe(hoja) ?? []).find((k): k is ModuloDeBajada => k.bajada?.rumbo === b.rumbo);
+    if (m === undefined) faltan.add(hoja);
+    // Después de toda pared que pinta sobre su camino: la que cruza y la de la
+    // fila de delante por la que baja (una bajada al sureste pasa por el talud
+    // de la ladera de debajo). Con la clave del pie, esa ladera la tapaba.
+    const camino = caminoDeBajada(b);
+    let clave = claveDeBajada(b, rel.vistas);
+    for (const p of sprites)
+      if (
+        p.clase === 'pared' &&
+        p.y >= clave &&
+        camino.some(([x, y]) => tapaElPunto(p, perfilDe, x, y))
+      )
+        clave = p.y + 0.01;
+    const s = m === undefined ? marcadorDeBajada(b, clave) : spriteDeBajada(m, hoja, b, clave);
+    // La bajada es el camino: no la para la reserva del objeto al que lleva, ni
+    // cuenta como base sobre ella (`meter`), que su pie es la senda que llega.
+    sprites.push(s);
+  }
+
+  // Las caídas al este y al oeste sin ladera (un barranco de una casilla, o la
   // reserva de un objeto): el canto lo oscurece el pintor; aquí, peñascos.
-  for (const [x, y, lado] of rel.cantos) {
-    if (conLadera.has(`${x},${y},${lado}`)) continue;
+  const sinLadera = [
+    ...rel.barrancos.map((c) => ({ x: c.vx, y: c.vy, este: c.tipo === 'E', material: c.material })),
+    ...rel.laderas.flatMap((l) =>
+      Array.from({ length: l.y1 - l.y0 + 1 }, (_, k) => l.y0 + k)
+        .filter((y) => !conLadera.has(celdaDeLadera(l, y)))
+        .map((y) => ({
+          x: bordeDeLadera(l),
+          y: y + 0.5,
+          este: l.lado === 'este',
+          material: l.material,
+        })),
+    ),
+  ];
+  for (const c of sinLadera)
     for (let k = 0; k < 2; k++) {
-      const px = lado === 'este' ? x + 1.05 : x - 0.05;
-      const py = y + 0.3 + k * 0.45 + azar() * 0.2;
+      const px = c.x + (c.este ? 0.05 : -0.05);
+      const py = c.y - 0.2 + k * 0.45 + azar() * 0.2;
       if (!entraria('roca', px, py, 0.35)) continue;
       poner(
         'rocas-caidas',
@@ -1575,17 +1638,17 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         true,
         undefined,
         undefined,
-        materialDeCara(CARA_DE_SUELO[a.suelo[y * W + x] as Suelo]).pedregal,
+        materialDeCara(c.material).pedregal,
       );
     }
-  }
 
   // La espalda de un acantilado más alto que lo de su norte: la cámara no la ve
   // y el pintor no pinta el reborde, así que desde ese lado la barrera era un
   // llano más (auditoría 2 de 07-10, B). Una hilera de peñascos por el canto de
   // arriba la cierra; el que no entra se prueba más bajo, y si tampoco, se
   // queda fuera (una senda o una reserva al lado).
-  for (const [x, y] of rel.rebordes) {
+  const rebordes = rebordesDe(nivel, W, H);
+  for (const [x, y] of rebordes) {
     if (a.terreno[y * W + x] !== 'cliff') continue;
     const tono = materialDeCara(CARA_DE_SUELO[a.suelo[y * W + x] as Suelo]).pedregal;
     for (let k = 0; k < 3; k++) {
@@ -1735,26 +1798,12 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     if (tono !== undefined && tono !== s.tono) sprites[i] = { ...s, tono };
   }
   // La cara se pinta solo bajo la silueta de su pared, con todo puesto (#159).
-  const perfilDe = perfilesDelCatalogo(catalogo);
-  const carasDeEscena = caras.map(
+  const carasDeEscena = rel.caras.map(
     (c): CaraDeEscena => ({ ...c, pintada: pintadaDeCara(c, sprites, perfilDe) }),
   );
   sprites.sort((p, q) => p.capa - q.capa || p.y - q.y || p.x - q.x);
   /** Qué sprite es una ladera: cualquier módulo de laderas del catálogo, no solo los que se usaron. */
   const deLadera = modulosDeLadera(catalogo);
-  /** Si en la casilla `fila` de `l` cabría uno de sus `medio`: la misma pregunta que `ponerLadera`. */
-  const cabeUnMedio = (l: Ladera, fila: number) => {
-    const hoja = hojaDeLadera(l);
-    return (juegoDe(hoja)?.medios ?? []).some((m) => {
-      const s = spriteDeLadera(m, hoja, l, fila);
-      return (
-        !reservas.tomada(s.x, s.y) &&
-        !reservas.tomada(s.x, fila + m.ladera.largo / 2) &&
-        pasilloDeLadera.altoLibre(s, SEMIANCHO_DE_PARED) >= s.alto &&
-        altoLibreAnteLosPuentes(s, tableros, SEMIANCHO_DE_PARED) >= s.alto
-      );
-    });
-  };
   const agua = a.franjas.filter((f) => f.barrera === 'water').flatMap((f) => f.casillas);
   const enElAgua = new Set(agua);
   const esAgua = (x: number, y: number) =>
@@ -1765,39 +1814,40 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     W,
     H,
     suelo: a.suelo,
-    nivel: Array.from(rel.nivel),
+    nivel: Array.from(nivel),
     agua,
     relieve: {
       caras: carasDeEscena,
-      cantos: rel.cantos,
-      rebordes: rel.rebordes,
+      cantos: cantosDe(nivel, W, H),
+      rebordes,
+      celdas: rel.vistas,
+      bajadas,
     },
     altoDeNivel: ALTO_DE_NIVEL,
     caminos,
     sendas: trazos,
     puentes,
     vados,
-    luces: luces(a, rel.nivel, azarDe(semilla * 31 + 5)),
+    luces: luces(a, nivel, azarDe(semilla * 31 + 5)),
     sprites,
     informe: {
       murallasPartidas,
       basesSobreReserva,
       casillasDeBarreraSinFormacion: sinFormacion,
       spritesSobreSenda: sobreLaSenda(sprites, pasillo).length,
-      paredesSobreRampa: paredesSobreRampa(sprites, pasilloDePared, {
-        pasillo: pasilloDeLadera,
-        es: (s) => s.src !== null && deLadera.has(s.src),
-      }).length,
-      paredesFueraDelPie: paredesFueraDelPie(sprites, rel.caras).length,
-      // Recontadas desde lo puesto, con cualquier módulo de ladera del
-      // catálogo y no solo los de las hojas que se usaron.
-      laderasMalCubiertas: laderasMalCubiertas(sprites, rel.laderas, deLadera, cabeUnMedio).length,
+      // Recontadas desde lo puesto, con cualquier módulo del catálogo y no solo
+      // los de las hojas que se usaron.
+      celdasMalCubiertas: celdasMalCubiertas(sprites, rel, catalogo, (c) =>
+        vaciaPorque(c, reservas, rechazos),
+      ).length,
+      bajadasSinPieza: bajadasSinPieza(sprites, bajadas, catalogo).length,
+      bajadasTapadas: bajadasTapadas(sprites, bajadas, catalogo).length,
       laderasEnfrentadas: laderasEnfrentadas(sprites, deLadera).length,
       carasLisas: carasLisas(carasDeEscena, sprites, perfilDe).length,
       puentesTapados: puentesTapados(sprites, puentes).length,
       pasosTapados: pasosTapados(sprites, pasos).length,
       sendasDeEstriboEnAgua: sendasDeEstriboEnAgua(trazos, puentes, vados, esAgua).length,
-      acantiladosARas: acantiladosARas(a.terreno, rel.nivel, W, H).length,
+      acantiladosARas: acantiladosARas(a.terreno, nivel, W, H).length,
       modulosQueFaltan: [...faltan].sort(),
     },
   };
@@ -1812,44 +1862,6 @@ export function sobreLaSenda(sprites: readonly Sprite[], pasillo: Pasillo): Spri
     const r = APARTE[s.clase];
     return r !== null && s.capa === 0 && pasillo.pisa(cajaDeSprite(s), r.semiancho);
   });
-}
-
-/**
- * Lo que se prueba a correr, en casillas, una pared que pisa la senda, antes de
- * encogerla más de la cuenta: un módulo mide tanto de ancho como de alto, y en
- * una cara de una casilla con la senda al lado no cabía en su sitio. Hasta una
- * casilla: más lejos ya no es su cara.
- */
-const DESVIOS = Array.from({ length: 10 }, (_, k) => (k + 1) / 10);
-
-/**
- * Si una pared no cabe junto a la senda ni con el alto de su cara, hasta qué
- * parte de ese alto se encoge antes de quitarla: una pared baja deja lisa la
- * parte de arriba de la cara, y sin ella se quedaba lisa entera.
- */
-const BAJA_JUNTO_A_LA_SENDA = 0.5;
-
-/** El pasillo que la pared no pisa: la senda que baja por las caras y la de junto (`Bajadas.junto`). */
-export function pasilloDeLaPared(junto: readonly Senda[]): Pasillo {
-  return new Pasillo(junto, SEMIANCHO_DE_PARED);
-}
-
-/**
- * Las paredes de acantilado, y los peñascos que rematan un tajo, cuyo rectángulo
- * pisa el pasillo de la pared. No filtra nada: mide lo que dejó `ponerPared`.
- * Con `deLadera`, las que `es` una ladera se miden contra su propio pasillo,
- * que lleva también lo que baja por una ladera (`Bajadas.juntoDeLadera`).
- */
-export function paredesSobreRampa(
-  sprites: readonly Sprite[],
-  pasillo: Pasillo,
-  deLadera?: { readonly pasillo: Pasillo; readonly es: (s: Sprite) => boolean },
-): Sprite[] {
-  return sprites.filter(
-    (s) =>
-      s.clase === 'pared' &&
-      (deLadera?.es(s) ? deLadera.pasillo : pasillo).pisa(cajaDeSprite(s), SEMIANCHO_DE_PARED),
-  );
 }
 
 /**
@@ -2063,64 +2075,15 @@ export function tonoDelPedregalSuelto(
   return materialDeCara(CARA_DE_SUELO[sueloEn(Math.floor(s.x), Math.floor(s.y))]).pedregal;
 }
 
-/** Lo más lejos de su pie, en casillas, que se apoya una pared: su ancla va 0,05 ± 0,06 por debajo. */
-const HOLGURA_DEL_PIE = 0.25;
-
 /** La hoja de laderas de una ladera: `laderas-<material>-<lado>-<caída>` (§20). Nunca se espeja. */
 export function hojaDeLadera(l: Ladera): string {
   return `${materialDeCara(l.material).ladera}-${l.lado}-${caidaDeLadera(l.caida)}`;
-}
-
-/** Lo que la última frontal de una cara monta sobre la frontal de su esquina, en casillas. */
-export const SOLAPE_DE_ESQUINA = 0.15;
-
-/**
- * Por dónde corre la frontal de una cara, según cómo acaba cada extremo
- * (`topesDeCara`): sus módulos van de `desde` a `hasta`, y uno que pisa la
- * senda se corre entre `izq` y `der`.
- *
- * - En su esquina para donde empieza la frontal de la esquina, a
- *   `FRONTAL_DE_ESQUINA` del extremo, montando `SOLAPE_DE_ESQUINA` sobre ella,
- *   y no se corre más allá.
- * - Junto a la esquina del peldaño de al lado para como suelta, pero no se
- *   corre hacia ella: la esquina ya trae frontal y ladera que suben hasta aquí.
- * - Si la cara de al lado sigue, la frontal sigue media casilla por ella; suelta,
- *   para un poco antes del extremo.
- * - Corrida, hasta media casilla fuera del acantilado: un módulo de una cara de
- *   caída 2 mide más de una casilla de ancho, y así sigue montando sobre su
- *   cara. Tampoco más si la de al lado sigue: allí el pie inclinado ya pasa del
- *   de esa cara, y a una casilla quedaba otra entera bajo él (#150, N1).
- */
-export function tramoDeFrontal(
-  c: Cara,
-  topes: { readonly oeste: Tope; readonly este: Tope },
-): { readonly desde: number; readonly hasta: number; readonly izq: number; readonly der: number } {
-  const desde = {
-    esquina: c.x0 + FRONTAL_DE_ESQUINA - SOLAPE_DE_ESQUINA,
-    'esquina-vecina': c.x0 + 0.2,
-    sigue: c.x0 + 0.5,
-    suelto: c.x0 + 0.2,
-  }[topes.oeste];
-  const hasta = {
-    esquina: c.x1 + 1 - FRONTAL_DE_ESQUINA + SOLAPE_DE_ESQUINA,
-    'esquina-vecina': c.x1 + 0.85,
-    sigue: c.x1 + 1.5,
-    suelto: c.x1 + 0.85,
-  }[topes.este];
-  const seCorre = (t: Tope) => t === 'sigue' || t === 'suelto';
-  return {
-    desde,
-    hasta,
-    izq: seCorre(topes.oeste) ? c.x0 - 0.5 : desde,
-    der: seCorre(topes.este) ? c.x1 + 1.5 : hasta,
-  };
 }
 
 /** Los módulos de una hoja de laderas por su papel en la cadena (§20). */
 export interface JuegoDeLadera {
   readonly inicio: ModuloDeLadera;
   readonly fin: ModuloDeLadera;
-  readonly esquina: ModuloDeLadera;
   /** Lo que va en medio, por nombre: los de una casilla y los de dos. */
   readonly medios: readonly ModuloDeLadera[];
   readonly largos: readonly ModuloDeLadera[];
@@ -2129,7 +2092,8 @@ export interface JuegoDeLadera {
 /**
  * El juego de una hoja de laderas, por el papel que trae cada módulo en sus
  * juntas (`JuntasDeLadera.papel`, del índice de la hoja). Lanza si a un módulo
- * le faltan las juntas o a la hoja un papel.
+ * le faltan las juntas o a la hoja un papel. La `esquina` de §20 no entra: con
+ * el relieve por celdas (R4) dobla la diagonal, y su módulo queda sin uso.
  */
 export function juegoDeLadera(hoja: string, modulos: readonly Modulo[]): JuegoDeLadera {
   const ms = modulos
@@ -2149,7 +2113,6 @@ export function juegoDeLadera(hoja: string, modulos: readonly Modulo[]): JuegoDe
   return {
     inicio: uno('inicio'),
     fin: uno('fin'),
-    esquina: uno('esquina'),
     medios,
     largos: de('largo'),
   };
@@ -2161,68 +2124,33 @@ export interface PiezaDeLadera {
   readonly y: number;
 }
 
-/** Las laderas por columna y lado (`x,lado`): las que pueden seguir a una de norte a sur. */
-export function indiceDeLaderas(
-  laderas: readonly Ladera[],
-): ReadonlyMap<string, readonly Ladera[]> {
-  const indice = new Map<string, Ladera[]>();
-  for (const l of laderas) {
-    const clave = `${l.x},${l.lado}`;
-    const ya = indice.get(clave);
-    if (ya === undefined) indice.set(clave, [l]);
-    else ya.push(l);
-  }
-  return indice;
-}
-
-/**
- * Si una ladera remata al norte (`inicio`) y al sur (`fin`): donde no sigue
- * otra ladera de su columna y su lado (`indiceDeLaderas`). En un escalón de
- * caída remata la mayor y la menor sigue sin remate, tapada por ella; con la
- * misma caída (cambia el material) siguen las dos.
- */
-export function rematesDeLadera(
-  l: Ladera,
-  porColumna: ReadonlyMap<string, readonly Ladera[]>,
-): { readonly inicio: boolean; readonly fin: boolean } {
-  const columna = porColumna.get(`${l.x},${l.lado}`) ?? [];
-  const junto = (y: number) => columna.find((o) => o.y0 <= y && o.y1 >= y);
-  const alNorte = junto(l.y0 - 1);
-  const alSur = junto(l.y1 + 1);
-  return {
-    inicio: alNorte === undefined || alNorte.caida < l.caida,
-    fin: alSur === undefined || alSur.caida < l.caida,
-  };
-}
-
 /**
  * Qué módulos lleva una ladera, de norte a sur (§20):
  *
- * - `inicio` al norte si la cadena empieza ahí (`extremos.inicio`); `esquina`
- *   al sur si la tiene (`esquinas`) y, si no, `fin` cuando la cadena acaba ahí.
- *   En un escalón de caída rematan las dos puntas de la mayor; la menor sigue
- *   con un medio, y la mayor la tapa.
+ * - `inicio` al norte y `fin` al sur donde la cadena remata (`extremos`): donde
+ *   sigue de espaldas, en el borde, o con una caída menor (`caidas`, en
+ *   `celdas.ts`). Donde sigue por una diagonal o por una ladera de su caída o
+ *   mayor no remata: la pieza de al lado empalma por la junta.
  * - En medio, al azar entre los `medios` y los `largos`, sin repetir el de al
- *   lado; uno solo si le caben sus casillas antes del remate.
- * - Con una sola casilla, la esquina gana al `fin` y el `fin` al `inicio`: el
- *   sur es lo que mira a la cámara.
+ *   lado; uno solo si le caben sus filas antes del remate.
+ * - Con una sola fila, el `fin` gana al `inicio`: el sur es lo que mira a la cámara.
  */
 export function piezasDeLadera(
   l: Ladera,
-  extremos: { readonly inicio: boolean; readonly fin: boolean; readonly esquina: boolean },
+  extremos: { readonly inicio: boolean; readonly fin: boolean },
   juego: JuegoDeLadera,
   azar: () => number,
 ): PiezaDeLadera[] {
-  const sur = extremos.esquina ? juego.esquina : extremos.fin ? juego.fin : null;
+  const sur = extremos.fin ? juego.fin : null;
   const norte = extremos.inicio && (sur === null || l.y1 > l.y0) ? juego.inicio : null;
   const fuera: PiezaDeLadera[] = [];
   if (norte !== null) fuera.push({ modulo: norte, y: l.y0 });
   const hasta = sur === null ? l.y1 : l.y1 - 1;
   let anterior = norte;
-  for (let y = norte === null ? l.y0 : l.y0 + 1; y <= hasta; ) {
+  for (let y = norte === null ? l.y0 : l.y0 + 1; y <= hasta + 1e-9; ) {
     const caben = hasta - y + 1;
     const candidatos = [...juego.medios, ...juego.largos].filter(
-      (m) => m !== anterior && m.ladera.largo <= caben,
+      (m) => m !== anterior && m.ladera.largo <= caben + 1e-9,
     );
     const modulo = candidatos[Math.floor(azar() * candidatos.length)] as ModuloDeLadera;
     fuera.push({ modulo, y });
@@ -2282,9 +2210,9 @@ export function modulosDeLadera(
  * Las casillas bajas con laderas de los dos lados al pie, en la misma fila: la
  * del este de la casilla de su oeste y la del oeste de la de su este, con los
  * pies en la misma columna. Es el barranco de una casilla que `sinBarrancos`
- * deja sin laderas (QA de #156, H1); `laderasMalCubiertas` no lo veía, porque
- * cuenta por casilla de canto y son dos distintas. Mide desde lo puesto: el pie
- * de cada sprite de ladera (`juntasColocadas`) y las filas que cubre su filo.
+ * deja sin laderas (QA de #156, H1). Mide desde lo puesto: el pie de cada
+ * sprite de ladera (`juntasColocadas`) y las filas que cubre su filo, que por
+ * celdas van corridas media fila.
  */
 export function laderasEnfrentadas(
   sprites: readonly Sprite[],
@@ -2296,7 +2224,7 @@ export function laderasEnfrentadas(
     if (m === undefined) continue;
     const { filo, pie } = juntasColocadas(m.modulo, s);
     const lado = pie[0] > filo[0] ? 'este' : 'oeste';
-    const fila = Math.round(filo[1]);
+    const fila = Math.round(filo[1] * 2) / 2;
     for (let k = 0; k < m.modulo.ladera.largo; k++)
       alPie[lado].add(`${Math.floor(pie[0])},${fila + k}`);
   }
@@ -2305,120 +2233,545 @@ export function laderasEnfrentadas(
     .map((c) => `${c}: laderas de los dos lados al pie`);
 }
 
-/** Lo que se tolera entre dónde quedó una junta de ladera y dónde debía, en casillas. */
-const HOLGURA_DE_JUNTA = 0.02;
+// ------------------------------------------------------- el relieve por celdas
 
 /**
- * Las casillas de ladera mal cubiertas, cada una con lo que le pasa. Cada
- * casilla de cada ladera lleva exactamente una cosa: un módulo de ladera, los
- * peñascos del canto, o nada si ahí no cabe ninguna ladera (`cabe`). Se
- * reconstruye desde lo puesto, por la geometría de cada sprite (dónde quedaron
- * sus juntas, `juntasColocadas`), no por lo que `componer` apuntó al ponerlo:
- *
- * - una ladera fuera de sitio: su filo fuera del borde de una fila de una ladera
- *   de su hoja (lado, caída y material), o su pie fuera del de esa ladera;
- * - una casilla con dos laderas (un módulo corrido sobre el de al lado) o con
- *   ladera y peñascos (que van solo donde no quedó ladera);
- * - un hueco: una casilla sin ladera donde cabía uno de sus `medio`.
- *
- * `modulos` dice qué sprites son laderas: los módulos de las hojas de laderas
- * por su `src`. Sin arte no hay ninguno, y no se mide.
+ * Lo que una frontal puede salirse de su tramo de junta a junta, en casillas.
+ * Un módulo mide de 1 a 2 casillas de ancho, y corrido más allá de su junta se
+ * metía por encima de la diagonal que dobla la esquina: la escalera de #160.
  */
-export function laderasMalCubiertas(
-  sprites: readonly Sprite[],
-  laderas: readonly Ladera[],
-  modulos: ReadonlyMap<string, { readonly modulo: ModuloDeLadera; readonly hoja: string }>,
-  cabe: (l: Ladera, fila: number) => boolean,
-): string[] {
-  const porColumna = indiceDeLaderas(laderas);
-  const hojaDe = new Map(laderas.map((l) => [l, hojaDeLadera(l)]));
-  const casilla = (x: number, y: number, lado: string) => `${x},${y},${lado}`;
-  const conLadera = new Map<string, number>();
-  const mal: string[] = [];
-  for (const s of sprites) {
-    const m = s.src === null ? undefined : modulos.get(s.src);
-    if (m === undefined) continue;
-    const { filo, pie } = juntasColocadas(m.modulo, s);
-    const fila = Math.round(filo[1]);
-    const ultima = fila + m.modulo.ladera.largo - 1;
-    const suya = (['este', 'oeste'] as const)
-      .flatMap(
-        (lado) =>
-          porColumna.get(`${Math.round(filo[0]) - (lado === 'este' ? 1 : 0)},${lado}`) ?? [],
-      )
-      .find((l) => hojaDe.get(l) === m.hoja && l.y0 <= fila && ultima <= l.y1);
-    if (
-      suya === undefined ||
-      Math.abs(filo[0] - bordeDeLadera(suya)) > HOLGURA_DE_JUNTA ||
-      Math.abs(filo[1] - fila) > HOLGURA_DE_JUNTA ||
-      Math.abs(pie[1] - pieDeLadera(suya, ultima)[1]) > HOLGURA_DE_JUNTA
-    ) {
-      mal.push(
-        `${s.src} con el filo en ${filo[0].toFixed(2)},${filo[1].toFixed(2)}: fuera de toda ladera de su hoja`,
-      );
-      continue;
-    }
-    for (let y = fila; y <= ultima; y++) {
-      const c = casilla(suya.x, y, suya.lado);
-      conLadera.set(c, (conLadera.get(c) ?? 0) + 1);
-    }
-  }
-  // Un peñasco del canto se apoya justo fuera del filo (x + 1,05 al este,
-  // x − 0,05 al oeste) y entre 0,3 y 1 por debajo del borde de arriba de su fila.
-  const conPeñascos = new Set<string>();
-  for (const s of sprites) {
-    if (s.clase !== 'roca' || s.src?.includes('/rocas-caidas/') !== true) continue;
-    const fila = Math.floor(s.y - 0.3);
-    for (const [lado, x] of [
-      ['este', s.x - 1.05],
-      ['oeste', s.x + 0.05],
-    ] as const)
-      if (Math.abs(x - Math.round(x)) < 1e-9) conPeñascos.add(casilla(Math.round(x), fila, lado));
-  }
-  for (const l of laderas)
-    for (let y = l.y0; y <= l.y1; y++) {
-      const c = casilla(l.x, y, l.lado);
-      const n = conLadera.get(c) ?? 0;
-      if (n > 1) mal.push(`${c}: ${n} laderas`);
-      else if (n === 1 && conPeñascos.has(c)) mal.push(`${c}: ladera y peñascos`);
-      else if (n === 0 && cabe(l, y)) mal.push(`${c}: hueco, y cabía una ladera`);
-    }
-  return mal;
+const SALE_DE_SU_TRAMO = 0.15;
+
+/** El color del marcador de una diagonal y el de una bajada sin arte: se tienen que ver. */
+export const COLOR_DE_DIAGONAL = '#d4479b';
+export const COLOR_DE_BAJADA = '#3fb8d8';
+
+/**
+ * Hasta qué caída hay arte de diagonales y bajadas: la 3 y las mayores llevan
+ * la pieza de 2 estirada en alto (decisión del usuario, 07-10-2026).
+ */
+export const caidaDeArte = (caida: number): 1 | 2 => (caida <= 1 ? 1 : 2);
+
+/** Lo que se estira en alto una pieza de `caidaDeArte` puesta en una caída mayor. */
+const estiramiento = (caida: number) => Math.max(1, caida / caidaDeArte(caida));
+
+/**
+ * Lo que se pinta una pieza del relieve por debajo del pie de su pared, en
+ * casillas, como clave de profundidad: después de las frontales de su tramo,
+ * que van a 0,05 ± 0,06 (`pared`), y así su junta queda encima.
+ */
+const DETRAS_DEL_PIE = 0.12;
+
+/** La hoja de diagonales de una pared: `diagonales-<material>-<se|so>-<caída de arte>`. */
+export function hojaDeDiagonal(c: Pick<Celda, 'tipo' | 'material' | 'caida'>): string {
+  const lado = c.tipo.startsWith('SE') ? 'se' : 'so';
+  return `diagonales-${materialDeCara(c.material).nombre}-${lado}-${caidaDeArte(c.caida)}`;
+}
+
+/** La hoja de bajadas de una bajada: `bajadas-<material>-<caída de arte>`. */
+export function hojaDeBajada(b: Pick<Bajada, 'material' | 'caida'>): string {
+  return `bajadas-${materialDeCara(b.material).nombre}-${caidaDeArte(b.caida)}`;
+}
+
+/** Los pies de las dos juntas de una pared, en el orden de `JUNTAS`. */
+function piesDe(c: Celda): readonly [readonly [number, number], readonly [number, number]] {
+  const [a, b] = JUNTAS[c.tipo];
+  const [fa, fb] = filosDe(c);
+  return [pieDeJunta(fa, a[2], c.caida), pieDeJunta(fb, b[2], c.caida)];
+}
+
+/** Lo que mide en casillas, en x y en y, un píxel de un módulo colocado: su escala. */
+function escalaDe(s: Pick<Sprite, 'nw' | 'nh' | 'alto' | 'ancho'>): readonly [number, number] {
+  const ky = s.alto / s.nh;
+  return [s.ancho === undefined ? ky : s.ancho / s.nw, ky];
+}
+
+/** Un punto del módulo de `s`, en píxeles, llevado al mapa: lo inverso de colocarlo. */
+function enElMapa(
+  s: Pick<Sprite, 'x' | 'y' | 'ax' | 'ay' | 'nw' | 'nh' | 'alto' | 'ancho'>,
+  [px, py]: readonly [number, number],
+): readonly [number, number] {
+  const [kx, ky] = escalaDe(s);
+  return [s.x - (s.ax - px) * kx, s.y - (s.ay - py) * ky];
 }
 
 /**
- * Las paredes de acantilado que no se apoyan en el pie de ninguna cara, y los
- * peñascos de su pedregal que caen fuera de toda banda. No filtra nada: mide lo
- * que dejó `ponerPared`. Las laderas las mide `laderasMalCubiertas`.
- *
- * - Un módulo, con su ancla a menos de `HOLGURA_DEL_PIE` del pie de una cara
- *   (`pieDeCara`, inclinado en la escalera) hasta media casilla más allá de
- *   ella, que es lo que se corre; o del pie recto sobre la cara, que es donde va
- *   el canto de un tajo. Una pared corrida con la `y` de su sitio daba 39 en las
- *   semillas 1-10, de pie en el río (#150, N1).
- * - Un peñasco, en la banda de una cara (con lo que el remate del tajo se sale
- *   de ella) y como mucho esa holgura bajo su pie.
- *
- * Sin arte (`src` nulo) no se sabe cuál es cuál y no se mide.
+ * Una pieza del relieve con dos puntos `m` del módulo sobre dos puntos `w` del
+ * mapa, estirada en alto `estira` veces, y con su ancla bajada a `yClave` (su
+ * clave de profundidad). La escala sale de la distancia entre los dos puntos.
  */
-export function paredesFueraDelPie(sprites: readonly Sprite[], caras: readonly Cara[]): Sprite[] {
-  const pies = caras.map((c) => ({ c, ...pieDeCara(c, caras) }));
-  const enLaBanda = (s: Sprite) =>
-    pies.some(
-      ({ c, pie }) =>
-        s.x >= c.x0 - 0.15 && s.x <= c.x1 + 1.15 && s.y >= c.y + 1 && s.y <= pie + HOLGURA_DEL_PIE,
+function sobreDosPuntos(
+  modulo: Pick<Modulo, 'src' | 'nw' | 'nh' | 'ax'>,
+  m: readonly [readonly [number, number], readonly [number, number]],
+  w: readonly [readonly [number, number], readonly [number, number]],
+  porCasilla: number,
+  estira: number,
+  yClave: number,
+): Pick<Sprite, 'src' | 'nw' | 'nh' | 'ax' | 'ay' | 'x' | 'y' | 'alto' | 'ancho'> {
+  const kx = 1 / porCasilla;
+  const ky = kx * estira;
+  const x = (w[0][0] + (modulo.ax - m[0][0]) * kx + w[1][0] + (modulo.ax - m[1][0]) * kx) / 2;
+  // El ancla, en el píxel del módulo que cae en `yClave`.
+  const ay = (m[0][1] + (yClave - w[0][1]) / ky + m[1][1] + (yClave - w[1][1]) / ky) / 2;
+  return {
+    src: modulo.src,
+    nw: modulo.nw,
+    nh: modulo.nh,
+    ax: modulo.ax,
+    ay,
+    x,
+    y: yClave,
+    alto: modulo.nh * ky,
+    ...(estira === 1 ? {} : { ancho: modulo.nw * kx }),
+  };
+}
+
+/**
+ * Dónde va el módulo `m` de diagonal en la pared `c`: sus dos filos sobre los
+ * dos de la celda (`filosDe`), de los que sale la escala; en una caída mayor
+ * que la de su arte, estirado en alto. Su clave, bajo el pie de su pared.
+ *
+ * Estirado, los dos filos no caen a la vez en su sitio: van a media casilla en
+ * y, y la media casilla crece con el estirón. Van centrados (en caída 3, cada
+ * uno a un octavo de casilla del suyo): mejor eso que una pieza de caída 2 con
+ * el pie 0,6 casillas corto.
+ */
+export function spriteDeDiagonal(m: ModuloDeDiagonal, hoja: string, c: Celda): Sprite {
+  const w = filosDe(c);
+  const [ma, mb] = m.diagonal.filo;
+  const porCasilla =
+    Math.hypot(mb[0] - ma[0], mb[1] - ma[1]) / Math.hypot(w[1][0] - w[0][0], w[1][1] - w[0][1]);
+  const [pa, pb] = piesDe(c);
+  const tono = tonoDe(hoja);
+  return {
+    ...(tono === undefined ? {} : { tono }),
+    ...sobreDosPuntos(
+      m,
+      [ma, mb],
+      w,
+      porCasilla,
+      estiramiento(c.caida),
+      Math.max(pa[1], pb[1]) + DETRAS_DEL_PIE,
+    ),
+    clase: 'pared',
+    color: COLOR_DE_DIAGONAL,
+    capa: 0,
+    sombra: true,
+  };
+}
+
+/** Dónde quedaron los dos filos de un módulo de diagonal ya colocado: lo inverso de `spriteDeDiagonal`. */
+export function filosColocados(
+  m: ModuloDeDiagonal,
+  s: Pick<Sprite, 'x' | 'y' | 'ax' | 'ay' | 'nw' | 'nh' | 'alto' | 'ancho'>,
+): readonly [readonly [number, number], readonly [number, number]] {
+  return [enElMapa(s, m.diagonal.filo[0]), enElMapa(s, m.diagonal.filo[1])];
+}
+
+/** El marcador de una diagonal sin arte: en medio de sus filos, con la clave de su pieza. */
+export function marcadorDeDiagonal(c: Celda): Sprite {
+  const [fa, fb] = filosDe(c);
+  const [pa, pb] = piesDe(c);
+  return {
+    src: null,
+    nw: 1,
+    nh: 1,
+    ax: 0.5,
+    ay: 1,
+    x: (fa[0] + fb[0]) / 2,
+    y: Math.max(pa[1], pb[1]) + DETRAS_DEL_PIE,
+    alto: c.caida * ALTO_DE_NIVEL + 0.4,
+    clase: 'pared',
+    color: COLOR_DE_DIAGONAL,
+    capa: 0,
+    sombra: true,
+  };
+}
+
+/**
+ * Dónde va el módulo `m` de bajada: su `arriba` donde la senda cruza el filo y
+ * su `abajo` en el pie de la pared bajo él (`abajoDe`). La escala sale de lo que
+ * mide su guía entre los dos, a la caída de su arte; en una mayor, estirada en
+ * alto. Su clave, bajo el pie: después de las frontales de su tramo.
+ */
+export function spriteDeBajada(m: ModuloDeBajada, hoja: string, b: Bajada, yClave: number): Sprite {
+  const de = caidaDeArte(b.caida);
+  const { arriba, abajo } = m.bajada;
+  const porCasilla =
+    Math.hypot(abajo[0] - arriba[0], abajo[1] - arriba[1]) /
+    Math.hypot(taludDeBajadaDe(b.rumbo, de), de * ALTO_DE_NIVEL);
+  const w = [b.arriba, abajoDe(b)] as const;
+  const estira = estiramiento(b.caida);
+  // Con los dos puntos se ancla por `arriba`: estirada, `abajo` no cae en su sitio en x.
+  const s = sobreDosPuntos(m, [arriba, arriba], [w[0], w[0]], porCasilla, estira, yClave);
+  const tono = tonoDe(hoja);
+  return {
+    ...(tono === undefined ? {} : { tono }),
+    ...s,
+    clase: 'pared',
+    color: COLOR_DE_BAJADA,
+    capa: 0,
+    sombra: false,
+  };
+}
+
+/** El marcador de una bajada sin arte: en el pie, con la clave de su pieza. */
+export function marcadorDeBajada(b: Bajada, yClave: number): Sprite {
+  const [x] = abajoDe(b);
+  return {
+    src: null,
+    nw: 1,
+    nh: 1,
+    ax: 0.5,
+    ay: 1,
+    x,
+    y: yClave,
+    alto: b.caida * ALTO_DE_NIVEL + 0.35,
+    clase: 'pared',
+    color: COLOR_DE_BAJADA,
+    capa: 0,
+    sombra: false,
+  };
+}
+
+/**
+ * La clave de profundidad de una bajada: bajo el pie más bajo de las paredes que
+ * cruza (las de las celdas que tocan su `arriba`) y bajo el suyo. Así se pinta
+ * después de ellas: con la de su pie, la diagonal convexa que cruza, que tiene
+ * el pie más abajo, la tapaba.
+ */
+export function claveDeBajada(b: Bajada, vistas: readonly Celda[]): number {
+  let pie = abajoDe(b)[1];
+  for (const c of vistas)
+    if (Math.abs(b.arriba[0] - c.vx) <= 0.5 + 1e-9 && Math.abs(b.arriba[1] - c.vy) <= 0.5 + 1e-9)
+      for (const [, y] of piesDe(c)) pie = Math.max(pie, y);
+  return pie + DETRAS_DEL_PIE;
+}
+
+/** El camino de la rampa de una bajada (`rampaDe`), cada `PASO_POR_EL_TABLERO`. */
+export function caminoDeBajada(b: Bajada): (readonly [number, number])[] {
+  const [[ax, ay], [bx, by]] = rampaDe(b);
+  const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / PASO_POR_EL_TABLERO));
+  return Array.from(
+    { length: n + 1 },
+    (_, j) => [ax + ((bx - ax) * j) / n, ay + ((by - ay) * j) / n] as const,
+  );
+}
+
+/**
+ * Si lo que pinta `s` cubre el punto `(x, y)`: bajo la silueta de su módulo
+ * (`bajoLaSilueta`), o, sin arte, dentro del triángulo de su marcador.
+ */
+export function tapaElPunto(s: Sprite, perfilDe: PerfilDe, x: number, y: number): boolean {
+  if (s.src === null) {
+    const w = s.alto * 0.45;
+    if (y > s.y || y < s.y - s.alto) return false;
+    return Math.abs(x - s.x) <= (w * (y - (s.y - s.alto))) / s.alto;
+  }
+  return bajoLaSilueta(s, perfilDe(s), x, y, cajaDeSprite(s));
+}
+
+/** Si los tramos `a → b` y `c → d` se cortan. */
+function seCortan(
+  [ax, ay]: readonly [number, number],
+  [bx, by]: readonly [number, number],
+  [cx, cy]: readonly [number, number],
+  [dx, dy]: readonly [number, number],
+): boolean {
+  const lado = (px: number, py: number, qx: number, qy: number, rx: number, ry: number) =>
+    Math.sign((qx - px) * (ry - py) - (qy - py) * (rx - px));
+  return (
+    lado(ax, ay, bx, by, cx, cy) * lado(ax, ay, bx, by, dx, dy) <= 0 &&
+    lado(cx, cy, dx, dy, ax, ay) * lado(cx, cy, dx, dy, bx, by) <= 0
+  );
+}
+
+/**
+ * Las paredes que cruza un puente, de estribo a estribo, como `claveDeCelda`:
+ * no llevan pieza, que la tapa su estribo y bajo el tablero se ve el agua. Es lo
+ * que antes abría un tajo en la cara (`cortes`).
+ */
+export function celdasBajoLosPuentes(
+  cs: readonly Celda[],
+  puentes: readonly Pick<Puente, 'extremos'>[],
+): Set<string> {
+  const fuera = new Set<string>();
+  for (const c of cs) {
+    if (!esVisto(c.tipo)) continue;
+    const [fa, fb] = filosDe(c);
+    for (const { extremos } of puentes)
+      if (seCortan(fa, fb, extremos[0], extremos[1])) fuera.add(claveDeCelda(c));
+  }
+  return fuera;
+}
+
+/**
+ * Por qué una pared vista puede quedar sin pieza, o null si no hay razón: la
+ * reserva de un objeto en alguno de sus puntos (`puntosDeCelda`), o la caja de
+ * una pared que la puerta no dejó entrar ahí, por una reserva o por un puente
+ * que taparía (`rechazos`).
+ */
+export function vaciaPorque(
+  c: Celda,
+  reservas: { tomada(x: number, y: number): boolean },
+  rechazos: readonly Rechazo[],
+): string | null {
+  const puntos = puntosDeCelda(c);
+  if (puntos.some(([x, y]) => reservas.tomada(x, y))) return 'reserva';
+  for (const { caja, razon } of rechazos)
+    if (puntos.some(([x, y]) => x >= caja[0] && x <= caja[2] && y >= caja[1] && y <= caja[3]))
+      return razon;
+  return null;
+}
+
+/** Una pared que la puerta no dejó entrar: lo que ocupaba y por qué. */
+export interface Rechazo {
+  readonly caja: Caja;
+  readonly razon: 'reserva' | 'puente';
+}
+
+/**
+ * Los puntos de una pared que miran la reserva de un objeto: sus filos, sus
+ * pies y, entre ellos, cada cuarto de casilla. Los mira la puerta de una
+ * diagonal y, para toda pared, la razón de quedar vacía (`vaciaPorque`): una
+ * frontal se para en la reserva de su pie o de su filo, que caen entre ellos.
+ */
+export function puntosDeCelda(c: Celda): (readonly [number, number])[] {
+  const [fa, fb] = filosDe(c);
+  const [pa, pb] = piesDe(c);
+  const fuera: (readonly [number, number])[] = [];
+  for (let k = 0; k <= 4; k++) {
+    const t = k / 4;
+    fuera.push(
+      [fa[0] + (fb[0] - fa[0]) * t, fa[1] + (fb[1] - fa[1]) * t],
+      [pa[0] + (pb[0] - pa[0]) * t, pa[1] + (pb[1] - pa[1]) * t + 0.05],
     );
-  const enElPie = (s: Sprite) =>
-    pies.some(({ c, pie, en }) => {
-      const y = s.y - 0.05;
-      if (s.x >= c.x0 - 0.05 && s.x <= c.x1 + 1.05 && Math.abs(y - pie) <= HOLGURA_DEL_PIE)
-        return true;
-      return s.x >= c.x0 - 0.55 && s.x <= c.x1 + 1.55 && Math.abs(y - en(s.x)) <= HOLGURA_DEL_PIE;
-    });
-  return sprites.filter((s) => {
-    if (s.clase !== 'pared' || s.src === null || s.src.includes('/laderas-')) return false;
-    return s.src.includes('/rocas-caidas/') ? !enLaBanda(s) : !enElPie(s);
-  });
+  }
+  // Y por donde puede caer el ancla de su pieza: a su clave, bajo el pie, y a
+  // los lados del medio de sus filos (el módulo no se ancla en el medio).
+  const y = Math.max(pa[1], pb[1]) + DETRAS_DEL_PIE;
+  const x = (fa[0] + fb[0]) / 2;
+  for (const dx of [-0.3, -0.15, 0, 0.15, 0.3]) fuera.push([x + dx, y]);
+  return fuera;
+}
+
+/** Lo que se tolera entre dónde quedó una junta y dónde debía, en casillas. */
+const HOLGURA_DE_JUNTA = 0.02;
+
+const cerca = (p: readonly [number, number], q: readonly [number, number]) =>
+  Math.abs(p[0] - q[0]) <= HOLGURA_DE_JUNTA && Math.abs(p[1] - q[1]) <= HOLGURA_DE_JUNTA;
+
+/** Los módulos de diagonales y de bajadas del catálogo por su `src`. */
+function modulosDelRelieve(catalogo: Catalogo): {
+  diagonales: Map<string, ModuloDeDiagonal>;
+  bajadas: Map<string, ModuloDeBajada>;
+} {
+  const diagonales = new Map<string, ModuloDeDiagonal>();
+  const bajadas = new Map<string, ModuloDeBajada>();
+  for (const [hoja, ms] of Object.entries(catalogo.hojas))
+    for (const m of ms) {
+      if (esHojaDeDiagonal(hoja) && m.diagonal !== undefined)
+        diagonales.set(m.src, m as ModuloDeDiagonal);
+      if (esHojaDeBajada(hoja) && m.bajada !== undefined) bajadas.set(m.src, m as ModuloDeBajada);
+    }
+  return { diagonales, bajadas };
+}
+
+/**
+ * Las paredes vistas mal cubiertas, cada una con lo que le pasa. Se reconstruye
+ * desde lo puesto, por la geometría de cada sprite (dónde quedaron sus juntas),
+ * no por lo que `componer` apuntó al ponerlo:
+ *
+ * - una caída al sur lleva al menos una frontal (`paredes-*`) apoyada en su pie
+ *   que cubre el centro de su celda;
+ * - una al este o al oeste, exactamente una ladera con su filo en el de la celda;
+ * - una diagonal, exactamente una pieza con sus dos filos en los de la celda, o
+ *   su marcador donde va;
+ *
+ * salvo las vacías por una razón declarada (`vacia`: la reserva de un objeto, un
+ * puente) y los barrancos (`Caidas.barrancos`), que llevan peñascos.
+ */
+export function celdasMalCubiertas(
+  sprites: readonly Sprite[],
+  rel: Pick<Caidas, 'vistas' | 'barrancos'>,
+  catalogo: Catalogo,
+  vacia: (c: Celda) => string | null,
+): string[] {
+  const deLadera = modulosDeLadera(catalogo);
+  const { diagonales } = modulosDelRelieve(catalogo);
+  const barrancos = new Set(rel.barrancos);
+  /** Cuántas piezas lleva cada pared, por `claveDeCelda`. */
+  const piezas = new Map<string, number>();
+  const sumar = (k: string) => piezas.set(k, (piezas.get(k) ?? 0) + 1);
+  const porFilos = new Map<string, Celda[]>();
+  const claveDeFilos = (p: readonly [number, number], q: readonly [number, number]) =>
+    `${Math.round(p[0] * 2)},${Math.round(p[1] * 2)},${Math.round(q[0] * 2)},${Math.round(q[1] * 2)}`;
+  const porVertice = new Map<string, Celda[]>();
+  for (const c of rel.vistas) {
+    const [fa, fb] = filosDe(c);
+    const k = claveDeFilos(fa, fb);
+    porFilos.set(k, [...(porFilos.get(k) ?? []), c]);
+    const v = `${c.vx},${c.vy}`;
+    porVertice.set(v, [...(porVertice.get(v) ?? []), c]);
+  }
+  /** Las paredes de los vértices de la columna `vx` de las filas `vy0` a `vy1`. */
+  const enColumna = (vx: number, vy0: number, vy1: number) =>
+    Array.from(
+      { length: vy1 - vy0 + 1 },
+      (_, k) => porVertice.get(`${vx},${vy0 + k}`) ?? [],
+    ).flat();
+  const frontales: { caja: readonly [number, number, number, number]; y: number }[] = [];
+  const mal: string[] = [];
+  for (const s of sprites) {
+    if (s.clase !== 'pared') continue;
+    if (s.src?.includes('/paredes-') === true) {
+      frontales.push({ caja: cajaDeSprite(s), y: s.y });
+      continue;
+    }
+    const ladera = s.src === null ? undefined : deLadera.get(s.src);
+    if (ladera !== undefined) {
+      const { filo, pie } = juntasColocadas(ladera.modulo, s);
+      const este = pie[0] > filo[0];
+      const fila = filo[1];
+      const vx = Math.round(filo[0]);
+      if (
+        Math.abs(filo[0] - vx) > HOLGURA_DE_JUNTA ||
+        Math.abs(fila * 2 - Math.round(fila * 2)) > HOLGURA_DE_JUNTA * 2
+      ) {
+        mal.push(
+          `${s.src} con el filo en ${filo[0].toFixed(2)},${filo[1].toFixed(2)}: fuera de toda junta`,
+        );
+        continue;
+      }
+      for (let k = 0; k < ladera.modulo.ladera.largo; k++) {
+        const vy = Math.round(fila * 2) / 2 + 0.5 + k;
+        const c = porVertice.get(`${vx},${vy}`)?.find((o) => o.tipo === (este ? 'E' : 'O'));
+        if (c === undefined)
+          mal.push(`${s.src} en ${vx},${vy}: no hay ladera ${este ? 'este' : 'oeste'} ahí`);
+        else sumar(claveDeCelda(c));
+      }
+      continue;
+    }
+    const diagonal = s.src === null ? undefined : diagonales.get(s.src);
+    const filos =
+      diagonal !== undefined
+        ? filosColocados(diagonal, s)
+        : s.src === null && s.color === COLOR_DE_DIAGONAL
+          ? null
+          : undefined;
+    if (filos === undefined) continue;
+    const suyas =
+      filos === null
+        ? // El marcador va en medio de sus filos, a un cuarto de casilla de su
+          // vértice en x, y con su clave bajo el pie, hasta la caída más alta.
+          enColumna(Math.round(s.x), Math.floor(s.y) - 4, Math.ceil(s.y)).filter((c) => {
+            const m = marcadorDeDiagonal(c);
+            return cerca([m.x, m.y], [s.x, s.y]) && Math.abs(m.alto - s.alto) < 1e-6;
+          })
+        : (porFilos.get(claveDeFilos(filos[0], filos[1])) ?? []).filter((c) => {
+            const [fa, fb] = filosDe(c);
+            return cerca(fa, filos[0]) && cerca(fb, filos[1]);
+          });
+    if (suyas.length === 0)
+      mal.push(
+        `${s.src ?? 'marcador de diagonal'} en ${s.x.toFixed(2)},${s.y.toFixed(2)}: fuera de toda celda`,
+      );
+    for (const c of suyas) sumar(claveDeCelda(c));
+  }
+  for (const c of rel.vistas) {
+    if (barrancos.has(c)) continue;
+    const k = claveDeCelda(c);
+    const donde = `${c.vx},${c.vy} ${c.tipo}`;
+    const n =
+      c.tipo === 'S'
+        ? frontales.some(
+            ({ caja, y }) =>
+              caja[0] <= c.vx &&
+              caja[2] >= c.vx &&
+              Math.abs(y - (c.vy + c.caida * ALTO_DE_NIVEL)) <= 0.3,
+          )
+          ? 1
+          : 0
+        : (piezas.get(k) ?? 0);
+    if (n > 1) mal.push(`${donde}: ${n} piezas`);
+    else if (n === 0 && vacia(c) === null) mal.push(`${donde}: sin pieza y sin razón`);
+  }
+  return mal;
+}
+
+/** El `arriba` de una bajada ya colocada (su pieza o su marcador), o null si `s` no es una bajada. */
+function arribaColocado(
+  s: Sprite,
+  bajadas: ReadonlyMap<string, ModuloDeBajada>,
+  b: Bajada,
+): readonly [number, number] | null {
+  const m = s.src === null ? undefined : bajadas.get(s.src);
+  if (m !== undefined) return enElMapa(s, m.bajada.arriba);
+  if (s.src === null && s.color === COLOR_DE_BAJADA) {
+    // El marcador va en la x del pie, con la clave por debajo de él.
+    const [x, y] = abajoDe(b);
+    return Math.abs(s.x - x) <= HOLGURA_DE_JUNTA && s.y >= y ? b.arriba : null;
+  }
+  return null;
+}
+
+/** Las bajadas sin su pieza (o su marcador) con el `arriba` en su sitio, cada una dicha. */
+export function bajadasSinPieza(
+  sprites: readonly Sprite[],
+  bajadas: readonly Bajada[],
+  catalogo: Catalogo,
+): string[] {
+  const m = modulosDelRelieve(catalogo).bajadas;
+  return bajadas
+    .filter(
+      (b) =>
+        !sprites.some((s) => s.clase === 'pared' && cercaDe(arribaColocado(s, m, b), b.arriba)),
+    )
+    .map(
+      (b) => `bajada ${b.rumbo} en ${b.arriba[0].toFixed(2)},${b.arriba[1].toFixed(2)}: sin pieza`,
+    );
+}
+
+const cercaDe = (p: readonly [number, number] | null, q: readonly [number, number]) =>
+  p !== null && cerca(p, q);
+
+/**
+ * Lo que tapa el camino de alguna bajada, medido desde lo pintado: cada volumen
+ * que `separar` pone después de la bajada (y se pinta encima) cuya silueta
+ * (`bajoLaSilueta`: el perfil de su módulo, o su caja si no lo trae) cubre algún
+ * punto de su camino por la pared, de `arriba` a `abajo`, mirado cada
+ * `PASO_POR_EL_TABLERO`. Como `puentesTapados`, no pregunta a la puerta.
+ * No cuentan lo horneado ni los muros, ni las rocas planas del pie.
+ */
+export function bajadasTapadas(
+  sprites: readonly Sprite[],
+  bajadas: readonly Bajada[],
+  catalogo: Catalogo,
+): string[] {
+  const m = modulosDelRelieve(catalogo).bajadas;
+  const perfilDe = perfilesDelCatalogo(catalogo);
+  const { volumenes } = separar({ sprites });
+  const fuera: string[] = [];
+  for (const b of bajadas) {
+    const k = volumenes.findIndex(
+      ({ s }) => s.clase === 'pared' && cercaDe(arribaColocado(s, m, b), b.arriba),
+    );
+    if (k < 0) continue;
+    const puntos = caminoDeBajada(b);
+    for (const { s } of volumenes.slice(k + 1)) {
+      if (s.clase === 'objeto' || s.clase === 'muro') continue;
+      // Otra bajada que se cruza con esta es el mismo camino que se abre en dos.
+      if ((s.src !== null && m.has(s.src)) || (s.src === null && s.color === COLOR_DE_BAJADA))
+        continue;
+      if (puntos.some(([x, y]) => tapaElPunto(s, perfilDe, x, y))) {
+        fuera.push(
+          `bajada ${b.rumbo} en ${b.arriba[0].toFixed(2)},${b.arriba[1].toFixed(2)}: la tapa ${s.src ?? s.clase} en ${s.x.toFixed(2)},${s.y.toFixed(2)}`,
+        );
+        break;
+      }
+    }
+  }
+  return fuera;
 }
 
 /** Ruido de valor suave, de 0 a 1, con celdas de `escala` casillas: dónde hay mancha. */

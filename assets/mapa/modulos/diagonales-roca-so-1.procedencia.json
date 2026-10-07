@@ -1,0 +1,56 @@
+{
+  "encargo": "modulos-diagonales-roca-so-1",
+  "tipo": "modulos",
+  "fecha": "2026-10-07T19:27:21.195Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a117d4-3d8c-7ab1-8014-870b61ca60e1",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de MATERIAL: de ella se toman SOLO el color, la textura y la paleta de la roca y de lo que crece en ella, para que case con estas piezas. NO copies su forma (columnas, prismas, bloques en fila) ni su composición.\nLa imagen 4 es la GUÍA DE GEOMETRÍA: un volumen gris sin acabado, dibujado con la cámara del juego. Manda en la ORIENTACIÓN, la forma, las proporciones, el tamaño y la posición de cada pieza dentro de la imagen: cópialas con exactitud, sin girar ni torcer nada. NO copies su gris liso, sus aristas de esquema ni su fondo plano: el material, el detalle y la luz son los de la imagen de estilo.\n\nUna hoja de 4 módulos de RISCO EN DIAGONAL para el mapa de aventura de un juego de estrategia: el borde de una meseta que cae UN nivel y DOBLA LA ESQUINA, de roca gris pizarra con musgo oliva oscuro, del color de las paredes de la imagen 3. La forma de las piedras, rotas y angulosas, es la de los peñascos de la imagen 2. Es la misma roca que las laderas y las paredes frontales del juego, doblando en curva de una a otra.\nCADA MÓDULO ES UN TROZO CORTADO DE UN MISMO RISCO LARGO Y CONTINUO: por sus dos extremos sigue en otros módulos. Los dos extremos están CORTADOS LIMPIOS por la diagonal del filo al pie que marca la guía, sin cerrarse, sin redondearse, sin rematar en una mata, un pilar ni un bloque; la roca y el derrubio siguen hasta el corte como si continuaran fuera de la imagen.\nEL FILO GIRA EN CURVA SUAVE, un cuarto de vuelta redondeado como marca la guía, nunca en ángulo ni en chaflán recto; su contorno se rompe en salientes de roca, repisas y bloques. Ninguna línea recta ni vertical larga.\nLa pared es un TALUD NATURAL, no un muro: arriba, bajo el filo, un escarpe de losas y estratos ROTOS, desplazados y agrietados, con repisas con algo de musgo; abajo, un derrubio de piedras y bloques angulosos de tamaños muy distintos que se abre hacia el pie. NUNCA columnas, prismas, pilares, órganos ni bloques apilados como sillares, NUNCA una losa lisa grande, y nada asoma por encima del filo.\nENCIMA DEL FILO NO HAY NINGUNA FRANJA NI CINTA: la meseta, un prado de hierba corta verde oliva OSCURO y apagado, la pone el juego. Solo el labio de roca del filo (la línea gris clara de la guía), estrecho y roto, y unas pocas matas sueltas y pequeñas de color apagado (los borrones claros de la guía); entre ellas, transparente. Nada de verde amarillo ni de colores vivos.\nEL LABIO NO ES UN BORDILLO NI UN MURETE: nada de piedras labradas, adoquines ni bloques puestos en hilera siguiendo la curva del filo. Es el borde ROTO e irregular de la misma roca de la pared, fino y mellado, con musgo y alguna mata.\nLA SILUETA DE CADA MÓDULO ES LA DE LA GUÍA (imagen 4), CALCADA: mismo sitio, mismo alto, mismo ancho y la misma curva, sin girarla, tumbarla ni ensancharla. Lo gris oscuro es el escarpe, lo gris medio el derrubio, los polígonos claros, bloques.\nDEL LADO DE LA MESETA NO HAY NADA: no pintes roca, pared ni sombra por detrás del labio; ahí la imagen es transparente. No es una cresta ni un muro con dos caras.\ncolumna 1 (convexa-a): ESQUINA (convexa): la PUNTA de una meseta. El filo baja de lo alto de la imagen casi vertical (ahí sigue una ladera que cae a la izquierda) y gira redondeado en un cuarto de vuelta hasta salir por la DERECHA en horizontal (ahí sigue una pared frontal que mira a la cámara). La meseta queda DENTRO de la curva, arriba a la derecha; la pared mira hacia abajo a la izquierda, al suroeste.\ncolumna 2 (convexa-b): ESQUINA (convexa): la PUNTA de una meseta. El filo baja de lo alto de la imagen casi vertical (ahí sigue una ladera que cae a la izquierda) y gira redondeado en un cuarto de vuelta hasta salir por la DERECHA en horizontal (ahí sigue una pared frontal que mira a la cámara). La meseta queda DENTRO de la curva, arriba a la derecha; la pared mira hacia abajo a la izquierda, al suroeste. Distinta de la de su izquierda en el contorno, como marca la guía.\ncolumna 3 (concava-a): RINCÓN (cóncavo): el filo entra por la IZQUIERDA en horizontal (ahí sigue una pared frontal) y gira redondeado en un cuarto de vuelta hasta salir por ABAJO casi vertical (ahí sigue una ladera que cae a la izquierda). La meseta queda FUERA de la curva, arriba y a la derecha; lo bajo, dentro del rincón, abajo a la izquierda, y la pared mira hacia ahí.\ncolumna 4 (concava-b): RINCÓN (cóncavo): el filo entra por la IZQUIERDA en horizontal (ahí sigue una pared frontal) y gira redondeado en un cuarto de vuelta hasta salir por ABAJO casi vertical (ahí sigue una ladera que cae a la izquierda). La meseta queda FUERA de la curva, arriba y a la derecha; lo bajo, dentro del rincón, abajo a la izquierda, y la pared mira hacia ahí. Distinta de la de su izquierda en el contorno, como marca la guía.\nAl pie, POCOS bloques angulosos, pequeños y de formas irregulares, medio enterrados en el derrubio y amontonados sin orden; nunca cubos grandes, bolas redondas ni piedras en fila. Donde la guía pone un bloque claro grande, una roca rota y achaparrada.\nLa pared mira al SUROESTE y la luz viene de arriba a la izquierda: la pared recibe la luz de lleno y es lo más iluminado de cada módulo; las sombras de las grietas y de los bloques caen hacia la derecha y hacia abajo. Es otra pieza distinta, no el reflejo de una pared al sureste.\nEstilo de la imagen de estilo, que manda sobre cualquier otra idea: fantasía medieval OSCURA y sombría, pintura digital muy detallada como una maqueta en miniatura, con muchísimo detalle menudo (piedras, matas, grietas, raíces). Paleta APAGADA y poco saturada: verdes oliva y musgo oscuros, grises pizarra, pardos terrosos, rojos óxido; nada de colores vivos ni de aspecto de juego para móvil. Sombras profundas y oclusión marcada entre los detalles, luz tenue y algo fría, con contraste dramático.\n\nRejilla de 1 filas por 4 columnas: 4 módulos sueltos de la misma familia, con mucho aire alrededor de cada uno; NINGÚN módulo toca a otro, ni con una rama ni con una sombra.\nTodos con la misma cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, nunca cenital ni de perfil, y a la MISMA escala: un módulo pequeño es pequeño de verdad, no un grande dibujado más chico.\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/art/mapas/Imagen de ChatGPT 3 oct 2026, 10_05_01.png",
+      "papel": "estilo",
+      "sha256": "a3b78bb6efb486f6c65827e19739696aab723d824331faaa6d58d84c727fe6f5"
+    },
+    {
+      "ruta": "assets/mapa/modulos/rocas-caidas.webp",
+      "papel": "identidad",
+      "sha256": "30da35f07c78ccf648360b9713a4e6181744110b633e7cd9736a49d6cb98b485"
+    },
+    {
+      "ruta": "assets/mapa/modulos/paredes-roca.webp",
+      "papel": "material",
+      "sha256": "02199c7c866dd6fd088369a5c3b2045ddf17f09d4d3af0cc4ce55568d4f7e1be"
+    },
+    {
+      "ruta": "assets/mapa/guias/diagonales-so-1.png",
+      "papel": "guia",
+      "sha256": "439ba6261db2931a75305fa09d29e609ee7c3964ae32385596d13c964fe770f8"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a117d4-3d8c-7ab1-8014-870b61ca60e1/exec-e9a080f1-1b80-4d05-ab5f-bbc1369f1d9b.png",
+    "sha256": "ec457bdac894fe760b1a42718e2d528bf289f370130e03cd98a57ba79d37f64c",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "hoja partida en 4 módulos a su tamaño nativo, cada uno con su ancla en la base",
+    "WebP calidad 92, alfa sin pérdida",
+    "las juntas de cada módulo, registradas sobre la guía"
+  ],
+  "validacion": {
+    "visibles": 0.3946200679235307,
+    "opacos": 0.9888269874906008,
+    "haloSuelto": 0,
+    "ancho": 1474,
+    "alto": 503
+  },
+  "salida": {
+    "ruta": "assets/mapa/modulos/diagonales-roca-so-1.webp",
+    "sha256": "79d68ff537aef5cb8cd184ae891b168c80af3a80b9d68e96e3eb1a137fe4db54"
+  }
+}

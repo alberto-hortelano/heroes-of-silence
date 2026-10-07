@@ -43,7 +43,7 @@ import {
   PX_DE_LAS_FRONTERAS,
 } from './fronteras.js';
 import { cajaDeSprite } from './pasillo.js';
-import { bandaDeCara, type CaraDeEscena, SOLAPE } from './relieve.js';
+import { bandaDeCara, type CaraDeEscena } from './relieve.js';
 import {
   ANCHO_DE_SENDA,
   ANCHO_DEL_VADO,
@@ -435,44 +435,19 @@ export function pintarSuelo(
     const w = (bx1 - bx0) * T;
     const h = (by1 - by0) * T;
     // Solo bajo la silueta de su pared (#159): donde no la tapa ninguna se ve
-    // el suelo de abajo, como en un tajo. La banda entera era un rectángulo
+    // el suelo de abajo. La banda entera era un rectángulo
     // liso de bordes rectos donde la pared no entraba o era transparente.
     if (!f.pintada.some((t) => t !== null)) return;
     c.save();
     c.beginPath();
     contornoDeCara(f);
     if (silueta) {
-      // El tajo cuenta como cubierto, como el pasillo: está despejado a propósito.
       c.fillStyle = '#fff';
       c.fill();
       c.restore();
       return;
     }
     c.clip();
-    // El tajo de cada rampa se queda fuera (`evenodd`: la cara menos sus
-    // trapecios) y se ve el suelo de debajo con su senda, ya pintados. Sin
-    // desenfoque en el borde: con `blur` quedaba el marco tenue de un
-    // rectángulo fantasma. Un recorte aparte del contorno: en el mismo
-    // `evenodd`, lo del trapecio que cae fuera del contorno se pintaba.
-    const tajos = f.rampas;
-    if (tajos.length > 0) {
-      c.beginPath();
-      c.rect(x, y, w, h);
-      const abre = ABRE_DEL_TAJO * T;
-      for (const r of tajos) {
-        // Un borde que es el extremo de la cara se corta recto y pasado; uno de
-        // dentro, inclinado: más estrecho en el filo que en el pie, como un
-        // paso abierto en la roca. Nunca más ancho que el tajo.
-        const [izqFilo, izqPie] = r.dentro[0] ? [r.a * T + abre, r.a * T] : [x - T, x - T];
-        const [derFilo, derPie] = r.dentro[1] ? [r.b * T - abre, r.b * T] : [x + w + T, x + w + T];
-        c.moveTo(izqFilo, y - 1);
-        c.lineTo(derFilo, y - 1);
-        c.lineTo(derPie, y + h + 1);
-        c.lineTo(izqPie, y + h + 1);
-        c.closePath();
-      }
-      c.clip('evenodd');
-    }
     const im = o.imagen(`texturas/${f.material}.webp`);
     const patron = lista(im) ? c.createPattern(im, 'repeat') : null;
     if (patron !== null && im !== undefined) {
@@ -678,15 +653,6 @@ export function pintarSuelo(
     }
   c.restore();
 }
-
-/**
- * Lo que se cierra el tajo de una rampa en el filo por cada borde de dentro de
- * la cara, en casillas: abierto abajo y más estrecho arriba se lee como un paso
- * cortado en la roca, y no como un rectángulo recortado. Es lo que la pared
- * monta sobre el tajo (`SOLAPE`): así la cara llega en el filo justo hasta la
- * pared y no asoma una tira entre las dos.
- */
-const ABRE_DEL_TAJO = SOLAPE;
 
 /** Lo que se ve el arcén: más, y el pasillo se lee como una carretera ancha. */
 const ALFA_DEL_ARCEN = 0.4;
