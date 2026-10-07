@@ -1150,6 +1150,11 @@ export function renderLog(log: readonly GameEventDraft[], viewer: number): Html 
         case 'hero_moved':
         case 'player_defeated':
           return NADA;
+        // Que la marcha se corte al acabarse los puntos ya lo enseñaba la ruta,
+        // que pinta aparte lo que no llega hoy: aquí sería ruido en cada clic
+        // lejano. Es para el agente, que no ve la ruta.
+        case 'march_cut':
+          return NADA;
       }
       // Exhaustivo: con un `kind` nuevo, `e` deja de ser `never` aquí y esta
       // línea no compila hasta que alguien decida si se pinta o no.

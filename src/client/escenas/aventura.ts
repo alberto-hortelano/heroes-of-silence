@@ -200,6 +200,12 @@ export class EscenaAventura {
   private señalar(casilla: Point): void {
     const s = this.sesion();
     this.hover = casilla;
+    // Con la partida terminada la barra es del desenlace (#158 c): no hay ruta
+    // que enseñar y describir la casilla taparía el «Derrota…».
+    if (s.desenlace !== null) {
+      this.olvidarRuta();
+      return;
+    }
     const heroe = s.selectedHero;
     const clave = `${pointKey(casilla)}|${heroe?.id ?? ''}|${heroe?.movePoints ?? 0}|${s.isPlayersTurn}`;
     if (clave === this.claveRuta) return;

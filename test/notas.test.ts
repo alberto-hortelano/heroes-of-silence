@@ -23,6 +23,7 @@ import {
   notaFinDePartida,
   notaMapaAceptado,
   notaMapaRechazado,
+  notaMarchaParcial,
   notaRespuestaInvalida,
   notaSinRespuesta,
   notaTurnoAventura,
@@ -63,6 +64,40 @@ describe('notas para el agente', () => {
     expect(nota).toContain('2 de 4');
     expect(nota).toContain('2 descartadas');
     expect(nota).toMatch(/NO se reintentan/);
+  });
+
+  it('una marcha que anduvo sin llegar entró parcialmente, no se descartó (#121)', () => {
+    const corte = (at: { x: number; y: number }, faltan: number) =>
+      ({ kind: 'march_cut', hero: 'h1', faltan, actor: 0, at, seen: [0] }) as const;
+    const parcial = notaMarchaParcial(
+      { type: 'move_hero', hero: 'h1', to: { x: 20, y: 5 } },
+      corte({ x: 12, y: 4 }, 7),
+    );
+    expect(parcial).toContain('move_hero h1');
+    expect(parcial).toBe('move_hero h1 → (20,5): se quedó en (12,4) y le faltan 7 pasos');
+    const uno = notaMarchaParcial(
+      { type: 'move_hero', hero: 'h1', to: { x: 1, y: 1 } },
+      corte({ x: 0, y: 0 }, 1),
+    );
+    expect(uno).toContain('falta 1 paso');
+
+    const nota = notaTurnoAventura(5, 3, 3, [], [parcial]);
+    expect(nota).toContain('3 acciones aplicadas');
+    // Sin descartes, «3 de 3» no dice nada que no diga «3».
+    expect(nota).not.toContain('3 de 3');
+    // La frase entera, con «entró parcialmente» una sola vez (QA, M-3).
+    expect(nota).toBe(
+      'Turno del día 5: 3 acciones aplicadas. Una marcha entró parcialmente, sin llegar: ' +
+        'move_hero h1 → (20,5): se quedó en (12,4) y le faltan 7 pasos.',
+    );
+    expect(nota.split('parcialmente').length - 1).toBe(1);
+    expect(nota).not.toMatch(/descartad/);
+    expect(nota).not.toMatch(/aplicado entero/);
+
+    // Con un descarte de verdad al lado, cada cosa en su sitio.
+    const mixta = notaTurnoAventura(5, 2, 3, ['build: ese pueblo no es tuyo'], [parcial]);
+    expect(mixta).toContain('1 descartada');
+    expect(mixta).toContain('entró parcialmente');
   });
 
   it('si la partida ya había terminado, no promete un turno que viene', () => {

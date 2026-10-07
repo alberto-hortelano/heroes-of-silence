@@ -301,10 +301,24 @@ describe('contrato con el agente', () => {
       ['\u0301abc', /acento o una marca suelta/], // y delante de un texto
       ['Ana\ue000', /caracteres que existen/], // uso privado
       ['Ana\u{f0000}', /caracteres que existen/], // uso privado suplementario
-      ['Ana\u0378', /caracteres que existen/], // sin asignar
       ['Ana\uffff', /caracteres que existen/], // no-carácter
       ['Ana\ufdd0', /caracteres que existen/], // no-carácter
       ['Ana\ud800', /caracteres que existen/], // sustituto suelto
+      // Lo invisible entre lo visible (#158): se ve «AnaBo» y es otro nombre.
+      ['Ana\u200bBo', /invisibles/], // espacio de anchura cero
+      ['Ana\u2060Bo', /invisibles/], // WORD JOINER
+      ['Ana\u00adBo', /invisibles/], // guion blando
+      ['Ana\u200dBo', /invisibles/], // ZWJ entre letras
+      ['Ana\ufeffBo', /invisibles/], // BOM / ZWNBSP
+      ['Ana\u{e0068}\u{e0069}Bo', /invisibles/], // etiquetas fuera de una bandera
+      ['\u{1F409}\u200dBo', /invisibles/], // ZWJ de un emoji a una letra
+      ['\u200d\u{1F409}', /invisibles/], // ZWJ delante de todo
+      ['Ana\ufe0fBo', /invisibles/], // selector de variante tras una letra
+      // Los tres huecos que encontró QA (M-1): se veían igual que otro nombre.
+      ['Bo1\ufe0f', /invisibles/], // tecla a medias, sin U+20E3: se ve «Bo1»
+      ['Bo1\ufe0f\u200d🐉', /invisibles/], // ZWJ tras la tecla a medias: se ve «Bo1🐉»
+      ['Bo🏴\u{e0061}\u{e0062}\u{e007f}', /invisibles/], // bandera inventada: se ve «Bo🏴»
+      ['🏴\u{e0065}\u{e0073}\u{e006d}\u{e0064}\u{e007f}', /invisibles/], // subdivisión con forma válida que no es emoji
     ];
     // La regla entera, sobre una superficie: el nombre del héroe.
     for (const [malo, motivo] of malos) {
@@ -328,8 +342,21 @@ describe('contrato con el agente', () => {
       '한강',
       '🇪🇸',
       '🏴\u{e0067}\u{e0062}\u{e0073}\u{e0063}\u{e0074}\u{e007f}', // Escocia, con etiquetas (Cf)
+      '🏴\u{e0067}\u{e0062}\u{e0065}\u{e006e}\u{e0067}\u{e007f}', // Inglaterra
+      '🏴\u{e0067}\u{e0062}\u{e0077}\u{e006c}\u{e0073}\u{e007f}', // Gales
+      '#️⃣',
+      '🏳️‍⚧️', // selector y ZWJ tras un pictográfico, y selector al final
       '🏳️‍🌈',
       '1️⃣',
+      '👩🏽‍💻', // modificador de tono y ZWJ
+      '🧑‍🦰',
+      // Lo que depende de la tabla Unicode del Node (#158 b) no se juzga: un emoji
+      // de Unicode 17 (U+1FAEA) y un pictográfico aún sin asignar (U+1F02C) pasan
+      // igual con Node 24.11 (Unicode 16) que con Node 26 (17). Y un sin asignar
+      // cualquiera también: se pinta como una caja, no tira el plan.
+      '\u{1FAEA}',
+      '\u{1F02C}',
+      'Ana\u0378',
     ];
     for (const b of buenos) {
       expect(motivos(heroe.safeParse({ ...bueno, name: b })), JSON.stringify(b)).toBe('');
@@ -341,6 +368,24 @@ describe('contrato con el agente', () => {
       /marcas de dirección/,
     );
     expect(motivos(mapPlanSchema.safeParse(conPueblo('Ana ❤️ Bo')))).toBe('');
+    expect(motivos(mapPlanSchema.safeParse(conPueblo('Ana\u200bBo')))).toMatch(/invisibles/);
+    // La historia del héroe, también.
+    expect(motivos(heroe.safeParse({ ...bueno, story: 'Guardó\u2060la puerta.' }))).toMatch(
+      /invisibles/,
+    );
+  });
+
+  it('la prosa de los dos formatos dice la regla de los invisibles (#158)', () => {
+    expect(RESPONSE_FORMAT.map_generate).toMatch(/sin caracteres invisibles/);
+    expect(RESPONSE_FORMAT.hero_from_troop).toMatch(/sin caracteres\s+invisibles/);
+    expect(RESPONSE_FORMAT.map_generate).not.toMatch(/sin asignar/);
+    expect(RESPONSE_FORMAT.hero_from_troop).not.toMatch(/sin asignar/);
+  });
+
+  it('un plan de mapa rechazado no promete reintento: se juega el procedimental (#122)', () => {
+    expect(RESPONSE_FORMAT.map_generate).not.toMatch(/corrij/);
+    expect(RESPONSE_FORMAT.map_generate).toMatch(/procedimental/);
+    expect(RESPONSE_FORMAT.map_generate).toMatch(/no se te vuelve a pedir/);
   });
 });
 

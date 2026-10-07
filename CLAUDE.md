@@ -129,6 +129,7 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 | Tope de jugadas | `MAX_JUGADAS` |
 | Desenlace y causa del final (barra, crónica y nota del agente) | `finDePartida`, `desenlaceDe` (`state/desenlace.ts`) |
 | Ventaja para atacar/emboscar | `ventajaClara` (`ai/fuerza.ts`) |
+| Lo que se anda hoy (marcha y ruta) | `pasosDeHoy` (`state/game.ts`) |
 | Material de una cara (pared, ladera, pedregal) | `materialDeCara` (`render/escenario/colocar.ts`) |
 
 `test/invariantes.test.ts` vigila las fronteras de esta sección. Todos nacen en
@@ -205,6 +206,11 @@ petición trae el formato de respuesta embebido, el agente responde una vez con
 `heroes_respond`, y el veredicto de lo anterior llega pegado a la siguiente
 petición — **siempre, también cuando acertó**. Un rechazo dice qué se jugó en su
 lugar y qué costó.
+Un `move_hero` a varios días anda lo que da el día (`pasosDeHoy`, la misma
+cuenta que pinta la ruta) y, si no llega, `moveHero` escribe `march_cut` con los
+pasos que faltaban; el director solo lo formatea. Solo se descarta si no da ni un
+paso. Los textos libres del agente (`lineaLegible`) no admiten invisibles salvo
+los que unen un emoji, ni dependen de la tabla Unicode del Node para lo sin asignar.
 
 - Peticiones: `adventure_turn`, `battle_turn`, `map_generate`,
   `hero_from_troop`. Un test compara los `case` de `decidir` con `REQUEST_KINDS`

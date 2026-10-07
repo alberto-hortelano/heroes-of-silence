@@ -1759,6 +1759,17 @@ function caminoEsquivando(
 }
 
 /**
+ * Cuántos pasos de `camino` se pagan hoy con los puntos que le quedan a `hero`:
+ * el héroe anda eso y lo demás es de otro día. El coste del camino es acumulado
+ * y creciente, así que lo de hoy es siempre un prefijo. Lo leen la marcha
+ * (`moveHero`) y la ruta que se pinta, y tienen que decir lo mismo.
+ */
+export function pasosDeHoy(camino: readonly PathStep[], hero: Hero): number {
+  const primeroQueNo = camino.findIndex((paso) => paso.cost > hero.movePoints);
+  return primeroQueNo === -1 ? camino.length : primeroQueNo;
+}
+
+/**
  * Por qué `hero` no llega a `to`, en una frase para la persona, o el agente.
  *
  * Decía siempre «no hay camino hasta (x,y)», y con «lo hostil se alcanza pero
@@ -1854,12 +1865,14 @@ function moveHero(
   if (camino === null) throw new Error(porQueNoLlega(state, hero, to));
   if (camino.length === 0) return;
 
-  for (let i = 0; i < camino.length; i++) {
+  // El héroe anda lo que le dé el día y la marcha entra aunque no llegue: se
+  // lanza solo si no da ni un paso, antes de tocar nada.
+  const hoy = pasosDeHoy(camino, hero);
+  if (hoy === 0) throw new Error('no quedan puntos de movimiento para dar ni un paso');
+
+  for (let i = 0; i < hoy; i++) {
     const paso = camino[i] as (typeof camino)[number];
     const coste = paso.cost - (camino[i - 1]?.cost ?? 0);
-    if (hero.movePoints < coste) {
-      throw new Error('no quedan puntos de movimiento para llegar');
-    }
 
     // Un enemigo en la casilla destino desencadena batalla y detiene la marcha.
     const enemigo = enemyAt(state, paso.at, player.id);
@@ -1901,6 +1914,17 @@ function moveHero(
       );
       return;
     }
+  }
+  // Llegó al final de lo de hoy sin batalla ni final: si el camino seguía, se
+  // dice aquí, que es donde se sabe por qué paró.
+  if (hoy < camino.length) {
+    emit(state, {
+      kind: 'march_cut',
+      hero: hero.id,
+      faltan: camino.length - hoy,
+      actor: hero.owner,
+      at: hero.at,
+    });
   }
 }
 
