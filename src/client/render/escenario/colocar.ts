@@ -2561,6 +2561,33 @@ const HOLGURA_DE_JUNTA = 0.02;
 const cerca = (p: readonly [number, number], q: readonly [number, number]) =>
   Math.abs(p[0] - q[0]) <= HOLGURA_DE_JUNTA && Math.abs(p[1] - q[1]) <= HOLGURA_DE_JUNTA;
 
+/** Cuánto va estirado en alto un sprite (`Sprite.ancho`): 1 si no lo va. */
+const estiramientoDe = (s: Pick<Sprite, 'nw' | 'nh' | 'alto' | 'ancho'>) =>
+  s.ancho === undefined ? 1 : s.alto / s.nh / (s.ancho / s.nw);
+
+/**
+ * Si los dos filos de una diagonal colocada caen en los de su celda. Sin
+ * estirar, cada uno en el suyo. Estirada (`spriteDeDiagonal`), en x cada uno en
+ * el suyo y en y centrados, separados lo que la celda por el estirón: es el
+ * desvío declarado de la caída 3, y nada más. Con la holgura de los filos sueltos
+ * el lote (07-10-2026) dio 257 «fuera de toda celda» en 1-40, todas de caída 3.
+ */
+function filosEnSuSitio(
+  puestos: readonly [readonly [number, number], readonly [number, number]],
+  suyos: readonly [readonly [number, number], readonly [number, number]],
+  estira: number,
+): boolean {
+  if (estira === 1) return cerca(puestos[0], suyos[0]) && cerca(puestos[1], suyos[1]);
+  const [a, b] = puestos;
+  const [fa, fb] = suyos;
+  return (
+    Math.abs(a[0] - fa[0]) <= HOLGURA_DE_JUNTA &&
+    Math.abs(b[0] - fb[0]) <= HOLGURA_DE_JUNTA &&
+    Math.abs((a[1] + b[1]) / 2 - (fa[1] + fb[1]) / 2) <= HOLGURA_DE_JUNTA &&
+    Math.abs(b[1] - a[1] - (fb[1] - fa[1]) * estira) <= HOLGURA_DE_JUNTA
+  );
+}
+
 /** Los módulos de diagonales y de bajadas del catálogo por su `src`. */
 function modulosDelRelieve(catalogo: Catalogo): {
   diagonales: Map<string, ModuloDeDiagonal>;
@@ -2604,8 +2631,11 @@ export function celdasMalCubiertas(
   const piezas = new Map<string, number>();
   const sumar = (k: string) => piezas.set(k, (piezas.get(k) ?? 0) + 1);
   const porFilos = new Map<string, Celda[]>();
+  // Por la x de cada filo y la y de su punto medio, que es lo que no mueve el
+  // estirón de una caída mayor que la del arte (`filosEnSuSitio`): con la y de
+  // cada filo, en caída 4 (un cuarto de casilla de desvío) caía en otra clave.
   const claveDeFilos = (p: readonly [number, number], q: readonly [number, number]) =>
-    `${Math.round(p[0] * 2)},${Math.round(p[1] * 2)},${Math.round(q[0] * 2)},${Math.round(q[1] * 2)}`;
+    `${Math.round(p[0] * 2)},${Math.round(q[0] * 2)},${Math.round((p[1] + q[1]) * 2)}`;
   const porVertice = new Map<string, Celda[]>();
   for (const c of rel.vistas) {
     const [fa, fb] = filosDe(c);
@@ -2668,10 +2698,9 @@ export function celdasMalCubiertas(
             const m = marcadorDeDiagonal(c);
             return cerca([m.x, m.y], [s.x, s.y]) && Math.abs(m.alto - s.alto) < 1e-6;
           })
-        : (porFilos.get(claveDeFilos(filos[0], filos[1])) ?? []).filter((c) => {
-            const [fa, fb] = filosDe(c);
-            return cerca(fa, filos[0]) && cerca(fb, filos[1]);
-          });
+        : (porFilos.get(claveDeFilos(filos[0], filos[1])) ?? []).filter((c) =>
+            filosEnSuSitio(filos, filosDe(c), estiramientoDe(s)),
+          );
     if (suyas.length === 0)
       mal.push(
         `${s.src ?? 'marcador de diagonal'} en ${s.x.toFixed(2)},${s.y.toFixed(2)}: fuera de toda celda`,

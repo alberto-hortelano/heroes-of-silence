@@ -45,7 +45,6 @@ import {
 } from './laderas.js';
 import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './mapa-denso.js';
 import {
-  ARRIBA,
   DIR_GUIAS,
   FRENTE,
   Guia,
@@ -58,6 +57,8 @@ import {
 
 const RAIZ = resolve(import.meta.dirname, '../..');
 const PI = Math.PI;
+/** El gris de los trozos del labio: el de la roca, no el claro de lo alto (`ARRIBA`). */
+const LABIO_ROTO = '#bcbcbc';
 
 /** Hacia dónde mira la diagonal: al sureste o al suroeste. Nunca se espeja. */
 export type LadoDeDiagonal = 'se' | 'so';
@@ -192,13 +193,26 @@ function dibujarDiagonal(g: Guia, p: PiezaDeDiagonal, lado: LadoDeDiagonal, nive
   };
   const zRot = H * (1 - ROTURA);
 
-  // El labio de roca del filo: estrecho, con lóbulos, del lado de la meseta.
+  // El labio de roca del filo, ROTO en trozos y del gris de la roca, no del claro
+  // de la meseta. Con una cinta clara seguida (la de las laderas), el piloto de
+  // roca-1 (07-10-2026) lo pintó en las dos tandas como un bordillo de piedras
+  // labradas en hilera, aunque el prompt de la segunda lo prohibía: la guía
+  // manda más que el texto.
   const lobulos = suave(0.5, 3, 7);
-  const borde = ts.map((t) => [...filo(t), H] as P3);
-  const dentro = ts.map(
-    (t) => [...en(t, p.filo(t) + ruidoFilo(t) - LABIO * (1 + lobulos(t))), H] as P3,
-  );
-  g.poligono([...borde, ...[...dentro].reverse()], ARRIBA);
+  let desde = 0.03 + azar() * 0.08;
+  while (desde < 0.9) {
+    const hasta = Math.min(0.97, desde + 0.07 + azar() * 0.13);
+    const tramo = ts.filter((t) => t >= desde && t <= hasta);
+    if (tramo.length >= 2) {
+      const grueso = 0.5 + azar() * 0.6;
+      const borde = tramo.map((t) => [...filo(t), H] as P3);
+      const dentro = tramo.map(
+        (t) => [...en(t, p.filo(t) + ruidoFilo(t) - LABIO * grueso * (1 + lobulos(t))), H] as P3,
+      );
+      g.poligono([...borde, ...[...dentro].reverse()], LABIO_ROTO);
+    }
+    desde = hasta + 0.06 + azar() * 0.12;
+  }
   // El escarpe y el derrubio.
   const escarpe = ts.map((t) => [...filo(t), H] as P3);
   const derrubio = ts.map((t) => [...rotura(t), zRot] as P3);
@@ -233,7 +247,8 @@ function dibujarDiagonal(g: Guia, p: PiezaDeDiagonal, lado: LadoDeDiagonal, nive
   for (let k = 0; k < 4 + niveles; k++) {
     const t = 0.08 + 0.84 * azar();
     const enPie = azar() < 0.6;
-    const r = enPie ? 0.04 + azar() * 0.06 : 0.03 + azar() * 0.04;
+    // Más pequeños que en las laderas: los del piloto volvieron como cubos grandes al pie.
+    const r = enPie ? 0.03 + azar() * 0.04 : 0.025 + azar() * 0.03;
     const [rx, ry] = rotura(t);
     const [px, py] = pie(t);
     const u = enPie ? 0.95 + azar() * 0.15 : azar();
@@ -329,7 +344,7 @@ const DICHO_DEL_PAPEL: Readonly<Record<LadoDeDiagonal, Record<PapelDeDiagonal, s
 
 const LUZ: Readonly<Record<LadoDeDiagonal, string>> = {
   se: 'La pared mira al SURESTE y la luz viene de arriba a la IZQUIERDA: el escarpe queda en penumbra, con la luz rozando solo las aristas de las losas y el filo; el derrubio, más tendido, recibe algo más de luz.',
-  so: 'La pared mira al SUROESTE y la luz viene de arriba a la izquierda: la pared recibe la luz de lleno y es lo más iluminado de cada módulo; las sombras de las grietas y de los bloques caen hacia la derecha y hacia abajo. Es otra pieza distinta, no el reflejo de una pared al sureste.',
+  so: 'La pared mira al SUROESTE y la luz viene de arriba a la izquierda: la pared recibe la luz de lleno y es lo más iluminado de cada módulo; las sombras de las grietas y de los bloques caen hacia la derecha y hacia abajo. Es otra pieza distinta, no el reflejo de una pared al sureste. Que reciba la luz de lleno no la hace de bloques: la roca sigue siendo la de losas inclinadas, rotas y desplazadas de la ladera de la imagen 3, nunca cubos, dados ni prismas con la cara de delante plana e iluminada, y el filo nunca se remata con una fila de piedras.',
 };
 
 export const NIVELES_DE_DIAGONAL: readonly Niveles[] = [1, 2, 3];
@@ -354,11 +369,11 @@ export function encargoDeDiagonales(
     id: `modulos-${hojaDeDiagonales(material, lado, niveles)}`,
     tipo: 'modulos',
     descripcion: [
-      `Una hoja de ${nombres.length} módulos de RISCO EN DIAGONAL para el mapa de aventura de un juego de estrategia: el borde de una meseta que cae ${caida} y DOBLA LA ESQUINA, de ${MATERIAL[material]}. La forma de las piedras, rotas y angulosas, es la de los peñascos de la imagen 2. Es la misma roca que las laderas y las paredes frontales del juego, doblando en curva de una a otra.`,
+      `Una hoja de ${nombres.length} módulos de RISCO EN DIAGONAL para el mapa de aventura de un juego de estrategia: el borde de una meseta que cae ${caida} y DOBLA LA ESQUINA, de ${MATERIAL[material]}. La forma de las piedras, rotas y angulosas, es la de los peñascos de la imagen 2. Es la MISMA ROCA que la ladera de la imagen 3, su vecina en el mapa: el mismo color, la misma textura, los mismos estratos rotos, el mismo musgo y las mismas matas, doblando la esquina; tienen que casar sin que se note la junta.`,
       'CADA MÓDULO ES UN TROZO CORTADO DE UN MISMO RISCO LARGO Y CONTINUO: por sus dos extremos sigue en otros módulos. Los dos extremos están CORTADOS LIMPIOS por la diagonal del filo al pie que marca la guía, sin cerrarse, sin redondearse, sin rematar en una mata, un pilar ni un bloque; la roca y el derrubio siguen hasta el corte como si continuaran fuera de la imagen.',
       'EL FILO GIRA EN CURVA SUAVE, un cuarto de vuelta redondeado como marca la guía, nunca en ángulo ni en chaflán recto; su contorno se rompe en salientes de roca, repisas y bloques. Ninguna línea recta ni vertical larga.',
       'La pared es un TALUD NATURAL, no un muro: arriba, bajo el filo, un escarpe de losas y estratos ROTOS, desplazados y agrietados, con repisas con algo de musgo; abajo, un derrubio de piedras y bloques angulosos de tamaños muy distintos que se abre hacia el pie. NUNCA columnas, prismas, pilares, órganos ni bloques apilados como sillares, NUNCA una losa lisa grande, y nada asoma por encima del filo.',
-      `ENCIMA DEL FILO NO HAY NINGUNA FRANJA NI CINTA: la meseta, ${MESETA[material]}, la pone el juego. Solo el labio de roca del filo (la línea gris clara de la guía), estrecho y roto, y unas pocas matas sueltas y pequeñas de color apagado (los borrones claros de la guía); entre ellas, transparente. Nada de verde amarillo ni de colores vivos.`,
+      `ENCIMA DEL FILO NO HAY NINGUNA FRANJA NI CINTA: la meseta, ${MESETA[material]}, la pone el juego. Solo el labio de roca del filo (los trozos sueltos de gris de la guía), estrecho, roto y a trozos, con huecos donde la meseta llega al borde sin labio, y unas pocas matas sueltas y pequeñas de color apagado (los borrones claros de la guía); entre ellas, transparente. Nada de verde amarillo ni de colores vivos.`,
       // La primera tanda (07-10-2026) pintó el labio como un bordillo de piedras
       // labradas en hilera, la pared en prismas y el pie con cubos grandes; el
       // `resume` para corregirlo cortó tres veces («websocket closed»), así que
@@ -373,9 +388,15 @@ export function encargoDeDiagonales(
     ].join('\n'),
     referencias: [
       { ruta: REFERENCIA_DE_MAPAS, papel: 'estilo' },
-      // Como las laderas (§20): la forma, de los peñascos; el color, de la frontal.
+      // Como las laderas (§20): la forma, de los peñascos.
       { ruta: 'assets/mapa/modulos/rocas-caidas.webp', papel: 'identidad' },
-      { ruta: `assets/mapa/modulos/paredes-${material}.webp`, papel: 'material' },
+      // La ladera de su material, lado y caída, y no la frontal: es la vecina con
+      // la que encadena en el mapa, y con la frontal (en columnas) el piloto salió
+      // de otro estilo (§23). Su color ya casa con la frontal (§20).
+      {
+        ruta: `assets/mapa/modulos/laderas-${material}-${lado === 'se' ? 'este' : 'oeste'}-${niveles}.webp`,
+        papel: 'material',
+      },
       { ruta: `${DIR_GUIAS}/diagonales-${lado}-${niveles}.png`, papel: 'guia' },
     ],
     salida: `assets/mapa/modulos/${hojaDeDiagonales(material, lado, niveles)}`,

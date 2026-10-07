@@ -1174,3 +1174,30 @@ cada una con su `.json` (las juntas, `pnpm taller derivar-relieve`) y su
   diagonales o dibujarlo roto (en trozos), y pedir la roca «como las laderas de
   la imagen N» con una ladera de su material como segunda referencia de
   material, que es su vecina en el mapa.
+
+### Respuesta del lote (rama `relieve-esquinas`, 07-10-2026)
+
+Con el visto bueno del usuario: **todas las hojas** de diagonales (SE y SO, caída 1 y 2) y
+de bajadas (caída 1 y 2) de roca, basalto, arenisca y nieve, 24 en disco. La caída 3 estira
+la de 2. Codex por la suscripción, sin fal.ai y sin `resume`: **27 generaciones**, de
+87 a 164 s, ninguna fallida. Lámina en
+`docs/agents/2026-10-07-relieve-esquinas/capturas/lamina-lote.png` (y `-registro`).
+
+- **Lo que se cambió antes de encolar**, como pedía el piloto:
+  - **El labio de la guía va roto**: trozos sueltos del gris de la roca (`LABIO_ROTO`) con
+    huecos, no la cinta clara seguida. Con eso el bordillo de piedras en hilera desapareció
+    de las convexas en casi todas las hojas a la primera; la guía manda más que el prompt.
+  - **La referencia de material es la ladera vecina** (`laderas-<material>-<este|oeste>-
+    <caída>`; en las bajadas, la del este) en vez de la frontal en columnas: el color y el
+    musgo casan con la ladera que sigue en el mapa.
+  - Bloques del pie más pequeños en la guía.
+- **Rehechas**: `diagonales-roca-se-1` y `-so-1` (sin bordillo; la SO, menos cúbica) y
+  `bajadas-roca-1` (de lado sigue casi horizontal: es la proyección, no el material).
+- **Las que costaron más**: `diagonales-roca-so-2` (3: cubos; luego bordillo claro; la 3.ª
+  bien) y `diagonales-arenisca-so-1` (2: bordillo de bloques). Para ellas se añadió al
+  prompt del suroeste que la luz de frente no la hace de cubos ni el filo una fila de
+  piedras.
+- **Registro**: los 104 módulos tapan del 96 al 100 % de la silueta de su guía.
+- **Flojo**: el basalto de diagonales y laderas, más claro que su frontal (heredado de
+  §20); el suroeste algo más en bloques que el sureste; en las cóncavas estrechas de caída 2
+  aún asoma un canto claro, como el de las laderas.

@@ -263,7 +263,7 @@ export function encargoDeBajadas(material: Material, niveles: Niveles): Encargo 
       'Cada módulo es una RAMPA de tierra pisada, con un camino claro y gastado en medio, entre DOS RIBAZOS de roca rota que la flanquean: altos y anchos junto al filo de la meseta, donde siguen la pared del risco, y más bajos rampa abajo, hasta deshacerse en derrubio donde la rampa se derrama en el suelo llano. Es un paso natural abierto en el risco, NO una escalera: sin escalones tallados, sin peldaños, sin barandillas ni muros, y sin ningún corte recto.',
       `El camino de la rampa es del color de los caminos del juego (tierra parda clara y polvorienta, como la tierra de los estribos del puente de la imagen 4) y sus bordes se deshacen en terrones, matas y piedras sueltas. Arriba, la meseta (${MESETA[material]}) la pone el juego: encima del filo solo el labio de los hombros y unas matas.`,
       'LA SILUETA DE CADA MÓDULO ES LA DE LA GUÍA (imagen 5), CALCADA: mismo sitio, mismo alto, mismo ancho y el MISMO RUMBO de la rampa, sin girarla ni torcerla. Lo pardo es la rampa y la franja clara, el camino; lo gris oscuro y medio, los ribazos de roca; las líneas claras, el labio roto de su filo; los polígonos claros, bloques.',
-      'La roca de los ribazos: losas y estratos ROTOS y bloques angulosos de tamaños distintos, como los peñascos de la imagen 2; nunca columnas, prismas ni sillares, y el labio de su filo es roca rota con musgo, nunca un bordillo de piedras puestas en hilera.',
+      'La roca de los ribazos: losas y estratos ROTOS y bloques angulosos de tamaños distintos, con la forma de los peñascos de la imagen 2 y el color, la textura y el musgo de la ladera de la imagen 3, que es la pared que la rodea en el mapa; nunca columnas, prismas ni sillares, y el labio de su filo es roca rota con musgo, nunca un bordillo de piedras puestas en hilera.',
       orden,
       'La luz viene de arriba a la izquierda; las sombras de los hombros y de los bloques caen hacia la derecha y hacia abajo.',
       ESTILO_DEL_MAPA,
@@ -271,7 +271,9 @@ export function encargoDeBajadas(material: Material, niveles: Niveles): Encargo 
     referencias: [
       { ruta: REFERENCIA_DE_MAPAS, papel: 'estilo' },
       { ruta: 'assets/mapa/modulos/rocas-caidas.webp', papel: 'identidad' },
-      { ruta: `assets/mapa/modulos/paredes-${material}.webp`, papel: 'material' },
+      // La ladera de su material y caída, como en las diagonales: es la roca que
+      // la rodea en el mapa, más que la frontal en columnas (§23).
+      { ruta: `assets/mapa/modulos/laderas-${material}-este-${niveles}.webp`, papel: 'material' },
       // El estribo de tierra del puente salió bien fundido con el suelo (§18).
       { ruta: 'assets/mapa/puente-piedra-eo.webp', papel: 'material' },
       { ruta: `${DIR_GUIAS}/bajadas-${niveles}.png`, papel: 'guia' },

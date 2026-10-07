@@ -1,0 +1,110 @@
+{
+  "hoja": "bajadas-arenisca-1.webp",
+  "modulos": [
+    {
+      "imagen": "s.webp",
+      "sha256": "15dbc71ce5f15cb89c24af598dedb465364957491b8adf4d9680c142b802f89e",
+      "ancho": 245,
+      "alto": 415,
+      "ancla": [
+        126,
+        410
+      ],
+      "bajada": {
+        "arriba": [
+          128,
+          65
+        ],
+        "abajo": [
+          128,
+          198
+        ],
+        "rumbo": "s"
+      }
+    },
+    {
+      "imagen": "se.webp",
+      "sha256": "7e0640ec287c11a930cb238544ef2a17ac1f969476cc24e260aa5e106633fa87",
+      "ancho": 348,
+      "alto": 391,
+      "ancla": [
+        241,
+        386
+      ],
+      "bajada": {
+        "arriba": [
+          101,
+          122
+        ],
+        "abajo": [
+          151,
+          256
+        ],
+        "rumbo": "se"
+      }
+    },
+    {
+      "imagen": "so.webp",
+      "sha256": "55aea025313cb07137b0fcaedda9cb1daf8d07474b87105592389eda2f179fbe",
+      "ancho": 357,
+      "alto": 399,
+      "ancla": [
+        90,
+        394
+      ],
+      "bajada": {
+        "arriba": [
+          261,
+          116
+        ],
+        "abajo": [
+          211,
+          250
+        ],
+        "rumbo": "so"
+      }
+    },
+    {
+      "imagen": "e.webp",
+      "sha256": "4ae3ee7468f9f9d70fa5c560b9f8243fa2c316e4b1513692a625cc32deb90d5d",
+      "ancho": 333,
+      "alto": 254,
+      "ancla": [
+        120,
+        249
+      ],
+      "bajada": {
+        "arriba": [
+          14,
+          141
+        ],
+        "abajo": [
+          115,
+          275
+        ],
+        "rumbo": "e"
+      }
+    },
+    {
+      "imagen": "o.webp",
+      "sha256": "ae074c5a4c32ee9b2ee87b4ecdb7a3e2618fc0337783b2b316d837aebde804a3",
+      "ancho": 369,
+      "alto": 265,
+      "ancla": [
+        285,
+        260
+      ],
+      "bajada": {
+        "arriba": [
+          328,
+          141
+        ],
+        "abajo": [
+          228,
+          275
+        ],
+        "rumbo": "o"
+      }
+    }
+  ]
+}

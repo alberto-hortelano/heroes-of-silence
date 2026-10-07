@@ -1,0 +1,110 @@
+{
+  "hoja": "bajadas-basalto-2.webp",
+  "modulos": [
+    {
+      "imagen": "s.webp",
+      "sha256": "9f0ec4281ad8e29481096c71801226b215fd91a04bf9da4a78f0894119db3d34",
+      "ancho": 239,
+      "alto": 517,
+      "ancla": [
+        105,
+        516
+      ],
+      "bajada": {
+        "arriba": [
+          122,
+          88
+        ],
+        "abajo": [
+          122,
+          317
+        ],
+        "rumbo": "s"
+      }
+    },
+    {
+      "imagen": "se.webp",
+      "sha256": "0f899a41e8acf7c51a772b19af4d6989f5e53283bdba857cc51bfc88955edf48",
+      "ancho": 400,
+      "alto": 480,
+      "ancla": [
+        316,
+        475
+      ],
+      "bajada": {
+        "arriba": [
+          72,
+          121
+        ],
+        "abajo": [
+          134,
+          351
+        ],
+        "rumbo": "se"
+      }
+    },
+    {
+      "imagen": "so.webp",
+      "sha256": "dac60c8d316765baa33eb9126829a88fcd5c34e76537cdfd0b5bace25ec125dd",
+      "ancho": 376,
+      "alto": 485,
+      "ancla": [
+        80,
+        480
+      ],
+      "bajada": {
+        "arriba": [
+          281,
+          168
+        ],
+        "abajo": [
+          219,
+          397
+        ],
+        "rumbo": "so"
+      }
+    },
+    {
+      "imagen": "e.webp",
+      "sha256": "86cbd589e226ee643da8ee791c48f55674380d1689c2a155702a7996f882c939",
+      "ancho": 359,
+      "alto": 298,
+      "ancla": [
+        207,
+        293
+      ],
+      "bajada": {
+        "arriba": [
+          19,
+          170
+        ],
+        "abajo": [
+          143,
+          399
+        ],
+        "rumbo": "e"
+      }
+    },
+    {
+      "imagen": "o.webp",
+      "sha256": "3ecf936cb21dd6fee7069fcbed015d6d6f5393e39bc6b7d87a9cf1f617f58a54",
+      "ancho": 477,
+      "alto": 297,
+      "ancla": [
+        219,
+        292
+      ],
+      "bajada": {
+        "arriba": [
+          447,
+          177
+        ],
+        "abajo": [
+          323,
+          406
+        ],
+        "rumbo": "o"
+      }
+    }
+  ]
+}

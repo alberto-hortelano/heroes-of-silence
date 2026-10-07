@@ -1,0 +1,97 @@
+{
+  "hoja": "diagonales-nevadas-se-2.webp",
+  "modulos": [
+    {
+      "imagen": "convexa-a.webp",
+      "sha256": "e043703476ec3ac1344cdc492fa4c99ee6c8606685a772b05e20313f081c9dde",
+      "ancho": 386,
+      "alto": 645,
+      "ancla": [
+        160,
+        640
+      ],
+      "diagonal": {
+        "filo": [
+          [
+            172,
+            115
+          ],
+          [
+            50,
+            237
+          ]
+        ],
+        "papel": "convexa"
+      }
+    },
+    {
+      "imagen": "convexa-b.webp",
+      "sha256": "ab0e50c59e30d20e1dfb7ad17c05128a985d8a4077f13f2165070faea878b0a6",
+      "ancho": 386,
+      "alto": 664,
+      "ancla": [
+        169,
+        659
+      ],
+      "diagonal": {
+        "filo": [
+          [
+            167,
+            96
+          ],
+          [
+            45,
+            218
+          ]
+        ],
+        "papel": "convexa"
+      }
+    },
+    {
+      "imagen": "concava-a.webp",
+      "sha256": "189254c74a077c22a3b204fd756f314b8a72338899f5ff966a2bd8861fff24da",
+      "ancho": 218,
+      "alto": 606,
+      "ancla": [
+        167,
+        601
+      ],
+      "diagonal": {
+        "filo": [
+          [
+            142,
+            102
+          ],
+          [
+            20,
+            225
+          ]
+        ],
+        "papel": "concava"
+      }
+    },
+    {
+      "imagen": "concava-b.webp",
+      "sha256": "087942279b82d3df04d759151b7b2a8622256436b82106c0015181f0f619ae43",
+      "ancho": 223,
+      "alto": 610,
+      "ancla": [
+        181,
+        605
+      ],
+      "diagonal": {
+        "filo": [
+          [
+            164,
+            123
+          ],
+          [
+            42,
+            246
+          ]
+        ],
+        "papel": "concava"
+      }
+    }
+  ]
+}

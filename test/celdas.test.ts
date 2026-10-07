@@ -241,14 +241,27 @@ describe('las piezas en su sitio, con el arte del repo', () => {
   it('en caída 3 va la pieza de 2, estirada en alto, con sus filos en su sitio', () => {
     const tres: Celda = { ...convexa, caida: 3 };
     expect(hojaDeDiagonal(tres)).toBe('diagonales-roca-se-2');
-    // La de 2 aún no está pedida: se prueba la cuenta con la de 1 en su lugar,
-    // que en caída 3 se estira 3/2 en alto, como la de 2.
-    const m = (catalogo.hojas['diagonales-roca-se-1'] ?? []).find(
+    const m = (catalogo.hojas['diagonales-roca-se-2'] ?? []).find(
       (k) => k.diagonal?.papel === 'convexa',
     ) as ModuloDeDiagonal;
-    const s = spriteDeDiagonal(m, 'diagonales-roca-se-1', tres);
+    const s = spriteDeDiagonal(m, 'diagonales-roca-se-2', tres);
     expect(s.ancho).toBeDefined();
     expect(s.alto / (s.ancho as number)).toBeCloseTo((1.5 * m.nh) / m.nw, 6);
+    // Y el guardia la da por buena (con la holgura de un filo suelto la contaba
+    // fuera de toda celda: 257 en 1-40 con el lote); corrida en y, no.
+    const sola = { vistas: [tres], barrancos: [] };
+    expect(celdasMalCubiertas([s], sola, catalogo, () => null)).toEqual([]);
+    expect(celdasMalCubiertas([{ ...s, y: s.y + 0.05 }], sola, catalogo, () => null)).toEqual([
+      expect.stringMatching(/fuera de toda celda/),
+      expect.stringMatching(/sin pieza/),
+    ]);
+    // En caída 4 el estirón es 2 y cada filo queda a un cuarto de casilla: con la
+    // clave por la y de cada filo caía en otra y contaba (s10, basalto).
+    const cuatro: Celda = { ...convexa, caida: 4 };
+    const s4 = spriteDeDiagonal(m, 'diagonales-roca-se-2', cuatro);
+    expect(
+      celdasMalCubiertas([s4], { vistas: [cuatro], barrancos: [] }, catalogo, () => null),
+    ).toEqual([]);
     // Estirada en alto, la media casilla que separa sus filos en y crece a
     // 0,75: no caen los dos en su sitio. Van centrados (la media de los dos en
     // la de la celda), cada uno a un octavo de casilla; en x, en su sitio.

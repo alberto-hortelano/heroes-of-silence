@@ -1,0 +1,110 @@
+{
+  "hoja": "bajadas-basalto-1.webp",
+  "modulos": [
+    {
+      "imagen": "s.webp",
+      "sha256": "e305b96505e8fd0b4884e621e10f0ee2a002519260ff22fd7c509eed4a496ca2",
+      "ancho": 269,
+      "alto": 446,
+      "ancla": [
+        133,
+        441
+      ],
+      "bajada": {
+        "arriba": [
+          140,
+          86
+        ],
+        "abajo": [
+          140,
+          219
+        ],
+        "rumbo": "s"
+      }
+    },
+    {
+      "imagen": "se.webp",
+      "sha256": "9600cd96457ba083430500eb27f15d4204b63161dc6d81bb8f93d9df6f64edbd",
+      "ancho": 407,
+      "alto": 437,
+      "ancla": [
+        276,
+        432
+      ],
+      "bajada": {
+        "arriba": [
+          130,
+          166
+        ],
+        "abajo": [
+          180,
+          300
+        ],
+        "rumbo": "se"
+      }
+    },
+    {
+      "imagen": "so.webp",
+      "sha256": "ad666a1da9522311b31c4430f75a39b4bdd797ac45ac141d470b68cdb605c48c",
+      "ancho": 378,
+      "alto": 440,
+      "ancla": [
+        116,
+        435
+      ],
+      "bajada": {
+        "arriba": [
+          276,
+          159
+        ],
+        "abajo": [
+          226,
+          293
+        ],
+        "rumbo": "so"
+      }
+    },
+    {
+      "imagen": "e.webp",
+      "sha256": "896510d525f8dc60643233a25cfee86fe56d818028ebdb8ebb0027ccfc42be8b",
+      "ancho": 357,
+      "alto": 294,
+      "ancla": [
+        144,
+        289
+      ],
+      "bajada": {
+        "arriba": [
+          46,
+          168
+        ],
+        "abajo": [
+          147,
+          302
+        ],
+        "rumbo": "e"
+      }
+    },
+    {
+      "imagen": "o.webp",
+      "sha256": "64dd3940079a5730ba4228457c089819773122a9af461482e4efcebecd99351e",
+      "ancho": 413,
+      "alto": 297,
+      "ancla": [
+        296,
+        292
+      ],
+      "bajada": {
+        "arriba": [
+          363,
+          163
+        ],
+        "abajo": [
+          263,
+          297
+        ],
+        "rumbo": "o"
+      }
+    }
+  ]
+}

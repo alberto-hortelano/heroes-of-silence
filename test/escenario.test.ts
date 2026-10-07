@@ -335,8 +335,7 @@ describe('la escena es de la partida entera: no cambia al jugarla', () => {
     const state = newGame({ seed: 11, plan });
     expect(state.towns.some((t) => t.id.startsWith('qa-town-'))).toBe(true);
     const e = componer(state.map, 11, catalogo);
-    // En la rama del piloto (R4/R5) las diagonales y bajadas por pedir van con marcador (§23).
-    expect(e.informe.modulosQueFaltan.filter((h) => !/^(diagonales|bajadas)-/.test(h))).toEqual([]);
+    expect(e.informe.modulosQueFaltan).toEqual([]);
     expect(e.informe.basesSobreReserva).toBe(0);
     expect(e.informe.spritesSobreSenda).toBe(0);
     expect(e.informe.casillasDeBarreraSinFormacion).toBe(0);

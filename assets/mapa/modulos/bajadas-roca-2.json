@@ -1,0 +1,110 @@
+{
+  "hoja": "bajadas-roca-2.webp",
+  "modulos": [
+    {
+      "imagen": "s.webp",
+      "sha256": "c55008063021350773237a1b76bef5870c5c8849abf8a49c62fb8b17fa3b61ca",
+      "ancho": 248,
+      "alto": 495,
+      "ancla": [
+        121,
+        490
+      ],
+      "bajada": {
+        "arriba": [
+          121,
+          82
+        ],
+        "abajo": [
+          121,
+          311
+        ],
+        "rumbo": "s"
+      }
+    },
+    {
+      "imagen": "se.webp",
+      "sha256": "cb3e742c3384c8353ef46206785ad7bfe9a7535ad848dc2475164eaf1aa52616",
+      "ancho": 428,
+      "alto": 486,
+      "ancla": [
+        320,
+        481
+      ],
+      "bajada": {
+        "arriba": [
+          94,
+          147
+        ],
+        "abajo": [
+          156,
+          377
+        ],
+        "rumbo": "se"
+      }
+    },
+    {
+      "imagen": "so.webp",
+      "sha256": "fad76e8b4c0cacc7e76f5a306498a4501d04103b2d3937976e49369fdc690a55",
+      "ancho": 394,
+      "alto": 478,
+      "ancla": [
+        98,
+        473
+      ],
+      "bajada": {
+        "arriba": [
+          315,
+          131
+        ],
+        "abajo": [
+          253,
+          360
+        ],
+        "rumbo": "so"
+      }
+    },
+    {
+      "imagen": "e.webp",
+      "sha256": "3dbde736304e95a400c328b4bd812a034146a69576b366b5e86bdbbf9c843f92",
+      "ancho": 369,
+      "alto": 273,
+      "ancla": [
+        206,
+        268
+      ],
+      "bajada": {
+        "arriba": [
+          28,
+          146
+        ],
+        "abajo": [
+          152,
+          375
+        ],
+        "rumbo": "e"
+      }
+    },
+    {
+      "imagen": "o.webp",
+      "sha256": "6215ace0c198f0fcaae37933306950545c560b8eef7afdd407fcf71226d1361c",
+      "ancho": 405,
+      "alto": 262,
+      "ancla": [
+        276,
+        257
+      ],
+      "bajada": {
+        "arriba": [
+          353,
+          141
+        ],
+        "abajo": [
+          229,
+          370
+        ],
+        "rumbo": "o"
+      }
+    }
+  ]
+}

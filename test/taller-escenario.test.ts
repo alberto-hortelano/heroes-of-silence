@@ -15,6 +15,7 @@ import {
   APARTE,
   bajadasSinPieza,
   bajadasTapadas,
+  COLOR_DE_BAJADA,
   COLOR_DE_DIAGONAL,
   celdasMalCubiertas,
   componentesDePasos,
@@ -301,13 +302,8 @@ describe('la escena de un mapa real', () => {
     const map = newGame({ seed: semilla }).map;
     const e = escenaDe(semilla);
 
-    it(`semilla ${semilla}: con el catálogo del repo no falta ningún módulo, salvo el arte del relieve por pedir`, () => {
-      // En la rama del piloto (R4/R5) solo hay diagonales y bajadas de roca de
-      // caída 1: el resto va con marcador hasta que se pida (§23). Al fusionar,
-      // esta excepción se quita.
-      expect(e.informe.modulosQueFaltan.filter((h) => !/^(diagonales|bajadas)-/.test(h))).toEqual(
-        [],
-      );
+    it(`semilla ${semilla}: con el catálogo del repo no falta ningún módulo`, () => {
+      expect(e.informe.modulosQueFaltan).toEqual([]);
     });
 
     it(`semilla ${semilla}: nada se apoya sobre un objeto ni un camino, y cada muralla es una línea`, () => {
@@ -418,6 +414,12 @@ describe('la escena de un mapa real', () => {
         ),
       ).toBe(true);
       expect(e.relieve.bajadas.length).toBeGreaterThan(0);
+      // Con el lote entero de §23 en el repo, ninguna va ya con marcador.
+      expect(
+        e.sprites.filter(
+          (s) => s.src === null && (s.color === COLOR_DE_DIAGONAL || s.color === COLOR_DE_BAJADA),
+        ).length,
+      ).toBe(0);
     });
 
     // Las laderas (#156, §20): las de a mano están en `laderas.test.ts`.

@@ -1,0 +1,97 @@
+{
+  "hoja": "diagonales-roca-se-2.webp",
+  "modulos": [
+    {
+      "imagen": "convexa-a.webp",
+      "sha256": "38bf0323034b038244c109e23a4eb554d7d678ad07910f7121b1ed55395e2c51",
+      "ancho": 371,
+      "alto": 600,
+      "ancla": [
+        163,
+        595
+      ],
+      "diagonal": {
+        "filo": [
+          [
+            176,
+            85
+          ],
+          [
+            54,
+            207
+          ]
+        ],
+        "papel": "convexa"
+      }
+    },
+    {
+      "imagen": "convexa-b.webp",
+      "sha256": "a150181b25613addffca87cebf1c671d535e3b51e76840fe5314d17feadecbc2",
+      "ancho": 359,
+      "alto": 620,
+      "ancla": [
+        159,
+        615
+      ],
+      "diagonal": {
+        "filo": [
+          [
+            165,
+            77
+          ],
+          [
+            43,
+            199
+          ]
+        ],
+        "papel": "convexa"
+      }
+    },
+    {
+      "imagen": "concava-a.webp",
+      "sha256": "0dbb9fc4249af177bc71a5e70cc19dc23408fa20cdd7a043a8f4c5da0525c196",
+      "ancho": 232,
+      "alto": 546,
+      "ancla": [
+        182,
+        541
+      ],
+      "diagonal": {
+        "filo": [
+          [
+            160,
+            65
+          ],
+          [
+            38,
+            188
+          ]
+        ],
+        "papel": "concava"
+      }
+    },
+    {
+      "imagen": "concava-b.webp",
+      "sha256": "10b71d028f7a5a66e9e71799320d2ea398b40cb6d4e9d4591768e4b20f2fbecc",
+      "ancho": 223,
+      "alto": 569,
+      "ancla": [
+        182,
+        564
+      ],
+      "diagonal": {
+        "filo": [
+          [
+            167,
+            94
+          ],
+          [
+            45,
+            217
+          ]
+        ],
+        "papel": "concava"
+      }
+    }
+  ]
+}

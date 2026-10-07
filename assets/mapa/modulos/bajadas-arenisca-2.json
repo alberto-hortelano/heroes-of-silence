@@ -1,0 +1,110 @@
+{
+  "hoja": "bajadas-arenisca-2.webp",
+  "modulos": [
+    {
+      "imagen": "s.webp",
+      "sha256": "04a106f55fbc7c1d89d44d60cb914a6b5643b4a99d328f1a4af0f7e904cfcc19",
+      "ancho": 213,
+      "alto": 469,
+      "ancla": [
+        107,
+        464
+      ],
+      "bajada": {
+        "arriba": [
+          109,
+          73
+        ],
+        "abajo": [
+          109,
+          302
+        ],
+        "rumbo": "s"
+      }
+    },
+    {
+      "imagen": "se.webp",
+      "sha256": "0f9f32b7bf8b191016900cde319350a4855dd7a17a5af9a5f14df653eb242ee3",
+      "ancho": 407,
+      "alto": 459,
+      "ancla": [
+        305,
+        454
+      ],
+      "bajada": {
+        "arriba": [
+          107,
+          149
+        ],
+        "abajo": [
+          169,
+          379
+        ],
+        "rumbo": "se"
+      }
+    },
+    {
+      "imagen": "so.webp",
+      "sha256": "2db44d42527401612d5f4e76ce9b09e28ed2bae34da35590ea9fad35478a3c73",
+      "ancho": 380,
+      "alto": 448,
+      "ancla": [
+        101,
+        443
+      ],
+      "bajada": {
+        "arriba": [
+          288,
+          150
+        ],
+        "abajo": [
+          226,
+          379
+        ],
+        "rumbo": "so"
+      }
+    },
+    {
+      "imagen": "e.webp",
+      "sha256": "774045ad49f56282ab0efa645dd78935695c11ceb6346fab6f6f865b93197da4",
+      "ancho": 366,
+      "alto": 248,
+      "ancla": [
+        174,
+        243
+      ],
+      "bajada": {
+        "arriba": [
+          12,
+          146
+        ],
+        "abajo": [
+          136,
+          375
+        ],
+        "rumbo": "e"
+      }
+    },
+    {
+      "imagen": "o.webp",
+      "sha256": "eaa017edf87911148532558342c2e38887f12da8a85f27c5eed913a35a6221bd",
+      "ancho": 448,
+      "alto": 261,
+      "ancla": [
+        258,
+        256
+      ],
+      "bajada": {
+        "arriba": [
+          409,
+          151
+        ],
+        "abajo": [
+          285,
+          380
+        ],
+        "rumbo": "o"
+      }
+    }
+  ]
+}

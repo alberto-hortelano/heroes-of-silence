@@ -1,0 +1,56 @@
+{
+  "encargo": "modulos-diagonales-arenisca-se-1",
+  "tipo": "modulos",
+  "fecha": "2026-10-07T20:34:30.941Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a11810-a769-76b3-a087-a7ce2d4f4a73",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de MATERIAL: de ella se toman SOLO el color, la textura y la paleta de la roca y de lo que crece en ella, para que case con estas piezas. NO copies su forma (columnas, prismas, bloques en fila) ni su composición.\nLa imagen 4 es la GUÍA DE GEOMETRÍA: un volumen gris sin acabado, dibujado con la cámara del juego. Manda en la ORIENTACIÓN, la forma, las proporciones, el tamaño y la posición de cada pieza dentro de la imagen: cópialas con exactitud, sin girar ni torcer nada. NO copies su gris liso, sus aristas de esquema ni su fondo plano: el material, el detalle y la luz son los de la imagen de estilo.\n\nUna hoja de 4 módulos de RISCO EN DIAGONAL para el mapa de aventura de un juego de estrategia: el borde de una meseta que cae UN nivel y DOBLA LA ESQUINA, de arenisca rojiza y ocre en estratos, del color de las paredes de la imagen 3, apagada y polvorienta, con bloques caídos. La forma de las piedras, rotas y angulosas, es la de los peñascos de la imagen 2. Es la MISMA ROCA que la ladera de la imagen 3, su vecina en el mapa: el mismo color, la misma textura, los mismos estratos rotos, el mismo musgo y las mismas matas, doblando la esquina; tienen que casar sin que se note la junta.\nCADA MÓDULO ES UN TROZO CORTADO DE UN MISMO RISCO LARGO Y CONTINUO: por sus dos extremos sigue en otros módulos. Los dos extremos están CORTADOS LIMPIOS por la diagonal del filo al pie que marca la guía, sin cerrarse, sin redondearse, sin rematar en una mata, un pilar ni un bloque; la roca y el derrubio siguen hasta el corte como si continuaran fuera de la imagen.\nEL FILO GIRA EN CURVA SUAVE, un cuarto de vuelta redondeado como marca la guía, nunca en ángulo ni en chaflán recto; su contorno se rompe en salientes de roca, repisas y bloques. Ninguna línea recta ni vertical larga.\nLa pared es un TALUD NATURAL, no un muro: arriba, bajo el filo, un escarpe de losas y estratos ROTOS, desplazados y agrietados, con repisas con algo de musgo; abajo, un derrubio de piedras y bloques angulosos de tamaños muy distintos que se abre hacia el pie. NUNCA columnas, prismas, pilares, órganos ni bloques apilados como sillares, NUNCA una losa lisa grande, y nada asoma por encima del filo.\nENCIMA DEL FILO NO HAY NINGUNA FRANJA NI CINTA: la meseta, arena parda rojiza apagada, la pone el juego. Solo el labio de roca del filo (los trozos sueltos de gris de la guía), estrecho, roto y a trozos, con huecos donde la meseta llega al borde sin labio, y unas pocas matas sueltas y pequeñas de color apagado (los borrones claros de la guía); entre ellas, transparente. Nada de verde amarillo ni de colores vivos.\nEL LABIO NO ES UN BORDILLO NI UN MURETE: nada de piedras labradas, adoquines ni bloques puestos en hilera siguiendo la curva del filo. Es el borde ROTO e irregular de la misma roca de la pared, fino y mellado, con musgo y alguna mata.\nLA SILUETA DE CADA MÓDULO ES LA DE LA GUÍA (imagen 4), CALCADA: mismo sitio, mismo alto, mismo ancho y la misma curva, sin girarla, tumbarla ni ensancharla. Lo gris oscuro es el escarpe, lo gris medio el derrubio, los polígonos claros, bloques.\nDEL LADO DE LA MESETA NO HAY NADA: no pintes roca, pared ni sombra por detrás del labio; ahí la imagen es transparente. No es una cresta ni un muro con dos caras.\ncolumna 1 (convexa-a): ESQUINA (convexa): la PUNTA de una meseta. El filo baja de lo alto de la imagen casi vertical (ahí sigue una ladera que cae a la derecha) y gira redondeado en un cuarto de vuelta hasta salir por la IZQUIERDA en horizontal (ahí sigue una pared frontal que mira a la cámara). La meseta queda DENTRO de la curva, arriba a la izquierda; la pared mira hacia abajo a la derecha, al sureste.\ncolumna 2 (convexa-b): ESQUINA (convexa): la PUNTA de una meseta. El filo baja de lo alto de la imagen casi vertical (ahí sigue una ladera que cae a la derecha) y gira redondeado en un cuarto de vuelta hasta salir por la IZQUIERDA en horizontal (ahí sigue una pared frontal que mira a la cámara). La meseta queda DENTRO de la curva, arriba a la izquierda; la pared mira hacia abajo a la derecha, al sureste. Distinta de la de su izquierda en el contorno, como marca la guía.\ncolumna 3 (concava-a): RINCÓN (cóncavo): el filo entra por la DERECHA en horizontal (ahí sigue una pared frontal) y gira redondeado en un cuarto de vuelta hasta salir por ABAJO casi vertical (ahí sigue una ladera que cae a la derecha). La meseta queda FUERA de la curva, arriba y a la izquierda; lo bajo, dentro del rincón, abajo a la derecha, y la pared mira hacia ahí.\ncolumna 4 (concava-b): RINCÓN (cóncavo): el filo entra por la DERECHA en horizontal (ahí sigue una pared frontal) y gira redondeado en un cuarto de vuelta hasta salir por ABAJO casi vertical (ahí sigue una ladera que cae a la derecha). La meseta queda FUERA de la curva, arriba y a la izquierda; lo bajo, dentro del rincón, abajo a la derecha, y la pared mira hacia ahí. Distinta de la de su izquierda en el contorno, como marca la guía.\nAl pie, POCOS bloques angulosos, pequeños y de formas irregulares, medio enterrados en el derrubio y amontonados sin orden; nunca cubos grandes, bolas redondas ni piedras en fila. Donde la guía pone un bloque claro grande, una roca rota y achaparrada.\nLa pared mira al SURESTE y la luz viene de arriba a la IZQUIERDA: el escarpe queda en penumbra, con la luz rozando solo las aristas de las losas y el filo; el derrubio, más tendido, recibe algo más de luz.\nEstilo de la imagen de estilo, que manda sobre cualquier otra idea: fantasía medieval OSCURA y sombría, pintura digital muy detallada como una maqueta en miniatura, con muchísimo detalle menudo (piedras, matas, grietas, raíces). Paleta APAGADA y poco saturada: verdes oliva y musgo oscuros, grises pizarra, pardos terrosos, rojos óxido; nada de colores vivos ni de aspecto de juego para móvil. Sombras profundas y oclusión marcada entre los detalles, luz tenue y algo fría, con contraste dramático.\n\nRejilla de 1 filas por 4 columnas: 4 módulos sueltos de la misma familia, con mucho aire alrededor de cada uno; NINGÚN módulo toca a otro, ni con una rama ni con una sombra.\nTodos con la misma cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, nunca cenital ni de perfil, y a la MISMA escala: un módulo pequeño es pequeño de verdad, no un grande dibujado más chico.\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/art/mapas/Imagen de ChatGPT 3 oct 2026, 10_05_01.png",
+      "papel": "estilo",
+      "sha256": "a3b78bb6efb486f6c65827e19739696aab723d824331faaa6d58d84c727fe6f5"
+    },
+    {
+      "ruta": "assets/mapa/modulos/rocas-caidas.webp",
+      "papel": "identidad",
+      "sha256": "30da35f07c78ccf648360b9713a4e6181744110b633e7cd9736a49d6cb98b485"
+    },
+    {
+      "ruta": "assets/mapa/modulos/laderas-arenisca-este-1.webp",
+      "papel": "material",
+      "sha256": "f290814da2f8cc3f3ebb035dc91a32e9a82de6ba35c0ba827c207dcec14b2d5e"
+    },
+    {
+      "ruta": "assets/mapa/guias/diagonales-se-1.png",
+      "papel": "guia",
+      "sha256": "9ae1c3ccf3d608be590fe64e444ad77728f7fb819741f7dfc7cde6ab42761162"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a11810-a769-76b3-a087-a7ce2d4f4a73/exec-9b140d20-e14c-4d7b-8e83-f94f03b48b50.png",
+    "sha256": "598560b4db1883704b4bf7f392b1f610e5943700c03cb555010dffe452262f8a",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "hoja partida en 4 módulos a su tamaño nativo, cada uno con su ancla en la base",
+    "WebP calidad 92, alfa sin pérdida",
+    "las juntas de cada módulo, registradas sobre la guía"
+  ],
+  "validacion": {
+    "visibles": 0.3953167640305143,
+    "opacos": 0.98526830956324,
+    "haloSuelto": 0,
+    "ancho": 1465,
+    "alto": 489
+  },
+  "salida": {
+    "ruta": "assets/mapa/modulos/diagonales-arenisca-se-1.webp",
+    "sha256": "f5976124e449e25573fbeb26835266a3c114906d731b87a1068d7ec41cf417a9"
+  }
+}

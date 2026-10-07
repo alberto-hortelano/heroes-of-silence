@@ -1,0 +1,110 @@
+{
+  "hoja": "bajadas-nevadas-2.webp",
+  "modulos": [
+    {
+      "imagen": "s.webp",
+      "sha256": "a4da8cf0bcadbc4248ca9af425adeacffbcd3a8af28fc4c8bdffaaa0b5aa72b6",
+      "ancho": 223,
+      "alto": 489,
+      "ancla": [
+        103,
+        484
+      ],
+      "bajada": {
+        "arriba": [
+          108,
+          85
+        ],
+        "abajo": [
+          108,
+          314
+        ],
+        "rumbo": "s"
+      }
+    },
+    {
+      "imagen": "se.webp",
+      "sha256": "c2c3be7ab57543022ec6de84eea3dc6e5a91a24eb853103c8524c8bb5395526f",
+      "ancho": 403,
+      "alto": 430,
+      "ancla": [
+        316,
+        425
+      ],
+      "bajada": {
+        "arriba": [
+          93,
+          111
+        ],
+        "abajo": [
+          155,
+          341
+        ],
+        "rumbo": "se"
+      }
+    },
+    {
+      "imagen": "so.webp",
+      "sha256": "db01ead6ec2d8943665fa187bda188162ec0d57fe2f38a6163041f96b9976e09",
+      "ancho": 381,
+      "alto": 430,
+      "ancla": [
+        95,
+        425
+      ],
+      "bajada": {
+        "arriba": [
+          302,
+          118
+        ],
+        "abajo": [
+          240,
+          347
+        ],
+        "rumbo": "so"
+      }
+    },
+    {
+      "imagen": "e.webp",
+      "sha256": "920bf5d0bdae26ff45d03939dcac841bc4e043e29407d92f2cda07554f46905a",
+      "ancho": 337,
+      "alto": 244,
+      "ancla": [
+        145,
+        239
+      ],
+      "bajada": {
+        "arriba": [
+          14,
+          139
+        ],
+        "abajo": [
+          138,
+          368
+        ],
+        "rumbo": "e"
+      }
+    },
+    {
+      "imagen": "o.webp",
+      "sha256": "2e207f2665f29caef86eb506ec15111c8ede0573aacd8293a6b43ea7aaacf962",
+      "ancho": 391,
+      "alto": 249,
+      "ancla": [
+        267,
+        244
+      ],
+      "bajada": {
+        "arriba": [
+          367,
+          145
+        ],
+        "abajo": [
+          243,
+          374
+        ],
+        "rumbo": "o"
+      }
+    }
+  ]
+}

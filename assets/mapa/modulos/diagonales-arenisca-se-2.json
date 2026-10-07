@@ -1,0 +1,97 @@
+{
+  "hoja": "diagonales-arenisca-se-2.webp",
+  "modulos": [
+    {
+      "imagen": "convexa-a.webp",
+      "sha256": "09c0fbea71631f3defa060eb7e64240624774a70a20a03bee3d61bcd946ff5d4",
+      "ancho": 367,
+      "alto": 595,
+      "ancla": [
+        153,
+        590
+      ],
+      "diagonal": {
+        "filo": [
+          [
+            171,
+            80
+          ],
+          [
+            49,
+            202
+          ]
+        ],
+        "papel": "convexa"
+      }
+    },
+    {
+      "imagen": "convexa-b.webp",
+      "sha256": "144948c8610483b288a057920d13ef18dc83adee5cb470bb2ef0128103014a85",
+      "ancho": 365,
+      "alto": 616,
+      "ancla": [
+        169,
+        611
+      ],
+      "diagonal": {
+        "filo": [
+          [
+            171,
+            71
+          ],
+          [
+            49,
+            193
+          ]
+        ],
+        "papel": "convexa"
+      }
+    },
+    {
+      "imagen": "concava-a.webp",
+      "sha256": "0b639a36fcc26283e151bb6df303aa2388d50daf0014a71e4fed8a7fcdd2382c",
+      "ancho": 245,
+      "alto": 545,
+      "ancla": [
+        194,
+        540
+      ],
+      "diagonal": {
+        "filo": [
+          [
+            164,
+            67
+          ],
+          [
+            42,
+            190
+          ]
+        ],
+        "papel": "concava"
+      }
+    },
+    {
+      "imagen": "concava-b.webp",
+      "sha256": "ed1df538ea42de52fd91f09845b87a9c07d9d0708c1c5f9412a09a0b3c8c6bb2",
+      "ancho": 226,
+      "alto": 562,
+      "ancla": [
+        186,
+        557
+      ],
+      "diagonal": {
+        "filo": [
+          [
+            169,
+            72
+          ],
+          [
+            47,
+            195
+          ]
+        ],
+        "papel": "concava"
+      }
+    }
+  ]
+}
