@@ -28,6 +28,7 @@ import {
 } from '../src/client/render/escenario/celdas.js';
 import {
   bajadasSinPieza,
+  bajadasSobreNodo,
   bajadasTapadas,
   celdasMalCubiertas,
   filosColocados,
@@ -414,5 +415,49 @@ describe('los guardias del relieve por celdas, mordiendo', () => {
     expect(bajadasTapadas([bajada, marcadorDeBajada(b, 5.5)], [b], catalogo)).toEqual([]);
     const mata: Sprite = { ...pared(5.5), clase: 'cubierta', alto: 0.4 };
     expect(bajadasTapadas([bajada, mata], [b], catalogo)).toEqual([]);
+  });
+
+  /** Lo horneado de una ciudad en la casilla `[x, y]`, como lo pone `componer`. */
+  const ciudad = (x: number, y: number): Sprite => ({
+    src: 'modulos/ciudades/1.webp',
+    nw: 400,
+    nh: 300,
+    ax: 200,
+    ay: 290,
+    x: x + 0.5,
+    y: y + 0.85,
+    alto: 1.5,
+    clase: 'objeto',
+    color: '#888888',
+    capa: 0,
+    sombra: true,
+    objeto: { id: 'ciudad', kind: 'town' },
+  });
+
+  it('la bajada que baja a una ciudad no se pinta encima de ella; la que sale de su puerta, sí', () => {
+    // La de s9 pintaba su camino sobre la muralla: iba después de la ciudad.
+    const encima = spriteDeBajada(m, hojaDeBajada(b), b, 5);
+    expect(bajadasSobreNodo([ciudad(3, 4), encima], [b], catalogo)).toEqual([
+      expect.stringMatching(/encima de town ciudad/),
+    ]);
+    const detras = spriteDeBajada(m, hojaDeBajada(b), b, 4.84);
+    expect(bajadasSobreNodo([detras, ciudad(3, 4)], [b], catalogo)).toEqual([]);
+    // La ciudad de arriba queda detrás de la rampa, que baja de su puerta hacia la cámara.
+    expect(bajadasSobreNodo([ciudad(3, 3), encima], [b], catalogo)).toEqual([]);
+  });
+
+  it('lo que se pinta delante de la ciudad a la que baja puede tapar su llegada', () => {
+    const detras = spriteDeBajada(m, hojaDeBajada(b), b, 4.84);
+    const pared: Sprite = {
+      ...marcadorDeDiagonal(rel.diagonales[0] as Celda),
+      x: 3.5,
+      y: 5.5,
+      alto: 1.5,
+    };
+    expect(bajadasTapadas([detras, ciudad(3, 4), pared], [b], catalogo)).toEqual([]);
+    // Sin ciudad, la misma pared la tapa.
+    expect(bajadasTapadas([detras, pared], [b], catalogo)).toEqual([
+      expect.stringMatching(/la tapa pared/),
+    ]);
   });
 });

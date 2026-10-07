@@ -54,6 +54,7 @@ import {
 } from './celdas.js';
 import { azarDe, esparcir } from './esparcir.js';
 import { ejeDe, esqueleto } from './esqueleto.js';
+import { seHornea } from './horneado.js';
 import {
   altoMaximoDe,
   type MaterialDePico,
@@ -216,6 +217,12 @@ export interface Escena {
      * del pintor (`bajadasTapadas`), como los puentes: tiene que ser 0.
      */
     readonly bajadasTapadas: number;
+    /**
+     * Bajadas que se pintan encima de lo horneado (ciudad, pueblo, mina, nodo)
+     * de la casilla a la que bajan, con el que se solapan, desde el orden del
+     * pintor (`bajadasSobreNodo`): tiene que ser 0.
+     */
+    readonly bajadasSobreNodo: number;
     /**
      * Trozos de cara de acantilado que se pintan y no tapa la silueta de
      * ninguna pared, de al menos 0,3 de ancho y de alto (`carasLisas`): tiene
@@ -1601,7 +1608,15 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         camino.some(([x, y]) => tapaElPunto(p, perfilDe, x, y))
       )
         clave = p.y + 0.01;
-    const s = m === undefined ? marcadorDeBajada(b, clave) : spriteDeBajada(m, hoja, b, clave);
+    const pieza = (k: number) =>
+      m === undefined ? marcadorDeBajada(b, k) : spriteDeBajada(m, hoja, b, k);
+    // Y antes de lo horneado de un nodo con el que se solapa: la bajada que
+    // llega a una ciudad por su puerta pintaba su camino sobre la muralla (s9,
+    // el lote de §23; con marcador no se veía). El nodo tapa el final de la rampa.
+    let s = pieza(clave);
+    for (const n of sprites)
+      if (esNodoHorneado(n) && n.y < s.y && llegaA(b, n) && seSolapan(s, n, perfilDe))
+        s = pieza(n.y - 0.01);
     // La bajada es el camino: no la para la reserva del objeto al que lleva, ni
     // cuenta como base sobre ella (`meter`), que su pie es la senda que llega.
     sprites.push(s);
@@ -1842,6 +1857,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       ).length,
       bajadasSinPieza: bajadasSinPieza(sprites, bajadas, catalogo).length,
       bajadasTapadas: bajadasTapadas(sprites, bajadas, catalogo).length,
+      bajadasSobreNodo: bajadasSobreNodo(sprites, bajadas, catalogo).length,
       laderasEnfrentadas: laderasEnfrentadas(sprites, deLadera).length,
       carasLisas: carasLisas(carasDeEscena, sprites, perfilDe).length,
       puentesTapados: puentesTapados(sprites, puentes).length,
@@ -2787,8 +2803,14 @@ export function bajadasTapadas(
     );
     if (k < 0) continue;
     const puntos = caminoDeBajada(b);
+    // La que baja a un nodo y lo pisa va a su profundidad, justo detrás de él
+    // (`componer`): lo que se pinta delante del nodo está delante de su llegada
+    // y puede taparla. Sin esto, en s10, s31 y s36 una pared de delante de la
+    // ciudad o del hito contaba como tapándola.
+    const nodo = volumenes.find(({ s: n }, j) => j > k && esNodoHorneado(n) && llegaA(b, n))?.s;
     for (const { s } of volumenes.slice(k + 1)) {
       if (s.clase === 'objeto' || s.clase === 'muro') continue;
+      if (nodo !== undefined && ordenDeVolumenes(s, nodo) > 0) continue;
       // Otra bajada que se cruza con esta es el mismo camino que se abre en dos.
       if ((s.src !== null && m.has(s.src)) || (s.src === null && s.color === COLOR_DE_BAJADA))
         continue;
@@ -2799,6 +2821,66 @@ export function bajadasTapadas(
         break;
       }
     }
+  }
+  return fuera;
+}
+
+/** Lo horneado de un nodo: ciudad, pueblo, mina o nodo (`seHornea`). */
+const esNodoHorneado = (s: Sprite): boolean =>
+  s.clase === 'objeto' && s.objeto !== undefined && seHornea(s.objeto.kind);
+
+/**
+ * Si lo horneado `n` está en la casilla baja de la bajada `b`: la rampa baja
+ * hacia él, que queda delante. El de la casilla alta queda detrás de ella: la
+ * rampa sale de su puerta hacia la cámara y se pinta encima, como la senda.
+ */
+const llegaA = (b: Bajada, n: Sprite): boolean =>
+  Math.floor(n.x) === b.bajo[0] && Math.floor(n.y) === b.bajo[1];
+
+/** Paso de la rejilla con la que `seSolapan` busca un punto pintado por los dos. */
+const PASO_DE_SOLAPE = 0.05;
+
+/** Si `a` y `b` pintan algún punto en común, bajo sus siluetas (`tapaElPunto`). */
+function seSolapan(a: Sprite, b: Sprite, perfilDe: PerfilDe): boolean {
+  const ca = cajaDeSprite(a);
+  const cb = cajaDeSprite(b);
+  const x0 = Math.max(ca[0], cb[0]);
+  const x1 = Math.min(ca[2], cb[2]);
+  const y0 = Math.max(ca[1], cb[1]);
+  const y1 = Math.min(ca[3], cb[3]);
+  for (let x = x0; x <= x1; x += PASO_DE_SOLAPE)
+    for (let y = y0; y <= y1; y += PASO_DE_SOLAPE)
+      if (tapaElPunto(a, perfilDe, x, y) && tapaElPunto(b, perfilDe, x, y)) return true;
+  return false;
+}
+
+/**
+ * Las bajadas que el pintor pinta después de lo horneado del nodo al que bajan
+ * (`llegaA`) y con el que se solapan (`seSolapan`), cada una dicha. La que baja
+ * a una ciudad pintaba su camino sobre la muralla (s9).
+ */
+export function bajadasSobreNodo(
+  sprites: readonly Sprite[],
+  bajadas: readonly Bajada[],
+  catalogo: Catalogo,
+): string[] {
+  const m = modulosDelRelieve(catalogo).bajadas;
+  const perfilDe = perfilesDelCatalogo(catalogo);
+  const { volumenes } = separar({ sprites });
+  const fuera: string[] = [];
+  for (const b of bajadas) {
+    const k = volumenes.findIndex(
+      ({ s }) => s.clase === 'pared' && cercaDe(arribaColocado(s, m, b), b.arriba),
+    );
+    if (k < 0) continue;
+    const s = (volumenes[k] as (typeof volumenes)[number]).s;
+    const nodo = volumenes
+      .slice(0, k)
+      .find(({ s: n }) => esNodoHorneado(n) && llegaA(b, n) && seSolapan(s, n, perfilDe));
+    if (nodo !== undefined)
+      fuera.push(
+        `bajada ${b.rumbo} en ${b.arriba[0].toFixed(2)},${b.arriba[1].toFixed(2)}: encima de ${nodo.s.objeto?.kind} ${nodo.s.objeto?.id}`,
+      );
   }
   return fuera;
 }

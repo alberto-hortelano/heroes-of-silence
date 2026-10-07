@@ -406,7 +406,11 @@ describe('la escena de un mapa real', () => {
       expect(e.informe.celdasMalCubiertas).toBe(0);
       expect(bajadasSinPieza(e.sprites, e.relieve.bajadas, catalogo)).toEqual([]);
       expect(bajadasTapadas(e.sprites, e.relieve.bajadas, catalogo)).toEqual([]);
-      expect([e.informe.bajadasSinPieza, e.informe.bajadasTapadas]).toEqual([0, 0]);
+      expect([
+        e.informe.bajadasSinPieza,
+        e.informe.bajadasTapadas,
+        e.informe.bajadasSobreNodo,
+      ]).toEqual([0, 0, 0]);
       // Que el guardia no mire al vacío: hay diagonales (con arte o marcador) y bajadas.
       expect(
         e.sprites.some(
