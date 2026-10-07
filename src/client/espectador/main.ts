@@ -11,6 +11,7 @@
  * corto que el del cliente que juega porque aquí no hay ratón ni sesión.
  */
 import { SIN_CARGAS } from '@core/battle/battle.js';
+import { todosALaVista } from '@core/state/asaltantes.js';
 import type { SpectatorSnapshotMsg } from '../../server/protocol.js';
 import type { SpectatorView } from '../../server/vista-espectador.js';
 import { NADA, pintar } from '../html.js';
@@ -263,6 +264,7 @@ function pintarTodo(ahora: number): void {
       // Un espectador lo ve TODO: eso es lo que es. Por eso #64 no aplica aquí.
       drawMapa(ctx, {
         escena,
+        asaltantes: todosALaVista(vista.raiders),
         camara,
         ancho: rect.width,
         alto: rect.height,

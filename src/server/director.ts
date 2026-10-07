@@ -54,6 +54,7 @@ import {
   notaAscensoRechazado,
   notaMarchaParcial,
   notaTurnoAventura,
+  paradaDeLaMarcha,
   type TurnoAbierto,
 } from './notas.js';
 
@@ -360,11 +361,12 @@ export class Director {
         problems.push(`${describeAccion(a)}: ${err instanceof Error ? err.message : String(err)}`);
         continue;
       }
-      // Si la marcha se cortó lo dice el núcleo con un hecho; aquí solo se cuenta.
-      for (const hecho of this.state.log.slice(desde)) {
-        if (hecho.kind === 'march_cut' && a.type === 'move_hero') {
-          parciales.push(notaMarchaParcial(a, hecho));
-        }
+      // Si la marcha se quedó sin llegar lo dice el núcleo con un hecho —le
+      // faltaron puntos, vio un grupo que la emboscaría o la emboscaron—; aquí
+      // solo se busca y se cuenta.
+      if (a.type === 'move_hero') {
+        const parada = paradaDeLaMarcha(a, this.state.log.slice(desde));
+        if (parada !== null) parciales.push(notaMarchaParcial(a, parada));
       }
 
       if (this.state.pendingBattle !== null) {

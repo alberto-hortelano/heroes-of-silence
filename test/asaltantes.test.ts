@@ -19,7 +19,7 @@ import {
   type MapPlan,
   validateMapPlan,
 } from '../src/core/map/generate.js';
-import { isEnterable, objectAt, pointKey } from '../src/core/map/map.js';
+import { isEnterable, objectAt, pointFromKey, pointKey } from '../src/core/map/map.js';
 import { estructura, territorio, VECINAS } from '../src/core/map/regiones.js';
 import { createRng } from '../src/core/rng.js';
 import {
@@ -27,12 +27,13 @@ import {
   casillasPeligrosas,
   dondeBrotan,
   emboscadaEnLaRuta,
+  grupoALaVista,
+  grupoALaVistaDesde,
   mascaraDeOcupacion,
   pasoDePatrulla,
   problemasDeAsaltante,
   type Raider,
   regionDeCasilla,
-  regionesALaVista,
   tocaUnNodo,
 } from '../src/core/state/asaltantes.js';
 import {
@@ -44,6 +45,7 @@ import {
   currentPlayer,
   type GameState,
   heroesOf,
+  miradasDe,
   resolvePendingBattle,
   sidesOwnedBy,
   visibleNow,
@@ -640,19 +642,19 @@ describe('la ruta que pisa una emboscada (H2)', () => {
       for (let seed = 1; seed <= 200; seed++) {
         const state = newGame({ seed });
         const hero = heroesOf(state, 0)[0]!;
-        const mirando = visibleNow(state, 0);
+        const vistos = asaltantesALaVista(state, visibleNow(state, 0));
         for (let y = 0; y < state.map.height; y++) {
           for (let x = 0; x < state.map.width; x++) {
             const camino = caminoHasta(state, hero, { x, y });
             if (camino === null) continue;
-            const aviso = emboscadaEnLaRuta(state, hero, camino, mirando);
-            if (aviso !== null) return { state, hero, camino, mirando, aviso };
+            const aviso = emboscadaEnLaRuta(state, hero, camino, vistos);
+            if (aviso !== null) return { state, hero, camino, vistos, aviso };
           }
         }
       }
       throw new Error('ninguna de 200 semillas da una ruta con emboscada a la vista');
     })();
-    const { state, hero, camino, mirando, aviso } = hallada;
+    const { state, hero, camino, vistos, aviso } = hallada;
     // La misma regla que la marcha: el paso avisado es donde salta.
     const r = regionDeCasilla(state.map, camino[aviso.paso]!.at);
     expect(regionDeCasilla(state.map, aviso.raider.at)).toBe(r);
@@ -660,10 +662,10 @@ describe('la ruta que pisa una emboscada (H2)', () => {
       expect(regionDeCasilla(state.map, paso.at)).not.toBe(r);
     }
     // Lo que no se ve no avisa: la ruta no cuenta lo que tapa la niebla.
-    expect(emboscadaEnLaRuta(state, hero, camino, new Set())).toBeNull();
+    expect(emboscadaEnLaRuta(state, hero, camino, asaltantesALaVista(state, new Set()))).toBeNull();
     // Y un héroe al que el grupo no le saca el margen, tampoco.
     hero.army = ejercito({ creature: 'paladin', count: 7 });
-    expect(emboscadaEnLaRuta(state, hero, camino, mirando)).toBeNull();
+    expect(emboscadaEnLaRuta(state, hero, camino, vistos)).toBeNull();
   });
 });
 
@@ -679,10 +681,9 @@ describe('qué grupo se ve: basta ver su región (#130)', () => {
       for (const raider of state.raiders) {
         if (mirando.has(pointKey(raider.at))) continue;
         const region = regionDeCasilla(state.map, raider.at);
-        const casilla = [...mirando].find((k) => {
-          const [x, y] = k.split(',').map(Number) as [number, number];
-          return regionDeCasilla(state.map, { x, y }) === region;
-        });
+        const casilla = [...mirando].find(
+          (k) => regionDeCasilla(state.map, pointFromKey(k)) === region,
+        );
         if (casilla !== undefined) return { state, raider, mirando, casilla };
       }
     }
@@ -697,7 +698,6 @@ describe('qué grupo se ve: basta ver su región (#130)', () => {
     const vistos = asaltantesALaVista(state, new Set([casilla]));
     expect(vistos.map((r) => r.id)).toContain(raider.id);
     for (const r of vistos) expect(regionDeCasilla(state.map, r.at)).toBe(region);
-    expect(regionesALaVista(state.map, new Set([casilla]))).toEqual(new Set([region]));
     // Sin mirar nada, ninguno; con «Ver mapa entero», todos.
     expect(asaltantesALaVista(state, new Set())).toEqual([]);
     expect(asaltantesALaVista(state, null).map((r) => r.id)).toEqual(
@@ -717,7 +717,7 @@ describe('qué grupo se ve: basta ver su región (#130)', () => {
     const destino = { x: i % state.map.width, y: Math.floor(i / state.map.width) };
     const camino = caminoHasta(state, hero, destino);
     if (camino === null) throw new Error('no hay camino a la región del grupo');
-    const aviso = emboscadaEnLaRuta(state, hero, camino, mirando);
+    const aviso = emboscadaEnLaRuta(state, hero, camino, asaltantesALaVista(state, mirando));
     expect(aviso).not.toBeNull();
     expect(regionDeCasilla(state.map, aviso!.raider.at)).toBe(
       regionDeCasilla(state.map, camino[aviso!.paso]!.at),
@@ -734,6 +734,31 @@ describe('qué grupo se ve: basta ver su región (#130)', () => {
         ).toEqual(asaltantesALaVista(state, visibleNow(state, p)).map((r) => r.id));
       }
     }
+  });
+
+  it('sin el `Set`, desde las miradas del jugador, es la misma regla grupo a grupo', async () => {
+    // `grupoALaVistaDesde` (la crónica y la parada de la marcha) recorre los
+    // cuadrados de visión en vez de levantar las claves: dos escrituras de la
+    // misma regla, atadas aquí. Con la partida avanzada unos días, para que
+    // haya héroes lejos de casa y grupos que se ven solo por su región.
+    let porSuRegion = 0;
+    for (let seed = 1; seed <= 20; seed++) {
+      const state = newGame({ seed });
+      for (let turno = 0; turno < 6 && state.finished === null; turno++) {
+        await playAiTurn(state, { rng: createRng(seed * 100 + turno) });
+      }
+      for (const p of [0, 1] as const) {
+        const mirando = visibleNow(state, p);
+        const seVe = grupoALaVista(state.map, mirando);
+        const miradas = miradasDe(state, p);
+        for (const r of state.raiders) {
+          const desde = grupoALaVistaDesde(state.map, miradas, r.at);
+          expect(desde, `semilla ${seed}, ${r.id}, jugador ${p}`).toBe(seVe(r.at));
+          if (desde && !mirando.has(pointKey(r.at))) porSuRegion++;
+        }
+      }
+    }
+    expect(porSuRegion).toBeGreaterThan(0);
   });
 
   it('la crónica sella el brote con la misma regla: se entera quien ve su región', () => {

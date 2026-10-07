@@ -401,10 +401,15 @@ Notas:
   casilla aunque le queden puntos, y la batalla la juegas defendiendo. Si va
   directo a por la base rival por regiones sin conquistar, puede llegar con
   menos gente de la que salió —o no llegar—.
-- Si al andar descubres un grupo que te emboscaría más adelante en la ruta y
-  que al salir no veías, el héroe se para donde lo ve ("march_halted" en
-  recentEvents) y conserva lo andado. Las acciones que vengan detrás se siguen
-  aplicando; con el grupo ya a la vista decides el turno que viene si sigues.
+- Si al andar ves un grupo que te emboscaría más adelante en la ruta y que no
+  era el que ya veías emboscarte al salir —uno que no veías, o el siguiente
+  cuando por el camino ganas fuerza (la guarnición de tu base se recoge al
+  pasar) y el primero deja de sacarte el margen—, el héroe se para donde lo
+  ve ("march_halted" en recentEvents) y conserva lo andado; el veredicto lo
+  cuenta como marcha que entró parcialmente y dice qué grupo la paró. Las
+  acciones que vengan detrás se siguen aplicando; con el grupo ya a la vista
+  decides el turno que viene si sigues. Una emboscada antes del destino
+  también sale en el veredicto como marcha parcial.
 - La EXPERIENCIA se gana por daño: quien quita PV a un enemigo —criatura o
   héroe, con golpes, disparos o hechizos— gana "PV quitados × nivel del que los
   recibe", gane o pierda la batalla. La escala de niveles es UNA para tropa y

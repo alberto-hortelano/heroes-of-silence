@@ -46,7 +46,6 @@ import {
 import { pointFromKey, pointKey, RedDeCaminos, stepCost } from '../src/core/map/map.js';
 import { BARRERAS, costeDeEntrada, isWalkable, TERRAIN_KINDS } from '../src/core/map/terrain.js';
 import { createRng } from '../src/core/rng.js';
-import { asaltantesALaVista } from '../src/core/state/asaltantes.js';
 import { cronicaPara } from '../src/core/state/events.js';
 import {
   applyAdventureAction,
@@ -695,11 +694,8 @@ describe('lo que ve el agente', () => {
       knownMap: { raiders: { id: string }[] };
     };
     const ids = (m: { raiders: { id: string }[] }) => m.raiders.map((r) => r.id);
-    // La regla es la del núcleo (`asaltantesALaVista`: basta ver su región), no
-    // una copia aquí.
-    expect(ids(lejos.knownMap)).toEqual(
-      asaltantesALaVista(state, visibleNow(state, 0)).map((r) => r.id),
-    );
+    // Que sea la regla del núcleo y no una copia lo prueba `asaltantes.test.ts`
+    // en 20 semillas; aquí, que el turno y la tool dicen lo mismo.
     expect(ids(lejos.knownMap)).not.toContain(grupo.id);
     expect(ids(serializeKnownMap(state, 0))).toEqual(ids(lejos.knownMap));
 

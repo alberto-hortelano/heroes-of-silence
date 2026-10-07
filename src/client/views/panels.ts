@@ -34,13 +34,8 @@ import {
 } from '@core/hero/equipo.js';
 import { nivelDe, nivelDeHeroe, umbral } from '@core/hero/experiencia.js';
 import { type Hero, heroUnit, maxMana, maxMovePoints } from '@core/hero/hero.js';
-import {
-  elQueSeIria,
-  individuosDe,
-  type Personajes,
-  type TroopGroup,
-  troopSummary,
-} from '@core/hero/troop.js';
+import { elQueSeIria, type Personajes, type TroopGroup, troopSummary } from '@core/hero/troop.js';
+import { loQueLaPara } from '@core/state/asaltantes.js';
 import { type Desenlace, desenlaceDe } from '@core/state/desenlace.js';
 import type { DefeatReason, GameEventDraft } from '@core/state/events.js';
 import { buyBlocker } from '@core/state/game.js';
@@ -1148,7 +1143,7 @@ export function renderLog(log: readonly GameEventDraft[], viewer: number): Html 
           // puntos de sobra: sin esta línea parecería un fallo de la marcha.
           return html`<div>${
             mio ? 'Un héroe tuyo se detiene' : `Un héroe ${deJugador(e.actor)} se detiene`
-          }: ve ${individuosDe(e.troops)} asaltantes que lo emboscarían más adelante</div>`;
+          }: ${loQueLaPara(e.troops)}</div>`;
         case 'raider_dispersed':
           return html`<div${clase(mio, false)}>${
             mio ? 'Los asaltantes de tu región se dispersan' : 'Unos asaltantes se dispersan'

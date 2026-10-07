@@ -38,6 +38,7 @@ import {
   usarPintorDelSuelo,
 } from '../src/client/render/escenario/superficie.js';
 import { drawMapa, PIES } from '../src/client/render/mapa.js';
+import { todosALaVista } from '../src/core/state/asaltantes.js';
 import { newGame } from '../src/core/state/setup.js';
 
 interface Llamada {
@@ -642,6 +643,7 @@ describe('qué tapa a qué en el mapa', () => {
     llamadas.length = 0;
     drawMapa(contexto(), {
       escena: state,
+      asaltantes: todosALaVista(state.raiders),
       camara: { tile: 70, x: foco.x - 6, y: foco.y - 4 },
       ancho: 900,
       alto: 600,
@@ -738,5 +740,62 @@ describe('qué tapa a qué en el mapa', () => {
     expect(volumen!.s.y - volumen!.s.alto).toBeLessThan(heroe.at.y + PIES.heroe);
     expect(volumen!.clave).toBeGreaterThan(heroe.at.y + PIES.heroe);
     expect(indiceDelHeroe(registro)).toBeGreaterThan(indiceDelVolumen(registro, volumen!.s));
+  });
+});
+
+describe('un grupo que vuelve a la vista aparece en su casilla (H3 de QA de #130)', () => {
+  /** Dónde cae la chapa del grupo —el texto «13»— en un fotograma, en píxeles; `null` si no sale. */
+  function chapaDelGrupo(
+    state: ReturnType<typeof newGame>,
+    grupos: readonly { id: string; at: { x: number; y: number } }[],
+    tiempo: number,
+  ): { x: number; y: number } | null {
+    const camara = { tile: 70, x: state.raiders[0]!.at.x - 6, y: state.raiders[0]!.at.y - 4 };
+    llamadas.length = 0;
+    drawMapa(contexto(), {
+      escena: state,
+      asaltantes: todosALaVista(
+        grupos.map((g) => ({ ...g, troops: [{ creature: 'skeleton', count: 13 }] })),
+      ),
+      camara,
+      ancho: 900,
+      alto: 600,
+      explorado: null,
+      visibles: null,
+      ruta: [],
+      seleccionado: null,
+      hover: null,
+      semilla: state.seed,
+      tiempo,
+    });
+    const texto = llamadas.find((l) => l.metodo === 'fillText' && l.args[0] === '13');
+    return texto === undefined ? null : { x: texto.args[1] as number, y: texto.args[2] as number };
+  }
+
+  /** Dónde cae la chapa de un grupo quieto en `at`: la de uno que se pinta por primera vez. */
+  const chapaEn = (state: ReturnType<typeof newGame>, at: { x: number; y: number }) =>
+    chapaDelGrupo(state, [{ id: `quieto-${at.x},${at.y}`, at }], 0);
+
+  it('el que deja de pintarse se olvida: al volver no anda desde donde se le vio', () => {
+    const state = newGame({ seed: 1 });
+    sueloDelMapa(escenarioDe(state.map, state.seed), 70);
+    const id = state.raiders[0]!.id;
+    const ayer = state.raiders[0]!.at;
+    const hoy = { x: ayer.x + 2, y: ayer.y + 1 };
+    chapaDelGrupo(state, [{ id, at: ayer }], 0);
+    // Sale de la vista: este fotograma no lo pinta.
+    expect(chapaDelGrupo(state, [], 1000)).toBeNull();
+    // Vuelve, en otra casilla: aparece en ella, no a mitad de camino desde ayer.
+    expect(chapaDelGrupo(state, [{ id, at: hoy }], 1001)).toEqual(chapaEn(state, hoy));
+  });
+
+  it('el que se sigue pintando sí anda: sale de su casilla de ayer', () => {
+    const state = newGame({ seed: 1 });
+    sueloDelMapa(escenarioDe(state.map, state.seed), 70);
+    const id = state.raiders[0]!.id;
+    const ayer = state.raiders[0]!.at;
+    const hoy = { x: ayer.x + 2, y: ayer.y + 1 };
+    chapaDelGrupo(state, [{ id, at: ayer }], 0);
+    expect(chapaDelGrupo(state, [{ id, at: hoy }], 1000)).toEqual(chapaEn(state, ayer));
   });
 });

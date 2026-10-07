@@ -23,17 +23,14 @@ import {
 } from '@core/battle/battle.js';
 import { spell } from '@core/battle/spells.js';
 import type { BattleAction, BattleStack, BattleState, Side } from '@core/battle/types.js';
-import {
-  armyLeadership,
-  GARRISON_LEADERSHIP,
-  heroLeadership,
-  individuosDe,
-} from '@core/hero/troop.js';
+import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '@core/hero/troop.js';
 import type { PathStep } from '@core/map/map.js';
 import { createRng, type Rng } from '@core/rng.js';
 import {
+  type AsaltantesALaVista,
   asaltantesALaVista,
   emboscadaEnLaRuta,
+  loQueLaPara,
   type VistaAsaltante,
 } from '@core/state/asaltantes.js';
 import { type Desenlace, desenlaceDe, finDePartida } from '@core/state/desenlace.js';
@@ -442,11 +439,9 @@ export class Session implements ControlDeBatalla, HechizosDeBatalla {
     if (hero === null || !this.isPlayersTurn) return [];
     const camino = caminoHasta(this.state, hero, to);
     if (camino === null) return [];
-    // Con lo que la persona mira AHORA y no con todo: un grupo que no se ve no
-    // avisa, o la ruta le contaría lo que tapa la niebla. Con «Ver mapa entero»
-    // se mira todo, igual que se pinta todo.
-    const mirando = this.revealAll ? null : this.visibles();
-    const emboscada = emboscadaEnLaRuta(this.state, hero, camino, mirando);
+    // Con los grupos que la persona ve y no con todos: uno que no se ve no
+    // avisa, o la ruta le contaría lo que tapa la niebla.
+    const emboscada = emboscadaEnLaRuta(this.state, hero, camino, this.asaltantesALaVista());
     const hoy = pasosDeHoy(camino, hero);
     return camino.map((paso, i) => ({
       ...paso,
@@ -473,21 +468,25 @@ export class Session implements ControlDeBatalla, HechizosDeBatalla {
   private cacheVisibles: { clave: string; casillas: ReadonlySet<string> } | null = null;
 
   /**
-   * Los grupos de asaltantes que la persona ve: los que pinta el lienzo y lee la
-   * barra. La regla es del núcleo (`asaltantesALaVista`: basta ver su región) y
-   * se le pasa lo mismo que a la ruta. Con «Ver mapa entero», todos.
+   * Los grupos de asaltantes que la persona ve: los que pinta el lienzo, lee la
+   * barra y avisan en la ruta. La regla es del núcleo (`asaltantesALaVista`:
+   * basta ver su región). Con «Ver mapa entero», todos y sin caché.
    */
-  asaltantesALaVista(): readonly VistaAsaltante[] {
-    // La clave de `visibles()` más el modo: los grupos se mueven al pasar de día
-    // y se van con un hecho de la crónica, que son justo las dos cosas que mira.
-    const clave = `${this.state.log.length}|${this.state.day}|${this.state.current}|${this.revealAll}`;
-    if (this.cacheAsaltantes === null || this.cacheAsaltantes.clave !== clave) {
-      const mirando = this.revealAll ? null : this.visibles();
-      this.cacheAsaltantes = { clave, grupos: asaltantesALaVista(this.state, mirando) };
+  asaltantesALaVista(): AsaltantesALaVista {
+    if (this.revealAll) return asaltantesALaVista(this.state, null);
+    // Se guarda mientras `visibles()` devuelva el mismo `Set`: los grupos se
+    // mueven al pasar de día y se van con un hecho de la crónica, que son justo
+    // las dos cosas que lo renuevan.
+    const mirando = this.visibles();
+    if (this.cacheAsaltantes?.mirando !== mirando) {
+      this.cacheAsaltantes = { mirando, grupos: asaltantesALaVista(this.state, mirando) };
     }
     return this.cacheAsaltantes.grupos;
   }
-  private cacheAsaltantes: { clave: string; grupos: readonly VistaAsaltante[] } | null = null;
+  private cacheAsaltantes: {
+    mirando: ReadonlySet<string>;
+    grupos: AsaltantesALaVista;
+  } | null = null;
 
   /**
    * El liderazgo que ocupa una tropa y su tope: la de un héroe, o la guarnición
@@ -575,12 +574,12 @@ export class Session implements ControlDeBatalla, HechizosDeBatalla {
       return;
     }
 
-    // La marcha se ha parado al descubrir un grupo que la emboscaría (#130):
-    // sin decirlo, el héroe se quedaba a medio camino con puntos de sobra y
-    // parecía un fallo. La frase sale del hecho, que es lo que pasó.
+    // La marcha se ha parado al descubrir un grupo que la emboscaría (#130), y
+    // se dice. `applyAdventureAction` no devuelve nada: el hecho es el último
+    // de la crónica porque la parada vuelve justo después de escribirlo.
     const ultimo = this.state.log.at(-1);
     if (ultimo?.kind === 'march_halted' && ultimo.hero === heroId) {
-      this.status = `${hero.name} se detiene: ve ${individuosDe(ultimo.troops)} asaltantes que lo emboscarían más adelante.`;
+      this.status = `${hero.name} se detiene: ${loQueLaPara(ultimo.troops)}.`;
       return;
     }
 

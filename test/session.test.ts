@@ -15,14 +15,13 @@ import { pointFromKey, reachableFrom, visibleFrom } from '../src/core/map/map.js
 import { isWalkable } from '../src/core/map/terrain.js';
 import { asaltantesALaVista } from '../src/core/state/asaltantes.js';
 import {
-  alcanceDelHeroe,
   applyAdventureAction,
   HERO_SCOUT_RADIUS,
   heroesOf,
   visibleNow,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
-import { anteLaBase, pegadoA, planDeNodos } from './helpers.js';
+import { anteLaBase, pegadoA, planDeNodos, primeraMarchaQueSePara } from './helpers.js';
 
 describe('sesión del cliente: el turno del rival', () => {
   it('mientras juega el rival no es tu turno, y pulsar otra vez no hace nada', async () => {
@@ -391,22 +390,16 @@ describe('los asaltantes que se ven y la marcha que se para (#130)', () => {
         asaltantesALaVista(s.state, visibleNow(s.state, s.viewer)).map((r) => r.id),
       );
       const hero = s.selectedHero!;
-      for (const [clave, coste] of alcanceDelHeroe(s.state, hero).costs) {
-        if (coste === 0 || coste > hero.movePoints) continue;
-        const destino = pointFromKey(clave);
-        const prueba = structuredClone(s.state);
-        applyAdventureAction(prueba, { type: 'move_hero', hero: hero.id, to: destino }, s.ctx, 0);
-        if (prueba.log.at(-1)?.kind !== 'march_halted') continue;
-        const antes = s.asaltantesALaVista().length;
-        s.moveHeroTo(hero.id, destino);
-        probadas++;
-        expect(s.state.log.at(-1)?.kind).toBe('march_halted');
-        expect(s.status).toMatch(new RegExp(`^${hero.name} se detiene: ve \\d+ asaltantes`));
-        // La caché de la sesión no se queda con los de antes de andar.
-        expect(s.asaltantesALaVista().length).toBeGreaterThan(antes);
-        break;
-      }
-      if (probadas > 0) break;
+      const destino = primeraMarchaQueSePara(s.state, hero);
+      if (destino === null) continue;
+      const antes = s.asaltantesALaVista().length;
+      s.moveHeroTo(hero.id, destino);
+      probadas++;
+      expect(s.state.log.at(-1)?.kind).toBe('march_halted');
+      expect(s.status).toMatch(new RegExp(`^${hero.name} se detiene: ve \\d+ asaltantes`));
+      // La caché de la sesión no se queda con los de antes de andar.
+      expect(s.asaltantesALaVista().length).toBeGreaterThan(antes);
+      break;
     }
     expect(probadas).toBe(1);
   });

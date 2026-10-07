@@ -2005,12 +2005,70 @@ aplica `game.ts`, que es el único que llama a `emit`.
   Ahora `asaltantesALaVista` (en `asaltantes.ts`, la única regla) ve el grupo
   en cuanto se ve una casilla de su región —también sobre la niebla negra: el
   terreno no se regala—, y `moveHero` se para con `march_halted` si, andando,
-  aparece un grupo que lo emboscaría más adelante y que al salir no se veía.
+  aparece un grupo que lo emboscaría más adelante y que la ruta no avisaba.
   Medido igual: **0 de 100**, 0 rutas; 429 marchas paradas. Lo leen la ruta, el
   lienzo, la barra, el agente (`knownMap.raiders`) y el sello de la crónica
   (`raider_spawned`/`raider_dispersed`). En el banco cambian **solo** 427 sellos
   `seen` de esos dos hechos, todos ganando al jugador que mira la región, y
-  ningún `march_halted`: la IA no pisa esas regiones.
+  ningún `march_halted`: la IA no pisa esas regiones. Re-anclado en
+  `6157d75a…` tras fusionar los restos (#121), que no mueven el hash. Al agente
+  el veredicto se lo cuenta como marcha parcial (`paradaDeLaMarcha`, en
+  `notas.ts`, formatea `march_cut`, `march_halted` y la emboscada que salta
+  antes del destino, que antes salía «aplicado entero»: M-4 de #121).
+  Detalles que los comentarios ya no cuentan:
+  - La regla de qué grupo se ve estaba escrita **tres veces** —la ruta,
+    `serializeKnownMap` y el lienzo— y las tres decían «su casilla»; cambiar una
+    sola habría dejado a la persona y al agente viendo grupos distintos. De ahí
+    el guardia de `invariantes.test.ts` y, desde /simplify, la marca de tipo
+    `AsaltantesALaVista`: lo que pinta el lienzo (`VistaMapa.asaltantes`) y lo
+    que avisa en la ruta solo lo fabrican `asaltantesALaVista` o, sin niebla,
+    `todosALaVista`. El grep no veía `escena: state`, que era la regresión más
+    probable; el tipo sí (visto morder: `state.raiders`, un `.filter` encima y
+    olvidar el campo, los tres no compilan).
+  - La ruta que avisa sigue sin avisar de lo que no se ve: lo que cambió es qué
+    es verse (su región, no su casilla), no esa restricción.
+  - Sin la frase de la barra, el héroe parado se quedaba a medio camino con
+    puntos de sobra y parecía un fallo de la marcha.
+  - Los dos tests de la rendición de `agent-link.test.ts` (semilla 106) veían en
+    realidad la emboscada de unas momias que no se veían al salir; desde #130 la
+    marcha se para antes y la batalla no llega, así que quitan los grupos
+    (`sinAsaltantes`) y la batalla es la del monstruo, que es lo que dicen.
+  - /simplify: el sello de `raider_spawned`/`raider_dispersed` construía
+    `visibleNow` y sus regiones para una casilla (2,1 % del banco); ahora
+    `grupoALaVistaDesde` mira la casilla y, si no, recorre los cuadrados de
+    visión (`miradasDe`) sobre `regionDe`. La vara de cada hecho está en
+    `SE_VE_POR` (`events.ts`). La parada calcula una vez el primer grupo que la
+    emboscaría sin niebla y en cada paso solo pregunta si ya se ve; si un nodo
+    tomado de camino lo dispersa, se mira el siguiente. La emboscada que corta la
+    marcha lleva `faltan` en su `battle_started`: el núcleo dice que no llegó y
+    la nota del agente ya no lo deduce comparando casillas (el banco no tiene
+    ninguna emboscada de grupo, así que el hash no se mueve).
+  - **QA (H1, H2): la fuerza cambia a mitad de marcha.** «Calcular una vez el
+    primero que embosca» fallaba si el héroe recogía la guarnición de su base
+    por el camino: en `?seed=198`, día 3, la ruta avisaba de raider-1, el héroe
+    recogía la guarnición en el primer paso, raider-1 dejaba de sacarle el
+    margen y lo emboscaba raider-3, a la vista desde cuatro pasos antes, sin que
+    la marcha se parase (1 de 7 260 marchas al azar). Y al revés, se paraba por
+    un grupo que ya no lo emboscaría (4 de 470 paradas). Ahora
+    `vigiaDeLaMarcha` recalcula quién embosca cuando el paso deja un hecho más
+    que el `hero_moved` —guarnición, nodo que dispersa—, y la regla es «se para
+    al ver uno que la emboscaría con la fuerza de ahora y **no es el que la ruta
+    avisaba al salir**», no «que no se veía al salir»: raider-3 pudo verse desde
+    el principio sin que la ruta lo nombrara, porque la ruta nombra uno. La
+    medida de `medir.ts` que daba 0 no lo veía: contaba como avisada cualquier
+    emboscada con aviso, de cualquier grupo, y solo miraba el día 1 y destinos
+    de hoy. Endurecida (avisada = la ruta nombraba a ese grupo; días 1-7;
+    destinos lejanos), con la regla vieja da **16** sin aviso en 300 semillas
+    (198 y 16) y con la nueva, **0**.
+  - **QA (H3): un grupo que reaparece andaba desde un recuerdo.** El lienzo
+    recuerda la última casilla donde pintó cada grupo para deslizarlo; con la
+    regla nueva entran y salen de la vista con su región, y uno que volvía tras
+    días sin pintarse cruzaba la pantalla desde allí. `pnpm capturas` lo pilló
+    en la semilla 50 (la foto de «antes» de la patrulla, a mitad del paseo). Se
+    olvida lo que un fotograma no pinta (`olvidarLosQueNoSePintan`).
+  - **QA (H4): `march_halted` lleva el grupo y su tropa**, así que se sella por
+    la casilla del héroe **y** el grupo (`SE_VE_POR`): el rival que mira al héroe
+    sin ver la región no lo recibe. Latente: hoy el rival es siempre la IA.
   **La ventaja que queda, declarada**: la IA de reglas mira `state.raiders` sin
   niebla (`casillasPeligrosas`, `strategy.ts`), así que evita regiones que la
   persona y el agente todavía no ven. Es de #115 decidir si debe tener niebla.

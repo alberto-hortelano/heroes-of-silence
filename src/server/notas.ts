@@ -22,6 +22,7 @@
 import { quedanCasillas } from '@core/battle/battle.js';
 import type { BattleAction } from '@core/battle/types.js';
 import type { RequestKind } from '@core/contract/agent.js';
+import { loQueLaPara } from '@core/state/asaltantes.js';
 import { type Desenlace, finDePartida } from '@core/state/desenlace.js';
 import type { DefeatReason, GameEvent } from '@core/state/events.js';
 import {
@@ -194,18 +195,62 @@ export function leeVeredictos(texto: string): Veredicto[] {
 // -------------------------------------------------------- turnos y acciones
 
 /**
+ * Por qué una marcha se quedó sin llegar, en el hecho que lo dice: le faltaron
+ * puntos (`march_cut`, #121), vio por el camino un grupo que la emboscaría
+ * (`march_halted`, #130) o la emboscó un grupo antes del destino (el
+ * `battle_started` con `faltan`).
+ */
+export type ParadaDeLaMarcha = Extract<
+  GameEvent,
+  { kind: 'march_cut' | 'march_halted' } | { kind: 'battle_started'; faltan: number }
+>;
+
+/**
+ * La parada de `accion` entre los hechos que escribió, o `null` si llegó. Qué
+ * es llegar lo decide el núcleo al escribir el hecho —una emboscada en el
+ * destino o una batalla contra lo que había en `to` no llevan `faltan`—; aquí
+ * solo se busca.
+ */
+export function paradaDeLaMarcha(
+  accion: Extract<AdventureAction, { type: 'move_hero' }>,
+  hechos: readonly GameEvent[],
+): ParadaDeLaMarcha | null {
+  for (const h of hechos) {
+    if ((h.kind === 'march_cut' || h.kind === 'march_halted') && h.hero === accion.hero) return h;
+    if (h.kind === 'battle_started' && 'faltan' in h && h.foe.heroId === accion.hero) return h;
+  }
+  return null;
+}
+
+/**
  * Una marcha que anduvo y no llegó: entró, pero no entera. Se dice dónde se
- * quedó y cuánto le faltaba del camino que se calculó al salir, que es lo que
- * el agente necesita para no repetir el mismo `move_hero` creyendo que no se
- * movió. Lo de «entró parcialmente» lo dice una vez `notaTurnoAventura`, que la
- * enmarca: repetirlo aquí lo escribía dos veces en la misma frase (QA, M-3).
+ * quedó y por qué —cuánto le faltaba del camino que se calculó al salir, o qué
+ * grupo la paró—, que es lo que el agente necesita para no repetir el mismo
+ * `move_hero` creyendo que no se movió. Lo de «entró parcialmente» lo dice una
+ * vez `notaTurnoAventura`, que la enmarca: repetirlo aquí lo escribía dos veces
+ * en la misma frase (QA, M-3).
  */
 export function notaMarchaParcial(
   accion: Extract<AdventureAction, { type: 'move_hero' }>,
-  corte: Extract<GameEvent, { kind: 'march_cut' }>,
+  parada: ParadaDeLaMarcha,
 ): string {
-  const faltan = corte.faltan === 1 ? 'falta 1 paso' : `faltan ${corte.faltan} pasos`;
-  return `${describeAccion(accion)}: se quedó en (${corte.at.x},${corte.at.y}) y le ${faltan}`;
+  const donde = (at: { x: number; y: number }) => `(${at.x},${at.y})`;
+  switch (parada.kind) {
+    case 'march_cut': {
+      const faltan = parada.faltan === 1 ? 'falta 1 paso' : `faltan ${parada.faltan} pasos`;
+      return `${describeAccion(accion)}: se quedó en ${donde(parada.at)} y le ${faltan}`;
+    }
+    case 'march_halted':
+      return (
+        `${describeAccion(accion)}: se paró en ${donde(parada.at)}, donde ` +
+        `${loQueLaPara(parada.troops)} (${parada.raider}); lo andado cuenta`
+      );
+    case 'battle_started':
+      return (
+        `${describeAccion(accion)}: lo emboscó el grupo ${parada.attacker.raiderId} en ` +
+        `${donde(parada.at)}, antes de llegar`
+      );
+  }
 }
 
 /** Resumen de un turno de aventura ya aplicado. */

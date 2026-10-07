@@ -144,9 +144,9 @@ export class EscenaAventura {
     const state = s.state;
     this.encuadrar(ancho, alto);
     drawMapa(ctx, {
-      // Los grupos, los que se ven (`asaltantesALaVista`): el lienzo no decide
-      // qué grupo se ve, lo pinta.
-      escena: { ...state, raiders: s.asaltantesALaVista() },
+      escena: state,
+      // Los grupos, los que se ven: el lienzo no decide qué grupo se ve, lo pinta.
+      asaltantes: s.asaltantesALaVista(),
       camara: this.camara,
       ancho,
       alto,

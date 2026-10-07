@@ -13,6 +13,7 @@ import {
 } from '../src/core/map/generate.js';
 import { pointFromKey, pointKey, reachableFrom } from '../src/core/map/map.js';
 import { createRng } from '../src/core/rng.js';
+import { loQueLaPara } from '../src/core/state/asaltantes.js';
 import { cronicaPara, sinSello, visibleTo } from '../src/core/state/events.js';
 import {
   applyAdventureAction,
@@ -31,7 +32,13 @@ import { Director } from '../src/server/director.js';
 import { pedirMapaAlAgente } from '../src/server/mapa-del-agente.js';
 import { SIN_PARTIDA_TODAVIA } from '../src/server/notas.js';
 import { ponVeteranoEnLaBase } from '../tools/qa/veterano-en-la-base.js';
-import { conCaminos, ejercito, ponerMonstruo, sinGuarnicionDeSalida } from './helpers.js';
+import {
+  conCaminos,
+  ejercito,
+  ponerMonstruo,
+  primeraMarchaQueSePara,
+  sinGuarnicionDeSalida,
+} from './helpers.js';
 
 /** Agente de mentira: responde leyendo el payload, como haría uno de verdad. */
 interface FakeAgent {
@@ -481,9 +488,7 @@ describe('enlace con el agente', () => {
 
 /**
  * Sin grupos de asaltantes, para que la batalla sea la del monstruo al que se
- * manda al héroe. Con ellos, en la semilla 106 la ruta cruza la región de unas
- * momias que no se ven al salir: antes la batalla era esa emboscada, y desde
- * #130 la marcha se para al verlas y la batalla no llega en este turno.
+ * manda al héroe y no una parada por el camino (#130; en `docs/historia.md`).
  */
 function sinAsaltantes(state: { raiders: unknown[] }): void {
   state.raiders.splice(0);
@@ -1388,6 +1393,37 @@ describe('el agente sabe cómo le fue', () => {
     expect(veredicto.note).toContain(`se quedó en (${heroe.at.x},${heroe.at.y})`);
     expect(veredicto.note).toContain(`faltan ${faltan} pasos`);
     expect(veredicto.note).not.toMatch(/descartad/);
+  });
+
+  it('una marcha que se para al ver un grupo lo dice en el veredicto (#130)', async () => {
+    let destino: Point | null = null;
+    const { link, agent } = await montar((kind, payload) => {
+      if (kind !== 'adventure_turn') return {};
+      return { actions: [{ type: 'move_hero', hero: payload.heroes[0].id, to: destino }] };
+    });
+
+    // La semilla 1 es la del issue: la primera casilla de hoy cuya marcha se para.
+    const director = new Director(link, { seed: 1, agentPlayers: [0] });
+    const heroe = director.state.heroes.find((h) => h.owner === 0)!;
+    destino = primeraMarchaQueSePara(director.state, heroe);
+    if (destino === null) throw new Error('en la semilla 1 ninguna marcha de hoy se para');
+    const antes = director.state.log.length;
+    const informe = await director.playTurn();
+    await respira();
+
+    const parada = director.state.log.slice(antes).find((e) => e.kind === 'march_halted');
+    if (parada === undefined) throw new Error('la marcha no se paró dentro del director');
+    expect(informe.problems).toEqual([]);
+    const aventura = agent.seen.find((p) => p.kind === 'adventure_turn')!;
+    const veredicto = agent.results.find((r) => r.requestId === aventura.requestId)!;
+    expect(veredicto.ok).toBe(true);
+    expect(veredicto.problems).toBeUndefined();
+    expect(veredicto.note).toMatch(/entró parcialmente/);
+    expect(veredicto.note).toContain(
+      `se paró en (${parada.at.x},${parada.at.y}), donde ${loQueLaPara(parada.troops)}`,
+    );
+    expect(veredicto.note).toContain(parada.raider);
+    expect(veredicto.note).not.toMatch(/aplicado entero|descartad|faltan/);
   });
 
   it('un turno con una acción ilegal lo cuenta con su motivo', async () => {

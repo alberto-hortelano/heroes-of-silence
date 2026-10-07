@@ -34,8 +34,9 @@ import {
 } from '../src/core/map/map.js';
 import { estructura, juntoANodo, rellenar, VECINAS, vecindad } from '../src/core/map/regiones.js';
 import { esBarrera, type TerrainKind } from '../src/core/map/terrain.js';
-import type { Rng } from '../src/core/rng.js';
+import { createRng, type Rng } from '../src/core/rng.js';
 import {
+  alcanceDelHeroe,
   applyAdventureAction,
   baseOf,
   type GameContext,
@@ -156,6 +157,29 @@ export function forzarBatalla(
   if (state.pendingBattle === null) {
     throw new Error(`pisar (${hacia.x},${hacia.y}) no abrió ninguna batalla`);
   }
+}
+
+/**
+ * El primer destino de hoy cuya marcha se para al descubrir un grupo que la
+ * emboscaría (`march_halted`, #130), en el orden del alcance; `null` si
+ * ninguna. Cada intento va sobre una copia y con su propio azar: `state` no se
+ * toca. Se busca y no se escribe a mano porque los mapas densos ya se llevaron
+ * las casillas escritas a mano de la ruta que avisa (H2).
+ */
+export function primeraMarchaQueSePara(state: GameState, heroe: Hero): Point | null {
+  for (const [clave, coste] of alcanceDelHeroe(state, heroe).costs) {
+    if (coste === 0 || coste > heroe.movePoints) continue;
+    const destino = pointFromKey(clave);
+    const prueba = structuredClone(state);
+    applyAdventureAction(
+      prueba,
+      { type: 'move_hero', hero: heroe.id, to: destino },
+      { rng: createRng(state.seed) },
+      heroe.owner,
+    );
+    if (prueba.log.at(-1)?.kind === 'march_halted') return destino;
+  }
+  return null;
 }
 
 /**

@@ -1091,14 +1091,12 @@ describe('invariantes del proyecto', () => {
   });
 
   it('qué grupo de asaltantes se ve lo decide `asaltantesALaVista`, nadie más', () => {
-    // #130: un grupo se ve en cuanto se ve una casilla de su región. Esa regla
-    // estaba escrita TRES veces —la ruta, `serializeKnownMap` y el lienzo— y
-    // las tres decían «su casilla»; cambiar una sola habría dejado a la persona
-    // y al agente viendo grupos distintos. Ahora la escribe una función y la
-    // leen todos: el cliente (fuera del espectador, que lo ve todo) y el
+    // #130 (historia en `docs/historia.md`): la regla la escribe una función y
+    // la leen todos. El cliente (fuera del espectador, que lo ve todo) y el
     // contrato no leen `state.raiders`, y fuera de `asaltantes.ts` nadie filtra
-    // grupos para enseñarlos. La IA de reglas sí lee `state.raiders` sin niebla: es su ventaja
-    // declarada (#115), y por eso `ai/` no entra en la primera mitad.
+    // grupos para enseñarlos. Es la red secundaria: la primera es el tipo
+    // `AsaltantesALaVista`. La IA de reglas sí lee `state.raiders` sin niebla:
+    // es su ventaja declarada (#115), y por eso `ai/` no entra aquí.
     const lectores = infractoresDeCodigo(
       [
         ...CLIENTE.filter((r) => !r.startsWith('src/client/espectador/')),
@@ -1119,8 +1117,9 @@ describe('invariantes del proyecto', () => {
     // Y que mire algo: la puerta filtra, y el espectador, que no pasa por ella,
     // lee el estado. Sin esto, un patrón que no casara nada pasaría por vacío.
     // Lo que NO ve: un filtro sobre la lista con otro nombre (`vistos.filter`)
-    // o un `continue` dentro de un bucle —el lienzo aparta así los de casilla
-    // sin explorar para pintarlos encima de la niebla, que es dónde y no si—.
+    // o un `continue` dentro de un bucle. Lo primero lo para el tipo, que el
+    // `.filter` pierde; lo segundo, en el lienzo, decide dónde se pinta un
+    // grupo —entre los volúmenes o sobre la niebla—, no si se ve.
     expect(
       infractoresDeCodigo(['src/core/state/asaltantes.ts'], /\braiders\s*\.\s*filter\s*\(/),
     ).not.toEqual([]);
