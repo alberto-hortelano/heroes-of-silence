@@ -1542,8 +1542,13 @@ paso. El grafo de regiones y nodos es el que validó el perfil.
     del Voronoi tenía un monstruo encima en 26 de 100 mapas). Los radios salen
     de ahí, del objetivo más cercano al más lejano, con lo ya trazado a mitad de
     precio para que compartan tronco y un paso de más por arrimarse a la red
-    viniendo de fuera, porque el pintor cose dos casillas de camino vecinas en
-    rombo. Un nodo es final de tramo; una mina o un pueblo no (hacerlos final
+    viniendo de fuera. Nació porque el pintor cosía dos casillas de camino
+    vecinas en rombo; desde #153 el pintor encadena tramos y eso ya no pasa,
+    pero el paso de más se queda (#155, 07-10-2026, semillas 1-10): sin él, dos
+    radios corren pegados y se leen como una calzada ancha, con un 42 % más de
+    trazos que se rozan sin tramo entre ellos (33,5 → 47,5 por mapa), el doble
+    de paralelos a una casilla (0,6 → 1,5) y de bloques 2×2 (0,5 → 1,3), y más
+    horquillas (26,1 → 28,5). Quitarlo ahorraba unas 8 líneas. Un nodo es final de tramo; una mina o un pueblo no (hacerlos final
     subía el camino al 34 % y los ciclos dentro de una región de 1,2 a 6,4).
   - **Un cruce por pareja** (`crucesConCamino`): a un nodo le llega el camino
     de una región si tiene al lado una casilla de camino de ella, que es lo que

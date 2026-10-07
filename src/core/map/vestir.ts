@@ -815,7 +815,11 @@ export function centroDeRegion(
  *    trazado cuesta la mitad —los radios comparten el tronco y se abren donde
  *    hace falta— y arrimarse a la red viniendo de fuera cuesta un paso recto
  *    más: si no, un radio nuevo corre pegado a uno viejo, y dos trazos
- *    paralelos a una casilla se leen como una calzada ancha.
+ *    paralelos a una casilla se leen como una calzada ancha (entre sus
+ *    pasillos de senda queda una franja de 0,2 sin cubierta). Medido el
+ *    07-10-2026 en las semillas 1-10, sin ese paso hay un 42 % más de trazos
+ *    que se rozan sin tramo entre ellos (33,5 → 47,5 por mapa), el doble de
+ *    calzadas anchas y de bloques 2×2, y más horquillas (#155).
  * 3. Se recorre el tramo hacia atrás hasta tocar la red, y sus casillas se
  *    cuelgan del árbol de la región (`ArbolDeCaminos`), que endereza en L las
  *    horquillas en diagonal al colgarlas.
