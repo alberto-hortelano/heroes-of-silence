@@ -740,7 +740,9 @@ const INTENTOS_DE_VESTIDO = 10;
  * base a sus ciudades cercanas —lo de «aislar es posible pero no trivial»— no
  * se comprueban aquí: había un bucle que lo hacía y en 1 050 planes no rechazó
  * ninguno, porque el dual de Voronoi ya lo da. Lo vigila, y muerde, la
- * auditoría de `test/regiones.test.ts`.
+ * auditoría de `test/regiones.test.ts`. El plan que sale pasa además entero por
+ * `validateMapPlan` (`validadoPorLaPuerta`): el procedimental no entrega nada
+ * que la puerta del agente rechace.
  */
 export function generateMapPlan(rng: Rng, opts: ProceduralOptions = {}): PlanConTramos {
   const width = opts.width ?? LADO_DEL_MAPA;
@@ -759,7 +761,7 @@ export function generateMapPlan(rng: Rng, opts: ProceduralOptions = {}): PlanCon
     }
     for (let vestido = 0; vestido < INTENTOS_DE_VESTIDO; vestido++) {
       const plan = vestirRed(rng, red, opts);
-      if (!('fase' in plan)) return plan;
+      if (!('fase' in plan)) return validadoPorLaPuerta(plan);
       fallos[plan.fase].veces++;
       fallos[plan.fase].ultimo = plan.motivo;
     }
@@ -774,6 +776,25 @@ export function generateMapPlan(rng: Rng, opts: ProceduralOptions = {}): PlanCon
         ? `, y las otras no se dejaron vestir en ${INTENTOS_DE_VESTIDO} intentos cada una: ${vestidos.join('; ')}`
         : ''),
   );
+}
+
+/**
+ * El plan del generador pasa por la misma puerta que el del agente
+ * (`validateMapPlan`) antes de entregarse. Lo que rechace es un fallo del
+ * generador, no un mapa raro que se arregle con otro intento, y por eso lanza en
+ * vez de reintentar: un reintento callado taparía el fallo y cambiaría la
+ * partida de esa semilla sin que nadie lo viera. Sin esta puerta, 24×24 sembraba
+ * un asaltante en una región con dueño (#178) y solo lo veía quien validase el
+ * plan a mano. Cuesta ~1 ms por plan, frente a 11-16 de generarlo.
+ */
+function validadoPorLaPuerta(plan: PlanConTramos): PlanConTramos {
+  const problemas = validateMapPlan(plan);
+  if (problemas.length > 0) {
+    throw new Error(
+      `el generador ha hecho un plan de ${plan.width}×${plan.height} que validateMapPlan rechaza, y eso es un fallo del generador: ${problemas.join('; ')}`,
+    );
+  }
+  return plan;
 }
 
 /** En qué paso del vestido se rindió un intento, para que el error final lo diga. */
@@ -1257,10 +1278,16 @@ function vestirRed(
   if (typeof grueso === 'string') return fallo('fronteras', grueso);
   const { tipos, pasillo } = grueso;
   const regionsGruesas = regions.map((r, k) => ({ ...r, at: grueso.semillas[k] as Point }));
+  // Las bases, ya con su dueño: así `territorio` dice de quién es cada región
+  // el primer día, con la misma regla que la partida.
+  const dueñoDeBase = new Map<string, PlayerId>([
+    [red.nodos[b0]?.id as string, 0],
+    [red.nodos[b1]?.id as string, 1],
+  ]);
   const mapaGrueso: GameMap = {
     ...createEmptyMap(W, H, 'grass'),
     regions: regionsGruesas,
-    objects: conNodos.objects,
+    objects: conNodos.objects.map((o) => ({ ...o, owner: dueñoDeBase.get(o.id) ?? null })),
   };
   for (let i = 0; i < N; i++) {
     const b = barreraDe(tipos, i);
@@ -1268,7 +1295,8 @@ function vestirRed(
   }
   const problemas = problemasDeRed(mapaGrueso);
   if (problemas.length > 0) return fallo('fronteras', problemas[0] as string);
-  const redGruesa = estructura(mapaGrueso);
+  const alEmpezar = territorio({ map: mapaGrueso, towns: [], players: [] });
+  const redGruesa = alEmpezar.red;
   const regionGruesa = redGruesa.regionDe;
   if (hayRegionRaquitica(regionGruesa, semillas.length)) {
     return fallo('fronteras', `alguna región se queda en menos de ${REGION_MINIMA} casillas`);
@@ -1406,9 +1434,15 @@ function vestirRed(
   // sí llevan, que es la corrección del usuario al plan («No, también en
   // casa»). Va después de todo lo demás para no mover ninguna otra casilla.
   // Una región llena se queda sin grupo en vez de tirar el intento: un mapa de
-  // nodos bueno no se descarta por no caber un asaltante.
+  // nodos bueno no se descarta por no caber un asaltante. Y una con dueño
+  // también, con su pareja para no romper el espejo: la de fuera cuyo único
+  // nodo es una base es de ese jugador desde el primer día, y un asaltante solo
+  // vive en una región sin dueño (`problemasDeAsaltantes`). La red fina la da en
+  // 24×24 (semillas 469 y 3481, #178), y el plan salía inválido.
   const raiders: RaiderPlaneado[] = [];
   for (let k = 2; k < semillas.length; k += 2) {
+    const dueños = [alEmpezar.dueñoDeRegion[k], alEmpezar.dueñoDeRegion[parejaDe(k)]];
+    if (dueños.some((d) => d !== null)) continue;
     const troops = rng.pick(ASALTANTES.composiciones);
     const par = colocarPar(k);
     if (par === null) continue;

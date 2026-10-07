@@ -617,6 +617,28 @@ describe('el generador hace redes como las pidió el usuario', () => {
     );
   });
 
+  it('un asaltante no nace en una región que ya tiene dueño: la que solo toca la base (#178)', () => {
+    // En 24×24 la red fina deja a veces una región de fuera cuyo único nodo es
+    // una base: es del dueño de la base desde el primer día y `validateMapPlan`
+    // no admite un grupo en ella. El generador lo sembraba igual (469 y 3481,
+    // las dos de 1-4000).
+    for (const s of [469, 3481]) {
+      const plan = generateMapPlan(createRng(s), { width: 24, height: 24 });
+      expect(validateMapPlan(plan), `24×24 semilla ${s}`).toEqual([]);
+    }
+  });
+
+  it('una horquilla junto a un nodo ya trazado sale en L: la diagonal cuesta más que la L (#179)', () => {
+    // El nodo cuelga en recto de una casilla, y el radio siguiente salía de
+    // ella en diagonal junto al nodo: la L por la otra esquina se arrima a la
+    // red y pagaba más que la diagonal cobrada, y quedaba la Y (34×34: 4310 y
+    // 4525, las dos de 1-5000).
+    for (const s of [4310, 4525]) {
+      const { map } = buildMap(generateMapPlan(createRng(s), { width: 34, height: 34 }));
+      expect(horquillasNuevas(map), `34×34 semilla ${s}`).toEqual([]);
+    }
+  });
+
   it('el plan del generador pasa el esquema del agente: los dos productores hablan igual', () => {
     for (let s = 1; s <= 10; s++) {
       const plan = generateMapPlan(createRng(s));

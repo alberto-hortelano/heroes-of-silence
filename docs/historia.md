@@ -2949,6 +2949,31 @@ enfrentadas; la crítica lo reencuadró, medido:
   semilla 3 a la 9 en `politica.ts`: con la 3 ya no había batalla en seis
   turnos.
 
+## El procedimental pasa por la puerta del agente (#178, #179, 07-10-2026)
+
+- **#178, un asaltante en una región con dueño** (24×24, semillas 469 y 3481
+  de 1-4000). La red fina deja a veces una región de fuera cuyo único nodo es
+  una base: es del dueño de la base desde el primer día, y el generador sembraba
+  el grupo igual. Nadie lo cazaba porque el bucle del generador solo pasaba
+  `problemasDeRed` y la raquítica, no `validateMapPlan`. Ahora el vestido lee
+  `territorio` del mapa grueso con las bases ya con dueño y salta la pareja si
+  una de las dos tiene dueño; y `generateMapPlan` pasa su plan por
+  `validateMapPlan` antes de entregarlo (`validadoPorLaPuerta`, ~1 ms frente a
+  11-16 de generar) y **lanza** si lo rechaza: es un fallo del generador, y un
+  reintento callado cambiaría esa partida sin que nadie lo viera.
+- **#179, la Y junto a un nodo que no era obligada** (34×34, semillas 4310 y
+  4525 de 1-5000; la s810 de antes de #169 ya no sale). No era un nodo sin
+  trazar: en las dos el nodo ya estaba en la red, colgado de la casilla de
+  abajo, y el radio siguiente salía de esa casilla en diagonal junto a él. El
+  cobro de un paso recto no bastaba porque la L por la otra esquina **también
+  paga**: su segundo paso se arrima a la red (toca el nodo) y cuesta un recto
+  más, tres en total, contra ~2,4 de la diagonal cobrada. Cobra ahora dos
+  rectos. En 1-1000 de 34×34 no cambia ni un plan (huella sha256 de cada uno),
+  tampoco las cuatro Y obligadas de 2026-10-06 (60, 64, 177, 986); banco igual.
+- Barrido con el arreglo: 34×34 1-5000, 24×24 1-4000 y 48×48 1-300, 0 planes
+  inválidos y 0 Y. Sigue 1 de 4000 en 24×24 que no sale en 30 redes (3071),
+  que es lo de antes.
+
 ## Decisiones tomadas
 
 - **MCP antes que API key.** El usuario tiene Claude Max: el agente entra por

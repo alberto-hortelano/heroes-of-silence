@@ -929,16 +929,20 @@ class Busqueda {
           monstruos[j] === 1 ? this.pisarMonstruo : enDiagonal ? this.diagonal : this.recto;
         if (red?.[j] === 1) paso = Math.floor(paso / 2);
         else if (!enLaRed && pegada?.[j] === 1) paso += this.recto;
-        // Pasar en diagonal junto a un nodo de la red cobra como arrimarse: ese
-        // tramo saldría en Y, y no se puede colgar en L de un nodo, que es una
-        // hoja (`ArbolDeCaminos`). Se cobra y no se prohíbe: a veces es el
-        // único paso (semilla 60), y sin él el objetivo se queda sin camino.
+        // Pasar en diagonal junto a un nodo de la red sale en Y, y no se puede
+        // colgar en L de un nodo, que es una hoja (`ArbolDeCaminos`). Se cobra y
+        // no se prohíbe: a veces es el único paso (semilla 60), y sin él el
+        // objetivo se queda sin camino. Cobra **dos** pasos rectos, más que la L
+        // por la otra esquina: esa L son dos rectos y su segundo se arrima a la
+        // red —toca el nodo—, así que paga uno más (tres rectos). Con uno solo,
+        // diagonal y recto (~2,4) salía más barato que la L (3) y la Y se
+        // quedaba (34×34, semillas 4310 y 4525, #179).
         if (enDiagonal && red !== undefined) {
           const jx = j % W;
           const k1 = y * W + jx;
           const k2 = j - jx + x;
           if ((nodo[k1] === 1 && red[k1] === 1) || (nodo[k2] === 1 && red[k2] === 1)) {
-            paso += this.recto;
+            paso += 2 * this.recto;
           }
         }
         const c = hastaAqui + paso;
