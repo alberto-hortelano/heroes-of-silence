@@ -1,0 +1,85 @@
+{
+  "hoja": "laderas-roca-este-1.webp",
+  "modulos": [
+    {
+      "imagen": "inicio.webp",
+      "sha256": "1cf7ff2c55b4001a36ef25167661c702c4cff0f4ed2686f03a7117fe393e41bd",
+      "ancho": 176,
+      "alto": 366,
+      "ancla": [
+        125,
+        361
+      ]
+    },
+    {
+      "imagen": "medio-a.webp",
+      "sha256": "7bde5cf4cf8cf9ecb71e41b197f7b40998999127bde73bfefdb6785456ee1389",
+      "ancho": 209,
+      "alto": 361,
+      "ancla": [
+        146,
+        356
+      ]
+    },
+    {
+      "imagen": "medio-b.webp",
+      "sha256": "195b2ee4b79f64d52488d14c4221b25282aa2589d0fe01133f089f4ee6ce5a2c",
+      "ancho": 192,
+      "alto": 368,
+      "ancla": [
+        132,
+        363
+      ]
+    },
+    {
+      "imagen": "medio-c.webp",
+      "sha256": "7be94f3805435fcce4578379123bef170d80d163fcb17affd4bcadc7e600386d",
+      "ancho": 220,
+      "alto": 380,
+      "ancla": [
+        160,
+        375
+      ]
+    },
+    {
+      "imagen": "largo-a.webp",
+      "sha256": "7951b5aeade640a3f80054be416275e4d29df617580f4625fafcf12a3e6879e2",
+      "ancho": 216,
+      "alto": 573,
+      "ancla": [
+        168,
+        568
+      ]
+    },
+    {
+      "imagen": "largo-b.webp",
+      "sha256": "ea13d58e845780e07de6d4a4f40dc64fc48b0545a7d72585dd68653e13660e98",
+      "ancho": 235,
+      "alto": 587,
+      "ancla": [
+        144,
+        582
+      ]
+    },
+    {
+      "imagen": "fin.webp",
+      "sha256": "421c67086cfa37d3dd1e9ae750166b774be4145c154ac8c5f24d2d2635d80431",
+      "ancho": 206,
+      "alto": 435,
+      "ancla": [
+        114,
+        430
+      ]
+    },
+    {
+      "imagen": "esquina.webp",
+      "sha256": "b0ac7be9ee9f75bc7ed5d18528ffd1e977e26c8d5896109fac1a36ffd2493882",
+      "ancho": 343,
+      "alto": 420,
+      "ancla": [
+        163,
+        415
+      ]
+    }
+  ]
+}

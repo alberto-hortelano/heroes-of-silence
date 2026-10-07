@@ -1,0 +1,85 @@
+{
+  "hoja": "laderas-basalto-este-3.webp",
+  "modulos": [
+    {
+      "imagen": "inicio.webp",
+      "sha256": "c493e5dd4825f0c7230a7443e8e6b960d3acca5182ca815f8e370f130545c1ed",
+      "ancho": 195,
+      "alto": 482,
+      "ancla": [
+        158,
+        477
+      ]
+    },
+    {
+      "imagen": "medio-a.webp",
+      "sha256": "74ae5ae587374eac698d4191683cba2a5c0deefd967604e53ecc288ac45e4c88",
+      "ancho": 207,
+      "alto": 460,
+      "ancla": [
+        164,
+        455
+      ]
+    },
+    {
+      "imagen": "medio-b.webp",
+      "sha256": "8b153ff784fa1f98dd90cc472c9df0bf549cb4a0225ffcdfd2937333b83bf113",
+      "ancho": 196,
+      "alto": 463,
+      "ancla": [
+        149,
+        458
+      ]
+    },
+    {
+      "imagen": "fin.webp",
+      "sha256": "279d98c1c32973b1478dec87e0982c970460ebc4e2cc09694f1eb7e111fe26a2",
+      "ancho": 213,
+      "alto": 516,
+      "ancla": [
+        125,
+        511
+      ]
+    },
+    {
+      "imagen": "largo-a.webp",
+      "sha256": "fcb2bde6a8839964772a25ebce5185c81e0fcd34466b41f076053b2ff7080deb",
+      "ancho": 219,
+      "alto": 640,
+      "ancla": [
+        155,
+        635
+      ]
+    },
+    {
+      "imagen": "medio-c.webp",
+      "sha256": "18dab65bae9061b5ceec96f29937549084205f1463d0383ac71bba91c7a15e59",
+      "ancho": 195,
+      "alto": 459,
+      "ancla": [
+        158,
+        454
+      ]
+    },
+    {
+      "imagen": "largo-b.webp",
+      "sha256": "5b57109cf67b604359b9e24a19a1a55521e9d94be54cd37c32f1458c9a3a7d86",
+      "ancho": 200,
+      "alto": 634,
+      "ancla": [
+        148,
+        629
+      ]
+    },
+    {
+      "imagen": "esquina.webp",
+      "sha256": "e2aa5e0e9e38368a67fb88c0bfab3fb966c1ca062800ae4e1141d9d031e73761",
+      "ancho": 295,
+      "alto": 492,
+      "ancla": [
+        131,
+        487
+      ]
+    }
+  ]
+}

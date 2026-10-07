@@ -1,0 +1,85 @@
+{
+  "hoja": "laderas-arenisca-oeste-1.webp",
+  "modulos": [
+    {
+      "imagen": "inicio.webp",
+      "sha256": "8aefea4a87af125539eeef1e5b88e6fb7a90335a1dedd95fc6b8b328fba1b92b",
+      "ancho": 201,
+      "alto": 393,
+      "ancla": [
+        67,
+        388
+      ]
+    },
+    {
+      "imagen": "medio-a.webp",
+      "sha256": "1380ab489cffa3be1711727273f8443a06b5b42602c4e0f2f0f9b051a1ecba51",
+      "ancho": 240,
+      "alto": 401,
+      "ancla": [
+        67,
+        400
+      ]
+    },
+    {
+      "imagen": "medio-b.webp",
+      "sha256": "db0456c429703fc177612cad9a44dab739fe7901218e2843c095efe01781d1fb",
+      "ancho": 219,
+      "alto": 388,
+      "ancla": [
+        63,
+        383
+      ]
+    },
+    {
+      "imagen": "medio-c.webp",
+      "sha256": "6c12c3cb744e8dfb2020b0a0bae63cf1e6f942648a1125c34bff164400dbbdc7",
+      "ancho": 215,
+      "alto": 397,
+      "ancla": [
+        45,
+        392
+      ]
+    },
+    {
+      "imagen": "largo-a.webp",
+      "sha256": "8a469b048fec61785a490d6386525f4a77e2dae0a86a5db13909153c477a90b0",
+      "ancho": 244,
+      "alto": 578,
+      "ancla": [
+        83,
+        573
+      ]
+    },
+    {
+      "imagen": "largo-b.webp",
+      "sha256": "363ecb29f71caf6f3162d40ac3ea0347fbf94450048af2e05b1394a5b22e0c30",
+      "ancho": 206,
+      "alto": 573,
+      "ancla": [
+        58,
+        568
+      ]
+    },
+    {
+      "imagen": "fin.webp",
+      "sha256": "3fb1b8b502ebb50e7aeaf24d7f73b9382ea156871ad9a03a27bdf24e12fd3a37",
+      "ancho": 238,
+      "alto": 441,
+      "ancla": [
+        126,
+        436
+      ]
+    },
+    {
+      "imagen": "esquina.webp",
+      "sha256": "153f3edc4e6c1543dd2a039c3295324f285dd5ccd02ed84e7ccacf08a9665cf5",
+      "ancho": 366,
+      "alto": 417,
+      "ancla": [
+        201,
+        412
+      ]
+    }
+  ]
+}

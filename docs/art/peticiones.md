@@ -705,3 +705,134 @@ engancharlos (#156, #157): en `puente-piedra-ns-sube` los taludes de detrás sal
 como dos brazos sobre el agua, y en las diagonales hay más tierra en el extremo de
 delante que en el de detrás. Las hojas de revisión (`docs/art/revision-paredes-puentes/*.png`
 y `antes/`) no se commitean por su peso (unos 24 MB); se rehacen con `hojas.py`.
+
+## 20. Laderas: paredes laterales que encadenan (rama `arte-laterales-2`, 07-10-2026)
+
+El usuario vio las laterales de la §18 en el juego (#156; capturas en
+`docs/agents/2026-10-06-paredes-laterales/capturas-ingeniero/pares/`) y dijo:
+«la pared lateral no esta bien conseguida y su repeticion se nota mucho, hace
+fata arte nuevo, evitar bordes rectos, que tenga un poco de giros». Lo que se
+veía:
+
+- el filo y el pie, rectos y verticales;
+- cada casilla repite la misma silueta;
+- la corona de matas de cada tramo hace muesca en cada junta (§19);
+- en roca y basalto, muros de columnas apiladas que tapan la meseta.
+
+Primero se hizo un piloto de roca-este. Al verlo, el usuario dijo «Vale:
+corregir y generar todo» y pidió tres correcciones:
+
+1. la cinta verde amarilla del borde;
+2. el `inicio` como bloque cuadrado;
+3. las columnas del escarpe en caída 3.
+
+Además, el corte diagonal al final de una cadena sin esquina.
+
+**Maquetas** (en `docs/art/revision-laterales-2/`, no se commitean):
+
+- `maqueta-<material>-<lado>.png`, una por hoja. Arriba el arte nuevo, abajo el de hoy colocado como lo hace `colocarLateral`. A 110 px por casilla, sobre el suelo de su material y con la frontal `paredes-<material>` con el tono del juego. Cada una lleva:
+  - una cadena de 6 casillas de caída 1;
+  - otra de 4 de caída 2;
+  - otra de 2 de caída 3;
+  - un escalón de caída 2 a caída 1 que remata en `fin`;
+  - en todas las cadenas, su esquina y su frontal.
+- `resumen.png`: las ocho, nuevo contra hoy.
+- `piloto/`: el piloto que vio el usuario.
+- `intento-1-*`: el primer intento fallido del piloto.
+
+Las rehace `python3 docs/art/revision-laterales-2/maqueta.py [roca-este …]`.
+No es el escenógrafo: nada está enganchado.
+
+### Guías y prompts (`tools/taller/laderas.ts`)
+
+`pnpm taller encolar --laderas [--solo=roca-este-1,…] [--rehacer]`. La
+orden `pnpm taller guias` también escribe `assets/mapa/guias/laderas-{este,oeste}-{1,2,3}.{png,json}`.
+La §18 sigue intacta en `paredes-puentes.ts`, que ahora exporta `Guia`, `NIVEL` y los
+colores de la guía.
+
+- **Un risco continuo cortado en trozos.**
+  - Filo y pie son curvas que giran (`sin²` y `sin(πt)·sin(kπt)`, más un ruido suave). En las juntas valen cero y tienen tangente recta.
+  - Los extremos se cortan por la línea de máxima pendiente.
+  - La cara va en dos tonos: un escarpe en sombra y un derrubio más claro.
+  - Los bloques son polígonos angulosos, no elipses.
+- **Sin corona.** Sobre el filo solo hay un labio de roca estrecho (`LABIO` = 0,06) y unas matas sueltas. El prompt prohíbe la franja y la cinta, y dice de qué es la meseta de cada material (prado oliva oscuro, arena, ceniza, nieve). El piloto llevaba una franja verde que salió amarilla.
+- **`inicio` sin bloque.** El labio ya no dobla hacia la meseta: salía como una lengua de piedra plana, y el reborde norte lo pinta el juego. La cara se cierra en un morro convexo más allá de la junta. Al norte no hay cono de derrubio, porque lo taparía la propia ladera en esta proyección.
+- **`fin`, nuevo.** Morro al sur y un cono de derrubio que se derrama por delante (`CONO` = 0,26). Tapa el corte diagonal al final de una cadena sin esquina.
+- **Canales de derrubio.** Desde la caída 2, el escarpe lo parten canales de derrubio en diagonal, uno en caída 2 y tres en caída 3. En esta proyección, los estratos de una ladera que mira al este o al oeste salen verticales en pantalla. Por eso un escarpe alto sin cortes se pintaba en columnas.
+- **Prompt.**
+  - Pide calcar la silueta de la guía.
+  - Dice que no hay nada del lado de la meseta: no es una cresta.
+  - En caída 3 prohíbe columnas y láminas largas y lisas.
+  - Pide que la frontal de la esquina tenga «el relieve de las paredes, nunca una losa lisa».
+- **Referencias.**
+  - Estilo.
+  - **Identidad: `rocas-caidas`**, para la forma. Con `paredes-roca` de identidad, el primer intento volvió a salir en columnas.
+  - **Material: `paredes-<material>`**, solo para el color, para que case en la esquina. Es un papel nuevo en `encargo.ts`, `material`: «se toman SOLO el color, la textura y la paleta… NO su forma».
+  - La guía.
+- **Oeste.** Cada hoja oeste se genera aparte, con su luz (la ladera de cara a la luz) y su guía (`s = −1`). Nunca se espeja.
+
+### La familia y su contrato
+
+24 hojas: `assets/mapa/modulos/laderas-<material>-<lado>-<caída>`, con material
+`roca`, `arenisca`, `basalto` o `nevadas`, lado `este` u `oeste` y caída 1, 2
+o 3. Cada hoja lleva ocho módulos:
+
+| Módulo | Casillas | Qué es |
+|---|---|---|
+| `inicio` | 1 | Remata el norte de una cadena (rincón de la meseta): morro. |
+| `medio-a` | 1 | Entrante con cono de derrubio. |
+| `medio-b` | 1 | Espolón. |
+| `medio-c` | 1 | S suave. |
+| `largo-a` | 2 | Espolón y entrante. |
+| `largo-b` | 2 | Entrante, espolón y entrante. |
+| `fin` | 1 | Remata el sur de una cadena sin esquina: morro y cono. |
+| `esquina` | 1 | La lateral dobla redondeada en `FRONTAL_DE_ESQUINA` (0,85) casillas de frontal hacia la meseta, abierta por su punta para que sigan los `paredes-*`. Ocupa su casilla entera. |
+
+Casilla en la guía: unos 186 px en caída 1, 153 en caída 2 y 140-144 en caída 3.
+La hoja de caída 3 va en vertical para que quepan sus dos filas. El pintor
+respeta esa escala.
+
+**Encadenado.** En el marco de `colocarLateral` (casilla `y`; filo arriba en
+`y`; pie en `y + largo + caída · ALTO_DE_NIVEL`):
+
+- **Juntas.** En la junta norte, el filo está en `(xFilo, y)`. En la sur, el pie está en `(xFilo ± TALUD[caída], y + largo + caída · 0,6)`, con `TALUD` = 0,45 / 0,65 / 0,85. Cualquier tramo empalma con cualquiera de su caída. Las juntas son abiertas: se pinta de norte a sur, la de delante encima.
+- **Geometría.** La guía guarda por pieza `filoNorte`, `pieNorte`, `filoSur`, `pieSur` y `caja`, en píxeles de la guía (`laderas-<lado>-<n>.json`).
+- **Registro.** El pintor respeta la escala de la guía, pero no siempre su sitio. La maqueta encuentra cada módulo sobre su guía por correlación de siluetas (`registro`, en `maqueta.py`) y de ahí lleva esos puntos al módulo. Para engancharlo:
+  - eso pasa a `derivar.ts`;
+  - el catálogo trae `filo` y `pie` por módulo;
+  - sustituye a `derivarFilo`, que con un filo ondulado no vale.
+- **Elección, propuesta.**
+  - `inicio` si la cadena empieza en un rincón.
+  - Después, al azar entre `medio-*` y `largo-*`, sin repetir la de al lado; `largo` solo si quedan dos casillas.
+  - `esquina` al final si la hay; si no, `fin`.
+  - En un escalón de caída, `fin` en la caída mayor y la cadena siguiente empieza con un `medio`.
+- **Lo que ya no hace falta.** No hay que estirar la caída 3 (§19). Tampoco valen `CORONA`, `LARGO_DE_ESQUINA` ni `SOLAPE_DE_ESQUINA` para estas hojas.
+- **Tono.** En las maquetas las laderas van sin el filtro `TONO`. La arenisca de hoy lleva `CHILLONA` y la nueva no lo necesita.
+
+### Lo que quedó flojo, por hoja
+
+En todas:
+
+- El morro de `inicio` suele acabar en punta, como un pico más que como una loma. Ya no es un bloque.
+- En caída 3 el escarpe sale en losas largas tendidas en diagonal, por la línea de máxima pendiente. No son columnas, pero son lisas y repetidas.
+- La frontal de la esquina va en columnas a propósito, para casar con `paredes-*`.
+
+Por hoja:
+
+- **roca-este:** bien. La esquina de caída 3 tiene una frontal grande y algo lisa.
+- **roca-oeste:** las esquinas de caída 2 y 3 son una losa clara grande en el rincón.
+- **arenisca-este y oeste:** la ladera iluminada del oeste sale más clara y anaranjada que su frontal entonada. Si en el juego desentona, va `CHILLONA`. La esquina de caída 3 del oeste, pesada.
+- **basalto-este y oeste:** el labio sale casi blanco sobre la ceniza negra y se lee como un hilo claro. Pide oscurecerlo con tono o rehacer con «labio negro». Apenas hay brasa, a diferencia de su frontal.
+- **nevadas-este y oeste:** la nieve del filo apenas se distingue de la meseta, que es lo que se pedía. En caída 3, losas en diagonal como en las demás.
+
+**Coste.** 31 generaciones de Codex por la suscripción, sin fal.ai ni fallos:
+
+- 4 en el piloto;
+- 3 en roca-este con las correcciones;
+- 24 en las 24 hojas definitivas, porque roca-este se rehízo con la guía final.
+
+`assets/mapa/escena.json` está rehecho (59 hojas). `componer` aún no usa
+las laderas.
+
+**Pendiente:** que el usuario mire `resumen.png` y las maquetas por hoja.
+Después, el enganche (#156).
