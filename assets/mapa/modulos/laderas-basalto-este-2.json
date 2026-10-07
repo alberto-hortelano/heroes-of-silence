@@ -3,21 +3,21 @@
   "modulos": [
     {
       "imagen": "inicio.webp",
-      "sha256": "ae0f155c4862c586d8484f8100ee59efb6f034dd47c269549ca6e93d664b3f71",
-      "ancho": 188,
-      "alto": 402,
+      "sha256": "c5dbcf22b222e40531c598748549662c8db45992297da5ee1b16482e205f65ae",
+      "ancho": 211,
+      "alto": 398,
       "ancla": [
-        135,
-        397
+        146,
+        393
       ],
       "ladera": {
         "filo": [
-          41,
-          39
+          44,
+          10
         ],
         "pie": [
-          140,
-          375
+          143,
+          346
         ],
         "largo": 1,
         "papel": "inicio"
@@ -56,12 +56,12 @@
       ],
       "ladera": {
         "filo": [
-          43,
-          29
+          44,
+          27
         ],
         "pie": [
           143,
-          365
+          363
         ],
         "largo": 1,
         "papel": "medio"
@@ -78,12 +78,12 @@
       ],
       "ladera": {
         "filo": [
-          43,
-          18
+          42,
+          16
         ],
         "pie": [
           142,
-          354
+          352
         ],
         "largo": 1,
         "papel": "medio"

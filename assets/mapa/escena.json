@@ -1258,6 +1258,26 @@
     }
    },
    {
+    "src": "modulos/laderas-arenisca-este-1/inicio.webp",
+    "nw": 193,
+    "nh": 365,
+    "ax": 138,
+    "ay": 360,
+    "nombre": "inicio",
+    "ladera": {
+     "filo": [
+      50,
+      24
+     ],
+     "pie": [
+      134,
+      323
+     ],
+     "largo": 1,
+     "papel": "inicio"
+    }
+   },
+   {
     "src": "modulos/laderas-arenisca-este-1/medio-a.webp",
     "nw": 236,
     "nh": 365,
@@ -1295,26 +1315,6 @@
      ],
      "largo": 1,
      "papel": "medio"
-    }
-   },
-   {
-    "src": "modulos/laderas-arenisca-este-1/inicio.webp",
-    "nw": 202,
-    "nh": 385,
-    "ax": 149,
-    "ay": 380,
-    "nombre": "inicio",
-    "ladera": {
-     "filo": [
-      58,
-      49
-     ],
-     "pie": [
-      142,
-      348
-     ],
-     "largo": 1,
-     "papel": "inicio"
     }
    },
    {
@@ -1432,31 +1432,11 @@
       42
      ],
      "pie": [
-      138,
+      137,
       378
      ],
      "largo": 1,
      "papel": "medio"
-    }
-   },
-   {
-    "src": "modulos/laderas-arenisca-este-2/inicio.webp",
-    "nw": 177,
-    "nh": 410,
-    "ax": 128,
-    "ay": 405,
-    "nombre": "inicio",
-    "ladera": {
-     "filo": [
-      33,
-      43
-     ],
-     "pie": [
-      132,
-      379
-     ],
-     "largo": 1,
-     "papel": "inicio"
     }
    },
    {
@@ -1468,7 +1448,7 @@
     "nombre": "medio-c",
     "ladera": {
      "filo": [
-      50,
+      49,
       54
      ],
      "pie": [
@@ -1477,6 +1457,26 @@
      ],
      "largo": 1,
      "papel": "medio"
+    }
+   },
+   {
+    "src": "modulos/laderas-arenisca-este-2/inicio.webp",
+    "nw": 266,
+    "nh": 417,
+    "ax": 212,
+    "ay": 412,
+    "nombre": "inicio",
+    "ladera": {
+     "filo": [
+      90,
+      25
+     ],
+     "pie": [
+      189,
+      361
+     ],
+     "largo": 1,
+     "papel": "inicio"
     }
    },
    {
@@ -1724,6 +1724,26 @@
   ],
   "laderas-arenisca-oeste-1": [
    {
+    "src": "modulos/laderas-arenisca-oeste-1/inicio.webp",
+    "nw": 204,
+    "nh": 315,
+    "ax": 63,
+    "ay": 310,
+    "nombre": "inicio",
+    "ladera": {
+     "filo": [
+      158,
+      -8
+     ],
+     "pie": [
+      73,
+      291
+     ],
+     "largo": 1,
+     "papel": "inicio"
+    }
+   },
+   {
     "src": "modulos/laderas-arenisca-oeste-1/medio-b.webp",
     "nw": 219,
     "nh": 388,
@@ -1732,7 +1752,7 @@
     "nombre": "medio-b",
     "ladera": {
      "filo": [
-      152,
+      151,
       66
      ],
      "pie": [
@@ -1741,26 +1761,6 @@
      ],
      "largo": 1,
      "papel": "medio"
-    }
-   },
-   {
-    "src": "modulos/laderas-arenisca-oeste-1/inicio.webp",
-    "nw": 201,
-    "nh": 393,
-    "ax": 67,
-    "ay": 388,
-    "nombre": "inicio",
-    "ladera": {
-     "filo": [
-      150,
-      43
-     ],
-     "pie": [
-      66,
-      342
-     ],
-     "largo": 1,
-     "papel": "inicio"
     }
    },
    {
@@ -1793,11 +1793,11 @@
     "ladera": {
      "filo": [
       159,
-      47
+      48
      ],
      "pie": [
-      75,
-      346
+      74,
+      347
      ],
      "largo": 1,
      "papel": "medio"
@@ -1886,6 +1886,26 @@
   ],
   "laderas-arenisca-oeste-2": [
    {
+    "src": "modulos/laderas-arenisca-oeste-2/inicio.webp",
+    "nw": 203,
+    "nh": 373,
+    "ax": 56,
+    "ay": 368,
+    "nombre": "inicio",
+    "ladera": {
+     "filo": [
+      155,
+      0
+     ],
+     "pie": [
+      55,
+      336
+     ],
+     "largo": 1,
+     "papel": "inicio"
+    }
+   },
+   {
     "src": "modulos/laderas-arenisca-oeste-2/medio-c.webp",
     "nw": 191,
     "nh": 387,
@@ -1906,26 +1926,6 @@
     }
    },
    {
-    "src": "modulos/laderas-arenisca-oeste-2/inicio.webp",
-    "nw": 193,
-    "nh": 388,
-    "ax": 57,
-    "ay": 383,
-    "nombre": "inicio",
-    "ladera": {
-     "filo": [
-      154,
-      29
-     ],
-     "pie": [
-      55,
-      365
-     ],
-     "largo": 1,
-     "papel": "inicio"
-    }
-   },
-   {
     "src": "modulos/laderas-arenisca-oeste-2/medio-a.webp",
     "nw": 200,
     "nh": 388,
@@ -1934,7 +1934,7 @@
     "nombre": "medio-a",
     "ladera": {
      "filo": [
-      153,
+      154,
       26
      ],
      "pie": [
@@ -2210,6 +2210,26 @@
   ],
   "laderas-basalto-este-1": [
    {
+    "src": "modulos/laderas-basalto-este-1/inicio.webp",
+    "nw": 181,
+    "nh": 328,
+    "ax": 128,
+    "ay": 323,
+    "nombre": "inicio",
+    "ladera": {
+     "filo": [
+      41,
+      -1
+     ],
+     "pie": [
+      125,
+      298
+     ],
+     "largo": 1,
+     "papel": "inicio"
+    }
+   },
+   {
     "src": "modulos/laderas-basalto-este-1/medio-a.webp",
     "nw": 248,
     "nh": 389,
@@ -2219,11 +2239,11 @@
     "ladera": {
      "filo": [
       79,
-      44
+      43
      ],
      "pie": [
       163,
-      343
+      342
      ],
      "largo": 1,
      "papel": "medio"
@@ -2239,11 +2259,11 @@
     "ladera": {
      "filo": [
       56,
-      38
+      39
      ],
      "pie": [
       140,
-      337
+      338
      ],
      "largo": 1,
      "papel": "medio"
@@ -2267,26 +2287,6 @@
      ],
      "largo": 1,
      "papel": "medio"
-    }
-   },
-   {
-    "src": "modulos/laderas-basalto-este-1/inicio.webp",
-    "nw": 203,
-    "nh": 392,
-    "ax": 151,
-    "ay": 387,
-    "nombre": "inicio",
-    "ladera": {
-     "filo": [
-      58,
-      42
-     ],
-     "pie": [
-      142,
-      341
-     ],
-     "largo": 1,
-     "papel": "inicio"
     }
    },
    {
@@ -2380,12 +2380,12 @@
     "nombre": "medio-c",
     "ladera": {
      "filo": [
-      43,
-      18
+      42,
+      16
      ],
      "pie": [
       142,
-      354
+      352
      ],
      "largo": 1,
      "papel": "medio"
@@ -2420,12 +2420,12 @@
     "nombre": "medio-b",
     "ladera": {
      "filo": [
-      43,
-      29
+      44,
+      27
      ],
      "pie": [
       143,
-      365
+      363
      ],
      "largo": 1,
      "papel": "medio"
@@ -2433,19 +2433,19 @@
    },
    {
     "src": "modulos/laderas-basalto-este-2/inicio.webp",
-    "nw": 188,
-    "nh": 402,
-    "ax": 135,
-    "ay": 397,
+    "nw": 211,
+    "nh": 398,
+    "ax": 146,
+    "ay": 393,
     "nombre": "inicio",
     "ladera": {
      "filo": [
-      41,
-      39
+      44,
+      10
      ],
      "pie": [
-      140,
-      375
+      143,
+      346
      ],
      "largo": 1,
      "papel": "inicio"
@@ -2704,7 +2704,7 @@
     "nombre": "medio-a",
     "ladera": {
      "filo": [
-      131,
+      132,
       4
      ],
      "pie": [
@@ -2716,26 +2716,6 @@
     }
    },
    {
-    "src": "modulos/laderas-basalto-oeste-1/inicio.webp",
-    "nw": 165,
-    "nh": 320,
-    "ax": 47,
-    "ay": 315,
-    "nombre": "inicio",
-    "ladera": {
-     "filo": [
-      136,
-      7
-     ],
-     "pie": [
-      52,
-      306
-     ],
-     "largo": 1,
-     "papel": "inicio"
-    }
-   },
-   {
     "src": "modulos/laderas-basalto-oeste-1/medio-c.webp",
     "nw": 188,
     "nh": 326,
@@ -2744,15 +2724,35 @@
     "nombre": "medio-c",
     "ladera": {
      "filo": [
-      124,
-      11
+      125,
+      10
      ],
      "pie": [
-      40,
-      310
+      41,
+      309
      ],
      "largo": 1,
      "papel": "medio"
+    }
+   },
+   {
+    "src": "modulos/laderas-basalto-oeste-1/inicio.webp",
+    "nw": 218,
+    "nh": 328,
+    "ax": 68,
+    "ay": 323,
+    "nombre": "inicio",
+    "ladera": {
+     "filo": [
+      165,
+      -7
+     ],
+     "pie": [
+      80,
+      292
+     ],
+     "largo": 1,
+     "papel": "inicio"
     }
    },
    {
@@ -2764,7 +2764,7 @@
     "nombre": "medio-b",
     "ladera": {
      "filo": [
-      137,
+      136,
       14
      ],
      "pie": [
@@ -2858,6 +2858,26 @@
   ],
   "laderas-basalto-oeste-2": [
    {
+    "src": "modulos/laderas-basalto-oeste-2/inicio.webp",
+    "nw": 232,
+    "nh": 392,
+    "ax": 76,
+    "ay": 387,
+    "nombre": "inicio",
+    "ladera": {
+     "filo": [
+      170,
+      9
+     ],
+     "pie": [
+      70,
+      345
+     ],
+     "largo": 1,
+     "papel": "inicio"
+    }
+   },
+   {
     "src": "modulos/laderas-basalto-oeste-2/medio-a.webp",
     "nw": 220,
     "nh": 394,
@@ -2866,7 +2886,7 @@
     "nombre": "medio-a",
     "ladera": {
      "filo": [
-      165,
+      166,
       21
      ],
      "pie": [
@@ -2887,11 +2907,11 @@
     "ladera": {
      "filo": [
       137,
-      47
+      46
      ],
      "pie": [
       38,
-      383
+      382
      ],
      "largo": 1,
      "papel": "medio"
@@ -2907,34 +2927,14 @@
     "ladera": {
      "filo": [
       147,
-      30
+      29
      ],
      "pie": [
       48,
-      366
+      365
      ],
      "largo": 1,
      "papel": "medio"
-    }
-   },
-   {
-    "src": "modulos/laderas-basalto-oeste-2/inicio.webp",
-    "nw": 193,
-    "nh": 395,
-    "ax": 50,
-    "ay": 390,
-    "nombre": "inicio",
-    "ladera": {
-     "filo": [
-      156,
-      23
-     ],
-     "pie": [
-      57,
-      359
-     ],
-     "largo": 1,
-     "papel": "inicio"
     }
    },
    {
@@ -3182,6 +3182,26 @@
   ],
   "laderas-nevadas-este-1": [
    {
+    "src": "modulos/laderas-nevadas-este-1/inicio.webp",
+    "nw": 216,
+    "nh": 349,
+    "ax": 147,
+    "ay": 344,
+    "nombre": "inicio",
+    "ladera": {
+     "filo": [
+      56,
+      7
+     ],
+     "pie": [
+      140,
+      306
+     ],
+     "largo": 1,
+     "papel": "inicio"
+    }
+   },
+   {
     "src": "modulos/laderas-nevadas-este-1/medio-b.webp",
     "nw": 187,
     "nh": 362,
@@ -3190,11 +3210,11 @@
     "nombre": "medio-b",
     "ladera": {
      "filo": [
-      45,
+      44,
       23
      ],
      "pie": [
-      129,
+      128,
       322
      ],
      "largo": 1,
@@ -3222,26 +3242,6 @@
     }
    },
    {
-    "src": "modulos/laderas-nevadas-este-1/inicio.webp",
-    "nw": 165,
-    "nh": 366,
-    "ax": 120,
-    "ay": 361,
-    "nombre": "inicio",
-    "ladera": {
-     "filo": [
-      39,
-      28
-     ],
-     "pie": [
-      123,
-      327
-     ],
-     "largo": 1,
-     "papel": "inicio"
-    }
-   },
-   {
     "src": "modulos/laderas-nevadas-este-1/medio-a.webp",
     "nw": 242,
     "nh": 367,
@@ -3250,12 +3250,12 @@
     "nombre": "medio-a",
     "ladera": {
      "filo": [
-      81,
-      26
+      82,
+      27
      ],
      "pie": [
-      165,
-      325
+      166,
+      326
      ],
      "largo": 1,
      "papel": "medio"
@@ -3344,6 +3344,26 @@
   ],
   "laderas-nevadas-este-2": [
    {
+    "src": "modulos/laderas-nevadas-este-2/inicio.webp",
+    "nw": 208,
+    "nh": 390,
+    "ax": 145,
+    "ay": 385,
+    "nombre": "inicio",
+    "ladera": {
+     "filo": [
+      48,
+      6
+     ],
+     "pie": [
+      147,
+      342
+     ],
+     "largo": 1,
+     "papel": "inicio"
+    }
+   },
+   {
     "src": "modulos/laderas-nevadas-este-2/medio-a.webp",
     "nw": 199,
     "nh": 390,
@@ -3373,11 +3393,11 @@
     "ladera": {
      "filo": [
       38,
-      17
+      18
      ],
      "pie": [
-      137,
-      353
+      138,
+      354
      ],
      "largo": 1,
      "papel": "medio"
@@ -3392,7 +3412,7 @@
     "nombre": "medio-b",
     "ladera": {
      "filo": [
-      54,
+      55,
       26
      ],
      "pie": [
@@ -3421,26 +3441,6 @@
      ],
      "largo": 1,
      "papel": "esquina"
-    }
-   },
-   {
-    "src": "modulos/laderas-nevadas-este-2/inicio.webp",
-    "nw": 206,
-    "nh": 413,
-    "ax": 154,
-    "ay": 408,
-    "nombre": "inicio",
-    "ladera": {
-     "filo": [
-      48,
-      38
-     ],
-     "pie": [
-      147,
-      374
-     ],
-     "largo": 1,
-     "papel": "inicio"
     }
    },
    {
@@ -3668,6 +3668,26 @@
   ],
   "laderas-nevadas-oeste-1": [
    {
+    "src": "modulos/laderas-nevadas-oeste-1/inicio.webp",
+    "nw": 225,
+    "nh": 340,
+    "ax": 83,
+    "ay": 335,
+    "nombre": "inicio",
+    "ladera": {
+     "filo": [
+      177,
+      2
+     ],
+     "pie": [
+      92,
+      301
+     ],
+     "largo": 1,
+     "papel": "inicio"
+    }
+   },
+   {
     "src": "modulos/laderas-nevadas-oeste-1/medio-a.webp",
     "nw": 210,
     "nh": 340,
@@ -3676,7 +3696,7 @@
     "nombre": "medio-a",
     "ladera": {
      "filo": [
-      146,
+      147,
       20
      ],
      "pie": [
@@ -3700,7 +3720,7 @@
       21
      ],
      "pie": [
-      80,
+      81,
       320
      ],
      "largo": 1,
@@ -3725,26 +3745,6 @@
      ],
      "largo": 1,
      "papel": "medio"
-    }
-   },
-   {
-    "src": "modulos/laderas-nevadas-oeste-1/inicio.webp",
-    "nw": 185,
-    "nh": 353,
-    "ax": 61,
-    "ay": 348,
-    "nombre": "inicio",
-    "ladera": {
-     "filo": [
-      147,
-      30
-     ],
-     "pie": [
-      63,
-      329
-     ],
-     "largo": 1,
-     "papel": "inicio"
     }
    },
    {
@@ -3831,19 +3831,19 @@
   "laderas-nevadas-oeste-2": [
    {
     "src": "modulos/laderas-nevadas-oeste-2/inicio.webp",
-    "nw": 217,
-    "nh": 400,
-    "ax": 57,
-    "ay": 395,
+    "nw": 216,
+    "nh": 364,
+    "ax": 59,
+    "ay": 359,
     "nombre": "inicio",
     "ladera": {
      "filo": [
       162,
-      36
+      -3
      ],
      "pie": [
-      63,
-      372
+      62,
+      333
      ],
      "largo": 1,
      "papel": "inicio"
@@ -3879,11 +3879,11 @@
     "ladera": {
      "filo": [
       160,
-      36
+      35
      ],
      "pie": [
-      61,
-      372
+      60,
+      371
      ],
      "largo": 1,
      "papel": "medio"
@@ -4175,19 +4175,19 @@
    },
    {
     "src": "modulos/laderas-roca-este-1/inicio.webp",
-    "nw": 176,
+    "nw": 205,
     "nh": 366,
-    "ax": 125,
+    "ax": 152,
     "ay": 361,
     "nombre": "inicio",
     "ladera": {
      "filo": [
-      46,
-      38
+      58,
+      16
      ],
      "pie": [
-      130,
-      337
+      142,
+      315
      ],
      "largo": 1,
      "papel": "inicio"
@@ -4222,11 +4222,11 @@
     "nombre": "medio-c",
     "ladera": {
      "filo": [
-      74,
+      73,
       46
      ],
      "pie": [
-      158,
+      157,
       345
      ],
      "largo": 1,
@@ -4317,19 +4317,19 @@
   "laderas-roca-este-2": [
    {
     "src": "modulos/laderas-roca-este-2/inicio.webp",
-    "nw": 213,
-    "nh": 403,
-    "ax": 160,
-    "ay": 398,
+    "nw": 194,
+    "nh": 390,
+    "ax": 142,
+    "ay": 385,
     "nombre": "inicio",
     "ladera": {
      "filo": [
-      58,
-      30
+      39,
+      17
      ],
      "pie": [
-      157,
-      366
+      138,
+      353
      ],
      "largo": 1,
      "papel": "inicio"
@@ -4365,11 +4365,11 @@
     "ladera": {
      "filo": [
       51,
-      26
+      27
      ],
      "pie": [
-      151,
-      362
+      150,
+      363
      ],
      "largo": 1,
      "papel": "medio"
@@ -4384,7 +4384,7 @@
     "nombre": "medio-c",
     "ladera": {
      "filo": [
-      55,
+      54,
       47
      ],
      "pie": [
@@ -4640,6 +4640,26 @@
   ],
   "laderas-roca-oeste-1": [
    {
+    "src": "modulos/laderas-roca-oeste-1/inicio.webp",
+    "nw": 162,
+    "nh": 292,
+    "ax": 53,
+    "ay": 287,
+    "nombre": "inicio",
+    "ladera": {
+     "filo": [
+      137,
+      -20
+     ],
+     "pie": [
+      52,
+      279
+     ],
+     "largo": 1,
+     "papel": "inicio"
+    }
+   },
+   {
     "src": "modulos/laderas-roca-oeste-1/medio-c.webp",
     "nw": 201,
     "nh": 363,
@@ -4672,31 +4692,11 @@
       35
      ],
      "pie": [
-      58,
+      57,
       334
      ],
      "largo": 1,
      "papel": "medio"
-    }
-   },
-   {
-    "src": "modulos/laderas-roca-oeste-1/inicio.webp",
-    "nw": 189,
-    "nh": 369,
-    "ax": 62,
-    "ay": 364,
-    "nombre": "inicio",
-    "ladera": {
-     "filo": [
-      151,
-      38
-     ],
-     "pie": [
-      67,
-      337
-     ],
-     "largo": 1,
-     "papel": "inicio"
     }
    },
    {
@@ -4708,12 +4708,12 @@
     "nombre": "medio-b",
     "ladera": {
      "filo": [
-      142,
-      50
+      141,
+      48
      ],
      "pie": [
       57,
-      349
+      347
      ],
      "largo": 1,
      "papel": "medio"
@@ -4802,6 +4802,26 @@
   ],
   "laderas-roca-oeste-2": [
    {
+    "src": "modulos/laderas-roca-oeste-2/inicio.webp",
+    "nw": 192,
+    "nh": 346,
+    "ax": 46,
+    "ay": 341,
+    "nombre": "inicio",
+    "ladera": {
+     "filo": [
+      158,
+      -21
+     ],
+     "pie": [
+      58,
+      315
+     ],
+     "largo": 1,
+     "papel": "inicio"
+    }
+   },
+   {
     "src": "modulos/laderas-roca-oeste-2/medio-b.webp",
     "nw": 182,
     "nh": 402,
@@ -4811,34 +4831,14 @@
     "ladera": {
      "filo": [
       142,
-      29
+      30
      ],
      "pie": [
       43,
-      365
+      366
      ],
      "largo": 1,
      "papel": "medio"
-    }
-   },
-   {
-    "src": "modulos/laderas-roca-oeste-2/inicio.webp",
-    "nw": 201,
-    "nh": 406,
-    "ax": 51,
-    "ay": 401,
-    "nombre": "inicio",
-    "ladera": {
-     "filo": [
-      151,
-      46
-     ],
-     "pie": [
-      52,
-      382
-     ],
-     "largo": 1,
-     "papel": "inicio"
     }
    },
    {
@@ -4850,12 +4850,12 @@
     "nombre": "medio-c",
     "ladera": {
      "filo": [
-      149,
-      32
+      156,
+      19
      ],
      "pie": [
-      50,
-      368
+      57,
+      355
      ],
      "largo": 1,
      "papel": "medio"
@@ -4870,7 +4870,7 @@
     "nombre": "medio-a",
     "ladera": {
      "filo": [
-      155,
+      156,
       52
      ],
      "pie": [
