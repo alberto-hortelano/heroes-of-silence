@@ -36,7 +36,12 @@
 import type { Escena, Luz, Sprite } from './colocar.js';
 import { cajaDeSprite } from './pasillo.js';
 import { bandaDeCara, type CaraConRampas, SOLAPE } from './relieve.js';
-import { ANCHO_DE_SENDA, SEMIANCHO_DEL_PASILLO } from './sendas.js';
+import {
+  ANCHO_DE_SENDA,
+  ANCHO_DEL_VADO,
+  ANCHO_DEL_VADO_EN_EL_BARRO,
+  SEMIANCHO_DEL_PASILLO,
+} from './sendas.js';
 
 /** Lo que el pintor acepta como imagen: cargada (`<img>`) o ya pintada (`<canvas>`). */
 export type Imagen = HTMLImageElement | HTMLCanvasElement | OffscreenCanvas | ImageBitmap;
@@ -278,12 +283,24 @@ export const UMBRAL_DE_VOLUMEN = 0.6;
  */
 const SIEMPRE_VOLUMEN: ReadonlySet<Sprite['clase']> = new Set(['masa', 'muro', 'pared', 'objeto']);
 
+/** Si `s` va a los volúmenes, que se pintan por su `y`; si no, va al suelo, debajo de todos ellos. */
+export const esVolumen = (s: Pick<Sprite, 'clase' | 'alto'>, umbral = UMBRAL_DE_VOLUMEN): boolean =>
+  SIEMPRE_VOLUMEN.has(s.clase) || s.alto > umbral;
+
+/**
+ * El orden en que se pintan los volúmenes: por su `y`, que es su clave, y a
+ * igual `y` de oeste a este. Negativo si `p` va antes que `q`. Lo que se pinta
+ * después tapa a lo de antes: es la pregunta de `vaDelante` (`colocar.ts`).
+ */
+export const ordenDeVolumenes = (p: Pick<Sprite, 'x' | 'y'>, q: Pick<Sprite, 'x' | 'y'>): number =>
+  p.y - q.y || p.x - q.x;
+
 /**
  * Parte la escena: cada sprite de la capa del suelo va a una sola lista, y las
  * nubes a ninguna. Lo que el filtro `objeto` deja fuera no va a ninguna (`seVe`).
  */
 export function separar(
-  e: Escena,
+  e: Pick<Escena, 'sprites'>,
   o: Pick<OpcionesDePintura, 'umbral' | 'objeto'> = {},
 ): EscenaSeparada {
   const umbral = o.umbral ?? UMBRAL_DE_VOLUMEN;
@@ -291,11 +308,11 @@ export function separar(
   const volumenes: Volumen[] = [];
   for (const s of e.sprites) {
     if (s.capa !== 0 || !seVe(s, o.objeto)) continue;
-    if (SIEMPRE_VOLUMEN.has(s.clase) || s.alto > umbral) volumenes.push({ clave: s.y, s });
+    if (esVolumen(s, umbral)) volumenes.push({ clave: s.y, s });
     else planos.push(s);
   }
   // `componer` ya los da por (capa, y, x); se ordena igual por si un día no.
-  volumenes.sort((p, q) => p.clave - q.clave || p.s.x - q.s.x);
+  volumenes.sort((p, q) => ordenDeVolumenes(p.s, q.s));
   return { planos, volumenes };
 }
 
@@ -395,16 +412,18 @@ export function pintarSuelo(
       c.fillRect(x, y, w, h);
       return;
     }
-    // El tajo de cada rampa se queda fuera (`evenodd`: la cara menos sus
-    // trapecios) y se ve el suelo de debajo con su senda, ya pintados. Sin
+    if (f.abierta === true) return;
+    // El tajo de cada rampa y cada hueco se queda fuera (`evenodd`: la cara
+    // menos sus trapecios) y se ve el suelo de debajo con su senda, ya pintados. Sin
     // desenfoque en el borde: con `blur` quedaba el marco tenue de un
     // rectángulo fantasma.
     c.save();
-    if (f.rampas.length > 0) {
+    const tajos = f.huecos === undefined ? f.rampas : [...f.rampas, ...f.huecos];
+    if (tajos.length > 0) {
       c.beginPath();
       c.rect(x, y, w, h);
       const abre = ABRE_DEL_TAJO * T;
-      for (const r of f.rampas) {
+      for (const r of tajos) {
         // Un borde que es el extremo de la cara se corta recto y pasado; uno de
         // dentro, inclinado: más estrecho en el filo que en el pie, como un
         // paso abierto en la roca. Nunca más ancho que el tajo.
@@ -435,6 +454,31 @@ export function pintarSuelo(
     c.restore();
   };
   const trazarSendas = () => trazar(c, e, T);
+  /**
+   * Quita de una máscara de agua los vados (`Escena.vados`) a `ancho` casillas:
+   * la senda que sale de un estribo llega al puente por tierra, y no se hunde
+   * bajo el agua que se pinta después de ella.
+   */
+  const secar = (capa: Lienzo, ancho: number): Lienzo => {
+    if (e.vados.length === 0) return capa;
+    const g = contexto(capa);
+    g.save();
+    g.globalCompositeOperation = 'destination-out';
+    g.filter = `blur(${T * 0.08}px)`;
+    g.lineCap = 'round';
+    g.lineJoin = 'round';
+    g.lineWidth = ancho * T;
+    g.strokeStyle = '#000';
+    g.beginPath();
+    for (const [p0, ...resto] of e.vados) {
+      if (p0 === undefined) continue;
+      g.moveTo(p0[0] * T, p0[1] * T);
+      for (const [x, y] of resto) g.lineTo(x * T, y * T);
+    }
+    g.stroke();
+    g.restore();
+    return capa;
+  };
   const agua = new Set(e.agua);
   const aguaHonda = (i: number) => agua.has(i) && [1, -1, e.W, -e.W].every((d) => agua.has(i + d));
 
@@ -490,7 +534,10 @@ export function pintarSuelo(
     // 4 · El agua: barro en la orilla y el agua encima, más oscura en el centro.
     c.drawImage(
       rellenar(
-        mascara((i) => agua.has(i), T * 0.55),
+        secar(
+          mascara((i) => agua.has(i), T * 0.55),
+          ANCHO_DEL_VADO_EN_EL_BARRO,
+        ),
         'texturas/barro.webp',
         '#3b3326',
         3,
@@ -501,7 +548,10 @@ export function pintarSuelo(
     c.filter = 'saturate(1.3) brightness(1.45)';
     c.drawImage(
       rellenar(
-        mascara((i) => agua.has(i), T * 0.22),
+        secar(
+          mascara((i) => agua.has(i), T * 0.22),
+          ANCHO_DEL_VADO,
+        ),
         'texturas/agua.webp',
         '#24405a',
         3,
@@ -511,7 +561,10 @@ export function pintarSuelo(
     );
     c.filter = 'none';
     // La espuma de la orilla: el agua menos su interior, en blanco tenue.
-    const espuma = mascara((i) => agua.has(i), T * 0.12);
+    const espuma = secar(
+      mascara((i) => agua.has(i), T * 0.12),
+      ANCHO_DEL_VADO,
+    );
     const ge = contexto(espuma);
     ge.globalCompositeOperation = 'source-in';
     ge.fillStyle = 'rgba(225,235,235,0.38)';

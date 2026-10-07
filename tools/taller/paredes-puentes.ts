@@ -352,29 +352,52 @@ const SUBE: Partial<Record<Eje, (x: number, y: number, L: number) => number>> = 
  */
 const ESCALONES = 5;
 
+/**
+ * Donde acaba la fábrica de un puente de medio largo `L`, desde su centro: la
+ * de troncos, 0,08 antes, que sus troncos apoyan en el estribo de tierra. La
+ * leen el dibujo y las medidas que van al escenógrafo (`medidasDePuente`).
+ */
+const finDeFabrica = (clase: Clase, L: number): number => (clase === 'piedra' ? L : L - 0.08);
+
+/**
+ * La subida de un puente que se tuerce entero —el E-O que sube—, en función de
+ * dónde se mire; null si no se tuerce: el plano no sube y el N-S sube por
+ * escalones. La leen el dibujo, el centro de la guía y sus medidas.
+ */
+function subidaTorcida(
+  clase: Clase,
+  eje: Eje,
+  sube: boolean,
+): ((x: number, y: number) => number) | null {
+  const subida = SUBE[eje];
+  if (!sube || eje === 'ns' || subida === undefined) return null;
+  const L = PUENTE[clase].largo / 2;
+  return (x, y) => subida(x, y, L);
+}
+
 function dibujarPuente(g: Guia, clase: Clase, eje: Eje, sube: boolean): number {
   const m = PUENTE[clase];
   const L = m.largo / 2;
   const B = m.ancho / 2;
   const luz = m.luz / 2;
-  const subida = SUBE[eje];
-  if (sube && subida === undefined) throw new Error(`no hay puente que suba en ${eje}`);
+  if (sube && SUBE[eje] === undefined) throw new Error(`no hay puente que suba en ${eje}`);
   const escalonado = sube && eje === 'ns';
+  const subida = subidaTorcida(clase, eje, sube);
   // El alto del tablero en cada punta: en N-S sube al norte (a < 0); en E-O, al este (a > 0).
   const altaEs: 1 | -1 = eje === 'ns' ? -1 : 1;
   const zTablero = (s: 1 | -1) => m.tablero + (sube && s === altaEs ? NIVEL : 0);
   const zSuelo = (s: 1 | -1) => (sube && s === altaEs ? NIVEL : 0);
   // La E-O que sube se tuerce entera (`subida`); la N-S sube por escalones.
   const torcer = () => {
-    if (sube && !escalonado && subida !== undefined) {
-      g.subida = (x, y) => subida(x, y, L);
+    if (subida !== null) {
+      g.subida = subida;
       g.rangoDeSubida = [m.agua, m.tablero];
     }
   };
   const enderezar = () => {
     g.subida = () => 0;
   };
-  const fin = clase === 'piedra' ? L : L - 0.08;
+  const fin = finDeFabrica(clase, L);
   const estribos = ([-1, 1] as const).map((s) =>
     estribo(g, eje, clase, s, zTablero(s), zSuelo(s), fin),
   );
@@ -489,17 +512,47 @@ function dibujarPuente(g: Guia, clase: Clase, eje: Eje, sube: boolean): number {
   return escalonado ? m.tablero + NIVEL / 2 : m.tablero;
 }
 
-function guiaDePuente(clase: Clase, eje: Eje, sube = false): { guia: Guia; geo: GeometriaDeGuia } {
+/**
+ * Lo que el escenógrafo necesita saber de un puente, en casillas, y que solo
+ * sabe la guía (#157): cuánto se alza el centro del tablero sobre el suelo y
+ * cuánto mide de punta a punta, de donde la rampa de un estribo toca el suelo a
+ * donde lo toca la del otro. Con el alto se baja el ancla del centro del
+ * tablero al suelo, y con el largo se corta la senda en los estribos.
+ *
+ * En una pieza que sube, las dos orillas están a un `NIVEL` de diferencia y el
+ * escenógrafo no alza ninguna: el suelo bajo el centro se toma a media subida,
+ * y cada punta queda ±`NIVEL/2` de la suya en vez de una entera en la alta.
+ */
+function medidasDePuente(
+  clase: Clase,
+  eje: Eje,
+  sube: boolean,
+  zCentro: number,
+): { readonly altura: number; readonly largo: number } {
+  const m = PUENTE[clase];
+  const subida = subidaTorcida(clase, eje, sube)?.(0, 0) ?? 0;
+  // Donde acaba la fábrica, y la rampa hasta el suelo.
+  const fin = finDeFabrica(clase, m.largo / 2);
+  return {
+    altura: Number((zCentro + subida - (sube ? NIVEL / 2 : 0)).toFixed(3)),
+    largo: Number((2 * (fin + m.rampa)).toFixed(3)),
+  };
+}
+
+function guiaDePuente(
+  clase: Clase,
+  eje: Eje,
+  sube = false,
+): { guia: Guia; geo: GeometriaDeGuia; medidas: ReturnType<typeof medidasDePuente> } {
   const [ancho, alto] = eje === 'eo' ? [1536, 1024] : eje === 'ns' ? [1024, 1536] : [1024, 1024];
   let zCentro = 0;
   const g = encajar(ancho, alto, 0.86, (h) => {
     zCentro = dibujarPuente(h, clase, eje, sube);
   });
   // El centro del tablero, con la subida de la E-O si la lleva.
-  const subida = SUBE[eje];
-  if (sube && eje === 'eo' && subida !== undefined) {
-    const L = PUENTE[clase].largo / 2;
-    g.subida = (x, y) => subida(x, y, L);
+  const subida = subidaTorcida(clase, eje, sube);
+  if (subida !== null) {
+    g.subida = subida;
     g.rangoDeSubida = [PUENTE[clase].agua, PUENTE[clase].tablero];
   }
   const centro = g.p(enMapa(eje, 0, 0, zCentro));
@@ -507,6 +560,7 @@ function guiaDePuente(clase: Clase, eje: Eje, sube = false): { guia: Guia; geo: 
   return {
     guia: g,
     geo: { ancho, alto, centro, casilla: g.t, caja: [0, 0, 0, 0] },
+    medidas: medidasDePuente(clase, eje, sube, zCentro),
   };
 }
 
@@ -577,7 +631,9 @@ function encargoDePuente(clase: Clase, eje: Eje, sube = false): Encargo {
       {
         ruta:
           clase === 'piedra'
-            ? 'assets/mapa/nodo-puente-ancho.webp'
+            ? // El `nodo-puente-ancho` de la primera tanda se retiró con #157; su
+              // piedra es la de los puentes que salieron de él.
+              'assets/mapa/puente-piedra-eo.webp'
             : 'assets/mapa/modulos/orilla.webp',
         papel: 'identidad',
       },
@@ -711,9 +767,17 @@ export async function puenteDerivado(rutaImagen: string): Promise<Record<string,
   const geo = join(RAIZ, DIR_GUIAS, `${nombre}.json`);
   const eje = EJES.find((e) => nombre.replace(/-sube$/, '').endsWith(`-${e}`));
   if (eje === undefined) throw new Error(`${nombre}: no sé el eje del puente`);
+  const clase = (['piedra', 'troncos'] as const).find((c) => nombre.startsWith(`puente-${c}-`));
+  if (clase === undefined)
+    throw new Error(`${nombre}: no sé si el puente es de piedra o de troncos`);
+  const { altura, largo } = guiaDePuente(clase, eje, nombre.endsWith('-sube')).medidas;
   return {
     ...(await derivarPieza(rutaImagen)),
     ...(await derivarPuente(rutaImagen, geo, eje)),
+    // En casillas, de la guía en memoria (`medidasDePuente`): el escenógrafo
+    // baja el ancla al suelo con el alto y corta la senda en las puntas.
+    alturaDelTablero: altura,
+    largoDelTablero: largo,
   };
 }
 

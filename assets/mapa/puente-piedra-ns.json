@@ -14,5 +14,7 @@
     1.167,
     1.068
   ],
-  "guia": "assets/mapa/guias/puente-piedra-ns.png"
+  "guia": "assets/mapa/guias/puente-piedra-ns.png",
+  "alturaDelTablero": 0.4,
+  "largoDelTablero": 2.96
 }

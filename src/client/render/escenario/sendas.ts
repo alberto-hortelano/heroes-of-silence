@@ -36,58 +36,90 @@ export const MARGEN_DE_MASA = 0.2;
 /** Media anchura del pasillo de lo bajo: la de la senda más su arcén. */
 export const SEMIANCHO_DEL_PASILLO = ANCHO_DE_SENDA / 2 + MARGEN_DE_SENDA;
 
+/**
+ * El ancho de lo que se deja sin agua a lo largo de un vado (`Escena.vados`),
+ * en casillas: la senda y su arcén (`SEMIANCHO_DEL_PASILLO` a cada lado). El
+ * barro se quita menos (`ANCHO_DEL_VADO_EN_EL_BARRO`) y hace de orilla a la
+ * lengua de tierra. Aquí y no en `puentes.ts`, que trae el núcleo: el pintor
+ * del suelo se empaqueta sin él para el Worker y el taller.
+ */
+export const ANCHO_DEL_VADO = 2 * SEMIANCHO_DEL_PASILLO;
+export const ANCHO_DEL_VADO_EN_EL_BARRO = 0.45;
+
 /** Media anchura del pasillo de las masas. */
 export const SEMIANCHO_DEL_PASILLO_DE_MASA = ANCHO_DE_SENDA / 2 + MARGEN_DE_MASA;
 
-const clave = (x: number, y: number) => `${x},${y}`;
+/**
+ * El grafo de unos tramos: cada punto distinto con su número, en el orden en que
+ * aparece, y sus vecinos, en el orden de los tramos. Lo leen `encadenar` y
+ * `tramosHastaLosEstribos` (`puentes.ts`): un grafo, una forma de construirlo.
+ */
+export interface GrafoDeTramos {
+  readonly puntos: readonly (readonly [number, number])[];
+  readonly vecinos: readonly (readonly number[])[];
+  /** El número del punto `(x, y)`, o `undefined` si no es de ningún tramo. */
+  numero(x: number, y: number): number | undefined;
+  /** La clave de la arista entre dos puntos, la misma en los dos sentidos. */
+  arista(a: number, b: number): number;
+}
+
+export function grafoDeTramos(tramos: readonly Tramo[]): GrafoDeTramos {
+  const numeros = new Map<string, number>();
+  const puntos: (readonly [number, number])[] = [];
+  const vecinos: number[][] = [];
+  const numero = (x: number, y: number) => numeros.get(`${x},${y}`);
+  const alta = (x: number, y: number): number => {
+    const n = numero(x, y);
+    if (n !== undefined) return n;
+    numeros.set(`${x},${y}`, puntos.length);
+    puntos.push([x, y]);
+    vecinos.push([]);
+    return puntos.length - 1;
+  };
+  for (const [x0, y0, x1, y1] of tramos) {
+    const a = alta(x0, y0);
+    const b = alta(x1, y1);
+    (vecinos[a] as number[]).push(b);
+    (vecinos[b] as number[]).push(a);
+  }
+  // Una clave numérica: con la de texto (`'x,y|x,y'`, ordenada), cortar la
+  // senda en los estribos costaba 0,39 ms por mapa (07-10-2026).
+  const n = puntos.length;
+  return { puntos, vecinos, numero, arista: (a, b) => (a < b ? a * n + b : b * n + a) };
+}
 
 /** Encadena los tramos en líneas que van de junta a junta. */
 export function encadenar(tramos: readonly Tramo[]): [number, number][][] {
-  const vecinos = new Map<string, [number, number][]>();
-  const punto = new Map<string, [number, number]>();
-  for (const [x0, y0, x1, y1] of tramos) {
-    for (const [a, b] of [
-      [
-        [x0, y0],
-        [x1, y1],
-      ],
-      [
-        [x1, y1],
-        [x0, y0],
-      ],
-    ] as [[number, number], [number, number]][]) {
-      punto.set(clave(...a), a);
-      vecinos.set(clave(...a), [...(vecinos.get(clave(...a)) ?? []), b]);
-    }
-  }
-  const usado = new Set<string>();
-  const arista = (p: [number, number], q: [number, number]) =>
-    [clave(...p), clave(...q)].sort().join('|');
-  const grado = (p: [number, number]) => vecinos.get(clave(...p))?.length ?? 0;
+  const { puntos, vecinos, arista } = grafoDeTramos(tramos);
+  const usado = new Set<number>();
+  const grado = (p: number) => (vecinos[p] as readonly number[]).length;
   const lineas: [number, number][][] = [];
-  const recorrer = (inicio: [number, number], siguiente: [number, number]) => {
-    const linea: [number, number][] = [inicio];
+  const recorrer = (inicio: number, siguiente: number) => {
+    const linea = [inicio];
     let ahora = siguiente;
     usado.add(arista(inicio, ahora));
     for (;;) {
       linea.push(ahora);
       if (grado(ahora) !== 2) break;
-      const proximo = (vecinos.get(clave(...ahora)) ?? []).find(
+      const proximo = (vecinos[ahora] as readonly number[]).find(
         (v) => !usado.has(arista(ahora, v)),
       );
       if (proximo === undefined) break;
       usado.add(arista(ahora, proximo));
       ahora = proximo;
     }
-    lineas.push(linea);
+    lineas.push(linea.map((k) => [...(puntos[k] as readonly [number, number])]));
   };
   // Primero desde las juntas; lo que quede son anillos, que se abren por cualquier punto.
-  const puntos = [...punto.values()].sort((p, q) => p[1] - q[1] || p[0] - q[0]);
-  for (const p of puntos)
+  const orden = puntos
+    .map((p, k) => ({ p, k }))
+    .sort(({ p }, { p: q }) => p[1] - q[1] || p[0] - q[0])
+    .map(({ k }) => k);
+  for (const p of orden)
     if (grado(p) !== 2)
-      for (const v of vecinos.get(clave(...p)) ?? []) if (!usado.has(arista(p, v))) recorrer(p, v);
-  for (const p of puntos)
-    for (const v of vecinos.get(clave(...p)) ?? []) if (!usado.has(arista(p, v))) recorrer(p, v);
+      for (const v of vecinos[p] as readonly number[]) if (!usado.has(arista(p, v))) recorrer(p, v);
+  for (const p of orden)
+    for (const v of vecinos[p] as readonly number[]) if (!usado.has(arista(p, v))) recorrer(p, v);
   return lineas;
 }
 

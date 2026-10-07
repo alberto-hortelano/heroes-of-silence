@@ -42,6 +42,7 @@ import {
   type Volumen,
 } from './pintar.js';
 import { type MensajeDelSuelo, type PeticionDelSuelo, pintarSueloA } from './pintor-del-suelo.js';
+import type { Punto } from './puentes.js';
 
 /**
  * El catálogo de `assets/mapa/escena.json`, que rehace `pnpm taller
@@ -95,6 +96,26 @@ export interface Escenario {
   readonly conteo: ConteoDeVolumenes;
   /** La clave del volumen de cada objeto horneado, por su id: ahí va el óvalo de su dueño. */
   readonly claveDeObjeto: ReadonlyMap<string, number>;
+  /**
+   * El asiento de la marca del dueño (óvalo y bandera) de cada objeto horneado,
+   * por su id, en casillas: el punto que hace de centro de su casilla. Lo es,
+   * salvo en el nodo de un puente, que cae en el río bajo el tablero: allí sube
+   * al tablero (`Puente.asiento`), menos `OVALO_BAJO_EL_ASIENTO`, para que el
+   * óvalo quede centrado en él.
+   */
+  readonly asientoDeObjeto: ReadonlyMap<string, readonly [number, number]>;
+  /**
+   * El pie del mástil de la bandera de cada nodo, por su id, en casillas: el de
+   * siempre sobre el centro de su casilla (`MASTIL_SOBRE_EL_NODO`), o en un
+   * puente, plantado en su tablero (`Puente.mastil`).
+   */
+  readonly mastilDeNodo: ReadonlyMap<string, readonly [number, number]>;
+  /**
+   * Lo que pisa quien está en la casilla de un puente, por casilla (`y·W + x`):
+   * el punto del tablero (`Puente.asiento`) y la clave del volumen del puente,
+   * para pintarlo encima de él. Lo lee `pisada`.
+   */
+  readonly tableros: ReadonlyMap<number, { readonly asiento: Punto; readonly clave: number }>;
   /** Las imágenes que pinta la escena: se piden una vez por partida. */
   readonly imagenes: readonly string[];
   /** De ellas, las que solo pinta el suelo: se sueltan en cuanto está pintado. */
@@ -104,6 +125,87 @@ export interface Escenario {
 }
 
 let memo: { semilla: number; escenario: Escenario } | null = null;
+
+/**
+ * Lo que `mapa.ts` baja el óvalo de un nodo bajo su asiento, en casillas: el
+ * 0,45 de su radio de 0,4 casilla (`base`).
+ */
+export const OVALO_BAJO_EL_ASIENTO = 0.45 * 0.4;
+
+/**
+ * Lo que sube el pie del mástil de un nodo sobre el centro de su casilla, en
+ * casillas: su punta va a 0,85 y mide 0,375 (`bandera` a 0,75 de casilla).
+ */
+export const MASTIL_SOBRE_EL_NODO = 0.85 - 0.75 * 0.5;
+
+/** El pie del mástil de cada nodo (`Escenario.mastilDeNodo`). */
+function mastilesDe(
+  map: MapaDeEscena,
+  puentes: Escena['puentes'],
+): Map<string, readonly [number, number]> {
+  const enUnPuente = new Map(puentes.map((p) => [p.id, p.mastil]));
+  const mastiles = new Map<string, readonly [number, number]>();
+  for (const o of map.objects)
+    if (o.kind === 'node')
+      mastiles.set(
+        o.id,
+        enUnPuente.get(o.id) ?? [o.at.x + 0.5, o.at.y + 0.5 - MASTIL_SOBRE_EL_NODO],
+      );
+  return mastiles;
+}
+
+/** Lo que pisa quien está en la casilla de cada puente (`Escenario.tableros`). */
+function tablerosDe(
+  map: MapaDeEscena,
+  puentes: Escena['puentes'],
+  claveDeObjeto: ReadonlyMap<string, number>,
+): Map<number, { readonly asiento: Punto; readonly clave: number }> {
+  return new Map(
+    puentes.map((p) => {
+      const clave = claveDeObjeto.get(p.id);
+      if (clave === undefined) throw new Error(`el puente ${p.id} no tiene volumen en la escena`);
+      const [x, y] = p.nodo.map(Math.floor) as [number, number];
+      return [y * map.width + x, { asiento: p.asiento, clave }] as const;
+    }),
+  );
+}
+
+/**
+ * Dónde pisa una figura de la casilla `at` y su clave de profundidad, en
+ * casillas: los pies a `pies` bajo el centro de la casilla y `claveDeFigura`;
+ * o, en la de un puente, en su tablero y pintada después de él. En el centro de
+ * la casilla, que es agua bajo el arco, se pintaba en el río y le tapaba el
+ * frente al puente (H3 del QA de #157). Con `pies` = 0,5, el centro de la
+ * casilla: lo que usa el paso de la ruta.
+ */
+export function pisada(
+  esc: Escenario,
+  at: { readonly x: number; readonly y: number },
+  pies: number,
+): { readonly x: number; readonly y: number; readonly clave: number } {
+  const clave = claveDeFigura(esc, at.x, at.y + pies);
+  const t = esc.tableros.get(at.y * esc.escena.W + at.x);
+  if (t === undefined) return { x: at.x + 0.5, y: at.y + pies, clave };
+  return { x: t.asiento[0], y: t.asiento[1], clave: Math.max(clave, t.clave) };
+}
+
+/** El asiento de cada objeto horneado (`Escenario.asientoDeObjeto`). */
+function asientosDe(
+  map: MapaDeEscena,
+  horneados: ReadonlyMap<string, number>,
+  puentes: Escena['puentes'],
+): Map<string, readonly [number, number]> {
+  const enUnPuente = new Map(puentes.map((p) => [p.id, p.asiento]));
+  return new Map(
+    map.objects.flatMap((o) => {
+      if (!horneados.has(o.id)) return [];
+      const a = enUnPuente.get(o.id);
+      const asiento: readonly [number, number] =
+        a === undefined ? [o.at.x + 0.5, o.at.y + 0.5] : [a[0], a[1] - OVALO_BAJO_EL_ASIENTO];
+      return [[o.id, asiento] as const];
+    }),
+  );
+}
 
 /**
  * La escena de un mapa: `componer` y `separar`, una vez por partida. La llave es
@@ -147,6 +249,9 @@ export function escenarioDe(map: MapaDeEscena, semilla: number): Escenario {
     cubiertas,
     conteo: contarVolumenes(escena.W, escena.H, bases),
     claveDeObjeto,
+    asientoDeObjeto: asientosDe(map, claveDeObjeto, escena.puentes),
+    mastilDeNodo: mastilesDe(map, escena.puentes),
+    tableros: tablerosDe(map, escena.puentes, claveDeObjeto),
     imagenes,
     soloDelSuelo: imagenes.filter((src) => !deVolumen.has(src)),
     deVolumenes: [...deVolumen],

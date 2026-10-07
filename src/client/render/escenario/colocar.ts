@@ -25,10 +25,19 @@ import {
 } from './catalogo.js';
 import { azarDe, esparcir } from './esparcir.js';
 import { ejeDe, esqueleto } from './esqueleto.js';
-import { barreraDeNodo, nodoDePaso } from './nodos.js';
+import { nodoDePaso } from './nodos.js';
 import { cajaDeSprite, Pasillo } from './pasillo.js';
+import { esVolumen, ordenDeVolumenes, separar } from './pintar.js';
+import {
+  type Puente,
+  puenteDe,
+  sendasDeEstriboEnAgua,
+  tramosHastaLosEstribos,
+  vadosDeLosEstribos,
+} from './puentes.js';
 import {
   ALTO_DE_NIVEL,
+  bandaDeCara,
   bordeDeLadera,
   CARA_DE_SUELO,
   type Cara,
@@ -107,8 +116,15 @@ export interface Escena {
   };
   readonly altoDeNivel: number;
   readonly caminos: readonly (readonly [number, number, number, number])[];
-  /** Los caminos encadenados y suavizados: lo que se pinta. */
+  /** Los caminos encadenados y suavizados: lo que se pinta. Acaban en los estribos de los puentes. */
   readonly sendas: readonly Senda[];
+  /** Los puentes, uno por nodo de agua (`puentes.ts`): su sprite lleva su `id`. */
+  readonly puentes: readonly Puente[];
+  /**
+   * Los trozos de senda junto a un estribo donde no se pinta el agua
+   * (`vadosDeLosEstribos`): la senda llega al puente por tierra.
+   */
+  readonly vados: readonly Senda[];
   /**
    * La luz y el aire, encima de todo menos las nubes: el resplandor cálido de
    * ciudades y pueblos, las brasas de la lava y la niebla baja del agua y la
@@ -146,6 +162,17 @@ export interface Escena {
      * con los pies montados (`laderasEnfrentadas`): tiene que ser 0.
      */
     readonly laderasEnfrentadas: number;
+    /**
+     * Lo que se aparta del camino y la pared que se pintan encima del tablero de
+     * un puente, contados desde el orden del pintor (`puentesTapados`) y no
+     * desde la puerta (`vaDelante`): tiene que ser 0.
+     */
+    readonly puentesTapados: number;
+    /**
+     * Sendas que salen de un estribo y pasan por agua pintada en sus primeras
+     * casillas, sin vado que la quite (`sendasDeEstriboEnAgua`): tiene que ser 0.
+     */
+    readonly sendasDeEstriboEnAgua: number;
     readonly modulosQueFaltan: readonly string[];
   };
 }
@@ -550,9 +577,57 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     chest: 0.4,
     monster: 0.45,
   };
+  /**
+   * El sprite de un objeto del mapa: su pieza por su ancla, o sin ella su
+   * marcador. Lo comparten los objetos y los puentes.
+   */
+  const deObjeto = (
+    o: MapObject,
+    p: Pick<Pieza, 'src' | 'nw' | 'nh' | 'ax' | 'ay'> | null,
+    x: number,
+    y: number,
+    alto: number,
+    sombra = true,
+  ): Sprite => ({
+    ...(p === null
+      ? { src: null, nw: 1, nh: 1, ax: 0.5, ay: 1 }
+      : { src: p.src, nw: p.nw, nh: p.nh, ax: p.ax, ay: p.ay }),
+    x,
+    y,
+    alto,
+    clase: 'objeto',
+    color: '#c9b27a',
+    capa: 0,
+    sombra,
+    objeto: { id: o.id, kind: o.kind },
+  });
+  const puentes: Puente[] = [];
   for (const o of a.objetos) {
     const x = o.at.x + 0.5;
     const y = o.at.y + 0.5;
+    if (a.puentes.has(o.id)) {
+      // El puente se apoya por el centro de su tablero, bajado al suelo: el
+      // ancla de la pieza es ese centro (§17), y su escala, la casilla de la
+      // guía. Sin sombra: la mancha de su pie, en el centro, oscurecía el arco.
+      const pu = puenteDe(o, a, rel.nivel, map.caminos.tramos, catalogo);
+      puentes.push(pu);
+      const p = pieza(pu.pieza);
+      const [cx, cy] = pu.centro;
+      if (p === null) faltan.add(pu.pieza);
+      sprites.push(
+        p?.puente === undefined
+          ? deObjeto(o, null, cx, cy, 1.7)
+          : deObjeto(
+              o,
+              { ...p, ay: p.ay + p.puente.altura * p.puente.pxPorCasilla },
+              cx,
+              cy,
+              (p.nh / p.puente.pxPorCasilla) * pu.escala,
+              false,
+            ),
+      );
+      continue;
+    }
     reservas.reservar(x, y, RADIO_DE_OBJETO[o.kind] ?? 0.5);
     const id =
       o.kind === 'town'
@@ -561,8 +636,10 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
           ? 'pueblo'
           : o.kind === 'node'
             ? (() => {
-                const { barrera, eje } = barreraDeNodo(o.at, W, a.terreno);
-                return nodoDePaso(barrera, eje);
+                // El de agua ya salió arriba, con su puente.
+                const paso = a.pasos.get(o.id);
+                if (paso === undefined) throw new Error(`el nodo ${o.id} no está en el análisis`);
+                return nodoDePaso(paso.barrera, paso.eje);
               })()
             : o.kind === 'resource'
               ? // Mercurio, azufre, cristal y gemas no tienen pieza: van como tesoro.
@@ -609,35 +686,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
           ]
         : undefined;
     const p = variante ?? (id === null ? null : pieza(id));
-    sprites.push(
-      p === null
-        ? {
-            src: null,
-            nw: 1,
-            nh: 1,
-            ax: 0.5,
-            ay: 1,
-            x,
-            y: y + 0.35,
-            alto: ancho,
-            clase: 'objeto',
-            color: '#c9b27a',
-            capa: 0,
-            sombra: true,
-            objeto: { id: o.id, kind: o.kind },
-          }
-        : {
-            ...p,
-            x,
-            y: y + 0.35,
-            alto: (ancho * p.nh) / p.nw,
-            clase: 'objeto',
-            color: '#c9b27a',
-            capa: 0,
-            sombra: true,
-            objeto: { id: o.id, kind: o.kind },
-          },
-    );
+    sprites.push(deObjeto(o, p, x, y + 0.35, p === null ? ancho : (ancho * p.nh) / p.nw));
   }
 
   // 2 · Los caminos: se encadenan en sendas y cada senda abre su pasillo.
@@ -649,16 +698,30 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   ]);
   // Los nodos y los objetos llevan su camino hasta la puerta: se reserva la casilla entera.
   for (const o of a.objetos)
-    if (o.kind === 'node') reservas.reservar(o.at.x + 0.5, o.at.y + 0.5, 0.75);
+    if (o.kind === 'node' && !a.puentes.has(o.id))
+      reservas.reservar(o.at.x + 0.5, o.at.y + 0.5, 0.75);
   // El pasillo se mide sobre el trazo que se pinta, no sobre la casilla: la
-  // senda ondula y entre dos casillas no hay centro que reservar.
-  const trazos = sendas(caminos, semilla);
+  // senda ondula y entre dos casillas no hay centro que reservar. La senda llega
+  // a los estribos de cada puente y no sigue por encima (#157).
+  const trazos = sendas(tramosHastaLosEstribos(caminos, puentes), semilla);
   const pasillo = new Pasillo(
     trazos,
     Math.max(...Object.values(APARTE).map((r) => r?.semiancho ?? 0)),
   );
+  // Lo que se aparta del camino y la pared se apartan también del tablero de
+  // cada puente que taparían (`vaDelante`): con la pared de la cara de detrás
+  // encima, el puente quedaba tapado (#157).
+  const tableros = tablerosAlPaso(puentes);
   // Por dónde bajan las sendas por las caras: el único sitio donde se decide.
-  const bajadas = rampas(rel.caras, rel.laderas, trazos);
+  // La línea de cada puente, de estribo a estribo, abre su tajo como una senda
+  // (se ve el agua bajo el tablero y la pared remata sus bordes): sin él,
+  // quedaba a cada lado del tablero una tira de cara lisa.
+  const bajadas = rampas(
+    rel.caras,
+    rel.laderas,
+    trazos,
+    puentes.map((p) => p.extremos),
+  );
   const caras = rel.caras.map(
     (c, k): CaraConRampas => ({ ...c, rampas: bajadas.porCara[k] ?? [] }),
   );
@@ -677,13 +740,18 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   }
   /**
    * Si `s` entra en su sitio: ni su pie sobre la reserva de un objeto ni,
-   * encogido hasta su mínimo, su rectángulo sobre el pasillo de su clase. Es la
-   * pregunta de `poner` y la del dardo.
+   * encogido hasta su mínimo, su rectángulo sobre el pasillo de su clase ni
+   * sobre un tablero que taparía. Es la pregunta de `poner` y la del dardo.
    */
   const entra = (s: Pick<Sprite, 'x' | 'y' | 'nw' | 'nh' | 'ax' | 'ay' | 'alto' | 'clase'>) => {
     if (reservas.tomada(s.x, s.y)) return false;
     const r = APARTE[s.clase];
-    return r === null || !pasillo.pisa(cajaDeSprite(s, r.minimo(s.alto)), r.semiancho);
+    if (r === null) return true;
+    const minimo = r.minimo(s.alto);
+    return (
+      !pasillo.pisa(cajaDeSprite(s, minimo), r.semiancho) &&
+      !tapaUnTablero(s, tableros, r.semiancho, minimo)
+    );
   };
   /**
    * El dardo de una clase en `(x, y)`: si entraría su sprite más estrecho con el
@@ -701,9 +769,12 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     sprites.push(s);
     return true;
   };
-  /** `s` con el mayor alto, hasta el suyo, con el que no pisa el pasillo de su clase. */
+  /** `s` con el mayor alto, hasta el suyo, con el que no pisa el pasillo de su clase ni tapa un tablero. */
   const ajustado = (s: Sprite, r: Aparte): Sprite => {
-    const alto = pasillo.altoLibre(s, r.semiancho);
+    const alto = Math.min(
+      pasillo.altoLibre(s, r.semiancho),
+      altoLibreAnteLosPuentes(s, tableros, r.semiancho),
+    );
     return alto === s.alto ? s : { ...s, alto };
   };
   /**
@@ -750,7 +821,11 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
    * en cada `xs` (de más a menos preferido; el primero, su sitio, sin la
    * reserva de un objeto ni al pie ni en `yQueTapa`) cada uno de `modulos`, en
    * su orden, encogido sin bajar del primero de `minimos`; luego con el
-   * siguiente mínimo. Si nada cabe, no va. Nunca se corta.
+   * siguiente mínimo. Si nada cabe, no va. Nunca se corta. Tampoco tapa un
+   * tablero (`altoLibreAnteLosPuentes`).
+   *
+   * Dice si se puso y si cedió a un puente: si en su sitio, tal cual, el
+   * tablero de un puente que tiene detrás no le dejaba ni su primer mínimo.
    *
    * La frontal y los peñascos prueban también el módulo más estrecho de su
    * hoja (`yElMasEstrecho`); una ladera, solo el suyo: se coloca por las juntas
@@ -768,22 +843,30 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       xs: readonly number[],
       yQueTapa: number,
       yEn: (x: number) => number = () => modulos[0].y,
-    ): boolean => {
+    ): { readonly puesta: boolean; readonly cedio: boolean } => {
       const s = modulos[0];
+      const cedio =
+        altoLibreAnteLosPuentes(s, tableros, SEMIANCHO_DE_PARED) < (minimos[0] ?? s.alto);
       // Junto a un objeto, ni al pie ni en lo que tapa por encima (el filo de una
       // cara, el medio de una ladera): donde la reserva quita la pared, correrla
       // la ponía encima de otro.
       const libre = (x: number) => !reservas.tomada(x, yEn(x)) && !reservas.tomada(x, yQueTapa);
-      if (!libre(xs[0] ?? s.x)) return false;
+      if (!libre(xs[0] ?? s.x)) return { puesta: false, cedio };
       const libres = xs.filter(libre);
       for (const minimo of minimos)
         for (const x of libres)
           for (const m of modulos) {
             const aqui = x === m.x ? m : { ...m, x, y: yEn(x) };
-            const alto = pasilloP.altoLibre(aqui, SEMIANCHO_DE_PARED);
-            if (alto >= minimo) return meter(alto === aqui.alto ? aqui : { ...aqui, alto });
+            const enElPasillo = pasilloP.altoLibre(aqui, SEMIANCHO_DE_PARED);
+            if (enElPasillo < minimo) continue;
+            const alto = Math.min(
+              enElPasillo,
+              altoLibreAnteLosPuentes(aqui, tableros, SEMIANCHO_DE_PARED),
+            );
+            if (alto >= minimo)
+              return { puesta: meter(alto === aqui.alto ? aqui : { ...aqui, alto }), cedio };
           }
-      return false;
+      return { puesta: false, cedio };
     };
   const ponerPared = paredQueNoPisa(pasilloDePared);
   /**
@@ -1084,7 +1167,8 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       for (let y = l.y0; y <= l.y1; y++) {
         const largo = 1 + l.caida * ALTO_DE_NIVEL;
         const s = deHoja(hoja, bordeDeLadera(l), y + largo, largo, 0, 'pared', '#4c463e', true);
-        if (ponerLadera([s], [s.alto], [s.x], y + 0.5)) conLadera.add(`${l.x},${y},${l.lado}`);
+        if (ponerLadera([s], [s.alto], [s.x], y + 0.5).puesta)
+          conLadera.add(`${l.x},${y},${l.lado}`);
       }
       continue;
     }
@@ -1093,7 +1177,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       const s = spriteDeLadera(m, hoja, l, y);
       // Ni se corre ni se encoge: rompería la cadena. Si pisa la senda que
       // baja o la reserva de un objeto, no va.
-      if (!ponerLadera([s], [s.alto], [s.x], y + m.ladera.largo / 2)) return false;
+      if (!ponerLadera([s], [s.alto], [s.x], y + m.ladera.largo / 2).puesta) return false;
       for (let k = 0; k < m.ladera.largo; k++) conLadera.add(`${l.x},${y + k},${l.lado}`);
       if (cara !== undefined && m === juego.esquina)
         (puestas[cara] as { oeste: boolean; este: boolean })[l.lado] = true;
@@ -1117,6 +1201,8 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     }
   }
 
+  /** Las caras sin rampa en las que alguna pared no entró por no tapar un puente, por índice. */
+  const cedenAUnPuente: number[] = [];
   for (const [k, c] of caras.entries()) {
     const { pie, en: pieEn } = pieDeCara(c, rel.caras);
     const { pared: hoja, pedregal: tonoDelPedregal } = materialDeCara(c.material);
@@ -1204,30 +1290,31 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
           return canto + fuera * (0.06 + azar() * 0.08);
         });
       }
+    let cedeAUnPuente = false;
     for (let x = desde; x <= hasta; x += 0.42 + azar() * 0.22) {
       const s = pared(x, pieEn(x));
       // Corrida, sobre el pie de donde acabe, con el mismo azar que traía.
       const yEn = (x: number) => s.y + pieEn(x) - pieEn(s.x);
+      const { puesta, cedio } = ponerPared(
+        yElMasEstrecho(s, hoja),
+        [minimo, minimo * BAJA_JUNTO_A_LA_SENDA],
+        cerca(s.x),
+        filo,
+        yEn,
+      );
+      // En su sitio no cabía entera por no tapar un puente: se corrió, se
+      // encogió o no entró.
+      if (cedio) cedeAUnPuente = true;
       // Donde no cabe ninguna pared, junto a la senda o a un objeto, un pedregal
       // por la cara: sin él quedaba una losa lisa. Cada peñasco mira la reserva
       // en su propio pie, así que no sube encima del objeto. Dentro de la banda
       // de su cara: el pie inclinado de la escalera lo sacaba por abajo.
-      if (
-        !ponerPared(
-          yElMasEstrecho(s, hoja),
-          [minimo, minimo * BAJA_JUNTO_A_LA_SENDA],
-          cerca(s.x),
-          filo,
-          yEn,
-        ) &&
-        !reservas.tomada(s.x, s.y) &&
-        s.x >= c.x0 &&
-        s.x <= c.x1 + 1
-      )
+      if (!puesta && !reservas.tomada(s.x, s.y) && s.x >= c.x0 && s.x <= c.x1 + 1)
         peñascos(Math.min(s.y, pie), () =>
           Math.min(c.x1 + 0.95, Math.max(c.x0 + 0.05, s.x + (azar() - 0.5) * 0.3)),
         );
     }
+    if (cedeAUnPuente && c.rampas.length === 0) cedenAUnPuente.push(k);
     for (let x = c.x0; x <= c.x1 + 0.99; x += 0.35 + azar() * 0.3) {
       const px = x + azar() * 0.2;
       const py = pie + 0.1 + azar() * 0.2;
@@ -1245,6 +1332,31 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         undefined,
         tonoDelPedregal,
       );
+    }
+  }
+
+  // La cara que se queda casi sin pared porque la taparía delante de un puente
+  // se abre entera, como un tajo de punta a punta: lisa, era un rectángulo de
+  // roca junto al estribo. Sin cara queda la orilla de arriba fundida con lo de
+  // abajo, como bajo el tablero. Con una rampa no: los bordes de su tajo llevan
+  // pared. Con la regla de profundidad de `vaDelante` sigue haciendo falta: sin
+  // ella, 3 caras de las semillas 1-10 se quedan lisas de punta a punta
+  // (07-10-2026).
+  // La que se queda abre lo que su pared no tapa, como tajos: era una losa lisa
+  // de bordes rectos al lado del estribo (s24 node-8, H5 del QA de #157). Como
+  // un tajo de rampa, con los bordes de dentro inclinados bajo la pared de al
+  // lado, pero sin senda.
+  const abiertas = new Set<number>();
+  const conHuecos = new Map<number, NonNullable<CaraConRampas['huecos']>>();
+  for (const k of cedenAUnPuente) {
+    const c = caras[k] as Cara;
+    const { cubierto, huecos } = paredDeLaCara(c, sprites);
+    if (cubierto < CUBIERTA_PARA_QUEDARSE) abiertas.add(k);
+    else {
+      const tajos = huecos
+        .filter(([a, b]) => b - a >= HUECO_MINIMO)
+        .map(([a, b]) => ({ a, b, dentro: [a > c.x0, b < c.x1 + 1] as const }));
+      if (tajos.length > 0) conHuecos.set(k, tajos);
     }
   }
 
@@ -1396,21 +1508,37 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       return (
         !reservas.tomada(s.x, s.y) &&
         !reservas.tomada(s.x, fila + m.ladera.largo / 2) &&
-        pasilloDeLadera.altoLibre(s, SEMIANCHO_DE_PARED) >= s.alto
+        pasilloDeLadera.altoLibre(s, SEMIANCHO_DE_PARED) >= s.alto &&
+        altoLibreAnteLosPuentes(s, tableros, SEMIANCHO_DE_PARED) >= s.alto
       );
     });
   };
+  const agua = a.franjas.filter((f) => f.barrera === 'water').flatMap((f) => f.casillas);
+  const enElAgua = new Set(agua);
+  const esAgua = (x: number, y: number) =>
+    x >= 0 && y >= 0 && x < W && y < H && enElAgua.has(y * W + x);
+  const vados = vadosDeLosEstribos(trazos, puentes, esAgua);
   return {
     semilla,
     W,
     H,
     suelo: a.suelo,
     nivel: Array.from(rel.nivel),
-    agua: a.franjas.filter((f) => f.barrera === 'water').flatMap((f) => f.casillas),
-    relieve: { caras, cantos: rel.cantos, rebordes: rel.rebordes },
+    agua,
+    relieve: {
+      caras: caras.map((c, k): CaraConRampas => {
+        if (abiertas.has(k)) return { ...c, abierta: true };
+        const huecos = conHuecos.get(k);
+        return huecos === undefined ? c : { ...c, huecos };
+      }),
+      cantos: rel.cantos,
+      rebordes: rel.rebordes,
+    },
     altoDeNivel: ALTO_DE_NIVEL,
     caminos,
     sendas: trazos,
+    puentes,
+    vados,
     luces: luces(a, rel.nivel, azarDe(semilla * 31 + 5)),
     sprites,
     informe: {
@@ -1427,6 +1555,8 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       // catálogo y no solo los de las hojas que se usaron.
       laderasMalCubiertas: laderasMalCubiertas(sprites, rel.laderas, deLadera, cabeUnMedio).length,
       laderasEnfrentadas: laderasEnfrentadas(sprites, deLadera).length,
+      puentesTapados: puentesTapados(sprites, puentes).length,
+      sendasDeEstriboEnAgua: sendasDeEstriboEnAgua(trazos, puentes, vados, esAgua).length,
       modulosQueFaltan: [...faltan].sort(),
     },
   };
@@ -1480,6 +1610,180 @@ export function paredesSobreRampa(
       (deLadera?.es(s) ? deLadera.pasillo : pasillo).pisa(cajaDeSprite(s), SEMIANCHO_DE_PARED),
   );
 }
+
+/**
+ * El tablero de un puente como lo mira lo que se apoya cerca: su pasillo y el
+ * pie de su sprite (`x`, `y`: el centro del tablero), que es su sitio en el
+ * orden del pintor.
+ */
+export interface TableroAlPaso {
+  readonly x: number;
+  readonly y: number;
+  readonly pasillo: Pasillo;
+}
+
+/** La media anchura más grande con la que se pregunta a un tablero: la de lo que se aparta o la de la pared. */
+const RADIO_DEL_TABLERO = Math.max(
+  SEMIANCHO_DE_PARED,
+  ...Object.values(APARTE).map((r) => r?.semiancho ?? 0),
+);
+
+export function tablerosAlPaso(
+  puentes: readonly Pick<Puente, 'tablero' | 'centro'>[],
+): TableroAlPaso[] {
+  return puentes.map(({ centro: [x, y], tablero }) => ({
+    x,
+    y,
+    pasillo: new Pasillo([tablero], RADIO_DEL_TABLERO),
+  }));
+}
+
+/**
+ * Si `s` se pinta después del puente `t` y, por tanto, lo taparía: es volumen y
+ * va detrás de él en el orden del pintor (`esVolumen`, `ordenDeVolumenes`, los
+ * de `separar`). Lo plano va al suelo, debajo del puente; lo de detrás lo tapa
+ * el puente a él. Es la única regla de profundidad de los puentes: la usan el
+ * pasillo de lo que se aparta, `ponerPared` (paredes, laderas y peñascos) y la
+ * pregunta de `laderasMalCubiertas`.
+ *
+ * Apartando también lo de detrás, la cara de una isleta o de la orilla de al
+ * lado se quedaba sin pared y se leía como un rectángulo de roca lisa.
+ */
+const vaDelante = (s: Pick<Sprite, 'x' | 'y' | 'clase' | 'alto'>, t: TableroAlPaso) =>
+  esVolumen(s) && ordenDeVolumenes(s, t) > 0;
+
+/**
+ * El mayor alto, hasta el suyo, con el que `s` no tapa ningún tablero, con una
+ * media anchura `r`: el de cada puente que tiene detrás (`vaDelante`).
+ */
+export function altoLibreAnteLosPuentes(
+  s: Sprite,
+  tableros: readonly TableroAlPaso[],
+  r: number,
+): number {
+  let alto = s.alto;
+  for (const t of tableros)
+    if (vaDelante(s, t)) alto = Math.min(alto, t.pasillo.altoLibre({ ...s, alto }, r));
+  return alto;
+}
+
+/** Si `s`, con el alto `alto`, taparía algún tablero con una media anchura `r`. */
+export function tapaUnTablero(
+  s: Pick<Sprite, 'x' | 'y' | 'nw' | 'nh' | 'ax' | 'ay' | 'alto' | 'clase'>,
+  tableros: readonly TableroAlPaso[],
+  r: number,
+  alto = s.alto,
+): boolean {
+  return tableros.some((t) => vaDelante(s, t) && t.pasillo.pisa(cajaDeSprite(s, alto), r));
+}
+
+/** Cada cuánto se mira el tablero, en casillas, para ver si algo lo tapa. */
+const PASO_POR_EL_TABLERO = 0.05;
+
+/**
+ * Lo que tapa el tablero de algún puente, medido desde lo pintado y no desde la
+ * puerta: cada volumen que `separar` pone después del sprite del puente (y se
+ * pinta encima) cuyo rectángulo cubre algún punto de la línea de su tablero,
+ * mirada cada `PASO_POR_EL_TABLERO`. No pregunta a `vaDelante` ni al pasillo:
+ * si la regla de profundidad de la puerta se equivoca, esto lo ve (#157).
+ *
+ * Cuenta lo que esa puerta gobierna: lo que se aparta del camino (`APARTE`) y
+ * la pared (paredes, laderas, peñascos y pedregal). No cuentan lo horneado (la
+ * clase `objeto`) ni los muros de murallas y ruinas, que no se apartan de nada
+ * y se colocan antes (`docs/historia.md`). Tampoco las caras de roca, que van
+ * con el suelo, debajo de todos los volúmenes.
+ */
+export function puentesTapados(
+  sprites: readonly Sprite[],
+  puentes: readonly Pick<Puente, 'id' | 'tablero'>[],
+): Sprite[] {
+  const { volumenes } = separar({ sprites });
+  const tapan = new Set<Sprite>();
+  for (const pu of puentes) {
+    const k = volumenes.findIndex((v) => v.s.objeto?.id === pu.id);
+    if (k < 0) throw new Error(`el puente ${pu.id} no está entre los volúmenes de la escena`);
+    const puntos = pu.tablero.slice(1).flatMap((q, i) => {
+      const p = pu.tablero[i] as readonly [number, number];
+      const n = Math.max(1, Math.ceil(Math.hypot(q[0] - p[0], q[1] - p[1]) / PASO_POR_EL_TABLERO));
+      return Array.from({ length: n + 1 }, (_, j): readonly [number, number] => [
+        p[0] + ((q[0] - p[0]) * j) / n,
+        p[1] + ((q[1] - p[1]) * j) / n,
+      ]);
+    });
+    const xs = puntos.map(([x]) => x);
+    const ys = puntos.map(([, y]) => y);
+    const [tx0, ty0, tx1, ty1] = [
+      Math.min(...xs),
+      Math.min(...ys),
+      Math.max(...xs),
+      Math.max(...ys),
+    ];
+    for (const { s } of volumenes.slice(k + 1)) {
+      if (s.clase === 'objeto' || s.clase === 'muro') continue;
+      const [x0, y0, x1, y1] = cajaDeSprite(s);
+      if (x0 > tx1 || x1 < tx0 || y0 > ty1 || y1 < ty0) continue;
+      if (puntos.some(([x, y]) => x >= x0 && x <= x1 && y >= y0 && y <= y1)) tapan.add(s);
+    }
+  }
+  return [...tapan];
+}
+
+/**
+ * Lo que tiene que tapar la pared de una cara que cedió a un puente para que
+ * la cara se quede: menos, se abre entera (`CaraConRampas.abierta`).
+ */
+export const CUBIERTA_PARA_QUEDARSE = 0.5;
+
+/**
+ * Qué parte del largo de `c` tapa alguna pared (la clase `pared`), mirada cada
+ * 0,05 casillas a un cuarto y a media altura de su banda: tapada, en las dos.
+ * Solo a media altura no veía la pared de una escalera, que se apoya más abajo
+ * y deja lisa la parte de arriba de la cara.
+ */
+export function cubiertoDeLaCara(c: Cara, sprites: readonly Sprite[]): number {
+  return paredDeLaCara(c, sprites).cubierto;
+}
+
+/**
+ * `cubiertoDeLaCara`, y los tramos de la cara (en x) que no tapa ninguna
+ * pared, con la misma pregunta: lo que se abre de una cara que cedió a un
+ * puente y se queda (`componer`).
+ */
+function paredDeLaCara(
+  c: Cara,
+  sprites: readonly Sprite[],
+): { readonly cubierto: number; readonly huecos: readonly (readonly [number, number])[] } {
+  const [x0, y0, x1, y1] = bandaDeCara(c);
+  const alturas = [y0 + (y1 - y0) / 4, (y0 + y1) / 2];
+  const cajas = sprites
+    .filter((s) => s.clase === 'pared')
+    .map((s) => cajaDeSprite(s))
+    .filter(([bx0, by0, bx1, by1]) => bx1 >= x0 && bx0 <= x1 && by0 <= y1 && by1 >= y0);
+  let tapado = 0;
+  let todo = 0;
+  const huecos: [number, number][] = [];
+  for (let x = x0 + 0.025; x < x1; x += 0.05) {
+    todo++;
+    if (
+      alturas.every((y) =>
+        cajas.some(([bx0, by0, bx1, by1]) => x >= bx0 && x <= bx1 && y >= by0 && y <= by1),
+      )
+    )
+      tapado++;
+    else {
+      const u = huecos.at(-1);
+      if (u !== undefined && u[1] >= x - 0.026) u[1] = Math.min(x1, x + 0.025);
+      else huecos.push([Math.max(x0, x - 0.025), Math.min(x1, x + 0.025)]);
+    }
+  }
+  return { cubierto: todo === 0 ? 1 : tapado / todo, huecos };
+}
+
+/**
+ * Lo más estrecho que se abre de una cara que cedió a un puente, en casillas:
+ * menos es una rendija entre dos paredes que ya casi se tocan.
+ */
+const HUECO_MINIMO = 0.15;
 
 /** Lo más lejos de su pie, en casillas, que se apoya una pared: su ancla va 0,05 ± 0,06 por debajo. */
 const HOLGURA_DEL_PIE = 0.25;

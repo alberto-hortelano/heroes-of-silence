@@ -5,14 +5,17 @@
  */
 import { type Barrera, esBarrera, type TerrainKind } from '@core/map/terrain.js';
 
-/** Los nodos de paso, uno por barrera; puente y puerta en las dos orientaciones de la frontera. */
+/**
+ * Los nodos de paso, uno por barrera; la puerta en las dos orientaciones de la
+ * frontera. El agua no está: su nodo es un puente, y lo decide `puentes.ts` por
+ * las orillas (#157). `n` es su sitio en la lámina `b` de `mapa-denso.ts`.
+ */
 export const NODOS: readonly {
   id: string;
   n: number;
   barrera: Barrera;
   variantes: readonly string[];
 }[] = [
-  { id: 'nodo-puente', n: 1, barrera: 'water', variantes: ['ancho', 'hondo'] },
   { id: 'nodo-puerta', n: 2, barrera: 'wall', variantes: ['ancho', 'hondo'] },
   { id: 'nodo-paso-montana', n: 3, barrera: 'mountain', variantes: [''] },
   { id: 'nodo-paso-bosque', n: 4, barrera: 'forest', variantes: [''] },
@@ -45,7 +48,10 @@ export function barreraDeNodo(
   return { barrera, eje: lados >= arribaAbajo ? 'ancho' : 'hondo' };
 }
 
-/** El nodo de paso según la barrera que cruza y el eje de la frontera. */
+/**
+ * El nodo de paso según la barrera que cruza y el eje de la frontera; el hito
+ * si no hay pieza para esa barrera (el agua: su puente sale de `puenteDe`).
+ */
 export function nodoDePaso(barrera: Barrera | null, eje: 'ancho' | 'hondo'): string {
   const nodo = NODOS.find((n) => n.barrera === barrera);
   if (nodo === undefined) return 'nodo-hito';

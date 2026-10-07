@@ -19,7 +19,27 @@ export interface Pieza {
   /** El ancla: el centro de la base, en píxeles de la imagen. */
   readonly ax: number;
   readonly ay: number;
+  /** Solo los puentes (`puente-*`, §17), y todos ellos (`catalogoValidado`). */
+  readonly puente?: MedidasDePuente;
 }
+
+/**
+ * Lo que un puente (`puente-<clase>-<eje>`, §17, #157) sabe de sí mismo, de su
+ * guía de geometría: su ancla es el centro del tablero, no la base. Lo llevan
+ * al JSON de la pieza `pnpm taller derivar-puentes` (`puenteDerivado`); no se
+ * escriben a mano.
+ */
+export interface MedidasDePuente {
+  /** Cuántos píxeles de la imagen mide una casilla: de ahí sale su escala. */
+  readonly pxPorCasilla: number;
+  /** Cuánto se alza el centro del tablero sobre el suelo, en casillas. */
+  readonly altura: number;
+  /** De donde un estribo toca el suelo a donde lo toca el otro, en casillas. */
+  readonly largo: number;
+}
+
+/** Si una pieza es un puente (`puente-piedra-ns`, `puente-troncos-eo`…): lleva sus medidas. */
+const esPiezaDePuente = (id: string): boolean => /^puente-(piedra|troncos)-/.test(id);
 
 /** Un punto `[x, y]` en píxeles de una imagen. */
 export type Par = readonly [number, number];
@@ -73,7 +93,7 @@ export const esHojaDeLadera = (hoja: string): boolean =>
 export interface Catalogo {
   /** Los módulos de cada hoja, de menor a mayor alto de ancla. */
   readonly hojas: Readonly<Record<string, readonly Modulo[]>>;
-  /** Las piezas sueltas por id (`nodo-puente-ancho`, `atlas/mina`…). */
+  /** Las piezas sueltas por id (`puente-piedra-ns`, `atlas/mina`…). */
   readonly piezas: Readonly<Record<string, Pieza>>;
 }
 
@@ -109,7 +129,8 @@ const esPar = (p: readonly number[]): p is Par =>
 /**
  * El catálogo, comprobado: todo módulo de una hoja de laderas trae sus juntas
  * enteras (filo y pie como pares, largo 1 o 2, un papel de la cadena), y ningún
- * otro las trae. Lanza diciendo qué módulo y qué hacer: sin esto, la falta solo
+ * otro las trae; todo puente trae sus medidas, positivas, y ninguna otra pieza
+ * las trae. Lanza diciendo qué módulo y qué hacer: sin esto, la falta solo
  * salía al componer el primer mapa con esa ladera.
  */
 export function catalogoValidado(c: CatalogoEnBruto): Catalogo {
@@ -138,5 +159,23 @@ export function catalogoValidado(c: CatalogoEnBruto): Catalogo {
         );
       return { ...m, ladera: { filo, pie, largo, papel: papel as PapelDeLadera } };
     });
-  return { hojas, piezas: c.piezas };
+  const piezas: Record<string, Pieza> = {};
+  for (const [id, p] of Object.entries(c.piezas)) {
+    if (!esPiezaDePuente(id)) {
+      if (p.puente !== undefined)
+        throw new Error(`la pieza «${id}» trae medidas de puente y no es un puente`);
+      piezas[id] = p;
+      continue;
+    }
+    const m = p.puente;
+    if (m === undefined)
+      throw new Error(
+        `el puente «${id}» no trae sus medidas (casilla, alto y largo del tablero): derívalas (pnpm taller derivar-puentes) y rehaz el catálogo (pnpm taller catalogo-escena)`,
+      );
+    for (const k of ['pxPorCasilla', 'altura', 'largo'] as const)
+      if (!(Number.isFinite(m[k]) && m[k] > 0))
+        throw new Error(`el puente «${id}»: su ${k} es un número positivo, y dice ${m[k]}`);
+    piezas[id] = p;
+  }
+  return { hojas, piezas };
 }

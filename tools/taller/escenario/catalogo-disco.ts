@@ -14,6 +14,7 @@ import {
   type CatalogoEnBruto,
   catalogoValidado,
   type JuntasDeLadera,
+  type MedidasDePuente,
   type Modulo,
   type Pieza,
   RUTA_DEL_CATALOGO,
@@ -41,6 +42,10 @@ interface PiezaDerivadaEnDisco {
   readonly ancho?: number;
   readonly alto?: number;
   readonly ancla?: readonly [number, number];
+  /** Solo los puentes (§17): `pnpm taller derivar-puentes` (`puenteDerivado`). */
+  readonly pxPorCasilla?: number;
+  readonly alturaDelTablero?: number;
+  readonly largoDelTablero?: number;
 }
 
 const porNombre = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
@@ -77,7 +82,18 @@ export async function leerCatalogo(): Promise<Catalogo> {
     const j = JSON.parse(await readFile(join(MAPA, f), 'utf8')) as PiezaDerivadaEnDisco;
     if (j.ancho === undefined || j.alto === undefined || j.ancla === undefined) continue;
     const id = f.slice(0, -'.json'.length);
-    piezas[id] = { src: `${id}.webp`, nw: j.ancho, nh: j.alto, ax: j.ancla[0], ay: j.ancla[1] };
+    const { pxPorCasilla, alturaDelTablero: altura, largoDelTablero: largo } = j;
+    piezas[id] = {
+      src: `${id}.webp`,
+      nw: j.ancho,
+      nh: j.alto,
+      ax: j.ancla[0],
+      ay: j.ancla[1],
+      // Las tres o ninguna: a medias, `catalogoValidado` dice cuál falta.
+      ...(pxPorCasilla === undefined && altura === undefined && largo === undefined
+        ? {}
+        : { puente: { pxPorCasilla, altura, largo } as MedidasDePuente }),
+    };
   }
   for (const id of DEL_ATLAS) {
     const d = await derivarPieza(join(MAPA, `${id}.webp`));

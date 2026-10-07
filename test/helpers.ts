@@ -755,17 +755,22 @@ export function recta(p: readonly [number, number], q: readonly [number, number]
   ]);
 }
 
-const escenas = new Map<number, Escena>();
+const partidas = new Map<number, { readonly map: GameMap; readonly escena: Escena }>();
 
 /**
- * La escena del mapa de la partida nueva de `semilla`, con el catálogo del repo.
- * Una vez por semilla y fichero de tests: `componer` un mapa entero cuesta.
+ * El mapa de la partida nueva de `semilla` y su escena, con el catálogo del
+ * repo. Una vez por semilla y fichero de tests: `componer` un mapa entero
+ * cuesta, y `newGame` también.
  */
-export function escenaDe(semilla: number): Escena {
-  let e = escenas.get(semilla);
-  if (e === undefined) {
-    e = componer(newGame({ seed: semilla }).map, semilla, catalogoDelDisco());
-    escenas.set(semilla, e);
+export function partidaDe(semilla: number): { readonly map: GameMap; readonly escena: Escena } {
+  let p = partidas.get(semilla);
+  if (p === undefined) {
+    const map = newGame({ seed: semilla }).map;
+    p = { map, escena: componer(map, semilla, catalogoDelDisco()) };
+    partidas.set(semilla, p);
   }
-  return e;
+  return p;
 }
+
+/** La escena de `partidaDe(semilla)`. */
+export const escenaDe = (semilla: number): Escena => partidaDe(semilla).escena;

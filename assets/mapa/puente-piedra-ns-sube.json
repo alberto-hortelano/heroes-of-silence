@@ -14,5 +14,7 @@
     1.148,
     1.101
   ],
-  "guia": "assets/mapa/guias/puente-piedra-ns-sube.png"
+  "guia": "assets/mapa/guias/puente-piedra-ns-sube.png",
+  "alturaDelTablero": 0.4,
+  "largoDelTablero": 2.96
 }

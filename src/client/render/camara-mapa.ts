@@ -206,6 +206,11 @@ export function mundoAPixel(c: CamaraMapa, x: number, y: number): { x: number; y
   return { x: (x - c.x) * c.tile, y: (y - c.y) * c.tile };
 }
 
+/** El punto del mundo (casillas, con decimales) bajo un píxel: la inversa de `mundoAPixel`. */
+export function pixelAMundo(c: CamaraMapa, px: number, py: number): { x: number; y: number } {
+  return { x: px / c.tile + c.x, y: py / c.tile + c.y };
+}
+
 /** La casilla bajo un píxel. Puede caer fuera del mapa: lo mira quien llama. */
 export function pixelACasilla(c: CamaraMapa, px: number, py: number): Point {
   return { x: Math.floor(px / c.tile + c.x), y: Math.floor(py / c.tile + c.y) };

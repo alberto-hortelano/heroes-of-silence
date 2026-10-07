@@ -8,6 +8,7 @@
  */
 import type { MapObject, TramoDeCamino } from '@core/map/map.js';
 import { type Barrera, esBarrera, type Suelo, type TerrainKind } from '@core/map/terrain.js';
+import { barreraDeNodo } from './nodos.js';
 
 /**
  * Lo que el escenógrafo lee de un mapa, y nada más: ni las regiones declaradas
@@ -39,6 +40,10 @@ export interface Franja {
 export interface Analisis {
   readonly W: number;
   readonly H: number;
+  /**
+   * El terreno DE LA ESCENA, no el del mapa: la casilla de cada nodo de
+   * `puentes` es agua (`terrenoDeLaEscena`), y el resto, lo del mapa.
+   */
   readonly terreno: readonly TerrainKind[];
   /** El suelo más cercano de cada casilla: el propio si se pisa. */
   readonly suelo: readonly Suelo[];
@@ -59,6 +64,13 @@ export interface Analisis {
   readonly objetos: readonly MapObject[];
   /** Las casillas que ocupan los objetos y los nodos. */
   readonly ocupadas: ReadonlySet<number>;
+  /** Lo que cruza cada nodo, por su id, mirado sobre el terreno del mapa. */
+  readonly pasos: ReadonlyMap<string, PasoDeNodo>;
+  /**
+   * Los nodos que cruzan un río, por su id: llevan puente (`puentes.ts`) y su
+   * casilla es agua en `terreno`. Se decide aquí y en ningún otro sitio.
+   */
+  readonly puentes: ReadonlySet<string>;
 }
 
 const VECINAS4 = [
@@ -68,10 +80,63 @@ const VECINAS4 = [
   [0, -1],
 ] as const;
 
+/** Lo que cruza un nodo: la barrera y el eje de su frontera (`barreraDeNodo`). */
+export type PasoDeNodo = ReturnType<typeof barreraDeNodo>;
+
+/**
+ * Lo que cruza cada nodo, por su id, sobre el terreno DEL MAPA: en el de la
+ * escena, la casilla de un nodo de agua ya es agua y contaría de vecina para
+ * los de al lado.
+ */
+function pasosDe(map: MapaDeEscena): Map<string, PasoDeNodo> {
+  return new Map(
+    map.objects.flatMap((o) =>
+      o.kind === 'node' ? [[o.id, barreraDeNodo(o.at, map.width, map.terrain)] as const] : [],
+    ),
+  );
+}
+
+/**
+ * El terreno que se viste: el del mapa con la casilla de cada nodo de `puentes`
+ * puesta a `water` (#157). `buildMap` la deja de tierra, y así cortaba el río en
+ * dos, quedaba a la altura de una orilla y no a la del agua, y el puente se
+ * posaba en un tapón de tierra. Siendo agua, la franja une el río, el relieve la
+ * baja con él y no tiene caras propias; el puente lo pone `puentes.ts` encima.
+ * Los demás nodos siguen siendo tierra de paso.
+ */
+function terrenoDeLaEscena(
+  map: MapaDeEscena,
+  puentes: ReadonlySet<string>,
+): readonly TerrainKind[] {
+  if (puentes.size === 0) return map.terrain;
+  const fuera = [...map.terrain];
+  for (const o of map.objects) if (puentes.has(o.id)) fuera[o.at.y * map.width + o.at.x] = 'water';
+  return fuera;
+}
+
+/**
+ * La región de la casilla bajo el punto `(x, y)`, en casillas, si se pisa; -1 si
+ * no se pisa o cae fuera del mapa. Vale con la casilla entera (`x`, `y`) o con
+ * cualquier punto dentro de ella.
+ */
+export function regionPisable(
+  a: Pick<Analisis, 'W' | 'H' | 'fuente' | 'region'>,
+  x: number,
+  y: number,
+): number {
+  const cx = Math.floor(x);
+  const cy = Math.floor(y);
+  if (cx < 0 || cy < 0 || cx >= a.W || cy >= a.H) return -1;
+  const i = cy * a.W + cx;
+  return a.fuente[i] === i ? (a.region[i] as number) : -1;
+}
+
 export function analizar(map: MapaDeEscena): Analisis {
   const W = map.width;
   const H = map.height;
-  const terreno = map.terrain;
+  const pasos = pasosDe(map);
+  const puentes = new Set([...pasos].flatMap(([id, p]) => (p.barrera === 'water' ? [id] : [])));
+  const terreno = terrenoDeLaEscena(map, puentes);
   const ocupadas = new Set(map.objects.map((o) => o.at.y * W + o.at.x));
   const nodos = new Set(
     map.objects.filter((o) => o.kind === 'node').map((o) => o.at.y * W + o.at.x),
@@ -217,5 +282,7 @@ export function analizar(map: MapaDeEscena): Analisis {
     hondura,
     objetos: map.objects,
     ocupadas,
+    pasos,
+    puentes,
   };
 }

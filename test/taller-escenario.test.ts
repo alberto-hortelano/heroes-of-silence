@@ -467,6 +467,11 @@ describe('la escena de un mapa real', () => {
                 s.x >= c.x0 - 0.6 &&
                 s.x <= c.x1 + 1.6,
             )
+            // Pasado el filo de la esquina ya no hay frontal de esquina que montar:
+            // ahí empieza el peldaño de al lado de una escalera, y su primera
+            // frontal, con el azar de su ancla, cae en la ventana de este pie
+            // (semilla 3, cara y27 x17-19, tras /simplify de #157).
+            .filter((s) => (l.lado === 'este' ? s.x <= borde : s.x >= borde))
             .map((s) => ({
               s,
               entra:

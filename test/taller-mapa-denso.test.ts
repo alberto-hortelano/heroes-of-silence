@@ -46,10 +46,11 @@ describe('el catálogo de los mapas densos', () => {
     expect(faltan).toEqual([]);
   });
 
-  it('cada barrera tiene su nodo de paso', () => {
-    for (const b of BARRERAS) expect(nodoDePaso(b, 'ancho')).not.toBe('nodo-hito');
+  it('cada barrera tiene su nodo de paso, menos el agua, que lleva puente (puentes.ts)', () => {
+    for (const b of BARRERAS)
+      if (b !== 'water') expect(nodoDePaso(b, 'ancho')).not.toBe('nodo-hito');
     expect(nodoDePaso(null, 'ancho')).toBe('nodo-hito');
-    expect(nodoDePaso('water', 'hondo')).toBe('nodo-puente-hondo');
+    expect(NODOS.some((n) => n.barrera === 'water')).toBe(false);
   });
 
   it('las texturas son las de los suelos que se pisan', () => {

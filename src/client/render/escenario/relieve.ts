@@ -497,6 +497,18 @@ export interface Rampa {
 /** Una cara con las rampas que la cruzan: lo que lleva la escena. */
 export interface CaraConRampas extends Cara {
   readonly rampas: readonly Rampa[];
+  /**
+   * Si se abre entera: su pared cedió a un puente que tenía detrás y tapa menos
+   * de `CUBIERTA_PARA_QUEDARSE` de su largo (`componer`). No se pinta, como un
+   * tajo de punta a punta.
+   */
+  readonly abierta?: true;
+  /**
+   * Lo que se abre de una cara que cedió su pared a un puente y se queda: los
+   * tramos que no tapa ninguna pared (`componer`). Se pinta como el tajo de una
+   * rampa, sin senda.
+   */
+  readonly huecos?: readonly Pick<Rampa, 'a' | 'b' | 'dentro'>[];
 }
 
 /** Lo que se abre el tajo a cada lado de lo que la senda ocupa en la cara: la senda más su arcén, ni más. */
@@ -662,11 +674,19 @@ export interface Bajadas {
  * más cerca que la holgura: el resto de la cara conserva su pared, y un peldaño
  * de una casilla no se queda pelado. Lo que corre menos de `RAMPA_MINIMA` por
  * su cara no abre tajo.
+ *
+ * `cortes` abren tajo como una senda y no son senda: la línea de cada puente,
+ * de estribo a estribo (#157). Van en un bucle aparte, después de las sendas,
+ * y no entran en `junto` ni hacen entorno: la pared se aparta de un tablero
+ * solo si lo tapa (`altoLibreAnteLosPuentes`, en `colocar.ts`), y
+ * apartada también de la línea en el suelo, la cara de detrás del puente se
+ * quedaba sin pared y se leía como un rectángulo de roca lisa.
  */
 export function rampas(
   caras: readonly Cara[],
   laderas: readonly Ladera[],
   sendas: readonly Senda[],
+  cortes: readonly Senda[] = [],
 ): Bajadas {
   const bandas = caras.map(bandaDeCara);
   const porCara: Senda[][] = caras.map(() => []);
@@ -680,12 +700,16 @@ export function rampas(
   // tocaba su caja costaba 0,8 ms por mapa (07-10-2026).
   const cajas = sendas.map(cajaDe);
   const tramos = sendas.map(cajasDeTramos);
-  for (const [k, s] of sendas.entries()) {
-    const [sx0, sy0, sx1, sy1] = cajas[k] as Caja;
+  /**
+   * Los trozos de la línea `s` por las bandas de las caras y las cadenas que
+   * bajan; cada trozo de una cadena que baja va a la rampa de su cara.
+   */
+  const bajarPorLasCaras = (s: Senda, caja: Caja, deTramos: Float64Array) => {
+    const [sx0, sy0, sx1, sy1] = caja;
     const trozos = bandas.flatMap((banda, cara) => {
       const [x0, y0, x1, y1] = banda;
       if (sx0 > x1 || sx1 < x0 || sy0 > y1 || sy1 < y0) return [];
-      return trozosEnCaja(s, banda, tramos[k]).map((puntos) => ({ cara, puntos }));
+      return trozosEnCaja(s, banda, deTramos).map((puntos) => ({ cara, puntos }));
     });
     // Las cadenas: trozos de esta senda con un extremo común.
     const raiz = trozos.map((_, i) => i);
@@ -710,6 +734,14 @@ export function rampas(
     trozos.forEach(({ cara, puntos }, i) => {
       if (bajan.has(buscar(i))) porCara[cara]?.push(puntos);
     });
+    return { trozos, bajan, buscar };
+  };
+  for (const [k, s] of sendas.entries()) {
+    const { trozos, bajan, buscar } = bajarPorLasCaras(
+      s,
+      cajas[k] as Caja,
+      tramos[k] as Float64Array,
+    );
     for (const cadena of bajan) {
       const [x0, y0, x1, y1] = cajaDe(
         trozos.flatMap(({ puntos }, i) => (buscar(i) === cadena ? puntos : [])),
@@ -718,6 +750,8 @@ export function rampas(
       entornos.push([x0 - e, y0 - e, x1 + e, y1 + e]);
     }
   }
+  // Los cortes, después y aparte: abren su tajo y nada más.
+  for (const c of cortes) bajarPorLasCaras(c, cajaDe(c), cajasDeTramos(c));
   // Lo que baja por una ladera (#156) no abre tajo —no hay cara pintada que
   // recortar— pero aparta las laderas: su entorno entra en `juntoDeLadera`. Cada
   // trozo por su cuenta, sin encadenarlo con las caras: una senda que baja por

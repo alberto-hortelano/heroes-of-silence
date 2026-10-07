@@ -888,3 +888,38 @@ aprobó las maquetas («Valen: commit y enganchar»). Cómo quedó:
   «labio negro». Las `laterales-*` (§18) quedan en disco sin usar: no se borran
   sin preguntar. Desde /simplify no van en el catálogo, y su encargo y su guía
   salen de `paredes-puentes.ts` (están en la historia de git).
+
+## 21. Lo que falta de los puentes al engancharlos (#157, 07-10-2026)
+
+Los puentes de la §17-§18 ya van en el mapa: la pieza sale de las orillas que
+une el nodo (`src/client/render/escenario/puentes.ts`), de piedra si el nodo
+lleva camino y de troncos si no, apoyada por el centro de su tablero. Medido en
+las semillas 1-40 (101 puentes; `docs/agents/2026-10-07-puentes/`), lo que el
+arte no cubre y se pinta con la pieza plana más cercana:
+
+| Qué falta | Cuántos (de 101) | Qué se pone hoy |
+|---|---|---|
+| Piedra que sube al **sur** (`ns`) o al **oeste** (`eo`) | 3 + 2 | la plana: la punta alta queda un nivel corta |
+| **Troncos** que suben, en cualquier sentido (no hay ninguno) | 3 norte, 3 sur, 8 este, 7 oeste | la plana de troncos |
+| Diagonales que suben (`ne-so`, `no-se`), de las dos clases | 4 de piedra, 2 de troncos | la diagonal plana |
+| Subida de **dos niveles** (los `-sube` salvan uno) | 17 de los 42 rectos con desnivel | el `-sube` de un nivel, o la plana |
+| **Puente en codo**: las orillas no se miran (oeste ↔ noreste, suroeste ↔ norte…) | 35 | la diagonal más cercana, corrida hasta 0,6 casillas del punto medio de las orillas y escalada entre 0,85 y 1,15 hasta que los dos estribos caen en tierra (`asentar`): 0 en el agua (antes 15); 15 de los 35 van a escala 0,85-0,9 |
+
+Lo del codo lo resolvería mejor el generador, con los nodos de agua entre
+orillas enfrentadas (issue aparte, #161 del núcleo); con eso, el resto de la
+tabla baja también. Si se pide arte, en este orden: troncos que suben al este y
+al oeste (15), piedra que sube al sur y al oeste (5), y las dos diagonales que
+suben.
+
+**El de piedra N-S se lee largo y estrecho, como una escalera de mano** (lo
+vio el usuario en la vuelta visual de #157, s1, s2 y s5). Es la proporción del
+arte: escalarlo no lo arregla, porque la escala es uniforme y la proporción no
+cambia; encogerlo solo lo haría más corto, con los estribos más lejos de la
+orilla. Lo que se pide: un `puente-piedra-ns` (y su `-sube`) con el tablero más
+ancho en pantalla —o con pretiles más bajos y más separados—, que leído desde la
+cámara a 25° se vea tan ancho como el `eo`.
+
+Las piezas `nodo-puente-{ancho,hondo}` de la primera tanda se borraron con
+#157: ya no las usaba nada (su `.procedencia.json` y su encargo están en la
+historia de git). El encargo de los puentes de piedra las llevaba como
+identidad; ahora lleva `puente-piedra-eo.webp`.

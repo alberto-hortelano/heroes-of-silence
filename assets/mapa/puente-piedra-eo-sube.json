@@ -14,5 +14,7 @@
     1.262,
     1.051
   ],
-  "guia": "assets/mapa/guias/puente-piedra-eo-sube.png"
+  "guia": "assets/mapa/guias/puente-piedra-eo-sube.png",
+  "alturaDelTablero": 0.4,
+  "largoDelTablero": 2.96
 }

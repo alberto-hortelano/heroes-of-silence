@@ -7,6 +7,7 @@
  */
 import { individuosDe } from '@core/hero/troop.js';
 import { inBounds, objectAt, pointKey } from '@core/map/map.js';
+import { isWalkable } from '@core/map/terrain.js';
 import type { Point } from '@core/types.js';
 import {
   acotar,
@@ -15,10 +16,12 @@ import {
   centrarEn,
   type Encuadre,
   pixelACasilla,
+  pixelAMundo,
   TILE_INICIAL,
   topeDe,
   zoom,
 } from '../render/camara-mapa.js';
+import { puenteBajo } from '../render/escenario/puentes.js';
 import { escenarioListo, topeDeAlejar } from '../render/escenario/superficie.js';
 import { type Medida, pixelesDe } from '../render/lienzo.js';
 import { drawMapa, type PasoDeRuta, pasosAPintar, presupuestoConHolgura } from '../render/mapa.js';
@@ -194,7 +197,32 @@ export class EscenaAventura {
         return;
       }
     }
-    this.señalar(pixelACasilla(this.camara, px, py));
+    this.señalar(this.casillaBajo(px, py));
+  }
+
+  /**
+   * La casilla que se señala con el puntero en un píxel: la de debajo, salvo si
+   * cae en un puente explorado, que es la de su nodo (`puenteBajo`). El tablero
+   * se ve alzado y, en los cruces quebrados, corrido, así que la casilla de
+   * debajo era a menudo el agua de al lado: pulsar el puente decía «No hay
+   * camino» (H2 del QA de #157). La tierra de otra casilla manda sobre el
+   * puente aunque el tablero la tape: es la orilla, con quien espera en ella (H9).
+   */
+  private casillaBajo(px: number, py: number): Point {
+    const debajo = pixelACasilla(this.camara, px, py);
+    const s = this.sesion();
+    const esc = escenarioListo(s.state.map, s.state.seed);
+    if (esc === null) return debajo;
+    const { x, y } = pixelAMundo(this.camara, px, py);
+    const { map } = s.state;
+    const puente = puenteBajo(esc.escena.puentes, x, y, (cx, cy) => {
+      const t = inBounds(map, { x: cx, y: cy }) ? map.terrain[cy * map.width + cx] : undefined;
+      return t !== undefined && isWalkable(t);
+    });
+    if (puente === null) return debajo;
+    const nodo = { x: Math.floor(puente.nodo[0]), y: Math.floor(puente.nodo[1]) };
+    // Bajo la niebla no se pinta, y pulsar ahí no puede decir que hay un puente.
+    return (s.explorado?.has(pointKey(nodo)) ?? true) ? nodo : debajo;
   }
 
   private señalar(casilla: Point): void {
@@ -218,7 +246,7 @@ export class EscenaAventura {
     const a = this.arrastre;
     this.arrastre = null;
     if (a?.movido === true) return;
-    const casilla = pixelACasilla(this.camara, px, py);
+    const casilla = this.casillaBajo(px, py);
     const s = this.sesion();
     if (tactil && this.tocada !== pointKey(casilla)) {
       this.señalar(casilla);

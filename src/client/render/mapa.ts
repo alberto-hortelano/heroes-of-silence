@@ -47,6 +47,7 @@ import {
   copiaDeVolumen,
   type Escenario,
   escenarioListo,
+  pisada,
   sueloDelMapa,
   type VolumenDelMapa,
 } from './escenario/superficie.js';
@@ -383,7 +384,7 @@ export function drawMapa(ctx: CanvasRenderingContext2D, v: VistaMapa): void {
   pintarNiebla(ctx, v);
 
   // 5 · Encima de todo, lo que es de quien juega: la ruta y la casilla señalada.
-  pintarRuta(ctx, camara, pasosAPintar(v.ruta, v.explorado));
+  pintarRuta(ctx, camara, esc, pasosAPintar(v.ruta, v.explorado));
   if (v.hover !== null && v.hover.x >= 0 && v.hover.y >= 0 && v.hover.x < W && v.hover.y < H) {
     const c = casillaAPixel(camara, v.hover);
     ctx.strokeStyle = '#f2d585';
@@ -410,11 +411,21 @@ export const PIES = { heroe: 0.8, grupo: 0.82, suelto: 0.85 } as const;
 /** Algo del juego que se pinta entre los volúmenes, con su clave de profundidad. */
 type Cosa =
   | { readonly tipo: 'objeto'; readonly clave: number; readonly objeto: MapObject }
-  | { readonly tipo: 'horneado'; readonly clave: number; readonly objeto: MapObject }
+  | {
+      readonly tipo: 'horneado';
+      readonly clave: number;
+      readonly objeto: MapObject;
+      /** De donde cuelga su marca (`Escenario.asientoDeObjeto`). */
+      readonly asiento: readonly [number, number];
+      /** El pie del mástil de su bandera, si es un nodo (`Escenario.mastilDeNodo`). */
+      readonly mastil: readonly [number, number] | null;
+    }
   | {
       readonly tipo: 'heroe';
       readonly clave: number;
       readonly heroe: AdventureScene['heroes'][number];
+      /** Donde pisa, en casillas (`pisada`): en un puente, su tablero. */
+      readonly pie: { readonly x: number; readonly y: number };
     }
   | {
       readonly tipo: 'asaltante';
@@ -440,7 +451,11 @@ function cosasDe(v: VistaMapa, esc: Escenario): Cosa[] {
       const clave = esc.claveDeObjeto.get(o.id);
       if (clave === undefined)
         throw new Error(`${o.kind} ${o.id} se hornea y la escena no lo pinta`);
-      lista.push({ tipo: 'horneado', clave, objeto: o });
+      const asiento = esc.asientoDeObjeto.get(o.id);
+      if (asiento === undefined) throw new Error(`${o.kind} ${o.id} se hornea y no tiene asiento`);
+      const mastil = o.kind === 'node' ? esc.mastilDeNodo.get(o.id) : null;
+      if (mastil === undefined) throw new Error(`el nodo ${o.id} se hornea y no tiene mástil`);
+      lista.push({ tipo: 'horneado', clave, objeto: o, asiento, mastil });
     } else {
       const pies = o.kind === 'monster' ? PIES.grupo : PIES.suelto;
       lista.push({ tipo: 'objeto', clave: claveDeFigura(esc, o.at.x, o.at.y + pies), objeto: o });
@@ -448,7 +463,8 @@ function cosasDe(v: VistaMapa, esc: Escenario): Cosa[] {
   }
   for (const h of escena.heroes) {
     if (!enVista(h.at) || !explorada(h.at)) continue;
-    lista.push({ tipo: 'heroe', clave: claveDeFigura(esc, h.at.x, h.at.y + PIES.heroe), heroe: h });
+    const pie = pisada(esc, h.at, PIES.heroe);
+    lista.push({ tipo: 'heroe', clave: pie.clave, heroe: h, pie });
   }
   // Como los héroes rivales: se pintan sobre lo explorado (#64 cuenta por qué
   // el lienzo del cliente mira `fog` y no lo que se ve ahora).
@@ -590,10 +606,10 @@ function pintarCosa(ctx: CanvasRenderingContext2D, v: VistaMapa, c: Cosa): void 
       pintarObjeto(ctx, v, c.objeto);
       return;
     case 'horneado':
-      pintarDueñoDeLoHorneado(ctx, v, c.objeto);
+      pintarDueñoDeLoHorneado(ctx, v, c.objeto, c.asiento);
       return;
     case 'heroe':
-      pintarHeroe(ctx, v, c.heroe);
+      pintarHeroe(ctx, v, c.heroe, c.pie);
       return;
     case 'asaltante':
       pintarAsaltante(ctx, v, c.asaltante, c.en);
@@ -619,12 +635,13 @@ function pintarIdentificador(ctx: CanvasRenderingContext2D, v: VistaMapa, c: Cos
       return;
     }
     case 'horneado':
-      pintarBanderaDeLoHorneado(ctx, v, c.objeto);
+      pintarBanderaDeLoHorneado(ctx, v, c.objeto, c.asiento, c.mastil);
       return;
     case 'heroe': {
-      const p = casillaAPixel(v.camara, c.heroe.at);
+      // Sobre la cabeza: a 1,0 casilla de los pies (0,7 sobre el centro, con los pies a 0,3 bajo él).
+      const p = mundoAPixel(v.camara, c.pie.x, c.pie.y);
       const letra = c.heroe.name.charAt(0).toUpperCase();
-      inicial(ctx, letra, p.x, p.y - tile * 0.7, tile, playerColor(c.heroe.owner));
+      inicial(ctx, letra, p.x, p.y - tile * 1.0, tile, playerColor(c.heroe.owner));
       return;
     }
     case 'asaltante': {
@@ -696,15 +713,21 @@ function pintarObjeto(ctx: CanvasRenderingContext2D, v: VistaMapa, o: MapObject)
  * lee de lejos qué es de quién, y el nodo sin dueño, gris, dice qué falta por
  * tomar. El pueblo y la mina no llevan: son de quien tenga su región.
  */
-function pintarDueñoDeLoHorneado(ctx: CanvasRenderingContext2D, v: VistaMapa, o: MapObject): void {
+function pintarDueñoDeLoHorneado(
+  ctx: CanvasRenderingContext2D,
+  v: VistaMapa,
+  o: MapObject,
+  asiento: readonly [number, number],
+): void {
   const tile = v.camara.tile;
-  const c = casillaAPixel(v.camara, o.at);
+  const a = mundoAPixel(v.camara, ...asiento);
   switch (o.kind) {
     case 'town':
-      base(ctx, c, tile * 0.62, playerColor(o.owner));
+      base(ctx, a, tile * 0.62, playerColor(o.owner));
       return;
     case 'node':
-      base(ctx, c, tile * 0.4, playerColor(o.owner));
+      // Radio de 0,4: su óvalo baja `OVALO_BAJO_EL_ASIENTO` del asiento.
+      base(ctx, a, tile * 0.4, playerColor(o.owner));
       return;
     case 'mine':
     case 'village':
@@ -721,16 +744,23 @@ function pintarBanderaDeLoHorneado(
   ctx: CanvasRenderingContext2D,
   v: VistaMapa,
   o: MapObject,
+  asiento: readonly [number, number],
+  mastil: readonly [number, number] | null,
 ): void {
   const tile = v.camara.tile;
-  const c = casillaAPixel(v.camara, o.at);
+  const c = mundoAPixel(v.camara, ...asiento);
   switch (o.kind) {
     case 'town':
       bandera(ctx, c.x - tile * 0.55, c.y - tile * 1.05, tile, playerColor(o.owner));
       return;
-    case 'node':
-      if (o.owner !== null) bandera(ctx, c.x, c.y - tile * 0.85, tile * 0.75, playerColor(o.owner));
+    case 'node': {
+      if (o.owner === null) return;
+      if (mastil === null) throw new Error(`el nodo ${o.id} no tiene dónde plantar su bandera`);
+      // Desde el pie, que es lo que se apoya: 0,75 de casilla, y el mástil mide la mitad.
+      const m = mundoAPixel(v.camara, ...mastil);
+      bandera(ctx, m.x, m.y - tile * 0.75 * 0.5, tile * 0.75, playerColor(o.owner));
       return;
+    }
     case 'mine':
       icono(ctx, o.resource, c.x + tile * 0.32, c.y + tile * 0.12, tile * 0.36);
       return;
@@ -747,10 +777,11 @@ function pintarHeroe(
   ctx: CanvasRenderingContext2D,
   v: VistaMapa,
   h: AdventureScene['heroes'][number],
+  pie: { readonly x: number; readonly y: number },
 ): void {
   const tile = v.camara.tile;
-  const c = casillaAPixel(v.camara, h.at);
-  const suelo = c.y + tile * 0.3;
+  const c = mundoAPixel(v.camara, pie.x, pie.y);
+  const suelo = c.y;
   const color = playerColor(h.owner);
   // El aro del dueño, y el del seleccionado por fuera, en dorado y discontinuo.
   ctx.save();
@@ -1149,12 +1180,15 @@ export function pasosAPintar(
 function pintarRuta(
   ctx: CanvasRenderingContext2D,
   camara: CamaraMapa,
+  esc: Escenario,
   pasos: readonly PasoPintado[],
 ): void {
   if (pasos.length === 0) return;
   ctx.save();
   for (const paso of pasos) {
-    const c = casillaAPixel(camara, paso.at);
+    // En la casilla de un puente, sobre su tablero: donde se pintará el héroe.
+    const p = pisada(esc, paso.at, 0.5);
+    const c = mundoAPixel(camara, p.x, p.y);
     // El tramo de la emboscada en rojo, hoy u otro día: ahí se para la marcha y
     // empieza una batalla, que es lo que la persona tiene que ver antes de pulsar.
     ctx.fillStyle = paso.peligro === true ? COLOR_EMBOSCADA : paso.hoy ? '#f6db78' : '#9aa1a8';

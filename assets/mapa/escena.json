@@ -7388,20 +7388,6 @@
    "ax": 683,
    "ay": 1007
   },
-  "nodo-puente-ancho": {
-   "src": "nodo-puente-ancho.webp",
-   "nw": 1116,
-   "nh": 1024,
-   "ax": 467,
-   "ay": 1008
-  },
-  "nodo-puente-hondo": {
-   "src": "nodo-puente-hondo.webp",
-   "nw": 1466,
-   "nh": 1024,
-   "ax": 1063,
-   "ay": 1003
-  },
   "nodo-puerta-ancho": {
    "src": "nodo-puerta-ancho.webp",
    "nw": 1490,
@@ -7519,70 +7505,120 @@
    "nw": 1504,
    "nh": 976,
    "ax": 752,
-   "ay": 330
+   "ay": 330,
+   "puente": {
+    "pxPorCasilla": 459,
+    "altura": 0.4,
+    "largo": 2.96
+   }
   },
   "puente-piedra-eo": {
    "src": "puente-piedra-eo.webp",
    "nw": 1370,
    "nh": 837,
    "ax": 685,
-   "ay": 240
+   "ay": 240,
+   "puente": {
+    "pxPorCasilla": 417,
+    "altura": 0.4,
+    "largo": 2.96
+   }
   },
   "puente-piedra-ne-so": {
    "src": "puente-piedra-ne-so.webp",
    "nw": 1249,
    "nh": 1249,
    "ax": 627,
-   "ay": 519
+   "ay": 519,
+   "puente": {
+    "pxPorCasilla": 437,
+    "altura": 0.4,
+    "largo": 2.96
+   }
   },
   "puente-piedra-no-se": {
    "src": "puente-piedra-no-se.webp",
    "nw": 1156,
    "nh": 1239,
    "ax": 578,
-   "ay": 514
+   "ay": 514,
+   "puente": {
+    "pxPorCasilla": 417,
+    "altura": 0.4,
+    "largo": 2.96
+   }
   },
   "puente-piedra-ns-sube": {
    "src": "puente-piedra-ns-sube.webp",
    "nw": 641,
    "nh": 1497,
    "ax": 321,
-   "ay": 620
+   "ay": 620,
+   "puente": {
+    "pxPorCasilla": 378,
+    "altura": 0.4,
+    "largo": 2.96
+   }
   },
   "puente-piedra-ns": {
    "src": "puente-piedra-ns.webp",
    "nw": 763,
    "nh": 1461,
    "ax": 381,
-   "ay": 590
+   "ay": 590,
+   "puente": {
+    "pxPorCasilla": 434,
+    "altura": 0.4,
+    "largo": 2.96
+   }
   },
   "puente-troncos-eo": {
    "src": "puente-troncos-eo.webp",
    "nw": 1505,
    "nh": 850,
    "ax": 753,
-   "ay": 251
+   "ay": 251,
+   "puente": {
+    "pxPorCasilla": 595,
+    "altura": 0.24,
+    "largo": 2.24
+   }
   },
   "puente-troncos-ne-so": {
    "src": "puente-troncos-ne-so.webp",
    "nw": 1224,
    "nh": 1254,
    "ax": 612,
-   "ay": 484
+   "ay": 484,
+   "puente": {
+    "pxPorCasilla": 549,
+    "altura": 0.24,
+    "largo": 2.24
+   }
   },
   "puente-troncos-no-se": {
    "src": "puente-troncos-no-se.webp",
    "nw": 1231,
    "nh": 1237,
    "ax": 611,
-   "ay": 473
+   "ay": 473,
+   "puente": {
+    "pxPorCasilla": 550,
+    "altura": 0.24,
+    "largo": 2.24
+   }
   },
   "puente-troncos-ns": {
    "src": "puente-troncos-ns.webp",
    "nw": 821,
    "nh": 1526,
    "ax": 411,
-   "ay": 613
+   "ay": 613,
+   "puente": {
+    "pxPorCasilla": 621,
+    "altura": 0.24,
+    "largo": 2.24
+   }
   },
   "rocas-1": {
    "src": "rocas-1.webp",

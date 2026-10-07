@@ -14,5 +14,7 @@
     1.101,
     1.031
   ],
-  "guia": "assets/mapa/guias/puente-troncos-eo.png"
+  "guia": "assets/mapa/guias/puente-troncos-eo.png",
+  "alturaDelTablero": 0.24,
+  "largoDelTablero": 2.24
 }

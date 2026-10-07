@@ -238,6 +238,44 @@ describe('sin arte se pinta igual: cada pieza, su marcador de color', () => {
     }
   });
 
+  it('junto a un puente (#157), semilla 9: la cara que se queda se pinta sin sus huecos, un trapecio por hueco', () => {
+    const e9 = escenaDe(9);
+    const conTajos = e9.relieve.caras
+      .filter((f) => f.rampas.length + (f.huecos?.length ?? 0) > 0)
+      .sort((p, q) => p.y - q.y);
+    expect(conTajos.some((f) => f.huecos !== undefined)).toBe(true);
+    const r = registro();
+    pintarSuelo(r.contexto(), e9, separar(e9), { ...sinImagenes, lienzo: r.lienzo });
+    const suelo = r.llamadas.filter((l) => l.contexto === 0);
+    const recortes = suelo.flatMap((l, i) => (l.metodo === 'clip' ? [i] : []));
+    expect(recortes).toHaveLength(conTajos.length);
+    for (const [n, i] of recortes.entries()) {
+      const desde = suelo.map((l) => l.metodo).lastIndexOf('beginPath', i);
+      const camino = suelo.slice(desde, i).map((l) => l.metodo);
+      const f = conTajos[n];
+      expect(camino.filter((m) => m === 'closePath')).toHaveLength(
+        (f?.rampas.length ?? -1) + (f?.huecos?.length ?? 0),
+      );
+    }
+  });
+
+  it('junto a un puente (#157), semilla 8: cada vado se quita del barro, del agua y de la espuma', () => {
+    const e8 = escenaDe(8);
+    expect(e8.vados.length).toBeGreaterThan(0);
+    const r = registro();
+    pintarSuelo(r.contexto(), e8, separar(e8), { ...sinImagenes, lienzo: r.lienzo });
+    const T = sinImagenes.tile;
+    for (const v of e8.vados) {
+      const [x, y] = v[0] as readonly [number, number];
+      const donde = r.llamadas.filter(
+        (l) => l.metodo === 'moveTo' && l.args[0] === x * T && l.args[1] === y * T,
+      );
+      // En tres máscaras, ninguna el suelo: las sendas sí se trazan en el suelo y empiezan igual.
+      const mascaras = new Set(donde.map((l) => l.contexto).filter((k) => k !== 0));
+      expect(mascaras.size, `vado en ${x},${y}`).toBe(3);
+    }
+  });
+
   it('los volúmenes: uno a uno, su marcador y ninguna imagen', () => {
     const r = registro();
     const ctx = r.contexto();

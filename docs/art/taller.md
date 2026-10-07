@@ -98,7 +98,7 @@ sigue esta regla; se rehacen cuando toque.
 ```bash
 pnpm taller encolar --muestras-densas          # las dos láminas de 3×3: bordes, y nodos y montes
 pnpm taller encolar --texturas-suelo           # las siete texturas del suelo
-pnpm taller encolar --piezas-densas [--solo=bosque-verde-1,nodo-puente-ancho]
+pnpm taller encolar --piezas-densas [--solo=bosque-verde-1,nodo-puerta-ancho]
 pnpm taller vista-mapa [semilla]               # .cache/taller/vista/mapa-denso.html
 ```
 
