@@ -17,6 +17,7 @@ import {
   empezarFotogramaDeCopias,
   PIXELES_NUEVOS_POR_FOTOGRAMA,
 } from '../src/client/render/copias.js';
+import { cajaDeSprite } from '../src/client/render/escenario/pasillo.js';
 import { pintarSprite } from '../src/client/render/escenario/pintar.js';
 import {
   type MensajeDelSuelo,
@@ -37,7 +38,8 @@ import {
   topeDeAlejar,
   usarPintorDelSuelo,
 } from '../src/client/render/escenario/superficie.js';
-import { drawMapa, PIES } from '../src/client/render/mapa.js';
+import { drawMapa, PIES, recortadoArriba } from '../src/client/render/mapa.js';
+import { pointKey } from '../src/core/map/map.js';
 import { todosALaVista } from '../src/core/state/asaltantes.js';
 import { newGame } from '../src/core/state/setup.js';
 
@@ -637,7 +639,11 @@ describe('una sola caché de copias reducidas, de ida y vuelta', () => {
 
 describe('qué tapa a qué en el mapa', () => {
   /** Pinta el mapa de `state` con la cámara en `foco` y devuelve el registro. */
-  function pintarMapa(state: ReturnType<typeof newGame>, foco: { x: number; y: number }) {
+  function pintarMapa(
+    state: ReturnType<typeof newGame>,
+    foco: { x: number; y: number },
+    explorado: ReadonlySet<string> | null = null,
+  ) {
     const esc = escenarioDe(state.map, state.seed);
     sueloDelMapa(esc, 70);
     llamadas.length = 0;
@@ -647,7 +653,7 @@ describe('qué tapa a qué en el mapa', () => {
       camara: { tile: 70, x: foco.x - 6, y: foco.y - 4 },
       ancho: 900,
       alto: 600,
-      explorado: null,
+      explorado,
       visibles: null,
       ruta: [],
       seleccionado: null,
@@ -723,6 +729,67 @@ describe('qué tapa a qué en el mapa', () => {
     expect(y).toBeLessThan(-1000);
     // Los volúmenes se pintan dentro del recorte.
     expect(registro.findIndex((l) => l.metodo === 'moveTo')).toBeGreaterThan(clip);
+  });
+
+  describe('lo que asoma por arriba desde una casilla sin explorar se recorta en el borde (#152)', () => {
+    const state = newGame({ seed: 1 });
+    const { width: W, height: H } = state.map;
+    const esc = escenarioDe(state.map, 1);
+    const todas = Array.from({ length: W * H }, (_, i) =>
+      pointKey({ x: i % W, y: Math.floor(i / W) }),
+    );
+
+    it('apunta su casilla a lo que sube por encima del mapa, y solo a eso', () => {
+      const vols = esc.porFila.flat();
+      const asoman = vols.filter((v) => v.asomaPorArriba !== null);
+      // Los picos de la captura de la issue: la premisa del caso.
+      expect(asoman.length).toBeGreaterThan(0);
+      for (const v of vols) {
+        expect(v.asomaPorArriba !== null).toBe(cajaDeSprite(v.s)[1] < 0);
+        // La casilla de su base, la de su fila en `porFila`: lo que nace fuera
+        // del mapa (la escena tiene margen) cuenta como de la casilla del borde.
+        const x = Math.min(W - 1, Math.max(0, Math.floor(v.s.x)));
+        const y = Math.min(H - 1, Math.max(0, Math.floor(v.clave)));
+        if (v.asomaPorArriba !== null) expect(v.asomaPorArriba).toBe(pointKey({ x, y }));
+      }
+    });
+
+    it('se recorta sin explorar; explorada o sin niebla, no', () => {
+      const vol = esc.porFila.flat().find((v) => v.asomaPorArriba !== null)!;
+      const sinEsa = new Set(todas.filter((k) => k !== vol.asomaPorArriba));
+      expect(recortadoArriba(vol, sinEsa)).toBe(true);
+      expect(recortadoArriba(vol, new Set(todas))).toBe(false);
+      expect(recortadoArriba(vol, null)).toBe(false);
+      const bajo = esc.porFila.flat().find((v) => v.asomaPorArriba === null)!;
+      expect(recortadoArriba(bajo, new Set())).toBe(false);
+    });
+
+    /** El último recorte antes de pintar el marcador `i`: el rectángulo de su `clip`. */
+    function recorteDe(registro: readonly Llamada[], i: number): number[] {
+      for (let j = i; j > 0; j--)
+        if (registro[j]?.metodo === 'clip') {
+          expect(registro[j - 1]?.metodo).toBe('rect');
+          return registro[j - 1]?.args as number[];
+        }
+      throw new Error('el marcador se pinta sin recorte');
+    }
+
+    it('drawMapa lo pinta con un recorte cuyo borde de arriba es el del mapa; explorado, sin él', () => {
+      const vol = esc.porFila.flat().find((v) => v.asomaPorArriba !== null)!;
+      const foco = { x: Math.floor(vol.s.x), y: 2 };
+      const sinEsa = new Set(todas.filter((k) => k !== vol.asomaPorArriba));
+
+      const tapado = pintarMapa(state, foco, sinEsa).registro;
+      const i = indiceDelVolumen(tapado, vol.s);
+      expect(i).toBeGreaterThan(0);
+      // En píxeles del mapa (`setTransform` al origen): el rectángulo del mapa entero.
+      expect(recorteDe(tapado, i)).toEqual([0, 0, W * 70, H * 70]);
+
+      const visto = pintarMapa(state, foco, new Set(todas)).registro;
+      const j = indiceDelVolumen(visto, vol.s);
+      expect(j).toBeGreaterThan(0);
+      expect(recorteDe(visto, j)[1]).toBeLessThan(-1000);
+    });
   });
 
   it('semilla 1: el héroe que nace al norte de su castillo se pinta delante de él', () => {

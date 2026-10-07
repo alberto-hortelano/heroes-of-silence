@@ -78,6 +78,12 @@ export const PX_DEL_ESBOZO = 60;
  */
 export interface VolumenDelMapa extends Volumen {
   readonly niebla: string | null;
+  /**
+   * La clave (`"x,y"`) de la casilla de su base si su caja sube por encima del
+   * borde de arriba del mapa; `null` si no sube. Por ahí no llega la niebla
+   * (#152): lo que asoma desde una casilla sin explorar se recorta en el borde.
+   */
+  readonly asomaPorArriba: string | null;
 }
 
 /** Lo que se saca de un mapa una vez por partida. */
@@ -238,7 +244,12 @@ export function escenarioDe(map: MapaDeEscena, semilla: number): Escenario {
       claveDeObjeto.set(s.objeto.id, v.clave);
       cubrir(cubiertas, v, escena.W, escena.H);
     }
-    (porFila[fila] as VolumenDelMapa[]).push({ ...v, niebla });
+    // La misma caja con que se pinta (`pintarSprite`), también la del marcador.
+    const asomaPorArriba =
+      cajaDeSprite(s)[1] < 0
+        ? pointKey({ x: Math.min(escena.W - 1, Math.max(0, Math.floor(s.x))), y: fila })
+        : null;
+    (porFila[fila] as VolumenDelMapa[]).push({ ...v, niebla, asomaPorArriba });
     bases.push(s);
     if (s.src !== null) deVolumen.add(s.src);
   }

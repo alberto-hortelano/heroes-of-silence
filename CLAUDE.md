@@ -281,7 +281,8 @@ antes del destino (`battle_started` con `faltan`).
   `docs/art/peticiones.md` §12), fundidos por profundidad con
   las figuras (`fundirPorProfundidad`): **una figura puede quedar detrás de un
   árbol**, pero no de lo horneado de su casilla (`claveDeFigura`). Se recortan al
-  mapa por los lados y por abajo, no por arriba. Lo que dice quién está en una
+  mapa por los lados y por abajo; por arriba, solo lo que sube desde una casilla sin explorar
+  (`recortadoArriba`, #152), porque encima del mapa no hay niebla que lo tape. Lo que dice quién está en una
   casilla —inicial del héroe, chapa, estandarte, bandera, icono de la mina— va en
   una pasada encima de todo y bajo la niebla. **Excepción**: un grupo de
   asaltantes que se ve por su región con la casilla sin explorar se pinta, figura

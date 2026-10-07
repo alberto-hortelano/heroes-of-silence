@@ -570,15 +570,14 @@ function pintarLoQueTieneAltura(
   // levanta en la fila 0 sube por encima como sube sobre cualquier otra fila,
   // igual que en el taller, que pinta la escena con margen. Recortarlo cortaba
   // las copas de la fila 0 en una línea recta.
+  // Salvo lo que sube desde una casilla sin explorar (`recortadoArriba`): por
+  // encima del mapa no hay niebla que lo tape (#152).
+  const anchoDelMapa = Math.round(v.escena.map.width * opciones.tile);
+  const altoDelMapa = Math.round(v.escena.map.height * opciones.tile);
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.beginPath();
-  ctx.rect(
-    ox,
-    oy - ARRIBA_SIN_RECORTE,
-    Math.round(v.escena.map.width * opciones.tile),
-    ARRIBA_SIN_RECORTE + Math.round(v.escena.map.height * opciones.tile),
-  );
+  ctx.rect(ox, oy - ARRIBA_SIN_RECORTE, anchoDelMapa, ARRIBA_SIN_RECORTE + altoDelMapa);
   ctx.clip();
   ctx.setTransform(enPantalla);
   let enElMapa = false;
@@ -596,7 +595,16 @@ function pintarLoQueTieneAltura(
         ctx.imageSmoothingQuality = 'low';
       }
       enElMapa = true;
+      if (!recortadoArriba(vol, v.explorado)) {
+        pintarSprite(ctx, vol.s, opciones);
+        return;
+      }
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, anchoDelMapa, altoDelMapa);
+      ctx.clip();
       pintarSprite(ctx, vol.s, opciones);
+      ctx.restore();
     },
     (cosa) => {
       if (enElMapa) {
@@ -613,6 +621,20 @@ function pintarLoQueTieneAltura(
 
 /** Cuánto, en píxeles de dispositivo, puede subir sobre el borde de arriba lo que tiene altura: sin tope. */
 const ARRIBA_SIN_RECORTE = 1e6;
+
+/**
+ * Si un volumen se recorta en el borde de arriba del mapa: sube por encima y su
+ * casilla no se ha explorado. La niebla solo cubre el mapa y su marco de una
+ * casilla, así que sin el recorte los picos de la fila 0 sin explorar flotaban
+ * sobre el fondo, en 4K al tope de alejar (#152). Desde una casilla explorada se
+ * sigue viendo lo que asoma; sin niebla (el espectador), no se recorta nada.
+ */
+export function recortadoArriba(
+  vol: VolumenDelMapa,
+  explorado: ReadonlySet<string> | null,
+): boolean {
+  return vol.asomaPorArriba !== null && explorado !== null && !explorado.has(vol.asomaPorArriba);
+}
 
 /**
  * Funde dos listas ya ordenadas por `clave`: los volúmenes de la escena y las
