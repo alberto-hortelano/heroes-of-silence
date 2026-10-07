@@ -286,7 +286,12 @@ antes del destino (`battle_started` con `faltan`).
   una pasada encima de todo y bajo la niebla. **Excepción**: un grupo de
   asaltantes que se ve por su región con la casilla sin explorar se pinta, figura
   y chapa, encima de la niebla (`cosasDe` → `sobreLaNiebla`). Monstruos, recursos y cofres los
-  pinta el juego (`seHornea`, en `escenario/horneado.ts`). Tope de alejar:
+  pinta el juego (`seHornea`, en `escenario/horneado.ts`). **Las cordilleras** (`macizo.ts`): cada franja de
+  montaña crece de la falda a la cresta por la hondura continua del punto (distancia euclídea al
+  borde; la cresta en la hondura mayor de la franja, tope 2,5), con un ruido suave que hace
+  cumbres y collados; de ahí salen el alto, el radio entre picos (`radioDePico`), la hoja (agujas
+  arriba), la silueta (`siluetaDe`) y la luz (`luzDeCumbre`, falda en sombra). El bosque sigue con
+  la hondura entera de `analizar`. Tope de alejar:
   `topeDeAlejar`, ≤ 2 000 volúmenes a la vista y nunca bajo 40 px por casilla;
   si ni a 110 px caben (7680×4320) lo avisa en consola. **Y un presupuesto de
   píxeles según el zoom** (`presupuestoDelMapa`): al tope de alejar, el mapa no

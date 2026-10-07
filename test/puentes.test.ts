@@ -778,13 +778,21 @@ describe('la cara que cede su pared a un puente y se queda abre lo que la pared 
           huecos++;
           expect(h.b - h.a).toBeGreaterThanOrEqual(0.15);
           expect(h.dentro).toEqual([h.a > x0, h.b < x1]);
-          // En su medio, a media altura, ninguna pared: es lo liso que se veía.
-          const [x, y] = [(h.a + h.b) / 2, (y0 + y1) / 2];
-          const tapa = paredes.some(([a, b, cc, d]) => x >= a && x <= cc && y >= b && y <= d);
+          // En su medio, a un cuarto o a media altura, ninguna pared: es lo liso
+          // que se veía. La misma pregunta que `paredDeLaCara`: tapada es tapada
+          // en las dos. Mirar solo a media altura fallaba en la semilla 6 en
+          // cuanto cambió el azar de la escena (#171): una pared tapaba el medio
+          // del hueco y dejaba liso el cuarto de arriba.
+          const x = (h.a + h.b) / 2;
+          const tapa = [y0 + (y1 - y0) / 4, (y0 + y1) / 2].every((y) =>
+            paredes.some(([a, b, cc, d]) => x >= a && x <= cc && y >= b && y <= d),
+          );
           expect(tapa, `s${s} cara ${c.y} hueco ${h.a}-${h.b}`).toBe(false);
         }
       }
     }
-    expect(huecos).toBe(segunPrisa(1, 5));
+    // 6 en las semillas 1-10 desde #171: el azar del macizo cambia los módulos
+    // de pared de la semilla 6, y su cara 30 se queda con un hueco de 0,2.
+    expect(huecos).toBe(segunPrisa(1, 6));
   });
 });
