@@ -665,8 +665,9 @@ describe('el generador hace redes como las pidió el usuario', () => {
       nodos += estructura(map).nodos.length;
     }
     expect(fallos).toEqual([]);
-    // Que no pase en vacío: 62 nodos (ciudades incluidas) en 1-3, 813 en 1-40.
-    expect(nodos).toBeGreaterThan(segunPrisa(55, 750));
+    // Que no pase en vacío: 54 nodos (ciudades incluidas) en 1-3, 761 en 1-40
+    // (eran 62 y 813 antes de vetar lo de bajo las diagonales: los mapas son otros).
+    expect(nodos).toBeGreaterThan(segunPrisa(50, 700));
   });
 
   it('el engorde va casilla a casilla y la reparación deja tres pasos entre regiones (#169)', () => {
@@ -787,7 +788,7 @@ describe('el generador hace redes como las pidió el usuario', () => {
     expect(hecho.pasillo[7 * W + 7]).toBe(0);
   });
 
-  it('el guardia de las entradas muerde: esquina, islote y algo delante', () => {
+  it('el guardia de las entradas muerde: esquina, islote, algo delante y algo bajo una diagonal', () => {
     // Un mapa a mano con un nodo y sus tres fallos, uno a uno.
     const filas = (t: readonly string[]) => t.join('');
     // `.` hierba de la región a (arriba) o b (abajo), `M` montaña, `N` el nodo.
@@ -823,6 +824,19 @@ describe('el generador hace redes como las pidió el usuario', () => {
     // Una mina en (3,5), delante de la entrada sur.
     const mina = { id: 'mine-0', kind: 'mine', at: { x: 3, y: 5 } } as GameMap['objects'][number];
     expect(entradasDeNodo(mapa(base, [mina])).join()).toMatch(/mine en \(3,5\), delante/);
+    // Un pueblo en (4,5), bajo la entrada diagonal (4,4): el estribo de abajo
+    // de un puente diagonal (#166 H10, s49 node-12). Y en (4,1), su reflejo,
+    // que se veta para no negar el espejo a lo que se siembra en pareja.
+    const pueblo = (y: number) =>
+      ({ id: 'village-0', kind: 'village', at: { x: 4, y } }) as GameMap['objects'][number];
+    expect(entradasDeNodo(mapa(base, [pueblo(5)])).join()).toMatch(
+      /village en \(4,5\), junto a la entrada diagonal de \(4,4\)/,
+    );
+    expect(entradasDeNodo(mapa(base, [pueblo(1)])).join()).toMatch(
+      /village en \(4,1\), junto a la entrada diagonal de \(4,2\)/,
+    );
+    // Y a tres filas, ya lejos: nada.
+    expect(entradasDeNodo(mapa(base, [pueblo(6)]))).toEqual([]);
   });
 
   it('la auditoría muerde: una ciudad de grado 2 y un nodo de corte se ven', () => {
@@ -1022,8 +1036,11 @@ describe('la tabla de barreras se valida al cargar', () => {
  *    regiones distintas;
  *  - que cada una siga por tierra **en cruz**: una vecina en cruz pisable de su
  *    región, sin contar el nodo (si no, es un islote unido en diagonal);
- *  - y **nada delante**: ni mina, ni pueblo, ni ciudad, ni cofre, ni recurso en
- *    `n ± 2d`, en ninguna de las ocho direcciones.
+ *  - y **nada delante**: ni mina, ni pueblo, ni ciudad, ni cofre, ni recurso, ni
+ *    monstruo en `n ± 2d`, en ninguna de las ocho direcciones, ni bajo las dos
+ *    entradas diagonales del sur, `n + (±1, 2)`: se pinta delante de la entrada
+ *    y, en un puente diagonal, tapa el estribo de abajo. Ni en su reflejo,
+ *    `n + (±1, −2)`, que el generador veta para no romper el espejo.
  *
  * Lo del eje es para los pasos (`node`), no para las ciudades: una ciudad es un
  * cruce de tres regiones y no tiene por qué tener dos vecinas enfrentadas (en
@@ -1037,7 +1054,7 @@ function entradasDeNodo(map: GameMap): string[] {
       ? (regionDe[y * W + x] as number)
       : -1;
   const fallos: string[] = [];
-  const delante = new Set(['mine', 'village', 'town', 'chest', 'resource']);
+  const delante = new Set(['mine', 'village', 'town', 'chest', 'resource', 'monster']);
   for (const nodo of map.objects) {
     if (nodo.kind !== 'node' && nodo.kind !== 'town') continue;
     const { x, y } = nodo.at;
@@ -1079,6 +1096,10 @@ function entradasDeNodo(map: GameMap): string[] {
       const dy = o.at.y - y;
       if (Math.max(Math.abs(dx), Math.abs(dy)) === 2 && dx % 2 === 0 && dy % 2 === 0)
         fallos.push(`${o.kind} en (${o.at.x},${o.at.y}), delante del nodo de (${x},${y})`);
+      else if (Math.abs(dx) === 1 && Math.abs(dy) === 2)
+        fallos.push(
+          `${o.kind} en (${o.at.x},${o.at.y}), junto a la entrada diagonal de (${x + dx},${y + dy / 2}) del nodo de (${x},${y})`,
+        );
     }
   }
   return fallos;

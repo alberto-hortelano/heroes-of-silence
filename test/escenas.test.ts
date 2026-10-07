@@ -25,7 +25,14 @@ import {
 } from '../src/client/render/batalla.js';
 import { casillaAPixel, centrarEn, TILE_INICIAL } from '../src/client/render/camara-mapa.js';
 import type { Volumen } from '../src/client/render/escenario/pintar.js';
-import { fundirPorProfundidad, PIES, pasosAPintar } from '../src/client/render/mapa.js';
+import {
+  asientoDeLaInicial,
+  type CuerpoDeFigura,
+  fundirPorProfundidad,
+  PIES,
+  pasosAPintar,
+  SITIOS_DE_LA_INICIAL,
+} from '../src/client/render/mapa.js';
 import { COLOR_SIN_DUEÑO, MARCA_DE_COMANDANTE, playerColor } from '../src/client/render/palette.js';
 import {
   ALTO_DE_FIGURA,
@@ -719,5 +726,59 @@ describe('una figura puede quedar detrás de un árbol', () => {
       { clave: 9, nombre: 'c' },
     ];
     expect(orden(volumenes, cosas)).toEqual(['a', 'pino 2', 'pino 3', 'pino 3', 'b', 'c']);
+  });
+});
+
+describe('la inicial de un héroe no tapa a otra figura (#166 H11)', () => {
+  // Un héroe pisa en (5,5; 5,8). La inicial, de radio 0,13 casillas.
+  const pie = { x: 5.5, y: 5.8 };
+  const radio = 0.13;
+  const heroe = (x: number, y: number): CuerpoDeFigura => ({
+    x,
+    pie: y,
+    semiancho: 0.3,
+    alto: 0.92,
+  });
+  /** Si el disco de la inicial en `en` cae sobre el cuerpo `o`. */
+  const tapa = (en: { x: number; y: number }, o: CuerpoDeFigura) => {
+    const dx = Math.max(o.x - o.semiancho - en.x, 0, en.x - (o.x + o.semiancho));
+    const dy = Math.max(o.pie - o.alto - en.y, 0, en.y - o.pie);
+    return Math.hypot(dx, dy) < radio;
+  };
+
+  it('solo, sobre la cabeza', () => {
+    expect(asientoDeLaInicial(pie, [], radio)).toEqual({ x: 5.5, y: 4.8 });
+  });
+
+  it('con otro detrás en la misma columna —una casilla o el paso corto de un puente—, a un lado de la cabeza y sin tocarlo', () => {
+    // Sobre la cabeza caía en las piernas del de detrás: la «A» sobre la «C» de
+    // s57 node-16. En un puente N-S que sube, las pisadas están más juntas.
+    for (const paso of [1, 0.75]) {
+      const detras = heroe(pie.x, pie.y - paso);
+      expect(tapa({ x: pie.x, y: pie.y - 1 }, detras), `paso ${paso}: el guardia muerde`).toBe(
+        true,
+      );
+      const en = asientoDeLaInicial(pie, [detras], radio);
+      expect(en, `paso ${paso}`).toEqual({ x: 5.95, y: pie.y - 0.72 });
+      expect(tapa(en, detras), `paso ${paso}`).toBe(false);
+    }
+  });
+
+  it('con el lado derecho ocupado, el izquierdo; sin sitio libre, sobre la cabeza', () => {
+    const detras = heroe(pie.x, pie.y - 1);
+    const derecha = heroe(pie.x + 0.75, pie.y - 0.2);
+    expect(asientoDeLaInicial(pie, [detras, derecha], radio)).toEqual({ x: 5.05, y: pie.y - 0.72 });
+    const izquierda = heroe(pie.x - 0.75, pie.y - 0.2);
+    expect(asientoDeLaInicial(pie, [detras, derecha, izquierda], radio)).toEqual({
+      x: pie.x + (SITIOS_DE_LA_INICIAL[0]?.[0] ?? Number.NaN),
+      y: pie.y - 1,
+    });
+  });
+
+  it('un grupo de asaltantes detrás también cuenta, y uno al lado que no llega arriba, no', () => {
+    const grupo: CuerpoDeFigura = { x: 5.5, pie: 5.82 - 1, semiancho: 0.34, alto: 0.85 };
+    expect(asientoDeLaInicial(pie, [grupo], radio).y).toBeCloseTo(pie.y - 0.72);
+    // A dos casillas al este: lejos de todos los sitios.
+    expect(asientoDeLaInicial(pie, [heroe(7.5, 5.8)], radio)).toEqual({ x: 5.5, y: 4.8 });
   });
 });

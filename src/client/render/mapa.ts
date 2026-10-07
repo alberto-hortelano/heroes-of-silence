@@ -397,7 +397,8 @@ export function drawMapa(ctx: CanvasRenderingContext2D, v: VistaMapa): void {
   pintarLoQueTieneAltura(ctx, v, volumenesALaVista(v, esc), cosas);
 
   // 3 · Lo que dice quién está en cada casilla, encima de todo lo que tiene altura.
-  for (const cosa of cosas) pintarIdentificador(ctx, v, cosa);
+  const cuerpos = cuerposDe([...cosas, ...sobreLaNiebla]);
+  for (const cosa of cosas) pintarIdentificador(ctx, v, cosa, cuerpos);
 
   // 4 · La niebla: negra sobre lo desconocido, tenue sobre lo que no se mira.
   pintarNiebla(ctx, v);
@@ -406,7 +407,7 @@ export function drawMapa(ctx: CanvasRenderingContext2D, v: VistaMapa): void {
   //     la excepción a «lo que dice quién está en una casilla va bajo la niebla».
   for (const cosa of sobreLaNiebla) {
     pintarCosa(ctx, v, cosa);
-    pintarIdentificador(ctx, v, cosa);
+    pintarIdentificador(ctx, v, cosa, cuerpos);
   }
 
   // 5 · Encima de todo, lo que es de quien juega: la ruta y la casilla señalada.
@@ -681,7 +682,12 @@ function pintarCosa(ctx: CanvasRenderingContext2D, v: VistaMapa, c: Cosa): void 
  * dice que está ahí se ve siempre: un grupo escondido en un bosque sin que nada
  * lo diga es una emboscada que no se ve venir.
  */
-function pintarIdentificador(ctx: CanvasRenderingContext2D, v: VistaMapa, c: Cosa): void {
+function pintarIdentificador(
+  ctx: CanvasRenderingContext2D,
+  v: VistaMapa,
+  c: Cosa,
+  cuerpos: ReadonlyMap<Cosa, CuerpoDeFigura>,
+): void {
   const tile = v.camara.tile;
   switch (c.tipo) {
     case 'objeto': {
@@ -694,10 +700,11 @@ function pintarIdentificador(ctx: CanvasRenderingContext2D, v: VistaMapa, c: Cos
       pintarBanderaDeLoHorneado(ctx, v, c.objeto, c.asiento, c.mastil);
       return;
     case 'heroe': {
-      // Sobre la cabeza: a 1,0 casilla de los pies (0,7 sobre el centro, con los pies a 0,3 bajo él).
-      const p = mundoAPixel(v.camara, c.pie.x, c.pie.y);
+      const otros = [...cuerpos].filter(([o]) => o !== c).map(([, cuerpo]) => cuerpo);
+      const en = asientoDeLaInicial(c.pie, otros, radioDeLaInicial(tile) / tile);
+      const p = mundoAPixel(v.camara, en.x, en.y);
       const letra = c.heroe.name.charAt(0).toUpperCase();
-      inicial(ctx, letra, p.x, p.y - tile * 1.0, tile, playerColor(c.heroe.owner));
+      inicial(ctx, letra, p.x, p.y, tile, playerColor(c.heroe.owner));
       return;
     }
     case 'asaltante': {
@@ -866,7 +873,7 @@ function pintarHeroe(
     tiempo: v.tiempo,
     x: c.x,
     suelo,
-    alto: tile * 0.92,
+    alto: tile * ALTO_DEL_HEROE,
     mira: MIRADA_DE_PRESENTACION,
     color,
     rotulo: h.name.charAt(0).toUpperCase(),
@@ -997,6 +1004,83 @@ function pintarGrupoNeutral(
   });
 }
 
+/** El cuerpo de una figura del mapa, en casillas: dónde pisa, su media anchura y su alto. */
+export interface CuerpoDeFigura {
+  readonly x: number;
+  readonly pie: number;
+  readonly semiancho: number;
+  readonly alto: number;
+}
+
+/** El alto de la figura de un héroe, en casillas (`pintarHeroe`). */
+const ALTO_DEL_HEROE = 0.92;
+
+/** Los cuerpos de las figuras que hay que respetar al poner una inicial: héroes y grupos sin dueño. */
+function cuerposDe(cosas: readonly Cosa[]): Map<Cosa, CuerpoDeFigura> {
+  const cuerpos = new Map<Cosa, CuerpoDeFigura>();
+  for (const c of cosas) {
+    if (c.tipo === 'heroe')
+      cuerpos.set(c, { x: c.pie.x, pie: c.pie.y, semiancho: 0.3, alto: ALTO_DEL_HEROE });
+    // El grupo pisa a 0,32 bajo el centro de su casilla (`pintarAsaltante`, `pintarObjeto`).
+    else if (c.tipo === 'asaltante')
+      cuerpos.set(c, {
+        x: c.en.x + 0.5,
+        pie: c.en.y + 0.82,
+        semiancho: 0.34,
+        alto: ALTO_DEL_GRUPO,
+      });
+    else if (c.tipo === 'objeto' && c.objeto.kind === 'monster')
+      cuerpos.set(c, {
+        x: c.objeto.at.x + 0.5,
+        pie: c.objeto.at.y + 0.82,
+        semiancho: 0.34,
+        alto: ALTO_DEL_GRUPO,
+      });
+  }
+  return cuerpos;
+}
+
+/**
+ * Dónde se prueba la inicial de un héroe, respecto a sus pies, en casillas: sobre
+ * la cabeza (a 1,0 de los pies), y si ahí tapa a otra figura, a un lado de la
+ * cabeza, primero el derecho.
+ */
+export const SITIOS_DE_LA_INICIAL: readonly (readonly [number, number])[] = [
+  [0, -1.0],
+  [0.45, -0.72],
+  [-0.45, -0.72],
+];
+
+/** El radio del disco de la inicial, en píxeles: nunca menos de 8 para que la letra se lea. */
+const radioDeLaInicial = (tile: number): number => Math.max(8, tile * 0.13);
+
+/**
+ * El centro de la inicial de un héroe que pisa en `pie`, en casillas: el primer
+ * sitio de `SITIOS_DE_LA_INICIAL` cuyo disco (de `radio` casillas) no cae sobre
+ * el cuerpo de otra figura. Con dos héroes en fila sobre un puente N-S, la «A»
+ * del de delante caía sobre las piernas del de detrás y no se leía cuál estaba
+ * en el puente (#166 H11). Si no hay sitio libre, sobre la cabeza: la inicial va
+ * siempre, aunque tape.
+ */
+export function asientoDeLaInicial(
+  pie: { readonly x: number; readonly y: number },
+  otros: readonly CuerpoDeFigura[],
+  radio: number,
+): { x: number; y: number } {
+  const tapa = (x: number, y: number) =>
+    otros.some((o) => {
+      // Del centro del disco al rectángulo del cuerpo: si cae dentro del radio, lo tapa.
+      const dx = Math.max(o.x - o.semiancho - x, 0, x - (o.x + o.semiancho));
+      const dy = Math.max(o.pie - o.alto - y, 0, y - o.pie);
+      return dx * dx + dy * dy < radio * radio;
+    });
+  for (const [dx, dy] of SITIOS_DE_LA_INICIAL) {
+    if (!tapa(pie.x + dx, pie.y + dy)) return { x: pie.x + dx, y: pie.y + dy };
+  }
+  const [dx, dy] = SITIOS_DE_LA_INICIAL[0] as readonly [number, number];
+  return { x: pie.x + dx, y: pie.y + dy };
+}
+
 /** La inicial de un héroe en un disco del color de su dueño, sobre su cabeza. */
 function inicial(
   ctx: CanvasRenderingContext2D,
@@ -1006,7 +1090,7 @@ function inicial(
   tile: number,
   color: string,
 ): void {
-  const r = Math.max(8, tile * 0.13);
+  const r = radioDeLaInicial(tile);
   ctx.save();
   ctx.fillStyle = color;
   ctx.strokeStyle = 'rgba(20,17,13,0.85)';

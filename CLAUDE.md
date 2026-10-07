@@ -189,7 +189,7 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   él, y los pasos van a Chebyshev ≥ 3 de todo nodo. **Cada nodo entra por un eje** (`ejeDelNodo`,
   `vestir.ts`): dos vecinas opuestas (recta, diagonal con codo o, junto al borde, corta)
   protegidas hasta la segunda casilla, y los pasillos hasta lo libre van en cruz; nada se
-  siembra en `n ± 2d` (`delanteDeNodo`). El ~1 % de pasos cuya red fina no tiene vecinas
+  siembra en `n ± 2d` ni en `n + (±1, ±2)`, bajo las entradas diagonales y su reflejo (`delanteDeNodo`). El ~1 % de pasos cuya red fina no tiene vecinas
   opuestas se viste sin eje. El engorde de la frontera va casilla a casilla, y donde dos regiones quedarían
   a dos pasos engorda una (`engordarFronteras`, paso 4b), con el lado que engorda dado la vuelta
   a trechos de `TRECHO_DEL_LADO` (4) para que el borde no copie el muro fino (#169). El paso de
@@ -292,7 +292,8 @@ antes del destino (`battle_started` con `faltan`).
   mapa por los lados y por abajo; por arriba, solo lo que sube desde una casilla sin explorar
   (`recortadoArriba`, #152), porque encima del mapa no hay niebla que lo tape. Lo que dice quién está en una
   casilla —inicial del héroe, chapa, estandarte, bandera, icono de la mina— va en
-  una pasada encima de todo y bajo la niebla. **Excepción**: un grupo de
+  una pasada encima de todo y bajo la niebla; la inicial que taparía a otra figura se
+  va a un lado de la cabeza (`asientoDeLaInicial`). **Excepción**: un grupo de
   asaltantes que se ve por su región con la casilla sin explorar se pinta, figura
   y chapa, encima de la niebla (`cosasDe` → `sobreLaNiebla`). Monstruos, recursos y cofres los
   pinta el juego (`seHornea`, en `escenario/horneado.ts`). **Las cordilleras** (`macizo.ts`): cada franja de

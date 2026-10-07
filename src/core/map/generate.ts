@@ -733,6 +733,9 @@ const INTENTOS_DE_VESTIDO = 10;
  * sin salir en ningún lado. Con el engorde casilla a casilla de #169
  * (07-10-2026) el vestido falla más en 24×24, y con 20 redes no salían 18 de
  * 2 000; con 30, 1 (eran 9 antes de #169). En 34×34 y 48×48, 0 con las dos.
+ * Medido otra vez el 07-10-2026 con el veto de bajo las diagonales (#166 H10):
+ * 2 de 2 000 en 24×24 (la 395 y la 1 062; sin el veto, 0), 0 de 2 000 en
+ * 34×34, que es el lado del juego, y 0 de 200 en 48×48.
  *
  * La red de cada intento la lee `estructura` y la valida `problemasDeRed`, las
  * mismas que leen y validan cualquier plan: el generador no lleva una segunda
@@ -880,22 +883,40 @@ function hayRegionRaquitica(regionDe: Int32Array, regiones: number): boolean {
 }
 
 /**
- * La casilla siguiente a la entrada en cada eje de cada nodo, `n + 2d` en las
- * ocho direcciones, marcada con un 1. `juntoANodo` ya veta la entrada; esto veta
- * lo que se ve delante de ella. Las ocho, y no solo las del eje que eligió el
- * vestido, porque el eje corto y el nodo sin eje no protegen esa casilla con el
- * pasillo, y así no hace falta saber cuál fue.
+ * Lo que se ve delante de cada entrada de cada nodo, marcado con un 1.
+ * `juntoANodo` ya veta la entrada; esto veta:
+ *
+ * - La casilla siguiente en cada eje, `n + 2d` en las ocho direcciones. Las
+ *   ocho, y no solo las del eje que eligió el vestido, porque el eje corto y el
+ *   nodo sin eje no protegen esa casilla con el pasillo, y así no hace falta
+ *   saber cuál fue.
+ * - La de debajo de las dos entradas diagonales del sur, `n + (±1, 2)`. La
+ *   cámara mira desde el sur, así que lo que está ahí se pinta delante de la
+ *   entrada y la tapa: en un puente diagonal es el estribo de abajo, y un pueblo
+ *   ahí se comía la rampa (#166 H10: s49 node-12; 34 de 1 015 puentes en las
+ *   semillas 1-400, todos en este desfase). Y su reflejo, `n + (±1, −2)`, que
+ *   no tapa nada: `colocarPar` pone cada cosa y su espejo (giro de 180°), y un
+ *   veto que no es simétrico le niega el espejo más a menudo. Medido en 1-400:
+ *   con solo el del sur, lo sembrado con espejo exacto baja del 91,4 al 89,8 %
+ *   y el jugador 0 gana 115 de las 200 partidas del banco (eran 93); con los
+ *   dos, 91,8 % y 91.
  */
+const DELANTE_DE_NODO: readonly (readonly [number, number])[] = [
+  ...[-2, 0, 2].flatMap((dy) =>
+    [-2, 0, 2].filter((dx) => dx !== 0 || dy !== 0).map((dx) => [dx, dy] as const),
+  ),
+  [-1, 2],
+  [1, 2],
+  [-1, -2],
+  [1, -2],
+];
 function delanteDeNodo(W: number, H: number, nodos: readonly number[]): Uint8Array {
   const marca = new Uint8Array(W * H);
   for (const n of nodos) {
     const x = n % W;
     const y = Math.floor(n / W);
-    for (let dy = -2; dy <= 2; dy += 2) {
-      for (let dx = -2; dx <= 2; dx += 2) {
-        if ((dx !== 0 || dy !== 0) && x + dx >= 0 && y + dy >= 0 && x + dx < W && y + dy < H)
-          marca[(y + dy) * W + x + dx] = 1;
-      }
+    for (const [dx, dy] of DELANTE_DE_NODO) {
+      if (x + dx >= 0 && y + dy >= 0 && x + dx < W && y + dy < H) marca[(y + dy) * W + x + dx] = 1;
     }
   }
   return marca;
@@ -1305,9 +1326,9 @@ function vestirRed(
   const ocupadas = new Set<number>(nodos);
   // Lo pegado a un nodo no se usa, para que nada tape la entrada a la región.
   const junto = juntoANodo(mapaGrueso);
-  // Ni la casilla siguiente a la entrada en cada eje del nodo (`n + 2d`): una
-  // mina o un pueblo ahí se planta delante del puente o del paso (#166 H10, s57
-  // node-16). Va aparte de `juntoANodo`, que también acota la patrulla de los
+  // Ni lo que se ve delante de una entrada (`n + 2d` y, bajo las diagonales
+  // del sur, `n + (±1, 2)`, con su reflejo): una mina o un pueblo ahí se planta delante del
+  // puente o del paso (#166 H10, s57 node-16 y s49 node-12). Va aparte de `juntoANodo`, que también acota la patrulla de los
   // asaltantes, y esto es solo de dónde se siembra.
   const delante = delanteDeNodo(W, H, nodos);
   // Las casillas que valen de cada región, una vez: abiertas, sin pegarse a un

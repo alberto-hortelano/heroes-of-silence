@@ -563,11 +563,27 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   `hero_moved` 37 005 → 37 254, batallas 1 715 → 1 777, `town_captured`
  *   1 427 → 1 489, `node_captured` 1 316 → 1 310; ningún tipo nuevo ni
  *   ninguno que desaparezca. Re-anclado una vez, al final.
+ * - `16d28781…` (68 466 líneas): **nada sembrado bajo una entrada diagonal**
+ *   (#166 H10, 07-10-2026). `delanteDeNodo` (`generate.ts`) veta además
+ *   `n + (±1, ±2)`: un pueblo bajo la entrada diagonal del sur tapaba el
+ *   estribo de abajo de un puente diagonal (34 de 1 015 puentes en 1-400; 0
+ *   después), y el reflejo va para no negar el espejo a `colocarPar`. Cambia
+ *   dónde caen los objetos: **0 semillas idénticas**, y el primer hecho
+ *   distinto es un **`raider_spawned` del día 1** (índice 1 en 193, 3 en 4, 5
+ *   en 2, 7 en 1). autoResolve igual (300 batallas, 2 280 rondas). 96 con otro
+ *   ganador, j0 93 → 91, **0 sin terminar**, duración 9 / 16 / 45 → **9 / 16 /
+ *   70** (el máximo es la s25; con `tamanos.ts 34 1000`, 9 / 16 / 45 →
+ *   8 / 15 / 70, 0 sin terminar, j0 518 → 526). `hero_moved` 37 254 → 37 350,
+ *   batallas 1 777 → 1 740, `town_captured` 1 489 → 1 478, `node_captured`
+ *   1 310 → 1 281; ningún tipo nuevo ni ninguno que desaparezca. Con el veto
+ *   solo al sur, sin el reflejo, j0 ganaba 115 de 200 y lo sembrado con espejo
+ *   exacto bajaba del 91,4 al 89,8 % (91,8 % con el reflejo). Re-anclado una
+ *   vez, al final.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '105a36041c084b850cd53e9c3ec503eec6b29f29f50c03ee30594078477b9631',
+  sha: '16d287812208727adcc39b1932c103ccffb4e3f92bd3cc87e52b55e94d6ef377',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

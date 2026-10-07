@@ -711,11 +711,20 @@ describe('movimiento de héroes', () => {
     const recurso = state.map.objects.find((o) => o.kind === 'resource' && !o.taken);
     expect(recurso).toBeDefined();
 
-    // Teletransporte de test: interesa la recogida, no el paseo.
-    hero.at = { x: recurso!.at.x - 1, y: recurso!.at.y };
+    // Teletransporte de test: interesa la recogida, no el paseo. A una vecina
+    // desde la que se llegue: la de la izquierda era fija, y en cuanto un mapa
+    // nuevo (#166 H10) le puso una barrera, el test dejó de probar la recogida.
+    const vecina = [
+      { x: -1, y: 0 },
+      { x: 1, y: 0 },
+      { x: 0, y: -1 },
+      { x: 0, y: 1 },
+    ]
+      .map((d) => ({ x: recurso!.at.x + d.x, y: recurso!.at.y + d.y }))
+      .find((p) => findPath(state.map, p, recurso!.at) !== null);
+    expect(vecina, 'el recurso no tiene ninguna vecina en cruz desde la que llegar').toBeDefined();
+    hero.at = vecina!;
     hero.movePoints = 5000;
-    const camino = findPath(state.map, hero.at, recurso!.at);
-    expect(camino).not.toBeNull();
 
     const antes = { ...state.players[0]!.resources };
     applyAdventureAction(

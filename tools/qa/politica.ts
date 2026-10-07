@@ -130,9 +130,14 @@ export function decidir(kind: string, payload: any): unknown {
       // no encadenan dos tramos, no ven un asaltante o no llegan a equipar—. La
       // 3 era la que más batallas daba en seis turnos (80). Con los bordes de
       // #169 (07-10-2026) la 3 se quedó sin batallas; cruzan todo la 2, 4, 5, 6,
-      // 7, 9, 11, 12, 13, 14, 18 y 20, y la 9 es la que más da (135).
+      // 7, 9, 11, 12, 13, 14, 18 y 20, y la 9 es la que más da (135). Con el
+      // veto bajo las entradas diagonales (#166 H10) la 9 se quedó sin batallas;
+      // cruzan todo la 1, 5, 6, 7, 11, 17, 18, 19 y 20. La 18 es la que más
+      // decisiones de batalla da (152), pero su partida trae quince finales y el
+      // espectador de `pnpm capturas` no llega al fin en su plazo; con la 7
+      // (42 decisiones) lo enseña a los 15 s del `game_over`, y con la 1, a los 44.
       const want = payload?.want ?? {};
-      const plan = generateMapPlan(createRng(9), {
+      const plan = generateMapPlan(createRng(7), {
         width: Number(want.width ?? 24),
         height: Number(want.height ?? 24),
       });

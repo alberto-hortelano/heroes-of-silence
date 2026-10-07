@@ -90,12 +90,22 @@ describe('el campo del macizo', () => {
   });
 });
 
+/**
+ * Una franja más pequeña no es una cordillera. La s4 de después de #166 H10 no
+ * tenía otra cosa que dos de 7 casillas pegadas al borde del mapa, donde la
+ * hondura sigue más allá del borde y la «cresta» es el canto: sus picos son
+ * los anchos de una cumbre baja, y el test la tomaba por cordillera.
+ */
+const CORDILLERA_MINIMA = 8;
+
 /** Los picos de las montañas de una semilla, en la falda y en la cresta de su macizo. */
 function picosDelMacizo(semilla: number) {
   const { map } = partidaDe(semilla);
   const escena = escenaDe(semilla);
   const a = analizar(map);
-  const franjas = a.franjas.filter((f) => f.barrera === 'mountain');
+  const franjas = a.franjas.filter(
+    (f) => f.barrera === 'mountain' && f.casillas.length >= CORDILLERA_MINIMA,
+  );
   const macizos = franjas.map((f) => ({
     dentro: new Set(f.casillas),
     // El ruido no cambia la hondura: llega con el llano.
@@ -180,7 +190,10 @@ describe('la escena: los picos de una cordillera crecen hacia dentro', () => {
       const casillas = a.franjas
         .filter((f) => f.barrera === 'mountain')
         .reduce((n, f) => n + f.casillas.length, 0);
-      if (casillas === 0) continue;
+      // Sin una cordillera no hay cresta que espacie los picos: todo es falda
+      // apretada. La s2 de después de #166 H10 tiene 6 casillas de montaña y 20
+      // picos (3,33).
+      if (casillas < CORDILLERA_MINIMA) continue;
       const picos = escenaDe(semilla).sprites.filter(
         (s) => s.clase === 'masa' && s.src?.startsWith('modulos/picos-') === true,
       ).length;
