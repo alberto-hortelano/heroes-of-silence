@@ -8,13 +8,15 @@
  * entran y un `Puente` sale. Lo coloca `componer`.
  */
 import type { TramoDeCamino } from '@core/map/map.js';
+import { isWalkable, type TerrainKind } from '@core/map/terrain.js';
 import { type Analisis, regionPisable } from './analizar.js';
 import type { Catalogo, MedidasDePuente } from './catalogo.js';
 import { ALTO_DE_NIVEL } from './relieve.js';
 import { ANCHO_DEL_VADO, grafoDeTramos, type Senda, type Tramo } from './sendas.js';
 
 /** Por dónde cruza: de norte a sur, de oeste a este, o en una de las diagonales. */
-export type EjeDePuente = 'ns' | 'eo' | 'ne-so' | 'no-se';
+export const EJES_DE_PUENTE = ['ns', 'eo', 'ne-so', 'no-se'] as const;
+export type EjeDePuente = (typeof EJES_DE_PUENTE)[number];
 
 /**
  * Cada eje como un paso de rejilla (la `y` crece hacia el sur), en el orden en
@@ -42,7 +44,8 @@ const UNITARIO_DEL_EJE: Readonly<Record<EjeDePuente, Punto>> = {
   'no-se': unitario(PASO_DEL_EJE['no-se']),
 };
 
-export type ClaseDePuente = 'piedra' | 'troncos';
+export const CLASES_DE_PUENTE = ['piedra', 'troncos'] as const;
+export type ClaseDePuente = (typeof CLASES_DE_PUENTE)[number];
 
 /** Un punto en casillas. */
 export type Punto = readonly [number, number];
@@ -277,6 +280,25 @@ export function puenteBajo<P extends Pick<Puente, 'tablero' | 'centro' | 'escala
     if (mejor === null || alMedio < mejor.d) mejor = { p, d: alMedio };
   }
   return mejor?.p ?? null;
+}
+
+/**
+ * `puenteBajo` sobre un mapa: lo que se pisa lo dice su terreno (`ancho`
+ * casillas por fila); fuera del mapa no se pisa. Lo preguntan el puntero
+ * (`casillaBajo`) y una marca de fallo (`queHayEn`), y tienen que contestar lo mismo.
+ */
+export function puenteEnElTerreno<P extends Pick<Puente, 'tablero' | 'centro' | 'escala' | 'nodo'>>(
+  puentes: readonly P[],
+  terreno: readonly TerrainKind[],
+  ancho: number,
+  x: number,
+  y: number,
+): P | null {
+  return puenteBajo(puentes, x, y, (cx, cy) => {
+    if (cx < 0 || cy < 0 || cx >= ancho) return false;
+    const t = terreno[cy * ancho + cx];
+    return t !== undefined && isWalkable(t);
+  });
 }
 
 /** La distancia de `(x, y)` a un polígono convexo cerrado (0 dentro), aunque sea plano. */

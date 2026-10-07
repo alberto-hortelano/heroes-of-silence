@@ -104,7 +104,7 @@ describe('el mapa con el dedo', () => {
 
     // Lo que manda Chromium tras un toque: pointerdown, pointerup, pointerleave.
     escena.bajar(p.x, p.y);
-    escena.soltar(p.x, p.y, true);
+    if (escena.soltar()) escena.pulsar(p.x, p.y, true);
     expect(escena.rutaVisible.length).toBeGreaterThan(0);
     expect(s.status).toContain('Toca otra vez para ir');
     escena.salir();
@@ -113,7 +113,7 @@ describe('el mapa con el dedo', () => {
     // El segundo toque la anda: el héroe ya no está donde estaba.
     const antes = { ...s.selectedHero!.at };
     escena.bajar(p.x, p.y);
-    escena.soltar(p.x, p.y, true);
+    if (escena.soltar()) escena.pulsar(p.x, p.y, true);
     expect(s.selectedHero!.at).not.toEqual(antes);
     expect(escena.rutaVisible).toHaveLength(0);
   });

@@ -5,6 +5,7 @@
  * (`escenas/`) traduce el puntero de su pantalla. Aquí solo se conecta todo.
  */
 import { parseSeed } from '@core/rng.js';
+import type { Desarrollo } from './desarrollo/tipos.js';
 import { EscenaAventura } from './escenas/aventura.js';
 import { EscenaBatalla } from './escenas/batalla.js';
 import { EscenaCastillo } from './escenas/castillo.js';
@@ -18,6 +19,13 @@ import { repartirClic } from './reparto-del-clic.js';
 import { semillaSorteada } from './semilla.js';
 import { Session } from './session.js';
 import { renderActions, renderSide, renderTopbar } from './views/panels.js';
+
+/**
+ * `true` en `pnpm dev` y `false` en `vite build` (`define` de `vite.config.ts`):
+ * con `false`, el `import()` de las herramientas de desarrollo queda en una rama
+ * muerta y Rollup no lo emite. Si algo se cuela, `sinDesarrollo` rompe el build.
+ */
+declare const HERRAMIENTAS_DE_DESARROLLO: boolean;
 
 const app = document.getElementById('app') as HTMLElement;
 const canvas = document.getElementById('canvas') as HTMLCanvasElement;
@@ -76,6 +84,8 @@ const aventura = new EscenaAventura(sesion);
 const batalla = new EscenaBatalla(sesion);
 const castillo = new EscenaCastillo(sesion);
 const finDeTurno = new PuertaDeFinDeTurno(() => performance.now());
+/** El modo «marcar fallo» (`desarrollo/marcas.ts`): solo en `pnpm dev`. */
+let desarrollo: Desarrollo | null = null;
 
 // ---------------------------------------------------------------- dibujo
 
@@ -166,6 +176,7 @@ function dibujarFotograma(ahora: number): void {
     seguirALaActiva();
   } else {
     aventura.dibujar(ctx, rect.width, rect.height, ahora);
+    desarrollo?.dibujar(ctx);
     aventura.dibujarMinimapa(minimapa);
   }
   señalarEnemigo(enBatalla);
@@ -289,7 +300,11 @@ canvas.addEventListener('pointerup', (ev) => {
   else if (session.scene === 'battle') {
     batalla.mover(p.x, p.y);
     if (!jugadaEnCurso()) batalla.pulsar(p.x, p.y);
-  } else aventura.soltar(p.x, p.y, ev.pointerType === 'touch');
+  } else if (aventura.soltar()) {
+    // Con el modo «marcar fallo» puesto, el clic es suyo y no mueve a nadie.
+    if (desarrollo?.activo === true) desarrollo.clic(p.x, p.y);
+    else aventura.pulsar(p.x, p.y, ev.pointerType === 'touch');
+  }
   pedirFotograma();
 });
 
@@ -446,6 +461,12 @@ document.addEventListener('click', (ev) => {
 });
 
 document.addEventListener('keydown', (ev) => {
+  // Lo que se escribe en un campo de texto o se pulsa en un cuadro es suyo, no un atajo.
+  if (ev.target instanceof Element && ev.target.closest('textarea, input, dialog') !== null) return;
+  if (desarrollo?.tecla(ev) === true) {
+    pedirFotograma();
+    return;
+  }
   if (ev.key === 'Escape' && session.scene === 'town') {
     session.closeTown();
     castillo.salir();
@@ -477,3 +498,22 @@ document.addEventListener('keydown', (ev) => {
 session.status =
   'Haz clic en el mapa para mover a tu héroe; arrastra para mirar. Espacio pasa el turno.';
 pedirFotograma();
+
+if (HERRAMIENTAS_DE_DESARROLLO) {
+  void import('./desarrollo/marcas.js')
+    .then((m) => {
+      desarrollo = m.montar({
+        sesion,
+        aventura,
+        canvas,
+        herramientas: document.getElementById('herramientas') as HTMLElement,
+        pedirFotograma,
+        pintarYa: () => dibujarFotograma(performance.now()),
+      });
+      pedirFotograma();
+    })
+    .catch((err: unknown) => {
+      console.error('[cliente] no se han podido montar las herramientas de desarrollo', err);
+      elStatus.textContent = `No se ha podido montar «marcar fallo»: ${err instanceof Error ? err.message : String(err)}`;
+    });
+}

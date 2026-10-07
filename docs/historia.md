@@ -2829,6 +2829,26 @@ se carga, y pelea con todo en IA exigiendo que la pelea **se cuente** y no salga
 el resultado de golpe— contra un espejo `SesionDeArena`, y **deja el borrador
 como estaba**: lo aparta antes y lo devuelve al salir, falle lo que falle.
 
+## Marcar fallos del mapa (solo en `pnpm dev`)
+
+Con `M` o el botón «Marcar», un clic en el mapa recorta la pantalla, dice qué
+hay ahí (`queHayEn`) y guarda una nota en `docs/revision/marcas/` por el
+servidor de Vite; `pnpm marcas` las lista, las resuelve y las recorta con el
+taller. Nada de eso llega a `vite build`: `src/client/desarrollo/` entra por un
+`import()` detrás de `HERRAMIENTAS_DE_DESARROLLO`.
+
+- **El guardia de las importaciones se vio morder** con tres sondas en
+  `main.ts`, una a una: un `import { montar } from './desarrollo/marcas.js'`, el
+  `import()` sacado de su `if` y un `import './desarrollo/marcas.js';` de efecto
+  lateral. `sinDesarrollo` se vio romper el build con el `define` a `true`.
+- **Los atajos no miran dentro de un campo ni de un cuadro**: un Espacio en la
+  nota de una marca —o sobre su botón «Guardar»— pasaba el turno, y una `M`
+  encendía y apagaba el modo mientras se escribía.
+- **El cuadro de la nota se abre al lado contrario del punto**: centrado, como
+  lo pone el navegador, tapaba justo el aspa de lo que se estaba marcando.
+- **La casilla de una marca es la del puntero** (`casillaBajo`): en el tablero
+  de un puente, la de su nodo, no el agua de debajo.
+
 ## Decisiones tomadas
 
 - **MCP antes que API key.** El usuario tiene Claude Max: el agente entra por

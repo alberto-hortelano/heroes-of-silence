@@ -83,6 +83,8 @@ export interface VolumenDelMapa extends Volumen {
 /** Lo que se saca de un mapa una vez por partida. */
 export interface Escenario {
   readonly escena: Escena;
+  /** El catálogo con que se compuso: de qué hoja y módulo sale cada `src` (`queHayEn`). */
+  readonly catalogo: Catalogo;
   readonly terreno: readonly TerrainKind[];
   readonly separada: EscenaSeparada;
   /** Los volúmenes de cada fila, por la de su base y en su orden: el recorte de cada fotograma. */
@@ -243,6 +245,7 @@ export function escenarioDe(map: MapaDeEscena, semilla: number): Escenario {
   const imagenes = imagenesDeEscena(escena, horneado);
   const escenario: Escenario = {
     escena,
+    catalogo: CATALOGO,
     terreno: map.terrain,
     separada,
     porFila,

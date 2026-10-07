@@ -1140,6 +1140,30 @@ describe('invariantes del proyecto', () => {
     expect(infractoresDeCodigo([...CLIENTE, ...SERVIDOR, ...CORE], patron)).toEqual([]);
   });
 
+  it('las herramientas de desarrollo solo entran por `import()` tras `HERRAMIENTAS_DE_DESARROLLO`', () => {
+    // `src/client/desarrollo/` no llega a `vite build`: solo `import type` o un
+    // `import()` dentro de `if (HERRAMIENTAS_DE_DESARROLLO)`. `sinDesarrollo` lo
+    // caza al construir; esto, en cada `pnpm test`, con fichero y línea.
+    const fuera = CLIENTE.filter((r) => !r.startsWith('src/client/desarrollo/'));
+    const colados: string[] = [];
+    for (const ruta of fuera) {
+      const codigo = sinComentarios(leer(ruta));
+      // Estático: `import … from`, `export … from` o `import '…'` a secas. Solo
+      // vale `import type`, que no deja rastro en el bundle.
+      for (const m of codigo.matchAll(
+        /\b(?:import|export)\s+(type\s+)?(?:[^;'"]*?\bfrom\s*)?['"][^'"]*\/desarrollo\/[^'"]*['"]/g,
+      ))
+        if (m[1] === undefined) colados.push(`${ruta}:${lineaDe(codigo, m.index)} → ${m[0]}`);
+      // Dinámico: dentro de un `if (HERRAMIENTAS_DE_DESARROLLO) {` justo delante.
+      for (const m of codigo.matchAll(/\b(?:import|require)\s*\(\s*['"][^'"]*\/desarrollo\//g)) {
+        const antes = codigo.slice(Math.max(0, m.index - 80), m.index);
+        if (!/if\s*\(\s*HERRAMIENTAS_DE_DESARROLLO\s*\)\s*\{\s*(?:void\s+)?$/.test(antes))
+          colados.push(`${ruta}:${lineaDe(codigo, m.index)} → ${m[0]} sin la guarda`);
+      }
+    }
+    expect(colados).toEqual([]);
+  });
+
   it('FAL_KEY no llega al navegador', () => {
     // El arte se genera en scripts de línea de órdenes; el cliente solo carga
     // PNGs. Una clave de pago en el bundle es un incidente, no un despiste.

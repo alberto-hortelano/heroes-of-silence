@@ -7,7 +7,6 @@
  */
 import { individuosDe } from '@core/hero/troop.js';
 import { inBounds, objectAt, pointKey } from '@core/map/map.js';
-import { isWalkable } from '@core/map/terrain.js';
 import type { Point } from '@core/types.js';
 import {
   acotar,
@@ -21,7 +20,7 @@ import {
   topeDe,
   zoom,
 } from '../render/camara-mapa.js';
-import { puenteBajo } from '../render/escenario/puentes.js';
+import { puenteEnElTerreno } from '../render/escenario/puentes.js';
 import { escenarioListo, topeDeAlejar } from '../render/escenario/superficie.js';
 import { type Medida, pixelesDe } from '../render/lienzo.js';
 import { drawMapa, type PasoDeRuta, pasosAPintar, presupuestoConHolgura } from '../render/mapa.js';
@@ -62,12 +61,22 @@ export class EscenaAventura {
    */
   private fraseDeLaRuta: string | null = null;
   private encuadre: Encuadre = { ancho: 1, alto: 1, mapaAncho: 1, mapaAlto: 1 };
+  /**
+   * A dónde mirar en el próximo encuadre (`mirarA`): se aplica allí y no al
+   * pedirlo porque hasta el primer fotograma no se sabe cuánto mide el lienzo.
+   */
+  private mirarPendiente: { x: number; y: number; tile: number } | null = null;
 
   constructor(private readonly sesion: () => Session) {}
 
   /** Se está arrastrando el mapa: hay que repintar a cada fotograma. */
   get arrastrando(): boolean {
     return this.arrastre?.movido === true;
+  }
+
+  /** Dónde mira la cámara: lo lee quien pinta encima del mapa (el aspa de una marca). */
+  get camaraActual(): CamaraMapa {
+    return this.camara;
   }
 
   /** Vuelve a centrar en el héroe seleccionado (botón «Centrar héroe»). */
@@ -119,7 +128,21 @@ export class EscenaAventura {
     };
     const foco = focoDe(s);
     const clave = `${s.selectedHeroId ?? ''}@${pointKey(foco)}`;
-    if (clave !== this.seguido && this.arrastre === null) {
+    const mirar = this.mirarPendiente;
+    if (mirar !== null) {
+      // Quien pidió mirar allí manda sobre seguir al héroe: se da por seguido
+      // para que el encuadre siguiente no lo recentre.
+      this.mirarPendiente = null;
+      this.seguido = clave;
+      this.camara = acotar(
+        {
+          tile: mirar.tile,
+          x: mirar.x - ancho / mirar.tile / 2,
+          y: mirar.y - alto / mirar.tile / 2,
+        },
+        this.encuadre,
+      );
+    } else if (clave !== this.seguido && this.arrastre === null) {
       this.seguido = clave;
       this.camara = centrarEn(this.camara, foco, this.encuadre);
     } else {
@@ -217,10 +240,7 @@ export class EscenaAventura {
     if (esc === null) return debajo;
     const { x, y } = pixelAMundo(this.camara, px, py);
     const { map } = s.state;
-    const puente = puenteBajo(esc.escena.puentes, x, y, (cx, cy) => {
-      const t = inBounds(map, { x: cx, y: cy }) ? map.terrain[cy * map.width + cx] : undefined;
-      return t !== undefined && isWalkable(t);
-    });
+    const puente = puenteEnElTerreno(esc.escena.puentes, map.terrain, map.width, x, y);
     if (puente === null) return debajo;
     const nodo = { x: Math.floor(puente.nodo[0]), y: Math.floor(puente.nodo[1]) };
     // Bajo la niebla no se pinta, y pulsar ahí no puede decir que hay un puente.
@@ -246,14 +266,38 @@ export class EscenaAventura {
   }
 
   /**
-   * Suelta el puntero. Si no hubo arrastre es un clic: mueve al héroe, o abre
-   * el castillo, o selecciona —lo decide `clickTile`—. Con el dedo, el primer
-   * toque en una casilla solo enseña la ruta y el segundo la anda.
+   * Lleva la cámara a `(x, y)`, en casillas con decimales, a `tile` px por
+   * casilla: lo que pide reproducir una marca de fallo (`?marca=`).
    */
-  soltar(px: number, py: number, tactil: boolean): void {
+  mirarA(punto: { readonly x: number; readonly y: number }, tile: number): void {
+    this.mirarPendiente = { x: punto.x, y: punto.y, tile };
+  }
+
+  /**
+   * El punto del mundo y la casilla bajo un píxel del lienzo: la que señala el
+   * puntero (`casillaBajo`), con el nodo del puente si se pulsa su tablero.
+   */
+  puntoBajo(px: number, py: number): { mundo: { x: number; y: number }; casilla: Point } {
+    return { mundo: pixelAMundo(this.camara, px, py), casilla: this.casillaBajo(px, py) };
+  }
+
+  /**
+   * Suelta el puntero y dice si fue un clic: sin arrastre, quien lo recibe
+   * decide qué hace con él (`pulsar`, o el modo «marcar fallo»). Arrastrar ya
+   * movió la cámara y no es un clic.
+   */
+  soltar(): boolean {
     const a = this.arrastre;
     this.arrastre = null;
-    if (a?.movido === true) return;
+    return a?.movido !== true;
+  }
+
+  /**
+   * Un clic en el mapa: mueve al héroe, o abre el castillo, o selecciona —lo
+   * decide `clickTile`—. Con el dedo, el primer toque en una casilla solo
+   * enseña la ruta y el segundo la anda.
+   */
+  pulsar(px: number, py: number, tactil: boolean): void {
     const casilla = this.casillaBajo(px, py);
     const s = this.sesion();
     if (tactil && this.tocada !== pointKey(casilla)) {
@@ -272,7 +316,7 @@ export class EscenaAventura {
    *
    * La ruta del primer toque NO, y es lo que estaba roto en pantalla táctil: tras
    * un `pointerup` de dedo el navegador manda siempre un `pointerleave` —el dedo
-   * «sale» al levantarse—, y esto vaciaba la ruta que `soltar()` acababa de
+   * «sale» al levantarse—, y esto vaciaba la ruta que `pulsar()` acababa de
    * calcular. La barra decía «Toca otra vez para ir» sobre un mapa sin camino.
    * Esa ruta la quita el segundo toque, otro toque en otra casilla o
    * `olvidarRuta()`, no levantar el dedo.

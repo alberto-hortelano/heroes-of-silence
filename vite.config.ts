@@ -1,4 +1,4 @@
-import type { IncomingMessage } from 'node:http';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 import { resolve } from 'node:path';
 import { defineConfig, type Plugin } from 'vite';
 import { puertoEspectadores } from './src/server/entorno.js';
@@ -12,12 +12,16 @@ import {
 /** Lo más que se acepta en un guardado: medio centenar de unidades caben de sobra. */
 const CUERPO_MAXIMO = 1_000_000;
 
-async function leerCuerpo(req: IncomingMessage): Promise<unknown> {
+async function leerCuerpo(
+  req: IncomingMessage,
+  maximo = CUERPO_MAXIMO,
+  que = 'el borrador',
+): Promise<unknown> {
   let texto = '';
   for await (const trozo of req) {
     texto += String(trozo);
-    if (texto.length > CUERPO_MAXIMO) {
-      throw new Error(`el borrador pasa de ${CUERPO_MAXIMO} caracteres: no es un borrador`);
+    if (texto.length > maximo) {
+      throw new Error(`${que} pasa de ${maximo} caracteres`);
     }
   }
   try {
@@ -118,9 +122,107 @@ function arena(): Plugin {
   };
 }
 
-export default defineConfig({
+/**
+ * Lo más que se acepta de una marca: el recorte de 9×9 casillas a 110 px y
+ * densidad 2 es un PNG de unos 2000×2000, y en base64 cabe holgado.
+ */
+const MARCA_MAXIMA = 25_000_000;
+
+/**
+ * Las marcas de fallo del mapa (`src/client/desarrollo/marcas.ts`): `POST
+ * /__marcas` guarda una y `GET /__marcas/<id>` la devuelve para reproducirla.
+ * Escriben en `docs/revision/marcas/` por `tools/marcas/almacen.ts`.
+ *
+ * `apply: 'serve'`: en `vite build` este plugin no existe, y el cliente no
+ * llega a pedirlo porque su módulo no se emite (`sinDesarrollo` lo comprueba).
+ */
+function marcas(): Plugin {
+  const raiz = __dirname;
+  return {
+    name: 'heroes-marcas',
+    apply: 'serve',
+    configureServer(server) {
+      // El almacén lo carga Vite y no un import de arriba: su esquema trae el
+      // escenógrafo, que importa `@core/…`, y eso lo resuelve el alias de Vite,
+      // no Node al cargar esta configuración (rompía `vite build`).
+      const cargar = async () => ({
+        ...((await server.ssrLoadModule(
+          resolve(raiz, 'tools/marcas/almacen.ts'),
+        )) as typeof import('./tools/marcas/almacen.js')),
+        ...((await server.ssrLoadModule(
+          resolve(raiz, 'src/client/desarrollo/esquema.ts'),
+        )) as typeof import('./src/client/desarrollo/esquema.js')),
+      });
+      const atender = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
+        const { guardarMarca, leerMarca, motivoDe } = await cargar();
+        const responder = (estado: number, cuerpo: unknown): void => {
+          res.statusCode = estado;
+          res.setHeader('content-type', 'application/json');
+          res.end(JSON.stringify(cuerpo));
+        };
+        // `use('/__marcas')` deja en `req.url` lo que va detrás: `/` o `/<id>`.
+        const id = decodeURIComponent((req.url ?? '/').split('?')[0]?.slice(1) ?? '');
+        if (req.method === 'GET' && id !== '') {
+          try {
+            responder(200, leerMarca(raiz, id));
+          } catch (err) {
+            responder(404, { error: motivoDe(err) });
+          }
+          return;
+        }
+        if (req.method !== 'POST' || id !== '') {
+          responder(405, {
+            error: `una marca se guarda con POST /__marcas y se lee con GET /__marcas/<id>, no con ${req.method} ${req.url}`,
+          });
+          return;
+        }
+        try {
+          responder(200, guardarMarca(raiz, await leerCuerpo(req, MARCA_MAXIMA, 'la marca')));
+        } catch (err) {
+          // Lo que no valida no se escribe: 400 con la frase del esquema.
+          responder(400, { error: motivoDe(err) });
+        }
+      };
+      // Si el almacén no carga, el error va a Vite, que responde 500 y lo escribe.
+      server.middlewares.use('/__marcas', (req, res, next) => {
+        atender(req, res).catch(next);
+      });
+    },
+  };
+}
+
+/**
+ * Que nada de las herramientas de desarrollo llegue a `dist/`: ni el módulo de
+ * `desarrollo/` ni la ruta `/__marcas`. Las aparta `HERRAMIENTAS_DE_DESARROLLO`
+ * = `false`, que deja su `import()` en una rama muerta; si un día Rollup lo
+ * conserva o alguien lo importa sin la guarda, el build se rompe aquí y no se
+ * publica una página que escribe en disco.
+ */
+function sinDesarrollo(): Plugin {
+  return {
+    name: 'heroes-sin-desarrollo',
+    apply: 'build',
+    generateBundle(_opciones, bundle) {
+      for (const [nombre, trozo] of Object.entries(bundle)) {
+        const texto =
+          trozo.type === 'chunk'
+            ? `${trozo.code}\n${trozo.moduleIds.join('\n')}`
+            : typeof trozo.source === 'string'
+              ? trozo.source
+              : '';
+        for (const huella of ['__marcas', 'client/desarrollo/', 'HERRAMIENTAS_DE_DESARROLLO'])
+          if (texto.includes(huella))
+            this.error(
+              `el build lleva herramientas de desarrollo: «${huella}» en ${nombre}. Solo pueden entrar con un import() detrás de HERRAMIENTAS_DE_DESARROLLO (src/client/main.ts)`,
+            );
+      }
+    },
+  };
+}
+
+export default defineConfig(({ command }) => ({
   root: 'src/client',
-  plugins: [arena()],
+  plugins: [arena(), marcas(), sinDesarrollo()],
   publicDir: resolve(__dirname, 'assets'),
   resolve: {
     alias: { '@core': resolve(__dirname, 'src/core') },
@@ -135,6 +237,9 @@ export default defineConfig({
     // la página conectando al sitio equivocado: por eso `espectador/main.ts`
     // escribe el puerto que va a usar ANTES de conectar, y el desajuste se lee.
     PUERTO_ESPECTADORES: JSON.stringify(puertoEspectadores()),
+    // El modo «marcar fallo» y lo que venga: solo con `vite` (serve), nunca en
+    // `vite build`. Ver `sinDesarrollo`.
+    HERRAMIENTAS_DE_DESARROLLO: JSON.stringify(command === 'serve'),
   },
   server: {
     port: 3100,
@@ -157,4 +262,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));

@@ -211,6 +211,28 @@ export function pixelAMundo(c: CamaraMapa, px: number, py: number): { x: number;
   return { x: px / c.tile + c.x, y: py / c.tile + c.y };
 }
 
+/**
+ * Los píxeles enteros que se cortan de un lienzo para la caja `[x0, y0, x1, y1]`
+ * vista a `escala` píxeles por unidad desde `origen`: el recorte de una marca de
+ * fallo, en el juego (px CSS × densidad) y en el taller (casillas × tile, tras
+ * su margen). Una cuenta sola, para que los dos corten el mismo sitio.
+ */
+export function cajaEnPixeles(
+  caja: readonly [number, number, number, number],
+  escala: number,
+  origen = 0,
+): { sx: number; sy: number; sw: number; sh: number } {
+  const [x0, y0, x1, y1] = caja;
+  const sx = Math.round(origen + x0 * escala);
+  const sy = Math.round(origen + y0 * escala);
+  return {
+    sx,
+    sy,
+    sw: Math.max(1, Math.round(origen + x1 * escala) - sx),
+    sh: Math.max(1, Math.round(origen + y1 * escala) - sy),
+  };
+}
+
 /** La casilla bajo un píxel. Puede caer fuera del mapa: lo mira quien llama. */
 export function pixelACasilla(c: CamaraMapa, px: number, py: number): Point {
   return { x: Math.floor(px / c.tile + c.x), y: Math.floor(py / c.tile + c.y) };

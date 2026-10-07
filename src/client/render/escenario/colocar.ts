@@ -63,6 +63,18 @@ import {
   sendas,
 } from './sendas.js';
 
+/** Qué puede ser un sprite: de aquí salen `Sprite['clase']` y lo que valida una marca de fallo. */
+export const CLASES_DE_SPRITE = [
+  'masa',
+  'muro',
+  'pared',
+  'cubierta',
+  'roca',
+  'orilla',
+  'objeto',
+  'nube',
+] as const;
+
 /** Un sprite de la escena: una imagen apoyada por su ancla en `(x, y)`, en casillas. */
 export interface Sprite {
   /** Ruta relativa a `assets/mapa/`, o null si el arte aún no existe (se pinta un marcador). */
@@ -77,7 +89,7 @@ export interface Sprite {
   /** Alto en pantalla, en casillas. */
   readonly alto: number;
   /** Qué es: para medir y para el marcador. */
-  readonly clase: 'masa' | 'muro' | 'pared' | 'cubierta' | 'roca' | 'orilla' | 'objeto' | 'nube';
+  readonly clase: (typeof CLASES_DE_SPRITE)[number];
   readonly color: string;
   /** Se pinta en su orden por la y (0) o encima de todo (1, las nubes). */
   readonly capa: 0 | 1;

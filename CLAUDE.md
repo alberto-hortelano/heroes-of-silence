@@ -17,6 +17,7 @@ pnpm arena      # /arena/: monta unidades de las cinco facciones y hazlas luchar
 pnpm verify     # typecheck + lint + tests, ~14 s: el bucle rápido
 pnpm test | pnpm typecheck | pnpm lint | pnpm format
 pnpm banco      # 200 partidas: tiempo y sha256 del volcado, anclado en el fichero
+pnpm marcas     # fallos del mapa marcados en pnpm dev (M o «Marcar»): lista, ver <id>, resolver <id> <ref>, recorte <id>
 pnpm qa         # circuito entero del agente (mapa, servidor, puente MCP), ~3 s
 pnpm capturas   # juega cliente, espectador y arena en Chromium con clics reales, ~245 s; deja los PNG en .cache/capturas/ o en la carpeta que se le pase
 npx tsx tools/qa/barrido-semillas.ts   # cuántas partidas no terminan (hoy 0)
@@ -103,6 +104,10 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 - **La crónica**: `state.log` es `readonly` y `emit` (no exportada, en
   `game.ts`) hace el único `push`. Cada hecho lleva protagonista, sitio y sello
   `seen`. `game_over` es el último hecho por regla del núcleo.
+- **Herramientas de desarrollo solo en `pnpm dev`**: `src/client/desarrollo/` entra por un
+  `import()` detrás de `HERRAMIENTAS_DE_DESARROLLO` (`define`, `false` en build); desde fuera,
+  solo `import type`. Lo vigilan `invariantes.test.ts` y el plugin `sinDesarrollo`, que rompe
+  `vite build` si se cuela. Las marcas van a `docs/revision/marcas/` (ignorado).
 - **Un guardia hay que verlo morder**: cada invariante nuevo se rompe a mano y se
   mira rojo antes de darlo por bueno. Una orden documentada hay que verla
   arrancar (y morir).

@@ -15,8 +15,11 @@ import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { chromium } from 'playwright';
+import { chromium, type Page } from 'playwright';
+import type { Marca } from '../../../src/client/desarrollo/tipos.js';
+import { cajaEnPixeles } from '../../../src/client/render/camara-mapa.js';
 import { componer } from '../../../src/client/render/escenario/colocar.js';
+import { MARGEN } from '../../../src/client/render/escenario/pintar.js';
 import { newGame } from '../../../src/core/state/setup.js';
 import { leerCatalogo } from './catalogo-disco.js';
 import { paginaDeEscena } from './pintor.js';
@@ -69,36 +72,70 @@ export interface Resultado {
   readonly informe: Record<string, unknown>;
 }
 
-export async function escenario(semillas: readonly number[], tile = 48): Promise<Resultado[]> {
+/** Una página del taller abierta y pintada, con los errores que vaya dando. */
+interface PaginaDeEscena {
+  readonly pagina: Page;
+  /** Fallos de la página y errores de consola (menos los 404 del arte que falta). */
+  readonly errores: readonly string[];
+}
+
+/**
+ * Chromium y el servidor de ficheros del repo para `trabajo`, cerrados al acabar
+ * pase lo que pase. `abrir(nombre, …)` carga `.cache/taller/escenario/<nombre>`
+ * (con `?t=` si se da) y espera a que el pintor publique su informe: el único
+ * camino por el que el taller abre una escena, para el informe y para el
+ * recorte de una marca.
+ */
+async function conPaginasDeEscena<T>(
+  trabajo: (
+    abrir: (
+      nombre: string,
+      lado: { width: number; height: number },
+      t?: number,
+    ) => Promise<PaginaDeEscena>,
+  ) => Promise<T>,
+): Promise<T> {
   await mkdir(DIR_ESCENARIO, { recursive: true });
   const ejecutable = chromiumInstalado();
   const navegador = await chromium.launch(
     ejecutable === undefined ? {} : { executablePath: ejecutable },
   );
-  const fuera: Resultado[] = [];
   const { servidor, base } = await servir();
-  // Del disco y no de `escena.json`: así se ve al momento una hoja recién cortada.
-  const catalogo = await leerCatalogo();
   try {
-    for (const semilla of semillas) {
-      const escena = componer(newGame({ seed: semilla }).map, semilla, catalogo);
-      const html = join(DIR_ESCENARIO, `${semilla}.html`);
-      await writeFile(html, await paginaDeEscena(escena, '../../../assets/mapa/', tile));
-      const pagina = await navegador.newPage({ viewport: { width: 1800, height: 1800 } });
+    return await trabajo(async (nombre, lado, t) => {
+      const pagina = await navegador.newPage({ viewport: lado });
       const errores: string[] = [];
       pagina.on('pageerror', (e) => errores.push(String(e)));
       pagina.on('console', (m) => {
         if (m.type() === 'error' && !/ERR_FILE_NOT_FOUND|404/.test(m.text()))
           errores.push(m.text());
       });
-      await pagina.goto(`${base}/.cache/taller/escenario/${semilla}.html`);
+      await pagina.goto(
+        `${base}/.cache/taller/escenario/${nombre}${t === undefined ? '' : `?t=${t}`}`,
+      );
       await pagina.waitForFunction(
         () => (window as unknown as { __informe?: unknown }).__informe !== undefined,
         null,
-        {
-          timeout: 120_000,
-        },
+        { timeout: 120_000 },
       );
+      return { pagina, errores };
+    });
+  } finally {
+    await navegador.close();
+    servidor.close();
+  }
+}
+
+export async function escenario(semillas: readonly number[], tile = 48): Promise<Resultado[]> {
+  // Del disco y no de `escena.json`: así se ve al momento una hoja recién cortada.
+  const catalogo = await leerCatalogo();
+  return conPaginasDeEscena(async (abrir) => {
+    const fuera: Resultado[] = [];
+    for (const semilla of semillas) {
+      const escena = componer(newGame({ seed: semilla }).map, semilla, catalogo);
+      const html = join(DIR_ESCENARIO, `${semilla}.html`);
+      await writeFile(html, await paginaDeEscena(escena, '../../../assets/mapa/', tile));
+      const { pagina, errores } = await abrir(`${semilla}.html`, { width: 1800, height: 1800 });
       const informe = {
         ...((await pagina.evaluate(
           () => (window as unknown as { __informe: object }).__informe,
@@ -115,9 +152,61 @@ export async function escenario(semillas: readonly number[], tile = 48): Promise
       );
       fuera.push({ html, png, informe });
     }
-  } finally {
-    await navegador.close();
-    servidor.close();
-  }
-  return fuera;
+    return fuera;
+  });
+}
+
+/**
+ * El recorte de una marca de fallo (`pnpm marcas recorte <id>`), pintado por el
+ * taller: compone el mapa de su semilla, lo pinta a la densidad de la marca
+ * (`tile × densidad` px por casilla) y corta la caja del mundo que cubre su PNG.
+ * Escribe `salida` y devuelve los avisos —si el taller compone otra escena que
+ * la del juego, el recorte no es el mismo sitio y hay que saberlo—. Lanza si la
+ * página da errores, de consola incluidos: un recorte de una página rota no vale.
+ *
+ * El taller pinta con `pintarEscena` y el juego con el suelo del Worker y sus
+ * volúmenes: lo que difiera entre los dos caminos es en sí un hallazgo.
+ */
+export async function recorteDeMarca(marca: Marca, salida: string): Promise<{ avisos: string[] }> {
+  const catalogo = await leerCatalogo();
+  const escena = componer(newGame({ seed: marca.semilla }).map, marca.semilla, catalogo);
+  const avisos: string[] = [];
+  if (escena.sprites.length !== marca.queHay.spritesDeLaEscena)
+    avisos.push(
+      `el taller compone ${escena.sprites.length} sprites y el juego compuso ${marca.queHay.spritesDeLaEscena}: el catálogo del disco no es el de assets/mapa/escena.json (pnpm taller catalogo-escena), y el recorte puede no ser el mismo sitio`,
+    );
+  // Píxeles de dispositivo por casilla: los del PNG de la marca.
+  const T = marca.camara.tile * marca.lienzo.densidad;
+  const nombre = `marca-${marca.id}.html`;
+  await mkdir(DIR_ESCENARIO, { recursive: true });
+  await writeFile(
+    join(DIR_ESCENARIO, nombre),
+    await paginaDeEscena(escena, '../../../assets/mapa/', T),
+  );
+  const pixeles = cajaEnPixeles(marca.recorte, T, MARGEN * T);
+  const dataUrl = await conPaginasDeEscena(async (abrir) => {
+    const { pagina, errores } = await abrir(nombre, { width: 1200, height: 900 }, T);
+    const url = await pagina.evaluate(({ sx, sy, sw, sh }) => {
+      const lienzo = document.getElementById('lienzo') as HTMLCanvasElement;
+      const corte = document.createElement('canvas');
+      corte.width = sw;
+      corte.height = sh;
+      (corte.getContext('2d') as CanvasRenderingContext2D).drawImage(
+        lienzo,
+        sx,
+        sy,
+        sw,
+        sh,
+        0,
+        0,
+        sw,
+        sh,
+      );
+      return corte.toDataURL('image/png');
+    }, pixeles);
+    if (errores.length > 0) throw new Error(`la página del taller falló: ${errores.join(' · ')}`);
+    return url;
+  });
+  await writeFile(salida, Buffer.from(dataUrl.slice(dataUrl.indexOf(',') + 1), 'base64'));
+  return { avisos };
 }

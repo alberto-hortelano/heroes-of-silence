@@ -614,7 +614,7 @@ describe('pulsar el puente lleva a su nodo (H2 del QA de #157)', () => {
     expect(s.status).toMatch(/^Paso sin dueño · /);
     const antes = { ...s.selectedHero!.at };
     escena.bajar(p.x, p.y);
-    escena.soltar(p.x, p.y, false);
+    if (escena.soltar()) escena.pulsar(p.x, p.y, false);
     expect(s.status).not.toMatch(/No hay camino/);
     expect(s.selectedHero!.at).not.toEqual(antes);
   });
@@ -645,7 +645,7 @@ describe('pulsar el puente lleva a su nodo (H2 del QA de #157)', () => {
       const p = mundoAPixel(camara, x, y);
       escena.mover(p.x, p.y);
       escena.bajar(p.x, p.y);
-      escena.soltar(p.x, p.y, false);
+      if (escena.soltar()) escena.pulsar(p.x, p.y, false);
     };
     // Las piernas y el centro de la orilla caen bajo el tablero: que la prueba no pase en vacío.
     const pisable = pisableEn(s.state.map);
