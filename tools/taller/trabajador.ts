@@ -779,7 +779,7 @@ switch (orden) {
       const i = r.informe as Escena['informe'] & { desnudo: number; errores: string[] };
       console.log(`→ ${r.png}`);
       console.log(
-        `  suelo desnudo ${(i.desnudo * 100).toFixed(1)} % · murallas partidas ${i.murallasPartidas} · bases sobre reserva ${i.basesSobreReserva} · barrera sin formación ${i.casillasDeBarreraSinFormacion} · sprites sobre la senda ${i.spritesSobreSenda} · paredes sobre una rampa ${i.paredesSobreRampa}` +
+        `  suelo desnudo ${(i.desnudo * 100).toFixed(1)} % · murallas partidas ${i.murallasPartidas} · bases sobre reserva ${i.basesSobreReserva} · barrera sin formación ${i.casillasDeBarreraSinFormacion} · sprites sobre la senda ${i.spritesSobreSenda} · paredes sobre una rampa ${i.paredesSobreRampa} · pasos tapados ${i.pasosTapados}` +
           (i.modulosQueFaltan.length > 0 ? ` · faltan ${i.modulosQueFaltan.join(', ')}` : '') +
           (i.errores.length > 0 ? ` · ERRORES: ${i.errores.join(' | ')}` : ''),
       );

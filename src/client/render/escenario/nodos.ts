@@ -3,7 +3,7 @@
  * `buildMap` pinta la casilla de un nodo como `dirt` y no guarda la barrera, así
  * que sale de sus ocho vecinas (petición 4 de la §11 de `peticiones.md`).
  */
-import type { TramoDeCamino } from '@core/map/map.js';
+import type { MapObject, TramoDeCamino } from '@core/map/map.js';
 import { type Barrera, esBarrera, type TerrainKind } from '@core/map/terrain.js';
 
 /**
@@ -67,4 +67,86 @@ export function pasaElCamino(
   at: { x: number; y: number },
 ): boolean {
   return tramos.some(([p, q]) => (p.x === at.x && p.y === at.y) || (q.x === at.x && q.y === at.y));
+}
+
+/**
+ * Los ejes que se prueban, en el orden de `ejeDelNodo` (`vestir.ts`): los rectos
+ * y luego los diagonales, cada uno con su opuesto.
+ */
+const EJES: readonly (readonly [number, number])[] = [
+  [0, 1],
+  [1, 0],
+  [1, -1],
+  [1, 1],
+];
+
+/**
+ * El eje de un nodo de paso, como línea por centros de casilla: de la segunda
+ * casilla de una entrada, por el nodo, a la segunda de la opuesta. Es lo que
+ * protege el vestido (`ejeDelNodo`, #161: dos entradas opuestas, hasta la
+ * segunda casilla) y lo que tiene que verse para que se lea el collado (#173).
+ *
+ * El vestido no guarda el eje, así que se rehace con su mismo orden sobre el
+ * terreno —pleno recto, pleno diagonal, corto— sin las regiones: en un
+ * estrechamiento de una casilla, dos lados pisables opuestos son dos regiones.
+ * Pegado al borde, lo pisable que haya en ese lado. Sin lados opuestos
+ * pisables (el nodo que el vestido dejó con una vecina por región), un brazo
+ * hasta cada vecina pisable en cruz: esas son sus entradas.
+ */
+export function ejeDelPaso(
+  at: { x: number; y: number },
+  W: number,
+  terreno: readonly TerrainKind[],
+): (readonly [number, number])[][] {
+  const H = terreno.length / W;
+  const pisable = (x: number, y: number) =>
+    x >= 0 && y >= 0 && x < W && y < H && !esBarrera(terreno[y * W + x] as TerrainKind);
+  const centro = (x: number, y: number): readonly [number, number] => [x + 0.5, y + 0.5];
+  /** Hasta dónde llega por `(dx, dy)`: 2 si las dos casillas se pisan, 1 si solo la primera. */
+  const alcance = (dx: number, dy: number) =>
+    !pisable(at.x + dx, at.y + dy) ? 0 : pisable(at.x + 2 * dx, at.y + 2 * dy) ? 2 : 1;
+  for (const minimo of [2, 1])
+    for (const [dx, dy] of EJES) {
+      const a = alcance(dx, dy);
+      const b = alcance(-dx, -dy);
+      if (a >= minimo && b >= minimo)
+        return [[centro(at.x - b * dx, at.y - b * dy), centro(at.x + a * dx, at.y + a * dy)]];
+    }
+  return EJES.slice(0, 2)
+    .flatMap(([dx, dy]) => [
+      [dx, dy],
+      [-dx, -dy],
+    ])
+    .filter(([dx, dy]) => alcance(dx as number, dy as number) > 0)
+    .map(([dx, dy]) => {
+      const a = alcance(dx as number, dy as number);
+      return [centro(at.x, at.y), centro(at.x + a * (dx as number), at.y + a * (dy as number))];
+    });
+}
+
+/** Un nodo de paso y su eje (`ejeDelPaso`): lo que no puede quedar tapado (#173). */
+export interface PasoALaVista {
+  readonly id: string;
+  readonly eje: readonly (readonly (readonly [number, number])[])[];
+}
+
+/**
+ * Los nodos de paso que tienen que verse, con su eje: los de las barreras de
+ * `NODOS` (montaña, bosque y muro). Ni los puentes, que se apartan con su
+ * tablero (`tablerosAlPaso`), ni el acantilado, que lleva el hito y su rampa.
+ */
+export function pasosALaVista(
+  map: {
+    readonly width: number;
+    readonly terrain: readonly TerrainKind[];
+    readonly objects: readonly MapObject[];
+  },
+  puentes: ReadonlySet<string>,
+): PasoALaVista[] {
+  return map.objects.flatMap((o) => {
+    if (o.kind !== 'node' || puentes.has(o.id)) return [];
+    const { barrera } = barreraDeNodo(o.at, map.width, map.terrain);
+    if (!NODOS.some((n) => n.barrera === barrera)) return [];
+    return [{ id: o.id, eje: ejeDelPaso(o.at, map.width, map.terrain) }];
+  });
 }

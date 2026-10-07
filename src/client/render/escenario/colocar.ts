@@ -35,9 +35,9 @@ import {
   PASO_DEL_RUIDO,
   radioDePico,
 } from './macizo.js';
-import { nodoDePaso } from './nodos.js';
+import { nodoDePaso, type PasoALaVista, pasosALaVista } from './nodos.js';
 import { cajaDeSprite, Pasillo } from './pasillo.js';
-import { esVolumen, ordenDeVolumenes, separar } from './pintar.js';
+import { esVolumen, ordenDeVolumenes, separar, UMBRAL_DE_VOLUMEN } from './pintar.js';
 import {
   type Puente,
   puenteDe,
@@ -201,6 +201,11 @@ export interface Escena {
      * desde la puerta (`vaDelante`): tiene que ser 0.
      */
     readonly puentesTapados: number;
+    /**
+     * Nodos de paso de montaña, bosque o muro cuyo eje pisa el rectángulo de un
+     * volumen de los que se apartan (`pasosTapados`): tiene que ser 0.
+     */
+    readonly pasosTapados: number;
     /**
      * Sendas que salen de un estribo y pasan por agua pintada en sus primeras
      * casillas, sin vado que la quite (`sendasDeEstriboEnAgua`): tiene que ser 0.
@@ -782,6 +787,11 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   // cada puente que taparían (`vaDelante`): con la pared de la cara de detrás
   // encima, el puente quedaba tapado (#157).
   const tableros = tablerosAlPaso(puentes);
+  // El eje de cada nodo de paso, con camino o sin él: sin camino que abriera
+  // hueco, los picos y los árboles de alrededor lo enterraban y el paso no se
+  // distinguía de la cordillera (#173).
+  const pasos = pasosALaVista(map, a.puentes);
+  const pasilloDeLosPasos = pasilloDeLosPasosDe(pasos);
   // Por dónde bajan las sendas por las caras: el único sitio donde se decide.
   // La línea de cada puente, de estribo a estribo, abre su tajo como una senda
   // (se ve el agua bajo el tablero y la pared remata sus bordes): sin él,
@@ -820,7 +830,8 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     const minimo = r.minimo(s.alto);
     return (
       !pasillo.pisa(cajaDeSprite(s, minimo), r.semiancho) &&
-      !tapaUnTablero(s, tableros, r.semiancho, minimo)
+      !tapaUnTablero(s, tableros, r.semiancho, minimo) &&
+      !tapaUnPaso(s, pasilloDeLosPasos, minimo)
     );
   };
   /**
@@ -844,6 +855,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     const alto = Math.min(
       pasillo.altoLibre(s, r.semiancho),
       altoLibreAnteLosPuentes(s, tableros, r.semiancho),
+      altoLibreAnteLosPasos(s, pasilloDeLosPasos),
     );
     return alto === s.alto ? s : { ...s, alto };
   };
@@ -1783,6 +1795,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       laderasEnfrentadas: laderasEnfrentadas(sprites, deLadera).length,
       carasLisas: carasLisas(carasDeEscena, sprites, perfilDe).length,
       puentesTapados: puentesTapados(sprites, puentes).length,
+      pasosTapados: pasosTapados(sprites, pasos).length,
       sendasDeEstriboEnAgua: sendasDeEstriboEnAgua(trazos, puentes, vados, esAgua).length,
       acantiladosARas: acantiladosARas(a.terreno, rel.nivel, W, H).length,
       modulosQueFaltan: [...faltan].sort(),
@@ -1903,6 +1916,66 @@ export function tapaUnTablero(
   alto = s.alto,
 ): boolean {
   return tableros.some((t) => vaDelante(s, t) && t.pasillo.pisa(cajaDeSprite(s, alto), r));
+}
+
+/**
+ * La media anchura del eje de un nodo de paso que no pisa ningún volumen: la
+ * del pasillo de las masas, para que el collado se lea como el hueco que abre
+ * una senda en una cordillera (#173).
+ */
+export const SEMIANCHO_DEL_PASO = SEMIANCHO_DEL_PASILLO_DE_MASA;
+
+/** El pasillo de los ejes de unos nodos de paso (`pasosALaVista`). */
+export function pasilloDeLosPasosDe(pasos: readonly PasoALaVista[]): Pasillo {
+  return new Pasillo(
+    pasos.flatMap((p) => p.eje),
+    SEMIANCHO_DEL_PASO,
+  );
+}
+
+/**
+ * Si `s`, con el alto `alto`, sería un volumen que pisa el eje de un paso. Lo
+ * bajo no cuenta: va al suelo, debajo de todo, y no tapa el collado; quitarlo
+ * también dejaba una franja recta y pelada donde no hay camino.
+ */
+export function tapaUnPaso(
+  s: Pick<Sprite, 'x' | 'y' | 'nw' | 'nh' | 'ax' | 'ay' | 'alto' | 'clase'>,
+  pasos: Pasillo,
+  alto = s.alto,
+): boolean {
+  return (
+    esVolumen({ clase: s.clase, alto }) && pasos.pisa(cajaDeSprite(s, alto), SEMIANCHO_DEL_PASO)
+  );
+}
+
+/**
+ * El mayor alto, hasta el suyo, con el que `s` no tapa el eje de ningún paso
+ * (`tapaUnPaso`): la masa, que siempre es volumen, se encoge hasta salir; lo
+ * demás puede quedarse en el umbral del volumen, como suelo.
+ */
+export function altoLibreAnteLosPasos(s: Sprite, pasos: Pasillo): number {
+  if (!esVolumen(s)) return s.alto;
+  const libre = pasos.altoLibre(s, SEMIANCHO_DEL_PASO);
+  return esVolumen({ clase: s.clase, alto: 0 })
+    ? libre
+    : Math.max(libre, Math.min(s.alto, UMBRAL_DE_VOLUMEN));
+}
+
+/**
+ * Los nodos de paso cuyo eje pisa el rectángulo de un volumen de una clase que
+ * se aparta (`APARTE`), medido desde lo puesto y con un pasillo por nodo: no
+ * pregunta a la puerta (`tapaUnPaso`), así que si se equivoca, esto lo ve. No
+ * cuentan los muros y las paredes, que no se apartan de nada, ni lo horneado.
+ */
+export function pasosTapados(
+  sprites: readonly Sprite[],
+  pasos: readonly PasoALaVista[],
+): PasoALaVista[] {
+  const volumenes = sprites.filter((s) => APARTE[s.clase] !== null && s.capa === 0 && esVolumen(s));
+  return pasos.filter((p) => {
+    const eje = new Pasillo(p.eje, SEMIANCHO_DEL_PASO);
+    return volumenes.some((s) => eje.pisa(cajaDeSprite(s), SEMIANCHO_DEL_PASO));
+  });
 }
 
 /** Cada cuánto se mira el tablero, en casillas, para ver si algo lo tapa. */

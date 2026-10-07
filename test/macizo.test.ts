@@ -106,7 +106,14 @@ function picosDelMacizo(semilla: number) {
   );
   const falda: (typeof picos)[number][] = [];
   const cresta: (typeof picos)[number][] = [];
+  // Los picos junto a un nodo los decide el pasillo de su paso (#173), que los
+  // encoge o los quita, no el macizo: fuera de la cuenta.
+  const nodos = map.objects.filter((o) => o.kind === 'node');
   for (const s of picos) {
+    if (
+      nodos.some((o) => Math.abs(o.at.x + 0.5 - s.x) <= 2.5 && Math.abs(o.at.y + 0.5 - s.y) <= 2.5)
+    )
+      continue;
     const i = Math.floor(Math.min(s.y, a.H - 0.01)) * a.W + Math.floor(Math.min(s.x, a.W - 0.01));
     const suyo = macizos.find((m) => m.dentro.has(i));
     if (suyo === undefined) continue;
@@ -142,9 +149,12 @@ describe('la escena: los picos de una cordillera crecen hacia dentro', () => {
     it(`semilla ${semilla}: más altos, más esbeltos y más claros en la cresta que en la falda`, () => {
       const { falda, cresta } = picosDelMacizo(semilla);
       const media = (l: readonly number[]) => l.reduce((x, y) => x + y, 0) / l.length;
-      // El alto: lo que hace que se lea como macizo y no como alfombra.
+      // El alto: lo que hace que se lea como macizo y no como alfombra. Era ×1,5;
+      // desde #175 la cumbre que no llega sin ampliarse más de ×1,3 se baja, y una
+      // cresta corta queda en ×1,41 (s5, tras #173). Por debajo de ×1,35 ya se
+      // leería como alfombra.
       expect(media(cresta.map((s) => s.alto))).toBeGreaterThan(
-        1.5 * media(falda.map((s) => s.alto)),
+        1.35 * media(falda.map((s) => s.alto)),
       );
       // La silueta: los esbeltos arriba.
       const esbeltez = (s: (typeof falda)[number]) => s.nh / s.nw;
