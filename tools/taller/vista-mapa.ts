@@ -13,9 +13,14 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import { barreraDeNodo, NODOS, nodoDePaso } from '../../src/client/render/escenario/nodos.js';
+import {
+  barreraDeNodo,
+  NODOS,
+  nodoDePaso,
+  pasaElCamino,
+} from '../../src/client/render/escenario/nodos.js';
 import { pigments } from '../../src/client/render/terreno.js';
-import type { MapObject } from '../../src/core/map/map.js';
+import type { MapObject, RedDeCaminos } from '../../src/core/map/map.js';
 import {
   type Barrera,
   esBarrera,
@@ -200,7 +205,7 @@ export function componerMapa(semilla: number): MapaCompuesto {
     });
   }
 
-  for (const o of map.objects) cosas.push(...cosaDeObjeto(o, W, terreno));
+  for (const o of map.objects) cosas.push(...cosaDeObjeto(o, W, terreno, map.caminos));
   cosas.sort((a, b) => a.y - b.y || a.x - b.x);
   return { ancho: W, alto: H, suelo, barrera, cosas, sinPieza: [...sinPieza].sort() };
 }
@@ -215,13 +220,18 @@ const PIEZA_DE_RECURSO: Readonly<Record<string, string>> = {
   wood: 'madera',
 };
 
-function cosaDeObjeto(o: MapObject, W: number, terreno: readonly TerrainKind[]): Cosa[] {
+function cosaDeObjeto(
+  o: MapObject,
+  W: number,
+  terreno: readonly TerrainKind[],
+  caminos: RedDeCaminos,
+): Cosa[] {
   const x = o.at.x + 0.5;
   const y = o.at.y + 0.85;
   switch (o.kind) {
     case 'node': {
       const { barrera, eje } = barreraDeNodo(o.at, W, terreno);
-      const pieza = nodoDePaso(barrera, eje);
+      const pieza = nodoDePaso(barrera, eje, pasaElCamino(caminos.tramos, o.at));
       return [
         {
           pieza,

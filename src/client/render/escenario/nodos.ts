@@ -3,6 +3,7 @@
  * `buildMap` pinta la casilla de un nodo como `dirt` y no guarda la barrera, así
  * que sale de sus ocho vecinas (petición 4 de la §11 de `peticiones.md`).
  */
+import type { TramoDeCamino } from '@core/map/map.js';
 import { type Barrera, esBarrera, type TerrainKind } from '@core/map/terrain.js';
 
 /**
@@ -51,9 +52,25 @@ export function barreraDeNodo(
 /**
  * El nodo de paso según la barrera que cruza y el eje de la frontera; el hito
  * si no hay pieza para esa barrera (el agua: su puente sale de `puenteDe`).
+ * El acantilado con camino también lleva el hito: el desnivel lo baja la rampa
+ * de la senda (`rampas`), y las escaleras de su pieza, de un solo lado, no
+ * seguían al camino (#168).
  */
-export function nodoDePaso(barrera: Barrera | null, eje: 'ancho' | 'hondo'): string {
+export function nodoDePaso(
+  barrera: Barrera | null,
+  eje: 'ancho' | 'hondo',
+  conCamino: boolean,
+): string {
+  if (barrera === 'cliff' && conCamino) return 'nodo-hito';
   const nodo = NODOS.find((n) => n.barrera === barrera);
   if (nodo === undefined) return 'nodo-hito';
   return nodo.variantes.includes(eje) ? `${nodo.id}-${eje}` : nodo.id;
+}
+
+/** ¿Llega algún tramo de camino a la casilla del nodo? Lo leen su pieza y la de su puente. */
+export function pasaElCamino(
+  tramos: readonly TramoDeCamino[],
+  at: { x: number; y: number },
+): boolean {
+  return tramos.some(([p, q]) => (p.x === at.x && p.y === at.y) || (q.x === at.x && q.y === at.y));
 }

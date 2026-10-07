@@ -11,6 +11,7 @@ import type { TramoDeCamino } from '@core/map/map.js';
 import { isWalkable, type TerrainKind } from '@core/map/terrain.js';
 import { type Analisis, regionPisable } from './analizar.js';
 import type { Catalogo, MedidasDePuente } from './catalogo.js';
+import { pasaElCamino } from './nodos.js';
 import { ALTO_DE_NIVEL } from './relieve.js';
 import { ANCHO_DEL_VADO, grafoDeTramos, type Senda, type Tramo } from './sendas.js';
 
@@ -142,11 +143,7 @@ export function puenteDe(
     const r = regionPisable(a, x + dx, y + dy);
     return r < 0 ? null : { i: (y + dy) * a.W + x + dx, r, dx, dy };
   };
-  const clase: ClaseDePuente = tramos.some(
-    ([p, q]) => (p.x === x && p.y === y) || (q.x === x && q.y === y),
-  )
-    ? 'piedra'
-    : 'troncos';
+  const clase: ClaseDePuente = pasaElCamino(tramos, { x, y }) ? 'piedra' : 'troncos';
 
   let eje: EjeDePuente | null = null;
   let centro: Punto = [x + 0.5, y + 0.5];

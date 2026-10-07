@@ -48,8 +48,14 @@ describe('el catálogo de los mapas densos', () => {
 
   it('cada barrera tiene su nodo de paso, menos el agua, que lleva puente (puentes.ts)', () => {
     for (const b of BARRERAS)
-      if (b !== 'water') expect(nodoDePaso(b, 'ancho')).not.toBe('nodo-hito');
-    expect(nodoDePaso(null, 'ancho')).toBe('nodo-hito');
+      if (b !== 'water') expect(nodoDePaso(b, 'ancho', false)).not.toBe('nodo-hito');
+    expect(nodoDePaso(null, 'ancho', false)).toBe('nodo-hito');
+  });
+
+  it('el acantilado con camino lleva el hito: la rampa baja el desnivel (#168)', () => {
+    expect(nodoDePaso('cliff', 'ancho', true)).toBe('nodo-hito');
+    expect(nodoDePaso('cliff', 'ancho', false)).toBe('nodo-paso-acantilado');
+    expect(nodoDePaso('mountain', 'ancho', true)).toBe('nodo-paso-montana');
     expect(NODOS.some((n) => n.barrera === 'water')).toBe(false);
   });
 
