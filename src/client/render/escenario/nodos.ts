@@ -9,7 +9,10 @@ import { type Barrera, esBarrera, type TerrainKind } from '@core/map/terrain.js'
 /**
  * Los nodos de paso, uno por barrera; la puerta en las dos orientaciones de la
  * frontera. El agua no está: su nodo es un puente, y lo decide `puentes.ts` por
- * las orillas (#157). `n` es su sitio en la lámina `b` de `mapa-denso.ts`.
+ * las orillas (#157). El acantilado tampoco: su pieza de escaleras subía siempre
+ * hacia el mismo lado, sin casar con el desnivel ni con el camino (#168); lleva
+ * el hito, y lo que baja lo pinta la rampa. `n` es su sitio en la lámina `b` de
+ * `mapa-denso.ts`.
  */
 export const NODOS: readonly {
   id: string;
@@ -20,7 +23,6 @@ export const NODOS: readonly {
   { id: 'nodo-puerta', n: 2, barrera: 'wall', variantes: ['ancho', 'hondo'] },
   { id: 'nodo-paso-montana', n: 3, barrera: 'mountain', variantes: [''] },
   { id: 'nodo-paso-bosque', n: 4, barrera: 'forest', variantes: [''] },
-  { id: 'nodo-paso-acantilado', n: 5, barrera: 'cliff', variantes: [''] },
 ];
 
 /** La barrera que cruza un nodo y el eje de su frontera, por las casillas de alrededor. */
@@ -52,22 +54,14 @@ export function barreraDeNodo(
 /**
  * El nodo de paso según la barrera que cruza y el eje de la frontera; el hito
  * si no hay pieza para esa barrera (el agua: su puente sale de `puenteDe`).
- * El acantilado con camino también lleva el hito: el desnivel lo baja la rampa
- * de la senda (`rampas`), y las escaleras de su pieza, de un solo lado, no
- * seguían al camino (#168).
  */
-export function nodoDePaso(
-  barrera: Barrera | null,
-  eje: 'ancho' | 'hondo',
-  conCamino: boolean,
-): string {
-  if (barrera === 'cliff' && conCamino) return 'nodo-hito';
+export function nodoDePaso(barrera: Barrera | null, eje: 'ancho' | 'hondo'): string {
   const nodo = NODOS.find((n) => n.barrera === barrera);
   if (nodo === undefined) return 'nodo-hito';
   return nodo.variantes.includes(eje) ? `${nodo.id}-${eje}` : nodo.id;
 }
 
-/** ¿Llega algún tramo de camino a la casilla del nodo? Lo leen su pieza y la de su puente. */
+/** ¿Llega algún tramo de camino a la casilla del nodo? Con camino, el puente es de piedra. */
 export function pasaElCamino(
   tramos: readonly TramoDeCamino[],
   at: { x: number; y: number },

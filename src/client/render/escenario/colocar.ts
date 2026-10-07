@@ -25,7 +25,7 @@ import {
 } from './catalogo.js';
 import { azarDe, esparcir } from './esparcir.js';
 import { ejeDe, esqueleto } from './esqueleto.js';
-import { nodoDePaso, pasaElCamino } from './nodos.js';
+import { nodoDePaso } from './nodos.js';
 import { cajaDeSprite, Pasillo } from './pasillo.js';
 import { esVolumen, ordenDeVolumenes, separar } from './pintar.js';
 import {
@@ -497,6 +497,9 @@ const MONSTRUO = {
   recorte: [0, 0, 256, 256] as const,
 };
 
+/** Ancho del mojón de un nodo, en casillas: mide una casilla de alto (#168). */
+const ANCHO_DEL_HITO = 0.6;
+
 export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo): Escena {
   /** Los módulos de una hoja, de menor a mayor, o null si la hoja aún no está hecha. */
   const modulosDe = (hoja: string): readonly Modulo[] | null => catalogo.hojas[hoja] ?? null;
@@ -651,7 +654,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
                 // El de agua ya salió arriba, con su puente.
                 const paso = a.pasos.get(o.id);
                 if (paso === undefined) throw new Error(`el nodo ${o.id} no está en el análisis`);
-                return nodoDePaso(paso.barrera, paso.eje, pasaElCamino(map.caminos.tramos, o.at));
+                return nodoDePaso(paso.barrera, paso.eje);
               })()
             : o.kind === 'resource'
               ? // Mercurio, azufre, cristal y gemas no tienen pieza: van como tesoro.
@@ -677,11 +680,14 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       });
       continue;
     }
-    // Ancho en casillas: los de la composición de prueba, que se veían bien.
+    // Ancho en casillas: los de la composición de prueba, que se veían bien. El
+    // hito, más estrecho: con su poste, a 1,7 medía 2,2 casillas de alto, más que una mina.
     const ancho =
-      { town: 2.4, village: 1.9, node: 1.7, resource: 0.95, mine: 1.2, chest: 0.6 }[
-        o.kind as 'town'
-      ] ?? 0.5;
+      id === 'nodo-hito'
+        ? ANCHO_DEL_HITO
+        : ({ town: 2.4, village: 1.9, node: 1.7, resource: 0.95, mine: 1.2, chest: 0.6 }[
+            o.kind as 'town'
+          ] ?? 0.5);
     // Ciudades y pueblos, cada uno con su variante de la hoja (por su id, siempre
     // la misma); sin la hoja, la pieza única de antes.
     const variantes =

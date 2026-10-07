@@ -25,7 +25,9 @@
     "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
     "recortado al contenido con 24 px de margen",
     "WebP calidad 92, alfa sin pérdida",
-    "JSON derivado: 776×1011, ancla en (218,986)"
+    "JSON derivado: 776×1011, ancla en (218,986)",
+    "recortado al mojón, sin el poste (07-10-2026, #168): la bandera la pinta el juego con su propio mástil, y el poste con su brazo se leía como una horca. Recorte (0, 409) 372×602 del WebP anterior; WebP calidad 92",
+    "JSON derivado: 372×602, ancla en (175,577)"
   ],
   "validacion": {
     "visibles": 0.30567494672009954,
@@ -36,6 +38,6 @@
   },
   "salida": {
     "ruta": "assets/mapa/nodo-hito.webp",
-    "sha256": "37e6786cfad02b2a1b5b0857bb93081f7979c75ba8152904d24a274c8f30515d"
+    "sha256": "223bf28e222ebda54216e07d443a53d0c4ee926633ef874a38459c732ef41ce2"
   }
 }
