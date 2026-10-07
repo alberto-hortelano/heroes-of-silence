@@ -47,6 +47,7 @@ import {
 } from './puentes.js';
 import {
   ALTO_DE_NIVEL,
+  acantiladosARas,
   bordeDeLadera,
   CARA_DE_SUELO,
   type Cara,
@@ -205,6 +206,11 @@ export interface Escena {
      * casillas, sin vado que la quite (`sendasDeEstriboEnAgua`): tiene que ser 0.
      */
     readonly sendasDeEstriboEnAgua: number;
+    /**
+     * Casillas de acantilado a ras de una casilla que se pisa a su lado, sin
+     * desnivel que las distinga del llano (`acantiladosARas`): tiene que ser 0.
+     */
+    readonly acantiladosARas: number;
     readonly modulosQueFaltan: readonly string[];
   };
 }
@@ -1300,6 +1306,14 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     for (const l of [e.oeste, e.este]) if (l !== undefined) caraDeEsquina.set(l, k);
   /** Las esquinas que entraron, por índice de cara: solo esas paran la frontal. */
   const puestas = rel.caras.map(() => ({ oeste: false, este: false }));
+  /**
+   * La frontal de cada esquina puesta: su filo, el pie de su cara y hacia dónde
+   * corre. Los topes de una cara (`tramoDeFrontal`) solo miran sus esquinas y
+   * las de la fila de al lado; en una escalera en diagonal, la frontal de la
+   * cara de dos filas más abajo subía por la escalera hasta el pie de esta y se
+   * le montaba encima (s7 (28, 7), al subir el acantilado a cresta).
+   */
+  const frontalesDeEsquina: { borde: number; pie: number; lado: 'oeste' | 'este' }[] = [];
   /** Las casillas de canto con ladera puesta, como `x,y,lado`. */
   const conLadera = new Set<string>();
   const juegos = new Map<string, JuegoDeLadera | null>();
@@ -1353,8 +1367,15 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       // baja o la reserva de un objeto, no va.
       if (!ponerLadera([s], [s.alto], [s.x], y + m.ladera.largo / 2)) return false;
       for (let k = 0; k < m.ladera.largo; k++) conLadera.add(`${l.x},${y + k},${l.lado}`);
-      if (cara !== undefined && m === juego.esquina)
+      if (cara !== undefined && m === juego.esquina) {
         (puestas[cara] as { oeste: boolean; este: boolean })[l.lado] = true;
+        const c = rel.caras[cara] as Cara;
+        frontalesDeEsquina.push({
+          borde: juntasColocadas(m, s).filo[0],
+          pie: c.y + 1 + c.caida * ALTO_DE_NIVEL,
+          lado: l.lado,
+        });
+      }
       return true;
     };
     // Lo que no entra se prueba casilla a casilla con los módulos de una, que
@@ -1439,6 +1460,15 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         true,
         nombre,
       );
+    /** Si una frontal en `x`, con el pie en `y`, montaría la de una esquina más de `SOLAPE_DE_ESQUINA`. */
+    const sobreUnaEsquina = (x: number, y: number) =>
+      frontalesDeEsquina.some(
+        (f) =>
+          Math.abs(y - f.pie - 0.05) <= 0.15 &&
+          (f.lado === 'este'
+            ? x <= f.borde && x - (f.borde - FRONTAL_DE_ESQUINA) > SOLAPE_DE_ESQUINA
+            : x >= f.borde && f.borde + FRONTAL_DE_ESQUINA - x > SOLAPE_DE_ESQUINA),
+      );
     const cerca = (x: number) =>
       [x, ...DESVIOS.flatMap((d) => [x - d, x + d])].filter((v) => v >= izq && v <= der);
     // Cada borde de un tajo que cae dentro de la cara lleva su pared, el módulo
@@ -1479,7 +1509,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       const puesta = ponerPared(
         yElMasEstrecho(s, hoja),
         [minimo, minimo * BAJA_JUNTO_A_LA_SENDA],
-        cerca(s.x),
+        cerca(s.x).filter((x) => !sobreUnaEsquina(x, yEn(x))),
         filo,
         yEn,
       );
@@ -1534,6 +1564,36 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         undefined,
         undefined,
         materialDeCara(CARA_DE_SUELO[a.suelo[y * W + x] as Suelo]).pedregal,
+      );
+    }
+  }
+
+  // La espalda de un acantilado más alto que lo de su norte: la cámara no la ve
+  // y el pintor no pinta el reborde, así que desde ese lado la barrera era un
+  // llano más (auditoría 2 de 07-10, B). Una hilera de peñascos por el canto de
+  // arriba la cierra; el que no entra se prueba más bajo, y si tampoco, se
+  // queda fuera (una senda o una reserva al lado).
+  for (const [x, y] of rel.rebordes) {
+    if (a.terreno[y * W + x] !== 'cliff') continue;
+    const tono = materialDeCara(CARA_DE_SUELO[a.suelo[y * W + x] as Suelo]).pedregal;
+    for (let k = 0; k < 3; k++) {
+      const px = x + 0.18 + k * 0.32 + (azar() - 0.5) * 0.12;
+      const py = y + 0.18 + azar() * 0.24;
+      const queria = 0.4 + azar() * 0.2;
+      const alto = [queria, queria * 0.6].find((h) => entraria('roca', px, py, h));
+      if (alto === undefined) continue;
+      poner(
+        'rocas-caidas',
+        px,
+        py,
+        alto,
+        azar() * 0.8,
+        'roca',
+        '#5a5248',
+        true,
+        undefined,
+        undefined,
+        tono,
       );
     }
   }
@@ -1724,6 +1784,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       carasLisas: carasLisas(carasDeEscena, sprites, perfilDe).length,
       puentesTapados: puentesTapados(sprites, puentes).length,
       sendasDeEstriboEnAgua: sendasDeEstriboEnAgua(trazos, puentes, vados, esAgua).length,
+      acantiladosARas: acantiladosARas(a.terreno, rel.nivel, W, H).length,
       modulosQueFaltan: [...faltan].sort(),
     },
   };

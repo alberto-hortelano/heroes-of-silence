@@ -16,6 +16,9 @@ function guionDeLaPagina(): Promise<string> {
     const salida = await build({
       configFile: false,
       logLevel: 'silent',
+      // El pintor importa lo que importa el escenógrafo, y eso alcanza `@core/…`
+      // (`relieve.ts` lee `isWalkable`): el mismo alias que `vite.config.ts`.
+      resolve: { alias: { '@core': resolve(import.meta.dirname, '../../../src/core') } },
       build: {
         write: false,
         minify: false,

@@ -7,7 +7,7 @@
  * La cámara mira desde el sur: una caída hacia abajo en pantalla enseña su cara
  * de roca; una caída hacia arriba queda de espaldas y solo se ve el reborde.
  */
-import type { Suelo } from '@core/map/terrain.js';
+import { isWalkable, type Suelo, type TerrainKind } from '@core/map/terrain.js';
 import type { Analisis } from './analizar.js';
 import { type Caja, tramoEnCaja } from './pasillo.js';
 import { SEMIANCHO_DEL_PASILLO, SEMIANCHO_DEL_PASILLO_DE_MASA, type Senda } from './sendas.js';
@@ -128,6 +128,19 @@ export function relieve(a: Analisis, semilla = 1): Relieve {
     bajo[f] = Math.min(bajo[f] as number, base[i] as number);
     alto[f] = Math.max(alto[f] as number, base[i] as number);
   }
+  // Un acantilado mira también lo que pisa a su lado: una región que lo toca sin
+  // ser la más cercana de ninguna de sus casillas se quedaba fuera de la cuenta,
+  // y la cresta salía a ras con ella (s57 (2, 16)). Solo el acantilado: el agua
+  // sigue encajada bajo su orilla de siempre.
+  for (let i = 0; i < W * H; i++) {
+    const f = franjaDe[i] as number;
+    if (f === -1 || terreno[i] !== 'cliff') continue;
+    for (const j of vecinosDe(i, W, H)) {
+      if (!isWalkable(terreno[j] as TerrainKind)) continue;
+      bajo[f] = Math.min(bajo[f] as number, base[j] as number);
+      alto[f] = Math.max(alto[f] as number, base[j] as number);
+    }
+  }
   for (let i = 0; i < W * H; i++) {
     const f = franjaDe[i] as number;
     if (f === -1) continue;
@@ -140,9 +153,13 @@ export function relieve(a: Analisis, semilla = 1): Relieve {
     if (t === 'water') nivel[i] = Math.max(-1, lo - 1);
     // Una mancha de acantilado dentro de una región es una mesa: un nivel más.
     else if (t === 'cliff' && franja.uso === 'obstaculo') nivel[i] = (base[i] as number) + 1;
-    // Entre dos lados a distinta altura, el acantilado es el escalón (va arriba);
-    // entre dos al mismo nivel, es un cañón cortado hacia abajo.
-    else if (t === 'cliff') nivel[i] = hi > lo ? hi : Math.max(-1, lo - 1);
+    // Entre dos lados a distinta altura, el acantilado es una cresta de roca un
+    // nivel por encima del alto; entre dos al mismo nivel, un cañón cortado hacia
+    // abajo. Nunca a ras de lo que se pisa al lado: tomaba el nivel del lado alto
+    // y desde allí la barrera se leía como un llano por el que se pasa (auditoría
+    // 2 de 07-10, B: 35 de 66 bordes en s1, 72 de 319 en s57). Bajar con el lado
+    // bajo no lo arreglaba —quedaba a ras de ese— y la zanja daba caras de 4.
+    else if (t === 'cliff') nivel[i] = hi > lo ? hi + 1 : Math.max(-1, lo - 1);
   }
 
   // Una escalera de caídas seguidas (2 → 1 → 0 bajando por la pantalla) daba
@@ -155,6 +172,9 @@ export function relieve(a: Analisis, semilla = 1): Relieve {
       for (let x = 0; x < W; x++) {
         const i = y * W + x;
         if (terreno[i] === 'water') continue;
+        // Ni el suelo sube a ras de un acantilado de encima, ni un acantilado a
+        // ras del suelo de encima: la barrera dejaría de verse (`acantiladosARas`).
+        if ((terreno[i] === 'cliff') !== (terreno[i - W] === 'cliff')) continue;
         const arriba = nivel[i - W] as number;
         const aqui = nivel[i] as number;
         const abajo = nivel[i + W] as number;
@@ -163,6 +183,33 @@ export function relieve(a: Analisis, semilla = 1): Relieve {
           cambio = true;
         }
       }
+  }
+
+  // La cresta de una franja larga sube con su lado más alto, y donde la franja
+  // pasa junto al agua encajada la caída llegaba a 4: la ladera, que tiene arte
+  // hasta 3 y se estira, metía el pie en la casilla de enfrente y se montaba con
+  // la del otro lado del río (`laderasEnfrentadas`, s10 (15, 18) y s35 (15, 26)).
+  // Ahí baja a 3 sobre lo más bajo de al lado, si con eso no queda a ras.
+  for (let i = 0; i < W * H; i++) {
+    if (terreno[i] !== 'cliff') continue;
+    const vecinos = vecinosDe(i, W, H);
+    const tope = Math.min(...vecinos.map((j) => nivel[j] as number)) + 3;
+    if (
+      (nivel[i] as number) > tope &&
+      !vecinos.some((j) => isWalkable(terreno[j] as TerrainKind) && nivel[j] === tope)
+    )
+      nivel[i] = tope;
+  }
+
+  // Lo poco que aún quedara a ras —una mesa que toca una región más alta que la
+  // suya, una casilla junto al agua— sube un nivel por encima de lo que pisa al
+  // lado: 4 casillas en las semillas 1, 2, 5, 9, 13, 24, 34 y 57.
+  for (const i of acantiladosARas(terreno, nivel, W, H)) {
+    let alrededor = nivel[i] as number;
+    for (const j of vecinosDe(i, W, H))
+      if (isWalkable(terreno[j] as TerrainKind))
+        alrededor = Math.max(alrededor, nivel[j] as number);
+    nivel[i] = alrededor + 1;
   }
 
   return { nivel, ...caidas(nivel, W, H, suelo) };
@@ -850,4 +897,39 @@ function tajosDe(c: Cara, trazos: readonly Senda[]): Rampa[] {
   return juntos
     .filter(({ trazos }) => trazos.reduce((l, t) => l + largo(t), 0) >= RAMPA_MINIMA)
     .map(({ a, b, trazos }): Rampa => ({ a, b, dentro: [a > c.x0, b < c.x1 + 1], trazos }));
+}
+
+/**
+ * Las casillas de acantilado a ras de una casilla que se pisa a su lado (norte,
+ * sur, este u oeste): ahí la barrera no tiene cara, ni ladera, ni reborde, y se
+ * lee como un llano por el que se pasa (auditoría 2 de 07-10, defecto B). Lo
+ * cuenta el informe (`acantiladosARas`) y tiene que ser 0.
+ */
+export function acantiladosARas(
+  terreno: readonly TerrainKind[],
+  nivel: ArrayLike<number>,
+  W: number,
+  H: number,
+): number[] {
+  const fuera: number[] = [];
+  for (let i = 0; i < W * H; i++) {
+    if (terreno[i] !== 'cliff') continue;
+    if (
+      vecinosDe(i, W, H).some((j) => isWalkable(terreno[j] as TerrainKind) && nivel[j] === nivel[i])
+    )
+      fuera.push(i);
+  }
+  return fuera;
+}
+
+/** Las casillas de al lado de `i` (norte, sur, oeste y este) que caen en el mapa. */
+function vecinosDe(i: number, W: number, H: number): number[] {
+  const x = i % W;
+  const y = Math.floor(i / W);
+  const v: number[] = [];
+  if (y > 0) v.push(i - W);
+  if (y < H - 1) v.push(i + W);
+  if (x > 0) v.push(i - 1);
+  if (x < W - 1) v.push(i + 1);
+  return v;
 }
