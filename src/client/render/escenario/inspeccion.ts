@@ -7,10 +7,11 @@
  * así que dice lo que se pintó y no lo que saldría de componer otra vez.
  */
 import type { CaraAhi, QueHay, SpriteAhi } from '../../desarrollo/tipos.js';
+import { columnasDeCara } from './caras.js';
 import { type Catalogo, esHojaDeLadera } from './catalogo.js';
 import { type Caja, cajaDeSprite } from './pasillo.js';
 import { puenteEnElTerreno } from './puentes.js';
-import { bandaDeCara, type Rampa } from './relieve.js';
+import { bandaDeCara, type CaraDeEscena, type Rampa } from './relieve.js';
 import type { Escenario } from './superficie.js';
 
 /** De qué hoja y módulo, o de qué pieza suelta, sale una `src` del catálogo. */
@@ -31,7 +32,7 @@ function origenesDe(c: Catalogo): ReadonlyMap<string, Origen> {
   return indice;
 }
 
-/** Un tajo o un hueco de una cara, sin lo que solo usa el pintor. */
+/** Un tajo de una cara, sin lo que solo usa el pintor. */
 const tramoDe = ({
   a,
   b,
@@ -41,6 +42,20 @@ const tramoDe = ({
   b,
   dentro,
 });
+
+/** Los tramos en x de una cara que no se pintan (`CaraDeEscena.pintada`, los `null`), como `[a, b]`. */
+function tramosSinPintar(c: CaraDeEscena): [number, number][] {
+  const xs = columnasDeCara(c);
+  const fuera: [number, number][] = [];
+  for (const [i, t] of c.pintada.entries()) {
+    if (t !== null) continue;
+    const x = xs[i] as number;
+    const u = fuera.at(-1);
+    if (u !== undefined && c.pintada[i - 1] === null) u[1] = x;
+    else fuera.push([x, x]);
+  }
+  return fuera;
+}
 
 const corta = (a: Caja, b: Caja): boolean =>
   a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
@@ -113,8 +128,7 @@ export function queHayEn(
       material: c.material,
       banda,
       rampas: c.rampas.map(tramoDe),
-      abierta: c.abierta === true,
-      huecos: (c.huecos ?? []).map(tramoDe),
+      abierto: tramosSinPintar(c),
     });
   }
 

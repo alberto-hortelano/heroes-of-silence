@@ -33,9 +33,10 @@
  * pinta una vez por mapa en una superficie aparte y se copia.
  */
 
+import { columnasDeCara } from './caras.js';
 import type { Escena, Luz, Sprite } from './colocar.js';
 import { cajaDeSprite } from './pasillo.js';
-import { bandaDeCara, type CaraConRampas, SOLAPE } from './relieve.js';
+import { bandaDeCara, type CaraDeEscena, SOLAPE } from './relieve.js';
 import {
   ANCHO_DE_SENDA,
   ANCHO_DEL_VADO,
@@ -400,25 +401,57 @@ export function pintarSuelo(
     g.globalCompositeOperation = 'source-over';
     return capa;
   };
-  const pintarCara = (f: CaraConRampas) => {
+  /**
+   * El contorno de lo que se pinta de una cara (`CaraDeEscena.pintada`): por
+   * cada trozo de columnas seguidas que se pintan, lo alto de izquierda a
+   * derecha y el pie de vuelta. Un trozo de una sola columna no tiene ancho.
+   */
+  const contornoDeCara = (f: CaraDeEscena) => {
+    const xs = columnasDeCara(f);
+    let desde = 0;
+    for (let i = 0; i <= f.pintada.length; i++) {
+      if (f.pintada[i] != null) continue;
+      if (i - desde >= 2) {
+        const trozo = f.pintada.slice(desde, i) as (readonly [number, number])[];
+        trozo.forEach(([arriba], k) => {
+          const px = (xs[desde + k] as number) * T;
+          if (k === 0) c.moveTo(px, arriba * T);
+          else c.lineTo(px, arriba * T);
+        });
+        for (let k = trozo.length - 1; k >= 0; k--)
+          c.lineTo((xs[desde + k] as number) * T, (trozo[k] as readonly [number, number])[1] * T);
+        c.closePath();
+      }
+      desde = i + 1;
+    }
+  };
+  const pintarCara = (f: CaraDeEscena) => {
     const [bx0, by0, bx1, by1] = bandaDeCara(f);
     const x = bx0 * T;
     const y = by0 * T;
     const w = (bx1 - bx0) * T;
     const h = (by1 - by0) * T;
+    // Solo bajo la silueta de su pared (#159): donde no la tapa ninguna se ve
+    // el suelo de abajo, como en un tajo. La banda entera era un rectángulo
+    // liso de bordes rectos donde la pared no entraba o era transparente.
+    if (!f.pintada.some((t) => t !== null)) return;
+    c.save();
+    c.beginPath();
+    contornoDeCara(f);
     if (silueta) {
       // El tajo cuenta como cubierto, como el pasillo: está despejado a propósito.
       c.fillStyle = '#fff';
-      c.fillRect(x, y, w, h);
+      c.fill();
+      c.restore();
       return;
     }
-    if (f.abierta === true) return;
-    // El tajo de cada rampa y cada hueco se queda fuera (`evenodd`: la cara
-    // menos sus trapecios) y se ve el suelo de debajo con su senda, ya pintados. Sin
+    c.clip();
+    // El tajo de cada rampa se queda fuera (`evenodd`: la cara menos sus
+    // trapecios) y se ve el suelo de debajo con su senda, ya pintados. Sin
     // desenfoque en el borde: con `blur` quedaba el marco tenue de un
-    // rectángulo fantasma.
-    c.save();
-    const tajos = f.huecos === undefined ? f.rampas : [...f.rampas, ...f.huecos];
+    // rectángulo fantasma. Un recorte aparte del contorno: en el mismo
+    // `evenodd`, lo del trapecio que cae fuera del contorno se pintaba.
+    const tajos = f.rampas;
     if (tajos.length > 0) {
       c.beginPath();
       c.rect(x, y, w, h);
@@ -601,7 +634,7 @@ export function pintarSuelo(
     }
   }
   // 7 · En orden de profundidad: las caras de roca y lo plano.
-  const orden: ({ y: number; cara: CaraConRampas } | { y: number; s: Sprite })[] = [
+  const orden: ({ y: number; cara: CaraDeEscena } | { y: number; s: Sprite })[] = [
     ...e.relieve.caras.map((f) => ({ y: f.y + 1 - 0.01, cara: f })),
     ...sep.planos.map((s) => ({ y: s.y, s })),
   ].sort((p, q) => p.y - q.y);

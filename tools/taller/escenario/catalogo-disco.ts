@@ -13,13 +13,14 @@ import {
   type Catalogo,
   type CatalogoEnBruto,
   catalogoValidado,
+  conPerfil,
   type JuntasDeLadera,
   type MedidasDePuente,
   type Modulo,
   type Pieza,
   RUTA_DEL_CATALOGO,
 } from '../../../src/client/render/escenario/catalogo.js';
-import { derivarPieza } from '../derivar.js';
+import { derivarPieza, perfilDeModulo } from '../derivar.js';
 
 const RAIZ = resolve(import.meta.dirname, '../../..');
 const MAPA = join(RAIZ, 'assets/mapa');
@@ -64,8 +65,14 @@ export async function leerCatalogo(): Promise<Catalogo> {
     const hoja = f.slice(0, -'.json'.length);
     if (RETIRADAS.test(hoja)) continue;
     const j = JSON.parse(await readFile(join(MAPA, 'modulos', f), 'utf8')) as IndiceDeHoja;
+    // El perfil sale de la imagen de cada módulo: es un dato del arte, no se escribe a mano.
+    const perfiles = conPerfil(hoja)
+      ? await Promise.all(
+          j.modulos.map((m) => perfilDeModulo(join(MAPA, 'modulos', hoja, m.imagen))),
+        )
+      : undefined;
     hojas[hoja] = j.modulos
-      .map((m) => ({
+      .map((m, k) => ({
         src: `modulos/${hoja}/${m.imagen}`,
         nw: m.ancho,
         nh: m.alto,
@@ -73,6 +80,7 @@ export async function leerCatalogo(): Promise<Catalogo> {
         ay: m.ancla[1],
         nombre: m.imagen.replace(/\.webp$/, ''),
         ...(m.ladera === undefined ? {} : { ladera: m.ladera }),
+        ...(perfiles === undefined ? {} : { perfil: perfiles[k] as number[] }),
       }))
       .sort((a, b) => a.ay - b.ay);
   }
@@ -104,7 +112,11 @@ export async function leerCatalogo(): Promise<Catalogo> {
 }
 
 export function textoDelCatalogo(c: Catalogo): string {
-  return `${JSON.stringify(c, null, 1)}\n`;
+  // El perfil, en una línea: con una por número eran 9 000 líneas más en el diff.
+  return `${JSON.stringify(c, null, 1).replace(
+    /"perfil": \[([^\]]*)\]/g,
+    (_, numeros: string) => `"perfil": [${numeros.replace(/\s+/g, '')}]`,
+  )}\n`;
 }
 
 /** Rehace `assets/mapa/escena.json` y devuelve el catálogo. */

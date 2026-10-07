@@ -67,8 +67,11 @@ export const esquemaDeQueHay = z.object({
       material: z.string(),
       banda: caja,
       rampas: z.array(tramo),
-      abierta: z.boolean(),
-      huecos: z.array(tramo),
+      /**
+       * Los tramos en x que no se pintan, `[a, b]`: donde ninguna pared la tapa
+       * (`CaraDeEscena.pintada`). Las marcas de antes de #159 no lo traen.
+       */
+      abierto: z.array(z.tuple([numero, numero]).readonly()).optional(),
     }),
   ),
   puente: z

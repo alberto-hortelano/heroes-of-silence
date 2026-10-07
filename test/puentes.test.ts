@@ -23,9 +23,7 @@ import {
 } from '../src/client/render/escenario/catalogo.js';
 import {
   altoLibreAnteLosPuentes,
-  CUBIERTA_PARA_QUEDARSE,
   componer,
-  cubiertoDeLaCara,
   puentesTapados,
   type Sprite,
   tablerosAlPaso,
@@ -42,12 +40,7 @@ import {
   tramosHastaLosEstribos,
   vadosDeLosEstribos,
 } from '../src/client/render/escenario/puentes.js';
-import {
-  bandaDeCara,
-  rampas,
-  relieve,
-  SEMIANCHO_DE_PARED,
-} from '../src/client/render/escenario/relieve.js';
+import { rampas, relieve, SEMIANCHO_DE_PARED } from '../src/client/render/escenario/relieve.js';
 import {
   claveDeFigura,
   escenarioDe,
@@ -394,46 +387,6 @@ describe('nada que se pinte encima tapa un puente', () => {
   });
 });
 
-describe('la cara que cede su pared a un puente no se queda lisa', () => {
-  it('en las semillas 1-10: la que se abre está junto a un puente, sin rampa, y la pared la tapa menos de lo que pide quedarse', () => {
-    let abiertas = 0;
-    // En `pnpm verify`, la 8: desde #161 y #171 es la única de 1-10 con una cara abierta.
-    for (const s of segunPrisa([8], rango(1, 10))) {
-      const e = partidaDe(s).escena;
-      const paredes = e.sprites.filter((x) => x.clase === 'pared').map((x) => cajaDeSprite(x));
-      for (const c of e.relieve.caras) {
-        if (c.abierta !== true) continue;
-        abiertas++;
-        const [x0, y0, x1, y1] = bandaDeCara(c);
-        const cerca = e.puentes.some(
-          ({ centro: [cx, cy] }) =>
-            Math.max(x0 - cx, cx - x1, 0) <= 2 && Math.max(y0 - cy, cy - y1, 0) <= 2,
-        );
-        expect(cerca, `s${s} cara ${c.y} ${c.x0}-${c.x1}`).toBe(true);
-        expect(c.rampas).toEqual([]);
-        // Medido aquí, con otro paso: lo que tapa la pared a un cuarto y a la
-        // mitad de su alto. Solo a un cuarto contaba como tapada la cara de s6
-        // y3 x28, donde queda de la pared un remate de arriba que no baja ni a la
-        // mitad: se abre bien, y el remate hace de canto de la orilla.
-        const xs = Array.from(
-          { length: Math.round((x1 - x0) / 0.1) },
-          (_, k) => x0 + 0.05 + k * 0.1,
-        );
-        const tapadas = xs.filter((x) =>
-          [y0 + (y1 - y0) / 4, (y0 + y1) / 2].every((y) =>
-            paredes.some(([px0, py0, px1, py1]) => x >= px0 && x <= px1 && y >= py0 && y <= py1),
-          ),
-        );
-        expect(tapadas.length / xs.length, `s${s} cara ${c.y}`).toBeLessThan(
-          CUBIERTA_PARA_QUEDARSE,
-        );
-      }
-    }
-    // Que el test no pase en vacío: alguna se abre.
-    expect(abiertas).toBeGreaterThan(0);
-  });
-});
-
 describe('los cruces quebrados se asientan con los dos estribos en tierra', () => {
   it('en una rejilla a mano: el punto medio dejaba un estribo en el agua, y se corre o se encoge', () => {
     // El nodo 4 de la semilla 8, copiado, de piedra: norte ↔ suroeste, con las
@@ -754,45 +707,5 @@ describe('la senda llega al estribo por tierra (H4 del QA de #157)', () => {
       for (const v of e.vados) expect(v.length, `s${s}`).toBeGreaterThan(1);
     }
     expect(sinVados).toBe(1);
-  });
-});
-
-describe('la cara que cede su pared a un puente y se queda abre lo que la pared no tapa (H5 del QA de #157)', () => {
-  it('en las semillas 1-10: cada hueco, junto a un puente, sin pared encima y en una cara que se queda', () => {
-    let huecos = 0;
-    for (const s of SEMILLAS) {
-      const e = partidaDe(s).escena;
-      const paredes = e.sprites.filter((x) => x.clase === 'pared').map((x) => cajaDeSprite(x));
-      for (const c of e.relieve.caras) {
-        if (c.huecos === undefined) continue;
-        const [x0, y0, x1, y1] = bandaDeCara(c);
-        expect(c.abierta, `s${s} cara ${c.y}`).toBeUndefined();
-        expect(c.rampas).toEqual([]);
-        expect(cubiertoDeLaCara(c, e.sprites)).toBeGreaterThanOrEqual(CUBIERTA_PARA_QUEDARSE);
-        const cerca = e.puentes.some(
-          ({ centro: [cx, cy] }) =>
-            Math.max(x0 - cx, cx - x1, 0) <= 2 && Math.max(y0 - cy, cy - y1, 0) <= 2,
-        );
-        expect(cerca, `s${s} cara ${c.y} ${c.x0}-${c.x1}`).toBe(true);
-        for (const h of c.huecos) {
-          huecos++;
-          expect(h.b - h.a).toBeGreaterThanOrEqual(0.15);
-          expect(h.dentro).toEqual([h.a > x0, h.b < x1]);
-          // En su medio, a un cuarto o a media altura, ninguna pared: es lo liso
-          // que se veía. La misma pregunta que `paredDeLaCara`: tapada es tapada
-          // en las dos. Mirar solo a media altura fallaba en la semilla 6 en
-          // cuanto cambió el azar de la escena (#171): una pared tapaba el medio
-          // del hueco y dejaba liso el cuarto de arriba.
-          const x = (h.a + h.b) / 2;
-          const tapa = [y0 + (y1 - y0) / 4, (y0 + y1) / 2].every((y) =>
-            paredes.some(([a, b, cc, d]) => x >= a && x <= cc && y >= b && y <= d),
-          );
-          expect(tapa, `s${s} cara ${c.y} hueco ${h.a}-${h.b}`).toBe(false);
-        }
-      }
-    }
-    // Con #161 y #171, las semillas 6 y 9 tienen un hueco cada una; la muestra
-    // rápida (5 y 8) ninguno.
-    expect(huecos).toBe(segunPrisa(0, 2));
   });
 });

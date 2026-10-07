@@ -69,7 +69,22 @@ export interface Modulo extends Pieza {
   readonly nombre: string;
   /** Solo en las hojas de laderas, y en todas ellas (`catalogoValidado`). */
   readonly ladera?: JuntasDeLadera;
+  /**
+   * Lo alto de su silueta, de izquierda a derecha: por franja de columnas, la
+   * fracción del alto de la imagen donde empieza lo opaco (la más baja de la
+   * franja). Solo en las hojas que tapan una cara (`conPerfil`), y en todas
+   * ellas: la cara se pinta bajo esta línea (`pintadaDeCara`). Lo deriva de la
+   * imagen `pnpm taller catalogo-escena` (`perfilDeModulo`).
+   */
+  readonly perfil?: readonly number[];
 }
+
+/**
+ * Si una hoja tapa una cara de acantilado y sus módulos llevan perfil: las
+ * paredes, las laderas y el pedregal (`rocas-caidas`).
+ */
+export const conPerfil = (hoja: string): boolean =>
+  /^(paredes|laderas)-/.test(hoja) || hoja === 'rocas-caidas';
 
 /** Un módulo de ladera con sus juntas. */
 export type ModuloDeLadera = Modulo & { readonly ladera: JuntasDeLadera };
@@ -123,20 +138,42 @@ export interface CatalogoEnBruto {
   readonly piezas: Readonly<Record<string, Pieza>>;
 }
 
+/** Comprueba el perfil de un módulo de `hoja` (`Modulo.perfil`), o lanza diciendo cómo rehacerlo. */
+const perfilValidado =
+  (hoja: string) =>
+  <M extends { readonly nombre: string; readonly perfil?: readonly number[] }>(m: M): M => {
+    const donde = `el módulo «${m.nombre}» de «${hoja}»`;
+    if (!conPerfil(hoja)) {
+      if (m.perfil !== undefined)
+        throw new Error(`${donde} trae perfil y su hoja no tapa ninguna cara`);
+      return m;
+    }
+    if (m.perfil === undefined)
+      throw new Error(
+        `${donde} no trae el perfil de su silueta: rehaz el catálogo (pnpm taller catalogo-escena)`,
+      );
+    if (m.perfil.length === 0 || !m.perfil.every((v) => Number.isFinite(v) && v >= 0 && v <= 1))
+      throw new Error(
+        `${donde}: su perfil son fracciones del alto entre 0 y 1, y trae ${JSON.stringify(m.perfil)}`,
+      );
+    return m;
+  };
+
 const esPar = (p: readonly number[]): p is Par =>
   p.length === 2 && p.every((v) => Number.isFinite(v));
 
 /**
  * El catálogo, comprobado: todo módulo de una hoja de laderas trae sus juntas
  * enteras (filo y pie como pares, largo 1 o 2, un papel de la cadena), y ningún
- * otro las trae; todo puente trae sus medidas, positivas, y ninguna otra pieza
- * las trae. Lanza diciendo qué módulo y qué hacer: sin esto, la falta solo
- * salía al componer el primer mapa con esa ladera.
+ * otro las trae; todo módulo de una hoja que tapa una cara trae su perfil, de
+ * fracciones entre 0 y 1, y ningún otro lo trae; todo puente trae sus medidas,
+ * positivas, y ninguna otra pieza las trae. Lanza diciendo qué módulo y qué
+ * hacer: sin esto, la falta solo salía al componer el primer mapa con esa ladera.
  */
 export function catalogoValidado(c: CatalogoEnBruto): Catalogo {
   const hojas: Record<string, readonly Modulo[]> = {};
   for (const [hoja, ms] of Object.entries(c.hojas))
-    hojas[hoja] = ms.map(({ ladera, ...m }): Modulo => {
+    hojas[hoja] = ms.map(perfilValidado(hoja)).map(({ ladera, ...m }): Modulo => {
       if (!esHojaDeLadera(hoja)) {
         if (ladera !== undefined)
           throw new Error(

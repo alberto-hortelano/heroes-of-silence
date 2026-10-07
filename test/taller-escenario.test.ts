@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { analizar } from '../src/client/render/escenario/analizar.js';
+import { carasLisas, perfilesDelCatalogo } from '../src/client/render/escenario/caras.js';
 import { RUTA_DEL_CATALOGO } from '../src/client/render/escenario/catalogo.js';
 import {
   APARTE,
@@ -422,6 +423,13 @@ describe('la escena de un mapa real', () => {
       // misma casilla tapaban el agua del fondo (QA de #156, H1).
       expect(laderasEnfrentadas(e.sprites, modulosDeLadera(catalogo))).toEqual([]);
       expect(e.informe.laderasEnfrentadas).toBe(0);
+    });
+
+    it(`semilla ${semilla}: ninguna cara de acantilado se pinta lisa (#159)`, () => {
+      // Recontado aquí con los perfiles del catálogo: lo que se pinta de cada
+      // cara y no tapa la silueta de ninguna pared.
+      expect(carasLisas(e.relieve.caras, e.sprites, perfilesDelCatalogo(catalogo))).toEqual([]);
+      expect(e.informe.carasLisas).toBe(0);
     });
 
     it(`semilla ${semilla}: cada casilla de ladera lleva una ladera, los peñascos del canto o nada`, () => {

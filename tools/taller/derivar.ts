@@ -350,6 +350,43 @@ export async function derivarPieza(rutaImagen: string): Promise<PiezaDerivada> {
   };
 }
 
+/** En cuántas franjas de columnas se mide el perfil de un módulo (`perfilDeModulo`). */
+export const FRANJAS_DEL_PERFIL = 32;
+
+/**
+ * El perfil de lo alto de un módulo de pared, de ladera o de pedregal
+ * (`Modulo.perfil`): por cada una de `FRANJAS_DEL_PERFIL` franjas de columnas,
+ * de izquierda a derecha, la fracción del alto de la imagen donde empieza lo
+ * opaco (`ALFA_FIGURA`). De la columna de la franja que empieza MÁS ABAJO: la
+ * cara que se pinta bajo esta línea (`pintadaDeCara`) nunca asoma por encima de
+ * la cresta. Una franja sin nada opaco vale 1.
+ *
+ * Un módulo de `paredes-*` es un bloque en perspectiva cuyo octavo derecho es
+ * transparente hasta el 30-58 % del alto, y `rocas-caidas` hasta el 61 %: con
+ * la caja, la cara lisa asomaba ahí con su borde recto (#159).
+ */
+export async function perfilDeModulo(rutaImagen: string): Promise<number[]> {
+  const { data, info } = await sharp(await readFile(rutaImagen))
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const { width: w, height: h } = info;
+  const primera = new Array<number>(w).fill(h);
+  for (let x = 0; x < w; x++)
+    for (let y = 0; y < h; y++)
+      if ((data[(y * w + x) * 4 + 3] as number) >= ALFA_FIGURA) {
+        primera[x] = y;
+        break;
+      }
+  return Array.from({ length: FRANJAS_DEL_PERFIL }, (_, k) => {
+    const a = Math.floor((k * w) / FRANJAS_DEL_PERFIL);
+    const b = Math.max(a + 1, Math.floor(((k + 1) * w) / FRANJAS_DEL_PERFIL));
+    // Redondeado hacia abajo de la imagen: un perfil que sube una milésima
+    // dejaría asomar la cara sobre la cresta.
+    return Math.ceil((Math.max(...primera.slice(a, b)) / h) * 1000) / 1000;
+  });
+}
+
 /** Lo que `registrarLadera` lee de una pieza de la guía: su caja y sus juntas (`laderas.ts`). */
 export type PiezaDeGuia = Pick<GeometriaDeLadera, 'nombre' | 'filoNorte' | 'pieSur' | 'caja'>;
 

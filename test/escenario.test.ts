@@ -29,6 +29,20 @@ import { catalogoDelDisco, escenaDe } from './helpers.js';
 const RAIZ = resolve(import.meta.dirname, '..');
 const catalogo = catalogoDelDisco();
 
+/** Cuántas rachas de dos o más columnas pintadas tiene una cara: los trozos de su contorno. */
+function rachas(pintada: readonly (readonly [number, number] | null)[]): number {
+  let n = 0;
+  let largo = 0;
+  for (const t of [...pintada, null]) {
+    if (t !== null) largo++;
+    else {
+      if (largo >= 2) n++;
+      largo = 0;
+    }
+  }
+  return n;
+}
+
 interface Llamada {
   readonly metodo: string;
   readonly args: readonly unknown[];
@@ -196,9 +210,9 @@ describe('sin arte se pinta igual: cada pieza, su marcador de color', () => {
     expect(e.relieve.cantos.length).toBeGreaterThan(0);
     const r = registro();
     pintarSuelo(r.contexto(), e, sep, { ...sinImagenes, lienzo: r.lienzo });
-    // En el suelo, el único degradado lineal es el de cada cara de roca.
+    // En el suelo, el único degradado lineal es el de cada cara de roca que se pinta.
     expect(r.llamadas.filter((l) => l.contexto === 0 && lineal(l))).toHaveLength(
-      e.relieve.caras.length,
+      e.relieve.caras.filter((f) => f.pintada.some((t) => t !== null)).length,
     );
     const franjas = r.llamadas.filter((l) => l.contexto !== 0 && lineal(l));
     expect(franjas).toHaveLength(e.relieve.cantos.length);
@@ -213,49 +227,42 @@ describe('sin arte se pinta igual: cada pieza, su marcador de color', () => {
     expect(String(copias[0]?.filter)).toMatch(/^blur\(/);
   });
 
-  it('una cara con rampa se pinta sin su tajo: la cara menos un trapecio por rampa, en `evenodd`', () => {
-    // La cara se pintaba encima de la senda que baja por ella: la tapaba
-    // siempre, con pared o sin ella (#150).
-    const conRampa = e.relieve.caras.filter((f) => f.rampas.length > 0).sort((p, q) => p.y - q.y);
-    expect(conRampa.length).toBeGreaterThan(0);
+  it('cada cara se pinta solo bajo la silueta de su pared (#159): un recorte por su contorno y, con rampa, otro sin su tajo en `evenodd`', () => {
+    // La cara se pintaba entera, un rectángulo de bordes rectos donde la pared
+    // no entraba; y encima de la senda que baja por ella (#150).
+    const pintadas = e.relieve.caras
+      .filter((f) => f.pintada.some((t) => t !== null))
+      .sort((p, q) => p.y - q.y);
+    expect(pintadas.some((f) => f.rampas.length > 0)).toBe(true);
+    // Que el guardia no mire al vacío: alguna cara tiene columnas sin pintar.
+    expect(e.relieve.caras.some((f) => f.pintada.some((t) => t === null))).toBe(true);
     const r = registro();
     pintarSuelo(r.contexto(), e, sep, { ...sinImagenes, lienzo: r.lienzo });
     const suelo = r.llamadas.filter((l) => l.contexto === 0);
     const recortes = suelo.flatMap((l, i) => (l.metodo === 'clip' ? [i] : []));
-    expect(recortes.map((i) => suelo[i]?.args)).toEqual(conRampa.map(() => ['evenodd']));
-    for (const [n, i] of recortes.entries()) {
-      // El camino del recorte: el rectángulo de la cara y un trapecio por rampa.
+    expect(recortes.map((i) => suelo[i]?.args)).toEqual(
+      pintadas.flatMap((f) => (f.rampas.length > 0 ? [[], ['evenodd']] : [[]])),
+    );
+    let k = 0;
+    for (const f of pintadas) {
+      const i = recortes[k++] as number;
+      // El contorno: un trozo cerrado por cada racha de columnas pintadas.
       const desde = suelo.map((l) => l.metodo).lastIndexOf('beginPath', i);
       const camino = suelo.slice(desde, i).map((l) => l.metodo);
-      expect(camino.filter((m) => m === 'rect')).toHaveLength(1);
-      expect(camino.filter((m) => m === 'closePath')).toHaveLength(
-        conRampa[n]?.rampas.length ?? -1,
-      );
+      expect(camino.filter((m) => m === 'rect')).toHaveLength(0);
+      expect(camino.filter((m) => m === 'closePath')).toHaveLength(rachas(f.pintada));
+      let ultimo = i;
+      if (f.rampas.length > 0) {
+        // El tajo: el rectángulo de la cara y un trapecio por rampa.
+        ultimo = recortes[k++] as number;
+        const deTajo = suelo.slice(i + 1, ultimo).map((l) => l.metodo);
+        expect(deTajo.filter((m) => m === 'rect')).toHaveLength(1);
+        expect(deTajo.filter((m) => m === 'closePath')).toHaveLength(f.rampas.length);
+      }
       // Dentro, la textura y el degradado de la cara, y se deshace antes de lo siguiente.
-      const hasta = suelo.findIndex((l, k) => k > i && l.metodo === 'restore');
-      expect(suelo.slice(i + 1, hasta).map((l) => l.metodo)).toEqual(['fillRect', 'fillRect']);
+      const hasta = suelo.findIndex((l, n) => n > ultimo && l.metodo === 'restore');
+      expect(suelo.slice(ultimo + 1, hasta).map((l) => l.metodo)).toEqual(['fillRect', 'fillRect']);
       expect(lineal(suelo[hasta - 1] as Llamada)).toBe(true);
-    }
-  });
-
-  it('junto a un puente (#157), semilla 6: la cara que se queda se pinta sin sus huecos, un trapecio por hueco', () => {
-    const conHuecos = escenaDe(6);
-    const conTajos = conHuecos.relieve.caras
-      .filter((f) => f.rampas.length + (f.huecos?.length ?? 0) > 0)
-      .sort((p, q) => p.y - q.y);
-    expect(conTajos.some((f) => f.huecos !== undefined)).toBe(true);
-    const r = registro();
-    pintarSuelo(r.contexto(), conHuecos, separar(conHuecos), { ...sinImagenes, lienzo: r.lienzo });
-    const suelo = r.llamadas.filter((l) => l.contexto === 0);
-    const recortes = suelo.flatMap((l, i) => (l.metodo === 'clip' ? [i] : []));
-    expect(recortes).toHaveLength(conTajos.length);
-    for (const [n, i] of recortes.entries()) {
-      const desde = suelo.map((l) => l.metodo).lastIndexOf('beginPath', i);
-      const camino = suelo.slice(desde, i).map((l) => l.metodo);
-      const f = conTajos[n];
-      expect(camino.filter((m) => m === 'closePath')).toHaveLength(
-        (f?.rampas.length ?? -1) + (f?.huecos?.length ?? 0),
-      );
     }
   });
 

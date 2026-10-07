@@ -494,21 +494,20 @@ export interface Rampa {
   readonly trazos: readonly Senda[];
 }
 
-/** Una cara con las rampas que la cruzan: lo que lleva la escena. */
+/** Una cara con las rampas que la cruzan. */
 export interface CaraConRampas extends Cara {
   readonly rampas: readonly Rampa[];
+}
+
+/** Una cara como la lleva la escena: con sus rampas y lo que se pinta de ella. */
+export interface CaraDeEscena extends CaraConRampas {
   /**
-   * Si se abre entera: su pared cedió a un puente que tenía detrás y tapa menos
-   * de `CUBIERTA_PARA_QUEDARSE` de su largo (`componer`). No se pinta, como un
-   * tajo de punta a punta.
+   * Lo que se pinta de la cara (#159), columna a columna cada `PASO_DE_CARA`
+   * de `x0` a `x1 + 1` (`columnasDeCara`): de dónde a dónde en y, o `null` si
+   * no se pinta. Va de lo alto de la silueta de las paredes que la tapan a su
+   * pie (`pintadaDeCara`): donde no hay pared, se ve el suelo de abajo.
    */
-  readonly abierta?: true;
-  /**
-   * Lo que se abre de una cara que cedió su pared a un puente y se queda: los
-   * tramos que no tapa ninguna pared (`componer`). Se pinta como el tajo de una
-   * rampa, sin senda.
-   */
-  readonly huecos?: readonly Pick<Rampa, 'a' | 'b' | 'dentro'>[];
+  readonly pintada: readonly (readonly [number, number] | null)[];
 }
 
 /** Lo que se abre el tajo a cada lado de lo que la senda ocupa en la cara: la senda más su arcén, ni más. */
