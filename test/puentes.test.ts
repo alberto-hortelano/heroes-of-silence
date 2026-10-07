@@ -62,10 +62,11 @@ import { catalogoDelDisco, partidaDe } from './helpers.js';
 import { itLento, rango, segunPrisa } from './lento.js';
 
 /**
- * Las semillas de los recuentos: 1-10 en la orden lenta, 26 puentes (las cifras
- * de 1-40 están en `medir.ts` de la tarea). En `pnpm verify`, dos con de todo
- * (#167): la 5 lleva rectos N-S y E-O de troncos y un quebrado en diagonal, y la
- * 8 dos quebrados de piedra, uno con el medio fuera de su nodo.
+ * Las semillas de los recuentos: 1-10 en la orden lenta, 16 puentes (las cifras
+ * de 1-40 y 1-80 están en `medir-nodos.ts` y `medir-orillas.ts` de la tarea
+ * 2026-10-07-orillas-del-puente). En `pnpm verify`, dos con de todo (#167): la 5
+ * lleva cuatro puentes y la única senda de 1-10 que sin vado pasaría por agua, y
+ * la 8 el único hueco de cara junto a un puente. Desde #161 ninguno es quebrado.
  */
 const SEMILLAS = segunPrisa([5, 8], rango(1, 10));
 
@@ -216,25 +217,22 @@ describe('la pieza sale de las orillas, no de las vecinas', () => {
     let piedra = 0;
     let total = 0;
     let quebrados = 0;
-    let quebradosEnDiagonal = 0;
     for (const s of SEMILLAS)
       for (const p of partidaDe(s).escena.puentes) {
         total++;
         if (p.clase === 'piedra') piedra++;
         if (p.centro[0] === p.nodo[0] && p.centro[1] === p.nodo[1] && p.escala === 1)
           rectos[p.eje] = (rectos[p.eje] ?? 0) + 1;
-        else {
-          quebrados++;
-          if (p.eje === 'ne-so' || p.eje === 'no-se') quebradosEnDiagonal++;
-        }
+        else quebrados++;
       }
-    expect(total).toBe(26);
-    // 8 y 9 rectos (en 1-10 no hay diagonal que se mire) y 9 quebrados: casi
-    // todos en diagonal, y alguno recto si así su medio cae en el nodo (`asentar`).
-    expect(rectos).toEqual({ ns: 8, eo: 9 });
-    expect(quebrados).toBe(9);
-    expect(quebradosEnDiagonal).toBe(8);
-    expect(piedra).toBe(10);
+    expect(total).toBe(16);
+    // Todos entre orillas enfrentadas, también los diagonales: el vestido abre
+    // cada nodo por un eje (`ejeDelNodo`, #161). Antes eran 26 con 9 quebrados
+    // que `asentar` encajaba; ahora ninguno, y `asentar` queda para los planes
+    // del agente (su test, con una rejilla a mano, en «los cruces quebrados se asientan…»).
+    expect(rectos).toEqual({ ns: 4, eo: 4, 'ne-so': 6, 'no-se': 2 });
+    expect(quebrados).toBe(0);
+    expect(piedra).toBe(8);
   });
 });
 
@@ -256,7 +254,7 @@ describe('la pieza se apoya por el centro de su tablero', () => {
         vistos++;
       }
     }
-    expect(vistos).toBe(segunPrisa(8, 26));
+    expect(vistos).toBe(segunPrisa(6, 16));
   });
 
   it('el catálogo lanza con un puente sin medidas, con medidas que no son de un puente o que no valen', () => {
@@ -399,7 +397,8 @@ describe('nada que se pinte encima tapa un puente', () => {
 describe('la cara que cede su pared a un puente no se queda lisa', () => {
   it('en las semillas 1-10: la que se abre está junto a un puente, sin rampa, y la pared la tapa menos de lo que pide quedarse', () => {
     let abiertas = 0;
-    for (const s of SEMILLAS) {
+    // En `pnpm verify`, la 8: desde #161 y #171 es la única de 1-10 con una cara abierta.
+    for (const s of segunPrisa([8], rango(1, 10))) {
       const e = partidaDe(s).escena;
       const paredes = e.sprites.filter((x) => x.clase === 'pared').map((x) => cajaDeSprite(x));
       for (const c of e.relieve.caras) {
@@ -575,22 +574,22 @@ describe('pulsar el puente lleva a su nodo (H2 del QA de #157)', () => {
     expect(sobreTierra).toBeGreaterThan(0);
   });
 
-  it('en las semillas 1-40, el medio del tablero cae en la casilla del nodo salvo en 4, y ahí la toca', () => {
-    // El medio alzado fuera de la casilla del nodo: 26 de 101 antes del arreglo.
-    // En `pnpm verify`, las dos semillas de 1-40 donde cae fuera la 8 y la 16 (#167).
-    let fuera = 0;
-    for (const s of segunPrisa([8, 16], rango(1, 40))) {
+  it('en las semillas 1-40, el medio del tablero cae en la casilla del nodo', () => {
+    // El medio alzado fuera de la casilla del nodo: 26 de 101 antes del arreglo
+    // de H2, y 4 después (quebrados que `asentar` corría). Con las entradas en
+    // eje (#161) ningún puente de 1-40 es quebrado, y ninguno cae fuera. En
+    // `pnpm verify`, una muestra (#167).
+    let puentes = 0;
+    for (const s of segunPrisa([5, 8], rango(1, 40))) {
       const { map, escena } = partidaDe(s);
       for (const pu of escena.puentes) {
         const o = map.objects.find((x) => x.id === pu.id) as MapObject;
-        const enElNodo = ([x, y]: Punto) => Math.floor(x) === o.at.x && Math.floor(y) === o.at.y;
-        if (enElNodo(enElTablero(pu, 0))) continue;
-        fuera++;
-        const toca = Array.from({ length: 41 }, (_, k) => enElTablero(pu, -0.5 + k / 40));
-        expect(toca.some(enElNodo), `s${s} ${pu.id}`).toBe(true);
+        const [x, y] = enElTablero(pu, 0);
+        expect([Math.floor(x), Math.floor(y)], `s${s} ${pu.id}`).toEqual([o.at.x, o.at.y]);
+        puentes++;
       }
     }
-    expect(fuera).toBe(segunPrisa(2, 4));
+    expect(puentes).toBe(segunPrisa(6, 89));
   });
 
   it('en el cliente, s15: pulsar el tablero del puente de (16,1) sobre el agua lo señala y anda hacia él', () => {
@@ -625,11 +624,12 @@ describe('pulsar el puente lleva a su nodo (H2 del QA de #157)', () => {
     expect(s.status).not.toMatch(/No hay camino/);
     expect(s.selectedHero!.at).not.toEqual(antes);
   });
-  it('en el cliente, s18: pulsar al héroe que espera en la orilla norte de un N-S no lo baja al puente (H9)', () => {
-    // El tablero alzado de (4,10) tapa en pantalla la casilla de la orilla
-    // norte, (4,9): pulsar las piernas del héroe que esperaba en ella lo bajaba
-    // al puente y lo tomaba.
-    const s = new Session(18);
+  it('en el cliente, s35: pulsar al héroe que espera en la orilla norte de un N-S no lo baja al puente (H9)', () => {
+    // El tablero alzado de (2,11) tapa en pantalla la casilla de la orilla
+    // norte, (2,10): pulsar las piernas del héroe que esperaba en ella lo bajaba
+    // al puente y lo tomaba. (Era s18 (4,10); con las entradas en eje, #161,
+    // s18 ya no tiene ese puente.)
+    const s = new Session(35);
     s.revealAll = true;
     const esc = escenarioDe(s.state.map, s.state.seed);
     const escena = new EscenaAventura(() => s);
@@ -643,10 +643,10 @@ describe('pulsar el puente lleva a su nodo (H2 del QA de #157)', () => {
       tileMinimo: topeDeAlejar(esc, ancho, alto),
     });
     const nodo = s.state.map.objects.find(
-      (o) => o.kind === 'node' && o.at.x === 4 && o.at.y === 10,
+      (o) => o.kind === 'node' && o.at.x === 2 && o.at.y === 11,
     ) as MapObject;
     const pu = esc.escena.puentes.find((p) => p.id === nodo.id);
-    if (pu === undefined) throw new Error('s18 ya no tiene el puente de (4,10)');
+    if (pu === undefined) throw new Error('s35 ya no tiene el puente de (2,11)');
     expect(pu.eje).toBe('ns');
     const pulsar = (x: number, y: number): void => {
       const p = mundoAPixel(camara, x, y);
@@ -656,21 +656,21 @@ describe('pulsar el puente lleva a su nodo (H2 del QA de #157)', () => {
     };
     // Las piernas y el centro de la orilla caen bajo el tablero: que la prueba no pase en vacío.
     const pisable = pisableEn(s.state.map);
-    expect(puenteBajo(esc.escena.puentes, 4.5, 9.55, () => false)).toBe(pu);
-    expect(puenteBajo(esc.escena.puentes, 4.5, 9.55, pisable)).toBeNull();
+    expect(puenteBajo(esc.escena.puentes, 2.5, 10.55, () => false)).toBe(pu);
+    expect(puenteBajo(esc.escena.puentes, 2.5, 10.55, pisable)).toBeNull();
     expect(puenteBajo(esc.escena.puentes, 4.5, 9.5, pisable)).toBeNull();
     // Al centro de la orilla norte: el héroe llega a ella, no al puente.
-    pulsar(4.5, 9.5);
-    expect(s.selectedHero!.at).toEqual({ x: 4, y: 9 });
+    pulsar(2.5, 10.5);
+    expect(s.selectedHero!.at).toEqual({ x: 2, y: 10 });
     // Sus piernas: ya está ahí, y no se mueve.
-    const p = mundoAPixel(camara, 4.5, 9.55);
+    const p = mundoAPixel(camara, 2.5, 10.55);
     escena.mover(p.x, p.y);
     expect(s.status).not.toMatch(/^Paso sin dueño/);
-    pulsar(4.5, 9.55);
-    expect(s.selectedHero!.at).toEqual({ x: 4, y: 9 });
+    pulsar(2.5, 10.55);
+    expect(s.selectedHero!.at).toEqual({ x: 2, y: 10 });
     // Y el tablero sobre el nodo sigue llevando al puente.
     pulsar(...enElTablero(pu, 0));
-    expect(s.selectedHero!.at).toEqual({ x: 4, y: 10 });
+    expect(s.selectedHero!.at).toEqual({ x: 2, y: 11 });
   });
 });
 
@@ -753,7 +753,7 @@ describe('la senda llega al estribo por tierra (H4 del QA de #157)', () => {
       sinVados += sendasDeEstriboEnAgua(e.sendas, e.puentes, [], esAgua).length;
       for (const v of e.vados) expect(v.length, `s${s}`).toBeGreaterThan(1);
     }
-    expect(sinVados).toBe(segunPrisa(4, 7));
+    expect(sinVados).toBe(1);
   });
 });
 
@@ -791,8 +791,8 @@ describe('la cara que cede su pared a un puente y se queda abre lo que la pared 
         }
       }
     }
-    // 6 en las semillas 1-10 desde #171: el azar del macizo cambia los módulos
-    // de pared de la semilla 6, y su cara 30 se queda con un hueco de 0,2.
-    expect(huecos).toBe(segunPrisa(1, 6));
+    // Con #161 y #171, las semillas 6 y 9 tienen un hueco cada una; la muestra
+    // rápida (5 y 8) ninguno.
+    expect(huecos).toBe(segunPrisa(0, 2));
   });
 });

@@ -81,7 +81,9 @@ describe('el campo del macizo', () => {
 });
 
 describe('la escena: los picos de una cordillera crecen hacia dentro', () => {
-  const semillas = segunPrisa([1, 57], rango(1, 10));
+  // En la lenta, las de 1-10 con una cordillera que mirar (≥ 10 picos de falda y 5
+  // de cresta): desde #161, la 2, la 4 y la 5 no la tienen.
+  const semillas = segunPrisa([1, 57], [1, 3, 6, 7, 8, 9, 10]);
   for (const semilla of semillas)
     it(`semilla ${semilla}: más altos, más esbeltos y más claros en la cresta que en la falda`, () => {
       const { map } = partidaDe(semilla);

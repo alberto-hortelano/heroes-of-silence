@@ -2849,6 +2849,51 @@ taller. Nada de eso llega a `vite build`: `src/client/desarrollo/` entra por un
 - **La casilla de una marca es la del puntero** (`casillaBajo`): en el tablero
   de un puente, la de su nodo, no el agua de debajo.
 
+## Cada nodo entra por un eje (#161, #166 H10, 07-10-2026)
+
+Marca del usuario en s2: un puente N-S en (7,11) que desembocaba en un islote de
+una casilla, unido a tierra solo en diagonal, y el camino perdiéndose al pie de
+dos paredes. La tarea pedía mover los nodos de agua a donde hubiera orillas
+enfrentadas; la crítica lo reencuadró, medido:
+
+- **No era del agua ni de dónde cae el nodo.** En la red fina, 563 de 568 pasos
+  (1-40) ya tenían dos vecinas opuestas de regiones distintas. Las perdía el
+  vestido: `engordarFronteras` protegía, por región, la primera vecina recta
+  sin mirar la de enfrente (norte para una y este para la otra salía en
+  esquina) y seguía hasta lo libre en 8 vecinas (la entrada quedaba unida a su
+  región por una esquina). Le pasaba a un tercio de los nodos de toda barrera:
+  165 de 488 quebrados y 307 con una entrada sin vecina en cruz, en 1-40.
+- **El arreglo, en el vestido y para todo nodo** (`ejeDelNodo`, `vestir.ts`):
+  se elige un eje —recto, diagonal con un codo que une sus casillas en cruz o,
+  junto al borde, corto—, se protegen sus dos lados hasta la segunda casilla y
+  todos los caminos hasta lo libre van en cruz. Sin `if (agua)` y sin mover
+  nodos: mover el nodo es tocar la red para algo que no es de la red. Y nada
+  se siembra en `n ± 2d` (`delanteDeNodo`, `generate.ts`), aparte de
+  `juntoANodo` porque esa marca también acota la patrulla de los asaltantes.
+- **Cifras** (antes → después): quebrados 165/488 → 4/473 en 1-40 y 817/2469 →
+  27/2435 en 1-200; entradas sin cruz 307 → 0 y 1544 → 0; objetos delante 33 →
+  0 y 159 → 0. Puentes en 1-40: 101 con 35 quebrados → 89 con 1. Los 27
+  quebrados de 1-200 son exactamente los pasos cuya red fina no tiene vecinas
+  opuestas (casi todos junto al borde del mapa); arreglarlos es mover el nodo,
+  y queda en backlog.
+- **La red no cambia salvo que se tire**: con la misma primera red
+  equilibrada salen los mismos nodos; 56 de 200 semillas cambian de red, todas
+  porque una de las dos versiones agotó los vestidos de la primera (script en
+  `docs/agents/2026-10-07-orillas-del-puente/redes/`). Vestidos por mapa 3,55
+  → 4,89 (máximo 21 → 32), 0 mapas sin salir de 28 a 48 de lado.
+- **El agua no baja de forma sistemática**: en 1-200 los nodos de agua pasaron
+  de 520 a 466, y en 201-400 de 497 a 500. Ruido de qué barrera se sortea.
+- **`asentar` se queda**: los planes del agente ponen el nodo donde quieren y
+  `problemasDeRed` no mira las orillas. Ya no es «provisional hasta #161».
+- Banco `6157d75a…` → `82123423…`, forma en `tools/qa/banco.ts`. **La
+  duración no cambia**: en las 200 del banco la mediana pasa de 8 a 9, pero con
+  1 000 semillas por tanda (`tamanos.ts`) baja de 9 a 8 en 1-1000 y se queda en
+  9 en 1001-2000, con el p90 en 16 en las dos. Las 200 del banco eran ruido.
+- **`pnpm capturas` buscaba con semillas fijas** y cuatro pasadas cayeron (la
+  50 perdió su ruta de dos días y la 810 su guardia): ahora escritorio, móvil,
+  táctil y sin arte buscan su semilla en el espejo, como ya hacían emboscada,
+  veteranos y la batalla perdida.
+
 ## Decisiones tomadas
 
 - **MCP antes que API key.** El usuario tiene Claude Max: el agente entra por

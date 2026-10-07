@@ -855,6 +855,28 @@ function hayRegionRaquitica(regionDe: Int32Array, regiones: number): boolean {
 }
 
 /**
+ * La casilla siguiente a la entrada en cada eje de cada nodo, `n + 2d` en las
+ * ocho direcciones, marcada con un 1. `juntoANodo` ya veta la entrada; esto veta
+ * lo que se ve delante de ella. Las ocho, y no solo las del eje que eligió el
+ * vestido, porque el eje corto y el nodo sin eje no protegen esa casilla con el
+ * pasillo, y así no hace falta saber cuál fue.
+ */
+function delanteDeNodo(W: number, H: number, nodos: readonly number[]): Uint8Array {
+  const marca = new Uint8Array(W * H);
+  for (const n of nodos) {
+    const x = n % W;
+    const y = Math.floor(n / W);
+    for (let dy = -2; dy <= 2; dy += 2) {
+      for (let dx = -2; dx <= 2; dx += 2) {
+        if ((dx !== 0 || dy !== 0) && x + dx >= 0 && y + dy >= 0 && x + dx < W && y + dy < H)
+          marca[(y + dy) * W + x + dx] = 1;
+      }
+    }
+  }
+  return marca;
+}
+
+/**
  * Una red fina ya validada y equilibrada: lo que el vestido necesita para
  * vestirla, tantas veces como haga falta, sin volver a trazarla.
  */
@@ -1233,12 +1255,19 @@ function vestirRed(
   const ocupadas = new Set<number>(nodos);
   // Lo pegado a un nodo no se usa, para que nada tape la entrada a la región.
   const junto = juntoANodo(mapaGrueso);
+  // Ni la casilla siguiente a la entrada en cada eje del nodo (`n + 2d`): una
+  // mina o un pueblo ahí se planta delante del puente o del paso (#166 H10, s57
+  // node-16). Va aparte de `juntoANodo`, que también acota la patrulla de los
+  // asaltantes, y esto es solo de dónde se siembra.
+  const delante = delanteDeNodo(W, H, nodos);
   // Las casillas que valen de cada región, una vez: abiertas, sin pegarse a un
-  // nodo y fuera del pasillo de entrada. Lo ocupado se descuenta al pedirlas.
+  // nodo, fuera del pasillo de entrada y de su eje. Lo ocupado se descuenta al
+  // pedirlas.
+  const sinUsar = (i: number): boolean => junto[i] === 0 && pasillo[i] === 0 && delante[i] === 0;
   const candidatas: number[][] = semillas.map(() => []);
   for (let i = 0; i < N; i++) {
     const r = regionGruesa[i] as number;
-    if (r !== -1 && junto[i] === 0 && pasillo[i] === 0) candidatas[r]?.push(i);
+    if (r !== -1 && sinUsar(i)) candidatas[r]?.push(i);
   }
   const libres = (r: number): number[] => (candidatas[r] ?? []).filter((i) => !ocupadas.has(i));
   // Coloca algo en la región `r` y su espejo en la pareja de `r`: la misma
@@ -1250,12 +1279,7 @@ function vestirRed(
     ocupadas.add(a);
     const im = espejoDe(a, N);
     let b: number;
-    if (
-      regionGruesa[im] === parejaDe(r) &&
-      !ocupadas.has(im) &&
-      junto[im] === 0 &&
-      pasillo[im] === 0
-    ) {
+    if (regionGruesa[im] === parejaDe(r) && !ocupadas.has(im) && sinUsar(im)) {
       b = im;
     } else {
       const otra = libres(parejaDe(r));

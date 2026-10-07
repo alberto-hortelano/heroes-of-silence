@@ -173,6 +173,10 @@ export const TIPOS_POR_MAPA = 4;
  * - **Los pasillos**: el nodo es un estrechamiento de una casilla, y desde él
  *   hasta la primera casilla que no se engorda de cada región que toca se
  *   protege un camino. Es la excepción al grosor, y es la que el usuario aprobó.
+ *   Las dos primeras son **opuestas** (`ejeDelNodo`: recta, diagonal o, junto
+ *   al borde, corta) y se protegen hasta la segunda casilla en el eje; todos los
+ *   caminos van en cruz. Así el nodo no sale en esquina y su entrada no queda
+ *   unida a la región solo por una diagonal (#161).
  * - **Los bolsillos**: si engordar deja un trozo de región separado del resto y
  *   sin pasillo, se rellena; si lo tiene, el vestido no vale —sería una zona a
  *   la que solo se llega por ese nodo y que no es región de nadie—.
@@ -321,29 +325,41 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
     if (siempre || ruido(i) === 1) engorda[i] = tipo;
   }
 
-  // 5. Los pasillos: de cada nodo, a cada región que toca, hasta la primera
-  //    casilla que no se engorda. Primero las vecinas rectas, que dan una
-  //    entrada derecha y no en esquina.
+  // 5. Los pasillos. Primero el eje de cada nodo: dos entradas opuestas que
+  //    siguen por tierra en cruz; luego, a cada región que toca y el eje no
+  //    cubre, la vecina de siempre. Y de cada entrada, un camino en cruz hasta
+  //    la primera casilla que no se engorda.
   const pasillo = new Uint8Array(N);
   for (const n of e.nodos) {
-    const rectasPrimero: number[] = [];
+    const x = n % W;
+    const y = Math.floor(n / W);
+    const tramos: { arranque: number; protegidas: readonly number[] }[] = [];
+    const hechas = new Set<number>();
+    const eje = ejeDelNodo(W, H, x, y, etiqueta, muro);
+    for (const lado of eje ?? []) {
+      hechas.add(etiqueta[lado[0]!] as number);
+      tramos.push({ arranque: lado[lado.length - 1]!, protegidas: lado });
+    }
+    const rectas: number[] = [];
     const oblicuas: number[] = [];
     for (let k = desde[n]!; k < desde[n + 1]!; k++) {
       const v = vecinas[k]!;
       if (muro[v] === 1) continue;
-      const recta = v % W === n % W || Math.floor(v / W) === Math.floor(n / W);
-      (recta ? rectasPrimero : oblicuas).push(v);
+      (v % W === x || Math.floor(v / W) === y ? rectas : oblicuas).push(v);
     }
-    const hechas = new Set<number>();
-    for (const v of [...rectasPrimero, ...oblicuas]) {
+    for (const v of [...rectas, ...oblicuas]) {
       const r = etiqueta[v] as number;
       if (hechas.has(r)) continue;
       hechas.add(r);
-      const camino = caminoHastaLibre(W, H, v, r, etiqueta, muro, engorda);
+      tramos.push({ arranque: v, protegidas: [] });
+    }
+    for (const { arranque, protegidas } of tramos) {
+      const r = etiqueta[arranque] as number;
+      const camino = caminoHastaLibre(W, H, arranque, r, etiqueta, muro, engorda);
       if (camino === null) {
-        const p = aPunto(n, W);
-        return `el nodo de (${p.x},${p.y}) se queda sin entrada a la región ${r} al engordar`;
+        return `el nodo de (${x},${y}) se queda sin entrada a la región ${r} al engordar`;
       }
+      for (const c of protegidas) pasillo[c] = 1;
       for (const c of camino) pasillo[c] = 1;
     }
   }
@@ -435,7 +451,93 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
   return { tipos, pasillo, semillas };
 }
 
-/** El camino más corto, dentro de la celda `r`, de `desde` a la primera casilla que no se engorda. */
+/** Las cuatro direcciones en cruz: por ellas sigue una entrada (`caminoHastaLibre`). */
+const EN_CRUZ: readonly (readonly [number, number])[] = [
+  [0, -1],
+  [-1, 0],
+  [1, 0],
+  [0, 1],
+];
+
+/**
+ * Los ejes que se prueban para las entradas de un nodo, en orden: los rectos y
+ * luego los diagonales. Cada uno con su dirección y la opuesta.
+ */
+const EJES_DEL_NODO: readonly (readonly [number, number])[] = [
+  [0, 1],
+  [1, 0],
+  [1, -1],
+  [1, 1],
+];
+
+/**
+ * Las dos entradas opuestas de un nodo, cada una como las casillas que hay que
+ * proteger por su lado (la pegada al nodo primero, la última es de donde sigue
+ * el camino), o `null` si la red fina no tiene dos vecinas opuestas pisables de
+ * regiones distintas.
+ *
+ * Antes cada región cogía su primera vecina recta, sin mirar la de enfrente:
+ * norte para una y este para la otra son las dos «rectas», y el nodo salía en
+ * esquina; y el camino hasta lo libre iba en 8 vecinas, así que la entrada
+ * podía quedar unida a su región solo en diagonal. En el agua se veía como un
+ * puente que desemboca en un islote o contra una pared (marca del usuario en
+ * s2, (7,11); un tercio de los nodos de toda barrera, #161). La red fina ya
+ * dejaba el nodo entre vecinas opuestas (563 de 568 pasos en 1-40): las perdía
+ * el engorde.
+ *
+ * Se prueba, y vale el primero que sale:
+ * 1. **pleno recto** (N-S, E-O): a cada lado la vecina y la siguiente en el eje,
+ *    de la misma región. Hasta distancia 2 porque con una sola, el engorde de la
+ *    de detrás la deja unida a su región solo por la diagonal.
+ * 2. **pleno diagonal**: lo mismo en diagonal, más un **codo** que una las dos en
+ *    cruz (si no, en diagonal tampoco se anda en cruz).
+ * 3. **corto**: solo las vecinas opuestas, para lo pegado al borde del mapa.
+ *
+ * Sin ninguno (1 % de los nodos, casi todos junto al borde) el nodo se viste como
+ * antes, una vecina por región: falla la red y no el vestido, y tirar el vestido
+ * solo haría tirar la red.
+ */
+function ejeDelNodo(
+  W: number,
+  H: number,
+  x: number,
+  y: number,
+  etiqueta: Int32Array,
+  muro: Uint8Array,
+): readonly (readonly number[])[] | null {
+  const libre = (cx: number, cy: number): number =>
+    cx >= 0 && cy >= 0 && cx < W && cy < H && muro[cy * W + cx] === 0 ? cy * W + cx : -1;
+  const lado = (dx: number, dy: number, pleno: boolean): number[] | null => {
+    const a1 = libre(x + dx, y + dy);
+    if (a1 < 0) return null;
+    if (!pleno) return [a1];
+    const a2 = libre(x + 2 * dx, y + 2 * dy);
+    if (a2 < 0 || etiqueta[a2] !== etiqueta[a1]) return null;
+    if (dx === 0 || dy === 0) return [a1, a2];
+    for (const codo of [libre(x + 2 * dx, y + dy), libre(x + dx, y + 2 * dy)]) {
+      if (codo >= 0 && etiqueta[codo] === etiqueta[a1]) return [a1, codo, a2];
+    }
+    return null;
+  };
+  for (const [pleno, ejes] of [
+    [true, EJES_DEL_NODO.slice(0, 2)],
+    [true, EJES_DEL_NODO.slice(2)],
+    [false, EJES_DEL_NODO],
+  ] as const) {
+    for (const [dx, dy] of ejes) {
+      const a = lado(dx, dy, pleno);
+      const b = lado(-dx, -dy, pleno);
+      if (a !== null && b !== null && etiqueta[a[0]!] !== etiqueta[b[0]!]) return [a, b];
+    }
+  }
+  return null;
+}
+
+/**
+ * El camino más corto **en cruz**, dentro de la celda `r`, de `desde` a la
+ * primera casilla que no se engorda. En cruz porque uno en diagonal deja la
+ * entrada unida a su región por una esquina, entre dos casillas de barrera.
+ */
 function caminoHastaLibre(
   W: number,
   H: number,
@@ -445,7 +547,6 @@ function caminoHastaLibre(
   muro: Uint8Array,
   engorda: Int8Array,
 ): number[] | null {
-  const { desde: ini, vecinas } = vecindad(W, H);
   const previo = new Map<number, number>([[desde, desde]]);
   const cola = [desde];
   for (let q = 0; q < cola.length; q++) {
@@ -455,8 +556,11 @@ function caminoHastaLibre(
       for (let c = a; c !== desde; c = previo.get(c) as number) camino.push(previo.get(c)!);
       return camino;
     }
-    for (let k = ini[a]!; k < ini[a + 1]!; k++) {
-      const j = vecinas[k]!;
+    const ax = a % W;
+    const ay = Math.floor(a / W);
+    for (const [dx, dy] of EN_CRUZ) {
+      if (ax + dx < 0 || ay + dy < 0 || ax + dx >= W || ay + dy >= H) continue;
+      const j = (ay + dy) * W + ax + dx;
       if (previo.has(j) || muro[j] === 1 || etiqueta[j] !== r) continue;
       previo.set(j, a);
       cola.push(j);

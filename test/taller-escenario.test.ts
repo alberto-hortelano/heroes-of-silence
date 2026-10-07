@@ -397,7 +397,8 @@ describe('la escena de un mapa real', () => {
       const peñascos = e.sprites.filter(
         (s) => s.clase === 'pared' && s.src?.includes('/rocas-caidas/') === true,
       );
-      expect(peñascos.length).toBeGreaterThan(10);
+      // Que haya qué mirar: desde #161 la semilla 7 trae 9.
+      expect(peñascos.length).toBeGreaterThan(5);
       const pisan = peñascos.filter((s) => pasillo.pisa(cajaDeSprite(s), SEMIANCHO_DE_PARED));
       expect(pisan.map((s) => `${s.src} en ${s.x},${s.y}`)).toEqual([]);
     });

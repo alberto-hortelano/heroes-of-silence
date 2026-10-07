@@ -1052,9 +1052,10 @@ describe('la consulta `map` pasa por la niebla', () => {
     // dentro de la niebla y otro fuera. Con los del mapa generado —cero— este
     // trozo del test sería una comprobación vacía que pasaría siempre.
     // Fuera de la diagonal: en (15,15) leer la clave del revés es la identidad.
+    // Y sin camino todavía: `conCaminos` lanza con una casilla que ya lo lleva.
     const explorada = [...mio.fog].find((k) => {
       const p = pointFromKey(k);
-      return p.x !== p.y;
+      return p.x !== p.y && !state.map.caminos.casillas.has(k);
     });
     if (explorada === undefined)
       throw new Error('la semilla 407 ya no deja una casilla fuera de la diagonal');
@@ -1111,9 +1112,10 @@ describe('la consulta `map` pasa por la niebla', () => {
 
     // Con un camino dentro de la niebla: si `roads` fuera `[]` en las dos, la
     // igualdad de ese campo se cumpliría por vacío.
+    // Y sin camino todavía: `conCaminos` lanza con una casilla que ya lo lleva.
     const explorada = [...mio.fog].find((k) => {
       const p = pointFromKey(k);
-      return p.x !== p.y;
+      return p.x !== p.y && !state.map.caminos.casillas.has(k);
     });
     if (explorada === undefined)
       throw new Error('la semilla 410 ya no deja una casilla fuera de la diagonal');
@@ -1409,11 +1411,12 @@ describe('el agente sabe cómo le fue', () => {
       return { actions: [{ type: 'move_hero', hero: payload.heroes[0].id, to: destino }] };
     });
 
-    // La semilla 1 es la del issue: la primera casilla de hoy cuya marcha se para.
-    const director = new Director(link, { seed: 1, agentPlayers: [0] });
+    // La primera casilla de hoy cuya marcha se para. La del issue era la
+    // semilla 1, que con las entradas de nodo en eje (#161) ya no para ninguna.
+    const director = new Director(link, { seed: 2, agentPlayers: [0] });
     const heroe = director.state.heroes.find((h) => h.owner === 0)!;
     destino = primeraMarchaQueSePara(director.state, heroe);
-    if (destino === null) throw new Error('en la semilla 1 ninguna marcha de hoy se para');
+    if (destino === null) throw new Error('en la semilla 2 ninguna marcha de hoy se para');
     const antes = director.state.log.length;
     const informe = await director.playTurn();
     await respira();

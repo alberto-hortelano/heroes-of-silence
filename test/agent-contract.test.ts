@@ -531,9 +531,10 @@ describe('lo que ve el agente', () => {
     // Fuera de la diagonal a propósito: en (15,15) intercambiar x por y es la
     // identidad, y una fixtura así deja pasar un serializador que lea la clave
     // del revés. Se vio: la sonda que hacía justo eso salió verde en los 400.
+    // Y sin camino todavía: `conCaminos` lanza con una casilla que ya lo lleva.
     const asimetrica = (k: string): boolean => {
       const p = pointFromKey(k);
-      return p.x !== p.y;
+      return p.x !== p.y && !state.map.caminos.casillas.has(k);
     };
     const dentro = [...jugador.fog].find(asimetrica);
     const fuera = [...state.players[1]!.fog].find((k) => !jugador.fog.has(k) && asimetrica(k));

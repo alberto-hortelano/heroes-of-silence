@@ -12,7 +12,7 @@
  * Todo es puro salvo la caja del lienzo, que la mide la página: lo que «se ve»
  * depende de ella, y es la misma cuenta que hace `Mapa` en el guion.
  */
-import { focoDe } from '../../src/client/escenas/aventura.js';
+import { focoDe, llegadaDeLaRuta } from '../../src/client/escenas/aventura.js';
 import { galonesDe } from '../../src/client/render/batalla.js';
 import {
   casillaAPixel,
@@ -22,6 +22,7 @@ import {
   zoom,
 } from '../../src/client/render/camara-mapa.js';
 import { escenarioDe, topeDeAlejar } from '../../src/client/render/escenario/superficie.js';
+import { pasosAPintar } from '../../src/client/render/mapa.js';
 import { Session } from '../../src/client/session.js';
 import { troopSummary } from '../../src/core/hero/troop.js';
 import { casillasPeligrosas } from '../../src/core/state/asaltantes.js';
@@ -241,5 +242,218 @@ export function buscarDerrota(b: Caja, desde = 1): number {
   throw new Error(
     `batalla perdida: en las semillas ${desde}–${desde + TOPE_DE_SEMILLAS - 1} ninguna guardia a la vista ` +
       'a la que se llegue hoy gana al héroe resuelta sola',
+  );
+}
+
+/** El tile tras `pasos` de rueda (positivos acercan), con los topes del cliente. */
+export function tileTrasRueda(e: Encuadre, pasos: number): number {
+  let tile = TILE_INICIAL;
+  for (let i = 0; i < Math.abs(pasos); i++)
+    tile = zoom({ tile, x: 0, y: 0 }, pasos > 0 ? 1 : -1, e).tile;
+  return tile;
+}
+
+/**
+ * El destino explorado cuya ruta pintada tiene tramo de hoy y tramo de otro día,
+ * se ve entera (la barra dice «dorado hoy, gris otro día») y cae dentro del
+ * lienzo, con el héroe centrado: el más largo de pintar. Es lo
+ * que enseña `rutaDoradaYGris`; vive aquí para que la búsqueda de la semilla y
+ * la pasada pregunten lo mismo.
+ */
+export function rutaDeDosColores(
+  b: Caja,
+  e: Encuadre,
+  tile: number,
+  espejo: Session,
+): Point | null {
+  const explorado = espejo.explorado;
+  if (explorado === null) return null;
+  const dentro = (p: { x: number; y: number }) =>
+    p.x > b.x + 30 && p.x < b.x + b.width - 30 && p.y > b.y + 30 && p.y < b.y + b.height - 30;
+  let elegido: { destino: Point; pintados: number } | null = null;
+  for (const clave of explorado) {
+    const [x, y] = clave.split(',').map(Number) as [number, number];
+    const destino = { x, y };
+    const ruta = espejo.previewPath(destino);
+    const pintados = pasosAPintar(ruta, explorado);
+    if (!pintados.some((p) => p.hoy) || !pintados.some((p) => !p.hoy)) continue;
+    // Y que la barra lo diga con sus colores: con parte de la ruta en la niebla
+    // dice solo lo que se ve (#123), y la pasada mira esa frase (s14 en la
+    // búsqueda de #161 elegía una ruta que seguía por tierras desconocidas).
+    if (!llegadaDeLaRuta(ruta, explorado).includes('dorado hoy, gris otro día')) continue;
+    if (elegido !== null && pintados.length <= elegido.pintados) continue;
+    if (!dentro(pixelDeCasilla(b, e, tile, espejo, destino))) continue;
+    elegido = { destino, pintados: pintados.length };
+  }
+  return elegido?.destino ?? null;
+}
+
+/** Lo que la pasada de escritorio recluta en el castillo: lo de nivel 1 de su facción. */
+export const reclutaDeNivel1 = (faction: string): string =>
+  faction === 'knight' ? 'peasant' : 'skeleton';
+
+/** Los pasos de rueda que da la pasada de escritorio antes de su batalla (zoom y arrastre). */
+export const RUEDA_DEL_ESCRITORIO = 2;
+
+/**
+ * La partida de la pasada de escritorio, jugada en el espejo hasta su primera
+ * batalla: con el héroe recién nacido, una ruta de dos colores a la vista; al
+ * entrar en su castillo y reclutar todo lo de nivel 1, una guardia a la que se
+ * llega hoy y se ve con el zoom de la pasada, y su batalla. Era la semilla 50,
+ * fija, y #161 le quitó la ruta de dos días (QA de #161, H1).
+ *
+ * Lo que no se mira aquí es la batalla en sí —que dé ocasión de mover dos
+ * tramos y atacar desde un ángulo—: depende de los clics de la pasada, y si no
+ * la da, la pasada lo dice.
+ */
+export function buscarEscritorio(b: Caja, desde = 1): number {
+  for (let semilla = desde; semilla < desde + TOPE_DE_SEMILLAS; semilla++) {
+    const espejo = new Session(semilla);
+    const e = encuadreDe(b, espejo);
+    if (rutaDeDosColores(b, e, TILE_INICIAL, espejo) === null) continue;
+    const castillo = espejo.myTowns()[0];
+    if (castillo === undefined) continue;
+    espejo.clickTile(castillo.at);
+    if (espejo.scene !== 'town' || espejo.activeTown === null) continue;
+    espejo.recruitAll(reclutaDeNivel1(espejo.activeTown.faction));
+    espejo.closeTown();
+    const guardia = guardiaEnElMarco(b, e, tileTrasRueda(e, RUEDA_DEL_ESCRITORIO), espejo);
+    if (guardia === null) continue;
+    espejo.clickTile(guardia);
+    if (espejo.battle !== null) return semilla;
+  }
+  throw new Error(
+    `escritorio: en las semillas ${desde}–${desde + TOPE_DE_SEMILLAS - 1} ninguna tiene a la vez una ruta ` +
+      'de dos colores a la vista y, tras entrar al castillo, una guardia a la vista a la que se llegue hoy',
+  );
+}
+
+/**
+ * El destino de la pasada táctil: el más lejano a ±5 casillas que se alcance
+ * hoy, explorado, a tres pasos o más y tocable en el lienzo; o `null`.
+ */
+export function destinoTactil(b: Caja, e: Encuadre, espejo: Session): Point | null {
+  const heroe = espejo.selectedHero;
+  if (heroe === null) return null;
+  let destino: Point | null = null;
+  let mejor = 2;
+  for (let dy = -5; dy <= 5; dy++) {
+    for (let dx = -5; dx <= 5; dx++) {
+      const p = { x: heroe.at.x + dx, y: heroe.at.y + dy };
+      const r = espejo.previewPath(p);
+      if (r.length <= mejor || !r.every((paso) => paso.hoy)) continue;
+      if (espejo.explorado !== null && !espejo.explorado.has(`${p.x},${p.y}`)) continue;
+      if (tocable(b, pixelDeCasilla(b, e, TILE_INICIAL, espejo, p))) {
+        destino = p;
+        mejor = r.length;
+      }
+    }
+  }
+  return destino;
+}
+
+/** Los pasos de rueda hacia fuera de la pasada táctil antes de buscar su guardia. */
+export const RUEDA_DEL_TACTIL = -2;
+
+/**
+ * La semilla de las pasadas del móvil y del dedo, que comparten el marco
+ * estrecho (`b`, medido en la página del móvil):
+ *  - móvil: tras entrar al castillo y salir, una guardia a la vista con el zoom
+ *    de salida, y su batalla;
+ *  - táctil: un destino de hoy a tres pasos o más, y —en otra partida de la misma
+ *    semilla, dos pasos de rueda hacia fuera— una guardia a la vista y su batalla.
+ * Era la 810, fija (QA de #161, H1).
+ */
+export function buscarMovil(b: Caja, desde = 1): number {
+  for (let semilla = desde; semilla < desde + TOPE_DE_SEMILLAS; semilla++) {
+    const tactil = new Session(semilla);
+    const e = encuadreDe(b, tactil);
+    if (destinoTactil(b, e, tactil) === null) continue;
+    const otra = new Session(semilla);
+    const lejos = guardiaEnElMarco(b, e, tileTrasRueda(e, RUEDA_DEL_TACTIL), otra);
+    if (lejos === null) continue;
+    otra.clickTile(lejos);
+    if (otra.battle === null) continue;
+    const movil = new Session(semilla);
+    const castillo = movil.myTowns()[0];
+    if (castillo === undefined) continue;
+    movil.clickTile(castillo.at);
+    if (movil.scene !== 'town') continue;
+    movil.closeTown();
+    const guardia = guardiaEnElMarco(b, e, TILE_INICIAL, movil);
+    if (guardia === null) continue;
+    movil.clickTile(guardia);
+    if (movil.battle !== null) return semilla;
+  }
+  throw new Error(
+    `móvil: en las semillas ${desde}–${desde + TOPE_DE_SEMILLAS - 1} ninguna tiene, en el marco del móvil, ` +
+      'un destino de hoy a tres pasos y una guardia a la vista a la que se llegue hoy (de salida, alejada y tras el castillo)',
+  );
+}
+
+/** Los pasos de rueda hacia fuera con que `patrullaALaVista` abre la vista. */
+export const RUEDA_DE_LA_PATRULLA = -4;
+
+/**
+ * Los grupos de asaltantes que la patrulla puede mirar: en lo explorado y
+ * tocables en el lienzo. La misma pregunta que hace `patrullaALaVista`.
+ */
+export function asaltantesEnElMarco(
+  b: Caja,
+  e: Encuadre,
+  tile: number,
+  espejo: Session,
+): readonly Point[] {
+  const explorada = (p: Point) => espejo.explorado?.has(`${p.x},${p.y}`) ?? true;
+  return espejo.state.raiders
+    .map((r) => r.at)
+    .filter((at) => explorada(at) && tocable(b, pixelDeCasilla(b, e, tile, espejo, at)));
+}
+
+/**
+ * La pasada sin arte, en el espejo: la patrulla de `patrullaALaVista` —con la
+ * vista abierta, se pasan días hasta que un grupo a la vista se mueve dentro de
+ * lo que se miró, descubriendo el mapa si no hay ninguno— y después una guardia
+ * a la vista a la que se llegue, y su batalla. Era la semilla 50 (QA de #161, H1).
+ */
+export async function buscarSinArte(b: Caja, desde = 1): Promise<number> {
+  for (let semilla = desde; semilla < desde + TOPE_DE_SEMILLAS; semilla++) {
+    const espejo = new Session(semilla);
+    const e = encuadreDe(b, espejo);
+    const tile = tileTrasRueda(e, RUEDA_DE_LA_PATRULLA);
+    let movido = false;
+    for (let intento = 0; intento < 4 && espejo.state.finished === null && !movido; intento++) {
+      const vistos = asaltantesEnElMarco(b, e, tile, espejo);
+      if (vistos.length === 0) {
+        if (espejo.revealAll) break;
+        espejo.revealAll = true;
+        intento--;
+        continue;
+      }
+      const mirado = new Set<string>();
+      for (const at of vistos)
+        for (let dy = -2; dy <= 2; dy++)
+          for (let dx = -2; dx <= 2; dx++) mirado.add(`${at.x + dx},${at.y + dy}`);
+      const ayer = new Map(espejo.state.raiders.map((r) => [r.id, { ...r.at }]));
+      await espejo.endTurn();
+      movido = espejo.state.raiders.some((r) => {
+        const a = ayer.get(r.id);
+        return (
+          a !== undefined &&
+          (a.x !== r.at.x || a.y !== r.at.y) &&
+          mirado.has(`${a.x},${a.y}`) &&
+          mirado.has(`${r.at.x},${r.at.y}`)
+        );
+      });
+    }
+    if (!movido || espejo.state.finished !== null) continue;
+    const guardia = guardiaEnElMarco(b, e, tile, espejo);
+    if (guardia === null) continue;
+    espejo.clickTile(guardia);
+    if (espejo.battle !== null) return semilla;
+  }
+  throw new Error(
+    `sin arte: en las semillas ${desde}–${desde + TOPE_DE_SEMILLAS - 1} ninguna tiene un grupo a la vista que ` +
+      'se mueva en cuatro días y después una guardia a la vista a la que se llegue',
   );
 }

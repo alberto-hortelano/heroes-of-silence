@@ -238,14 +238,14 @@ describe('sin arte se pinta igual: cada pieza, su marcador de color', () => {
     }
   });
 
-  it('junto a un puente (#157), semilla 9: la cara que se queda se pinta sin sus huecos, un trapecio por hueco', () => {
-    const e9 = escenaDe(9);
-    const conTajos = e9.relieve.caras
+  it('junto a un puente (#157), semilla 6: la cara que se queda se pinta sin sus huecos, un trapecio por hueco', () => {
+    const conHuecos = escenaDe(6);
+    const conTajos = conHuecos.relieve.caras
       .filter((f) => f.rampas.length + (f.huecos?.length ?? 0) > 0)
       .sort((p, q) => p.y - q.y);
     expect(conTajos.some((f) => f.huecos !== undefined)).toBe(true);
     const r = registro();
-    pintarSuelo(r.contexto(), e9, separar(e9), { ...sinImagenes, lienzo: r.lienzo });
+    pintarSuelo(r.contexto(), conHuecos, separar(conHuecos), { ...sinImagenes, lienzo: r.lienzo });
     const suelo = r.llamadas.filter((l) => l.contexto === 0);
     const recortes = suelo.flatMap((l, i) => (l.metodo === 'clip' ? [i] : []));
     expect(recortes).toHaveLength(conTajos.length);
@@ -259,13 +259,13 @@ describe('sin arte se pinta igual: cada pieza, su marcador de color', () => {
     }
   });
 
-  it('junto a un puente (#157), semilla 8: cada vado se quita del barro, del agua y de la espuma', () => {
-    const e8 = escenaDe(8);
-    expect(e8.vados.length).toBeGreaterThan(0);
+  it('junto a un puente (#157), semilla 5: cada vado se quita del barro, del agua y de la espuma', () => {
+    const conVados = escenaDe(5);
+    expect(conVados.vados.length).toBeGreaterThan(0);
     const r = registro();
-    pintarSuelo(r.contexto(), e8, separar(e8), { ...sinImagenes, lienzo: r.lienzo });
+    pintarSuelo(r.contexto(), conVados, separar(conVados), { ...sinImagenes, lienzo: r.lienzo });
     const T = sinImagenes.tile;
-    for (const v of e8.vados) {
+    for (const v of conVados.vados) {
       const [x, y] = v[0] as readonly [number, number];
       const donde = r.llamadas.filter(
         (l) => l.metodo === 'moveTo' && l.args[0] === x * T && l.args[1] === y * T,

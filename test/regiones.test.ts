@@ -31,6 +31,7 @@ import {
   ArbolDeCaminos,
   centroDeRegion,
   type EntradaDeCaminos,
+  engordarFronteras,
   TIPOS_POR_MAPA,
   trazarCaminos,
 } from '../src/core/map/vestir.js';
@@ -619,6 +620,113 @@ describe('el generador hace redes como las pidió el usuario', () => {
     }
   });
 
+  it('cada nodo entra por un eje: dos vecinas opuestas, que siguen por tierra en cruz y sin nada delante (#161, #166 H10)', () => {
+    // La marca del usuario (s2, (7,11)): un puente que desemboca en un islote
+    // unido a tierra solo en diagonal. Le pasaba a un tercio de los nodos de
+    // toda barrera: el vestido cogía la primera vecina recta de cada región,
+    // sin mirar la de enfrente, y seguía en 8 vecinas.
+    const fallos: string[] = [];
+    let nodos = 0;
+    // En `pnpm verify`, tres semillas: con el vestido de antes ya dan los tres
+    // fallos. En `pnpm verify:lento`, 1-10 (#167): en 1-40 hay 4 pasos
+    // cuya red fina no tiene vecinas opuestas (s17 (1,14), s30 (7,9) y (26,24),
+    // s38 (1,15)), y eso es de la red, no del vestido.
+    for (const s of segunPrisa(rango(1, 3), rango(1, 10))) {
+      const { map } = buildMap(generateMapPlan(createRng(s)));
+      fallos.push(...entradasDeNodo(map).map((f) => `semilla ${s}: ${f}`));
+      nodos += estructura(map).nodos.length;
+    }
+    expect(fallos).toEqual([]);
+    // Que no pase en vacío: 56 nodos (ciudades incluidas) en 1-3, 187 en 1-10.
+    expect(nodos).toBeGreaterThan(segunPrisa(50, 180));
+  });
+
+  it('el vestido abre el nodo por su eje aunque la primera recta de cada región sea otra', () => {
+    // Un muro fino en escalera (x + y = 15 o 16, que en 8 vecinas no se cruza)
+    // y el nodo en (7,8): la región 0 lo toca por el norte, el oeste y el
+    // noroeste; la 1, solo por el sureste. Antes la 0 cogía su primera recta,
+    // el norte, y el nodo salía en esquina; y los dos caminos seguían en
+    // diagonal, (7,7)→(6,6) y (8,9)→(9,10): entradas unidas por una esquina.
+    const W = 16;
+    const N = W * W;
+    const etiqueta = new Int32Array(N);
+    const muro = new Uint8Array(N);
+    for (let i = 0; i < N; i++) {
+      const { x, y } = aPunto(i, W);
+      etiqueta[i] = x + y < 16 ? 0 : 1;
+      muro[i] = x + y === 15 || x + y === 16 ? 1 : 0;
+    }
+    const hecho = engordarFronteras({
+      W,
+      H: W,
+      etiqueta,
+      muro,
+      nodos: [8 * W + 7],
+      semillas: [
+        { x: 3, y: 3 },
+        { x: 12, y: 12 },
+      ],
+      suelos: ['grass', 'grass'],
+      rng: createRng(1),
+    });
+    if (typeof hecho === 'string') throw new Error(hecho);
+    const protegidas = (casillas: readonly (readonly [number, number])[]) =>
+      casillas.map(
+        ([x, y]) => hecho.pasillo[y * W + x] === 1 && hecho.tipos[y * W + x] === ABIERTA,
+      );
+    // El eje noroeste-sureste, hasta la segunda casilla y con el codo que las
+    // une en cruz; abierto y protegido.
+    const eje = [
+      [6, 7],
+      [5, 7],
+      [5, 6],
+      [8, 9],
+      [9, 9],
+      [9, 10],
+    ] as const;
+    expect(protegidas(eje)).toEqual(eje.map(() => true));
+    // Y el norte ya no es una entrada.
+    expect(hecho.pasillo[7 * W + 7]).toBe(0);
+  });
+
+  it('el guardia de las entradas muerde: esquina, islote y algo delante', () => {
+    // Un mapa a mano con un nodo y sus tres fallos, uno a uno.
+    const filas = (t: readonly string[]) => t.join('');
+    // `.` hierba de la región a (arriba) o b (abajo), `M` montaña, `N` el nodo.
+    const base = ['.......', '.......', '.......', 'MMMNMMM', '.......', '.......', '.......'];
+    const mapa = (t: readonly string[], objetos: GameMap['objects'] = []): GameMap => {
+      const terreno = filas(t);
+      const W = 7;
+      const terrain = [...terreno].map((c) => (c === 'M' ? 'mountain' : 'grass')) as TerrainKind[];
+      return {
+        width: W,
+        height: W,
+        terrain,
+        regions: [
+          { id: 'a', name: 'A', at: { x: 0, y: 0 } },
+          { id: 'b', name: 'B', at: { x: 0, y: 6 } },
+        ],
+        objects: [{ id: 'node-0', kind: 'node', at: { x: 3, y: 3 } }, ...objetos],
+        caminos: RedDeCaminos.desdeTramos([], W, W, []),
+      } as unknown as GameMap;
+    };
+    expect(entradasDeNodo(mapa(base))).toEqual([]);
+    // En esquina: el sur y el noroeste cerrados; a entra por el norte y b, solo
+    // por el sureste.
+    const esquina = [...base];
+    esquina[2] = '..M....';
+    esquina[4] = 'MMMM...';
+    expect(entradasDeNodo(mapa(esquina)).join()).toMatch(/\(3,3\) no tiene dos vecinas opuestas/);
+    // Islote: la entrada sur, (3,4), solo se une a b en diagonal.
+    const islote = [...base];
+    islote[4] = 'MMM.M..';
+    islote[5] = 'MMMM...';
+    expect(entradasDeNodo(mapa(islote)).join()).toMatch(/\(3,3\) .*en cruz/);
+    // Una mina en (3,5), delante de la entrada sur.
+    const mina = { id: 'mine-0', kind: 'mine', at: { x: 3, y: 5 } } as GameMap['objects'][number];
+    expect(entradasDeNodo(mapa(base, [mina])).join()).toMatch(/mine en \(3,5\), delante/);
+  });
+
   it('la auditoría muerde: una ciudad de grado 2 y un nodo de corte se ven', () => {
     // Si `auditar` no pudiera fallar, el test de arriba sería verde por vacío.
     // El plan a mano tiene la ciudad neutral entre DOS regiones y un solo
@@ -808,3 +916,72 @@ describe('la tabla de barreras se valida al cargar', () => {
     expect(() => validarBarreras(roto)).toThrow(/min \(20\) es mayor que max \(10\)/);
   });
 });
+
+/**
+ * Lo que se pide a la entrada de cada nodo del mapa (#161, #166 H10), mirado en
+ * el mapa ya hecho y no en el vestido:
+ *  - un **eje**: dos vecinas opuestas (N-S, E-O o diagonal) pisables y de
+ *    regiones distintas;
+ *  - que cada una siga por tierra **en cruz**: una vecina en cruz pisable de su
+ *    región, sin contar el nodo (si no, es un islote unido en diagonal);
+ *  - y **nada delante**: ni mina, ni pueblo, ni ciudad, ni cofre, ni recurso en
+ *    `n ± 2d`, en ninguna de las ocho direcciones.
+ *
+ * Lo del eje es para los pasos (`node`), no para las ciudades: una ciudad es un
+ * cruce de tres regiones y no tiene por qué tener dos vecinas enfrentadas (en
+ * 1-10, cinco no las tienen). Lo de delante, para todo nodo.
+ */
+function entradasDeNodo(map: GameMap): string[] {
+  const W = map.width;
+  const { regionDe } = estructura(map);
+  const reg = (x: number, y: number): number =>
+    x >= 0 && y >= 0 && x < W && y < map.height && isWalkable(map.terrain[y * W + x] as TerrainKind)
+      ? (regionDe[y * W + x] as number)
+      : -1;
+  const fallos: string[] = [];
+  const delante = new Set(['mine', 'village', 'town', 'chest', 'resource']);
+  for (const nodo of map.objects) {
+    if (nodo.kind !== 'node' && nodo.kind !== 'town') continue;
+    const { x, y } = nodo.at;
+    if (nodo.kind === 'node') {
+      const enCruz = (ex: number, ey: number): boolean =>
+        [
+          [0, 1],
+          [1, 0],
+          [0, -1],
+          [-1, 0],
+        ].some(
+          ([dx, dy]) =>
+            !(ex + dx! === x && ey + dy! === y) && reg(ex + dx!, ey + dy!) === reg(ex, ey),
+        );
+      const ejes = (
+        [
+          [0, 1],
+          [1, 0],
+          [1, -1],
+          [1, 1],
+        ] as const
+      ).filter(([dx, dy]) => {
+        const a = reg(x + dx, y + dy);
+        const b = reg(x - dx, y - dy);
+        return a >= 0 && b >= 0 && a !== b;
+      });
+      if (ejes.length === 0)
+        fallos.push(
+          `el nodo de (${x},${y}) no tiene dos vecinas opuestas pisables de regiones distintas`,
+        );
+      else if (!ejes.some(([dx, dy]) => enCruz(x + dx, y + dy) && enCruz(x - dx, y - dy)))
+        fallos.push(
+          `el nodo de (${x},${y}) no tiene un eje cuyas dos entradas sigan por tierra en cruz`,
+        );
+    }
+    for (const o of map.objects) {
+      if (!delante.has(o.kind)) continue;
+      const dx = o.at.x - x;
+      const dy = o.at.y - y;
+      if (Math.max(Math.abs(dx), Math.abs(dy)) === 2 && dx % 2 === 0 && dy % 2 === 0)
+        fallos.push(`${o.kind} en (${o.at.x},${o.at.y}), delante del nodo de (${x},${y})`);
+    }
+  }
+  return fallos;
+}

@@ -533,11 +533,28 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   `raider_spawned` de `raider-4`, `raider-5` y `raider-6`. Medido tras fusionar
  *   los restos del agente (#121), que no mueven el hash. Aprobado por el
  *   usuario con esa forma.
+ * - `82123423…` (67 724 líneas): **cada nodo entra por un eje** (#161, #166
+ *   H10, 07-10-2026). El vestido protege dos entradas opuestas hasta la segunda
+ *   casilla y sigue en cruz (`ejeDelNodo`, `vestir.ts`), y no se siembra nada en
+ *   `n ± 2d` (`delanteDeNodo`). Cambia dónde caen los objetos y, cuando un
+ *   vestido falla donde antes no (o al revés), la red: **0 semillas
+ *   idénticas**, y en las 200 el primer hecho distinto es un
+ *   **`raider_spawned` del día 1** (índice 1-7 de la crónica): en 144 con la
+ *   misma red (otras casillas libres para el `rng.pick` de objetos y
+ *   asaltantes) y en 56 con otra, todas con alguna red tirada en una de las dos
+ *   versiones (`docs/agents/2026-10-07-orillas-del-puente/redes/`). Vestidos
+ *   por mapa 3,55 → 4,89. 95 con otro ganador, j0 94 → 93, **0 sin terminar**,
+ *   duración 8 / 15 / 39 → **9 / 16 / 43** (la mediana es ruido de la muestra:
+ *   con `tamanos.ts` en 1-1000 pasa de 9 a 8 y en 1001-2000 se queda en 9, con
+ *   el p90 en 16; QA de #161, H3). `hero_moved` 36 423 → 37 005,
+ *   batallas 1 774 → 1 715, `town_captured` 1 493 → 1 427, `node_captured`
+ *   1 287 → 1 316; ningún tipo nuevo ni ninguno que desaparezca. Re-anclado
+ *   una vez, al final.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '6157d75a464b8ab6b20a5c092e57cf3eb2b5e9ec48f0035b1fe3bf40b0a8ce89',
+  sha: '82123423a45779f39035aad58158cf3e74ead85e9ca9422a46d2fb3a6e8f35e1',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

@@ -94,11 +94,19 @@ import { hojasDeArena, leerBorrador, RUTA_DEL_BORRADOR } from '../arena/borrador
 import {
   buscarDerrota,
   buscarEmboscada,
+  buscarEscritorio,
+  buscarMovil,
+  buscarSinArte,
   buscarVeteranos,
   type Caja,
+  destinoTactil,
   encuadreDe,
   guardiaEnElMarco,
   pixelDeCasilla,
+  RUEDA_DEL_ESCRITORIO,
+  RUEDA_DEL_TACTIL,
+  reclutaDeNivel1,
+  rutaDeDosColores,
   tocable,
   VETERANOS,
 } from './escenas-de-capturas.js';
@@ -150,19 +158,18 @@ import { arrancarServidor, type ServidorDePartida } from './servidor.js';
  * **Con «menos caminos» (06-10-2026)** la emboscada y los veteranos se
  * quedaron sin escena, y dejaron de fijarse a mano: las buscan sus pasadas
  * (`buscarEmboscada`, `buscarVeteranos`), y con ellas la que pierde
- * (`buscarDerrota`). Las que siguen aquí (la 50 y la 810) aguantaron ese
- * cambio, pero su escena no se deja buscar barata —la del escritorio es una
- * partida entera y la del móvil se mide en otro marco—; la próxima vez que
- * caigan, que se pasen a buscar igual.
+ * (`buscarDerrota`). Las que siguieron aquí (la 50 y la 810) aguantaron ese
+ * cambio, y cayeron con el siguiente: las entradas de nodo en eje (#161) le
+ * quitaron a la 50 su ruta de dos días y a la 810 su guardia a la vista (QA de
+ * #161, H1). Desde entonces las buscan también sus pasadas, cada una con lo que
+ * de verdad necesita: `buscarEscritorio`, `buscarMovil` (móvil y táctil, con la
+ * caja del móvil medida en una página) y `buscarSinArte`.
  */
-const SEMILLA = 50;
 /**
- * La del móvil y la del dedo: en un marco de 364 px de ancho la guardia que se
- * alcanza hoy tiene que caer DENTRO, y en el del dedo —en vertical, con la
- * cámara pegada al borde de arriba— a dos casillas como mucho. Hoy es la 810:
- * tras entrar al castillo, su guardia cae a (0,2).
+ * La semilla de la partida que mira el espectador: la juega el agente contra el
+ * servidor y no necesita nada del mapa, así que sigue fija.
  */
-const SEMILLA_MOVIL = 810;
+const SEMILLA_DEL_ESPECTADOR = 50;
 // Las semillas de la emboscada avisada, de los veteranos y de la batalla que se
 // pierde ya no se escriben aquí: las buscan sus pasadas en el espejo
 // (`escenas-de-capturas.ts`). Eran la 3 con destino (8,8), la 2 199 y la 97;
@@ -836,7 +843,7 @@ function cajaDeEscritorio(browser: Browser, url: string, problemas: Problemas): 
   cajaMedida ??= (async () => {
     const { page } = await abrir(browser, url, problemas, {
       nombre: 'medir el lienzo',
-      semilla: SEMILLA,
+      semilla: 1,
       sinSuelo: true,
     });
     const b = await caja(page);
@@ -847,6 +854,37 @@ function cajaDeEscritorio(browser: Browser, url: string, problemas: Problemas): 
     return b;
   })();
   return cajaMedida;
+}
+
+/** Lo mismo con el marco del móvil (390×844): con él se busca la semilla del móvil y del dedo. */
+let cajaMovilMedida: Promise<Caja> | null = null;
+function cajaDeMovil(browser: Browser, url: string, problemas: Problemas): Promise<Caja> {
+  cajaMovilMedida ??= (async () => {
+    const { page } = await abrir(browser, url, problemas, {
+      nombre: 'medir el lienzo del móvil',
+      semilla: 1,
+      movil: true,
+      sinSuelo: true,
+    });
+    const b = await caja(page);
+    await page.close();
+    log(
+      `lienzo del móvil: ${b.width}×${b.height} en (${b.x},${b.y}), con el que se busca su semilla`,
+    );
+    return b;
+  })();
+  return cajaMovilMedida;
+}
+
+/** La semilla del móvil y del dedo, buscada una vez por corrida: las dos pasadas la comparten. */
+let semillaMovilBuscada: Promise<number> | null = null;
+function semillaDelMovil(browser: Browser, url: string, problemas: Problemas): Promise<number> {
+  semillaMovilBuscada ??= (async () => {
+    const semilla = buscarMovil(await cajaDeMovil(browser, url, problemas));
+    log(`móvil y táctil: semilla ${semilla}, buscada en el espejo`);
+    return semilla;
+  })();
+  return semillaMovilBuscada;
 }
 
 interface Pasada {
@@ -899,9 +937,13 @@ async function abrir(
 }
 
 async function jugarEscritorio(browser: Browser, url: string, problemas: Problemas): Promise<void> {
+  const b0 = await cajaDeEscritorio(browser, url, problemas);
+  const semilla = buscarEscritorio(b0);
+  log(`escritorio: semilla ${semilla}, buscada en el espejo`);
   const { page, espejo, mapa } = await abrir(browser, url, problemas, {
     nombre: 'escritorio',
-    semilla: SEMILLA,
+    semilla,
+    esperada: b0,
   });
   await comprobar(page, espejo, 'abrir la partida');
   await captura(page, 'desktop-01-mapa-dia-1');
@@ -930,9 +972,9 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
   await rutaDoradaYGris(page, espejo, mapa);
   await captura(page, 'desktop-02-mapa-ruta-dorada-y-gris');
 
-  // Zoom con la rueda y arrastre; luego «Centrar héroe» devuelve la vista.
-  await mapa.rueda(1);
-  await mapa.rueda(1);
+  // Zoom con la rueda y arrastre; luego «Centrar héroe» devuelve la vista. Los
+  // pasos son los que cuenta `buscarEscritorio` para la guardia de después.
+  for (let i = 0; i < RUEDA_DEL_ESCRITORIO; i++) await mapa.rueda(1);
   const b = await caja(page);
   await page.mouse.down();
   await page.mouse.move(b.x + b.width / 2 - 220, b.y + b.height / 2 - 120, { steps: 8 });
@@ -961,12 +1003,12 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
     x: bb.x + t.x + (boton.x + boton.w / 2) * t.scale,
     y: bb.y + t.y + (boton.y + boton.h / 2) * t.scale,
   };
-  const plan = espejo.recruitPlan(`${town.faction === 'knight' ? 'peasant' : 'skeleton'}`);
+  const plan = espejo.recruitPlan(reclutaDeNivel1(town.faction));
   await page.mouse.move(enPagina.x, enPagina.y);
   await sleep(150);
   await captura(page, 'desktop-05-castillo-todo-es-lo-que-cabe');
   await page.mouse.click(enPagina.x, enPagina.y);
-  espejo.recruitAll(town.faction === 'knight' ? 'peasant' : 'skeleton');
+  espejo.recruitAll(reclutaDeNivel1(town.faction));
   log(
     `«todo» con ${plan?.disponibles} disponibles y ${plan?.caben} que caben: recluta ${plan?.maximo}`,
   );
@@ -975,7 +1017,7 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
 
   // «+1» con el ejército ya en sus seis (fase 1b): no recluta, y la barra dice
   // por qué con la frase del núcleo. El espejo dice lo mismo, y el oro no se mueve.
-  const recluta = town.faction === 'knight' ? 'peasant' : 'skeleton';
+  const recluta = reclutaDeNivel1(town.faction);
   if ((espejo.selectedHero?.army.length ?? 0) >= 6) {
     const uno = botonDeRecluta(plot, false);
     await page.mouse.click(
@@ -1314,10 +1356,12 @@ async function finContadoPorSuCausa(page: Page, espejo: Session): Promise<void> 
 }
 
 async function jugarMovil(browser: Browser, url: string, problemas: Problemas): Promise<void> {
+  const semilla = await semillaDelMovil(browser, url, problemas);
   const { page, espejo, mapa } = await abrir(browser, url, problemas, {
     nombre: 'móvil',
-    semilla: SEMILLA_MOVIL,
+    semilla,
     movil: true,
+    esperada: await cajaDeMovil(browser, url, problemas),
   });
   await captura(page, 'movil-01-mapa');
   await mapa.pulsar(espejo.myTowns()[0]!.at);
@@ -1360,24 +1404,14 @@ async function jugarMovil(browser: Browser, url: string, problemas: Problemas): 
  * de M5, vista en el lienzo y no solo en el test.
  */
 async function rutaDoradaYGris(page: Page, espejo: Session, mapa: Mapa): Promise<void> {
-  const b = await caja(page);
+  const { b, e } = await mapa.encuadre();
   const explorado = espejo.explorado;
   if (explorado === null) throw new Error('ruta: el espejo lo ve todo y no hay niebla que mirar');
-  const dentro = (p: { x: number; y: number }) =>
-    p.x > b.x + 30 && p.x < b.x + b.width - 30 && p.y > b.y + 30 && p.y < b.y + b.height - 30;
-  let elegido: { destino: Point; pintados: number } | null = null;
-  for (const clave of explorado) {
-    const [x, y] = clave.split(',').map(Number) as [number, number];
-    const destino = { x, y };
-    const pintados = pasosAPintar(espejo.previewPath(destino), explorado);
-    if (!pintados.some((p) => p.hoy) || !pintados.some((p) => !p.hoy)) continue;
-    if (elegido !== null && pintados.length <= elegido.pintados) continue;
-    if (!dentro(await mapa.pixel(destino))) continue;
-    elegido = { destino, pintados: pintados.length };
-  }
-  if (elegido === null) {
+  const destino = rutaDeDosColores(b, e, mapa.tile, espejo);
+  if (destino === null) {
     throw new Error('ruta: no hay a la vista un destino explorado con tramo de hoy y de otro día');
   }
+  const elegido = { destino };
   const ruta = espejo.previewPath(elegido.destino);
   const pintados = pasosAPintar(ruta, explorado);
   const dorado = pintados.find((p) => p.hoy && p.marca === 'paso') ?? pintados.find((p) => p.hoy)!;
@@ -1438,32 +1472,30 @@ async function jugarTactil(browser: Browser, url: string, problemas: Problemas):
   });
   const page = await contexto.newPage();
   vigilarConsola(page, 'táctil', problemas);
-  const espejo = new Session(SEMILLA_MOVIL);
-  await page.goto(`${url}/?seed=${SEMILLA_MOVIL}`, { waitUntil: 'networkidle' });
+  const semilla = await semillaDelMovil(browser, url, problemas);
+  const medida = await cajaDeMovil(browser, url, problemas);
+  const espejo = new Session(semilla);
+  await page.goto(`${url}/?seed=${semilla}`, { waitUntil: 'networkidle' });
   await esperarElSuelo(page, 'táctil', 60_000);
   await sleep(450);
   const mapa = new Mapa(page, espejo);
 
   // El destino más lejano que se alcance hoy y se vea entero en el lienzo, con
   // tres pasos o más: hace falta uno intermedio, lejos del héroe y del destino.
-  const b = await caja(page);
-  const desde = espejo.selectedHero!.at;
-  let destino: Point | null = null;
-  let mejor = 2;
-  for (let dy = -5; dy <= 5; dy++) {
-    for (let dx = -5; dx <= 5; dx++) {
-      const p = { x: desde.x + dx, y: desde.y + dy };
-      const r = espejo.previewPath(p);
-      if (r.length <= mejor || !r.every((paso) => paso.hoy)) continue;
-      // Explorado: un toque en la niebla no enseña ruta. Con el mapa de antes el
-      // más lejano caía siempre en lo visto; con los obstáculos, no.
-      if (espejo.explorado !== null && !espejo.explorado.has(`${p.x},${p.y}`)) continue;
-      if (tocable(b, await mapa.pixel(p))) {
-        destino = p;
-        mejor = r.length;
-      }
-    }
+  // Explorado: un toque en la niebla no enseña ruta (`destinoTactil`).
+  const { b, e } = await mapa.encuadre();
+  if (
+    b.x !== medida.x ||
+    b.y !== medida.y ||
+    b.width !== medida.width ||
+    b.height !== medida.height
+  ) {
+    throw new Error(
+      `táctil: la semilla se buscó con el lienzo del móvil en ${medida.width}×${medida.height} (${medida.x},${medida.y}) ` +
+        `y el contexto táctil lo abre en ${b.width}×${b.height} (${b.x},${b.y})`,
+    );
   }
+  const destino = destinoTactil(b, e, espejo);
   if (destino === null) {
     throw new Error('táctil: no hay a la vista un destino de hoy a tres pasos o más');
   }
@@ -1495,16 +1527,15 @@ async function jugarTactil(browser: Browser, url: string, problemas: Problemas):
 
   // A la batalla de la semilla, desde el principio otra vez (el héroe ya ha
   // andado), con dos toques: el primero enseña, el segundo va.
-  await page.goto(`${url}/?seed=${SEMILLA_MOVIL}`, { waitUntil: 'networkidle' });
+  await page.goto(`${url}/?seed=${semilla}`, { waitUntil: 'networkidle' });
   await sleep(450);
-  const otra = new Session(SEMILLA_MOVIL);
+  const otra = new Session(semilla);
   const enOtra = new Mapa(page, otra);
   // Dos pasos de zoom hacia fuera: con los mapas densos ninguna guardia cae a
   // dos casillas del héroe recién nacido, y con el zoom de salida la de la
   // semilla del móvil se queda debajo de los botones de la cámara (pasó con la
   // 238, y sigue igual con la 810).
-  await enOtra.rueda(-1);
-  await enOtra.rueda(-1);
+  for (let i = 0; i < -RUEDA_DEL_TACTIL; i++) await enOtra.rueda(-1);
   const monstruo = await guardiaALaVista(enOtra, otra);
   const enMonstruo = await enOtra.pixel(monstruo);
   await page.touchscreen.tap(enMonstruo.x, enMonstruo.y);
@@ -1870,9 +1901,13 @@ async function batallaPerdida(browser: Browser, url: string, problemas: Problema
 
 /** Lo mismo sin el arte de la rama: cada figura tiene que caer a su marcador. */
 async function sinArte(browser: Browser, url: string, problemas: Problemas): Promise<void> {
+  const b = await cajaDeEscritorio(browser, url, problemas);
+  const semilla = await buscarSinArte(b);
+  log(`sin arte: semilla ${semilla}, buscada en el espejo`);
   const { page, espejo, mapa } = await abrir(browser, url, problemas, {
     nombre: 'sin arte',
-    semilla: SEMILLA,
+    semilla,
+    esperada: b,
     // Solo las imágenes: los JSON de las hojas se importan como módulo y viven
     // en la misma carpeta; negarlos no es «sin arte», es romper la página. Con
     // los mapas densos entran también las piezas de `assets/mapa/` y las
@@ -2013,7 +2048,7 @@ async function espectador(browser: Browser, url: string, problemas: Problemas): 
   try {
     servidor = await arrancarServidor(
       {
-        HEROES_SEED: String(SEMILLA),
+        HEROES_SEED: String(SEMILLA_DEL_ESPECTADOR),
         HEROES_MAX_DAYS: '12',
         HEROES_WAIT_AGENT_MS: '30000',
       },

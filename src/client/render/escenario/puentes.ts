@@ -162,8 +162,9 @@ export function puenteDe(
     break;
   }
   if (eje === null) {
-    // Provisional (#161): el generador pone nodos de agua entre orillas que no
-    // se miran, y el arte solo trae puentes rectos. Ver `asentar`.
+    // Orillas que no se miran: un plan del agente pone el nodo donde quiere y
+    // `problemasDeRed` no mira las orillas; en el procedimental, solo el ~1 %
+    // de nodos cuya red fina no tiene vecinas opuestas (#161). Ver `asentar`.
     const vecinas = [-1, 0, 1].flatMap((dy) =>
       [-1, 0, 1].flatMap((dx) => ((dx !== 0 || dy !== 0) && orilla(dx, dy)) || []),
     );
@@ -392,11 +393,14 @@ const EXIGENCIAS: readonly Exigencia[] = [
  * escala 1. Null si ninguno vale: queda el punto medio y el eje más cercano,
  * con un estribo en el agua.
  *
- * **Es un apaño provisional**, como la rama `eje === null` de `puenteDe` que
- * lo llama: un puente recto entre orillas que no se miran solo se asienta
- * corriéndolo y estirándolo. Sobra cuando el generador ponga los nodos de agua
- * entre orillas enfrentadas (#161); con el punto medio a secas, 15 de los 35
- * quebrados de las semillas 1-40 dejaban un estribo en el río.
+ * **Es para lo que el generador no controla**, como la rama `eje === null` de
+ * `puenteDe` que lo llama: un puente recto entre orillas que no se miran solo
+ * se asienta corriéndolo y estirándolo. Desde #161 el vestido abre cada nodo por
+ * un eje y en el procedimental ya casi no hay quebrados (1 de 89 puentes en las
+ * semillas 1-40, de una red fina sin vecinas opuestas); quedan los planes del
+ * agente, que ponen el nodo donde quieren. La escala 0,7-1,15 se queda: esos
+ * planes no tienen cota. Antes de #161, con el punto medio a secas, 15 de los
+ * 35 quebrados de 1-40 dejaban un estribo en el río.
  */
 export function asentar(
   nodo: Punto,
