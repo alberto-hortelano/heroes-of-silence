@@ -29,8 +29,10 @@ import {
 import { copiaReducidaSiCabe } from '../copias.js';
 import { pigments } from '../terreno.js';
 import type { MapaDeEscena } from './analizar.js';
+import { perfilesDelCatalogo } from './caras.js';
 import { type Catalogo, catalogoValidado } from './catalogo.js';
 import { componer, type Escena, type Sprite } from './colocar.js';
+import { delanteDeLasParedes } from './figuras.js';
 import { horneado } from './horneado.js';
 import { cajaDeSprite } from './pasillo.js';
 import {
@@ -101,6 +103,12 @@ export interface Escenario {
    * de lo horneado (la mayor, si dos se solapan): ver `claveDeFigura`.
    */
   readonly cubiertas: ReadonlyMap<number, number>;
+  /**
+   * Las casillas sobre cuya figura cuelga una pieza del relieve desde lo alto
+   * (de su fila o de más al norte), con la clave de la más honda: la figura va
+   * delante de ella (#185, `delanteDeLasParedes`). Ver `claveDeFigura`.
+   */
+  readonly delanteDeParedes: ReadonlyMap<number, number>;
   /** Cuántos volúmenes hay en cada casilla, por su base: de ahí sale el tope de alejar. */
   readonly conteo: ConteoDeVolumenes;
   /** La clave del volumen de cada objeto horneado, por su id: ahí va el óvalo de su dueño. */
@@ -262,6 +270,12 @@ export function escenarioDe(map: MapaDeEscena, semilla: number): Escenario {
     separada,
     porFila,
     cubiertas,
+    delanteDeParedes: delanteDeLasParedes(
+      separada.volumenes,
+      escena.W,
+      escena.H,
+      perfilesDelCatalogo(CATALOGO),
+    ),
     conteo: contarVolumenes(escena.W, escena.H, bases),
     claveDeObjeto,
     asientoDeObjeto: asientosDe(map, claveDeObjeto, escena.puentes),
@@ -352,10 +366,20 @@ function cubrir(cubiertas: Map<number, number>, v: Volumen, W: number, H: number
  * igual clave se pinta antes el volumen. Un árbol o un pico sí la tapan. Con la
  * clave de la base, la ciudad (2,4 casillas de ancho, casi dos de alto) tapaba
  * entero al héroe que nace en la casilla de encima.
+ *
+ * Y la pared del relieve que cuelga sobre ella desde lo alto, tampoco
+ * (`Escenario.delanteDeParedes`, #185): su pie cae más abajo que los de la
+ * figura porque el mapa no levanta lo alto, pero es el frente de una casilla de
+ * detrás. Con la clave de su pie, de un grupo al pie de un acantilado de caída
+ * 3 solo se veía la chapa (s36 mon-2, (7, 22)).
  */
 export function claveDeFigura(esc: Escenario, x: number, y: number): number {
-  const horneado = esc.cubiertas.get(Math.floor(y) * esc.escena.W + Math.round(x));
-  return horneado === undefined ? y : Math.max(y, horneado);
+  const i = Math.floor(y) * esc.escena.W + Math.round(x);
+  return Math.max(
+    y,
+    esc.cubiertas.get(i) ?? Number.NEGATIVE_INFINITY,
+    esc.delanteDeParedes.get(i) ?? Number.NEGATIVE_INFINITY,
+  );
 }
 
 /**

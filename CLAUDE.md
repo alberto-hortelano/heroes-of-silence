@@ -289,7 +289,12 @@ antes del destino (`battle_started` con `faltan`).
   (13 módulos de picos y paredes no llegan a 120 px por casilla: pedidos en
   `docs/art/peticiones.md` §12), fundidos por profundidad con
   las figuras (`fundirPorProfundidad`): **una figura puede quedar detrás de un
-  árbol**, pero no de lo horneado de su casilla (`claveDeFigura`). Se recortan al
+  árbol**, pero no de lo horneado de su casilla (`claveDeFigura`) ni de una pieza del relieve
+  que cuelga de su fila o de más al norte: el mapa no levanta lo alto, y la cara de una caída de 3
+  cuelga 1,8 casillas sobre lo de debajo con el pie más abajo que los de la figura. Cada pieza
+  (frontal, ladera, diagonal, bajada y peñascos de la cara) lleva `Sprite.filaAlta`, y la figura
+  sube a la clave de las que tapan algo de su silueta (`delanteDeLasParedes`, `figuras.ts`, #185;
+  `informe.pisablesTapadas` = 0, eran 2 281 en 1-40). El suelo de debajo sigue bajo la cara. Se recortan al
   mapa por los lados y por abajo; por arriba, solo lo que sube desde una casilla sin explorar
   (`recortadoArriba`, #152), porque encima del mapa no hay niebla que lo tape. Lo que dice quién está en una
   casilla —inicial del héroe, chapa, estandarte, bandera, icono de la mina— va en

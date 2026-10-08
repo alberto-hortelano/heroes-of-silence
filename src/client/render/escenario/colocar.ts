@@ -54,6 +54,7 @@ import {
 } from './celdas.js';
 import { azarDe, esparcir } from './esparcir.js';
 import { ejeDe } from './esqueleto.js';
+import { pisablesTapadas } from './figuras.js';
 import { seHornea } from './horneado.js';
 import {
   altoMaximoDe,
@@ -154,6 +155,13 @@ export interface Sprite {
   readonly objeto?: { readonly id: string; readonly kind: MapObject['kind'] };
   /** Si la imagen es una hoja, el trozo que se pinta: `[sx, sy, sw, sh]`. */
   readonly recorte?: readonly [number, number, number, number];
+  /**
+   * En una pieza del relieve (frontal, ladera, diagonal o bajada), la fila de
+   * la casilla alta de la que cuelga. Lo que se pisa en esa fila o más al sur
+   * está delante de ella aunque su pie quede más abajo (#185,
+   * `delanteDeLasParedes`): el mapa no levanta lo alto.
+   */
+  readonly filaAlta?: number;
 }
 
 export interface Luz {
@@ -279,6 +287,13 @@ export interface Escena {
      * desnivel que las distinga del llano (`acantiladosARas`): tiene que ser 0.
      */
     readonly acantiladosARas: number;
+    /**
+     * Casillas que se pisan cuya figura tapan en más de un cuarto las piezas
+     * del relieve que se pintan después de ella, contado desde el orden del
+     * pintor con la clave que le da `delanteDeLasParedes` (`pisablesTapadas`,
+     * #185): tiene que ser 0.
+     */
+    readonly pisablesTapadas: number;
     readonly modulosQueFaltan: readonly string[];
   };
 }
@@ -1524,6 +1539,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       color: '#4c463e',
       capa: 0,
       sombra: true,
+      filaAlta: Math.floor(y),
     };
   };
   for (const l of rel.laderas) {
@@ -1533,7 +1549,10 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       // Sin el arte, una marca por fila, del filo al pie.
       for (let y = l.y0; y <= l.y1; y++) {
         const largo = 1 + l.caida * ALTO_DE_NIVEL;
-        const s = deHoja(hoja, bordeDeLadera(l), y + largo, largo, 0, 'pared', '#4c463e', true);
+        const s: Sprite = {
+          ...deHoja(hoja, bordeDeLadera(l), y + largo, largo, 0, 'pared', '#4c463e', true),
+          filaAlta: Math.floor(y),
+        };
         if (
           ponerPared([s], s.alto, [
             [s.x, s.y],
@@ -1591,20 +1610,24 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
    * se le pida a su altura, entonados con `tono`, fuera de toda senda y por la
    * puerta de la pared:
    * donde una frontal no cupo (la reserva de un objeto), y en el canto de un
-   * barranco o de una ladera que no entró.
+   * barranco o de una ladera que no entró. Hacen de la pared: cuelgan de la
+   * fila de encima de su filo (`Sprite.filaAlta`).
    */
   const peñascos = (desde: number, filo: number, xEn: (y: number) => number, tono: string) => {
     for (let y = desde + 0.05; y > filo + 0.15; y -= 0.26 + azar() * 0.12) {
-      const deLaHoja = deHoja(
-        'rocas-caidas',
-        xEn(y),
-        y,
-        0.3 + azar() * 0.18,
-        azar() * 0.6,
-        'pared',
-        '#5a5248',
-        true,
-      );
+      const deLaHoja: Sprite = {
+        ...deHoja(
+          'rocas-caidas',
+          xEn(y),
+          y,
+          0.3 + azar() * 0.18,
+          azar() * 0.6,
+          'pared',
+          '#5a5248',
+          true,
+        ),
+        filaAlta: Math.ceil(filo) - 1,
+      };
       const roca = deLaHoja.src === null ? deLaHoja : { ...deLaHoja, tono };
       // Como pedregal que es, apartado de toda senda con el margen de su pared,
       // no solo de la que baja: 4 pisaban una senda al pie (#150, N3).
@@ -1633,8 +1656,8 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     // Lo más bajo que se deja una pared: lo que mide la cara. Más baja, la cara
     // asomaría lisa por encima.
     const minimo = c.caida * ALTO_DE_NIVEL;
-    const pared = (x: number, nombre?: string) =>
-      deHoja(
+    const pared = (x: number, nombre?: string): Sprite => ({
+      ...deHoja(
         hoja,
         x + (azar() - 0.5) * 0.1,
         pie + 0.05 + (azar() - 0.5) * 0.12,
@@ -1644,7 +1667,9 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         '#4c463e',
         true,
         nombre,
-      );
+      ),
+      filaAlta: c.y,
+    });
     /**
      * `s` dentro de su tramo: corrido hacia dentro; si no cabe, el módulo más
      * estrecho, y si tampoco, encogido sin bajar de `minimo`. En un tramo de una
@@ -2008,6 +2033,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       pasosTapados: pasosTapados(sprites, pasos).length,
       sendasDeEstriboEnAgua: sendasDeEstriboEnAgua(trazos, puentes, vados, esAgua).length,
       acantiladosARas: acantiladosARas(a.terreno, nivel, W, H).length,
+      pisablesTapadas: pisablesTapadas(sprites, a.terreno, W, H, perfilDe).length,
       modulosQueFaltan: [...faltan].sort(),
     },
   };
@@ -2487,6 +2513,13 @@ function sobreDosPuntos(
 }
 
 /**
+ * La fila de las casillas altas de una diagonal (`Sprite.filaAlta`): la de
+ * arriba de su vértice. La convexa cuelga de una de ella (NO o NE); la cóncava,
+ * de las dos y de la de abajo que dobla la esquina, que también está delante.
+ */
+const filaAltaDeDiagonal = (c: Celda): number => c.vy - 1;
+
+/**
  * Dónde va el módulo `m` de diagonal en la pared `c`: sus dos filos sobre los
  * dos de la celda (`filosDe`), de los que sale la escala; en una caída mayor
  * que la de su arte, estirado en alto. Su clave, bajo el pie de su pared.
@@ -2517,6 +2550,7 @@ export function spriteDeDiagonal(m: ModuloDeDiagonal, hoja: string, c: Celda): S
     color: COLOR_DE_DIAGONAL,
     capa: 0,
     sombra: true,
+    filaAlta: filaAltaDeDiagonal(c),
   };
 }
 
@@ -2545,6 +2579,7 @@ export function marcadorDeDiagonal(c: Celda): Sprite {
     color: COLOR_DE_DIAGONAL,
     capa: 0,
     sombra: true,
+    filaAlta: filaAltaDeDiagonal(c),
   };
 }
 
@@ -2572,6 +2607,7 @@ export function spriteDeBajada(m: ModuloDeBajada, hoja: string, b: Bajada, yClav
     color: COLOR_DE_BAJADA,
     capa: 0,
     sombra: false,
+    filaAlta: b.alto[1],
   };
 }
 
@@ -2591,6 +2627,7 @@ export function marcadorDeBajada(b: Bajada, yClave: number): Sprite {
     color: COLOR_DE_BAJADA,
     capa: 0,
     sombra: false,
+    filaAlta: b.alto[1],
   };
 }
 
