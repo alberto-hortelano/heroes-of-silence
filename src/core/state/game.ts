@@ -7,6 +7,7 @@
 import { autoResolve, type BattleOutcome } from '../ai/tactics.js';
 import { type BattleMember, type BattleSide, createBattle } from '../battle/battle.js';
 import { stackHp } from '../battle/damage.js';
+import { resumenDeBatalla } from '../battle/resumen.js';
 import type { BattleHero, BattleStack, BattleState, Side } from '../battle/types.js';
 import { personajeDe, SIDES } from '../battle/types.js';
 import { allCreatures, creature, tipoDeHeroePorDefecto } from '../data.js';
@@ -2655,6 +2656,8 @@ export function settleBattle(state: GameState, _ctx: GameContext): void {
     kind: 'battle_ended',
     winner,
     foe: pending.foe,
+    owners: dueños,
+    ...resumenDeBatalla(pending.battle),
     actor,
     at,
   });

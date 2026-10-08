@@ -660,11 +660,16 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   `town_captured` 1 535 → 1 509; ningún tipo nuevo ni ninguno que
  *   desaparezca. `defend` (contado con una sonda, no sale en la crónica) 76 →
  *   61 de unas 51 000 decisiones de batalla.
+ * - `8ca327b5…` (67 339 líneas, las mismas): **`battle_ended` lleva el resumen
+ *   de la batalla** (#93, 08-10-2026): `owners`, `rounds`, `casts` y `lost`.
+ *   No se juega nada distinto: cambian las 1 756 líneas de `battle_ended` y
+ *   ninguna más, y quitándoles esos cuatro campos y reserializando, el volcado
+ *   da `4fb1a41c…` exacto. autoResolve igual (300 batallas, 2 359 rondas).
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '4fb1a41caa0a626720113385e8d60e4a1ac65a4c26a8082e1b2e0d8d979c39cf',
+  sha: '8ca327b5bc9400ec824a8d7159061dc9202a2d4072bdc59cffdf48cf7cf582ed',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

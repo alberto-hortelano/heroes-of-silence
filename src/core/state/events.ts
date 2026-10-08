@@ -15,6 +15,8 @@
  * —2767 de 6287 eventos entregados, el 44 %— después de que #35 le hubiera
  * quitado el mapa.
  */
+import type { ResumenDeBatalla } from '../battle/resumen.js';
+import type { Side } from '../battle/types.js';
 import type { GrupoDeTropa } from '../data.js';
 import type { PlayerId, Point, ResourceKind } from '../types.js';
 
@@ -154,7 +156,19 @@ type Cuerpo =
       faltan: number;
       at: Point;
     }
-  | { kind: 'battle_ended'; winner: 'attacker' | 'defender'; foe: BattleFoe }
+  /**
+   * La batalla terminó. Además del ganador, lo que sobrevive de dentro
+   * (`ResumenDeBatalla`, #93): rondas, hechizos lanzados y bajas por bando.
+   * `owners` dice de quién era cada bando —`null` un monstruo, un grupo o una
+   * guarnición neutral—, que es lo que deja leer «lo tuyo» en `lost` y `casts`
+   * sin ir a buscar al estado héroes que quizá ya no están.
+   */
+  | ({
+      kind: 'battle_ended';
+      winner: Side;
+      foe: BattleFoe;
+      owners: Readonly<Record<Side, PlayerId | null>>;
+    } & ResumenDeBatalla)
   /**
    * Un grupo de asaltantes está en el mapa: los del mapa de salida al empezar
    * la partida y los que brotan un lunes en una región sin dueño. Lo hace el

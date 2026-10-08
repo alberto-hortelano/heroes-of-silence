@@ -106,7 +106,9 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
   `pnpm banco`, no los tests.
 - **La crónica**: `state.log` es `readonly` y `emit` (no exportada, en
   `game.ts`) hace el único `push`. Cada hecho lleva protagonista, sitio y sello
-  `seen`. `game_over` es el último hecho por regla del núcleo.
+  `seen`. `game_over` es el último hecho por regla del núcleo. De una batalla
+  sobrevive solo el resumen dentro de `battle_ended` (`resumenDeBatalla`:
+  rondas, hechizos, bajas por bando, dueños; #93), no su registro.
 - **Herramientas de desarrollo solo en `pnpm dev`**: `src/client/desarrollo/` entra por un
   `import()` detrás de `HERRAMIENTAS_DE_DESARROLLO` (`define`, `false` en build); desde fuera,
   solo `import type`. Lo vigilan `invariantes.test.ts` y el plugin `sinDesarrollo`, que rompe

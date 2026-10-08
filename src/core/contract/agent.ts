@@ -19,6 +19,7 @@ import { z } from 'zod';
 import { CARGA_MINIMA } from '../battle/battle.js';
 import { CHARGE_BONUS_PER_HEX, MAX_CHARGE_HEXES } from '../battle/damage.js';
 import { NIVEL_MAXIMO_DE_TROPA } from '../hero/experiencia.js';
+import { HERO_BODY } from '../hero/hero.js';
 import { LADO_MAXIMO_DEL_PLAN, LADO_MINIMO_DEL_PLAN } from '../map/generate.js';
 import { BARRERAS, TERRAIN_KINDS } from '../map/terrain.js';
 import { MAX_HEROES_PER_PLAYER } from '../state/game.js';
@@ -510,6 +511,12 @@ ${COMO_SE_LEE_EL_MAPA}
   momento —y sigue llegando aunque hoy ya no lo mires: la crónica es memoria—.
   Un silencio NO significa que el rival esté quieto: significa que no lo has
   visto. Si quieres saber qué hace, ponle a alguien delante.
+  Cada "battle_ended" resume la batalla: "winner" es el BANDO que gana
+  ("attacker" o "defender"), "owners" de quién era cada bando (null si era
+  neutral), "rounds" cuántas rondas duró, "casts" los hechizos lanzados
+  ({ "side", "spell", "target": la criatura o ${JSON.stringify(HERO_BODY)} sobre la que cayó,
+  "killed" }) y "lost" los individuos que perdió cada bando, por criatura (sin
+  el héroe: su caída es "hero_defeated").
 - Si una acción resulta ilegal se descarta y las siguientes siguen aplicándose.
 - Al cerrar el turno se te dice cuántas acciones entraron y, si se descartó
   alguna, cuál y por qué. Las descartadas NO se reintentan solas.`,

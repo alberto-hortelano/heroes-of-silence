@@ -427,6 +427,13 @@ function cronicaCompleta(): readonly GameEvent[] {
       kind: 'battle_ended',
       winner: 'attacker',
       foe: { kind: 'hero', heroId: 'hero-1' },
+      owners: { attacker: 0, defender: 1 },
+      rounds: 4,
+      casts: [{ side: 'attacker', spell: 'magic_arrow', target: 'skeleton', killed: 1 }],
+      lost: {
+        attacker: [{ creature: 'peasant', count: 2 }],
+        defender: [{ creature: 'skeleton', count: 3 }],
+      },
       actor: 0,
     },
     { ...base, kind: 'hero_defeated', hero: 'hero-0', actor: 0 },

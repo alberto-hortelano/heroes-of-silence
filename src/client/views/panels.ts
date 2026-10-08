@@ -23,6 +23,7 @@ import {
   type BattleStack,
   type BattleState,
   nivelDeVeterania,
+  SIDES,
   type Side,
 } from '@core/battle/types.js';
 import { creature, hasTrait, isShooter, nombreDeTipoDeHeroe } from '@core/data.js';
@@ -34,8 +35,9 @@ import {
   pieza,
 } from '@core/hero/equipo.js';
 import { nivelDe, nivelDeHeroe, umbral } from '@core/hero/experiencia.js';
-import { type Hero, heroUnit, maxMana, maxMovePoints } from '@core/hero/hero.js';
+import { HERO_BODY, type Hero, heroUnit, maxMana, maxMovePoints } from '@core/hero/hero.js';
 import { elQueSeIria, type Personajes, type TroopGroup, troopSummary } from '@core/hero/troop.js';
+import { CHARACTER_BODY } from '@core/rpg/character.js';
 import { loQueLaPara } from '@core/state/asaltantes.js';
 import { type Desenlace, desenlaceDe } from '@core/state/desenlace.js';
 import type { DefeatReason, GameEventDraft } from '@core/state/events.js';
@@ -1040,6 +1042,60 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
   return html`<div class="log" data-al-final="parte">${unir(lineas)}</div>`;
 }
 
+/** Cómo se llama un cuerpo del tablero en la crónica: el héroe y el personaje no están en el catálogo. */
+function nombreDeCuerpo(body: string): string {
+  if (body === HERO_BODY) return 'el héroe';
+  if (body === CHARACTER_BODY) return 'un personaje';
+  return creature(body).name;
+}
+
+/**
+ * La línea de una batalla terminada: quién ganó y en cuántas rondas, qué
+ * perdió cada bando y qué hechizos se lanzaron. `suyo` es el bando de quien
+ * lee, o `null` si no es de ninguno (el espectador, o un tercero que miraba).
+ */
+function fraseDeBatalla(
+  e: Extract<GameEventDraft, { kind: 'battle_ended' }>,
+  suyo: Side | null,
+): string {
+  // En tercera persona, el bando con dueño se nombra por su jugador, como el
+  // resto de la crónica; el neutral (monstruo, grupo, guarnición) por su papel.
+  const bando = (s: Side): string =>
+    suyo === null
+      ? e.owners[s] !== null
+        ? `el jugador ${e.owners[s]}`
+        : s === 'attacker'
+          ? 'el atacante'
+          : 'el defensor'
+      : s === suyo
+        ? 'tú'
+        : 'el enemigo';
+  const rondas = `${e.rounds} ${e.rounds === 1 ? 'ronda' : 'rondas'}`;
+  const cabeza =
+    suyo === null
+      ? `Batalla: gana ${bando(e.winner)} en ${rondas}`
+      : `Batalla ${suyo === e.winner ? 'ganada' : 'perdida'} en ${rondas}`;
+  const partes = [cabeza];
+  for (const s of SIDES) {
+    const bajas = e.lost[s];
+    if (bajas.length === 0) continue;
+    const quien = bando(s);
+    partes.push(
+      `${quien === 'tú' ? 'pierdes' : `pierde ${quien}`} ${bajas
+        .map((b) => `${b.count} × ${nombreDeCuerpo(b.creature)}`)
+        .join(', ')}`,
+    );
+  }
+  for (const c of e.casts) {
+    const mata = c.killed > 0 ? ` (mata ${c.killed})` : '';
+    const quien = bando(c.side);
+    partes.push(
+      `${quien === 'tú' ? 'lanzas' : `lanza ${quien}`} ${spell(c.spell).name} sobre ${nombreDeCuerpo(c.target)}${mata}`,
+    );
+  }
+  return partes.join('; ');
+}
+
 /**
  * La crónica de la pantalla.
  *
@@ -1158,8 +1214,18 @@ export function renderLog(log: readonly GameEventDraft[], viewer: number): Html 
           return html`<div${clase(mio, false)}>${
             mio ? 'Aprendido' : `${jugador(e.actor)} aprende`
           }: ${e.spells.map((id) => spell(id).name).join(', ')}</div>`;
-        case 'battle_ended':
-          return html`<div>Batalla resuelta</div>`;
+        case 'battle_ended': {
+          // Lo que sobrevive de la batalla (#93): antes, «Batalla resuelta» y
+          // nada más, ni quién ganó. El bando de quien lee sale de `owners`, que
+          // viaja en el hecho; el espectador no tiene bando y lo lee en tercera.
+          const suyo: Side | null =
+            e.owners.attacker === viewer
+              ? 'attacker'
+              : e.owners.defender === viewer
+                ? 'defender'
+                : null;
+          return html`<div${clase(suyo === e.winner, suyo !== null && suyo !== e.winner)}>${fraseDeBatalla(e, suyo)}</div>`;
+        }
         case 'hero_defeated':
           // `actor` es el dueño del MUERTO, así que aquí «mío» es la derrota y
           // lo del rival es una victoria. Antes las dos salían en rojo, y a la
