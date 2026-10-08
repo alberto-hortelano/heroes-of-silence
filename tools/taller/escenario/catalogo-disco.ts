@@ -1,8 +1,8 @@
 /**
  * El catálogo de la escena leído del disco (`catalogo.ts`): los índices de cada
  * hoja de `assets/mapa/modulos/`, los JSON derivados de cada pieza de
- * `assets/mapa/` y, para las dos piezas del atlas viejo que no traen JSON (mina
- * y cofre), su medida sacada de la imagen.
+ * `assets/mapa/` y, para la pieza del atlas viejo que no trae JSON (la mina), su
+ * medida sacada de la imagen.
  *
  * `pnpm taller catalogo-escena` lo escribe en `assets/mapa/escena.json`, que es
  * lo que leerá el juego: un solo fichero en vez de setenta.
@@ -27,8 +27,11 @@ import { derivarPieza, perfilDeModulo } from '../derivar.js';
 const RAIZ = resolve(import.meta.dirname, '../../..');
 const MAPA = join(RAIZ, 'assets/mapa');
 
-/** Las piezas del atlas viejo que el escenógrafo usa y no traen su JSON. */
-const DEL_ATLAS = ['atlas/mina', 'atlas/cofre'] as const;
+/**
+ * Las piezas del atlas viejo que el escenógrafo usa y no traen su JSON. El cofre
+ * ya tiene la suya, `cofre` (#147).
+ */
+const DEL_ATLAS = ['atlas/mina'] as const;
 
 interface IndiceDeHoja {
   readonly modulos: readonly {

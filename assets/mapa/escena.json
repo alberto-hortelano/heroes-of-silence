@@ -9769,6 +9769,13 @@
    "ax": 689,
    "ay": 938
   },
+  "cofre": {
+   "src": "cofre.webp",
+   "nw": 1037,
+   "nh": 905,
+   "ax": 678,
+   "ay": 880
+  },
   "colada-1": {
    "src": "colada-1.webp",
    "nw": 1536,
@@ -10217,13 +10224,6 @@
    "nh": 1076,
    "ax": 662,
    "ay": 1051
-  },
-  "atlas/cofre": {
-   "src": "atlas/cofre.webp",
-   "nw": 1169,
-   "nh": 1027,
-   "ax": 471,
-   "ay": 1002
   }
  }
 }

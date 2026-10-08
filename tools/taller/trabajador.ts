@@ -18,7 +18,7 @@
  *   pnpm taller derivar-poses            reescribe `_poses/atlas-8d.json`, las anclas del Y Bot
  *   pnpm taller maniqui <unidad>…        el maniquí propio de una unidad, en `_poses/unidades/<id>-8d/`
  *   pnpm taller encolar --hitos          los hitos de los nodos sin pieza de paso (#176, `mapa.ts`)
- *   pnpm taller componer-atlas-mapa      rehace assets/rpg/map-atlas.png con las piezas pintadas
+ *   pnpm taller encolar --cofre          el cofre del mapa, pieza suelta (#147, `mapa.ts`)
  *   pnpm taller encolar --texturas-suelo | --muestras-densas | --piezas-densas [--solo=…]
  *                                        el arte de los mapas densos (`mapa-denso.ts`)
  *   pnpm taller vista-mapa [semilla]     un mapa denso del generador pintado con ese arte
@@ -76,7 +76,6 @@ import {
 } from './bajadas.js';
 import { CODEX, FalloDeCodex, type Generacion, generar } from './codex.js';
 import { Cola } from './cola.js';
-import { componerAtlasMapa } from './componer-atlas-mapa.js';
 import {
   ELEVACION_DEL_CADAVER,
   escribirDerivado,
@@ -120,8 +119,8 @@ import { juntarDireccion } from './juntar.js';
 import { encargosDeLaderas, escribirGuiasDeLaderas, escribirLaderasDerivadas } from './laderas.js';
 import {
   ESTILOS_DE_MAPA,
+  encargoDeCofre,
   encargoDeMuestra,
-  encargosDeCeldas,
   encargosDeHitos,
   encargosDePiezas,
 } from './mapa.js';
@@ -554,9 +553,8 @@ async function reprocesar(id: string): Promise<void> {
 }
 
 async function encolar(args: readonly string[]): Promise<void> {
-  if (args.includes('--piezas-mapa') || args.includes('--atlas-mapa')) {
-    const lista = args.includes('--atlas-mapa') ? encargosDeCeldas() : encargosDePiezas();
-    for (const bruto of lista) {
+  if (args.includes('--piezas-mapa')) {
+    for (const bruto of encargosDePiezas()) {
       if (args.includes('--rehacer')) await COLA.olvidar(bruto.id);
       console.log(`encolado ${(await COLA.encolar(bruto)).id}`);
     }
@@ -567,6 +565,12 @@ async function encolar(args: readonly string[]): Promise<void> {
       if (args.includes('--rehacer')) await COLA.olvidar(bruto.id);
       console.log(`encolado ${(await COLA.encolar(bruto)).id}`);
     }
+    return;
+  }
+  if (args.includes('--cofre')) {
+    const bruto = encargoDeCofre();
+    if (args.includes('--rehacer')) await COLA.olvidar(bruto.id);
+    console.log(`encolado ${(await COLA.encolar(bruto)).id}`);
     return;
   }
   if (args.includes('--edificios')) {
@@ -819,9 +823,6 @@ switch (orden) {
     for (const id of resto)
       console.log(`${id}: ${(await COLA.retirar(id)) ? 'retirado' : 'no estaba pendiente'}`);
     break;
-  case 'componer-atlas-mapa':
-    console.log(`→ ${await componerAtlasMapa()}`);
-    break;
   case 'reprocesar':
     for (const id of resto) await reprocesar(id);
     break;
@@ -943,6 +944,6 @@ switch (orden) {
     break;
   default:
     throw new Error(
-      `orden desconocida «${orden}»: trabajar, encolar, corregir, retirar, reprocesar, estado, devolver, derivar, derivar-poses, derivar-relieve, maniqui, vista-ejercitos, vista-edificios, vista-efectos, vista-8d, vista-mapa, escenario, catalogo-escena, evaluar, componer-atlas-mapa`,
+      `orden desconocida «${orden}»: trabajar, encolar, corregir, retirar, reprocesar, estado, devolver, derivar, derivar-poses, derivar-relieve, maniqui, vista-ejercitos, vista-edificios, vista-efectos, vista-8d, vista-mapa, escenario, catalogo-escena, evaluar`,
     );
 }

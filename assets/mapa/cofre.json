@@ -1,0 +1,11 @@
+{
+  "imagen": "cofre.webp",
+  "sha256": "aa88651d339cc39d74030b84d7c7598acd3abfeaca68240ff11ad1df16459f46",
+  "ancho": 1037,
+  "alto": 905,
+  "ancla": [
+    678,
+    880
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

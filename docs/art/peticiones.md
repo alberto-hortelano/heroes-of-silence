@@ -1234,3 +1234,31 @@ ninguna fallida. `nodo-hito` (la de la cruz) se retira de `assets/mapa/` y de
 - **Reparto en las semillas 1-40**: mojón 52, tablilla 41, miliario 40.
 - Recortes antes/después de la semilla 34 en `docs/agents/2026-10-07-mojones/capturas/`.
 - **Flojo**: el miliario se ve algo más desde arriba que los 25° de la cámara.
+
+## 25. El cofre del mapa como pieza suelta (#147, rama `cofre`, 08-10-2026)
+
+**Petición.** El cofre era lo único que el mapa de aventura sacaba todavía del atlas viejo
+`assets/rpg/map-atlas.png` (su celda 8, la de §4): para pintar unas decenas de píxeles se
+cargaba el atlas entero y se escalaba desde la imagen nativa en cada fotograma, fuera de la
+caché de copias. Se pide **una pieza suelta** `assets/mapa/cofre`, como `oro`, `piedra` y
+`madera`, en el mismo estilo y cámara que las piezas del mapa: un cofre **cerrado** de madera
+oscura con flejes y cantoneras de hierro y un candado, sin oro a la vista. Cerrado porque el
+recurso oro ya es un arcón abierto rebosante de monedas y lingotes, y el cofre de la celda 8
+también lo era: los dos juntos en un mapa no se distinguían de un vistazo. Encargo en
+`tools/taller/mapa.ts` (`encargoDeCofre`, `pnpm taller encolar --cofre`); referencia de
+estilo, la lámina elegida (`muestras/pintado.webp`).
+
+### Respuesta (rama `cofre`, 08-10-2026)
+
+Codex por la suscripción, sin fal.ai: **1 generación**, 75 s, sin fallos ni correcciones.
+Crudo 1374×1145; pieza 1037×905 con el ancla en (678, 880), derivada por el taller.
+
+- El juego la pinta con `pintarPieza` (caché de copias), a 0,6 casillas de ancho y con el pie
+  a 0,3 bajo el centro de la casilla, como los recursos; sin ella, el ladrillo de siempre.
+- El cliente ya no pide `map-atlas.png`, y nada más lo leía salvo su compositor y los
+  encargos de §4, ya hechos: se retiran el atlas, su `.json`, `pnpm taller
+  componer-atlas-mapa`, `--atlas-mapa` y el estilo «pixel» de las muestras, que lo tenía de
+  referencia. Las celdas pintadas de `assets/mapa/atlas/` se quedan (la mina las usa);
+  `atlas/cofre.webp` queda sin lector.
+- Recortes antes/después de tres cofres (semillas 3, 1 y 9) en
+  `docs/agents/2026-10-08-cofre/capturas/`.

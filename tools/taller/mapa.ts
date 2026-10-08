@@ -60,13 +60,6 @@ export const ESTILOS_DE_MAPA = [
       'ilustración pintada de fantasía medieval oscura, materiales gastados y creíbles, paleta sobria y terrosa, como la imagen de estilo',
   },
   {
-    id: 'pixel',
-    nombre: 'Pixel art (el de map-atlas.png)',
-    referencia: 'assets/rpg/map-atlas.png',
-    describe:
-      'pixel art detallado y nítido, colores saturados, contorno oscuro, como las piezas de la imagen de estilo',
-  },
-  {
     id: 'maqueta',
     nombre: 'Maqueta realista tipo Warhammer',
     describe:
@@ -152,80 +145,14 @@ export function encargosDePiezas(): Encargo[] {
   );
 }
 
-/**
- * Las 16 celdas de `assets/rpg/map-atlas.png`, en orden de lectura: el atlas del
- * mapa de hoy, en pixel art, rehecho en el estilo pintado para que el mapa sea
- * coherente con las piezas nuevas. El orden es contrato: `render/mapa.ts` pide
- * las celdas por su índice (`CELDA`).
+/*
+ * Las celdas del atlas viejo (`assets/rpg/map-atlas.png`) se pintaron una a una
+ * en `assets/mapa/atlas/` con el atlas de identidad y la lámina de estilo; su
+ * prompt y sus referencias, con sha256, están en cada `.procedencia.json`. El
+ * atlas se retiró con su compositor cuando el cofre, lo último que el mapa
+ * sacaba de él, pasó a pieza suelta (#147); el estilo «pixel», que lo tenía de
+ * referencia y no se eligió, se fue con él.
  */
-export const CELDAS_DEL_ATLAS = [
-  { id: 'castillo', describe: 'un castillo de piedra con torres, almenas y puerta' },
-  { id: 'aldea', describe: 'una aldea de tres casas con entramado de madera, pozo y cercas' },
-  { id: 'ruinas', describe: 'las ruinas de una abadía gótica con arcos rotos cubiertos de hiedra' },
-  { id: 'capilla', describe: 'una capilla de piedra con campanario y cipreses' },
-  { id: 'torre-vigia', describe: 'una torre de vigía cuadrada de piedra con almenas, sobre rocas' },
-  {
-    id: 'fuente',
-    describe: 'una fuente mágica de piedra con una pequeña cascada y piedras con runas',
-  },
-  { id: 'cueva', describe: 'la boca de una cueva en una roca grande con musgo' },
-  {
-    id: 'mina',
-    describe:
-      'la entrada de una mina apuntalada con vigas, raíles, una vagoneta de mineral y cristales',
-  },
-  { id: 'cofre', describe: 'un cofre del tesoro abierto lleno de monedas y joyas' },
-  { id: 'druida', describe: 'un ermitaño druida con capucha verde y bastón, de pie' },
-  { id: 'caballo', describe: 'un caballo ensillado, de pie' },
-  { id: 'arboleda', describe: 'una arboleda de árboles de hoja ancha' },
-  { id: 'pinar', describe: 'un grupo de pinos altos' },
-  {
-    id: 'montana',
-    describe: 'una montaña suelta, alta y escarpada, de picos nevados, con pinos en la falda',
-  },
-  { id: 'piedra-runica', describe: 'un menhir con una runa que brilla en azul' },
-  { id: 'cartel', describe: 'un poste indicador de madera con dos tablas, entre piedras' },
-] as const;
-
-/**
- * Celdas que no se piden porque ya hay una pieza aprobada que sirve. Vacío: la
- * montaña se probó con `montana-1` y no vale, porque es un tramo de cordillera
- * ancho y bajo y en su celda quedaba como una tira aplastada; el mapa de hoy la
- * usa como montaña suelta.
- */
-export const CELDAS_REUTILIZADAS: Readonly<Record<string, string>> = {};
-
-export const ATLAS_ANTIGUO = 'assets/rpg/map-atlas.png';
-
-/** La pieza de una celda del atlas, copiando QUÉ es del atlas antiguo y CÓMO se pinta de la muestra elegida. */
-export function encargoDeCelda(id: string): Encargo {
-  const n = CELDAS_DEL_ATLAS.findIndex((c) => c.id === id);
-  const celda = CELDAS_DEL_ATLAS[n];
-  if (celda === undefined) {
-    throw new Error(`no hay celda «${id}». Hay: ${CELDAS_DEL_ATLAS.map((c) => c.id).join(', ')}`);
-  }
-  return {
-    id: `atlas-mapa-${id}`,
-    tipo: 'imagen',
-    descripcion: [
-      `Una pieza suelta del mapa de aventura de un juego de estrategia por turnos: ${celda.describe}.`,
-      `Es la pieza ${n + 1} de la imagen 1, la de la fila ${Math.floor(n / 4) + 1} y columna ${(n % 4) + 1}: dibuja lo mismo, con su composición, pero NADA de su pixel art ni de sus colores saturados. Píntala en el estilo de la imagen 2: ilustración pintada de fantasía medieval oscura, materiales gastados, paleta sobria y terrosa.`,
-      'Un único objeto, centrado y entero, sin estandartes ni banderas. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, como la imagen 2; nunca cenital ni de perfil. La luz viene de arriba a la izquierda.',
-    ].join('\n'),
-    referencias: [
-      { ruta: ATLAS_ANTIGUO, papel: 'identidad' },
-      { ruta: MUESTRA_ELEGIDA, papel: 'estilo' },
-    ],
-    salida: `assets/mapa/atlas/${id}`,
-    fondo: 'transparente',
-  };
-}
-
-export function encargosDeCeldas(): Encargo[] {
-  return CELDAS_DEL_ATLAS.filter((c) => !(c.id in CELDAS_REUTILIZADAS)).map((c) =>
-    encargoDeCelda(c.id),
-  );
-}
 
 /**
  * Los hitos del nodo sin pieza de paso (el acantilado y el que no cruza nada),
@@ -275,4 +202,26 @@ export function encargoDeHito(id: string): Encargo {
 
 export function encargosDeHitos(): Encargo[] {
   return HITOS_DE_NODO.map((h) => encargoDeHito(h.id));
+}
+
+/**
+ * El cofre del mapa (#147), una pieza suelta como los recursos: hasta ahora salía
+ * de la celda 8 del atlas viejo. CERRADO a propósito: el recurso oro ya es un
+ * arcón abierto rebosante de monedas y lingotes, y dos arcones abiertos en el
+ * mismo mapa no se distinguen de un vistazo.
+ */
+export function encargoDeCofre(): Encargo {
+  return {
+    id: 'mapa-cofre',
+    tipo: 'imagen',
+    descripcion: [
+      'Una pieza suelta del mapa de aventura de un juego de estrategia por turnos: un cofre del tesoro CERRADO, de los que se recogen por el camino. Un arcón pequeño de madera oscura y gastada, de tapa abombada, con flejes y cantoneras de hierro ennegrecido, remaches y una cerradura de hierro con un candado colgando, apoyado sobre el suelo.',
+      'La tapa está cerrada del todo: NO se ven monedas, lingotes, joyas ni nada dentro o alrededor del cofre. Ni sacos, ni copas, ni oro suelto al pie.',
+      'Píntalo con la madera oscura y el hierro de las piezas de la imagen de estilo, su mismo acabado y su misma paleta. Pequeño: a una figura humana le llegaría por la rodilla.',
+      'Un único objeto, centrado y entero. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, la misma de la imagen de estilo; nunca cenital ni de perfil. La luz viene de arriba a la izquierda. Sin estandartes ni banderas.',
+    ].join('\n'),
+    referencias: [{ ruta: MUESTRA_ELEGIDA, papel: 'estilo' }],
+    salida: 'assets/mapa/cofre',
+    fondo: 'transparente',
+  };
 }

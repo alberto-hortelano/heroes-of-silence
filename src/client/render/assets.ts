@@ -68,7 +68,8 @@ function cargarImagen(clave: string, url: string): Promise<void> {
 
 /**
  * El arte fijo del cliente nuevo, por el nombre con el que se pide a `asset('rpg',
- * …)`: el atlas del mapa (del que sale el cofre) y el fondo de la batalla. Las
+ * …)`: el fondo de la batalla. El atlas del mapa ya no se pide: el cofre, lo
+ * último que salía de él, es una pieza suelta (#147). Las
  * figuras ya no están aquí: son de 8 direcciones y se cargan a demanda, hoja a
  * hoja, la primera vez que se pinta cada una (`cargarHojaDeFigura`).
  *
@@ -76,7 +77,6 @@ function cargarImagen(clave: string, url: string): Promise<void> {
  * el arte aprobado que se rescató de la rama `archivo/gpt-rpg`.
  */
 export const ARTE_RPG = {
-  mapa: '/rpg/map-atlas.png',
   campo: '/rpg/campo.webp',
 } as const;
 
@@ -84,12 +84,12 @@ export type NombreDeArte = keyof typeof ARTE_RPG;
 
 /**
  * Las piezas sueltas que el juego pinta él (`assets/mapa/`), por el nombre con el
- * que se piden a `asset('mapa', …)`: los recursos, que cambian en la partida y no
- * se hornean en la escena. Se colocan por su `ancla`, que viene en el `.json` de
+ * que se piden a `asset('mapa', …)`: los recursos y el cofre, que se recogen en la
+ * partida y no se hornean en la escena. Se colocan por su `ancla`, que viene en el `.json` de
  * al lado y lee `render/piezas.ts`. Todo lo demás del mapa lo pone el
  * escenógrafo (`cargarArteDeEscena`).
  */
-export const PIEZAS_DEL_MAPA = ['oro', 'piedra', 'madera'] as const;
+export const PIEZAS_DEL_MAPA = ['oro', 'piedra', 'madera', 'cofre'] as const;
 
 export type PiezaDelMapa = (typeof PIEZAS_DEL_MAPA)[number];
 

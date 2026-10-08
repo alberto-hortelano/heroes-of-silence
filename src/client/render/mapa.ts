@@ -135,6 +135,9 @@ const PIEZA_DE_RECURSO: Partial<Record<keyof typeof RESOURCE_COLORS, PiezaDelMap
   wood: 'madera',
 };
 
+/** El marcador del cofre sin su pieza: un ladrillo del color de la madera vieja. */
+export const COLOR_DEL_COFRE = '#a8762c';
+
 /**
  * El suelo y el estandarte de los asaltantes: la figura es del gris de lo que no
  * tiene dueño, igual que la de un monstruo, y lo que separa lo que embosca de lo
@@ -729,18 +732,12 @@ function pintarObjeto(ctx: CanvasRenderingContext2D, v: VistaMapa, o: MapObject)
   const c = casillaAPixel(camara, o.at);
   switch (o.kind) {
     case 'chest': {
-      // El cofre es la celda 8 del atlas de 4×4 de `map-atlas.png`, a tres
-      // cuartos de casilla y con el pie 0,35 bajo el centro.
-      const atlas = asset('rpg', 'mapa');
-      if (atlas === null) {
-        ctx.fillStyle = '#a8762c';
-        ctx.fillRect(c.x - tile * 0.22, c.y - tile * 0.12, tile * 0.44, tile * 0.3);
-        return;
-      }
-      const w = atlas.naturalWidth / 4;
-      const h = atlas.naturalHeight / 4;
-      const lado = tile * 0.75;
-      ctx.drawImage(atlas, 0, 2 * h, w, h, c.x - lado / 2, c.y - lado + tile * 0.35, lado, lado);
+      // Su pieza suelta, como los recursos (#147): antes salía de una celda del
+      // atlas viejo, que se cargaba entero y se escalaba en cada fotograma.
+      pintarSombra(ctx, c.x, c.y + tile * 0.22, tile * 0.4);
+      if (pintarPieza(ctx, 'cofre', c.x, c.y + tile * 0.3, tile * 0.6)) return;
+      ctx.fillStyle = COLOR_DEL_COFRE;
+      ctx.fillRect(c.x - tile * 0.22, c.y - tile * 0.12, tile * 0.44, tile * 0.3);
       return;
     }
     case 'resource': {

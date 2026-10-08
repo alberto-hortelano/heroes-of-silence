@@ -1,0 +1,41 @@
+{
+  "encargo": "mapa-cofre",
+  "tipo": "imagen",
+  "fecha": "2026-10-08T05:26:03.861Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a119f8-b001-7130-9eac-8b28863f07a0",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nUna pieza suelta del mapa de aventura de un juego de estrategia por turnos: un cofre del tesoro CERRADO, de los que se recogen por el camino. Un arcón pequeño de madera oscura y gastada, de tapa abombada, con flejes y cantoneras de hierro ennegrecido, remaches y una cerradura de hierro con un candado colgando, apoyado sobre el suelo.\nLa tapa está cerrada del todo: NO se ven monedas, lingotes, joyas ni nada dentro o alrededor del cofre. Ni sacos, ni copas, ni oro suelto al pie.\nPíntalo con la madera oscura y el hierro de las piezas de la imagen de estilo, su mismo acabado y su misma paleta. Pequeño: a una figura humana le llegaría por la rodilla.\nUn único objeto, centrado y entero. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, la misma de la imagen de estilo; nunca cenital ni de perfil. La luz viene de arriba a la izquierda. Sin estandartes ni banderas.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/pintado.webp",
+      "papel": "estilo",
+      "sha256": "2257bd10a5efa8f2c430c2d86609ac895750568961a4dea6dfddd4c8081e1838"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a119f8-b001-7130-9eac-8b28863f07a0/exec-ae7bcb76-6add-4918-b68f-7ebc95381d42.png",
+    "sha256": "67796407df9e7d6cda6ec4a6ef075cb38f3e1659ebf766015b87816cde903d17",
+    "ancho": 1374,
+    "alto": 1145
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: 1037×905, ancla en (678,880)"
+  ],
+  "validacion": {
+    "visibles": 0.6857456432441648,
+    "opacos": 0.9971315894972046,
+    "haloSuelto": 0,
+    "ancho": 1037,
+    "alto": 905
+  },
+  "salida": {
+    "ruta": "assets/mapa/cofre.webp",
+    "sha256": "aa88651d339cc39d74030b84d7c7598acd3abfeaca68240ff11ad1df16459f46"
+  }
+}

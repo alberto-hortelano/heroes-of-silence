@@ -773,7 +773,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
               : o.kind === 'mine'
                 ? 'atlas/mina'
                 : o.kind === 'chest'
-                  ? 'atlas/cofre'
+                  ? 'cofre'
                   : null;
     if (o.kind === 'monster') {
       sprites.push({

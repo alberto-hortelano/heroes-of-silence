@@ -12,7 +12,6 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { derivarCeldas } from '../tools/taller/componer-atlas-mapa.js';
 import { derivarEfecto, derivarPieza, rutaDelJson } from '../tools/taller/derivar.js';
 import { puenteDerivado } from '../tools/taller/paredes-puentes.js';
 import { sha256 } from './helpers.js';
@@ -117,26 +116,6 @@ describe('los ids de las hojas son los del catálogo', () => {
       existsSync(UNIDADES) ? readdirSync(UNIDADES).filter((d) => !d.startsWith('_')) : [],
     );
     expect([...enDisco].sort()).toEqual([...enDoc].sort());
-  });
-});
-
-describe('el atlas del mapa', () => {
-  const json = join(RAIZ, 'assets/rpg/map-atlas.json');
-  it.runIf(existsSync(json))('su JSON es lo que mide la imagen, celda a celda', async () => {
-    const png = readFileSync(join(RAIZ, 'assets/rpg/map-atlas.png'));
-    const d = leer(json);
-    expect(d.sha256, 'el atlas cambió sin volver a componerlo').toBe(
-      sha256(join(RAIZ, 'assets/rpg/map-atlas.png')),
-    );
-    expect(d.celdas).toEqual(JSON.parse(JSON.stringify(await derivarCeldas(png))));
-    // Cada celda sale de una pieza con su procedencia, o de una pieza del mapa ya aprobada.
-    for (const f of d.fuentes) {
-      expect(sha256(join(RAIZ, f.fuente)), f.fuente).toBe(f.sha256);
-      expect(
-        existsSync(join(RAIZ, f.fuente.replace(/\.webp$/, '.procedencia.json'))),
-        f.fuente,
-      ).toBe(true);
-    }
   });
 });
 

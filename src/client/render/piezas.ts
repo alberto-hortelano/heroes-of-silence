@@ -1,11 +1,12 @@
 /**
- * Las piezas sueltas que pinta el juego —los recursos— colocadas por su pie.
+ * Las piezas sueltas que pinta el juego —los recursos y el cofre— colocadas por su pie.
  *
  * Cada `assets/mapa/<pieza>.json` está **derivado de la imagen** por el taller
  * (`ancho`, `alto` y `ancla`: el centro de su base, en píxeles de la imagen), y
  * se importa tal cual: las cifras no se copian aquí (#120). Sin la imagen no se
  * pinta nada y quien llama pone su marcador.
  */
+import cofre from '../../../assets/mapa/cofre.json' with { type: 'json' };
 import madera from '../../../assets/mapa/madera.json' with { type: 'json' };
 import oro from '../../../assets/mapa/oro.json' with { type: 'json' };
 import piedra from '../../../assets/mapa/piedra.json' with { type: 'json' };
@@ -23,6 +24,7 @@ const MEDIDAS: Readonly<Record<PiezaDelMapa, Medidas>> = {
   oro,
   piedra,
   madera,
+  cofre,
 };
 
 /**
