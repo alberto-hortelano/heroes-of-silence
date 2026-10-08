@@ -273,7 +273,8 @@ describe('en los mapas reales', () => {
   // contaba lisa. Con el relieve por celdas (R4) la cara va de junta a junta y
   // con #180 cambian los niveles: ya no hay ninguna de caída ≥ 2 en 1-40.
   it('bajo una ciudad al borde de un acantilado, la cara deja de ser un bloque liso', () => {
-    for (let s = 1; s <= 40; s++) {
+    // Con menos mesetas (#210), la primera es la 72; la orden lenta la busca.
+    for (const s of segunPrisa([72], rango(1, 80))) {
       const { map, escena: e } = partidaDe(s);
       const ciudades = map.objects.filter((o) => o.kind === 'town');
       const c = e.relieve.caras.find(
@@ -286,6 +287,6 @@ describe('en los mapas reales', () => {
       expect(carasLisas([c], e.sprites, perfilDe), `s${s} cara ${c.y} ${c.x0}-${c.x1}`).toEqual([]);
       return;
     }
-    throw new Error('ninguna ciudad al borde de un acantilado en las semillas 1-40');
+    throw new Error('ninguna ciudad al borde de un acantilado en las semillas 1-80');
   });
 });

@@ -531,16 +531,18 @@ describe('en las partidas', () => {
       expect(tapan.map((s) => `${s.src} en ${s.x},${s.y}`)).toEqual([]);
     });
 
-  it('el nodo de otra barrera es un apoyo; la puerta de la muralla, no (s699 (15,2))', () => {
-    const map = partidaDe(699).map;
+  it('el nodo de otra barrera es un apoyo; la puerta de la muralla, no (s420 (20,13))', () => {
+    // Era s699 (15,2), de acantilado; con menos mesetas (#210) es raro: en 1-900,
+    // solo s219 y s420 llevan un nodo de otra barrera pegado a una muralla.
+    const map = partidaDe(420).map;
     const a = analizar(map);
     const al = alrededorDeMurallas(a, [], new Array<number>(a.W * a.H).fill(0));
-    const nodo = map.objects.find((o) => o.kind === 'node' && o.at.x === 15 && o.at.y === 2);
-    if (nodo?.kind !== 'node') throw new Error('s699 no tiene el nodo de (15,2)');
-    expect(nodo.barrera).toBe('cliff');
-    expect(al.apoyos(15, 1)).toContain(`nodo:${nodo.id}`);
+    const nodo = map.objects.find((o) => o.kind === 'node' && o.at.x === 20 && o.at.y === 13);
+    if (nodo?.kind !== 'node') throw new Error('s420 no tiene el nodo de (20,13)');
+    expect(nodo.barrera).toBe('mountain');
+    expect(al.apoyos(20, 12)).toContain(`nodo:${nodo.id}`);
     const puerta = map.objects.find((o) => o.kind === 'node' && o.barrera === 'wall');
-    if (puerta === undefined) throw new Error('s699 no tiene puertas de muralla');
+    if (puerta === undefined) throw new Error('s420 no tiene puertas de muralla');
     expect(al.apoyos(puerta.at.x, puerta.at.y)).not.toContain(`nodo:${puerta.id}`);
   });
 
@@ -570,11 +572,12 @@ describe('en las partidas', () => {
 
 describe('la muralla de norte a sur, de lado (§29)', () => {
   it('sus tramos son las piezas muro-ns, de 1,6 de alto y por el medio, y no la tira de la hoja', () => {
-    // s3 lleva tramos N-S de las dos piezas (7 y 5). Era s21, que con los
-    // niveles del mapa (#143) se quedó sin ellos; y antes s12, cuyas dos
-    // puertas se quedaron con dos casillas de muro a cada lado al partirse su
-    // muralla larga (#208): un tramo cada una.
-    const e = escenaDe(3);
+    // s15 lleva tramos N-S de las dos piezas (4 y 4). Era s3 hasta #210 (menos
+    // mesetas: le quedan 2); antes s21, que con los niveles del mapa (#143) se
+    // quedó sin ellos; y antes s12, cuyas dos puertas se quedaron con dos
+    // casillas de muro a cada lado al partirse su muralla larga (#208): un
+    // tramo cada una.
+    const e = escenaDe(15);
     const ns = e.sprites.filter((s) => /^muro-ns-[12]\.webp$/.test(s.src ?? ''));
     expect(ns.length).toBeGreaterThan(5);
     expect(new Set(ns.map((s) => s.src))).toEqual(new Set(['muro-ns-1.webp', 'muro-ns-2.webp']));

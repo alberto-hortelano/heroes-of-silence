@@ -21,6 +21,12 @@ import { ejercito, forzarBatalla } from './helpers.js';
 
 const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 
+/**
+ * La semilla de la batalla: tiene que lanzar algún hechizo y matar algo. Era
+ * la 33, que con menos mesetas (#210) ya no lanza ninguno.
+ */
+const SEMILLA = 2;
+
 /** Una batalla contra el primer monstruo, con un héroe que sabe Flecha mágica y tiene maná. */
 function batallaConMagia(seed: number): { state: ReturnType<typeof newGame>; battle: BattleState } {
   const state = newGame({ seed });
@@ -39,7 +45,7 @@ function batallaConMagia(seed: number): { state: ReturnType<typeof newGame>; bat
 
 describe('el resumen de la batalla en battle_ended (#93)', () => {
   it('cuenta los hechizos, las bajas y las rondas que dice el registro del tablero', () => {
-    const { state, battle } = batallaConMagia(33);
+    const { state, battle } = batallaConMagia(SEMILLA);
     const fin = state.log.find((e) => e.kind === 'battle_ended');
     if (fin?.kind !== 'battle_ended') throw new Error('no hubo battle_ended');
 
@@ -69,7 +75,7 @@ describe('el resumen de la batalla en battle_ended (#93)', () => {
   });
 
   it('lo lee el agente en recentEvents, y el rival que no miraba no se entera', () => {
-    const { state } = batallaConMagia(33);
+    const { state } = batallaConMagia(SEMILLA);
     const mio = serializeAdventureTurn(state, 0) as { recentEvents: { kind: string }[] };
     const fin = mio.recentEvents.find((e) => e.kind === 'battle_ended') as
       | { casts: unknown[]; seen?: unknown }
@@ -88,7 +94,7 @@ describe('el resumen de la batalla en battle_ended (#93)', () => {
   it('el héroe que cae no cuenta como baja: lo dice hero_defeated', () => {
     // Su caída se escribe en el tablero de una batalla real, a mano: que el
     // héroe muera depende de la IA de batalla, que no es lo que se mide aquí.
-    const { battle } = batallaConMagia(33);
+    const { battle } = batallaConMagia(SEMILLA);
     const caido: BattleState = {
       ...battle,
       stacks: battle.stacks.map((s) => (s.origen.kind === 'heroe' ? { ...s, count: 0 } : s)),
@@ -99,7 +105,7 @@ describe('el resumen de la batalla en battle_ended (#93)', () => {
   });
 
   it('lanza si el registro nombra un stack que no está en el tablero', () => {
-    const { battle } = batallaConMagia(33);
+    const { battle } = batallaConMagia(SEMILLA);
     const roto: BattleState = {
       ...battle,
       log: [{ kind: 'cast', side: 'attacker', spell: 'magic_arrow', target: 'z9', killed: 0 }],
@@ -110,7 +116,7 @@ describe('el resumen de la batalla en battle_ended (#93)', () => {
   });
 
   it('lanza con un hechizo sin objetivo en vez de contarlo sobre nadie', () => {
-    const { battle } = batallaConMagia(33);
+    const { battle } = batallaConMagia(SEMILLA);
     const roto: BattleState = {
       ...battle,
       log: [{ kind: 'cast', side: 'attacker', spell: 'magic_arrow' }],

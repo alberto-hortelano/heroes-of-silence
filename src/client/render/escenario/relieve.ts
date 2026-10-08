@@ -9,7 +9,7 @@
  * La cámara mira desde el sur: una caída hacia abajo en pantalla enseña su cara
  * de roca; una caída hacia arriba queda de espaldas y solo se ve el reborde.
  */
-import { franjasDeBarrera } from '@core/map/regiones.js';
+import { nivelesDelRelieve } from '@core/map/regiones.js';
 import { isWalkable, type Suelo, type TerrainKind } from '@core/map/terrain.js';
 import type { Analisis } from './analizar.js';
 import type { Caja } from './pasillo.js';
@@ -39,9 +39,6 @@ export interface Relieve {
   readonly nivel: Int8Array;
 }
 
-/** El nivel de un mapa sin regiones (los de algunos tests): todo al llano. */
-const LLANO = 1;
-
 /**
  * El nivel de cada casilla, de los niveles de las regiones del mapa (#143):
  *
@@ -55,12 +52,17 @@ const LLANO = 1;
  *   bajo: su bajada la lleva el camino y la tapa el hito o la pieza de la
  *   ciudad; al alto, las rampas de camino caían sobre lo alto del acantilado y
  *   lo dejaban sin roca (`acantiladosLisos` 2 → 3 en 1-40);
- * - **una franja de barrera** (8-conexa, de una misma barrera), al nivel más
- *   alto de las regiones que toca: es el borde de la meseta, y la cara cae a su
- *   pie del lado bajo. El acantilado, cubierto de roca (`cimaDeRoca`);
- * - **el agua**: la de frontera (toca dos regiones o más) va encajada, un nivel
- *   bajo su orilla más baja —el barranco—; la de dentro de una región, a ras,
- *   una charca con su orilla y sin caras.
+ * - **una casilla de barrera**, al nivel más alto de las dos regiones que
+ *   separa ahí: es el borde de la meseta, y la cara cae a su pie del lado bajo.
+ *   El acantilado, cubierto de roca (`cimaDeRoca`);
+ * - **el agua**, plana: cada franja a ras de la más baja de las regiones que
+ *   toca, sin encajar (#210);
+ * - y nada de una casilla de ancho por encima de sus dos lados: la barrera o el
+ *   nodo que lo estaría baja a lo más alto de ellos (#210).
+ *
+ * La regla es del núcleo (`nivelesDelRelieve`), porque el generador la mira al
+ * quitar las espigas de lo que se pisa (`quitarEspigas`, `vestir.ts`); aquí se
+ * le pasa el terreno de la escena (un puente es agua) y qué nodos van al bajo.
  *
  * Antes el nivel se inventaba aquí, del suelo y de una tirada, después de que el
  * generador sorteara las barreras sin verlo, y se remendaba: crestas por encima
@@ -69,37 +71,15 @@ const LLANO = 1;
  * `docs/agents/2026-10-08-desniveles/`). Ya no hace falta ninguno.
  */
 export function relieve(a: Analisis): Relieve {
-  const { W, H, terreno, red, niveles, fuente } = a;
-  const N = W * H;
-  const nivelDe = (r: number): number => (r >= 0 ? (niveles[r] as number) : LLANO);
-  const nivel = new Int8Array(N).fill(LLANO);
-  for (let i = 0; i < N; i++)
-    if (isWalkable(terreno[i] as TerrainKind)) nivel[i] = nivelDe(red.regionDe[i] as number);
-  for (const n of red.nodos) {
-    const i = n.at.y * W + n.at.x;
-    if (!isWalkable(terreno[i] as TerrainKind) || n.regiones.length === 0) continue;
-    const suyos = n.regiones.map(nivelDe);
-    nivel[i] = n.ciudad || a.conCamino.has(n.id) ? Math.min(...suyos) : Math.max(...suyos);
-  }
-
-  for (const f of franjasDeBarrera(W, H, terreno, red.regionDe)) {
-    const t = f.barrera;
-    const franja = f.casillas;
-    // Una franja encerrada entre otras barreras no toca ninguna región: va con
-    // las de lo que se pisa más cerca de cada casilla suya.
-    const regiones = new Set(f.regiones);
-    if (regiones.size === 0)
-      for (const j of franja) {
-        const r = red.regionDe[fuente[j] as number] as number;
-        if (r >= 0) regiones.add(r);
-      }
-    const suyos = regiones.size === 0 ? [LLANO] : [...regiones].map(nivelDe);
-    const alto = Math.max(...suyos);
-    const bajo = Math.min(...suyos);
-    const deFrontera = regiones.size > 1;
-    const suyo = t === 'water' ? (deFrontera ? bajo - 1 : alto) : alto;
-    for (const j of franja) nivel[j] = suyo;
-  }
+  const { W, H, terreno, red, niveles } = a;
+  const nodos = red.nodos
+    .filter((n) => isWalkable(terreno[n.at.y * W + n.at.x] as TerrainKind))
+    .map((n) => ({
+      casilla: n.at.y * W + n.at.x,
+      regiones: n.regiones,
+      alBajo: n.ciudad || a.conCamino.has(n.id),
+    }));
+  const nivel = nivelesDelRelieve(W, H, terreno, red.regionDe, niveles, nodos);
   return { nivel };
 }
 

@@ -202,7 +202,8 @@ describe('la casilla del nodo de agua es agua (#157)', () => {
     expect(a.franjaDe[nodo]).toBe(a.franjaDe[2 * 5 + 4]);
     const rel = relieve(a);
     const orillas = [1 * 5 + 2, 3 * 5 + 2].map((i) => rel.nivel[i] as number);
-    expect(rel.nivel[nodo]).toBe(Math.max(-1, Math.min(...orillas) - 1));
+    // A ras de la orilla más baja: el agua ya no se encaja (#210).
+    expect(rel.nivel[nodo]).toBe(Math.min(...orillas));
     expect(rel.nivel[nodo]).toBe(rel.nivel[2 * 5]);
     // Ninguna cara cuelga de la casilla del nodo: el agua es lo bajo.
     const { caras } = caidas(rel.nivel, a.W, a.H, a.suelo);

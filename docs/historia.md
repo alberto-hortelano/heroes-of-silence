@@ -3582,6 +3582,52 @@ casilla. Ahora salta con cualquier alcance cuando no hay destino y lleva
 `TURNOS_DE_ENCIERRO` turnos en la misma casilla fuera de su base: vuelve a casa
 por el alcance de siempre. La 222 acaba el día 30; el banco sale igual.
 
+## Una elevación no acaba de repente (#210, 08-10-2026)
+
+Queja del usuario tras la auditoría 5: «la falta de coherencia con los
+desniveles… una elevacion no puede acabar de repente, sin continuidad». Medido
+en las 10 semillas de la auditoría (1, 2, 5, 9, 13, 24, 34, 57, 80, 443):
+**112 casillas** de tierra o acantilado más altas que sus dos vecinas este y
+oeste (119 en norte-sur), **351 lados de caída 3** y s13 con el 72 % a nivel 2.
+En 1-200: 1 694 / 1 959 espigas y 3 364 lados de caída 3.
+
+- **El nivel por casilla pasa al núcleo** (`nivelesDelRelieve`): el generador
+  tiene que ver lo que pintará la escena para quitar las espigas, y un hecho
+  va en un sitio. Tres cambios de regla:
+  - **Por casilla y no por franja**: la barrera va al nivel alto de las dos
+    regiones que separa ahí. Una franja de acantilado entre un 1 y un 0 que
+    tocaba un 2 en otra punta subía entera a 2 (s1 (14-18, 1-9), una cresta).
+  - **El agua, plana y sin encajar**, a ras de la región más baja que toca su
+    franja. Encajada un nivel bajo la orilla baja dejaba por encima del agua
+    toda lengua de esa orilla y toda ciudad del cruce (las 14 ciudades
+    espiga de las 10 semillas), y entre dos mesetas daba caída 3. Se probó el
+    agua por casilla: 96 de 1 678 franjas con escalones dentro del agua (173
+    lados), una cascada sin arte; plana por franja, 0. La caída máxima es 2.
+  - **Nada de una casilla de ancho por encima de sus dos lados**: la barrera o
+    el nodo que lo estaría baja a lo más alto de ellos (el espolón de una
+    montaña o un acantilado en lo bajo; el paso sin camino con agua a los
+    lados, 6 en 1-200 con los pesos de antes). Lo que se pisa no se toca (va
+    al de su región).
+- **El generador quita las espigas de lo que se pisa** (paso 7b del engorde,
+  `quitarEspigas`): la lengua se rellena de la barrera baja de al lado; el
+  pasillo de un nodo, que no se toca, se ensancha abriendo la orilla a su
+  región (sin otra a menos de tres pasos) o la orilla pasa a montaña. Luego
+  bolsillos, cruces y murallas otra vez. Sin esta pasada, 117 de 200 mapas
+  llevaban espigas. Los fallos de vestido no cambian (1 712 contra 1 607 en
+  1-200); generar 200 mapas tarda un 28 % más (2,5 → 3,2 s, máquina cargada).
+- **Menos mesetas** (`data/relieve.json`): nieve, lava y áspero a 2 una vez de
+  cada tres. Regiones a 2: 35,6 → 19,0 %; casillas: 39,3 → 21,6 %; por mapa,
+  mediana 41 → 22 %, p90 66 → 47 %, máximo 87 → 67 %, mapas con más de la mitad
+  arriba 66 → 11. El precio: 64 de 200 mapas sin ninguna meseta (eran 17) y 22
+  del todo llanos (eran 3).
+- **Resultado en 1-200**: 0 espigas en los dos ejes y 0 caídas de 3 (lados de
+  caída 1/2/3: 32 891/14 042/3 364 antes; ahora 19 431/2 931/0). En 24 y
+  64 de lado, 0 espigas en 1-40. La senda bajo el relieve baja de 4,5 a 1,2
+  tramos por mapa en 1-40.
+- **Lo que no se arregla aquí**: la ladera que se lee como cuchilla, el agua y
+  el barro que entran en lo alto y el tono por nivel (#211, #212); la meseta
+  de 2 × 2 en el agua sigue siendo posible (no es de una casilla de ancho).
+
 ## Decisiones tomadas
 
 - **MCP antes que API key.** El usuario tiene Claude Max: el agente entra por

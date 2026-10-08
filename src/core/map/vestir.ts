@@ -19,7 +19,14 @@
 import { BARRERAS_DEL_MAPA, type BarreraConPeso } from '../data.js';
 import type { Rng } from '../rng.js';
 import { Frontera } from './frontera.js';
-import { aPunto, rellenar, vecindad } from './regiones.js';
+import {
+  aPunto,
+  espigasDelRelieve,
+  type NodoDelRelieve,
+  nivelesDelRelieve,
+  rellenar,
+  vecindad,
+} from './regiones.js';
 import {
   admiteLosNiveles,
   BARRERAS,
@@ -28,6 +35,7 @@ import {
   costeDeEntrada,
   type Nivel,
   type Suelo,
+  type TerrainKind,
 } from './terrain.js';
 
 /** Sin barrera en `Tipos`: la casilla se pisa. */
@@ -186,6 +194,11 @@ export interface EntradaDeEngorde {
    * muralla no va de una a otra (`murallasLargas`).
    */
   readonly ciudades: readonly number[];
+  /**
+   * Las casillas de los nodos que llevarán camino (`crucesConCamino`): van al
+   * nivel bajo de los que cruzan, como las ciudades (`nivelDelNodo`).
+   */
+  readonly conCamino: readonly number[];
   /** Las semillas de las regiones, por índice de región (= etiqueta). */
   readonly semillas: readonly { readonly x: number; readonly y: number }[];
   /** El suelo de cada región, por índice de región. */
@@ -535,43 +548,49 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
   }
 
   // 6. Los bolsillos: cada región se queda con un trozo; los demás se rellenan
-  //    si no llevan pasillo, y si lo llevan el vestido no vale.
+  //    si no llevan pasillo, y si lo llevan el vestido no vale. Se mira otra vez
+  //    después de quitar las espigas (paso 7b), que también rellena.
   const semillas = [...e.semillas];
-  const comp = new Int32Array(N).fill(-1);
-  const trozos: { region: number; casillas: number[]; pasillo: boolean }[] = [];
-  for (let i = 0; i < N; i++) {
-    if (comp[i] !== -1 || tipos[i] !== ABIERTA || esNodo[i] === 1) continue;
-    const n = trozos.length;
-    const toma = (j: number): boolean => {
-      if (comp[j] !== -1 || tipos[j] !== ABIERTA || esNodo[j] === 1) return false;
-      comp[j] = n;
-      return true;
-    };
-    toma(i);
-    const casillas = rellenar(W, H, i, toma).sort((a, b) => a - b);
-    trozos.push({
-      region: etiqueta[i] as number,
-      casillas,
-      pasillo: casillas.some((c) => pasillo[c] === 1),
-    });
-  }
-  for (let r = 0; r < regiones; r++) {
-    const suyos = trozos.filter((t) => t.region === r);
-    if (suyos.length === 0) return `la región ${r} se queda sin casillas al engordar`;
-    const s = semillas[r]!;
-    const deLaSemilla = comp[s.y * W + s.x] === -1 ? undefined : trozos[comp[s.y * W + s.x]!];
-    const elegido =
-      deLaSemilla ?? suyos.reduce((m, t) => (t.casillas.length > m.casillas.length ? t : m));
-    for (const t of suyos) {
-      if (t === elegido) continue;
-      if (t.pasillo) {
-        return `la región ${r} queda partida al engordar, y el trozo suelto tiene la entrada de un nodo`;
-      }
-      const relleno = tipoVecino(W, H, t.casillas, tipos);
-      for (const c of t.casillas) tipos[c] = relleno;
+  const bolsillos = (): string | null => {
+    const comp = new Int32Array(N).fill(-1);
+    const trozos: { region: number; casillas: number[]; pasillo: boolean }[] = [];
+    for (let i = 0; i < N; i++) {
+      if (comp[i] !== -1 || tipos[i] !== ABIERTA || esNodo[i] === 1) continue;
+      const n = trozos.length;
+      const toma = (j: number): boolean => {
+        if (comp[j] !== -1 || tipos[j] !== ABIERTA || esNodo[j] === 1) return false;
+        comp[j] = n;
+        return true;
+      };
+      toma(i);
+      const casillas = rellenar(W, H, i, toma).sort((a, b) => a - b);
+      trozos.push({
+        region: etiqueta[i] as number,
+        casillas,
+        pasillo: casillas.some((c) => pasillo[c] === 1),
+      });
     }
-    if (deLaSemilla === undefined) semillas[r] = aPunto(elegido.casillas[0] as number, W);
-  }
+    for (let r = 0; r < regiones; r++) {
+      const suyos = trozos.filter((t) => t.region === r);
+      if (suyos.length === 0) return `la región ${r} se queda sin casillas al engordar`;
+      const s = semillas[r]!;
+      const deLaSemilla = comp[s.y * W + s.x] === -1 ? undefined : trozos[comp[s.y * W + s.x]!];
+      const elegido =
+        deLaSemilla ?? suyos.reduce((m, t) => (t.casillas.length > m.casillas.length ? t : m));
+      for (const t of suyos) {
+        if (t === elegido) continue;
+        if (t.pasillo) {
+          return `la región ${r} queda partida al engordar, y el trozo suelto tiene la entrada de un nodo`;
+        }
+        const relleno = tipoVecino(W, H, t.casillas, tipos);
+        for (const c of t.casillas) tipos[c] = relleno;
+      }
+      if (deLaSemilla === undefined) semillas[r] = aPunto(elegido.casillas[0] as number, W);
+    }
+    return null;
+  };
+  const partida6 = bolsillos();
+  if (partida6 !== null) return partida6;
 
   // 6b. Los cruces, coherentes con los niveles (#143): la barrera es por
   //     pareja, pero junto a un cruce de tres regiones la de una pareja llega a
@@ -584,83 +603,113 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
   //    se repite hasta que no queda ninguna. Solo quita muro: acaba.
   let barreraDeNodo = barrerasDeLosNodos(e, tipos, esNodo, clave, tipoDePareja, candidatasDe);
   const esCiudad = new Set(e.ciudades);
+  const alBajo = new Set([...e.ciudades, ...e.conCamino]);
+  // Con todas las regiones a un nivel no hay desnivel ni espigas: el 11 % de
+  // los mapas de 1-200 con los pesos de #210.
+  const llano = e.niveles.every((n) => n === e.niveles[0]);
   /** Lo que se quedó de muro al partir una muralla: no se vuelve a partir. */
   const partida = new Uint8Array(N);
-  for (;;) {
-    const largas = murallasLargas(e, tipos, esNodo, barreraDeNodo);
-    if (largas.length === 0) break;
-    const hechas = new Set<number>();
-    for (const larga of largas) {
-      if (hechas.has(larga[0] as number)) continue;
-      // La espejo, con la misma barrera: el mapa va en espejo y sus suelos son
-      // los de la pareja, que son los mismos.
-      const espejo = new Set(larga.map((c) => espejoDe(c, N)));
-      const reflejada = largas.find((l) => espejo.has(l[0] as number));
-      const lados = new Set<number>();
-      for (const c of larga)
-        for (let v = desde[c]!; v < desde[c + 1]!; v++) {
-          const j = vecinas[v]!;
-          if (tipos[j] === ABIERTA && esNodo[j] === 0) lados.add(etiqueta[j] as number);
-        }
-      // De lo que admiten sus suelos, primero lo que el mapa aún no tiene con
-      // sus `casillasMinimasPorTipo`: si el muro era de las barreras
-      // repartidas, la que lo sustituye mantiene la variedad que pide el paso
-      // 8 en vez de engordar una que ya la daba.
-      const admitidas = candidatasSinMuro(
-        [...lados].map((r) => suelos[r] as Suelo),
-        [...lados].map((r) => e.niveles[r] as Nivel),
-      );
-      const cuantas = new Int32Array(BARRERAS.length);
-      for (let i = 0; i < N; i++)
-        if (tipos[i] !== ABIERTA && esNodo[i] === 0) cuantas[tipos[i]!]! += 1;
-      const nuevas = admitidas.filter(
-        (c) => cuantas[indiceDe(c.barrera)]! < BARRERAS_DEL_MAPA.casillasMinimasPorTipo,
-      );
-      const otra = indiceDe(laMasPesada(nuevas.length > 0 ? nuevas : admitidas));
-      // Con puertas, la primera vez se parte: el muro se queda alrededor de
-      // cada una y el resto toma la otra barrera. Sin partir, las puertas de
-      // muralla casi desaparecían: iban en murallas largas, y en 1-40 solo
-      // quedaban en un mapa (con partir, 297 → 237 en 1-200).
-      // Si lo que queda aún no vale —dos puertas juntas, o una entre dos
-      // ciudades—, la segunda vez va entera.
-      const puertas = e.nodos.filter(
-        (n, k) => barreraDeNodo[k] === 'wall' && !esCiudad.has(n) && larga.includes(n),
-      );
-      const partir = puertas.length > 0 && !larga.some((c) => partida[c] === 1);
-      const cercaDeUna = (c: number, l: readonly number[]): boolean =>
-        l.some(
-          (n) =>
-            esNodo[n] === 1 &&
-            puertas.some((p) => p === n || espejoDe(p, N) === n) &&
-            Math.max(
-              Math.abs((c % W) - (n % W)),
-              Math.abs(Math.floor(c / W) - Math.floor(n / W)),
-            ) <= RADIO_DE_LA_PUERTA,
-        );
-      for (const l of [larga, reflejada ?? []]) {
-        hechas.add(l[0] as number);
-        for (const c of l) {
-          if (partir && cercaDeUna(c, l)) partida[c] = 1;
-          else tipos[c] = otra;
-        }
-        // Un hueco de una casilla entre dos trozos partidos los deja en la
-        // misma fila o columna con sus puntas a dos: dos torres obligadas en
-        // columna, que se apilan (s3 (11,6)-(11,8) con los niveles del mapa,
-        // #143). Es una muralla con dos puertas juntas: se cierra el hueco y la
-        // vuelta siguiente la juzga entera.
-        if (partir)
-          for (const c of l) {
-            if (partida[c] === 1) continue;
-            const x = c % W;
-            const enMedio = (d: number) =>
-              c - d >= 0 && c + d < N && partida[c - d] === 1 && partida[c + d] === 1;
-            if ((x > 0 && x < W - 1 && enMedio(1)) || enMedio(W)) {
-              partida[c] = 1;
-              tipos[c] = indiceDe('wall');
-            }
+  for (let vuelta = 0; ; vuelta++) {
+    for (;;) {
+      const largas = murallasLargas(e, tipos, esNodo, barreraDeNodo);
+      if (largas.length === 0) break;
+      const hechas = new Set<number>();
+      for (const larga of largas) {
+        if (hechas.has(larga[0] as number)) continue;
+        // La espejo, con la misma barrera: el mapa va en espejo y sus suelos son
+        // los de la pareja, que son los mismos.
+        const espejo = new Set(larga.map((c) => espejoDe(c, N)));
+        const reflejada = largas.find((l) => espejo.has(l[0] as number));
+        const lados = new Set<number>();
+        for (const c of larga)
+          for (let v = desde[c]!; v < desde[c + 1]!; v++) {
+            const j = vecinas[v]!;
+            if (tipos[j] === ABIERTA && esNodo[j] === 0) lados.add(etiqueta[j] as number);
           }
+        // De lo que admiten sus suelos, primero lo que el mapa aún no tiene con
+        // sus `casillasMinimasPorTipo`: si el muro era de las barreras
+        // repartidas, la que lo sustituye mantiene la variedad que pide el paso
+        // 8 en vez de engordar una que ya la daba.
+        const admitidas = candidatasSinMuro(
+          [...lados].map((r) => suelos[r] as Suelo),
+          [...lados].map((r) => e.niveles[r] as Nivel),
+        );
+        const cuantas = new Int32Array(BARRERAS.length);
+        for (let i = 0; i < N; i++)
+          if (tipos[i] !== ABIERTA && esNodo[i] === 0) cuantas[tipos[i]!]! += 1;
+        const nuevas = admitidas.filter(
+          (c) => cuantas[indiceDe(c.barrera)]! < BARRERAS_DEL_MAPA.casillasMinimasPorTipo,
+        );
+        const otra = indiceDe(laMasPesada(nuevas.length > 0 ? nuevas : admitidas));
+        // Con puertas, la primera vez se parte: el muro se queda alrededor de
+        // cada una y el resto toma la otra barrera. Sin partir, las puertas de
+        // muralla casi desaparecían: iban en murallas largas, y en 1-40 solo
+        // quedaban en un mapa (con partir, 297 → 237 en 1-200).
+        // Si lo que queda aún no vale —dos puertas juntas, o una entre dos
+        // ciudades—, la segunda vez va entera.
+        const puertas = e.nodos.filter(
+          (n, k) => barreraDeNodo[k] === 'wall' && !esCiudad.has(n) && larga.includes(n),
+        );
+        const partir = puertas.length > 0 && !larga.some((c) => partida[c] === 1);
+        const cercaDeUna = (c: number, l: readonly number[]): boolean =>
+          l.some(
+            (n) =>
+              esNodo[n] === 1 &&
+              puertas.some((p) => p === n || espejoDe(p, N) === n) &&
+              Math.max(
+                Math.abs((c % W) - (n % W)),
+                Math.abs(Math.floor(c / W) - Math.floor(n / W)),
+              ) <= RADIO_DE_LA_PUERTA,
+          );
+        for (const l of [larga, reflejada ?? []]) {
+          hechas.add(l[0] as number);
+          for (const c of l) {
+            if (partir && cercaDeUna(c, l)) partida[c] = 1;
+            else tipos[c] = otra;
+          }
+          // Un hueco de una casilla entre dos trozos partidos los deja en la
+          // misma fila o columna con sus puntas a dos: dos torres obligadas en
+          // columna, que se apilan (s3 (11,6)-(11,8) con los niveles del mapa,
+          // #143). Es una muralla con dos puertas juntas: se cierra el hueco y la
+          // vuelta siguiente la juzga entera.
+          if (partir)
+            for (const c of l) {
+              if (partida[c] === 1) continue;
+              const x = c % W;
+              const enMedio = (d: number) =>
+                c - d >= 0 && c + d < N && partida[c - d] === 1 && partida[c + d] === 1;
+              if ((x > 0 && x < W - 1 && enMedio(1)) || enMedio(W)) {
+                partida[c] = 1;
+                tipos[c] = indiceDe('wall');
+              }
+            }
+        }
       }
+      barreraDeNodo = barrerasDeLosNodos(e, tipos, esNodo, clave, tipoDePareja, candidatasDe);
     }
+    // 7b. Sin espigas (#210): ninguna casilla de una de ancho por encima de lo
+    //     que tiene a los dos lados. Rellenar puede partir una región y cambiar
+    //     la barrera de un nodo, y eso, una muralla: se vuelve a mirar todo.
+    if (llano || vuelta >= VUELTAS_SIN_ESPIGAS) break;
+    const conEspigas = quitarEspigas(
+      W,
+      H,
+      tipos,
+      etiqueta,
+      muro,
+      esNodo,
+      pasillo,
+      e.niveles,
+      e.nodos,
+      barreraDeNodo,
+      alBajo,
+    );
+    if (!conEspigas) break;
+    const partida7 = bolsillos();
+    if (partida7 !== null) return partida7;
+    // Lo rellenado puede dejar un trozo de acantilado tocando un solo nivel, o
+    // un bosque tocando dos: se arregla con la regla de los cruces (6b).
+    desnivelEnLosCruces(W, H, tipos, etiqueta, esNodo, e.niveles);
     barreraDeNodo = barrerasDeLosNodos(e, tipos, esNodo, clave, tipoDePareja, candidatasDe);
   }
 
@@ -685,6 +734,140 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
     return `la frontera se queda con ${conSusCasillas.length} barreras de ${casillasMinimasPorTipo} casillas (${conSusCasillas.join(', ') || 'ninguna'}), y cada mapa lleva ${hacenFalta}; se quedan cortas ${cortas.join(', ')}`;
   }
   return { tipos, pasillo, semillas, barreraDeNodo };
+}
+
+/** Cuántas veces se quitan espigas y se vuelven a mirar bolsillos y murallas. */
+const VUELTAS_SIN_ESPIGAS = 8;
+
+/**
+ * El terreno y las regiones de lo engordado como los verá la escena, y el nivel
+ * de cada casilla con la misma regla (`nivelesDelRelieve`, `nivelDelNodo`). El
+ * nodo de agua es un puente, agua en la escena; el de lo demás va al bajo si es
+ * ciudad o lleva camino (`alBajo`) y si no al alto.
+ */
+function nivelesDeLoEngordado(
+  W: number,
+  H: number,
+  tipos: Tipos,
+  etiqueta: Int32Array,
+  esNodo: Uint8Array,
+  niveles: readonly Nivel[],
+  nodos: readonly number[],
+  barreraDeNodo: readonly Barrera[],
+  alBajo: ReadonlySet<number>,
+): Int8Array {
+  const N = W * H;
+  const terreno: TerrainKind[] = new Array(N);
+  const regionDe = new Int32Array(N).fill(-1);
+  for (let i = 0; i < N; i++) {
+    const b = barreraDe(tipos, i);
+    terreno[i] = b ?? 'grass';
+    if (b === null && esNodo[i] === 0) regionDe[i] = etiqueta[i] as number;
+  }
+  const { desde, vecinas } = vecindad(W, H);
+  const delRelieve: NodoDelRelieve[] = [];
+  for (const [k, n] of nodos.entries()) {
+    if (barreraDeNodo[k] === 'water') {
+      terreno[n] = 'water';
+      continue;
+    }
+    const regiones = new Set<number>();
+    for (let v = desde[n]!; v < desde[n + 1]!; v++) {
+      const r = regionDe[vecinas[v]!] as number;
+      if (r >= 0) regiones.add(r);
+    }
+    delRelieve.push({ casilla: n, regiones: [...regiones], alBajo: alBajo.has(n) });
+  }
+  return nivelesDelRelieve(W, H, terreno, regionDe, niveles, delRelieve);
+}
+
+/**
+ * Las espigas de lo engordado (#210): casillas de una de ancho por encima de lo
+ * que tienen a los dos lados en un eje (`espigasDelRelieve`). Las deja el ruido
+ * de la frontera —una casilla sin engordar entre dos engordadas, el diente de
+ * un peine—, el pasillo de un nodo que cruza el agua y el espolón de un
+ * acantilado o una montaña que se mete en lo bajo. La auditoría 5 contó 112 en
+ * 10 semillas, y la escena las pintaba como obeliscos y cuchillas.
+ *
+ * - **Lo que se pisa**, se rellena con la barrera baja de al lado (el agua); si
+ *   es pasillo, que no se toca, se abre la barrera de al lado a su región, si es
+ *   de su celda, no es muro fino y no deja otra región a menos de tres pasos.
+ * - **Una barrera** alta entre dos casillas que se pisan, las rellena con su
+ *   barrera: el espolón se hace lomo; entre dos barreras bajas, toma la suya.
+ *
+ * Solo convierte lo pisable en barrera, salvo el pasillo, que se ensancha.
+ * Devuelve si cambió algo; quien llama vuelve a mirar los bolsillos.
+ */
+function quitarEspigas(
+  W: number,
+  H: number,
+  tipos: Tipos,
+  etiqueta: Int32Array,
+  muro: Uint8Array,
+  esNodo: Uint8Array,
+  pasillo: Uint8Array,
+  niveles: readonly Nivel[],
+  nodos: readonly number[],
+  barreraDeNodo: readonly Barrera[],
+  alBajo: ReadonlySet<number>,
+): boolean {
+  const N = W * H;
+  const nivel = nivelesDeLoEngordado(
+    W,
+    H,
+    tipos,
+    etiqueta,
+    esNodo,
+    niveles,
+    nodos,
+    barreraDeNodo,
+    alBajo,
+  );
+  const espigas = espigasDelRelieve(W, H, nivel);
+  const abierta = (j: number): boolean => tipos[j] === ABIERTA && esNodo[j] === 0;
+  /** Si `p` se puede abrir a la región `r` sin dejar otra a menos de tres pasos. */
+  const abrible = (p: number, r: number): boolean => {
+    if (abierta(p) || esNodo[p] === 1 || muro[p] === 1 || etiqueta[p] !== r) return false;
+    const { x, y } = aPunto(p, W);
+    for (let dy = -2; dy <= 2; dy++)
+      for (let dx = -2; dx <= 2; dx++) {
+        if (x + dx < 0 || y + dy < 0 || x + dx >= W || y + dy >= H) continue;
+        const q = (y + dy) * W + x + dx;
+        if (abierta(q) && etiqueta[q] !== r) return false;
+      }
+    return true;
+  };
+  const MONTAÑA = indiceDe('mountain');
+  const MURO = indiceDe('wall');
+  let cambio = false;
+  for (const c of espigas) {
+    if (!abierta(c)) continue;
+    const n = nivel[c] as number;
+    const x = c % W;
+    const ejes: (readonly [number, number])[] = [];
+    if (x > 0 && x < W - 1 && (nivel[c - 1] as number) < n && (nivel[c + 1] as number) < n)
+      ejes.push([c - 1, c + 1]);
+    if (c >= W && c < N - W && (nivel[c - W] as number) < n && (nivel[c + W] as number) < n)
+      ejes.push([c - W, c + W]);
+    for (const lados of ejes) {
+      if (pasillo[c] === 0) {
+        const baja = lados.find((p) => tipos[p] !== ABIERTA && tipos[p] !== MURO);
+        if (baja === undefined) continue;
+        tipos[c] = tipos[baja] as number;
+        cambio = true;
+        break;
+      }
+      for (const p of lados) {
+        if (abierta(p) || esNodo[p] === 1) continue;
+        // El pasillo no se toca: se abre la orilla a su región o, si no se
+        // puede, la orilla deja de ser agua y sube con él, de montaña, que
+        // admite cualquier pareja de niveles.
+        tipos[p] = abrible(p, etiqueta[c] as number) ? ABIERTA : MONTAÑA;
+        cambio = true;
+      }
+    }
+  }
+  return cambio;
 }
 
 /**

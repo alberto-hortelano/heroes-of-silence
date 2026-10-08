@@ -722,11 +722,27 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   1 635 → 1 611, `hero_defeated` 397 → 391, `node_captured` 1 237 → 1 212,
  *   `town_captured` 1 379 → 1 344, `march_halted` 104 → 142; ningún tipo nuevo
  *   ni ninguno que desaparezca. autoResolve igual.
+ * - `7737a300…` (59 809 líneas): **sin espigas y con menos mesetas** (#210,
+ *   08-10-2026). El vestido quita las casillas de una de ancho por encima de
+ *   sus dos lados (`quitarEspigas`: rellena la lengua de tierra con el agua de
+ *   al lado y ensancha el pasillo del nodo), con el nivel por casilla del
+ *   núcleo (`nivelesDelRelieve`); y `data/relieve.json` deja la nieve, la lava
+ *   y lo áspero a 2 una vez de cada tres. Cambia el mapa, no las reglas:
+ *   **185 de 200 semillas cambian** (15 iguales: su vestido no tenía espigas
+ *   y su sorteo de nivel dio lo mismo); en 158 el primer hecho distinto es
+ *   `raider_spawned` del día 1 (otro mapa), en 22 `hero_moved` y en 5
+ *   `battle_ended` (la misma red con otras barreras: otro coste de camino o
+ *   de batalla); 178 cambian el día 1 y 7 entre el 3 y el 8. 89 con otro
+ *   ganador, j0 114 → 117, **0 sin terminar**, duración 8 / 18 / 38 →
+ *   **8 / 15 / 26**. Batallas 1 611 → 1 536, `hero_defeated` 391 → 329,
+ *   `node_captured` 1 212 → 1 152, `town_captured` 1 344 → 1 361,
+ *   `march_halted` 142 → 121; ningún tipo nuevo ni ninguno que desaparezca.
+ *   autoResolve igual.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: 'b2e5ed9cf45c63e0f9078ef1e6d47c99fc112e72254099cacf982e2009b7d4fd',
+  sha: '7737a300b8cc8aa91ac84b7213cc68abc91e2d82f12d617eeaafdb35a0d54d3e',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

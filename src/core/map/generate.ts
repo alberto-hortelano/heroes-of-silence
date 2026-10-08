@@ -1581,6 +1581,7 @@ function vestirRed(
     muro,
     nodos,
     ciudades,
+    conCamino: fina.conCamino.flat().map((k) => nodos[k] as number),
     semillas,
     suelos,
     niveles,

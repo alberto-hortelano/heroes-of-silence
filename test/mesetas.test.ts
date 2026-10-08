@@ -124,12 +124,13 @@ describe('en los mapas reales', () => {
       expect(e.informe.acantiladosLisos).toBe(0);
     });
 
-  it('s443 y s34, las de la auditoría: su meseta más ancha, casilla a casilla', () => {
+  it('s1 y s34, de las de la auditoría: su meseta más ancha, casilla a casilla', () => {
     // Las cajas de la auditoría —s443 (14-16, 9-11) y s34 (17-22, 5-7)— ya no
     // caen en un acantilado con los niveles del mapa (#143): se mira el
     // cuadrado de 3 × 3 con más acantilado de cada una, que es lo que más se lee
-    // como un llano.
-    for (const semilla of [443, 34] as const) {
+    // como un llano. Con menos mesetas (#210), la s443 no lleva acantilado:
+    // va la s1.
+    for (const semilla of [1, 34] as const) {
       const { map, escena: e } = partidaDe(semilla);
       const [x0, y0] = masAcantiladoEn3x3(map.terrain, e.W, e.H);
       const [x1, y1] = [x0 + 2, y0 + 2];

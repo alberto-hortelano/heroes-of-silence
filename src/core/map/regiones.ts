@@ -21,6 +21,7 @@ import type { PlayerId, Point } from '../types.js';
 import { aPunto, type GameMap, inBounds, type MapObject, type MapRegion } from './map.js';
 import {
   admiteLosNiveles,
+  BARRERAS,
   BARRERAS_DE_DESNIVEL,
   type Barrera,
   esBarrera,
@@ -493,11 +494,10 @@ export interface Franja {
 
 /**
  * Las franjas de barrera de un terreno, en orden de su primera casilla (#209).
- * Es la unidad del relieve: el escenógrafo pone cada franja al nivel más alto
- * de las regiones que toca —el borde de la meseta— y su cara cae al pie del
- * lado bajo (`relieve`, en el cliente). La misma función la lee la validación
- * de los niveles (`problemasDeNiveles`), para que lo que se acepta sea lo que
- * la escena sabe pintar. El terreno se pasa aparte porque el de la escena no es
+ * Es la unidad de la validación de los niveles (`problemasDeNiveles`): cada
+ * franja admite los niveles de las regiones que toca. El relieve va por
+ * casilla dentro de ella (`nivelesDelRelieve`, #210), salvo el agua, que va
+ * plana por franja. El terreno se pasa aparte porque el de la escena no es
  * el del mapa: la casilla de un puente es agua.
  */
 export function franjasDeBarrera(
@@ -535,6 +535,227 @@ export function franjasDeBarrera(
     franjas.push({ barrera: t, casillas, regiones });
   }
   return franjas;
+}
+
+/**
+ * El nivel de altura de cada casilla, de los niveles de las regiones (#143,
+ * #210): lo que se pisa, al de su región; cada casilla de barrera, por **las
+ * dos regiones que separa ahí**, las más cercanas por dentro de su franja
+ * (8-conexa, de una misma barrera; con empates, todas las que llegan a la vez
+ * que la segunda):
+ *
+ * - **el agua**, a ras de la más baja: es lo bajo al pie de la meseta, y entre
+ *   dos regiones al mismo nivel, un río en el llano;
+ * - **lo demás** (acantilado, montaña, bosque, muro), al de la más alta: el
+ *   borde de la meseta, con la cara a su pie del lado bajo.
+ *
+ * Por casilla y no por franja: una franja de acantilado entre un 1 y un 0 que
+ * en otro sitio toca una región a 2 subía entera a 2, una cresta sobre las dos
+ * orillas (s1 (14-18, 1-9)); y una de agua que tocaba un 0 lejos hundía el río
+ * entre dos mesetas a 2, cañones de caída 3 (351 lados en 10 semillas, 5 de
+ * ellas). El agua ya no se encaja un nivel bajo su orilla más baja: así toda
+ * lengua de tierra de la orilla baja, y toda ciudad del cruce, quedaba por
+ * encima del agua por los dos lados, una espiga (auditoría 5, defectos 1 y 3).
+ *
+ * Una franja que no toca ninguna región (encerrada entre otras barreras) va con
+ * la región de lo que se pisa más cercano. Cada nodo, con `nivelDelNodo`; lo
+ * demás que se pisa sin región, al llano. El terreno se pasa aparte, como en
+ * `franjasDeBarrera`: el de la escena no es el del mapa (un puente es agua).
+ */
+export function nivelesDelRelieve(
+  width: number,
+  height: number,
+  terreno: readonly TerrainKind[],
+  regionDe: Int32Array,
+  niveles: readonly number[],
+  nodos: readonly NodoDelRelieve[],
+): Int8Array {
+  const N = width * height;
+  const { desde, vecinas } = vecindad(width, height);
+  const nivel = new Int8Array(N).fill(1);
+  // Lo de cada casilla, una vez: su barrera (índice en `BARRERAS`, −1 si se
+  // pisa) y su región si se pisa. Lo llama el generador en cada vuelta del
+  // vestido, y con `esBarrera` y vecinas por cierre costaba la mitad del mapa.
+  const barrera = new Int8Array(N);
+  const region = new Int32Array(N).fill(-1);
+  for (let i = 0; i < N; i++) {
+    const t = terreno[i] as TerrainKind;
+    barrera[i] = esBarrera(t) ? BARRERAS.indexOf(t) : -1;
+    if (barrera[i] === -1) region[i] = regionDe[i] as number;
+  }
+  const AGUA = BARRERAS.indexOf('water');
+
+  // Las dos regiones más cercanas de cada casilla de barrera, por dentro de su
+  // franja, y una tercera si llega a la vez que la segunda (un cruce de tres):
+  // de ellas, el nivel más alto.
+  const r1 = new Int32Array(N).fill(-1);
+  const r2 = new Int32Array(N).fill(-1);
+  const r3 = new Int32Array(N).fill(-1);
+  const d2 = new Int32Array(N);
+  const alto = new Int8Array(N).fill(-1);
+  const cola: number[] = [];
+  const ofrecer = (j: number, r: number, d: number): void => {
+    if (r1[j] === r || r2[j] === r || r3[j] === r) return;
+    if (r1[j] === -1) r1[j] = r;
+    else if (r2[j] === -1) {
+      r2[j] = r;
+      d2[j] = d;
+    } else if (r3[j] === -1 && d2[j] === d) r3[j] = r;
+    else return;
+    alto[j] = Math.max(alto[j] as number, niveles[r] as number);
+    cola.push(j, r, d);
+  };
+  for (let i = 0; i < N; i++) {
+    const r = region[i] as number;
+    if (r < 0) continue;
+    nivel[i] = niveles[r] as number;
+    for (let v = desde[i]!; v < desde[i + 1]!; v++) {
+      const k = vecinas[v]!;
+      if (barrera[k] !== -1) ofrecer(k, r, 1);
+    }
+  }
+  for (let q = 0; q < cola.length; q += 3) {
+    const j = cola[q] as number;
+    for (let v = desde[j]!; v < desde[j + 1]!; v++) {
+      const k = vecinas[v]!;
+      if (barrera[k] === barrera[j]) ofrecer(k, cola[q + 1] as number, (cola[q + 2] as number) + 1);
+    }
+  }
+  // Lo encerrado: la región de lo que se pisa más cercano, por encima de todo.
+  // Solo si hace falta, que casi nunca.
+  let cercana: Int32Array | null = null;
+  const cercanaDe = (i: number): number => {
+    if (cercana === null) {
+      const c = Int32Array.from(region);
+      const ola: number[] = [];
+      for (let k = 0; k < N; k++) if ((c[k] as number) >= 0) ola.push(k);
+      for (let q = 0; q < ola.length; q++) {
+        const j = ola[q] as number;
+        for (let v = desde[j]!; v < desde[j + 1]!; v++) {
+          const k = vecinas[v]!;
+          if (c[k] !== -1) continue;
+          c[k] = c[j] as number;
+          ola.push(k);
+        }
+      }
+      cercana = c;
+    }
+    return cercana[i] as number;
+  };
+  for (let i = 0; i < N; i++) {
+    if (barrera[i] === -1 || barrera[i] === AGUA) continue;
+    if ((alto[i] as number) >= 0) nivel[i] = alto[i] as number;
+    else if (cercanaDe(i) >= 0) nivel[i] = niveles[cercanaDe(i)] as number;
+  }
+  // El agua, plana: cada franja, a ras de la más baja de las regiones que toca.
+  const franja = new Int32Array(N).fill(-1);
+  for (let i = 0; i < N; i++) {
+    if (barrera[i] !== AGUA || franja[i] !== -1) continue;
+    const suya = [i];
+    franja[i] = i;
+    let bajo = Number.POSITIVE_INFINITY;
+    for (let q = 0; q < suya.length; q++) {
+      const j = suya[q] as number;
+      for (let v = desde[j]!; v < desde[j + 1]!; v++) {
+        const k = vecinas[v]!;
+        if ((region[k] as number) >= 0)
+          bajo = Math.min(bajo, niveles[region[k] as number] as number);
+        if (barrera[k] === AGUA && franja[k] === -1) {
+          franja[k] = i;
+          suya.push(k);
+        }
+      }
+    }
+    if (bajo === Number.POSITIVE_INFINITY)
+      for (const j of suya)
+        if (cercanaDe(j) >= 0) bajo = Math.min(bajo, niveles[cercanaDe(j)] as number);
+    if (bajo === Number.POSITIVE_INFINITY) continue;
+    for (const j of suya) nivel[j] = bajo;
+  }
+  for (const n of nodos)
+    if (n.regiones.length > 0)
+      nivel[n.casilla] = nivelDelNodo(
+        n.regiones.map((r) => niveles[r] as number),
+        n.alBajo,
+      );
+  // Y ninguna barrera de una casilla de ancho por encima de lo que tiene a los
+  // dos lados: el espolón de una montaña o un acantilado que se mete en lo
+  // bajo, o el lomo de una sola casilla, baja hasta lo más alto de esos lados
+  // (#210). Al bajar una, se vuelven a mirar sus cuatro vecinas: la casilla de
+  // detrás de la punta puede quedarse sola. Igual el paso sin camino que iría al
+  // alto con agua a los dos lados (s1 (24,20)): baja con ella, y su rampa sube
+  // de él. El agua nunca queda por encima (va a su orilla más baja), y lo que se
+  // pisa no se toca: lo que quede ahí lo quita el generador (`quitarEspigas`).
+  const bajable = new Uint8Array(N);
+  for (let i = 0; i < N; i++) if (barrera[i] !== -1 && barrera[i] !== AGUA) bajable[i] = 1;
+  for (const n of nodos) bajable[n.casilla] = 1;
+  const pendientes: number[] = [];
+  for (let i = 0; i < N; i++) if (bajable[i] === 1) pendientes.push(i);
+  while (pendientes.length > 0) {
+    const i = pendientes.pop() as number;
+    const tope = sinEspiga(width, height, nivel, i);
+    if (tope >= (nivel[i] as number)) continue;
+    nivel[i] = tope;
+    const x = i % width;
+    for (const j of [x > 0 ? i - 1 : -1, x < width - 1 ? i + 1 : -1, i - width, i + width])
+      if (j >= 0 && j < N && bajable[j] === 1) pendientes.push(j);
+  }
+  return nivel;
+}
+
+/** Un nodo para `nivelesDelRelieve`: su casilla, las regiones que toca y si va al bajo. */
+export interface NodoDelRelieve {
+  readonly casilla: number;
+  readonly regiones: readonly number[];
+  /** Ciudad o paso con camino (`nivelDelNodo`). */
+  readonly alBajo: boolean;
+}
+
+/**
+ * Lo más alto que puede estar la casilla `i` sin quedar por encima de sus dos
+ * vecinas de ningún eje: en cada eje donde lo está, lo más alto de las dos, y
+ * de los ejes, lo más bajo. Si no es espiga, su nivel.
+ */
+function sinEspiga(width: number, height: number, nivel: ArrayLike<number>, i: number): number {
+  const n = nivel[i] as number;
+  let tope = n;
+  const x = i % width;
+  const pares: (readonly [number, number])[] = [];
+  if (x > 0 && x < width - 1) pares.push([i - 1, i + 1]);
+  if (i >= width && i < width * (height - 1)) pares.push([i - width, i + width]);
+  for (const [p, q] of pares) {
+    const alto = Math.max(nivel[p] as number, nivel[q] as number);
+    if (alto < n) tope = Math.min(tope, alto);
+  }
+  return tope;
+}
+
+/**
+ * El nivel de un nodo que se pisa, de los de las regiones que toca (#143): la
+ * ciudad y el paso con camino, al bajo —su bajada la lleva el camino—; el paso
+ * sin camino, al alto, un hueco en el borde de la meseta del que baja su rampa.
+ * Lo leen la escena (`relieve`) y el generador, que quita las espigas antes de
+ * que haya camino pero ya sabe qué nodos lo llevarán (`crucesConCamino`).
+ */
+export const nivelDelNodo = (suyos: readonly number[], alBajo: boolean): number =>
+  alBajo ? Math.min(...suyos) : Math.max(...suyos);
+
+/**
+ * Las casillas que quedan por encima de sus dos vecinas de un eje (este y
+ * oeste, o norte y sur): espigas, istmos e islotes de una casilla de ancho
+ * (#210, «una elevación no puede acabar de repente»). La auditoría 5 contó 112
+ * en este-oeste en 10 semillas: lenguas de tierra en el agua, pasillos de un
+ * nodo por el agua y espolones de acantilado en lo bajo.
+ */
+export function espigasDelRelieve(
+  width: number,
+  height: number,
+  nivel: ArrayLike<number>,
+): number[] {
+  const espigas: number[] = [];
+  for (let i = 0; i < width * height; i++)
+    if (sinEspiga(width, height, nivel, i) < (nivel[i] as number)) espigas.push(i);
+  return espigas;
 }
 
 /** Cómo se nombra una barrera en un rechazo de niveles. */

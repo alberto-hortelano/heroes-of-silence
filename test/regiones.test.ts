@@ -585,12 +585,19 @@ function puertasMalEntradas(map: GameMap): string[] {
  * por él: la entrada al nodo es obligada (s850, (12,6), una ciudad entre agua,
  * #188). Y cuando un brazo no tiene otra forma de ir: sus dos esquinas son
  * barrera y no hay L que cambiarle, la misma regla con la que el generador lo
- * cobra (`cerrariaUnAspa`). Con los niveles del mapa (#143), s682 (6,20): una
+ * cobra (`cerrariaUnAspa`): una esquina que es hoja (mina, pueblo o nodo) o
+ * monstruo no vale de esquina. Con los niveles del mapa (#143), s682 (6,20): una
  * región en cintura de avispa entre agua, unida en diagonal.
  */
 function aspas(map: GameMap): string[] {
   const { nodos: deLaRed, regionDe } = estructura(map);
   const nodos = new Set(deLaRed.map((n) => pointKey(n.at)));
+  const hojas = new Set([
+    ...nodos,
+    ...map.objects
+      .filter((o) => o.kind === 'mine' || o.kind === 'village' || o.kind === 'monster')
+      .map((o) => pointKey(o.at)),
+  ]);
   const W = map.width;
   const diagonales = new Map<string, Point[]>();
   for (const [p, q] of map.caminos.tramos) {
@@ -617,7 +624,14 @@ function aspas(map: GameMap): string[] {
     .filter(([c, brazos]) => {
       if (brazos.length !== 4 || nodos.has(c)) return false;
       const centro = pointFromKey(c);
-      const pisable = (x: number, y: number) => isWalkable(map.terrain[y * W + x] as TerrainKind);
+      // Una esquina vale si se pisa y no es una hoja ni un monstruo: una mina,
+      // un pueblo o un nodo nunca hacen de esquina (`ArbolDeCaminos`) y un
+      // monstruo no se cruza (`Busqueda`), así que con la otra esquina de
+      // barrera el brazo no tiene otra forma de ir (#210: s864 (22,19), la
+      // puerta de una mina entre un muro y una montaña; s944 (15,26), un
+      // monstruo junto a una montaña).
+      const pisable = (x: number, y: number) =>
+        isWalkable(map.terrain[y * W + x] as TerrainKind) && !hojas.has(pointKey({ x, y }));
       const obligado = (b: Point) => !pisable(b.x, centro.y) && !pisable(centro.x, b.y);
       return !brazos.some(
         (b) => (nodos.has(pointKey(b)) && unicaEntrada(b, centro)) || obligado(b),
@@ -935,6 +949,7 @@ describe('el generador hace redes como las pidió el usuario', () => {
         muro,
         nodos: [],
         ciudades: [],
+        conCamino: [],
         semillas: [
           { x: 3, y: 3 },
           { x: 12, y: 12 },
@@ -1005,6 +1020,7 @@ describe('el generador hace redes como las pidió el usuario', () => {
       muro,
       nodos: [8 * W + 7],
       ciudades: [],
+      conCamino: [],
       semillas: [
         { x: 3, y: 3 },
         { x: 12, y: 12 },

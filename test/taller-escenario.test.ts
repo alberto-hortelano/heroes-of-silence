@@ -348,7 +348,8 @@ const RAIZ = resolve(import.meta.dirname, '..');
 
 describe('la escena de un mapa real', () => {
   const catalogo = catalogoDelDisco();
-  for (const semilla of [1, 3, 7, 9]) {
+  // La 13 en vez de la 7, que con menos mesetas (#210) se quedó sin desnivel.
+  for (const semilla of [1, 3, 13, 9]) {
     const map = newGame({ seed: semilla }).map;
     const e = escenaDe(semilla);
 
