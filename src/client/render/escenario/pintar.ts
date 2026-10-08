@@ -782,6 +782,8 @@ function arcen(e: Escena, pigmentos: Lienzo, nuevo: NuevoLienzo): Lienzo {
   return lienzo;
 }
 
+/** Lo que mide hacia lo bajo la franja oscura de una espalda, en casillas: la de los cantos. */
+const ANCHO_DE_LA_ESPALDA = 0.35;
 /** El borde difuminado de los cantos, en casillas. */
 const DESENFOQUE_DE_LOS_CANTOS = 0.15;
 /** Los píxeles por casilla de los cantos antes de ampliarlos: como el arcén, borrosos. */
@@ -811,6 +813,18 @@ function cantos(e: Escena, nuevo: NuevoLienzo): Lienzo {
     gr.addColorStop(1, 'rgba(0,0,0,0)');
     n.fillStyle = gr;
     n.fillRect(lado === 'este' ? gx : gx - 0.35 * k, y * k, 0.35 * k, k);
+  }
+  // Y la espalda (#212): la casilla más alta que la de su norte, de la que la
+  // cámara no ve la caída, lleva la misma franja hacia lo bajo, al norte. Sin
+  // ella el borde norte de una meseta era un cambio de color, y la elevación
+  // acababa de repente donde la ladera doblaba (s1 (0-8, 9-10)).
+  for (const [x, y] of e.relieve.rebordes) {
+    const gy = y * k;
+    const gr = n.createLinearGradient(0, gy, 0, gy - ANCHO_DE_LA_ESPALDA * k);
+    gr.addColorStop(0, 'rgba(0,0,0,0.45)');
+    gr.addColorStop(1, 'rgba(0,0,0,0)');
+    n.fillStyle = gr;
+    n.fillRect(x * k, gy - ANCHO_DE_LA_ESPALDA * k, k, ANCHO_DE_LA_ESPALDA * k);
   }
   const { lienzo, c: g } = lienzoCon(e.W * k, e.H * k, nuevo);
   g.filter = `blur(${DESENFOQUE_DE_LOS_CANTOS * k}px)`;

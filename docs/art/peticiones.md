@@ -1454,3 +1454,70 @@ acercaría el mapa a HoMM2 es una hoja `cumbres-<material>` (nieve, roca, lava, 
 de 4-6 moles de una sola cima clara, de 380-420 px de alto (3,0-3,2 casillas a ×1,3),
 con la falda lisa y el pie ancho, para la pieza de `Macizo.cumbres`. Hasta entonces la
 cumbre usa el módulo de la hoja de picos que llega a su alto.
+
+## 34. Laderas que bajan de la meseta, y su reborde de espaldas (#212, rama `laderas-borde`, 08-10-2026)
+
+Sin generar: **pendiente de que lo apruebe el usuario.** El usuario, del relieve
+de #143: «se pone la imagen de desnivel pero no representa nada, no encaja con el
+mapa que hay a continuacion, no parece mas elevado, una elevacion no puede acabar
+de repente, sin continuidad». La auditoría 5 (defecto 1) lo midió: la mitad de los
+lados con desnivel son laderas este u oeste, y se leen como cuchillas que suben del
+suelo, no como el borde de una meseta.
+
+**Lo que se arregló sin arte** (#212): el reborde de peñascos en toda espalda, las
+cadenas que no rematan en el borde del mapa, la roca de lo alto del color de su
+cara y la montaña de arena sin mesas. Lo de fuera de las piezas lo llevan #210 (sin
+espigas ni caída 3 en los cauces) y #211 (el agua fuera de lo alto, el tono por
+nivel y la sombra al pie).
+
+**Por qué hace falta arte.**
+
+- La cara de una ladera, en esta proyección, es una tira de 0,45-0,85 casillas de
+  ancho (`TALUD_DE_LADERA`) que cuelga `1 + caída · 0,6`. Lo que dice qué lado es
+  el alto es la luz y el canto, y la pieza de hoy no lo dice:
+  - junto al filo va un escarpe oscuro y hacia el pie un derrubio claro; su
+    frontera corre de norte a sur por el medio de la tira y se lee como la arista
+    de una cresta con dos flancos;
+  - del 6 al 16 % de la silueta (10 % de media en las 24 hojas, sin contar la
+    `esquina`) cae del lado de la meseta, más allá del `LABIO` (0,06): el morro
+    del `inicio` y rocas detrás del filo;
+  - una caída 1 se ve tan alta como una 3 (s443 (20, 19-22) contra (18, 19-22)).
+- Recortar en el juego lo que cae detrás del filo **no sirve**: se probó en #212 y
+  deja un corte vertical recto que se lee peor que la cresta.
+- La espalda (el borde norte, de espaldas a la cámara) lleva peñascos sueltos de
+  `rocas-caidas` entonados: cierran el borde, pero se leen como piedras, no como el
+  canto de una meseta.
+
+**Lo que se pide.**
+
+1. **`laderas-<material>-<este|oeste>-<1|2|3>` rehechas como talud**: las 24 hojas
+   de §20, con los mismos ocho módulos, las mismas juntas (`filo`, `pie`, `TALUD`)
+   y la misma luz por lado (el oeste, de cara a la luz). Cambia el dibujo:
+   - del lado de la meseta, **nada** más allá del labio: el suelo de arriba llega
+     hasta el filo;
+   - el filo es el canto del suelo de arriba (prado, arena, nieve, ceniza) que se
+     dobla: una banda clara y estrecha donde le da la luz;
+   - la cara, en sombra junto al filo y más clara hacia abajo, **sin una arista de
+     norte a sur por el medio**: el escarpe y el derrubio se funden en la línea de
+     máxima pendiente;
+   - el pie se abre en abanico sobre lo bajo, sin bloques en fila que hagan de
+     murete;
+   - lo alto se nota en el ancho de la sombra: la caída 1, tendida y corta; la 3,
+     un cantil.
+2. **`reborde-<material>`** (roca, arenisca, basalto, nevadas), 4-6 módulos de una
+   casilla de ancho y 0,2-0,3 de alto: el canto de una meseta visto **desde
+   detrás**, una cornisa del material con el suelo de arriba encima, que encadena
+   de oeste a este sin junta visible. Sustituiría a los peñascos de la espalda.
+
+**Guía.** La de §20 (`tools/taller/laderas.ts`) vale tal cual para la silueta; lo
+que cambia es el prompt (el lado de la meseta, vacío; sin arista central; la luz
+por el canto). El reborde necesita una guía nueva: una banda de 1 × 0,25 casillas
+con el canto arriba, a 25° como las frontales.
+
+**Coste.** Como §20: 24 generaciones de Codex por la suscripción para las laderas
+(más un piloto de roca-este) y 4 para el reborde. Nada de fal.ai.
+
+**Cómo verlo.** Las maquetas de §20 (`docs/art/revision-laterales-2/maqueta.py`) y,
+enganchado, los recortes de `docs/agents/2026-10-08-laderas-borde/capturas/`. Lo que
+se pide del lado de la meseta se mide como en #212: la parte de la silueta más allá
+del labio tiene que bajar del 10 % a casi nada.

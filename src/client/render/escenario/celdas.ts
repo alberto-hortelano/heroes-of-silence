@@ -401,9 +401,13 @@ export function caidas(
       )
         j++;
       const b = l[j] as Celda;
-      // Remata donde la cadena sigue de espaldas, en el borde o con una caída
-      // menor: en un escalón de caída remata la mayor y la menor sigue tapada.
+      // Remata donde la cadena sigue de espaldas o con una caída menor: en un
+      // escalón de caída remata la mayor y la menor sigue tapada. En el borde
+      // del mapa no remata (#212): el desnivel sigue fuera del marco, y un
+      // morro en la fila 0 era una elevación que empezaba de la nada (s2
+      // (11-13, 0-3), el canal que baja del borde norte entre dos cuchillas).
       const sigue = (c: Celda, punto: readonly [number, number]) => {
+        if (punto[1] <= 0.5 || punto[1] >= H - 0.5) return true;
         const v = vecinaEn(c, punto, juntas);
         return v !== undefined && esVisto(v.tipo) && v.caida >= c.caida;
       };

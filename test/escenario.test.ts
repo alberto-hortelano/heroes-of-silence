@@ -232,8 +232,10 @@ describe('sin arte se pinta igual: cada pieza, su marcador de color', () => {
     expect(r.llamadas.filter((l) => l.contexto === 0 && lineal(l))).toHaveLength(
       e.relieve.caras.filter((f) => f.pintada.some((t) => t !== null)).length,
     );
+    // Una franja por canto al este o al oeste y otra por casilla de espalda (#212).
     const franjas = r.llamadas.filter((l) => l.contexto !== 0 && lineal(l));
-    expect(franjas).toHaveLength(e.relieve.cantos.length);
+    expect(e.relieve.rebordes.length).toBeGreaterThan(0);
+    expect(franjas).toHaveLength(e.relieve.cantos.length + e.relieve.rebordes.length);
     const nitido = new Set(franjas.map((l) => l.contexto));
     expect(nitido.size).toBe(1);
     // Y ese lienzo se copia una sola vez, con desenfoque, a otro que no es el suelo.
