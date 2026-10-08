@@ -2155,7 +2155,8 @@ seis pasadas—, así que el «−50 %» de #76 era la punta buena y la mediana 
 ≈ −39 %; y #77 no es «indistinguible de cero» sino **+0,8 % más lento**, con los
 rangos sin solaparse. Ninguna de las dos mueve una partida, y el racimo entero
 sigue en 2,25×. Tres pasadas no bastan cuando la medida es bimodal: hay que mirar
-si lo es antes de creerse la mediana.
+si lo es antes de creerse la mediana. Desde #99, `pnpm banco` mide `autoResolve`
+en cinco tandas e imprime mínimo, mediana y máximo con las cinco cifras.
 
 **El orden no era cosmético.** #77 tuvo que ir **antes** que #75, al revés de lo
 que decía su propio issue: `Frontera` recibía claves de texto, y el índice plano

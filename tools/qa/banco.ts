@@ -15,7 +15,8 @@
  *    del núcleo: si cambia, alguna partida se juega distinta,
  *  - el número de líneas del volcado y cuántas partidas no terminan,
  *  - y el tiempo de 300 `autoResolve` con semillas fijas, que es lo que mide
- *    el coste de `legalActions` sin el ruido del mapa.
+ *    el coste de `legalActions` sin el ruido del mapa, en varias tandas con su
+ *    mínimo, mediana y máximo (#99).
  *
  * El volcado es una línea por hecho y no un JSON por partida a propósito: si
  * el sha cambia, `--dump` a dos ficheros y `diff` señala la semilla y el hecho
@@ -35,7 +36,7 @@
  */
 import { createHash } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
-import { duracion } from './estadistica.js';
+import { duracion, mediana } from './estadistica.js';
 import {
   batallaDeSemilla,
   DIAS_POR_DEFECTO,
@@ -655,11 +656,33 @@ if (SEMILLAS === ANCLA.semillas && DIAS === ANCLA.dias) {
  * Va aparte porque `legalActions` no se nota en el reloj del barrido —el mapa
  * se lo come— y es justo lo que abarata izar el BFS fuera del bucle de
  * enemigos. Semillas fijas, así que la cifra es comparable entre pasadas.
+ *
+ * **Se mide en `TANDAS` tandas y se imprime mínimo, mediana y máximo** (#99):
+ * sobre código idéntico, seis pasadas de una sola tanda dieron de 57 a 89 ms,
+ * dos modos y no ruido alrededor de una media, y con la punta buena se publicó
+ * un «−50 %» que en mediana era −39 %. Un número solo aparenta una precisión
+ * que no tiene; la dispersión dice cuánto se puede creer. Cinco tandas cuestan
+ * ~0,8 s más, un 10 % del banco (7,8 → 8,7 s, 08-10-2026), porque van con el
+ * núcleo caliente de las 200 partidas. Las rondas tienen que salir iguales en
+ * todas: si no, la medida no es de lo mismo y se dice.
  */
 const BATALLAS = 300;
-const t1 = performance.now();
-let rondas = 0;
-for (let i = 1; i <= BATALLAS; i++) rondas += batallaDeSemilla(i).rounds;
+const TANDAS = 5;
+const tiempos: number[] = [];
+let rondas = -1;
+for (let tanda = 0; tanda < TANDAS; tanda++) {
+  const t1 = performance.now();
+  let estas = 0;
+  for (let i = 1; i <= BATALLAS; i++) estas += batallaDeSemilla(i).rounds;
+  tiempos.push(performance.now() - t1);
+  if (rondas !== -1 && estas !== rondas) {
+    throw new Error(
+      `autoResolve no es determinista: la tanda ${tanda + 1} jugó ${estas} rondas y la anterior ${rondas}, con las mismas semillas`,
+    );
+  }
+  rondas = estas;
+}
+const ms = (x: number): string => x.toFixed(0);
 console.log(
-  `autoResolve:   ${BATALLAS} batallas (${rondas} rondas) → ${(performance.now() - t1).toFixed(0)} ms`,
+  `autoResolve:   ${BATALLAS} batallas (${rondas} rondas) → ${ms(Math.min(...tiempos))} / ${ms(mediana(tiempos))} / ${ms(Math.max(...tiempos))} ms (mínimo / mediana / máximo de ${TANDAS} tandas: ${tiempos.map(ms).join(', ')})`,
 );
