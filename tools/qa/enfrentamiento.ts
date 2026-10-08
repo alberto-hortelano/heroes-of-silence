@@ -93,7 +93,26 @@
  * cifras y el porqué, en
  * `docs/agents/2026-10-08-represalia/implementacion.md`.
  *
- * Uso: npx tsx tools/qa/enfrentamiento.ts [parejas=1000] [--espera] [--carga] [--contra <ref>] [--espejo]
+ * ## `--magia`: con héroe y tropa de partida (#92)
+ *
+ * Sin la bandera los bandos van SIN héroe, así que ninguna batalla lanza un
+ * hechizo y cualquier cambio en cómo los valora la IA sale 0 · N · 0 por
+ * construcción. Con ella cada bando lleva un héroe como el inicial de una
+ * partida —Poder 1, 20 de maná, el libro de un gremio de nivel 2— y tropa de
+ * individuos de nivel 1 a 4, como la de los héroes de la IA en partida. Las
+ * batallas duran 3,0 rondas de media entre dos IA de `1e19e6d` (en partida,
+ * 3,1-3,5). Imprime además los hechizos lanzados por cada IA. Sus cifras no se
+ * comparan con las de la tanda sin héroe: son otra población.
+ *
+ * Medido al entrar #92 (`--magia --contra 1e19e6d`): **74,25 % ± 0,72** en
+ * 5 000 parejas (2 480 · 2 465 · 55). Casi todo es que la Flecha va a quien más
+ * amenaza quita —al héroe, que es su bando entero—: valorar los temporales por
+ * las rondas que de verdad compran, solo, da 0 · 5 000 · 0, porque con Poder 1
+ * duran la ronda en curso y una Prisa no compra más que un golpe de un
+ * individuo, que nunca llega a los 12 PV del umbral ni a los 20 de la Flecha.
+ * Lanzados por la IA nueva: 22 027 Flechas y ningún otro hechizo.
+ *
+ * Uso: npx tsx tools/qa/enfrentamiento.ts [parejas=1000] [--espera] [--carga] [--contra <ref>] [--magia] [--espejo]
  */
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -105,13 +124,18 @@ import {
   applyAction,
   type BattleSide,
   createBattle,
+  type HeroeDelBando,
   MAX_JUGADAS,
   MAX_ROUNDS,
   seHaMovido,
 } from '../../src/core/battle/battle.js';
+import { allSpells } from '../../src/core/battle/spells.js';
 import type { BattleAction, BattleState, Side } from '../../src/core/battle/types.js';
 import { otroBando } from '../../src/core/battle/types.js';
 import { factionLineup, hasTrait } from '../../src/core/data.js';
+import { EQUIPO_BASE } from '../../src/core/hero/equipo.js';
+import { EXPERIENCIA_INICIAL_DE_HEROE } from '../../src/core/hero/experiencia.js';
+import { heroUnit } from '../../src/core/hero/hero.js';
 import { createRng, type Rng } from '../../src/core/rng.js';
 import type { FactionId, Stack, UnitInfo } from '../../src/core/types.js';
 
@@ -119,6 +143,7 @@ const args = process.argv.slice(2);
 const ESPEJO = args.includes('--espejo');
 const ESPERA = args.includes('--espera');
 const CARGA = args.includes('--carga');
+const MAGIA = args.includes('--magia');
 const iContra = args.indexOf('--contra');
 const CONTRA: string | null = iContra === -1 ? null : (args[iContra + 1] ?? null);
 if (iContra !== -1 && (CONTRA === null || CONTRA.startsWith('--'))) {
@@ -231,6 +256,8 @@ interface Resultado {
    */
   readonly esperas: Record<Side, number>;
   readonly defensas: Record<Side, number>;
+  /** Los hechizos que lanzó cada bando, por id: lo que mide `--magia`. */
+  readonly hechizos: Record<Side, string[]>;
 }
 
 /**
@@ -246,24 +273,76 @@ interface Resultado {
 function jugar(state: BattleState, rng: Rng, tacticas: Record<Side, Tactica>): Resultado {
   const esperas: Record<Side, number> = { attacker: 0, defender: 0 };
   const defensas: Record<Side, number> = { attacker: 0, defender: 0 };
+  const hechizos: Record<Side, string[]> = { attacker: [], defender: [] };
   for (let turno = 0; turno < MAX_JUGADAS; turno++) {
     if (state.finished !== null) {
-      return { winner: state.finished.winner, rounds: state.round, esperas, defensas };
+      return { winner: state.finished.winner, rounds: state.round, esperas, defensas, hechizos };
     }
     const s = activeStack(state);
     if (s === null) throw new Error('no hay stack activo y la batalla no ha terminado');
     const accion = tacticas[s.side](state);
     if (accion.type === 'wait') esperas[s.side]++;
     if (accion.type === 'defend') defensas[s.side]++;
+    if (accion.type === 'cast') hechizos[s.side].push(accion.spell);
     applyAction(state, accion, rng);
   }
   throw new Error(`una batalla no ha terminado en ${MAX_JUGADAS} jugadas (ronda ${state.round})`);
 }
 
+/**
+ * Con `--magia`, la tropa de una partida: individuos (`troopsAsStacks`, un
+ * stack de 1 por cabeza), de 3 a 6 —con el héroe, los 7 que caben en un bando
+ * (`createBattle`)—, sacados al azar de los niveles 1 a 4 de la facción. Así es
+ * la tropa de los héroes de la IA en partida: muestreada turno a turno en 30
+ * semillas (08-10-2026), 5 399 de 5 448 individuos son de nivel 1 a 4 y el
+ * tamaño más común es 6.
+ *
+ * Con stacks de 5 a 25 una Flecha de 20 PV no se nota y una Prisa vale lo que
+ * pegan veinte; en partida es al revés, y la cifra de un hechizo medida con
+ * aquellos ejércitos no diría nada de su efecto en una partida.
+ */
+function tropaDe(faction: FactionId, rng: Rng): Stack[] {
+  const lineup = factionLineup(faction).filter((c) => c.level <= 4);
+  return Array.from({ length: rng.int(3, 6) }, () => ({ creature: rng.pick(lineup).id, count: 1 }));
+}
+
 /** Los dos ejércitos de una pareja: el mismo par para las dos batallas. */
 function ejercitosDe(semilla: number): Record<Side, Stack[]> {
   const rng = createRng(semilla * PRIMO_DE_EJERCITOS);
-  return { attacker: ejercitoDe('knight', rng), defender: ejercitoDe('necromancer', rng) };
+  const de = MAGIA ? tropaDe : ejercitoDe;
+  return { attacker: de('knight', rng), defender: de('necromancer', rng) };
+}
+
+/**
+ * El libro del héroe en `--magia`: todo lo que enseña un gremio de nivel 2, que
+ * es el tope que se construye hoy en partida (sin `mage_guild_3` no hay nivel
+ * 3), con la Flecha del héroe inicial dentro.
+ */
+const LIBRO_DE_LA_MAGIA = allSpells()
+  .filter((s) => s.level <= 2)
+  .map((s) => s.id);
+
+/**
+ * Un héroe como el inicial de una partida (`newGame`): ataque y defensa 2,
+ * Conocimiento 2 —20 de maná, lleno— y Poder 1, que es el que tienen TODOS los
+ * héroes de hoy porque nada lo sube. Sin él, ninguna batalla de este banco
+ * lanza un hechizo, y una heurística de hechizos medida aquí da el 50,0 % por
+ * construcción.
+ */
+function heroeDeLaMagia(nombre: string): HeroeDelBando {
+  const cifras = { name: nombre, attack: 2, defense: 2, experience: EXPERIENCIA_INICIAL_DE_HEROE };
+  return {
+    cuerpo: heroUnit({ ...cifras, equipo: EQUIPO_BASE }),
+    mando: {
+      name: nombre,
+      retreat: { blocked: 'en el banco no se huye' },
+      spellPower: 1,
+      knowledge: 2,
+      mana: 20,
+      castThisRound: false,
+      spells: LIBRO_DE_LA_MAGIA,
+    },
+  };
 }
 
 function batalla(
@@ -272,7 +351,10 @@ function batalla(
   tacticas: Record<Side, Tactica>,
 ): Resultado {
   const rng = createRng(semilla * PRIMO_DE_DESPLIEGUE);
-  const lado = (side: Side): BattleSide => ({ army: ejercitos[side], hero: null });
+  const lado = (side: Side): BattleSide => ({
+    army: ejercitos[side],
+    hero: MAGIA ? heroeDeLaMagia(side === 'attacker' ? 'Atacante' : 'Defensor') : null,
+  });
   return jugar(createBattle(lado('attacker'), lado('defender'), rng), rng, tacticas);
 }
 
@@ -333,6 +415,10 @@ let victorias = 0;
 /** La cola jugada, de la IA de hoy y de su rival por separado. */
 const esperas = { hoy: 0, rival: 0 };
 const defensas = { hoy: 0, rival: 0 };
+const hechizos = { hoy: new Map<string, number>(), rival: new Map<string, number>() };
+const contar = (en: Map<string, number>, ids: readonly string[]): void => {
+  for (const id of ids) en.set(id, (en.get(id) ?? 0) + 1);
+};
 let peorRonda = 0;
 let totalRondas = 0;
 let enElTope = 0;
@@ -357,6 +443,8 @@ for (let semilla = 1; semilla <= PAREJAS; semilla++) {
     esperas.rival += r.esperas[otro];
     defensas.hoy += r.defensas[asiento];
     defensas.rival += r.defensas[otro];
+    contar(hechizos.hoy, r.hechizos[asiento]);
+    contar(hechizos.rival, r.hechizos[otro]);
     totalRondas += r.rounds;
     if (r.rounds > peorRonda) peorRonda = r.rounds;
     if (r.rounds >= MAX_ROUNDS) enElTope++;
@@ -410,6 +498,16 @@ console.log(
   `cola jugada:   hoy ${esperas.hoy} esperas, ${defensas.hoy} defensas · ` +
     `rival ${esperas.rival} esperas, ${defensas.rival} defensas`,
 );
+
+if (MAGIA) {
+  const lista = (en: Map<string, number>): string =>
+    [...en]
+      .sort((a, b) => b[1] - a[1])
+      .map(([id, n]) => `${id} ${n}`)
+      .join(', ') || 'ninguno';
+  console.log(`hechizos:      hoy ${lista(hechizos.hoy)}`);
+  console.log(`               rival ${lista(hechizos.rival)}`);
+}
 
 if (ESPEJO) {
   // El espejo no demuestra que alternar asientos quite el sesgo —eso es cierto

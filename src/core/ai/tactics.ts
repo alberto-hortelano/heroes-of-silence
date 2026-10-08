@@ -26,7 +26,7 @@ import {
 } from '../battle/battle.js';
 import { hexDistance, hexKey, neighbours, type Paso } from '../battle/board.js';
 import { CHANCE_PER_POINT, cargaEfectiva, expectedDamage, stackHp } from '../battle/damage.js';
-import { roundsLeftOf } from '../battle/effects.js';
+import { roundsLeftOf, type StackEffect } from '../battle/effects.js';
 import { effectOfSpell, type Spell, spell, spellAmount } from '../battle/spells.js';
 import type { BattleAction, BattleHero, BattleStack, BattleState, Side } from '../battle/types.js';
 import { otroBando } from '../battle/types.js';
@@ -50,9 +50,11 @@ function amenazaPropia(s: BattleStack): number {
  * todo lo que pegan los suyos. Con su amenaza propia —la de un individuo con
  * 2-4 de daño— la IA lo trataba como al último campesino.
  *
- * Es para ELEGIR A QUIÉN PEGAR. Lo que vale un buffo o una maldición sobre él
- * (`spellValue`) sigue siendo lo que pega su cuerpo: una Prisa al héroe le
- * compra tempo a él, no a su bando, y el plan pedía no tocar `spellValue`.
+ * Es para ELEGIR A QUIÉN PEGAR, con golpes y con hechizos (`rindeContra`).
+ * Desde #92 también decide a quién va la Flecha: con los PV, iba a quien más
+ * PV perdía, y al héroe solo de rebote. Medido con `enfrentamiento.ts --magia`
+ * contra la IA de `1e19e6d`, 74,25 % ± 0,72 en 5 000 parejas: es casi todo lo
+ * que gana aquel ciclo.
  */
 function threat(state: BattleState, s: BattleStack): number {
   switch (s.origen.kind) {
@@ -123,54 +125,195 @@ function distanceTo(from: Hex, target: BattleStack): number {
  * dispara, y una Prisa sobre tres campesinos (≈1,5 de valor por 3 de maná) no.
  * Subirlo hace tacaña a la IA; bajarlo la deja gastando el maná en buffos que
  * no cambian nada.
+ *
+ * Se mide en PV y no en amenaza (`Rinde`) a propósito: es el precio del maná,
+ * que no se recupera al salir de la batalla. Con la amenaza como vara, el 4
+ * deja de significar nada —medido, la IA casi no lanza: 30,03 % en el banco de
+ * `--magia` contra `28eb73b`—. Sin umbral da más (81,6 %), pero ese banco
+ * empieza cada batalla con el maná lleno y no puede ver lo que cuesta llegar a
+ * la siguiente sin él: quitarlo es una pregunta de partida, no de este banco
+ * (#92).
  */
 const VALOR_MINIMO_POR_MANA = 4;
 
 /**
- * Lo que vale medio turno extra de una unidad, como fracción de su amenaza. Es
- * un proxy grueso para prisa y lentitud: lo que se gana no es el daño de la
+ * Lo que vale una ronda FUTURA de Prisa o Lentitud, como fracción del mejor
+ * golpe de la unidad. En la ronda en curso no hace falta: se sabe dónde está
+ * cada uno y se cuenta qué golpe gana o quita. De las rondas siguientes no se
+ * sabe nada, y esto es un proxy grueso: lo que se gana no es el daño de la
  * unidad, es llegar antes.
+ *
+ * Hoy no lo lee ninguna partida: el efecto dura el Poder del lanzador y nada
+ * sube el Poder de 1, así que todo temporal se lanza para la ronda en curso.
  */
 const FRACCION_TEMPO = 0.5;
 
 /**
- * Lo que vale lanzar este hechizo sobre este objetivo, en PV equivalentes, para
- * poder comparar un buffo con un daño en la misma escala.
+ * Lo que rinde un golpe o un hechizo, en dos monedas.
+ *
+ * - `pv`: los PV que quita (o que ahorra), que es la vara del umbral de maná
+ *   (`VALOR_MINIMO_POR_MANA`): la que dice si un lanzamiento vale lo que cuesta.
+ * - `amenaza`: la amenaza que esos PV le quitan al bando rival, la de
+ *   `aQuienIr` (`threat × PV / vida`), que es la que dice CUÁL lanzar.
  */
-function spellValue(caster: BattleHero, sp: Spell, objetivo: BattleStack): number {
+interface Rinde {
+  readonly pv: number;
+  readonly amenaza: number;
+}
+
+const NADA: Rinde = { pv: 0, amenaza: 0 };
+
+/** Lo que rinde quitarle `pv` a `e`, con el tope de la vida que le queda. */
+function rindeContra(state: BattleState, e: BattleStack, pv: number): Rinde {
+  const vida = Math.max(1, stackHp(e));
+  const quita = Math.min(stackHp(e), pv);
+  return { pv: quita, amenaza: (threat(state, e) * quita) / vida };
+}
+
+function escalar(r: Rinde, k: number): Rinde {
+  return { pv: r.pv * k, amenaza: r.amenaza * k };
+}
+
+/**
+ * El mejor golpe que `a` puede dar con `pasos` de movimiento: el que más
+ * amenaza quita entre los enemigos a su alcance.
+ *
+ * El alcance es el de `convieneEsperar` —`hexDistance` hasta la casilla de al
+ * lado, sin BFS—: en recta se llega antes que rodeando, así que sobreestima un
+ * poco, y al comparar dos velocidades de la misma unidad el error se va casi
+ * entero en la resta. Un tirador con flechas y sin nadie pegado alcanza a
+ * todos: la velocidad no le cambia el golpe, que es lo que tiene que salir de
+ * aquí para que la IA no le eche una Prisa a un arquero.
+ */
+function mejorGolpe(state: BattleState, a: BattleStack, pasos: number): Rinde {
+  const tira = isShooter(a.unit) && a.shotsLeft > 0 && !isEngaged(state, a);
+  const golpes = hasTrait(a.unit, 'double_attack') ? 2 : 1;
+  let mejor = NADA;
+  for (const e of enemiesOf(state, a)) {
+    if (!tira && distanceTo(a.hex, e) > pasos + 1) continue;
+    const r = rindeContra(state, e, golpes * expectedDamage(a, e));
+    if (r.amenaza > mejor.amenaza) mejor = r;
+  }
+  return mejor;
+}
+
+/**
+ * Los pasos que le quedan a `a` en la ronda en curso: los de su turno si es el
+ * activo, su velocidad entera si aún no ha actuado, y `null` si ya actuó. Es
+ * lo que decide si un temporal le sirve HOY.
+ */
+function pasosDeEstaRonda(state: BattleState, a: BattleStack): number | null {
+  if (state.turno?.stack === a.id) return pasosQueQuedan(state, a);
+  return a.acted ? null : stackSpeed(a);
+}
+
+/**
+ * Cuántas rondas le quedan a la batalla, estimado: las que tarda en caer el
+ * bando que antes cae, a lo que pega el otro cada ronda (Σ daño medio, sin
+ * defensa ni alcance). Al menos la ronda en curso.
+ *
+ * Es el tope de lo que compra un temporal: una Prisa de cinco rondas en una
+ * batalla que se acaba en dos compra dos. #92 sospechaba que la heurística
+ * suponía batallas más largas de lo que duran (3,3 rondas de media en
+ * partida); lo que hacía era no contarlas.
+ */
+function rondasQueQuedan(state: BattleState, side: Side): number {
+  const vida = (b: Side): number => sumaDelBando(state, b, (o) => stackHp(o));
+  const pega = (b: Side): number => Math.max(1, sumaDelBando(state, b, amenazaPropia));
+  const rival = otroBando(side);
+  return Math.max(1, Math.ceil(Math.min(vida(side) / pega(rival), vida(rival) / pega(side))));
+}
+
+/**
+ * Lo que rinde un temporal (Prisa, Lentitud, Bendición, Maldición) sobre este
+ * objetivo, contado ronda a ronda por las que de verdad compra: la en curso si
+ * el objetivo aún tiene que actuar, y las siguientes hasta su duración o hasta
+ * el final estimado de la batalla, lo que llegue antes, sin las que ya cubre
+ * el mismo origen (que REFRESCA, no apila: `effects.ts`).
+ *
+ * En la ronda en curso se sabe dónde está cada uno, así que se cuenta el golpe
+ * que el efecto da o quita: la Prisa vale el mejor golpe con dos pasos más
+ * menos el de ahora, la Lentitud el del enemigo con dos menos —en PV y
+ * amenaza NUESTROS, que es lo que ahorra—, y la suerte su `CHANCE_PER_POINT`
+ * de golpe doble (o mitad) sobre el mejor golpe que se alcanza.
+ */
+function rindeTemporal(
+  state: BattleState,
+  sp: Spell,
+  efecto: StackEffect,
+  objetivo: BattleStack,
+): Rinde {
+  const amount = sp.amount ?? 0;
+  const yaCubre = roundsLeftOf(objetivo, efecto);
+  const pasos = pasosDeEstaRonda(state, objetivo);
+
+  let hoy = NADA;
+  if (pasos !== null && yaCubre === 0) {
+    if (sp.kind === 'speed') {
+      const antes = mejorGolpe(state, objetivo, pasos);
+      const despues = mejorGolpe(state, objetivo, Math.max(1, pasos + amount));
+      hoy = {
+        pv: Math.abs(despues.pv - antes.pv),
+        amenaza: Math.abs(despues.amenaza - antes.amenaza),
+      };
+    } else {
+      hoy = escalar(mejorGolpe(state, objetivo, pasos), Math.abs(amount) * CHANCE_PER_POINT);
+    }
+  }
+
+  // Las siguientes: un efecto de N rondas cubre la en curso y N − 1 más, y la
+  // batalla no da más que las que le quedan.
+  const tope = rondasQueQuedan(state, objetivo.side) - 1;
+  const cubre = (n: number): number => Math.max(0, Math.min(n - 1, tope));
+  const despues = cubre(efecto.roundsLeft) - cubre(yaCubre);
+  if (despues <= 0) return hoy;
+  // Sin saber dónde estará nadie: el mejor golpe sin mirar el alcance. Al
+  // tirador la velocidad no le compra nada, igual que en la ronda en curso.
+  const golpe = mejorGolpe(state, objetivo, Number.POSITIVE_INFINITY);
+  const tira = isShooter(objetivo.unit) && objetivo.shotsLeft > 0;
+  const porRonda =
+    sp.kind === 'speed'
+      ? escalar(golpe, tira ? 0 : FRACCION_TEMPO)
+      : escalar(golpe, Math.abs(amount) * CHANCE_PER_POINT);
+  return { pv: hoy.pv + despues * porRonda.pv, amenaza: hoy.amenaza + despues * porRonda.amenaza };
+}
+
+/**
+ * Lo que rinde lanzar este hechizo sobre este objetivo, para poder comparar un
+ * buffo con un daño en la misma escala.
+ *
+ * #92: los temporales valían una fracción de la amenaza del objetivo, sin
+ * mirar si aún actuaba ni a quién alcanzaba. Con la tropa de individuos esa
+ * amenaza es el daño de UNO —2 a 10—, y la Prisa no pasaba de 3 PV contra los
+ * 12 del umbral: en 30 partidas se ofrecieron 4 516 Prisas y 3 476 Lentitudes
+ * y no pasó ninguna.
+ */
+function spellRinde(
+  state: BattleState,
+  caster: BattleHero,
+  sp: Spell,
+  objetivo: BattleStack,
+): Rinde {
   switch (sp.kind) {
     case 'damage':
       // El tope es la vida que queda: sin él, un Rayo sobre tres campesinos
       // puntuaba como si matara a cincuenta.
-      return Math.min(spellAmount(sp, caster), stackHp(objetivo));
+      return rindeContra(state, objetivo, spellAmount(sp, caster));
     case 'speed':
     case 'luck': {
-      // Los dos temporales comparten la resta que manda `effects.ts`: el mismo
-      // origen REFRESCA, no apila, así que relanzar sobre quien ya lo tiene solo
-      // compra la DIFERENCIA de rondas. Sin esta cuenta la IA con Poder 3
-      // relanzaba Lentitud cada ronda a precio completo por una ronda marginal,
-      // y desde que el maná no se recupera al salir de la batalla llegaba al
-      // mapa a cero. `effectOfSpell` es la misma función que el motor consulta
-      // para saber qué colgaría, así que la duración no se recalcula aquí.
+      // `effectOfSpell` es la misma función que el motor consulta para saber
+      // qué colgaría, así que la duración no se recalcula aquí. Solo devuelve
+      // `null` fuera de estas dos ramas: no rinde y no lanza, porque esto es
+      // una heurística, no una regla.
       const efecto = effectOfSpell(sp, caster);
-      // Inalcanzable: `effectOfSpell` solo devuelve `null` fuera de estas dos
-      // ramas. Vale 0 y no lanza porque esto es una heurística, no una regla.
-      if (efecto === null) return 0;
-      const compradas = Math.max(0, efecto.roundsLeft - roundsLeftOf(objetivo, efecto));
-      if (compradas === 0) return 0;
-      // La suerte se cuenta por rondas —un punto es `CHANCE_PER_POINT` de golpe
-      // doble en cada una—, así que basta con contar las compradas. El tempo no
-      // se cuenta por rondas: se escala por la fracción de duración comprada,
-      // que con el objetivo limpio es 1 y deja intacto el primer lanzamiento,
-      // que es el caso con el que se calibró `VALOR_MINIMO_POR_MANA`.
-      return sp.kind === 'luck'
-        ? compradas * Math.abs(sp.amount ?? 0) * amenazaPropia(objetivo) * CHANCE_PER_POINT
-        : FRACCION_TEMPO * amenazaPropia(objetivo) * (compradas / efecto.roundsLeft);
+      return efecto === null ? NADA : rindeTemporal(state, sp, efecto, objetivo);
     }
-    case 'heal':
+    case 'heal': {
       // Sale ≈0 salvo con un stack tocado, y está bien: la Curación no se lanza
       // por lanzarla. No necesita caso especial para quedar fuera del umbral.
-      return Math.min(spellAmount(sp, caster), objetivo.unit.hp - objetivo.topHp);
+      const pv = Math.min(spellAmount(sp, caster), objetivo.unit.hp - objetivo.topHp);
+      return { pv, amenaza: (threat(state, objetivo) * pv) / Math.max(1, stackHp(objetivo)) };
+    }
   }
 }
 
@@ -182,6 +325,9 @@ function spellValue(caster: BattleHero, sp: Spell, objetivo: BattleStack): numbe
  * `cast` no consume el turno del stack (`battle.ts`, caso `'cast'`), así que
  * lanzar no compite con atacar — solo cuesta maná y la tirada de la ronda.
  * Modelarlo como disyuntiva haría que la IA dejara de pegar para lanzar.
+ *
+ * Qué lanzamiento pasa lo dicen los PV (`VALOR_MINIMO_POR_MANA`); cuál de los
+ * que pasan, la amenaza que quita.
  *
  * Reutiliza las acciones que ya trae el llamante: ni una llamada más a
  * `legalActions`, que es lo caro.
@@ -199,10 +345,10 @@ function bestCast(
   for (const a of acciones) {
     if (a.type !== 'cast' || a.target === undefined) continue;
     const sp = spell(a.spell);
-    const valor = spellValue(hero, sp, stackById(state, a.target));
-    if (valor < VALOR_MINIMO_POR_MANA * sp.cost) continue;
-    if (valor > mejorValor) {
-      mejorValor = valor;
+    const rinde = spellRinde(state, hero, sp, stackById(state, a.target));
+    if (rinde.pv < VALOR_MINIMO_POR_MANA * sp.cost) continue;
+    if (rinde.amenaza > mejorValor) {
+      mejorValor = rinde.amenaza;
       mejor = a;
     }
   }

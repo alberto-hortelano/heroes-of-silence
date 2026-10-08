@@ -231,6 +231,11 @@ function asaltoConDosCampesinos(
   // flojo, y con +3/+3 del equipo base el héroe solo ya toma la guarnición de
   // salida —que es una pregunta de equilibrio, no la de este test—.
   atacante.equipo = {};
+  // Ni su Flecha mágica, por lo mismo: desde que la IA elige el hechizo por la
+  // amenaza que quita (#92), sus seis Flechas van al héroe nacido —matarlo gana
+  // la batalla— y en la semilla 11 lo tumban. Eso es la fuerza del asaltante,
+  // no si la guarnición se queda sin defensa.
+  atacante.spells = [];
   atacante.movePoints = 9000;
   state.current = state.players.findIndex((p) => p.id === 0);
   const c = { rng: createRng(seed) };

@@ -680,11 +680,25 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   412 → 439, `town_captured` 1 509 → 1 515, `node_captured` 1 242 → 1 340,
  *   `troop_level_up` 2 278 → 2 255; ningún tipo nuevo ni ninguno que
  *   desaparezca.
+ * - `84f1b036…` (62 792 líneas): **la IA elige el hechizo por la amenaza que
+ *   quita** (#92, 08-10-2026): la Flecha va a quien más amenaza le quita al
+ *   rival (`threat`, que para el héroe es su bando entero) en vez de a quien
+ *   más PV pierde; el umbral de maná sigue en PV. Y los temporales se valoran
+ *   por las rondas que compran, que en partida no lanza ninguno (Poder 1: la
+ *   Flecha gana siempre). Solo puede mover partidas desde una batalla con
+ *   héroe, y así sale: **137 de 200 semillas cambian**, el primer hecho
+ *   distinto es `battle_ended` en 136 (los `casts` de #93, ahora al héroe) y
+ *   `troop_level_up` en 1. 53 con otro ganador, j0 87 → 108, **0 sin
+ *   terminar**, duración 9 / 16 / 54 → **9 / 14 / 28**. Flechas al héroe
+ *   1 118 → 1 417 y a la tropa 2 203 → 1 120. Batallas 1 817 → 1 605
+ *   (3,46 → 3,13 rondas de media), `hero_defeated` 439 → 358, `town_captured`
+ *   1 515 → 1 384, `node_captured` 1 340 → 1 206; ningún tipo nuevo ni
+ *   ninguno que desaparezca. autoResolve igual (sus batallas no llevan héroe).
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '2d627f088336b003817739f596f593e7ce68db166e0dd0b58d79243249c607c7',
+  sha: '84f1b036343f18d4cc80c2ee0ecef4be665dcb0a67676c65f4ade3e5a9194678',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

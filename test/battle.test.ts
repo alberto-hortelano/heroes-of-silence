@@ -1492,67 +1492,134 @@ describe('la IA lanza hechizos (#24)', () => {
     expect(chooseBattleAction(state).type).not.toBe('cast');
     expect(lanzador.mana).toBe(0);
   });
-
-  it('elige con criterio: una Lentitud sobre un ejército gordo sí, una Prisa sobre tres campesinos no', () => {
-    const rng = createRng(73);
-    const derrocha = hero({ spells: ['haste'], mana: 30, spellPower: 3 });
-    const tacaña = createBattle(
-      side([{ creature: 'peasant', count: 3 }], derrocha),
-      side([{ creature: 'zombie', count: 3 }]),
-      rng,
-    );
-    // Medio turno extra de tres campesinos vale ≈1,5: no llega ni de lejos a
-    // los 12 que exige gastar 3 de maná.
-    expect(chooseBattleAction(tacaña).type).not.toBe('cast');
-
-    const listo = hero({ spells: ['slow'], mana: 30, spellPower: 3 });
-    const gorda = createBattle(
-      // El cruzado va primero: el turno tiene que ser del bando que tiene héroe
-      // para que haya un lanzamiento que decidir.
-      side([{ creature: 'crusader', count: 1 }], listo),
-      side([{ creature: 'zombie', count: 60 }]),
-      rng,
-    );
-    // Frenar a sesenta zombis sí: la heurística no es solo de daño.
-    expect(chooseBattleAction(gorda)).toEqual({
-      type: 'cast',
-      spell: 'slow',
-      target: 'defender-0',
-    });
-  });
 });
 
-describe('la IA espera en vez de plantarse (#24)', () => {
-  it('un refresco no se paga al precio de un lanzamiento nuevo', () => {
-    const rng = createRng(75);
-    const listo = hero({ spells: ['slow'], mana: 30, spellPower: 3 });
-    const state = createBattle(
-      side([{ creature: 'crusader', count: 1 }], listo),
-      side([{ creature: 'zombie', count: 12 }]),
-      rng,
-    );
-    const zombis = stackById(state, 'defender-0');
+/**
+ * Cinco espadachines del atacante en (0,4), con turno, contra lo que se diga en
+ * la misma fila; el héroe del atacante, con el libro que se pida, en una
+ * esquina. El espadachín anda 4 y golpea a 5: a 6 solo llega con la Prisa.
+ */
+function escenaDeHechizo(
+  libro: readonly string[],
+  enemigo: { creature: string; count: number; col: number },
+  heroeRival = false,
+  poder = 1,
+  espadachines = 5,
+): BattleState {
+  const state = createBattle(
+    side(
+      [{ creature: 'swordsman', count: espadachines }],
+      hero({ spells: libro, mana: 20, spellPower: poder }),
+    ),
+    side([{ creature: enemigo.creature, count: enemigo.count }], heroeRival ? hero() : null),
+    createRng(92),
+  );
+  stackById(state, 'attacker-0').hex = { col: 0, row: 4 };
+  stackById(state, 'attacker-heroe').hex = { col: 0, row: 0 };
+  stackById(state, 'defender-0').hex = { col: enemigo.col, row: 4 };
+  if (heroeRival) stackById(state, 'defender-heroe').hex = { col: 10, row: 8 };
+  forzarTurno(state, 'attacker-0');
+  return state;
+}
 
-    // Sobre el objetivo limpio compra las tres rondas de golpe y sí sale a
-    // cuenta: es el caso con el que se calibró el umbral, y no se toca.
+describe('la IA valora los hechizos por lo que compran en esta batalla (#92)', () => {
+  it('la Prisa vale el golpe que compra hoy: ni cuando ya llega ni cuando ni con ella llega', () => {
+    const conZombisEn = (col: number): BattleState =>
+      escenaDeHechizo(['haste'], { creature: 'zombie', count: 5, col });
+    // A 6 casillas el espadachín no llega (4 + 1) y con la Prisa sí (6 + 1).
+    expect(chooseBattleAction(conZombisEn(6))).toEqual({
+      type: 'cast',
+      spell: 'haste',
+      target: 'attacker-0',
+    });
+    // A 4 ya llega: la Prisa no le compra nada en esta ronda, que es la única
+    // que dura con Poder 1. Antes valía lo mismo en los dos casos.
+    expect(chooseBattleAction(conZombisEn(4)).type).not.toBe('cast');
+    // A 10 tampoco llega con ella.
+    expect(chooseBattleAction(conZombisEn(10)).type).not.toBe('cast');
+  });
+
+  it('la Prisa sobre quien ya actuó esta ronda no vale nada', () => {
+    const state = escenaDeHechizo(['haste'], { creature: 'zombie', count: 5, col: 6 });
+    // El turno pasa al héroe, y el espadachín ya actuó: de los dos, el único
+    // que podría aprovecharla hoy no va a volver a moverse.
+    stackById(state, 'attacker-0').acted = true;
+    forzarTurno(state, 'attacker-heroe');
+    expect(chooseBattleAction(state).type).not.toBe('cast');
+  });
+
+  it('la Lentitud vale el golpe que le quita al enemigo que aún no ha actuado', () => {
+    // Espadachines rivales a 5: llegan (4 + 1) y frenados no (2 + 1).
+    const state = escenaDeHechizo(['slow'], { creature: 'swordsman', count: 5, col: 5 });
     expect(chooseBattleAction(state)).toEqual({
       type: 'cast',
       spell: 'slow',
       target: 'defender-0',
     });
-
-    // Con la Lentitud ya encima y dos rondas por delante, relanzar solo compra
-    // la TERCERA —el mismo origen refresca, no apila—, y a ese precio no sale.
-    // Antes la IA la relanzaba cada ronda pagando por tres.
-    applyEffect(zombis, { kind: 'speed', amount: -2, source: 'slow', roundsLeft: 2 });
+    // Si ya actuó, la Lentitud de una ronda no le quita nada.
+    stackById(state, 'defender-0').acted = true;
     expect(chooseBattleAction(state).type).not.toBe('cast');
-    expect(listo.mana).toBe(30);
+  });
 
+  it('un refresco no compra la ronda que ya cubre el mismo origen', () => {
+    const state = escenaDeHechizo(['slow'], { creature: 'swordsman', count: 5, col: 5 }, false, 3);
+    const rivales = stackById(state, 'defender-0');
+    expect(chooseBattleAction(state).type).toBe('cast');
+    // Con la Lentitud ya encima, relanzarla no le quita el golpe de hoy —ya
+    // está quitado— y de las rondas siguientes solo compra las que el mismo
+    // origen no cubre, que aquí son ninguna.
+    applyEffect(rivales, { kind: 'speed', amount: -2, source: 'slow', roundsLeft: 3 });
+    expect(chooseBattleAction(state).type).not.toBe('cast');
     // Y cuando se disipa vuelve a valer la pena: la resta no es un veto.
-    zombis.effects = [];
+    rivales.effects = [];
     expect(chooseBattleAction(state).type).toBe('cast');
   });
 
+  it('las rondas siguientes cuentan hasta el final estimado de la batalla, no hasta el de la Lentitud', () => {
+    // Tres vampiros a 10 casillas: hoy no llegan ni sin frenar, así que la
+    // Lentitud de Poder 3 solo compra las dos rondas siguientes.
+    const contra = (espadachines: number): BattleState =>
+      escenaDeHechizo(['slow'], { creature: 'vampire', count: 3, col: 10 }, false, 3, espadachines);
+    // Con cinco espadachines la batalla da para esas dos rondas, y valen.
+    expect(chooseBattleAction(contra(5))).toEqual({
+      type: 'cast',
+      spell: 'slow',
+      target: 'defender-0',
+    });
+    // Con veinte, los vampiros caen en la primera (90 PV contra ~100 de
+    // golpe por ronda): no hay ronda siguiente que comprar.
+    expect(chooseBattleAction(contra(20)).type).not.toBe('cast');
+  });
+
+  it('la Flecha va a quien más amenaza le quita al rival: al héroe, que es su bando entero', () => {
+    // Cinco zombis (75 PV) y el héroe rival (50): la Flecha les quita 20 PV a
+    // cualquiera de los dos, pero matar al héroe gana la batalla.
+    const conHeroe = escenaDeHechizo(
+      ['magic_arrow'],
+      { creature: 'zombie', count: 5, col: 10 },
+      true,
+    );
+    expect(chooseBattleAction(conHeroe)).toEqual({
+      type: 'cast',
+      spell: 'magic_arrow',
+      target: 'defender-heroe',
+    });
+    // Sin héroe rival, a los zombis.
+    const sinHeroe = escenaDeHechizo(['magic_arrow'], { creature: 'zombie', count: 5, col: 10 });
+    expect(chooseBattleAction(sinHeroe)).toEqual({
+      type: 'cast',
+      spell: 'magic_arrow',
+      target: 'defender-0',
+    });
+  });
+
+  it('el umbral sigue en PV: una Flecha que solo puede quitar 1 PV no se lanza', () => {
+    const state = escenaDeHechizo(['magic_arrow'], { creature: 'peasant', count: 1, col: 10 });
+    expect(chooseBattleAction(state).type).not.toBe('cast');
+  });
+});
+
+describe('la IA espera en vez de plantarse (#24)', () => {
   it('se defiende cuando no alcanza a nadie ni puede moverse', () => {
     const rng = createRng(74);
     const state = createBattle(
