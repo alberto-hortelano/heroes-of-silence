@@ -579,10 +579,18 @@ describe('invariantes del proyecto', () => {
     // El cliente pinta y manda intenciones. Cuando la partida se juegue por
     // WebSocket, lo que cambia es esa capa y solo esa — pero solo si nadie más
     // ha abierto una puerta lateral mientras tanto.
+    //
+    // Mira el CÓDIGO y no el fichero (#114): leyendo comentarios mordió la
+    // explicación de `desenlace.ts`, que nombraba `playAiTurn` y `newGame` para
+    // decir por qué el módulo existe, y se arregló buscando sinónimos. Un
+    // `import` no vive en un comentario, y `sinComentarios` deja las cadenas,
+    // así que un acceso por nombre (`s['newGame']`) sigue cayendo. Roto a mano:
+    // una llamada a `newGame` en `desenlace.ts` sale roja; un comentario que la
+    // nombra, no.
     const puertas =
       /\b(applyAdventureAction|applyAction|resolvePendingBattle|settleBattle|playAiTurn|chooseBattleAction|newGame)\b/;
     const fuera = CLIENTE.filter((r) => r !== 'src/client/session.ts');
-    expect(infractores(fuera, puertas)).toEqual([]);
+    expect(infractoresDeCodigo(fuera, puertas)).toEqual([]);
   });
 
   it('el marcado sale por una sola puerta: solo `html.ts` convierte texto en DOM', () => {

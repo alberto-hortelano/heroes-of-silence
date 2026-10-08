@@ -17,8 +17,6 @@
  * lo comparten las dos páginas, y hacer que `views/panels.ts` importe un valor
  * de `session.ts` arrastraría el motor de la partida entero al paquete de quien
  * solo mira — que es justo la frontera que el espectador existe para no cruzar.
- * (Nombrar aquí esas funciones tampoco se puede: el invariante de la puerta
- * única mira el texto del fichero y no distingue una mención de un `import`.)
  */
 import type { PlayerId } from '@core/types.js';
 
