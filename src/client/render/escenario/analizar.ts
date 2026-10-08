@@ -9,7 +9,7 @@
 import type { MapObject, MapRegion, TramoDeCamino } from '@core/map/map.js';
 import { type Estructura, estructura } from '@core/map/regiones.js';
 import { type Barrera, esBarrera, type Suelo, type TerrainKind } from '@core/map/terrain.js';
-import { type PasoDeNodo, pasoDeNodo } from './nodos.js';
+import { type PasoDeNodo, pasaElCamino, pasoDeNodo } from './nodos.js';
 
 /**
  * Lo que el escenógrafo lee de un mapa, y nada más: nada que cambie en la
@@ -78,6 +78,11 @@ export interface Analisis {
    * casilla es agua en `terreno`. Se decide aquí y en ningún otro sitio.
    */
   readonly puentes: ReadonlySet<string>;
+  /**
+   * Los nodos y ciudades a los que llega un camino, por su id: entre dos
+   * niveles, el relieve los deja al bajo y el paso sin camino al alto.
+   */
+  readonly conCamino: ReadonlySet<string>;
   /**
    * La red del núcleo (`estructura`): la región de cada casilla y las regiones
    * de cada nodo. Es la que da el nivel (`relieve`); `region`, por suelo, sigue
@@ -296,6 +301,9 @@ export function analizar(map: MapaDeEscena): Analisis {
     ocupadas,
     pasos,
     puentes,
+    conCamino: new Set(
+      map.objects.filter((o) => pasaElCamino(map.caminos.tramos, o.at)).map((o) => o.id),
+    ),
     red: estructura(map),
     niveles: map.regions.map((r) => r.nivel),
   };

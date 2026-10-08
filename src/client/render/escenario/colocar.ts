@@ -60,6 +60,7 @@ import { pisablesTapadas } from './figuras.js';
 import { seHornea } from './horneado.js';
 import {
   altoMaximoDe,
+  MAS_CUMBRES,
   type MaterialDePico,
   macizoDe,
   materialDeLosMacizos,
@@ -1628,6 +1629,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
 
     if (f.barrera === 'forest' || f.barrera === 'mountain') {
       // Masa: puntos densos, desbordando un poco la franja para que el borde no sea recto.
+      const desdeLaMasa = sprites.length;
       const forma = formaDeMasa(f);
       // Las cumbres antes que nada (#204): son la pieza grande de la franja, y
       // los dardos no caen sobre ellas.
@@ -1733,6 +1735,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
             break;
           }
       }
+      if (f.barrera === 'mountain' && cumbres.length === 0) unoQueDomine(desdeLaMasa);
     } else if (f.barrera === 'wall') {
       vestirMuralla(f);
       for (const i of f.casillas) puestos.add(i);
@@ -2015,6 +2018,32 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       if (tirada < roca * 0.5 && f.barrera === 'cliff') picoDeLoAlto(s, p.x, p.y, alto);
       else if (tirada < roca) peñascoDeLoAlto(s, p.x, p.y, alto);
       else mata(hojaDeCubierta(s, azar()), p.x, p.y, altoDeMata(s));
+    }
+  }
+
+  /**
+   * Una cordillera sin cumbre —no cupo ninguna: una senda, un paso o una rampa
+   * cerca— se queda con picos de alto parecido, una alfombra de pinchos que el
+   * guardia de #204 cuenta (s9 (20,24): 8 de 14 dominaban al cambiar el azar con
+   * #143). Si pasan de `MAS_CUMBRES` los que llegan a 0,8 del mayor, el más alto
+   * que pueda sube hasta dejarlos atrás, sin ampliarse de más
+   * (`altoMaximoDe`) ni pisar nada (`altoLibre`). Sin azar: no mueve lo que se
+   * viste después.
+   */
+  function unoQueDomine(desde: number): void {
+    const picos = sprites
+      .map((s, k) => ({ s, k }))
+      .slice(desde)
+      .filter(({ s }) => s.clase === 'masa' && s.src?.startsWith('modulos/picos-') === true);
+    if (picos.length < 4) return;
+    const mayor = Math.max(...picos.map(({ s }) => s.alto));
+    if (picos.filter(({ s }) => s.alto >= 0.8 * mayor).length <= MAS_CUMBRES) return;
+    const hace = mayor / 0.8 + 0.01;
+    for (const { s, k } of [...picos].sort((p, q) => q.s.alto - p.s.alto || p.k - q.k)) {
+      const alto = obstaculos.altoLibre({ ...s, alto: Math.min(altoMaximoDe(s), hace) });
+      if (alto < hace) continue;
+      sprites[k] = { ...s, alto };
+      return;
     }
   }
 
@@ -3904,9 +3933,9 @@ export function tramosDeLasRampas(map: MapaDeEscena, a: Analisis): TramoDeCamino
 /**
  * Los nodos entre dos niveles sin camino que no llevan la rampa de una bajada
  * (#143), por su id: ninguna bajada sale ni llega a su casilla, y alguna
- * casilla de su eje está más alta y no al sur (la que está al sur baja al
- * norte, de espaldas a la cámara, y su pared no se ve). Si ninguna casilla de
- * su eje está más alta, el eje no sube a la meseta y también cuenta. Los nodos
+ * casilla de su eje a otro nivel bajaría hacia la cámara o de lado (la que baja
+ * al norte va de espaldas y su pared no se ve). Si ninguna casilla de su eje
+ * está a otro nivel, el eje no cruza el desnivel y también cuenta. Los nodos
  * con camino, y las ciudades, bajan por el camino (`bajadasSinPieza`).
  */
 export function nodosSinRampa(
@@ -3916,17 +3945,17 @@ export function nodosSinRampa(
   bajadas: readonly Bajada[],
 ): string[] {
   const tramos = tramosDeLasRampas(map, a);
+  const N = (p: { x: number; y: number }) => nivel[p.y * a.W + p.x] as number;
   return a.red.nodos.flatMap((n) => {
     if (n.ciudad || a.puentes.has(n.id) || !nodoEntreNiveles(a, n.regiones)) return [];
     if (pasaElCamino(map.caminos.tramos, n.at)) return [];
     const enSuCasilla = ([x, y]: readonly [number, number]) => x === n.at.x && y === n.at.y;
     if (bajadas.some((b) => enSuCasilla(b.alto) || enSuCasilla(b.bajo))) return [];
-    const aqui = nivel[n.at.y * a.W + n.at.x] as number;
-    const altas = tramos
-      .filter(([p]) => p.x === n.at.x && p.y === n.at.y)
-      .map(([, q]) => q)
-      .filter((q) => (nivel[q.y * a.W + q.x] as number) > aqui);
-    return altas.length > 0 && altas.every((q) => q.y > n.at.y) ? [] : [n.id];
+    const cruzan = tramos.filter(([p, q]) => enSuCasilla([p.x, p.y]) && N(q) !== N(p));
+    // De la casilla alta a la baja: si baja al norte (dy < 0), de espaldas.
+    const deEspaldas = ([p, q]: (typeof cruzan)[number]) =>
+      (N(p) > N(q) ? q.y - p.y : p.y - q.y) < 0;
+    return cruzan.length > 0 && cruzan.every(deEspaldas) ? [] : [n.id];
   });
 }
 

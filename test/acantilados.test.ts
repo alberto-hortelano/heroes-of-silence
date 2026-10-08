@@ -13,6 +13,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { analizar } from '../src/client/render/escenario/analizar.js';
+import { nodosSinRampa } from '../src/client/render/escenario/colocar.js';
 import {
   desnivelesSinBarrera,
   nivelFueraDeSuRegion,
@@ -39,6 +40,24 @@ describe('el nivel de lo que se pisa (#143)', () => {
       nivel[i] = (nivel[i] as number) + 1;
       expect(nivelFueraDeSuRegion(a, nivel)).toBe(1);
       expect(desnivelesSinBarrera(a, nivel)).toBeGreaterThan(0);
+    });
+
+    it(`semilla ${semilla}: cada nodo entre dos niveles sin camino lleva su rampa, y el guardia muerde`, () => {
+      const { map, escena: e } = partidaDe(semilla);
+      expect(e.informe.nodosSinRampa).toBe(0);
+      const a = analizar(map);
+      const deNodos = e.relieve.bajadas.filter((b) => b.deUnNodo === true);
+      if (deNodos.length === 0) return;
+      // Sin las rampas de los nodos, los que las llevaban se cuentan.
+      const sin = e.relieve.bajadas.filter((b) => b.deUnNodo !== true);
+      expect(nodosSinRampa(map, a, e.nivel, sin).length).toBeGreaterThan(0);
+      // El paso va al nivel alto, como la barrera que corta: la rampa baja de
+      // él, no sube a él desde un pozo (s443 (25,10)).
+      const nodos = new Set(
+        map.objects.filter((o) => o.kind === 'node').map((o) => `${o.at.x},${o.at.y}`),
+      );
+      for (const b of deNodos)
+        expect(nodos.has(`${b.alto[0]},${b.alto[1]}`), `${b.alto}`).toBe(true);
     });
   }
 });

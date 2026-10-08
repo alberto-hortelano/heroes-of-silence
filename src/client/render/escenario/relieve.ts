@@ -46,8 +46,14 @@ const LLANO = 1;
  *
  * - **lo que se pisa**, al de su región: una región es una meseta entera, sin
  *   escalones por dentro;
- * - **un nodo**, al de sus regiones, y entre dos niveles, al bajo: es la rampa
- *   por la que se sube (`bajadasDe`);
+ * - **un nodo**, al de sus regiones; entre dos niveles, el paso sin camino va
+ *   al alto, como la barrera que corta —un hueco en el borde de la meseta— y
+ *   su rampa baja de él al lado bajo (`tramosDeLasRampas`). Al bajo era un pozo
+ *   de una casilla con paredes a los lados y la rampa encajonada entre ellas,
+ *   con la tablilla delante (s443 (25,10)). El nodo con camino y la ciudad, al
+ *   bajo: su bajada la lleva el camino y la tapa el hito o la pieza de la
+ *   ciudad; al alto, las rampas de camino caían sobre lo alto del acantilado y
+ *   lo dejaban sin roca (`acantiladosLisos` 2 → 3 en 1-40);
  * - **una franja de barrera** (8-conexa, de una misma barrera), al nivel más
  *   alto de las regiones que toca: es el borde de la meseta, y la cara cae a su
  *   pie del lado bajo. El acantilado, cubierto de roca (`cimaDeRoca`);
@@ -71,7 +77,8 @@ export function relieve(a: Analisis): Relieve {
   for (const n of red.nodos) {
     const i = n.at.y * W + n.at.x;
     if (!isWalkable(terreno[i] as TerrainKind) || n.regiones.length === 0) continue;
-    nivel[i] = Math.min(...n.regiones.map(nivelDe));
+    const suyos = n.regiones.map(nivelDe);
+    nivel[i] = n.ciudad || a.conCamino.has(n.id) ? Math.min(...suyos) : Math.max(...suyos);
   }
 
   const vista = new Uint8Array(N);
