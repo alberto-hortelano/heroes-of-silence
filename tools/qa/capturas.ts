@@ -375,9 +375,16 @@ async function pasarDia(page: Page, espejo: Session): Promise<void> {
   // esperando un día que la página no iba a pasar. Con el mapa de nodos la
   // partida dura un día más dentro de este bucle y el segundo clic, que llega
   // pegado al primero, caía en la pausa.
+  //
+  // Con héroes que aún pueden andar, «Fin de turno» no pasa: pregunta en la
+  // barra (#17) y el botón deja su sitio a «Seguir jugando» / «Terminar el
+  // turno». El guion pasa el día a propósito, así que contesta que sí. Antes
+  // esperaba un «Fin de turno» que la pregunta había quitado y moría (#213).
   const antes = await page.locator('#day').innerText();
+  const confirmar = page.getByRole('button', { name: 'Terminar el turno' });
   for (let intento = 0; ; intento++) {
-    await page.getByRole('button', { name: 'Fin de turno' }).click();
+    if (await confirmar.isVisible()) await confirmar.click();
+    else await page.getByRole('button', { name: 'Fin de turno' }).click();
     const entro = await page
       .waitForFunction(
         (diaDeAntes) => {
@@ -1635,9 +1642,14 @@ async function jugarTactil(browser: Browser, url: string, problemas: Problemas):
   if (solape === null || solape > 1) {
     throw new Error(`táctil: la barra de abajo se monta ${solape} px sobre el escenario`);
   }
-  const hechizo = page.locator('[data-action="battle-spell"]').first();
-  await hechizo.scrollIntoViewIfNeeded();
-  const tapado = await hechizo.evaluate((el) => {
+  // Buscar, desplazar y mirar en UNA evaluación: los paneles se rehacen cuando
+  // cambia la batalla, y con un localizador el botón resuelto en un paso podía
+  // ser otro nodo en el siguiente («Element is not attached to the DOM», dos
+  // veces en `pnpm capturas`). Dentro de un `evaluate` no se rehace nada.
+  const tapado = await page.evaluate(() => {
+    const el = document.querySelector('[data-action="battle-spell"]');
+    if (el === null) return 'no hay botón de hechizos';
+    el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     const r = el.getBoundingClientRect();
     const encima = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
     return encima === null || !el.contains(encima) ? (encima?.id ?? encima?.tagName ?? 'nada') : '';
@@ -1705,6 +1717,11 @@ async function guardiaALaVista(
   const guardia = guardiaEnElMarco(b, e, mapa.tile, espejo, opciones);
   if (guardia === null)
     throw new Error('no hay ninguna guardia a la que se llegue hoy y se pueda tocar');
+  return await mirarGuardia(mapa, guardia);
+}
+
+/** Lleva la cámara hasta `guardia` y comprueba que se puede tocar. */
+async function mirarGuardia(mapa: Mapa, guardia: Point): Promise<Point> {
   await mapa.mirar(guardia);
   const px = await mapa.pixel(guardia);
   if (!tocable(await caja(mapa.page), px)) {
@@ -1926,14 +1943,14 @@ async function batallaPerdida(browser: Browser, url: string, problemas: Problema
   // Era una semilla fija —la 273, la 534, la 97…— que caía cada vez que el
   // héroe o el mapa cambiaban; la busca el espejo (`buscarDerrota`).
   const b = await cajaDeEscritorio(browser, url, problemas);
-  const semilla = buscarDerrota(b);
-  log(`batalla perdida: semilla ${semilla}, buscada en el espejo`);
+  const { semilla, guardia: suya } = buscarDerrota(b);
+  log(`batalla perdida: semilla ${semilla}, guardia (${suya.x},${suya.y}), buscadas en el espejo`);
   const { page, espejo, mapa } = await abrir(browser, url, problemas, {
     nombre: 'batalla perdida',
     semilla,
     esperada: b,
   });
-  const guardia = { at: await guardiaALaVista(mapa, espejo) };
+  const guardia = { at: await mirarGuardia(mapa, suya) };
   await mapa.pulsar(guardia.at);
   if (espejo.battle === null) {
     throw new Error(`semilla ${semilla}: no hubo batalla: ${espejo.status}`);

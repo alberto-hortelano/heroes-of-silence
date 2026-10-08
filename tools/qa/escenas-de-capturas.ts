@@ -124,8 +124,19 @@ export function guardiaEnElMarco(
   e: Encuadre,
   tile: number,
   espejo: Session,
-  { aunqueEmbosquen = false }: { readonly aunqueEmbosquen?: boolean } = {},
+  opciones: { readonly aunqueEmbosquen?: boolean } = {},
 ): Point | null {
+  return guardiasEnElMarco(b, e, tile, espejo, opciones)[0] ?? null;
+}
+
+/** Las guardias de `guardiaEnElMarco`, todas, de la más cercana a la más lejana. */
+export function guardiasEnElMarco(
+  b: Caja,
+  e: Encuadre,
+  tile: number,
+  espejo: Session,
+  { aunqueEmbosquen = false }: { readonly aunqueEmbosquen?: boolean } = {},
+): Point[] {
   const candidatas: { at: Point; pasos: number }[] = [];
   const heroe = espejo.selectedHero;
   const peligro =
@@ -147,10 +158,9 @@ export function guardiaEnElMarco(
     candidatas.push({ at: o.at, pasos: ruta.length });
   }
   candidatas.sort((x, y) => x.pasos - y.pasos);
-  for (const c of candidatas) {
-    if (tocable(b, pixelMirando(b, e, tile, c.at, c.at))) return c.at;
-  }
-  return null;
+  return candidatas
+    .filter((c) => tocable(b, pixelMirando(b, e, tile, c.at, c.at)))
+    .map((c) => c.at);
 }
 
 /**
@@ -259,20 +269,46 @@ export async function buscarVeteranos(b: Caja, desde = 1): Promise<number> {
 }
 
 /**
- * Una partida cuya guardia más cercana a la vista que se alcanza hoy, resuelta
- * sola, gana: la batalla que se pierde y la vuelta a la base. Con el zoom de
- * salida, como la pasada `batallaPerdida`.
+ * Dónde empieza `buscarDerrota`, y no en la 1: con el escritorio (1080×777), de
+ * 201 a 1 000 pierden las semillas 315, 410 y 665, y nada de 801 a 1 000
+ * (08-10-2026). Es un punto de partida, no una semilla escrita: si un cambio
+ * del mapa le quita la derrota a la 315, la búsqueda sigue hasta la 514.
+ * Empezando en la 1 tardaba ~55 s en llegar a ella; desde aquí, ~3 s.
  */
-export function buscarDerrota(b: Caja, desde = 1): number {
+export const DESDE_LA_DERROTA = 301;
+
+/** La partida y la guardia de la batalla que se pierde (`buscarDerrota`). */
+export interface EscenaDeDerrota {
+  readonly semilla: number;
+  readonly guardia: Point;
+}
+
+/**
+ * Una guardia a la vista que se alcanza hoy y que, resuelta sola, gana al
+ * héroe: la batalla que se pierde y la vuelta a la base. Con el zoom de salida,
+ * como la pasada `batallaPerdida`.
+ *
+ * Prueba TODAS las guardias del marco, no solo la más cercana, y empieza en
+ * `DESDE_LA_DERROTA`. El nivel de cada región (#143, c6ca1c6) dejó las semillas
+ * 1–200 sin derrota: solo 24 tienen una guardia a la que se llega hoy sin
+ * cruzar una emboscada (26 guardias), y el héroe gana todas, también licenciada
+ * toda su tropa; las que pierde están más lejos, detrás de asaltantes
+ * (08-10-2026, #213).
+ */
+export function buscarDerrota(b: Caja, desde = DESDE_LA_DERROTA): EscenaDeDerrota {
   for (let semilla = desde; semilla < desde + TOPE_DE_SEMILLAS; semilla++) {
     const espejo = new Session(semilla);
-    const guardia = guardiaEnElMarco(b, encuadreDe(b, espejo), TILE_INICIAL, espejo);
-    if (guardia === null) continue;
-    espejo.clickTile(guardia);
-    if (espejo.battle === null) continue;
-    espejo.autoResolveBattle();
-    const final = [...espejo.state.log].reverse().find((e) => e.kind === 'battle_ended');
-    if (final?.kind === 'battle_ended' && final.winner === 'defender') return semilla;
+    for (const guardia of guardiasEnElMarco(b, encuadreDe(b, espejo), TILE_INICIAL, espejo)) {
+      // Una sesión por guardia: la batalla gasta la de antes.
+      const prueba = new Session(semilla);
+      prueba.clickTile(guardia);
+      if (prueba.battle === null) continue;
+      prueba.autoResolveBattle();
+      const final = [...prueba.state.log].reverse().find((e) => e.kind === 'battle_ended');
+      if (final?.kind === 'battle_ended' && final.winner === 'defender') {
+        return { semilla, guardia };
+      }
+    }
   }
   throw new Error(
     `batalla perdida: en las semillas ${desde}–${desde + TOPE_DE_SEMILLAS - 1} ninguna guardia a la vista ` +
