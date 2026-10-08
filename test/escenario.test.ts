@@ -34,6 +34,7 @@ import { playAiTurn } from '../src/core/ai/turn.js';
 import type { MapPlan } from '../src/core/map/generate.js';
 import { createRng } from '../src/core/rng.js';
 import { newGame } from '../src/core/state/setup.js';
+import { semillaDelArnes } from '../tools/qa/partida-del-arnes.js';
 import { decidir } from '../tools/qa/politica.js';
 import { catalogoDelDisco, escenaDe, partidaDe, primeraSemillaCon } from './helpers.js';
 import { rango, segunPrisa } from './lento.js';
@@ -502,12 +503,14 @@ describe('la escena es de la partida entera: no cambia al jugarla', () => {
   });
 
   it('el mapa que diseña el agente (el plan de `pnpm qa`) vale igual', async () => {
-    const { plan } = decidir('map_generate', { want: { width: 34, height: 34 } }) as {
+    // La semilla de `pnpm qa`, buscada como la busca él (#131): es su plan y su partida.
+    const { semilla } = await semillaDelArnes();
+    const { plan } = decidir('map_generate', { want: { width: 34, height: 34 } }, semilla) as {
       plan: MapPlan;
     };
-    const state = newGame({ seed: 11, plan });
+    const state = newGame({ seed: semilla, plan });
     expect(state.towns.some((t) => t.id.startsWith('qa-town-'))).toBe(true);
-    const e = componer(state.map, 11, catalogo);
+    const e = componer(state.map, semilla, catalogo);
     expect(e.informe.modulosQueFaltan).toEqual([]);
     expect(e.informe.basesSobreReserva).toBe(0);
     expect(e.informe.spritesSobreSenda).toBe(0);
@@ -515,7 +518,7 @@ describe('la escena es de la partida entera: no cambia al jugarla', () => {
     const horneados = e.sprites.filter((s) => s.objeto !== undefined && seHornea(s.objeto.kind));
     expect(horneados.length).toBe(state.map.objects.filter((o) => seHornea(o.kind)).length);
     const antes = JSON.stringify(e);
-    await jugar(state, 10, 11);
-    expect(JSON.stringify(componer(state.map, 11, catalogo))).toBe(antes);
+    await jugar(state, 10, semilla);
+    expect(JSON.stringify(componer(state.map, semilla, catalogo))).toBe(antes);
   });
 });

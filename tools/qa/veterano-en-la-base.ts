@@ -50,3 +50,18 @@ export function ponArmeriaEnLaBase(state: GameState, player: PlayerId): string {
   jugador.resources = { ...jugador.resources, gold: jugador.resources.gold + 10000 };
   return base.id;
 }
+
+/**
+ * La partida del arnés tal como la arranca el servidor de `pnpm qa`
+ * (`partida-con-veterano.ts`) y como la juega en el proceso la búsqueda de su
+ * semilla (`partida-del-arnes.ts`): el veterano y la armería en la base del
+ * jugador del agente (el 1). Una sola función para que las dos partidas no se
+ * separen: una semilla buscada sobre otra partida no vale para esta.
+ */
+export function prepararPartidaDelArnes(state: GameState): { veterano: string; base: string } {
+  const veterano = ponVeteranoEnLaBase(state, 1);
+  // La armería, ya construida y con oro para comprar: la IA la levanta en ~11
+  // de cada 100 partidas y casi siempre pasado el día 10, y la partida del
+  // arnés acaba antes. Sin esto, `buy_item` no cruzaría el circuito nunca.
+  return { veterano, base: ponArmeriaEnLaBase(state, 1) };
+}

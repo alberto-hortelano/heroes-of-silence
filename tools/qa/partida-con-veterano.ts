@@ -10,16 +10,12 @@
  * que la partida de verdad no tiene puerta de trampas.
  */
 import { arrancarPartida } from '../../src/server/partida.js';
-import { ponArmeriaEnLaBase, ponVeteranoEnLaBase } from './veterano-en-la-base.js';
+import { prepararPartidaDelArnes } from './veterano-en-la-base.js';
 
 void arrancarPartida({
   preparar: (state) => {
-    const id = ponVeteranoEnLaBase(state, 1);
-    console.log(`[qa] veterano ${id} de nivel 5 puesto en la base del jugador 1`);
-    // La armería, ya construida y con oro para comprar: la IA la levanta en ~11
-    // de cada 100 partidas y casi siempre pasado el día 10, y la partida del
-    // arnés acaba antes. Sin esto, `buy_item` no cruzaría el circuito nunca.
-    const base = ponArmeriaEnLaBase(state, 1);
+    const { veterano, base } = prepararPartidaDelArnes(state);
+    console.log(`[qa] veterano ${veterano} de nivel 5 puesto en la base del jugador 1`);
     console.log(`[qa] armería puesta en ${base} del jugador 1, con oro para comprar`);
   },
 });

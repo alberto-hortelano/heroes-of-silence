@@ -34,6 +34,12 @@ import { decidir, FIRMA_DEL_MAPA } from '../tools/qa/politica.js';
  * compararla con `REQUEST_KINDS`. Que las claves sean exactamente los kinds del
  * contrato es la mitad del guardia; que `decidir` no lance con ninguno es la otra.
  */
+/**
+ * La semilla de la partida del arnés. Aquí cualquiera vale: solo la lee
+ * `map_generate`, y lo que se mira de su plan es la forma, no el mapa.
+ */
+const SEMILLA = 1;
+
 const PAYLOADS: Record<string, unknown> = {
   adventure_turn: {
     towns: [{ id: 't1', canBuildNow: [{ id: 'town_hall' }], recruitable: [] }],
@@ -57,7 +63,7 @@ describe('la política del arnés de QA (#44)', () => {
     //   esto— también, porque aparecería en `REQUEST_KINDS` y no en `PAYLOADS`.
     expect(Object.keys(PAYLOADS).sort()).toEqual([...REQUEST_KINDS].sort());
     for (const kind of REQUEST_KINDS) {
-      expect(() => decidir(kind, PAYLOADS[kind]), kind).not.toThrow();
+      expect(() => decidir(kind, PAYLOADS[kind], SEMILLA), kind).not.toThrow();
     }
   });
 
@@ -69,7 +75,7 @@ describe('la política del arnés de QA (#44)', () => {
     // Y el mensaje nombra al kind: un rojo que no dice cuál obliga a leer el
     // arnés entero para saber qué rama falta.
     for (const kind of ['hero_banter', 'lo_que_sea']) {
-      expect(() => decidir(kind, {}), kind).toThrow(new RegExp(kind));
+      expect(() => decidir(kind, {}, SEMILLA), kind).toThrow(new RegExp(kind));
     }
   });
 
@@ -77,10 +83,14 @@ describe('la política del arnés de QA (#44)', () => {
     // Que no lancen ya lo dice el test de arriba; esto mira QUÉ contestan. Si
     // una rama nueva se llevara por delante a las buenas, `pnpm qa` moriría en
     // la primera escucha y este test es más barato que descubrirlo allí.
-    const aventura = decidir('adventure_turn', PAYLOADS.adventure_turn) as { actions: unknown[] };
+    const aventura = decidir('adventure_turn', PAYLOADS.adventure_turn, SEMILLA) as {
+      actions: unknown[];
+    };
     expect(aventura.actions.length).toBeGreaterThan(0);
 
-    const batalla = decidir('battle_turn', PAYLOADS.battle_turn) as { action: { type: string } };
+    const batalla = decidir('battle_turn', PAYLOADS.battle_turn, SEMILLA) as {
+      action: { type: string };
+    };
     // Pegar va antes que moverse: si no, el arnés pasea sin resolver ninguna
     // batalla y la partida no termina nunca.
     expect(batalla.action.type).toBe('attack');
@@ -88,7 +98,7 @@ describe('la política del arnés de QA (#44)', () => {
     // El ascenso: el nombre que el arnés busca después en `game_state` y el
     // primer tipo que se le ofrece, que es el que nunca falla.
     const heroe = heroFromTroopResponseSchema.parse(
-      decidir('hero_from_troop', PAYLOADS.hero_from_troop),
+      decidir('hero_from_troop', PAYLOADS.hero_from_troop, SEMILLA),
     );
     expect(heroe.name).toBe('QA veterano-3');
     expect(heroe.heroType).toBe('caballero');
@@ -98,19 +108,23 @@ describe('la política del arnés de QA (#44)', () => {
     // La foto del turno es de antes de construir: con la mejora de la morada 2
     // en el plan, los zombis disponibles pasan a ser zombis mutantes y pedirlos
     // es un rechazo seguro. Pasaba el día 7 de `pnpm qa`, fuera de su cuenta.
-    const aventura = decidir('adventure_turn', {
-      towns: [
-        {
-          id: 't1',
-          canBuildNow: [{ id: 'necromancer_upgrade_2' }],
-          recruitable: [
-            { creature: 'zombie', available: 4 },
-            { creature: 'skeleton', available: 3 },
-          ],
-        },
-      ],
-      heroes: [{ id: 'h1', at: { x: 2, y: 2 } }],
-    }) as { actions: { type: string; creature?: string }[] };
+    const aventura = decidir(
+      'adventure_turn',
+      {
+        towns: [
+          {
+            id: 't1',
+            canBuildNow: [{ id: 'necromancer_upgrade_2' }],
+            recruitable: [
+              { creature: 'zombie', available: 4 },
+              { creature: 'skeleton', available: 3 },
+            ],
+          },
+        ],
+        heroes: [{ id: 'h1', at: { x: 2, y: 2 } }],
+      },
+      SEMILLA,
+    ) as { actions: { type: string; creature?: string }[] };
     const reclutas = aventura.actions.filter((a) => a.type === 'recruit');
     expect(reclutas.map((a) => a.creature)).toEqual(['skeleton']);
   });
@@ -124,7 +138,7 @@ describe('la política del arnés de QA (#44)', () => {
     //   inventarse la conectividad a mano.
     // - firmado, porque esa firma es lo ÚNICO que distingue los dos mundos
     //   desde fuera: el arnés la exige en el primer `game_state`.
-    const respuesta = decidir('map_generate', PAYLOADS.map_generate) as {
+    const respuesta = decidir('map_generate', PAYLOADS.map_generate, SEMILLA) as {
       plan: Parameters<typeof validateMapPlan>[0];
     };
 

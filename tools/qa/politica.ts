@@ -27,8 +27,12 @@ import { buildingIfExists } from '../../src/core/town/buildings.js';
  */
 export const FIRMA_DEL_MAPA = 'qa-town-';
 
-/** Lo que se le manda al servidor como respuesta a una petición. */
-export function decidir(kind: string, payload: any): unknown {
+/**
+ * Lo que se le manda al servidor como respuesta a una petición. `semilla` es la
+ * de la partida del arnés: de ella sale el plan de mapa (`map_generate`), y la
+ * busca `partida-del-arnes.ts` en vez de escribirla aquí.
+ */
+export function decidir(kind: string, payload: any, semilla: number): unknown {
   switch (kind) {
     case 'adventure_turn': {
       const acciones: unknown[] = [];
@@ -118,26 +122,13 @@ export function decidir(kind: string, payload: any): unknown {
       // además del mapa. Lo único que se cambia son los ids y los nombres, que
       // es lo que lo hace reconocible.
       //
-      // La semilla es fija y distinta de la del servidor a propósito: así el
-      // mapa que se juega no puede coincidir por casualidad con el que habría
-      // salido sin agente. Era la 7 hasta los mapas densos (03-10-2026): en el
-      // 34×34 con fronteras gruesas, en seis turnos no daba ni una batalla; fue
-      // la 3 hasta que la vuelta de simplify cambió cómo se viste el mapa, y con
-      // ella el agente ya no llegaba a equipar; la 5 hasta la vuelta 1 de QA
-      // (caminos en árbol), con la que dejó de haber batallas en seis turnos. Y
-      // la cobertura del arnés depende de esta semilla más de lo que parece: de
-      // la 1 a la 20 cruzan todo la 3, 4, 7, 8, 10, 13, 14, 16 y 20 —las demás
-      // no encadenan dos tramos, no ven un asaltante o no llegan a equipar—. La
-      // 3 era la que más batallas daba en seis turnos (80). Con los bordes de
-      // #169 (07-10-2026) la 3 se quedó sin batallas; cruzan todo la 2, 4, 5, 6,
-      // 7, 9, 11, 12, 13, 14, 18 y 20, y la 9 es la que más da (135). Con el
-      // veto bajo las entradas diagonales (#166 H10) la 9 se quedó sin batallas;
-      // cruzan todo la 1, 5, 6, 7, 11, 17, 18, 19 y 20. La 18 es la que más
-      // decisiones de batalla da (152), pero su partida trae quince finales y el
-      // espectador de `pnpm capturas` no llega al fin en su plazo; con la 7
-      // (42 decisiones) lo enseña a los 15 s del `game_over`, y con la 1, a los 44.
+      // La semilla ya no se escribe aquí: era la 7, luego la 3, la 5, la 3, la 9
+      // y otra vez la 7, re-buscada a mano cada vez que el generador cambiaba
+      // y el arnés se quedaba sin batallas, sin equipo o sin asaltantes en seis
+      // turnos. La busca `partida-del-arnes.ts` jugando la partida entera en el
+      // proceso, con lo que el arnés exige ver como criterio (#131).
       const want = payload?.want ?? {};
-      const plan = generateMapPlan(createRng(7), {
+      const plan = generateMapPlan(createRng(semilla), {
         width: Number(want.width ?? 24),
         height: Number(want.height ?? 24),
       });

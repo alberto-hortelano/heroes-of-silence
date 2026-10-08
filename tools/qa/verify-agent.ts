@@ -23,6 +23,10 @@
  *     `consulta()`, así que el recuento del final cuenta lo que de verdad se ha
  *     ejercitado.
  *
+ * La partida se juega en la semilla que busca `partida-del-arnes.ts`: la
+ * primera cuya partida, jugada antes en el proceso, da ocasión de ver todo lo de
+ * abajo que depende del mapa (#131). `QA_SEMILLA=N` juega la N sin buscar.
+ *
  * Uso: pnpm qa
  */
 import { setTimeout as sleep } from 'node:timers/promises';
@@ -41,10 +45,11 @@ import {
   SANGRIA_PROBLEMA,
   type Veredicto,
 } from '../../src/server/notas.js';
+import { entornoDelArnes, semillaDelArnes, TURNOS_DEL_ARNES } from './partida-del-arnes.js';
 import { decidir, FIRMA_DEL_MAPA } from './politica.js';
 import { arrancarServidor, type ServidorDePartida } from './servidor.js';
 
-const TURNOS = Number(process.env.QA_TURNS ?? 6);
+const TURNOS = TURNOS_DEL_ARNES;
 /** El kind de la petición, leído por el marcador que lo escribe `notas.ts`. */
 const RE_KIND = new RegExp(`${MARCA_KIND}(\\w+)`);
 /** El número de la petición, que es por el que se busca después su veredicto. */
@@ -543,28 +548,31 @@ async function terminarBien(
   await terminar(0);
 }
 
+/** La semilla de la partida: la del servidor y la del plan de mapa que manda la política. */
+let semilla = 0;
+
 async function main(): Promise<void> {
+  const buscada = await semillaDelArnes();
+  semilla = buscada.semilla;
+  log(`semilla ${semilla}, ${buscada.como}`);
   log('esperando a que arranque el servidor…');
   // Puertos que elige el sistema: el arnés convive con un `pnpm partida` abierto
   // (#61). El de verdad lo anuncia el servidor desde `listening`.
-  servidor = await arrancarServidor(
-    { HEROES_MAX_DAYS: '12', HEROES_WAIT_AGENT_MS: '30000' },
-    {
-      // La misma partida con un veterano de nivel 5 en la base del agente: es
-      // como se cruza el ascenso, que la partida sola casi nunca produce.
-      entrada: 'tools/qa/partida-con-veterano.ts',
-      eco: (trozo, deError) =>
-        deError
-          ? process.stderr.write(`\x1b[31m${trozo}\x1b[0m`)
-          : process.stdout.write(`\x1b[90m${trozo}\x1b[0m`),
-      // Si el servidor se cae, no tiene sentido seguir esperando bloqueado una
-      // petición que ya no va a llegar.
-      alMorir: (codigo) => {
-        console.error(`\x1b[31m[qa] el servidor de la partida ha muerto (código ${codigo})\x1b[0m`);
-        process.exit(1);
-      },
+  servidor = await arrancarServidor(entornoDelArnes(semilla), {
+    // La misma partida con un veterano de nivel 5 en la base del agente: es
+    // como se cruza el ascenso, que la partida sola casi nunca produce.
+    entrada: 'tools/qa/partida-con-veterano.ts',
+    eco: (trozo, deError) =>
+      deError
+        ? process.stderr.write(`\x1b[31m${trozo}\x1b[0m`)
+        : process.stdout.write(`\x1b[90m${trozo}\x1b[0m`),
+    // Si el servidor se cae, no tiene sentido seguir esperando bloqueado una
+    // petición que ya no va a llegar.
+    alMorir: (codigo) => {
+      console.error(`\x1b[31m[qa] el servidor de la partida ha muerto (código ${codigo})\x1b[0m`);
+      process.exit(1);
     },
-  );
+  });
   const url = `ws://localhost:${servidor.agente}`;
   log(`el servidor escucha en ${url}`);
 
@@ -790,7 +798,7 @@ async function main(): Promise<void> {
         );
       }
     }
-    const respuesta = decidir(kind, payload);
+    const respuesta = decidir(kind, payload, semilla);
     // `map_generate` se cuenta aparte y NO como turno de mapa: mezclarlo movería
     // la cifra del informe y dejaría de ser comparable con los 3 turnos y 9
     // decisiones de las pasadas anteriores.

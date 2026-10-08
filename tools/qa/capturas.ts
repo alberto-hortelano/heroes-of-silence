@@ -42,10 +42,11 @@ import { type Browser, chromium, type Page } from 'playwright';
 import WebSocket from 'ws';
 import { DURACION, duracionDeLaJugada } from '../../src/client/anim.js';
 import { masCercana, opcionesDeGolpe } from '../../src/client/escenas/angulo.js';
+import { EscenaAventura } from '../../src/client/escenas/aventura.js';
 import { cargaContra, EscenaBatalla, rotuloDeAngulo } from '../../src/client/escenas/batalla.js';
 import { msPorCasilla } from '../../src/client/marcha.js';
 import { cajaDeFigura, galonesDe } from '../../src/client/render/batalla.js';
-import { type Encuadre, TILE_INICIAL, zoom } from '../../src/client/render/camara-mapa.js';
+import { casillaAPixel, centrarEn, type Encuadre } from '../../src/client/render/camara-mapa.js';
 import { ALTO_DEL_GRUPO, pasosAPintar } from '../../src/client/render/mapa.js';
 import { registrarUnidad } from '../../src/client/render/personajes.js';
 import { centroDeStack, centroHex, tableroPara } from '../../src/client/render/proyeccion.js';
@@ -97,14 +98,15 @@ import {
   destinoTactil,
   encuadreDe,
   guardiaEnElMarco,
-  pixelDeCasilla,
+  RUEDA_DE_LA_PATRULLA,
   RUEDA_DEL_ESCRITORIO,
-  RUEDA_DEL_TACTIL,
   reclutaDeNivel1,
   rutaDeDosColores,
+  TOPE_DE_SEMILLAS,
   tocable,
   VETERANOS,
 } from './escenas-de-capturas.js';
+import { entornoDelArnes, semillaDelEspectador } from './partida-del-arnes.js';
 import { decidir } from './politica.js';
 import { arrancarServidor, type ServidorDePartida } from './servidor.js';
 
@@ -159,12 +161,15 @@ import { arrancarServidor, type ServidorDePartida } from './servidor.js';
  * #161, H1). Desde entonces las buscan también sus pasadas, cada una con lo que
  * de verdad necesita: `buscarEscritorio`, `buscarMovil` (móvil y táctil, con la
  * caja del móvil medida en una página) y `buscarSinArte`.
+ *
+ * **Y con #131 (08-10-2026) no queda ninguna escrita**: la del espectador (la 50
+ * del servidor con el plan 7 de la política) la busca `semillaDelEspectador`
+ * jugando su partida en el proceso, y la de la arena (la 6), `buscarArena` con
+ * la pauta de la pasada. Las guardias ya no se buscan «a la vista desde el
+ * héroe» alejando la vista a ojo: `guardiaALaVista` lleva la cámara hasta la
+ * que toca arrastrando el mapa (`Mapa.mirar`). La semilla 1 con que se mide el
+ * lienzo no es una escena: la caja no depende de la partida (`abrir` lo exige).
  */
-/**
- * La semilla de la partida que mira el espectador: la juega el agente contra el
- * servidor y no necesita nada del mapa, así que sigue fija.
- */
-const SEMILLA_DEL_ESPECTADOR = 50;
 // Las semillas de la emboscada avisada, de los veteranos y de la batalla que se
 // pierde ya no se escriben aquí: las buscan sus pasadas en el espejo
 // (`escenas-de-capturas.ts`). Eran la 3 con destino (8,8), la 2 199 y la 97;
@@ -420,35 +425,133 @@ async function pasarDia(page: Page, espejo: Session): Promise<void> {
 
 // ------------------------------------------------------------ el mapa en píxeles
 
-class Mapa {
-  /** Píxeles por casilla de la cámara, tal y como la lleva la cuenta de aquí. */
-  tile = TILE_INICIAL;
-  constructor(
-    private readonly page: Page,
-    private readonly espejo: Session,
-  ) {}
+/**
+ * Lo que se deja libre en los bordes del lienzo al arrastrar el mapa: el
+ * arrastre empieza y acaba lejos de ellos, y abajo lejos de los botones de la
+ * cámara, que se llevarían el `pointerdown`.
+ */
+const HOLGURA_DEL_ARRASTRE = { lados: 40, arriba: 40, abajo: 120 } as const;
+/**
+ * Por debajo de esto no se arrastra: el cliente lee un gesto de 8 px o menos
+ * (`UMBRAL_ARRASTRE`) como un CLIC, y un clic en el mapa mueve al héroe.
+ */
+const ARRASTRE_MINIMO = 20;
 
-  async encuadre(): Promise<{ b: Caja; e: Encuadre }> {
-    const b = await caja(this.page);
-    return { b, e: encuadreDe(b, this.espejo) };
+/**
+ * El mapa de aventura de la página en píxeles. La cámara la lleva la MISMA
+ * escena del cliente (`EscenaAventura`) sobre el espejo, con los gestos que se
+ * le hacen a la página —rueda, arrastre, «Centrar héroe»—: sigue al héroe
+ * cuando se mueve, se queda donde la dejó un arrastre, acota en los bordes.
+ * Antes la cuenta suponía la cámara siempre en el héroe, y por eso las guardias
+ * lejanas se buscaban alejando la vista a ojo (#131).
+ */
+class Mapa {
+  private readonly escena: EscenaAventura;
+  constructor(
+    readonly page: Page,
+    private readonly espejo: Session,
+  ) {
+    this.escena = new EscenaAventura(() => espejo);
   }
 
-  /** Dónde cae en la página el centro de una casilla, con la cámara centrada en el héroe. */
-  async pixel(p: Point): Promise<{ x: number; y: number }> {
-    const { b, e } = await this.encuadre();
-    return pixelDeCasilla(b, e, this.tile, this.espejo, p);
+  /** Píxeles por casilla de la cámara de ahora. */
+  get tile(): number {
+    return this.escena.camaraActual.tile;
   }
 
   /**
-   * Un paso de rueda sobre el centro del lienzo, en la página y en la cuenta de
-   * aquí: el zoom lo calcula la MISMA función que el cliente, topes incluidos.
+   * La caja del lienzo y el encuadre, con la cámara de la escena puesta al día:
+   * la recentra en el héroe si se ha movido, como hace la página en cada fotograma.
+   */
+  async encuadre(): Promise<{ b: Caja; e: Encuadre }> {
+    const b = await caja(this.page);
+    // `encuadreDe` compone el escenario de la partida, y con él hecho la escena
+    // tiene el tope de alejar que tiene la página; sin él tomaría el de
+    // legibilidad mientras «se compone».
+    const e = encuadreDe(b, this.espejo);
+    this.escena.encuadrar(b.width, b.height);
+    return { b, e };
+  }
+
+  /** Dónde cae en la página el centro de una casilla, con la cámara de ahora. */
+  async pixel(p: Point): Promise<{ x: number; y: number }> {
+    const { b } = await this.encuadre();
+    const c = casillaAPixel(this.escena.camaraActual, p);
+    return { x: b.x + c.x, y: b.y + c.y };
+  }
+
+  /**
+   * Un paso de rueda sobre el centro del lienzo, en la página y en la escena:
+   * el zoom lo calcula la MISMA función que el cliente, topes incluidos.
    */
   async rueda(direccion: 1 | -1): Promise<void> {
     const { b, e } = await this.encuadre();
     await this.page.mouse.move(b.x + e.ancho / 2, b.y + e.alto / 2);
     await this.page.mouse.wheel(0, direccion === 1 ? -200 : 200);
-    this.tile = zoom({ tile: this.tile, x: 0, y: 0 }, direccion, e).tile;
+    this.escena.zoom(direccion);
     await sleep(100);
+  }
+
+  /**
+   * Arrastra el mapa `dx, dy` píxeles enteros, de un punto del lienzo a otro.
+   * El movimiento va de un solo paso: el primer `pointermove` ya pasa el umbral
+   * y la escena no llega a señalar la casilla de debajo.
+   */
+  async arrastrar(dx: number, dy: number): Promise<void> {
+    if (Math.abs(dx) + Math.abs(dy) < ARRASTRE_MINIMO) {
+      throw new Error(`un arrastre de (${dx},${dy}) px lo leería el cliente como un clic`);
+    }
+    const { b } = await this.encuadre();
+    const h = HOLGURA_DEL_ARRASTRE;
+    const izquierda = Math.ceil(b.x + h.lados);
+    const derecha = Math.floor(b.x + b.width - h.lados);
+    const arriba = Math.ceil(b.y + h.arriba);
+    const abajo = Math.floor(b.y + b.height - h.abajo);
+    if (Math.abs(dx) > derecha - izquierda || Math.abs(dy) > abajo - arriba) {
+      throw new Error(
+        `un arrastre de (${dx},${dy}) px no cabe en el lienzo de ${b.width}×${b.height}`,
+      );
+    }
+    const x0 = dx > 0 ? izquierda : derecha;
+    const y0 = dy > 0 ? arriba : abajo;
+    await this.page.mouse.move(x0, y0);
+    await this.page.mouse.down();
+    await this.page.mouse.move(x0 + dx, y0 + dy);
+    await this.page.mouse.up();
+    this.escena.bajar(x0 - b.x, y0 - b.y);
+    this.escena.mover(x0 + dx - b.x, y0 + dy - b.y);
+    if (this.escena.soltar())
+      throw new Error(`la escena leyó como clic el arrastre de (${dx},${dy}) px`);
+    await sleep(100);
+  }
+
+  /**
+   * Lleva la cámara a `p` arrastrando el mapa, como lo haría la persona: en
+   * tramos que quepan en el lienzo, hasta que `p` quede en el centro o la
+   * cámara no pueda ir más allá del borde del mapa.
+   */
+  async mirar(p: Point): Promise<void> {
+    const h = HOLGURA_DEL_ARRASTRE;
+    for (let tramo = 0; tramo < 8; tramo++) {
+      const { b, e } = await this.encuadre();
+      const camara = this.escena.camaraActual;
+      const destino = centrarEn(camara, p, e);
+      const dx = Math.round((camara.x - destino.x) * camara.tile);
+      const dy = Math.round((camara.y - destino.y) * camara.tile);
+      if (Math.abs(dx) + Math.abs(dy) < ARRASTRE_MINIMO) return;
+      const anchoUtil = Math.floor(b.width - 2 * h.lados) - 1;
+      const altoUtil = Math.floor(b.height - h.arriba - h.abajo) - 1;
+      const paso = (v: number, tope: number) => Math.max(-tope, Math.min(tope, v));
+      await this.arrastrar(paso(dx, anchoUtil), paso(dy, altoUtil));
+    }
+    throw new Error(`la cámara no llega a (${p.x},${p.y}) en ocho arrastres`);
+  }
+
+  /** «Centrar héroe», en la página y en la escena. */
+  async centrarHeroe(): Promise<void> {
+    await this.page.getByRole('button', { name: 'Centrar héroe' }).click();
+    this.escena.centrar();
+    await sleep(200);
   }
 
   async pulsar(p: Point): Promise<void> {
@@ -984,14 +1087,10 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
   // Zoom con la rueda y arrastre; luego «Centrar héroe» devuelve la vista. Los
   // pasos son los que cuenta `buscarEscritorio` para la guardia de después.
   for (let i = 0; i < RUEDA_DEL_ESCRITORIO; i++) await mapa.rueda(1);
-  const b = await caja(page);
-  await page.mouse.down();
-  await page.mouse.move(b.x + b.width / 2 - 220, b.y + b.height / 2 - 120, { steps: 8 });
-  await page.mouse.up();
-  await sleep(200);
+  await mapa.arrastrar(-220, -120);
+  await sleep(100);
   await captura(page, 'desktop-03-mapa-zoom-y-arrastre');
-  await page.getByRole('button', { name: 'Centrar héroe' }).click();
-  await sleep(200);
+  await mapa.centrarHeroe();
 
   // Al castillo: el héroe entra y se abre la pantalla.
   const castillo = espejo.myTowns()[0];
@@ -1285,10 +1384,6 @@ async function veteranos(browser: Browser, url: string, problemas: Problemas): P
     semilla,
     esperada: b,
   });
-  // Un paso de zoom hacia fuera: en el mapa de 34 las guardias están a ocho o
-  // más pasos y, con el zoom de salida, fuera del marco. La búsqueda mira con
-  // este mismo zoom (`tileDeLosVeteranos`).
-  await mapa.rueda(-1);
   await mapa.pulsar(await guardiaALaVista(mapa, espejo, VETERANOS));
   if (espejo.battle === null) throw new Error(`no hubo batalla: ${espejo.status}`);
   await esperarCola(espejo.battle, espejo.battle.log);
@@ -1578,11 +1673,6 @@ async function jugarTactil(browser: Browser, url: string, problemas: Problemas):
   await sleep(450);
   const otra = new Session(semilla);
   const enOtra = new Mapa(page, otra);
-  // Dos pasos de zoom hacia fuera: con los mapas densos ninguna guardia cae a
-  // dos casillas del héroe recién nacido, y con el zoom de salida la de la
-  // semilla del móvil se queda debajo de los botones de la cámara (pasó con la
-  // 238, y sigue igual con la 810).
-  for (let i = 0; i < -RUEDA_DEL_TACTIL; i++) await enOtra.rueda(-1);
   const monstruo = await guardiaALaVista(enOtra, otra);
   const enMonstruo = await enOtra.pixel(monstruo);
   await page.touchscreen.tap(enMonstruo.x, enMonstruo.y);
@@ -1665,11 +1755,12 @@ async function pixelesDelLienzo(page: Page, x: number, y: number): Promise<numbe
  * rindiéndose: la IA de reglas se rinde cuando pierde de largo.
  */
 /**
- * La guardia más cercana a la que el héroe llega HOY y que se VE en el lienzo,
- * por la ruta que enseña el cliente. Era una casilla escrita a mano —(5,2) en la
- * semilla 2—, y el mapa de nodos la convirtió en cordillera: el guion se quedaba
- * sin batalla. Lo de «se ve» es del móvil: allí el marco es estrecho, la más
- * cercana caía fuera y el toque iba a otra parte mientras el espejo peleaba.
+ * La guardia más cercana a la que el héroe llega HOY, por la ruta que enseña el
+ * cliente, con la cámara llevada hasta ella arrastrando el mapa: queda en el
+ * centro del lienzo, o tan cerca como deje el borde del mapa. Era una casilla
+ * escrita a mano —(5,2) en la semilla 2—, y el mapa de nodos la convirtió en
+ * cordillera; luego, la más cercana que se viera con la cámara en el héroe, y
+ * cada pasada alejaba la vista a ojo para que cupiera (#131).
  */
 async function guardiaALaVista(
   mapa: Mapa,
@@ -1678,7 +1769,15 @@ async function guardiaALaVista(
 ): Promise<Point> {
   const { b, e } = await mapa.encuadre();
   const guardia = guardiaEnElMarco(b, e, mapa.tile, espejo, opciones);
-  if (guardia === null) throw new Error('no hay a la vista ninguna guardia a la que se llegue hoy');
+  if (guardia === null)
+    throw new Error('no hay ninguna guardia a la que se llegue hoy y se pueda tocar');
+  await mapa.mirar(guardia);
+  const px = await mapa.pixel(guardia);
+  if (!tocable(await caja(mapa.page), px)) {
+    throw new Error(
+      `la guardia de (${guardia.x},${guardia.y}) cae en (${px.x},${px.y}) con la cámara ya en ella: no se puede tocar`,
+    );
+  }
   return guardia;
 }
 
@@ -1702,7 +1801,7 @@ async function patrullaALaVista(
   // Con la vista abierta: la pasada de escritorio llega aquí con el zoom de
   // antes puesto, y de cerca no cabe nada más que el héroe. La rueda la cuenta
   // `Mapa`, con los topes del cliente.
-  for (let i = 0; i < 4; i++) await mapa.rueda(-1);
+  for (let i = 0; i < -RUEDA_DE_LA_PATRULLA; i++) await mapa.rueda(-1);
   const b = await caja(page);
   const dentro = (p: { x: number; y: number }) => tocable(b, p);
   const explorada = (p: Point) => espejo.explorado?.has(`${p.x},${p.y}`) ?? true;
@@ -2093,12 +2192,15 @@ async function espectador(browser: Browser, url: string, problemas: Problemas): 
   let vigilando = false;
   let vigia: Promise<void> = Promise.resolve();
   try {
+    // Era la 50 del servidor con el plan 7 de la política, fijas: «no necesita
+    // nada del mapa». Sí necesita: un ascenso, batallas del agente, y no tantas
+    // que el espectador no llegue al final en su plazo —con el plan 18 no
+    // llegaba—. La busca `partida-del-arnes.ts` jugando la partida entera.
+    const buscada = await semillaDelEspectador();
+    const semilla = buscada.semilla;
+    log(`espectador: semilla ${semilla}, ${buscada.como}`);
     servidor = await arrancarServidor(
-      {
-        HEROES_SEED: String(SEMILLA_DEL_ESPECTADOR),
-        HEROES_MAX_DAYS: '12',
-        HEROES_WAIT_AGENT_MS: '30000',
-      },
+      entornoDelArnes(semilla),
       // Con un veterano de nivel 5 en la base del agente, como `pnpm qa`: el
       // héroe que nace de la tropa es lo que el espectador tiene que enseñar
       // con su tipo y su historia, y la partida sola casi nunca lo da.
@@ -2209,7 +2311,7 @@ async function espectador(browser: Browser, url: string, problemas: Problemas): 
               await captura(page, 'espectador-02-batalla');
             }
           }
-          const data = decidir(msg.kind, msg.payload);
+          const data = decidir(msg.kind, msg.payload, semilla);
           enviar({ type: 'response', requestId: msg.requestId, data });
           // El ascenso: el panel tiene que enseñar al nacido con su nombre, su
           // tipo y su historia. El espectador va detrás del servidor, así que
@@ -2312,17 +2414,104 @@ async function espectador(browser: Browser, url: string, problemas: Problemas): 
 
 // ------------------------------------------------------------------------ arena
 
-/**
- * La semilla de la pelea de la arena. Con ella, el guerrero con escudo que mueve
- * la persona tiene que andar al menos un tramo antes de alcanzar a nadie y llega
- * a golpear antes de que la batalla acabe: el guion lo exige, no lo supone.
- * Era la 5 hasta que la velocidad pasó a ser por unidad (02-10-2026): con el
- * orko berserker a 5 casillas, en la 5 el guerrero cae antes de golpear. La 6 se
- * buscó jugando el espejo con la misma pauta que este guion.
- */
-const SEMILLA_ARENA = 6;
 /** El ataque que se le pone a mano al guerrero, distinto del de por defecto. */
 const ATAQUE_EDITADO = 9;
+
+/** La unidad de arena de una hoja, con sus cifras por defecto y los cambios que se le pidan. */
+function deHoja(
+  hojas: ReturnType<typeof hojasDeArena>,
+  id: string,
+  cambios: Partial<UnidadDeArena> = {},
+): UnidadDeArena {
+  const h = hojas.find((x) => x.id === id);
+  if (h === undefined) throw new Error(`arena: no hay hoja ${id}`);
+  return { ...unidadPorDefecto(h), ...cambios };
+}
+
+/**
+ * La pelea de la pasada en el espejo: el guerrero con escudo —con el ataque
+ * cambiado— lo mueve la persona, el monje va en IA, y enfrente el orco y el
+ * goblin arquero. Ya empezada, como la página, que mira el tablero de salida y
+ * DESPUÉS deja jugar a la IA.
+ */
+function espejoDeLaArena(hojas: ReturnType<typeof hojasDeArena>, semilla: number): SesionDeArena {
+  const puesto = (unidad: UnidadDeArena, ia: boolean): PuestoDeArena => ({ unidad, ia });
+  const espejo = new SesionDeArena(
+    [
+      puesto(deHoja(hojas, 'templario-escudo', { attack: ATAQUE_EDITADO }), false),
+      puesto(deHoja(hojas, 'templario-monje'), true),
+    ],
+    [puesto(deHoja(hojas, 'orko-dos-armas'), true), puesto(deHoja(hojas, 'goblin-arquero'), true)],
+    semilla,
+  );
+  espejo.empezar();
+  return espejo;
+}
+
+/**
+ * Lo que la persona hace en su turno de la pelea de la arena: golpear al primer
+ * enemigo al que llega, la primera vez que puede; si aún no ha golpeado ni
+ * andado, un tramo hacia el enemigo más cercano; y si no, «Terminar turno».
+ * La juegan la pasada y la búsqueda de su semilla, que tienen que hacer lo mismo.
+ */
+type JugadaDeLaPauta =
+  | { readonly tipo: 'golpe'; readonly contra: BattleStack }
+  | { readonly tipo: 'tramo'; readonly mover: BattleAction & { type: 'move' } }
+  | { readonly tipo: 'terminar' };
+
+function jugadaDeLaPauta(espejo: SesionDeArena, tramos: number, golpes: number): JugadaDeLaPauta {
+  const turno = espejo.turnoPropio;
+  if (turno === null)
+    throw new Error('arena: el espejo devuelve el control sin que le toque a la persona');
+  const acciones = espejo.battleLegalActions();
+  const enemigos = espejo.battle.stacks.filter((x) => isAlive(x) && x.side !== turno.side);
+  const contra = enemigos.find((e) =>
+    acciones.some((a) => (a.type === 'attack' || a.type === 'shoot') && a.target === e.id),
+  );
+  if (golpes === 0 && contra !== undefined) return { tipo: 'golpe', contra };
+  if (golpes === 0 && tramos === 0 && acciones.some((a) => a.type === 'move')) {
+    // El hex al que se puede ir más cerca del enemigo más cercano.
+    const cerca = (h: { col: number; row: number }): number =>
+      Math.min(...enemigos.map((e) => hexDistance(h, e.hex)));
+    const mover = acciones
+      .flatMap((a) => (a.type === 'move' ? [a] : []))
+      .sort((a, b) => cerca(a.to) - cerca(b.to))[0] as BattleAction & { type: 'move' };
+    return { tipo: 'tramo', mover };
+  }
+  return { tipo: 'terminar' };
+}
+
+/**
+ * La semilla de la pelea de la arena: la primera en la que, jugando la pauta, el
+ * guerrero anda al menos un tramo antes de alcanzar a nadie y llega a golpear
+ * antes de que la pelea acabe, que es lo que la pasada exige. Se decide entero
+ * antes del primer golpe —el único paso que depende de dónde se pulsa—, así
+ * que el espejo solo no necesita la página.
+ *
+ * Era la 5, y la 6 desde que la velocidad pasó a ser por unidad (02-10-2026):
+ * con el orko berserker a 5 casillas, en la 5 el guerrero caía antes de golpear.
+ * Se buscó entonces a mano con esta misma pauta; ahora la busca esto (#131).
+ */
+function buscarArena(hojas: ReturnType<typeof hojasDeArena>): number {
+  for (let semilla = 1; semilla <= TOPE_DE_SEMILLAS; semilla++) {
+    const espejo = espejoDeLaArena(hojas, semilla);
+    let tramos = 0;
+    for (let jugadas = 0; jugadas < 400 && espejo.battle.finished === null; jugadas++) {
+      const jugada = jugadaDeLaPauta(espejo, tramos, 0);
+      if (jugada.tipo === 'golpe') {
+        if (tramos > 0) return semilla;
+        break;
+      }
+      if (jugada.tipo === 'tramo') {
+        espejo.playBattleAction(jugada.mover);
+        tramos++;
+      } else espejo.playBattleAction({ type: 'end_turn' });
+    }
+  }
+  throw new Error(
+    `arena: en las semillas 1–${TOPE_DE_SEMILLAS} el guerrero nunca anda un tramo y luego golpea antes de que acabe la pelea`,
+  );
+}
 
 /** Lo que el panel «En el campo» tiene que decir, sacado del espejo. */
 function campoDelEspejo(s: SesionDeArena): string[] {
@@ -2389,14 +2578,19 @@ async function arena(browser: Browser, url: string, problemas: Problemas): Promi
  * que dura contar las jugadas del espejo, y que mientras tanto se lea «Contando
  * la jugada…».
  */
-async function todoIA(page: Page, izquierda: UnidadDeArena, derecha: UnidadDeArena): Promise<void> {
+async function todoIA(
+  page: Page,
+  semilla: number,
+  izquierda: UnidadDeArena,
+  derecha: UnidadDeArena,
+): Promise<void> {
   // Tras recargar, el guerrero ya está a la izquierda en «Yo»: se pasa a la IA.
   await page.locator('#bando-izquierda .puesto').first().locator('[data-ia="si"]').click();
   await page.locator('[data-hoja-catalogo="orko-dos-armas"] [data-lado="derecha"]').click();
   const espejo = new SesionDeArena(
     [{ unidad: izquierda, ia: true }],
     [{ unidad: derecha, ia: true }],
-    SEMILLA_ARENA,
+    semilla,
   );
   espejo.empezar();
   const fin = espejo.battle.finished;
@@ -2436,9 +2630,17 @@ async function jugarArena(
 ): Promise<void> {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   vigilarConsola(page, 'arena', problemas);
-  await page.goto(`${url}/arena/?seed=${SEMILLA_ARENA}`, { waitUntil: 'networkidle' });
+  // Las figuras de la arena, registradas también aquí como en la página
+  // (`arena/main.ts`): el espejo mide lo que dura cada jugada con el reloj de
+  // su figura, y sin registrarla el goblin arquero disparaba con el reloj del
+  // Y Bot por defecto, que no es el que pinta la página (lo destapó el aviso de
+  // `clipDelDisparo`, 04-10-2026).
+  const hojas = hojasDeArena(process.cwd());
+  for (const h of hojas) registrarUnidad(h.id, h);
+  const semillaDeLaPelea = buscarArena(hojas);
+  log(`arena: semilla ${semillaDeLaPelea}, buscada en el espejo`);
+  await page.goto(`${url}/arena/?seed=${semillaDeLaPelea}`, { waitUntil: 'networkidle' });
   await page.locator('[data-hoja-catalogo]').first().waitFor({ timeout: 5000 });
-  const hojas0 = hojasDeArena(process.cwd());
 
   // Dos por bando, con clics en el catálogo. La izquierda nace en «Yo» y la
   // derecha en «IA»; el monje se pasa a la IA, así que la persona lleva una.
@@ -2485,7 +2687,7 @@ async function jugarArena(
       .map((e) => new URL(e.name).pathname)
       .filter((p) => p.startsWith('/unidades/')),
   );
-  const orco = hojas0.find((h) => h.id === 'orko-dos-armas');
+  const orco = hojas.find((h) => h.id === 'orko-dos-armas');
   // El orco está en el bando derecho, quieto y mirando al suroeste (d7).
   const faltan = [
     '/unidades/templario-escudo/d1/atlas.webp',
@@ -2508,30 +2710,7 @@ async function jugarArena(
 
   // El espejo: las mismas unidades —las de por defecto de cada hoja, con el
   // ataque cambiado— y la misma semilla.
-  const hojas = hojasDeArena(process.cwd());
-  // Las figuras de la arena, registradas también aquí como en la página
-  // (`arena/main.ts`): el espejo mide lo que dura cada jugada con el reloj de
-  // su figura, y sin registrarla el goblin arquero disparaba con el reloj del
-  // Y Bot por defecto, que no es el que pinta la página (lo destapó el aviso de
-  // `clipDelDisparo`, 04-10-2026).
-  for (const h of hojas) registrarUnidad(h.id, h);
-  const deHoja = (id: string, cambios: Partial<UnidadDeArena> = {}): UnidadDeArena => {
-    const h = hojas.find((x) => x.id === id);
-    if (h === undefined) throw new Error(`arena: no hay hoja ${id}`);
-    return { ...unidadPorDefecto(h), ...cambios };
-  };
-  const puesto = (unidad: UnidadDeArena, ia: boolean): PuestoDeArena => ({ unidad, ia });
-  const espejo = new SesionDeArena(
-    [
-      puesto(deHoja('templario-escudo', { attack: ATAQUE_EDITADO }), false),
-      puesto(deHoja('templario-monje'), true),
-    ],
-    [puesto(deHoja('orko-dos-armas'), true), puesto(deHoja('goblin-arquero'), true)],
-    SEMILLA_ARENA,
-  );
-  // La página mira el tablero de salida y DESPUÉS deja jugar a la IA; el espejo
-  // empieza igual, o lo que juega la IA antes del primer turno no cuadraría.
-  espejo.empezar();
+  const espejo = espejoDeLaArena(hojas, semillaDeLaPelea);
   const mio = espejo.battle.stacks.find(
     (x) => x.side === 'attacker' && x.slot === 0,
   ) as BattleStack;
@@ -2541,8 +2720,10 @@ async function jugarArena(
   await page.locator('[data-arena="luchar"]').click();
   await page.locator('#app[data-escena="battle"]').waitFor({ timeout: 2000 });
   const semilla = await page.locator('#seed').innerText();
-  if (semilla.trim() !== `semilla ${SEMILLA_ARENA}`) {
-    throw new Error(`arena: la barra debía decir «semilla ${SEMILLA_ARENA}» y dice «${semilla}»`);
+  if (semilla.trim() !== `semilla ${semillaDeLaPelea}`) {
+    throw new Error(
+      `arena: la barra debía decir «semilla ${semillaDeLaPelea}» y dice «${semilla}»`,
+    );
   }
   await esperarCola(espejo.battle, espejo.battle.log);
   await mismaPelea(page, espejo, 'empezar la pelea');
@@ -2552,16 +2733,10 @@ async function jugarArena(
   let jugadas = 0;
   while (espejo.battle.finished === null) {
     if (++jugadas > 400) throw new Error('arena: la pelea no termina en 400 jugadas de la persona');
-    const turno = espejo.turnoPropio;
-    if (turno === null)
-      throw new Error('arena: el espejo devuelve el control sin que le toque a la persona');
     const antes = espejo.battle.log.length;
-    const acciones = espejo.battleLegalActions();
-    const enemigos = espejo.battle.stacks.filter((x) => isAlive(x) && x.side !== turno.side);
-    const contra = enemigos.find((e) =>
-      acciones.some((a) => (a.type === 'attack' || a.type === 'shoot') && a.target === e.id),
-    );
-    if (golpes === 0 && contra !== undefined) {
+    const jugada = jugadaDeLaPauta(espejo, tramos, golpes);
+    if (jugada.tipo === 'golpe') {
+      const { contra } = jugada;
       // El golpe: un clic en el cuerpo del enemigo. La acción es la que la
       // escena del espejo lee en ESE píxel, que es la que manda la página.
       const px = await pixelDeUnidad(page, espejo, contra);
@@ -2574,13 +2749,8 @@ async function jugarArena(
       await page.mouse.click(px.x, px.y);
       espejo.playBattleAction(px.accion);
       golpes++;
-    } else if (golpes === 0 && tramos === 0 && acciones.some((a) => a.type === 'move')) {
-      // Un tramo: el hex al que se puede ir más cerca del enemigo más cercano.
-      const cerca = (h: { col: number; row: number }): number =>
-        Math.min(...enemigos.map((e) => hexDistance(h, e.hex)));
-      const mover = acciones
-        .flatMap((a) => (a.type === 'move' ? [a] : []))
-        .sort((a, b) => cerca(a.to) - cerca(b.to))[0] as BattleAction & { type: 'move' };
+    } else if (jugada.tipo === 'tramo') {
+      const { mover } = jugada;
       const b0 = await caja(page);
       const c = centroHex(tableroPara(b0.width, b0.height), mover.to);
       const b = await alcanzar(page, c.x);
@@ -2673,8 +2843,9 @@ async function jugarArena(
 
   await todoIA(
     page,
-    deHoja('templario-escudo', { attack: ATAQUE_EDITADO }),
-    deHoja('orko-dos-armas'),
+    semillaDeLaPelea,
+    deHoja(hojas, 'templario-escudo', { attack: ATAQUE_EDITADO }),
+    deHoja(hojas, 'orko-dos-armas'),
   );
   await page.close();
 }

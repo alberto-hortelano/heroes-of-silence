@@ -66,6 +66,18 @@ export function encuadreDe(b: Caja, espejo: Session): Encuadre {
   };
 }
 
+/** Dónde cae en la página el centro de `p` con la cámara centrada en `foco` (y acotada). */
+export function pixelMirando(
+  b: Caja,
+  e: Encuadre,
+  tile: number,
+  foco: Point,
+  p: Point,
+): { x: number; y: number } {
+  const c = casillaAPixel(centrarEn({ tile, x: 0, y: 0 }, foco, e), p);
+  return { x: b.x + c.x, y: b.y + c.y };
+}
+
 /** Dónde cae en la página el centro de una casilla, con la cámara centrada en el héroe. */
 export function pixelDeCasilla(
   b: Caja,
@@ -74,17 +86,25 @@ export function pixelDeCasilla(
   espejo: Session,
   p: Point,
 ): { x: number; y: number } {
-  const camara = centrarEn({ tile, x: 0, y: 0 }, focoDe(espejo), e);
-  const c = casillaAPixel(camara, p);
-  return { x: b.x + c.x, y: b.y + c.y };
+  return pixelMirando(b, e, tile, focoDe(espejo), p);
 }
 
 /**
- * La guardia más cercana a la que el héroe llega HOY y que se VE en el lienzo,
- * por la ruta que enseña el cliente, o `null`. Una ruta que pisa la región de un
- * grupo que embosca no llega a la guardia: la marcha se para en la emboscada y
- * la batalla es otra. Por eso se descartan, salvo con `aunqueEmbosquen`, para
- * quien solo quiere UNA batalla y le da igual contra quién (los veteranos).
+ * La guardia más cercana a la que el héroe llega HOY, por la ruta que enseña el
+ * cliente, y que se puede tocar en el lienzo con la cámara centrada en ella
+ * (`Mapa.mirar` la lleva allí arrastrando el mapa), o `null`. Lo único que la
+ * deja fuera del marco es la cámara acotada: una guardia en el borde del mapa
+ * no llega al centro, y puede quedar bajo los botones.
+ *
+ * Antes se pedía que se viera con la cámara en el HÉROE, y cada pasada
+ * alejaba la vista a ojo —un paso de rueda los veteranos, dos el dedo— para
+ * que cupiera; con los mapas densos las guardias quedaban a ocho pasos o más
+ * y la búsqueda descartaba semillas por el zoom, no por la partida (#131).
+ *
+ * Una ruta que pisa la región de un grupo que embosca no llega a la guardia: la
+ * marcha se para en la emboscada y la batalla es otra. Por eso se descartan,
+ * salvo con `aunqueEmbosquen`, para quien solo quiere UNA batalla y le da igual
+ * contra quién (los veteranos).
  */
 export function guardiaEnElMarco(
   b: Caja,
@@ -107,7 +127,7 @@ export function guardiaEnElMarco(
   }
   candidatas.sort((x, y) => x.pasos - y.pasos);
   for (const c of candidatas) {
-    if (tocable(b, pixelDeCasilla(b, e, tile, espejo, c.at))) return c.at;
+    if (tocable(b, pixelMirando(b, e, tile, c.at, c.at))) return c.at;
   }
   return null;
 }
@@ -177,11 +197,6 @@ export function buscarEmboscada(b: Caja, desde = 1): EscenaDeEmboscada {
 /** Las batallas de los veteranos: la guardia o quien embosque por el camino. */
 export const VETERANOS = { aunqueEmbosquen: true } as const;
 
-/** Lo que el héroe de los veteranos ve tras un paso de rueda hacia fuera, como en la pasada. */
-export function tileDeLosVeteranos(e: Encuadre): number {
-  return zoom({ tile: TILE_INICIAL, x: 0, y: 0 }, -1, e).tile;
-}
-
 /**
  * Una partida donde la batalla más cercana a la vista que se alcanza hoy
  * —la guardia, o el grupo que embosca por el camino—, resuelta sola, deja a
@@ -199,8 +214,7 @@ export async function buscarVeteranos(b: Caja, desde = 1): Promise<number> {
   for (let semilla = desde; semilla < desde + TOPE_DE_SEMILLAS; semilla++) {
     const espejo = new Session(semilla);
     const e = encuadreDe(b, espejo);
-    const tile = tileDeLosVeteranos(e);
-    const primera = guardiaEnElMarco(b, e, tile, espejo, VETERANOS);
+    const primera = guardiaEnElMarco(b, e, TILE_INICIAL, espejo, VETERANOS);
     if (primera === null) continue;
     espejo.clickTile(primera);
     if (espejo.battle === null) continue;
@@ -210,7 +224,7 @@ export async function buscarVeteranos(b: Caja, desde = 1): Promise<number> {
     if (!troopSummary(heroe.army, espejo.state.characters).some((g) => g.nivel >= 2)) continue;
     await espejo.endTurn();
     if (espejo.state.finished !== null) continue;
-    const segunda = guardiaEnElMarco(b, e, tile, espejo, VETERANOS);
+    const segunda = guardiaEnElMarco(b, e, TILE_INICIAL, espejo, VETERANOS);
     if (segunda === null) continue;
     espejo.clickTile(segunda);
     const battle = espejo.battle;
@@ -352,16 +366,13 @@ export function destinoTactil(b: Caja, e: Encuadre, espejo: Session): Point | nu
   return destino;
 }
 
-/** Los pasos de rueda hacia fuera de la pasada táctil antes de buscar su guardia. */
-export const RUEDA_DEL_TACTIL = -2;
-
 /**
  * La semilla de las pasadas del móvil y del dedo, que comparten el marco
  * estrecho (`b`, medido en la página del móvil):
  *  - móvil: tras entrar al castillo y salir, una guardia a la vista con el zoom
  *    de salida, y su batalla;
  *  - táctil: un destino de hoy a tres pasos o más, y —en otra partida de la misma
- *    semilla, dos pasos de rueda hacia fuera— una guardia a la vista y su batalla.
+ *    semilla— una guardia a la vista y su batalla.
  * Era la 810, fija (QA de #161, H1).
  */
 export function buscarMovil(b: Caja, desde = 1): number {
@@ -370,7 +381,7 @@ export function buscarMovil(b: Caja, desde = 1): number {
     const e = encuadreDe(b, tactil);
     if (destinoTactil(b, e, tactil) === null) continue;
     const otra = new Session(semilla);
-    const lejos = guardiaEnElMarco(b, e, tileTrasRueda(e, RUEDA_DEL_TACTIL), otra);
+    const lejos = guardiaEnElMarco(b, e, TILE_INICIAL, otra);
     if (lejos === null) continue;
     otra.clickTile(lejos);
     if (otra.battle === null) continue;
