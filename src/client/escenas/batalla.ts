@@ -18,6 +18,7 @@ import { BattleAnimator } from '../anim.js';
 import { type Angulo, bandosSinDueño, cajaDeFigura, drawBatalla } from '../render/batalla.js';
 import { cercaDelCentro, hexEnPixel, type Tablero, tableroPara } from '../render/proyeccion.js';
 import type { ControlDeBatalla } from '../session.js';
+import { AVISO_DE_ESPERA } from '../views/panels.js';
 import { accionContra, golpeEnPixel } from './angulo.js';
 
 const SIN_NADA: ReadonlySet<string> = new Set();
@@ -59,9 +60,6 @@ export function cargaContra(
 function hechizoElegido(s: ControlDeBatalla): string | null {
   return s.hechizos?.selectedSpell ?? null;
 }
-
-/** Lo que dice la barra a quien pulsa mientras la jugada se cuenta. */
-export const AVISO_DE_ESPERA = 'Espera a que termine la jugada.';
 
 export class EscenaBatalla {
   private readonly animador = new BattleAnimator();

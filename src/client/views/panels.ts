@@ -66,6 +66,26 @@ import type { Session } from '../session.js';
  */
 const DESHABILITADO: Html = html`disabled`;
 
+/** Lo que dice la barra a quien pulsa mientras la jugada se cuenta. */
+export const AVISO_DE_ESPERA = 'Espera a que termine la jugada.';
+
+/**
+ * Los botones de la batalla mientras el tablero aún cuenta la última jugada
+ * (#165): apagados, con el aviso de espera en el `title`, y no ofrecidos para
+ * luego rechazarlos. Antes salían encendidos —el estado ya va por delante de
+ * lo que se ve— y el clic daba el aviso y pedía pulsar otra vez.
+ *
+ * No se aplazan: un botón pulsado durante la jugada se haría sobre una unidad
+ * que todavía no se ve actuar, y un doble clic jugaba el segundo en la
+ * SIGUIENTE (M12 de QA de la arena). Un `fieldset` apagado apaga todo lo que
+ * lleva dentro, el botón que se añada mañana también: una regla, un sitio.
+ */
+function mientrasSeCuenta(contandoAun: boolean, botones: Html): Html {
+  return contandoAun
+    ? html`<fieldset class="contando" disabled title="${AVISO_DE_ESPERA}">${botones}</fieldset>`
+    : botones;
+}
+
 /**
  * Lo que dice la barra de arriba cuando la partida ha terminado.
  *
@@ -131,18 +151,23 @@ export function renderTopbar(session: Session): {
   return { day: rotuloDeDia(state.day), resources, turn: turno };
 }
 
-export function renderSide(session: Session): Html {
+/**
+ * @param contandoAun si el tablero de batalla aún cuenta la última jugada: sus
+ *   botones salen apagados (`mientrasSeCuenta`).
+ */
+export function renderSide(session: Session, contandoAun = false): Html {
   switch (session.scene) {
     case 'town':
       return renderTownPanel(session);
     case 'battle':
-      return renderBattlePanel(session);
+      return renderBattlePanel(session, contandoAun);
     default:
       return renderAdventurePanel(session);
   }
 }
 
-export function renderActions(session: Session): Html {
+/** @param contandoAun lo mismo que en `renderSide`. */
+export function renderActions(session: Session, contandoAun = false): Html {
   if (session.state.finished !== null) {
     return html`<button data-action="restart" class="primary">Partida nueva</button>`;
   }
@@ -151,10 +176,15 @@ export function renderActions(session: Session): Html {
       return html`<button data-action="close-town">Volver al mapa</button>`;
     case 'battle': {
       const battle = session.battle;
+      // «Continuar» no se apaga: espera solo a que acabe la jugada (#158 d,
+      // `EscenaBatalla.alAcabar`) y cierra una batalla que ya no cambia.
       if (battle !== null && battle.finished !== null) {
         return html`<button data-action="finish-battle" class="primary">Continuar</button>`;
       }
-      return html`<button data-action="auto-battle">Resolver sola</button>`;
+      return mientrasSeCuenta(
+        contandoAun,
+        html`<button data-action="auto-battle">Resolver sola</button>`,
+      );
     }
     default:
       return html`
@@ -581,7 +611,7 @@ function renderTownSpells(town: Town): Html {
 
 // ---------------------------------------------------------------- batalla
 
-function renderBattlePanel(session: Session): Html {
+function renderBattlePanel(session: Session, contandoAun: boolean): Html {
   const battle = session.battle;
   if (battle === null) return NADA;
 
@@ -618,13 +648,16 @@ function renderBattlePanel(session: Session): Html {
 
   const suTurno = s !== null && s.side === mio;
   const acciones = suTurno
-    ? accionesDeLaUnidad({
-        activa: s,
-        legales: session.battleLegalActions(),
-        pasos: session.battleStepsLeft(),
-        rendicion: renderRendicion(session),
-        hechizos: renderSpells(session),
-      })
+    ? mientrasSeCuenta(
+        contandoAun,
+        accionesDeLaUnidad({
+          activa: s,
+          legales: session.battleLegalActions(),
+          pasos: session.battleStepsLeft(),
+          rendicion: renderRendicion(session),
+          hechizos: renderSpells(session),
+        }),
+      )
     : html`<p>Turno del enemigo…</p>`;
 
   // El maná del héroe, junto a la ficha de la unidad activa: es un recurso de la

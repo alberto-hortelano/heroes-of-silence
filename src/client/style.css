@@ -163,6 +163,9 @@ button {
 button:hover:not(:disabled) { background: #4a4d2d; border-color: #cbb780; }
 button:focus-visible { outline: 2px solid #ecd49e; outline-offset: 2px; }
 button:disabled { opacity: 0.45; cursor: not-allowed; }
+/* Los botones de la batalla mientras se cuenta la jugada (#165): el fieldset
+   solo apaga, no tiene que verse ni mover nada. */
+fieldset.contando { border: 0; margin: 0; padding: 0; min-width: 0; }
 button.primary { background: #b59b60; color: #161d16; border-color: #e0c589; font-weight: 600; }
 button.primary:hover:not(:disabled) { background: #c9ae70; color: #161d16; }
 

@@ -116,10 +116,12 @@ const ctx = principal.ctx;
 
 /**
  * Los paneles se rehacen cuando la sesión dice que algo ha cambiado (`version`),
- * cuando llega arte (los iconos de recursos) o cuando la partida es otra. Antes
- * se generaba su marcado en cada fotograma para compararlo con el anterior.
+ * cuando llega arte (los iconos de recursos), cuando la partida es otra o
+ * cuando el tablero de batalla empieza o acaba de contar una jugada (sus botones
+ * van apagados mientras tanto, #165). Antes se generaba su marcado en cada
+ * fotograma para compararlo con el anterior.
  */
-let paneles: { sesion: Session; version: number; arte: number } | null = null;
+let paneles: { sesion: Session; version: number; arte: number; contando: boolean } | null = null;
 let arteLlegado = 0;
 cargarArte(() => {
   arteLlegado++;
@@ -181,19 +183,22 @@ function dibujarFotograma(ahora: number): void {
   }
   señalarEnemigo(enBatalla);
 
+  // Después de `batalla.sincronizar`: es la cola de ESTE fotograma.
+  const contando = enBatalla && batalla.ocupada;
   if (
     paneles === null ||
     paneles.sesion !== session ||
     paneles.version !== session.version ||
-    paneles.arte !== arteLlegado
+    paneles.arte !== arteLlegado ||
+    paneles.contando !== contando
   ) {
-    paneles = { sesion: session, version: session.version, arte: arteLlegado };
+    paneles = { sesion: session, version: session.version, arte: arteLlegado, contando };
     const top = renderTopbar(session);
     elDay.textContent = top.day;
     pintar(elResources, top.resources);
     elTurn.textContent = top.turn;
-    pintar(elSide, renderSide(session));
-    pintar(elActions, renderActions(session));
+    pintar(elSide, renderSide(session, contando));
+    pintar(elActions, renderActions(session, contando));
   }
   if (elStatus.textContent !== session.status) elStatus.textContent = session.status;
 }
@@ -205,6 +210,10 @@ function dibujarFotograma(ahora: number): void {
  * ni un clic en el lienzo ni un botón ni Escape. Estaba repartida —una
  * comprobación en el clic del lienzo y otra en dos de los botones—, y por los
  * huecos se colaban «Resolver sola», el libro de hechizos, «Continuar» y Escape.
+ *
+ * Los botones del panel ya salen apagados mientras se cuenta (#165); por aquí
+ * pasan aún el lienzo, el teclado y el clic que cae entre el gesto y el
+ * fotograma que repinta el panel.
  */
 function jugadaEnCurso(): boolean {
   if (session.scene !== 'battle') return false;

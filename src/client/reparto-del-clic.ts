@@ -7,7 +7,9 @@
  * - `mirar`: mirar al enemigo no toca la batalla, se puede mientras se cuenta.
  * - `al-acabar`: «Continuar» sale con la última muerte aún contándose; no se
  *   rechaza, espera a que acabe y vuelve al mapa sin pedir un segundo clic.
- * - `nada`: no es un botón, o la jugada sigue y el gesto se rechaza.
+ * - `nada`: no es un botón, o la jugada sigue y el gesto se rechaza. Los botones
+ *   del panel salen apagados mientras se cuenta (#165, `mientrasSeCuenta`), así
+ *   que esto solo lo ve el clic que cae antes del fotograma que los apaga.
  * - `gesto`: todo lo demás, con la jugada ya contada.
  */
 import type { Scene } from './session.js';

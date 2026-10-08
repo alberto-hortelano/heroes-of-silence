@@ -10,8 +10,9 @@
 import { describe, expect, it } from 'vitest';
 import { DURACION, type EstadoFigura } from '../src/client/anim.js';
 import { EscenaAventura, focoDe, llegadaDeLaRuta } from '../src/client/escenas/aventura.js';
-import { AVISO_DE_ESPERA, EscenaBatalla } from '../src/client/escenas/batalla.js';
+import { EscenaBatalla } from '../src/client/escenas/batalla.js';
 import { PAUSA_TRAS_EL_RIVAL, PuertaDeFinDeTurno } from '../src/client/fin-de-turno.js';
+import { marcadoDe } from '../src/client/html.js';
 import { msPorCasilla } from '../src/client/marcha.js';
 import {
   bandosSinDueño,
@@ -43,7 +44,12 @@ import {
 import { maquetarCoste } from '../src/client/render/town.js';
 import { repartirClic } from '../src/client/reparto-del-clic.js';
 import { Session } from '../src/client/session.js';
-import { marcaDeComandante } from '../src/client/views/panels.js';
+import {
+  AVISO_DE_ESPERA,
+  marcaDeComandante,
+  renderActions,
+  renderSide,
+} from '../src/client/views/panels.js';
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import { isAlive, SIN_CARGAS, stackHexes } from '../src/core/battle/battle.js';
 import type { BattleStack, Side } from '../src/core/battle/types.js';
@@ -54,7 +60,7 @@ import {
   sesionContraMonstruo,
   sesionesContraMonstruo,
 } from './batalla-de-cliente.js';
-import { anteLaBase, primeraSemillaCon } from './helpers.js';
+import { agresiva, anteLaBase, primeraSemillaCon } from './helpers.js';
 
 /**
  * Una batalla en la que la persona ATACA a un monstruo: la busca
@@ -391,6 +397,51 @@ describe('la batalla en el lienzo', () => {
     expect(repartirClic(null, 'battle', () => false)).toBe('nada');
     // Fuera de la batalla, «Continuar» es un gesto más.
     expect(repartirClic('finish-battle', 'adventure', () => false)).toBe('gesto');
+  });
+
+  it('con la jugada contándose, los botones del panel salen apagados y no piden un segundo clic (#165)', () => {
+    const s = sesionEnBatalla();
+    const escena = escenaDeBatalla(() => s);
+    const dura = jugarUnTramo(s);
+    escena.sincronizar(10);
+    expect(escena.ocupada).toBe(true);
+    // Tras un tramo la unidad sigue siendo tuya: el panel ofrecería sus botones.
+    expect(s.turnoPropio).not.toBeNull();
+
+    // Lo que hace `main.ts`: el panel con la cola de este fotograma.
+    const apagados = /<fieldset class="contando" disabled title="([^"]*)">([\s\S]*?)<\/fieldset>/;
+    const marcado = marcadoDe(renderSide(s, escena.ocupada));
+    const [, titulo, dentro = ''] = marcado.match(apagados) ?? [];
+    expect(titulo).toBe(AVISO_DE_ESPERA);
+    // Todos los botones del lado están dentro: ninguno queda encendido fuera.
+    expect(dentro.match(/<button/g)?.length).toBe(marcado.match(/<button/g)?.length);
+    for (const accion of ['battle-end-turn', 'battle-defend', 'battle-wait', 'battle-surrender']) {
+      expect(dentro).toContain(`data-action="${accion}"`);
+    }
+    expect(marcadoDe(renderActions(s, escena.ocupada))).toMatch(
+      /<fieldset class="contando" disabled[^>]*><button data-action="auto-battle">/,
+    );
+
+    // Contada la jugada, los mismos paneles sin apagar.
+    escena.sincronizar(10 + dura + 1000);
+    expect(escena.ocupada).toBe(false);
+    expect(marcadoDe(renderSide(s, escena.ocupada))).not.toContain('fieldset');
+    expect(marcadoDe(renderActions(s, escena.ocupada))).not.toContain('fieldset');
+  });
+
+  it('«Continuar» no se apaga con la jugada contándose: espera él solo (#165, #158 d)', () => {
+    const s = sesionEnBatalla();
+    const escena = escenaDeBatalla(() => s);
+    for (let i = 0; i < 500 && s.battle!.finished === null; i++) {
+      s.playBattleAction(agresiva(s.battle!));
+    }
+    expect(s.battle!.finished).not.toBeNull();
+    escena.sincronizar(10);
+    // La última muerte aún se cuenta y «Continuar» ya está, encendido.
+    expect(escena.ocupada).toBe(true);
+    const acciones = marcadoDe(renderActions(s, escena.ocupada));
+    expect(acciones).toContain('data-action="finish-battle"');
+    expect(acciones).not.toContain('fieldset');
   });
 
   it('un gesto que espera a la jugada se olvida si la batalla ya no es la misma (#158 d)', () => {

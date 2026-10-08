@@ -42,12 +42,7 @@ import { type Browser, chromium, type Page } from 'playwright';
 import WebSocket from 'ws';
 import { DURACION, duracionDeLaJugada } from '../../src/client/anim.js';
 import { masCercana, opcionesDeGolpe } from '../../src/client/escenas/angulo.js';
-import {
-  AVISO_DE_ESPERA,
-  cargaContra,
-  EscenaBatalla,
-  rotuloDeAngulo,
-} from '../../src/client/escenas/batalla.js';
+import { cargaContra, EscenaBatalla, rotuloDeAngulo } from '../../src/client/escenas/batalla.js';
 import { msPorCasilla } from '../../src/client/marcha.js';
 import { cajaDeFigura, galonesDe } from '../../src/client/render/batalla.js';
 import { type Encuadre, TILE_INICIAL, zoom } from '../../src/client/render/camara-mapa.js';
@@ -61,7 +56,7 @@ import {
   SesionDeArena,
   Session,
 } from '../../src/client/session.js';
-import { explicacionDeFin, rotuloDeDia } from '../../src/client/views/panels.js';
+import { AVISO_DE_ESPERA, explicacionDeFin, rotuloDeDia } from '../../src/client/views/panels.js';
 import { chooseBattleAction } from '../../src/core/ai/tactics.js';
 import { LADOS, ladoDe, type UnidadDeArena, unidadPorDefecto } from '../../src/core/arena.js';
 import {
@@ -798,6 +793,10 @@ async function turnoDeBatalla(
  * Pulsa el lienzo mientras la jugada se cuenta: la barra tiene que decir que se
  * espere, y en cuanto la cola se vacía tiene que dejar de decirlo. Antes el
  * aviso se quedaba hasta el siguiente gesto.
+ *
+ * Los botones no se pulsan: mientras se cuenta salen apagados (#165), y lo que
+ * se comprueba es eso, que «Resolver sola» está apagado durante la jugada y
+ * encendido al acabar. Antes salía encendido y el clic pedía un segundo.
  */
 async function avisoQueSeRetira(
   page: Page,
@@ -822,13 +821,23 @@ async function avisoQueSeRetira(
       `un clic durante la jugada debía decir «${AVISO_DE_ESPERA}» y dice «${durante}»`,
     );
   }
+  const resolver = page.locator('#actions [data-action="auto-battle"]');
+  if (!(await resolver.isDisabled())) {
+    throw new Error('durante la jugada «Resolver sola» debía estar apagado y está encendido');
+  }
+  await captura(page, 'desktop-batalla-contando-la-jugada');
   await esperarCola(battle, nuevos);
   await sleep(100);
   const despues = await page.locator('#status').innerText();
   if (despues === AVISO_DE_ESPERA) {
     throw new Error('la jugada ha terminado y la barra sigue diciendo que se espere');
   }
-  log(`aviso de espera: «${durante}» durante la jugada, «${despues}» al acabar`);
+  if (await resolver.isDisabled()) {
+    throw new Error('la jugada ha terminado y «Resolver sola» sigue apagado');
+  }
+  log(
+    `aviso de espera: «${durante}» durante la jugada, «${despues}» al acabar; «Resolver sola» apagado y luego encendido`,
+  );
 }
 
 // --------------------------------------------------------------------- partidas
@@ -1349,6 +1358,20 @@ async function finContadoPorSuCausa(page: Page, espejo: Session): Promise<void> 
   const barra = (await page.locator('#status').innerText()).trim();
   if (barra !== espejo.status) {
     throw new Error(`fin de partida: la barra dice «${barra}» y el espejo «${espejo.status}»`);
+  }
+  const empieza = desenlace === 'ganada' ? '¡Victoria!' : 'Derrota';
+  if (!barra.startsWith(empieza)) {
+    throw new Error(`fin de partida (${desenlace}): la barra dice «${barra}», sin el desenlace`);
+  }
+  // Un clic en el mapa tras el final no tapa el desenlace (#162): pasaba por
+  // `bloqueoDeTurno` y escribía «la partida ya ha terminado» en su lugar.
+  const marco = await page.locator('#canvas').boundingBox();
+  if (marco === null) throw new Error('el lienzo no está en la página');
+  await page.mouse.click(marco.x + marco.width / 2, marco.y + marco.height / 2);
+  await sleep(200);
+  const trasElClic = (await page.locator('#status').innerText()).trim();
+  if (trasElClic !== barra) {
+    throw new Error(`fin de partida: tras un clic la barra dice «${trasElClic}» y no «${barra}»`);
   }
   log(
     `fin: ${desenlace} por ${real}, con ${heroesOf(espejo.state, vencido.id).length} héroe(s) del vencido en el mapa; el lateral dice «${dice}»`,
