@@ -308,7 +308,12 @@ antes del destino (`battle_started` con `faltan`).
   borde; la cresta en la hondura mayor de la franja, tope 2,5), con un ruido suave que hace
   cumbres y collados; de ahí salen el alto, el radio entre picos (`radioDePico`), la hoja (agujas
   arriba), la silueta (`siluetaDe`) y la luz (`luzDeCumbre`, falda en sombra). El bosque sigue con
-  la hondura entera de `analizar`. Tope de alejar:
+  la hondura entera de `analizar`. **La cubierta de lo que se pisa** (#184): en la lava, la arena,
+  la ciénaga y lo áspero (`CUBIERTA[s].comoLaBarrera`: su cubierta es de la roca o la madera de la
+  barrera vecina) va rala (`CLARO_COMO_LA_BARRERA`), sin manchas ni árboles, y cada pieza se encoge
+  hasta no ser más esbelta que `ESBELTEZ_DE_LO_PISABLE` (`tumbado`, en `poner`); lo alto del
+  acantilado y el pie de la muralla siguen con la hoja entera. `informe.cubiertaComoLaBarrera` = 0
+  (piezas más altas que su esbeltez y regiones de ≥ 9 casillas con huella > `HUELLA_DE_LO_PISABLE`). Tope de alejar:
   `topeDeAlejar`, ≤ 2 000 volúmenes a la vista y nunca bajo 40 px por casilla;
   si ni a 110 px caben (7680×4320) lo avisa en consola. **Y un presupuesto de
   píxeles según el zoom** (`presupuestoDelMapa`): al tope de alejar, el mapa no

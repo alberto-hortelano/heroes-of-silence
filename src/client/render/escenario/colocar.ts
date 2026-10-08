@@ -294,6 +294,13 @@ export interface Escena {
      * #185): tiene que ser 0.
      */
     readonly pisablesTapadas: number;
+    /**
+     * Piezas de la cubierta de lo que se pisa en la lava, la arena, la ciénaga
+     * o lo áspero más altas que lo que les deja su esbeltez, más regiones de
+     * esos suelos con la cubierta más densa que `HUELLA_DE_LO_PISABLE`
+     * (`cubiertaComoLaBarrera`, #184): tiene que ser 0.
+     */
+    readonly cubiertaComoLaBarrera: number;
     readonly modulosQueFaltan: readonly string[];
   };
 }
@@ -404,6 +411,35 @@ const MEZCLA: Readonly<Record<Suelo, readonly (readonly [Suelo, number])[]>> = {
   ],
 };
 
+/**
+ * Cuánto se abre el radio de la cubierta de un suelo `comoLaBarrera` en lo que
+ * se pisa, dentro y fuera de las manchas: entre las piezas se ve el suelo.
+ */
+const CLARO_COMO_LA_BARRERA = 2.2;
+
+/**
+ * En lo que se pisa de un suelo `comoLaBarrera`, una pieza más esbelta que esto
+ * (ancho entre alto de su módulo) se encoge hasta tenerlo: la aguja, la columna
+ * de basalto, el volcancillo humeante o el pináculo de arenisca se quedan en un
+ * guijarro, y el peñasco tumbado sigue como es. Las piezas esbeltas son las de
+ * la barrera; tumbadas, se leen como suelo.
+ */
+const ESBELTEZ_DE_LO_PISABLE = 1.3;
+
+/**
+ * `s` encogido hasta que su módulo, a lo ancho entre lo alto, no sea más
+ * esbelto que `esbeltez`: un módulo el doble de alto que ancho de lo que manda
+ * se pinta a la mitad. Sin `esbeltez`, o sin imagen, tal cual.
+ */
+export function tumbado<S extends Pick<Sprite, 'src' | 'nw' | 'nh' | 'alto'>>(
+  s: S,
+  esbeltez: number | undefined,
+): S {
+  if (esbeltez === undefined || s.src === null) return s;
+  const k = Math.min(1, s.nw / s.nh / esbeltez);
+  return k === 1 ? s : { ...s, alto: s.alto * k };
+}
+
 function hojaDeCubierta(s: Suelo, tirada: number): string {
   let acumulado = 0;
   for (const [otro, peso] of MEZCLA[s]) {
@@ -413,15 +449,29 @@ function hojaDeCubierta(s: Suelo, tirada: number): string {
   return `cubierta-${s}`;
 }
 
-/** Densidad de la cubierta del suelo: radio entre detalles y alto, en casillas. */
-const CUBIERTA: Readonly<Record<Suelo, { radio: number; alto: number }>> = {
-  grass: { radio: 0.24, alto: 0.42 },
-  dirt: { radio: 0.3, alto: 0.5 },
-  sand: { radio: 0.28, alto: 0.4 },
-  snow: { radio: 0.26, alto: 0.44 },
-  swamp: { radio: 0.24, alto: 0.42 },
-  lava: { radio: 0.27, alto: 0.4 },
-  rough: { radio: 0.25, alto: 0.38 },
+/**
+ * La cubierta de cada suelo: radio entre detalles y alto, en casillas, y cuánto
+ * se abre el radio fuera de las manchas (`claro`).
+ *
+ * `comoLaBarrera`: la cubierta es de la misma roca o madera que la barrera de al
+ * lado —los peñascos de la lava son los de su acantilado y su volcán; los
+ * bloques de la arena, los de la meseta; los árboles muertos de la ciénaga, los
+ * del bosque—. Ahí lo que se pisa no se leía como pisable (#184, auditoría 3
+ * §2.2): con la misma densidad y las mismas piezas, la lava de s28 y la ciénaga
+ * de s9 eran barrera a la vista. En esos suelos la cubierta de lo que se pisa
+ * es baja (`ESBELTEZ_DE_LO_PISABLE`), rala, sin manchas densas ni árboles; lo
+ * alto queda para lo alto del acantilado y el pie de la muralla.
+ */
+const CUBIERTA: Readonly<
+  Record<Suelo, { radio: number; alto: number; claro: number; comoLaBarrera: boolean }>
+> = {
+  grass: { radio: 0.24, alto: 0.42, claro: 2.1, comoLaBarrera: false },
+  dirt: { radio: 0.3, alto: 0.5, claro: 1.3, comoLaBarrera: false },
+  sand: { radio: 0.28, alto: 0.4, claro: CLARO_COMO_LA_BARRERA, comoLaBarrera: true },
+  snow: { radio: 0.26, alto: 0.44, claro: 1.3, comoLaBarrera: false },
+  swamp: { radio: 0.24, alto: 0.42, claro: CLARO_COMO_LA_BARRERA, comoLaBarrera: true },
+  lava: { radio: 0.27, alto: 0.4, claro: CLARO_COMO_LA_BARRERA, comoLaBarrera: true },
+  rough: { radio: 0.25, alto: 0.38, claro: CLARO_COMO_LA_BARRERA, comoLaBarrera: true },
 };
 
 /** La mata más baja, en veces el alto de la cubierta de su suelo; la más alta, 0,6 más. */
@@ -981,6 +1031,11 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
    * La única puerta de lo que no es objeto ni nube a la escena; dice si entró.
    * Lo que se aparta del camino entra si `entra`, tan alto como quepa; si no,
    * se prueba el módulo más estrecho de su hoja, y si tampoco, no entra.
+   *
+   * Con `esbeltez`, el módulo que se ponga —el elegido o su reserva estrecha—
+   * se encoge hasta no ser más esbelto que eso (`tumbado`): la cubierta de lo
+   * que se pisa en un suelo `comoLaBarrera`. Va aquí y no en quien llama porque
+   * la reserva estrecha es justo la pieza más esbelta de la hoja.
    */
   const poner = (
     hoja: string,
@@ -994,9 +1049,13 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     nombre?: string,
     porAncho?: number,
     tono?: string,
+    esbeltez?: number,
   ): boolean => {
     const deLaHoja = deHoja(hoja, x, y, alto, t, clase, color, sombra, nombre, porAncho);
-    const s = tono === undefined || deLaHoja.src === null ? deLaHoja : { ...deLaHoja, tono };
+    const s = tumbado(
+      tono === undefined || deLaHoja.src === null ? deLaHoja : { ...deLaHoja, tono },
+      esbeltez,
+    );
     const r = APARTE[clase];
     if (r === null) return meter(s);
     if (!r.hojas.includes(hoja))
@@ -1004,7 +1063,10 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     if (entra(s)) return meter(ajustado(s, r));
     const e = masEstrecho(hoja);
     if (e === undefined || e.src === s.src) return false;
-    const estrecho = { ...s, src: e.src, nw: e.nw, nh: e.nh, ax: e.ax, ay: e.ay };
+    const estrecho = tumbado(
+      { ...s, src: e.src, nw: e.nw, nh: e.nh, ax: e.ax, ay: e.ay, alto: deLaHoja.alto },
+      esbeltez,
+    );
     return entra(estrecho) && meter(ajustado(estrecho, r));
   };
   /** `s` y, si es otro, el módulo más estrecho de su hoja en su sitio: lo que prueba `ponerPared`. */
@@ -1056,8 +1118,22 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     rechazos.push({ caja: cajaDeSprite(modulos[0]), razon: 'puente' });
     return false;
   };
-  const mata = (hoja: string, x: number, y: number, alto: number) =>
-    poner(hoja, x, y, alto, azar(), 'cubierta', MARCADOR.cubierta as string, false);
+  /** Una mata de la cubierta; `rala`, la de lo que se pisa en un suelo `comoLaBarrera`. */
+  const mata = (hoja: string, x: number, y: number, alto: number, rala = false) =>
+    poner(
+      hoja,
+      x,
+      y,
+      alto,
+      azar(),
+      'cubierta',
+      MARCADOR.cubierta as string,
+      false,
+      undefined,
+      undefined,
+      undefined,
+      rala ? ESBELTEZ_DE_LO_PISABLE : undefined,
+    );
   const altoDeMata = (s: Suelo) => CUBIERTA[s].alto * (MATA_MAS_BAJA + azar() * 0.6);
 
   /** La cresta de todos los macizos: dónde una cumbre y dónde un collado. */
@@ -1890,11 +1966,10 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   const puntos = esparcir(
     [0, 0, W, H],
     (x, y) => {
-      const r = CUBIERTA[a.suelo[Math.floor(y) * W + Math.floor(x)] as Suelo]?.radio ?? 0.35;
-      // Fuera de la mancha, el prado se deja en claro; lo demás sigue sembrado.
-      const s = a.suelo[Math.floor(y) * W + Math.floor(x)];
-      const claro = s === 'grass' ? 2.1 : s === 'lava' ? 1.8 : s === 'rough' ? 1.6 : 1.3;
-      return enMancha(x, y) ? r * 0.85 : r * claro;
+      const c = CUBIERTA[a.suelo[Math.floor(y) * W + Math.floor(x)] as Suelo];
+      // Fuera de la mancha, el suelo se deja en claro; en la mancha, sembrado. Un
+      // suelo `comoLaBarrera` no tiene manchas: sembrado, se leía como su barrera.
+      return c.comoLaBarrera || !enMancha(x, y) ? c.radio * c.claro : c.radio * 0.85;
     },
     pisable,
     azar,
@@ -1903,8 +1978,11 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   for (const p of puntos) {
     const i = Math.floor(p.y) * W + Math.floor(p.x);
     const s = a.suelo[i] as Suelo;
-    const mancha = enMancha(p.x, p.y);
-    // En la mancha de prado, ciénaga o nieve, arbolillos: así salen los bosquecillos.
+    const { comoLaBarrera } = CUBIERTA[s];
+    const mancha = !comoLaBarrera && enMancha(p.x, p.y);
+    // En la mancha de prado o nieve, arbolillos: así salen los bosquecillos. En un
+    // suelo `comoLaBarrera`, ninguno: los muertos de la ciénaga eran el bosque de
+    // al lado (s9 (17-18, 11-13)) y los pinos de lo áspero, el pinar.
     const arbol =
       mancha &&
       cercaDePueblo[i] !== 1 &&
@@ -1916,9 +1994,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         ? (
             {
               grass: azar() < 0.55 ? 'pinos' : 'frondosos',
-              swamp: 'muertos',
               snow: 'abetos-nevados',
-              rough: 'pinos',
               ...(lindeDeBosque[i] === 1 ? { dirt: azar() < 0.6 ? 'pinos' : 'frondosos' } : {}),
             } as Partial<Record<Suelo, string>>
           )[s]
@@ -1936,7 +2012,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       );
       continue;
     }
-    mata(hojaDeCubierta(s, azar()), p.x, p.y, altoDeMata(s));
+    mata(hojaDeCubierta(s, azar()), p.x, p.y, altoDeMata(s), comoLaBarrera);
   }
 
   // 6 · Nubes en el borde del mapa, como en la referencia.
@@ -2034,9 +2110,79 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       sendasDeEstriboEnAgua: sendasDeEstriboEnAgua(trazos, puentes, vados, esAgua).length,
       acantiladosARas: acantiladosARas(a.terreno, nivel, W, H).length,
       pisablesTapadas: pisablesTapadas(sprites, a.terreno, W, H, perfilDe).length,
+      cubiertaComoLaBarrera: ((c) => c.altas.length + c.regionesDensas.length)(
+        cubiertaComoLaBarrera(sprites, a.suelo, a.region, W),
+      ),
       modulosQueFaltan: [...faltan].sort(),
     },
   };
+}
+
+/**
+ * Lo más que tapa la cubierta de lo que se pisa en un suelo `comoLaBarrera`, de
+ * media por región: la suma de los rectángulos de sus piezas (en casillas²,
+ * con sus solapes) entre las casillas de la región. Antes de #184 era 1,28 de
+ * media en las semillas de la auditoría (más que lo alto de un acantilado,
+ * 0,75); con la cubierta rala, 0,31.
+ */
+export const HUELLA_DE_LO_PISABLE = 0.6;
+
+/**
+ * Las regiones de menos casillas no se miden por su media: en un enclave de una
+ * casilla, un charco ancho de la ciénaga ya pasa de 1. Lo que se lee o no como
+ * pisable es una extensión, no una casilla suelta.
+ */
+const REGION_QUE_SE_MIDE = 9;
+
+/** El alto más alto que da `altoDeMata` en el suelo `s`. */
+const altoMaximoDeMata = (s: Suelo) => CUBIERTA[s].alto * (MATA_MAS_BAJA + 0.6);
+
+/**
+ * Dónde la cubierta de lo que se pisa en un suelo `comoLaBarrera` vuelve a
+ * imitar la barrera (#184): las piezas de cubierta con el pie en una casilla
+ * pisable de esos suelos más altas que lo que les deja su esbeltez
+ * (`tumbado`) —un árbol, una aguja a su alto—, y las regiones de esos suelos
+ * (de `REGION_QUE_SE_MIDE` casillas o más) cuya cubierta tapa, de media por
+ * casilla, más de `HUELLA_DE_LO_PISABLE`. La
+ * suma es `informe.cubiertaComoLaBarrera`, y tiene que ser 0.
+ *
+ * `region` es la de `Analisis`: -1 en lo que no se pisa.
+ */
+export function cubiertaComoLaBarrera(
+  sprites: readonly Sprite[],
+  suelo: readonly Suelo[],
+  region: Int32Array,
+  W: number,
+): { readonly altas: readonly Sprite[]; readonly regionesDensas: readonly number[] } {
+  const altas: Sprite[] = [];
+  const huella = new Map<number, number>();
+  const casillas = new Map<number, number>();
+  for (let i = 0; i < region.length; i++) {
+    const r = region[i] as number;
+    if (r >= 0 && CUBIERTA[suelo[i] as Suelo].comoLaBarrera)
+      casillas.set(r, (casillas.get(r) ?? 0) + 1);
+  }
+  for (const s of sprites) {
+    if (s.clase !== 'cubierta' || s.capa !== 0) continue;
+    const i = Math.floor(s.y) * W + Math.floor(s.x);
+    const r = region[i];
+    if (r === undefined || r < 0) continue;
+    const su = suelo[i] as Suelo;
+    if (!CUBIERTA[su].comoLaBarrera) continue;
+    // Un marcador (sin imagen) no tiene esbeltez: se mide por su alto.
+    const tope = tumbado({ ...s, alto: altoMaximoDeMata(su) }, ESBELTEZ_DE_LO_PISABLE).alto;
+    if (s.alto > tope + 1e-9) altas.push(s);
+    const [x0, y0, x1, y1] = cajaDeSprite(s);
+    huella.set(r, (huella.get(r) ?? 0) + (x1 - x0) * (y1 - y0));
+  }
+  const regionesDensas = [...huella]
+    .filter(([r, h]) => {
+      const n = casillas.get(r) as number;
+      return n >= REGION_QUE_SE_MIDE && h / n > HUELLA_DE_LO_PISABLE;
+    })
+    .map(([r]) => r)
+    .sort((p, q) => p - q);
+  return { altas, regionesDensas };
 }
 
 /**
