@@ -2974,6 +2974,43 @@ enfrentadas; la crítica lo reencuadró, medido:
   inválidos y 0 Y. Sigue 1 de 4000 en 24×24 que no sale en 30 redes (3071),
   que es lo de antes.
 
+## Sendas en aspa y puentes sobre un charco (auditoría 3 §7 y §4, 08-10-2026)
+
+- **El aspa no era un cruce de diagonales.** La s2 en (1,31) y (32,2) se leía
+  como dos sendas rectas que se cruzan, pero no hay dos tramos que se corten sin
+  casilla común (un 2×2 con sus dos diagonales: 0 en 1-1000, y ya lo vigilaba
+  `horquillasNuevas`). Es el **centro de la región con sus cuatro diagonales**:
+  tres minas y el paso al nodo caían cada uno en una diagonal del centro, y cada
+  radio salía de él en diagonal. Ninguna esquina era red, así que la regla de la
+  L (`ArbolDeCaminos`) no tenía de dónde colgarlos. En 1-1000, 37 aspas en 31
+  mapas, más 28 en ciudades.
+- **El arreglo, en la búsqueda**: el paso que daría a una casilla su cuarta
+  diagonal cobra dos rectos más (`cerrariaUnAspa`), como la Y junto a un nodo
+  (#179). El radio entra por la casilla de al lado, que parte una de las
+  diagonales en L, y el centro reparte en T. Después: 0 aspas fuera de un nodo
+  en 1-1000; los cruces rectos (+, ~1 por mapa) no cambian, y la rectitud de las
+  fronteras tampoco (109 / 12 / 4). Banco: cambian 3 de 200 partidas (13, 78,
+  128), las tres en un `hero_moved` junto al aspa vieja y con el mismo ganador
+  y día de fin.
+- **Las 28 de las ciudades se quedan**: una ciudad neutral en la esquina de
+  cuatro regiones, con sus cuatro lados rectos de barrera, recibe un radio en
+  diagonal de cada una. Son cuatro regiones, no un árbol que se cruza, y la
+  ciudad tapa el cruce.
+- **El puente sobre un charco (s28 node-6, (9,16)) no se toca.** El nodo cruza
+  de lava a lava, que en el procedimental solo admite risco o montaña, pero
+  está en la esquina del lago de la frontera hierba–lava: tiene agua al norte
+  (una casilla suelta, 4-aislada, el final de ese muro fino) y al oeste, y risco
+  al sur. `barreraDeNodo` empata agua 2 – risco 2 y gana el agua por el orden en
+  que mira las vecinas, así que el escenógrafo pone puente y vuelve agua la
+  casilla del nodo. En 1-1000: 25 de 2 457 puentes salen de un empate, y 6
+  están en un nodo cuya frontera no puede ser de agua. Arreglarlo es elegir la
+  barrera del nodo con lo que sabe el generador (la de la pareja), que el mapa
+  no guarda, o desempatar en `nodos.ts`; con ~1 % de los puentes y del lado del
+  escenógrafo, se deja escrito. La s24 node-8 (8,26) es un puente diagonal
+  (sus únicas vecinas pisables opuestas son NE, nieve, y SO, hierba): el caso
+  de las diagonales que ya contaba la auditoría 2 (8 de 23), no uno nuevo; no
+  se ha medido aparte.
+
 ## La fuerza del héroe, medida (#182, 08-10-2026)
 
 - **La sospecha**: con lado 44, la s191 no terminaba, y en ella un héroe sin

@@ -422,6 +422,30 @@ function horquillasNuevas(map: GameMap): string[] {
   return fallos;
 }
 
+/**
+ * Las aspas: una casilla con sus cuatro diagonales de camino, que se pinta como
+ * dos sendas rectas cruzadas (auditoría 3, §7: s2 en (1,31) y (32,2), el centro
+ * de la región con tres minas y un nodo, uno en cada diagonal). No es un 2×2
+ * con las dos diagonales —eso ya lo caza `horquillasNuevas`—: los cuatro
+ * tramos comparten la casilla del medio. Antes del arreglo, 37 en 31 mapas de
+ * 1-1000.
+ *
+ * Se admite en un nodo: una ciudad neutral en la esquina de cuatro regiones,
+ * con los cuatro lados rectos de barrera, recibe un radio en diagonal de cada
+ * una, y cada uno es de otra región (28 en 1-1000, la ciudad tapa el cruce).
+ */
+function aspas(map: GameMap): string[] {
+  const nodos = new Set(estructura(map).nodos.map((n) => pointKey(n.at)));
+  const diagonales = new Map<string, number>();
+  for (const [p, q] of map.caminos.tramos) {
+    if (p.x === q.x || p.y === q.y) continue;
+    for (const c of [pointKey(p), pointKey(q)]) diagonales.set(c, (diagonales.get(c) ?? 0) + 1);
+  }
+  return [...diagonales]
+    .filter(([c, n]) => n === 4 && !nodos.has(c))
+    .map(([c]) => `aspa en (${c}): cuatro sendas en diagonal desde la misma casilla`);
+}
+
 describe('el generador hace redes como las pidió el usuario', () => {
   it(`200 semillas en ${LADO_DEL_MAPA}×${LADO_DEL_MAPA} y 20 en 48×48: válidas, ciudades de grado ≥ 3, equilibradas, con dos caminos y densas`, () => {
     const fallos: string[] = [];
@@ -455,6 +479,7 @@ describe('el generador hace redes como las pidió el usuario', () => {
         }
         // En los dos lados: las cifras de arriba son de 34×34, las horquillas no.
         fallos.push(...horquillasNuevas(map).map(dondeFalla));
+        fallos.push(...aspas(map).map(dondeFalla));
         fallos.push(...deDensidad.map(dondeFalla));
         for (const b of frontera.keys()) fronteraTotal.add(b);
         // Cuatro barreras que se vean, no cuatro nombres: cada una con su mínimo.
@@ -637,6 +662,23 @@ describe('el generador hace redes como las pidió el usuario', () => {
       const { map } = buildMap(generateMapPlan(createRng(s), { width: 34, height: 34 }));
       expect(horquillasNuevas(map), `34×34 semilla ${s}`).toEqual([]);
     }
+  });
+
+  it('el centro de una región no reparte en aspa: la cuarta diagonal cuesta más que la T (auditoría 3, §7)', () => {
+    // Las que mordían en 1-1000 antes del arreglo: 2 (la de la auditoría), 13 y 49.
+    for (const s of [2, 13, 49]) {
+      const { map } = buildMap(generateMapPlan(createRng(s)));
+      expect(aspas(map), `semilla ${s}`).toEqual([]);
+    }
+  });
+
+  itLento('ninguna aspa fuera de un nodo en las semillas 1-1000 (auditoría 3, §7)', () => {
+    const fallos: string[] = [];
+    for (const s of rango(1, 1000)) {
+      const { map } = buildMap(generateMapPlan(createRng(s)));
+      fallos.push(...aspas(map).map((f) => `semilla ${s}: ${f}`));
+    }
+    expect(fallos).toEqual([]);
   });
 
   it('el plan del generador pasa el esquema del agente: los dos productores hablan igual', () => {
@@ -980,6 +1022,26 @@ describe('los caminos de cada región salen de su centro', () => {
     ).toEqual(new Set([`${i(1, 1)}-${i(2, 1)}`, `${i(1, 1)}-${i(2, 2)}`]));
     // Y colgar de lo que no es red es un fallo de programa.
     expect(() => arbol(i(1, 1), [[i(3, 3), i(2, 2)]])).toThrow(/no se cuelga \(3,3\) de \(2,2\)/);
+  });
+
+  it('la cuarta diagonal de una casilla cerraría un aspa, y no si entra por una esquina (auditoría 3, §7)', () => {
+    const tres = (nodo = new Uint8Array(W * H)) => {
+      const a = new ArbolDeCaminos(W, H, nodo, i(2, 2));
+      for (const c of [i(1, 1), i(3, 1), i(1, 3)]) a.colgar(c, i(2, 2));
+      return a;
+    };
+    expect(tres().cerrariaUnAspa(i(2, 2), i(3, 3))).toBe(true);
+    // Con tres no hay aspa: una recta y un ramal.
+    const dos = new ArbolDeCaminos(W, H, new Uint8Array(W * H), i(2, 2));
+    for (const c of [i(1, 1), i(3, 1)]) dos.colgar(c, i(2, 2));
+    expect(dos.cerrariaUnAspa(i(2, 2), i(3, 3))).toBe(false);
+    // Con una esquina en la red, (3,3) se colgaría de ella en recto.
+    const conEsquina = tres();
+    conEsquina.colgar(i(3, 2), i(2, 2));
+    expect(conEsquina.cerrariaUnAspa(i(2, 2), i(3, 3))).toBe(false);
+    // Un paso recto, o hacia lo que ya es red, no cuelga nada en diagonal.
+    expect(tres().cerrariaUnAspa(i(2, 2), i(2, 3))).toBe(false);
+    expect(tres().cerrariaUnAspa(i(2, 2), i(1, 3))).toBe(false);
   });
 });
 

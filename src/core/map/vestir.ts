@@ -895,11 +895,14 @@ class Busqueda {
   }
 
   /**
-   * Desde `origen`. Con `red` (y su `pegada`: las casillas 8-vecinas de la red),
-   * lo trazado cuesta la mitad y arrimarse, un paso recto más. Con `hasta`, se
-   * para al sacarlo: lo que se lee después es su `previo`, que ya no cambia.
+   * Desde `origen`. Con el `arbol` de la región, lo trazado (`red`) cuesta la
+   * mitad y arrimarse (`pegada`: las casillas 8-vecinas de la red), un paso
+   * recto más. Con `hasta`, se para al sacarlo: lo que se lee después es su
+   * `previo`, que ya no cambia.
    */
-  buscar(origen: number, red?: Uint8Array, pegada?: Uint8Array, hasta?: number): void {
+  buscar(origen: number, arbol?: ArbolDeCaminos, hasta?: number): void {
+    const red = arbol?.red;
+    const pegada = arbol?.pegada;
     const { W, H, regionDe, tipos, monstruos } = this.e;
     const { desde, vecinas } = vecindad(W, H);
     const { coste, previo, nodo } = this;
@@ -944,6 +947,13 @@ class Busqueda {
           if ((nodo[k1] === 1 && red[k1] === 1) || (nodo[k2] === 1 && red[k2] === 1)) {
             paso += 2 * this.recto;
           }
+          // La cuarta diagonal de una casilla dibuja un aspa: dos sendas rectas
+          // que se cruzan, y se lee como trazado a regla (s2, (1,31): el centro
+          // de la región en medio de tres minas y un nodo, uno en cada
+          // diagonal; 37 en 31 mapas de 1-1000, auditoría 3 §7). Los mismos
+          // dos pasos rectos que la Y: más que la vuelta por la casilla de al
+          // lado, que la parte en T.
+          if (arbol?.cerrariaUnAspa(a, j) === true) paso += 2 * this.recto;
         }
         const c = hastaAqui + paso;
         if (coste[j] !== -1 && (coste[j] as number) <= c) continue;
@@ -1050,7 +1060,7 @@ export function trazarCaminos(e: EntradaDeCaminos): [number, number][] {
     const arbol = new ArbolDeCaminos(e.W, e.H, b.nodo, centro);
     for (const o of objetivos) {
       if (arbol.red[o] === 1) continue;
-      b.buscar(centro, arbol.red, arbol.pegada, o);
+      b.buscar(centro, arbol, o);
       if (b.previo[o] === -1) {
         const p = aPunto(o, e.W);
         throw new Error(
@@ -1151,6 +1161,28 @@ export class ArbolDeCaminos {
       if (padre[u] === v) this.partir(v, u, c);
       else if (padre[v] === u) this.partir(u, v, c);
     }
+  }
+
+  /**
+   * ¿Colgar `j` de `a` en diagonal le daría a `a` sus cuatro diagonales? Solo
+   * si `j` entraría de verdad en diagonal: con una esquina en la red (que no
+   * sea nodo) se cuelga de ella (`colgar`) y no hay aspa. Una diagonal solo
+   * nace al colgar una casilla sin esquina en la red —`partir` las cambia por
+   * rectos, nunca al revés—, así que mirarlo al colgar basta.
+   */
+  cerrariaUnAspa(a: number, j: number): boolean {
+    const { W, red, padre, nodo } = this;
+    if (red[a] !== 1 || red[j] === 1) return false;
+    const esquinas = this.esquinas(a, j);
+    if (esquinas.length === 0 || esquinas.some((k) => red[k] === 1 && nodo[k] !== 1)) return false;
+    const x = a % W;
+    for (const [dx, dy] of CUADRANTES) {
+      const k = a + dx + dy * W;
+      if (k === j) continue;
+      if (x + dx < 0 || x + dx >= W || k < 0 || k >= red.length) return false;
+      if (padre[k] !== a && padre[a] !== k) return false;
+    }
+    return true;
   }
 
   /** Los tramos del árbol, `[padre, casilla]`, en el orden en que entraron. */

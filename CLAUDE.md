@@ -198,7 +198,8 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   tramos** (`GameMap.caminos`, una `RedDeCaminos`) y las casillas que abaratan
   el paso salen de ellos; el procedimental guarda los que traza, con las
   horquillas en L hechas al colgar cada casilla (`ArbolDeCaminos`, nunca de un
-  nodo), y el plan del agente escribe casillas, cuyos tramos deriva
+  nodo) y la cuarta diagonal de una casilla cobrada (`cerrariaUnAspa`: el aspa
+  solo queda en una ciudad donde se juntan cuatro regiones), y el plan del agente escribe casillas, cuyos tramos deriva
   `tramosDeCasillas`. `MapPlan` lleva `roads` o `tramos`, nunca los dos (lo
   dice el tipo), y `planDelAgente` es la única conversión del uno al otro. El
   agente lee casillas; el espectador recibe tramos planos (índices).

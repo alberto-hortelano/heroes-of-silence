@@ -579,11 +579,21 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   solo al sur, sin el reflejo, j0 ganaba 115 de 200 y lo sembrado con espejo
  *   exacto bajaba del 91,4 al 89,8 % (91,8 % con el reflejo). Re-anclado una
  *   vez, al final.
+ * - `e498dd6d…` (68 482 líneas): **el centro de una región no reparte en aspa**
+ *   (auditoría 3 §7, 08-10-2026). La cuarta diagonal de una casilla cuesta dos pasos
+ *   rectos más (`cerrariaUnAspa`, `vestir.ts`) y el radio entra en T por la
+ *   casilla de al lado. Solo cambian casillas de camino, y solo en los mapas
+ *   con aspa: de las 7 semillas de 1-200 que la tenían (2, 13, 49, 61, 78,
+ *   128, 189) cambian **3, la 13, la 78 y la 128**; las otras 197, idénticas.
+ *   El primer hecho distinto es en las tres un `hero_moved` del héroe 1 junto
+ *   al aspa vieja (13: (22,15) → (23,15), 105 → 75 puntos; 128: (17,3) →
+ *   (17,4); 78: el hecho 255). Mismo ganador y mismo día de fin en las tres
+ *   (78: 297 → 313 hechos). Re-anclado una vez, al final.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '16d287812208727adcc39b1932c103ccffb4e3f92bd3cc87e52b55e94d6ef377',
+  sha: 'e498dd6da88f38b8031d5e7702f71039d2921957b44782231b18011a938f7dd5',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);
