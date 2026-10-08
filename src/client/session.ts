@@ -110,11 +110,11 @@ const SIN_RESOLVER = 'Nadie gana: se han agotado los días.';
 const FIN_AJENO = 'La partida ha terminado.';
 
 /**
- * Las dos son `Record<Desenlace, string>` y no un `switch`, y eso es el guardia.
+ * Es `Record<…, Record<Desenlace, string>>` y no un `switch`, y eso es el guardia.
  *
  * Con `switch` de sentencia —el que asigna a `this.status` y hace `break`— un
  * cuarto desenlace **no pone nada rojo**: se comprobó plantando uno en la unión
- * y `pnpm typecheck` salía verde por estos dos sitios. La tabla lo caza con
+ * y `pnpm typecheck` salía verde por aquí. La tabla lo caza con
  * `TS2741: Property … is missing`, que es lo que hace falta el día que exista
  * otra forma de acabar una partida.
  */
@@ -135,13 +135,6 @@ const AL_ACABARSE_EL_MAPA: Record<DefeatReason, Record<Desenlace, string>> = {
     'sin resolver': SIN_RESOLVER,
     ajena: FIN_AJENO,
   },
-};
-
-const AL_CERRARSE_LA_BATALLA: Record<Desenlace, string> = {
-  ganada: '¡Victoria!',
-  perdida: 'Derrota.',
-  'sin resolver': SIN_RESOLVER,
-  ajena: FIN_AJENO,
 };
 
 /**
@@ -346,8 +339,21 @@ export class Session implements ControlDeBatalla, HechizosDeBatalla {
    * reescribe a cada casilla que pisa el ratón, ningún panel la lee —`main.ts`
    * la copia a su barra comparando el texto— y subir la versión por ella tiraba
    * a cada paso del ratón todo lo que el mapa guarda entre fotogramas.
+   *
+   * **Con la partida terminada, la barra es del desenlace** (#162), y la regla
+   * está en la lectura, no en cada escritor: #158 c la puso en `señalar` y un
+   * clic —`clickTile` → `bloqueoDeTurno`— seguía tapando el «Derrota…» con
+   * «la partida ha terminado». Lo que se escriba después se guarda y no se lee
+   * hasta otra partida, que es otra sesión: no lo hay.
    */
-  status = '';
+  get status(): string {
+    const desenlace = this.desenlace;
+    return desenlace === null ? this.barra : this.alAcabarseElMapa(desenlace);
+  }
+  set status(texto: string) {
+    this.barra = texto;
+  }
+  private barra = '';
 
   /**
    * Mientras juegan los rivales no se acepta nada de la persona.
@@ -586,11 +592,7 @@ export class Session implements ControlDeBatalla, HechizosDeBatalla {
     // Entrar en la base rival vacía acaba la partida, y abría su castillo
     // encima: el fin y su causa se quedaban detrás de una pantalla de compras
     // que ya no sirve de nada.
-    const desenlace = this.desenlace;
-    if (desenlace !== null) {
-      this.status = this.alAcabarseElMapa(desenlace);
-      return;
-    }
+    if (this.desenlace !== null) return;
     // Donde se quedó, que es el destino o el último paso pagable del día.
     const pueblo = this.myTowns().find((t) => sameTile(t.at, hero.at));
     if (pueblo !== undefined) this.openTown(pueblo.id);
@@ -642,12 +644,8 @@ export class Session implements ControlDeBatalla, HechizosDeBatalla {
       await playAiTurn(this.state, this.ctx, { noSeRinden: this.sinRendirsePorMi });
       guard++;
     }
-    const desenlace = this.desenlace;
-    if (desenlace === null) {
-      this.selectedHeroId = this.myHeroes()[0]?.id ?? null;
-    } else {
-      this.status = this.alAcabarseElMapa(desenlace);
-    }
+    // Si se acabó, la barra ya dice cómo (`status`).
+    if (this.desenlace === null) this.selectedHeroId = this.myHeroes()[0]?.id ?? null;
   }
 
   // ------------------------------------------------------------ castillo
@@ -1101,10 +1099,10 @@ export class Session implements ControlDeBatalla, HechizosDeBatalla {
     if (this.selectedHero === null) {
       this.selectedHeroId = this.myHeroes()[0]?.id ?? null;
     }
-    // «¡Batalla!» se quedaba en la barra ya de vuelta en el mapa: se borra, y si
-    // la batalla cerró la partida se dice cómo.
-    const desenlace = this.desenlace;
-    this.status = desenlace === null ? '' : AL_CERRARSE_LA_BATALLA[desenlace];
+    // «¡Batalla!» se quedaba en la barra ya de vuelta en el mapa: se borra. Si
+    // la batalla cerró la partida, la barra dice cómo sin que se escriba aquí
+    // (`status`); antes era un «¡Victoria!» a secas, sin la causa.
+    this.status = '';
   }
 
   // ------------------------------------------------------------ interno

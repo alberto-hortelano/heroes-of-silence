@@ -335,6 +335,44 @@ describe('el fin de partida cuenta la causa que selló el núcleo (I1 de la 2a)'
     expect(marcadoDe(renderSide(s))).toContain('Has tomado la base rival');
   });
 
+  it('con la partida terminada, un clic no tapa el desenlace de la barra (#162)', () => {
+    const s = new Session(5);
+    const { base, atacante } = anteLaBase(s.state, 0, 1);
+    s.moveHeroTo(atacante.id, base.at);
+    const fin = '¡Victoria! Has tomado la base rival.';
+    expect(s.status).toBe(fin);
+    // El clic en el mapa: `clickTile` → `bloqueoDeTurno` escribía «la partida
+    // ha terminado» encima. Y en una casilla con héroe propio, «… seleccionado».
+    s.clickTile({ x: 0, y: 0 });
+    expect(s.status).toBe(fin);
+    s.clickTile(heroesOf(s.state, 0)[0]!.at);
+    expect(s.status).toBe(fin);
+    // Lo del castillo pasa por `run`, con la misma guarda de turno.
+    s.hireHero();
+    expect(s.status).toBe(fin);
+    // La regla es de la lectura: ningún escritor la salta.
+    s.status = 'Cualquier otra cosa.';
+    expect(s.status).toBe(fin);
+  });
+
+  it('la batalla que cierra la partida deja en la barra el desenlace con su causa (#162)', () => {
+    const s = new Session(5);
+    const { base, atacante } = anteLaBase(s.state, 0, 1);
+    // El dueño dentro de su base la defiende solo con su tropa: un individuo
+    // contra toda la tropa del atacante, para que la batalla se gane.
+    const defensor = heroesOf(s.state, 1)[0]!;
+    defensor.at = { ...base.at };
+    defensor.army = defensor.army.slice(0, 1);
+    s.moveHeroTo(atacante.id, base.at);
+    expect(s.scene).toBe('battle');
+    // «Resolver sola» la juega y la cierra (`afterBattle`, lo mismo que «Continuar»).
+    s.autoResolveBattle();
+    expect(s.scene).toBe('adventure');
+    expect(s.desenlace).toBe('ganada');
+    // Antes, un «¡Victoria!» a secas, sin la causa que sí dice el mapa.
+    expect(s.status).toBe('¡Victoria! Has tomado la base rival.');
+  });
+
   it('una partida con ganador y sin player_defeated en la crónica se dice rota', () => {
     const s = new Session(5);
     s.state.finished = { winner: 1 };

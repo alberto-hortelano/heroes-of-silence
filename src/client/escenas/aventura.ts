@@ -250,8 +250,8 @@ export class EscenaAventura {
   private señalar(casilla: Point): void {
     const s = this.sesion();
     this.hover = casilla;
-    // Con la partida terminada la barra es del desenlace (#158 c): no hay ruta
-    // que enseñar y describir la casilla taparía el «Derrota…».
+    // Con la partida terminada no hay ruta que enseñar (#158 c). La barra ya no
+    // hay que guardarla aquí: es del desenlace por regla de `Session.status` (#162).
     if (s.desenlace !== null) {
       this.olvidarRuta();
       return;
