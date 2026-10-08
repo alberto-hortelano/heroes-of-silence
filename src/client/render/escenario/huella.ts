@@ -1,6 +1,7 @@
 /**
- * La huella de los caminos en el suelo: la senda (`Escena.sendas`). La pinta
- * `pintarSuelo` en su capa 3, encima del arcén y debajo del agua.
+ * La huella de los caminos en el suelo: la senda (`Escena.sendas`) y la trocha
+ * de los pasos sin camino (`Escena.trochas`). Las pinta `pintarSuelo` en su
+ * capa 3, encima del arcén y debajo del agua.
  *
  * La senda era un trazo de pluma —tres `stroke` de 0,2, 0,12 y 0,05 casillas en
  * colores fijos— que no se parecía al camino de HoMM2: una banda de tierra de
@@ -17,6 +18,7 @@
  */
 import type { Suelo } from '@core/map/terrain.js';
 import type { Escena } from './colocar.js';
+import { ANCHO_DE_TROCHA } from './nodos.js';
 import type { Imagen, Lienzo } from './pintar.js';
 import { ANCHO_DE_SENDA, IRREGULARIDAD_DE_SENDA, type Senda } from './sendas.js';
 
@@ -69,6 +71,15 @@ const ORLAS: readonly (readonly [number, string])[] = [
 /** El lomo de la senda: una franja más clara por el medio, en fracción de la media anchura. */
 const LOMO = 0.4;
 const COLOR_DEL_LOMO = 'rgba(232,208,165,0.13)';
+
+/**
+ * La trocha: más estrecha que la senda, sin orla, translúcida y con el borde
+ * más roto. Se afina en las puntas, donde se pierde entre la hierba.
+ */
+const ALFA_DE_LA_TROCHA = 0.62;
+const IRREGULARIDAD_DE_TROCHA = { lenta: 0.25, rapida: 0.3 } as const;
+/** Lo que tarda la trocha en tener su ancho desde cada punta, en casillas. */
+const PUNTA_DE_TROCHA = 0.6;
 
 /** Cada cuánto va un disco a lo largo del trazo, en casillas. */
 const PASO = 0.04;
@@ -239,10 +250,10 @@ function tierraEntonada(im: Imagen, nuevo: (ancho: number, alto: number) => Lien
   return lienzo;
 }
 
-/** Pinta en `c` las sendas de `e`, a `T` px por casilla. */
+/** Pinta en `c` las sendas y las trochas de `e`, a `T` px por casilla. */
 export function pintarHuellas(
   c: Contexto,
-  e: Pick<Escena, 'sendas' | 'semilla' | 'suelo' | 'W' | 'H'>,
+  e: Pick<Escena, 'sendas' | 'trochas' | 'semilla' | 'suelo' | 'W' | 'H'>,
   T: number,
   tierra: Imagen | undefined,
   nuevo: (ancho: number, alto: number) => Lienzo,
@@ -272,6 +283,18 @@ export function pintarHuellas(
   }
   trazarCinta(c, senda, T, LOMO);
   c.fillStyle = COLOR_DEL_LOMO;
+  c.fill();
+
+  const trocha = discosDe(
+    e.trochas,
+    ANCHO_DE_TROCHA / 2,
+    IRREGULARIDAD_DE_TROCHA,
+    e.semilla + 7,
+    (s, largo) => Math.max(0.3, Math.min(1, s / PUNTA_DE_TROCHA, (largo - s) / PUNTA_DE_TROCHA)),
+  );
+  trazarCinta(c, trocha, T);
+  c.fillStyle = tierraDe;
+  c.globalAlpha = ALFA_DE_LA_TROCHA;
   c.fill();
   c.restore();
 }

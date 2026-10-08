@@ -1419,4 +1419,5 @@ generado nada; lo que falta para que se parezca de verdad al camino de HoMM2:
 - **Opcional, `texturas/adoquin.webp`**: el empedrado de los caminos junto a las ciudades.
   El juego no distingue hoy un camino de otro; sería una regla nueva.
 
-Con la primera, `TEXTURA_DE_LA_HUELLA` apunta a ella y el filtro se quita.
+Con la primera, `TEXTURA_DE_LA_HUELLA` apunta a ella y el filtro se quita. La trocha de
+los pasos sin camino (#190) usa la misma.

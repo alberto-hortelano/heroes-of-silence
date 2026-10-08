@@ -81,6 +81,8 @@ import {
   type PasoALaVista,
   pasosALaVista,
   piezaDeNodo,
+  SEMIANCHO_DE_LA_TROCHA,
+  trochasDeLosPasos,
   varianteDeId,
 } from './nodos.js';
 import {
@@ -211,6 +213,11 @@ export interface Escena {
   readonly caminos: readonly (readonly [number, number, number, number])[];
   /** Los caminos encadenados y suavizados: lo que se pinta. Acaban en los estribos de los puentes. */
   readonly sendas: readonly Senda[];
+  /**
+   * Las trochas de los pasos sin camino de bosque, montaña y acantilado
+   * (`trochasDeLosPasos`, #190): solo se pintan, no apartan nada.
+   */
+  readonly trochas: readonly Senda[];
   /** Los puentes, uno por nodo de agua (`puentes.ts`): su sprite lleva su `id`. */
   readonly puentes: readonly Puente[];
   /**
@@ -306,6 +313,12 @@ export interface Escena {
      * que ser 0 en el procedimental. Un plan del agente puede cruzarlos.
      */
     readonly sendasPorObjeto: number;
+    /**
+     * Trochas (`trochasDeLosPasos`) cuyo arcén (`SEMIANCHO_DE_LA_TROCHA`) pisa
+     * el rectángulo de algo que se aparta del camino, volumen o no
+     * (`trochasTapadas`): tiene que ser 0.
+     */
+    readonly trochasTapadas: number;
     /**
      * Sendas que salen de un estribo y pasan por agua pintada en sus primeras
      * casillas, sin vado que la quite (`sendasDeEstriboEnAgua`): tiene que ser 0.
@@ -1017,6 +1030,9 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   // hueco, los picos y los árboles de alrededor lo enterraban y el paso no se
   // distinguía de la cordillera (#173).
   const pasos = pasosALaVista(map, a.puentes);
+  // La trocha de cada paso sin camino (#190): no es camino, pero lo de al lado
+  // se aparta de ella como del eje del paso.
+  const trochas = trochasDeLosPasos(map, a.puentes, semilla);
   // Las paredes del relieve por celdas (R4), sin las que cruza un puente: las
   // tapa su estribo, y debajo del tablero se ve el agua.
   const rel = caidas(
@@ -1053,6 +1069,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     formaDeLaSenda(bajadas.map(rampaDe)),
     ...formasDeLosTableros(puentes),
     formaDeLosPasos(pasos),
+    formaDeLasTrochas(trochas),
     ...reservas.keys(),
   ]);
   const sendaDeLaMuralla = sendaParaLaMuralla(trazos);
@@ -2221,6 +2238,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     altoDeNivel: ALTO_DE_NIVEL,
     caminos,
     sendas: trazos,
+    trochas,
     puentes,
     vados,
     luces: luces(a, nivel, azarDe(semilla * 31 + 5)),
@@ -2254,6 +2272,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       puentesTapados: puentesTapados(sprites, puentes).length,
       pasosTapados: pasosTapados(sprites, pasos).length,
       sendasPorObjeto: sendasPorObjeto(caminos, a.objetos, a.terreno, W, H).length,
+      trochasTapadas: trochasTapadas(sprites, trochas).length,
       sendasDeEstriboEnAgua: sendasDeEstriboEnAgua(trazos, puentes, vados, esAgua).length,
       acantiladosARas: acantiladosARas(a.terreno, nivel, W, H).length,
       pisablesTapadas: pisablesTapadas(sprites, a.terreno, W, H, perfilDe).length,
@@ -2502,6 +2521,36 @@ export function sendasPorObjeto(
       o.at.y + 1 < H && !esBarrera(terreno[(o.at.y + 1) * W + o.at.x] as TerrainKind);
     const [x, y] = llegan[0] as number[];
     return conPuerta && (x !== cx || y !== cy + 1);
+  });
+}
+
+const MEDIDA_DE_LA_TROCHA: Medida = { radio: SEMIANCHO_DE_LA_TROCHA, soloElPie: false };
+
+/**
+ * Las trochas de los pasos sin camino como obstáculo (#190): nada de lo que se
+ * aparta del camino las pisa, ni lo bajo, que en un bosque nevado es un
+ * tapiz de abetos de 0,6 que la tapaba entera. Más estrecho que el eje del
+ * paso (`formaDeLosPasos`), que solo aparta volúmenes: la trocha se lee como un
+ * hueco en lo bajo, no como una franja pelada.
+ */
+export function formaDeLasTrochas(trochas: readonly Senda[]): Forma<Medible> {
+  return {
+    trazos: trochas,
+    alcance: SEMIANCHO_DE_LA_TROCHA,
+    mide: (s) => (APARTE[s.clase] !== null ? MEDIDA_DE_LA_TROCHA : null),
+  };
+}
+
+/**
+ * Las trochas que pisa el rectángulo de algo que se aparta, medido desde lo
+ * puesto y sin preguntar a la puerta (`formaDeLasTrochas`): si se equivoca,
+ * esto lo ve.
+ */
+export function trochasTapadas(sprites: readonly Sprite[], trochas: readonly Senda[]): Senda[] {
+  const cuentan = sprites.filter((s) => APARTE[s.clase] !== null && s.capa === 0);
+  return trochas.filter((t) => {
+    const arcen = pasilloDe([t], SEMIANCHO_DE_LA_TROCHA);
+    return cuentan.some((s) => arcen.pisa(s));
   });
 }
 

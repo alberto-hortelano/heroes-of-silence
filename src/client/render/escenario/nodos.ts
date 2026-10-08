@@ -5,6 +5,7 @@
  */
 import type { MapObject, TramoDeCamino } from '@core/map/map.js';
 import { type Barrera, esBarrera, type TerrainKind } from '@core/map/terrain.js';
+import { azarDe } from './esparcir.js';
 
 /**
  * Los nodos de paso, uno por barrera; la puerta en las dos orientaciones de la
@@ -245,5 +246,73 @@ export function pasosALaVista(
     if (o.kind !== 'node' || puentes.has(o.id)) return [];
     if (!NODOS.some((n) => n.barrera === o.barrera)) return [];
     return [{ id: o.id, eje: ejeDelPaso(o.at, map.width, map.terrain) }];
+  });
+}
+
+/**
+ * Las barreras cuyo nodo sin camino lleva trocha (#190): un paso de bosque, de
+ * montaña o de acantilado sin camino era una manchita de tierra entre árboles o
+ * rocas, y de lejos se leía cerrado (defecto 2 de la auditoría de caminos,
+ * 08-10-2026: ~4,4 por mapa). La puerta de muralla y el puente se leen solos.
+ */
+export const BARRERAS_CON_TROCHA: readonly Barrera[] = ['forest', 'mountain', 'cliff'];
+
+/**
+ * Lo ancho de la trocha pintada, en casillas (`huella.ts`): menos de la mitad
+ * de la senda (`ANCHO_DE_SENDA`), que es un paso y no un camino.
+ */
+export const ANCHO_DE_TROCHA = 0.15;
+
+/**
+ * La media anchura de la trocha que no pisa nada de lo que se aparta del camino
+ * (`formaDeLasTrochas`, `colocar.ts`), ni lo bajo: los abetos de 0,6 casillas
+ * de la nieve, que no son volumen, la enterraban entera (s1, el paso de bosque
+ * (10,5)). La trocha y un arcén de 0,1.
+ */
+export const SEMIANCHO_DE_LA_TROCHA = ANCHO_DE_TROCHA / 2 + 0.1;
+
+/** Cuánto se tuerce la trocha a un lado de su eje, en casillas: poco, que va dentro del paso. */
+export const VAIVEN_DE_TROCHA = 0.07;
+
+/**
+ * La trocha de cada nodo de `BARRERAS_CON_TROCHA` al que no llega camino: su
+ * eje (`ejeDelPaso`, el que se deja sin volúmenes) en puntos cada cuarto de
+ * casilla, torcido `VAIVEN_DE_TROCHA` a un lado y a otro, con los extremos en
+ * su sitio. Es solo escena: no abarata el paso ni es un segundo camino de la
+ * pareja de regiones (#149), y por eso no va con las sendas ni a su pasillo.
+ */
+export function trochasDeLosPasos(
+  map: {
+    readonly width: number;
+    readonly terrain: readonly TerrainKind[];
+    readonly objects: readonly MapObject[];
+    readonly caminos: { readonly tramos: readonly TramoDeCamino[] };
+  },
+  puentes: ReadonlySet<string>,
+  semilla: number,
+): (readonly [number, number])[][] {
+  const azar = azarDe(semilla * 3371 + 23);
+  return map.objects.flatMap((o) => {
+    if (o.kind !== 'node' || puentes.has(o.id)) return [];
+    if (!BARRERAS_CON_TROCHA.includes(o.barrera)) return [];
+    if (pasaElCamino(map.caminos.tramos, o.at)) return [];
+    return ejeDelPaso(o.at, map.width, map.terrain).map(([a, b]) => {
+      const [x0, y0] = a as readonly [number, number];
+      const [x1, y1] = (b ?? a) as readonly [number, number];
+      const largo = Math.hypot(x1 - x0, y1 - y0);
+      const n = Math.max(1, Math.round(largo / 0.25));
+      const fase = azar() * Math.PI * 2;
+      const periodo = 1.5 + azar() * 1.5;
+      return Array.from({ length: n + 1 }, (_, i): readonly [number, number] => {
+        const t = i / n;
+        const d =
+          Math.sin(fase + ((t * largo) / periodo) * Math.PI) *
+          VAIVEN_DE_TROCHA *
+          Math.min(1, 4 * t, 4 * (1 - t));
+        const nx = largo === 0 ? 0 : -(y1 - y0) / largo;
+        const ny = largo === 0 ? 0 : (x1 - x0) / largo;
+        return [x0 + (x1 - x0) * t + nx * d, y0 + (y1 - y0) * t + ny * d];
+      });
+    });
   });
 }
