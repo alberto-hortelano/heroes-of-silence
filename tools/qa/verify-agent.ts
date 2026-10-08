@@ -66,12 +66,11 @@ let cliente: Client | null = null;
 
 async function terminar(codigo: number): Promise<never> {
   // El puente MCP es un hijo aparte y sin esto se quedaba suelto después de
-  // cada pasada, así que `close()` hace falta. Lo que NO es cierto es cómo
-  // muere, que es lo que decía aquí antes: «solo cuando su stdin da EOF».
-  // Instrumentado, ese camino **no se toma nunca** — `mcp/server.ts` mantiene
-  // abierto su WebSocket y no tiene manejador de cierre, así que el EOF no
-  // termina el proceso y lo que lo mata es el `SIGTERM` que el SDK manda dos
-  // segundos después. De ahí salen los 2 s que siguen costando este cierre.
+  // cada pasada, así que `close()` hace falta. `close()` le cierra el stdin y
+  // el puente, al ver el EOF, cierra su WebSocket y sale solo (#113): unos
+  // 15 ms. Hasta el 08-10-2026 no lo hacía —el socket lo mantenía vivo— y lo
+  // mataba el `SIGTERM` que el SDK manda a los dos segundos, que eran 2 de los
+  // 3,3 s de cada pasada. Lo vigila `test/puente-mcp.test.ts`.
   if (cliente !== null) {
     const c = cliente;
     cliente = null;

@@ -55,6 +55,8 @@ function puertoDelServidor(): number {
 
 let socket: WebSocket | null = null;
 let conectando: Promise<WebSocket> | null = null;
+/** El agente colgó: una conexión que termine de abrirse ahora ya no tiene a quién servir. */
+let cerrando = false;
 
 /**
  * Todo lo que espera al otro lado del socket: la petición que aún no ha
@@ -71,6 +73,10 @@ function connect(): Promise<WebSocket> {
     const ws = new WebSocket(SERVER_URL);
 
     ws.on('open', () => {
+      if (cerrando) {
+        ws.close();
+        return;
+      }
       socket = ws;
       conectando = null;
       send({ type: 'hello', client: 'heroes-mcp' });
@@ -108,6 +114,28 @@ function connect(): Promise<WebSocket> {
 
   return conectando;
 }
+
+/**
+ * El agente ya no está: se cierra el canal con la partida y se sale.
+ *
+ * Se cierra el canal, no la partida: el servidor sigue vivo a propósito después
+ * de un `game_over` para que `game_state` siga contestando, y un agente que se
+ * va a mitad lo nota como cualquier desconexión (la termina la IA). Se sale en
+ * cuanto el `close` del socket vuelve; el plazo es solo por si el servidor no
+ * contesta al cierre, y va `unref` para no ser él quien retenga el proceso.
+ */
+function cerrarPuente(): void {
+  cerrando = true;
+  buzon.corta('el agente ha cerrado el puente MCP');
+  const ws = socket;
+  if (ws === null || ws.readyState === WebSocket.CLOSED) process.exit(0);
+  ws.once('close', () => process.exit(0));
+  ws.close();
+  setTimeout(() => process.exit(0), PLAZO_DE_CIERRE_MS).unref();
+}
+
+/** Lo que se espera a que el servidor conteste al cierre del WebSocket antes de salir igual. */
+const PLAZO_DE_CIERRE_MS = 500;
 
 function recibir(msg: ServerToAgentMsg): void {
   switch (msg.type) {
@@ -429,6 +457,13 @@ server.tool('building_list', 'Los edificios de castillo con su coste y requisito
 // ---------------------------------------------------------------- arranque
 
 const transport = new StdioServerTransport();
+// Que el agente cuelgue tiene que tumbar el puente, y el SDK no lo hace solo:
+// su transporte no escucha el `end` de stdin (y su `onclose` solo salta si
+// alguien llama a `close()`, que aquí no llama nadie). Sin esto el WebSocket
+// mantenía vivo el proceso tras el EOF y lo que lo mataba era el `SIGTERM` que
+// `StdioClientTransport.close()` manda a los dos segundos: 2 de los 3,3 s de
+// cada `pnpm qa` (#113).
+process.stdin.once('end', cerrarPuente);
 await server.connect(transport);
 // La conexión con la partida se abre de forma perezosa: el MCP puede arrancar
 // antes que el servidor de juego sin morir en el intento.

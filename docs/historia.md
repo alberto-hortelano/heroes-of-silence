@@ -1360,6 +1360,13 @@ tiempo que recorta cobertura es una regresión disfrazada—. Y murió un coment
 que la medida desmintió: el puente **no** muere por el EOF de su stdin, como decía;
 muere por el `SIGTERM` de dos segundos después.
 
+**Y de 3,3 s a 1,3 s (08-10-2026, #113).** Esos dos segundos eran la primera carrera
+del cierre del SDK, que se agotaba siempre: el `StdioServerTransport` no escucha el
+`end` de stdin y el WebSocket con la partida mantenía vivo el puente. Ahora el
+puente escucha ese EOF, cierra su WebSocket y sale solo (~15 ms medidos desde
+`close()`). La partida no se toca: sigue viva tras un `game_over` a propósito. Lo
+vigila `test/puente-mcp.test.ts`, que cierra el stdin y no manda señales.
+
 ### No faltan días: falta un mapa que escale
 
 **Lo que #23 pedía —los 7 días de gracia— no se hizo, y el motivo es que la premisa
