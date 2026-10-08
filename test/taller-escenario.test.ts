@@ -18,13 +18,12 @@ import {
   COLOR_DE_BAJADA,
   COLOR_DE_DIAGONAL,
   celdasMalCubiertas,
-  componentesDePasos,
   laderasEnfrentadas,
   modulosDeLadera,
   SEMIANCHO_DE_PARED,
 } from '../src/client/render/escenario/colocar.js';
 import { azarDe, esparcir } from '../src/client/render/escenario/esparcir.js';
-import { ejeDe, esqueleto } from '../src/client/render/escenario/esqueleto.js';
+import { componentesDePasos, ejeDe, esqueleto } from '../src/client/render/escenario/esqueleto.js';
 import { cajaDeSprite, Pasillo, tramoEnCaja } from '../src/client/render/escenario/pasillo.js';
 import { ALTO_DE_NIVEL, nivelDeRegion, relieve } from '../src/client/render/escenario/relieve.js';
 import {

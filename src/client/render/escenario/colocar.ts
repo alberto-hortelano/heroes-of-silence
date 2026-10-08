@@ -4,15 +4,15 @@
  * Nada aquí es un objeto suelto por casilla. Cada franja de barrera se viste
  * como una FORMACIÓN —un bosque son cientos de árboles apretados, más altos
  * hacia dentro; una cordillera, cientos de picos que crecen hacia el centro;
- * una muralla, una sola línea de tramos con torres en las juntas— y el suelo se
- * cubre de detalle para que no quede desnudo. Las alturas (`relieve.ts`) ponen
- * mesetas, barrancos y caras de roca.
+ * una muralla, un lienzo seguido de puerta a barrera, con torres espaciadas
+ * (`muralla.ts`)— y el suelo se cubre de detalle para que no quede desnudo. Las
+ * alturas (`relieve.ts`) ponen mesetas, barrancos y caras de roca.
  *
  * Es puro salvo por leer los índices de los módulos y las medidas de las piezas
  * del disco; la escena es un JSON que pinta `pintor.ts`.
  */
 import type { MapObject } from '@core/map/map.js';
-import type { Barrera, Suelo } from '@core/map/terrain.js';
+import { type Barrera, esBarrera, type Suelo, type TerrainKind } from '@core/map/terrain.js';
 import { type Analisis, analizar, type Franja, type MapaDeEscena } from './analizar.js';
 import {
   bajoLaSilueta,
@@ -53,7 +53,7 @@ import {
   taludDeBajada as taludDeBajadaDe,
 } from './celdas.js';
 import { azarDe, esparcir } from './esparcir.js';
-import { ejeDe, esqueleto } from './esqueleto.js';
+import { ejeDe } from './esqueleto.js';
 import { seHornea } from './horneado.js';
 import {
   altoMaximoDe,
@@ -64,7 +64,21 @@ import {
   PASO_DEL_RUIDO,
   radioDePico,
 } from './macizo.js';
-import { esHito, nodoDePaso, type PasoALaVista, pasosALaVista, varianteDeId } from './nodos.js';
+import {
+  murallaSinLeer,
+  type PuertaDeMuralla,
+  type TramoPintado,
+  torresDe,
+  trazaDeMuralla,
+} from './muralla.js';
+import {
+  ejeDelPaso,
+  esHito,
+  nodoDePaso,
+  type PasoALaVista,
+  pasosALaVista,
+  varianteDeId,
+} from './nodos.js';
 import { type Caja, cajaDeSprite, Pasillo } from './pasillo.js';
 import { esVolumen, ordenDeVolumenes, separar, UMBRAL_DE_VOLUMEN } from './pintar.js';
 import {
@@ -192,7 +206,17 @@ export interface Escena {
   readonly luces: readonly Luz[];
   readonly sprites: readonly Sprite[];
   readonly informe: {
+    /**
+     * Lo que de la muralla no se lee como barrera, sobre lo pintado
+     * (`murallaSinLeer`): casillas de muro sin tramo cerca, puertas sin muralla
+     * a un lado y trozos de más de una línea partida. La suma de `muralla`.
+     */
     readonly murallasPartidas: number;
+    readonly muralla: {
+      readonly sinMuralla: readonly (readonly [number, number])[];
+      readonly puertasSueltas: readonly string[];
+      readonly huecos: number;
+    };
     readonly basesSobreReserva: number;
     readonly casillasDeBarreraSinFormacion: number;
     /**
@@ -820,7 +844,12 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         : undefined;
     const p = variante ?? (id === null ? null : pieza(id));
     const alto = p === null ? ancho : esHito(id) ? ALTO_DEL_HITO : (ancho * p.nh) / p.nw;
-    sprites.push(deObjeto(o, p, x, y + 0.35, alto));
+    // La puerta, por el medio: su ancla derivada es el pie más bajo, el de la
+    // torre de un lado, y la puerta caía 0,4 casillas al lado de su nodo, con el
+    // lienzo que llega a ella entrando por la torre (#183).
+    const centrada =
+      p !== null && id?.startsWith('nodo-puerta') === true ? { ...p, ax: p.nw / 2 } : p;
+    sprites.push(deObjeto(o, centrada, x, y + 0.35, alto));
   }
 
   // 2 · Los caminos: se encadenan en sendas y cada senda abre su pasillo.
@@ -1115,25 +1144,43 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   };
 
   // 3 · Las formaciones, franja a franja.
-  let murallasPartidas = 0;
+  /** Las puertas de muralla, con el sentido en que se cruzan (`ejeDelPaso`). */
+  const puertasDeMuralla: PuertaDeMuralla[] = a.objetos.flatMap((o) => {
+    if (o.kind !== 'node' || a.puentes.has(o.id) || a.pasos.get(o.id)?.barrera !== 'wall')
+      return [];
+    const [p, q] = ejeDelPaso(o.at, W, map.terrain)[0] ?? [];
+    if (p === undefined || q === undefined) throw new Error(`la puerta ${o.id} no tiene paso`);
+    return [{ id: o.id, at: [o.at.x, o.at.y], paso: [q[0] - p[0], q[1] - p[1]] }];
+  });
+  /** Los tramos y torres de muralla que entraron en la escena: lo que mira el guardia. */
+  const pintados: TramoPintado[] = [];
   let sinFormacion = 0;
+  // Lo que cae bajo la huella de una ciudad, un pueblo o un nodo lo tapa el propio objeto.
+  const bajoLaHuella = new Uint8Array(W * H);
+  /** Las casillas que tapa cada ciudad y cada pueblo: su muralla une lo que llega a ella. */
+  const huellas: (readonly [number, number])[][] = [];
+  for (const o of a.objetos) {
+    const r =
+      o.kind === 'town' || o.kind === 'village' || o.kind === 'node' ? RADIO_DE_OBJETO[o.kind] : 0;
+    if (r === undefined || r === 0) continue;
+    const huella: (readonly [number, number])[] = [];
+    for (let dy = -2; dy <= 2; dy++)
+      for (let dx = -2; dx <= 2; dx++) {
+        const x = o.at.x + dx;
+        const y = o.at.y + dy;
+        if (x >= 0 && y >= 0 && x < W && y < H && Math.hypot(dx, dy) < r) {
+          bajoLaHuella[y * W + x] = 1;
+          if (o.kind !== 'node') huella.push([x, y]);
+        }
+      }
+    if (huella.length > 0) huellas.push(huella);
+  }
   const cubiertas = new Uint8Array(W * H);
   for (const f of a.franjas) {
     const puestos = vestirFranja(f);
     for (const i of f.casillas) if (puestos.has(i)) cubiertas[i] = 1;
   }
-  // Lo que cae bajo la huella de una ciudad, un pueblo o un nodo lo tapa el propio objeto.
-  for (const o of a.objetos) {
-    const r =
-      o.kind === 'town' || o.kind === 'village' || o.kind === 'node' ? RADIO_DE_OBJETO[o.kind] : 0;
-    if (r === undefined || r === 0) continue;
-    for (let dy = -2; dy <= 2; dy++)
-      for (let dx = -2; dx <= 2; dx++) {
-        const x = o.at.x + dx;
-        const y = o.at.y + dy;
-        if (x >= 0 && y >= 0 && x < W && y < H && Math.hypot(dx, dy) < r) cubiertas[y * W + x] = 1;
-      }
-  }
+  for (let i = 0; i < W * H; i++) if (bajoLaHuella[i]) cubiertas[i] = 1;
   for (const f of a.franjas)
     for (const i of f.casillas)
       if (!cubiertas[i]) {
@@ -1230,39 +1277,11 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
           }
       }
     } else if (f.barrera === 'wall') {
-      // Una sola línea por franja, con torres en las juntas y cada pocos pasos.
-      const hoja = f.uso === 'obstaculo' ? 'ruina' : 'muro';
-      const e = esqueleto(f.casillas.map((i) => [i % W, Math.floor(i / W)] as const));
-      if (componentesDePasos(e.casillas, e.pasos) > 1) murallasPartidas++;
-      for (const p of e.pasos) {
-        const mx = (p.a[0] + p.b[0]) / 2 + 0.5;
-        const my = (p.a[1] + p.b[1]) / 2 + 0.5;
-        if (!entraria('muro', mx, my + 0.25, 1.05)) continue;
-        poner(
-          hoja,
-          mx,
-          my + 0.25,
-          1.05,
-          0.5,
-          'muro',
-          MARCADOR.wall as string,
-          true,
-          ejeDe(p),
-          ANCHO_DE_TRAMO[ejeDe(p)],
-        );
-      }
-      const juntas = new Set(e.juntas.map(([x, y]) => `${x},${y}`));
-      let n = 0;
-      for (const [x, y] of e.casillas) {
-        n++;
-        if ((juntas.has(`${x},${y}`) || n % 3 === 0) && entraria('muro', x + 0.5, y + 0.75, 1.4)) {
-          const torre = (x + y) % 2 === 0 ? 'torre-redonda' : 'torre-cuadrada';
-          poner(hoja, x + 0.5, y + 0.75, 1.4, 0.5, 'muro', MARCADOR.wall as string, true, torre);
-        }
-      }
+      vestirMuralla(f);
       for (const i of f.casillas) puestos.add(i);
-      // El resto de la franja: escombro y matas al pie de la muralla.
-      rellenoDeRocas(f, dentro, 0.34, 0.32, 0.25);
+      // El resto de la franja: escombro al pie de la muralla, nunca la cubierta
+      // del suelo vecino, que en tierra eran huertos y carros sobre el muro (s57).
+      rellenoDeRocas(f, dentro, 0.42, 0.32, 1);
     } else if (f.barrera === 'cliff') {
       // El acantilado es relieve: la cara la pinta el pintor. Arriba, roca y peñascos.
       // Una mesa (mancha) lleva cubierta encima; la franja de frontera, algo más de roca.
@@ -1302,6 +1321,103 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         poner('orilla', p.x, p.y, 0.3 + azar() * 0.12, azar(), 'orilla', '#5a5030', false);
     }
     return puestos;
+  }
+
+  /** El sprite del objeto en cuya reserva cae `(x, y)`, el más cercano si son varios. */
+  function objetoQueReserva(x: number, y: number): Sprite | undefined {
+    let mejor: Sprite | undefined;
+    let menor = Number.POSITIVE_INFINITY;
+    for (const o of a.objetos) {
+      if (a.puentes.has(o.id)) continue;
+      const d = Math.hypot(o.at.x + 0.5 - x, o.at.y + 0.5 - y);
+      // Un cuarto de casilla de holgura: la reserva va por una rejilla de cuartos.
+      if (d > (o.kind === 'node' ? 0.75 : (RADIO_DE_OBJETO[o.kind] ?? 0.5)) + 0.25 || d >= menor)
+        continue;
+      const s = sprites.find((t) => t.objeto?.id === o.id);
+      if (s === undefined) throw new Error(`el objeto ${o.id} no está en la escena`);
+      mejor = s;
+      menor = d;
+    }
+    return mejor;
+  }
+
+  /**
+   * Mete un tramo o una torre de muralla en la escena; dice si entró. Nunca se
+   * salta por una reserva, que dejaba el hueco por el que se leía que la muralla
+   * se rodeaba (s33 (2-4, 23-24), s27 (9-10, 11-12)):
+   *
+   * - Lo que llega a una puerta es parte de ella: ni pregunta por su reserva,
+   *   que es para que nada se plante en el paso, ni cuenta como base sobre ella.
+   *   Lo que sale hacia el sur iría delante y la tapaba entera (s2 (23,22)): se
+   *   pinta donde va pero se ordena justo antes que la puerta, que queda encima
+   *   y el lienzo sale de debajo de ella.
+   * - Si su pie cae en la reserva de otro objeto, pasa por detrás de él igual.
+   */
+  function meterEnLaMuralla(s: Sprite, puerta: PuertaDeMuralla | undefined): boolean {
+    const delante =
+      puerta === undefined
+        ? entraria('muro', s.x, s.y, s.alto)
+          ? undefined
+          : objetoQueReserva(s.x, s.y)
+        : sprites.find((o) => o.objeto?.id === puerta.id);
+    if (puerta !== undefined && delante === undefined)
+      throw new Error(`la puerta ${puerta.id} no está en la escena`);
+    if (delante === undefined) return entraria('muro', s.x, s.y, s.alto) && meter(s);
+    sprites.push(s.y < delante.y ? s : ordenadoEn(s, delante.y - 0.01));
+    return true;
+  }
+
+  /**
+   * Una muralla por franja de muro (#183): un lienzo seguido por su línea
+   * (`trazaDeMuralla`), que pasa por cada puerta y llega a la barrera vecina, y
+   * torres separadas (`torresDe`). Lo que entra se apunta en `pintados`, que es
+   * lo que cuenta el guardia (`murallaSinLeer`).
+   */
+  function vestirMuralla(f: Franja): void {
+    const hoja = f.uso === 'obstaculo' ? 'ruina' : 'muro';
+    const dentro = new Set(f.casillas);
+    const suyas = puertasDeMuralla.filter((p) =>
+      [-1, 0, 1].some((dy) =>
+        [-1, 0, 1].some((dx) => dentro.has((p.at[1] + dy) * W + p.at[0] + dx)),
+      ),
+    );
+    const e = trazaDeMuralla(
+      f.casillas.map((i) => [i % W, Math.floor(i / W)] as const),
+      suyas.map((p) => p.at),
+      (x, y) => {
+        for (let dy = -1; dy <= 1; dy++)
+          for (let dx = -1; dx <= 1; dx++) {
+            const nx = x + dx;
+            const ny = y + dy;
+            if (nx < 0 || ny < 0 || nx >= W || ny >= H) return true;
+            const t = a.terreno[ny * W + nx];
+            if (t !== 'wall' && esBarrera(t as TerrainKind)) return true;
+          }
+        return false;
+      },
+    );
+    const color = MARCADOR.wall as string;
+    for (const p of e.pasos) {
+      const eje = ejeDe(p);
+      const puerta = suyas.find((q) => [p.a, p.b].some(([x, y]) => x === q.at[0] && y === q.at[1]));
+      // El tramo recto se apoya por el medio del paso. El diagonal lleva el
+      // ancla en su punta baja (la que deriva el taller): puesto en el medio, el
+      // lienzo quedaba medio paso corrido hacia arriba y no llegaba a la casilla
+      // de abajo, que se leía sin muro (s57 (8,7)). Se apoya en la de abajo, `b`.
+      const diagonal = eje === 'diagonal-baja' || eje === 'diagonal-sube';
+      const x = diagonal ? p.b[0] + 0.5 : (p.a[0] + p.b[0]) / 2 + 0.5;
+      const pie = diagonal ? p.b[1] + 0.75 : (p.a[1] + p.b[1]) / 2 + 0.75;
+      const tramo = deHoja(hoja, x, pie, 1.05, 0.5, 'muro', color, true, eje, ANCHO_DE_TRAMO[eje]);
+      if (meterEnLaMuralla(tramo, puerta)) pintados.push({ franja: f.id, a: p.a, b: p.b });
+    }
+    for (const [x, y] of torresDe(
+      e,
+      suyas.map((p) => p.at),
+    )) {
+      const torre = (x + y) % 2 === 0 ? 'torre-redonda' : 'torre-cuadrada';
+      const s = deHoja(hoja, x + 0.5, y + 0.75, 1.4, 0.5, 'muro', color, true, torre);
+      if (meterEnLaMuralla(s, undefined)) pintados.push({ franja: f.id, a: [x, y], b: [x, y] });
+    }
   }
 
   /**
@@ -1836,6 +1952,21 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   const esAgua = (x: number, y: number) =>
     x >= 0 && y >= 0 && x < W && y < H && enElAgua.has(y * W + x);
   const vados = vadosDeLosEstribos(trazos, puentes, esAgua);
+  const muralla = murallaSinLeer(
+    a.franjas
+      .filter((f) => f.barrera === 'wall')
+      // La muralla de una ciudad es la de su pieza: lo que tapa su huella no cuenta.
+      .map((f) => ({
+        id: f.id,
+        casillas: f.casillas
+          .filter((i) => !bajoLaHuella[i])
+          .map((i) => [i % W, Math.floor(i / W)] as const),
+      })),
+    puertasDeMuralla,
+    (x, y) => x >= 0 && y >= 0 && x < W && y < H && a.terreno[y * W + x] === 'wall',
+    pintados,
+    huellas,
+  );
   return {
     semilla,
     W,
@@ -1858,7 +1989,8 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     luces: luces(a, nivel, azarDe(semilla * 31 + 5)),
     sprites,
     informe: {
-      murallasPartidas,
+      murallasPartidas: muralla.sinMuralla.length + muralla.puertasSueltas.length + muralla.huecos,
+      muralla,
       basesSobreReserva,
       casillasDeBarreraSinFormacion: sinFormacion,
       spritesSobreSenda: sobreLaSenda(sprites, pasillo).length,
@@ -2935,24 +3067,12 @@ function cajaDe(casillas: readonly number[], W: number): [number, number, number
   return [x0, y0, x1, y1];
 }
 
-/** Cuántas líneas separadas forman los pasos de un esqueleto. */
-export function componentesDePasos(
-  casillas: readonly (readonly [number, number])[],
-  pasos: readonly { a: readonly [number, number]; b: readonly [number, number] }[],
-): number {
-  const padre = new Map<string, string>();
-  const raiz = (k: string): string => {
-    let r = k;
-    while (padre.get(r) !== r) r = padre.get(r) as string;
-    return r;
-  };
-  for (const [x, y] of casillas) padre.set(`${x},${y}`, `${x},${y}`);
-  for (const p of pasos) {
-    const ra = raiz(`${p.a[0]},${p.a[1]}`);
-    const rb = raiz(`${p.b[0]},${p.b[1]}`);
-    if (ra !== rb) padre.set(ra, rb);
-  }
-  return new Set([...padre.keys()].map(raiz)).size;
+/**
+ * `s` pintado en el mismo sitio pero ordenado como si su pie estuviera en `y`:
+ * se mueve el pie y el ancla lo mismo, en sentidos contrarios.
+ */
+function ordenadoEn(s: Sprite, y: number): Sprite {
+  return { ...s, y, ay: s.ay - ((s.y - y) * s.nh) / s.alto };
 }
 
 export type { Analisis };

@@ -5,7 +5,7 @@
  * Se adelgaza la franja (Zhang-Suen sobre la rejilla de casillas), se podan las
  * ramitas de una casilla y se sacan los pasos entre casillas vecinas del
  * esqueleto. Cada paso va en una de las 8 direcciones; el pintor lo dibuja con
- * el tramo de su eje y pone torres donde la línea gira o acaba.
+ * el tramo de su eje; las torres las pone `torresDe` (`muralla.ts`).
  */
 
 export interface Paso {
@@ -32,17 +32,30 @@ export interface Esqueleto {
   readonly juntas: readonly (readonly [number, number])[];
 }
 
-/** Adelgaza un conjunto de casillas a su línea central. `casillas` en `[x, y]`. */
-export function esqueleto(casillas: readonly (readonly [number, number])[]): Esqueleto {
+/**
+ * Adelgaza un conjunto de casillas a su línea central. `casillas` en `[x, y]`.
+ *
+ * `fijas` entran en la forma y no se borran nunca, ni al adelgazar ni al podar:
+ * son las puertas de una muralla. Sin ellas la línea acababa donde la franja, a
+ * una casilla de la puerta o más, y la puerta quedaba sola en el llano (#183).
+ * Una fija no es junta: la puerta lleva sus propias torres.
+ */
+export function esqueleto(
+  casillas: readonly (readonly [number, number])[],
+  fijas: readonly (readonly [number, number])[] = [],
+): Esqueleto {
   if (casillas.length === 0) return { casillas: [], pasos: [], juntas: [] };
-  const xs = casillas.map((c) => c[0]);
-  const ys = casillas.map((c) => c[1]);
+  const todas = [...casillas, ...fijas];
+  const xs = todas.map((c) => c[0]);
+  const ys = todas.map((c) => c[1]);
   const ox = Math.min(...xs) - 1;
   const oy = Math.min(...ys) - 1;
   const w = Math.max(...xs) - ox + 2;
   const h = Math.max(...ys) - oy + 2;
   const g = new Uint8Array(w * h);
-  for (const [x, y] of casillas) g[(y - oy) * w + (x - ox)] = 1;
+  for (const [x, y] of todas) g[(y - oy) * w + (x - ox)] = 1;
+  const fija = new Uint8Array(w * h);
+  for (const [x, y] of fijas) fija[(y - oy) * w + (x - ox)] = 1;
   const en = (x: number, y: number) =>
     x < 0 || y < 0 || x >= w || y >= h ? 0 : (g[y * w + x] as number);
 
@@ -54,7 +67,7 @@ export function esqueleto(casillas: readonly (readonly [number, number])[]): Esq
       const borrar: number[] = [];
       for (let y = 1; y < h - 1; y++)
         for (let x = 1; x < w - 1; x++) {
-          if (!en(x, y)) continue;
+          if (!en(x, y) || fija[y * w + x]) continue;
           const p = [
             en(x, y - 1),
             en(x + 1, y - 1),
@@ -97,7 +110,7 @@ export function esqueleto(casillas: readonly (readonly [number, number])[]): Esq
     const quitar: number[] = [];
     for (let y = 0; y < h; y++)
       for (let x = 0; x < w; x++) {
-        if (!en(x, y)) continue;
+        if (!en(x, y) || fija[y * w + x]) continue;
         const v = vecinas(x, y);
         if (v.length === 1) {
           const [vx, vy] = v[0] as [number, number];
@@ -134,9 +147,31 @@ export function esqueleto(casillas: readonly (readonly [number, number])[]): Esq
       grado.set(k, [...(grado.get(k) ?? []), p]);
     }
   const juntas: [number, number][] = [];
+  const esFija = new Set(fijas.map(([x, y]) => `${x},${y}`));
   for (const c of restantes) {
+    if (esFija.has(`${c[0]},${c[1]}`)) continue;
     const ps = grado.get(`${c[0]},${c[1]}`) ?? [];
     if (ps.length !== 2 || ejeDe(ps[0] as Paso) !== ejeDe(ps[1] as Paso)) juntas.push(c);
   }
   return { casillas: restantes, pasos, juntas };
+}
+
+/** Cuántas líneas separadas forman los pasos de un esqueleto. */
+export function componentesDePasos(
+  casillas: readonly (readonly [number, number])[],
+  pasos: readonly { a: readonly [number, number]; b: readonly [number, number] }[],
+): number {
+  const padre = new Map<string, string>();
+  const raiz = (k: string): string => {
+    let r = k;
+    while (padre.get(r) !== r) r = padre.get(r) as string;
+    return r;
+  };
+  for (const [x, y] of casillas) padre.set(`${x},${y}`, `${x},${y}`);
+  for (const p of pasos) {
+    const ra = raiz(`${p.a[0]},${p.a[1]}`);
+    const rb = raiz(`${p.b[0]},${p.b[1]}`);
+    if (ra !== rb) padre.set(ra, rb);
+  }
+  return new Set([...padre.keys()].map(raiz)).size;
 }
