@@ -25,7 +25,6 @@ import {
   sendasPorObjeto,
 } from '../src/client/render/escenario/colocar.js';
 import { azarDe, esparcir } from '../src/client/render/escenario/esparcir.js';
-import { componentesDePasos, ejeDe, esqueleto } from '../src/client/render/escenario/esqueleto.js';
 import {
   type ConImagen,
   cajaDeSprite,
@@ -48,46 +47,6 @@ import type { TerrainKind } from '../src/core/map/terrain.js';
 import { newGame } from '../src/core/state/setup.js';
 import { leerCatalogo, textoDelCatalogo } from '../tools/taller/escenario/catalogo-disco.js';
 import { catalogoDelDisco, escenaDe } from './helpers.js';
-
-function franja(filas: readonly string[]): [number, number][] {
-  const c: [number, number][] = [];
-  filas.forEach((f, y) => {
-    [...f].forEach((ch, x) => {
-      if (ch === '#') c.push([x, y]);
-    });
-  });
-  return c;
-}
-
-describe('el esqueleto de una franja', () => {
-  it('una franja de 3 de ancho da UNA línea, no tres en paralelo', () => {
-    const e = esqueleto(franja(['##########', '##########', '##########']));
-    expect(componentesDePasos(e.casillas, e.pasos)).toBe(1);
-    // Una línea: ninguna casilla con más de dos pasos.
-    const grado = new Map<string, number>();
-    for (const p of e.pasos)
-      for (const c of [p.a, p.b]) grado.set(`${c}`, (grado.get(`${c}`) ?? 0) + 1);
-    expect(Math.max(...grado.values())).toBeLessThanOrEqual(2);
-    expect(new Set(e.pasos.map(ejeDe))).toEqual(new Set(['horizontal']));
-  });
-
-  it('una franja en L gira una vez y la torre va en el giro', () => {
-    const e = esqueleto(
-      franja(['##.......', '##.......', '##.......', '##.......', '#########', '#########']),
-    );
-    expect(componentesDePasos(e.casillas, e.pasos)).toBe(1);
-    const ejes = new Set(e.pasos.map(ejeDe));
-    expect(ejes.has('horizontal')).toBe(true);
-    expect(ejes.has('profundidad')).toBe(true);
-    expect(e.juntas.length).toBeGreaterThanOrEqual(3); // dos extremos y el giro
-  });
-
-  it('una franja en diagonal va por pasos diagonales', () => {
-    const e = esqueleto(franja(['##....', '###...', '.###..', '..###.', '...###', '....##']));
-    expect(componentesDePasos(e.casillas, e.pasos)).toBe(1);
-    expect(e.pasos.map(ejeDe)).toContain('diagonal-baja');
-  });
-});
 
 describe('el relieve', () => {
   const a = analizar(newGame({ seed: 9 }).map);

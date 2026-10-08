@@ -3343,6 +3343,78 @@ las minas eran 14 por bando, dos de cada recurso, en cualquier tamaño (#111).
   Cinco tests anclados a una semilla, movidos a otra, y el ancla de los paneles
   regenerada.
 
+## La muralla es la frontera, no la forma de la franja (#197, 08-10-2026)
+
+El usuario marcó dos sitios en s1 (13-16, 2-6): «muralla con hueco» y «muralla
+sin sentido». En general, «la muralla no encaja bien ni forma secciones
+coherentes». La crítica está en `docs/agents/2026-10-08-muralla-coherente/`.
+
+- **La causa era la escena, no el generador.** La franja de muro tiene dos casillas
+  de ancho y va a escalones y con bultos a propósito (#169: el lado que engorda
+  se da la vuelta cada `TRECHO_DEL_LADO`). La línea de #183 era su esqueleto
+  (Zhang-Suen) y copiaba esa forma:
+  - lo que quedaba a más de 1,42 se cosía como un espolón, y en s1 salía al
+    oeste y moría en la nieve;
+  - había una esquina en cada escalón;
+  - la torre iba solo en giros de 90° o más, y la junta de 45° entre la tira
+    N-S y el diagonal (apoyado por su punta baja) se veía abierta en s1 (15,5).
+
+  El espolón existía para cumplir el guardia `sinMuralla` («toda casilla de
+  muro a 1,42 de un tramo»).
+- **La línea va ahora de terminal a terminal** (`trazaDeMuralla`):
+  - Los terminales son las puertas y los **apoyos**: grupos de casillas de la
+    franja que tocan una misma cosa de fuera (barrera, borde, huella de ciudad)
+    y dos lados pisables.
+  - Se unen con tiradas de mínimo coste en un árbol de Prim, de cada terminal a
+    lo ya trazado. Una esquina cuesta 3 casillas, el borde de la franja un poco,
+    el pie de una cara 1,5, y llegar a lo trazado una esquina, salvo bajo una
+    ciudad.
+  - Lo que la línea no pisa es escombro.
+- **El guardia pasa de cobertura a cierre** (`fugasDe`): en una rejilla de 4×4
+  por casilla, ¿llega un lado a otro por la franja sin cruzar lo pintado?
+  - Los tramos tapan media casilla y acaban en seco. Con cabos redondos, un tramo
+    de menos no dejaba fuga.
+  - Las puntas que se apoyan se alargan hasta lo que tocan.
+  - Con 0,25 de ancho contaba como fuga una tira de un cuarto de casilla entre
+    un lienzo y el bosque (s42).
+
+  `sinMuralla` desaparece: en 1-40 quedan **281 casillas** de franja (de
+  2 729) a más de 1,42 de la línea, que ahora son escombro. Lo que se pide es
+  que cierre (`fugas`, en `murallasPartidas`) y, aparte, que se lea como una
+  muralla: `espolones` y `esquinasAbiertas` (`informe.murallaIncoherente`).
+- **Lo que hizo falta para cerrar, cada cosa con su semilla:**
+  - **s86**: una orilla que toca tres lados. Se añade el apoyo que toca a los dos
+    lados que se juntan, por sus casillas más a medio camino.
+  - **s270**: una franja que acaba contra un acantilado que toca un solo lado.
+    Se añade un apoyo que la fuga roza.
+  - **s58**: un dedo de una región metido en la franja. Se añade lo más estrecho
+    entre los dos lados. De los candidatos va el que más fugas cierra.
+  - **s103**: por lo alto quedaba un dedo al otro lado. Si cerrar por lo alto no
+    cierra, se traza en llano.
+  - **s2 (22-24, 27-28)**: dos apoyos pegados bajo una ciudad hacían un
+    triángulo de tramos con cuatro torres.
+  - **s9 (8-12, 1-6)**: la franja tiene un lado alto y otro bajo, y el relieve
+    la parte por el medio. La línea iba al pie de la cara y la cara la tapaba;
+    ahora va por lo alto.
+  - Se probaron, y no hicieron falta al final, que el nodo de otra barrera fuera
+    un apoyo y un coste por alejarse de la media.
+- **Torres**: obligadas en cada esquina (45° incluido) y en cada punta, nunca
+  bajo una ciudad. La de una esquina que no cabe se encoge o se corre como la de
+  una casilla sola. Donde no cabe de ninguna manera, la línea no dobla.
+- **Medido en 1-40 (antes en main 4a1cd8d, con los guardias nuevos aplicados a
+  lo que se pintaba):**
+  - espolones: 20 en 14 semillas → 0;
+  - juntas de dos ejes sin torre: 272 en 37 semillas → 0;
+  - fugas: 0 → 0;
+  - tramos: 1 114 → 840;
+  - cambios de eje en la línea: 466 → 106, de uno cada 2,4 tramos a uno cada 7,9.
+
+  `murallasPartidas`, `murallaIncoherente` y `murallaSobreSenda` dan 0 en
+  1-200. En 201-500 queda una fuga, en s443.
+- El generador no se tocó y `pnpm banco` sale igual.
+- El `esqueleto()` de Zhang-Suen se borró con sus tres tests: ya no lo usa
+  nadie. `esqueleto.ts` guarda `Paso`, `ejeDe` y `componentesDePasos`.
+
 ## Decisiones tomadas
 
 - **MCP antes que API key.** El usuario tiene Claude Max: el agente entra por

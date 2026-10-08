@@ -1,19 +1,23 @@
 /**
- * La muralla (#183): un lienzo seguido de puerta a la barrera vecina, la puerta
- * unida a los dos lados, torres que no se apilan y el guardia que cuenta lo
- * PINTADO (`murallaSinLeer`), no el esqueleto. La auditoría 3 midió el 66 % de
- * las casillas de muro sin una pieza cerca y 6 de 15 puertas solas en el llano
- * con `murallasPartidas` a 0.
+ * La muralla (#183, #197): una línea de frontera de puerta y apoyo a puerta y
+ * apoyo, torres en cada esquina y en lo recto, y el guardia que cuenta lo
+ * PINTADO (`murallaSinLeer`), no la línea. La auditoría 3 midió el 66 % de las
+ * casillas de muro sin una pieza cerca y 6 de 15 puertas solas en el llano con
+ * `murallasPartidas` a 0 (#183); con el esqueleto de la franja, la muralla
+ * sacaba espolones a la nieve y dejaba juntas abiertas (s1 (13-16, 2-6), #197).
  */
 import { describe, expect, it } from 'vitest';
 import { analizar } from '../src/client/render/escenario/analizar.js';
 import { sendaParaLaMuralla } from '../src/client/render/escenario/colocar.js';
-import { ejeDe } from '../src/client/render/escenario/esqueleto.js';
+import { ejeDe, type Paso } from '../src/client/render/escenario/esqueleto.js';
 import {
+  type Alrededor,
+  CIUDAD,
   ENTRE_TORRES,
+  esquinasDe,
   murallaSinLeer,
   murallaSobreLaSenda,
-  RADIO_DE_MURALLA,
+  type PuertaDeLinea,
   type TramoPintado,
   torresDe,
   trazaDeMuralla,
@@ -23,165 +27,251 @@ import { rango, segunPrisa } from './lento.js';
 
 type Casilla = readonly [number, number];
 
-/** Las casillas `#` de un dibujo, y la `P` (la puerta) aparte. */
-function dibujo(filas: readonly string[]): { muro: Casilla[]; puertas: Casilla[] } {
+const clave = ([x, y]: Casilla) => `${x},${y}`;
+
+/**
+ * Un trozo de mapa dibujado: `#` muro, `a` `b` `c` lo que se pisa de cada lado,
+ * `X` otra barrera y `P` una puerta (con `paso`, hacia dónde se cruza). Fuera
+ * del dibujo es el borde del mapa. `huella`, las casillas que tapa una ciudad.
+ */
+function mundo(
+  filas: readonly string[],
+  paso: Casilla = [0, 1],
+  huella: readonly Casilla[] = [],
+): { muro: Casilla[]; puertas: PuertaDeLinea[]; alrededor: Alrededor } {
   const muro: Casilla[] = [];
-  const puertas: Casilla[] = [];
+  const puertas: PuertaDeLinea[] = [];
   filas.forEach((f, y) => {
     [...f].forEach((ch, x) => {
       if (ch === '#') muro.push([x, y]);
-      if (ch === 'P') puertas.push([x, y]);
+      if (ch === 'P') puertas.push({ at: [x, y], paso });
     });
   });
-  return { muro, puertas };
+  const en = (x: number, y: number) => filas[y]?.[x];
+  const bajo = new Set(huella.map(clave));
+  const alrededor: Alrededor = {
+    apoyos: (x, y) => {
+      const cosas = new Set<string>();
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          const ch = en(x + dx, y + dy);
+          if (ch === undefined) cosas.add('borde');
+          if (ch === 'X') cosas.add('franja:X');
+          if (bajo.has(clave([x + dx, y + dy]))) cosas.add(`${CIUDAD}0`);
+        }
+      return [...cosas];
+    },
+    lado: (x, y) => 'abc'.indexOf(en(x, y) ?? '.'),
+    bajoCiudad: (x, y) => (bajo.has(clave([x, y])) ? [`${CIUDAD}0`] : []),
+    nivel: () => 0,
+  };
+  return { muro, puertas, alrededor };
 }
 
-const clave = ([x, y]: Casilla) => `${x},${y}`;
-const nunca = () => false;
+/** Lo que se pintaría de una línea: sus tramos y una torre en cada casilla de `torres`. */
+const pintado = (pasos: readonly Paso[], torres: readonly Casilla[] = []): TramoPintado[] => [
+  ...pasos.map((p) => ({ franja: 0, a: p.a, b: p.b })),
+  ...torres.map((c) => ({ franja: 0, a: c, b: c })),
+];
 
-describe('la línea de una muralla', () => {
-  it('pasa por la puerta y sale de ella a los dos lados', () => {
-    const { muro, puertas } = dibujo(['####P####', '####.####']);
-    const e = trazaDeMuralla(muro, puertas, nunca);
-    const p = clave(puertas[0] as Casilla);
-    const desdeLaPuerta = e.pasos.filter((q) => clave(q.a) === p || clave(q.b) === p);
-    // Una al oeste y otra al este, no dos del mismo lado.
-    const lados = desdeLaPuerta.map((q) => (clave(q.a) === p ? q.b[0] : q.a[0]) - 4);
-    expect(new Set(lados.map(Math.sign))).toEqual(new Set([-1, 1]));
+/** El guardia sobre la línea de un `mundo`, con sus torres. */
+function guardia(m: ReturnType<typeof mundo>, pasos: readonly Paso[], torres: readonly Casilla[]) {
+  const enMuro = new Set(m.muro.map(clave));
+  return murallaSinLeer(
+    [{ id: 0, casillas: m.muro }],
+    m.puertas.map((p, k) => ({ id: `p${k}`, at: p.at, paso: p.paso })),
+    (x, y) => enMuro.has(clave([x, y])),
+    pintado(pasos, torres),
+    m.alrededor,
+  );
+}
+
+const NADA = { fugas: [], puertasSueltas: [], huecos: 0, espolones: [], esquinasAbiertas: [] };
+
+/** Las puntas de una línea: casillas con un solo paso. */
+function puntas(pasos: readonly Paso[]): string[] {
+  const grado = new Map<string, number>();
+  for (const p of pasos)
+    for (const c of [p.a, p.b]) grado.set(clave(c), (grado.get(clave(c)) ?? 0) + 1);
+  return [...grado].filter(([, n]) => n === 1).map(([k]) => k);
+}
+
+describe('la línea de una muralla (#197)', () => {
+  // Una frontera en diagonal entre `a` (arriba) y `b` (abajo), de tres de
+  // ancho, del borde de arriba al bosque de abajo, con un bulto hacia `b` en
+  // (1,3): la franja de s1 (13-16, 1-6), a escalones y con su bulto.
+  const escalera = mundo([
+    'X##aaaaaaa',
+    'b###aaaaaa',
+    'bb###aaaaa',
+    'b####aaaaa',
+    'bbb###aaaa',
+    'bbbb###aaa',
+    'bbbbb###aa',
+    'bbbbbb###X',
+  ]);
+
+  it('en una franja a escalones con un bulto, una tirada recta de apoyo a apoyo, sin espolón', () => {
+    const e = trazaDeMuralla(escalera.muro, [], escalera.alrededor);
+    // Cada punta se apoya en algo: el borde o el bosque.
+    for (const k of puntas(e.pasos)) {
+      const [x, y] = k.split(',').map(Number) as [number, number];
+      expect(escalera.alrededor.apoyos(x, y), `punta (${k})`).not.toEqual([]);
+    }
+    // El bulto se queda en escombro: antes, el esqueleto sacaba ahí un espolón.
+    expect(e.casillas.map(clave)).not.toContain('1,3');
+    // Recta: un solo eje.
+    expect(new Set(e.pasos.map(ejeDe))).toEqual(new Set(['diagonal-baja']));
+    expect(guardia(escalera, e.pasos, torresDe(e, []))).toEqual(NADA);
   });
 
-  it('se alarga hasta la barrera vecina en vez de quedarse a una casilla', () => {
-    // Una franja de 2 de ancho que acaba contra algo en x = 9 (un acantilado).
-    const { muro } = dibujo(['##########', '##########']);
-    const toca = (x: number) => x >= 9;
-    const e = trazaDeMuralla(muro, [], (x) => toca(x));
-    expect(e.casillas.some(([x]) => toca(x))).toBe(true);
+  it('pasa por la puerta y sale de ella a los dos lados, de través a su paso', () => {
+    const m = mundo(['aaaaaaaaa', 'X###P###X', 'X###b###X', 'bbbbbbbbb']);
+    const e = trazaDeMuralla(m.muro, m.puertas, m.alrededor);
+    const desdeLaPuerta = e.pasos.filter((q) => clave(q.a) === '4,1' || clave(q.b) === '4,1');
+    expect(desdeLaPuerta.map(ejeDe)).toEqual(['horizontal', 'horizontal']);
+    const lados = desdeLaPuerta.map((q) => Math.sign((clave(q.a) === '4,1' ? q.b[0] : q.a[0]) - 4));
+    expect(new Set(lados)).toEqual(new Set([-1, 1]));
+    expect(guardia(m, e.pasos, torresDe(e, [[4, 1]]))).toEqual(NADA);
   });
 
-  it('en una mancha gorda ninguna casilla queda lejos de la línea', () => {
-    const { muro } = dibujo(['#####', '#####', '#####', '#####', '#####']);
-    const e = trazaDeMuralla(muro, [], nunca);
-    for (const c of muro)
-      expect(e.casillas.some((l) => Math.hypot(l[0] - c[0], l[1] - c[1]) <= RADIO_DE_MURALLA)).toBe(
-        true,
-      );
+  it('llega hasta debajo de la ciudad, no a la casilla de al lado (s1 (13,2))', () => {
+    // La ciudad tapa (0-2, 0-2), con la primera casilla de muro; la franja va de
+    // ella al borde del este. Parada en la casilla de al lado, (3,1), quedaba
+    // casilla y media de hueco hasta la pieza de la ciudad.
+    const huella: Casilla[] = [0, 1, 2].flatMap((y) => [0, 1, 2].map((x): Casilla => [x, y]));
+    const m = mundo(['...aaa', '..####', '...bbb'], [0, 1], huella);
+    const e = trazaDeMuralla(m.muro, [], m.alrededor);
+    expect(e.casillas.map(clave)).toContain('2,1');
+    expect(guardia(m, e.pasos, torresDe(e, []))).toEqual(NADA);
   });
 
-  it('en una franja en escalera, lo lejano se cose por lo más cercano: un espolón, no otro muro (§29)', () => {
-    // La franja de s1 (13-16, 1-6), con su puerta al sureste y el acantilado al
-    // noroeste. Cosida a la punta de la línea por el borde de la franja, quedaban
-    // dos muros de norte a sur a dos casillas, (13, 2-4) y (15, 3-5).
-    const { muro, puertas } = dibujo(['.#...', '##...', '####.', '####.', '..##.', '..##P']);
-    const e = trazaDeMuralla(muro, puertas, (x, y) => x <= 0 && y <= 1);
-    const ns = (x: number) => e.pasos.filter((p) => p.a[0] === x && p.b[0] === x).length;
-    expect(ns(2), 'el lienzo de norte a sur').toBeGreaterThan(1);
-    expect(ns(0), 'otro paralelo a dos casillas').toBe(0);
-    for (const c of muro)
-      expect(e.casillas.some((l) => Math.hypot(l[0] - c[0], l[1] - c[1]) <= RADIO_DE_MURALLA)).toBe(
-        true,
-      );
-  });
-
-  it('lo lejano se cose aunque lo más cercano de la línea sea la puerta, que no es de la franja (s11)', () => {
-    // La franja de s11 (5-8, 9-11) del mapa de #188, copiada aquí porque el de
-    // #189 ya no la trae, con su puerta en (6,11) y el acantilado en (10,9) y
-    // (9,10): la punta (8,11) queda a 2 de la puerta y a 2 de (8,9). Cosida
-    // hacia la puerta, el camino no llegaba (la puerta no es muro) y se quedaba
-    // sin tramo.
-    const { muro, puertas } = dibujo(['####', '.###', '.P.#']);
-    expect(muro.length).toBe(8);
-    const acantilado = [
-      [5, 0],
-      [4, 1],
-    ];
-    // Lo de fuera, como lo mira la escena: otra barrera junto a la casilla.
-    const e = trazaDeMuralla(muro, puertas, (x, y) =>
-      acantilado.some(
-        ([ax, ay]) => Math.abs((ax as number) - x) <= 1 && Math.abs((ay as number) - y) <= 1,
-      ),
+  it('donde la franja tiene un lado alto y otro bajo, va por lo alto y no al pie de la cara (s9 (8-12, 1-6))', () => {
+    // Arriba `a` y la fila de muro de arriba a nivel 2; la de abajo y `b`, a 0.
+    const m = mundo(['aaaaaaa', '#######', '#######', 'bbbbbbb']);
+    const alto = { ...m.alrededor, nivel: (_x: number, y: number) => (y <= 1 ? 2 : 0) };
+    const e = trazaDeMuralla(m.muro, [], alto);
+    expect(new Set(e.casillas.map((c) => c[1]))).toEqual(new Set([1]));
+    // Al revés, por la de abajo.
+    const bajo = { ...m.alrededor, nivel: (_x: number, y: number) => (y >= 2 ? 2 : 0) };
+    expect(new Set(trazaDeMuralla(m.muro, [], bajo).casillas.map((c) => c[1]))).toEqual(
+      new Set([2]),
     );
-    // Como lo mide el guardia (`murallaSinLeer`): a un tramo, no a una casilla.
-    const aUnTramo = (c: Casilla, a: Casilla, b: Casilla) => {
-      const [dx, dy] = [b[0] - a[0], b[1] - a[1]];
-      const l = dx * dx + dy * dy;
-      const t =
-        l === 0 ? 0 : Math.max(0, Math.min(1, ((c[0] - a[0]) * dx + (c[1] - a[1]) * dy) / l));
-      return Math.hypot(c[0] - a[0] - t * dx, c[1] - a[1] - t * dy);
-    };
-    for (const c of muro)
-      expect(
-        e.pasos.some((p) => aUnTramo(c, p.a, p.b) <= RADIO_DE_MURALLA),
-        `(${c})`,
-      ).toBe(true);
   });
 
-  it('un cuadrado de 2×2, que el adelgazado borra entero, deja algo en pie (s25)', () => {
-    const { muro } = dibujo(['##', '##']);
-    expect(trazaDeMuralla(muro, [], nunca).casillas.length).toBeGreaterThan(0);
+  it('no dobla donde la torre de la esquina no cabe de ninguna manera', () => {
+    // Una frontera en L, de dos de ancho, del borde de arriba al de la derecha.
+    const m = mundo(['a##bbbb', 'a##bbbb', 'a######', 'a######', 'aaaaaaa']);
+    const libre = trazaDeMuralla(m.muro, [], m.alrededor);
+    const esquinas = esquinasDe(libre.pasos).filter((c) => !puntas(libre.pasos).includes(clave(c)));
+    expect(esquinas.length).toBeGreaterThan(0);
+    const prohibida = clave(esquinas[0] as Casilla);
+    const otra = trazaDeMuralla(
+      m.muro,
+      [],
+      m.alrededor,
+      () => true,
+      (c) => clave(c) !== prohibida,
+    );
+    const suyas = esquinasDe(otra.pasos).filter((c) => !puntas(otra.pasos).includes(clave(c)));
+    expect(suyas.map(clave)).not.toContain(prohibida);
+    expect(guardia(m, otra.pasos, torresDe(otra, []))).toEqual(NADA);
+  });
+
+  it('una ruina en medio de una región va de punta a punta; un 2×2 deja un tramo (s25)', () => {
+    const ruina = mundo(['aaaaaa', 'a####a', 'a#aaaa', 'aaaaaa']);
+    const e = trazaDeMuralla(ruina.muro, [], ruina.alrededor);
+    expect(e.pasos.length).toBeGreaterThan(0);
+    const cuadrado = mundo(['aaaa', 'a##a', 'a##a', 'aaaa']);
+    expect(trazaDeMuralla(cuadrado.muro, [], cuadrado.alrededor).pasos).toHaveLength(1);
   });
 });
 
 describe('las torres', () => {
-  it('de norte a sur no se apilan: a ENTRE_TORRES como poco, y ninguna junto a la puerta', () => {
-    // Una franja N-S con quiebros, como s9 (8,28-30), y una puerta en medio.
-    const { muro, puertas } = dibujo([
-      '.#.',
-      '.##',
-      '..#',
-      '.#.',
-      '.P.',
-      '.#.',
-      '##.',
-      '#..',
-      '.#.',
-      '.#.',
-    ]);
-    const e = trazaDeMuralla(muro, puertas, nunca);
-    expect(e.pasos.some((p) => ejeDe(p) === 'profundidad')).toBe(true);
-    const torres = torresDe(e, puertas);
-    expect(torres.length).toBeGreaterThan(0);
-    for (const t of torres)
+  // Del oeste al este, baja en diagonal y sigue al sur: tres ejes.
+  const linea = {
+    casillas: [
+      [0, 0],
+      [1, 0],
+      [2, 0],
+      [3, 1],
+      [3, 2],
+      [3, 3],
+      [3, 4],
+      [3, 5],
+      [3, 6],
+      [3, 7],
+    ] as Casilla[],
+    pasos: [
+      { a: [0, 0], b: [1, 0] },
+      { a: [1, 0], b: [2, 0] },
+      { a: [2, 0], b: [3, 1] },
+      { a: [3, 1], b: [3, 2] },
+      { a: [3, 2], b: [3, 3] },
+      { a: [3, 3], b: [3, 4] },
+      { a: [3, 4], b: [3, 5] },
+      { a: [3, 5], b: [3, 6] },
+      { a: [3, 6], b: [3, 7] },
+    ] as Paso[],
+  };
+
+  it('en cada esquina, también a 45° y aunque otra quede a menos de ENTRE_TORRES (s1 (15,5))', () => {
+    const torres = torresDe(linea, []).map(clave);
+    for (const c of ['0,0', '2,0', '3,1', '3,7']) expect(torres).toContain(c);
+  });
+
+  it('en lo recto, a ENTRE_TORRES como poco unas de otras', () => {
+    const torres = torresDe(linea, []);
+    const rectas = torres.filter((t) => t[0] === 3 && t[1] > 1 && t[1] < 7);
+    expect(rectas.length).toBeGreaterThan(0);
+    for (const t of rectas)
       for (const u of torres)
         if (t !== u)
           expect(Math.hypot(t[0] - u[0], t[1] - u[1])).toBeGreaterThanOrEqual(ENTRE_TORRES);
+  });
+
+  it('ninguna junto a una puerta, que lleva las suyas', () => {
+    const torres = torresDe(linea, [[3, 4]]);
     for (const t of torres)
-      expect(Math.max(Math.abs(t[0] - 1), Math.abs(t[1] - 4))).toBeGreaterThan(1);
+      expect(Math.max(Math.abs(t[0] - 3), Math.abs(t[1] - 4))).toBeGreaterThan(1);
   });
 });
 
 describe('la muralla y la senda (#193)', () => {
-  // Una franja de oeste a este, de (0,1) a (8,1): las torres van en sus puntas y
+  // Una línea de oeste a este, de (0,1) a (8,1): las torres van en sus puntas y
   // cada ENTRE_TORRES en lo recto.
-  const { muro } = dibujo(['.........', '#########']);
+  const recta = {
+    casillas: rango(0, 8).map((x): Casilla => [x, 1]),
+    pasos: rango(0, 7).map((x): Paso => ({ a: [x, 1], b: [x + 1, 1] })),
+  };
 
   it('una torre que no cabe no se pone, y la siguiente candidata ocupa su sitio', () => {
-    const e = trazaDeMuralla(muro, [], nunca);
-    const todas = torresDe(e, []);
-    expect(todas.map(clave)).toContain('0,1');
+    expect(torresDe(recta, []).map(clave)).toContain('0,1');
     // La punta del oeste tapa la senda: sin ella, la primera torre del oeste es otra.
-    const sinPunta = torresDe(e, [], (c) => clave(c) !== '0,1');
+    const sinPunta = torresDe(recta, [], (c) => clave(c) !== '0,1');
     expect(sinPunta.map(clave)).not.toContain('0,1');
     expect(sinPunta.some((t) => t[0] <= ENTRE_TORRES)).toBe(true);
   });
 
   it('la casilla sin tramos lleva su torre aunque no quepa: es toda la muralla', () => {
-    const e = trazaDeMuralla([[4, 4]], [], nunca, () => false);
-    expect(e.pasos).toEqual([]);
-    expect(torresDe(e, [], () => false).map(clave)).toEqual(['4,4']);
+    const sola = trazaDeMuralla([[4, 4]], [], mundo(['a']).alrededor);
+    expect(sola.pasos).toEqual([]);
+    expect(torresDe(sola, [], () => false).map(clave)).toEqual(['4,4']);
   });
 
-  it('la de un 2×2 se muda a la casilla donde cabe, que sigue cubriendo las cuatro', () => {
-    // s2 (14,19): la senda rodea la mancha por el norte y la torre de arriba la tapaba.
-    const { muro: mancha } = dibujo(['....', '.##.', '.##.']);
-    const abajo = (c: Casilla) => c[1] === 2;
-    const e = trazaDeMuralla(mancha, [], nunca, abajo);
-    expect(e.casillas).toHaveLength(1);
-    const [c] = e.casillas as [Casilla];
-    expect(abajo(c)).toBe(true);
-    for (const v of mancha)
-      expect(Math.hypot(v[0] - c[0], v[1] - c[1])).toBeLessThanOrEqual(RADIO_DE_MURALLA);
-    // Donde no cabe en ninguna, se queda donde estaba.
-    expect(trazaDeMuralla(mancha, [], nunca, () => false).casillas).toHaveLength(1);
+  it('la esquina lleva su torre aunque no quepa entera: sin ella la junta se abre (s17 (10,31))', () => {
+    const ele = {
+      casillas: [
+        [0, 0],
+        [1, 0],
+        [1, 1],
+      ] as Casilla[],
+      pasos: [
+        { a: [0, 0], b: [1, 0] },
+        { a: [1, 0], b: [1, 1] },
+      ] as Paso[],
+    };
+    expect(torresDe(ele, [], () => false).map(clave)).toEqual(['1,0']);
   });
 
   describe('el guardia (murallaSobreLaSenda)', () => {
@@ -213,54 +303,88 @@ describe('la muralla y la senda (#193)', () => {
 });
 
 describe('el guardia cuenta lo pintado', () => {
-  // Una muralla de oeste a este con una puerta en (3, 0), y el muro a sus dos lados.
-  const franja = { id: 0, casillas: [0, 1, 2, 4, 5, 6].map((x): Casilla => [x, 0]) };
-  const puerta = { id: 'p', at: [3, 0] as Casilla, paso: [0, 1] as Casilla };
-  const esMuro = (x: number, y: number) => y === 0 && x >= 0 && x <= 6 && x !== 3;
-  const linea: TramoPintado[] = [0, 1, 2, 3, 4, 5].map((x) => ({
-    franja: 0,
-    a: [x, 0],
-    b: [x + 1, 0],
-  }));
+  // Una muralla de oeste a este, de borde a borde, con una puerta en (3,2) y el
+  // muro a sus dos lados; arriba `a`, abajo `b`, y un muro de más en (5,1).
+  const m = mundo(['aaaaaaa', 'aaaaa#a', '###P###', 'bbbbbbb']);
+  const linea: Paso[] = [0, 1, 2, 3, 4, 5].map((x) => ({ a: [x, 2], b: [x + 1, 2] }));
+  const torres: Casilla[] = [
+    [0, 2],
+    [6, 2],
+  ];
 
   it('la muralla entera, con la puerta unida a los dos lados: nada', () => {
-    expect(murallaSinLeer([franja], [puerta], esMuro, linea)).toEqual({
-      sinMuralla: [],
-      puertasSueltas: [],
-      huecos: 0,
-    });
+    expect(guardia(m, linea, torres)).toEqual(NADA);
   });
 
-  it('un tramo que no entró parte la línea', () => {
-    const sinUno = linea.filter((t) => t.a[0] !== 4);
-    expect(murallaSinLeer([franja], [puerta], esMuro, sinUno).huecos).toBe(1);
+  it('un tramo que no entró parte la línea, y por el hueco se pasa de un lado al otro', () => {
+    const g = guardia(
+      m,
+      linea.filter((t) => t.a[0] !== 4),
+      torres,
+    );
+    expect(g.huecos).toBe(1);
+    expect(g.fugas.length).toBeGreaterThan(0);
   });
 
   it('sin el tramo de un lado, la puerta está suelta', () => {
-    const sinLado = linea.filter((t) => t.b[0] !== 3);
-    expect(murallaSinLeer([franja], [puerta], esMuro, sinLado).puertasSueltas).toEqual(['p']);
+    expect(
+      guardia(
+        m,
+        linea.filter((t) => t.b[0] !== 3),
+        torres,
+      ).puertasSueltas,
+    ).toEqual(['p0']);
   });
 
-  it('sin nada pintado, cada casilla de muro sale sin muralla', () => {
-    expect(murallaSinLeer([franja], [puerta], esMuro, []).sinMuralla).toHaveLength(6);
+  it('una línea que se queda a una casilla del borde no cierra, y su punta es un espolón', () => {
+    const g = guardia(m, linea.slice(1), [
+      [1, 2],
+      [6, 2],
+    ]);
+    expect(g.fugas.length).toBeGreaterThan(0);
+    expect(g.espolones.map(clave)).toEqual(['1,2']);
   });
 
-  it('lo que llega a una ciudad por los dos lados no está partido: su pieza es la muralla', () => {
-    const partida = linea.filter((t) => t.a[0] !== 4 && t.a[0] !== 5);
-    const huella: Casilla[] = [[5, 1]];
-    expect(murallaSinLeer([franja], [], esMuro, partida, [huella]).huecos).toBe(0);
+  it('un tramo que sale de la línea y no llega a nada es un espolón, y su junta sin torre se ve abierta', () => {
+    const conRama = [...linea, { a: [5, 1], b: [5, 2] } as Paso];
+    const g = guardia(m, conRama, torres);
+    expect(g.espolones.map(clave)).toEqual(['5,1']);
+    expect(g.esquinasAbiertas.map(clave)).toEqual(['5,2']);
+    expect(g.fugas).toEqual([]);
+    // Con la torre en la junta, solo queda el espolón.
+    expect(guardia(m, conRama, [...torres, [5, 2]]).esquinasAbiertas).toEqual([]);
+  });
+
+  it('una junta junto a la puerta no cuenta: la tapa la puerta', () => {
+    const junto = mundo(['aaaaaa', 'a#aaaa', '##P###', 'bbbbbb']);
+    const pasos: Paso[] = [
+      { a: [0, 2], b: [1, 2] },
+      { a: [1, 1], b: [1, 2] },
+      { a: [1, 2], b: [2, 2] },
+    ];
+    expect(guardia(junto, pasos, []).esquinasAbiertas).toEqual([]);
+  });
+
+  it('sin nada pintado, los dos lados se juntan', () => {
+    expect(guardia(m, [], []).fugas.length).toBeGreaterThan(0);
   });
 });
 
 describe('en las partidas', () => {
-  // 1: la torre de (21,10) sobre la senda de la mina a la ciudad; 2: el 2×2 de
-  // (14,19); 31 y 33: casillas sueltas que solo caben encogidas (#193).
-  const SEMILLAS = segunPrisa([1, 2, 9, 31, 33], rango(1, 40));
+  // 1: s1 (13-16, 2-6), la marca del usuario; 2: el 2×2 de (14,19) y dos
+  // apoyos pegados bajo una ciudad (22-24, 27-28); 9: una franja con un lado
+  // alto y otro bajo; 31 y 33: casillas sueltas que solo caben encogidas
+  // (#193); 58 y 103: un dedo de un lado en la franja; 86: una orilla que toca
+  // tres lados; 270: una franja que acaba contra un acantilado de un solo lado
+  // (#197).
+  const RARAS = [58, 86, 103, 270];
+  const SEMILLAS = segunPrisa([1, 2, 9, 31, 33, ...RARAS], [...rango(1, 40), ...RARAS]);
   for (const semilla of SEMILLAS)
-    it(`semilla ${semilla}: ninguna casilla de muro sin muralla, ninguna puerta suelta, ninguna línea partida, nada sobre la senda`, () => {
+    it(`semilla ${semilla}: la muralla cierra, sin espolones ni juntas abiertas, y nada sobre la senda`, () => {
       const e = escenaDe(semilla);
-      expect(e.informe.muralla).toEqual({ sinMuralla: [], puertasSueltas: [], huecos: 0 });
+      expect(e.informe.muralla).toEqual(NADA);
       expect(e.informe.murallasPartidas).toBe(0);
+      expect(e.informe.murallaIncoherente).toBe(0);
       expect(e.informe.murallaSobreSenda).toBe(0);
       // Las torres, recontadas aquí sobre los sprites: ninguna tapa la senda pintada.
       const senda = sendaParaLaMuralla(e.sendas);
