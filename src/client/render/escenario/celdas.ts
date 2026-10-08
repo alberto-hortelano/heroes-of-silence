@@ -22,6 +22,7 @@ import {
   type Ladera,
   TALUD_DE_LADERA,
 } from './relieve.js';
+import type { Senda } from './sendas.js';
 
 /**
  * El tipo de una pared por su caso de 4 bits (NO = 8, NE = 4, SO = 2, SE = 1;
@@ -541,6 +542,10 @@ function cruce(
  * recto, el lado de casilla que comparten las dos; en uno en diagonal, la pared
  * de su vértice que cruza primero la recta de centro a centro. Si la senda no
  * lo cruza a media casilla de ahí, la recta.
+ *
+ * El rumbo es el de lo pintado (`rumboPintado`), no el del tramo: la senda
+ * suavizada gira al pie y la rampa salía recta hacia ninguna parte (#192).
+ * Sin senda que cruce el filo, el del tramo.
  */
 export function bajadasDe(
   nivel: ArrayLike<number>,
@@ -607,6 +612,7 @@ export function bajadasDe(
       (A[1] + B[1]) / 2,
     ];
     let arriba: readonly [number, number] = recta;
+    let suya: Senda | null = null;
     let d = 0.5;
     for (const l of sendas) {
       const c = cruce(l, f, caja, recta);
@@ -615,11 +621,13 @@ export function bajadasDe(
       if (dc < d) {
         d = dc;
         arriba = c;
+        suya = l;
       }
     }
+    const caida = Math.abs(dn);
     out.push({
-      rumbo,
-      caida: Math.abs(dn),
+      rumbo: suya === null ? rumbo : rumboPintado(suya, arriba, B, rumbo, caida),
+      caida,
       material: CARA_DE_SUELO[suelo[alto.y * W + alto.x] as Suelo],
       arriba,
       alto: [alto.x, alto.y],
@@ -678,4 +686,304 @@ export function rampaDe(
   const [dx, dy] = DIRECCION_DE_BAJADA[b.rumbo];
   const L = largoDeBajada(b.rumbo, b.caida);
   return [b.arriba, [b.arriba[0] + dx * L, b.arriba[1] + dy * L]];
+}
+
+type Punto = readonly [number, number];
+
+/**
+ * Una senda medida por su largo: el largo acumulado hasta cada punto, para
+ * pedirle el punto y el rumbo a tantas casillas de camino de otro.
+ */
+class Recorrido {
+  readonly acum: number[] = [0];
+  constructor(readonly l: Senda) {
+    for (let i = 0; i + 1 < l.length; i++) {
+      const [ax, ay] = l[i] as Punto;
+      const [bx, by] = l[i + 1] as Punto;
+      this.acum.push((this.acum[i] as number) + Math.hypot(bx - ax, by - ay));
+    }
+  }
+
+  get largo(): number {
+    return this.acum.at(-1) as number;
+  }
+
+  /** El largo hasta el punto de la senda más cercano a `p`, y a qué distancia queda. */
+  donde(p: Punto): { s: number; d: number } {
+    let mejor = { s: 0, d: Number.POSITIVE_INFINITY };
+    for (let i = 0; i + 1 < this.l.length; i++) {
+      const [ax, ay] = this.l[i] as Punto;
+      const [bx, by] = this.l[i + 1] as Punto;
+      const vx = bx - ax;
+      const vy = by - ay;
+      const l2 = vx * vx + vy * vy;
+      const t = l2 === 0 ? 0 : Math.max(0, Math.min(1, ((p[0] - ax) * vx + (p[1] - ay) * vy) / l2));
+      const d = Math.hypot(ax + vx * t - p[0], ay + vy * t - p[1]);
+      if (d < mejor.d) mejor = { s: (this.acum[i] as number) + t * Math.sqrt(l2), d };
+    }
+    return mejor;
+  }
+
+  /** El tramo en el que cae el largo `s` (ya dentro de la senda). */
+  private tramo(s: number): number {
+    let i = 0;
+    while (i + 2 < this.l.length && (this.acum[i + 1] as number) < s) i++;
+    return i;
+  }
+
+  /** El punto a largo `s`, acotado a los extremos. */
+  en(s: number): Punto {
+    const c = Math.max(0, Math.min(this.largo, s));
+    const i = this.tramo(c);
+    const [ax, ay] = this.l[i] as Punto;
+    const [bx, by] = this.l[i + 1] as Punto;
+    const lt = (this.acum[i + 1] as number) - (this.acum[i] as number);
+    const t = lt === 0 ? 0 : (c - (this.acum[i] as number)) / lt;
+    return [ax + (bx - ax) * t, ay + (by - ay) * t];
+  }
+
+  /** El rumbo unitario de la senda a largo `s`, en el sentido en que crece el largo. */
+  rumbo(s: number): Punto {
+    const i = this.tramo(Math.max(0, Math.min(this.largo, s)));
+    const [ax, ay] = this.l[i] as Punto;
+    const [bx, by] = this.l[i + 1] as Punto;
+    const n = Math.hypot(bx - ax, by - ay) || 1;
+    return [(bx - ax) / n, (by - ay) / n];
+  }
+
+  /** Los puntos de dentro de `(s0, s1)`, en orden. */
+  entre(s0: number, s1: number): Punto[] {
+    return this.l.filter((_, i) => (this.acum[i] as number) > s0 && (this.acum[i] as number) < s1);
+  }
+
+  /** Hacia dónde baja la senda desde el largo `s`: el sentido que se acerca a `bajo`. */
+  sentidoHacia(s: number, bajo: Punto): 1 | -1 {
+    const d = (q: Punto) => Math.hypot(q[0] - bajo[0], q[1] - bajo[1]);
+    return d(this.en(s + 0.5)) <= d(this.en(s - 0.5)) ? 1 : -1;
+  }
+}
+
+/**
+ * Los rumbos que puede tomar la pieza de un tramo: el suyo y los de al lado, a
+ * 45°. Nunca de espaldas ni a lo largo del filo que cruza: un tramo al sur no
+ * baja de lado.
+ */
+const RUMBOS_VECINOS: Readonly<Record<RumboDeBajada, readonly RumboDeBajada[]>> = {
+  s: ['s', 'so', 'se'],
+  se: ['se', 's', 'e'],
+  so: ['so', 's', 'o'],
+  e: ['e', 'se'],
+  o: ['o', 'so'],
+};
+
+/**
+ * Cuánto tiene que ganar un rumbo vecino al del tramo para quitárselo, en
+ * `1 − cos` del ángulo: el vaivén de la senda (`VAIVEN`) tuerce la cuerda hasta
+ * ~18° en una caída de 1, y sin esta holgura una bajada recta salía en diagonal.
+ */
+const VENTAJA_DEL_RUMBO_DEL_TRAMO = 0.03;
+
+/**
+ * El rumbo de la pieza de una bajada por la senda pintada `l`, que cruza el filo
+ * en `arriba` y baja hacia la casilla de centro `bajo`: el de los vecinos del
+ * tramo (`RUMBOS_VECINOS`) que mejor apunta a donde está la senda a un largo de
+ * rampa (`largoDeBajada`) de `arriba`. Con el del tramo, en s36 la rampa bajaba
+ * recta 1,7 casillas al sur y la senda se iba al suroeste en la casilla de
+ * abajo (#192).
+ */
+export function rumboPintado(
+  l: Senda,
+  arriba: Punto,
+  bajo: Punto,
+  delTramo: RumboDeBajada,
+  caida: number,
+): RumboDeBajada {
+  const r = new Recorrido(l);
+  const { s } = r.donde(arriba);
+  const sentido = r.sentidoHacia(s, bajo);
+  let mejor = delTramo;
+  let error = Number.POSITIVE_INFINITY;
+  for (const rumbo of RUMBOS_VECINOS[delTramo]) {
+    const [px, py] = r.en(s + sentido * largoDeBajada(rumbo, caida));
+    const n = Math.hypot(px - arriba[0], py - arriba[1]);
+    if (n === 0) continue;
+    const [dx, dy] = DIRECCION_DE_BAJADA[rumbo];
+    const e =
+      1 -
+      ((px - arriba[0]) * dx + (py - arriba[1]) * dy) / n -
+      (rumbo === delTramo ? VENTAJA_DEL_RUMBO_DEL_TRAMO : 0);
+    if (e < error) {
+      error = e;
+      mejor = rumbo;
+    }
+  }
+  return mejor;
+}
+
+/** Lo que se aparta como poco del pie de una rampa (y de su filo) el punto por el que la senda vuelve a su trazo, en casillas. */
+export const ENLACE_DE_RAMPA = 0.6;
+
+/**
+ * Hasta dónde se busca por la senda el punto de vuelta (`delanteDe`), en
+ * casillas de su largo. Sin tope, una senda que gira hacia atrás se buscaba
+ * hasta su extremo y el enlace atajaba casillas enteras: en s16 la senda de
+ * (22,10) se movió y la casilla de bosque se quedó sin sitio para un árbol.
+ */
+const BUSCA_DEL_ENLACE = 1.5;
+
+/** Cada cuánto lleva un punto lo que `sendasPorLasRampas` vuelve a trazar, en casillas. */
+const PASO_DEL_ENLACE = 0.08;
+
+/** De `p0` a `p1` con salida por `t0` y llegada por `t1` (unitarios): un Hermite cúbico. */
+function enlace(p0: Punto, t0: Punto, p1: Punto, t1: Punto): Punto[] {
+  const c = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
+  const n = Math.max(1, Math.ceil(c / PASO_DEL_ENLACE));
+  const out: Punto[] = [];
+  for (let k = 1; k <= n; k++) {
+    const u = k / n;
+    const h00 = 2 * u * u * u - 3 * u * u + 1;
+    const h10 = u * u * u - 2 * u * u + u;
+    const h01 = -2 * u * u * u + 3 * u * u;
+    const h11 = u * u * u - u * u;
+    out.push([
+      h00 * p0[0] + h10 * c * t0[0] + h01 * p1[0] + h11 * c * t1[0],
+      h00 * p0[1] + h10 * c * t0[1] + h01 * p1[1] + h11 * c * t1[1],
+    ]);
+  }
+  return out;
+}
+
+/**
+ * La rampa de una bajada sobre su senda, en el sentido en que crece el largo de
+ * ella: por dónde se deja el trazo de antes (`desde`), sus dos puntas (`p0`,
+ * `p1`) y su rumbo (`t`), y por dónde se vuelve a él (`hasta`).
+ */
+interface Tendido {
+  readonly desde: number;
+  readonly p0: Punto;
+  readonly p1: Punto;
+  readonly t: Punto;
+  readonly hasta: number;
+}
+
+/**
+ * El largo de la senda, a partir de `s` y en `sentido`, del primer punto que
+ * queda por delante de `p` en el rumbo `t` y al menos a `ENLACE_DE_RAMPA` de
+ * él; o el extremo, si no lo hay. Por ahí se vuelve al trazo: con el punto a un
+ * largo fijo del pie, cuando la senda giraba el enlace volvía hacia atrás y
+ * hacía un gancho bajo la pieza (s5, la puerta de la muralla en 10,27).
+ */
+function delanteDe(r: Recorrido, s: number, sentido: 1 | -1, p: Punto, t: Punto): number {
+  for (let k = 0; k * PASO_DEL_ENLACE <= BUSCA_DEL_ENLACE; k++) {
+    const a = s + sentido * k * PASO_DEL_ENLACE;
+    if (a < 0 || a > r.largo) return sentido > 0 ? r.largo : 0;
+    const [qx, qy] = r.en(a);
+    const d = Math.hypot(qx - p[0], qy - p[1]);
+    if (d >= ENLACE_DE_RAMPA && (qx - p[0]) * t[0] + (qy - p[1]) * t[1] >= 0.7 * d) return a;
+  }
+  return Math.max(0, Math.min(r.largo, s + sentido * BUSCA_DEL_ENLACE));
+}
+
+/**
+ * Las sendas que se pintan, pasando por la rampa de cada bajada (#192): de su
+ * `arriba` a su pie, recta y en su rumbo (`rampaDe`), con un enlace suave hasta
+ * el trazo de antes por los dos lados (`delanteDe`). La pieza de la bajada va
+ * dibujada en un rumbo fijo y la senda suavizada no sabía dónde acababa: giraba
+ * al pie y la rampa llevaba a un lado de ella (31 % de las bajadas en 1-40).
+ * Los extremos de cada senda no se mueven: son juntas con otras sendas o el
+ * centro de un nodo, y si la rampa pasa de ahí (lo que baja a una ciudad), la
+ * senda vuelve a él desde el pie, bajo la pieza o lo horneado del nodo.
+ */
+export function sendasPorLasRampas(sendas: readonly Senda[], bajadas: readonly Bajada[]): Senda[] {
+  const recorridos = sendas.map((l) => new Recorrido(l));
+  const tendidos: Tendido[][] = sendas.map(() => []);
+  for (const b of bajadas) {
+    // La suya es la que pasa por `arriba`; si ninguna cruza el filo
+    // (`bajadasDe` se quedó con la recta), la más cercana a media casilla.
+    let k = -1;
+    let donde = { s: 0, d: 0.5 };
+    recorridos.forEach((r, j) => {
+      const w = r.donde(b.arriba);
+      if (w.d < donde.d) {
+        donde = w;
+        k = j;
+      }
+    });
+    if (k < 0) continue;
+    const r = recorridos[k] as Recorrido;
+    const sentido = r.sentidoHacia(donde.s, [b.bajo[0] + 0.5, b.bajo[1] + 0.5]);
+    const [, pie] = rampaDe(b);
+    const [dx, dy] = DIRECCION_DE_BAJADA[b.rumbo];
+    const L = largoDeBajada(b.rumbo, b.caida);
+    // Hacia atrás desde el filo, con el rumbo dado la vuelta; hacia delante, desde el pie.
+    const antes = delanteDe(r, donde.s, -sentido as 1 | -1, b.arriba, [-dx, -dy]);
+    const despues = delanteDe(r, donde.s + sentido * L, sentido, pie, [dx, dy]);
+    (tendidos[k] as Tendido[]).push(
+      sentido > 0
+        ? { desde: antes, p0: b.arriba, p1: pie, t: [dx, dy], hasta: despues }
+        : { desde: despues, p0: pie, p1: b.arriba, t: [-dx, -dy], hasta: antes },
+    );
+  }
+  return sendas.map((l, k) => {
+    const ts = (tendidos[k] as Tendido[]).sort((p, q) => p.desde - q.desde);
+    if (ts.length === 0) return l;
+    const r = recorridos[k] as Recorrido;
+    const out: Punto[] = [l[0] as Punto];
+    // De lo ya trazado (`p`, que sale por `t`, o el extremo si `t` es null) a
+    // `p1`: el trazo de antes de `a` a `b`, si queda algo, y un enlace a cada lado.
+    let a = 0;
+    let p = l[0] as Punto;
+    let t: Punto | null = null;
+    const hasta = (b: number, p1: Punto, t1: Punto | null) => {
+      if (a < b) {
+        const pa = r.en(a);
+        const pb = r.en(b);
+        if (t !== null) out.push(...enlace(p, t, pa, r.rumbo(a)));
+        out.push(...r.entre(a, b));
+        out.push(...(t1 === null ? [p1] : [pb, ...enlace(pb, r.rumbo(b), p1, t1)]));
+      } else if (t1 === null) {
+        // La rampa llega al extremo o pasa de él (casi siempre lo que baja a un
+        // nodo, que tapa su final): de vuelta por la misma recta, bajo la pieza.
+        // Con un enlace, el gancho asomaba por delante del pie.
+        out.push(p1);
+      } else out.push(...enlace(p, t ?? r.rumbo(0), p1, t1));
+    };
+    for (const tendido of ts) {
+      hasta(tendido.desde, tendido.p0, tendido.t);
+      out.push(...enlace(tendido.p0, tendido.t, tendido.p1, tendido.t));
+      a = tendido.hasta;
+      p = tendido.p1;
+      t = tendido.t;
+    }
+    hasta(r.largo, l.at(-1) as Punto, null);
+    // Sin puntos repetidos seguidos: un tramo de largo 0 no tiene rumbo.
+    return out.filter((q, i) => i === 0 || q[0] !== out[i - 1]?.[0] || q[1] !== out[i - 1]?.[1]);
+  });
+}
+
+/** Lo que puede apartarse la rampa de una bajada de la senda pintada, en casillas. */
+export const HOLGURA_DE_RAMPA = 0.05;
+
+/**
+ * Las bajadas cuya rampa (`rampaDe`, mirada cada décima de casilla, del filo al
+ * pie) se aparta de toda senda pintada más de `HOLGURA_DE_RAMPA`, cada una
+ * dicha. La senda tiene que pasar por la rampa y seguir desde su pie (#192).
+ */
+export function rampasDesviadas(bajadas: readonly Bajada[], sendas: readonly Senda[]): string[] {
+  const recorridos = sendas.map((l) => new Recorrido(l));
+  const fuera: string[] = [];
+  for (const b of bajadas) {
+    const [[ax, ay], [bx, by]] = rampaDe(b);
+    const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / 0.1));
+    let peor = 0;
+    for (let j = 0; j <= n; j++) {
+      const q: Punto = [ax + ((bx - ax) * j) / n, ay + ((by - ay) * j) / n];
+      peor = Math.max(peor, Math.min(...recorridos.map((r) => r.donde(q).d)));
+    }
+    if (peor > HOLGURA_DE_RAMPA)
+      fuera.push(
+        `bajada ${b.rumbo} en ${b.arriba[0].toFixed(2)},${b.arriba[1].toFixed(2)}: la rampa se aparta ${peor.toFixed(2)} de la senda`,
+      );
+  }
+  return fuera;
 }

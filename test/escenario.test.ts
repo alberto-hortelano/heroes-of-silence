@@ -515,6 +515,7 @@ describe('la escena es de la partida entera: no cambia al jugarla', () => {
     expect(e.informe.basesSobreReserva).toBe(0);
     expect(e.informe.spritesSobreSenda).toBe(0);
     expect(e.informe.casillasDeBarreraSinFormacion).toBe(0);
+    expect(e.informe.rampasDesviadas).toBe(0);
     const horneados = e.sprites.filter((s) => s.objeto !== undefined && seHornea(s.objeto.kind));
     expect(horneados.length).toBe(state.map.objects.filter((o) => seHornea(o.kind)).length);
     const antes = JSON.stringify(e);

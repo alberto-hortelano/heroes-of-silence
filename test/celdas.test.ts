@@ -24,6 +24,8 @@ import {
   JUNTAS,
   porJunta,
   rampaDe,
+  rampasDesviadas,
+  sendasPorLasRampas,
   vecinaEn,
 } from '../src/client/render/escenario/celdas.js';
 import {
@@ -198,6 +200,60 @@ describe('las bajadas (R5)', () => {
     );
     expect(b?.arriba[0]).toBeCloseTo(2.8, 6);
     expect(b?.arriba[1]).toBeCloseTo(2, 6);
+  });
+
+  /** Una polilínea por varios puntos, cada décima de casilla (sin repetir los codos). */
+  const quebrada = (...ps: (readonly [number, number])[]) =>
+    ps
+      .slice(1)
+      .flatMap((q, i) => recta(ps[i] as readonly [number, number], q).slice(i === 0 ? 0 : 1));
+  const conSenda = (l: readonly (readonly [number, number])[]) => {
+    const [b] = bajadasDe(r.nivel, r.W, r.suelo, r.celdas, [tramo([2, 1], [2, 2])], [l]);
+    return b as Bajada;
+  };
+
+  it('con la senda pintada, el rumbo es el de lo pintado, entre el del tramo y sus vecinos (#192)', () => {
+    // Recta: el del tramo.
+    expect(conSenda(recta([2.5, 0.5], [2.5, 3.5])).rumbo).toBe('s');
+    // Gira al suroeste nada más bajar el filo (s36, 8,19): la rampa también.
+    expect(conSenda(quebrada([2.5, 0.5], [2.5, 2.1], [0.5, 4.1])).rumbo).toBe('so');
+    // Gira al este al pie: al sureste, que un tramo al sur no baja de lado.
+    expect(conSenda(quebrada([2.5, 0.5], [2.5, 2.1], [5.5, 2.1])).rumbo).toBe('se');
+    // Un vaivén no la tuerce: la cuerda se va 0,15 y sigue la del tramo.
+    expect(conSenda(quebrada([2.5, 0.5], [2.5, 2], [2.35, 2.6], [2.5, 3.5])).rumbo).toBe('s');
+  });
+
+  it('la senda pintada pasa por la rampa y vuelve a su trazo; sus extremos no se mueven (#192)', () => {
+    const l = quebrada([2.5, 0.5], [2.5, 2.3], [0.5, 4.3], [0.5, 6]);
+    const b = conSenda(l);
+    // La suavizada se aparta de la rampa: es lo que mide el guardia.
+    expect(rampasDesviadas([b], [l])).toEqual([expect.stringMatching(/la rampa se aparta/)]);
+    const [m] = sendasPorLasRampas([l], [b]) as [readonly (readonly [number, number])[]];
+    expect(rampasDesviadas([b], [m])).toEqual([]);
+    expect(m[0]).toEqual(l[0]);
+    expect(m.at(-1)).toEqual(l.at(-1));
+    // Lejos de la rampa, el trazo de antes, punto a punto; cerca, a poco de él.
+    for (const p of l) if (p[1] >= 4.6 || p[1] <= 1) expect(m).toContainEqual(p);
+    const lejos = (p: readonly [number, number]) =>
+      Math.min(...l.map((q) => Math.hypot(q[0] - p[0], q[1] - p[1])));
+    expect(Math.max(...m.map(lejos))).toBeLessThan(0.35);
+  });
+
+  it('si la rampa pasa del extremo de su senda (lo que baja a un nodo), la senda vuelve a él por la rampa, sin gancho', () => {
+    const l = recta([2.5, 0.5], [2.5, 2.5]);
+    const b = conSenda(l);
+    expect(rampaDe(b)[1][1]).toBeGreaterThan(2.5);
+    const [m] = sendasPorLasRampas([l], [b]) as [readonly (readonly [number, number])[]];
+    expect(rampasDesviadas([b], [m])).toEqual([]);
+    expect(m.at(-1)).toEqual([2.5, 2.5]);
+    expect(m.every(([x]) => Math.abs(x - 2.5) < 1e-9)).toBe(true);
+  });
+
+  it('una bajada sin senda que pase por ella no mueve ninguna, y el guardia la cuenta', () => {
+    const b = conSenda(recta([2.5, 0.5], [2.5, 3.5]));
+    const lejos = recta([5.5, 0.5], [5.5, 3.5]);
+    expect(sendasPorLasRampas([lejos], [b])).toEqual([lejos]);
+    expect(rampasDesviadas([b], [lejos])).toHaveLength(1);
   });
 
   it('el pie bajo `arriba` y la rampa por donde va la senda', () => {

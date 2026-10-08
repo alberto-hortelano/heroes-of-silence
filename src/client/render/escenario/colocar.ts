@@ -49,7 +49,9 @@ import {
   JUNTAS,
   pieDeJunta,
   rampaDe,
+  rampasDesviadas,
   rebordesDe,
+  sendasPorLasRampas,
   taludDeBajada as taludDeBajadaDe,
 } from './celdas.js';
 import { azarDe, esparcir } from './esparcir.js';
@@ -271,6 +273,11 @@ export interface Escena {
      * pintor (`bajadasSobreNodo`): tiene que ser 0.
      */
     readonly bajadasSobreNodo: number;
+    /**
+     * Bajadas cuya rampa se aparta de la senda pintada (`rampasDesviadas`): la
+     * senda pasa por ella y sigue desde su pie (#192). Tiene que ser 0.
+     */
+    readonly rampasDesviadas: number;
     /**
      * Trozos de cara de acantilado que se pintan y no tapa la silueta de
      * ninguna pared, de al menos 0,3 de ancho y de alto (`carasLisas`): tiene
@@ -983,7 +990,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   // El pasillo se mide sobre el trazo que se pinta, no sobre la casilla: la
   // senda ondula y entre dos casillas no hay centro que reservar. La senda llega
   // a los estribos de cada puente y no sigue por encima (#157).
-  const trazos = sendas(tramosHastaLosEstribos(caminos, puentes), semilla);
+  const suavizadas = sendas(tramosHastaLosEstribos(caminos, puentes), semilla);
   // El eje de cada nodo de paso, con camino o sin él: sin camino que abriera
   // hueco, los picos y los árboles de alrededor lo enterraban y el paso no se
   // distinguía de la cordillera (#173).
@@ -1008,9 +1015,11 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     a.suelo,
     rel.celdas,
     map.caminos.tramos,
-    trazos,
+    suavizadas,
     (p, q) => nodosDePuente.has(`${p.x},${p.y}`) || nodosDePuente.has(`${q.x},${q.y}`),
   );
+  // Y lo que se pinta pasa por la rampa de cada una, de su filo a su pie (#192).
+  const trazos = sendasPorLasRampas(suavizadas, bajadas);
   /**
    * Lo que no se tapa (#151): la senda; la rampa de cada bajada, más ancha que
    * la senda y con sus ribazos (R5); el tablero de cada puente, del que se
@@ -2209,6 +2218,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       bajadasSinPieza: bajadasSinPieza(sprites, bajadas, catalogo).length,
       bajadasTapadas: bajadasTapadas(sprites, bajadas, catalogo).length,
       bajadasSobreNodo: bajadasSobreNodo(sprites, bajadas, catalogo).length,
+      rampasDesviadas: rampasDesviadas(bajadas, trazos).length,
       laderasEnfrentadas: laderasEnfrentadas(sprites, deLadera).length,
       carasLisas: carasLisas(carasDeEscena, sprites, perfilDe).length,
       puentesTapados: puentesTapados(sprites, puentes).length,

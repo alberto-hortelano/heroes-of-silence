@@ -14,7 +14,7 @@
 import type { TerrainKind } from '@core/map/terrain.js';
 import { describe, expect, it } from 'vitest';
 import { perfilesDelCatalogo } from '../src/client/render/escenario/caras.js';
-import type { Sprite } from '../src/client/render/escenario/colocar.js';
+import { type Sprite, tapaElPunto } from '../src/client/render/escenario/colocar.js';
 import {
   cajaDeFigura,
   delanteDeLasParedes,
@@ -137,10 +137,19 @@ describe('en los mapas reales', () => {
     const esc = escenarioDe(map, 36);
     const clave = claveDeFigura(esc, 7, 22 + PIES.grupo);
     const [fx0, fy0, fx1, fy1] = cajaDeFigura(7, 22);
+    // Las que tapan algo de la figura, no las que solo rozan su caja: con la
+    // rampa de (8,19) al suroeste (#192), una frontal de (6,20) llega a 0,002 de
+    // la caja con el borde transparente y no tapa ni un punto de ella.
+    const tapaAlgo = (s: Sprite) =>
+      Array.from({ length: 7 }, (_, i) => fx0 + ((i + 0.5) / 7) * (fx1 - fx0)).some((x) =>
+        Array.from({ length: 10 }, (_, j) => fy0 + ((j + 0.5) / 10) * (fy1 - fy0)).some((y) =>
+          tapaElPunto(s, perfilDe, x, y),
+        ),
+      );
     const encima = esc.separada.volumenes.filter(({ s }) => {
       if (s.clase !== 'pared' || s.filaAlta === undefined || s.filaAlta > 22) return false;
       const [x0, y0, x1, y1] = cajaDeSprite(s);
-      return x0 < fx1 && x1 > fx0 && y0 < fy1 && y1 > fy0;
+      return x0 < fx1 && x1 > fx0 && y0 < fy1 && y1 > fy0 && tapaAlgo(s);
     });
     // Las hay —la cara de la caída de 3 de encima— y ninguna se pinta después.
     expect(encima.length).toBeGreaterThan(0);

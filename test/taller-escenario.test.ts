@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { analizar } from '../src/client/render/escenario/analizar.js';
 import { carasLisas, perfilesDelCatalogo } from '../src/client/render/escenario/caras.js';
 import { RUTA_DEL_CATALOGO } from '../src/client/render/escenario/catalogo.js';
-import { caidas } from '../src/client/render/escenario/celdas.js';
+import { caidas, rampasDesviadas } from '../src/client/render/escenario/celdas.js';
 import {
   APARTE,
   bajadasSinPieza,
@@ -526,7 +526,10 @@ describe('la escena de un mapa real', () => {
         e.informe.bajadasSinPieza,
         e.informe.bajadasTapadas,
         e.informe.bajadasSobreNodo,
-      ]).toEqual([0, 0, 0]);
+        e.informe.rampasDesviadas,
+      ]).toEqual([0, 0, 0, 0]);
+      // La senda pintada pasa por cada rampa, del filo al pie (#192).
+      expect(rampasDesviadas(e.relieve.bajadas, e.sendas)).toEqual([]);
       // Que el guardia no mire al vacío: hay diagonales (con arte o marcador) y bajadas.
       expect(
         e.sprites.some(
