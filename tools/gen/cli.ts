@@ -12,7 +12,6 @@
  */
 import { existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { allCreatures } from '@core/data.js';
 import { RESOURCE_KINDS } from '@core/types.js';
 import { FalClient } from './fal.js';
 import {
@@ -21,12 +20,10 @@ import {
   processScene,
   processSprite,
   processTerrain,
-  SPRITE_SIZE,
 } from './postprocess.js';
 import {
   BUILDING_PROMPTS,
   buildingPrompt,
-  creatureSpritePrompt,
   RESOURCE_ICON_PROMPTS,
   TERRAIN_PROMPTS,
   TERRENOS_CON_TEXTURA,
@@ -94,7 +91,7 @@ const MODELS: Record<string, Record<'cheap' | 'quality', ModelSpec>> = {
 };
 
 interface Job {
-  readonly group: 'terrains' | 'creatures' | 'icons' | 'buildings' | 'towns';
+  readonly group: 'terrains' | 'icons' | 'buildings' | 'towns';
   readonly name: string;
   readonly kind: 'terrain' | 'sprite' | 'scene';
   readonly prompt: string;
@@ -113,18 +110,6 @@ function buildJobs(only: string): Job[] {
         kind: 'terrain',
         prompt: TERRAIN_PROMPTS[t],
         out: join('terrain', `${t}.png`),
-      });
-    }
-  }
-
-  if (only === 'all' || only === 'creatures') {
-    for (const c of allCreatures()) {
-      jobs.push({
-        group: 'creatures',
-        name: c.id,
-        kind: 'sprite',
-        prompt: creatureSpritePrompt(c.id),
-        out: join('creatures', `${c.id}.png`),
       });
     }
   }
@@ -189,7 +174,7 @@ function parseArgs(argv: string[]): {
 
 async function main(): Promise<void> {
   const { only, go, quality, budget, limit } = parseArgs(process.argv);
-  const grupos = ['all', 'terrains', 'creatures', 'icons', 'buildings'];
+  const grupos = ['all', 'terrains', 'icons', 'buildings'];
   if (!grupos.includes(only)) {
     console.error(`grupo desconocido: "${only}". Elige uno de: ${grupos.join(', ')}`);
     process.exit(1);
@@ -239,7 +224,7 @@ async function main(): Promise<void> {
         if (job.kind === 'terrain') await processTerrain(path, destino);
         else if (job.kind === 'scene') await processScene(path, destino);
         else if (job.group === 'buildings') await processBuilding(path, destino);
-        else await processSprite(path, destino, job.group === 'icons' ? ICON_SIZE : SPRITE_SIZE);
+        else await processSprite(path, destino, ICON_SIZE);
         const kb = Math.round(statSync(destino).size / 1024);
         console.log(`  \x1b[32m[listo]\x1b[0m ${job.out} (${kb} kB)`);
       }
@@ -254,7 +239,7 @@ async function main(): Promise<void> {
   if (go) {
     // El índice describe TODO lo que hay en disco, no solo lo de esta tanda:
     // escribirlo con los trabajos del grupo actual borraba del manifiesto los
-    // terrenos y las criaturas en cuanto se generaba un grupo suelto.
+    // terrenos en cuanto se generaba un grupo suelto.
     const manifest = {
       generatedAt: new Date().toISOString(),
       style: 'painted',

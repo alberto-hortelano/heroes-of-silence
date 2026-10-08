@@ -354,14 +354,13 @@ antes del destino (`battle_started` con `faltan`).
 ```bash
 pnpm gen                              # simula: qué falta y cuánto costaría
 pnpm gen -- all --go --budget 4       # genera de verdad (--budget = gasto ACUMULADO)
-npx tsx tools/gen/animate.ts --all --go
 ```
 
 Sin `--go` no se gasta nada; caché por hash del payload; gasto en
 `tools/gen/spend.json`. Texturas como material a 90°, liso, sin mencionar agua.
 Atlas de poses: ≤ 10 celdas, rejilla cuadrada, segunda referencia = identidad;
-`echoScore` rechaza lo no repintado; `cutout.ts` recorta por relleno desde el
-borde.
+`cutout.ts` recorta por relleno desde el borde. Las criaturas y sus poses de
+`tools/gen/animate.ts` se retiraron (#139): las figuras son del taller.
 
 ## El equipo de agentes
 

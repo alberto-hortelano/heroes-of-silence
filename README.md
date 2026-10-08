@@ -94,8 +94,7 @@ Hace falta una clave de [fal.ai](https://fal.ai) en `.env`:
 echo 'FAL_KEY=tu-clave' > .env
 
 pnpm gen                                    # simula: qué falta y qué costaría
-pnpm gen -- all --go --budget 4             # terrenos, criaturas, iconos y edificios
-npx tsx tools/gen/animate.ts --all --go     # las poses de combate
+pnpm gen -- all --go --budget 4             # terrenos, iconos y edificios
 ```
 
 Sin `--go` no se gasta un céntimo. La caché va por hash del payload, así que

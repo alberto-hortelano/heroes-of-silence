@@ -2246,6 +2246,12 @@ npx tsx tools/gen/animate.ts peasant --go   # atlas de poses de una criatura
 npx tsx tools/gen/animate.ts --all --go     # las doce criaturas base
 ```
 
+**08-10-2026 (#139)**: `tools/gen/animate.ts`, la tanda `creatures` de
+`pnpm gen` y lo que escribían (`assets/generated/creatures/` y `anim/`, 6,8 MB)
+se retiraron: desde que toda figura es su arte de 8 direcciones o el Y Bot
+nadie los cargaba (`GRUPOS_QUE_SE_PINTAN` ya filtraba las criaturas del
+manifiesto, y la red del juego, el espectador y la arena no los pedía).
+
 Sin `--go` no se gasta un céntimo. La caché va por hash del payload, así que
 repetir una tanda sale gratis, y el gasto acumulado queda en
 `tools/gen/spend.json`. Ojo con `--budget`: es el tope del gasto **acumulado**
