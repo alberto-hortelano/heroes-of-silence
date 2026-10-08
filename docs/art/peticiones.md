@@ -1327,3 +1327,19 @@ ninguna fallida), **12 hojas nuevas en disco y 6 descartadas** (se quedó la que
   pierde algo de relieve frente a la del sureste.
 - **Las bajadas `o` de nieve y arenisca** pintan su pared alta algo fuera de la silueta de
   la guía (sale el 54-55 % del módulo, frente al 37-39 %). Los guardias siguen a 0.
+
+## 27. Variantes de cada suelo para el suelo sin rejilla (R2, rama `suelo-r2`, 08-10-2026)
+
+El suelo ya no enseña la rejilla de 4 casillas: encima del patrón van parches con otro
+trozo de la misma textura (`parches.ts`). Con una sola textura por suelo, los parches
+repiten el mismo dibujo en otro sitio: al alejar ya no se ven filas, pero de cerca la misma
+mata o la misma mancha de nieve puede salir dos veces en pocas casillas. **No se ha
+generado nada**; queda como petición:
+
+- **2 variantes más por suelo** (`grass`, `dirt`, `snow`, `sand`, `swamp`, `lava`):
+  `suelos/<suelo>-2.webp`, `-3.webp`, 512 × 512, repetibles, con la misma luz, el mismo
+  color medio y la misma escala que la que hay (que fundidas no se note el cambio de
+  tono), y dibujo distinto: otras matas, otras manchas, otras ondas de la arena (siempre
+  horizontales).
+- Al llegar, cada `Variante` de `encajeDe` elegiría también textura; las fronteras leen
+  la altura de la que se ve (`enElEncaje`).

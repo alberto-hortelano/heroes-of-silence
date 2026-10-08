@@ -14,7 +14,8 @@
  *
  * Capas del suelo, de abajo arriba:
  *   1. el suelo de cada región, con la frontera cortada por ruido y por la
- *      altura de las texturas (`fronteras.ts`);
+ *      altura de las texturas (`fronteras.ts`), y cada textura encajada sin
+ *      rejilla (`parches.ts`);
  *   2. la sombra de cada nivel (lo bajo, más oscuro);
  *   2b. el arcén: el pasillo de la senda, en el color de su suelo;
  *   3. las sendas;
@@ -36,12 +37,15 @@
 
 import { columnasDeCara } from './caras.js';
 import type { Escena, Luz, Sprite } from './colocar.js';
+import { type AlturaDeSuelo, fronterasDelSuelo, PX_DE_LAS_FRONTERAS } from './fronteras.js';
 import {
-  type AlturaDeSuelo,
   CASILLAS_POR_TEXTURA,
-  fronterasDelSuelo,
-  PX_DE_LAS_FRONTERAS,
-} from './fronteras.js';
+  type Encaje,
+  encajeDe,
+  pesoDelParche,
+  RADIO_DEL_PARCHE,
+  type Variante,
+} from './parches.js';
 import { cajaDeSprite } from './pasillo.js';
 import { bandaDeCara, type CaraDeEscena } from './relieve.js';
 import {
@@ -391,7 +395,21 @@ export function pintarSuelo(
     g.filter = 'none';
     return grande;
   };
-  const rellenar = (capa: Lienzo, src: string, color: string, casillasPorTextura: number) => {
+  /**
+   * `capa` (una máscara) rellena de la textura `src` sin rejilla: el patrón y
+   * encima los parches de su encaje (`parches.ts`), con `source-atop`, que deja
+   * el alfa de la máscara. Solo se estampan los parches que llegan a una casilla
+   * donde `cubre`, con `alcance` casillas de holgura (lo que la máscara se sale).
+   */
+  const rellenar = (
+    capa: Lienzo,
+    src: string,
+    color: string,
+    casillasPorTextura: number,
+    clave: string,
+    cubre: (i: number) => boolean,
+    alcance: number,
+  ) => {
     const g = contexto(capa);
     g.globalCompositeOperation = 'source-in';
     const im = o.imagen(src);
@@ -401,6 +419,11 @@ export function pintarSuelo(
       g.fillStyle = patron;
     } else g.fillStyle = color;
     g.fillRect(0, 0, capa.width, capa.height);
+    if (patron !== null && im !== undefined) {
+      g.globalCompositeOperation = 'source-atop';
+      const encaje = encajeDe(e.semilla, clave, e.W, e.H, casillasPorTextura);
+      estamparParches(g, im, encaje, T, (p) => llegaA(e, p.x, p.y, alcance, cubre), nuevo);
+    }
     g.globalCompositeOperation = 'source-over';
     return capa;
   };
@@ -519,14 +542,36 @@ export function pintarSuelo(
       const { lienzo: chico, c: g } = lienzoCon(fr.ancho, fr.alto, nuevo);
       const d = g.createImageData(fr.ancho, fr.alto);
       const alfa = fr.alfas[k] as Uint8ClampedArray;
-      for (let p = 0; p < alfa.length; p++) d.data[p * 4 + 3] = alfa[p] as number;
+      // Las casillas donde algo de este suelo se ve: solo a ellas van sus parches.
+      const seVeEn = new Uint8Array(e.W * e.H);
+      for (let p = 0; p < alfa.length; p++) {
+        d.data[p * 4 + 3] = alfa[p] as number;
+        if (alfa[p] !== 0)
+          seVeEn[
+            Math.floor(Math.floor(p / fr.ancho) / PX_DE_LAS_FRONTERAS) * e.W +
+              Math.floor((p % fr.ancho) / PX_DE_LAS_FRONTERAS)
+          ] = 1;
+      }
       g.putImageData(d, 0, 0);
       const { lienzo: capa, c: gc } = lienzoCon(e.W * T, e.H * T, nuevo);
       gc.imageSmoothingEnabled = true;
       gc.imageSmoothingQuality = 'medium';
       gc.drawImage(chico, 0, 0, e.W * T, e.H * T);
       c.filter = VIVEZA[s] ?? 'none';
-      c.drawImage(rellenar(capa, `suelos/${s}.webp`, pigmento(s), CASILLAS_POR_TEXTURA), 0, 0);
+      c.drawImage(
+        rellenar(
+          capa,
+          `suelos/${s}.webp`,
+          pigmento(s),
+          CASILLAS_POR_TEXTURA,
+          s,
+          (i) => seVeEn[i] === 1,
+          // El alfa se amplía con suavizado: medio píxel suyo de holgura.
+          1 / PX_DE_LAS_FRONTERAS,
+        ),
+        0,
+        0,
+      );
       c.filter = 'none';
       g.globalCompositeOperation = 'source-in';
       g.fillStyle = pigmento(s);
@@ -569,6 +614,9 @@ export function pintarSuelo(
         'texturas/barro.webp',
         '#3b3326',
         3,
+        'barro',
+        (i) => agua.has(i),
+        1,
       ),
       0,
       0,
@@ -583,6 +631,9 @@ export function pintarSuelo(
         'texturas/agua.webp',
         '#24405a',
         3,
+        'agua',
+        (i) => agua.has(i),
+        1,
       ),
       0,
       0,
@@ -760,6 +811,87 @@ function cantos(e: Escena, nuevo: NuevoLienzo): Lienzo {
   g.filter = `blur(${DESENFOQUE_DE_LOS_CANTOS * k}px)`;
   g.drawImage(nitido, 0, 0);
   g.filter = 'none';
+  return lienzo;
+}
+
+/**
+ * Si un parche centrado en `(x, y)` casillas llega a alguna casilla donde
+ * `cubre`, con `alcance` casillas de holgura: los demás no se estampan, que a
+ * 120 px cada uno son 360² píxeles por textura.
+ */
+function llegaA(
+  e: Escena,
+  x: number,
+  y: number,
+  alcance: number,
+  cubre: (i: number) => boolean,
+): boolean {
+  const r = RADIO_DEL_PARCHE + alcance;
+  for (let j = Math.max(0, Math.floor(y - r)); j <= Math.min(e.H - 1, Math.floor(y + r)); j++)
+    for (let i = Math.max(0, Math.floor(x - r)); i <= Math.min(e.W - 1, Math.floor(x + r)); i++)
+      if (cubre(j * e.W + i)) return true;
+  return false;
+}
+
+/**
+ * Estampa en `g` los parches de `encaje` que pasan `estampar`, en su orden. Cada
+ * trozo de la textura (`Variante`) es una estampa de `D × D` píxeles —el patrón
+ * con su desplazamiento y su espejo, recortado por el peso del parche
+ * (`pesoDelParche`)— que se hace la primera vez que hace falta y se suelta al
+ * acabar la textura. Va a píxel entero: con un desplazamiento fraccionario, el
+ * navegador remuestrea la estampa y el parche sale más borroso que el fondo.
+ */
+function estamparParches(
+  g: Contexto,
+  im: Imagen,
+  encaje: Encaje,
+  T: number,
+  estampar: (p: { readonly x: number; readonly y: number }) => boolean,
+  nuevo: NuevoLienzo,
+): void {
+  const D = Math.ceil(2 * RADIO_DEL_PARCHE * T);
+  const N = anchoNatural(im);
+  const escala = (encaje.casillasPorTextura * T) / N;
+  let mascara: Lienzo | undefined;
+  const estampas = new Map<number, Lienzo>();
+  const estampa = (k: number): Lienzo => {
+    const hecha = estampas.get(k);
+    if (hecha !== undefined) return hecha;
+    mascara ??= mascaraDelParche(D, T, nuevo);
+    const va = encaje.variantes[k] as Variante;
+    const { lienzo, c } = lienzoCon(D, D, nuevo);
+    const patron = c.createPattern(im, 'repeat');
+    if (patron === null)
+      throw new Error('el pintor del suelo no pudo hacer el patrón de un parche');
+    patron.setTransform(
+      new DOMMatrix()
+        .translate(D / 2, D / 2)
+        .scale(va.espejo ? -1 : 1, 1)
+        .scale(escala)
+        .translate(-va.u * N, -va.v * N),
+    );
+    c.fillStyle = patron;
+    c.fillRect(0, 0, D, D);
+    c.globalCompositeOperation = 'destination-in';
+    c.drawImage(mascara, 0, 0);
+    estampas.set(k, lienzo);
+    return lienzo;
+  };
+  for (const p of encaje.parches)
+    if (estampar(p))
+      g.drawImage(estampa(p.variante), Math.round(p.x * T - D / 2), Math.round(p.y * T - D / 2));
+}
+
+/** El peso del parche (`pesoDelParche`) en el alfa de un lienzo de `D × D`, a `T` px por casilla. */
+function mascaraDelParche(D: number, T: number, nuevo: NuevoLienzo): Lienzo {
+  const { lienzo, c } = lienzoCon(D, D, nuevo);
+  const datos = c.createImageData(D, D);
+  for (let y = 0; y < D; y++)
+    for (let x = 0; x < D; x++)
+      datos.data[(y * D + x) * 4 + 3] = Math.round(
+        255 * pesoDelParche((x + 0.5 - D / 2) / T, (y + 0.5 - D / 2) / T),
+      );
+  c.putImageData(datos, 0, 0);
   return lienzo;
 }
 

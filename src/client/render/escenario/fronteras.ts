@@ -14,6 +14,7 @@
  * alfas que devuelve. Determinista: el ruido sale de un hash entero de la semilla
  * de la escena, la misma en el cliente, el espectador y el taller.
  */
+import { CASILLAS_POR_TEXTURA, type Encaje, encajeDe, enElEncaje } from './parches.js';
 
 /**
  * Píxeles por casilla de los alfas. El mismo para el esbozo y el bueno, que así
@@ -23,9 +24,6 @@
  * Node, frente a ~0,05).
  */
 export const PX_DE_LAS_FRONTERAS = 16;
-
-/** Casillas que mide la textura de un suelo al pintarla: el patrón que la repite. */
-export const CASILLAS_POR_TEXTURA = 4;
 
 /**
  * Lo que se deforma el mapa al leer los campos, en casillas: el serpenteo de la
@@ -135,6 +133,8 @@ export function fronterasDelSuelo(
     return v;
   });
   const alturasNorm = suelos.map((s) => normalizar(alturas(s)));
+  // La altura se lee donde se ve: en el encaje de parches de cada textura (R2).
+  const encajes = suelos.map((s) => encajeDe(e.semilla, s, W, H, CASILLAS_POR_TEXTURA));
   const ruidos = suelos.map((_, k) => ruidoDe(mezclar(e.semilla, k + 1), OCTAVAS, W, H));
   const deformaX = ruidoDe(mezclar(e.semilla, 0x7f4a7c15), OCTAVAS_DE_DEFORMACION, W, H);
   const deformaY = ruidoDe(mezclar(e.semilla, 0x2c1b3c6d), OCTAVAS_DE_DEFORMACION, W, H);
@@ -201,7 +201,7 @@ export function fronterasDelSuelo(
         const w =
           (pesos[k] as number) +
           RUIDO * (fbm(ruidos[k] as Ruido, cx, cy) - 0.5) +
-          ALTURA * alturaEn(alturasNorm[k], cx, cy);
+          ALTURA * alturaEn(alturasNorm[k], encajes[k] as Encaje, cx, cy);
         pesos[k] = w;
         if (w > mayor) mayor = w;
       }
@@ -243,12 +243,19 @@ function normalizar(a: AlturaDeSuelo | undefined): AlturaDeSuelo | undefined {
   return { lado: a.lado, luz };
 }
 
-/** La altura en el punto (x, y) en casillas, en el mismo encaje que el patrón del suelo. */
-function alturaEn(a: AlturaDeSuelo | undefined, x: number, y: number): number {
+/** La altura en el punto (x, y) en casillas, en el encaje en que se pinta la textura. */
+function alturaEn(a: AlturaDeSuelo | undefined, encaje: Encaje, x: number, y: number): number {
   if (a === undefined) return 0;
-  const u = Math.floor(((x / CASILLAS_POR_TEXTURA) % 1) * a.lado);
-  const v = Math.floor(((y / CASILLAS_POR_TEXTURA) % 1) * a.lado);
-  return a.luz[v * a.lado + u] as number;
+  const { lado, luz } = a;
+  return enElEncaje(
+    encaje,
+    x,
+    y,
+    (u, v) =>
+      luz[
+        Math.min(lado - 1, Math.floor(v * lado)) * lado + Math.min(lado - 1, Math.floor(u * lado))
+      ] as number,
+  );
 }
 
 /** Un hash de 32 bits de dos enteros (el de `mulberry32` en `esparcir.ts`, sin estado). */
