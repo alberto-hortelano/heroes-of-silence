@@ -425,6 +425,24 @@ describe('los hitos de los nodos (#176): tres, por el id, ninguno con cruz', () 
     }
   });
 
+  it('sin tope: cada nodo de acantilado lleva su hito, también los nueve de s36 (§29)', () => {
+    // Un nodo neutral no lleva bandera: sin su hito, no se vería que ahí hay
+    // algo que tomar. En 1-40 son 142 (de 0 a 9 por mapa) y nunca hay dos a
+    // menos de 5 casillas: muchos en un mapa es que el mapa tiene muchos pasos.
+    for (const semilla of segunPrisa([36], rango(1, 40))) {
+      const { map, escena } = partidaDe(semilla);
+      const a = analizar(map);
+      const nodos = map.objects.filter(
+        (o) => o.kind === 'node' && a.pasos.get(o.id)?.barrera === 'cliff',
+      );
+      if (semilla === 36) expect(nodos).toHaveLength(9);
+      for (const o of nodos) {
+        const s = escena.sprites.find((x) => x.objeto?.id === o.id);
+        expect(esHito(s?.src?.replace(/\.webp$/, '') ?? null), `s${semilla} ${o.id}`).toBe(true);
+      }
+    }
+  });
+
   it('sin el arte de los hitos, cada uno cae a su marcador', () => {
     const { semilla } = primeraSemillaCon('dos hitos o más', (s) =>
       hitosDe(s).size >= 2 ? s : undefined,
