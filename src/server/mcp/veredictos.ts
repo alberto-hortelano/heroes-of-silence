@@ -51,6 +51,14 @@ export class ColaDeVeredictos {
     );
   }
 
+  /**
+   * Tira lo que quedaba: era de una partida que ya no existe. Su sitio era la
+   * siguiente petición DE ESA partida, y no va a haber ninguna (#118).
+   */
+  olvida(): void {
+    this.lineas.length = 0;
+  }
+
   /** Se lo lleva todo y se vacía. Cadena vacía si no había nada que contar. */
   recoge(): string {
     if (this.lineas.length === 0) return '';

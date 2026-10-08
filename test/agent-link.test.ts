@@ -2077,3 +2077,30 @@ describe('la tropa se hace héroe, por el cable', () => {
     expect('veteransWaiting' in agent.seen[1]!.payload).toBe(false);
   });
 });
+
+describe('identidad de la partida (#118)', () => {
+  it('lo primero que recibe un agente es la partida, la misma en cada conexión y otra en otro enlace', async () => {
+    const primeros = async (link: AgentLink): Promise<string[]> => {
+      const url = await servidorDePruebas(link);
+      const ids: string[] = [];
+      for (let i = 0; i < 2; i++) {
+        const ws = new WebSocket(url);
+        abiertos.push(() => ws.close());
+        const [raw] = (await once(ws, 'message')) as [WebSocket.RawData];
+        const msg = JSON.parse(String(raw)) as { type: string; id: string };
+        expect(msg.type).toBe('partida');
+        ids.push(msg.id);
+        ws.close();
+        await once(ws, 'close');
+      }
+      return ids;
+    };
+    const a = new AgentLink(500);
+    a.gameOver(0, 'acabó'); // el final guardado va DETRÁS de la presentación
+    const [a1, a2] = await primeros(a);
+    const [b1] = await primeros(new AgentLink(500));
+    expect(a1).toBe(a.partida);
+    expect(a2).toBe(a1);
+    expect(b1).not.toBe(a1);
+  });
+});

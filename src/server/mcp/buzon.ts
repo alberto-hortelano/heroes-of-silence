@@ -65,6 +65,8 @@ export class Buzon {
   >();
   /** La petición recogida y sin contestar. */
   private recogida: string | null = null;
+  /** La partida al otro lado del canal, tal y como la anunció el servidor. */
+  private partida: string | null = null;
 
   constructor(private readonly plazoConsultaMs = PLAZO_CONSULTA_MS) {}
 
@@ -85,7 +87,26 @@ export class Buzon {
     this.recogida = null;
   }
 
-  /** Si la partida ya acabó. El puente no debe reconectar por su cuenta. */
+  /**
+   * El servidor dice qué partida juega. Devuelve si es OTRA que la que había.
+   *
+   * El puente vive más que la partida: un `pnpm partida` relanzado le habla por
+   * el mismo puerto, y sin esto la primera escucha de la nueva recibía el final
+   * de la vieja —`terminada` no tenía vuelta atrás— o, en el canal, sus
+   * peticiones (#118). La misma partida tras una desconexión pasajera no borra
+   * nada: lo que quedaba sigue siendo suyo.
+   */
+  empiezaPartida(id: string): boolean {
+    if (id === this.partida) return false;
+    const habia = this.partida !== null;
+    this.partida = id;
+    this.terminada = null;
+    this.pendientes.length = 0;
+    this.recogida = null;
+    return habia;
+  }
+
+  /** Si la partida ya acabó. Con el canal vivo, el puente no reconecta por su cuenta. */
   get haTerminado(): boolean {
     return this.terminada !== null;
   }

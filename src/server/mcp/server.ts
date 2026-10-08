@@ -65,11 +65,19 @@ let cerrando = false;
 const buzon = new Buzon();
 let contadorConsultas = 0;
 
+/** Lo que se espera, con el socket abierto, a que el servidor diga qué partida juega. */
+const PLAZO_DE_PRESENTACION_MS = 5_000;
+
+/**
+ * Abre el canal con la partida. Se da por abierto cuando el servidor dice QUÉ
+ * partida juega, no al abrirse el socket: hasta entonces no se sabe si lo que
+ * queda en el buzón y en la cola de veredictos es suyo o de otra (#118).
+ */
 function connect(): Promise<WebSocket> {
   if (socket !== null && socket.readyState === WebSocket.OPEN) return Promise.resolve(socket);
   if (conectando !== null) return conectando;
 
-  conectando = new Promise<WebSocket>((resolve, reject) => {
+  const intento = new Promise<WebSocket>((resolve, reject) => {
     const ws = new WebSocket(SERVER_URL);
 
     ws.on('open', () => {
@@ -77,10 +85,21 @@ function connect(): Promise<WebSocket> {
         ws.close();
         return;
       }
-      socket = ws;
-      conectando = null;
-      send({ type: 'hello', client: 'heroes-mcp' });
-      resolve(ws);
+      // Un servidor que no se presenta dejaría esta conexión a medias para
+      // siempre, y con ella cada escucha y cada consulta.
+      const sinPresentarse = setTimeout(() => {
+        reject(
+          new Error(
+            `el servidor de ${SERVER_URL} no ha dicho qué partida juega en ` +
+              `${PLAZO_DE_PRESENTACION_MS / 1000} s: ¿es de otra versión? Relanza "pnpm partida".`,
+          ),
+        );
+        ws.close();
+      }, PLAZO_DE_PRESENTACION_MS);
+      ws.once('close', () => clearTimeout(sinPresentarse));
+      ws.on('message', () => clearTimeout(sinPresentarse));
+      // Por el socket y no por `send`: `socket` no se publica hasta saber la partida.
+      ws.send(JSON.stringify({ type: 'hello', client: 'heroes-mcp' } satisfies AgentToServerMsg));
     });
 
     ws.on('message', (raw) => {
@@ -90,11 +109,26 @@ function connect(): Promise<WebSocket> {
       } catch {
         return;
       }
+      if (msg.type === 'partida') {
+        if (buzon.empiezaPartida(msg.id)) veredictos.olvida();
+        socket = ws;
+        if (conectando === intento) conectando = null;
+        resolve(ws);
+        return;
+      }
       recibir(msg);
     });
 
     ws.on('close', () => {
       if (socket === ws) socket = null;
+      // Si se cerró antes de decir la partida, quien esperaba la conexión se
+      // quedaría colgado; después del `resolve` este `reject` no hace nada.
+      if (conectando === intento) conectando = null;
+      reject(
+        new Error(
+          `el servidor de la partida (${SERVER_URL}) cerró el canal sin decir qué partida juega`,
+        ),
+      );
       // Antes esto solo ponía la referencia a `null`, y quien esperaba una
       // decisión —o una respuesta a su consulta— se quedaba colgado para
       // siempre. El canal se muere entero: se avisa a todos a la vez.
@@ -102,7 +136,7 @@ function connect(): Promise<WebSocket> {
     });
 
     ws.on('error', (err) => {
-      conectando = null;
+      if (conectando === intento) conectando = null;
       reject(
         new Error(
           `no se puede hablar con el servidor de la partida en ${SERVER_URL}: ${err.message}. ` +
@@ -111,8 +145,8 @@ function connect(): Promise<WebSocket> {
       );
     });
   });
-
-  return conectando;
+  conectando = intento;
+  return intento;
 }
 
 /**
@@ -139,6 +173,10 @@ const PLAZO_DE_CIERRE_MS = 500;
 
 function recibir(msg: ServerToAgentMsg): void {
   switch (msg.type) {
+    case 'partida':
+      // Lo lee `connect`, que es quien sabe a qué socket pertenece.
+      return;
+
     case 'request':
       buzon.entrega(msg);
       return;
@@ -231,10 +269,32 @@ Aparte de responder, puedes consultar el estado en cualquier momento con
 game_state, battle_state, map, creature_stats, spell_list y building_list, sin
 volcarte la partida entera en el contexto.`;
 
+/**
+ * Con la partida terminada y el canal muerto, mira si el servidor ha vuelto con
+ * otra.
+ *
+ * Con el canal vivo no se reconecta: el servidor sigue en pie tras un
+ * `game_over` y es la misma partida. Con el canal muerto, ese servidor se fue, y
+ * el que conteste ahora en el puerto es una partida nueva —y entonces el final
+ * recordado ya no es suyo (`empiezaPartida`)— o nadie. Antes no se miraba nunca,
+ * y un puente que había visto un final se lo repetía a la partida siguiente para
+ * siempre (#118).
+ *
+ * No contestar NO es un error aquí: es lo esperable cuando la partida acabó y se
+ * apagó el servidor, y lo que hay que decirle al agente es cómo acabó, que ya se
+ * sabe. Por eso el fallo no sube: la escucha sigue y contesta con ese final.
+ */
+async function miraSiHayOtraPartida(): Promise<void> {
+  try {
+    await connect();
+  } catch {
+    // Nadie en el puerto, o no se presentó: sigue valiendo el final recordado.
+  }
+}
+
 server.tool('heroes_listen', LISTEN_DESCRIPTION, {}, async () => {
-  // Con la partida terminada no se reconecta: el servidor puede estar ya
-  // apagado y lo que hay que decirle al agente no depende del socket.
   if (!buzon.haTerminado) await connect();
+  else if (socket === null) await miraSiHayOtraPartida();
 
   const recogida = buzon.enCurso;
   if (recogida !== null) {

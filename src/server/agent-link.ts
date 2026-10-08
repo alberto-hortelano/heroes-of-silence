@@ -6,6 +6,7 @@
  * heurística y sigue. El agente es una mejora, no una dependencia.
  */
 
+import { randomUUID } from 'node:crypto';
 import { RESPONSE_FORMAT, type RequestKind, responseSchemas } from '@core/contract/agent.js';
 import type { WebSocket } from 'ws';
 import { notaRespuestaInvalida, notaSinRespuesta } from './notas.js';
@@ -57,6 +58,12 @@ export class AgentLink {
   /** Si alguna vez se ató un agente. No vuelve a false al desconectarse. */
   private haVenidoAlguien = false;
   private esperandoPrimero: (() => void) | null = null;
+  /**
+   * La identidad de esta partida para el puente: un enlace por partida
+   * (`arrancarPartida`), así que vive aquí. Al azar y no un contador porque dos
+   * ejecuciones del servidor empezarían las dos por el mismo número.
+   */
+  readonly partida = randomUUID();
 
   /** Segundos que se espera una decisión antes de rendirse. */
   constructor(private readonly timeoutMs = 300_000) {}
@@ -94,6 +101,9 @@ export class AgentLink {
     }
     this.socket = socket;
     this.haVenidoAlguien = true;
+    // Lo primero, antes que cualquier petición o veredicto: el puente decide con
+    // esto si lo que le quedaba en el buzón es de esta partida o de otra (#118).
+    this.send({ type: 'partida', id: this.partida });
     this.esperandoPrimero?.();
 
     socket.on('message', (raw) => {

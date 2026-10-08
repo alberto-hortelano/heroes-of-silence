@@ -243,4 +243,27 @@ describe('buzón del puente', () => {
     await expect(enPlazo(consulta)).rejects.toThrow('no hay conexión');
     expect(buzon.consultasEnVuelo).toBe(0);
   });
+
+  it('una partida nueva borra el final y lo pendiente de la anterior; la misma, nada (#118)', async () => {
+    const buzon = new Buzon();
+    expect(buzon.empiezaPartida('A')).toBe(false); // la primera no tenía nada antes
+    buzon.entrega(peticion('req-1'));
+    await enPlazo(buzon.espera());
+    expect(buzon.enCurso).toBe('req-1');
+
+    // Reconectar a la MISMA partida no toca nada: la petición sigue siendo suya.
+    expect(buzon.empiezaPartida('A')).toBe(false);
+    expect(buzon.enCurso).toBe('req-1');
+
+    buzon.fin('La partida A ha terminado.');
+    expect(buzon.haTerminado).toBe(true);
+
+    // Otra partida: ni su final ni su petición recogida son de esta.
+    expect(buzon.empiezaPartida('B')).toBe(true);
+    expect(buzon.haTerminado).toBe(false);
+    expect(buzon.enCurso).toBeNull();
+    buzon.entrega(peticion('req-1'));
+    const aviso = await enPlazo(buzon.espera());
+    expect(aviso.clase).toBe('peticion');
+  });
 });

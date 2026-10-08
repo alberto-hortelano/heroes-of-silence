@@ -803,6 +803,24 @@ volcado no se movió**: el sello `seen` ya salía de `visibleNowAt` y ninguna IA
 - **`map_generate` prometía un reintento que no existe (#122)**: «para que lo
   corrijas». Si el plan no vale se juega el procedimental y no se vuelve a pedir.
 
+### El puente sabe qué partida tiene al otro lado (#118, 08-10-2026)
+
+El puente MCP vive más que la partida, y guardaba sin dueño dos cosas: los
+veredictos sin recoger y el `game_over`. Relanzado `pnpm partida`, la primera
+escucha de la nueva traía los veredictos de la vieja —los `requestId` no ayudan:
+las dos cuentan desde `req-1`— y, si la vieja había terminado, el puente no
+volvía a conectar nunca: le repetía su final a la partida siguiente.
+
+Ahora `AgentLink` (uno por partida) se presenta al atar un agente con
+`{ type: 'partida', id }`, antes que nada más; el puente no da el canal por
+abierto hasta leerlo, y si es otra partida `Buzon.empiezaPartida` borra el final,
+lo pendiente y lo recogido, y la cola de veredictos se vacía. La misma partida
+tras un corte pasajero no borra nada: el veredicto sigue llegando pegado a su
+siguiente petición. Tras un final, con el canal muerto, la escucha mira si hay
+otra partida en el puerto; si no contesta nadie, sigue contando el final. Lo
+vigila `test/puente-mcp.test.ts` con el puente como proceso y dos `AgentLink`
+por el mismo puerto.
+
 ## El mapa lo diseña el agente, y el plan se valida entero
 
 En `map_generate` el agente **no dibuja**: devuelve un plan declarativo y

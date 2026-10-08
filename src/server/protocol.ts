@@ -52,7 +52,26 @@ export interface AgentGameOverMsg {
   readonly note: string;
 }
 
-export type ServerToAgentMsg = AgentRequestMsg | AgentResultMsg | QueryResultMsg | AgentGameOverMsg;
+/**
+ * Qué partida hay al otro lado del canal. Es lo primero que se manda al atar un agente.
+ *
+ * Existe porque el puente MCP vive más que la partida: se reinicia el servidor
+ * y el mismo puente sigue con lo que le quedaba de la anterior —sus veredictos
+ * sin recoger y su `game_over`—, y la primera escucha de la partida nueva los
+ * traía como propios (#118). Los `requestId` no sirven para distinguirlas: cada
+ * partida cuenta desde `req-1`.
+ */
+export interface AgentPartidaMsg {
+  readonly type: 'partida';
+  readonly id: string;
+}
+
+export type ServerToAgentMsg =
+  | AgentPartidaMsg
+  | AgentRequestMsg
+  | AgentResultMsg
+  | QueryResultMsg
+  | AgentGameOverMsg;
 
 // ------------------------------------------------------- agente → servidor
 
