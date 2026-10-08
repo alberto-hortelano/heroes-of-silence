@@ -549,7 +549,8 @@ describe('en las partidas', () => {
     const a = analizar(map);
     expect(a.franjas.filter((f) => f.barrera === 'wall').length).toBeGreaterThan(5);
     expect([...a.pasos.values()].filter((p) => p.barrera === 'wall').length).toBeGreaterThan(0);
-    expect(escenaDe(1).sprites.filter((s) => s.clase === 'muro').length).toBeGreaterThan(30);
+    // 27 piezas desde #208, que dejó las murallas cortas (más de 30 antes).
+    expect(escenaDe(1).sprites.filter((s) => s.clase === 'muro').length).toBeGreaterThan(20);
   });
 
   it('en una casilla de muro no se siembra la cubierta del campo (los huertos de s57)', () => {
@@ -568,8 +569,10 @@ describe('en las partidas', () => {
 
 describe('la muralla de norte a sur, de lado (§29)', () => {
   it('sus tramos son las piezas muro-ns, de 1,6 de alto y por el medio, y no la tira de la hoja', () => {
-    // s12 lleva dos puertas N-S, (27,6) y (6,27), con su lienzo arriba y abajo.
-    const e = escenaDe(12);
+    // s21 lleva dos puertas N-S con su lienzo arriba y abajo. Era s12, cuyas
+    // dos puertas se quedaron con dos casillas de muro a cada lado al partirse
+    // su muralla larga (#208): un tramo cada una.
+    const e = escenaDe(21);
     const ns = e.sprites.filter((s) => /^muro-ns-[12]\.webp$/.test(s.src ?? ''));
     expect(ns.length).toBeGreaterThan(5);
     expect(new Set(ns.map((s) => s.src))).toEqual(new Set(['muro-ns-1.webp', 'muro-ns-2.webp']));

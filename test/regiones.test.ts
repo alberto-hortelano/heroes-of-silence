@@ -43,6 +43,7 @@ import {
 import {
   ABIERTA,
   ArbolDeCaminos,
+  CASILLAS_DE_UNA_MURALLA,
   centroDeRegion,
   type EntradaDeCaminos,
   engordarFronteras,
@@ -653,9 +654,13 @@ describe('el generador hace redes como las pidió el usuario', () => {
         fallos.push(...puertasMalEntradas(map).map(dondeFalla));
         fallos.push(...deDensidad.map(dondeFalla));
         for (const b of frontera.keys()) fronteraTotal.add(b);
-        // Cuatro barreras que se vean, no cuatro nombres: cada una con su mínimo.
+        // Cuatro barreras que se vean, no cuatro nombres: cada una con su
+        // mínimo. El del muro es el de una muralla desde #208, que lo deja en
+        // zonas pequeñas: sus 15 casillas solo salían juntando varias.
         const minimo = BARRERAS_DEL_MAPA.casillasMinimasPorTipo;
-        const llenas = [...frontera].filter(([, n]) => n >= minimo);
+        const llenas = [...frontera].filter(
+          ([b, n]) => n >= (b === 'wall' ? CASILLAS_DE_UNA_MURALLA : minimo),
+        );
         if (llenas.length < TIPOS_POR_MAPA) {
           const reparto = [...frontera].map(([b, n]) => `${b} ${n}`).join(', ');
           fallos.push(
@@ -911,6 +916,7 @@ describe('el generador hace redes como las pidió el usuario', () => {
         etiqueta,
         muro,
         nodos: [],
+        ciudades: [],
         semillas: [
           { x: 3, y: 3 },
           { x: 12, y: 12 },
@@ -979,6 +985,7 @@ describe('el generador hace redes como las pidió el usuario', () => {
       etiqueta,
       muro,
       nodos: [8 * W + 7],
+      ciudades: [],
       semillas: [
         { x: 3, y: 3 },
         { x: 12, y: 12 },

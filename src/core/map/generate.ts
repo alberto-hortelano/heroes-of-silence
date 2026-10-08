@@ -1520,7 +1520,18 @@ function vestirRed(
 
   // 9. Las fronteras, gruesas y de su tipo. El mapa grueso se vuelve a validar
   //    entero: lo que se puede haber roto es una región partida o raquítica.
-  const grueso = engordarFronteras({ W, H, etiqueta, muro, nodos, semillas, suelos, rng });
+  const ciudades = [b0, b1, ...neutrales].map((k) => nodos[k] as number);
+  const grueso = engordarFronteras({
+    W,
+    H,
+    etiqueta,
+    muro,
+    nodos,
+    ciudades,
+    semillas,
+    suelos,
+    rng,
+  });
   if (typeof grueso === 'string') return fallo('fronteras', grueso);
   const { tipos, pasillo } = grueso;
   const regionsGruesas = regions.map((r, k) => ({ ...r, at: grueso.semillas[k] as Point }));

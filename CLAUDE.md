@@ -242,6 +242,14 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   (`LADO_MINIMO_DEL_PLAN`); el generador solo sabe de 24 a 64
   (`LADO_MINIMO_DEL_GENERADOR`, 200 de 200 semillas en cada lado) y fuera lanza antes de intentarlo (#102).
   Ninguna mina ni pueblo lleva la puerta en el borde (`colocarPar`, #189), salvo el respaldo sin puerta.
+  **La muralla, solo en zonas pequeñas** (#208): una muralla (muro y sus puertas, 8-conexo) no pasa
+  de `LARGO_MAXIMO_DE_MURALLA` (6) de largo ni toca dos ciudades (`murallasLargas`, paso 7 de
+  `engordarFronteras`); la que sí, con puertas se parte (muro a `RADIO_DE_LA_PUERTA` de cada una)
+  y si no, o si aún no vale, toma entera la barrera de sus suelos que más pesa sin el muro ni,
+  salvo que todos la admitan, el agua (`laMasPesada`, sin tirada). La ruina de muro pegada a otro
+  muro va de otra barrera. El muro cuenta para las `TIPOS_POR_MAPA` con
+  `CASILLAS_DE_UNA_MURALLA` (5). En 1-200: largo máximo 34 → 6, ciudad a ciudad 119 → 0
+  (`test/murallas-cortas.test.ts`).
 - **Asaltantes**: grupos neutrales que patrullan regiones sin dueño y emboscan
   al pisar si les sacan `ventajaClara`. Son actores (`GameState.raiders`), no
   objetos del mapa. Un grupo se ve en cuanto se ve una casilla de su región

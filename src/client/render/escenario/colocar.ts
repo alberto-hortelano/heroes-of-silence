@@ -1836,7 +1836,6 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
 
   /** La línea de una franja de muro (`trazaDeMuralla`), con sus puertas y cómo entra su torre. */
   function trazarLinea(f: Franja) {
-    const hoja = f.uso === 'obstaculo' ? 'ruina' : 'muro';
     const dentro = new Set(f.casillas);
     const color = MARCADOR.wall as string;
     // Por coordenadas y dentro del mapa: con el índice, la vecina de la izquierda
@@ -1853,6 +1852,11 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         }),
       ),
     );
+    // Una franja pequeña es ruina salvo que lleve puerta: la muralla larga que
+    // se parte deja el muro alrededor de su puerta (#208), en trozos de cinco o
+    // seis casillas que `analizar` cuenta como mancha, y la puerta iba entre
+    // dos ruinas.
+    const hoja = f.uso === 'obstaculo' && suyas.length === 0 ? 'ruina' : 'muro';
     /** La torre de la casilla `[x, y]`, la que se pinta y la que se mide contra la senda. */
     const torreEn = ([x, y]: readonly [number, number]) =>
       deHoja(

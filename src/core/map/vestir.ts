@@ -68,6 +68,22 @@ function candidatasDeFrontera(a: Suelo, b: Suelo): BarreraConPeso[] {
 
 const indiceDe = (b: Barrera): number => BARRERAS.indexOf(b);
 
+/**
+ * La candidata de más peso; en un empate, la primera en el orden de `BARRERAS`.
+ * Es la elección sin tirada: la usa lo que corrige una barrera ya sorteada
+ * (la muralla larga, la ruina pegada a otro muro), para que corregir no mueva
+ * el azar de todo lo que viene después y el mapa cambie solo donde se corrige.
+ */
+function laMasPesada(candidatas: readonly BarreraConPeso[]): Barrera {
+  let mejor: BarreraConPeso | undefined;
+  for (const b of BARRERAS) {
+    const c = candidatas.find((x) => x.barrera === b);
+    if (c !== undefined && (mejor === undefined || c.peso > mejor.peso)) mejor = c;
+  }
+  if (mejor === undefined) throw new Error('no hay barreras candidatas entre las que elegir');
+  return mejor.barrera;
+}
+
 /** La lista barajada con el `rng` (Fisher-Yates), sin tocar la de entrada. */
 function barajar<T>(rng: Rng, lista: readonly T[]): T[] {
   const fuera = [...lista];
@@ -125,6 +141,11 @@ export interface EntradaDeEngorde {
   readonly muro: Uint8Array;
   /** Las casillas de los nodos de la red, por índice plano. */
   readonly nodos: readonly number[];
+  /**
+   * Las casillas de los nodos que son ciudad (las bases y las neutrales): una
+   * muralla no va de una a otra (`murallasLargas`).
+   */
+  readonly ciudades: readonly number[];
   /** Las semillas de las regiones, por índice de región (= etiqueta). */
   readonly semillas: readonly { readonly x: number; readonly y: number }[];
   /** El suelo de cada región, por índice de región. */
@@ -506,20 +527,110 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
     if (deLaSemilla === undefined) semillas[r] = aPunto(elegido.casillas[0] as number, W);
   }
 
-  // 7. Las barreras garantizadas, contadas en la frontera ya gruesa y sin las
-  //    casillas de nodo, que se abren: es lo que verá quien juegue.
+  // 7. Las murallas cortas (#208): la barrera que cruza cada nodo depende de lo
+  //    que tiene alrededor, y una muralla larga se vuelve otra barrera, así que
+  //    se repite hasta que no queda ninguna. Solo quita muro: acaba.
+  let barreraDeNodo = barrerasDeLosNodos(e, tipos, esNodo, clave, tipoDePareja, candidatasDe);
+  const esCiudad = new Set(e.ciudades);
+  /** Lo que se quedó de muro al partir una muralla: no se vuelve a partir. */
+  const partida = new Uint8Array(N);
+  for (;;) {
+    const largas = murallasLargas(e, tipos, esNodo, barreraDeNodo);
+    if (largas.length === 0) break;
+    const hechas = new Set<number>();
+    for (const larga of largas) {
+      if (hechas.has(larga[0] as number)) continue;
+      // La espejo, con la misma barrera: el mapa va en espejo y sus suelos son
+      // los de la pareja, que son los mismos.
+      const espejo = new Set(larga.map((c) => espejoDe(c, N)));
+      const reflejada = largas.find((l) => espejo.has(l[0] as number));
+      const lados = new Set<number>();
+      for (const c of larga)
+        for (let v = desde[c]!; v < desde[c + 1]!; v++) {
+          const j = vecinas[v]!;
+          if (tipos[j] === ABIERTA && esNodo[j] === 0) lados.add(etiqueta[j] as number);
+        }
+      // De lo que admiten sus suelos, primero lo que el mapa aún no tiene con
+      // sus `casillasMinimasPorTipo`: si el muro era de las barreras
+      // repartidas, la que lo sustituye mantiene la variedad que pide el paso
+      // 8 en vez de engordar una que ya la daba.
+      const admitidas = candidatasSinMuro([...lados].map((r) => suelos[r] as Suelo));
+      const cuantas = new Int32Array(BARRERAS.length);
+      for (let i = 0; i < N; i++)
+        if (tipos[i] !== ABIERTA && esNodo[i] === 0) cuantas[tipos[i]!]! += 1;
+      const nuevas = admitidas.filter(
+        (c) => cuantas[indiceDe(c.barrera)]! < BARRERAS_DEL_MAPA.casillasMinimasPorTipo,
+      );
+      const otra = indiceDe(laMasPesada(nuevas.length > 0 ? nuevas : admitidas));
+      // Con puertas, la primera vez se parte: el muro se queda alrededor de
+      // cada una y el resto toma la otra barrera. Sin partir, las puertas de
+      // muralla casi desaparecían: iban en murallas largas, y en 1-40 solo
+      // quedaban en un mapa (con partir, 297 → 237 en 1-200).
+      // Si lo que queda aún no vale —dos puertas juntas, o una entre dos
+      // ciudades—, la segunda vez va entera.
+      const puertas = e.nodos.filter(
+        (n, k) => barreraDeNodo[k] === 'wall' && !esCiudad.has(n) && larga.includes(n),
+      );
+      const partir = puertas.length > 0 && !larga.some((c) => partida[c] === 1);
+      const cercaDeUna = (c: number, l: readonly number[]): boolean =>
+        l.some(
+          (n) =>
+            esNodo[n] === 1 &&
+            puertas.some((p) => p === n || espejoDe(p, N) === n) &&
+            Math.max(
+              Math.abs((c % W) - (n % W)),
+              Math.abs(Math.floor(c / W) - Math.floor(n / W)),
+            ) <= RADIO_DE_LA_PUERTA,
+        );
+      for (const l of [larga, reflejada ?? []]) {
+        hechas.add(l[0] as number);
+        for (const c of l) {
+          if (partir && cercaDeUna(c, l)) partida[c] = 1;
+          else tipos[c] = otra;
+        }
+      }
+    }
+    barreraDeNodo = barrerasDeLosNodos(e, tipos, esNodo, clave, tipoDePareja, candidatasDe);
+  }
+
+  // 8. Las barreras garantizadas, contadas en la frontera ya gruesa y sin las
+  //    casillas de nodo, que se abren: es lo que verá quien juegue. Cuenta que
+  //    haya `hacenFalta` barreras con sus casillas, no que sean las que se
+  //    repartieron: la muralla larga del paso 7 se vuelve otra barrera, y si el
+  //    muro era de las repartidas, lo que se pide —variedad— lo puede dar la
+  //    que lo sustituye (#208). Exigir el muro repartido tiraba el vestido 1 089
+  //    veces en 1-200, contra 15 antes, y cada vestido tirado es otro mapa.
   const porTipo = new Int32Array(BARRERAS.length);
   for (let i = 0; i < N; i++) if (tipos[i] !== ABIERTA && esNodo[i] === 0) porTipo[tipos[i]!]! += 1;
-  for (const b of new Set(distintas.values())) {
-    const n = porTipo[indiceDe(b)] as number;
-    if (n < casillasMinimasPorTipo) {
-      return `la frontera de ${b} se queda en ${n} casillas, y cada barrera garantizada lleva ${casillasMinimasPorTipo}`;
-    }
+  // El muro cuenta con una muralla: ahora va en zonas pequeñas y sus 15
+  // casillas ya no se pueden pedir, pero sigue siendo una barrera que se ve.
+  const minimoDe = (b: Barrera): number =>
+    b === 'wall' ? CASILLAS_DE_UNA_MURALLA : casillasMinimasPorTipo;
+  const conSusCasillas = BARRERAS.filter((b) => porTipo[indiceDe(b)]! >= minimoDe(b));
+  if (conSusCasillas.length < hacenFalta) {
+    const cortas = [...new Set(distintas.values())]
+      .filter((b) => porTipo[indiceDe(b)]! < minimoDe(b))
+      .map((b) => `${b} en ${porTipo[indiceDe(b)]}`);
+    return `la frontera se queda con ${conSusCasillas.length} barreras de ${casillasMinimasPorTipo} casillas (${conSusCasillas.join(', ') || 'ninguna'}), y cada mapa lleva ${hacenFalta}; se quedan cortas ${cortas.join(', ')}`;
   }
-  // 8. La barrera que cruza cada nodo (#145): la que el plan escribe bajo él y
-  //    `buildMap` guarda al abrirlo. La deducía el escenógrafo de las ocho
-  //    vecinas, sin saber de qué pareja era el nodo (#187).
-  const barreraDeNodo = e.nodos.map((n) => {
+  return { tipos, pasillo, semillas, barreraDeNodo };
+}
+
+/**
+ * La barrera que cruza cada nodo de `e.nodos`, en su orden (#145): la que el
+ * plan escribe bajo él y `buildMap` guarda al abrirlo. La deducía el
+ * escenógrafo de las ocho vecinas, sin saber de qué pareja era el nodo (#187).
+ */
+function barrerasDeLosNodos(
+  e: EntradaDeEngorde,
+  tipos: Tipos,
+  esNodo: Uint8Array,
+  clave: (a: number, b: number) => number,
+  tipoDePareja: Int8Array,
+  candidatasDe: (k: number) => BarreraConPeso[],
+): Barrera[] {
+  const { desde, vecinas } = vecindad(e.W, e.H);
+  return e.nodos.map((n) => {
     const cuenta = new Int32Array(BARRERAS.length);
     const regionesDelNodo = new Set<number>();
     for (let v = desde[n]!; v < desde[n + 1]!; v++) {
@@ -527,7 +638,7 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
       // Las regiones, por el muro fino; lo que se ve, por la frontera gruesa,
       // que es lo que pinta `buildMap` (los obstáculos no tocan un nodo, y los
       // nodos y ciudades vecinos se abren).
-      if (muro[j] === 0) regionesDelNodo.add(etiqueta[j] as number);
+      if (e.muro[j] === 0) regionesDelNodo.add(e.etiqueta[j] as number);
       if (tipos[j] !== ABIERTA && esNodo[j] === 0) cuenta[tipos[j]!]! += 1;
     }
     const lados = [...regionesDelNodo];
@@ -539,7 +650,115 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
       n,
     );
   });
-  return { tipos, pasillo, semillas, barreraDeNodo };
+}
+
+/**
+ * Lo más largo que mide una muralla de frontera, en casillas: el lado mayor de
+ * la caja de lo que se ve como una —el muro y sus puertas, 8-conexo—.
+ *
+ * «Con la muralla como separador deberíamos limitarlo, no encaja que haya una
+ * muralla desde una ciudad a otra, limita la muralla a zonas pequeñas» (el
+ * usuario, #208). Medido en 1-200 (34×34, 08-10-2026) antes de este tope: 550
+ * murallas de más de 6 casillas, de largo mediana 7, p90 12 y máximo 34; las
+ * franjas de las demás barreras, mediana 4-5 y p90 6-7 (el agua, 13). Con 6,
+ * la muralla se queda en lo que mide un tramo corriente de frontera entre dos
+ * pasos, y lo que pasa de ahí es la frontera larga que el usuario no quiere.
+ */
+export const LARGO_MAXIMO_DE_MURALLA = 6;
+
+/**
+ * Hasta dónde llega el muro alrededor de su puerta cuando una muralla larga se
+ * parte (`engordarFronteras`, paso 7), en Chebyshev: 2 deja un lienzo de cinco
+ * casillas, dentro de `LARGO_MAXIMO_DE_MURALLA`, con dos a cada lado de la
+ * puerta, que es lo que pide la escena para cerrar (la puerta y un tramo).
+ */
+export const RADIO_DE_LA_PUERTA = 2;
+
+/**
+ * Con cuántas casillas cuenta el muro como una de las `TIPOS_POR_MAPA`
+ * barreras del mapa (`engordarFronteras`, paso 8): las de una muralla corta
+ * (mediana 5 en 1-200 con `LARGO_MAXIMO_DE_MURALLA`), no las
+ * `casillasMinimasPorTipo` de las demás, que con murallas cortas solo salían
+ * juntando varias.
+ */
+export const CASILLAS_DE_UNA_MURALLA = 5;
+
+/**
+ * Las murallas que no valen: las que miden más de `LARGO_MAXIMO_DE_MURALLA` o
+ * tocan dos ciudades (una casilla de muro o de puerta a Chebyshev ≤ 1 de cada
+ * una, que es lo que tapa su pieza y donde la escena apoya la muralla). Cada
+ * una, como sus casillas: el muro y los nodos de muro, 8-conexo, que es como la
+ * escena las une (sus puertas van en la línea). Las ciudades no entran: se
+ * abren.
+ */
+function murallasLargas(
+  e: EntradaDeEngorde,
+  tipos: Tipos,
+  esNodo: Uint8Array,
+  barreraDeNodo: readonly Barrera[],
+): number[][] {
+  const { W, H } = e;
+  const muro = indiceDe('wall');
+  const esCiudad = new Set(e.ciudades);
+  const en = new Uint8Array(W * H);
+  for (let i = 0; i < W * H; i++) if (tipos[i] === muro && esNodo[i] === 0) en[i] = 1;
+  e.nodos.forEach((n, k) => {
+    if (!esCiudad.has(n) && barreraDeNodo[k] === 'wall') en[n] = 1;
+  });
+  const vista = new Uint8Array(W * H);
+  const largas: number[][] = [];
+  for (let i = 0; i < W * H; i++) {
+    if (en[i] === 0 || vista[i] === 1) continue;
+    vista[i] = 1;
+    const casillas = rellenar(W, H, i, (j) => {
+      if (en[j] === 0 || vista[j] === 1) return false;
+      vista[j] = 1;
+      return true;
+    });
+    const xs = casillas.map((c) => c % W);
+    const ys = casillas.map((c) => Math.floor(c / W));
+    const largo =
+      Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) + 1;
+    const tocadas = e.ciudades.filter((t) =>
+      casillas.some(
+        (c) =>
+          Math.max(Math.abs((c % W) - (t % W)), Math.abs(Math.floor(c / W) - Math.floor(t / W))) <=
+          1,
+      ),
+    );
+    if (largo > LARGO_MAXIMO_DE_MURALLA || tocadas.length >= 2) largas.push(casillas);
+  }
+  return largas;
+}
+
+/**
+ * Las candidatas de una frontera que deja de ser muralla: las de sus suelos
+ * (`data/barreras.json`, sumadas) sin el muro. Ningún suelo pide solo muro
+ * —el que más lo pesa, la tierra de casa, admite también bosque y agua—, así
+ * que nunca se queda vacía; si un día pasa, lanza.
+ */
+function candidatasSinMuro(suelos: readonly Suelo[]): BarreraConPeso[] {
+  const suma = new Map<Barrera, number>();
+  const distintos = [...new Set(suelos)];
+  // El agua, solo si la admiten todos: un nodo entre dos suelos que no la
+  // admiten no la cruza (`queCruzaElNodo`, paso 2) y, rodeado de ella, se
+  // quedaba con el muro de su pareja sin un muro alrededor (s197 (31,17)).
+  const conAgua = distintos.every((s) =>
+    BARRERAS_DEL_MAPA.frontera[s].some((c) => c.barrera === 'water'),
+  );
+  for (const s of distintos)
+    for (const c of BARRERAS_DEL_MAPA.frontera[s])
+      if (c.barrera !== 'wall' && (c.barrera !== 'water' || conAgua))
+        suma.set(c.barrera, (suma.get(c.barrera) ?? 0) + c.peso);
+  const fuera = BARRERAS.filter((b) => suma.has(b)).map((b) => ({
+    barrera: b,
+    peso: suma.get(b)!,
+  }));
+  if (fuera.length === 0)
+    throw new Error(
+      `una muralla larga entre suelos ${[...new Set(suelos)].join(', ')}, que solo admiten muro`,
+    );
+  return fuera;
 }
 
 /**
@@ -893,6 +1112,15 @@ export function ponerObstaculos(e: EntradaDeObstaculos): boolean {
     return hecha.length >= Math.min(tamaño, mancha.min) ? hecha : null;
   };
 
+  /** Si alguna casilla de fuera de la mancha, junto a ella (8 vecinas), ya es muro. */
+  const tocaMuro = (mancha: readonly number[]): boolean =>
+    mancha.some((c) => {
+      for (let k = desde[c]!; k < desde[c + 1]!; k++) {
+        const j = vecinas[k]!;
+        if (tipos[j] === indiceDe('wall') && !mancha.includes(j)) return true;
+      }
+      return false;
+    });
   const poner = (r: number, celdas: readonly number[], tipo: number): void => {
     for (const c of celdas) tipos[c] = tipo;
     puestos[r]! += celdas.length;
@@ -920,10 +1148,20 @@ export function ponerObstaculos(e: EntradaDeObstaculos): boolean {
       const tamaño = Math.min(rng.int(mancha.min, mancha.max), Math.max(1, falta));
       const celdas = trazar(atras, tamaño);
       if (celdas === null || !cabe(atras, celdas.length) || !alcanzaTodo(atras, celdas)) continue;
-      const tipo = indiceDe(sortear(rng, BARRERAS_DEL_MAPA.obstaculos[e.suelos[atras]!]));
+      const reflejo = celdas.map((c) => espejoDe(c, N));
+      const deSuSuelo = BARRERAS_DEL_MAPA.obstaculos[e.suelos[atras]!];
+      let tipo = indiceDe(sortear(rng, deSuSuelo));
+      // Una ruina pegada a otro muro se ve como una muralla (la escena une el
+      // muro 8-conexo): dos manchas de seis juntas hacían una de 9 casillas de
+      // largo en medio de una región (s22 (23-28, 14-15), #208). Ahí va la
+      // barrera de su suelo que más pesa sin el muro (`laMasPesada`, que no
+      // tira: el azar de lo que viene detrás no se mueve); todos los suelos que
+      // admiten muro admiten otra.
+      if (tipo === indiceDe('wall') && [celdas, reflejo].some((m) => tocaMuro(m))) {
+        tipo = indiceDe(laMasPesada(deSuSuelo.filter((c) => c.barrera !== 'wall')));
+      }
       poner(atras, celdas, tipo);
       if (llega(otra, pct)) continue;
-      const reflejo = celdas.map((c) => espejoDe(c, N));
       if (
         reflejo.every((c) => valeEn(otra, c)) &&
         cabe(otra, reflejo.length) &&

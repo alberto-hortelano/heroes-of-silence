@@ -694,11 +694,25 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   (3,46 → 3,13 rondas de media), `hero_defeated` 439 → 358, `town_captured`
  *   1 515 → 1 384, `node_captured` 1 340 → 1 206; ningún tipo nuevo ni
  *   ninguno que desaparezca. autoResolve igual (sus batallas no llevan héroe).
+ * - `f69d6b05…` (63 404 líneas): **la muralla, solo en zonas pequeñas** (#208,
+ *   08-10-2026): el generador vuelve otra barrera la muralla de más de
+ *   `LARGO_MAXIMO_DE_MURALLA` o que toca dos ciudades (con puertas, primero la
+ *   parte y deja muro alrededor de cada una), y la ruina pegada a otro muro; y
+ *   el paso 8 del vestido cuenta cuatro barreras con sus casillas (el muro, con
+ *   las de una muralla), no las repartidas. Cambia el mapa, no las reglas, y
+ *   así sale: **110 de 200 semillas cambian**; en 57 el primer hecho distinto
+ *   es `hero_moved` (mismos objetos, otra barrera: otro coste de camino), en 52
+ *   `raider_spawned` (el vestido sale en otro intento y el mapa es otro) y en 1
+ *   `day_start`. 29 con otro ganador, j0 108 → 107, **0 sin terminar**,
+ *   duración 9 / 14 / 28 → **8 / 15 / 28**. Batallas 1 605 → 1 635,
+ *   `hero_defeated` 358 → 397, `node_captured` 1 206 → 1 237,
+ *   `troop_level_up` 2 196 → 2 477; ningún tipo nuevo ni ninguno que
+ *   desaparezca. autoResolve igual.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '84f1b036343f18d4cc80c2ee0ecef4be665dcb0a67676c65f4ade3e5a9194678',
+  sha: 'f69d6b052fb73a846f6840d63eb2e31bdd35777eed063680d0ccad98d4dca045',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);
