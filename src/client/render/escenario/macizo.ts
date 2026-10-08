@@ -27,10 +27,16 @@ import { PX_AL_ZOOM_MAXIMO } from '../camara-mapa.js';
 const HONDURA_MAXIMA = 4;
 
 /** El alto de un pico en la misma falda, en casillas. */
-export const ALTO_DE_FALDA = 0.75;
+export const ALTO_DE_FALDA = 0.9;
 
-/** Lo que sube de la falda a la cresta, en casillas, con el ruido en 1. */
-const SUBIDA = 3;
+/**
+ * Lo que sube de la falda a la cresta lejos de una cumbre, en casillas, con el
+ * ruido en el medio. Era 3 (con la cumbre del ruido, ×1,45), y toda la cresta
+ * salía de picos de 2-2,5 casillas apretados: la alfombra de pinchos de la
+ * auditoría 4 (#204). Ahora la cresta es de picos medianos y lo grande son las
+ * cumbres (`cumbres`).
+ */
+const SUBIDA = 1.0;
 
 /**
  * La hondura a la que la ladera llega a la cresta en una franja ancha: más
@@ -42,39 +48,94 @@ const HONDURA_DE_CRESTA = 2.5;
 /** Lo que sube una franja estrecha, en veces lo que sube una ancha. */
 const SUBIDA_DE_LA_ESTRECHA = 0.55;
 
-/** El ruido de la cresta va de un collado a una cumbre: estas veces la subida. */
-const COLLADO = 0.5;
-const CUMBRE = 1.45;
+/** El ruido de la cresta la mueve entre estas veces la subida: un collado y un hombro. */
+const COLLADO = 0.7;
+const HOMBRO = 1.2;
 
 /**
  * El ruido de valor se queda casi siempre entre 0,3 y 0,7: una cresta pareja.
- * Estirado, la mitad de la cresta es collado o cumbre.
+ * Estirado, la mitad de la cresta es collado u hombro.
  */
 const contraste = (r: number): number => Math.min(1, Math.max(0, (r - 0.25) / 0.5));
 
-/** Lado de la retícula del ruido de la cresta, en casillas: una cumbre cada pocas casillas de cresta. */
+/** Lado de la retícula del ruido de la cresta, en casillas. */
 export const PASO_DEL_RUIDO = 2.6;
+
+/**
+ * El alto de una cumbre, en casillas, en la franja más estrecha y en la más
+ * ancha: una pieza de 2 × 2 casillas o de 3 × 3 (con la silueta de los módulos,
+ * de 0,7 de esbeltez, el ancho sale ~1,4 veces el alto). En HoMM2 una
+ * cordillera son pocas piezas grandes con su falda; aquí, las cumbres.
+ */
+export const ALTO_DE_CUMBRE = { estrecha: 2.5, ancha: 3.0 } as const;
+
+/** La `cumbre` de lo alto de la cresta lejos de una cumbre: a la luz, sin brillo. */
+const CRESTA_A_LA_LUZ = 0.6;
+
+/** Casillas de franja por cumbre: una franja de 20 lleva 2; tope `MAS_CUMBRES`. */
+const CASILLAS_POR_CUMBRE = 9;
+export const MAS_CUMBRES = 4;
+/** Una franja más pequeña no lleva cumbre: sus picos se quedan en la falda. */
+export const FRANJA_SIN_CUMBRE = 4;
+
+/**
+ * Lo más cerca que quedan dos cumbres, en casillas: más cerca, sus faldas se
+ * juntan y vuelven a ser una masa pareja.
+ */
+const ENTRE_CUMBRES = 3.5;
+
+/** Las veces su alto que se prueba una cumbre que no cabe entera, de más a menos. */
+const ENCOGIDA = [1, 0.88, 0.78] as const;
+
+/**
+ * Lo más baja que va la cumbre de una franja en la que no cupo ninguna: una
+ * banda estrecha entre dos sendas. Aún dos casillas de alto en la ancha.
+ */
+const ULTIMA_ENCOGIDA = 0.68;
+
+/**
+ * Hasta dónde baja la falda de una cumbre, en casillas: a esa distancia de su
+ * pie ya es cresta. Lo de al lado es mediano, no otra cumbre.
+ */
+export const FALDA_DE_CUMBRE = 2.4;
+
+/** Una cumbre de un macizo: su pie y su alto, en casillas. */
+export interface Cumbre {
+  readonly x: number;
+  readonly y: number;
+  readonly alto: number;
+}
 
 export interface Macizo {
   /** La distancia del punto a la casilla más cercana fuera de la franja, en casillas (tope 4). */
   hondura(x: number, y: number): number;
   /** El alto que toca a un pico en `(x, y)`, en casillas, antes del azar de cada uno. */
   alto(x: number, y: number): number;
-  /** De 0 en la falda a 1 en la cumbre más alta posible: elige hoja y silueta. */
+  /** De 0 en la falda a 1 en la cumbre más alta posible: elige hoja, silueta y luz. */
   cumbre(x: number, y: number): number;
+  /** Las pocas cumbres de la franja, de la más honda a la menos (`cumbresDe`). */
+  readonly cumbres: readonly Cumbre[];
 }
 
 /**
  * El macizo de una franja de `casillas` (índices `y * W + x`) en un mapa de
  * `W × H`, con la cresta modulada por `ruido` (de 0 a 1, suave; el de
  * `componer` es `ruidoSuave` con `PASO_DEL_RUIDO`). Como en `analizar`, el borde
- * del mapa no es borde: la franja sigue más allá.
+ * del mapa no es borde: la franja sigue más allá. `cabe` dice si una cumbre de
+ * ese alto entra en un sitio sin encogerse (la senda, un paso, un objeto): la
+ * que no cabe se busca en otro sitio, y si no hay otro, no se pone.
+ *
+ * Crece en dos escalas (#204): la cresta, de picos medianos que suben poco de
+ * la falda, y unas pocas cumbres de 2-3 casillas que dominan la franja, con su
+ * falda alrededor. Antes una sola escala, la del ruido, daba picos grandes en
+ * toda la cresta, y una franja ancha era un campo de pinchos iguales.
  */
 export function macizoDe(
   casillas: readonly number[],
   W: number,
   H: number,
   ruido: (x: number, y: number) => number,
+  cabe: (x: number, y: number, alto: number) => boolean = () => true,
 ): Macizo {
   const dentro = new Uint8Array(W * H);
   for (const i of casillas) dentro[i] = 1;
@@ -97,26 +158,90 @@ export function macizoDe(
   // Dónde está la cresta: la hondura mayor de la franja, medida en el centro de
   // cada casilla. Las bandas del procedimental tienen 2-6 casillas de ancho, y
   // con una cresta fija a 2,5 casillas casi ninguna la alcanzaba (#171).
-  let mayor = 0;
-  for (const i of casillas)
-    mayor = Math.max(mayor, hondura((i % W) + 0.5, Math.floor(i / W) + 0.5));
+  const centros = casillas.map((i) => {
+    const x = (i % W) + 0.5;
+    const y = Math.floor(i / W) + 0.5;
+    return { x, y, h: hondura(x, y) };
+  });
+  const mayor = centros.reduce((m, c) => Math.max(m, c.h), 0);
   const cresta = Math.min(HONDURA_DE_CRESTA, Math.max(0.5, mayor));
-  const subida =
-    SUBIDA *
-    (SUBIDA_DE_LA_ESTRECHA +
-      ((1 - SUBIDA_DE_LA_ESTRECHA) * (cresta - 0.5)) / (HONDURA_DE_CRESTA - 0.5));
-  /** De 0 en la falda a `CUMBRE` en la cumbre más alta. */
-  const relieve = (x: number, y: number): number =>
-    Math.min(1, hondura(x, y) / cresta) * (COLLADO + (CUMBRE - COLLADO) * contraste(ruido(x, y)));
+  /** De 0 en la franja más estrecha a 1 en la que llega a `HONDURA_DE_CRESTA`. */
+  const anchura = (cresta - 0.5) / (HONDURA_DE_CRESTA - 0.5);
+  const subida = SUBIDA * (SUBIDA_DE_LA_ESTRECHA + (1 - SUBIDA_DE_LA_ESTRECHA) * anchura);
+  const altoDeCumbre =
+    ALTO_DE_CUMBRE.estrecha + (ALTO_DE_CUMBRE.ancha - ALTO_DE_CUMBRE.estrecha) * anchura;
+  const cumbres = cumbresDe(centros, casillas.length, ruido, altoDeCumbre, cabe);
+  /** El alto de la cresta sin cumbres: de la falda a lo que da el ruido. */
+  const deLaCresta = (x: number, y: number): number =>
+    ALTO_DE_FALDA +
+    subida *
+      Math.min(1, hondura(x, y) / cresta) *
+      (COLLADO + (HOMBRO - COLLADO) * contraste(ruido(x, y)));
+  const alto = (x: number, y: number): number => {
+    let h = deLaCresta(x, y);
+    // La falda de cada cumbre: de su alto en el pie a la cresta a
+    // `FALDA_DE_CUMBRE`, en curva (lo de al lado ya es la mitad).
+    for (const c of cumbres) {
+      const t = Math.max(0, 1 - Math.hypot(x - c.x, y - c.y) / FALDA_DE_CUMBRE);
+      h = Math.max(h, ALTO_DE_FALDA + (c.alto - ALTO_DE_FALDA) * t * t);
+    }
+    return h;
+  };
   return {
     hondura,
-    alto: (x, y) => ALTO_DE_FALDA + subida * relieve(x, y),
-    cumbre: (x, y) => relieve(x, y) / CUMBRE,
+    alto,
+    // Lo que sube hacia la cresta, a `CRESTA_A_LA_LUZ` en lo alto, y la cumbre
+    // a 1: con solo el alto, la cresta sin cumbre quedaba en la sombra de la
+    // falda y la cordillera entera se oscurecía.
+    cumbre: (x, y) =>
+      Math.max(
+        CRESTA_A_LA_LUZ * Math.min(1, hondura(x, y) / cresta),
+        Math.min(1, (alto(x, y) - ALTO_DE_FALDA) / (ALTO_DE_CUMBRE.ancha - ALTO_DE_FALDA)),
+      ),
+    cumbres,
   };
 }
 
+/**
+ * Las cumbres de una franja: una cada `CASILLAS_POR_CUMBRE` casillas, de 1 a
+ * `MAS_CUMBRES`, ninguna en una franja de menos de `FRANJA_SIN_CUMBRE`. Van en
+ * los centros de casilla más hondos (el ruido desempata, para que no salgan
+ * siempre en el mismo sitio de la cresta), a `ENTRE_CUMBRES` como poco unas de
+ * otras. Una cresta corta puede quedarse con menos.
+ */
+function cumbresDe(
+  centros: readonly { x: number; y: number; h: number }[],
+  casillas: number,
+  ruido: (x: number, y: number) => number,
+  alto: number,
+  cabe: (x: number, y: number, alto: number) => boolean,
+): Cumbre[] {
+  if (casillas < FRANJA_SIN_CUMBRE) return [];
+  const cuantas = Math.min(MAS_CUMBRES, Math.max(1, Math.round(casillas / CASILLAS_POR_CUMBRE)));
+  const candidatas = centros
+    .map((c) => ({ ...c, nota: c.h + 0.6 * ruido(c.x, c.y) }))
+    // Desempate por el sitio: el orden de `casillas` no se garantiza.
+    .sort((p, q) => q.nota - p.nota || p.y - q.y || p.x - q.x);
+  const fuera: Cumbre[] = [];
+  for (const encogidas of [ENCOGIDA, [ULTIMA_ENCOGIDA]] as const) {
+    for (const c of candidatas) {
+      if (fuera.length >= cuantas) break;
+      if (fuera.some((o) => Math.hypot(o.x - c.x, o.y - c.y) < ENTRE_CUMBRES)) continue;
+      // El pie un poco al sur del centro: la imagen crece hacia arriba y así la
+      // cumbre cae sobre su casilla. Donde no cabe entera (la senda o un paso
+      // cerca), algo más baja; más baja que `ENCOGIDA` ya no domina y se busca
+      // otro sitio, y solo si no hay ninguno, `ULTIMA_ENCOGIDA`.
+      const cabida = encogidas.find((k) => cabe(c.x, c.y + 0.3, alto * k));
+      if (cabida === undefined) continue;
+      fuera.push({ x: c.x, y: c.y + 0.3, alto: alto * cabida });
+    }
+    if (fuera.length > 0) break;
+  }
+  return fuera;
+}
+
 /** El radio entre picos, en casillas, para su alto: la falda apretada, las cumbres espaciadas. */
-export const radioDePico = (alto: number): number => 0.3 + 0.2 * alto;
+export const radioDePico = (alto: number): number => Math.max(0.45, 0.62 * alto);
 
 /**
  * Lo más que se amplía un pico al zoom máximo (`PX_AL_ZOOM_MAXIMO`). La aguja de

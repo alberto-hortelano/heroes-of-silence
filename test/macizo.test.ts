@@ -9,10 +9,14 @@
 import { describe, expect, it } from 'vitest';
 import { PX_AL_ZOOM_MAXIMO } from '../src/client/render/camara-mapa.js';
 import { analizar } from '../src/client/render/escenario/analizar.js';
+import { VECINO_IGUAL } from '../src/client/render/escenario/colocar.js';
 import {
+  ALTO_DE_CUMBRE,
   ALTO_DE_FALDA,
   AMPLIACION_MAXIMA,
   altoMaximoDe,
+  FRANJA_SIN_CUMBRE,
+  MAS_CUMBRES,
   type MaterialDePico,
   macizoDe,
   materialDeLosMacizos,
@@ -34,8 +38,10 @@ const llano = () => 0.5;
 describe('el campo del macizo', () => {
   const W = 16;
   const H = 12;
+  /** Sin sitio para cumbres: la cresta sola. */
+  const sinCumbres = () => false;
   // Una franja de 8 × 6 en mitad del mapa: hondura 3 en su centro.
-  const ancha = macizoDe(rectangulo(W, 4, 3, 12, 9), W, H, llano);
+  const ancha = macizoDe(rectangulo(W, 4, 3, 12, 9), W, H, llano, sinCumbres);
 
   it('la hondura es del punto: 0 en el filo, crece hacia dentro y es la distancia euclídea', () => {
     expect(ancha.hondura(4.01, 6)).toBeCloseTo(0.01, 5);
@@ -48,6 +54,7 @@ describe('el campo del macizo', () => {
   });
 
   it('el alto sube de la falda a la cresta sin bajar en el camino', () => {
+    expect(ancha.cumbres).toEqual([]);
     expect(ancha.alto(4.001, 6)).toBeCloseTo(ALTO_DE_FALDA, 2);
     let antes = 0;
     for (let x = 4.05; x <= 7; x += 0.1) {
@@ -55,9 +62,9 @@ describe('el campo del macizo', () => {
       expect(a).toBeGreaterThanOrEqual(antes);
       antes = a;
     }
-    expect(ancha.alto(7, 6)).toBeGreaterThan(2 * ALTO_DE_FALDA);
+    expect(ancha.alto(7, 6)).toBeGreaterThan(1.8 * ALTO_DE_FALDA);
     expect(ancha.cumbre(4.001, 6)).toBeLessThan(0.01);
-    expect(ancha.cumbre(7, 6)).toBeGreaterThan(0.3);
+    expect(ancha.cumbre(7, 6)).toBeGreaterThan(0.45);
   });
 
   it('el borde del mapa no es borde: la franja sigue más allá', () => {
@@ -67,26 +74,83 @@ describe('el campo del macizo', () => {
   });
 
   it('una banda estrecha llega a su cresta, pero sube menos que una ancha', () => {
-    const estrecha = macizoDe(rectangulo(W, 4, 0, 6, H), W, H, llano);
+    const estrecha = macizoDe(rectangulo(W, 4, 0, 6, H), W, H, llano, sinCumbres);
     // Su hondura mayor es 1: en el medio de la banda ya es cresta.
-    expect(estrecha.cumbre(5, 6)).toBeCloseTo(ancha.cumbre(7, 6), 5);
+    expect(estrecha.cumbre(5, 6)).toBeCloseTo(ancha.cumbre(7, 6), 2);
     expect(estrecha.alto(5, 6)).toBeGreaterThan(ALTO_DE_FALDA + 0.5);
     expect(estrecha.alto(5, 6)).toBeLessThan(ancha.alto(7, 6));
   });
 
-  it('el ruido hace cumbres y collados a lo largo de la cresta', () => {
+  it('el ruido hace collados y hombros a lo largo de la cresta, sin llegar a cumbre', () => {
     const ruido = (x: number) => (x < 8 ? 0 : 1);
-    const cresta = macizoDe(rectangulo(W, 0, 3, W, 9), W, H, ruido);
+    const cresta = macizoDe(rectangulo(W, 0, 3, W, 9), W, H, ruido, sinCumbres);
     const collado = cresta.alto(4, 6);
-    const cumbre = cresta.alto(12, 6);
-    expect(cumbre).toBeGreaterThan(1.8 * collado);
+    const hombro = cresta.alto(12, 6);
+    expect(hombro).toBeGreaterThan(1.3 * collado);
+    // Lo más alto de la cresta queda por debajo de la cumbre más baja (#204).
+    expect(hombro).toBeLessThan(ALTO_DE_CUMBRE.estrecha);
     // En la falda el ruido no cuenta: la falda es pareja.
     expect(cresta.alto(4, 3.001)).toBeCloseTo(cresta.alto(12, 3.001), 2);
   });
 
   it('el radio entre picos crece con su alto: falda apretada, cumbres espaciadas', () => {
     expect(radioDePico(3)).toBeGreaterThan(radioDePico(1));
-    expect(radioDePico(ALTO_DE_FALDA)).toBeLessThan(0.5);
+    expect(radioDePico(ALTO_DE_FALDA)).toBeLessThanOrEqual(0.6);
+  });
+});
+
+describe('las cumbres de una franja (#204): pocas, grandes y apartadas', () => {
+  const W = 30;
+  const H = 12;
+
+  it('una cada nueve casillas, de 1 a 4, en lo hondo y a 3,5 casillas como poco', () => {
+    // 26 × 6 = 156 casillas: 4, el tope.
+    const larga = macizoDe(rectangulo(W, 2, 3, 28, 9), W, H, llano);
+    expect(larga.cumbres).toHaveLength(MAS_CUMBRES);
+    for (const c of larga.cumbres) {
+      expect(larga.hondura(c.x, c.y)).toBeGreaterThanOrEqual(2);
+      expect(c.alto).toBeCloseTo(ALTO_DE_CUMBRE.ancha, 5);
+      for (const o of larga.cumbres)
+        if (o !== c) expect(Math.hypot(o.x - c.x, o.y - c.y)).toBeGreaterThanOrEqual(3.5);
+    }
+    // 2 × 9 = 18 casillas: 2, de las de la franja estrecha.
+    const banda = macizoDe(rectangulo(W, 10, 0, 12, 9), W, H, llano);
+    expect(banda.cumbres).toHaveLength(2);
+    for (const c of banda.cumbres) expect(c.alto).toBeCloseTo(ALTO_DE_CUMBRE.estrecha, 5);
+    // Una franja de menos de 4 casillas no lleva.
+    const suelta = macizoDe(rectangulo(W, 4, 4, 7, 5), W, H, llano);
+    expect(3).toBeLessThan(FRANJA_SIN_CUMBRE);
+    expect(suelta.cumbres).toEqual([]);
+  });
+
+  it('la cumbre es lo más alto, a la luz, y su falda baja a la cresta', () => {
+    const m = macizoDe(rectangulo(W, 2, 3, 28, 9), W, H, llano);
+    const c = m.cumbres[0];
+    if (c === undefined) throw new Error('sin cumbre');
+    expect(m.alto(c.x, c.y)).toBeCloseTo(c.alto, 5);
+    expect(m.cumbre(c.x, c.y)).toBe(1);
+    // A una casilla de su pie, ya menos del 70 %: lo de al lado es mediano.
+    expect(m.alto(c.x + 1, c.y)).toBeLessThan(0.7 * c.alto);
+  });
+
+  it('donde no cabe entera prueba más baja y, si tampoco, en otro sitio', () => {
+    const entera = macizoDe(rectangulo(W, 2, 3, 28, 9), W, H, llano);
+    const primera = entera.cumbres[0];
+    if (primera === undefined) throw new Error('sin cumbre');
+    // Donde iba la primera solo cabe a 0,8 de su alto; lejos de ella, entera.
+    const cabe = (x: number, y: number, alto: number) =>
+      Math.hypot(x - primera.x, y - primera.y) > 0.1 || alto <= 0.8 * ALTO_DE_CUMBRE.ancha;
+    const baja = macizoDe(rectangulo(W, 2, 3, 28, 9), W, H, llano, cabe);
+    expect(baja.cumbres[0]?.alto).toBeCloseTo(0.78 * ALTO_DE_CUMBRE.ancha, 5);
+    const nunca = macizoDe(
+      rectangulo(W, 2, 3, 28, 9),
+      W,
+      H,
+      llano,
+      (x, y) => Math.hypot(x - primera.x, y - primera.y) > 0.1,
+    );
+    expect(nunca.cumbres.some((c) => c.x === primera.x && c.y === primera.y)).toBe(false);
+    expect(nunca.cumbres).toHaveLength(MAS_CUMBRES);
   });
 });
 
@@ -199,6 +263,70 @@ describe('la escena: los picos de una cordillera crecen hacia dentro', () => {
       ).length;
       expect(picos / casillas, `semilla ${semilla}`).toBeLessThan(2.9);
     }
+  });
+});
+
+/**
+ * Lo que se mide de cada cordillera (franja de montaña de `CORDILLERA_MINIMA`
+ * casillas o más, con 4 picos o más): cuántos picos dominan (≥ 0,8 del mayor)
+ * y cuántos llevan su mismo módulo a menos de `VECINO_IGUAL`.
+ */
+function cordillerasDe(semilla: number) {
+  const { map, escena } = partidaDe(semilla);
+  const a = analizar(map);
+  const picos = escena.sprites.filter(
+    (s) => s.clase === 'masa' && s.src?.startsWith('modulos/picos-') === true,
+  );
+  return a.franjas.flatMap((f) => {
+    if (f.barrera !== 'mountain' || f.casillas.length < CORDILLERA_MINIMA) return [];
+    const dentro = new Set(f.casillas);
+    const suyos = picos.filter((s) =>
+      dentro.has(
+        Math.floor(Math.min(s.y, a.H - 0.01)) * a.W + Math.floor(Math.min(s.x, a.W - 0.01)),
+      ),
+    );
+    if (suyos.length < 4) return [];
+    const mayor = Math.max(...suyos.map((s) => s.alto));
+    const x = Math.min(...f.casillas.map((i) => i % a.W));
+    const y = Math.min(...f.casillas.map((i) => Math.floor(i / a.W)));
+    return [
+      {
+        donde: `s${semilla} franja de (${x}, ${y}), ${f.casillas.length} casillas`,
+        dominantes: suyos.filter((s) => s.alto >= 0.8 * mayor).length,
+        repetidos: suyos.filter((s) =>
+          suyos.some(
+            (t) => t !== s && t.src === s.src && Math.hypot(t.x - s.x, t.y - s.y) < VECINO_IGUAL,
+          ),
+        ).length,
+        picos: suyos.length,
+      },
+    ];
+  });
+}
+
+describe('las cordilleras no son una alfombra de pinchos (#204)', () => {
+  // Antes de #204 (08-10-2026), en 1-40: 39 de 201 cordilleras con más de 4 picos
+  // dominantes (hasta 11) y el 43 % de los picos con su mismo módulo al lado.
+  // Después: 4 de 201 (máx. 6), las bandas estrechas entre dos sendas donde no
+  // cabe una cumbre, y el 3 %.
+  const semillas = segunPrisa([1, 24, 443], rango(1, 40));
+
+  it(`semillas ${segunPrisa('1, 24 y 443', '1-40')}: pocas cumbres dominan cada cordillera`, () => {
+    const todas = semillas.flatMap(cordillerasDe);
+    expect(todas.length).toBeGreaterThan(segunPrisa(8, 150));
+    // Cuatro: las que pide la propuesta (`MAS_CUMBRES`), escrito aquí para que mida también sin ellas.
+    const muchas = todas.filter((c) => c.dominantes > 4);
+    // Con holgura sobre el 2 % de hoy; antes era el 19 %.
+    expect(muchas.length / todas.length, muchas.map((c) => c.donde).join('; ')).toBeLessThan(0.05);
+    for (const c of muchas) expect(c.dominantes, c.donde).toBeLessThanOrEqual(6);
+  });
+
+  it(`semillas ${segunPrisa('1, 24 y 443', '1-40')}: el mismo módulo no se repite al lado`, () => {
+    const todas = semillas.flatMap(cordillerasDe);
+    const repetidos = todas.reduce((n, c) => n + c.repetidos, 0);
+    const picos = todas.reduce((n, c) => n + c.picos, 0);
+    // Antes, 43 %; hoy, 3 %: lo que queda es que ningún otro módulo llega a su alto.
+    expect(repetidos / picos).toBeLessThan(0.08);
   });
 });
 

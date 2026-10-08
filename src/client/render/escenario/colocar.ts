@@ -453,6 +453,40 @@ function luzDeCumbre(cumbre: number): string | undefined {
   return undefined;
 }
 
+/**
+ * Lo cerca, en casillas, a la que dos picos de la misma hoja no llevan el mismo
+ * módulo si hay otro que llegue a su alto (#204). Es el ancho de un pico
+ * mediano: más lejos ya no se leen como el mismo sello.
+ */
+export const VECINO_IGUAL = 1.2;
+
+/** Una cumbre de un macizo (`Macizo.cumbres`) con la hoja, el módulo y el alto con que se pone. */
+interface CumbrePuesta {
+  readonly x: number;
+  readonly y: number;
+  readonly hoja: string;
+  readonly alto: number;
+  readonly tono: string;
+  readonly nombre?: string;
+  /** Ancho entre alto del módulo: lo que ocupa a los lados. */
+  readonly ancho?: number;
+}
+
+/**
+ * Lo que se deja sin dardos alrededor del pie de una cumbre, en veces su
+ * ancho a los lados y su alto hacia atrás, y en casillas hacia delante: lo de
+ * detrás quedaría tapado, y lo de delante y los lados le comería el cuerpo.
+ * La falda (`FALDA_DE_CUMBRE`) empieza donde acaba esto.
+ */
+const LIBRE_DE_CUMBRE = { lados: 0.4, atras: 0.7, delante: 1.0 } as const;
+
+/** Si `(x, y)` cae en lo que se deja libre alrededor del pie de la cumbre `c` (`LIBRE_DE_CUMBRE`). */
+function bajoLaCumbre(c: CumbrePuesta, x: number, y: number): boolean {
+  const rx = LIBRE_DE_CUMBRE.lados * c.alto * (c.ancho ?? 1);
+  const ry = y < c.y ? LIBRE_DE_CUMBRE.atras * c.alto : LIBRE_DE_CUMBRE.delante;
+  return ((x - c.x) / rx) ** 2 + ((y - c.y) / ry) ** 2 < 1;
+}
+
 /** Tamaño del bosque: radio entre árboles y alto, en casillas, según la hondura. */
 const BOSQUE = {
   radio: (h: number) => 0.3 + Math.min(h, 3) * 0.02,
@@ -1284,6 +1318,28 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   /** La cresta de todos los macizos: dónde una cumbre y dónde un collado. */
   const ruidoDeCresta = ruidoSuave(semilla * 131 + 71, PASO_DEL_RUIDO);
   const esbeltos = new Map<string, readonly Modulo[]>();
+  /** Los módulos de pico ya elegidos, por su sitio: lo que mira `repiteVecino`. */
+  const picosElegidos = new Map<string, { x: number; y: number; nombre: string }[]>();
+  const celdaDePico = (x: number, y: number) => `${Math.floor(x / 2)},${Math.floor(y / 2)}`;
+  /** Si a menos de `VECINO_IGUAL` de `(x, y)` ya se eligió `nombre` de la misma hoja. */
+  const repiteVecino = (hoja: string, nombre: string, x: number, y: number): boolean => {
+    const cx = Math.floor(x / 2);
+    const cy = Math.floor(y / 2);
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++)
+        for (const p of picosElegidos.get(`${cx + dx},${cy + dy}`) ?? [])
+          if (p.nombre === `${hoja}/${nombre}` && Math.hypot(p.x - x, p.y - y) < VECINO_IGUAL)
+            return true;
+    return false;
+  };
+  const apuntarPico = (hoja: string, m: Modulo, x: number, y: number): Modulo => {
+    const k = celdaDePico(x, y);
+    picosElegidos.set(k, [
+      ...(picosElegidos.get(k) ?? []),
+      { x, y, nombre: `${hoja}/${m.nombre}` },
+    ]);
+    return m;
+  };
   /** El material de cada casilla de cordillera: uno por macizo (`materialDeLosMacizos`). */
   const materialDeMacizo = materialDeLosMacizos(
     a.franjas.filter((f) => f.barrera === 'mountain').flatMap((f) => f.casillas),
@@ -1303,7 +1359,13 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
    * llega, el más cercano en silueta que sí, primero hacia los menos esbeltos;
    * si ninguno, el más grande, y quien lo pone baja el alto a su tope.
    */
-  const siluetaDe = (hoja: string, cumbre: number, alto: number): Modulo | undefined => {
+  const siluetaDe = (
+    hoja: string,
+    cumbre: number,
+    alto: number,
+    x: number,
+    y: number,
+  ): Modulo | undefined => {
     let ms = esbeltos.get(hoja);
     if (ms === undefined) {
       ms = [...(modulosDe(hoja) ?? [])].sort((p, q) => q.nw / q.nh - p.nw / p.nh);
@@ -1312,12 +1374,18 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     if (ms.length === 0) return undefined;
     const centro = Math.round(cumbre * (ms.length - 1));
     const k = Math.max(0, Math.min(ms.length - 1, centro + Math.round((azar() - 0.5) * 4)));
+    let primero: Modulo | undefined;
     for (let d = 0; d < ms.length; d++)
       for (const j of d === 0 ? [k] : [k - d, k + d]) {
         const m = ms[j];
-        if (m !== undefined && altoMaximoDe(m) >= alto) return m;
+        if (m === undefined || altoMaximoDe(m) < alto) continue;
+        // El que ya lleva un vecino se salta si hay otro que llegue: en 1-40
+        // el 43 % de los picos tenía su mismo módulo a menos de 1,2 casillas
+        // (#204), y la cordillera se leía como un sello repetido.
+        if (!repiteVecino(hoja, m.nombre, x, y)) return apuntarPico(hoja, m, x, y);
+        primero ??= m;
       }
-    return ms.reduce((p, q) => (q.nh > p.nh ? q : p));
+    return apuntarPico(hoja, primero ?? ms.reduce((p, q) => (q.nh > p.nh ? q : p)), x, y);
   };
   /**
    * Cómo crece una masa: el bosque por la hondura de `analizar`, más alto hacia
@@ -1336,6 +1404,8 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       factor: number,
       delDardo: boolean,
     ) => { hoja: string; alto: number; t: number; nombre?: string; tono?: string };
+    /** Las cumbres de la franja (`Macizo.cumbres`) con su módulo; el bosque no tiene. */
+    cumbres: readonly CumbrePuesta[];
   } => {
     if (f.barrera === 'forest') {
       const hondura = (x: number, y: number) => a.hondura[Math.floor(y) * W + Math.floor(x)] ?? 1;
@@ -1350,13 +1420,28 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
             t: delDardo ? Math.min(1, (h - 1) / 3) * 0.7 + azar() * 0.3 : azar() * 0.5,
           };
         },
+        cumbres: [],
       };
     }
-    const macizo = macizoDe(f.casillas, W, H, ruidoDeCresta);
     // De la franja y no de la casilla del pico: un pico que desborda la franja
     // cae en una casilla de fuera, que no es de ningún macizo.
     const material = materialDeMacizo.get(f.casillas[0] as number);
     if (material === undefined) throw new Error(`la franja ${f.id} de cordillera no tiene macizo`);
+    // La cumbre es roca maciza, no aguja: `picos-afilados` mide 2 casillas de
+    // ancho a 3 de alto, y una cumbre de 3 × 3 es una mole.
+    const hojaDeCumbre = material === 'roca' ? 'picos-roca' : hojaDePico(material, () => 0, 1);
+    const macizo = macizoDe(f.casillas, W, H, ruidoDeCresta, (x, y, alto) => {
+      // Con el módulo más ancho de los que llegan: si ese cabe, cabe el que salga.
+      const ms = modulosDe(hojaDeCumbre) ?? [];
+      const llegan = ms.filter((m) => altoMaximoDe(m) >= alto);
+      const m = (llegan.length > 0 ? llegan : ms).reduce<Modulo | undefined>(
+        (p, q) => (p === undefined || q.nw / q.nh > p.nw / p.nh ? q : p),
+        undefined,
+      );
+      if (m === undefined) return true;
+      const s = { nw: m.nw, nh: m.nh, ax: m.ax, ay: m.ay, x, y, alto, clase: 'masa' as const };
+      return reservaEn(x, y) === undefined && obstaculos.altoLibre(s) >= alto - 1e-9;
+    });
     return {
       radio: (x, y) => radioDePico(macizo.alto(x, y)),
       altoMasBajo: (x, y) => macizo.alto(x, y) * 0.75,
@@ -1364,7 +1449,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         const cumbre = macizo.cumbre(x, y);
         const hoja = hojaDePico(material, azar, cumbre);
         const alto = macizo.alto(x, y) * factor;
-        const m = siluetaDe(hoja, cumbre, alto);
+        const m = siluetaDe(hoja, cumbre, alto, x, y);
         const luz = luzDeCumbre(cumbre);
         const tono = [tonoDe(hoja), luz].filter((t) => t !== undefined).join(' ');
         return {
@@ -1376,7 +1461,35 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
           ...(luz === undefined ? {} : { tono }),
         };
       },
+      cumbres: macizo.cumbres.map((c) => {
+        const hoja = hojaDeCumbre;
+        const m = moduloDeCumbre(hoja, c.alto, c.x, c.y);
+        const luz = luzDeCumbre(1);
+        return {
+          x: c.x,
+          y: c.y,
+          hoja,
+          alto: m === undefined ? c.alto : Math.min(c.alto, altoMaximoDe(m)),
+          tono: [tonoDe(hoja), luz].filter((t) => t !== undefined).join(' '),
+          ...(m === undefined ? {} : { nombre: m.nombre, ancho: m.nw / m.nh }),
+        };
+      }),
     };
+  };
+  /**
+   * El módulo de una cumbre: uno de los que llegan a su alto sin ampliarse más
+   * de `AMPLIACION_MAXIMA`, al azar y sin repetir el de una cumbre vecina; si
+   * ninguno llega, el más alto, que quien lo pone baja a su tope.
+   */
+  const moduloDeCumbre = (hoja: string, alto: number, x: number, y: number) => {
+    const ms = modulosDe(hoja) ?? [];
+    if (ms.length === 0) return undefined;
+    const llegan = ms.filter((m) => altoMaximoDe(m) >= alto && !repiteVecino(hoja, m.nombre, x, y));
+    const m =
+      llegan.length > 0
+        ? (llegan[Math.floor(azar() * llegan.length)] as Modulo)
+        : ms.reduce((p, q) => (q.nh > p.nh ? q : p));
+    return apuntarPico(hoja, m, x, y);
   };
 
   // 3 · Las formaciones, franja a franja.
@@ -1450,6 +1563,30 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     if (f.barrera === 'forest' || f.barrera === 'mountain') {
       // Masa: puntos densos, desbordando un poco la franja para que el borde no sea recto.
       const forma = formaDeMasa(f);
+      // Las cumbres antes que nada (#204): son la pieza grande de la franja, y
+      // los dardos no caen sobre ellas.
+      const cumbres: CumbrePuesta[] = [];
+      for (const c of forma.cumbres)
+        if (
+          poner(
+            c.hoja,
+            c.x,
+            c.y,
+            c.alto,
+            1,
+            'masa',
+            MARCADOR[f.barrera] as string,
+            true,
+            c.nombre,
+            undefined,
+            c.tono,
+          )
+        ) {
+          cumbres.push(c);
+          // Las casillas que tapa su cuerpo están vestidas aunque no lleven dardo.
+          for (const i of f.casillas)
+            if (bajoLaCumbre(c, (i % W) + 0.5, Math.floor(i / W) + 0.5)) puestos.add(i);
+        }
       const puntos = esparcir(
         [caja[0] - 0.2, caja[1] - 0.2, caja[2] + 0.2, caja[3] + 0.35],
         forma.radio,
@@ -1464,6 +1601,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
           return (
             (dentro.has(i) ||
               (dentro.has(cy * W + cx) && Math.hypot(x - (cx + 0.5), y - (cy + 0.5)) < 0.75)) &&
+            !cumbres.some((c) => bajoLaCumbre(c, x, y)) &&
             entraria('masa', x, y, forma.altoMasBajo(x, y))
           );
         },

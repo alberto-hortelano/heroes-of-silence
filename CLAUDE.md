@@ -354,9 +354,18 @@ antes del destino (`battle_started` con `faltan`).
   y chapa, encima de la niebla (`cosasDe` → `sobreLaNiebla`). Monstruos, recursos y cofres los
   pinta el juego (`seHornea`, en `escenario/horneado.ts`). **Las cordilleras** (`macizo.ts`): cada franja de
   montaña crece de la falda a la cresta por la hondura continua del punto (distancia euclídea al
-  borde; la cresta en la hondura mayor de la franja, tope 2,5), con un ruido suave que hace
-  cumbres y collados; de ahí salen el alto, el radio entre picos (`radioDePico`), la hoja (agujas
-  arriba), la silueta (`siluetaDe`) y la luz (`luzDeCumbre`, falda en sombra). El bosque sigue con
+  borde; la cresta en la hondura mayor de la franja, tope 2,5) en dos escalas (#204): la cresta, de
+  picos medianos con collados y hombros del ruido, y **pocas cumbres** (`Macizo.cumbres`: una cada
+  9 casillas, de 1 a `MAS_CUMBRES` = 4, ninguna bajo `FRANJA_SIN_CUMBRE` = 4 casillas, a 3,5 unas de
+  otras, de `ALTO_DE_CUMBRE` 2,5-3 casillas según el ancho), que se ponen antes que los dardos, de
+  `picos-roca` en la roca (nunca aguja), donde caben sin encogerse más de 0,78 (`cabe`; si en la
+  franja no cabe ninguna, a 0,68) y con su cuerpo libre de dardos (`LIBRE_DE_CUMBRE`). De ahí
+  salen el alto, el radio entre picos (`radioDePico`, 0,62 × alto: menos piezas que se solapan), la
+  hoja (agujas arriba), la silueta (`siluetaDe`, que no repite el módulo de un vecino a menos de
+  `VECINO_IGUAL`) y la luz (`luzDeCumbre`, falda en sombra, cresta a la luz, cumbre clara). En 1-40
+  (08-10-2026): cordilleras con más de 4 picos dominantes, 39 de 201 → 4 (bandas entre dos sendas
+  donde no cabe una cumbre); picos con su mismo módulo al lado, 43 % → 3 %; picos por casilla de
+  montaña, 2,31 → 1,54. El bosque sigue con
   la hondura entera de `analizar`. **La cubierta de lo que se pisa** (#184): en la lava, la arena,
   la ciénaga y lo áspero (`CUBIERTA[s].comoLaBarrera`: su cubierta es de la roca o la madera de la
   barrera vecina) va rala (`CLARO_COMO_LA_BARRERA`), sin manchas ni árboles, y cada pieza se encoge

@@ -1444,3 +1444,13 @@ picos de la propia cordillera por el eje (`pasosALaVista`), con su trocha o su
 camino. La pieza se queda en `assets/mapa/` sin uso. Si algún día se quiere una
 garganta pintada, haría falta una por eje (este-oeste, norte-sur y las dos
 diagonales) y por material (nieve, roca, lava, arena): 16 piezas.
+
+## 33. Cumbres de cordillera (#204, rama `montanas`, 08-10-2026)
+
+Sin generar. La cordillera ya va en dos escalas (pocas cumbres de 2,5-3 casillas y
+picos medianos), pero cada módulo de `picos-*` es él mismo un racimo de diez o veinte
+agujas: aun con menos piezas, de cerca la masa sigue leyéndose «con pinchos». Lo que
+acercaría el mapa a HoMM2 es una hoja `cumbres-<material>` (nieve, roca, lava, arena)
+de 4-6 moles de una sola cima clara, de 380-420 px de alto (3,0-3,2 casillas a ×1,3),
+con la falda lisa y el pie ancho, para la pieza de `Macizo.cumbres`. Hasta entonces la
+cumbre usa el módulo de la hoja de picos que llega a su alto.
