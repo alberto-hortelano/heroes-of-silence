@@ -229,3 +229,169 @@ export function sendas(tramos: readonly Tramo[], semilla: number): Senda[] {
   const azar = azarDe(semilla * 7919 + 17);
   return encadenar(tramos).map((l) => suavizar(l, azar));
 }
+
+/**
+ * Lo más que la senda pintada se aparta de lo que la tapa, en casillas, a un
+ * lado de su trazo (`apartarDeLoQueTapa`). 0,35 la deja en su casilla con el
+ * vaivén; con 0,45 o 0,6 se tapaban más tramos de los que salían, que al
+ * apartarse de una pared se metía bajo la de enfrente (semillas 1-40,
+ * 08-10-2026: 5,9, 6,4 y 6,6 tramos por mapa).
+ */
+export const APARTE_DE_LO_QUE_TAPA = 0.35;
+/**
+ * Dónde se mira si la senda apartada ya asoma: a esto de su trazo, hacia el
+ * lado libre. Su huella llega a 0,16 (`ANCHO_DE_SENDA`), así que asoma por lo
+ * menos esa franja. Exigir que asome el trazo mismo apartaba menos (5,85
+ * tramos por mapa frente a 5,4, 1-40, sin las guardas de barrera de
+ * `componer`): lo que cuenta es que la senda se vea.
+ */
+const HOLGURA_DEL_APARTE = 0.06;
+/**
+ * Lo que tarda la senda en apartarse y en volver a su trazo, a cada lado del
+ * trozo tapado. Con 0,4 / 0,6 / 0,8 / 1 / 1,2 casillas, 6,0 / 5,8 / 5,5 / 5,4 /
+ * 5,3 tramos por mapa (1-40, sin las guardas de barrera de `componer`): una
+ * casilla, que no la tuerce más que el vaivén.
+ */
+const RAMPA_DEL_APARTE = 1;
+/**
+ * Cuántas pasadas: lo que la primera aparta a medias, en la rampa de un trozo
+ * o contra la pared de enfrente, la segunda lo acaba (1-40, sin las guardas de
+ * barrera: 6,3 tramos por mapa con una, 5,4 con dos, 5,4 con tres). Cada pasada pregunta por la senda de
+ * partida (`admite`), para que dos no sumen lo que una no deja.
+ */
+const VUELTAS_DEL_APARTE = 2;
+/** Cada cuánto se prueba un apartamiento, hasta `APARTE_DE_LO_QUE_TAPA`. */
+const PASO_DEL_APARTE = 0.05;
+/**
+ * Lo que no se mueve en cada extremo de una senda —llega a su puerta, su cruce
+ * o su estribo— y lo que tarda luego en soltarse del todo. Con 0,4 y la rampa
+ * entera para soltarse quedaban 6,9 tramos por mapa: casi todo lo tapado está a
+ * la puerta de algo (1-40, 08-10-2026).
+ */
+const EXTREMO_FIJO = 0.2;
+const SUELTA = 0.3;
+
+/**
+ * Las sendas apartadas de lo que las tapa (#206): cada punto de su trazo que
+ * cae bajo `tapada` se corre a un lado, lo menos que haga asomar su huella
+ * (`HOLGURA_DEL_APARTE`), y el trozo entra y sale de ese lado en
+ * `RAMPA_DEL_APARTE` casillas. La pared del relieve nunca se aparta de la
+ * senda (R4/R5): es la senda la que, dentro de su casilla, se aparta del pie de
+ * lo alto. No se mueve lo que `fija` dice —la senda junto a una bajada, que la
+ * cruza por su rampa— ni los extremos, y un punto solo pasa a otra casilla si
+ * `admite` lo deja. Lo que ni así sale de debajo se queda donde estaba.
+ */
+export function apartarDeLoQueTapa(
+  sendas: readonly Senda[],
+  tapada: (x: number, y: number) => boolean,
+  fija: (x: number, y: number) => boolean,
+  admite: (x: number, y: number, desde: readonly [number, number]) => boolean,
+): Senda[] {
+  return sendas.map((origen) => {
+    let l = origen;
+    for (let k = 0; k < VUELTAS_DEL_APARTE; k++) l = apartarUna(l, origen, tapada, fija, admite);
+    return l;
+  });
+}
+
+function apartarUna(
+  l: Senda,
+  origen: Senda,
+  tapada: (x: number, y: number) => boolean,
+  fija: (x: number, y: number) => boolean,
+  admite: (x: number, y: number, desde: readonly [number, number]) => boolean,
+): Senda {
+  const n = l.length;
+  if (n < 3) return l;
+  const acum = new Float64Array(n);
+  for (let i = 1; i < n; i++) {
+    const [ax, ay] = l[i - 1] as readonly [number, number];
+    const [bx, by] = l[i] as readonly [number, number];
+    acum[i] = (acum[i - 1] as number) + Math.hypot(bx - ax, by - ay);
+  }
+  const total = acum[n - 1] as number;
+  const normal = (i: number): readonly [number, number] => {
+    const [ax, ay] = l[Math.max(0, i - 1)] as readonly [number, number];
+    const [bx, by] = l[Math.min(n - 1, i + 1)] as readonly [number, number];
+    const m = Math.hypot(bx - ax, by - ay) || 1;
+    return [-(by - ay) / m, (bx - ax) / m];
+  };
+  // Lo libre de moverse: 0 en los extremos y en lo fijo, 1 a una rampa de ellos.
+  const quieto = new Float64Array(n).fill(Number.POSITIVE_INFINITY);
+  for (let i = 0; i < n; i++) {
+    const [x, y] = l[i] as readonly [number, number];
+    if (
+      (acum[i] as number) < EXTREMO_FIJO ||
+      total - (acum[i] as number) < EXTREMO_FIJO ||
+      fija(x, y)
+    )
+      quieto[i] = 0;
+  }
+  for (let i = 1; i < n; i++)
+    quieto[i] = Math.min(
+      quieto[i] as number,
+      (quieto[i - 1] as number) + (acum[i] as number) - (acum[i - 1] as number),
+    );
+  for (let i = n - 2; i >= 0; i--)
+    quieto[i] = Math.min(
+      quieto[i] as number,
+      (quieto[i + 1] as number) + (acum[i + 1] as number) - (acum[i] as number),
+    );
+  const libre = (i: number) => suave((quieto[i] as number) / SUELTA);
+  // Lo que quiere apartarse cada punto tapado: el menor corrimiento que lo saca.
+  const quiere = new Float64Array(n);
+  let alguno = false;
+  for (let i = 0; i < n; i++) {
+    if (quieto[i] === 0) continue;
+    const p = l[i] as readonly [number, number];
+    if (!tapada(p[0], p[1])) continue;
+    const [nx, ny] = normal(i);
+    busca: for (let o = PASO_DEL_APARTE; o <= APARTE_DE_LO_QUE_TAPA + 1e-9; o += PASO_DEL_APARTE)
+      for (const s of [o, -o]) {
+        const h = s + Math.sign(s) * HOLGURA_DEL_APARTE;
+        if (
+          !admite(p[0] + nx * s, p[1] + ny * s, origen[i] as readonly [number, number]) ||
+          tapada(p[0] + nx * h, p[1] + ny * h)
+        )
+          continue;
+        quiere[i] = s;
+        alguno = true;
+        break busca;
+      }
+  }
+  if (!alguno) return l;
+  // Cada punto, con el mayor de lo que quieren los de su rampa, a cada uno
+  // menguado por lo que dista: el trozo tapado sale entero y entra y sale suave.
+  const corre = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    const q = quiere[i] as number;
+    if (q === 0) continue;
+    for (let j = i; j >= 0 && (acum[i] as number) - (acum[j] as number) <= RAMPA_DEL_APARTE; j--) {
+      const v = q * (1 - suave(((acum[i] as number) - (acum[j] as number)) / RAMPA_DEL_APARTE));
+      if (Math.abs(v) > Math.abs(corre[j] as number)) corre[j] = v;
+    }
+    for (
+      let j = i + 1;
+      j < n && (acum[j] as number) - (acum[i] as number) <= RAMPA_DEL_APARTE;
+      j++
+    ) {
+      const v = q * (1 - suave(((acum[j] as number) - (acum[i] as number)) / RAMPA_DEL_APARTE));
+      if (Math.abs(v) > Math.abs(corre[j] as number)) corre[j] = v;
+    }
+  }
+  return l.map(([x, y], i) => {
+    const [nx, ny] = normal(i);
+    // Lo que la rampa le pasa a un punto que no lo pidió también se mira: si no
+    // se admite, a la mitad, y si tampoco, nada.
+    for (let c = (corre[i] as number) * libre(i), k = 0; c !== 0 && k < 3; c /= 2, k++)
+      if (admite(x + nx * c, y + ny * c, origen[i] as readonly [number, number]))
+        return [x + nx * c, y + ny * c] as const;
+    return [x, y] as const;
+  });
+}
+
+/** De 0 a 1 sin esquinas (`smoothstep`), recortado a [0, 1]. */
+const suave = (t: number): number => {
+  const u = Math.max(0, Math.min(1, t));
+  return u * u * (3 - 2 * u);
+};

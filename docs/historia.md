@@ -3285,6 +3285,54 @@ tramos por mapa a lo largo del borde (1-100).
   menos nodos de agua (533 → 464 en 1-200 por la colocación sola) y seis
   tests anclados a una semilla movidos a otra.
 
+## La senda se aparta de lo que la tapa (#206, 08-10-2026)
+
+Seguía #189: 9,0 tramos por mapa con la senda entera bajo una pieza del
+relieve (1-40). Clasificados los 359:
+
+- **Qué tapa**: la esquina y el talud, no la cara. Diagonal sola 137, ladera
+  sola 103, diagonal con frontal 50, diagonal con ladera 45, las tres 16,
+  frontal sola 8. El talud de una ladera cae 0,45 / 0,65 / 0,85 casillas por
+  caída 1 / 2 / 3 sobre la columna de al lado, que es por donde va un camino
+  de norte a sur pegado a ella.
+- **Dónde**: 230 al pie (la senda no cambia de nivel) y 129 cruzando un
+  desnivel sin bajada (bajando al norte, de espaldas, sin pieza; o junto a un
+  puente). 55 a una casilla de un nodo —la muesca de un nodo de acantilado,
+  que se cruza en diagonal entre dos crestas— y 111 a la puerta de un objeto.
+- **El trazado no llega**: el núcleo no sabe qué región quedará alta. Con los
+  recargos disparados (acantilado 10 al norte y 8 a los lados, lo alto 5, el
+  agua al norte 4) la media solo baja a 7,7; con la senda ya apartada, ninguna
+  combinación pasa de 0,3 tramos, ruido, y cambiaba el juego. No se tocó.
+- **La senda pintada se aparta** (`apartarDeLoQueTapa`): un prototipo sobre la
+  escena acabada daba 9,0 → 5,9 con 0,35 casillas de tope (con 0,45 y 0,6, 6,4
+  y 6,6: al apartarse de una pared se metía bajo la de enfrente; ni con 0,7 de
+  tope se salvaba, punto a punto, más del 62 % de lo tapado). Para que todo lo
+  demás se aparte de la senda ya apartada, las paredes se ponen antes que ella
+  —nunca se apartaban de nada salvo la reserva y los tableros— y las frontales
+  con su propio azar. Medido en `componer`: con los extremos fijos 0,4 y la
+  rampa de 0,6, 6,9; los extremos a 0,2 y sueltos en 0,3, 6,3 (casi todo lo
+  tapado va a la puerta de algo); dos pasadas, 5,8; la rampa de una casilla,
+  5,4.
+- **Sin arrimarse a lo alto** (tras rebasar sobre #203, #204, #205 y #207):
+  la senda corrida hacia el canto de un acantilado dejaba sin roca 17 casillas
+  de lo alto (`acantiladosLisos`, #205), la corrida hacia un lienzo de muralla
+  lo pisaba (s439, `murallaSobreSenda`) y en una cordillera estrecha no cabía
+  la cumbre (#204, s11: 7 dominantes). La senda ya no se arrima a un
+  acantilado, un muro ni una cordillera a menos de media casilla de su canto
+  más de lo que estaba, y las dos pasadas y lo que se lleva la rampa miran la
+  senda de partida: **6,55** (9,05 sin apartarla). Además, una tirada de la
+  separación entre frontales se había quedado en la corriente común y movía
+  todo lo de después, cordilleras incluidas: va con la de las frontales.
+- **Lo que queda** (216 en 1-40 antes de no arrimarse; 262 después): 81
+  cruzan un desnivel sin bajada, 38 junto a un nodo y 58 a la puerta de un
+  objeto (contados con 216). Bajarlo más pide arte (una bajada al
+  norte) o que el generador no deje la muesca del nodo en diagonal.
+- **Con los niveles del mapa** (#143, que ya bajó el contador a 6,3 por mapa
+  en 1-40 y deja alguna semilla a 0): la senda apartada lo baja a **4,5**
+  (1,8 tramos menos por mapa). El techo del guardia, de 10,5 a 5; la muestra
+  del bucle rápido, las semillas que más cambian (1, 3, 12 y 28: 7,75 sin
+  apartar, 4,0 con ello).
+
 ## Las regiones definen el mapa (#195, 08-10-2026)
 
 Decisión del usuario, que sustituye a #177 y #111: «las minas deberían ir por

@@ -5,14 +5,16 @@
  * No es 0. La pared nunca se corta ni se aparta de la senda (R4/R5), y el
  * trazado del núcleo solo puede cobrar de más el pie de lo alto que sabe que lo
  * será (`recargosDelTrazado`, vestir.ts): un pasillo de una casilla al pie de un
- * desnivel sigue llevando su camino. Medido en 1-40 con la huella de #191
- * (08-10-2026): 12,5 tramos por mapa antes, 9,1 después; con el alfa de cada
- * píxel bajo el centro de la senda (el `tapadas.ts` de la auditoría), 23,3
- * casillas tapadas por mapa antes y 16,5 después.
+ * desnivel sigue llevando su camino. Lo que se puede, lo hace la senda pintada,
+ * que se aparta dentro de su casilla de lo que la tapa (`apartarDeLoQueTapa`,
+ * #206). Medido en 1-40 con la huella de #191 (08-10-2026): 12,5 tramos por
+ * mapa antes de #189, 9,1 con el coste del pie, 6,3 con los niveles del mapa
+ * (#143) y 4,5 con la senda apartada.
  *
- * Se vio morder a mano: sin el coste del pie (los dos a 0 en vestir.ts, con la
- * puerta fuera del borde y el coste del borde puestos), la media de 1-40 sube a
- * 12,3 y la de la muestra del bucle rápido, de 9,0 a 13,8.
+ * Se vio morder a mano: sin apartar la senda (`apartadas = suavizadas` en
+ * `componer`), la media de 1-40 sube de 4,5 a 6,3 y la de la muestra del bucle
+ * rápido, de 4,0 a 7,75. Antes, sin el coste del pie (los dos a 0 en
+ * vestir.ts), la de 1-40 subía de 9,1 a 12,3.
  */
 import { describe, expect, it } from 'vitest';
 import type { Modulo } from '../src/client/render/escenario/catalogo.js';
@@ -30,10 +32,10 @@ import { rango, segunPrisa } from './lento.js';
 const catalogo = catalogoDelDisco();
 
 /**
- * Lo más que se admite de media por mapa: entre lo de ahora (9,1 en 1-40) y
- * lo de antes (12,5 en main, 12,3 sin el coste del pie).
+ * Lo más que se admite de media por mapa: entre lo de ahora (4,5 en 1-40, 4,0
+ * en la muestra) y lo de antes de apartar la senda (6,3 y 7,75, #206).
  */
-const TECHO_POR_MAPA = 10.5;
+const TECHO_POR_MAPA = 5;
 
 const roca = catalogo.hojas['paredes-roca']?.[0] as Modulo;
 
@@ -149,9 +151,9 @@ describe('la senda bajo el relieve (#189)', () => {
   });
 
   it(`en los mapas del procedimental, de media no pasa de ${TECHO_POR_MAPA} tramos por mapa`, () => {
-    // La muestra: la 1, la de las capturas, y de las que más cambian sin el
-    // coste del pie (5, 10 y 24: de 13, 17 y 16 a 7, 13 y 10).
-    const semillas = segunPrisa([1, 5, 10, 24], rango(1, 40));
+    // La muestra: la 1, la de las capturas, y de las que más cambian sin
+    // apartar la senda (3, 12 y 28: de 6, 9 y 8 a 3, 4 y 3; #206).
+    const semillas = segunPrisa([1, 3, 12, 28], rango(1, 40));
     const cuentas = semillas.map((s) => escenaDe(s).informe.sendaBajoElRelieve);
     // Que mire algo: en ninguna semilla de la muestra rápida es 0 (en 1-40,
     // con los niveles del mapa, alguna se queda en 0: #143).

@@ -111,6 +111,7 @@ import {
   ALTO_DE_NIVEL,
   bordeDeLadera,
   CARA_DE_SUELO,
+  type Cara,
   type CaraDeEscena,
   caidaDeLadera,
   desnivelesSinBarrera,
@@ -122,6 +123,7 @@ import {
 } from './relieve.js';
 import {
   ANCHO_DE_SENDA,
+  apartarDeLoQueTapa,
   SEMIANCHO_DE_LA_HUELLA,
   SEMIANCHO_DEL_PASILLO,
   SEMIANCHO_DEL_PASILLO_DE_MASA,
@@ -972,6 +974,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     sombra: boolean,
     nombre?: string,
     porAncho?: number,
+    elAzar: () => number = azar,
   ): Sprite => {
     const ms = modulosDe(hoja);
     if (ms === null || ms.length === 0) {
@@ -996,7 +999,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     if (m === undefined) {
       // Alrededor del cuantil `t`, con algo de azar para que no se repitan.
       const centro = Math.round(t * (ms.length - 1));
-      const k = Math.max(0, Math.min(ms.length - 1, centro + Math.round((azar() - 0.5) * 4)));
+      const k = Math.max(0, Math.min(ms.length - 1, centro + Math.round((elAzar() - 0.5) * 4)));
       m = ms[k] as Modulo;
     }
     const tono = tonoDe(hoja);
@@ -1187,22 +1190,324 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     a.suelo,
     celdasBajoLosPuentes(celdasDe(nivel, W, H, a.suelo), puentes),
   );
+  // Las paredes del relieve van antes que la senda (#206): nunca se apartan de
+  // ella (R4/R5), así que es la senda la que se aparta de su pie. La pared solo
+  // mira la reserva de los objetos y los tableros de los puentes.
+  const deLaPared = new Obstaculos<Medible>([...formasDeLosTableros(puentes), ...reservas.keys()]);
+  /** El sprite del objeto en cuya reserva cae `(x, y)`, el más cercano si son varios. */
+  const reservaEn = (x: number, y: number): Sprite | undefined => {
+    const f = deLaPared.en(x, y, (f) => reservas.has(f));
+    return f === undefined ? undefined : reservas.get(f);
+  };
+  /** Mete `s` en la escena y cuenta si su base pisa una reserva. */
+  const meter = (s: Sprite): true => {
+    if (reservaEn(s.x, s.y) !== undefined) basesSobreReserva++;
+    sprites.push(s);
+    return true;
+  };
+  /** `s` y, si es otro, el módulo más estrecho de su hoja en su sitio: lo que prueba `ponerPared`. */
+  const yElMasEstrecho = (s: Sprite, hoja: string): [Sprite, ...Sprite[]] => {
+    const e = masEstrecho(hoja);
+    return e === undefined || e.src === s.src
+      ? [s]
+      : [s, { ...s, src: e.src, nw: e.nw, nh: e.nh, ax: e.ax, ay: e.ay }];
+  };
+  /**
+   * La puerta de la pared (frontal, ladera, diagonal y peñascos): ningún punto
+   * de `puntos` (su pie y lo que tapa por encima: el filo, el medio de una
+   * ladera, las juntas de una diagonal) cae en la reserva de un objeto, y no
+   * tapa ningún tablero (`deLaPared`):
+   * se prueba cada uno de `modulos` en su orden, encogido sin bajar de
+   * `minimo`. Dice si se puso.
+   *
+   * Con el relieve por celdas (R4/R5) la pared ya no se aparta de la senda que
+   * baja: ni se corre, ni se encoge, ni se quita por ella, y nunca se corta. La
+   * bajada se pinta encima. El muro bajo junto a la senda (#172) era eso.
+   */
+  /**
+   * Las cajas de las paredes que la puerta no dejó entrar, con el porqué (la
+   * reserva de un objeto o un puente que taparían): la razón declarada de las
+   * celdas que quedan vacías ahí (`vaciaPorque`).
+   */
+  const rechazos: Rechazo[] = [];
+  const ponerPared = (
+    modulos: readonly [Sprite, ...Sprite[]],
+    minimo: number,
+    puntos: readonly (readonly [number, number])[],
+  ): boolean => {
+    if (puntos.some(([x, y]) => reservaEn(x, y) !== undefined)) {
+      rechazos.push({ caja: cajaDeSprite(modulos[0]), razon: 'reserva' });
+      return false;
+    }
+    for (const m of modulos) {
+      const alto = deLaPared.altoLibre(m);
+      if (alto >= minimo)
+        return meter(
+          alto === m.alto
+            ? m
+            : {
+                ...m,
+                alto,
+                ...(m.ancho === undefined ? {} : { ancho: (m.ancho * alto) / m.alto }),
+              },
+        );
+    }
+    rechazos.push({ caja: cajaDeSprite(modulos[0]), razon: 'puente' });
+    return false;
+  };
+  /** La silueta de cada módulo que tapa una cara: la de las paredes, para lo que pintan encima. */
+  const perfilDe = perfilesDelCatalogo(catalogo);
+  // 4 · El relieve por celdas (R4): una pieza por pared, de junta a junta. Las
+  // caídas al sur llevan las frontales de siempre, libres; las del este y el
+  // oeste, su cadena de laderas; cada diagonal, su pieza; y donde una senda
+  // cruza una caída hacia la cámara o de lado, la bajada encima (R5). Ninguna
+  // pared se aparta de la senda: lo que baja lo pinta la bajada. Donde falta el
+  // arte de un material o una caída va un marcador visible, no el sistema viejo.
+  const azarDeLaderas = azarDe(semilla * 6007 + 11);
+  const azarDelRelieve = azarDe(semilla * 4801 + 3);
+  /** Las paredes E y O con ladera puesta, como `vx,vy,lado` de su celda. */
+  const conLadera = new Set<string>();
+  const celdaDeLadera = (l: Ladera, fila: number) =>
+    `${l.lado === 'este' ? l.x + 1 : l.x},${fila + 0.5},${l.lado}`;
+  const juegos = new Map<string, JuegoDeLadera | null>();
+  /** El juego de una hoja de laderas, o null sin su arte. */
+  const juegoDe = (hoja: string): JuegoDeLadera | null => {
+    let j = juegos.get(hoja);
+    if (j === undefined) {
+      const ms = modulosDe(hoja);
+      j = ms === null || ms.length === 0 ? null : juegoDeLadera(hoja, ms);
+      juegos.set(hoja, j);
+    }
+    return j;
+  };
+  /** El sprite del módulo `m` desde la fila `y` de `l` (`colocarLadera`). */
+  const spriteDeLadera = (m: ModuloDeLadera, hoja: string, l: Ladera, y: number): Sprite => {
+    const tono = tonoDe(hoja);
+    const sitio = colocarLadera(m, l, y);
+    return {
+      ...(tono === undefined ? {} : { tono }),
+      src: m.src,
+      nw: m.nw,
+      nh: m.nh,
+      ax: m.ax,
+      ay: m.ay,
+      x: sitio.x,
+      y: sitio.y,
+      alto: sitio.alto,
+      clase: 'pared',
+      color: '#4c463e',
+      capa: 0,
+      sombra: true,
+      filaAlta: Math.floor(y),
+    };
+  };
+  for (const l of rel.laderas) {
+    const hoja = hojaDeLadera(l);
+    const juego = juegoDe(hoja);
+    if (juego === null) {
+      // Sin el arte, una marca por fila, del filo al pie.
+      for (let y = l.y0; y <= l.y1; y++) {
+        const largo = 1 + l.caida * ALTO_DE_NIVEL;
+        const s: Sprite = {
+          ...deHoja(hoja, bordeDeLadera(l), y + largo, largo, 0, 'pared', '#4c463e', true),
+          filaAlta: Math.floor(y),
+        };
+        if (
+          ponerPared([s], s.alto, [
+            [s.x, s.y],
+            [s.x, y + 0.5],
+          ])
+        )
+          conLadera.add(celdaDeLadera(l, y));
+      }
+      continue;
+    }
+    // Ni se corre ni se encoge: rompería la cadena. Si cae en la reserva de un
+    // objeto o taparía un puente, no va.
+    const ponerUna = (m: ModuloDeLadera, y: number): boolean => {
+      const s = spriteDeLadera(m, hoja, l, y);
+      if (
+        !ponerPared([s], s.alto, [
+          [s.x, s.y],
+          [s.x, y + m.ladera.largo / 2],
+        ])
+      )
+        return false;
+      for (let k = 0; k < m.ladera.largo; k++) conLadera.add(celdaDeLadera(l, y + k));
+      return true;
+    };
+    // Lo que no entra se prueba fila a fila con los módulos de una, más
+    // estrechos que un largo; si nada entra, quedan los peñascos del canto.
+    for (const p of piezasDeLadera(l, l, juego, azarDeLaderas)) {
+      if (ponerUna(p.modulo, p.y)) continue;
+      for (let y = p.y; y < p.y + p.modulo.ladera.largo; y++)
+        for (const m of juego.medios) if (m !== p.modulo && ponerUna(m, y)) break;
+    }
+  }
+
+  // Las diagonales: una pieza por celda, por sus dos filos (`colocarDiagonal`).
+  for (const c of rel.diagonales) {
+    const hoja = hojaDeDiagonal(c);
+    const papel = c.tipo.endsWith('convexa') ? 'convexa' : 'concava';
+    const ms = (modulosDe(hoja) ?? []).filter(
+      (m): m is ModuloDeDiagonal => m.diagonal?.papel === papel,
+    );
+    const m = ms[Math.floor(azarDelRelieve() * ms.length)];
+    if (m === undefined) faltan.add(hoja);
+    const s = m === undefined ? marcadorDeDiagonal(c) : spriteDeDiagonal(m, hoja, c);
+    ponerPared([s], s.alto, puntosDeCelda(c));
+  }
+
+  // Las caídas al sur: las frontales de siempre, de junta a junta. Sus módulos
+  // miden de 1 a 2 casillas de ancho; ninguno se sale de su tramo más de
+  // `SALE_DE_SU_TRAMO`, que en un extremo está la diagonal que dobla la esquina.
+  /** Los sitios de cada cara donde no cupo una frontal: ahí va su pedregal, después. */
+  const sinFrontal = new Map<Cara, number[]>();
+  // Con su propio azar: se ponen antes que las formaciones, y así no les
+  // cambian las tiradas.
+  const azarDeLasFrontales = azarDe(semilla * 3301 + 7);
+  for (const c of rel.caras) {
+    const { pared: hoja } = materialDeCara(c.material);
+    const filo = c.y + 1;
+    const pie = filo + c.caida * ALTO_DE_NIVEL;
+    const desde = c.x0;
+    const hasta = c.x1 + 1;
+    // Lo más bajo que se deja una pared: lo que mide la cara. Más baja, la cara
+    // asomaría lisa por encima.
+    const minimo = c.caida * ALTO_DE_NIVEL;
+    const pared = (x: number, nombre?: string): Sprite => ({
+      ...deHoja(
+        hoja,
+        x + (azarDeLasFrontales() - 0.5) * 0.1,
+        pie + 0.05 + (azarDeLasFrontales() - 0.5) * 0.12,
+        c.caida * ALTO_DE_NIVEL + 0.35 + azarDeLasFrontales() * 0.2,
+        azarDeLasFrontales(),
+        'pared',
+        '#4c463e',
+        true,
+        nombre,
+        undefined,
+        azarDeLasFrontales,
+      ),
+      filaAlta: c.y,
+    });
+    /**
+     * `s` dentro de su tramo: corrido hacia dentro; si no cabe, el módulo más
+     * estrecho, y si tampoco, encogido sin bajar de `minimo`. En un tramo de una
+     * casilla de caída 3 ni así cabe: va el más estrecho al mínimo, en el medio,
+     * y lo que sobresale lo tapa la diagonal de al lado, que se pinta después.
+     */
+    const dentroDelTramo = (s: Sprite): Sprite => {
+      const lo = desde - SALE_DE_SU_TRAMO;
+      const hi = hasta + SALE_DE_SU_TRAMO;
+      const modulos = yElMasEstrecho(s, hoja);
+      for (const m of modulos) {
+        const [x0, , x1] = cajaDeSprite(m);
+        if (x1 - x0 > hi - lo) continue;
+        const dx = x0 < lo ? lo - x0 : x1 > hi ? hi - x1 : 0;
+        return dx === 0 ? m : { ...m, x: m.x + dx };
+      }
+      const e = modulos.at(-1) as Sprite;
+      const alto = Math.max(minimo, Math.min(e.alto, ((hi - lo) * e.nh) / e.nw));
+      const [x0, , x1] = cajaDeSprite(e, alto);
+      return { ...e, alto, x: e.x + (lo + hi) / 2 - (x0 + x1) / 2 };
+    };
+    // Cada frontal, a un paso de la anterior, pero nunca más allá de lo que esa
+    // cubrió: un módulo estrecho (los de nieve miden 0,65 de ancho por alto)
+    // dejaba media celda sin pared. Al final, otra si el tramo no llegó a su junta.
+    let cubierto = desde;
+    let x = desde + 0.25;
+    const ultima = hasta - 0.25 + 1e-9;
+    while (x <= ultima || cubierto < hasta - 0.1) {
+      const aqui = Math.min(x, hasta - 0.25);
+      const s = dentroDelTramo(pared(aqui));
+      if (
+        ponerPared([s], minimo, [
+          [s.x, s.y],
+          [s.x, filo],
+        ])
+      )
+        cubierto = Math.max(cubierto, cajaDeSprite(sprites.at(-1) as Sprite)[2]);
+      else {
+        cubierto = Math.max(cubierto, aqui + 0.3);
+        // Donde no cabe ninguna pared, junto a un objeto, va un pedregal por la
+        // cara, que se aparta de la senda: se pone con ella ya apartada.
+        if (reservaEn(aqui, pie) === undefined)
+          sinFrontal.set(c, [...(sinFrontal.get(c) ?? []), aqui]);
+      }
+      if (aqui >= hasta - 0.25) break;
+      x = Math.min(x + 0.42 + azarDeLasFrontales() * 0.22, cubierto + 0.2);
+    }
+  }
+
   // Por dónde bajan las sendas (R5): una pieza encima de la pared cada una. La
   // que llega a un puente no: el puente es su paso.
   const nodosDePuente = new Set(
     a.objetos.filter((o) => a.puentes.has(o.id)).map((o) => `${o.at.x},${o.at.y}`),
   );
-  const bajadasDeLasSendas = bajadasDe(
-    nivel,
-    W,
-    a.suelo,
-    rel.celdas,
-    map.caminos.tramos,
-    suavizadas,
-    (p, q) => nodosDePuente.has(`${p.x},${p.y}`) || nodosDePuente.has(`${q.x},${q.y}`),
+  const bajadasDe_ = (l: readonly Senda[]) =>
+    bajadasDe(
+      nivel,
+      W,
+      a.suelo,
+      rel.celdas,
+      map.caminos.tramos,
+      l,
+      (p, q) => nodosDePuente.has(`${p.x},${p.y}`) || nodosDePuente.has(`${q.x},${q.y}`),
+    );
+  // La senda se aparta de lo que la tapa (#206), menos junto a una bajada, que
+  // la cruza por su rampa: ahí la tapa la bajada, que es camino.
+  const queTapa = loQueTapa(sprites, catalogo);
+  /**
+   * Lo que dista `(x, y)` del centro de la casilla de acantilado, muro o
+   * cordillera más cercana de alrededor, a lo largo de un eje (Chebyshev; 0,5
+   * en su canto), o `LEJOS_DE_LA_BARRERA` si no hay.
+   */
+  const aLaBarrera = (x: number, y: number): number => {
+    const cx = Math.floor(x);
+    const cy = Math.floor(y);
+    let d = LEJOS_DE_LA_BARRERA;
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++) {
+        const bx = cx + dx;
+        const by = cy + dy;
+        if (bx < 0 || by < 0 || bx >= W || by >= H) continue;
+        const t = a.terreno[by * W + bx];
+        if (t !== 'cliff' && t !== 'wall' && t !== 'mountain') continue;
+        d = Math.min(d, Math.max(Math.abs(x - bx - 0.5), Math.abs(y - by - 0.5)));
+      }
+    return d;
+  };
+  const juntoALaRampa = pasilloDe(bajadasDe_(suavizadas).map(rampaDe), JUNTO_A_LA_RAMPA);
+  const conEdificio = new Set(
+    a.objetos
+      .filter((o) => o.kind === 'town' || o.kind === 'village' || o.kind === 'mine')
+      .map((o) => o.at.y * W + o.at.x),
   );
+  const apartar = (l: readonly Senda[]) =>
+    apartarDeLoQueTapa(
+      l,
+      (x, y) => queTapa(x, y) === 'pared',
+      (x, y) => juntoALaRampa.en(x, y, () => true) !== undefined,
+      (x, y, [x0, y0]) => {
+        // Sin arrimarse a un acantilado, un muro ni una cordillera más de lo
+        // que ya estaba: la roca de lo alto (`cimaDeRoca`, #205) se aparta de
+        // la senda, y la corrida hacia su canto dejaba lisas 17 casillas más en
+        // 1-40; la línea de la muralla solo deja cruzar por la puerta, y la
+        // corrida hacia un lienzo lo pisaba (s439, #207); y en una cordillera
+        // estrecha no cabía una cumbre (#204, s11 (20,11): 7 dominantes).
+        if (aLaBarrera(x, y) < Math.min(aLaBarrera(x0, y0), LEJOS_DE_LA_BARRERA)) return false;
+        if (Math.floor(x) === Math.floor(x0) && Math.floor(y) === Math.floor(y0)) return true;
+        if (x < 0 || y < 0 || x >= W || y >= H) return false;
+        const i = Math.floor(y) * W + Math.floor(x);
+        // A otra casilla, solo si se pisa y no es la de un edificio.
+        return a.franjaDe[i] === -1 && !conEdificio.has(i);
+      },
+    );
+  const apartadas = apartar(suavizadas);
+  const bajadasDeLasSendas = bajadasDe_(apartadas);
   // Y lo que se pinta pasa por la rampa de cada una, de su filo a su pie (#192).
-  const trazos = sendasPorLasRampas(suavizadas, bajadasDeLasSendas);
+  const trazos = sendasPorLasRampas(apartadas, bajadasDeLasSendas);
   // El nodo entre dos niveles sin camino también es una rampa (#143): la pieza
   // va por su eje, con la trocha de senda. Sin ella, el paso de la meseta al
   // llano no se veía (147 de 257 nodos entre niveles en 1-40).
@@ -1227,11 +1532,6 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     ...reservas.keys(),
   ]);
   const sendaDeLaMuralla = sendaParaLaMuralla(trazos);
-  /** El sprite del objeto en cuya reserva cae `(x, y)`, el más cercano si son varios. */
-  const reservaEn = (x: number, y: number): Sprite | undefined => {
-    const f = obstaculos.en(x, y, (f) => reservas.has(f));
-    return f === undefined ? undefined : reservas.get(f);
-  };
   /** El sprite más estrecho de cada clase que se aparta: el que pregunta el dardo. */
   const moldes = new Map<Sprite['clase'], Pick<Sprite, 'nw' | 'nh' | 'ax' | 'ay'>>();
   for (const [clase, r] of Object.entries(APARTE) as [Sprite['clase'], Aparte | null][]) {
@@ -1260,12 +1560,6 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     const m = moldes.get(clase);
     if (m === undefined) return reservaEn(x, y) === undefined;
     return entra({ nw: m.nw, nh: m.nh, ax: m.ax, ay: m.ay, x, y, alto, clase });
-  };
-  /** Mete `s` en la escena y cuenta si su base pisa una reserva. */
-  const meter = (s: Sprite): true => {
-    if (reservaEn(s.x, s.y) !== undefined) basesSobreReserva++;
-    sprites.push(s);
-    return true;
   };
   /** `s` con el mayor alto, hasta el suyo, con el que no pisa nada de lo que se aparta. */
   const ajustado = (s: Sprite): Sprite => {
@@ -1313,56 +1607,6 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       esbeltez,
     );
     return entra(estrecho) && meter(ajustado(estrecho));
-  };
-  /** `s` y, si es otro, el módulo más estrecho de su hoja en su sitio: lo que prueba `ponerPared`. */
-  const yElMasEstrecho = (s: Sprite, hoja: string): [Sprite, ...Sprite[]] => {
-    const e = masEstrecho(hoja);
-    return e === undefined || e.src === s.src
-      ? [s]
-      : [s, { ...s, src: e.src, nw: e.nw, nh: e.nh, ax: e.ax, ay: e.ay }];
-  };
-  /**
-   * La puerta de la pared (frontal, ladera, diagonal y peñascos): ningún punto
-   * de `puntos` (su pie y lo que tapa por encima: el filo, el medio de una
-   * ladera, las juntas de una diagonal) cae en la reserva de un objeto, y no
-   * tapa ningún tablero (`obstaculos`, donde la pared solo mira los tableros):
-   * se prueba cada uno de `modulos` en su orden, encogido sin bajar de
-   * `minimo`. Dice si se puso.
-   *
-   * Con el relieve por celdas (R4/R5) la pared ya no se aparta de la senda que
-   * baja: ni se corre, ni se encoge, ni se quita por ella, y nunca se corta. La
-   * bajada se pinta encima. El muro bajo junto a la senda (#172) era eso.
-   */
-  /**
-   * Las cajas de las paredes que la puerta no dejó entrar, con el porqué (la
-   * reserva de un objeto o un puente que taparían): la razón declarada de las
-   * celdas que quedan vacías ahí (`vaciaPorque`).
-   */
-  const rechazos: Rechazo[] = [];
-  const ponerPared = (
-    modulos: readonly [Sprite, ...Sprite[]],
-    minimo: number,
-    puntos: readonly (readonly [number, number])[],
-  ): boolean => {
-    if (puntos.some(([x, y]) => reservaEn(x, y) !== undefined)) {
-      rechazos.push({ caja: cajaDeSprite(modulos[0]), razon: 'reserva' });
-      return false;
-    }
-    for (const m of modulos) {
-      const alto = obstaculos.altoLibre(m);
-      if (alto >= minimo)
-        return meter(
-          alto === m.alto
-            ? m
-            : {
-                ...m,
-                alto,
-                ...(m.ancho === undefined ? {} : { ancho: (m.ancho * alto) / m.alto }),
-              },
-        );
-    }
-    rechazos.push({ caja: cajaDeSprite(modulos[0]), razon: 'puente' });
-    return false;
   };
   /** Una mata de la cubierta; `rala`, la de lo que se pisa en un suelo `comoLaBarrera`. */
   const mata = (hoja: string, x: number, y: number, alto: number, rala = false) =>
@@ -2181,109 +2425,6 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     }
   }
 
-  /** La silueta de cada módulo que tapa una cara: la de las paredes, para lo que pintan encima. */
-  const perfilDe = perfilesDelCatalogo(catalogo);
-  // 4 · El relieve por celdas (R4): una pieza por pared, de junta a junta. Las
-  // caídas al sur llevan las frontales de siempre, libres; las del este y el
-  // oeste, su cadena de laderas; cada diagonal, su pieza; y donde una senda
-  // cruza una caída hacia la cámara o de lado, la bajada encima (R5). Ninguna
-  // pared se aparta de la senda: lo que baja lo pinta la bajada. Donde falta el
-  // arte de un material o una caída va un marcador visible, no el sistema viejo.
-  const azarDeLaderas = azarDe(semilla * 6007 + 11);
-  const azarDelRelieve = azarDe(semilla * 4801 + 3);
-  /** Las paredes E y O con ladera puesta, como `vx,vy,lado` de su celda. */
-  const conLadera = new Set<string>();
-  const celdaDeLadera = (l: Ladera, fila: number) =>
-    `${l.lado === 'este' ? l.x + 1 : l.x},${fila + 0.5},${l.lado}`;
-  const juegos = new Map<string, JuegoDeLadera | null>();
-  /** El juego de una hoja de laderas, o null sin su arte. */
-  const juegoDe = (hoja: string): JuegoDeLadera | null => {
-    let j = juegos.get(hoja);
-    if (j === undefined) {
-      const ms = modulosDe(hoja);
-      j = ms === null || ms.length === 0 ? null : juegoDeLadera(hoja, ms);
-      juegos.set(hoja, j);
-    }
-    return j;
-  };
-  /** El sprite del módulo `m` desde la fila `y` de `l` (`colocarLadera`). */
-  const spriteDeLadera = (m: ModuloDeLadera, hoja: string, l: Ladera, y: number): Sprite => {
-    const tono = tonoDe(hoja);
-    const sitio = colocarLadera(m, l, y);
-    return {
-      ...(tono === undefined ? {} : { tono }),
-      src: m.src,
-      nw: m.nw,
-      nh: m.nh,
-      ax: m.ax,
-      ay: m.ay,
-      x: sitio.x,
-      y: sitio.y,
-      alto: sitio.alto,
-      clase: 'pared',
-      color: '#4c463e',
-      capa: 0,
-      sombra: true,
-      filaAlta: Math.floor(y),
-    };
-  };
-  for (const l of rel.laderas) {
-    const hoja = hojaDeLadera(l);
-    const juego = juegoDe(hoja);
-    if (juego === null) {
-      // Sin el arte, una marca por fila, del filo al pie.
-      for (let y = l.y0; y <= l.y1; y++) {
-        const largo = 1 + l.caida * ALTO_DE_NIVEL;
-        const s: Sprite = {
-          ...deHoja(hoja, bordeDeLadera(l), y + largo, largo, 0, 'pared', '#4c463e', true),
-          filaAlta: Math.floor(y),
-        };
-        if (
-          ponerPared([s], s.alto, [
-            [s.x, s.y],
-            [s.x, y + 0.5],
-          ])
-        )
-          conLadera.add(celdaDeLadera(l, y));
-      }
-      continue;
-    }
-    // Ni se corre ni se encoge: rompería la cadena. Si cae en la reserva de un
-    // objeto o taparía un puente, no va.
-    const ponerUna = (m: ModuloDeLadera, y: number): boolean => {
-      const s = spriteDeLadera(m, hoja, l, y);
-      if (
-        !ponerPared([s], s.alto, [
-          [s.x, s.y],
-          [s.x, y + m.ladera.largo / 2],
-        ])
-      )
-        return false;
-      for (let k = 0; k < m.ladera.largo; k++) conLadera.add(celdaDeLadera(l, y + k));
-      return true;
-    };
-    // Lo que no entra se prueba fila a fila con los módulos de una, más
-    // estrechos que un largo; si nada entra, quedan los peñascos del canto.
-    for (const p of piezasDeLadera(l, l, juego, azarDeLaderas)) {
-      if (ponerUna(p.modulo, p.y)) continue;
-      for (let y = p.y; y < p.y + p.modulo.ladera.largo; y++)
-        for (const m of juego.medios) if (m !== p.modulo && ponerUna(m, y)) break;
-    }
-  }
-
-  // Las diagonales: una pieza por celda, por sus dos filos (`colocarDiagonal`).
-  for (const c of rel.diagonales) {
-    const hoja = hojaDeDiagonal(c);
-    const papel = c.tipo.endsWith('convexa') ? 'convexa' : 'concava';
-    const ms = (modulosDe(hoja) ?? []).filter(
-      (m): m is ModuloDeDiagonal => m.diagonal?.papel === papel,
-    );
-    const m = ms[Math.floor(azarDelRelieve() * ms.length)];
-    if (m === undefined) faltan.add(hoja);
-    const s = m === undefined ? marcadorDeDiagonal(c) : spriteDeDiagonal(m, hoja, c);
-    ponerPared([s], s.alto, puntosDeCelda(c));
-  }
-
   /**
    * El pedregal de cada cara, por su índice en `sprites`: los peñascos (donde
    * no entró una pared) y las rocas de su pie. Su tono se decide con todo puesto
@@ -2334,84 +2475,22 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         pedregalDeCara.push(sprites.length - 1);
     }
   };
-  // Las caídas al sur: las frontales de siempre, de junta a junta. Sus módulos
-  // miden de 1 a 2 casillas de ancho; ninguno se sale de su tramo más de
-  // `SALE_DE_SU_TRAMO`, que en un extremo está la diagonal que dobla la esquina.
+  // El pedregal de cada cara, con la senda ya apartada: los peñascos donde no
+  // cupo la frontal (sin ellos quedaba una losa lisa; cada peñasco mira la
+  // reserva en su propio pie) y las rocas de su pie.
   for (const c of rel.caras) {
-    const { pared: hoja, pedregal: tonoDelPedregal } = materialDeCara(c.material);
+    const { pedregal: tonoDelPedregal } = materialDeCara(c.material);
     const filo = c.y + 1;
     const pie = filo + c.caida * ALTO_DE_NIVEL;
     const desde = c.x0;
     const hasta = c.x1 + 1;
-    // Lo más bajo que se deja una pared: lo que mide la cara. Más baja, la cara
-    // asomaría lisa por encima.
-    const minimo = c.caida * ALTO_DE_NIVEL;
-    const pared = (x: number, nombre?: string): Sprite => ({
-      ...deHoja(
-        hoja,
-        x + (azar() - 0.5) * 0.1,
-        pie + 0.05 + (azar() - 0.5) * 0.12,
-        c.caida * ALTO_DE_NIVEL + 0.35 + azar() * 0.2,
-        azar(),
-        'pared',
-        '#4c463e',
-        true,
-        nombre,
-      ),
-      filaAlta: c.y,
-    });
-    /**
-     * `s` dentro de su tramo: corrido hacia dentro; si no cabe, el módulo más
-     * estrecho, y si tampoco, encogido sin bajar de `minimo`. En un tramo de una
-     * casilla de caída 3 ni así cabe: va el más estrecho al mínimo, en el medio,
-     * y lo que sobresale lo tapa la diagonal de al lado, que se pinta después.
-     */
-    const dentroDelTramo = (s: Sprite): Sprite => {
-      const lo = desde - SALE_DE_SU_TRAMO;
-      const hi = hasta + SALE_DE_SU_TRAMO;
-      const modulos = yElMasEstrecho(s, hoja);
-      for (const m of modulos) {
-        const [x0, , x1] = cajaDeSprite(m);
-        if (x1 - x0 > hi - lo) continue;
-        const dx = x0 < lo ? lo - x0 : x1 > hi ? hi - x1 : 0;
-        return dx === 0 ? m : { ...m, x: m.x + dx };
-      }
-      const e = modulos.at(-1) as Sprite;
-      const alto = Math.max(minimo, Math.min(e.alto, ((hi - lo) * e.nh) / e.nw));
-      const [x0, , x1] = cajaDeSprite(e, alto);
-      return { ...e, alto, x: e.x + (lo + hi) / 2 - (x0 + x1) / 2 };
-    };
-    // Cada frontal, a un paso de la anterior, pero nunca más allá de lo que esa
-    // cubrió: un módulo estrecho (los de nieve miden 0,65 de ancho por alto)
-    // dejaba media celda sin pared. Al final, otra si el tramo no llegó a su junta.
-    let cubierto = desde;
-    let x = desde + 0.25;
-    const ultima = hasta - 0.25 + 1e-9;
-    while (x <= ultima || cubierto < hasta - 0.1) {
-      const aqui = Math.min(x, hasta - 0.25);
-      const s = dentroDelTramo(pared(aqui));
-      if (
-        ponerPared([s], minimo, [
-          [s.x, s.y],
-          [s.x, filo],
-        ])
-      )
-        cubierto = Math.max(cubierto, cajaDeSprite(sprites.at(-1) as Sprite)[2]);
-      else {
-        cubierto = Math.max(cubierto, aqui + 0.3);
-        // Donde no cabe ninguna pared, junto a un objeto, un pedregal por la cara:
-        // sin él quedaba una losa lisa. Cada peñasco mira la reserva en su propio pie.
-        if (reservaEn(aqui, pie) === undefined)
-          peñascos(
-            pie,
-            filo,
-            () => Math.min(hasta - 0.05, Math.max(desde + 0.05, aqui + (azar() - 0.5) * 0.3)),
-            tonoDelPedregal,
-          );
-      }
-      if (aqui >= hasta - 0.25) break;
-      x = Math.min(x + 0.42 + azar() * 0.22, cubierto + 0.2);
-    }
+    for (const aqui of sinFrontal.get(c) ?? [])
+      peñascos(
+        pie,
+        filo,
+        () => Math.min(hasta - 0.05, Math.max(desde + 0.05, aqui + (azar() - 0.5) * 0.3)),
+        tonoDelPedregal,
+      );
     for (let x = desde; x <= hasta - 0.01; x += 0.35 + azar() * 0.3) {
       const px = x + azar() * 0.2;
       const py = pie + 0.1 + azar() * 0.2;
@@ -4060,6 +4139,62 @@ function seSolapan(a: Sprite, b: Sprite, perfilDe: PerfilDe): boolean {
 export const SENDA_CORTADA = 0.5;
 
 /**
+ * Lo que la senda deja quieto a cada lado de la rampa de una bajada (#206): ahí
+ * la cruza la pared por la bajada, que la pinta encima, y apartarla movería el
+ * filo por donde cruza.
+ */
+const JUNTO_A_LA_RAMPA = 0.45;
+
+/**
+ * Desde cuánto la senda apartada no mira un acantilado, un muro ni una
+ * cordillera (#206): a media casilla de su canto, del centro de la casilla a lo
+ * largo de un eje. Más cerca, no se le arrima más de lo que ya estaba. Con
+ * 0,75 o 0,65 apartaba algo más (6,3 y 6,2 tramos por mapa frente a 6,55) y
+ * rompía las cumbres de #204.
+ */
+const LEJOS_DE_LA_BARRERA = 1;
+
+/**
+ * Qué del relieve tapa el punto `(x, y)` del suelo: `'bajada'` si lo pinta una
+ * bajada —la rampa, que es camino—, `'pared'` si cae bajo la silueta de una
+ * frontal, una ladera o una diagonal (`tapaElPunto`), o null. El pedregal no
+ * cuenta: es un peñasco suelto, no la pared. Lo preguntan el contador
+ * (`sendaBajoElRelieve`) y la senda que se aparta de lo alto
+ * (`apartarDeLoQueTapa`, #206): una sola regla de qué la esconde.
+ */
+export function loQueTapa(
+  sprites: readonly Sprite[],
+  catalogo: Catalogo,
+): (x: number, y: number) => 'pared' | 'bajada' | null {
+  const m = modulosDelRelieve(catalogo).bajadas;
+  const perfilDe = perfilesDelCatalogo(catalogo);
+  const esBajada = (s: Sprite) =>
+    (s.src !== null && m.has(s.src)) || (s.src === null && s.color === COLOR_DE_BAJADA);
+  // Las paredes por casilla de su caja: un punto mira solo las de la suya.
+  const porCasilla = new Map<number, Sprite[]>();
+  for (const s of sprites) {
+    if (s.clase !== 'pared' || s.src?.includes('/rocas-caidas/') === true) continue;
+    const [x0, y0, x1, y1] = cajaDeSprite(s);
+    for (let y = Math.floor(y0); y <= Math.floor(y1); y++)
+      for (let x = Math.floor(x0); x <= Math.floor(x1); x++) {
+        const k = y * 4096 + x;
+        const lista = porCasilla.get(k);
+        if (lista === undefined) porCasilla.set(k, [s]);
+        else lista.push(s);
+      }
+  }
+  return (x, y) => {
+    let pared = false;
+    for (const s of porCasilla.get(Math.floor(y) * 4096 + Math.floor(x)) ?? []) {
+      if (!tapaElPunto(s, perfilDe, x, y)) continue;
+      if (esBajada(s)) return 'bajada';
+      pared = true;
+    }
+    return pared ? 'pared' : null;
+  };
+}
+
+/**
  * Los tramos de senda pintada que desaparecen bajo una pieza del relieve —una
  * frontal, una ladera o una diagonal—, cada uno dicho: su trazo, mirado cada
  * `PASO_POR_EL_TABLERO`, cae bajo la silueta de una pared (`tapaElPunto`) en
@@ -4075,33 +4210,8 @@ export function sendaBajoElRelieve(
   sendas: readonly Senda[],
   catalogo: Catalogo,
 ): string[] {
-  const m = modulosDelRelieve(catalogo).bajadas;
-  const perfilDe = perfilesDelCatalogo(catalogo);
-  const esBajada = (s: Sprite) =>
-    (s.src !== null && m.has(s.src)) || (s.src === null && s.color === COLOR_DE_BAJADA);
-  // Las paredes por casilla de su caja: una senda mira solo las de la suya.
-  const porCasilla = new Map<number, Sprite[]>();
-  for (const s of sprites) {
-    if (s.clase !== 'pared' || s.src?.includes('/rocas-caidas/') === true) continue;
-    const [x0, y0, x1, y1] = cajaDeSprite(s);
-    for (let y = Math.floor(y0); y <= Math.floor(y1); y++)
-      for (let x = Math.floor(x0); x <= Math.floor(x1); x++) {
-        const k = y * 4096 + x;
-        const lista = porCasilla.get(k);
-        if (lista === undefined) porCasilla.set(k, [s]);
-        else lista.push(s);
-      }
-  }
-  const tapado = (x: number, y: number): boolean => {
-    const cerca = porCasilla.get(Math.floor(y) * 4096 + Math.floor(x)) ?? [];
-    let pared = false;
-    for (const s of cerca) {
-      if (!tapaElPunto(s, perfilDe, x, y)) continue;
-      if (esBajada(s)) return false;
-      pared = true;
-    }
-    return pared;
-  };
+  const queTapa = loQueTapa(sprites, catalogo);
+  const tapado = (x: number, y: number): boolean => queTapa(x, y) === 'pared';
   const fuera: string[] = [];
   for (const senda of sendas) {
     let desde: readonly [number, number] | undefined;
