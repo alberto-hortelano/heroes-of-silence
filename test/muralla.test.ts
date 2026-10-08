@@ -65,6 +65,21 @@ describe('la línea de una muralla', () => {
       );
   });
 
+  it('en una franja en escalera, lo lejano se cose por lo más cercano: un espolón, no otro muro (§29)', () => {
+    // La franja de s1 (13-16, 1-6), con su puerta al sureste y el acantilado al
+    // noroeste. Cosida a la punta de la línea por el borde de la franja, quedaban
+    // dos muros de norte a sur a dos casillas, (13, 2-4) y (15, 3-5).
+    const { muro, puertas } = dibujo(['.#...', '##...', '####.', '####.', '..##.', '..##P']);
+    const e = trazaDeMuralla(muro, puertas, (x, y) => x <= 0 && y <= 1);
+    const ns = (x: number) => e.pasos.filter((p) => p.a[0] === x && p.b[0] === x).length;
+    expect(ns(2), 'el lienzo de norte a sur').toBeGreaterThan(1);
+    expect(ns(0), 'otro paralelo a dos casillas').toBe(0);
+    for (const c of muro)
+      expect(e.casillas.some((l) => Math.hypot(l[0] - c[0], l[1] - c[1]) <= RADIO_DE_MURALLA)).toBe(
+        true,
+      );
+  });
+
   it('un cuadrado de 2×2, que el adelgazado borra entero, deja algo en pie (s25)', () => {
     const { muro } = dibujo(['##', '##']);
     expect(trazaDeMuralla(muro, [], nunca).casillas.length).toBeGreaterThan(0);
@@ -166,6 +181,33 @@ describe('en las partidas', () => {
           map.terrain[Math.floor(s.y) * map.width + Math.floor(s.x)] === 'wall',
       );
       expect(enMuro.map((s) => `${s.src} en ${s.x.toFixed(2)},${s.y.toFixed(2)}`)).toEqual([]);
+    }
+  });
+});
+
+describe('la muralla de norte a sur, de lado (§29)', () => {
+  it('sus tramos son las piezas muro-ns, de 1,6 de alto y por el medio, y no la tira de la hoja', () => {
+    // s2 lleva tres puertas N-S, (9,11), (24,14) y (9,19), con su lienzo arriba y abajo.
+    const e = escenaDe(2);
+    const ns = e.sprites.filter((s) => /^muro-ns-[12]\.webp$/.test(s.src ?? ''));
+    expect(ns.length).toBeGreaterThan(5);
+    expect(new Set(ns.map((s) => s.src))).toEqual(new Set(['muro-ns-1.webp', 'muro-ns-2.webp']));
+    for (const s of ns) {
+      expect(s.clase).toBe('muro');
+      expect(s.alto).toBe(1.6);
+      expect(s.ax).toBe(s.nw / 2);
+    }
+    expect(e.sprites.filter((s) => s.src === 'modulos/muro/profundidad.webp')).toEqual([]);
+  });
+
+  it('la puerta N-S se mide por el alto y se apoya en el pie de su arco', () => {
+    const e = escenaDe(2);
+    const puertas = e.sprites.filter((s) => s.src === 'nodo-puerta-hondo.webp');
+    expect(puertas.map((s) => s.objeto?.id).sort()).toEqual(['node-2', 'node-4', 'node-7']);
+    for (const s of puertas) {
+      expect(s.alto).toBe(2.6);
+      expect(s.ay / s.nh).toBeCloseTo(0.625);
+      expect(s.ax).toBe(s.nw / 2);
     }
   });
 });

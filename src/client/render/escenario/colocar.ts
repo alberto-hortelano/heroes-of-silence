@@ -647,6 +647,28 @@ const ANCHO_DE_TRAMO: Readonly<Record<string, number>> = {
   profundidad: 0.55,
 };
 
+/**
+ * La puerta de una muralla de norte a sur (§29): una casa de puerta entre dos
+ * torres que se aleja de la cámara, con el arco abierto al este. A 2,6 casillas
+ * de alto, la torre de delante llega a la casilla al sur del nodo y la de detrás
+ * a la del norte, y la torre mide lo que la de la hoja `muro` (0,5 de ancho). Su
+ * arco apoya en el 62,5 % de la pieza desde arriba (medido sobre
+ * `nodo-puerta-hondo.webp`, 960 de 1536 px). Por el ancho, como la de este a
+ * oeste, medía 3,9 casillas de alto.
+ */
+const PUERTA_NORTE_SUR = { alto: 2.6, pieDelArco: 0.625 } as const;
+
+/** Las piezas del tramo de muralla de norte a sur (§29), de lado. */
+const TRAMOS_NORTE_SUR = ['muro-ns-1', 'muro-ns-2'] as const;
+
+/**
+ * Lo alto del tramo de norte a sur, en casillas. Su adarve ocupa dos tercios de
+ * la pieza y el muro que se ve de frente, el tercio de abajo: a 1,6 el adarve
+ * cubre 1,07 casillas, lo que va de un centro al siguiente con algo de solape, y
+ * el muro queda a 0,5 de alto, el del tramo de este a oeste con sus almenas.
+ */
+const ALTO_DEL_TRAMO_NORTE_SUR = 1.6;
+
 const MARCADOR: Readonly<Record<string, string>> = {
   forest: '#1f3a22',
   mountain: '#6e6a74',
@@ -920,12 +942,24 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         ? variantes[varianteDeId(o.id, variantes.length)]
         : undefined;
     const p = variante ?? (id === null ? null : pieza(id));
-    const alto = p === null ? ancho : esHito(id) ? ALTO_DEL_HITO : (ancho * p.nh) / p.nw;
+    const norteSur = id === 'nodo-puerta-hondo';
+    const alto =
+      p === null
+        ? ancho
+        : esHito(id)
+          ? ALTO_DEL_HITO
+          : norteSur
+            ? PUERTA_NORTE_SUR.alto
+            : (ancho * p.nh) / p.nw;
     // La puerta, por el medio: su ancla derivada es el pie más bajo, el de la
     // torre de un lado, y la puerta caía 0,4 casillas al lado de su nodo, con el
-    // lienzo que llega a ella entrando por la torre (#183).
+    // lienzo que llega a ella entrando por la torre (#183). La de norte a sur,
+    // además, por el pie de su arco: el de su torre de delante queda una casilla
+    // al sur, sobre el lienzo que sale de ella.
     const centrada =
-      p !== null && id?.startsWith('nodo-puerta') === true ? { ...p, ax: p.nw / 2 } : p;
+      p !== null && id?.startsWith('nodo-puerta') === true
+        ? { ...p, ax: p.nw / 2, ...(norteSur ? { ay: p.nh * PUERTA_NORTE_SUR.pieDelArco } : {}) }
+        : p;
     const s = deObjeto(o, centrada, x, y + 0.35, alto);
     const tono = id === null ? undefined : TONO_DE_HITO[id];
     sprites.push(tono === undefined || s.src === null ? s : { ...s, tono });
@@ -1473,6 +1507,48 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   }
 
   /**
+   * El tramo de muralla de norte a sur (§29), de lado: se le ve el adarve y la
+   * cara del este, donde el `profundidad` de la hoja era una tira de almenas de
+   * 0,55 casillas vista desde su extremo. Dos piezas, por el sitio. Sin ellas,
+   * el de la hoja.
+   */
+  function tramoNorteSur(sitio: string, x: number, pie: number, color: string): Sprite {
+    const id = TRAMOS_NORTE_SUR[varianteDeId(sitio, TRAMOS_NORTE_SUR.length)] as string;
+    const p = pieza(id);
+    if (p === null) {
+      faltan.add(id);
+      return deHoja(
+        'muro',
+        x,
+        pie,
+        1.05,
+        0.5,
+        'muro',
+        color,
+        true,
+        'profundidad',
+        ANCHO_DE_TRAMO.profundidad,
+      );
+    }
+    // Por el medio: el adarve se corre algo al este según se aleja, y con el
+    // ancla derivada (el pie del extremo cercano) toda la tirada quedaba al este.
+    return {
+      src: p.src,
+      nw: p.nw,
+      nh: p.nh,
+      ax: p.nw / 2,
+      ay: p.ay,
+      x,
+      y: pie,
+      alto: ALTO_DEL_TRAMO_NORTE_SUR,
+      clase: 'muro',
+      color,
+      capa: 0,
+      sombra: true,
+    };
+  }
+
+  /**
    * Una muralla por franja de muro (#183): un lienzo seguido por su línea
    * (`trazaDeMuralla`), que pasa por cada puerta y llega a la barrera vecina, y
    * torres separadas (`torresDe`). Lo que entra se apunta en `pintados`, que es
@@ -1512,7 +1588,10 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       const diagonal = eje === 'diagonal-baja' || eje === 'diagonal-sube';
       const x = diagonal ? p.b[0] + 0.5 : (p.a[0] + p.b[0]) / 2 + 0.5;
       const pie = diagonal ? p.b[1] + 0.75 : (p.a[1] + p.b[1]) / 2 + 0.75;
-      const tramo = deHoja(hoja, x, pie, 1.05, 0.5, 'muro', color, true, eje, ANCHO_DE_TRAMO[eje]);
+      const tramo =
+        hoja === 'muro' && eje === 'profundidad'
+          ? tramoNorteSur(`${f.id}:${p.a}`, x, pie, color)
+          : deHoja(hoja, x, pie, 1.05, 0.5, 'muro', color, true, eje, ANCHO_DE_TRAMO[eje]);
       if (meterEnLaMuralla(tramo, puerta)) pintados.push({ franja: f.id, a: p.a, b: p.b });
     }
     for (const [x, y] of torresDe(

@@ -1,42 +1,46 @@
 {
-  "encargo": "mapa-nodo-puerta-hondo-c1",
+  "encargo": "mapa-nodo-puerta-hondo",
   "tipo": "imagen",
-  "fecha": "2026-10-03T20:00:09.240Z",
+  "fecha": "2026-10-08T07:58:50.546Z",
   "herramienta": {
     "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
     "version": "codex-cli 0.155.0-alpha.16.4"
   },
-  "hilo": "01a1034a-cad8-7a72-b4d0-22b9ffcd27b3",
-  "reanuda": "01a1034a-cad8-7a72-b4d0-22b9ffcd27b3",
-  "prompt": "Corrige la última imagen que has generado en esta conversación, con la herramienta de imágenes, conservando la identidad del personaje y todo lo que no se menciona.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\n\nGira la muralla noventa grados: ahora va de izquierda a derecha con la puerta de cara a la cámara, y tiene que ALEJARSE hacia el fondo en escorzo, de abajo a la izquierda hacia arriba a la derecha, como un muro visto desde su extremo cercano. La puerta queda en un costado de ese muro, vista de lado y en perspectiva, y el camino la cruza de izquierda a derecha. Misma puerta, mismas torres, mismas antorchas y mismo poste vacío.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "hilo": "01a11a84-65f6-7781-86a7-dc9a2354cb2b",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\n\nUna pieza suelta del mapa de aventura de un juego de estrategia por turnos: la puerta fortificada de una muralla que corre de NORTE a SUR: la muralla arranca abajo en la imagen, cerca de la cámara, y se aleja en línea recta hacia ARRIBA, hacia el fondo; en su medio, una casa de la puerta con dos torres almenadas, una delante y otra detrás, y entre ellas el arco con su rastrillo abierto en la cara del lado DERECHO (el este), visto de lado y en escorzo, por el que un camino cruza la muralla de izquierda a derecha. El arco NO mira a la cámara: mira a la derecha. Un trozo corto de muralla sale de la casa de la puerta hacia abajo y otro hacia arriba, con cortes limpios para empalmar. Unas antorchas junto al arco. La muralla va VERTICAL en la imagen, sin inclinarse: su extremo cercano queda justo debajo del lejano y la torre de atrás justo encima de la de delante, como un tramo que corre recto hacia el fondo y no en diagonal. La pieza es más alta que ancha.\nLa piedra gris con musgo, las almenas, el rastrillo y las antorchas son los de la puerta de la imagen 2, que es la misma puerta en una muralla que corre de izquierda a derecha: aquí la muralla corre hacia el fondo y la puerta se abre a la derecha.\nSin peana ni trozo de suelo debajo: el muro solo, para posarlo sobre el terreno. Sin estandartes ni banderas.\nUn único objeto, centrado y entero. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, la misma de la imagen de estilo; nunca cenital ni de perfil. La luz viene de arriba a la izquierda.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
   "referencias": [
     {
-      "ruta": "assets/mapa/muestras/denso-b.webp",
+      "ruta": "assets/mapa/muestras/pintado.webp",
       "papel": "estilo",
-      "sha256": "a7b0a2a1b884d4909de4f34578e1ba6f1522a5db09f5c4c07c8be14de7a80947"
+      "sha256": "2257bd10a5efa8f2c430c2d86609ac895750568961a4dea6dfddd4c8081e1838"
+    },
+    {
+      "ruta": "assets/mapa/nodo-puerta-ancho.webp",
+      "papel": "identidad",
+      "sha256": "bc9d4be0abc575405759923612795b667363e7eaf580c8ae979703836a24f8ed"
     }
   ],
   "crudo": {
-    "fichero": "~/.codex/generated_images/01a1034a-cad8-7a72-b4d0-22b9ffcd27b3/exec-b8b7bf75-d07d-4ba7-97be-83ed28d2240d.png",
-    "sha256": "14265d4bf90c06946d9dc7d2cf82135daaf529556da1d60733a6963f135e60f4",
-    "ancho": 1536,
-    "alto": 1024
+    "fichero": "~/.codex/generated_images/01a11a84-65f6-7781-86a7-dc9a2354cb2b/exec-47e6fa7e-9621-4c96-a50c-937283838b0a.png",
+    "sha256": "ecc13218125a0ef5a8403b7e8b1bca77e1fec386e0b3c951d7dac337dc01cda1",
+    "ancho": 1024,
+    "alto": 1536
   },
   "postproceso": [
     "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
     "recortado al contenido con 24 px de margen",
     "WebP calidad 92, alfa sin pérdida",
-    "JSON derivado: 1013×1024, ancla en (228,1004)"
+    "JSON derivado: 424×1536, ancla en (177,1520)"
   ],
   "validacion": {
-    "visibles": 0.4976043851801579,
-    "opacos": 0.9922564421480479,
-    "haloSuelto": 0.0000019373424698404213,
-    "ancho": 1013,
-    "alto": 1024
+    "visibles": 0.5908203125,
+    "opacos": 0.992967409948542,
+    "haloSuelto": 0,
+    "ancho": 424,
+    "alto": 1536
   },
   "salida": {
     "ruta": "assets/mapa/nodo-puerta-hondo.webp",
-    "sha256": "14560c180dd9695aa60c6c2a6fbde9de75150f79f1fad21901d6edad7a7996a3"
+    "sha256": "5ec042b90fc6bf50f6886785e38abb88de7a2da0f8527e2f9ba0d463c343d0bd"
   }
 }

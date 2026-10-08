@@ -1344,23 +1344,37 @@ generado nada**; queda como petición:
 - Al llegar, cada `Variante` de `encajeDe` elegiría también textura; las fronteras leen
   la altura de la que se ve (`enElEncaje`).
 
-## 29. Tablillas por rumbo (rama `detalles-mapa`, 08-10-2026)
+## 29. Tablillas por rumbo y muralla de norte a sur (rama `detalles-mapa`, 08-10-2026)
 
-**Petición.** Defecto 6 de la auditoría 3 (`docs/agents/2026-10-08-auditoria-3/defectos.md`):
-**la tablilla** (`nodo-hito-tablilla`, §24) apunta siempre al este, vaya donde vaya el
-paso. El juego no espeja piezas (la luz viene de la izquierda: la del oeste espejada la
-tendría de la derecha), así que se piden **cuatro tablillas más**, una por rumbo, con la
-del este de referencia de **material** (su madera y su piedra, no su forma):
-`nodo-hito-tablilla-oeste`, `-norte` (hacia el fondo), `-noreste` y `-noroeste`. El juego
-elige por el eje del paso (`tablillaDelEje`, `nodos.ts`): de los dos sentidos de un eje, el
-que va al fondo; en el este-oeste, uno u otro por el sitio. Encargos en
-`tools/taller/mapa.ts` (`TABLILLAS_POR_RUMBO`, `pnpm taller encolar --tablillas
-[--solo=…]`); estilo, la lámina elegida (`muestras/pintado.webp`).
+**Petición.** Dos detalles del defecto 6 de la auditoría 3
+(`docs/agents/2026-10-08-auditoria-3/defectos.md`) y uno que dejó #183
+(`docs/agents/2026-10-08-murallas/implementacion.md`):
+
+- **La tablilla** (`nodo-hito-tablilla`, §24) apunta siempre al este, vaya donde vaya el
+  paso. El juego no espeja piezas (la luz viene de la izquierda: la del oeste espejada la
+  tendría de la derecha), así que se piden **cuatro tablillas más**, una por rumbo, con la
+  del este de referencia de **material** (su madera y su piedra, no su forma):
+  `nodo-hito-tablilla-oeste`, `-norte` (hacia el fondo), `-noreste` y `-noroeste`. El juego
+  elige por el eje del paso (`tablillaDelEje`, `nodos.ts`): de los dos sentidos de un eje,
+  el que va al fondo; en el este-oeste, uno u otro por el sitio.
+- **El tramo de muralla de norte a sur** de la hoja `muro` (`profundidad`) está visto desde
+  su extremo: una tira de almenas de 0,55 casillas. Se piden **dos tramos de lado**,
+  `muro-ns-1` y `-2`: el muro se aleja de la cámara y se le ve el adarve con sus almenas y
+  la cara del este, con cortes limpios para empalmar. Referencia de identidad, el
+  `horizontal` de la hoja.
+- **La puerta N-S** (`nodo-puerta-hondo`) era la del este-oeste girada a medias por una
+  corrección de Codex, con el arco al sureste. Se pide de nuevo: casa de la puerta entre dos
+  torres, la muralla hacia el fondo y el arco abierto al este. Referencia de identidad,
+  `nodo-puerta-ancho`.
+
+Encargos en `tools/taller/mapa.ts` (`TABLILLAS_POR_RUMBO`, `MURALLA_NORTE_SUR`;
+`pnpm taller encolar --tablillas | --muralla-ns [--solo=…]`); estilo, la lámina elegida
+(`muestras/pintado.webp`).
 
 ### Respuesta (rama `detalles-mapa`, 08-10-2026)
 
-Codex por la suscripción, sin fal.ai y sin `resume`: **4 generaciones** (de 78 a 128 s,
-ninguna fallida), todas se quedan.
+Codex por la suscripción, sin fal.ai y sin `resume`: **8 generaciones** (de 70 a 128 s,
+ninguna fallida), dos trabajadores a la vez. Se quedan 7; la 1.ª puerta se descarta.
 
 | Pieza | Hilo | sha256 del crudo | Pieza (px) |
 |---|---|---|---|
@@ -1368,8 +1382,25 @@ ninguna fallida), todas se quedan.
 | `nodo-hito-tablilla-norte` | `01a11a7f-9cb3-…` | `7a1aee7f0231…` | 613 × 915 |
 | `nodo-hito-tablilla-noreste` | `01a11a7e-37e7-…` | `1d682cf17b2b…` | 908 × 1088 |
 | `nodo-hito-tablilla-noroeste` | `01a11a7e-b113-…` | `b386ac06572b…` | 940 × 1097 |
+| `muro-ns-1` | `01a11a7d-2a19-…` | `83ce7ebd64ac…` | 541 × 1489 |
+| `muro-ns-2` | `01a11a7d-29fe-…` | `d55cca80ca78…` | 540 × 1429 |
+| `nodo-puerta-hondo` (2.ª) | `01a11a84-65f6-…` | `ecc13218125a…` | 424 × 1536 |
 
-- **Reparto en 1-40**: este 6, oeste 6, norte 15, noroeste 12, noreste 9.
+El hilo entero, el prompt y los sha256 de referencias y salida, en el `.procedencia.json`
+de cada una.
+
+- **La 1.ª puerta** salió con el arco al este, pero la muralla subía en diagonal hacia la
+  derecha: la torre de atrás quedaba 0,55 casillas al este de la de delante. Rehecha desde
+  cero con «la muralla va VERTICAL en la imagen, sin inclinarse». La 2.ª va recta, con el
+  paso abierto a través de la casa de la puerta.
+- **Reparto de las tablillas en 1-40**: este 6, oeste 6, norte 15, noroeste 12, noreste 9.
 - **La tablilla del norte** se lee como un poste con la flecha hacia arriba: en escorzo
   apenas se ve su cara. Es la única que pierde la forma de flecha de lado.
-- Recortes antes/después en `docs/agents/2026-10-08-detalles-mapa/capturas/1-*`.
+- **Los tramos N-S** salen un poco más cálidos que la hoja (R−B 34-40 frente a 23-24, luz
+  85-88 frente a 76-84) y su adarve, al sol, algo más claro. Su arranque se corre al este
+  según se aleja (0,26 de su ancho): el juego los apoya por el medio.
+- **Cómo los pone el juego**: el tramo, a 1,6 casillas de alto por el medio
+  (`ALTO_DEL_TRAMO_NORTE_SUR`, `colocar.ts`); la puerta, a 2,6 de alto y por el pie de su
+  arco, el 62,5 % de la pieza (`PUERTA_NORTE_SUR`). Solo en la muralla: la ruina
+  (`uso: obstaculo`) sigue con el `profundidad` de su hoja.
+- Recortes antes/después en `docs/agents/2026-10-08-detalles-mapa/capturas/`.

@@ -19,8 +19,8 @@
  *   pnpm taller maniqui <unidad>…        el maniquí propio de una unidad, en `_poses/unidades/<id>-8d/`
  *   pnpm taller encolar --hitos          los hitos de los nodos sin pieza de paso (#176, `mapa.ts`)
  *   pnpm taller encolar --cofre          el cofre del mapa, pieza suelta (#147, `mapa.ts`)
- *   pnpm taller encolar --tablillas [--solo=…]
- *                                        las tablillas por rumbo (§29, `mapa.ts`)
+ *   pnpm taller encolar --tablillas | --muralla-ns [--solo=…]
+ *                                        las tablillas por rumbo y la muralla norte-sur (§29, `mapa.ts`)
  *   pnpm taller encolar --texturas-suelo | --muestras-densas | --piezas-densas [--solo=…]
  *                                        el arte de los mapas densos (`mapa-denso.ts`)
  *   pnpm taller vista-mapa [semilla]     un mapa denso del generador pintado con ese arte
@@ -124,6 +124,7 @@ import {
   encargoDeCofre,
   encargoDeMuestra,
   encargosDeHitos,
+  encargosDeMurallaNS,
   encargosDePiezas,
   encargosDeTablillas,
 } from './mapa.js';
@@ -570,10 +571,10 @@ async function encolar(args: readonly string[]): Promise<void> {
     }
     return;
   }
-  // Las tablillas por rumbo (§29). `--solo=oeste,norte`, por el id sin el
-  // prefijo del encargo.
-  if (args.includes('--tablillas')) {
-    const todos = encargosDeTablillas();
+  // Las tablillas por rumbo y la muralla norte-sur (§29). `--solo=oeste,norte`
+  // o `--solo=muro-ns-1`, por el id sin el prefijo del encargo.
+  if (args.includes('--tablillas') || args.includes('--muralla-ns')) {
+    const todos = args.includes('--tablillas') ? encargosDeTablillas() : encargosDeMurallaNS();
     const sinPrefijo = (id: string) => id.replace(/^mapa-(nodo-hito-tablilla-)?/, '');
     const solo = args
       .find((x) => x.startsWith('--solo='))

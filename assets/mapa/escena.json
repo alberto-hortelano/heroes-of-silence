@@ -9888,6 +9888,20 @@
    "ax": 231,
    "ay": 1322
   },
+  "muro-ns-1": {
+   "src": "muro-ns-1.webp",
+   "nw": 541,
+   "nh": 1489,
+   "ax": 196,
+   "ay": 1464
+  },
+  "muro-ns-2": {
+   "src": "muro-ns-2.webp",
+   "nw": 540,
+   "nh": 1429,
+   "ax": 189,
+   "ay": 1404
+  },
   "nodo-empalizada": {
    "src": "nodo-empalizada.webp",
    "nw": 1141,
@@ -9974,10 +9988,10 @@
   },
   "nodo-puerta-hondo": {
    "src": "nodo-puerta-hondo.webp",
-   "nw": 1013,
-   "nh": 1024,
-   "ax": 228,
-   "ay": 1004
+   "nw": 424,
+   "nh": 1536,
+   "ax": 177,
+   "ay": 1520
   },
   "nodo-torre": {
    "src": "nodo-torre.webp",

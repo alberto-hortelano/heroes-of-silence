@@ -264,6 +264,67 @@ export function encargosDeTablillas(): Encargo[] {
 }
 
 /**
+ * La muralla que corre de norte a sur (§29). El tramo `profundidad` de la hoja
+ * `muro` está visto desde su extremo: 0,55 casillas de ancho, una tira de
+ * almenas. Y la puerta `hondo` era la del este-oeste girada a medias por una
+ * corrección de Codex, con el arco mirando al sureste. Se piden de lado: el
+ * muro se aleja de la cámara y se le ve el adarve y la cara del este.
+ */
+export const MURALLA_NORTE_SUR = [
+  {
+    id: 'muro-ns-1',
+    describe:
+      'UN tramo recto de muralla almenada que corre de NORTE a SUR: arranca abajo en la imagen, cerca de la cámara, y se aleja en línea recta hacia ARRIBA, hacia el fondo, sin girar a ningún lado. Se ve algo de lado: el adarve de arriba con las almenas de sus dos parapetos y la cara de piedra del lado DERECHO en escorzo, iluminada; la cara izquierda no se ve. Sus dos extremos son cortes limpios del muro, sin torre, para empalmar con otro tramo igual por arriba y por abajo. La pieza es mucho más alta que ancha: unas dos veces y media más alta que ancha',
+  },
+  {
+    id: 'muro-ns-2',
+    describe:
+      'UN tramo recto de muralla almenada que corre de NORTE a SUR, algo más gastado que otro igual: arranca abajo en la imagen, cerca de la cámara, y se aleja en línea recta hacia ARRIBA, hacia el fondo, sin girar a ningún lado. Se ve algo de lado: el adarve de arriba con las almenas de sus dos parapetos y la cara de piedra del lado DERECHO en escorzo, iluminada, con alguna piedra suelta y musgo; la cara izquierda no se ve. Sus dos extremos son cortes limpios del muro, sin torre, para empalmar con otro tramo igual por arriba y por abajo. La pieza es mucho más alta que ancha: unas dos veces y media más alta que ancha',
+  },
+  {
+    id: 'nodo-puerta-hondo',
+    describe:
+      'la puerta fortificada de una muralla que corre de NORTE a SUR: la muralla arranca abajo en la imagen, cerca de la cámara, y se aleja en línea recta hacia ARRIBA, hacia el fondo; en su medio, una casa de la puerta con dos torres almenadas, una delante y otra detrás, y entre ellas el arco con su rastrillo abierto en la cara del lado DERECHO (el este), visto de lado y en escorzo, por el que un camino cruza la muralla de izquierda a derecha. El arco NO mira a la cámara: mira a la derecha. Un trozo corto de muralla sale de la casa de la puerta hacia abajo y otro hacia arriba, con cortes limpios para empalmar. Unas antorchas junto al arco. La muralla va VERTICAL en la imagen, sin inclinarse: su extremo cercano queda justo debajo del lejano y la torre de atrás justo encima de la de delante, como un tramo que corre recto hacia el fondo y no en diagonal. La pieza es más alta que ancha',
+  },
+] as const;
+
+export function encargoDeMurallaNS(id: string): Encargo {
+  const m = MURALLA_NORTE_SUR.find((x) => x.id === id);
+  if (m === undefined)
+    throw new Error(
+      `no hay pieza de muralla norte-sur «${id}». Hay: ${MURALLA_NORTE_SUR.map((x) => x.id).join(', ')}`,
+    );
+  const puerta = m.id.startsWith('nodo-puerta');
+  return {
+    id: `mapa-${m.id}`,
+    tipo: 'imagen',
+    descripcion: [
+      `Una pieza suelta del mapa de aventura de un juego de estrategia por turnos: ${m.describe}.`,
+      puerta
+        ? 'La piedra gris con musgo, las almenas, el rastrillo y las antorchas son los de la puerta de la imagen 2, que es la misma puerta en una muralla que corre de izquierda a derecha: aquí la muralla corre hacia el fondo y la puerta se abre a la derecha.'
+        : 'La piedra gris con musgo, los sillares, las almenas y el alto del muro son los del tramo de la imagen 2, que corre de izquierda a derecha: aquí el mismo muro corre hacia el fondo.',
+      'Sin peana ni trozo de suelo debajo: el muro solo, para posarlo sobre el terreno. Sin estandartes ni banderas.',
+      'Un único objeto, centrado y entero. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, la misma de la imagen de estilo; nunca cenital ni de perfil. La luz viene de arriba a la izquierda.',
+    ].join('\n'),
+    referencias: [
+      { ruta: MUESTRA_ELEGIDA, papel: 'estilo' },
+      {
+        ruta: puerta
+          ? 'assets/mapa/nodo-puerta-ancho.webp'
+          : 'assets/mapa/modulos/muro/horizontal.webp',
+        papel: 'identidad',
+      },
+    ],
+    salida: `assets/mapa/${m.id}`,
+    fondo: 'transparente',
+  };
+}
+
+export function encargosDeMurallaNS(): Encargo[] {
+  return MURALLA_NORTE_SUR.map((m) => encargoDeMurallaNS(m.id));
+}
+
+/**
  * El cofre del mapa (#147), una pieza suelta como los recursos: hasta ahora salía
  * de la celda 8 del atlas viejo. CERRADO a propósito: el recurso oro ya es un
  * arcón abierto rebosante de monedas y lingotes, y dos arcones abiertos en el

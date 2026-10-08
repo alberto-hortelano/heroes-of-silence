@@ -17,6 +17,35 @@ type Casilla = readonly [number, number];
 
 const clave = ([x, y]: Casilla) => `${x},${y}`;
 
+/** Las ocho vecinas, en el orden de la rejilla: el de los alargues, que casan con la barrera. */
+const VECINAS: readonly Casilla[] = [
+  [-1, -1],
+  [0, -1],
+  [1, -1],
+  [-1, 0],
+  [1, 0],
+  [-1, 1],
+  [0, 1],
+  [1, 1],
+];
+
+/**
+ * Las mismas, primero en cruz: entre dos caminos igual de cortos, el recto. Es
+ * el orden del espolón que cose un trozo a la línea, que en diagonal salía en
+ * uve (s1 (13,4)-(14,3)-(15,4)). En los alargues no: allí doblaba los muros
+ * paralelos de 1-40 (de 8 a 18).
+ */
+const EN_CRUZ_PRIMERO: readonly Casilla[] = [
+  [0, -1],
+  [-1, 0],
+  [1, 0],
+  [0, 1],
+  [-1, -1],
+  [1, -1],
+  [-1, 1],
+  [1, 1],
+];
+
 /**
  * El camino más corto por `dentro` (8-vecinas) de `desde` a la primera casilla
  * que cumple `meta`, sin pasar por `evitar`, de como mucho `maximo` pasos; null
@@ -28,26 +57,26 @@ function caminoHasta(
   dentro: ReadonlySet<string>,
   evitar: ReadonlySet<string>,
   maximo: number,
+  vecinas: readonly Casilla[] = VECINAS,
 ): Casilla[] | null {
   const previo = new Map<string, Casilla | null>([[clave(desde), null]]);
   let frente: Casilla[] = [desde];
   for (let d = 0; d < maximo && frente.length > 0; d++) {
     const siguiente: Casilla[] = [];
     for (const [x, y] of frente)
-      for (let dy = -1; dy <= 1; dy++)
-        for (let dx = -1; dx <= 1; dx++) {
-          const v: Casilla = [x + dx, y + dy];
-          const kv = clave(v);
-          if ((dx === 0 && dy === 0) || previo.has(kv) || !dentro.has(kv)) continue;
-          previo.set(kv, [x, y]);
-          if (meta(v)) {
-            const camino: Casilla[] = [v];
-            for (let p = previo.get(kv) ?? null; p !== null; p = previo.get(clave(p)) ?? null)
-              camino.unshift(p);
-            return camino;
-          }
-          if (!evitar.has(kv)) siguiente.push(v);
+      for (const [dx, dy] of vecinas) {
+        const v: Casilla = [x + dx, y + dy];
+        const kv = clave(v);
+        if (previo.has(kv) || !dentro.has(kv)) continue;
+        previo.set(kv, [x, y]);
+        if (meta(v)) {
+          const camino: Casilla[] = [v];
+          for (let p = previo.get(kv) ?? null; p !== null; p = previo.get(clave(p)) ?? null)
+            camino.unshift(p);
+          return camino;
         }
+        if (!evitar.has(kv)) siguiente.push(v);
+      }
     frente = siguiente;
   }
   return null;
@@ -131,7 +160,15 @@ export function trazaDeMuralla(
       enLinea.add(clave(c));
       linea.push(c);
     }
-    // Cada trozo nuevo, cosido a lo que ya había por el camino más corto.
+    // Cada trozo nuevo, cosido a lo que ya había por el camino más corto
+    // hasta la casilla de la línea más cercana a él, en el medio de la línea
+    // antes que en una punta. Cosido a la primera que encontraba la búsqueda,
+    // en una franja en escalera de 3-4 casillas iba a la punta de la línea por
+    // el borde de la franja y quedaban dos muros paralelos a dos casillas
+    // (s1 (13-15, 2-5), s33 (2-6, 10-12)); hacia la más cercana es un
+    // espolón que sale de la muralla.
+    const grado = (c: Casilla) =>
+      pasos.filter((p) => clave(p.a) === clave(c) || clave(p.b) === clave(c)).length;
     const cosidas = new Set<string>();
     for (const c of otra.casillas) {
       if (cosidas.has(clave(c))) continue;
@@ -146,12 +183,27 @@ export function trazaDeMuralla(
           }
       }
       for (const k of trozo) cosidas.add(k);
+      const antes = linea.filter((v) => !trozo.has(clave(v)) && !suyas.has(clave(v)));
+      let mejor: { desde: Casilla; hasta: Casilla; d: number; g: number } | undefined;
+      for (const u of otra.casillas) {
+        if (!trozo.has(clave(u))) continue;
+        for (const v of antes) {
+          const d = Math.hypot(u[0] - v[0], u[1] - v[1]);
+          if (mejor !== undefined && d > mejor.d + 1e-9) continue;
+          const g = grado(v);
+          if (mejor === undefined || d < mejor.d - 1e-9 || g > mejor.g)
+            mejor = { desde: u, hasta: v, d, g };
+        }
+      }
+      if (mejor === undefined) continue;
+      const hasta = clave(mejor.hasta);
       const camino = caminoHasta(
-        c,
-        (v) => enLinea.has(clave(v)) && !trozo.has(clave(v)) && !suyas.has(clave(v)),
+        mejor.desde,
+        (v) => clave(v) === hasta,
         dentro,
         new Set(),
         casillas.length,
+        EN_CRUZ_PRIMERO,
       );
       if (camino !== null) coser(camino);
     }

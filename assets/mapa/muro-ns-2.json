@@ -1,0 +1,11 @@
+{
+  "imagen": "muro-ns-2.webp",
+  "sha256": "204fd86358b31442722f24958a206692f0fba21a9c60d01103a15c76fe2d7343",
+  "ancho": 540,
+  "alto": 1429,
+  "ancla": [
+    189,
+    1404
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}
