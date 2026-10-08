@@ -2284,3 +2284,34 @@ describe('despliegue de una tropa de individuos', () => {
     expect(state.finished).not.toBeNull();
   });
 });
+
+/**
+ * Un espadachín entre un campesino suelto y diez esqueletos, a cinco casillas
+ * de cada uno y los dos ya movidos (que no salte la espera). Con `threat / vida` el campesino vale
+ * 1 por PV y los esqueletos 0,625: iba a por el campesino, que muere de un golpe
+ * con 4 de daño de sobra, mientras los diez le pegaban.
+ */
+function escenaDeAQuienIr(): BattleState {
+  const state = createBattle(
+    side([{ creature: 'swordsman', count: 1 }]),
+    side([
+      { creature: 'peasant', count: 1 },
+      { creature: 'skeleton', count: 10 },
+    ]),
+    createRng(11),
+  );
+  stackById(state, 'attacker-0').hex = { col: 5, row: 4 };
+  stackById(state, 'defender-0').hex = { col: 0, row: 4 };
+  stackById(state, 'defender-1').hex = { col: 10, row: 4 };
+  for (const id of ['defender-0', 'defender-1']) stackById(state, id).acted = true;
+  forzarTurno(state, 'attacker-0');
+  return state;
+}
+
+describe('la IA va a por quien su golpe le quita más amenaza (#79)', () => {
+  it('deja al campesino suelto y va a golpear a los diez esqueletos', () => {
+    const a = chooseBattleAction(escenaDeAQuienIr());
+    expect(a).toMatchObject({ type: 'attack', target: 'defender-1' });
+    expect(a.type === 'attack' && a.from !== undefined).toBe(true);
+  });
+});

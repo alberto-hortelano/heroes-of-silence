@@ -645,11 +645,26 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   1 567 → 1 535, `node_captured` 1 244 → 1 273, `hero_defeated` 413 → 447;
  *   un tipo nuevo, `march_halted` (114), y emboscadas a la IA 0 → 0 en estas
  *   200 (1 en 300 semillas del barrido de `docs/historia.md`).
+ * - `4fb1a41c…` (67 339 líneas): **la IA de batalla elige a quién ir por el
+ *   daño que de verdad hace** (#79, 08-10-2026): `threat × min(vida, daño
+ *   esperado) / vida` en vez de `threat / vida`, solo al acercarse. Solo puede
+ *   mover partidas desde una batalla, y así sale: **190 de 200 semillas
+ *   cambian y ninguna antes de su primer `battle_started`**; el primer hecho
+ *   distinto es `troop_level_up` en 88 (la experiencia la reparte quién pega a
+ *   quién), `hero_moved` en 43, `town_captured` en 25, `raider_dispersed` en
+ *   11, `battle_ended` en 8 (el ganador), y 15 sueltos. autoResolve 2 280 →
+ *   2 359 rondas en las 300 batallas y ~127 → ~180 ms (dos pasadas alternas
+ *   contra `main`): un `expectedDamage` por enemigo en cada acercamiento. 49 con otro ganador, j0 98 → 89, **0 sin
+ *   terminar**, duración 9 / 17 / 57 → **9 / 17 / 28**. Batallas 1 807 →
+ *   1 756, `troop_level_up` 2 533 → 2 278, `hero_defeated` 447 → 412,
+ *   `town_captured` 1 535 → 1 509; ningún tipo nuevo ni ninguno que
+ *   desaparezca. `defend` (contado con una sonda, no sale en la crónica) 76 →
+ *   61 de unas 51 000 decisiones de batalla.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: 'b9e16773ce08fe80c0bedbe10dbada8ee7207a84e9237dfec82493e77c48f7ab',
+  sha: '4fb1a41caa0a626720113385e8d60e4a1ac65a4c26a8082e1b2e0d8d979c39cf',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

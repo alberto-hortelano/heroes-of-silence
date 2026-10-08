@@ -25,7 +25,7 @@ import {
   sumaDelBando,
 } from '../battle/battle.js';
 import { hexDistance, hexKey, neighbours, type Paso } from '../battle/board.js';
-import { CHANCE_PER_POINT, cargaEfectiva, stackHp } from '../battle/damage.js';
+import { CHANCE_PER_POINT, cargaEfectiva, expectedDamage, stackHp } from '../battle/damage.js';
 import { roundsLeftOf } from '../battle/effects.js';
 import { effectOfSpell, type Spell, spell, spellAmount } from '../battle/spells.js';
 import type { BattleAction, BattleHero, BattleStack, BattleState, Side } from '../battle/types.js';
@@ -69,6 +69,45 @@ function bestTarget(state: BattleState, candidates: BattleStack[]): BattleStack 
   if (candidates.length === 0) return null;
   const valor = (s: BattleStack): number => threat(state, s) / Math.max(1, stackHp(s));
   return candidates.reduce((best, s) => (valor(s) > valor(best) ? s : best));
+}
+
+/**
+ * A quién ir a buscar: la amenaza que un golpe de `s` le quitaría de verdad,
+ * `threat × min(vida, daño esperado) / vida`.
+ *
+ * Es `bestTarget` (amenaza por PV) multiplicado por los PV que el golpe quita,
+ * con dos cosas que aquel no ve: la defensa del objetivo y el doble golpe, que
+ * entran por `expectedDamage` —la misma fórmula del motor, sin tirada—, y el
+ * tope de la vida que le queda, sin el cual el campesino solo valía como si
+ * matara a cincuenta. Sin el tope (medido) juega peor que la IA de antes:
+ * 49,80 % ± 0,29 en 3 000 parejas.
+ *
+ * **Y no mira la represalia**, que es lo que pedía #79 y se midió: restarle la
+ * amenaza que la represalia esperada le quita a `s` juega PEOR cuanto más pesa
+ * —×0,5 da 49,78 ± 0,25, ×1 49,93 ± 0,21 aquí y 49,68 ± 0,23 si además elige
+ * así a quién pegar estando ya pegado, ×2 49,27 ± 0,33—. El golpe que no doy no
+ * me ahorra la represalia: ese enemigo me pega a mí en su turno, primero.
+ *
+ * Solo elige a quién ACERCARSE: a quien ya se alcanza se le sigue eligiendo con
+ * `bestTarget`, que con el mismo valor da 49,97 ± 0,15 contra este (empate).
+ */
+function aQuienIr(
+  state: BattleState,
+  s: BattleStack,
+  enemigos: readonly BattleStack[],
+): BattleStack | null {
+  const golpes = hasTrait(s.unit, 'double_attack') ? 2 : 1;
+  let mejor: BattleStack | null = null;
+  let valorMejor = Number.NEGATIVE_INFINITY;
+  for (const e of enemigos) {
+    const vida = Math.max(1, stackHp(e));
+    const valor = (threat(state, e) * Math.min(vida, golpes * expectedDamage(s, e))) / vida;
+    if (valor > valorMejor) {
+      mejor = e;
+      valorMejor = valor;
+    }
+  }
+  return mejor;
 }
 
 function distanceTo(from: Hex, target: BattleStack): number {
@@ -520,7 +559,7 @@ function decideAccion(
   }
 
   // Acercarse y golpear en el mismo turno, si llega.
-  const objetivo = bestTarget(state, enemigos);
+  const objetivo = aQuienIr(state, s, enemigos);
   if (objetivo !== null) {
     const cargas = acciones.filter(
       (a): a is CargaContra =>
