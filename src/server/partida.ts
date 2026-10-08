@@ -117,6 +117,7 @@ export function arrancarPartida(opciones: OpcionesDePartida = {}): Promise<void>
     const state = director.state;
     const msg: ServerToSpectatorMsg = {
       type: 'snapshot',
+      partida: link.partida,
       day: state.day,
       current: state.current,
       // El mismo hecho que se le manda al agente, y por el mismo motivo: quien

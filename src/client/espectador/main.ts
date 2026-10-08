@@ -26,7 +26,17 @@ import { tableroPara } from '../render/proyeccion.js';
 import { rotuloDeDia } from '../views/panels.js';
 import { adaptarEscena, centroDeLaEscena } from './adaptar.js';
 import { type FinDePartida, panelDelEspectador } from './paneles.js';
-import { Reproductor } from './reproductor.js';
+import {
+  type Caida,
+  Mirada,
+  partidaCorta,
+  partidaDelMensaje,
+  Reintentos,
+  type SiguienteIntento,
+  textoDeEspera,
+  textoDeIntento,
+  textoDeRendicion,
+} from './reconexion.js';
 
 const app = document.getElementById('app') as HTMLElement;
 const canvas = document.getElementById('canvas') as HTMLCanvasElement;
@@ -128,8 +138,7 @@ let urlDelCanal = '';
  * retiene el final de cada batalla hasta que se ha visto (`reproductor.ts`,
  * `telon.ts`).
  */
-const reproductor = new Reproductor();
-const animador = reproductor.animador;
+const mirada = new Mirada();
 
 /** Sin objetivos ni hexes atacables: el espectador no mueve nada. */
 const NINGUNO: ReadonlySet<string> = new Set();
@@ -176,7 +185,7 @@ function dibujar(ahora: number): void {
   try {
     // Lo que no es el último no se llega a ver en pantalla —no traía nada que
     // contar, ver `paso`—, así que solo el último se adapta para pintar.
-    const llegado = reproductor.paso(ahora).at(-1);
+    const llegado = mirada.reproductor.paso(ahora).at(-1);
     if (llegado !== undefined) aplicar(llegado);
     pintarTodo(ahora);
     if (fallandoAlPintar) {
@@ -185,7 +194,10 @@ function dibujar(ahora: number): void {
     }
     // El telón también pide fotogramas: mientras retiene un final, el reloj que
     // lo suelta solo avanza si alguien vuelve a mirar.
-    if (reproductor.pendiente || (vista !== null && (hayFigurasAnimadas() || animador.busy))) {
+    if (
+      mirada.reproductor.pendiente ||
+      (vista !== null && (hayFigurasAnimadas() || mirada.reproductor.animador.busy))
+    ) {
       pedirFotograma();
     }
   } catch (err) {
@@ -219,7 +231,7 @@ function encuadreDelMapa(ancho: number, alto: number): { camara: CamaraMapa; top
 }
 
 function pintarTodo(ahora: number): void {
-  const batalla = reproductor.batalla;
+  const batalla = mirada.reproductor.batalla;
   const nueva = batalla === null ? 'adventure' : 'battle';
   if (vista !== null && app.dataset.escena !== nueva) {
     app.dataset.escena = nueva;
@@ -253,9 +265,9 @@ function pintarTodo(ahora: number): void {
         objetivosHechizo: NINGUNO,
         hoverHex: null,
         hoverStack: null,
-        figura: (s) => animador.figura(s),
-        efectos: animador.efectos(enCurso),
-        sinDueño: bandosSinDueño(reproductor.dueños),
+        figura: (s) => mirada.reproductor.animador.figura(s),
+        efectos: mirada.reproductor.animador.efectos(enCurso),
+        sinDueño: bandosSinDueño(mirada.reproductor.dueños),
       });
       apuntarLoQueSePinta(true);
     } else {
@@ -285,7 +297,7 @@ function pintarTodo(ahora: number): void {
 
   // El final de la batalla no se adelanta al tablero: el panel lo calla mientras
   // el animador cuenta, y se repinta en cuanto acaba (H-7 de la QA de la fase 1b).
-  const contando = reproductor.contando;
+  const contando = mirada.reproductor.contando;
   if (panelesPendientes || contando !== panelContando) {
     panelesPendientes = false;
     panelContando = contando;
@@ -305,14 +317,14 @@ function pintarTodo(ahora: number): void {
  */
 function apuntarLoQueSePinta(hayBatalla: boolean): void {
   // Cuántos fotogramas del cable esperan: lo que el espectador va retrasado.
-  app.dataset.atrasados = String(reproductor.atrasados);
+  app.dataset.atrasados = String(mirada.reproductor.atrasados);
   if (!hayBatalla) {
     delete app.dataset.caidosEnPie;
     delete app.dataset.animando;
     return;
   }
-  app.dataset.caidosEnPie = String(reproductor.caidosEnPie());
-  app.dataset.animando = String(reproductor.contando);
+  app.dataset.caidosEnPie = String(mirada.reproductor.caidosEnPie());
+  app.dataset.animando = String(mirada.reproductor.contando);
 }
 
 function pintarPaneles(): void {
@@ -338,11 +350,40 @@ function decirQueSeMira(): void {
   // Apuntado en el `#app` para quien lo compruebe desde fuera, como `data-escenario`.
   if (ilegible === null) delete app.dataset.ilegible;
   else app.dataset.ilegible = ilegible;
+  const cual =
+    mirada.partida === null ? 'la partida' : `la partida ${partidaCorta(mirada.partida)}`;
+  const sustituyoA = mirada.anterior;
+  // El cambio de partida se sigue diciendo mientras dure la nueva: quien vuelve
+  // a mirar la pestaña tiene que poder leer por qué el mapa no es el de antes.
+  const cambio =
+    sustituyoA === null
+      ? ''
+      : ` El servidor volvió con otra partida (antes, la ${partidaCorta(sustituyoA)}): ` +
+        'se empezó de cero.';
   elStatus.textContent =
     ilegible === null
-      ? `Mirando la partida en ${urlDelCanal}.`
+      ? `Mirando ${cual} en ${urlDelCanal}.${cambio}`
       : `No se entiende el último fotograma que llegó de ${urlDelCanal}: ${ilegible}. ` +
         'Se sigue enseñando el último que se entendió.';
+}
+
+/**
+ * Lo que se pintaba era de otra partida: fuera. El reproductor ya lo cambió
+ * `Mirada`; aquí se suelta lo que la página guarda de la vista.
+ */
+function empezarDeCero(): void {
+  vista = null;
+  escena = null;
+  dia = 0;
+  turnoDe = 0;
+  finDe = null;
+  ilegible = null;
+  panelesPendientes = true;
+  delete app.dataset.escena;
+  console.info(
+    `[espectador] el servidor trae otra partida (${partidaCorta(mirada.partida ?? '')}, antes ` +
+      `${partidaCorta(mirada.anterior ?? '')}): se empieza de cero`,
+  );
 }
 
 /**
@@ -379,17 +420,22 @@ function aplicar(snapshot: SpectatorSnapshotMsg): void {
   panelesPendientes = true;
 }
 
+/** Qué pasa con el canal, apuntado en el `#app` para quien lo mire desde fuera. */
+type EstadoDelCanal = 'conectando' | 'abierto' | 'esperando' | 'rendido';
+
+function apuntarCanal(estado: EstadoDelCanal): void {
+  app.dataset.canal = estado;
+}
+
+const reintentos = new Reintentos();
+
 /**
- * Se conecta y se queda escuchando.
+ * Se conecta y se queda escuchando; si se cae, vuelve a llamar (#104).
  *
  * Criterio 10: **sin servidor levantado se DICE**, con el motivo y cómo salir,
  * en vez de dejar la página en blanco. Y si se cae en marcha, también: lo que se
  * pinta se queda —el último fotograma sigue ahí— y la barra explica que ya no
- * llegan más.
- *
- * No reconecta solo, y es a propósito: un reintento silencioso en bucle deja a
- * quien mira sin saber si la partida sigue viva. Recargar la página es explícito
- * y es lo que dice la barra. (Reconectar solo está en el backlog del plan.)
+ * llegan más, cuándo es el siguiente intento y cuántos quedan (`reconexion.ts`).
  */
 function conectar(): void {
   const { puerto, motivo } = destino();
@@ -405,10 +451,30 @@ function conectar(): void {
   // otro, el desajuste se LEE en vez de quedarse en un «conectando…» inerte.
   elSeed.textContent = url;
   elStatus.textContent = `Conectando con ${url}…`;
+  abrir(url, null);
+}
+
+/**
+ * Un intento. `intento` es `null` en el primero, que no es un reintento: su
+ * barra es el «Conectando…» de siempre.
+ */
+function abrir(url: string, intento: { readonly n: number; readonly caida: Caida } | null): void {
+  apuntarCanal('conectando');
+  if (intento !== null) elStatus.textContent = textoDeIntento(intento.caida, url, intento.n);
 
   const socket = new WebSocket(url);
+  let huboConexion = false;
+  /**
+   * Si aún no ha llegado nada por este canal. El primer fotograma de cada canal
+   * cambia la barra a «Mirando»: con `vista === null` como señal, tras volver a
+   * la MISMA partida se quedaba diciendo «Conectado otra vez…» para siempre.
+   */
+  let primero = true;
 
   socket.addEventListener('open', () => {
+    huboConexion = true;
+    reintentos.conectado();
+    apuntarCanal('abierto');
     // Conectado NO es lo mismo que hay partida. `broadcast()` sale antes si el
     // director todavía no existe, y no existe hasta que pasan la espera del
     // agente (120 s por defecto) y la del plan de mapa. En ese hueco decir
@@ -417,8 +483,13 @@ function conectar(): void {
     // cae justo ahí. Lo que se dice es lo que está pasando, y se cambia cuando
     // llega el primer fotograma.
     elStatus.textContent =
-      `Conectado a ${url}. Esperando a que empiece la partida: el servidor no ` +
-      'retransmite hasta que el agente se conecta y le da su plan de mapa.';
+      vista === null
+        ? `Conectado a ${url}. Esperando a que empiece la partida: el servidor no ` +
+          'retransmite hasta que el agente se conecta y le da su plan de mapa.'
+        : // Tras un reinicio el servidor tarda en tener partida, y mientras se
+          // sigue viendo la vieja: se dice que es la vieja y qué pasará.
+          `Conectado otra vez a ${url}. Lo que se ve es la partida de antes hasta que ` +
+          'llegue un fotograma; si es de otra partida, se empieza de cero.';
   });
 
   socket.addEventListener('message', (ev) => {
@@ -440,39 +511,65 @@ function conectar(): void {
       elStatus.textContent = `Mensaje que este espectador no entiende: ${JSON.stringify(msg).slice(0, 120)}`;
       return;
     }
-    if (vista === null) decirQueSeMira();
-    reproductor.llega(msg as SpectatorSnapshotMsg);
+    let partida: string;
+    try {
+      partida = partidaDelMensaje(msg);
+    } catch (err) {
+      elStatus.textContent = `No se puede mirar ${url}: ${err instanceof Error ? err.message : String(err)}.`;
+      return;
+    }
+    // Se reconoce AL LLEGAR y no al poner: lo que está en la cola del telón es
+    // de la partida vieja y no se tiene que ver ni un fotograma más.
+    if (mirada.llega(msg as SpectatorSnapshotMsg) === 'otra') empezarDeCero();
+    app.dataset.partida = partida;
+    if (primero || vista === null) {
+      primero = false;
+      decirQueSeMira();
+    }
     pedirFotograma();
   });
 
   socket.addEventListener('error', () => {
     // El evento de error de un WebSocket no lleva motivo por diseño del
-    // navegador, así que se dice lo que sí se sabe: dónde se intentó y qué falta.
-    elStatus.textContent =
-      `No hay nadie en ${url}. Arranca la partida con \`pnpm partida\` en otra ` +
-      'terminal y recarga esta página.';
-  });
-
-  let huboConexion = false;
-  socket.addEventListener('open', () => {
-    huboConexion = true;
+    // navegador, y siempre le sigue un `close`: es allí donde se dice qué pasa
+    // y cuándo es el siguiente intento.
+    console.warn(`[espectador] el canal ${url} ha fallado`);
   });
 
   socket.addEventListener('close', () => {
-    // Tres finales distintos, y los tres se dicen. El de en medio faltaba: la
-    // conexión SÍ se abrió —así que el `error` no dice nada— pero no llegó a
-    // haber partida, y quedaba «Conectado, esperando…» ante un servidor muerto.
-    if (vista !== null) {
-      elStatus.textContent =
-        `Se ha cortado la conexión con ${url}: lo que se ve es el último fotograma ` +
-        'que llegó. Recarga la página para volver a intentarlo.';
-    } else if (huboConexion) {
-      elStatus.textContent =
-        `El servidor de ${url} se ha ido antes de empezar la partida. Arráncalo otra ` +
-        'vez con `pnpm partida` y recarga esta página.';
+    // Tres caídas distintas, y las tres se dicen. La de en medio faltaba: la
+    // conexión SÍ se abrió pero no llegó a haber partida, y quedaba «Conectado,
+    // esperando…» ante un servidor muerto.
+    const caida: Caida = vista !== null ? 'cortada' : huboConexion ? 'antes-de-empezar' : 'nadie';
+    const siguiente = reintentos.siguiente(performance.now());
+    if (siguiente === null) {
+      apuntarCanal('rendido');
+      elStatus.textContent = textoDeRendicion(caida, url);
+      return;
     }
-    // Si nunca llegó a abrirse, el motivo lo dijo ya el `error`.
+    esperarYReabrir(url, caida, siguiente);
   });
+}
+
+/**
+ * La cuenta atrás hasta el siguiente intento, en la barra y al segundo. Se
+ * reprograma a cada segundo en vez de un solo `setTimeout` largo para que lo que
+ * dice la barra sea lo que falta de verdad.
+ */
+function esperarYReabrir(url: string, caida: Caida, siguiente: SiguienteIntento): void {
+  apuntarCanal('esperando');
+  const tic = (): void => {
+    const ahora = performance.now();
+    if (ahora >= siguiente.en) {
+      abrir(url, { n: siguiente.intento, caida });
+      return;
+    }
+    elStatus.textContent = textoDeEspera(caida, url, siguiente, ahora);
+    // Hasta el próximo cambio de segundo de la cuenta, o hasta el intento.
+    const resto = (siguiente.en - ahora) % 1000;
+    setTimeout(tic, resto === 0 ? 1000 : resto);
+  };
+  tic();
 }
 
 // El arte entra cuando entra, igual que en el cliente que juega: sin PNGs cada

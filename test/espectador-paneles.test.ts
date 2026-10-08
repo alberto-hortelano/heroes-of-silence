@@ -236,6 +236,7 @@ describe('el telón retiene el final de una batalla', () => {
     const { state } = contraUnNeutral(4);
     const foto = (): SpectatorSnapshotMsg => ({
       type: 'snapshot',
+      partida: 'p-1',
       day: state.day,
       current: state.current,
       finished: null,
@@ -353,6 +354,7 @@ describe('el espectador cuenta cada batalla en orden', () => {
     const { state } = contraUnNeutral(semilla);
     const foto = (): SpectatorSnapshotMsg => ({
       type: 'snapshot',
+      partida: 'p-1',
       day: state.day,
       current: state.current,
       finished: null,

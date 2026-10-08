@@ -100,6 +100,15 @@ export type AgentToServerMsg = AgentHelloMsg | AgentResponseMsg | AgentQueryMsg;
 
 export interface SpectatorSnapshotMsg {
   readonly type: 'snapshot';
+  /**
+   * Qué partida es: el mismo id que se le presenta al agente (`AgentLink.partida`,
+   * #118). Lo necesita el espectador desde que reconecta solo (#104): un servidor
+   * que vuelve tras un reinicio trae OTRA partida, y sin esto sus fotogramas se
+   * pintaban encima de los de la anterior como si fueran la misma —el día, la
+   * crónica y la cola del telón son de la vieja—. Con él, el espectador empieza
+   * limpio y lo dice.
+   */
+  readonly partida: string;
   readonly day: number;
   readonly current: number;
   /**

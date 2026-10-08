@@ -61,7 +61,9 @@ export class AgentLink {
   /**
    * La identidad de esta partida para el puente: un enlace por partida
    * (`arrancarPartida`), así que vive aquí. Al azar y no un contador porque dos
-   * ejecuciones del servidor empezarían las dos por el mismo número.
+   * ejecuciones del servidor empezarían las dos por el mismo número. Viaja
+   * también en cada fotograma del espectador, que con él sabe si el servidor al
+   * que reconectó es otra partida (#104).
    */
   readonly partida = randomUUID();
 
