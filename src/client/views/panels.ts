@@ -17,7 +17,7 @@
 import { activeStack, quedanCasillas } from '@core/battle/battle.js';
 import { DEFEND_BONUS } from '@core/battle/damage.js';
 import { type EffectKind, effectiveLuck } from '@core/battle/effects.js';
-import { type Spell, spell } from '@core/battle/spells.js';
+import { enOrdenDelLibro, type Spell, spell } from '@core/battle/spells.js';
 import {
   type BattleAction,
   type BattleStack,
@@ -346,12 +346,16 @@ function filaHechizo(s: Spell, conNivel = false): Html {
   return html`<div class="stack"><span>${s.name}${nivel}</span><span class="count">${s.cost}</span></div>`;
 }
 
-/** El libro de un héroe: nombre y coste, que es lo que se decide con ellos. */
+/**
+ * El libro de un héroe: nombre y coste, que es lo que se decide con ellos. En
+ * el orden del libro (`enOrdenDelLibro`) y no en el que se aprendió: el héroe
+ * inicial y uno contratado con los mismos hechizos los enseñaban distinto (#54).
+ */
 function renderSpellbook(spells: readonly string[]): Html {
   if (spells.length === 0) {
     return html`<div class="stack-list"><div class="stack empty">Sin hechizos: llévalo a un castillo con gremio</div></div>`;
   }
-  const filas = unir(spells.map((id) => filaHechizo(spell(id))));
+  const filas = unir(enOrdenDelLibro(spells).map((s) => filaHechizo(s)));
   return html`<div class="stack-list">${filas}</div>`;
 }
 
@@ -591,11 +595,27 @@ function renderTownPanel(session: Session): Html {
       heroeAqui === undefined
         ? html`<p class="cost">Sin héroe dentro, lo que reclutes se queda de guarnición.</p>
           <button data-action="hire-hero" class="primary" style="margin-top:.7rem">Contratar héroe (2500 oro)</button>`
-        : html`<h3>Tropa de ${heroeAqui.name}</h3>
+        : html`${renderLibroEnElCastillo(session, heroeAqui, town)}<h3>Tropa de ${heroeAqui.name}</h3>
           ${filaLiderazgo(session.liderazgo({ heroe: heroeAqui.id }))}
           <p class="cost">Lo que reclutes va a su tropa, hasta su liderazgo. Licencia lo que sobre para hacer sitio a algo mejor.</p>
           ${renderTropaLicenciable(heroeAqui.id, heroeAqui.army, session.state.characters)}`
     }${renderArmeria(session, town)}`;
+}
+
+/**
+ * El libro del héroe que está dentro, y lo que aprendió en este castillo (#54).
+ * El gremio promete «los aprende solo», y sin el libro aquí la única prueba de
+ * que se los llevó era la crónica, que solo se lee al volver al mapa.
+ */
+function renderLibroEnElCastillo(session: Session, heroe: Hero, town: Town): Html {
+  const aprendido = session.aprendidoEn(heroe.id, town.id);
+  const nota =
+    aprendido.length === 0
+      ? NADA
+      : html`<p class="cost">Aprendió aquí: ${enOrdenDelLibro(aprendido)
+          .map((s) => s.name)
+          .join(', ')}.</p>`;
+  return html`<h3>Libro de ${heroe.name}</h3>${renderSpellbook(heroe.spells)}${nota}`;
 }
 
 /**
@@ -637,6 +657,7 @@ function renderBattlePanel(session: Session, contandoAun: boolean): Html {
         : `Te has rendido por ${rendicion.gold} de oro: tu héroe vuelve a la base con la tropa viva.`;
     return html`<h2>${gane ? 'Victoria' : 'Derrota'}</h2>
       <p>${gane ? 'El campo es tuyo.' : derrota}</p>
+      ${gane || rendicion !== undefined ? filaManaDeBatalla(session) : NADA}
       <h3>Parte de guerra</h3>${renderBattleLog(battle, mio)}`;
   }
 
@@ -666,11 +687,7 @@ function renderBattlePanel(session: Session, contandoAun: boolean): Html {
 
   // El maná del héroe, junto a la ficha de la unidad activa: es un recurso de la
   // batalla entera, no del stack, y sin verlo no se decide si lanzar.
-  const heroe = session.battleHero;
-  const mana =
-    heroe === null
-      ? NADA
-      : html`<div class="row"><span class="label">Maná</span><span>${heroe.mana} / ${maxMana(heroe)}</span></div>`;
+  const mana = filaManaDeBatalla(session);
 
   const orden = listaDelCampo(battle, (x) => ({
     flecha: x.side === mio ? '▶' : '◀',
@@ -684,6 +701,19 @@ function renderBattlePanel(session: Session, contandoAun: boolean): Html {
     ${acciones}
     <h3>En el campo</h3><div class="stack-list">${orden}</div>
     <h3>Parte de guerra</h3>${renderBattleLog(battle, mio)}`;
+}
+
+/**
+ * La fila de Maná del héroe de la persona en la batalla, o nada si no lleva.
+ * Sale también al terminar, si el héroe sigue en pie (ganó o se rindió): ese
+ * número es el que decide si toca volver al castillo a dormir, y la fila
+ * desaparecía justo entonces (#54). Con el héroe caído no hay nada que decidir.
+ */
+function filaManaDeBatalla(session: Session): Html {
+  const heroe = session.battleHero;
+  return heroe === null
+    ? NADA
+    : html`<div class="row"><span class="label">Maná</span><span>${heroe.mana} / ${maxMana(heroe)}</span></div>`;
 }
 
 /**

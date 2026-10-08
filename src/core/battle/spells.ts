@@ -44,6 +44,26 @@ export function allSpells(): readonly Spell[] {
   return [...byId.values()];
 }
 
+/**
+ * El orden en que se lee una lista de hechizos: por nivel, luego por coste y,
+ * a igualdad, por id. Es el del gremio (`townSpells`) y el del libro del héroe
+ * en pantalla, escrito una vez.
+ *
+ * El libro en el estado (`hero.spells`) NO se reordena: va en el orden en que se
+ * aprendió, y de ese orden cuelga cómo la IA recorre sus hechizos —reordenarlo
+ * movía las partidas del banco—. Quien lo enseña lo ordena al pintar con
+ * `enOrdenDelLibro`; antes un héroe inicial (`magic_arrow` de `setup`, lo demás
+ * después) y uno contratado con los mismos hechizos los enseñaban distinto (#54).
+ */
+export function ordenDelLibro(a: Spell, b: Spell): number {
+  return a.level - b.level || a.cost - b.cost || a.id.localeCompare(b.id);
+}
+
+/** Los hechizos de `ids` en el orden del libro. Lanza con un id desconocido. */
+export function enOrdenDelLibro(ids: readonly string[]): Spell[] {
+  return ids.map(spell).sort(ordenDelLibro);
+}
+
 export interface SpellResult {
   readonly damage: number;
   readonly killed: number;

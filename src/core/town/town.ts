@@ -1,5 +1,5 @@
 /** Castillos: construcción, moradas y reclutamiento. */
-import { allSpells, type Spell } from '../battle/spells.js';
+import { allSpells, ordenDelLibro, type Spell } from '../battle/spells.js';
 import { creature, factionLineup } from '../data.js';
 import type { Army, FactionId, PlayerId, Point, Resources } from '../types.js';
 import { canAfford, scaleResources, subtractResources } from '../types.js';
@@ -102,7 +102,7 @@ export function townSpells(town: Town): readonly Spell[] {
   if (nivel === 0) return [];
   return allSpells()
     .filter((s) => s.level <= nivel)
-    .sort((a, b) => a.level - b.level || a.cost - b.cost || a.id.localeCompare(b.id));
+    .sort(ordenDelLibro);
 }
 
 export function hasWalls(town: Town): boolean {

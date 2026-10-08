@@ -48,7 +48,7 @@
     <progress class="liderazgo" max="20" value="18"></progress>
     <div class="stack-list"><div class="stack"><span>Campesino</span><span class="count">2</span></div><div class="stack"><span>Arquero ↑</span><span class="count">2</span></div><div class="stack"><span>Piquero</span><span class="count">2</span></div></div>
 
-    <h3>Tropa de Aldo de Valdeluz</h3>
+    <h3>Libro de Aldo de Valdeluz</h3><div class="stack-list"><div class="stack"><span>Prisa</span><span class="count">3</span></div><div class="stack"><span>Flecha mágica</span><span class="count">3</span></div><div class="stack"><span>Lentitud</span><span class="count">3</span></div></div><p class="cost">Aprendió aquí: Prisa, Lentitud.</p><h3>Tropa de Aldo de Valdeluz</h3>
           <div class="row"><span class="label">Liderazgo</span><span>14 / 20</span></div>
     <progress class="liderazgo" max="20" value="14"></progress>
           <p class="cost">Lo que reclutes va a su tropa, hasta su liderazgo. Licencia lo que sobre para hacer sitio a algo mejor.</p>
@@ -194,6 +194,7 @@
 ### batalla · terminada · renderSide
 <h2>Derrota</h2>
       <p>Tu héroe ha caído.</p>
+      
       <h3>Parte de guerra</h3><div class="log" data-al-final="parte"><div>Arquero B → Serena la Pálida: 3 de daño, 0 bajas</div><div>Serena la Pálida → Arquero B (contraataque): 4 de daño, 0 bajas</div><div>Zombi B → Aldo de Valdeluz: 2 de daño, 0 bajas</div><div>Aldo de Valdeluz → Zombi B (contraataque): 3 de daño, 0 bajas</div><div>— Ronda 6 —</div><div>Aldo de Valdeluz → Zombi B: 5 de daño, 0 bajas</div><div>Zombi B → Aldo de Valdeluz (contraataque): 3 de daño, 0 bajas</div><div>Serena la Pálida → Arquero B: 4 de daño, 1 baja</div><div class="lose">Aniquilada la unidad Arquero B, de tu bando</div><div>Zombi B → Aldo de Valdeluz: 3 de daño, 0 bajas</div><div>Aldo de Valdeluz → Zombi B (contraataque): 3 de daño, 1 baja</div><div class="win">Aniquilada la unidad Zombi B, del enemigo</div><div>— Ronda 7 —</div><div class="win">Moral alta de Aldo de Valdeluz, de tu bando: turno extra</div><div>Aldo de Valdeluz → Serena la Pálida: 2 de daño, 0 bajas</div><div>Serena la Pálida → Aldo de Valdeluz (contraataque): 4 de daño, 0 bajas</div><div>Serena la Pálida → Aldo de Valdeluz: 3 de daño, 0 bajas</div><div>Aldo de Valdeluz → Serena la Pálida (contraataque): 3 de daño, 0 bajas</div><div>— Ronda 8 —</div><div>Aldo de Valdeluz → Serena la Pálida: 2 de daño, 0 bajas</div><div>Serena la Pálida → Aldo de Valdeluz (contraataque): 3 de daño, 0 bajas</div><div>Serena la Pálida → Aldo de Valdeluz: 2 de daño, 0 bajas</div><div>Aldo de Valdeluz → Serena la Pálida (contraataque): 3 de daño, 0 bajas</div><div>— Ronda 9 —</div><div>Aldo de Valdeluz → Serena la Pálida: 3 de daño, 0 bajas</div><div>Serena la Pálida → Aldo de Valdeluz (contraataque): 2 de daño, 0 bajas</div><div>Serena la Pálida → Aldo de Valdeluz: 2 de daño, 0 bajas</div><div>Aldo de Valdeluz → Serena la Pálida (contraataque): 2 de daño, 0 bajas</div><div>— Ronda 10 —</div><div>Aldo de Valdeluz → Serena la Pálida: 3 de daño, 0 bajas</div><div>Serena la Pálida → Aldo de Valdeluz (contraataque): 3 de daño, 0 bajas</div><div>Serena la Pálida → Aldo de Valdeluz: 3 de daño, 0 bajas</div><div>Aldo de Valdeluz → Serena la Pálida (contraataque): 3 de daño, 0 bajas</div><div>— Ronda 11 —</div><div>Aldo de Valdeluz → Serena la Pálida: 2 de daño, 0 bajas</div><div>Serena la Pálida → Aldo de Valdeluz (contraataque): 3 de daño, 1 baja</div><div class="lose">Aniquilada la unidad Aldo de Valdeluz, de tu bando</div><div class="lose">Fin: gana el atacante</div></div>
 ### batalla · terminada · renderActions
 <button data-action="finish-battle" class="primary">Continuar</button>
@@ -505,6 +506,7 @@
 ### batalla · parte de guerra completo · renderSide
 <h2>Victoria</h2>
       <p>El campo es tuyo.</p>
+      <div class="row"><span class="label">Maná</span><span>20 / 20</span></div>
       <h3>Parte de guerra</h3><div class="log" data-al-final="parte"><div>— Ronda 3 —</div><div>Espera Campesino A, de tu bando: cede la iniciativa y pasa al final de la ronda</div><div>Se defiende Campesino A, de tu bando: +20 % de defensa hasta el final de la ronda</div><div>Campesino A → Esqueleto A: 12 de daño, 2 bajas</div><div>Esqueleto A → Campesino A (contraataque): 3 de daño, 0 bajas</div><div>Campesino A → Esqueleto A (carga de 3 hexes): 20 de daño, 4 bajas</div><div>Campesino A → Esqueleto A (disparo): 8 de daño, 1 baja</div><div>Campesino A → Esqueleto A (salpicadura): 4 de daño, 0 bajas</div><div>Lanzas Flecha mágica sobre Esqueleto A: 10 de daño, 0 bajas</div><div>Lanzas Prisa sobre Campesino A</div><div class="win">Moral alta de Campesino A, de tu bando: turno extra</div><div class="win">Moral baja de Esqueleto A, del enemigo: turno perdido</div><div class="win">Golpe afortunado de Campesino A, de tu bando</div><div class="lose">Golpe desafortunado de Campesino A, de tu bando</div><div class="win">Prisa sobre Campesino A, de tu bando: velocidad +2 durante 3 rondas</div><div class="win">Terror sobre Esqueleto A, del enemigo: ataque -2 durante 1 ronda</div><div>Se disipa Lentitud de Campesino A, de tu bando</div><div>Esqueleto A, del enemigo, inmune a Maldición al golpear: los no-muertos no tienen ánimo que quebrar</div><div class="win">Aniquilada la unidad Esqueleto A, del enemigo</div><div class="lose">Aniquilada la unidad Campesino A, de tu bando</div><div class="win">El enemigo se rinde por 150 de oro</div><div class="lose">Te rindes por 150 de oro</div><div class="win">Fin: gana el defensor</div></div>
 ### batalla · parte de guerra completo · renderActions
 <button data-action="finish-battle" class="primary">Continuar</button>
@@ -670,7 +672,7 @@
     <progress class="liderazgo" max="20" value="18"></progress>
     <div class="stack-list"><div class="stack"><span>Campesino</span><span class="count">2</span></div><div class="stack"><span>Arquero ↑</span><span class="count">2</span></div><div class="stack"><span>Piquero</span><span class="count">2</span></div></div>
 
-    <h3>Tropa de Aldo de Valdeluz</h3>
+    <h3>Libro de Aldo de Valdeluz</h3><div class="stack-list"><div class="stack"><span>Flecha mágica</span><span class="count">3</span></div></div><h3>Tropa de Aldo de Valdeluz</h3>
           <div class="row"><span class="label">Liderazgo</span><span>15 / 20</span></div>
     <progress class="liderazgo" max="20" value="15"></progress>
           <p class="cost">Lo que reclutes va a su tropa, hasta su liderazgo. Licencia lo que sobre para hacer sitio a algo mejor.</p>
@@ -739,7 +741,7 @@
     <progress class="liderazgo" max="20" value="18"></progress>
     <div class="stack-list"><div class="stack"><span>Campesino</span><span class="count">2</span></div><div class="stack"><span>Arquero ↑</span><span class="count">2</span></div><div class="stack"><span>Piquero</span><span class="count">2</span></div></div>
 
-    <h3>Tropa de Aldo de Valdeluz</h3>
+    <h3>Libro de Aldo de Valdeluz</h3><div class="stack-list"><div class="stack"><span>Flecha mágica</span><span class="count">3</span></div></div><h3>Tropa de Aldo de Valdeluz</h3>
           <div class="row"><span class="label">Liderazgo</span><span>8 / 20</span></div>
     <progress class="liderazgo" max="20" value="8"></progress>
           <p class="cost">Lo que reclutes va a su tropa, hasta su liderazgo. Licencia lo que sobre para hacer sitio a algo mejor.</p>

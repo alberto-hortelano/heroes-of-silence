@@ -21,7 +21,7 @@ import {
   SIN_CARGAS,
   surrenderBlocker,
 } from '@core/battle/battle.js';
-import { spell } from '@core/battle/spells.js';
+import { enOrdenDelLibro, spell } from '@core/battle/spells.js';
 import type { BattleAction, BattleStack, BattleState, Side } from '@core/battle/types.js';
 import type { Hero } from '@core/hero/hero.js';
 import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '@core/hero/troop.js';
@@ -705,6 +705,20 @@ export class Session implements ControlDeBatalla, HechizosDeBatalla {
 
   // ------------------------------------------------------------ castillo
 
+  /**
+   * Lo que `heroId` aprendió la última vez que aprendió en `townId`, o nada. Lo
+   * lee el panel del castillo (#54): es la crónica, leída aquí, que es lo único
+   * que dice que el aprendizaje OCURRIÓ y no solo que el gremio lo ofrece.
+   */
+  aprendidoEn(heroId: string, townId: string): readonly string[] {
+    for (let i = this.state.log.length - 1; i >= 0; i--) {
+      const e = this.state.log[i];
+      if (e?.kind !== 'spells_learned') continue;
+      if (e.hero === heroId && e.town === townId) return e.spells;
+    }
+    return [];
+  }
+
   openTown(townId: string): void {
     this.openTownId = townId;
     this.scene = 'town';
@@ -1011,8 +1025,9 @@ export class Session implements ControlDeBatalla, HechizosDeBatalla {
     const hero = this.battleHero;
     if (hero === null || hero.spells.length === 0) return [];
 
-    return hero.spells.map((id) => {
-      const sp = spell(id);
+    // En el orden del libro, el mismo que el panel del mapa (#54).
+    return enOrdenDelLibro(hero.spells).map((sp) => {
+      const id = sp.id;
       // Un solo predicado para las tres preguntas —sobre quién, si se puede, y
       // por qué no—: el par (hechizo, objetivo) sale de la lista legal y el
       // motivo lo escribe el núcleo.

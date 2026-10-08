@@ -59,7 +59,7 @@ function vecinaLibre(s: Session, p: Point): Point {
   throw new Error(`no hay casilla libre junto a (${p.x},${p.y})`);
 }
 
-function meAtacan(semilla: number, ejercitoMio?: Army): Session {
+export function meAtacan(semilla: number, ejercitoMio?: Army): Session {
   const s = new Session(semilla);
   const mio = heroesOf(s.state, 0)[0]!;
   const suyo = heroesOf(s.state, 1)[0]!;

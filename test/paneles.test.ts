@@ -26,10 +26,10 @@ import { Session } from '../src/client/session.js';
 import { renderSide, renderTopbar } from '../src/client/views/panels.js';
 import { tiposDeHeroe } from '../src/core/data.js';
 import { umbral } from '../src/core/hero/experiencia.js';
-import { heroUnit } from '../src/core/hero/hero.js';
+import { type Hero, heroUnit, maxMana } from '../src/core/hero/hero.js';
 import { ascenderVeterano } from '../src/core/state/game.js';
 import { ponVeteranoEnLaBase } from '../tools/qa/veterano-en-la-base.js';
-import { volcado } from './escenas-paneles.js';
+import { meAtacan, volcado } from './escenas-paneles.js';
 
 const ANCLA = fileURLToPath(new URL('fixtures/paneles.txt', import.meta.url));
 
@@ -152,5 +152,94 @@ describe('la fila de un equipado (M5)', () => {
     expect(salida).toMatch(
       /data-slot="armadura" data-veteran="veterano-1"[^>]*>× Cota de malla<\/button>/,
     );
+  });
+});
+
+describe('la pantalla cuenta lo que hizo la magia (#54)', () => {
+  /**
+   * El inicial nace con la Flecha mágica (`setup`) y aprende lo demás en el
+   * gremio; el contratado lo aprende todo de golpe en el orden del gremio. Los
+   * dos saben lo mismo y en el estado lo guardan en distinto orden.
+   */
+  function dosLibrosIguales(): { session: Session; inicial: Hero; contratado: Hero } {
+    const session = new Session(12);
+    const pueblo = session.myTowns()[0]!;
+    const inicial = session.myHeroes()[0]!;
+    session.moveHeroTo(inicial.id, pueblo.at);
+    session.build('mage_guild_1');
+    // El inicial deja el castillo para que el contratado nazca dentro.
+    inicial.at = { ...inicial.at, x: inicial.at.x + 1 };
+    session.openTown(pueblo.id);
+    session.hireHero();
+    const contratado = session.myHeroes().find((h) => h.id !== inicial.id)!;
+    expect(new Set(inicial.spells)).toEqual(new Set(contratado.spells));
+    expect(inicial.spells).not.toEqual(contratado.spells);
+    return { session, inicial, contratado };
+  }
+
+  /** Los nombres de la lista que sigue a `<h3>{titulo}</h3>`, en orden. */
+  function lista(marcado: string, titulo: string): string[] {
+    const desde = marcado.indexOf(`<h3>${titulo}</h3>`);
+    expect(desde).toBeGreaterThanOrEqual(0);
+    const bloque = marcado.slice(desde).split('</div></div>')[0]!;
+    return [...bloque.matchAll(/<div class="stack"><span>([^<]+)</g)].map((m) => m[1]!);
+  }
+
+  it('el libro del héroe va en el mismo orden que el gremio, lo aprendiera como lo aprendiera', () => {
+    const { session, inicial, contratado } = dosLibrosIguales();
+    session.closeTown();
+    session.selectedHeroId = inicial.id;
+    const delInicial = lista(marcadoDe(renderSide(session)), 'Hechizos');
+    session.selectedHeroId = contratado.id;
+    const delContratado = lista(marcadoDe(renderSide(session)), 'Hechizos');
+    expect(delInicial).toEqual(delContratado);
+    expect(delInicial).toEqual(['Prisa', 'Flecha mágica', 'Lentitud']);
+  });
+
+  it('el castillo enseña el libro del que está dentro y lo que aprendió allí', () => {
+    const { session, contratado } = dosLibrosIguales();
+    const marcado = marcadoDe(renderSide(session));
+    expect(lista(marcado, `Libro de ${contratado.name}`)).toEqual([
+      'Prisa',
+      'Flecha mágica',
+      'Lentitud',
+    ]);
+    expect(marcado).toContain('<p class="cost">Aprendió aquí: Prisa, Flecha mágica, Lentitud.</p>');
+  });
+
+  it('el castillo sin nada aprendido allí no inventa la línea', () => {
+    const session = new Session(12);
+    const pueblo = session.myTowns()[0]!;
+    session.moveHeroTo(session.myHeroes()[0]!.id, pueblo.at);
+    session.openTown(pueblo.id);
+    const marcado = marcadoDe(renderSide(session));
+    expect(marcado).toContain(`<h3>Libro de ${session.myHeroes()[0]!.name}</h3>`);
+    expect(marcado).not.toContain('Aprendió aquí');
+  });
+
+  it('los hechizos de batalla van en el orden del libro', () => {
+    const session = meAtacan(7);
+    session.advanceEnemyTurns();
+    // Defiende la persona (`meAtacan`); el libro de batalla es de solo lectura.
+    session.battle!.heroes.defender = {
+      ...session.battleHero!,
+      spells: ['slow', 'magic_arrow', 'haste'],
+    };
+    expect(session.spellOptions().map((o) => o.id)).toEqual(['haste', 'magic_arrow', 'slow']);
+  });
+
+  it('al terminar la batalla sigue la fila de Maná, salvo si el héroe cayó', () => {
+    const session = meAtacan(7);
+    const batalla = session.battle!;
+    const heroe = session.battleHero!;
+    heroe.mana = 4;
+    const fila = `<span class="label">Maná</span><span>4 / ${maxMana(heroe)}</span>`;
+
+    batalla.finished = { winner: 'defender' };
+    expect(marcadoDe(renderSide(session))).toContain(fila);
+    batalla.finished = { winner: 'attacker', surrender: { gold: 100 } };
+    expect(marcadoDe(renderSide(session))).toContain(fila);
+    batalla.finished = { winner: 'attacker' };
+    expect(marcadoDe(renderSide(session))).not.toContain('Maná');
   });
 });
