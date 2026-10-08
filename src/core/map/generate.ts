@@ -858,24 +858,30 @@ export function trazarYVestir(
     objetos: { veces: 0, ultimo: '' },
     obstáculos: { veces: 0, ultimo: '' },
   };
-  for (let intento = 0; intento < INTENTOS_DE_RED; intento++) {
-    const red = intentarRed(rng, width, height);
-    if (red === null) {
-      redesMalas++;
-      continue;
-    }
-    for (let vestido = 0; vestido < INTENTOS_DE_VESTIDO; vestido++) {
-      const plan = vestirRed(rng, red, opts);
-      if (!('fase' in plan)) return validadoPorLaPuerta(plan);
-      fallos[plan.fase].veces++;
-      fallos[plan.fase].ultimo = plan.motivo;
+  // Primero con la puerta de cada mina y cada pueblo guardada de obstáculos;
+  // si con eso no sale, otra tanda sin guardarla (`vestirRed`). Solo la usan
+  // las semillas que con la primera se quedaban sin mapa (24×24: s150 y s171
+  // de 1-200, #188), así que las que salían no cambian.
+  for (const guardarPuertas of [true, false]) {
+    for (let intento = 0; intento < INTENTOS_DE_RED; intento++) {
+      const red = intentarRed(rng, width, height);
+      if (red === null) {
+        redesMalas++;
+        continue;
+      }
+      for (let vestido = 0; vestido < INTENTOS_DE_VESTIDO; vestido++) {
+        const plan = vestirRed(rng, red, opts, guardarPuertas);
+        if (!('fase' in plan)) return validadoPorLaPuerta(plan);
+        fallos[plan.fase].veces++;
+        fallos[plan.fase].ultimo = plan.motivo;
+      }
     }
   }
   const vestidos = FASES_DEL_VESTIDO.filter((fase) => fallos[fase].veces > 0).map(
     (fase) => `${fallos[fase].veces} en ${fase} (la última: ${fallos[fase].ultimo})`,
   );
   throw new Error(
-    `no sale un mapa de nodos de ${width}×${height} en ${INTENTOS_DE_RED} redes: ` +
+    `no sale un mapa de nodos de ${width}×${height} en ${INTENTOS_DE_RED} redes, dos veces: ` +
       `${redesMalas} no salieron equilibradas` +
       (vestidos.length > 0
         ? `, y las otras no se dejaron vestir en ${INTENTOS_DE_VESTIDO} intentos cada una: ${vestidos.join('; ')}`
@@ -1385,6 +1391,7 @@ function vestirRed(
   rng: Rng,
   fina: RedFina,
   opts: ProceduralOptions,
+  guardarPuertas = true,
 ): PlanConTramos | VestidoFallido {
   const { W, H, semillas, etiqueta, muro, nodos, regions, conNodos, red, b0, b1 } = fina;
   const { neutrales, d0, d1 } = fina;
@@ -1450,23 +1457,73 @@ function vestirRed(
     const r = regionGruesa[i] as number;
     if (r !== -1 && sinUsar(i)) candidatas[r]?.push(i);
   }
-  const libres = (r: number): number[] => (candidatas[r] ?? []).filter((i) => !ocupadas.has(i));
+  // La puerta de cada mina y cada pueblo (#188, `trazarCaminos`): la casilla
+  // de debajo, por donde llega su camino. Se guarda al colocarlo: nada más cae
+  // en ella, ni un obstáculo; sin eso había minas en la última fila. Y un
+  // objeto con puerta no se pone en la fila de delante de otro, ni otro en la
+  // suya: una mina justo debajo de otra le tapaba la puerta y el camino la
+  // rodeaba por detrás (s3, (26,3)). Guardar también las vecinas de la puerta
+  // dejaba sin sitio a los obstáculos de un 24×24 (56 de 100 sin mapa).
+  const anteLaPuerta = new Set<number>();
+  const conPuertaPuestos = new Set<number>();
+  const usada = (i: number): boolean => ocupadas.has(i) || anteLaPuerta.has(i);
+  /** La fila de delante de `i` (la puerta y sus dos vecinas), dentro del mapa. */
+  const filaDeDelante = (i: number): number[] => {
+    const x = i % W;
+    const puerta = i + W;
+    if (puerta >= N) return [];
+    return [x > 0 ? puerta - 1 : -1, puerta, x < W - 1 ? puerta + 1 : -1].filter((j) => j >= 0);
+  };
+  /** Si `i` puede llevar un objeto con puerta: con ella libre y sin otro delante ni detrás. */
+  const tienePuerta = (i: number): boolean => {
+    const puerta = i + W;
+    if (puerta >= N || regionGruesa[puerta] !== regionGruesa[i] || usada(puerta)) return false;
+    if (filaDeDelante(i).some((j) => conPuertaPuestos.has(j))) return false;
+    if (i >= W && filaDeDelante(i - 2 * W).some((j) => conPuertaPuestos.has(j))) return false;
+    // Y que a la puerta se llegue por algo más que los costados del objeto.
+    return [...filaDeDelante(i), puerta + W].some(
+      (j) => j !== puerta && j < N && regionGruesa[j] === regionGruesa[i],
+    );
+  };
+  const libres = (r: number, conPuerta: boolean): number[] =>
+    (candidatas[r] ?? []).filter((i) => !usada(i) && (!conPuerta || tienePuerta(i)));
+  const guardarPuerta = (i: number): void => {
+    if (tienePuerta(i)) anteLaPuerta.add(i + W);
+    conPuertaPuestos.add(i);
+  };
+  // Lo libre de la región `r`; con `conPuerta`, lo que además tiene la puerta
+  // libre, y si no queda nada así, lo libre sin más: en un mapa apretado
+  // (24×24) no siempre queda, y el camino entra entonces por donde se alcance
+  // (lo cobra `trazarCaminos`). En 34×34 no pasa en 1-300 (08-10-2026).
+  const libresConPuerta = (r: number, conPuerta: boolean): number[] => {
+    const lista = libres(r, conPuerta);
+    return lista.length > 0 || !conPuerta ? lista : libres(r, false);
+  };
   // Coloca algo en la región `r` y su espejo en la pareja de `r`: la misma
   // casilla reflejada si está libre y es de esa región, si no otra al azar.
-  const colocarPar = (r: number): [Point, Point] | null => {
-    const lista = libres(r);
+  // `conPuerta`, para lo que se entra por delante: con la puerta libre, y se
+  // queda guardada.
+  const colocarPar = (r: number, conPuerta = false): [Point, Point] | null => {
+    const lista = libresConPuerta(r, conPuerta);
     if (lista.length === 0) return null;
     const a = rng.pick(lista);
+    if (conPuerta) guardarPuerta(a);
     ocupadas.add(a);
     const im = espejoDe(a, N);
     let b: number;
-    if (regionGruesa[im] === parejaDe(r) && !ocupadas.has(im) && sinUsar(im)) {
+    if (
+      regionGruesa[im] === parejaDe(r) &&
+      !usada(im) &&
+      sinUsar(im) &&
+      (!conPuerta || tienePuerta(im))
+    ) {
       b = im;
     } else {
-      const otra = libres(parejaDe(r));
+      const otra = libresConPuerta(parejaDe(r), conPuerta);
       if (otra.length === 0) return null;
       b = rng.pick(otra);
     }
+    if (conPuerta) guardarPuerta(b);
     ocupadas.add(b);
     return [punto(a), punto(b)];
   };
@@ -1509,7 +1566,7 @@ function vestirRed(
   const fuera = ladoA.filter((k) => k !== 0);
   for (const [i, resource] of minasPorBando.entries()) {
     const r = i < 3 ? 0 : (fuera[(i - 3) % fuera.length] as number);
-    const par = colocarPar(r);
+    const par = colocarPar(r, true);
     if (par === null) return fallo('objetos', 'no hay sitio para las minas');
     mines.push({ at: par[0], resource }, { at: par[1], resource });
   }
@@ -1517,7 +1574,7 @@ function vestirRed(
   // Un pueblo en cada región que no es la de casa.
   const villages: { name: string; at: Point }[] = [];
   for (const r of fuera) {
-    const par = colocarPar(r);
+    const par = colocarPar(r, true);
     if (par === null) return fallo('objetos', 'no hay sitio para los pueblos');
     villages.push(
       { name: nombre(NOMBRES_DE_PUEBLO, villages.length), at: par[0] },
@@ -1588,9 +1645,16 @@ function vestirRed(
   for (let i = 0; i < N; i++) if (junto[i] === 1 || pasillo[i] === 1) vetadas[i] = 1;
   const monstruos = new Uint8Array(N);
   for (const m of monsters) monstruos[indice(m.at)] = 1;
+  const conPuerta = new Uint8Array(N);
+  for (const o of [...mines, ...villages]) conPuerta[indice(o.at)] = 1;
   const nodosDeRegion = redGruesa.regiones.map((reg) =>
     reg.nodos.map((n) => indice(redGruesa.nodos[n]?.at as Point)),
   );
+  // La puerta de cada mina y cada pueblo no lleva obstáculo, salvo en la
+  // segunda tanda de `trazarYVestir`: en un 24×24 la casilla de cada puerta le
+  // quita a una región apretada justo lo que le faltaba. Un obstáculo en la
+  // puerta deja entrar por otro lado, que lo cobra el trazado.
+  if (guardarPuertas) for (const i of anteLaPuerta) vetadas[i] = 1;
   const caben = ponerObstaculos({
     W,
     H,
@@ -1601,11 +1665,14 @@ function vestirRed(
     nodosDeRegion,
     vetadas,
     monstruos,
+    puertas: conPuerta,
     rng,
   });
   if (!caben) {
     return fallo('obstáculos', 'alguna región no llega a la densidad mínima de obstáculos');
   }
+
+  const ciudadesEnNodo = new Set([b0, b1, ...neutrales]);
 
   // 11. Los caminos: radiales desde el centro de cada región a sus minas, sus
   //     pueblos y los nodos que le tocan en el reparto de la red.
@@ -1622,6 +1689,9 @@ function vestirRed(
     suelos,
     nodosDeRegion,
     objetivos,
+    puertas: [...ciudadesEnNodo]
+      .map((k) => nodos[k] as number)
+      .concat([...mines, ...villages].map((o) => indice(o.at))),
     monstruos,
     ocupadas,
   });
@@ -1632,7 +1702,6 @@ function vestirRed(
   // regla declarada, y así el muro se lee entero. Bajo un nodo va la barrera
   // que cruza (`barreraDeNodo`), que `buildMap` guarda al abrirlo; la de su
   // muro fino podía ser de otra pareja. Bajo una ciudad, la de siempre.
-  const ciudadesEnNodo = new Set([b0, b1, ...neutrales]);
   const bajoElNodo = new Map(
     nodos.flatMap((n, k) =>
       ciudadesEnNodo.has(k) ? [] : [[n, grueso.barreraDeNodo[k] as Barrera] as const],

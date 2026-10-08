@@ -22,6 +22,7 @@ import {
   modulosDeLadera,
   RADIO_DE_OBJETO,
   SEMIANCHO_DE_PARED,
+  sendasPorObjeto,
 } from '../src/client/render/escenario/colocar.js';
 import { azarDe, esparcir } from '../src/client/render/escenario/esparcir.js';
 import { componentesDePasos, ejeDe, esqueleto } from '../src/client/render/escenario/esqueleto.js';
@@ -43,6 +44,7 @@ import {
   suavizar,
   VAIVEN,
 } from '../src/client/render/escenario/sendas.js';
+import type { TerrainKind } from '../src/core/map/terrain.js';
 import { newGame } from '../src/core/state/setup.js';
 import { leerCatalogo, textoDelCatalogo } from '../tools/taller/escenario/catalogo-disco.js';
 import { catalogoDelDisco, escenaDe } from './helpers.js';
@@ -390,6 +392,10 @@ describe('la escena de un mapa real', () => {
       expect(e.informe.murallasPartidas).toBe(0);
     });
 
+    it(`semilla ${semilla}: la senda entra en cada mina y cada pueblo por su puerta, y no los cruza (#188)`, () => {
+      expect(e.informe.sendasPorObjeto).toBe(0);
+    });
+
     it(`semilla ${semilla}: toda casilla de barrera queda bajo su formación o bajo un objeto`, () => {
       expect(e.informe.casillasDeBarreraSinFormacion).toBe(0);
     });
@@ -612,5 +618,35 @@ describe('lo que importaría el juego', () => {
     }
     expect(vistos.size).toBeGreaterThan(5);
     expect([...deFuera].map(([r, f]) => `${r} (desde ${f})`)).toEqual([]);
+  });
+});
+
+describe('las sendas por un objeto con puerta (#188)', () => {
+  // Una mina en (2,1) de un 5×4 de hierba: su puerta es (2,2).
+  const mina = {
+    kind: 'mine',
+    id: 'mine-0',
+    at: { x: 2, y: 1 },
+    resource: 'gold',
+    owner: null,
+  } as const;
+  const terreno = new Array<TerrainKind>(20).fill('grass');
+  const tramo = (x0: number, y0: number, x1: number, y1: number) =>
+    [x0 + 0.5, y0 + 0.5, x1 + 0.5, y1 + 0.5] as const;
+  const malas = (tramos: (readonly [number, number, number, number])[], t = terreno) =>
+    sendasPorObjeto(tramos, [mina], t, 5, 4).map((o) => o.id);
+
+  it('un ramal desde la puerta vale; cruzarla, entrar de lado o no llegar, no', () => {
+    expect(malas([tramo(1, 2, 2, 2), tramo(2, 2, 3, 2), tramo(2, 2, 2, 1)])).toEqual([]);
+    expect(malas([tramo(1, 1, 2, 1), tramo(2, 1, 3, 1)])).toEqual(['mine-0']);
+    expect(malas([tramo(1, 1, 2, 1)])).toEqual(['mine-0']);
+    expect(malas([tramo(1, 2, 2, 1)])).toEqual(['mine-0']);
+    expect(malas([])).toEqual(['mine-0']);
+  });
+
+  it('sin puerta que se pise, vale cualquier tramo, pero uno', () => {
+    const tapada = terreno.map((t, i) => (i === 12 ? 'mountain' : t));
+    expect(malas([tramo(1, 1, 2, 1)], tapada)).toEqual([]);
+    expect(malas([tramo(1, 1, 2, 1), tramo(2, 1, 3, 1)], tapada)).toEqual(['mine-0']);
   });
 });

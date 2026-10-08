@@ -590,11 +590,24 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   al aspa vieja (13: (22,15) → (23,15), 105 → 75 puntos; 128: (17,3) →
  *   (17,4); 78: el hecho 255). Mismo ganador y mismo día de fin en las tres
  *   (78: 297 → 313 hechos). Re-anclado una vez, al final.
+ * - `dc204d41…` (65 472 líneas): **a una mina, un pueblo o una ciudad se entra
+ *   por su puerta** (#188, 08-10-2026). Las minas y los pueblos se colocan con
+ *   la casilla de debajo libre y guardada, y no en la fila de delante de otro
+ *   (`colocarPar`); los obstáculos no parten una región por uno
+ *   (`ponerObstaculos`); y el trazado no los cruza y entra por debajo
+ *   (`Busqueda`). Cambia dónde caen los objetos: **0 semillas idénticas**, y
+ *   el primer hecho distinto es un **`raider_spawned` del día 1** (índice 1 en
+ *   198, 2 y 3 en una cada una). autoResolve igual (300 batallas, 2 280
+ *   rondas). 90 con otro ganador, j0 91 → 97, **0 sin terminar**, duración
+ *   9 / 16 / 70 → **9 / 15 / 33**. `hero_moved` 37 358 → 35 329, batallas
+ *   1 741 → 1 704, `town_captured` 1 479 → 1 468, `node_captured` 1 281 →
+ *   1 291; ningún tipo nuevo ni ninguno que desaparezca. Re-anclado una vez,
+ *   al final.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: 'e498dd6da88f38b8031d5e7702f71039d2921957b44782231b18011a938f7dd5',
+  sha: 'dc204d41accb30c56cdd47cba10ccc334fbe27398d206a206dc85626fccbf4d6',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

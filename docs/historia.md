@@ -3175,6 +3175,62 @@ con la semilla 16 (`docs/agents/2026-10-08-lienzo-niebla/`): el día 4 el rival
 se va a (5,9), explorada y sin mirar; `main` lo pintaba allí con el nodo del
 puente ya azul, y ahora no se pinta ni lo nombra la barra.
 
+## Los caminos entran por la puerta (#188, 08-10-2026)
+
+El usuario: «el camino que pasa por una mina pasa por en medio de la mina o de
+una ciudad; deberían pasar por delante con un pequeño desvío para entrar
+siempre por la puerta, como en el HoMM». Era del trazado del núcleo, no de la
+escena: `Busqueda` solo hacía hojas a los nodos, y el comentario lo decía («una
+mina o un pueblo sí se cruzan: hacerlos final de tramo obliga a rodearlos con
+un radio paralelo»). Ese aviso era de cuando el pintor unía casillas por
+adyacencia; con tramos (#153) ya no hay radios paralelos que se cosan solos.
+
+- **La regla**: ciudad, mina y pueblo son hojas y se entran por la casilla de
+  debajo (la cámara mira desde el sur y la puerta del sprite está en su pie).
+  Es un coste, no una prohibición: puerta 0, diagonal de delante un rodeo
+  (`N × diagonal`, más que cualquier camino sin monstruos), lado 3, detrás 4;
+  pisar un monstruo 2 (se llega a la puerta por encima del guardia antes que
+  por el costado); cruzar el objeto 10, solo si es la única unión. Sus
+  costados y su espalda cobran dos rectos y la Y con una puerta en la esquina
+  cuatro. El aspa pasa de dos rectos a seis: con dos salían 5 en 1-1000 entre
+  minas y pueblos.
+- **Una ciudad no se rodea**: es el nodo, el paso entre regiones. Cada región
+  llega por la mejor fila que toca; la que solo la toca por detrás, por
+  detrás. Una ciudad de eje este-oeste entra por delante desde la región que
+  toca esa fila, y de lado desde la otra.
+- **La colocación guarda la puerta** de minas y pueblos (había minas en la
+  última fila) y no pone uno en la fila de delante de otro (una mina bajo otra
+  le tapaba la puerta, s3). Guardar también las vecinas de la puerta dejaba un
+  24×24 sin mapa en 56 de 100: solo se guarda la puerta. En un mapa apretado,
+  si no queda sitio con puerta, se coloca sin ella (en 34×34, ninguno en
+  1-300). Y aun guardando solo la puerta, en 24×24 se quedaban sin mapa
+  s150 y s171 de 1-200 (#102 pide el 100 %): la casilla de cada puerta le
+  quitaba a una región apretada la densidad de obstáculos que le faltaba. Si la
+  primera tanda de redes y vestidos no saca mapa, `trazarYVestir` hace otra sin
+  vetar la puerta a los obstáculos. Solo cambian las semillas que no salían:
+  el banco de 34×34 se queda en `dc204d41…`, y 24×24 sale en 1 000 de 1 000.
+- **Los obstáculos no parten una región por una mina** (segundo BFS de
+  `alcanzaTodo`): desde los nodos, cada mitad se alcanzaba desde el suyo y el
+  radio tenía que cruzarla (s17).
+- Medido en 1-40 (`docs/agents/2026-10-08-caminos-puerta/`): minas que no
+  llegan por un solo tramo desde su puerta 924/1120 → 0, pueblos 251/320 → 0,
+  minas cruzadas 609 → 0; llegadas a una ciudad por una fila peor que la mejor
+  de su región 28 → 1 (de lado en vez de la diagonal de delante, por la L de
+  `ArbolDeCaminos`), por detrás pudiendo por delante 3 → 0. El camino sube de la
+  mediana 0,293 a 0,362 de lo pisable (1-200): es el ramal de cada puerta y el
+  rodeo por delante. El techo del test pasa de 0,33 a 0,40.
+- **Y obligadas con una puerta en la esquina**: ~1 por mapa (791 en 1-200), el
+  radio que llega por el costado de una mina con la otra vecina de su puerta
+  tapada (barrera o monstruo) y baja en diagonal a la puerta. Se ven como una
+  curva por delante del objeto; `horquillasNuevas` las admite como admitía las
+  de nodo. Guardar las vecinas de la puerta las bajaba a 229, pero rompía los
+  24×24.
+- **Salió un fallo viejo de `muralla.ts`**: lo lejano de la línea se cosía a
+  la casilla más cercana de ella, y si era la puerta (que no es de la franja)
+  el camino no llegaba y la casilla se quedaba sin tramo (s11 (8,11)).
+- Los planes del agente no cambian: escribe casillas y se unen por adyacencia;
+  se le pide en el `advice` de `map_generate`.
+
 ## Decisiones tomadas
 
 - **MCP antes que API key.** El usuario tiene Claude Max: el agente entra por

@@ -184,7 +184,12 @@ export function trazaDeMuralla(
           }
       }
       for (const k of trozo) cosidas.add(k);
-      const antes = linea.filter((v) => !trozo.has(clave(v)) && !suyas.has(clave(v)));
+      // Solo las de la franja: una puerta está en la línea pero no en `dentro`,
+      // y si era la más cercana el camino no llegaba y el trozo se quedaba sin
+      // coser (s11 (8,11), a 2 de la puerta y de la línea, #188).
+      const antes = linea.filter(
+        (v) => !trozo.has(clave(v)) && !suyas.has(clave(v)) && dentro.has(clave(v)),
+      );
       let mejor: { desde: Casilla; hasta: Casilla; d: number; g: number } | undefined;
       for (const u of otra.casillas) {
         if (!trozo.has(clave(u))) continue;

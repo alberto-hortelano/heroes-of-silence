@@ -278,8 +278,10 @@ describe('las cumbres, nítidas y de un material (defecto C de la auditoría 2)'
   };
 
   // s9 llevaba la aguja de lava a ×2,4 y s57 la gris entre arenisca; la 1 es la
-  // cordillera que salió bien y no debe empeorar.
-  for (const semilla of segunPrisa([1, 9, 57], [...rango(1, 10), 13, 24, 34, 57])) {
+  // cordillera que salió bien y no debe empeorar. La 7 se quedó sin cordillera
+  // con el mapa de #188: va la 11 en su lugar.
+  const lenta = [...rango(1, 6), ...rango(8, 11), 13, 24, 34, 57];
+  for (const semilla of segunPrisa([1, 9, 57], lenta)) {
     it(`semilla ${semilla}: ningún pico pasa de ×1,3 al zoom máximo`, () => {
       const picos = escenaDe(semilla).sprites.filter(
         (s) => s.src?.startsWith('modulos/picos-') === true,

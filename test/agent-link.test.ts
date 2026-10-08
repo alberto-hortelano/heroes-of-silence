@@ -726,7 +726,9 @@ describe('el agente defiende', () => {
   it('si el agente se calla defendiendo, la termina la heurística y el turno pasa', async () => {
     const { link } = await montar(() => undefined, 300);
 
-    const director = new Director(link, { seed: 203, agentPlayers: [1] });
+    // Buscada y no fija: la 203 dejó de traer el ataque con el mapa de #188.
+    const seed = await semillaEnQueElRivalAtaca(203);
+    const director = new Director(link, { seed, agentPlayers: [1] });
     rivalAlAtaque(director.state);
 
     await director.playTurn();

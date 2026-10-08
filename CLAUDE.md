@@ -197,7 +197,18 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   Los caminos del procedimental son **radiales** desde el centro de cada región
   y entre dos vecinas **solo un nodo lleva camino**, que elige la red
   (`crucesConCamino`) y traza `trazarCaminos`; los demás pasos se cruzan sin
-  él, y los pasos van a Chebyshev ≥ 3 de todo nodo. **Cada nodo entra por un eje** (`ejeDelNodo`,
+  él, y los pasos van a Chebyshev ≥ 3 de todo nodo. **A una ciudad, una mina o un pueblo se
+  entra por su puerta** (#188): la casilla de debajo. Son hojas del árbol (no se
+  cruzan salvo que sean la única unión, más caro que pisar un monstruo); entrar
+  por la puerta no cuesta, por la diagonal de delante un rodeo, de lado tres y
+  por detrás cuatro, y sus costados y espalda (`espalda`) cobran dos rectos, así
+  que el radio que sigue de largo pasa por delante y el objeto cuelga de él con
+  un ramal de una casilla. `colocarPar` guarda la puerta de minas y pueblos (y no
+  pone uno en la fila de delante de otro; si así no sale mapa, `trazarYVestir`
+  repite sin vetarla a los obstáculos, que es lo que salva el 24×24); `ponerObstaculos` no parte una región
+  por uno. Una ciudad (nodo) llega desde la mejor fila que toca cada región;
+  la de detrás, por detrás. Los planes del agente no cambian (su `advice` lo
+  pide). `informe.sendasPorObjeto` = 0. **Cada nodo entra por un eje** (`ejeDelNodo`,
   `vestir.ts`): dos vecinas opuestas (recta, diagonal con codo o, junto al borde, corta)
   protegidas hasta la segunda casilla, y los pasillos hasta lo libre van en cruz; nada se
   siembra en `n ± 2d` ni en `n + (±1, ±2)`, bajo las entradas diagonales y su reflejo (`delanteDeNodo`). El ~1 % de pasos cuya red fina no tiene vecinas

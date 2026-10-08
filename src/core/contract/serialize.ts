@@ -821,6 +821,7 @@ export function serializeMapRequest(opts: MapRequestOptions): unknown {
       'Los monstruos custodian lo bueno: cuanto mejor el premio, más dura la guardia.',
       'Deja el centro del mapa disputado y los bordes seguros.',
       'Pon las ciudades en los cruces de tres regiones o más, y que cada base tenga dos caminos distintos hasta las ciudades que le quedan cerca: así aislarlas es posible pero no trivial.',
+      'Un camino entra en una ciudad, una mina o un pueblo por la casilla de debajo, que es su puerta, y no lo atraviesa: si sigue hacia otro sitio, pasa por la fila de delante y deja un ramal de una casilla hasta la puerta.',
     ],
   };
 }

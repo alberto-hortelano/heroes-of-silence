@@ -123,23 +123,25 @@ describe('en los mapas reales', () => {
       expect(pisablesTapadas(e.sprites, map.terrain, e.W, e.H, perfilDe)).toEqual([]);
     });
 
-  it('s36: sin subir la clave, vuelven las tapadas de la auditoría, (7, 22) entre ellas', () => {
+  it('s36: sin subir la clave, vuelven las tapadas de la auditoría, (4, 22) entre ellas', () => {
     const { map, escena: e } = partidaDe(36);
     const antes = pisablesTapadas(e.sprites, map.terrain, e.W, e.H, perfilDe, false);
-    expect(antes).toContain(22 * e.W + 7);
+    expect(antes).toContain(22 * e.W + 4);
     expect(antes.length).toBeGreaterThan(50);
   });
 
-  it('s36: el grupo mon-2 en (7, 22) se pinta después de toda pieza que cuelga sobre él', () => {
+  it('s36: el grupo mon-2 en (4, 22) se pinta después de toda pieza que cuelga sobre él', () => {
+    // En (7, 22) hasta #188, que movió los objetos al guardar la puerta de las minas.
     const { map } = partidaDe(36);
-    const mon = map.objects.find((o) => o.kind === 'monster' && o.at.x === 7 && o.at.y === 22);
-    expect(mon, 'la auditoría lo vio en (7, 22)').toBeDefined();
+    const mon = map.objects.find((o) => o.kind === 'monster' && o.at.x === 4 && o.at.y === 22);
+    expect(mon, 'la auditoría lo vio en (7, 22), y #188 lo llevó a (4, 22)').toBeDefined();
     const esc = escenarioDe(map, 36);
-    const clave = claveDeFigura(esc, 7, 22 + PIES.grupo);
-    const [fx0, fy0, fx1, fy1] = cajaDeFigura(7, 22);
-    // Las que tapan algo de la figura, no las que solo rozan su caja: con la
-    // rampa de (8,19) al suroeste (#192), una frontal de (6,20) llega a 0,002 de
-    // la caja con el borde transparente y no tapa ni un punto de ella.
+    const clave = claveDeFigura(esc, 4, 22 + PIES.grupo);
+    const [fx0, fy0, fx1, fy1] = cajaDeFigura(4, 22);
+    // Las que tapan algo de la figura, no las que solo rozan su caja: con el
+    // grupo en (7, 22) y la rampa de (8,19) al suroeste (#192), una frontal de
+    // (6,20) llegaba a 0,002 de la caja con el borde transparente y no tapaba
+    // ni un punto de ella.
     const tapaAlgo = (s: Sprite) =>
       Array.from({ length: 7 }, (_, i) => fx0 + ((i + 0.5) / 7) * (fx1 - fx0)).some((x) =>
         Array.from({ length: 10 }, (_, j) => fy0 + ((j + 0.5) / 10) * (fy1 - fy0)).some((y) =>
@@ -151,7 +153,7 @@ describe('en los mapas reales', () => {
       const [x0, y0, x1, y1] = cajaDeSprite(s);
       return x0 < fx1 && x1 > fx0 && y0 < fy1 && y1 > fy0 && tapaAlgo(s);
     });
-    // Las hay —la cara de la caída de 3 de encima— y ninguna se pinta después.
+    // Las hay —la cara de la caída de encima— y ninguna se pinta después.
     expect(encima.length).toBeGreaterThan(0);
     for (const v of encima) expect(v.clave, v.s.src ?? 'marcador').toBeLessThanOrEqual(clave);
     expect(clave).toBeGreaterThan(22 + PIES.grupo);

@@ -18,6 +18,7 @@ import {
   torresDe,
   trazaDeMuralla,
 } from '../src/client/render/escenario/muralla.js';
+import { esBarrera } from '../src/core/map/terrain.js';
 import { escenaDe, partidaDe } from './helpers.js';
 import { rango, segunPrisa } from './lento.js';
 
@@ -80,6 +81,41 @@ describe('la línea de una muralla', () => {
       expect(e.casillas.some((l) => Math.hypot(l[0] - c[0], l[1] - c[1]) <= RADIO_DE_MURALLA)).toBe(
         true,
       );
+  });
+
+  it('lo lejano se cose aunque lo más cercano de la línea sea la puerta, que no es de la franja (s11)', () => {
+    // La franja de s11 (5-8, 9-11) con su puerta en (6,11): la punta (8,11)
+    // queda a 2 de la puerta y a 2 de (8,9). Cosida hacia la puerta, el camino
+    // no llegaba (la puerta no es muro) y se quedaba sin tramo. Salió con el
+    // mapa de #188; el fallo era de antes.
+    const { map } = partidaDe(11);
+    const a = analizar(map);
+    const W = map.width;
+    const franja = a.franjas.find((f) => f.casillas.includes(11 * W + 8));
+    const muro = (franja?.casillas ?? []).map((i): Casilla => [i % W, Math.floor(i / W)]);
+    expect(muro.length).toBe(8);
+    // Lo de fuera, como lo mira la escena: otra barrera o el borde.
+    const e = trazaDeMuralla(muro, [[6, 11]], (x, y) =>
+      [-1, 0, 1].some((dy) =>
+        [-1, 0, 1].some((dx) => {
+          const t = map.terrain[(y + dy) * W + x + dx];
+          return t === undefined || (t !== 'wall' && esBarrera(t));
+        }),
+      ),
+    );
+    // Como lo mide el guardia (`murallaSinLeer`): a un tramo, no a una casilla.
+    const aUnTramo = (c: Casilla, a: Casilla, b: Casilla) => {
+      const [dx, dy] = [b[0] - a[0], b[1] - a[1]];
+      const l = dx * dx + dy * dy;
+      const t =
+        l === 0 ? 0 : Math.max(0, Math.min(1, ((c[0] - a[0]) * dx + (c[1] - a[1]) * dy) / l));
+      return Math.hypot(c[0] - a[0] - t * dx, c[1] - a[1] - t * dy);
+    };
+    for (const c of muro)
+      expect(
+        e.pasos.some((p) => aUnTramo(c, p.a, p.b) <= RADIO_DE_MURALLA),
+        `(${c})`,
+      ).toBe(true);
   });
 
   it('un cuadrado de 2×2, que el adelgazado borra entero, deja algo en pie (s25)', () => {
@@ -261,7 +297,7 @@ describe('en las partidas', () => {
 
 describe('la muralla de norte a sur, de lado (§29)', () => {
   it('sus tramos son las piezas muro-ns, de 1,6 de alto y por el medio, y no la tira de la hoja', () => {
-    // s2 lleva tres puertas N-S, (9,11), (24,14) y (9,19), con su lienzo arriba y abajo.
+    // s2 lleva dos puertas N-S, (13,3) y (20,31), con su lienzo arriba y abajo.
     const e = escenaDe(2);
     const ns = e.sprites.filter((s) => /^muro-ns-[12]\.webp$/.test(s.src ?? ''));
     expect(ns.length).toBeGreaterThan(5);
@@ -277,7 +313,7 @@ describe('la muralla de norte a sur, de lado (§29)', () => {
   it('la puerta N-S se mide por el alto y se apoya en el pie de su arco', () => {
     const e = escenaDe(2);
     const puertas = e.sprites.filter((s) => s.src === 'nodo-puerta-hondo.webp');
-    expect(puertas.map((s) => s.objeto?.id).sort()).toEqual(['node-2', 'node-4', 'node-7']);
+    expect(puertas.map((s) => s.objeto?.id).sort()).toEqual(['node-0', 'node-11']);
     for (const s of puertas) {
       expect(s.alto).toBe(2.6);
       expect(s.ay / s.nh).toBeCloseTo(0.625);

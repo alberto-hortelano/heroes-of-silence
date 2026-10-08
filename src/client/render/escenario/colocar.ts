@@ -301,6 +301,12 @@ export interface Escena {
      */
     readonly pasosTapados: number;
     /**
+     * Minas y pueblos a los que la senda pintada no llega por un solo tramo
+     * desde su puerta, la casilla de debajo (`sendasPorObjeto`, #188): tiene
+     * que ser 0 en el procedimental. Un plan del agente puede cruzarlos.
+     */
+    readonly sendasPorObjeto: number;
+    /**
      * Sendas que salen de un estribo y pasan por agua pintada en sus primeras
      * casillas, sin vado que la quite (`sendasDeEstriboEnAgua`): tiene que ser 0.
      */
@@ -2223,6 +2229,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       carasLisas: carasLisas(carasDeEscena, sprites, perfilDe).length,
       puentesTapados: puentesTapados(sprites, puentes).length,
       pasosTapados: pasosTapados(sprites, pasos).length,
+      sendasPorObjeto: sendasPorObjeto(caminos, a.objetos, a.terreno, W, H).length,
       sendasDeEstriboEnAgua: sendasDeEstriboEnAgua(trazos, puentes, vados, esAgua).length,
       acantiladosARas: acantiladosARas(a.terreno, nivel, W, H).length,
       pisablesTapadas: pisablesTapadas(sprites, a.terreno, W, H, perfilDe).length,
@@ -2442,6 +2449,35 @@ export function pasosTapados(
   return pasos.filter((p) => {
     const eje = pasilloDe(p.eje, SEMIANCHO_DEL_PASO);
     return volumenes.some((s) => eje.pisa(s));
+  });
+}
+
+/**
+ * Las minas y los pueblos a los que la senda no llega como en el HoMM (#188):
+ * con un solo tramo, que sale de su puerta, la casilla de debajo. Si la puerta
+ * no se pisa o cae fuera del mapa, vale cualquier tramo, pero uno. Se mide
+ * sobre los tramos que se pintan, de centro a centro de casilla, no sobre el
+ * plan: si el trazado se equivoca, esto lo ve.
+ */
+export function sendasPorObjeto(
+  caminos: readonly (readonly [number, number, number, number])[],
+  objetos: readonly MapObject[],
+  terreno: readonly TerrainKind[],
+  W: number,
+  H: number,
+): MapObject[] {
+  return objetos.filter((o) => {
+    if (o.kind !== 'mine' && o.kind !== 'village') return false;
+    const cx = o.at.x + 0.5;
+    const cy = o.at.y + 0.5;
+    const llegan = caminos.flatMap(([x0, y0, x1, y1]) =>
+      x0 === cx && y0 === cy ? [[x1, y1]] : x1 === cx && y1 === cy ? [[x0, y0]] : [],
+    );
+    if (llegan.length !== 1) return true;
+    const conPuerta =
+      o.at.y + 1 < H && !esBarrera(terreno[(o.at.y + 1) * W + o.at.x] as TerrainKind);
+    const [x, y] = llegan[0] as number[];
+    return conPuerta && (x !== cx || y !== cy + 1);
   });
 }
 

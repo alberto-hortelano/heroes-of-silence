@@ -757,6 +757,11 @@ export interface EntradaDeObstaculos {
   readonly vetadas: Uint8Array;
   /** Los monstruos: se alcanzan pero no se cruzan. */
   readonly monstruos: Uint8Array;
+  /**
+   * Las minas y los pueblos: el camino entra en ellos y no los atraviesa
+   * (#188), así que una mancha no puede dejar nada al otro lado de uno.
+   */
+  readonly puertas: Uint8Array;
   readonly rng: Rng;
 }
 
@@ -788,7 +793,7 @@ const INTENTOS_DE_MANCHA = 60;
  * la densidad mínima, ninguna mancha la va a llevar ahí.
  */
 export function ponerObstaculos(e: EntradaDeObstaculos): boolean {
-  const { W, H, tipos, regionDe, rng, vetadas, monstruos } = e;
+  const { W, H, tipos, regionDe, rng, vetadas, monstruos, puertas } = e;
   const N = W * H;
   const { densidadPorCiento, mancha } = BARRERAS_DEL_MAPA;
   const { desde, vecinas } = vecindad(W, H);
@@ -838,11 +843,30 @@ export function ponerObstaculos(e: EntradaDeObstaculos): boolean {
         cola.push(j);
       }
     };
+    const quedan = total[r]! - puestos[r]! - celdas.length;
+    // Desde los nodos, sin cruzar un monstruo, una mina ni un pueblo.
     for (const n of e.nodosDeRegion[r] ?? []) expandir(n);
-    // Un monstruo se alcanza pero no se cruza.
-    for (let q = 0; q < cola.length; q++) if (monstruos[cola[q]!] === 0) expandir(cola[q]!);
+    for (let q = 0; q < cola.length; q++) {
+      const a = cola[q]!;
+      if (monstruos[a] === 0 && puertas[a] === 0) expandir(a);
+    }
+    let vale = cola.length === quedan;
+    // Y de una pieza sin cruzar una mina ni un pueblo, aunque sí un monstruo:
+    // desde los nodos, cada mitad de una región partida por una mina se
+    // alcanzaba desde el suyo, y su camino tenía que cruzarla (s17, (4,28)).
+    const primera = casillas[r]!.find(
+      (i) => tipos[i] === ABIERTA && enMancha[i] === 0 && puertas[i] === 0,
+    );
+    if (vale && primera !== undefined) {
+      ronda++;
+      cola.length = 0;
+      sello[primera] = ronda;
+      cola.push(primera);
+      for (let q = 0; q < cola.length; q++) if (puertas[cola[q]!] === 0) expandir(cola[q]!);
+      vale = cola.length === quedan;
+    }
     for (const c of celdas) enMancha[c] = 0;
-    return cola.length === total[r]! - puestos[r]! - celdas.length;
+    return vale;
   };
 
   /** Un paseo de casillas rectas desde un punto al azar de la región. */
@@ -930,6 +954,12 @@ export interface EntradaDeCaminos {
    * en el reparto de la red (`crucesConCamino`), sus minas y sus pueblos.
    */
   readonly objetivos: readonly (readonly number[])[];
+  /**
+   * Los objetos con puerta —ciudades, minas y pueblos—, por índice plano. Son
+   * hojas: se llega a ellos y no se cruzan, y se entra por delante, desde la
+   * fila de debajo (#188).
+   */
+  readonly puertas: readonly number[];
   readonly monstruos: Uint8Array;
   /** Lo ya puesto —nodos, inicios, objetos, asaltantes—: el centro no cae encima. */
   readonly ocupadas: ReadonlySet<number>;
@@ -939,6 +969,16 @@ export interface EntradaDeCaminos {
  * El Dijkstra de una región con el coste del héroe: lo de `red` a mitad de
  * precio y un paso recto de más por arrimarse a ella viniendo de fuera.
  * Reutiliza `coste` y `previo` de una búsqueda a otra.
+ *
+ * **Un objeto con puerta se entra por delante** (#188, «como en el HoMM»): la
+ * cámara mira desde el sur y la puerta del sprite está en su pie, así que se
+ * llega desde la fila de debajo. Entrar de lado cuesta `rodeo` y por detrás el
+ * doble, más que cualquier camino sin monstruos: se entra por la mejor fila
+ * que se alcance, que es un coste y no una prohibición, porque una ciudad es un
+ * nodo y la región que solo la toca por detrás tiene que llegar por ahí. Salir
+ * de un objeto con puerta, cuando es el origen (`centroDeRegion` busca desde
+ * cada objetivo), cuesta lo mismo: el centro se elige con la cuenta con la que
+ * luego se traza.
  */
 class Busqueda {
   readonly coste: Int32Array;
@@ -946,9 +986,21 @@ class Busqueda {
   /** Las casillas de la región, en orden de índice. */
   readonly casillas: readonly number[];
   /** Los nodos de la región: se llega a ellos, no se cruzan. */
-  readonly nodo: Uint8Array;
+  private readonly nodo: Uint8Array;
+  /** Los nodos y los objetos con puerta: las hojas del árbol (`ArbolDeCaminos`). */
+  readonly hoja: Uint8Array;
+  /** Los objetos con puerta: se entran por delante. */
+  private readonly puerta: Uint8Array;
+  /**
+   * Las vecinas de un objeto con puerta que no son de su fila de delante: los
+   * lados y la espalda. Un radio que pasa por ellas rodea el objeto por detrás
+   * o se le pega de lado, y la senda pintada se mete bajo el sprite.
+   */
+  private readonly espalda: Uint8Array;
   private readonly recto: number;
   private readonly diagonal: number;
+  /** Más que cualquier camino sin monstruos dentro del mapa: lo que cuesta entrar de lado. */
+  private readonly rodeo: number;
   private readonly pisarMonstruo: number;
 
   constructor(
@@ -959,7 +1011,22 @@ class Busqueda {
     this.coste = new Int32Array(N);
     this.previo = new Int32Array(N);
     this.nodo = new Uint8Array(N);
-    for (const n of e.nodosDeRegion[r] ?? []) this.nodo[n] = 1;
+    this.hoja = new Uint8Array(N);
+    this.puerta = new Uint8Array(N);
+    for (const n of e.nodosDeRegion[r] ?? []) {
+      this.nodo[n] = 1;
+      this.hoja[n] = 1;
+    }
+    this.espalda = new Uint8Array(N);
+    const { desde, vecinas } = vecindad(e.W, e.H);
+    for (const p of e.puertas) {
+      this.hoja[p] = 1;
+      this.puerta[p] = 1;
+      for (let k = desde[p]!; k < desde[p + 1]!; k++) {
+        const v = vecinas[k]!;
+        if (v < p + e.W - 1) this.espalda[v] = 1;
+      }
+    }
     const casillas: number[] = [];
     for (let i = 0; i < N; i++) {
       if (e.regionDe[i] === r && e.tipos[i] === ABIERTA) casillas.push(i);
@@ -968,8 +1035,10 @@ class Busqueda {
     const suelo = e.suelos[r] as Suelo;
     this.recto = costeDeEntrada(suelo, false, false);
     this.diagonal = costeDeEntrada(suelo, false, true);
-    // Más que cualquier rodeo dentro del mapa.
-    this.pisarMonstruo = N * this.diagonal;
+    this.rodeo = N * this.diagonal;
+    // Más que cualquier camino sin monstruos: se rodean si se puede. Pero
+    // menos que entrar en un objeto de lado (`porDonde`).
+    this.pisarMonstruo = 2 * this.rodeo;
   }
 
   /**
@@ -983,7 +1052,25 @@ class Busqueda {
     const pegada = arbol?.pegada;
     const { W, H, regionDe, tipos, monstruos } = this.e;
     const { desde, vecinas } = vecindad(W, H);
-    const { coste, previo, nodo } = this;
+    const { coste, previo, nodo, hoja, puerta, espalda } = this;
+    // Lo que cuesta pasar entre el objeto con puerta `d` y su vecina `v`: por
+    // la puerta misma, la casilla de debajo, nada; por las diagonales de
+    // delante, un rodeo; de lado, tres; por detrás, cuatro. Pisar un monstruo
+    // (dos) va en medio: se llega a la puerta por encima del guardia antes que
+    // por el costado, que es como guarda un monstruo lo bueno.
+    const porDonde = (d: number, v: number): number => {
+      const filas = (v - (v % W)) / W - (d - (d % W)) / W;
+      if (filas === 1) return v === d + W ? 0 : this.rodeo;
+      return filas === 0 ? 3 * this.rodeo : 4 * this.rodeo;
+    };
+    // Cuántos rectos cuesta una hoja en la esquina de un paso en diagonal: un
+    // nodo de la red, dos; un objeto con puerta, cuatro, y aunque todavía no
+    // esté en la red, porque siempre acaba en ella (es objetivo de su región) y
+    // la Y saldría al colgar después su ramal. Cuatro y no dos porque la L de
+    // al lado suele pasar por el costado de otra (`espalda`, dos rectos más:
+    // una mina y un pueblo vecinos, s195 (11,15)).
+    const yEnLaEsquina = (k: number): number =>
+      puerta[k] === 1 ? 4 : hoja[k] === 1 && red?.[k] === 1 ? 2 : 0;
     const r = this.r;
     coste.fill(-1);
     previo.fill(-1);
@@ -996,9 +1083,17 @@ class Busqueda {
       if (hastaAqui > (coste[a] as number)) continue;
       if (a === hasta) return;
       // Un nodo es final de tramo: se llega, no se cruza (llevaría a otra
-      // región). Una mina o un pueblo sí se cruzan: hacerlos final de tramo
-      // obliga a rodearlos con un radio paralelo (historia.md, «Caminos»).
+      // región). Una mina o un pueblo se rodean (#188): el radio que sigue de
+      // largo pasa por delante, porque el ramal ya es red a mitad de precio.
+      // Antes de #153 eso daba radios paralelos y ciclos por adyacencia
+      // (historia.md, «Caminos»); con tramos, no. Los obstáculos no parten
+      // una región por una mina (`ponerObstaculos`), pero un monstruo al lado
+      // de una sí (s28, (13,3)): se cruza antes el monstruo, que es una figura
+      // que se va, que la mina, que se queda; y la mina solo si no hay otra.
       if (nodo[a] === 1 && a !== origen) continue;
+      // Más que la peor cuenta de puertas: salir de una por detrás y entrar en
+      // otra por detrás, ocho rodeos.
+      const cruza = puerta[a] === 1 && a !== origen ? 10 * this.rodeo : 0;
       const x = a % W;
       const y = (a - x) / W;
       const enLaRed = red?.[a] === 1;
@@ -1010,8 +1105,14 @@ class Busqueda {
           monstruos[j] === 1 ? this.pisarMonstruo : enDiagonal ? this.diagonal : this.recto;
         if (red?.[j] === 1) paso = Math.floor(paso / 2);
         else if (!enLaRed && pegada?.[j] === 1) paso += this.recto;
-        // Pasar en diagonal junto a un nodo de la red sale en Y, y no se puede
-        // colgar en L de un nodo, que es una hoja (`ArbolDeCaminos`). Se cobra y
+        paso += cruza;
+        if (puerta[j] === 1) paso += porDonde(j, a);
+        // Rodear por detrás o pegarse de lado cuesta dos rectos: por delante,
+        // con el ramal ya trazado a mitad de precio, sale más barato.
+        else if (espalda[j] === 1) paso += 2 * this.recto;
+        if (a === origen && puerta[a] === 1) paso += porDonde(a, j);
+        // Pasar en diagonal junto a una hoja de la red —un nodo o un objeto con
+        // puerta— sale en Y, y no se puede colgar en L de ella (`ArbolDeCaminos`). Se cobra y
         // no se prohíbe: a veces es el único paso (semilla 60), y sin él el
         // objetivo se queda sin camino. Cobra **dos** pasos rectos, más que la L
         // por la otra esquina: esa L son dos rectos y su segundo se arrima a la
@@ -1022,16 +1123,16 @@ class Busqueda {
           const jx = j % W;
           const k1 = y * W + jx;
           const k2 = j - jx + x;
-          if ((nodo[k1] === 1 && red[k1] === 1) || (nodo[k2] === 1 && red[k2] === 1)) {
-            paso += 2 * this.recto;
-          }
+          paso += Math.max(yEnLaEsquina(k1), yEnLaEsquina(k2)) * this.recto;
           // La cuarta diagonal de una casilla dibuja un aspa: dos sendas rectas
           // que se cruzan, y se lee como trazado a regla (s2, (1,31): el centro
           // de la región en medio de tres minas y un nodo, uno en cada
-          // diagonal; 37 en 31 mapas de 1-1000, auditoría 3 §7). Los mismos
-          // dos pasos rectos que la Y: más que la vuelta por la casilla de al
-          // lado, que la parte en T.
-          if (arbol?.cerrariaUnAspa(a, j) === true) paso += 2 * this.recto;
+          // diagonal; 37 en 31 mapas de 1-1000, auditoría 3 §7). Seis pasos
+          // rectos: más que la vuelta por la casilla de al lado, que la parte
+          // en T, aunque esa casilla sea el costado de una mina (`espalda`, dos
+          // más) y la T pase por otra; con dos, como la Y, salían 5 aspas en
+          // 1-1000 entre minas y pueblos (#188, s376 y s850).
+          if (arbol?.cerrariaUnAspa(a, j) === true) paso += 6 * this.recto;
         }
         const c = hastaAqui + paso;
         if (coste[j] !== -1 && (coste[j] as number) <= c) continue;
@@ -1108,7 +1209,10 @@ export function centroDeRegion(
  * comprobar.
  *
  * Un nodo es final de tramo, así que no hay tramo de paso a paso: cada nodo con
- * camino es una hoja de la red de su región. El coste es el del héroe, así que
+ * camino es una hoja de la red de su región. **Una ciudad, una mina o un pueblo
+ * también, y se entra por su puerta** (#188): desde la fila de delante si se
+ * alcanza (`Busqueda`); el radio que sigue de largo pasa por delante y el
+ * objeto cuelga de él con un ramal de una casilla. El coste es el del héroe, así que
  * un camino va por donde se anda. **Rodea a los monstruos si puede, y si no,
  * pasa por encima**: un guardia que corta la región en dos deja cada mitad
  * alcanzable desde su nodo, pero el radio que va de una a la otra tiene que
@@ -1135,7 +1239,7 @@ export function trazarCaminos(e: EntradaDeCaminos): [number, number][] {
     const objetivos = [...(e.objetivos[r] ?? [])].sort(
       (x, y) => (hastaElCentro[x] as number) - (hastaElCentro[y] as number) || x - y,
     );
-    const arbol = new ArbolDeCaminos(e.W, e.H, b.nodo, centro);
+    const arbol = new ArbolDeCaminos(e.W, e.H, b.hoja, centro);
     for (const o of objetivos) {
       if (arbol.red[o] === 1) continue;
       b.buscar(centro, arbol, o);
@@ -1181,9 +1285,10 @@ export function trazarCaminos(e: EntradaDeCaminos): [number, number][] {
  *   dice subir por los padres: si se llega al hijo de la diagonal, está debajo
  *   de él y se le da la vuelta al trozo de rama que los une.
  *
- * Un nodo nunca hace de esquina: colgar de él le haría llegar dos tramos de la
- * región, y un nodo es una hoja (se llega, no se cruza). Por eso la búsqueda
- * cobra de más el paso en diagonal junto a un nodo de la red (`Busqueda`).
+ * Una hoja —un nodo o un objeto con puerta (#188)— nunca hace de esquina:
+ * colgar de ella le haría llegar dos tramos de la región, y una hoja se llega,
+ * no se cruza. Por eso la búsqueda cobra de más el paso en diagonal junto a una
+ * hoja de la red (`Busqueda`).
  * Aun así queda la Y **obligada**, cuando la otra esquina es barrera y el radio
  * no tiene por dónde más pasar: 4 de 223 mapas del test denso (60, 64, 177 y
  * 986). Prohibir ese paso deja el objetivo sin camino (semilla 60), y quitarla
@@ -1203,8 +1308,8 @@ export class ArbolDeCaminos {
   constructor(
     private readonly W: number,
     H: number,
-    /** Los nodos de la región: nunca hacen de esquina. */
-    private readonly nodo: Uint8Array,
+    /** Los nodos de la región y los objetos con puerta: nunca hacen de esquina. */
+    private readonly hoja: Uint8Array,
     centro: number,
   ) {
     this.red = new Uint8Array(W * H);
@@ -1216,18 +1321,18 @@ export class ArbolDeCaminos {
   /** Cuelga `c`, que no es red, de `p`, que sí lo es. */
   colgar(c: number, p: number): void {
     const { red, padre, W } = this;
-    const nodo = this.nodo;
+    const hoja = this.hoja;
     if (red[c] === 1 || red[p] !== 1) {
       const [a, b] = [aPunto(c, W), aPunto(p, W)];
       throw new Error(
         `no se cuelga (${a.x},${a.y}) de (${b.x},${b.y}): se cuelga de la red una casilla que no es de ella`,
       );
     }
-    const esquina = this.esquinas(p, c).find((k) => red[k] === 1 && nodo[k] !== 1);
+    const esquina = this.esquinas(p, c).find((k) => red[k] === 1 && hoja[k] !== 1);
     padre[c] = esquina ?? p;
     this.marcar(c);
     this.colgadas.push(c);
-    if (nodo[c] === 1) return;
+    if (hoja[c] === 1) return;
     // `c` como esquina de una diagonal vieja: sus dos vecinas rectas de cada
     // cuadrante, unidas entre sí por un tramo.
     const x = c % W;
@@ -1244,15 +1349,15 @@ export class ArbolDeCaminos {
   /**
    * ¿Colgar `j` de `a` en diagonal le daría a `a` sus cuatro diagonales? Solo
    * si `j` entraría de verdad en diagonal: con una esquina en la red (que no
-   * sea nodo) se cuelga de ella (`colgar`) y no hay aspa. Una diagonal solo
+   * sea hoja) se cuelga de ella (`colgar`) y no hay aspa. Una diagonal solo
    * nace al colgar una casilla sin esquina en la red —`partir` las cambia por
    * rectos, nunca al revés—, así que mirarlo al colgar basta.
    */
   cerrariaUnAspa(a: number, j: number): boolean {
-    const { W, red, padre, nodo } = this;
+    const { W, red, padre, hoja } = this;
     if (red[a] !== 1 || red[j] === 1) return false;
     const esquinas = this.esquinas(a, j);
-    if (esquinas.length === 0 || esquinas.some((k) => red[k] === 1 && nodo[k] !== 1)) return false;
+    if (esquinas.length === 0 || esquinas.some((k) => red[k] === 1 && hoja[k] !== 1)) return false;
     const x = a % W;
     for (const [dx, dy] of CUADRANTES) {
       const k = a + dx + dy * W;
