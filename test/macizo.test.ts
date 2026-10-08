@@ -9,6 +9,7 @@
 import { describe, expect, it } from 'vitest';
 import { PX_AL_ZOOM_MAXIMO } from '../src/client/render/camara-mapa.js';
 import { analizar } from '../src/client/render/escenario/analizar.js';
+import { sueloDeLaMeseta } from '../src/client/render/escenario/bordes.js';
 import { VECINO_IGUAL } from '../src/client/render/escenario/colocar.js';
 import {
   ALTO_DE_CUMBRE,
@@ -22,6 +23,7 @@ import {
   materialDeLosMacizos,
   radioDePico,
 } from '../src/client/render/escenario/macizo.js';
+import { relieve } from '../src/client/render/escenario/relieve.js';
 import type { Suelo } from '../src/core/map/terrain.js';
 import { escenaDe, partidaDe } from './helpers.js';
 import { LENTO, rango, segunPrisa } from './lento.js';
@@ -445,7 +447,9 @@ describe('las cumbres, nítidas y de un material (defecto C de la auditoría 2)'
       const montana = a.franjas.filter((f) => f.barrera === 'mountain').flatMap((f) => f.casillas);
       // El macizo de cada casilla, por la casilla de montaña con que empieza su
       // componente: el mismo recorrido que la regla, pero aquí solo se agrupa.
-      const material = materialDeLosMacizos(montana, a.W, a.H, a.suelo);
+      // Por el suelo de la meseta, como sus paredes (#216).
+      const meseta = sueloDeLaMeseta(a.W, a.H, a.region, a.suelo, relieve(a).nivel);
+      const material = materialDeLosMacizos(montana, a.W, a.H, meseta);
       const raiz = new Map<number, number>();
       const es = new Set(montana);
       for (const i of montana) {

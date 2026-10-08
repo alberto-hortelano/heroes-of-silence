@@ -3628,6 +3628,36 @@ En 1-200: 1 694 / 1 959 espigas y 3 364 lados de caída 3.
   el barro que entran en lo alto y el tono por nivel (#211, #212); la meseta
   de 2 × 2 en el agua sigue siendo posible (no es de una casilla de ancho).
 
+### La pared bajo la cordillera (#216, 08-10-2026)
+
+Auditoría 6, defectos 2 y 3. Decisión del usuario: «la pared corre entera: la
+montaña queda arriba, en la meseta, y la pared del desnivel corre seguida por
+delante de su pie: se lee que la cordillera está en lo alto».
+
+- **Los picos tapaban su propia pared.** Las celdas ponían pieza en todo el
+  borde (`celdasMalCubiertas` = 0), pero la cordillera plantaba picos que se
+  pintaban después: los espolones del lado bajo (#210 los baja de nivel) y los
+  de las filas de más al sur, junto a una ladera. 653 de 1 939 paredes en 1-40
+  tenían algo de su silueta tapado; bajo una montaña, 424 de 757 y un 24 % de
+  la silueta de media. Ahora las paredes son obstáculo de la masa que se
+  pintaría delante (`formasDeLasParedes`) y el informe las cuenta
+  (`paredesTapadas` = 0). El precio: las casillas de montaña sin un pico de 0,6
+  pasan del 26,9 al 28,0 %; una franja de montaña de una fila entre dos paredes
+  (s5 (9-11, 21)) queda con picos bajos.
+- **La cara era del suelo de abajo.** La casilla de barrera lleva el nivel del
+  lado alto y el suelo más cercano de cualquier nivel; la cara tomaba su roca
+  (`CARA_DE_SUELO`). Con `sueloDeLaMeseta` (lo que se pisa más cercano a su
+  nivel, sin nodos: un nodo de lava hacía de basalto la cara de una meseta
+  nevada en s9 (4,24)) la toman la pared, lo alto del acantilado y cada macizo.
+  806 de 2 506 paredes en 1-40 eran de otra roca que su meseta; ahora 0
+  (`caraDeOtroMaterial`).
+- **Lo que no se arregla aquí**: el suelo pintado bajo la barrera sigue siendo
+  el más cercano (2 767 casillas de barrera en 1-40 pintan el suelo de abajo a
+  la altura de arriba); un borde en escalera que mira al norte o al oeste (s24
+  (7-8, 16-17)) sigue viéndose a trozos, porque la espalda no lleva pared; la
+  ladera que se lee como cuchilla (s2 (16-17, 22-26)) es del tono por nivel
+  (#217).
+
 ## Decisiones tomadas
 
 - **MCP antes que API key.** El usuario tiene Claude Max: el agente entra por

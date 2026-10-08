@@ -3,14 +3,71 @@
  * está alto. La cara al sur la lleva la frontal; el este y el oeste, las
  * laderas; el norte, de espaldas a la cámara, una hilera de peñascos por su
  * canto. Y lo de encima del cantil es de la roca de su cara.
+ *
+ * La pared y lo alto son de la roca de la meseta (`sueloDeLaMeseta`, #216), y
+ * la masa de delante no tapa la pared (`paredesTapadasPorLaMasa`): la
+ * cordillera queda arriba y su pared corre seguida por delante de su pie.
  */
-import { isWalkable, type Suelo, type TerrainKind } from '@core/map/terrain.js';
+import { esBarrera, isWalkable, type Suelo, type TerrainKind } from '@core/map/terrain.js';
 import type { Franja } from './analizar.js';
+import { bajoLaSilueta, type PerfilDe } from './caras.js';
+import type { Celda } from './celdas.js';
+import type { Sprite } from './colocar.js';
+import { type Caja, cajaDeSprite } from './pasillo.js';
+import { ordenDeVolumenes } from './pintar.js';
 import { CARA_DE_SUELO } from './relieve.js';
 
 /**
- * El material de la roca de cada casilla (`CARA_DE_SUELO`): el de su suelo,
- * salvo en lo alto de un acantilado, que es el de la cara que se ve de su
+ * El suelo de la meseta de cada casilla (#216): el de lo que se pisa, el
+ * suyo; el de una barrera o un nodo, el de lo que se pisa más cercano **a su
+ * mismo nivel** (BFS 8-vecino por lo de ese nivel; a igual distancia, lo
+ * primero en el orden de la rejilla). Los nodos no son fuente, como en
+ * `analizar`: su suelo es el más cercano de cualquier nivel, y la lava de un
+ * nodo de s9 (2,22) hacía de basalto la cara de su meseta nevada. La barrera alta lleva el nivel de su lado
+ * alto (`nivelesDelRelieve`) pero su suelo (`Analisis.suelo`) es el más
+ * cercano de cualquier nivel, a menudo el del lado bajo, y la cara que cae de
+ * ella tomaba su roca: la meseta de arena de s5 (2-8, 27-31) acababa en una
+ * pared de roca gris, la de la ciénaga de abajo. Lo que no llega a nada de su
+ * nivel se queda con el suyo.
+ */
+export function sueloDeLaMeseta(
+  W: number,
+  H: number,
+  region: ArrayLike<number>,
+  suelo: readonly Suelo[],
+  nivel: ArrayLike<number>,
+): Suelo[] {
+  const fuera = [...suelo];
+  const visto = new Uint8Array(W * H);
+  const cola: number[] = [];
+  // Lo que se pisa con región (`Analisis.region`): sin las barreras ni los nodos.
+  for (let i = 0; i < W * H; i++)
+    if ((region[i] as number) >= 0) {
+      visto[i] = 1;
+      cola.push(i);
+    }
+  for (let q = 0; q < cola.length; q++) {
+    const j = cola[q] as number;
+    const x = j % W;
+    const y = (j - x) / W;
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+        const k = ny * W + nx;
+        if (visto[k] === 1 || nivel[k] !== nivel[j]) continue;
+        visto[k] = 1;
+        fuera[k] = fuera[j] as Suelo;
+        cola.push(k);
+      }
+  }
+  return fuera;
+}
+
+/**
+ * El material de la roca de cada casilla (`CARA_DE_SUELO`): el de su suelo
+ * (en la escena, el de su meseta, `sueloDeLaMeseta`), salvo en lo alto de un acantilado, que es el de la cara que se ve de su
  * franja. Una franja de acantilado cruza suelos (la hierba de arriba y la arena
  * de abajo) y su cara, el de la casilla alta de cada pared; con la roca de lo
  * alto (#205) por el suelo de cada casilla, la meseta llevaba picos grises
@@ -154,6 +211,124 @@ export function cimaDeOtroMaterial(
     if (terreno[i] !== 'cliff') return;
     const roca = ROCA_DE_LOS_PICOS[hojaDelSrc(s.src) ?? ''];
     if (roca !== undefined && roca !== material[i]) fuera.push(k);
+  });
+  return fuera;
+}
+
+/** Hasta qué distancia (Chebyshev) busca `caraDeOtroMaterial` lo que se pisa de la meseta. */
+const LEJOS_DE_LA_MESETA = 4;
+
+/**
+ * Las paredes del desnivel (`Celda`) de otra roca que su meseta (#216): de las
+ * casillas altas de su vértice, lo que se pisa (sin los nodos) a su nivel más cerca (por
+ * anillos, Chebyshev, y el siguiente, que el camino de `sueloDeLaMeseta` va por
+ * la barrera y no en línea recta) da las rocas que valen. La meseta de arena
+ * que acababa en una pared gris, la del suelo de abajo, cuenta. Lo que no tiene
+ * nada de su nivel a `LEJOS_DE_LA_MESETA` no se mira.
+ */
+export function caraDeOtroMaterial<C extends Pick<Celda, 'vx' | 'vy' | 'desde' | 'material'>>(
+  cs: readonly C[],
+  W: number,
+  H: number,
+  terreno: readonly TerrainKind[],
+  region: ArrayLike<number>,
+  nivel: ArrayLike<number>,
+): C[] {
+  const valen = (x: number, y: number): Set<string> => {
+    const n = nivel[y * W + x] as number;
+    const fuera = new Set<string>();
+    let primero = -1;
+    for (let d = 0; d <= LEJOS_DE_LA_MESETA && (primero < 0 || d <= primero + 1); d++)
+      for (let dy = -d; dy <= d; dy++)
+        for (let dx = -d; dx <= d; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== d) continue;
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+          const t = terreno[ny * W + nx] as TerrainKind;
+          if (esBarrera(t) || (region[ny * W + nx] as number) < 0 || nivel[ny * W + nx] !== n)
+            continue;
+          fuera.add(CARA_DE_SUELO[t as Suelo]);
+          if (primero < 0) primero = d;
+        }
+    return fuera;
+  };
+  return cs.filter((c) => {
+    const validas = new Set<string>();
+    for (const [dx, dy] of [
+      [-1, -1],
+      [0, -1],
+      [-1, 0],
+      [0, 0],
+    ] as const) {
+      const x = c.vx + dx;
+      const y = c.vy + dy;
+      if ((nivel[y * W + x] as number) < c.desde) continue;
+      for (const m of valen(x, y)) validas.add(m);
+    }
+    return validas.size > 0 && !validas.has(c.material);
+  });
+}
+
+/** Cada cuánto, en casillas, se mira si una masa tapa una pared (`paredesTapadasPorLaMasa`). */
+export const PASO_DE_LA_PARED_TAPADA = 0.1;
+
+/**
+ * Una pared del desnivel (frontal, ladera o diagonal): una pieza con su fila
+ * alta, sin el pedregal ni la bajada, que se ponen después de la masa y tienen
+ * sus guardias (`bajadasTapadas`).
+ */
+export const esPiezaDelRelieve = (s: Pick<Sprite, 'clase' | 'src' | 'filaAlta'>): boolean =>
+  s.clase === 'pared' &&
+  s.filaAlta !== undefined &&
+  s.src?.includes('/rocas-caidas/') !== true &&
+  s.src?.includes('/bajadas-') !== true;
+
+/**
+ * Las piezas del relieve que tapa una masa —un pico de la cordillera, un árbol—
+ * que se pinta después de ellas (`ordenDeVolumenes`), con qué parte de su
+ * silueta queda tapada (#216): la pared del desnivel asomaba a trozos entre los
+ * picos que la cordillera plantaba delante de ella (s5 (2-8, 27-31), s24 (7-8,
+ * 16-17)), y no se sabía qué lado era el alto. Se mira la silueta de la pared
+ * (`bajoLaSilueta`, con su perfil) cada `PASO_DE_LA_PARED_TAPADA` contra la
+ * caja de las masas: la que mide quien las aparta (`formasDeLasParedes`).
+ */
+export function paredesTapadasPorLaMasa(
+  sprites: readonly Sprite[],
+  perfilDe: PerfilDe,
+): { readonly pared: number; readonly tapada: number }[] {
+  // Las masas por casilla de su caja: un punto mira solo las de la suya.
+  const porCasilla = new Map<number, { readonly k: number; readonly caja: Caja }[]>();
+  sprites.forEach((s, k) => {
+    if (s.clase !== 'masa') return;
+    const caja = cajaDeSprite(s);
+    for (let y = Math.floor(caja[1]); y <= Math.floor(caja[3]); y++)
+      for (let x = Math.floor(caja[0]); x <= Math.floor(caja[2]); x++) {
+        const c = y * 4096 + x;
+        const lista = porCasilla.get(c);
+        if (lista === undefined) porCasilla.set(c, [{ k, caja }]);
+        else lista.push({ k, caja });
+      }
+  });
+  const fuera: { pared: number; tapada: number }[] = [];
+  sprites.forEach((p, k) => {
+    if (!esPiezaDelRelieve(p)) return;
+    const caja = cajaDeSprite(p);
+    const perfil = perfilDe(p);
+    let muestras = 0;
+    let tapadas = 0;
+    const P = PASO_DE_LA_PARED_TAPADA;
+    for (let x = caja[0] + P / 2; x < caja[2]; x += P)
+      for (let y = caja[1] + P / 2; y < caja[3]; y += P) {
+        if (!bajoLaSilueta(p, perfil, x, y, caja)) continue;
+        muestras++;
+        const delante = (porCasilla.get(Math.floor(y) * 4096 + Math.floor(x)) ?? []).some(
+          ({ k: q, caja: [x0, y0, x1, y1] }) =>
+            x > x0 && x < x1 && y > y0 && y < y1 && ordenDeVolumenes(sprites[q] as Sprite, p) > 0,
+        );
+        if (delante) tapadas++;
+      }
+    if (tapadas > 0) fuera.push({ pared: k, tapada: tapadas / muestras });
   });
   return fuera;
 }

@@ -20,7 +20,11 @@ import type { Caja } from './pasillo.js';
  */
 export const ALTO_DE_NIVEL = 0.6;
 
-/** El material de la cara de roca, por el suelo de arriba. */
+/**
+ * El material de la cara de roca, por el suelo de arriba: el de la meseta
+ * (`sueloDeLaMeseta`, #216), no el más cercano de la casilla de barrera, que
+ * suele ser el del lado bajo.
+ */
 export const CARA_DE_SUELO: Readonly<Record<Suelo, string>> = {
   swamp: 'cara-roca',
   grass: 'cara-roca',

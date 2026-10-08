@@ -15,12 +15,17 @@ import type { MapObject, TramoDeCamino } from '@core/map/map.js';
 import { type Barrera, esBarrera, type Suelo, type TerrainKind } from '@core/map/terrain.js';
 import { type Analisis, analizar, type Franja, type MapaDeEscena } from './analizar.js';
 import {
+  caraDeOtroMaterial,
   cimaDeOtroMaterial,
+  esPiezaDelRelieve,
   espaldaConReborde,
   espaldasSinReborde,
   materialDeLaCima,
+  paredesTapadasPorLaMasa,
+  sueloDeLaMeseta,
 } from './bordes.js';
 import {
+  altoDeLaSilueta,
   bajoLaSilueta,
   carasLisas,
   type PerfilDe,
@@ -343,6 +348,19 @@ export interface Escena {
      * (`cimaDeOtroMaterial`, #212): gris sobre arenisca. Tiene que ser 0.
      */
     readonly cimaDeOtroMaterial: number;
+    /**
+     * Paredes del desnivel (frontal, ladera, diagonal) con algo de su silueta
+     * bajo una masa que se pinta después (`paredesTapadasPorLaMasa`, #216): la
+     * pared que asomaba a trozos entre los picos de la cordillera. Tiene que
+     * ser 0.
+     */
+    readonly paredesTapadas: number;
+    /**
+     * Paredes del desnivel de otra roca que su meseta (`caraDeOtroMaterial`,
+     * #216): la meseta de arena que acababa en una pared gris, la del suelo de
+     * abajo (806 de 2 506 en 1-40). Tiene que ser 0.
+     */
+    readonly caraDeOtroMaterial: number;
     /**
      * Mesas de arenisca (`esMesa`) en una cordillera (#212): la montaña de arena
      * que se leía como un acantilado. Tiene que ser 0.
@@ -1008,8 +1026,13 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   const pieza = (id: string): Pieza | null => catalogo.piezas[id] ?? null;
   const a = analizar(map);
   const { nivel } = relieve(a);
+  /**
+   * El suelo de la meseta de cada casilla (`sueloDeLaMeseta`, #216): la roca de
+   * las paredes y de lo alto es la del lado alto, no la del suelo más cercano.
+   */
+  const meseta = sueloDeLaMeseta(a.W, a.H, a.region, a.suelo, nivel);
   /** La roca de cada casilla: en lo alto de un acantilado, la de su cara (`materialDeLaCima`, #212). */
-  const materialDeLaCimaEn = materialDeLaCima(a.W, a.H, a.suelo, nivel, a.franjas);
+  const materialDeLaCimaEn = materialDeLaCima(a.W, a.H, meseta, nivel, a.franjas);
   // `let`: lo alto de los acantilados (#205) se viste con su propia corriente
   // (`azarDeLoAlto`) y se cambia mientras tanto. Con la misma, los picos de más
   // movían todo lo que se viste después: las cordilleras de 1-40 salían otras
@@ -1261,8 +1284,8 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     nivel,
     W,
     H,
-    a.suelo,
-    celdasBajoLosPuentes(celdasDe(nivel, W, H, a.suelo), puentes),
+    meseta,
+    celdasBajoLosPuentes(celdasDe(nivel, W, H, meseta), puentes),
   );
   // Las paredes del relieve van antes que la senda (#206): nunca se apartan de
   // ella (R4/R5), así que es la senda la que se aparta de su pie. La pared solo
@@ -1530,7 +1553,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     bajadasDe(
       nivel,
       W,
-      a.suelo,
+      meseta,
       rel.celdas,
       map.caminos.tramos,
       l,
@@ -1598,7 +1621,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     ...bajadasDe(
       nivel,
       W,
-      a.suelo,
+      meseta,
       rel.celdas,
       tramosDeLasRampas(map, a),
       trochas,
@@ -1610,7 +1633,8 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
    * Lo que no se tapa (#151): la senda; la rampa de cada bajada, más ancha que
    * la senda y con sus ribazos (R5); el tablero de cada puente, del que se
    * apartan también la pared (con la de la cara de detrás encima, el puente
-   * quedaba tapado, #157); y el eje de cada paso.
+   * quedaba tapado, #157); el eje de cada paso; y las paredes del desnivel, que
+   * la masa de delante no tapa (#216).
    */
   const obstaculos = new Obstaculos<Medible>([
     formaDeLaSenda(trazos),
@@ -1619,6 +1643,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     formaDeLosPasos(pasos),
     formaDeLasTrochas(trochas),
     ...reservas.keys(),
+    ...formasDeLasParedes(sprites, perfilDe),
   ]);
   const sendaDeLaMuralla = sendaParaLaMuralla(trazos);
   /** El sprite más estrecho de cada clase que se aparta: el que pregunta el dardo. */
@@ -1743,12 +1768,15 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     ]);
     return m;
   };
-  /** El material de cada casilla de cordillera: uno por macizo (`materialDeLosMacizos`). */
+  /**
+   * El material de cada casilla de cordillera: uno por macizo
+   * (`materialDeLosMacizos`), por el suelo de su meseta, como su pared (#216).
+   */
   const materialDeMacizo = materialDeLosMacizos(
     a.franjas.filter((f) => f.barrera === 'mountain').flatMap((f) => f.casillas),
     W,
     H,
-    a.suelo,
+    meseta,
   );
   /**
    * Un módulo de `hoja` por su silueta: con `cumbre` 0, de los más chatos
@@ -2961,6 +2989,8 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         (i) => bajoLaHuella[i] === 1 || espaldasOcupadas.has(i),
       ).length,
       cimaDeOtroMaterial: cimaDeOtroMaterial(sprites, a.terreno, W, materialDeLaCimaEn).length,
+      paredesTapadas: paredesTapadasPorLaMasa(sprites, perfilDe).length,
+      caraDeOtroMaterial: caraDeOtroMaterial(rel.celdas, W, H, a.terreno, a.region, nivel).length,
       mesasEnLaCordillera: sprites.filter(
         (s) =>
           s.clase === 'masa' &&
@@ -3211,6 +3241,56 @@ export function formasDeLosTableros(
           : MEDIDA_DE_CLASE[s.clase]
         : null,
   }));
+}
+
+/**
+ * Lo que una masa se aparta de la silueta de una pared que taparía, en
+ * casillas: algo más que la mitad del hueco entre dos columnas del perfil (32
+ * por módulo, ~0,06 en una frontal de 2), para que no se cuele entre ellas.
+ */
+export const MARGEN_DE_LA_PARED = 0.05;
+
+const MEDIDA_DE_LA_PARED: Medida = { radio: MARGEN_DE_LA_PARED, soloElPie: false };
+
+/**
+ * Las paredes del desnivel (`esPiezaDelRelieve`) como obstáculo de la masa
+ * (#216): un pico o un árbol que se pintaría después de una pared (`vaDelante`,
+ * la regla de los tableros) no cubre su silueta; se encoge o no va. Lo de
+ * detrás no se mira: la pared lo tapa a él, y es lo que dice que la cordillera
+ * está en lo alto. Antes la cordillera plantaba picos delante de su propia
+ * pared, del lado bajo y en las filas de más al sur, y la pared asomaba a trozos
+ * (692 de 2 150 piezas tapadas en 1-40; bajo una montaña, 447 de 837).
+ *
+ * Cada pared es una columna por franja de su perfil, de lo alto de su silueta
+ * al pie de su caja: la misma silueta que mide `paredesTapadasPorLaMasa`.
+ */
+export function formasDeLasParedes(
+  sprites: readonly Sprite[],
+  perfilDe: PerfilDe,
+): Forma<Medible>[] {
+  return sprites.filter(esPiezaDelRelieve).map((p) => {
+    const caja = cajaDeSprite(p);
+    const perfil = perfilDe(p);
+    const n = perfil?.length ?? 1;
+    const columnas: Senda[] = [];
+    // El medio de cada franja, y los dos bordes de la caja.
+    for (const k of [0, ...Array.from({ length: n }, (_, k) => k + 0.5), n]) {
+      const x = caja[0] + ((caja[2] - caja[0]) * k) / n;
+      const arriba = altoDeLaSilueta(p, perfil, x, caja) ?? caja[1];
+      columnas.push([
+        [x, arriba],
+        [x, caja[3]],
+      ]);
+    }
+    return {
+      trazos: columnas,
+      alcance: MARGEN_DE_LA_PARED,
+      mide: (s, alto) =>
+        s.clase === 'masa' && vaDelante({ x: s.x, y: s.y, clase: s.clase, alto }, p)
+          ? MEDIDA_DE_LA_PARED
+          : null,
+    };
+  });
 }
 
 /** Si `s` se pinta después de lo que está en `t` y, por tanto, lo taparía. */

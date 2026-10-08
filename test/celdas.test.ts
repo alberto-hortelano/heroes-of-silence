@@ -361,15 +361,16 @@ describe('las piezas en su sitio, con el arte del repo', () => {
   it('las diagonales y las bajadas de basalto llevan el tono de sus laderas; las de roca, ninguno', () => {
     // Sin él salían más claras y frías que la ladera de al lado, que sí se
     // entona (`BASALTO_DE_LADERA`), y que la frontal (s28, s36; 08-10-2026). La
-    // s36 la sigue trayendo con el mapa de #189.
-    const enS36 = componer(newGame({ seed: 36 }).map, 36, catalogo).sprites;
+    // s36 la sigue trayendo con el mapa de #189. Desde #216 la cara es de la
+    // roca de su meseta y la s36 ya no lleva laderas de basalto: la s1, sí.
+    const enS1 = componer(newGame({ seed: 1 }).map, 1, catalogo).sprites;
     const deLadera = new Set(
-      enS36.filter((s) => s.src?.includes('/laderas-basalto-') === true).map((s) => s.tono),
+      enS1.filter((s) => s.src?.includes('/laderas-basalto-') === true).map((s) => s.tono),
     );
     expect(deLadera.size).toBe(1);
     const tono = [...deLadera][0];
     expect(tono).toBeDefined();
-    const deBasalto = enS36.filter(
+    const deBasalto = enS1.filter(
       (s) => s.src !== null && /\/(diagonales|bajadas)-basalto-/.test(s.src),
     );
     expect(deBasalto.length).toBeGreaterThan(0);

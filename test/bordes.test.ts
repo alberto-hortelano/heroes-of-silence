@@ -14,15 +14,29 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { analizar } from '../src/client/render/escenario/analizar.js';
 import {
+  caraDeOtroMaterial,
   cimaDeOtroMaterial,
+  esPiezaDelRelieve,
   espaldasSinReborde,
   materialDeLaCima,
+  paredesTapadasPorLaMasa,
+  sueloDeLaMeseta,
 } from '../src/client/render/escenario/bordes.js';
-import { caidas } from '../src/client/render/escenario/celdas.js';
-import { ANCHO_DE_MESA, esMesa, RADIO_DE_OBJETO } from '../src/client/render/escenario/colocar.js';
+import { perfilesDelCatalogo } from '../src/client/render/escenario/caras.js';
+import { caidas, celdas as celdasDe } from '../src/client/render/escenario/celdas.js';
+import {
+  ANCHO_DE_MESA,
+  esMesa,
+  formasDeLasParedes,
+  type Medible,
+  RADIO_DE_OBJETO,
+  type Sprite,
+} from '../src/client/render/escenario/colocar.js';
+import { Obstaculos } from '../src/client/render/escenario/pasillo.js';
 import { isWalkable, type Suelo, type TerrainKind } from '../src/core/map/terrain.js';
-import { partidaDe, primeraSemillaCon } from './helpers.js';
+import { catalogoDelDisco, partidaDe, primeraSemillaCon } from './helpers.js';
 import { itLento, rango } from './lento.js';
 
 const nunca = () => false;
@@ -265,4 +279,135 @@ describe('en los mapas reales', () => {
       }
     },
   );
+});
+
+/**
+ * Un desnivel bajo una montaña (#216, auditoría 6, defectos 2 y 3): la pared
+ * corre entera por delante del pie de la cordillera, sin picos delante, y es de
+ * la roca de su meseta y no del suelo de abajo.
+ */
+describe('sueloDeLaMeseta: la barrera alta lleva el suelo de su meseta', () => {
+  // Una fila: arena a 1, una montaña a 1 (su suelo más cercano, la ciénaga de
+  // al lado), la ciénaga a 0.
+  const region = [0, -1, -1, 1];
+  const suelo: Suelo[] = ['sand', 'swamp', 'swamp', 'swamp'];
+
+  it('la montaña a 1 toma la arena de su nivel aunque la ciénaga de abajo esté más cerca', () => {
+    expect(sueloDeLaMeseta(4, 1, region, suelo, [1, 1, 1, 0])).toEqual([
+      'sand',
+      'sand',
+      'sand',
+      'swamp',
+    ]);
+  });
+
+  it('lo que no llega a nada de su nivel se queda con su suelo', () => {
+    expect(sueloDeLaMeseta(4, 1, region, suelo, [1, 2, 2, 0])).toEqual(suelo);
+  });
+
+  it('un nodo no es fuente: su suelo es el más cercano de cualquier nivel', () => {
+    // El nodo (región −1) de lava junto a la montaña nevada: la montaña sigue
+    // con la nieve de su meseta, aunque el nodo esté antes en la rejilla.
+    const conNodo = sueloDeLaMeseta(
+      4,
+      1,
+      [-1, -1, 0, 1],
+      ['lava', 'lava', 'snow', 'swamp'],
+      [1, 1, 1, 0],
+    );
+    expect(conNodo[1]).toBe('snow');
+  });
+});
+
+describe('caraDeOtroMaterial: el guardia muerde', () => {
+  // Dos por dos: arriba arena (1) y una montaña a 1; abajo la ciénaga (0).
+  const terreno: TerrainKind[] = ['sand', 'mountain', 'swamp', 'swamp'];
+  const region = [0, -1, 1, 1];
+  const nivel = [1, 1, 0, 0];
+  const pared = (material: string) => ({ vx: 1, vy: 1, desde: 1, material });
+
+  it('una pared gris bajo la meseta de arena cuenta; una de arenisca, no', () => {
+    expect(caraDeOtroMaterial([pared('cara-roca')], 2, 2, terreno, region, nivel)).toHaveLength(1);
+    expect(caraDeOtroMaterial([pared('cara-arenisca')], 2, 2, terreno, region, nivel)).toEqual([]);
+  });
+
+  it('en un mapa real: con la roca del suelo de cada casilla, como antes de #216, cuenta', () => {
+    const { map, escena: e } = partidaDe(5);
+    const a = analizar(map);
+    const antes = celdasDe(e.nivel, e.W, e.H, a.suelo).filter((c) =>
+      e.relieve.celdas.some((v) => v.vx === c.vx && v.vy === c.vy && v.tipo === c.tipo),
+    );
+    expect(
+      caraDeOtroMaterial(antes, e.W, e.H, map.terrain, a.region, e.nivel).length,
+    ).toBeGreaterThan(0);
+    expect(caraDeOtroMaterial(e.relieve.celdas, e.W, e.H, map.terrain, a.region, e.nivel)).toEqual(
+      [],
+    );
+  });
+});
+
+describe('paredesTapadasPorLaMasa: el guardia muerde, y la masa se aparta de la pared', () => {
+  const catalogo = catalogoDelDisco();
+  const perfilDe = perfilesDelCatalogo(catalogo);
+  // Una frontal de la escena de s5 y un pico, delante (más al sur) o detrás.
+  const { escena: e } = partidaDe(5);
+  const pared = e.sprites.find(esPiezaDelRelieve) as Sprite;
+  const pico = (dy: number): Sprite => ({
+    src: 'modulos/picos-arenisca/2.webp',
+    nw: 100,
+    nh: 200,
+    ax: 50,
+    ay: 200,
+    x: pared.x,
+    y: pared.y + dy,
+    alto: 2,
+    clase: 'masa',
+    color: '#000',
+    capa: 0,
+    sombra: true,
+  });
+
+  it('un pico que se pinta después, sobre su silueta, la tapa; uno que se pinta antes, no', () => {
+    expect(paredesTapadasPorLaMasa([pared, pico(0.3)], perfilDe)).toEqual([
+      { pared: 0, tapada: expect.any(Number) },
+    ]);
+    expect(paredesTapadasPorLaMasa([pared, pico(-0.3)], perfilDe)).toEqual([]);
+  });
+
+  it('el obstáculo de la pared no deja entrar el pico de delante y sí el de detrás', () => {
+    const obstaculos = new Obstaculos<Medible>(formasDeLasParedes([pared], perfilDe));
+    expect(obstaculos.pisa(pico(0.3))).toBe(true);
+    expect(obstaculos.altoLibre(pico(0.3))).toBeLessThan(2);
+    expect(obstaculos.pisa(pico(-0.3))).toBe(false);
+    // Lo que no es masa no lo mira: el pedregal del pie va delante a propósito.
+    expect(obstaculos.pisa({ ...pico(0.3), clase: 'roca' })).toBe(false);
+  });
+});
+
+/** Las de la auditoría 6: los recortes de los defectos 2 y 3. */
+const SEMILLAS_DE_LA_AUDITORIA_6 = [24, 2, 5];
+
+describe('un desnivel bajo una montaña, en los mapas reales (#216)', () => {
+  for (const semilla of SEMILLAS_DE_LA_AUDITORIA_6)
+    it(`semilla ${semilla}: ninguna masa tapa una pared, y cada pared es de la roca de su meseta`, () => {
+      const { informe } = partidaDe(semilla).escena;
+      expect(informe.paredesTapadas).toBe(0);
+      expect(informe.caraDeOtroMaterial).toBe(0);
+    });
+
+  it('s5 (2-8, 27-31): la pared bajo la cordillera de arena es de arenisca', () => {
+    const { escena: e } = partidaDe(5);
+    const bajoLaArena = e.relieve.celdas.filter(
+      (c) => c.vx >= 2 && c.vx <= 8 && c.vy >= 27 && c.vy <= 31,
+    );
+    expect(bajoLaArena.length).toBeGreaterThan(0);
+    expect(new Set(bajoLaArena.map((c) => c.material))).toEqual(new Set(['cara-arenisca']));
+  });
+
+  itLento('1-40: ninguna masa tapa una pared, ninguna pared de otra roca que su meseta', () => {
+    for (const s of rango(1, 40)) {
+      const { informe } = partidaDe(s).escena;
+      expect([informe.paredesTapadas, informe.caraDeOtroMaterial], `s${s}`).toEqual([0, 0]);
+    }
+  });
 });

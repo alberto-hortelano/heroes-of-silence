@@ -271,8 +271,8 @@ export const materialDePico = (s: Suelo): MaterialDePico =>
 const PREFERENCIA: readonly MaterialDePico[] = ['nieve', 'arena', 'roca', 'lava'];
 
 /**
- * El material de cada macizo: el de más casillas entre las suyas (su `suelo`,
- * el del llano más cercano). Un macizo son las casillas de montaña unidas en 8
+ * El material de cada macizo: el de más casillas entre las suyas (su `suelo`;
+ * en la escena, el de su meseta, `sueloDeLaMeseta`, como su pared, #216). Un macizo son las casillas de montaña unidas en 8
  * vecinas, aunque `analizar` las parta en varias franjas: las franjas de un
  * mismo macizo se ven como una sola montaña, y una aguja de lava entre picos
  * nevados es lo que se veía en s9 (9,8, 21,5) aunque cada franja fuera de un
