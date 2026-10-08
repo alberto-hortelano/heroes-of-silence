@@ -67,6 +67,7 @@ import {
 } from './macizo.js';
 import {
   murallaSinLeer,
+  murallaSobreLaSenda,
   type PuertaDeMuralla,
   type TramoPintado,
   torresDe,
@@ -109,6 +110,7 @@ import {
   relieve,
 } from './relieve.js';
 import {
+  ANCHO_DE_SENDA,
   SEMIANCHO_DEL_PASILLO,
   SEMIANCHO_DEL_PASILLO_DE_MASA,
   type Senda,
@@ -233,6 +235,12 @@ export interface Escena {
       readonly puertasSueltas: readonly string[];
       readonly huecos: number;
     };
+    /**
+     * Torres y tramos de muralla sobre la senda (`murallaSobreLaSenda`): una
+     * torre que la tapa o un tramo que la cruza fuera de su puerta. Tiene que
+     * ser 0 (#193).
+     */
+    readonly murallaSobreSenda: number;
     readonly basesSobreReserva: number;
     readonly casillasDeBarreraSinFormacion: number;
     /**
@@ -677,6 +685,12 @@ const TRAMOS_NORTE_SUR = ['muro-ns-1', 'muro-ns-2'] as const;
  */
 const ALTO_DEL_TRAMO_NORTE_SUR = 1.6;
 
+/**
+ * Lo más que se encoge la torre de una casilla de muralla sin tramos para no
+ * tapar la senda que la rodea (#193), en veces su alto.
+ */
+const TORRE_MAS_BAJA = 0.45;
+
 const MARCADOR: Readonly<Record<string, string>> = {
   forest: '#1f3a22',
   mountain: '#6e6a74',
@@ -1010,6 +1024,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     formaDeLosPasos(pasos),
     ...reservas.keys(),
   ]);
+  const sendaDeLaMuralla = sendaParaLaMuralla(trazos);
   /** El sprite del objeto en cuya reserva cae `(x, y)`, el más cercano si son varios. */
   const reservaEn = (x: number, y: number): Sprite | undefined => {
     const f = obstaculos.en(x, y, (f) => reservas.has(f));
@@ -1274,6 +1289,8 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   });
   /** Los tramos y torres de muralla que entraron en la escena: lo que mira el guardia. */
   const pintados: TramoPintado[] = [];
+  /** Las torres que entraron, por su casilla: el guardia mide su rectángulo contra la senda. */
+  const torresPintadas = new Map<string, Sprite>();
   let sinFormacion = 0;
   // Lo que cae bajo la huella de una ciudad, un pueblo o un nodo lo tapa el propio objeto.
   const bajoLaHuella = new Uint8Array(W * H);
@@ -1525,6 +1542,20 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         [-1, 0, 1].some((dx) => dentro.has((p.at[1] + dy) * W + p.at[0] + dx)),
       ),
     );
+    const color = MARCADOR.wall as string;
+    /** La torre de la casilla `[x, y]`, la que se pinta y la que se mide contra la senda. */
+    const torreEn = ([x, y]: readonly [number, number]) =>
+      deHoja(
+        hoja,
+        x + 0.5,
+        y + 0.75,
+        1.4,
+        0.5,
+        'muro',
+        color,
+        true,
+        (x + y) % 2 === 0 ? 'torre-redonda' : 'torre-cuadrada',
+      );
     const e = trazaDeMuralla(
       f.casillas.map((i) => [i % W, Math.floor(i / W)] as const),
       suyas.map((p) => p.at),
@@ -1539,8 +1570,8 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
           }
         return false;
       },
+      (c) => !sendaDeLaMuralla.pisa(torreEn(c)),
     );
-    const color = MARCADOR.wall as string;
     for (const p of e.pasos) {
       const eje = ejeDe(p);
       const puerta = suyas.find((q) => [p.a, p.b].some(([x, y]) => x === q.at[0] && y === q.at[1]));
@@ -1557,13 +1588,21 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
           : deHoja(hoja, x, pie, 1.05, 0.5, 'muro', color, true, eje, ANCHO_DE_TRAMO[eje]);
       if (meterEnLaMuralla(tramo, puerta)) pintados.push({ franja: f.id, a: p.a, b: p.b });
     }
-    for (const [x, y] of torresDe(
+    for (const c of torresDe(
       e,
       suyas.map((p) => p.at),
+      (c) => !sendaDeLaMuralla.pisa(torreEn(c)),
     )) {
-      const torre = (x + y) % 2 === 0 ? 'torre-redonda' : 'torre-cuadrada';
-      const s = deHoja(hoja, x + 0.5, y + 0.75, 1.4, 0.5, 'muro', color, true, torre);
-      if (meterEnLaMuralla(s, undefined)) pintados.push({ franja: f.id, a: [x, y], b: [x, y] });
+      // La que no cabe y va igual es la de una casilla sin tramos (`torresDe`):
+      // se encoge hasta no tapar la senda, como mucho a `TORRE_MAS_BAJA`.
+      const alta = torreEn(c);
+      const libre = sendaDeLaMuralla.altoLibre(alta);
+      const torre =
+        libre === alta.alto ? alta : { ...alta, alto: Math.max(libre, TORRE_MAS_BAJA * alta.alto) };
+      if (meterEnLaMuralla(torre, undefined)) {
+        pintados.push({ franja: f.id, a: c, b: c });
+        torresPintadas.set(`${c}`, torre);
+      }
     }
   }
 
@@ -2150,6 +2189,15 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     informe: {
       murallasPartidas: muralla.sinMuralla.length + muralla.puertasSueltas.length + muralla.huecos,
       muralla,
+      murallaSobreSenda: murallaSobreLaSenda(
+        pintados,
+        puertasDeMuralla.map((p) => p.at),
+        (c) => {
+          const s = torresPintadas.get(`${c}`);
+          return s !== undefined && sendaDeLaMuralla.pisa(s);
+        },
+        (x, y) => sendaDeLaMuralla.en(x, y, () => true) !== undefined,
+      ).length,
       basesSobreReserva,
       casillasDeBarreraSinFormacion: sinFormacion,
       spritesSobreSenda: sobreLaSenda(sprites, trazos).length,
@@ -2260,6 +2308,18 @@ const SEMIANCHO_MAXIMO = Math.max(...Object.values(APARTE).map((r) => r?.semianc
 /** Unas sendas como obstáculo: lo que se aparta del camino no pisa su pasillo, cada clase con su media anchura. */
 export function formaDeLaSenda(trazos: readonly Senda[]): Forma<Medible> {
   return { trazos, alcance: SEMIANCHO_MAXIMO, mide: (s) => MEDIDA_DE_CLASE[s.clase] };
+}
+
+/**
+ * La senda pintada, sin arcén, como obstáculo de la muralla (#193): el muro
+ * puede llegar hasta ella, porque es la barrera que el camino cruza por su
+ * puerta, pero no taparla. Solo mira la clase `muro`.
+ */
+export function sendaParaLaMuralla(trazos: readonly Senda[]): Obstaculos<Medible> {
+  const medida: Medida = { radio: ANCHO_DE_SENDA / 2, soloElPie: false };
+  return new Obstaculos<Medible>([
+    { trazos, alcance: medida.radio, mide: (s) => (s.clase === 'muro' ? medida : null) },
+  ]);
 }
 
 /**

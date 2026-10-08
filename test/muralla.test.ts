@@ -7,10 +7,12 @@
  */
 import { describe, expect, it } from 'vitest';
 import { analizar } from '../src/client/render/escenario/analizar.js';
+import { sendaParaLaMuralla } from '../src/client/render/escenario/colocar.js';
 import { ejeDe } from '../src/client/render/escenario/esqueleto.js';
 import {
   ENTRE_TORRES,
   murallaSinLeer,
+  murallaSobreLaSenda,
   RADIO_DE_MURALLA,
   type TramoPintado,
   torresDe,
@@ -114,6 +116,69 @@ describe('las torres', () => {
   });
 });
 
+describe('la muralla y la senda (#193)', () => {
+  // Una franja de oeste a este, de (0,1) a (8,1): las torres van en sus puntas y
+  // cada ENTRE_TORRES en lo recto.
+  const { muro } = dibujo(['.........', '#########']);
+
+  it('una torre que no cabe no se pone, y la siguiente candidata ocupa su sitio', () => {
+    const e = trazaDeMuralla(muro, [], nunca);
+    const todas = torresDe(e, []);
+    expect(todas.map(clave)).toContain('0,1');
+    // La punta del oeste tapa la senda: sin ella, la primera torre del oeste es otra.
+    const sinPunta = torresDe(e, [], (c) => clave(c) !== '0,1');
+    expect(sinPunta.map(clave)).not.toContain('0,1');
+    expect(sinPunta.some((t) => t[0] <= ENTRE_TORRES)).toBe(true);
+  });
+
+  it('la casilla sin tramos lleva su torre aunque no quepa: es toda la muralla', () => {
+    const e = trazaDeMuralla([[4, 4]], [], nunca, () => false);
+    expect(e.pasos).toEqual([]);
+    expect(torresDe(e, [], () => false).map(clave)).toEqual(['4,4']);
+  });
+
+  it('la de un 2×2 se muda a la casilla donde cabe, que sigue cubriendo las cuatro', () => {
+    // s2 (14,19): la senda rodea la mancha por el norte y la torre de arriba la tapaba.
+    const { muro: mancha } = dibujo(['....', '.##.', '.##.']);
+    const abajo = (c: Casilla) => c[1] === 2;
+    const e = trazaDeMuralla(mancha, [], nunca, abajo);
+    expect(e.casillas).toHaveLength(1);
+    const [c] = e.casillas as [Casilla];
+    expect(abajo(c)).toBe(true);
+    for (const v of mancha)
+      expect(Math.hypot(v[0] - c[0], v[1] - c[1])).toBeLessThanOrEqual(RADIO_DE_MURALLA);
+    // Donde no cabe en ninguna, se queda donde estaba.
+    expect(trazaDeMuralla(mancha, [], nunca, () => false).casillas).toHaveLength(1);
+  });
+
+  describe('el guardia (murallaSobreLaSenda)', () => {
+    const linea: TramoPintado[] = [0, 1, 2, 3].map((x) => ({
+      franja: 0,
+      a: [x, 0],
+      b: [x + 1, 0],
+    }));
+    const torre: TramoPintado = { franja: 0, a: [0, 0], b: [0, 0] };
+    const lejos = () => false;
+
+    it('sin senda cerca y sin torre que tape: nada', () => {
+      expect(murallaSobreLaSenda([...linea, torre], [], () => false, lejos)).toEqual([]);
+    });
+
+    it('cuenta la torre que tapa la senda', () => {
+      expect(murallaSobreLaSenda([...linea, torre], [], () => true, lejos)).toEqual([[0, 0]]);
+    });
+
+    it('cuenta el tramo que la senda cruza fuera de una puerta, y no el que llega a ella', () => {
+      // Una senda de norte a sur por x = 3: cruza el tramo de (2,0) a (3,0), de
+      // centro (2,5) a centro (3,5), por su medio.
+      const cruza = (x: number) => Math.abs(x - 3) < 0.1;
+      expect(murallaSobreLaSenda(linea, [], () => false, cruza)).toEqual([[2, 0]]);
+      // Con la puerta en (2,0), la senda pasa por ella: es lo que la muralla espera.
+      expect(murallaSobreLaSenda(linea, [[2, 0]], () => false, cruza)).toEqual([]);
+    });
+  });
+});
+
 describe('el guardia cuenta lo pintado', () => {
   // Una muralla de oeste a este con una puerta en (3, 0), y el muro a sus dos lados.
   const franja = { id: 0, casillas: [0, 1, 2, 4, 5, 6].map((x): Casilla => [x, 0]) };
@@ -155,12 +220,21 @@ describe('el guardia cuenta lo pintado', () => {
 });
 
 describe('en las partidas', () => {
-  const SEMILLAS = segunPrisa([1, 2, 9, 33], rango(1, 40));
+  // 1: la torre de (21,10) sobre la senda de la mina a la ciudad; 2: el 2×2 de
+  // (14,19); 31 y 33: casillas sueltas que solo caben encogidas (#193).
+  const SEMILLAS = segunPrisa([1, 2, 9, 31, 33], rango(1, 40));
   for (const semilla of SEMILLAS)
-    it(`semilla ${semilla}: ninguna casilla de muro sin muralla, ninguna puerta suelta, ninguna línea partida`, () => {
+    it(`semilla ${semilla}: ninguna casilla de muro sin muralla, ninguna puerta suelta, ninguna línea partida, nada sobre la senda`, () => {
       const e = escenaDe(semilla);
       expect(e.informe.muralla).toEqual({ sinMuralla: [], puertasSueltas: [], huecos: 0 });
       expect(e.informe.murallasPartidas).toBe(0);
+      expect(e.informe.murallaSobreSenda).toBe(0);
+      // Las torres, recontadas aquí sobre los sprites: ninguna tapa la senda pintada.
+      const senda = sendaParaLaMuralla(e.sendas);
+      const tapan = e.sprites.filter(
+        (s) => s.clase === 'muro' && /torre-/.test(s.src ?? '') && senda.pisa(s),
+      );
+      expect(tapan.map((s) => `${s.src} en ${s.x},${s.y}`)).toEqual([]);
     });
 
   it('y el guardia mira algo: hay muros, puertas y tramos', () => {

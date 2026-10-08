@@ -120,6 +120,7 @@ export function trazaDeMuralla(
   casillas: readonly Casilla[],
   puertas: readonly Casilla[],
   tocaFuera: (x: number, y: number) => boolean,
+  torreCabe: (c: Casilla) => boolean = () => true,
 ): Esqueleto {
   const e = conAlgo(esqueleto(casillas, puertas), casillas);
   const dentro = new Set(casillas.map(clave));
@@ -208,7 +209,45 @@ export function trazaDeMuralla(
       if (camino !== null) coser(camino);
     }
   }
-  return { casillas: linea, pasos, juntas: e.juntas };
+  return {
+    casillas: sueltasDondeCabe(linea, pasos, casillas, esPuerta, torreCabe),
+    pasos,
+    juntas: e.juntas,
+  };
+}
+
+/**
+ * Una casilla de la línea sin tramos (lo que queda de un 2×2 o de una mancha
+ * pequeña) solo se pinta con su torre, que es entonces obligada (`torresDe`).
+ * Si ahí la torre no cabe —tapaba la senda que rodea la mancha, s2 (14,19)—, se
+ * muda a la casilla de la franja más cercana donde cabe y desde la que siguen a
+ * `RADIO_DE_MURALLA` las mismas casillas que desde la suya. Si no hay ninguna,
+ * se queda: la muralla manda sobre la senda.
+ */
+function sueltasDondeCabe(
+  linea: readonly Casilla[],
+  pasos: readonly Paso[],
+  casillas: readonly Casilla[],
+  esPuerta: ReadonlySet<string>,
+  torreCabe: (c: Casilla) => boolean,
+): Casilla[] {
+  const conPaso = new Set(pasos.flatMap((p) => [clave(p.a), clave(p.b)]));
+  const ocupadas = new Set(linea.map(clave));
+  const cerca = (c: Casilla, v: Casilla) =>
+    Math.hypot(c[0] - v[0], c[1] - v[1]) <= RADIO_DE_MURALLA;
+  return linea.map((c) => {
+    // La puerta es fija: la pinta su nodo, no una torre.
+    if (conPaso.has(clave(c)) || esPuerta.has(clave(c)) || torreCabe(c)) return c;
+    const suyas = casillas.filter((v) => cerca(c, v));
+    const otra = casillas
+      .filter((v) => !ocupadas.has(clave(v)) && torreCabe(v) && suyas.every((u) => cerca(v, u)))
+      .sort(
+        (p, q) => Math.hypot(p[0] - c[0], p[1] - c[1]) - Math.hypot(q[0] - c[0], q[1] - c[1]),
+      )[0];
+    if (otra === undefined) return c;
+    ocupadas.add(clave(otra));
+    return otra;
+  });
 }
 
 /** Lo que separa dos torres, en casillas: menos y se leían como una torre alta (#183). */
@@ -221,8 +260,17 @@ export const ENTRE_TORRES = 3;
  * en cada junta del esqueleto y otra cada tres casillas en el orden de la
  * rejilla, y donde el muro va de norte a sur, con un quiebro en cada casilla, se
  * apilaban en una columna que se leía como una sola torre alta (s9 (8,28-30)).
+ *
+ * Tampoco donde `cabe` dice que no: una torre en la punta de la muralla, junto a
+ * una ciudad, se plantaba encima de la senda que la rodea (s1 (21,10), #193). La
+ * torre es adorno y el lienzo ya cierra; sin ella, la siguiente candidata. Salvo
+ * en una casilla sin tramos, donde la torre es toda la muralla.
  */
-export function torresDe(e: Esqueleto, puertas: readonly Casilla[]): Casilla[] {
+export function torresDe(
+  e: Esqueleto,
+  puertas: readonly Casilla[],
+  cabe: (c: Casilla) => boolean = () => true,
+): Casilla[] {
   const vecinas = new Map<string, Casilla[]>();
   for (const p of e.pasos) {
     vecinas.set(clave(p.a), [...(vecinas.get(clave(p.a)) ?? []), p.b]);
@@ -244,6 +292,9 @@ export function torresDe(e: Esqueleto, puertas: readonly Casilla[]): Casilla[] {
   for (const { c } of candidatas) {
     if (puertas.some((p) => Math.max(Math.abs(p[0] - c[0]), Math.abs(p[1] - c[1])) <= 1)) continue;
     if (torres.some((t) => Math.hypot(t[0] - c[0], t[1] - c[1]) < ENTRE_TORRES)) continue;
+    // Una casilla sin tramos solo se ve por su torre: sin ella, la franja se
+    // quedaba sin muralla (s2 (14,19)). `trazaDeMuralla` ya la mudó donde cabe.
+    if (vecinas.has(clave(c)) && !cabe(c)) continue;
     torres.push(c);
   }
   return torres;
@@ -254,6 +305,41 @@ export interface TramoPintado {
   readonly franja: number;
   readonly a: Casilla;
   readonly b: Casilla;
+}
+
+/** Cada cuánto se mira la línea de un tramo contra la senda, en casillas. */
+const PASO_POR_LA_LINEA = 0.05;
+
+/**
+ * Lo pintado de la muralla que cae sobre la senda (#193), por la casilla de cada
+ * pieza: una torre que la tapa (`tapaLaTorre`, su rectángulo contra la senda
+ * pintada) o un tramo, fuera de una puerta, cuya línea de centro a centro de
+ * casilla pasa por ella (`cercaDeLaSenda`): una senda que cruza la muralla por
+ * donde no hay puerta. El tramo que llega a una puerta es parte de ella: la
+ * senda la cruza por ahí, y la puerta se pinta encima.
+ *
+ * Lo que de un tramo sube por encima de su línea no cuenta. El lienzo es la
+ * barrera y no se aparta (#183): la senda que rodea la punta de una muralla va
+ * por detrás de lo alto de su último tramo, como va por detrás de un nodo.
+ */
+export function murallaSobreLaSenda(
+  pintados: readonly TramoPintado[],
+  puertas: readonly Casilla[],
+  tapaLaTorre: (c: Casilla) => boolean,
+  cercaDeLaSenda: (x: number, y: number) => boolean,
+): Casilla[] {
+  const esPuerta = new Set(puertas.map(clave));
+  return pintados.flatMap((t) => {
+    if (clave(t.a) === clave(t.b)) return tapaLaTorre(t.a) ? [t.a] : [];
+    if (esPuerta.has(clave(t.a)) || esPuerta.has(clave(t.b))) return [];
+    const n = Math.ceil(Math.hypot(t.b[0] - t.a[0], t.b[1] - t.a[1]) / PASO_POR_LA_LINEA);
+    for (let k = 0; k <= n; k++) {
+      const x = t.a[0] + 0.5 + ((t.b[0] - t.a[0]) * k) / n;
+      const y = t.a[1] + 0.5 + ((t.b[1] - t.a[1]) * k) / n;
+      if (cercaDeLaSenda(x, y)) return [t.a];
+    }
+    return [];
+  });
 }
 
 /** Una puerta de muralla: su casilla y la dirección de su paso (`ejeDelPaso`). */
