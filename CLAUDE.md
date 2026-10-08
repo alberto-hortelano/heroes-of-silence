@@ -261,7 +261,16 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   se rellena de la barrera baja de al lado, y si es pasillo de un nodo se le abre la orilla a su
   región (sin otra región a menos de tres pasos) o la orilla pasa a montaña; luego bolsillos, cruces y
   murallas otra vez, hasta `VUELTAS_SIN_ESPIGAS`. 0 en 1-200 y en 24 y 64 (eran 112 en este-oeste en 10
-  semillas, `test/espigas.test.ts`). **El agente declara el nivel** (#209): `regions[].nivel`
+  semillas, `test/espigas.test.ts`). **Ninguna senda corta en diagonal una esquina de agua** salvo junto a un puente (el tramo que
+  llega a él y su río, sus ocho vecinas: ahí va el vado) (#210): la búsqueda cobra dos rectos por ese
+  paso (con un rodeo el camino se iba al borde) y lo que queda —la entrada en diagonal de un nodo o
+  una ciudad entre dos barreras— pasa esa esquina a montaña, en espejo (`sinAguaEnLasEsquinas`); si
+  eso deja el agua de la frontera sin sus casillas, el vestido se repite. Eran 2 803 tramos con una
+  esquina de agua y 279 con las dos en 1-200, ahora 0 (`esquinasDeAgua`,
+  `test/sendas-sobre-agua.test.ts`). La senda pintada acaba en cada ciudad o nodo que atraviesa
+  (`encadenar`): el vaivén la corría al agua en la puerta. `sendaSobreElAgua` (#211) queda en 2 en 1-40,
+  solo s37: la rampa de caída 2 que baja a una ciudad pasa de ella y su pie cae al agua (#192).
+  **El agente declara el nivel** (#209): `regions[].nivel`
   opcional (0-2, `esNivel`), sin él la región va al 1. Si el plan declara alguno,
   `validateMapPlan` corre `problemasDeNiveles`: cada franja de barrera (`franjasDeBarrera`, la
   unidad que pinta la escena; un nodo o una ciudad la corta) admite los niveles de las regiones

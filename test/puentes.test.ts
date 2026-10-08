@@ -67,13 +67,20 @@ import { itLento, LENTO, rango, segunPrisa } from './lento.js';
 const SEMILLAS = LENTO ? [...new Set([...rango(1, 10), ...dosConDeTodo()])] : dosConDeTodo();
 
 function dosConDeTodo(): number[] {
-  const conVado = primeraSemillaCon('una senda de estribo que sin vado pasaría por agua', (s) => {
-    const e = partidaDe(s).escena;
-    const agua = new Set(e.agua);
-    const esAgua = (x: number, y: number) =>
-      x >= 0 && y >= 0 && x < e.W && y < e.H && agua.has(y * e.W + x);
-    return sendasDeEstriboEnAgua(e.sendas, e.puentes, [], esAgua).length > 0 ? true : undefined;
-  }).semilla;
+  // Desde que la senda no corta en diagonal la esquina del agua (#210), solo la
+  // 232 de 1-300 la tiene: se busca desde ella, que de la 1 costaría 230 escenas.
+  const conVado = primeraSemillaCon(
+    'una senda de estribo que sin vado pasaría por agua',
+    (s) => {
+      const e = partidaDe(s).escena;
+      const agua = new Set(e.agua);
+      const esAgua = (x: number, y: number) =>
+        x >= 0 && y >= 0 && x < e.W && y < e.H && agua.has(y * e.W + x);
+      return sendasDeEstriboEnAgua(e.sendas, e.puentes, [], esAgua).length > 0 ? true : undefined;
+    },
+    232,
+    300,
+  ).semilla;
   const diagonal = primeraSemillaCon('un puente en diagonal', (s) =>
     partidaDe(s).escena.puentes.some((p) => p.eje === 'ne-so' || p.eje === 'no-se')
       ? true

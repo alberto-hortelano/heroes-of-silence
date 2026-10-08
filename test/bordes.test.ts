@@ -22,7 +22,7 @@ import {
 import { caidas } from '../src/client/render/escenario/celdas.js';
 import { ANCHO_DE_MESA, esMesa, RADIO_DE_OBJETO } from '../src/client/render/escenario/colocar.js';
 import { isWalkable, type Suelo, type TerrainKind } from '../src/core/map/terrain.js';
-import { partidaDe } from './helpers.js';
+import { partidaDe, primeraSemillaCon } from './helpers.js';
 import { itLento, rango } from './lento.js';
 
 const nunca = () => false;
@@ -222,19 +222,19 @@ describe('en los mapas reales', () => {
       expect(informe.mesasEnLaCordillera).toBe(0);
     });
 
-  it('s57: la montaña de arena (15-18, 10-19) lleva agujas y no mesas', () => {
-    const { map, escena: e } = partidaDe(57);
-    const picos = e.sprites.filter(
-      (s) =>
-        s.clase === 'masa' &&
-        s.src?.startsWith('modulos/picos-arenisca/') === true &&
-        map.terrain[Math.floor(s.y) * e.W + Math.floor(s.x)] === 'mountain' &&
-        s.x >= 15 &&
-        s.x < 19 &&
-        s.y >= 10 &&
-        s.y < 20,
-    );
-    expect(picos.length).toBeGreaterThan(10);
+  it('la montaña de arena lleva agujas y no mesas (s57 (15-18, 10-19) antes de #210)', () => {
+    // Con los mapas de #210 la de s57 ya no está: la primera semilla con una
+    // montaña de arena de más de 10 picos.
+    const { caso: picos } = primeraSemillaCon('una montaña de arena con más de 10 picos', (s) => {
+      const { map, escena: e } = partidaDe(s);
+      const suyos = e.sprites.filter(
+        (x) =>
+          x.clase === 'masa' &&
+          x.src?.startsWith('modulos/picos-arenisca/') === true &&
+          map.terrain[Math.floor(x.y) * e.W + Math.floor(x.x)] === 'mountain',
+      );
+      return suyos.length > 10 ? suyos : undefined;
+    });
     expect(picos.filter((s) => esMesa('picos-arenisca', s))).toEqual([]);
   });
 

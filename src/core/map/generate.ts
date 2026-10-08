@@ -11,6 +11,7 @@
 
 import {
   ASALTANTES,
+  BARRERAS_DEL_MAPA,
   guarnicionDeBase,
   guarnicionNeutral,
   NIVEL_POR_SUELO,
@@ -70,6 +71,7 @@ import {
   espejoDe,
   parejaDe,
   ponerObstaculos,
+  sinAguaEnLasEsquinas,
   trazarCaminos,
 } from './vestir.js';
 
@@ -1589,6 +1591,12 @@ function vestirRed(
   });
   if (typeof grueso === 'string') return fallo('fronteras', grueso);
   const { tipos, pasillo } = grueso;
+  // El agua de la frontera, antes de los obstáculos: la cuenta de las barreras
+  // garantizadas (paso 8 del engorde) es sobre ella.
+  const nodosDeLaRed = new Set(nodos);
+  const aguaDeFrontera: number[] = [];
+  for (let i = 0; i < N; i++)
+    if (barreraDe(tipos, i) === 'water' && !nodosDeLaRed.has(i)) aguaDeFrontera.push(i);
   const regionsGruesas = regions.map((r, k) => ({
     ...r,
     at: grueso.semillas[k] as Point,
@@ -1883,6 +1891,22 @@ function vestirRed(
     ocupadas,
   });
   const tramos = trazado.map(([p, q]): TramoDeCamino => [punto(p), punto(q)]);
+  // Y ninguna senda corta en diagonal la esquina de una casilla de agua, salvo
+  // la que llega a un puente (#210): esas esquinas pasan a montaña.
+  const puentes = new Set(
+    nodos.filter((_n, k) => !ciudadesEnNodo.has(k) && grueso.barreraDeNodo[k] === 'water'),
+  );
+  sinAguaEnLasEsquinas(W, H, tipos, trazado, puentes, nodosDeLaRed);
+  // Si con eso el agua de la frontera se queda sin las casillas de una barrera
+  // garantizada, el vestido no vale: el mapa perdería una de sus
+  // `TIPOS_POR_MAPA` (s164: el agua de 15 a 14).
+  const { casillasMinimasPorTipo } = BARRERAS_DEL_MAPA;
+  const queda = aguaDeFrontera.filter((i) => barreraDe(tipos, i) === 'water').length;
+  if (aguaDeFrontera.length >= casillasMinimasPorTipo && queda < casillasMinimasPorTipo)
+    return fallo(
+      'obstáculos',
+      `las esquinas de agua de las sendas dejan el agua de la frontera en ${queda} casillas, y una barrera del mapa lleva ${casillasMinimasPorTipo}`,
+    );
 
   // Los muros, por tramos de fila del mismo tipo: frontera y obstáculos juntos.
   // Las casillas de nodo van dentro del tramo y `buildMap` las abre: es la

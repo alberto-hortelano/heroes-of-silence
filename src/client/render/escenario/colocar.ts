@@ -1243,7 +1243,11 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   // El pasillo se mide sobre el trazo que se pinta, no sobre la casilla: la
   // senda ondula y entre dos casillas no hay centro que reservar. La senda llega
   // a los estribos de cada puente y no sigue por encima (#157).
-  const suavizadas = sendas(tramosHastaLosEstribos(caminos, puentes), semilla);
+  // Y acaba en cada ciudad o nodo que atraviesa: llega recta a su puerta (#210).
+  const deUnNodo = new Set(a.red.nodos.map((n) => `${n.at.x + 0.5},${n.at.y + 0.5}`));
+  const suavizadas = sendas(tramosHastaLosEstribos(caminos, puentes), semilla, (x, y) =>
+    deUnNodo.has(`${x},${y}`),
+  );
   // El eje de cada nodo de paso, con camino o sin él: sin camino que abriera
   // hueco, los picos y los árboles de alrededor lo enterraban y el paso no se
   // distinguía de la cordillera (#173).

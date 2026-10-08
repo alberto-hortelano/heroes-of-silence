@@ -119,11 +119,23 @@ export function grafoDeTramos(tramos: readonly Tramo[]): GrafoDeTramos {
   return { puntos, vecinos, numero, arista: (a, b) => (a < b ? a * n + b : b * n + a) };
 }
 
-/** Encadena los tramos en líneas que van de junta a junta. */
-export function encadenar(tramos: readonly Tramo[]): [number, number][][] {
+/**
+ * Encadena los tramos en líneas que van de junta a junta. `corta` dice qué
+ * puntos acaban una línea aunque solo lleguen dos tramos: una ciudad o un nodo
+ * que el camino atraviesa (#210). Sin cortar ahí, el vaivén de `suavizar` corría
+ * la senda a un lado en la casilla de la puerta, entre el agua y una pared, y se
+ * pintaba sobre el agua (s10 (3,10), s19 (4,9) y s37 (7,26)).
+ */
+export function encadenar(
+  tramos: readonly Tramo[],
+  corta: (x: number, y: number) => boolean = () => false,
+): [number, number][][] {
   const { puntos, vecinos, arista } = grafoDeTramos(tramos);
   const usado = new Set<number>();
-  const grado = (p: number) => (vecinos[p] as readonly number[]).length;
+  const grado = (p: number) => {
+    const g = (vecinos[p] as readonly number[]).length;
+    return g === 2 && corta(...(puntos[p] as readonly [number, number])) ? 0 : g;
+  };
   const lineas: [number, number][][] = [];
   const recorrer = (inicio: number, siguiente: number) => {
     const linea = [inicio];
@@ -225,9 +237,13 @@ function direccion(linea: readonly (readonly [number, number])[], k: number): st
   return `${Math.sign(x1 - x0)},${Math.sign(y1 - y0)}`;
 }
 
-export function sendas(tramos: readonly Tramo[], semilla: number): Senda[] {
+export function sendas(
+  tramos: readonly Tramo[],
+  semilla: number,
+  corta: (x: number, y: number) => boolean = () => false,
+): Senda[] {
   const azar = azarDe(semilla * 7919 + 17);
-  return encadenar(tramos).map((l) => suavizar(l, azar));
+  return encadenar(tramos, corta).map((l) => suavizar(l, azar));
 }
 
 /**

@@ -113,8 +113,13 @@ function lisosDe(semilla: number): number[] {
  */
 const SEMILLAS_DE_LA_AUDITORIA = [34, 443, 57, 9];
 
-/** El techo en 1-40: dos casillas entre dos sendas donde ni el pico más estrecho cabe (s4 y s39). */
-const TECHO_EN_1_40 = 2;
+/**
+ * El techo en 1-40: casillas entre dos sendas donde ni el pico más estrecho
+ * cabe. Eran 2 (s4 y s39); con los mapas de #210, 1 (s23), y con la senda que
+ * no corta el agua en diagonal (#210), 3: s23 y dos de s14, donde el camino que
+ * rodea el vértice de agua pasa ahora junto a un acantilado.
+ */
+const TECHO_EN_1_40 = 3;
 
 describe('en los mapas reales', () => {
   for (const semilla of SEMILLAS_DE_LA_AUDITORIA)

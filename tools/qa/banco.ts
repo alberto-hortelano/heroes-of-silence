@@ -738,11 +738,23 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   `node_captured` 1 212 → 1 152, `town_captured` 1 344 → 1 361,
  *   `march_halted` 142 → 121; ningún tipo nuevo ni ninguno que desaparezca.
  *   autoResolve igual.
+ * - `7af02558…` (60 535 líneas): **la senda no corta el agua en diagonal**
+ *   (#210, 08-10-2026): la búsqueda cobra dos rectos por el paso en diagonal
+ *   con una esquina de agua y lo que queda pasa esa esquina a montaña
+ *   (`sinAguaEnLasEsquinas`), salvo el río junto a un puente; si eso deja el
+ *   agua de la frontera sin sus casillas, el vestido se repite. Mismos
+ *   objetos casi siempre, otro camino y otro terreno: **156 de 200 cambian**;
+ *   en 152 el primer hecho distinto es `hero_moved` (87 el día 1), en 2
+ *   `raider_spawned` (otro vestido), en 1 `turn_start` y en 1 `day_start`. 25
+ *   con otro ganador, j0 117 → 118, **0 sin terminar**, duración 8 / 15 / 26 →
+ *   **8 / 15 / 23**. Batallas 1 536 → 1 545, `hero_defeated` 329 → 350,
+ *   `node_captured` 1 152 → 1 141, `town_captured` 1 361 → 1 357,
+ *   `march_halted` 121 → 123.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '7737a300b8cc8aa91ac84b7213cc68abc91e2d82f12d617eeaafdb35a0d54d3e',
+  sha: '7af02558ea0838501df644b365e9c73126305147738e803a01173a80ef814739',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

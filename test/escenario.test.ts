@@ -265,10 +265,17 @@ describe('sin arte se pinta igual: cada pieza, su marcador de color', () => {
 
   it('junto a un puente (#157): cada vado se quita del barro, del agua y de la espuma', () => {
     // La primera semilla con vados (era la 5, escrita a mano, hasta #169).
-    const { caso: conVados } = primeraSemillaCon('vados junto a un puente', (s) => {
-      const e = escenaDe(s);
-      return e.vados.length > 0 ? e : undefined;
-    });
+    // Desde que la senda no corta en diagonal la esquina del agua (#210), la
+    // única de 1-300 es la 232: se busca desde ella.
+    const { caso: conVados } = primeraSemillaCon(
+      'vados junto a un puente',
+      (s) => {
+        const e = escenaDe(s);
+        return e.vados.length > 0 ? e : undefined;
+      },
+      232,
+      300,
+    );
     const r = registro();
     pintarSuelo(r.contexto(), conVados, separar(conVados), { ...sinImagenes, lienzo: r.lienzo });
     const T = sinImagenes.tile;

@@ -1738,6 +1738,7 @@ class Busqueda {
     const yEnLaEsquina = (k: number): number =>
       puerta[k] === 1 ? 4 : hoja[k] === 1 && red?.[k] === 1 ? 2 : 0;
     const r = this.r;
+    const AGUA = indiceDe('water');
     coste.fill(-1);
     previo.fill(-1);
     const frontera = new Frontera(W * H);
@@ -1788,6 +1789,19 @@ class Busqueda {
         // red —toca el nodo—, así que paga uno más (tres rectos). Con uno solo,
         // diagonal y recto (~2,4) salía más barato que la L (3) y la Y se
         // quedaba (34×34, semillas 4310 y 4525, #179).
+        // Cortar en diagonal la esquina de una casilla de agua pinta la senda
+        // sobre el agua: la huella (0,32 de ancho) pasa por el vértice común y
+        // entra en las dos esquinas (#210; 631 tramos así en 1-40, 117 con las
+        // dos esquinas de agua). Cuesta dos rectos, como la Y: más que la L por
+        // la esquina de tierra. Con un rodeo el camino se iba al borde del mapa
+        // por no tocar un vértice de agua (3,25 tramos por el borde por mapa en
+        // 1-20, techo 3). Lo que queda lo arregla `sinAguaEnLasEsquinas`.
+        // A un nodo no se cobra: al puente se llega como sea (con su vado), y
+        // la entrada en diagonal de los demás no tiene otra.
+        if (enDiagonal && nodo[j] === 0 && nodo[a] === 0) {
+          const jx = j % W;
+          if (tipos[y * W + jx] === AGUA || tipos[j - jx + x] === AGUA) paso += 2 * this.recto;
+        }
         if (enDiagonal && red !== undefined) {
           const jx = j % W;
           const k1 = y * W + jx;
@@ -1904,6 +1918,71 @@ export function centroDeRegion(
  * validada y los obstáculos no parten la región, así que sería un fallo de
  * programa, no un mapa raro.
  */
+/** Si la casilla `k` es la de un puente o una de sus ocho vecinas: su río. */
+const juntoAUnPuente =
+  (W: number, puentes: ReadonlySet<number>) =>
+  (k: number): boolean => {
+    const kx = k % W;
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++)
+        if (kx + dx >= 0 && kx + dx < W && puentes.has(k + dy * W + dx)) return true;
+    return false;
+  };
+
+/**
+ * Las esquinas de agua que cortan en diagonal los tramos de `tramos`, por índice
+ * plano. Ninguna si el trazado es bueno (#210): la huella de la senda (0,32 de
+ * ancho) pasa por el vértice común y se pinta sobre el agua de las dos esquinas.
+ * Sin las del puente (`puentes`): el tramo que llega a él y el agua pegada a su
+ * casilla, que es su río; ahí la senda llega por tierra a los estribos y la
+ * escena pinta el vado (`Escena.vados`). Pasar ese agua a otra barrera dejaba
+ * el puente rodeado de montaña (67 nodos de agua con más montaña que agua
+ * alrededor en 1-200).
+ */
+export function esquinasDeAgua(
+  W: number,
+  esAgua: (i: number) => boolean,
+  tramos: readonly (readonly [number, number])[],
+  puentes: ReadonlySet<number>,
+): number[] {
+  const fuera: number[] = [];
+  const junto = juntoAUnPuente(W, puentes);
+  for (const [p, q] of tramos) {
+    const px = p % W;
+    const qx = q % W;
+    if (px === qx || p - px === q - qx || puentes.has(p) || puentes.has(q)) continue;
+    for (const k of [p - px + qx, q - qx + px]) if (esAgua(k) && !junto(k)) fuera.push(k);
+  }
+  return fuera;
+}
+
+/**
+ * Pasa a montaña cada esquina de agua que una senda corta en diagonal (#210),
+ * y su reflejo si también es agua: el mapa va en espejo. La búsqueda ya cobra
+ * ese paso (`Busqueda`), así que lo que queda es sobre todo la entrada en
+ * diagonal de un nodo o una ciudad entre dos barreras, o una región unida por
+ * un vértice. Las dos
+ * esquinas son barrera, así que nada se abre ni se parte; la montaña admite
+ * cualquier pareja de niveles. Un nodo no se toca: su casilla la abre
+ * `buildMap`.
+ */
+export function sinAguaEnLasEsquinas(
+  W: number,
+  H: number,
+  tipos: Tipos,
+  tramos: readonly (readonly [number, number])[],
+  puentes: ReadonlySet<number>,
+  nodos: ReadonlySet<number>,
+): void {
+  const AGUA = indiceDe('water');
+  const MONTAÑA = indiceDe('mountain');
+  const N = W * H;
+  const junto = juntoAUnPuente(W, puentes);
+  for (const k of esquinasDeAgua(W, (i) => tipos[i] === AGUA && !nodos.has(i), tramos, puentes))
+    for (const c of [k, espejoDe(k, N)])
+      if (tipos[c] === AGUA && !nodos.has(c) && !junto(c)) tipos[c] = MONTAÑA;
+}
+
 export function trazarCaminos(e: EntradaDeCaminos): [number, number][] {
   const tramos: [number, number][] = [];
   for (let r = 0; r < e.regiones; r++) {
