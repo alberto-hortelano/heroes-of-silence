@@ -161,6 +161,7 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
 | Movimiento diario | lo marca la criatura más lenta; se fija al empezar el día |
 | Puntos de hechizo | 10 × Conocimiento |
 | Moral y suerte | −3 a +3 |
+| Moral por mezcla de facciones | se cuenta al empezar la batalla y no se recalcula al morir un stack (como fheroes2, #49) |
 | Prisa/Lentitud | duran el poder mágico del lanzador, en rondas |
 | No-muertos | inmunes a la mala suerte; moral 0 |
 | Dos efectos del mismo origen | refresca la duración (la mayor), no se acumula |

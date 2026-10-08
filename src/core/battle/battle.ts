@@ -200,6 +200,13 @@ export function createBattle(attacker: BattleSide, defender: BattleSide, _rng: R
     if (setup.hero !== null) entradas.push(entradaDelHeroe(setup.hero, setup.army.length));
     const units = entradas.map((e) => e.unit);
     const hexes = despliegue(units, side, setup.hero === null ? null : entradas.length - 1);
+    // La mezcla de facciones se cuenta UNA vez, con el ejército que entra, y no
+    // se recalcula al morir un stack (#49): igual que fheroes2, que la cuenta
+    // sobre el `Army` de fuera de la batalla (`army.cpp`, `GetMoraleModificator`:
+    // `for ( const Troop * troop : *this ) if ( troop->isValid() )`), cuyas bajas
+    // solo se apuntan al acabar (`battle_main.cpp`, `syncOriginalArmy`). Fuente:
+    // https://github.com/ihhub/fheroes2/blob/9754feff8501dbb69df95f3b999156a32eb8d7d3/src/fheroes2/army/army.cpp#L1226-L1236
+    // https://github.com/ihhub/fheroes2/blob/9754feff8501dbb69df95f3b999156a32eb8d7d3/src/fheroes2/battle/battle_main.cpp#L456-L457
     const baseMorale = armyMorale(units) + (setup.moraleBonus ?? 0);
     const luckBonus = setup.luckBonus ?? 0;
 

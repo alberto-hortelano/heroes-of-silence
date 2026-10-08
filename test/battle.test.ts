@@ -188,6 +188,28 @@ describe('moral por composición del ejército', () => {
     expect(armyMorale([u('peasant'), sinFaccion])).toBe(1);
     expect(armyMorale([sinFaccion])).toBe(0);
   });
+
+  it('se fija al empezar la batalla: muerto el de otra facción, la mezcla sigue costando (#49)', () => {
+    // Igual que fheroes2: la mezcla se cuenta sobre el ejército de fuera de la
+    // batalla, que no se entera de las bajas hasta que la batalla acaba.
+    const state = createBattle(
+      side([
+        { creature: 'peasant', count: 5 },
+        { creature: 'skeleton', count: 5 },
+      ]),
+      side([{ creature: 'pikeman', count: 5 }]),
+      createRng(1),
+    );
+    const campesino = stackById(state, 'attacker-0');
+    expect(campesino.morale).toBe(0);
+    herir(stackById(state, 'attacker-1'), 9999, null);
+    // Una ronda entera a la defensiva, para pasar por el final de ronda y por
+    // cada `advance`, que es donde se colaría un recálculo.
+    const rng = createRng(1);
+    while (state.round < 2) applyAction(state, { type: 'defend' }, rng);
+    expect(state.finished).toBeNull();
+    expect(campesino.morale).toBe(0);
+  });
 });
 
 describe('despliegue inicial', () => {
