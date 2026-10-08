@@ -163,17 +163,32 @@ const pigmento = (suelo: string) => PIGMENTO[suelo] ?? SIN_PIGMENTO;
 const VIVEZA: Readonly<Record<string, string>> = {
   grass: 'saturate(1.45) brightness(1.3)',
   dirt: 'saturate(1.2) brightness(1.15)',
-  swamp: 'saturate(1.15) brightness(1.1)',
+  // Algo más oscura que el resto: al alejar, el agua tiene que salir de ella (#205).
+  swamp: 'saturate(1.2) brightness(0.95)',
   sand: 'saturate(0.8) brightness(0.92)',
   snow: 'brightness(1.15)',
   lava: 'saturate(1.2) brightness(1.15)',
   rough: 'brightness(1.12)',
 };
 
+/**
+ * El agua tiene que leerse como agua al alejar (#205, auditoría 4 §8): con
+ * `saturate(1.3) brightness(1.45)` y el centro oscurecido a 0,45, el agua, la
+ * ciénaga y la roca de la s80 eran el mismo gris. Más clara y más azul, con
+ * el centro apenas más hondo, la espuma de la orilla más marcada, la ciénaga
+ * algo más oscura (`VIVEZA`) y su niebla más tenue: la luminancia media por
+ * casilla a 16 px, agua menos ciénaga, pasó de 5,7 / 5,5 / 11,1 a 15,1 / 15,0
+ * / 20,7 en s80, s2 y s57 (08-10-2026).
+ */
+const FILTRO_DEL_AGUA = 'saturate(1.6) brightness(1.8)';
+const HONDO_DEL_AGUA = 'rgba(10,35,70,0.22)';
+const ESPUMA = 'rgba(225,235,235,0.5)';
+
 const COLOR_DE_LUZ: Readonly<Record<Luz['clase'], readonly [number, number, number, number]>> = {
   fuego: [255, 170, 80, 0.22],
   brasa: [255, 90, 30, 0.2],
-  niebla: [210, 222, 228, 0.16],
+  // Tenue (era 0,16): sobre la ciénaga la aclaraba hasta el gris del agua (#205).
+  niebla: [210, 222, 228, 0.1],
 };
 
 const anchoNatural = (im: Imagen) => ('naturalWidth' in im ? im.naturalWidth : im.width);
@@ -611,7 +626,7 @@ export function pintarSuelo(
       0,
       0,
     );
-    c.filter = 'saturate(1.3) brightness(1.45)';
+    c.filter = FILTRO_DEL_AGUA;
     c.drawImage(
       rellenar(
         secar(
@@ -636,7 +651,7 @@ export function pintarSuelo(
     );
     const ge = contexto(espuma);
     ge.globalCompositeOperation = 'source-in';
-    ge.fillStyle = 'rgba(225,235,235,0.38)';
+    ge.fillStyle = ESPUMA;
     ge.fillRect(0, 0, espuma.width, espuma.height);
     ge.globalCompositeOperation = 'destination-out';
     ge.drawImage(mascara(aguaHonda, T * 0.35), 0, 0);
@@ -644,7 +659,7 @@ export function pintarSuelo(
     const hondo = mascara(aguaHonda, T * 0.5);
     const gh = contexto(hondo);
     gh.globalCompositeOperation = 'source-in';
-    gh.fillStyle = 'rgba(5,15,30,0.45)';
+    gh.fillStyle = HONDO_DEL_AGUA;
     gh.fillRect(0, 0, hondo.width, hondo.height);
     c.drawImage(hondo, 0, 0);
     // 5 · Los cantos de las caídas al este y al oeste, difuminados.

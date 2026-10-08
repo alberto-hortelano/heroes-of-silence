@@ -376,6 +376,11 @@ export interface Escena {
      * (`cubiertaComoLaBarrera`, #184): tiene que ser 0.
      */
     readonly cubiertaComoLaBarrera: number;
+    /**
+     * Casillas de acantilado sin roca ni masa de `ALTO_DE_LO_ALTO` o más con el
+     * pie en ellas (`acantiladosLisos`, #205): lo alto que se lee como suelo.
+     */
+    readonly acantiladosLisos: number;
     readonly modulosQueFaltan: readonly string[];
   };
 }
@@ -388,6 +393,39 @@ const ENCOGER_HASTA = 0.4;
 
 /** Una masa encogida por debajo de este alto, en casillas, ya no se lee como árbol ni como pico. */
 const ALTO_MINIMO_DE_MASA = 0.3;
+
+/**
+ * Lo que tiene que levantar la roca de una casilla de acantilado para que lo
+ * alto no se lea como suelo (#205), en casillas: el umbral de la auditoría 4
+ * (0,35) con algo de holgura. La cubierta rala de lo que se pisa en la arena
+ * o la lava no pasa de 0,3 tumbada; la de la nieve o la hierba, de 0,7, pero
+ * es cubierta y no cuenta (`esDeLoAlto`).
+ */
+export const ALTO_DE_LO_ALTO = 0.4;
+
+/**
+ * El alto del pico que se pone en la casilla de acantilado que no tiene
+ * ninguno, hasta 1,35 veces; en una casilla de dentro de la meseta (sus cuatro
+ * vecinas son acantilado), `ALTO_EN_LO_ANCHO` veces más: es la que más se lee
+ * como un llano.
+ */
+const ALTO_DE_LA_CIMA = 0.55;
+const ALTO_EN_LO_ANCHO = 1.3;
+
+/**
+ * Cuántos picos de lo alto lleva una casilla de acantilado según cuántas de
+ * sus cuatro vecinas son acantilado: uno en una cresta de una casilla, dos en
+ * el borde de una meseta y tres dentro, que con uno solo seguía viéndose la
+ * nieve entre ellos como un llano (s443 (15, 10)).
+ */
+const picosDeLaCima = (vecinas: number): number => Math.min(3, Math.max(1, vecinas - 1));
+
+/** Lo menos que se apartan, en casillas, dos picos puestos en la misma casilla. */
+const SEPARACION_EN_LA_CIMA = 0.45;
+
+/** Si `s` es roca o masa de `ALTO_DE_LO_ALTO` o más: lo que marca una casilla como barrera. */
+const esDeLoAlto = (s: Pick<Sprite, 'clase' | 'alto'>): boolean =>
+  (s.clase === 'roca' || s.clase === 'masa') && s.alto >= ALTO_DE_LO_ALTO;
 
 /**
  * Dónde se prueba a poner el relleno de una casilla de bosque o cordillera sin
@@ -885,7 +923,12 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   const pieza = (id: string): Pieza | null => catalogo.piezas[id] ?? null;
   const a = analizar(map);
   const { nivel } = relieve(a, semilla);
-  const azar = azarDe(semilla * 7919 + 1);
+  // `let`: lo alto de los acantilados (#205) se viste con su propia corriente
+  // (`azarDeLoAlto`) y se cambia mientras tanto. Con la misma, los picos de más
+  // movían todo lo que se viste después: las cordilleras de 1-40 salían otras
+  // y el guardia de #204 (s22 (9, 18)) contaba 8 cumbres dominantes.
+  let azar = azarDe(semilla * 7919 + 1);
+  const azarDeLoAlto = azarDe(semilla * 3571 + 7);
   const { W, H } = a;
   const sprites: Sprite[] = [];
   const faltan = new Set<string>();
@@ -1676,7 +1719,16 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     } else if (f.barrera === 'cliff') {
       // El acantilado es relieve: la cara la pinta el pintor. Arriba, roca y peñascos.
       // Una mesa (mancha) lleva cubierta encima; la franja de frontera, algo más de roca.
+      const desde = sprites.length;
       rellenoDeRocas(f, dentro, 0.34, 0.6, f.uso === 'obstaculo' ? 0.1 : 0.3);
+      const principal = azar;
+      azar = azarDeLoAlto;
+      try {
+        rocaEnLoAlto(desde);
+        cimaDeRoca(f, sprites.slice(desde));
+      } finally {
+        azar = principal;
+      }
       for (const i of f.casillas) puestos.add(i);
     } else if (f.barrera === 'water') {
       // El agua la pinta el pintor como superficie; aquí, la orilla.
@@ -1933,32 +1985,143 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       const i = Math.floor(p.y) * W + Math.floor(p.x);
       const s = a.suelo[i] as Suelo;
       const tirada = azar();
-      if (tirada < roca * 0.5 && f.barrera === 'cliff')
-        poner(
-          hojaDeMasa('mountain', s, azar),
-          p.x,
-          p.y,
-          alto * (0.9 + azar() * 0.6),
-          azar() * 0.4,
-          'roca',
-          MARCADOR.cliff as string,
-          true,
-        );
-      else if (tirada < roca)
-        poner(
-          'rocas-caidas',
-          p.x,
-          p.y,
-          alto * 0.6 * (0.8 + azar() * 0.5),
-          azar() * 0.6,
-          'roca',
-          MARCADOR.cliff as string,
-          true,
-          undefined,
-          undefined,
-          materialDeCara(CARA_DE_SUELO[s]).pedregal,
-        );
+      if (tirada < roca * 0.5 && f.barrera === 'cliff') picoDeLoAlto(s, p.x, p.y, alto);
+      else if (tirada < roca) peñascoDeLoAlto(s, p.x, p.y, alto);
       else mata(hojaDeCubierta(s, azar()), p.x, p.y, altoDeMata(s));
+    }
+  }
+
+  /** Un pico bajo de la roca del suelo `s` en lo alto de un acantilado. */
+  function picoDeLoAlto(s: Suelo, x: number, y: number, alto: number): boolean {
+    return poner(
+      hojaDeMasa('mountain', s, azar),
+      x,
+      y,
+      alto * (0.9 + azar() * 0.6),
+      azar() * 0.4,
+      'roca',
+      MARCADOR.cliff as string,
+      true,
+    );
+  }
+
+  /** Peñascos caídos del pedregal del suelo `s`. */
+  function peñascoDeLoAlto(s: Suelo, x: number, y: number, alto: number): boolean {
+    return poner(
+      'rocas-caidas',
+      x,
+      y,
+      alto * 0.6 * (0.8 + azar() * 0.5),
+      azar() * 0.6,
+      'roca',
+      MARCADOR.cliff as string,
+      true,
+      undefined,
+      undefined,
+      materialDeCara(CARA_DE_SUELO[s]).pedregal,
+    );
+  }
+
+  /**
+   * En lo alto de un acantilado de un suelo cuya cubierta es de la roca de la
+   * barrera (la arena, la lava), esa cubierta es la misma que abajo: los
+   * bloques y los huesos de la arena que se pisa (#205, s34). Ahí, de lo que
+   * puso `rellenoDeRocas` desde `desde`, cada mata se cambia por roca en su
+   * sitio (mitad picos, mitad peñascos): con una de cada cuatro que quedaba,
+   * los huesos seguían salpicando la meseta. Se cambian
+   * después, y no en la tirada del relleno, para que el relleno gaste la misma
+   * corriente de azar que antes.
+   */
+  function rocaEnLoAlto(desde: number): void {
+    const cambiadas: Sprite[] = [];
+    for (let k = sprites.length - 1; k >= desde; k--) {
+      const m = sprites[k] as Sprite;
+      const s = a.suelo[Math.floor(m.y) * W + Math.floor(m.x)] as Suelo;
+      if (m.clase !== 'cubierta' || !CUBIERTA[s].comoLaBarrera) continue;
+      sprites.splice(k, 1);
+      cambiadas.push(m);
+    }
+    for (const m of cambiadas) {
+      const s = a.suelo[Math.floor(m.y) * W + Math.floor(m.x)] as Suelo;
+      if (azar() < 0.5) picoDeLoAlto(s, m.x, m.y, 0.6);
+      else peñascoDeLoAlto(s, m.x, m.y, 0.6);
+    }
+  }
+
+  /**
+   * Lo alto de un acantilado no se lee como suelo (#205): cada casilla lleva al
+   * menos un pico de la roca de su suelo de `ALTO_DE_LO_ALTO` o más, y la de una
+   * meseta ancha, más (`picosDeLaCima`). Con solo el relleno, una meseta de 2-3 de ancho salía con la cubierta y unas piedras,
+   * como la nieve pisable de al lado (s443 (14-16, 9-11)), y la de arena, con
+   * los mismos bloques bajos y huesos que la arena que se pisa (s34 (17-22,
+   * 5-7)). Se prueba por la casilla de más cerca a más lejos del centro de su
+   * mitad baja y solo donde cabe sin encogerse por debajo del umbral: la senda,
+   * los pasos, las trochas y las reservas mandan (`entra`, `altoLibre`).
+   */
+  function cimaDeRoca(f: Franja, puestos: readonly Sprite[]): void {
+    const cuantos = new Map<number, number>();
+    for (const s of puestos.filter(esDeLoAlto)) {
+      const k = Math.floor(s.y) * W + Math.floor(s.x);
+      cuantos.set(k, (cuantos.get(k) ?? 0) + 1);
+    }
+    for (const i of f.casillas) {
+      const cx = i % W;
+      const cy = Math.floor(i / W);
+      const vecinas = (
+        [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ] as const
+      ).filter(([dx, dy]) => {
+        const x = cx + dx;
+        const y = cy + dy;
+        return x >= 0 && y >= 0 && x < W && y < H && a.terreno[y * W + x] === 'cliff';
+      }).length;
+      const faltan = picosDeLaCima(vecinas) - (cuantos.get(i) ?? 0);
+      if (faltan <= 0) continue;
+      const hoja = hojaDeMasa('mountain', a.suelo[i] as Suelo, azar);
+      const alto = ALTO_DE_LA_CIMA * (vecinas === 4 ? ALTO_EN_LO_ANCHO : 1);
+      // Junto a una senda, el módulo elegido puede no caber por ancho y el más
+      // estrecho de la hoja sí.
+      const estrecho = masEstrecho(hoja);
+      const puestosAqui: Sprite[] = [];
+      for (const [dx, dy] of SITIOS_DE_RELLENO) {
+        if (puestosAqui.length >= faltan) break;
+        const x = cx + dx;
+        const y = cy + dy;
+        // Varios en una casilla, apartados: si no, se apilan en el mismo sitio.
+        if (puestosAqui.some((p) => Math.hypot(p.x - x, p.y - y) < SEPARACION_EN_LA_CIMA)) continue;
+        const pico = deHoja(
+          hoja,
+          x,
+          y,
+          alto * (1 + azar() * 0.35),
+          0.3 + azar() * 0.5,
+          'roca',
+          MARCADOR.cliff as string,
+          true,
+        );
+        const cabe = [
+          pico,
+          ...(estrecho === undefined || estrecho.src === pico.src
+            ? []
+            : [
+                {
+                  ...pico,
+                  src: estrecho.src,
+                  nw: estrecho.nw,
+                  nh: estrecho.nh,
+                  ax: estrecho.ax,
+                  ay: estrecho.ay,
+                },
+              ]),
+        ].find((p) => entra(p) && obstaculos.altoLibre(p) >= ALTO_DE_LO_ALTO);
+        if (cabe === undefined) continue;
+        meter(ajustado(cabe));
+        puestosAqui.push(cabe);
+      }
     }
   }
 
@@ -2521,9 +2684,35 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       cubiertaComoLaBarrera: ((c) => c.altas.length + c.regionesDensas.length)(
         cubiertaComoLaBarrera(sprites, a.suelo, a.region, W),
       ),
+      acantiladosLisos: acantiladosLisos(sprites, a.terreno, W, (i) => bajoLaHuella[i] === 1)
+        .length,
       modulosQueFaltan: [...faltan].sort(),
     },
   };
+}
+
+/**
+ * Las casillas de acantilado sin ninguna roca ni masa de `ALTO_DE_LO_ALTO` o
+ * más con el pie en ellas (#205): lo alto que se lee como un suelo que se pisa.
+ * No cuentan las de `bajoUnObjeto`, la huella de una ciudad, un pueblo o un
+ * nodo, que tapa el objeto y donde no entra nada (su reserva). Es
+ * `informe.acantiladosLisos`: antes de `cimaDeRoca`, 1 167 de 4 016 en 1-40 (la
+ * cubierta y las piedras de lo alto no cuentan); con ella, 2, dos casillas
+ * entre dos sendas donde ni el pico más estrecho cabe de 0,4.
+ */
+export function acantiladosLisos(
+  sprites: readonly Pick<Sprite, 'clase' | 'alto' | 'x' | 'y'>[],
+  terreno: readonly TerrainKind[],
+  W: number,
+  bajoUnObjeto: (i: number) => boolean,
+): number[] {
+  const conCima = new Set(
+    sprites.filter(esDeLoAlto).map((s) => Math.floor(s.y) * W + Math.floor(s.x)),
+  );
+  const lisos: number[] = [];
+  for (let i = 0; i < terreno.length; i++)
+    if (terreno[i] === 'cliff' && !conCima.has(i) && !bajoUnObjeto(i)) lisos.push(i);
+  return lisos;
 }
 
 /**
