@@ -20,6 +20,7 @@ import { BARRERAS_DEL_MAPA, type BarreraConPeso } from '../data.js';
 import type { Rng } from '../rng.js';
 import { Frontera } from './frontera.js';
 import {
+  acantiladosSinCaida,
   aPunto,
   espigasDelRelieve,
   type NodoDelRelieve,
@@ -547,6 +548,12 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
     if (pasillo[i] === 0 && engorda[i] !== ABIERTA) tipos[i] = engorda[i] as number;
   }
 
+  // La región de cada casilla que se pisa, de aquí en adelante. Hasta el paso 5
+  // es la celda de Voronoi, pero el acantilado se adelgaza abriendo casillas de
+  // la celda de enfrente a la meseta (`adelgazarAcantilados`, #215), y de ellas
+  // leen la región los bolsillos, los cruces y las espigas.
+  const region = Int32Array.from(etiqueta);
+
   // 6. Los bolsillos: cada región se queda con un trozo; los demás se rellenan
   //    si no llevan pasillo, y si lo llevan el vestido no vale. Se mira otra vez
   //    después de quitar las espigas (paso 7b), que también rellena.
@@ -565,7 +572,7 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
       toma(i);
       const casillas = rellenar(W, H, i, toma).sort((a, b) => a - b);
       trozos.push({
-        region: etiqueta[i] as number,
+        region: region[i] as number,
         casillas,
         pasillo: casillas.some((c) => pasillo[c] === 1),
       });
@@ -596,7 +603,7 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
   //     pareja, pero junto a un cruce de tres regiones la de una pareja llega a
   //     tocar la tercera (`desnivelEnLosCruces`). Antes de las murallas: no
   //     pone muro, y lo que el paso 7 pone en su lugar ya mira los niveles.
-  desnivelEnLosCruces(W, H, tipos, etiqueta, esNodo, e.niveles);
+  desnivelEnLosCruces(W, H, tipos, region, esNodo, e.niveles);
 
   // 7. Las murallas cortas (#208): la barrera que cruza cada nodo depende de lo
   //    que tiene alrededor, y una muralla larga se vuelve otra barrera, así que
@@ -609,10 +616,35 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
   const llano = e.niveles.every((n) => n === e.niveles[0]);
   /** Lo que se quedó de muro al partir una muralla: no se vuelve a partir. */
   const partida = new Uint8Array(N);
+  /** El nivel de cada casilla tal como está ahora el engorde, con la regla de la escena. */
+  const nivelAhora = (): Int8Array =>
+    nivelesDeLoEngordado(
+      W,
+      H,
+      tipos,
+      region,
+      esNodo,
+      e.niveles,
+      e.nodos,
+      barreraDeNodo,
+      alBajo,
+      esCiudad,
+    );
   for (let vuelta = 0; ; vuelta++) {
     for (;;) {
       const largas = murallasLargas(e, tipos, esNodo, barreraDeNodo);
-      if (largas.length === 0) break;
+      if (largas.length === 0) {
+        // 7a. El acantilado, una línea de una casilla (#215): lo que sobra pasa
+        //     a la meseta. Abrir casillas cambia lo que rodea a los nodos, y
+        //     con ello su barrera y quizá una muralla: se vuelve a mirar.
+        if (!adelgazarAcantilados(W, H, tipos, region, esNodo, e.niveles, nivelAhora)) break;
+        // La meseta que crece puede llegar a un bosque o un muro de la pareja
+        // de al lado, que va entre dos regiones más bajas: la regla de los
+        // cruces (6b) le da la barrera de desnivel donde toca a la meseta.
+        desnivelEnLosCruces(W, H, tipos, region, esNodo, e.niveles);
+        barreraDeNodo = barrerasDeLosNodos(e, tipos, esNodo, clave, tipoDePareja, candidatasDe);
+        continue;
+      }
       const hechas = new Set<number>();
       for (const larga of largas) {
         if (hechas.has(larga[0] as number)) continue;
@@ -624,7 +656,7 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
         for (const c of larga)
           for (let v = desde[c]!; v < desde[c + 1]!; v++) {
             const j = vecinas[v]!;
-            if (tipos[j] === ABIERTA && esNodo[j] === 0) lados.add(etiqueta[j] as number);
+            if (tipos[j] === ABIERTA && esNodo[j] === 0) lados.add(region[j] as number);
           }
         // De lo que admiten sus suelos, primero lo que el mapa aún no tiene con
         // sus `casillasMinimasPorTipo`: si el muro era de las barreras
@@ -687,6 +719,15 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
       }
       barreraDeNodo = barrerasDeLosNodos(e, tipos, esNodo, clave, tipoDePareja, candidatasDe);
     }
+    // 7a'. Y el acantilado que se quedó sin caída (#215). Casi siempre es un
+    //     espolón de una casilla que se mete en lo bajo, con lo bajo a los dos
+    //     lados, que el relieve hunde a su nivel (`nivelesDelRelieve`): se abre
+    //     a esa región y la línea sigue por detrás. El resto —un trozo entre dos
+    //     regiones al mismo nivel, junto a un cruce— pasa a montaña.
+    if (sinAcantiladoLlano(W, H, tipos, region, esNodo, e.niveles, nivelAhora)) {
+      desnivelEnLosCruces(W, H, tipos, region, esNodo, e.niveles);
+      barreraDeNodo = barrerasDeLosNodos(e, tipos, esNodo, clave, tipoDePareja, candidatasDe);
+    }
     // 7b. Sin espigas (#210): ninguna casilla de una de ancho por encima de lo
     //     que tiene a los dos lados. Rellenar puede partir una región y cambiar
     //     la barrera de un nodo, y eso, una muralla: se vuelve a mirar todo.
@@ -695,7 +736,7 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
       W,
       H,
       tipos,
-      etiqueta,
+      region,
       muro,
       esNodo,
       pasillo,
@@ -703,14 +744,55 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
       e.nodos,
       barreraDeNodo,
       alBajo,
+      esCiudad,
     );
     if (!conEspigas) break;
     const partida7 = bolsillos();
     if (partida7 !== null) return partida7;
     // Lo rellenado puede dejar un trozo de acantilado tocando un solo nivel, o
     // un bosque tocando dos: se arregla con la regla de los cruces (6b).
-    desnivelEnLosCruces(W, H, tipos, etiqueta, esNodo, e.niveles);
+    desnivelEnLosCruces(W, H, tipos, region, esNodo, e.niveles);
     barreraDeNodo = barrerasDeLosNodos(e, tipos, esNodo, clave, tipoDePareja, candidatasDe);
+  }
+
+  // 7c. Ningún acantilado sin caída (#215): lo de arriba lo deja así, salvo que
+  //     la regla de los cruces le dé a un bosque la barrera de desnivel junto a
+  //     lo que no cae. Ese vestido no vale.
+  const sinCaida = acantiladoSinCaida({
+    W,
+    H,
+    tipos,
+    regionDe: region,
+    nodos: e.nodos,
+    barreraDeNodo,
+    niveles: e.niveles,
+    alBajo,
+    ciudades: esCiudad,
+  });
+  if (sinCaida !== null) return sinCaida;
+  // 7d. Y fuera de los nodos, dos regiones a tres pasos como poco salvo a
+  //     través de un acantilado (#215). Lo garantizan el engorde y la línea,
+  //     pero el acantilado sin caída del paso 7a' pasa a montaña, y si estaba
+  //     entre la meseta y lo bajo deja una montaña de una casilla en medio
+  //     (s18 (1,13): un codo hundido por el agua de al lado). Ese vestido no vale.
+  for (let i = 0; i < N; i++) {
+    if (tipos[i] !== ABIERTA || esNodo[i] === 1 || cerca[i] === 1) continue;
+    const { x, y } = aPunto(i, W);
+    for (let dy = -2; dy <= 2; dy++)
+      for (let dx = -2; dx <= 2; dx++) {
+        const qx = x + dx;
+        const qy = y + dy;
+        if (qx < 0 || qy < 0 || qx >= W || qy >= H) continue;
+        const q = qy * W + qx;
+        if (tipos[q] !== ABIERTA || esNodo[q] === 1 || cerca[q] === 1 || region[q] === region[i])
+          continue;
+        let acantilado = false;
+        for (let my = Math.max(y, qy) - 1; my <= Math.min(y, qy) + 1; my++)
+          for (let mx = Math.max(x, qx) - 1; mx <= Math.min(x, qx) + 1; mx++)
+            if (tipos[my * W + mx] === indiceDe('cliff')) acantilado = true;
+        if (!acantilado)
+          return `las regiones ${region[i]} y ${region[q]} quedan a dos pasos en (${x},${y}) y (${qx},${qy}), sin un acantilado en medio`;
+      }
   }
 
   // 8. Las barreras garantizadas, contadas en la frontera ya gruesa y sin las
@@ -742,8 +824,8 @@ const VUELTAS_SIN_ESPIGAS = 8;
 /**
  * El terreno y las regiones de lo engordado como los verá la escena, y el nivel
  * de cada casilla con la misma regla (`nivelesDelRelieve`, `nivelDelNodo`). El
- * nodo de agua es un puente, agua en la escena; el de lo demás va al bajo si es
- * ciudad o lleva camino (`alBajo`) y si no al alto.
+ * nodo de agua que no es ciudad es un puente, agua en la escena; el de lo demás
+ * se pisa y va al bajo si es ciudad o lleva camino (`alBajo`) y si no al alto.
  */
 function nivelesDeLoEngordado(
   W: number,
@@ -755,6 +837,7 @@ function nivelesDeLoEngordado(
   nodos: readonly number[],
   barreraDeNodo: readonly Barrera[],
   alBajo: ReadonlySet<number>,
+  ciudades: ReadonlySet<number>,
 ): Int8Array {
   const N = W * H;
   const terreno: TerrainKind[] = new Array(N);
@@ -767,10 +850,15 @@ function nivelesDeLoEngordado(
   const { desde, vecinas } = vecindad(W, H);
   const delRelieve: NodoDelRelieve[] = [];
   for (const [k, n] of nodos.entries()) {
-    if (barreraDeNodo[k] === 'water') {
+    if (barreraDeNodo[k] === 'water' && !ciudades.has(n)) {
       terreno[n] = 'water';
       continue;
     }
+    // Lo demás se pisa, como en la escena: `buildMap` abre la casilla. Con la
+    // barrera de debajo, el acantilado seguía por el nodo y una casilla junto
+    // a una ciudad tomaba la región de enfrente por la más cercana (s74 en
+    // 64×64, (33,37): a 1 aquí y a 2 en la escena, #215).
+    terreno[n] = 'grass';
     const regiones = new Set<number>();
     for (let v = desde[n]!; v < desde[n + 1]!; v++) {
       const r = regionDe[vecinas[v]!] as number;
@@ -810,6 +898,7 @@ function quitarEspigas(
   nodos: readonly number[],
   barreraDeNodo: readonly Barrera[],
   alBajo: ReadonlySet<number>,
+  ciudades: ReadonlySet<number>,
 ): boolean {
   const N = W * H;
   const nivel = nivelesDeLoEngordado(
@@ -822,6 +911,7 @@ function quitarEspigas(
     nodos,
     barreraDeNodo,
     alBajo,
+    ciudades,
   );
   const espigas = espigasDelRelieve(W, H, nivel);
   const abierta = (j: number): boolean => tipos[j] === ABIERTA && esNodo[j] === 0;
@@ -868,6 +958,277 @@ function quitarEspigas(
     }
   }
   return cambio;
+}
+
+/**
+ * El acantilado, una línea de una casilla (#215): el borde de la meseta, con lo
+ * bajo a su pie, y no un campo de roca. «Línea de 1 casilla: el ancho que sobra
+ * pasa a la meseta, que se pisa. Como en HoMM: meseta transitable, borde
+ * infranqueable salvo por rampa» (el usuario). El engorde dejaba franjas de 3-4
+ * casillas, todas al nivel alto (`nivelesDelRelieve`), con la caída solo en el
+ * borde de abajo: la auditoría 6 contó 447 de 776 casillas sin nada más bajo en
+ * cruz, y la escena las cubría de roca.
+ *
+ * Por vueltas (`abrirAcantilado`): se abre a la región `r` de sus vecinas cada
+ * casilla cuya `r` es el lado alto —de las dos regiones más cercanas por dentro
+ * de la franja, la otra está más baja—. Así la meseta se come la franja desde
+ * su lado hasta la fila que toca lo bajo, que se queda: la línea es el borde
+ * del lado bajo tal como lo dejó el engorde, con su ruido, y lo bajo no cambia.
+ * Devuelve si cambió algo.
+ */
+export function adelgazarAcantilados(
+  W: number,
+  H: number,
+  tipos: Tipos,
+  region: Int32Array,
+  esNodo: Uint8Array,
+  niveles: readonly Nivel[],
+  nivelAhora: () => ArrayLike<number>,
+): boolean {
+  const N = W * H;
+  const { desde, vecinas } = vecindad(W, H);
+  const CORTADO = indiceDe('cliff');
+  const abierta = (j: number): boolean => tipos[j] === ABIERTA && esNodo[j] === 0;
+  const esCorte = (j: number): boolean => tipos[j] === CORTADO && esNodo[j] === 0;
+  let cambio = false;
+  for (;;) {
+    // Las dos regiones más cercanas de cada casilla de acantilado, por dentro
+    // de su franja: la primera que llega y la segunda distinta.
+    const r1 = new Int32Array(N).fill(-1);
+    const r2 = new Int32Array(N).fill(-1);
+    const cola: number[] = [];
+    const ofrecer = (j: number, r: number): void => {
+      if (r1[j] === r || r2[j] === r) return;
+      if (r1[j] === -1) r1[j] = r;
+      else if (r2[j] === -1) r2[j] = r;
+      else return;
+      cola.push(j, r);
+    };
+    for (let i = 0; i < N; i++) {
+      if (!abierta(i)) continue;
+      for (let v = desde[i]!; v < desde[i + 1]!; v++)
+        if (esCorte(vecinas[v]!)) ofrecer(vecinas[v]!, region[i] as number);
+    }
+    for (let q = 0; q < cola.length; q += 2) {
+      const j = cola[q] as number;
+      for (let v = desde[j]!; v < desde[j + 1]!; v++)
+        if (esCorte(vecinas[v]!)) ofrecer(vecinas[v]!, cola[q + 1] as number);
+    }
+    // Ni se abre lo que quedaría de espiga (#210), por encima de sus dos
+    // vecinas de un eje: `quitarEspigas` la rellenaba con la barrera de al lado
+    // —el acantilado— y la vuelta siguiente la volvía a abrir, hasta agotar las
+    // vueltas (s443 (29,18), entre una ciudad y el agua).
+    const nivel = nivelAhora();
+    const espiga = (i: number, r: number): boolean => {
+      const n = niveles[r] as number;
+      const x = i % W;
+      const bajo = (j: number): boolean => (nivel[j] as number) < n;
+      return (
+        (x > 0 && x < W - 1 && bajo(i - 1) && bajo(i + 1)) ||
+        (i >= W && i < N - W && bajo(i - W) && bajo(i + W))
+      );
+    };
+    const alto = (i: number, r: number): boolean => {
+      const otra = (r1[i] === r ? r2[i] : r1[i]) as number;
+      return otra !== -1 && (niveles[otra] as number) < (niveles[r] as number) && !espiga(i, r);
+    };
+    if (abrirAcantilado(W, H, tipos, region, esNodo, niveles, alto).length === 0) return cambio;
+    cambio = true;
+  }
+}
+
+/**
+ * El primer acantilado sin caída de un vestido (`acantiladosSinCaida`, #215),
+ * dicho para el motivo del vestido que no vale, o `null`. Con el nivel de la
+ * escena (`nivelesDeLoEngordado`): la casilla de un nodo de agua es río, y un
+ * nodo va al bajo si está en `alBajo`. `regionDe` es la región de lo que se
+ * pisa; lo demás no se lee. Lo usan el engorde (paso 7c) y el generador
+ * después de los caminos, que cambian el agua de las esquinas a montaña
+ * (`sinAguaEnLasEsquinas`): un trozo de río que deja de tocar lo más bajo sube
+ * con su orilla y el acantilado de al lado se queda sin caída (s148 (12,2)).
+ */
+export function acantiladoSinCaida(e: {
+  readonly W: number;
+  readonly H: number;
+  readonly tipos: Tipos;
+  readonly regionDe: Int32Array;
+  readonly nodos: readonly number[];
+  readonly barreraDeNodo: readonly Barrera[];
+  readonly niveles: readonly Nivel[];
+  readonly alBajo: ReadonlySet<number>;
+  readonly ciudades: ReadonlySet<number>;
+}): string | null {
+  const { W, H, tipos } = e;
+  const esNodo = new Uint8Array(W * H);
+  for (const n of e.nodos) esNodo[n] = 1;
+  const CORTADO = indiceDe('cliff');
+  const nivel = nivelesDeLoEngordado(
+    W,
+    H,
+    tipos,
+    e.regionDe,
+    esNodo,
+    e.niveles,
+    e.nodos,
+    e.barreraDeNodo,
+    e.alBajo,
+    e.ciudades,
+  );
+  const [c] = acantiladosSinCaida(W, H, (i) => tipos[i] === CORTADO && esNodo[i] === 0, nivel);
+  if (c === undefined) return null;
+  return `el acantilado de (${c % W},${Math.floor(c / W)}) se queda sin nada más bajo al lado: sería roca sin caída, no el borde de una meseta`;
+}
+
+/** Cuántas veces se abren espolones de acantilado sin caída antes de dar el resto a la montaña. */
+const VUELTAS_DE_ESPOLONES = 4;
+
+/**
+ * Lo que hace `engordarFronteras` (paso 7a') con el acantilado sin caída
+ * (`acantiladosSinCaida`): lo que solo toca una región se le abre
+ * (`abrirAcantilado`), por vueltas, porque abrir la punta de un espolón deja sin
+ * caída la casilla de detrás; lo que queda, a montaña, que va entre cualquier
+ * pareja de niveles. Devuelve si cambió algo.
+ */
+function sinAcantiladoLlano(
+  W: number,
+  H: number,
+  tipos: Tipos,
+  region: Int32Array,
+  esNodo: Uint8Array,
+  niveles: readonly Nivel[],
+  nivelAhora: () => Int8Array,
+): boolean {
+  const CORTADO = indiceDe('cliff');
+  const esCorte = (i: number): boolean => tipos[i] === CORTADO && esNodo[i] === 0;
+  let cambio = false;
+  for (let vuelta = 0; ; vuelta++) {
+    const llanos = new Set(acantiladosSinCaida(W, H, esCorte, nivelAhora()));
+    if (llanos.size === 0) return cambio;
+    cambio = true;
+    const abiertas =
+      vuelta < VUELTAS_DE_ESPOLONES
+        ? abrirAcantilado(W, H, tipos, region, esNodo, niveles, (i) => llanos.has(i))
+        : [];
+    if (abiertas.length > 0) continue;
+    for (const c of llanos) tipos[c] = indiceDe('mountain');
+    return cambio;
+  }
+}
+
+/**
+ * Una vuelta de abrir casillas de acantilado a la región de al lado: cada una
+ * que no es nodo, cuyo todo lo que se pisa en sus ocho vecinas es de una sola
+ * región `r`, que `quiere(i, r)` y cuyos nodos vecinos ya tocan `r`. Nada de lo
+ * que se pisa de una región queda así junto a otra (la que se abre no toca más
+ * que `r`), y la red sigue cerrada en ocho vecinas. La decisión es por casilla y
+ * simultánea, y por eso sale en espejo: dos que se abrirían a regiones
+ * distintas y se tocan no se abren. Devuelve las que abrió.
+ */
+function abrirAcantilado(
+  W: number,
+  H: number,
+  tipos: Tipos,
+  region: Int32Array,
+  esNodo: Uint8Array,
+  niveles: readonly Nivel[],
+  quiere: (i: number, r: number) => boolean,
+): number[] {
+  const N = W * H;
+  const { desde, vecinas } = vecindad(W, H);
+  const CORTADO = indiceDe('cliff');
+  const abierta = (j: number): boolean => tipos[j] === ABIERTA && esNodo[j] === 0;
+  // Las regiones que toca cada nodo: abrir junto a uno no le da otra.
+  const tocaElNodo = (n: number, r: number): boolean => {
+    for (let v = desde[n]!; v < desde[n + 1]!; v++)
+      if (abierta(vecinas[v]!) && region[vecinas[v]!] === r) return true;
+    return false;
+  };
+  const aQuien = new Int32Array(N).fill(-1);
+  for (let i = 0; i < N; i++) {
+    if (tipos[i] !== CORTADO || esNodo[i] === 1) continue;
+    let r = -1;
+    let sola = true;
+    for (let v = desde[i]!; v < desde[i + 1]!; v++) {
+      const j = vecinas[v]!;
+      if (!abierta(j)) continue;
+      if (r === -1) r = region[j] as number;
+      else if (region[j] !== r) sola = false;
+    }
+    if (r === -1 || !sola || !quiere(i, r)) continue;
+    let nodosBien = true;
+    for (let v = desde[i]!; v < desde[i + 1]!; v++) {
+      const j = vecinas[v]!;
+      if (esNodo[j] === 1 && !tocaElNodo(j, r)) nodosBien = false;
+    }
+    if (nodosBien) aQuien[i] = r;
+  }
+  /**
+   * Si abrir `i` a `r` deja lo que se pisa de otra región a dos pasos sin un
+   * acantilado con caída en medio. Fuera de los nodos, dos regiones quedan a
+   * tres pasos como poco (`engordarFronteras`, paso 4b), y la línea de una
+   * casilla solo es la excepción entre dos niveles: si no, dos mesetas al mismo
+   * nivel que se comen la franja desde los dos lados se quedan con una casilla
+   * sin caída en medio, que pasaba a montaña (s24 (30-32, 8)), y una meseta
+   * llegaba al agua de una casilla de otra frontera (s191 (23,27)). Lo que se
+   * abre a la vez cuenta como abierto.
+   */
+  const seAcerca = (i: number, r: number): boolean => {
+    const x = i % W;
+    const y = Math.floor(i / W);
+    for (let dy = -2; dy <= 2; dy++)
+      for (let dx = -2; dx <= 2; dx++) {
+        const qx = x + dx;
+        const qy = y + dy;
+        if (qx < 0 || qy < 0 || qx >= W || qy >= H || (dx === 0 && dy === 0)) continue;
+        const q = qy * W + qx;
+        const rq = abierta(q) ? (region[q] as number) : (aQuien[q] as number);
+        if (rq === -1 || rq === r) continue;
+        if (niveles[rq] === niveles[r]) return true;
+        let enMedio = false;
+        for (let my = Math.max(y, qy) - 1; my <= Math.min(y, qy) + 1 && !enMedio; my++)
+          for (let mx = Math.max(x, qx) - 1; mx <= Math.min(x, qx) + 1; mx++) {
+            if (mx < 0 || my < 0 || mx >= W || my >= H) continue;
+            const m = my * W + mx;
+            if (m !== i && tipos[m] === CORTADO && esNodo[m] === 0 && aQuien[m] === -1) {
+              enMedio = true;
+              break;
+            }
+          }
+        if (!enMedio) return true;
+      }
+    return false;
+  };
+  const abrir: number[] = [];
+  for (let i = 0; i < N; i++) {
+    const r = aQuien[i] as number;
+    if (r === -1) continue;
+    let choca = false;
+    for (let v = desde[i]!; v < desde[i + 1]!; v++) {
+      const j = vecinas[v]!;
+      const o = aQuien[j] as number;
+      if (o !== -1 && o !== r) choca = true;
+      // Ni la casilla de enfrente de un nodo de la misma región: la escena
+      // rehace el eje del paso sin regiones, con dos casillas que se pisan a
+      // los dos lados (`ejeDelPaso`), y la meseta abrazando el nodo le daba un
+      // eje de la meseta a la meseta (15 nodos en 1-200).
+      if (esNodo[j] === 1) {
+        const enfrente = 2 * j - i;
+        const dentro =
+          enfrente >= 0 &&
+          enfrente < N &&
+          Math.abs((enfrente % W) - (j % W)) <= 1 &&
+          Math.abs(Math.floor(enfrente / W) - Math.floor(j / W)) <= 1;
+        if (dentro && (aQuien[enfrente] === r || (abierta(enfrente) && region[enfrente] === r)))
+          choca = true;
+      }
+    }
+    if (!choca && !seAcerca(i, r)) abrir.push(i);
+  }
+  for (const i of abrir) {
+    tipos[i] = ABIERTA;
+    region[i] = aQuien[i] as number;
+  }
+  return abrir;
 }
 
 /**

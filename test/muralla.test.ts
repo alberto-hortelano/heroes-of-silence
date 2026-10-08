@@ -547,13 +547,15 @@ describe('en las partidas', () => {
   });
 
   it('y el guardia mira algo: hay muros, puertas y tramos', () => {
-    // La 3: con los niveles del mapa (#143), la 1 se quedó sin puertas de muralla.
-    const map = partidaDe(3).map;
+    // La 5: con los niveles del mapa (#143), la 1 se quedó sin puertas de
+    // muralla, y la 3, con el acantilado en línea (#215), en 19 piezas.
+    const map = partidaDe(5).map;
     const a = analizar(map);
     expect(a.franjas.filter((f) => f.barrera === 'wall').length).toBeGreaterThan(5);
     expect([...a.pasos.values()].filter((p) => p.barrera === 'wall').length).toBeGreaterThan(0);
-    // 62 piezas en la 3 (la 1 llevaba 27 desde #208, que dejó las murallas cortas).
-    expect(escenaDe(3).sprites.filter((s) => s.clase === 'muro').length).toBeGreaterThan(20);
+    // 28 piezas en la 5 (62 en la 3 hasta #215; la 1 llevaba 27 desde #208,
+    // que dejó las murallas cortas).
+    expect(escenaDe(5).sprites.filter((s) => s.clase === 'muro').length).toBeGreaterThan(20);
   });
 
   it('en una casilla de muro no se siembra la cubierta del campo (los huertos de s57)', () => {
@@ -572,12 +574,13 @@ describe('en las partidas', () => {
 
 describe('la muralla de norte a sur, de lado (§29)', () => {
   it('sus tramos son las piezas muro-ns, de 1,6 de alto y por el medio, y no la tira de la hoja', () => {
-    // s15 lleva tramos N-S de las dos piezas (4 y 4). Era s3 hasta #210 (menos
-    // mesetas: le quedan 2); antes s21, que con los niveles del mapa (#143) se
+    // s5 lleva tramos N-S de las dos piezas (9). Era s15 hasta #215 (el
+    // acantilado en línea: le quedan 0); s3 hasta #210 (menos mesetas: le
+    // quedaban 2); antes s21, que con los niveles del mapa (#143) se
     // quedó sin ellos; y antes s12, cuyas dos puertas se quedaron con dos
     // casillas de muro a cada lado al partirse su muralla larga (#208): un
     // tramo cada una.
-    const e = escenaDe(15);
+    const e = escenaDe(5);
     const ns = e.sprites.filter((s) => /^muro-ns-[12]\.webp$/.test(s.src ?? ''));
     expect(ns.length).toBeGreaterThan(5);
     expect(new Set(ns.map((s) => s.src))).toEqual(new Set(['muro-ns-1.webp', 'muro-ns-2.webp']));

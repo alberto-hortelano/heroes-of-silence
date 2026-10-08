@@ -364,7 +364,8 @@ describe('caraDeOtroMaterial: el guardia muerde', () => {
   });
 
   it('en un mapa real: con la roca del suelo de cada casilla, como antes de #216, cuenta', () => {
-    const { map, escena: e } = partidaDe(5);
+    // s2: la s5 dejó de tenerla con el acantilado en línea (#215).
+    const { map, escena: e } = partidaDe(2);
     const a = analizar(map);
     const antes = celdasDe(e.nivel, e.W, e.H, a.suelo).filter((c) =>
       e.relieve.celdas.some((v) => v.vx === c.vx && v.vy === c.vy && v.tipo === c.tipo),
@@ -381,8 +382,8 @@ describe('caraDeOtroMaterial: el guardia muerde', () => {
 describe('paredesTapadasPorLaMasa: el guardia muerde, y la masa se aparta de la pared', () => {
   const catalogo = catalogoDelDisco();
   const perfilDe = perfilesDelCatalogo(catalogo);
-  // Una frontal de la escena de s5 y un pico, delante (más al sur) o detrás.
-  const { escena: e } = partidaDe(5);
+  // Una frontal de la escena de s2 (s5 hasta #215) y un pico, delante (más al sur) o detrás.
+  const { escena: e } = partidaDe(2);
   const pared = e.sprites.find(esPiezaDelRelieve) as Sprite;
   const pico = (dy: number): Sprite => ({
     src: 'modulos/picos-arenisca/2.webp',
@@ -427,10 +428,12 @@ describe('un desnivel bajo una montaña, en los mapas reales (#216)', () => {
       expect(informe.caraDeOtroMaterial).toBe(0);
     });
 
-  it('s5 (2-8, 27-31): la pared bajo la cordillera de arena es de arenisca', () => {
-    const { escena: e } = partidaDe(5);
+  it('s2 (14-20, 0-5): la pared bajo la cordillera de arena es de arenisca', () => {
+    // Era s5 (2-8, 27-31), de la auditoría; con el acantilado en línea (#215)
+    // es otro mapa.
+    const { escena: e } = partidaDe(2);
     const bajoLaArena = e.relieve.celdas.filter(
-      (c) => c.vx >= 2 && c.vx <= 8 && c.vy >= 27 && c.vy <= 31,
+      (c) => c.vx >= 14 && c.vx <= 20 && c.vy >= 0 && c.vy <= 5,
     );
     expect(bajoLaArena.length).toBeGreaterThan(0);
     expect(new Set(bajoLaArena.map((c) => c.material))).toEqual(new Set(['cara-arenisca']));

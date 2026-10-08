@@ -65,6 +65,7 @@ import {
   type TerrainKind,
 } from './terrain.js';
 import {
+  acantiladoSinCaida,
   barreraDe,
   conEjePleno,
   engordarFronteras,
@@ -1900,6 +1901,40 @@ function vestirRed(
   // Si con eso el agua de la frontera se queda sin las casillas de una barrera
   // garantizada, el vestido no vale: el mapa perdería una de sus
   // `TIPOS_POR_MAPA` (s164: el agua de 15 a 14).
+  // El agua que pasa a montaña junto a un nodo puede ganarle a la barrera que
+  // guarda, que se eligió por lo que más se veía alrededor (`queCruzaElNodo`):
+  // con los empates que deja el acantilado en línea (#215) pasaba (s52 node-9).
+  const vecindadDelMapa = vecindad(W, H);
+  const vecinasDe = (n: number): number[] => [
+    ...vecindadDelMapa.vecinas.subarray(vecindadDelMapa.desde[n], vecindadDelMapa.desde[n + 1]),
+  ];
+  for (const [k, n] of nodos.entries()) {
+    const suya = grueso.barreraDeNodo[k] as Barrera;
+    if (ciudadesEnNodo.has(k) || suya === 'mountain') continue;
+    const veces = (b: Barrera) =>
+      vecinasDe(n).filter((j) => !nodosDeLaRed.has(j) && barreraDe(tipos, j) === b).length;
+    if (veces('mountain') > veces(suya))
+      return fallo(
+        'obstáculos',
+        `el agua de las esquinas deja el nodo de (${n % W},${Math.floor(n / W)}) con más montaña alrededor que ${suya}, la barrera que cruza`,
+      );
+  }
+  // Y el agua que pasó a montaña puede dejar un trozo de río que ya no toca lo
+  // más bajo, que sube con su orilla: el acantilado de al lado se quedaría sin
+  // caída (#215, s148 (12,2)).
+  const conCaminoAhora = new Set(nodos.filter((n) => trazado.some(([p, q]) => p === n || q === n)));
+  const sinCaida = acantiladoSinCaida({
+    W,
+    H,
+    tipos,
+    regionDe: regionGruesa,
+    nodos,
+    barreraDeNodo: grueso.barreraDeNodo,
+    niveles,
+    alBajo: new Set([...ciudades, ...conCaminoAhora]),
+    ciudades: new Set(ciudades),
+  });
+  if (sinCaida !== null) return fallo('obstáculos', sinCaida);
   const { casillasMinimasPorTipo } = BARRERAS_DEL_MAPA;
   const queda = aguaDeFrontera.filter((i) => barreraDe(tipos, i) === 'water').length;
   if (aguaDeFrontera.length >= casillasMinimasPorTipo && queda < casillasMinimasPorTipo)

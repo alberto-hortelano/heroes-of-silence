@@ -758,6 +758,47 @@ export function espigasDelRelieve(
   return espigas;
 }
 
+/**
+ * Las casillas de acantilado sin caída (#215): ninguna de sus ocho vecinas está
+ * más baja. El acantilado es el borde de una meseta —una línea de una casilla,
+ * con lo bajo al lado— y no un campo de roca: la auditoría 6 contó 447 de 776
+ * casillas sin nada más bajo en cruz, franjas de 3-4 casillas con la caída
+ * solo en un borde.
+ *
+ * **En ocho vecinas y no en cruz**, a la fuerza: las regiones son 8-conexas, así
+ * que una línea que separa en diagonal va en escalera, y la casilla del codo
+ * solo toca lo bajo por la esquina (sin ella, alto y bajo se tocarían en
+ * diagonal y la red se abriría). Esa caída la pinta la diagonal del relieve
+ * por celdas, en el vértice que comparten. Con esto, que toda casilla tenga lo
+ * bajo a una es lo mismo que decir que la franja mide una de ancho.
+ */
+export function acantiladosSinCaida(
+  width: number,
+  height: number,
+  esAcantilado: (i: number) => boolean,
+  nivel: ArrayLike<number>,
+): number[] {
+  const sin: number[] = [];
+  for (let i = 0; i < width * height; i++) {
+    if (!esAcantilado(i)) continue;
+    const x = i % width;
+    const y = (i - x) / width;
+    let cae = false;
+    for (let dy = -1; dy <= 1 && !cae; dy++)
+      for (let dx = -1; dx <= 1; dx++) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+        if ((nivel[ny * width + nx] as number) < (nivel[i] as number)) {
+          cae = true;
+          break;
+        }
+      }
+    if (!cae) sin.push(i);
+  }
+  return sin;
+}
+
 /** Cómo se nombra una barrera en un rechazo de niveles. */
 const NOMBRE_DE_BARRERA: Readonly<Record<Barrera, string>> = {
   cliff: 'el acantilado ("cliff")',

@@ -134,15 +134,18 @@ describe('en los mapas reales', () => {
     // caen en un acantilado con los niveles del mapa (#143): se mira el
     // cuadrado de 3 × 3 con más acantilado de cada una, que es lo que más se lee
     // como un llano. Con menos mesetas (#210), la s443 no lleva acantilado:
-    // va la s1.
+    // va la s1. Con el acantilado en línea (#215) no queda franja ancha: el
+    // cuadrado es un codo de la línea, y en la s1 cae junto a una ciudad, cuya
+    // huella no deja poner nada (como en `lisosDe`).
     for (const semilla of [1, 34] as const) {
       const { map, escena: e } = partidaDe(semilla);
+      const huella = huellaDeLosObjetos(semilla);
       const [x0, y0] = masAcantiladoEn3x3(map.terrain, e.W, e.H);
       const [x1, y1] = [x0 + 2, y0 + 2];
       const casillas = rango(y0, y1).flatMap((y) =>
         rango(x0, x1)
           .map((x) => y * e.W + x)
-          .filter((i) => map.terrain[i] === 'cliff'),
+          .filter((i) => map.terrain[i] === 'cliff' && !huella.has(i)),
       );
       expect(casillas.length).toBeGreaterThan(0);
       for (const i of casillas) {

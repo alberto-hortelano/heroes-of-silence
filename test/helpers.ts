@@ -603,7 +603,8 @@ export function barrerasDe(map: GameMap): {
  * `plan`:
  *
  * - **grosor**: dos casillas pisables de regiones distintas están a Chebyshev
- *   ≥ 3, salvo que alguna esté a ≤ 3 de un nodo (el estrechamiento del paso);
+ *   ≥ 3, salvo que alguna esté a ≤ 3 de un nodo (el estrechamiento del paso) o
+ *   que entre ellas haya acantilado, que es una línea de una casilla (#215);
  * - **suelo**: cada región, de un solo suelo, el que declara el plan;
  * - **obstáculos**: la densidad de cada región dentro del rango de los datos;
  * - **alcance**: desde las vecinas de los nodos de cada región, sin cruzar un
@@ -642,6 +643,14 @@ export function auditarMapaDenso(
         if (x >= 0 && y >= 0 && x < W && y < H) cercaDeNodo[y * W + x] = 1;
       }
   }
+  /** Si alguna casilla vecina de las dos es acantilado: el borde de la meseta las separa. */
+  const acantiladoEntre = (i: number, j: number): boolean => {
+    const [ix, iy, jx, jy] = [i % W, Math.floor(i / W), j % W, Math.floor(j / W)];
+    for (let y = Math.max(iy, jy) - 1; y <= Math.min(iy, jy) + 1; y++)
+      for (let x = Math.max(ix, jx) - 1; x <= Math.min(ix, jx) + 1; x++)
+        if (x >= 0 && y >= 0 && x < W && y < H && map.terrain[y * W + x] === 'cliff') return true;
+    return false;
+  };
   let finas = 0;
   let primera = '';
   for (let i = 0; i < N; i++) {
@@ -656,7 +665,7 @@ export function auditarMapaDenso(
         if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
         const j = ny * W + nx;
         const s = red.regionDe[j]!;
-        if (s >= 0 && s !== r && cercaDeNodo[j] === 0) {
+        if (s >= 0 && s !== r && cercaDeNodo[j] === 0 && !acantiladoEntre(i, j)) {
           finas++;
           if (primera === '') primera = `${en(i)} y ${en(j)}`;
         }

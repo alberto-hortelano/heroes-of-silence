@@ -49,7 +49,9 @@ import { leerCatalogo, textoDelCatalogo } from '../tools/taller/escenario/catalo
 import { catalogoDelDisco, escenaDe } from './helpers.js';
 
 describe('el relieve', () => {
-  const a = analizar(newGame({ seed: 9 }).map);
+  // La 9 hasta el acantilado en línea (#215), que la dejó sin agua encajada.
+  const SEMILLA = 2;
+  const a = analizar(newGame({ seed: SEMILLA }).map);
   const r = relieve(a);
 
   it('una cara cuelga de las casillas altas hacia las de abajo en pantalla, de junta a junta', () => {
@@ -89,7 +91,7 @@ describe('el relieve', () => {
   });
 
   it('el nivel es del mapa (#143): subir una región sube lo que se pisa de ella y nada más', () => {
-    const map = newGame({ seed: 9 }).map;
+    const map = newGame({ seed: SEMILLA }).map;
     const k = map.regions.findIndex((reg) => reg.nivel === 1);
     const subido = {
       ...map,
@@ -348,8 +350,10 @@ const RAIZ = resolve(import.meta.dirname, '..');
 
 describe('la escena de un mapa real', () => {
   const catalogo = catalogoDelDisco();
-  // La 13 en vez de la 7, que con menos mesetas (#210) se quedó sin desnivel.
-  for (const semilla of [1, 3, 13, 9]) {
+  // La 13 en vez de la 7, que con menos mesetas (#210) se quedó sin desnivel;
+  // la 6 y la 7 en vez de la 3 y la 9, que con el acantilado en línea (#215)
+  // se quedaron sin laderas a un lado o sin alguna clase de lo que se aparta.
+  for (const semilla of [1, 6, 13, 7]) {
     const map = newGame({ seed: semilla }).map;
     const e = escenaDe(semilla);
 

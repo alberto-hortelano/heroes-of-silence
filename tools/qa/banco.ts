@@ -750,11 +750,23 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   **8 / 15 / 23**. Batallas 1 536 → 1 545, `hero_defeated` 329 → 350,
  *   `node_captured` 1 152 → 1 141, `town_captured` 1 361 → 1 357,
  *   `march_halted` 121 → 123.
+ * - `18c99aee…` (58 268 líneas): **el acantilado, una línea de una casilla**
+ *   (#215, 08-10-2026): la meseta se come la franja de acantilado hasta la
+ *   fila que toca lo bajo, el que se queda sin caída se abre a su región o pasa
+ *   a montaña, y el nivel que mira el generador pisa los nodos como la escena.
+ *   Cambia el mapa, no las reglas: **188 de 200 cambian** (12 iguales,
+ *   ninguna con acantilado); en 183 el primer hecho distinto es
+ *   `raider_spawned` del día 1 (otro vestido u otras casillas de la región),
+ *   en 4 `battle_ended` y en 1 `hero_moved`; 187 cambian el día 1 y 1 el 3.
+ *   83 con otro ganador, j0 118 → 107, **0 sin terminar**, duración 8 / 15 /
+ *   23 → **7 / 14 / 22**. Batallas 1 545 → 1 517, `hero_defeated` 350 → 310,
+ *   `node_captured` 1 141 → 1 161, `town_captured` 1 357 → 1 365,
+ *   `march_halted` 123 → 118; ningún tipo nuevo ni ninguno que desaparezca.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '7af02558ea0838501df644b365e9c73126305147738e803a01173a80ef814739',
+  sha: '18c99aeeaf26c5e0ed706ede830a0501346bcb38ebf93d6bc2befec76735b01a',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

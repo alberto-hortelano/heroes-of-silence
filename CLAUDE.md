@@ -225,7 +225,16 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   opuestas se viste sin eje. El engorde de la frontera va casilla a casilla, y donde dos regiones quedarían
   a dos pasos engorda una (`engordarFronteras`, paso 4b), con el lado que engorda dado la vuelta
   a trechos de `TRECHO_DEL_LADO` (4) para que el borde no copie el muro fino (#169). El paso de
-  cada pareja es el más cercano al medio con eje pleno (`conEjePleno`). **El mapa guarda los
+  cada pareja es el más cercano al medio con eje pleno (`conEjePleno`). **El acantilado es una
+  línea de una casilla** (#215): el borde de la meseta. La meseta se come la franja hasta la fila
+  que toca lo bajo (`adelgazarAcantilados`, paso 7a; sin dejar otra región al mismo nivel a dos
+  pasos ni un eje de la meseta a la meseta junto a un nodo); el que se queda sin caída se abre a
+  su región o pasa a montaña (7a'), y el vestido con un acantilado sin caída o dos regiones a dos
+  pasos sin acantilado en medio no vale (7c, 7d; y tras los caminos, `acantiladoSinCaida`). Lo
+  bajo va **en ocho vecinas** (`acantiladosSinCaida`): las regiones son 8-conexas y la línea en
+  diagonal va en escalera, con el codo tocando lo bajo por la esquina. En 10 semillas, 447 de
+  776 casillas sin caída en cruz → 0 de 414 en ocho (88 son codos). El nivel del engorde
+  (`nivelesDeLoEngordado`) pisa los nodos como la escena. **El mapa guarda los
   tramos** (`GameMap.caminos`, una `RedDeCaminos`) y las casillas que abaratan
   el paso salen de ellos; el procedimental guarda los que traza, con las
   horquillas en L hechas al colgar cada casilla (`ArbolDeCaminos`, nunca de un

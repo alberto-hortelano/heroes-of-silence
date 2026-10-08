@@ -23,9 +23,10 @@ const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 
 /**
  * La semilla de la batalla: tiene que lanzar algún hechizo y matar algo. Era
- * la 33, que con menos mesetas (#210) ya no lanza ninguno.
+ * la 33, que con menos mesetas (#210) ya no lanza ninguno, y la 2, que con el
+ * acantilado en línea (#215) nace a la vista del rival.
  */
-const SEMILLA = 2;
+const SEMILLA = 1;
 
 /** Una batalla contra el primer monstruo, con un héroe que sabe Flecha mágica y tiene maná. */
 function batallaConMagia(seed: number): { state: ReturnType<typeof newGame>; battle: BattleState } {
