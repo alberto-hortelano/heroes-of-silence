@@ -151,9 +151,30 @@ function despliegue(units: readonly UnitInfo[], side: Side, primera: number | nu
 }
 
 /**
- * Moral del ejército por diversidad de facciones: +1 si todas las criaturas
- * son de la misma, y penalización creciente a partir de tres facciones
- * distintas. Los no-muertos son inmunes y se resuelven aparte.
+ * Moral del ejército por su composición, copiada de fheroes2
+ * (`Army::GetMoraleModificator`): +1 si todas las criaturas son de la misma
+ * facción, penalización creciente a partir de tres facciones distintas, y −1
+ * si lleva algún no-muerto, cuya sola presencia quita además el +1:
+ *
+ * ```cpp
+ *     if ( !hasUndead && !AllTroopsAreTheSame() ) { // presence of undead discards "All %{race} troops +1" bonus
+ * // …
+ * // undead in life group
+ * if ( hasUndead ) {
+ *     result -= 1;
+ *     if ( strs ) {
+ *         strs->append( _( "Some undead in army -1" ) );
+ * ```
+ * https://github.com/ihhub/fheroes2/blob/9754feff8501dbb69df95f3b999156a32eb8d7d3/src/fheroes2/army/army.cpp#L1256-L1283
+ *
+ * Lo que NO se copia de esa línea es `!AllTroopsAreTheSame()`: allí un ejército
+ * de una sola criatura repetida tampoco cobra el +1. Es otra divergencia, fuera
+ * de #199, y queda dicha aquí hasta que se decida.
+ *
+ * El −1 no choca con «no-muertos: moral 0»: allí tampoco les llega, porque
+ * `isAffectedByMorale` es `!( isUndead() || isElemental() )` y quien no lo está
+ * no lee la del ejército. Lo pagan los vivos que marchan con ellos.
+ * https://github.com/ihhub/fheroes2/blob/9754feff8501dbb69df95f3b999156a32eb8d7d3/src/fheroes2/monster/monster.h#L287-L291
  *
  * Mira las unidades YA resueltas, no el `Army`: así «un personaje no tiene
  * facción» se dice una sola vez —`faction: null` en `rpg/stats.ts`— y aquí solo
@@ -161,17 +182,20 @@ function despliegue(units: readonly UnitInfo[], side: Side, primera: number | nu
  * ni la da. Un ejército SOLO de personajes no tiene ninguna facción que
  * compartir, así que no cobra el +1 —su moral sale de la voluntad de cada uno—.
  * En estrategia ese caso no existe: todo stack es una criatura con facción, y
- * un ejército vacío no pone a nadie en el tablero.
+ * un ejército vacío no pone a nadie en el tablero. Ni el héroe ni un personaje
+ * tienen rasgos, así que tampoco cuentan como no-muertos.
  */
 export function armyMorale(units: readonly UnitInfo[]): number {
   const factions = new Set<FactionId>();
+  let noMuertos = false;
   for (const unit of units) {
     if (unit.faction !== null) factions.add(unit.faction);
+    if (hasTrait(unit, 'undead')) noMuertos = true;
   }
-  if (factions.size === 0) return 0;
-  if (factions.size === 1) return 1;
-  if (factions.size === 2) return 0;
-  return -(factions.size - 2);
+  let moral = 0;
+  if (factions.size === 1 && !noMuertos) moral = 1;
+  else if (factions.size > 2) moral = -(factions.size - 2);
+  return noMuertos ? moral - 1 : moral;
 }
 
 export function createBattle(attacker: BattleSide, defender: BattleSide, _rng: Rng): BattleState {
@@ -242,6 +266,8 @@ export function createBattle(attacker: BattleSide, defender: BattleSide, _rng: R
     round: 0,
     stacks,
     queue: [],
+    iniciativa: {},
+    ultimoBando: null,
     turno: null,
     heroes: { attacker: attacker.hero?.mando ?? null, defender: defender.hero?.mando ?? null },
     log: [],
@@ -584,18 +610,80 @@ export function movableHexes(state: BattleState, s: BattleStack): Hex[] {
 
 // ---------------------------------------------------------------- rondas
 
+/**
+ * El orden en que tocarán los que aún no han tenido turno, como lo saca
+ * fheroes2: cada bando, del más rápido al más lento y por su puesto en un
+ * empate (`SortFastest` es un `stable_sort`); entre los dos bandos, el primero
+ * de cada uno, y si van a la misma velocidad, el bando `preferido`, que después
+ * de cada uno pasa a ser el contrario. Los empates entre bandos se alternan, no
+ * se los queda siempre el atacante:
+ *
+ * ```cpp
+ * if ( ( *attackingUnitsIter )->GetSpeed() == ( *defendingUnitsIter )->GetSpeed() ) {
+ *     result = attackingUnitsGoFirst ? *attackingUnitsIter : *defendingUnitsIter;
+ * }
+ * // …
+ * preferredColor = ( unit->GetArmyColor() == attackingArmy.GetColor() ) ? defendingArmy.GetColor() : attackingArmy.GetColor();
+ * ```
+ * https://github.com/ihhub/fheroes2/blob/9754feff8501dbb69df95f3b999156a32eb8d7d3/src/fheroes2/battle/battle_arena.cpp#L179-L181
+ * https://github.com/ihhub/fheroes2/blob/9754feff8501dbb69df95f3b999156a32eb8d7d3/src/fheroes2/battle/battle_arena.cpp#L246
+ *
+ * `pendientes` llega con cada bando ya en su orden; la salida no lo cambia,
+ * solo los intercala. Las velocidades son las de `state.iniciativa`, las de
+ * cuando empezó la ronda.
+ */
+function intercalar(
+  state: BattleState,
+  pendientes: readonly BattleStack[],
+  preferido: Side,
+): string[] {
+  const colas: Record<Side, BattleStack[]> = { attacker: [], defender: [] };
+  for (const s of pendientes) colas[s.side].push(s);
+  const velocidad = (s: BattleStack): number => {
+    const v = state.iniciativa[s.id];
+    if (v === undefined) throw new Error(`${s.id} está en la cola sin velocidad de ronda`);
+    return v;
+  };
+  const orden: string[] = [];
+  let toca = preferido;
+  for (let a = colas.attacker[0], d = colas.defender[0]; a !== undefined || d !== undefined; ) {
+    let elegido: BattleStack;
+    if (a === undefined) elegido = d as BattleStack;
+    else if (d === undefined) elegido = a;
+    else if (velocidad(a) === velocidad(d)) elegido = toca === 'attacker' ? a : d;
+    else elegido = velocidad(a) > velocidad(d) ? a : d;
+    colas[elegido.side].shift();
+    orden.push(elegido.id);
+    toca = otroBando(elegido.side);
+    a = colas.attacker[0];
+    d = colas.defender[0];
+  }
+  return orden;
+}
+
+/**
+ * El bando que gana el próximo empate: el contrario del último que tuvo turno,
+ * y el atacante antes del primero. En fheroes2, `_lastActiveUnitArmyColor`
+ * nace `UNUSED`, y el contrario de algo que no es el atacante es el atacante:
+ *
+ * ```cpp
+ * _currentUnit = GetCurrentUnit( *_attackingArmy, *_defendingArmy, GetOppositeColor( _lastActiveUnitArmyColor ) );
+ * return col == getAttackingArmyColor() ? getDefendingArmyColor() : getAttackingArmyColor();
+ * ```
+ * https://github.com/ihhub/fheroes2/blob/9754feff8501dbb69df95f3b999156a32eb8d7d3/src/fheroes2/battle/battle_arena.cpp#L581
+ * https://github.com/ihhub/fheroes2/blob/9754feff8501dbb69df95f3b999156a32eb8d7d3/src/fheroes2/battle/battle_arena.cpp#L824
+ * https://github.com/ihhub/fheroes2/blob/9754feff8501dbb69df95f3b999156a32eb8d7d3/src/fheroes2/battle/battle_arena.h#L342
+ */
+function preferidoEnElEmpate(state: BattleState): Side {
+  return state.ultimoBando === null ? 'attacker' : otroBando(state.ultimoBando);
+}
+
+/** La cola de una ronda nueva: todos los vivos, con la velocidad de ahora. */
 function initiativeOrder(state: BattleState): string[] {
-  return state.stacks
-    .filter(isAlive)
-    .slice()
-    .sort((a, b) => {
-      const speedDiff = stackSpeed(b) - stackSpeed(a);
-      if (speedDiff !== 0) return speedDiff;
-      // Empate entre bandos: mueve el atacante.
-      if (a.side !== b.side) return a.side === 'attacker' ? -1 : 1;
-      return a.slot - b.slot;
-    })
-    .map((s) => s.id);
+  const vivos = state.stacks.filter(isAlive);
+  state.iniciativa = Object.fromEntries(vivos.map((s) => [s.id, stackSpeed(s)]));
+  const enSuOrden = vivos.slice().sort((a, b) => stackSpeed(b) - stackSpeed(a) || a.slot - b.slot);
+  return intercalar(state, enSuOrden, preferidoEnElEmpate(state));
 }
 
 /** Tope de rondas: una batalla que no converge se cierra, no se cuelga. */
@@ -678,27 +766,55 @@ function advance(state: BattleState, rng: Rng): void {
     return;
   }
 
-  while (state.queue.length > 0) {
-    const id = state.queue.shift() as string;
-    const s = stackById(state, id);
-    if (!isAlive(s)) continue;
-
-    // Moral baja: el stack se queda paralizado y pierde el turno.
+  for (let s = siguienteEnLaCola(state); s !== null; s = siguienteEnLaCola(state)) {
+    // Moral baja: el stack se queda paralizado y pierde el turno. No cuenta
+    // como el último que actuó: en fheroes2, `_lastActiveUnitArmyColor` solo se
+    // apunta en la rama de quien «will certainly perform at least one
+    // full-fledged action», y la de `MORALE_BAD` va antes.
+    // https://github.com/ihhub/fheroes2/blob/9754feff8501dbb69df95f3b999156a32eb8d7d3/src/fheroes2/battle/battle_arena.cpp#L496-L501
     const moral = s.morale;
     if (moral < 0 && rng.chance(-moral * CHANCE_PER_POINT)) {
       s.acted = true;
       state.log.push({ kind: 'morale', stack: s.id, good: false });
       continue;
     }
-
-    // Un objeto nuevo en cada activación: lo gastado no se resetea, nace a 0.
-    // El ordinal sale del turno anterior, que sigue puesto aquí: solo se borra
-    // al terminar la batalla, y entonces ya no se llega a esta línea.
-    state.turno = { n: (state.turno?.n ?? 0) + 1, stack: id, gastado: 0 };
+    abrirTurno(state, s);
     return;
   }
 
   beginRound(state, rng);
+}
+
+/**
+ * Saca de la cola al siguiente vivo, o `null` si no queda nadie en la ronda.
+ *
+ * Los que no han tenido turno van delante y se reordenan antes de cada salida:
+ * su desempate depende de quién actuó el último, y eso no se sabe al montar la
+ * ronda —un muerto o un paralizado por la moral cambian a quién le toca el
+ * siguiente empate—. fheroes2 también elige así, uno a uno (`GetCurrentUnit`).
+ * Detrás, los que esperaron salen tal cual llegaron (#81).
+ */
+function siguienteEnLaCola(state: BattleState): BattleStack | null {
+  const vivos = state.queue.map((id) => stackById(state, id)).filter(isAlive);
+  const sinTurno = vivos.filter((s) => !s.waited);
+  const esperan = vivos.filter((s) => s.waited);
+  state.queue = [
+    ...intercalar(state, sinTurno, preferidoEnElEmpate(state)),
+    ...esperan.map((s) => s.id),
+  ];
+  const id = state.queue.shift();
+  return id === undefined ? null : stackById(state, id);
+}
+
+/**
+ * Le da el turno a `s`: un objeto nuevo en cada activación, así que lo gastado
+ * no se resetea, nace a 0. El ordinal sale del turno anterior, que sigue puesto
+ * aquí: solo se borra al terminar la batalla, y entonces ya no se llega a esta
+ * línea.
+ */
+function abrirTurno(state: BattleState, s: BattleStack): void {
+  state.ultimoBando = s.side;
+  state.turno = { n: (state.turno?.n ?? 0) + 1, stack: s.id, gastado: 0 };
 }
 
 /** Cierra el turno del stack activo y decide si la moral le regala otro. */
@@ -714,11 +830,12 @@ function endTurn(state: BattleState, s: BattleStack, rng: Rng): void {
     s.gotMoraleBonus = true;
     s.acted = false;
     state.log.push({ kind: 'morale', stack: s.id, good: true });
-    state.queue.unshift(s.id);
-  } else {
-    s.acted = true;
+    // Vuelve a actuar ya, sin pasar por la cola: allí competiría en el
+    // desempate con los que aún no han tenido turno.
+    abrirTurno(state, s);
+    return;
   }
-
+  s.acted = true;
   advance(state, rng);
 }
 

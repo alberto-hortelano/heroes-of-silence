@@ -180,7 +180,38 @@ describe('moral por composición del ejército', () => {
   });
 
   it('no premia a un ejército mixto de dos facciones', () => {
-    expect(armyMorale([u('peasant'), u('skeleton')])).toBe(0);
+    expect(armyMorale([u('peasant'), u('swordsman'), u('crusader')])).toBe(1);
+    const otra = { ...u('peasant'), faction: 'necromancer' as const };
+    expect(armyMorale([u('peasant'), otra])).toBe(0);
+  });
+
+  it('con algún no-muerto, −1 al ejército entero, como fheroes2 (#199)', () => {
+    // «Some undead in army -1» (`army.cpp`): dos facciones con no-muertos no
+    // se quedan en 0, bajan a −1.
+    expect(armyMorale([u('peasant'), u('skeleton')])).toBe(-1);
+  });
+
+  it('y el no-muerto anula el +1 de una sola facción (#199)', () => {
+    // Un ejército solo de nigromantes: una facción, pero sin el +1 y con el −1.
+    expect(armyMorale([u('skeleton'), u('zombie')])).toBe(-1);
+    // Quien no tiene facción tampoco es no-muerto: ni da el −1 ni quita el +1.
+    const sinFaccion = { ...u('skeleton'), faction: null, traits: [] };
+    expect(armyMorale([u('peasant'), sinFaccion])).toBe(1);
+  });
+
+  it('el −1 lo pagan los vivos: el no-muerto sigue a 0 (#199)', () => {
+    const state = createBattle(
+      side([
+        { creature: 'peasant', count: 5 },
+        { creature: 'skeleton', count: 5 },
+      ]),
+      side([{ creature: 'pikeman', count: 5 }]),
+      createRng(1),
+    );
+    expect(stackById(state, 'attacker-0').morale).toBe(-1);
+    expect(stackById(state, 'attacker-1').morale).toBe(0);
+    // El otro bando no se entera: la mezcla es de cada ejército.
+    expect(stackById(state, 'defender-0').morale).toBe(1);
   });
 
   it('quien no tiene facción no cuenta: ni rompe la unidad ni la da', () => {
@@ -201,14 +232,15 @@ describe('moral por composición del ejército', () => {
       createRng(1),
     );
     const campesino = stackById(state, 'attacker-0');
-    expect(campesino.morale).toBe(0);
+    // Dos facciones y un no-muerto: 0 por la mezcla y −1 por él (#199).
+    expect(campesino.morale).toBe(-1);
     herir(stackById(state, 'attacker-1'), 9999, null);
     // Una ronda entera a la defensiva, para pasar por el final de ronda y por
     // cada `advance`, que es donde se colaría un recálculo.
     const rng = createRng(1);
     while (state.round < 2) applyAction(state, { type: 'defend' }, rng);
     expect(state.finished).toBeNull();
-    expect(campesino.morale).toBe(0);
+    expect(campesino.morale).toBe(-1);
   });
 });
 
@@ -312,6 +344,108 @@ describe('iniciativa', () => {
       createRng(3),
     );
     expect(activeStack(state)!.id).toBe('attacker-0');
+  });
+
+  /** Quién tiene turno, en orden, hasta `rondas` rondas, cerrando cada uno a la defensiva. */
+  function turnos(state: BattleState, rng: Rng, rondas: number): string[] {
+    const orden: string[] = [];
+    while (state.round <= rondas && state.finished === null) {
+      orden.push((activeStack(state) as BattleStack).id);
+      applyAction(state, { type: 'defend' }, rng);
+    }
+    return orden;
+  }
+
+  /** Esqueletos contra esqueletos: todos a la misma velocidad y sin moral. */
+  function empatados(atacantes: number, defensores: number): BattleState {
+    const esqueletos = (n: number): Stack[] =>
+      Array.from({ length: n }, () => ({ creature: 'skeleton', count: 5 }));
+    const state = createBattle(
+      side(esqueletos(atacantes)),
+      side(esqueletos(defensores)),
+      createRng(3),
+    );
+    for (const s of state.stacks) s.morale = 0;
+    return state;
+  }
+
+  it('los empates entre bandos se alternan, no se los queda el atacante (#199)', () => {
+    // fheroes2, `GetCurrentUnit`: tras cada turno, el empate es del otro bando.
+    const state = empatados(2, 2);
+    expect(turnos(state, createRng(1), 1)).toEqual([
+      'attacker-0',
+      'defender-0',
+      'attacker-1',
+      'defender-1',
+    ]);
+  });
+
+  it('la cola enseña ya el orden alternado que se jugará (#199)', () => {
+    const state = empatados(2, 2);
+    expect(activeStack(state)!.id).toBe('attacker-0');
+    expect(state.queue).toEqual(['defender-0', 'attacker-1', 'defender-1']);
+  });
+
+  it('y la ronda siguiente empieza por el contrario del último que actuó (#199)', () => {
+    // Tres contra uno: la ronda 1 acaba en un atacante, así que la 2 la abre
+    // el defensor. Se lleva de una ronda a otra (`_lastActiveUnitArmyColor`).
+    const state = empatados(2, 1);
+    expect(turnos(state, createRng(1), 2)).toEqual([
+      'attacker-0',
+      'defender-0',
+      'attacker-1',
+      'defender-0',
+      'attacker-0',
+      'attacker-1',
+    ]);
+  });
+
+  it('quien muere antes de su turno no gasta el empate de su bando (#199)', () => {
+    // Si la cola se fijara al empezar la ronda, tras el muerto iría el
+    // atacante 1, que era el siguiente previsto. fheroes2 elige uno a uno.
+    const state = empatados(2, 2);
+    const rng = createRng(1);
+    expect(activeStack(state)!.id).toBe('attacker-0');
+    herir(stackById(state, 'defender-0'), 9999, null);
+    applyAction(state, { type: 'defend' }, rng);
+    expect(activeStack(state)!.id).toBe('defender-1');
+  });
+
+  it('el paralizado por la moral no cuenta como el último que actuó (#199)', () => {
+    // En fheroes2, `_lastActiveUnitArmyColor` solo se apunta cuando la unidad
+    // va a actuar de verdad; la moral baja va antes. El atacante 0 actuó, el
+    // defensor 0 se queda quieto, y el empate siguiente sigue siendo del
+    // defensor.
+    const state = empatados(2, 2);
+    stackById(state, 'defender-0').morale = -1;
+    const rng: Rng = { ...createRng(1), chance: () => true };
+    applyAction(state, { type: 'defend' }, rng);
+    expect(state.log.at(-1)).toEqual({ kind: 'morale', stack: 'defender-0', good: false });
+    expect(activeStack(state)!.id).toBe('defender-1');
+  });
+
+  it('la moral alta repite turno en el acto, sin pasar por el desempate (#199)', () => {
+    const state = empatados(2, 2);
+    stackById(state, 'attacker-0').morale = 1;
+    const rng: Rng = { ...createRng(1), chance: () => true };
+    applyAction(state, { type: 'defend' }, rng);
+    expect(state.log.at(-1)).toEqual({ kind: 'morale', stack: 'attacker-0', good: true });
+    expect(activeStack(state)!.id).toBe('attacker-0');
+    // Y después, el empate es del defensor: el último que actuó fue un atacante.
+    applyAction(state, { type: 'defend' }, rng);
+    expect(activeStack(state)!.id).toBe('defender-0');
+  });
+
+  it('una Prisa a media ronda no adelanta en la cola: la velocidad es la de empezar (fheroes2 sí lo haría; pendiente)', () => {
+    const state = empatados(2, 2);
+    applyEffect(stackById(state, 'attacker-1'), {
+      kind: 'speed',
+      amount: 10,
+      source: 'haste',
+      roundsLeft: 3,
+    });
+    applyAction(state, { type: 'defend' }, createRng(1));
+    expect(activeStack(state)!.id).toBe('defender-0');
   });
 
   it('los hechizos de velocidad cambian el orden', () => {

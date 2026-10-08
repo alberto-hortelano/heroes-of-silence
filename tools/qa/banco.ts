@@ -665,11 +665,26 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   No se juega nada distinto: cambian las 1 756 líneas de `battle_ended` y
  *   ninguna más, y quitándoles esos cuatro campos y reserializando, el volcado
  *   da `4fb1a41c…` exacto. autoResolve igual (300 batallas, 2 359 rondas).
+ * - `2d627f08…` (70 279 líneas): **dos reglas de batalla copiadas de
+ *   fheroes2** (#199, 08-10-2026): algún no-muerto en el ejército le quita 1 de
+ *   moral y anula el +1 de una sola facción, y los empates de iniciativa entre
+ *   bandos se alternan (el contrario del último que tuvo turno) en vez de ser
+ *   siempre del atacante. Solo pueden mover partidas desde una batalla, y así
+ *   sale: **193 de 200 semillas cambian y ninguna antes de su primer
+ *   `battle_started`**; el primer hecho distinto es `battle_ended` en 183 (el
+ *   resumen de #93: rondas, bajas, ganador), `troop_level_up` en 8 y
+ *   `hero_moved` en 2. Por separado, solo la moral mueve 177 semillas y la
+ *   iniciativa, encima, 195. 76 con otro ganador, j0 89 → 87, **0 sin
+ *   terminar**, duración 9 / 17 / 28 → **9 / 16 / 54**. autoResolve 2 359 →
+ *   2 318 rondas en las 300 batallas. Batallas 1 756 → 1 817, `hero_defeated`
+ *   412 → 439, `town_captured` 1 509 → 1 515, `node_captured` 1 242 → 1 340,
+ *   `troop_level_up` 2 278 → 2 255; ningún tipo nuevo ni ninguno que
+ *   desaparezca.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '8ca327b5bc9400ec824a8d7159061dc9202a2d4072bdc59cffdf48cf7cf582ed',
+  sha: '2d627f088336b003817739f596f593e7ce68db166e0dd0b58d79243249c607c7',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

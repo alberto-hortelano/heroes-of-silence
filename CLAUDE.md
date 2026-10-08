@@ -164,8 +164,10 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
 | Puntos de hechizo | 10 × Conocimiento |
 | Moral y suerte | −3 a +3 |
 | Moral por mezcla de facciones | se cuenta al empezar la batalla y no se recalcula al morir un stack (como fheroes2, #49) |
+| Moral con no-muertos | −1 a todo el ejército que lleve alguno, y anula el +1 de una sola facción (como fheroes2, #199); el no-muerto sigue a 0. **Sin copiar**: allí un ejército de una sola criatura repetida no cobra el +1 (`AllTroopsAreTheSame`) |
 | Prisa/Lentitud | duran el poder mágico del lanzador, en rondas |
 | No-muertos | inmunes a la mala suerte; moral 0 |
+| Iniciativa | cada bando por velocidad y puesto; un empate entre bandos lo gana el contrario del último que tuvo turno (el paralizado por la moral no cuenta), el atacante el primero (como fheroes2, `GetCurrentUnit`, #199). **Divergencia pendiente**: la velocidad es la de empezar la ronda; allí una Prisa a media ronda adelanta |
 | Dos efectos del mismo origen | refresca la duración (la mayor), no se acumula |
 | Turno de una unidad | **regla nuestra**: se mueve en tramos hasta gastar su velocidad; atacar lo cierra; tras moverse no dispara, ni defiende, ni espera |
 | Esperar | **regla nuestra** (fheroes2 no tiene espera: su `SKIP` cierra el turno): vuelve al final de la ronda, y los que esperan salen por orden de llegada, no por velocidad (#81) |

@@ -248,17 +248,17 @@ export interface BattleFinish {
  * El turno de la unidad que está actuando: cuál es, quién lo juega y cuántas
  * casillas lleva gastadas en él.
  *
- * `gastado` vive aquí, dentro de un objeto que solo crea `advance` —uno nuevo
+ * `gastado` vive aquí, dentro de un objeto que solo crea `abrirTurno` —uno nuevo
  * en cada activación—, y no como un campo del stack, que es lo que avisaba el
  * comentario de los recorridos de la carga: un `hexesMoved` en el stack había
  * que resetearlo en `beginRound` y en `endTurn`, y el día que se olvidara uno
  * la unidad empezaría su turno con el presupuesto de otro. Aquí no hay nada que
  * resetear: el turno siguiente es otro objeto. La moral extra y `wait` vuelven a
- * pasar por `advance`, así que también estrenan turno con 0.
+ * pasar por `abrirTurno`, así que también estrenan turno con 0.
  */
 export interface TurnoDeUnidad {
   /**
-   * El ordinal del turno en la batalla: 1, 2, 3… Lo pone `advance` y nadie más.
+   * El ordinal del turno en la batalla: 1, 2, 3… Lo pone `abrirTurno` y nadie más.
    * Es lo que responde «¿sigue siendo el MISMO turno?» (`mismoTurno`), y la
    * respuesta no se puede sacar de quién actúa: la moral extra le abre a la
    * misma unidad un turno nuevo, y los cuatro sitios que lo deducían cada uno a
@@ -275,8 +275,27 @@ export interface TurnoDeUnidad {
 export interface BattleState {
   round: number;
   stacks: BattleStack[];
-  /** Ids en orden de iniciativa pendientes de actuar en esta ronda. */
+  /**
+   * Ids pendientes de actuar en esta ronda, en el orden en que les tocará si
+   * nada cambia: primero los que aún no han tenido turno —cada bando por su
+   * velocidad y su puesto, intercalados por `GetCurrentUnit`— y detrás, por
+   * orden de llegada, los que esperaron. `advance` reordena los primeros antes
+   * de sacar a cada uno, porque el desempate depende de quién actuó el último.
+   */
   queue: string[];
+  /**
+   * La velocidad con la que cada stack entró en la cola de esta ronda. El
+   * orden se fija al empezar la ronda: una Prisa lanzada a media ronda vale
+   * para moverse, no para adelantarse en la cola.
+   */
+  iniciativa: Record<string, number>;
+  /**
+   * El bando del último stack que de verdad tuvo turno —el que la moral baja
+   * deja paralizado no cuenta—, de una ronda a la siguiente. Es el
+   * `_lastActiveUnitArmyColor` de fheroes2: en un empate de velocidad mueve el
+   * otro bando. `null` antes del primer turno, y entonces mueve el atacante.
+   */
+  ultimoBando: Side | null;
   /** El turno abierto, o `null` si no actúa nadie (batalla terminada o sin montar). */
   turno: TurnoDeUnidad | null;
   heroes: Record<Side, BattleHero | null>;
