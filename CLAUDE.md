@@ -214,7 +214,9 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   dice el tipo), y `planDelAgente` es la única conversión del uno al otro. El
   agente lee casillas; el espectador recibe tramos planos (índices).
   Lado del mapa: `LADO_DEL_MAPA` (34), elegido con la regla «menor lado con
-  mediana ≥ 8 días, p90 ≤ 20 y 0 sin terminar».
+  mediana ≥ 8 días, p90 ≤ 20 y 0 sin terminar». Un plan mide de 8 a 128 por lado
+  (`LADO_MINIMO_DEL_PLAN`); el generador solo sabe de 24 a 64
+  (`LADO_MINIMO_DEL_GENERADOR`, 200 de 200 semillas en cada lado) y fuera lanza antes de intentarlo (#102).
 - **Asaltantes**: grupos neutrales que patrullan regiones sin dueño y emboscan
   al pisar si les sacan `ventajaClara`. Son actores (`GameState.raiders`), no
   objetos del mapa. Un grupo se ve en cuanto se ve una casilla de su región

@@ -19,6 +19,7 @@ import { z } from 'zod';
 import { CARGA_MINIMA } from '../battle/battle.js';
 import { CHARGE_BONUS_PER_HEX, MAX_CHARGE_HEXES } from '../battle/damage.js';
 import { NIVEL_MAXIMO_DE_TROPA } from '../hero/experiencia.js';
+import { LADO_MAXIMO_DEL_PLAN, LADO_MINIMO_DEL_PLAN } from '../map/generate.js';
 import { BARRERAS, TERRAIN_KINDS } from '../map/terrain.js';
 import { MAX_HEROES_PER_PLAYER } from '../state/game.js';
 import { HUECOS } from '../types.js';
@@ -248,8 +249,8 @@ const lineaLegible = (max: number, sujeto: string) =>
 const nombreDeMapa = (que: string) => lineaLegible(40, `el nombre de ${que}`);
 
 export const mapPlanSchema = z.object({
-  width: z.number().int().min(8).max(128),
-  height: z.number().int().min(8).max(128),
+  width: z.number().int().min(LADO_MINIMO_DEL_PLAN).max(LADO_MAXIMO_DEL_PLAN),
+  height: z.number().int().min(LADO_MINIMO_DEL_PLAN).max(LADO_MAXIMO_DEL_PLAN),
   baseTerrain: terrainSchema,
   patches: z.array(
     z.object({ terrain: terrainSchema, center: pointSchema, radius: z.number().min(1).max(40) }),
@@ -640,7 +641,7 @@ El mapa es una RED DE NODOS, y eso se comprueba:
   con guarnición, de la facción de su dueño; sus otras ciudades nacen vacías.
 
 Reglas que se validan antes de aceptarlo:
-- Mínimo 8×8, máximo 128×128.
+- Mínimo ${LADO_MINIMO_DEL_PLAN}×${LADO_MINIMO_DEL_PLAN}, máximo ${LADO_MAXIMO_DEL_PLAN}×${LADO_MAXIMO_DEL_PLAN}.
 - Al menos dos ciudades y dos posiciones de inicio, y cada jugador con una ciudad.
 - Dos cosas no pueden compartir casilla, y las posiciones de inicio TAMBIÉN
   ocupan la suya: dos héroes juntos, o un héroe encima de una ciudad, se

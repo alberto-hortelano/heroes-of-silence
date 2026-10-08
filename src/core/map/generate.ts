@@ -204,6 +204,34 @@ export interface BuiltMap {
  */
 export const LADO_DEL_MAPA = 34;
 
+/**
+ * Lo que puede medir un plan, venga de quien venga: lo leen `validateMapPlan`,
+ * el esquema del agente (`mapPlanSchema`) y la prosa que se le manda. Un plan a
+ * mano de 26×9 se juega bien —medio banco de tests es así—, así que este rango
+ * no es el del generador.
+ */
+export const LADO_MINIMO_DEL_PLAN = 8;
+export const LADO_MAXIMO_DEL_PLAN = 128;
+
+/**
+ * Lo que sabe hacer el generador procedimental, que es más estrecho (#102).
+ *
+ * Antes no se decía en ningún sitio y heredaba el 8-128 del plan, que para él
+ * era falso justo en el camino de respaldo, el que no puede fallar. **Medido
+ * (08-10-2026, semillas 1-200, cuadrados, `validateMapPlan` vacío):** de 24 a
+ * 64, 200 de 200 en cada lado, y 24×64 y 64×24 también (en 2 000 semillas el
+ * 24 se agota en 2, ver `INTENTOS_DE_VESTIDO`). Por debajo, 23 sale
+ * en 195, 22 en 184, 21 en 127, 20 en 32 y 18 o menos en ninguna: se agotan
+ * las 30 redes, casi siempre porque sus fronteras no admiten cuatro barreras
+ * con su mínimo de casillas. Por arriba deja de ser de fiar (con la máquina
+ * cargada): 77 tardó de media 6,5 s por plan en 10 semillas, 88 se agota con la
+ * semilla 1 y 96 no acabó la semilla 1 en seis minutos. Lo vigila un test que
+ * recorre el rango (`lado-del-generador.test.ts`): las puntas en `pnpm verify`, y cada
+ * lado con tres semillas y el 24 con las 200 en la lenta.
+ */
+export const LADO_MINIMO_DEL_GENERADOR = 24;
+export const LADO_MAXIMO_DEL_GENERADOR = 64;
+
 /** Los ids que `buildMap` les pone a los objetos que el plan no nombra. */
 const idDeNodo = (i: number): string => `node-${i}`;
 const idDePueblo = (i: number): string => `village-${i}`;
@@ -218,10 +246,14 @@ const idDePueblo = (i: number): string => `village-${i}`;
 export function validateMapPlan(plan: MapPlan): string[] {
   const problemas: string[] = [];
 
-  if (plan.width < 8 || plan.height < 8)
-    problemas.push('el mapa es demasiado pequeño (mínimo 8×8)');
-  if (plan.width > 128 || plan.height > 128)
-    problemas.push('el mapa es demasiado grande (máximo 128×128)');
+  if (plan.width < LADO_MINIMO_DEL_PLAN || plan.height < LADO_MINIMO_DEL_PLAN)
+    problemas.push(
+      `el mapa es demasiado pequeño (mínimo ${LADO_MINIMO_DEL_PLAN}×${LADO_MINIMO_DEL_PLAN})`,
+    );
+  if (plan.width > LADO_MAXIMO_DEL_PLAN || plan.height > LADO_MAXIMO_DEL_PLAN)
+    problemas.push(
+      `el mapa es demasiado grande (máximo ${LADO_MAXIMO_DEL_PLAN}×${LADO_MAXIMO_DEL_PLAN})`,
+    );
 
   // Los muros, antes que nada: `buildMap` los pinta y un tramo fuera del mapa o
   // torcido no se puede pintar. Torcido se rechaza en vez de enderezarse: un
@@ -363,7 +395,9 @@ export function validateMapPlan(plan: MapPlan): string[] {
   // la casilla (#145). Sin muro debajo no hay barrera que cruzar: antes se
   // aceptaba y el escenógrafo se la inventaba con lo de alrededor. Con un
   // tamaño fuera de rango ya hay problema y no se pinta un mapa que no vale.
-  const conTamaño = plan.width >= 8 && plan.height >= 8 && plan.width <= 128 && plan.height <= 128;
+  const enRango = (lado: number): boolean =>
+    lado >= LADO_MINIMO_DEL_PLAN && lado <= LADO_MAXIMO_DEL_PLAN;
+  const conTamaño = enRango(plan.width) && enRango(plan.height);
   const pintado = conTamaño ? terrenoPintado(plan) : [];
   for (const n of conTamaño ? plan.nodes : []) {
     if (!inBounds(plan, n)) continue;
@@ -793,6 +827,31 @@ const INTENTOS_DE_VESTIDO = 10;
 export function generateMapPlan(rng: Rng, opts: ProceduralOptions = {}): PlanConTramos {
   const width = opts.width ?? LADO_DEL_MAPA;
   const height = opts.height ?? LADO_DEL_MAPA;
+  const sabe = (lado: number): boolean =>
+    lado >= LADO_MINIMO_DEL_GENERADOR && lado <= LADO_MAXIMO_DEL_GENERADOR;
+  // Antes de gastar un solo intento: fuera de su rango el generador se agotaba
+  // tras 300 vestidos (o no acababa) y lo decía en términos de redes, como si
+  // fuera mala suerte de la semilla.
+  if (!sabe(width) || !sabe(height)) {
+    throw new Error(
+      `el generador procedimental no hace mapas de ${width}×${height}: cada lado va de ${LADO_MINIMO_DEL_GENERADOR} a ${LADO_MAXIMO_DEL_GENERADOR} (un plan escrito a mano puede ir de ${LADO_MINIMO_DEL_PLAN} a ${LADO_MAXIMO_DEL_PLAN})`,
+    );
+  }
+  return trazarYVestir(rng, width, height, opts);
+}
+
+/**
+ * Los intentos de `generateMapPlan`, sin mirar si el lado está en su rango. Se
+ * exporta solo para el test del mensaje de agotamiento: dentro del rango no se
+ * agota con ninguna semilla medida, así que la única forma de verlo es pedirle
+ * lo que no sabe hacer.
+ */
+export function trazarYVestir(
+  rng: Rng,
+  width: number,
+  height: number,
+  opts: ProceduralOptions = {},
+): PlanConTramos {
   let redesMalas = 0;
   const fallos: Record<FaseDelVestido, { veces: number; ultimo: string }> = {
     fronteras: { veces: 0, ultimo: '' },

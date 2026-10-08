@@ -22,6 +22,7 @@ import {
   LADO_DEL_MAPA,
   type MapPlan,
   type PlanConCasillas,
+  trazarYVestir,
   validateMapPlan,
 } from '../src/core/map/generate.js';
 import { type GameMap, pointKey, RedDeCaminos, type TramoDeCamino } from '../src/core/map/map.js';
@@ -675,8 +676,10 @@ describe('el generador hace redes como las pidió el usuario', () => {
     // dan para tres barreras distintas con su mínimo de casillas cada una (antes
     // de ese mínimo, en la vuelta 1 de QA, se agotaba en los objetos: no cabían
     // las catorce minas). Antes de partir el error decía «no sabe repartir
-    // regiones equilibradas» fuera cual fuera la fase, y mentía.
-    expect(() => generateMapPlan(createRng(1), { width: 12, height: 12 })).toThrow(
+    // regiones equilibradas» fuera cual fuera la fase, y mentía. Desde #102,
+    // 12×12 está fuera del rango del generador y `generateMapPlan` ni lo intenta;
+    // los intentos se piden sin esa comprobación para ver su mensaje.
+    expect(() => trazarYVestir(createRng(1), 12, 12)).toThrow(
       new RegExp(
         `no sale un mapa de nodos de 12×12 en ${INTENTOS_DE_RED} redes: .*no se dejaron vestir en 10 intentos cada una: \\d+ en fronteras \\(la última: las fronteras de este mapa .* no admiten \\d barreras distintas con 15 casillas cada una\\)`,
       ),
