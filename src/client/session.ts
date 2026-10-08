@@ -50,6 +50,7 @@ import {
   objetosConocidos,
   type Player,
   pasosDeHoy,
+  puedeAndarHoy,
   type RecruitCapacity,
   recruitCapacity,
   resolvePendingBattle,
@@ -418,6 +419,105 @@ export class Session implements ControlDeBatalla, HechizosDeBatalla {
     return townsOf(this.state, this.viewer);
   }
 
+  // ------------------------------------------------- héroes en espera (#17)
+
+  /**
+   * Los héroes que la persona ha mandado a dormir: no los ofrece «Siguiente
+   * héroe» ni cuentan en el aviso de fin de turno. Es estado de quien juega y
+   * no del núcleo, a propósito: no cambia ninguna regla —un héroe dormido anda
+   * igual si se le manda—, el agente no lo necesita (decide cada turno por su
+   * cuenta) y guardarlo en `GameState` lo habría metido en el volcado del banco
+   * y en la serialización para nada. Se guarda por id; el de un héroe que ya no
+   * está no estorba, porque solo se pregunta por los que están.
+   */
+  private readonly dormidos = new Set<string>();
+
+  estaDormido(heroId: string): boolean {
+    return this.dormidos.has(heroId);
+  }
+
+  /** Duerme al héroe si está despierto y lo despierta si duerme. */
+  alternarSueño(heroId: string): void {
+    const heroe = this.myHeroes().find((h) => h.id === heroId);
+    if (heroe === undefined) {
+      this.status = 'Solo puedes dormir o despertar a tus héroes.';
+      return;
+    }
+    const duerme = this.dormidos.delete(heroId);
+    if (!duerme) this.dormidos.add(heroId);
+    this.status = duerme
+      ? `${heroe.name} se despierta.`
+      : `${heroe.name} duerme: no se le esperará.`;
+    this.tocar();
+  }
+
+  /**
+   * Los héroes despiertos que todavía pueden dar un paso hoy, en el orden de
+   * `myHeroes`. Si dar un paso es posible lo responde el núcleo (`puedeAndarHoy`).
+   */
+  quienesPuedenAndar(): Hero[] {
+    return this.myHeroes().filter((h) => !this.dormidos.has(h.id) && puedeAndarHoy(this.state, h));
+  }
+
+  /**
+   * Elige al siguiente héroe que aún puede andar, después del elegido y dando la
+   * vuelta. Devuelve si eligió a alguien, para que quien lo llama lleve la
+   * cámara; si no hay nadie, lo dice la barra.
+   */
+  siguienteHeroe(): boolean {
+    const mios = this.myHeroes();
+    const listos = new Set(this.quienesPuedenAndar().map((h) => h.id));
+    if (listos.size === 0) {
+      this.status =
+        mios.length === 0
+          ? 'No tienes héroes en el mapa.'
+          : 'Ningún héroe despierto puede andar hoy: pasa el turno.';
+      return false;
+    }
+    const desde = mios.findIndex((h) => h.id === this.selectedHeroId);
+    for (let k = 1; k <= mios.length; k++) {
+      const heroe = mios[(desde + k + mios.length) % mios.length];
+      if (heroe === undefined || !listos.has(heroe.id)) continue;
+      this.selectedHeroId = heroe.id;
+      this.status = `${heroe.name} seleccionado.`;
+      return true;
+    }
+    throw new Error('hay héroes que pueden andar y ninguno está entre los tuyos');
+  }
+
+  /**
+   * Los héroes por los que se pregunta antes de pasar el turno, mientras la
+   * pregunta siga en pie, o `null`. La pregunta vale solo para la versión en que
+   * se hizo: cualquier cosa que cambie lo que se ve —mover, elegir otro héroe,
+   * dormirlo— la retira sola, y con ella no puede quedarse en pantalla un aviso
+   * que ya no es cierto. El clic que confirma no sube la versión antes de llegar.
+   */
+  get avisoDeFinDeTurno(): readonly Hero[] | null {
+    const a = this.aviso;
+    return a !== null && a.version === this.version ? a.heroes : null;
+  }
+  private aviso: { readonly version: number; readonly heroes: readonly Hero[] } | null = null;
+
+  /**
+   * ¿Se puede pasar ya el turno sin preguntar? Si quedan héroes despiertos que
+   * pueden andar, deja la pregunta en pie (`avisoDeFinDeTurno`) y dice que no.
+   * No es un `confirm()` del navegador: la pregunta la pintan los paneles.
+   */
+  pedirFinDeTurno(): boolean {
+    const quienes = this.quienesPuedenAndar();
+    if (quienes.length === 0) return true;
+    this.tocar();
+    this.aviso = { version: this.version, heroes: quienes };
+    return false;
+  }
+
+  /** «Seguir jugando»: retira la pregunta sin pasar el turno. */
+  retirarAvisoDeFinDeTurno(): void {
+    if (this.aviso === null) return;
+    this.aviso = null;
+    this.tocar();
+  }
+
   /** El jugador de la persona: sus recursos y su niebla. */
   get jugador(): Player {
     const propio = this.state.players.find((p) => p.id === this.viewer);
@@ -624,6 +724,9 @@ export class Session implements ControlDeBatalla, HechizosDeBatalla {
       this.status = comoFrase(mensaje(err));
       return;
     }
+    // Mandarlo a andar es despertarlo: si no, se queda fuera de «Siguiente
+    // héroe» después de haberlo usado, y es lo que hace el original.
+    this.dormidos.delete(heroId);
     this.tocar();
 
     if (this.state.pendingBattle !== null) {
@@ -661,6 +764,7 @@ export class Session implements ControlDeBatalla, HechizosDeBatalla {
 
   async endTurn(): Promise<void> {
     if (!this.isPlayersTurn) return;
+    this.aviso = null;
     try {
       applyAdventureAction(this.state, { type: 'end_turn' }, this.ctx, this.viewer);
     } catch (err) {

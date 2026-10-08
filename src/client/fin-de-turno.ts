@@ -39,9 +39,22 @@ export class PuertaDeFinDeTurno {
    * Pasa el turno si la puerta está abierta; si no, no hace nada y devuelve
    * `false`. No escribe en la barra: un Espacio de más mientras cambia el día
    * no es un error de quien juega, y pisaría lo que la barra dice del día nuevo.
+   *
+   * Sin `confirmado`, si quedan héroes despiertos que pueden andar, no pasa:
+   * deja la pregunta en pie (`Session.pedirFinDeTurno`, #17) y devuelve `false`.
+   * Confirma el botón «Terminar el turno» de esa pregunta, o Intro. `alPasar`
+   * corre justo antes de pasar, y solo si se pasa: la ruta pintada se borra al
+   * pasar el turno, no al preguntar, que la persona puede querer seguirla.
    */
-  async pasar(s: Session, animando: boolean): Promise<boolean> {
+  async pasar(
+    s: Session,
+    animando: boolean,
+    confirmado = false,
+    alPasar: () => void = () => {},
+  ): Promise<boolean> {
     if (!this.abierta(s, animando)) return false;
+    if (!confirmado && !s.pedirFinDeTurno()) return false;
+    alPasar();
     try {
       await s.endTurn();
     } finally {

@@ -270,3 +270,9 @@ progress.liderazgo::-moz-progress-bar { background: #d5ba78; }
   #statusbar { flex-wrap: wrap; padding: 0.4rem 0.6rem; }
   #actions button { min-height: 44px; }
 }
+
+/* Dormir o despertar al héroe (#17): pequeño, bajo su nombre. */
+button.dormir { font-size: 0.75rem; padding: 0.1rem 0.55rem; margin-bottom: 0.4rem; }
+.stack .duerme { color: var(--ink-dim); font-style: italic; font-size: 0.85em; }
+/* La pregunta de fin de turno, en la barra de abajo junto a sus dos botones. */
+.aviso-fin-de-turno { align-self: center; color: #f2deac; }

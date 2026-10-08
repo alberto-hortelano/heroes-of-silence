@@ -298,6 +298,8 @@ describe('«Fin de turno»', () => {
   it('dos pulsaciones seguidas pasan UN día; pasada la pausa del cambio de día, la siguiente sí', async () => {
     // Lo que veía QA: el rival se resuelve en milisegundos y la segunda
     // pulsación llega con el turno ya devuelto. Sin la puerta, son dos días.
+    // Confirmadas (`true`): la pregunta de los héroes que aún andan es otra
+    // cosa, y tiene sus propios tests abajo.
     const sinPuerta = new Session(12);
     await sinPuerta.endTurn();
     await sinPuerta.endTurn();
@@ -306,20 +308,20 @@ describe('«Fin de turno»', () => {
     let ahora = 1000;
     const puerta = new PuertaDeFinDeTurno(() => ahora);
     const s = new Session(12);
-    expect(await puerta.pasar(s, false)).toBe(true);
+    expect(await puerta.pasar(s, false, true)).toBe(true);
     ahora += 5;
-    expect(await puerta.pasar(s, false)).toBe(false);
+    expect(await puerta.pasar(s, false, true)).toBe(false);
     expect(s.state.day).toBe(2);
 
     ahora += PAUSA_TRAS_EL_RIVAL;
-    expect(await puerta.pasar(s, false)).toBe(true);
+    expect(await puerta.pasar(s, false, true)).toBe(true);
     expect(s.state.day).toBe(3);
   });
 
   it('las dos pulsaciones a la vez, sin esperar a la primera, también pasan un día', async () => {
     const puerta = new PuertaDeFinDeTurno(() => 0);
     const s = new Session(12);
-    const [a, b] = await Promise.all([puerta.pasar(s, false), puerta.pasar(s, false)]);
+    const [a, b] = await Promise.all([puerta.pasar(s, false, true), puerta.pasar(s, false, true)]);
     expect([a, b]).toEqual([true, false]);
     expect(s.state.day).toBe(2);
   });
@@ -329,7 +331,7 @@ describe('«Fin de turno»', () => {
     const s = new Session(12);
     expect(await puerta.pasar(s, true)).toBe(false);
     s.openTown(s.myTowns()[0]!.id);
-    expect(await puerta.pasar(s, false)).toBe(false);
+    expect(await puerta.pasar(s, false, true)).toBe(false);
     expect(s.state.day).toBe(1);
   });
 });

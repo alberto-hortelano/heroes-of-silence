@@ -190,13 +190,31 @@ export function renderActions(session: Session, contandoAun = false): Html {
         html`<button data-action="auto-battle">Resolver sola</button>`,
       );
     }
-    default:
+    default: {
+      const aviso = session.avisoDeFinDeTurno;
+      if (aviso !== null) return renderAvisoDeFinDeTurno(aviso);
       return html`
         <button data-action="toggle-fog">${session.revealAll ? 'Ocultar mapa' : 'Ver mapa entero'}</button>
+        <button data-action="next-hero" title="Tecla H" ${session.isPlayersTurn ? NADA : DESHABILITADO}>Siguiente héroe</button>
         <button data-action="end-turn" class="primary" ${session.isPlayersTurn ? NADA : DESHABILITADO}>
           Fin de turno
         </button>`;
+    }
   }
+}
+
+/**
+ * La pregunta antes de pasar el turno con héroes que aún pueden andar (#17),
+ * en la barra de abajo, donde estaba el botón que la hizo salir. No es un
+ * `confirm()`: el navegador lo pinta a su manera, bloquea la página y en un
+ * móvil tapa el mapa que la persona querría mirar antes de contestar.
+ */
+function renderAvisoDeFinDeTurno(heroes: readonly Hero[]): Html {
+  const nombres = heroes.map((h) => h.name).join(', ');
+  const verbo = heroes.length === 1 ? 'puede' : 'pueden';
+  return html`<span class="aviso-fin-de-turno" role="alert">Aún ${verbo} andar hoy: ${nombres}. ¿Terminar el turno?</span>
+    <button data-action="end-turn-cancel" title="Escape">Seguir jugando</button>
+    <button data-action="end-turn-confirm" class="primary" title="Intro">Terminar el turno</button>`;
 }
 
 // ---------------------------------------------------------------- aventura
@@ -276,6 +294,7 @@ function renderAdventurePanel(session: Session): Html {
       : html`
         <p class="eyebrow">HÉROE · NIVEL ${nivelDeHeroe(hero)} · ${nombreDeTipoDeHeroe(hero.faction, hero.tipo)}</p>
         <h2>${hero.name}</h2>${historiaDelHeroe(hero.origen?.historia ?? null)}
+        ${botonDeSueño(session, hero)}
         ${filaLiderazgo(session.liderazgo({ heroe: hero.id }))}
         <div class="row"><span class="label">Movimiento</span><span>${hero.movePoints} / ${maxMovePoints(hero, session.state.characters)}</span></div>
         <div class="row"><span class="label">Maná</span><span>${hero.mana} / ${maxMana(hero)}</span></div>
@@ -288,15 +307,21 @@ function renderAdventurePanel(session: Session): Html {
         <h3>Tropa · ${hero.army.length} ${hero.army.length === 1 ? 'individuo' : 'individuos'}</h3>
         ${renderTropaEquipable(hero, session.selectedItem, session.state.characters)}`;
 
+  // Con uno solo también (#17): con `<= 1` la lista aparecía al contratar el
+  // segundo y se iba al perderlo, y con ella el sitio donde mirar quién duerme.
   const listaHeroes =
-    heroes.length <= 1
+    heroes.length === 0
       ? NADA
       : html`<h3>Héroes</h3><div class="stack-list">${unir(
-          heroes.map(
-            (h) => html`<button data-action="select-hero" data-hero="${h.id}" class="stack">
-              <span>${h.name}</span><span class="count">${h.movePoints}</span>
-            </button>`,
-          ),
+          heroes.map((h) => {
+            const elegido = h.id === hero?.id;
+            const duerme = session.estaDormido(h.id)
+              ? html` <span class="duerme">· duerme</span>`
+              : NADA;
+            return html`<button data-action="select-hero" data-hero="${h.id}" class="stack${elegido ? ' primary' : ''}">
+              <span>${h.name}${duerme}</span><span class="count">${h.movePoints}</span>
+            </button>`;
+          }),
         )}</div>`;
 
   const pueblos = session.myTowns();
@@ -313,6 +338,16 @@ function renderAdventurePanel(session: Session): Html {
 
   return html`${fin}${heroPanel}${listaHeroes}${listaPueblos}
     <h3>Crónica</h3>${renderLog(session.cronica(60), session.viewer)}`;
+}
+
+/**
+ * «Dormir» o «Despertar»: un héroe dormido no lo ofrece «Siguiente héroe» ni
+ * cuenta en la pregunta de fin de turno (#17). Mandarlo a andar lo despierta.
+ */
+function botonDeSueño(session: Session, hero: Hero): Html {
+  const duerme = session.estaDormido(hero.id);
+  return html`<button data-action="sleep-hero" data-hero="${hero.id}" class="dormir"
+    title="${duerme ? 'Vuelve a contar con él al pasar el turno' : 'No se le esperará al pasar el turno'}">${duerme ? 'Despertar' : 'Dormir'}</button>`;
 }
 
 /**

@@ -350,11 +350,19 @@ minimapa.addEventListener('pointerdown', (ev) => {
  * no rechaza —se traga su fallo y lo escribe en `status`—, y lo que juega el
  * rival llega cuando termina, sin gesto que pida fotograma.
  */
-function pasarTurno(): void {
+function pasarTurno(confirmado = false): void {
   const animando = session.scene === 'adventure' && aventura.arrastrando;
   if (!finDeTurno.abierta(session, animando)) return;
+  void finDeTurno
+    .pasar(session, animando, confirmado, () => aventura.olvidarRuta())
+    .then(pedirFotograma);
+}
+
+/** «Siguiente héroe», por el botón o por la H: lo elige la sesión y aquí se le mira. */
+function siguienteHeroe(): void {
+  if (session.scene !== 'adventure' || !session.siguienteHeroe()) return;
   aventura.olvidarRuta();
-  void finDeTurno.pasar(session, animando).then(pedirFotograma);
+  aventura.centrar();
 }
 
 document.addEventListener('click', (ev) => {
@@ -383,6 +391,18 @@ document.addEventListener('click', (ev) => {
   switch (action) {
     case 'end-turn':
       pasarTurno();
+      break;
+    case 'end-turn-confirm':
+      pasarTurno(true);
+      break;
+    case 'end-turn-cancel':
+      session.retirarAvisoDeFinDeTurno();
+      break;
+    case 'next-hero':
+      siguienteHeroe();
+      break;
+    case 'sleep-hero':
+      session.alternarSueño(target.getAttribute('data-hero') as string);
       break;
     case 'toggle-fog':
       session.revealAll = !session.revealAll;
@@ -498,6 +518,20 @@ document.addEventListener('keydown', (ev) => {
     ev.preventDefault();
     // Dejar el Espacio pulsado repite la tecla: eso no es pedir varios días.
     if (!ev.repeat) pasarTurno();
+  }
+  // La pregunta de fin de turno (#17): Intro la confirma y Escape la retira. El
+  // Espacio NO confirma: es la tecla que la hizo salir, y dos Espacios seguidos
+  // pasarían el turno sin que la pregunta se llegase a leer.
+  if (session.avisoDeFinDeTurno !== null && session.scene === 'adventure') {
+    if (ev.key === 'Enter' && !enUnBoton) {
+      ev.preventDefault();
+      if (!ev.repeat) pasarTurno(true);
+    }
+    if (ev.key === 'Escape') session.retirarAvisoDeFinDeTurno();
+  }
+  const conModificador = ev.ctrlKey || ev.metaKey || ev.altKey;
+  if ((ev.key === 'h' || ev.key === 'H') && !conModificador && session.scene === 'adventure') {
+    if (!ev.repeat) siguienteHeroe();
   }
   if ((ev.key === '+' || ev.key === '-') && session.scene === 'adventure') {
     aventura.zoom(ev.key === '+' ? 1 : -1);

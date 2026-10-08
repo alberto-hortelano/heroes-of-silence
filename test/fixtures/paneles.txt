@@ -4,6 +4,8 @@
 
         <p class="eyebrow">HÉROE · NIVEL 5 · Caballero</p>
         <h2>Aldo de Valdeluz</h2>
+        <button data-action="sleep-hero" data-hero="hero-0" class="dormir"
+    title="No se le esperará al pasar el turno">Dormir</button>
         <div class="row"><span class="label">Liderazgo</span><span>12 / 20</span></div>
     <progress class="liderazgo" max="20" value="12"></progress>
         <div class="row"><span class="label">Movimiento</span><span>1100 / 1100</span></div>
@@ -16,13 +18,16 @@
         <h3>Equipo</h3><div class="stack-list"><div class="stack"><span>Arma: Espada de armería<span class="veterania">+2 ataque</span></span><span class="count"><button data-action="unequip" data-hero="hero-0" data-slot="arma" title="Quitársela y guardarla en la mochila">×</button></span></div><div class="stack"><span>Armadura: Cota de malla<span class="veterania">+2 defensa</span></span><span class="count"><button data-action="unequip" data-hero="hero-0" data-slot="armadura" title="Quitársela y guardarla en la mochila">×</button></span></div><div class="stack"><span>Accesorio: Brazal de armería<span class="veterania">+1 ataque, +1 defensa</span></span><span class="count"><button data-action="unequip" data-hero="hero-0" data-slot="accesorio" title="Quitársela y guardarla en la mochila">×</button></span></div></div>
     <h3>Mochila · 0</h3><div class="stack-list"><div class="stack empty"><span>Vacía: el botín y lo que compres caen aquí</span></div></div>
         <h3>Tropa · 5 individuos</h3>
-        <div class="stack-list"><div class="stack"><span>Campesino</span><span class="count">3</span></div><div class="stack"><span>Arquero ↑</span><span class="count">2</span></div></div><h3>Castillos</h3><div class="stack-list"><button data-action="open-town" data-town="town-0" class="stack">
+        <div class="stack-list"><div class="stack"><span>Campesino</span><span class="count">3</span></div><div class="stack"><span>Arquero ↑</span><span class="count">2</span></div></div><h3>Héroes</h3><div class="stack-list"><button data-action="select-hero" data-hero="hero-0" class="stack primary">
+              <span>Aldo de Valdeluz</span><span class="count">1100</span>
+            </button></div><h3>Castillos</h3><div class="stack-list"><button data-action="open-town" data-town="town-0" class="stack">
               <span>Valdeluz</span><span class="count">+500</span>
             </button></div>
     <h3>Crónica</h3><div class="log" data-al-final="cronica"><div>— Día 1 —</div><div>— Día 2 —</div><div>— Día 3 —</div></div>
 ### aventura · renderActions
 
         <button data-action="toggle-fog">Ver mapa entero</button>
+        <button data-action="next-hero" title="Tecla H" >Siguiente héroe</button>
         <button data-action="end-turn" class="primary" >
           Fin de turno
         </button>
@@ -88,6 +93,8 @@
 
         <p class="eyebrow">HÉROE · NIVEL 5 · Caballero</p>
         <h2>Capitán de Valdeluz</h2>
+        <button data-action="sleep-hero" data-hero="hero-0-c1" class="dormir"
+    title="No se le esperará al pasar el turno">Dormir</button>
         <div class="row"><span class="label">Liderazgo</span><span>16 / 20</span></div>
     <progress class="liderazgo" max="20" value="16"></progress>
         <div class="row"><span class="label">Movimiento</span><span>1500 / 1000</span></div>
@@ -102,7 +109,7 @@
         <h3>Tropa · 6 individuos</h3>
         <div class="stack-list"><div class="stack"><span>Campesino</span><span class="count">3</span></div><div class="stack"><span>Arquero ↑</span><span class="count">2</span></div><div class="stack"><span>Piquero</span><span class="count">1</span></div></div><h3>Héroes</h3><div class="stack-list"><button data-action="select-hero" data-hero="hero-0" class="stack">
               <span>Aldo de Valdeluz</span><span class="count">1100</span>
-            </button><button data-action="select-hero" data-hero="hero-0-c1" class="stack">
+            </button><button data-action="select-hero" data-hero="hero-0-c1" class="stack primary">
               <span>Capitán de Valdeluz</span><span class="count">1500</span>
             </button></div><h3>Castillos</h3><div class="stack-list"><button data-action="open-town" data-town="town-0" class="stack">
               <span>Valdeluz</span><span class="count">+500</span>
@@ -111,6 +118,7 @@
 ### aventura · héroe recién contratado · renderActions
 
         <button data-action="toggle-fog">Ver mapa entero</button>
+        <button data-action="next-hero" title="Tecla H" >Siguiente héroe</button>
         <button data-action="end-turn" class="primary" >
           Fin de turno
         </button>
@@ -210,6 +218,8 @@
   </div>
         <p class="eyebrow">HÉROE · NIVEL 6 · Caballero</p>
         <h2>Aldo de Valdeluz</h2>
+        <button data-action="sleep-hero" data-hero="hero-0" class="dormir"
+    title="No se le esperará al pasar el turno">Dormir</button>
         <div class="row"><span class="label">Liderazgo</span><span>20 / 25</span></div>
     <progress class="liderazgo" max="25" value="20"></progress>
         <div class="row"><span class="label">Movimiento</span><span>100 / 1100</span></div>
@@ -222,7 +232,9 @@
         <h3>Equipo</h3><div class="stack-list"><div class="stack"><span>Arma: Espada de armería<span class="veterania">+2 ataque</span></span><span class="count"><button data-action="unequip" data-hero="hero-0" data-slot="arma" title="Quitársela y guardarla en la mochila">×</button></span></div><div class="stack"><span>Armadura: Cota de malla<span class="veterania">+2 defensa</span></span><span class="count"><button data-action="unequip" data-hero="hero-0" data-slot="armadura" title="Quitársela y guardarla en la mochila">×</button></span></div><div class="stack"><span>Accesorio: Brazal de armería<span class="veterania">+1 ataque, +1 defensa</span></span><span class="count"><button data-action="unequip" data-hero="hero-0" data-slot="accesorio" title="Quitársela y guardarla en la mochila">×</button></span></div></div>
     <h3>Mochila · 0</h3><div class="stack-list"><div class="stack empty"><span>Vacía: el botín y lo que compres caen aquí</span></div></div>
         <h3>Tropa · 4 individuos</h3>
-        <div class="stack-list"><div class="stack"><span>Maestro espadachín<span class="veterania">Veterano · nivel 3 · 78 / 120 exp</span><span class="veterania">Lleva: Amuleto de hueso</span><span class="quitar-equipo"><button data-action="unequip" data-hero="hero-0" data-slot="accesorio" data-veteran="veterano-10" title="Quitársela y guardarla en la mochila">× Amuleto de hueso</button></span></span><span class="count">1</span></div><div class="stack"><span>Maestro espadachín<span class="veterania">Veterano · nivel 2 · 34 / 60 exp</span><span class="veterania">Lleva: Anillo de cobre</span><span class="quitar-equipo"><button data-action="unequip" data-hero="hero-0" data-slot="accesorio" data-veteran="veterano-11" title="Quitársela y guardarla en la mochila">× Anillo de cobre</button></span></span><span class="count">1</span></div><div class="stack"><span>Maestro espadachín<span class="veterania">Nivel 1 · 12 / 20 exp</span></span><span class="count">1</span></div><div class="stack"><span>Campesino</span><span class="count">1</span></div></div><h3>Castillos</h3><div class="stack-list"><button data-action="open-town" data-town="town-0" class="stack">
+        <div class="stack-list"><div class="stack"><span>Maestro espadachín<span class="veterania">Veterano · nivel 3 · 78 / 120 exp</span><span class="veterania">Lleva: Amuleto de hueso</span><span class="quitar-equipo"><button data-action="unequip" data-hero="hero-0" data-slot="accesorio" data-veteran="veterano-10" title="Quitársela y guardarla en la mochila">× Amuleto de hueso</button></span></span><span class="count">1</span></div><div class="stack"><span>Maestro espadachín<span class="veterania">Veterano · nivel 2 · 34 / 60 exp</span><span class="veterania">Lleva: Anillo de cobre</span><span class="quitar-equipo"><button data-action="unequip" data-hero="hero-0" data-slot="accesorio" data-veteran="veterano-11" title="Quitársela y guardarla en la mochila">× Anillo de cobre</button></span></span><span class="count">1</span></div><div class="stack"><span>Maestro espadachín<span class="veterania">Nivel 1 · 12 / 20 exp</span></span><span class="count">1</span></div><div class="stack"><span>Campesino</span><span class="count">1</span></div></div><h3>Héroes</h3><div class="stack-list"><button data-action="select-hero" data-hero="hero-0" class="stack primary">
+              <span>Aldo de Valdeluz</span><span class="count">100</span>
+            </button></div><h3>Castillos</h3><div class="stack-list"><button data-action="open-town" data-town="town-0" class="stack">
               <span>Valdeluz</span><span class="count">+2000</span>
             </button><button data-action="open-town" data-town="town-1" class="stack">
               <span>Cripta Gris</span><span class="count">+2000</span>
@@ -246,6 +258,8 @@
   </div>
         <p class="eyebrow">HÉROE · NIVEL 5 · Caballero</p>
         <h2>Aldo de Valdeluz</h2>
+        <button data-action="sleep-hero" data-hero="hero-0" class="dormir"
+    title="No se le esperará al pasar el turno">Dormir</button>
         <div class="row"><span class="label">Liderazgo</span><span>18 / 20</span></div>
     <progress class="liderazgo" max="20" value="18"></progress>
         <div class="row"><span class="label">Movimiento</span><span>20 / 1100</span></div>
@@ -258,7 +272,9 @@
         <h3>Equipo</h3><div class="stack-list"><div class="stack"><span>Arma: Espada de armería<span class="veterania">+2 ataque</span></span><span class="count"><button data-action="unequip" data-hero="hero-0" data-slot="arma" title="Quitársela y guardarla en la mochila">×</button></span></div><div class="stack"><span>Armadura: Cota de malla<span class="veterania">+2 defensa</span></span><span class="count"><button data-action="unequip" data-hero="hero-0" data-slot="armadura" title="Quitársela y guardarla en la mochila">×</button></span></div><div class="stack"><span>Accesorio: Brazal de armería<span class="veterania">+1 ataque, +1 defensa</span></span><span class="count"><button data-action="unequip" data-hero="hero-0" data-slot="accesorio" title="Quitársela y guardarla en la mochila">×</button></span></div></div>
     <h3>Mochila · 0</h3><div class="stack-list"><div class="stack empty"><span>Vacía: el botín y lo que compres caen aquí</span></div></div>
         <h3>Tropa · 6 individuos</h3>
-        <div class="stack-list"><div class="stack"><span>Arquero ↑<span class="veterania">Nivel 1 · 18 / 20 exp</span><span class="veterania">Lleva: Garrote, Cuero curtido, Amuleto de hueso</span><span class="quitar-equipo"><button data-action="unequip" data-hero="hero-0" data-slot="arma" data-veteran="veterano-1" title="Quitársela y guardarla en la mochila">× Garrote</button><button data-action="unequip" data-hero="hero-0" data-slot="armadura" data-veteran="veterano-1" title="Quitársela y guardarla en la mochila">× Cuero curtido</button><button data-action="unequip" data-hero="hero-0" data-slot="accesorio" data-veteran="veterano-1" title="Quitársela y guardarla en la mochila">× Amuleto de hueso</button></span></span><span class="count">1</span></div><div class="stack"><span>Arquero ↑<span class="veterania">Nivel 1 · 17 / 20 exp</span></span><span class="count">1</span></div><div class="stack"><span>Arquero ↑<span class="veterania">Nivel 1 · 11 / 20 exp</span></span><span class="count">1</span></div><div class="stack"><span>Arquero ↑<span class="veterania">Nivel 1 · 16 / 20 exp</span></span><span class="count">1</span></div><div class="stack"><span>Arquero ↑<span class="veterania">Nivel 1 · 17 / 20 exp</span></span><span class="count">1</span></div><div class="stack"><span>Arquero ↑<span class="veterania">Nivel 1 · 17 / 20 exp</span></span><span class="count">1</span></div></div><h3>Castillos</h3><div class="stack-list"><button data-action="open-town" data-town="town-3" class="stack">
+        <div class="stack-list"><div class="stack"><span>Arquero ↑<span class="veterania">Nivel 1 · 18 / 20 exp</span><span class="veterania">Lleva: Garrote, Cuero curtido, Amuleto de hueso</span><span class="quitar-equipo"><button data-action="unequip" data-hero="hero-0" data-slot="arma" data-veteran="veterano-1" title="Quitársela y guardarla en la mochila">× Garrote</button><button data-action="unequip" data-hero="hero-0" data-slot="armadura" data-veteran="veterano-1" title="Quitársela y guardarla en la mochila">× Cuero curtido</button><button data-action="unequip" data-hero="hero-0" data-slot="accesorio" data-veteran="veterano-1" title="Quitársela y guardarla en la mochila">× Amuleto de hueso</button></span></span><span class="count">1</span></div><div class="stack"><span>Arquero ↑<span class="veterania">Nivel 1 · 17 / 20 exp</span></span><span class="count">1</span></div><div class="stack"><span>Arquero ↑<span class="veterania">Nivel 1 · 11 / 20 exp</span></span><span class="count">1</span></div><div class="stack"><span>Arquero ↑<span class="veterania">Nivel 1 · 16 / 20 exp</span></span><span class="count">1</span></div><div class="stack"><span>Arquero ↑<span class="veterania">Nivel 1 · 17 / 20 exp</span></span><span class="count">1</span></div><div class="stack"><span>Arquero ↑<span class="veterania">Nivel 1 · 17 / 20 exp</span></span><span class="count">1</span></div></div><h3>Héroes</h3><div class="stack-list"><button data-action="select-hero" data-hero="hero-0" class="stack primary">
+              <span>Aldo de Valdeluz</span><span class="count">20</span>
+            </button></div><h3>Castillos</h3><div class="stack-list"><button data-action="open-town" data-town="town-3" class="stack">
               <span>Puenteroto</span><span class="count">+500</span>
             </button><button data-action="open-town" data-town="town-5" class="stack">
               <span>Peñagrís</span><span class="count">+500</span>
@@ -278,6 +294,8 @@
 
         <p class="eyebrow">HÉROE · NIVEL 5 · Caballero</p>
         <h2>Aldo de Valdeluz</h2>
+        <button data-action="sleep-hero" data-hero="hero-0" class="dormir"
+    title="No se le esperará al pasar el turno">Dormir</button>
         <div class="row"><span class="label">Liderazgo</span><span>12 / 20</span></div>
     <progress class="liderazgo" max="20" value="12"></progress>
         <div class="row"><span class="label">Movimiento</span><span>1100 / 1100</span></div>
@@ -290,13 +308,16 @@
         <h3>Equipo</h3><div class="stack-list"><div class="stack"><span>Arma: Espada de armería<span class="veterania">+2 ataque</span></span><span class="count"><button data-action="unequip" data-hero="hero-0" data-slot="arma" title="Quitársela y guardarla en la mochila">×</button></span></div><div class="stack"><span>Armadura: Cota de malla<span class="veterania">+2 defensa</span></span><span class="count"><button data-action="unequip" data-hero="hero-0" data-slot="armadura" title="Quitársela y guardarla en la mochila">×</button></span></div><div class="stack"><span>Accesorio: Brazal de armería<span class="veterania">+1 ataque, +1 defensa</span></span><span class="count"><button data-action="unequip" data-hero="hero-0" data-slot="accesorio" title="Quitársela y guardarla en la mochila">×</button></span></div></div>
     <h3>Mochila · 0</h3><div class="stack-list"><div class="stack empty"><span>Vacía: el botín y lo que compres caen aquí</span></div></div>
         <h3>Tropa · 5 individuos</h3>
-        <div class="stack-list"><div class="stack"><span>Campesino</span><span class="count">3</span></div><div class="stack"><span>Arquero ↑</span><span class="count">2</span></div></div><h3>Castillos</h3><div class="stack-list"><button data-action="open-town" data-town="town-0" class="stack">
+        <div class="stack-list"><div class="stack"><span>Campesino</span><span class="count">3</span></div><div class="stack"><span>Arquero ↑</span><span class="count">2</span></div></div><h3>Héroes</h3><div class="stack-list"><button data-action="select-hero" data-hero="hero-0" class="stack primary">
+              <span>Aldo de Valdeluz</span><span class="count">1100</span>
+            </button></div><h3>Castillos</h3><div class="stack-list"><button data-action="open-town" data-town="town-0" class="stack">
               <span>Valdeluz</span><span class="count">+500</span>
             </button></div>
     <h3>Crónica</h3><div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
 ### aventura · turno del rival · renderActions
 
         <button data-action="toggle-fog">Ver mapa entero</button>
+        <button data-action="next-hero" title="Tecla H" disabled>Siguiente héroe</button>
         <button data-action="end-turn" class="primary" disabled>
           Fin de turno
         </button>
@@ -757,6 +778,8 @@
 
         <p class="eyebrow">HÉROE · NIVEL 5 · Caballero</p>
         <h2>Aldo de Valdeluz</h2>
+        <button data-action="sleep-hero" data-hero="hero-0" class="dormir"
+    title="No se le esperará al pasar el turno">Dormir</button>
         <div class="row"><span class="label">Liderazgo</span><span>8 / 20</span></div>
     <progress class="liderazgo" max="20" value="8"></progress>
         <div class="row"><span class="label">Movimiento</span><span>1100 / 1100</span></div>
@@ -774,13 +797,16 @@
             </button></div><button data-action="equip" data-hero="hero-0" class="primary">Ponérsela a Aldo de Valdeluz</button>
         <p class="cost">O pulsa «Equipar» en una fila de la tropa.</p>
         <h3>Tropa · 3 individuos</h3>
-        <div class="stack-list"><div class="stack"><span>Piquero<span class="veterania">Veterano · nivel 3 · 70 / 120 exp</span><span class="veterania">Lleva: Garrote</span><span class="quitar-equipo"><button data-action="unequip" data-hero="hero-0" data-slot="arma" data-veteran="veterano-1" title="Quitársela y guardarla en la mochila">× Garrote</button></span></span><span class="count">1 <button data-action="equip" data-hero="hero-0" data-veteran="veterano-1">Equipar</button></span></div><div class="stack"><span>Campesino</span><span class="count">2 <button data-action="equip" data-hero="hero-0" data-creature="peasant">Equipar</button></span></div></div><h3>Castillos</h3><div class="stack-list"><button data-action="open-town" data-town="town-0" class="stack">
+        <div class="stack-list"><div class="stack"><span>Piquero<span class="veterania">Veterano · nivel 3 · 70 / 120 exp</span><span class="veterania">Lleva: Garrote</span><span class="quitar-equipo"><button data-action="unequip" data-hero="hero-0" data-slot="arma" data-veteran="veterano-1" title="Quitársela y guardarla en la mochila">× Garrote</button></span></span><span class="count">1 <button data-action="equip" data-hero="hero-0" data-veteran="veterano-1">Equipar</button></span></div><div class="stack"><span>Campesino</span><span class="count">2 <button data-action="equip" data-hero="hero-0" data-creature="peasant">Equipar</button></span></div></div><h3>Héroes</h3><div class="stack-list"><button data-action="select-hero" data-hero="hero-0" class="stack primary">
+              <span>Aldo de Valdeluz</span><span class="count">1100</span>
+            </button></div><h3>Castillos</h3><div class="stack-list"><button data-action="open-town" data-town="town-0" class="stack">
               <span>Valdeluz</span><span class="count">+500</span>
             </button></div>
     <h3>Crónica</h3><div class="log" data-al-final="cronica"><div>— Día 1 —</div></div>
 ### aventura · mochila y pieza elegida · renderActions
 
         <button data-action="toggle-fog">Ver mapa entero</button>
+        <button data-action="next-hero" title="Tecla H" >Siguiente héroe</button>
         <button data-action="end-turn" class="primary" >
           Fin de turno
         </button>

@@ -1884,6 +1884,23 @@ export function pasosDeHoy(camino: readonly PathStep[], hero: Hero): number {
 }
 
 /**
+ * ¿Puede `hero` dar hoy al menos un paso? Es la pregunta de «te quedan héroes
+ * con movimiento» al pasar el turno (#17), y no es `movePoints > 0`: con 40
+ * puntos y la casilla más barata a 100, el héroe no anda, y avisar por él era
+ * pedir a la persona que mirase a uno que no puede hacer nada. Se responde con
+ * el mismo alcance que la marcha (`alcanceDelHeroe`), así que lo hostil cuenta
+ * como destino de un paso —atacarlo es moverse—, igual que en `move_hero`.
+ */
+export function puedeAndarHoy(state: GameState, hero: Hero): boolean {
+  if (hero.movePoints <= 0) return false;
+  const alcance = alcanceDelHeroe(state, hero);
+  // La primera descubierta es el origen, que cuesta 0 y no es un paso.
+  return alcance.descubiertas.some(
+    (i, n) => n > 0 && (alcance.costes[i] ?? Number.POSITIVE_INFINITY) <= hero.movePoints,
+  );
+}
+
+/**
  * Por qué `hero` no llega a `to`, en una frase para la persona, o el agente.
  *
  * Decía siempre «no hay camino hasta (x,y)», y con «lo hostil se alcanza pero
