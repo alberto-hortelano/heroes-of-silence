@@ -805,6 +805,15 @@ export function applyAction(
         throw new Error(`${s.id} ya se ha movido este turno: no puede esperar`);
       s.waited = true;
       state.log.push({ kind: 'wait', stack: s.id });
+      // REGLA NUESTRA (#81): vuelve al final de la cola, y los que esperan salen
+      // por orden de llegada, no por velocidad. No hay original que copiar:
+      // fheroes2 no tiene espera. Sus órdenes son `MOVE, ATTACK, SPELLCAST,
+      // MORALE, CATAPULT, TOWER, RETREAT, SURRENDER, SKIP, TOGGLE_AUTO_COMBAT,
+      // QUICK_COMBAT` (`battle_command.h`), y `SKIP` cierra el turno: «Skips the
+      // current creature. The current creature ends its turn and does not get to
+      // go again until the next round.» (`battle_interface.cpp`).
+      // https://github.com/ihhub/fheroes2/blob/9754feff8501dbb69df95f3b999156a32eb8d7d3/src/fheroes2/battle/battle_command.h#L38-L51
+      // https://github.com/ihhub/fheroes2/blob/9754feff8501dbb69df95f3b999156a32eb8d7d3/src/fheroes2/battle/battle_interface.cpp#L3314-L3315
       state.queue.push(s.id);
       advance(state, rng);
       return;

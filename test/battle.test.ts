@@ -212,6 +212,66 @@ describe('moral por composición del ejército', () => {
   });
 });
 
+describe('los que esperan vuelven por orden de llegada (#81, regla nuestra)', () => {
+  /** Que espere todo el que tenga turno hasta que vuelva uno que ya esperó. */
+  function esperanTodos(state: BattleState, rng: Rng): string[] {
+    const orden: string[] = [];
+    for (let s = activeStack(state); s !== null && !s.waited; s = activeStack(state)) {
+      orden.push(s.id);
+      applyAction(state, { type: 'wait' }, rng);
+    }
+    return orden;
+  }
+
+  /** Quién vuelve, en orden, cerrando cada turno a la defensiva. */
+  function vuelven(state: BattleState, rng: Rng): string[] {
+    const orden: string[] = [];
+    const ronda = state.round;
+    while (state.round === ronda && state.finished === null) {
+      orden.push((activeStack(state) as BattleStack).id);
+      applyAction(state, { type: 'defend' }, rng);
+    }
+    return orden;
+  }
+
+  function batalla(): BattleState {
+    const state = createBattle(
+      side([
+        { creature: 'peasant', count: 5 },
+        { creature: 'swordsman', count: 5 },
+      ]),
+      side([{ creature: 'skeleton', count: 5 }]),
+      createRng(1),
+    );
+    // Sin moral: un turno extra al defenderse metería a alguien dos veces.
+    for (const s of state.stacks) s.morale = 0;
+    return state;
+  }
+
+  it('no del más lento al más rápido: en el orden en que esperaron', () => {
+    const state = batalla();
+    const rng = createRng(1);
+    const esperaron = esperanTodos(state, rng);
+    expect(esperaron).toHaveLength(3);
+    // Solo dice algo si de verdad son velocidades distintas.
+    const v = esperaron.map((id) => stackSpeed(stackById(state, id)));
+    expect(v[0]).toBeGreaterThan(v[2] as number);
+    expect(vuelven(state, rng)).toEqual(esperaron);
+  });
+
+  it('ni del más rápido al más lento: una Prisa recibida mientras espera no lo adelanta', () => {
+    const state = batalla();
+    const rng = createRng(1);
+    const esperaron = esperanTodos(state, rng);
+    const ultimo = stackById(state, esperaron[2] as string);
+    applyEffect(ultimo, { kind: 'speed', amount: 10, source: 'haste', roundsLeft: 3 });
+    expect(stackSpeed(ultimo)).toBeGreaterThan(
+      stackSpeed(stackById(state, esperaron[0] as string)),
+    );
+    expect(vuelven(state, rng)).toEqual(esperaron);
+  });
+});
+
 describe('despliegue inicial', () => {
   it('coloca cada bando en su borde y respeta la cola de las unidades grandes', () => {
     const state = createBattle(
