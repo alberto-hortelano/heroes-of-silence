@@ -212,7 +212,7 @@ export interface Escena {
   readonly relieve: {
     /** Las caídas al sur con lo que se pinta de ellas (`pintada`): donde no hay pared, no se pinta. */
     readonly caras: readonly CaraDeEscena[];
-    /** Las casillas de las caídas al este y al oeste: la franja difuminada del pie (`cantosDe`). */
+    /** Las casillas de las caídas al este y al oeste (`cantosDe`). El pintor ya no las lee: la sombra del desnivel es `sombraAlPie` (#211). */
     readonly cantos: readonly (readonly [number, number, 'este' | 'oeste'])[];
     /** Las casillas más altas que la de su norte: el reborde de lo que cae de espaldas (`rebordesDe`). */
     readonly rebordes: readonly (readonly [number, number])[];

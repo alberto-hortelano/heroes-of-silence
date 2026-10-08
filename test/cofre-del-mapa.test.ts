@@ -21,6 +21,13 @@ import { COLOR_DEL_COFRE, drawMapa } from '../src/client/render/mapa.js';
 import { todosALaVista } from '../src/core/state/asaltantes.js';
 import { newGame } from '../src/core/state/setup.js';
 
+/**
+ * Lo que se espera a que el hilo principal pinte el suelo: el escalón (#211) lo
+ * calcula en JavaScript (~0,3 s por escena en Node), y con todos los ficheros
+ * en paralelo el segundo de `vi.waitFor` no llegaba.
+ */
+const PINTADO = { timeout: 10_000 };
+
 interface Llamada {
   readonly metodo: string;
   readonly args: readonly unknown[];
@@ -153,7 +160,7 @@ describe('el cofre del mapa (#147)', () => {
   it('sin su imagen se pinta su marcador, y no la pieza', async () => {
     fallan.add('/mapa/cofre.webp');
     cargarArte(() => undefined, { manifiesto: false });
-    await vi.waitFor(() => expect(arteCargando()).toBe(false));
+    await vi.waitFor(() => expect(arteCargando()).toBe(false), PINTADO);
     expect(pedidas).toContain('/mapa/cofre.webp');
     const registro = pintar();
     expect(marcadores(registro)).toHaveLength(1);
@@ -163,7 +170,7 @@ describe('el cofre del mapa (#147)', () => {
   it('con su imagen se pinta la pieza, de la caché de copias, y no el marcador', async () => {
     fallan.clear();
     cargarArte(() => undefined, { manifiesto: false });
-    await vi.waitFor(() => expect(arteCargando()).toBe(false));
+    await vi.waitFor(() => expect(arteCargando()).toBe(false), PINTADO);
     const registro = pintar();
     expect(piezas(registro)).toHaveLength(1);
     // De la caché: lo que se copia es un lienzo reducido, no la imagen nativa.

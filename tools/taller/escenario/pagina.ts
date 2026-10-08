@@ -4,6 +4,7 @@
  * informe en `window.__informe`. Es lo mismo que haría el juego, más la medida.
  */
 import type { Escena } from '../../../src/client/render/escenario/colocar.js';
+import { aguaEnLoAlto, sendaSobreElAgua } from '../../../src/client/render/escenario/escalon.js';
 import {
   imagenesDeEscena,
   MARGEN,
@@ -21,7 +22,10 @@ interface Ventana {
 
 const w = window as unknown as Ventana;
 const E = w.__escena;
-const T = Number(new URLSearchParams(location.search).get('t')) || w.__tile;
+const parametros = new URLSearchParams(location.search);
+const T = Number(parametros.get('t')) || w.__tile;
+// `?nubes=0`: sin las nubes del borde, para recortar lo de debajo (las capturas de antes y después).
+const nubes = parametros.get('nubes') !== '0';
 const M = MARGEN * T;
 
 const imagenes = new Map<string, HTMLImageElement>();
@@ -46,7 +50,7 @@ void Promise.all(carga).then(() => {
     return im !== undefined && im.naturalWidth > 0 ? im : undefined;
   };
   const t0 = performance.now();
-  pintarEscena(c, E, { tile: T, margen: M, imagen });
+  pintarEscena(c, E, { tile: T, margen: M, imagen, nubes });
   const msPintar = Math.round(performance.now() - t0);
   let desnudo: number | null = null;
   try {
@@ -55,7 +59,16 @@ void Promise.all(carga).then(() => {
     // Abierta desde file:// el canvas queda contaminado y no se puede medir: se pinta igual.
   }
   const faltan = [...imagenes.entries()].filter(([, im]) => im.naturalWidth === 0);
-  w.__informe = { desnudo, msPintar, imagenesQueFaltan: faltan.length, ...E.informe };
+  w.__informe = {
+    desnudo,
+    msPintar,
+    imagenesQueFaltan: faltan.length,
+    // Lo del escalón (#211) se mide aquí y no en `componer`: son máscaras a 16 px
+    // por casilla, que el juego pinta en el Worker y no tiene por qué medir.
+    aguaEnLoAlto: aguaEnLoAlto(E),
+    sendaSobreElAgua: sendaSobreElAgua(E),
+    ...E.informe,
+  };
   const info = document.getElementById('info') as HTMLElement;
   info.textContent =
     (desnudo === null

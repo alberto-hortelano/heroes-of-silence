@@ -13,6 +13,7 @@
 import { join, resolve } from 'node:path';
 import sharp from 'sharp';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { nivelPintado } from '../src/client/render/escenario/escalon.js';
 import {
   fronterasDelSuelo,
   PX_DE_LAS_FRONTERAS,
@@ -281,7 +282,14 @@ describe('el pintor estampa el encaje', () => {
     const D = Math.ceil(2 * RADIO_DEL_PARCHE * T);
     // Las fronteras que pintó: sin luz que leer en las imágenes de mentira, la altura es plana.
     const lado = CASILLAS_POR_TEXTURA * PX_DE_LAS_FRONTERAS;
-    const fr = fronterasDelSuelo(e, () => ({ lado, luz: new Float32Array(lado * lado) }));
+    // Y con el nivel de cada punto, como las lee el pintor (#211).
+    const np = nivelPintado(e);
+    const fr = fronterasDelSuelo(
+      e,
+      () => ({ lado, luz: new Float32Array(lado * lado) }),
+      PX_DE_LAS_FRONTERAS,
+      (p) => np.nivel[p] as number,
+    );
     const suelos = [...new Set(e.suelo)];
     expect(suelos.length).toBeGreaterThan(1);
     let capas = 0;

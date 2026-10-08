@@ -91,6 +91,15 @@ export interface Fronteras {
  * 2. El peso: campo + ruido + altura. El ruido es distinto por suelo: el mismo
  *    se cancelaría al comparar dos pesos.
  * 3. La mezcla por altura: cuenta lo que queda a menos de `MEZCLA` del mayor.
+ *
+ * Con `nivel`, cada punto solo se reparte entre los suelos de su nivel (#211):
+ * el campo es el de cada suelo EN ese nivel, y el serpenteo no sube lo de abajo
+ * a lo alto ni baja lo de arriba. El nivel de cada punto lo da `nivelEn` (el
+ * índice del punto en los alfas): el nivel pintado (`escalon.ts`), con lo alto
+ * adelantado sobre lo bajo; sin él, el de su casilla. Antes la nieve de una
+ * meseta se metía en la tierra de abajo (auditoría 5, defecto 2). Si en el punto
+ * deformado no queda ningún suelo de su nivel, va el que más pesa sin deformar,
+ * y si tampoco, el de su casilla.
  */
 export function fronterasDelSuelo(
   e: {
@@ -98,9 +107,12 @@ export function fronterasDelSuelo(
     readonly H: number;
     readonly suelo: readonly string[];
     readonly semilla: number;
+    /** El nivel de cada casilla; sin él, todo al mismo. */
+    readonly nivel?: readonly number[];
   },
   alturas: (suelo: string) => AlturaDeSuelo | undefined,
   R = PX_DE_LAS_FRONTERAS,
+  nivelEn?: (p: number) => number,
 ): Fronteras {
   const { W, H } = e;
   if (e.suelo.length !== W * H)
@@ -110,10 +122,34 @@ export function fronterasDelSuelo(
   const alto = H * R;
   const n = suelos.length;
 
-  // 1 · Los campos por casilla, suavizados.
-  const campos = suelos.map((s) => {
+  const nivelDe = (i: number) => e.nivel?.[i] ?? 0;
+  if (e.nivel !== undefined && e.nivel.length !== W * H)
+    throw new Error(`el nivel tiene ${e.nivel.length} casillas y el mapa ${W}×${H}`);
+  const indice = new Map(suelos.map((s, k) => [s, k]));
+  const sueloDe = Int32Array.from(e.suelo, (s) => indice.get(s) as number);
+  // Las parejas (suelo, nivel) que hay, por nivel y en el orden de los suelos:
+  // el orden en que se acumulan los alfas.
+  const claves: { readonly suelo: number; readonly nivel: number }[] = [];
+  const claveDe = new Map<string, number>();
+  for (let k = 0; k < n; k++)
+    for (let i = 0; i < W * H; i++) {
+      if (sueloDe[i] !== k) continue;
+      const nombre = `${k},${nivelDe(i)}`;
+      if (claveDe.has(nombre)) continue;
+      claveDe.set(nombre, claves.length);
+      claves.push({ suelo: k, nivel: nivelDe(i) });
+    }
+  const delNivel = new Map<number, number[]>();
+  claves.forEach((cl, j) => {
+    const lista = delNivel.get(cl.nivel) ?? [];
+    lista.push(j);
+    delNivel.set(cl.nivel, lista);
+  });
+
+  // 1 · Los campos por casilla de cada suelo en su nivel, suavizados.
+  const campos = claves.map(({ suelo, nivel }) => {
     const ind = new Float32Array(W * H);
-    for (let i = 0; i < W * H; i++) if (e.suelo[i] === s) ind[i] = 1;
+    for (let i = 0; i < W * H; i++) if (sueloDe[i] === suelo && nivelDe(i) === nivel) ind[i] = 1;
     const h = new Float32Array(W * H);
     for (let y = 0; y < H; y++)
       for (let x = 0; x < W; x++) {
@@ -138,8 +174,6 @@ export function fronterasDelSuelo(
   const ruidos = suelos.map((_, k) => ruidoDe(mezclar(e.semilla, k + 1), OCTAVAS, W, H));
   const deformaX = ruidoDe(mezclar(e.semilla, 0x7f4a7c15), OCTAVAS_DE_DEFORMACION, W, H);
   const deformaY = ruidoDe(mezclar(e.semilla, 0x2c1b3c6d), OCTAVAS_DE_DEFORMACION, W, H);
-  const indice = new Map(suelos.map((s, k) => [s, k]));
-  const sueloDe = Int32Array.from(e.suelo, (s) => indice.get(s) as number);
   // Por casilla, si hay otro suelo a `ALCANCE` o menos: lo demás es interior.
   const cerca = new Uint8Array(W * H);
   for (let y = 0; y < H; y++)
@@ -157,8 +191,9 @@ export function fronterasDelSuelo(
         }
     }
 
+  const campoEn = (c: Float32Array, fx: number, fy: number) => campoEnRejilla(c, W, H, fx, fy);
   const alfas = suelos.map(() => new Uint8ClampedArray(ancho * alto));
-  const pesos = new Float32Array(n);
+  const pesos = new Float32Array(claves.length);
   const presentes: number[] = [];
   for (let py = 0; py < alto; py++) {
     const cy = (py + 0.5) / R;
@@ -181,7 +216,10 @@ export function fronterasDelSuelo(
       const y1 = Math.min(H - 1, y0 + 1);
       const ty = Math.max(0, Math.min(1, fy - y0));
       presentes.length = 0;
-      for (let k = 0; k < n; k++) {
+      const delPunto = delNivel.get(nivelEn === undefined ? nivelDe(casilla) : nivelEn(p));
+      if (delPunto === undefined)
+        throw new Error(`el punto (${px}, ${py}) de las fronteras está a un nivel sin suelo`);
+      for (const k of delPunto) {
         const c = campos[k] as Float32Array;
         const a = c[y0 * W + x0] as number;
         const b = c[y0 * W + x1] as number;
@@ -191,17 +229,36 @@ export function fronterasDelSuelo(
         pesos[k] = v;
         if (v > 0) presentes.push(k);
       }
+      // El punto deformado cayó entero en otro nivel: el suelo de su nivel que
+      // más pesa sin deformar, o el de su casilla.
+      if (presentes.length === 0) {
+        let mejor = -1;
+        let mas = 0;
+        for (const k of delPunto) {
+          const v = campoEn(campos[k] as Float32Array, cx - 0.5, cy - 0.5);
+          if (v > mas) {
+            mas = v;
+            mejor = k;
+          }
+        }
+        const suelo = mejor < 0 ? sueloDe[casilla] : (claves[mejor] as { suelo: number }).suelo;
+        (alfas[suelo as number] as Uint8ClampedArray)[p] = 255;
+        continue;
+      }
       // Lo interior: un solo suelo, sin frontera que mover.
       if (presentes.length === 1) {
-        (alfas[presentes[0] as number] as Uint8ClampedArray)[p] = 255;
+        (alfas[(claves[presentes[0] as number] as { suelo: number }).suelo] as Uint8ClampedArray)[
+          p
+        ] = 255;
         continue;
       }
       let mayor = -Infinity;
       for (const k of presentes) {
+        const { suelo } = claves[k] as { suelo: number };
         const w =
           (pesos[k] as number) +
-          RUIDO * (fbm(ruidos[k] as Ruido, cx, cy) - 0.5) +
-          ALTURA * alturaEn(alturasNorm[k], encajes[k] as Encaje, cx, cy);
+          RUIDO * (fbm(ruidos[suelo] as Ruido, cx, cy) - 0.5) +
+          ALTURA * alturaEn(alturasNorm[suelo], encajes[suelo] as Encaje, cx, cy);
         pesos[k] = w;
         if (w > mayor) mayor = w;
       }
@@ -217,12 +274,29 @@ export function fronterasDelSuelo(
         const b = pesos[k] as number;
         if (b <= 0) continue;
         hasta += b;
-        (alfas[k] as Uint8ClampedArray)[p] = Math.round((255 * b) / hasta);
+        (alfas[(claves[k] as { suelo: number }).suelo] as Uint8ClampedArray)[p] = Math.round(
+          (255 * b) / hasta,
+        );
       }
       if (suma <= 0) throw new Error('la mezcla del suelo no dejó ningún suelo en un punto');
     }
   }
   return { suelos, ancho, alto, alfas };
+}
+
+/** El campo `c` (uno por casilla, en su centro) interpolado en `(fx, fy)`, desde el centro de la primera. */
+function campoEnRejilla(c: Float32Array, W: number, H: number, fx: number, fy: number): number {
+  const x0 = Math.max(0, Math.min(W - 1, Math.floor(fx)));
+  const x1 = Math.min(W - 1, x0 + 1);
+  const tx = Math.max(0, Math.min(1, fx - x0));
+  const y0 = Math.max(0, Math.min(H - 1, Math.floor(fy)));
+  const y1 = Math.min(H - 1, y0 + 1);
+  const ty = Math.max(0, Math.min(1, fy - y0));
+  const a = c[y0 * W + x0] as number;
+  const b = c[y0 * W + x1] as number;
+  const d = c[y1 * W + x0] as number;
+  const f = c[y1 * W + x1] as number;
+  return (a + (b - a) * tx) * (1 - ty) + (d + (f - d) * tx) * ty;
 }
 
 /** La altura centrada en su media y acotada a ±½, con la escala de su desviación. */
@@ -259,7 +333,7 @@ function alturaEn(a: AlturaDeSuelo | undefined, encaje: Encaje, x: number, y: nu
 }
 
 /** Un hash de 32 bits de dos enteros (el de `mulberry32` en `esparcir.ts`, sin estado). */
-function mezclar(a: number, b: number): number {
+export function mezclar(a: number, b: number): number {
   let t = (Math.imul(a | 0, 0x9e3779b1) ^ Math.imul(b | 0, 0x85ebca77)) >>> 0;
   t = Math.imul(t ^ (t >>> 15), t | 1);
   t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
@@ -276,7 +350,7 @@ function vertice(semilla: number, i: number, j: number): number {
  * cuatro vértices por octava y por punto eran la mitad del tiempo del pintor
  * (~0,2 s por superficie en Node; más en un Worker recién arrancado).
  */
-interface Ruido {
+export interface Ruido {
   readonly octavas: readonly {
     readonly onda: number;
     readonly amplitud: number;
@@ -287,7 +361,7 @@ interface Ruido {
 }
 
 /** El ruido de `semilla` con sus `octavas`, para puntos de [0, W] × [0, H] casillas. */
-function ruidoDe(
+export function ruidoDe(
   semilla: number,
   octavas: readonly (readonly [number, number])[],
   W: number,
@@ -311,7 +385,7 @@ function ruidoDe(
  * Suma de octavas de ruido, en 0-1, en el punto (x, y) en casillas: en cada una,
  * la interpolación suave de Perlin entre los cuatro vértices de alrededor.
  */
-function fbm(r: Ruido, x: number, y: number): number {
+export function fbm(r: Ruido, x: number, y: number): number {
   let suma = 0;
   for (const o of r.octavas) {
     const X = x / o.onda;

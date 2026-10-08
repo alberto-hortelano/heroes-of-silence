@@ -49,6 +49,13 @@ import { heroesOf, revealEverything, visibleNow } from '../src/core/state/game.j
 import { newGame } from '../src/core/state/setup.js';
 import { primeraSemillaCon } from './helpers.js';
 
+/**
+ * Lo que se espera a que el hilo principal pinte el suelo: el escalón (#211) lo
+ * calcula en JavaScript (~0,3 s por escena en Node), y con todos los ficheros
+ * en paralelo el segundo de `vi.waitFor` no llegaba.
+ */
+const PINTADO = { timeout: 10_000 };
+
 interface Llamada {
   readonly metodo: string;
   readonly args: readonly unknown[];
@@ -183,7 +190,7 @@ describe('el suelo se pinta una vez y suelta lo que solo servía para eso', () =
     sueloDelMapa(esc, 70, 1);
     expect(pedidas.length).toBe(esc.imagenes.length);
 
-    await vi.waitFor(() => expect(arteCargando()).toBe(false));
+    await vi.waitFor(() => expect(arteCargando()).toBe(false), PINTADO);
     // Primero el esbozo, en su tarea, y luego el bueno, en la suya; mientras se
     // pintaba el bueno no se había soltado nada, que lo necesitaba.
     expect(estados.slice(-3)).toEqual(['cargando', 'esbozado', 'pintado']);
@@ -213,7 +220,7 @@ describe('el suelo se pinta una vez y suelta lo que solo servía para eso', () =
     const soltadasQueUsa = otro.imagenes.filter((src) => esc.soloDelSuelo.includes(src));
     expect(soltadasQueUsa.length).toBeGreaterThan(0);
     for (const src of soltadasQueUsa) expect(repedidas).toContain(`/mapa/${src}`);
-    await vi.waitFor(() => expect(arteCargando()).toBe(false));
+    await vi.waitFor(() => expect(arteCargando()).toBe(false), PINTADO);
     expect(sueloDelMapa(otro, 70, 1).px).toBe(PX_DEL_SUELO);
     expect(pagina.dataset.escenario).toBe('pintado');
   });
@@ -356,7 +363,7 @@ describe('una imagen del suelo que no llega no se da por pintada', () => {
     const antes = veces(AGUA);
     fallos.set(`/mapa/${AGUA}`, 1);
     sueloDelMapa(esc, 70, 1);
-    await vi.waitFor(() => expect(arteCargando()).toBe(false));
+    await vi.waitFor(() => expect(arteCargando()).toBe(false), PINTADO);
     // La primera tanda se cerró con el agua fallida: no se pintó, se volvió a pedir.
     expect(veces(AGUA)).toBe(antes + 2);
     expect(estados.slice(-3)).toEqual(['cargando', 'esbozado', 'pintado']);
@@ -372,7 +379,7 @@ describe('una imagen del suelo que no llega no se da por pintada', () => {
     const esc = escenarioDe(newGame({ seed: 6 }).map, 6);
     fallos.set(`/mapa/${AGUA}`, 2);
     sueloDelMapa(esc, 70, 1);
-    await vi.waitFor(() => expect(arteCargando()).toBe(false));
+    await vi.waitFor(() => expect(arteCargando()).toBe(false), PINTADO);
     expect(sueloDelMapa(esc, 70, 1).px).toBe(PX_DEL_SUELO);
     expect(pagina.dataset.escenario).toBe('pintado');
     // Una vez, aunque se pinten dos superficies.
@@ -452,7 +459,7 @@ describe('con Worker, el suelo se pinta aparte (H2 de la vuelta 1 de QA)', () =>
       expect(sueloDelMapa(esc, 110, 1)).toEqual({ lienzo: bueno, px: PX_DEL_SUELO });
       // Alejado, el esbozo: el hilo principal no reduce nada.
       expect(sueloDelMapa(esc, 50, 1)).toEqual({ lienzo: esbozo, px: PX_DEL_ESBOZO });
-      await vi.waitFor(() => expect(arteCargando()).toBe(false));
+      await vi.waitFor(() => expect(arteCargando()).toBe(false), PINTADO);
       expect(p.encargos).toHaveLength(1);
     } finally {
       usarPintorDelSuelo(null);
@@ -491,7 +498,7 @@ describe('con Worker, el suelo se pinta aparte (H2 de la vuelta 1 de QA)', () =>
       nuevo.acabar();
       expect(pagina.dataset.escenario).toBe('pintado');
       expect(sueloDelMapa(otro, 110, 1).px).toBe(PX_DEL_SUELO);
-      await vi.waitFor(() => expect(arteCargando()).toBe(false));
+      await vi.waitFor(() => expect(arteCargando()).toBe(false), PINTADO);
     } finally {
       usarPintorDelSuelo(null);
     }
@@ -525,7 +532,7 @@ describe('con Worker, el suelo se pinta aparte (H2 de la vuelta 1 de QA)', () =>
         'el suelo del mapa se pinta a 165 px por casilla y esta pantalla pide 220 en el zoom máximo: no cabe en el tope de memoria del suelo (126 MB), y ahí se amplía ×1.33',
       );
       p.encargos[1]!.acabar();
-      await vi.waitFor(() => expect(arteCargando()).toBe(false));
+      await vi.waitFor(() => expect(arteCargando()).toBe(false), PINTADO);
     } finally {
       usarPintorDelSuelo(null);
       aviso.mockRestore();
@@ -566,7 +573,7 @@ describe('con Worker, el suelo se pinta aparte (H2 de la vuelta 1 de QA)', () =>
       expect(cerrar138).toHaveBeenCalledTimes(1);
       expect(sueloDelMapa(esc, 165, 1.5).px).toBe(165);
       p.encargos[2]!.acabar();
-      await vi.waitFor(() => expect(arteCargando()).toBe(false));
+      await vi.waitFor(() => expect(arteCargando()).toBe(false), PINTADO);
     } finally {
       usarPintorDelSuelo(null);
     }
@@ -584,7 +591,7 @@ describe('con Worker, el suelo se pinta aparte (H2 de la vuelta 1 de QA)', () =>
       expect(String(error.mock.calls[0]?.[0])).toContain('sin 1 de sus 40');
       expect(String(error.mock.calls[0]?.[0])).toContain('texturas/agua.webp');
       p.encargos[0]!.acabar();
-      await vi.waitFor(() => expect(arteCargando()).toBe(false));
+      await vi.waitFor(() => expect(arteCargando()).toBe(false), PINTADO);
     } finally {
       usarPintorDelSuelo(null);
       error.mockRestore();
@@ -600,10 +607,10 @@ describe('con Worker, el suelo se pinta aparte (H2 de la vuelta 1 de QA)', () =>
       const esc = escenarioDe(newGame({ seed: 13 }).map, 13);
       sueloDelMapa(esc, 70, 1);
       p.encargos[0]!.fallar(new Error('sin OffscreenCanvas en el Worker'));
-      await vi.waitFor(() => expect(error).toHaveBeenCalledTimes(1));
+      await vi.waitFor(() => expect(error).toHaveBeenCalledTimes(1), PINTADO);
       expect(String(error.mock.calls[0]?.[0])).toContain('sin OffscreenCanvas en el Worker');
       expect(String(error.mock.calls[0]?.[0])).toContain(`a ${PX_DEL_ESBOZO} y ${PX_DEL_SUELO} px`);
-      await vi.waitFor(() => expect(arteCargando()).toBe(false));
+      await vi.waitFor(() => expect(arteCargando()).toBe(false), PINTADO);
       expect(estados.slice(-3)).toEqual(['cargando', 'esbozado', 'pintado']);
       expect(sueloDelMapa(esc, 70, 1).px).toBe(PX_DEL_SUELO);
       expect(pagina.dataset.escenario).toBe('pintado');
@@ -623,9 +630,9 @@ describe('con Worker, el suelo se pinta aparte (H2 de la vuelta 1 de QA)', () =>
       const esbozo = mapaDeBits(PX_DEL_ESBOZO);
       p.encargos[0]!.avisos.superficie({ lienzo: esbozo, px: PX_DEL_ESBOZO });
       p.encargos[0]!.fallar(new Error('el Worker se ha quedado sin memoria'));
-      await vi.waitFor(() => expect(error).toHaveBeenCalledTimes(1));
+      await vi.waitFor(() => expect(error).toHaveBeenCalledTimes(1), PINTADO);
       expect(String(error.mock.calls[0]?.[0])).toContain(`a ${PX_DEL_SUELO} px`);
-      await vi.waitFor(() => expect(arteCargando()).toBe(false));
+      await vi.waitFor(() => expect(arteCargando()).toBe(false), PINTADO);
       expect(sueloDelMapa(esc, 110, 1).px).toBe(PX_DEL_SUELO);
       // El esbozo es el del Worker: no se ha vuelto a pintar.
       expect(sueloDelMapa(esc, 50, 1).lienzo).toBe(esbozo);
@@ -699,7 +706,7 @@ describe('la escena se compone en una tarea aparte del primer fotograma', () => 
     expect(escenarioListo(map, 15)).toBeNull();
     // Pedirla otra vez mientras tanto no encarga otra.
     expect(escenarioListo(map, 15)).toBeNull();
-    await vi.waitFor(() => expect(escenarioListo(map, 15)).not.toBeNull());
+    await vi.waitFor(() => expect(escenarioListo(map, 15)).not.toBeNull(), PINTADO);
     expect(escenarioListo(map, 15)).toBe(escenarioDe(map, 15));
   });
 
@@ -714,7 +721,7 @@ describe('la escena se compone en una tarea aparte del primer fotograma', () => 
     }
     expect(motivo).not.toBe('');
     expect(escenarioListo(roto, 16)).toBeNull();
-    await vi.waitFor(() => expect(() => escenarioListo(roto, 16)).toThrow(motivo));
+    await vi.waitFor(() => expect(() => escenarioListo(roto, 16)).toThrow(motivo), PINTADO);
   });
 });
 
@@ -847,7 +854,7 @@ describe('qué tapa a qué en el mapa', () => {
   it('un pino delante tapa al héroe, y su inicial se ve encima del pino', async () => {
     const state = newGame({ seed: 1 });
     const esc = escenarioDe(state.map, 1);
-    await vi.waitFor(() => expect(arteCargando()).toBe(false));
+    await vi.waitFor(() => expect(arteCargando()).toBe(false), PINTADO);
     // Un pino con la base en la casilla de un héroe, por delante de sus pies.
     const pino = esc.separada.volumenes.find(
       (v) =>

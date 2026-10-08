@@ -221,30 +221,17 @@ describe('sin arte se pinta igual: cada pieza, su marcador de color', () => {
     for (const l of copias) expect(r.lienzos.has(l.args[0] as object)).toBe(true);
   });
 
-  it('los cantos no van nítidos al suelo: en un lienzo aparte que se copia entero difuminado', () => {
-    // Pintados franja a franja sobre el suelo, cada canto era un rectángulo de
-    // bordes duros: la costura recta del nivel y del agua junto a los caminos
-    // (QA de los caminos despejados, 05-10-2026).
-    expect(e.relieve.cantos.length).toBeGreaterThan(0);
+  it('la sombra del desnivel es una sola capa, sin franjas a mano (#211)', () => {
+    // Los cantos al este y al oeste y la franja de la espalda (#212) se pintaban
+    // con un degradado por casilla; ahora es una máscara del escalón
+    // (`sombraAlPie`), que se copia una vez. En el suelo, el único degradado
+    // lineal sigue siendo el de cada cara de roca que se pinta.
+    expect(e.relieve.cantos.length + e.relieve.rebordes.length).toBeGreaterThan(0);
     const r = registro();
     pintarSuelo(r.contexto(), e, sep, { ...sinImagenes, lienzo: r.lienzo });
-    // En el suelo, el único degradado lineal es el de cada cara de roca que se pinta.
-    expect(r.llamadas.filter((l) => l.contexto === 0 && lineal(l))).toHaveLength(
+    expect(r.llamadas.filter((l) => lineal(l))).toHaveLength(
       e.relieve.caras.filter((f) => f.pintada.some((t) => t !== null)).length,
     );
-    // Una franja por canto al este o al oeste y otra por casilla de espalda (#212).
-    const franjas = r.llamadas.filter((l) => l.contexto !== 0 && lineal(l));
-    expect(e.relieve.rebordes.length).toBeGreaterThan(0);
-    expect(franjas).toHaveLength(e.relieve.cantos.length + e.relieve.rebordes.length);
-    const nitido = new Set(franjas.map((l) => l.contexto));
-    expect(nitido.size).toBe(1);
-    // Y ese lienzo se copia una sola vez, con desenfoque, a otro que no es el suelo.
-    const copias = r.llamadas.filter(
-      (l) => l.metodo === 'drawImage' && nitido.has(r.contextoDe.get(l.args[0] as object) ?? -1),
-    );
-    expect(copias).toHaveLength(1);
-    expect(copias[0]?.contexto).not.toBe(0);
-    expect(String(copias[0]?.filter)).toMatch(/^blur\(/);
   });
 
   it('cada cara se pinta solo bajo la silueta de su pared (#159): un recorte por su contorno, sin tajos', () => {

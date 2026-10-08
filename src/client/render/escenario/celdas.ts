@@ -434,7 +434,7 @@ export const claveDeCelda = (c: Pick<Celda, 'vx' | 'vy' | 'tipo' | 'desde'>): st
 
 /**
  * Las casillas de las caídas al este y al oeste, como `[x, y, lado]` de la
- * casilla alta: la franja difuminada que pinta el pintor al pie (`cantos`). En
+ * casilla alta (la sombra del pie es `sombraAlPie`, en `escalon.ts`, #211). En
  * el orden de la rejilla, fila a fila y el este antes que el oeste.
  */
 export function cantosDe(

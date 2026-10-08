@@ -1,0 +1,168 @@
+/**
+ * El escalón entre niveles, pintado en el suelo (#211): el agua y el barro no
+ * suben a lo alto, ninguna senda se pinta bajo el agua, cada punto toma los
+ * suelos de su nivel, lo alto va más claro que lo bajo y la sombra cae al pie
+ * de la caída hacia donde la echa la luz.
+ */
+import { describe, expect, it } from 'vitest';
+import {
+  aguaEnLoAlto,
+  mascaraDelAgua,
+  nivelPintado,
+  ORILLA,
+  PX_DEL_ESCALON,
+  sombraAlPie,
+  tonoDeNivel,
+} from '../src/client/render/escenario/escalon.js';
+import { fronterasDelSuelo } from '../src/client/render/escenario/fronteras.js';
+import { partidaDe } from './helpers.js';
+import { LENTO, rango } from './lento.js';
+
+const R = PX_DEL_ESCALON;
+
+/** Una rejilla de `W × H` con el nivel que dé `nivel(x, y)`. */
+function rejilla(W: number, H: number, nivel: (x: number, y: number) => number, semilla = 7) {
+  return {
+    W,
+    H,
+    semilla,
+    nivel: Array.from({ length: W * H }, (_, i) => nivel(i % W, Math.floor(i / W))),
+  };
+}
+
+/** La casilla de un píxel de una máscara a `R` por casilla. */
+const casillaDe = (W: number, ancho: number, p: number) =>
+  Math.floor(Math.floor(p / ancho) / R) * W + Math.floor((p % ancho) / R);
+
+describe('el nivel pintado', () => {
+  // Una meseta a 2 en las tres columnas de la izquierda; lo demás, a 0.
+  const e = rejilla(8, 6, (x) => (x < 3 ? 2 : 0));
+  const np = nivelPintado(e);
+
+  it('nunca baja de su casilla, y lo alto se adelanta sobre lo bajo entre ORILLA.menos y ORILLA.mas', () => {
+    let adelantado = 0;
+    for (let p = 0; p < np.nivel.length; p++) {
+      const suyo = e.nivel[casillaDe(e.W, np.ancho, p)] as number;
+      expect(np.nivel[p]).toBeGreaterThanOrEqual(suyo);
+      if ((np.nivel[p] as number) > suyo) {
+        adelantado++;
+        // Lo que entra en la casilla baja, desde el lado x = 3.
+        const x = ((p % np.ancho) + 0.5) / R;
+        expect(x - 3).toBeLessThanOrEqual(ORILLA.mas + 1 / R);
+      }
+    }
+    expect(adelantado).toBeGreaterThan(0);
+    // Y por toda la orilla llega al menos `ORILLA.menos`.
+    for (let py = R; py < np.alto - R; py++)
+      expect(np.nivel[py * np.ancho + Math.floor((3 + ORILLA.menos / 2) * R)]).toBe(2);
+  });
+
+  it('es el mismo con la misma semilla y otro con otra', () => {
+    expect(nivelPintado(e).nivel).toEqual(np.nivel);
+    expect(nivelPintado({ ...e, semilla: 8 }).nivel).not.toEqual(np.nivel);
+  });
+});
+
+describe('el agua no sube a lo alto', () => {
+  // Agua a −1 en las columnas 4 y más; tierra a 2 en las de la izquierda.
+  const e = rejilla(8, 6, (x) => (x >= 4 ? -1 : 2));
+  const agua = (i: number) => i % e.W >= 4;
+
+  it('ni un píxel de agua en una casilla más alta, ni en el que lee la ampliación; sin el escalón, sí', () => {
+    const conEscalon = mascaraDelAgua(e, nivelPintado(e), agua, 0.55);
+    const antes = mascaraDelAgua(e, null, agua, 0.55);
+    const enLoAlto = (alfa: Uint8ClampedArray) => {
+      let n = 0;
+      for (let p = 0; p < alfa.length; p++)
+        if ((alfa[p] as number) > 0 && ((p % conEscalon.ancho) + 1.5) / R <= 4) n++;
+      return n;
+    };
+    expect(enLoAlto(conEscalon.alfa)).toBe(0);
+    expect(enLoAlto(antes.alfa)).toBeGreaterThan(0);
+    // Y el agua sigue entera lejos de la orilla.
+    expect(conEscalon.alfa[3 * R * conEscalon.ancho + 7 * R]).toBe(255);
+  });
+
+  it('el agua de un lago a su nivel sí llega a la orilla de su altura', () => {
+    const lago = rejilla(8, 6, () => 1);
+    const m = mascaraDelAgua(lago, nivelPintado(lago), agua, 0.55);
+    // A media casilla del lado, en la tierra, todavía hay barro.
+    expect(m.alfa[3 * R * m.ancho + Math.floor(3.6 * R)]).toBeGreaterThan(0);
+  });
+});
+
+/** En la orden lenta, 1-40; en `verify`, la 2 (el istmo de la auditoría 5) y la 443. */
+const SEMILLAS = LENTO ? rango(1, 40) : [2, 443];
+
+describe('en los mapas reales', () => {
+  for (const semilla of SEMILLAS)
+    it(`semilla ${semilla}: ningún agua ni barro en lo alto`, () => {
+      expect(aguaEnLoAlto(partidaDe(semilla).escena)).toBe(0);
+    });
+
+  it('el guardia muerde: sin el escalón, la s2 tenía agua en lo alto', () => {
+    expect(aguaEnLoAlto(partidaDe(2).escena, true)).toBeGreaterThan(0);
+  });
+});
+
+describe('las fronteras del suelo, por niveles', () => {
+  // Nieve arriba (a 2) y tierra abajo (a 0), con la frontera en x = 3.
+  const e = {
+    ...rejilla(8, 6, (x) => (x < 3 ? 2 : 0)),
+    suelo: Array.from({ length: 48 }, (_, i) => (i % 8 < 3 ? 'snow' : 'dirt')),
+  };
+
+  it('cada punto se reparte solo entre los suelos de su nivel pintado; sin niveles, el serpenteo los cruza', () => {
+    const np = nivelPintado(e);
+    const fr = fronterasDelSuelo(
+      e,
+      () => undefined,
+      R,
+      (p) => np.nivel[p] as number,
+    );
+    const nieve = fr.alfas[fr.suelos.indexOf('snow')] as Uint8ClampedArray;
+    const tierra = fr.alfas[fr.suelos.indexOf('dirt')] as Uint8ClampedArray;
+    let cruzan = 0;
+    for (let p = 0; p < nieve.length; p++) {
+      if (np.nivel[p] === 2) expect(tierra[p]).toBe(0);
+      else expect(nieve[p]).toBe(0);
+    }
+    const sin = fronterasDelSuelo(
+      { W: e.W, H: e.H, semilla: e.semilla, suelo: e.suelo },
+      () => undefined,
+      R,
+    );
+    const tierraSin = sin.alfas[sin.suelos.indexOf('dirt')] as Uint8ClampedArray;
+    for (let p = 0; p < tierraSin.length; p++)
+      if (np.nivel[p] === 2 && (tierraSin[p] as number) > 0) cruzan++;
+    expect(cruzan).toBeGreaterThan(0);
+  });
+});
+
+describe('el tono y la sombra del desnivel', () => {
+  it('lo alto va más claro que lo bajo, nivel a nivel', () => {
+    const brillo = (n: number) => tonoDeNivel(n).luz - tonoDeNivel(n).sombra;
+    for (let n = -1; n < 3; n++) expect(brillo(n + 1)).toBeGreaterThan(brillo(n));
+  });
+
+  // Un bloque a 2 de 2×2 casillas en medio de lo bajo, a 0.
+  const e = rejilla(8, 8, (x, y) => (x >= 3 && x < 5 && y >= 3 && y < 5 ? 2 : 0));
+  const np = nivelPintado(e);
+  const s = sombraAlPie(e, np);
+  const en = (x: number, y: number) =>
+    s.alfa[Math.floor(y * R) * s.ancho + Math.floor(x * R)] as number;
+
+  it('cae al este y al norte, hacia donde la echa la luz, y no al oeste ni al sur ni sobre lo alto', () => {
+    expect(en(5.5, 4)).toBeGreaterThan(0); // al este, pasado el talud
+    expect(en(4, 2.75)).toBeGreaterThan(0); // al norte, la espalda
+    expect(en(2.6, 4)).toBe(0); // al oeste
+    expect(en(4, 5.9)).toBe(0); // al sur
+    for (let p = 0; p < s.alfa.length; p++) if (np.nivel[p] === 2) expect(s.alfa[p]).toBe(0);
+  });
+
+  it('por donde baja una rampa no hay sombra', () => {
+    const rampa = sombraAlPie(e, np, (alto, bajo) => alto === 4 * 8 + 4 && bajo === 4 * 8 + 5);
+    expect(rampa.alfa[Math.floor(4.5 * R) * s.ancho + Math.floor(5.6 * R)]).toBe(0);
+    expect(en(5.6, 4.5)).toBeGreaterThan(0);
+  });
+});
