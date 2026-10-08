@@ -12,8 +12,12 @@ import { azarDe } from './esparcir.js';
  * frontera. El agua no está: su nodo es un puente, y lo decide `puentes.ts` por
  * las orillas (#157). El acantilado tampoco: su pieza de escaleras subía siempre
  * hacia el mismo lado, sin casar con el desnivel ni con el camino (#168); lleva
- * un hito (`HITOS`), y lo que baja lo pinta la rampa. `n` es su sitio en la lámina `b` de
- * `mapa-denso.ts`.
+ * un hito (`HITOS`), y lo que baja lo pinta la rampa. El bosque tampoco (#196):
+ * su portillo era de abetos verdes sin nieve, y en un bosque nevado, de árboles
+ * muertos o entre dos suelos (la mitad de los pasos de bosque de 1-40 separan
+ * dos) no se entendía qué era; el paso lo abren los árboles del propio bosque
+ * (`pasosALaVista`), la trocha lo cruza y el hito dice que se toma. `n` es su
+ * sitio en la lámina `b` de `mapa-denso.ts`.
  */
 export const NODOS: readonly {
   id: string;
@@ -23,7 +27,6 @@ export const NODOS: readonly {
 }[] = [
   { id: 'nodo-puerta', n: 2, barrera: 'wall', variantes: ['ancho', 'hondo'] },
   { id: 'nodo-paso-montana', n: 3, barrera: 'mountain', variantes: [''] },
-  { id: 'nodo-paso-bosque', n: 4, barrera: 'forest', variantes: [''] },
 ];
 
 /**
@@ -67,8 +70,8 @@ export function pasoDeNodo(
 }
 
 /**
- * Los hitos del nodo que no tiene pieza de paso: el de acantilado y el que no
- * cruza ninguna barrera. Tres, porque uno solo repetido por un llano se leía como
+ * Los hitos del nodo que no tiene pieza de paso: el de acantilado, el de bosque
+ * (#196) y el que no cruza ninguna barrera. Tres, porque uno solo repetido por un llano se leía como
  * un cementerio (#176): el de la lámina llevaba una cruz y parecía una lápida.
  */
 export const HITOS = ['nodo-hito-miliar', 'nodo-hito-mojon', 'nodo-hito-tablilla'] as const;
@@ -230,10 +233,14 @@ export interface PasoALaVista {
 }
 
 /**
- * Los nodos de paso que tienen que verse, con su eje: los de las barreras de
- * `NODOS` (montaña, bosque y muro). Ni los puentes, que se apartan con su
- * tablero (`formasDeLosTableros`), ni el acantilado, que lleva el hito y su rampa.
+ * Las barreras cuyo nodo abre su eje entre los volúmenes (#173): las de una
+ * masa que lo enterraría. Ni el agua, cuyo puente se aparta con su tablero
+ * (`formasDeLosTableros`), ni el acantilado, que lleva el hito y su rampa. El
+ * bosque está aunque ya no tenga pieza (#196): su paso es justo ese hueco.
  */
+export const BARRERAS_CON_PASO_A_LA_VISTA: readonly Barrera[] = ['wall', 'mountain', 'forest'];
+
+/** Los nodos de paso que tienen que verse, con su eje (`BARRERAS_CON_PASO_A_LA_VISTA`). */
 export function pasosALaVista(
   map: {
     readonly width: number;
@@ -244,7 +251,7 @@ export function pasosALaVista(
 ): PasoALaVista[] {
   return map.objects.flatMap((o) => {
     if (o.kind !== 'node' || puentes.has(o.id)) return [];
-    if (!NODOS.some((n) => n.barrera === o.barrera)) return [];
+    if (!BARRERAS_CON_PASO_A_LA_VISTA.includes(o.barrera)) return [];
     return [{ id: o.id, eje: ejeDelPaso(o.at, map.width, map.terrain) }];
   });
 }

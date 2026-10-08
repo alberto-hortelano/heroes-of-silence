@@ -52,12 +52,14 @@ describe('el catálogo de los mapas densos', () => {
     expect(faltan).toEqual([]);
   });
 
-  it('cada barrera tiene su nodo de paso, menos el agua (puente) y el acantilado (hito, #168)', () => {
+  it('cada barrera tiene su nodo de paso, menos el agua (puente), el acantilado (#168) y el bosque (#196), con hito', () => {
+    const conHito = ['cliff', 'forest'];
     for (const b of BARRERAS)
-      if (b !== 'water' && b !== 'cliff') expect(esHito(nodoDePaso('n1', b, 'ancho'))).toBe(false);
-    expect(HITOS).toContain(nodoDePaso('n1', 'cliff', 'ancho'));
+      if (b !== 'water' && !conHito.includes(b))
+        expect(esHito(nodoDePaso('n1', b, 'ancho'))).toBe(false);
+    for (const b of conHito) expect(HITOS).toContain(nodoDePaso('n1', b as 'cliff', 'ancho'));
     expect(HITOS).toContain(nodoDePaso('n1', null, 'ancho'));
-    expect(NODOS.some((n) => n.barrera === 'water' || n.barrera === 'cliff')).toBe(false);
+    expect(NODOS.some((n) => n.barrera === 'water' || conHito.includes(n.barrera))).toBe(false);
   });
 
   it('las texturas son las de los suelos que se pisan', () => {

@@ -217,7 +217,7 @@ todo esto: es la propuesta de cómo engancharlo, no el render.
 | Textura de cada suelo | `assets/mapa/suelos/<suelo>.webp` | 512×512, repetible por los cuatro lados (la costura la fabrica el taller). Sustituye a `tramarTexturas` y a `rpg/suelo.webp`. En la composición, una textura cubre 4×4 casillas, anclada al mundo |
 | Bordes | `bosque-{verde,nevado,pantano}-1..3`, `acantilado-{arena,lava,roca}-{ancho-1,ancho-2,hondo-1}`, `muro-{ancho,hondo}-1..2`, `orilla-1..3`, `montana-volcan-1..2`, `pico-1..3` | tramos de unas 2 casillas. `ancho`: la frontera corre a lo ancho de la pantalla; `hondo`: se aleja hacia el fondo. El pico remata los extremos de una cordillera, no la rellena |
 | Obstáculos | `bosquecillo`, `pinos-nevados`, `arboles-muertos`, `rocas`, `rocas-nevadas`, `cono-volcanico`, `colada`, `farallon`, `pena`, `ruina-1..3` (`-1..2` salvo la ruina) | de una casilla, para componer las manchas de 3-6 |
-| Nodos de paso | `nodo-puente-{ancho,hondo}`, `nodo-puerta-{ancho,hondo}`, `nodo-paso-montana`, `nodo-paso-bosque`, `nodo-paso-acantilado` (sin uso desde #168: el acantilado lleva el hito) | con el poste vacío para la bandera. En un nodo, el eje es el de la frontera que cruza: en `nodo-puente-ancho` el río corre a lo ancho y el puente va hacia el fondo |
+| Nodos de paso | `nodo-puente-{ancho,hondo}`, `nodo-puerta-{ancho,hondo}`, `nodo-paso-montana`, `nodo-paso-bosque` (sin uso desde #196: el paso lo abren los árboles del bosque y lleva el hito), `nodo-paso-acantilado` (sin uso desde #168: el acantilado lleva el hito) | con el poste vacío para la bandera. En un nodo, el eje es el de la frontera que cruza: en `nodo-puente-ancho` el río corre a lo ancho y el puente va hacia el fondo |
 
 Cómo se elige, y lo que la composición aprendió al probarlo:
 
@@ -1421,3 +1421,14 @@ generado nada; lo que falta para que se parezca de verdad al camino de HoMM2:
 
 Con la primera, `TEXTURA_DE_LA_HUELLA` apunta a ella y el filtro se quita. La trocha de
 los pasos sin camino (#190) usa la misma.
+
+## 31. El paso de bosque sin pieza (#196, rama `paso-bosque`, 08-10-2026)
+
+No se pide arte. `nodo-paso-bosque` (un portillo de abetos verdes sin nieve, con
+poste y mojón) desentonaba en un bosque nevado (marca de s1 (16,16)) y en los de
+árboles muertos, y la mitad de los pasos de bosque de 1-40 separan dos suelos con
+dos hojas distintas: ninguna variante de la pieza casaba con los dos lados. Por
+decisión del usuario («que se abra con los árboles del propio bosque») el nodo de
+bosque lleva el hito de `HITOS`, como el de acantilado; la pieza se queda en
+`assets/mapa/` sin uso.
+

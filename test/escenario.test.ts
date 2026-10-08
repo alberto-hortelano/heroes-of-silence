@@ -431,17 +431,21 @@ describe('los hitos de los nodos (#176): tres, por el id, ninguno con cruz', () 
     }
   });
 
-  it('sin tope: cada nodo de acantilado lleva su hito, también los nueve de s36 (§29)', () => {
+  it('sin tope: cada nodo de acantilado y de bosque (#196) lleva su hito, también los de s36 (§29)', () => {
     // Un nodo neutral no lleva bandera: sin su hito, no se vería que ahí hay
-    // algo que tomar. En 1-40 son 142 (de 0 a 9 por mapa) y nunca hay dos a
-    // menos de 5 casillas: muchos en un mapa es que el mapa tiene muchos pasos.
+    // algo que tomar. En 1-40 son 233 (119 de acantilado, nunca dos a menos de 5
+    // casillas, y 114 de bosque, que acercan cuatro pares a 4,1-4,5; 08-10-2026):
+    // muchos en un mapa es que el mapa tiene muchos pasos, y cada uno se toma.
     for (const semilla of segunPrisa([36], rango(1, 40))) {
       const { map, escena } = partidaDe(semilla);
       const a = analizar(map);
       const nodos = map.objects.filter(
-        (o) => o.kind === 'node' && a.pasos.get(o.id)?.barrera === 'cliff',
+        (o) => o.kind === 'node' && ['cliff', 'forest'].includes(a.pasos.get(o.id)?.barrera ?? ''),
       );
-      if (semilla === 36) expect(nodos).toHaveLength(9);
+      if (semilla === 36) {
+        expect(nodos.filter((o) => a.pasos.get(o.id)?.barrera === 'cliff')).toHaveLength(9);
+        expect(nodos.some((o) => a.pasos.get(o.id)?.barrera === 'forest')).toBe(true);
+      }
       for (const o of nodos) {
         const s = escena.sprites.find((x) => x.objeto?.id === o.id);
         expect(esHito(s?.src?.replace(/\.webp$/, '') ?? null), `s${semilla} ${o.id}`).toBe(true);

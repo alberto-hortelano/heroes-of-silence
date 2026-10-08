@@ -801,6 +801,21 @@ export const RADIO_DE_OBJETO: Readonly<Record<string, number>> = {
   monster: 0.45,
 };
 
+/**
+ * La reserva de un nodo de bosque, que lleva un hito y no pieza (#196): la de
+ * 0,95 era para el portillo de 1,7 casillas, y alrededor de un hito de 0,6 abría
+ * un claro redondo donde el bosque no llegaba al paso, que se leía como un punto
+ * más del camino. Con esta, los árboles de las casillas de al lado llegan a los
+ * flancos del nodo y lo que queda libre es el eje (`pasosALaVista`) y el hito.
+ */
+export const RADIO_DEL_PASO_DE_BOSQUE = 0.5;
+
+/** El radio de la reserva de un objeto (`reservaDe`): el de su clase, salvo el nodo de bosque. */
+export function radioDeLaReserva(o: Pick<MapObject, 'kind'> & { barrera?: Barrera }): number {
+  if (o.kind === 'node' && o.barrera === 'forest') return RADIO_DEL_PASO_DE_BOSQUE;
+  return RADIO_DE_OBJETO[o.kind] ?? 0.5;
+}
+
 export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo): Escena {
   /** Los módulos de una hoja, de menor a mayor, o null si la hoja aún no está hecha. */
   const modulosDe = (hoja: string): readonly Modulo[] | null => catalogo.hojas[hoja] ?? null;
@@ -1020,7 +1035,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       if (a.puentes.has(o.id)) return [];
       const s = sprites.find((t) => t.objeto?.id === o.id);
       if (s === undefined) throw new Error(`el objeto ${o.id} no está en la escena`);
-      return [[reservaDe(o, RADIO_DE_OBJETO[o.kind] ?? 0.5, s), s] as const];
+      return [[reservaDe(o, radioDeLaReserva(o), s), s] as const];
     }),
   );
 

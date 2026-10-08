@@ -20,7 +20,7 @@ import {
   celdasMalCubiertas,
   laderasEnfrentadas,
   modulosDeLadera,
-  RADIO_DE_OBJETO,
+  radioDeLaReserva,
   SEMIANCHO_DE_PARED,
   sendasPorObjeto,
 } from '../src/client/render/escenario/colocar.js';
@@ -436,7 +436,7 @@ describe('la escena de un mapa real', () => {
         const mo = map.objects.find((m) => m.id === o.objeto?.id);
         if (mo === undefined) throw new Error(`el objeto ${o.objeto?.id} no está en el mapa`);
         const [cx, cy] = [mo.at.x + 0.5, mo.at.y + 0.5];
-        const r = RADIO_DE_OBJETO[mo.kind] ?? 0.5;
+        const r = radioDeLaReserva(mo);
         for (const v of volumenes) {
           if (v.y < o.y || (v.y === o.y && v.x <= o.x)) continue;
           const [x0, y0, x1, y1] = cajaDeSprite(v);
