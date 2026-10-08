@@ -107,12 +107,13 @@ import {
 } from './puentes.js';
 import {
   ALTO_DE_NIVEL,
-  acantiladosARas,
   bordeDeLadera,
   CARA_DE_SUELO,
   type CaraDeEscena,
   caidaDeLadera,
+  desnivelesSinBarrera,
   type Ladera,
+  nivelFueraDeSuRegion,
   pieDeLadera,
   relieve,
 } from './relieve.js';
@@ -358,10 +359,15 @@ export interface Escena {
      */
     readonly sendasDeEstriboEnAgua: number;
     /**
-     * Casillas de acantilado a ras de una casilla que se pisa a su lado, sin
-     * desnivel que las distinga del llano (`acantiladosARas`): tiene que ser 0.
+     * Casillas que se pisan a otro nivel que el de su región
+     * (`nivelFueraDeSuRegion`, #143): tiene que ser 0.
      */
-    readonly acantiladosARas: number;
+    readonly nivelFueraDeSuRegion: number;
+    /**
+     * Casillas vecinas que se pisan a distinto nivel sin barrera en medio ni
+     * ser la rampa de un nodo (`desnivelesSinBarrera`, #143): tiene que ser 0.
+     */
+    readonly desnivelesSinBarrera: number;
     /**
      * Casillas que se pisan cuya figura tapan en más de un cuarto las piezas
      * del relieve que se pintan después de ella, contado desde el orden del
@@ -922,7 +928,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   const modulosDe = (hoja: string): readonly Modulo[] | null => catalogo.hojas[hoja] ?? null;
   const pieza = (id: string): Pieza | null => catalogo.piezas[id] ?? null;
   const a = analizar(map);
-  const { nivel } = relieve(a, semilla);
+  const { nivel } = relieve(a);
   // `let`: lo alto de los acantilados (#205) se viste con su propia corriente
   // (`azarDeLoAlto`) y se cambia mientras tanto. Con la misma, los picos de más
   // movían todo lo que se viste después: las cordilleras de 1-40 salían otras
@@ -1717,10 +1723,10 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       // del suelo vecino, que en tierra eran huertos y carros sobre el muro (s57).
       rellenoDeRocas(f, dentro, 0.42, 0.32, 1);
     } else if (f.barrera === 'cliff') {
-      // El acantilado es relieve: la cara la pinta el pintor. Arriba, roca y peñascos.
-      // Una mesa (mancha) lleva cubierta encima; la franja de frontera, algo más de roca.
+      // El acantilado es el borde de una meseta (#143): la cara la pinta el
+      // pintor y arriba van roca y peñascos. Ya no hay mesas sueltas.
       const desde = sprites.length;
-      rellenoDeRocas(f, dentro, 0.34, 0.6, f.uso === 'obstaculo' ? 0.1 : 0.3);
+      rellenoDeRocas(f, dentro, 0.34, 0.6, 0.3);
       const principal = azar;
       azar = azarDeLoAlto;
       try {
@@ -2683,7 +2689,8 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       sendasPorObjeto: sendasPorObjeto(caminos, a.objetos, a.terreno, W, H).length,
       trochasTapadas: trochasTapadas(sprites, trochas).length,
       sendasDeEstriboEnAgua: sendasDeEstriboEnAgua(trazos, puentes, vados, esAgua).length,
-      acantiladosARas: acantiladosARas(a.terreno, nivel, W, H).length,
+      nivelFueraDeSuRegion: nivelFueraDeSuRegion(a, nivel),
+      desnivelesSinBarrera: desnivelesSinBarrera(a, nivel),
       pisablesTapadas: pisablesTapadas(sprites, a.terreno, W, H, perfilDe).length,
       cubiertaComoLaBarrera: ((c) => c.altas.length + c.regionesDensas.length)(
         cubiertaComoLaBarrera(sprites, a.suelo, a.region, W),

@@ -1,30 +1,17 @@
 /**
  * El relieve visual: un nivel de altura por casilla y las caras de roca donde el
- * terreno cae. El motor no tiene alturas; esto es solo cómo se pinta (las
- * mesetas, los barrancos y los acantilados de la referencia) y se deduce del
- * suelo y de las barreras.
+ * terreno cae. El motor no tiene alturas de juego, pero el mapa guarda el nivel
+ * de cada región (`MapRegion.nivel`, #143), que el generador sortea antes que
+ * las barreras: el acantilado solo separa dos niveles distintos y dos niveles
+ * distintos solo los separa un acantilado, una montaña o el agua. Aquí se
+ * aplica, sin inventar nada.
  *
  * La cámara mira desde el sur: una caída hacia abajo en pantalla enseña su cara
  * de roca; una caída hacia arriba queda de espaldas y solo se ve el reborde.
  */
-import { isWalkable, type Suelo, type TerrainKind } from '@core/map/terrain.js';
+import { esBarrera, isWalkable, type Suelo, type TerrainKind } from '@core/map/terrain.js';
 import type { Analisis } from './analizar.js';
 import type { Caja } from './pasillo.js';
-
-/**
- * El nivel de una región. No es un nivel por suelo —eso convertía cada frontera
- * en un escalón y el usuario lo descartó (03-10-2026)—: el relieve es variado.
- * La ciénaga va abajo; la nieve, la lava y las regiones rodeadas de montaña,
- * arriba; el resto casi todo al mismo nivel, con alguna meseta suelta. Dos
- * regiones al mismo nivel se separan por un río o un cañón, no por un escalón.
- */
-export function nivelDeRegion(suelo: Suelo, montana: number, tirada: number): number {
-  if (suelo === 'swamp') return 0;
-  if (suelo === 'snow' || suelo === 'lava') return 2;
-  if (montana > 0.2) return 2;
-  if (suelo === 'rough') return tirada < 0.5 ? 2 : 1;
-  return tirada < 0.15 ? 2 : 1;
-}
 
 /**
  * Cuánto mide en pantalla un nivel de altura, en casillas. A 1 la cara colgaba
@@ -51,131 +38,81 @@ export interface Relieve {
   readonly nivel: Int8Array;
 }
 
-export function relieve(a: Analisis, semilla = 1): Relieve {
-  const { W, H, terreno, franjaDe, franjas, fuente, region, regiones } = a;
-  // Cuánta montaña rodea cada región: casillas de montaña cuyo suelo más cercano es suyo.
-  const montana = new Float64Array(regiones.length);
-  for (let i = 0; i < W * H; i++) {
-    if (terreno[i] !== 'mountain') continue;
-    const r = region[fuente[i] as number] as number;
-    if (r >= 0) montana[r] = (montana[r] as number) + 1;
-  }
-  let s = (semilla * 2654435761) >>> 0;
-  const tirada = () => {
-    s = (Math.imul(s ^ (s >>> 15), 2246822519) + 0x6d2b79f5) >>> 0;
-    return s / 4294967296;
-  };
-  const nivelR = regiones.map((r) =>
-    nivelDeRegion(r.suelo, (montana[r.id] as number) / Math.max(1, r.casillas), tirada()),
-  );
-  const nivel = new Int8Array(W * H);
-  for (let i = 0; i < W * H; i++) {
-    const r = region[fuente[i] as number] as number;
-    nivel[i] = r >= 0 ? (nivelR[r] as number) : 1;
-  }
-  const base = Int8Array.from(nivel);
-  // Lo más bajo y lo más alto que tiene alrededor cada franja: un río o un cañón
-  // va entero a UN nivel, uno por debajo de su orilla más baja. Tomándolo casilla
-  // a casilla de la orilla más cercana, medio río quedaba un nivel más alto que
-  // el otro medio y el cañón salía en tres escalones.
-  const bajo = franjas.map(() => 9);
-  const alto = franjas.map(() => -9);
-  for (let i = 0; i < W * H; i++) {
-    const f = franjaDe[i] as number;
-    if (f === -1) continue;
-    bajo[f] = Math.min(bajo[f] as number, base[i] as number);
-    alto[f] = Math.max(alto[f] as number, base[i] as number);
-  }
-  // Un acantilado mira también lo que pisa a su lado: una región que lo toca sin
-  // ser la más cercana de ninguna de sus casillas se quedaba fuera de la cuenta,
-  // y la cresta salía a ras con ella (s57 (2, 16)). Solo el acantilado: el agua
-  // sigue encajada bajo su orilla de siempre.
-  for (let i = 0; i < W * H; i++) {
-    const f = franjaDe[i] as number;
-    if (f === -1 || terreno[i] !== 'cliff') continue;
-    for (const j of vecinosDe(i, W, H)) {
-      if (!isWalkable(terreno[j] as TerrainKind)) continue;
-      bajo[f] = Math.min(bajo[f] as number, base[j] as number);
-      alto[f] = Math.max(alto[f] as number, base[j] as number);
-    }
-  }
-  for (let i = 0; i < W * H; i++) {
-    const f = franjaDe[i] as number;
-    if (f === -1) continue;
-    const franja = franjas[f];
-    if (franja === undefined) continue;
-    const t = terreno[i];
-    const lo = bajo[f] as number;
-    const hi = alto[f] as number;
-    // El agua va encajada: un nivel por debajo de su orilla más baja. El barranco.
-    if (t === 'water') nivel[i] = Math.max(-1, lo - 1);
-    // Una mancha de acantilado dentro de una región es una mesa: un nivel más.
-    else if (t === 'cliff' && franja.uso === 'obstaculo') nivel[i] = (base[i] as number) + 1;
-    // Una montaña o un bosque entre dos niveles toma el de su lado alto (#180,
-    // decisión del usuario, 07-10-2026). Con el nivel de la región más cercana
-    // de cada casilla, el escalón caía por dentro de la franja, sobre el muro
-    // fino de Voronoi, que es recto; así cae en su borde con el lado bajo, que
-    // es el contorno de la región, con sus giros.
-    else if (t === 'mountain' || t === 'forest') nivel[i] = hi;
-    // Entre dos lados a distinta altura, el acantilado es una cresta de roca un
-    // nivel por encima del alto; entre dos al mismo nivel, un cañón cortado hacia
-    // abajo. Nunca a ras de lo que se pisa al lado: tomaba el nivel del lado alto
-    // y desde allí la barrera se leía como un llano por el que se pasa (auditoría
-    // 2 de 07-10, B: 35 de 66 bordes en s1, 72 de 319 en s57). Bajar con el lado
-    // bajo no lo arreglaba —quedaba a ras de ese— y la zanja daba caras de 4.
-    else if (t === 'cliff') nivel[i] = hi > lo ? hi + 1 : Math.max(-1, lo - 1);
+/** El nivel de un mapa sin regiones (los de algunos tests): todo al llano. */
+const LLANO = 1;
+
+/**
+ * El nivel de cada casilla, de los niveles de las regiones del mapa (#143):
+ *
+ * - **lo que se pisa**, al de su región: una región es una meseta entera, sin
+ *   escalones por dentro;
+ * - **un nodo**, al de sus regiones, y entre dos niveles, al bajo: es la rampa
+ *   por la que se sube (`bajadasDe`);
+ * - **una franja de barrera** (8-conexa, de una misma barrera), al nivel más
+ *   alto de las regiones que toca: es el borde de la meseta, y la cara cae a su
+ *   pie del lado bajo. El acantilado, cubierto de roca (`cimaDeRoca`);
+ * - **el agua**: la de frontera (toca dos regiones o más) va encajada, un nivel
+ *   bajo su orilla más baja —el barranco—; la de dentro de una región, a ras,
+ *   una charca con su orilla y sin caras.
+ *
+ * Antes el nivel se inventaba aquí, del suelo y de una tirada, después de que el
+ * generador sorteara las barreras sin verlo, y se remendaba: crestas por encima
+ * de las dos orillas, cañones entre dos llanos, mesas de una casilla, escaleras
+ * que subían lo que se pisa y charcas hundidas en el llano (crítica de
+ * `docs/agents/2026-10-08-desniveles/`). Ya no hace falta ninguno.
+ */
+export function relieve(a: Analisis): Relieve {
+  const { W, H, terreno, red, niveles, fuente } = a;
+  const N = W * H;
+  const nivelDe = (r: number): number => (r >= 0 ? (niveles[r] as number) : LLANO);
+  const nivel = new Int8Array(N).fill(LLANO);
+  for (let i = 0; i < N; i++)
+    if (isWalkable(terreno[i] as TerrainKind)) nivel[i] = nivelDe(red.regionDe[i] as number);
+  for (const n of red.nodos) {
+    const i = n.at.y * W + n.at.x;
+    if (!isWalkable(terreno[i] as TerrainKind) || n.regiones.length === 0) continue;
+    nivel[i] = Math.min(...n.regiones.map(nivelDe));
   }
 
-  // Una escalera de caídas seguidas (2 → 1 → 0 bajando por la pantalla) daba
-  // una pared por peldaño, en terrazas paralelas. Se funde en una sola caída
-  // más alta: el peldaño intermedio sube al nivel de arriba. El agua no sube,
-  // que va siempre encajada.
-  for (let cambio = true; cambio; ) {
-    cambio = false;
-    for (let y = 1; y < H - 1; y++)
-      for (let x = 0; x < W; x++) {
-        const i = y * W + x;
-        if (terreno[i] === 'water') continue;
-        // Ni el suelo sube a ras de un acantilado de encima, ni un acantilado a
-        // ras del suelo de encima: la barrera dejaría de verse (`acantiladosARas`).
-        if ((terreno[i] === 'cliff') !== (terreno[i - W] === 'cliff')) continue;
-        const arriba = nivel[i - W] as number;
-        const aqui = nivel[i] as number;
-        const abajo = nivel[i + W] as number;
-        if (aqui < arriba && abajo < aqui) {
-          nivel[i] = arriba;
-          cambio = true;
+  const vista = new Uint8Array(N);
+  for (let i = 0; i < N; i++) {
+    const t = terreno[i] as TerrainKind;
+    if (vista[i] === 1 || !esBarrera(t)) continue;
+    const franja = [i];
+    vista[i] = 1;
+    const regiones = new Set<number>();
+    for (let q = 0; q < franja.length; q++) {
+      const j = franja[q] as number;
+      const x = j % W;
+      const y = (j - x) / W;
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+          const k = ny * W + nx;
+          const r = red.regionDe[k] as number;
+          if (r >= 0 && isWalkable(terreno[k] as TerrainKind)) regiones.add(r);
+          if (vista[k] === 0 && terreno[k] === t) {
+            vista[k] = 1;
+            franja.push(k);
+          }
         }
+    }
+    // Una franja encerrada entre otras barreras no toca ninguna región: va con
+    // las de lo que se pisa más cerca de cada casilla suya.
+    if (regiones.size === 0)
+      for (const j of franja) {
+        const r = red.regionDe[fuente[j] as number] as number;
+        if (r >= 0) regiones.add(r);
       }
+    const suyos = regiones.size === 0 ? [LLANO] : [...regiones].map(nivelDe);
+    const alto = Math.max(...suyos);
+    const bajo = Math.min(...suyos);
+    const deFrontera = regiones.size > 1;
+    const suyo = t === 'water' ? (deFrontera ? bajo - 1 : alto) : alto;
+    for (const j of franja) nivel[j] = suyo;
   }
-
-  // La cresta de una franja larga sube con su lado más alto, y donde la franja
-  // pasa junto al agua encajada la caída llegaba a 4: la ladera, que tiene arte
-  // hasta 3 y se estira, metía el pie en la casilla de enfrente y se montaba con
-  // la del otro lado del río (`laderasEnfrentadas`, s10 (15, 18) y s35 (15, 26)).
-  // Ahí baja a 3 sobre lo más bajo de al lado, si con eso no queda a ras.
-  for (let i = 0; i < W * H; i++) {
-    if (terreno[i] !== 'cliff') continue;
-    const vecinos = vecinosDe(i, W, H);
-    const tope = Math.min(...vecinos.map((j) => nivel[j] as number)) + 3;
-    if (
-      (nivel[i] as number) > tope &&
-      !vecinos.some((j) => isWalkable(terreno[j] as TerrainKind) && nivel[j] === tope)
-    )
-      nivel[i] = tope;
-  }
-
-  // Lo poco que aún quedara a ras —una mesa que toca una región más alta que la
-  // suya, una casilla junto al agua— sube un nivel por encima de lo que pisa al
-  // lado: 4 casillas en las semillas 1, 2, 5, 9, 13, 24, 34 y 57.
-  for (const i of acantiladosARas(terreno, nivel, W, H)) {
-    let alrededor = nivel[i] as number;
-    for (const j of vecinosDe(i, W, H))
-      if (isWalkable(terreno[j] as TerrainKind))
-        alrededor = Math.max(alrededor, nivel[j] as number);
-    nivel[i] = alrededor + 1;
-  }
-
   return { nivel };
 }
 
@@ -256,37 +193,44 @@ export function bandaDeCara(c: Cara): Caja {
   return [c.x0, c.y + 1, c.x1 + 1, c.y + 1 + c.caida * ALTO_DE_NIVEL];
 }
 
+/** Si el nodo `n` de la red une regiones a distinto nivel: es una rampa. */
+export const nodoEntreNiveles = (
+  a: Pick<Analisis, 'niveles'>,
+  regiones: readonly number[],
+): boolean => new Set(regiones.map((r) => a.niveles[r])).size > 1;
+
 /**
- * Las casillas de acantilado a ras de una casilla que se pisa a su lado (norte,
- * sur, este u oeste): ahí la barrera no tiene cara, ni ladera, ni reborde, y se
- * lee como un llano por el que se pasa (auditoría 2 de 07-10, defecto B). Lo
- * cuenta el informe (`acantiladosARas`) y tiene que ser 0.
+ * Casillas que se pisan (sin nodos) a otro nivel que el de su región
+ * (`nivelFueraDeSuRegion`, #143): la escalera de antes subía 50 en 1-40. Lo
+ * cuenta el informe y tiene que ser 0.
  */
-export function acantiladosARas(
-  terreno: readonly TerrainKind[],
-  nivel: ArrayLike<number>,
-  W: number,
-  H: number,
-): number[] {
-  const fuera: number[] = [];
-  for (let i = 0; i < W * H; i++) {
-    if (terreno[i] !== 'cliff') continue;
-    if (
-      vecinosDe(i, W, H).some((j) => isWalkable(terreno[j] as TerrainKind) && nivel[j] === nivel[i])
-    )
-      fuera.push(i);
+export function nivelFueraDeSuRegion(a: Analisis, nivel: ArrayLike<number>): number {
+  let fuera = 0;
+  for (let i = 0; i < a.W * a.H; i++) {
+    const r = a.red.regionDe[i] as number;
+    if (r >= 0 && isWalkable(a.terreno[i] as TerrainKind) && nivel[i] !== a.niveles[r]) fuera++;
   }
   return fuera;
 }
 
-/** Las casillas de al lado de `i` (norte, sur, oeste y este) que caen en el mapa. */
-function vecinosDe(i: number, W: number, H: number): number[] {
-  const x = i % W;
-  const y = Math.floor(i / W);
-  const v: number[] = [];
-  if (y > 0) v.push(i - W);
-  if (y < H - 1) v.push(i + W);
-  if (x > 0) v.push(i - 1);
-  if (x < W - 1) v.push(i + 1);
-  return v;
+/**
+ * Parejas de casillas vecinas (norte-sur, este-oeste) que se pisan a distinto
+ * nivel sin una barrera en medio y sin ser un nodo entre dos niveles, que es la
+ * rampa (`desnivelesSinBarrera`, #143): un escalón en el llano que no explica
+ * nada. Eran 40 en 1-40, más 205 junto a un nodo. Lo cuenta el informe y tiene
+ * que ser 0.
+ */
+export function desnivelesSinBarrera(a: Analisis, nivel: ArrayLike<number>): number {
+  const { W, H, terreno, red } = a;
+  const rampa = new Uint8Array(W * H);
+  for (const n of red.nodos) if (nodoEntreNiveles(a, n.regiones)) rampa[n.at.y * W + n.at.x] = 1;
+  let fuera = 0;
+  for (let i = 0; i < W * H; i++) {
+    if (!isWalkable(terreno[i] as TerrainKind)) continue;
+    for (const j of [i % W < W - 1 ? i + 1 : -1, i + W < W * H ? i + W : -1]) {
+      if (j < 0 || !isWalkable(terreno[j] as TerrainKind) || nivel[i] === nivel[j]) continue;
+      if (rampa[i] === 0 && rampa[j] === 0) fuera++;
+    }
+  }
+  return fuera;
 }

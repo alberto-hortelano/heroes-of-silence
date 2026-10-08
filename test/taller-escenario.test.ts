@@ -34,7 +34,7 @@ import {
   tramoEnCaja,
 } from '../src/client/render/escenario/pasillo.js';
 import { esVolumen } from '../src/client/render/escenario/pintar.js';
-import { ALTO_DE_NIVEL, nivelDeRegion, relieve } from '../src/client/render/escenario/relieve.js';
+import { ALTO_DE_NIVEL, relieve } from '../src/client/render/escenario/relieve.js';
 import {
   encadenar,
   SEMIANCHO_DEL_PASILLO,
@@ -67,14 +67,19 @@ describe('el relieve', () => {
     for (const c of caras) expect([c.x0 % 1, c.x1 % 1].map(Math.abs)).toEqual([0.5, 0.5]);
   });
 
-  it('el agua va encajada por debajo de su orilla: el barranco', () => {
+  it('el agua de frontera va encajada por debajo de su orilla, el barranco; la de dentro, a ras', () => {
+    let encajadas = 0;
     for (const f of a.franjas.filter((k) => k.barrera === 'water'))
-      for (const i of f.casillas)
-        expect(r.nivel[i] as number).toBeLessThan(r.nivel[a.fuente[i] as number] as number);
+      for (const i of f.casillas) {
+        const orilla = r.nivel[a.fuente[i] as number] as number;
+        expect(r.nivel[i] as number).toBeLessThanOrEqual(orilla);
+        if ((r.nivel[i] as number) < orilla) encajadas++;
+      }
+    expect(encajadas).toBeGreaterThan(0);
   });
 
   it('el relieve no es un escalón por suelo: hay fronteras entre regiones al mismo nivel', () => {
-    // Dos regiones vecinas a través de una franja, al mismo nivel: se separan por río o cañón.
+    // Dos regiones vecinas a través de una franja, al mismo nivel: se separan por río o bosque.
     let mismoNivel = 0;
     for (const f of a.franjas.filter((k) => k.uso === 'borde')) {
       const niveles = new Set(f.casillas.map((i) => r.nivel[a.fuente[i] as number]));
@@ -83,13 +88,18 @@ describe('el relieve', () => {
     expect(mismoNivel).toBeGreaterThan(0);
   });
 
-  it('la ciénaga va abajo y la nieve y la lava arriba', () => {
-    for (const reg of a.regiones) {
-      if (reg.suelo === 'swamp') expect(nivelDeRegion('swamp', 0, 0.9)).toBe(0);
-      if (reg.suelo === 'snow') expect(nivelDeRegion('snow', 0, 0.9)).toBe(2);
+  it('el nivel es del mapa (#143): subir una región sube lo que se pisa de ella y nada más', () => {
+    const map = newGame({ seed: 9 }).map;
+    const k = map.regions.findIndex((reg) => reg.nivel === 1);
+    const subido = {
+      ...map,
+      regions: map.regions.map((reg, j) => (j === k ? { ...reg, nivel: 2 as const } : reg)),
+    };
+    const otro = relieve(analizar(subido));
+    for (let i = 0; i < a.W * a.H; i++) {
+      if (a.red.regionDe[i] === k) expect(otro.nivel[i]).toBe(2);
+      else if ((a.red.regionDe[i] as number) >= 0) expect(otro.nivel[i]).toBe(r.nivel[i]);
     }
-    expect(nivelDeRegion('grass', 0, 0.9)).toBe(1);
-    expect(nivelDeRegion('grass', 0.5, 0.9)).toBe(2);
   });
 });
 
@@ -471,7 +481,7 @@ describe('la escena de un mapa real', () => {
       // pared quedó vacía (las reservas viven en \`componer\`): eso lo cuenta solo
       // el informe; aquí, dos piezas en una celda o una fuera de toda celda.
       const { barrancos } = caidas(
-        relieve(analizar(map), semilla).nivel,
+        relieve(analizar(map)).nivel,
         map.width,
         map.height,
         analizar(map).suelo,
@@ -514,8 +524,10 @@ describe('la escena de un mapa real', () => {
     const puestas = e.sprites.filter((s) => s.src?.includes('/laderas-') === true);
 
     it(`semilla ${semilla}: las caídas al este y al oeste llevan ladera de su lado, con sus remates y sin esquinas`, () => {
+      // Sin las crestas, que llevaban ladera a los dos lados, hay menos (#143):
+      // de 9-33 por lado en 1, 3, 7 y 9 a 5-12.
       for (const lado of ['este', 'oeste'])
-        expect(puestas.filter((s) => s.src?.includes(`-${lado}-`)).length).toBeGreaterThan(5);
+        expect(puestas.filter((s) => s.src?.includes(`-${lado}-`)).length).toBeGreaterThan(3);
       // La esquina de §20 ya no entra: dobla la diagonal (R4).
       expect(puestas.some((s) => s.src?.includes('/esquina'))).toBe(false);
       for (const nombre of ['inicio', 'medio-', 'fin'])

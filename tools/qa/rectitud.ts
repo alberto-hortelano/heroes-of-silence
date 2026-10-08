@@ -71,11 +71,11 @@ export function tramosRectos(map: GameMap, minimo: number): { largos: number; ma
 }
 
 /** Las filas de caras de roca del escenógrafo que llegan a `minimo` casillas seguidas. */
-export function carasEnFila(map: GameMap, semilla: number, minimo: number): number {
+export function carasEnFila(map: GameMap, minimo: number): number {
   const W = map.width;
   const cara = new Uint8Array(W * map.height);
   const a = analizar(map);
-  const { nivel } = relieve(a, semilla);
+  const { nivel } = relieve(a);
   // Por celdas (R4) una cara va de junta a junta: de `x0 = a − 0,5` a `x1 + 1`.
   // Se cuenta por vértice, que es una casilla de largo igual que antes.
   for (const c of caidas(nivel, a.W, a.H, a.suelo).caras) {
@@ -110,7 +110,7 @@ function medir(): boolean {
   for (let s = 1; s <= TECHOS.mapas.semillas; s++) {
     const { map } = newGame({ seed: s });
     if (s <= TECHOS.tramos.semillas) tramos += tramosRectos(map, TECHOS.tramos.minimo).largos;
-    if (s <= TECHOS.caras.semillas) caras += carasEnFila(map, s, TECHOS.caras.minimo);
+    if (s <= TECHOS.caras.semillas) caras += carasEnFila(map, TECHOS.caras.minimo);
     if (tramosRectos(map, TECHOS.mapas.minimo).largos > 0) mapas++;
   }
   const filas = [

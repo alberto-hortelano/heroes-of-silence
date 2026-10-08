@@ -115,7 +115,48 @@ function mapaDe(filas: readonly string[], conCamino = false): MapaDeEscena {
         : [],
     },
     objects: [nodo],
+    regions: regionesDe(W, terrain, at),
   };
+}
+
+/**
+ * Una región al llano por cada trozo 8-conexo de lo que se pisa (sin el nodo),
+ * como las declararía un plan: el relieve sale de ellas (#143).
+ */
+function regionesDe(
+  W: number,
+  terrain: readonly TerrainKind[],
+  nodo: { x: number; y: number },
+): MapaDeEscena['regions'] {
+  const H = terrain.length / W;
+  const vista = new Uint8Array(terrain.length);
+  vista[nodo.y * W + nodo.x] = 1;
+  const regiones: MapaDeEscena['regions'][number][] = [];
+  for (let i = 0; i < terrain.length; i++) {
+    if (vista[i] === 1 || !isWalkable(terrain[i] as TerrainKind)) continue;
+    regiones.push({
+      id: `r${regiones.length}`,
+      name: '',
+      at: { x: i % W, y: Math.floor(i / W) },
+      nivel: 1,
+    });
+    const pila = [i];
+    vista[i] = 1;
+    while (pila.length > 0) {
+      const j = pila.pop() as number;
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          const x = (j % W) + dx;
+          const y = Math.floor(j / W) + dy;
+          const k = y * W + x;
+          if (x < 0 || y < 0 || x >= W || y >= H || vista[k] === 1) continue;
+          if (!isWalkable(terrain[k] as TerrainKind)) continue;
+          vista[k] = 1;
+          pila.push(k);
+        }
+    }
+  }
+  return regiones;
 }
 
 /** El puente del único nodo de la rejilla, con el nivel que se le dé (o todo a 1). */
@@ -159,7 +200,7 @@ describe('la casilla del nodo de agua es agua (#157)', () => {
     expect(map.terrain[nodo]).toBe('dirt');
     expect(a.franjaDe[nodo]).toBe(a.franjaDe[2 * 5]);
     expect(a.franjaDe[nodo]).toBe(a.franjaDe[2 * 5 + 4]);
-    const rel = relieve(a, 1);
+    const rel = relieve(a);
     const orillas = [1 * 5 + 2, 3 * 5 + 2].map((i) => rel.nivel[i] as number);
     expect(rel.nivel[nodo]).toBe(Math.max(-1, Math.min(...orillas) - 1));
     expect(rel.nivel[nodo]).toBe(rel.nivel[2 * 5]);

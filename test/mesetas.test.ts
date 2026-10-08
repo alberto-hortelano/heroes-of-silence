@@ -79,6 +79,27 @@ function huellaDeLosObjetos(semilla: number): Set<number> {
   return huella;
 }
 
+/** La esquina del cuadrado de 3 × 3 con más casillas de acantilado; en un empate, la primera. */
+function masAcantiladoEn3x3(
+  terreno: readonly TerrainKind[],
+  W: number,
+  H: number,
+): readonly [number, number] {
+  let mejor: readonly [number, number] = [0, 0];
+  let max = -1;
+  for (let y = 0; y + 2 < H; y++)
+    for (let x = 0; x + 2 < W; x++) {
+      let n = 0;
+      for (let dy = 0; dy < 3; dy++)
+        for (let dx = 0; dx < 3; dx++) if (terreno[(y + dy) * W + x + dx] === 'cliff') n++;
+      if (n > max) {
+        max = n;
+        mejor = [x, y];
+      }
+    }
+  return mejor;
+}
+
 /** Los lisos de la semilla, contados desde fuera con el mismo guardia y la huella derivada aquí. */
 function lisosDe(semilla: number): number[] {
   const { map, escena: e } = partidaDe(semilla);
@@ -103,12 +124,15 @@ describe('en los mapas reales', () => {
       expect(e.informe.acantiladosLisos).toBe(0);
     });
 
-  it('s443 (14-16, 9-11) y s34 (17-22, 5-7): las mesetas de la auditoría, casilla a casilla', () => {
-    for (const [semilla, x0, x1, y0, y1] of [
-      [443, 14, 16, 9, 11],
-      [34, 17, 22, 5, 7],
-    ] as const) {
+  it('s443 y s34, las de la auditoría: su meseta más ancha, casilla a casilla', () => {
+    // Las cajas de la auditoría —s443 (14-16, 9-11) y s34 (17-22, 5-7)— ya no
+    // caen en un acantilado con los niveles del mapa (#143): se mira el
+    // cuadrado de 3 × 3 con más acantilado de cada una, que es lo que más se lee
+    // como un llano.
+    for (const semilla of [443, 34] as const) {
       const { map, escena: e } = partidaDe(semilla);
+      const [x0, y0] = masAcantiladoEn3x3(map.terrain, e.W, e.H);
+      const [x1, y1] = [x0 + 2, y0 + 2];
       const casillas = rango(y0, y1).flatMap((y) =>
         rango(x0, x1)
           .map((x) => y * e.W + x)

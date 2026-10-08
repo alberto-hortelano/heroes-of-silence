@@ -289,18 +289,22 @@ describe('un catálogo de laderas sin sus juntas no llega a pintarse', () => {
   });
 
   it('y si llega a `componer` sin pasar por la carga, lanza también', () => {
-    // Un mapa de 9 × 9 con una mesa de acantilado de 2 × 3: dos laderas y una cara.
+    // Un mapa de 9 × 9 partido por una franja de acantilado de norte a sur:
+    // la meseta del oeste al 2 y el llano del este al 1 (#143). La franja es el
+    // borde de la meseta y cae al este en ladera.
     const W = 9;
     const map: MapaDeEscena = {
       width: W,
       height: W,
       terrain: Array.from({ length: W * W }, (_, i) =>
-        i % W >= 3 && i % W <= 4 && Math.floor(i / W) >= 3 && Math.floor(i / W) <= 5
-          ? 'cliff'
-          : 'grass',
+        i % W >= 3 && i % W <= 4 ? 'cliff' : 'grass',
       ),
       caminos: { tramos: [] },
       objects: [],
+      regions: [
+        { id: 'meseta', name: 'Meseta', at: { x: 0, y: 0 }, nivel: 2 },
+        { id: 'llano', name: 'Llano', at: { x: 8, y: 0 }, nivel: 1 },
+      ],
     };
     // Con el catálogo del repo se compone, con sus laderas.
     expect(componer(map, 1, catalogo).sprites.some((s) => s.src?.includes('/laderas-'))).toBe(true);

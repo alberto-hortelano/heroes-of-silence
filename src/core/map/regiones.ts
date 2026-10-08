@@ -184,7 +184,7 @@ interface Rejilla {
  * productores pasan por `validateMapPlan`, que lo rechaza antes de construir,
  * y aquí se **lanza** en vez de saltarlo, que callado sería un nodo menos.
  */
-function rejillaDe(map: GameMap): Rejilla {
+function rejillaDe(map: MapaDeRed): Rejilla {
   const n = map.width * map.height;
   const pisable = new Uint8Array(n);
   for (let i = 0; i < n; i++) if (isWalkable(map.terrain[i] as TerrainKind)) pisable[i] = 1;
@@ -201,7 +201,20 @@ function rejillaDe(map: GameMap): Rejilla {
   return { width: map.width, height: map.height, pisable, nodoEn, nodos };
 }
 
-const cache = new WeakMap<GameMap, Estructura>();
+/**
+ * Lo que `estructura` lee de un mapa, y nada más: lo cumplen el `GameMap` del
+ * núcleo y el mapa que el escenógrafo recibe del cable (`MapaDeEscena`), que
+ * saca de aquí la región de cada casilla para pintar su nivel (#143).
+ */
+export interface MapaDeRed {
+  readonly width: number;
+  readonly height: number;
+  readonly terrain: readonly TerrainKind[];
+  readonly objects: readonly MapObject[];
+  readonly regions: readonly MapRegion[];
+}
+
+const cache = new WeakMap<MapaDeRed, Estructura>();
 
 /**
  * La forma de la red de un mapa: qué región es cada casilla y qué nodos rodean
@@ -218,7 +231,7 @@ const cache = new WeakMap<GameMap, Estructura>();
  * Un mapa **sin regiones** sí vale y da una red vacía de regiones: los de los
  * tests de pathfinding no tienen territorio y no lo necesitan.
  */
-export function estructura(map: GameMap): Estructura {
+export function estructura(map: MapaDeRed): Estructura {
   const hecha = cache.get(map);
   if (hecha !== undefined) return hecha;
   const r = rejillaDe(map);
@@ -231,7 +244,7 @@ export function estructura(map: GameMap): Estructura {
  * validar un mapa y leerle la red sea **un solo** relleno por inundación.
  */
 function construir(
-  map: GameMap,
+  map: MapaDeRed,
   r: Rejilla,
   { comp, total }: { comp: Int32Array; total: number },
 ): Estructura {

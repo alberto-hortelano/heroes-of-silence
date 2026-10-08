@@ -126,18 +126,20 @@ describe('en los mapas reales', () => {
   // cambia con cualquier cosa que gaste azar antes (la senda ancha de #191 movió
   // las paredes de esa ladera y dejó (7, 22) fuera): se mira cada casilla que
   // se taparía sin subir la clave, no una.
-  it('s36: sin subir la clave, vuelven las tapadas de la auditoría, también donde hay un objeto', () => {
-    const { map, escena: e } = partidaDe(36);
+  // La auditoría era s36 (84 tapadas); con los niveles del mapa (#143) se le
+  // quedan 21, y la que más tiene de 1-60 es la 32 (89).
+  it('s32: sin subir la clave, vuelven las tapadas de la auditoría, también donde hay un objeto', () => {
+    const { map, escena: e } = partidaDe(32);
     const antes = pisablesTapadas(e.sprites, map.terrain, e.W, e.H, perfilDe, false);
     expect(antes.length).toBeGreaterThan(50);
     const objetos = new Set(map.objects.map((o) => o.at.y * e.W + o.at.x));
     expect(antes.some((i) => objetos.has(i))).toBe(true);
   });
 
-  it('s36: cada figura que se taparía sin subir la clave se pinta después de toda pieza que la tapa con su silueta', () => {
-    const { map, escena: e } = partidaDe(36);
+  it('s32: cada figura que se taparía sin subir la clave se pinta después de toda pieza que la tapa con su silueta', () => {
+    const { map, escena: e } = partidaDe(32);
     const antes = new Set(pisablesTapadas(e.sprites, map.terrain, e.W, e.H, perfilDe, false));
-    const esc = escenarioDe(map, 36);
+    const esc = escenarioDe(map, 32);
     let vistas = 0;
     for (const v of esc.separada.volumenes) {
       if (v.s.clase !== 'pared' || v.s.filaAlta === undefined) continue;

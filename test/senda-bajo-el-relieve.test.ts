@@ -153,8 +153,9 @@ describe('la senda bajo el relieve (#189)', () => {
     // coste del pie (5, 10 y 24: de 13, 17 y 16 a 7, 13 y 10).
     const semillas = segunPrisa([1, 5, 10, 24], rango(1, 40));
     const cuentas = semillas.map((s) => escenaDe(s).informe.sendaBajoElRelieve);
-    // Que mire algo: en ninguna semilla de la muestra es 0.
-    expect(cuentas.every((n) => n > 0)).toBe(true);
+    // Que mire algo: en ninguna semilla de la muestra rápida es 0 (en 1-40,
+    // con los niveles del mapa, alguna se queda en 0: #143).
+    expect(cuentas.filter((n) => n > 0).length).toBeGreaterThanOrEqual(segunPrisa(4, 30));
     expect(cuentas.reduce((a, b) => a + b, 0) / semillas.length).toBeLessThanOrEqual(
       TECHO_POR_MAPA,
     );

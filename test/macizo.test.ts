@@ -453,8 +453,11 @@ describe('las cumbres, nítidas y de un material (defecto C de la auditoría 2)'
       const vistos = new Map<number, Set<MaterialDePico>>();
       for (const s of escenaDe(semilla).sprites) {
         if (s.clase !== 'masa' || s.src?.startsWith('modulos/picos-') !== true) continue;
+        // Acotado a los dos lados: un pico del borde oeste con el pie en x = −0,06
+        // caía en la última columna de la fila de arriba, en otro macizo (s1, #143).
         const i =
-          Math.floor(Math.min(s.y, a.H - 0.01)) * a.W + Math.floor(Math.min(s.x, a.W - 0.01));
+          Math.floor(Math.max(0, Math.min(s.y, a.H - 0.01))) * a.W +
+          Math.floor(Math.max(0, Math.min(s.x, a.W - 0.01)));
         const r = raiz.get(i);
         if (r === undefined) continue;
         const v = vistos.get(r) ?? new Set();

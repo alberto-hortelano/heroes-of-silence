@@ -545,12 +545,13 @@ describe('en las partidas', () => {
   });
 
   it('y el guardia mira algo: hay muros, puertas y tramos', () => {
-    const map = partidaDe(1).map;
+    // La 3: con los niveles del mapa (#143), la 1 se quedó sin puertas de muralla.
+    const map = partidaDe(3).map;
     const a = analizar(map);
     expect(a.franjas.filter((f) => f.barrera === 'wall').length).toBeGreaterThan(5);
     expect([...a.pasos.values()].filter((p) => p.barrera === 'wall').length).toBeGreaterThan(0);
-    // 27 piezas desde #208, que dejó las murallas cortas (más de 30 antes).
-    expect(escenaDe(1).sprites.filter((s) => s.clase === 'muro').length).toBeGreaterThan(20);
+    // 62 piezas en la 3 (la 1 llevaba 27 desde #208, que dejó las murallas cortas).
+    expect(escenaDe(3).sprites.filter((s) => s.clase === 'muro').length).toBeGreaterThan(20);
   });
 
   it('en una casilla de muro no se siembra la cubierta del campo (los huertos de s57)', () => {
@@ -569,10 +570,11 @@ describe('en las partidas', () => {
 
 describe('la muralla de norte a sur, de lado (§29)', () => {
   it('sus tramos son las piezas muro-ns, de 1,6 de alto y por el medio, y no la tira de la hoja', () => {
-    // s21 lleva dos puertas N-S con su lienzo arriba y abajo. Era s12, cuyas
-    // dos puertas se quedaron con dos casillas de muro a cada lado al partirse
-    // su muralla larga (#208): un tramo cada una.
-    const e = escenaDe(21);
+    // s3 lleva tramos N-S de las dos piezas (7 y 5). Era s21, que con los
+    // niveles del mapa (#143) se quedó sin ellos; y antes s12, cuyas dos
+    // puertas se quedaron con dos casillas de muro a cada lado al partirse su
+    // muralla larga (#208): un tramo cada una.
+    const e = escenaDe(3);
     const ns = e.sprites.filter((s) => /^muro-ns-[12]\.webp$/.test(s.src ?? ''));
     expect(ns.length).toBeGreaterThan(5);
     expect(new Set(ns.map((s) => s.src))).toEqual(new Set(['muro-ns-1.webp', 'muro-ns-2.webp']));
@@ -585,9 +587,10 @@ describe('la muralla de norte a sur, de lado (§29)', () => {
   });
 
   it('la puerta N-S se mide por el alto y se apoya en el pie de su arco', () => {
-    const e = escenaDe(12);
+    // s19 (era s12 hasta los niveles del mapa, #143).
+    const e = escenaDe(19);
     const puertas = e.sprites.filter((s) => s.src === 'nodo-puerta-hondo.webp');
-    expect(puertas.map((s) => s.objeto?.id).sort()).toEqual(['node-1', 'node-10']);
+    expect(puertas.map((s) => s.objeto?.id).sort()).toEqual(['node-0', 'node-12']);
     for (const s of puertas) {
       expect(s.alto).toBe(2.6);
       expect(s.ay / s.nh).toBeCloseTo(0.625);

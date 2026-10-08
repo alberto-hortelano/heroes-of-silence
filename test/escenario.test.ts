@@ -397,9 +397,9 @@ describe('los hitos de los nodos (#176): tres, por el id, ninguno con cruz', () 
   });
 
   it('ninguna tablilla de la escena apunta de través a su paso, y salen todos los rumbos (§29)', () => {
-    // 8, 20 y 36 llevan los cinco (20, 21 y 36 hasta #195; 15, 31 y 36 hasta #189); la orden lenta, 1-40.
+    // 8 y 10 llevan los cinco (8, 20 y 36 hasta #143; 20, 21 y 36 hasta #195; 15, 31 y 36 hasta #189); la orden lenta, 1-40.
     const vistos = new Set<string>();
-    for (const semilla of segunPrisa([8, 20, 36], rango(1, 40))) {
+    for (const semilla of segunPrisa([8, 10], rango(1, 40))) {
       const { map, escena } = partidaDe(semilla);
       for (const o of map.objects) {
         const pieza = escena.sprites
@@ -431,13 +431,13 @@ describe('los hitos de los nodos (#176): tres, por el id, ninguno con cruz', () 
     }
   });
 
-  it('sin tope: cada nodo de acantilado, de bosque (#196) y de montaña (#203) lleva su hito, también los de s36 (§29)', () => {
+  it('sin tope: cada nodo de acantilado, de bosque (#196) y de montaña (#203) lleva su hito, también los de s9 (§29)', () => {
     // Un nodo neutral no lleva bandera: sin su hito, no se vería que ahí hay
     // algo que tomar. En 1-40 son 233 (119 de acantilado, nunca dos a menos de 5
     // casillas, y 114 de bosque, que acercan cuatro pares a 4,1-4,5; 08-10-2026):
     // muchos en un mapa es que el mapa tiene muchos pasos, y cada uno se toma.
     // Con la montaña (#203), 121 más en 1-40.
-    for (const semilla of segunPrisa([36], rango(1, 40))) {
+    for (const semilla of segunPrisa([9], rango(1, 40))) {
       const { map, escena } = partidaDe(semilla);
       const a = analizar(map);
       const nodos = map.objects.filter(
@@ -445,8 +445,10 @@ describe('los hitos de los nodos (#176): tres, por el id, ninguno con cruz', () 
           o.kind === 'node' &&
           ['cliff', 'forest', 'mountain'].includes(a.pasos.get(o.id)?.barrera ?? ''),
       );
-      if (semilla === 36) {
-        expect(nodos.filter((o) => a.pasos.get(o.id)?.barrera === 'cliff')).toHaveLength(9);
+      // s36 llevaba 9 de acantilado; con los niveles del mapa (#143), 2. La que
+      // más lleva de 1-45 es la 9, con 7.
+      if (semilla === 9) {
+        expect(nodos.filter((o) => a.pasos.get(o.id)?.barrera === 'cliff')).toHaveLength(7);
         expect(nodos.some((o) => a.pasos.get(o.id)?.barrera === 'forest')).toBe(true);
       }
       for (const o of nodos) {

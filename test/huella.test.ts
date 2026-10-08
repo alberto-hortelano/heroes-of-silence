@@ -99,9 +99,9 @@ describe('la huella: un borde roto dentro de sus cotas (`discosDe`)', () => {
 });
 
 describe('la trocha de los pasos sin camino (#190)', () => {
-  it(`semillas ${segunPrisa('1, 5 y 36', '1-40')}: todo paso de bosque, montaña o acantilado lleva senda o trocha, y solo uno de los dos`, () => {
+  it(`semillas ${segunPrisa('1, 12 y 36', '1-40')}: todo paso de bosque, montaña o acantilado lleva senda o trocha, y solo uno de los dos`, () => {
     let trochas = 0;
-    for (const s of segunPrisa([1, 5, 36], rango(1, 40))) {
+    for (const s of segunPrisa([1, 12, 36], rango(1, 40))) {
       const { map, escena } = partidaDe(s);
       const puentes = new Set(escena.puentes.map((p) => p.id));
       const pasos = map.objects.filter(
@@ -130,7 +130,8 @@ describe('la trocha de los pasos sin camino (#190)', () => {
       expect(escena.informe.trochasTapadas, `semilla ${s}`).toBe(0);
       expect(trochasTapadas(escena.sprites, escena.trochas), `semilla ${s}`).toEqual([]);
     }
-    // Que el guardia mire algo: 19 trochas en 1, 5 y 36 (08-10-2026).
+    // Que el guardia mire algo: 20 trochas en 1, 12 y 36 (con los niveles del
+    // mapa, #143, la 5 se quedó con 2 y va la 12, que lleva 12; 08-10-2026).
     expect(trochas).toBeGreaterThanOrEqual(segunPrisa(12, 120));
   });
 

@@ -6,14 +6,15 @@
  *
  * Es puro: un mapa entra y un análisis sale, sin DOM y sin ficheros.
  */
-import type { MapObject, TramoDeCamino } from '@core/map/map.js';
+import type { MapObject, MapRegion, TramoDeCamino } from '@core/map/map.js';
+import { type Estructura, estructura } from '@core/map/regiones.js';
 import { type Barrera, esBarrera, type Suelo, type TerrainKind } from '@core/map/terrain.js';
 import { type PasoDeNodo, pasoDeNodo } from './nodos.js';
 
 /**
- * Lo que el escenógrafo lee de un mapa, y nada más: ni las regiones declaradas
- * ni nada que cambie en la partida salvo los objetos, de los que solo mira dónde
- * están y de qué clase son. Así lo cumplen tal cual el `GameMap` del núcleo y el
+ * Lo que el escenógrafo lee de un mapa, y nada más: nada que cambie en la
+ * partida salvo los objetos, de los que solo mira dónde están y de qué clase
+ * son, y de las regiones declaradas, dónde están y a qué nivel (#143). Así lo cumplen tal cual el `GameMap` del núcleo y el
  * mapa que rehace el espectador al otro lado del cable, y la escena de los dos
  * sale de la misma lectura.
  */
@@ -23,6 +24,12 @@ export interface MapaDeEscena {
   readonly terrain: readonly TerrainKind[];
   readonly caminos: { readonly tramos: readonly TramoDeCamino[] };
   readonly objects: readonly MapObject[];
+  /**
+   * Las regiones de la red, con su nivel de altura: el relieve es un dato del
+   * mapa y la escena no lo inventa (#143). Un mapa sin regiones —los de algunos
+   * tests— va entero al llano.
+   */
+  readonly regions: readonly MapRegion[];
 }
 
 /** Una mancha interior tiene a lo sumo este tamaño; lo que pasa de ahí es frontera. */
@@ -71,6 +78,14 @@ export interface Analisis {
    * casilla es agua en `terreno`. Se decide aquí y en ningún otro sitio.
    */
   readonly puentes: ReadonlySet<string>;
+  /**
+   * La red del núcleo (`estructura`): la región de cada casilla y las regiones
+   * de cada nodo. Es la que da el nivel (`relieve`); `region`, por suelo, sigue
+   * para el material.
+   */
+  readonly red: Estructura;
+  /** El nivel de cada región de `red`, por índice (`MapRegion.nivel`). */
+  readonly niveles: readonly number[];
 }
 
 const VECINAS4 = [
@@ -281,5 +296,7 @@ export function analizar(map: MapaDeEscena): Analisis {
     ocupadas,
     pasos,
     puentes,
+    red: estructura(map),
+    niveles: map.regions.map((r) => r.nivel),
   };
 }
