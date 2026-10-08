@@ -617,11 +617,25 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   35 329 → 36 140, batallas 1 704 → 1 722, `town_captured` 1 468 → 1 468,
  *   `node_captured` 1 291 → 1 274; ningún tipo nuevo ni ninguno que
  *   desaparezca. Re-anclado una vez, al final.
+ * - `fdf6959c…` (67 623 líneas): **las minas van por región** (#195,
+ *   08-10-2026). El dato del mapa pasa a ser `REGIONES_POR_BANDO` (5) y el lado
+ *   se deriva (`ladoDelMapa(5)` = 34, el de antes); las minas, de 14 fijas por
+ *   bando a 3 en casa y 2 por región de fuera (`minasDeLasRegiones`: 11 por
+ *   bando), colocadas en el orden de antes (casa, y por rondas las de fuera).
+ *   Con el reparto de minas de antes sale `c53c353b…` exacto: el lado derivado
+ *   no mueve nada y el cambio es el de las minas. **0 semillas idénticas**,
+ *   primer hecho distinto un **`raider_spawned` del día 1** en las 200 (con
+ *   menos minas, el azar llega distinto a los asaltantes). autoResolve igual
+ *   (300 batallas, 2 280 rondas). 96 con otro ganador, j0 92 → 94, **0 sin
+ *   terminar**, duración 8 / 17 / 47 → **9 / 15 / 57**. `hero_moved` 36 140 →
+ *   36 344, batallas 1 722 → 1 809, `town_captured` 1 468 → 1 567,
+ *   `node_captured` 1 274 → 1 244; ningún tipo nuevo ni ninguno que
+ *   desaparezca.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: 'c53c353baeab943686b7ca34a51f84fa1d7e8973c68d82a41dcedcca6d153688',
+  sha: 'fdf6959cc7a3272800cd00be08247e2402bf983455639eab4097157409ee64cd',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

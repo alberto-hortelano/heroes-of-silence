@@ -41,7 +41,6 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { type Browser, chromium, type Page } from 'playwright';
 import WebSocket from 'ws';
 import { DURACION, duracionDeLaJugada } from '../../src/client/anim.js';
-import { masCercana, opcionesDeGolpe } from '../../src/client/escenas/angulo.js';
 import { EscenaAventura } from '../../src/client/escenas/aventura.js';
 import { cargaContra, EscenaBatalla, rotuloDeAngulo } from '../../src/client/escenas/batalla.js';
 import { msPorCasilla } from '../../src/client/marcha.js';
@@ -60,15 +59,7 @@ import {
 import { AVISO_DE_ESPERA, explicacionDeFin, rotuloDeDia } from '../../src/client/views/panels.js';
 import { chooseBattleAction } from '../../src/core/ai/tactics.js';
 import { LADOS, ladoDe, type UnidadDeArena, unidadPorDefecto } from '../../src/core/arena.js';
-import {
-  activeStack,
-  applyAction,
-  isAlive,
-  legalActions,
-  mismoTurno,
-  quedanCasillas,
-  stackHexes,
-} from '../../src/core/battle/battle.js';
+import { isAlive, mismoTurno, quedanCasillas, stackHexes } from '../../src/core/battle/battle.js';
 import { hexDistance, hexEquals } from '../../src/core/battle/board.js';
 import type {
   BattleAction,
@@ -78,7 +69,6 @@ import type {
 } from '../../src/core/battle/types.js';
 import { nombreDeTipoDeHeroe } from '../../src/core/data.js';
 import { troopSummary } from '../../src/core/hero/troop.js';
-import { createRng } from '../../src/core/rng.js';
 import { baseOf, heroesOf, visibleNow } from '../../src/core/state/game.js';
 import type { Point } from '../../src/core/types.js';
 import type {
@@ -98,6 +88,8 @@ import {
   destinoTactil,
   encuadreDe,
   guardiaEnElMarco,
+  type PlanDeAngulo,
+  planDeAngulo,
   RUEDA_DE_LA_PATRULLA,
   RUEDA_DEL_ESCRITORIO,
   reclutaDeNivel1,
@@ -621,64 +613,6 @@ async function pixelDeUnidad(
     }
   }
   throw new Error(`no hay un punto del cuerpo de ${s.id} que el clic lea como suyo`);
-}
-
-/**
- * Un plan para «mover dos tramos y atacar desde un ángulo elegido»: dos `move`
- * de la unidad activa que dejen el turno abierto, y un enemigo con un píxel de
- * su cuerpo cuya casilla más cercana NO sea la primera opción de la lista —si
- * lo fuera, el clic no demostraría nada que no hiciera ya el cliente de antes—.
- *
- * Se busca en copias del estado con el motor puro: la sesión del espejo no se
- * toca hasta que hay plan.
- */
-interface PlanDeAngulo {
-  readonly tramos: readonly [BattleAction, BattleAction];
-  readonly objetivo: string;
-  /** Altura y lado del píxel dentro de la caja de la figura. */
-  readonly alto: number;
-  readonly lado: number;
-}
-
-function planDeAngulo(espejo: Session, ancho: number, alto: number): PlanDeAngulo | null {
-  const turno = espejo.turnoPropio;
-  if (turno === null || espejo.battleLegalActions().some((a) => a.type === 'shoot')) return null;
-  const t = tableroPara(ancho, alto);
-  const copia = (b: BattleState): BattleState => structuredClone(b);
-  const moves = (b: BattleState): BattleAction[] =>
-    legalActions(b).filter((a) => a.type === 'move');
-  const ahora = turno.battle.turno;
-  for (const m1 of moves(turno.battle)) {
-    const b1 = copia(turno.battle);
-    applyAction(b1, m1, createRng(1));
-    // Abierto de verdad: el MISMO turno, por su ordinal. Que la unidad siga
-    // activa no basta —la moral extra le abre otro turno—, y con solo eso el
-    // plan se colaba con un turno nuevo. Y por identidad no se puede: `b1` es
-    // una copia.
-    if (!mismoTurno(ahora, b1.turno)) continue;
-    for (const m2 of moves(b1)) {
-      const b2 = copia(b1);
-      applyAction(b2, m2, createRng(1));
-      if (!mismoTurno(ahora, b2.turno)) continue;
-      const yo = activeStack(b2) as BattleStack;
-      const acciones = legalActions(b2);
-      for (const e of b2.stacks) {
-        if (!isAlive(e) || e.side === yo.side) continue;
-        const opciones = opcionesDeGolpe(acciones, e.id, yo.hex);
-        if (opciones.length < 2) continue;
-        const c = cajaDeFigura(t, e, centroDeStack(stackHexes(e)));
-        for (const lado of [0.45, -0.45, 0.3, -0.3]) {
-          for (const h of [0.05, 0.3, 0.5]) {
-            const elegida = masCercana(opciones, t, c.x + lado * c.ancho, c.suelo - c.alto * h);
-            if (elegida !== undefined && elegida !== opciones[0]) {
-              return { tramos: [m1, m2], objetivo: e.id, alto: h, lado };
-            }
-          }
-        }
-      }
-    }
-  }
-  return null;
 }
 
 /**

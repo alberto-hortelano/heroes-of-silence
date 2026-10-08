@@ -356,8 +356,9 @@ describe('el fin de partida cuenta la causa que selló el núcleo (I1 de la 2a)'
   });
 
   it('la batalla que cierra la partida deja en la barra el desenlace con su causa (#162)', () => {
-    // La 6 y no la 5: con el mapa de #188, en la 5 la batalla se pierde.
-    const s = new Session(6);
+    // La 5 otra vez desde #195 (la 6 desde #188, cuando en la 5 se perdía; con
+    // las minas por región, en la 6 se pierde y en la 5 se gana).
+    const s = new Session(5);
     const { base, atacante } = anteLaBase(s.state, 0, 1);
     // El dueño dentro de su base la defiende solo con su tropa: un individuo
     // contra toda la tropa del atacante, para que la batalla se gane.

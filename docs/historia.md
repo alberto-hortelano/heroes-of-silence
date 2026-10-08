@@ -3285,6 +3285,64 @@ tramos por mapa a lo largo del borde (1-100).
   menos nodos de agua (533 → 464 en 1-200 por la colocación sola) y seis
   tests anclados a una semilla movidos a otra.
 
+## Las regiones definen el mapa (#195, 08-10-2026)
+
+Decisión del usuario, que sustituye a #177 y #111: «las minas deberían ir por
+regiones y estas definir el tamaño del mapa». Antes `LADO_DEL_MAPA` (34) era el
+dato, las parejas de regiones de fuera salían del área (`round(W·H / 300)`) y
+las minas eran 14 por bando, dos de cada recurso, en cualquier tamaño (#111).
+
+- **El dato es `REGIONES_POR_BANDO`** (la de casa y las de fuera, que van en
+  parejas en espejo). El lado se deriva: `ladoDelMapa(r)` = ⌊√((r − 1) · 300)⌋,
+  con la raíz por bucle entero (`core` no usa `Math.sqrt`), y su inversa es la
+  cuenta de siempre, `regionesDelMapa`. Vuelven a coincidir en todo el rango, de
+  3 regiones (24×24, `LADO_MINIMO_DEL_GENERADOR`) a 15 (64×64, el máximo): el
+  rango del generador en regiones es exactamente el de #102 en lado. El suelo y
+  no el techo porque da 34 para 5: **con el reparto de minas de antes, el banco
+  sale `c53c353b…` exacto**, así que el lado derivado no cambia ni una partida.
+- **Lo que escondía la regla del lado**: 32×32 tenía 3 parejas de fuera
+  (round(1024/300)) y 34×34, 4. La «mediana 7 en 32» y el «32 ya cumple» de #177
+  comparaban mapas con distinto número de regiones; medido por regiones, la
+  palanca es una sola.
+- **Minas por región (regla nuestra, inventada)**: la de casa, oro, madera y
+  mineral; cada una de fuera, una rara y una básica, por turno
+  (`minasDeLasRegiones`). Por bando, `2 · regiones + 1`: 11 con 5 (eran 14). Se
+  colocan en el orden de antes (casa, y por rondas una por región de fuera).
+  **Tres por región de fuera no cabían**: con tres (15 por bando) las semillas
+  con algún objeto puesto sin su puerta (`libresConPuerta`, el respaldo de #188)
+  subían de 243 a 314 de 1 000, y en la orden lenta se rompían la auditoría
+  densa (puertas mal entradas y horquillas en Y en s42, s57, s73), las aspas
+  (s214, s239, s463, alguna obligada entre dos minas y un monstruo) y el eje de
+  un nodo (s38). Con dos, 195 de 1 000 y todo verde.
+- **El número por defecto, con la regla de siempre** (menor número con mediana
+  ≥ 8 días, p90 ≤ 20 y 0 sin terminar en 1 000 semillas; `tools/qa/tamanos.ts`,
+  que ahora mide por regiones). Medido el 08-10-2026 sobre main 60c784f + este
+  cambio, mediana / p90 / máximo:
+
+  | regiones por bando (lado) | 1-1000 | 1001-2000 |
+  |---|---|---|
+  | 3 (24×24) | 5 / 9 / 14 | — |
+  | 4 (30×30) | 7 / 13 / 25 | 7 / 13 / 48 |
+  | **5 (34×34)** | **8 / 16 / 57** | **8 / 16 / 41** |
+  | 6 (38×38) | 10 / 20 / 62 | — |
+
+  0 sin terminar en todas. **5 por bando**, el mismo mapa de 34 que antes. La
+  base, con las 14 minas: 34×34 8 / 16 / 47 y 30×30 7 / 12 / 26.
+- **El agente sigue con ancho y alto**: diseña a mano y su plan se valida por la
+  red (`validateMapPlan`), no por cuántas regiones o minas trae. Lo mínimo que
+  no rompe el contrato: `want` igual, el servidor le pide el lado derivado, y un
+  consejo más en `advice` con el reparto del procedimental para ese lado
+  (`serializeMapRequest`, sacado de las mismas funciones).
+- **El arnés de `pnpm qa`** buscaba una semilla con «un equip y un turno
+  después»; en la 4 el novato equipado caía en la batalla del día 4 y `pnpm qa`
+  no veía a nadie equipado. Ahora exige lo mismo que el arnés en vivo: un
+  individuo con una pieza puesta en un turno (`faltaParaElArnes`).
+- Banco: `c53c353b…` → `fdf6959c…`, 0 semillas idénticas, primer hecho
+  distinto un `raider_spawned` del día 1, 96 con otro ganador, 0 sin terminar,
+  8 / 17 / 47 → 9 / 15 / 57. Rectitud 120/15/8 → 121/13/8 (techo 140/115/8).
+  Cinco tests anclados a una semilla, movidos a otra, y el ancla de los paneles
+  regenerada.
+
 ## Decisiones tomadas
 
 - **MCP antes que API key.** El usuario tiene Claude Max: el agente entra por

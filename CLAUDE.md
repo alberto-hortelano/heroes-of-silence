@@ -224,8 +224,15 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   `tramosDeCasillas`. `MapPlan` lleva `roads` o `tramos`, nunca los dos (lo
   dice el tipo), y `planDelAgente` es la única conversión del uno al otro. El
   agente lee casillas; el espectador recibe tramos planos (índices).
-  Lado del mapa: `LADO_DEL_MAPA` (34), elegido con la regla «menor lado con
-  mediana ≥ 8 días, p90 ≤ 20 y 0 sin terminar». Un plan mide de 8 a 128 por lado
+  **Las regiones definen el mapa** (#195): el dato es `REGIONES_POR_BANDO` (5: la de casa y
+  4 de fuera, en parejas en espejo), elegido con la regla «menor número con mediana ≥ 8 días,
+  p90 ≤ 20 y 0 sin terminar» (`tools/qa/tamanos.ts`); el lado se deriva, `ladoDelMapa` =
+  ⌊√((regiones − 1) · 300)⌋ (34; de 3 a 15 regiones, 24 a 64), y su inversa es
+  `regionesDelMapa`. **Minas por región (regla nuestra)**: la de casa, oro, madera y mineral;
+  cada una de fuera, una rara y una básica por turno (`minasDeLasRegiones`): 2·regiones + 1
+  por bando, 11 con 5 (con tres por región de fuera no cabían: objetos sin puerta 243 → 314
+  de 1 000 y guardias del generador rotos).
+  El agente sigue recibiendo ancho y alto, con el reparto como consejo. Un plan mide de 8 a 128 por lado
   (`LADO_MINIMO_DEL_PLAN`); el generador solo sabe de 24 a 64
   (`LADO_MINIMO_DEL_GENERADOR`, 200 de 200 semillas en cada lado) y fuera lanza antes de intentarlo (#102).
   Ninguna mina ni pueblo lleva la puerta en el borde (`colocarPar`, #189), salvo el respaldo sin puerta.

@@ -44,7 +44,8 @@ const WAIT_FOR_AGENT_MS = esperaAlAgente();
 /**
  * El mapa que se le pide al agente, y el que sale del procedimental si no lo da.
  *
- * Es el lado por defecto de `generateMapPlan`, **leído y no copiado**: estuvo
+ * Es el lado por defecto de `generateMapPlan`, que sale de las regiones por
+ * bando (`REGIONES_POR_BANDO`, #195), **leído y no copiado**: estuvo
  * escrito aquí a mano como `24` y, al cambiar el generador de tamaño, la
  * partida con agente y la que sale sin él habrían dejado de jugarse en mapas
  * comparables sin que nada se pusiera rojo.

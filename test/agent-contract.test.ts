@@ -39,8 +39,10 @@ import {
   buildMap,
   caminosDelPlan,
   generateMapPlan,
+  LADO_DEL_MAPA,
   type MapPlan,
   planDelAgente,
+  REGIONES_POR_BANDO,
   validateMapPlan,
 } from '../src/core/map/generate.js';
 import { pointFromKey, pointKey, RedDeCaminos, stepCost } from '../src/core/map/map.js';
@@ -1266,6 +1268,22 @@ describe('lo que ve el agente', () => {
     };
     expect(payload.palette.terrains).toContain('grass');
     expect(payload.palette.factions).toEqual(['knight', 'necromancer']);
+  });
+
+  it('la petición de mapa sigue pidiendo ancho y alto, y aconseja las regiones y minas del procedimental (#195)', () => {
+    // El agente diseña a mano: el tamaño lo fija el servidor (derivado de las
+    // regiones) y el reparto por regiones le llega como consejo, sacado de las
+    // mismas funciones que usa el generador.
+    const lado = LADO_DEL_MAPA;
+    const payload = serializeMapRequest({ width: lado, height: lado, players: [0, 1] }) as {
+      want: { width: number; height: number };
+      advice: string[];
+    };
+    expect(payload.want).toMatchObject({ width: lado, height: lado });
+    expect(payload.advice).toContain(
+      `En ${lado}×${lado} el mapa procedimental hace ${REGIONES_POR_BANDO} regiones por jugador, en espejo: ` +
+        `la de casa con minas de gold, wood, ore, y cada una de las ${REGIONES_POR_BANDO - 1} de fuera con 2: una de recurso raro y una básica.`,
+    );
   });
 
   it('la petición de mapa dice CUÁLES son los jugadores, no cuántos', () => {

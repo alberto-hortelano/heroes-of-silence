@@ -1,13 +1,13 @@
 /**
  * Tamaños de mapa: ¿cuánto dura una partida, y cómo se llega a la base rival?
  *
- * Es la medida con la que se eligió `LADO_DEL_MAPA` (`map/generate.ts`) en el
- * ciclo de los asaltantes: el usuario pidió «más distancia entre bases» y dejó
- * el número a la medida («que lo decida la medida»). La regla que se aplicó es
- * **el menor lado con mediana ≥ 8 días, p90 ≤ 20 y 0 partidas sin terminar en
- * 1 000 semillas**, y la tabla está en `CLAUDE.md`.
+ Es la medida con la que se elige `REGIONES_POR_BANDO` (`map/generate.ts`,
+ * #195): el número de regiones es el dato del mapa y el lado sale de él
+ * (`ladoDelMapa`). Antes medía lados y elegía `LADO_DEL_MAPA`. La regla es la
+ * de siempre: **el menor número con mediana ≥ 8 días, p90 ≤ 20 y 0 partidas sin
+ * terminar en 1 000 semillas**; las cifras, en `docs/historia.md`.
  *
- * Por lado, juega `semillas` partidas de la IA contra sí misma y cuenta:
+ * Por número de regiones, juega `semillas` partidas de la IA contra sí misma y cuenta:
  *
  *  - la duración —mediana, p90 y máximo— y las que no terminan;
  *  - quién gana: cuántas el jugador 0;
@@ -23,20 +23,21 @@
  * sin él, sin una tirada de más— y la toma de una base vacía se lee de la
  * crónica al acabar el turno.
  *
- * Uso: npx tsx tools/qa/tamanos.ts [lados=24,26,28,30,32,36] [semillas=1000] [dias=300] [desde=1]
+ * Uso: npx tsx tools/qa/tamanos.ts [regiones por bando=3,4,5,6] [semillas=1000] [dias=300] [desde=1]
  *
  * `desde` es la primera semilla: con 1001 se juega otra tanda de mil, que es
  * como se comprobó que una mediana justo en el umbral no era suerte.
  */
 import { fuerzaDe } from '../../src/core/ai/fuerza.js';
 import { playAiTurn } from '../../src/core/ai/turn.js';
+import { ladoDelMapa } from '../../src/core/map/generate.js';
 import { pointKey } from '../../src/core/map/map.js';
 import { createRng } from '../../src/core/rng.js';
 import { baseOf, type GameState, lugarDelRival } from '../../src/core/state/game.js';
 import { newGame } from '../../src/core/state/setup.js';
 import { duracion, mediana } from './estadistica.js';
 
-const LADOS = (process.argv[2] ?? '24,26,28,30,32,36').split(',').map(Number);
+const REGIONES = (process.argv[2] ?? '3,4,5,6').split(',').map(Number);
 const SEMILLAS = Number(process.argv[3] ?? 1000);
 const DIAS = Number(process.argv[4] ?? 300);
 const DESDE = Number(process.argv[5] ?? 1);
@@ -58,7 +59,8 @@ function basesRivales(state: GameState): Map<string, number> {
   return out;
 }
 
-for (const lado of LADOS) {
+for (const regionesPorBando of REGIONES) {
+  const lado = ladoDelMapa(regionesPorBando);
   const dias: number[] = [];
   let sinTerminar = 0;
   let ganaJ0 = 0;
@@ -70,7 +72,7 @@ for (const lado of LADOS) {
   const t0 = performance.now();
 
   for (let semilla = DESDE; semilla < DESDE + SEMILLAS; semilla++) {
-    const state = newGame({ seed: semilla, maxDays: DIAS, width: lado, height: lado });
+    const state = newGame({ seed: semilla, maxDays: DIAS, regionesPorBando });
     const ctx = { rng: createRng(semilla) };
     const bases = basesRivales(state);
     // La batalla que nace se mira y se deja: quien la cierra es la IA, como
@@ -141,7 +143,7 @@ for (const lado of LADOS) {
   const conDecimales = (x: number, n = 2): string => x.toFixed(n).replace('.', ',');
   console.log(
     [
-      `| ${lado}`,
+      `| ${regionesPorBando} (${lado}×${lado})`,
       duracion(dias),
       `${sinTerminar}/${SEMILLAS}`,
       `${ganaJ0}`,

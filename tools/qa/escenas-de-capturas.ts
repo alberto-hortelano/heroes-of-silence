@@ -12,8 +12,9 @@
  * Todo es puro salvo la caja del lienzo, que la mide la página: lo que «se ve»
  * depende de ella, y es la misma cuenta que hace `Mapa` en el guion.
  */
+import { masCercana, opcionesDeGolpe } from '../../src/client/escenas/angulo.js';
 import { focoDe, llegadaDeLaRuta } from '../../src/client/escenas/aventura.js';
-import { galonesDe } from '../../src/client/render/batalla.js';
+import { cajaDeFigura, galonesDe } from '../../src/client/render/batalla.js';
 import {
   casillaAPixel,
   centrarEn,
@@ -23,8 +24,20 @@ import {
 } from '../../src/client/render/camara-mapa.js';
 import { escenarioDe, topeDeAlejar } from '../../src/client/render/escenario/superficie.js';
 import { pasosAPintar } from '../../src/client/render/mapa.js';
+import { centroDeStack, tableroPara } from '../../src/client/render/proyeccion.js';
 import { Session } from '../../src/client/session.js';
+import { chooseBattleAction } from '../../src/core/ai/tactics.js';
+import {
+  activeStack,
+  applyAction,
+  isAlive,
+  legalActions,
+  mismoTurno,
+  stackHexes,
+} from '../../src/core/battle/battle.js';
+import type { BattleAction, BattleStack, BattleState } from '../../src/core/battle/types.js';
 import { troopSummary } from '../../src/core/hero/troop.js';
+import { createRng } from '../../src/core/rng.js';
 import { casillasPeligrosas } from '../../src/core/state/asaltantes.js';
 import type { Point } from '../../src/core/types.js';
 
@@ -334,11 +347,11 @@ export function buscarEscritorio(b: Caja, desde = 1): number {
     const guardia = guardiaEnElMarco(b, e, tileTrasRueda(e, RUEDA_DEL_ESCRITORIO), espejo);
     if (guardia === null) continue;
     espejo.clickTile(guardia);
-    if (espejo.battle !== null) return semilla;
+    if (espejo.battle !== null && hayAnguloEnLaBatalla(espejo, b)) return semilla;
   }
   throw new Error(
     `escritorio: en las semillas ${desde}–${desde + TOPE_DE_SEMILLAS - 1} ninguna tiene a la vez una ruta ` +
-      'de dos colores a la vista y, tras entrar al castillo, una guardia a la vista a la que se llegue hoy',
+      'de dos colores a la vista y, tras entrar al castillo, una guardia a la vista a la que se llegue hoy y cuya batalla dé ocasión de mover dos tramos y atacar',
   );
 }
 
@@ -461,10 +474,104 @@ export async function buscarSinArte(b: Caja, desde = 1): Promise<number> {
     const guardia = guardiaEnElMarco(b, e, tile, espejo);
     if (guardia === null) continue;
     espejo.clickTile(guardia);
-    if (espejo.battle !== null) return semilla;
+    if (espejo.battle !== null && hayAnguloEnLaBatalla(espejo, b)) return semilla;
   }
   throw new Error(
     `sin arte: en las semillas ${desde}–${desde + TOPE_DE_SEMILLAS - 1} ninguna tiene un grupo a la vista que ` +
       'se mueva en cuatro días y después una guardia a la vista a la que se llegue',
   );
+}
+
+/**
+ * Un plan para «mover dos tramos y atacar desde un ángulo elegido»: dos `move`
+ * de la unidad activa que dejen el turno abierto, y un enemigo con un píxel de
+ * su cuerpo cuya casilla más cercana NO sea la primera opción de la lista —si
+ * lo fuera, el clic no demostraría nada que no hiciera ya el cliente de antes—.
+ *
+ * Se busca en copias del estado con el motor puro: la sesión del espejo no se
+ * toca hasta que hay plan.
+ */
+export interface PlanDeAngulo {
+  readonly tramos: readonly [BattleAction, BattleAction];
+  readonly objetivo: string;
+  /** Altura y lado del píxel dentro de la caja de la figura. */
+  readonly alto: number;
+  readonly lado: number;
+}
+
+export function planDeAngulo(espejo: Session, ancho: number, alto: number): PlanDeAngulo | null {
+  const turno = espejo.turnoPropio;
+  if (turno === null || espejo.battleLegalActions().some((a) => a.type === 'shoot')) return null;
+  const t = tableroPara(ancho, alto);
+  const copia = (b: BattleState): BattleState => structuredClone(b);
+  const moves = (b: BattleState): BattleAction[] =>
+    legalActions(b).filter((a) => a.type === 'move');
+  const ahora = turno.battle.turno;
+  for (const m1 of moves(turno.battle)) {
+    const b1 = copia(turno.battle);
+    applyAction(b1, m1, createRng(1));
+    // Abierto de verdad: el MISMO turno, por su ordinal. Que la unidad siga
+    // activa no basta —la moral extra le abre otro turno—, y con solo eso el
+    // plan se colaba con un turno nuevo. Y por identidad no se puede: `b1` es
+    // una copia.
+    if (!mismoTurno(ahora, b1.turno)) continue;
+    for (const m2 of moves(b1)) {
+      const b2 = copia(b1);
+      applyAction(b2, m2, createRng(1));
+      if (!mismoTurno(ahora, b2.turno)) continue;
+      const yo = activeStack(b2) as BattleStack;
+      const acciones = legalActions(b2);
+      for (const e of b2.stacks) {
+        if (!isAlive(e) || e.side === yo.side) continue;
+        const opciones = opcionesDeGolpe(acciones, e.id, yo.hex);
+        if (opciones.length < 2) continue;
+        const c = cajaDeFigura(t, e, centroDeStack(stackHexes(e)));
+        for (const lado of [0.45, -0.45, 0.3, -0.3]) {
+          for (const h of [0.05, 0.3, 0.5]) {
+            const elegida = masCercana(opciones, t, c.x + lado * c.ancho, c.suelo - c.alto * h);
+            if (elegida !== undefined && elegida !== opciones[0]) {
+              return { tramos: [m1, m2], objetivo: e.id, alto: h, lado };
+            }
+          }
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Si la batalla del escritorio, jugada en el espejo como la juega
+ * `turnoDeBatalla` —esperar, defender, el primer hechizo y después lo que elija
+ * la IA—, da ocasión de mover dos tramos y atacar desde un ángulo
+ * (`planDeAngulo`) en sus 40 jugadas. Es una aproximación: el clic sobre un
+ * enemigo puede golpear desde otra casilla que la IA, y entonces la batalla de
+ * la página se separa de esta; si no da ocasión, la pasada lo dice igual.
+ * Antes la búsqueda no lo miraba y una semilla sin ocasión (la 7 con las minas
+ * por región, #195: dos arqueros que disparan) llegaba al navegador.
+ */
+export function hayAnguloEnLaBatalla(espejo: Session, b: Caja): boolean {
+  const battle = espejo.battle;
+  if (battle === null) return false;
+  for (let n = 0; n < 40 && battle.finished === null; n++) {
+    if (n >= 3 && planDeAngulo(espejo, b.width, b.height) !== null) return true;
+    const acciones = espejo.battleLegalActions();
+    if (acciones.length === 0) return false;
+    const hechizo = espejo.spellOptions().find((o) => o.castable);
+    if (n === 0 && acciones.some((a) => a.type === 'wait')) {
+      espejo.playBattleAction({ type: 'wait' });
+    } else if (n === 1 && acciones.some((a) => a.type === 'defend')) {
+      espejo.playBattleAction({ type: 'defend' });
+    } else if (n === 2 && hechizo !== undefined) {
+      const cast = acciones.find(
+        (a) => a.type === 'cast' && a.spell === hechizo.id && a.target === hechizo.targets[0],
+      );
+      if (cast === undefined) return false;
+      espejo.playBattleAction(cast);
+    } else {
+      const ia = chooseBattleAction(battle);
+      espejo.playBattleAction(ia.type === 'cast' ? { type: 'defend' } : ia);
+    }
+  }
+  return false;
 }

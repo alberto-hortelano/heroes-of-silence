@@ -189,20 +189,120 @@ export interface BuiltMap {
 }
 
 /**
- * El lado del mapa que juega una partida si nadie pide otro: lo leen el
- * generador y el servidor, que antes lo copiaba a mano (`ws-server.ts`).
+ * Casillas de mapa por pareja de regiones de fuera: la cuenta que une el lado
+ * y las regiones (`ladoDelMapa`, `regionesDelMapa`).
  *
- * **Elegido midiendo, no a ojo**, con la regla que fijó el usuario: el menor
- * lado con mediana ≥ 8 días, p90 ≤ 20 y 0 partidas sin terminar en 1 000
- * semillas. Era 28 desde «el camino cuesta» (02-10-2026); con los mapas densos
- * (03-10-2026) —fronteras de 2-3 casillas, obstáculos que bloquean, caminos y
- * `AREA_POR_REGION` de 300— el 32 se queda en mediana 7 y el **34** la cumple en
- * las dos tandas de mil (8 / 15 / 45 y 8 / 15 / 30, 0 sin terminar). Re-medido
- * tras la vuelta de simplify, que cambia el mapa de cada semilla: 8 / 15 / 22 en
- * 100 y 8 / 15 / 31 en 1 000, 0 sin terminar; el 32 sigue en mediana 7. La
- * tabla de cada lado está en `CLAUDE.md`, y cómo se mide en `tools/qa/tamanos.ts`.
+ * Era 144, y con la frontera de una casilla y el suelo libre bastaba. Con
+ * fronteras de 2-3 casillas, obstáculos que bloquean y los objetos de siempre,
+ * las regiones de 144 se quedaban en 25-35 casillas pisables y el generador no
+ * encontraba sitio: en 30 semillas de 36×36, 29 sin mapa. La palanca que eligió
+ * el usuario es **dar más área**, no bajar `REGION_MINIMA` ni adelgazar la
+ * frontera («los mapas actuales son muy pequeños, no hay problema por
+ * agrandarlos»). Medido (03-10-2026, 30 semillas por celda): con 200 fallaban
+ * 1-8 de 30; con 300, 0 de 100 en 24, 28, 32, 36, 40 y 48.
  */
-export const LADO_DEL_MAPA = 34;
+const AREA_POR_REGION = 300;
+
+/**
+ * Regiones por bando del mapa que juega una partida si nadie pide otro: la de
+ * casa y las de fuera, que van en parejas en espejo (la región 2k de un bando y
+ * la 2k+1 del otro). **Es el dato del mapa** (#195, decisión del usuario: «las
+ * minas deberían ir por regiones y estas definir el tamaño del mapa»): de él
+ * salen el lado (`ladoDelMapa`) y las minas (`minasDeLasRegiones`).
+ *
+ * **Elegido midiendo**, con la regla de siempre: el menor número con mediana
+ * ≥ 8 días, p90 ≤ 20 y 0 partidas sin terminar en 1 000 semillas
+ * (`tools/qa/tamanos.ts`). Las cifras, con su fecha, en `docs/historia.md`
+ * («Las regiones definen el mapa»).
+ */
+export const REGIONES_POR_BANDO = 5;
+
+/**
+ * Lo que el generador sabe hacer, en regiones por bando: con menos de una
+ * pareja de fuera la red no tiene ciudades neutrales que equilibrar, y las
+ * dos puntas son las que caen dentro de su lado (`LADO_MINIMO_DEL_GENERADOR`,
+ * `LADO_MAXIMO_DEL_GENERADOR`): `ladoDelMapa(3)` = 24 y `ladoDelMapa(15)` = 64.
+ * Lo vigila `test/regiones-del-mapa.test.ts`.
+ */
+export const REGIONES_MINIMAS_POR_BANDO = 3;
+export const REGIONES_MAXIMAS_POR_BANDO = 15;
+
+/**
+ * El lado de un mapa cuadrado con `regionesPorBando` regiones por bando:
+ * `⌊√((regiones − 1) · AREA_POR_REGION)⌋`, el mayor lado cuya área no pasa de
+ * una pareja de fuera por cada `AREA_POR_REGION`. Vuelve a dar esas regiones
+ * con la cuenta de `regionesDelMapa` en todo el rango (un test lo recorre), así
+ * que un mapa pedido por regiones es el mismo que pedido por su lado. El suelo,
+ * y no el techo, porque es el que deja el lado de antes (34 para 5 regiones):
+ * el banco no se mueve por la cuenta, solo por las minas. La raíz va por bucle entero: `core` no usa
+ * `Math.sqrt` (`CLAUDE.md`, coma flotante).
+ */
+export function ladoDelMapa(regionesPorBando: number): number {
+  if (
+    !Number.isInteger(regionesPorBando) ||
+    regionesPorBando < REGIONES_MINIMAS_POR_BANDO ||
+    regionesPorBando > REGIONES_MAXIMAS_POR_BANDO
+  ) {
+    throw new Error(
+      `el generador procedimental no hace mapas de ${regionesPorBando} regiones por bando: van de ${REGIONES_MINIMAS_POR_BANDO} a ${REGIONES_MAXIMAS_POR_BANDO}`,
+    );
+  }
+  const area = (regionesPorBando - 1) * AREA_POR_REGION;
+  let lado = 0;
+  while ((lado + 1) * (lado + 1) <= area) lado++;
+  return lado;
+}
+
+/**
+ * Las regiones por bando que caben en un mapa de `W`×`H`: la casa y una pareja
+ * de fuera por cada `AREA_POR_REGION` casillas, dos como poco. Es la cuenta que
+ * usa el generador cuando le piden un lado (un rectángulo, un test) y no
+ * regiones; su inversa, para un cuadrado, es `ladoDelMapa`.
+ */
+export function regionesDelMapa(W: number, H: number): number {
+  return 1 + Math.max(2, Math.round((W * H) / AREA_POR_REGION));
+}
+
+/**
+ * El lado del mapa que juega una partida si nadie pide otro: lo leen el
+ * servidor (lo que se le pide al agente) y los arneses. **Derivado, no
+ * elegido** (#195): antes era el dato (34, elegido con la regla de duración) y
+ * las regiones salían de su área; ahora es al revés.
+ */
+export const LADO_DEL_MAPA = ladoDelMapa(REGIONES_POR_BANDO);
+
+/** Las minas básicas: las de la región de casa, en este orden. */
+const MINAS_DE_CASA: readonly ResourceKind[] = ['gold', 'wood', 'ore'];
+/** Los recursos raros, que solo dan las regiones de fuera. */
+const RECURSOS_RAROS: readonly ResourceKind[] = ['crystal', 'gems', 'mercury', 'sulfur'];
+
+/**
+ * Las minas de cada región de un bando (#195, **regla nuestra**, cifras
+ * inventadas): la de casa, las tres básicas —oro, madera y mineral—; cada región
+ * de fuera, dos: una rara y una básica, por turno (la `j`-ésima de fuera, la
+ * rara `j` y la básica `j`, módulo cada lista). Así cada región de fuera tiene
+ * algo que ir a buscar y el total escala con las regiones, `2 · regiones + 1`
+ * por bando: con 5, 11 (antes, 14 fijas en cualquier tamaño, #111).
+ *
+ * **Dos por región de fuera y no tres** porque es lo que cabe: antes llevaban
+ * 3/3/3/2 en 34×34, y con tres en todas las semillas con algún objeto colocado
+ * sin su puerta (`libresConPuerta`) subían de 243 a 314 de 1 000, y la auditoría
+ * densa, las aspas y el eje de los nodos se rompían en 1-1000 (s42, s57, s73,
+ * s214, s239, s463, s38); con dos, 195 de 1 000 y todo en verde (08-10-2026).
+ *
+ * El índice 0 es la casa y el `j + 1`, la `j`-ésima de fuera; el bando rival
+ * lleva lo mismo en la región espejo.
+ */
+export function minasDeLasRegiones(regionesPorBando: number): ResourceKind[][] {
+  const out: ResourceKind[][] = [[...MINAS_DE_CASA]];
+  for (let j = 0; j < regionesPorBando - 1; j++) {
+    out.push([
+      RECURSOS_RAROS[j % RECURSOS_RAROS.length] as ResourceKind,
+      MINAS_DE_CASA[j % MINAS_DE_CASA.length] as ResourceKind,
+    ]);
+  }
+  return out;
+}
 
 /**
  * Lo que puede medir un plan, venga de quien venga: lo leen `validateMapPlan`,
@@ -751,6 +851,13 @@ function pintarSuelosDeRegion(map: GameMap, plan: MapPlan): void {
 // ---------------------------------------------------------------- procedural
 
 export interface ProceduralOptions {
+  /**
+   * Regiones por bando (#195): el lado sale de ellas (`ladoDelMapa`). Por
+   * defecto, `REGIONES_POR_BANDO`. No se pide junto con un lado: serían dos
+   * datos para un hecho.
+   */
+  readonly regionesPorBando?: number;
+  /** Un lado a mano (un rectángulo, un test): las regiones salen de su área (`regionesDelMapa`). */
   readonly width?: number;
   readonly height?: number;
   readonly factions?: readonly [FactionId, FactionId];
@@ -825,8 +932,18 @@ const INTENTOS_DE_VESTIDO = 10;
  * que la puerta del agente rechace.
  */
 export function generateMapPlan(rng: Rng, opts: ProceduralOptions = {}): PlanConTramos {
-  const width = opts.width ?? LADO_DEL_MAPA;
-  const height = opts.height ?? LADO_DEL_MAPA;
+  if (
+    opts.regionesPorBando !== undefined &&
+    (opts.width !== undefined || opts.height !== undefined)
+  ) {
+    throw new Error(
+      `al generador se le pide el mapa por regiones (${opts.regionesPorBando} por bando) o por lado (${opts.width ?? '?'}×${opts.height ?? '?'}), no por las dos cosas: el lado sale de las regiones`,
+    );
+  }
+  const porRegiones =
+    opts.regionesPorBando === undefined ? LADO_DEL_MAPA : ladoDelMapa(opts.regionesPorBando);
+  const width = opts.width ?? porRegiones;
+  const height = opts.height ?? porRegiones;
   const sabe = (lado: number): boolean =>
     lado >= LADO_MINIMO_DEL_GENERADOR && lado <= LADO_MAXIMO_DEL_GENERADOR;
   // Antes de gastar un solo intento: fuera de su rango el generador se agotaba
@@ -965,19 +1082,6 @@ const nombre = (lista: readonly string[], i: number): string =>
 /** El terreno de cada pareja de regiones que no es la de casa. */
 const SUELOS: readonly Suelo[] = ['grass', 'rough', 'snow', 'swamp', 'sand', 'lava'];
 
-/**
- * Casillas de mapa por región: cuántas parejas de regiones caben en un lado.
- *
- * Era 144, y con la frontera de una casilla y el suelo libre bastaba. Con
- * fronteras de 2-3 casillas, obstáculos que bloquean y los objetos de siempre,
- * las regiones de 144 se quedaban en 25-35 casillas pisables y el generador no
- * encontraba sitio: en 30 semillas de 36×36, 29 sin mapa. La palanca que eligió
- * el usuario es **dar más área**, no bajar `REGION_MINIMA` ni adelgazar la
- * frontera («los mapas actuales son muy pequeños, no hay problema por
- * agrandarlos»). Medido (03-10-2026, 30 semillas por celda): con 200 fallaban
- * 1-8 de 30; con 300, 0 de 100 en 24, 28, 32, 36, 40 y 48.
- */
-const AREA_POR_REGION = 300;
 /** Distancia mínima (Chebyshev) entre dos semillas: por debajo, las regiones salen raquíticas. */
 const SEPARACION_DE_SEMILLAS = 6;
 /** Una región más pequeña que esto no tiene sitio para lo que se le reparte. */
@@ -1069,7 +1173,7 @@ function intentarRed(rng: Rng, W: number, H: number): RedFina | null {
     { x: 3, y: 3 },
     { x: W - 4, y: H - 4 },
   ];
-  const pares = Math.max(2, Math.round((W * H) / AREA_POR_REGION));
+  const pares = regionesDelMapa(W, H) - 1;
   for (let guarda = 0; semillas.length < 2 + pares * 2 && guarda < 1000; guarda++) {
     const p = { x: rng.int(1, W - 2), y: rng.int(1, H - 2) };
     const m = espejo(p);
@@ -1082,6 +1186,10 @@ function intentarRed(rng: Rng, W: number, H: number): RedFina | null {
       continue;
     semillas.push(p, m);
   }
+  // Dentro del rango del generador siempre caben todas (medido, 08-10-2026: 0
+  // redes cortas en 3-15 regiones, #195); lo vigila `regiones-del-mapa.test.ts`
+  // contando las regiones del plan. Fuera de él (el 12×12 del mensaje de
+  // agotamiento) salen las que quepan.
 
   // 2. Cada casilla, de la semilla más cercana (empate: la de índice menor).
   const etiqueta = new Int32Array(W * H);
@@ -1555,23 +1663,26 @@ function vestirRed(
   // Las regiones de cada lado: las pares son del jugador 0 y las impares su espejo.
   const ladoA = semillas.map((_, k) => k).filter((k) => k % 2 === 0);
 
-  // Minas: dos de cada uno de los siete recursos por bando, como antes. Las
-  // tres primeras —oro, madera y mineral— en la región de casa, y el resto
-  // repartido por las demás regiones del bando en orden.
-  const recursosMina: readonly ResourceKind[] = [
-    'gold',
-    'wood',
-    'ore',
-    'crystal',
-    'gems',
-    'mercury',
-    'sulfur',
-  ];
-  const minasPorBando = [...recursosMina, ...recursosMina];
+  // Minas: las de cada región del bando y su espejo en la pareja
+  // (`minasDeLasRegiones`). La región de fuera `fuera[j]` es la `j + 1` del
+  // reparto. Primero las de casa y luego por rondas, una por región de fuera
+  // en cada una: es el orden en que se colocaban antes de #195, así que las
+  // primeras minas de cada mapa caen donde caían.
   const mines: { at: Point; resource: ResourceKind }[] = [];
   const fuera = ladoA.filter((k) => k !== 0);
-  for (const [i, resource] of minasPorBando.entries()) {
-    const r = i < 3 ? 0 : (fuera[(i - 3) % fuera.length] as number);
+  const reparto = minasDeLasRegiones(ladoA.length);
+  const turnos: { r: number; resource: ResourceKind }[] = (reparto[0] ?? []).map((resource) => ({
+    r: 0,
+    resource,
+  }));
+  const rondas = Math.max(0, ...reparto.slice(1).map((m) => m.length));
+  for (let ronda = 0; ronda < rondas; ronda++) {
+    for (const [j, r] of fuera.entries()) {
+      const resource = reparto[j + 1]?.[ronda];
+      if (resource !== undefined) turnos.push({ r, resource });
+    }
+  }
+  for (const { r, resource } of turnos) {
     const par = colocarPar(r, true);
     if (par === null) return fallo('objetos', 'no hay sitio para las minas');
     mines.push({ at: par[0], resource }, { at: par[1], resource });

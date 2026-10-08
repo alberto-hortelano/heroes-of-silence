@@ -21,12 +21,16 @@ import {
 let n = 0;
 const id = (): string => `p-${++n}`;
 
-function turno(acciones: readonly string[] = [], raiders = 0): Peticion {
+function turno(acciones: readonly string[] = [], raiders = 0, equipado = false): Peticion {
   return {
     requestId: id(),
     kind: 'adventure_turn',
     payload: {
       knownMap: { raiders: Array.from({ length: raiders }, (_, i) => ({ id: `r${i}` })) },
+      // Un individuo con una pieza puesta, como lo trae el turno (`cruzaElEquipo`).
+      heroes: equipado
+        ? [{ army: [{ id: 'v-1', equipment: { arma: 'espada', armadura: null } }] }]
+        : [{ army: [{ id: 'v-1', equipment: { arma: null, armadura: null } }] }],
     },
     respuesta: { actions: acciones.map((type) => ({ type })) },
   };
@@ -54,7 +58,7 @@ function completa(): Peticion[] {
     batalla(5, 'attack'),
     ascenso(),
     turno(['dismiss', 'buy_item', 'equip']),
-    turno(['move_hero']),
+    turno(['move_hero'], 0, true),
   ];
 }
 
@@ -71,7 +75,17 @@ describe('lo que pnpm qa necesita ver (#131)', () => {
     expect(faltan).toEqual([
       'un «dismiss» con un turno después para verlo',
       'un «buy_item» con un turno después para verlo',
-      'un «equip» con un turno después para verlo',
+      'un «equip» con un turno después donde se vea el individuo equipado',
+    ]);
+  });
+
+  it('un «equip» cuyo individuo no llega equipado a ningún turno no vale (#195)', () => {
+    // El novato equipado que cae en la batalla de antes del turno siguiente: el
+    // «equip» tuvo turno después, pero `pnpm qa` no ve a nadie con la pieza.
+    const p = completa();
+    p[6] = turno(['move_hero']);
+    expect(faltaParaElArnes(p, 3)).toEqual([
+      'un «equip» con un turno después donde se vea el individuo equipado',
     ]);
   });
 

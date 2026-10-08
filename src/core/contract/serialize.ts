@@ -41,6 +41,7 @@ import {
   type Personajes,
   troopSummary,
 } from '../hero/troop.js';
+import { minasDeLasRegiones, regionesDelMapa } from '../map/generate.js';
 import { pointFromKey, pointKey } from '../map/map.js';
 import { BARRERAS, costeDeEntrada, SUELOS_PISABLES, TERRAIN_KINDS } from '../map/terrain.js';
 import { asaltantesALaVista } from '../state/asaltantes.js';
@@ -778,6 +779,21 @@ export interface MapRequestOptions {
   readonly theme?: string;
 }
 
+/**
+ * Cómo haría el procedimental un mapa de ese lado (#195): cuántas regiones y
+ * qué minas lleva cada una. Es un consejo y no una regla: el plan del agente se
+ * sigue validando por su red (`validateMapPlan`), no por cuántas regiones o
+ * minas trae. Sale de las mismas funciones que usa el generador.
+ */
+function comoRepartePorRegiones(width: number, height: number): string {
+  const regiones = regionesDelMapa(width, height);
+  const [casa = [], ...fuera] = minasDeLasRegiones(regiones);
+  return (
+    `En ${width}×${height} el mapa procedimental hace ${regiones} regiones por jugador, en espejo: ` +
+    `la de casa con minas de ${casa.join(', ')}, y cada una de las ${fuera.length} de fuera con ${fuera[0]?.length ?? 0}: una de recurso raro y una básica.`
+  );
+}
+
 export function serializeMapRequest(opts: MapRequestOptions): unknown {
   return {
     kind: 'map_generate',
@@ -818,6 +834,7 @@ export function serializeMapRequest(opts: MapRequestOptions): unknown {
     },
     advice: [
       'Reparte las minas para que ningún jugador nazca sin madera ni mineral.',
+      comoRepartePorRegiones(opts.width, opts.height),
       'Los monstruos custodian lo bueno: cuanto mejor el premio, más dura la guardia.',
       'Deja el centro del mapa disputado y los bordes seguros.',
       'Pon las ciudades en los cruces de tres regiones o más, y que cada base tenga dos caminos distintos hasta las ciudades que le quedan cerca: así aislarlas es posible pero no trivial.',

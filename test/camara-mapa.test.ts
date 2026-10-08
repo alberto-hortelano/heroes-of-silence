@@ -163,7 +163,9 @@ describe('el tope de alejar sale de los volúmenes que caben', () => {
     // En 48×48 y no en el lado de siempre: el de 34 anda cerca del tope y
     // cruza la raya cada vez que cambia lo que despeja el pasillo de la senda
     // (historia.md, «Caminos»). Lo que se mira es el aviso, no los caminos.
-    const esc = escenarioDe(newGame({ seed: 4242, width: 48, height: 48 }).map, 4242);
+    // La 3 y no la 4242 desde #195: con las minas por región, la 4242 se quedó
+    // en 1 532 volúmenes a 110 px y cabe; la 3 lleva 3 507, lejos de la raya.
+    const esc = escenarioDe(newGame({ seed: 3, width: 48, height: 48 }).map, 3);
     const aviso = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     try {
       expect(topeDeAlejar(esc, 7680, 4320)).toBe(TILE_MAX);

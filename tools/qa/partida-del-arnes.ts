@@ -181,7 +181,21 @@ export function faltaParaElArnes(
     faltan.push('un grupo de asaltantes en el knownMap de un turno');
   if (!conOcasion('dismiss')) faltan.push('un «dismiss» con un turno después para verlo');
   if (!conOcasion('buy_item')) faltan.push('un «buy_item» con un turno después para verlo');
-  if (!conOcasion('equip')) faltan.push('un «equip» con un turno después para verlo');
+  // El equipo, como lo exige `pnpm qa` (`cruzaElEquipo`): un individuo con algo
+  // puesto en un turno de mapa, y no solo un «equip» con turno después. Con las
+  // minas por región (#195) la semilla 4 equipaba al novato y lo perdía en la
+  // batalla del día 4, y el arnés salía rojo con una semilla que esto daba por buena.
+  const equipadoEn = (p: Peticion) =>
+    p.kind === 'adventure_turn' &&
+    (p.payload.heroes ?? []).some((h: { army?: { id?: unknown; equipment?: object }[] }) =>
+      (h.army ?? []).some(
+        (g) =>
+          typeof g.id === 'string' &&
+          Object.values(g.equipment ?? {}).some((id: unknown) => id !== null),
+      ),
+    );
+  if (!conOcasion('equip') || !escuchadas.some(equipadoEn))
+    faltan.push('un «equip» con un turno después donde se vea el individuo equipado');
   if (ascenso < 0 || !turnoDespues(ascenso))
     faltan.push('un «hero_from_troop» con un turno después para ver al nacido');
   return faltan;

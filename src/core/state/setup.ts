@@ -18,6 +18,8 @@ export interface NewGameOptions {
   readonly seed?: number;
   readonly plan?: MapPlan;
   readonly controllers?: Readonly<Record<PlayerId, Controller>>;
+  /** Regiones por bando del mapa procedimental (#195); excluye `width`/`height`. */
+  readonly regionesPorBando?: number;
   readonly width?: number;
   readonly height?: number;
   /**
@@ -65,6 +67,9 @@ export function newGame(options: NewGameOptions = {}): GameState {
   const plan =
     options.plan ??
     generateMapPlan(rng, {
+      ...(options.regionesPorBando === undefined
+        ? {}
+        : { regionesPorBando: options.regionesPorBando }),
       ...(options.width === undefined ? {} : { width: options.width }),
       ...(options.height === undefined ? {} : { height: options.height }),
     });
