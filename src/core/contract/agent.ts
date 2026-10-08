@@ -178,8 +178,10 @@ const idDeMapa = (que: string) =>
  * - **Lo que queda acotado a la versión**: `\p{M}` y `\p{Cf}` de caracteres
  *   asignados después de la tabla del Node: una marca nueva al principio o un
  *   `Cf` nuevo pasarían por sin asignar. El test se ha corrido a mano con las dos
- *   tablas (Node v24.11.1, Unicode 16, y v26, Unicode 17); CI solo corre una, y
- *   correr las dos es #163.
+ *   tablas (Node v24.11.1, Unicode 16, y v26, Unicode 17). CI corre la versión
+ *   exacta de `.node-version` (#163: v24.21.0, Unicode 17.0, la misma tabla que
+ *   la v26.10 local), que es también el suelo de `engines`: subirla es un cambio
+ *   que se ve en el diff, no una menor nueva que entra sola.
  *
  * Es la puerta de todos los textos libres que el agente escribe para una persona
  * —los nombres del plan de mapa (#97) y el nombre y la historia del héroe

@@ -39,9 +39,17 @@ jobs:
       # La versión de pnpm sale de `packageManager` en package.json: una sola
       # fuente, la misma que usa quien desarrolla.
       - uses: pnpm/action-setup@v4
+      # La versión de Node sale de `.node-version`, exacta y no `24` (#163): la
+      # tabla Unicode cambia entre menores (v24.11.1 trae Unicode 16; v24.14,
+      # 17) y `lineaLegible` (src/core/contract/agent.ts) la lee en `\p{M}` y
+      # `\p{Cf}`. Con `24` a secas, el mismo commit podía pasar hoy y fallar
+      # mañana sin tocar nada. Es también el suelo de `engines`: CI prueba la
+      # más vieja que se soporta. En local corre la que haya (hoy 26.10, con
+      # Unicode 17.0 igual que la 24.21.0): no pasa nada, pero si un test de
+      # nombres sale distinto aquí y allí, esta es la primera sospechosa.
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version-file: .node-version
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       # `pnpm verify` y no sus tres órdenes sueltas: el bucle rápido se define
@@ -82,7 +90,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version-file: .node-version
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm qa
