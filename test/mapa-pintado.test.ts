@@ -26,6 +26,7 @@ import {
 import {
   type AvisosDelSuelo,
   apuntarElSueloEn,
+  BYTES_DEL_SUELO_BUENO,
   type Escenario,
   escenarioDe,
   escenarioListo,
@@ -34,6 +35,7 @@ import {
   type PintorDelSuelo,
   PX_DEL_ESBOZO,
   PX_DEL_SUELO,
+  resolucionDelSuelo,
   sueloDelMapa,
   topeDeAlejar,
   usarPintorDelSuelo,
@@ -170,12 +172,12 @@ describe('el suelo se pinta una vez y suelta lo que solo servía para eso', () =
     const { pagina, estados, conSuArte } = paginaQueApunta(() => esc);
     expect(pagina.dataset.escenario).toBe('sin-mapa');
 
-    const mientras = sueloDelMapa(esc, 70);
+    const mientras = sueloDelMapa(esc, 70, 1);
     expect(pagina.dataset.escenario).toBe('cargando');
     expect(mientras.px).toBe(1);
     expect(pedidas.length).toBe(esc.imagenes.length);
     // Otro fotograma mientras llega: no se pide nada más.
-    sueloDelMapa(esc, 70);
+    sueloDelMapa(esc, 70, 1);
     expect(pedidas.length).toBe(esc.imagenes.length);
 
     await vi.waitFor(() => expect(arteCargando()).toBe(false));
@@ -183,10 +185,10 @@ describe('el suelo se pinta una vez y suelta lo que solo servía para eso', () =
     // pintaba el bueno no se había soltado nada, que lo necesitaba.
     expect(estados.slice(-3)).toEqual(['cargando', 'esbozado', 'pintado']);
     expect(conSuArte.esbozado).toBe(true);
-    const pintado = sueloDelMapa(esc, 70);
+    const pintado = sueloDelMapa(esc, 70, 1);
     expect(pintado.px).toBe(PX_DEL_SUELO);
     // A 60 px de dispositivo o menos se copia el esbozo, que no se amplía.
-    expect(sueloDelMapa(esc, 50).px).toBe(PX_DEL_ESBOZO);
+    expect(sueloDelMapa(esc, 50, 1).px).toBe(PX_DEL_ESBOZO);
 
     // Lo que solo pinta el suelo se ha soltado; lo de los volúmenes sigue.
     expect(esc.soloDelSuelo.length).toBeGreaterThan(0);
@@ -196,20 +198,20 @@ describe('el suelo se pinta una vez y suelta lo que solo servía para eso', () =
     for (const src of deVolumen) expect(imagenDeEscena(src), src).toBeDefined();
 
     // Y no se vuelve a pedir ni a pintar mientras no haga falta.
-    expect(sueloDelMapa(esc, 70)).toBe(pintado);
+    expect(sueloDelMapa(esc, 70, 1)).toBe(pintado);
     expect(pedidas.length).toBe(esc.imagenes.length);
 
     // Otra partida vuelve a pedir lo soltado que también pinta ella.
     const otro = escenarioDe(newGame({ seed: 3 }).map, 3);
     const antes = pedidas.length;
-    sueloDelMapa(otro, 70);
+    sueloDelMapa(otro, 70, 1);
     expect(pagina.dataset.escenario).toBe('cargando');
     const repedidas = pedidas.slice(antes);
     const soltadasQueUsa = otro.imagenes.filter((src) => esc.soloDelSuelo.includes(src));
     expect(soltadasQueUsa.length).toBeGreaterThan(0);
     for (const src of soltadasQueUsa) expect(repedidas).toContain(`/mapa/${src}`);
     await vi.waitFor(() => expect(arteCargando()).toBe(false));
-    expect(sueloDelMapa(otro, 70).px).toBe(PX_DEL_SUELO);
+    expect(sueloDelMapa(otro, 70, 1).px).toBe(PX_DEL_SUELO);
     expect(pagina.dataset.escenario).toBe('pintado');
   });
 });
@@ -245,8 +247,38 @@ describe('a qué resolución se pinta el suelo (nitidez en el zoom máximo)', ()
     const soloEsbozo = niveles(true, false);
     expect(nivelDelSuelo(soloEsbozo, 110)).toBe(soloEsbozo.esbozo);
     const soloBueno = niveles(false, true);
-    expect(nivelDelSuelo(soloBueno, 30)).toBe(soloBueno.bueno);
+    expect(nivelDelSuelo(soloBueno, 70)).toBe(soloBueno.bueno);
+    // Sin esbozo, las mitades salen del bueno.
+    expect(nivelDelSuelo(soloBueno, 30)?.px).toBe(PX_DEL_SUELO / 4);
     expect(nivelDelSuelo(niveles(false, false), 110)).toBeUndefined();
+  });
+
+  it('en una pantalla densa, entre el esbozo y la mitad del bueno se copia esa mitad: nunca a menos de ×0,5', () => {
+    // A dpr 2 sin tope: el bueno a 220 y el esbozo a 60. De 61 a 110 px el bueno
+    // se reduciría a menos de la mitad.
+    const n: NivelesDelSuelo = {
+      esbozo: superficie(PX_DEL_ESBOZO),
+      bueno: superficie(220),
+      menores: [],
+    };
+    const medio = nivelDelSuelo(n, 70);
+    expect(medio?.px).toBe(110);
+    expect(medio?.lienzo.width).toBe(34 * 110);
+    expect(nivelDelSuelo(n, 110)).toBe(medio);
+    expect(n.menores).toHaveLength(1);
+    expect(nivelDelSuelo(n, 111)).toBe(n.bueno);
+    expect(nivelDelSuelo(n, 60)).toBe(n.esbozo);
+    // La mitad del bueno es suya: la del esbozo no sale de ella.
+    expect(nivelDelSuelo(n, 20)?.px).toBe(PX_DEL_ESBOZO / 2);
+    expect(n.menores.map((m) => [m.de.px, m.mitad.px])).toEqual([
+      [220, 110],
+      [PX_DEL_ESBOZO, PX_DEL_ESBOZO / 2],
+    ]);
+    for (let px = 8; px <= 220; px++) {
+      const elegido = nivelDelSuelo(n, px);
+      expect(elegido?.px, `${px}`).toBeGreaterThanOrEqual(px);
+      expect(px / (elegido?.px ?? 1), `${px}`).toBeGreaterThan(0.5);
+    }
   });
 
   it('alejando en una pantalla grande saca la mitad del esbozo, una vez: nunca se reduce a menos de ×0,5', () => {
@@ -268,6 +300,47 @@ describe('a qué resolución se pinta el suelo (nitidez en el zoom máximo)', ()
   });
 });
 
+describe('el suelo bueno a la densidad de la pantalla (#148)', () => {
+  it('hasta dpr 1,09 se pinta a PX_DEL_SUELO, como siempre', () => {
+    for (let dpr = 0.5; dpr <= 1.09; dpr += 0.01)
+      expect(resolucionDelSuelo(dpr, 34, 34), `dpr ${dpr}`).toEqual({
+        px: PX_DEL_SUELO,
+        pide: PX_DEL_SUELO,
+      });
+  });
+
+  it('por encima, a la casilla del zoom máximo en píxeles de dispositivo, hasta dpr 1,5', () => {
+    expect(resolucionDelSuelo(1.1, 34, 34)).toEqual({ px: 121, pide: 121 });
+    expect(resolucionDelSuelo(1.25, 34, 34)).toEqual({ px: 138, pide: 138 });
+    expect(resolucionDelSuelo(1.5, 34, 34)).toEqual({ px: 165, pide: 165 });
+    // Nunca se amplía mientras quepa: px ≥ TILE_MAX × dpr.
+    for (let dpr = 1.1; dpr <= 1.5; dpr += 0.01) {
+      const r = resolucionDelSuelo(dpr, 34, 34);
+      expect(r.px, `dpr ${dpr}`).toBeGreaterThanOrEqual(TILE_MAX * dpr - 1e-9);
+      expect(r.px, `dpr ${dpr}`).toBeLessThan(TILE_MAX * dpr + 1);
+    }
+  });
+
+  it('el tope de memoria corta por encima de dpr 1,5 y dice cuánto pedía; nunca baja de PX_DEL_SUELO', () => {
+    expect(resolucionDelSuelo(2, 34, 34)).toEqual({ px: 165, pide: 220 });
+    expect(resolucionDelSuelo(3, 34, 34)).toEqual({ px: 165, pide: 330 });
+    for (const dpr of [1.5, 2, 3]) {
+      const { px } = resolucionDelSuelo(dpr, 34, 34);
+      expect(34 * px * 34 * px * 4).toBeLessThanOrEqual(BYTES_DEL_SUELO_BUENO);
+    }
+    // Un mapa mayor cabe a menos, pero no a menos que hoy.
+    expect(resolucionDelSuelo(1.5, 48, 48)).toEqual({ px: PX_DEL_SUELO, pide: 165 });
+  });
+
+  it('una densidad o un mapa que no lo son se rechazan diciéndolo', () => {
+    for (const dpr of [0, -1, Number.NaN, Number.POSITIVE_INFINITY])
+      expect(() => resolucionDelSuelo(dpr, 34, 34), `${dpr}`).toThrow(
+        `la densidad de la pantalla tiene que ser un número de más de 0, y es ${dpr}`,
+      );
+    expect(() => resolucionDelSuelo(1, 0, 34)).toThrow('un mapa de 0×34 casillas');
+  });
+});
+
 describe('una imagen del suelo que no llega no se da por pintada', () => {
   const AGUA = 'texturas/agua.webp';
   const veces = (src: string) => pedidas.filter((u) => u === `/mapa/${src}`).length;
@@ -279,12 +352,12 @@ describe('una imagen del suelo que no llega no se da por pintada', () => {
     expect(esc.soloDelSuelo).toContain(AGUA);
     const antes = veces(AGUA);
     fallos.set(`/mapa/${AGUA}`, 1);
-    sueloDelMapa(esc, 70);
+    sueloDelMapa(esc, 70, 1);
     await vi.waitFor(() => expect(arteCargando()).toBe(false));
     // La primera tanda se cerró con el agua fallida: no se pintó, se volvió a pedir.
     expect(veces(AGUA)).toBe(antes + 2);
     expect(estados.slice(-3)).toEqual(['cargando', 'esbozado', 'pintado']);
-    expect(sueloDelMapa(esc, 70).px).toBe(PX_DEL_SUELO);
+    expect(sueloDelMapa(esc, 70, 1).px).toBe(PX_DEL_SUELO);
     expect(pagina.dataset.escenario).toBe('pintado');
     expect(error).not.toHaveBeenCalled();
     error.mockRestore();
@@ -295,9 +368,9 @@ describe('una imagen del suelo que no llega no se da por pintada', () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const esc = escenarioDe(newGame({ seed: 6 }).map, 6);
     fallos.set(`/mapa/${AGUA}`, 2);
-    sueloDelMapa(esc, 70);
+    sueloDelMapa(esc, 70, 1);
     await vi.waitFor(() => expect(arteCargando()).toBe(false));
-    expect(sueloDelMapa(esc, 70).px).toBe(PX_DEL_SUELO);
+    expect(sueloDelMapa(esc, 70, 1).px).toBe(PX_DEL_SUELO);
     expect(pagina.dataset.escenario).toBe('pintado');
     // Una vez, aunque se pinten dos superficies.
     expect(error).toHaveBeenCalledTimes(1);
@@ -346,7 +419,7 @@ describe('con Worker, el suelo se pinta aparte (H2 de la vuelta 1 de QA)', () =>
     try {
       const esc = escenarioDe(newGame({ seed: 11 }).map, 11);
       const antes = pedidas.length;
-      expect(sueloDelMapa(esc, 70).px).toBe(1);
+      expect(sueloDelMapa(esc, 70, 1).px).toBe(1);
       expect(pagina.dataset.escenario).toBe('cargando');
       expect(p.encargos).toHaveLength(1);
       expect(p.encargos[0]?.esc).toBe(esc);
@@ -359,7 +432,7 @@ describe('con Worker, el suelo se pinta aparte (H2 de la vuelta 1 de QA)', () =>
       for (const url of pedidasAqui) expect(deVolumenes.has(url), url).toBe(true);
       for (const src of esc.soloDelSuelo) expect(pedidasAqui).not.toContain(`/mapa/${src}`);
       // Otro fotograma mientras pinta: ni otra petición ni otro encargo.
-      sueloDelMapa(esc, 70);
+      sueloDelMapa(esc, 70, 1);
       expect(p.encargos).toHaveLength(1);
 
       // Llega el esbozo: se ve a cualquier zoom, ampliado si hace falta.
@@ -367,15 +440,15 @@ describe('con Worker, el suelo se pinta aparte (H2 de la vuelta 1 de QA)', () =>
       const esbozo = mapaDeBits(PX_DEL_ESBOZO);
       e.avisos.superficie({ lienzo: esbozo, px: PX_DEL_ESBOZO });
       expect(pagina.dataset.escenario).toBe('esbozado');
-      expect(sueloDelMapa(esc, 120)).toEqual({ lienzo: esbozo, px: PX_DEL_ESBOZO });
+      expect(sueloDelMapa(esc, 120, 1)).toEqual({ lienzo: esbozo, px: PX_DEL_ESBOZO });
 
       const bueno = mapaDeBits(PX_DEL_SUELO);
       e.avisos.superficie({ lienzo: bueno, px: PX_DEL_SUELO });
       e.acabar();
       expect(pagina.dataset.escenario).toBe('pintado');
-      expect(sueloDelMapa(esc, 110)).toEqual({ lienzo: bueno, px: PX_DEL_SUELO });
+      expect(sueloDelMapa(esc, 110, 1)).toEqual({ lienzo: bueno, px: PX_DEL_SUELO });
       // Alejado, el esbozo: el hilo principal no reduce nada.
-      expect(sueloDelMapa(esc, 50)).toEqual({ lienzo: esbozo, px: PX_DEL_ESBOZO });
+      expect(sueloDelMapa(esc, 50, 1)).toEqual({ lienzo: esbozo, px: PX_DEL_ESBOZO });
       await vi.waitFor(() => expect(arteCargando()).toBe(false));
       expect(p.encargos).toHaveLength(1);
     } finally {
@@ -389,7 +462,7 @@ describe('con Worker, el suelo se pinta aparte (H2 de la vuelta 1 de QA)', () =>
     usarPintorDelSuelo(p.pintor);
     try {
       const esc = escenarioDe(newGame({ seed: 17 }).map, 17);
-      sueloDelMapa(esc, 70);
+      sueloDelMapa(esc, 70, 1);
       const viejo = p.encargos[0]!;
       const cerrarEsbozo = vi.fn();
       viejo.avisos.superficie({
@@ -397,7 +470,7 @@ describe('con Worker, el suelo se pinta aparte (H2 de la vuelta 1 de QA)', () =>
         px: PX_DEL_ESBOZO,
       });
       const otro = escenarioDe(newGame({ seed: 18 }).map, 18);
-      sueloDelMapa(otro, 70);
+      sueloDelMapa(otro, 70, 1);
       // El Worker del mapa viejo se para, y su esbozo se suelta.
       expect(viejo.terminado).toBe(true);
       expect(cerrarEsbozo).toHaveBeenCalledTimes(1);
@@ -405,7 +478,7 @@ describe('con Worker, el suelo se pinta aparte (H2 de la vuelta 1 de QA)', () =>
       const cerrarTarde = vi.fn();
       viejo.avisos.superficie({ lienzo: mapaDeBits(PX_DEL_SUELO, cerrarTarde), px: PX_DEL_SUELO });
       expect(cerrarTarde).toHaveBeenCalledTimes(1);
-      expect(sueloDelMapa(otro, 70).px).toBe(1);
+      expect(sueloDelMapa(otro, 70, 1).px).toBe(1);
       expect(pagina.dataset.escenario).toBe('cargando');
       // El otro sigue a lo suyo (y no quedan tandas abiertas).
       const nuevo = p.encargos[1]!;
@@ -414,7 +487,82 @@ describe('con Worker, el suelo se pinta aparte (H2 de la vuelta 1 de QA)', () =>
       nuevo.avisos.superficie({ lienzo: mapaDeBits(PX_DEL_SUELO), px: PX_DEL_SUELO });
       nuevo.acabar();
       expect(pagina.dataset.escenario).toBe('pintado');
-      expect(sueloDelMapa(otro, 110).px).toBe(PX_DEL_SUELO);
+      expect(sueloDelMapa(otro, 110, 1).px).toBe(PX_DEL_SUELO);
+      await vi.waitFor(() => expect(arteCargando()).toBe(false));
+    } finally {
+      usarPintorDelSuelo(null);
+    }
+  });
+
+  it('a dpr 1,5 encarga el bueno a 165 y lo usa en el zoom máximo; a dpr 2, a 165 y lo avisa una vez', async () => {
+    const { pagina } = paginaQueApunta();
+    const aviso = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const p = pintorEnEspera();
+    usarPintorDelSuelo(p.pintor);
+    try {
+      const esc = escenarioDe(newGame({ seed: 21 }).map, 21);
+      sueloDelMapa(esc, 165, 1.5);
+      expect(p.encargos[0]?.resoluciones).toEqual([PX_DEL_ESBOZO, 165]);
+      expect(aviso).not.toHaveBeenCalled();
+      const e = p.encargos[0]!;
+      e.avisos.superficie({ lienzo: mapaDeBits(PX_DEL_ESBOZO), px: PX_DEL_ESBOZO });
+      const bueno = mapaDeBits(165);
+      e.avisos.superficie({ lienzo: bueno, px: 165 });
+      e.acabar();
+      expect(pagina.dataset.escenario).toBe('pintado');
+      expect(sueloDelMapa(esc, 165, 1.5)).toEqual({ lienzo: bueno, px: 165 });
+
+      const otro = escenarioDe(newGame({ seed: 22 }).map, 22);
+      sueloDelMapa(otro, 220, 2);
+      sueloDelMapa(otro, 220, 2);
+      expect(p.encargos[1]?.resoluciones).toEqual([PX_DEL_ESBOZO, 165]);
+      expect(p.encargos).toHaveLength(2);
+      expect(aviso).toHaveBeenCalledTimes(1);
+      expect(String(aviso.mock.calls[0]?.[0])).toBe(
+        'el suelo del mapa se pinta a 165 px por casilla y esta pantalla pide 220 en el zoom máximo: no cabe en el tope de memoria del suelo (126 MB), y ahí se amplía ×1.33',
+      );
+      p.encargos[1]!.acabar();
+      await vi.waitFor(() => expect(arteCargando()).toBe(false));
+    } finally {
+      usarPintorDelSuelo(null);
+      aviso.mockRestore();
+    }
+  });
+
+  it('si la densidad sube a media partida se vuelve a encargar el bueno, se ve el de antes mientras y lo que llegue del viejo se cierra', async () => {
+    const p = pintorEnEspera();
+    usarPintorDelSuelo(p.pintor);
+    try {
+      const esc = escenarioDe(newGame({ seed: 23 }).map, 23);
+      sueloDelMapa(esc, 110, 1);
+      const viejo = p.encargos[0]!;
+      viejo.avisos.superficie({ lienzo: mapaDeBits(PX_DEL_ESBOZO), px: PX_DEL_ESBOZO });
+      // El zoom del navegador al 125 % antes de que llegue el bueno.
+      sueloDelMapa(esc, 138, 1.25);
+      expect(viejo.terminado).toBe(true);
+      expect(p.encargos).toHaveLength(2);
+      // El esbozo ya estaba: solo se encarga el bueno.
+      expect(p.encargos[1]?.resoluciones).toEqual([138]);
+      // Lo que aún mande el encargo viejo no se pone: se cierra.
+      const cerrarTarde = vi.fn();
+      viejo.avisos.superficie({ lienzo: mapaDeBits(PX_DEL_SUELO, cerrarTarde), px: PX_DEL_SUELO });
+      expect(cerrarTarde).toHaveBeenCalledTimes(1);
+      expect(sueloDelMapa(esc, 138, 1.25).px).toBe(PX_DEL_ESBOZO);
+      const cerrar138 = vi.fn();
+      p.encargos[1]!.avisos.superficie({ lienzo: mapaDeBits(138, cerrar138), px: 138 });
+      p.encargos[1]!.acabar();
+      expect(sueloDelMapa(esc, 138, 1.25).px).toBe(138);
+      // Si baja, se queda con el que hay: se reduce, no se repinta.
+      expect(sueloDelMapa(esc, 110, 1).px).toBe(138);
+      expect(p.encargos).toHaveLength(2);
+      // Y si vuelve a subir, otro encargo, con el de 138 a la vista mientras.
+      sueloDelMapa(esc, 165, 1.5);
+      expect(p.encargos[2]?.resoluciones).toEqual([165]);
+      expect(sueloDelMapa(esc, 165, 1.5).px).toBe(138);
+      p.encargos[2]!.avisos.superficie({ lienzo: mapaDeBits(165), px: 165 });
+      expect(cerrar138).toHaveBeenCalledTimes(1);
+      expect(sueloDelMapa(esc, 165, 1.5).px).toBe(165);
+      p.encargos[2]!.acabar();
       await vi.waitFor(() => expect(arteCargando()).toBe(false));
     } finally {
       usarPintorDelSuelo(null);
@@ -427,7 +575,7 @@ describe('con Worker, el suelo se pinta aparte (H2 de la vuelta 1 de QA)', () =>
     usarPintorDelSuelo(p.pintor);
     try {
       const esc = escenarioDe(newGame({ seed: 12 }).map, 12);
-      sueloDelMapa(esc, 70);
+      sueloDelMapa(esc, 70, 1);
       p.encargos[0]!.avisos.faltan(['texturas/agua.webp: HTTP 404'], 40);
       expect(error).toHaveBeenCalledTimes(1);
       expect(String(error.mock.calls[0]?.[0])).toContain('sin 1 de sus 40');
@@ -447,14 +595,14 @@ describe('con Worker, el suelo se pinta aparte (H2 de la vuelta 1 de QA)', () =>
     usarPintorDelSuelo(p.pintor);
     try {
       const esc = escenarioDe(newGame({ seed: 13 }).map, 13);
-      sueloDelMapa(esc, 70);
+      sueloDelMapa(esc, 70, 1);
       p.encargos[0]!.fallar(new Error('sin OffscreenCanvas en el Worker'));
       await vi.waitFor(() => expect(error).toHaveBeenCalledTimes(1));
       expect(String(error.mock.calls[0]?.[0])).toContain('sin OffscreenCanvas en el Worker');
       expect(String(error.mock.calls[0]?.[0])).toContain(`a ${PX_DEL_ESBOZO} y ${PX_DEL_SUELO} px`);
       await vi.waitFor(() => expect(arteCargando()).toBe(false));
       expect(estados.slice(-3)).toEqual(['cargando', 'esbozado', 'pintado']);
-      expect(sueloDelMapa(esc, 70).px).toBe(PX_DEL_SUELO);
+      expect(sueloDelMapa(esc, 70, 1).px).toBe(PX_DEL_SUELO);
       expect(pagina.dataset.escenario).toBe('pintado');
     } finally {
       usarPintorDelSuelo(null);
@@ -468,16 +616,16 @@ describe('con Worker, el suelo se pinta aparte (H2 de la vuelta 1 de QA)', () =>
     usarPintorDelSuelo(p.pintor);
     try {
       const esc = escenarioDe(newGame({ seed: 19 }).map, 19);
-      sueloDelMapa(esc, 70);
+      sueloDelMapa(esc, 70, 1);
       const esbozo = mapaDeBits(PX_DEL_ESBOZO);
       p.encargos[0]!.avisos.superficie({ lienzo: esbozo, px: PX_DEL_ESBOZO });
       p.encargos[0]!.fallar(new Error('el Worker se ha quedado sin memoria'));
       await vi.waitFor(() => expect(error).toHaveBeenCalledTimes(1));
       expect(String(error.mock.calls[0]?.[0])).toContain(`a ${PX_DEL_SUELO} px`);
       await vi.waitFor(() => expect(arteCargando()).toBe(false));
-      expect(sueloDelMapa(esc, 110).px).toBe(PX_DEL_SUELO);
+      expect(sueloDelMapa(esc, 110, 1).px).toBe(PX_DEL_SUELO);
       // El esbozo es el del Worker: no se ha vuelto a pintar.
-      expect(sueloDelMapa(esc, 50).lienzo).toBe(esbozo);
+      expect(sueloDelMapa(esc, 50, 1).lienzo).toBe(esbozo);
     } finally {
       usarPintorDelSuelo(null);
       error.mockRestore();
@@ -646,7 +794,7 @@ describe('qué tapa a qué en el mapa', () => {
     explorado: ReadonlySet<string> | null = null,
   ) {
     const esc = escenarioDe(state.map, state.seed);
-    sueloDelMapa(esc, 70);
+    sueloDelMapa(esc, 70, 1);
     llamadas.length = 0;
     drawMapa(contexto(), {
       escena: state,
@@ -856,7 +1004,7 @@ describe('un grupo que vuelve a la vista aparece en su casilla (H3 de QA de #130
 
   it('el que deja de pintarse se olvida: al volver no anda desde donde se le vio', () => {
     const state = newGame({ seed: 1 });
-    sueloDelMapa(escenarioDe(state.map, state.seed), 70);
+    sueloDelMapa(escenarioDe(state.map, state.seed), 70, 1);
     const id = state.raiders[0]!.id;
     const ayer = state.raiders[0]!.at;
     const hoy = { x: ayer.x + 2, y: ayer.y + 1 };
@@ -869,7 +1017,7 @@ describe('un grupo que vuelve a la vista aparece en su casilla (H3 de QA de #130
 
   it('el que se sigue pintando sí anda: sale de su casilla de ayer', () => {
     const state = newGame({ seed: 1 });
-    sueloDelMapa(escenarioDe(state.map, state.seed), 70);
+    sueloDelMapa(escenarioDe(state.map, state.seed), 70, 1);
     const id = state.raiders[0]!.id;
     const ayer = state.raiders[0]!.at;
     const hoy = { x: ayer.x + 2, y: ayer.y + 1 };

@@ -260,7 +260,11 @@ function fondoDe(ctx: CanvasRenderingContext2D, v: VistaMapa, esc: Escenario): H
   const { camara } = v;
   const dpr = densidadDe(ctx);
   // La casilla en píxeles de dispositivo: es lo que decide si una superficie se amplía.
-  const suelo = sueloDelMapa(esc, camara.tile * dpr);
+  // Y la densidad de la pantalla, que dice a cuánto se pinta el suelo bueno: no
+  // la del lienzo, que el presupuesto rebaja al alejar. Sin pantalla (los
+  // tests), la del lienzo.
+  const pantalla = typeof devicePixelRatio === 'number' ? devicePixelRatio : dpr;
+  const suelo = sueloDelMapa(esc, camara.tile * dpr, pantalla);
   // Mide lo mismo que el lienzo de la página, para copiarlo píxel a píxel.
   const { width: ancho, height: alto } = ctx.canvas;
   const clave = `${camara.tile}|${camara.x}|${camara.y}|${ancho}|${alto}|${dpr}`;

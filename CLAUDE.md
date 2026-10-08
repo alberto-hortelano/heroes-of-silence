@@ -273,10 +273,16 @@ antes del destino (`battle_started` con `faltan`).
   encargo que pinta en serie el esbozo a `PX_DEL_ESBOZO` (60, ~2 s) y el bueno a
   `PX_DEL_SUELO` (120 = ⌈110 × 1,09⌉, ~5,5 s más; 83 MB los dos), cada uno en un
   Worker que se termina al contestar (uno vivo para los dos no suelta las máscaras).
+  **Con dpr > 1,09 el bueno va a ⌈`TILE_MAX` × dpr⌉** (`resolucionDelSuelo`, #148) hasta
+  `BYTES_DEL_SUELO_BUENO` (126 MB: 165 px en un 34×34, dpr 1,5); más allá, 165 y un aviso en
+  consola. Medido sin GPU y con la máquina cargada (2026-10-08), 120/138/165 px: el bueno en
+  6-7/8-10/11-12,5 s y el navegador sube 0,4-0,6/0,6-0,7/0,9-1,05 GB mientras pinta (a 220, 20 s y
+  1,6 GB; y a dpr 2 una ventana de 1440×900 se pinta a densidad 1,34, que pide 147). Si el dpr sube a
+  media partida se encarga otro bueno; si baja, se reduce el que hay.
   **Las fronteras entre suelos** (`fronteras.ts`, `fronterasDelSuelo`): el alfa de cada suelo a `PX_DE_LAS_FRONTERAS` (16) por casilla, el mismo en el esbozo y en el bueno: el campo del suelo leído en un punto deformado (±1,1 casillas, el serpenteo), más un ruido por suelo y la luminancia de su textura (mezcla por altura), con el ruido de la semilla de la escena; los alfas van acumulados y el arcén toma el pigmento con las mismas fronteras. **Sin rejilla** (`parches.ts`, R2): cada textura del suelo, el agua y el barro va con su patrón y encima, con `source-atop`, un parche redondo por celda de una rejilla de `PASO_DEL_PARCHE` (1,5 casillas) movida al azar, de radio `RADIO_DEL_PARCHE` (1,5; entero hasta 0,85) y fundido por el borde, en orden barajado; cada uno es uno de `VARIANTES_POR_TEXTURA` (12) trozos de la textura (desplazamiento y espejo izquierda-derecha; ni giros ni espejo vertical: la luz viene de arriba y la arena tiene ondas), una estampa que se hace al pedirla y se suelta con su textura (`estamparParches`). El encaje (`encajeDe`) sale de la semilla de la escena y la clave de la textura, y las fronteras leen la altura en él (`enElEncaje`): la autocorrelación al periodo de 4 casillas bajó de 0,53-0,68 a ~0 (texturas solas, semillas 1, 7 y 13, 2026-10-08; la vigila `test/parches.test.ts`). Mientras, se ve el sucedáneo de pigmentos y luego el esbozo
   (`#app[data-escenario]`: `cargando`, `esbozado`, `pintado`). Cada fotograma
   copia, bilineal, la superficie más pequeña que no se amplía (`nivelDelSuelo`;
-  por debajo de ×0,5 saca mitades del esbozo) a un fondo que mide lo mismo que
+  por debajo de ×0,5 saca mitades del esbozo o del bueno, ~30 ms la de 165) a un fondo que mide lo mismo que
   el lienzo (`ctx.canvas`) y se copia píxel a píxel. Sin Worker —o si falla, que
   se dice, y solo lo que faltaba— lo pinta este hilo con la misma secuencia
   (`enEsteHilo`, `pintarSueloA`). Otro mapa termina el pintor del anterior y

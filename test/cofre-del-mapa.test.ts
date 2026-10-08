@@ -99,7 +99,7 @@ const camara = { tile: TILE, x: 17 - 6, y: 9 - 4 };
 function pintar(): Llamada[] {
   if (COFRE === undefined) throw new Error('la semilla 3 ya no tiene el cofre en (17, 9)');
   const esc = escenarioDe(state.map, state.seed);
-  sueloDelMapa(esc, TILE);
+  sueloDelMapa(esc, TILE, 1);
   llamadas.length = 0;
   drawMapa(contexto(), {
     escena: state,

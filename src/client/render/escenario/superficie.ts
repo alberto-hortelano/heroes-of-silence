@@ -24,6 +24,7 @@ import {
   contarVolumenes,
   MAX_VOLUMENES_VISIBLES,
   PX_AL_ZOOM_MAXIMO,
+  TILE_MAX,
   tileMinimo,
 } from '../camara-mapa.js';
 import { copiaReducidaSiCabe } from '../copias.js';
@@ -56,9 +57,10 @@ import type { Punto } from './puentes.js';
 const CATALOGO: Catalogo = catalogoValidado(catalogoDelRepo);
 
 /**
- * Píxeles por casilla de la superficie del suelo: los del zoom máximo en la
- * pantalla del usuario, ⌈`TILE_MAX` × 1,09⌉, para que el suelo no se amplíe y
- * se vea tan nítido como los volúmenes, que se pintan desde su arte. El arte
+ * Píxeles por casilla de la superficie del suelo hasta dpr 1,09: los del zoom
+ * máximo en la pantalla del usuario, ⌈`TILE_MAX` × 1,09⌉, para que el suelo no
+ * se amplíe y se vea tan nítido como los volúmenes, que se pintan desde su arte.
+ * Con más densidad, más (`resolucionDelSuelo`); nunca menos. El arte
  * llega: las texturas son 128 px por casilla (agua y barro, 171), y lo plano,
  * 141 como mínimo (2026-10-05).
  *
@@ -73,6 +75,50 @@ export const PX_DEL_SUELO = PX_AL_ZOOM_MAXIMO;
  * cuando la casilla en pantalla no pasa de 60 píxeles de dispositivo.
  */
 export const PX_DEL_ESBOZO = 60;
+
+/**
+ * Lo que puede ocupar el suelo bueno, en bytes (RGBA): en un 34×34, 165 px por
+ * casilla, los del zoom máximo a dpr 1,5 (#148). Más allá, el suelo se amplía y
+ * la consola lo dice.
+ *
+ * Medido en el Chromium sin GPU de `pnpm capturas` (semillas 1 y 7, la máquina
+ * cargada, 2026-10-08), el bueno a 120/138/165/220 px por casilla (dpr 1, 1,25,
+ * 1,5, 2): ocupa 67/88/126/224 MB, el Worker tarda 6-7/8-10/11-12,5/20-21 s y el
+ * navegador sube mientras 0,4-0,6/0,6-0,7/0,9-1,05/1,5-1,6 GB: unas siete veces la
+ * superficie, en búferes del lienzo que no se ven desde aquí (soltar las
+ * máscaras de mapa entero en cuanto se copian no lo bajaba). Y el arte no da
+ * para mucho más: las texturas son de 128 px por casilla, y lo plano, de 141 como
+ * poco (`cubierta-rough/2.webp` se coloca a 157-290; 2026-10-05). A dpr 2, una
+ * ventana de 1440×900 pasa de `PIXELES_AL_ACERCAR` y en el zoom máximo se pinta
+ * a densidad 1,34: le bastan 147.
+ */
+export const BYTES_DEL_SUELO_BUENO = 126_000_000;
+
+/** A cuánto se pinta el suelo bueno en una pantalla (`resolucionDelSuelo`). */
+export interface ResolucionDelSuelo {
+  /** Píxeles por casilla del suelo bueno. */
+  readonly px: number;
+  /** Los que pide la casilla del zoom máximo en esa pantalla: si pasan de `px`, el tope lo deja corto. */
+  readonly pide: number;
+}
+
+/**
+ * A cuántos píxeles por casilla se pinta el suelo bueno de un mapa de `W × H` en
+ * una pantalla de densidad `dpr` (#148): los de la casilla del zoom máximo,
+ * `TILE_MAX × dpr`, para que no se amplíe, y nunca menos de `PX_DEL_SUELO`
+ * —hasta dpr 1,09 nada cambia—. Con más densidad, hasta lo que cabe en
+ * `BYTES_DEL_SUELO_BUENO`; si no cabe, `pide` dice cuánto faltaba.
+ */
+export function resolucionDelSuelo(dpr: number, W: number, H: number): ResolucionDelSuelo {
+  if (!(dpr > 0) || !Number.isFinite(dpr))
+    throw new Error(`la densidad de la pantalla tiene que ser un número de más de 0, y es ${dpr}`);
+  if (!(W > 0) || !(H > 0))
+    throw new Error(`el suelo de un mapa de ${W}×${H} casillas no se puede pintar`);
+  // Sin el épsilon, 110 × 1,1 da 121,00000000000001 y pediría 122.
+  const pide = Math.max(PX_DEL_SUELO, Math.ceil(TILE_MAX * dpr - 1e-9));
+  const caben = Math.floor(Math.sqrt(BYTES_DEL_SUELO_BUENO / (4 * W * H)));
+  return { px: Math.max(PX_DEL_SUELO, Math.min(pide, caben)), pide };
+}
 
 /**
  * Un volumen de la escena tal y como lo recorre cada fotograma: con la clave de
@@ -559,15 +605,19 @@ export interface NivelesDelSuelo {
   esbozo: SueloPintado | null;
   bueno: SueloPintado | null;
   /**
-   * El esbozo a la mitad, a la cuarta parte…, que se sacan cuando una pantalla
-   * grande aleja tanto que el esbozo se reduciría a menos de la mitad.
+   * Las mitades que se sacan de una superficie (`de`), y las de sus mitades,
+   * cuando reducirla sería pasar de ×0,5: el esbozo en una pantalla grande que
+   * aleja mucho, o el bueno de una pantalla densa entre el esbozo y su mitad.
    */
-  readonly menores: SueloPintado[];
+  readonly menores: { readonly de: SueloPintado; readonly mitad: SueloPintado }[];
 }
 
 interface SueloDelEscenario extends NivelesDelSuelo {
   readonly escenario: Escenario;
   readonly sucedaneo: SueloPintado;
+  readonly quien: PintorDelSuelo;
+  /** A cuánto se pinta (o se ha pintado) el bueno: lo pide la densidad de la pantalla. */
+  pxDelBueno: number;
   encargo: EncargoDelSuelo;
   tarea: TareaAparte;
 }
@@ -607,26 +657,34 @@ function anunciar(): void {
 
 /**
  * El suelo del mapa para una cámara de `pxDeDispositivo` píxeles de dispositivo
- * por casilla (la casilla CSS por la densidad del lienzo): de lo ya pintado, la
- * superficie que se reduce menos sin ampliarse (`nivelDelSuelo`).
+ * por casilla (la casilla CSS por la densidad del lienzo), en una pantalla de
+ * densidad `dpr`: de lo ya pintado, la superficie que se reduce menos sin
+ * ampliarse (`nivelDelSuelo`).
  *
- * La primera vez lo encarga —el esbozo y luego el bueno— y, mientras tanto,
- * devuelve un lienzo de un píxel por casilla con el pigmento de cada terreno,
- * que cuesta nada. Con Worker, el hilo principal solo pide las imágenes de los
- * volúmenes: pintarlo aquí es una tarea de 5,5 s con la página quieta.
+ * La primera vez lo encarga —el esbozo y luego el bueno, a la resolución que
+ * pide `dpr` (`resolucionDelSuelo`)— y, mientras tanto, devuelve un lienzo de un
+ * píxel por casilla con el pigmento de cada terreno, que cuesta nada. Con
+ * Worker, el hilo principal solo pide las imágenes de los volúmenes: pintarlo
+ * aquí es una tarea de 5,5 s con la página quieta. Si la densidad sube a media
+ * partida (el zoom del navegador, otra pantalla), vuelve a encargar el bueno, y
+ * mientras se ve el que había; si baja, se queda con el que hay, que se reduce.
  */
-export function sueloDelMapa(esc: Escenario, pxDeDispositivo: number): SueloPintado {
-  if (suelo === null || suelo.escenario !== esc) empezarElSuelo(esc);
+export function sueloDelMapa(esc: Escenario, pxDeDispositivo: number, dpr: number): SueloPintado {
+  const { W, H } = esc.escena;
+  const r = resolucionDelSuelo(dpr, W, H);
+  if (suelo === null || suelo.escenario !== esc) empezarElSuelo(esc, r);
+  else if (r.px > suelo.pxDelBueno) subirElBueno(suelo, r);
   const s = suelo as SueloDelEscenario;
   s.tarea.relanzar();
   return nivelDelSuelo(s, pxDeDispositivo) ?? s.sucedaneo;
 }
 
-function empezarElSuelo(esc: Escenario): void {
+function empezarElSuelo(esc: Escenario, r: ResolucionDelSuelo): void {
   // Lo del mapa anterior ya no se ve: se para su pintor y se suelta lo pintado.
   if (suelo !== null) {
     suelo.encargo.terminar();
-    for (const n of [suelo.esbozo, suelo.bueno, ...suelo.menores]) cerrar(n);
+    cerrarMenores(suelo);
+    for (const n of [suelo.esbozo, suelo.bueno]) cerrar(n);
   }
   const quien = pintorDelSuelo();
   const s: SueloDelEscenario = {
@@ -635,13 +693,37 @@ function empezarElSuelo(esc: Escenario): void {
     esbozo: null,
     bueno: null,
     menores: [],
+    quien,
+    pxDelBueno: r.px,
     encargo: { hecho: Promise.resolve(), terminar: () => undefined },
     tarea: { relanzar: () => undefined },
   };
   suelo = s;
+  avisarSiSeQuedaCorto(r);
   if (quien !== enEsteHilo) void cargarArteDeEscena(esc.deVolumenes);
-  encargar(s, quien, [PX_DEL_ESBOZO, PX_DEL_SUELO]);
+  encargar(s, quien, [PX_DEL_ESBOZO, r.px]);
   anunciar();
+}
+
+/**
+ * La pantalla pide un suelo bueno mayor que el encargado: se para lo que se
+ * estuviera pintando y se encarga a la nueva resolución, con el esbozo si aún
+ * no había llegado. Lo ya pintado se ve hasta que llegue.
+ */
+function subirElBueno(s: SueloDelEscenario, r: ResolucionDelSuelo): void {
+  s.encargo.terminar();
+  s.pxDelBueno = r.px;
+  avisarSiSeQuedaCorto(r);
+  if (s.quien !== enEsteHilo) void cargarArteDeEscena(s.escenario.deVolumenes);
+  encargar(s, s.quien, s.esbozo === null ? [PX_DEL_ESBOZO, r.px] : [r.px]);
+}
+
+/** Si el tope de memoria deja el suelo bueno por debajo de lo que pide la pantalla, se dice. */
+function avisarSiSeQuedaCorto(r: ResolucionDelSuelo): void {
+  if (r.pide <= r.px) return;
+  console.warn(
+    `el suelo del mapa se pinta a ${r.px} px por casilla y esta pantalla pide ${r.pide} en el zoom máximo: no cabe en el tope de memoria del suelo (${Math.round(BYTES_DEL_SUELO_BUENO / 1e6)} MB), y ahí se amplía ×${(r.pide / r.px).toFixed(2)}`,
+  );
 }
 
 /**
@@ -651,16 +733,17 @@ function empezarElSuelo(esc: Escenario): void {
  * este hilo, el fallo sale en el siguiente fotograma.
  */
 function encargar(s: SueloDelEscenario, quien: PintorDelSuelo, resoluciones: readonly number[]) {
-  const encargo = quien(s.escenario, resoluciones, {
+  const encargo: EncargoDelSuelo = quien(s.escenario, resoluciones, {
     faltan: avisarDeLoQueFalta,
-    superficie: (n) => ponerSuperficie(s, n),
+    // Lo que llegue de un encargo ya sustituido (`subirElBueno`) no se pone.
+    superficie: (n) => (s.encargo === encargo ? ponerSuperficie(s, n) : cerrar(n)),
   });
   // El `catch` va ya, y no en la tarea aparte: un rechazo sin manejar hasta
   // entonces sería un error de la página.
   const hecho = encargo.hecho.catch((err: unknown) => {
     if (quien === enEsteHilo) throw err;
     const faltan = resoluciones.filter(
-      (px) => (px === PX_DEL_ESBOZO ? s.esbozo : s.bueno) === null,
+      (px) => (px === PX_DEL_ESBOZO ? s.esbozo : s.bueno?.px === px ? s.bueno : null) === null,
     );
     console.error(
       `el suelo del mapa no se ha podido pintar aparte (${err instanceof Error ? err.message : String(err)}): se pinta en el hilo principal a ${faltan.join(' y ')} px por casilla`,
@@ -678,10 +761,11 @@ function ponerSuperficie(s: SueloDelEscenario, n: SueloPintado): void {
     return;
   }
   if (n.px === PX_DEL_ESBOZO) {
-    for (const m of [s.esbozo, ...s.menores]) cerrar(m);
-    s.menores.length = 0;
+    cerrarMenores(s);
+    cerrar(s.esbozo);
     s.esbozo = n;
-  } else if (n.px === PX_DEL_SUELO) {
+  } else if (n.px === s.pxDelBueno) {
+    cerrarMenores(s);
     cerrar(s.bueno);
     s.bueno = n;
   } else {
@@ -692,6 +776,12 @@ function ponerSuperficie(s: SueloDelEscenario, n: SueloPintado): void {
   }
   anunciar();
   avisarDeArteNuevo();
+}
+
+/** Suelta las mitades sacadas de lo pintado: se vuelven a sacar de lo que llegue. */
+function cerrarMenores(n: NivelesDelSuelo): void {
+  for (const m of n.menores) cerrar(m.mitad);
+  n.menores.length = 0;
 }
 
 /** Suelta lo que ocupa una superficie que ya no se pinta. */
@@ -711,18 +801,17 @@ function cerrar(n: SueloPintado | null): void {
  * ×0,5-1, donde la bilineal no pierde nada. Si ninguna llega, la mayor.
  * `undefined` si aún no hay ninguna.
  *
- * Por debajo de la mitad del esbozo saca su mitad, y la de esta, las que hagan
+ * Si reducirla sería pasar de ×0,5, saca su mitad, y la de esta, las que hagan
  * falta: la bilineal por debajo de ×0,5 se salta píxeles y hace dientes de
- * sierra. En 3840×2160 al tope no hace falta (la casilla queda a 33-45 píxeles
- * de dispositivo en las semillas 1 y 7, ×0,54-0,74 del esbozo); en 7680×4320 sí
- * (~24).
+ * sierra. Le pasa al esbozo en 7680×4320 al tope (~24 px de dispositivo; en
+ * 3840×2160 no, 33-45 en las semillas 1 y 7), y al bueno de una pantalla densa
+ * entre el esbozo y su mitad: a dpr 2, de 61 a 110.
  */
 export function nivelDelSuelo(n: NivelesDelSuelo, px: number): SueloPintado | undefined {
   const { esbozo, bueno } = n;
-  if (esbozo === null || (bueno !== null && px > esbozo.px)) return bueno ?? undefined;
-  let elegido = esbozo;
-  for (let i = 0; px * 2 <= elegido.px && elegido.px >= 2; i++)
-    elegido = n.menores[i] ?? mitadDe(n, elegido);
+  let elegido = esbozo === null || (bueno !== null && px > esbozo.px) ? bueno : esbozo;
+  if (elegido === null) return undefined;
+  while (px * 2 <= elegido.px && elegido.px >= 2) elegido = mitadDe(n, elegido);
   return elegido;
 }
 
@@ -732,6 +821,8 @@ export function nivelDelSuelo(n: NivelesDelSuelo, px: number): SueloPintado | un
  * esbozo en 7680×4320, sin GPU, 2026-10-05).
  */
 function mitadDe(n: NivelesDelSuelo, s: SueloPintado): SueloPintado {
+  const hecha = n.menores.find((m) => m.de === s);
+  if (hecha !== undefined) return hecha.mitad;
   const ancho = 'naturalWidth' in s.lienzo ? s.lienzo.naturalWidth : s.lienzo.width;
   const alto = 'naturalHeight' in s.lienzo ? s.lienzo.naturalHeight : s.lienzo.height;
   const { lienzo, c } = lienzoCon(
@@ -742,7 +833,7 @@ function mitadDe(n: NivelesDelSuelo, s: SueloPintado): SueloPintado {
   c.imageSmoothingQuality = 'low';
   c.drawImage(s.lienzo, 0, 0, lienzo.width, lienzo.height);
   const mitad = { lienzo, px: s.px / 2 };
-  n.menores.push(mitad);
+  n.menores.push({ de: s, mitad });
   return mitad;
 }
 
