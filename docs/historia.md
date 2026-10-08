@@ -2974,6 +2974,38 @@ enfrentadas; la crítica lo reencuadró, medido:
   inválidos y 0 Y. Sigue 1 de 4000 en 24×24 que no sale en 30 redes (3071),
   que es lo de antes.
 
+## La fuerza del héroe, medida (#182, 08-10-2026)
+
+- **La sospecha**: con lado 44, la s191 no terminaba, y en ella un héroe sin
+  tropa (fuerza 1360) ganaba a uno con seis individuos (2410). Se leyó como
+  «`fuerzaDe` infravalora el cuerpo de un héroe muy subido».
+- **Medido, no lo hace.** `tools/qa/calibrar-fuerza.ts` saca fotos de héroes y
+  grupos de partidas reales (lados 34, 44, 56), las hace pelear con
+  `autoResolve` cambiando quién ataca y ajusta una logística sobre
+  ln(F_A/F_B) para cada peso del cuerpo. Héroe contra héroe, el mínimo de la
+  log-pérdida está en 0,6 (0,3194 frente a 0,3267 con 1; acierto 86,0 % y
+  86,1 %). Héroe contra grupo, en 0,75 (0,4685 frente a 0,4693), y bajarlo hace
+  que el grupo embosque y pierda más (28,7 % con 0,5 frente a 22,9 % con 1). El
+  héroe de nivel ≥ 10 sin tropa gana el 61 % y se le da por favorito en el 75 %:
+  ligeramente **sobre**valorado, no infravalorado. Se queda el peso 1
+  (`PESO_DEL_CUERPO`), que no cambia ni una partida (banco igual).
+- **Un peso de 0,5 se probó entero** y no se quedó: 0 sin terminar en 25 000
+  partidas de lados 24-56 (frente a 1), cuantiles parecidos, pero mueve del 70 al 83 %
+  de las partidas, rompe 19 tests (con el héroe a la mitad, los grupos emboscan
+  al de salida y ninguna de 200 semillas abre el día 1 una batalla contra un
+  monstruo) y empeora `ventajaClara` contra grupos. Una partida de 25 000 no
+  distingue un arreglo de barajar.
+- **Lo que de verdad no termina** (s285 con lado 44 tras #166; la s191 ya
+  acaba): desgaste por tempo, no estimación. Los dos héroes, de nivel 15-17 y
+  con 300 000 de oro cada jugador, se vencen casi a diario; el que pierde **se
+  rinde** (300 de oro), vuelve a la base, recoge la guarnición y recluta seis
+  en el acto, y al día siguiente gana al vencedor, que llega con cuatro o cinco.
+  `fuerzaDe` acierta esas batallas. Va para otra issue.
+- La sobrevaloración del héroe contra grupo tiene la otra cara: con el margen
+  de 1,6, un grupo que embosca pierde el 23 % de las veces (`sesgo` 0,72 de la
+  logística: a igual fuerza, el héroe gana ~67 %). Es del margen o de
+  `poderDe`, no del peso del cuerpo.
+
 ## Decisiones tomadas
 
 - **MCP antes que API key.** El usuario tiene Claude Max: el agente entra por

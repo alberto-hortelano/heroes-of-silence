@@ -29,15 +29,37 @@ export function armyPower(army: Army, characters: Personajes): number {
 }
 
 /**
+ * Cuánto pesa el cuerpo del héroe en `fuerzaDe`, al lado de su tropa.
+ *
+ * **Medido** (`tools/qa/calibrar-fuerza.ts`, #182, 08-10-2026): fotos de
+ * héroes y grupos de partidas reales de lado 34, 44 y 56, peleadas con
+ * `autoResolve` cambiando quién ataca, y una logística sobre ln(F_A/F_B) para
+ * cada peso. Con 2 000 parejas de cada clase:
+ *
+ * - héroe contra héroe: log-pérdida 0,3267 con 1 y 0,3194 con 0,6, el mínimo;
+ *   el acierto, 86,1 % y 86,0 %. Nada que pague mover todas las partidas.
+ * - héroe contra grupo: el mínimo está en 0,75 (0,4685 frente a 0,4693), y
+ *   bajar el peso empeora lo que mira `ventajaClara`: con 0,5 el grupo que
+ *   embosca con margen pierde el 28,7 % de las veces; con 1, el 22,9 %.
+ * - el héroe de nivel ≥ 10 sin tropa, el caso que abrió #182: gana el 61 % y
+ *   con 1 se le da por el más fuerte en el 75 %. **No está infravalorado**; la
+ *   batalla suelta que lo sugería era una de las que pierde el favorito.
+ *
+ * Se queda en 1: es el único peso cerca del mínimo en las dos clases, y el
+ * que no cambia el juego. `test/ia-fuerza.test.ts` lo clava.
+ */
+export const PESO_DEL_CUERPO = 1;
+
+/**
  * La fuerza de un héroe con su tropa: lo que pesa su ejército **más su propio
- * cuerpo**, que desde la fase 1b pelea en el tablero.
+ * cuerpo**, que desde la fase 1b pelea en el tablero, a `PESO_DEL_CUERPO`.
  *
  * Es la única fuerza de héroe que mira la IA, y existe para que lo sea: sin el
  * cuerpo, un héroe recién vuelto a su base con el ejército vacío valía 0, no
  * perseguía a nadie y no atacaba nada — y la partida podía no acabar.
  */
 export function fuerzaDe(hero: Hero, characters: Personajes): number {
-  return armyPower(hero.army, characters) + unitPower(heroUnit(hero));
+  return armyPower(hero.army, characters) + PESO_DEL_CUERPO * unitPower(heroUnit(hero));
 }
 
 /**
