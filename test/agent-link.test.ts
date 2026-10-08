@@ -1,9 +1,11 @@
 import { once } from 'node:events';
+import { readFileSync } from 'node:fs';
 import type { AddressInfo } from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
 import { playAiTurn } from '../src/core/ai/turn.js';
 import { activeStack, applyAction, legalActions } from '../src/core/battle/battle.js';
+import type { BattleState } from '../src/core/battle/types.js';
 import { creature } from '../src/core/data.js';
 import { type Hero, heroUnit } from '../src/core/hero/hero.js';
 import {
@@ -254,6 +256,38 @@ function rivalContraMonstruo(state: GameState, ctx: GameContext): void {
   applyAdventureAction(state, { type: 'move_hero', hero: rival.id, to: monstruo.at }, ctx, 0);
 }
 
+/**
+ * La batalla que defiende el agente, empezada sin pasar por `playTurn`: el
+ * rival de `rivalAlAtaque` se mueve encima del héroe del agente y queda la
+ * batalla pendiente, con el turno de quien toque. Devuelve los dos héroes y la
+ * batalla; lanza si el movimiento no la abre, que es un montaje roto y no un
+ * resultado.
+ *
+ * **El punto ciego, elegido una vez** (#110): era la mitad de abajo de ocho
+ * copias del mismo bloque, y todas compartían lo que este montaje no varía.
+ * Es siempre héroe contra héroe, con el jugador 0 atacando y el 1 —el del
+ * agente— defendiendo, en la casilla del héroe del agente; ni castillo, ni
+ * asaltantes, ni el agente atacando. Una prueba que necesite otra forma tiene
+ * su montaje (`rivalContraMonstruo`, `rivalAlCastillo`). La semilla la pone
+ * quien llama, y cada prueba la suya: el guardia del final de este fichero no
+ * deja escribir la misma dos veces.
+ */
+function batallaEnCurso(
+  state: GameState,
+  ctx: GameContext,
+): { mio: Hero; rival: Hero; batalla: BattleState } {
+  const mio = rivalAlAtaque(state);
+  const rival = state.heroes.find((h) => h.owner === 0) as Hero;
+  applyAdventureAction(state, { type: 'move_hero', hero: rival.id, to: mio.at }, ctx, rival.owner);
+  const pendiente = state.pendingBattle;
+  if (pendiente === null) {
+    throw new Error(
+      `el rival ${rival.id} no abrió batalla al pisar a ${mio.id} en (${mio.at.x},${mio.at.y})`,
+    );
+  }
+  return { mio, rival, batalla: pendiente.battle };
+}
+
 /** Lo mismo, pero contra un castillo del agente. Sin murallas: eso es #7. */
 function rivalAlCastillo(state: GameState): Town {
   const pueblo = state.towns.find((t) => t.owner === 1) as Town;
@@ -328,7 +362,7 @@ describe('enlace con el agente', () => {
         ],
       };
     });
-    const director = new Director(link, { seed: 101, agentPlayers: [0] });
+    const director = new Director(link, { seed: 107, agentPlayers: [0] });
     const base = director.state.towns.find((t) => t.owner === 0)!;
     const hero = director.state.heroes.find((h) => h.owner === 0)!;
     hero.at = base.at;
@@ -571,7 +605,7 @@ describe('el agente se rinde (fase 1b)', () => {
       return {};
     });
 
-    const director = new Director(link, { seed: 106, agentPlayers: [0] });
+    const director = new Director(link, { seed: 108, agentPlayers: [0] });
     revealEverything(director.state, 0);
     // Vacía: de camino al monstruo el héroe pasa por casa, y con la guarnición
     // de salida dentro se la llevaría y el precio ya no sería el de dos arqueros.
@@ -633,7 +667,7 @@ describe('el agente se rinde (fase 1b)', () => {
       return {};
     });
 
-    const director = new Director(link, { seed: 106, agentPlayers: [0] });
+    const director = new Director(link, { seed: 109, agentPlayers: [0] });
     revealEverything(director.state, 0);
     sinAsaltantes(director.state);
     sinRecogidas(director.state);
@@ -930,15 +964,7 @@ describe('una consulta solo habla de los jugadores que lleva el agente', () => {
   it('battle_state del rival tampoco: su maná y su libro no salen', async () => {
     const { link } = await montar(() => ({ actions: [] }));
     const director = new Director(link, { seed: 403, agentPlayers: [1] });
-    const mio = rivalAlAtaque(director.state);
-    const rival = director.state.heroes.find((h) => h.owner === 0) as Hero;
-    applyAdventureAction(
-      director.state,
-      { type: 'move_hero', hero: rival.id, to: mio.at },
-      director.ctx,
-      rival.owner,
-    );
-    expect(director.state.pendingBattle).not.toBeNull();
+    const { mio } = batallaEnCurso(director.state, director.ctx);
 
     // La vista del atacante trae `hero`: nombre, maná y hechizos del héroe
     // rival. Preguntar por él era leerle el libro.
@@ -958,18 +984,8 @@ describe('una consulta solo habla de los jugadores que lleva el agente', () => {
     // `legalActions` es la del stack activo sea de quien sea, así que ahí
     // desaparece — y hasta ahora desaparecía en silencio.
     const { link } = await montar(() => ({ actions: [] }));
-    const director = new Director(link, { seed: 403, agentPlayers: [1] });
-    const mio = rivalAlAtaque(director.state);
-    const rival = director.state.heroes.find((h) => h.owner === 0) as Hero;
-    applyAdventureAction(
-      director.state,
-      { type: 'move_hero', hero: rival.id, to: mio.at },
-      director.ctx,
-      rival.owner,
-    );
-    const pendiente = director.state.pendingBattle;
-    if (pendiente === null) throw new Error('hacía falta una batalla del agente');
-    const batalla = pendiente.battle;
+    const director = new Director(link, { seed: 412, agentPlayers: [1] });
+    const { batalla } = batallaEnCurso(director.state, director.ctx);
 
     // Los DOS casos salen de la misma batalla y sin fabricar estado: se juega
     // `defend`, que consume el turno y pasa al siguiente, hasta haber visto una
@@ -1009,18 +1025,8 @@ describe('una consulta solo habla de los jugadores que lleva el agente', () => {
     // ya no deriva el motivo: lo lee de `legalActionsOmitted`, así que aquí se
     // mira que cada código salga con su redacción y no con la de otro.
     const { link } = await montar(() => ({ actions: [] }));
-    const director = new Director(link, { seed: 404, agentPlayers: [1] });
-    const mio = rivalAlAtaque(director.state);
-    const rival = director.state.heroes.find((h) => h.owner === 0) as Hero;
-    applyAdventureAction(
-      director.state,
-      { type: 'move_hero', hero: rival.id, to: mio.at },
-      director.ctx,
-      rival.owner,
-    );
-    const pendiente = director.state.pendingBattle;
-    if (pendiente === null) throw new Error('hacía falta una batalla del agente');
-    const batalla = pendiente.battle;
+    const director = new Director(link, { seed: 413, agentPlayers: [1] });
+    const { rival, batalla } = batallaEnCurso(director.state, director.ctx);
 
     // Los dos bandos de un jugador. **Ninguna partida lo produce**: la consulta
     // pregunta por UN jugador, y un jugador no se ataca a sí mismo, así que
@@ -1307,7 +1313,7 @@ describe('el agente pregunta antes de que exista la partida', () => {
     // Y en cuanto la partida existe, la misma consulta contesta: el rechazo era
     // del momento y no de la tool. Sin esto, un guardia que se quedara pegado
     // pasaría este test igual de verde.
-    director = new Director(link, { seed: 410, agentPlayers: [1] });
+    director = new Director(link, { seed: 414, agentPlayers: [1] });
     const despues = await agent.pregunta('game_state', {});
     expect(despues.ok).toBe(true);
     expect((despues.data as any).you.player).toBe(1);
@@ -1625,7 +1631,7 @@ describe('el agente sabe cómo le fue', () => {
       return { action: payload.legalActions[0] };
     });
 
-    const director = new Director(link, { seed: 303, agentPlayers: [1] });
+    const director = new Director(link, { seed: 309, agentPlayers: [1] });
     const mio = rivalAlAtaque(director.state);
     // Un campeón (7 hexes) contra los 40 paladines del rival (alcance 5+1): en
     // la ronda 1 mueve primero, no llega a nadie, y avanzar lo dejaría a tiro
@@ -1781,7 +1787,7 @@ describe('el agente sabe cómo le fue', () => {
       return { action: { type: 'attack', target: 'no-existe' } };
     });
 
-    const director = new Director(link, { seed: 303, agentPlayers: [1] });
+    const director = new Director(link, { seed: 310, agentPlayers: [1] });
     const mio = rivalAlAtaque(director.state);
     // Un campeón (7 hexes) contra los 40 paladines del rival (alcance 5+1). Es
     // el más rápido, así que abre la ronda: no llega a nadie desde su borde, y
@@ -1895,7 +1901,7 @@ describe('el agente sabe cómo le fue', () => {
 
   it('una respuesta que no valida se le explica, con nota además de problemas', async () => {
     const { link, agent } = await montar(() => ({ actions: [{ type: 'invocar_dragón' }] }));
-    const director = new Director(link, { seed: 306, agentPlayers: [0] });
+    const director = new Director(link, { seed: 311, agentPlayers: [0] });
 
     await director.playTurn();
     await respira();
@@ -2131,7 +2137,7 @@ describe('la tropa se hace héroe, por el cable', () => {
   it('sin tope lleno el turno no trae el aviso de veteranos esperando', async () => {
     const { link, agent } = await montar(narrador(bueno));
     const director = new Director(link, {
-      seed: 505,
+      seed: 506,
       agentPlayers: [0],
       preparar: (s) => {
         ponVeteranoEnLaBase(s, 0);
@@ -2168,5 +2174,25 @@ describe('identidad de la partida (#118)', () => {
     expect(a1).toBe(a.partida);
     expect(a2).toBe(a1);
     expect(b1).not.toBe(a1);
+  });
+});
+
+describe('las fixturas de este fichero', () => {
+  it('ninguna semilla escrita a mano se comparte entre dos pruebas (#110)', () => {
+    // Dos pruebas con la misma semilla miden la misma partida sin que nada lo
+    // diga: el día que una ajusta su semilla porque el mapa cambió, la otra
+    // pasa a medir otra cosa —o deja de medir— y nadie lo ve. Pasaba con la 403
+    // (dos copias de la batalla del agente), la 106 (tres), la 303 (tres) y
+    // cinco más. Si dos pruebas han de compartir partida, que sea con una
+    // constante con nombre que diga por qué; un número suelto, una vez.
+    const fuente = readFileSync(new URL(import.meta.url), 'utf8');
+    const vistas = new Map<string, number>();
+    for (const m of fuente.matchAll(/\bseed: (\d+)\b/g)) {
+      vistas.set(m[1]!, (vistas.get(m[1]!) ?? 0) + 1);
+    }
+    const repetidas = [...vistas].filter(([, n]) => n > 1).map(([s, n]) => `${s}×${n}`);
+    expect(repetidas).toEqual([]);
+    // Y que mire algo: sin esto, un patrón que no casara pasaría por vacío.
+    expect(vistas.size).toBeGreaterThan(30);
   });
 });
