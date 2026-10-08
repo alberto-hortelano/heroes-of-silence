@@ -32,7 +32,7 @@ import {
   serializeKnownMap,
   serializeMapRequest,
 } from '../src/core/contract/serialize.js';
-import { ASALTANTES, creature, EQUIPO } from '../src/core/data.js';
+import { ASALTANTES, allCreatures, creature, EQUIPO } from '../src/core/data.js';
 import { NOMBRE_DE_CALIDAD } from '../src/core/hero/equipo.js';
 import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '../src/core/hero/troop.js';
 import {
@@ -60,6 +60,7 @@ import {
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { mageGuildLevel, townSpells } from '../src/core/town/town.js';
+import { FACTION_IDS } from '../src/core/types.js';
 import { conCaminos, forzarBatalla, forzarTurno, planDeNodos } from './helpers.js';
 
 describe('contrato con el agente', () => {
@@ -1298,11 +1299,42 @@ describe('lo que ve el agente', () => {
   });
 
   it('la petición de mapa describe la paleta disponible', () => {
-    const payload = serializeMapRequest({ width: 24, height: 24, players: [0, 1] }) as {
-      palette: { terrains: string[]; factions: string[] };
-    };
+    const payload = serializeMapRequest({ width: 24, height: 24, players: [0, 1] });
     expect(payload.palette.terrains).toContain('grass');
     expect(payload.palette.factions).toEqual(['knight', 'necromancer']);
+  });
+
+  it('las facciones y las criaturas de guardia de la paleta salen del catálogo, no de una copia (#108)', () => {
+    const { palette } = serializeMapRequest({ width: 24, height: 24, players: [0, 1] });
+    // Las facciones: la misma lista que acepta el esquema del plan.
+    expect(palette.factions).toEqual([...FACTION_IDS]);
+    const ciudad = mapPlanSchema.shape.towns.element.shape.faction;
+    expect(ciudad.options).toEqual([...FACTION_IDS]);
+
+    // Cada criatura de guardia existe, es base —ninguna otra mejora a ella— y
+    // de nivel ≤ 4; y cada facción pone las suyas. Es la regla que la lista
+    // escrita a mano cumplía sin decirlo.
+    const mejoras = new Set(allCreatures().flatMap((c) => c.upgradesTo ?? []));
+    for (const id of palette.creaturesForGuards) {
+      const c = creature(id);
+      expect(mejoras.has(id), `${id} es una mejora`).toBe(false);
+      expect(c.level).toBeLessThanOrEqual(4);
+    }
+    for (const f of FACTION_IDS) {
+      expect(palette.creaturesForGuards.some((id) => creature(id).faction === f)).toBe(true);
+    }
+    // Y lo que el agente recibe no cambia al derivarla: son las ocho de antes,
+    // en el mismo orden.
+    expect(palette.creaturesForGuards).toEqual([
+      'peasant',
+      'archer',
+      'pikeman',
+      'swordsman',
+      'skeleton',
+      'zombie',
+      'mummy',
+      'vampire',
+    ]);
   });
 
   it('la petición de mapa sigue pidiendo ancho y alto, y aconseja las regiones y minas del procedimental (#195)', () => {

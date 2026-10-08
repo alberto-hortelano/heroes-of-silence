@@ -22,7 +22,7 @@ import { NIVEL_MAXIMO_DE_TROPA } from '../hero/experiencia.js';
 import { LADO_MAXIMO_DEL_PLAN, LADO_MINIMO_DEL_PLAN } from '../map/generate.js';
 import { BARRERAS, TERRAIN_KINDS } from '../map/terrain.js';
 import { MAX_HEROES_PER_PLAYER } from '../state/game.js';
-import { HUECOS } from '../types.js';
+import { FACTION_IDS, HUECOS } from '../types.js';
 import { CATALOGO_DE_EQUIPO_EN_PROSA, COMO_SE_LEE_EL_MAPA } from './serialize.js';
 
 // ---------------------------------------------------------------- respuestas
@@ -273,7 +273,7 @@ export const mapPlanSchema = z.object({
     z.object({
       id: idDeMapa('ciudad'),
       name: nombreDeMapa('una ciudad'),
-      faction: z.enum(['knight', 'necromancer']),
+      faction: z.enum(FACTION_IDS),
       at: pointSchema,
       owner: z.number().int().nullable(),
     }),

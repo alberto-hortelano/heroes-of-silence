@@ -24,7 +24,15 @@ import {
   type OrigenDelStack,
   type Side,
 } from '../battle/types.js';
-import { ASALTANTES, creature, EQUIPO, isShooter, LIDERAZGO, tiposDeHeroe } from '../data.js';
+import {
+  ASALTANTES,
+  creature,
+  EQUIPO,
+  factionLineup,
+  isShooter,
+  LIDERAZGO,
+  tiposDeHeroe,
+} from '../data.js';
 import type { VeteranoEnBase } from '../hero/ascenso.js';
 import { cifrasDePieza, NOMBRE_DE_CALIDAD, PIEZAS_DE_ARMERIA, seVende } from '../hero/equipo.js';
 import {
@@ -70,7 +78,7 @@ import {
   townSpells,
 } from '../town/town.js';
 import type { Army, Equipo, PlayerId } from '../types.js';
-import { describirCoste, HUECOS, RESOURCE_KINDS } from '../types.js';
+import { describirCoste, FACTION_IDS, HUECOS, RESOURCE_KINDS } from '../types.js';
 
 /**
  * El ejército tal como lo lee el agente: agrupado por criatura, con cuántos
@@ -804,6 +812,14 @@ function comoRepartePorRegiones(width: number, height: number): string {
   );
 }
 
+/**
+ * Hasta qué nivel de morada se sugieren criaturas para guardar el mapa
+ * (`palette.creaturesForGuards`). Es la cifra que tenía la lista escrita a mano
+ * cuando se derivó (#108): una sugerencia, no una regla —`validateMapPlan`
+ * acepta cualquier criatura del catálogo—.
+ */
+const NIVEL_MAXIMO_DE_GUARDIA = 4;
+
 export function serializeMapRequest(opts: MapRequestOptions) {
   return {
     kind: 'map_generate',
@@ -821,7 +837,7 @@ export function serializeMapRequest(opts: MapRequestOptions) {
       // que valida `validateMapPlan`, no una copia.
       wallTerrains: [...BARRERAS],
       resources: RESOURCE_KINDS,
-      factions: ['knight', 'necromancer'],
+      factions: [...FACTION_IDS],
       // Lo que un plan puede poner en `raiders`: el techo y los grupos con los
       // que brotan en partida, que valen todos. Sale de los datos y no se
       // copia, igual que el resto de la paleta.
@@ -831,16 +847,15 @@ export function serializeMapRequest(opts: MapRequestOptions) {
         maxStrength: ASALTANTES.fuerzaMax,
         examples: ASALTANTES.composiciones,
       },
-      creaturesForGuards: [
-        'peasant',
-        'archer',
-        'pikeman',
-        'swordsman',
-        'skeleton',
-        'zombie',
-        'mummy',
-        'vampire',
-      ],
+      // Derivada del catálogo y no escrita a mano (#108): las criaturas base
+      // —sin las mejoras— de nivel ≤ `NIVEL_MAXIMO_DE_GUARDIA` de cada facción.
+      // La prosa le dice al agente que use estas tal cual, así que una copia que
+      // se quedara atrás le haría escribir un id que `validateMapPlan` rechaza.
+      creaturesForGuards: FACTION_IDS.flatMap((f) =>
+        factionLineup(f)
+          .filter((c) => c.level <= NIVEL_MAXIMO_DE_GUARDIA)
+          .map((c) => c.id),
+      ),
     },
     advice: [
       'Reparte las minas para que ningún jugador nazca sin madera ni mineral.',

@@ -88,7 +88,13 @@ export const SPEED_TO_MOVE_POINTS: Readonly<Record<SpeedTier, number>> = {
 
 // ---------------------------------------------------------------- criaturas
 
-export type FactionId = 'knight' | 'necromancer';
+/**
+ * Las facciones del juego, una vez (#108). El tipo sale de la lista y no al
+ * revés, para que los esquemas del contrato (`z.enum(FACTION_IDS)`) y la paleta
+ * del mapa la lean en vez de copiarla: eran cuatro copias de lo mismo.
+ */
+export const FACTION_IDS = ['knight', 'necromancer'] as const;
+export type FactionId = (typeof FACTION_IDS)[number];
 
 /**
  * Rasgos especiales de criatura.

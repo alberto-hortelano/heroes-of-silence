@@ -12,6 +12,7 @@ import { COMO_SE_LEE_EL_MAPA } from '@core/contract/serialize.js';
 import { allCreatures, creature, factionLineup } from '@core/data.js';
 import { NIVEL_MAXIMO_DE_TROPA } from '@core/hero/experiencia.js';
 import { allBuildings } from '@core/town/buildings.js';
+import { FACTION_IDS } from '@core/types.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import WebSocket from 'ws';
@@ -496,7 +497,7 @@ server.tool(
   'Ficha de una criatura, o el catálogo entero si no indicas ninguna.',
   {
     creature: z.string().optional().describe('Id de criatura, p. ej. "paladin"'),
-    faction: z.enum(['knight', 'necromancer']).optional().describe('Alineación de una facción'),
+    faction: z.enum(FACTION_IDS).optional().describe('Alineación de una facción'),
   },
   ({ creature: id, faction }) => {
     if (id !== undefined) {

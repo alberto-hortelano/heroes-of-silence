@@ -19,14 +19,29 @@ import type {
   SpeedTier,
   UnitInfo,
 } from './types.js';
-import { HUECOS, RESOURCE_KINDS, SPEED_TIERS } from './types.js';
+import { FACTION_IDS, HUECOS, RESOURCE_KINDS, SPEED_TIERS } from './types.js';
 
 const byId = new Map<string, Creature>();
+
+/**
+ * La facción de una criatura del catálogo, comprobada contra `FACTION_IDS` en
+ * vez de casteada: con el `as`, una facción mal escrita en el JSON entraba al
+ * juego y salía por el contrato como un valor que el esquema del plan rechaza.
+ */
+function faccionDelCatalogo(id: string, faccion: string): FactionId {
+  const valida = FACTION_IDS.find((f) => f === faccion);
+  if (valida === undefined) {
+    throw new Error(
+      `data/creatures.json: la criatura "${id}" es de la facción "${faccion}", que no es ninguna de las del juego (${FACTION_IDS.join(', ')})`,
+    );
+  }
+  return valida;
+}
 
 for (const raw of creaturesJson.creatures) {
   const creature: Creature = {
     id: raw.id,
-    faction: raw.faction as FactionId,
+    faction: faccionDelCatalogo(raw.id, raw.faction),
     level: raw.level,
     leadership: raw.leadership,
     name: raw.name,
