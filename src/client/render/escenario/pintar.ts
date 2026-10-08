@@ -41,6 +41,7 @@ import { columnasDeCara } from './caras.js';
 import type { Escena, Luz, Sprite } from './colocar.js';
 import {
   aguasDeLaEscena,
+  labioDeLasEspaldas,
   type Mascara,
   nivelPintado,
   PX_DEL_ESCALON,
@@ -193,6 +194,18 @@ const VIVEZA: Readonly<Record<string, string>> = {
 const FILTRO_DEL_AGUA = 'saturate(1.6) brightness(1.8)';
 const HONDO_DEL_AGUA = 'rgba(10,35,70,0.22)';
 const ESPUMA = 'rgba(225,235,235,0.5)';
+/** Lo que oscurece lo bajo (`tonoDeNivel`): casi negro, con un punto frío. */
+const COLOR_DE_LO_BAJO = 'rgb(12,16,22)';
+/**
+ * Lo que aclara lo alto, en `soft-light`: blanco cálido de sol. Aclara más lo
+ * oscuro que lo claro (la lava a 2 de s13 sube casi el doble que la nieve) y
+ * no quema los blancos: la nieve no se queda sin textura. Con `screen` lo alto
+ * salía lavado, como en niebla, y con `color-dodge` la nieve se quemaba antes
+ * de que la lava se notara.
+ */
+const COLOR_DE_LO_ALTO = 'rgb(255,236,198)';
+/** El labio de la espalda, en `screen`: la luz del sol en un canto (`labioDeLasEspaldas`). */
+const COLOR_DEL_LABIO = 'rgb(255,240,210)';
 
 const COLOR_DE_LUZ: Readonly<Record<Luz['clase'], readonly [number, number, number, number]>> = {
   fuego: [255, 170, 80, 0.22],
@@ -425,6 +438,25 @@ export function pintarSuelo(
     gg.drawImage(chico, 0, 0, e.W * T, e.H * T);
     return grande;
   };
+  /**
+   * Una máscara del escalón rellena de `color` y copiada sobre el suelo con
+   * `modo`, ampliada al copiarla. Se tiñe a su tamaño (16 px por casilla) y no
+   * ampliada: el color es uno, así que da lo mismo, y no hace falta un lienzo
+   * del tamaño del mapa por máscara (66 MB a 120 px en un 34×34).
+   */
+  const encima = (m: Mascara, color: string, modo: GlobalCompositeOperation) => {
+    const { lienzo: chico, c: g } = lienzoCon(m.ancho, m.alto, nuevo);
+    const d = g.createImageData(m.ancho, m.alto);
+    for (let p = 0; p < m.alfa.length; p++) d.data[p * 4 + 3] = m.alfa[p] as number;
+    g.putImageData(d, 0, 0);
+    teñida(chico, color);
+    c.save();
+    c.globalCompositeOperation = modo;
+    c.imageSmoothingEnabled = true;
+    c.imageSmoothingQuality = 'medium';
+    c.drawImage(chico, 0, 0, e.W * T, e.H * T);
+    c.restore();
+  };
   /** `capa`, una máscara, rellena de `color` donde tiene alfa. */
   const teñida = (capa: Lienzo, color: string): Lienzo => {
     const g = contexto(capa);
@@ -627,13 +659,18 @@ export function pintarSuelo(
       g.fillRect(0, 0, fr.ancho, fr.alto);
       gp.drawImage(chico, 0, 0);
     });
-    // 2 · El tono de cada nivel: lo bajo algo más oscuro, lo alto algo más
-    //     claro, con el borde en el lado de casilla, donde va la pared (#211).
+    // 2 · El tono de cada nivel: lo bajo más oscuro, lo alto más claro, con
+    //     el borde en el lado de casilla, donde va la pared (#211, #217). La
+    //     luz, en `soft-light` (`COLOR_DE_LO_ALTO`).
     const tono = escalon('tono', () => tonoDeLosNiveles(delSuelo()));
-    c.drawImage(teñida(ampliada(tono.sombra), 'rgb(12,16,14)'), 0, 0);
-    c.globalCompositeOperation = 'screen';
-    c.drawImage(teñida(ampliada(tono.luz), 'rgb(255,244,222)'), 0, 0);
-    c.globalCompositeOperation = 'source-over';
+    encima(tono.sombra, COLOR_DE_LO_BAJO, 'source-over');
+    encima(tono.luz, COLOR_DE_LO_ALTO, 'soft-light');
+    // 2a · El labio de cada espalda: el canto de lo alto que cae al norte (#217).
+    encima(
+      escalon('labio', () => labioDeLasEspaldas(delSuelo())),
+      COLOR_DEL_LABIO,
+      'screen',
+    );
     // 2b · El arcén: el pasillo despejado, con el color de su suelo encima y el
     //      borde difuminado, para que lo despejado no se lea como un claro.
     c.globalAlpha = ALFA_DEL_ARCEN;
@@ -685,13 +722,10 @@ export function pintarSuelo(
     //     y al oeste y la franja de la espalda (#212) eran tres reglas para lo
     //     mismo, y la del oeste caía del lado de la luz. Por donde baja una
     //     rampa no: ahí se baja.
-    c.drawImage(
-      teñida(
-        ampliada(escalon('sombra', () => sombraAlPie(e, delSuelo(), sinSombraEnLasRampas(e)))),
-        colorDeSombra(),
-      ),
-      0,
-      0,
+    encima(
+      escalon('sombra', () => sombraAlPie(e, delSuelo(), sinSombraEnLasRampas(e))),
+      colorDeSombra(),
+      'source-over',
     );
     // 6 · Las sombras al pie de lo que tiene volumen: también de los volúmenes,
     //     que se pintan después, cada uno encima de la suya.

@@ -66,6 +66,22 @@ export function sueloDeLaMeseta(
 }
 
 /**
+ * El suelo que se pinta en cada casilla (`Escena.suelo`, #217): el suyo en lo
+ * que se pisa y, en una barrera, el de su meseta (`sueloDeLaMeseta`). Con el
+ * más cercano de cualquier nivel (`Analisis.suelo`), 2 833 casillas de barrera
+ * de 1-40 pintaban a la altura de arriba el suelo del lado bajo: picos nevados
+ * sobre la tierra oscura de abajo en s24, y el tono de lo alto aclarando un
+ * suelo que no era el de la meseta.
+ */
+export function sueloQueSePinta(
+  terreno: readonly TerrainKind[],
+  suelo: readonly Suelo[],
+  meseta: readonly Suelo[],
+): Suelo[] {
+  return suelo.map((s, i) => (esBarrera(terreno[i] as TerrainKind) ? (meseta[i] as Suelo) : s));
+}
+
+/**
  * El material de la roca de cada casilla (`CARA_DE_SUELO`): el de su suelo
  * (en la escena, el de su meseta, `sueloDeLaMeseta`), salvo en lo alto de un acantilado, que es el de la cara que se ve de su
  * franja. Una franja de acantilado cruza suelos (la hierba de arriba y la arena

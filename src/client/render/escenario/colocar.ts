@@ -23,6 +23,7 @@ import {
   materialDeLaCima,
   paredesTapadasPorLaMasa,
   sueloDeLaMeseta,
+  sueloQueSePinta,
 } from './bordes.js';
 import {
   altoDeLaSilueta,
@@ -211,6 +212,7 @@ export interface Escena {
   readonly semilla: number;
   readonly W: number;
   readonly H: number;
+  /** El suelo que se pinta en cada casilla: en una barrera, el de su meseta (`sueloQueSePinta`, #217). */
   readonly suelo: readonly Suelo[];
   readonly nivel: readonly number[];
   readonly agua: readonly number[];
@@ -2920,7 +2922,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     semilla,
     W,
     H,
-    suelo: a.suelo,
+    suelo: sueloQueSePinta(a.terreno, a.suelo, meseta),
     nivel: Array.from(nivel),
     agua,
     relieve: {

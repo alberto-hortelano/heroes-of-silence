@@ -4,7 +4,11 @@
  * informe en `window.__informe`. Es lo mismo que haría el juego, más la medida.
  */
 import type { Escena } from '../../../src/client/render/escenario/colocar.js';
-import { aguaEnLoAlto, sendaSobreElAgua } from '../../../src/client/render/escenario/escalon.js';
+import {
+  aguaEnLoAlto,
+  espaldasSinLabio,
+  sendaSobreElAgua,
+} from '../../../src/client/render/escenario/escalon.js';
 import {
   imagenesDeEscena,
   MARGEN,
@@ -66,6 +70,7 @@ void Promise.all(carga).then(() => {
     // Lo del escalón (#211) se mide aquí y no en `componer`: son máscaras a 16 px
     // por casilla, que el juego pinta en el Worker y no tiene por qué medir.
     aguaEnLoAlto: aguaEnLoAlto(E),
+    espaldasSinLabio: espaldasSinLabio(E).length,
     sendaSobreElAgua: sendaSobreElAgua(E),
     ...E.informe,
   };

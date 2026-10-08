@@ -17,10 +17,12 @@
  *   una casilla las dos orillas se comían la casilla entera, la pared quedaba
  *   flotando en el agua y el camino de s2 (25, 10-12) corría por encima del agua
  *   (auditoría 5, defecto 2).
- * - **Un tono por nivel** (`tonoDeLosNiveles`): lo bajo algo más oscuro y lo alto
- *   algo más claro, de borde neto por el nivel pintado, que es donde va la pared.
+ * - **Un tono por nivel** (`tonoDeLosNiveles`): lo bajo más oscuro y lo alto más
+ *   claro, de borde neto por el nivel pintado, que es donde va la pared.
  *   Antes era una sombra por nivel desenfocada casilla y media, y el escalón no
- *   se leía (defecto 4).
+ *   se leía (defecto 4); y luego, sutil, tampoco (auditoría 6, #217).
+ * - **El labio de la espalda** (`labioDeLasEspaldas`, #217): una luz fina en lo
+ *   alto a lo largo de cada caída hacia el norte, donde no hay cara a la vista.
  * - **La sombra al pie** (`sombraAlPie`): una franja sobre lo bajo al pie de cada
  *   caída, más larga hacia donde cae la sombra de la luz del contrato visual
  *   (`ARTE.luz`): al este y al norte, donde la meseta no tiene cara a la vista.
@@ -521,35 +523,143 @@ function* muestras(s: Senda, paso: number): Generator<readonly [number, number]>
 
 /**
  * El tono de cada nivel: cuánto negro (`sombra`) o cuánta luz (`luz`) lleva lo
- * que se pisa a ese nivel, en alfa 0-1. Sutil: tiene que leerse el escalón sin
- * que el mapa parezca pasado por un filtro. El nivel 1 —el de casa— va sin
- * tocar; el agua (−1) va debajo de su propia máscara.
+ * que se pisa a ese nivel, en alfa 0-1. La sombra se pinta encima; la luz, en
+ * `soft-light`, que aclara sin lavar ni quemar: la textura sigue con su
+ * contraste, sin la niebla de `screen`. El nivel 1 —el de casa, la mayor parte
+ * del mapa— va casi sin tocar; el agua (−1) va debajo de su propia máscara.
+ *
+ * El escalón entre 1 y 2 es lo que tiene que leerse sin cara (#217): con un 6 %
+ * de sombra contra un 8 % de luz, la lava a 2 de s13 y la nieve a 2 de s2 eran
+ * iguales que a 1 (auditoría 6, defecto 4). Ahora es unas 2,5 veces más.
  */
 export function tonoDeNivel(n: number): { readonly sombra: number; readonly luz: number } {
-  if (n < 0) return { sombra: 0.22, luz: 0 };
-  if (n === 0) return { sombra: 0.17, luz: 0 };
-  if (n === 1) return { sombra: 0.06, luz: 0 };
-  return { sombra: 0, luz: n === 2 ? 0.08 : 0.11 };
+  if (n < 0) return { sombra: 0.3, luz: 0 };
+  if (n === 0) return { sombra: 0.24, luz: 0 };
+  if (n === 1) return { sombra: 0.1, luz: 0 };
+  return { sombra: 0, luz: n === 2 ? 0.85 : 1 };
+}
+
+/**
+ * Lo que se suaviza el borde del tono y del labio, en casillas: el nivel
+ * pintado va a `PX_DEL_ESCALON` y, con el tono marcado de #217, sus escalones
+ * de un píxel se veían como dientes de sierra a lo largo de la orilla, aun
+ * ampliados con suavizado.
+ */
+const SUAVE_DEL_TONO = 0.05;
+
+/** `alfa` (0-255) desenfocado `SUAVE_DEL_TONO` casillas. */
+function suavizado(alfa: Float32Array, ancho: number, alto: number, R: number): Mascara {
+  const v = desenfocar(alfa, ancho, alto, SUAVE_DEL_TONO * R);
+  const fuera = new Uint8ClampedArray(ancho * alto);
+  for (let p = 0; p < v.length; p++) fuera[p] = Math.round(v[p] as number);
+  return { ancho, alto, R, alfa: fuera };
 }
 
 /**
  * El tono de los niveles: dos alfas, el de la sombra y el de la luz, por el
- * nivel pintado de cada punto. Ampliados con suavizado, el cambio de tono va
- * por la orilla de lo alto, sin escalera.
+ * nivel pintado de cada punto, con el borde apenas suavizado
+ * (`SUAVE_DEL_TONO`). Ampliados con suavizado, el cambio de tono va por la
+ * orilla de lo alto, sin escalera.
  */
 export function tonoDeLosNiveles(np: NivelPintado): {
   readonly sombra: Mascara;
   readonly luz: Mascara;
 } {
   const { ancho, alto, R } = np;
-  const sombra = new Uint8ClampedArray(ancho * alto);
-  const luz = new Uint8ClampedArray(ancho * alto);
+  const sombra = new Float32Array(ancho * alto);
+  const luz = new Float32Array(ancho * alto);
   for (let p = 0; p < np.nivel.length; p++) {
     const t = tonoDeNivel(np.nivel[p] as number);
-    sombra[p] = Math.round(255 * t.sombra);
-    luz[p] = Math.round(255 * t.luz);
+    sombra[p] = 255 * t.sombra;
+    luz[p] = 255 * t.luz;
   }
-  return { sombra: { ancho, alto, R, alfa: sombra }, luz: { ancho, alto, R, alfa: luz } };
+  return { sombra: suavizado(sombra, ancho, alto, R), luz: suavizado(luz, ancho, alto, R) };
+}
+
+/**
+ * El labio de la espalda (#217): el canto iluminado de lo alto donde cae hacia
+ * el norte, la caída que la cámara no ve de frente. `ancho` es lo que entra en
+ * lo alto desde el filo, en casillas; `luz`, su alfa en el filo antes de
+ * suavizarlo (`SUAVE_DEL_TONO`), que lo deja en ~0,55 de eso. Sin él, de la
+ * nieve a la lava de s9 (27-33, 11) solo había un difuminado.
+ */
+export const LABIO = { ancho: 0.16, luz: 0.7 } as const;
+
+/**
+ * El labio de cada espalda, a `R` por casilla: en cada punto de lo alto cuyo
+ * norte, a menos de `LABIO.ancho`, baja de nivel (por el nivel pintado, así que
+ * sigue la misma orilla con ruido que el tono y el agua), una luz que se funde
+ * desde el filo hacia dentro. Se busca solo hacia el norte, columna a columna:
+ * al este y al oeste van las laderas y al sur la cara, que ya dicen el borde.
+ * Si antes de bajar sube, no es un filo: es el pie de otra cosa.
+ */
+export function labioDeLasEspaldas(np: NivelPintado): Mascara {
+  const { ancho, alto, R, nivel } = np;
+  const alfa = new Float32Array(ancho * alto);
+  const hasta = Math.ceil(LABIO.ancho * R);
+  for (let py = 1; py < alto; py++)
+    for (let px = 0; px < ancho; px++) {
+      const p = py * ancho + px;
+      const n = nivel[p] as number;
+      for (let d = 1; d <= hasta && d <= py; d++) {
+        const q = nivel[p - d * ancho] as number;
+        if (q > n) break;
+        if (q < n) {
+          // Del centro del píxel al filo, en fracción del ancho del labio.
+          const t = Math.min(1, (d - 0.5) / R / LABIO.ancho);
+          alfa[p] = 255 * LABIO.luz * (1 - t * t);
+          break;
+        }
+      }
+    }
+  return suavizado(alfa, ancho, alto, R);
+}
+
+/**
+ * Las espaldas sin labio (`informe.espaldasSinLabio`, #217): casillas de un
+ * reborde (más altas que la de su norte, `Escena.relieve.rebordes`) donde el
+ * labio no llega a la mitad de `LABIO.luz` en ningún punto del filo: en la
+ * casilla del norte, que es por donde lo alto se adelanta (`ORILLA`, y más en
+ * la punta de un entrante estrecho), y hasta el lado, por el medio de su ancho
+ * (las esquinas las decide la vecina). Tiene que ser 0. No
+ * cuenta la que no tiene filo pintado de `FILO_MINIMO` de ancho: una casilla
+ * baja suelta se la comen las orillas de lo alto que la rodean y queda, como
+ * mucho, una punta de unos píxeles (3 de 1 095 rebordes en 1-40).
+ * Con `labio`, se mide esa máscara (para ver que el guardia muerde).
+ */
+const FILO_MINIMO = 0.25;
+
+export function espaldasSinLabio(
+  e: Rejilla & {
+    readonly semilla: number;
+    readonly relieve: { readonly rebordes: readonly (readonly [number, number])[] };
+  },
+  labio?: Mascara,
+): readonly (readonly [number, number])[] {
+  const np = nivelPintado(e);
+  const m = labio ?? labioDeLasEspaldas(np);
+  const { R, ancho } = m;
+  const umbral = (255 * LABIO.luz) / 2;
+  return e.relieve.rebordes.filter(([x, y]) => {
+    const px0 = Math.floor((x + 0.15) * R);
+    const px1 = Math.ceil((x + 0.85) * R) - 1;
+    const alto = e.nivel[y * e.W + x] as number;
+    // Un filo: lo bajo pintado, en alguna fila de la casilla del norte, de
+    // `FILO_MINIMO` casillas de ancho o más seguidas.
+    let filo = false;
+    for (let py = (y - 1) * R; py < y * R && !filo; py++) {
+      let seguidos = 0;
+      for (let px = px0; px <= px1 && !filo; px++) {
+        seguidos = (np.nivel[py * ancho + px] as number) < alto ? seguidos + 1 : 0;
+        filo = seguidos >= FILO_MINIMO * R;
+      }
+    }
+    if (!filo) return false;
+    for (let py = (y - 1) * R; py <= Math.min(m.alto - 1, y * R + 1); py++)
+      for (let px = px0; px <= px1; px++)
+        if ((m.alfa[py * ancho + px] as number) >= umbral) return false;
+    return true;
+  });
 }
 
 /** Lo que oscurece la sombra al pie donde es más honda. */

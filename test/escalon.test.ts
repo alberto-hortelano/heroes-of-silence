@@ -7,6 +7,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   aguaEnLoAlto,
+  espaldasSinLabio,
+  LABIO,
+  labioDeLasEspaldas,
   mascaraDelAgua,
   nivelPintado,
   ORILLA,
@@ -91,6 +94,42 @@ describe('el agua no sube a lo alto', () => {
   });
 });
 
+describe('el labio de la espalda (#217)', () => {
+  // Una meseta a 2 de 4×3 casillas (x 2-5, y 2-4) en medio de lo bajo, a 1.
+  const e = rejilla(8, 7, (x, y) => (x >= 2 && x < 6 && y >= 2 && y < 5 ? 2 : 1));
+  const np = nivelPintado(e);
+  const m = labioDeLasEspaldas(np);
+  const en = (x: number, y: number) =>
+    m.alfa[Math.floor(y * R) * m.ancho + Math.floor(x * R)] as number;
+  /** Lo más que vale el labio en la columna `x`, entre `y0` e `y1`. */
+  const maxEn = (x: number, y0: number, y1: number) => {
+    let v = 0;
+    for (let py = Math.floor(y0 * R); py < y1 * R; py++)
+      v = Math.max(v, m.alfa[py * m.ancho + Math.floor(x * R)] as number);
+    return v;
+  };
+
+  it('corre seguido por todo el filo norte, en lo alto', () => {
+    for (let x = 2.1; x < 5.9; x += 1 / R) {
+      // El filo cae entre lo que lo alto se adelanta y el lado de la casilla.
+      // Suavizado (`SUAVE_DEL_TONO`), el pico del filo queda en ~0,55 de `LABIO.luz`:
+      // la mitad es lo que pide `espaldasSinLabio`.
+      expect(maxEn(x, 2 - ORILLA.mas - 0.1, 2.2)).toBeGreaterThanOrEqual((255 * LABIO.luz) / 2);
+    }
+    // En lo bajo, solo lo que el suavizado derrama al píxel de fuera del filo.
+    for (let p = 0; p < m.alfa.length; p++)
+      if (np.nivel[p] !== 2) expect(m.alfa[p]).toBeLessThan((255 * LABIO.luz) / 2);
+  });
+
+  it('no va al sur, ni al este ni al oeste, ni dentro de la meseta ni en lo llano', () => {
+    expect(maxEn(3.5, 4.5, 5.5)).toBe(0); // la cara al sur
+    expect(en(1.95, 3.5)).toBe(0); // el oeste
+    expect(en(6.05, 3.5)).toBe(0); // el este
+    expect(en(3.5, 3)).toBe(0); // en medio de lo alto
+    expect(maxEn(0.5, 0, 7)).toBe(0); // lo llano
+  });
+});
+
 /** En la orden lenta, 1-40; en `verify`, la 2 (el istmo de la auditoría 5) y la 443. */
 const SEMILLAS = LENTO ? rango(1, 40) : [2, 443];
 
@@ -99,6 +138,28 @@ describe('en los mapas reales', () => {
     it(`semilla ${semilla}: ningún agua ni barro en lo alto`, () => {
       expect(aguaEnLoAlto(partidaDe(semilla).escena)).toBe(0);
     });
+
+  for (const semilla of SEMILLAS)
+    it(`semilla ${semilla}: cada espalda lleva su labio`, () => {
+      expect(espaldasSinLabio(partidaDe(semilla).escena)).toEqual([]);
+    });
+
+  it('la muestra del bucle rápido tiene espaldas que mirar', () => {
+    for (const s of [2, 443])
+      expect(partidaDe(s).escena.relieve.rebordes.length).toBeGreaterThan(0);
+  });
+
+  it('el guardia del labio muerde: sin labio, la s2 tiene espaldas sin él', () => {
+    const e = partidaDe(2).escena;
+    const np = nivelPintado(e);
+    const vacio = {
+      ancho: np.ancho,
+      alto: np.alto,
+      R,
+      alfa: new Uint8ClampedArray(np.nivel.length),
+    };
+    expect(espaldasSinLabio(e, vacio).length).toBeGreaterThan(0);
+  });
 
   it('el guardia muerde: sin el escalón, la s2 tenía agua en lo alto', () => {
     expect(aguaEnLoAlto(partidaDe(2).escena, true)).toBeGreaterThan(0);
@@ -143,6 +204,14 @@ describe('el tono y la sombra del desnivel', () => {
   it('lo alto va más claro que lo bajo, nivel a nivel', () => {
     const brillo = (n: number) => tonoDeNivel(n).luz - tonoDeNivel(n).sombra;
     for (let n = -1; n < 3; n++) expect(brillo(n + 1)).toBeGreaterThan(brillo(n));
+  });
+
+  it('el escalón entre 1 y 2 es al menos el doble del de #211 (6 % de sombra y 8 % de luz), #217', () => {
+    // Decisión del usuario tras la auditoría 6: «2-3 veces más fuerte». La luz
+    // va en `soft-light`, que pesa menos que `screen` alfa a alfa: medido en el
+    // taller, la lava de s13 pasa de ΔL 14,7 a 31,0 y la nieve de s2, de 4,6 a 14,9.
+    const brillo = (n: number) => tonoDeNivel(n).luz - tonoDeNivel(n).sombra;
+    expect(brillo(2) - brillo(1)).toBeGreaterThanOrEqual(2 * (0.08 + 0.06));
   });
 
   // Un bloque a 2 de 2×2 casillas en medio de lo bajo, a 0.

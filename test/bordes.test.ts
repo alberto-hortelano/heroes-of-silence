@@ -23,6 +23,7 @@ import {
   materialDeLaCima,
   paredesTapadasPorLaMasa,
   sueloDeLaMeseta,
+  sueloQueSePinta,
 } from '../src/client/render/escenario/bordes.js';
 import { perfilesDelCatalogo } from '../src/client/render/escenario/caras.js';
 import { caidas, celdas as celdasDe } from '../src/client/render/escenario/celdas.js';
@@ -35,7 +36,7 @@ import {
   type Sprite,
 } from '../src/client/render/escenario/colocar.js';
 import { Obstaculos } from '../src/client/render/escenario/pasillo.js';
-import { isWalkable, type Suelo, type TerrainKind } from '../src/core/map/terrain.js';
+import { esBarrera, isWalkable, type Suelo, type TerrainKind } from '../src/core/map/terrain.js';
 import { catalogoDelDisco, partidaDe, primeraSemillaCon } from './helpers.js';
 import { itLento, rango } from './lento.js';
 
@@ -316,6 +317,37 @@ describe('sueloDeLaMeseta: la barrera alta lleva el suelo de su meseta', () => {
       [1, 1, 1, 0],
     );
     expect(conNodo[1]).toBe('snow');
+  });
+});
+
+/**
+ * El suelo que se pinta en una barrera es el de su meseta (#217): con el más
+ * cercano de cualquier nivel, los picos nevados de s24 (22-29, 9-16) iban
+ * sobre el áspero oscuro de abajo.
+ */
+describe('sueloQueSePinta: la barrera pinta el suelo de su meseta', () => {
+  it('la montaña toma el de su meseta; lo que se pisa, el suyo aunque la meseta diga otro', () => {
+    const terreno: TerrainKind[] = ['grass', 'mountain', 'swamp'];
+    expect(
+      sueloQueSePinta(terreno, ['grass', 'swamp', 'swamp'], ['grass', 'grass', 'dirt']),
+    ).toEqual(['grass', 'grass', 'swamp']);
+  });
+
+  it('semilla 24: cada casilla de barrera de la escena lleva el suelo de su meseta, y antes no', () => {
+    const { map, escena: e } = partidaDe(24);
+    const a = analizar(map);
+    const meseta = sueloDeLaMeseta(a.W, a.H, a.region, a.suelo, e.nivel);
+    let barreras = 0;
+    let distintasAntes = 0;
+    for (let i = 0; i < a.W * a.H; i++) {
+      if (!esBarrera(a.terreno[i] as TerrainKind)) continue;
+      barreras++;
+      expect(e.suelo[i]).toBe(meseta[i]);
+      if (a.suelo[i] !== meseta[i]) distintasAntes++;
+    }
+    expect(barreras).toBeGreaterThan(0);
+    // Que el guardia no mire al vacío: con `Analisis.suelo`, la s24 tenía de las otras.
+    expect(distintasAntes).toBeGreaterThan(0);
   });
 });
 
