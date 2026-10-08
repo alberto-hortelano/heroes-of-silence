@@ -213,9 +213,26 @@ describe('el animador de batalla', () => {
   });
 
   it('el mismo arquero, cuerpo a cuerpo, golpea con su ataque: la daga, no el arco', () => {
-    const { a, quien } = disparo('archer', 'attack');
-    a.tick(10);
-    expect(a.figura(quien).clip).toBe('attack');
+    // #142 (M4 del #136): antes del 04-10-2026 la fila `attack` del arco ERA el
+    // disparo, así que el golpe cuerpo a cuerpo tensaba el arco, el daño caía en
+    // el 0,55 del paso (308 ms) y la cuerda se soltaba a los 400, sin flecha.
+    // Hoy el golpe pinta su propia fila, sin suelta, y nada vuela.
+    const hoja = hojaDe(arteDe('archer'), MIRADA_DE_PRESENTACION);
+    expect(hoja.clips.attack, 'el golpe del arquero es su fila de disparo').not.toBe(
+      hoja.clips.shoot,
+    );
+    expect(hoja.clips.attack.suelta).toBeUndefined();
+    const { a, quien, victima, proyectil, danio } = disparo('archer', 'attack');
+    const impacto = 0.55 * DURACION.attack;
+    for (let t = 1; t < DURACION.attack; t += 20) {
+      a.tick(t);
+      expect(a.figura(quien).clip, `a los ${t} ms`).toBe('attack');
+      expect(proyectil(), `a los ${t} ms vuela algo de un golpe cuerpo a cuerpo`).toBeUndefined();
+      expect(danio(), `a los ${t} ms`).toBe(t >= impacto);
+      expect(a.figura(victima).clip, `a los ${t} ms`).toBe(t >= impacto ? 'hurt' : 'idle');
+    }
+    a.tick(DURACION.attack + 1);
+    expect(a.busy).toBe(false);
   });
 
   it('quien dispara sin clip `shoot` cae al ataque, lo avisa, y el proyectil sale en 0 con el paso de siempre', () => {

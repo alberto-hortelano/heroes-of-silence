@@ -340,6 +340,28 @@ describe('las hojas de assets/unidades se pintan en el tablero', () => {
     expect(jinete.direcciones[0]?.clips.charge.row).toBe(2);
   });
 
+  it('#142: quien dispara golpea cuerpo a cuerpo con otra fila que la del disparo, en sus ocho direcciones', () => {
+    // El golpe de un tirador era su disparo (M4 del #136): tensaba sin flecha y
+    // el daño llegaba antes de soltar. El arte propio y todo Y Bot que dispara.
+    const tiradores = [
+      ...HOJAS.map((h) => registrarUnidad(h.id, h)),
+      ...juegosDelYBot().map((j) => registrarUnidad(`y-bot-${j}`, { juego: j, direcciones: null })),
+    ].filter((arte) => arte.dispara);
+    const nombres = new Set(tiradores.map((a) => a.nombre));
+    for (const j of ['arco', 'ballesta']) expect(nombres, j).toContain(`el Y Bot «${j}»`);
+    expect(nombres).toContain('la unidad imperio-ballestero');
+    for (const arte of tiradores) {
+      for (const [n, d] of arte.direcciones.entries()) {
+        const { attack, shoot } = d.clips;
+        expect(
+          attack.imagen === shoot.imagen && attack.row === shoot.row,
+          `${arte.nombre} d${n} golpea con la fila del disparo`,
+        ).toBe(false);
+        expect(attack.suelta, `${arte.nombre} d${n}`).toBeUndefined();
+      }
+    }
+  });
+
   it('un atlas con una carga rota se rechaza diciéndolo', () => {
     const jinete = HOJAS.find((h) => h.id === 'templario-hermano-de-carga');
     const d0 = jinete?.direcciones?.[0] as { clips: Record<string, unknown> };
