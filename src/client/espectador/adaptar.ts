@@ -19,7 +19,7 @@ import type { BattleStack, BattleState } from '@core/battle/types.js';
 import { cifrasDeCatalogo } from '@core/hero/experiencia.js';
 import { Casillas } from '@core/map/casillas.js';
 import { aPunto, RedDeCaminos, type TramoDeCamino } from '@core/map/map.js';
-import { BARRERAS, type TerrainKind } from '@core/map/terrain.js';
+import { BARRERAS, NIVELES, type TerrainKind } from '@core/map/terrain.js';
 import type { UnitInfo, Veterania } from '@core/types.js';
 import type {
   SpectatorView,
@@ -96,13 +96,28 @@ function nodosDelCable(objetos: SpectatorView['map']['objects']): void {
 }
 
 /**
- * **Lanza** si la vista no se entiende: la red de caminos o un nodo sin su
- * barrera. Por eso se miran antes que el terreno: un fotograma que se rechaza
+ * Que cada región traiga su nivel de altura (#143): el escenógrafo lo pinta y
+ * ya no lo inventa. Un `pnpm partida` arrancado antes la manda sin él.
+ */
+function regionesDelCable(regiones: SpectatorView['map']['regions']): void {
+  for (const r of regiones) {
+    if ((NIVELES as readonly unknown[]).includes(r.nivel)) continue;
+    throw new Error(
+      `la región ${r.id} llega sin su nivel de altura: el servidor habla el formato de antes de #143. ` +
+        'Reinicia `pnpm partida` con el código de ahora',
+    );
+  }
+}
+
+/**
+ * **Lanza** si la vista no se entiende: la red de caminos, un nodo sin su
+ * barrera o una región sin su nivel. Por eso se miran antes que el terreno: un fotograma que se rechaza
  * no debe tocar `terrenoAnterior`.
  */
 export function adaptarEscena(view: SpectatorView): AdventureScene {
   const caminos = redDelCable(view.map);
   nodosDelCable(view.map.objects);
+  regionesDelCable(view.map.regions);
   return {
     map: {
       width: view.map.width,

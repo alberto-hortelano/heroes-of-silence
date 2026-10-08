@@ -89,15 +89,15 @@ beforeAll(() => {
   usarPintorDelSuelo(null);
 });
 
-/** La semilla 3 tiene un cofre en (18, 10) (`generate.ts`; (29, 15) hasta #208, (22, 21) hasta #195); la cámara lo deja en el centro. */
+/** La semilla 3 tiene un cofre en (23, 19) (`generate.ts`; (18, 10) hasta #143, (29, 15) hasta #208, (22, 21) hasta #195); la cámara lo deja en el centro. */
 const state = newGame({ seed: 3 });
-const COFRE = state.map.objects.find((o) => o.kind === 'chest' && o.at.x === 18 && o.at.y === 10);
+const COFRE = state.map.objects.find((o) => o.kind === 'chest' && o.at.x === 23 && o.at.y === 19);
 const TILE = 70;
-const camara = { tile: TILE, x: 18 - 6, y: 10 - 4 };
+const camara = { tile: TILE, x: 23 - 6, y: 19 - 4 };
 
 /** Pinta el mapa con el cofre en el centro y devuelve el registro. */
 function pintar(): Llamada[] {
-  if (COFRE === undefined) throw new Error('la semilla 3 ya no tiene el cofre en (18, 10)');
+  if (COFRE === undefined) throw new Error('la semilla 3 ya no tiene el cofre en (23, 19)');
   const esc = escenarioDe(state.map, state.seed);
   sueloDelMapa(esc, TILE, 1);
   llamadas.length = 0;
@@ -121,7 +121,7 @@ function pintar(): Llamada[] {
 }
 
 /** El centro de la casilla del cofre, en píxeles del lienzo. */
-const centro = () => casillaAPixel(camara, { x: 18, y: 10 });
+const centro = () => casillaAPixel(camara, { x: 23, y: 19 });
 
 /** El ladrillo del marcador, en la casilla del cofre. */
 const marcadores = (registro: readonly Llamada[]) =>

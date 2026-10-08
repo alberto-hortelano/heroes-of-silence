@@ -1,0 +1,12 @@
+{
+  "_comment": "INVENTADO y PROVISIONAL (#143, 08-10-2026). A qué nivel de altura sortea el generador procedimental (src/core/map/generate.ts) cada pareja de regiones en espejo, por su suelo: 0 abajo, 1 el llano, 2 la meseta. Las dos regiones de casa van siempre al 1. Los pesos son los que el escenógrafo usaba para inventar el nivel antes de que fuera un dato del mapa (`nivelDeRegion`, retirado): la ciénaga abajo, la nieve y la lava arriba, lo áspero a medias y el resto casi todo al llano. Sin efecto en las reglas: lo leen el sorteo de barreras —el acantilado solo entre dos niveles distintos, y dos niveles distintos solo por acantilado, montaña o agua (`barrerasDeLaPareja`, vestir.ts)— y el escenógrafo. El cargador (src/core/data.ts) lanza si falta un suelo, si un nivel no es 0, 1 o 2 o si un peso no es un entero > 0.",
+  "nivelPorSuelo": {
+    "grass": { "1": 85, "2": 15 },
+    "dirt": { "1": 85, "2": 15 },
+    "sand": { "1": 85, "2": 15 },
+    "snow": { "2": 1 },
+    "swamp": { "0": 1 },
+    "lava": { "2": 1 },
+    "rough": { "1": 1, "2": 1 }
+  }
+}

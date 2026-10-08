@@ -95,3 +95,21 @@ export function isWalkable(t: TerrainKind): t is Suelo {
 
 /** Los suelos, en el orden de `TERRAIN_KINDS`: lo que puede ser el suelo de una región. */
 export const SUELOS_PISABLES: readonly Suelo[] = TERRAIN_KINDS.filter(isWalkable);
+
+/**
+ * Los niveles de altura de una región (#143): 0 abajo, 1 el llano, 2 la meseta.
+ * Sin efecto en las reglas: lo sortea el generador con los suelos y antes que
+ * las barreras, que dependen de él (el acantilado solo entre dos niveles
+ * distintos), y lo pinta el escenógrafo.
+ */
+export const NIVELES = [0, 1, 2] as const;
+
+export type Nivel = (typeof NIVELES)[number];
+
+/**
+ * Las barreras que pueden separar dos regiones a distinto nivel: las que se
+ * leen como el borde de una meseta. El bosque y el muro, solo entre dos al
+ * mismo nivel; el acantilado, solo entre dos distintos (decisión del usuario,
+ * 08-10-2026).
+ */
+export const BARRERAS_DE_DESNIVEL: readonly Barrera[] = ['cliff', 'mountain', 'water'];

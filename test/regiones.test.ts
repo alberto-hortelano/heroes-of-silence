@@ -367,11 +367,13 @@ describe('el suelo entero de una región', () => {
     expect(t(12, 4)).toBe('grass');
     expect([t(5, 4), t(11, 2), t(11, 6), t(5, 8)]).toEqual(['dirt', 'dirt', 'dirt', 'dirt']);
     expect(t(5, 0)).toBe('mountain');
-    // Y la región no se guarda con su suelo: el mapa solo sabe de la red.
+    // Y la región no se guarda con su suelo: el mapa solo sabe de la red y del
+    // nivel, que un plan sin él pone al llano (#143).
     expect(map.regions.find((r) => r.id === 'b')).toEqual({
       id: 'b',
       name: 'Vega',
       at: { x: 8, y: 7 },
+      nivel: 1,
     });
   });
 
@@ -581,7 +583,10 @@ function puertasMalEntradas(map: GameMap): string[] {
  * una, y cada uno es de otra región (28 en 1-1000, la ciudad tapa el cruce).
  * Y cuando uno de sus brazos va a un nodo que la región del centro solo toca
  * por él: la entrada al nodo es obligada (s850, (12,6), una ciudad entre agua,
- * #188).
+ * #188). Y cuando un brazo no tiene otra forma de ir: sus dos esquinas son
+ * barrera y no hay L que cambiarle, la misma regla con la que el generador lo
+ * cobra (`cerrariaUnAspa`). Con los niveles del mapa (#143), s682 (6,20): una
+ * región en cintura de avispa entre agua, unida en diagonal.
  */
 function aspas(map: GameMap): string[] {
   const { nodos: deLaRed, regionDe } = estructura(map);
@@ -612,7 +617,11 @@ function aspas(map: GameMap): string[] {
     .filter(([c, brazos]) => {
       if (brazos.length !== 4 || nodos.has(c)) return false;
       const centro = pointFromKey(c);
-      return !brazos.some((b) => nodos.has(pointKey(b)) && unicaEntrada(b, centro));
+      const pisable = (x: number, y: number) => isWalkable(map.terrain[y * W + x] as TerrainKind);
+      const obligado = (b: Point) => !pisable(b.x, centro.y) && !pisable(centro.x, b.y);
+      return !brazos.some(
+        (b) => (nodos.has(pointKey(b)) && unicaEntrada(b, centro)) || obligado(b),
+      );
     })
     .map(([c]) => `aspa en (${c}): cuatro sendas en diagonal desde la misma casilla`);
 }
@@ -882,12 +891,21 @@ describe('el generador hace redes como las pidió el usuario', () => {
     // (7,9) y (26,24), s38 (1,15)). Desde #169 el generador elige el paso de
     // cada pareja con eje pleno (`conEjePleno`) y en 1-40 no queda ninguno; en
     // 1-1000, 17 de 12 342 nodos, casi todos junto al borde.
+    // Con los niveles del mapa (#143) los mapas son otros y uno de esos pasos
+    // cae en 1-40 (s18 (13,21)); en 1-1000, 20 de 19 375 nodos (ciudades
+    // incluidas). Se admiten hasta el 1 % de los nodos; lo demás, ninguno.
+    const sinEje: string[] = [];
     for (const s of segunPrisa(rango(1, 3), rango(1, 40))) {
       const { map } = delGenerador(s);
-      fallos.push(...entradasDeNodo(map).map((f) => `semilla ${s}: ${f}`));
+      for (const f of entradasDeNodo(map))
+        (f.endsWith('no tiene dos vecinas opuestas pisables de regiones distintas')
+          ? sinEje
+          : fallos
+        ).push(`semilla ${s}: ${f}`);
       nodos += estructura(map).nodos.length;
     }
     expect(fallos).toEqual([]);
+    expect(sinEje.length, sinEje.join('; ')).toBeLessThanOrEqual(nodos / 100);
     // Que no pase en vacío: 54 nodos (ciudades incluidas) en 1-3, 761 en 1-40
     // (eran 62 y 813 antes de vetar lo de bajo las diagonales: los mapas son otros).
     expect(nodos).toBeGreaterThan(segunPrisa(50, 700));
@@ -922,6 +940,7 @@ describe('el generador hace redes como las pidió el usuario', () => {
           { x: 12, y: 12 },
         ],
         suelos: ['grass', 'grass'],
+        niveles: [1, 1],
         rng: createRng(semilla),
       });
       if (typeof hecho === 'string') throw new Error(hecho);
@@ -991,6 +1010,7 @@ describe('el generador hace redes como las pidió el usuario', () => {
         { x: 12, y: 12 },
       ],
       suelos: ['grass', 'grass'],
+      niveles: [1, 1],
       rng: createRng(1),
     });
     if (typeof hecho === 'string') throw new Error(hecho);

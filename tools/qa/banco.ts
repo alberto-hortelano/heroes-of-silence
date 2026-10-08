@@ -708,11 +708,25 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   `hero_defeated` 358 → 397, `node_captured` 1 206 → 1 237,
  *   `troop_level_up` 2 196 → 2 477; ningún tipo nuevo ni ninguno que
  *   desaparezca. autoResolve igual.
+ * - `b2e5ed9c…` (62 593 líneas): **el nivel de cada región, en el mapa** (#143,
+ *   08-10-2026): el generador sortea el nivel de cada pareja de regiones
+ *   (`data/relieve.json`) justo después de su suelo, y la barrera de cada
+ *   frontera sale de las que admiten sus niveles (`barrerasDeLaPareja`, y en
+ *   los cruces `desnivelEnLosCruces`); el acantilado deja de ser obstáculo, y
+ *   la muralla partida en dos trozos a una casilla se juzga entera. La tirada
+ *   de más mueve todo el azar que viene detrás, así que **cambian las 200
+ *   semillas** y en todas el primer hecho distinto es el primero del volcado
+ *   (`raider_spawned` del día 1: el mapa es otro). 93 con otro ganador, j0
+ *   107 → 114, **0 sin terminar**, duración 8 / 15 / 28 → **8 / 18 / 38** (en
+ *   1 000 semillas de `tamanos.ts`, 8 / 15 / 38 y 0 sin terminar). Batallas
+ *   1 635 → 1 611, `hero_defeated` 397 → 391, `node_captured` 1 237 → 1 212,
+ *   `town_captured` 1 379 → 1 344, `march_halted` 104 → 142; ningún tipo nuevo
+ *   ni ninguno que desaparezca. autoResolve igual.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: 'f69d6b052fb73a846f6840d63eb2e31bdd35777eed063680d0ccad98d4dca045',
+  sha: 'b2e5ed9cf45c63e0f9078ef1e6d47c99fc112e72254099cacf982e2009b7d4fd',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

@@ -9,7 +9,13 @@
  * **es una red de nodos** (`problemasDeRed`).
  */
 
-import { ASALTANTES, guarnicionDeBase, guarnicionNeutral, problemasDeGrupo } from '../data.js';
+import {
+  ASALTANTES,
+  guarnicionDeBase,
+  guarnicionNeutral,
+  NIVEL_POR_SUELO,
+  problemasDeGrupo,
+} from '../data.js';
 import { CUPO_GUARNICION, ejercitoDe } from '../hero/troop.js';
 import type { Rng } from '../rng.js';
 import {
@@ -49,6 +55,7 @@ import {
   type Barrera,
   esBarrera,
   isWalkable,
+  type Nivel,
   SUELOS_PISABLES,
   type Suelo,
   type TerrainKind,
@@ -102,10 +109,16 @@ export interface PlannedWall {
  * pisa —solo se pinta lo pisable de la región—, de modo que la red que valida
  * `problemasDeRed` es la misma con suelo o sin él.
  */
-export interface RegionPlaneada extends MapRegion {
+export interface RegionPlaneada extends Omit<MapRegion, 'nivel'> {
   // El `| undefined` escrito, por lo mismo que en `roads`: el esquema lo
   // declara con `.optional()` y con `exactOptionalPropertyTypes` no casarían.
   readonly terrain?: TerrainKind | undefined;
+  /**
+   * El nivel de altura (#143). Lo escribe el procedimental, que lo sortea antes
+   * que las barreras; el plan del agente aún no lo declara y `buildMap` pone
+   * sus regiones al 1, el llano (decisión del usuario, 08-10-2026).
+   */
+  readonly nivel?: Nivel | undefined;
 }
 
 export interface PlannedTown {
@@ -726,7 +739,12 @@ export function buildMap(plan: MapPlan): BuiltMap {
   const map: GameMap = {
     ...base,
     terrain: terrenoPintado(plan),
-    regions: plan.regions.map((r) => ({ id: r.id, name: r.name, at: { ...r.at } })),
+    regions: plan.regions.map((r) => ({
+      id: r.id,
+      name: r.name,
+      at: { ...r.at },
+      nivel: r.nivel ?? 1,
+    })),
     caminos: caminosDelPlan(plan),
   };
   const indice = (p: Point): number => p.y * plan.width + p.x;
@@ -1230,7 +1248,14 @@ function intentarRed(rng: Rng, W: number, H: number): RedFina | null {
   //    la misma que leerá la partida, y no una copia del generador. Una
   //    etiqueta partida en dos trozos deja uno sin semilla, que sale de la red
   //    como casilla abierta sin región.
-  const regions = semillas.map((s, k) => ({ id: `region-${k}`, name: nombreDeRegion(k), at: s }));
+  //    La red fina aún no tiene relieve: el nivel lo sortea `vestirRed` con los
+  //    suelos, y hasta entonces van todas al llano. `estructura` no lo lee.
+  const regions = semillas.map((s, k) => ({
+    id: `region-${k}`,
+    name: nombreDeRegion(k),
+    at: s,
+    nivel: 1 as const,
+  }));
   const sinNodos: GameMap = { ...createEmptyMap(W, H, 'grass'), regions };
   for (let i = 0; i < W * H; i++) if (muro[i] === 1) sinNodos.terrain[i] = 'mountain';
   const regionDe = estructura(sinNodos).regionDe;
@@ -1511,11 +1536,19 @@ function vestirRed(
 
   // 8. Un suelo por pareja de regiones, en espejo; las de casa, de tierra. Va
   //    antes que las fronteras porque la barrera de cada una sale de sus suelos.
+  //    Y su nivel de altura (#143), también por pareja: va antes que las
+  //    fronteras porque el acantilado solo separa dos niveles distintos y dos
+  //    niveles distintos solo los separa un acantilado, una montaña o el agua.
+  //    Las de casa, al llano.
   const suelos: Suelo[] = [];
+  const niveles: Nivel[] = [];
   for (let k = 0; k < semillas.length; k += 2) {
     const suelo: Suelo = k === 0 ? 'dirt' : rng.pick(SUELOS);
+    const nivel: Nivel = k === 0 ? 1 : sortearNivel(rng, suelo);
     suelos[k] = suelo;
     suelos[parejaDe(k)] = suelo;
+    niveles[k] = nivel;
+    niveles[parejaDe(k)] = nivel;
   }
 
   // 9. Las fronteras, gruesas y de su tipo. El mapa grueso se vuelve a validar
@@ -1530,11 +1563,16 @@ function vestirRed(
     ciudades,
     semillas,
     suelos,
+    niveles,
     rng,
   });
   if (typeof grueso === 'string') return fallo('fronteras', grueso);
   const { tipos, pasillo } = grueso;
-  const regionsGruesas = regions.map((r, k) => ({ ...r, at: grueso.semillas[k] as Point }));
+  const regionsGruesas = regions.map((r, k) => ({
+    ...r,
+    at: grueso.semillas[k] as Point,
+    nivel: niveles[k] as Nivel,
+  }));
   // Las bases, ya con su dueño: así `territorio` dice de quién es cada región
   // el primer día, con la misma regla que la partida.
   const dueñoDeBase = new Map<string, PlayerId>([
@@ -1884,6 +1922,18 @@ function vestirRed(
     raiders,
     tramos,
   };
+}
+
+/** El nivel de una pareja de regiones de suelo `suelo`, por los pesos de `data/relieve.json`. */
+function sortearNivel(rng: Rng, suelo: Suelo): Nivel {
+  const pesos = NIVEL_POR_SUELO[suelo];
+  const total = pesos.reduce((s, p) => s + p.peso, 0);
+  let tirada = rng.int(0, total - 1);
+  for (const p of pesos) {
+    if (tirada < p.peso) return p.nivel;
+    tirada -= p.peso;
+  }
+  throw new Error(`el sorteo del nivel del suelo ${suelo} se ha salido de la tabla`);
 }
 
 /** El nombre de la región `k` del generador: las dos de casa, por su ciudad. */

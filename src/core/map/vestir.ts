@@ -20,7 +20,14 @@ import { BARRERAS_DEL_MAPA, type BarreraConPeso } from '../data.js';
 import type { Rng } from '../rng.js';
 import { Frontera } from './frontera.js';
 import { aPunto, rellenar, vecindad } from './regiones.js';
-import { BARRERAS, type Barrera, costeDeEntrada, type Suelo } from './terrain.js';
+import {
+  BARRERAS,
+  BARRERAS_DE_DESNIVEL,
+  type Barrera,
+  costeDeEntrada,
+  type Nivel,
+  type Suelo,
+} from './terrain.js';
 
 /** Sin barrera en `Tipos`: la casilla se pisa. */
 export const ABIERTA = -1;
@@ -64,6 +71,51 @@ function candidatasDeFrontera(a: Suelo, b: Suelo): BarreraConPeso[] {
   // En el orden de `BARRERAS` y no en el de inserción, para que la tabla no
   // dependa del orden en que se escribieron las filas del JSON.
   return BARRERAS.filter((b) => suma.has(b)).map((b) => ({ barrera: b, peso: suma.get(b)! }));
+}
+
+/**
+ * Si la barrera `b` puede separar regiones a estos `niveles` (#143): entre dos
+ * o más niveles, solo las que se leen como el borde de una meseta
+ * (`BARRERAS_DE_DESNIVEL`); entre regiones al mismo nivel, todas menos el
+ * acantilado, que sería un cañón o una cresta y no el borde de nada. La regla,
+ * una vez: la leen el sorteo de cada pareja (`barrerasDeLaPareja`) y lo que
+ * sustituye a una muralla larga (`candidatasSinMuro`).
+ */
+function admiteLosNiveles(b: Barrera, niveles: readonly Nivel[]): boolean {
+  const distintos = niveles.some((n) => n !== niveles[0]);
+  return distintos ? BARRERAS_DE_DESNIVEL.includes(b) : b !== 'cliff';
+}
+
+/**
+ * Las barreras que puede llevar la frontera entre dos regiones (#143): las de
+ * sus suelos (`candidatasDeFrontera`), y de ellas, si las dos están al mismo
+ * nivel, todas menos el acantilado —sería un cañón o una cresta, no el borde de
+ * nada—, y si no, solo las que se leen como el borde de una meseta
+ * (`BARRERAS_DE_DESNIVEL`): un bosque o un muro entre dos niveles dejaba la cara
+ * de roca al pie de los árboles. Es la única regla de qué barrera admite una
+ * pareja: la leen el reparto de las garantizadas y el sorteo del resto.
+ *
+ * **Lanza** si no queda ninguna: es un choque entre `data/barreras.json` y
+ * `data/relieve.json`, no un vestido que se pueda repetir.
+ */
+export function barrerasDeLaPareja(
+  a: Suelo,
+  b: Suelo,
+  nivelA: Nivel,
+  nivelB: Nivel,
+): BarreraConPeso[] {
+  const quedan = candidatasDeFrontera(a, b).filter((c) =>
+    admiteLosNiveles(c.barrera, [nivelA, nivelB]),
+  );
+  if (quedan.length === 0) {
+    throw new Error(
+      `la frontera entre ${a} (nivel ${nivelA}) y ${b} (nivel ${nivelB}) no admite ninguna barrera: ` +
+        (nivelA === nivelB
+          ? 'data/barreras.json solo le da acantilado, que no va entre dos regiones al mismo nivel'
+          : `data/barreras.json no le da ninguna de ${BARRERAS_DE_DESNIVEL.join(', ')}, y data/relieve.json las pone a distinto nivel`),
+    );
+  }
+  return quedan;
 }
 
 const indiceDe = (b: Barrera): number => BARRERAS.indexOf(b);
@@ -150,6 +202,8 @@ export interface EntradaDeEngorde {
   readonly semillas: readonly { readonly x: number; readonly y: number }[];
   /** El suelo de cada región, por índice de región. */
   readonly suelos: readonly Suelo[];
+  /** El nivel de cada región, por índice de región: decide qué barreras admite cada pareja. */
+  readonly niveles: readonly Nivel[];
   readonly rng: Rng;
 }
 
@@ -195,7 +249,8 @@ export const TIPOS_POR_MAPA = 4;
  * La frontera gruesa: de una casilla de muro a 2-3, con su tipo.
  *
  * - **El tipo es por pareja de regiones** y sale de `data/barreras.json` con
- *   los suelos de los dos lados. La pareja espejo lleva el mismo. Y **cada mapa
+ *   los suelos de los dos lados, entre las que admiten sus niveles
+ *   (`barrerasDeLaPareja`). La pareja espejo lleva el mismo. Y **cada mapa
  *   lleva al menos `TIPOS_POR_MAPA` distintos**: primero se le dan cuatro
  *   barreras distintas a cuatro fronteras que las admitan, y el resto se sortea
  *   por pesos. Una tabla de pesos decide qué va con qué; la variedad del mapa
@@ -273,8 +328,11 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
       vistas.add(claveEspejo(k));
     }
   }
-  const candidatasDe = (k: number): BarreraConPeso[] =>
-    candidatasDeFrontera(suelos[Math.floor(k / regiones)]!, suelos[k % regiones]!);
+  const candidatasDe = (k: number): BarreraConPeso[] => {
+    const a = Math.floor(k / regiones);
+    const b = k % regiones;
+    return barrerasDeLaPareja(suelos[a]!, suelos[b]!, e.niveles[a]!, e.niveles[b]!);
+  };
   // Solo puede llevar una barrera garantizada la frontera que tiene muro fino
   // **que sobreviva**: las casillas de nodo las abre `buildMap`, y una pareja
   // cuyo muro eran solo nodos se quedaba con su barrera en el plan y en ninguna
@@ -527,6 +585,12 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
     if (deLaSemilla === undefined) semillas[r] = aPunto(elegido.casillas[0] as number, W);
   }
 
+  // 6b. Los cruces, coherentes con los niveles (#143): la barrera es por
+  //     pareja, pero junto a un cruce de tres regiones la de una pareja llega a
+  //     tocar la tercera (`desnivelEnLosCruces`). Antes de las murallas: no
+  //     pone muro, y lo que el paso 7 pone en su lugar ya mira los niveles.
+  desnivelEnLosCruces(W, H, tipos, etiqueta, esNodo, e.niveles);
+
   // 7. Las murallas cortas (#208): la barrera que cruza cada nodo depende de lo
   //    que tiene alrededor, y una muralla larga se vuelve otra barrera, así que
   //    se repite hasta que no queda ninguna. Solo quita muro: acaba.
@@ -554,7 +618,10 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
       // sus `casillasMinimasPorTipo`: si el muro era de las barreras
       // repartidas, la que lo sustituye mantiene la variedad que pide el paso
       // 8 en vez de engordar una que ya la daba.
-      const admitidas = candidatasSinMuro([...lados].map((r) => suelos[r] as Suelo));
+      const admitidas = candidatasSinMuro(
+        [...lados].map((r) => suelos[r] as Suelo),
+        [...lados].map((r) => e.niveles[r] as Nivel),
+      );
       const cuantas = new Int32Array(BARRERAS.length);
       for (let i = 0; i < N; i++)
         if (tipos[i] !== ABIERTA && esNodo[i] === 0) cuantas[tipos[i]!]! += 1;
@@ -588,6 +655,22 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
           if (partir && cercaDeUna(c, l)) partida[c] = 1;
           else tipos[c] = otra;
         }
+        // Un hueco de una casilla entre dos trozos partidos los deja en la
+        // misma fila o columna con sus puntas a dos: dos torres obligadas en
+        // columna, que se apilan (s3 (11,6)-(11,8) con los niveles del mapa,
+        // #143). Es una muralla con dos puertas juntas: se cierra el hueco y la
+        // vuelta siguiente la juzga entera.
+        if (partir)
+          for (const c of l) {
+            if (partida[c] === 1) continue;
+            const x = c % W;
+            const enMedio = (d: number) =>
+              c - d >= 0 && c + d < N && partida[c - d] === 1 && partida[c + d] === 1;
+            if ((x > 0 && x < W - 1 && enMedio(1)) || enMedio(W)) {
+              partida[c] = 1;
+              tipos[c] = indiceDe('wall');
+            }
+          }
       }
     }
     barreraDeNodo = barrerasDeLosNodos(e, tipos, esNodo, clave, tipoDePareja, candidatasDe);
@@ -737,7 +820,7 @@ function murallasLargas(
  * —el que más lo pesa, la tierra de casa, admite también bosque y agua—, así
  * que nunca se queda vacía; si un día pasa, lanza.
  */
-function candidatasSinMuro(suelos: readonly Suelo[]): BarreraConPeso[] {
+function candidatasSinMuro(suelos: readonly Suelo[], niveles: readonly Nivel[]): BarreraConPeso[] {
   const suma = new Map<Barrera, number>();
   const distintos = [...new Set(suelos)];
   // El agua, solo si la admiten todos: un nodo entre dos suelos que no la
@@ -748,7 +831,11 @@ function candidatasSinMuro(suelos: readonly Suelo[]): BarreraConPeso[] {
   );
   for (const s of distintos)
     for (const c of BARRERAS_DEL_MAPA.frontera[s])
-      if (c.barrera !== 'wall' && (c.barrera !== 'water' || conAgua))
+      if (
+        c.barrera !== 'wall' &&
+        (c.barrera !== 'water' || conAgua) &&
+        admiteLosNiveles(c.barrera, niveles)
+      )
         suma.set(c.barrera, (suma.get(c.barrera) ?? 0) + c.peso);
   const fuera = BARRERAS.filter((b) => suma.has(b)).map((b) => ({
     barrera: b,
@@ -756,7 +843,7 @@ function candidatasSinMuro(suelos: readonly Suelo[]): BarreraConPeso[] {
   }));
   if (fuera.length === 0)
     throw new Error(
-      `una muralla larga entre suelos ${[...new Set(suelos)].join(', ')}, que solo admiten muro`,
+      `una muralla larga entre suelos ${[...new Set(suelos)].join(', ')} a los niveles ${[...new Set(niveles)].join(', ')}, que no admiten otra cosa que muro`,
     );
   return fuera;
 }
@@ -948,6 +1035,119 @@ function caminoHastaLibre(
 }
 
 /** La barrera de alguna vecina de un trozo: con eso se rellena un bolsillo. */
+/**
+ * Que ninguna barrera mienta sobre el desnivel (#143), también en los cruces.
+ * El tipo se sortea por pareja de regiones (`barrerasDeLaPareja`), pero el muro
+ * fino y su engorde no saben de tres: junto a un cruce, el bosque de una pareja
+ * al mismo nivel llegaba a tocar la tercera región, más alta, y el acantilado
+ * de una pareja a distinto nivel quedaba en un pico suelto que solo tocaba un
+ * lado. Medido en 1-200 sin esto: 31 bosques y 27 muros entre dos niveles, y 57
+ * acantilados que no separaban dos. Sobre la frontera ya gruesa y **en espejo**:
+ * todo lo que se decide sale de la vecindad de cada casilla y del orden de
+ * `BARRERAS`, y la vecindad reflejada es la misma.
+ *
+ * 1. Un bosque o un muro (franja 8-conexa) que toca regiones a más de un nivel
+ *    se queda con el nivel que más toca —en un empate, el más bajo— y cada
+ *    casilla suya que toca otro pasa a la barrera de desnivel que más tiene al
+ *    lado (o a montaña): es el trozo de la frontera de la otra pareja.
+ * 2. Un acantilado (franja 8-conexa) que no toca dos niveles pasa entero a la
+ *    montaña o el agua que más tiene al lado (o a montaña): es la punta de la
+ *    frontera de otra pareja, y solo, sin desnivel, sería una mesa.
+ *
+ * Lo que toca una casilla: las regiones de sus ocho vecinas que se pisan (ni
+ * barrera ni nodo).
+ */
+function desnivelEnLosCruces(
+  W: number,
+  H: number,
+  tipos: Tipos,
+  etiqueta: Int32Array,
+  esNodo: Uint8Array,
+  niveles: readonly Nivel[],
+): void {
+  const N = W * H;
+  const { desde, vecinas } = vecindad(W, H);
+  const abierta = (j: number): boolean => tipos[j] === ABIERTA && esNodo[j] === 0;
+  const BOSQUE = indiceDe('forest');
+  const MURO = indiceDe('wall');
+  const ACANTILADO = indiceDe('cliff');
+  const MONTAÑA = indiceDe('mountain');
+  /** La barrera de `admitidas` que más se repite en las vecinas de `casillas`; en un empate, la primera de `BARRERAS`. */
+  const laQueMasHay = (casillas: readonly number[], admitidas: readonly number[]): number => {
+    const propias = new Set(casillas);
+    const cuenta = new Int32Array(BARRERAS.length);
+    for (const c of casillas)
+      for (let v = desde[c]!; v < desde[c + 1]!; v++) {
+        const t = tipos[vecinas[v]!] as number;
+        if (t !== ABIERTA && admitidas.includes(t) && !propias.has(vecinas[v]!)) cuenta[t]!++;
+      }
+    let mejor = MONTAÑA;
+    let max = 0;
+    for (let t = 0; t < BARRERAS.length; t++)
+      if ((cuenta[t] as number) > max) {
+        max = cuenta[t] as number;
+        mejor = t;
+      }
+    return mejor;
+  };
+  /** Las franjas 8-conexas de un tipo, sin nodos. */
+  const franjasDe = (tipo: number): number[][] => {
+    const vista = new Uint8Array(N);
+    const fuera: number[][] = [];
+    for (let i = 0; i < N; i++) {
+      if (vista[i] === 1 || tipos[i] !== tipo || esNodo[i] === 1) continue;
+      vista[i] = 1;
+      const toma = (j: number): boolean => {
+        if (vista[j] === 1 || tipos[j] !== tipo || esNodo[j] === 1) return false;
+        vista[j] = 1;
+        return true;
+      };
+      fuera.push(rellenar(W, H, i, toma));
+    }
+    return fuera;
+  };
+  /** Los niveles que toca cada casilla: un bit por nivel. */
+  const toca = (c: number): number => {
+    let bits = 0;
+    for (let v = desde[c]!; v < desde[c + 1]!; v++) {
+      const j = vecinas[v]!;
+      if (abierta(j)) bits |= 1 << (niveles[etiqueta[j] as number] as number);
+    }
+    return bits;
+  };
+  const DESNIVEL = BARRERAS_DE_DESNIVEL.map(indiceDe);
+
+  // 1. Los bosques y los muros. Se decide todo antes de cambiar nada, para que
+  //    el resultado no dependa del orden en que se recorren.
+  const cambios: [number, number][] = [];
+  for (const tipo of [BOSQUE, MURO]) {
+    for (const franja of franjasDe(tipo)) {
+      const veces = [0, 0, 0];
+      for (const c of franja)
+        for (let v = desde[c]!; v < desde[c + 1]!; v++) {
+          const j = vecinas[v]!;
+          if (abierta(j)) veces[niveles[etiqueta[j] as number] as number]!++;
+        }
+      if (veces.filter((n) => n > 0).length < 2) continue;
+      const suyo = veces.indexOf(Math.max(...veces));
+      for (const c of franja) {
+        if ((toca(c) & ~(1 << suyo)) === 0) continue;
+        cambios.push([c, laQueMasHay([c], DESNIVEL)]);
+      }
+    }
+  }
+  for (const [c, t] of cambios) tipos[c] = t;
+
+  // 2. Los acantilados que no separan dos niveles.
+  for (const franja of franjasDe(ACANTILADO)) {
+    let bits = 0;
+    for (const c of franja) bits |= toca(c);
+    if (bits !== 0 && (bits & (bits - 1)) !== 0) continue;
+    const t = laQueMasHay(franja, [MONTAÑA, indiceDe('water')]);
+    for (const c of franja) tipos[c] = t;
+  }
+}
+
 function tipoVecino(W: number, H: number, casillas: readonly number[], tipos: Tipos): number {
   const { desde, vecinas } = vecindad(W, H);
   for (const c of casillas) {

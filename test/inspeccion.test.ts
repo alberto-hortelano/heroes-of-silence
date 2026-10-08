@@ -124,12 +124,13 @@ describe('la escena del mapa en el modo «marcar fallo»', () => {
   it('soltar solo dice si fue un clic: no mueve a nadie, y el clic lo reparte quien lo recibe', () => {
     // `main.ts` da el clic al modo «marcar fallo» o a `pulsar`: la escena no
     // sabe nada del modo, y soltar no puede andar por su cuenta.
-    // Semilla 5: en la 7, desde #161, la casilla a dos al este es barrera.
-    const s = new Session(5);
+    // Semilla 10: la casilla a dos al este del héroe se pisa (en la 5 era así
+    // hasta los niveles del mapa, #143; en la 7, hasta #161).
+    const s = new Session(10);
     const escena = new EscenaAventura(() => s);
     escena.encuadrar(1200, 800);
     const heroe = s.selectedHero;
-    if (heroe === null) throw new Error('la semilla 5 no da héroe');
+    if (heroe === null) throw new Error('la semilla 10 no da héroe');
     const antes = { ...heroe.at };
     // Un arrastre no es un clic.
     escena.bajar(600, 400);

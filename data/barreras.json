@@ -1,5 +1,5 @@
 {
-  "_comment": "INVENTADO y PROVISIONAL (ciclo «mapas densos», 03-10-2026). Qué barrera levanta el generador procedimental (src/core/map/generate.ts) en cada sitio. HoMM2 no tiene una tabla así —sus mapas se dibujan a mano—, así que las cifras son de quien escribe esto. «frontera»: para cada suelo, las barreras que puede llevar una frontera que lo toca, con su peso; la frontera entre dos regiones sortea con la SUMA de los pesos de los dos suelos, así que depende de los dos lados sin escribir las 28 parejas. «obstaculos»: lo mismo para las manchas que se ponen DENTRO de una región, que bloquean el paso como en HoMM2. «densidadPorCiento»: qué parte de cada región, en %, se cubre de obstáculos (sorteada por pareja de regiones entre min y max, enteros); «mancha»: cuántas casillas tiene cada mancha; «min» vale para todas menos la última de cada región, que se recorta a lo que falta para su densidad. «casillasMinimasPorTipo»: cuántas casillas de frontera lleva, como poco, cada una de las cuatro barreras que todo mapa garantiza; sin él la variedad podía ser simbólica —una barrera en dos casillas— o desaparecer entera si su única frontera eran casillas de nodo, que `buildMap` abre (semillas 864 y 986 en 34×34, QA de «mapas densos»). «dirt» es solo el suelo de las dos regiones de casa: por eso pesa sobre todo el muro. El cargador (src/core/data.ts) lanza si falta un suelo, si una clave no es una barrera o si un peso no es un entero > 0.",
+  "_comment": "INVENTADO y PROVISIONAL (ciclo «mapas densos», 03-10-2026). Qué barrera levanta el generador procedimental (src/core/map/generate.ts) en cada sitio. HoMM2 no tiene una tabla así —sus mapas se dibujan a mano—, así que las cifras son de quien escribe esto. «frontera»: para cada suelo, las barreras que puede llevar una frontera que lo toca, con su peso; la frontera entre dos regiones sortea con la SUMA de los pesos de los dos suelos, así que depende de los dos lados sin escribir las 28 parejas. «obstaculos»: lo mismo para las manchas que se ponen DENTRO de una región, que bloquean el paso como en HoMM2; nunca acantilado, que es el borde de una meseta y dentro de una región sería una mesa suelta (#143: el cargador lo rechaza). La frontera entre dos regiones a distinto nivel (data/relieve.json) solo sortea entre acantilado, montaña y agua, y entre dos al mismo nivel, entre todo menos acantilado (`barrerasDeLaPareja`, vestir.ts): toda pareja de suelos tiene que admitir las dos clases, y lo comprueba un test. «densidadPorCiento»: qué parte de cada región, en %, se cubre de obstáculos (sorteada por pareja de regiones entre min y max, enteros); «mancha»: cuántas casillas tiene cada mancha; «min» vale para todas menos la última de cada región, que se recorta a lo que falta para su densidad. «casillasMinimasPorTipo»: cuántas casillas de frontera lleva, como poco, cada una de las cuatro barreras que todo mapa garantiza; sin él la variedad podía ser simbólica —una barrera en dos casillas— o desaparecer entera si su única frontera eran casillas de nodo, que `buildMap` abre (semillas 864 y 986 en 34×34, QA de «mapas densos»). «dirt» es solo el suelo de las dos regiones de casa: por eso pesa sobre todo el muro. El cargador (src/core/data.ts) lanza si falta un suelo, si una clave no es una barrera o si un peso no es un entero > 0.",
   "frontera": {
     "grass": { "forest": 3, "water": 2, "cliff": 1 },
     "dirt": { "wall": 4, "forest": 1, "water": 1 },
@@ -12,11 +12,11 @@
   "obstaculos": {
     "grass": { "forest": 3, "water": 1, "wall": 1 },
     "dirt": { "forest": 2, "wall": 2, "water": 1 },
-    "sand": { "cliff": 2, "mountain": 1, "wall": 1 },
+    "sand": { "mountain": 3, "wall": 1 },
     "snow": { "mountain": 2, "forest": 2 },
     "swamp": { "water": 3, "forest": 2 },
-    "lava": { "cliff": 2, "mountain": 2 },
-    "rough": { "mountain": 2, "cliff": 2, "wall": 1 }
+    "lava": { "mountain": 4 },
+    "rough": { "mountain": 4, "wall": 1 }
   },
   "densidadPorCiento": { "min": 10, "max": 18 },
   "mancha": { "min": 3, "max": 6 },

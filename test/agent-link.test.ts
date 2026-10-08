@@ -1633,7 +1633,10 @@ describe('el agente sabe cómo le fue', () => {
       return { action: payload.legalActions[0] };
     });
 
-    const director = new Director(link, { seed: 309, agentPlayers: [1] });
+    // La primera desde la 309 en que el rival ataca: con los niveles del mapa
+    // (#143), en la 309 ya no llegaba a hacerlo.
+    const seed = await semillaEnQueElRivalAtaca(309);
+    const director = new Director(link, { seed, agentPlayers: [1] });
     const mio = rivalAlAtaque(director.state);
     // Un campeón (7 hexes) contra los 40 paladines del rival (alcance 5+1): en
     // la ronda 1 mueve primero, no llega a nadie, y avanzar lo dejaría a tiro

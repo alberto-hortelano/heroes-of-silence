@@ -8,8 +8,16 @@ import experienciaJson from '../../data/experiencia.json' with { type: 'json' };
 import habilidadesJson from '../../data/habilidades.json' with { type: 'json' };
 import heroeJson from '../../data/heroe.json' with { type: 'json' };
 import liderazgoJson from '../../data/liderazgo.json' with { type: 'json' };
+import relieveJson from '../../data/relieve.json' with { type: 'json' };
 import tiposDeHeroeJson from '../../data/tipos-de-heroe.json' with { type: 'json' };
-import { BARRERAS, type Barrera, SUELOS_PISABLES, type Suelo } from './map/terrain.js';
+import {
+  BARRERAS,
+  type Barrera,
+  NIVELES,
+  type Nivel,
+  SUELOS_PISABLES,
+  type Suelo,
+} from './map/terrain.js';
 import type {
   Creature,
   CreatureTrait,
@@ -800,6 +808,13 @@ export function validarBarreras(json: unknown, fichero = 'data/barreras.json'): 
   };
   const frontera = tabla('frontera');
   const obstaculos = tabla('obstaculos');
+  for (const suelo of SUELOS_PISABLES) {
+    if (obstaculos[suelo]?.some((c) => c.barrera === 'cliff')) {
+      problemas.push(
+        `"obstaculos.${suelo}" pide "cliff": un acantilado dentro de una región es una mesa suelta, y el acantilado es el borde de una meseta (#143)`,
+      );
+    }
+  }
   const densidadPorCiento = rango('densidadPorCiento', 0, 90);
   const mancha = rango('mancha', 1, 50);
   const casillasMinimasPorTipo = j.casillasMinimasPorTipo;
@@ -819,3 +834,68 @@ export function validarBarreras(json: unknown, fichero = 'data/barreras.json'): 
 }
 
 export const BARRERAS_DEL_MAPA: ReglasDeBarreras = validarBarreras(barrerasJson);
+
+/** Un nivel de altura con su peso en un sorteo. */
+export interface NivelConPeso {
+  readonly nivel: Nivel;
+  readonly peso: number;
+}
+
+/**
+ * A qué nivel va cada suelo, con su peso, de `data/relieve.json` (#143).
+ * **Inventado y provisional**, como dice su `_comment`. Lanza con todos los
+ * problemas a la vez; exportada con el JSON de argumento para que el guardia se
+ * pueda ver morder con un fichero roto.
+ *
+ * Que estén **todos** los suelos, por lo mismo que en `validarBarreras`: el
+ * generador sortea el nivel por el suelo de cada pareja, y un suelo sin fila
+ * daría una región sin nivel a mitad de un mapa.
+ */
+export function validarRelieve(
+  json: unknown,
+  fichero = 'data/relieve.json',
+): Readonly<Record<Suelo, readonly NivelConPeso[]>> {
+  const problemas: string[] = [];
+  const bruta = ((json ?? {}) as Record<string, unknown>).nivelPorSuelo;
+  // Se rellena entera abajo, o se lanza.
+  const salida = {} as Record<Suelo, NivelConPeso[]>;
+  if (bruta === null || typeof bruta !== 'object') {
+    throw new Error(`${fichero}: no trae "nivelPorSuelo"`);
+  }
+  for (const suelo of Object.keys(bruta)) {
+    if (!(SUELOS_PISABLES as readonly string[]).includes(suelo)) {
+      problemas.push(
+        `"nivelPorSuelo" tiene una fila para "${suelo}", que no es un suelo que se pise; valen ${SUELOS_PISABLES.join(', ')}`,
+      );
+    }
+  }
+  for (const suelo of SUELOS_PISABLES) {
+    const fila = (bruta as Record<string, unknown>)[suelo];
+    if (fila === null || typeof fila !== 'object' || Object.keys(fila).length === 0) {
+      problemas.push(`"nivelPorSuelo" no tiene fila para el suelo "${suelo}"`);
+      continue;
+    }
+    const lista: NivelConPeso[] = [];
+    for (const [nivel, peso] of Object.entries(fila)) {
+      const n = NIVELES.find((v) => String(v) === nivel);
+      if (n === undefined) {
+        problemas.push(
+          `"nivelPorSuelo.${suelo}" pide el nivel "${nivel}", que no existe; valen ${NIVELES.join(', ')}`,
+        );
+      } else if (!enteroDesde(peso, 1)) {
+        problemas.push(
+          `"nivelPorSuelo.${suelo}.${nivel}" pesa ${peso}: tiene que ser un entero > 0`,
+        );
+      } else {
+        lista.push({ nivel: n, peso });
+      }
+    }
+    // En el orden de `NIVELES`, no en el del JSON: el sorteo no depende de cómo se escribió.
+    salida[suelo] = lista.sort((a, b) => a.nivel - b.nivel);
+  }
+  if (problemas.length > 0) throw new Error(`${fichero}: ${problemas.join('; ')}`);
+  return salida;
+}
+
+export const NIVEL_POR_SUELO: Readonly<Record<Suelo, readonly NivelConPeso[]>> =
+  validarRelieve(relieveJson);

@@ -204,6 +204,13 @@ describe('adaptar: la vuelta del cable', () => {
     expect(() => adaptarEscena(con({ objects: sinBarrera }))).toThrow(
       /el nodo node-\d+ llega sin la barrera que cruza: el servidor habla el formato de antes de #145/,
     );
+    // Una región sin su nivel de altura: el servidor de antes de #143.
+    const sinNivel = buena.map.regions.map(({ nivel: _, ...resto }) => resto);
+    expect(() =>
+      adaptarEscena(con({ regions: sinNivel as unknown as SpectatorView['map']['regions'] })),
+    ).toThrow(
+      /la región region-0 llega sin su nivel de altura: el servidor habla el formato de antes de #143/,
+    );
     // Ninguno de los rechazados ha cambiado el terreno guardado: uno bueno con
     // un array recién copiado recibe el de antes, no el suyo.
     const copia = { ...buena, map: { ...buena.map, terrain: [...buena.map.terrain] } };

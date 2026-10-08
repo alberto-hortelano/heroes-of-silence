@@ -6,7 +6,13 @@
  */
 import type { Point, ResourceKind } from '../types.js';
 import { Frontera } from './frontera.js';
-import { type Barrera, costeDeEntrada, isWalkable, type TerrainKind } from './terrain.js';
+import {
+  type Barrera,
+  costeDeEntrada,
+  isWalkable,
+  type Nivel,
+  type TerrainKind,
+} from './terrain.js';
 
 export type MapObject =
   | {
@@ -77,7 +83,8 @@ export type MapObject =
     };
 
 /**
- * Una región declarada: su id, su nombre y una casilla suya (la semilla).
+ * Una región declarada: su id, su nombre, una casilla suya (la semilla) y su
+ * nivel de altura.
  *
  * La región **no se guarda casilla a casilla**: es la componente del terreno
  * pisable, sin nodos, que contiene esa casilla, y la calcula `estructura`
@@ -89,6 +96,12 @@ export interface MapRegion {
   readonly id: string;
   readonly name: string;
   readonly at: Point;
+  /**
+   * A qué altura está (#143). Sin efecto en las reglas: el generador lo sortea
+   * antes que las barreras —que dependen de él— y el escenógrafo lo pinta. Un
+   * plan del agente no lo declara todavía y sus regiones van todas al 1.
+   */
+  readonly nivel: Nivel;
 }
 
 export interface GameMap {
