@@ -8,6 +8,7 @@ import {
   leerBorrador,
   RUTA_DEL_BORRADOR,
 } from './tools/arena/borrador.js';
+import { copiarPublico } from './tools/build/publico.js';
 
 /** Lo más que se acepta en un guardado: medio centenar de unidades caben de sobra. */
 const CUERPO_MAXIMO = 1_000_000;
@@ -220,9 +221,26 @@ function sinDesarrollo(): Plugin {
   };
 }
 
+/**
+ * La carpeta pública en `dist/`, sin lo que solo lee el taller (#137): vite no
+ * sabe filtrarla, así que el build no la copia (`copyPublicDir: false`) y la
+ * copia esto, con `seCopiaAlBuild`. En `pnpm dev` se sirve entera.
+ */
+function publico(): Plugin {
+  const origen = resolve(__dirname, 'assets');
+  return {
+    name: 'heroes-publico',
+    apply: 'build',
+    writeBundle(opciones) {
+      if (opciones.dir === undefined) this.error('el build no dice dónde escribe');
+      copiarPublico(origen, opciones.dir);
+    },
+  };
+}
+
 export default defineConfig(({ command }) => ({
   root: 'src/client',
-  plugins: [arena(), marcas(), sinDesarrollo()],
+  plugins: [arena(), marcas(), sinDesarrollo(), publico()],
   publicDir: resolve(__dirname, 'assets'),
   resolve: {
     alias: { '@core': resolve(__dirname, 'src/core') },
@@ -249,6 +267,7 @@ export default defineConfig(({ command }) => ({
   build: {
     outDir: resolve(__dirname, 'dist'),
     emptyOutDir: true,
+    copyPublicDir: false,
     rollupOptions: {
       // Las TRES páginas, declaradas. Sin esto vite construye solo `index.html`
       // —la raíz— y **omite la otra en silencio**, con CI en verde: exactamente

@@ -29,6 +29,8 @@ npx tsx tools/qa/enfrentamiento.ts     # IA de batalla de hoy contra su versión
   es semilla se rechaza diciéndolo (`parseSeed`, en `core`). `?seed=` vacío =
   sin semilla. Si el agente diseña el mapa, la semilla del servidor ya no
   reproduce la partida, y la consola lo dice.
+- **`vite build` copia `assets/` sin lo que solo lee el taller**: de cada
+  `unidades/<id>/dN/`, solo `atlas.webp` (`seCopiaAlBuild`, `tools/build/publico.ts`, #137).
 - **CI** (`.github/workflows/ci.yml`): `pnpm verify`, `pnpm test:lento`, `pnpm banco`,
   `vite build` y `pnpm qa`. No gasta un céntimo: nada de `tools/gen/`.
 - Un hook `Stop` (`.claude/hooks/verde.sh`) impide cerrar una tarea con
