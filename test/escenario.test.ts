@@ -397,9 +397,9 @@ describe('los hitos de los nodos (#176): tres, por el id, ninguno con cruz', () 
   });
 
   it('ninguna tablilla de la escena apunta de través a su paso, y salen todos los rumbos (§29)', () => {
-    // 15, 31 y 36 llevan los cinco (3, 31 y 36 hasta #188); la orden lenta, 1-40.
+    // 20, 21 y 36 llevan los cinco (15, 31 y 36 hasta #189); la orden lenta, 1-40.
     const vistos = new Set<string>();
-    for (const semilla of segunPrisa([15, 31, 36], rango(1, 40))) {
+    for (const semilla of segunPrisa([20, 21, 36], rango(1, 40))) {
       const { map, escena } = partidaDe(semilla);
       for (const o of map.objects) {
         const pieza = escena.sprites

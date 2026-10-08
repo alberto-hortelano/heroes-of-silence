@@ -393,8 +393,31 @@ describe('el fotograma por acción', () => {
 
     expect(acciones).toBeGreaterThan(1);
     // El `+1` es el fotograma del `move_hero` que ABRIÓ la batalla: en él la
-    // batalla ya está desplegada, y es el primero que ve quien mira.
-    expect(enBatalla).toBe(acciones + 1);
+    // batalla ya está desplegada, y es el primero que ve quien mira. Puede
+    // haber más: un `end_turn` (cerrar el turno tras un tramo de `move`) es una
+    // acción y da su fotograma, pero no deja hecho en el registro. Con el mapa
+    // de #189 sale uno en esta semilla (y en 1, 2, 7 y 8), y la cuenta exacta
+    // de antes daba uno de menos. Por eso, además, cada fotograma lleva como
+    // mucho UNA acción: sin el `this.frame()` del bucle se juntarían.
+    expect(enBatalla).toBeGreaterThanOrEqual(acciones + 1);
+    let desde = 0;
+    for (const hasta of largos.slice(1)) {
+      const trozo = batalla.log.slice(desde, hasta);
+      const deEste = trozo.filter(
+        (e) => primarias.has(e.kind) && !(e.kind === 'attack' && e.retaliation),
+      ).length;
+      const cargasDeEste = trozo.filter((e, i) => {
+        const siguiente = trozo[i + 1];
+        return (
+          e.kind === 'move' &&
+          siguiente?.kind === 'attack' &&
+          !siguiente.retaliation &&
+          siguiente.stack === e.stack
+        );
+      }).length;
+      expect(deEste - cargasDeEste, `fotograma de ${desde} a ${hasta}`).toBeLessThanOrEqual(1);
+      desde = hasta;
+    }
     // Y son fotogramas de verdad repartidos, no N copias del final: el registro
     // crece en cada uno.
     expect(largos).toEqual([...largos].sort((a, b) => a - b));

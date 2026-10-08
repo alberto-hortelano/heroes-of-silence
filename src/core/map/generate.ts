@@ -1477,7 +1477,13 @@ function vestirRed(
   /** Si `i` puede llevar un objeto con puerta: con ella libre y sin otro delante ni detrás. */
   const tienePuerta = (i: number): boolean => {
     const puerta = i + W;
-    if (puerta >= N || regionGruesa[puerta] !== regionGruesa[i] || usada(puerta)) return false;
+    // Ni la puerta en el borde del mapa (#189): en la última fila solo se
+    // llegaba a ella por la misma fila, y en la primera o la última columna,
+    // por la columna; el camino corría pegado al borde, medio bajo las nubes
+    // (10,7 casillas de camino por mapa en el borde en 1-100; 5,4, la puerta
+    // de un objeto).
+    if (i % W === 0 || i % W === W - 1) return false;
+    if (puerta >= N - W || regionGruesa[puerta] !== regionGruesa[i] || usada(puerta)) return false;
     if (filaDeDelante(i).some((j) => conPuertaPuestos.has(j))) return false;
     if (i >= W && filaDeDelante(i - 2 * W).some((j) => conPuertaPuestos.has(j))) return false;
     // Y que a la puerta se llegue por algo más que los costados del objeto.

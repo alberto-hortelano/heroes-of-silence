@@ -3244,6 +3244,47 @@ adyacencia; con tramos (#153) ya no hay radios paralelos que se cosan solos.
 - Los planes del agente no cambian: escribe casillas y se unen por adyacencia;
   se le pide en el `advice` de `map_generate`.
 
+## La senda no se mete bajo el relieve ni corre por el borde (#189, 08-10-2026)
+
+La auditoría de caminos (defectos 1 y 7) vio la senda desaparecer bajo una
+cara, una ladera o una diagonal y salir más allá (7,7 % de la senda), y
+caminos pegados al borde del mapa, medio bajo las nubes. Medido de nuevo sobre
+`main` tras #188 y con la huella de #191 (0,32), estaban peor: 23,3 casillas de
+senda por mapa bajo un píxel opaco del relieve (1-40, centro de la senda) y 8,4
+tramos por mapa a lo largo del borde (1-100).
+
+- **La pared no se toca**: nunca se corta ni se aparta de la senda (R4/R5). Lo
+  que cambia es el trazado del núcleo, que no sabe qué quedará alto —el nivel
+  de cada región lo sortea la escena— pero sí lo seguro. `recargosDelTrazado`
+  (`vestir.ts`) cobra tres rectos de más por una casilla con un **acantilado**
+  al N, NO o NE (tapaba en el 55 % de esas casillas), uno con una **montaña o
+  un bosque** (15 %: solo tapan al lado bajo, #180), y dos por el **borde**. Al
+  norte y no alrededor: cobrar las ocho vecinas medía peor. La Y junto a una
+  hoja cobra además el recargo mayor de sus esquinas, o salía más barata que su
+  L por el borde (s1 (32,5)).
+- **El coste satura**: con 12 rectos por acantilado y 4 por lo alto, 16 casillas
+  tapadas; con 3 y 1, 17. Lo que queda va por pasillos de una casilla al pie de
+  un desnivel, junto a un nodo de acantilado o en la orilla de un barranco
+  (las diagonales de una caída al sur también suben sobre la casilla de
+  arriba). Para bajarlo más habría que tocar dónde deja pasillos el generador.
+- **El borde venía de las puertas**: de 10,7 casillas de camino por mapa en el
+  borde, 5,4 eran la puerta de una mina o un pueblo en la penúltima fila (a la
+  puerta de la última solo se llega por la misma fila) o en la primera o
+  última columna. `colocarPar` ya no las pone ahí (salvo cuando no queda sitio
+  con puerta, el respaldo de #188: 51 objetos en 1-1000). Con eso y el coste,
+  8,4 → 2,0 tramos por mapa; lo que queda son pasillos de una casilla entre el
+  borde y una barrera.
+- **El guardia**: `informe.sendaBajoElRelieve`, los tramos de ≥ 0,5 casillas
+  en los que la huella entera (centro y los dos bordes, a la media anchura de
+  `ANCHO_DE_SENDA`) cae bajo la silueta de una frontal, una ladera o una
+  diagonal; la bajada no cuenta. No es 0: 12,5 → 9,1 por mapa en 1-40, con un
+  techo de media de 10,5 (`test/senda-bajo-el-relieve.test.ts`). Con el alfa
+  de cada píxel bajo el centro de la senda, 23,3 → 16,5 casillas por mapa.
+- Cambia la colocación y con ella todo el mapa (el vestido reintenta y
+  cualquier tirada de más lo cambia entero): 0 semillas idénticas en el banco,
+  menos nodos de agua (533 → 464 en 1-200 por la colocación sola) y seis
+  tests anclados a una semilla movidos a otra.
+
 ## Decisiones tomadas
 
 - **MCP antes que API key.** El usuario tiene Claude Max: el agente entra por

@@ -92,12 +92,12 @@ describe('el vaivén', () => {
    * devuelve el estado con el héroe otra vez en A.
    */
   function vaiven(idas: number) {
-    // La 43: el primer paso del día 1 es una casilla vacía de camino a un
+    // La 46 (la 43 hasta #189): el primer paso del día 1 es una casilla vacía de camino a un
     // objetivo lejano, e ir y volver no recoge ni toma nada por el camino.
-    const { state, ctx, hero } = sinAsaltantes(43);
+    const { state, ctx, hero } = sinAsaltantes(46);
     const a = { ...hero.at };
     const marcha = marchaDeHoy(state, hero);
-    if (marcha === null) throw new Error('el héroe de la semilla 43 no tiene a dónde ir el día 1');
+    if (marcha === null) throw new Error('el héroe de la semilla 46 no tiene a dónde ir el día 1');
     const b = marcha.paso;
     for (let i = 0; i < idas; i++) {
       andar(state, ctx, hero, b);
@@ -133,7 +133,7 @@ describe('el vaivén', () => {
   });
 
   it('quieto no es un vaivén: lo lleva el encierro', () => {
-    const { state, ctx, hero } = sinAsaltantes(43);
+    const { state, ctx, hero } = sinAsaltantes(46);
     const otra = marchaDeHoy(state, hero)!.paso;
     andar(state, ctx, hero, otra);
     for (let i = 0; i < 5; i++) pasarElDia(state, ctx);

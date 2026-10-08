@@ -603,11 +603,25 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   1 741 → 1 704, `town_captured` 1 479 → 1 468, `node_captured` 1 281 →
  *   1 291; ningún tipo nuevo ni ninguno que desaparezca. Re-anclado una vez,
  *   al final.
+ * - `c53c353b…` (66 354 líneas): **el camino se aparta del pie de lo alto y del
+ *   borde** (#189, 08-10-2026). Ninguna mina ni pueblo con la puerta en el
+ *   borde del mapa (`colocarPar`), y el trazado cobra de más la casilla al pie
+ *   de un acantilado, una montaña o un bosque que le queda al norte, y la del
+ *   borde (`recargosDelTrazado`, `vestir.ts`). Cambia dónde caen los objetos:
+ *   **0 semillas idénticas**, y el primer hecho distinto es un
+ *   **`raider_spawned` del día 1** en 198 y un `hero_moved` en 2. Con los tres
+ *   recargos a 0 y la colocación de antes sale `dc204d41…` exacto: el cambio es
+ *   eso y nada más. autoResolve igual (300 batallas, 2 280 rondas). 111 con
+ *   otro ganador, j0 97 → 92, **0 sin terminar**, duración 9 / 15 / 33 →
+ *   **8 / 17 / 47** (el máximo es la s36 en los dos: 33 → 47). `hero_moved`
+ *   35 329 → 36 140, batallas 1 704 → 1 722, `town_captured` 1 468 → 1 468,
+ *   `node_captured` 1 291 → 1 274; ningún tipo nuevo ni ninguno que
+ *   desaparezca. Re-anclado una vez, al final.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: 'dc204d41accb30c56cdd47cba10ccc334fbe27398d206a206dc85626fccbf4d6',
+  sha: 'c53c353baeab943686b7ca34a51f84fa1d7e8973c68d82a41dcedcca6d153688',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

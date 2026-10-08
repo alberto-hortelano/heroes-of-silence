@@ -33,7 +33,13 @@ import {
   type TramoDeCamino,
 } from '../src/core/map/map.js';
 import { aPunto, type Estructura, estructura, vecindad } from '../src/core/map/regiones.js';
-import { BARRERAS, isWalkable, type Suelo, type TerrainKind } from '../src/core/map/terrain.js';
+import {
+  BARRERAS,
+  type Barrera,
+  isWalkable,
+  type Suelo,
+  type TerrainKind,
+} from '../src/core/map/terrain.js';
 import {
   ABIERTA,
   ArbolDeCaminos,
@@ -484,9 +490,12 @@ function horquillasNuevas(map: GameMap): string[] {
       { x: q.x, y: p.y },
       { x: p.x, y: q.y },
     ];
-    const obligada = esquinas.some(
-      (k, n) => nodos.has(pointKey(k)) && !pisable(esquinas[1 - n] as Point),
-    );
+    // Obligada si la L no tiene por dónde ir: una esquina es una hoja (nodo u
+    // objeto con puerta) y la otra no se pisa, o las dos son hojas, que no se
+    // cruzan (s123 (18,32)-(19,33) con #189: una mina y un pueblo en las dos).
+    const obligada =
+      esquinas.some((k, n) => nodos.has(pointKey(k)) && !pisable(esquinas[1 - n] as Point)) ||
+      esquinas.every((k) => nodos.has(pointKey(k)));
     if (!obligada && esquinas.some((k) => map.caminos.casillas.has(pointKey(k))))
       fallos.push(
         `el tramo ${en(p)}-${en(q)} va en diagonal con una esquina de camino: horquilla en Y`,
@@ -1098,23 +1107,6 @@ describe('la barrera que cruza cada nodo del generador (#145, #187)', () => {
     return fallos;
   }
 
-  it('los seis puentes sin río de #187 ya no cruzan agua', () => {
-    const seis: readonly [number, string][] = [
-      [28, 'node-6'],
-      [203, 'node-8'],
-      [455, 'node-6'],
-      [646, 'node-2'],
-      [646, 'node-8'],
-      [896, 'node-8'],
-    ];
-    for (const [semilla, id] of seis) {
-      const { map } = delGenerador(semilla);
-      const nodo = map.objects.find((o) => o.id === id);
-      expect(nodo?.kind, `semilla ${semilla} ${id}`).toBe('node');
-      expect(nodo?.kind === 'node' && nodo.barrera, `semilla ${semilla} ${id}`).not.toBe('water');
-    }
-  });
-
   it('lo que guarda cada nodo es lo que se ve, y el agua solo donde sus suelos la admiten', () => {
     // La muestra: las semillas de #187 (un empate y un lago ajeno) y s652, que
     // gana su puente por el desempate de la pareja. La lenta, las mil.
@@ -1344,6 +1336,95 @@ describe('a una mina, un pueblo o una ciudad se entra por su puerta (#188)', () 
     const tramos = trazarCaminos(entrada(barrera));
     expect(llegan(tramos, mina).sort((a, b) => a - b)).toEqual([i(3, 2), i(5, 2)]);
     expect(llegan(tramos, pueblo)).toEqual([i(7, 2)]);
+  });
+});
+
+describe('el camino se aparta del pie de lo alto y del borde del mapa (#189)', () => {
+  // Una región de 9×6 abierta. Los dos objetivos, en (0,2) y (8,2): en línea
+  // recta, el camino iría por la fila 2.
+  const W = 9;
+  const H = 6;
+  const i = (x: number, y: number) => y * W + x;
+  const a = i(0, 2);
+  const b = i(8, 2);
+  /** Con la fila 1 de `barrera` (y la 0 también, fuera de la región). */
+  const entrada = (barrera: Barrera | null, objetivos = [a, b]): EntradaDeCaminos => {
+    const tipos = new Int8Array(W * H).fill(ABIERTA);
+    const regionDe = new Int32Array(W * H);
+    if (barrera !== null)
+      for (let x = 0; x < W; x++)
+        for (const y of [0, 1]) {
+          tipos[i(x, y)] = BARRERAS.indexOf(barrera);
+          regionDe[i(x, y)] = -1;
+        }
+    return {
+      W,
+      H,
+      tipos,
+      regionDe,
+      regiones: 1,
+      suelos: ['grass'],
+      nodosDeRegion: [[]],
+      objetivos: [objetivos],
+      puertas: [],
+      monstruos: new Uint8Array(W * H),
+      ocupadas: new Set(objetivos),
+    };
+  };
+  const casillas = (e: EntradaDeCaminos) => new Set(trazarCaminos(e).flat());
+  const enLaFila = (c: Set<number>, y: number) => rango(2, 6).filter((x) => c.has(i(x, y)));
+
+  it('al pie de un acantilado, de una montaña o de un bosque va por la fila de debajo', () => {
+    // La escena pinta lo alto colgando sobre la casilla de debajo, y la senda
+    // pegada a ese pie desaparecía bajo la pared (s13, (11,13)-(13,13)).
+    for (const barrera of ['cliff', 'mountain', 'forest'] as const) {
+      const c = casillas(entrada(barrera));
+      expect(enLaFila(c, 2), barrera).toEqual([]);
+      expect(enLaFila(c, 3), barrera).toEqual([2, 3, 4, 5, 6]);
+    }
+  });
+
+  it('el agua o un muro al norte no se cobran: el agua va encajada y el muro es muralla', () => {
+    for (const barrera of ['water', 'wall'] as const)
+      expect(enLaFila(casillas(entrada(barrera)), 2), barrera).toEqual([2, 3, 4, 5, 6]);
+  });
+
+  it('pegado al borde del mapa, tampoco: va por la fila de dentro si la hay', () => {
+    const c = casillas(entrada(null, [i(0, 0), i(8, 0)]));
+    expect(enLaFila(c, 0)).toEqual([]);
+    expect(enLaFila(c, 1)).toEqual([2, 3, 4, 5, 6]);
+  });
+
+  it('es un coste y no una prohibición: un pasillo de una casilla al pie sigue siendo el camino', () => {
+    const e = entrada('cliff');
+    const tipos = Int8Array.from(e.tipos);
+    const regionDe = Int32Array.from(e.regionDe);
+    for (let x = 0; x < W; x++)
+      for (const y of [3, 4, 5]) {
+        tipos[i(x, y)] = BARRERAS.indexOf('cliff');
+        regionDe[i(x, y)] = -1;
+      }
+    expect(enLaFila(casillas({ ...e, tipos, regionDe }), 2)).toEqual([2, 3, 4, 5, 6]);
+  });
+
+  /** Los tramos de camino con las dos casillas en la misma línea del borde. */
+  const porElBorde = (map: GameMap): number =>
+    map.caminos.tramos.filter(
+      ([p, q]) =>
+        (p.x === 0 && q.x === 0) ||
+        (p.y === 0 && q.y === 0) ||
+        (p.x === map.width - 1 && q.x === map.width - 1) ||
+        (p.y === map.height - 1 && q.y === map.height - 1),
+    ).length;
+
+  it('el camino apenas corre por el borde del mapa: ni puertas en él ni atajos por él', () => {
+    // Medido con `newGame` en 1-100 (08-10-2026): 8,4 tramos por mapa antes,
+    // 5,4 de ellos al pie de la puerta de una mina o un pueblo; ahora, 2,0, en
+    // pasillos de una casilla entre el borde y una barrera. Sin la puerta fuera
+    // del borde (`colocarPar`) y sin el coste, aquí salen 11,9 en 1-20 (2,0 con ellos).
+    const semillas = segunPrisa(rango(1, 20), rango(1, 100));
+    const tramos = semillas.map((s) => porElBorde(buildMap(generateMapPlan(createRng(s))).map));
+    expect(tramos.reduce((x, y) => x + y, 0) / semillas.length).toBeLessThanOrEqual(3);
   });
 });
 

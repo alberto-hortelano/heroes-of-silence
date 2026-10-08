@@ -603,8 +603,10 @@ describe('pulsar el puente lleva a su nodo (H2 del QA de #157)', () => {
         puentes++;
       }
     }
-    // Que no pase en vacío: en 1-40, 100 desde #169 (89 antes).
-    expect(puentes).toBeGreaterThanOrEqual(segunPrisa(2, 80));
+    // Que no pase en vacío: en 1-40, 100 desde #169 (89 antes), 76 desde #189
+    // (la colocación sin puertas en el borde mueve los obstáculos, y con ellos
+    // la barrera que más se ve junto a cada nodo: 533 → 464 nodos de agua en 1-200).
+    expect(puentes).toBeGreaterThanOrEqual(segunPrisa(2, 70));
   });
 
   it('en el cliente: pulsar el tablero de un puente sobre el agua de otra casilla lo señala y anda hacia él', () => {

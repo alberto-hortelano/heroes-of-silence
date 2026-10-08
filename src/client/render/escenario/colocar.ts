@@ -114,6 +114,7 @@ import {
   relieve,
 } from './relieve.js';
 import {
+  ANCHO_DE_SENDA,
   SEMIANCHO_DE_LA_HUELLA,
   SEMIANCHO_DEL_PASILLO,
   SEMIANCHO_DEL_PASILLO_DE_MASA,
@@ -285,6 +286,14 @@ export interface Escena {
      * senda pasa por ella y sigue desde su pie (#192). Tiene que ser 0.
      */
     readonly rampasDesviadas: number;
+    /**
+     * Tramos de senda pintada de al menos `SENDA_CORTADA` casillas bajo la
+     * silueta de una frontal, una ladera o una diagonal (`sendaBajoElRelieve`,
+     * #189): la senda desaparece bajo el relieve. No es 0: el trazado del
+     * núcleo lo evita donde puede (`recargosDelTrazado`, vestir.ts), pero un
+     * pasillo de una casilla al pie de un desnivel no deja otro sitio.
+     */
+    readonly sendaBajoElRelieve: number;
     /**
      * Trozos de cara de acantilado que se pintan y no tapa la silueta de
      * ninguna pared, de al menos 0,3 de ancho y de alto (`carasLisas`): tiene
@@ -2267,6 +2276,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       bajadasTapadas: bajadasTapadas(sprites, bajadas, catalogo).length,
       bajadasSobreNodo: bajadasSobreNodo(sprites, bajadas, catalogo).length,
       rampasDesviadas: rampasDesviadas(bajadas, trazos).length,
+      sendaBajoElRelieve: sendaBajoElRelieve(sprites, trazos, catalogo).length,
       laderasEnfrentadas: laderasEnfrentadas(sprites, deLadera).length,
       carasLisas: carasLisas(carasDeEscena, sprites, perfilDe).length,
       puentesTapados: puentesTapados(sprites, puentes).length,
@@ -3411,6 +3421,90 @@ function seSolapan(a: Sprite, b: Sprite, perfilDe: PerfilDe): boolean {
     for (let y = y0; y <= y1; y += PASO_DE_SOLAPE)
       if (tapaElPunto(a, perfilDe, x, y) && tapaElPunto(b, perfilDe, x, y)) return true;
   return false;
+}
+
+/**
+ * Desde cuánto tapada se ve cortada la senda, en casillas de su trazo: un
+ * tramo más corto queda bajo el labio de una pared y se sigue leyendo.
+ */
+export const SENDA_CORTADA = 0.5;
+
+/**
+ * Los tramos de senda pintada que desaparecen bajo una pieza del relieve —una
+ * frontal, una ladera o una diagonal—, cada uno dicho: su trazo, mirado cada
+ * `PASO_POR_EL_TABLERO`, cae bajo la silueta de una pared (`tapaElPunto`) en
+ * `SENDA_CORTADA` casillas seguidas o más. La bajada no cuenta, ni lo que tapa
+ * ella: es la rampa que lleva la senda por la pared, a propósito (R5). Se mira
+ * la huella entera, su centro y sus dos bordes a la media anchura de
+ * `ANCHO_DE_SENDA`: lo que cuenta es que la senda desaparezca, no que una
+ * pared le muerda el borde (la auditoría de 08-10-2026 miró solo el centro de
+ * la senda de 0,2 y contó 589 tramos en 1-40).
+ */
+export function sendaBajoElRelieve(
+  sprites: readonly Sprite[],
+  sendas: readonly Senda[],
+  catalogo: Catalogo,
+): string[] {
+  const m = modulosDelRelieve(catalogo).bajadas;
+  const perfilDe = perfilesDelCatalogo(catalogo);
+  const esBajada = (s: Sprite) =>
+    (s.src !== null && m.has(s.src)) || (s.src === null && s.color === COLOR_DE_BAJADA);
+  // Las paredes por casilla de su caja: una senda mira solo las de la suya.
+  const porCasilla = new Map<number, Sprite[]>();
+  for (const s of sprites) {
+    if (s.clase !== 'pared' || s.src?.includes('/rocas-caidas/') === true) continue;
+    const [x0, y0, x1, y1] = cajaDeSprite(s);
+    for (let y = Math.floor(y0); y <= Math.floor(y1); y++)
+      for (let x = Math.floor(x0); x <= Math.floor(x1); x++) {
+        const k = y * 4096 + x;
+        const lista = porCasilla.get(k);
+        if (lista === undefined) porCasilla.set(k, [s]);
+        else lista.push(s);
+      }
+  }
+  const tapado = (x: number, y: number): boolean => {
+    const cerca = porCasilla.get(Math.floor(y) * 4096 + Math.floor(x)) ?? [];
+    let pared = false;
+    for (const s of cerca) {
+      if (!tapaElPunto(s, perfilDe, x, y)) continue;
+      if (esBajada(s)) return false;
+      pared = true;
+    }
+    return pared;
+  };
+  const fuera: string[] = [];
+  for (const senda of sendas) {
+    let desde: readonly [number, number] | undefined;
+    let largo = 0;
+    const cerrar = () => {
+      if (desde !== undefined && largo >= SENDA_CORTADA - 1e-9)
+        fuera.push(
+          `senda bajo el relieve desde ${desde[0].toFixed(2)},${desde[1].toFixed(2)}: ${largo.toFixed(2)} casillas`,
+        );
+      desde = undefined;
+      largo = 0;
+    };
+    for (let i = 0; i + 1 < senda.length; i++) {
+      const [ax, ay] = senda[i] as readonly [number, number];
+      const [bx, by] = senda[i + 1] as readonly [number, number];
+      const l = Math.hypot(bx - ax, by - ay);
+      if (l === 0) continue;
+      const n = Math.max(1, Math.round(l / PASO_POR_EL_TABLERO));
+      // La normal a la media anchura de la huella: se mira el centro y los dos bordes.
+      const nx = (-(by - ay) / l) * (ANCHO_DE_SENDA / 2);
+      const ny = ((bx - ax) / l) * (ANCHO_DE_SENDA / 2);
+      for (let k = 0; k < n; k++) {
+        const x = ax + ((bx - ax) * k) / n;
+        const y = ay + ((by - ay) * k) / n;
+        if (tapado(x, y) && tapado(x + nx, y + ny) && tapado(x - nx, y - ny)) {
+          desde ??= [x, y];
+          largo += l / n;
+        } else cerrar();
+      }
+    }
+    cerrar();
+  }
+  return fuera;
 }
 
 /**

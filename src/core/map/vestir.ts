@@ -966,6 +966,60 @@ export interface EntradaDeCaminos {
 }
 
 /**
+ * Cuántos pasos rectos de más cuesta trazar un camino por una casilla al pie de
+ * una barrera que le queda al norte (#189). La escena pinta el relieve con la
+ * cámara al sur: lo alto cuelga sobre la casilla de debajo —0,6 casillas por
+ * nivel, más las diagonales de sus esquinas— y la senda que va pegada a ese pie
+ * desaparece bajo la pared, que nunca se corta ni se aparta (CLAUDE.md, «el
+ * relieve por celdas»). El núcleo no sabe qué quedará alto —el nivel de cada
+ * región lo sortea la escena—, pero sí lo seguro: un **acantilado** va siempre
+ * por encima de lo que pisa a su lado, salvo el cañón entre dos regiones al
+ * mismo nivel, y tapaba la senda en el 55 % de las casillas de camino que tenían
+ * uno al N, NO o NE (semillas 1-40, 08-10-2026). Una **montaña o un bosque**
+ * toman el nivel de su lado alto (#180): tapan solo al lado bajo, un 15 %, y
+ * cuestan uno. Al norte y no a los lados ni al sur: cobrar las ocho vecinas
+ * medía peor (18,2 casillas tapadas por mapa frente a 17,0). Es un coste, no
+ * una prohibición: un pasillo de una casilla al pie de un acantilado sigue
+ * siendo el camino si no hay otro.
+ */
+const AL_PIE_DEL_ACANTILADO = 3;
+const AL_PIE_DE_LO_ALTO = 1;
+/**
+ * Y por una casilla del borde del mapa, que la escena pinta medio bajo las
+ * nubes: un camino pegado a él parecía salirse del mapa (auditoría, defecto 7).
+ * El grueso de esos caminos no venía de aquí sino de las puertas en el borde
+ * (`colocarPar`, generate.ts); esto aparta el resto donde hay sitio.
+ */
+const POR_EL_BORDE = 2;
+
+/**
+ * Los pasos rectos de más que cuesta cada casilla de `casillas` al trazar
+ * (`AL_PIE_DEL_ACANTILADO`, `AL_PIE_DE_LO_ALTO`, `POR_EL_BORDE`), sumados.
+ */
+function recargosDelTrazado(e: EntradaDeCaminos, casillas: readonly number[]): Uint8Array {
+  const { W, H, tipos } = e;
+  const recargo = new Uint8Array(W * H);
+  const acantilado = BARRERAS.indexOf('cliff');
+  const montana = BARRERAS.indexOf('mountain');
+  const bosque = BARRERAS.indexOf('forest');
+  for (const i of casillas) {
+    const x = i % W;
+    const y = (i - x) / W;
+    let n = x === 0 || y === 0 || x === W - 1 || y === H - 1 ? POR_EL_BORDE : 0;
+    let alto = 0;
+    for (let dx = -1; y > 0 && dx <= 1; dx++) {
+      if (x + dx < 0 || x + dx >= W) continue;
+      const t = tipos[i - W + dx] as number;
+      if (t === acantilado) alto = AL_PIE_DEL_ACANTILADO;
+      else if (t === montana || t === bosque) alto = Math.max(alto, AL_PIE_DE_LO_ALTO);
+    }
+    n += alto;
+    recargo[i] = n;
+  }
+  return recargo;
+}
+
+/**
  * El Dijkstra de una región con el coste del héroe: lo de `red` a mitad de
  * precio y un paso recto de más por arrimarse a ella viniendo de fuera.
  * Reutiliza `coste` y `previo` de una búsqueda a otra.
@@ -997,6 +1051,8 @@ class Busqueda {
    * o se le pega de lado, y la senda pintada se mete bajo el sprite.
    */
   private readonly espalda: Uint8Array;
+  /** Lo que cuesta de más trazar por cada casilla (`recargosDelTrazado`): el pie de lo alto y el borde. */
+  private readonly recargo: Uint8Array;
   private readonly recto: number;
   private readonly diagonal: number;
   /** Más que cualquier camino sin monstruos dentro del mapa: lo que cuesta entrar de lado. */
@@ -1032,6 +1088,7 @@ class Busqueda {
       if (e.regionDe[i] === r && e.tipos[i] === ABIERTA) casillas.push(i);
     }
     this.casillas = casillas;
+    this.recargo = recargosDelTrazado(e, casillas);
     const suelo = e.suelos[r] as Suelo;
     this.recto = costeDeEntrada(suelo, false, false);
     this.diagonal = costeDeEntrada(suelo, false, true);
@@ -1104,7 +1161,10 @@ class Busqueda {
         let paso =
           monstruos[j] === 1 ? this.pisarMonstruo : enDiagonal ? this.diagonal : this.recto;
         if (red?.[j] === 1) paso = Math.floor(paso / 2);
-        else if (!enLaRed && pegada?.[j] === 1) paso += this.recto;
+        else {
+          if (!enLaRed && pegada?.[j] === 1) paso += this.recto;
+          paso += (this.recargo[j] as number) * this.recto;
+        }
         paso += cruza;
         if (puerta[j] === 1) paso += porDonde(j, a);
         // Rodear por detrás o pegarse de lado cuesta dos rectos: por delante,
@@ -1123,7 +1183,14 @@ class Busqueda {
           const jx = j % W;
           const k1 = y * W + jx;
           const k2 = j - jx + x;
-          paso += Math.max(yEnLaEsquina(k1), yEnLaEsquina(k2)) * this.recto;
+          const enY = Math.max(yEnLaEsquina(k1), yEnLaEsquina(k2));
+          // La L va por la otra esquina, que puede estar al pie de lo alto o en
+          // el borde y costar su recargo: la Y cobra también el mayor, o salía
+          // más barata que esa L (s1 (32,5), en el borde; #189).
+          if (enY > 0) {
+            const recargo = Math.max(this.recargo[k1] as number, this.recargo[k2] as number);
+            paso += (enY + recargo) * this.recto;
+          }
           // La cuarta diagonal de una casilla dibuja un aspa: dos sendas rectas
           // que se cruzan, y se lee como trazado a regla (s2, (1,31): el centro
           // de la región en medio de tres minas y un nodo, uno en cada
