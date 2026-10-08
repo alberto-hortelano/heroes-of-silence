@@ -52,6 +52,24 @@ import { itLento, rango, segunPrisa } from './lento.js';
 /** Los fallos de la auditoría densa de un plan, construyéndolo. */
 const densa = (plan: MapPlan): string[] => auditarMapaDenso(plan, buildMap(plan).map).fallos;
 
+/**
+ * El mapa del generador de cada semilla, hecho una vez por fichero. En `pnpm
+ * verify:lento` tres medidas recorren 1-1000 (aspas, tramos rectos y la barrera
+ * de cada nodo) y cada una generaba las mil: 3 000 mapas a ~8 ms, casi todo el
+ * fichero. Pasaba de 60 s con la máquina cargada y vitest moría con «Timeout
+ * calling onTaskUpdate» (#194). Ningún test toca lo que lee.
+ */
+const hechos = new Map<number, { plan: MapPlan; map: GameMap }>();
+function delGenerador(semilla: number): { plan: MapPlan; map: GameMap } {
+  let hecho = hechos.get(semilla);
+  if (hecho === undefined) {
+    const plan = generateMapPlan(createRng(semilla));
+    hecho = { plan, map: buildMap(plan).map };
+    hechos.set(semilla, hecho);
+  }
+  return hecho;
+}
+
 /** El plan de prueba con una cosa cambiada. */
 function con(cambio: Partial<PlanConCasillas>): MapPlan {
   return { ...planDeNodos(), ...cambio };
@@ -816,7 +834,7 @@ describe('el generador hace redes como las pidió el usuario', () => {
   it('el centro de una región no reparte en aspa: la cuarta diagonal cuesta más que la T (auditoría 3, §7)', () => {
     // Las que mordían en 1-1000 antes del arreglo: 2 (la de la auditoría), 13 y 49.
     for (const s of [2, 13, 49]) {
-      const { map } = buildMap(generateMapPlan(createRng(s)));
+      const { map } = delGenerador(s);
       expect(aspas(map), `semilla ${s}`).toEqual([]);
     }
   });
@@ -824,7 +842,7 @@ describe('el generador hace redes como las pidió el usuario', () => {
   itLento('ninguna aspa fuera de un nodo en las semillas 1-1000 (auditoría 3, §7)', () => {
     const fallos: string[] = [];
     for (const s of rango(1, 1000)) {
-      const { map } = buildMap(generateMapPlan(createRng(s)));
+      const { map } = delGenerador(s);
       fallos.push(...aspas(map).map((f) => `semilla ${s}: ${f}`));
     }
     expect(fallos).toEqual([]);
@@ -851,7 +869,7 @@ describe('el generador hace redes como las pidió el usuario', () => {
     // cada pareja con eje pleno (`conEjePleno`) y en 1-40 no queda ninguno; en
     // 1-1000, 17 de 12 342 nodos, casi todos junto al borde.
     for (const s of segunPrisa(rango(1, 3), rango(1, 40))) {
-      const { map } = buildMap(generateMapPlan(createRng(s)));
+      const { map } = delGenerador(s);
       fallos.push(...entradasDeNodo(map).map((f) => `semilla ${s}: ${f}`));
       nodos += estructura(map).nodos.length;
     }
@@ -923,7 +941,7 @@ describe('el generador hace redes como las pidió el usuario', () => {
     let largos = 0;
     let mapas = 0;
     for (const s of rango(1, 1000)) {
-      const { map } = buildMap(generateMapPlan(createRng(s)));
+      const { map } = delGenerador(s);
       largos += tramosRectos(map, 8).largos;
       if (tramosRectos(map, 10).largos > 0) mapas++;
     }
@@ -1048,8 +1066,7 @@ describe('la barrera que cruza cada nodo del generador (#145, #187)', () => {
    * admiten. Devuelve lo que no cumple, con su sitio.
    */
   function malCruzados(semilla: number): string[] {
-    const plan = generateMapPlan(createRng(semilla));
-    const { map } = buildMap(plan);
+    const { plan, map } = delGenerador(semilla);
     const red = estructura(map);
     const admiteRio = (r: number) => {
       const suelo = plan.regions[r]?.terrain as Suelo;
@@ -1091,7 +1108,7 @@ describe('la barrera que cruza cada nodo del generador (#145, #187)', () => {
       [896, 'node-8'],
     ];
     for (const [semilla, id] of seis) {
-      const { map } = buildMap(generateMapPlan(createRng(semilla)));
+      const { map } = delGenerador(semilla);
       const nodo = map.objects.find((o) => o.id === id);
       expect(nodo?.kind, `semilla ${semilla} ${id}`).toBe('node');
       expect(nodo?.kind === 'node' && nodo.barrera, `semilla ${semilla} ${id}`).not.toBe('water');

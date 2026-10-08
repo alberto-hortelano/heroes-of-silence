@@ -13,5 +13,9 @@ export default defineConfig({
     include: ['test/**/*.test.ts'],
     // Las partidas completas IA contra IA son tests de integración largos.
     testTimeout: 60_000,
+    // Una vuelta al bucle de eventos entre test y test: sin ella, un fichero
+    // de tests síncronos que pasa de 60 s pierde la respuesta del RPC de
+    // vitest y la orden sale 1 con todo en verde (#194, `test/ceder.ts`).
+    setupFiles: ['test/ceder.ts'],
   },
 });

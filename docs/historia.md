@@ -2629,6 +2629,19 @@ dormido—, y cuesta 17 ms recorrerlo entero. Con `-z` y `xargs -0`, porque un
 nombre con un espacio se partía en dos y su contenido dejaba de contar **en
 silencio**.
 
+**Un fichero de tests síncronos no pasa de 60 s sin ceder (#194, 08-10-2026).**
+`pnpm verify:lento` salía 1 con todo en verde —«Timeout calling
+"onTaskUpdate"»— cuando `regiones.test.ts` pasaba de ~60 s con la máquina
+cargada. El worker de vitest espera la respuesta de su RPC de progreso con un
+temporizador de 60 s, y entre test y test el runner solo encadena microtareas:
+con tests síncronos el bucle no gira hasta que acaba el fichero, y entonces el
+temporizador salta antes de leer la respuesta. Lo cuenta el fichero, no el test:
+14 tests de 5 s, aislados, ya dan el 1. Dos arreglos: `test/ceder.ts`
+(`setupFiles`) da una vuelta al bucle tras cada test, visto morder con esos
+mismos 14; y las tres medidas de 1-1000 de `regiones.test.ts` (aspas, tramos
+rectos, barrera de cada nodo) comparten los mapas (`delGenerador`) en vez de
+generar mil cada una: el fichero solo, de 28,9 a 9,7 s.
+
 ## La arena: unidades con cifras inventadas, a pelear
 
 `pnpm arena` abre `/arena/` (petición del usuario, 02-10-2026): se montan dos bandos
