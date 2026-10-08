@@ -26,7 +26,7 @@ import {
 } from '../src/core/map/generate.js';
 import { type GameMap, pointKey, RedDeCaminos, type TramoDeCamino } from '../src/core/map/map.js';
 import { aPunto, type Estructura, estructura, vecindad } from '../src/core/map/regiones.js';
-import { BARRERAS, isWalkable, type TerrainKind } from '../src/core/map/terrain.js';
+import { BARRERAS, isWalkable, type Suelo, type TerrainKind } from '../src/core/map/terrain.js';
 import {
   ABIERTA,
   ArbolDeCaminos,
@@ -112,6 +112,9 @@ describe('la red se valida: cada rotura se dice con su sitio', () => {
       walls: [
         ...plan.walls.filter((m) => m.from.x !== 11),
         ...[9, 10, 10, 11, 11, 12, 12, 13, 13].map((x, y) => tramo(x, y)),
+        // Bajo los dos nodos de la columna, que la abren: no cambia el terreno.
+        tramo(11, 2),
+        tramo(11, 6),
       ],
     });
     const problemas = validateMapPlan(escalera);
@@ -131,6 +134,7 @@ describe('la red se valida: cada rotura se dice con su sitio', () => {
       walls: [
         ...plan.walls.filter((m) => m.from.x !== 11),
         ...Array.from({ length: 9 }, (_, y) => tramo(17 - y, y)),
+        tramo(11, 2),
       ],
     });
     const problemas = validateMapPlan(diagonal);
@@ -150,10 +154,47 @@ describe('la red se valida: cada rotura se dice con su sitio', () => {
 
   it('un nodo que toca una sola región no es un paso', () => {
     const plan = planDeNodos();
-    const suelto = con({ nodes: [...plan.nodes, { x: 1, y: 1 }] });
+    // Con su muro debajo, que el nodo abre: lo que falla es la red, no el muro.
+    const suelto = con({
+      nodes: [...plan.nodes, { x: 1, y: 1 }],
+      walls: [...plan.walls, tramo(1, 1)],
+    });
     expect(validateMapPlan(suelto)).toEqual([
       'el nodo de (1,1) solo toca la región "a": un nodo es un paso entre dos regiones o más, ponlo en el muro que las separa',
     ]);
+  });
+
+  it('un nodo sin muro debajo no cruza nada, y se rechaza (#145)', () => {
+    const plan = planDeNodos();
+    // El nodo de la cordillera de la columna 11, con su casilla fuera del tramo.
+    const sinMuro = con({
+      walls: [...plan.walls.filter((m) => m.from.x !== 11), columna(11, 0, 1), columna(11, 3, 8)],
+    });
+    expect(validateMapPlan(sinMuro)).toEqual([
+      'el nodo de (11,2) no está sobre ningún muro (debajo hay grass): un nodo va en un muro, abre su casilla y cruza la barrera de ese muro',
+    ]);
+    // `buildMap` no se lo inventa: sin la validación, lanza diciendo cuál.
+    expect(() => buildMap(sinMuro)).toThrow(
+      'el nodo de (11,2) no está sobre ningún muro: no se sabe qué barrera cruza',
+    );
+  });
+
+  it('el mapa guarda la barrera que cruza cada nodo: la del muro que abre (#145)', () => {
+    const plan = planDeNodos();
+    // Un tramo de agua de una casilla bajo el nodo de la columna 11: manda el
+    // último muro, como al pintar, y el nodo cruza agua aunque su cordillera
+    // sea de montaña.
+    const conRio = con({ walls: [...plan.walls, { ...tramo(11, 2), terrain: 'water' }] });
+    expect(validateMapPlan(conRio)).toEqual([]);
+    const nodos = (p: MapPlan) =>
+      buildMap(p).map.objects.flatMap((o) =>
+        o.kind === 'node' ? [`${o.at.x},${o.at.y} ${o.barrera}`] : [],
+      );
+    expect(nodos(plan)).toContain('11,2 mountain');
+    expect(nodos(conRio)).toContain('11,2 water');
+    // Y la casilla se abre igual: el terreno no sabe qué cruzaba.
+    const t = (p: MapPlan) => buildMap(p).map.terrain[2 * p.width + 11];
+    expect(t(conRio)).toBe(t(plan));
   });
 
   it('dos nodos vecinos se rechazan', () => {
@@ -888,6 +929,72 @@ describe('el generador hace redes como las pidió el usuario', () => {
     const fallos = auditar(planDeNodos());
     expect(fallos).toContain('solo 1 ciudades neutrales');
     expect(fallos).toContain('la ciudad town-2 es de grado 2');
+  });
+});
+
+describe('la barrera que cruza cada nodo del generador (#145, #187)', () => {
+  /**
+   * Lo que guarda el mapa contra lo que se ve: la barrera del nodo está entre
+   * sus ocho vecinas y ninguna se repite más, salvo el agua de un lago ajeno
+   * (sus suelos no la admiten); y un nodo de agua une dos suelos que la
+   * admiten. Devuelve lo que no cumple, con su sitio.
+   */
+  function malCruzados(semilla: number): string[] {
+    const plan = generateMapPlan(createRng(semilla));
+    const { map } = buildMap(plan);
+    const red = estructura(map);
+    const admiteRio = (r: number) => {
+      const suelo = plan.regions[r]?.terrain as Suelo;
+      return BARRERAS_DEL_MAPA.frontera[suelo].some((c) => c.barrera === 'water');
+    };
+    const fallos: string[] = [];
+    for (const o of map.objects) {
+      if (o.kind !== 'node') continue;
+      const regiones = red.nodos[red.nodoPorId.get(o.id) as number]?.regiones ?? [];
+      // Un río entre dos regiones: lo admiten las dos, o la suma de las dos
+      // (`candidatasDeFrontera`), que es admitirlo una.
+      const conRio = regiones.some(admiteRio);
+      const cuenta = new Map<TerrainKind, number>();
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          const [x, y] = [o.at.x + dx, o.at.y + dy];
+          if ((dx === 0 && dy === 0) || x < 0 || y < 0 || x >= map.width || y >= map.height)
+            continue;
+          const t = map.terrain[y * map.width + x] as TerrainKind;
+          if (!isWalkable(t)) cuenta.set(t, (cuenta.get(t) ?? 0) + 1);
+        }
+      const suya = cuenta.get(o.barrera) ?? 0;
+      const sitio = `semilla ${semilla}, ${o.id} (${o.at.x},${o.at.y}) cruza ${o.barrera}`;
+      if (suya === 0) fallos.push(`${sitio} y no hay ${o.barrera} alrededor`);
+      for (const [t, n] of cuenta)
+        if (n > suya && !(t === 'water' && !conRio)) fallos.push(`${sitio} pero hay más ${t}`);
+      if (o.barrera === 'water' && !conRio) fallos.push(`${sitio} y sus suelos no la admiten`);
+    }
+    return fallos;
+  }
+
+  it('los seis puentes sin río de #187 ya no cruzan agua', () => {
+    const seis: readonly [number, string][] = [
+      [28, 'node-6'],
+      [203, 'node-8'],
+      [455, 'node-6'],
+      [646, 'node-2'],
+      [646, 'node-8'],
+      [896, 'node-8'],
+    ];
+    for (const [semilla, id] of seis) {
+      const { map } = buildMap(generateMapPlan(createRng(semilla)));
+      const nodo = map.objects.find((o) => o.id === id);
+      expect(nodo?.kind, `semilla ${semilla} ${id}`).toBe('node');
+      expect(nodo?.kind === 'node' && nodo.barrera, `semilla ${semilla} ${id}`).not.toBe('water');
+    }
+  });
+
+  it('lo que guarda cada nodo es lo que se ve, y el agua solo donde sus suelos la admiten', () => {
+    // La muestra: las semillas de #187 (un empate y un lago ajeno) y s652, que
+    // gana su puente por el desempate de la pareja. La lenta, las mil.
+    const semillas = segunPrisa([28, 203, 646, 652, 896], rango(1, 1000));
+    expect(semillas.flatMap(malCruzados)).toEqual([]);
   });
 });
 

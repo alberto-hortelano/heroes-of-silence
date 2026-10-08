@@ -233,9 +233,9 @@ Cómo se elige, y lo que la composición aprendió al probarlo:
   sí van en todas.
 - **La orilla** va solo en las casillas de agua que tocan tierra, a unas 1,3
   casillas de ancho. A 2 parece un tronco flotando.
-- **El nodo** no sabe qué barrera cruza: `buildMap` lo pinta como `dirt` y no se
-  guarda. Se deduce de sus 8 vecinas (`barreraDeNodo`): la barrera que más se repite,
-  y el eje según queden a sus lados o arriba y abajo.
+- **El nodo** sabe qué barrera cruza: la guarda el mapa (`MapObject.barrera`, #145,
+  08-10-2026). El eje sale de sus 8 vecinas (`ejeDeLaFrontera`), según queden a
+  sus lados o arriba y abajo.
 - **Anchos que se ven bien** a 48 px por casilla: borde 2, obstáculo 1,15, nodo 1,7.
 
 Lo que no cambia: las piezas de la petición 3 (montañas, ciudad, pueblo, recursos)
@@ -267,8 +267,8 @@ Lo que se pide a la sesión de reglas, de menos a más:
    escenógrafo la pinta como río encajado. Si el generador trazara los ríos como
    líneas que bajan de nivel (con su cascada donde cambian), la red seguiría
    siendo la misma y el río tendría curso.
-4. **Saber qué barrera cruza un nodo.** Igual que en la §10: hoy se deduce de las
-   vecinas (`barreraDeNodo`).
+4. **Saber qué barrera cruza un nodo.** Hecha (#145, 08-10-2026): la guarda el
+   mapa (`MapObject.barrera`).
 
 **La 1 está hecha (04-10-2026)**, con una forma algo distinta de la de abajo —
 decisión del usuario—: el código puro vive ahora en `src/client/render/escenario/`

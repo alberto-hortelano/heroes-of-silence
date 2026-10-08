@@ -359,6 +359,22 @@ export function validateMapPlan(plan: MapPlan): string[] {
     );
   }
 
+  // Un nodo va en un muro y cruza su barrera, que `buildMap` guarda al abrir
+  // la casilla (#145). Sin muro debajo no hay barrera que cruzar: antes se
+  // aceptaba y el escenógrafo se la inventaba con lo de alrededor. Con un
+  // tamaño fuera de rango ya hay problema y no se pinta un mapa que no vale.
+  const conTamaño = plan.width >= 8 && plan.height >= 8 && plan.width <= 128 && plan.height <= 128;
+  const pintado = conTamaño ? terrenoPintado(plan) : [];
+  for (const n of conTamaño ? plan.nodes : []) {
+    if (!inBounds(plan, n)) continue;
+    const t = pintado[n.y * plan.width + n.x] as TerrainKind;
+    if (!esBarrera(t)) {
+      problemas.push(
+        `el nodo de (${n.x},${n.y}) no está sobre ningún muro (debajo hay ${t}): un nodo va en un muro, abre su casilla y cruza la barrera de ese muro`,
+      );
+    }
+  }
+
   if (problemas.length > 0) return problemas;
 
   // Un camino fuera del mapa no se puede construir (`RedDeCaminos` lanza), y
@@ -537,16 +553,15 @@ export function planDelAgente(plan: PlanConTramos): PlanConCasillas {
   return { ...comun, roads: red.indices.map((i) => aPunto(i, plan.width)) };
 }
 
-export function buildMap(plan: MapPlan): BuiltMap {
-  const base = createEmptyMap(plan.width, plan.height, plan.baseTerrain);
-  // De cada región, lo de la red: el suelo se pinta aquí abajo y no se guarda.
-  const map: GameMap = {
-    ...base,
-    regions: plan.regions.map((r) => ({ id: r.id, name: r.name, at: { ...r.at } })),
-    caminos: caminosDelPlan(plan),
-  };
-  const pintar = (p: Point, t: TerrainKind): void => {
-    if (inBounds(map, p)) map.terrain[p.y * plan.width + p.x] = t;
+/**
+ * El terreno de manchas y muros, antes de que nodos y ciudades abran su
+ * casilla: lo que pinta `buildMap` y lo que mira `validateMapPlan` para saber
+ * qué barrera cruza cada nodo.
+ */
+function terrenoPintado(plan: MapPlan): TerrainKind[] {
+  const { terrain } = createEmptyMap(plan.width, plan.height, plan.baseTerrain);
+  const pintar = (x: number, y: number, t: TerrainKind): void => {
+    if (inBounds(plan, { x, y })) terrain[y * plan.width + x] = t;
   };
 
   // Manchas: redondeadas, pintadas en orden, la última manda.
@@ -555,7 +570,7 @@ export function buildMap(plan: MapPlan): BuiltMap {
       for (let x = 0; x < plan.width; x++) {
         const dx = x - mancha.center.x;
         const dy = y - mancha.center.y;
-        if (dx * dx + dy * dy <= mancha.radius * mancha.radius) pintar({ x, y }, mancha.terrain);
+        if (dx * dx + dy * dy <= mancha.radius * mancha.radius) pintar(x, y, mancha.terrain);
       }
     }
   }
@@ -566,8 +581,35 @@ export function buildMap(plan: MapPlan): BuiltMap {
     const x1 = Math.max(m.from.x, m.to.x);
     const y0 = Math.min(m.from.y, m.to.y);
     const y1 = Math.max(m.from.y, m.to.y);
-    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) pintar({ x, y }, m.terrain);
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) pintar(x, y, m.terrain);
   }
+  return terrain;
+}
+
+export function buildMap(plan: MapPlan): BuiltMap {
+  const base = createEmptyMap(plan.width, plan.height, plan.baseTerrain);
+  // De cada región, lo de la red: el suelo se pinta aquí abajo y no se guarda.
+  const map: GameMap = {
+    ...base,
+    terrain: terrenoPintado(plan),
+    regions: plan.regions.map((r) => ({ id: r.id, name: r.name, at: { ...r.at } })),
+    caminos: caminosDelPlan(plan),
+  };
+  const indice = (p: Point): number => p.y * plan.width + p.x;
+
+  // Lo que cruza cada nodo es la barrera que abre (#145): la del muro que el
+  // plan escribe debajo. Se lee antes de abrirla, y es el único sitio donde se
+  // sabe; el escenógrafo la deducía de las vecinas y en un empate se equivocaba
+  // (#187). Un nodo sin muro debajo lo rechaza `validateMapPlan`.
+  const barreras = plan.nodes.map((p) => {
+    const t = inBounds(map, p) ? (map.terrain[indice(p)] as TerrainKind) : null;
+    if (t === null || !esBarrera(t)) {
+      throw new Error(
+        `el nodo de (${p.x},${p.y}) no está sobre ningún muro: no se sabe qué barrera cruza`,
+      );
+    }
+    return t;
+  });
 
   // **La regla declarada**: un nodo o una ciudad abre la casilla en la que está.
   // Es lo que deja escribir un muro de punta a punta y poner el paso encima,
@@ -575,8 +617,8 @@ export function buildMap(plan: MapPlan): BuiltMap {
   // que se abre: todo lo demás que caiga en un muro se rechaza
   // (`validateMapPlan`), no se sanea.
   for (const p of [...plan.nodes, ...plan.towns.map((t) => t.at)]) {
-    if (inBounds(map, p) && !isWalkable(map.terrain[p.y * plan.width + p.x] as TerrainKind)) {
-      pintar(p, 'dirt');
+    if (inBounds(map, p) && !isWalkable(map.terrain[indice(p)] as TerrainKind)) {
+      map.terrain[indice(p)] = 'dirt';
     }
   }
 
@@ -585,7 +627,8 @@ export function buildMap(plan: MapPlan): BuiltMap {
   const objects: MapObject[] = [];
   for (const t of plan.towns) objects.push({ kind: 'town', id: t.id, at: t.at, owner: t.owner });
   for (const [i, n] of plan.nodes.entries()) {
-    objects.push({ kind: 'node', id: idDeNodo(i), at: n, owner: null });
+    const barrera = barreras[i] as Barrera;
+    objects.push({ kind: 'node', id: idDeNodo(i), at: n, owner: null, barrera });
   }
   for (const [i, m] of plan.mines.entries()) {
     objects.push({ kind: 'mine', id: `mine-${i}`, at: m.at, resource: m.resource });
@@ -1080,7 +1123,15 @@ function intentarRed(rng: Rng, W: number, H: number): RedFina | null {
   //    devuelve `estructura` usa como índice de nodo el de `nodos`.
   const conNodos: GameMap = {
     ...sinNodos,
-    objects: nodos.map((n, k) => ({ kind: 'node', id: `n${k}`, at: punto(n), owner: null })),
+    // El muro fino es todo de montaña: es lo que cruza cada nodo hasta que el
+    // vestido le da a la frontera su barrera (`barreraDeNodo`).
+    objects: nodos.map((n, k) => ({
+      kind: 'node',
+      id: `n${k}`,
+      at: punto(n),
+      owner: null,
+      barrera: 'mountain',
+    })),
   };
   if (problemasDeRed(conNodos).length > 0) return null;
   const red = estructura(conNodos);
@@ -1519,14 +1570,23 @@ function vestirRed(
 
   // Los muros, por tramos de fila del mismo tipo: frontera y obstáculos juntos.
   // Las casillas de nodo van dentro del tramo y `buildMap` las abre: es la
-  // regla declarada, y así el muro se lee entero.
+  // regla declarada, y así el muro se lee entero. Bajo un nodo va la barrera
+  // que cruza (`barreraDeNodo`), que `buildMap` guarda al abrirlo; la de su
+  // muro fino podía ser de otra pareja. Bajo una ciudad, la de siempre.
+  const ciudadesEnNodo = new Set([b0, b1, ...neutrales]);
+  const bajoElNodo = new Map(
+    nodos.flatMap((n, k) =>
+      ciudadesEnNodo.has(k) ? [] : [[n, grueso.barreraDeNodo[k] as Barrera] as const],
+    ),
+  );
+  const muroEn = (i: number): Barrera | null => bajoElNodo.get(i) ?? barreraDe(tipos, i);
   const walls: PlannedWall[] = [];
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
-      const terrain = barreraDe(tipos, y * W + x);
+      const terrain = muroEn(y * W + x);
       if (terrain === null) continue;
       let fin = x;
-      while (fin + 1 < W && barreraDe(tipos, y * W + fin + 1) === terrain) fin++;
+      while (fin + 1 < W && muroEn(y * W + fin + 1) === terrain) fin++;
       walls.push({ terrain, from: { x, y }, to: { x: fin, y } });
       x = fin;
     }
@@ -1545,7 +1605,6 @@ function vestirRed(
       owner: null,
     })),
   ];
-  const ciudadesEnNodo = new Set([b0, b1, ...neutrales]);
 
   return {
     width: W,

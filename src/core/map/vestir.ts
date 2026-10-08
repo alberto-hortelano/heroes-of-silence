@@ -143,6 +143,11 @@ export interface Engordado {
   readonly pasillo: Uint8Array;
   /** La casilla de cada región, movida si la de la semilla se engordó. */
   readonly semillas: readonly { readonly x: number; readonly y: number }[];
+  /**
+   * La barrera que cruza cada nodo de `nodos`, en su orden (`queCruzaElNodo`).
+   * El plan la escribe bajo el nodo, y `buildMap` la guarda al abrirlo.
+   */
+  readonly barreraDeNodo: readonly Barrera[];
 }
 
 /**
@@ -511,7 +516,80 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
       return `la frontera de ${b} se queda en ${n} casillas, y cada barrera garantizada lleva ${casillasMinimasPorTipo}`;
     }
   }
-  return { tipos, pasillo, semillas };
+  // 8. La barrera que cruza cada nodo (#145): la que el plan escribe bajo él y
+  //    `buildMap` guarda al abrirlo. La deducía el escenógrafo de las ocho
+  //    vecinas, sin saber de qué pareja era el nodo (#187).
+  const barreraDeNodo = e.nodos.map((n) => {
+    const cuenta = new Int32Array(BARRERAS.length);
+    const regionesDelNodo = new Set<number>();
+    for (let v = desde[n]!; v < desde[n + 1]!; v++) {
+      const j = vecinas[v]!;
+      // Las regiones, por el muro fino; lo que se ve, por la frontera gruesa,
+      // que es lo que pinta `buildMap` (los obstáculos no tocan un nodo, y los
+      // nodos y ciudades vecinos se abren).
+      if (muro[j] === 0) regionesDelNodo.add(etiqueta[j] as number);
+      if (tipos[j] !== ABIERTA && esNodo[j] === 0) cuenta[tipos[j]!]! += 1;
+    }
+    const lados = [...regionesDelNodo];
+    const parejas = lados.flatMap((a) => lados.filter((b) => a < b).map((b) => clave(a, b)));
+    return queCruzaElNodo(
+      cuenta,
+      parejas.map((k) => tipoDePareja[k] as number),
+      parejas.flatMap((k) => candidatasDe(k)),
+      n,
+    );
+  });
+  return { tipos, pasillo, semillas, barreraDeNodo };
+}
+
+/**
+ * Lo que cruza un nodo, de lo que se ve a lo que sabe el generador. `cuenta`
+ * son sus ocho vecinas por barrera; `sorteadas`, lo que se sorteó para las
+ * parejas de regiones que une (una, salvo en un cruce); `admitidas`, lo que
+ * admiten sus suelos (`data/barreras.json`).
+ *
+ * 1. **La barrera que más se repite alrededor**, porque es lo que se ve. La de
+ *    la pareja a secas no vale: junto a un cruce, la frontera de al lado es de
+ *    otra pareja y llega hasta el nodo. Guardándola, 206 de 12 364 nodos de
+ *    1-1000 cambiaban de barrera, con 41 puentes nuevos entre muros y 42
+ *    quitados de en medio de un río (medido el 08-10-2026).
+ * 2. **Menos el agua, si sus suelos no la admiten**: el puente es la única
+ *    pieza que rehace el terreno (la casilla del nodo se vuelve río), y un río
+ *    entre dos regiones que no pueden tenerlo es el lago de otra frontera que
+ *    llega hasta el nodo. Eran 6 puentes en 1-1000 (s28 node-6, s203 node-8,
+ *    s455 node-6, s646 node-2 y node-8, s896 node-8), dos de ellos de troncos
+ *    sobre un charco que ganaba un empate.
+ * 3. En un empate, **la que se sorteó para su pareja**. El escenógrafo se
+ *    quedaba con la primera vecina que encontraba. Con este paso y el 2, 85
+ *    nodos de 1-1000 cambian de barrera, 81 de ellos empatados; pierden el
+ *    puente 18 (los 6 y 12 empates) y lo ganan 17, todos empates, como s652
+ *    node-4, que cruza un río de este a oeste y llevaba paso de montaña.
+ * 4. Si no está entre las empatadas, la que más admiten sus suelos; y si aún
+ *    empatan, el orden de `BARRERAS`.
+ */
+function queCruzaElNodo(
+  cuenta: Int32Array,
+  sorteadas: readonly number[],
+  admitidas: readonly BarreraConPeso[],
+  n: number,
+): Barrera {
+  const agua = BARRERAS.indexOf('water');
+  const sinRio = !admitidas.some((c) => c.barrera === 'water');
+  const vista = (t: number): number => (t === agua && sinRio ? 0 : (cuenta[t] as number));
+  const max = Math.max(...BARRERAS.map((_, t) => vista(t)));
+  const empatadas = BARRERAS.flatMap((_, t) => (max > 0 && vista(t) === max ? [t] : []));
+  // Sin barrera alrededor, la de la pareja: un nodo siempre está en un muro.
+  const enJuego = empatadas.length > 0 ? empatadas : [...new Set(sorteadas)];
+  if (enJuego.length === 0)
+    throw new Error(`el nodo de la casilla ${n} no tiene barrera alrededor ni pareja de regiones`);
+  if (enJuego.length === 1) return BARRERAS[enJuego[0] as number] as Barrera;
+  const sorteada = enJuego.find((t) => sorteadas.includes(t));
+  if (sorteada !== undefined) return BARRERAS[sorteada] as Barrera;
+  const peso = (t: number): number =>
+    admitidas.reduce((s, c) => s + (c.barrera === BARRERAS[t] ? c.peso : 0), 0);
+  // `reduce` se queda con la primera de las de más peso: el orden de `BARRERAS`.
+  const mejor = enJuego.reduce((m, t) => (peso(t) > peso(m) ? t : m));
+  return BARRERAS[mejor] as Barrera;
 }
 
 /** Las cuatro direcciones en cruz: por ellas sigue una entrada (`caminoHastaLibre`). */

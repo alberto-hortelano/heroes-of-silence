@@ -18,7 +18,7 @@
 import type { BattleStack, BattleState } from '@core/battle/types.js';
 import { cifrasDeCatalogo } from '@core/hero/experiencia.js';
 import { aPunto, RedDeCaminos, type TramoDeCamino } from '@core/map/map.js';
-import type { TerrainKind } from '@core/map/terrain.js';
+import { BARRERAS, type TerrainKind } from '@core/map/terrain.js';
 import type { UnitInfo, Veterania } from '@core/types.js';
 import type {
   SpectatorView,
@@ -80,12 +80,28 @@ function redDelCable(m: VistaMapa): RedDeCaminos {
 }
 
 /**
- * **Lanza** si la vista no se entiende (hoy, solo por la red de caminos). Por
- * eso la red se rehace antes que el terreno: un fotograma que se rechaza no
- * debe tocar `terrenoAnterior`.
+ * Que cada nodo traiga la barrera que cruza (#145): el escenógrafo la lee para
+ * su pieza, y sin ella no sabría si es un puente. Un `pnpm partida` arrancado
+ * antes la manda sin ella, y lo honrado es decirlo y no pintar hitos.
+ */
+function nodosDelCable(objetos: SpectatorView['map']['objects']): void {
+  for (const o of objetos) {
+    if (o.kind !== 'node' || (BARRERAS as readonly unknown[]).includes(o.barrera)) continue;
+    throw new Error(
+      `el nodo ${o.id} llega sin la barrera que cruza: el servidor habla el formato de antes de #145. ` +
+        'Reinicia `pnpm partida` con el código de ahora',
+    );
+  }
+}
+
+/**
+ * **Lanza** si la vista no se entiende: la red de caminos o un nodo sin su
+ * barrera. Por eso se miran antes que el terreno: un fotograma que se rechaza
+ * no debe tocar `terrenoAnterior`.
  */
 export function adaptarEscena(view: SpectatorView): AdventureScene {
   const caminos = redDelCable(view.map);
+  nodosDelCable(view.map.objects);
   return {
     map: {
       width: view.map.width,

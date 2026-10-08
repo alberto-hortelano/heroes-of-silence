@@ -621,7 +621,8 @@ El mapa es una RED DE NODOS, y eso se comprueba:
   tocando dos regiones o más. Una CIUDAD ("towns") ES un nodo: va igual en el
   muro, entre regiones, y no se repite en "nodes". Un nodo o una ciudad ABRE la
   casilla de muro en la que está, así que puedes trazar el muro entero y poner
-  el paso encima. Dos nodos no pueden ser vecinos.
+  el paso encima. El nodo cruza la barrera del muro que abre —sobre "water" es
+  un puente—, y uno sin muro debajo se rechaza. Dos nodos no pueden ser vecinos.
 - Quitando los nodos, cada zona pisable tiene que ser EXACTAMENTE una de tus
   regiones: si dos regiones se tocan sin nodo, se te dice entre qué dos casillas
   queda el paso abierto; una zona pisable sin región declarada se rechaza; cada

@@ -13,12 +13,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import {
-  barreraDeNodo,
-  HITOS,
-  NODOS,
-  nodoDePaso,
-} from '../../src/client/render/escenario/nodos.js';
+import { HITOS, NODOS, nodoDePaso, pasoDeNodo } from '../../src/client/render/escenario/nodos.js';
 import { pigments } from '../../src/client/render/terreno.js';
 import type { MapObject } from '../../src/core/map/map.js';
 import {
@@ -225,7 +220,7 @@ function cosaDeObjeto(o: MapObject, W: number, terreno: readonly TerrainKind[]):
   const y = o.at.y + 0.85;
   switch (o.kind) {
     case 'node': {
-      const { barrera, eje } = barreraDeNodo(o.at, W, terreno);
+      const { barrera, eje } = pasoDeNodo(o, W, terreno);
       const pieza = nodoDePaso(o.id, barrera, eje);
       return [
         {
@@ -234,7 +229,7 @@ function cosaDeObjeto(o: MapObject, W: number, terreno: readonly TerrainKind[]):
           y,
           ancho: ANCHO_EN_CASILLAS.nodo,
           color: '#c9b27a',
-          etiqueta: `nodo (${barrera ?? 'sin barrera'}, ${eje})`,
+          etiqueta: `nodo (${barrera}, ${eje})`,
         },
       ];
     }

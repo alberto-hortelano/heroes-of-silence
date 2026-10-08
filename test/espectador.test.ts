@@ -151,6 +151,9 @@ describe('adaptar: la vuelta del cable', () => {
     expect(escena.map.terrain).toEqual(state.map.terrain);
     expect(escena.map.regions).toEqual(state.map.regions);
     expect(escena.map.regions.length).toBeGreaterThan(0);
+    // La barrera de cada nodo, que el escenógrafo lee para su pieza (#145).
+    expect(escena.map.objects).toEqual(state.map.objects);
+    expect(escena.map.objects.filter((o) => o.kind === 'node').length).toBeGreaterThan(0);
     expect(escena.heroes.map((h) => h.id)).toEqual(state.heroes.map((h) => h.id));
   });
 
@@ -190,6 +193,16 @@ describe('adaptar: la vuelta del cable', () => {
     expect(() => adaptarEscena(con({ tramos: [0, 1, 1, 0] }))).toThrow(/está repetido/);
     expect(() => adaptarEscena(con({ tramos: [W * buena.map.height, 0] }))).toThrow(
       /cae fuera del mapa/,
+    );
+    // Un nodo sin la barrera que cruza: el servidor de antes de #145.
+    const sinBarrera = buena.map.objects.map((o) => {
+      if (o.kind !== 'node') return o;
+      const { barrera: _, ...resto } = o;
+      return resto;
+    }) as unknown as SpectatorView['map']['objects'];
+    expect(sinBarrera.some((o) => o.kind === 'node')).toBe(true);
+    expect(() => adaptarEscena(con({ objects: sinBarrera }))).toThrow(
+      /el nodo node-\d+ llega sin la barrera que cruza: el servidor habla el formato de antes de #145/,
     );
     // Ninguno de los rechazados ha cambiado el terreno guardado: uno bueno con
     // un array recién copiado recibe el de antes, no el suyo.

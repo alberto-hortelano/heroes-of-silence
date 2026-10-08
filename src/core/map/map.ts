@@ -6,7 +6,7 @@
  */
 import type { Point, ResourceKind } from '../types.js';
 import { Frontera } from './frontera.js';
-import { costeDeEntrada, isWalkable, type TerrainKind } from './terrain.js';
+import { type Barrera, costeDeEntrada, isWalkable, type TerrainKind } from './terrain.js';
 
 export type MapObject =
   | {
@@ -33,6 +33,13 @@ export type MapObject =
       readonly id: string;
       readonly at: Point;
       owner: number | null;
+      /**
+       * La barrera que cruza: la del muro que el plan escribe bajo el nodo y
+       * que `buildMap` abre (#145). La lee el escenógrafo para su pieza —el
+       * puente, si es agua—; antes la deducía de las ocho vecinas, y en un
+       * empate se inventaba un río (#187). No cambia qué se pisa.
+       */
+      readonly barrera: Barrera;
     }
   | {
       /**

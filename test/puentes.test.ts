@@ -96,7 +96,7 @@ function mapaDe(filas: readonly string[], conCamino = false): MapaDeEscena {
   const terrain = filas.flatMap((f) => [...f].map((c) => SUELO[c] as TerrainKind));
   const y = filas.findIndex((f) => f.includes('N'));
   const at = { x: (filas[y] as string).indexOf('N'), y };
-  const nodo: MapObject = { kind: 'node', id: 'nodo-0', at, owner: null };
+  const nodo: MapObject = { kind: 'node', id: 'nodo-0', at, owner: null, barrera: 'water' };
   return {
     width: W,
     height: filas.length,
@@ -134,6 +134,21 @@ function puenteDeRejilla(
 
 const RIO_A_LO_ANCHO = ['.....', '.....', '~~N~~', '.....', '.....'];
 const RIO_HACIA_EL_FONDO = ['..~..', '..~..', '..N..', '..~..', '..~..'];
+
+describe('el puente sale de la barrera que guarda el mapa, no de las vecinas (#145)', () => {
+  it('un río alrededor no hace puente si el nodo cruza otra cosa, y al revés', () => {
+    const conRio = mapaDe(RIO_A_LO_ANCHO);
+    expect([...analizar(conRio).puentes]).toEqual(['nodo-0']);
+    // El mismo río, con el nodo de risco: el lago de otra frontera que llega
+    // hasta él (#187). Sin puente, y su casilla sigue siendo tierra.
+    const nodo = conRio.objects[0] as Extract<MapObject, { kind: 'node' }>;
+    const deRisco = { ...conRio, objects: [{ ...nodo, barrera: 'cliff' as const }] };
+    const a = analizar(deRisco);
+    expect(a.puentes.size).toBe(0);
+    expect(a.pasos.get('nodo-0')).toEqual({ barrera: 'cliff', eje: 'ancho' });
+    expect(a.terreno[2 * 5 + 2]).toBe('dirt');
+  });
+});
 
 describe('la casilla del nodo de agua es agua (#157)', () => {
   it('en una rejilla a mano: une el río, va al nivel del agua y no tiene caras', () => {

@@ -1,7 +1,7 @@
 /**
- * Lo que el escenógrafo deduce de un nodo: qué barrera cruza y en qué eje.
- * `buildMap` pinta la casilla de un nodo como `dirt` y no guarda la barrera, así
- * que sale de sus ocho vecinas (petición 4 de la §11 de `peticiones.md`).
+ * Lo que el escenógrafo saca de un nodo: qué barrera cruza —la guarda el mapa,
+ * `buildMap` al abrir su casilla (#145)— y en qué eje va su frontera, que sale
+ * de sus ocho vecinas.
  */
 import type { MapObject, TramoDeCamino } from '@core/map/map.js';
 import { type Barrera, esBarrera, type TerrainKind } from '@core/map/terrain.js';
@@ -25,14 +25,18 @@ export const NODOS: readonly {
   { id: 'nodo-paso-bosque', n: 4, barrera: 'forest', variantes: [''] },
 ];
 
-/** La barrera que cruza un nodo y el eje de su frontera, por las casillas de alrededor. */
-export function barreraDeNodo(
+/**
+ * El eje de la frontera de un nodo, por las barreras de sus ocho vecinas: la
+ * frontera se estrecha a una casilla en el nodo, y la barrera queda a sus
+ * lados. La barrera no se deduce de aquí: en un empate se inventaba un río
+ * (#187), y es un dato del mapa (`MapObject.barrera`).
+ */
+export function ejeDeLaFrontera(
   at: { x: number; y: number },
   W: number,
   terreno: readonly TerrainKind[],
-): { barrera: Barrera | null; eje: 'ancho' | 'hondo' } {
+): 'ancho' | 'hondo' {
   const H = terreno.length / W;
-  const cuenta = new Map<Barrera, number>();
   let lados = 0;
   let arribaAbajo = 0;
   for (let dy = -1; dy <= 1; dy++)
@@ -40,15 +44,25 @@ export function barreraDeNodo(
       const nx = at.x + dx;
       const ny = at.y + dy;
       if ((dx === 0 && dy === 0) || nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
-      const t = terreno[ny * W + nx] as TerrainKind;
-      if (!esBarrera(t)) continue;
-      cuenta.set(t, (cuenta.get(t) ?? 0) + 1);
+      if (!esBarrera(terreno[ny * W + nx] as TerrainKind)) continue;
       if (dy === 0) lados++;
       if (dx === 0) arribaAbajo++;
     }
-  const barrera = [...cuenta.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
-  // La frontera se estrecha a una casilla en el nodo: la barrera queda a sus lados.
-  return { barrera, eje: lados >= arribaAbajo ? 'ancho' : 'hondo' };
+  return lados >= arribaAbajo ? 'ancho' : 'hondo';
+}
+
+/** Lo que cruza un nodo: la barrera que guarda el mapa y el eje de su frontera. */
+export interface PasoDeNodo {
+  readonly barrera: Barrera;
+  readonly eje: 'ancho' | 'hondo';
+}
+
+export function pasoDeNodo(
+  nodo: Extract<MapObject, { kind: 'node' }>,
+  W: number,
+  terreno: readonly TerrainKind[],
+): PasoDeNodo {
+  return { barrera: nodo.barrera, eje: ejeDeLaFrontera(nodo.at, W, terreno) };
 }
 
 /**
@@ -229,8 +243,7 @@ export function pasosALaVista(
 ): PasoALaVista[] {
   return map.objects.flatMap((o) => {
     if (o.kind !== 'node' || puentes.has(o.id)) return [];
-    const { barrera } = barreraDeNodo(o.at, map.width, map.terrain);
-    if (!NODOS.some((n) => n.barrera === barrera)) return [];
+    if (!NODOS.some((n) => n.barrera === o.barrera)) return [];
     return [{ id: o.id, eje: ejeDelPaso(o.at, map.width, map.terrain) }];
   });
 }

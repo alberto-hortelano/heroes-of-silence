@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
-  barreraDeNodo,
+  ejeDeLaFrontera,
   esHito,
   HITOS,
   NODOS,
@@ -111,7 +111,7 @@ describe('el catálogo de los mapas densos', () => {
       expect(piezaDeCasilla('mountain', 'snow', 'borde', a)).not.toMatch(/^pico/);
   });
 
-  it('el nodo deduce la barrera y el eje de la frontera de lo que tiene alrededor', () => {
+  it('el eje de la frontera de un nodo sale de las barreras de alrededor', () => {
     // Un río que corre a lo ancho con el nodo en medio: agua a izquierda y derecha.
     const W = 3;
     const t = [
@@ -125,7 +125,7 @@ describe('el catálogo de los mapas densos', () => {
       'grass',
       'grass',
     ] as const;
-    expect(barreraDeNodo({ x: 1, y: 1 }, W, t)).toEqual({ barrera: 'water', eje: 'ancho' });
+    expect(ejeDeLaFrontera({ x: 1, y: 1 }, W, t)).toBe('ancho');
     const u = [
       'grass',
       'wall',
@@ -137,6 +137,6 @@ describe('el catálogo de los mapas densos', () => {
       'wall',
       'grass',
     ] as const;
-    expect(barreraDeNodo({ x: 1, y: 1 }, W, u)).toEqual({ barrera: 'wall', eje: 'hondo' });
+    expect(ejeDeLaFrontera({ x: 1, y: 1 }, W, u)).toBe('hondo');
   });
 });

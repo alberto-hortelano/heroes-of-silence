@@ -3014,10 +3014,43 @@ enfrentadas; la crítica lo reencuadró, medido:
   están en un nodo cuya frontera no puede ser de agua. Arreglarlo es elegir la
   barrera del nodo con lo que sabe el generador (la de la pareja), que el mapa
   no guarda, o desempatar en `nodos.ts`; con ~1 % de los puentes y del lado del
-  escenógrafo, se deja escrito. La s24 node-8 (8,26) es un puente diagonal
+  escenógrafo, se deja escrito. (Arreglado después: la barrera del nodo es un
+  dato del mapa, #145.) La s24 node-8 (8,26) es un puente diagonal
   (sus únicas vecinas pisables opuestas son NE, nieve, y SO, hierba): el caso
   de las diagonales que ya contaba la auditoría 2 (8 de 23), no uno nuevo; no
   se ha medido aparte.
+
+## La barrera que cruza un nodo es un dato (#145, #187, 08-10-2026)
+
+`buildMap` abría la casilla del nodo como `dirt` y no guardaba qué barrera
+cruzaba; el escenógrafo la deducía de las ocho vecinas (`barreraDeNodo`), y en
+un empate ganaba la primera que encontraba. Ahora cada nodo la lleva
+(`MapObject.barrera`): la del muro que el plan le pone debajo, que `buildMap`
+lee antes de abrir la casilla. El escenógrafo solo deduce el eje.
+
+- **Un nodo sin muro debajo se rechaza** (`validateMapPlan`). La prosa del
+  agente ya decía que el nodo va en un muro; no se comprobaba, y el escenógrafo
+  se inventaba lo que cruzaba. No hay campo nuevo en el contrato: el agente
+  declara la barrera con el muro que traza.
+- **La de la pareja a secas no vale.** El generador sabe la barrera de cada
+  pareja de regiones (`tipoDePareja`), pero junto a un cruce la frontera de al
+  lado es de otra pareja y llega hasta el nodo. Guardando la de la pareja,
+  206 de 12 364 nodos de 1-1000 cambiaban, con 41 puentes nuevos entre muros y
+  42 quitados de en medio de un río. Y la del muro fino bajo el nodo, tampoco
+  (180 distintos): su tipo sale de «la menor celda de sus vecinas».
+- **La regla (`queCruzaElNodo`, `vestir.ts`)**: la que más se repite alrededor,
+  sin contar el agua si sus suelos no la admiten (`data/barreras.json`: es el
+  lago de otra frontera), en un empate la sorteada para su pareja, luego la que
+  más admiten sus suelos y luego el orden de `BARRERAS`. Solo el agua lleva el
+  filtro de los suelos porque el puente es la única pieza que rehace el terreno;
+  filtrar todas por los suelos sacaba puentes con una sola casilla de agua
+  alrededor (s405 node-4).
+- **Medido en 1-1000**: 85 nodos cambian de barrera, 81 de ellos empates y los
+  otros 4 los de lago ajeno (s203 node-8, s455 node-6, s646 node-2 y node-8).
+  Puentes 2 457 → 2 456: pierden el suyo 18 (los 6 de #187 y 12 empates) y lo
+  ganan 17 (empates, como s652 node-4, un río de este a oeste que llevaba paso
+  de montaña). El mapa no cambia (sha256 del terreno, tramos y objetos sin la
+  barrera, igual) y el banco tampoco.
 
 ## La fuerza del héroe, medida (#182, 08-10-2026)
 

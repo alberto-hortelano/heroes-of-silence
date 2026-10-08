@@ -115,7 +115,7 @@ export function ejeMasCercano(vx: number, vy: number): EjeDePuente {
 }
 
 /**
- * El puente del nodo `nodo`, que cruza agua (`barreraDeNodo`):
+ * El puente del nodo `nodo`, que cruza agua (`MapObject.barrera`):
  *
  * 1. Si dos vecinas opuestas se pisan y son de regiones distintas, el eje es el
  *    suyo (en el orden de `PASO_DEL_EJE`) y el centro, el del nodo.

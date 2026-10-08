@@ -133,7 +133,7 @@ la suya de la lámina. Las referencias de estilo son la muestra elegida
   costura de la copia asoma en mitad del borde izquierdo.
 - **La composición de prueba** pinta un mapa de `newGame` con todo esto. Por
   casilla de barrera, la regla es `piezaDeCasilla`; por nodo, `nodoDePaso` con
-  `barreraDeNodo`. Lo que falta sale con su pigmento. No es el render del juego:
+  `pasoDeNodo` (la barrera que guarda el mapa y el eje de su frontera). Lo que falta sale con su pigmento. No es el render del juego:
   es la propuesta para la sesión de reglas.
 
 ## El escenógrafo: el mapa como escenario continuo (04-10-2026)

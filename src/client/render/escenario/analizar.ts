@@ -8,7 +8,7 @@
  */
 import type { MapObject, TramoDeCamino } from '@core/map/map.js';
 import { type Barrera, esBarrera, type Suelo, type TerrainKind } from '@core/map/terrain.js';
-import { barreraDeNodo } from './nodos.js';
+import { type PasoDeNodo, pasoDeNodo } from './nodos.js';
 
 /**
  * Lo que el escenógrafo lee de un mapa, y nada más: ni las regiones declaradas
@@ -80,18 +80,15 @@ const VECINAS4 = [
   [0, -1],
 ] as const;
 
-/** Lo que cruza un nodo: la barrera y el eje de su frontera (`barreraDeNodo`). */
-export type PasoDeNodo = ReturnType<typeof barreraDeNodo>;
-
 /**
- * Lo que cruza cada nodo, por su id, sobre el terreno DEL MAPA: en el de la
- * escena, la casilla de un nodo de agua ya es agua y contaría de vecina para
- * los de al lado.
+ * Lo que cruza cada nodo, por su id: la barrera que guarda el mapa y el eje,
+ * sobre el terreno DEL MAPA: en el de la escena, la casilla de un nodo de agua
+ * ya es agua y contaría de vecina para el eje de los de al lado.
  */
 function pasosDe(map: MapaDeEscena): Map<string, PasoDeNodo> {
   return new Map(
     map.objects.flatMap((o) =>
-      o.kind === 'node' ? [[o.id, barreraDeNodo(o.at, map.width, map.terrain)] as const] : [],
+      o.kind === 'node' ? [[o.id, pasoDeNodo(o, map.width, map.terrain)] as const] : [],
     ),
   );
 }
