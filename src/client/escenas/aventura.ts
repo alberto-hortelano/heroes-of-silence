@@ -6,7 +6,7 @@
  * si se está arrastrando—, igual que hacía `main.ts` antes de partirse.
  */
 import { individuosDe } from '@core/hero/troop.js';
-import { inBounds, objectAt, pointKey } from '@core/map/map.js';
+import { inBounds, pointKey } from '@core/map/map.js';
 import type { Point } from '@core/types.js';
 import {
   acotar,
@@ -173,6 +173,9 @@ export class EscenaAventura {
       escena: state,
       // Los grupos, los que se ven: el lienzo no decide qué grupo se ve, lo pinta.
       asaltantes: s.asaltantesALaVista(),
+      // Héroes y objetos, igual: los que se ven y como se saben (#64).
+      heroes: s.heroesALaVista(),
+      objetos: s.objetosConocidos(),
       camara: this.camara,
       ancho,
       alto,
@@ -193,6 +196,8 @@ export class EscenaAventura {
     drawMinimapa(c, lienzo.width, lienzo.height, {
       escena: s.state,
       explorado: s.explorado,
+      heroes: s.heroesALaVista(),
+      objetos: s.objetosConocidos(),
       version: s.version,
       camara: this.camara,
       anchoLienzo: this.encuadre.ancho,
@@ -339,8 +344,11 @@ function describirCasilla(s: Session, p: Point, ruta: readonly PasoDeRuta[]): st
   const { map } = s.state;
   if (!inBounds(map, p)) return '';
   const explorada = s.explorado?.has(pointKey(p)) ?? true;
-  const objeto = objectAt(map, p);
-  const heroe = s.state.heroes.find((h) => h.at.x === p.x && h.at.y === p.y);
+  // Lo mismo que pinta el lienzo: el héroe que se ve ahora y el objeto como se
+  // sabe (#64). Con el estado vivo, la barra decía «Castillo (enemigo)» de uno
+  // que se recordaba tuyo, y nombraba al héroe rival que el mapa ya no pintaba.
+  const objeto = s.objetosConocidos().find((o) => o.at.x === p.x && o.at.y === p.y);
+  const heroe = s.heroesALaVista().find((h) => h.at.x === p.x && h.at.y === p.y);
   const asaltante = s.asaltantesALaVista().find((r) => r.at.x === p.x && r.at.y === p.y);
   let que = '';
   // Un grupo a la vista se dice aunque su casilla siga en la niebla: se ve

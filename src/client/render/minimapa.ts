@@ -5,11 +5,11 @@
  * Pulsarlo mueve la vista; eso lo decide `escenas/aventura.ts` con
  * `casillaDelMinimapa`, que es la inversa de lo que se pinta aquí.
  */
-import { pointKey } from '@core/map/map.js';
+import { type MapObject, pointKey } from '@core/map/map.js';
 import type { TerrainKind } from '@core/map/terrain.js';
 import type { Point } from '@core/types.js';
 import type { CamaraMapa } from './camara-mapa.js';
-import type { AdventureScene } from './mapa.js';
+import type { AdventureScene, HeroeEnElMapa } from './mapa.js';
 import { playerColor } from './palette.js';
 import { pigments } from './terreno.js';
 
@@ -27,6 +27,10 @@ export const FONDO_INEXPLORADO: readonly [number, number, number] = [8, 10, 16];
 interface VistaMinimapa {
   readonly escena: AdventureScene;
   readonly explorado: ReadonlySet<string> | null;
+  /** Los héroes que se ven ahora, como en el lienzo grande (`VistaMapa.heroes`). */
+  readonly heroes: readonly HeroeEnElMapa[];
+  /** Los objetos con lo que se sabe de ellos, como en el lienzo grande (`VistaMapa.objetos`). */
+  readonly objetos: readonly MapObject[];
   /** La de la sesión: si no se mueve, el terreno y los castillos son los de antes. */
   readonly version: number;
   readonly camara: CamaraMapa;
@@ -45,6 +49,7 @@ let base: {
   escena: AdventureScene;
   version: number;
   explorado: ReadonlySet<string> | null;
+  objetos: readonly MapObject[];
   vistos: number;
   ancho: number;
   alto: number;
@@ -57,6 +62,7 @@ function baseDe(ancho: number, alto: number, v: VistaMinimapa): HTMLCanvasElemen
     base.escena === v.escena &&
     base.version === v.version &&
     base.explorado === v.explorado &&
+    base.objetos === v.objetos &&
     base.vistos === vistos &&
     base.ancho === ancho &&
     base.alto === alto
@@ -68,7 +74,7 @@ function baseDe(ancho: number, alto: number, v: VistaMinimapa): HTMLCanvasElemen
   lienzo.height = alto;
   const ctx = lienzo.getContext('2d');
   if (ctx === null) throw new Error('este navegador no tiene canvas 2D para el minimapa');
-  const { width: W, height: H, terrain, objects } = v.escena.map;
+  const { width: W, height: H, terrain } = v.escena.map;
   const sx = ancho / W;
   const sy = alto / H;
   const explorada = (k: string): boolean => v.explorado === null || v.explorado.has(k);
@@ -81,8 +87,8 @@ function baseDe(ancho: number, alto: number, v: VistaMinimapa): HTMLCanvasElemen
       ctx.fillRect(x * sx, y * sy, sx + 0.5, sy + 0.5);
     }
   }
-  for (const o of objects) {
-    if (!explorada(pointKey(o.at))) continue;
+  // Las banderas, las que se saben: el recuerdo fuera de lo que se mira (#64).
+  for (const o of v.objetos) {
     if (o.kind === 'town' || o.kind === 'node') {
       ctx.fillStyle = o.owner === null ? '#d9c995' : playerColor(o.owner);
       const r = o.kind === 'town' ? 1.4 : 0.8;
@@ -94,6 +100,7 @@ function baseDe(ancho: number, alto: number, v: VistaMinimapa): HTMLCanvasElemen
     escena: v.escena,
     version: v.version,
     explorado: v.explorado,
+    objetos: v.objetos,
     vistos,
     ancho,
     alto,
@@ -111,8 +118,7 @@ export function drawMinimapa(
   const sx = ancho / W;
   const sy = alto / H;
   ctx.drawImage(baseDe(ancho, alto, v), 0, 0);
-  for (const h of v.escena.heroes) {
-    if (v.explorado !== null && !v.explorado.has(pointKey(h.at))) continue;
+  for (const h of v.heroes) {
     ctx.fillStyle = playerColor(h.owner);
     ctx.strokeStyle = '#fbe6a5';
     ctx.beginPath();

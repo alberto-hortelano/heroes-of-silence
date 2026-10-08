@@ -112,7 +112,6 @@ export function adaptarEscena(view: SpectatorView): AdventureScene {
       regions: view.map.regions,
     },
     players: view.players.map((p) => ({ id: p.id, fog: new Set(p.fog) })),
-    heroes: view.heroes,
   };
 }
 

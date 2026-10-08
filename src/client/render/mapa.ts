@@ -79,12 +79,14 @@ export interface AdventureScene {
     readonly regions: readonly MapRegion[];
   };
   readonly players: readonly { readonly id: number; readonly fog: ReadonlySet<string> }[];
-  readonly heroes: readonly {
-    readonly id: string;
-    readonly owner: number;
-    readonly name: string;
-    readonly at: Point;
-  }[];
+}
+
+/** Un héroe tal y como lo pinta el mapa. `Hero` lo cumple, y el del cable del espectador también. */
+export interface HeroeEnElMapa {
+  readonly id: string;
+  readonly owner: number;
+  readonly name: string;
+  readonly at: Point;
 }
 
 /**
@@ -109,6 +111,20 @@ export interface VistaMapa {
    * que pintar `state.raiders` sin filtrar no compila.
    */
   readonly asaltantes: AsaltantesALaVista<VistaAsaltante>;
+  /**
+   * Los héroes que se pintan: los que se ven AHORA (`Session.heroesALaVista`), o
+   * todos en el espectador. No salen de `escena`, que ya no los trae, para que
+   * pintar los de la partida sin filtrar no compile (#64).
+   */
+  readonly heroes: readonly HeroeEnElMapa[];
+  /**
+   * Los objetos que se pintan, con el estado que se SABE de ellos: vivos donde
+   * se mira ahora y, en lo demás explorado, el recuerdo de cuando se vieron
+   * (`Session.objetosConocidos`). La bandera de un castillo lejano es la de su
+   * último dueño visto. `escena.map.objects` sigue ahí para la escena —dónde
+   * está cada cosa, que no cambia—, no para pintar su estado.
+   */
+  readonly objetos: readonly MapObject[];
   readonly camara: CamaraMapa;
   readonly ancho: number;
   readonly alto: number;
@@ -457,7 +473,7 @@ type Cosa =
   | {
       readonly tipo: 'heroe';
       readonly clave: number;
-      readonly heroe: AdventureScene['heroes'][number];
+      readonly heroe: HeroeEnElMapa;
       /** Donde pisa, en casillas (`pisada`): en un puente, su tablero. */
       readonly pie: { readonly x: number; readonly y: number };
     }
@@ -484,8 +500,11 @@ function cosasDe(v: VistaMapa, esc: Escenario): { cosas: Cosa[]; sobreLaNiebla: 
   const enVista = (p: Point) => p.x >= x0 && p.y >= y0 && p.x < x1 && p.y < y1;
   const lista: Cosa[] = [];
   const sobreLaNiebla: Cosa[] = [];
-  for (const o of escena.map.objects) {
-    if (!enVista(o.at) || !explorada(o.at) || !presente(o)) continue;
+  // Objetos y héroes llegan ya filtrados por la niebla (`objetosConocidos`,
+  // `heroesALaVista`): lo que se ve está siempre explorado, así que aquí solo se
+  // recortan a la cámara.
+  for (const o of v.objetos) {
+    if (!enVista(o.at) || !presente(o)) continue;
     if (seHornea(o.kind)) {
       // Su volumen lo pinta la escena; aquí va, justo después de él, lo que cambia.
       const clave = esc.claveDeObjeto.get(o.id);
@@ -501,8 +520,8 @@ function cosasDe(v: VistaMapa, esc: Escenario): { cosas: Cosa[]; sobreLaNiebla: 
       lista.push({ tipo: 'objeto', clave: claveDeFigura(esc, o.at.x, o.at.y + pies), objeto: o });
     }
   }
-  for (const h of escena.heroes) {
-    if (!enVista(h.at) || !explorada(h.at)) continue;
+  for (const h of v.heroes) {
+    if (!enVista(h.at)) continue;
     const pie = pisada(esc, h.at, PIES.heroe);
     lista.push({ tipo: 'heroe', clave: pie.clave, heroe: h, pie });
   }
@@ -840,7 +859,7 @@ function pintarBanderaDeLoHorneado(
 function pintarHeroe(
   ctx: CanvasRenderingContext2D,
   v: VistaMapa,
-  h: AdventureScene['heroes'][number],
+  h: HeroeEnElMapa,
   pie: { readonly x: number; readonly y: number },
 ): void {
   const tile = v.camara.tile;

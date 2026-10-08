@@ -3141,6 +3141,39 @@ Medido en las semillas 1-40, antes y después:
   semillas, 44 matas y rocas que se quitaban entran y 16 crecen, hasta
   +114 %). `puentesTapados` sigue a 0.
 
+## El lienzo de quien juega mira lo que se ve ahora (#64, 08-10-2026)
+
+#35 dejó la niebla en dos capas —`fog`, «lo exploré alguna vez», y
+`visibleNow`, «lo estoy mirando»— y el agente la usaba; el cliente no. El
+lienzo, el minimapa y la barra pintaban `state.heroes` y `map.objects`
+recortados por `fog`: el héroe rival andaba a la vista por cualquier casilla
+pisada alguna vez, y la bandera de un nodo lejano cambiaba al color del rival
+en cuanto lo tomaba. La crónica del cliente iba entera a propósito, para no
+contradecir a ese lienzo.
+
+Qué va con qué:
+
+- **Héroes: lo que se mira ahora** (`heroesALaVista`, `state/game.ts`). Uno
+  se ve o no se ve; no deja recuerdo. La lee el `enemyHeroes` del agente.
+- **Objetos: lo que se sabe** (`objetosConocidos`): vivo donde se mira ahora y,
+  en lo demás explorado, el recuerdo de `memory` con su día. Castillos y nodos
+  enseñan su último dueño visto; un cofre que se llevó el rival lejos sigue
+  ahí hasta volver a mirar. La lee `knownObjects` del agente con su `lastSeen`.
+- **Grupos de asaltantes**: su región (`asaltantesALaVista`, #130), como antes.
+- **Terreno, caminos y volúmenes del escenógrafo**: `fog`. No cambian; el
+  recuerdo de un hecho estático es el hecho.
+- **Crónica**: `cronicaPara`, la misma regla que la del agente.
+- Con «Ver mapa entero», todo vivo y la crónica entera. El espectador lo ve
+  todo: no pasa por nada de esto.
+
+`AdventureScene` ya no trae héroes: el lienzo los recibe en `VistaMapa.heroes`,
+y pintar los de la partida sin filtrar no compila. Los objetos siguen en
+`escena.map.objects` para la escena —dónde está cada cosa— y su estado llega en
+`VistaMapa.objetos`. Lo vigila además `invariantes.test.ts`. Probado en Chromium
+con la semilla 16 (`docs/agents/2026-10-08-lienzo-niebla/`): el día 4 el rival
+se va a (5,9), explorada y sin mirar; `main` lo pintaba allí con el nodo del
+puente ya azul, y ahora no se pinta ni lo nombra la barra.
+
 ## Decisiones tomadas
 
 - **MCP antes que API key.** El usuario tiene Claude Max: el agente entra por

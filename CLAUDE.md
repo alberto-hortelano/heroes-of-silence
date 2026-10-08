@@ -139,6 +139,7 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 | Desenlace y causa del final (barra, crónica y nota del agente) | `finDePartida`, `desenlaceDe` (`state/desenlace.ts`) |
 | Ventaja para atacar/emboscar | `ventajaClara` (`ai/fuerza.ts`) |
 | Lo que se anda hoy (marcha y ruta) | `pasosDeHoy` (`state/game.ts`) |
+| Qué héroe se ve y qué se sabe de un objeto (agente, lienzo, minimapa, barra) | `heroesALaVista` (lo mirado ahora), `objetosConocidos` (vivo si se mira, si no el recuerdo de `memory`); el cliente, por `Session` |
 | Qué grupo de asaltantes se ve | `asaltantesALaVista` (lista con la marca `AsaltantesALaVista`; sin niebla, `todosALaVista`); para un grupo suelto, `grupoALaVistaDesde` |
 | Por qué una marcha no llegó (veredicto del agente) | `paradaDeLaMarcha` → `notaMarchaParcial` (`server/notas.ts`) |
 | Material de una cara (pared, ladera, pedregal) | `materialDeCara` (`render/escenario/colocar.ts`) |
@@ -273,6 +274,10 @@ antes del destino (`battle_started` con `faltan`).
   `_poses/atlas-8d.json` (`pnpm taller derivar-poses`).
 - Ritmo: `marcha.ts` (`PRISA_DE_LA_MARCHA`), compás propio por figura con hash
   del id (`compas.ts`), sombra por silueta, carga hoja a hoja con cachés LRU.
+- **Niebla de quien juega** (#64): los héroes se pintan si se miran AHORA, los
+  objetos como se SABEN (castillos y nodos con su último dueño visto), los grupos
+  por su región; terreno y volúmenes, por `fog`. La crónica pasa por `cronicaPara`.
+  El lienzo recibe héroes y objetos en `VistaMapa` (`AdventureScene` no trae héroes).
 - **Mapa de aventura**: lo pinta el escenógrafo (`render/escenario/`, `componer`
   con la semilla de la partida, la misma en cliente, espectador y taller), en una
   tarea aparte del primer fotograma (`escenarioListo`). **El suelo** (texturas,

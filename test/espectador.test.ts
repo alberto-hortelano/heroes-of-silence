@@ -154,7 +154,6 @@ describe('adaptar: la vuelta del cable', () => {
     // La barrera de cada nodo, que el escenógrafo lee para su pieza (#145).
     expect(escena.map.objects).toEqual(state.map.objects);
     expect(escena.map.objects.filter((o) => o.kind === 'node').length).toBeGreaterThan(0);
-    expect(escena.heroes.map((h) => h.id)).toEqual(state.heroes.map((h) => h.id));
   });
 
   it('un mapa que no es una red de caminos lanza diciendo por qué, y no toca el terreno guardado', () => {
@@ -220,14 +219,19 @@ describe('adaptar: la vuelta del cable', () => {
       story: 'Guardó la puerta & no se movió.',
       heroType: 'vampiro',
     });
-    const escena = adaptarEscena(JSON.parse(JSON.stringify(construirVista(state, []))));
-    const nacida = escena.heroes.find((h) => h.id === `hero-${id}`) as VistaHeroe;
+    // Los héroes no pasan por `adaptarEscena` (#64: el lienzo los recibe aparte
+    // de la escena); se leen del fotograma tal como lo pinta `main.ts`.
+    const vista = JSON.parse(JSON.stringify(construirVista(state, [])));
+    adaptarEscena(vista);
+    const heroes: VistaHeroe[] = vista.heroes;
+    expect(heroes.map((h) => h.id)).toEqual(state.heroes.map((h) => h.id));
+    const nacida = heroes.find((h) => h.id === `hero-${id}`) as VistaHeroe;
     expect(nacida).toMatchObject({
       name: 'Ana <la> Paciente',
       nombreDelTipo: 'Vampiro',
       historia: 'Guardó la puerta & no se movió.',
     });
-    const otros = escena.heroes.filter((h) => h.id !== nacida.id) as VistaHeroe[];
+    const otros = heroes.filter((h) => h.id !== nacida.id);
     expect(otros.map((h) => h.historia)).toEqual(otros.map(() => null));
     expect(otros.map((h) => h.nombreDelTipo).sort()).toEqual(['Caballero', 'Nigromante']);
   });

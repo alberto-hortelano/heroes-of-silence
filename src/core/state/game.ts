@@ -759,6 +759,51 @@ export function miradasDe(state: GameState, playerId: PlayerId): Mirada[] {
 }
 
 /**
+ * Los héroes que ve un jugador: los suyos y los que está mirando AHORA
+ * (`mirando`, que es `visibleNow`; `null` es «todos», la convención del cliente
+ * para «Ver mapa entero»).
+ *
+ * **La única regla de qué héroe se ve**: la leen el `enemyHeroes` del agente y
+ * el lienzo, el minimapa y la barra de quien juega (`Session.heroesALaVista`).
+ * Un héroe se ve o no se ve, y no deja recuerdo: una posición de anteayer es
+ * ruido y no intel. El lienzo pintaba con `fog` —bastaba haber pisado la casilla
+ * alguna vez— y enseñaba al rival andando por medio mapa sin nadie cerca (#64).
+ */
+export function heroesALaVista(
+  state: GameState,
+  playerId: PlayerId,
+  mirando: ReadonlySet<string> | null,
+): Hero[] {
+  if (mirando === null) return [...state.heroes];
+  return state.heroes.filter((h) => h.owner === playerId || mirando.has(pointKey(h.at)));
+}
+
+/**
+ * Lo que un jugador sabe de cada objeto del mapa: el objeto VIVO si está
+ * mirando su casilla ahora, y si no, el RECUERDO de `memory` con el día en que
+ * se vio. Solo trae lo explorado: `memory` se llena junto con `fog` (`explorar`).
+ *
+ * **La única regla de qué estado de un objeto se enseña**: la leen `knownObjects`
+ * del agente —que pone el día como `lastSeen`— y el lienzo, el minimapa y la
+ * barra de quien juega (`Session.objetosConocidos`). Así la bandera de un
+ * castillo o de un nodo es la del último dueño visto, y el cofre que se llevó el
+ * rival lejos sigue ahí hasta que se vuelva a mirar (#64). `mirando` a `null`
+ * es «todo», vivo y de hoy.
+ */
+export function objetosConocidos(
+  state: GameState,
+  playerId: PlayerId,
+  mirando: ReadonlySet<string> | null,
+): RememberedObject[] {
+  if (mirando === null) return state.map.objects.map((object) => ({ day: state.day, object }));
+  const vivos = new Map(state.map.objects.map((o) => [o.id, o]));
+  return [...playerById(state, playerId).memory.values()].map((recuerdo) => {
+    if (!mirando.has(pointKey(recuerdo.object.at))) return recuerdo;
+    return { day: state.day, object: vivos.get(recuerdo.object.id) ?? recuerdo.object };
+  });
+}
+
+/**
  * Si un jugador está mirando ahora mismo esa casilla CONCRETA.
  *
  * Es `visibleNow(state, p).has(pointKey(q))` sin construir el `Set`, y la

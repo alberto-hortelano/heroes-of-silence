@@ -308,7 +308,7 @@ function renderAdventurePanel(session: Session): Html {
         )}</div>`;
 
   return html`${fin}${heroPanel}${listaHeroes}${listaPueblos}
-    <h3>Crónica</h3>${renderLog(session.state.log, session.viewer)}`;
+    <h3>Crónica</h3>${renderLog(session.cronica(60), session.viewer)}`;
 }
 
 /**
@@ -989,13 +989,11 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
 /**
  * La crónica de la pantalla.
  *
- * Aquí NO se llama a `visibleTo`: la persona sigue viendo el log entero, y es
- * deliberado. El lienzo del mapa nunca pasó por #35 —pinta con `player.fog`, o
- * sea «lo exploré alguna vez»—, así que filtrar solo la crónica dejaría a quien
- * juega viendo al rival moverse por el mapa y sin una línea que lo contara. Las
- * dos mitades se quedan coherentes entre sí hasta que el mapa del cliente se
- * arregle; el día que #34 aterrice, esta crónica vendrá ya filtrada del
- * servidor y el problema se resuelve solo.
+ * Aquí NO se filtra: llega filtrada. Quien juega la pide a `Session.cronica`,
+ * que pasa por `cronicaPara` como la del agente; el espectador, entera. Fue
+ * entera también para quien juega mientras el lienzo pintaba con `player.fog`
+ * —filtrar solo la crónica dejaba al rival andando por el mapa sin una línea
+ * que lo contara—, y se filtró con el lienzo, a la vez (#64).
  *
  * Lo que sí se arregla es que MENTÍA. Sin dueño en el evento, `built`,
  * `recruited` y `garrison_taken` se pintaban igual fueran de quien fueran —lo

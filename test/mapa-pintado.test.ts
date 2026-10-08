@@ -9,6 +9,7 @@
  * su marcador de color, que es justo lo que se reconoce en el registro.
  */
 import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { EscenaAventura } from '../src/client/escenas/aventura.js';
 import { arteCargando, imagenDeEscena } from '../src/client/render/assets.js';
 import { TILE_MAX } from '../src/client/render/camara-mapa.js';
 import {
@@ -41,8 +42,10 @@ import {
   usarPintorDelSuelo,
 } from '../src/client/render/escenario/superficie.js';
 import { drawMapa, PIES, recortadoArriba } from '../src/client/render/mapa.js';
+import { Session } from '../src/client/session.js';
 import { pointKey } from '../src/core/map/map.js';
 import { todosALaVista } from '../src/core/state/asaltantes.js';
+import { heroesOf, revealEverything, visibleNow } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { primeraSemillaCon } from './helpers.js';
 
@@ -798,6 +801,8 @@ describe('qué tapa a qué en el mapa', () => {
     llamadas.length = 0;
     drawMapa(contexto(), {
       escena: state,
+      heroes: state.heroes,
+      objetos: state.map.objects,
       asaltantes: todosALaVista(state.raiders),
       camara: { tile: 70, x: foco.x - 6, y: foco.y - 4 },
       ancho: 900,
@@ -980,6 +985,8 @@ describe('un grupo que vuelve a la vista aparece en su casilla (H3 de QA de #130
     llamadas.length = 0;
     drawMapa(contexto(), {
       escena: state,
+      heroes: state.heroes,
+      objetos: state.map.objects,
       asaltantes: todosALaVista(
         grupos.map((g) => ({ ...g, troops: [{ creature: 'skeleton', count: 13 }] })),
       ),
@@ -1023,5 +1030,48 @@ describe('un grupo que vuelve a la vista aparece en su casilla (H3 de QA de #130
     const hoy = { x: ayer.x + 2, y: ayer.y + 1 };
     chapaDelGrupo(state, [{ id, at: ayer }], 0);
     expect(chapaDelGrupo(state, [{ id, at: hoy }], 1000)).toEqual(chapaEn(state, ayer));
+  });
+});
+
+describe('el lienzo de quien juega pinta los héroes que se ven AHORA (#64)', () => {
+  /** Los aros de héroe de un fotograma a 70 px por casilla: uno por héroe pintado. */
+  const aros = (registro: readonly Llamada[]) =>
+    registro.filter(
+      (l) => l.metodo === 'ellipse' && l.args[2] === 70 * 0.32 && l.args[3] === 70 * 0.13,
+    ).length;
+
+  it('el rival en una casilla explorada que nadie mira no se pinta; a la vista, sí', () => {
+    const s = new Session(92);
+    revealEverything(s.state, 0);
+    const mio = heroesOf(s.state, 0)[0]!;
+    const suyo = heroesOf(s.state, 1)[0]!;
+    const esc = escenarioDe(s.state.map, s.state.seed);
+    sueloDelMapa(esc, 70, 1);
+    const escena = new EscenaAventura(() => s);
+    const [ancho, alto] = [2400, 2400];
+    const fotograma = () => {
+      llamadas.length = 0;
+      escena.dibujar(contexto(), ancho, alto, 0);
+      return [...llamadas];
+    };
+    // Una casilla explorada, sin mirar, a seis de mi héroe: dentro del encuadre.
+    const mirando = visibleNow(s.state, 0);
+    const lejos = [-6, 6]
+      .flatMap((d) => [
+        { x: mio.at.x + d, y: mio.at.y },
+        { x: mio.at.x, y: mio.at.y + d },
+      ])
+      .find((p) => s.state.players[0]!.fog.has(pointKey(p)) && !mirando.has(pointKey(p)));
+    expect(lejos, 'la semilla no deja una casilla a seis sin mirar').toBeDefined();
+
+    suyo.at = { x: mio.at.x + 1, y: mio.at.y };
+    const conElRival = aros(fotograma());
+    suyo.at = lejos!;
+    const sinElRival = aros(fotograma());
+    expect(sinElRival).toBeGreaterThan(0);
+    expect(conElRival).toBe(sinElRival + 1);
+    // «Ver mapa entero» lo enseña: el aro que falta era el suyo.
+    s.revealAll = true;
+    expect(aros(fotograma())).toBe(conElRival);
   });
 });

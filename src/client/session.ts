@@ -23,8 +23,9 @@ import {
 } from '@core/battle/battle.js';
 import { spell } from '@core/battle/spells.js';
 import type { BattleAction, BattleStack, BattleState, Side } from '@core/battle/types.js';
+import type { Hero } from '@core/hero/hero.js';
 import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '@core/hero/troop.js';
-import type { PathStep } from '@core/map/map.js';
+import type { MapObject, PathStep } from '@core/map/map.js';
 import { createRng, type Rng } from '@core/rng.js';
 import {
   type AsaltantesALaVista,
@@ -34,7 +35,7 @@ import {
   type VistaAsaltante,
 } from '@core/state/asaltantes.js';
 import { type Desenlace, desenlaceDe, finDePartida } from '@core/state/desenlace.js';
-import type { DefeatReason } from '@core/state/events.js';
+import { cronicaPara, type DefeatReason, type GameEventDraft } from '@core/state/events.js';
 import {
   applyAdventureAction,
   battleOwners,
@@ -43,7 +44,9 @@ import {
   type GameContext,
   type GameState,
   heroById,
+  heroesALaVista,
   heroesOf,
+  objetosConocidos,
   type Player,
   pasosDeHoy,
   type RecruitCapacity,
@@ -493,6 +496,57 @@ export class Session implements ControlDeBatalla, HechizosDeBatalla {
     mirando: ReadonlySet<string>;
     grupos: AsaltantesALaVista;
   } | null = null;
+
+  /**
+   * Los héroes que la persona ve: los suyos y los rivales que está mirando
+   * AHORA. La regla es del núcleo (`heroesALaVista`, la del `enemyHeroes` del
+   * agente); la leen el lienzo, el minimapa y la barra. Antes pintaban
+   * `state.heroes` recortado por `fog`, y el rival se veía andar por cualquier
+   * casilla pisada alguna vez (#64). Son unos pocos: no se guarda.
+   */
+  heroesALaVista(): readonly Hero[] {
+    return heroesALaVista(this.state, this.viewer, this.revealAll ? null : this.visibles());
+  }
+
+  /**
+   * Los objetos del mapa como los sabe la persona: vivos donde mira ahora y,
+   * en lo demás explorado, como los vio por última vez (`objetosConocidos`, la
+   * misma regla que el `knownMap` del agente). La bandera de un castillo o un
+   * nodo lejano es la de su último dueño visto, no la de hoy (#64).
+   *
+   * Se guarda mientras `visibles()` devuelva el mismo `Set` y no se mueva
+   * `version`: el recuerdo crece al explorar, que es andar, y lo vivo cambia con
+   * una acción; las dos cosas renuevan una de las dos llaves. El lienzo lo pide a
+   * cada fotograma, y el minimapa rehace su fondo cuando cambia este array.
+   */
+  objetosConocidos(): readonly MapObject[] {
+    if (this.revealAll) return this.state.map.objects;
+    const mirando = this.visibles();
+    const c = this.cacheObjetos;
+    if (c !== null && c.mirando === mirando && c.version === this.version) return c.objetos;
+    const objetos = objetosConocidos(this.state, this.viewer, mirando).map((r) => r.object);
+    this.cacheObjetos = { mirando, version: this.version, objetos };
+    return objetos;
+  }
+  private cacheObjetos: {
+    mirando: ReadonlySet<string>;
+    version: number;
+    objetos: readonly MapObject[];
+  } | null = null;
+
+  /**
+   * La crónica que le consta a la persona: lo suyo, el reloj y lo que estaba
+   * mirando cuando pasó (`cronicaPara`, la misma regla que la del agente). Iba
+   * entera a propósito mientras el lienzo pintaba con `fog`, para que no se
+   * viera al rival en el mapa sin una línea que lo contara; con el lienzo en
+   * `visibleNow` (#64) iría al revés, contando lo que el mapa calla. Con «Ver
+   * mapa entero», entera.
+   */
+  cronica(cuantos: number): readonly GameEventDraft[] {
+    return this.revealAll
+      ? this.state.log.slice(-cuantos)
+      : cronicaPara(this.state, this.viewer, cuantos);
+  }
 
   /**
    * El liderazgo que ocupa una tropa y su tope: la de un héroe, o la guarnición

@@ -261,10 +261,13 @@ function pintarTodo(ahora: number): void {
     } else {
       apuntarLoQueSePinta(false);
       const { camara } = encuadreDelMapa(rect.width, rect.height);
-      // Un espectador lo ve TODO: eso es lo que es. Por eso #64 no aplica aquí.
+      // Un espectador lo ve TODO: eso es lo que es. Por eso la niebla de #64
+      // no aplica aquí: todos los héroes y los objetos vivos.
       drawMapa(ctx, {
         escena,
         asaltantes: todosALaVista(vista.raiders),
+        heroes: vista.heroes,
+        objetos: escena.map.objects,
         camara,
         ancho: rect.width,
         alto: rect.height,

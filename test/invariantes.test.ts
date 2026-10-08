@@ -1132,6 +1132,32 @@ describe('invariantes del proyecto', () => {
     ).not.toEqual([]);
   });
 
+  it('qué héroe se ve y qué se sabe de un objeto lo deciden `heroesALaVista` y `objetosConocidos`', () => {
+    // #64: el lienzo, el minimapa y la barra pintaban `state.heroes` y
+    // `map.objects` recortados por `fog`, y enseñaban al rival y la bandera de
+    // hoy en cualquier casilla pisada alguna vez. Ahora los leen de la sesión,
+    // que pregunta al núcleo, y el contrato del agente pasa por las mismas dos.
+    // La red primaria es el tipo: `AdventureScene` ya no trae héroes. Esta es la
+    // secundaria, para el estado vivo leído por otro lado. Fuera quedan la
+    // sesión (que es la puerta), el espectador (lo ve todo), el escenógrafo (lee
+    // DÓNDE está cada objeto, que no cambia, nunca su estado) y lo de desarrollo.
+    const fuera = (r: string) =>
+      r === 'src/client/session.ts' ||
+      r.startsWith('src/client/espectador/') ||
+      r.startsWith('src/client/render/escenario/') ||
+      r.startsWith('src/client/desarrollo/');
+    const lectores = infractoresDeCodigo(
+      [
+        ...CLIENTE.filter((r) => !fuera(r)),
+        ...CORE.filter((r) => r.startsWith('src/core/contract/')),
+      ],
+      /\bstate\.heroes\b|\bmap\.objects\b|\bobjectAt\s*\(|\.memory\b/,
+    );
+    expect(lectores).toEqual([]);
+    // Y que mire algo: la sesión lee el estado vivo con «Ver mapa entero».
+    expect(infractoresDeCodigo(['src/client/session.ts'], /\bmap\.objects\b/)).not.toEqual([]);
+  });
+
   it('el arte de una dirección no vuelve: ninguna figura lee `characters/`, `rpg/scenes` ni un `atlas.webp` raíz', () => {
     // Desde el 03-10-2026 toda figura es de 8 direcciones —las suyas o las del
     // Y Bot— y el arte de una dirección se borró del repo (decisión del

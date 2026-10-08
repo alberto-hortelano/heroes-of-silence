@@ -103,6 +103,8 @@ function pintar(): Llamada[] {
   llamadas.length = 0;
   drawMapa(contexto(), {
     escena: state,
+    heroes: state.heroes,
+    objetos: state.map.objects,
     asaltantes: todosALaVista(state.raiders),
     camara,
     ancho: 900,

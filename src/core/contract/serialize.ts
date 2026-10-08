@@ -49,8 +49,10 @@ import {
   baseOf,
   type GameState,
   hayHuecoDeHeroe,
+  heroesALaVista,
   heroesOf,
   MAX_HEROES_PER_PLAYER,
+  objetosConocidos,
   playerById,
   townsOf,
   veteranosEnSuBase,
@@ -144,8 +146,9 @@ export const CATALOGO_DE_EQUIPO_EN_PROSA: string = EQUIPO.map((p) => {
  * Está fuera de `serializeAdventureTurn` porque tiene dos consumidores: el
  * `knownMap` de cada turno y la consulta `map` (#74), que hasta ahora devolvía
  * `state.map.objects` entero —el mapa del rival incluido—. La regla de «qué
- * objetos conoce este jugador» se escribe aquí y solo aquí; si se copiara, la
- * copia volvería a quedarse atrás, que es exactamente lo que pasó.
+ * sabe este jugador de cada objeto» es `objetosConocidos`, la misma que pinta
+ * el lienzo de quien juega (#64); aquí solo se viste para el cable. Si se
+ * copiara, la copia volvería a quedarse atrás, que es exactamente lo que pasó.
  *
  * Levanta su propio `visibleNow`, sin recibirlo: la consulta no tiene ningún
  * otro motivo para construirlo, y encadenárselo al llamante haría que el
@@ -153,13 +156,11 @@ export const CATALOGO_DE_EQUIPO_EN_PROSA: string = EQUIPO.map((p) => {
  * petición del agente, no algo que corra dentro de una partida.
  */
 function knownObjects(state: GameState, playerId: PlayerId) {
-  const player = playerById(state, playerId);
-
   // Dos capas, y la diferencia importa: `fog` es «esto lo conozco alguna vez» y
-  // `mirando` es «esto lo estoy viendo ahora». Del presente solo se puede
-  // afirmar lo segundo; de lo demás se manda el RECUERDO, con su fecha.
-  const mirando = visibleNow(state, playerId);
-  const vivos = new Map(state.map.objects.map((o) => [o.id, o]));
+  // `visibleNow` es «esto lo estoy viendo ahora». Del presente solo se puede
+  // afirmar lo segundo; de lo demás se manda el RECUERDO, con su fecha. La
+  // regla es `objetosConocidos`, la misma que pinta el lienzo de quien juega.
+  const conocidos = objetosConocidos(state, playerId, visibleNow(state, playerId));
 
   // El `switch` de dentro cubre la unión entera de `o.kind` y no lleva
   // `default`: un `default` para callar al linter escondería justo lo que
@@ -169,11 +170,8 @@ function knownObjects(state: GameState, playerId: PlayerId) {
   // hubo aquí: comprobado quitando el `case 'chest'`, con el `ignore`
   // puesto **compilaba y linteaba limpio**. Un guardia ciego durante todo
   // el tiempo que nadie lo rompió a mano.
-  return [...player.memory.values()].map((recuerdo) => {
-    // Lo que se está mirando ahora es presente; lo demás, memoria.
-    const mirandolo = mirando.has(pointKey(recuerdo.object.at));
-    const o = mirandolo ? (vivos.get(recuerdo.object.id) ?? recuerdo.object) : recuerdo.object;
-    const cuando = { lastSeen: mirandolo ? state.day : recuerdo.day };
+  return conocidos.map(({ day, object: o }) => {
+    const cuando = { lastSeen: day };
     switch (o.kind) {
       case 'mine':
         return { kind: o.kind, id: o.id, at: o.at, resource: o.resource, ...cuando };
@@ -426,7 +424,6 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId): un
   // `visibleNow` otra vez —`knownObjects` levanta el suyo—, y aquí se usa para
   // lo que no es el mapa: qué héroes enemigos se están viendo AHORA.
   const mirando = visibleNow(state, playerId);
-  const observado = (p: { x: number; y: number }): boolean => mirando.has(pointKey(p));
 
   return {
     kind: 'adventure_turn',
@@ -530,8 +527,9 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId): un
     // posición de anteayer es ruido y no intel. Antes bastaba con haber pisado
     // esa casilla alguna vez, así que el agente seguía al rival por medio mapa
     // sin tener a nadie cerca.
-    enemyHeroes: state.heroes
-      .filter((h) => h.owner !== playerId && observado(h.at))
+    // La regla es `heroesALaVista`, la misma que pinta el lienzo de quien juega.
+    enemyHeroes: heroesALaVista(state, playerId, mirando)
+      .filter((h) => h.owner !== playerId)
       .map((h) => ({
         id: h.id,
         owner: h.owner,
