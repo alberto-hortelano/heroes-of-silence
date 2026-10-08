@@ -231,7 +231,7 @@ export interface PasoALaVista {
 /**
  * Los nodos de paso que tienen que verse, con su eje: los de las barreras de
  * `NODOS` (montaña, bosque y muro). Ni los puentes, que se apartan con su
- * tablero (`tablerosAlPaso`), ni el acantilado, que lleva el hito y su rampa.
+ * tablero (`formasDeLosTableros`), ni el acantilado, que lleva el hito y su rampa.
  */
 export function pasosALaVista(
   map: {

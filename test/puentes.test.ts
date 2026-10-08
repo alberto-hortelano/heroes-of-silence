@@ -23,16 +23,13 @@ import {
 } from '../src/client/render/escenario/catalogo.js';
 import { caidas, celdas } from '../src/client/render/escenario/celdas.js';
 import {
-  altoLibreAnteLosPuentes,
   celdasBajoLosPuentes,
   componer,
+  formasDeLosTableros,
   puentesTapados,
-  SEMIANCHO_DE_PARED,
   type Sprite,
-  tablerosAlPaso,
-  tapaUnTablero,
 } from '../src/client/render/escenario/colocar.js';
-import { cajaDeSprite } from '../src/client/render/escenario/pasillo.js';
+import { cajaDeSprite, Obstaculos } from '../src/client/render/escenario/pasillo.js';
 import {
   asentar,
   ejeMasCercano,
@@ -383,26 +380,26 @@ describe('nada que se pinte encima tapa un puente', () => {
       sombra: false,
     });
     const delPuente: Sprite = { ...sprite(5, 'objeto', 1.5), objeto: { id: 'p', kind: 'node' } };
-    const tableros = tablerosAlPaso([puente]);
+    const tableros = new Obstaculos(formasDeLosTableros([puente]));
 
     it('la pared de detrás pisa el tablero y no lo tapa: la pinta antes el pintor y la puerta la deja', () => {
       const detras = sprite(4.9, 'pared');
       expect(cajaDeSprite(detras)[3]).toBeGreaterThan(4.6);
       expect(puentesTapados([detras, delPuente], [puente])).toEqual([]);
-      expect(altoLibreAnteLosPuentes(detras, tableros, SEMIANCHO_DE_PARED)).toBe(1);
+      expect(tableros.altoLibre(detras)).toBe(1);
     });
 
     it('la de delante lo tapa: el guardia la cuenta y la puerta la encoge', () => {
       const delante = sprite(5.3, 'pared');
       expect(puentesTapados([delPuente, delante], [puente])).toEqual([delante]);
-      expect(altoLibreAnteLosPuentes(delante, tableros, SEMIANCHO_DE_PARED)).toBeLessThan(1);
+      expect(tableros.altoLibre(delante)).toBeLessThan(1);
     });
 
     it('lo plano va al suelo, debajo del puente: delante y encima del tablero, ni lo tapa ni se aparta', () => {
       const mata = sprite(5.3, 'cubierta', 0.5);
       expect(puentesTapados([delPuente, mata], [puente])).toEqual([]);
-      expect(tapaUnTablero(mata, tableros, SEMIANCHO_DE_PARED)).toBe(false);
-      expect(tapaUnTablero(sprite(5.3, 'cubierta', 0.9), tableros, SEMIANCHO_DE_PARED)).toBe(true);
+      expect(tableros.pisa(mata)).toBe(false);
+      expect(tableros.pisa(sprite(5.3, 'cubierta', 0.9))).toBe(true);
     });
 
     it('el guardia lanza si el puente no está entre lo que se pinta', () => {

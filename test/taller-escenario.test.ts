@@ -20,11 +20,20 @@ import {
   celdasMalCubiertas,
   laderasEnfrentadas,
   modulosDeLadera,
+  RADIO_DE_OBJETO,
   SEMIANCHO_DE_PARED,
 } from '../src/client/render/escenario/colocar.js';
 import { azarDe, esparcir } from '../src/client/render/escenario/esparcir.js';
 import { componentesDePasos, ejeDe, esqueleto } from '../src/client/render/escenario/esqueleto.js';
-import { cajaDeSprite, Pasillo, tramoEnCaja } from '../src/client/render/escenario/pasillo.js';
+import {
+  type ConImagen,
+  cajaDeSprite,
+  type Forma,
+  Obstaculos,
+  pasilloDe,
+  tramoEnCaja,
+} from '../src/client/render/escenario/pasillo.js';
+import { esVolumen } from '../src/client/render/escenario/pintar.js';
 import { ALTO_DE_NIVEL, nivelDeRegion, relieve } from '../src/client/render/escenario/relieve.js';
 import {
   encadenar,
@@ -157,49 +166,49 @@ describe('el pasillo de la senda', () => {
     [4.5, 0.5],
     [5.5, 1.5],
   ];
-  const p = new Pasillo([ele, diagonal], S);
-  /** Un punto como caja: el pasillo lo cubre si alguno de sus tramos le queda a menos de la media anchura. */
-  const punto = (x: number, y: number) => [x, y, x, y] as const;
+  const p = pasilloDe([ele, diagonal], S);
+  const m = SEMIANCHO_DEL_PASILLO_DE_MASA;
+  const deMasa = pasilloDe([ele, diagonal], m);
+  /** Un punto: un sprite de alto 0, cuya caja es su pie. */
+  const punto = (x: number, y: number) => ({ x, y, nw: 1, nh: 1, ax: 0.5, ay: 1, alto: 0 });
 
   it('cubre la unión entre dos casillas, el codo de una L y el medio de una diagonal', () => {
     // Lejos del centro de toda casilla: un disco por casilla no los cubriría.
-    expect(p.pisa(punto(1.0, 0.5 + S - 0.05), S)).toBe(true);
+    expect(p.pisa(punto(1.0, 0.5 + S - 0.05))).toBe(true);
     const k = (S - 0.05) / Math.SQRT2;
-    expect(p.pisa(punto(5.0 + k, 1.0 - k), S)).toBe(true);
-    expect(p.pisa(punto(1.5 + S - 0.05, 0.5), S)).toBe(true);
+    expect(p.pisa(punto(5.0 + k, 1.0 - k))).toBe(true);
+    expect(p.pisa(punto(1.5 + S - 0.05, 0.5))).toBe(true);
   });
 
-  it('no pasa de la media anchura que se pregunta', () => {
-    expect(p.pisa(punto(1.0, 0.5 + S + 0.1), S)).toBe(false);
+  it('no pasa de su media anchura', () => {
+    expect(p.pisa(punto(1.0, 0.5 + S + 0.1))).toBe(false);
     const k = (S + 0.1) / Math.SQRT2;
-    expect(p.pisa(punto(5.0 + k, 1.0 - k), S)).toBe(false);
-    // El mismo índice contesta por una media anchura menor.
-    const m = SEMIANCHO_DEL_PASILLO_DE_MASA;
-    expect(p.pisa(punto(1.0, 0.5 + m - 0.05), m)).toBe(true);
-    expect(p.pisa(punto(1.0, 0.5 + m + 0.05), m)).toBe(false);
+    expect(p.pisa(punto(5.0 + k, 1.0 - k))).toBe(false);
+    expect(deMasa.pisa(punto(1.0, 0.5 + m - 0.05))).toBe(true);
+    expect(deMasa.pisa(punto(1.0, 0.5 + m + 0.05))).toBe(false);
   });
 
   it('mide el rectángulo del sprite, no su pie', () => {
     // Una mata ancha (2:1) con el pie 0,6 por debajo de la senda: el pie está
     // fuera del pasillo y la imagen, que crece hacia arriba, lo cruza.
     const mata = { x: 1.0, y: 0.5 + S + 0.2, nw: 200, nh: 100, ax: 100, ay: 98, alto: 1 };
-    expect(p.pisa(punto(mata.x, mata.y), S)).toBe(false);
-    expect(p.pisa(cajaDeSprite(mata), S)).toBe(true);
-    const alto = p.altoLibre(mata, S);
+    expect(p.pisa(mata, 0)).toBe(false);
+    expect(p.pisa(mata)).toBe(true);
+    const alto = p.altoLibre(mata);
     expect(alto).toBeGreaterThan(0);
     expect(alto).toBeLessThan(mata.alto);
-    expect(p.pisa(cajaDeSprite(mata, alto), S)).toBe(false);
-    expect(p.pisa(cajaDeSprite(mata, alto + 0.01), S)).toBe(true);
-    // Lejos de la senda, su alto entero.
-    expect(p.altoLibre({ ...mata, y: 4 }, S)).toBe(mata.alto);
+    expect(p.pisa(mata, alto)).toBe(false);
+    expect(p.pisa(mata, alto + 0.01)).toBe(true);
+    // Lejos de la senda, o cerca sin llegar, su alto entero y no una milésima menos.
+    expect(p.altoLibre({ ...mata, y: 4 })).toBe(mata.alto);
   });
 
   it('con el pie dentro, `altoLibre` contesta 0 por atajo, sin bisección: es lo que daría', () => {
     const pie = { x: 1.0, y: 0.55, nw: 200, nh: 100, ax: 100, ay: 98, alto: 1 };
-    expect(p.pisa(punto(pie.x, pie.y), S)).toBe(true);
-    expect(p.altoLibre(pie, S)).toBe(0);
+    expect(p.pisa(pie, 0)).toBe(true);
+    expect(p.altoLibre(pie)).toBe(0);
     // Ni el alto más pequeño saca la caja del pasillo: el pie ya está dentro.
-    expect(p.pisa(cajaDeSprite(pie, 1e-6), S)).toBe(true);
+    expect(p.pisa(pie, 1e-6)).toBe(true);
   });
 
   it('el marcador (sin imagen) mide lo que pinta: un cuadrado de su alto con el pie abajo en medio', () => {
@@ -219,24 +228,20 @@ describe('el pasillo de la senda', () => {
     expect(tramoEnCaja(0, 1, 1, 1, 1, 0, 3, 2)).toBe(false);
     // Y lejos, nada.
     expect(tramoEnCaja(0, 5, 4, 5, 1, 0, 3, 2)).toBe(false);
-    // Para el pasillo, tocar en un punto es estar a distancia 0: la esquina pisa.
+    // Para el índice, tocar en un punto es estar a distancia 0: la esquina pisa.
+    // El sprite de caja [1, 1, 3, 3].
+    const esquina = { x: 2, y: 3, nw: 1, nh: 1, ax: 0.5, ay: 1, alto: 2 };
     expect(
-      new Pasillo(
+      pasilloDe(
         [
           [
             [0, 2],
             [2, 0],
           ],
         ],
-        S,
-      ).pisa([1, 1, 3, 3], 0.01),
+        0.01,
+      ).pisa(esquina),
     ).toBe(true);
-  });
-
-  it('lanza con una media anchura que no es positiva o que pasa de la que se construyó', () => {
-    expect(() => new Pasillo([ele], 0)).toThrow(/media anchura positiva/);
-    expect(() => p.pisa(punto(1, 1), S + 0.01)).toThrow(/hasta 0.4/);
-    expect(() => p.pisa([0, 0, 1, 1], 0)).toThrow(/no se puede preguntar/);
   });
 
   it('un tramo que cae en varias casillas y un trozo de muchos tramos se miden igual que sueltos', () => {
@@ -245,15 +250,90 @@ describe('el pasillo de la senda', () => {
       0.5 + i * 0.1,
       3.5 + (i % 3) * 0.02,
     ]);
-    const junta = new Pasillo([larga], S);
+    const junta = pasilloDe([larga], S);
     const sueltos = larga
       .slice(1)
-      .map((b, i) => new Pasillo([[larga[i] as readonly [number, number], b]], S));
+      .map((b, i) => pasilloDe([[larga[i] as readonly [number, number], b]], S));
     for (let x = 0; x < 7; x += 0.37)
       for (let y = 2.5; y < 4.6; y += 0.13) {
-        const caja = [x, y, x + 0.3, y + 0.2] as const;
-        expect(junta.pisa(caja, S)).toBe(sueltos.some((q) => q.pisa(caja, S)));
+        // La caja [x, y, x + 0,3, y + 0,2].
+        const caja = { x: x + 0.15, y: y + 0.2, nw: 3, nh: 2, ax: 1.5, ay: 2, alto: 0.2 };
+        expect(junta.pisa(caja)).toBe(sueltos.some((q) => q.pisa(caja)));
       }
+  });
+});
+
+describe('el índice de obstáculos (#151): cada forma mide a su manera', () => {
+  const mata = (x: number, y: number, alto = 1) => ({
+    x,
+    y,
+    nw: 100,
+    nh: 100,
+    ax: 50,
+    ay: 100,
+    alto,
+  });
+  // Un objeto en (5, 5) con una reserva de 0,5: un trazo de un solo punto que mide
+  // el pie de todo, y el rectángulo de lo que, más alto que 0,6, va delante (al sur).
+  const reserva: Forma<ConImagen> = {
+    trazos: [[[5, 5]]],
+    alcance: 0.5,
+    mide: (s, alto) =>
+      alto > 0.6 && s.y > 5 ? { radio: 0.5, soloElPie: false } : { radio: 0.5, soloElPie: true },
+  };
+  const ninguna: Forma<ConImagen> = {
+    trazos: [
+      [
+        [5, 5],
+        [9, 5],
+      ],
+    ],
+    alcance: 1,
+    mide: () => null,
+  };
+  const o = new Obstaculos([reserva, ninguna]);
+
+  it('un objeto es un trazo de un punto: el pie en su disco pisa, fuera no', () => {
+    expect(o.pisa(mata(5.3, 5.3, 0.4))).toBe(true);
+    expect(o.pisa(mata(5.5, 5.5, 0.4))).toBe(false);
+    // La forma que no mira a nadie no pisa aunque pase por encima.
+    expect(o.pisa(mata(7, 5, 0.4))).toBe(false);
+  });
+
+  it('lo alto que va delante se mide por su rectángulo y encoge hasta el umbral de la regla', () => {
+    const arbol = mata(5, 5.8);
+    expect(o.pisa(arbol, 0)).toBe(false);
+    expect(o.pisa(arbol)).toBe(true);
+    const alto = o.altoLibre(arbol);
+    // Su caja sale del disco a 0,3 de alto; por debajo de 0,6 la regla solo mira el pie.
+    expect(alto).toBeLessThanOrEqual(0.6);
+    expect(alto).toBeCloseTo(0.6, 2);
+    // Detrás (al norte), lo tapa el objeto: no se mide su rectángulo.
+    expect(o.altoLibre(mata(5, 4.4))).toBe(1);
+  });
+
+  it('cerca de una forma, dentro de su alcance pero fuera de su medida, el alto entero', () => {
+    // Antes de #151 la bisección corría con cualquier tramo cerca y dejaba el
+    // alto una milésima por debajo aunque cupiera entero.
+    const estrecha = new Obstaculos([
+      { trazos: [[[0, 0]]], alcance: 0.5, mide: () => ({ radio: 0.2, soloElPie: false }) },
+    ]);
+    expect(estrecha.altoLibre(mata(0.8, 0.5))).toBe(1);
+    expect(estrecha.altoLibre(mata(0.1, 0.5))).toBeLessThan(1);
+  });
+
+  it('`en` dice qué forma de las que se piden alcanza un punto', () => {
+    expect(o.en(5.2, 5.2, (f) => f === reserva)).toBe(reserva);
+    expect(o.en(5.6, 5, (f) => f === reserva)).toBeUndefined();
+    expect(o.en(7, 5, (f) => f === reserva)).toBeUndefined();
+  });
+
+  it('lanza con un alcance que no es positivo o una medida que pasa de él', () => {
+    expect(() => pasilloDe([[[0, 0]]], 0)).toThrow(/alcance positivo/);
+    const tramposa = new Obstaculos([
+      { trazos: [[[0, 0]]], alcance: 0.2, mide: () => ({ radio: 0.5, soloElPie: true }) },
+    ]);
+    expect(() => tramposa.pisa(mata(0.1, 0.1))).toThrow(/más que su alcance/);
   });
 });
 
@@ -319,16 +399,53 @@ describe('la escena de un mapa real', () => {
       // Y medido aquí, no solo con la cuenta del informe: con los trazos que se
       // pintan, el rectángulo con el que se pinta cada sprite y la tabla de
       // qué clase se aparta cuánto.
-      const pasillo = new Pasillo(e.sendas, SEMIANCHO_DEL_PASILLO);
+      const pasillos = new Map(
+        Object.values(APARTE).flatMap((r) =>
+          r === null ? [] : [[r.semiancho, pasilloDe(e.sendas, r.semiancho)] as const],
+        ),
+      );
       const cortan = e.sprites.filter((s) => {
         const r = APARTE[s.clase];
-        return s.capa === 0 && r !== null && pasillo.pisa(cajaDeSprite(s), r.semiancho);
+        return s.capa === 0 && r !== null && pasillos.get(r.semiancho)?.pisa(s) === true;
       });
       expect(cortan.map((s) => `${s.clase} ${s.src} en ${s.x},${s.y}`)).toEqual([]);
       // Que el guardia no mire al vacío: hay sendas, y hay de todo lo que vigila.
       expect(e.sendas.length).toBeGreaterThan(10);
       for (const [clase, r] of Object.entries(APARTE))
         if (r !== null) expect(e.sprites.some((s) => s.clase === clase)).toBe(true);
+    });
+
+    it(`semilla ${semilla}: ningún volumen de lo que se aparta tapa un objeto que tiene detrás (#151)`, () => {
+      // Recontado desde lo puesto, sin preguntar a la puerta: el rectángulo de
+      // cada árbol, pico, roca o mata alta que se pinta después del objeto
+      // (`separar`: por su y, y a igual y de oeste a este) no llega a su reserva.
+      const objetos = e.sprites.filter(
+        (s) => s.objeto !== undefined && !e.puentes.some((p) => p.id === s.objeto?.id),
+      );
+      const volumenes = e.sprites.filter(
+        (s) => s.capa === 0 && APARTE[s.clase] !== null && esVolumen(s),
+      );
+      const tapan: string[] = [];
+      for (const o of objetos) {
+        const mo = map.objects.find((m) => m.id === o.objeto?.id);
+        if (mo === undefined) throw new Error(`el objeto ${o.objeto?.id} no está en el mapa`);
+        const [cx, cy] = [mo.at.x + 0.5, mo.at.y + 0.5];
+        const r = RADIO_DE_OBJETO[mo.kind] ?? 0.5;
+        for (const v of volumenes) {
+          if (v.y < o.y || (v.y === o.y && v.x <= o.x)) continue;
+          const [x0, y0, x1, y1] = cajaDeSprite(v);
+          const dx = Math.max(x0 - cx, 0, cx - x1);
+          const dy = Math.max(y0 - cy, 0, cy - y1);
+          if (dx * dx + dy * dy < r * r) tapan.push(`${v.src} en ${v.x},${v.y} tapa ${mo.id}`);
+        }
+      }
+      expect(tapan).toEqual([]);
+      // Que el guardia no mire al vacío: hay volúmenes delante de algún objeto.
+      expect(
+        objetos.some((o) =>
+          volumenes.some((v) => v.y > o.y && Math.abs(v.x - o.x) < 2 && v.y - o.y < 3),
+        ),
+      ).toBe(true);
     });
 
     it(`semilla ${semilla}: lo que se aparta sale de las hojas que su clase declara`, () => {
@@ -376,11 +493,11 @@ describe('la escena de un mapa real', () => {
 
     it(`semilla ${semilla}: el pedregal de las caras no pisa ninguna senda`, () => {
       // El pedregal no pisa ninguna senda, tampoco la que no baja (#150, N3).
-      const pasillo = new Pasillo(e.sendas, SEMIANCHO_DE_PARED);
+      const pasillo = pasilloDe(e.sendas, SEMIANCHO_DE_PARED);
       const peñascos = e.sprites.filter(
         (s) => s.clase === 'pared' && s.src?.includes('/rocas-caidas/') === true,
       );
-      const pisan = peñascos.filter((s) => pasillo.pisa(cajaDeSprite(s), SEMIANCHO_DE_PARED));
+      const pisan = peñascos.filter((s) => pasillo.pisa(s));
       expect(pisan.map((s) => `${s.src} en ${s.x},${s.y}`)).toEqual([]);
     });
 

@@ -3084,6 +3084,38 @@ lee antes de abrir la casilla. El escenógrafo solo deduce el eje.
   logística: a igual fuerza, el héroe gana ~67 %). Es del margen o de
   `poderDe`, no del peso del cuerpo.
 
+## Un solo índice de obstáculos (#151, 08-10-2026)
+
+«¿Está libre?» tenía dos respuestas: el pasillo de la senda (geometría exacta
+con el rectángulo del sprite) y una rejilla de cuartos de casilla con discos
+para la reserva de cada objeto, que solo miraba el pie. Para que un árbol no
+tapara un objeto se sondeaba a mano la reserva 0,45 y 0,8 por encima del pie
+del arbolillo; las masas y las rocas no miraban nada, y la muralla buscaba el
+objeto con un cuarto de casilla de holgura «porque la reserva va por una
+rejilla». Ahora todo es `Obstaculos` (`pasillo.ts`): formas con su regla, y la
+reserva de un objeto es un trazo de un solo punto que mide el pie de todo y el
+rectángulo de lo alto que se pinta después de él.
+
+Medido en las semillas 1-40, antes y después:
+
+- Volúmenes de lo que se aparta pintados delante de un objeto y con el
+  rectángulo dentro de su reserva: 6 656 → 0 (masa 5 934, cubierta 481, roca
+  241). Los que cubren el punto de apoyo del objeto: 786 → 0.
+- Masas: 30 257 → 29 298 (−3 %), alto medio 1,02 → 0,97. Cubierta, roca y
+  orilla, ±0,3 %. Suelo desnudo del taller, s3 30,1 → 31,5 %, s2 17,8 → 19,0 %.
+- Todos los contadores del informe, 0 antes y después.
+- `componer`, tiempo de CPU (la máquina estaba a carga 10-25): mediana
+  131-138 ms antes, 127-140 después, alternando cinco veces. Igual.
+- Cambiar cualquier decisión de colocación cambia el consumo del azar que
+  sigue: las escenas se rebarajan enteras (otra disposición, las mismas
+  cifras). Lo que se buscaba se ve en los recortes de
+  `docs/agents/2026-10-08-indice-obstaculos/capturas/`.
+- La regla de los tableros ahora mira el alto que se pregunta (`esVolumen`
+  con ese alto): lo que encoge por debajo del umbral va al suelo, bajo el
+  puente, y se queda ahí en vez de seguir encogiendo o quitarse (en 40
+  semillas, 44 matas y rocas que se quitaban entran y 16 crecen, hasta
+  +114 %). `puentesTapados` sigue a 0.
+
 ## Decisiones tomadas
 
 - **MCP antes que API key.** El usuario tiene Claude Max: el agente entra por

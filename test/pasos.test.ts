@@ -5,14 +5,12 @@
 import type { TerrainKind } from '@core/map/terrain.js';
 import { describe, expect, it } from 'vitest';
 import {
-  altoLibreAnteLosPasos,
-  pasilloDeLosPasosDe,
+  formaDeLosPasos,
   pasosTapados,
   type Sprite,
-  tapaUnPaso,
 } from '../src/client/render/escenario/colocar.js';
 import { ejeDelPaso, pasosALaVista } from '../src/client/render/escenario/nodos.js';
-import { cajaDeSprite } from '../src/client/render/escenario/pasillo.js';
+import { cajaDeSprite, Obstaculos } from '../src/client/render/escenario/pasillo.js';
 import { UMBRAL_DE_VOLUMEN } from '../src/client/render/escenario/pintar.js';
 import { partidaDe } from './helpers.js';
 import { rango, segunPrisa } from './lento.js';
@@ -105,7 +103,7 @@ describe('lo que tapa un paso: el contador y la puerta', () => {
       ],
     },
   ];
-  const pasillo = pasilloDeLosPasosDe(pasos);
+  const pasillo = new Obstaculos([formaDeLosPasos(pasos)]);
   const sprite = (y: number, clase: Sprite['clase'], alto = 1.2): Sprite => ({
     src: 'x.webp',
     nw: 100,
@@ -125,20 +123,20 @@ describe('lo que tapa un paso: el contador y la puerta', () => {
     const pico = sprite(6.5, 'masa');
     expect(cajaDeSprite(pico)[1]).toBeLessThan(5.5);
     expect(pasosTapados([pico], pasos)).toEqual(pasos);
-    expect(tapaUnPaso(pico, pasillo)).toBe(true);
+    expect(pasillo.pisa(pico)).toBe(true);
   });
 
   it('uno al norte, que crece hacia arriba, no', () => {
     const pico = sprite(5.1, 'masa');
     expect(pasosTapados([pico], pasos)).toEqual([]);
-    expect(tapaUnPaso(pico, pasillo)).toBe(false);
+    expect(pasillo.pisa(pico)).toBe(false);
   });
 
   it('lo bajo no tapa: una mata encima del eje no cuenta y se queda', () => {
     const mata = sprite(5.6, 'cubierta', 0.4);
     expect(pasosTapados([mata], pasos)).toEqual([]);
-    expect(tapaUnPaso(mata, pasillo)).toBe(false);
-    expect(altoLibreAnteLosPasos(mata, pasillo)).toBe(0.4);
+    expect(pasillo.pisa(mata)).toBe(false);
+    expect(pasillo.altoLibre(mata)).toBe(0.4);
   });
 
   it('ni lo que no se aparta: el muro y la pared son la barrera que el paso cruza', () => {
@@ -147,13 +145,16 @@ describe('lo que tapa un paso: el contador y la puerta', () => {
 
   it('la puerta encoge la masa hasta salir del eje y deja lo demás como suelo', () => {
     const pico = sprite(6.5, 'masa');
-    const alto = altoLibreAnteLosPasos(pico, pasillo);
+    const alto = pasillo.altoLibre(pico);
     expect(alto).toBeLessThan(pico.alto);
     expect(pasosTapados([{ ...pico, alto }], pasos)).toEqual([]);
     // Pegado al eje: sin él, no le quedaría ni el umbral.
     const arbol = sprite(6, 'cubierta');
-    expect(altoLibreAnteLosPasos(arbol, pasillo)).toBe(UMBRAL_DE_VOLUMEN);
-    expect(pasosTapados([{ ...arbol, alto: UMBRAL_DE_VOLUMEN }], pasos)).toEqual([]);
+    // Hasta el umbral, con la precisión de la bisección: por encima sería volumen.
+    const libre = pasillo.altoLibre(arbol);
+    expect(libre).toBeLessThanOrEqual(UMBRAL_DE_VOLUMEN);
+    expect(libre).toBeCloseTo(UMBRAL_DE_VOLUMEN, 2);
+    expect(pasosTapados([{ ...arbol, alto: libre }], pasos)).toEqual([]);
   });
 });
 
