@@ -17,6 +17,7 @@ import type { SpectatorView } from '../../server/vista-espectador.js';
 import { NADIE } from '../desenlace.js';
 import { fondoDeColor, type Html, html, NADA, unir } from '../html.js';
 import { playerColor } from '../render/palette.js';
+import { nombreEnElCampo } from '../views/distintivo.js';
 import {
   historiaDelHeroe,
   marcaDeComandante,
@@ -148,7 +149,7 @@ export function batalla(v: SpectatorView, contandoAun = false): Html {
         .filter((s) => s.count > 0)
         .map(
           (s) => html`<div class="stack${s.id === estado.turno?.stack ? '' : ' empty'}">
-            <span>${bandera(dueños[s.side])} ${marcaDeComandante(s)}${s.unit.name}${marcaDeVeterano(s)}</span>
+            <span>${bandera(dueños[s.side])} ${marcaDeComandante(s)}${nombreEnElCampo(estado, s)}${marcaDeVeterano(s)}</span>
             <span class="count">${s.count}</span>
           </div>`,
         ),
@@ -213,5 +214,5 @@ function crónica(v: SpectatorView): Html {
 function vozDelDirector(v: SpectatorView): Html {
   if (v.directorLog.length === 0) return NADA;
   return html`<h3>El director</h3>
-    <div class="log">${unir(v.directorLog.map((linea) => html`<div>${linea}</div>`))}</div>`;
+    <div class="log" data-al-final="director">${unir(v.directorLog.map((linea) => html`<div>${linea}</div>`))}</div>`;
 }

@@ -14,7 +14,7 @@ import { SIN_CARGAS } from '@core/battle/battle.js';
 import { todosALaVista } from '@core/state/asaltantes.js';
 import type { SpectatorSnapshotMsg } from '../../server/protocol.js';
 import type { SpectatorView } from '../../server/vista-espectador.js';
-import { NADA, pintar } from '../html.js';
+import { NADA } from '../html.js';
 import { cargarArte } from '../render/assets.js';
 import { bandosSinDueño, drawBatalla } from '../render/batalla.js';
 import { type CamaraMapa, centrarEn, TILE_LEGIBLE } from '../render/camara-mapa.js';
@@ -23,6 +23,7 @@ import { hayFigurasAnimadas } from '../render/figura.js';
 import { ajustarLienzo, pixelesDe } from '../render/lienzo.js';
 import { type AdventureScene, drawMapa, presupuestoConHolgura } from '../render/mapa.js';
 import { tableroPara } from '../render/proyeccion.js';
+import { pintarSiguiendoElFinal } from '../views/al-final.js';
 import { rotuloDeDia } from '../views/panels.js';
 import { adaptarEscena, centroDeLaEscena } from './adaptar.js';
 import { type FinDePartida, panelDelEspectador } from './paneles.js';
@@ -337,7 +338,10 @@ function pintarPaneles(): void {
       : dia === 0
         ? ''
         : `Juega el jugador ${turnoDe}`;
-  pintar(elSide, vista === null ? NADA : panelDelEspectador(vista, finDe, panelContando));
+  pintarSiguiendoElFinal(
+    elSide,
+    vista === null ? NADA : panelDelEspectador(vista, finDe, panelContando),
+  );
 }
 
 // --------------------------------------------------------------- el cable

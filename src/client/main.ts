@@ -18,6 +18,7 @@ import { ajustarLienzo } from './render/lienzo.js';
 import { repartirClic } from './reparto-del-clic.js';
 import { semillaSorteada } from './semilla.js';
 import { Session } from './session.js';
+import { pintarSiguiendoElFinal } from './views/al-final.js';
 import { renderActions, renderSide, renderTopbar } from './views/panels.js';
 
 /**
@@ -197,7 +198,7 @@ function dibujarFotograma(ahora: number): void {
     elDay.textContent = top.day;
     pintar(elResources, top.resources);
     elTurn.textContent = top.turn;
-    pintar(elSide, renderSide(session, contando));
+    pintarSiguiendoElFinal(elSide, renderSide(session, contando));
     pintar(elActions, renderActions(session, contando));
   }
   if (elStatus.textContent !== session.status) elStatus.textContent = session.status;

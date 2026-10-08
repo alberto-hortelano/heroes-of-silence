@@ -56,6 +56,7 @@ import { fondoDeColor, type Html, html, NADA, srcDeImagen, unir } from '../html.
 import { asset } from '../render/assets.js';
 import { MARCA_DE_COMANDANTE, RESOURCE_COLORS, RESOURCE_NAMES } from '../render/palette.js';
 import type { Session } from '../session.js';
+import { nombreEnElCampo } from './distintivo.js';
 
 /**
  * El atributo `disabled`, suelto.
@@ -641,7 +642,7 @@ function renderBattlePanel(session: Session, contandoAun: boolean): Html {
   const activo =
     s === null
       ? html`<p>Sin unidad activa.</p>`
-      : html`<h2>${s.unit.name}</h2>
+      : html`<h2>${nombreEnElCampo(battle, s)}</h2>
         <div class="row"><span class="label">Bando</span><span>${s.side === mio ? 'Tú' : 'Enemigo'}</span></div>
         <div class="row"><span class="label">Efectivos</span><span>${s.count}</span></div>
         <div class="row"><span class="label">Moral / Suerte</span><span>${s.morale} / ${effectiveLuck(s)}</span></div>
@@ -671,7 +672,7 @@ function renderBattlePanel(session: Session, contandoAun: boolean): Html {
 
   const orden = listaDelCampo(battle, (x) => ({
     flecha: x.side === mio ? '▶' : '◀',
-    nombre: `${marcaDeComandante(x)}${x.unit.name}${marcaDeVeterano(x)}`,
+    nombre: `${marcaDeComandante(x)}${nombreEnElCampo(battle, x)}${marcaDeVeterano(x)}`,
     cuenta: x.count,
   }));
 
@@ -926,7 +927,24 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
         : s.side === mio
           ? 'de tu bando'
           : 'del enemigo';
-    return `${s.unit.name}, ${lado}`;
+    return `${nombreEnElCampo(battle, s)}, ${lado}`;
+  };
+
+  /**
+   * El color de un hecho que es bueno o malo para la unidad que lo vive, dicho
+   * desde quien lee: la moral alta del enemigo es mala noticia para ti. Se
+   * pintaba por el signo, y su «Moral alta: turno extra» salía en verde (#198).
+   *
+   * Sin bando —espectador y arena— no se pinta: verde y rojo dicen «bien para
+   * ti» y «mal para ti» en todo el parte (el final, la rendición, la unidad
+   * aniquilada), y quien mira desde fuera no tiene un «ti». Pintarlo por bando
+   * pedía un tercer código de color que se leería como victoria o derrota de
+   * uno de los dos; el bando ya va escrito en la línea («del atacante»).
+   */
+  const paraQuienLee = (id: string, buenoParaSuBando: boolean): Html => {
+    if (mio === null) return NADA;
+    const bueno = (stackDe(id).side === mio) === buenoParaSuBando;
+    return clase(bueno, !bueno);
   };
 
   const lineas = battle.log
@@ -945,12 +963,15 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
           // El nombre, no el id: `spell()` ya lo tiene y quien lee el parte no
           // sabe qué es un "magic_arrow". Sobre quién se lanzó es #18.
           return html`<div>Hechizo ${spell(e.spell).name}${e.damage ? `: ${e.damage} de daño` : ''}</div>`;
+        // La moral, la suerte y los efectos dicen de quién: con el color puesto
+        // desde quien lee, una línea verde sin nombre no deja saber si es la
+        // moral de los tuyos o la mala suerte del rival.
         case 'morale':
-          return html`<div${clase(e.good, !e.good)}>${e.good ? 'Moral alta: turno extra' : 'Moral baja: turno perdido'}</div>`;
+          return html`<div${paraQuienLee(e.stack, e.good)}>${e.good ? 'Moral alta' : 'Moral baja'} de ${quienEs(e.stack)}: ${e.good ? 'turno extra' : 'turno perdido'}</div>`;
         case 'luck':
-          return html`<div${clase(e.good, !e.good)}>${e.good ? '¡Golpe afortunado!' : 'Golpe desafortunado'}</div>`;
+          return html`<div${paraQuienLee(e.stack, e.good)}>${e.good ? 'Golpe afortunado' : 'Golpe desafortunado'} de ${quienEs(e.stack)}</div>`;
         case 'effect':
-          return html`<div${clase(e.amount >= 0, e.amount < 0)}>${nombreFuente(e.source)}: ${ETIQUETA_EFECTO[e.effect]} ${e.amount > 0 ? '+' : ''}${e.amount} durante ${e.rounds} ${e.rounds === 1 ? 'ronda' : 'rondas'}</div>`;
+          return html`<div${paraQuienLee(e.stack, e.amount >= 0)}>${nombreFuente(e.source)} sobre ${quienEs(e.stack)}: ${ETIQUETA_EFECTO[e.effect]} ${e.amount > 0 ? '+' : ''}${e.amount} durante ${e.rounds} ${e.rounds === 1 ? 'ronda' : 'rondas'}</div>`;
         case 'effect_end':
           return html`<div>Se disipa: ${nombreFuente(e.source)}</div>`;
         case 'immune':
@@ -1016,7 +1037,7 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
     // escriben las ramas de arriba, así que es exacto y no hay que abrir el
     // fragmento para mirarlo.
     .filter((linea) => linea !== NADA);
-  return html`<div class="log">${unir(lineas)}</div>`;
+  return html`<div class="log" data-al-final="parte">${unir(lineas)}</div>`;
 }
 
 /**
@@ -1233,5 +1254,5 @@ export function renderLog(log: readonly GameEventDraft[], viewer: number): Html 
       throw new Error(`hecho de la crónica sin frase: ${JSON.stringify(sinFrase)}`);
     })
     .filter((linea) => linea !== NADA);
-  return html`<div class="log">${unir(lineas)}</div>`;
+  return html`<div class="log" data-al-final="cronica">${unir(lineas)}</div>`;
 }

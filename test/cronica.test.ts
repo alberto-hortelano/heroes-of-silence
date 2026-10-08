@@ -552,7 +552,7 @@ describe('la crónica de la pantalla deja de mentir', () => {
   it('la tropa que se hace héroe se cuenta, con el nombre del narrador escapado', () => {
     const cuerpo = { kind: 'hero_promoted', hero: 'h', town: 't', creature: 'pikeman' };
     expect(linea({ ...cuerpo, name: 'Ana', actor: 0 })).toBe(
-      '<div class="log"><div class="win">Un Piquero tuyo se hace héroe: Ana</div></div>',
+      '<div class="log" data-al-final="cronica"><div class="win">Un Piquero tuyo se hace héroe: Ana</div></div>',
     );
     const suyo = linea({ ...cuerpo, name: '<b>X</b>', actor: 1 });
     expect(suyo).toContain(

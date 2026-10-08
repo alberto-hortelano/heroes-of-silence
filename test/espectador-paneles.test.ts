@@ -25,6 +25,7 @@ import {
   TelonDeBatalla,
 } from '../src/client/espectador/telon.js';
 import { marcadoDe } from '../src/client/html.js';
+import { nombreEnElCampo } from '../src/client/views/distintivo.js';
 import { autoResolve, chooseBattleAction } from '../src/core/ai/tactics.js';
 import { activeStack, applyAction, legalActions } from '../src/core/battle/battle.js';
 import type { BattleState } from '../src/core/battle/types.js';
@@ -137,7 +138,9 @@ describe('el panel de batalla del espectador', () => {
     estado.log.push({ kind: 'wait', stack: s.id }, { kind: 'defend', stack: s.id });
     const salida = marcadoDe(batalla(vista));
     // El nombre, del estado ya adaptado: por el cable viaja la criatura, no su ficha.
-    const nombre = adaptarBatalla(vista.battle!).stacks.find((x) => x.id === s.id)!.unit.name;
+    // Con la letra de los homónimos, si los hay (#198), sacada del mismo estado.
+    const adaptada = adaptarBatalla(vista.battle!);
+    const nombre = nombreEnElCampo(adaptada, adaptada.stacks.find((x) => x.id === s.id)!);
     const quien = `${nombre}, del ${s.side === 'attacker' ? 'atacante' : 'defensor'}`;
     expect(salida).toContain(
       `<div>Espera ${quien}: cede la iniciativa y pasa al final de la ronda</div>`,
@@ -277,7 +280,7 @@ describe('el telón retiene el final de una batalla', () => {
     // Y lo que se retiene es lo que había que ver: el «Fin», arriba del panel
     // y no al final de la caja del parte, que se queda con el scroll arriba.
     expect(marcadoDe(panelDelEspectador(terminada.view, null))).toMatch(
-      /<div class="desenlace"><div class="log">.*Fin: gana el/,
+      /<div class="desenlace"><div class="log" data-al-final="parte">.*Fin: gana el/,
     );
     expect(marcadoDe(panelDelEspectador(enCurso.view, null))).not.toContain('desenlace');
 
@@ -319,7 +322,7 @@ describe('el telón retiene el final de una batalla', () => {
     const desenlace = marcado.slice(marcado.indexOf('class="desenlace"'));
     expect(desenlace).toMatch(
       new RegExp(
-        `^class="desenlace"><div class="log"><div>Se rinde el atacante por ${b.finished!.surrender!.gold} de oro</div><div>Fin: gana el defensor</div>`,
+        `^class="desenlace"><div class="log" data-al-final="parte"><div>Se rinde el atacante por ${b.finished!.surrender!.gold} de oro</div><div>Fin: gana el defensor</div>`,
       ),
     );
   });

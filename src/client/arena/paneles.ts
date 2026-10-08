@@ -25,6 +25,7 @@ import { CATALOGO_DE_HABILIDADES, isShooter } from '@core/data.js';
 import { CREATURE_TRAITS, type CreatureTrait, SPEED_TO_HEXES } from '@core/types.js';
 import { type Html, html, NADA, srcDeImagen, unir } from '../html.js';
 import type { SesionDeArena } from '../session.js';
+import { nombreEnElCampo } from '../views/distintivo.js';
 import { accionesDeLaUnidad, listaDelCampo, renderBattleLog } from '../views/panels.js';
 
 /** Un puesto del montaje: qué hoja y quién la mueve. `clave` distingue dos iguales. */
@@ -278,7 +279,7 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
   const ficha =
     activa === null
       ? NADA
-      : html`<h2>${activa.unit.name}</h2>
+      : html`<h2>${nombreEnElCampo(b, activa)}</h2>
         <div class="row"><span class="label">Bando</span><span>${LADOS[ladoDe(activa.side)].rotulo}</span></div>
         <div class="row"><span class="label">La mueve</span><span>${s.laLlevaLaIA(activa.id) ? 'la IA' : 'tú'}</span></div>
         <div class="row"><span class="label">Vida</span><span>${isAlive(activa) ? activa.topHp : 0} / ${activa.unit.hp}</span></div>
@@ -300,7 +301,7 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
       : html`<p>Mueve la IA…</p>`;
   const campo = listaDelCampo(b, (x) => ({
     flecha: x.side === LADOS.izquierda.bando ? '▶' : '◀',
-    nombre: x.unit.name,
+    nombre: nombreEnElCampo(b, x),
     cuenta: `${x.topHp} PV · ${s.laLlevaLaIA(x.id) ? 'IA' : 'tú'}`,
   }));
   return html`${ficha}

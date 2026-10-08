@@ -49,6 +49,7 @@ import {
 } from '../render/personajes.js';
 import { semillaSorteada } from '../semilla.js';
 import { type PuestoDeArena, SesionDeArena } from '../session.js';
+import { pintarSiguiendoElFinal } from '../views/al-final.js';
 import {
   type Puesto,
   renderBando,
@@ -545,11 +546,10 @@ function dibujarBatalla(ahora: number, s: SesionDeArena): void {
   const ocupada = batalla.ocupada;
   if (paneles === null || paneles.version !== s.version || paneles.ocupada !== ocupada) {
     paneles = { version: s.version, ocupada };
-    pintar(elSide, renderPanelDeBatalla(s, ocupada));
-    // El parte se lee de arriba abajo y lo último queda al fondo: se baja hasta
-    // ahí, o al acabar no se veía lo que acababa de pasar (M11 de QA).
-    const parte = elSide.querySelector('.log');
-    if (parte !== null) parte.scrollTop = parte.scrollHeight;
+    // El parte se lee de arriba abajo y lo último queda al fondo: sigue ahí, o
+    // al acabar no se veía lo que acababa de pasar (M11 de QA), salvo que la
+    // persona haya subido a leer (#198).
+    pintarSiguiendoElFinal(elSide, renderPanelDeBatalla(s, ocupada));
     // La barra de arriba, igual que el panel: mientras se cuenta no adelanta ni
     // la ronda ni el final.
     elDay.textContent = ocupada ? 'Batalla' : `Batalla · ronda ${s.battle.round}`;

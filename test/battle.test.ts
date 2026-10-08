@@ -1958,45 +1958,69 @@ describe('el parte de guerra pinta de quién es cada cosa', () => {
     return marcadoDe(renderSide(session));
   }
 
-  it('la moral y la suerte se pintan por su signo', () => {
+  it('la moral y la suerte se pintan por lo que son para quien lee, no por su signo (#198)', () => {
+    // La moral alta del ENEMIGO salía en verde: se pintaba por `good`. Aquí la
+    // persona es el atacante (Campeón); el defensor es el Zombi.
     expect(parte([{ kind: 'morale', stack: 'attacker-0', good: true }])).toContain(
-      '<div class="win">Moral alta: turno extra</div>',
+      '<div class="win">Moral alta de Campeón, de tu bando: turno extra</div>',
     );
     expect(parte([{ kind: 'morale', stack: 'attacker-0', good: false }])).toContain(
-      '<div class="lose">Moral baja: turno perdido</div>',
+      '<div class="lose">Moral baja de Campeón, de tu bando: turno perdido</div>',
+    );
+    expect(parte([{ kind: 'morale', stack: 'defender-0', good: true }])).toContain(
+      '<div class="lose">Moral alta de Zombi, del enemigo: turno extra</div>',
+    );
+    expect(parte([{ kind: 'morale', stack: 'defender-0', good: false }])).toContain(
+      '<div class="win">Moral baja de Zombi, del enemigo: turno perdido</div>',
     );
     expect(parte([{ kind: 'luck', stack: 'attacker-0', good: true }])).toContain(
-      '<div class="win">¡Golpe afortunado!</div>',
+      '<div class="win">Golpe afortunado de Campeón, de tu bando</div>',
     );
     expect(parte([{ kind: 'luck', stack: 'attacker-0', good: false }])).toContain(
-      '<div class="lose">Golpe desafortunado</div>',
+      '<div class="lose">Golpe desafortunado de Campeón, de tu bando</div>',
+    );
+    expect(parte([{ kind: 'luck', stack: 'defender-0', good: true }])).toContain(
+      '<div class="lose">Golpe afortunado de Zombi, del enemigo</div>',
+    );
+    expect(parte([{ kind: 'luck', stack: 'defender-0', good: false }])).toContain(
+      '<div class="win">Golpe desafortunado de Zombi, del enemigo</div>',
     );
   });
 
-  it('un efecto se pinta por lo que suma o resta, no por quién lo puso', () => {
-    const prisa = parte([
-      {
-        kind: 'effect',
-        stack: 'attacker-0',
-        effect: 'speed',
-        amount: 2,
-        source: 'haste',
-        rounds: 3,
-      },
-    ]);
-    expect(prisa).toContain('<div class="win">Prisa: velocidad +2 durante 3 rondas</div>');
+  it('en una batalla ajena la moral y la suerte no llevan color: no hay «ti» para el que sean buenas', () => {
+    const ajena = parte(
+      [
+        { kind: 'morale', stack: 'attacker-0', good: true },
+        { kind: 'luck', stack: 'defender-0', good: false },
+      ],
+      'ajena',
+    );
+    expect(ajena).toContain('<div>Moral alta de Campeón, del atacante: turno extra</div>');
+    expect(ajena).toContain('<div>Golpe desafortunado de Zombi, del defensor</div>');
+  });
 
-    const miedo = parte([
-      {
-        kind: 'effect',
-        stack: 'attacker-0',
-        effect: 'attack',
-        amount: -2,
-        source: 'fear',
-        rounds: 1,
-      },
-    ]);
-    expect(miedo).toContain('<div class="lose">Terror: ataque -2 durante 1 ronda</div>');
+  it('un efecto se pinta por lo que suma o resta a la unidad, dicho desde quien lee (#198)', () => {
+    const efecto = (stack: string, amount: number): BattleEvent => ({
+      kind: 'effect',
+      stack,
+      effect: amount > 0 ? 'speed' : 'attack',
+      amount,
+      source: amount > 0 ? 'haste' : 'fear',
+      rounds: amount > 0 ? 3 : 1,
+    });
+    expect(parte([efecto('attacker-0', 2)])).toContain(
+      '<div class="win">Prisa sobre Campeón, de tu bando: velocidad +2 durante 3 rondas</div>',
+    );
+    expect(parte([efecto('attacker-0', -2)])).toContain(
+      '<div class="lose">Terror sobre Campeón, de tu bando: ataque -2 durante 1 ronda</div>',
+    );
+    // El terror sobre el enemigo es bueno para ti, y la prisa del enemigo, mala.
+    expect(parte([efecto('defender-0', -2)])).toContain(
+      '<div class="win">Terror sobre Zombi, del enemigo: ataque -2 durante 1 ronda</div>',
+    );
+    expect(parte([efecto('defender-0', 2)])).toContain(
+      '<div class="lose">Prisa sobre Zombi, del enemigo: velocidad +2 durante 3 rondas</div>',
+    );
   });
 
   it('el final se pinta desde el bando de quien lee, no desde el atacante', () => {
@@ -2040,7 +2064,9 @@ describe('el parte de guerra pinta de quién es cada cosa', () => {
     const mudos = parte([
       { kind: 'move', stack: 'attacker-0', to: { col: 3, row: 3 }, path: [{ col: 3, row: 3 }] },
     ]);
-    expect(mudos).toContain('<h3>Parte de guerra</h3><div class="log"></div>');
+    expect(mudos).toContain(
+      '<h3>Parte de guerra</h3><div class="log" data-al-final="parte"></div>',
+    );
   });
 
   it('una línea sin color no lleva un `class` vacío colgando', () => {

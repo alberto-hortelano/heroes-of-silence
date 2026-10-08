@@ -24,6 +24,7 @@ import {
 import { hexSize, isShooter } from '@core/data.js';
 import type { Hex, PlayerId } from '@core/types.js';
 import type { Efecto, EstadoFigura } from '../anim.js';
+import { nombreEnElCampo } from '../views/distintivo.js';
 import { asset } from './assets.js';
 import { type CharacterClip, clipEnCurso } from './character.js';
 import {
@@ -663,13 +664,16 @@ function pintarNombre(
   ctx.save();
   ctx.globalAlpha = f.alfaDelAro;
   ctx.font = `${cuerpoDelNombre(v)}px system-ui, sans-serif`;
-  const caja = cajaDeNombre(v, s, f, ctx.measureText(s.unit.name).width);
+  // Con la letra de los homónimos («Piquero B»): es la misma que dice el parte,
+  // y pasar el ratón por la figura es como se casa una línea con su unidad (#198).
+  const nombre = nombreEnElCampo(v.battle, s);
+  const caja = cajaDeNombre(v, s, f, ctx.measureText(nombre).width);
   ctx.fillStyle = 'rgba(25,21,9,0.9)';
   ctx.fillRect(caja.x, caja.y, caja.ancho, caja.alto);
   ctx.fillStyle = '#fbe8b5';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
-  ctx.fillText(s.unit.name, caja.x + caja.ancho / 2, caja.y + 2);
+  ctx.fillText(nombre, caja.x + caja.ancho / 2, caja.y + 2);
   ctx.restore();
 }
 
