@@ -106,6 +106,7 @@ import {
   acabarPorLaBase,
   conCaminos,
   copiaDePartida,
+  costesDelAlcance,
   ejercito,
   esPersonaje,
   forzarBatalla,
@@ -685,7 +686,7 @@ describe('movimiento de héroes', () => {
     // de casa puede haber un grupo de asaltantes que pare la marcha.
     const casa = regionDeCasilla(state.map, hero.at);
     const alcance = alcanceDelHeroe(state, hero);
-    const destino = [...alcance.costs.entries()]
+    const destino = [...costesDelAlcance(alcance).entries()]
       .map(([k, coste]) => ({ p: pointFromKey(k), coste }))
       .find(
         ({ p, coste }) =>
@@ -1076,7 +1077,10 @@ describe('IA de respaldo', () => {
     // `inBounds(from)` pueda decidir: sin ella, esto retrocedería por un árbol
     // de predecesores que no es el suyo y acabaría LANZANDO, que no es lo mismo
     // que decir que no hay camino.
-    const [clave] = [...alcance.costs.entries()].filter(([, c]) => c > 0)[0] as [string, number];
+    const [clave] = [...costesDelAlcance(alcance).entries()].filter(([, c]) => c > 0)[0] as [
+      string,
+      number,
+    ];
     const [dx, dy] = clave.split(',').map(Number);
     const dentro = { x: dx as number, y: dy as number };
     expect(pathFromReachable(state.map, alcance, fuera, dentro)).toBeNull();
@@ -1147,12 +1151,12 @@ describe('IA de respaldo', () => {
 
     // Un alcance del vecino de al lado: el destino sigue asentado, así que solo
     // la comprobación de origen puede cazarlo.
-    const otroOrigen = [...alcance.costs.entries()]
+    const otroOrigen = [...costesDelAlcance(alcance).entries()]
       .filter(([, coste]) => coste > 0)
       .sort((a, b) => a[1] - b[1])[0]![0];
     const [x, y] = otroOrigen.split(',').map(Number);
     const impostor = reachableFrom(state.map, { x: x as number, y: y as number });
-    expect(impostor.costs.get(pointKey(destino))).toBeDefined();
+    expect(costesDelAlcance(impostor).get(pointKey(destino))).toBeDefined();
 
     expect(() =>
       applyAdventureAction(
@@ -2410,8 +2414,10 @@ describe('el mapa de nodos se juega', () => {
       mio.at = { x: 14, y: 2 };
       const alcance = alcanceDelHeroe(state, mio);
       // La guarnición se alcanza —es una batalla posible— y no se cruza.
-      expect(alcance.costs.has('17,4')).toBe(true);
-      expect(alcance.costs.has('22,4'), 'la base rival, detrás del paso').toBe(!guarnecida);
+      expect(costesDelAlcance(alcance).has('17,4')).toBe(true);
+      expect(costesDelAlcance(alcance).has('22,4'), 'la base rival, detrás del paso').toBe(
+        !guarnecida,
+      );
       return chooseHeroDestination(state, mio, alcance);
     };
     // Con el paso libre, la base rival vacía es el objetivo…
@@ -2712,7 +2718,7 @@ function marchaQueGanaFuerza(): {
     const despues = fuerzaDe(heroById(recogida, hero.id), recogida.characters);
     if (despues < antes * 1.1) throw new Error(`recoger la guarnición da ${antes} → ${despues}`);
     const alSalir = regionesMiradas(state);
-    for (const [clave, coste] of alcanceDelHeroe(state, hero).costs) {
+    for (const [clave, coste] of costesDelAlcance(alcanceDelHeroe(state, hero))) {
       if (coste === 0 || coste > hero.movePoints) continue;
       const destino = pointFromKey(clave);
       const camino = caminoHasta(state, hero, destino);

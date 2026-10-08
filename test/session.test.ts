@@ -22,7 +22,13 @@ import {
   visibleNow,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
-import { anteLaBase, pegadoA, planDeNodos, primeraMarchaQueSePara } from './helpers.js';
+import {
+  anteLaBase,
+  costesDelAlcance,
+  pegadoA,
+  planDeNodos,
+  primeraMarchaQueSePara,
+} from './helpers.js';
 
 describe('sesión del cliente: el turno del rival', () => {
   it('mientras juega el rival no es tu turno, y pulsar otra vez no hace nada', async () => {
@@ -250,7 +256,7 @@ describe('sesión del cliente: reclutar lo que cabe y ver la ruta entera', () =>
     // Un destino a dos pasos que de verdad se pise: a dos casillas a la derecha
     // puede haber cordillera desde el mapa de nodos.
     const alcance = reachableFrom(s.state.map, heroe.at);
-    const destino = [...alcance.costs.entries()]
+    const destino = [...costesDelAlcance(alcance).entries()]
       .filter(([, c]) => c > 0 && c <= heroe.movePoints)
       .map(([k]) => pointFromKey(k))
       .find((p) => Math.max(Math.abs(p.x - heroe.at.x), Math.abs(p.y - heroe.at.y)) === 2)!;

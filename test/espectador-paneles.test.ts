@@ -35,7 +35,7 @@ import { applyAdventureAction, type GameState, settleBattle } from '../src/core/
 import { newGame } from '../src/core/state/setup.js';
 import type { SpectatorSnapshotMsg } from '../src/server/protocol.js';
 import { construirVista, type SpectatorView } from '../src/server/vista-espectador.js';
-import { forzarBatalla, monstruoVivo } from './helpers.js';
+import { costesDelAlcance, forzarBatalla, monstruoVivo } from './helpers.js';
 
 /** Una partida con una batalla contra un MONSTRUO: el defensor no es de nadie. */
 function contraUnNeutral(semilla: number): { state: GameState; vista: SpectatorView } {
@@ -51,7 +51,7 @@ function contraUnHeroe(semilla: number): SpectatorView {
   const state = newGame({ seed: semilla });
   const mio = state.heroes.find((h) => h.owner === 1) as Hero;
   const suyo = state.heroes.find((h) => h.owner === 0) as Hero;
-  const [clave] = [...reachableFrom(state.map, mio.at).costs.entries()]
+  const [clave] = [...costesDelAlcance(reachableFrom(state.map, mio.at)).entries()]
     .filter(([, c]) => c > 0)
     .sort((a, b) => a[1] - b[1])[0] as [string, number];
   const [x, y] = clave.split(',').map(Number);

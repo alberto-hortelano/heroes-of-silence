@@ -15,7 +15,15 @@
  */
 import { describe, expect, it } from 'vitest';
 import { Frontera } from '../src/core/map/frontera.js';
-import { createEmptyMap, findPath, pointKey, reachableFrom } from '../src/core/map/map.js';
+import {
+  costeEnElAlcance,
+  createEmptyMap,
+  findPath,
+  pathFromReachable,
+  pointKey,
+  reachableFrom,
+} from '../src/core/map/map.js';
+import { costesDelAlcance, previosDelAlcance } from './helpers.js';
 
 /**
  * Una frontera con sitio de sobra para las claves de estos tests.
@@ -156,7 +164,7 @@ describe('el Dijkstra que usa la frontera, por sus dos puertas', () => {
     // La columna x=1 entera, y el origen.
     for (let y = 0; y < 4; y++) prohibidas[y * 4 + 1] = 1;
     prohibidas[0] = 1;
-    const { costs } = reachableFrom(map, { x: 0, y: 0 }, [], prohibidas);
+    const costs = costesDelAlcance(reachableFrom(map, { x: 0, y: 0 }, [], prohibidas));
     expect([...costs.keys()].sort()).toEqual(['0,0', '0,1', '0,2', '0,3']);
     // Una marca que no es de este mapa lanza: un índice de otro tamaño
     // señalaría otras casillas sin decirlo.
@@ -178,7 +186,9 @@ describe('el Dijkstra que usa la frontera, por sus dos puertas', () => {
     // El orden de inserción del `Map` de costes ES el orden de descubrimiento,
     // y de él cuelgan tres sitios de `test/agent-link.test.ts` que ordenan con
     // `Array.sort`, que es estable. Golden del código de ANTES del montículo.
-    const { costs, prev } = reachableFrom(mapaDelEmpate(), { x: 0, y: 0 });
+    const alcance = reachableFrom(mapaDelEmpate(), { x: 0, y: 0 });
+    const costs = costesDelAlcance(alcance);
+    const prev = previosDelAlcance(alcance);
     expect([...costs.keys()]).toEqual([
       '0,0',
       '1,0',
@@ -217,7 +227,9 @@ describe('el Dijkstra que usa la frontera, por sus dos puertas', () => {
       defeated: false,
     });
     const desde = { x: 0, y: 0 };
-    const { costs, prev } = reachableFrom(map, desde);
+    const alcance = reachableFrom(map, desde);
+    const costs = costesDelAlcance(alcance);
+    const prev = previosDelAlcance(alcance);
 
     // Se llega a ella, con su coste de entrada: es como se ataca a un monstruo
     // o se toma una mina.
@@ -233,6 +245,32 @@ describe('el Dijkstra que usa la frontera, por sus dos puertas', () => {
       { at: { x: 1, y: 2 }, cost: 240 },
       { at: { x: 2, y: 2 }, cost: 340 },
     ]);
+  });
+
+  it('el alcance habla en índices: lo de fuera del mapa no se llega, aunque su índice caiga dentro', () => {
+    // Con claves `"x,y"` una casilla de fuera simplemente no estaba. Con un
+    // índice plano `y * ancho + x`, (-1,1) da 3, que es (3,0), y (4,0) da 4,
+    // que es (0,1): las dos dentro y alcanzables. Sin el límite de
+    // `costeEnElAlcance`, quien preguntara por ellas recibiría el coste de otra.
+    const alcance = reachableFrom(mapaDelEmpate(), { x: 0, y: 0 });
+    expect(costeEnElAlcance(alcance, { x: 3, y: 0 })).not.toBeNull();
+    expect(costeEnElAlcance(alcance, { x: 0, y: 1 })).not.toBeNull();
+    expect(costeEnElAlcance(alcance, { x: -1, y: 1 })).toBeNull();
+    expect(costeEnElAlcance(alcance, { x: 4, y: 0 })).toBeNull();
+    expect(costeEnElAlcance(alcance, { x: 0, y: 4 })).toBeNull();
+    expect(costeEnElAlcance(alcance, { x: 0, y: 0 })).toBe(0);
+    // El orden de descubrimiento empieza por el origen y no repite casilla.
+    expect(alcance.descubiertas[0]).toBe(0);
+    expect(new Set(alcance.descubiertas).size).toBe(alcance.descubiertas.length);
+  });
+
+  it('un alcance de otro mapa no da camino: lo dice', () => {
+    // Del mismo ancho y otro alto, los índices del retroceso señalarían otras
+    // casillas sin decirlo: con `"x,y"` el `Map` no podía mezclar mapas así.
+    const alcance = reachableFrom(createEmptyMap(4, 5, 'grass'), { x: 0, y: 0 });
+    expect(() =>
+      pathFromReachable(mapaDelEmpate(), alcance, { x: 0, y: 0 }, { x: 2, y: 2 }),
+    ).toThrow(/alcance es de un mapa de 20 casillas y 4 de ancho, y este mide 4×4/);
   });
 
   it('una frontera agotada se niega a servir a otra búsqueda, aunque los costes cuadren', () => {

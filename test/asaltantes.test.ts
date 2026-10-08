@@ -56,7 +56,7 @@ import {
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import type { Point } from '../src/core/types.js';
-import { ejercito } from './helpers.js';
+import { costesDelAlcance, ejercito } from './helpers.js';
 import { segunPrisa } from './lento.js';
 
 /**
@@ -394,7 +394,7 @@ describe('la IA teme lo que vio (#164)', () => {
     recordarAsaltantes(state, recuerdo, laRegion(state, grupo.at));
     expect(casillasPeligrosas(state, hero, recuerdo)?.[i]).toBe(1);
     const sabiendo = alcanceDelHeroe(state, hero, { evitarEmboscadas: true });
-    expect(sabiendo.costs.size).toBeLessThan(sinSaber.costs.size);
+    expect(sabiendo.descubiertas.length).toBeLessThan(sinSaber.descubiertas.length);
   });
 
   it('al crear la partida, cada jugador recuerda los grupos que ve: el recuerdo lo escribe quien mira', () => {
@@ -424,7 +424,7 @@ describe('la IA no entra en una emboscada que va a perder', () => {
     const W = state.map.width;
     expect(peligro[hero.at.y * W + hero.at.x]).toBe(1);
     const alcance = alcanceDelHeroe(state, hero, { evitarEmboscadas: true });
-    for (const clave of alcance.costs.keys()) {
+    for (const clave of costesDelAlcance(alcance).keys()) {
       const [x, y] = clave.split(',').map(Number) as [number, number];
       if (x === hero.at.x && y === hero.at.y) continue;
       expect(peligro[y * W + x], `(${x},${y}) es de una región que embosca`).not.toBe(1);
@@ -432,7 +432,7 @@ describe('la IA no entra en una emboscada que va a perder', () => {
     // Y sale: desde dentro se pisa el nodo de al lado, si lo hay; prohibir la
     // región no es encerrarlo en su casilla.
     const normal = alcanceDelHeroe(state, hero);
-    expect(alcance.costs.size).toBeLessThan(normal.costs.size);
+    expect(alcance.descubiertas.length).toBeLessThan(normal.descubiertas.length);
   });
 
   it('si los dos están encerrados en una región que los embosca, el que juega vuelve a casa; si el rival se mueve, espera', async () => {
@@ -450,7 +450,7 @@ describe('la IA no entra en una emboscada que va a perder', () => {
       rival.army = [];
       const encerradas = libresDeSuRegion(state, grupo).filter((p) => {
         hero.at = p;
-        return alcanceDelHeroe(state, hero, { evitarEmboscadas: true }).costs.size <= 1;
+        return alcanceDelHeroe(state, hero, { evitarEmboscadas: true }).descubiertas.length <= 1;
       });
       if (encerradas.length < 2) throw new Error('la semilla 5 no deja dos casillas encerradas');
       hero.at = encerradas[0]!;
@@ -464,7 +464,7 @@ describe('la IA no entra en una emboscada que va a perder', () => {
     // El rival en su casa, libre: esperar todavía puede arreglarlo.
     const libre = montar();
     expect(
-      alcanceDelHeroe(libre.state, libre.rival, { evitarEmboscadas: true }).costs.size,
+      alcanceDelHeroe(libre.state, libre.rival, { evitarEmboscadas: true }).descubiertas.length,
     ).toBeGreaterThan(1);
     await playAiTurn(libre.state, libre.ctx);
     expect(seMovio(libre.state, libre.hero.id)).toBe(false);
@@ -474,7 +474,7 @@ describe('la IA no entra en una emboscada que va a perder', () => {
     const empate = montar();
     empate.rival.at = empate.otra;
     expect(
-      alcanceDelHeroe(empate.state, empate.rival, { evitarEmboscadas: true }).costs.size,
+      alcanceDelHeroe(empate.state, empate.rival, { evitarEmboscadas: true }).descubiertas.length,
     ).toBeLessThanOrEqual(1);
     await playAiTurn(empate.state, empate.ctx);
     expect(seMovio(empate.state, empate.hero.id)).toBe(true);

@@ -26,12 +26,15 @@ import type { Hero } from '../src/core/hero/hero.js';
 import { Casillas } from '../src/core/map/casillas.js';
 import type { MapPlan, PlanConCasillas } from '../src/core/map/generate.js';
 import {
+  casillaDelIndice,
   findPath,
   type GameMap,
   isEnterable,
   type MapObject,
   objectAt,
   pointFromKey,
+  pointKey,
+  type Reachable,
   RedDeCaminos,
 } from '../src/core/map/map.js';
 import { estructura, juntoANodo, rellenar, VECINAS, vecindad } from '../src/core/map/regiones.js';
@@ -47,6 +50,30 @@ import {
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import type { Army, PlayerId, Point, Stack, Troop } from '../src/core/types.js';
+
+/**
+ * El coste de cada casilla del alcance por `"x,y"`, en orden de primer
+ * descubrimiento: la forma que tenía `Reachable.costs` antes de #94. El núcleo
+ * ya no la construye (era el 6 % del banco); los tests la reconstruyen para
+ * seguir leyendo por clave y para que los goldens de orden no se reescriban.
+ */
+export function costesDelAlcance(alcance: Reachable): Map<string, number> {
+  const costes = new Map<string, number>();
+  for (const i of alcance.descubiertas) {
+    costes.set(pointKey(casillaDelIndice(alcance, i)), alcance.costes[i] as number);
+  }
+  return costes;
+}
+
+/** Por dónde se llega a cada casilla, por `"x,y"`: el `prev` de antes de #94. Sin el origen. */
+export function previosDelAlcance(alcance: Reachable): Map<string, Point> {
+  const previos = new Map<string, Point>();
+  for (const i of alcance.descubiertas) {
+    const p = alcance.previos[i] as number;
+    if (p !== -1) previos.set(pointKey(casillaDelIndice(alcance, i)), casillaDelIndice(alcance, p));
+  }
+  return previos;
+}
 
 /**
  * Vacía la guarnición con la que nace la base de cada jugador
@@ -238,7 +265,7 @@ export function copiaDePartida(state: GameState): GameState {
 }
 
 export function primeraMarchaQueSePara(state: GameState, heroe: Hero): Point | null {
-  for (const [clave, coste] of alcanceDelHeroe(state, heroe).costs) {
+  for (const [clave, coste] of costesDelAlcance(alcanceDelHeroe(state, heroe))) {
     if (coste === 0 || coste > heroe.movePoints) continue;
     const destino = pointFromKey(clave);
     const prueba = copiaDePartida(state);

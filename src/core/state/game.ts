@@ -59,6 +59,7 @@ import {
 import { Casillas, type CasillasLeidas, casillasDelCuadrado } from '../map/casillas.js';
 import {
   blocksMovement,
+  costeEnElAlcance,
   findPath,
   type GameMap,
   inBounds,
@@ -1901,7 +1902,7 @@ export function porQueNoLlega(state: GameState, hero: Hero, to: Point): string {
   if (caminoEsquivando(state, hero, to, []) === null) return frase;
   const hostiles = casillasHostiles(state, hero.owner);
   const alcance = alcanceDelHeroe(state, hero);
-  const delante = hostiles.filter((h) => alcance.costs.has(pointKey(h)));
+  const delante = hostiles.filter((h) => costeEnElAlcance(alcance, h) !== null);
   const bastan = delante.filter(
     (h) =>
       caminoEsquivando(
@@ -1954,7 +1955,7 @@ function caminoDelHeroe(
   alcance: Reachable | undefined,
 ): PathStep[] | null {
   if (alcance === undefined) return caminoHasta(state, hero, to);
-  if (alcance.costs.get(pointKey(hero.at)) !== 0) {
+  if (costeEnElAlcance(alcance, hero.at) !== 0) {
     throw new Error(
       `el alcance que traes no sale de donde está ${hero.name}: (${hero.at.x},${hero.at.y})`,
     );

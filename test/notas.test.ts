@@ -44,7 +44,7 @@ import {
   textoDeFin,
 } from '../src/server/notas.js';
 import type { AgentRequestMsg } from '../src/server/protocol.js';
-import { acabarPorLaBase, copiaDePartida } from './helpers.js';
+import { acabarPorLaBase, copiaDePartida, costesDelAlcance } from './helpers.js';
 
 /** Una petición cualquiera, para mirar cómo se compone la escucha. */
 const PETICION: AgentRequestMsg = {
@@ -185,7 +185,7 @@ describe('notas para el agente', () => {
       const inicio = newGame({ seed });
       const heroe = heroesOf(inicio, 0)[0]!;
       let n = 0;
-      for (const clave of alcanceDelHeroe(inicio, heroe).costs.keys()) {
+      for (const clave of costesDelAlcance(alcanceDelHeroe(inicio, heroe)).keys()) {
         const to = pointFromKey(clave);
         if (pointKey(to) === pointKey(heroe.at) || n++ % 2 === 1) continue;
         const state: GameState = copiaDePartida(inicio);

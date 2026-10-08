@@ -407,16 +407,55 @@ export function findPath(
  * Lo que sabe una pasada de Dijkstra desde un origen: lo que cuesta llegar a
  * cada casilla y por dónde se llega.
  *
- * `prev` va siempre y no tras una bandera: construirlo no se paga aparte —es
- * un `set` en la misma rama que ya escribe el coste— y una bandera que cambia
- * la forma del retorno obliga a todos los llamantes a estrechar un tipo para
- * pedir algo que sale gratis.
+ * `previos` va siempre y no tras una bandera: construirlo no se paga aparte
+ * —es una escritura en la misma rama que ya escribe el coste— y una bandera
+ * que cambia la forma del retorno obliga a todos los llamantes a estrechar un
+ * tipo para pedir algo que sale gratis.
+ *
+ * **Habla en índices planos** (`y * ancho + x`, el de `GameMap.terrain`), las
+ * mismas tablas que el Dijkstra usa por dentro, entregadas tal cual. Antes la
+ * salida se copiaba a dos `Map<string, …>` por `"x,y"` (#94): 422-461 ms de
+ * ~7 000 en `pnpm banco` (2026-10-08) solo en construirlos, más el `pointKey`
+ * de cada lectura. Se lee con `costeEnElAlcance` y `casillaDelIndice`.
  */
 export interface Reachable {
-  /** Coste de llegar a cada casilla, por clave "x,y". */
-  readonly costs: Map<string, number>;
-  /** Desde qué casilla se llega a cada una. El origen no está: no viene de nada. */
-  readonly prev: Map<string, Point>;
+  /** Ancho del mapa del que sale: lo que convierte una casilla en su índice. */
+  readonly ancho: number;
+  /** Coste de llegar a cada casilla, por índice; −1 = no se llega. */
+  readonly costes: Int32Array;
+  /** De qué índice se llega a cada uno; −1 = el origen, que no viene de nada, o no se llega. */
+  readonly previos: Int32Array;
+  /**
+   * Los índices a los que se llega, en orden de **primer descubrimiento** (el
+   * origen, el primero). Es el orden de inserción que tenían los `Map` de
+   * antes, y de él cuelgan los goldens que recorren el alcance en orden.
+   */
+  readonly descubiertas: readonly number[];
+}
+
+/**
+ * El índice de `p` en el alcance, o −1 si cae fuera de su mapa. Con claves
+ * `"x,y"` una casilla de fuera simplemente no estaba; con un índice plano
+ * `(-1,5)` cae en la fila de arriba, así que el límite se mira aquí.
+ */
+function indiceEnElAlcance(alcance: Reachable, p: Point): number {
+  const alto = alcance.costes.length / alcance.ancho;
+  if (p.x < 0 || p.y < 0 || p.x >= alcance.ancho || p.y >= alto) return -1;
+  return p.y * alcance.ancho + p.x;
+}
+
+/** Lo que cuesta llegar a `p`, o `null` si no se llega (o cae fuera del mapa). */
+export function costeEnElAlcance(alcance: Reachable, p: Point): number | null {
+  const i = indiceEnElAlcance(alcance, p);
+  if (i === -1) return null;
+  const c = alcance.costes[i] as number;
+  return c === -1 ? null : c;
+}
+
+/** La casilla de un índice del alcance. */
+export function casillaDelIndice(alcance: Reachable, i: number): Point {
+  const x = i % alcance.ancho;
+  return { x, y: (i - x) / alcance.ancho };
 }
 
 /**
@@ -430,7 +469,7 @@ export interface Reachable {
  *
  * Los predecesores son lo que evita el SEGUNDO recorrido: quien ya llamó aquí
  * para elegir a dónde ir no necesita relanzar `findPath` para saber por dónde
- * se va — retrocede por `prev` desde el destino. Se llamaba `reachableCosts`, y
+ * se va — retrocede por `previos` desde el destino. Se llamaba `reachableCosts`, y
  * el nombre cambió a propósito con la firma: así el typecheck señala a todos
  * los llamantes en vez de dejar que alguno se quede con la versión de antes
  * creyendo que sigue valiendo.
@@ -577,9 +616,10 @@ function dijkstra(
   const previo = new Int32Array(casillas).fill(-1);
   const cerrada = new Uint8Array(casillas);
   // El orden de PRIMER descubrimiento, que es el orden de inserción que tenían
-  // los `Map` de antes. De él cuelgan el golden de `frontera.test.ts` y tres
-  // sitios de `agent-link.test.ts` que ordenan con `Array.sort`, que es estable:
-  // sin reproducirlo, la salida tendría los mismos pares en otro orden.
+  // los `Map` de antes y que sale en `Reachable.descubiertas`. De él cuelgan el
+  // golden de `frontera.test.ts` y tres sitios de `agent-link.test.ts` que
+  // ordenan con `Array.sort`, que es estable: sin reproducirlo, la salida
+  // tendría los mismos pares en otro orden.
   const descubiertas: number[] = [origen];
 
   coste[origen] = 0;
@@ -635,24 +675,7 @@ function dijkstra(
     }
   }
 
-  // La salida sigue hablando en `"x,y"`, y en el orden de siempre: quien la lee
-  // —`chooseHeroDestination`, `stepTowards`, los tests— no se entera de que por
-  // dentro esto es aritmética. Cambiar también la salida vale más —el prototipo
-  // del issue medía 6,5 puntos por encima de esta variante— pero arrastra a
-  // `stepTowards`, a `chooseHeroDestination` y a los seis goldens que
-  // certifican que esto no movió nada; es otro issue, no este commit.
-  const costs = new Map<string, number>();
-  const prev = new Map<string, Point>();
-  for (const i of descubiertas) {
-    const x = i % ancho;
-    const y = (i - x) / ancho;
-    costs.set(`${x},${y}`, coste[i] as number);
-    const p = previo[i] as number;
-    if (p === -1) continue;
-    const px = p % ancho;
-    prev.set(`${x},${y}`, { x: px, y: (p - px) / ancho });
-  }
-  return { costs, prev };
+  return { ancho, costes: coste, previos: previo, descubiertas };
 }
 
 /**
@@ -677,29 +700,34 @@ export function pathFromReachable(
   to: Point,
 ): PathStep[] | null {
   if (!inBounds(map, from) || !inBounds(map, to)) return null;
-  const origen = pointKey(from);
-  const destino = pointKey(to);
+  if (alcance.costes.length !== map.width * map.height || alcance.ancho !== map.width) {
+    throw new Error(
+      `el alcance es de un mapa de ${alcance.costes.length} casillas y ${alcance.ancho} de ancho, ` +
+        `y este mide ${map.width}×${map.height}`,
+    );
+  }
+  const origen = from.y * map.width + from.x;
+  const destino = to.y * map.width + to.x;
   if (origen === destino) return [];
 
-  const total = alcance.costs.get(destino);
   // No asentado: inalcanzable, o no pisable — `reachableFrom` no lo asienta.
-  if (total === undefined) return null;
+  if (alcance.costes[destino] === -1) return null;
 
   const pasos: PathStep[] = [];
-  let clave = destino;
-  let at = to;
-  while (clave !== origen) {
-    pasos.unshift({ at, cost: alcance.costs.get(clave) as number });
-    const anterior = alcance.prev.get(clave);
+  let i = destino;
+  while (i !== origen) {
+    pasos.push({ at: casillaDelIndice(alcance, i), cost: alcance.costes[i] as number });
+    const anterior = alcance.previos[i] as number;
     // Se retrocedió hasta la raíz del árbol de predecesores y no era `from`:
     // el alcance es de OTRO origen. Se dice en vez de devolver medio camino.
-    if (anterior === undefined) {
+    if (anterior === -1) {
       throw new Error(`el alcance no viene de (${from.x},${from.y}): no lleva hasta ahí`);
     }
-    at = anterior;
-    clave = pointKey(at);
+    i = anterior;
   }
-  return pasos;
+  // Del destino hacia atrás y se da la vuelta una vez: el `unshift` de antes
+  // movía el array entero en cada paso.
+  return pasos.reverse();
 }
 
 /**

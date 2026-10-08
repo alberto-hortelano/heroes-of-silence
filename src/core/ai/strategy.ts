@@ -25,7 +25,13 @@ import {
   troopUnit,
   withTroops,
 } from '../hero/troop.js';
-import { type MapObject, pointKey, type Reachable } from '../map/map.js';
+import {
+  casillaDelIndice,
+  costeEnElAlcance,
+  type MapObject,
+  pointKey,
+  type Reachable,
+} from '../map/map.js';
 import { regionesQueCierra, type Territorio, territorio } from '../map/regiones.js';
 import { grupoALaVistaDesde } from '../state/asaltantes.js';
 import {
@@ -184,8 +190,8 @@ export function chooseHeroDestination(
   // Antes se miraba aquí retrocediendo la cadena de predecesores de cada
   // candidato, y se llevaba 147 de los 209 ms de esta función.
   const costeHasta = (p: Point): number | null => {
-    const c = alcance.costs.get(pointKey(p));
-    return c === undefined || c === 0 ? null : c;
+    const c = costeEnElAlcance(alcance, p);
+    return c === 0 ? null : c;
   };
   // Un candidato: vale `valor` y se puntúa por rentabilidad, por punto de
   // movimiento gastado. Gana el primero con la puntuación más alta, en el
@@ -256,8 +262,8 @@ export function chooseHeroDestination(
 export function destinoDeRepliegue(state: GameState, hero: Hero, alcance: Reachable): Point | null {
   const base = baseOf(state, hero.owner);
   if (base === null) return null;
-  const coste = alcance.costs.get(pointKey(base.at));
-  return coste === undefined || coste === 0 ? null : base.at;
+  const coste = costeEnElAlcance(alcance, base.at);
+  return coste === null || coste === 0 ? null : base.at;
 }
 
 /** Distancia de Chebyshev, suficiente para medir "está rondando mi casa". */
@@ -282,21 +288,27 @@ function distanciaAprox(a: Point, b: Point): number {
  * nada, que es no tener ni para el primer paso.
  */
 export function stepTowards(hero: Hero, destino: Point, alcance: Reachable): Point | null {
-  let at = destino;
-  let coste = alcance.costs.get(pointKey(destino));
-  if (coste === undefined || coste === 0) return null;
+  const desde = costeEnElAlcance(alcance, destino);
+  if (desde === null || desde === 0) return null;
 
+  // Por índices hasta dar con el paso, y un solo `Point` al final: retroceder
+  // por `"x,y"` construía una clave y un punto por casilla del camino.
+  let i = destino.y * alcance.ancho + destino.x;
+  let coste = desde;
   while (coste > hero.movePoints) {
-    const anterior = alcance.prev.get(pointKey(at));
-    if (anterior === undefined) return null;
-    at = anterior;
-    const c = alcance.costs.get(pointKey(at));
-    if (c === undefined) throw new Error(`el alcance no sabe qué cuesta (${at.x},${at.y})`);
+    const anterior = alcance.previos[i] as number;
+    if (anterior === -1) return null;
+    i = anterior;
+    const c = alcance.costes[i] as number;
+    if (c === -1) {
+      const at = casillaDelIndice(alcance, i);
+      throw new Error(`el alcance no sabe qué cuesta (${at.x},${at.y})`);
+    }
     coste = c;
   }
 
   // Coste 0 es el origen y solo el origen: se retrocedió el camino entero.
-  return coste === 0 ? null : at;
+  return coste === 0 ? null : casillaDelIndice(alcance, i);
 }
 
 /**

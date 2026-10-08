@@ -54,7 +54,7 @@ import {
   type VistaHeroe,
 } from '../src/server/vista-espectador.js';
 import { ponVeteranoEnLaBase } from '../tools/qa/veterano-en-la-base.js';
-import { conCaminos, monstruoVivo, sinGuarnicionDeSalida } from './helpers.js';
+import { conCaminos, costesDelAlcance, monstruoVivo, sinGuarnicionDeSalida } from './helpers.js';
 
 const abiertos: (() => void)[] = [];
 afterEach(() => {
@@ -88,7 +88,7 @@ async function montar(
 
 /** La casilla pisable más cercana, para plantar a alguien al lado. */
 function vecina(state: GameState, desde: Point): Point {
-  const [clave] = [...reachableFrom(state.map, desde).costs.entries()]
+  const [clave] = [...costesDelAlcance(reachableFrom(state.map, desde)).entries()]
     .filter(([, coste]) => coste > 0)
     .sort((a, b) => a[1] - b[1])[0]!;
   const [x, y] = clave.split(',').map(Number);

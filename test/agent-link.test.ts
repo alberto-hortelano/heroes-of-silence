@@ -38,6 +38,7 @@ import { SIN_PARTIDA_TODAVIA } from '../src/server/notas.js';
 import { ponVeteranoEnLaBase } from '../tools/qa/veterano-en-la-base.js';
 import {
   conCaminos,
+  costesDelAlcance,
   ejercito,
   ponerMonstruo,
   primeraMarchaQueSePara,
@@ -184,7 +185,7 @@ function vecina(state: GameState, desde: Point, lejosDe?: Point): Point {
     const [x, y] = clave.split(',').map(Number) as [number, number];
     return Math.max(Math.abs(x - lejosDe.x), Math.abs(y - lejosDe.y)) <= 1;
   };
-  const [clave] = [...reachableFrom(state.map, desde).costs.entries()]
+  const [clave] = [...costesDelAlcance(reachableFrom(state.map, desde)).entries()]
     .filter(([c, coste]) => coste > 0 && !toca(c))
     .sort((a, b) => a[1] - b[1])[0]!;
   const [x, y] = clave.split(',').map(Number);
@@ -203,7 +204,8 @@ function plantarRival(state: GameState, objetivo: Point, lejosDe?: Point): Hero 
   const rival = state.heroes.find((h) => h.owner === 0) as Hero;
   rival.at = vecina(state, objetivo, lejosDe);
   rival.army = ejercito({ creature: 'paladin', count: 6 });
-  rival.movePoints = reachableFrom(state.map, rival.at).costs.get(pointKey(objetivo)) ?? 200;
+  rival.movePoints =
+    costesDelAlcance(reachableFrom(state.map, rival.at)).get(pointKey(objetivo)) ?? 200;
   return rival;
 }
 
@@ -295,7 +297,7 @@ function rivalAlCastillo(state: GameState): Town {
 
   // El héroe del agente se lleva lejos: pegado al castillo, el rival preferiría
   // atacarle a él y este test no miraría lo que dice mirar.
-  const lejos = [...reachableFrom(state.map, pueblo.at).costs.entries()]
+  const lejos = [...costesDelAlcance(reachableFrom(state.map, pueblo.at)).entries()]
     .filter(([, coste]) => coste > 900)
     .sort((a, b) => a[1] - b[1])[0];
   if (lejos === undefined) throw new Error('el mapa no da para alejar al héroe del castillo');

@@ -111,9 +111,11 @@ export function marchaDeHoy(
   if (destino === null && !enSuBase(state, hero)) {
     const rivales = state.heroes.filter((h) => h.owner !== hero.owner);
     const todosEncerrados =
-      alcance.costs.size <= 1 &&
+      alcance.descubiertas.length <= 1 &&
       rivales.length > 0 &&
-      rivales.every((h) => alcanceDelHeroe(state, h, { evitarEmboscadas: true }).costs.size <= 1);
+      rivales.every(
+        (h) => alcanceDelHeroe(state, h, { evitarEmboscadas: true }).descubiertas.length <= 1,
+      );
     // Y si el rival está libre pero esto dura ya `TURNOS_DE_ENCIERRO`, también
     // (#181): con un rival libre que no entra en la región —el grupo lo
     // emboscaría a él también—, nadie la cambia. La semilla 1393 de una

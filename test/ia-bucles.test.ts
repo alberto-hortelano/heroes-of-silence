@@ -33,6 +33,7 @@ import {
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import type { Point } from '../src/core/types.js';
+import { costesDelAlcance } from './helpers.js';
 
 /** Anda `hero` hasta `to` con puntos de sobra: lo que importa es dónde acaba. */
 function andar(state: GameState, ctx: GameContext, hero: Hero, to: Point): void {
@@ -70,7 +71,7 @@ describe('la memoria de la IA se lee de la crónica', () => {
 
     const lejos = { ...hero.at };
     const alcance = alcanceDelHeroe(state, hero);
-    const fuera = [...alcance.costs.keys()].find((k) => k !== pointKey(casa));
+    const fuera = [...costesDelAlcance(alcance).keys()].find((k) => k !== pointKey(casa));
     if (fuera === undefined) throw new Error('el héroe de la semilla 3 no llega a ninguna parte');
     const [x, y] = fuera.split(',').map(Number) as [number, number];
     andar(state, ctx, hero, { x, y });
@@ -177,7 +178,8 @@ describe('el encierro con el rival libre', () => {
       if (tocaUnNodo(state.map, hasta) || ocupada(hasta)) continue;
       hero.at = hasta;
       hero.army = [];
-      const encerrada = alcanceDelHeroe(state, hero, { evitarEmboscadas: true }).costs.size <= 1;
+      const encerrada =
+        alcanceDelHeroe(state, hero, { evitarEmboscadas: true }).descubiertas.length <= 1;
       hero.army = tropa;
       if (!encerrada) continue;
       for (const [dx, dy] of VECINAS) {
@@ -202,10 +204,12 @@ describe('el encierro con el rival libre', () => {
     hero.army = [];
     for (let i = 0; i < dias; i++) pasarElDia(state, ctx);
     expect(pointKey(hero.at)).toBe(pointKey(par.hasta));
-    expect(alcanceDelHeroe(state, hero, { evitarEmboscadas: true }).costs.size).toBeLessThanOrEqual(
-      1,
-    );
-    expect(alcanceDelHeroe(state, rival, { evitarEmboscadas: true }).costs.size).toBeGreaterThan(1);
+    expect(
+      alcanceDelHeroe(state, hero, { evitarEmboscadas: true }).descubiertas.length,
+    ).toBeLessThanOrEqual(1);
+    expect(
+      alcanceDelHeroe(state, rival, { evitarEmboscadas: true }).descubiertas.length,
+    ).toBeGreaterThan(1);
     return { state, hero };
   }
 
@@ -220,7 +224,7 @@ describe('el encierro con el rival libre', () => {
     const marcha = marchaDeHoy(tarde.state, tarde.hero);
     expect(marcha).not.toBeNull();
     // Por el alcance de siempre: el prudente no le dejaba dar ni un paso.
-    expect(marcha!.alcance.costs.size).toBeGreaterThan(1);
+    expect(marcha!.alcance.descubiertas.length).toBeGreaterThan(1);
   });
 
   it('fuera de su base, sin a dónde ir y con un alcance que no es su casilla, a los 10 turnos también vuelve (#186)', async () => {

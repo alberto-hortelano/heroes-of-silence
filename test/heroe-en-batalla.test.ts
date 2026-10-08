@@ -47,7 +47,7 @@ import {
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import type { Army, Point, Stack } from '../src/core/types.js';
-import { avanzarHasta, ejercito, forzarBatalla } from './helpers.js';
+import { avanzarHasta, costesDelAlcance, ejercito, forzarBatalla } from './helpers.js';
 
 const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 
@@ -91,7 +91,7 @@ function duelo(state: GameState, cerca: Point): Point {
     isEnterable(state.map, p) &&
     objectAt(state.map, p) === undefined &&
     !state.heroes.some((h) => pointKey(h.at) === pointKey(p));
-  for (const clave of reachableFrom(state.map, cerca).costs.keys()) {
+  for (const clave of costesDelAlcance(reachableFrom(state.map, cerca)).keys()) {
     const defensa = pointFromKey(clave);
     // A su izquierda, porque ahí coloca `forzarBatalla` al atacante.
     if (libre(defensa) && libre({ x: defensa.x - 1, y: defensa.y })) return defensa;
@@ -701,7 +701,7 @@ describe('la IA no se rinde por quien no es ella (H-1)', () => {
 /** Una casilla libre y pisable a dos pasos de `desde`, la primera que salga. */
 function casillaADosPasos(state: GameState, desde: Point): Point {
   const alcance = reachableFrom(state.map, desde);
-  for (const [clave, coste] of alcance.costs) {
+  for (const [clave, coste] of costesDelAlcance(alcance)) {
     const p = pointFromKey(clave);
     const lejos = Math.max(Math.abs(p.x - desde.x), Math.abs(p.y - desde.y));
     if (coste > 0 && lejos === 2 && objectAt(state.map, p) === undefined) return p;
