@@ -47,10 +47,21 @@ function arena(): Plugin {
    * La lista de hojas, leída una vez: son decenas de `dN/atlas.json` síncronos,
    * y en cada recarga de la página bloqueaban el bucle de vite. Se olvida cuando cambia
    * algo bajo `assets/unidades/`, que es cuando el taller publica una hoja.
+   *
+   * Una unidad con su arte a medias —el taller generándola— va en la lista
+   * como incompleta, con su motivo, y se avisa al leerla (#140). En `vite build`
+   * también: **avisa y no falla**. Fallar tumbaba el build de todo por una
+   * unidad en obras, y quitarla de la lista la escondería; así la arena
+   * construida dice lo mismo que `pnpm arena`: está, a medias, y no se monta.
    */
   let hojas: string | null = null;
-  const lista = (): string => {
-    hojas ??= JSON.stringify(hojasDeArena(raiz));
+  const lista = (avisar: (aviso: string) => void): string => {
+    if (hojas === null) {
+      const leidas = hojasDeArena(raiz);
+      for (const h of leidas)
+        if (h.incompleta !== null) avisar(`[arena] se lista sin montarla: ${h.incompleta}`);
+      hojas = JSON.stringify(leidas);
+    }
     return hojas;
   };
   return {
@@ -63,7 +74,7 @@ function arena(): Plugin {
       });
       server.middlewares.use('/__arena/hojas', (_req, res) => {
         res.setHeader('content-type', 'application/json');
-        res.end(lista());
+        res.end(lista((aviso) => server.config.logger.warn(aviso)));
       });
       server.middlewares.use('/__arena/unidades', (req, res) => {
         const responder = (estado: number, cuerpo: unknown): void => {
@@ -113,7 +124,11 @@ function arena(): Plugin {
       });
     },
     generateBundle() {
-      this.emitFile({ type: 'asset', fileName: '__arena/hojas', source: lista() });
+      this.emitFile({
+        type: 'asset',
+        fileName: '__arena/hojas',
+        source: lista((aviso) => this.warn(aviso)),
+      });
       this.emitFile({
         type: 'asset',
         fileName: '__arena/unidades',

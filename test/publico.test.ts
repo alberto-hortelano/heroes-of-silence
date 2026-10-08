@@ -23,7 +23,7 @@ describe('la carpeta pública en el build', () => {
     const id = 'templario-escudo';
     const propio = registrarUnidad(id, {
       juego: 'espada-escudo',
-      direcciones: direccionesDe(RAIZ, id),
+      direcciones: direccionesDe(RAIZ, id).direcciones,
     });
     expect(propio.propio).toBe(true);
     const urls = [

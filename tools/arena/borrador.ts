@@ -19,7 +19,7 @@ import {
   validarHojasDeArena,
 } from '../../src/core/arena.js';
 import { NOMBRES_DE_DIRECCION } from '../../src/shared/arte.js';
-import { HEROES, juegoDelYBot, tieneSusOchoDirecciones, UNIDADES } from '../taller/unidades.js';
+import { arteEnOchoDirecciones, HEROES, juegoDelYBot, UNIDADES } from '../taller/unidades.js';
 import { VELOCIDAD_DE_SALIDA } from './velocidades.js';
 
 /** Las casillas de salida de una hoja: una hoja sin la suya es un olvido, y se dice. */
@@ -35,17 +35,26 @@ function velocidadDeSalida(id: string): number {
 export const RUTA_DEL_BORRADOR = 'data/borradores/unidades.json';
 
 /**
- * Los ocho `dN/atlas.json` de una unidad, o `null` si le falta alguno: con siete
- * se mezclarían las luces de dos artes, así que la unidad sale con el Y Bot.
+ * El arte propio de una unidad tal como lo lee la arena: sus ocho
+ * `dN/atlas.json`, o `null` sin ninguno (sale con el Y Bot), y si lo tiene a
+ * medias, el motivo en `incompleta` (#140). Una unidad a medias no lanza —el
+ * taller la está generando, y la lista de la arena y `vite build` caían con
+ * ella— pero tampoco se pinta con el Y Bot: la arena la lista y no la monta.
  */
-export function direccionesDe(raiz: string, id: string): readonly unknown[] | null {
-  if (!tieneSusOchoDirecciones(raiz, id)) return null;
-  return NOMBRES_DE_DIRECCION.map(
+export function direccionesDe(
+  raiz: string,
+  id: string,
+): Pick<HojaDeArena, 'direcciones' | 'incompleta'> {
+  const arte = arteEnOchoDirecciones(raiz, id);
+  if (arte.hecho === 'ninguno') return { direcciones: null, incompleta: null };
+  if (arte.hecho === 'a-medias') return { direcciones: null, incompleta: arte.motivo };
+  const direcciones = NOMBRES_DE_DIRECCION.map(
     (_, d) =>
       JSON.parse(
         readFileSync(join(raiz, 'assets/unidades', id, `d${d}`, 'atlas.json'), 'utf8'),
       ) as unknown,
   );
+  return { direcciones, incompleta: null };
 }
 
 /**
@@ -70,7 +79,7 @@ export function hojasDeArena(raiz: string): readonly HojaDeArena[] {
       heroe,
       casillas: velocidadDeSalida(u.id),
       juego: juegoDelYBot(u),
-      direcciones: direccionesDe(raiz, u.id),
+      ...direccionesDe(raiz, u.id),
     })),
   );
 }

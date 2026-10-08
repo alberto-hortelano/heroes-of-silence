@@ -16,7 +16,12 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { BattleAnimator } from '../src/client/anim.js';
-import { renderBando, renderFicha, renderPanelDeBatalla } from '../src/client/arena/paneles.js';
+import {
+  renderBando,
+  renderCatalogo,
+  renderFicha,
+  renderPanelDeBatalla,
+} from '../src/client/arena/paneles.js';
 import { marcadoDe } from '../src/client/html.js';
 import { arteDe, juegosDelYBot, registrarUnidad } from '../src/client/render/personajes.js';
 import { type PuestoDeArena, SesionDeArena } from '../src/client/session.js';
@@ -47,10 +52,12 @@ import {
 } from '../tools/arena/borrador.js';
 import { VELOCIDAD_DE_SALIDA } from '../tools/arena/velocidades.js';
 import {
+  arteEnOchoDirecciones,
   EN_OCHO_DIRECCIONES,
   HEROES,
   JUEGO_DEL_YBOT,
   juegoDelYBot,
+  tieneSusOchoDirecciones,
   UNIDADES,
   unidad as unidadDelTaller,
 } from '../tools/taller/unidades.js';
@@ -718,5 +725,75 @@ describe('la velocidad son casillas', () => {
     // Se alternan en algún punto: no son tres de un lado y tres del otro.
     const cambios = orden.filter((l, i) => i > 0 && l !== orden[i - 1]).length;
     expect(cambios).toBeGreaterThan(1);
+  });
+});
+
+describe('una unidad a medias en el taller (#140)', () => {
+  let dir: string | null = null;
+  afterEach(() => {
+    if (dir !== null) rmSync(dir, { recursive: true, force: true });
+    dir = null;
+  });
+
+  /** Un repo de mentira donde el zombi tiene sus direcciones de la 0 a la 6. */
+  function zombiASieteDirecciones(): string {
+    dir = mkdtempSync(join(tmpdir(), 'arena-a-medias-'));
+    for (let d = 0; d < 7; d++) {
+      const carpeta = join(dir, 'assets/unidades/zombi', `d${d}`);
+      mkdirSync(carpeta, { recursive: true });
+      for (const f of ['atlas.json', 'atlas.webp']) writeFileSync(join(carpeta, f), '');
+    }
+    return dir;
+  }
+
+  it('la lista de la arena no cae: la lista entera, y esa con el motivo y sin direcciones', () => {
+    const raiz = zombiASieteDirecciones();
+    const hojas = hojasDeArena(raiz);
+    expect(hojas.map((h) => h.id)).toEqual(HOJAS.map((h) => h.id));
+    const zombi = hojas.find((h) => h.id === 'zombi');
+    expect(zombi?.direcciones).toBeNull();
+    expect(zombi?.incompleta).toBe(
+      'zombi tiene 7 de sus 8 direcciones (le faltan d7): o se terminan o se quitan, porque con menos se pintaría entera con el Y Bot sin decirlo',
+    );
+    // Las demás, sin arte en este repo de mentira, van con el Y Bot y montables.
+    for (const h of hojas.filter((x) => x.id !== 'zombi')) expect(h.incompleta, h.id).toBeNull();
+    // Y el cable la lleva tal cual hasta la página.
+    expect(validarHojasDeArena(JSON.parse(JSON.stringify(hojas)))).toEqual(hojas);
+  });
+
+  it('el visor del taller sigue lanzando con el mismo motivo: allí no hay dónde decir «a medias»', () => {
+    const raiz = zombiASieteDirecciones();
+    const arte = arteEnOchoDirecciones(raiz, 'zombi');
+    expect(arte.hecho).toBe('a-medias');
+    expect(() => tieneSusOchoDirecciones(raiz, 'zombi')).toThrow(/le faltan d7/);
+    expect(arteEnOchoDirecciones(raiz, 'espectro')).toEqual({ hecho: 'ninguno' });
+    expect(arteEnOchoDirecciones(RAIZ, 'zombi')).toEqual({ hecho: 'entero' });
+  });
+
+  it('las de hoy llegan todas completas', () => {
+    for (const h of HOJAS) expect(h.incompleta, h.id).toBeNull();
+  });
+
+  it('el catálogo la enseña con su motivo y sin botones que la monten', () => {
+    const hojas = hojasDeArena(zombiASieteDirecciones());
+    const m = marcadoDe(renderCatalogo(hojas, 'todas'));
+    const tarjeta = m.slice(m.indexOf('data-hoja-catalogo="zombi"'));
+    const delZombi = tarjeta.slice(0, tarjeta.indexOf('</div>'));
+    expect(delZombi).toContain('Incompleta: zombi tiene 7 de sus 8 direcciones');
+    expect(delZombi.match(/data-arena="añadir"[^>]*disabled/g)?.length).toBe(2);
+    // Las demás se montan.
+    expect(m.match(/data-arena="añadir"[^>]*disabled/g)?.length).toBe(2);
+    expect(m).toContain('class="hoja incompleta"');
+  });
+
+  it('la lista rechaza una hoja incompleta que trae direcciones, o que no dice si lo está', () => {
+    const buena = HOJAS.find((h) => h.id === 'templario-escudo') as (typeof HOJAS)[number];
+    expect(() => validarHojasDeArena([{ ...buena, incompleta: 'le falta d7' }])).toThrow(
+      'la hoja "templario-escudo": dice que está incompleta y trae sus direcciones',
+    );
+    const { incompleta: _fuera, ...sinCampo } = buena;
+    expect(() => validarHojasDeArena([sinCampo])).toThrow(
+      'la hoja "templario-escudo": por qué está incompleta tiene que ser un texto no vacío',
+    );
   });
 });

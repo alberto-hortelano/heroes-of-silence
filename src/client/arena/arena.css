@@ -44,6 +44,9 @@
 .hoja .nombre { line-height: 1.15; }
 .hoja .botones, .puesto .botones, .retrato .botones { display: flex; flex-wrap: wrap; gap: 0.2rem; }
 .hoja button, .puesto .botones button, .retrato button { min-height: 26px; padding: 0.1rem 0.4rem; font-size: 0.75rem; }
+/* Una unidad con el arte a medias en el taller (#140): se lista con su motivo y no se monta. */
+.hoja.incompleta img { grid-row: span 4; opacity: 0.6; }
+.hoja [data-incompleta] { color: var(--danger); font-size: 0.7rem; line-height: 1.2; }
 
 .puesto {
   display: grid;

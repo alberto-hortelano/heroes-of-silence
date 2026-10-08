@@ -347,7 +347,9 @@ antes del destino (`battle_started` con `faltan`).
 - **Arena** (`pnpm arena`): cifras que no pasan por el catálogo, validadas por
   `validarUnidadDeArena`, guardadas en `data/borradores/unidades.json`, que el
   juego no lee. Velocidad en casillas (`escalonDeCasillas`). `SesionDeArena`
-  vive en `session.ts`.
+  vive en `session.ts`. Una unidad con el arte a medias (el taller generándola)
+  se lista como incompleta con su motivo y no se monta —nunca el Y Bot en su
+  lugar—; `vite build` lo avisa y no falla (`arteEnOchoDirecciones`, #140).
 
 ## Generación de assets
 

@@ -264,6 +264,12 @@ export interface HojaDeArena {
    * registrarla para pintarla.
    */
   readonly direcciones: readonly unknown[] | null;
+  /**
+   * Por qué no se puede montar, o `null` si se puede: una unidad con su arte
+   * propio a medias (el taller la está generando, #140). Se lista con el motivo
+   * y no se pinta: con el Y Bot sería otra figura sin decirlo.
+   */
+  readonly incompleta: string | null;
 }
 
 /**
@@ -297,8 +303,17 @@ export function validarHojasDeArena(valor: unknown): readonly HojaDeArena[] {
       casillas: casillasValidas(h.casillas, quien),
       juego: texto(h.juego, 'el juego de armas', quien),
       direcciones: direccionesValidas(h.direcciones, quien),
+      incompleta: incompletaValida(h.incompleta, h.direcciones, quien),
     };
   });
+}
+
+function incompletaValida(valor: unknown, direcciones: unknown, quien: string): string | null {
+  if (valor === null) return null;
+  const motivo = texto(valor, 'por qué está incompleta', quien);
+  if (direcciones !== null)
+    throw new Error(`${quien}: dice que está incompleta y trae sus direcciones`);
+  return motivo;
 }
 
 function direccionesValidas(valor: unknown, quien: string): readonly unknown[] | null {

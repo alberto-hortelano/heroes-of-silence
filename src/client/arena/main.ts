@@ -97,6 +97,11 @@ let siguienteClave = 1;
 let sesion: SesionDeArena | null = null;
 /** La barra mientras se monta; en la batalla manda la de la sesión. */
 let aviso = 'Cargando las hojas…';
+/**
+ * Las unidades con el arte a medias, dichas en la barra mientras se monta: el
+ * aviso que antes era la excepción que tumbaba la lista (#140).
+ */
+let avisoDeIncompletas = '';
 /** Por qué no se puede guardar, o `null` si se puede. */
 let sinGuardado: string | null = null;
 /** Hay cifras que no se han guardado: cerrar la página avisa. */
@@ -150,7 +155,16 @@ async function arrancar(): Promise<void> {
   const r = await fetch('/__arena/hojas');
   if (!r.ok) throw new Error(`no se ha podido leer la lista de hojas (${r.status})`);
   hojas = validarHojasDeArena(await r.json());
-  for (const h of hojas) registrarUnidad(h.id, h);
+  // Una hoja incompleta no se registra: `arteDe` la pintaría con el Y Bot por
+  // defecto, que es justo lo que no puede pasar en silencio (#140).
+  for (const h of hojas) if (h.incompleta === null) registrarUnidad(h.id, h);
+  const incompletas = hojas.filter((h) => h.incompleta !== null);
+  if (incompletas.length > 0) {
+    avisoDeIncompletas = ` A medias en el taller (se listan y no se montan): ${incompletas
+      .map((h) => h.incompleta)
+      .join('; ')}.`;
+    console.warn(`[arena]${avisoDeIncompletas}`);
+  }
   const b = await fetch('/__arena/unidades');
   if (!b.ok) throw new Error(`no se ha podido leer el borrador (${b.status})`);
   const cuerpo = (await b.json()) as RespuestaDelBorrador;
@@ -259,9 +273,14 @@ function añadir(lado: Lado, hoja: string, ia: boolean): void {
     aviso = `El bando ${adjetivo} ya lleva ${caben}: no cabe ninguna más.`;
     return;
   }
+  const h = hojaPorId(hoja);
+  if (h.incompleta !== null) {
+    aviso = `${h.nombre} no se monta: ${h.incompleta}.`;
+    return;
+  }
   // La unidad entra en el borrador al montarla: es lo que se probó y lo que se guarda.
   if (!borrador.has(hoja)) {
-    borrador.set(hoja, unidadPorDefecto(hojaPorId(hoja)));
+    borrador.set(hoja, unidadPorDefecto(h));
     cambiosSinGuardar = true;
   }
   montaje[lado].push({ clave: siguienteClave++, hoja, ia });
@@ -705,7 +724,7 @@ document.addEventListener('keydown', (ev) => {
 
 arrancar().then(
   () => {
-    aviso = `${avisoDeSemilla}${aviso} Añade unidades a los dos bandos y pulsa Luchar.`;
+    aviso = `${avisoDeSemilla}${aviso}${avisoDeIncompletas} Añade unidades a los dos bandos y pulsa Luchar.`;
     repintarMontaje();
   },
   (err: unknown) => {

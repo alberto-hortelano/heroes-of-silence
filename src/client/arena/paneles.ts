@@ -85,17 +85,20 @@ export function renderCatalogo(
   );
   const visibles = hojas.filter((h) => filtro === 'todas' || h.faccion === filtro);
   const tarjetas = unir(
-    visibles.map(
-      (h) => html`<div class="hoja" data-hoja-catalogo="${h.id}">
+    visibles.map((h) => {
+      // Una incompleta (#140) se ve con su motivo y sin botones que la monten.
+      const montable = h.incompleta === null ? NADA : DESHABILITADO;
+      return html`<div class="hoja${h.incompleta === null ? '' : ' incompleta'}" data-hoja-catalogo="${h.id}">
         <img${srcDeImagen(rutaDeIdentidad(h.id))} alt="${h.nombre}" loading="lazy" width="64" height="64">
         <span class="nombre">${h.nombre}</span>
         <span class="cost">${NOMBRE_DE_FACCION_DE_ARENA[h.faccion]}</span>
+        ${h.incompleta === null ? NADA : html`<span class="cost" data-incompleta title="${h.incompleta}">Incompleta: ${h.incompleta}</span>`}
         <span class="botones">
-          <button data-arena="añadir" data-lado="izquierda" data-hoja="${h.id}" title="Añadir al bando izquierdo">+ izq.</button>
-          <button data-arena="añadir" data-lado="derecha" data-hoja="${h.id}" title="Añadir al bando derecho">+ der.</button>
+          <button data-arena="añadir" data-lado="izquierda" data-hoja="${h.id}" title="Añadir al bando izquierdo" ${montable}>+ izq.</button>
+          <button data-arena="añadir" data-lado="derecha" data-hoja="${h.id}" title="Añadir al bando derecho" ${montable}>+ der.</button>
         </span>
-      </div>`,
-    ),
+      </div>`;
+    }),
   );
   return html`<h3>Unidades</h3>
     <div class="filtros">${botones}</div>

@@ -989,25 +989,43 @@ export const JUEGOS_EN_8D: readonly JuegoEn8d[] = [
 const RAIZ = resolve(import.meta.dirname, '../..');
 
 /**
- * ¿Tiene la unidad su arte propio en las ocho direcciones —`dN/atlas.json` y
- * `dN/atlas.webp` en cada una—? `true` con las ocho y `false` sin ninguna. Con
- * algunas **lanza**, nombrando las que faltan: una figura no mezcla las luces de
- * dos artes, así que con siete se pintaría entera con el Y Bot, y eso tiene que
- * decirse y no pasar en silencio. Lo leen la arena (`tools/arena/borrador.ts`)
- * y el visor del taller (`vista-8d.ts`): una sola definición de «hecha».
+ * Cuánto arte propio tiene una unidad en las ocho direcciones —`dN/atlas.json`
+ * y `dN/atlas.webp` en cada una—: entero, ninguno o a medias, y entonces con el
+ * motivo escrito. Una figura no mezcla las luces de dos artes, así que con siete
+ * se pintaría entera con el Y Bot, y eso tiene que decirse y no pasar en
+ * silencio. A medias es lo normal **mientras el taller genera** una unidad
+ * dirección a dirección (#140): por eso esto no lanza y decide quien lo lee.
  */
-export function tieneSusOchoDirecciones(raiz: string, id: string): boolean {
+export type ArteEnOchoDirecciones =
+  | { readonly hecho: 'entero' }
+  | { readonly hecho: 'ninguno' }
+  | { readonly hecho: 'a-medias'; readonly motivo: string };
+
+export function arteEnOchoDirecciones(raiz: string, id: string): ArteEnOchoDirecciones {
   const faltan = NOMBRES_DE_DIRECCION.map((_, d) => d).filter(
     (d) =>
       !['atlas.json', 'atlas.webp'].every((f) =>
         existsSync(join(raiz, 'assets/unidades', id, `d${d}`, f)),
       ),
   );
-  if (faltan.length === 0) return true;
-  if (faltan.length === NOMBRES_DE_DIRECCION.length) return false;
-  throw new Error(
-    `${id} tiene ${NOMBRES_DE_DIRECCION.length - faltan.length} de sus ${NOMBRES_DE_DIRECCION.length} direcciones (le faltan ${faltan.map((d) => `d${d}`).join(', ')}): o se terminan o se quitan, porque con menos se pintaría entera con el Y Bot sin decirlo`,
-  );
+  if (faltan.length === 0) return { hecho: 'entero' };
+  if (faltan.length === NOMBRES_DE_DIRECCION.length) return { hecho: 'ninguno' };
+  return {
+    hecho: 'a-medias',
+    motivo: `${id} tiene ${NOMBRES_DE_DIRECCION.length - faltan.length} de sus ${NOMBRES_DE_DIRECCION.length} direcciones (le faltan ${faltan.map((d) => `d${d}`).join(', ')}): o se terminan o se quitan, porque con menos se pintaría entera con el Y Bot sin decirlo`,
+  };
+}
+
+/**
+ * ¿Tiene la unidad su arte propio en las ocho direcciones? `true` con las ocho
+ * y `false` sin ninguna; con algunas **lanza** con el motivo. Lo lee el visor
+ * del taller (`vista-8d.ts`), que enseña lo hecho y no tiene dónde decir «a
+ * medias»; la arena lo lista como incompleta (`hojasDeArena`).
+ */
+export function tieneSusOchoDirecciones(raiz: string, id: string): boolean {
+  const arte = arteEnOchoDirecciones(raiz, id);
+  if (arte.hecho === 'a-medias') throw new Error(arte.motivo);
+  return arte.hecho === 'entero';
 }
 
 /** Las poses de 8 direcciones de una unidad: las de su juego de armas. */
