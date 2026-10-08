@@ -1,0 +1,11 @@
+{
+  "imagen": "nodo-hito-tablilla-noroeste.webp",
+  "sha256": "53fb6e75eeba1a90405ae46d89371178656d5feffc5ff5870cb66bbf8f1dadd0",
+  "ancho": 940,
+  "alto": 1097,
+  "ancla": [
+    627,
+    1072
+  ],
+  "derivadoPor": "tools/taller/derivar.ts"
+}

@@ -1,0 +1,46 @@
+{
+  "encargo": "mapa-nodo-hito-tablilla-oeste",
+  "tipo": "imagen",
+  "fecha": "2026-10-08T07:54:38.505Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a11a7f-e2d9-7123-8cdd-4b41a2acb6b2",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es la referencia de MATERIAL: de ella se toman SOLO el color, la textura y la paleta de la roca y de lo que crece en ella, para que case con estas piezas. NO copies su forma (columnas, prismas, bloques en fila) ni su composición.\n\nUna pieza suelta del mapa de aventura de un juego de estrategia por turnos, el hito que marca un cruce de la red de caminos: un poste de camino de madera gruesa clavado entre cuatro o cinco piedras que lo calzan, con UNA tablilla de madera en punta de flecha clavada en su remate; el poste NO asoma por encima de la tablilla. Lisa, sin letras ni dibujos. Nada de travesaño que cruce el poste: no es una cruz.\nHacia dónde apunta, que es lo que importa: la tablilla sale del poste hacia la IZQUIERDA y su punta de flecha apunta a la IZQUIERDA; a la derecha del poste no hay nada. Se ve de frente, plana, como un cartel que señala a la izquierda.\nLa madera y las piedras son las de la imagen de material (el mismo poste, la misma tablilla, el mismo musgo), pero con la flecha hacia donde se dice aquí, no hacia donde apunta allí. Pequeño y modesto: una figura humana le llegaría por encima de la cintura.\nNADA de cruces, runas, letras, inscripciones ni símbolos. Sin estandartes, banderas ni mástil: la bandera del dueño la pone el juego.\nUn único objeto, centrado y entero. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, la misma de la imagen de estilo; nunca cenital ni de perfil. La luz viene de arriba a la izquierda.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/pintado.webp",
+      "papel": "estilo",
+      "sha256": "2257bd10a5efa8f2c430c2d86609ac895750568961a4dea6dfddd4c8081e1838"
+    },
+    {
+      "ruta": "assets/mapa/nodo-hito-tablilla.webp",
+      "papel": "material",
+      "sha256": "a2376a4d127ce1d899afe407f7ed63d5b7a59b9c46c7f0dabe8067d348ae5a77"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a11a7f-e2d9-7123-8cdd-4b41a2acb6b2/exec-2a7eac44-245d-4522-bac2-c60b23a98a3e.png",
+    "sha256": "25ad52806aad46a0ae540c75ff07972580e2494655a3f05429bd11ff6b45d2e3",
+    "ancho": 1312,
+    "alto": 1199
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "JSON derivado: 1174×1049, ancla en (772,1024)"
+  ],
+  "validacion": {
+    "visibles": 0.47097828222871463,
+    "opacos": 0.9958484333352873,
+    "haloSuelto": 0,
+    "ancho": 1174,
+    "alto": 1049
+  },
+  "salida": {
+    "ruta": "assets/mapa/nodo-hito-tablilla-oeste.webp",
+    "sha256": "dae11cd8773a08576fd2688cde69c23fd957b0ba00abf00d244581ec7b4eb503"
+  }
+}

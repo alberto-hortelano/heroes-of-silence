@@ -9909,6 +9909,34 @@
    "ax": 464,
    "ay": 922
   },
+  "nodo-hito-tablilla-noreste": {
+   "src": "nodo-hito-tablilla-noreste.webp",
+   "nw": 908,
+   "nh": 1088,
+   "ax": 279,
+   "ay": 1063
+  },
+  "nodo-hito-tablilla-noroeste": {
+   "src": "nodo-hito-tablilla-noroeste.webp",
+   "nw": 940,
+   "nh": 1097,
+   "ax": 627,
+   "ay": 1072
+  },
+  "nodo-hito-tablilla-norte": {
+   "src": "nodo-hito-tablilla-norte.webp",
+   "nw": 613,
+   "nh": 915,
+   "ax": 315,
+   "ay": 890
+  },
+  "nodo-hito-tablilla-oeste": {
+   "src": "nodo-hito-tablilla-oeste.webp",
+   "nw": 1174,
+   "nh": 1049,
+   "ax": 772,
+   "ay": 1024
+  },
   "nodo-hito-tablilla": {
    "src": "nodo-hito-tablilla.webp",
    "nw": 868,

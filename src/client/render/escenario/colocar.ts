@@ -75,9 +75,9 @@ import {
 import {
   ejeDelPaso,
   esHito,
-  nodoDePaso,
   type PasoALaVista,
   pasosALaVista,
+  piezaDeNodo,
   varianteDeId,
 } from './nodos.js';
 import { type Caja, cajaDeSprite, Pasillo } from './pasillo.js';
@@ -862,7 +862,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
                 // El de agua ya salió arriba, con su puente.
                 const paso = a.pasos.get(o.id);
                 if (paso === undefined) throw new Error(`el nodo ${o.id} no está en el análisis`);
-                return nodoDePaso(o.id, paso.barrera, paso.eje);
+                return piezaDeNodo(o.id, o.at, W, map.terrain, paso.barrera, paso.eje);
               })()
             : o.kind === 'resource'
               ? // Mercurio, azufre, cristal y gemas no tienen pieza: van como tesoro.

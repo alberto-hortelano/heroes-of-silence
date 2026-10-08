@@ -1343,3 +1343,33 @@ generado nada**; queda como petición:
   horizontales).
 - Al llegar, cada `Variante` de `encajeDe` elegiría también textura; las fronteras leen
   la altura de la que se ve (`enElEncaje`).
+
+## 29. Tablillas por rumbo (rama `detalles-mapa`, 08-10-2026)
+
+**Petición.** Defecto 6 de la auditoría 3 (`docs/agents/2026-10-08-auditoria-3/defectos.md`):
+**la tablilla** (`nodo-hito-tablilla`, §24) apunta siempre al este, vaya donde vaya el
+paso. El juego no espeja piezas (la luz viene de la izquierda: la del oeste espejada la
+tendría de la derecha), así que se piden **cuatro tablillas más**, una por rumbo, con la
+del este de referencia de **material** (su madera y su piedra, no su forma):
+`nodo-hito-tablilla-oeste`, `-norte` (hacia el fondo), `-noreste` y `-noroeste`. El juego
+elige por el eje del paso (`tablillaDelEje`, `nodos.ts`): de los dos sentidos de un eje, el
+que va al fondo; en el este-oeste, uno u otro por el sitio. Encargos en
+`tools/taller/mapa.ts` (`TABLILLAS_POR_RUMBO`, `pnpm taller encolar --tablillas
+[--solo=…]`); estilo, la lámina elegida (`muestras/pintado.webp`).
+
+### Respuesta (rama `detalles-mapa`, 08-10-2026)
+
+Codex por la suscripción, sin fal.ai y sin `resume`: **4 generaciones** (de 78 a 128 s,
+ninguna fallida), todas se quedan.
+
+| Pieza | Hilo | sha256 del crudo | Pieza (px) |
+|---|---|---|---|
+| `nodo-hito-tablilla-oeste` | `01a11a7f-e2d9-…` | `25ad52806aad…` | 1174 × 1049 |
+| `nodo-hito-tablilla-norte` | `01a11a7f-9cb3-…` | `7a1aee7f0231…` | 613 × 915 |
+| `nodo-hito-tablilla-noreste` | `01a11a7e-37e7-…` | `1d682cf17b2b…` | 908 × 1088 |
+| `nodo-hito-tablilla-noroeste` | `01a11a7e-b113-…` | `b386ac06572b…` | 940 × 1097 |
+
+- **Reparto en 1-40**: este 6, oeste 6, norte 15, noroeste 12, noreste 9.
+- **La tablilla del norte** se lee como un poste con la flecha hacia arriba: en escorzo
+  apenas se ve su cara. Es la única que pierde la forma de flecha de lado.
+- Recortes antes/después en `docs/agents/2026-10-08-detalles-mapa/capturas/1-*`.

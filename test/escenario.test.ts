@@ -12,7 +12,16 @@ import { describe, expect, it } from 'vitest';
 import { analizar } from '../src/client/render/escenario/analizar.js';
 import { componer } from '../src/client/render/escenario/colocar.js';
 import { seHornea } from '../src/client/render/escenario/horneado.js';
-import { esHito, HITOS, nodoDePaso, varianteDeId } from '../src/client/render/escenario/nodos.js';
+import {
+  ejeDelPaso,
+  esHito,
+  HITOS,
+  nodoDePaso,
+  piezaDeNodo,
+  TABLILLAS,
+  tablillaDelEje,
+  varianteDeId,
+} from '../src/client/render/escenario/nodos.js';
 import {
   imagenesDeEscena,
   type OpcionesDePintura,
@@ -27,6 +36,7 @@ import { createRng } from '../src/core/rng.js';
 import { newGame } from '../src/core/state/setup.js';
 import { decidir } from '../tools/qa/politica.js';
 import { catalogoDelDisco, escenaDe, partidaDe, primeraSemillaCon } from './helpers.js';
+import { rango, segunPrisa } from './lento.js';
 
 const RAIZ = resolve(import.meta.dirname, '..');
 const catalogo = catalogoDelDisco();
@@ -299,7 +309,7 @@ describe('los hitos de los nodos (#176): tres, por el id, ninguno con cruz', () 
       if (o.kind !== 'node' || a.puentes.has(o.id)) continue;
       const paso = a.pasos.get(o.id);
       if (paso === undefined) throw new Error(`el nodo ${o.id} no está en el análisis`);
-      const pieza = nodoDePaso(o.id, paso.barrera, paso.eje);
+      const pieza = piezaDeNodo(o.id, o.at, map.width, map.terrain, paso.barrera, paso.eje);
       if (esHito(pieza)) hitos.set(o.id, pieza);
     }
     return hitos;
@@ -314,8 +324,11 @@ describe('los hitos de los nodos (#176): tres, por el id, ninguno con cruz', () 
 
   it('en las semillas 1-40 salen los tres, y ninguno domina', () => {
     const cuenta = new Map<string, number>(HITOS.map((h) => [h, 0]));
+    // Las tablillas cuentan juntas, apunten adonde apunten.
+    const familia = (h: string) => (h.startsWith(TABLILLAS.este) ? TABLILLAS.este : h);
     for (let s = 1; s <= 40; s++)
-      for (const h of hitosDe(s).values()) cuenta.set(h, (cuenta.get(h) ?? 0) + 1);
+      for (const h of hitosDe(s).values())
+        cuenta.set(familia(h), (cuenta.get(familia(h)) ?? 0) + 1);
     const total = [...cuenta.values()].reduce((a, b) => a + b, 0);
     expect(total).toBeGreaterThan(30);
     for (const [h, n] of cuenta) expect(n, h).toBeGreaterThan(total / 6);
@@ -334,6 +347,68 @@ describe('los hitos de los nodos (#176): tres, por el id, ninguno con cruz', () 
     }
     expect(escena.sprites.some((x) => x.src === 'nodo-hito.webp')).toBe(false);
     expect(existsSync(join(RAIZ, 'assets/mapa/nodo-hito.webp'))).toBe(false);
+  });
+
+  /** Hacia dónde apunta cada tablilla, en casillas del mapa (y crece hacia el sur). */
+  const RUMBO: Readonly<Record<string, readonly [number, number]>> = {
+    [TABLILLAS.este]: [1, 0],
+    [TABLILLAS.oeste]: [-1, 0],
+    [TABLILLAS.norte]: [0, -1],
+    [TABLILLAS.noreste]: [1, -1],
+    [TABLILLAS.noroeste]: [-1, -1],
+  };
+
+  it('la tablilla apunta a lo largo del eje, al fondo antes que a la cámara (§29)', () => {
+    const eje = (p: readonly [number, number], q: readonly [number, number]) => [[p, q]];
+    for (const [p, q] of [
+      [
+        [0.5, 0.5],
+        [0.5, 4.5],
+      ],
+      [
+        [0.5, 4.5],
+        [0.5, 0.5],
+      ],
+    ] as const)
+      expect(tablillaDelEje('n0', eje(p, q))).toBe(TABLILLAS.norte);
+    expect(tablillaDelEje('n0', eje([0, 0], [4, 4]))).toBe(TABLILLAS.noroeste);
+    expect(tablillaDelEje('n0', eje([4, 4], [0, 0]))).toBe(TABLILLAS.noroeste);
+    expect(tablillaDelEje('n0', eje([0, 4], [4, 0]))).toBe(TABLILLAS.noreste);
+    expect(tablillaDelEje('n0', eje([4, 0], [0, 4]))).toBe(TABLILLAS.noreste);
+    // El este-oeste, por el sitio: el mismo eje da la misma, en los dos sentidos,
+    // y a lo largo de una fila salen las dos.
+    const eo = Array.from({ length: 6 }, (_, i) =>
+      tablillaDelEje('n0', eje([i + 0.5, 3.5], [i + 4.5, 3.5])),
+    );
+    expect(new Set(eo)).toEqual(new Set([TABLILLAS.este, TABLILLAS.oeste]));
+    expect(tablillaDelEje('n9', eje([4.5, 3.5], [0.5, 3.5]))).toBe(eo[0]);
+    // En cruz (sin lados opuestos), el primer brazo.
+    expect(tablillaDelEje('n0', [eje([2, 2], [2, 4])[0]!, eje([2, 2], [4, 2])[0]!])).toBe(
+      TABLILLAS.norte,
+    );
+    expect(() => tablillaDelEje('n0', [])).toThrow(/no tiene eje/);
+    expect(() => tablillaDelEje('n0', eje([1, 1], [1, 1]))).toThrow(/no va a ningún lado/);
+  });
+
+  it('ninguna tablilla de la escena apunta de través a su paso, y salen todos los rumbos (§29)', () => {
+    // 3, 31 y 36 llevan los cinco; la orden lenta, 1-40.
+    const vistos = new Set<string>();
+    for (const semilla of segunPrisa([3, 31, 36], rango(1, 40))) {
+      const { map, escena } = partidaDe(semilla);
+      for (const o of map.objects) {
+        const pieza = escena.sprites
+          .find((x) => x.objeto?.id === o.id)
+          ?.src?.replace(/\.webp$/, '');
+        if (pieza === undefined || !pieza.startsWith(TABLILLAS.este)) continue;
+        vistos.add(pieza);
+        const [p, q] = ejeDelPaso(o.at, map.width, map.terrain)[0] ?? [];
+        const [rx, ry] = RUMBO[pieza] ?? [0, 0];
+        // Paralela al eje: el producto vectorial es cero.
+        const cruz = rx * ((q?.[1] ?? 0) - (p?.[1] ?? 0)) - ry * ((q?.[0] ?? 0) - (p?.[0] ?? 0));
+        expect(Math.abs(cruz), `s${semilla} ${o.id} ${pieza}`).toBe(0);
+      }
+    }
+    expect(vistos).toEqual(new Set(Object.values(TABLILLAS)));
   });
 
   it('sin el arte de los hitos, cada uno cae a su marcador', () => {

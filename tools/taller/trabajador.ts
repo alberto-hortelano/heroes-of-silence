@@ -19,6 +19,8 @@
  *   pnpm taller maniqui <unidad>…        el maniquí propio de una unidad, en `_poses/unidades/<id>-8d/`
  *   pnpm taller encolar --hitos          los hitos de los nodos sin pieza de paso (#176, `mapa.ts`)
  *   pnpm taller encolar --cofre          el cofre del mapa, pieza suelta (#147, `mapa.ts`)
+ *   pnpm taller encolar --tablillas [--solo=…]
+ *                                        las tablillas por rumbo (§29, `mapa.ts`)
  *   pnpm taller encolar --texturas-suelo | --muestras-densas | --piezas-densas [--solo=…]
  *                                        el arte de los mapas densos (`mapa-denso.ts`)
  *   pnpm taller vista-mapa [semilla]     un mapa denso del generador pintado con ese arte
@@ -123,6 +125,7 @@ import {
   encargoDeMuestra,
   encargosDeHitos,
   encargosDePiezas,
+  encargosDeTablillas,
 } from './mapa.js';
 import { encargoDeLamina, encargosDePiezasDensas, encargosDeTexturas } from './mapa-denso.js';
 import {
@@ -562,6 +565,24 @@ async function encolar(args: readonly string[]): Promise<void> {
   }
   if (args.includes('--hitos')) {
     for (const bruto of encargosDeHitos()) {
+      if (args.includes('--rehacer')) await COLA.olvidar(bruto.id);
+      console.log(`encolado ${(await COLA.encolar(bruto)).id}`);
+    }
+    return;
+  }
+  // Las tablillas por rumbo (§29). `--solo=oeste,norte`, por el id sin el
+  // prefijo del encargo.
+  if (args.includes('--tablillas')) {
+    const todos = encargosDeTablillas();
+    const sinPrefijo = (id: string) => id.replace(/^mapa-(nodo-hito-tablilla-)?/, '');
+    const solo = args
+      .find((x) => x.startsWith('--solo='))
+      ?.slice('--solo='.length)
+      .split(',');
+    const lista = todos.filter((e) => solo === undefined || solo.includes(sinPrefijo(e.id)));
+    if (solo !== undefined && lista.length !== solo.length)
+      throw new Error(`--solo: hay ${todos.map((e) => sinPrefijo(e.id)).join(', ')}`);
+    for (const bruto of lista) {
       if (args.includes('--rehacer')) await COLA.olvidar(bruto.id);
       console.log(`encolado ${(await COLA.encolar(bruto)).id}`);
     }

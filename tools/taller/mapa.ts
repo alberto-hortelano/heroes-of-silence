@@ -205,6 +205,65 @@ export function encargosDeHitos(): Encargo[] {
 }
 
 /**
+ * Las tablillas que no apuntan al este (§29): el juego orienta la flecha por el
+ * eje del paso (`hitoDelNodo`, `nodos.ts`) y nunca espeja una pieza, porque la
+ * luz viene de la izquierda y una tablilla espejada la tendría de la derecha.
+ * Cada una se pinta aparte, con su luz, y la del este va de MATERIAL: su madera y
+ * su piedra, no su forma, que arrastraría la flecha a la derecha.
+ */
+export const TABLILLAS_POR_RUMBO = [
+  {
+    rumbo: 'oeste',
+    describe:
+      'la tablilla sale del poste hacia la IZQUIERDA y su punta de flecha apunta a la IZQUIERDA; a la derecha del poste no hay nada. Se ve de frente, plana, como un cartel que señala a la izquierda',
+  },
+  {
+    rumbo: 'norte',
+    describe:
+      'la tablilla sale del poste hacia el FONDO, alejándose de la cámara en línea recta, perpendicular a la imagen: se ve en escorzo, con su canto de cara y su cara del lado derecho algo visible, y la punta de flecha arriba, más lejos y más pequeña que el poste. No señala a la izquierda ni a la derecha: señala hacia dentro de la imagen',
+  },
+  {
+    rumbo: 'noreste',
+    describe:
+      'la tablilla sale del poste en DIAGONAL hacia el fondo y la DERECHA, girada 45 grados: se aleja de la cámara hacia arriba a la derecha, en escorzo, con su cara algo de frente y la punta de flecha arriba a la derecha',
+  },
+  {
+    rumbo: 'noroeste',
+    describe:
+      'la tablilla sale del poste en DIAGONAL hacia el fondo y la IZQUIERDA, girada 45 grados: se aleja de la cámara hacia arriba a la izquierda, en escorzo, con su cara algo de frente y la punta de flecha arriba a la izquierda',
+  },
+] as const;
+
+export function encargoDeTablilla(rumbo: string): Encargo {
+  const t = TABLILLAS_POR_RUMBO.find((x) => x.rumbo === rumbo);
+  if (t === undefined)
+    throw new Error(
+      `no hay tablilla hacia «${rumbo}». Hay: ${TABLILLAS_POR_RUMBO.map((x) => x.rumbo).join(', ')}`,
+    );
+  return {
+    id: `mapa-nodo-hito-tablilla-${t.rumbo}`,
+    tipo: 'imagen',
+    descripcion: [
+      'Una pieza suelta del mapa de aventura de un juego de estrategia por turnos, el hito que marca un cruce de la red de caminos: un poste de camino de madera gruesa clavado entre cuatro o cinco piedras que lo calzan, con UNA tablilla de madera en punta de flecha clavada en su remate; el poste NO asoma por encima de la tablilla. Lisa, sin letras ni dibujos. Nada de travesaño que cruce el poste: no es una cruz.',
+      `Hacia dónde apunta, que es lo que importa: ${t.describe}.`,
+      'La madera y las piedras son las de la imagen de material (el mismo poste, la misma tablilla, el mismo musgo), pero con la flecha hacia donde se dice aquí, no hacia donde apunta allí. Pequeño y modesto: una figura humana le llegaría por encima de la cintura.',
+      'NADA de cruces, runas, letras, inscripciones ni símbolos. Sin estandartes, banderas ni mástil: la bandera del dueño la pone el juego.',
+      'Un único objeto, centrado y entero. Cámara ortográfica elevada 25 grados sobre la horizontal, de frente y algo a la derecha, la misma de la imagen de estilo; nunca cenital ni de perfil. La luz viene de arriba a la izquierda.',
+    ].join('\n'),
+    referencias: [
+      { ruta: MUESTRA_ELEGIDA, papel: 'estilo' },
+      { ruta: 'assets/mapa/nodo-hito-tablilla.webp', papel: 'material' },
+    ],
+    salida: `assets/mapa/nodo-hito-tablilla-${t.rumbo}`,
+    fondo: 'transparente',
+  };
+}
+
+export function encargosDeTablillas(): Encargo[] {
+  return TABLILLAS_POR_RUMBO.map((t) => encargoDeTablilla(t.rumbo));
+}
+
+/**
  * El cofre del mapa (#147), una pieza suelta como los recursos: hasta ahora salía
  * de la celda 8 del atlas viejo. CERRADO a propósito: el recurso oro ya es un
  * arcón abierto rebosante de monedas y lingotes, y dos arcones abiertos en el

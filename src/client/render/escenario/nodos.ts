@@ -80,9 +80,69 @@ export function nodoDePaso(id: string, barrera: Barrera | null, eje: 'ancho' | '
   return nodo.variantes.includes(eje) ? `${nodo.id}-${eje}` : nodo.id;
 }
 
-/** ¿Es `pieza` uno de los hitos? Se miden por el alto, no por el ancho. */
+/**
+ * La tablilla por el rumbo al que apunta su flecha (§29). La de la lámina (#176)
+ * apuntaba siempre al este, fuera donde fuera el paso (auditoría 3, defecto 6).
+ * Ninguna se espeja: con la luz de la izquierda, la del oeste espejada la
+ * tendría de la derecha; cada rumbo es su pieza, pintada con su luz.
+ */
+export const TABLILLAS = {
+  este: 'nodo-hito-tablilla',
+  oeste: 'nodo-hito-tablilla-oeste',
+  norte: 'nodo-hito-tablilla-norte',
+  noreste: 'nodo-hito-tablilla-noreste',
+  noroeste: 'nodo-hito-tablilla-noroeste',
+} as const;
+
+/**
+ * La tablilla que apunta a lo largo del eje del paso (`ejeDelPaso`, su primer
+ * brazo). Un eje tiene dos sentidos y se elige el que se ve: al fondo antes que
+ * hacia la cámara, donde la flecha quedaría de canto y tapada por el poste. En
+ * el este-oeste los dos se ven, y va uno u otro por el sitio del eje, para que
+ * no apunten todas igual.
+ */
+export function tablillaDelEje(
+  id: string,
+  eje: readonly (readonly (readonly [number, number])[])[],
+): string {
+  const [p, q] = eje[0] ?? [];
+  if (p === undefined || q === undefined)
+    throw new Error(`el nodo ${id} no tiene eje: no se sabe hacia dónde apunta su tablilla`);
+  const dx = Math.sign(q[0] - p[0]);
+  const dy = Math.sign(q[1] - p[1]);
+  if (dx === 0 && dy === 0) throw new Error(`el eje del nodo ${id} no va a ningún lado`);
+  // Por el sitio y no por el id: `varianteDeId` en módulo 2 y 3 sale de la misma
+  // suma de letras, y entre los nodos que ya llevaban tablilla daba el este 11
+  // veces de 12 en 1-40.
+  const [cx, cy] = [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
+  if (dy === 0) return Math.floor(cx + cy) % 2 === 0 ? TABLILLAS.este : TABLILLAS.oeste;
+  if (dx === 0) return TABLILLAS.norte;
+  // De arriba a la izquierda a abajo a la derecha, o al revés: se ve el noroeste.
+  return dx === dy ? TABLILLAS.noroeste : TABLILLAS.noreste;
+}
+
+/**
+ * La pieza de un nodo de paso (`nodoDePaso`) con la tablilla ya orientada por su
+ * eje: la que pinta el escenógrafo.
+ */
+export function piezaDeNodo(
+  id: string,
+  at: { x: number; y: number },
+  W: number,
+  terreno: readonly TerrainKind[],
+  barrera: Barrera | null,
+  ejeDeLaFrontera: 'ancho' | 'hondo',
+): string {
+  const pieza = nodoDePaso(id, barrera, ejeDeLaFrontera);
+  return pieza === TABLILLAS.este ? tablillaDelEje(id, ejeDelPaso(at, W, terreno)) : pieza;
+}
+
+/** ¿Es `pieza` uno de los hitos, con cualquier tablilla? Se miden por el alto, no por el ancho. */
 export function esHito(pieza: string | null): boolean {
-  return (HITOS as readonly (string | null)[]).includes(pieza);
+  return (
+    (HITOS as readonly (string | null)[]).includes(pieza) ||
+    (Object.values(TABLILLAS) as (string | null)[]).includes(pieza)
+  );
 }
 
 /** ¿Llega algún tramo de camino a la casilla del nodo? Con camino, el puente es de piedra. */
