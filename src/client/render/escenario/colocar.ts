@@ -75,6 +75,7 @@ import {
   type PuertaDeMuralla,
   type TramoPintado,
   torresDe,
+  torresObligadas,
   trazaDeMuralla,
 } from './muralla.js';
 import {
@@ -244,8 +245,8 @@ export interface Escena {
     readonly murallasPartidas: number;
     /**
      * Lo que de la muralla no se lee como una muralla (#197): puntas de una
-     * franja de frontera que no llegan a nada (espolones) y juntas de dos ejes
-     * sin torre. Tiene que ser 0.
+     * franja de frontera que no llegan a nada (espolones), juntas de dos ejes
+     * sin torre y puntas de norte a sur sin torre (raíles). Tiene que ser 0.
      */
     readonly murallaIncoherente: number;
     readonly muralla: {
@@ -254,7 +255,15 @@ export interface Escena {
       readonly huecos: number;
       readonly espolones: readonly (readonly [number, number])[];
       readonly esquinasAbiertas: readonly (readonly [number, number])[];
+      readonly puntasSinTorre: readonly (readonly [number, number])[];
+      readonly torresApiladas: readonly (readonly [number, number])[];
     };
+    /**
+     * Torres de muralla pintadas a una casilla o menos de otra, o en la misma
+     * columna a dos o menos (`apiladas`, `seApilan`): se leen como una torre
+     * gorda o una chimenea, no como dos esquinas. Tiene que ser 0 en 1-40.
+     */
+    readonly torresApiladas: number;
     /**
      * Torres y tramos de muralla sobre la senda (`murallaSobreLaSenda`): una
      * torre que la tapa o un tramo que la cruza fuera de su puerta. Tiene que
@@ -1396,6 +1405,19 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   }
   /** Dónde se apoya cada muralla y de qué lado es cada casilla (`alrededorDeMurallas`). */
   const alrededorDeLaMuralla = alrededorDeMurallas(a, huellas, nivel);
+  /**
+   * La línea de cada franja de muro (`trazarLinea`), calculada una vez: la piden
+   * su muralla y las vecinas, que miran sus juntas antes de poner sus torres.
+   */
+  const lineas = new Map<number, ReturnType<typeof trazarLinea>>();
+  const lineaDe = (f: Franja) => {
+    let l = lineas.get(f.id);
+    if (l === undefined) {
+      l = trazarLinea(f);
+      lineas.set(f.id, l);
+    }
+    return l;
+  };
   const cubiertas = new Uint8Array(W * H);
   for (const f of a.franjas) {
     const puestos = vestirFranja(f);
@@ -1612,21 +1634,25 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     };
   }
 
-  /**
-   * Una muralla por franja de muro (#183): un lienzo seguido por su línea
-   * (`trazaDeMuralla`), que pasa por cada puerta y llega a la barrera vecina, y
-   * torres separadas (`torresDe`). Lo que entra se apunta en `pintados`, que es
-   * lo que cuenta el guardia (`murallaSinLeer`).
-   */
-  function vestirMuralla(f: Franja): void {
+  /** La línea de una franja de muro (`trazaDeMuralla`), con sus puertas y cómo entra su torre. */
+  function trazarLinea(f: Franja) {
     const hoja = f.uso === 'obstaculo' ? 'ruina' : 'muro';
     const dentro = new Set(f.casillas);
+    const color = MARCADOR.wall as string;
+    // Por coordenadas y dentro del mapa: con el índice, la vecina de la izquierda
+    // de una puerta en la columna 0 era la última casilla de la fila de arriba, y
+    // la puerta (0,17) de s443 se tomaba por puerta de la franja del borde
+    // contrario. Su línea arrancaba de ella, no llegaba a nada y se quedaba en una
+    // torre suelta.
     const suyas = puertasDeMuralla.filter((p) =>
       [-1, 0, 1].some((dy) =>
-        [-1, 0, 1].some((dx) => dentro.has((p.at[1] + dy) * W + p.at[0] + dx)),
+        [-1, 0, 1].some((dx) => {
+          const x = p.at[0] + dx;
+          const y = p.at[1] + dy;
+          return x >= 0 && y >= 0 && x < W && y < H && dentro.has(y * W + x);
+        }),
       ),
     );
-    const color = MARCADOR.wall as string;
     /** La torre de la casilla `[x, y]`, la que se pinta y la que se mide contra la senda. */
     const torreEn = ([x, y]: readonly [number, number]) =>
       deHoja(
@@ -1662,6 +1688,33 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       (c) => !sendaDeLaMuralla.pisa(torreEn(c)),
       (c) => torreQueCabe(c) !== undefined,
     );
+    return { hoja, suyas, torreEn, encogida, torreQueCabe, e };
+  }
+
+  /**
+   * Una muralla por franja de muro (#183): un lienzo seguido por su línea
+   * (`trazaDeMuralla`), que pasa por cada puerta y llega a la barrera vecina, y
+   * torres separadas (`torresDe`). Lo que entra se apunta en `pintados`, que es
+   * lo que cuenta el guardia (`murallaSinLeer`).
+   */
+  function vestirMuralla(f: Franja): void {
+    const { hoja, suyas, torreEn, encogida, torreQueCabe, e } = lineaDe(f);
+    const color = MARCADOR.wall as string;
+    // Las torres obligadas de las otras murallas (`torresObligadas`), que irán
+    // seguro: la punta o la casilla sola de esta que se apile con una se queda
+    // sin la suya (s18 (12,23), una ruina de una casilla junto a la esquina de
+    // la muralla vecina).
+    const otras = a.franjas
+      .filter((g) => g.barrera === 'wall' && g.id !== f.id)
+      .flatMap((g) => {
+        const otra = lineaDe(g);
+        const enPuerta = otra.suyas.map((p) => p.at);
+        return torresObligadas(otra.e.pasos).filter(
+          ([x, y]) =>
+            alrededorDeLaMuralla.bajoCiudad(x, y).length === 0 &&
+            !enPuerta.some((p) => Math.max(Math.abs(p[0] - x), Math.abs(p[1] - y)) <= 1),
+        );
+      });
     for (const p of e.pasos) {
       const eje = ejeDe(p);
       const puerta = suyas.find((q) => [p.a, p.b].some(([x, y]) => x === q.at[0] && y === q.at[1]));
@@ -1683,6 +1736,10 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       suyas.map((p) => p.at),
       (c) => !sendaDeLaMuralla.pisa(torreEn(c)),
       ([x, y]) => alrededorDeLaMuralla.bajoCiudad(x, y).length > 0,
+      [
+        ...[...torresPintadas.keys()].map((k) => k.split(',').map(Number) as [number, number]),
+        ...otras,
+      ],
     )) {
       // La que no cabe y va igual es la de una casilla sin tramos o la de una
       // esquina (`torresDe`): entra como quepa (`torreQueCabe`) y, si no cabe de
@@ -2277,8 +2334,10 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     sprites,
     informe: {
       murallasPartidas: muralla.fugas.length + muralla.puertasSueltas.length + muralla.huecos,
-      murallaIncoherente: muralla.espolones.length + muralla.esquinasAbiertas.length,
+      murallaIncoherente:
+        muralla.espolones.length + muralla.esquinasAbiertas.length + muralla.puntasSinTorre.length,
       muralla,
+      torresApiladas: muralla.torresApiladas.length,
       murallaSobreSenda: murallaSobreLaSenda(
         pintados,
         puertasDeMuralla.map((p) => p.at),
@@ -2406,7 +2465,7 @@ export function formaDeLaSenda(trazos: readonly Senda[]): Forma<Medible> {
 
 /**
  * Lo que la línea de cada muralla mira alrededor de su franja (#197): dónde se
- * apoya (otra barrera, el borde o la huella de una ciudad o un pueblo) y el lado de cada casilla pisable. El lado es la
+ * apoya (otra barrera o su nodo, el borde o la huella de una ciudad o un pueblo) y el lado de cada casilla pisable. El lado es la
  * componente de lo que se pisa sin los nodos, en 8-vecinas: lo que el núcleo
  * llama región, derivado del terreno porque el escenógrafo no lee las regiones
  * declaradas (`MapaDeEscena`).
@@ -2421,6 +2480,15 @@ export function alrededorDeMurallas(
   const nodo = new Uint8Array(W * H);
   for (const o of a.objetos)
     if (o.kind === 'node' || o.kind === 'town') nodo[o.at.y * W + o.at.x] = 1;
+  /**
+   * Los nodos de otra barrera, por su casilla: son la puerta de esa barrera y la
+   * muralla que llega a uno acaba en ella. El nodo de acantilado de s699 (15,2)
+   * une los dos lados de una franja de muro de 2×2 contra el borde; sin apoyo
+   * allí, la línea se quedaba en el borde y los dos lados se juntaban por debajo.
+   */
+  const nodoDeOtra = new Map<number, string>();
+  for (const o of a.objetos)
+    if (o.kind === 'node' && o.barrera !== 'wall') nodoDeOtra.set(o.at.y * W + o.at.x, o.id);
   /** Bajo qué huellas cae cada casilla: las de una ciudad y un pueblo cercanos se pisan (s64 (5,9)). */
   const enHuella = new Map<number, string[]>();
   huellas.forEach((h, k) => {
@@ -2462,6 +2530,8 @@ export function alrededorDeMurallas(
           const i = ny * W + nx;
           const t = a.terreno[i] as TerrainKind;
           if (t !== 'wall' && esBarrera(t)) cosas.add(`franja:${a.franjaDe[i]}`);
+          const n = nodoDeOtra.get(i);
+          if (n !== undefined) cosas.add(`nodo:${n}`);
           for (const c of enHuella.get(i) ?? []) cosas.add(c);
         }
       return [...cosas];

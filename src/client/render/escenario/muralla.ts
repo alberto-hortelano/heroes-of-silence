@@ -32,6 +32,19 @@ const RUMBOS: readonly Casilla[] = [
   [1, -1],
 ];
 
+/** Los rumbos de norte a sur (`RUMBOS`). */
+const NORTE_SUR = new Set([2, 6]);
+
+/**
+ * Si dos torres se apilan: a una casilla o menos, o en la misma columna a dos o
+ * menos. La cámara mira de 25° desde el sur y pone en la vertical lo que va de
+ * norte a sur: dos torres así se leen como una torre gorda o una chimenea
+ * (auditoría 4, defecto 4: s2 (3,4)-(3,5), s9 (20,12)-(20,14)).
+ */
+export const seApilan = (a: Casilla, b: Casilla): boolean =>
+  Math.max(Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1])) <= 1 ||
+  (a[0] === b[0] && Math.abs(a[1] - b[1]) <= 2);
+
 /**
  * Lo que cuesta una esquina, en casillas de lienzo: una esquina vale lo que
  * tres casillas de rodeo. Con menos, una franja en escalera daba una esquina en
@@ -129,9 +142,9 @@ function honduras(casillas: readonly Casilla[], dentro: ReadonlySet<string>): Ma
 /** Lo que la línea de una muralla necesita del mapa de alrededor de su franja. */
 export interface Alrededor {
   /**
-   * Lo de fuera que toca la casilla (8-vecinas, ella incluida): otra barrera,
-   * el borde del mapa o la huella de una ciudad o un pueblo, cada cosa con su
-   * nombre. Es donde la muralla se apoya; vacío, no se apoya en nada.
+   * Lo de fuera que toca la casilla (8-vecinas, ella incluida): otra barrera o
+   * su nodo, el borde del mapa o la huella de una ciudad o un pueblo, cada cosa
+   * con su nombre. Es donde la muralla se apoya; vacío, no se apoya en nada.
    */
   readonly apoyos: (x: number, y: number) => readonly string[];
   /** El lado de una casilla pisable (su componente sin nodos, como una región), o −1. */
@@ -240,6 +253,11 @@ interface Tirada {
  * torre o junto a una puerta). Nunca dobla más de 90°. Por una puerta solo se
  * sale y se entra de través a su paso: en recto o, pagando una esquina, en
  * diagonal; nunca por donde se cruza. No atraviesa otras puertas.
+ *
+ * Sin `seguidas`, no dobla a una casilla de la esquina anterior ni llega a lo
+ * trazado doblando justo antes, salvo junto a una puerta o bajo una ciudad
+ * (`bajoCiudad`), donde la esquina no lleva torre: dos esquinas pegadas
+ * llevan dos torres pegadas, que se leen como una torre gorda (`apiladas`).
  */
 function tirada(
   desde: readonly Casilla[],
@@ -252,8 +270,16 @@ function tirada(
   torreCabe: (c: Casilla) => boolean,
   esquinaCabe: (c: Casilla) => boolean,
   llegada: (c: Casilla) => number,
+  lado: (x: number, y: number) => number,
+  seguidas: boolean,
+  juntaEnLaMeta: boolean,
+  cercaDeJunta: (c: Casilla) => boolean,
+  bajoCiudad: (c: Casilla) => boolean,
 ): Tirada | null {
   const meta = new Set(hasta.map(clave));
+  // Junto a una puerta o bajo una ciudad una esquina no lleva torre: ahí dos
+  // pegadas no apilan nada.
+  const sinTorre = (c: Casilla) => cercaDePuerta.has(clave(c)) || bajoCiudad(c);
   const pasoDe = (puerta: PuertaDeLinea | undefined, [dx, dy]: Casilla): number => {
     if (puerta === undefined) return 0;
     const px = Math.sign(puerta.paso[0]);
@@ -264,22 +290,32 @@ function tirada(
     if (dx * py - dy * px === 0) return Number.POSITIVE_INFINITY;
     return ESQUINA;
   };
-  // Estado: casilla y rumbo de llegada (8 = sin rumbo, en la salida).
+  // Estado: casilla, rumbo de llegada (8 = sin rumbo, en la salida), casillas
+  // desde la última esquina o desde la salida (hasta 3, que vale «tres o más») y
+  // si aún no ha doblado. La salida es una punta: su torre se quita si queda
+  // junto a una esquina, salvo la de una punta de norte a sur, que se ve como
+  // un raíl sin ella (auditoría 4, s1 (26,31-33)).
   const coste = new Map<string, number>();
   const previo = new Map<string, string | null>();
-  const abiertos: { k: string; c: Casilla; r: number; g: number }[] = [];
+  const abiertos: { k: string; c: Casilla; r: number; n: number; s: boolean; g: number }[] = [];
   for (const c of desde) {
-    const k = `${clave(c)}|8`;
+    const n = sinTorre(c) ? 3 : 0;
+    const k = `${clave(c)}|8|${n}|1`;
     coste.set(k, 0);
     previo.set(k, null);
-    abiertos.push({ k, c, r: 8, g: 0 });
+    abiertos.push({ k, c, r: 8, n, s: true, g: 0 });
   }
+  // Una tirada que acaba en torre tras `n` casillas en el rumbo `r` desde otra
+  // torre queda apilada: a una casilla, o de norte a sur a menos de tres, donde
+  // la cámara pone una torre encima de la otra (s9 (20,12)-(20,14)). Si viene
+  // de la salida sin doblar, solo cuenta de norte a sur.
+  const corto = (r: number, n: number, s: boolean) => (NORTE_SUR.has(r) ? n < 3 : n < 2 && !s);
   const cerrados = new Set<string>();
   while (abiertos.length > 0) {
     let m = 0;
     for (let i = 1; i < abiertos.length; i++)
       if ((abiertos[i] as { g: number }).g < (abiertos[m] as { g: number }).g) m = i;
-    const { k, c, r, g } = abiertos.splice(m, 1)[0] as (typeof abiertos)[number];
+    const { k, c, r, n, s, g } = abiertos.splice(m, 1)[0] as (typeof abiertos)[number];
     if (cerrados.has(k)) continue;
     cerrados.add(k);
     if (meta.has(clave(c)) && r !== 8) {
@@ -295,27 +331,47 @@ function tirada(
     RUMBOS.forEach((d, nr) => {
       const v: Casilla = [c[0] + d[0], c[1] + d[1]];
       if (!dentro.has(clave(v)) && !meta.has(clave(v))) return;
+      // Un paso en diagonal entre dos casillas que se pisan las deja a lados
+      // distintos de la muralla, y son del mismo: se tocan por esa esquina. El
+      // lado de s730 (26,21) quedaba al otro lado del lienzo, unido al suyo por
+      // la esquina que el lienzo tapa, y por él se juntaban los dos lados.
+      if (d[0] !== 0 && d[1] !== 0 && lado(c[0] + d[0], c[1]) >= 0 && lado(c[0], c[1] + d[1]) >= 0)
+        return;
       let g2 =
         g +
         (d[0] !== 0 && d[1] !== 0 ? Math.SQRT2 : 1) +
         POR_EL_BORDE / (hondura.get(clave(v)) ?? 1) +
         (alPie.has(clave(v)) ? AL_PIE_DE_LA_CARA : 0);
-      if (r !== 8 && r !== nr) {
+      const dobla = r !== 8 && r !== nr;
+      if (dobla) {
         const giro = Math.min((r - nr + 8) % 8, (nr - r + 8) % 8);
         // Donde la torre no entra ni encogida ni corrida, no se dobla: la junta
         // quedaría abierta o la torre sobre la senda (s49 (23,28)).
         if (giro > 2 || !esquinaCabe(c)) return;
+        if (!seguidas && !sinTorre(c) && (corto(r, n, s) || cercaDeJunta(c))) return;
         g2 += ESQUINA;
         if (!torreCabe(c) || cercaDePuerta.has(clave(c))) g2 += ESQUINA_SIN_TORRE;
       }
+      const nv = dobla ? 1 : Math.min(3, n + 1);
+      const sv = s && !dobla;
       if (r === 8) g2 += pasoDe(puertaEn.get(clave(c)), d);
-      if (meta.has(clave(v))) g2 += pasoDe(puertaEn.get(clave(v)), d) + llegada(v);
+      if (meta.has(clave(v))) {
+        // La junta con lo trazado es otra esquina: pegada a la de antes, no. Y
+        // la punta en que acaba la primera tirada, de norte a sur, tampoco.
+        if (
+          !seguidas &&
+          !sinTorre(v) &&
+          (juntaEnLaMeta ? corto(nr, nv, sv) || cercaDeJunta(v) : NORTE_SUR.has(nr) && nv < 3)
+        )
+          return;
+        g2 += pasoDe(puertaEn.get(clave(v)), d) + llegada(v);
+      }
       if (!Number.isFinite(g2)) return;
-      const kv = `${clave(v)}|${nr}`;
+      const kv = `${clave(v)}|${nr}|${nv}|${sv ? 1 : 0}`;
       if ((coste.get(kv) ?? Number.POSITIVE_INFINITY) <= g2) return;
       coste.set(kv, g2);
       previo.set(kv, k);
-      abiertos.push({ k: kv, c: v, r: nr, g: g2 });
+      abiertos.push({ k: kv, c: v, r: nr, n: nv, s: sv, g: g2 });
     });
   }
   return null;
@@ -383,11 +439,16 @@ export function trazaDeMuralla(
     if (!t.some((c) => clave(c) === clave(b))) terminales.push([b]);
   }
   const puertaEn = new Map(puertas.map((p) => [clave(p.at), p] as const));
+  const bajo = (c: Casilla) => alrededor.bajoCiudad(c[0], c[1]).length > 0;
   // Prim: del primer terminal, cada vez la tirada más barata de uno que falte
   // a lo ya trazado. A lo trazado y no a otro terminal: un apoyo es un grupo
   // de casillas, y dos tiradas que llegaban a dos casillas distintas del mismo
   // dejaban la línea partida (s2 (22-24, 27)).
-  const trazar = (ts: readonly (readonly Casilla[])[], pie: ReadonlySet<string>) => {
+  const trazar = (
+    ts: readonly (readonly Casilla[])[],
+    pie: ReadonlySet<string>,
+    seguidas: boolean,
+  ) => {
     const pasos = new Map<string, Paso>();
     const linea = new Map<string, Casilla>();
     const meter = (t: readonly Casilla[]) => {
@@ -402,26 +463,41 @@ export function trazaDeMuralla(
     let trazado: readonly Casilla[] = primero;
     while (faltan.length > 0) {
       let mejor: { k: number; t: Tirada } | undefined;
-      faltan.forEach((f, k) => {
-        const t = tirada(
-          f,
-          trazado,
-          puertaEn,
-          dentro,
-          hondo,
-          pie,
-          cercaDePuerta,
-          torreCabe,
-          esquinaCabe,
-          // A lo ya trazado se llega por una esquina o una junta, salvo bajo una
-          // ciudad, que la tapa: dos apoyos pegados bajo una ciudad hacían un
-          // triángulo de tramos con cuatro torres (s2 (22-24, 27-28)).
-          trazado === primero
-            ? () => 0
-            : (c) => (alrededor.bajoCiudad(c[0], c[1]).length > 0 ? 0 : ESQUINA),
-        );
-        if (t !== null && (mejor === undefined || t.coste < mejor.t.coste)) mejor = { k, t };
-      });
+      // Las torres obligadas de lo ya trazado: doblar o llegar junto a una
+      // pondría otra apilada.
+      const obligadas = torresObligadas([...pasos.values()]).filter((j) => !bajo(j));
+      const pegadaAUnaJunta = (c: Casilla) =>
+        obligadas.some((j) => clave(j) !== clave(c) && seApilan(j, c));
+      const laMejor = (pegadas: boolean) =>
+        faltan.forEach((f, k) => {
+          const t = tirada(
+            f,
+            trazado,
+            puertaEn,
+            dentro,
+            hondo,
+            pie,
+            cercaDePuerta,
+            torreCabe,
+            esquinaCabe,
+            // A lo ya trazado se llega por una esquina o una junta, salvo bajo una
+            // ciudad, que la tapa: dos apoyos pegados bajo una ciudad hacían un
+            // triángulo de tramos con cuatro torres (s2 (22-24, 27-28)).
+            trazado === primero
+              ? () => 0
+              : (c) => (alrededor.bajoCiudad(c[0], c[1]).length > 0 ? 0 : ESQUINA),
+            alrededor.lado,
+            pegadas,
+            trazado !== primero,
+            pegadaAUnaJunta,
+            bajo,
+          );
+          if (t !== null && (mejor === undefined || t.coste < mejor.t.coste)) mejor = { k, t };
+        });
+      laMejor(seguidas);
+      // Si sin esquinas pegadas no se llega a ninguno, esta tirada las lleva:
+      // llegar manda (la puerta de s439 (2,13), entre dos murallas).
+      if (mejor === undefined && !seguidas) laMejor(true);
       // Lo que no se alcanza por la franja (una puerta que solo la roza) se queda fuera.
       if (mejor === undefined) break;
       const { k, t } = mejor as { k: number; t: Tirada };
@@ -453,9 +529,9 @@ export function trazaDeMuralla(
   //   solo toca uno de los dos lados (s270 (1,10)-(1,11));
   // - donde la franja es más estrecha entre los dos: un lado que mete un dedo en
   //   la franja (s58 (22,8)).
-  const cerrar = (pie: ReadonlySet<string>) => {
+  const cerrar = (pie: ReadonlySet<string>, seguidas: boolean) => {
     const ts = [...terminales];
-    let hecha = trazar(ts, pie);
+    let hecha = trazar(ts, pie, seguidas);
     let fugas = fugasDeLaLinea(hecha);
     for (let vuelta = 0; vuelta < 4 && fugas.length > 0; vuelta++) {
       const { linea } = hecha;
@@ -486,7 +562,7 @@ export function trazaDeMuralla(
         if (t.length === 0 || vistos.has(k)) continue;
         vistos.add(k);
         const otros = [...ts, t];
-        const otra = trazar(otros, pie);
+        const otra = trazar(otros, pie, seguidas);
         const suyas = fugasDeLaLinea(otra);
         if (suyas.length < (mejor?.fugas.length ?? fugas.length))
           mejor = { ts: otros, hecha: otra, fugas: suyas };
@@ -496,13 +572,39 @@ export function trazaDeMuralla(
       hecha = mejor.hecha;
       fugas = mejor.fugas;
     }
-    return { hecha, quedan: fugas.length };
+    return { hecha, quedan: fugas.length, ts, pie };
   };
   // Cerrar manda más que ir por lo alto: si por lo alto queda por dónde
   // rodearla, como si no hubiera relieve (s103 (28,21): lo alto deja un dedo
   // del lado de arriba al otro lado de la muralla).
-  const porLoAlto = cerrar(alPie);
-  const cerrada = porLoAlto.quedan === 0 ? porLoAlto : cerrar(new Set());
+  //
+  // Y cerrar manda más que no poner dos esquinas pegadas (`tirada`, `seguidas`):
+  // si sin ellas no cierra, se prueban con ellas.
+  let cerrada: ReturnType<typeof cerrar> | undefined;
+  for (const seguidas of [false, true])
+    for (const pie of [alPie, new Set<string>()]) {
+      if (cerrada?.quedan === 0) break;
+      const otra = cerrar(pie, seguidas);
+      if (cerrada === undefined || otra.quedan < cerrada.quedan) cerrada = otra;
+    }
+  if (cerrada === undefined) throw new Error('la muralla no se trazó');
+  // Prim cuelga cada tirada de lo ya trazado, y lo primero que traza decide lo
+  // demás: en s86 (23-24, 28-30) la puerta llegaba a la punta de la primera
+  // tirada con un escalón de dos esquinas pegadas, y empezando por la ciudad la
+  // línea es una diagonal. Si quedan pegadas, se prueba a empezar por cada
+  // terminal y vale la que, cerrando igual, deja menos.
+  if (juntasPegadas(cerrada.hecha.pasos, bajo, cercaDePuerta) > 0) {
+    const { ts, pie, quedan } = cerrada;
+    let pegadas = juntasPegadas(cerrada.hecha.pasos, bajo, cercaDePuerta);
+    for (let k = 1; k < ts.length && pegadas > 0; k++) {
+      const otra = trazar([...ts.slice(k), ...ts.slice(0, k)], pie, false);
+      const suyas = juntasPegadas(otra.pasos, bajo, cercaDePuerta);
+      if (suyas < pegadas && fugasDeLaLinea(otra).length <= quedan) {
+        cerrada = { ...cerrada, hecha: otra };
+        pegadas = suyas;
+      }
+    }
+  }
   // Lo que cuelga de la línea sin llegar a nada es un espolón: la punta de
   // relleno de una franja con un solo apoyo, que otra tirada ya cerró (s270
   // (1,10)). Fuera, cabo a cabo, si con ello no se abre nada.
@@ -511,10 +613,96 @@ export function trazaDeMuralla(
     separa(casillas, alrededor) && fugasDeLaLinea(podada).length <= cerrada.quedan
       ? podada
       : cerrada.hecha;
+  // Un tocón de norte a sur, de dos casillas o menos hasta la siguiente torre,
+  // lleva una torre en cada cabo y se ve como una chimenea (s2 (3,4)-(3,5), s1
+  // (26,31-33), auditoría 4): fuera, si con ello no se abre nada. En una ruina
+  // de una sola tirada así queda una torre.
+  // Se mide con las torres que irán (`torresDe`), no con una en cada casilla.
+  const conSusTorres = (h: { pasos: readonly Paso[]; linea: readonly Casilla[] }) =>
+    fugasDe(
+      casillas,
+      [
+        ...h.pasos.map((p) => ({ franja: 0, a: p.a, b: p.b })),
+        ...torresDe(
+          { casillas: h.linea, pasos: h.pasos },
+          [...esPuerta].map(deClave),
+          () => true,
+          bajo,
+        ).map((c) => ({ franja: 0, a: c, b: c })),
+      ],
+      [...esPuerta].map(deClave),
+      alrededor,
+    ).length;
+  const sinTocon = sinTocones(
+    hecha,
+    esPuerta,
+    (c) => alrededor.apoyos(c[0], c[1]).length > 0,
+    !separa(casillas, alrededor),
+    torreCabe,
+  );
+  const final = conSusTorres(sinTocon) <= conSusTorres(hecha) ? sinTocon : hecha;
   return {
-    casillas: hecha.linea,
-    pasos: hecha.pasos,
+    casillas: final.linea,
+    pasos: final.pasos,
   };
+}
+
+/**
+ * La línea sin sus tocones de norte a sur: las tiradas rectas de norte a sur de
+ * dos pasos o menos que van de una punta a la siguiente torre obligada (una
+ * junta u otra punta), quitadas una tras otra. Una puerta no es punta. Si la
+ * línea entera es un tocón y la franja no separa nada (`soloRuina`), queda la
+ * casilla que se apoya en algo y donde su torre cabe (`cabe`); si separa, se queda: su torre sola podía no
+ * entrar (junto a la de otra franja) y la franja de s447 (20-21, 23-25) se
+ * quedaba sin muralla entre dos lados.
+ */
+function sinTocones(
+  hecha: { readonly pasos: readonly Paso[]; readonly linea: readonly Casilla[] },
+  esPuerta: ReadonlySet<string>,
+  seApoya: (c: Casilla) => boolean,
+  soloRuina: boolean,
+  cabe: (c: Casilla) => boolean,
+): { pasos: Paso[]; linea: Casilla[] } {
+  let pasos = [...hecha.pasos];
+  for (let cambio = true; cambio && pasos.length > 0; ) {
+    cambio = false;
+    const de = new Map<string, Paso[]>();
+    for (const p of pasos)
+      for (const c of [p.a, p.b]) de.set(clave(c), [...(de.get(clave(c)) ?? []), p]);
+    for (const punta of puntasNorteSur(pasos)) {
+      if (esPuerta.has(clave(punta))) continue;
+      // De la punta por lo recto de norte a sur hasta la primera casilla que no
+      // sigue en recto (una junta, otra punta o donde dobla).
+      const tocon: Paso[] = [];
+      let c = punta;
+      for (;;) {
+        const suyos = (de.get(clave(c)) ?? []).filter((p) => !tocon.includes(p));
+        const p = suyos[0];
+        if (suyos.length !== 1 || p === undefined || ejeDe(p) !== 'profundidad') break;
+        tocon.push(p);
+        c = clave(p.a) === clave(c) ? p.b : p.a;
+        if ((de.get(clave(c)) ?? []).length !== 2) break;
+      }
+      if (tocon.length === 0 || tocon.length > 2 || esPuerta.has(clave(c))) continue;
+      // Una tirada sola de norte a sur: queda la casilla que se apoya.
+      if (tocon.length === pasos.length) {
+        if (!soloRuina) continue;
+        // La que se apoya y donde su torre cabe entera: sola, la torre va
+        // aunque no quepa, y en s995 (15,31) tapaba la senda.
+        const cabos = [punta, ...tocon.flatMap((p) => [p.a, p.b])];
+        const queda =
+          cabos.find((q) => seApoya(q) && cabe(q)) ?? cabos.find(cabe) ?? cabos.find(seApoya) ?? c;
+        return { pasos: [], linea: [queda] };
+      }
+      pasos = pasos.filter((p) => !tocon.includes(p));
+      cambio = true;
+      break;
+    }
+  }
+  if (pasos.length === hecha.pasos.length) return { pasos, linea: [...hecha.linea] };
+  const linea = new Map<string, Casilla>();
+  for (const p of pasos) for (const c of [p.a, p.b]) linea.set(clave(c), c);
+  return { pasos, linea: [...linea.values()] };
 }
 
 /** La línea sin las puntas que no tocan nada de fuera ni son una puerta, quitadas una tras otra. */
@@ -573,6 +761,46 @@ export function esquinasDe(pasos: readonly Paso[]): Casilla[] {
 }
 
 /**
+ * Cuántas juntas de una línea, de las que llevan torre (ni bajo una ciudad ni
+ * junto a una puerta), tienen otra a una casilla o menos.
+ */
+function juntasPegadas(
+  pasos: readonly Paso[],
+  bajo: (c: Casilla) => boolean,
+  cercaDePuerta: ReadonlySet<string>,
+): number {
+  const juntas = torresObligadas(pasos).filter((j) => !bajo(j) && !cercaDePuerta.has(clave(j)));
+  return juntas.filter((j, k) => juntas.some((u, l) => l !== k && seApilan(u, j))).length;
+}
+
+/** Las puntas de una línea cuyo tramo va de norte a sur: sin torre, se ven como un raíl. */
+export function puntasNorteSur(pasos: readonly Paso[]): Casilla[] {
+  const suyos = new Map<string, { c: Casilla; pasos: Paso[] }>();
+  for (const p of pasos)
+    for (const c of [p.a, p.b]) {
+      const e = suyos.get(clave(c)) ?? { c, pasos: [] };
+      e.pasos.push(p);
+      suyos.set(clave(c), e);
+    }
+  return [...suyos.values()]
+    .filter((e) => e.pasos.length === 1 && ejeDe(e.pasos[0] as Paso) === 'profundidad')
+    .map((e) => e.c);
+}
+
+/** Las casillas de una línea donde la torre va siempre: sus juntas y sus puntas de norte a sur. */
+export function torresObligadas(pasos: readonly Paso[]): Casilla[] {
+  return [...juntasDe(pasos), ...puntasNorteSur(pasos)];
+}
+
+/** Las esquinas de una línea que juntan dos tramos o más: una punta no es junta. */
+export function juntasDe(pasos: readonly Paso[]): Casilla[] {
+  const grado = new Map<string, number>();
+  for (const p of pasos)
+    for (const c of [p.a, p.b]) grado.set(clave(c), (grado.get(clave(c)) ?? 0) + 1);
+  return esquinasDe(pasos).filter((c) => (grado.get(clave(c)) ?? 0) > 1);
+}
+
+/**
  * Dónde lleva torre la línea: en cada esquina y en cada punta (`esquinasDe`), y
  * en lo recto cada `ENTRE_TORRES`, nunca a menos de eso de otra torre. Ninguna
  * en las casillas de alrededor de una puerta, que lleva las suyas, ni bajo una
@@ -585,29 +813,49 @@ export function esquinasDe(pasos: readonly Paso[]): Casilla[] {
  * en una casilla sin tramos y en una esquina. La línea evita doblar donde la
  * torre no cabe entera (`ESQUINA_SIN_TORRE`) y no dobla donde no cabe de ninguna
  * manera (`trazaDeMuralla`, `esquinaCabe`).
+ *
+ * Y nunca dos apiladas (`seApilan`): a una casilla o menos, o en la misma
+ * columna a dos o menos, se leían como una torre gorda o una chimenea. Las
+ * obligadas van primero (`torresObligadas`: las juntas y las puntas de norte a
+ * sur); la punta de otro eje o la casilla sola que se apila con una torre ya
+ * puesta, de su línea o de otra franja (`otras`), se queda sin la suya: la de
+ * al lado ya la cierra. Que dos obligadas no se apilen lo cuida la línea
+ * (`tirada`, sin `seguidas`).
  */
 export function torresDe(
   e: Esqueleto,
   puertas: readonly Casilla[],
   cabe: (c: Casilla) => boolean = () => true,
   bajoCiudad: (c: Casilla) => boolean = () => false,
+  otras: readonly Casilla[] = [],
 ): Casilla[] {
   const conPaso = new Set(e.pasos.flatMap((p) => [clave(p.a), clave(p.b)]));
   const esPuerta = new Set(puertas.map(clave));
   const esquina = new Set(esquinasDe(e.pasos).map(clave));
-  // Las esquinas que juntan dos tramos o más; una punta no es junta.
-  const grado = new Map<string, number>();
-  for (const p of e.pasos)
-    for (const c of [p.a, p.b]) grado.set(clave(c), (grado.get(clave(c)) ?? 0) + 1);
-  const junta = new Set([...esquina].filter((k) => (grado.get(k) ?? 0) > 1));
+  const junta = new Set(juntasDe(e.pasos).map(clave));
+  const norteSur = new Set(puntasNorteSur(e.pasos).map(clave));
   const junto = (c: Casilla) =>
     puertas.some((p) => Math.max(Math.abs(p[0] - c[0]), Math.abs(p[1] - c[1])) <= 1);
   const candidatas = e.casillas
     .filter((c) => !esPuerta.has(clave(c)))
-    .map((c, orden) => ({ c, orden, obligada: esquina.has(clave(c)) || !conPaso.has(clave(c)) }))
-    .sort((p, q) => Number(q.obligada) - Number(p.obligada) || p.orden - q.orden);
+    .map((c, orden) => ({
+      c,
+      orden,
+      obligada: esquina.has(clave(c)) || !conPaso.has(clave(c)),
+      junta: junta.has(clave(c)),
+      norteSur: norteSur.has(clave(c)),
+    }))
+    .sort(
+      (p, q) =>
+        Number(q.junta) - Number(p.junta) ||
+        Number(q.norteSur) - Number(p.norteSur) ||
+        Number(q.obligada) - Number(p.obligada) ||
+        p.orden - q.orden,
+    );
   const torres: Casilla[] = [];
-  for (const { c, obligada } of candidatas) {
+  const pegada = (c: Casilla) => [...otras, ...torres].some((t) => seApilan(t, c));
+  for (const { c, obligada, junta: esJunta, norteSur: esNorteSur } of candidatas) {
+    const siempre = esJunta || esNorteSur;
     // Bajo una ciudad la tapa su pieza, que lleva sus torres: una más asomaba
     // por encima de ella.
     if (junto(c) || bajoCiudad(c)) continue;
@@ -615,7 +863,10 @@ export function torresDe(
     // quedaba sin muralla (s2 (14,19)). Una esquina tampoco: sin torre, la
     // junta se ve abierta (s17 (10,31)). La que no cabe se encoge o se corre al
     // ponerla (`vestirMuralla`).
-    if (conPaso.has(clave(c)) && !junta.has(clave(c)) && !cabe(c)) continue;
+    // Ni la punta de norte a sur: sin torre, el tramo se ve como un raíl (s1
+    // (26,31-33), auditoría 4).
+    if (conPaso.has(clave(c)) && !siempre && !cabe(c)) continue;
+    if (!siempre && pegada(c)) continue;
     if (!obligada && torres.some((t) => Math.hypot(t[0] - c[0], t[1] - c[1]) < ENTRE_TORRES))
       continue;
     torres.push(c);
@@ -862,7 +1113,11 @@ function fugasDe(
  *   muro que no cierra. Una ruina en medio de una región tiene sus dos cabos
  *   sueltos y no cuenta;
  * - `esquinasAbiertas`: casillas donde se juntan tramos de ejes distintos sin
- *   torre pintada encima, fuera de una puerta: la junta se ve abierta.
+ *   torre pintada encima, fuera de una puerta: la junta se ve abierta;
+ * - `puntasSinTorre`: puntas de un tramo de norte a sur sin torre pintada, fuera
+ *   de una puerta y de una ciudad: desde arriba, el tramo suelto se ve como una
+ *   escalera o unos raíles (s1 (26,31-33), auditoría 4);
+ * - `torresApiladas`: torres pintadas que se apilan con otra (`apiladas`).
  */
 export function murallaSinLeer(
   franjas: readonly { readonly id: number; readonly casillas: readonly Casilla[] }[],
@@ -877,6 +1132,8 @@ export function murallaSinLeer(
   huecos: number;
   espolones: Casilla[];
   esquinasAbiertas: Casilla[];
+  puntasSinTorre: Casilla[];
+  torresApiladas: Casilla[];
 } {
   const enPuerta = puertas.map((p) => p.at);
   const esPuerta = new Set(enPuerta.map(clave));
@@ -957,5 +1214,38 @@ export function murallaSinLeer(
         (t) => clave(t.a) !== clave(t.b) && (clave(t.a) === clave(c) || clave(t.b) === clave(c)),
       ).length > 1,
   );
-  return { fugas, puertasSueltas, huecos, espolones, esquinasAbiertas };
+  // Por franja: las puntas de dos franjas que se tocan no son la misma línea.
+  const puntasSinTorre = franjas.flatMap((f) =>
+    puntasNorteSur(pintados.filter((t) => t.franja === f.id && clave(t.a) !== clave(t.b))).filter(
+      (c) =>
+        !torres.has(clave(c)) &&
+        alrededor.bajoCiudad(c[0], c[1]).length === 0 &&
+        !enPuerta.some((p) => Math.max(Math.abs(p[0] - c[0]), Math.abs(p[1] - c[1])) <= 1),
+    ),
+  );
+  return {
+    fugas,
+    puertasSueltas,
+    huecos,
+    espolones,
+    esquinasAbiertas,
+    puntasSinTorre,
+    torresApiladas: apiladas(pintados),
+  };
+}
+
+/**
+ * Las torres pintadas que se apilan con otra (`seApilan`), de la misma franja o
+ * de dos: cada una que tiene otra así antes que ella. Se leen como una sola
+ * torre gorda o una chimenea, no como dos esquinas (#183, #197, auditoría 4):
+ * la línea que dobla dos veces seguidas pone una en cada esquina, y nada lo
+ * impedía más que el coste de la esquina.
+ */
+export function apiladas(pintados: readonly TramoPintado[]): Casilla[] {
+  const torres = [
+    ...new Map(
+      pintados.filter((t) => clave(t.a) === clave(t.b)).map((t) => [clave(t.a), t.a]),
+    ).values(),
+  ];
+  return torres.flatMap((t, k) => (torres.slice(0, k).some((u) => seApilan(u, t)) ? [t] : []));
 }

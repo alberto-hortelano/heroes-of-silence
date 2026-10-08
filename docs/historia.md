@@ -3415,6 +3415,48 @@ coherentes». La crítica está en `docs/agents/2026-10-08-muralla-coherente/`.
 - El `esqueleto()` de Zhang-Suen se borró con sus tres tests: ya no lo usa
   nadie. `esqueleto.ts` guarda `Paso`, `ejeDe` y `componentesDePasos`.
 
+## Las cuatro fugas que quedaban y las torres apiladas (#207, 08-10-2026)
+
+Dos restos de #197 y los defectos 4 y 6 de la auditoría 4
+(`docs/agents/2026-10-08-auditoria-4/defectos.md`). Las notas y las capturas están
+en `docs/agents/2026-10-08-muralla-fugas/`.
+
+- **Cuatro fugas en 1-1000, tres causas:**
+  - **s443 y s517: la vecina por índice.** Las puertas de cada franja se buscaban
+    con `(y + dy) * W + x + dx`. Así, la vecina de la izquierda de la puerta
+    (0,17) de s443 era la última casilla de la fila de arriba, en el borde
+    contrario. Esa franja tomaba la puerta por suya, su línea arrancaba de ella,
+    no llegaba a nada y se quedaba en una torre suelta. La auditoría lo había
+    achacado al apoyo del borde, pero no era eso.
+  - **s699: el nodo de otra barrera.** Una franja de 2×2 contra el borde acaba en
+    el nodo de un acantilado, que une sus dos lados. Hacerlo apoyo es lo que #197
+    había probado y quitado porque no mordía en 1-200.
+  - **s730: el paso en diagonal.** Al dar un paso en diagonal, el lienzo tapaba la
+    esquina por la que un trozo de un lado se unía al resto, y ese trozo quedaba
+    al otro lado de la muralla. Ahora un paso en diagonal nunca pasa entre dos
+    casillas pisables, que siempre son del mismo lado.
+- **Torres apiladas.** No había guardia. Con `seApilan` (a una casilla, o en la
+  misma columna a dos, que la cámara de 25° pone una encima de otra) había 3 138
+  en 1-1000. También había 809 puntas de norte a sur sin torre, los «raíles».
+  Las causas eran:
+  - la punta y la esquina obligadas de una ruina de dos o tres casillas;
+  - las líneas que doblan dos veces seguidas;
+  - las torres de dos franjas vecinas.
+
+  Lo que se cambió:
+  - Las torres obligadas son las juntas y las puntas de norte a sur; las demás
+    ceden.
+  - La línea no dobla cerca de otra obligada, salvo que sin eso no llegue o no
+    cierre.
+  - Prim prueba a empezar por otro terminal.
+  - El tocón de norte a sur se quita.
+
+  Quedan 13 apiladas en 1-1000, todas en escalones de una fila que la franja
+  obliga. Los raíles bajan a 0.
+- El banco sale igual. `murallaSobreSenda` sigue en 5 en 1-1000, en las mismas
+  semillas que en main (49, 150, 540, 568 y 948). A medio trabajo salió una nueva en s995, y se
+  arregló eligiendo para la torre sola de una ruina la casilla donde cabe.
+
 ## La IA de reglas juega con niebla (#164, 08-10-2026)
 
 Lo vio el crítico de #130: `casillasPeligrosas` y `chooseHeroDestination`
