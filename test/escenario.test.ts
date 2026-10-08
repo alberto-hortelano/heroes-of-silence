@@ -411,6 +411,20 @@ describe('los hitos de los nodos (#176): tres, por el id, ninguno con cruz', () 
     expect(vistos).toEqual(new Set(Object.values(TABLILLAS)));
   });
 
+  it('el miliario va entonado: más oscuro y con menos contraste que su pieza (§29)', () => {
+    const { semilla } = primeraSemillaCon('un miliario', (s) =>
+      [...hitosDe(s).values()].includes('nodo-hito-miliar') ? s : undefined,
+    );
+    const hitos = hitosDe(semilla);
+    for (const s of escenaDe(semilla).sprites) {
+      const pieza = s.objeto === undefined ? undefined : hitos.get(s.objeto.id);
+      if (pieza === undefined) continue;
+      if (pieza === 'nodo-hito-miliar')
+        expect(s.tono, s.objeto?.id).toMatch(/brightness\(0\.\d+\)/);
+      else expect(s.tono, s.objeto?.id).toBeUndefined();
+    }
+  });
+
   it('sin el arte de los hitos, cada uno cae a su marcador', () => {
     const { semilla } = primeraSemillaCon('dos hitos o más', (s) =>
       hitosDe(s).size >= 2 ? s : undefined,

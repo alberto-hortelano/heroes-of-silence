@@ -708,6 +708,18 @@ export const SEMIANCHO_DE_PARED = SEMIANCHO_DEL_PASILLO_DE_MASA;
 const ALTO_DEL_HITO = 1;
 const ANCHO_DEL_HITO = 0.6;
 
+/**
+ * El miliario es una columna de piedra clara y lisa: en un llano oscuro tiraba
+ * de la vista más que nada de alrededor (auditoría 3, defecto 6). Sin filtro da
+ * luz 134, p90 216 y desviación 61; con este, 101, 151 y 37, en la de la
+ * tablilla (97, 176 y 50) y por debajo del mojón (124, 223 y 68), que es un
+ * montón de piedras con sombra entre ellas (08-10-2026, `tono.py` en
+ * `docs/agents/2026-10-08-detalles-mapa/`).
+ */
+const TONO_DE_HITO: Readonly<Record<string, string>> = {
+  'nodo-hito-miliar': 'brightness(0.72) contrast(0.85) saturate(0.9)',
+};
+
 export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo): Escena {
   /** Los módulos de una hoja, de menor a mayor, o null si la hoja aún no está hecha. */
   const modulosDe = (hoja: string): readonly Modulo[] | null => catalogo.hojas[hoja] ?? null;
@@ -914,7 +926,9 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     // lienzo que llega a ella entrando por la torre (#183).
     const centrada =
       p !== null && id?.startsWith('nodo-puerta') === true ? { ...p, ax: p.nw / 2 } : p;
-    sprites.push(deObjeto(o, centrada, x, y + 0.35, alto));
+    const s = deObjeto(o, centrada, x, y + 0.35, alto);
+    const tono = id === null ? undefined : TONO_DE_HITO[id];
+    sprites.push(tono === undefined || s.src === null ? s : { ...s, tono });
   }
 
   // 2 · Los caminos: se encadenan en sendas y cada senda abre su pasillo.
