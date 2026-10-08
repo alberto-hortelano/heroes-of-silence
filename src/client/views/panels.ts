@@ -15,6 +15,7 @@
  * escapaba de la puerta.
  */
 import { activeStack, quedanCasillas } from '@core/battle/battle.js';
+import { DEFEND_BONUS } from '@core/battle/damage.js';
 import { type EffectKind, effectiveLuck } from '@core/battle/effects.js';
 import { type Spell, spell } from '@core/battle/spells.js';
 import {
@@ -890,20 +891,42 @@ function ayudaDeCarga(s: BattleStack | null): Html {
  *
  * Y el `switch` ya no tiene `default`, por lo mismo que el de `renderLog`: se
  * tragaba en silencio los tres eventos que nadie escribió (`move`, `wait`,
- * `defend`) y se tragaría igual el que se añada mañana. Ahora los tres están
- * escritos con su frase vacía y quien decide es el `never` del final.
+ * `defend`) y se tragaría igual el que se añada mañana. Quien decide es el
+ * `never` del final.
+ *
+ * La espera y la defensa tienen su línea desde #82: se callaban cuando la IA no
+ * las jugaba nunca, y desde #52 espera en 49 de cada 100 batallas espejo (84
+ * esperas en 100 semillas, 08-10-2026). Sin la línea, quien mira ve a una
+ * unidad quedarse quieta sin saber que ha cedido la iniciativa a propósito.
+ * Nombran a QUIÉN porque, a diferencia de un ataque, no dejan nada en el
+ * tablero que lo diga.
  */
 export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
   /**
-   * De quién era el stack. Lanza si no aparece: un id del registro que no está
-   * en el campo es un fallo nuestro, y disimularlo con «una unidad» sería
-   * volver a la misatribución por otro camino.
+   * El stack del que habla un hecho. Lanza si no aparece: un id del registro
+   * que no está en el campo es un fallo nuestro, y disimularlo con «una unidad»
+   * sería volver a la misatribución por otro camino.
    */
-  const bandoDe = (id: string): Side => {
+  const stackDe = (id: string): BattleStack => {
     const s = battle.stacks.find((x) => x.id === id);
     if (s === undefined)
       throw new Error(`el parte habla de una unidad que no está en el campo: ${id}`);
-    return s.side;
+    return s;
+  };
+
+  /**
+   * «Arquero, de tu bando»: la unidad y su bando dicho desde quien lee. Sin
+   * bando, el atacante o el defensor, como `surrender`.
+   */
+  const quienEs = (id: string): string => {
+    const s = stackDe(id);
+    const lado =
+      mio === null
+        ? `del ${s.side === 'attacker' ? 'atacante' : 'defensor'}`
+        : s.side === mio
+          ? 'de tu bando'
+          : 'del enemigo';
+    return `${s.unit.name}, ${lado}`;
   };
 
   const lineas = battle.log
@@ -937,7 +960,7 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
           // arriba: lo tuyo es la derrota y lo suyo la victoria. Sin bando —el
           // parte de quien no lleva ninguno de los dos— no se pinta ninguna de
           // las dos cosas, en vez de inventarse una.
-          const suya = bandoDe(e.stack) === mio;
+          const suya = stackDe(e.stack).side === mio;
           return html`<div${clase(mio !== null && !suya, suya)}>${
             mio === null
               ? 'Una unidad ha sido aniquilada'
@@ -965,12 +988,22 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
         case 'finished':
           return html`<div${clase(e.winner === mio, mio !== null && e.winner !== mio)}>Fin: gana el ${e.winner === 'attacker' ? 'atacante' : 'defensor'}</div>`;
 
-        // Los tres que el parte NO cuenta, escritos uno a uno en vez de caer por
-        // un `default`. El tablero ya enseña dónde está cada unidad y quién se
-        // defiende; el paso a paso ahogaría el resto del parte.
-        case 'move':
         case 'wait':
+          // Lo que hace `applyAction`: la manda al final de `state.queue` de
+          // esta ronda. No se promete que vuelva a actuar: 1 de cada 5 veces la
+          // destruyen o se acaba la batalla antes (#52).
+          return html`<div>Espera ${quienEs(e.stack)}: cede la iniciativa y pasa al final de la ronda</div>`;
         case 'defend':
+          // La cifra sale de la constante que la aplica (`effectiveDefense`), y
+          // dura lo que dura `defending`: `beginRound` la apaga. El espacio antes
+          // del % es duro: en la caja estrecha del parte el «%» bajaba solo a la
+          // línea siguiente (visto en la captura).
+          return html`<div>Se defiende ${quienEs(e.stack)}: +${Math.round(DEFEND_BONUS * 100)}\u00a0% de defensa hasta el final de la ronda</div>`;
+
+        // El único que el parte NO cuenta, escrito aparte en vez de caer por un
+        // `default`: el tablero ya enseña dónde está cada unidad, y el paso a
+        // paso (la mitad de los hechos de una batalla) ahogaría el resto.
+        case 'move':
           return NADA;
       }
       // Exhaustivo: con un `kind` nuevo, `e` deja de ser `never` aquí y esta

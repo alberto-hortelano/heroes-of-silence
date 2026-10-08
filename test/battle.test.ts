@@ -2032,14 +2032,13 @@ describe('el parte de guerra pinta de quién es cada cosa', () => {
     expect(ajena).not.toContain('class="win"');
   });
 
-  it('un evento que el parte no cuenta no deja rastro, y ya no cae por un `default`', () => {
-    // `move`, `wait` y `defend` están escritos uno a uno con su frase vacía. El
-    // `default` que los tapaba tapaba igual al `kind` que se añada mañana; quien
-    // lo impide ahora es el `never` del final, roto a mano y visto rojo en `tsc`.
+  it('el movimiento no deja rastro en el parte, y ya no cae por un `default`', () => {
+    // `move` está escrito con su frase vacía. El `default` que lo tapaba tapaba
+    // igual al `kind` que se añada mañana; quien lo impide ahora es el `never`
+    // del final, roto a mano y visto rojo en `tsc`. `wait` y `defend` callaban
+    // aquí también hasta #82: su línea la cubre `parte-de-guerra.test.ts`.
     const mudos = parte([
       { kind: 'move', stack: 'attacker-0', to: { col: 3, row: 3 }, path: [{ col: 3, row: 3 }] },
-      { kind: 'wait', stack: 'attacker-0' },
-      { kind: 'defend', stack: 'attacker-0' },
     ]);
     expect(mudos).toContain('<h3>Parte de guerra</h3><div class="log"></div>');
   });

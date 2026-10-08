@@ -12,6 +12,7 @@
  * Ahora el panel es puro y esto es lo que lo guarda.
  */
 import { describe, expect, it } from 'vitest';
+import { adaptarBatalla } from '../src/client/espectador/adaptar.js';
 import { batalla, panelDelEspectador } from '../src/client/espectador/paneles.js';
 import { Reproductor } from '../src/client/espectador/reproductor.js';
 import {
@@ -125,6 +126,25 @@ describe('el panel de batalla del espectador', () => {
     // Sin bando propio: «una unidad», no «una unidad tuya» ni «enemiga».
     expect(salida).toContain('<div>Una unidad ha sido aniquilada</div>');
     expect(salida).toContain('<div>Fin: gana el atacante</div>');
+  });
+
+  it('el parte del espectador cuenta la espera y la defensa, con el bando dicho desde fuera (#82)', () => {
+    // Es el mismo `renderBattleLog` que el del cliente, con `mio: null`: lo que
+    // se mira aquí es que el espectador no tiene un parte propio que se calle.
+    const { vista } = contraUnNeutral(1);
+    const estado = vista.battle?.estado as BattleState;
+    const s = estado.stacks[0]!;
+    estado.log.push({ kind: 'wait', stack: s.id }, { kind: 'defend', stack: s.id });
+    const salida = marcadoDe(batalla(vista));
+    // El nombre, del estado ya adaptado: por el cable viaja la criatura, no su ficha.
+    const nombre = adaptarBatalla(vista.battle!).stacks.find((x) => x.id === s.id)!.unit.name;
+    const quien = `${nombre}, del ${s.side === 'attacker' ? 'atacante' : 'defensor'}`;
+    expect(salida).toContain(
+      `<div>Espera ${quien}: cede la iniciativa y pasa al final de la ronda</div>`,
+    );
+    expect(salida).toContain(
+      `<div>Se defiende ${quien}: +20\u00a0% de defensa hasta el final de la ronda</div>`,
+    );
   });
 
   it('la etiqueta `suerte` también se pinta — el hueco M-7 del ancla', () => {
