@@ -221,9 +221,11 @@ function knownObjects(state: GameState, playerId: PlayerId) {
  * llamada. Igual que `knownObjects`, y por el mismo motivo — la copia se queda
  * atrás, que es exactamente lo que había pasado.
  *
- * No lleva anotación de retorno a propósito: el tipo lo infiere el compilador y
- * quien lo necesite lo escribe donde lo usa (`ReturnType<typeof …>`), que es el
- * mismo criterio con el que se borraron los alias de `agent.ts`.
+ * No lleva anotación de retorno a propósito, y ningún serializador de este
+ * fichero la lleva (#109): el tipo lo infiere el compilador y quien lo necesite
+ * lo escribe donde lo usa (`ReturnType<typeof …>`), que es el mismo criterio con
+ * el que se borraron los alias de `agent.ts`. Un `: unknown` obligaba a
+ * `consultas.ts` a castear y a preguntar por los campos con cadenas.
  *
  * La capa es `fog` —«lo exploré alguna vez»— y no `visibleNow`, y el motivo es
  * que el terreno y los caminos **no cambian**: el recuerdo de un hecho estático
@@ -419,7 +421,7 @@ export const COMO_SE_LEE_EL_MAPA = `  Trae width, height, terrain[], roads[], ob
     - Compáralo con los puntos de movimiento que le queden hoy al héroe
       ("movePoints") para saber hasta dónde llegas.`;
 
-export function serializeAdventureTurn(state: GameState, playerId: PlayerId): unknown {
+export function serializeAdventureTurn(state: GameState, playerId: PlayerId) {
   const player = playerById(state, playerId);
 
   // `visibleNow` otra vez —`knownObjects` levanta el suyo—, y aquí se usa para
@@ -557,11 +559,7 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId): un
  * para que la petición no prometa un sitio que no hay (con el tope lleno no se
  * pide: `Director`).
  */
-export function serializeHeroFromTroop(
-  state: GameState,
-  playerId: PlayerId,
-  v: VeteranoEnBase,
-): unknown {
+export function serializeHeroFromTroop(state: GameState, playerId: PlayerId, v: VeteranoEnBase) {
   const player = playerById(state, playerId);
   return {
     kind: 'hero_from_troop',
@@ -657,7 +655,7 @@ export function serializeBattleTurn(
   side: Side,
   vista: VistaDeBatalla,
   oro: number | null,
-): unknown {
+) {
   const stackView = (s: (typeof battle.stacks)[number]) => {
     const info = s.unit;
     return {
@@ -794,7 +792,7 @@ function comoRepartePorRegiones(width: number, height: number): string {
   );
 }
 
-export function serializeMapRequest(opts: MapRequestOptions): unknown {
+export function serializeMapRequest(opts: MapRequestOptions) {
   return {
     kind: 'map_generate',
     want: {

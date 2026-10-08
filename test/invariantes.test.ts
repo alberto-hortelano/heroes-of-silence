@@ -1202,6 +1202,32 @@ describe('invariantes del proyecto', () => {
     expect(colados).toEqual([]);
   });
 
+  it('los serializadores del contrato no tapan su tipo con `: unknown` (#109)', () => {
+    // El criterio lo escribió `serializeKnownMap`: el tipo lo infiere el
+    // compilador y quien lo necesite lo escribe donde lo usa. Los otros cuatro
+    // se quedaron con `: unknown` y la factura la pagaba `consultas.ts` con dos
+    // `as object`, que convertían el nombre de un campo del contrato en una
+    // cadena que nadie comprobaba. Con el tipo inferido, el servidor lee el
+    // campo y un renombrado en `core` no compila.
+    const tapados: string[] = [];
+    let serializadores = 0;
+    for (const ruta of CORE.filter((r) => r.startsWith('src/core/contract/'))) {
+      const codigo = sinComentarios(leer(ruta));
+      for (const m of codigo.matchAll(
+        /export function (serialize\w*)\(([^{]*?)\)\s*(:\s*[^{]+)?\{/g,
+      )) {
+        serializadores++;
+        if (/^:\s*unknown\s*$/.test(m[3] ?? ''))
+          tapados.push(`${ruta}:${lineaDe(codigo, m.index)} → ${m[1]}`);
+      }
+    }
+    expect(tapados).toEqual([]);
+    // Y que mire algo: sin esto, un patrón que no casara nada pasaría por vacío.
+    expect(serializadores).toBeGreaterThanOrEqual(5);
+    // El síntoma, en el servidor: un `as object` es un tipo del contrato tirado.
+    expect(infractoresDeCodigo(SERVIDOR, /\bas object\b/)).toEqual([]);
+  });
+
   it('FAL_KEY no llega al navegador', () => {
     // El arte se genera en scripts de línea de órdenes; el cliente solo carga
     // PNGs. Una clave de pago en el bundle es un incidente, no un despiste.

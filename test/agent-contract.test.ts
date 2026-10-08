@@ -704,10 +704,7 @@ describe('lo que ve el agente', () => {
 
     // Con el héroe al lado sí, con su tropa y su fuerza; y el héroe con la suya.
     mio.at = { x: grupo.at.x, y: grupo.at.y - 1 };
-    const cerca = serializeAdventureTurn(state, 0) as {
-      knownMap: { raiders: { id: string; troops: unknown[]; strength: number }[] };
-      heroes: { strength: number }[];
-    };
+    const cerca = serializeAdventureTurn(state, 0);
     const visto = cerca.knownMap.raiders.find((r) => r.id === grupo.id)!;
     expect(visto.troops.length).toBeGreaterThan(0);
     expect(visto.strength).toBeGreaterThan(0);
@@ -758,9 +755,7 @@ describe('lo que ve el agente', () => {
     const { raiders: _fuera, ...sin } = plan;
     expect(mapPlanSchema.safeParse(sin).success).toBe(true);
     // Y la paleta que se le manda trae el techo, sacado de los datos.
-    const peticion = serializeMapRequest({ width: 28, height: 28, players: [0, 1] }) as {
-      palette: { raiders: { maxStrength: number; examples: unknown[] } };
-    };
+    const peticion = serializeMapRequest({ width: 28, height: 28, players: [0, 1] });
     expect(peticion.palette.raiders.maxStrength).toBe(ASALTANTES.fuerzaMax);
     expect(peticion.palette.raiders.examples).toEqual(ASALTANTES.composiciones);
   });

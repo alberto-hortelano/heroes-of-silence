@@ -73,7 +73,7 @@ export function responderConsulta(
         // hay héroe atacante que enseñar, y el defensor —un héroe del rival— va
         // con sus cifras de tablero y sin su libro, que es del otro bando.
         return {
-          ...(serializeBattleTurn(pending.battle, 'attacker', 'ajena', null) as object),
+          ...serializeBattleTurn(pending.battle, 'attacker', 'ajena', null),
           note: `el jugador ${player} no está en esta batalla: la ves con los ojos del atacante, sin su maná, sin su libro de hechizos y sin "legalActions", porque ahí no juegas tú`,
         };
       }
@@ -86,7 +86,7 @@ export function responderConsulta(
         mio,
         'propia',
         playerById(state, player).resources.gold,
-      ) as object;
+      );
       if (suyos.size === 1) {
         // La ausencia que faltaba por explicar (#84). `legalActions` viaja solo
         // si el stack activo es del bando mirado, así que en TU propia batalla
