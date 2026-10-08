@@ -145,7 +145,8 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 | Qué grupo de asaltantes se ve | `asaltantesALaVista` (lista con la marca `AsaltantesALaVista`; sin niebla, `todosALaVista`); para un grupo suelto, `grupoALaVistaDesde` |
 | Por qué una marcha no llegó (veredicto del agente) | `paradaDeLaMarcha` → `notaMarchaParcial` (`server/notas.ts`) |
 | Material de una cara (pared, ladera, pedregal) | `materialDeCara` (`render/escenario/colocar.ts`) |
-| Qué barreras admiten los niveles de dos regiones | `admiteLosNiveles` (`vestir.ts`), que leen `barrerasDeLaPareja` y `candidatasSinMuro` |
+| Qué barreras admiten los niveles de dos regiones | `admiteLosNiveles` (`terrain.ts`), que leen `barrerasDeLaPareja`, `candidatasSinMuro` y `problemasDeNiveles` |
+| Franja de barrera (8-conexa, con las regiones que toca) | `franjasDeBarrera` (`regiones.ts`), que leen `relieve` y `problemasDeNiveles` |
 | Nivel de cada casilla de la escena | `relieve` (de `MapRegion.nivel`; nada lo inventa) |
 | Muralla de una franja de muro (línea, torres, guardia) | `trazaDeMuralla`, `torresDe`, `murallaSinLeer` (`muralla.ts`); torres apiladas, `seApilan`; lo de alrededor, `alrededorDeMurallas`; en la escena, `meterEnLaMuralla` |
 
@@ -252,8 +253,15 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   obstáculo (el cargador lo rechaza en `obstaculos`). Junto a un cruce de tres regiones la barrera
   de una pareja tocaba la tercera: `desnivelEnLosCruces` (paso 6b del engorde, en espejo) pasa a
   una barrera de desnivel la casilla de bosque o muro que toca otro nivel y a montaña o agua el
-  acantilado que no separa dos (lo vigila `test/desniveles.test.ts`, por franja 8-conexa). Los
-  planes del agente no lo declaran aún y van todos al 1 (#209); sus acantilados, roca sin cara.
+  acantilado que no separa dos. **El agente declara el nivel** (#209): `regions[].nivel`
+  opcional (0-2, `esNivel`), sin él la región va al 1. Si el plan declara alguno,
+  `validateMapPlan` corre `problemasDeNiveles`: cada franja de barrera (`franjasDeBarrera`, la
+  unidad que pinta la escena; un nodo o una ciudad la corta) admite los niveles de las regiones
+  que toca, o se rechaza diciendo cuál, por dónde pasa y qué regiones; el procedimental pasa
+  siempre por ahí (`test/desniveles.test.ts`). Por franja y no por pareja: en los cruces de tres
+  regiones el procedimental deja trocitos de acantilado entre dos iguales (16 casillas en 1-200, 08-10-2026).
+  Un plan sin ningún nivel (los de antes) no se comprueba y va todo al 1, con sus acantilados de
+  roca sin cara; la prosa se lo dice al agente.
   **La muralla, solo en zonas pequeñas** (#208): una muralla (muro y sus puertas, 8-conexo) no pasa
   de `LARGO_MAXIMO_DE_MURALLA` (6) de largo ni toca dos ciudades (`murallasLargas`, paso 7 de
   `engordarFronteras`); la que sí, con puertas se parte (muro a `RADIO_DE_LA_PUERTA` de cada una)
@@ -309,8 +317,8 @@ antes del destino (`battle_started` con `faltan`).
   pasa por la niebla**: crónica, mapa (`serializeKnownMap`, la misma llamada para
   el turno y la tool) y batallas ajenas.
 - El agente **defiende** sus batallas (`BattleTakeover`: si te la quedas, la
-  cierras) y **diseña el mapa**: un plan declarativo que valida
-  `validateMapPlan`. Si falla por cualquier motivo, se juega el procedimental y
+  cierras) y **diseña el mapa**: un plan declarativo, con el nivel de cada región
+  si quiere (#209), que valida `validateMapPlan`. Si falla por cualquier motivo, se juega el procedimental y
   se le dice por qué; no hay reintento.
 - La partida termina con un `game_over` explícito. `state.finished` es
   `{ winner: PlayerId | null } | null`; el tope de días es `GameState.maxDays`.

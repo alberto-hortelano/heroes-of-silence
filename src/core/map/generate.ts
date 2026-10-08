@@ -43,6 +43,7 @@ import {
   type Estructura,
   estructura,
   juntoANodo,
+  problemasDeNiveles,
   problemasDeRed,
   regionesQueToca,
   rellenar,
@@ -54,8 +55,10 @@ import {
   BARRERAS,
   type Barrera,
   esBarrera,
+  esNivel,
   isWalkable,
   type Nivel,
+  QUE_ES_UN_NIVEL,
   SUELOS_PISABLES,
   type Suelo,
   type TerrainKind,
@@ -115,8 +118,9 @@ export interface RegionPlaneada extends Omit<MapRegion, 'nivel'> {
   readonly terrain?: TerrainKind | undefined;
   /**
    * El nivel de altura (#143). Lo escribe el procedimental, que lo sortea antes
-   * que las barreras; el plan del agente aún no lo declara y `buildMap` pone
-   * sus regiones al 1, el llano (decisión del usuario, 08-10-2026).
+   * que las barreras, y el agente puede declararlo (#209); sin él, `buildMap`
+   * pone la región al 1, el llano. Si el plan declara alguno, `validateMapPlan`
+   * exige que cada barrera admita los niveles que separa (`problemasDeNiveles`).
    */
   readonly nivel?: Nivel | undefined;
 }
@@ -403,6 +407,13 @@ export function validateMapPlan(plan: MapPlan): string[] {
     }
   }
 
+  // El nivel, contra la lista: el esquema del agente ya lo acota, pero esta es
+  // la puerta de los dos productores y un número suelto no se pinta.
+  for (const r of plan.regions) {
+    if (r.nivel !== undefined && !esNivel(r.nivel))
+      problemas.push(`la región "${r.id}" pide el nivel ${String(r.nivel)}: ${QUE_ES_UN_NIVEL}`);
+  }
+
   const ocupadas = new Map<string, string>();
   const ocupar = (p: Point, quien: string): void => {
     const k = pointKey(p);
@@ -590,6 +601,15 @@ export function validateMapPlan(plan: MapPlan): string[] {
   // otras por nodos que no bloquean, así que no queda ciudad a la que no se
   // llegue. Un guardia que ya no puede morder no se deja de adorno.
   problemas.push(...problemasDeRed(map));
+  if (problemas.length > 0) return problemas;
+
+  // El relieve (#209): con la red ya leída, cada franja de barrera tiene que
+  // admitir los niveles que separa. Solo si el plan declara alguno: uno sin
+  // niveles —los de antes de #209— pone todo al llano, y ahí cualquier
+  // acantilado sería un cañón; rechazarlo tiraría planes que jugaban, así que
+  // se aceptan y su acantilado se pinta como una franja de roca sin cara. El
+  // procedimental los declara todos y pasa siempre por aquí.
+  if (plan.regions.some((r) => r.nivel !== undefined)) problemas.push(...problemasDeNiveles(map));
   if (problemas.length > 0) return problemas;
 
   // Los asaltantes, con la red ya leída: dónde puede vivir uno es una pregunta

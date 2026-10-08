@@ -497,6 +497,52 @@ export function planDeNodos(): PlanConCasillas {
   };
 }
 
+/**
+ * Un mapa con una meseta, escrito a mano (#209): la región `alta` (nivel 2)
+ * ocupa el norte y la corta un acantilado en la fila 7 de las dos de abajo,
+ * `oeste` y `este`, que van al llano y las separa un bosque en la columna 10.
+ *
+ * ```
+ *   filas 0-6    alta (2)          town-1 (5,7)  node (15,7): rampas del acantilado
+ *   fila 7       cliff ───────────────────────
+ *   filas 8-15   oeste (1) | forest x=10 | este (1)   town-0 (10,11)
+ * ```
+ *
+ * Es el plan de las mesetas del agente: con los niveles, el acantilado es el
+ * borde de la meseta y la escena le pinta cara; sin ellos, todo al llano.
+ */
+export function planDeMesetas(): PlanConCasillas {
+  return {
+    width: 20,
+    height: 16,
+    baseTerrain: 'grass',
+    patches: [],
+    regions: [
+      { id: 'alta', name: 'La Meseta', at: { x: 3, y: 3 }, nivel: 2 },
+      { id: 'oeste', name: 'Vega Baja', at: { x: 3, y: 12 }, nivel: 1 },
+      { id: 'este', name: 'Prado Bajo', at: { x: 16, y: 12 }, nivel: 1 },
+    ],
+    walls: [
+      { terrain: 'cliff', from: { x: 0, y: 7 }, to: { x: 19, y: 7 } },
+      { terrain: 'forest', from: { x: 10, y: 8 }, to: { x: 10, y: 15 } },
+    ],
+    nodes: [{ x: 15, y: 7 }],
+    towns: [
+      { id: 'town-0', name: 'Valdeluz', faction: 'knight', at: { x: 10, y: 11 }, owner: 0 },
+      { id: 'town-1', name: 'Cripta Gris', faction: 'necromancer', at: { x: 5, y: 7 }, owner: 1 },
+    ],
+    heroStarts: [
+      { player: 0, at: { x: 8, y: 12 } },
+      { player: 1, at: { x: 5, y: 5 } },
+    ],
+    mines: [],
+    villages: [],
+    resources: [],
+    monsters: [],
+    chests: [],
+  };
+}
+
 // ---------------------------------------------------------------- mapas densos
 
 /**

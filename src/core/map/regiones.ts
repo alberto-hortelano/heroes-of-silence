@@ -19,7 +19,14 @@
 import type { Town } from '../town/town.js';
 import type { PlayerId, Point } from '../types.js';
 import { aPunto, type GameMap, inBounds, type MapObject, type MapRegion } from './map.js';
-import { isWalkable, type TerrainKind } from './terrain.js';
+import {
+  admiteLosNiveles,
+  BARRERAS_DE_DESNIVEL,
+  type Barrera,
+  esBarrera,
+  isWalkable,
+  type TerrainKind,
+} from './terrain.js';
 
 /** Un nodo de la red: un objeto `node` o un castillo. */
 interface NodoDeRed {
@@ -466,6 +473,125 @@ export function problemasDeRed(map: GameMap): string[] {
     if (!vistas.has(k)) {
       problemas.push(
         `la región "${reg.id}" no se alcanza desde la región "${red.regiones[0]?.id}": ningún nodo lleva hasta ella`,
+      );
+    }
+  }
+  return problemas;
+}
+
+/**
+ * Una franja de barrera: las casillas 8-conexas de una misma barrera, y las
+ * regiones que tocan por lo que se pisa.
+ */
+export interface Franja {
+  readonly barrera: Barrera;
+  /** Sus casillas (índice `y*width+x`), la primera la de índice menor. */
+  readonly casillas: readonly number[];
+  /** Las regiones de lo que se pisa en sus ocho vecinas, por índice. */
+  readonly regiones: ReadonlySet<number>;
+}
+
+/**
+ * Las franjas de barrera de un terreno, en orden de su primera casilla (#209).
+ * Es la unidad del relieve: el escenógrafo pone cada franja al nivel más alto
+ * de las regiones que toca —el borde de la meseta— y su cara cae al pie del
+ * lado bajo (`relieve`, en el cliente). La misma función la lee la validación
+ * de los niveles (`problemasDeNiveles`), para que lo que se acepta sea lo que
+ * la escena sabe pintar. El terreno se pasa aparte porque el de la escena no es
+ * el del mapa: la casilla de un puente es agua.
+ */
+export function franjasDeBarrera(
+  width: number,
+  height: number,
+  terreno: readonly TerrainKind[],
+  regionDe: Int32Array,
+): Franja[] {
+  const vista = new Uint8Array(width * height);
+  const franjas: Franja[] = [];
+  for (let i = 0; i < width * height; i++) {
+    const t = terreno[i] as TerrainKind;
+    if (vista[i] === 1 || !esBarrera(t)) continue;
+    const casillas = [i];
+    vista[i] = 1;
+    const regiones = new Set<number>();
+    for (let q = 0; q < casillas.length; q++) {
+      const j = casillas[q] as number;
+      const x = j % width;
+      const y = (j - x) / width;
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+          const k = ny * width + nx;
+          const r = regionDe[k] as number;
+          if (r >= 0 && isWalkable(terreno[k] as TerrainKind)) regiones.add(r);
+          if (vista[k] === 0 && terreno[k] === t) {
+            vista[k] = 1;
+            casillas.push(k);
+          }
+        }
+    }
+    franjas.push({ barrera: t, casillas, regiones });
+  }
+  return franjas;
+}
+
+/** Cómo se nombra una barrera en un rechazo de niveles. */
+const NOMBRE_DE_BARRERA: Readonly<Record<Barrera, string>> = {
+  cliff: 'el acantilado ("cliff")',
+  mountain: 'la cordillera ("mountain")',
+  water: 'el agua ("water")',
+  forest: 'el bosque ("forest")',
+  wall: 'el muro ("wall")',
+};
+
+/**
+ * Lo que impide pintar el relieve de un mapa, en frases para quien diseñó el
+ * plan (#209). Vacío: cada franja de barrera admite los niveles de las regiones
+ * que toca (`admiteLosNiveles`, la regla del generador): un acantilado separa
+ * dos niveles distintos, y un bosque o un muro solo regiones al mismo nivel.
+ *
+ * **Por franja y no por pareja de regiones**, y no por pereza: es la unidad que
+ * pinta la escena (`franjasDeBarrera`), y el procedimental, que elige la
+ * barrera por pareja, deja en los cruces de tres regiones trocitos de una
+ * franja de acantilado entre dos de ellas al mismo nivel (s11 (13,1): dos
+ * casillas y un nodo en el borde del mapa; 16 casillas en 200 semillas). Por
+ * pareja, esos mapas se rechazarían y el generador lanzaría (`validadoPorLaPuerta`);
+ * por franja, el acantilado es el borde de la meseta que toca y la escena lo
+ * pinta como tal. Lo que se pierde: una franja que toca dos niveles en un sitio
+ * y separa dos regiones iguales en otro no se rechaza. En un plan del agente se
+ * pierde poco: cada nodo y cada ciudad abre su casilla y corta la franja, así
+ * que un muro con pasos queda en tramos de nodo a nodo.
+ *
+ * Una franja que no toca ninguna región (encerrada entre otras barreras) no se
+ * mira: no es el borde de nada. Una de acantilado que toca una sola región sí se
+ * rechaza: no separa niveles, es una losa de roca sin cara.
+ */
+export function problemasDeNiveles(map: GameMap): string[] {
+  const red = estructura(map);
+  const problemas: string[] = [];
+  for (const f of franjasDeBarrera(map.width, map.height, map.terrain, red.regionDe)) {
+    if (f.regiones.size === 0) continue;
+    const regiones = [...f.regiones].sort((a, b) => a - b).map((r) => map.regions[r] as MapRegion);
+    if (
+      admiteLosNiveles(
+        f.barrera,
+        regiones.map((r) => r.nivel),
+      )
+    )
+      continue;
+    const donde = `${NOMBRE_DE_BARRERA[f.barrera]} que pasa por ${casilla(aPunto(f.casillas[0] as number, map.width))}`;
+    const cuales = regiones.map((r) => `"${r.id}" (nivel ${r.nivel})`).join(', ');
+    if (f.barrera === 'cliff') {
+      problemas.push(
+        regiones.length === 1
+          ? `${donde} solo toca la región ${cuales}: un acantilado es el borde de una meseta y separa dos regiones a distinto nivel; dentro de una región, usa otra barrera`
+          : `${donde} separa regiones al mismo nivel, ${cuales}: un acantilado es el borde de una meseta y va entre dos niveles distintos; dales nivel distinto con "nivel" o usa otra barrera`,
+      );
+    } else {
+      problemas.push(
+        `${donde} toca regiones a distinto nivel, ${cuales}: ${f.barrera === 'forest' ? 'un bosque' : 'un muro'} solo va entre regiones al mismo nivel; entre dos niveles van ${BARRERAS_DE_DESNIVEL.map((b) => `"${b}"`).join(', ')}`,
       );
     }
   }

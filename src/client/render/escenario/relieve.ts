@@ -9,7 +9,8 @@
  * La cámara mira desde el sur: una caída hacia abajo en pantalla enseña su cara
  * de roca; una caída hacia arriba queda de espaldas y solo se ve el reborde.
  */
-import { esBarrera, isWalkable, type Suelo, type TerrainKind } from '@core/map/terrain.js';
+import { franjasDeBarrera } from '@core/map/regiones.js';
+import { isWalkable, type Suelo, type TerrainKind } from '@core/map/terrain.js';
 import type { Analisis } from './analizar.js';
 import type { Caja } from './pasillo.js';
 
@@ -81,33 +82,12 @@ export function relieve(a: Analisis): Relieve {
     nivel[i] = n.ciudad || a.conCamino.has(n.id) ? Math.min(...suyos) : Math.max(...suyos);
   }
 
-  const vista = new Uint8Array(N);
-  for (let i = 0; i < N; i++) {
-    const t = terreno[i] as TerrainKind;
-    if (vista[i] === 1 || !esBarrera(t)) continue;
-    const franja = [i];
-    vista[i] = 1;
-    const regiones = new Set<number>();
-    for (let q = 0; q < franja.length; q++) {
-      const j = franja[q] as number;
-      const x = j % W;
-      const y = (j - x) / W;
-      for (let dy = -1; dy <= 1; dy++)
-        for (let dx = -1; dx <= 1; dx++) {
-          const nx = x + dx;
-          const ny = y + dy;
-          if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
-          const k = ny * W + nx;
-          const r = red.regionDe[k] as number;
-          if (r >= 0 && isWalkable(terreno[k] as TerrainKind)) regiones.add(r);
-          if (vista[k] === 0 && terreno[k] === t) {
-            vista[k] = 1;
-            franja.push(k);
-          }
-        }
-    }
+  for (const f of franjasDeBarrera(W, H, terreno, red.regionDe)) {
+    const t = f.barrera;
+    const franja = f.casillas;
     // Una franja encerrada entre otras barreras no toca ninguna región: va con
     // las de lo que se pisa más cerca de cada casilla suya.
+    const regiones = new Set(f.regiones);
     if (regiones.size === 0)
       for (const j of franja) {
         const r = red.regionDe[fuente[j] as number] as number;

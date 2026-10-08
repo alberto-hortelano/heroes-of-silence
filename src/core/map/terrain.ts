@@ -106,6 +106,12 @@ export const NIVELES = [0, 1, 2] as const;
 
 export type Nivel = (typeof NIVELES)[number];
 
+/** Si `n` es uno de los `NIVELES`: lo que acepta el plan del agente en `regions[].nivel` (#209). */
+export const esNivel = (n: unknown): n is Nivel => (NIVELES as readonly unknown[]).includes(n);
+
+/** Qué es un nivel, en la frase que leen el esquema y la validación cuando lo rechazan. */
+export const QUE_ES_UN_NIVEL = 'el nivel de una región es 0 (abajo), 1 (el llano) o 2 (la meseta)';
+
 /**
  * Las barreras que pueden separar dos regiones a distinto nivel: las que se
  * leen como el borde de una meseta. El bosque y el muro, solo entre dos al
@@ -113,3 +119,17 @@ export type Nivel = (typeof NIVELES)[number];
  * 08-10-2026).
  */
 export const BARRERAS_DE_DESNIVEL: readonly Barrera[] = ['cliff', 'mountain', 'water'];
+
+/**
+ * Si la barrera `b` puede separar regiones a estos `niveles` (#143): entre dos
+ * o más niveles, solo las que se leen como el borde de una meseta
+ * (`BARRERAS_DE_DESNIVEL`); entre regiones al mismo nivel, todas menos el
+ * acantilado, que sería un cañón o una cresta y no el borde de nada. La regla,
+ * una vez: la leen el sorteo de cada pareja (`barrerasDeLaPareja`), lo que
+ * sustituye a una muralla larga (`candidatasSinMuro`) y la validación de los
+ * dos productores de planes (`problemasDeNiveles`, #209).
+ */
+export function admiteLosNiveles(b: Barrera, niveles: readonly Nivel[]): boolean {
+  const distintos = niveles.some((n) => n !== niveles[0]);
+  return distintos ? BARRERAS_DE_DESNIVEL.includes(b) : b !== 'cliff';
+}

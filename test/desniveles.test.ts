@@ -6,7 +6,8 @@
  * (`barrerasDeLaPareja`): el acantilado solo entre dos niveles distintos y dos
  * niveles distintos solo por acantilado, montaña o agua. Aquí se mira en el
  * mapa ya hecho, sin escena: por franja 8-conexa de cada barrera, los niveles
- * de las regiones que se pisan a su lado. Antes el nivel lo inventaba el
+ * de las regiones que se pisan a su lado, con la misma regla que valida los
+ * planes del agente (`problemasDeNiveles`, #209; aquí había una copia). Antes el nivel lo inventaba el
  * escenógrafo después y sin verlo: 98 de 258 franjas de acantilado de 1-40
  * separaban dos regiones al mismo nivel, y el 79 % de los cambios de nivel no
  * cruzaba un acantilado.
@@ -16,61 +17,12 @@ import barrerasJson from '../data/barreras.json' with { type: 'json' };
 import relieveJson from '../data/relieve.json' with { type: 'json' };
 import { NIVEL_POR_SUELO, validarBarreras, validarRelieve } from '../src/core/data.js';
 import { generateMapPlan } from '../src/core/map/generate.js';
-import type { GameMap } from '../src/core/map/map.js';
-import { estructura } from '../src/core/map/regiones.js';
-import {
-  BARRERAS_DE_DESNIVEL,
-  esBarrera,
-  SUELOS_PISABLES,
-  type TerrainKind,
-} from '../src/core/map/terrain.js';
+import { problemasDeNiveles } from '../src/core/map/regiones.js';
+import { BARRERAS_DE_DESNIVEL, SUELOS_PISABLES } from '../src/core/map/terrain.js';
 import { barrerasDeLaPareja } from '../src/core/map/vestir.js';
 import { createRng } from '../src/core/rng.js';
 import { newGame } from '../src/core/state/setup.js';
 import { itLento, rango, segunPrisa } from './lento.js';
-
-/**
- * Lo que no cuadra entre barreras y niveles en un mapa: cada franja 8-conexa de
- * una barrera, con los niveles de las regiones de sus vecinas que se pisan.
- */
-function desnivelesSinExplicar(map: GameMap): string[] {
-  const W = map.width;
-  const H = map.height;
-  const { regionDe } = estructura(map);
-  const vista = new Uint8Array(W * H);
-  const fuera: string[] = [];
-  for (let i = 0; i < W * H; i++) {
-    const t = map.terrain[i] as TerrainKind;
-    if (vista[i] === 1 || !esBarrera(t)) continue;
-    const pila = [i];
-    vista[i] = 1;
-    const niveles = new Set<number>();
-    while (pila.length > 0) {
-      const j = pila.pop() as number;
-      const x = j % W;
-      const y = (j - x) / W;
-      for (let dy = -1; dy <= 1; dy++)
-        for (let dx = -1; dx <= 1; dx++) {
-          const nx = x + dx;
-          const ny = y + dy;
-          if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
-          const k = ny * W + nx;
-          const r = regionDe[k] as number;
-          if (r >= 0) niveles.add(map.regions[r]?.nivel as number);
-          if (vista[k] === 0 && map.terrain[k] === t) {
-            vista[k] = 1;
-            pila.push(k);
-          }
-        }
-    }
-    const donde = `${t} de (${i % W},${Math.floor(i / W)})`;
-    if (t === 'cliff' && niveles.size < 2)
-      fuera.push(`${donde} no separa dos niveles (${[...niveles]})`);
-    if (!BARRERAS_DE_DESNIVEL.includes(t) && niveles.size > 1)
-      fuera.push(`${donde} separa los niveles ${[...niveles].sort()}`);
-  }
-  return fuera;
-}
 
 describe('el desnivel lo explica una barrera (#143)', () => {
   // s1, la de las marcas; 3 y 4, donde una barrera de un cruce de tres
@@ -79,7 +31,7 @@ describe('el desnivel lo explica una barrera (#143)', () => {
   it.each(segunPrisa([1, 3, 4], rango(1, 200)))(
     'semilla %i: el acantilado separa dos niveles y dos niveles los separa acantilado, montaña o agua',
     (semilla) => {
-      expect(desnivelesSinExplicar(newGame({ seed: semilla }).map)).toEqual([]);
+      expect(problemasDeNiveles(newGame({ seed: semilla }).map)).toEqual([]);
     },
   );
 

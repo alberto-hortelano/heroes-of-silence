@@ -31,6 +31,7 @@ import {
   factionLineup,
   isShooter,
   LIDERAZGO,
+  NIVEL_POR_SUELO,
   tiposDeHeroe,
 } from '../data.js';
 import type { VeteranoEnBase } from '../hero/ascenso.js';
@@ -51,7 +52,13 @@ import {
 } from '../hero/troop.js';
 import { minasDeLasRegiones, regionesDelMapa } from '../map/generate.js';
 import { pointFromKey } from '../map/map.js';
-import { BARRERAS, costeDeEntrada, SUELOS_PISABLES, TERRAIN_KINDS } from '../map/terrain.js';
+import {
+  BARRERAS,
+  BARRERAS_DE_DESNIVEL,
+  costeDeEntrada,
+  SUELOS_PISABLES,
+  TERRAIN_KINDS,
+} from '../map/terrain.js';
 import { asaltantesALaVista } from '../state/asaltantes.js';
 import { cronicaPara } from '../state/events.js';
 import {
@@ -811,6 +818,29 @@ function comoRepartePorRegiones(width: number, height: number): string {
 }
 
 /**
+ * El reparto de alturas del procedimental (#209), en una frase: la de casa al
+ * llano y las demás por su suelo, con los pesos de `data/relieve.json`. Un
+ * consejo, como el de las minas: el plan se valida por sus barreras
+ * (`problemasDeNiveles`), no por qué nivel elige. Sale de la tabla que sortea el
+ * generador, así que no se queda atrás si se retoca.
+ */
+function comoRepartenLosNiveles(): string {
+  const citar = (bs: readonly string[]): string => bs.map((b) => `"${b}"`).join(', ');
+  const porSuelo = SUELOS_PISABLES.map((suelo) => {
+    const fila = NIVEL_POR_SUELO[suelo];
+    const total = fila.reduce((t, p) => t + p.peso, 0);
+    const partes = fila.map((p) =>
+      fila.length === 1 ? `${p.nivel}` : `${p.nivel} el ${Math.round((p.peso * 100) / total)} %`,
+    );
+    return `${suelo} al ${partes.join(' y al ')}`;
+  });
+  return (
+    'Alturas: el mapa procedimental pone la región de casa de cada jugador al nivel 1 y cada pareja en espejo de las demás a un mismo nivel, ' +
+    `sorteado por su suelo: ${porSuelo.join('; ')}. Entre dos niveles pone ${citar(BARRERAS_DE_DESNIVEL)}; nunca ${citar(BARRERAS.filter((b) => !BARRERAS_DE_DESNIVEL.includes(b)))}.`
+  );
+}
+
+/**
  * Hasta qué nivel de morada se sugieren criaturas para guardar el mapa
  * (`palette.creaturesForGuards`). Es la cifra que tenía la lista escrita a mano
  * cuando se derivó (#108): una sugerencia, no una regla —`validateMapPlan`
@@ -858,6 +888,7 @@ export function serializeMapRequest(opts: MapRequestOptions) {
     advice: [
       'Reparte las minas para que ningún jugador nazca sin madera ni mineral.',
       comoRepartePorRegiones(opts.width, opts.height),
+      comoRepartenLosNiveles(),
       'Los monstruos custodian lo bueno: cuanto mejor el premio, más dura la guardia.',
       'Deja el centro del mapa disputado y los bordes seguros.',
       'Pon las ciudades en los cruces de tres regiones o más, y que cada base tenga dos caminos distintos hasta las ciudades que le quedan cerca: así aislarlas es posible pero no trivial.',

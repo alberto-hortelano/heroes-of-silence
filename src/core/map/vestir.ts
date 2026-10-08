@@ -21,6 +21,7 @@ import type { Rng } from '../rng.js';
 import { Frontera } from './frontera.js';
 import { aPunto, rellenar, vecindad } from './regiones.js';
 import {
+  admiteLosNiveles,
   BARRERAS,
   BARRERAS_DE_DESNIVEL,
   type Barrera,
@@ -71,19 +72,6 @@ function candidatasDeFrontera(a: Suelo, b: Suelo): BarreraConPeso[] {
   // En el orden de `BARRERAS` y no en el de inserción, para que la tabla no
   // dependa del orden en que se escribieron las filas del JSON.
   return BARRERAS.filter((b) => suma.has(b)).map((b) => ({ barrera: b, peso: suma.get(b)! }));
-}
-
-/**
- * Si la barrera `b` puede separar regiones a estos `niveles` (#143): entre dos
- * o más niveles, solo las que se leen como el borde de una meseta
- * (`BARRERAS_DE_DESNIVEL`); entre regiones al mismo nivel, todas menos el
- * acantilado, que sería un cañón o una cresta y no el borde de nada. La regla,
- * una vez: la leen el sorteo de cada pareja (`barrerasDeLaPareja`) y lo que
- * sustituye a una muralla larga (`candidatasSinMuro`).
- */
-function admiteLosNiveles(b: Barrera, niveles: readonly Nivel[]): boolean {
-  const distintos = niveles.some((n) => n !== niveles[0]);
-  return distintos ? BARRERAS_DE_DESNIVEL.includes(b) : b !== 'cliff';
 }
 
 /**

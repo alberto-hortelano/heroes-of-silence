@@ -21,7 +21,14 @@ import { CHARGE_BONUS_PER_HEX, MAX_CHARGE_HEXES } from '../battle/damage.js';
 import { NIVEL_MAXIMO_DE_TROPA } from '../hero/experiencia.js';
 import { HERO_BODY } from '../hero/hero.js';
 import { LADO_MAXIMO_DEL_PLAN, LADO_MINIMO_DEL_PLAN } from '../map/generate.js';
-import { BARRERAS, TERRAIN_KINDS } from '../map/terrain.js';
+import {
+  BARRERAS,
+  BARRERAS_DE_DESNIVEL,
+  esNivel,
+  NIVELES,
+  QUE_ES_UN_NIVEL,
+  TERRAIN_KINDS,
+} from '../map/terrain.js';
 import { MAX_HEROES_PER_PLAYER } from '../state/game.js';
 import { FACTION_IDS, HUECOS } from '../types.js';
 import { CATALOGO_DE_EQUIPO_EN_PROSA, COMO_SE_LEE_EL_MAPA } from './serialize.js';
@@ -264,6 +271,9 @@ export const mapPlanSchema = z.object({
       // Cualquier terreno en el esquema; que sea un suelo y no una barrera lo
       // dice `validateMapPlan`, con su frase, para los dos productores.
       terrain: terrainSchema.optional(),
+      // Acotado aquí con la misma lista que mira `validateMapPlan` (#209): el
+      // tipo del plan es `Nivel`, y un número suelto no casaría con él.
+      nivel: z.number().refine(esNivel, QUE_ES_UN_NIVEL).optional(),
     }),
   ),
   // Derivado de la lista que valida `validateMapPlan`, no copiado: el esquema y
@@ -641,6 +651,20 @@ El mapa es una RED DE NODOS, y eso se comprueba:
 - Una región puede llevar "terrain": su suelo ENTERO, todas sus casillas
   pisables pintadas de ese terreno (encima de "patches"). Tiene que ser un suelo
   que se pise, no una barrera. Solo pinta: no cambia por dónde se anda.
+- Una región puede llevar "nivel": su ALTURA, ${NIVELES.join(', ')} (0 abajo, 1 el llano,
+  2 la meseta). No cambia por dónde se anda ni lo que cuesta: es el relieve que
+  se pinta. Cada barrera tiene que admitir los niveles de las regiones que toca:
+  un acantilado ("cliff") es el borde de una meseta y va SOLO entre regiones a
+  distinto nivel; "forest" y "wall" van SOLO entre regiones al mismo nivel;
+  ${BARRERAS_DE_DESNIVEL.map((b) => `"${b}"`).join(', ')} valen entre dos niveles. Se mira por tramo de barrera
+  seguido (las casillas de una misma barrera que se tocan, también en diagonal;
+  un nodo o una ciudad lo corta), con todas las regiones que ese tramo toca: un acantilado que solo toca
+  regiones a un nivel, o uno dentro de una sola región, se rechaza; un bosque o
+  un muro que toque dos niveles, también, y se te dice cuál y por dónde pasa. Un
+  nodo entre dos niveles es una rampa. Una región sin "nivel" va al 1. Si NO
+  declaras ningún nivel, todo va al 1 y esto no se comprueba, pero tus
+  acantilados se pintan como franjas de roca sin cara: si pones "cliff", declara
+  los niveles.
 - "patches" solo pintan el suelo (círculos de "terrain", "center" y "radius"): no
   separan nada. Los muros se pintan encima.
 - Una ciudad neutral ("owner": null) nace con guarnición: hay que vencerla para
