@@ -927,6 +927,46 @@ describe('lo que ve el agente', () => {
     );
   });
 
+  it('sin `legalActions` viaja el motivo que decidió omitirla, y nunca los dos (#107)', () => {
+    // Un solo sitio decide si la lista va y por qué no: el serializador. Cada
+    // motivo sale de una batalla real, no de un estado fabricado.
+    const battle = createBattle(
+      { army: [{ creature: 'swordsman', count: 5 }], hero: null },
+      { army: [{ creature: 'pikeman', count: 5 }], hero: null },
+      createRng(3),
+    );
+    forzarTurno(battle, 'attacker-0');
+    const exactamenteUno = (v: object) =>
+      expect(('legalActions' in v ? 1 : 0) + ('legalActionsOmitted' in v ? 1 : 0)).toBe(1);
+
+    const suyo = serializeBattleTurn(battle, 'attacker', 'propia', 0);
+    exactamenteUno(suyo);
+    expect('legalActions' in suyo && suyo.legalActions.length).toBeGreaterThan(0);
+
+    const otro = serializeBattleTurn(battle, 'defender', 'propia', 0);
+    exactamenteUno(otro);
+    expect('legalActionsOmitted' in otro && otro.legalActionsOmitted).toBe('not_your_turn');
+
+    // La vista ajena gana a todo lo demás: aunque el activo sea del bando
+    // mirado, no es tuya.
+    const ajena = serializeBattleTurn(battle, 'attacker', 'ajena', null);
+    exactamenteUno(ajena);
+    expect('legalActionsOmitted' in ajena && ajena.legalActionsOmitted).toBe('not_your_battle');
+
+    const rng = createRng(3);
+    for (let i = 0; i < 2000 && battle.finished === null; i++) {
+      const [accion] = legalActions(battle);
+      if (accion === undefined) break;
+      applyAction(battle, accion, rng);
+    }
+    expect(battle.finished).not.toBeNull();
+    for (const side of ['attacker', 'defender'] as const) {
+      const fin = serializeBattleTurn(battle, side, 'propia', 0);
+      exactamenteUno(fin);
+      expect('legalActionsOmitted' in fin && fin.legalActionsOmitted).toBe('nobody_active');
+    }
+  });
+
   it('el turno en tramos y la carga viajan en el esquema, en la prosa y en el turno (02-10-2026)', () => {
     expect(battleActionSchema.safeParse({ type: 'end_turn' }).success).toBe(true);
     const prosa = RESPONSE_FORMAT.battle_turn;

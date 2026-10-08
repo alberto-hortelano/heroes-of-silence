@@ -642,7 +642,10 @@ function marcaDelOrigen(origen: OrigenDelStack): { commander?: true; veteranLeve
  * enumeran el libro de ese héroe filtrado por su maná —la misma fuga por la
  * puerta de al lado—. La promesa del contrato, «elegir una nunca falla», solo
  * es cierta cuando te toca a ti; en `director.ts` esa condición no muerde nunca,
- * porque allí `side` es el bando del stack que decide.
+ * porque allí `side` es el bando del stack que decide. Cuando no va, va
+ * `legalActionsOmitted` con el motivo: `not_your_battle` (vista ajena),
+ * `nobody_active` (nadie tiene el turno) o `not_your_turn` (lo tiene el otro
+ * bando). Exactamente uno de los dos campos viaja siempre.
  *
  * `oro` es el del jugador dueño de `side` y viaja como `yourGold` solo con la
  * vista propia: es del bando, como el maná. Lo pasa quien llama porque la
@@ -736,13 +739,22 @@ export function serializeBattleTurn(
     // casilla—: la carga se ENSEÑA con el movimiento posible, y sale de
     // `casillasDeCarga`, la misma regla que la cobra —sin el rasgo `charge` sale
     // vacía, así que aquí no se pregunta—.
-    ...(propia && activo !== null && activo.side === side
-      ? {
-          legalActions: legalActions(battle),
-          stepsLeft: pasosQueQuedan(battle, activo),
-          ...chargeFrom(battle, activo),
-        }
-      : {}),
+    //
+    // Cuando no va, va el MOTIVO que se decidió aquí, como código (#107): quien
+    // lo explica —`consultas.ts`— lo lee y no vuelve a derivarlo. Re-derivarlo
+    // era reescribir esta condición menos un término, y el día que hubiera un
+    // tercer motivo la nota habría afirmado con confianza uno de los dos viejos.
+    ...(!propia
+      ? { legalActionsOmitted: 'not_your_battle' as const }
+      : activo === null
+        ? { legalActionsOmitted: 'nobody_active' as const }
+        : activo.side !== side
+          ? { legalActionsOmitted: 'not_your_turn' as const }
+          : {
+              legalActions: legalActions(battle),
+              stepsLeft: pasosQueQuedan(battle, activo),
+              ...chargeFrom(battle, activo),
+            }),
     log: battle.log.slice(-30),
   };
 }

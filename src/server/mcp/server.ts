@@ -442,8 +442,9 @@ server.tool(
     'el maná ni el libro de hechizos de su héroe y sin "legalActions": ahí no ' +
     'juegas tú. Y en tu PROPIA batalla tampoco hay "legalActions" cuando el ' +
     'turno lo tiene una unidad del otro bando: la lista es siempre la del stack ' +
-    'activo, y esa sería la del rival. En los dos casos la nota de la respuesta ' +
-    'dice cuál de las dos ausencias es.',
+    'activo, y esa sería la del rival. Cuando falta, "legalActionsOmitted" dice ' +
+    'por qué ("not_your_battle", "not_your_turn" o "nobody_active") y la nota ' +
+    'de la respuesta lo explica.',
   { player: z.number().int().optional().describe(PARAMETRO_JUGADOR) },
   async ({ player }) => {
     const data = await consultar('battle_state', jugador(player));

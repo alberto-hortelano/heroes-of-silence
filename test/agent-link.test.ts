@@ -3,7 +3,7 @@ import type { AddressInfo } from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
 import { playAiTurn } from '../src/core/ai/turn.js';
-import { activeStack, applyAction } from '../src/core/battle/battle.js';
+import { activeStack, applyAction, legalActions } from '../src/core/battle/battle.js';
 import { creature } from '../src/core/data.js';
 import { type Hero, heroUnit } from '../src/core/hero/hero.js';
 import {
@@ -1001,6 +1001,70 @@ describe('una consulta solo habla de los jugadores que lleva el agente', () => {
     }
     expect(conElMio, 'la batalla tiene que enseñar un turno tuyo').toBeGreaterThan(0);
     expect(conElSuyo, 'y uno del rival, o esto no prueba nada').toBeGreaterThan(0);
+  });
+
+  it('la nota lee el motivo que decidió el núcleo, también con los dos bandos y sin nadie activo (#107)', async () => {
+    // Las dos ramas que la nota cubría sin un test que las alcanzara: un
+    // jugador en los dos bandos, y una batalla sin nadie con el turno. La nota
+    // ya no deriva el motivo: lo lee de `legalActionsOmitted`, así que aquí se
+    // mira que cada código salga con su redacción y no con la de otro.
+    const { link } = await montar(() => ({ actions: [] }));
+    const director = new Director(link, { seed: 404, agentPlayers: [1] });
+    const mio = rivalAlAtaque(director.state);
+    const rival = director.state.heroes.find((h) => h.owner === 0) as Hero;
+    applyAdventureAction(
+      director.state,
+      { type: 'move_hero', hero: rival.id, to: mio.at },
+      director.ctx,
+      rival.owner,
+    );
+    const pendiente = director.state.pendingBattle;
+    if (pendiente === null) throw new Error('hacía falta una batalla del agente');
+    const batalla = pendiente.battle;
+
+    // Los dos bandos de un jugador. **Ninguna partida lo produce**: la consulta
+    // pregunta por UN jugador, y un jugador no se ataca a sí mismo, así que
+    // `sidesOwnedBy(…, [player])` no devuelve los dos jugando. Se fabrica
+    // dándole al jugador 1 el héroe atacante —el dueño se lee del héroe en
+    // cada consulta— y se devuelve al acabar, para que la rama no sea muda.
+    rival.owner = 1;
+    const rng = createRng(107);
+    const vistos = new Set<string>();
+    for (let i = 0; i < 40 && vistos.size < 2; i++) {
+      const activo = activeStack(batalla);
+      if (activo === null) break;
+      const vista = responderConsulta(director, 'battle_state', { player: 1 }) as any;
+      // Con los dos bandos se mira con los ojos del atacante, y se dice.
+      expect(vista.yourSide).toBe('attacker');
+      expect(vista.note).toMatch(/lleva los dos bandos/);
+      if (activo.side === 'attacker') {
+        expect(vista.legalActions).toBeDefined();
+        expect('legalActionsOmitted' in vista).toBe(false);
+        expect(vista.note).toMatch(/es la de una unidad suya/);
+      } else {
+        expect(vista.legalActions).toBeUndefined();
+        expect(vista.legalActionsOmitted).toBe('not_your_turn');
+        expect(vista.note).toMatch(/bando defender —que también es tuyo—/);
+      }
+      vistos.add(activo.side);
+      applyAction(batalla, { type: 'defend' }, rng);
+    }
+    expect([...vistos].sort()).toEqual(['attacker', 'defender']);
+    rival.owner = 0;
+
+    // Y acabada la batalla, nadie tiene el turno: ni «no te toca» ni un bando
+    // inventado.
+    for (let i = 0; i < 2000 && batalla.finished === null; i++) {
+      const [accion] = legalActions(batalla);
+      if (accion === undefined) break;
+      applyAction(batalla, accion, rng);
+    }
+    expect(batalla.finished).not.toBeNull();
+    const fin = responderConsulta(director, 'battle_state', { player: 1 }) as any;
+    expect(fin.yourSide).toBe('defender');
+    expect(fin.legalActionsOmitted).toBe('nobody_active');
+    expect(fin.note).toMatch(/ninguna unidad tiene el turno/);
+    expect(fin.note).not.toMatch(/no te toca|también es tuyo|lleva los dos bandos/);
   });
 
   it('battle_state SIN batalla también comprueba de quién se pregunta (#83)', async () => {
