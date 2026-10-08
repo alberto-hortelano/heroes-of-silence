@@ -431,16 +431,19 @@ describe('los hitos de los nodos (#176): tres, por el id, ninguno con cruz', () 
     }
   });
 
-  it('sin tope: cada nodo de acantilado y de bosque (#196) lleva su hito, también los de s36 (§29)', () => {
+  it('sin tope: cada nodo de acantilado, de bosque (#196) y de montaña (#203) lleva su hito, también los de s36 (§29)', () => {
     // Un nodo neutral no lleva bandera: sin su hito, no se vería que ahí hay
     // algo que tomar. En 1-40 son 233 (119 de acantilado, nunca dos a menos de 5
     // casillas, y 114 de bosque, que acercan cuatro pares a 4,1-4,5; 08-10-2026):
     // muchos en un mapa es que el mapa tiene muchos pasos, y cada uno se toma.
+    // Con la montaña (#203), 121 más en 1-40.
     for (const semilla of segunPrisa([36], rango(1, 40))) {
       const { map, escena } = partidaDe(semilla);
       const a = analizar(map);
       const nodos = map.objects.filter(
-        (o) => o.kind === 'node' && ['cliff', 'forest'].includes(a.pasos.get(o.id)?.barrera ?? ''),
+        (o) =>
+          o.kind === 'node' &&
+          ['cliff', 'forest', 'mountain'].includes(a.pasos.get(o.id)?.barrera ?? ''),
       );
       if (semilla === 36) {
         expect(nodos.filter((o) => a.pasos.get(o.id)?.barrera === 'cliff')).toHaveLength(9);

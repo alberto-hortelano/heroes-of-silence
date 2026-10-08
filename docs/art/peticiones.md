@@ -217,7 +217,7 @@ todo esto: es la propuesta de cómo engancharlo, no el render.
 | Textura de cada suelo | `assets/mapa/suelos/<suelo>.webp` | 512×512, repetible por los cuatro lados (la costura la fabrica el taller). Sustituye a `tramarTexturas` y a `rpg/suelo.webp`. En la composición, una textura cubre 4×4 casillas, anclada al mundo |
 | Bordes | `bosque-{verde,nevado,pantano}-1..3`, `acantilado-{arena,lava,roca}-{ancho-1,ancho-2,hondo-1}`, `muro-{ancho,hondo}-1..2`, `orilla-1..3`, `montana-volcan-1..2`, `pico-1..3` | tramos de unas 2 casillas. `ancho`: la frontera corre a lo ancho de la pantalla; `hondo`: se aleja hacia el fondo. El pico remata los extremos de una cordillera, no la rellena |
 | Obstáculos | `bosquecillo`, `pinos-nevados`, `arboles-muertos`, `rocas`, `rocas-nevadas`, `cono-volcanico`, `colada`, `farallon`, `pena`, `ruina-1..3` (`-1..2` salvo la ruina) | de una casilla, para componer las manchas de 3-6 |
-| Nodos de paso | `nodo-puente-{ancho,hondo}`, `nodo-puerta-{ancho,hondo}`, `nodo-paso-montana`, `nodo-paso-bosque` (sin uso desde #196: el paso lo abren los árboles del bosque y lleva el hito), `nodo-paso-acantilado` (sin uso desde #168: el acantilado lleva el hito) | con el poste vacío para la bandera. En un nodo, el eje es el de la frontera que cruza: en `nodo-puente-ancho` el río corre a lo ancho y el puente va hacia el fondo |
+| Nodos de paso | `nodo-puente-{ancho,hondo}`, `nodo-puerta-{ancho,hondo}`, `nodo-paso-montana` (sin uso desde #203: el paso lo abre la cordillera y lleva el hito), `nodo-paso-bosque` (sin uso desde #196: el paso lo abren los árboles del bosque y lleva el hito), `nodo-paso-acantilado` (sin uso desde #168: el acantilado lleva el hito) | con el poste vacío para la bandera. En un nodo, el eje es el de la frontera que cruza: en `nodo-puente-ancho` el río corre a lo ancho y el puente va hacia el fondo |
 
 Cómo se elige, y lo que la composición aprendió al probarlo:
 
@@ -1432,3 +1432,15 @@ decisión del usuario («que se abra con los árboles del propio bosque») el no
 bosque lleva el hito de `HITOS`, como el de acantilado; la pieza se queda en
 `assets/mapa/` sin uso.
 
+## 32. El paso de montaña sin pieza (#203, rama `montanas`, 08-10-2026)
+
+No se pide arte. `nodo-paso-montana` (dos picos pardos con una garganta de tierra
+de norte a sur) solo casaba con 2 de los 23 nodos de montaña de la auditoría 4: en
+los demás el paso va de este a oeste o en diagonal, y el camino o la trocha entraba
+bajo la roca por un costado; tampoco se entonaba (en la nieve de s443 salía parda).
+Con la idea del paso de bosque (§31, «que se abra con los árboles del propio
+bosque»), el nodo de montaña lleva el hito de `HITOS` y la garganta la abren los
+picos de la propia cordillera por el eje (`pasosALaVista`), con su trocha o su
+camino. La pieza se queda en `assets/mapa/` sin uso. Si algún día se quiere una
+garganta pintada, haría falta una por eje (este-oeste, norte-sur y las dos
+diagonales) y por material (nieve, roca, lava, arena): 16 piezas.

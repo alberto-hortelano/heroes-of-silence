@@ -16,18 +16,19 @@ import { azarDe } from './esparcir.js';
  * su portillo era de abetos verdes sin nieve, y en un bosque nevado, de árboles
  * muertos o entre dos suelos (la mitad de los pasos de bosque de 1-40 separan
  * dos) no se entendía qué era; el paso lo abren los árboles del propio bosque
- * (`pasosALaVista`), la trocha lo cruza y el hito dice que se toma. `n` es su
- * sitio en la lámina `b` de `mapa-denso.ts`.
+ * (`pasosALaVista`), la trocha lo cruza y el hito dice que se toma. La montaña
+ * tampoco (#203): su pieza era un par de picos pardos con la garganta hacia la
+ * cámara, y solo 2 de 23 nodos de montaña de la auditoría 4 se cruzan de norte
+ * a sur; en los demás el camino o la trocha entraba bajo la roca por un costado,
+ * y en la nieve salía parda. El paso lo abre la propia cordillera por su eje,
+ * como el del bosque. `n` es su sitio en la lámina `b` de `mapa-denso.ts`.
  */
 export const NODOS: readonly {
   id: string;
   n: number;
   barrera: Barrera;
   variantes: readonly string[];
-}[] = [
-  { id: 'nodo-puerta', n: 2, barrera: 'wall', variantes: ['ancho', 'hondo'] },
-  { id: 'nodo-paso-montana', n: 3, barrera: 'mountain', variantes: [''] },
-];
+}[] = [{ id: 'nodo-puerta', n: 2, barrera: 'wall', variantes: ['ancho', 'hondo'] }];
 
 /**
  * El eje de la frontera de un nodo, por las barreras de sus ocho vecinas: la
@@ -71,7 +72,7 @@ export function pasoDeNodo(
 
 /**
  * Los hitos del nodo que no tiene pieza de paso: el de acantilado, el de bosque
- * (#196) y el que no cruza ninguna barrera. Tres, porque uno solo repetido por un llano se leía como
+ * (#196), el de montaña (#203) y el que no cruza ninguna barrera. Tres, porque uno solo repetido por un llano se leía como
  * un cementerio (#176): el de la lámina llevaba una cruz y parecía una lápida.
  */
 export const HITOS = ['nodo-hito-miliar', 'nodo-hito-mojon', 'nodo-hito-tablilla'] as const;
@@ -229,6 +230,8 @@ export function ejeDelPaso(
 /** Un nodo de paso y su eje (`ejeDelPaso`): lo que no puede quedar tapado (#173). */
 export interface PasoALaVista {
   readonly id: string;
+  /** La barrera que cruza: la puerta de muralla es su pieza; la montaña y el bosque, un hito. */
+  readonly barrera: Barrera;
   readonly eje: readonly (readonly (readonly [number, number])[])[];
 }
 
@@ -236,7 +239,8 @@ export interface PasoALaVista {
  * Las barreras cuyo nodo abre su eje entre los volúmenes (#173): las de una
  * masa que lo enterraría. Ni el agua, cuyo puente se aparta con su tablero
  * (`formasDeLosTableros`), ni el acantilado, que lleva el hito y su rampa. El
- * bosque está aunque ya no tenga pieza (#196): su paso es justo ese hueco.
+ * bosque y la montaña están aunque ya no tengan pieza (#196, #203): su paso es
+ * justo ese hueco.
  */
 export const BARRERAS_CON_PASO_A_LA_VISTA: readonly Barrera[] = ['wall', 'mountain', 'forest'];
 
@@ -252,7 +256,7 @@ export function pasosALaVista(
   return map.objects.flatMap((o) => {
     if (o.kind !== 'node' || puentes.has(o.id)) return [];
     if (!BARRERAS_CON_PASO_A_LA_VISTA.includes(o.barrera)) return [];
-    return [{ id: o.id, eje: ejeDelPaso(o.at, map.width, map.terrain) }];
+    return [{ id: o.id, barrera: o.barrera, eje: ejeDelPaso(o.at, map.width, map.terrain) }];
   });
 }
 

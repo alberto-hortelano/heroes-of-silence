@@ -52,8 +52,8 @@ describe('el catálogo de los mapas densos', () => {
     expect(faltan).toEqual([]);
   });
 
-  it('cada barrera tiene su nodo de paso, menos el agua (puente), el acantilado (#168) y el bosque (#196), con hito', () => {
-    const conHito = ['cliff', 'forest'];
+  it('cada barrera tiene su nodo de paso, menos el agua (puente), el acantilado (#168), el bosque (#196) y la montaña (#203), con hito', () => {
+    const conHito = ['cliff', 'forest', 'mountain'];
     for (const b of BARRERAS)
       if (b !== 'water' && !conHito.includes(b))
         expect(esHito(nodoDePaso('n1', b, 'ancho'))).toBe(false);

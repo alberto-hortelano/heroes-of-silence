@@ -336,6 +336,11 @@ export interface Escena {
      */
     readonly pasosTapados: number;
     /**
+     * Nodos de paso de montaña o de bosque cuya propia pieza, la que no es un
+     * hito, pisa su eje (`pasosAtravesados`, #203): tiene que ser 0.
+     */
+    readonly pasosAtravesados: number;
+    /**
      * Minas y pueblos a los que la senda pintada no llega por un solo tramo
      * desde su puerta, la casilla de debajo (`sendasPorObjeto`, #188): tiene
      * que ser 0 en el procedimental. Un plan del agente puede cruzarlos.
@@ -821,17 +826,22 @@ export const RADIO_DE_OBJETO: Readonly<Record<string, number>> = {
 };
 
 /**
- * La reserva de un nodo de bosque, que lleva un hito y no pieza (#196): la de
- * 0,95 era para el portillo de 1,7 casillas, y alrededor de un hito de 0,6 abría
- * un claro redondo donde el bosque no llegaba al paso, que se leía como un punto
- * más del camino. Con esta, los árboles de las casillas de al lado llegan a los
- * flancos del nodo y lo que queda libre es el eje (`pasosALaVista`) y el hito.
+ * La reserva de un nodo de bosque o de montaña, que lleva un hito y no pieza
+ * (#196, #203): la de 0,95 era para el portillo de 1,7 casillas, y alrededor de
+ * un hito de 0,6 abría un claro redondo donde la masa no llegaba al paso, que se
+ * leía como un punto más del camino. Con esta, los árboles o los picos de las
+ * casillas de al lado llegan a los flancos del nodo y lo que queda libre es el
+ * eje (`pasosALaVista`) y el hito: una garganta.
  */
-export const RADIO_DEL_PASO_DE_BOSQUE = 0.5;
+export const RADIO_DEL_PASO_SIN_PIEZA = 0.5;
 
-/** El radio de la reserva de un objeto (`reservaDe`): el de su clase, salvo el nodo de bosque. */
+/** Las barreras de masa cuyo nodo lleva hito y no pieza: su reserva es `RADIO_DEL_PASO_SIN_PIEZA`. */
+const PASOS_SIN_PIEZA: readonly Barrera[] = ['forest', 'mountain'];
+
+/** El radio de la reserva de un objeto (`reservaDe`): el de su clase, salvo el nodo de bosque o de montaña. */
 export function radioDeLaReserva(o: Pick<MapObject, 'kind'> & { barrera?: Barrera }): number {
-  if (o.kind === 'node' && o.barrera === 'forest') return RADIO_DEL_PASO_DE_BOSQUE;
+  if (o.kind === 'node' && o.barrera !== undefined && PASOS_SIN_PIEZA.includes(o.barrera))
+    return RADIO_DEL_PASO_SIN_PIEZA;
   return RADIO_DE_OBJETO[o.kind] ?? 0.5;
 }
 
@@ -2364,6 +2374,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       carasLisas: carasLisas(carasDeEscena, sprites, perfilDe).length,
       puentesTapados: puentesTapados(sprites, puentes).length,
       pasosTapados: pasosTapados(sprites, pasos).length,
+      pasosAtravesados: pasosAtravesados(sprites, pasos).length,
       sendasPorObjeto: sendasPorObjeto(caminos, a.objetos, a.terreno, W, H).length,
       trochasTapadas: trochasTapadas(sprites, trochas).length,
       sendasDeEstriboEnAgua: sendasDeEstriboEnAgua(trazos, puentes, vados, esAgua).length,
@@ -2664,6 +2675,27 @@ export function pasosTapados(
   return pasos.filter((p) => {
     const eje = pasilloDe(p.eje, SEMIANCHO_DEL_PASO);
     return volumenes.some((s) => eje.pisa(s));
+  });
+}
+
+/**
+ * Los nodos de paso de montaña o de bosque cuya propia pieza, la que no es un
+ * hito, pisa su eje (#203): la del paso de montaña era un par de picos con la
+ * garganta de norte a sur, y en 21 de 23 nodos de la auditoría 4 el camino o la
+ * trocha llegaba de lado y se metía bajo la roca. `pasosTapados` no lo veía:
+ * mira lo que se aparta, y la pieza es el objeto. La puerta de muralla no
+ * cuenta, que se cruza por ella. Tiene que ser 0.
+ */
+export function pasosAtravesados(
+  sprites: readonly Sprite[],
+  pasos: readonly PasoALaVista[],
+): PasoALaVista[] {
+  return pasos.filter((p) => {
+    if (p.barrera === 'wall') return false;
+    const eje = pasilloDe(p.eje, SEMIANCHO_DEL_PASO);
+    return sprites.some(
+      (s) => s.objeto?.id === p.id && !esHito(s.src?.replace(/\.webp$/, '') ?? null) && eje.pisa(s),
+    );
   });
 }
 

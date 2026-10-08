@@ -6,10 +6,11 @@ import type { TerrainKind } from '@core/map/terrain.js';
 import { describe, expect, it } from 'vitest';
 import {
   formaDeLosPasos,
+  pasosAtravesados,
   pasosTapados,
   type Sprite,
 } from '../src/client/render/escenario/colocar.js';
-import { ejeDelPaso, pasosALaVista } from '../src/client/render/escenario/nodos.js';
+import { ejeDelPaso, esHito, pasosALaVista } from '../src/client/render/escenario/nodos.js';
 import { cajaDeSprite, Obstaculos } from '../src/client/render/escenario/pasillo.js';
 import { UMBRAL_DE_VOLUMEN } from '../src/client/render/escenario/pintar.js';
 import { partidaDe } from './helpers.js';
@@ -95,6 +96,7 @@ describe('lo que tapa un paso: el contador y la puerta', () => {
   const pasos = [
     {
       id: 'n',
+      barrera: 'mountain' as const,
       eje: [
         [
           [2.5, 5.5],
@@ -155,6 +157,63 @@ describe('lo que tapa un paso: el contador y la puerta', () => {
     expect(libre).toBeLessThanOrEqual(UMBRAL_DE_VOLUMEN);
     expect(libre).toBeCloseTo(UMBRAL_DE_VOLUMEN, 2);
     expect(pasosTapados([{ ...arbol, alto: libre }], pasos)).toEqual([]);
+  });
+});
+
+describe('el paso de montaña lo abre la cordillera, sin pieza (#203)', () => {
+  const eje = [
+    [
+      [2.5, 5.5],
+      [8.5, 5.5],
+    ] as const,
+  ];
+  const deNodo = (src: string, nw: number, nh: number): Sprite => ({
+    src,
+    nw,
+    nh,
+    ax: nw / 2,
+    ay: nh,
+    x: 5.5,
+    y: 5.85,
+    alto: (1.7 * nh) / nw,
+    clase: 'objeto',
+    color: '#000',
+    capa: 0,
+    sombra: true,
+    objeto: { id: 'n', kind: 'node' },
+  });
+
+  it('la pieza de dos picos atraviesa un eje este-oeste; el hito no cuenta', () => {
+    const pasos = [{ id: 'n', barrera: 'mountain' as const, eje }];
+    // `nodo-paso-montana` medía 1,7 casillas de ancho: el camino le entraba por un costado.
+    expect(pasosAtravesados([deNodo('nodo-paso-montana.webp', 300, 260)], pasos)).toEqual(pasos);
+    expect(pasosAtravesados([deNodo('nodo-hito-mojon.webp', 300, 260)], pasos)).toEqual([]);
+    // La pieza de otro nodo no es la suya.
+    const ajena = {
+      ...deNodo('nodo-paso-montana.webp', 300, 260),
+      objeto: { id: 'm', kind: 'node' as const },
+    };
+    expect(pasosAtravesados([ajena], pasos)).toEqual([]);
+    // La puerta de muralla se cruza por ella.
+    const muro = [{ id: 'n', barrera: 'wall' as const, eje }];
+    expect(pasosAtravesados([deNodo('nodo-puerta-ancho.webp', 300, 260)], muro)).toEqual([]);
+  });
+
+  it(`semillas ${segunPrisa('1, 9 y 443', '1-40 y 443')}: ningún nodo de montaña lleva pieza`, () => {
+    let montana = 0;
+    for (const s of segunPrisa([1, 9, 443], [...rango(1, 40), 443])) {
+      const { map, escena } = partidaDe(s);
+      const pasos = pasosALaVista(map, new Set(escena.puentes.map((p) => p.id)));
+      montana += pasos.filter((p) => p.barrera === 'mountain').length;
+      expect(pasosAtravesados(escena.sprites, pasos), `semilla ${s}`).toEqual([]);
+      expect(escena.informe.pasosAtravesados, `semilla ${s}`).toBe(0);
+      for (const p of pasos.filter((q) => q.barrera === 'mountain')) {
+        const pieza = escena.sprites.find((x) => x.objeto?.id === p.id);
+        expect(esHito(pieza?.src?.replace(/\.webp$/, '') ?? null), `s${s} ${p.id}`).toBe(true);
+      }
+    }
+    // Que mire algo: 121 nodos de montaña en 1-40 (08-10-2026).
+    expect(montana).toBeGreaterThanOrEqual(segunPrisa(4, 100));
   });
 });
 
