@@ -249,6 +249,32 @@ describe('las bajadas (R5)', () => {
     expect(m.every(([x]) => Math.abs(x - 2.5) < 1e-9)).toBe(true);
   });
 
+  it('el pie de la rampa no cae donde no se admite (el agua): toma el rumbo vecino que sí, y si ninguno, el suyo (#214)', () => {
+    // La esquina SE de la meseta: en diagonal, el pie cae en (4, 2). Si esa
+    // casilla fuera agua —la de al lado de una ciudad entre dos barreras, s37
+    // (7,26)—, la rampa pasaba de la ciudad y ponía el pie en ella.
+    const casilla = (b: Bajada) => rampaDe(b)[1].map(Math.floor).join(',');
+    const t = [tramo([3, 1], [4, 2])];
+    const conPie = (
+      admitido: (x: number, y: number) => boolean,
+      sendas: (readonly (readonly [number, number])[])[] = [],
+    ) => {
+      const [b] = bajadasDe(r.nivel, r.W, r.suelo, r.celdas, t, sendas, undefined, admitido);
+      return b as Bajada;
+    };
+    const libre = conPie(() => true);
+    expect(libre.rumbo).toBe('se');
+    expect(casilla(libre)).toBe('4,2');
+    const sinEsa = (x: number, y: number) => !(x === 4 && y === 2);
+    // Sin senda pintada y con ella (`rumboPintado`): otro rumbo, con el pie admitido.
+    for (const b of [conPie(sinEsa), conPie(sinEsa, [recta([3.5, 1.5], [4.5, 2.5])])]) {
+      expect(['s', 'e']).toContain(b.rumbo);
+      expect(casilla(b)).not.toBe('4,2');
+    }
+    // Si no se admite ninguno, el de siempre: lo cuenta el informe, no se inventa.
+    expect(conPie(() => false).rumbo).toBe('se');
+  });
+
   it('una bajada sin senda que pase por ella no mueve ninguna, y el guardia la cuenta', () => {
     const b = conSenda(recta([2.5, 0.5], [2.5, 3.5]));
     const lejos = recta([5.5, 0.5], [5.5, 3.5]);

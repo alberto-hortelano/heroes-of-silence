@@ -1519,6 +1519,13 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   const nodosDePuente = new Set(
     a.objetos.filter((o) => a.puentes.has(o.id)).map((o) => `${o.at.x},${o.at.y}`),
   );
+  /**
+   * Dónde puede caer el pie de la rampa de una bajada (#214): nunca en el agua
+   * (la de los puentes incluida). En diagonal, la rampa de caída 2 mide 1,65
+   * casillas y pasaba de la ciudad de s37 (7,26) al agua de (6,27).
+   */
+  const pieAdmitido = (x: number, y: number): boolean =>
+    x >= 0 && y >= 0 && x < W && y < H && a.terreno[y * W + x] !== 'water';
   const bajadasDe_ = (l: readonly Senda[]) =>
     bajadasDe(
       nivel,
@@ -1528,6 +1535,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       map.caminos.tramos,
       l,
       (p, q) => nodosDePuente.has(`${p.x},${p.y}`) || nodosDePuente.has(`${q.x},${q.y}`),
+      pieAdmitido,
     );
   // La senda se aparta de lo que la tapa (#206), menos junto a una bajada, que
   // la cruza por su rampa: ahí la tapa la bajada, que es camino.
@@ -1587,9 +1595,16 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   // llano no se veía (147 de 257 nodos entre niveles en 1-40).
   const bajadas = [
     ...bajadasDeLasSendas,
-    ...bajadasDe(nivel, W, a.suelo, rel.celdas, tramosDeLasRampas(map, a), trochas).map(
-      (b): Bajada => ({ ...b, deUnNodo: true }),
-    ),
+    ...bajadasDe(
+      nivel,
+      W,
+      a.suelo,
+      rel.celdas,
+      tramosDeLasRampas(map, a),
+      trochas,
+      undefined,
+      pieAdmitido,
+    ).map((b): Bajada => ({ ...b, deUnNodo: true })),
   ];
   /**
    * Lo que no se tapa (#151): la senda; la rampa de cada bajada, más ancha que

@@ -56,21 +56,23 @@ describe('la senda no corta el agua en diagonal (#210)', () => {
 describe('la senda pintada no pasa por el agua (#210, la medida de #211)', () => {
   // s10 y s19: la senda que atravesaba una ciudad entre el agua y una pared se
   // corría con el vaivén hacia el agua en la casilla de su puerta; ahora acaba
-  // en cada ciudad o nodo que atraviesa (`encadenar`) y llega recta.
-  it.each([1, 10, 19])('semilla %i: ningún trozo de senda bajo el agua', (semilla) => {
+  // en cada ciudad o nodo que atraviesa (`encadenar`) y llega recta. s37: la
+  // rampa que baja en diagonal a la ciudad de (7,26) ponía el pie en el agua (#214).
+  it.each([1, 10, 19, 37])('semilla %i: ningún trozo de senda bajo el agua', (semilla) => {
     expect(sendaSobreElAgua(escenaDe(semilla))).toBe(0);
   });
 
-  itLento('en 1-40, solo la bajada que pasa de una ciudad al agua (s37)', () => {
+  itLento('en 1-40, ninguna', () => {
     // Medido el 08-10-2026: 8 en main (#211), 3 con el trazado sin esquinas de
-    // agua y 2 al cortar la senda en las ciudades. Lo que queda es de la
-    // escena: la rampa de caída 2 que baja en diagonal a la ciudad de s37 (7,26)
-    // y su reflejo pasa de la ciudad y su pie cae en el agua de (6,27)
-    // (`sendasPorLasRampas`, #192).
+    // agua, 2 al cortar la senda en las ciudades y 0 cuando la rampa de una
+    // bajada dejó de poner el pie en el agua (#214): la de caída 2 que baja en
+    // diagonal a la ciudad de s37 (7,26) y su reflejo pasaba de la ciudad y
+    // caía en el agua de (6,27). En 1-200 queda s75, de otra causa: la senda
+    // que sale en diagonal del estribo del puente de (22,3).
     const con = rango(1, 40).flatMap((s) => {
       const n = sendaSobreElAgua(escenaDe(s));
       return n > 0 ? [`s${s}: ${n}`] : [];
     });
-    expect(con).toEqual(['s37: 2']);
+    expect(con).toEqual([]);
   });
 });

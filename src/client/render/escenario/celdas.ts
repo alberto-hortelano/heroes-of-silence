@@ -555,6 +555,11 @@ function cruce(
  * El rumbo es el de lo pintado (`rumboPintado`), no el del tramo: la senda
  * suavizada gira al pie y la rampa salía recta hacia ninguna parte (#192).
  * Sin senda que cruce el filo, el del tramo.
+ *
+ * Solo entre los rumbos cuyo pie (`rampaDe`) admite `pieAdmitido` en su casilla:
+ * la rampa de caída 2 mide 1,65 casillas y, en diagonal a una ciudad entre dos
+ * barreras, pasaba de ella y ponía el pie en el agua de al lado (s37 (7,26),
+ * #214). Si no admite ninguno, el de siempre: el informe lo cuenta.
  */
 export function bajadasDe(
   nivel: ArrayLike<number>,
@@ -567,6 +572,7 @@ export function bajadasDe(
   ])[],
   sendas: readonly (readonly (readonly [number, number])[])[],
   fuera: (p: { x: number; y: number }, q: { x: number; y: number }) => boolean = () => false,
+  pieAdmitido: (x: number, y: number) => boolean = () => true,
 ): Bajada[] {
   const enVertice = new Map<string, Celda[]>();
   for (const c of cs) {
@@ -634,8 +640,15 @@ export function bajadasDe(
       }
     }
     const caida = Math.abs(dn);
+    const admite = (r: RumboDeBajada) => {
+      const [, [x, y]] = rampaDe({ rumbo: r, caida, arriba });
+      return pieAdmitido(Math.floor(x), Math.floor(y));
+    };
     out.push({
-      rumbo: suya === null ? rumbo : rumboPintado(suya, arriba, B, rumbo, caida),
+      rumbo:
+        suya === null
+          ? (RUMBOS_VECINOS[rumbo].find(admite) ?? rumbo)
+          : rumboPintado(suya, arriba, B, rumbo, caida, admite),
       caida,
       material: CARA_DE_SUELO[suelo[alto.y * W + alto.x] as Suelo],
       arriba,
@@ -798,7 +811,7 @@ const VENTAJA_DEL_RUMBO_DEL_TRAMO = 0.03;
  * tramo (`RUMBOS_VECINOS`) que mejor apunta a donde está la senda a un largo de
  * rampa (`largoDeBajada`) de `arriba`. Con el del tramo, en s36 la rampa bajaba
  * recta 1,7 casillas al sur y la senda se iba al suroeste en la casilla de
- * abajo (#192).
+ * abajo (#192). Solo los que `admite` (el pie de la rampa, #214), si hay alguno.
  */
 export function rumboPintado(
   l: Senda,
@@ -806,13 +819,16 @@ export function rumboPintado(
   bajo: Punto,
   delTramo: RumboDeBajada,
   caida: number,
+  admite: (rumbo: RumboDeBajada) => boolean = () => true,
 ): RumboDeBajada {
   const r = new Recorrido(l);
   const { s } = r.donde(arriba);
   const sentido = r.sentidoHacia(s, bajo);
-  let mejor = delTramo;
+  const admitidos = RUMBOS_VECINOS[delTramo].filter(admite);
+  const candidatos = admitidos.length > 0 ? admitidos : RUMBOS_VECINOS[delTramo];
+  let mejor = candidatos[0] as RumboDeBajada;
   let error = Number.POSITIVE_INFINITY;
-  for (const rumbo of RUMBOS_VECINOS[delTramo]) {
+  for (const rumbo of candidatos) {
     const [px, py] = r.en(s + sentido * largoDeBajada(rumbo, caida));
     const n = Math.hypot(px - arriba[0], py - arriba[1]);
     if (n === 0) continue;
