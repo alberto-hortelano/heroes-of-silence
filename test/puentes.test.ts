@@ -61,8 +61,10 @@ import { itLento, LENTO, rango, segunPrisa } from './lento.js';
  * `pnpm verify`, dos con de todo (#167), **buscadas**: la primera con una senda
  * de estribo que sin vado pasaría por agua y la primera con un puente en
  * diagonal. Eran la 5 y la 8 escritas a mano, y #169 dejó la 5 sin puentes.
+ * En la lenta van también las buscadas: con #188 y la senda casi recta de
+ * #191, ninguna senda de estribo de 1-10 pasaría ya por agua sin su vado.
  */
-const SEMILLAS = LENTO ? rango(1, 10) : dosConDeTodo();
+const SEMILLAS = LENTO ? [...new Set([...rango(1, 10), ...dosConDeTodo()])] : dosConDeTodo();
 
 function dosConDeTodo(): number[] {
   const conVado = primeraSemillaCon('una senda de estribo que sin vado pasaría por agua', (s) => {

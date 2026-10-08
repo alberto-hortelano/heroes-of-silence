@@ -14,14 +14,12 @@
 import type { TerrainKind } from '@core/map/terrain.js';
 import { describe, expect, it } from 'vitest';
 import { perfilesDelCatalogo } from '../src/client/render/escenario/caras.js';
-import { type Sprite, tapaElPunto } from '../src/client/render/escenario/colocar.js';
+import type { Sprite } from '../src/client/render/escenario/colocar.js';
 import {
-  cajaDeFigura,
   delanteDeLasParedes,
   FIGURA,
   pisablesTapadas,
 } from '../src/client/render/escenario/figuras.js';
-import { cajaDeSprite } from '../src/client/render/escenario/pasillo.js';
 import { claveDeFigura, escenarioDe } from '../src/client/render/escenario/superficie.js';
 import { PIES } from '../src/client/render/mapa.js';
 import { catalogoDelDisco, partidaDe } from './helpers.js';
@@ -123,39 +121,36 @@ describe('en los mapas reales', () => {
       expect(pisablesTapadas(e.sprites, map.terrain, e.W, e.H, perfilDe)).toEqual([]);
     });
 
-  it('s36: sin subir la clave, vuelven las tapadas de la auditoría, (4, 22) entre ellas', () => {
+  // La auditoría vio el fallo en el grupo mon-2 de (7, 22). Qué casilla queda
+  // bajo una cara depende de qué módulo de pared sale en cada sitio, y eso
+  // cambia con cualquier cosa que gaste azar antes (la senda ancha de #191 movió
+  // las paredes de esa ladera y dejó (7, 22) fuera): se mira cada casilla que
+  // se taparía sin subir la clave, no una.
+  it('s36: sin subir la clave, vuelven las tapadas de la auditoría, también donde hay un objeto', () => {
     const { map, escena: e } = partidaDe(36);
     const antes = pisablesTapadas(e.sprites, map.terrain, e.W, e.H, perfilDe, false);
-    expect(antes).toContain(22 * e.W + 4);
     expect(antes.length).toBeGreaterThan(50);
+    const objetos = new Set(map.objects.map((o) => o.at.y * e.W + o.at.x));
+    expect(antes.some((i) => objetos.has(i))).toBe(true);
   });
 
-  it('s36: el grupo mon-2 en (4, 22) se pinta después de toda pieza que cuelga sobre él', () => {
-    // En (7, 22) hasta #188, que movió los objetos al guardar la puerta de las minas.
-    const { map } = partidaDe(36);
-    const mon = map.objects.find((o) => o.kind === 'monster' && o.at.x === 4 && o.at.y === 22);
-    expect(mon, 'la auditoría lo vio en (7, 22), y #188 lo llevó a (4, 22)').toBeDefined();
+  it('s36: cada figura que se taparía sin subir la clave se pinta después de toda pieza que la tapa con su silueta', () => {
+    const { map, escena: e } = partidaDe(36);
+    const antes = new Set(pisablesTapadas(e.sprites, map.terrain, e.W, e.H, perfilDe, false));
     const esc = escenarioDe(map, 36);
-    const clave = claveDeFigura(esc, 4, 22 + PIES.grupo);
-    const [fx0, fy0, fx1, fy1] = cajaDeFigura(4, 22);
-    // Las que tapan algo de la figura, no las que solo rozan su caja: con el
-    // grupo en (7, 22) y la rampa de (8,19) al suroeste (#192), una frontal de
-    // (6,20) llegaba a 0,002 de la caja con el borde transparente y no tapaba
-    // ni un punto de ella.
-    const tapaAlgo = (s: Sprite) =>
-      Array.from({ length: 7 }, (_, i) => fx0 + ((i + 0.5) / 7) * (fx1 - fx0)).some((x) =>
-        Array.from({ length: 10 }, (_, j) => fy0 + ((j + 0.5) / 10) * (fy1 - fy0)).some((y) =>
-          tapaElPunto(s, perfilDe, x, y),
-        ),
-      );
-    const encima = esc.separada.volumenes.filter(({ s }) => {
-      if (s.clase !== 'pared' || s.filaAlta === undefined || s.filaAlta > 22) return false;
-      const [x0, y0, x1, y1] = cajaDeSprite(s);
-      return x0 < fx1 && x1 > fx0 && y0 < fy1 && y1 > fy0 && tapaAlgo(s);
-    });
-    // Las hay —la cara de la caída de encima— y ninguna se pinta después.
-    expect(encima.length).toBeGreaterThan(0);
-    for (const v of encima) expect(v.clave, v.s.src ?? 'marcador').toBeLessThanOrEqual(clave);
-    expect(clave).toBeGreaterThan(22 + PIES.grupo);
+    let vistas = 0;
+    for (const v of esc.separada.volumenes) {
+      if (v.s.clase !== 'pared' || v.s.filaAlta === undefined) continue;
+      // Las casillas que esta pieza tapa con su silueta: la regla de `delanteDeLasParedes`.
+      for (const i of delanteDeLasParedes([v], e.W, e.H, perfilDe).keys()) {
+        if (!antes.has(i)) continue;
+        const [x, y] = [i % e.W, Math.floor(i / e.W)];
+        const clave = claveDeFigura(esc, x, y + FIGURA.pies);
+        expect(v.clave, `(${x}, ${y}): ${v.s.src ?? 'marcador'}`).toBeLessThanOrEqual(clave);
+        vistas++;
+      }
+    }
+    // Que mire algo: cada casilla de `antes` la tapa al menos una pieza.
+    expect(vistas).toBeGreaterThanOrEqual(antes.size);
   });
 });

@@ -112,7 +112,7 @@ import {
   relieve,
 } from './relieve.js';
 import {
-  ANCHO_DE_SENDA,
+  SEMIANCHO_DE_LA_HUELLA,
   SEMIANCHO_DEL_PASILLO,
   SEMIANCHO_DEL_PASILLO_DE_MASA,
   type Senda,
@@ -703,6 +703,22 @@ const ALTO_DEL_TRAMO_NORTE_SUR = 1.6;
  * tapar la senda que la rodea (#193), en veces su alto.
  */
 const TORRE_MAS_BAJA = 0.45;
+
+/**
+ * Dónde se prueba, dentro de su casilla, la torre suelta que ni encogida a
+ * `TORRE_MAS_BAJA` deja libre la senda: primero en su sitio, luego con el pie
+ * más abajo (la torre sube desde él) y luego a los lados, en casillas. El pie
+ * no pasa de 0,95: sigue en su casilla.
+ */
+const CORRIMIENTOS_DE_TORRE: readonly (readonly [number, number])[] = [
+  [0, 0],
+  [0, 0.1],
+  [0, 0.2],
+  [-0.2, 0],
+  [0.2, 0],
+  [-0.2, 0.2],
+  [0.2, 0.2],
+];
 
 const MARCADOR: Readonly<Record<string, string>> = {
   forest: '#1f3a22',
@@ -1609,11 +1625,19 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       (c) => !sendaDeLaMuralla.pisa(torreEn(c)),
     )) {
       // La que no cabe y va igual es la de una casilla sin tramos (`torresDe`):
-      // se encoge hasta no tapar la senda, como mucho a `TORRE_MAS_BAJA`.
+      // se encoge hasta no tapar la senda, como mucho a `TORRE_MAS_BAJA`; si ni
+      // así cabe, se corre dentro de su casilla (`CORRIMIENTOS_DE_TORRE`), al
+      // primer sitio donde quepa. Con la senda de 0,32 (#191), la torre suelta
+      // de s27 (21,32) tapaba su borde aun encogida.
       const alta = torreEn(c);
-      const libre = sendaDeLaMuralla.altoLibre(alta);
+      const encogida = (t: Sprite) => {
+        const libre = sendaDeLaMuralla.altoLibre(t);
+        return libre === t.alto ? t : { ...t, alto: Math.max(libre, TORRE_MAS_BAJA * t.alto) };
+      };
       const torre =
-        libre === alta.alto ? alta : { ...alta, alto: Math.max(libre, TORRE_MAS_BAJA * alta.alto) };
+        CORRIMIENTOS_DE_TORRE.map(([dx, dy]) =>
+          encogida({ ...alta, x: alta.x + dx, y: alta.y + dy }),
+        ).find((t) => !sendaDeLaMuralla.pisa(t)) ?? encogida(alta);
       if (meterEnLaMuralla(torre, undefined)) {
         pintados.push({ franja: f.id, a: c, b: c });
         torresPintadas.set(`${c}`, torre);
@@ -2333,7 +2357,7 @@ export function formaDeLaSenda(trazos: readonly Senda[]): Forma<Medible> {
  * puerta, pero no taparla. Solo mira la clase `muro`.
  */
 export function sendaParaLaMuralla(trazos: readonly Senda[]): Obstaculos<Medible> {
-  const medida: Medida = { radio: ANCHO_DE_SENDA / 2, soloElPie: false };
+  const medida: Medida = { radio: SEMIANCHO_DE_LA_HUELLA, soloElPie: false };
   return new Obstaculos<Medible>([
     { trazos, alcance: medida.radio, mide: (s) => (s.clase === 'muro' ? medida : null) },
   ]);

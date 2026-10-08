@@ -18,7 +18,7 @@
  *      rejilla (`parches.ts`);
  *   2. la sombra de cada nivel (lo bajo, más oscuro);
  *   2b. el arcén: el pasillo de la senda, en el color de su suelo;
- *   3. las sendas;
+ *   3. las sendas y las trochas (`huella.ts`);
  *   4. el agua, con su barro y su espuma;
  *   5. los cantos de las caídas al este y al oeste;
  *   6. la sombra al pie de lo que tiene volumen (también de los volúmenes);
@@ -38,6 +38,7 @@
 import { columnasDeCara } from './caras.js';
 import type { Escena, Luz, Sprite } from './colocar.js';
 import { type AlturaDeSuelo, fronterasDelSuelo, PX_DE_LAS_FRONTERAS } from './fronteras.js';
+import { pintarHuellas, TEXTURA_DE_LA_HUELLA } from './huella.js';
 import {
   CASILLAS_POR_TEXTURA,
   type Encaje,
@@ -48,12 +49,7 @@ import {
 } from './parches.js';
 import { cajaDeSprite } from './pasillo.js';
 import { bandaDeCara, type CaraDeEscena } from './relieve.js';
-import {
-  ANCHO_DE_SENDA,
-  ANCHO_DEL_VADO,
-  ANCHO_DEL_VADO_EN_EL_BARRO,
-  SEMIANCHO_DEL_PASILLO,
-} from './sendas.js';
+import { ANCHO_DEL_VADO, ANCHO_DEL_VADO_EN_EL_BARRO, SEMIANCHO_DEL_PASILLO } from './sendas.js';
 
 /** Lo que el pintor acepta como imagen: cargada (`<img>`) o ya pintada (`<canvas>`). */
 export type Imagen = HTMLImageElement | HTMLCanvasElement | OffscreenCanvas | ImageBitmap;
@@ -128,6 +124,7 @@ export function imagenesDeEscena(e: Escena, objeto?: OpcionesDePintura['objeto']
   const fuera = new Set<string>();
   for (const s of new Set(e.suelo)) fuera.add(`suelos/${s}.webp`);
   for (const t of TEXTURAS) fuera.add(`texturas/${t}.webp`);
+  fuera.add(TEXTURA_DE_LA_HUELLA);
   for (const s of e.sprites) if (s.src !== null && seVe(s, objeto)) fuera.add(s.src);
   return [...fuera];
 }
@@ -140,6 +137,7 @@ export function imagenesDelSuelo(e: Escena, sep: EscenaSeparada): string[] {
   const fuera = new Set<string>();
   for (const s of new Set(e.suelo)) fuera.add(`suelos/${s}.webp`);
   for (const t of TEXTURAS) fuera.add(`texturas/${t}.webp`);
+  fuera.add(TEXTURA_DE_LA_HUELLA);
   for (const s of sep.planos) if (s.src !== null) fuera.add(s.src);
   return [...fuera];
 }
@@ -182,6 +180,7 @@ const anchoNatural = (im: Imagen) => ('naturalWidth' in im ? im.naturalWidth : i
 const altoNatural = (im: Imagen) => ('naturalHeight' in im ? im.naturalHeight : im.height);
 const lista = (im: Imagen | undefined): im is Imagen =>
   im !== undefined && anchoNatural(im) > 0 && (!('complete' in im) || im.complete);
+const imagenLista = (im: Imagen | undefined): Imagen | undefined => (lista(im) ? im : undefined);
 
 type NuevoLienzo = (ancho: number, alto: number) => Lienzo;
 
@@ -593,17 +592,8 @@ export function pintarSuelo(
     c.imageSmoothingEnabled = true;
     c.drawImage(arcen(e, pigmentos, nuevo), 0, 0, e.W * T, e.H * T);
     c.globalAlpha = 1;
-    // 3 · Las sendas: finas, con orla oscura y huella clara.
-    for (const [w, color] of [
-      [ANCHO_DE_SENDA, 'rgba(30,22,15,0.45)'],
-      [0.12, 'rgba(138,112,78,0.92)'],
-      [0.05, 'rgba(176,150,108,0.55)'],
-    ] as const) {
-      c.strokeStyle = color;
-      c.lineWidth = w * T;
-      trazarSendas();
-      c.stroke();
-    }
+    // 3 · Las sendas y las trochas: tierra con textura y el borde roto (`huella.ts`).
+    pintarHuellas(c, e, T, imagenLista(o.imagen(TEXTURA_DE_LA_HUELLA)), nuevo);
     // 4 · El agua: barro en la orilla y el agua encima, más oscura en el centro.
     c.drawImage(
       rellenar(

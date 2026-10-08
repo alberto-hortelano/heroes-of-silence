@@ -210,7 +210,12 @@ describe('sin arte se pinta igual: cada pieza, su marcador de color', () => {
     const r = registro();
     pintarSuelo(r.contexto(), e, sep, { ...sinImagenes, lienzo: r.lienzo });
     const rellenos = r.llamadas.filter((l) => l.metodo === 'fill');
-    expect(rellenos.map((l) => l.fillStyle)).toEqual(sep.planos.map((s) => s.color));
+    // Primero la huella de las sendas y las trochas (`huella.ts`), que sin su
+    // textura es de color; luego, un relleno por plano.
+    const huella = rellenos.length - sep.planos.length;
+    expect(huella).toBeGreaterThan(0);
+    for (const l of rellenos.slice(0, huella)) expect(typeof l.fillStyle).toBe('string');
+    expect(rellenos.slice(huella).map((l) => l.fillStyle)).toEqual(sep.planos.map((s) => s.color));
     const copias = r.llamadas.filter((l) => l.metodo === 'drawImage');
     expect(copias.length).toBeGreaterThan(0);
     for (const l of copias) expect(r.lienzos.has(l.args[0] as object)).toBe(true);

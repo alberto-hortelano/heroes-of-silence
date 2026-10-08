@@ -1404,3 +1404,19 @@ de cada una.
   arco, el 62,5 % de la pieza (`PUERTA_NORTE_SUR`). Solo en la muralla: la ruina
   (`uso: obstaculo`) sigue con el `profundidad` de su hoja.
 - Recortes antes/después en `docs/agents/2026-10-08-detalles-mapa/capturas/`.
+
+## 30. Textura propia de camino (#191, rama `senda-aspecto`, 08-10-2026)
+
+La senda del mapa es ya una banda de tierra de 0,32 casillas (`huella.ts`), pero su
+textura es la del suelo `dirt` (`suelos/dirt.webp`) aclarada con un filtro
+(`ENTONADO_DE_LA_HUELLA`) hasta el tono de las rampas de las bajadas. Sirve, y no se ha
+generado nada; lo que falta para que se parezca de verdad al camino de HoMM2:
+
+- **`texturas/camino.webp`**: tierra pisada de camino, 512 × 512 sin costura, vista a 90°
+  como el resto de `texturas/`, clara (la media del centro de `bajadas-*-1/s.webp`,
+  ~150,125,95), con chinas y rodadas finas y sin hierba. La cuadrícula de grano: una
+  vuelta cubre 1,5 casillas (`CASILLAS_POR_VUELTA`), así que una china mide ~4 px.
+- **Opcional, `texturas/adoquin.webp`**: el empedrado de los caminos junto a las ciudades.
+  El juego no distingue hoy un camino de otro; sería una regla nueva.
+
+Con la primera, `TEXTURA_DE_LA_HUELLA` apunta a ella y el filtro se quita.

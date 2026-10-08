@@ -1,6 +1,6 @@
 /**
  * Las sendas: los tramos de camino de casilla en casilla, encadenados en líneas
- * y suavizados para que serpenteen como los de la referencia, finos y sin la
+ * y suavizados para que serpenteen como los de la referencia, sin la
  * escalera de la rejilla.
  *
  * Una senda va de una junta a otra (un extremo o un cruce de tres o más): así un
@@ -16,8 +16,39 @@ export type Senda = readonly (readonly [number, number])[];
 /** Cuánto se aparta como mucho la senda de la línea de casillas, en casillas. */
 export const VAIVEN = 0.18;
 
-/** Lo ancho de la senda pintada, en casillas: su orla oscura (`pintarSuelo`). */
-export const ANCHO_DE_SENDA = 0.2;
+/**
+ * Lo que queda del vaivén en un tramo recto largo, como mucho: en uno de `L`
+ * casillas seguidas en la misma dirección, el vaivén se multiplica por
+ * `min(1, CASILLAS_CON_VAIVEN_ENTERO / L)`, sin bajar de `VAIVEN_EN_LO_RECTO`.
+ * Con la onda constante, una fila de diez casillas salía como un espagueti
+ * (defecto 4 de la auditoría de caminos, 08-10-2026, #191): el camino de
+ * HoMM2 va casi recto donde la rejilla va recta y se tuerce en los giros.
+ */
+export const VAIVEN_EN_LO_RECTO = 0.3;
+const CASILLAS_CON_VAIVEN_ENTERO = 2.5;
+
+/**
+ * Lo ancho de la senda pintada, en casillas: su huella de tierra (`pintarSuelo`).
+ * 0,32 (#191): con 0,2 y una huella de 0,12 se leía como un trazo de pluma
+ * junto a ciudades de dos casillas, y la rampa de cada bajada, de ~0,35, era
+ * otro camino. El borde lo rompe un ruido (`IRREGULARIDAD_DE_SENDA`).
+ */
+export const ANCHO_DE_SENDA = 0.32;
+
+/**
+ * Cuánto varía la media anchura de la senda a lo largo de ella, en fracción:
+ * lento (cada ~1,5 casillas) y rápido (el borde roto, cada ~0,15).
+ */
+export const IRREGULARIDAD_DE_SENDA = { lenta: 0.14, rapida: 0.16 } as const;
+
+/**
+ * La media anchura mayor de la huella de la senda (sin sus orlas tenues): la
+ * de `ANCHO_DE_SENDA` con el borde abierto al máximo por los dos ruidos. Es lo
+ * que no tapa la muralla (`sendaParaLaMuralla`): con la media anchura sola, una
+ * torre podía morder el borde pintado donde la senda se ensancha.
+ */
+export const SEMIANCHO_DE_LA_HUELLA =
+  (ANCHO_DE_SENDA / 2) * (1 + IRREGULARIDAD_DE_SENDA.lenta + IRREGULARIDAD_DE_SENDA.rapida);
 
 /**
  * El arcén de lo bajo, en casillas, contado desde el borde de la senda: ninguna
@@ -137,9 +168,26 @@ export function suavizar(linea: readonly (readonly [number, number])[], azar: ()
     densa.push([x0, y0], [(x0 + x1) / 2, (y0 + y1) / 2]);
   }
   densa.push([...(linea.at(-1) as readonly [number, number])]);
-  // El vaivén: una onda de fase y periodo al azar, para que no serpenteen todas igual.
+  // Lo recto de cada tramo: cuántos tramos seguidos de `linea` van en su
+  // misma dirección (un diagonal cuenta √2). El punto `2k` y el `2k+1` de
+  // `densa` son del tramo `k`.
+  const tramos = linea.length - 1;
+  const recto = new Array<number>(tramos).fill(1);
+  for (let k = 0; k < tramos; ) {
+    const dir = direccion(linea, k);
+    let j = k;
+    while (j + 1 < tramos && direccion(linea, j + 1) === dir) j++;
+    const largo = (j - k + 1) * (dir.split(',').includes('0') ? 1 : Math.SQRT2);
+    const f = Math.max(VAIVEN_EN_LO_RECTO, Math.min(1, CASILLAS_CON_VAIVEN_ENTERO / largo));
+    for (let m = k; m <= j; m++) recto[m] = f;
+    k = j + 1;
+  }
+  // El vaivén: una onda de fase y periodo al azar, para que no serpenteen todas
+  // igual, y otra más lenta que la ensancha y la apaga (`envolvente`), para que
+  // la onda no se repita igual a lo largo de una senda larga.
   const fase = azar() * Math.PI * 2;
-  const periodo = 3 + azar() * 3;
+  const periodo = 4 + azar() * 4;
+  const faseLenta = azar() * Math.PI * 2;
   const n = densa.length;
   const movida = densa.map(([x, y], i): [number, number] => {
     if (i === 0 || i === n - 1) return [x, y];
@@ -150,7 +198,9 @@ export function suavizar(linea: readonly (readonly [number, number])[], azar: ()
     const l = Math.hypot(dx, dy) || 1;
     // Se apaga cerca de los extremos: la senda llega recta a la puerta.
     const borde = Math.min(1, i / 2, (n - 1 - i) / 2);
-    const d = Math.sin(fase + (i / periodo) * Math.PI) * VAIVEN * borde;
+    const envolvente = 0.7 + 0.3 * Math.sin(faseLenta + (i / (periodo * 2.3)) * Math.PI);
+    const tramo = recto[Math.min(tramos - 1, Math.floor(i / 2))] as number;
+    const d = Math.sin(fase + (i / periodo) * Math.PI) * VAIVEN * borde * envolvente * tramo;
     return [x - (dy / l) * d, y + (dx / l) * d];
   });
   let curva: [number, number][] = movida;
@@ -166,6 +216,13 @@ export function suavizar(linea: readonly (readonly [number, number])[], azar: ()
     curva = nueva;
   }
   return curva;
+}
+
+/** La dirección del tramo `k` de una línea, como texto: `'1,0'`, `'-1,1'`… */
+function direccion(linea: readonly (readonly [number, number])[], k: number): string {
+  const [x0, y0] = linea[k] as readonly [number, number];
+  const [x1, y1] = linea[k + 1] as readonly [number, number];
+  return `${Math.sign(x1 - x0)},${Math.sign(y1 - y0)}`;
 }
 
 export function sendas(tramos: readonly Tramo[], semilla: number): Senda[] {
