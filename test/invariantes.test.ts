@@ -972,10 +972,12 @@ describe('invariantes del proyecto', () => {
     // viaje vuelve del disco convertida en un montón de eventos anónimos otra
     // vez, que es exactamente el bug que este ciclo cerró.
     //
-    // Mira `state.log` y NO `state` a propósito: `Player.fog` es un `Set` y
-    // `Player.memory` un `Map`, así que sobre el estado entero este guardia
-    // nacería rojo por algo que no es su asunto — y un guardia que nace rojo se
-    // ignora desde el primer día.
+    // Mira `state.log` y NO `state` a propósito: `Player.memory` es un `Map`
+    // y `GameMap.caminos` una clase, así que sobre el estado entero este
+    // guardia nacería rojo por algo que no es su asunto — y un guardia que nace
+    // rojo se ignora desde el primer día. `Player.fog` ya no es de esos: desde
+    // #146 son `Casillas`, que salen por JSON como sus índices (lo ata
+    // `casillas.test.ts`).
     //
     // Se rompió a mano cambiando `seen` a un `Set<PlayerId>` y se miró rojo
     // antes de darlo por bueno, que es la regla de la casa: un guardia que

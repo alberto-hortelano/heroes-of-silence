@@ -53,6 +53,7 @@ import {
 import { chooseBattleAction } from '../src/core/ai/tactics.js';
 import { isAlive, SIN_CARGAS, stackHexes } from '../src/core/battle/battle.js';
 import type { BattleStack, Side } from '../src/core/battle/types.js';
+import { Casillas } from '../src/core/map/casillas.js';
 import type { Hex } from '../src/core/types.js';
 import {
   destinoDeHoy,
@@ -220,14 +221,14 @@ describe('el mapa con el dedo', () => {
             const p = { x: h.x + dx, y: h.y + dy };
             if (p.x < 0 || p.y < 0 || p.x >= otra.state.map.width || p.y >= otra.state.map.height)
               continue;
-            if (otra.explorado!.has(`${p.x},${p.y}`)) continue;
+            if (otra.explorado!.has(p)) continue;
             if (otra.previewPath(p).length > 0) return p;
           }
         return undefined;
       },
     );
     const s = new Session(semilla);
-    expect(s.explorado!.has(`${destino.x},${destino.y}`)).toBe(false);
+    expect(s.explorado!.has(destino)).toBe(false);
     expect(s.previewPath(destino).length).toBeGreaterThan(0);
     const escena = new EscenaAventura(() => s);
     escena.encuadrar(800, 600);
@@ -660,17 +661,19 @@ describe('las fichas de coste del castillo', () => {
 
 describe('la ruta no se pinta sobre la niebla (M5 de la 2a)', () => {
   const paso = (x: number, hoy: boolean) => ({ at: { x, y: 0 }, hoy });
+  /** Lo explorado de una ruta por la fila 0: en ella, el índice es la x. */
+  const fila = (...xs: number[]) => Casillas.deIndices({ width: 8, height: 1 }, xs);
 
   it('lo no explorado no se pinta, y el último paso visible no se hace pasar por destino', () => {
     const ruta = [paso(1, true), paso(2, true), paso(3, false), paso(4, false)];
-    const explorado = new Set(['1,0', '2,0']);
+    const explorado = fila(1, 2);
     expect(pasosAPintar(ruta, explorado)).toEqual([
       { ...paso(1, true), marca: 'paso' },
       // La parada de hoy sigue siéndolo, y nada lleva la marca de destino.
       { ...paso(2, true), marca: 'parada' },
     ]);
     // El destino explorado sí se pinta, aunque lo de en medio no.
-    const conDestino = pasosAPintar(ruta, new Set(['1,0', '4,0']));
+    const conDestino = pasosAPintar(ruta, fila(1, 4));
     expect(conDestino.map((p) => [p.at.x, p.marca])).toEqual([
       [1, 'paso'],
       [4, 'destino'],
@@ -685,10 +688,10 @@ describe('la ruta no se pinta sobre la niebla (M5 de la 2a)', () => {
     const ruta = s.previewPath(lejos);
     const explorado = s.explorado!;
     // La premisa, para que el test no pase por vacío: la ruta entra en la niebla.
-    expect(ruta.some((r) => !explorado.has(`${r.at.x},${r.at.y}`))).toBe(true);
+    expect(ruta.some((r) => !explorado.has(r.at))).toBe(true);
     const pintados = pasosAPintar(ruta, explorado);
     expect(pintados.length).toBeGreaterThan(0);
-    expect(pintados.every((p) => explorado.has(`${p.at.x},${p.at.y}`))).toBe(true);
+    expect(pintados.every((p) => explorado.has(p.at))).toBe(true);
   });
 
   it('la barra cuenta los pasos que se ven, no los de la niebla (#123)', () => {
@@ -696,7 +699,7 @@ describe('la ruta no se pinta sobre la niebla (M5 de la 2a)', () => {
     // la ruta entera, la barra decía «hoy llegas a 3 de 5 pasos» y el 5
     // delataba el rodeo que el trazo ya no pinta.
     const ruta = [paso(1, true), paso(2, true), paso(3, true), paso(4, false), paso(5, false)];
-    const explorado = new Set(['1,0', '2,0', '3,0']);
+    const explorado = fila(1, 2, 3);
     const frase = llegadaDeLaRuta(ruta, explorado);
     // El destino está en la niebla: la barra ya empieza por «Tierras
     // desconocidas», así que la frase no lo repite (H3 de QA).
@@ -705,11 +708,9 @@ describe('la ruta no se pinta sobre la niebla (M5 de la 2a)', () => {
     expect(frase).not.toContain('5');
     // Con parte de hoy a la vista y el resto en la niebla, lo mismo con su cuenta.
     const corta = [paso(1, true), paso(2, false), paso(3, false), paso(4, false)];
-    expect(llegadaDeLaRuta(corta, new Set(['1,0', '2,0']))).toBe(
-      'hoy andas 1 de los 2 pasos que se ven',
-    );
+    expect(llegadaDeLaRuta(corta, fila(1, 2))).toBe('hoy andas 1 de los 2 pasos que se ven');
     // Con el destino a la vista y la niebla en medio, la frase elegida entera.
-    expect(llegadaDeLaRuta(ruta, new Set(['1,0', '2,0', '3,0', '5,0']))).toBe(
+    expect(llegadaDeLaRuta(ruta, fila(1, 2, 3, 5))).toBe(
       'hoy andas 3 de los 4 pasos que se ven; sigue por tierras desconocidas',
     );
     // Viéndolo todo, o con la ruta entera explorada, las frases de siempre.

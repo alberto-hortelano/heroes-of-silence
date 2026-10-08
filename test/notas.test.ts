@@ -44,7 +44,7 @@ import {
   textoDeFin,
 } from '../src/server/notas.js';
 import type { AgentRequestMsg } from '../src/server/protocol.js';
-import { acabarPorLaBase } from './helpers.js';
+import { acabarPorLaBase, copiaDePartida } from './helpers.js';
 
 /** Una petición cualquiera, para mirar cómo se compone la escucha. */
 const PETICION: AgentRequestMsg = {
@@ -188,7 +188,7 @@ describe('notas para el agente', () => {
       for (const clave of alcanceDelHeroe(inicio, heroe).costs.keys()) {
         const to = pointFromKey(clave);
         if (pointKey(to) === pointKey(heroe.at) || n++ % 2 === 1) continue;
-        const state: GameState = structuredClone(inicio);
+        const state: GameState = copiaDePartida(inicio);
         const desde = state.log.length;
         const accion = { type: 'move_hero', hero: heroe.id, to } as const;
         applyAdventureAction(state, accion, { rng: createRng(seed) }, 0);

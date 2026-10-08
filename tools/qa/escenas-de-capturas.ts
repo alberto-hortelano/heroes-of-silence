@@ -190,7 +190,7 @@ export function buscarEmboscada(b: Caja, desde = 1): EscenaDeEmboscada {
         const salta = ruta.find((p) => p.emboscada !== undefined);
         if (salta?.emboscada === undefined) continue;
         const { at } = salta.emboscada;
-        if (explorado !== null && !explorado.has(`${at.x},${at.y}`)) continue;
+        if (explorado !== null && !explorado.has(at)) continue;
         if (!tocable(b, pixelDeCasilla(b, e, TILE_INICIAL, espejo, salta.at))) continue;
         // Y el grupo en el marco: explorado no basta, la captura tiene que enseñarlo
         // (en la 1 sin esto, el grupo caía en (1,14), debajo del lienzo).
@@ -306,9 +306,7 @@ export function rutaDeDosColores(
   const dentro = (p: { x: number; y: number }) =>
     p.x > b.x + 30 && p.x < b.x + b.width - 30 && p.y > b.y + 30 && p.y < b.y + b.height - 30;
   let elegido: { destino: Point; pintados: number } | null = null;
-  for (const clave of explorado) {
-    const [x, y] = clave.split(',').map(Number) as [number, number];
-    const destino = { x, y };
+  for (const destino of explorado) {
     const ruta = espejo.previewPath(destino);
     const pintados = pasosAPintar(ruta, explorado);
     if (!pintados.some((p) => p.hoy) || !pintados.some((p) => !p.hoy)) continue;
@@ -377,7 +375,7 @@ export function destinoTactil(b: Caja, e: Encuadre, espejo: Session): Point | nu
       const p = { x: heroe.at.x + dx, y: heroe.at.y + dy };
       const r = espejo.previewPath(p);
       if (r.length <= mejor || !r.every((paso) => paso.hoy)) continue;
-      if (espejo.explorado !== null && !espejo.explorado.has(`${p.x},${p.y}`)) continue;
+      if (espejo.explorado !== null && !espejo.explorado.has(p)) continue;
       if (tocable(b, pixelDeCasilla(b, e, TILE_INICIAL, espejo, p))) {
         destino = p;
         mejor = r.length;
@@ -436,7 +434,7 @@ export function asaltantesEnElMarco(
   tile: number,
   espejo: Session,
 ): readonly Point[] {
-  const explorada = (p: Point) => espejo.explorado?.has(`${p.x},${p.y}`) ?? true;
+  const explorada = (p: Point) => espejo.explorado?.has(p) ?? true;
   return espejo.state.raiders
     .map((r) => r.at)
     .filter((at) => explorada(at) && tocable(b, pixelDeCasilla(b, e, tile, espejo, at)));

@@ -56,6 +56,7 @@ import {
   troopsThatFit,
   withTroops,
 } from '../hero/troop.js';
+import { Casillas, type CasillasLeidas, casillasDelCuadrado } from '../map/casillas.js';
 import {
   blocksMovement,
   findPath,
@@ -70,7 +71,6 @@ import {
   pointKey,
   type Reachable,
   reachableFrom,
-  visibleFrom,
 } from '../map/map.js';
 import { territorio } from '../map/regiones.js';
 import { createRng, type Rng } from '../rng.js';
@@ -137,8 +137,8 @@ export interface Player {
   readonly faction: FactionId;
   controller: Controller;
   resources: Resources;
-  /** Casillas ya exploradas, por clave "x,y". */
-  fog: Set<string>;
+  /** Casillas ya exploradas (`Casillas`, un byte por casilla, #146). */
+  readonly fog: Casillas;
   /**
    * Lo último OBSERVADO de cada objeto del mapa, por id de objeto.
    *
@@ -205,7 +205,7 @@ export const HERO_SCOUT_RADIUS = 4;
  * `HERO_SCOUT_RADIUS` ya coincidía—, y `Castle::Scout()` la llama **sin
  * ramificar por el fuerte**: no depende de la fortificación, y el enum no tiene
  * un valor `TOWN` aparte. Lo que allí es un disco chapucero aquí es el cuadrado
- * de `visibleFrom`, así que el héroe **ya diverge** —81 casillas contra 69— e
+ * de `marcarCuadrado`, así que el héroe **ya diverge** —81 casillas contra 69— e
  * igualar la forma es otra tarea. Se copia el número.
  *
  * Y alimenta las DOS mitades de la niebla: `visibleNow` y también `fog` y
@@ -630,7 +630,7 @@ export function createGame(config: GameConfig): GameState {
     faction: p.faction,
     controller: p.controller,
     resources: addResources(DEFAULT_STARTING_RESOURCES, config.startingResources ?? {}),
-    fog: new Set<string>(),
+    fog: Casillas.vacias(config.map),
     memory: new Map<string, RememberedObject>(),
     asaltantesVistos: new Map<string, AsaltanteRecordado>(),
     defeated: false,
@@ -711,14 +711,18 @@ function revealAroundTown(state: GameState, town: Town): void {
 }
 
 function explorar(state: GameState, player: Player, centro: Point, radio: number): void {
-  const alcance = new Set(visibleFrom(state.map, centro, radio));
-  for (const key of alcance) player.fog.add(key);
+  player.fog.marcarCuadrado(centro, radio);
+  // El cuadrado se pregunta con dos restas y no con el `Set` de sus claves: era
+  // el 10 % del banco (#95) levantar 81 cadenas por paso para mirar en ellas
+  // la casilla de cada objeto del mapa. Los objetos están todos dentro del
+  // mapa, así que el recorte de `marcarCuadrado` no cambia a quién se apunta, y
+  // el orden de `memory` sigue siendo el de `state.map.objects`.
   for (const obj of state.map.objects) {
-    if (alcance.has(pointKey(obj.at))) {
+    if (Math.abs(obj.at.x - centro.x) <= radio && Math.abs(obj.at.y - centro.y) <= radio) {
       player.memory.set(obj.id, { day: state.day, object: { ...obj } });
     }
   }
-  recordarAsaltantes(state, player.asaltantesVistos, alcance);
+  recordarAsaltantes(state, player.asaltantesVistos, casillasDelCuadrado(state.map, centro, radio));
 }
 
 /**
@@ -732,9 +736,7 @@ function explorar(state: GameState, player: Player, centro: Point, radio: number
  */
 export function revealEverything(state: GameState, playerId: PlayerId): void {
   const player = playerById(state, playerId);
-  for (let y = 0; y < state.map.height; y++) {
-    for (let x = 0; x < state.map.width; x++) player.fog.add(pointKey({ x, y }));
-  }
+  player.fog.marcarCuadrado({ x: 0, y: 0 }, Math.max(state.map.width, state.map.height));
   for (const obj of state.map.objects) {
     player.memory.set(obj.id, { day: state.day, object: { ...obj } });
   }
@@ -748,12 +750,11 @@ export function revealEverything(state: GameState, playerId: PlayerId): void {
  * Es la otra mitad de `fog`. `fog` dice «esto lo conozco»; esto dice «esto lo
  * estoy mirando», y solo de lo que se mira se puede afirmar el presente.
  */
-export function visibleNow(state: GameState, playerId: PlayerId): Set<string> {
-  const claves = new Set<string>();
-  for (const { centro, radio } of miradasDe(state, playerId)) {
-    for (const key of visibleFrom(state.map, centro, radio)) claves.add(key);
-  }
-  return claves;
+export function visibleNow(state: GameState, playerId: PlayerId): Casillas {
+  const casillas = Casillas.vacias(state.map);
+  for (const { centro, radio } of miradasDe(state, playerId))
+    casillas.marcarCuadrado(centro, radio);
+  return casillas;
 }
 
 /**
@@ -784,10 +785,10 @@ export function miradasDe(state: GameState, playerId: PlayerId): Mirada[] {
 export function heroesALaVista(
   state: GameState,
   playerId: PlayerId,
-  mirando: ReadonlySet<string> | null,
+  mirando: CasillasLeidas | null,
 ): Hero[] {
   if (mirando === null) return [...state.heroes];
-  return state.heroes.filter((h) => h.owner === playerId || mirando.has(pointKey(h.at)));
+  return state.heroes.filter((h) => h.owner === playerId || mirando.has(h.at));
 }
 
 /**
@@ -805,12 +806,12 @@ export function heroesALaVista(
 export function objetosConocidos(
   state: GameState,
   playerId: PlayerId,
-  mirando: ReadonlySet<string> | null,
+  mirando: CasillasLeidas | null,
 ): RememberedObject[] {
   if (mirando === null) return state.map.objects.map((object) => ({ day: state.day, object }));
   const vivos = new Map(state.map.objects.map((o) => [o.id, o]));
   return [...playerById(state, playerId).memory.values()].map((recuerdo) => {
-    if (!mirando.has(pointKey(recuerdo.object.at))) return recuerdo;
+    if (!mirando.has(recuerdo.object.at)) return recuerdo;
     return { day: state.day, object: vivos.get(recuerdo.object.id) ?? recuerdo.object };
   });
 }
@@ -818,7 +819,7 @@ export function objetosConocidos(
 /**
  * Si un jugador está mirando ahora mismo esa casilla CONCRETA.
  *
- * Es `visibleNow(state, p).has(pointKey(q))` sin construir el `Set`, y la
+ * Es `visibleNow(state, p).has(q)` sin construir las casillas, y la
  * distinción no es celo de micro-optimización: `emit` pregunta por UNA casilla
  * por evento y por jugador, y la forma con `Set` levantaba las 81 claves del
  * cuadrado de visión —nueve por nueve— para tirarlas. De los 9 654 ns que
@@ -835,7 +836,7 @@ export function objetosConocidos(
  * 56 % de los eventos— y `hero.at` cambia entre pasos, así que una caché
  * sellaría observadores equivocados.
  *
- * Poda fuera del mapa igual que `visibleFrom`, y por eso las dos formas son
+ * Poda fuera del mapa igual que `marcarCuadrado`, y por eso las dos formas son
  * equivalentes para CUALQUIER punto y no solo para los que existen. La misma
  * regla escrita dos veces es lo que este repositorio no perdona: las ata un
  * test que las compara casilla a casilla sobre una partida jugada.

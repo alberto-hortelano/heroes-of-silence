@@ -11,7 +11,8 @@ import { marcadoDe } from '../src/client/html.js';
 import { Session } from '../src/client/session.js';
 import { renderSide } from '../src/client/views/panels.js';
 import { armyLeadership, GARRISON_LEADERSHIP } from '../src/core/hero/troop.js';
-import { pointFromKey, reachableFrom, visibleFrom } from '../src/core/map/map.js';
+import { Casillas } from '../src/core/map/casillas.js';
+import { pointFromKey, reachableFrom } from '../src/core/map/map.js';
 import { isWalkable } from '../src/core/map/terrain.js';
 import { asaltantesALaVista } from '../src/core/state/asaltantes.js';
 import {
@@ -237,7 +238,10 @@ describe('sesión del cliente: reclutar lo que cabe y ver la ruta entera', () =>
     const fog = s.state.players[0]!.fog;
     const antes = s.visibles();
     const heroe0 = s.selectedHero!;
-    for (const k of visibleFrom(s.state.map, heroe0.at, HERO_SCOUT_RADIUS)) {
+    const delHeroe = Casillas.vacias(s.state.map);
+    delHeroe.marcarCuadrado(heroe0.at, HERO_SCOUT_RADIUS);
+    expect(delHeroe.size).toBeGreaterThan(0);
+    for (const k of delHeroe) {
       expect(antes.has(k)).toBe(true);
       expect(fog.has(k)).toBe(true);
     }

@@ -19,7 +19,8 @@
 
 import { HERO_BODY } from '@core/hero/hero.js';
 import { individuosDe } from '@core/hero/troop.js';
-import { type MapObject, type MapRegion, pointKey, type TramoDeCamino } from '@core/map/map.js';
+import type { CasillasLeidas } from '@core/map/casillas.js';
+import type { MapObject, MapRegion, TramoDeCamino } from '@core/map/map.js';
 import type { TerrainKind } from '@core/map/terrain.js';
 import type { AsaltantesALaVista, VistaAsaltante } from '@core/state/asaltantes.js';
 import type { Point } from '@core/types.js';
@@ -64,8 +65,8 @@ import { pintarSombra } from './sombra.js';
  * Es el tipo estructural que antes vivía en `render/adventure.ts`, y por el
  * mismo motivo: `GameState` lo satisface tal cual y la vista adaptada del
  * espectador también, sin que ninguno tenga que fabricar una partida falsa.
- * La niebla es un `Set` que se pregunta con `.has()` por clave `"x,y"`, y es
- * `adaptar.ts` quien lo rehace al otro lado del cable. De los caminos se leen
+ * La niebla son `Casillas` (un byte por casilla, #146), y es `adaptar.ts`
+ * quien las rehace al otro lado del cable desde sus índices. De los caminos se leen
  * solo los tramos: `RedDeCaminos` los cumple y el espectador los trae tal cual.
  */
 export interface AdventureScene {
@@ -78,7 +79,7 @@ export interface AdventureScene {
     /** Las regiones del mapa de nodos. Las pintará el territorio de la 2b. */
     readonly regions: readonly MapRegion[];
   };
-  readonly players: readonly { readonly id: number; readonly fog: ReadonlySet<string> }[];
+  readonly players: readonly { readonly id: number; readonly fog: CasillasLeidas }[];
 }
 
 /** Un héroe tal y como lo pinta el mapa. `Hero` lo cumple, y el del cable del espectador también. */
@@ -129,9 +130,9 @@ export interface VistaMapa {
   readonly ancho: number;
   readonly alto: number;
   /** Lo explorado alguna vez. `null` es «todo»: el espectador, o el modo de depuración. */
-  readonly explorado: ReadonlySet<string> | null;
+  readonly explorado: CasillasLeidas | null;
   /** Lo que se mira AHORA. `null` es no pintar la segunda sombra. */
-  readonly visibles: ReadonlySet<string> | null;
+  readonly visibles: CasillasLeidas | null;
   readonly ruta: readonly PasoDeRuta[];
   readonly seleccionado: string | null;
   readonly hover: Point | null;
@@ -495,7 +496,7 @@ type Cosa =
  */
 function cosasDe(v: VistaMapa, esc: Escenario): { cosas: Cosa[]; sobreLaNiebla: Cosa[] } {
   const { escena, camara, explorado } = v;
-  const explorada = (p: Point): boolean => explorado === null || explorado.has(pointKey(p));
+  const explorada = (p: Point): boolean => explorado === null || explorado.has(p);
   const { x0, y0, x1, y1 } = ventanaDeCasillas(camara, v.ancho, v.alto, MARGEN_DE_COSA);
   const enVista = (p: Point) => p.x >= x0 && p.y >= y0 && p.x < x1 && p.y < y1;
   const lista: Cosa[] = [];
@@ -555,7 +556,7 @@ function volumenesALaVista(v: VistaMapa, esc: Escenario): VolumenDelMapa[] {
     for (const vol of esc.porFila[fila] as readonly VolumenDelMapa[]) {
       // Con la base por encima de la vista no asoma: crece hacia arriba.
       if (vol.s.x < x0 || vol.s.x >= x1 || vol.s.y < camara.y) continue;
-      if (vol.niebla !== null && explorado !== null && !explorado.has(vol.niebla)) continue;
+      if (vol.niebla !== null && explorado !== null && !explorado.hasIndex(vol.niebla)) continue;
       fuera.push(vol);
     }
   return fuera;
@@ -656,11 +657,10 @@ const ARRIBA_SIN_RECORTE = 1e6;
  * sobre el fondo, en 4K al tope de alejar (#152). Desde una casilla explorada se
  * sigue viendo lo que asoma; sin niebla (el espectador), no se recorta nada.
  */
-export function recortadoArriba(
-  vol: VolumenDelMapa,
-  explorado: ReadonlySet<string> | null,
-): boolean {
-  return vol.asomaPorArriba !== null && explorado !== null && !explorado.has(vol.asomaPorArriba);
+export function recortadoArriba(vol: VolumenDelMapa, explorado: CasillasLeidas | null): boolean {
+  return (
+    vol.asomaPorArriba !== null && explorado !== null && !explorado.hasIndex(vol.asomaPorArriba)
+  );
 }
 
 /**
@@ -1229,9 +1229,9 @@ function chapa(
  */
 let niebla: {
   lienzo: HTMLCanvasElement;
-  explorado: ReadonlySet<string> | null;
+  explorado: CasillasLeidas | null;
   vistos: number;
-  visibles: ReadonlySet<string> | null;
+  visibles: CasillasLeidas | null;
   ancho: number;
   alto: number;
 } | null = null;
@@ -1266,9 +1266,9 @@ function mascaraDeNiebla(v: VistaMapa): HTMLCanvasElement {
   }
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
-      const k = pointKey({ x, y });
-      if (v.explorado !== null && !v.explorado.has(k)) m.fillStyle = '#080a10';
-      else if (v.visibles !== null && !v.visibles.has(k)) m.fillStyle = 'rgba(8,13,22,0.42)';
+      const i = y * W + x;
+      if (v.explorado !== null && !v.explorado.hasIndex(i)) m.fillStyle = '#080a10';
+      else if (v.visibles !== null && !v.visibles.hasIndex(i)) m.fillStyle = 'rgba(8,13,22,0.42)';
       else continue;
       m.fillRect(x + 1, y + 1, 1, 1);
     }
@@ -1321,7 +1321,7 @@ export interface PasoPintado extends PasoDeRuta {
  */
 export function pasosAPintar(
   ruta: readonly PasoDeRuta[],
-  explorado: ReadonlySet<string> | null,
+  explorado: CasillasLeidas | null,
 ): readonly PasoPintado[] {
   const marcados = ruta.map((paso, i): PasoPintado => {
     // El último de hoy es donde se parará el héroe: se marca aparte.
@@ -1334,7 +1334,7 @@ export function pasosAPintar(
     return { ...paso, marca };
   });
   if (explorado === null) return marcados;
-  return marcados.filter((paso) => explorado.has(pointKey(paso.at)));
+  return marcados.filter((paso) => explorado.has(paso.at));
 }
 
 function pintarRuta(

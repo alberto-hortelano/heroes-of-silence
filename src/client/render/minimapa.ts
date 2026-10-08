@@ -5,7 +5,8 @@
  * Pulsarlo mueve la vista; eso lo decide `escenas/aventura.ts` con
  * `casillaDelMinimapa`, que es la inversa de lo que se pinta aquí.
  */
-import { type MapObject, pointKey } from '@core/map/map.js';
+import type { CasillasLeidas } from '@core/map/casillas.js';
+import type { MapObject } from '@core/map/map.js';
 import type { TerrainKind } from '@core/map/terrain.js';
 import type { Point } from '@core/types.js';
 import type { CamaraMapa } from './camara-mapa.js';
@@ -26,7 +27,7 @@ export const FONDO_INEXPLORADO: readonly [number, number, number] = [8, 10, 16];
 
 interface VistaMinimapa {
   readonly escena: AdventureScene;
-  readonly explorado: ReadonlySet<string> | null;
+  readonly explorado: CasillasLeidas | null;
   /** Los héroes que se ven ahora, como en el lienzo grande (`VistaMapa.heroes`). */
   readonly heroes: readonly HeroeEnElMapa[];
   /** Los objetos con lo que se sabe de ellos, como en el lienzo grande (`VistaMapa.objetos`). */
@@ -48,7 +49,7 @@ let base: {
   lienzo: HTMLCanvasElement;
   escena: AdventureScene;
   version: number;
-  explorado: ReadonlySet<string> | null;
+  explorado: CasillasLeidas | null;
   objetos: readonly MapObject[];
   vistos: number;
   ancho: number;
@@ -77,12 +78,11 @@ function baseDe(ancho: number, alto: number, v: VistaMinimapa): HTMLCanvasElemen
   const { width: W, height: H, terrain } = v.escena.map;
   const sx = ancho / W;
   const sy = alto / H;
-  const explorada = (k: string): boolean => v.explorado === null || v.explorado.has(k);
   ctx.fillStyle = `rgb(${FONDO_INEXPLORADO.join(',')})`;
   ctx.fillRect(0, 0, ancho, alto);
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
-      if (!explorada(pointKey({ x, y }))) continue;
+      if (v.explorado !== null && !v.explorado.hasIndex(y * W + x)) continue;
       ctx.fillStyle = COLOR[terrain[y * W + x] as TerrainKind];
       ctx.fillRect(x * sx, y * sy, sx + 0.5, sy + 0.5);
     }

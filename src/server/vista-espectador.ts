@@ -57,8 +57,11 @@ export interface VistaJugador {
   readonly faction: FactionId;
   readonly resources: Resources;
   readonly defeated: boolean;
-  /** Casillas exploradas, por clave `"x,y"`. Era un `Set`. */
-  readonly fog: readonly string[];
+  /**
+   * Casillas exploradas, por índice `y·W + x` (`Casillas.indices`, #146): la
+   * misma moneda que `tramos` y `sueltas`. Eran claves `"x,y"`.
+   */
+  readonly fog: readonly number[];
 }
 
 export interface VistaHeroe {
@@ -204,7 +207,7 @@ export function construirVista(state: GameState, directorLog: readonly string[])
       faction: p.faction,
       resources: p.resources,
       defeated: p.defeated,
-      fog: [...p.fog],
+      fog: p.fog.indices(),
     })),
     heroes: state.heroes.map((h) => ({
       id: h.id,

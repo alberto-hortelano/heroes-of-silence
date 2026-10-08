@@ -43,7 +43,7 @@ import {
 } from '../src/client/render/escenario/superficie.js';
 import { drawMapa, PIES, recortadoArriba } from '../src/client/render/mapa.js';
 import { Session } from '../src/client/session.js';
-import { pointKey } from '../src/core/map/map.js';
+import { Casillas, type CasillasLeidas } from '../src/core/map/casillas.js';
 import { todosALaVista } from '../src/core/state/asaltantes.js';
 import { heroesOf, revealEverything, visibleNow } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
@@ -794,7 +794,7 @@ describe('qué tapa a qué en el mapa', () => {
   function pintarMapa(
     state: ReturnType<typeof newGame>,
     foco: { x: number; y: number },
-    explorado: ReadonlySet<string> | null = null,
+    explorado: CasillasLeidas | null = null,
   ) {
     const esc = escenarioDe(state.map, state.seed);
     sueloDelMapa(esc, 70, 1);
@@ -889,9 +889,8 @@ describe('qué tapa a qué en el mapa', () => {
     const state = newGame({ seed: 1 });
     const { width: W, height: H } = state.map;
     const esc = escenarioDe(state.map, 1);
-    const todas = Array.from({ length: W * H }, (_, i) =>
-      pointKey({ x: i % W, y: Math.floor(i / W) }),
-    );
+    const todas = Array.from({ length: W * H }, (_, i) => i);
+    const de = (indices: readonly number[]) => Casillas.deIndices(state.map, indices);
 
     it('apunta su casilla a lo que sube por encima del mapa, y solo a eso', () => {
       const vols = esc.porFila.flat();
@@ -904,18 +903,18 @@ describe('qué tapa a qué en el mapa', () => {
         // del mapa (la escena tiene margen) cuenta como de la casilla del borde.
         const x = Math.min(W - 1, Math.max(0, Math.floor(v.s.x)));
         const y = Math.min(H - 1, Math.max(0, Math.floor(v.clave)));
-        if (v.asomaPorArriba !== null) expect(v.asomaPorArriba).toBe(pointKey({ x, y }));
+        if (v.asomaPorArriba !== null) expect(v.asomaPorArriba).toBe(y * W + x);
       }
     });
 
     it('se recorta sin explorar; explorada o sin niebla, no', () => {
       const vol = esc.porFila.flat().find((v) => v.asomaPorArriba !== null)!;
-      const sinEsa = new Set(todas.filter((k) => k !== vol.asomaPorArriba));
+      const sinEsa = de(todas.filter((k) => k !== vol.asomaPorArriba));
       expect(recortadoArriba(vol, sinEsa)).toBe(true);
-      expect(recortadoArriba(vol, new Set(todas))).toBe(false);
+      expect(recortadoArriba(vol, de(todas))).toBe(false);
       expect(recortadoArriba(vol, null)).toBe(false);
       const bajo = esc.porFila.flat().find((v) => v.asomaPorArriba === null)!;
-      expect(recortadoArriba(bajo, new Set())).toBe(false);
+      expect(recortadoArriba(bajo, de([]))).toBe(false);
     });
 
     /** El último recorte antes de pintar el marcador `i`: el rectángulo de su `clip`. */
@@ -931,7 +930,7 @@ describe('qué tapa a qué en el mapa', () => {
     it('drawMapa lo pinta con un recorte cuyo borde de arriba es el del mapa; explorado, sin él', () => {
       const vol = esc.porFila.flat().find((v) => v.asomaPorArriba !== null)!;
       const foco = { x: Math.floor(vol.s.x), y: 2 };
-      const sinEsa = new Set(todas.filter((k) => k !== vol.asomaPorArriba));
+      const sinEsa = de(todas.filter((k) => k !== vol.asomaPorArriba));
 
       const tapado = pintarMapa(state, foco, sinEsa).registro;
       const i = indiceDelVolumen(tapado, vol.s);
@@ -939,7 +938,7 @@ describe('qué tapa a qué en el mapa', () => {
       // En píxeles del mapa (`setTransform` al origen): el rectángulo del mapa entero.
       expect(recorteDe(tapado, i)).toEqual([0, 0, W * 70, H * 70]);
 
-      const visto = pintarMapa(state, foco, new Set(todas)).registro;
+      const visto = pintarMapa(state, foco, de(todas)).registro;
       const j = indiceDelVolumen(visto, vol.s);
       expect(j).toBeGreaterThan(0);
       expect(recorteDe(visto, j)[1]).toBeLessThan(-1000);
@@ -1061,7 +1060,7 @@ describe('el lienzo de quien juega pinta los héroes que se ven AHORA (#64)', ()
         { x: mio.at.x + d, y: mio.at.y },
         { x: mio.at.x, y: mio.at.y + d },
       ])
-      .find((p) => s.state.players[0]!.fog.has(pointKey(p)) && !mirando.has(pointKey(p)));
+      .find((p) => s.state.players[0]!.fog.has(p) && !mirando.has(p));
     expect(lejos, 'la semilla no deja una casilla a seis sin mirar').toBeDefined();
 
     suyo.at = { x: mio.at.x + 1, y: mio.at.y };

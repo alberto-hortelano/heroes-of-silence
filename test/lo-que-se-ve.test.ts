@@ -14,7 +14,6 @@ import { EscenaAventura } from '../src/client/escenas/aventura.js';
 import { casillaAPixel, centrarEn, TILE_INICIAL } from '../src/client/render/camara-mapa.js';
 import { Session } from '../src/client/session.js';
 import { serializeAdventureTurn } from '../src/core/contract/serialize.js';
-import { pointKey } from '../src/core/map/map.js';
 import { sinSello, visibleTo } from '../src/core/state/events.js';
 import {
   type GameState,
@@ -41,8 +40,7 @@ function exploradaSinMirar(state: GameState, desde: Point, cerca = 8): Point {
     for (let dy = -d; dy <= d; dy++)
       for (let dx = -d; dx <= d; dx++) {
         const p = { x: desde.x + dx, y: desde.y + dy };
-        const k = pointKey(p);
-        if (fog.has(k) && !mirando.has(k)) return p;
+        if (fog.has(p) && !mirando.has(p)) return p;
       }
   throw new Error(`no hay casilla explorada y sin mirar a ${cerca} de (${desde.x}, ${desde.y})`);
 }
@@ -54,7 +52,7 @@ function nodoRecordadoSinMirar(state: GameState) {
     (o) =>
       o.kind === 'node' &&
       state.players[0]!.memory.has(o.id) &&
-      !mirando.has(pointKey(o.at)) &&
+      !mirando.has(o.at) &&
       o.owner === null,
   );
   if (nodo === undefined || nodo.kind !== 'node') throw new Error('sin nodo recordado y lejano');
@@ -68,7 +66,7 @@ describe('el núcleo: qué héroe se ve y qué se sabe de un objeto', () => {
     const mio = heroesOf(state, 0)[0]!;
     const suyo = heroesOf(state, 1)[0]!;
     suyo.at = exploradaSinMirar(state, mio.at);
-    expect(state.players[0]!.fog.has(pointKey(suyo.at))).toBe(true);
+    expect(state.players[0]!.fog.has(suyo.at)).toBe(true);
 
     const ids = () => heroesALaVista(state, 0, visibleNow(state, 0)).map((h) => h.id);
     expect(ids()).toContain(mio.id);
@@ -122,7 +120,7 @@ describe('el núcleo: qué héroe se ve y qué se sabe de un objeto', () => {
     const fog = state.players[0]!.fog;
     expect(conocidos.length).toBeGreaterThan(0);
     expect(conocidos.length).toBeLessThan(state.map.objects.length);
-    for (const { object } of conocidos) expect(fog.has(pointKey(object.at))).toBe(true);
+    for (const { object } of conocidos) expect(fog.has(object.at)).toBe(true);
   });
 });
 

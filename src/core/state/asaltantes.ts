@@ -34,7 +34,8 @@ import { fuerzaDe, poderDe, ventajaClara } from '../ai/fuerza.js';
 import { ASALTANTES, type GrupoDeTropa, problemasDeTopeDeLiderazgo } from '../data.js';
 import type { Hero } from '../hero/hero.js';
 import { individuosDe } from '../hero/troop.js';
-import { type GameMap, inBounds, type Mirada, pointFromKey } from '../map/map.js';
+import type { CasillasLeidas } from '../map/casillas.js';
+import { type GameMap, inBounds, type Mirada } from '../map/map.js';
 import {
   aPunto,
   type Estructura,
@@ -258,10 +259,10 @@ export function emboscador(state: GameState, hero: Hero): Raider | null {
  * Las regiones que se están mirando: las de alguna casilla de `mirando`. Los
  * muros, nodos y casillas fuera de región (−1) no cuentan.
  */
-function regionesALaVista(map: GameMap, mirando: ReadonlySet<string>): Set<number> {
+function regionesALaVista(map: GameMap, mirando: Iterable<Point>): Set<number> {
   const out = new Set<number>();
-  for (const clave of mirando) {
-    const r = regionDeCasilla(map, pointFromKey(clave));
+  for (const p of mirando) {
+    const r = regionDeCasilla(map, p);
     if (r >= 0) out.add(r);
   }
   return out;
@@ -307,7 +308,7 @@ export function todosALaVista<T extends VistaAsaltante>(
  */
 export function asaltantesALaVista(
   state: GameState,
-  mirando: ReadonlySet<string> | null,
+  mirando: CasillasLeidas | null,
 ): AsaltantesALaVista {
   if (mirando === null) return todosALaVista([...state.raiders]);
   const seVe = grupoALaVista(state.map, mirando);
@@ -318,7 +319,7 @@ export function asaltantesALaVista(
  * La regla de `asaltantesALaVista` para un grupo que está —o estaba— en `at`.
  * Un grupo fuera de toda región no existe (`pasoDePatrulla` lanza) y no se ve.
  */
-export function grupoALaVista(map: GameMap, mirando: ReadonlySet<string>): (at: Point) => boolean {
+export function grupoALaVista(map: GameMap, mirando: CasillasLeidas): (at: Point) => boolean {
   const regiones = regionesALaVista(map, mirando);
   return (at) => regiones.has(regionDeCasilla(map, at));
 }
@@ -520,7 +521,7 @@ export interface AsaltanteRecordado {
 export function recordarAsaltantes(
   state: GameState,
   recuerdo: Map<string, AsaltanteRecordado>,
-  mirando: ReadonlySet<string>,
+  mirando: Iterable<Point>,
 ): void {
   const regiones = regionesALaVista(state.map, mirando);
   if (regiones.size === 0) return;

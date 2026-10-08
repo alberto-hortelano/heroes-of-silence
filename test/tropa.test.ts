@@ -42,7 +42,7 @@ import {
 } from '../src/core/state/game.js';
 import { newGame, startingArmy } from '../src/core/state/setup.js';
 import { SPEED_TO_MOVE_POINTS } from '../src/core/types.js';
-import { ejercito, sinGuarnicionDeSalida } from './helpers.js';
+import { copiaDePartida, ejercito, sinGuarnicionDeSalida } from './helpers.js';
 
 const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 
@@ -508,7 +508,7 @@ describe('`recruitCapacity`: lo máximo que el núcleo acepta, ni uno más ni un
       if (plan.maximo < plan.disponibles && plan.maximo === plan.caben) topadoPorLiderazgo++;
       if (plan.maximo < Math.min(plan.disponibles, plan.caben)) topadoPorOro++;
 
-      const copia = structuredClone(state);
+      const copia = copiaDePartida(state);
       const mas = plan.maximo + 1;
       expect(() =>
         applyAdventureAction(

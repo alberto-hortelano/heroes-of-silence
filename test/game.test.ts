@@ -105,6 +105,7 @@ import {
 import {
   acabarPorLaBase,
   conCaminos,
+  copiaDePartida,
   ejercito,
   esPersonaje,
   forzarBatalla,
@@ -2531,7 +2532,7 @@ function primeraParada(): { seed: number; destino: Point; antes: GameState } {
 describe('la marcha se para al descubrir un grupo que la emboscaría (#130)', () => {
   it('se queda donde lo ve, sin batalla, con lo andado gastado; y el grupo ya se ve', () => {
     const { seed, destino, antes } = primeraParada();
-    const state = structuredClone(antes);
+    const state = copiaDePartida(antes);
     const hero = heroesOf(state, 0)[0]!;
     const puntos = hero.movePoints;
     const camino = caminoHasta(state, hero, destino)!;
@@ -2564,7 +2565,7 @@ describe('la marcha se para al descubrir un grupo que la emboscaría (#130)', ()
 
   it('un grupo que ya se ve al salir no para nada: pedir la misma marcha otra vez es la emboscada', () => {
     const { seed, destino, antes } = primeraParada();
-    const state = structuredClone(antes);
+    const state = copiaDePartida(antes);
     const hero = heroesOf(state, 0)[0]!;
     applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: destino }, ctx(seed), 0);
     const parada = state.log.at(-1)!;
@@ -2593,7 +2594,7 @@ describe('la marcha se para al descubrir un grupo que la emboscaría (#130)', ()
       const nuestro = heroesOf(antes, 0)[0]!;
       const destino = primeraMarchaQueSePara(antes, nuestro);
       if (destino === null) continue;
-      const solo = structuredClone(antes);
+      const solo = copiaDePartida(antes);
       applyAdventureAction(
         solo,
         { type: 'move_hero', hero: nuestro.id, to: destino },
@@ -2614,7 +2615,7 @@ describe('la marcha se para al descubrir un grupo que la emboscaría (#130)', ()
       ]) {
         const donde = { x: parada.at.x + dx!, y: parada.at.y + dy! };
         if (!isEnterable(antes.map, donde) || objectAt(antes.map, donde) !== undefined) continue;
-        const state = structuredClone(antes);
+        const state = copiaDePartida(antes);
         heroesOf(state, 1)[0]!.at = donde;
         applyAdventureAction(
           state,
@@ -2624,7 +2625,7 @@ describe('la marcha se para al descubrir un grupo que la emboscaría (#130)', ()
         );
         const otra = state.log.at(-1)!;
         if (otra.kind !== 'march_halted' || pointKey(otra.at) !== pointKey(parada.at)) continue;
-        if (!visibleNow(state, 1).has(pointKey(otra.at))) continue;
+        if (!visibleNow(state, 1).has(otra.at)) continue;
         const loVe = asaltantesALaVista(state, visibleNow(state, 1)).some(
           (r) => r.id === otra.raider,
         );
@@ -2642,7 +2643,7 @@ describe('la marcha se para al descubrir un grupo que la emboscaría (#130)', ()
 
   it('un héroe al que nadie le saca el margen anda entero', () => {
     const { seed, destino, antes } = primeraParada();
-    const state = structuredClone(antes);
+    const state = copiaDePartida(antes);
     const hero = heroesOf(state, 0)[0]!;
     hero.army = ejercito({ creature: 'paladin', count: 7 });
     hero.movePoints = 100_000;
@@ -2657,8 +2658,7 @@ describe('la marcha se para al descubrir un grupo que la emboscaría (#130)', ()
 /** Las regiones que el jugador 0 está mirando ahora. */
 function regionesMiradas(state: GameState): Set<number> {
   const out = new Set<number>();
-  for (const clave of visibleNow(state, 0))
-    out.add(regionDeCasilla(state.map, pointFromKey(clave)));
+  for (const p of visibleNow(state, 0)) out.add(regionDeCasilla(state.map, p));
   return out;
 }
 
@@ -2707,7 +2707,7 @@ function marchaQueGanaFuerza(): {
     hero.army = ejercito({ creature: 'peasant', count: 1 });
     base.garrison = ejercito({ creature: 'pikeman', count: 2 });
     const antes = fuerzaDe(hero, state.characters);
-    const recogida = structuredClone(state);
+    const recogida = copiaDePartida(state);
     applyAdventureAction(recogida, { type: 'move_hero', hero: hero.id, to: base.at }, ctx(seed), 0);
     const despues = fuerzaDe(heroById(recogida, hero.id), recogida.characters);
     if (despues < antes * 1.1) throw new Error(`recoger la guarnición da ${antes} → ${despues}`);
@@ -2726,7 +2726,7 @@ function marchaQueGanaFuerza(): {
       const g = regiones[iG]!;
       // Que se vea desde algún paso de antes de pisarla: si no, no hay parada posible.
       const seVeAntes = camino.slice(0, iG - 1).some((p) => {
-        const alli = structuredClone(state);
+        const alli = copiaDePartida(state);
         heroById(alli, hero.id).at = p.at;
         return regionesMiradas(alli).has(g);
       });
@@ -2736,7 +2736,7 @@ function marchaQueGanaFuerza(): {
       const enG = casillaLibre(state, g, ruta);
       if (enA === null || enG === null) continue;
       // Con los dos grupos plantados la ruta tiene que ser la misma: son casillas hostiles.
-      const conGrupos = structuredClone(state);
+      const conGrupos = copiaDePartida(state);
       conGrupos.raiders = [
         { id: 'raider-a', at: enA, troops: [] },
         { id: 'raider-g', at: enG, troops: [] },

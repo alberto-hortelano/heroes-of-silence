@@ -23,6 +23,7 @@ import type { BattleAction, BattleStack, BattleState } from '../src/core/battle/
 import { personajeDe } from '../src/core/battle/types.js';
 import { BARRERAS_DEL_MAPA } from '../src/core/data.js';
 import type { Hero } from '../src/core/hero/hero.js';
+import { Casillas } from '../src/core/map/casillas.js';
 import type { MapPlan, PlanConCasillas } from '../src/core/map/generate.js';
 import {
   findPath,
@@ -216,11 +217,31 @@ export function puenteSobreElAgua(): {
  * toca. Se busca y no se escribe a mano porque los mapas densos ya se llevaron
  * las casillas escritas a mano de la ruta que avisa (H2).
  */
+/**
+ * Una copia de la partida para probar una jugada sin tocar el original.
+ *
+ * `structuredClone` copia los datos y no el prototipo, así que la niebla
+ * (`Casillas`, #146) volvía como un objeto sin `has` ni `marcarCuadrado` y la
+ * primera marcha lanzaba. Se rehace desde sus índices; lo demás es la copia de
+ * siempre.
+ */
+export function copiaDePartida(state: GameState): GameState {
+  const copia = structuredClone(state);
+  copia.players = copia.players.map((p, i) => ({
+    ...p,
+    fog: Casillas.deIndices(
+      state.map,
+      (state.players[i] as GameState['players'][number]).fog.indices(),
+    ),
+  }));
+  return copia;
+}
+
 export function primeraMarchaQueSePara(state: GameState, heroe: Hero): Point | null {
   for (const [clave, coste] of alcanceDelHeroe(state, heroe).costs) {
     if (coste === 0 || coste > heroe.movePoints) continue;
     const destino = pointFromKey(clave);
-    const prueba = structuredClone(state);
+    const prueba = copiaDePartida(state);
     applyAdventureAction(
       prueba,
       { type: 'move_hero', hero: heroe.id, to: destino },

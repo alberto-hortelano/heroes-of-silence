@@ -18,7 +18,7 @@ import { renderLog } from '../src/client/views/panels.js';
 import { playAiGame } from '../src/core/ai/turn.js';
 import { serializeAdventureTurn } from '../src/core/contract/serialize.js';
 import type { MapPlan } from '../src/core/map/generate.js';
-import { type MapObject, pointKey } from '../src/core/map/map.js';
+import type { MapObject } from '../src/core/map/map.js';
 import { createRng } from '../src/core/rng.js';
 import type { GameEvent } from '../src/core/state/events.js';
 import { visibleTo } from '../src/core/state/events.js';
@@ -131,7 +131,7 @@ function discrepanciasDeVision(state: GameState): string[] {
     for (let y = -1; y <= state.map.height; y++) {
       for (let x = -1; x <= state.map.width; x++) {
         const q = { x, y };
-        if (visibleNowAt(state, p.id, q) !== conjunto.has(pointKey(q))) {
+        if (visibleNowAt(state, p.id, q) !== conjunto.has(q)) {
           fuera.push(`jugador ${p.id} en (${x},${y})`);
         }
       }
@@ -230,7 +230,7 @@ describe('la crónica pasa por la niebla', () => {
     pasear(state, ctx, 0, [{ x: 24, y: 6 }]);
     pasarTurno(state, ctx, 0);
     pasarTurno(state, ctx, 1);
-    expect(visibleNow(state, 0).has(pointKey({ x: 31, y: 6 }))).toBe(false);
+    expect(visibleNow(state, 0).has({ x: 31, y: 6 })).toBe(false);
 
     // Y sigue llegando, porque el reparto se decidió cuando ocurrió. Si se
     // recalculara al leer, esto desaparecería de la crónica sin que pasara
@@ -369,7 +369,7 @@ describe('la crónica pasa por la niebla', () => {
     // que la visión deje de ser un cuadrado —un bosque que tape, un catalejo—,
     // la forma que se quede atrás sellará eventos que no vio nadie.
     //
-    // El héroe se lleva a la esquina a propósito: es donde `visibleFrom` poda
+    // El héroe se lleva a la esquina a propósito: es donde `marcarCuadrado` poda
     // por los límites del mapa, que es la mitad de la equivalencia que un
     // héroe en mitad de la franja no ejercita.
     const { state, ctx } = partida(109);

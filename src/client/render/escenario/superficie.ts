@@ -8,7 +8,6 @@
  * volúmenes se pintan a cada fotograma**, solo los visibles, ordenados por
  * profundidad junto con las figuras: una figura puede quedar detrás de un árbol.
  */
-import { pointKey } from '@core/map/map.js';
 import type { TerrainKind } from '@core/map/terrain.js';
 import catalogoDelRepo from '../../../../assets/mapa/escena.json' with { type: 'json' };
 import {
@@ -121,18 +120,18 @@ export function resolucionDelSuelo(dpr: number, W: number, H: number): Resolucio
 }
 
 /**
- * Un volumen de la escena tal y como lo recorre cada fotograma: con la clave de
- * niebla (`"x,y"`) de la casilla del objeto horneado que pinta, para no
- * construirla a cada fotograma; `null` si no pinta ninguno.
+ * Un volumen de la escena tal y como lo recorre cada fotograma: con el índice
+ * de niebla (`y·W + x`, el de `Casillas`) de la casilla del objeto horneado que
+ * pinta, para no calcularlo a cada fotograma; `null` si no pinta ninguno.
  */
 export interface VolumenDelMapa extends Volumen {
-  readonly niebla: string | null;
+  readonly niebla: number | null;
   /**
-   * La clave (`"x,y"`) de la casilla de su base si su caja sube por encima del
+   * El índice (`y·W + x`) de la casilla de su base si su caja sube por encima del
    * borde de arriba del mapa; `null` si no sube. Por ahí no llega la niebla
    * (#152): lo que asoma desde una casilla sin explorar se recorta en el borde.
    */
-  readonly asomaPorArriba: string | null;
+  readonly asomaPorArriba: number | null;
 }
 
 /** Lo que se saca de un mapa una vez por partida. */
@@ -290,19 +289,19 @@ export function escenarioDe(map: MapaDeEscena, semilla: number): Escenario {
   for (const v of separada.volumenes) {
     const { s } = v;
     const fila = Math.min(escena.H - 1, Math.max(0, Math.floor(v.clave)));
-    let niebla: string | null = null;
+    let niebla: number | null = null;
     if (s.objeto !== undefined) {
       const at = casillas.get(s.objeto.id);
       if (at === undefined)
         throw new Error(`la escena pinta ${s.objeto.kind} ${s.objeto.id} y el mapa no lo tiene`);
-      niebla = pointKey(at);
+      niebla = at.y * map.width + at.x;
       claveDeObjeto.set(s.objeto.id, v.clave);
       cubrir(cubiertas, v, escena.W, escena.H);
     }
     // La misma caja con que se pinta (`pintarSprite`), también la del marcador.
     const asomaPorArriba =
       cajaDeSprite(s)[1] < 0
-        ? pointKey({ x: Math.min(escena.W - 1, Math.max(0, Math.floor(s.x))), y: fila })
+        ? fila * map.width + Math.min(map.width - 1, Math.max(0, Math.floor(s.x)))
         : null;
     (porFila[fila] as VolumenDelMapa[]).push({ ...v, niebla, asomaPorArriba });
     bases.push(s);

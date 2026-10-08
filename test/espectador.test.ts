@@ -132,7 +132,7 @@ describe('adaptar: la vuelta del cable', () => {
     // justo lo que se desincroniza. Aquí se cierra el círculo entero: estado →
     // vista → JSON → escena, y lo que sale tiene que ser lo que entró.
     const state = newGame({ seed: 5 });
-    state.players[0]?.fog.add(pointKey({ x: 9, y: 9 }));
+    state.players[0]?.fog.add({ x: 9, y: 9 });
     // Una casilla de camino suelta, que viaja aparte de los tramos.
     const libre = state.map.terrain.findIndex(
       (t, i) => isWalkable(t) && !state.map.caminos.indices.includes(i),
@@ -141,8 +141,9 @@ describe('adaptar: la vuelta del cable', () => {
 
     const escena = adaptarEscena(JSON.parse(JSON.stringify(construirVista(state, []))));
 
-    // El `Set`, que es lo que el JSON destruye y esta función rehace.
-    expect(escena.players[0]?.fog).toEqual(state.players[0]?.fog);
+    // La niebla, que viaja como índices y esta función rehace en `Casillas`.
+    expect(escena.players[0]?.fog.indices()).toEqual(state.players[0]?.fog.indices());
+    expect(escena.players[0]?.fog.has({ x: 9, y: 9 })).toBe(true);
     // Y la red de caminos, que viaja plana: los mismos tramos y las mismas
     // sueltas, así que el espectador pinta lo que pinta el cliente (#153).
     expect(state.map.caminos.tramos.length).toBeGreaterThan(0);

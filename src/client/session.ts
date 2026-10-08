@@ -25,6 +25,7 @@ import { spell } from '@core/battle/spells.js';
 import type { BattleAction, BattleStack, BattleState, Side } from '@core/battle/types.js';
 import type { Hero } from '@core/hero/hero.js';
 import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '@core/hero/troop.js';
+import type { CasillasLeidas } from '@core/map/casillas.js';
 import type { MapObject, PathStep } from '@core/map/map.js';
 import { createRng, type Rng } from '@core/rng.js';
 import {
@@ -429,7 +430,7 @@ export class Session implements ControlDeBatalla, HechizosDeBatalla {
   }
 
   /** Lo explorado por la persona, o `null` si se ha pedido verlo todo. */
-  get explorado(): ReadonlySet<string> | null {
+  get explorado(): CasillasLeidas | null {
     return this.revealAll ? null : this.jugador.fog;
   }
 
@@ -467,14 +468,14 @@ export class Session implements ControlDeBatalla, HechizosDeBatalla {
    * guarda mientras no cambie nada que la mueva: la crónica crece con cada
    * movimiento y captura, y el turno cambia al pasar de día.
    */
-  visibles(): ReadonlySet<string> {
+  visibles(): CasillasLeidas {
     const clave = `${this.state.log.length}|${this.state.day}|${this.state.current}`;
     if (this.cacheVisibles === null || this.cacheVisibles.clave !== clave) {
       this.cacheVisibles = { clave, casillas: visibleNow(this.state, this.viewer) };
     }
     return this.cacheVisibles.casillas;
   }
-  private cacheVisibles: { clave: string; casillas: ReadonlySet<string> } | null = null;
+  private cacheVisibles: { clave: string; casillas: CasillasLeidas } | null = null;
 
   /**
    * Los grupos de asaltantes que la persona ve: los que pinta el lienzo, lee la
@@ -483,7 +484,7 @@ export class Session implements ControlDeBatalla, HechizosDeBatalla {
    */
   asaltantesALaVista(): AsaltantesALaVista {
     if (this.revealAll) return asaltantesALaVista(this.state, null);
-    // Se guarda mientras `visibles()` devuelva el mismo `Set`: los grupos se
+    // Se guarda mientras `visibles()` devuelva las mismas casillas: los grupos se
     // mueven al pasar de día y se van con un hecho de la crónica, que son justo
     // las dos cosas que lo renuevan.
     const mirando = this.visibles();
@@ -493,7 +494,7 @@ export class Session implements ControlDeBatalla, HechizosDeBatalla {
     return this.cacheAsaltantes.grupos;
   }
   private cacheAsaltantes: {
-    mirando: ReadonlySet<string>;
+    mirando: CasillasLeidas;
     grupos: AsaltantesALaVista;
   } | null = null;
 
@@ -514,7 +515,7 @@ export class Session implements ControlDeBatalla, HechizosDeBatalla {
    * misma regla que el `knownMap` del agente). La bandera de un castillo o un
    * nodo lejano es la de su último dueño visto, no la de hoy (#64).
    *
-   * Se guarda mientras `visibles()` devuelva el mismo `Set` y no se mueva
+   * Se guarda mientras `visibles()` devuelva las mismas casillas y no se mueva
    * `version`: el recuerdo crece al explorar, que es andar, y lo vivo cambia con
    * una acción; las dos cosas renuevan una de las dos llaves. El lienzo lo pide a
    * cada fotograma, y el minimapa rehace su fondo cuando cambia este array.
@@ -529,7 +530,7 @@ export class Session implements ControlDeBatalla, HechizosDeBatalla {
     return objetos;
   }
   private cacheObjetos: {
-    mirando: ReadonlySet<string>;
+    mirando: CasillasLeidas;
     version: number;
     objetos: readonly MapObject[];
   } | null = null;

@@ -510,7 +510,7 @@ describe('lo que ve el agente', () => {
     };
     const jugador = state.players[0]!;
     for (const obj of payload.knownMap.objects) {
-      expect(jugador.fog.has(`${obj.at.x},${obj.at.y}`)).toBe(true);
+      expect(jugador.fog.has(obj.at)).toBe(true);
     }
     // El castillo enemigo está al otro lado del mapa: no debe asomar.
     const puebloEnemigo = state.towns.find((t) => t.owner === 1)!;
@@ -539,8 +539,10 @@ describe('lo que ve el agente', () => {
       const p = pointFromKey(k);
       return p.x !== p.y && !state.map.caminos.casillas.has(k);
     };
-    const dentro = [...jugador.fog].find(asimetrica);
-    const fuera = [...state.players[1]!.fog].find((k) => !jugador.fog.has(k) && asimetrica(k));
+    const dentro = [...jugador.fog].map(pointKey).find(asimetrica);
+    const fuera = [...state.players[1]!.fog]
+      .map(pointKey)
+      .find((k) => !jugador.fog.has(pointFromKey(k)) && asimetrica(k));
     // Y se comprueba que la semilla sigue dando las dos casillas, en vez de
     // taparlo con un `!`. Con `fuera` a `undefined` se colaba un `undefined` en
     // `roads` y el `not.toContain(fuera)` de abajo pasaba **por vacío**: un
@@ -559,9 +561,9 @@ describe('lo que ve el agente', () => {
     // una casilla explorada cuya transpuesta NO lo esté, y se comprueba que
     // queda así en vez de suponerlo.
     const espejo = pointFromKey(dentro);
-    const transpuesta = pointKey({ x: espejo.y, y: espejo.x });
+    const transpuesta = { x: espejo.y, y: espejo.x };
     jugador.fog.delete(transpuesta);
-    if (!jugador.fog.has(dentro) || jugador.fog.has(transpuesta)) {
+    if (!jugador.fog.has(espejo) || jugador.fog.has(transpuesta)) {
       throw new Error(`la niebla del jugador 0 sigue siendo simétrica en ${dentro}`);
     }
 
@@ -601,7 +603,7 @@ describe('lo que ve el agente', () => {
     // verde. Es `pointFromKey` otra vez, una función más allá.
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
-        const explorada = jugador.fog.has(pointKey({ x, y }));
+        const explorada = jugador.fog.has({ x, y });
         expect(terrain[y * width + x] === null, `(${x},${y})`).toBe(!explorada);
       }
     }
@@ -613,7 +615,7 @@ describe('lo que ve el agente', () => {
     expect(roads.map(pointKey)).not.toContain(fuera);
     for (const p of roads) {
       expect(typeof p.x, 'un camino viaja como {x,y}, no como "x,y"').toBe('number');
-      expect(jugador.fog.has(pointKey(p))).toBe(true);
+      expect(jugador.fog.has(p)).toBe(true);
     }
   });
 
@@ -625,7 +627,7 @@ describe('lo que ve el agente', () => {
     revealEverything(state, 0);
     const mirando = visibleNow(state, 0);
 
-    const lejos = state.map.objects.find((o) => o.kind === 'node' && !mirando.has(pointKey(o.at)));
+    const lejos = state.map.objects.find((o) => o.kind === 'node' && !mirando.has(o.at));
     expect(lejos, 'la semilla no deja ningún nodo fuera de la vista').toBeDefined();
     if (lejos === undefined || lejos.kind !== 'node') throw new Error('sin nodo lejano');
 
@@ -650,9 +652,7 @@ describe('lo que ve el agente', () => {
         const state = newGame({ seed });
         revealEverything(state, 0);
         const mirando = visibleNow(state, 0);
-        const nodo = state.map.objects.find(
-          (o) => o.kind === 'node' && mirando.has(pointKey(o.at)),
-        );
+        const nodo = state.map.objects.find((o) => o.kind === 'node' && mirando.has(o.at));
         if (nodo !== undefined && nodo.kind === 'node') return { state, cerca: nodo };
       }
       throw new Error('ninguna de 200 semillas deja un nodo a la vista al empezar');

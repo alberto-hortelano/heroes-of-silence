@@ -703,25 +703,13 @@ export function pathFromReachable(
 }
 
 /**
- * Desde dónde mira alguien y hasta dónde: el cuadrado de Chebyshev de
- * `visibleFrom`. Es lo que un jugador mira escrito sin levantar las claves, para
+ * Desde dónde mira alguien y hasta dónde: el cuadrado de Chebyshev que marca
+ * `Casillas.marcarCuadrado`. Es lo que un jugador mira escrito sin levantar las claves, para
  * quien pregunta por una casilla o una región y no por todo lo visible.
  */
 export interface Mirada {
   readonly centro: Point;
   readonly radio: number;
-}
-
-/** Casillas visibles desde `p` con radio `radius` (distancia de Chebyshev). */
-export function visibleFrom(map: GameMap, p: Point, radius: number): string[] {
-  const out: string[] = [];
-  for (let dy = -radius; dy <= radius; dy++) {
-    for (let dx = -radius; dx <= radius; dx++) {
-      const q = { x: p.x + dx, y: p.y + dy };
-      if (inBounds(map, q)) out.push(pointKey(q));
-    }
-  }
-  return out;
 }
 
 export function createEmptyMap(

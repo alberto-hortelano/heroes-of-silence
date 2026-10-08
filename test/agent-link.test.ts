@@ -14,7 +14,7 @@ import {
   type MapPlan,
   validateMapPlan,
 } from '../src/core/map/generate.js';
-import { pointFromKey, pointKey, reachableFrom } from '../src/core/map/map.js';
+import { pointKey, reachableFrom } from '../src/core/map/map.js';
 import { createRng } from '../src/core/rng.js';
 import { loQueLaPara } from '../src/core/state/asaltantes.js';
 import { cronicaPara, sinSello, visibleTo } from '../src/core/state/events.js';
@@ -1141,7 +1141,7 @@ describe('la consulta `map` pasa por la niebla', () => {
     revealEverything(state, 0);
 
     const mio = jugador(state, 1);
-    const lejano = state.map.objects.find((o) => !mio.fog.has(pointKey(o.at)));
+    const lejano = state.map.objects.find((o) => !mio.fog.has(o.at));
     if (lejano === undefined) throw new Error('la semilla 406 ya no deja nada sin explorar');
 
     const mapa1 = JSON.parse(entregado(director, 'map', { player: 1 })) as {
@@ -1170,15 +1170,15 @@ describe('la consulta `map` pasa por la niebla', () => {
     // trozo del test sería una comprobación vacía que pasaría siempre.
     // Fuera de la diagonal: en (15,15) leer la clave del revés es la identidad.
     // Y sin camino todavía: `conCaminos` lanza con una casilla que ya lo lleva.
-    const explorada = [...mio.fog].find((k) => {
-      const p = pointFromKey(k);
-      return p.x !== p.y && !state.map.caminos.casillas.has(k);
-    });
+    const explorada = [...mio.fog]
+      .filter((p) => p.x !== p.y)
+      .map(pointKey)
+      .find((k) => !state.map.caminos.casillas.has(k));
     if (explorada === undefined)
       throw new Error('la semilla 407 ya no deja una casilla fuera de la diagonal');
     const ignorada = [...Array(state.map.width * state.map.height).keys()]
-      .map((i) => pointKey({ x: i % state.map.width, y: Math.floor(i / state.map.width) }))
-      .find((clave) => !mio.fog.has(clave));
+      .filter((i) => !mio.fog.hasIndex(i))
+      .map((i) => pointKey({ x: i % state.map.width, y: Math.floor(i / state.map.width) }))[0];
     if (ignorada === undefined) throw new Error('la semilla 407 ya no deja nada sin explorar');
     state.map = conCaminos(state.map, explorada, ignorada);
 
@@ -1199,7 +1199,7 @@ describe('la consulta `map` pasa por la niebla', () => {
     for (let y = 0; y < state.map.height; y++) {
       for (let x = 0; x < state.map.width; x++) {
         const i = y * state.map.width + x;
-        if (mio.fog.has(pointKey({ x, y }))) {
+        if (mio.fog.has({ x, y })) {
           expect(mapa.terrain[i], `(${x},${y}) explorada`).toBe(state.map.terrain[i]);
           conocidas++;
         } else {
@@ -1230,10 +1230,10 @@ describe('la consulta `map` pasa por la niebla', () => {
     // Con un camino dentro de la niebla: si `roads` fuera `[]` en las dos, la
     // igualdad de ese campo se cumpliría por vacío.
     // Y sin camino todavía: `conCaminos` lanza con una casilla que ya lo lleva.
-    const explorada = [...mio.fog].find((k) => {
-      const p = pointFromKey(k);
-      return p.x !== p.y && !state.map.caminos.casillas.has(k);
-    });
+    const explorada = [...mio.fog]
+      .filter((p) => p.x !== p.y)
+      .map(pointKey)
+      .find((k) => !state.map.caminos.casillas.has(k));
     if (explorada === undefined)
       throw new Error('la semilla 410 ya no deja una casilla fuera de la diagonal');
     state.map = conCaminos(state.map, explorada);

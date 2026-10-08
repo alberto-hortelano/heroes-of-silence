@@ -50,7 +50,7 @@ import {
   troopSummary,
 } from '../hero/troop.js';
 import { minasDeLasRegiones, regionesDelMapa } from '../map/generate.js';
-import { pointFromKey, pointKey } from '../map/map.js';
+import { pointFromKey } from '../map/map.js';
 import { BARRERAS, costeDeEntrada, SUELOS_PISABLES, TERRAIN_KINDS } from '../map/terrain.js';
 import { asaltantesALaVista } from '../state/asaltantes.js';
 import { cronicaPara } from '../state/events.js';
@@ -276,10 +276,8 @@ export function serializeKnownMap(state: GameState, playerId: PlayerId) {
   return {
     width,
     height: state.map.height,
-    terrain: terrain.map((t, i) =>
-      player.fog.has(pointKey({ x: i % width, y: Math.floor(i / width) })) ? t : null,
-    ),
-    roads: [...caminos.casillas].filter((clave) => player.fog.has(clave)).map(pointFromKey),
+    terrain: terrain.map((t, i) => (player.fog.hasIndex(i) ? t : null)),
+    roads: [...caminos.casillas].map(pointFromKey).filter((p) => player.fog.has(p)),
     objects: knownObjects(state, playerId),
     raiders: vistos.map((r) => ({ id: r.id, at: r.at, troops: r.troops, strength: poderDe(r) })),
   };

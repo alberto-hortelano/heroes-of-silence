@@ -1469,7 +1469,7 @@ async function rutaDoradaYGris(page: Page, espejo: Session, mapa: Mapa): Promise
   const dorado = pintados.find((p) => p.hoy && p.marca === 'paso') ?? pintados.find((p) => p.hoy)!;
   const gris =
     pintados.find((p) => !p.hoy && p.marca !== 'destino') ?? pintados.find((p) => !p.hoy)!;
-  const oculto = ruta.find((r) => !explorado.has(`${r.at.x},${r.at.y}`));
+  const oculto = ruta.find((r) => !explorado.has(r.at));
   const sitios = [dorado.at, gris.at, ...(oculto === undefined ? [] : [oculto.at])];
   const enPagina = await Promise.all(sitios.map((p) => mapa.pixel(p)));
   const antes = await Promise.all(
@@ -1738,7 +1738,7 @@ async function patrullaALaVista(
   for (let i = 0; i < -RUEDA_DE_LA_PATRULLA; i++) await mapa.rueda(-1);
   const b = await caja(page);
   const dentro = (p: { x: number; y: number }) => tocable(b, p);
-  const explorada = (p: Point) => espejo.explorado?.has(`${p.x},${p.y}`) ?? true;
+  const explorada = (p: Point) => espejo.explorado?.has(p) ?? true;
   /**
    * El centro de la casilla y el sitio de la chapa. Una figura puede quedar
    * detrás de un árbol y el centro de su casilla no cambiar; la chapa de cuántos
@@ -1784,9 +1784,7 @@ async function patrullaALaVista(
       // `emboscadaAvisada`.
       if (espejo.revealAll) throw new Error(`${prefijo}: no hay ningún asaltante a la vista`);
       const mirando = visibleNow(espejo.state, espejo.viewer);
-      const tapado = espejo.state.raiders.find(
-        (r) => mirando.has(`${r.at.x},${r.at.y}`) && !explorada(r.at),
-      );
+      const tapado = espejo.state.raiders.find((r) => mirando.has(r.at) && !explorada(r.at));
       if (tapado !== undefined) {
         throw new Error(
           `${prefijo}: ${tapado.id} en (${tapado.at.x},${tapado.at.y}) está a la vista y la niebla lo tapa (H1)`,
@@ -1882,7 +1880,7 @@ async function emboscadaAvisada(
   }
   const grupo = salta.emboscada;
   const explorado = espejo.explorado;
-  if (explorado === null || !explorado.has(`${grupo.at.x},${grupo.at.y}`)) {
+  if (explorado === null || !explorado.has(grupo.at)) {
     throw new Error(`emboscada: ${grupo.id} embosca y no está pintado: la niebla lo tapa (H1)`);
   }
   const b = await caja(page);

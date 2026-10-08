@@ -13,13 +13,14 @@ import { playAiTurn } from '../src/core/ai/turn.js';
 import { serializeKnownMap } from '../src/core/contract/serialize.js';
 import { ASALTANTES, creature, factionLineup } from '../src/core/data.js';
 import { CUPO_HEROE, withTroops } from '../src/core/hero/troop.js';
+import { Casillas } from '../src/core/map/casillas.js';
 import {
   buildMap,
   generateMapPlan,
   type MapPlan,
   validateMapPlan,
 } from '../src/core/map/generate.js';
-import { isEnterable, objectAt, pointFromKey, pointKey } from '../src/core/map/map.js';
+import { isEnterable, objectAt, pointKey } from '../src/core/map/map.js';
 import { estructura, territorio, VECINAS } from '../src/core/map/regiones.js';
 import { createRng } from '../src/core/rng.js';
 import {
@@ -347,16 +348,13 @@ describe('dispersarse y brotar', () => {
 });
 
 describe('la IA teme lo que vio (#164)', () => {
-  /** Las claves de todas las casillas de la región de `at`: mirarla entera. */
-  const laRegion = (state: GameState, at: Point): Set<string> => {
+  /** Todas las casillas de la región de `at`: mirarla entera. */
+  const laRegion = (state: GameState, at: Point): Casillas => {
     const { regionDe } = estructura(state.map);
-    const W = state.map.width;
     const r = regionDeCasilla(state.map, at);
-    const out = new Set<string>();
-    for (let i = 0; i < regionDe.length; i++) {
-      if (regionDe[i] === r) out.add(pointKey({ x: i % W, y: Math.floor(i / W) }));
-    }
-    return out;
+    const indices: number[] = [];
+    for (let i = 0; i < regionDe.length; i++) if (regionDe[i] === r) indices.push(i);
+    return Casillas.deIndices(state.map, indices);
   };
 
   it('se apunta al ver su región, se recuerda sin mirarla y se olvida al mirarla sin él', () => {
@@ -652,11 +650,9 @@ describe('lo que el castillo ve se pinta (H1)', () => {
       const mirando = visibleNow(state, 0);
       for (const r of state.raiders) {
         if (!ventajaClara(poderDe(r), fuerzaDe(hero, state.characters))) continue;
-        if (!mirando.has(pointKey(r.at))) continue;
+        if (!mirando.has(r.at)) continue;
         emboscadores++;
-        expect(fog.has(pointKey(r.at)), `semilla ${semilla}: ${r.id} se ve y no se pinta`).toBe(
-          true,
-        );
+        expect(fog.has(r.at), `semilla ${semilla}: ${r.id} se ve y no se pinta`).toBe(true);
       }
       const km = serializeKnownMap(state, 0);
       for (const cosa of km.objects) {
@@ -689,8 +685,8 @@ describe('lo que el castillo ve se pinta (H1)', () => {
         capturas += state.log.slice(desde).filter((e) => e.kind === 'town_captured').length;
         for (const p of state.players) {
           if (p.defeated) continue;
-          for (const clave of visibleNow(state, p.id)) {
-            expect(p.fog.has(clave), `semilla ${semilla}, día ${state.day}: ${clave}`).toBe(true);
+          for (const q of visibleNow(state, p.id)) {
+            expect(p.fog.has(q), `semilla ${semilla}, día ${state.day}: ${q.x},${q.y}`).toBe(true);
           }
         }
         // Y quien acaba de empezar turno recuerda lo de junto a sus castillos
@@ -744,7 +740,9 @@ describe('la ruta que pisa una emboscada (H2)', () => {
       expect(regionDeCasilla(state.map, paso.at)).not.toBe(r);
     }
     // Lo que no se ve no avisa: la ruta no cuenta lo que tapa la niebla.
-    expect(emboscadaEnLaRuta(state, hero, camino, asaltantesALaVista(state, new Set()))).toBeNull();
+    expect(
+      emboscadaEnLaRuta(state, hero, camino, asaltantesALaVista(state, Casillas.vacias(state.map))),
+    ).toBeNull();
     // Y un héroe al que el grupo no le saca el margen, tampoco.
     hero.army = ejercito({ creature: 'paladin', count: 7 });
     expect(emboscadaEnLaRuta(state, hero, camino, vistos)).toBeNull();
@@ -761,11 +759,9 @@ describe('qué grupo se ve: basta ver su región (#130)', () => {
       const state = newGame({ seed });
       const mirando = visibleNow(state, 0);
       for (const raider of state.raiders) {
-        if (mirando.has(pointKey(raider.at))) continue;
+        if (mirando.has(raider.at)) continue;
         const region = regionDeCasilla(state.map, raider.at);
-        const casilla = [...mirando].find(
-          (k) => regionDeCasilla(state.map, pointFromKey(k)) === region,
-        );
+        const casilla = [...mirando].find((p) => regionDeCasilla(state.map, p) === region);
         if (casilla !== undefined) return { state, raider, mirando, casilla };
       }
     }
@@ -777,11 +773,13 @@ describe('qué grupo se ve: basta ver su región (#130)', () => {
     expect(asaltantesALaVista(state, mirando).map((r) => r.id)).toContain(raider.id);
     // Solo esa casilla: se ve él y los de su región, nadie más.
     const region = regionDeCasilla(state.map, raider.at);
-    const vistos = asaltantesALaVista(state, new Set([casilla]));
+    const sola = Casillas.vacias(state.map);
+    sola.add(casilla);
+    const vistos = asaltantesALaVista(state, sola);
     expect(vistos.map((r) => r.id)).toContain(raider.id);
     for (const r of vistos) expect(regionDeCasilla(state.map, r.at)).toBe(region);
     // Sin mirar nada, ninguno; con «Ver mapa entero», todos.
-    expect(asaltantesALaVista(state, new Set())).toEqual([]);
+    expect(asaltantesALaVista(state, Casillas.vacias(state.map))).toEqual([]);
     expect(asaltantesALaVista(state, null).map((r) => r.id)).toEqual(
       state.raiders.map((r) => r.id),
     );
@@ -836,7 +834,7 @@ describe('qué grupo se ve: basta ver su región (#130)', () => {
         for (const r of state.raiders) {
           const desde = grupoALaVistaDesde(state.map, miradas, r.at);
           expect(desde, `semilla ${seed}, ${r.id}, jugador ${p}`).toBe(seVe(r.at));
-          if (desde && !mirando.has(pointKey(r.at))) porSuRegion++;
+          if (desde && !mirando.has(r.at)) porSuRegion++;
         }
       }
     }
@@ -853,7 +851,7 @@ describe('qué grupo se ve: basta ver su región (#130)', () => {
         for (const p of [0, 1] as const) {
           const loVe = asaltantesALaVista(state, visibleNow(state, p)).includes(grupo);
           expect(e.seen.includes(p), `semilla ${seed}, ${e.raider}, jugador ${p}`).toBe(loVe);
-          if (loVe && !visibleNow(state, p).has(pointKey(grupo.at))) deLejos++;
+          if (loVe && !visibleNow(state, p).has(grupo.at)) deLejos++;
         }
       }
     }

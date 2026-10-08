@@ -6,6 +6,7 @@
  * si se está arrastrando—, igual que hacía `main.ts` antes de partirse.
  */
 import { individuosDe } from '@core/hero/troop.js';
+import type { CasillasLeidas } from '@core/map/casillas.js';
 import { inBounds, pointKey } from '@core/map/map.js';
 import type { Point } from '@core/types.js';
 import {
@@ -249,7 +250,7 @@ export class EscenaAventura {
     if (puente === null) return debajo;
     const nodo = { x: Math.floor(puente.nodo[0]), y: Math.floor(puente.nodo[1]) };
     // Bajo la niebla no se pinta, y pulsar ahí no puede decir que hay un puente.
-    return (s.explorado?.has(pointKey(nodo)) ?? true) ? nodo : debajo;
+    return (s.explorado?.has(nodo) ?? true) ? nodo : debajo;
   }
 
   private señalar(casilla: Point): void {
@@ -343,7 +344,7 @@ export class EscenaAventura {
 function describirCasilla(s: Session, p: Point, ruta: readonly PasoDeRuta[]): string {
   const { map } = s.state;
   if (!inBounds(map, p)) return '';
-  const explorada = s.explorado?.has(pointKey(p)) ?? true;
+  const explorada = s.explorado?.has(p) ?? true;
   // Lo mismo que pinta el lienzo: el héroe que se ve ahora y el objeto como se
   // sabe (#64). Con el estado vivo, la barra decía «Castillo (enemigo)» de uno
   // que se recordaba tuyo, y nombraba al héroe rival que el mapa ya no pintaba.
@@ -396,7 +397,7 @@ function describirCasilla(s: Session, p: Point, ruta: readonly PasoDeRuta[]): st
  */
 export function llegadaDeLaRuta(
   ruta: readonly PasoDeRuta[],
-  explorado: ReadonlySet<string> | null,
+  explorado: CasillasLeidas | null,
 ): string {
   const vistos = pasosAPintar(ruta, explorado);
   const hoy = vistos.filter((r) => r.hoy).length;

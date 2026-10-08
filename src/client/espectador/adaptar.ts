@@ -17,6 +17,7 @@
 
 import type { BattleStack, BattleState } from '@core/battle/types.js';
 import { cifrasDeCatalogo } from '@core/hero/experiencia.js';
+import { Casillas } from '@core/map/casillas.js';
 import { aPunto, RedDeCaminos, type TramoDeCamino } from '@core/map/map.js';
 import { BARRERAS, type TerrainKind } from '@core/map/terrain.js';
 import type { UnitInfo, Veterania } from '@core/types.js';
@@ -111,7 +112,7 @@ export function adaptarEscena(view: SpectatorView): AdventureScene {
       objects: view.map.objects,
       regions: view.map.regions,
     },
-    players: view.players.map((p) => ({ id: p.id, fog: new Set(p.fog) })),
+    players: view.players.map((p) => ({ id: p.id, fog: Casillas.deIndices(view.map, p.fog) })),
   };
 }
 
