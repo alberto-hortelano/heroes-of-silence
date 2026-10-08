@@ -242,9 +242,11 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   (`asaltantesALaVista`, la única regla, que leen ruta, lienzo, barra, `knownMap`
   y el sello de la crónica), y la marcha se para donde ve uno que la emboscaría
   más adelante con la fuerza de ahora y que no es el que la ruta avisaba al salir
-  (`vigiaDeLaMarcha`, `march_halted`). **Ventaja declarada de la IA de reglas**:
-  mira `state.raiders` sin niebla (`casillasPeligrosas`, `strategy.ts`); si debe
-  tener niebla es de #115 (#164).
+  (`vigiaDeLaMarcha`, `march_halted`). **La IA de reglas juega con niebla** (#164):
+  teme los grupos que ha visto (`Player.asaltantesVistos`, que escribe `explorar`
+  con `recordarAsaltantes`: se olvida uno al mirar su región sin él) y solo persigue
+  los que ve ahora (`casillasPeligrosas`, `strategy.ts`). Sin el recuerdo, 32 de 300
+  partidas sin terminar.
 - **Base**: nace con guarnición (`data/ciudades.json`). Con el héroe del dueño
   dentro, la defiende solo él con su tropa.
 - **Magia**: el gremio enseña por derivación (`townSpells`), `syncSpellbooks`

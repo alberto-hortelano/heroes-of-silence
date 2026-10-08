@@ -129,7 +129,15 @@ export function guardiaEnElMarco(
   const candidatas: { at: Point; pasos: number }[] = [];
   const heroe = espejo.selectedHero;
   const peligro =
-    heroe === null || aunqueEmbosquen ? null : casillasPeligrosas(espejo.state, heroe);
+    heroe === null || aunqueEmbosquen
+      ? null
+      : // Todos los grupos y no los que vio su dueño (#164): la captura tiene
+        // que esquivar la emboscada que ocurriría, no la que el jugador teme.
+        casillasPeligrosas(
+          espejo.state,
+          heroe,
+          new Map(espejo.state.raiders.map((g) => [g.id, { day: espejo.state.day, grupo: g }])),
+        );
   const W = espejo.state.map.width;
   for (const o of espejo.state.map.objects) {
     if (o.kind !== 'monster' || o.defeated) continue;

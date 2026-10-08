@@ -458,8 +458,8 @@ function conMargenEnLaRuta(
  * de una marcha cambia la respuesta. Si no se recalculara, la marcha se pararía
  * por un grupo que ya no la emboscaría (H2, `?seed=6`). Las `miradas` se piden
  * solo si hay un grupo con margen en la ruta, y por eso es una función: la IA no
- * pisa esas regiones (`casillasPeligrosas`), así que en sus marchas —casi todas
- * las del banco— no se miran.
+ * pisa las regiones de los que ha visto (`casillasPeligrosas`), así que en casi
+ * todas sus marchas no se miran.
  */
 export function vigiaDeLaMarcha(
   state: GameState,
@@ -497,11 +497,57 @@ export function loQueLaPara(troops: readonly GrupoDeTropa[]): string {
 }
 
 /**
- * Las casillas de las regiones donde a `hero` lo emboscarían, marcadas con un 1
- * (índice `y*width+x`): lo que la IA no pisa (`alcanceDelHeroe` las trata como
- * muro, porque la primera casilla ya es la emboscada). `null` si no hay ningún
- * grupo que le saque el margen. Una marca y no una lista de puntos: una región
+ * Lo último que un jugador vio de un grupo: dónde estaba, con qué tropa y qué
+ * día. Lo guarda `Player.asaltantesVistos` y lo escribe `recordarAsaltantes`.
+ */
+export interface AsaltanteRecordado {
+  readonly day: number;
+  readonly grupo: VistaAsaltante;
+}
+
+/**
+ * Apunta en `recuerdo` lo que se ve desde `mirando` con la regla de
+ * `asaltantesALaVista` —un grupo se ve al verse su región—: los grupos de esas
+ * regiones se apuntan con su casilla y su tropa de hoy, y los que se recordaban
+ * en ellas y ya no están se olvidan, porque mirar la región y no verlos es
+ * saber que se fueron. Lo que pasa en una región que no se mira no se sabe: el
+ * grupo que se dispersó lejos se sigue recordando hasta volver a mirarla.
+ *
+ * Basta con la región y no con la casilla porque un grupo no sale nunca de la
+ * suya (`pasoDePatrulla`): recordar dónde estaba es recordar qué región
+ * patrulla, y eso es lo que pregunta `casillasPeligrosas`.
+ */
+export function recordarAsaltantes(
+  state: GameState,
+  recuerdo: Map<string, AsaltanteRecordado>,
+  mirando: ReadonlySet<string>,
+): void {
+  const regiones = regionesALaVista(state.map, mirando);
+  if (regiones.size === 0) return;
+  for (const [id, { grupo }] of recuerdo) {
+    if (regiones.has(regionDeCasilla(state.map, grupo.at))) recuerdo.delete(id);
+  }
+  for (const { id, at, troops } of state.raiders) {
+    if (regiones.has(regionDeCasilla(state.map, at))) {
+      recuerdo.set(id, { day: state.day, grupo: { id, at, troops } });
+    }
+  }
+}
+
+/**
+ * Las casillas de las regiones donde a `hero` lo emboscarían **según lo que su
+ * dueño sabe** (`recuerdo`, su `asaltantesVistos`), marcadas con un 1 (índice
+ * `y*width+x`): lo que la IA no pisa (`alcanceDelHeroe` las trata como muro,
+ * porque la primera casilla ya es la emboscada). `null` si ningún grupo
+ * conocido le saca el margen. Una marca y no una lista de puntos: una región
  * son decenas de casillas y la IA lo pregunta por cada héroe y cada turno.
+ *
+ * **Pasa por la niebla** (#164): antes leía `state.raiders` entero y la IA no
+ * caía nunca en una emboscada, mientras la persona y el agente jugaban con la
+ * suya. Con lo que ve AHORA no basta: la marcha que descubre un grupo se para
+ * (`vigiaDeLaMarcha`), el héroe se aparta y, en cuanto deja de ver la región,
+ * la vuelve a meter en su ruta. Sin recuerdo eran 14 865 marchas paradas y 32
+ * de 300 partidas sin terminar; con él, las cifras en `docs/historia.md`.
  *
  * La región en la que ya está el héroe **también** se marca: si se ha vuelto
  * peligrosa —ganó una batalla dentro y salió mermado—, cada paso dentro de ella
@@ -511,8 +557,19 @@ export function loQueLaPara(troops: readonly GrupoDeTropa[]): string {
  * partidas, y 31 de las 33 las ganaba el grupo; con ella, 0, y 0 de 1 000
  * partidas sin terminar.
  */
-export function casillasPeligrosas(state: GameState, hero: Hero): Uint8Array | null {
-  const regiones = new Set(gruposConMargen(state, hero).map((g) => g.region));
+export function casillasPeligrosas(
+  state: GameState,
+  hero: Hero,
+  recuerdo: ReadonlyMap<string, AsaltanteRecordado>,
+): Uint8Array | null {
+  const regiones = new Set<number>();
+  let suya: number | undefined;
+  for (const { grupo } of recuerdo.values()) {
+    const region = regionDeCasilla(state.map, grupo.at);
+    if (region < 0 || regiones.has(region)) continue;
+    suya ??= fuerzaDe(hero, state.characters);
+    if (ventajaClara(poderDe(grupo), suya)) regiones.add(region);
+  }
   if (regiones.size === 0) return null;
   const { regionDe } = estructura(state.map);
   const marca = new Uint8Array(regionDe.length);

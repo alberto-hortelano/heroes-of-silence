@@ -112,6 +112,7 @@ import {
   subtractResources,
 } from '../types.js';
 import {
+  type AsaltanteRecordado,
   casillasPeligrosas,
   dispersados,
   dondeBrotan,
@@ -120,6 +121,7 @@ import {
   mascaraDeOcupacion,
   pasoDePatrulla,
   type Raider,
+  recordarAsaltantes,
   vigiaDeLaMarcha,
 } from './asaltantes.js';
 import {
@@ -147,6 +149,13 @@ export interface Player {
    * conocido es justo la señal de que allí ha pasado algo.
    */
   memory: Map<string, RememberedObject>;
+  /**
+   * Lo último OBSERVADO de cada grupo de asaltantes, por id de grupo: lo que la
+   * IA de reglas teme (`casillasPeligrosas`, #164). Se escribe junto a `memory`
+   * (`explorar`, con `recordarAsaltantes`) y no viaja a nadie: el agente y la
+   * pantalla ven los grupos de ahora (`asaltantesALaVista`).
+   */
+  asaltantesVistos: Map<string, AsaltanteRecordado>;
   defeated: boolean;
   /**
    * El id del castillo al que vuelve un héroe derrotado o rendido, o `null` si
@@ -623,6 +632,7 @@ export function createGame(config: GameConfig): GameState {
     resources: addResources(DEFAULT_STARTING_RESOURCES, config.startingResources ?? {}),
     fog: new Set<string>(),
     memory: new Map<string, RememberedObject>(),
+    asaltantesVistos: new Map<string, AsaltanteRecordado>(),
     defeated: false,
     base: primeraCiudadDe(config.towns, p.id)?.id ?? null,
   }));
@@ -708,6 +718,7 @@ function explorar(state: GameState, player: Player, centro: Point, radio: number
       player.memory.set(obj.id, { day: state.day, object: { ...obj } });
     }
   }
+  recordarAsaltantes(state, player.asaltantesVistos, alcance);
 }
 
 /**
@@ -727,6 +738,7 @@ export function revealEverything(state: GameState, playerId: PlayerId): void {
   for (const obj of state.map.objects) {
     player.memory.set(obj.id, { day: state.day, object: { ...obj } });
   }
+  recordarAsaltantes(state, player.asaltantesVistos, player.fog);
 }
 
 /**
@@ -1826,7 +1838,10 @@ export function alcanceDelHeroe(
   hero: Hero,
   opciones: { readonly evitarEmboscadas?: boolean } = {},
 ): Reachable {
-  const peligro = opciones.evitarEmboscadas === true ? casillasPeligrosas(state, hero) : null;
+  const peligro =
+    opciones.evitarEmboscadas === true
+      ? casillasPeligrosas(state, hero, playerById(state, hero.owner).asaltantesVistos)
+      : null;
   return reachableFrom(state.map, hero.at, casillasHostiles(state, hero.owner), peligro);
 }
 
@@ -1967,7 +1982,7 @@ function moveHero(
 
   // Si por el camino se ve un grupo que la emboscaría y que la ruta no avisaba,
   // la marcha se para donde lo ve (#130; la regla, en `vigiaDeLaMarcha`). Casi
-  // siempre no hay —la IA no pisa esas regiones—, y entonces el bucle no paga
+  // siempre no hay —la IA no pisa las regiones de los que ha visto—, y entonces el bucle no paga
   // nada. De un solo paso no hay «más adelante», y mirarlo mediría la fuerza
   // del héroe antes que la batalla, que es quien tiene que lanzar si su
   // ejército no vale.

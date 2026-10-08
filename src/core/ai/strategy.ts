@@ -27,6 +27,7 @@ import {
 } from '../hero/troop.js';
 import { type MapObject, pointKey, type Reachable } from '../map/map.js';
 import { regionesQueCierra, type Territorio, territorio } from '../map/regiones.js';
+import { grupoALaVistaDesde } from '../state/asaltantes.js';
 import {
   type AdventureAction,
   baseOf,
@@ -35,6 +36,7 @@ import {
   HERO_HIRE_COST,
   heroeEnElPueblo,
   heroesOf,
+  miradasDe,
   recruitCapacity,
   townsOf,
 } from '../state/game.js';
@@ -203,8 +205,12 @@ export function chooseHeroDestination(
   // Un grupo de asaltantes vale lo que un monstruo, con la misma regla: se le
   // ataca solo con ventaja clara. Lo que lo hace distinto —que se mueve y que
   // embosca— no es de aquí: lo evita el alcance que no entra en las regiones
-  // donde lo emboscarían (`alcanceDelHeroe` con `evitarEmboscadas`).
+  // donde lo emboscarían (`alcanceDelHeroe` con `evitarEmboscadas`). Solo
+  // los que ve AHORA (#164): uno recordado ya no está donde se vio, y uno
+  // que no ha visto no lo puede perseguir.
+  const miradas = miradasDe(state, hero.owner);
   for (const asaltante of state.raiders) {
+    if (!grupoALaVistaDesde(state.map, miradas, asaltante.at)) continue;
     const valor = valorDeNeutral(miPoder, poderDe(asaltante));
     if (valor > 0) considerar(asaltante.at, valor);
   }

@@ -3415,6 +3415,50 @@ coherentes». La crítica está en `docs/agents/2026-10-08-muralla-coherente/`.
 - El `esqueleto()` de Zhang-Suen se borró con sus tres tests: ya no lo usa
   nadie. `esqueleto.ts` guarda `Paso`, `ejeDe` y `componentesDePasos`.
 
+## La IA de reglas juega con niebla (#164, 08-10-2026)
+
+Lo vio el crítico de #130: `casillasPeligrosas` y `chooseHeroDestination`
+leían `state.raiders` entero, así que la IA esquivaba grupos que no veía y no
+caía nunca en una emboscada (de 304 a 0), mientras la persona y el agente
+juegan con la regla de `asaltantesALaVista`. Era una «ventaja declarada» en
+`CLAUDE.md`.
+
+**Primer intento, solo lo que ve AHORA** (`grupoALaVistaDesde` con
+`miradasDe`): se rompe. La marcha que descubre un grupo se para
+(`vigiaDeLaMarcha`), el héroe se aparta, deja de ver la región y al día
+siguiente la vuelve a meter en su ruta. 300 semillas: **32 sin terminar**,
+14 865 marchas paradas, p90 de 15 a 300 días.
+
+**Con recuerdo**: `Player.asaltantesVistos` (id → casilla, tropa y día) lo
+escribe `explorar` —el mismo sitio que `memory`— con `recordarAsaltantes`: los
+grupos de las regiones que se miran se apuntan, y los que se recordaban en
+ellas y ya no están se olvidan. Basta la región porque un grupo no sale nunca
+de la suya. Lo que pasa donde no se mira no se sabe: un grupo disperso lejos
+se sigue temiendo hasta volver a mirar. La IA teme lo que recuerda
+(`casillasPeligrosas(state, hero, recuerdo)`) y solo persigue lo que ve ahora.
+No viaja al agente ni al cliente: ellos siguen con lo que se ve ahora.
+
+Medido con la IA en los dos bandos, 300 días de tope:
+
+| | antes | solo lo de ahora | con recuerdo |
+|---|---|---|---|
+| sin terminar (1-300) | 0 | 32 | **0** |
+| duración mediana / p90 / máx (1-300) | 8 / 15 / 57 | 10 / 300 / 300 | 9 / 16 / 57 |
+| victorias nigromante / caballero (1-300) | 159 / 141 | 137 / 131 | 155 / 145 |
+| emboscadas a la IA (1-300) | 0 | 1 | 1 (la gana el héroe) |
+| marchas paradas (1-300) | 0 | 14 865 | 181 |
+| sin terminar / duración (1-100) | 0 · 9 / 16 / 32 | — | 0 · 9 / 18 / 30 |
+| victorias nigromante / caballero (1-100) | 56 / 44 | — | 55 / 45 |
+
+Con más regiones (300 semillas cada uno, antes → después): 7 por bando (lado
+42) y 8 (lado 45), 0 sin terminar en los dos; 8: 12 / 23 / 54 → 12 / 23 / 53.
+El banco cambia en 119 de 200 semillas (la forma, en `tools/qa/banco.ts`).
+
+La emboscada sigue siendo rara porque la vigía para la marcha en cuanto ve un
+grupo, y casi siempre lo ve desde el nodo de antes. La IA no ataca nunca a un
+grupo en estas partidas, ni antes ni después (0 en 300): se mide aquí para que
+no se lea como efecto de la niebla.
+
 ## Decisiones tomadas
 
 - **MCP antes que API key.** El usuario tiene Claude Max: el agente entra por

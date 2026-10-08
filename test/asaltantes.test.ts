@@ -23,6 +23,7 @@ import { isEnterable, objectAt, pointFromKey, pointKey } from '../src/core/map/m
 import { estructura, territorio, VECINAS } from '../src/core/map/regiones.js';
 import { createRng } from '../src/core/rng.js';
 import {
+  type AsaltanteRecordado,
   asaltantesALaVista,
   casillasPeligrosas,
   dondeBrotan,
@@ -33,6 +34,7 @@ import {
   pasoDePatrulla,
   problemasDeAsaltante,
   type Raider,
+  recordarAsaltantes,
   regionDeCasilla,
   tocaUnNodo,
 } from '../src/core/state/asaltantes.js';
@@ -47,6 +49,7 @@ import {
   heroesOf,
   miradasDe,
   resolvePendingBattle,
+  revealEverything,
   sidesOwnedBy,
   visibleNow,
 } from '../src/core/state/game.js';
@@ -343,13 +346,80 @@ describe('dispersarse y brotar', () => {
   });
 });
 
+describe('la IA teme lo que vio (#164)', () => {
+  /** Las claves de todas las casillas de la región de `at`: mirarla entera. */
+  const laRegion = (state: GameState, at: Point): Set<string> => {
+    const { regionDe } = estructura(state.map);
+    const W = state.map.width;
+    const r = regionDeCasilla(state.map, at);
+    const out = new Set<string>();
+    for (let i = 0; i < regionDe.length; i++) {
+      if (regionDe[i] === r) out.add(pointKey({ x: i % W, y: Math.floor(i / W) }));
+    }
+    return out;
+  };
+
+  it('se apunta al ver su región, se recuerda sin mirarla y se olvida al mirarla sin él', () => {
+    const state = newGame({ seed: 5 });
+    const grupo = state.raiders[0]!;
+    const recuerdo = new Map<string, AsaltanteRecordado>();
+    // Mirar otra región no apunta nada de este grupo.
+    const otro = state.raiders.find(
+      (r) => regionDeCasilla(state.map, r.at) !== regionDeCasilla(state.map, grupo.at),
+    )!;
+    recordarAsaltantes(state, recuerdo, laRegion(state, otro.at));
+    expect(recuerdo.has(grupo.id)).toBe(false);
+
+    recordarAsaltantes(state, recuerdo, laRegion(state, grupo.at));
+    expect(recuerdo.get(grupo.id)).toEqual({
+      day: state.day,
+      grupo: { id: grupo.id, at: grupo.at, troops: grupo.troops },
+    });
+    // Sin mirarla: aunque se vaya, se sigue recordando.
+    state.raiders = state.raiders.filter((r) => r !== grupo);
+    recordarAsaltantes(state, recuerdo, laRegion(state, otro.at));
+    expect(recuerdo.has(grupo.id)).toBe(true);
+    // Mirándola y sin él: se olvida.
+    recordarAsaltantes(state, recuerdo, laRegion(state, grupo.at));
+    expect(recuerdo.has(grupo.id)).toBe(false);
+  });
+
+  it('el alcance prudente esquiva el grupo que su dueño vio y no el que no ha visto', () => {
+    const { state, hero, grupo } = enSuRegion(5);
+    hero.army = [];
+    const W = state.map.width;
+    const i = grupo.at.y * W + grupo.at.x;
+    const recuerdo = state.players[0]!.asaltantesVistos;
+    recuerdo.clear();
+    expect(casillasPeligrosas(state, hero, recuerdo)?.[i]).toBeUndefined();
+    const sinSaber = alcanceDelHeroe(state, hero, { evitarEmboscadas: true });
+    recordarAsaltantes(state, recuerdo, laRegion(state, grupo.at));
+    expect(casillasPeligrosas(state, hero, recuerdo)?.[i]).toBe(1);
+    const sabiendo = alcanceDelHeroe(state, hero, { evitarEmboscadas: true });
+    expect(sabiendo.costs.size).toBeLessThan(sinSaber.costs.size);
+  });
+
+  it('al crear la partida, cada jugador recuerda los grupos que ve: el recuerdo lo escribe quien mira', () => {
+    const state = newGame({ seed: 5 });
+    for (const p of state.players) {
+      const vistos = asaltantesALaVista(state, visibleNow(state, p.id)).map((r) => r.id);
+      for (const id of vistos) expect(p.asaltantesVistos.has(id), `${id} para ${p.id}`).toBe(true);
+    }
+  });
+});
+
 describe('la IA no entra en una emboscada que va a perder', () => {
   it('su alcance prudente no pisa ninguna casilla de una región donde la emboscarían, la suya incluida', () => {
     // El héroe, sin tropa —solo su cuerpo—, en una casilla de la región del
     // grupo más fuerte: todas las regiones con grupo son peligrosas para él.
     const { state, hero, grupo } = enSuRegion(5);
     hero.army = [];
-    const peligro = casillasPeligrosas(state, hero)!;
+    // Lo que sabe el héroe recién puesto ahí: nada aún; al mirar, el grupo.
+    const recuerdo = state.players[0]!.asaltantesVistos;
+    recuerdo.clear();
+    expect(casillasPeligrosas(state, hero, recuerdo)).toBeNull();
+    revealEverything(state, 0);
+    const peligro = casillasPeligrosas(state, hero, recuerdo)!;
     expect(peligro).not.toBeNull();
     const suya = regionDeCasilla(state.map, hero.at);
     expect(regionDeCasilla(state.map, grupo.at)).toBe(suya);
@@ -374,6 +444,9 @@ describe('la IA no entra en una emboscada que va a perder', () => {
     // días. Se buscan dos casillas así en la región del grupo más fuerte.
     const montar = () => {
       const { state, ctx, hero, grupo } = enSuRegion(5);
+      // Los dos saben del grupo (#164): se prueba qué hacen con lo que saben.
+      revealEverything(state, 0);
+      revealEverything(state, 1);
       const rival = heroesOf(state, 1)[0]!;
       hero.army = [];
       rival.army = [];
@@ -411,7 +484,9 @@ describe('la IA no entra en una emboscada que va a perder', () => {
 
   it('en partidas enteras de la IA contra sí misma no hay ni una emboscada', async () => {
     // Antes eran 304 en las 200 del banco y el grupo ganaba 270: el «si no, va
-    // igual» mandaba al héroe a perder. Ahora se repliega y se refuerza.
+    // igual» mandaba al héroe a perder. Ahora se repliega y se refuerza. Con la
+    // niebla (#164) puede caer en una que no vio venir: 1 en 300 semillas, no
+    // en estas.
     for (const semilla of [3, 7, 11, 17, 23]) {
       const state = newGame({ seed: semilla });
       const ctx = { rng: createRng(semilla) };

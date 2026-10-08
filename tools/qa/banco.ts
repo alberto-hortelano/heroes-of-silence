@@ -631,11 +631,25 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   36 344, batallas 1 722 → 1 809, `town_captured` 1 468 → 1 567,
  *   `node_captured` 1 274 → 1 244; ningún tipo nuevo ni ninguno que
  *   desaparezca.
+ * - `b9e16773…` (69 157 líneas): **la IA de reglas teme los grupos que ha
+ *   visto** (#164, 08-10-2026). `casillasPeligrosas` leía `state.raiders`
+ *   entero, a través de la niebla; ahora lee `Player.asaltantesVistos`, que
+ *   escribe `explorar` con la regla de `asaltantesALaVista`, y la IA solo
+ *   persigue un grupo que ve ahora. **119 de 200 semillas cambian**; el primer
+ *   hecho distinto es un **`hero_moved`** en 82 (la ruta pisa la región de un
+ *   grupo que aún no ha visto) y un **`march_halted`** en 37 (lo ve andando y
+ *   se para, #130), en el día 1 en 68 de ellas y como muy tarde en el 10.
+ *   autoResolve igual (300 batallas, 2 280 rondas). 28 con otro ganador, j0
+ *   94 → 98, **0 sin terminar**, duración 9 / 15 / 57 → **9 / 17 / 57**.
+ *   `hero_moved` 36 344 → 37 370, batallas 1 809 → 1 807, `town_captured`
+ *   1 567 → 1 535, `node_captured` 1 244 → 1 273, `hero_defeated` 413 → 447;
+ *   un tipo nuevo, `march_halted` (114), y emboscadas a la IA 0 → 0 en estas
+ *   200 (1 en 300 semillas del barrido de `docs/historia.md`).
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: 'fdf6959cc7a3272800cd00be08247e2402bf983455639eab4097157409ee64cd',
+  sha: 'b9e16773ce08fe80c0bedbe10dbada8ee7207a84e9237dfec82493e77c48f7ab',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

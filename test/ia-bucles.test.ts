@@ -29,6 +29,7 @@ import {
   type GameContext,
   type GameState,
   heroesOf,
+  revealEverything,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import type { Point } from '../src/core/types.js';
@@ -52,6 +53,9 @@ function pasarElDia(state: GameState, ctx: GameContext): void {
 function sinAsaltantes(semilla: number) {
   const state = newGame({ seed: semilla });
   state.raiders = [];
+  // Y sin el recuerdo que dejaron al crear la partida (#164): la IA teme lo que
+  // vio, y un grupo quitado a mano no se va de su región a la vista de nadie.
+  for (const p of state.players) p.asaltantesVistos.clear();
   const ctx = { rng: createRng(semilla) };
   const hero = heroesOf(state, 0)[0]!;
   return { state, ctx, hero };
@@ -151,6 +155,8 @@ describe('el encierro con el rival libre', () => {
    */
   function encerrado(semilla: number, dias: number) {
     const state = newGame({ seed: semilla });
+    // El héroe sabe del grupo (#164): aquí se prueba lo que hace con lo que sabe.
+    revealEverything(state, 0);
     const ctx = { rng: createRng(semilla) };
     const grupo = [...state.raiders].sort((a, b) => poderDe(b) - poderDe(a))[0]!;
     const hero = heroesOf(state, 0)[0]!;
