@@ -16,7 +16,7 @@ import {
   vueltaDelVaiven,
 } from '../src/core/ai/memoria.js';
 import { chooseHeroDestination, stepTowards } from '../src/core/ai/strategy.js';
-import { marchaDeHoy } from '../src/core/ai/turn.js';
+import { marchaDeHoy, playAiTurn } from '../src/core/ai/turn.js';
 import type { Hero } from '../src/core/hero/hero.js';
 import { pointKey } from '../src/core/map/map.js';
 import { estructura, VECINAS } from '../src/core/map/regiones.js';
@@ -221,5 +221,17 @@ describe('el encierro con el rival libre', () => {
     expect(marcha).not.toBeNull();
     // Por el alcance de siempre: el prudente no le dejaba dar ni un paso.
     expect(marcha!.alcance.costs.size).toBeGreaterThan(1);
+  });
+
+  it('fuera de su base, sin a dónde ir y con un alcance que no es su casilla, a los 10 turnos también vuelve (#186)', async () => {
+    // Lado 44, semilla 222: los dos héroes en una ciudad que no es su base, con
+    // las regiones de alrededor patrulladas por grupos que les sacan el margen.
+    // El alcance prudente era la ciudad y sus nodos (129 y 133 casillas), así
+    // que la regla de arriba no saltaba y nadie se movió del día 20 al 300.
+    const state = newGame({ seed: 222, width: 44, height: 44, maxDays: 300 });
+    const ctx = { rng: createRng(222) };
+    while (state.finished === null) await playAiTurn(state, ctx);
+    expect(state.finished.winner).not.toBeNull();
+    expect(state.day).toBeLessThan(60);
   });
 });

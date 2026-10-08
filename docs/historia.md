@@ -3459,6 +3459,39 @@ grupo, y casi siempre lo ve desde el nodo de antes. La IA no ataca nunca a un
 grupo en estas partidas, ni antes ni después (0 en 300): se mide aquí para que
 no se lea como efecto de la niebla.
 
+## El desgaste de lado 44 ya no se da; el encierro en una ciudad, sí (#186, 08-10-2026)
+
+#186 vio, midiendo #182 con lado 44, la semilla 285 llegar al día 300: dos
+héroes que se vencían a diario, el que perdía se rendía, reclutaba en su base
+y ganaba al día siguiente al vencedor mermado. Con el mapa de hoy (#195: el
+lado sale de las regiones) **no se reproduce**: la 285 acaba el día 15 con lado
+44 y el 26 con 8 regiones por bando (lado 45). Medido con #164 ya puesto, 300
+semillas por tamaño, IA contra IA:
+
+| mapa | sin terminar | duración mediana / p90 / máx |
+|---|---|---|
+| 5 regiones (lado 34) | 0 | 9 / 16 / 57 |
+| 7 (lado 42) | 0 | 11 / 22 / 49 |
+| 8 (lado 45) | 0 | 12 / 23 / 53 |
+| 9 (lado 48) | 0 | 13 / 27 / 160 |
+| 10 (lado 50) | 0 | 14 / 30 / 66 |
+| lado 44 con 5 regiones (`width`) | 1 → **0** | 12 / 25 / 300 → **12 / 25 / 116** |
+
+El desgaste sigue existiendo en forma leve: la semilla 72 con 9 regiones dura
+160 días (igual sin #164) con 97 héroes vencidos y 100 vueltas a casa, pero
+acaba. No se toca el precio de rendirse ni la prudencia ante un héroe más
+fuerte: ninguna partida de las 1 800 se queda sin terminar por eso.
+
+Lo que sí se quedaba a 300 días con lado 44 era otra cosa: la **semilla 222**
+(lado 44, 5 regiones; también antes de #164). Los dos héroes en una ciudad
+que no es su base, con todas las regiones de alrededor patrulladas por grupos
+que les sacan el margen (438-720 contra 300) y la fuerza parada en el
+liderazgo: el alcance prudente era la ciudad y sus nodos, sin objetivo ni
+camino a casa, y el encierro de #181 solo saltaba con el alcance reducido a su
+casilla. Ahora salta con cualquier alcance cuando no hay destino y lleva
+`TURNOS_DE_ENCIERRO` turnos en la misma casilla fuera de su base: vuelve a casa
+por el alcance de siempre. La 222 acaba el día 30; el banco sale igual.
+
 ## Decisiones tomadas
 
 - **MCP antes que API key.** El usuario tiene Claude Max: el agente entra por

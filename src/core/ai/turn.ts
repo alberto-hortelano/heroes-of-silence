@@ -108,15 +108,24 @@ export function marchaDeHoy(
   // partida, y con los mapas de antes cambiaban 21 de las 200 partidas del
   // banco —45 abierta a «no llega a casa sin cruzar una emboscada»—. Con
   // ella, ninguna: con el generador de antes, el banco sale igual.
-  if (destino === null && alcance.costs.size <= 1 && !enSuBase(state, hero)) {
+  if (destino === null && !enSuBase(state, hero)) {
     const rivales = state.heroes.filter((h) => h.owner !== hero.owner);
     const todosEncerrados =
+      alcance.costs.size <= 1 &&
       rivales.length > 0 &&
       rivales.every((h) => alcanceDelHeroe(state, h, { evitarEmboscadas: true }).costs.size <= 1);
     // Y si el rival está libre pero esto dura ya `TURNOS_DE_ENCIERRO`, también
     // (#181): con un rival libre que no entra en la región —el grupo lo
     // emboscaría a él también—, nadie la cambia. La semilla 1393 de una
     // variante del generador de R3 se quedó así del día 50 al 300.
+    //
+    // Esta regla vale **aunque el alcance prudente no sea su casilla** (#186):
+    // un héroe en una ciudad que no es su base, con todas las regiones de
+    // alrededor patrulladas por grupos que le sacan el margen, anda por la
+    // ciudad y sus nodos pero no llega a nada. Con lado 44, la semilla 222
+    // tenía así a los dos héroes del día 20 al 300, con su base cerrada por
+    // los grupos y la fuerza parada en el liderazgo. Solo en su base crece.
+    // El banco (lado 34) sale igual.
     const yaNoArregla =
       todosEncerrados ||
       turnosEnLaMismaCasilla(state, hero, TURNOS_DE_ENCIERRO) >= TURNOS_DE_ENCIERRO;
