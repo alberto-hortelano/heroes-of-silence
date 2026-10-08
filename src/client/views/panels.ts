@@ -51,7 +51,7 @@ import {
   tieneArmeria,
   townSpells,
 } from '@core/town/town.js';
-import type { Army, Hueco } from '@core/types.js';
+import type { Army, Hueco, Point } from '@core/types.js';
 import { describirCoste, HUECOS, NOMBRE_DE_RECURSO, RESOURCE_KINDS } from '@core/types.js';
 import { quienesDe } from '../desenlace.js';
 import { fondoDeColor, type Html, html, NADA, srcDeImagen, unir } from '../html.js';
@@ -943,6 +943,39 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
    * pedía un tercer código de color que se leería como victoria o derrota de
    * uno de los dos; el bando ya va escrito en la línea («del atacante»).
    */
+  /**
+   * Quién da o recibe un golpe: «Piquero B». El bando va solo cuando el nombre
+   * está en los dos lados —la batalla espejo, con Piquero A en cada uno—, porque
+   * ahí «Piquero A → Piquero A» no dice nada; en lo demás, el tablero y la
+   * columna «En el campo» ya dicen de quién es cada cual y una línea de ataque
+   * con dos «, del enemigo» dentro no cabía en la caja.
+   */
+  const quien = (id: string): string => {
+    const s = stackDe(id);
+    const nombre = nombreEnElCampo(battle, s);
+    const enLosDos = battle.stacks.some((x) => x.side !== s.side && x.unit.name === s.unit.name);
+    if (!enLosDos) return nombre;
+    const lado =
+      mio === null
+        ? s.side === 'attacker'
+          ? 'atacante'
+          : 'defensor'
+        : s.side === mio
+          ? 'tuyo'
+          : 'enemigo';
+    return `${nombre} (${lado})`;
+  };
+
+  /**
+   * «Piquero B → Esqueleto A»: quién a quién (#18). El espacio de antes de la
+   * flecha es duro para que la flecha no abra nunca una línea en la caja
+   * estrecha del parte, lejos de quien la lanza.
+   */
+  const golpe = (de: string, a: string): string => `${quien(de)}\u00a0→ ${quien(a)}`;
+
+  /** «1 baja», «3 bajas»: «1 bajas» salía en cada golpe que mataba a uno. */
+  const bajas = (n: number): string => `${n} ${n === 1 ? 'baja' : 'bajas'}`;
+
   const paraQuienLee = (id: string, buenoParaSuBando: boolean): Html => {
     if (mio === null) return NADA;
     const bueno = (stackDe(id).side === mio) === buenoParaSuBando;
@@ -955,16 +988,32 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
       switch (e.kind) {
         case 'round_start':
           return html`<div>— Ronda ${e.round} —</div>`;
+        // Quién a quién (#18): «Ataque: 12 de daño, 3 bajas» no decía ni lo uno
+        // ni lo otro, y en una ronda con siete unidades por bando no había forma
+        // de casar la línea con el tablero. El modo va entre paréntesis detrás,
+        // porque lo que se busca al leer es el nombre.
         case 'attack': {
-          const carga = e.charge === undefined ? '' : ` (carga de ${e.charge} hexes)`;
-          return html`<div>${e.retaliation ? 'Contraataque' : 'Ataque'}${carga}: ${e.damage} de daño, ${e.killed} bajas</div>`;
+          const modo = `${e.retaliation ? ' (contraataque)' : ''}${
+            e.charge === undefined ? '' : ` (carga de ${e.charge} hexes)`
+          }`;
+          return html`<div>${golpe(e.stack, e.target)}${modo}: ${e.damage} de daño, ${bajas(e.killed)}</div>`;
         }
         case 'shoot':
-          return html`<div>${e.splash === true ? 'Salpicadura' : 'Disparo'}: ${e.damage} de daño, ${e.killed} bajas</div>`;
-        case 'cast':
+          return html`<div>${golpe(e.stack, e.target)} (${e.splash === true ? 'salpicadura' : 'disparo'}): ${e.damage} de daño, ${bajas(e.killed)}</div>`;
+        case 'cast': {
           // El nombre, no el id: `spell()` ya lo tiene y quien lee el parte no
-          // sabe qué es un "magic_arrow". Sobre quién se lanzó es #18.
-          return html`<div>Hechizo ${spell(e.spell).name}${e.damage ? `: ${e.damage} de daño` : ''}</div>`;
+          // sabe qué es un "magic_arrow". Quien lanza es siempre el héroe de su
+          // bando, así que basta con el bando.
+          const lanza =
+            mio === null
+              ? `El ${e.side === 'attacker' ? 'atacante' : 'defensor'} lanza`
+              : e.side === mio
+                ? 'Lanzas'
+                : 'El enemigo lanza';
+          const sobre = e.target === undefined ? '' : ` sobre ${quien(e.target)}`;
+          const efecto = e.damage ? `: ${e.damage} de daño, ${bajas(e.killed ?? 0)}` : '';
+          return html`<div>${lanza} ${spell(e.spell).name}${sobre}${efecto}</div>`;
+        }
         // La moral, la suerte y los efectos dicen de quién: con el color puesto
         // desde quien lee, una línea verde sin nombre no deja saber si es la
         // moral de los tuyos o la mala suerte del rival.
@@ -975,22 +1024,16 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
         case 'effect':
           return html`<div${paraQuienLee(e.stack, e.amount >= 0)}>${nombreFuente(e.source)} sobre ${quienEs(e.stack)}: ${ETIQUETA_EFECTO[e.effect]} ${e.amount > 0 ? '+' : ''}${e.amount} durante ${e.rounds} ${e.rounds === 1 ? 'ronda' : 'rondas'}</div>`;
         case 'effect_end':
-          return html`<div>Se disipa: ${nombreFuente(e.source)}</div>`;
+          return html`<div>Se disipa ${nombreFuente(e.source)} de ${quienEs(e.stack)}</div>`;
         case 'immune':
-          return html`<div>Inmune a ${nombreFuente(e.source)}: los no-muertos no tienen ánimo que quebrar</div>`;
+          return html`<div>${quienEs(e.stack)}, inmune a ${nombreFuente(e.source)}: los no-muertos no tienen ánimo que quebrar</div>`;
         case 'perished': {
           // Quién cae decide el color, igual que en `hero_defeated` un piso más
           // arriba: lo tuyo es la derrota y lo suyo la victoria. Sin bando —el
           // parte de quien no lleva ninguno de los dos— no se pinta ninguna de
           // las dos cosas, en vez de inventarse una.
           const suya = stackDe(e.stack).side === mio;
-          return html`<div${clase(mio !== null && !suya, suya)}>${
-            mio === null
-              ? 'Una unidad ha sido aniquilada'
-              : suya
-                ? 'Una unidad tuya ha sido aniquilada'
-                : 'Una unidad enemiga ha sido aniquilada'
-          }</div>`;
+          return html`<div${clase(mio !== null && !suya, suya)}>Aniquilada la unidad ${quienEs(e.stack)}</div>`;
         }
         case 'surrender': {
           // Quien se rinde pierde: en rojo si eres tú, en verde si es el rival,
@@ -1042,6 +1085,20 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
   return html`<div class="log" data-al-final="parte">${unir(lineas)}</div>`;
 }
 
+/**
+ * « en (12, 5)»: dónde pasó un hecho de la crónica, o nada si no pasa en ningún
+ * sitio (el día, el final). Es la casilla que el hecho ya trae (`at`) y no un
+ * nombre de castillo o de región: el hecho no lleva más, y buscarlo en el estado
+ * haría de la crónica algo que el espectador —que no tiene el estado— no puede
+ * pintar. La casilla ya pasó la niebla con el hecho (`cronicaPara`): o el hecho
+ * es tuyo, o la mirabas cuando ocurrió.
+ */
+function enLaCasilla(at: Point | null): string {
+  // Espacios duros: en la caja estrecha la casilla se partía en «(10,» y «4)»
+  // (visto en la captura), y una coordenada partida no se lee como una.
+  return at === null ? '' : ` en\u00a0(${at.x},\u00a0${at.y})`;
+}
+
 /** Cómo se llama un cuerpo del tablero en la crónica: el héroe y el personaje no están en el catálogo. */
 function nombreDeCuerpo(body: string): string {
   if (body === HERO_BODY) return 'el héroe';
@@ -1058,23 +1115,42 @@ function fraseDeBatalla(
   e: Extract<GameEventDraft, { kind: 'battle_ended' }>,
   suyo: Side | null,
 ): string {
-  // En tercera persona, el bando con dueño se nombra por su jugador, como el
-  // resto de la crónica; el neutral (monstruo, grupo, guarnición) por su papel.
+  /**
+   * Contra quién (#18), con lo que trae el hecho: el atacante es un héroe (con
+   * dueño) o un grupo de asaltantes (sin él, la emboscada); el defensor lo dice
+   * `foe`. Un héroe sin dueño o una guarnición de castillo sin `foe: town` no
+   * existen, y se lanza en vez de inventarles nombre.
+   */
+  const quienLucha = (s: Side): { uno: string; el: string } => {
+    const dueño = e.owners[s];
+    const kind = s === 'attacker' ? (dueño === null ? 'raider' : 'hero') : e.foe.kind;
+    switch (kind) {
+      case 'hero':
+        if (dueño === null) throw new Error('la crónica cuenta una batalla de un héroe sin dueño');
+        return { uno: `un héroe del jugador ${dueño}`, el: `el jugador ${dueño}` };
+      case 'town':
+        return dueño === null
+          ? { uno: 'la guarnición de una ciudad neutral', el: 'la guarnición' }
+          : { uno: `la guarnición de un castillo del jugador ${dueño}`, el: `el jugador ${dueño}` };
+      case 'monster':
+        return { uno: 'un monstruo', el: 'el monstruo' };
+      case 'raider':
+        return { uno: 'un grupo de asaltantes', el: 'el grupo de asaltantes' };
+    }
+  };
+  // En tercera persona, cada bando por quién es —el jugador, o el monstruo, el
+  // grupo, la guarnición—, como el resto de la crónica; desde un bando, tú y el
+  // enemigo, que ya se ha dicho quién es en la cabeza.
   const bando = (s: Side): string =>
-    suyo === null
-      ? e.owners[s] !== null
-        ? `el jugador ${e.owners[s]}`
-        : s === 'attacker'
-          ? 'el atacante'
-          : 'el defensor'
-      : s === suyo
-        ? 'tú'
-        : 'el enemigo';
+    suyo === null ? quienLucha(s).el : s === suyo ? 'tú' : 'el enemigo';
   const rondas = `${e.rounds} ${e.rounds === 1 ? 'ronda' : 'rondas'}`;
+  const donde = enLaCasilla(e.at);
   const cabeza =
     suyo === null
-      ? `Batalla: gana ${bando(e.winner)} en ${rondas}`
-      : `Batalla ${suyo === e.winner ? 'ganada' : 'perdida'} en ${rondas}`;
+      ? `Batalla${donde}: ${quienLucha('attacker').uno} contra ${quienLucha('defender').uno}; gana ${bando(e.winner)} en ${rondas}`
+      : `Batalla ${suyo === e.winner ? 'ganada' : 'perdida'} contra ${
+          quienLucha(suyo === 'attacker' ? 'defender' : 'attacker').uno
+        }${donde}, en ${rondas}`;
   const partes = [cabeza];
   for (const s of SIDES) {
     const bajas = e.lost[s];
@@ -1082,7 +1158,7 @@ function fraseDeBatalla(
     const quien = bando(s);
     partes.push(
       `${quien === 'tú' ? 'pierdes' : `pierde ${quien}`} ${bajas
-        .map((b) => `${b.count} × ${nombreDeCuerpo(b.creature)}`)
+        .map((b) => `${b.count}\u00a0× ${nombreDeCuerpo(b.creature)}`)
         .join(', ')}`,
     );
   }
@@ -1145,12 +1221,16 @@ export function renderLog(log: readonly GameEventDraft[], viewer: number): Html 
     // `never` del final, igual que en `serialize.ts`.
     .map((e): Html => {
       const mio = e.actor === viewer;
+      // Dónde (#18): «Paso tomado» no decía cuál, y con once nodos por bando
+      // eso es no decir nada. Va al final de la frase para que lo primero que
+      // se lea siga siendo qué pasó.
+      const aqui = enLaCasilla(e.at);
       switch (e.kind) {
         case 'day_start':
           return html`<div>— Día ${e.day} —</div>`;
         case 'resource_gained':
           return mio
-            ? html`<div class="win">+${e.amount} ${NOMBRE_DE_RECURSO[e.resource]}</div>`
+            ? html`<div class="win">+${e.amount} ${NOMBRE_DE_RECURSO[e.resource]}${aqui}</div>`
             : NADA;
         case 'node_captured':
           return html`<div${clase(mio, e.from === viewer)}>${
@@ -1159,7 +1239,7 @@ export function renderLog(log: readonly GameEventDraft[], viewer: number): Html 
               : e.from === viewer
                 ? `${jugador(e.actor)} te ha quitado un paso`
                 : `${jugador(e.actor)} toma un paso`
-          }</div>`;
+          }${aqui}</div>`;
         case 'town_captured':
           // El criterio 9: a costa de quién. «Castillo capturado» a secas era
           // media verdad justo en el evento que decide la partida.
@@ -1171,49 +1251,49 @@ export function renderLog(log: readonly GameEventDraft[], viewer: number): Html 
                 : `${jugador(e.actor)} captura un castillo ${
                     e.from === null ? 'neutral' : deJugador(e.from)
                   }`
-          }</div>`;
+          }${aqui}</div>`;
         case 'built':
           return html`<div${clase(mio, false)}>${
             mio ? 'Construido' : `${jugador(e.actor)} construye`
-          }: ${building(e.building).name}</div>`;
+          }${aqui}: ${building(e.building).name}</div>`;
         case 'recruited':
           return html`<div${clase(mio, false)}>${
             mio ? 'Reclutados' : `${jugador(e.actor)} recluta`
-          } ${e.count} × ${creature(e.creature).name}</div>`;
+          } ${e.count} × ${creature(e.creature).name}${aqui}</div>`;
         case 'dismissed':
           return html`<div${clase(mio, false)}>${
             mio ? 'Licenciados' : `${jugador(e.actor)} licencia`
-          } ${e.count} × ${creature(e.creature).name}</div>`;
+          } ${e.count} × ${creature(e.creature).name}${aqui}</div>`;
         case 'hero_hired':
           return html`<div${clase(mio, false)}>${
             mio ? 'Héroe contratado' : `${jugador(e.actor)} contrata un héroe`
-          }</div>`;
+          }${aqui}</div>`;
         case 'loot_found':
           // El botín se cuenta porque cae en la mochila, que no se ve en el mapa:
           // sin esta línea la pieza aparecería en el panel sin saber de dónde.
           return html`<div${clase(mio, false)}>${
             mio ? 'Botín' : `${jugador(e.actor)} se lleva un botín`
-          } ${e.from === 'raider' ? 'de unos asaltantes' : 'de una ciudad neutral'}: ${
+          } ${e.from === 'raider' ? 'de unos asaltantes' : 'de una ciudad neutral'}${aqui}: ${
             pieza(e.item).nombre
           }</div>`;
         case 'item_bought':
           return html`<div${clase(mio, false)}>${
             mio ? 'Comprado en la armería' : `${jugador(e.actor)} compra en la armería`
-          }: ${pieza(e.item).nombre}</div>`;
+          }${aqui}: ${pieza(e.item).nombre}</div>`;
         case 'hero_promoted':
           // El nombre lo escribió el narrador: va en un hueco de texto y la
           // plantilla lo escapa, como el de cualquier pueblo del agente.
           return html`<div${clase(mio, false)}>Un ${creature(e.creature).name} ${deJugador(
             e.actor,
-          )} se hace héroe: ${e.name}</div>`;
+          )} se hace héroe${aqui}: ${e.name}</div>`;
         case 'garrison_taken':
           return html`<div${clase(mio, false)}>${
             mio ? 'Guarnición incorporada' : `${jugador(e.actor)} incorpora una guarnición`
-          }</div>`;
+          }${aqui}</div>`;
         case 'spells_learned':
           return html`<div${clase(mio, false)}>${
             mio ? 'Aprendido' : `${jugador(e.actor)} aprende`
-          }: ${e.spells.map((id) => spell(id).name).join(', ')}</div>`;
+          }${aqui}: ${e.spells.map((id) => spell(id).name).join(', ')}</div>`;
         case 'battle_ended': {
           // Lo que sobrevive de la batalla (#93): antes, «Batalla resuelta» y
           // nada más, ni quién ganó. El bando de quien lee sale de `owners`, que
@@ -1232,7 +1312,7 @@ export function renderLog(log: readonly GameEventDraft[], viewer: number): Html 
           // persona se le pintaba como propia la muerte del héroe enemigo.
           return html`<div${clase(!mio, mio)}>${
             mio ? 'Un héroe tuyo ha caído' : `Ha caído un héroe ${deJugador(e.actor)}`
-          }</div>`;
+          }${aqui}</div>`;
         case 'hero_returned':
           // Volver a la base es perder (la tropa o el oro) pero no la partida:
           // el color es el de una derrota tuya o una victoria sobre el rival.
@@ -1240,7 +1320,7 @@ export function renderLog(log: readonly GameEventDraft[], viewer: number): Html 
             mio
               ? 'Un héroe tuyo vuelve a la base'
               : `Un héroe ${deJugador(e.actor)} vuelve a su base`
-          }${e.surrendered ? ` tras rendirse por ${e.gold} de oro` : ''}</div>`;
+          }${aqui}${e.surrendered ? ` tras rendirse por ${e.gold} de oro` : ''}</div>`;
         case 'level_up':
           // El nivel reparte cuerpo y liderazgo, pero eso no se ve en el mapa:
           // si no se contara aquí, subir pasaría sin que nadie lo notara. Todo
@@ -1248,13 +1328,13 @@ export function renderLog(log: readonly GameEventDraft[], viewer: number): Html 
           // primera línea de estas que se lee es «sube a nivel 6».
           return html`<div${clase(mio, false)}>Un héroe ${deJugador(e.actor)} sube a nivel ${
             e.level
-          }</div>`;
+          }${aqui}</div>`;
         case 'troop_level_up':
           // La tropa también sube, y es lo que se pidió que se viera: un
           // veterano no se distingue en el mapa, así que el ascenso se cuenta.
           return html`<div${clase(mio, false)}>Un ${creature(e.creature).name} ${deJugador(
             e.actor,
-          )} sube a veterano de nivel ${e.level}</div>`;
+          )} sube a veterano de nivel ${e.level}${aqui}</div>`;
         case 'game_over': {
           // El ganador es `actor`, y ya no hay un `winner` al lado diciendo lo
           // mismo: `visibleTo` enrutaba por uno y esta línea pintaba por el
@@ -1288,14 +1368,18 @@ export function renderLog(log: readonly GameEventDraft[], viewer: number): Html 
             mio
               ? '¡Emboscada! Unos asaltantes atacan a un héroe tuyo'
               : `Unos asaltantes emboscan a un héroe ${deJugador(e.actor)}`
-          }</div>`;
+          }${aqui}</div>`;
         case 'march_halted':
           // Es lo que explica que el héroe se haya quedado a medio camino con
           // puntos de sobra: sin esta línea parecería un fallo de la marcha.
           return html`<div>${
             mio ? 'Un héroe tuyo se detiene' : `Un héroe ${deJugador(e.actor)} se detiene`
-          }: ${loQueLaPara(e.troops)}</div>`;
+          }${aqui}: ${loQueLaPara(e.troops)}</div>`;
         case 'raider_dispersed':
+          // Sin casilla, y es la única: `actor` es quien cerró la región, que
+          // puede estar lejos, y el hecho le consta por ser suyo aunque no viera
+          // al grupo. Su `at` es donde estaba el grupo, que la niebla le
+          // escondía: decirlo aquí sería enseñarle la patrulla que no veía.
           return html`<div${clase(mio, false)}>${
             mio ? 'Los asaltantes de tu región se dispersan' : 'Unos asaltantes se dispersan'
           }</div>`;

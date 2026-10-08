@@ -133,13 +133,13 @@ describe('el resumen de la batalla en battle_ended (#93)', () => {
       at: { x: 1, y: 1 },
     } as const;
     expect(marcadoDe(renderLog([fin], 0))).toContain(
-      '<div class="lose">Batalla perdida en 1 ronda; pierdes 3 × Campesino; lanza el enemigo Flecha mágica sobre el héroe (mata 1)</div>',
+      '<div class="lose">Batalla perdida contra un héroe del jugador 1 en\u00a0(1,\u00a01), en 1 ronda; pierdes 3\u00a0× Campesino; lanza el enemigo Flecha mágica sobre el héroe (mata 1)</div>',
     );
     expect(marcadoDe(renderLog([fin], 1))).toContain(
-      '<div class="win">Batalla ganada en 1 ronda; pierde el enemigo 3 × Campesino; lanzas Flecha mágica sobre el héroe (mata 1)</div>',
+      '<div class="win">Batalla ganada contra un héroe del jugador 0 en\u00a0(1,\u00a01), en 1 ronda; pierde el enemigo 3\u00a0× Campesino; lanzas Flecha mágica sobre el héroe (mata 1)</div>',
     );
     expect(marcadoDe(renderLog([fin], -1))).toContain(
-      '<div>Batalla: gana el jugador 1 en 1 ronda; pierde el jugador 0 3 × Campesino; lanza el jugador 1 Flecha mágica sobre el héroe (mata 1)</div>',
+      '<div>Batalla en\u00a0(1,\u00a01): un héroe del jugador 0 contra un héroe del jugador 1; gana el jugador 1 en 1 ronda; pierde el jugador 0 3\u00a0× Campesino; lanza el jugador 1 Flecha mágica sobre el héroe (mata 1)</div>',
     );
   });
 });

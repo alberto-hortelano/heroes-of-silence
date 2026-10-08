@@ -123,9 +123,9 @@ describe('el panel de batalla del espectador', () => {
     );
     const salida = marcadoDe(batalla(vista));
     expect(salida).toContain('— Ronda 2 —');
-    expect(salida).toContain('9 de daño, 1 bajas');
-    // Sin bando propio: «una unidad», no «una unidad tuya» ni «enemiga».
-    expect(salida).toContain('<div>Una unidad ha sido aniquilada</div>');
+    expect(salida).toContain('9 de daño, 1 baja</div>');
+    // Sin bando propio: «del atacante», no «tuya» ni «enemiga».
+    expect(salida).toMatch(/<div>Aniquilada la unidad [^<]+, del atacante<\/div>/);
     expect(salida).toContain('<div>Fin: gana el atacante</div>');
   });
 

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { marcadoDe } from '../src/client/html.js';
 import { Session } from '../src/client/session.js';
-import { renderSide } from '../src/client/views/panels.js';
+import { renderBattleLog, renderSide } from '../src/client/views/panels.js';
 import { chooseBattleAction, chooseBattleActionAndCosts } from '../src/core/ai/tactics.js';
 import {
   activeStack,
@@ -2323,10 +2323,99 @@ describe('el parte de guerra pinta de quién es cada cosa', () => {
     // misatribución que el ciclo de #59 le quitó a `hero_defeated` en la crónica
     // del mapa, veinte líneas más arriba en el mismo fichero.
     expect(parte([{ kind: 'perished', stack: 'attacker-0' }])).toContain(
-      '<div class="lose">Una unidad tuya ha sido aniquilada</div>',
+      '<div class="lose">Aniquilada la unidad Campeón, de tu bando</div>',
     );
     expect(parte([{ kind: 'perished', stack: 'defender-0' }])).toContain(
-      '<div class="win">Una unidad enemiga ha sido aniquilada</div>',
+      '<div class="win">Aniquilada la unidad Zombi, del enemigo</div>',
+    );
+  });
+
+  it('ataques, disparos y hechizos dicen quién a quién (#18)', () => {
+    // «Ataque: 12 de daño, 3 bajas» no decía ni quién ni a quién. Los criterios:
+    // nombre del que golpea, flecha, nombre del golpeado, y el modo detrás.
+    const golpes = parte([
+      {
+        kind: 'attack',
+        stack: 'attacker-0',
+        target: 'defender-0',
+        damage: 12,
+        killed: 3,
+        retaliation: false,
+      },
+      {
+        kind: 'attack',
+        stack: 'defender-0',
+        target: 'attacker-0',
+        damage: 4,
+        killed: 1,
+        retaliation: true,
+      },
+      {
+        kind: 'attack',
+        stack: 'attacker-0',
+        target: 'defender-0',
+        damage: 20,
+        killed: 0,
+        retaliation: false,
+        charge: 3,
+      },
+      { kind: 'shoot', stack: 'attacker-0', target: 'defender-0', damage: 8, killed: 1 },
+      {
+        kind: 'shoot',
+        stack: 'attacker-0',
+        target: 'defender-0',
+        damage: 2,
+        killed: 0,
+        splash: true,
+      },
+      {
+        kind: 'cast',
+        side: 'attacker',
+        spell: 'magic_arrow',
+        target: 'defender-0',
+        damage: 10,
+        killed: 2,
+      },
+      { kind: 'cast', side: 'defender', spell: 'haste', target: 'defender-0' },
+    ]);
+    expect(golpes).toContain('<div>Campeón\u00a0→ Zombi: 12 de daño, 3 bajas</div>');
+    // «1 baja», no «1 bajas».
+    expect(golpes).toContain('<div>Zombi\u00a0→ Campeón (contraataque): 4 de daño, 1 baja</div>');
+    expect(golpes).toContain(
+      '<div>Campeón\u00a0→ Zombi (carga de 3 hexes): 20 de daño, 0 bajas</div>',
+    );
+    expect(golpes).toContain('<div>Campeón\u00a0→ Zombi (disparo): 8 de daño, 1 baja</div>');
+    expect(golpes).toContain('<div>Campeón\u00a0→ Zombi (salpicadura): 2 de daño, 0 bajas</div>');
+    expect(golpes).toContain('<div>Lanzas Flecha mágica sobre Zombi: 10 de daño, 2 bajas</div>');
+    expect(golpes).toContain('<div>El enemigo lanza Prisa sobre Zombi</div>');
+    expect(golpes).not.toMatch(/<div>(Ataque|Contraataque|Disparo|Hechizo)\b/);
+  });
+
+  it('un golpe y lo que se disipa dicen el bando cuando el nombre está en los dos', () => {
+    // La batalla espejo: «Campeón → Campeón» no dice quién pega a quién.
+    const battle = createBattle(
+      side([{ creature: 'champion', count: 10 }], hero()),
+      side([{ creature: 'champion', count: 10 }]),
+      createRng(1),
+    );
+    battle.log.length = 0;
+    battle.log.push(
+      {
+        kind: 'attack',
+        stack: 'attacker-0',
+        target: 'defender-0',
+        damage: 5,
+        killed: 0,
+        retaliation: false,
+      },
+      { kind: 'effect_end', stack: 'defender-0', source: 'slow' },
+    );
+    const mio = marcadoDe(renderBattleLog(battle, 'attacker'));
+    expect(mio).toContain('<div>Campeón (tuyo)\u00a0→ Campeón (enemigo): 5 de daño, 0 bajas</div>');
+    expect(mio).toContain('<div>Se disipa Lentitud de Campeón, del enemigo</div>');
+    const ajena = marcadoDe(renderBattleLog(battle, null));
+    expect(ajena).toContain(
+      '<div>Campeón (atacante)\u00a0→ Campeón (defensor): 5 de daño, 0 bajas</div>',
     );
   });
 
@@ -2334,7 +2423,7 @@ describe('el parte de guerra pinta de quién es cada cosa', () => {
     // Sin bando propio no hay «tuya» ni «enemiga» que valga, y tampoco color:
     // inventarse uno es lo que hacía la versión de antes con todo el mundo.
     const ajena = parte([{ kind: 'perished', stack: 'attacker-0' }], 'ajena');
-    expect(ajena).toContain('<div>Una unidad ha sido aniquilada</div>');
+    expect(ajena).toContain('<div>Aniquilada la unidad Campeón, del atacante</div>');
     expect(ajena).not.toContain('class="lose"');
     expect(ajena).not.toContain('class="win"');
   });

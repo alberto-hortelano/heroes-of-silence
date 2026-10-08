@@ -512,10 +512,10 @@ describe('la crónica de la pantalla deja de mentir', () => {
     // Criterio 11: sin dueño en el evento, las tres salían idénticas fuera de
     // quien fuesen, y la persona leía las obras del enemigo como suyas.
     expect(linea({ kind: 'built', town: 't', building: 'tavern', actor: 0 })).toContain(
-      'Construido: Taberna',
+      'Construido en\u00a0(0,\u00a00): Taberna',
     );
     expect(linea({ kind: 'built', town: 't', building: 'tavern', actor: 1 })).toContain(
-      'El jugador 1 construye: Taberna',
+      'El jugador 1 construye en\u00a0(0,\u00a00): Taberna',
     );
     expect(linea({ kind: 'recruited', town: 't', creature: 'peasant', count: 3 })).toContain(
       'El jugador 1 recluta 3 × Campesino',
@@ -529,11 +529,11 @@ describe('la crónica de la pantalla deja de mentir', () => {
     // Salía SIEMPRE en clase `win`, aprendiera quien aprendiera.
     const spells = ['haste'];
     expect(linea({ kind: 'spells_learned', hero: 'h', town: 't', spells, actor: 0 })).toContain(
-      '<div class="win">Aprendido: Prisa</div>',
+      '<div class="win">Aprendido en\u00a0(0,\u00a00): Prisa</div>',
     );
     // Sin clase: lo que aprende el rival no es ni tu victoria ni tu derrota.
     expect(linea({ kind: 'spells_learned', hero: 'h', town: 't', spells, actor: 1 })).toContain(
-      '<div>El jugador 1 aprende: Prisa</div>',
+      '<div>El jugador 1 aprende en\u00a0(0,\u00a00): Prisa</div>',
     );
   });
 
@@ -542,21 +542,23 @@ describe('la crónica de la pantalla deja de mentir', () => {
     // atributos todavía (#6, #15), así que sin esta línea la persona no se
     // enteraría de que su héroe ha progresado.
     const mio = linea({ kind: 'level_up', hero: 'h', level: 2, actor: 0 });
-    expect(mio).toContain('<div class="win">Un héroe tuyo sube a nivel 2</div>');
+    expect(mio).toContain(
+      '<div class="win">Un héroe tuyo sube a nivel 2 en\u00a0(0,\u00a00)</div>',
+    );
 
     const suyo = linea({ kind: 'level_up', hero: 'h', level: 3, actor: 1 });
-    expect(suyo).toContain('<div>Un héroe del jugador 1 sube a nivel 3</div>');
+    expect(suyo).toContain('<div>Un héroe del jugador 1 sube a nivel 3 en\u00a0(0,\u00a00)</div>');
     expect(suyo).not.toContain('win');
   });
 
   it('la tropa que se hace héroe se cuenta, con el nombre del narrador escapado', () => {
     const cuerpo = { kind: 'hero_promoted', hero: 'h', town: 't', creature: 'pikeman' };
     expect(linea({ ...cuerpo, name: 'Ana', actor: 0 })).toBe(
-      '<div class="log" data-al-final="cronica"><div class="win">Un Piquero tuyo se hace héroe: Ana</div></div>',
+      '<div class="log" data-al-final="cronica"><div class="win">Un Piquero tuyo se hace héroe en\u00a0(0,\u00a00): Ana</div></div>',
     );
     const suyo = linea({ ...cuerpo, name: '<b>X</b>', actor: 1 });
     expect(suyo).toContain(
-      '<div>Un Piquero del jugador 1 se hace héroe: &lt;b&gt;X&lt;/b&gt;</div>',
+      '<div>Un Piquero del jugador 1 se hace héroe en\u00a0(0,\u00a00): &lt;b&gt;X&lt;/b&gt;</div>',
     );
     // Y le consta a su dueño aunque nadie lo mirara: es «lo tuyo, siempre».
     expect(visibleTo(evento({ ...cuerpo, name: 'Ana', actor: 0 }), 0)).toBe(true);
@@ -597,6 +599,97 @@ describe('la crónica de la pantalla deja de mentir', () => {
       expect(visto, `game_over con actor ${actor} visto sin bando`).not.toContain('lose');
       expect(visto, `game_over con actor ${actor} visto sin bando`).not.toContain('win');
     }
+  });
+
+  it('cada línea dice dónde, con la casilla del hecho (#18)', () => {
+    // «Paso tomado» a secas no decía cuál, con once nodos por bando.
+    const en = { at: { x: 12, y: 5 } };
+    expect(linea({ kind: 'node_captured', node: 'n', from: null, actor: 0, ...en })).toBe(
+      '<div class="log" data-al-final="cronica"><div class="win">Paso tomado en\u00a0(12,\u00a05)</div></div>',
+    );
+    expect(linea({ kind: 'node_captured', node: 'n', from: 0, actor: 1, ...en })).toContain(
+      '<div class="lose">El jugador 1 te ha quitado un paso en\u00a0(12,\u00a05)</div>',
+    );
+    expect(
+      linea({ kind: 'resource_gained', resource: 'wood', amount: 2, actor: 0, ...en }),
+    ).toContain('+2 madera en\u00a0(12,\u00a05)');
+    expect(linea({ kind: 'town_captured', town: 't', from: null, actor: 1, ...en })).toContain(
+      'El jugador 1 captura un castillo neutral en\u00a0(12,\u00a05)',
+    );
+    // Lo que no pasa en ningún sitio no inventa uno.
+    expect(linea({ kind: 'day_start', day: 3, week: 1, actor: null, at: null })).toContain(
+      '<div>— Día 3 —</div>',
+    );
+  });
+
+  it('la dispersión de un grupo no dice dónde estaba: la niebla lo escondía', () => {
+    // `actor` es quien cerró la región y el hecho le consta por suyo aunque no
+    // viera al grupo; su `at` es la patrulla que no veía.
+    const disperso = linea({
+      kind: 'raider_dispersed',
+      raider: 'r',
+      actor: 0,
+      at: { x: 30, y: 2 },
+    });
+    expect(disperso).toContain('Los asaltantes de tu región se dispersan</div>');
+    expect(disperso).not.toContain('30');
+  });
+
+  it('la batalla dice contra quién: monstruo, grupo, guarnición o héroe (#18)', () => {
+    const batalla = (
+      foe: Record<string, unknown>,
+      owners: Record<string, number | null>,
+      winner = 'attacker',
+    ) =>
+      evento({
+        kind: 'battle_ended',
+        winner,
+        foe,
+        owners,
+        rounds: 2,
+        casts: [],
+        lost: { attacker: [], defender: [{ creature: 'skeleton', count: 3 }] },
+        actor: owners.attacker,
+        at: { x: 7, y: 8 },
+      });
+    const pinta = (e: GameEvent, quien: number): string => marcadoDe(renderLog([e], quien));
+    const monstruo = batalla({ kind: 'monster', objectId: 'm' }, { attacker: 0, defender: null });
+    expect(pinta(monstruo, 0)).toContain(
+      '<div class="win">Batalla ganada contra un monstruo en\u00a0(7,\u00a08), en 2 rondas; pierde el enemigo 3\u00a0× Esqueleto</div>',
+    );
+    expect(pinta(monstruo, -1)).toContain(
+      '<div>Batalla en\u00a0(7,\u00a08): un héroe del jugador 0 contra un monstruo; gana el jugador 0 en 2 rondas; pierde el monstruo 3\u00a0× Esqueleto</div>',
+    );
+    const ciudad = batalla({ kind: 'town', townId: 't' }, { attacker: 1, defender: null });
+    expect(pinta(ciudad, -1)).toContain(
+      'un héroe del jugador 1 contra la guarnición de una ciudad neutral; gana el jugador 1 en 2 rondas; pierde la guarnición 3\u00a0× Esqueleto',
+    );
+    const castillo = batalla(
+      { kind: 'town', townId: 't' },
+      { attacker: 1, defender: 0 },
+      'defender',
+    );
+    expect(pinta(castillo, 0)).toContain(
+      '<div class="win">Batalla ganada contra un héroe del jugador 1 en\u00a0(7,\u00a08), en 2 rondas',
+    );
+    expect(pinta(castillo, 1)).toContain(
+      '<div class="lose">Batalla perdida contra la guarnición de un castillo del jugador 0 en\u00a0(7,\u00a08)',
+    );
+    // La emboscada: el atacante sin dueño es el grupo, y el defensor, tu héroe.
+    const emboscada = batalla(
+      { kind: 'hero', heroId: 'h' },
+      { attacker: null, defender: 0 },
+      'defender',
+    );
+    expect(pinta(emboscada, 0)).toContain(
+      'Batalla ganada contra un grupo de asaltantes en\u00a0(7,\u00a08)',
+    );
+    expect(pinta(emboscada, -1)).toContain(
+      'Batalla en\u00a0(7,\u00a08): un grupo de asaltantes contra un héroe del jugador 0; gana el jugador 0',
+    );
+    // Un héroe sin dueño no existe: se lanza en vez de inventarle uno.
+    const roto = batalla({ kind: 'hero', heroId: 'h' }, { attacker: 0, defender: null });
+    expect(() => pinta(roto, -1)).toThrow('la crónica cuenta una batalla de un héroe sin dueño');
   });
 
   it('ninguna línea compone un genitivo agramatical', () => {
