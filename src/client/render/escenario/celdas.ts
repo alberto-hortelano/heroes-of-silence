@@ -486,6 +486,11 @@ export interface Bajada {
   /** La casilla alta y la baja del tramo del núcleo. */
   readonly alto: readonly [number, number];
   readonly bajo: readonly [number, number];
+  /**
+   * La rampa de un nodo entre dos niveles sin camino (#143), por su eje y con
+   * la trocha de senda: no hay senda pintada que tenga que pasar por ella.
+   */
+  readonly deUnNodo?: true;
 }
 
 /** El rumbo de bajada de un paso de casilla a casilla, o null si baja al norte (de espaldas). */
@@ -968,11 +973,13 @@ export const HOLGURA_DE_RAMPA = 0.05;
  * Las bajadas cuya rampa (`rampaDe`, mirada cada décima de casilla, del filo al
  * pie) se aparta de toda senda pintada más de `HOLGURA_DE_RAMPA`, cada una
  * dicha. La senda tiene que pasar por la rampa y seguir desde su pie (#192).
+ * La rampa de un nodo sin camino (`deUnNodo`) no tiene senda que la siga.
  */
 export function rampasDesviadas(bajadas: readonly Bajada[], sendas: readonly Senda[]): string[] {
   const recorridos = sendas.map((l) => new Recorrido(l));
   const fuera: string[] = [];
   for (const b of bajadas) {
+    if (b.deUnNodo === true) continue;
     const [[ax, ay], [bx, by]] = rampaDe(b);
     const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / 0.1));
     let peor = 0;

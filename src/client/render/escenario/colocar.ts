@@ -11,7 +11,7 @@
  * Es puro salvo por leer los índices de los módulos y las medidas de las piezas
  * del disco; la escena es un JSON que pinta `pintor.ts`.
  */
-import type { MapObject } from '@core/map/map.js';
+import type { MapObject, TramoDeCamino } from '@core/map/map.js';
 import { type Barrera, esBarrera, type Suelo, type TerrainKind } from '@core/map/terrain.js';
 import { type Analisis, analizar, type Franja, type MapaDeEscena } from './analizar.js';
 import {
@@ -82,6 +82,7 @@ import {
   ejeDelPaso,
   esHito,
   type PasoALaVista,
+  pasaElCamino,
   pasosALaVista,
   piezaDeNodo,
   SEMIANCHO_DE_LA_TROCHA,
@@ -114,6 +115,7 @@ import {
   desnivelesSinBarrera,
   type Ladera,
   nivelFueraDeSuRegion,
+  nodoEntreNiveles,
   pieDeLadera,
   relieve,
 } from './relieve.js';
@@ -306,6 +308,12 @@ export interface Escena {
      * senda pasa por ella y sigue desde su pie (#192). Tiene que ser 0.
      */
     readonly rampasDesviadas: number;
+    /**
+     * Nodos entre dos niveles sin camino ni la rampa de su bajada, salvo los
+     * que bajan al norte, de espaldas a la cámara (`nodosSinRampa`, #143):
+     * tiene que ser 0.
+     */
+    readonly nodosSinRampa: number;
     /**
      * Tramos de senda pintada de al menos `SENDA_CORTADA` casillas bajo la
      * silueta de una frontal, una ladera o una diagonal (`sendaBajoElRelieve`,
@@ -1183,7 +1191,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   const nodosDePuente = new Set(
     a.objetos.filter((o) => a.puentes.has(o.id)).map((o) => `${o.at.x},${o.at.y}`),
   );
-  const bajadas = bajadasDe(
+  const bajadasDeLasSendas = bajadasDe(
     nivel,
     W,
     a.suelo,
@@ -1193,7 +1201,16 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     (p, q) => nodosDePuente.has(`${p.x},${p.y}`) || nodosDePuente.has(`${q.x},${q.y}`),
   );
   // Y lo que se pinta pasa por la rampa de cada una, de su filo a su pie (#192).
-  const trazos = sendasPorLasRampas(suavizadas, bajadas);
+  const trazos = sendasPorLasRampas(suavizadas, bajadasDeLasSendas);
+  // El nodo entre dos niveles sin camino también es una rampa (#143): la pieza
+  // va por su eje, con la trocha de senda. Sin ella, el paso de la meseta al
+  // llano no se veía (147 de 257 nodos entre niveles en 1-40).
+  const bajadas = [
+    ...bajadasDeLasSendas,
+    ...bajadasDe(nivel, W, a.suelo, rel.celdas, tramosDeLasRampas(map, a), trochas).map(
+      (b): Bajada => ({ ...b, deUnNodo: true }),
+    ),
+  ];
   /**
    * Lo que no se tapa (#151): la senda; la rampa de cada bajada, más ancha que
    * la senda y con sus ribazos (R5); el tablero de cada puente, del que se
@@ -2680,6 +2697,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       bajadasTapadas: bajadasTapadas(sprites, bajadas, catalogo).length,
       bajadasSobreNodo: bajadasSobreNodo(sprites, bajadas, catalogo).length,
       rampasDesviadas: rampasDesviadas(bajadas, trazos).length,
+      nodosSinRampa: nodosSinRampa(map, a, nivel, bajadas).length,
       sendaBajoElRelieve: sendaBajoElRelieve(sprites, trazos, catalogo).length,
       laderasEnfrentadas: laderasEnfrentadas(sprites, deLadera).length,
       carasLisas: carasLisas(carasDeEscena, sprites, perfilDe).length,
@@ -3859,6 +3877,57 @@ function arribaColocado(
     return Math.abs(s.x - x) <= HOLGURA_DE_JUNTA && s.y >= y ? b.arriba : null;
   }
   return null;
+}
+
+/**
+ * Los tramos de la rampa de cada nodo entre dos niveles sin camino (#143): del
+ * nodo a cada casilla de su eje que tiene al lado (`ejeDelPaso`), como si
+ * fueran de camino. `bajadasDe` se queda con los que cruzan una pared hacia la
+ * cámara o de lado. Ni los puentes, que son su propio paso, ni los nodos con
+ * camino, cuya bajada ya sale de él.
+ */
+export function tramosDeLasRampas(map: MapaDeEscena, a: Analisis): TramoDeCamino[] {
+  return a.red.nodos.flatMap((n) => {
+    if (n.ciudad || a.puentes.has(n.id) || !nodoEntreNiveles(a, n.regiones)) return [];
+    if (pasaElCamino(map.caminos.tramos, n.at)) return [];
+    return ejeDelPaso(n.at, a.W, map.terrain).flatMap((linea) =>
+      linea.flatMap(([px, py]): TramoDeCamino[] => {
+        const dx = Math.sign(Math.floor(px) - n.at.x);
+        const dy = Math.sign(Math.floor(py) - n.at.y);
+        if (dx === 0 && dy === 0) return [];
+        return [[n.at, { x: n.at.x + dx, y: n.at.y + dy }]];
+      }),
+    );
+  });
+}
+
+/**
+ * Los nodos entre dos niveles sin camino que no llevan la rampa de una bajada
+ * (#143), por su id: ninguna bajada sale ni llega a su casilla, y alguna
+ * casilla de su eje está más alta y no al sur (la que está al sur baja al
+ * norte, de espaldas a la cámara, y su pared no se ve). Si ninguna casilla de
+ * su eje está más alta, el eje no sube a la meseta y también cuenta. Los nodos
+ * con camino, y las ciudades, bajan por el camino (`bajadasSinPieza`).
+ */
+export function nodosSinRampa(
+  map: MapaDeEscena,
+  a: Analisis,
+  nivel: ArrayLike<number>,
+  bajadas: readonly Bajada[],
+): string[] {
+  const tramos = tramosDeLasRampas(map, a);
+  return a.red.nodos.flatMap((n) => {
+    if (n.ciudad || a.puentes.has(n.id) || !nodoEntreNiveles(a, n.regiones)) return [];
+    if (pasaElCamino(map.caminos.tramos, n.at)) return [];
+    const enSuCasilla = ([x, y]: readonly [number, number]) => x === n.at.x && y === n.at.y;
+    if (bajadas.some((b) => enSuCasilla(b.alto) || enSuCasilla(b.bajo))) return [];
+    const aqui = nivel[n.at.y * a.W + n.at.x] as number;
+    const altas = tramos
+      .filter(([p]) => p.x === n.at.x && p.y === n.at.y)
+      .map(([, q]) => q)
+      .filter((q) => (nivel[q.y * a.W + q.x] as number) > aqui);
+    return altas.length > 0 && altas.every((q) => q.y > n.at.y) ? [] : [n.id];
+  });
 }
 
 /** Las bajadas sin su pieza (o su marcador) con el `arriba` en su sitio, cada una dicha. */
