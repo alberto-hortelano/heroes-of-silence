@@ -1262,3 +1262,68 @@ Crudo 1374×1145; pieza 1037×905 con el ancla en (678, 880), derivada por el ta
   `atlas/cofre.webp` queda sin lector.
 - Recortes antes/después de tres cofres (semillas 3, 1 y 9) en
   `docs/agents/2026-10-08-cofre/capturas/`.
+
+## 26. Lo que quedó flojo del relieve por celdas (rama `arte-relieve-2`, 08-10-2026)
+
+**Petición.** Tras el lote de §23 quedaban cuatro defectos: el basalto de diagonales y
+laderas más claro que su frontal (s28, s36), el suroeste algo cúbico en todos los
+materiales, las bajadas E/O casi llanas de lado y un canto claro seguido en las cóncavas
+estrechas de caída 2. Se priorizó por lo que más se ve en las semillas 1-40
+(`docs/agents/2026-10-08-arte-relieve-2/medir.ts --hojas`): `diagonales-roca-so-1` sale
+696 veces y `-so-2` 196; de basalto, 377 diagonales, 152 laderas y 35 bajadas; las
+bajadas E/O, unas 40 de 235.
+
+### Respuesta
+
+Codex por la suscripción, sin fal.ai y sin `resume`: **18 generaciones** (de 107 a 154 s,
+ninguna fallida), **12 hojas nuevas en disco y 6 descartadas** (se quedó la que había).
+
+- **Basalto: un tono, no arte nuevo.** Medido, el basalto de las diagonales no es más
+  claro que la frontal de media (luz 52-63 frente a 72): lo que se leía claro era el
+  derrubio gris y frío junto a la ceniza rojiza, porque las diagonales y bajadas tomaron
+  de referencia la ladera **sin entonar**, y la ladera en el juego va con
+  `BASALTO_DE_LADERA`. Ahora llevan el mismo filtro que su ladera (`TONO` en `colocar.ts`):
+  diagonales a luz 46-53 y R−B 13-20, en la de sus laderas (52-59, 15-17). En s28 y s36
+  dejan de verse como cascajo gris sobre la ceniza. Lo vigila un test (`celdas.test.ts`).
+- **El canto claro de las cóncavas de caída 2 era el canal de la guía**: la franja clara
+  de derrubio que baja del filo, que en el rincón estrecho Codex pintaba como un canto
+  claro seguido. La guía ya no lo dibuja en las cóncavas (`diagonales.ts`; las tiradas de
+  azar no cambian, ni la máscara). Rehechas `diagonales-roca-se-2`, `-arenisca-se-2` y
+  `-nevadas-se-2`, sin la franja.
+- **El suroeste.** Tres intentos en `diagonales-roca-so-1`:
+  1. «luz rasante, estratos inclinados»: menos cubos, pero **un labio claro seguido** que
+     en el mapa se leía como un camino;
+  2. lo mismo, más «el labio no es claro» y la hermana del sureste como 5.ª referencia:
+     el mismo labio claro (nombrarlo lo atrae);
+  3. la frase corta («se rompe como la hermana de la imagen 5…»), la hermana `se` como
+     referencia y **el labio de la guía oscuro en el suroeste** (`LABIO_EN_LUZ`): sin
+     labio claro y menos en cubos. **Se queda.** Es algo más plana de contraste que la de
+     antes (menos sombra entre bloques).
+
+  `diagonales-roca-so-2`: se queda la del 2.º intento (sin labio claro y menos cúbica en el
+  mapa, s37). Con el prompt del 3.º: `diagonales-nevadas-so-1` y `-basalto-so-1` se quedan
+  (con el tono, el basalto casa); `diagonales-arenisca-so-1`, `-arenisca-so-2` y
+  `-nevadas-so-2` salieron **más en columnas** o con el canto claro: se quedan las de antes.
+- **Bajadas E/O.** El prompt pide ahora que se lea que baja aunque vaya casi horizontal: en
+  el extremo alto el camino va hundido entre dos paredes que le sacan casi toda la caída,
+  la de delante con su cara cortada, que se acortan hasta quedar a ras en el extremo bajo
+  (`SE_VE_BAJAR`, `bajadas.ts`). A la primera, en las cinco hojas rehechas
+  (`bajadas-roca-1`, `-roca-2`, `-basalto-1`, `-nevadas-1`, `-arenisca-1`), la pared alta
+  en el extremo del filo y la rampa que sale al llano se leen como bajada. Las de caída 2
+  de basalto, arenisca y nieve (4-6 apariciones cada una) no se rehicieron.
+- **Registro**: los 53 módulos rehechos tapan del 97 al 100 % de la silueta de su pieza en
+  la guía (`registro.py`). `diagonales-arenisca-so-2`, que no se rehízo, se rederivó sobre
+  la guía con el labio oscuro: su cóncava-b se movió 3 px.
+- **Medidas** (1-40): todos los guardias del informe a 0, 3 203 diagonales y 235 bajadas,
+  ninguna con marcador.
+
+### Lo que sigue flojo
+
+- **El labio claro seguido de las laderas oeste** (§20) sigue: en s37 la cadena del oeste
+  lo lleva, y casa con él la `so-2` de antes de arenisca y nieve.
+- **Arenisca y nieve en el suroeste**, sin mejora: la arenisca tiende a columnas por su
+  propia roca.
+- **La `so-1` de roca**, menos cúbica pero más plana de contraste: a 60 px por casilla
+  pierde algo de relieve frente a la del sureste.
+- **Las bajadas `o` de nieve y arenisca** pintan su pared alta algo fuera de la silueta de
+  la guía (sale el 54-55 % del módulo, frente al 37-39 %). Los guardias siguen a 0.

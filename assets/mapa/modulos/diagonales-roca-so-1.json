@@ -3,22 +3,22 @@
   "modulos": [
     {
       "imagen": "convexa-a.webp",
-      "sha256": "0ef31a896c7c2aa6087cc9a0e88ebfa90bdc42c1137bda314c81995f869c249b",
-      "ancho": 354,
-      "alto": 512,
+      "sha256": "a7c4638790b46435c59795a624ace626be8bb6a08ea1dcb0a992efe699ba3336",
+      "ancho": 381,
+      "alto": 486,
       "ancla": [
-        208,
-        507
+        220,
+        481
       ],
       "diagonal": {
         "filo": [
           [
-            168,
-            110
+            172,
+            102
           ],
           [
-            303,
-            245
+            307,
+            237
           ]
         ],
         "papel": "convexa"
@@ -26,22 +26,22 @@
     },
     {
       "imagen": "convexa-b.webp",
-      "sha256": "8737137dd8b17b27468590f4ba10e59218c109ad20adbb88603025de0f6c79c8",
-      "ancho": 347,
-      "alto": 525,
+      "sha256": "f8f7b28189180fe53cee6fc61121096cedacb0d72f46765e4edfdcebf0c82ddd",
+      "ancho": 378,
+      "alto": 500,
       "ancla": [
-        196,
-        520
+        208,
+        495
       ],
       "diagonal": {
         "filo": [
           [
-            170,
-            110
+            173,
+            89
           ],
           [
-            305,
-            245
+            308,
+            224
           ]
         ],
         "papel": "convexa"
@@ -49,22 +49,22 @@
     },
     {
       "imagen": "concava-a.webp",
-      "sha256": "a2e4ade2d382ed29ef4632dd509f02904ce78270930b6a6f5b2961a77d49f0de",
-      "ancho": 246,
-      "alto": 449,
+      "sha256": "d2976eef452975f8f61a95da95611b551267c0504b9f768e57b52f93e8d24c68",
+      "ancho": 225,
+      "alto": 423,
       "ancla": [
-        47,
-        444
+        61,
+        418
       ],
       "diagonal": {
         "filo": [
           [
-            23,
-            114
+            32,
+            104
           ],
           [
-            158,
-            250
+            167,
+            240
           ]
         ],
         "papel": "concava"
@@ -72,22 +72,22 @@
     },
     {
       "imagen": "concava-b.webp",
-      "sha256": "3263339d5eed05af27e6459dbdfdff9e9105c87e8f2be8e15a02b8953f14cb46",
-      "ancho": 225,
-      "alto": 468,
+      "sha256": "6ebe0df6b2e4d521004184c6df8fe56156724bdd9091c08bde4793c62ac5147a",
+      "ancho": 216,
+      "alto": 408,
       "ancla": [
-        31,
-        463
+        53,
+        403
       ],
       "diagonal": {
         "filo": [
           [
-            34,
-            106
+            39,
+            71
           ],
           [
-            170,
-            242
+            175,
+            207
           ]
         ],
         "papel": "concava"

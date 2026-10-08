@@ -236,12 +236,21 @@ export function guiaDeBajadas(niveles: Niveles): {
 
 // ------------------------------------------------------------- los encargos
 
+/**
+ * De lado, la rampa va casi horizontal en la imagen (el juego no pinta lo bajo
+ * más abajo), y el lote (07-10-2026) la pintó como un camino llano entre rocas.
+ * Lo que dice que baja tiene que estar en la pintura: la caja que se abre en el
+ * risco, honda arriba y nada abajo, y el piso que se inclina.
+ */
+const SE_VE_BAJAR =
+  'TIENE QUE LEERSE QUE BAJA aunque vaya casi horizontal: en su extremo alto el camino va HUNDIDO en el risco, encajado entre dos paredes de roca que le sacan casi toda la caída de alto, y la del lado de la cámara deja ver su cara cortada, alta y en penumbra; rampa abajo esas paredes se acortan poco a poco hasta quedar a ras en el extremo bajo, donde el camino sale al llano. El piso del camino se ve en pendiente: con regueros de tierra y piedrecillas arrastradas hacia el extremo bajo, y la luz que da de lleno en el tramo alto y menos en el bajo. Nunca un camino llano entre dos hileras de rocas iguales.';
+
 const DICHO: Readonly<Record<RumboDeBajada, string>> = {
   s: 'S: baja DE FRENTE hacia la cámara, de arriba abajo de la imagen. Arriba, el filo de la meseta; los ribazos de roca, altos junto al filo, se deshacen en derrubio al pie.',
   se: 'SE: baja en DIAGONAL hacia abajo a la DERECHA, como marca la guía.',
   so: 'SO: baja en DIAGONAL hacia abajo a la IZQUIERDA, como marca la guía.',
-  e: 'E: cruza DE LADO una ladera que cae a la derecha. En la imagen va casi HORIZONTAL, de izquierda a derecha, como la guía: arranca a la izquierda en el filo, entre los dos ribazos más altos, y baja tendida hacia la derecha, donde se abre en el suelo llano.',
-  o: 'O: cruza DE LADO una ladera que cae a la izquierda. En la imagen va casi HORIZONTAL, de derecha a izquierda, como la guía: arranca a la derecha en el filo, entre los dos ribazos más altos, y baja tendida hacia la izquierda, donde se abre en el suelo llano.',
+  e: `E: cruza DE LADO una ladera que cae a la derecha. En la imagen va casi HORIZONTAL, de izquierda a derecha, como la guía: arranca a la izquierda en el filo, entre los dos ribazos más altos, y baja tendida hacia la derecha, donde se abre en el suelo llano. ${SE_VE_BAJAR}`,
+  o: `O: cruza DE LADO una ladera que cae a la izquierda. En la imagen va casi HORIZONTAL, de derecha a izquierda, como la guía: arranca a la derecha en el filo, entre los dos ribazos más altos, y baja tendida hacia la izquierda, donde se abre en el suelo llano. ${SE_VE_BAJAR}`,
 };
 
 export const NIVELES_DE_BAJADA: readonly Niveles[] = [1, 2];

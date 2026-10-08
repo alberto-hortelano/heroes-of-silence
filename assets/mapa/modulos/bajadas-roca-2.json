@@ -3,105 +3,105 @@
   "modulos": [
     {
       "imagen": "s.webp",
-      "sha256": "c55008063021350773237a1b76bef5870c5c8849abf8a49c62fb8b17fa3b61ca",
-      "ancho": 248,
-      "alto": 495,
+      "sha256": "cfecf3080da4ae9022366efadd80eb975928a58ddbe5bc66a7ef505eb76262fc",
+      "ancho": 216,
+      "alto": 494,
       "ancla": [
-        121,
-        490
+        108,
+        489
       ],
       "bajada": {
         "arriba": [
-          121,
-          82
+          110,
+          87
         ],
         "abajo": [
-          121,
-          311
+          110,
+          316
         ],
         "rumbo": "s"
       }
     },
     {
       "imagen": "se.webp",
-      "sha256": "cb3e742c3384c8353ef46206785ad7bfe9a7535ad848dc2475164eaf1aa52616",
-      "ancho": 428,
-      "alto": 486,
+      "sha256": "ba66a1beadc7505645be3bc5b8b307e7ae3cf91194c186b1a8df2f64ed505a70",
+      "ancho": 388,
+      "alto": 453,
       "ancla": [
-        320,
-        481
+        293,
+        448
       ],
       "bajada": {
         "arriba": [
-          94,
-          147
+          87,
+          120
         ],
         "abajo": [
-          156,
-          377
+          149,
+          350
         ],
         "rumbo": "se"
       }
     },
     {
       "imagen": "so.webp",
-      "sha256": "fad76e8b4c0cacc7e76f5a306498a4501d04103b2d3937976e49369fdc690a55",
-      "ancho": 394,
-      "alto": 478,
+      "sha256": "d81e97250cad0eecfdc57477b953a524d26e61b0cc312948e74e8a361cfaf95e",
+      "ancho": 363,
+      "alto": 476,
       "ancla": [
-        98,
-        473
+        85,
+        471
       ],
       "bajada": {
         "arriba": [
-          315,
-          131
+          296,
+          145
         ],
         "abajo": [
-          253,
-          360
+          234,
+          374
         ],
         "rumbo": "so"
       }
     },
     {
       "imagen": "e.webp",
-      "sha256": "3dbde736304e95a400c328b4bd812a034146a69576b366b5e86bdbbf9c843f92",
-      "ancho": 369,
-      "alto": 273,
+      "sha256": "1414716e5c8d9368f6622c1b3f9cecee4f3ab8c9598905eea5cfefc597095f30",
+      "ancho": 392,
+      "alto": 257,
       "ancla": [
-        206,
-        268
+        179,
+        252
       ],
       "bajada": {
         "arriba": [
-          28,
-          146
+          13,
+          160
         ],
         "abajo": [
-          152,
-          375
+          137,
+          389
         ],
         "rumbo": "e"
       }
     },
     {
       "imagen": "o.webp",
-      "sha256": "6215ace0c198f0fcaae37933306950545c560b8eef7afdd407fcf71226d1361c",
-      "ancho": 405,
-      "alto": 262,
+      "sha256": "103d8b8d758efcc898fcb14e0173920cabb1f64c562a7293fe462eb561a34a27",
+      "ancho": 461,
+      "alto": 271,
       "ancla": [
-        276,
-        257
+        255,
+        266
       ],
       "bajada": {
         "arriba": [
-          353,
-          141
+          443,
+          164
         ],
         "abajo": [
-          229,
-          370
+          319,
+          393
         ],
         "rumbo": "o"
       }

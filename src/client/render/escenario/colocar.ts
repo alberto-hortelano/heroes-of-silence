@@ -476,12 +476,22 @@ const TONO: Readonly<Record<string, string>> = {
   'laderas-arenisca-oeste': CHILLONA,
   'laderas-basalto-este': BASALTO_DE_LADERA,
   'laderas-basalto-oeste': BASALTO_DE_LADERA,
+  // Las diagonales y bajadas de basalto (§23) tomaron de referencia la ladera sin
+  // entonar y salían, junto a ella, como derrubio gris claro y frío sobre la
+  // ceniza (s28, s36). Con su filtro, las diagonales pasan de luz 52-63 y R−B
+  // 10-18 a 46-53 y 13-20, en la de sus laderas (52-59, 15-17); las bajadas, de
+  // 71-73 y 26 a 59-61 y 25. La frontal da 72 y 20: más clara de media, pero son
+  // columnas con sombra entre ellas (08-10-2026, `docs/agents/2026-10-08-arte-relieve-2/`).
+  'diagonales-basalto-se': BASALTO_DE_LADERA,
+  'diagonales-basalto-so': BASALTO_DE_LADERA,
+  'bajadas-basalto': BASALTO_DE_LADERA,
 };
 
-/** El tono de una hoja: el suyo o, en una hoja de laderas, el de su familia (sin la caída). */
+/** El tono de una hoja: el suyo o, en una hoja del relieve, el de su familia (sin la caída). */
 function tonoDe(hoja: string): string | undefined {
   return (
-    TONO[hoja] ?? (hoja.startsWith('laderas-') ? TONO[hoja.replace(/-[123]$/, '')] : undefined)
+    TONO[hoja] ??
+    (/^(laderas|diagonales|bajadas)-/.test(hoja) ? TONO[hoja.replace(/-[123]$/, '')] : undefined)
   );
 }
 

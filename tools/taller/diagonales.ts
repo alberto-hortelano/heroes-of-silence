@@ -59,6 +59,13 @@ const RAIZ = resolve(import.meta.dirname, '../..');
 const PI = Math.PI;
 /** El gris de los trozos del labio: el de la roca, no el claro de lo alto (`ARRIBA`). */
 const LABIO_ROTO = '#bcbcbc';
+/**
+ * El del suroeste, de cara a la luz, más oscuro que su escarpe (`FRENTE`): con el
+ * gris claro, dos de tres hojas de roca de 08-10-2026 lo pintaron como una cinta
+ * clara seguida por todo el filo, que en el mapa se leía como un camino. No cae
+ * en el gris del fondo (`esFondoDeGuia`), así que la máscara de la guía no cambia.
+ */
+const LABIO_EN_LUZ = '#6e6e6e';
 
 /** Hacia dónde mira la diagonal: al sureste o al suroeste. Nunca se espeja. */
 export type LadoDeDiagonal = 'se' | 'so';
@@ -209,7 +216,7 @@ function dibujarDiagonal(g: Guia, p: PiezaDeDiagonal, lado: LadoDeDiagonal, nive
       const dentro = tramo.map(
         (t) => [...en(t, p.filo(t) + ruidoFilo(t) - LABIO * grueso * (1 + lobulos(t))), H] as P3,
       );
-      g.poligono([...borde, ...[...dentro].reverse()], LABIO_ROTO);
+      g.poligono([...borde, ...[...dentro].reverse()], sombra ? LABIO_ROTO : LABIO_EN_LUZ);
     }
     desde = hasta + 0.06 + azar() * 0.12;
   }
@@ -219,13 +226,18 @@ function dibujarDiagonal(g: Guia, p: PiezaDeDiagonal, lado: LadoDeDiagonal, nive
   const pies = ts.map((t) => [...pie(t), 0] as P3);
   g.poligono([...escarpe, ...[...derrubio].reverse()], sombra ? SOMBRA : FRENTE);
   g.poligono([...derrubio, ...[...pies].reverse()], DERRUBIO);
-  // Canales de derrubio desde la caída 2, como en las laderas.
+  // Canales de derrubio desde la caída 2, como en las laderas. En el rincón no:
+  // es estrecho, y el canal, una franja clara del filo al derrubio, volvió pintado
+  // en las cóncavas de caída 2 como un canto claro seguido bajo el filo (lote de
+  // 07-10-2026). Las tiradas de `azar` se hacen igual, para que el resto de la
+  // guía (matas y bloques) no se mueva.
   for (let k = 0; k < niveles - 1; k++) {
     const t = 0.25 + 0.5 * ((k + 0.5 + (azar() - 0.5) * 0.6) / Math.max(1, niveles - 1));
     const [fx, fy] = filo(t);
     const [rx, ry] = rotura(t);
     const [tx, ty] = [punto(t + 0.03)[0] - punto(t)[0], punto(t + 0.03)[1] - punto(t)[1]];
     const ancho = 0.9 + azar() * 0.5;
+    if (p.papel === 'concava') continue;
     g.poligono(
       [
         [fx, fy, H - 0.05],
@@ -344,7 +356,14 @@ const DICHO_DEL_PAPEL: Readonly<Record<LadoDeDiagonal, Record<PapelDeDiagonal, s
 
 const LUZ: Readonly<Record<LadoDeDiagonal, string>> = {
   se: 'La pared mira al SURESTE y la luz viene de arriba a la IZQUIERDA: el escarpe queda en penumbra, con la luz rozando solo las aristas de las losas y el filo; el derrubio, más tendido, recibe algo más de luz.',
-  so: 'La pared mira al SUROESTE y la luz viene de arriba a la izquierda: la pared recibe la luz de lleno y es lo más iluminado de cada módulo; las sombras de las grietas y de los bloques caen hacia la derecha y hacia abajo. Es otra pieza distinta, no el reflejo de una pared al sureste. Que reciba la luz de lleno no la hace de bloques: la roca sigue siendo la de losas inclinadas, rotas y desplazadas de la ladera de la imagen 3, nunca cubos, dados ni prismas con la cara de delante plana e iluminada, y el filo nunca se remata con una fila de piedras.',
+  // La segunda frase, tras el lote (07-10-2026): el suroeste seguía saliendo en
+  // bloques de caras planas y lisas iluminadas, en todos los materiales, y en el
+  // mapa se leía como una escalera de dados al lado de la penumbra del sureste.
+  // Pedir «luz rasante y estratos inclinados» o decir que el labio no es claro
+  // (08-10-2026) dio en las dos veces un labio claro seguido que en el mapa se
+  // leía como una senda: nombrar el labio lo atrae. Se queda la frase corta, y el
+  // labio lo oscurece la guía (`LABIO_EN_LUZ`).
+  so: 'La pared mira al SUROESTE y la luz viene de arriba a la izquierda: la pared recibe la luz de lleno y es lo más iluminado de cada módulo; las sombras de las grietas y de los bloques caen hacia la derecha y hacia abajo. Es otra pieza distinta, no el reflejo de una pared al sureste. Que reciba la luz de lleno no la hace de bloques: la roca sigue siendo la de losas inclinadas, rotas y desplazadas de la ladera de la imagen 3, nunca cubos, dados ni prismas con la cara de delante plana e iluminada, y el filo nunca se remata con una fila de piedras. Se rompe como la pared hermana de la imagen 5, que mira al sureste: losas cortas, rotas e inclinadas, con grietas y escamas que llenan de pequeñas sombras la cara iluminada; nunca prismas en fila ni caras planas y lisas.',
 };
 
 export const NIVELES_DE_DIAGONAL: readonly Niveles[] = [1, 2, 3];
@@ -398,6 +417,17 @@ export function encargoDeDiagonales(
         papel: 'material',
       },
       { ruta: `${DIR_GUIAS}/diagonales-${lado}-${niveles}.png`, papel: 'guia' },
+      // El suroeste, de cara a la luz, salía en cubos y con el labio claro; su
+      // hermana del sureste, en penumbra, no: de ella se toma cómo se rompe la
+      // roca y el labio, no la orientación (la manda la guía, la 4).
+      ...(lado === 'so'
+        ? [
+            {
+              ruta: `assets/mapa/modulos/${hojaDeDiagonales(material, 'se', niveles)}.webp`,
+              papel: 'material' as const,
+            },
+          ]
+        : []),
     ],
     salida: `assets/mapa/modulos/${hojaDeDiagonales(material, lado, niveles)}`,
     fondo: 'transparente',

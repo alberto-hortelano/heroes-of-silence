@@ -31,6 +31,7 @@ import {
   bajadasSobreNodo,
   bajadasTapadas,
   celdasMalCubiertas,
+  componer,
   filosColocados,
   hojaDeBajada,
   hojaDeDiagonal,
@@ -41,6 +42,7 @@ import {
   spriteDeDiagonal,
 } from '../src/client/render/escenario/colocar.js';
 import type { Suelo } from '../src/core/map/terrain.js';
+import { newGame } from '../src/core/state/setup.js';
 import { catalogoDelDisco, recta } from './helpers.js';
 
 /** Las celdas de una rejilla de niveles escrita a mano, una cifra por casilla. */
@@ -272,6 +274,25 @@ describe('las piezas en su sitio, con el arte del repo', () => {
     expect(b[0]).toBeCloseTo(fb[0], 2);
     expect((a[1] + b[1]) / 2).toBeCloseTo((fa[1] + fb[1]) / 2, 2);
     expect(Math.abs(a[1] - fa[1])).toBeLessThan(0.13);
+  });
+
+  it('las diagonales y las bajadas de basalto llevan el tono de sus laderas; las de roca, ninguno', () => {
+    // Sin él salían más claras y frías que la ladera de al lado, que sí se
+    // entona (`BASALTO_DE_LADERA`), y que la frontal (s28, s36; 08-10-2026).
+    const enS28 = componer(newGame({ seed: 28 }).map, 28, catalogo).sprites;
+    const deLadera = new Set(
+      enS28.filter((s) => s.src?.includes('/laderas-basalto-') === true).map((s) => s.tono),
+    );
+    expect(deLadera.size).toBe(1);
+    const tono = [...deLadera][0];
+    expect(tono).toBeDefined();
+    const deBasalto = enS28.filter(
+      (s) => s.src !== null && /\/(diagonales|bajadas)-basalto-/.test(s.src),
+    );
+    expect(deBasalto.length).toBeGreaterThan(0);
+    expect(new Set(deBasalto.map((s) => s.tono))).toEqual(new Set([tono]));
+    const roca = (catalogo.hojas['diagonales-roca-se-1'] ?? [])[0] as ModuloDeDiagonal;
+    expect(spriteDeDiagonal(roca, 'diagonales-roca-se-1', convexa).tono).toBeUndefined();
   });
 
   it('`catalogoValidado` lanza con una diagonal o una bajada sin juntas, y con juntas donde no van', () => {
