@@ -50,7 +50,8 @@ import { catalogoDelDisco, escenaDe } from './helpers.js';
 
 describe('el relieve', () => {
   // La 9 hasta el acantilado en línea (#215), que la dejó sin agua encajada.
-  const SEMILLA = 2;
+  // La 3 desde #226: en el mapa de 42×42 la 2 no tiene agua encajada.
+  const SEMILLA = 3;
   const a = analizar(newGame({ seed: SEMILLA }).map);
   const r = relieve(a);
 
@@ -354,8 +355,10 @@ describe('la escena de un mapa real', () => {
   // la 6 y la 7 en vez de la 3 y la 9, que con el acantilado en línea (#215)
   // se quedaron sin laderas a un lado o sin alguna clase de lo que se aparta;
   // la 9 y la 2 en vez de la 1 y la 7, que con los vestidos que se repiten por
-  // una silla (#224) se quedaron con 2 y 1 laderas al oeste.
-  for (const semilla of [9, 6, 13, 2]) {
+  // una silla (#224) se quedaron con 2 y 1 laderas al oeste; la 3 y la 7 en
+  // vez de la 9 y la 13 desde #226 (mapa de 42×42): la 13 se quedó sin
+  // desnivel y la 9 sin el inicio de una ladera.
+  for (const semilla of [3, 6, 7, 2]) {
     const map = newGame({ seed: semilla }).map;
     const e = escenaDe(semilla);
 

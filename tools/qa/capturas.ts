@@ -87,6 +87,7 @@ import {
   buscarVeteranos,
   type Caja,
   destinoTactil,
+  EMBOSCADA_DEL_ESCRITORIO,
   encuadreDe,
   guardiaEnElMarco,
   type PlanDeAngulo,
@@ -1122,8 +1123,9 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
   espejo.closeTown();
   await sleep(200);
 
-  // Una batalla de varios individuos por bando, jugada a clics.
-  const monstruo = await guardiaALaVista(mapa, espejo);
+  // Una batalla de varios individuos por bando, jugada a clics: la de la
+  // guardia, o la del grupo que embosque por el camino (`EMBOSCADA_DEL_ESCRITORIO`).
+  const monstruo = await guardiaALaVista(mapa, espejo, EMBOSCADA_DEL_ESCRITORIO);
   await mapa.pulsar(monstruo);
   if (espejo.battle === null)
     throw new Error(`el espejo no ha entrado en batalla: ${espejo.status}`);

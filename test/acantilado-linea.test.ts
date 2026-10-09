@@ -170,12 +170,13 @@ function sinCaidaEn(map: ReturnType<typeof newGame>['map']): string[] {
 }
 
 describe('en los mapas del procedimental, todo acantilado tiene lo bajo al lado (#215)', () => {
-  it(`34×34, ${segunPrisa('las de la auditoría', '1-200')}: ninguna casilla sin caída`, () => {
-    // En `verify`, las de la auditoría con acantilado (1, 34 y 80: 80, 60 y 44
-    // casillas sin caída antes de #215) y la 148, donde el agua que la senda
-    // pasa a montaña dejaba un trozo de río a ras de la meseta.
+  it(`el mapa del juego, ${segunPrisa('tres con mucho acantilado', '1-200')}: ninguna casilla sin caída`, () => {
+    // En `verify` eran las de la auditoría con acantilado (1, 34 y 80: 80, 60 y
+    // 44 casillas sin caída antes de #215, en 34×34) y la 148. Desde #226 el
+    // mapa es de 42×42 y la 1 y la 34 no llevan acantilado: van las tres de
+    // 1-60 con más (16, 24 y 2: 81, 78 y 64 casillas, 09-10-2026).
     let casillas = 0;
-    for (const semilla of segunPrisa([1, 34, 80, 148], rango(1, 200))) {
+    for (const semilla of segunPrisa([16, 24, 2], rango(1, 200))) {
       const { map } = newGame({ seed: semilla });
       casillas += map.terrain.filter((t) => t === 'cliff').length;
       expect(sinCaidaEn(map), `s${semilla}`).toEqual([]);
@@ -201,7 +202,8 @@ describe('en los mapas del procedimental, todo acantilado tiene lo bajo al lado 
   }, 180_000);
 
   it('y muerde en un mapa real: una casilla de la meseta pegada a la línea, hecha acantilado, cuenta', () => {
-    const { map } = newGame({ seed: 1 });
+    // La 2 y no la 1 desde #226: en 42×42 la 1 no lleva acantilado.
+    const { map } = newGame({ seed: 2 });
     const { nivel } = relieve(analizar(map));
     const W = map.width;
     // Una casilla que se pisa junto a un acantilado sin nada más bajo en sus

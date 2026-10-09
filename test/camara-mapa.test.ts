@@ -167,8 +167,9 @@ describe('el tope de alejar sale de los volúmenes que caben', () => {
     // en 1 532 volúmenes a 110 px y cabe; la 3 llevaba 3 507, lejos de la raya.
     // La 1 desde #210: con menos mesetas y la senda sin cortar el agua, la 3
     // cabe a 108 px. La 2 desde #216: sin los picos que tapaban las paredes, la
-    // 1 cabe a 108; la 2 lleva 3 366 a 110 px.
-    const esc = escenarioDe(newGame({ seed: 2, width: 48, height: 48 }).map, 2);
+    // 1 cabe a 108; la 2 lleva 3 366 a 110 px. En 64×64 desde #226: con 450
+    // casillas por región, el 48×48 lleva 6 regiones y no 9, y cabe entero a 40 px.
+    const esc = escenarioDe(newGame({ seed: 2, width: 64, height: 64 }).map, 2);
     const aviso = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     try {
       expect(topeDeAlejar(esc, 7680, 4320)).toBe(TILE_MAX);

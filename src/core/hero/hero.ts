@@ -1,5 +1,6 @@
 /** Héroes: atributos, ejército y movimiento diario. */
 import { HEROE } from '../data.js';
+import { marchaALaEscala } from '../escala.js';
 import type { Army, Equipo, FactionId, PlayerId, Point, SpeedTier, UnitInfo } from '../types.js';
 import { SPEED_TO_MOVE_POINTS } from '../types.js';
 import { conEquipo, EQUIPO_BASE } from './equipo.js';
@@ -195,9 +196,13 @@ export function logisticsBonus(hero: Pick<Hero, 'skills'>): number {
   return level === undefined ? 0 : level * 0.1;
 }
 
-/** Puntos de movimiento del día: los marca la criatura más lenta. */
+/**
+ * Puntos de movimiento del día: los marca la criatura más lenta, con la tabla
+ * de fheroes2 llevada a la escala del mapa (`marchaALaEscala`, #226: con 450
+ * casillas por región, ×1,22) y luego la Logística.
+ */
 export function maxMovePoints(hero: Pick<Hero, 'army' | 'skills'>, characters: Personajes): number {
-  const base = SPEED_TO_MOVE_POINTS[slowestSpeed(hero.army, characters)];
+  const base = marchaALaEscala(SPEED_TO_MOVE_POINTS[slowestSpeed(hero.army, characters)]);
   return Math.round(base * (1 + logisticsBonus(hero)));
 }
 

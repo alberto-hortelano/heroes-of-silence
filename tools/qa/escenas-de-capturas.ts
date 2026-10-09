@@ -269,13 +269,13 @@ export async function buscarVeteranos(b: Caja, desde = 1): Promise<number> {
 }
 
 /**
- * Dónde empieza `buscarDerrota`, y no en la 1: con el escritorio (1080×777), de
- * 201 a 1 000 pierden las semillas 315, 410 y 665, y nada de 801 a 1 000
- * (08-10-2026). Es un punto de partida, no una semilla escrita: si un cambio
- * del mapa le quita la derrota a la 315, la búsqueda sigue hasta la 514.
- * Empezando en la 1 tardaba ~55 s en llegar a ella; desde aquí, ~3 s.
+ * Dónde empieza `buscarDerrota`. Con el mapa de 34×34 era la 301 (de 201 a
+ * 1 000 perdían la 315, 410 y 665; 08-10-2026). Con el de 42×42 (#226) la
+ * primera es la 78, y de 301 a 500 no pierde ninguna; en cada tanda de 200 de
+ * 1 a 2 600 hay al menos una (78, 220, 583, 728, 934…; 09-10-2026). Es un punto
+ * de partida, no una semilla escrita.
  */
-export const DESDE_LA_DERROTA = 301;
+export const DESDE_LA_DERROTA = 1;
 
 /** La partida y la guardia de la batalla que se pierde (`buscarDerrota`). */
 export interface EscenaDeDerrota {
@@ -361,6 +361,16 @@ export function rutaDeDosColores(
 export const reclutaDeNivel1 = (faction: string): string =>
   faction === 'knight' ? 'peasant' : 'skeleton';
 
+/**
+ * La batalla de escritorio vale aunque la ruta a la guardia cruce un grupo que
+ * embosca: lo que se mira es una batalla de varios por bando jugada a clics, y
+ * la de un grupo lo es. Desde el mapa de 42×42 (#226), con la misma vista
+ * (radio 4 y 5) y más marcha, ninguna de 1-400 tenía a la vez la ruta de dos
+ * colores y una guardia a salvo a la que se llegue hoy (eran 9 de 400 en 34×34);
+ * aunque embosquen, 23 de 400 (la primera, la 41).
+ */
+export const EMBOSCADA_DEL_ESCRITORIO = { aunqueEmbosquen: true } as const;
+
 /** Los pasos de rueda que da la pasada de escritorio antes de su batalla (zoom y arrastre). */
 export const RUEDA_DEL_ESCRITORIO = 2;
 
@@ -386,7 +396,13 @@ export function buscarEscritorio(b: Caja, desde = 1): number {
     if (espejo.scene !== 'town' || espejo.activeTown === null) continue;
     espejo.recruitAll(reclutaDeNivel1(espejo.activeTown.faction));
     espejo.closeTown();
-    const guardia = guardiaEnElMarco(b, e, tileTrasRueda(e, RUEDA_DEL_ESCRITORIO), espejo);
+    const guardia = guardiaEnElMarco(
+      b,
+      e,
+      tileTrasRueda(e, RUEDA_DEL_ESCRITORIO),
+      espejo,
+      EMBOSCADA_DEL_ESCRITORIO,
+    );
     if (guardia === null) continue;
     espejo.clickTile(guardia);
     if (espejo.battle !== null && hayAnguloEnLaBatalla(espejo, b)) return semilla;

@@ -32,11 +32,16 @@ import {
   RedDeCaminos,
   type TramoDeCamino,
 } from '../src/core/map/map.js';
-import { aPunto, type Estructura, estructura, vecindad } from '../src/core/map/regiones.js';
+import {
+  aPunto,
+  type Estructura,
+  estructura,
+  franjasDeBarrera,
+  vecindad,
+} from '../src/core/map/regiones.js';
 import {
   BARRERAS,
   type Barrera,
-  esBarrera,
   isWalkable,
   type Suelo,
   type TerrainKind,
@@ -53,7 +58,7 @@ import {
 } from '../src/core/map/vestir.js';
 import { createRng } from '../src/core/rng.js';
 import type { Point } from '../src/core/types.js';
-import { tramosRectos } from '../tools/qa/rectitud.js';
+import { TECHOS, tramosRectos } from '../tools/qa/rectitud.js';
 import { auditarMapaDenso, barrerasDe, ciclosDeCamino, planDeNodos } from './helpers.js';
 import { itLento, rango, segunPrisa } from './lento.js';
 
@@ -755,13 +760,13 @@ describe('el generador hace redes como las pidió el usuario', () => {
   });
 
   it('la frontera se lee por lo que no es región: dentro es obstáculo; junto a la frontera o a un nodo, frontera (#132)', () => {
-    // Tres casillas de una región pasadas a montaña sobre la semilla 2 (la 1, con
-    // el vestido que se repite por una silla, #224, ya no tiene la pegada solo
-    // a un nodo), una a una: lejos de todo cuenta como obstáculo; pegada a la frontera, como
+    // Tres casillas de una región pasadas a montaña sobre la semilla 4 (la 2
+    // hasta el mapa de 42×42 de #226, que ya no tiene la pegada solo a un nodo;
+    // la 1, con el vestido que se repite por una silla, #224, tampoco), una a una: lejos de todo cuenta como obstáculo; pegada a la frontera, como
     // frontera; y pegada solo a un nodo —el trozo de un lado del paso que no
     // toca más que una región (la semilla 80 en 28×28)— también como frontera,
     // porque el nodo es un agujero de la frontera y la une a la otra región (#132).
-    const { map } = buildMap(generateMapPlan(createRng(2)));
+    const { map } = buildMap(generateMapPlan(createRng(4)));
     const red = estructura(map);
     const W = map.width;
     const { desde, vecinas } = vecindad(W, map.height);
@@ -782,9 +787,19 @@ describe('el generador hace redes como las pidió el usuario', () => {
       (c) => red.regionDe[c]! >= 0 && map.regions.every((r) => r.at.y * W + r.at.x !== c),
     );
     const dentro = regionales.find(lejos);
-    const juntoAFrontera = regionales.find((c) =>
-      fueraDeRegion(c).some((j) => esBarrera(map.terrain[j]!) && !nodos.has(j)),
+    // La de frontera, junto a una franja que toca dos regiones o más
+    // (`franjasDeBarrera`), y a nada más que no sea región o nodo: con «junto a
+    // una barrera», en 42×42 (#226) la primera que sale toca un obstáculo, de
+    // una sola región, y la montaña nueva los une.
+    const deFrontera = new Set(
+      franjasDeBarrera(W, map.height, map.terrain, red.regionDe)
+        .filter((f) => f.regiones.size >= 2)
+        .flatMap((f) => f.casillas),
     );
+    const juntoAFrontera = regionales.find((c) => {
+      const f = fueraDeRegion(c).filter((j) => !nodos.has(j));
+      return f.length > 0 && f.every((j) => deFrontera.has(j));
+    });
     const juntoANodo = regionales.find((c) => {
       const f = fueraDeRegion(c);
       return f.length > 0 && f.every((j) => nodos.has(j));
@@ -1068,16 +1083,17 @@ describe('el generador hace redes como las pidió el usuario', () => {
     // (engorde del lado gordo entero y ruido en bloques de 4×4) y 110 después;
     // mapas con uno de ≥ 10, 14 antes y 5 después. Los techos dejan margen
     // para una tirada de monedas: en 1-300 los tramos bailaban de 38 a 45 con
-    // solo cambiar cómo se elige el paso.
+    // solo cambiar cómo se elige el paso. Desde #226 los largos van a la
+    // escala del mapa (8 y 10 en 34×34 son 10 y 12 en 42×42: `largoALaEscala`).
     let largos = 0;
     let mapas = 0;
     for (const s of rango(1, 1000)) {
       const { map } = delGenerador(s);
-      largos += tramosRectos(map, 8).largos;
-      if (tramosRectos(map, 10).largos > 0) mapas++;
+      largos += tramosRectos(map, TECHOS.tramos.minimo).largos;
+      if (tramosRectos(map, TECHOS.mapas.minimo).largos > 0) mapas++;
     }
-    expect(largos).toBeLessThanOrEqual(140);
-    expect(mapas).toBeLessThanOrEqual(8);
+    expect(largos).toBeLessThanOrEqual(TECHOS.tramos.techo);
+    expect(mapas).toBeLessThanOrEqual(TECHOS.mapas.techo);
   });
 
   it('el vestido abre el nodo por su eje aunque la primera recta de cada región sea otra', () => {

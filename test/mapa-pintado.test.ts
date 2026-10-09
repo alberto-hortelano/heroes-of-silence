@@ -44,6 +44,7 @@ import {
 import { drawMapa, PIES, recortadoArriba } from '../src/client/render/mapa.js';
 import { Session } from '../src/client/session.js';
 import { Casillas, type CasillasLeidas } from '../src/core/map/casillas.js';
+import { LADO_DEL_MAPA } from '../src/core/map/generate.js';
 import { todosALaVista } from '../src/core/state/asaltantes.js';
 import { heroesOf, revealEverything, visibleNow } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
@@ -340,6 +341,13 @@ describe('el suelo bueno a la densidad de la pantalla (#148)', () => {
     }
     // Un mapa mayor cabe a menos, pero no a menos que hoy.
     expect(resolucionDelSuelo(1.5, 48, 48)).toEqual({ px: PX_DEL_SUELO, pide: 165 });
+    // El del juego desde #226 (42×42): a dpr 1 cabe entero (101,6 MB); a dpr
+    // 1,5 el tope lo deja en 133 de los 165 que pide, y se amplía ×1,24.
+    expect(resolucionDelSuelo(1, LADO_DEL_MAPA, LADO_DEL_MAPA)).toEqual({
+      px: PX_DEL_SUELO,
+      pide: PX_DEL_SUELO,
+    });
+    expect(resolucionDelSuelo(1.5, LADO_DEL_MAPA, LADO_DEL_MAPA)).toEqual({ px: 133, pide: 165 });
   });
 
   it('una densidad o un mapa que no lo son se rechazan diciéndolo', () => {
@@ -504,13 +512,18 @@ describe('con Worker, el suelo se pinta aparte (H2 de la vuelta 1 de QA)', () =>
     }
   });
 
+  // En un mapa de 34×34 (el del juego antes de #226), donde a dpr 1,5 caben los
+  // 165 que pide: en el de 42×42 el tope lo corta a 133 (lo dice el test puro
+  // de `resolucionDelSuelo`) y aquí se mira el encargo, no la cuenta.
+  const EN_34 = { width: 34, height: 34 } as const;
+
   it('a dpr 1,5 encarga el bueno a 165 y lo usa en el zoom máximo; a dpr 2, a 165 y lo avisa una vez', async () => {
     const { pagina } = paginaQueApunta();
     const aviso = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const p = pintorEnEspera();
     usarPintorDelSuelo(p.pintor);
     try {
-      const esc = escenarioDe(newGame({ seed: 21 }).map, 21);
+      const esc = escenarioDe(newGame({ seed: 21, ...EN_34 }).map, 21);
       sueloDelMapa(esc, 165, 1.5);
       expect(p.encargos[0]?.resoluciones).toEqual([PX_DEL_ESBOZO, 165]);
       expect(aviso).not.toHaveBeenCalled();
@@ -522,7 +535,7 @@ describe('con Worker, el suelo se pinta aparte (H2 de la vuelta 1 de QA)', () =>
       expect(pagina.dataset.escenario).toBe('pintado');
       expect(sueloDelMapa(esc, 165, 1.5)).toEqual({ lienzo: bueno, px: 165 });
 
-      const otro = escenarioDe(newGame({ seed: 22 }).map, 22);
+      const otro = escenarioDe(newGame({ seed: 22, ...EN_34 }).map, 22);
       sueloDelMapa(otro, 220, 2);
       sueloDelMapa(otro, 220, 2);
       expect(p.encargos[1]?.resoluciones).toEqual([PX_DEL_ESBOZO, 165]);
@@ -543,7 +556,7 @@ describe('con Worker, el suelo se pinta aparte (H2 de la vuelta 1 de QA)', () =>
     const p = pintorEnEspera();
     usarPintorDelSuelo(p.pintor);
     try {
-      const esc = escenarioDe(newGame({ seed: 23 }).map, 23);
+      const esc = escenarioDe(newGame({ seed: 23, ...EN_34 }).map, 23);
       sueloDelMapa(esc, 110, 1);
       const viejo = p.encargos[0]!;
       viejo.avisos.superficie({ lienzo: mapaDeBits(PX_DEL_ESBOZO), px: PX_DEL_ESBOZO });

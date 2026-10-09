@@ -107,21 +107,24 @@ describe('las tiradas de frontal cortadas junto a un objeto (#221)', () => {
 });
 
 /**
- * Los mapas reales: las semillas de la auditoría 7 (s57 (29-33, 25), s443
- * (12-13, 15)) y dos de 1-40 que lo daban (s10 entre dos ciudades, s37), y
- * 1-40 en la orden lenta. Lo que queda, por semilla (arriba).
+ * Los mapas reales: las semillas de la auditoría 7 (s57 y s443, que en 42×42
+ * ya no lo dan) y dos de 1-40 que lo dan desde #226 (s30 y s37), y 1-40 en la
+ * orden lenta. Lo que queda, por semilla (arriba).
  */
 // Con #224 (el vestido se repite por una silla y abre esquinas) cambian: s6 es
 // otro mapa y no lo da; s2, s22 y s24, otros mapas, sí; s3, por la esquina de
 // (27,22) que se abre a la meseta para que el camino baje de frente a la
 // ciudad de (27,23): la cara de (24-26, 23) acaba ahora a su lado. En 1-100,
 // 8 → 13; en 101-250, 17 → 18 (09-10-2026).
-// Los dos de s12 junto al puente (22-23 y 29-30, 10) se van con la rampa de
-// (12, 8) (#225): sin sus cuatro frontales, la corriente de azar de las
-// frontales tira otras en las caras de después. Es suerte, no arreglo: el hueco
-// del puente sigue (09-10-2026).
-const QUEDAN: Readonly<Record<number, number>> = { 2: 1, 3: 1, 10: 1, 22: 1, 24: 2 };
-const SEMILLAS = segunPrisa([57, 443, 10, 37], [...rango(1, 40), 57, 443]);
+//
+// Desde #226 (el mapa de 42×42, 450 casillas por región) todos los mapas son
+// otros, y la lista se re-mide (09-10-2026): en 1-40, 9 → 3; en 1-100, 13 → 14.
+// Quedan s17 (la cara de la fila 30 que acaba junto al pueblo de (32,30) y el
+// nodo de acantilado de (29,30)), s30 (la de la fila 20 entre la ciudad de
+// (18,21) y el puente de (21,21), como el de s12 de antes) y s37 (la de la fila
+// 25 entre la mina de (1,26) y el nodo de acantilado de (5,26)).
+const QUEDAN: Readonly<Record<number, number>> = { 17: 1, 30: 1, 37: 1 };
+const SEMILLAS = segunPrisa([57, 443, 30, 37], [...rango(1, 40), 57, 443]);
 
 describe('en los mapas reales', () => {
   for (const semilla of SEMILLAS)

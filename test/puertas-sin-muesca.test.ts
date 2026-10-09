@@ -17,6 +17,10 @@
  * s263 dos); con él, 5. Los que quedan, en `QUEDAN`: lo que habría que cerrar
  * de la meseta es el pasillo de otro nodo (s10 (25,13), la ciudad de al lado) o
  * toca uno (s167 (14,6), junto al paso de (15,7)).
+ *
+ * Desde #226 (el mapa de 42×42, 450 casillas por región) todos los mapas son
+ * otros y la lista se re-mide (09-10-2026): en 1-1000, 5 → 4 (s21, s312, s563 y
+ * s674, un costado este cada una); en 1-200 queda solo s21 (24,19).
  */
 import { describe, expect, it } from 'vitest';
 import { buildMap, generateMapPlan } from '../src/core/map/generate.js';
@@ -51,14 +55,14 @@ const mapaDe = (semilla: number): GameMap => buildMap(generateMapPlan(createRng(
 
 /** Lo que queda en 1-200, por semilla (arriba). */
 const QUEDAN: Readonly<Record<number, readonly string[]>> = {
-  10: ['(23,14) este'],
-  167: ['(12,7) este'],
+  21: ['(24,19) este'],
 };
 
 describe('la puerta de una ciudad no muerde la línea del acantilado (#222)', () => {
-  // En el bucle rápido, las que lo daban antes (s57, s162, s263) y una de las
-  // que quedan, para que `QUEDAN` no se quede viejo sin que nadie lo vea.
-  const semillas = segunPrisa([57, 162, 263, 10], rango(1, 200));
+  // En el bucle rápido, las que lo daban en 34×34 (s57, s162, s263; en 42×42
+  // son otros mapas, pero no cuesta mirarlas) y la que queda, para que
+  // `QUEDAN` no se quede viejo sin que nadie lo vea.
+  const semillas = segunPrisa([57, 162, 263, 21], rango(1, 200));
   for (const s of semillas)
     it(`semilla ${s}`, () => {
       expect(muescasDe(mapaDe(s))).toEqual(QUEDAN[s] ?? []);

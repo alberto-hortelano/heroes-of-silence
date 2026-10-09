@@ -68,7 +68,8 @@ const SEMILLAS = LENTO ? [...new Set([...rango(1, 10), ...dosConDeTodo()])] : do
 
 function dosConDeTodo(): number[] {
   // Desde que la senda no corta en diagonal la esquina del agua (#210), solo la
-  // 232 de 1-300 la tiene: se busca desde ella, que de la 1 costaría 230 escenas.
+  // 232 de 1-300 la tenía. Desde #226 (mapa de 42×42), la 14 y la 187: se busca
+  // desde la 14, que de la 1 costaría 13 escenas.
   const conVado = primeraSemillaCon(
     'una senda de estribo que sin vado pasaría por agua',
     (s) => {
@@ -78,7 +79,7 @@ function dosConDeTodo(): number[] {
         x >= 0 && y >= 0 && x < e.W && y < e.H && agua.has(y * e.W + x);
       return sendasDeEstriboEnAgua(e.sendas, e.puentes, [], esAgua).length > 0 ? true : undefined;
     },
-    232,
+    14,
     300,
   ).semilla;
   const diagonal = primeraSemillaCon('un puente en diagonal', (s) =>

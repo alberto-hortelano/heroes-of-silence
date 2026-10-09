@@ -40,7 +40,14 @@ describe('el lado sale de las regiones (#195)', () => {
   });
 
   it('el rango de regiones es el del lado que sabe hacer el generador (#102)', () => {
-    expect(ladoDelMapa(REGIONES_MINIMAS_POR_BANDO)).toBe(LADO_MINIMO_DEL_GENERADOR);
+    // El lado mínimo (24, medido) da el mínimo de regiones; pedido por regiones,
+    // el mínimo sale más grande (30 desde #226, con 450 casillas por región).
+    expect(regionesDelMapa(LADO_MINIMO_DEL_GENERADOR, LADO_MINIMO_DEL_GENERADOR)).toBe(
+      REGIONES_MINIMAS_POR_BANDO,
+    );
+    expect(ladoDelMapa(REGIONES_MINIMAS_POR_BANDO)).toBeGreaterThanOrEqual(
+      LADO_MINIMO_DEL_GENERADOR,
+    );
     expect(ladoDelMapa(REGIONES_MAXIMAS_POR_BANDO)).toBeLessThanOrEqual(LADO_MAXIMO_DEL_GENERADOR);
     // Una región más ya no cabe en el lado máximo: el rango no se queda corto.
     expect(regionesDelMapa(LADO_MAXIMO_DEL_GENERADOR, LADO_MAXIMO_DEL_GENERADOR)).toBe(
@@ -103,7 +110,7 @@ describe('las minas van por región (#195)', () => {
         [REGIONES_POR_BANDO, 1],
       ],
       [
-        ...[3, 4, 5, 6, 7, 10].flatMap((r) => rango(1, 3).map((s) => [r, s] as const)),
+        ...[3, 4, 5, 6, 7, 9].flatMap((r) => rango(1, 3).map((s) => [r, s] as const)),
         [REGIONES_MAXIMAS_POR_BANDO, 1],
       ],
     );

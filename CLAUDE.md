@@ -164,7 +164,7 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
 | Rejilla de batalla | 11 × 9 = 99 hexes, offset odd-r |
 | Tropa | individuos, uno por hex, acotados por el liderazgo (`data/liderazgo.json`, provisional) |
 | Recursos | madera, mercurio, mineral, azufre, cristal, gemas, oro |
-| Movimiento diario | lo marca la criatura más lenta; se fija al empezar el día |
+| Movimiento diario | lo marca la criatura más lenta; se fija al empezar el día. **Regla nuestra** (#226): la tabla de fheroes2 (1000-1500) ×√(`AREA_POR_REGION` / `AREA_DE_REFERENCIA`) = ×√1,5 → 1224-1837 (`marchaALaEscala`, `core/escala.ts`) |
 | Puntos de hechizo | 10 × Conocimiento |
 | Moral y suerte | −3 a +3 |
 | Moral por mezcla de facciones | se cuenta al empezar la batalla y no se recalcula al morir un stack (como fheroes2, #49) |
@@ -252,13 +252,20 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   **Las regiones definen el mapa** (#195): el dato es `REGIONES_POR_BANDO` (5: la de casa y
   4 de fuera, en parejas en espejo), elegido con la regla «menor número con mediana ≥ 8 días,
   p90 ≤ 20 y 0 sin terminar» (`tools/qa/tamanos.ts`); el lado se deriva, `ladoDelMapa` =
-  ⌊√((regiones − 1) · 300)⌋ (34; de 3 a 15 regiones, 24 a 64), y su inversa es
-  `regionesDelMapa`. **Minas por región (regla nuestra)**: la de casa, oro, madera y mineral;
+  ⌊√((regiones − 1) · `AREA_POR_REGION`)⌋ (42; de 3 a 10 regiones, 30 a 63), y su inversa es
+  `regionesDelMapa`. **El mapa ×1,5** (#226, 09-10-2026): `AREA_POR_REGION` 300 → 450
+  (`core/escala.ts`), las mismas regiones, minas, ciudades, pueblos, recursos, cofres,
+  monstruos y asaltantes en 42×42 en vez de 34×34; obstáculos y cubierta van por densidad.
+  La marcha sube con la raíz del área (un hecho, un sitio: `marchaALaEscala`). Medido en 1-100:
+  duración 7 / 14 / 19 → 9 / 15 / 31 días, 0 sin terminar (en 1-1000, 8 / 14 / 45 → 8 / 16 / 34,
+  j0 571 → 603; con ×1,35 volvía a 7 / 13 / 20); casillas pisables a ≥ 3 del camino
+  10,5 → 20,0 %, distancia media al camino 1,10 → 1,50; generar un mapa 30 → 95 ms (mediana).
+  Los largos de rectitud (#169) van a escala (`largoALaEscala`: 8 → 10, 10 → 12). **Minas por región (regla nuestra)**: la de casa, oro, madera y mineral;
   cada una de fuera, una rara y una básica por turno (`minasDeLasRegiones`): 2·regiones + 1
   por bando, 11 con 5 (con tres por región de fuera no cabían: objetos sin puerta 243 → 314
   de 1 000 y guardias del generador rotos).
   El agente sigue recibiendo ancho y alto, con el reparto como consejo. Un plan mide de 8 a 128 por lado
-  (`LADO_MINIMO_DEL_PLAN`); el generador solo sabe de 24 a 64
+  (`LADO_MINIMO_DEL_PLAN`); el generador solo sabe de 24 a 64 (pedido por lado; por regiones, de 30 a 63)
   (`LADO_MINIMO_DEL_GENERADOR`, 200 de 200 semillas en cada lado) y fuera lanza antes de intentarlo (#102).
   Ninguna mina ni pueblo lleva la puerta en el borde (`colocarPar`, #189), salvo el respaldo sin puerta.
   **El nivel es de la región** (#143): `MapRegion.nivel` (0 abajo, 1 el llano, 2 la meseta), sin
@@ -396,11 +403,13 @@ antes del destino (`battle_started` con `faltan`).
   (`escenario/pintor-del-suelo.ts`, `OffscreenCanvas`, las imágenes como
   `ImageBitmap` que pide él) una vez por partida y **para el zoom máximo**: un
   encargo que pinta en serie el esbozo a `PX_DEL_ESBOZO` (60, ~2 s) y el bueno a
-  `PX_DEL_SUELO` (120 = ⌈110 × 1,09⌉, ~5,5 s más; 83 MB los dos), cada uno en un
+  `PX_DEL_SUELO` (120 = ⌈110 × 1,09⌉, ~5,5 s más en 34×34; en 42×42, 127 MB los dos), cada uno en un
   Worker que se termina al contestar (uno vivo para los dos no suelta las máscaras).
   **Con dpr > 1,09 el bueno va a ⌈`TILE_MAX` × dpr⌉** (`resolucionDelSuelo`, #148) hasta
-  `BYTES_DEL_SUELO_BUENO` (126 MB: 165 px en un 34×34, dpr 1,5); más allá, 165 y un aviso en
-  consola. Medido sin GPU y con la máquina cargada (2026-10-08), 120/138/165 px: el bueno en
+  `BYTES_DEL_SUELO_BUENO` (126 MB: 165 px en un 34×34, dpr 1,5; en el 42×42 de #226, 133 px, y
+  a dpr 1,5 se amplía ×1,24 con su aviso); más allá, lo que quepa y un aviso en
+  consola. `pintarEscena` del taller a 96 px (s1, 2, 5, 9): ~3,4 s en 34×34 → ~5,6 s en 42×42; en
+  `pnpm capturas`, el suelo pintado en 9-12 s con la máquina cargada (09-10-2026). Medido sin GPU y con la máquina cargada (2026-10-08), 120/138/165 px: el bueno en
   6-7/8-10/11-12,5 s y el navegador sube 0,4-0,6/0,6-0,7/0,9-1,05 GB mientras pinta (a 220, 20 s y
   1,6 GB; y a dpr 2 una ventana de 1440×900 se pinta a densidad 1,34, que pide 147). Si el dpr sube a
   media partida se encarga otro bueno; si baja, se reduce el que hay.
@@ -544,7 +553,7 @@ ocupado por algo ajeno no se libera: se reporta.**
 | `pnpm capturas` | ~245 s | si el cambio se ve; sale 1 con un error en consola |
 | `barrido-semillas.ts` | ~1 s | si tocas la IA o la economía: una sola semilla sin terminar es regresión |
 | `pnpm banco` | ~5 s | si tocas el núcleo sin querer cambiar el juego |
-| `npx tsx tools/qa/rectitud.ts` | ~20 s | si tocas `generate.ts` o `vestir.ts`: tramos rectos en 1-1000 (≥ 8 ≤ 140, caras ≥ 8 ≤ 115, mapas con tramo ≥ 10 ≤ 8) |
+| `npx tsx tools/qa/rectitud.ts` | ~20 s | si tocas `generate.ts` o `vestir.ts`: tramos rectos en 1-1000, con los largos a escala (`largoALaEscala`; en 42×42: ≥ 10 ≤ 140, caras ≥ 10 ≤ 115, mapas con tramo ≥ 12 ≤ 8) |
 | `enfrentamiento.ts` | ~2 s | si cambias cómo decide la IA de batalla: entra solo con el intervalo entero > 50 % en 5 000 parejas |
 
 - **Bucle rápido y orden lenta** (`test/lento.ts`, #167): un guardia que recorre

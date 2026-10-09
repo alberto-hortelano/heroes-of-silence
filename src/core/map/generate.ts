@@ -17,6 +17,7 @@ import {
   NIVEL_POR_SUELO,
   problemasDeGrupo,
 } from '../data.js';
+import { AREA_POR_REGION } from '../escala.js';
 import { CUPO_GUARNICION, ejercitoDe } from '../hero/troop.js';
 import type { Rng } from '../rng.js';
 import {
@@ -214,21 +215,6 @@ export interface BuiltMap {
 }
 
 /**
- * Casillas de mapa por pareja de regiones de fuera: la cuenta que une el lado
- * y las regiones (`ladoDelMapa`, `regionesDelMapa`).
- *
- * Era 144, y con la frontera de una casilla y el suelo libre bastaba. Con
- * fronteras de 2-3 casillas, obstáculos que bloquean y los objetos de siempre,
- * las regiones de 144 se quedaban en 25-35 casillas pisables y el generador no
- * encontraba sitio: en 30 semillas de 36×36, 29 sin mapa. La palanca que eligió
- * el usuario es **dar más área**, no bajar `REGION_MINIMA` ni adelgazar la
- * frontera («los mapas actuales son muy pequeños, no hay problema por
- * agrandarlos»). Medido (03-10-2026, 30 semillas por celda): con 200 fallaban
- * 1-8 de 30; con 300, 0 de 100 en 24, 28, 32, 36, 40 y 48.
- */
-const AREA_POR_REGION = 300;
-
-/**
  * Regiones por bando del mapa que juega una partida si nadie pide otro: la de
  * casa y las de fuera, que van en parejas en espejo (la región 2k de un bando y
  * la 2k+1 del otro). **Es el dato del mapa** (#195, decisión del usuario: «las
@@ -246,20 +232,22 @@ export const REGIONES_POR_BANDO = 5;
  * Lo que el generador sabe hacer, en regiones por bando: con menos de una
  * pareja de fuera la red no tiene ciudades neutrales que equilibrar, y las
  * dos puntas son las que caen dentro de su lado (`LADO_MINIMO_DEL_GENERADOR`,
- * `LADO_MAXIMO_DEL_GENERADOR`): `ladoDelMapa(3)` = 24 y `ladoDelMapa(15)` = 64.
+ * `LADO_MAXIMO_DEL_GENERADOR`): `ladoDelMapa(3)` = 30 y `ladoDelMapa(10)` = 63
+ * (con 300 casillas por región eran 24 y 64, de 3 a 15; con las 450 de #226, 11
+ * regiones darían 67). El lado mínimo sigue en 24: pedido por lado, sale con 3.
  * Lo vigila `test/regiones-del-mapa.test.ts`.
  */
 export const REGIONES_MINIMAS_POR_BANDO = 3;
-export const REGIONES_MAXIMAS_POR_BANDO = 15;
+export const REGIONES_MAXIMAS_POR_BANDO = 10;
 
 /**
  * El lado de un mapa cuadrado con `regionesPorBando` regiones por bando:
  * `⌊√((regiones − 1) · AREA_POR_REGION)⌋`, el mayor lado cuya área no pasa de
- * una pareja de fuera por cada `AREA_POR_REGION`. Vuelve a dar esas regiones
+ * una pareja de fuera por cada `AREA_POR_REGION` (`core/escala.ts`). Vuelve a dar esas regiones
  * con la cuenta de `regionesDelMapa` en todo el rango (un test lo recorre), así
  * que un mapa pedido por regiones es el mismo que pedido por su lado. El suelo,
- * y no el techo, porque es el que deja el lado de antes (34 para 5 regiones):
- * el banco no se mueve por la cuenta, solo por las minas. La raíz va por bucle entero: `core` no usa
+ * y no el techo (con 5 regiones, 42: 1 764 casillas de las 1 800 que tocan;
+ * con 300 por región eran 34). La raíz va por bucle entero: `core` no usa
  * `Math.sqrt` (`CLAUDE.md`, coma flotante).
  */
 export function ladoDelMapa(regionesPorBando: number): number {

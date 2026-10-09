@@ -15,6 +15,7 @@ import { playAiGame } from '../src/core/ai/turn.js';
 import { BOARD_HEIGHT } from '../src/core/battle/board.js';
 import { serializeAdventureTurn } from '../src/core/contract/serialize.js';
 import { allCreatures, creature, LIDERAZGO } from '../src/core/data.js';
+import { marchaALaEscala } from '../src/core/escala.js';
 import { NIVEL_INICIAL_DE_HEROE, umbral } from '../src/core/hero/experiencia.js';
 import { maxMovePoints, slowestSpeed } from '../src/core/hero/hero.js';
 import {
@@ -322,7 +323,7 @@ describe('todos los lectores del ejército saben de personajes', () => {
     const speed = combatProfile(aren).unit.speed;
     expect(slowestSpeed(hero.army, state.characters)).toBe(speed);
     expect(hero.movePoints).toBe(maxMovePoints(hero, state.characters));
-    expect(hero.movePoints).toBeLessThan(SPEED_TO_MOVE_POINTS.ultra_fast);
+    expect(hero.movePoints).toBeLessThan(marchaALaEscala(SPEED_TO_MOVE_POINTS.ultra_fast));
   });
 
   it('la fuerza de la IA y la vista del agente leen el perfil del personaje', () => {

@@ -204,8 +204,9 @@ describe('separar: el suelo fijo y los volúmenes', () => {
 describe('sin arte se pinta igual: cada pieza, su marcador de color', () => {
   // La 20: la 3 se quedó sin caras con el acantilado en línea (#215), y la 7,
   // sin una cara con columnas sin pintar con los vestidos que se repiten por
-  // una silla (#224).
-  const e = escenaDe(20);
+  // una silla (#224). La 6 desde #226: en el mapa de 42×42 a la 20 no le
+  // queda una cara con columnas sin pintar.
+  const e = escenaDe(6);
   const sep = separar(e);
   const sinImagenes = { tile: 8, imagen: () => undefined } as const;
 
@@ -269,14 +270,15 @@ describe('sin arte se pinta igual: cada pieza, su marcador de color', () => {
   it('junto a un puente (#157): cada vado se quita del barro, del agua y de la espuma', () => {
     // La primera semilla con vados (era la 5, escrita a mano, hasta #169).
     // Desde que la senda no corta en diagonal la esquina del agua (#210), la
-    // única de 1-300 es la 232: se busca desde ella.
+    // única de 1-300 era la 232. Desde #226 (mapa de 42×42), la 14 y la 187:
+    // se busca desde la 14.
     const { caso: conVados } = primeraSemillaCon(
       'vados junto a un puente',
       (s) => {
         const e = escenaDe(s);
         return e.vados.length > 0 ? e : undefined;
       },
-      232,
+      14,
       300,
     );
     const r = registro();
@@ -396,9 +398,9 @@ describe('los hitos de los nodos (#176): tres, por el id, ninguno con cruz', () 
   });
 
   it('ninguna tablilla de la escena apunta de través a su paso, y salen todos los rumbos (§29)', () => {
-    // 3 y 5 llevan los cinco (20 y 24 hasta #224; 1 y 2 hasta #215; 8 y 10 hasta #210; 8, 20 y 36 hasta #143; 20, 21 y 36 hasta #195; 15, 31 y 36 hasta #189); la orden lenta, 1-40.
+    // 2 y 7 llevan los cinco desde #226, el mapa de 42×42 (3 y 5 hasta entonces; 20 y 24 hasta #224; 1 y 2 hasta #215; 8 y 10 hasta #210; 8, 20 y 36 hasta #143; 20, 21 y 36 hasta #195; 15, 31 y 36 hasta #189); la orden lenta, 1-40.
     const vistos = new Set<string>();
-    for (const semilla of segunPrisa([3, 5], rango(1, 40))) {
+    for (const semilla of segunPrisa([2, 7], rango(1, 40))) {
       const { map, escena } = partidaDe(semilla);
       for (const o of map.objects) {
         const pieza = escena.sprites
@@ -430,13 +432,13 @@ describe('los hitos de los nodos (#176): tres, por el id, ninguno con cruz', () 
     }
   });
 
-  it('sin tope: cada nodo de acantilado, de bosque (#196) y de montaña (#203) lleva su hito, también los de s22 (§29)', () => {
+  it('sin tope: cada nodo de acantilado, de bosque (#196) y de montaña (#203) lleva su hito, también los de s23 (§29)', () => {
     // Un nodo neutral no lleva bandera: sin su hito, no se vería que ahí hay
     // algo que tomar. En 1-40 son 233 (119 de acantilado, nunca dos a menos de 5
     // casillas, y 114 de bosque, que acercan cuatro pares a 4,1-4,5; 08-10-2026):
     // muchos en un mapa es que el mapa tiene muchos pasos, y cada uno se toma.
     // Con la montaña (#203), 121 más en 1-40.
-    for (const semilla of segunPrisa([22], rango(1, 40))) {
+    for (const semilla of segunPrisa([23], rango(1, 40))) {
       const { map, escena } = partidaDe(semilla);
       const a = analizar(map);
       const nodos = map.objects.filter(
@@ -448,7 +450,8 @@ describe('los hitos de los nodos (#176): tres, por el id, ninguno con cruz', () 
       // más lleva de 1-45 era la 9, con 7; con menos mesetas (#210), la 15, con 6;
       // con el acantilado en línea (#215), la 35, con 6; con los vestidos que se
       // repiten por una silla (#224), la 28 lleva 7 sin bosque y la 22, 4 con él.
-      if (semilla === 22) {
+      // Desde #226 (42×42), ninguna de 1-40 pasa de 4; la 23 lleva 4 y 3 de bosque.
+      if (semilla === 23) {
         expect(nodos.filter((o) => a.pasos.get(o.id)?.barrera === 'cliff')).toHaveLength(4);
         expect(nodos.some((o) => a.pasos.get(o.id)?.barrera === 'forest')).toBe(true);
       }

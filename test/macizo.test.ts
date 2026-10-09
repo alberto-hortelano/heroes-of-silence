@@ -408,9 +408,11 @@ describe('las cordilleras se juntan en masas y se abren en claros (#218)', () =>
   // de alto sumado, lo mismo que en las 1 299 de masa (1,46 y 1,45). Hoy, 0,99
   // y 0,80 en el claro frente a 1,73 y 1,67 en la masa.
   // En el bucle rápido, las dos de 1-20 con más claros: la 1 y la 24 se
-  // quedaron sin ninguno con los vestidos que se repiten por una silla (#224).
-  const semillas = segunPrisa([6, 19], rango(1, 20));
-  it(`semillas ${segunPrisa('6 y 19', '1-20')}: un claro lleva menos de 0,6 veces el pico de una masa`, () => {
+  // quedaron sin ninguno con los vestidos que se repiten por una silla (#224),
+  // y la 6 y la 19 con el mapa de 42×42 (#226: 3 y 0 claros); la 20 y la 4
+  // llevan 53 y 41 (09-10-2026).
+  const semillas = segunPrisa([20, 4], rango(1, 20));
+  it(`semillas ${segunPrisa('20 y 4', '1-20')}: un claro lleva menos de 0,6 veces el pico de una masa`, () => {
     const claros: number[] = [];
     const masas: number[] = [];
     for (const s of semillas) {

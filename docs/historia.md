@@ -1407,6 +1407,16 @@ ahí en vez de copiarlo) — está al final de esta sección. Las dos tablas de 
 abajo son historia, con su fecha. Se mide con `tools/qa/tamanos.ts`, 1 000
 semillas por lado, con asaltantes y —en una copia de `main` sin ellos— sin:
 
+**La cuarta (#226, 09-10-2026) no es medida sino decisión del usuario**: «mismos
+elementos en un mapa con más espacio para que los espacios entre caminos sean más
+grandes». `AREA_POR_REGION` 300 → 450 (ahora en `core/escala.ts`), 34×34 → 42×42 con
+5 regiones por bando, y la marcha ×√1,5 (`marchaALaEscala`; la tabla de fheroes2 queda
+como cita). En `tamanos.ts 5 1000`: 8 / 14 / 45 → 8 / 16 / 34 días, 0 sin terminar en
+los dos, j0 571 → 603, emboscadas 0 en los dos. Sin escalar la marcha, el banco iba
+de 8 / 13 / 19 a 10 / 17 / 30; con ella, 8 / 14 / 31. `pasosPorDia` de los asaltantes
+sigue en 2 (2 × 1,22 redondea a 2, y la IA no sufre emboscadas en ninguno de los dos
+mapas). El radio de exploración (4 y 5, de fheroes2) no se escaló.
+
 | lado | con asaltantes: mediana / p90 / máx | sin terminar | gana j0 | asaltos a la base por día | al llegar: individuos · fuerza | emboscadas por partida | sin asaltantes: mediana / p90 / máx |
 |---|---|---|---|---|---|---|---|
 | 24 | 7 / 13 / 60 | 0 | 389 | 0,148 | 5 · 430 | 1,16 | 4 / 9 / 22 |

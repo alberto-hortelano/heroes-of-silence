@@ -76,6 +76,8 @@ export const SPEED_TO_HEXES: Readonly<Record<SpeedTier, number>> = {
 /**
  * Puntos de movimiento diarios del héroe en tierra, por la criatura más lenta
  * de su ejército. Verificado en `heroes.cpp::GetMaxMovePoints()` de fheroes2.
+ * Es la cita, no lo que anda el héroe: `maxMovePoints` la lleva a la escala
+ * del mapa (`marchaALaEscala`, `core/escala.ts`, #226).
  */
 export const SPEED_TO_MOVE_POINTS: Readonly<Record<SpeedTier, number>> = {
   very_slow: 1000,

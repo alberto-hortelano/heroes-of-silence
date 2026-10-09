@@ -788,11 +788,23 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   1 164, `town_captured` 1 376 → 1 337, `march_halted` 121 → 124; ningún tipo
  *   nuevo ni ninguno que desaparezca. Generar un 34×34 pasa de ~36 a ~55 ms
  *   (1-10, con la máquina cargada): los vestidos que se repiten.
+ * - `62bd822c…` (70 732 líneas): **el mapa ×1,5 y la marcha ×1,22** (#226,
+ *   09-10-2026): `AREA_POR_REGION` 300 → 450 (`core/escala.ts`; el mapa por
+ *   defecto, 34×34 → 42×42) y `maxMovePoints` a la escala (`marchaALaEscala`).
+ *   Comprobado que es lo ÚNICO que cambia: con 300 sale `9fc436ed…` exacto (la
+ *   marcha a escala con 300/300 es la tabla de fheroes2). Cambia el mapa de
+ *   todas: **0 de 200 idénticas**, y en las 200 el primer hecho distinto es el
+ *   `raider_spawned` del día 1 (otro mapa). 95 con otro ganador, j0 113 → 130,
+ *   **0 sin terminar**, duración 8 / 13 / 19 → **8 / 14 / 31** (sin escalar la
+ *   marcha, 10 / 17 / 30). `hero_moved` 31 247 → 41 605, batallas 1 524 →
+ *   1 576, `hero_defeated` 337 → 406, `node_captured` 1 164 → 1 301,
+ *   `town_captured` 1 337 → 1 362, `march_halted` 124 → 179, `raider_spawned`
+ *   1 619 → 1 622; ningún tipo nuevo ni ninguno que desaparezca.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '9fc436ed18eca65215e021f5f41dafbb33f072ec7d193d85d5e9262f65b12937',
+  sha: '62bd822c83964c51a63f0326157931e1fee042e80de0ad1675f236bde134be2b',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

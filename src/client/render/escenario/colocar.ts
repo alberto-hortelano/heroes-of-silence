@@ -3242,11 +3242,15 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   for (const i of pedregalDeCara) {
     const s = sprites[i] as Sprite;
     // El del pie de una cara del borde de abajo cae fuera: el suelo de la última fila.
+    // El suelo que se PINTA (`sueloQueSePinta`, #217), no el más cercano de
+    // `analizar`: en una casilla de barrera los dos difieren, y con el de
+    // `analizar` salía un peñasco de nieve sobre la ciénaga (s6 (3,30) y s14
+    // (33-34,30) en 42×42, #226).
     const tono = tonoDelPedregalSuelto(
       s,
       sprites,
       (x, y) =>
-        a.suelo[Math.min(H - 1, Math.max(0, y)) * W + Math.min(W - 1, Math.max(0, x))] as Suelo,
+        pintado[Math.min(H - 1, Math.max(0, y)) * W + Math.min(W - 1, Math.max(0, x))] as Suelo,
     );
     if (tono !== undefined && tono !== s.tono) sprites[i] = { ...s, tono };
   }

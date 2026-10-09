@@ -147,18 +147,20 @@ describe('puntos de movimiento', () => {
   it('los marca la criatura más lenta del ejército', () => {
     const lento = ejercito({ creature: 'zombie', count: 5 }, { creature: 'champion', count: 5 });
     expect(slowestSpeed(lento, undefined)).toBe('very_slow');
-    expect(maxMovePoints({ army: lento, skills: {} }, undefined)).toBe(1000);
+    // La tabla de fheroes2 (1000 y 1500) a la escala del mapa de #226: ×√1,5.
+    expect(maxMovePoints({ army: lento, skills: {} }, undefined)).toBe(1224);
 
     const rapido = ejercito({ creature: 'champion', count: 5 });
     expect(slowestSpeed(rapido, undefined)).toBe('ultra_fast');
-    expect(maxMovePoints({ army: rapido, skills: {} }, undefined)).toBe(1500);
+    expect(maxMovePoints({ army: rapido, skills: {} }, undefined)).toBe(1837);
   });
 
   it('Logística los aumenta un 10 % por nivel', () => {
     const army = ejercito({ creature: 'skeleton', count: 5 });
-    expect(maxMovePoints({ army, skills: {} }, undefined)).toBe(1200);
-    expect(maxMovePoints({ army, skills: { logistics: 1 } }, undefined)).toBe(1320);
-    expect(maxMovePoints({ army, skills: { logistics: 3 } }, undefined)).toBe(1560);
+    // 1200 de fheroes2 → 1469 a la escala (#226); la Logística va encima.
+    expect(maxMovePoints({ army, skills: {} }, undefined)).toBe(1469);
+    expect(maxMovePoints({ army, skills: { logistics: 1 } }, undefined)).toBe(1616);
+    expect(maxMovePoints({ army, skills: { logistics: 3 } }, undefined)).toBe(1910);
   });
 });
 

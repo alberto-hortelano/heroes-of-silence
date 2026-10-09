@@ -30,6 +30,7 @@ import { resolve } from 'node:path';
 import { analizar } from '../../src/client/render/escenario/analizar.js';
 import { caidas } from '../../src/client/render/escenario/celdas.js';
 import { relieve } from '../../src/client/render/escenario/relieve.js';
+import { AREA_DE_REFERENCIA, AREA_POR_REGION } from '../../src/core/escala.js';
 import type { GameMap } from '../../src/core/map/map.js';
 import { esBarrera, type TerrainKind } from '../../src/core/map/terrain.js';
 import { newGame } from '../../src/core/state/setup.js';
@@ -96,11 +97,27 @@ export function carasEnFila(map: GameMap, minimo: number): number {
   return largas;
 }
 
+/**
+ * Un largo de los de #169, medido en mapas de `AREA_DE_REFERENCIA` casillas por
+ * región, llevado al mapa de hoy (#226): ×√(AREA_POR_REGION / AREA_DE_REFERENCIA),
+ * redondeado. Lo que #169 juzga es la forma del borde, y un mapa ×1,22 de lado
+ * con las mismas regiones tiene las mismas fronteras ×1,22 de largas: un tramo
+ * de 8 en 34×34 es uno de 10 en 42×42. Los techos (cuántos) no se escalan:
+ * son las mismas fronteras. Medido en 1-1000 (09-10-2026, 42×42): en casillas
+ * sin escalar, 437 tramos de ≥ 8 y 43 mapas con uno de ≥ 10; a escala, 75 de
+ * ≥ 10 y 8 mapas con uno de ≥ 12. Los bisectores de Voronoi son rectos, y un
+ * mapa mayor los alarga: el umbral absoluto cruza la raya de muchos que en
+ * 34×34 se quedaban en 6-7.
+ */
+export function largoALaEscala(casillas: number): number {
+  return Math.round(casillas * Math.sqrt(AREA_POR_REGION / AREA_DE_REFERENCIA));
+}
+
 /** Los techos de #169 y lo que había antes, para que el informe diga las dos cosas. */
 export const TECHOS = {
-  tramos: { semillas: 1000, minimo: 8, techo: 140, antes: 216 },
-  caras: { semillas: 1000, minimo: 8, techo: 115, antes: 138 },
-  mapas: { semillas: 1000, minimo: 10, techo: 8, antes: 14 },
+  tramos: { semillas: 1000, minimo: largoALaEscala(8), techo: 140, antes: 216 },
+  caras: { semillas: 1000, minimo: largoALaEscala(8), techo: 115, antes: 138 },
+  mapas: { semillas: 1000, minimo: largoALaEscala(10), techo: 8, antes: 14 },
 } as const;
 
 function medir(): boolean {

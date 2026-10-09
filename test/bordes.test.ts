@@ -338,14 +338,17 @@ describe('sueloQueSePinta: la barrera y el nodo pintan el suelo de su meseta', (
     ).toEqual(['grass', 'grass', 'grass', 'swamp']);
   });
 
-  it('s13 (18,7): el nodo sin camino que va a la meseta de lava pinta lava, no la nieve de abajo (#220)', () => {
-    const { map, escena: e } = partidaDe(13);
+  it('s40 (8,12): el nodo sin camino que va a la meseta de lava pinta lava, no la ciénaga de abajo (#220)', () => {
+    // Era s13 (18,7), con la nieve abajo; desde #226 (42×42) la s13 no tiene
+    // un nodo así, y la s40 sí.
+    const { map, escena: e } = partidaDe(40);
     const a = analizar(map);
-    const i = 7 * a.W + 18;
-    expect(map.objects.some((o) => o.kind === 'node' && o.at.x === 18 && o.at.y === 7)).toBe(true);
+    const i = 12 * a.W + 8;
+    expect(map.objects.some((o) => o.kind === 'node' && o.at.x === 8 && o.at.y === 12)).toBe(true);
+    expect(map.caminos.tiene({ x: 8, y: 12 })).toBe(false);
     expect(e.nivel[i]).toBe(2);
-    // Que el guardia no mire al vacío: el más cercano de cualquier nivel es la nieve.
-    expect(a.suelo[i]).toBe('snow');
+    // Que el guardia no mire al vacío: el más cercano de cualquier nivel es la ciénaga.
+    expect(a.suelo[i]).toBe('swamp');
     expect(e.suelo[i]).toBe('lava');
   });
 
@@ -436,31 +439,26 @@ describe('paredesTapadasPorLaMasa: el guardia muerde, y la masa se aparta de la 
 /** Las de la auditoría 6: los recortes de los defectos 2 y 3. */
 const SEMILLAS_DE_LA_AUDITORIA_6 = [24, 2, 5];
 
-/**
- * Lo que queda de `caraDeOtroMaterial` en 1-40, por semilla. s24 es otro mapa
- * desde #224 (el vestido se repite por una silla): la cordillera de
- * (32-33, 9-11), a nivel 1 junto a lo bajo, y su espejo en (1-2, 24-25) llevan
- * pared de roca, y el contador busca la meseta de nivel 1 de (27-28, 10-12), a
- * la que el vestido abrió (28,11) y (27,12) para que su camino bajara de frente
- * al nodo de (28,12). Pendiente de la escena (#216): en 1-250 es la única.
- */
-const CARAS_DE_OTRO_MATERIAL: Readonly<Record<number, number>> = { 24: 10 };
-
 describe('un desnivel bajo una montaña, en los mapas reales (#216)', () => {
   for (const semilla of SEMILLAS_DE_LA_AUDITORIA_6)
     it(`semilla ${semilla}: ninguna masa tapa una pared, y cada pared es de la roca de su meseta`, () => {
       const { informe } = partidaDe(semilla).escena;
       expect(informe.paredesTapadas).toBe(0);
-      expect(informe.caraDeOtroMaterial).toBe(CARAS_DE_OTRO_MATERIAL[semilla] ?? 0);
+      // Sin excepciones desde #226: la de s24 (10, la cordillera de (32-33, 9-11)
+      // en 34×34) era de otro mapa, y en 42×42 1-40 están todas a 0 (09-10-2026).
+      expect(informe.caraDeOtroMaterial).toBe(0);
     });
 
-  it('s7 (23-29, 20-25): la pared bajo la cordillera de arena es de arenisca', () => {
+  it('s29 (20-29, 7-14): la pared bajo la cordillera de arena es de arenisca', () => {
     // Era s5 (2-8, 27-31), de la auditoría; con el acantilado en línea (#215)
     // es otro mapa, y s2 (14-20, 0-5) hasta los vestidos que se repiten por una
-    // silla (#224).
-    const { escena: e } = partidaDe(7);
+    // silla (#224), y s7 (23-29, 20-25) hasta el mapa de 42×42 (#226). En s29,
+    // la montaña de (20-29, 7-14) es de la meseta de arena y su suelo más
+    // cercano de cualquier nivel no lo es: con la roca de ese suelo, como antes
+    // de #216, saldría de otra.
+    const { escena: e } = partidaDe(29);
     const bajoLaArena = e.relieve.celdas.filter(
-      (c) => c.vx >= 23 && c.vx <= 29 && c.vy >= 20 && c.vy <= 25,
+      (c) => c.vx >= 20 && c.vx <= 29 && c.vy >= 7 && c.vy <= 14,
     );
     expect(bajoLaArena.length).toBeGreaterThan(0);
     expect(new Set(bajoLaArena.map((c) => c.material))).toEqual(new Set(['cara-arenisca']));
@@ -469,10 +467,7 @@ describe('un desnivel bajo una montaña, en los mapas reales (#216)', () => {
   itLento('1-40: ninguna masa tapa una pared, ninguna pared de otra roca que su meseta', () => {
     for (const s of rango(1, 40)) {
       const { informe } = partidaDe(s).escena;
-      expect([informe.paredesTapadas, informe.caraDeOtroMaterial], `s${s}`).toEqual([
-        0,
-        CARAS_DE_OTRO_MATERIAL[s] ?? 0,
-      ]);
+      expect([informe.paredesTapadas, informe.caraDeOtroMaterial], `s${s}`).toEqual([0, 0]);
     }
   });
 });
