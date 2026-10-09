@@ -1220,6 +1220,14 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
   // batallas de en medio la cambian por dentro de la sesión.)
   const escena: string = espejo.scene;
   if (espejo.state.finished === null && escena === 'adventure') {
+    // Con un héroe que aún puede andar, Espacio no pasa: pregunta, y el Espacio
+    // no confirma la pregunta (#17). Lo que se mira aquí es que dos Espacios no
+    // pasen dos días, así que se duerme antes a quien podría andar, en la página
+    // y en el espejo (con el mapa de #215, el de s99 aún anda tras su batalla).
+    for (const heroe of espejo.quienesPuedenAndar()) {
+      await page.locator(`button[data-action="sleep-hero"][data-hero="${heroe.id}"]`).click();
+      espejo.alternarSueño(heroe.id);
+    }
     await page.locator('#canvas').focus();
     await page.keyboard.press(' ');
     await page.keyboard.press(' ');
@@ -1500,6 +1508,7 @@ async function rutaDoradaYGris(page: Page, espejo: Session, mapa: Mapa): Promise
   );
   if (!dice.includes('dorado hoy, gris otro día')) throw new Error(`ruta: la barra dice «${dice}»`);
   if ((cambio[0] ?? 0) < 2000 || (cambio[1] ?? 0) < 2000) {
+    await captura(page, 'desktop-01b-ruta-sin-pintar');
     throw new Error(
       `ruta: el paso dorado cambia ${cambio[0]} y el gris ${cambio[1]}: no se ha pintado`,
     );
@@ -1829,7 +1838,20 @@ async function patrullaALaVista(
         antes.has(`${r.at.x},${r.at.y}`)
       );
     });
-    if (movido === undefined) continue;
+    if (movido === undefined) {
+      // Los de lo explorado pueden quedarse quietos un día (s99, con el mapa de
+      // #215: el único a la vista no se mueve y los demás andan en la niebla):
+      // se descubre el mapa, una vez, como cuando no se ve ninguno.
+      if (!espejo.revealAll && espejo.state.finished === null) {
+        await page.getByRole('button', { name: 'Ver mapa entero' }).click();
+        espejo.revealAll = true;
+        // Lo descubierto carga sus figuras hoja a hoja: la muestra de antes se
+        // toma con ellas ya puestas (con 200 ms, la casilla de ayer salía vacía).
+        await sleep(1000);
+        log(`${prefijo}: ningún asaltante a la vista se movió en un día; se descubre el mapa`);
+      }
+      continue;
+    }
     const ayer = posiciones.get(movido.id) as Point;
     await sleep(250);
     await captura(page, `${prefijo}-asaltante-andando`);

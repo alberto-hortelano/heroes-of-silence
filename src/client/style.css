@@ -219,13 +219,22 @@ progress.liderazgo::-moz-progress-bar { background: #d5ba78; }
   justify-content: space-between;
   gap: 1rem;
   padding: 0.45rem 1rem;
-  min-height: 2.8rem;
+  /* Dos líneas de aviso caben sin mover el lienzo: con la barra creciendo al
+     pasar el ratón por una ruta, el mapa encogía bajo el cursor. */
+  min-height: calc(3em + 0.9rem);
   background: #26362ef5;
   border-top: 1px solid #b39e6355;
   font: 13px/1.5 system-ui, sans-serif;
 }
-#actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-#status { color: #d6d6c0; }
+#actions { display: flex; gap: 0.5rem; flex-wrap: wrap; flex-shrink: 0; }
+#status {
+  color: #d6d6c0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
 
 .log {
   max-height: 12rem;
