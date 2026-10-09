@@ -838,11 +838,21 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   **8 / 16 / 27**. Batallas 1 487 → 1 497, `hero_defeated` 343 → 343,
  *   `node_captured` 1 309 → 1 300, `town_captured` 1 267 → 1 276,
  *   `march_halted` 137 → 139; ningún tipo nuevo ni ninguno que desaparezca.
+ * - `7f7a6c2e…` (68 459 líneas): **el orden de los turnos en serpiente**
+ *   (09-10-2026): quien cierra un día abre el siguiente (`ordenDelDia`). El
+ *   día 1 se juega igual en las 200 y **en las 200 el primer hecho distinto es
+ *   el `turn_start` del día 2**, que ahora es del jugador 1 y no del 0: el
+ *   orden, y nada más. 67 con otro ganador, j0 125 → 112, **0 sin terminar**,
+ *   duración 8 / 16 / 27 → **8 / 15 / 27**. Batallas 1 497 → 1 415,
+ *   `hero_defeated` 343 → 289, `troop_level_up` 2 154 → 1 919, `recruited`
+ *   2 934 → 2 782, `town_captured` 1 276 → 1 238, `march_halted` 139 → 140;
+ *   ningún tipo nuevo ni ninguno que desaparezca. (Medido en la rama sobre el
+ *   mapa de 34×34 y antes de #229: `7d1b0287…`, j0 130 → 104.)
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: 'e0f59ff3062043c2fe429ff7fd8a1c9bacce91c476d8742ac64d9e1079017d68',
+  sha: '7f7a6c2e66184e7c3b44893c0c8f89bddf73eb77acc86050807f0ecc177ede31',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);
