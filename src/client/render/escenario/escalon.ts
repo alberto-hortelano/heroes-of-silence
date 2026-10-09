@@ -24,10 +24,12 @@
  * - **El labio de la espalda** (`labioDeLasEspaldas`, #217): una luz fina en lo
  *   alto a lo largo de cada caída hacia el norte, donde no hay cara a la vista.
  * - **El canto de la espalda** (`cantoDeLasEspaldas`, #219): la línea oscura de
- *   lo bajo justo al norte de ese filo. Sin ella el labio era niebla.
+ *   lo bajo justo al norte de ese filo. Sin ella el labio era niebla. Es lo
+ *   único que oscurece la espalda, fino y nítido (#223).
  * - **La sombra al pie** (`sombraAlPie`): una franja sobre lo bajo al pie de cada
  *   caída, más larga hacia donde cae la sombra de la luz del contrato visual
- *   (`ARTE.luz`): al este y al norte, donde la meseta no tiene cara a la vista.
+ *   (`ARTE.luz`): al este, donde la ladera no tiene cara a la vista. Al norte no
+ *   (#223): ahí va el canto.
  *
  * Puro: sin DOM. Todo a `PX_DEL_ESCALON` píxeles por casilla; quien pinta lo
  * amplía con suavizado, como los alfas de las fronteras.
@@ -664,8 +666,13 @@ export function espaldasSinLabio(
  * ancho y fundido después. Con el labio solo, una luz sin nada
  * oscuro detrás, la espalda se leía como una hebra de niebla (auditoría 7,
  * defecto 1); con el filo claro sobre una línea oscura, como un canto.
+ *
+ * Fina y entera desde #223: dos píxeles del escalón (0,125 casillas) a
+ * `oscuro`, y nada después. De 0,28 con un fundido largo, y sumada a la sombra
+ * al pie que la espalda echaba ~0,57 casillas al norte, se leía como «una
+ * sombra difuminada, no se entiende» (marca del usuario en s55 (4,16)).
  */
-export const CANTO = { ancho: 0.28, entero: 0.3, oscuro: 0.7 } as const;
+export const CANTO = { ancho: 0.14, entero: 0.85, oscuro: 0.75 } as const;
 
 /**
  * El canto de cada espalda, a `R` por casilla: en cada punto de lo bajo cuyo
@@ -707,6 +714,109 @@ export function cantoDeLasEspaldas(
       }
     }
   return suavizado(alfa, ancho, alto, R);
+}
+
+/**
+ * Lo que puede oscurecer lo bajo al norte de una espalda (#223): `ancho`, en
+ * casillas desde el filo pintado, de los puntos con un oscuro de `umbral` o más
+ * (el canto y la sombra al pie juntos). Lo que pase de ahí ya no se lee como el
+ * canto de una meseta sino como una sombra difuminada (la marca de s55 (4,16)).
+ */
+export const OSCURO_DE_LA_ESPALDA = { ancho: 0.25, umbral: 0.1 } as const;
+
+/**
+ * Lo que oscurece lo bajo al norte de cada espalda (#223): por cada casilla de
+ * un reborde con filo pintado (las de `espaldasSinCanto`), la tirada más larga,
+ * columna a columna por el medio de su ancho, de puntos de lo bajo seguidos
+ * desde el filo hacia el norte con un oscuro de `OSCURO_DE_LA_ESPALDA.umbral` o
+ * más, el canto y la sombra al pie compuestos como se pintan. No mira las
+ * columnas a las que llega la sombra de una ladera de la casilla del norte
+ * (`franjaDeSombra`): esa es de la ladera. Con `mascaras`, se miden esas (para
+ * ver que el guardia muerde).
+ */
+export function oscuroAlNorteDeLasEspaldas(
+  e: Rejilla &
+    ConRampas & {
+      readonly semilla: number;
+      readonly relieve: { readonly rebordes: readonly (readonly [number, number])[] };
+    },
+  mascaras?: { readonly sombra: Mascara; readonly canto: Mascara },
+): readonly { readonly x: number; readonly y: number; readonly ancho: number }[] {
+  const np = nivelPintado(e);
+  const sinSombra = sinSombraEnLasRampas(e);
+  const sombra = mascaras?.sombra ?? sombraAlPie(e, np, sinSombra);
+  const canto = mascaras?.canto ?? cantoDeLasEspaldas(e, np, sinSombra);
+  const { R, ancho } = np;
+  // Hasta dónde se busca lo alto: más allá, el oscuro ya pasa de la cuenta.
+  const cerca = Math.ceil(2 * OSCURO_DE_LA_ESPALDA.ancho * R);
+  const fuera: { x: number; y: number; ancho: number }[] = [];
+  for (const [x, y] of e.relieve.rebordes) {
+    if (sinSombra(y * e.W + x, (y - 1) * e.W + x)) continue;
+    const px0 = Math.floor((x + 0.15) * R);
+    const px1 = Math.ceil((x + 0.85) * R) - 1;
+    const alto = e.nivel[y * e.W + x] as number;
+    if (!conFilo(np, y, px0, px1, alto)) continue;
+    // Las columnas que alcanza la sombra de una ladera vecina de la casilla del norte.
+    const norte = (y - 1) * e.W + x;
+    let desdeX = 0;
+    let hastaX = Number.POSITIVE_INFINITY;
+    for (const l of LADOS) {
+      if (l.dy !== 0) continue;
+      const vx = x - l.dx;
+      if (vx < 0 || vx >= e.W) continue;
+      const vecina = (y - 1) * e.W + vx;
+      if (sinSombra(vecina, norte)) continue;
+      const f = franjaDeSombra(e, vecina, norte, l);
+      if (f === null) continue;
+      if (l.dx === 1) desdeX = Math.max(desdeX, x + f.hasta);
+      else hastaX = Math.min(hastaX, x + 1 - f.hasta);
+    }
+    let mayor = 0;
+    for (let px = px0; px <= px1; px++) {
+      const cx = (px + 0.5) / R;
+      if (cx < desdeX || cx > hastaX) continue;
+      let py = y * R - 1;
+      const tope = Math.max(0, (y - 2) * R);
+      // Lo alto que se adelanta sobre la casilla del norte, hasta el filo.
+      while (py >= tope && (np.nivel[py * ancho + px] as number) >= alto) py--;
+      let ultimo = -1;
+      for (; py >= tope; py--) {
+        const p = py * ancho + px;
+        if ((np.nivel[p] as number) >= alto) break;
+        const oscuro =
+          1 - (1 - (sombra.alfa[p] as number) / 255) * (1 - (canto.alfa[p] as number) / 255);
+        if (oscuro < OSCURO_DE_LA_ESPALDA.umbral) break;
+        ultimo = py;
+      }
+      if (ultimo >= 0) mayor = Math.max(mayor, aLoAlto(np, px, ultimo, cerca));
+    }
+    fuera.push({ x, y, ancho: mayor });
+  }
+  return fuera;
+}
+
+/**
+ * La distancia, en casillas, del punto `(px, py)` del nivel pintado al filo más
+ * cercano (un punto más alto que él), buscando hasta `cerca` píxeles (si no lo
+ * hay, eso). En línea recta y no por la columna: en un filo en diagonal la
+ * tirada de una columna es más larga que la línea de lado a lado. Y a cualquier
+ * filo, no solo al de la espalda que se mira: en un hoyo de una casilla entre
+ * dos niveles (s6 (28, 8)) el canto de otro filo cae en la misma columna.
+ */
+function aLoAlto(np: NivelPintado, px: number, py: number, cerca: number): number {
+  const { R, ancho } = np;
+  const n = np.nivel[py * ancho + px] as number;
+  let d2 = (cerca + 1) * (cerca + 1);
+  for (let dy = -cerca; dy <= cerca; dy++) {
+    const qy = py + dy;
+    if (qy < 0 || qy >= np.alto) continue;
+    for (let dx = -cerca; dx <= cerca; dx++) {
+      const qx = px + dx;
+      if (qx < 0 || qx >= ancho) continue;
+      if ((np.nivel[qy * ancho + qx] as number) > n) d2 = Math.min(d2, dx * dx + dy * dy);
+    }
+  }
+  return Math.sqrt(d2) / R;
 }
 
 /** Las rampas de la escena: sus dos casillas, como `[x, y]`. */
@@ -813,12 +923,64 @@ const HACIA_LA_SOMBRA = (() => {
 const largoDeLaSombra = (caida: number) => caida * ALTO_DE_NIVEL * ARTE.luz.longitudPorAltura;
 
 /**
+ * Los cuatro lados de una casilla, con su normal hacia fuera. Los cuatro,
+ * aunque con la luz de hoy solo el norte y el este llevan sombra: si cambia la
+ * luz del contrato, cambian solos.
+ */
+const LADOS = [
+  { dx: 0, dy: 1, normal: { x: 0, y: 1 } },
+  { dx: 0, dy: -1, normal: { x: 0, y: -1 } },
+  { dx: 1, dy: 0, normal: { x: 1, y: 0 } },
+  { dx: -1, dy: 0, normal: { x: -1, y: 0 } },
+] as const;
+
+type Lado = (typeof LADOS)[number];
+
+/**
+ * La franja de la sombra al pie del lado `l` de la casilla `i` hacia su vecina
+ * `j`, como distancias desde ese lado hacia lo bajo: entera hasta `desde` y
+ * fundida hasta `hasta`. `null` si ese lado no echa sombra: no cae, o mira a la
+ * luz. La leen la sombra y el guardia de la espalda (`oscuroAlNorteDeLasEspaldas`).
+ */
+function franjaDeSombra(
+  e: Rejilla,
+  i: number,
+  j: number,
+  l: Lado,
+): { readonly desde: number; readonly hasta: number } | null {
+  // La espalda: lo que la oscurece es el canto, una línea pegada al filo
+  // pintado (#223). La franja que se fundía ~0,57 casillas al norte, contada
+  // desde el lado de casilla y no desde el filo, se leía como una sombra
+  // difuminada sin forma (la marca de s55 (4,16)).
+  if (l.dy === -1) return null;
+  const caida = (e.nivel[i] as number) - (e.nivel[j] as number);
+  if (caida <= 0) return null;
+  const haciaLaSombra = l.normal.x * HACIA_LA_SOMBRA.x + l.normal.y * HACIA_LA_SOMBRA.y;
+  if (haciaLaSombra <= 0) return null;
+  // Un barranco de una casilla (lo alto también al otro lado, en la misma
+  // fila): no lleva laderas (`sinBarrancos`), así que no hay talud que tape la
+  // franja, y entre las dos orillas que lo alto adelanta la sombra llenaba el
+  // hueco entero. Solo el contacto.
+  if (l.dx !== 0) {
+    const otra = j + l.dx;
+    const enLaFila = Math.floor(otra / e.W) === Math.floor(j / e.W);
+    if (enLaFila && (e.nivel[otra] as number) > (e.nivel[j] as number))
+      return { desde: 0, hasta: CONTACTO };
+  }
+  const largo = CONTACTO + largoDeLaSombra(caida) * haciaLaSombra;
+  // El pie, como distancia desde el lado de casilla hacia lo bajo.
+  const pie = l.dy === 1 ? caida * ALTO_DE_NIVEL : TALUD_DE_LADERA[caidaDeLadera(caida)];
+  return { desde: pie, hasta: pie + largo };
+}
+
+/**
  * La sombra al pie de las caídas, sobre lo bajo, a `R` por casilla. La luz del
  * contrato visual viene de la izquierda y de la cámara: la sombra cae al este y
  * al norte (`ARTE.luz.direccionSombra`). Por cada lado de casilla entre una alta
- * y una baja que mira hacia ahí —la ladera al este, la espalda al norte—, una
- * franja entera desde el lado hasta el pie de lo que se pinta allí (el talud de
- * la ladera; la orilla que lo alto adelanta, en la espalda), que pasa del pie
+ * y una baja que mira hacia ahí —la ladera al este; la espalda al norte no, que
+ * lleva el canto (#223)—, una franja entera desde el lado hasta el pie de lo
+ * que se pinta allí (el talud de la ladera; en un barranco, solo el contacto,
+ * `franjaDeSombra`), que pasa del pie
  * el contacto más lo que la sombra de la caída avanza hacia ese lado, y se
  * funde hacia fuera y en sus puntas. Donde dos se solapan manda la mayor. No
  * cae en lo alto (por el nivel pintado), ni por donde baja una rampa
@@ -838,39 +1000,20 @@ export function sombraAlPie(
   const ancho = W * R;
   const alto = H * R;
   const v = new Float32Array(ancho * alto);
-  // Los cuatro, aunque con la luz de hoy solo el norte y el este llevan sombra:
-  // si cambia la luz del contrato, cambian solos.
-  const lados = [
-    { dx: 0, dy: 1, normal: { x: 0, y: 1 } },
-    { dx: 0, dy: -1, normal: { x: 0, y: -1 } },
-    { dx: 1, dy: 0, normal: { x: 1, y: 0 } },
-    { dx: -1, dy: 0, normal: { x: -1, y: 0 } },
-  ] as const;
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
-      const n = nivel[i] as number;
-      for (const l of lados) {
+      for (const l of LADOS) {
         const bx = x + l.dx;
         const by = y + l.dy;
         if (bx < 0 || by < 0 || bx >= W || by >= H) continue;
         const j = by * W + bx;
-        const caida = n - (nivel[j] as number);
-        if (caida <= 0 || sinSombra(i, j)) continue;
-        const haciaLaSombra = l.normal.x * HACIA_LA_SOMBRA.x + l.normal.y * HACIA_LA_SOMBRA.y;
-        if (haciaLaSombra <= 0) continue;
-        const largo = CONTACTO + largoDeLaSombra(caida) * haciaLaSombra;
-        // El pie, como distancia desde el lado de casilla hacia lo bajo.
-        const pie =
-          l.dy === 1
-            ? caida * ALTO_DE_NIVEL
-            : l.dy === -1
-              ? ORILLA.mas
-              : TALUD_DE_LADERA[caidaDeLadera(caida)];
+        if (sinSombra(i, j)) continue;
+        const franja = franjaDeSombra(e, i, j, l);
+        if (franja === null) continue;
+        const { desde, hasta } = franja;
         const tope = nivel[j] as number;
         // La franja en coordenadas del lado: `u` a lo largo, `w` hacia lo bajo.
-        const desde = pie;
-        const hasta = pie + largo;
         // El lado y la caja que puede tocar la franja, en píxeles.
         const ux = l.dx === 0 ? 1 : 0;
         const uy = l.dx === 0 ? 0 : 1;

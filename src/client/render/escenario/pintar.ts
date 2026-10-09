@@ -719,18 +719,19 @@ export function pintarSuelo(
     gh.fillRect(0, 0, hondo.width, hondo.height);
     c.drawImage(hondo, 0, 0);
     // 5 · La sombra del desnivel: al pie de cada caída que mira hacia donde
-    //     la echa la luz (la ladera al este, la espalda al norte), sobre lo
-    //     bajo y también sobre el agua (#211). Es la única: los cantos al este
-    //     y al oeste y la franja de la espalda (#212) eran tres reglas para lo
-    //     mismo, y la del oeste caía del lado de la luz. Por donde baja una
-    //     rampa no: ahí se baja.
+    //     la echa la luz (la ladera al este; la espalda al norte lleva el canto,
+    //     #223), sobre lo bajo y también sobre el agua (#211). Es la única: los
+    //     cantos al este y al oeste y la franja de la espalda (#212) eran tres
+    //     reglas para lo mismo, y la del oeste caía del lado de la luz. Por
+    //     donde baja una rampa no: ahí se baja.
     encima(
       escalon('sombra', () => sombraAlPie(e, delSuelo(), sinSombraEnLasRampas(e))),
       colorDeSombra(),
       'source-over',
     );
-    // 5a · El canto de cada espalda: lo bajo justo al norte del filo, oscuro,
-    //      para que el labio de lo alto se lea como un canto y no como niebla (#219).
+    // 5a · El canto de cada espalda: una línea fina y nítida de lo bajo justo
+    //      al norte del filo, para que el labio de lo alto se lea como un canto
+    //      y no como niebla (#219), ni como una sombra difuminada (#223).
     encima(
       escalon('canto', () => cantoDeLasEspaldas(e, delSuelo(), sinSombraEnLasRampas(e))),
       COLOR_DE_LO_BAJO,

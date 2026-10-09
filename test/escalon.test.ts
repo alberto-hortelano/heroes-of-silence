@@ -16,6 +16,8 @@ import {
   mascaraDelAgua,
   nivelPintado,
   ORILLA,
+  OSCURO_DE_LA_ESPALDA,
+  oscuroAlNorteDeLasEspaldas,
   PX_DEL_ESCALON,
   sombraAlPie,
   tonoDeNivel,
@@ -223,6 +225,42 @@ describe('en los mapas reales', () => {
   });
 });
 
+/** En la orden lenta, 1-40; en `verify`, la 55 (la marca de #223) y la 2. */
+const SEMILLAS_DEL_OSCURO = LENTO ? rango(1, 40) : [55, 2];
+
+describe('la espalda, una línea nítida (#223)', () => {
+  for (const semilla of SEMILLAS_DEL_OSCURO)
+    it(`semilla ${semilla}: lo oscuro al norte de cada espalda no pasa de ${OSCURO_DE_LA_ESPALDA.ancho} casillas del filo`, () => {
+      const anchas = oscuroAlNorteDeLasEspaldas(partidaDe(semilla).escena).filter(
+        (q) => q.ancho > OSCURO_DE_LA_ESPALDA.ancho,
+      );
+      expect(anchas).toEqual([]);
+    });
+
+  it('la muestra del bucle rápido mide espaldas con oscuro', () => {
+    // Si el guardia no encontrara ningún oscuro que medir, pasaría sin mirar.
+    for (const s of [55, 2])
+      expect(
+        oscuroAlNorteDeLasEspaldas(partidaDe(s).escena).filter((q) => q.ancho > 0).length,
+      ).toBeGreaterThan(20);
+  });
+
+  it('el guardia muerde: con todo lo bajo oscuro, la s55 tiene espaldas que pasan', () => {
+    const e = partidaDe(55).escena;
+    const np = nivelPintado(e);
+    const negro = {
+      ancho: np.ancho,
+      alto: np.alto,
+      R,
+      alfa: new Uint8ClampedArray(np.nivel.length).fill(255),
+    };
+    const anchas = oscuroAlNorteDeLasEspaldas(e, { sombra: negro, canto: negro }).filter(
+      (q) => q.ancho > OSCURO_DE_LA_ESPALDA.ancho,
+    );
+    expect(anchas.length).toBeGreaterThan(0);
+  });
+});
+
 describe('las fronteras del suelo, por niveles', () => {
   // Nieve arriba (a 2) y tierra abajo (a 0), con la frontera en x = 3.
   const e = {
@@ -277,13 +315,33 @@ describe('el tono y la sombra del desnivel', () => {
   const s = sombraAlPie(e, np);
   const en = (x: number, y: number) =>
     s.alfa[Math.floor(y * R) * s.ancho + Math.floor(x * R)] as number;
+  /** Lo más que vale la sombra en la columna `x`, entre `y0` e `y1`. */
+  const maxEnLaColumna = (x: number, y0: number, y1: number) => {
+    let v = 0;
+    for (let py = Math.floor(y0 * R); py < y1 * R; py++)
+      v = Math.max(v, s.alfa[py * s.ancho + Math.floor(x * R)] as number);
+    return v;
+  };
 
-  it('cae al este y al norte, hacia donde la echa la luz, y no al oeste ni al sur ni sobre lo alto', () => {
+  it('cae al este, hacia donde la echa la luz, y no al norte (es el canto, #223), ni al oeste ni al sur ni sobre lo alto', () => {
     expect(en(5.5, 4)).toBeGreaterThan(0); // al este, pasado el talud
-    expect(en(4, 2.75)).toBeGreaterThan(0); // al norte, la espalda
+    expect(maxEnLaColumna(4, 2, 3)).toBe(0); // al norte, la espalda
     expect(en(2.6, 4)).toBe(0); // al oeste
     expect(en(4, 5.9)).toBe(0); // al sur
     for (let p = 0; p < s.alfa.length; p++) if (np.nivel[p] === 2) expect(s.alfa[p]).toBe(0);
+  });
+
+  it('en un barranco de una casilla, solo el contacto: no llena el hueco (#223)', () => {
+    // Lo alto a 2 en las columnas 0-2 y 4-7; la columna 3, a 0, es el barranco.
+    const b = rejilla(8, 6, (x) => (x === 3 ? 0 : 2));
+    const sb = sombraAlPie(b, nivelPintado(b));
+    const enB = (x: number, y: number) =>
+      sb.alfa[Math.floor(y * R) * sb.ancho + Math.floor(x * R)] as number;
+    for (let x = 3 + 0.15; x < 4; x += 1 / R) expect(enB(x, 3)).toBe(0);
+    // Y con la casilla del este baja, la ladera echa su sombra entera.
+    const ladera = rejilla(8, 6, (x) => (x < 3 ? 2 : 0));
+    const sl = sombraAlPie(ladera, nivelPintado(ladera));
+    expect(sl.alfa[3 * R * sl.ancho + Math.floor(3.6 * R)]).toBeGreaterThan(0);
   });
 
   it('por donde baja una rampa no hay sombra', () => {
