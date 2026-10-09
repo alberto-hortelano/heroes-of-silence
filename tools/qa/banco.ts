@@ -848,23 +848,23 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   2 934 → 2 782, `town_captured` 1 276 → 1 238, `march_halted` 139 → 140;
  *   ningún tipo nuevo ni ninguno que desaparezca. (Medido en la rama sobre el
  *   mapa de 34×34 y antes de #229: `7d1b0287…`, j0 130 → 104.)
- * - `2da086f0…` (70 450 líneas): **la mina tiene dos puertas** (#230,
- *   09-10-2026): debajo y a la derecha, por donde salen sus raíles; el ramal
- *   sale por la más barata y `colocarPar` las guarda libres las dos (o una, si
- *   no hay sitio). Cambia dónde caen las minas —la lista de casillas que valen
- *   es otra para el `rng.pick`— y con ellas todo lo que se sortea después: **0
- *   de 200 idénticas**, y en las 200 el primer hecho distinto es el
- *   `raider_spawned` del día 1 (otro mapa), la misma forma que las fronteras
- *   onduladas. 83 con otro ganador, j0 125 → 124, **0 sin terminar**, duración
- *   8 / 16 / 27 → **8 / 17 / 24**. `hero_moved` 42 560 → 42 020, batallas
- *   1 497 → 1 524, `hero_defeated` 343 → 348, `node_captured` 1 300 → 1 250,
- *   `town_captured` 1 276 → 1 326, `march_halted` 139 → 127; ningún tipo nuevo
- *   ni ninguno que desaparezca.
+ * - `ca31c921…` (67 664 líneas): **la mina tiene dos puertas** (#230,
+ *   09-10-2026), sobre el orden en serpiente: debajo y a la derecha, por donde
+ *   salen sus raíles; el ramal sale por la más barata y `colocarPar` las guarda
+ *   libres las dos (o una, si no hay sitio). Cambia dónde caen las minas —la
+ *   lista de casillas que valen es otra para el `rng.pick`— y con ellas todo lo
+ *   que se sortea después: **0 de 200 idénticas**, y en las 200 el primer hecho
+ *   distinto es el `raider_spawned` del día 1 (otro mapa), la misma forma que
+ *   las fronteras onduladas. 84 con otro ganador, j0 112 → 114, **0 sin
+ *   terminar**, duración 8 / 15 / 27 → **8 / 15 / 21**. `hero_moved` 41 275 →
+ *   40 644, batallas 1 415 → 1 456, `hero_defeated` 289 → 291,
+ *   `node_captured` 1 300 → 1 250, `town_captured` 1 238 → 1 305,
+ *   `march_halted` 140 → 129; ningún tipo nuevo ni ninguno que desaparezca.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '7f7a6c2e66184e7c3b44893c0c8f89bddf73eb77acc86050807f0ecc177ede31',
+  sha: 'ca31c921d8388c78d4380cb80f24adcb9c452021bcd11378f8203bd71ff1248b',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);
