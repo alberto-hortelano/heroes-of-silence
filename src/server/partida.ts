@@ -190,9 +190,13 @@ export function arrancarPartida(opciones: OpcionesDePartida = {}): Promise<void>
     while (director.desenlace === null) {
       if (director.agentPlayers.has(director.state.current)) await esperarAgente();
 
+      // El día se anota antes: el turno que cierra el día lo pasa, y en
+      // serpiente (`ordenDelDia`) el siguiente es a menudo del mismo jugador;
+      // con el de después, sus dos turnos salían con el mismo día.
+      const dia = director.state.day;
       const informe = await director.playTurn();
       console.log(
-        `[servidor] día ${director.state.day} · jugador ${informe.player} · ` +
+        `[servidor] día ${dia} · jugador ${informe.player} · ` +
           `${informe.by === 'agent' ? 'agente' : 'reglas'} · ${informe.actions} acciones` +
           (informe.problems.length > 0 ? ` · ${informe.problems.length} rechazadas` : ''),
       );
