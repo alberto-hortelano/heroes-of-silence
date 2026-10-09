@@ -437,6 +437,12 @@ export interface Escena {
      */
     readonly cubiertaComoLaBarrera: number;
     /**
+     * Piezas de cubierta que no son del suelo que se pinta donde tienen el pie
+     * (`cubiertaDeOtroNivel`, #220): la cubierta de la región baja en lo alto de
+     * un acantilado o en un nodo que va al alto. Tiene que ser 0.
+     */
+    readonly cubiertaDeOtroNivel: number;
+    /**
      * Casillas de acantilado sin roca ni masa de `ALTO_DE_LO_ALTO` o más con el
      * pie en ellas (`acantiladosLisos`, #205): lo alto que se lee como suelo.
      */
@@ -714,6 +720,25 @@ const CUBIERTA: Readonly<
   rough: { radio: 0.25, alto: 0.38, claro: CLARO_COMO_LA_BARRERA, comoLaBarrera: true },
 };
 
+/**
+ * Los árboles que la cubierta de lo que se pisa siembra en la mancha de cada
+ * suelo; el de tierra, solo junto a un bosque de frontera. Los demás suelos no
+ * llevan: en uno `comoLaBarrera` eran el bosque de al lado.
+ */
+const ARBOLES_DEL_SUELO = {
+  grass: ['pinos', 'frondosos'],
+  dirt: ['pinos', 'frondosos'],
+  snow: ['abetos-nevados'],
+} as const satisfies Partial<Record<Suelo, readonly string[]>>;
+
+/** Las hojas de la cubierta del suelo `s`: las de su mezcla (`MEZCLA`) y sus árboles. */
+function hojasDeLaCubierta(s: Suelo): ReadonlySet<string> {
+  return new Set([
+    ...MEZCLA[s].map(([otro]) => `cubierta-${otro}`),
+    ...((ARBOLES_DEL_SUELO as Partial<Record<Suelo, readonly string[]>>)[s] ?? []),
+  ]);
+}
+
 /** La mata más baja, en veces el alto de la cubierta de su suelo; la más alta, 0,6 más. */
 const MATA_MAS_BAJA = 0.7;
 
@@ -784,8 +809,8 @@ const CHILLONA = 'brightness(0.8) saturate(0.72)';
  * Las laderas de basalto se leían como una franja gris lisa y clara junto a la
  * ceniza rojiza (el usuario, 07-10-2026: más oscuras y un poco más cálidas). Sin
  * filtro dan luz 62 y R−B 11; con `contrast(0.8) brightness(0.8)`, el de antes,
- * 60 y 7 (más fría aún); con este, 53 y 15. La frontal de basalto da 71 y 20, y
- * el suelo de ceniza, 42 y 18 (`tono-basalto.mts` en
+ * 60 y 7 (más fría aún); con este, 53 y 15. La frontal de basalto daba 71 y 20 (hoy
+ * con su tono, 51 y 16), y el suelo de ceniza, 42 y 18 (`tono-basalto.mts` en
  * `docs/agents/2026-10-06-paredes-laterales/`). Uno más fuerte (luz 53, R−B 18,
  * con contraste 0,8) las fundía con la ceniza y perdían el relieve.
  */
@@ -798,6 +823,12 @@ const TONO: Readonly<Record<string, string>> = {
   'picos-arenisca': CHILLONA,
   'paredes-arenisca': CHILLONA,
   'paredes-roca': 'brightness(0.72) saturate(0.85)',
+  // La frontal de basalto, sin tono, daba luz 71 y R−B 20 entre laderas de 54 y
+  // 14 y diagonales de 48-52 y 18-19: el borde de una meseta de lava alternaba
+  // columnas pálidas y paredes casi negras, a trozos (#220, auditoría 7 §3). Con
+  // esto, 51 y 50, y 16 (las piezas que pone la escena en s9 y s13, 09-10-2026). Con
+  // `BASALTO_DE_LADERA`, 59: su sepia aclara las columnas, que ya son cálidas.
+  'paredes-basalto': 'brightness(0.72) saturate(1.15)',
   // Las laderas (§20), por familia —todas sus caídas—, medidas contra su
   // frontal entonada (07-10-2026, `docs/agents/2026-10-06-paredes-laterales/
   // tono-laderas.mts`). La arenisca del oeste, de cara a la luz, sale más clara
@@ -809,8 +840,8 @@ const TONO: Readonly<Record<string, string>> = {
   // entonar y salían, junto a ella, como derrubio gris claro y frío sobre la
   // ceniza (s28, s36). Con su filtro, las diagonales pasan de luz 52-63 y R−B
   // 10-18 a 46-53 y 13-20, en la de sus laderas (52-59, 15-17); las bajadas, de
-  // 71-73 y 26 a 59-61 y 25. La frontal da 72 y 20: más clara de media, pero son
-  // columnas con sombra entre ellas (08-10-2026, `docs/agents/2026-10-08-arte-relieve-2/`).
+  // 71-73 y 26 a 59-61 y 25. La frontal daba 72 y 20 (hoy con su tono, 51 y 16)
+  // (08-10-2026, `docs/agents/2026-10-08-arte-relieve-2/`).
   'diagonales-basalto-se': BASALTO_DE_LADERA,
   'diagonales-basalto-so': BASALTO_DE_LADERA,
   'bajadas-basalto': BASALTO_DE_LADERA,
@@ -1035,6 +1066,8 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   const meseta = sueloDeLaMeseta(a.W, a.H, a.region, a.suelo, nivel);
   /** La roca de cada casilla: en lo alto de un acantilado, la de su cara (`materialDeLaCima`, #212). */
   const materialDeLaCimaEn = materialDeLaCima(a.W, a.H, meseta, nivel, a.franjas);
+  /** El suelo que se pinta en cada casilla (`sueloQueSePinta`, #217). */
+  const pintado = sueloQueSePinta(a.region, a.suelo, meseta);
   // `let`: lo alto de los acantilados (#205) se viste con su propia corriente
   // (`azarDeLoAlto`) y se cambia mientras tanto. Con la misma, los picos de más
   // movían todo lo que se viste después: las cordilleras de 1-40 salían otras
@@ -2357,6 +2390,12 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
    * acantilado): sobre todo la cubierta de su suelo, y una parte `roca` de
    * peñascos y picos bajos de su material. Antes era todo escombro y la franja
    * se leía como un pedregal.
+   *
+   * El suelo es el que se pinta (`pintado`, el de su meseta), no el más cercano
+   * de cualquier nivel (`Analisis.suelo`, #220): con ese, lo alto llevaba la
+   * cubierta de la región baja de al lado —nieve y abetos nevados sobre la
+   * lava de s13 (16-24, 4-7), hierba sobre la nieve de s80 (18, 12-13)—, 494
+   * piezas en 1-40 (`cubiertaDeOtroNivel`).
    */
   function rellenoDeRocas(
     f: Franja,
@@ -2375,14 +2414,14 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         const i = Math.floor(y) * W + Math.floor(x);
         return (
           dentro.has(i) &&
-          entraria('cubierta', x, y, CUBIERTA[a.suelo[i] as Suelo].alto * MATA_MAS_BAJA)
+          entraria('cubierta', x, y, CUBIERTA[pintado[i] as Suelo].alto * MATA_MAS_BAJA)
         );
       },
       azar,
     );
     for (const p of puntos) {
       const i = Math.floor(p.y) * W + Math.floor(p.x);
-      const s = a.suelo[i] as Suelo;
+      const s = pintado[i] as Suelo;
       const tirada = azar();
       const deRoca = f.barrera === 'cliff' ? sueloDeLaRoca(i) : s;
       if (tirada < roca * 0.5 && f.barrera === 'cliff') picoDeLoAlto(deRoca, p.x, p.y, alto);
@@ -2423,7 +2462,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
    * es el de su cara, no el de su suelo (#212).
    */
   function sueloDeLaRoca(i: number): Suelo {
-    const propio = a.suelo[i] as Suelo;
+    const propio = pintado[i] as Suelo;
     const material = materialDeLaCimaEn[i] as string;
     if (CARA_DE_SUELO[propio] === material) return propio;
     const otro = SUELO_DE_LA_ROCA[material];
@@ -2479,7 +2518,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     const cambiadas: Sprite[] = [];
     for (let k = sprites.length - 1; k >= desde; k--) {
       const m = sprites[k] as Sprite;
-      const s = a.suelo[Math.floor(m.y) * W + Math.floor(m.x)] as Suelo;
+      const s = pintado[Math.floor(m.y) * W + Math.floor(m.x)] as Suelo;
       if (m.clase !== 'cubierta' || !CUBIERTA[s].comoLaBarrera) continue;
       sprites.splice(k, 1);
       cambiadas.push(m);
@@ -2815,13 +2854,13 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     const i = Math.floor(y) * W + Math.floor(x);
     return (
       a.franjaDe[i] === -1 &&
-      entraria('cubierta', x, y, CUBIERTA[a.suelo[i] as Suelo].alto * MATA_MAS_BAJA)
+      entraria('cubierta', x, y, CUBIERTA[pintado[i] as Suelo].alto * MATA_MAS_BAJA)
     );
   };
   const puntos = esparcir(
     [0, 0, W, H],
     (x, y) => {
-      const c = CUBIERTA[a.suelo[Math.floor(y) * W + Math.floor(x)] as Suelo];
+      const c = CUBIERTA[pintado[Math.floor(y) * W + Math.floor(x)] as Suelo];
       // Fuera de la mancha, el suelo se deja en claro; en la mancha, sembrado. Un
       // suelo `comoLaBarrera` no tiene manchas: sembrado, se leía como su barrera.
       return c.comoLaBarrera || !enMancha(x, y) ? c.radio * c.claro : c.radio * 0.85;
@@ -2832,7 +2871,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   );
   for (const p of puntos) {
     const i = Math.floor(p.y) * W + Math.floor(p.x);
-    const s = a.suelo[i] as Suelo;
+    const s = pintado[i] as Suelo;
     const { comoLaBarrera } = CUBIERTA[s];
     const mancha = !comoLaBarrera && enMancha(p.x, p.y);
     // En la mancha de prado o nieve, arbolillos: así salen los bosquecillos. En un
@@ -2845,9 +2884,11 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       azar() < (lindeDeBosque[i] === 1 ? 0.75 : 0.55)
         ? (
             {
-              grass: azar() < 0.55 ? 'pinos' : 'frondosos',
-              snow: 'abetos-nevados',
-              ...(lindeDeBosque[i] === 1 ? { dirt: azar() < 0.6 ? 'pinos' : 'frondosos' } : {}),
+              grass: ARBOLES_DEL_SUELO.grass[azar() < 0.55 ? 0 : 1],
+              snow: ARBOLES_DEL_SUELO.snow[0],
+              ...(lindeDeBosque[i] === 1
+                ? { dirt: ARBOLES_DEL_SUELO.dirt[azar() < 0.6 ? 0 : 1] }
+                : {}),
             } as Partial<Record<Suelo, string>>
           )[s]
         : undefined;
@@ -2922,7 +2963,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     semilla,
     W,
     H,
-    suelo: sueloQueSePinta(a.terreno, a.suelo, meseta),
+    suelo: pintado,
     nivel: Array.from(nivel),
     agua,
     relieve: {
@@ -2983,6 +3024,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       cubiertaComoLaBarrera: ((c) => c.altas.length + c.regionesDensas.length)(
         cubiertaComoLaBarrera(sprites, a.suelo, a.region, W),
       ),
+      cubiertaDeOtroNivel: cubiertaDeOtroNivel(sprites, pintado, W).length,
       espaldasSinReborde: espaldasSinReborde(
         sprites,
         rebordes,
@@ -3095,6 +3137,28 @@ export function cubiertaComoLaBarrera(
     .map(([r]) => r)
     .sort((p, q) => p - q);
   return { altas, regionesDensas };
+}
+
+/**
+ * La cubierta que no es del suelo que se pinta donde tiene el pie
+ * (`Escena.suelo`, `sueloQueSePinta`): la nieve y los abetos nevados de la
+ * región baja sobre una meseta de lava (s13 (16-24, 4-7)), la hierba sobre un
+ * cantil de nieve (s80 (18, 12-13)), las coles del huerto sobre la lava (s57
+ * (0-5, 8)). Es `informe.cubiertaDeOtroNivel`, y tiene que ser 0. Un marcador
+ * (sin imagen) no dice su hoja: no cuenta.
+ */
+export function cubiertaDeOtroNivel(
+  sprites: readonly Pick<Sprite, 'clase' | 'src' | 'x' | 'y'>[],
+  pintado: readonly Suelo[],
+  W: number,
+): Pick<Sprite, 'clase' | 'src' | 'x' | 'y'>[] {
+  const hojas = new Map<Suelo, ReadonlySet<string>>();
+  return sprites.filter((s) => {
+    if (s.clase !== 'cubierta' || s.src === null) return false;
+    const suelo = pintado[Math.floor(s.y) * W + Math.floor(s.x)] as Suelo;
+    if (!hojas.has(suelo)) hojas.set(suelo, hojasDeLaCubierta(suelo));
+    return !(hojas.get(suelo) as ReadonlySet<string>).has(s.src.split('/')[1] as string);
+  });
 }
 
 /** Lo que el índice de obstáculos mira de un sprite: dónde cae su imagen y de qué clase es. */

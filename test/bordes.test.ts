@@ -325,12 +325,28 @@ describe('sueloDeLaMeseta: la barrera alta lleva el suelo de su meseta', () => {
  * cercano de cualquier nivel, los picos nevados de s24 (22-29, 9-16) iban
  * sobre el áspero oscuro de abajo.
  */
-describe('sueloQueSePinta: la barrera pinta el suelo de su meseta', () => {
-  it('la montaña toma el de su meseta; lo que se pisa, el suyo aunque la meseta diga otro', () => {
-    const terreno: TerrainKind[] = ['grass', 'mountain', 'swamp'];
+describe('sueloQueSePinta: la barrera y el nodo pintan el suelo de su meseta', () => {
+  it('la montaña y el nodo (sin región) toman el de su meseta; lo que se pisa, el suyo aunque la meseta diga otro', () => {
+    // Hierba, una montaña, un nodo y la ciénaga.
+    const region = [0, -1, -1, 1];
     expect(
-      sueloQueSePinta(terreno, ['grass', 'swamp', 'swamp'], ['grass', 'grass', 'dirt']),
-    ).toEqual(['grass', 'grass', 'swamp']);
+      sueloQueSePinta(
+        region,
+        ['grass', 'swamp', 'swamp', 'swamp'],
+        ['grass', 'grass', 'grass', 'dirt'],
+      ),
+    ).toEqual(['grass', 'grass', 'grass', 'swamp']);
+  });
+
+  it('s13 (18,7): el nodo sin camino que va a la meseta de lava pinta lava, no la nieve de abajo (#220)', () => {
+    const { map, escena: e } = partidaDe(13);
+    const a = analizar(map);
+    const i = 7 * a.W + 18;
+    expect(map.objects.some((o) => o.kind === 'node' && o.at.x === 18 && o.at.y === 7)).toBe(true);
+    expect(e.nivel[i]).toBe(2);
+    // Que el guardia no mire al vacío: el más cercano de cualquier nivel es la nieve.
+    expect(a.suelo[i]).toBe('snow');
+    expect(e.suelo[i]).toBe('lava');
   });
 
   it('semilla 24: cada casilla de barrera de la escena lleva el suelo de su meseta, y antes no', () => {

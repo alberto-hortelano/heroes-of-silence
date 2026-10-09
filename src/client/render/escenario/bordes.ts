@@ -67,18 +67,21 @@ export function sueloDeLaMeseta(
 
 /**
  * El suelo que se pinta en cada casilla (`Escena.suelo`, #217): el suyo en lo
- * que se pisa y, en una barrera, el de su meseta (`sueloDeLaMeseta`). Con el
- * más cercano de cualquier nivel (`Analisis.suelo`), 2 833 casillas de barrera
- * de 1-40 pintaban a la altura de arriba el suelo del lado bajo: picos nevados
- * sobre la tierra oscura de abajo en s24, y el tono de lo alto aclarando un
- * suelo que no era el de la meseta.
+ * que se pisa y, en lo que no tiene región (`Analisis.region` −1: una barrera o
+ * un nodo), el de su meseta (`sueloDeLaMeseta`). Con el más cercano de
+ * cualquier nivel (`Analisis.suelo`), 2 833 casillas de barrera de 1-40
+ * pintaban a la altura de arriba el suelo del lado bajo: picos nevados sobre la
+ * tierra oscura de abajo en s24, y el tono de lo alto aclarando un suelo que no
+ * era el de la meseta. El nodo sin camino entre dos niveles va al alto y tomaba
+ * el suelo de abajo: la nieve se derramaba sobre la lava de s13 (16-18, 7-9) (#220).
+ * Es también el suelo de la cubierta (`cubiertaDeOtroNivel`).
  */
 export function sueloQueSePinta(
-  terreno: readonly TerrainKind[],
+  region: ArrayLike<number>,
   suelo: readonly Suelo[],
   meseta: readonly Suelo[],
 ): Suelo[] {
-  return suelo.map((s, i) => (esBarrera(terreno[i] as TerrainKind) ? (meseta[i] as Suelo) : s));
+  return suelo.map((s, i) => ((region[i] as number) < 0 ? (meseta[i] as Suelo) : s));
 }
 
 /**
