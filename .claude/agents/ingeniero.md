@@ -18,7 +18,7 @@ Si el plan choca con el código real (el fichero no existe, la abstracción no e
 No te impongo un ritual —ni «tests primero» ni ningún otro—: te impongo el resultado. En qué orden llegas ahí es cosa tuya.
 
 1. **Implementa** siguiendo el plan. La lógica en `core`; el cliente solo pinta y su única puerta al núcleo es `session.ts`.
-2. **`pnpm verify`** (typecheck + tests) hasta que dé verde. Tarda unos tres segundos: no hay excusa para no correrlo después de cada tanda de cambios, y ninguna para dar algo por hecho sin él. Incluye `test/invariantes.test.ts`, que vigila las fronteras de `CLAUDE.md`; si te sale rojo, la respuesta casi nunca es relajar el guardia.
+2. **`pnpm verify`** (typecheck + tests) hasta que dé verde, **una vez por tanda de cambios**, no tras cada edición: son ~2 600 tests y ~17 s con la máquina libre, y la máquina la comparten varias sesiones. Mientras iteras, corre solo el test de lo que tocas (`pnpm vitest run test/x.test.ts`). Nada se da por hecho sin un `verify` verde al final. Sigue el **presupuesto de pruebas** de `CLAUDE.md` («Control de calidad»). Incluye `test/invariantes.test.ts`, que vigila las fronteras de `CLAUDE.md`; si te sale rojo, la respuesta casi nunca es relajar el guardia.
 3. **Escribe los tests desde los criterios de verificación del plan**, no desde tu implementación: un test escrito mirando el código que ya funciona solo prueba que el código es el que es. Cubre el caso inválido, que es donde vive el fail-loud.
    - Reglas: `test/game.test.ts`, `test/battle.test.ts`, `test/board.test.ts`.
    - Contrato del agente: `test/agent-contract.test.ts` (esquemas zod y serialización) y `test/agent-link.test.ts` (el puente de punta a punta).

@@ -556,6 +556,14 @@ ocupado por algo ajeno no se libera: se reporta.**
 | `npx tsx tools/qa/rectitud.ts` | ~20 s | si tocas `generate.ts` o `vestir.ts`: tramos rectos en 1-1000, con los largos a escala (`largoALaEscala`; en 42×42: ≥ 10 ≤ 140, caras ≥ 10 ≤ 115, mapas con tramo ≥ 12 ≤ 8) |
 | `enfrentamiento.ts` | ~2 s | si cambias cómo decide la IA de batalla: entra solo con el intervalo entero > 50 % en 5 000 parejas |
 
+- **Presupuesto de pruebas** (la máquina es compartida: varias sesiones prueban a la vez y
+  con carga 30+ vitest falla por timeouts y hay que repetir). Mientras se itera, solo el test de lo
+  que se toca (`pnpm vitest run test/x.test.ts`); `pnpm verify`, una vez por tanda de cambios;
+  `verify:lento`, `capturas` y `banco`, **una vez al cerrar** (y no se repiten si nada cambió
+  desde el último verde: se citan). Las medidas, en 1-40 o 1-100 semillas; 1-1000 solo si la
+  tarea lo pide (rectitud, raros de verdad). Las pruebas al azar del QA, en cientos, no en miles.
+  Un `verify:lento` que sale 1 solo por «Timeout calling onTaskUpdate» con todo en verde se dice
+  y se repite una vez, no en bucle.
 - **Bucle rápido y orden lenta** (`test/lento.ts`, #167): un guardia que recorre
   muchas semillas o todo el arte corre en `verify` con una muestra que muerde
   (las semillas donde pasa lo que vigila, una imagen de cada forma de derivar)
