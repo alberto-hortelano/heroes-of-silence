@@ -23,6 +23,8 @@
  *   se leía (defecto 4); y luego, sutil, tampoco (auditoría 6, #217).
  * - **El labio de la espalda** (`labioDeLasEspaldas`, #217): una luz fina en lo
  *   alto a lo largo de cada caída hacia el norte, donde no hay cara a la vista.
+ * - **El canto de la espalda** (`cantoDeLasEspaldas`, #219): la línea oscura de
+ *   lo bajo justo al norte de ese filo. Sin ella el labio era niebla.
  * - **La sombra al pie** (`sombraAlPie`): una franja sobre lo bajo al pie de cada
  *   caída, más larga hacia donde cae la sombra de la luz del contrato visual
  *   (`ARTE.luz`): al este y al norte, donde la meseta no tiene cara a la vista.
@@ -581,9 +583,11 @@ export function tonoDeLosNiveles(np: NivelPintado): {
  * el norte, la caída que la cámara no ve de frente. `ancho` es lo que entra en
  * lo alto desde el filo, en casillas; `luz`, su alfa en el filo antes de
  * suavizarlo (`SUAVE_DEL_TONO`), que lo deja en ~0,55 de eso. Sin él, de la
- * nieve a la lava de s9 (27-33, 11) solo había un difuminado.
+ * nieve a la lava de s9 (27-33, 11) solo había un difuminado. Va en
+ * `soft-light` y más estrecho desde #219: en `screen`, de 0,16 y sin nada
+ * oscuro detrás, se leía como una hebra de niebla (s24 (0-3, 20,6)).
  */
-export const LABIO = { ancho: 0.16, luz: 0.7 } as const;
+export const LABIO = { ancho: 0.14, luz: 0.9 } as const;
 
 /**
  * El labio de cada espalda, a `R` por casilla: en cada punto de lo alto cuyo
@@ -644,22 +648,149 @@ export function espaldasSinLabio(
     const px0 = Math.floor((x + 0.15) * R);
     const px1 = Math.ceil((x + 0.85) * R) - 1;
     const alto = e.nivel[y * e.W + x] as number;
-    // Un filo: lo bajo pintado, en alguna fila de la casilla del norte, de
-    // `FILO_MINIMO` casillas de ancho o más seguidas.
-    let filo = false;
-    for (let py = (y - 1) * R; py < y * R && !filo; py++) {
-      let seguidos = 0;
-      for (let px = px0; px <= px1 && !filo; px++) {
-        seguidos = (np.nivel[py * ancho + px] as number) < alto ? seguidos + 1 : 0;
-        filo = seguidos >= FILO_MINIMO * R;
-      }
-    }
-    if (!filo) return false;
+    if (!conFilo(np, y, px0, px1, alto)) return false;
     for (let py = (y - 1) * R; py <= Math.min(m.alto - 1, y * R + 1); py++)
       for (let px = px0; px <= px1; px++)
         if ((m.alfa[py * ancho + px] as number) >= umbral) return false;
     return true;
   });
+}
+
+/**
+ * El canto de la espalda (#219): la franja oscura de lo bajo justo al norte del
+ * filo, donde lo alto tapa a la cámara el pie de su caída y echa su sombra (la
+ * luz viene del sur). `ancho` es lo que entra en lo bajo desde el filo, en
+ * casillas; `oscuro`, su alfa en el filo, entero en la fracción `entero` del
+ * ancho y fundido después. Con el labio solo, una luz sin nada
+ * oscuro detrás, la espalda se leía como una hebra de niebla (auditoría 7,
+ * defecto 1); con el filo claro sobre una línea oscura, como un canto.
+ */
+export const CANTO = { ancho: 0.28, entero: 0.3, oscuro: 0.7 } as const;
+
+/**
+ * El canto de cada espalda, a `R` por casilla: en cada punto de lo bajo cuyo
+ * sur, a menos de `CANTO.ancho`, sube de nivel (por el nivel pintado: el mismo
+ * filo con ruido que el labio, el tono y el agua), una sombra que se funde
+ * desde el filo hacia el norte. Si antes de subir baja, no es un filo. Por
+ * donde baja una rampa (`sinSombra`, como la sombra al pie), nada: ahí se baja.
+ */
+export function cantoDeLasEspaldas(
+  e: Rejilla,
+  np: NivelPintado,
+  sinSombra: (alto: number, bajo: number) => boolean = () => false,
+): Mascara {
+  const { ancho, alto, R, nivel } = np;
+  const alfa = new Float32Array(ancho * alto);
+  const hasta = Math.ceil(CANTO.ancho * R);
+  for (let py = 0; py < alto - 1; py++)
+    for (let px = 0; px < ancho; px++) {
+      const p = py * ancho + px;
+      const n = nivel[p] as number;
+      for (let d = 1; d <= hasta && py + d < alto; d++) {
+        const q = nivel[p + d * ancho] as number;
+        if (q < n) break;
+        if (q > n) {
+          // La casilla alta es la del punto alto o, si ese punto es la orilla
+          // que lo alto adelanta sobre la baja, la de su sur.
+          const cx = Math.floor(px / R);
+          const bajo = Math.floor(py / R) * e.W + cx;
+          let altoEn = Math.floor((py + d) / R) * e.W + cx;
+          if ((e.nivel[altoEn] as number) < q && altoEn + e.W < e.W * e.H) altoEn += e.W;
+          if (sinSombra(altoEn, bajo)) break;
+          // Entera la primera parte (`CANTO.entero`) y luego se funde: con una
+          // caída desde el filo mismo, la línea oscura salía como un difuminado.
+          const t = Math.min(1, (d - 0.5) / R / CANTO.ancho);
+          const f = Math.max(0, (t - CANTO.entero) / (1 - CANTO.entero));
+          alfa[p] = 255 * CANTO.oscuro * (1 - f) * (1 - f);
+          break;
+        }
+      }
+    }
+  return suavizado(alfa, ancho, alto, R);
+}
+
+/** Las rampas de la escena: sus dos casillas, como `[x, y]`. */
+interface ConRampas {
+  readonly W: number;
+  readonly relieve: {
+    readonly bajadas: readonly {
+      readonly alto: readonly [number, number];
+      readonly bajo: readonly [number, number];
+    }[];
+  };
+}
+
+/** Los lados por donde baja una rampa (`Escena.relieve.bajadas`), como `(alta, baja)`: ahí no va la sombra al pie ni el canto. */
+export function sinSombraEnLasRampas(e: ConRampas): (alto: number, bajo: number) => boolean {
+  const rampas = new Set<string>();
+  for (const b of e.relieve.bajadas) {
+    const [ax, ay] = b.alto;
+    const [bx, by] = b.bajo;
+    const alto = ay * e.W + ax;
+    rampas.add(`${alto},${by * e.W + bx}`);
+    // Una diagonal baja por los dos lados de la esquina.
+    if (bx !== ax && by !== ay) {
+      rampas.add(`${alto},${ay * e.W + bx}`);
+      rampas.add(`${alto},${by * e.W + ax}`);
+    }
+  }
+  return (alto, bajo) => rampas.has(`${alto},${bajo}`);
+}
+
+/**
+ * Las espaldas sin canto (`informe.espaldasSinCanto`, #219): casillas de un
+ * reborde con filo pintado (el de `espaldasSinLabio`) donde el canto no llega a
+ * la mitad de `CANTO.oscuro` en ningún punto de lo bajo de su casilla del
+ * norte, por el medio de su ancho. Por donde baja una rampa no cuenta: ahí no
+ * va. Tiene que ser 0. Con `canto`, se mide esa máscara (para ver que el
+ * guardia muerde).
+ */
+export function espaldasSinCanto(
+  e: Rejilla &
+    ConRampas & {
+      readonly semilla: number;
+      readonly relieve: { readonly rebordes: readonly (readonly [number, number])[] };
+    },
+  canto?: Mascara,
+): readonly (readonly [number, number])[] {
+  const np = nivelPintado(e);
+  const sinSombra = sinSombraEnLasRampas(e);
+  const m = canto ?? cantoDeLasEspaldas(e, np, sinSombra);
+  const { R, ancho } = m;
+  const umbral = (255 * CANTO.oscuro) / 2;
+  return e.relieve.rebordes.filter(([x, y]) => {
+    if (sinSombra(y * e.W + x, (y - 1) * e.W + x)) return false;
+    const px0 = Math.floor((x + 0.15) * R);
+    const px1 = Math.ceil((x + 0.85) * R) - 1;
+    const alto = e.nivel[y * e.W + x] as number;
+    if (!conFilo(np, y, px0, px1, alto)) return false;
+    for (let py = (y - 1) * R; py < y * R; py++)
+      for (let px = px0; px <= px1; px++)
+        if (
+          (np.nivel[py * ancho + px] as number) < alto &&
+          (m.alfa[py * ancho + px] as number) >= umbral
+        )
+          return false;
+    return true;
+  });
+}
+
+/**
+ * Si la casilla del norte de un reborde de la fila `y` tiene lo bajo pintado
+ * (por debajo de `alto`) en alguna fila, de `FILO_MINIMO` casillas de ancho o
+ * más seguidas entre las columnas `px0` y `px1`: el filo que miran los guardias
+ * del labio y del canto.
+ */
+function conFilo(np: NivelPintado, y: number, px0: number, px1: number, alto: number): boolean {
+  const { R, ancho } = np;
+  for (let py = (y - 1) * R; py < y * R; py++) {
+    let seguidos = 0;
+    for (let px = px0; px <= px1; px++) {
+      seguidos = (np.nivel[py * ancho + px] as number) < alto ? seguidos + 1 : 0;
+      if (seguidos >= FILO_MINIMO * R) return true;
+    }
+  }
+  return false;
 }
 
 /** Lo que oscurece la sombra al pie donde es más honda. */

@@ -554,6 +554,21 @@ const SITIOS_DEL_REBORDE: readonly (readonly [number, number])[] = [
 /** El alto de los peñascos de `SITIOS_DEL_REBORDE`: el de los más bajos de la hilera. */
 const ALTO_DEL_REBORDE_MENOR = 0.25;
 
+/**
+ * El canto de la espalda (#219, `cantoDeLaEspalda`): `porCasilla` peñascos por
+ * casilla de reborde, repartidos a lo largo del filo con `vaiven` de holgura,
+ * el pie a `hondo` del lado norte de la casilla (más `vaiven`) y de `alto` a
+ * `alto + masAlto` casillas. A 0,25 de paso y con la pieza más ancha que alta,
+ * se solapan y el filo es una línea seguida de roca.
+ */
+export const CANTO_DE_LA_ESPALDA = {
+  porCasilla: 4,
+  vaiven: 0.06,
+  hondo: 0.04,
+  alto: 0.42,
+  masAlto: 0.16,
+} as const;
+
 /** Por debajo de esta `cumbre` (`Macizo.cumbre`), la roca es de falda: nunca agujas. */
 const CUMBRE_DE_AGUJAS = 0.25;
 
@@ -2798,6 +2813,44 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         if (peñasco(x + dx, y + dy, ALTO_DEL_REBORDE_MENOR, 0.3)) return;
     espaldasOcupadas.add(y * W + x);
   };
+  /**
+   * El canto de la espalda (#219): peñascos de la roca de lo alto, seguidos, con
+   * el pie justo dentro del filo (`CANTO_DE_LA_ESPALDA`), que suben por encima
+   * de la orilla y de la franja oscura del canto (`cantoDeLasEspaldas`). Con la
+   * hilera de tres peñascos sueltos, de pie a 0,08-0,32 del filo, la espalda no
+   * se leía como el filo seguido de una meseta: la elevación acababa de repente
+   * (s24 (0-9, 20-21), s13 (14-24, 4-7)). El que no entra se prueba más bajo;
+   * si no entra ninguno, los sitios fijos de la hilera, y si tampoco, la casilla
+   * queda ocupada.
+   */
+  const cantoDeLaEspalda = (x: number, y: number, elAzar: () => number) => {
+    const tono = materialDeCara(materialDeLaCimaEn[y * W + x] as string).pedregal;
+    const peñasco = (px: number, py: number, alto: number, t: number) =>
+      poner('rocas-caidas', px, py, alto, t, 'roca', '#5a5248', true, undefined, undefined, tono);
+    const C = CANTO_DE_LA_ESPALDA;
+    // El módulo de cada peñasco (`deHoja`) también sale de `elAzar`: con la
+    // corriente de siempre, el canto movía toda la cubierta que va después.
+    const principal = azar;
+    azar = elAzar;
+    try {
+      let puestos = 0;
+      for (let k = 0; k < C.porCasilla; k++) {
+        const px = x + (k + 0.5) / C.porCasilla + (elAzar() - 0.5) * C.vaiven;
+        const py = y + C.hondo + elAzar() * C.vaiven;
+        const queria = C.alto + elAzar() * C.masAlto;
+        const t = elAzar() * 0.8;
+        const alto = [queria, queria * 0.75, queria * 0.5].find((h) => entraria('roca', px, py, h));
+        if (alto !== undefined && peñasco(px, py, alto, t)) puestos++;
+      }
+      if (puestos > 0) return;
+      for (const [dx, dy] of SITIOS_DEL_REBORDE)
+        if (entraria('roca', x + dx, y + dy, ALTO_DEL_REBORDE_MENOR))
+          if (peñasco(x + dx, y + dy, ALTO_DEL_REBORDE_MENOR, 0.3)) return;
+      espaldasOcupadas.add(y * W + x);
+    } finally {
+      azar = principal;
+    }
+  };
   for (const [x, y] of rebordes)
     if (a.terreno[y * W + x] === 'cliff') hileraDelReborde(x, y, azar, 0.18);
   // Y la espalda de una meseta que se pisa (#212): con el nivel por región
@@ -2809,7 +2862,12 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   const azarDeLasEspaldas = azarDe(semilla * 2273 + 19);
   for (const [x, y] of rebordes)
     if (espaldaConReborde(a.terreno, W, x, y, bajoLaHuella))
-      hileraDelReborde(x, y, azarDeLasEspaldas, 0.08);
+      cantoDeLaEspalda(x, y, azarDeLasEspaldas);
+  // Y el canto de la espalda de un acantilado, encima de su hilera de siempre,
+  // con su propia corriente: la hilera tira de la de siempre y no se mueve.
+  const azarDelCanto = azarDe(semilla * 4271 + 23);
+  for (const [x, y] of rebordes)
+    if (a.terreno[y * W + x] === 'cliff') cantoDeLaEspalda(x, y, azarDelCanto);
 
   // 5 · La cubierta, en manchas y no en motas: la referencia tiene formas
   // grandes y calmadas (un bosquecillo, una hoja de campos, un claro de prado),

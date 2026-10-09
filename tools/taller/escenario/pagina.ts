@@ -6,6 +6,7 @@
 import type { Escena } from '../../../src/client/render/escenario/colocar.js';
 import {
   aguaEnLoAlto,
+  espaldasSinCanto,
   espaldasSinLabio,
   sendaSobreElAgua,
 } from '../../../src/client/render/escenario/escalon.js';
@@ -71,6 +72,7 @@ void Promise.all(carga).then(() => {
     // por casilla, que el juego pinta en el Worker y no tiene por qué medir.
     aguaEnLoAlto: aguaEnLoAlto(E),
     espaldasSinLabio: espaldasSinLabio(E).length,
+    espaldasSinCanto: espaldasSinCanto(E).length,
     sendaSobreElAgua: sendaSobreElAgua(E),
     ...E.informe,
   };

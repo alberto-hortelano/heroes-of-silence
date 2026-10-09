@@ -41,10 +41,12 @@ import { columnasDeCara } from './caras.js';
 import type { Escena, Luz, Sprite } from './colocar.js';
 import {
   aguasDeLaEscena,
+  cantoDeLasEspaldas,
   labioDeLasEspaldas,
   type Mascara,
   nivelPintado,
   PX_DEL_ESCALON,
+  sinSombraEnLasRampas,
   sombraAlPie,
   tonoDeLosNiveles,
 } from './escalon.js';
@@ -204,7 +206,7 @@ const COLOR_DE_LO_BAJO = 'rgb(12,16,22)';
  * de que la lava se notara.
  */
 const COLOR_DE_LO_ALTO = 'rgb(255,236,198)';
-/** El labio de la espalda, en `screen`: la luz del sol en un canto (`labioDeLasEspaldas`). */
+/** El labio de la espalda, en `soft-light`: la luz del sol en un canto (`labioDeLasEspaldas`); en `screen` era niebla (#219). */
 const COLOR_DEL_LABIO = 'rgb(255,240,210)';
 
 const COLOR_DE_LUZ: Readonly<Record<Luz['clase'], readonly [number, number, number, number]>> = {
@@ -669,7 +671,7 @@ export function pintarSuelo(
     encima(
       escalon('labio', () => labioDeLasEspaldas(delSuelo())),
       COLOR_DEL_LABIO,
-      'screen',
+      'soft-light',
     );
     // 2b · El arcén: el pasillo despejado, con el color de su suelo encima y el
     //      borde difuminado, para que lo despejado no se lea como un claro.
@@ -725,6 +727,13 @@ export function pintarSuelo(
     encima(
       escalon('sombra', () => sombraAlPie(e, delSuelo(), sinSombraEnLasRampas(e))),
       colorDeSombra(),
+      'source-over',
+    );
+    // 5a · El canto de cada espalda: lo bajo justo al norte del filo, oscuro,
+    //      para que el labio de lo alto se lea como un canto y no como niebla (#219).
+    encima(
+      escalon('canto', () => cantoDeLasEspaldas(e, delSuelo(), sinSombraEnLasRampas(e))),
+      COLOR_DE_LO_BAJO,
       'source-over',
     );
     // 6 · Las sombras al pie de lo que tiene volumen: también de los volúmenes,
@@ -787,23 +796,6 @@ function delEscalon<T>(e: Escena, clave: string, hacer: () => T): T {
   }
   if (!deEsta.has(clave)) deEsta.set(clave, hacer());
   return deEsta.get(clave) as T;
-}
-
-/** Los lados por donde baja una rampa (`Escena.relieve.bajadas`), como `(alta, baja)`: ahí no va la sombra al pie. */
-function sinSombraEnLasRampas(e: Escena): (alto: number, bajo: number) => boolean {
-  const rampas = new Set<string>();
-  for (const b of e.relieve.bajadas) {
-    const [ax, ay] = b.alto;
-    const [bx, by] = b.bajo;
-    const alto = ay * e.W + ax;
-    rampas.add(`${alto},${by * e.W + bx}`);
-    // Una diagonal baja por los dos lados de la esquina.
-    if (bx !== ax && by !== ay) {
-      rampas.add(`${alto},${ay * e.W + bx}`);
-      rampas.add(`${alto},${by * e.W + ax}`);
-    }
-  }
-  return (alto, bajo) => rampas.has(`${alto},${bajo}`);
 }
 
 // Las fronteras leen el nivel pintado punto a punto: van a la misma resolución.

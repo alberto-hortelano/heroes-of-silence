@@ -7,6 +7,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   aguaEnLoAlto,
+  CANTO,
+  cantoDeLasEspaldas,
+  espaldasSinCanto,
   espaldasSinLabio,
   LABIO,
   labioDeLasEspaldas,
@@ -130,6 +133,43 @@ describe('el labio de la espalda (#217)', () => {
   });
 });
 
+describe('el canto de la espalda (#219)', () => {
+  // La misma meseta a 2 de 4×3 casillas (x 2-5, y 2-4) en medio de lo bajo, a 1.
+  const e = rejilla(8, 7, (x, y) => (x >= 2 && x < 6 && y >= 2 && y < 5 ? 2 : 1));
+  const np = nivelPintado(e);
+  const m = cantoDeLasEspaldas(e, np);
+  /** Lo más que vale `mascara` en la columna `x`, entre `y0` e `y1`. */
+  const maxEn = (mascara: typeof m, x: number, y0: number, y1: number) => {
+    let v = 0;
+    for (let py = Math.floor(y0 * R); py < y1 * R; py++)
+      v = Math.max(v, mascara.alfa[py * mascara.ancho + Math.floor(x * R)] as number);
+    return v;
+  };
+  const mitad = (255 * CANTO.oscuro) / 2;
+
+  it('corre seguido por todo el filo norte, en lo bajo, y no entra en lo alto', () => {
+    for (let x = 2.1; x < 5.9; x += 1 / R)
+      expect(maxEn(m, x, 2 - ORILLA.mas - CANTO.ancho, 2)).toBeGreaterThanOrEqual(mitad);
+    // En lo alto, solo lo que el suavizado derrama al píxel de dentro del filo.
+    for (let p = 0; p < m.alfa.length; p++)
+      if (np.nivel[p] === 2) expect(m.alfa[p]).toBeLessThan(mitad);
+  });
+
+  it('no va al sur, ni al este ni al oeste, ni lejos del filo', () => {
+    expect(maxEn(m, 3.5, 5, 7)).toBe(0); // al pie de la cara, al sur
+    expect(maxEn(m, 1.5, 0, 7)).toBe(0); // al oeste
+    expect(maxEn(m, 6.5, 0, 7)).toBe(0); // al este
+    expect(maxEn(m, 3.5, 0, 1.4)).toBe(0); // lejos del filo, al norte
+  });
+
+  it('por donde baja una rampa al norte no hay canto', () => {
+    const rampa = (alto: number, bajo: number) => alto === 2 * 8 + 3 && bajo === 1 * 8 + 3;
+    const conRampa = cantoDeLasEspaldas(e, np, rampa);
+    expect(maxEn(conRampa, 3.5, 1, 2)).toBe(0);
+    expect(maxEn(conRampa, 4.5, 1, 2)).toBeGreaterThanOrEqual(mitad);
+  });
+});
+
 /** En la orden lenta, 1-40; en `verify`, la 2 (el istmo de la auditoría 5) y la 443. */
 const SEMILLAS = LENTO ? rango(1, 40) : [2, 443];
 
@@ -147,6 +187,23 @@ describe('en los mapas reales', () => {
   it('la muestra del bucle rápido tiene espaldas que mirar', () => {
     for (const s of [2, 443])
       expect(partidaDe(s).escena.relieve.rebordes.length).toBeGreaterThan(0);
+  });
+
+  for (const semilla of SEMILLAS)
+    it(`semilla ${semilla}: cada espalda lleva su canto`, () => {
+      expect(espaldasSinCanto(partidaDe(semilla).escena)).toEqual([]);
+    });
+
+  it('el guardia del canto muerde: sin canto, la s2 tiene espaldas sin él', () => {
+    const e = partidaDe(2).escena;
+    const np = nivelPintado(e);
+    const vacio = {
+      ancho: np.ancho,
+      alto: np.alto,
+      R,
+      alfa: new Uint8ClampedArray(np.nivel.length),
+    };
+    expect(espaldasSinCanto(e, vacio).length).toBeGreaterThan(0);
   });
 
   it('el guardia del labio muerde: sin labio, la s2 tiene espaldas sin él', () => {
