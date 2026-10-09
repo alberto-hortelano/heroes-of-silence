@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { PX_AL_ZOOM_MAXIMO } from '../src/client/render/camara-mapa.js';
 import { analizar } from '../src/client/render/escenario/analizar.js';
 import { sueloDeLaMeseta } from '../src/client/render/escenario/bordes.js';
-import { VECINO_IGUAL } from '../src/client/render/escenario/colocar.js';
+import { ruidosDelMacizo, VECINO_IGUAL } from '../src/client/render/escenario/colocar.js';
 import {
   ALTO_DE_CUMBRE,
   ALTO_DE_FALDA,
@@ -22,6 +22,7 @@ import {
   macizoDe,
   materialDeLosMacizos,
   radioDePico,
+  UMBRAL_DEL_CLARO,
 } from '../src/client/render/escenario/macizo.js';
 import { relieve } from '../src/client/render/escenario/relieve.js';
 import type { Suelo } from '../src/core/map/terrain.js';
@@ -42,8 +43,10 @@ describe('el campo del macizo', () => {
   const H = 12;
   /** Sin sitio para cumbres: la cresta sola. */
   const sinCumbres = () => false;
+  /** El ruido de los grupos arriba: toda la franja es masa, sin claros (#218). */
+  const enMasa = () => 1;
   // Una franja de 8 × 6 en mitad del mapa: hondura 3 en su centro.
-  const ancha = macizoDe(rectangulo(W, 4, 3, 12, 9), W, H, llano, sinCumbres);
+  const ancha = macizoDe(rectangulo(W, 4, 3, 12, 9), W, H, llano, sinCumbres, enMasa);
 
   it('la hondura es del punto: 0 en el filo, crece hacia dentro y es la distancia euclídea', () => {
     expect(ancha.hondura(4.01, 6)).toBeCloseTo(0.01, 5);
@@ -76,7 +79,7 @@ describe('el campo del macizo', () => {
   });
 
   it('una banda estrecha llega a su cresta, pero sube menos que una ancha', () => {
-    const estrecha = macizoDe(rectangulo(W, 4, 0, 6, H), W, H, llano, sinCumbres);
+    const estrecha = macizoDe(rectangulo(W, 4, 0, 6, H), W, H, llano, sinCumbres, enMasa);
     // Su hondura mayor es 1: en el medio de la banda ya es cresta.
     expect(estrecha.cumbre(5, 6)).toBeCloseTo(ancha.cumbre(7, 6), 2);
     expect(estrecha.alto(5, 6)).toBeGreaterThan(ALTO_DE_FALDA + 0.5);
@@ -85,14 +88,29 @@ describe('el campo del macizo', () => {
 
   it('el ruido hace collados y hombros a lo largo de la cresta, sin llegar a cumbre', () => {
     const ruido = (x: number) => (x < 8 ? 0 : 1);
-    const cresta = macizoDe(rectangulo(W, 0, 3, W, 9), W, H, ruido, sinCumbres);
+    const cresta = macizoDe(rectangulo(W, 0, 3, W, 9), W, H, ruido, sinCumbres, ruido);
     const collado = cresta.alto(4, 6);
     const hombro = cresta.alto(12, 6);
     expect(hombro).toBeGreaterThan(1.3 * collado);
     // Lo más alto de la cresta queda por debajo de la cumbre más baja (#204).
     expect(hombro).toBeLessThan(ALTO_DE_CUMBRE.estrecha);
-    // En la falda el ruido no cuenta: la falda es pareja.
-    expect(cresta.alto(4, 3.001)).toBeCloseTo(cresta.alto(12, 3.001), 2);
+  });
+
+  it('la falda se abre en claros de picos bajos y ralos; la cresta nunca (#218)', () => {
+    const ruido = (x: number) => (x < 8 ? 0 : 1);
+    const m = macizoDe(rectangulo(W, 0, 3, W, 9), W, H, llano, sinCumbres, ruido);
+    // Del lado del ruido bajo, la falda es claro; del alto, masa.
+    expect(m.claro(4, 3.2)).toBe(true);
+    expect(m.claro(12, 3.2)).toBe(false);
+    expect(m.masa(12, 3.2)).toBe(1);
+    // Un claro en medio de la cresta se leería como un paso: nunca, ni con el ruido abajo.
+    for (let x = 0.5; x < W; x += 0.5) expect(m.claro(x, 6), `x = ${x}`).toBe(false);
+    expect(m.masa(4, 6)).toBeGreaterThanOrEqual(UMBRAL_DEL_CLARO);
+    // En el claro, los picos más bajos y más apartados que en la masa.
+    expect(m.alto(4, 3.2)).toBeLessThan(0.8 * m.alto(12, 3.2));
+    expect(m.radio(4, 3.2) / radioDePico(m.alto(4, 3.2))).toBeGreaterThan(
+      2 * (m.radio(12, 3.2) / radioDePico(m.alto(12, 3.2))),
+    );
   });
 
   it('el radio entre picos crece con su alto: falda apretada, cumbres espaciadas', () => {
@@ -227,9 +245,9 @@ describe('la escena: los picos de una cordillera crecen hacia dentro', () => {
   // umbral para todas. Con el acantilado en línea (#215, mapas nuevos), sin la 7
   // tampoco: ×1,32 (en 1-40, 4 de 32 por debajo: la 7, la 8 ×1,30, la 22
   // ×1,35 justo y la 24 ×1,31; 08-10-2026). Mismo defecto, no otro.
-  const semillas = LENTO
-    ? rango(1, 10).filter((s) => s !== 7 && s !== 8 && conCordillera(s))
-    : lasPrimeras(2, conCordillera);
+  // Vuelven con #218 (masas y claros, 09-10-2026): la 7 da ×1,56 y la 8 ×1,41;
+  // en 1-12, de ×1,39 (s1) a ×1,92 (s5).
+  const semillas = LENTO ? rango(1, 10).filter(conCordillera) : lasPrimeras(2, conCordillera);
   for (const semilla of semillas)
     it(`semilla ${semilla}: más altos, más esbeltos y más claros en la cresta que en la falda`, () => {
       const { falda, cresta } = picosDelMacizo(semilla);
@@ -346,6 +364,62 @@ describe('las cordilleras no son una alfombra de pinchos (#204)', () => {
     const picos = todas.reduce((n, c) => n + c.picos, 0);
     // Antes, 43 %; hoy, 3 %: lo que queda es que ningún otro módulo llega a su alto.
     expect(repetidos / picos).toBeLessThan(0.08);
+  });
+});
+
+/**
+ * El alto sumado de los picos de cada casilla de cordillera (franjas de `CORDILLERA_MINIMA` o
+ * más), según caiga en un claro de la falda o en lo hondo de una masa (masa ≥
+ * 0,8) de su macizo, con los ruidos de la escena (`ruidosDelMacizo`). El
+ * macizo de aquí no mira dónde cabe una cumbre: cerca de una que la escena
+ * movió, alguna casilla cambia de lado, y por eso se cuenta en media.
+ */
+function picosPorCasillaEnClarosYMasas(semilla: number) {
+  const { map, escena } = partidaDe(semilla);
+  const a = analizar(map);
+  const { cresta, grupos } = ruidosDelMacizo(semilla);
+  const picos = new Map<number, number>();
+  for (const s of escena.sprites)
+    if (s.clase === 'masa' && s.src?.startsWith('modulos/picos-') === true) {
+      const i =
+        Math.floor(Math.max(0, Math.min(s.y, a.H - 0.01))) * a.W +
+        Math.floor(Math.max(0, Math.min(s.x, a.W - 0.01)));
+      picos.set(i, (picos.get(i) ?? 0) + s.alto);
+    }
+  const claros: number[] = [];
+  const masas: number[] = [];
+  for (const f of a.franjas) {
+    if (f.barrera !== 'mountain' || f.casillas.length < CORDILLERA_MINIMA) continue;
+    const m = macizoDe(f.casillas, a.W, a.H, cresta, undefined, grupos);
+    for (const i of f.casillas) {
+      const x = (i % a.W) + 0.5;
+      const y = Math.floor(i / a.W) + 0.5;
+      if (m.claro(x, y)) claros.push(picos.get(i) ?? 0);
+      else if (m.masa(x, y) >= 0.8) masas.push(picos.get(i) ?? 0);
+    }
+  }
+  return { claros, masas };
+}
+
+describe('las cordilleras se juntan en masas y se abren en claros (#218)', () => {
+  // Antes (09-10-2026, semillas 1-20), los picos salían a un radio casi fijo
+  // de su alto por toda la franja: una alfombra de clavos (auditoría 6, punto
+  // 6). En las 142 casillas que hoy son claro caían 1,63 picos y 1,45 casillas
+  // de alto sumado, lo mismo que en las 1 299 de masa (1,46 y 1,45). Hoy, 0,99
+  // y 0,80 en el claro frente a 1,73 y 1,67 en la masa.
+  const semillas = segunPrisa([1, 24], rango(1, 20));
+  it(`semillas ${segunPrisa('1 y 24', '1-20')}: un claro lleva menos de 0,6 veces el pico de una masa`, () => {
+    const claros: number[] = [];
+    const masas: number[] = [];
+    for (const s of semillas) {
+      const c = picosPorCasillaEnClarosYMasas(s);
+      claros.push(...c.claros);
+      masas.push(...c.masas);
+    }
+    const media = (l: readonly number[]) => l.reduce((x, y) => x + y, 0) / l.length;
+    expect(claros.length).toBeGreaterThan(segunPrisa(10, 100));
+    expect(masas.length).toBeGreaterThan(segunPrisa(10, 100));
+    expect(media(claros)).toBeLessThan(0.6 * media(masas));
   });
 });
 

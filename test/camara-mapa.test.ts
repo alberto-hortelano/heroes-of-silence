@@ -193,8 +193,10 @@ describe('el tope de alejar sale de los volúmenes que caben', () => {
   });
 
   it('en un mapa de verdad, al tope no se pintan más de 2 000 volúmenes mire donde mire', () => {
-    const map = newGame({ seed: 1 }).map;
-    const { conteo, separada } = escenarioDe(map, 1);
+    // La 80, la de más volúmenes de las del taller: la 1 se quedó en 968 con
+    // los claros de las cordilleras (#218), y la premisa dejaba de cumplirse.
+    const map = newGame({ seed: 80 }).map;
+    const { conteo, separada } = escenarioDe(map, 80);
     const t = tileMinimo(conteo, 1280, 800).tile;
     expect(t).toBeGreaterThanOrEqual(TILE_LEGIBLE);
     // La premisa: el mapa entero no cabría en un fotograma de un solo golpe.

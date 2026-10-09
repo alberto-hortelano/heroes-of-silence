@@ -27,16 +27,17 @@ import { PX_AL_ZOOM_MAXIMO } from '../camara-mapa.js';
 const HONDURA_MAXIMA = 4;
 
 /** El alto de un pico en la misma falda, en casillas. */
-export const ALTO_DE_FALDA = 0.9;
+export const ALTO_DE_FALDA = 0.8;
 
 /**
  * Lo que sube de la falda a la cresta lejos de una cumbre, en casillas, con el
  * ruido en el medio. Era 3 (con la cumbre del ruido, ×1,45), y toda la cresta
  * salía de picos de 2-2,5 casillas apretados: la alfombra de pinchos de la
  * auditoría 4 (#204). Ahora la cresta es de picos medianos y lo grande son las
- * cumbres (`cumbres`).
+ * cumbres (`cumbres`). Era 1,0 hasta #218: con los collados de la masa (más
+ * bajos y ralos), la cresta de s1 quedaba a ×1,31 de su falda.
  */
-const SUBIDA = 1.0;
+const SUBIDA = 1.2;
 
 /**
  * La hondura a la que la ladera llega a la cresta en una franja ancha: más
@@ -48,8 +49,12 @@ const HONDURA_DE_CRESTA = 2.5;
 /** Lo que sube una franja estrecha, en veces lo que sube una ancha. */
 const SUBIDA_DE_LA_ESTRECHA = 0.55;
 
-/** El ruido de la cresta la mueve entre estas veces la subida: un collado y un hombro. */
-const COLLADO = 0.7;
+/**
+ * El ruido de la cresta y el de los grupos la mueven entre estas veces la
+ * subida: un collado y un hombro. Era 0,7; el collado de un grupo además baja
+ * con su masa (`BAJO_DEL_CLARO`).
+ */
+const COLLADO = 0.65;
 const HOMBRO = 1.2;
 
 /**
@@ -99,6 +104,51 @@ const ULTIMA_ENCOGIDA = 0.68;
  */
 export const FALDA_DE_CUMBRE = 2.4;
 
+/**
+ * Lado de la retícula del ruido de los grupos, en casillas (#218): dónde la
+ * cordillera se junta en una masa y dónde se abre un claro. Mayor que el de la
+ * cresta: una masa de picos o un collado de cuatro o cinco casillas, no un pico
+ * sí y otro no.
+ */
+export const PASO_DE_LOS_GRUPOS = 4.6;
+
+/**
+ * Cómo se reparte la masa (#218), de 0 (claro) a 1 (masa). `base` y
+ * `porHondura`: la falda abre y la cresta cierra; `porGrupo`: lo que el ruido de
+ * los grupos mueve eso arriba o abajo. Con la cresta a 1 y el ruido en el
+ * medio, la cresta es masa y la falda medio claro; con el ruido bajo, la falda es
+ * claro y la cresta un collado.
+ */
+const MASA = { base: 0.05, porHondura: 0.75, porGrupo: 2.0, suelo: 0.45 } as const;
+
+/**
+ * El ruido de los grupos, estirado más que el de la cresta (`contraste`): una
+ * masa o un claro, con poca cosa a medias. Con el de la cresta los picos se
+ * abrían poco a poco de la masa al claro y la franja se leía como una alfombra
+ * rala.
+ */
+const agrupa = (r: number): number => Math.min(1, Math.max(0, (r - 0.32) / 0.36));
+
+/**
+ * Por debajo de esta masa, la falda es un claro: no caen dardos y su casilla
+ * lleva solo el pico bajo del relleno y unos peñascos (`componer`). La cresta
+ * nunca lo es (`MASA.suelo` · 1 > 0,3): un claro en medio se leería como un paso.
+ */
+export const UMBRAL_DEL_CLARO = 0.3;
+
+/**
+ * En un claro (masa 0), el alto de un pico, en veces el de la falda: picos
+ * bajos, entre los que se ve el suelo. En la masa, el de siempre.
+ */
+const BAJO_DEL_CLARO = 0.6;
+
+/**
+ * El radio entre picos en un claro, en veces el de su alto (`radioDePico`): el
+ * doble, y entre ellos el suelo. En la masa, algo menos que el de su alto, para
+ * que los picos de un grupo se monten y se lean como una sola mole.
+ */
+const ESPACIO = { masa: 0.85, claro: 2.2 } as const;
+
 /** Una cumbre de un macizo: su pie y su alto, en casillas. */
 export interface Cumbre {
   readonly x: number;
@@ -113,6 +163,12 @@ export interface Macizo {
   alto(x: number, y: number): number;
   /** De 0 en la falda a 1 en la cumbre más alta posible: elige hoja, silueta y luz. */
   cumbre(x: number, y: number): number;
+  /** De 0 en un claro a 1 en una masa (#218): cómo de juntos y de altos van los picos. */
+  masa(x: number, y: number): number;
+  /** Si `(x, y)` cae en un claro de la falda (masa bajo `UMBRAL_DEL_CLARO`): sin dardos, solo el relleno. */
+  claro(x: number, y: number): boolean;
+  /** El radio entre picos en `(x, y)`, en casillas: el de su alto, apretado en la masa y abierto en un claro. */
+  radio(x: number, y: number): number;
   /** Las pocas cumbres de la franja, de la más honda a la menos (`cumbresDe`). */
   readonly cumbres: readonly Cumbre[];
 }
@@ -129,6 +185,12 @@ export interface Macizo {
  * la falda, y unas pocas cumbres de 2-3 casillas que dominan la franja, con su
  * falda alrededor. Antes una sola escala, la del ruido, daba picos grandes en
  * toda la cresta, y una franja ancha era un campo de pinchos iguales.
+ *
+ * Y en grupos (#218): `grupos` (el de `componer` es `ruidoSuave` con
+ * `PASO_DE_LOS_GRUPOS`) junta la franja en masas, de picos apretados y altos, y
+ * la abre en collados y claros de falda, de picos bajos y ralos (`masa`,
+ * `claro`, `radio`). Con las cumbres solas, el resto seguía siendo picos
+ * medianos a un radio casi fijo: una alfombra de clavos (auditoría 6, punto 6).
  */
 export function macizoDe(
   casillas: readonly number[],
@@ -136,6 +198,7 @@ export function macizoDe(
   H: number,
   ruido: (x: number, y: number) => number,
   cabe: (x: number, y: number, alto: number) => boolean = () => true,
+  grupos: (x: number, y: number) => number = () => 0.5,
 ): Macizo {
   const dentro = new Uint8Array(W * H);
   for (const i of casillas) dentro[i] = 1;
@@ -171,12 +234,35 @@ export function macizoDe(
   const altoDeCumbre =
     ALTO_DE_CUMBRE.estrecha + (ALTO_DE_CUMBRE.ancha - ALTO_DE_CUMBRE.estrecha) * anchura;
   const cumbres = cumbresDe(centros, casillas.length, ruido, altoDeCumbre, cabe);
-  /** El alto de la cresta sin cumbres: de la falda a lo que da el ruido. */
-  const deLaCresta = (x: number, y: number): number =>
-    ALTO_DE_FALDA +
-    subida *
-      Math.min(1, hondura(x, y) / cresta) *
-      (COLLADO + (HOMBRO - COLLADO) * contraste(ruido(x, y)));
+  /**
+   * La masa del punto (#218): sube hacia la cresta y con el ruido de los
+   * grupos, y es entera en la falda de una cumbre. Antes todo era masa: los
+   * picos salían a un radio casi fijo de su alto por toda la franja, y una
+   * cordillera ancha se leía como una alfombra de clavos.
+   */
+  const masa = (x: number, y: number): number => {
+    const lejos = Math.min(1, hondura(x, y) / cresta);
+    let m = Math.max(
+      MASA.suelo * lejos,
+      MASA.base + MASA.porHondura * lejos + MASA.porGrupo * (agrupa(grupos(x, y)) - 0.5),
+    );
+    for (const c of cumbres) m = Math.max(m, 1 - Math.hypot(x - c.x, y - c.y) / FALDA_DE_CUMBRE);
+    return Math.min(1, Math.max(0, m));
+  };
+  /**
+   * El alto de la cresta sin cumbres: de la falda a lo que da el ruido, y en un
+   * claro, más bajo. Los hombros y los collados los marcan sobre todo los grupos,
+   * que son largos: con el ruido de la cresta solo, cada 2,6 casillas había un
+   * hombro y la cresta era pareja vista de lejos.
+   */
+  const deLaCresta = (x: number, y: number): number => {
+    const lejos = Math.min(1, hondura(x, y) / cresta);
+    const ondula = 0.6 * agrupa(grupos(x, y)) + 0.4 * contraste(ruido(x, y));
+    // Lo que baja un claro, solo en la falda: en la cresta el collado ya es
+    // `COLLADO`, y bajarla más la dejaba a la altura de su falda.
+    const bajo = (1 - BAJO_DEL_CLARO) * (1 - masa(x, y)) * (1 - lejos);
+    return ALTO_DE_FALDA * (1 - bajo) + subida * lejos * (COLLADO + (HOMBRO - COLLADO) * ondula);
+  };
   const alto = (x: number, y: number): number => {
     let h = deLaCresta(x, y);
     // La falda de cada cumbre: de su alto en el pie a la cresta a
@@ -199,6 +285,12 @@ export function macizoDe(
         Math.min(1, (alto(x, y) - ALTO_DE_FALDA) / (ALTO_DE_CUMBRE.ancha - ALTO_DE_FALDA)),
       ),
     cumbres,
+    masa,
+    claro: (x, y) => masa(x, y) < UMBRAL_DEL_CLARO,
+    radio: (x, y) => {
+      const m = masa(x, y);
+      return radioDePico(alto(x, y)) * (ESPACIO.claro + (ESPACIO.masa - ESPACIO.claro) * m);
+    },
   };
 }
 

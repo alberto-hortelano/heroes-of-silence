@@ -423,7 +423,17 @@ antes del destino (`battle_started` con `faltan`).
   `VECINO_IGUAL`) y la luz (`luzDeCumbre`, falda en sombra, cresta a la luz, cumbre clara). En 1-40
   (08-10-2026): cordilleras con más de 4 picos dominantes, 39 de 201 → 4 (bandas entre dos sendas
   donde no cabe una cumbre); picos con su mismo módulo al lado, 43 % → 3 %; picos por casilla de
-  montaña, 2,31 → 1,54. El bosque sigue con
+  montaña, 2,31 → 1,54. **En masas y claros** (#218): un ruido de grupos (`PASO_DE_LOS_GRUPOS`, 4,6
+  casillas) y la hondura dan la `masa` de cada punto: en la masa los picos van apretados
+  (`ESPACIO.masa` 0,85 × `radioDePico`), en un collado ralos, y en un **claro de falda**
+  (`UMBRAL_DEL_CLARO`, 0,3; nunca en la cresta) no caen dardos: cada casilla lleva su pico bajo
+  (`BAJO_DEL_CLARO`) y dos peñascos de la roca de su meseta, y si nada entra, los dardos del claro
+  (ninguna casilla sin formación). Las cordilleras van con su propia corriente de azar
+  (`azarDeLasCordilleras`). En 1-40 (09-10-2026): picos por casilla de cordillera 1,50 → 1,30, suelo
+  visible en las anchas 27,5 → 35,9 %, y en las casillas que hoy son claro el alto sumado de sus
+  picos era el de la masa (1,51 frente a 1,45) y ahora es la mitad (0,76 frente a 1,64); lo vigila
+  `test/macizo.test.ts`. La cresta, de ×1,39 a ×1,92 su falda en 1-12 (la 7 y la 8 vuelven al
+  guardia). El bosque sigue con
   la hondura entera de `analizar`. **La cubierta de lo que se pisa** (#184): en la lava, la arena,
   la ciénaga y lo áspero (`CUBIERTA[s].comoLaBarrera`: su cubierta es de la roca o la madera de la
   barrera vecina) va rala (`CLARO_COMO_LA_BARRERA`), sin manchas ni árboles, y cada pieza se encoge

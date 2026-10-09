@@ -78,8 +78,8 @@ import {
   macizoDe,
   materialDeLosMacizos,
   materialDePico,
+  PASO_DE_LOS_GRUPOS,
   PASO_DEL_RUIDO,
-  radioDePico,
 } from './macizo.js';
 import {
   type Alrededor,
@@ -649,6 +649,12 @@ function bajoLaCumbre(c: CumbrePuesta, x: number, y: number): boolean {
   return ((x - c.x) / rx) ** 2 + ((y - c.y) / ry) ** 2 < 1;
 }
 
+/**
+ * Los peñascos de un claro de la falda (`Macizo.claro`, #218), alrededor del
+ * pico bajo del relleno: el suelo asoma entre piedras.
+ */
+const PEÑASCOS_DEL_CLARO = 2;
+
 /** Tamaño del bosque: radio entre árboles y alto, en casillas, según la hondura. */
 const BOSQUE = {
   radio: (h: number) => 0.3 + Math.min(h, 3) * 0.02,
@@ -1099,6 +1105,13 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   // y el guardia de #204 (s22 (9, 18)) contaba 8 cumbres dominantes.
   let azar = azarDe(semilla * 7919 + 1);
   const azarDeLoAlto = azarDe(semilla * 3571 + 7);
+  /**
+   * Las cordilleras, con la suya (#218): cuántos picos lleva una franja de
+   * montaña depende de sus masas y sus claros, y con la corriente de siempre
+   * cada retoque de una cordillera movía los bosques y la cubierta que se visten
+   * después.
+   */
+  const azarDeLasCordilleras = azarDe(semilla * 6271 + 13);
   const { W, H } = a;
   const sprites: Sprite[] = [];
   const faltan = new Set<string>();
@@ -1886,8 +1899,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   /** Los módulos de `hoja` que van en una cordillera: sin las mesas (`esMesa`, #212). */
   const modulosDeCordillera = (hoja: string): readonly Modulo[] =>
     (modulosDe(hoja) ?? []).filter((m) => !esMesa(hoja, m));
-  /** La cresta de todos los macizos: dónde una cumbre y dónde un collado. */
-  const ruidoDeCresta = ruidoSuave(semilla * 131 + 71, PASO_DEL_RUIDO);
+  const { cresta: ruidoDeCresta, grupos: ruidoDeLosGrupos } = ruidosDelMacizo(semilla);
   const esbeltos = new Map<string, readonly Modulo[]>();
   /** Los módulos de pico ya elegidos, por su sitio: lo que mira `repiteVecino`. */
   const picosElegidos = new Map<string, { x: number; y: number; nombre: string }[]>();
@@ -1980,6 +1992,8 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     ) => { hoja: string; alto: number; t: number; nombre?: string; tono?: string };
     /** Las cumbres de la franja (`Macizo.cumbres`) con su módulo; el bosque no tiene. */
     cumbres: readonly CumbrePuesta[];
+    /** Si `(x, y)` cae en un claro de la falda (#218): sin dardos; el bosque no tiene. */
+    claro: (x: number, y: number) => boolean;
   } => {
     if (f.barrera === 'forest') {
       const hondura = (x: number, y: number) => a.hondura[Math.floor(y) * W + Math.floor(x)] ?? 1;
@@ -1995,6 +2009,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
           };
         },
         cumbres: [],
+        claro: () => false,
       };
     }
     // De la franja y no de la casilla del pico: un pico que desborda la franja
@@ -2004,23 +2019,31 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     // La cumbre es roca maciza, no aguja: `picos-afilados` mide 2 casillas de
     // ancho a 3 de alto, y una cumbre de 3 × 3 es una mole.
     const hojaDeCumbre = material === 'roca' ? 'picos-roca' : hojaDePico(material, () => 0, 1);
-    const macizo = macizoDe(f.casillas, W, H, ruidoDeCresta, (x, y, alto) => {
-      // Con el módulo más ancho de los que llegan: si ese cabe, cabe el que salga.
-      // Con las mesas, aunque no salgan (`modulosDeCordillera`): con ellas fuera
-      // cabían más cumbres en la arena, cada una con su tirada, y la corriente
-      // de azar de todo lo que se viste después cambiaba (#212).
-      const ms = modulosDe(hojaDeCumbre) ?? [];
-      const llegan = ms.filter((m) => altoMaximoDe(m) >= alto);
-      const m = (llegan.length > 0 ? llegan : ms).reduce<Modulo | undefined>(
-        (p, q) => (p === undefined || q.nw / q.nh > p.nw / p.nh ? q : p),
-        undefined,
-      );
-      if (m === undefined) return true;
-      const s = { nw: m.nw, nh: m.nh, ax: m.ax, ay: m.ay, x, y, alto, clase: 'masa' as const };
-      return reservaEn(x, y) === undefined && obstaculos.altoLibre(s) >= alto - 1e-9;
-    });
+    const macizo = macizoDe(
+      f.casillas,
+      W,
+      H,
+      ruidoDeCresta,
+      (x, y, alto) => {
+        // Con el módulo más ancho de los que llegan: si ese cabe, cabe el que salga.
+        // Con las mesas, aunque no salgan (`modulosDeCordillera`): con ellas fuera
+        // cabían más cumbres en la arena, cada una con su tirada, y la corriente
+        // de azar de todo lo que se viste después cambiaba (#212).
+        const ms = modulosDe(hojaDeCumbre) ?? [];
+        const llegan = ms.filter((m) => altoMaximoDe(m) >= alto);
+        const m = (llegan.length > 0 ? llegan : ms).reduce<Modulo | undefined>(
+          (p, q) => (p === undefined || q.nw / q.nh > p.nw / p.nh ? q : p),
+          undefined,
+        );
+        if (m === undefined) return true;
+        const s = { nw: m.nw, nh: m.nh, ax: m.ax, ay: m.ay, x, y, alto, clase: 'masa' as const };
+        return reservaEn(x, y) === undefined && obstaculos.altoLibre(s) >= alto - 1e-9;
+      },
+      ruidoDeLosGrupos,
+    );
     return {
-      radio: (x, y) => radioDePico(macizo.alto(x, y)),
+      radio: macizo.radio,
+      claro: macizo.claro,
       altoMasBajo: (x, y) => macizo.alto(x, y) * 0.75,
       modulo: (_i, x, y, factor) => {
         const cumbre = macizo.cumbre(x, y);
@@ -2134,119 +2157,17 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     const dentro = new Set(f.casillas);
     const puestos = new Set<number>();
     const caja = cajaDe(f.casillas, W);
-    const casillaDe = (x: number, y: number) => Math.floor(y) * W + Math.floor(x);
-    const marcar = (x: number, y: number) => puestos.add(casillaDe(x, y));
 
-    if (f.barrera === 'forest' || f.barrera === 'mountain') {
-      // Masa: puntos densos, desbordando un poco la franja para que el borde no sea recto.
-      const desdeLaMasa = sprites.length;
-      const forma = formaDeMasa(f);
-      // Las cumbres antes que nada (#204): son la pieza grande de la franja, y
-      // los dardos no caen sobre ellas.
-      const cumbres: CumbrePuesta[] = [];
-      for (const c of forma.cumbres)
-        if (
-          poner(
-            c.hoja,
-            c.x,
-            c.y,
-            c.alto,
-            1,
-            'masa',
-            MARCADOR[f.barrera] as string,
-            true,
-            c.nombre,
-            undefined,
-            c.tono,
-          )
-        ) {
-          cumbres.push(c);
-          // Las casillas que tapa su cuerpo están vestidas aunque no lleven dardo.
-          for (const i of f.casillas)
-            if (bajoLaCumbre(c, (i % W) + 0.5, Math.floor(i / W) + 0.5)) puestos.add(i);
-        }
-      const puntos = esparcir(
-        [caja[0] - 0.2, caja[1] - 0.2, caja[2] + 0.2, caja[3] + 0.35],
-        forma.radio,
-        (x, y) => {
-          const i = casillaDe(
-            Math.min(Math.max(x, 0), W - 0.01),
-            Math.min(Math.max(y, 0), H - 0.01),
-          );
-          // Un poco fuera, solo si la casilla de al lado es de la franja.
-          const cx = Math.round(x - 0.5);
-          const cy = Math.round(y - 0.5);
-          return (
-            (dentro.has(i) ||
-              (dentro.has(cy * W + cx) && Math.hypot(x - (cx + 0.5), y - (cy + 0.5)) < 0.75)) &&
-            !cumbres.some((c) => bajoLaCumbre(c, x, y)) &&
-            entraria('masa', x, y, forma.altoMasBajo(x, y))
-          );
-        },
-        azar,
-      );
-      for (const p of puntos) {
-        const i = casillaDe(
-          Math.min(Math.max(p.x, 0), W - 0.01),
-          Math.min(Math.max(p.y, 0), H - 0.01),
-        );
-        // Un pico al sur de un paso lo taparía entero: `poner` lo encoge hasta
-        // que su rectángulo sale del pasillo.
-        const m = forma.modulo(i, p.x, p.y, 0.85 + azar() * 0.3, true);
-        if (
-          poner(
-            m.hoja,
-            p.x,
-            p.y,
-            m.alto,
-            m.t,
-            'masa',
-            MARCADOR[f.barrera] as string,
-            true,
-            m.nombre,
-            undefined,
-            m.tono,
-          )
-        )
-          marcar(p.x, p.y);
+    if (f.barrera === 'mountain') {
+      const principal = azar;
+      azar = azarDeLasCordilleras;
+      try {
+        vestirMasa(f, dentro, puestos);
+      } finally {
+        azar = principal;
       }
-      // La casilla en la que no cayó ningún dardo se rellena: si no, una casilla
-      // que bloquea se leería como un claro que se pisa. Se prueba cerca del
-      // centro y, si ahí no entra, por el resto de la casilla, de más cerca a más
-      // lejos: una casilla suelta con caminos por tres lados queda mordida en
-      // las esquinas por los tramos en diagonal.
-      for (const i of f.casillas) {
-        if (puestos.has(i)) continue;
-        const cx = i % W;
-        const cy = Math.floor(i / W);
-        const m = forma.modulo(i, cx + 0.5, cy + 0.65, 0.75 + azar() * 0.25, false);
-        const sitios = [
-          [cx + 0.3 + azar() * 0.4, cy + 0.45 + azar() * 0.4] as const,
-          ...SITIOS_DE_RELLENO.map(([dx, dy]) => [cx + dx, cy + dy] as const),
-        ];
-        for (const [x, y] of sitios)
-          if (
-            entraria('masa', x, y, m.alto) &&
-            poner(
-              m.hoja,
-              x,
-              y,
-              m.alto,
-              m.t,
-              'masa',
-              MARCADOR[f.barrera] as string,
-              true,
-              m.nombre,
-              undefined,
-              m.tono,
-            )
-          ) {
-            marcar(x, y);
-            break;
-          }
-      }
-      if (f.barrera === 'mountain' && cumbres.length === 0) unoQueDomine(desdeLaMasa);
-    } else if (f.barrera === 'wall') {
+    } else if (f.barrera === 'forest') vestirMasa(f, dentro, puestos);
+    else if (f.barrera === 'wall') {
       vestirMuralla(f);
       for (const i of f.casillas) puestos.add(i);
       // El resto de la franja: escombro al pie de la muralla, nunca la cubierta
@@ -2300,6 +2221,162 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         poner('orilla', p.x, p.y, 0.3 + azar() * 0.12, azar(), 'orilla', '#5a5030', false);
     }
     return puestos;
+  }
+
+  /**
+   * Una masa de bosque o de montaña: puntos densos, desbordando un poco la
+   * franja para que el borde no sea recto. Apunta en `puestos` las casillas que
+   * cubre.
+   */
+  function vestirMasa(f: Franja, dentro: ReadonlySet<number>, puestos: Set<number>): void {
+    const caja = cajaDe(f.casillas, W);
+    const casillaDe = (x: number, y: number) => Math.floor(y) * W + Math.floor(x);
+    const marcar = (x: number, y: number) => puestos.add(casillaDe(x, y));
+    const desdeLaMasa = sprites.length;
+    const forma = formaDeMasa(f);
+    // Las cumbres antes que nada (#204): son la pieza grande de la franja, y
+    // los dardos no caen sobre ellas.
+    const cumbres: CumbrePuesta[] = [];
+    for (const c of forma.cumbres)
+      if (
+        poner(
+          c.hoja,
+          c.x,
+          c.y,
+          c.alto,
+          1,
+          'masa',
+          MARCADOR[f.barrera] as string,
+          true,
+          c.nombre,
+          undefined,
+          c.tono,
+        )
+      ) {
+        cumbres.push(c);
+        // Las casillas que tapa su cuerpo están vestidas aunque no lleven dardo.
+        for (const i of f.casillas)
+          if (bajoLaCumbre(c, (i % W) + 0.5, Math.floor(i / W) + 0.5)) puestos.add(i);
+      }
+    const puntos = esparcir(
+      [caja[0] - 0.2, caja[1] - 0.2, caja[2] + 0.2, caja[3] + 0.35],
+      forma.radio,
+      (x, y) => {
+        const i = casillaDe(Math.min(Math.max(x, 0), W - 0.01), Math.min(Math.max(y, 0), H - 0.01));
+        // Un poco fuera, solo si la casilla de al lado es de la franja.
+        const cx = Math.round(x - 0.5);
+        const cy = Math.round(y - 0.5);
+        return (
+          (dentro.has(i) ||
+            (dentro.has(cy * W + cx) && Math.hypot(x - (cx + 0.5), y - (cy + 0.5)) < 0.75)) &&
+          !cumbres.some((c) => bajoLaCumbre(c, x, y)) &&
+          !forma.claro(x, y) &&
+          entraria('masa', x, y, forma.altoMasBajo(x, y))
+        );
+      },
+      azar,
+    );
+    for (const p of puntos) {
+      const i = casillaDe(
+        Math.min(Math.max(p.x, 0), W - 0.01),
+        Math.min(Math.max(p.y, 0), H - 0.01),
+      );
+      // Un pico al sur de un paso lo taparía entero: `poner` lo encoge hasta
+      // que su rectángulo sale del pasillo.
+      const m = forma.modulo(i, p.x, p.y, 0.85 + azar() * 0.3, true);
+      if (
+        poner(
+          m.hoja,
+          p.x,
+          p.y,
+          m.alto,
+          m.t,
+          'masa',
+          MARCADOR[f.barrera] as string,
+          true,
+          m.nombre,
+          undefined,
+          m.tono,
+        )
+      )
+        marcar(p.x, p.y);
+    }
+    // La casilla en la que no cayó ningún dardo se rellena: si no, una casilla
+    // que bloquea se leería como un claro que se pisa. Se prueba cerca del
+    // centro y, si ahí no entra, por el resto de la casilla, de más cerca a más
+    // lejos: una casilla suelta con caminos por tres lados queda mordida en
+    // las esquinas por los tramos en diagonal.
+    for (const i of f.casillas) {
+      if (puestos.has(i)) continue;
+      const cx = i % W;
+      const cy = Math.floor(i / W);
+      const m = forma.modulo(i, cx + 0.5, cy + 0.65, 0.75 + azar() * 0.25, false);
+      const sitios = [
+        [cx + 0.3 + azar() * 0.4, cy + 0.45 + azar() * 0.4] as const,
+        ...SITIOS_DE_RELLENO.map(([dx, dy]) => [cx + dx, cy + dy] as const),
+      ];
+      for (const [x, y] of sitios)
+        if (
+          entraria('masa', x, y, m.alto) &&
+          poner(
+            m.hoja,
+            x,
+            y,
+            m.alto,
+            m.t,
+            'masa',
+            MARCADOR[f.barrera] as string,
+            true,
+            m.nombre,
+            undefined,
+            m.tono,
+          )
+        ) {
+          marcar(x, y);
+          break;
+        }
+      // Un claro de la falda (#218): su pico bajo y, alrededor, pedregal de la
+      // roca de su meseta. Es montaña y no se pisa: el suelo asoma, no se abre.
+      if (forma.claro(cx + 0.5, cy + 0.5))
+        for (let k = 0; k < PEÑASCOS_DEL_CLARO; k++) {
+          const x = cx + 0.15 + azar() * 0.7;
+          const y = cy + 0.2 + azar() * 0.7;
+          if (peñascoDeLoAlto(meseta[i] as Suelo, x, y, 0.5)) marcar(x, y);
+        }
+      // Si en el claro no entró nada en los sitios del relleno (una casilla
+      // suelta entre un acantilado y la senda, s2 (3, 22)), los dardos que el
+      // claro había quitado: una casilla de montaña nunca se queda sin nada.
+      if (!puestos.has(i))
+        for (const p of esparcir(
+          [cx, cy, cx + 1, cy + 1],
+          forma.radio,
+          (x, y) =>
+            !cumbres.some((c) => bajoLaCumbre(c, x, y)) &&
+            entraria('masa', x, y, forma.altoMasBajo(x, y)),
+          azar,
+        )) {
+          const d = forma.modulo(i, p.x, p.y, 0.85 + azar() * 0.3, true);
+          if (
+            poner(
+              d.hoja,
+              p.x,
+              p.y,
+              d.alto,
+              d.t,
+              'masa',
+              MARCADOR[f.barrera] as string,
+              true,
+              d.nombre,
+              undefined,
+              d.tono,
+            )
+          ) {
+            marcar(p.x, p.y);
+            break;
+          }
+        }
+    }
+    if (f.barrera === 'mountain' && cumbres.length === 0) unoQueDomine(desdeLaMasa);
   }
 
   /**
@@ -4755,6 +4832,22 @@ export function bajadasSobreNodo(
 }
 
 /** Ruido de valor suave, de 0 a 1, con celdas de `escala` casillas: dónde hay mancha. */
+/**
+ * Los dos ruidos de los macizos de la escena de `semilla`: el de la cresta,
+ * dónde una cumbre y dónde un collado, y el de los grupos, dónde se junta la
+ * cordillera en masas y dónde se abre en claros (#218). Exportado para que los
+ * tests miren el mismo macizo que la escena.
+ */
+export function ruidosDelMacizo(semilla: number): {
+  readonly cresta: (x: number, y: number) => number;
+  readonly grupos: (x: number, y: number) => number;
+} {
+  return {
+    cresta: ruidoSuave(semilla * 131 + 71, PASO_DEL_RUIDO),
+    grupos: ruidoSuave(semilla * 487 + 29, PASO_DE_LOS_GRUPOS),
+  };
+}
+
 export function ruidoSuave(semilla: number, escala: number): (x: number, y: number) => number {
   const valor = (ix: number, iy: number) => {
     let h =
