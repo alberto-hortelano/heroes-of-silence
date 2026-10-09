@@ -860,11 +860,20 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   40 644, batallas 1 415 → 1 456, `hero_defeated` 289 → 291,
  *   `node_captured` 1 300 → 1 250, `town_captured` 1 238 → 1 305,
  *   `march_halted` 140 → 129; ningún tipo nuevo ni ninguno que desaparezca.
+ * - `1d8c13f3…` (67 549 líneas): **las caídas largas al sur se parten** (#231,
+ *   09-10-2026): el engorde corre a trechos las caídas de 10 casillas o más
+ *   (`quebrarCaidas`) y el vestido que aún deja una no vale. Solo cambian los
+ *   mapas que tenían una: **196 de 200 idénticas**, y en las otras cuatro (s90,
+ *   s154, s171, s186) el primer hecho distinto es un `raider_spawned` del día 1
+ *   (otro vestido). 1 con otro ganador (s171), j0 114 → 115, **0 sin
+ *   terminar**, duración 8 / 15 / 21 → **8 / 15 / 22** (s186, de 11 a 22 días).
+ *   Batallas 1 456 → 1 449, `node_captured` 1 250 → 1 240, `town_captured`
+ *   1 305 → 1 300; ningún tipo nuevo ni ninguno que desaparezca.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: 'ca31c921d8388c78d4380cb80f24adcb9c452021bcd11378f8203bd71ff1248b',
+  sha: '1d8c13f35aa7feb1ee2112c915ee166014109b542ccd73ce9dd93986281cafea',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);
