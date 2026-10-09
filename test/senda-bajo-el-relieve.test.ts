@@ -33,9 +33,13 @@ const catalogo = catalogoDelDisco();
 
 /**
  * Lo más que se admite de media por mapa: entre lo de ahora (4,5 en 1-40, 4,0
- * en la muestra) y lo de antes de apartar la senda (6,3 y 7,75, #206).
+ * en la muestra) y lo de antes de apartar la senda (6,3 y 7,75, #206). La
+ * muestra son las peores de 1-40 y ya daba 5,0 justos; con la pared que pasa
+ * por detrás de los objetos (#221, 09-10-2026) da 5,25 por el azar de los
+ * módulos (s6 (14, 29): otra frontal de nieve tapa 0,53), y 1-40 baja de 1,70
+ * a 1,65.
  */
-const TECHO_POR_MAPA = 5;
+const TECHO_POR_MAPA = 5.5;
 
 const roca = catalogo.hojas['paredes-roca']?.[0] as Modulo;
 
@@ -132,6 +136,20 @@ describe('la senda bajo el relieve (#189)', () => {
     expect(sendaBajoElRelieve([muro], senda, catalogo)).toHaveLength(1);
     const bajada: Sprite = { ...muro, src: null, color: COLOR_DE_BAJADA, y: y1 + 0.01, alto: 3 };
     expect(sendaBajoElRelieve([muro, bajada], senda, catalogo)).toEqual([]);
+  });
+
+  it('lo que tapa un objeto que se pinta después de la pared no cuenta: la pared pasa por detrás de él (#221)', () => {
+    const senda = [
+      [
+        [x0 - 1, bajo],
+        [x1 + 1, bajo],
+      ],
+    ] as const;
+    const encima: Sprite = { ...muro, src: null, clase: 'objeto', y: muro.y + 0.2, x: muro.x };
+    expect(sendaBajoElRelieve([muro, encima], senda, catalogo)).toEqual([]);
+    // Si el objeto va antes, la pared lo tapa a él y a la senda: cuenta.
+    const detras: Sprite = { ...encima, y: muro.y - 0.2 };
+    expect(sendaBajoElRelieve([muro, detras], senda, catalogo)).toHaveLength(1);
   });
 
   it('ni lo que no es relieve: una masa o un objeto se apartan de la senda por su cuenta', () => {

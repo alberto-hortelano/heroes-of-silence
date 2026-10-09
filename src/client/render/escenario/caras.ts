@@ -186,3 +186,88 @@ export function carasLisas(
   }
   return fuera;
 }
+
+/**
+ * Lo más ancho que mide una tirada de frontal para contar como cabo suelto
+ * (`carasCortadas`), en casillas: una cara de dos casillas con lo que sus
+ * módulos sobresalen (`SALE_DE_SU_TRAMO`). El bloque izquierdo de s57 (29-30,
+ * 25) mide 2,2.
+ */
+export const CABO_SUELTO = 2.5;
+
+/** Lo que se tolera entre dos paredes seguidas de un borde, en casillas: más, y la tirada se corta. */
+const HUECO_DE_LA_TIRADA = 0.25;
+
+/** A qué distancia del centro de un objeto, en casillas, un corte es suyo (`carasCortadas`). */
+export const CORTE_JUNTO_A_UN_OBJETO = 2;
+
+/** Una tirada de frontal cortada junto a un objeto: su cara, por su índice, y de qué x a qué x va. */
+export interface CaraCortada {
+  readonly cara: number;
+  readonly a: number;
+  readonly b: number;
+}
+
+/**
+ * Las tiradas de frontal sueltas junto a un objeto (#221): lo que se pinta de
+ * cada cara en tiradas de paredes seguidas (`paredes-*`), de no más de
+ * `CABO_SUELTO` de ancho, con una punta que acaba en el llano —no sigue en otra
+ * pared (otra frontal, una ladera, una diagonal, una bajada), ni se mete detrás
+ * de un objeto, ni llega al borde del mapa— a `CORTE_JUNTO_A_UN_OBJETO` o menos
+ * del centro de un objeto (ciudad, pueblo, mina, nodo). Es el bloque de
+ * columnas suelto sobre el llano, «la elevación que acaba de repente»: la pared
+ * que no entraba en la reserva de una ciudad al pie de la cara (s57 (29-33,
+ * 25)). Lee lo puesto, no la regla que lo pone.
+ */
+export function carasCortadas(
+  caras: readonly Cara[],
+  sprites: readonly Sprite[],
+  objetos: readonly (readonly [number, number])[],
+  W: number,
+): CaraCortada[] {
+  const paredes = sprites
+    .filter((s) => s.clase === 'pared' && s.src?.includes('/rocas-caidas') !== true)
+    .map((s) => ({ s, caja: cajaDeSprite(s) }));
+  const cosas = sprites.filter((s) => s.clase === 'objeto').map((s) => cajaDeSprite(s));
+  const fuera: CaraCortada[] = [];
+  for (const [k, c] of caras.entries()) {
+    const [x0, filo, x1] = bandaDeCara(c);
+    const suyas = paredes.filter(
+      ({ s, caja }) =>
+        s.filaAlta === c.y &&
+        s.src?.includes('/paredes-') === true &&
+        Math.min(caja[2], x1) - Math.max(caja[0], x0) > 0.1,
+    );
+    /** Cada tirada: de qué x a qué x, y de qué y a qué y la tapan sus paredes. */
+    const tiradas: [number, number, number, number][] = [];
+    for (const { caja } of [...suyas].sort((p, q) => p.caja[0] - q.caja[0])) {
+      const ultima = tiradas.at(-1);
+      if (ultima !== undefined && caja[0] <= ultima[1] + HUECO_DE_LA_TIRADA) {
+        ultima[1] = Math.max(ultima[1], caja[2]);
+        ultima[2] = Math.min(ultima[2], caja[1]);
+        ultima[3] = Math.max(ultima[3], caja[3]);
+      } else tiradas.push([caja[0], caja[2], caja[1], caja[3]]);
+    }
+    const otras = paredes.filter((p) => !suyas.includes(p)).map((p) => p.caja);
+    /** Si en `x`, de `arriba` a `abajo`, hay otra pared o un objeto que siga la tirada. */
+    const sigue = (x: number, arriba: number, abajo: number) =>
+      // Las celdas del borde no se miran: la cara más cerca va a media casilla.
+      x <= 0.5 + HUECO_DE_LA_TIRADA ||
+      x >= W - 0.5 - HUECO_DE_LA_TIRADA ||
+      [...otras, ...cosas].some(
+        (caja) =>
+          caja[0] <= x + HUECO_DE_LA_TIRADA &&
+          caja[2] >= x - HUECO_DE_LA_TIRADA &&
+          caja[1] < abajo &&
+          caja[3] > arriba,
+      );
+    const junto = (x: number) =>
+      objetos.some(
+        ([ox, oy]) => Math.hypot(ox + 0.5 - x, oy + 0.5 - filo) <= CORTE_JUNTO_A_UN_OBJETO,
+      );
+    for (const [a, b, arriba, abajo] of tiradas)
+      if (b - a <= CABO_SUELTO && [a, b].some((x) => !sigue(x, arriba, abajo) && junto(x)))
+        fuera.push({ cara: k, a, b });
+  }
+  return fuera;
+}
