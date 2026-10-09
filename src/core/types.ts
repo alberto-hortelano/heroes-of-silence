@@ -45,6 +45,19 @@ export function describirCoste(coste: Partial<Resources>): string {
   return partes.length === 0 ? 'gratis' : partes.join(', ');
 }
 
+/**
+ * Una cifra con, como mucho, `decimales` decimales y coma, como se lee en
+ * castellano: `10,8`, no `10.8`. El único formateador de decimales: lo leen la
+ * previsión del núcleo (`damage.ts`), la de la barra y la ficha de la arena, que
+ * antes lo escribían cada uno.
+ */
+export function conComa(n: number, decimales: number): string {
+  // Sin `**`: `core` no usa potencias (CLAUDE.md, coma flotante portable).
+  let f = 1;
+  for (let i = 0; i < decimales; i++) f *= 10;
+  return (Math.round(n * f) / f).toString().replace('.', ',');
+}
+
 // ---------------------------------------------------------------- velocidad
 
 /**

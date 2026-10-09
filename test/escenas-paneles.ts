@@ -239,7 +239,7 @@ export async function escenas(): Promise<readonly Escena[]> {
   //      objetivo», que es la única rama de `renderSpells` con hueco de texto.
   const apuntando = meAtacan(7);
   apuntando.advanceEnemyTurns();
-  apuntando.selectSpell('magic_arrow');
+  apuntando.hechizos.selectSpell('magic_arrow');
   out.push({ nombre: 'batalla · hechizo elegido', session: apuntando });
 
   // 14 · Un héroe sin libro: «Este héroe no conoce ninguno». Le pasa a todo

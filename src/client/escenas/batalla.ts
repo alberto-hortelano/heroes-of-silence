@@ -18,7 +18,9 @@ import { BattleAnimator } from '../anim.js';
 import { type Angulo, bandosSinDueño, cajaDeFigura, drawBatalla } from '../render/batalla.js';
 import { cercaDelCentro, hexEnPixel, type Tablero, tableroPara } from '../render/proyeccion.js';
 import type { ControlDeBatalla } from '../session.js';
+import { nombreEnElCampo } from '../views/distintivo.js';
 import { AVISO_DE_ESPERA } from '../views/panels.js';
+import { textoDePrevision } from '../views/prevision.js';
 import { accionContra, golpeEnPixel } from './angulo.js';
 
 const SIN_NADA: ReadonlySet<string> = new Set();
@@ -37,12 +39,18 @@ function rotuloDeCarga(carga: CasillaDeCarga): string {
 
 /**
  * Lo que dice la barra con el puntero sobre un enemigo: desde qué casilla se le
- * golpearía y, si desde ahí se carga, cuánto. Exportada porque `pnpm capturas`
- * espera a leer en la página exactamente esta frase.
+ * golpearía, si desde ahí se carga, cuánto, y la previsión del golpe
+ * (`textoDePrevision`), si se da. Exportada porque `pnpm capturas` espera a leer
+ * en la página exactamente esta frase.
  */
-export function rotuloDeAngulo(elegida: Hex, carga: CasillaDeCarga | undefined): string {
+export function rotuloDeAngulo(
+  elegida: Hex,
+  carga: CasillaDeCarga | undefined,
+  prevision?: string,
+): string {
   const { col, row } = elegida;
-  return `Golpearías desde (${col},${row})${carga === undefined ? '' : `, ${rotuloDeCarga(carga)}`}.`;
+  const golpe = `Golpearías desde (${col},${row})${carga === undefined ? '' : `, ${rotuloDeCarga(carga)}`}.`;
+  return prevision === undefined ? golpe : `${golpe} ${prevision}`;
 }
 
 /**
@@ -303,25 +311,90 @@ export class EscenaBatalla {
     if (this.animador.busy) return null;
     // Sobre una casilla a la que ir no se promete carga: el clic ahí solo mueve.
     if (movimiento !== undefined) return null;
+    const hechizo = this.previsionDelHechizo();
+    if (hechizo !== null) return hechizo;
     const angulo = this.anguloActual();
     if (angulo !== null) {
-      return rotuloDeAngulo(angulo.elegida, cargaContra(s.battleCharges(), angulo));
+      const accion =
+        this.puntero === null ? undefined : this.accionContraEn(this.puntero.x, this.puntero.y);
+      return rotuloDeAngulo(
+        angulo.elegida,
+        cargaContra(s.battleCharges(), angulo),
+        this.previsionEn(accion) ?? undefined,
+      );
     }
     return this.motivoSinGolpe();
+  }
+
+  /**
+   * La previsión de lo que haría el clic sobre el enemigo señalado —el golpe
+   * desde la casilla resaltada o el disparo, `accion`—, dicha para la barra;
+   * `null` si ahí no hay nada que golpear.
+   */
+  private previsionEn(accion: BattleAction | undefined): string | null {
+    return accion === undefined ? null : this.previsionDicha(accion);
+  }
+
+  /**
+   * La previsión de una acción de la lista legal, dicha. La cuenta es del núcleo
+   * (`ControlDeBatalla.prevision`) y se hace una vez por acción: el ratón la pide
+   * en cada movimiento, y la acción es un objeto de la lista legal en caché, que
+   * se rehace cuando la batalla se mueve. Con ella se van sus entradas.
+   */
+  private previsionDicha(accion: BattleAction): string | null {
+    const hecha = this.previsiones.get(accion);
+    if (hecha !== undefined) return hecha;
+    const p = this.sesion().prevision(accion);
+    const dicha = p === null ? null : textoDePrevision(p, this.nombre());
+    this.previsiones.set(accion, dicha);
+    return dicha;
+  }
+  private readonly previsiones = new WeakMap<BattleAction, string | null>();
+
+  /**
+   * Con un hechizo elegido y el puntero sobre una unidad sobre la que se puede
+   * lanzar, lo que haría; `null` si no hay hechizo, ni objetivo válido.
+   */
+  private previsionDelHechizo(): string | null {
+    const s = this.sesion();
+    const hechizo = hechizoElegido(s);
+    if (hechizo === null || this.puntero === null) return null;
+    const objetivo = this.unidadEn(this.puntero.x, this.puntero.y);
+    if (objetivo === undefined) return null;
+    const accion = s
+      .battleLegalActions()
+      .find((a) => a.type === 'cast' && a.spell === hechizo && a.target === objetivo.id);
+    if (accion === undefined) return null;
+    return this.previsionDicha(accion);
+  }
+
+  /** Cómo se llama cada stack en el campo, para la previsión. */
+  private nombre(): (id: string) => string {
+    const battle = this.sesion().battle;
+    return (id) => {
+      const st = battle?.stacks.find((x) => x.id === id);
+      return battle === null || st === undefined ? id : nombreEnElCampo(battle, st);
+    };
   }
 
   /**
    * Sobre un enemigo al que la unidad activa no puede ni disparar ni golpear, el
    * motivo del núcleo: el MISMO que escribe el clic (`attackRejection`), para que
    * quien explora con el ratón no tenga que pulsar para enterarse (N3 de QA,
-   * 02-10-2026). Si dispararía, no se dice nada, como hasta ahora: el clic ahí
-   * no tiene sorpresa.
+   * 02-10-2026). Si dispararía, lo que daría el disparo (la previsión).
    */
   private motivoSinGolpe(): string | null {
     if (this.puntero === null) return null;
     const { x, y } = this.puntero;
     const golpe = this.golpeEn(x, y);
-    if (golpe === undefined || this.accionContraEn(x, y) !== undefined) return null;
+    if (golpe === undefined) return null;
+    const accion = this.accionContraEn(x, y);
+    // Si dispararía, lo que dice es lo que daría el disparo.
+    if (accion?.type === 'shoot') {
+      const p = this.previsionEn(accion);
+      return p === null ? null : `Dispararías. ${p}`;
+    }
+    if (accion !== undefined) return null;
     return this.sesion().attackRejection(golpe.objetivo);
   }
 

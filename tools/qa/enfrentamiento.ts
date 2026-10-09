@@ -336,6 +336,8 @@ function heroeDeLaMagia(nombre: string): HeroeDelBando {
     mando: {
       name: nombre,
       retreat: { blocked: 'en el banco no se huye' },
+      ataque: cifras.attack,
+      defensa: cifras.defense,
       spellPower: 1,
       knowledge: 2,
       mana: 20,

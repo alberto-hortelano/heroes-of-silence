@@ -465,7 +465,7 @@ document.addEventListener('click', (ev) => {
       session.playBattleAction({ type: 'surrender' });
       break;
     case 'battle-spell':
-      session.selectSpell(target.getAttribute('data-spell') as string);
+      session.hechizos.selectSpell(target.getAttribute('data-spell') as string);
       break;
     case 'auto-battle':
       session.autoResolveBattle();
@@ -501,7 +501,8 @@ document.addEventListener('keydown', (ev) => {
     session.closeTown();
     castillo.salir();
   }
-  if (ev.key === 'Escape' && session.scene === 'battle' && !jugadaEnCurso()) session.clearSpell();
+  if (ev.key === 'Escape' && session.scene === 'battle' && !jugadaEnCurso())
+    session.hechizos.clearSpell();
   // En batalla, Espacio cierra el turno de la unidad tuya que está actuando: con
   // el movimiento en tramos es lo que más se pulsa. Pasa por la misma puerta que
   // el lienzo y los botones, y sin turno propio no hace nada.

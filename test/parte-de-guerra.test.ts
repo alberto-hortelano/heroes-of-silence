@@ -67,7 +67,7 @@ describe('el parte de guerra cuenta la espera y la defensa (#82)', () => {
     // La cifra no se copia en el test: sale de lo que `effectiveDefense` hace
     // con el stack defendiéndose, así que si cambia la regla y no el texto,
     // esto se pone rojo.
-    const pct = Math.round((effectiveDefense(quien) / quien.unit.defense - 1) * 100);
+    const pct = Math.round((effectiveDefense(quien, battle.reglas) / quien.unit.defense - 1) * 100);
     expect(pct).toBeGreaterThan(0);
     expect(parte(battle, quien.side)).toContain(
       `<div>Se defiende ${nombreEnElCampo(battle, quien)}, de tu bando: +${pct}\u00a0% de defensa hasta el final de la ronda</div>`,

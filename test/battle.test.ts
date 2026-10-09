@@ -42,6 +42,7 @@ import {
   effectTotal,
   tickEffects,
 } from '../src/core/battle/effects.js';
+import { REGLAS_DEL_JUEGO } from '../src/core/battle/reglas.js';
 import type {
   BattleAction,
   BattleEvent,
@@ -97,6 +98,8 @@ const hero = (over: Partial<BattleHero> = {}): BattleHero => ({
   name: 'Prueba',
   // Sin base a la que volver: un héroe de test no se rinde salvo que se diga.
   retreat: { blocked: 'no tienes base a la que volver' },
+  ataque: 0,
+  defensa: 0,
   spellPower: 3,
   knowledge: 3,
   mana: 30,
@@ -1041,8 +1044,14 @@ describe('rasgos de criatura (#8)', () => {
   it('charge: el parte cuenta los hexes que se cobran, no los que se anduvieron', () => {
     const jinetes = stackOf('cavalry', 10);
     const piqueros = stackOf('pikeman', 40);
-    const cinco = computeDamage(jinetes, piqueros, createRng(52), { chargeHexes: 5 });
-    const siete = computeDamage(jinetes, piqueros, createRng(52), { chargeHexes: 7 });
+    const cinco = computeDamage(jinetes, piqueros, createRng(52), {
+      reglas: REGLAS_DEL_JUEGO,
+      chargeHexes: 5,
+    });
+    const siete = computeDamage(jinetes, piqueros, createRng(52), {
+      reglas: REGLAS_DEL_JUEGO,
+      chargeHexes: 7,
+    });
 
     // Por encima del tope, cargar más no pega más. El evento copia lo que la
     // fórmula cobró: si lo dedujera por su cuenta anunciaría «carga de 7 hexes»
@@ -1052,7 +1061,10 @@ describe('rasgos de criatura (#8)', () => {
     expect(siete.charge).toBe(5);
 
     // Y quien no tiene el rasgo no carga por mucho que corra.
-    const aPie = computeDamage(piqueros, jinetes, createRng(52), { chargeHexes: 5 });
+    const aPie = computeDamage(piqueros, jinetes, createRng(52), {
+      reglas: REGLAS_DEL_JUEGO,
+      chargeHexes: 5,
+    });
     expect(aPie.charge).toBe(0);
   });
 
@@ -1079,8 +1091,10 @@ describe('rasgos de criatura (#8)', () => {
     ).toBe(true);
 
     // Y el miedo se nota en el golpe: mismo dado, menos daño.
-    const conMiedo = computeDamage(esqueleto, dragon, createRng(5));
-    const sinMiedo = computeDamage({ ...esqueleto, effects: [] }, dragon, createRng(5));
+    const conMiedo = computeDamage(esqueleto, dragon, createRng(5), { reglas: REGLAS_DEL_JUEGO });
+    const sinMiedo = computeDamage({ ...esqueleto, effects: [] }, dragon, createRng(5), {
+      reglas: REGLAS_DEL_JUEGO,
+    });
     expect(conMiedo.damage).toBeLessThan(sinMiedo.damage);
   });
 
@@ -1230,9 +1244,9 @@ describe('el libro de hechizos del jugador (#4)', () => {
     // inmune, un muerto—, así que la explicación tiene que salir de `core`.
     // Antes la pantalla redactaba la suya y perdía el motivo concreto.
     const { session } = sesionEnBatalla(63, { spells: ['haste'], mana: 30 });
-    session.selectSpell('haste');
+    session.hechizos.selectSpell('haste');
 
-    expect(session.castRejection('defender-0')).toBe('"Prisa" va dirigido a un aliado');
+    expect(session.hechizos.castRejection('defender-0')).toBe('"Prisa" va dirigido a un aliado');
   });
 
   it('lo que no se puede lanzar no se ofrece, y el motivo está escrito para la persona', () => {
@@ -1241,8 +1255,8 @@ describe('el libro de hechizos del jugador (#4)', () => {
     expect(session.spellOptions()[0]!.motivo).toBe('maná insuficiente: cuesta 3 y quedan 1');
 
     // Y si lo intenta igual, ve el motivo en vez de que no pase nada.
-    session.selectSpell('magic_arrow');
-    expect(session.selectedSpell).toBeNull();
+    session.hechizos.selectSpell('magic_arrow');
+    expect(session.hechizos.selectedSpell).toBeNull();
     expect(session.status).toContain('maná insuficiente');
 
     heroe.mana = 30;
@@ -1256,9 +1270,9 @@ describe('el libro de hechizos del jugador (#4)', () => {
     const activoAntes = battle.turno?.stack;
     expect(activoAntes).toBe('attacker-0');
 
-    session.selectSpell('magic_arrow');
-    expect(session.selectedSpell).toBe('magic_arrow');
-    expect(session.castTargets()).toEqual(['defender-0']);
+    session.hechizos.selectSpell('magic_arrow');
+    expect(session.hechizos.selectedSpell).toBe('magic_arrow');
+    expect(session.hechizos.castTargets()).toEqual(['defender-0']);
 
     // Esto es lo que hace el clic en `main.ts`: buscar, no construir.
     const conjuro = session
@@ -1269,17 +1283,17 @@ describe('el libro de hechizos del jugador (#4)', () => {
 
     expect(heroe.mana).toBe(17);
     expect(battle.turno?.stack).toBe(activoAntes);
-    expect(session.selectedSpell).toBeNull();
+    expect(session.hechizos.selectedSpell).toBeNull();
     // Ya lanzó esta ronda: el libro entero queda apagado hasta la siguiente.
     expect(session.spellOptions().every((o) => !o.castable)).toBe(true);
   });
 
   it('volver a pulsar el hechizo elegido lo suelta', () => {
     const { session } = sesionEnBatalla(64, { spells: ['magic_arrow'], mana: 20 });
-    session.selectSpell('magic_arrow');
-    session.selectSpell('magic_arrow');
-    expect(session.selectedSpell).toBeNull();
-    expect(session.castTargets()).toEqual([]);
+    session.hechizos.selectSpell('magic_arrow');
+    session.hechizos.selectSpell('magic_arrow');
+    expect(session.hechizos.selectedSpell).toBeNull();
+    expect(session.hechizos.castTargets()).toEqual([]);
   });
 });
 

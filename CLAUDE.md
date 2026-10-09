@@ -138,6 +138,10 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 | Carga | `cargaDesde` (cuándo), `cargaEfectiva` (tope), `casillasDeCarga` (qué se enseña) |
 | Turno de batalla | `BattleState.turno` (`n`, ordinal); `mismoTurno`; viaja como `turnId` |
 | Tope de jugadas | `MAX_JUGADAS` |
+| Reglas de la batalla (nuestra / fheroes2) | `BattleState.reglas`; el juego entra por `createBattle` (`REGLAS_DEL_JUEGO`) y solo la arena por `crearBatallaConReglas`, `batallaDeArena`, `SesionDeArena`, `reglasDeLaURL`, `conRegla` o un `'fheroes2'` escrito (lo vigila `invariantes.test.ts`) |
+| Por qué acabó una batalla (arena) | `causaDelFinal` (`battle.ts`, con `bandoVencido`) → `finalDeArena` |
+| Enlace de una pelea de la arena | `montajeALaURL` / `montajeDeLaURL` (`?montaje=`, con `?seed=` y `?reglas=`); un parámetro repetido, `unaVezEnLaURL` |
+| Previsión de daño (barra de la partida y de la arena) | `previsionDe` → `horquillaDeDanio`, `trasElGolpe`; opciones del golpe, `opcionesDeDanio` |
 | Desenlace y causa del final (barra, crónica y nota del agente) | `finDePartida`, `desenlaceDe` (`state/desenlace.ts`) |
 | Ventaja para atacar/emboscar | `ventajaClara` (`ai/fuerza.ts`) |
 | Lo que se anda hoy (marcha y ruta) | `pasosDeHoy` (`state/game.ts`) |
@@ -542,7 +546,11 @@ antes del destino (`battle_started` con `faltan`).
   las moradas son de cada facción.
 - **Arena** (`pnpm arena`): cifras que no pasan por el catálogo, validadas por
   `validarUnidadDeArena`, guardadas en `data/borradores/unidades.json`, que el
-  juego no lee. Velocidad en casillas (`escalonDeCasillas`). `SesionDeArena`
+  juego no lee. Es también el banco de combate: criaturas del catálogo (editarlas
+  es una prueba que no se guarda), un héroe por lado con libro (`heroeDeArena`) y
+  seis interruptores de reglas por pelea (`battle/reglas.ts`, `?reglas=` con la
+  semilla); con todos en «nuestra» pelea como el juego. «Copiar enlace de la
+  pelea» escribe el montaje entero (`?montaje=`); abrirlo lo monta sin luchar. Velocidad en casillas (`escalonDeCasillas`). `SesionDeArena`
   vive en `session.ts`. Una unidad con el arte a medias (el taller generándola)
   se lista como incompleta con su motivo y no se monta —nunca el Y Bot en su
   lugar—; `vite build` lo avisa y no falla (`arteEnOchoDirecciones`, #140).

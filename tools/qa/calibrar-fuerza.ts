@@ -109,6 +109,8 @@ function bando(f: Foto): BattleSide {
       mando: {
         name: f.hero.name,
         retreat: { purse: Number.MAX_SAFE_INTEGER },
+        ataque: f.hero.attack,
+        defensa: f.hero.defense,
         spellPower: f.hero.spellPower,
         knowledge: f.hero.knowledge,
         mana: f.hero.mana,

@@ -17,6 +17,7 @@ import {
   legalActionsAndCosts,
   MAX_JUGADAS,
   type Movibles,
+  opcionesDeDanio,
   pasosQueQuedan,
   splashTargets,
   stackById,
@@ -25,7 +26,7 @@ import {
   sumaDelBando,
 } from '../battle/battle.js';
 import { hexDistance, hexKey, neighbours, type Paso } from '../battle/board.js';
-import { CHANCE_PER_POINT, cargaEfectiva, expectedDamage, stackHp } from '../battle/damage.js';
+import { cargaEfectiva, expectedDamage, stackHp, valorDeEfectoDeDanio } from '../battle/damage.js';
 import { roundsLeftOf, type StackEffect } from '../battle/effects.js';
 import { effectOfSpell, type Spell, spell, spellAmount } from '../battle/spells.js';
 import type { BattleAction, BattleHero, BattleStack, BattleState, Side } from '../battle/types.js';
@@ -103,7 +104,10 @@ function aQuienIr(
   let valorMejor = Number.NEGATIVE_INFINITY;
   for (const e of enemigos) {
     const vida = Math.max(1, stackHp(e));
-    const valor = (threat(state, e) * Math.min(vida, golpes * expectedDamage(s, e))) / vida;
+    const valor =
+      (threat(state, e) *
+        Math.min(vida, golpes * expectedDamage(s, e, opcionesDeDanio(state, s, e)))) /
+      vida;
     if (valor > valorMejor) {
       mejor = e;
       valorMejor = valor;
@@ -191,7 +195,7 @@ function mejorGolpe(state: BattleState, a: BattleStack, pasos: number): Rinde {
   let mejor = NADA;
   for (const e of enemiesOf(state, a)) {
     if (!tira && distanceTo(a.hex, e) > pasos + 1) continue;
-    const r = rindeContra(state, e, golpes * expectedDamage(a, e));
+    const r = rindeContra(state, e, golpes * expectedDamage(a, e, opcionesDeDanio(state, a, e)));
     if (r.amenaza > mejor.amenaza) mejor = r;
   }
   return mejor;
@@ -257,7 +261,7 @@ function rindeTemporal(
         amenaza: Math.abs(despues.amenaza - antes.amenaza),
       };
     } else {
-      hoy = escalar(mejorGolpe(state, objetivo, pasos), Math.abs(amount) * CHANCE_PER_POINT);
+      hoy = escalar(mejorGolpe(state, objetivo, pasos), valorDeEfectoDeDanio(efecto, objetivo));
     }
   }
 
@@ -274,7 +278,7 @@ function rindeTemporal(
   const porRonda =
     sp.kind === 'speed'
       ? escalar(golpe, tira ? 0 : FRACCION_TEMPO)
-      : escalar(golpe, Math.abs(amount) * CHANCE_PER_POINT);
+      : escalar(golpe, valorDeEfectoDeDanio(efecto, objetivo));
   return { pv: hoy.pv + despues * porRonda.pv, amenaza: hoy.amenaza + despues * porRonda.amenaza };
 }
 
@@ -305,7 +309,7 @@ function spellRinde(
       // qué colgaría, así que la duración no se recalcula aquí. Solo devuelve
       // `null` fuera de estas dos ramas: no rinde y no lanza, porque esto es
       // una heurística, no una regla.
-      const efecto = effectOfSpell(sp, caster);
+      const efecto = effectOfSpell(sp, caster, state.reglas);
       return efecto === null ? NADA : rindeTemporal(state, sp, efecto, objetivo);
     }
     case 'heal': {

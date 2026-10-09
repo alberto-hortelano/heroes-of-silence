@@ -205,6 +205,21 @@ describe('contrato con el agente', () => {
     expect(battleActionSchema.safeParse(chooseBattleAction(battle)).success).toBe(true);
   });
 
+  it('el agente no puede encender un interruptor de reglas: el esquema no los lleva', () => {
+    // Las reglas de la batalla (`battle/reglas.ts`) solo las cambia la arena. Lo
+    // que el agente manda pasa por estos esquemas, y un `reglas` colado se cae
+    // al parsear: no llega a ningún sitio que lo pudiera leer.
+    const conReglas = {
+      action: { type: 'end_turn', reglas: { tirador: 'fheroes2' } },
+      reasoning: 'probando',
+      reglas: { bendicion: 'fheroes2' },
+    };
+    const r = responseSchemas.battle_turn.safeParse(conReglas);
+    expect(r.success).toBe(true);
+    expect(JSON.stringify(r.data)).not.toContain('reglas');
+    expect(JSON.stringify(r.data)).not.toContain('fheroes2');
+  });
+
   it('el plan del generador procedural pasa el esquema de mapa', () => {
     for (const semilla of [1, 5, 50]) {
       const plan = generateMapPlan(createRng(semilla));

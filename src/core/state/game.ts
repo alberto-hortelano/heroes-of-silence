@@ -5,7 +5,7 @@
  * pasar. Cuando todos han pasado, avanza el día; los lunes crecen las moradas.
  */
 import { autoResolve, type BattleOutcome } from '../ai/tactics.js';
-import { type BattleMember, type BattleSide, createBattle } from '../battle/battle.js';
+import { type BattleMember, type BattleSide, createBattle, mandoDe } from '../battle/battle.js';
 import { stackHp } from '../battle/damage.js';
 import { resumenDeBatalla } from '../battle/resumen.js';
 import type { BattleHero, BattleStack, BattleState, Side } from '../battle/types.js';
@@ -2346,15 +2346,7 @@ function battleSideForHero(state: GameState, hero: Hero, side: Side): BattleSide
     army: troopsAsStacks(hero.army),
     hero: {
       cuerpo: heroUnit(hero),
-      mando: {
-        name: hero.name,
-        retreat: retiradaDe(state, hero, side),
-        spellPower: hero.spellPower,
-        knowledge: hero.knowledge,
-        mana: hero.mana,
-        castThisRound: false,
-        spells: hero.spells,
-      },
+      mando: mandoDe(hero, retiradaDe(state, hero, side)),
     },
     moraleBonus: moraleBonus(hero) + (pueblo === undefined ? 0 : moraleFromBuildings(pueblo)),
     luckBonus: luckBonus(hero),

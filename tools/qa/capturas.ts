@@ -58,10 +58,19 @@ import {
 } from '../../src/client/session.js';
 import { nombreEnElCampo } from '../../src/client/views/distintivo.js';
 import { AVISO_DE_ESPERA, explicacionDeFin, rotuloDeDia } from '../../src/client/views/panels.js';
+import { textoDePrevision } from '../../src/client/views/prevision.js';
 import { chooseBattleAction } from '../../src/core/ai/tactics.js';
-import { LADOS, ladoDe, type UnidadDeArena, unidadPorDefecto } from '../../src/core/arena.js';
+import {
+  type HeroeDeArena,
+  LADOS,
+  ladoDe,
+  type UnidadDeArena,
+  unidadPorDefecto,
+} from '../../src/core/arena.js';
 import { isAlive, mismoTurno, quedanCasillas, stackHexes } from '../../src/core/battle/battle.js';
 import { hexDistance, hexEquals } from '../../src/core/battle/board.js';
+import { REGLAS_DEL_JUEGO, type ReglasDeBatalla } from '../../src/core/battle/reglas.js';
+import { allSpells } from '../../src/core/battle/spells.js';
 import type {
   BattleAction,
   BattleEvent,
@@ -696,9 +705,15 @@ async function moverDosTramosYAtacar(
   await page.mouse.move(b.x + px - 8, b.y + py);
   await page.mouse.move(b.x + px, b.y + py);
   // La frase exacta, de la misma función que la escribe en la página.
+  // Con la previsión del golpe, de la misma cuenta del núcleo (`Session.prevision`).
+  const prevista = espejo.prevision(accion);
+  if (prevista === null) throw new Error('el golpe del ángulo no tiene previsión');
   const rotulo = rotuloDeAngulo(
     desde,
     cargaContra(espejo.battleCharges(), { objetivo: objetivo.id, elegida: desde }),
+    textoDePrevision(prevista, (id) =>
+      nombreEnElCampo(battle, battle.stacks.find((x) => x.id === id) as BattleStack),
+    ),
   );
   await page
     .waitForFunction((r) => document.getElementById('status')?.textContent?.trim() === r, rotulo, {
@@ -778,16 +793,49 @@ async function turnoDeBatalla(
   } else if (n === 2 && hechizo !== undefined) {
     const objetivoId = hechizo.targets[0] as string;
     await page.getByRole('button', { name: new RegExp(hechizo.name) }).click();
-    espejo.selectSpell(hechizo.id);
+    espejo.hechizos.selectSpell(hechizo.id);
     await sleep(200);
     await captura(page, 'desktop-06-batalla-apuntando-hechizo');
     const objetivo = battle.stacks.find((s) => s.id === objetivoId) as BattleStack;
     const px = await pixelDeUnidad(page, espejo, objetivo);
-    await page.mouse.click(px.x, px.y);
     const cast = acciones.find(
       (a) => a.type === 'cast' && a.spell === hechizo.id && a.target === objetivoId,
     ) as BattleAction;
+    // La previsión del hechizo en la batalla del JUEGO, no solo en la arena (QA
+    // del banco, vuelta 1): el puntero sobre el objetivo, la barra dice lo que
+    // dice el núcleo para el espejo, y el clic hace eso.
+    await page.mouse.move(px.x - 6, px.y);
+    await page.mouse.move(px.x, px.y);
+    const prevista = espejo.prevision(cast);
+    if (prevista === null || prevista.kind !== 'hechizo') {
+      throw new Error(`el hechizo ${hechizo.id} del juego no tiene previsión`);
+    }
+    const nombre = (id: string): string =>
+      nombreEnElCampo(battle, battle.stacks.find((x) => x.id === id) as BattleStack);
+    const dicha = textoDePrevision(prevista, nombre);
+    await page
+      .waitForFunction((r) => document.getElementById('status')?.textContent?.trim() === r, dicha, {
+        timeout: 3000,
+      })
+      .catch(async () => {
+        throw new Error(
+          `la previsión de ${hechizo.id} en el juego debía decir «${dicha}» y la barra dice «${await page.locator('#status').innerText()}»`,
+        );
+      });
+    await captura(page, 'desktop-06b-batalla-prevision-hechizo');
+    await page.mouse.click(px.x, px.y);
+    const desde = battle.log.length;
     espejo.playBattleAction(cast);
+    const lanzado = battle.log.slice(desde).find((e) => e.kind === 'cast');
+    if (
+      prevista.danio !== null &&
+      (lanzado?.kind !== 'cast' || lanzado.damage !== prevista.danio)
+    ) {
+      throw new Error(
+        `${hechizo.id} hizo ${JSON.stringify(lanzado)} y la previsión decía ${prevista.danio}`,
+      );
+    }
+    log(`juego: previsión de ${hechizo.id} — «${dicha}»`);
   } else {
     const ia = chooseBattleAction(battle);
     const objetivo =
@@ -893,6 +941,23 @@ async function avisoQueSeRetira(
 // --------------------------------------------------------------------- partidas
 
 /**
+ * Espera a que los iconos de los recursos sustituyan a sus muestras de color: la
+ * barra crece entonces (1,4 px en escritorio, 3,4 en el móvil) y el lienzo baja
+ * otro tanto. Midiendo antes, con la máquina cargada (carga ~40, 09-10-2026), la
+ * caja era la de la barra sin iconos y la partida de la pasada, abierta tras
+ * pintar el suelo, ya no cuadraba.
+ */
+async function conLosIconosDeLaBarra(page: Page): Promise<void> {
+  await page.waitForFunction(
+    () =>
+      document.querySelectorAll('#resources .swatch').length === 0 &&
+      [...document.querySelectorAll<HTMLImageElement>('#resources img')].every((i) => i.complete),
+    undefined,
+    { timeout: 30_000 },
+  );
+}
+
+/**
  * La caja del lienzo de escritorio, medida en una página de verdad: lo que una
  * búsqueda en el espejo llama «a la vista» depende de ella, y la partida no la
  * cambia (`abrir` lo comprueba con `esperada`). Se mide una vez por corrida.
@@ -905,6 +970,7 @@ function cajaDeEscritorio(browser: Browser, url: string, problemas: Problemas): 
       semilla: 1,
       sinSuelo: true,
     });
+    await conLosIconosDeLaBarra(page);
     const b = await caja(page);
     await page.close();
     log(
@@ -925,6 +991,7 @@ function cajaDeMovil(browser: Browser, url: string, problemas: Problemas): Promi
       movil: true,
       sinSuelo: true,
     });
+    await conLosIconosDeLaBarra(page);
     const b = await caja(page);
     await page.close();
     log(
@@ -2421,13 +2488,28 @@ function deHoja(
  * DESPUÉS deja jugar a la IA.
  */
 function espejoDeLaArena(hojas: ReturnType<typeof hojasDeArena>, semilla: number): SesionDeArena {
-  const puesto = (unidad: UnidadDeArena, ia: boolean): PuestoDeArena => ({ unidad, ia });
+  const puesto = (unidad: UnidadDeArena, ia: boolean): PuestoDeArena => ({
+    fuente: { kind: 'borrador', unidad },
+    ia,
+  });
   const espejo = new SesionDeArena(
-    [
-      puesto(deHoja(hojas, 'templario-escudo', { attack: ATAQUE_EDITADO }), false),
-      puesto(deHoja(hojas, 'templario-monje'), true),
-    ],
-    [puesto(deHoja(hojas, 'orko-dos-armas'), true), puesto(deHoja(hojas, 'goblin-arquero'), true)],
+    {
+      izquierda: {
+        puestos: [
+          puesto(deHoja(hojas, 'templario-escudo', { attack: ATAQUE_EDITADO }), false),
+          puesto(deHoja(hojas, 'templario-monje'), true),
+        ],
+        heroe: null,
+      },
+      derecha: {
+        puestos: [
+          puesto(deHoja(hojas, 'orko-dos-armas'), true),
+          puesto(deHoja(hojas, 'goblin-arquero'), true),
+        ],
+        heroe: null,
+      },
+      reglas: REGLAS_DEL_JUEGO,
+    },
     semilla,
   );
   espejo.empezar();
@@ -2507,7 +2589,8 @@ function campoDelEspejo(s: SesionDeArena): string[] {
 }
 
 async function campoDeLaPagina(page: Page): Promise<string[]> {
-  return (await page.locator('#side .stack .count').allInnerTexts()).map((t) =>
+  // `div.stack`: los botones del libro también son `.stack` y llevan su coste en `.count`.
+  return (await page.locator('#side div.stack .count').allInnerTexts()).map((t) =>
     t.replace(/\s+/g, ' ').trim(),
   );
 }
@@ -2574,8 +2657,17 @@ async function todoIA(
   await page.locator('#bando-izquierda .puesto').first().locator('[data-ia="si"]').click();
   await page.locator('[data-hoja-catalogo="orko-dos-armas"] [data-lado="derecha"]').click();
   const espejo = new SesionDeArena(
-    [{ unidad: izquierda, ia: true }],
-    [{ unidad: derecha, ia: true }],
+    {
+      izquierda: {
+        puestos: [{ fuente: { kind: 'borrador', unidad: izquierda }, ia: true }],
+        heroe: null,
+      },
+      derecha: {
+        puestos: [{ fuente: { kind: 'borrador', unidad: derecha }, ia: true }],
+        heroe: null,
+      },
+      reglas: REGLAS_DEL_JUEGO,
+    },
     semilla,
   );
   espejo.empezar();
@@ -2834,6 +2926,377 @@ async function jugarArena(
     deHoja(hojas, 'orko-dos-armas'),
   );
   await page.close();
+  await bancoDeCombate(browser, url, problemas);
+  await enlaceDeLaPelea(browser, url, problemas);
+}
+
+// ------------------------------------------------------------- banco de combate
+
+/** Las reglas de la pelea del banco: las del juego con el tirador de fheroes2. */
+const REGLAS_DEL_BANCO: ReglasDeBatalla = Object.freeze({
+  ...REGLAS_DEL_JUEGO,
+  tirador: 'fheroes2',
+});
+
+/**
+ * El héroe de la pelea del banco tal como lo deja la página: el nombre y el libro
+ * de uno recién puesto (todos los hechizos) y el poder y el conocimiento que el
+ * guion escribe en su ficha.
+ */
+const HEROE_DEL_BANCO: HeroeDeArena = {
+  nombre: 'Héroe izquierdo',
+  figura: null,
+  ataque: 2,
+  defensa: 2,
+  poder: 3,
+  conocimiento: 3,
+  hechizos: allSpells().map((s) => s.id),
+};
+
+/** El espejo de la pelea del banco: la caballería del catálogo y el héroe, contra esqueletos. */
+function espejoDelBanco(semilla: number): SesionDeArena {
+  const espejo = new SesionDeArena(
+    {
+      izquierda: {
+        puestos: [{ fuente: { kind: 'catalogo', id: 'cavalry', cambios: null }, ia: false }],
+        heroe: { datos: HEROE_DEL_BANCO, ia: false },
+      },
+      derecha: {
+        puestos: [
+          { fuente: { kind: 'catalogo', id: 'skeleton', cambios: null }, ia: true },
+          { fuente: { kind: 'catalogo', id: 'archer', cambios: null }, ia: true },
+        ],
+        heroe: null,
+      },
+      reglas: REGLAS_DEL_BANCO,
+    },
+    semilla,
+  );
+  espejo.empezar();
+  return espejo;
+}
+
+/** La Flecha mágica de la persona sobre el primer enemigo al que se le puede lanzar. */
+function flechaDelEspejo(espejo: SesionDeArena): (BattleAction & { type: 'cast' }) | undefined {
+  return espejo
+    .battleLegalActions()
+    .find(
+      (a): a is BattleAction & { type: 'cast' } => a.type === 'cast' && a.spell === 'magic_arrow',
+    );
+}
+
+/**
+ * La semilla de la pelea del banco: la primera en la que la persona, en su primer
+ * turno, puede lanzar la Flecha mágica y, jugando la pauta, llega a golpear.
+ */
+function buscarBanco(): number {
+  for (let semilla = 1; semilla <= TOPE_DE_SEMILLAS; semilla++) {
+    const espejo = espejoDelBanco(semilla);
+    const flecha = flechaDelEspejo(espejo);
+    if (flecha === undefined) continue;
+    espejo.playBattleAction(flecha);
+    let tramos = 0;
+    for (let jugadas = 0; jugadas < 200 && espejo.battle.finished === null; jugadas++) {
+      const jugada = jugadaDeLaPauta(espejo, tramos, 0);
+      if (jugada.tipo === 'golpe') return semilla;
+      if (jugada.tipo === 'tramo') {
+        espejo.playBattleAction(jugada.mover);
+        tramos++;
+      } else espejo.playBattleAction({ type: 'end_turn' });
+    }
+  }
+  throw new Error(`banco: en las semillas 1–${TOPE_DE_SEMILLAS} el héroe no lanza o nadie golpea`);
+}
+
+/** Espera a que la barra diga exactamente `texto`. */
+async function barraDice(page: Page, texto: string, que: string): Promise<void> {
+  await page
+    .waitForFunction((r) => document.getElementById('status')?.textContent?.trim() === r, texto, {
+      timeout: 3000,
+    })
+    .catch(async () => {
+      throw new Error(
+        `banco: ${que}: la barra debía decir «${texto}» y dice «${await page.locator('#status').innerText()}»`,
+      );
+    });
+}
+
+/**
+ * El banco de combate en la arena, con clics de verdad (#ciclo 2026-10-09): una
+ * criatura del CATÁLOGO del juego (la caballería) y un HÉROE con libro a la
+ * izquierda, el interruptor del tirador en fheroes2 desde la URL, la Flecha
+ * mágica lanzada con un clic tras leer su previsión en la barra, y el primer
+ * golpe con su previsión, las dos de la misma cuenta del núcleo que el espejo.
+ */
+async function bancoDeCombate(browser: Browser, url: string, problemas: Problemas): Promise<void> {
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  vigilarConsola(page, 'banco', problemas);
+  const semilla = buscarBanco();
+  log(`banco: semilla ${semilla}, buscada en el espejo`);
+  await page.goto(`${url}/arena/?seed=${semilla}&reglas=tirador`, { waitUntil: 'networkidle' });
+  await page.locator('[data-hoja-catalogo]').first().waitFor({ timeout: 5000 });
+  const cabecera = await page.locator('#catalogo h3').first().innerText();
+  if (!/1 de fheroes2/i.test(cabecera)) {
+    throw new Error(`banco: la URL pide el tirador de fheroes2 y el montaje dice «${cabecera}»`);
+  }
+  await page.locator('[data-arena="filtro"][data-faccion="catalogo"]').click();
+  await page.locator('[data-criatura-catalogo="cavalry"] [data-lado="izquierda"]').click();
+  await page.locator('[data-criatura-catalogo="skeleton"] [data-lado="derecha"]').click();
+  await page.locator('[data-criatura-catalogo="archer"] [data-lado="derecha"]').click();
+  await page.locator('[data-arena="poner-heroe"][data-lado="izquierda"]').click();
+  for (const [campo, valor] of [
+    ['poder', HEROE_DEL_BANCO.poder],
+    ['conocimiento', HEROE_DEL_BANCO.conocimiento],
+  ] as const) {
+    const c = page.locator(`#ficha [data-heroe-campo="${campo}"]`);
+    await c.fill(String(valor));
+    await c.press('Tab');
+  }
+  await page
+    .locator('#ficha .efectivos', {
+      hasText: `${HEROE_DEL_BANCO.conocimiento * 10} (10 × Conocimiento)`,
+    })
+    .waitFor({ timeout: 2000 });
+  const sello = await page
+    .locator('#bando-izquierda .puesto', { hasText: 'Caballería' })
+    .innerText();
+  if (!/catálogo/i.test(sello))
+    throw new Error(`banco: la caballería no lleva el sello del catálogo: «${sello}»`);
+  await sleep(300);
+  await captura(page, 'arena-05-banco-montaje');
+
+  const espejo = espejoDelBanco(semilla);
+  await page.locator('[data-arena="luchar"]').click();
+  await page.locator('#app[data-escena="battle"]').waitFor({ timeout: 2000 });
+  if (!page.url().includes('reglas=tirador')) {
+    throw new Error(`banco: la URL de la pelea no lleva las reglas: ${page.url()}`);
+  }
+  await esperarCola(espejo.battle, espejo.battle.log);
+  await mismaPelea(page, espejo, 'empezar la pelea del banco');
+
+  // La Flecha mágica: el botón del libro, el puntero sobre el objetivo hasta que
+  // la barra dice su previsión, y el clic.
+  const flecha = flechaDelEspejo(espejo);
+  if (flecha === undefined || flecha.target === undefined) {
+    throw new Error('banco: el espejo no deja lanzar la Flecha mágica');
+  }
+  await page.locator('#side [data-action="battle-spell"][data-spell="magic_arrow"]').click();
+  espejo.hechizos.selectSpell('magic_arrow');
+  const objetivo = espejo.battle.stacks.find((x) => x.id === flecha.target) as BattleStack;
+  const px = await pixelDeUnidad(page, espejo, objetivo);
+  await page.mouse.move(px.x - 6, px.y);
+  await page.mouse.move(px.x, px.y);
+  const nombre = (id: string): string =>
+    nombreEnElCampo(espejo.battle, espejo.battle.stacks.find((x) => x.id === id) as BattleStack);
+  const prevista = espejo.prevision(flecha);
+  if (prevista === null) throw new Error('banco: la Flecha mágica no tiene previsión');
+  await barraDice(page, textoDePrevision(prevista, nombre), 'la previsión de la Flecha mágica');
+  await captura(page, 'arena-06-prevision-hechizo');
+  const antes = espejo.battle.log.length;
+  await page.mouse.click(px.x, px.y);
+  espejo.playBattleAction(flecha);
+  const lanzada = espejo.battle.log.slice(antes).find((e) => e.kind === 'cast');
+  if (
+    lanzada?.kind !== 'cast' ||
+    prevista.kind !== 'hechizo' ||
+    lanzada.damage !== prevista.danio
+  ) {
+    throw new Error(
+      `banco: la Flecha mágica hizo ${JSON.stringify(lanzada)} y se preveía ${prevista.kind === 'hechizo' ? prevista.danio : '?'}`,
+    );
+  }
+  await esperarCola(espejo.battle, espejo.battle.log.slice(antes));
+  await mismaPelea(page, espejo, 'lanzar la Flecha mágica');
+  log(
+    `banco: Flecha mágica lanzada con un clic: ${lanzada.damage} de daño, como decía la previsión`,
+  );
+
+  // Hasta el primer golpe, con la pauta de la arena; el golpe, con su previsión.
+  let tramos = 0;
+  for (let jugadas = 0; espejo.battle.finished === null; jugadas++) {
+    if (jugadas > 200) throw new Error('banco: nadie golpea en 200 jugadas');
+    const desde = espejo.battle.log.length;
+    const jugada = jugadaDeLaPauta(espejo, tramos, 0);
+    if (jugada.tipo === 'golpe') {
+      const g = await pixelDeUnidad(page, espejo, jugada.contra);
+      if (g.accion === undefined)
+        throw new Error(`banco: el clic sobre ${jugada.contra.id} no da acción`);
+      await page.mouse.move(g.x - 6, g.y);
+      await page.mouse.move(g.x, g.y);
+      const p = espejo.prevision(g.accion);
+      if (p === null) throw new Error('banco: el golpe no tiene previsión');
+      const texto = textoDePrevision(p, nombre);
+      const aqui = (espejo.turnoPropio as { stack: BattleStack }).stack.hex;
+      const desdeDonde = g.accion.type === 'attack' ? (g.accion.from ?? aqui) : aqui;
+      const esperado =
+        g.accion.type === 'shoot'
+          ? `Dispararías. ${texto}`
+          : rotuloDeAngulo(
+              desdeDonde,
+              cargaContra(espejo.battleCharges(), {
+                objetivo: jugada.contra.id,
+                elegida: desdeDonde,
+              }),
+              texto,
+            );
+      await barraDice(page, esperado, 'la previsión del golpe');
+      await captura(page, 'arena-07-prevision-golpe');
+      log(`banco: previsión del golpe — «${esperado}»`);
+      await page.mouse.click(g.x, g.y);
+      espejo.playBattleAction(g.accion);
+      await esperarCola(espejo.battle, espejo.battle.log.slice(desde));
+      break;
+    }
+    if (jugada.tipo === 'tramo') {
+      const b0 = await caja(page);
+      const c = centroHex(tableroPara(b0.width, b0.height), jugada.mover.to);
+      const b = await alcanzar(page, c.x);
+      await page.mouse.click(b.x + c.x, b.y + c.y);
+      espejo.playBattleAction(jugada.mover);
+      tramos++;
+    } else {
+      await page.getByRole('button', { name: 'Terminar turno' }).click();
+      espejo.playBattleAction({ type: 'end_turn' });
+    }
+    await esperarCola(espejo.battle, espejo.battle.log.slice(desde));
+    if (espejo.battle.finished === null)
+      await mismaPelea(page, espejo, `la jugada ${jugadas} del banco`);
+  }
+  await page.close();
+}
+
+// ------------------------------------------------------------- el enlace de la pelea
+
+/** Pulsa Luchar con todo en IA y devuelve el panel del final, parte incluido. */
+async function lucharHastaElFinal(page: Page, que: string): Promise<string> {
+  await page.locator('[data-arena="luchar"]').click();
+  await page.locator('#app[data-escena="battle"]').waitFor({ timeout: 2000 });
+  await page
+    .locator('#side h2', { hasText: /^(Gana|Sin vencedor)/ })
+    .waitFor({ timeout: 180_000 })
+    .catch(async () => {
+      throw new Error(
+        `enlace: ${que}: la pelea no termina; el panel dice «${await page.locator('#side').innerText()}»`,
+      );
+    });
+  return page.locator('#side').innerText();
+}
+
+/** Lo que dice el montaje de los dos bandos, para comparar dos páginas. */
+async function bandosDichos(page: Page): Promise<string> {
+  const izquierda = await page.locator('#bando-izquierda').innerText();
+  const derecha = await page.locator('#bando-derecha').innerText();
+  return `${izquierda}\n---\n${derecha}`;
+}
+
+/**
+ * El enlace de la pelea (H6 de QA del banco): se monta con clics una pelea con
+ * todo lo que lleva el enlace —una hoja con una cifra sin guardar, una criatura
+ * del catálogo con su prueba, un héroe con su hoja de figura y sus cifras en cada
+ * lado, todo en IA, y dos reglas de fheroes2—, se copia el enlace, se lucha, y
+ * el enlace abierto en otra página monta lo mismo, se queda en el montaje sin
+ * luchar y da el mismo parte, carácter a carácter. Un enlace roto y un
+ * `?reglas=` repetido se rechazan diciéndolo.
+ */
+async function enlaceDeLaPelea(browser: Browser, url: string, problemas: Problemas): Promise<void> {
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  vigilarConsola(page, 'enlace', problemas);
+  await page.goto(`${url}/arena/?seed=11&reglas=tirador,bendicion`, { waitUntil: 'networkidle' });
+  await page.locator('[data-hoja-catalogo]').first().waitFor({ timeout: 5000 });
+  const campo = async (selector: string, valor: string): Promise<void> => {
+    const c = page.locator(`#ficha ${selector}`);
+    await c.fill(valor);
+    await c.press('Tab');
+  };
+  await page.locator('[data-hoja-catalogo="templario-escudo"] [data-lado="izquierda"]').click();
+  await campo('[data-campo="attack"]', '11');
+  await page.locator('[data-hoja-catalogo="orko-dos-armas"] [data-lado="derecha"]').click();
+  await page.locator('[data-arena="filtro"][data-faccion="catalogo"]').click();
+  await page.locator('[data-criatura-catalogo="pikeman"] [data-lado="izquierda"]').click();
+  await campo('[data-catalogo-campo="attack"]', '8');
+  await page.locator('[data-criatura-catalogo="archer"] [data-lado="derecha"]').click();
+  for (const lado of ['izquierda', 'derecha'] as const) {
+    await page.locator(`[data-arena="poner-heroe"][data-lado="${lado}"]`).click();
+    await campo('[data-heroe-campo="poder"]', lado === 'izquierda' ? '3' : '2');
+    const figuras = page.locator('#ficha [data-heroe-campo="figura"] option');
+    const figura = await figuras.nth(lado === 'izquierda' ? 1 : 2).getAttribute('value');
+    if (figura === null || figura === '')
+      throw new Error('enlace: no hay hojas de héroe que elegir');
+    await page.locator('#ficha [data-heroe-campo="figura"]').selectOption(figura);
+    // Sin el Rayo: con él, el héroe de la IA mata al otro en la ronda 1 (H2 de
+    // QA, que no se toca) y el parte que se compara sería de tres líneas. Quitarlo
+    // ejerce además el libro del enlace.
+    await page.locator('#ficha [data-heroe-hechizo="lightning_bolt"]').uncheck();
+    await page.locator(`[data-arena="manda-heroe"][data-lado="${lado}"][data-ia="si"]`).click();
+  }
+  for (const boton of await page.locator('#bando-izquierda .puesto [data-ia="si"]').all()) {
+    await boton.click();
+  }
+  const montado = await bandosDichos(page);
+  if (!/6 hechizos/.test(montado)) {
+    throw new Error(`enlace: los héroes no llevan el libro sin el Rayo: «${montado}»`);
+  }
+  if (!/catálogo · prueba que no se guarda/i.test(montado) || !/IA/.test(montado)) {
+    throw new Error(`enlace: el montaje no lleva la prueba del catálogo: «${montado}»`);
+  }
+  await page.locator('[data-arena="enlace"]').click();
+  const campoDelEnlace = page.locator('[data-enlace-de-pelea]');
+  await campoDelEnlace.waitFor({ timeout: 2000 });
+  const enlace = await campoDelEnlace.inputValue();
+  if (!enlace.includes('seed=11') || !enlace.includes('reglas=tirador,bendicion')) {
+    throw new Error(`enlace: el enlace no lleva la semilla y las reglas: ${enlace}`);
+  }
+  log(`enlace: ${enlace.length} caracteres; barra: «${await page.locator('#status').innerText()}»`);
+  await sleep(300);
+  await captura(page, 'arena-08-enlace-copiado');
+  const parte = await lucharHastaElFinal(page, 'la pelea montada a mano');
+  await page.close();
+
+  const otra = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  vigilarConsola(otra, 'enlace', problemas);
+  await otra.goto(enlace, { waitUntil: 'networkidle' });
+  await otra.locator('#bando-izquierda .puesto').first().waitFor({ timeout: 5000 });
+  const barra = await otra.locator('#status').innerText();
+  if (!barra.startsWith('Montada la pelea del enlace (semilla 11)')) {
+    throw new Error(`enlace: al abrirlo la barra dice «${barra}»`);
+  }
+  await sleep(500);
+  if ((await otra.locator('#app').getAttribute('data-escena')) !== 'montaje') {
+    throw new Error('enlace: abrirlo ha empezado a luchar solo');
+  }
+  const montadoOtra = await bandosDichos(otra);
+  if (montadoOtra !== montado) {
+    throw new Error(
+      `enlace: el montaje abierto no es el copiado:\n${montado}\n=====\n${montadoOtra}`,
+    );
+  }
+  await captura(otra, 'arena-09-enlace-abierto');
+  const parteOtra = await lucharHastaElFinal(otra, 'la pelea del enlace');
+  if (parteOtra !== parte) {
+    throw new Error(
+      `enlace: el parte de la pelea del enlace es otro:\n${parte}\n=====\n${parteOtra}`,
+    );
+  }
+  log(`enlace: la pelea del enlace da el mismo parte (${parte.length} caracteres)`);
+
+  // Roto: una criatura que no existe. No se monta nada, y se dice.
+  const roto = enlace.replace(/pikeman/g, 'dragon_rojo');
+  await otra.goto(roto, { waitUntil: 'networkidle' });
+  await otra
+    .locator('#status', { hasText: 'El enlace de la pelea no se monta: criatura desconocida' })
+    .waitFor({ timeout: 5000 });
+  if ((await otra.locator('#bando-izquierda .puesto, #bando-derecha .puesto').count()) !== 0) {
+    throw new Error('enlace: un enlace roto ha montado algo');
+  }
+  // Repetido: `reglas` dos veces se rechaza diciéndolo (H4 de QA del banco).
+  await otra.goto(`${url}/arena/?seed=5&reglas=tirador&reglas=bendicion`, {
+    waitUntil: 'networkidle',
+  });
+  await otra
+    .locator('#status', { hasText: '«reglas» va 2 veces en la URL' })
+    .waitFor({ timeout: 5000 });
+  log('enlace: el enlace roto y la regla repetida se rechazan diciéndolo');
+  await otra.close();
 }
 
 // ------------------------------------------------------------------------ main

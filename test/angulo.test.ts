@@ -11,6 +11,7 @@ import { cajaDeFigura } from '../src/client/render/batalla.js';
 import { centroDeStack, centroHex, tableroPara } from '../src/client/render/proyeccion.js';
 import type { Session } from '../src/client/session.js';
 import { renderSide } from '../src/client/views/panels.js';
+import { textoDePrevision } from '../src/client/views/prevision.js';
 import { isAlive, stackHexes } from '../src/core/battle/battle.js';
 import { hexDistance } from '../src/core/battle/board.js';
 import { CHARGE_BONUS_PER_HEX } from '../src/core/battle/damage.js';
@@ -276,9 +277,19 @@ describe('la carga en el cliente: el enemigo en la recta (QA, H1)', () => {
     expect(escena.objetivoEn(px, py)?.id).toBe(objetivo);
     escena.mover(px, py);
     expect(escena.anguloEn(px, py)?.elegida).toEqual({ col: 8, row: 6 });
+    // La frase entera: el ángulo, la carga y la previsión del golpe, que sale de
+    // la sesión (la cuenta del núcleo) y la escribe `textoDePrevision`.
+    const golpeQueDaria = escena.accionContraEn(px, py)!;
+    const prevision = s.prevision(golpeQueDaria)!;
+    expect(prevision).toMatchObject({ kind: 'golpe', objetivo });
     expect(s.status).toBe(
-      rotuloDeAngulo({ col: 8, row: 6 }, { target: objetivo, at: { col: 8, row: 6 }, hexes: 3 }),
+      rotuloDeAngulo(
+        { col: 8, row: 6 },
+        { target: objetivo, at: { col: 8, row: 6 }, hexes: 3 },
+        textoDePrevision(prevision, (id) => id),
+      ),
     );
+    expect(s.status).toContain('carga de 3 casillas ×1,3');
     expect(s.status).toContain(`(+${Math.round(3 * CHARGE_BONUS_PER_HEX * 100)} % de daño)`);
     const antes = s.battle!.log.length;
     escena.pulsar(px, py);

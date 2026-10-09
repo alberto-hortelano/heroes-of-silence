@@ -55,6 +55,8 @@ function bando(h: Hero): BattleSide {
       mando: {
         name: h.name,
         retreat: { purse: Number.MAX_SAFE_INTEGER },
+        ataque: h.attack,
+        defensa: h.defense,
         spellPower: h.spellPower,
         knowledge: h.knowledge,
         mana: h.mana,

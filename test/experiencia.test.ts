@@ -82,6 +82,8 @@ function veterano(creatureId: string, id: string, experiencia: number): Troop {
 const mando = (over: Partial<BattleHero> = {}): BattleHero => ({
   name: 'Prueba',
   retreat: { blocked: 'no tienes base a la que volver' },
+  ataque: 0,
+  defensa: 0,
   spellPower: 1,
   knowledge: 1,
   mana: 10,
@@ -210,7 +212,7 @@ describe('la experiencia se gana por daño × nivel del que lo recibe (C1)', () 
       { army: [{ creature: 'zombie', count: 1 }], hero: null },
       createRng(4),
     );
-    castSpell(spell('magic_arrow'), mando(), stackById(otra, 'defender-0'), null);
+    castSpell(spell('magic_arrow'), mando(), stackById(otra, 'defender-0'), null, otra.reglas);
     expect(stackById(otra, 'defender-0').count).toBe(0);
   });
 

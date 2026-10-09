@@ -110,6 +110,15 @@ export function heroeRecienHecho(datos: {
 }
 
 /**
+ * Las cuatro cifras del héroe inicial de cada jugador (`setup.ts`), por encima de
+ * las del recién hecho: 2/2/1/2. La arena las lee para el héroe que pone por
+ * defecto, en vez de teclearlas.
+ */
+export const CIFRAS_DEL_HEROE_INICIAL: Readonly<
+  Pick<Hero, 'attack' | 'defense' | 'spellPower' | 'knowledge'>
+> = Object.freeze({ attack: 2, defense: 2, spellPower: 1, knowledge: 2 });
+
+/**
  * El id de ARTE del héroe en el tablero (`BattleStack.body`) y en el mapa.
  *
  * Como `CHARACTER_BODY`, no está en el catálogo a propósito: un lector que lo

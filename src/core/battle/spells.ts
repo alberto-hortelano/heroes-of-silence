@@ -2,6 +2,7 @@
 import spellsJson from '../../../data/spells.json' with { type: 'json' };
 import { herir } from './damage.js';
 import type { StackEffect } from './effects.js';
+import { efectoConReglas, type ReglasDeBatalla } from './reglas.js';
 import type { BattleHero, BattleStack } from './types.js';
 
 export type SpellKind = 'damage' | 'speed' | 'luck' | 'heal';
@@ -82,14 +83,29 @@ export function spellAmount(s: Spell, caster: Pick<BattleHero, 'spellPower'>): n
   return (s.basePower ?? 0) + (s.perPower ?? 0) * caster.spellPower;
 }
 
-/** Dura el poder mágico del lanzador en rondas, que es lo del original. */
-function temporalEffect(kind: 'speed' | 'luck', s: Spell, caster: BattleHero): StackEffect {
-  return {
-    kind,
-    amount: s.amount ?? 0,
-    source: s.id,
-    roundsLeft: Math.max(1, caster.spellPower),
-  };
+/**
+ * Dura el poder mágico del lanzador en rondas, que es lo del original. Con el
+ * interruptor (e) en fheroes2, la Bendición y la Maldición fijan la tirada
+ * (`efectoConReglas`).
+ */
+function temporalEffect(
+  kind: 'speed' | 'luck',
+  s: Spell,
+  caster: BattleHero,
+  reglas: ReglasDeBatalla,
+): StackEffect {
+  return efectoConReglas(
+    { kind, amount: s.amount ?? 0, source: s.id, roundsLeft: duracionDeLoQueLanza(caster) },
+    reglas,
+  );
+}
+
+/**
+ * Cuántas rondas dura lo que lanza un héroe: su poder, y al menos una. Lo leen el
+ * hechizo y la ficha del héroe de la arena, que antes lo recalculaba.
+ */
+export function duracionDeLoQueLanza(caster: Pick<BattleHero, 'spellPower'>): number {
+  return Math.max(1, caster.spellPower);
 }
 
 /**
@@ -99,9 +115,13 @@ function temporalEffect(kind: 'speed' | 'luck', s: Spell, caster: BattleHero): S
  * objetivo sería inmune ANTES de ofrecer el lanzamiento: así no se le propone
  * al agente una Maldición sobre un esqueleto que después va a rebotar.
  */
-export function effectOfSpell(s: Spell, caster: BattleHero): StackEffect | null {
+export function effectOfSpell(
+  s: Spell,
+  caster: BattleHero,
+  reglas: ReglasDeBatalla,
+): StackEffect | null {
   if (s.kind !== 'speed' && s.kind !== 'luck') return null;
-  return temporalEffect(s.kind, s, caster);
+  return temporalEffect(s.kind, s, caster, reglas);
 }
 
 /**
@@ -115,6 +135,7 @@ export function castSpell(
   caster: BattleHero,
   target: BattleStack,
   autor: BattleStack | null,
+  reglas: ReglasDeBatalla,
 ): SpellResult {
   switch (s.kind) {
     case 'damage': {
@@ -126,12 +147,22 @@ export function castSpell(
     case 'luck':
       // Dentro del `case` el tipo ya está acotado: aquí el efecto existe
       // siempre, así que no hay rama `null` que fingir que puede pasar.
-      return { damage: 0, killed: 0, effect: temporalEffect(s.kind, s, caster) };
+      return { damage: 0, killed: 0, effect: temporalEffect(s.kind, s, caster, reglas) };
     case 'heal': {
-      const amount = spellAmount(s, caster);
-      const maxHp = target.unit.hp;
-      target.topHp = Math.min(maxHp, target.topHp + amount);
+      target.topHp += curaDe(s, caster, target);
       return { damage: 0, killed: 0 };
     }
   }
+}
+
+/**
+ * Los PV que repondría una Curación sobre `target`: su cantidad, sin pasar de la
+ * vida de un individuo. La aplica `castSpell` y la enseña la previsión.
+ */
+export function curaDe(
+  s: Spell,
+  caster: Pick<BattleHero, 'spellPower'>,
+  target: Pick<BattleStack, 'topHp' | 'unit'>,
+): number {
+  return Math.min(spellAmount(s, caster), target.unit.hp - target.topHp);
 }

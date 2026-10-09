@@ -2893,6 +2893,42 @@ se carga, y pelea con todo en IA exigiendo que la pelea **se cuente** y no salga
 el resultado de golpe— contra un espejo `SesionDeArena`, y **deja el borrador
 como estaba**: lo aparta antes y lo devuelve al salir, falle lo que falle.
 
+## La arena como banco de combate (09-10-2026)
+
+El usuario: «Me gustaria poder probar combates entre ejercitos para ir definiendo
+cosas poco a poco antes de meternos en las batallas del juego. Quiero centrarme en
+afinar y definir el sistema». Peleas jugadas una a una, sin simulación en lote
+(decisión suya). El ciclo está en `docs/agents/2026-10-09-arena-banco-de-combate/`
+y la exploración que lo motivó (726 batallas medidas en 1-100, siete jugadas con
+clics), en `docs/agents/2026-10-09-combate-exploracion/`.
+
+- **Seis interruptores, solo en la arena** (`battle/reglas.ts`): tirador, fórmula
+  de ataque y defensa, moral baja, defender, Bendición/Maldición y el A/D del
+  héroe sumado a la tropa. Cada uno compara la regla nuestra con la de fheroes2
+  (citas extraídas de `9754feff`, no tecleadas). El juego entra por
+  `createBattle` con `REGLAS_DEL_JUEGO`; un test exige crónicas idénticas entre la
+  arena en «nuestra» y el juego, y `pnpm banco` no se movió en ninguna fase.
+  **Adoptar una regla es otra tarea**, una a una y por decisión del usuario.
+- Decisiones del usuario: el perdón de la IA en la moral baja de fheroes2 no se
+  copia; la Maldición de la momia sigue al interruptor de Bendición; la figura del
+  héroe se elige entre las hojas; la magia de la arena lleva el libro completo
+  aunque el Rayo de Poder 1 mate a un héroe en la ronda 1 («la magia está
+  provisional»). En fheroes2 defender no da bono: su versión es «sin +20 % y sin
+  moral tras defender». Los no-muertos siguen inmunes a la Maldición en los dos
+  modos (comprobado en la fuente).
+- **La previsión sale de la cuenta que aplica el daño** (`previsionDe` →
+  `horquillaDeDanio`, `trasElGolpe`), y lo que hace legal un golpe es un solo
+  `golpeBlocker`: con la comprobación copiada en la previsión, la barra podía
+  prometer un golpe que luego se rechazaba. Comparada con el log en las 64
+  combinaciones de reglas × 300 semillas (en `verify:lento`).
+- **El guardia de las reglas vigila módulos y escrituras, no solo nombres**: en
+  la vuelta 2 de QA pasaban un envoltorio con otro nombre en `core/arena.ts` y
+  `{ ...createBattle(), reglas }`. Su primera versión por módulos no mordía con
+  `../core/arena.js`; se vio rojo antes de darlo por bueno.
+- **El enlace de la pelea** (`?montaje=`) reproduce el montaje entero; un enlace
+  roto no monta a medias. Abierto, se queda en el montaje: una pelea que empieza
+  sola no deja mirar el tablero de salida.
+
 ## Marcar fallos del mapa (solo en `pnpm dev`)
 
 Con `M` o el botón «Marcar», un clic en el mapa recorta la pantalla, dice qué

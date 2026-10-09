@@ -7,7 +7,13 @@
  */
 import { chooseBattleAction } from '@core/ai/tactics.js';
 import { playAiTurn } from '@core/ai/turn.js';
-import { batallaDeArena, LADOS, type UnidadDeArena } from '@core/arena.js';
+import {
+  batallaDeArena,
+  type FuenteDeArena,
+  type HeroeDeArena,
+  LADOS,
+  type Lado,
+} from '@core/arena.js';
 import {
   activeStack,
   applyAction,
@@ -17,13 +23,22 @@ import {
   castBlocker,
   legalActions,
   MAX_JUGADAS,
+  type Prevision,
   pasosQueQuedan,
+  previsionDe,
   SIN_CARGAS,
   surrenderBlocker,
 } from '@core/battle/battle.js';
+import type { ReglasDeBatalla } from '@core/battle/reglas.js';
 import { enOrdenDelLibro, spell } from '@core/battle/spells.js';
-import type { BattleAction, BattleStack, BattleState, Side } from '@core/battle/types.js';
-import type { Hero } from '@core/hero/hero.js';
+import type {
+  BattleAction,
+  BattleHero,
+  BattleStack,
+  BattleState,
+  Side,
+} from '@core/battle/types.js';
+import { type Hero, maxMana } from '@core/hero/hero.js';
 import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '@core/hero/troop.js';
 import type { CasillasLeidas } from '@core/map/casillas.js';
 import type { MapObject, PathStep } from '@core/map/map.js';
@@ -144,8 +159,8 @@ const AL_ACABARSE_EL_MAPA: Record<DefeatReason, Record<Desenlace, string>> = {
 
 /**
  * La magia de una batalla tal como la lee la escena: qué hechizo hay elegido,
- * sobre quién cae y por qué no. Solo la tiene quien lleva héroe —la partida—;
- * la arena no tiene ni libro ni maná y no declara nada de esto.
+ * sobre quién cae y por qué no. La llevan la partida y la arena, las dos con un
+ * `LibroDeBatalla`.
  */
 export interface HechizosDeBatalla {
   readonly selectedSpell: string | null;
@@ -178,6 +193,12 @@ export interface ControlDeBatalla {
   battleMovable(): readonly Hex[];
   battleCharges(): readonly CasillaDeCarga[];
   attackRejection(targetId: string): string;
+  /**
+   * Lo que daría esa acción de la lista legal —golpe, disparo o hechizo—, de la
+   * misma cuenta que aplica el daño (`previsionDe`); `null` si no hace daño o no
+   * es el turno de la persona.
+   */
+  prevision(action: BattleAction): Prevision | null;
   playBattleAction(action: BattleAction): void;
 }
 
@@ -220,6 +241,18 @@ function claveDeBatalla(b: BattleState): string {
 }
 
 /**
+ * La clave de las cachés del cálculo de batalla de las dos sesiones: la de
+ * `claveDeBatalla` con el maná y el «ya lanzó» de los dos héroes. Van en la clave
+ * aunque hoy solo cambien con un `cast` (que ya deja línea): son lo único de lo
+ * que dependen los hechizos que no pasa por el registro, y un test que los toca a
+ * mano vería una lista vieja.
+ */
+function claveConMagia(b: BattleState): string {
+  const { attacker: ha, defender: hd } = b.heroes;
+  return `${claveDeBatalla(b)}|${ha?.mana}|${ha?.castThisRound}|${hd?.mana}|${hd?.castThisRound}`;
+}
+
+/**
  * Por qué la unidad activa no puede actuar contra ese enemigo: ni dispararle ni
  * golpearlo. La frase es del núcleo (`ataqueBlocker`) —«ya se ha movido este
  * turno: no puede disparar…»— y aquí solo se le pone mayúscula y punto. Quien la
@@ -259,7 +292,134 @@ function jugarIAMientras(
   return jugadas;
 }
 
-export class Session implements ControlDeBatalla, HechizosDeBatalla {
+/**
+ * La previsión de una acción de la persona, o `null` si no es su turno o la
+ * acción no hace daño. La escena solo la pide sobre acciones de la lista legal,
+ * así que el núcleo, si lanza, lanza por un fallo de quien pregunta.
+ */
+function previsionPropia(turno: TurnoPropio | null, accion: BattleAction): Prevision | null {
+  return turno === null ? null : previsionDe(turno.battle, accion);
+}
+
+/**
+ * El libro de hechizos tal y como se pinta: qué se puede lanzar ahora mismo y,
+ * si no, por qué. `castable` no recalcula ninguna regla: es «existe un `cast`
+ * de este hechizo entre las acciones legales». Y el motivo lo escribe el núcleo
+ * (`castBlocker`), igual que el del castillo sale de `buildBlocker`. El héroe es
+ * el del bando de la unidad activa de la persona: en la partida es el suyo; en
+ * la arena, donde la persona puede llevar unidades de los dos lados, el del lado
+ * que mueve.
+ */
+function opcionesDeHechizo(
+  turno: TurnoPropio | null,
+  acciones: readonly BattleAction[],
+): SpellOption[] {
+  if (turno === null) return [];
+  const hero = turno.battle.heroes[turno.side];
+  if (hero === null || hero.spells.length === 0) return [];
+
+  // En el orden del libro, el mismo que el panel del mapa (#54).
+  return enOrdenDelLibro(hero.spells).map((sp) => {
+    const id = sp.id;
+    // Un solo predicado para las tres preguntas —sobre quién, si se puede, y
+    // por qué no—: el par (hechizo, objetivo) sale de la lista legal y el
+    // motivo lo escribe el núcleo.
+    const targets = acciones.flatMap((a) =>
+      a.type === 'cast' && a.spell === id && a.target !== undefined ? [a.target] : [],
+    );
+    const castable = targets.length > 0;
+    // Con `castable` verdadero el bloqueo es `null` por construcción, así que
+    // solo se pregunta cuando hace falta. Y si no lo es, el núcleo TIENE que
+    // dar motivo: las dos respuestas salen de la misma función.
+    const motivo = castable ? '' : castBlocker(turno.battle, turno.side, id);
+    if (motivo === null) {
+      throw new Error(`${sp.name} no se ofrece y el núcleo no dice por qué`);
+    }
+    return { id, name: sp.name, cost: sp.cost, targets, castable, motivo };
+  });
+}
+
+/** Lo que el libro necesita de la sesión que lo lleva. */
+interface DueñoDelLibro {
+  readonly turnoPropio: TurnoPropio | null;
+  /** Las opciones de ahora, de la caché de la sesión (`opcionesDeHechizo`). */
+  spellOptions(): readonly SpellOption[];
+  status: string;
+}
+
+/**
+ * El hechizo elegido y lo que se hace con él: elegirlo, soltarlo, sobre quién
+ * cae y por qué no. Uno para la partida y la arena, que antes solo tenía la
+ * partida; cada sesión le da su turno, sus opciones y su barra.
+ */
+export class LibroDeBatalla implements HechizosDeBatalla {
+  private elegido: string | null = null;
+
+  constructor(
+    private readonly dueño: DueñoDelLibro,
+    private readonly alCambiar: () => void = () => {},
+  ) {}
+
+  get selectedSpell(): string | null {
+    return this.elegido;
+  }
+  set selectedSpell(v: string | null) {
+    this.elegido = v;
+    this.alCambiar();
+  }
+
+  /** Ids de los stacks sobre los que se puede lanzar el hechizo elegido. */
+  castTargets(): readonly string[] {
+    const elegido = this.selectedSpell;
+    if (elegido === null) return [];
+    return this.dueño.spellOptions().find((o) => o.id === elegido)?.targets ?? [];
+  }
+
+  /**
+   * Por qué el hechizo elegido no se puede lanzar sobre ese stack.
+   *
+   * Apuntar mal es una regla del juego —a un aliado, a un inmune, a un muerto—,
+   * así que la frase la escribe el núcleo y la pantalla solo la enseña. Si el
+   * par no está entre las acciones legales, el bloqueador TIENE motivo: son las
+   * dos caras de la misma función.
+   */
+  castRejection(targetId: string): string {
+    const turno = this.dueño.turnoPropio;
+    const elegido = this.selectedSpell;
+    if (turno === null || elegido === null) return '';
+    const motivo = castBlocker(turno.battle, turno.side, elegido, targetId);
+    if (motivo === null) {
+      throw new Error(
+        `${spell(elegido).name} no se ofrece sobre ${targetId} y el núcleo no dice por qué`,
+      );
+    }
+    return motivo;
+  }
+
+  /** Elige hechizo, o lo suelta si ya estaba elegido. */
+  selectSpell(spellId: string): void {
+    if (this.selectedSpell === spellId) {
+      this.clearSpell();
+      return;
+    }
+    const opcion = this.dueño.spellOptions().find((o) => o.id === spellId);
+    if (opcion === undefined) return;
+    if (!opcion.castable) {
+      this.dueño.status = `No puedes lanzar ${opcion.name}: ${opcion.motivo}.`;
+      return;
+    }
+    this.selectedSpell = spellId;
+    this.dueño.status = `${opcion.name}: elige sobre quién lanzarlo.`;
+  }
+
+  clearSpell(): void {
+    if (this.selectedSpell === null) return;
+    this.selectedSpell = null;
+    this.dueño.status = '';
+  }
+}
+
+export class Session implements ControlDeBatalla {
   state: GameState;
   readonly ctx: GameContext;
   /** El jugador que maneja la persona sentada delante. */
@@ -308,18 +468,12 @@ export class Session implements ControlDeBatalla, HechizosDeBatalla {
   private heroeElegido: string | null = null;
 
   /**
-   * Hechizo que la persona ha elegido y está a punto de lanzar sobre alguien.
-   * Vive aquí y no en `main.ts` porque lo lee también el panel; `main.ts` solo
-   * guarda estado de píxel.
+   * El libro de la batalla: el hechizo que la persona ha elegido y está a punto
+   * de lanzar sobre alguien, sobre quién cae y por qué no. Vive aquí y no en
+   * `main.ts` porque lo lee también el panel; `main.ts` solo guarda estado de
+   * píxel. Es el mismo de la arena, y elegir sube la versión.
    */
-  get selectedSpell(): string | null {
-    return this.hechizoElegido;
-  }
-  set selectedSpell(v: string | null) {
-    this.hechizoElegido = v;
-    this.tocar();
-  }
-  private hechizoElegido: string | null = null;
+  readonly hechizos: LibroDeBatalla = new LibroDeBatalla(this, () => this.tocar());
 
   get openTownId(): string | null {
     return this.puebloAbierto;
@@ -1057,16 +1211,11 @@ export class Session implements ControlDeBatalla, HechizosDeBatalla {
   private calculoDeBatalla(): CalculoDeBatalla {
     const battle = this.battle;
     if (battle === null) return { acciones: [], movibles: [], opciones: [], cargas: SIN_CARGAS };
-    // El maná y el «ya lanzó» de los dos héroes van en la clave aunque hoy solo
-    // cambien con un `cast` (que ya deja línea): son lo único de lo que dependen
-    // los hechizos que no pasa por el registro, y un test que los toca a mano
-    // vería una lista vieja.
-    const { attacker: ha, defender: hd } = battle.heroes;
-    const clave = `${claveDeBatalla(battle)}|${this.selectedSpell}|${ha?.mana}|${ha?.castThisRound}|${hd?.mana}|${hd?.castThisRound}`;
+    const clave = `${claveConMagia(battle)}|${this.hechizos.selectedSpell}`;
     const c = this.cacheBatalla;
     if (c !== null && c.battle === battle && c.clave === clave) return c.valor;
     const comunes = accionesDeBatalla(battle, this.turnoPropio);
-    const valor = { ...comunes, opciones: this.opcionesDeHechizo(comunes.acciones) };
+    const valor = { ...comunes, opciones: opcionesDeHechizo(this.turnoPropio, comunes.acciones) };
     this.cacheBatalla = { battle, clave, valor };
     return valor;
   }
@@ -1099,11 +1248,6 @@ export class Session implements ControlDeBatalla, HechizosDeBatalla {
     return this.calculoDeBatalla().acciones;
   }
 
-  /** La partida tiene héroe: su magia la lleva esta misma sesión. */
-  get hechizos(): HechizosDeBatalla {
-    return this;
-  }
-
   /** El héroe de la persona en la batalla en curso, el de SU bando. */
   get battleHero() {
     const bando = this.miBando;
@@ -1111,75 +1255,24 @@ export class Session implements ControlDeBatalla, HechizosDeBatalla {
     return this.battle?.heroes[bando] ?? null;
   }
 
-  /**
-   * El libro de hechizos tal y como se pinta: qué se puede lanzar ahora mismo y,
-   * si no, por qué.
-   *
-   * `castable` no recalcula ninguna regla: es «existe un `cast` de este hechizo
-   * entre las acciones legales». Y el motivo lo escribe el núcleo
-   * (`castBlocker`), igual que el del castillo sale de `buildBlocker`.
-   */
+  /** El libro tal y como se pinta (`opcionesDeHechizo`), de la caché. */
   spellOptions(): readonly SpellOption[] {
     return this.calculoDeBatalla().opciones;
   }
 
-  private opcionesDeHechizo(acciones: readonly BattleAction[]): SpellOption[] {
-    const turno = this.turnoPropio;
-    if (turno === null) return [];
-    const hero = this.battleHero;
-    if (hero === null || hero.spells.length === 0) return [];
-
-    // En el orden del libro, el mismo que el panel del mapa (#54).
-    return enOrdenDelLibro(hero.spells).map((sp) => {
-      const id = sp.id;
-      // Un solo predicado para las tres preguntas —sobre quién, si se puede, y
-      // por qué no—: el par (hechizo, objetivo) sale de la lista legal y el
-      // motivo lo escribe el núcleo.
-      const targets = acciones.flatMap((a) =>
-        a.type === 'cast' && a.spell === id && a.target !== undefined ? [a.target] : [],
-      );
-      const castable = targets.length > 0;
-      // Con `castable` verdadero el bloqueo es `null` por construcción, así que
-      // solo se pregunta cuando hace falta. Y si no lo es, el núcleo TIENE que
-      // dar motivo: las dos respuestas salen de la misma función.
-      const motivo = castable ? '' : castBlocker(turno.battle, turno.side, id);
-      if (motivo === null) {
-        throw new Error(`${sp.name} no se ofrece y el núcleo no dice por qué`);
-      }
-      return { id, name: sp.name, cost: sp.cost, targets, castable, motivo };
-    });
-  }
-
-  /**
-   * Por qué el hechizo elegido no se puede lanzar sobre ese stack.
-   *
-   * Apuntar mal es una regla del juego —a un aliado, a un inmune, a un muerto—,
-   * así que la frase la escribe el núcleo y la pantalla solo la enseña. Si el
-   * par no está entre las acciones legales, el bloqueador TIENE motivo: son las
-   * dos caras de la misma función.
-   */
-  castRejection(targetId: string): string {
-    const turno = this.turnoPropio;
-    const elegido = this.selectedSpell;
-    if (turno === null || elegido === null) return '';
-    const motivo = castBlocker(turno.battle, turno.side, elegido, targetId);
-    if (motivo === null) {
-      throw new Error(
-        `${spell(elegido).name} no se ofrece sobre ${targetId} y el núcleo no dice por qué`,
-      );
-    }
-    return motivo;
-  }
-
   /**
    * Por qué la unidad activa no puede actuar contra ese enemigo: ni dispararle
-   * ni golpearlo. Como `castRejection`, la frase es del núcleo (`ataqueBlocker`)
+   * ni golpearlo. Como `LibroDeBatalla.castRejection`, la frase es del núcleo (`ataqueBlocker`)
    * —«ya se ha movido este turno: no puede disparar…»— y aquí solo se le pone
    * mayúscula y punto. Quien la pide ya ha visto que no hay acción legal contra
    * él, así que el núcleo TIENE que dar motivo.
    */
   attackRejection(targetId: string): string {
     return motivoContra(this.turnoPropio, targetId);
+  }
+
+  prevision(action: BattleAction): Prevision | null {
+    return previsionPropia(this.turnoPropio, action);
   }
 
   /**
@@ -1192,35 +1285,6 @@ export class Session implements ControlDeBatalla, HechizosDeBatalla {
     const turno = this.turnoPropio;
     if (turno === null) return null;
     return surrenderBlocker(turno.battle, turno.side);
-  }
-
-  /** Ids de los stacks sobre los que se puede lanzar el hechizo elegido. */
-  castTargets(): readonly string[] {
-    const elegido = this.selectedSpell;
-    if (elegido === null) return [];
-    return this.spellOptions().find((o) => o.id === elegido)?.targets ?? [];
-  }
-
-  /** Elige hechizo, o lo suelta si ya estaba elegido. */
-  selectSpell(spellId: string): void {
-    if (this.selectedSpell === spellId) {
-      this.clearSpell();
-      return;
-    }
-    const opcion = this.spellOptions().find((o) => o.id === spellId);
-    if (opcion === undefined) return;
-    if (!opcion.castable) {
-      this.status = `No puedes lanzar ${opcion.name}: ${opcion.motivo}.`;
-      return;
-    }
-    this.selectedSpell = spellId;
-    this.status = `${opcion.name}: elige sobre quién lanzarlo.`;
-  }
-
-  clearSpell(): void {
-    if (this.selectedSpell === null) return;
-    this.selectedSpell = null;
-    this.status = '';
   }
 
   /** Aplica la acción de la persona y deja que la IA juegue lo suyo. */
@@ -1238,7 +1302,7 @@ export class Session implements ControlDeBatalla, HechizosDeBatalla {
     // Una acción aplicada deja el hechizo elegido sin sentido: o se acaba de
     // lanzar —y el héroe ya no puede volver a lanzar esta ronda— o el stack
     // activo ha cambiado. Se suelta aquí y no en cada llamante.
-    this.selectedSpell = null;
+    this.hechizos.selectedSpell = null;
     this.advanceEnemyTurns();
   }
 
@@ -1269,7 +1333,7 @@ export class Session implements ControlDeBatalla, HechizosDeBatalla {
 
   private afterBattle(): void {
     this.scene = 'adventure';
-    this.selectedSpell = null;
+    this.hechizos.selectedSpell = null;
     if (this.selectedHero === null) {
       this.selectedHeroId = this.myHeroes()[0]?.id ?? null;
     }
@@ -1325,15 +1389,23 @@ export class Session implements ControlDeBatalla, HechizosDeBatalla {
   }
 }
 
-/** Una unidad del montaje de la arena: sus cifras y quién la mueve. */
+/** Una unidad del montaje de la arena: de dónde sale y quién la mueve. */
 export interface PuestoDeArena {
-  readonly unidad: UnidadDeArena;
+  readonly fuente: FuenteDeArena;
   readonly ia: boolean;
 }
 
+/** Un lado del montaje para la sesión: sus puestos y su héroe, con quién lo mueve. */
+export interface LadoDeSesion {
+  readonly puestos: readonly PuestoDeArena[];
+  readonly heroe: { readonly datos: HeroeDeArena; readonly ia: boolean } | null;
+}
+
 /**
- * La batalla de la arena (`/arena/`): dos bandos de unidades con cifras del
- * borrador, sin partida alrededor, y en cada unidad decide la persona o la IA.
+ * La batalla de la arena (`/arena/`): dos bandos de unidades del borrador o del
+ * catálogo, con un héroe cada uno si se quiere, sin partida alrededor, y en cada
+ * unidad decide la persona o la IA. Las reglas (`reglas.ts`) son las del montaje,
+ * las mismas para los dos lados.
  *
  * Vive aquí porque `session.ts` es la única puerta del cliente al núcleo —lo
  * vigila `invariantes.test.ts`—, y la arena aplica reglas igual que la partida.
@@ -1347,12 +1419,14 @@ export interface PuestoDeArena {
  * veía la batalla por primera vez con todo eso hecho, lo daba por contado y, con
  * todas las unidades en IA, solo se veía el final (H1 de QA).
  *
- * No hay hechizos: sin héroe no hay libro ni maná, y `hechizos` es `null`.
+ * La magia es la de la partida (`LibroDeBatalla`): lanza el héroe del lado de la
+ * unidad que mueve la persona, con su maná y una vez por ronda.
  */
 export class SesionDeArena implements ControlDeBatalla {
   readonly battle: BattleState;
   readonly semilla: number;
-  readonly hechizos = null;
+  readonly reglas: ReglasDeBatalla;
+  readonly hechizos: LibroDeBatalla = new LibroDeBatalla(this);
   /** En la arena los bandos no son de ningún jugador: los dos llevan su color de bando. */
   readonly dueños = null;
   private readonly rng: Rng;
@@ -1360,41 +1434,62 @@ export class SesionDeArena implements ControlDeBatalla {
   private empezada = false;
 
   /**
-   * Lo que mira el panel para repintarse: cambia con cada jugada, que es lo
-   * mismo que mira la caché. No hay contador aparte que se pueda desacompasar.
+   * Lo que mira el panel para repintarse: cambia con cada jugada y con el hechizo
+   * elegido, que es lo mismo que mira la caché. No hay contador aparte que se
+   * pueda desacompasar.
    */
   get version(): string {
-    return claveDeBatalla(this.battle);
+    return `${claveDeBatalla(this.battle)}|${this.hechizos.selectedSpell}`;
   }
 
   /** No es parte de la versión, por lo mismo que en `Session`: la reescribe el puntero. */
   status = '';
 
   constructor(
-    izquierda: readonly PuestoDeArena[],
-    derecha: readonly PuestoDeArena[],
+    montaje: {
+      readonly izquierda: LadoDeSesion;
+      readonly derecha: LadoDeSesion;
+      readonly reglas: ReglasDeBatalla;
+    },
     semilla: number,
   ) {
     this.semilla = semilla;
+    this.reglas = montaje.reglas;
     this.rng = createRng(semilla);
+    const lado = (l: LadoDeSesion) => ({
+      unidades: l.puestos.map((p) => p.fuente),
+      heroe: l.heroe?.datos ?? null,
+    });
     this.battle = batallaDeArena(
-      izquierda.map((p) => p.unidad),
-      derecha.map((p) => p.unidad),
+      {
+        izquierda: lado(montaje.izquierda),
+        derecha: lado(montaje.derecha),
+        reglas: montaje.reglas,
+      },
       this.rng,
     );
     // El stack de cada puesto, por bando y `slot`, que es como lo monta el motor;
-    // no por el formato del id, que es cosa suya.
+    // no por el formato del id, que es cosa suya. El héroe, por su origen.
     const ia = new Set<string>();
-    for (const [lado, puestos] of [
-      ['izquierda', izquierda],
-      ['derecha', derecha],
-    ] as const) {
-      const bando = LADOS[lado].bando;
+    for (const l of ['izquierda', 'derecha'] as const satisfies readonly Lado[]) {
+      const bando = LADOS[l].bando;
+      const { puestos, heroe } = montaje[l];
       puestos.forEach((p, slot) => {
-        const st = this.battle.stacks.find((s) => s.side === bando && s.slot === slot);
-        if (st === undefined) throw new Error(`la unidad ${p.unidad.name} no ha salido al campo`);
+        const st = this.battle.stacks.find(
+          (s) => s.side === bando && s.slot === slot && s.origen.kind !== 'heroe',
+        );
+        if (st === undefined)
+          throw new Error(
+            `el puesto ${slot + 1} del bando ${LADOS[l].adjetivo} no ha salido al campo`,
+          );
         if (p.ia) ia.add(st.id);
       });
+      if (heroe !== null) {
+        const st = this.battle.stacks.find((s) => s.side === bando && s.origen.kind === 'heroe');
+        if (st === undefined)
+          throw new Error(`el héroe del bando ${LADOS[l].adjetivo} no ha salido al campo`);
+        if (heroe.ia) ia.add(st.id);
+      }
     }
     this.manejaIA = ia;
   }
@@ -1428,14 +1523,16 @@ export class SesionDeArena implements ControlDeBatalla {
   }
 
   /** Como en `Session`, guardado por jugada: la escena lo pide en cada fotograma. */
-  private calculo(): AccionesDeBatalla {
-    const clave = claveDeBatalla(this.battle);
+  private calculo(): CalculoDeBatalla {
+    const clave = `${claveConMagia(this.battle)}|${this.empezada}`;
     if (this.cache !== null && this.cache.clave === clave) return this.cache.valor;
-    const valor = accionesDeBatalla(this.battle, this.turnoPropio);
+    const turno = this.turnoPropio;
+    const comunes = accionesDeBatalla(this.battle, turno);
+    const valor = { ...comunes, opciones: opcionesDeHechizo(turno, comunes.acciones) };
     this.cache = { clave, valor };
     return valor;
   }
-  private cache: { clave: string; valor: AccionesDeBatalla } | null = null;
+  private cache: { clave: string; valor: CalculoDeBatalla } | null = null;
 
   battleLegalActions(): readonly BattleAction[] {
     return this.calculo().acciones;
@@ -1449,6 +1546,21 @@ export class SesionDeArena implements ControlDeBatalla {
     return this.calculo().cargas;
   }
 
+  /** El libro del héroe del lado que mueve la persona, como en la partida. */
+  spellOptions(): readonly SpellOption[] {
+    return this.calculo().opciones;
+  }
+
+  /**
+   * El héroe del lado de la unidad activa de la persona, con su maná máximo
+   * (`maxMana`, la regla del núcleo), o `null`.
+   */
+  get heroeEnJuego(): { readonly mando: BattleHero; readonly manaMaximo: number } | null {
+    const turno = this.turnoPropio;
+    const mando = turno === null ? null : this.battle.heroes[turno.side];
+    return mando === null ? null : { mando, manaMaximo: maxMana(mando) };
+  }
+
   /** Las casillas que le quedan este turno a la unidad activa, si es de la persona. */
   battleStepsLeft(): number | null {
     const turno = this.turnoPropio;
@@ -1457,6 +1569,10 @@ export class SesionDeArena implements ControlDeBatalla {
 
   attackRejection(targetId: string): string {
     return motivoContra(this.turnoPropio, targetId);
+  }
+
+  prevision(action: BattleAction): Prevision | null {
+    return previsionPropia(this.turnoPropio, action);
   }
 
   /** Aplica la jugada de la persona y deja a la IA mover las suyas hasta la siguiente. */
@@ -1472,6 +1588,9 @@ export class SesionDeArena implements ControlDeBatalla {
       this.status = mensaje(err);
       return;
     }
+    // Como en la partida: lanzado el hechizo, o con otra unidad activa, el
+    // elegido ya no tiene sentido.
+    this.hechizos.selectedSpell = null;
     this.avanzarIA();
   }
 

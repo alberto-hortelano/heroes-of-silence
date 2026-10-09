@@ -75,6 +75,7 @@ import {
   applyEffect,
   EFFECT_KINDS,
   type EffectKind,
+  efectoDeTirada,
   effectiveLuck,
 } from '../src/core/battle/effects.js';
 import type { BattleStack } from '../src/core/battle/types.js';
@@ -323,6 +324,44 @@ function infractoresDeCodigo(rutas: string[], patron: RegExp): string[] {
   return out;
 }
 
+/**
+ * Las líneas (desde 1) de unas declaraciones de primer nivel de un fichero: de
+ * `function`/`class`/`const NOMBRE` a la primera línea que empieza por `}`. Una
+ * que no está lanza: renombrarla no puede ensanchar un permiso sin que se vea.
+ */
+function lineasDeLasDeclaraciones(ruta: string, nombres: readonly string[]): Set<number> {
+  const lineas = leer(ruta).split('\n');
+  const out = new Set<number>();
+  for (const nombre of nombres) {
+    const inicio = lineas.findIndex((l) =>
+      new RegExp(`^(?:export\\s+)?(?:async\\s+)?(?:function|class|const)\\s+${nombre}\\b`).test(l),
+    );
+    if (inicio < 0) throw new Error(`${ruta} no declara «${nombre}» en su primer nivel`);
+    let fin = inicio;
+    while (fin < lineas.length && !lineas[fin]?.startsWith('}')) fin++;
+    for (let n = inicio; n <= fin; n++) out.add(n + 1);
+  }
+  return out;
+}
+
+/** Las líneas (desde 1) de las sentencias `import` de un fichero, de `import` a su `from '…'`. */
+function lineasDeImport(ruta: string): Set<number> {
+  const lineas = leer(ruta).split('\n');
+  const out = new Set<number>();
+  for (let i = 0; i < lineas.length; i++) {
+    if (!lineas[i]?.startsWith('import ')) continue;
+    let fin = i;
+    while (
+      fin < lineas.length &&
+      !/\bfrom\s+['"][^'"]+['"];?\s*$|^import\s+['"]/.test(lineas[fin] ?? '')
+    )
+      fin++;
+    for (let n = i; n <= fin; n++) out.add(n + 1);
+    i = fin;
+  }
+  return out;
+}
+
 /** El número de línea, contando desde 1, del carácter `indice` de `texto`. */
 function lineaDe(texto: string, indice: number): number {
   let n = 1;
@@ -449,6 +488,7 @@ const LECTORES_DE_EFECTO: Readonly<Record<string, (s: BattleStack) => number>> =
   speed: stackSpeed,
   luck: effectiveLuck,
   attack: (s) => effectiveAttack(s),
+  tirada: efectoDeTirada,
 };
 
 /** Un stack limpio, fuera de tablero: solo se le cuelgan efectos y se lee. */
@@ -573,6 +613,124 @@ describe('invariantes del proyecto', () => {
       infractoresDeCodigo(CORE, patron).map((donde) => `[${puerta}] ${donde}`),
     );
     expect(colados).toEqual([]);
+  });
+
+  it('solo la arena cambia las reglas de la batalla', () => {
+    // Los interruptores de `battle/reglas.ts` comparan la regla nuestra con la de
+    // fheroes2 en la arena, y el juego, el servidor, el agente y los bancos no
+    // pueden encender ninguno: entran por `createBattle`, que pone
+    // `REGLAS_DEL_JUEGO`. Las puertas a otras reglas son TODAS las que dejan
+    // elegirlas: montar la batalla con ellas (`crearBatallaConReglas`, y por
+    // encima `batallaDeArena` y `new SesionDeArena`), leerlas de la URL
+    // (`reglasDeLaURL`), cambiar una (`conRegla`) y escribir a mano la versión
+    // `'fheroes2'` en un literal. Con solo las dos primeras, una llamada a
+    // `batallaDeArena` con reglas en `director.ts` quedaba en verde (H3 de QA
+    // del banco), y `capturas.ts` encendía el tirador con un literal que nadie
+    // veía.
+    //
+    // Se nombran sin permiso en el motor, la arena del núcleo y la página de la
+    // arena; con permiso por declaración, en la sesión de la arena (la clase,
+    // no el resto de `session.ts`, que es la partida) y en las pasadas de la
+    // arena de `pnpm capturas`, que juegan su espejo. En esos dos, el `import`
+    // de una puerta no cuenta, salvo con otro nombre (`as`): con un alias, la
+    // llamada ya no se ve. En los demás, importarla ya es rojo. Roto a mano:
+    // `batallaDeArena` importado con alias y llamado en `server/director.ts`,
+    // `crearBatallaConReglas` en `state/game.ts`, un `'fheroes2'` en `Session`
+    // (fuera de `SesionDeArena`) y otro en la pasada del juego de `capturas.ts`
+    // salen rojos con su línea.
+    const puertas =
+      /\b(?:crearBatallaConReglas|batallaDeArena|reglasDeLaURL|conRegla)\b|\bnew\s+SesionDeArena\b|['"`]fheroes2['"`]/;
+    const conAlias =
+      /\b(?:crearBatallaConReglas|batallaDeArena|reglasDeLaURL|conRegla|SesionDeArena)\s+as\b/;
+    const enTodoElFichero = (r: string): boolean =>
+      r.startsWith('src/core/battle/') ||
+      r === 'src/core/arena.ts' ||
+      r.startsWith('src/client/arena/');
+    const porDeclaracion: Readonly<Record<string, readonly string[]>> = {
+      'src/client/session.ts': ['SesionDeArena'],
+      'tools/qa/capturas.ts': [
+        'espejoDeLaArena',
+        'todoIA',
+        'REGLAS_DEL_BANCO',
+        'espejoDelBanco',
+        'deHoja',
+        'jugarArena',
+      ],
+    };
+    const todos = [...CORE, ...CLIENTE, ...SERVIDOR, ...ficheros('tools')];
+    const colados: string[] = [];
+    for (const ruta of todos.filter((r) => !enTodoElFichero(r))) {
+      const conPermiso = lineasDeLasDeclaraciones(ruta, porDeclaracion[ruta] ?? []);
+      const imports = ruta in porDeclaracion ? lineasDeImport(ruta) : new Set<number>();
+      for (const [i, linea] of sinComentarios(leer(ruta)).split('\n').entries()) {
+        if (conPermiso.has(i + 1)) continue;
+        if (imports.has(i + 1) && !conAlias.test(linea)) continue;
+        if (puertas.test(linea)) colados.push(`${ruta}:${i + 1} → ${linea.trim()}`);
+      }
+    }
+    expect(colados).toEqual([]);
+
+    // Los nombres no bastan (vuelta 2 de QA del banco): una función nueva en
+    // `core/arena.ts` que llamase a `batallaDeArena` con otro nombre pasaba, y
+    // también `{ ...createBattle(), reglas: otras }` en `state/game.ts`. Por
+    // eso se vigilan además los MÓDULOS y la ESCRITURA:
+    //  1. Solo la arena (página, disco y taller), la sesión y `pnpm capturas`
+    //     importan de `core/arena.ts`; y en la sesión y en `capturas.ts`, lo
+    //     importado de allí solo se usa dentro de sus declaraciones con permiso.
+    //  2. Fuera del motor, la arena del núcleo y su página, nadie escribe
+    //     `reglas:` ni `.reglas =`, salvo en esas mismas declaraciones.
+    // Roto a mano: un envoltorio de `batallaDeArena` en `core/arena.ts` importado
+    // en `server/director.ts`, un valor de la arena usado en `Session` fuera de
+    // `SesionDeArena`, y el spread con `reglas:` en `state/game.ts` salen rojos
+    // con su línea.
+    const deLaArena =
+      /\bfrom\s+['"](?:@core\/|(?:\.\.?\/)+(?:(?:src\/)?core\/)?)arena(?:\.js)?['"]/;
+    const puedeImportarla = (r: string): boolean =>
+      enTodoElFichero(r) ||
+      r.startsWith('tools/arena/') ||
+      r.startsWith('tools/taller/') ||
+      r in porDeclaracion;
+    // Una clave `reglas:` o `{ …, reglas }`, o una asignación; no la prosa de
+    // un mensaje («no lleva las reglas: …»).
+    const escribeReglas = /(?:^\s*|[{,]\s*)reglas\s*(?::|[,}])|\.reglas\s*=(?!=)/;
+    const fuera: string[] = [];
+    for (const ruta of todos.filter((r) => !enTodoElFichero(r))) {
+      const texto = leer(ruta);
+      const codigo = sinComentarios(texto).split('\n');
+      const conPermiso = lineasDeLasDeclaraciones(ruta, porDeclaracion[ruta] ?? []);
+      const imports = lineasDeImport(ruta);
+      // Los VALORES que trae de `core/arena.ts`, sacados de su `import` entero;
+      // un tipo no monta ninguna batalla.
+      const traidos: string[] = [];
+      for (const bloque of texto.matchAll(
+        /^import\s+(type\s+)?\{([^}]*)\}\s*from\s+(['"][^'"]+['"])/gm,
+      )) {
+        if (!deLaArena.test(`from ${bloque[3]}`)) continue;
+        if (bloque[1]) continue;
+        for (const nombre of (bloque[2] ?? '').split(',')) {
+          if (/^\s*type\s/.test(nombre)) continue;
+          const local = nombre
+            .split(/\s+as\s+/)
+            .pop()
+            ?.trim();
+          if (local) traidos.push(local);
+        }
+      }
+      const usaLaArena = traidos.length ? new RegExp(`\\b(?:${traidos.join('|')})\\b`) : null;
+      for (const [i, linea] of codigo.entries()) {
+        if (imports.has(i + 1)) {
+          if (deLaArena.test(linea) && !puedeImportarla(ruta))
+            fuera.push(`${ruta}:${i + 1} importa de core/arena.ts`);
+          continue;
+        }
+        if (conPermiso.has(i + 1)) continue;
+        if (usaLaArena && ruta in porDeclaracion && usaLaArena.test(linea))
+          fuera.push(`${ruta}:${i + 1} usa la arena fuera de su permiso → ${linea.trim()}`);
+        if (escribeReglas.test(linea))
+          fuera.push(`${ruta}:${i + 1} escribe reglas → ${linea.trim()}`);
+      }
+    }
+    expect([...new Set(fuera)]).toEqual([]);
   });
 
   it('el cliente no aplica reglas: la única puerta al núcleo es session.ts', () => {

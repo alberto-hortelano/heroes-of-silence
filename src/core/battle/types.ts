@@ -1,6 +1,7 @@
 import { nivelDeTropa } from '../hero/experiencia.js';
 import type { Hex, UnitInfo, Veterania } from '../types.js';
 import type { EffectKind, StackEffect } from './effects.js';
+import type { ReglasDeBatalla } from './reglas.js';
 
 export type Side = 'attacker' | 'defender';
 
@@ -178,6 +179,14 @@ export interface BattleHero {
    * que copiarlo al entrar no se queda viejo.
    */
   readonly retreat: { readonly purse: number } | { readonly blocked: string };
+  /**
+   * El ataque y la defensa PRIMARIOS del héroe (`Hero.attack`, `Hero.defense`),
+   * no los de su cuerpo. En el juego no los lee nadie —ya van en su cuerpo—: solo
+   * el interruptor (f) de la arena, que los suma a toda su tropa como fheroes2
+   * (`opcionesDeDanio`, `battle.ts`).
+   */
+  readonly ataque: number;
+  readonly defensa: number;
   readonly spellPower: number;
   readonly knowledge: number;
   mana: number;
@@ -299,6 +308,12 @@ export interface BattleState {
   /** El turno abierto, o `null` si no actúa nadie (batalla terminada o sin montar). */
   turno: TurnoDeUnidad | null;
   heroes: Record<Side, BattleHero | null>;
+  /**
+   * Qué versión de cada regla dudosa juega esta batalla (`reglas.ts`). Se pone al
+   * montarla y no cambia: en el juego, siempre `REGLAS_DEL_JUEGO`; solo la arena
+   * pelea con otras.
+   */
+  readonly reglas: ReglasDeBatalla;
   log: BattleEvent[];
   finished: BattleFinish | null;
 }

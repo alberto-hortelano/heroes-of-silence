@@ -58,6 +58,8 @@ function heroeDeBatalla(purse: number | null = null): HeroeDelBando {
     mando: {
       name: 'Prueba',
       retreat: purse === null ? { blocked: 'no tienes base a la que volver' } : { purse },
+      ataque: 2,
+      defensa: 2,
       spellPower: 1,
       knowledge: 1,
       mana: 0,

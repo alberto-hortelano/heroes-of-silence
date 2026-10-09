@@ -57,7 +57,7 @@ import { quienesDe } from '../desenlace.js';
 import { fondoDeColor, type Html, html, NADA, srcDeImagen, unir } from '../html.js';
 import { asset } from '../render/assets.js';
 import { MARCA_DE_COMANDANTE, RESOURCE_COLORS, RESOURCE_NAMES } from '../render/palette.js';
-import type { Session } from '../session.js';
+import type { Session, SpellOption } from '../session.js';
 import { nombreEnElCampo } from './distintivo.js';
 
 /**
@@ -715,7 +715,7 @@ function renderBattlePanel(session: Session, contandoAun: boolean): Html {
           legales: session.battleLegalActions(),
           pasos: session.battleStepsLeft(),
           rendicion: renderRendicion(session),
-          hechizos: renderSpells(session),
+          hechizos: renderSpells(session.hechizos.selectedSpell, session.spellOptions()),
         }),
       )
     : html`<p>Turno del enemigo…</p>`;
@@ -853,10 +853,10 @@ function renderRendicion(session: Session): Html {
  *
  * Lo que no se puede lanzar sale apagado y con el motivo en el `title`: se ve a
  * la vez lo que tienes y lo que te falta, igual que un solar vacío del castillo.
- * Ni el `castable` ni el motivo se deciden aquí — los da `session.spellOptions()`.
+ * Ni el `castable` ni el motivo se deciden aquí — los da `spellOptions()` de la
+ * sesión, la partida o la arena; `elegido` es el hechizo de su libro.
  */
-function renderSpells(session: Session): Html {
-  const opciones = session.spellOptions();
+export function renderSpells(elegido: string | null, opciones: readonly SpellOption[]): Html {
   if (opciones.length === 0) {
     return html`<h3>Hechizos</h3>
       <div class="stack-list"><div class="stack empty">Este héroe no conoce ninguno</div></div>`;
@@ -867,18 +867,17 @@ function renderSpells(session: Session): Html {
       // el gris de un hueco vacío, y con él un hechizo perfectamente lanzable se
       // veía apagado, igual que uno que no se puede pagar. Lo apagado lo pone
       // `button:disabled`, y así los dos estados no se confunden en pantalla.
-      const elegido = session.selectedSpell === o.id;
       return html`<button data-action="battle-spell" data-spell="${o.id}"
-        class="stack${elegido ? ' primary' : ''}"
+        class="stack${elegido === o.id ? ' primary' : ''}"
         ${o.castable ? NADA : DESHABILITADO}
         title="${o.castable ? `Cuesta ${o.cost} de maná` : o.motivo}">
         <span>${o.name}</span><span class="count">${o.cost}</span>
       </button>`;
     }),
   );
-  const elegido = opciones.find((o) => o.id === session.selectedSpell);
+  const opcion = opciones.find((o) => o.id === elegido);
   return html`<h3>Hechizos</h3><div class="stack-list">${botones}</div>
-    ${elegido === undefined ? NADA : html`<p class="cost" style="margin-top:.5rem">${elegido.name}: pulsa sobre la unidad objetivo. Escape cancela.</p>`}`;
+    ${opcion === undefined ? NADA : html`<p class="cost" style="margin-top:.5rem">${opcion.name}: pulsa sobre la unidad objetivo. Escape cancela.</p>`}`;
 }
 
 /**
@@ -913,7 +912,27 @@ const ETIQUETA_EFECTO: Readonly<Record<EffectKind, string>> = {
   speed: 'velocidad',
   luck: 'suerte',
   attack: 'ataque',
+  tirada: 'tirada de daño',
 };
+
+/**
+ * «1 ronda», «3 rondas»: el número concuerda. Lo leen el parte, la previsión y
+ * la ficha del héroe de la arena, que decía «1 rondas» (H5 de QA del banco).
+ */
+export function enRondas(n: number): string {
+  return `${n} ${n === 1 ? 'ronda' : 'rondas'}`;
+}
+
+/**
+ * Lo que hace un efecto, dicho: «suerte −1», o, para la Bendición y la Maldición
+ * de fheroes2 de la arena, «daño máximo» y «daño mínimo», que un «tirada +1» no
+ * se entiende. El único texto de un efecto: lo leen el parte, la previsión de un
+ * hechizo (`prevision.ts`) y la ficha del héroe de la arena.
+ */
+export function cifraDeEfecto(kind: EffectKind, amount: number): string {
+  if (kind === 'tirada') return amount > 0 ? 'daño máximo' : 'daño mínimo';
+  return `${ETIQUETA_EFECTO[kind]} ${amount > 0 ? '+' : ''}${amount}`;
+}
 
 /**
  * Verde lo que te suma, rojo lo que te resta, sin color lo que ni una cosa ni
@@ -1087,7 +1106,7 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
         case 'luck':
           return html`<div${paraQuienLee(e.stack, e.good)}>${e.good ? 'Golpe afortunado' : 'Golpe desafortunado'} de ${quienEs(e.stack)}</div>`;
         case 'effect':
-          return html`<div${paraQuienLee(e.stack, e.amount >= 0)}>${nombreFuente(e.source)} sobre ${quienEs(e.stack)}: ${ETIQUETA_EFECTO[e.effect]} ${e.amount > 0 ? '+' : ''}${e.amount} durante ${e.rounds} ${e.rounds === 1 ? 'ronda' : 'rondas'}</div>`;
+          return html`<div${paraQuienLee(e.stack, e.amount >= 0)}>${nombreFuente(e.source)} sobre ${quienEs(e.stack)}: ${cifraDeEfecto(e.effect, e.amount)} durante ${enRondas(e.rounds)}</div>`;
         case 'effect_end':
           return html`<div>Se disipa ${nombreFuente(e.source)} de ${quienEs(e.stack)}</div>`;
         case 'immune':
@@ -1208,7 +1227,7 @@ function fraseDeBatalla(
   // enemigo, que ya se ha dicho quién es en la cabeza.
   const bando = (s: Side): string =>
     suyo === null ? quienLucha(s).el : s === suyo ? 'tú' : 'el enemigo';
-  const rondas = `${e.rounds} ${e.rounds === 1 ? 'ronda' : 'rondas'}`;
+  const rondas = enRondas(e.rounds);
   const donde = enLaCasilla(e.at);
   const cabeza =
     suyo === null

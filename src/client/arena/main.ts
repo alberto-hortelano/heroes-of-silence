@@ -11,21 +11,40 @@
  * pelear.
  */
 import {
+  type CambiosDeCatalogo,
+  cifrasDeCatalogoEnLaArena,
+  criaturasDelCatalogo,
+  type HeroeDeArena,
   type HojaDeArena,
+  heroePorDefecto,
   LADOS,
   type Lado,
+  type MontajeDelEnlace,
+  montajeALaURL,
+  montajeDeLaURL,
+  type PuestoDelEnlace,
   type UnidadDeArena,
+  unaVezEnLaURL,
   unidadPorDefecto,
+  validarHeroeDeArena,
   validarHojasDeArena,
   validarUnidadDeArena,
 } from '@core/arena.js';
-import { LIDERAZGO } from '@core/data.js';
+import {
+  conRegla,
+  REGLAS_DEL_JUEGO,
+  type ReglasDeBatalla,
+  reglasALaURL,
+  reglasDeLaURL,
+} from '@core/battle/reglas.js';
+import { allSpells } from '@core/battle/spells.js';
+import { creature, LIDERAZGO } from '@core/data.js';
 import { parseSeed } from '@core/rng.js';
-import type { CreatureTrait } from '@core/types.js';
+import type { CreatureTrait, UnitInfo } from '@core/types.js';
 import { FIGURA } from '../../shared/arte.js';
 import type { Direccion } from '../direccion.js';
 import { EscenaBatalla } from '../escenas/batalla.js';
-import { pintar } from '../html.js';
+import { html, pintar } from '../html.js';
 import { cargarArte } from '../render/assets.js';
 import { COLOR_BANDO } from '../render/batalla.js';
 import type { CharacterClip } from '../render/character.js';
@@ -48,14 +67,26 @@ import {
   registrarUnidad,
 } from '../render/personajes.js';
 import { semillaSorteada } from '../semilla.js';
-import { type PuestoDeArena, SesionDeArena } from '../session.js';
+import { type LadoDeSesion, type PuestoDeArena, SesionDeArena } from '../session.js';
 import { pintarSiguiendoElFinal } from '../views/al-final.js';
 import {
+  type DatosDePuesto,
+  type Elegida,
+  FIGURA_GENERICA,
+  type FiltroDeArena,
+  type FuenteDePuesto,
+  type HeroeDelMontaje,
   type Puesto,
   renderBando,
   renderCatalogo,
+  renderEnlace,
   renderFicha,
+  renderFichaDeCatalogo,
+  renderFichaDeHeroe,
   renderPanelDeBatalla,
+  renderReglas,
+  resumenDeCifras,
+  resumenDeUnidad,
 } from './paneles.js';
 
 const app = document.getElementById('app') as HTMLElement;
@@ -82,8 +113,16 @@ let hojas: readonly HojaDeArena[] = [];
  */
 const borrador = new Map<string, UnidadDeArena>();
 const montaje: Record<Lado, Puesto[]> = { izquierda: [], derecha: [] };
-let filtro: HojaDeArena['faccion'] | 'todas' = 'todas';
-let elegida: string | null = null;
+/** El héroe de cada lado, si lleva. */
+const heroes: Record<Lado, HeroeDelMontaje | null> = { izquierda: null, derecha: null };
+/**
+ * Los cambios de prueba a las criaturas del catálogo, por tipo como el borrador.
+ * **No se guardan**: ni en `data/creatures.json` ni en el borrador; se pierden al
+ * cerrar la página, y la ficha lo dice.
+ */
+const pruebas = new Map<string, CambiosDeCatalogo>();
+let filtro: FiltroDeArena = 'todas';
+let elegida: Elegida | null = null;
 let clipDeFicha: CharacterClip = 'idle';
 /** Cuándo se eligió el clip de la ficha: los que no van en bucle se repiten desde ahí. */
 let inicioDelClip = 0;
@@ -113,12 +152,89 @@ const caben = LIDERAZGO.maxPorBando;
  * La semilla que pide la URL, o `null` para sortear una en cada pelea. La regla
  * es la de la partida (`parseSeed`): lo que no es una semilla se dice.
  */
+const parametros = new URLSearchParams(location.search);
 let semillaPedida: number | null = null;
 let avisoDeSemilla = '';
 try {
-  semillaPedida = parseSeed(new URLSearchParams(location.search).get('seed'));
+  semillaPedida = parseSeed(unaVezEnLaURL(parametros.getAll('seed'), 'seed'));
 } catch (err) {
   avisoDeSemilla = `${mensaje(err)} — quita "?seed=…" de la barra de direcciones para sortear la semilla. `;
+}
+
+/**
+ * Las reglas de la pelea: las del juego, salvo que la URL encienda alguna de
+ * fheroes2 (`?reglas=tirador,bendicion`). Van con la semilla en la URL, para que
+ * una pelea se pueda repetir; lo que no es una regla se dice, como la semilla.
+ */
+let reglas: ReglasDeBatalla = REGLAS_DEL_JUEGO;
+try {
+  // Repetida (`reglas=tirador&reglas=bendicion`) se rechaza: quedarse con la
+  // primera en silencio reproducía otra pelea (H4 de QA del banco).
+  reglas = reglasDeLaURL(unaVezEnLaURL(parametros.getAll('reglas'), 'reglas'));
+} catch (err) {
+  avisoDeSemilla += `${mensaje(err)} — se pelea con las reglas del juego. `;
+}
+
+/**
+ * El enlace de la pelea que se copió por última vez (`?montaje=`, H6 de QA del
+ * banco), para enseñarlo en su campo mientras siga siendo el del montaje: si
+ * algo cambia después, ya no lo es y se deja de enseñar.
+ */
+let enlaceCopiado: string | null = null;
+
+/**
+ * Escribe en la barra la dirección de ahora con las reglas del montaje, para que
+ * copiarla repita también las reglas; las comas de `?reglas=` van sin escapar, y
+ * así se lee y se copia como se escribe (`?seed=7&reglas=tirador,bendicion`).
+ * `cambiar` pone lo demás (la semilla).
+ */
+function reglasALaBarra(cambiar: (url: URL) => void = () => {}): void {
+  const url = new URL(location.href);
+  cambiar(url);
+  const enURL = reglasALaURL(reglas);
+  if (enURL === '') url.searchParams.delete('reglas');
+  else url.searchParams.set('reglas', enURL);
+  history.replaceState(null, '', `${url.pathname}${url.search.replace(/%2C/g, ',')}${url.hash}`);
+}
+
+/** Las cifras con las que pelearía una criatura del catálogo: las suyas o las de su prueba. */
+function cifrasDelCatalogo(id: string): UnitInfo {
+  const cambios = pruebas.get(id);
+  return cambios === undefined ? creature(id) : cifrasDeCatalogoEnLaArena(id, cambios);
+}
+
+/** Lo que la tarjeta de un puesto enseña, salga de donde salga. */
+function describir(p: Puesto): DatosDePuesto {
+  if (p.fuente.kind === 'hoja') {
+    const u = unidadDe(p.fuente.hoja);
+    return {
+      nombre: u.name,
+      resumen: resumenDeCifras(u),
+      figura: p.fuente.hoja,
+      sello: 'borrador',
+    };
+  }
+  const u = cifrasDelCatalogo(p.fuente.id);
+  return {
+    nombre: u.name,
+    resumen: resumenDeUnidad(u),
+    figura: p.fuente.id,
+    sello: pruebas.has(p.fuente.id) ? 'catálogo · prueba que no se guarda' : 'catálogo',
+  };
+}
+
+/** El nombre de quien se pinta en una miniatura: una hoja, una criatura o el héroe genérico. */
+function nombreDeFigura(id: string): string {
+  if (id === FIGURA_GENERICA) return 'Héroe';
+  if (hojas.some((h) => h.id === id)) return unidadDe(id).name;
+  return creature(id).name;
+}
+
+/** Las hojas de héroe completas, para elegir la figura del héroe. */
+function hojasDeHeroe(): { id: string; nombre: string }[] {
+  return hojas
+    .filter((h) => h.heroe && h.incompleta === null)
+    .map((h) => ({ id: h.id, nombre: h.nombre }));
 }
 
 function mensaje(err: unknown): string {
@@ -212,7 +328,22 @@ let figuras: {
   ficha: boolean;
   /** El bando de la miniatura, que le da el color; `null` en la ficha. */
   lado: Lado | null;
+  /** Las tres letras de su marcador sin arte, de `nombreDeFigura`. */
+  rotulo: string;
 }[] = [];
+
+/**
+ * La lista del catálogo del juego con el resumen de cada criatura: las cifras del
+ * catálogo, que no cambian en la página. Se monta la primera vez que se enseña.
+ */
+let listaDelCatalogo: readonly { id: string; name: string; resumen: string }[] | null = null;
+function criaturasDeLaLista(): readonly { id: string; name: string; resumen: string }[] {
+  listaDelCatalogo ??= criaturasDelCatalogo().map((c) => ({
+    ...c,
+    resumen: resumenDeUnidad(creature(c.id)),
+  }));
+  return listaDelCatalogo;
+}
 
 /**
  * Lo último que se pintó en cada miniatura: se repinta solo si cambia su
@@ -227,17 +358,17 @@ function repintarMontaje(): void {
   // mismo campo, que es lo que espera quien edita con el tabulador.
   const campo = document.activeElement?.getAttribute('data-campo') ?? null;
   for (const lado of ['izquierda', 'derecha'] as const) {
-    pintar(elBando[lado], renderBando(lado, montaje[lado], unidadDe, elegida, caben));
+    pintar(
+      elBando[lado],
+      renderBando(lado, montaje[lado], describir, elegida, caben, heroes[lado], ocupados(lado)),
+    );
   }
+  pintar(elFicha, fichaElegida());
+  const criaturas = filtro === 'catalogo' ? criaturasDeLaLista() : [];
   pintar(
-    elFicha,
-    renderFicha(
-      elegida === null ? null : unidadDe(elegida),
-      elegida === null ? null : hojaPorId(elegida),
-      elegida !== null && arteDe(elegida).dispara,
-    ),
+    elCatalogo,
+    html`${renderReglas(reglas)}${renderEnlace(enlaceVigente())}${renderCatalogo(hojas, filtro, criaturas)}`,
   );
-  pintar(elCatalogo, renderCatalogo(hojas, filtro));
   if (campo !== null) {
     const otra = elFicha.querySelector(`[data-campo="${campo}"]`);
     if (otra instanceof HTMLElement) otra.focus();
@@ -254,6 +385,7 @@ function repintarMontaje(): void {
       id,
       ficha: lienzo.getAttribute('data-ficha-clip') === 'si',
       lado: lado === 'izquierda' || lado === 'derecha' ? lado : null,
+      rotulo: nombreDeFigura(id).slice(0, 3),
     });
   }
   pedirFotograma();
@@ -268,25 +400,79 @@ function puestoPorClave(clave: number): { lado: Lado; i: number; p: Puesto } {
   throw new Error(`no hay ningún puesto ${clave} en el montaje`);
 }
 
-function añadir(lado: Lado, hoja: string, ia: boolean): void {
+/** La ficha de lo elegido: una hoja, una criatura del catálogo o el héroe de un lado. */
+function fichaElegida() {
+  if (elegida === null) return renderFicha(null, null, false);
+  switch (elegida.kind) {
+    case 'hoja':
+      return renderFicha(unidadDe(elegida.id), hojaPorId(elegida.id), arteDe(elegida.id).dispara);
+    case 'catalogo':
+      return renderFichaDeCatalogo(
+        elegida.id,
+        cifrasDelCatalogo(elegida.id),
+        pruebas.has(elegida.id),
+      );
+    case 'heroe': {
+      const h = heroes[elegida.lado];
+      if (h === null) return renderFicha(null, null, false);
+      return renderFichaDeHeroe(elegida.lado, h.datos, reglas, hojasDeHeroe());
+    }
+  }
+}
+
+/** Los que lleva ya un lado: sus puestos y su héroe, que cuenta como uno más. */
+function ocupados(lado: Lado): number {
+  return montaje[lado].length + (heroes[lado] === null ? 0 : 1);
+}
+
+function añadir(lado: Lado, fuente: FuenteDePuesto, ia: boolean): void {
   const adjetivo = LADOS[lado].adjetivo;
-  if (montaje[lado].length >= caben) {
+  if (ocupados(lado) >= caben) {
     aviso = `El bando ${adjetivo} ya lleva ${caben}: no cabe ninguna más.`;
     return;
   }
-  const h = hojaPorId(hoja);
-  if (h.incompleta !== null) {
-    aviso = `${h.nombre} no se monta: ${h.incompleta}.`;
-    return;
+  if (fuente.kind === 'hoja') {
+    const hoja = fuente.hoja;
+    const h = hojaPorId(hoja);
+    if (h.incompleta !== null) {
+      aviso = `${h.nombre} no se monta: ${h.incompleta}.`;
+      return;
+    }
+    // La unidad entra en el borrador al montarla: es lo que se probó y lo que se guarda.
+    if (!borrador.has(hoja)) {
+      borrador.set(hoja, unidadPorDefecto(h));
+      cambiosSinGuardar = true;
+    }
+    elegida = { kind: 'hoja', id: hoja };
+  } else {
+    elegida = { kind: 'catalogo', id: creature(fuente.id).id };
   }
-  // La unidad entra en el borrador al montarla: es lo que se probó y lo que se guarda.
-  if (!borrador.has(hoja)) {
-    borrador.set(hoja, unidadPorDefecto(h));
-    cambiosSinGuardar = true;
+  montaje[lado].push({ clave: siguienteClave++, fuente, ia });
+  aviso = `${describir({ clave: 0, fuente, ia }).nombre} entra en el bando ${adjetivo}.`;
+}
+
+/** Cambia la prueba de una criatura del catálogo, comprobada: lo que no cuadra se dice y no entra. */
+function cambiarPrueba(id: string, cambio: (c: CambiosDeCatalogo) => CambiosDeCatalogo): void {
+  try {
+    const nuevos = cambio(pruebas.get(id) ?? {});
+    cifrasDeCatalogoEnLaArena(id, nuevos);
+    pruebas.set(id, nuevos);
+    aviso = `${creature(id).name}: prueba que no se guarda en data/creatures.json.`;
+  } catch (err) {
+    aviso = `No se cambia: ${mensaje(err)}.`;
   }
-  montaje[lado].push({ clave: siguienteClave++, hoja, ia });
-  elegida = hoja;
-  aviso = `${unidadDe(hoja).name} entra en el bando ${adjetivo}.`;
+}
+
+/** Cambia el héroe de un lado, comprobado. */
+function cambiarHeroe(lado: Lado, cambio: (h: HeroeDeArena) => HeroeDeArena): void {
+  const h = heroes[lado];
+  if (h === null) return;
+  try {
+    heroes[lado] = { ...h, datos: validarHeroeDeArena(cambio(h.datos)) };
+    aviso = '';
+  } catch (err) {
+    aviso = `No se cambia: ${mensaje(err)}.`;
+  }
 }
 
 /** Aplica un cambio a la unidad de un tipo, validado: lo que no cuadra se dice y no entra. */
@@ -389,6 +575,146 @@ window.addEventListener('beforeunload', (ev) => {
   if (cambiosSinGuardar && sinGuardado === null) ev.preventDefault();
 });
 
+// ---------------------------------------------------------------- el enlace de la pelea
+
+/**
+ * El montaje de ahora tal como va en el enlace: los puestos y héroes de cada
+ * lado, las cifras de cada hoja montada (guardadas o no) y la prueba de cada
+ * criatura del catálogo montada que la lleve.
+ */
+function montajeDelEnlace(): MontajeDelEnlace {
+  const todos = [...montaje.izquierda, ...montaje.derecha];
+  const hojasMontadas = [
+    ...new Set(todos.flatMap((p) => (p.fuente.kind === 'hoja' ? [p.fuente.hoja] : []))),
+  ];
+  const pruebasMontadas: Record<string, CambiosDeCatalogo> = {};
+  for (const p of todos) {
+    const cambios = p.fuente.kind === 'catalogo' ? pruebas.get(p.fuente.id) : undefined;
+    if (p.fuente.kind === 'catalogo' && cambios !== undefined) {
+      pruebasMontadas[p.fuente.id] = cambios;
+    }
+  }
+  const lado = (l: Lado) => ({
+    puestos: montaje[l].map(
+      (p): PuestoDelEnlace =>
+        p.fuente.kind === 'hoja'
+          ? { kind: 'hoja', hoja: p.fuente.hoja, ia: p.ia }
+          : { kind: 'catalogo', id: p.fuente.id, ia: p.ia },
+    ),
+    heroe: heroes[l],
+  });
+  return {
+    unidades: hojasMontadas.map(unidadDe),
+    pruebas: pruebasMontadas,
+    izquierda: lado('izquierda'),
+    derecha: lado('derecha'),
+  };
+}
+
+/**
+ * La dirección que monta la pelea de ahora: la semilla, las reglas y el montaje.
+ * Las comas de `?reglas=` van sin escapar, como en la barra.
+ */
+function enlaceDe(semilla: number): string {
+  const url = new URL(location.pathname, location.origin);
+  url.searchParams.set('seed', String(semilla));
+  const enURL = reglasALaURL(reglas);
+  if (enURL !== '') url.searchParams.set('reglas', enURL);
+  url.searchParams.set('montaje', montajeALaURL(montajeDelEnlace()));
+  return url.href.replace(/%2C/g, ',');
+}
+
+/** El enlace copiado, si sigue siendo el de este montaje; si no, `null`. */
+function enlaceVigente(): string | null {
+  if (enlaceCopiado === null || semillaPedida === null) return null;
+  return enlaceDe(semillaPedida) === enlaceCopiado ? enlaceCopiado : null;
+}
+
+/**
+ * «Copiar enlace de la pelea»: el montaje entero no cabe con comodidad en la
+ * barra, así que se escribe al pedirlo (H6 de QA del banco, decisión del
+ * usuario). Sin semilla fijada, se sortea una y se fija, en la barra también:
+ * la pelea que se lucha aquí después es la del enlace.
+ */
+async function copiarEnlace(): Promise<void> {
+  const semilla = semillaPedida ?? semillaSorteada();
+  const enlace = enlaceDe(semilla);
+  semillaPedida = semilla;
+  reglasALaBarra((url) => url.searchParams.set('seed', String(semilla)));
+  enlaceCopiado = enlace;
+  try {
+    await navigator.clipboard.writeText(enlace);
+    aviso = `Enlace de la pelea copiado (semilla ${semilla}): abrirlo monta esta misma pelea.`;
+  } catch (err) {
+    aviso = `El enlace de la pelea (semilla ${semilla}) está en su campo, junto a las reglas: no se ha podido copiar solo (${mensaje(err)}).`;
+  }
+}
+
+/**
+ * Monta la pelea de `?montaje=` si la URL trae una. Se comprueba ENTERA antes de
+ * tocar nada —el formato y lo que existe, en `montajeDeLaURL`; que cada hoja
+ * tenga arte, aquí—: un enlace que no vale se dice y la página sigue con el
+ * montaje vacío. Abrirla no lucha sola. Devuelve lo que dice la barra, o `null`
+ * si la URL no trae montaje.
+ */
+function montarDelEnlace(): { readonly montado: boolean; readonly aviso: string } | null {
+  const noSeMonta = (err: unknown) => ({
+    montado: false,
+    aviso: `El enlace de la pelea no se monta: ${mensaje(err)}. `,
+  });
+  let texto: string | null;
+  try {
+    texto = unaVezEnLaURL(parametros.getAll('montaje'), 'montaje');
+  } catch (err) {
+    return noSeMonta(err);
+  }
+  if (texto === null) return null;
+  try {
+    // Con la semilla o las reglas mal, el montaje pelearía otra pelea.
+    if (avisoDeSemilla !== '') throw new Error('la semilla o las reglas del enlace no valen');
+    const m = montajeDeLaURL(texto);
+    for (const u of m.unidades) {
+      const h = hojaPorId(u.id);
+      if (h.incompleta !== null) throw new Error(`${h.nombre} no se monta: ${h.incompleta}`);
+    }
+    for (const l of ['izquierda', 'derecha'] as const) {
+      const figura = m[l].heroe?.datos.figura ?? null;
+      if (figura !== null && !hojasDeHeroe().some((h) => h.id === figura)) {
+        throw new Error(
+          `la figura «${figura}» del héroe ${LADOS[l].adjetivo} no es una hoja de héroe`,
+        );
+      }
+    }
+    const distintas = m.unidades.filter(
+      (u) => JSON.stringify(borrador.get(u.id) ?? null) !== JSON.stringify(u),
+    );
+    for (const u of m.unidades) borrador.set(u.id, u);
+    if (distintas.length > 0) cambiosSinGuardar = true;
+    for (const [id, cambios] of Object.entries(m.pruebas)) pruebas.set(id, cambios);
+    for (const l of ['izquierda', 'derecha'] as const) {
+      montaje[l] = m[l].puestos.map((p) => ({
+        clave: siguienteClave++,
+        fuente: p.kind === 'hoja' ? { kind: 'hoja', hoja: p.hoja } : { kind: 'catalogo', id: p.id },
+        ia: p.ia,
+      }));
+      heroes[l] = m[l].heroe;
+    }
+    // La barra se queda con la semilla y las reglas: el montaje, si cambia, ya no
+    // sería el del enlace.
+    reglasALaBarra((url) => url.searchParams.delete('montaje'));
+    const cifras =
+      distintas.length === 0
+        ? ''
+        : ` Las cifras de ${distintas.map((u) => u.name).join(', ')} son las del enlace, sin guardar.`;
+    return {
+      montado: true,
+      aviso: `Montada la pelea del enlace${semillaPedida === null ? '' : ` (semilla ${semillaPedida})`}: pulsa Luchar.${cifras} `,
+    };
+  } catch (err) {
+    return noSeMonta(err);
+  }
+}
+
 // ---------------------------------------------------------------- batalla
 
 const batalla = new EscenaBatalla(() => {
@@ -397,22 +723,32 @@ const batalla = new EscenaBatalla(() => {
 });
 
 function luchar(): void {
-  const puestos = (lado: Lado): PuestoDeArena[] =>
-    montaje[lado].map((p) => ({ unidad: unidadDe(p.hoja), ia: p.ia }));
+  const puesto = (p: Puesto): PuestoDeArena => ({
+    fuente:
+      p.fuente.kind === 'hoja'
+        ? { kind: 'borrador', unidad: unidadDe(p.fuente.hoja) }
+        : { kind: 'catalogo', id: p.fuente.id, cambios: pruebas.get(p.fuente.id) ?? null },
+    ia: p.ia,
+  });
+  const lado = (l: Lado): LadoDeSesion => ({
+    puestos: montaje[l].map(puesto),
+    heroe: heroes[l],
+  });
   // Una pelea nueva sortea su semilla, salvo que la URL fije una; y la URL la
   // lleva siempre, como en la partida: un resultado raro se repite copiando la
-  // barra de direcciones (M6 de QA).
+  // barra de direcciones (M6 de QA). Con las reglas, que también la cambian.
   const semilla = semillaPedida ?? semillaSorteada();
   let nueva: SesionDeArena;
   try {
-    nueva = new SesionDeArena(puestos('izquierda'), puestos('derecha'), semilla);
+    nueva = new SesionDeArena(
+      { izquierda: lado('izquierda'), derecha: lado('derecha'), reglas },
+      semilla,
+    );
   } catch (err) {
     aviso = `No se puede luchar: ${mensaje(err)}.`;
     return;
   }
-  const url = new URL(location.href);
-  url.searchParams.set('seed', String(semilla));
-  history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+  reglasALaBarra((url) => url.searchParams.set('seed', String(semilla)));
   sesion = nueva;
   elSeed.textContent = `semilla ${semilla}`;
   app.dataset.escena = 'battle';
@@ -485,7 +821,7 @@ function repeticion(ahora: number, c: { readonly frames: number; readonly fps: n
 
 function dibujarFiguras(ahora: number): boolean {
   if (elStatus.textContent !== aviso) elStatus.textContent = aviso;
-  for (const [i, { lienzo, ctx, id, ficha, lado }] of figuras.entries()) {
+  for (const [i, { lienzo, ctx, id, ficha, lado, rotulo }] of figuras.entries()) {
     const arte = arteDe(id);
     // En la miniatura cada figura llena su marco: aquí se mira una, no se
     // comparan. `pintarFigura` escala contra un adulto, así que se le pide el
@@ -523,7 +859,7 @@ function dibujarFiguras(ahora: number): boolean {
       alto,
       mira,
       color: lado === null ? COLOR_NEUTRO : COLOR_BANDO[LADOS[lado].bando],
-      rotulo: unidadDe(id).name.slice(0, 3),
+      rotulo,
     };
     const colocada = colocarFigura(figura);
     const clave = claveDelDibujo(colocada);
@@ -601,7 +937,20 @@ const JUGADA_DE_BOTON = {
 } as const;
 
 document.addEventListener('click', (ev) => {
-  const accion = (ev.target as Element).closest('[data-action]')?.getAttribute('data-action');
+  const conAccion = (ev.target as Element).closest('[data-action]');
+  const accion = conAccion?.getAttribute('data-action');
+  // El libro, como en la partida: elegir el hechizo no es una jugada, apuntar sí.
+  if (
+    accion === 'battle-spell' &&
+    sesion !== null &&
+    conAccion !== null &&
+    conAccion !== undefined
+  ) {
+    if (!jugadaEnCurso())
+      sesion.hechizos.selectSpell(conAccion.getAttribute('data-spell') as string);
+    pedirFotograma();
+    return;
+  }
   if (accion !== undefined && accion !== null && accion in JUGADA_DE_BOTON) {
     // Un doble clic no son dos jugadas: el segundo caía en el botón ya repintado
     // y cerraba el turno de la SIGUIENTE unidad tuya sin que nadie lo pidiera
@@ -624,13 +973,67 @@ document.addEventListener('click', (ev) => {
       case 'añadir': {
         // Por defecto la izquierda la mueve la persona y la derecha la IA: se cambia con Yo / IA.
         const lado = el.getAttribute('data-lado') as Lado;
-        añadir(lado, hoja as string, lado === 'derecha');
+        añadir(lado, { kind: 'hoja', hoja: hoja as string }, lado === 'derecha');
+        break;
+      }
+      case 'añadir-catalogo': {
+        const lado = el.getAttribute('data-lado') as Lado;
+        const id = el.getAttribute('data-criatura') as string;
+        añadir(lado, { kind: 'catalogo', id }, lado === 'derecha');
         break;
       }
       case 'editar':
-        elegida = hoja;
+        elegida = { kind: 'hoja', id: hoja as string };
         aviso = '';
         break;
+      case 'editar-catalogo':
+        elegida = { kind: 'catalogo', id: el.getAttribute('data-criatura') as string };
+        aviso = '';
+        break;
+      case 'deshacer-prueba': {
+        const id = el.getAttribute('data-criatura') as string;
+        pruebas.delete(id);
+        aviso = `${creature(id).name}, con las cifras del catálogo.`;
+        break;
+      }
+      case 'poner-heroe': {
+        const lado = el.getAttribute('data-lado') as Lado;
+        if (ocupados(lado) >= caben) {
+          aviso = `El bando ${LADOS[lado].adjetivo} ya lleva ${caben}: no cabe el héroe.`;
+          break;
+        }
+        heroes[lado] = { datos: heroePorDefecto(lado), ia: lado === 'derecha' };
+        elegida = { kind: 'heroe', lado };
+        aviso = `El bando ${LADOS[lado].adjetivo} lleva héroe: cambia sus cifras y su libro en la ficha.`;
+        break;
+      }
+      case 'editar-heroe':
+        elegida = { kind: 'heroe', lado: el.getAttribute('data-lado') as Lado };
+        aviso = '';
+        break;
+      case 'manda-heroe': {
+        const lado = el.getAttribute('data-lado') as Lado;
+        const h = heroes[lado];
+        if (h !== null) heroes[lado] = { ...h, ia: el.getAttribute('data-ia') === 'si' };
+        break;
+      }
+      case 'quitar-heroe': {
+        const lado = el.getAttribute('data-lado') as Lado;
+        heroes[lado] = null;
+        if (elegida?.kind === 'heroe' && elegida.lado === lado) elegida = null;
+        break;
+      }
+      case 'regla': {
+        reglas = conRegla(
+          reglas,
+          el.getAttribute('data-regla') ?? '',
+          el.getAttribute('data-version') ?? '',
+        );
+        // La URL la lleva ya, para que copiarla repita también el montaje de reglas.
+        reglasALaBarra();
+        aviso = '';
+        break;
+      }
       case 'manda': {
         const { lado, i, p } = puestoPorClave(clave);
         montaje[lado][i] = { ...p, ia: el.getAttribute('data-ia') === 'si' };
@@ -638,7 +1041,7 @@ document.addEventListener('click', (ev) => {
       }
       case 'duplicar': {
         const { lado, p } = puestoPorClave(clave);
-        añadir(lado, p.hoja, p.ia);
+        añadir(lado, p.fuente, p.ia);
         break;
       }
       case 'quitar': {
@@ -657,8 +1060,8 @@ document.addEventListener('click', (ev) => {
         return;
       case 'quitar-habilidad': {
         const h = el.getAttribute('data-habilidad') as string;
-        if (elegida !== null) {
-          cambiarUnidad(elegida, (u) => ({
+        if (elegida?.kind === 'hoja') {
+          cambiarUnidad(elegida.id, (u) => ({
             ...u,
             habilidades: u.habilidades.filter((x) => x !== h),
           }));
@@ -668,6 +1071,12 @@ document.addEventListener('click', (ev) => {
       case 'luchar':
         luchar();
         break;
+      case 'enlace':
+        void copiarEnlace().then(repintarMontaje, (err: unknown) => {
+          aviso = `No se ha podido escribir el enlace de la pelea: ${mensaje(err)}.`;
+          repintarMontaje();
+        });
+        return;
       case 'guardar':
         void guardar().then(repintarMontaje, (err: unknown) => {
           aviso = `No se ha guardado: ${mensaje(err)}.`;
@@ -690,7 +1099,17 @@ document.addEventListener('click', (ev) => {
 document.addEventListener('change', (ev) => {
   const el = ev.target as Element;
   if (elegida === null) return;
-  const id = elegida;
+  if (elegida.kind === 'catalogo') {
+    cambiarDelCatalogo(elegida.id, el);
+    repintarMontaje();
+    return;
+  }
+  if (elegida.kind === 'heroe') {
+    cambiarDelHeroe(elegida.lado, el);
+    repintarMontaje();
+    return;
+  }
+  const id = elegida.id;
   const campo = el.getAttribute('data-campo');
   const rasgo = el.getAttribute('data-rasgo');
   if (campo !== null) {
@@ -710,7 +1129,81 @@ document.addEventListener('change', (ev) => {
   repintarMontaje();
 });
 
+/** Un campo de la ficha de una criatura del catálogo: su prueba. */
+function cambiarDelCatalogo(id: string, el: Element): void {
+  const campo = el.getAttribute('data-catalogo-campo');
+  const rasgo = el.getAttribute('data-catalogo-rasgo');
+  const actual = cifrasDelCatalogo(id);
+  if (campo !== null) {
+    const v = valorDe(el);
+    const n = v.trim() === '' ? Number.NaN : Number(v);
+    cambiarPrueba(id, (c) => {
+      switch (campo) {
+        case 'damage-min':
+          return { ...c, damage: [n, actual.damage[1]] };
+        case 'damage-max':
+          return { ...c, damage: [actual.damage[0], n] };
+        case 'attack':
+        case 'defense':
+        case 'hp':
+        case 'casillas':
+        case 'shots':
+          return { ...c, [campo]: n };
+        default:
+          throw new Error(`la ficha del catálogo no tiene un campo «${campo}»`);
+      }
+    });
+  } else if (rasgo !== null) {
+    const puesto = marcadoDe(el);
+    const antes = actual.traits ?? [];
+    cambiarPrueba(id, (c) => ({
+      ...c,
+      traits: puesto ? [...antes, rasgo as CreatureTrait] : antes.filter((t) => t !== rasgo),
+    }));
+  }
+}
+
+/** Un campo de la ficha del héroe. */
+function cambiarDelHeroe(lado: Lado, el: Element): void {
+  const campo = el.getAttribute('data-heroe-campo');
+  const hechizo = el.getAttribute('data-heroe-hechizo');
+  if (campo !== null) {
+    const v = valorDe(el);
+    cambiarHeroe(lado, (h) => {
+      switch (campo) {
+        case 'nombre':
+          return { ...h, nombre: v };
+        case 'figura':
+          return { ...h, figura: v === '' ? null : v };
+        case 'ataque':
+        case 'defensa':
+        case 'poder':
+        case 'conocimiento':
+          return { ...h, [campo]: v.trim() === '' ? Number.NaN : Number(v) };
+        default:
+          throw new Error(`la ficha del héroe no tiene un campo «${campo}»`);
+      }
+    });
+  } else if (hechizo !== null) {
+    const puesto = marcadoDe(el);
+    cambiarHeroe(lado, (h) => ({
+      ...h,
+      hechizos: puesto
+        ? allSpells()
+            .map((s) => s.id)
+            .filter((id) => id === hechizo || h.hechizos.includes(id))
+        : h.hechizos.filter((id) => id !== hechizo),
+    }));
+  }
+}
+
 document.addEventListener('keydown', (ev) => {
+  // Escape suelta el hechizo elegido, como en la partida.
+  if (ev.key === 'Escape' && sesion !== null && !jugadaEnCurso()) {
+    sesion.hechizos.clearSpell();
+    pedirFotograma();
+    return;
+  }
   // Espacio cierra el turno de tu unidad activa, como en la partida; con el foco
   // en un botón, Espacio pulsa ese botón.
   const enUnBoton = ev.target instanceof Element && ev.target.closest('button') !== null;
@@ -724,7 +1217,10 @@ document.addEventListener('keydown', (ev) => {
 
 arrancar().then(
   () => {
-    aviso = `${avisoDeSemilla}${aviso}${avisoDeIncompletas} Añade unidades a los dos bandos y pulsa Luchar.`;
+    const delEnlace = montarDelEnlace();
+    aviso = delEnlace?.montado
+      ? `${delEnlace.aviso}${aviso}${avisoDeIncompletas}`
+      : `${avisoDeSemilla}${delEnlace?.aviso ?? ''}${aviso}${avisoDeIncompletas} Añade unidades a los dos bandos y pulsa Luchar.`;
     repintarMontaje();
   },
   (err: unknown) => {

@@ -1,7 +1,13 @@
 /** Arranque de partida: del plan de mapa a un `GameState` listo para jugar. */
 import { factionLineup, tipoDeHeroePorDefecto } from '../data.js';
 import { EXPERIENCIA_INICIAL_DE_HEROE } from '../hero/experiencia.js';
-import { type Hero, heroeRecienHecho, maxMana, maxMovePoints } from '../hero/hero.js';
+import {
+  CIFRAS_DEL_HEROE_INICIAL,
+  type Hero,
+  heroeRecienHecho,
+  maxMana,
+  maxMovePoints,
+} from '../hero/hero.js';
 import { withTroops } from '../hero/troop.js';
 import { buildMap, generateMapPlan, type MapPlan, validateMapPlan } from '../map/generate.js';
 import { createRng, type Rng } from '../rng.js';
@@ -117,9 +123,7 @@ export function newGame(options: NewGameOptions = {}): GameState {
         experience: EXPERIENCIA_INICIAL_DE_HEROE,
         tipo: tipoDeHeroePorDefecto(faction),
       }),
-      attack: 2,
-      defense: 2,
-      knowledge: 2,
+      ...CIFRAS_DEL_HEROE_INICIAL,
       army: startingArmy(faction, rng),
       spells: ['magic_arrow'],
       // Sabiduría 1 sube el tope a nivel 3. Hoy no muerde —sin `mage_guild_3`

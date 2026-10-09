@@ -8,7 +8,7 @@
  */
 import { HEROE, hasTrait, hexSize, isShooter, LIDERAZGO } from '../data.js';
 import { cifrasDeCatalogo, cifrasDelIndividuo } from '../hero/experiencia.js';
-import { HERO_BODY } from '../hero/hero.js';
+import { HERO_BODY, type Hero } from '../hero/hero.js';
 import type { Rng } from '../rng.js';
 import type { CombatProfile } from '../rpg/stats.js';
 import type { CreatureTrait, FactionId, Hex, Stack, UnitInfo } from '../types.js';
@@ -27,7 +27,20 @@ import {
   rectaLibre,
   siguienteEnRecta,
 } from './board.js';
-import { CHANCE_PER_POINT, cargaEfectiva, computeDamage, herir } from './damage.js';
+import {
+  ataqueYDefensa,
+  CHANCE_PER_POINT,
+  cargaEfectiva,
+  computeDamage,
+  type DamageOptions,
+  type Horquilla,
+  herir,
+  horquillaDeDanio,
+  type Modificador,
+  type RamaDeSuerte,
+  stackHp,
+  trasElGolpe,
+} from './damage.js';
 import {
   applyEffect,
   clampMoraleLuck,
@@ -35,7 +48,14 @@ import {
   type StackEffect,
   tickEffects,
 } from './effects.js';
-import { castSpell, effectOfSpell, type Spell, spell } from './spells.js';
+import {
+  efectoConReglas,
+  type NombreDeRegla,
+  REGLAS_DEL_JUEGO,
+  type ReglasDeBatalla,
+  reglasEncendidas,
+} from './reglas.js';
+import { castSpell, curaDe, effectOfSpell, type Spell, spell, spellAmount } from './spells.js';
 import type {
   BattleAction,
   BattleHero,
@@ -76,6 +96,37 @@ export interface BattleSide {
 export interface HeroeDelBando {
   readonly mando: BattleHero;
   readonly cuerpo: UnitInfo;
+  /**
+   * El id del ARTE con el que pisa el tablero, si no es el del héroe del juego
+   * (`HERO_BODY`). Solo lo pone la arena, que deja elegir la figura entre las
+   * hojas de héroe; el juego no lo pone nunca.
+   */
+  readonly figura?: string;
+}
+
+/**
+ * El mando de un héroe en la batalla, de sus cifras: la única conversión de un
+ * héroe a `BattleHero`, que usan la partida (`battleSideForHero`) y la arena
+ * (`heroeDeArena`). Escrito dos veces, el día que el mando gane un campo uno de
+ * los dos entraría sin él. Empieza sin haber lanzado en la ronda.
+ */
+export function mandoDe(
+  heroe: Pick<Hero, 'name' | 'attack' | 'defense' | 'spellPower' | 'knowledge' | 'mana'> & {
+    readonly spells: BattleHero['spells'];
+  },
+  retreat: BattleHero['retreat'],
+): BattleHero {
+  return {
+    name: heroe.name,
+    retreat,
+    ataque: heroe.attack,
+    defensa: heroe.defense,
+    spellPower: heroe.spellPower,
+    knowledge: heroe.knowledge,
+    mana: heroe.mana,
+    castThisRound: false,
+    spells: heroe.spells,
+  };
 }
 
 /** Un personaje listo para entrar al tablero. */
@@ -198,7 +249,27 @@ export function armyMorale(units: readonly UnitInfo[]): number {
   return noMuertos ? moral - 1 : moral;
 }
 
-export function createBattle(attacker: BattleSide, defender: BattleSide, _rng: Rng): BattleState {
+/**
+ * Monta la batalla del JUEGO: con sus reglas (`REGLAS_DEL_JUEGO`), siempre. Es la
+ * puerta de la partida, del servidor y de los bancos; ninguna de ellas puede
+ * pedir otras reglas.
+ */
+export function createBattle(attacker: BattleSide, defender: BattleSide, rng: Rng): BattleState {
+  return crearBatallaConReglas(attacker, defender, rng, REGLAS_DEL_JUEGO);
+}
+
+/**
+ * Monta una batalla con otras reglas: la puerta de la arena y solo de ella. Lo
+ * vigila `test/invariantes.test.ts` («solo la arena cambia las reglas»): quien
+ * la llame fuera de `battle/`, `arena.ts`, `session.ts` y `client/arena/` sale
+ * rojo.
+ */
+export function crearBatallaConReglas(
+  attacker: BattleSide,
+  defender: BattleSide,
+  _rng: Rng,
+  reglas: ReglasDeBatalla,
+): BattleState {
   const stacks: BattleStack[] = [];
 
   for (const [side, setup] of [
@@ -270,6 +341,7 @@ export function createBattle(attacker: BattleSide, defender: BattleSide, _rng: R
     ultimoBando: null,
     turno: null,
     heroes: { attacker: attacker.hero?.mando ?? null, defender: defender.hero?.mando ?? null },
+    reglas,
     log: [],
     finished: null,
   };
@@ -395,7 +467,7 @@ function resolveUnit(stack: Stack, slot: number, setup: BattleSide): Entrada {
 function entradaDelHeroe(heroe: HeroeDelBando, slot: number): Entrada {
   return {
     slot,
-    body: HERO_BODY,
+    body: heroe.figura ?? HERO_BODY,
     unit: heroe.cuerpo,
     origen: { kind: 'heroe' },
     count: 1,
@@ -548,15 +620,62 @@ function disparoBlocker(state: BattleState, s: BattleStack): string | null {
 export function ataqueBlocker(state: BattleState, targetId: string): string | null {
   const s = activeStack(state);
   if (s === null || state.finished !== null) return 'no le toca a ninguna unidad';
-  const target = stackById(state, targetId);
-  if (!isAlive(target)) return `${target.id} ya está destruido`;
-  if (target.side === s.side) return 'no se puede atacar a un aliado';
+  const rival = rivalBlocker(s, stackById(state, targetId), 'atacar');
+  if (rival !== null) return rival;
   const disparo = disparoBlocker(state, s);
   if (disparo === null) return null;
   const { actions } = legalActionsAndCosts(state);
   if (actions.some((a) => a.type === 'attack' && a.target === targetId)) return null;
   const golpe = 'no alcanza a esa unidad cuerpo a cuerpo este turno';
   return isShooter(s.unit) ? `${disparo}, y ${golpe}` : golpe;
+}
+
+/**
+ * Por qué `target` no vale como blanco de `s`: muerto o de su bando. `verbo` es
+ * lo que se iba a hacer («atacar», «disparar»). Lo comparten el golpe, el disparo
+ * y la frase de `ataqueBlocker`.
+ */
+function rivalBlocker(s: BattleStack, target: BattleStack, verbo: string): string | null {
+  if (!isAlive(target)) return `${target.id} ya está destruido`;
+  if (target.side === s.side) return `no se puede ${verbo} a un aliado`;
+  return null;
+}
+
+/**
+ * Por qué `s` no puede golpear a `target` desde `from` —o desde donde está, sin
+ * `from`—, o `null` si puede: vivo, rival, la casilla al alcance (en `costes`, el
+ * recorrido de este tramo) y el objetivo pegado desde ella. ÚNICA redacción del
+ * golpe: la leen `applyAction`, que lanza ANTES de mover, y `previsionDe`.
+ */
+function golpeBlocker(
+  s: BattleStack,
+  target: BattleStack,
+  from: Hex | undefined,
+  costes: () => ReadonlyMap<string, Paso>,
+): string | null {
+  const rival = rivalBlocker(s, target, 'atacar');
+  if (rival !== null) return rival;
+  if (from !== undefined && !costes().has(hexKey(from))) {
+    return `${s.id} no puede moverse a (${from.col},${from.row})`;
+  }
+  const desdeAhi = from === undefined ? s : { ...s, hex: from };
+  if (!canReachMelee(desdeAhi, target)) return `${s.id} no alcanza a ${target.id} cuerpo a cuerpo`;
+  return null;
+}
+
+/**
+ * Por qué `s` no puede disparar a `target` ahora, o `null`: la regla del disparo
+ * (`disparoBlocker`, con el id delante) y el blanco. La leen `applyAction` y
+ * `previsionDe`.
+ */
+function disparoContraBlocker(
+  state: BattleState,
+  s: BattleStack,
+  target: BattleStack,
+): string | null {
+  const motivo = disparoBlocker(state, s);
+  if (motivo !== null) return `${s.id} ${motivo}`;
+  return rivalBlocker(s, target, 'disparar');
 }
 
 /**
@@ -772,8 +891,11 @@ function advance(state: BattleState, rng: Rng): void {
     // apunta en la rama de quien «will certainly perform at least one
     // full-fledged action», y la de `MORALE_BAD` va antes.
     // https://github.com/ihhub/fheroes2/blob/9754feff8501dbb69df95f3b999156a32eb8d7d3/src/fheroes2/battle/battle_arena.cpp#L496-L501
+    // Con el interruptor (c) en fheroes2, 1/12 por punto y no 1/24. El perdón que
+    // allí tiene la IA (1 de cada 4 se libra) NO se copia (decisión del usuario):
+    // en la arena la persona y la IA se mezclan en un bando.
     const moral = s.morale;
-    if (moral < 0 && rng.chance(-moral * CHANCE_PER_POINT)) {
+    if (moral < 0 && rng.chance(-moral * probabilidadDeMoralBaja(state.reglas))) {
       s.acted = true;
       state.log.push({ kind: 'morale', stack: s.id, good: false });
       continue;
@@ -784,6 +906,23 @@ function advance(state: BattleState, rng: Rng): void {
 
   beginRound(state, rng);
 }
+
+/**
+ * La probabilidad por punto de moral negativa de perder el turno: la nuestra,
+ * `CHANCE_PER_POINT` (1/24, la misma que la moral alta), o la de fheroes2, que
+ * tira un dado de 12:
+ *
+ * ```cpp
+ *     else if ( morale < 0 && static_cast<int>( Rand::GetWithGen( 1, 12, randomGenerator ) ) <= -morale ) {
+ *         // AI is given a cheeky 25% chance to avoid it - because they build armies from random troops
+ *         if ( isControlHuman() || ( Rand::GetWithGen( 1, 4, randomGenerator ) != 1 ) ) {
+ * ```
+ * https://github.com/ihhub/fheroes2/blob/9754feff8501dbb69df95f3b999156a32eb8d7d3/src/fheroes2/battle/battle_troop.cpp#L308-L310
+ */
+export function probabilidadDeMoralBaja(reglas: ReglasDeBatalla): number {
+  return reglas.moralBaja === 'fheroes2' ? MORAL_BAJA_FHEROES2 : CHANCE_PER_POINT;
+}
+const MORAL_BAJA_FHEROES2 = 1 / 12;
 
 /**
  * Saca de la cola al siguiente vivo, o `null` si no queda nadie en la ronda.
@@ -817,7 +956,19 @@ function abrirTurno(state: BattleState, s: BattleStack): void {
   state.turno = { n: (state.turno?.n ?? 0) + 1, stack: s.id, gastado: 0 };
 }
 
-/** Cierra el turno del stack activo y decide si la moral le regala otro. */
+/**
+ * Cierra el turno del stack activo y decide si la moral le regala otro. Con el
+ * interruptor (d) en fheroes2, quien cerró defendiendo (`TR_SKIP`) no tira la
+ * moral alta:
+ *
+ * ```cpp
+ *             if ( _currentUnit->AllModes( TR_MOVED | MORALE_GOOD ) && !_currentUnit->Modes( TR_SKIP ) && _currentUnit->GetSpeed( false, true ) > Speed::STANDING ) {
+ * ```
+ * https://github.com/ihhub/fheroes2/blob/9754feff8501dbb69df95f3b999156a32eb8d7d3/src/fheroes2/battle/battle_arena.cpp#L537
+ *
+ * Sin tirar, no gasta `rng.chance`: la arena con (d) desplaza las tiradas
+ * siguientes, como la Bendición de (e).
+ */
 function endTurn(state: BattleState, s: BattleStack, rng: Rng): void {
   checkFinished(state);
   if (state.finished !== null) {
@@ -825,8 +976,17 @@ function endTurn(state: BattleState, s: BattleStack, rng: Rng): void {
     return;
   }
 
+  // `defending` se borra al empezar la ronda y quien defiende cierra su turno
+  // ahí mismo: si está puesto, este turno se cerró defendiendo.
+  const sinMoral = s.defending && state.reglas.defender === 'fheroes2';
   const moral = s.morale;
-  if (isAlive(s) && moral > 0 && !s.gotMoraleBonus && rng.chance(moral * CHANCE_PER_POINT)) {
+  if (
+    !sinMoral &&
+    isAlive(s) &&
+    moral > 0 &&
+    !s.gotMoraleBonus &&
+    rng.chance(moral * CHANCE_PER_POINT)
+  ) {
     s.gotMoraleBonus = true;
     s.acted = false;
     state.log.push({ kind: 'morale', stack: s.id, good: true });
@@ -867,6 +1027,31 @@ function checkFinished(state: BattleState): void {
   state.finished = { winner };
   state.turno = null;
   state.log.push({ kind: 'finished', winner });
+}
+
+/**
+ * Por qué acabó una batalla, con la misma regla que la cerró (`bandoVencido`):
+ * - `heroe`: cayó el héroe del que pierde, aunque le quede tropa;
+ * - `sin_tropa`: el que pierde no tiene a nadie en pie;
+ * - `rendicion`: el que pierde pagó por irse;
+ * - `agotada`: los dos siguen en pie y el motor la cerró por no avanzar
+ *   (`finishByExhaustion`: el tope de rondas o una ronda sin nadie que actúe).
+ *
+ * La arena lo dice al acabar: leyendo «quedan unidades en los dos bandos» como
+ * «se acabaron las rondas», un Rayo que mataba al héroe en la ronda 1 salía como
+ * «sin vencedor en 100 rondas: por tiempo» (H1 de QA de la arena).
+ */
+export type CausaDelFinal = 'heroe' | 'sin_tropa' | 'rendicion' | 'agotada';
+
+export function causaDelFinal(state: BattleState): CausaDelFinal | null {
+  if (state.finished === null) return null;
+  if (state.finished.surrender !== undefined) return 'rendicion';
+  const perdedor: Side = state.finished.winner === 'attacker' ? 'defender' : 'attacker';
+  if (!bandoVencido(state, perdedor)) return 'agotada';
+  const cayoSuHeroe = state.stacks.some(
+    (s) => s.side === perdedor && s.origen.kind === 'heroe' && !isAlive(s),
+  );
+  return cayoSuHeroe ? 'heroe' : 'sin_tropa';
 }
 
 // ---------------------------------------------------------------- acciones
@@ -962,18 +1147,21 @@ export function applyAction(
 
     case 'attack': {
       const target = stackById(state, action.target);
-      if (!isAlive(target)) throw new Error(`${target.id} ya está destruido`);
-      if (target.side === s.side) throw new Error('no se puede atacar a un aliado');
+      // El recorrido, una vez: lo leen la comprobación y el movimiento.
+      let costes: ReadonlyMap<string, Paso> | undefined = movibles?.costs;
+      const recorrido = (): ReadonlyMap<string, Paso> => {
+        costes ??= movableFrom(state, s);
+        return costes;
+      };
+      const motivo = golpeBlocker(s, target, action.from, recorrido);
+      if (motivo !== null) throw new Error(motivo);
       // La carga se mide ANTES de mover, desde donde empieza este tramo: es la
       // regla del usuario, «se puede mover un tramo y se vuelve a calcular».
       // Lo recorrido en tramos anteriores no cuenta, y por eso no hace falta
       // guardarlo en ningún sitio: viaja hasta el golpe como argumento. Y se
       // mide contra ESTE objetivo: carga solo si está en la recta.
       const carga = action.from === undefined ? 0 : cargaDesde(state, s, action.from, target);
-      if (action.from !== undefined) moveTo(state, s, action.from, movibles?.costs);
-      if (!canReachMelee(s, target)) {
-        throw new Error(`${s.id} no alcanza a ${target.id} cuerpo a cuerpo`);
-      }
+      if (action.from !== undefined) moveTo(state, s, action.from, recorrido());
       melee(state, s, target, rng, carga);
       endTurn(state, s, rng);
       return;
@@ -981,10 +1169,8 @@ export function applyAction(
 
     case 'shoot': {
       const target = stackById(state, action.target);
-      const motivo = disparoBlocker(state, s);
-      if (motivo !== null) throw new Error(`${s.id} ${motivo}`);
-      if (!isAlive(target)) throw new Error(`${target.id} ya está destruido`);
-      if (target.side === s.side) throw new Error('no se puede disparar a un aliado');
+      const motivo = disparoContraBlocker(state, s, target);
+      if (motivo !== null) throw new Error(motivo);
       shoot(state, s, target, rng);
       endTurn(state, s, rng);
       return;
@@ -1203,7 +1389,15 @@ function moveTo(
  */
 function isImmuneTo(stack: BattleStack, effect: StackEffect): boolean {
   const info = stack.unit;
-  return effect.kind === 'luck' && effect.amount < 0 && hasTrait(info, 'undead');
+  // La Maldición de fheroes2 (`tirada` −1) tampoco les llega: allí la Bendición y
+  // la Maldición son `isAliveOnly`, y a un no-muerto no le hacen nada.
+  // https://github.com/ihhub/fheroes2/blob/9754feff8501dbb69df95f3b999156a32eb8d7d3/src/fheroes2/spell/spell.cpp#L577-L588
+  // https://github.com/ihhub/fheroes2/blob/9754feff8501dbb69df95f3b999156a32eb8d7d3/src/fheroes2/monster/monster_info.cpp#L900-L902
+  return (
+    (effect.kind === 'luck' || effect.kind === 'tirada') &&
+    effect.amount < 0 &&
+    hasTrait(info, 'undead')
+  );
 }
 
 /**
@@ -1212,14 +1406,18 @@ function isImmuneTo(stack: BattleStack, effect: StackEffect): boolean {
  * una momia dejaría tres maldiciones sobre un esqueleto que no las siente.
  */
 function applyStackEffect(state: BattleState, target: BattleStack, effect: StackEffect): void {
-  if (isImmuneTo(target, effect)) {
+  const colgado = colgarEfecto(target, effect);
+  if (colgado.inmune) {
     state.log.push({ kind: 'immune', stack: target.id, source: effect.source });
     return;
+  }
+  for (const quitado of colgado.quitadas) {
+    state.log.push({ kind: 'effect_end', stack: target.id, source: quitado.source });
   }
   // Lo que se anota es el efecto YA colgado, no el que se pidió: si refrescó a
   // uno del mismo origen, las rondas que se leen en el parte son las que de
   // verdad le quedan.
-  const vivo = applyEffect(target, effect);
+  const vivo = colgado.vivo;
   state.log.push({
     kind: 'effect',
     stack: target.id,
@@ -1228,6 +1426,66 @@ function applyStackEffect(state: BattleState, target: BattleStack, effect: Stack
     source: vivo.source,
     rounds: vivo.roundsLeft,
   });
+}
+
+/**
+ * Cuelga `effect` de `target` sin anotar nada: rebota en el inmune, quita la
+ * contraria y refresca o añade (`applyEffect`). La parte pura de
+ * `applyStackEffect`, que anota lo que pasó; la previsión del contraataque la
+ * usa sobre su copia del objetivo, así que las dos cuelgan igual.
+ */
+function colgarEfecto(
+  target: BattleStack,
+  effect: StackEffect,
+):
+  | { readonly inmune: true }
+  | {
+      readonly inmune: false;
+      readonly quitadas: readonly StackEffect[];
+      readonly vivo: StackEffect;
+    } {
+  if (isImmuneTo(target, effect)) return { inmune: true };
+  // La Bendición y la Maldición de fheroes2 se sustituyen: la nueva quita la
+  // contraria, sea del hechizo o de la momia.
+  //
+  // ```cpp
+  //     case Spell::BLESS:
+  //     case Spell::MASSBLESS:
+  //         _replaceAffection( SP_CURSE, SP_BLESS, duration );
+  // // …
+  //     case Spell::CURSE:
+  //     case Spell::MASSCURSE:
+  //         _replaceAffection( SP_BLESS, SP_CURSE, duration );
+  // ```
+  // https://github.com/ihhub/fheroes2/blob/9754feff8501dbb69df95f3b999156a32eb8d7d3/src/fheroes2/battle/battle_troop.cpp#L1180-L1193
+  const quitadas = quitarLaContraria(target, effect);
+  return { inmune: false, quitadas, vivo: applyEffect(target, effect) };
+}
+
+/**
+ * ¿Devolverá `target` el golpe de `attacker`, si sigue en pie? Uno por ronda, si
+ * quien pega lo permite y si lo alcanza. La leen el golpe (`melee`) y la
+ * previsión (`previsionDe`), que no puede prometer un contraataque que no llega.
+ */
+function devolveraElGolpe(attacker: BattleStack, target: BattleStack): boolean {
+  return (
+    !target.retaliated &&
+    !hasTrait(attacker.unit, 'no_retaliation') &&
+    canReachMelee(target, attacker)
+  );
+}
+
+/**
+ * Quita la `tirada` contraria a `effect` y devuelve las quitadas: la nueva
+ * Bendición se lleva la Maldición, y al revés (`colgarEfecto`).
+ */
+function quitarLaContraria(target: BattleStack, effect: StackEffect): StackEffect[] {
+  if (effect.kind !== 'tirada') return [];
+  const contraria = (e: StackEffect): boolean =>
+    e.kind === 'tirada' && e.amount > 0 !== effect.amount > 0;
+  const quitadas = target.effects.filter(contraria);
+  if (quitadas.length > 0) target.effects = target.effects.filter((e) => !contraria(e));
+  return quitadas;
 }
 
 function melee(
@@ -1245,13 +1503,7 @@ function melee(
   }
 
   // Contraataque: uno por ronda, y solo si el atacante lo permite.
-  if (
-    isAlive(target) &&
-    isAlive(attacker) &&
-    !target.retaliated &&
-    !hasTrait(info, 'no_retaliation') &&
-    canReachMelee(target, attacker)
-  ) {
+  if (isAlive(target) && isAlive(attacker) && devolveraElGolpe(attacker, target)) {
     // El contraataque no carga: se devuelve el golpe desde donde se está.
     target.retaliated = true;
     strike(state, target, attacker, rng, true, 0);
@@ -1303,6 +1555,97 @@ const ON_HIT_EFFECTS: readonly { trait: CreatureTrait; effect: StackEffect }[] =
   },
 ];
 
+/**
+ * Los efectos al golpear con el interruptor (e) en fheroes2 (`efectoConReglas`):
+ * la Maldición de la momia es daño mínimo en vez de suerte −1, como la del
+ * hechizo (decisión del usuario, 09-10-2026). En fheroes2 la momia lanza el
+ * hechizo de verdad (`SPELL_CASTER`, 20 %, `CURSE`); aquí sigue siendo nuestro
+ * rasgo —siempre, 3 rondas— y solo cambia lo que hace. Calculados una vez, no en
+ * cada golpe.
+ * https://github.com/ihhub/fheroes2/blob/9754feff8501dbb69df95f3b999156a32eb8d7d3/src/fheroes2/monster/monster_info.cpp#L491
+ */
+const ON_HIT_EFFECTS_BENDICION_FHEROES2: readonly { trait: CreatureTrait; effect: StackEffect }[] =
+  ON_HIT_EFFECTS.map((x) => ({
+    trait: x.trait,
+    effect: efectoConReglas(x.effect, { bendicion: 'fheroes2' }),
+  }));
+
+/** Lo que deja pegado un golpe con este rasgo, con las reglas de la batalla. */
+function efectosAlGolpear(
+  reglas: ReglasDeBatalla,
+): readonly { trait: CreatureTrait; effect: StackEffect }[] {
+  return reglas.bendicion === 'nuestra' ? ON_HIT_EFFECTS : ON_HIT_EFFECTS_BENDICION_FHEROES2;
+}
+
+/**
+ * Las opciones del daño de un golpe de `attacker` a `target` en esta batalla: sus
+ * reglas y, con el interruptor (f) en fheroes2, el ataque del héroe del que pega
+ * y la defensa del héroe del que recibe, sumados a la tropa (no al héroe, que en
+ * fheroes2 no pisa el tablero y aquí ya los lleva en su cuerpo):
+ *
+ * ```cpp
+ * uint32_t ArmyTroop::GetAttack() const
+ * {
+ *     return Troop::GetAttack() + ( _army && _army->GetCommander() ? _army->GetCommander()->GetAttack() : 0 );
+ * }
+ * ```
+ * https://github.com/ihhub/fheroes2/blob/9754feff8501dbb69df95f3b999156a32eb8d7d3/src/fheroes2/army/army_troop.cpp#L158-L166
+ *
+ * Es la ÚNICA forma de montarlas: la usan el golpe, el disparo, la IA y la
+ * previsión.
+ */
+export function opcionesDeDanio(
+  state: BattleState,
+  attacker: BattleStack,
+  target: BattleStack,
+  extra: Omit<DamageOptions, 'reglas' | 'ataqueDelMando' | 'defensaDelMando'> = SIN_EXTRA,
+): DamageOptions {
+  const reglas = state.reglas;
+  if (reglas.heroe === 'nuestra') {
+    // La IA pide estas cientos de veces por decisión, casi siempre sin nada
+    // más: un objeto por reglas, no uno por pareja.
+    if (extra === SIN_EXTRA) return soloLasReglas(reglas);
+    return { reglas, ...extra };
+  }
+  return {
+    reglas,
+    ...extra,
+    ataqueDelMando: delMando(state, attacker)?.ataque ?? 0,
+    defensaDelMando: delMando(state, target)?.defensa ?? 0,
+  };
+}
+
+const SIN_EXTRA: Omit<DamageOptions, 'reglas' | 'ataqueDelMando' | 'defensaDelMando'> =
+  Object.freeze({});
+const OPCIONES_SOLO_REGLAS = new WeakMap<ReglasDeBatalla, DamageOptions>();
+
+/** Las opciones con solo las reglas: una por `ReglasDeBatalla`, que no cambian. */
+function soloLasReglas(reglas: ReglasDeBatalla): DamageOptions {
+  let o = OPCIONES_SOLO_REGLAS.get(reglas);
+  if (o === undefined) {
+    o = Object.freeze({ reglas });
+    OPCIONES_SOLO_REGLAS.set(reglas, o);
+  }
+  return o;
+}
+
+/** El héroe que manda a `s`, si es tropa y su bando lleva héroe. */
+function delMando(state: BattleState, s: BattleStack): BattleHero | null {
+  return s.origen.kind === 'heroe' ? null : state.heroes[s.side];
+}
+
+/**
+ * El ataque y la defensa con que pelea `s` ahora, para la ficha: los de
+ * `ataqueYDefensa`, la cuenta del golpe, con `s` a los dos lados —su ataque al
+ * pegar y su defensa al recibir—.
+ */
+export function ataqueYDefensaEnBatalla(
+  state: BattleState,
+  s: BattleStack,
+): { readonly ataque: number; readonly defensa: number } {
+  return ataqueYDefensa(s, s, opcionesDeDanio(state, s, s));
+}
+
 function strike(
   state: BattleState,
   attacker: BattleStack,
@@ -1312,7 +1655,12 @@ function strike(
   carga: number,
 ): void {
   const info = attacker.unit;
-  const result = computeDamage(attacker, target, rng, { chargeHexes: carga });
+  const result = computeDamage(
+    attacker,
+    target,
+    rng,
+    opcionesDeDanio(state, attacker, target, { chargeHexes: carga }),
+  );
   const killed = herir(target, result.damage, attacker);
 
   if (result.lucky) state.log.push({ kind: 'luck', stack: attacker.id, good: true });
@@ -1340,7 +1688,7 @@ function strike(
   // dragón óseo le devuelven el golpe ya asustados, que es donde se nota.
   // Un contraataque no asusta ni maldice: solo el que ataca de verdad.
   if (!retaliation && isAlive(target)) {
-    for (const { trait, effect } of ON_HIT_EFFECTS) {
+    for (const { trait, effect } of efectosAlGolpear(state.reglas)) {
       if (hasTrait(info, trait)) applyStackEffect(state, target, effect);
     }
   }
@@ -1362,13 +1710,19 @@ function shoot(state: BattleState, shooter: BattleStack, target: BattleStack, rn
   const shots = hasTrait(info, 'double_shot') ? 2 : 1;
 
   for (let i = 0; i < shots && isAlive(target); i++) {
-    const distance = Math.min(
-      ...stackHexes(shooter).flatMap((sh) => stackHexes(target).map((th) => hexDistance(sh, th))),
+    const distance = distanciaDeDisparo(shooter, target);
+    const result = computeDamage(
+      shooter,
+      target,
+      rng,
+      opcionesDeDanio(state, shooter, target, { ranged: true, distance }),
     );
-    const result = computeDamage(shooter, target, rng, { ranged: true, distance });
     const killed = herir(target, result.damage, shooter);
 
+    // La mala suerte también se anota, como en el golpe: sin ella, quien lee el
+    // registro (la previsión y su test) no sabía qué rama había caído.
     if (result.lucky) state.log.push({ kind: 'luck', stack: shooter.id, good: true });
+    if (result.unlucky) state.log.push({ kind: 'luck', stack: shooter.id, good: false });
     state.log.push({
       kind: 'shoot',
       stack: shooter.id,
@@ -1380,6 +1734,13 @@ function shoot(state: BattleState, shooter: BattleStack, target: BattleStack, rn
 
     if (hasTrait(info, 'splash_shot')) splash(state, shooter, target, result.damage);
   }
+}
+
+/** Las casillas entre un tirador y su objetivo: lo que mira la regla de la distancia. */
+function distanciaDeDisparo(shooter: BattleStack, target: BattleStack): number {
+  return Math.min(
+    ...stackHexes(shooter).flatMap((sh) => stackHexes(target).map((th) => hexDistance(sh, th))),
+  );
 }
 
 /**
@@ -1464,15 +1825,21 @@ export function castBlocker(
   if (targetId !== undefined) {
     const target = state.stacks.find((t) => t.id === targetId);
     if (target === undefined) return `no hay ninguna unidad "${targetId}"`;
-    return targetBlocker(hero, s, side, target);
+    return targetBlocker(state, hero, s, side, target);
   }
-  return state.stacks.some((t) => targetBlocker(hero, s, side, t) === null)
+  return state.stacks.some((t) => targetBlocker(state, hero, s, side, t) === null)
     ? null
     : 'no hay ningún objetivo válido';
 }
 
 /** Por qué este stack no vale como objetivo de este hechizo. */
-function targetBlocker(hero: BattleHero, s: Spell, side: Side, target: BattleStack): string | null {
+function targetBlocker(
+  state: BattleState,
+  hero: BattleHero,
+  s: Spell,
+  side: Side,
+  target: BattleStack,
+): string | null {
   if (!isAlive(target)) return 'el objetivo ya está destruido';
   const wantsEnemy = s.target === 'enemy';
   if (wantsEnemy === (target.side === side)) {
@@ -1481,7 +1848,7 @@ function targetBlocker(hero: BattleHero, s: Spell, side: Side, target: BattleSta
   // La inmunidad se pregunta a la misma función que decide al aplicar el efecto,
   // no a una copia de la regla: nada de ofrecer una Maldición sobre un no-muerto
   // para que después rebote.
-  const efecto = effectOfSpell(s, hero);
+  const efecto = effectOfSpell(s, hero, state.reglas);
   if (efecto !== null && isImmuneTo(target, efecto)) {
     return `${target.unit.name} es inmune a "${s.name}"`;
   }
@@ -1511,7 +1878,7 @@ function castHeroSpell(
   // El cuerpo del héroe es quien cobra la experiencia del hechizo. Está vivo
   // seguro: si cae, su bando pierde (`checkFinished`) y aquí no se llega.
   const cuerpo = state.stacks.find((x) => x.side === side && x.origen.kind === 'heroe') ?? null;
-  const result = castSpell(s, hero, target, cuerpo);
+  const result = castSpell(s, hero, target, cuerpo, state.reglas);
 
   state.log.push({
     kind: 'cast',
@@ -1529,6 +1896,240 @@ function castHeroSpell(
   if (result.effect !== undefined) applyStackEffect(state, target, result.effect);
   if (!isAlive(target)) state.log.push({ kind: 'perished', stack: target.id });
   checkFinished(state);
+}
+
+// ---------------------------------------------------------------- previsión
+
+/**
+ * Lo que daría un golpe o un disparo, ANTES de darlo: la horquilla por golpe sin
+ * suerte, las dos ramas de la suerte, lo que se lleva por delante, por qué sale
+ * esa cifra y si habrá contraataque. Las reglas en curso van en `reglas` (las
+ * que no son las del juego, para decirlas).
+ */
+export interface PrevisionDeGolpe {
+  readonly kind: 'golpe' | 'disparo';
+  readonly atacante: string;
+  readonly objetivo: string;
+  /** 2 con `double_attack` o `double_shot`; el segundo, si el objetivo sigue en pie. */
+  readonly golpes: number;
+  readonly danio: Horquilla;
+  readonly buena: RamaDeSuerte | null;
+  readonly mala: RamaDeSuerte | null;
+  /** Individuos que caerían, sin suerte, con todos los golpes. */
+  readonly bajas: Horquilla;
+  /** PV que le quedarían, sin suerte, con todos los golpes. */
+  readonly leQuedan: Horquilla;
+  readonly modificadores: readonly Modificador[];
+  readonly contraataque: PrevisionDeContraataque | null;
+  /** A quién más alcanza la salpicadura de un disparo, con el mismo daño. */
+  readonly salpica: readonly string[];
+  readonly reglas: readonly NombreDeRegla[];
+}
+
+/** El golpe que devolvería el objetivo, si sigue en pie. */
+export interface PrevisionDeContraataque {
+  /** `true`: sobrevive siempre, así que contraataca seguro; `false`: solo si sobrevive. */
+  readonly seguro: boolean;
+  readonly danio: Horquilla;
+  readonly buena: RamaDeSuerte | null;
+  readonly mala: RamaDeSuerte | null;
+  readonly modificadores: readonly Modificador[];
+}
+
+/** Lo que haría un hechizo sobre su objetivo. */
+export interface PrevisionDeHechizo {
+  readonly kind: 'hechizo';
+  readonly hechizo: string;
+  readonly objetivo: string;
+  /** El daño de un hechizo de daño, que no tira dado. */
+  readonly danio: number | null;
+  readonly bajas: number | null;
+  readonly leQuedan: number | null;
+  /** Lo que dejaría colgado: Prisa, Lentitud, Bendición, Maldición. */
+  readonly efecto: StackEffect | null;
+  /** PV que repondría una Curación. */
+  readonly cura: number | null;
+  readonly reglas: readonly NombreDeRegla[];
+}
+
+export type Prevision = PrevisionDeGolpe | PrevisionDeHechizo;
+
+/**
+ * La previsión de una acción del stack activo: un golpe (`attack`, con su carga
+ * si la hay), un disparo o un hechizo; `null` para lo que no hace daño. Lanza si
+ * la acción no se puede jugar ahora, con el motivo del núcleo: la previsión se
+ * pide sobre acciones de la lista legal, y una que no lo es es un fallo de quien
+ * pregunta.
+ *
+ * **Sale de las mismas funciones que aplican el daño**: `opcionesDeDanio`,
+ * `cargaDesde`, `distanciaDeDisparo`, `horquillaDeDanio` (la cuenta de
+ * `computeDamage` con la tirada en sus extremos), `trasElGolpe`,
+ * `devolveraElGolpe` y los efectos al golpear. No toca el estado ni el `Rng`.
+ * `test/prevision.test.ts` la compara con el daño real de cientos de semillas en
+ * todas las combinaciones de reglas.
+ */
+export function previsionDe(state: BattleState, accion: BattleAction): Prevision | null {
+  const s = activeStack(state);
+  if (s === null || state.finished !== null) throw new Error('no le toca a ninguna unidad');
+  switch (accion.type) {
+    case 'attack': {
+      // Las mismas comprobaciones que `applyAction` hace al golpear.
+      const target = stackById(state, accion.target);
+      const motivo = golpeBlocker(s, target, accion.from, () => movableFrom(state, s));
+      if (motivo !== null) throw new Error(motivo);
+      const desdeAhi = accion.from === undefined ? s : { ...s, hex: accion.from };
+      const carga = accion.from === undefined ? 0 : cargaDesde(state, s, accion.from, target);
+      // Golpea desde `from`: desde ahí se mira si el objetivo le alcanza para
+      // devolverlo. Una copia, que la previsión no mueve a nadie.
+      return previsionDeGolpe(state, desdeAhi, target, 'golpe', { chargeHexes: carga });
+    }
+    case 'shoot': {
+      const target = stackById(state, accion.target);
+      const motivo = disparoContraBlocker(state, s, target);
+      if (motivo !== null) throw new Error(motivo);
+      return previsionDeGolpe(state, s, target, 'disparo', {
+        ranged: true,
+        distance: distanciaDeDisparo(s, target),
+      });
+    }
+    case 'cast': {
+      if (accion.target === undefined) throw new Error('el hechizo necesita un objetivo');
+      const motivo = castBlocker(state, s.side, accion.spell, accion.target);
+      if (motivo !== null) throw new Error(`no se puede lanzar: ${motivo}`);
+      return previsionDeHechizo(state, s.side, accion.spell, stackById(state, accion.target));
+    }
+    case 'move':
+    case 'wait':
+    case 'defend':
+    case 'surrender':
+    case 'end_turn':
+      return null;
+  }
+}
+
+function previsionDeGolpe(
+  state: BattleState,
+  a: BattleStack,
+  t: BattleStack,
+  kind: 'golpe' | 'disparo',
+  extra: Omit<DamageOptions, 'reglas' | 'ataqueDelMando' | 'defensaDelMando'>,
+): PrevisionDeGolpe {
+  const h = horquillaDeDanio(a, t, opcionesDeDanio(state, a, t, extra));
+  const golpes = hasTrait(a.unit, kind === 'golpe' ? 'double_attack' : 'double_shot') ? 2 : 1;
+  // Cómo queda el objetivo con `golpes` golpes de `d` cada uno: el segundo solo
+  // si el primero no lo tumba, como en `melee` y `shoot`.
+  const tras = (d: number): { count: number; topHp: number } => {
+    let quedan: { count: number; topHp: number } = { count: t.count, topHp: t.topHp };
+    for (let i = 0; i < golpes && quedan.count > 0; i++) {
+      quedan = trasElGolpe({ ...quedan, unit: t.unit }, d);
+    }
+    return quedan;
+  };
+  const conMenos = tras(h.danio.min);
+  const conMas = tras(h.danio.max);
+  const vida = (q: { count: number; topHp: number }): number =>
+    stackHp({ ...t, count: q.count, topHp: q.topHp });
+  return {
+    kind,
+    atacante: a.id,
+    objetivo: t.id,
+    golpes,
+    danio: h.danio,
+    buena: h.buena,
+    mala: h.mala,
+    bajas: { min: t.count - conMenos.count, max: t.count - conMas.count },
+    leQuedan: { min: vida(conMas), max: vida(conMenos) },
+    modificadores: h.modificadores,
+    contraataque: kind === 'golpe' ? previsionDelContraataque(state, a, t, h, tras) : null,
+    salpica:
+      kind === 'disparo' && hasTrait(a.unit, 'splash_shot')
+        ? splashTargets(state, t).map((x) => x.id)
+        : [],
+    reglas: reglasEncendidas(state.reglas),
+  };
+}
+
+/**
+ * El contraataque de `t` si `a` le golpea: si lo devuelve (`devolveraElGolpe`) y
+ * sobrevive. Lo que puede quitar depende de cuántos le queden —el peor golpe
+ * deja menos, el mejor más— y de lo que el golpe le haya dejado pegado (el miedo
+ * del dragón, la Maldición de la momia), así que se cuenta sobre una copia del
+ * objetivo con eso puesto, como lo tendría al devolverlo.
+ */
+function previsionDelContraataque(
+  state: BattleState,
+  a: BattleStack,
+  t: BattleStack,
+  h: ReturnType<typeof horquillaDeDanio>,
+  tras: (d: number) => { count: number; topHp: number },
+): PrevisionDeContraataque | null {
+  if (!devolveraElGolpe(a, t)) return null;
+  // Con suerte el golpe puede quitar más, o menos, que sin ella.
+  const peor = h.mala?.min ?? h.danio.min;
+  const mejor = h.buena?.max ?? h.danio.max;
+  const conPeor = tras(peor);
+  if (conPeor.count === 0) return null;
+  const conMejor = tras(mejor);
+  // Lo que el golpe le deja, colgado sobre una copia con la misma función que
+  // `applyStackEffect`: refrescar, sustituir la contraria, rebotar en el inmune.
+  const conLoDelGolpe: BattleStack = { ...t, effects: [...t.effects] };
+  for (const { trait, effect } of efectosAlGolpear(state.reglas)) {
+    if (hasTrait(a.unit, trait)) colgarEfecto(conLoDelGolpe, effect);
+  }
+  const copia = (count: number): BattleStack => ({ ...conLoDelGolpe, count });
+  // El que menos devuelve es el que más ha perdido; el que más, el que menos.
+  const pocos = copia(conMejor.count === 0 ? 1 : conMejor.count);
+  const muchos = copia(conPeor.count);
+  const bajo = horquillaDeDanio(pocos, a, opcionesDeDanio(state, pocos, a));
+  const alto = horquillaDeDanio(muchos, a, opcionesDeDanio(state, muchos, a));
+  const une = (x: RamaDeSuerte | null, y: RamaDeSuerte | null): RamaDeSuerte | null =>
+    x === null || y === null ? null : { probabilidad: x.probabilidad, min: x.min, max: y.max };
+  return {
+    seguro: conMejor.count > 0,
+    danio: { min: bajo.danio.min, max: alto.danio.max },
+    buena: une(bajo.buena, alto.buena),
+    mala: une(bajo.mala, alto.mala),
+    modificadores: alto.modificadores,
+  };
+}
+
+function previsionDeHechizo(
+  state: BattleState,
+  side: Side,
+  spellId: string,
+  t: BattleStack,
+): PrevisionDeHechizo {
+  const hero = state.heroes[side];
+  if (hero === null) throw new Error(`no se puede lanzar: ${SIN_HEROE}`);
+  const s = spell(spellId);
+  const base = {
+    kind: 'hechizo',
+    hechizo: spellId,
+    objetivo: t.id,
+    reglas: reglasEncendidas(state.reglas),
+    danio: null,
+    bajas: null,
+    leQuedan: null,
+    efecto: null,
+    cura: null,
+  } as const;
+  switch (s.kind) {
+    case 'damage': {
+      const danio = spellAmount(s, hero);
+      const quedan = trasElGolpe(t, danio);
+      return {
+        ...base,
+        danio,
+        bajas: t.count - quedan.count,
+        leQuedan: stackHp({ ...t, ...quedan }),
+      };
+    }
+    case 'speed':
+    case 'luck':
+      return { ...base, efecto: effectOfSpell(s, hero, state.reglas) };
+    case 'heal':
+      return { ...base, cura: curaDe(s, hero, t) };
+  }
 }
 
 // ---------------------------------------------------------------- legalidad
