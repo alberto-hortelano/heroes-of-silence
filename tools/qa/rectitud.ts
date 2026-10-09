@@ -107,17 +107,25 @@ export function carasEnFila(map: GameMap, minimo: number): number {
  * sin escalar, 437 tramos de ≥ 8 y 43 mapas con uno de ≥ 10; a escala, 75 de
  * ≥ 10 y 8 mapas con uno de ≥ 12. Los bisectores de Voronoi son rectos, y un
  * mapa mayor los alarga: el umbral absoluto cruza la raya de muchos que en
- * 34×34 se quedaban en 6-7.
+ * 34×34 se quedaban en 6-7. Con la ondulación del reparto (#229,
+ * `ONDULACION` en `map/generate.ts`), 64 tramos de ≥ 10, 5 filas de caras y 2
+ * mapas.
  */
 export function largoALaEscala(casillas: number): number {
   return Math.round(casillas * Math.sqrt(AREA_POR_REGION / AREA_DE_REFERENCIA));
 }
 
-/** Los techos de #169 y lo que había antes, para que el informe diga las dos cosas. */
+/**
+ * Los techos de #169 y lo que había antes, para que el informe diga las dos cosas.
+ * Bajan con #229 (09-10-2026) a entre lo de antes de la ondulación (75 / 10 / 8
+ * en 1-1000) y lo de después (64 / 5 / 2): sin ella, los tres muerden. El de
+ * los tramos va justo, porque es el que menos baja: lo recto que queda es del
+ * engorde, no del reparto.
+ */
 export const TECHOS = {
-  tramos: { semillas: 1000, minimo: largoALaEscala(8), techo: 140, antes: 216 },
-  caras: { semillas: 1000, minimo: largoALaEscala(8), techo: 115, antes: 138 },
-  mapas: { semillas: 1000, minimo: largoALaEscala(10), techo: 8, antes: 14 },
+  tramos: { semillas: 1000, minimo: largoALaEscala(8), techo: 70, antes: 216 },
+  caras: { semillas: 1000, minimo: largoALaEscala(8), techo: 8, antes: 138 },
+  mapas: { semillas: 1000, minimo: largoALaEscala(10), techo: 6, antes: 14 },
 } as const;
 
 function medir(): boolean {

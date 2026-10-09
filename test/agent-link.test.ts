@@ -231,10 +231,14 @@ function rivalAlAtaque(state: GameState): Hero {
  * `rivalAlAtaque` ataca de verdad al héroe del agente en su turno: la misma
  * partida y el mismo azar que le da el `Director`, jugada por la IA sola.
  */
-async function semillaEnQueElRivalAtaca(desde: number): Promise<number> {
+async function semillaEnQueElRivalAtaca(
+  desde: number,
+  armar: (mio: Hero) => void = () => {},
+): Promise<number> {
   for (let seed = desde; seed < desde + 40; seed++) {
     const state = newGame({ seed });
     const mio = rivalAlAtaque(state);
+    armar(mio);
     await playAiTurn(state, { rng: createRng(seed ^ 0xa9e7) }, { noSeRinden: new Set([1]) });
     const atacado = state.log.some(
       (e) => e.kind === 'battle_started' && e.foe.kind === 'hero' && e.foe.heroId === mio.id,
@@ -1672,8 +1676,9 @@ describe('el agente sabe cómo le fue', () => {
     });
 
     // Era la 304: con los mapas densos (03-10-2026) la batalla de esa semilla
-    // ya no sacaba la rama del maná. Lo que se mide es la nota, no el mapa.
-    const director = new Director(link, { seed: 306, agentPlayers: [1] });
+    // ya no sacaba la rama del maná; luego la 306, que con las fronteras
+    // onduladas (#229) ya no tiene batalla. Lo que se mide es la nota, no el mapa.
+    const director = new Director(link, { seed: 300, agentPlayers: [1] });
     rivalAlAtaque(director.state);
     // Sin oro para rendirse: si no, la heurística sustituta se rinde en la
     // primera decisión —seis paladines contra su tropa— y la batalla acaba
@@ -1795,7 +1800,14 @@ describe('el agente sabe cómo le fue', () => {
       return { action: { type: 'attack', target: 'no-existe' } };
     });
 
-    const director = new Director(link, { seed: 310, agentPlayers: [1] });
+    // La semilla se busca con el campeón ya puesto: que el rival lo ataque
+    // depende de su fuerza. Era la 310 escrita, que con las fronteras
+    // onduladas de #229 ya no daba la batalla.
+    const campeones = (h: Hero): void => {
+      h.army = ejercito({ creature: 'champion', count: 5 });
+    };
+    const seed = await semillaEnQueElRivalAtaca(310, campeones);
+    const director = new Director(link, { seed, agentPlayers: [1] });
     const mio = rivalAlAtaque(director.state);
     // Un campeón (7 hexes) contra los 40 paladines del rival (alcance 5+1). Es
     // el más rápido, así que abre la ronda: no llega a nadie desde su borde, y
@@ -1803,7 +1815,7 @@ describe('el agente sabe cómo le fue', () => {
     // exactamente la regla de #52, así que la sustituta de la heurística es un
     // `wait`. Con el ejército de salida del nigromante no pasa: el paladín es
     // más rápido que el esqueleto y que el zombi, y mueve antes que los dos.
-    mio.army = ejercito({ creature: 'champion', count: 5 });
+    campeones(mio);
 
     await director.playTurn();
     await respira();

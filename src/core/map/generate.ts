@@ -19,7 +19,7 @@ import {
 } from '../data.js';
 import { AREA_POR_REGION } from '../escala.js';
 import { CUPO_GUARNICION, ejercitoDe } from '../hero/troop.js';
-import type { Rng } from '../rng.js';
+import { createRng, type Rng } from '../rng.js';
 import {
   problemasDeAsaltante,
   type Raider,
@@ -72,6 +72,7 @@ import {
   abrirEsquinasTorcidas,
   acantiladoSinCaida,
   barreraDe,
+  CASILLAS_DE_UNA_MURALLA,
   conEjePleno,
   engordarFronteras,
   espejoDe,
@@ -79,6 +80,7 @@ import {
   parejaDe,
   ponerObstaculos,
   sinAguaEnLasEsquinas,
+  TIPOS_POR_MAPA,
   trazarCaminos,
 } from './vestir.js';
 
@@ -1126,6 +1128,119 @@ const SUELOS: readonly Suelo[] = ['grass', 'rough', 'snow', 'swamp', 'sand', 'la
 
 /** Distancia mínima (Chebyshev) entre dos semillas: por debajo, las regiones salen raquíticas. */
 const SEPARACION_DE_SEMILLAS = 6;
+
+/**
+ * La ondulación de las fronteras (#229): cada casilla se mide a las semillas
+ * desde un punto movido por un ruido, no desde su centro. Sin ella, la frontera
+ * entre dos regiones es el bisector de sus semillas, una recta, y crece con el
+ * mapa: en el 42×42 de #226, 75 tramos de barrera ≥ 10, 10 filas de caras ≥ 10
+ * y 8 mapas con un tramo ≥ 12 en 1-1000, el último justo en el techo de
+ * `tools/qa/rectitud.ts`.
+ *
+ * El ruido es de valores en una rejilla de `paso` casillas, interpolado en
+ * bilineal, con valores enteros en `[-amplitud, amplitud]` dieciseisavos de
+ * casilla: todo en enteros, sin coma flotante. **Fino y no suave**: el tramo
+ * recto lo hace sobre todo el engorde, que reparte un muro recto entre sus dos
+ * lados a trechos de `TRECHO_DEL_LADO` y absorbe un vaivén de una casilla cada
+ * seis; el muro tiene que quebrarse cada dos o tres. Medido en 1-1000
+ * (09-10-2026), tramos ≥ 10 / caras ≥ 10 / mapas con tramo ≥ 12: sin
+ * ondulación 75 / 10 / 8; paso 6 y amplitud 40, 83 / 7 / 9 (peor: una onda
+ * larga deja tramos llanos en sus crestas); **paso 2 y 24, con `sinPuas`, 64 /
+ * 5 / 2** (con otras corrientes de ruido, 57-68 / 3-5 / 3-7: las cifras bailan
+ * con el azar). Más amplitud quiebra más (28: 35-55 / 4-6 / 1-4) pero tira más
+ * vestidos —de 3,6 por mapa sin ondulación a 6,7 con 24 y ~9 con 28— y los
+ * tira más con un llano junto a una meseta: con 28 la ciénaga, siempre abajo,
+ * bajaba del 13 al 11 % de las regiones (`desniveles.test.ts`); con 32, 11 de
+ * 200 semillas de 64×64 sin mapa.
+ */
+export const ONDULACION = { paso: 2, amplitud: 24 } as const;
+/** Dieciseisavos: la unidad de `ONDULACION.amplitud`. */
+const PARTES_DE_CASILLA = 16;
+
+/** Un entero de 32 bits sacado de las semillas de región: la corriente de la ondulación. */
+function huellaDeSemillas(semillas: readonly Point[]): number {
+  let h = 0x2545f491;
+  for (const s of semillas) h = Math.imul(h ^ (s.x * 4096 + s.y), 0x9e3779b1) >>> 0;
+  return h;
+}
+
+/** Las púas de una casilla de la ondulación, fuera (paso 2b de `intentarRed`). Una pasada, sobre una copia. */
+export function sinPuas(etiqueta: Int32Array, W: number, H: number): void {
+  const antes = Int32Array.from(etiqueta);
+  const cuenta = new Map<number, number>();
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      const propia = antes[i] as number;
+      cuenta.clear();
+      let iguales = 0;
+      let vecinas = 0;
+      for (const [dx, dy] of VECINAS) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+        const e = antes[ny * W + nx] as number;
+        vecinas++;
+        if (e === propia) iguales++;
+        cuenta.set(e, (cuenta.get(e) ?? 0) + 1);
+      }
+      // Dos de ocho: en el borde del mapa, la misma proporción de las que tiene.
+      if (iguales * 4 > vecinas) continue;
+      let mejor = propia;
+      let veces = -1;
+      for (const [e, n] of cuenta)
+        if (n > veces || (n === veces && e < mejor)) [mejor, veces] = [e, n];
+      etiqueta[i] = mejor;
+    }
+  }
+}
+
+/**
+ * El desplazamiento de cada casilla (`ONDULACION`), en unidades de
+ * `1 / (PARTES_DE_CASILLA · paso²)` de casilla: `dx` y `dy` por índice.
+ *
+ * **Antisimétrico en el espejo** de las semillas: el de `p` es `n(p) − n(p′)`,
+ * con `p′` su reflejo, así que el de `p′` es el contrario y el punto movido de
+ * `p′` es el reflejo del de `p`. Las semillas van en espejo y, así, también las
+ * celdas (salvo los empates): el ruido no le da a un bando regiones más grandes.
+ */
+export function ondulacion(rng: Rng, W: number, H: number): { dx: Int32Array; dy: Int32Array } {
+  const { paso, amplitud } = ONDULACION;
+  const nx = Math.floor((W - 1) / paso) + 2;
+  const ny = Math.floor((H - 1) / paso) + 2;
+  const valores = (): Int32Array => {
+    const v = new Int32Array(nx * ny);
+    for (let i = 0; i < v.length; i++) v[i] = rng.int(-amplitud, amplitud);
+    return v;
+  };
+  const vx = valores();
+  const vy = valores();
+  const ruido = (v: Int32Array, x: number, y: number): number => {
+    const gx = Math.floor(x / paso);
+    const gy = Math.floor(y / paso);
+    const fx = x - gx * paso;
+    const fy = y - gy * paso;
+    const en = (i: number, j: number): number => v[j * nx + i] as number;
+    return (
+      en(gx, gy) * (paso - fx) * (paso - fy) +
+      en(gx + 1, gy) * fx * (paso - fy) +
+      en(gx, gy + 1) * (paso - fx) * fy +
+      en(gx + 1, gy + 1) * fx * fy
+    );
+  };
+  const dx = new Int32Array(W * H);
+  const dy = new Int32Array(W * H);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      const mx = W - 1 - x;
+      const my = H - 1 - y;
+      dx[i] = ruido(vx, x, y) - ruido(vx, mx, my);
+      dy[i] = ruido(vy, x, y) - ruido(vy, mx, my);
+    }
+  }
+  return { dx, dy };
+}
 /** Una región más pequeña que esto no tiene sitio para lo que se le reparte. */
 const REGION_MINIMA = 10;
 
@@ -1233,14 +1348,22 @@ function intentarRed(rng: Rng, W: number, H: number): RedFina | null {
   // contando las regiones del plan. Fuera de él (el 12×12 del mensaje de
   // agotamiento) salen las que quepan.
 
-  // 2. Cada casilla, de la semilla más cercana (empate: la de índice menor).
+  // 2. Cada casilla, de la semilla más cercana a su punto movido por la
+  //    ondulación (empate: la de índice menor). En enteros, a escala `u`.
   const etiqueta = new Int32Array(W * H);
+  // Con su propia corriente, sacada de las semillas: no gasta tiradas de `rng`,
+  // así que una semilla de partida conserva su reparto (las mismas semillas de
+  // región) y solo se le ondulan las fronteras.
+  const onda = ondulacion(createRng(huellaDeSemillas(semillas)), W, H);
+  const u = PARTES_DE_CASILLA * ONDULACION.paso * ONDULACION.paso;
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       let mejor = 0;
       let mejorD = -1;
+      const px = x * u + (onda.dx[y * W + x] as number);
+      const py = y * u + (onda.dy[y * W + x] as number);
       for (const [k, s] of semillas.entries()) {
-        const d = (s.x - x) * (s.x - x) + (s.y - y) * (s.y - y);
+        const d = (s.x * u - px) * (s.x * u - px) + (s.y * u - py) * (s.y * u - py);
         if (mejorD === -1 || d < mejorD) {
           mejorD = d;
           mejor = k;
@@ -1249,6 +1372,11 @@ function intentarRed(rng: Rng, W: number, H: number): RedFina | null {
       etiqueta[y * W + x] = mejor;
     }
   }
+
+  // 2b. Sin púas: la casilla que solo comparte etiqueta con dos vecinas o menos
+  //     de sus ocho (un cuarto de las que tenga) toma la que más se repite alrededor (empate: la menor). La
+  //     ondulación es fina y deja dedos de una casilla que el engorde parte.
+  sinPuas(etiqueta, W, H);
 
   // 3. Muro: la casilla con alguna vecina de etiqueta menor. Así dos casillas
   //    abiertas de regiones distintas no pueden ser vecinas —la de etiqueta
@@ -1266,7 +1394,11 @@ function intentarRed(rng: Rng, W: number, H: number): RedFina | null {
       }
     }
   }
-  for (const s of semillas) if (muro[s.y * W + s.x] === 1) return null;
+  // Con la ondulación, la casilla de una semilla puede caer en la celda de otra
+  // (su punto movido queda más cerca de la vecina): dos semillas en una región.
+  for (const [k, s] of semillas.entries()) {
+    if (muro[s.y * W + s.x] === 1 || etiqueta[s.y * W + s.x] !== k) return null;
+  }
 
   // 4. El mapa provisional, todavía sin nodos, y su red: la lee `estructura`,
   //    la misma que leerá la partida, y no una copia del generador. Una
@@ -1593,12 +1725,17 @@ function vestirRed(
   });
   if (typeof grueso === 'string') return fallo('fronteras', grueso);
   const { tipos, pasillo } = grueso;
-  // El agua de la frontera, antes de los obstáculos: la cuenta de las barreras
-  // garantizadas (paso 8 del engorde) es sobre ella.
+  // La frontera, antes de los obstáculos: la cuenta de las barreras
+  // garantizadas (paso 8 del engorde) es sobre ella, y al final se repite.
   const nodosDeLaRed = new Set(nodos);
-  const aguaDeFrontera: number[] = [];
-  for (let i = 0; i < N; i++)
-    if (barreraDe(tipos, i) === 'water' && !nodosDeLaRed.has(i)) aguaDeFrontera.push(i);
+  const deFrontera: number[] = [];
+  const fronteraAntes: (Barrera | null)[] = [];
+  for (let i = 0; i < N; i++) {
+    const b = barreraDe(tipos, i);
+    if (b === null || nodosDeLaRed.has(i)) continue;
+    deFrontera.push(i);
+    fronteraAntes.push(b);
+  }
   const regionsGruesas = regions.map((r, k) => ({
     ...r,
     at: grueso.semillas[k] as Point,
@@ -1681,8 +1818,15 @@ function vestirRed(
   };
   const libres = (r: number, conPuerta: boolean): number[] =>
     (candidatas[r] ?? []).filter((i) => !usada(i) && (!conPuerta || tienePuerta(i)));
+  // La puerta se guarda también cuando el objeto se puso sin ella libre de
+  // verdad (`libresConPuerta` sin sitio): si es de su región, nada cae en ella.
+  // Sin eso, con las fronteras onduladas de #229 una mina se puso en la puerta
+  // de otra puesta así, y el camino entraba a la de arriba en diagonal
+  // (42×42 s45 (29,37)).
   const guardarPuerta = (i: number): void => {
-    if (tienePuerta(i)) anteLaPuerta.add(i + W);
+    const puerta = i + W;
+    if (tienePuerta(i) || (puerta < N && regionGruesa[puerta] === regionGruesa[i]))
+      anteLaPuerta.add(puerta);
     conPuertaPuestos.add(i);
   };
   // Lo libre de la región `r`; con `conPuerta`, lo que además tiene la puerta
@@ -2009,6 +2153,30 @@ function vestirRed(
         `el agua de las esquinas deja el nodo de (${n % W},${Math.floor(n / W)}) con más montaña alrededor que ${suya}, la barrera que cruza`,
       );
   }
+  // Un puente se cruza de una orilla a la de enfrente (#161): con dos casillas
+  // que se pisan a sus lados, en recta o en diagonal. Las esquinas de agua y
+  // los obstáculos le podían quitar la segunda, y con las fronteras onduladas
+  // de #229 la senda llegaba al puente en diagonal entre dos aguas y se pintaba
+  // sobre el agua (42×42 s37 (16,14); antes, 0 en 1-80).
+  const seCruza = (n: number, dx: number, dy: number): boolean => {
+    const x = (n % W) + dx;
+    const y = Math.floor(n / W) + dy;
+    return x >= 0 && y >= 0 && x < W && y < H && barreraDe(tipos, y * W + x) === null;
+  };
+  for (const [k, n] of nodos.entries()) {
+    if (grueso.barreraDeNodo[k] !== 'water' || ciudadesEnNodo.has(k)) continue;
+    const ejes = [
+      [1, 0],
+      [0, 1],
+      [1, 1],
+      [1, -1],
+    ] as const;
+    if (!ejes.some(([dx, dy]) => seCruza(n, dx, dy) && seCruza(n, -dx, -dy)))
+      return fallo(
+        'obstáculos',
+        `el puente de (${n % W},${Math.floor(n / W)}) se queda sin dos orillas enfrentadas`,
+      );
+  }
   // Y el agua que pasó a montaña puede dejar un trozo de río que ya no toca lo
   // más bajo, que sube con su orilla: el acantilado de al lado se quedaría sin
   // caída (#215, s148 (12,2)).
@@ -2025,13 +2193,36 @@ function vestirRed(
     ciudades: new Set(ciudades),
   });
   if (sinCaida !== null) return fallo('obstáculos', sinCaida);
+  // Las barreras garantizadas, otra vez, sobre la frontera de después: las
+  // esquinas de agua pasan agua a montaña y las esquinas torcidas abren
+  // frontera a su región. Con las fronteras onduladas de #229, un acantilado
+  // se quedaba en 13-14 casillas (42×42 s115 y s864) y el mapa con tres.
   const { casillasMinimasPorTipo } = BARRERAS_DEL_MAPA;
-  const queda = aguaDeFrontera.filter((i) => barreraDe(tipos, i) === 'water').length;
-  if (aguaDeFrontera.length >= casillasMinimasPorTipo && queda < casillasMinimasPorTipo)
+  const minimoDe = (b: Barrera): number =>
+    b === 'wall' ? CASILLAS_DE_UNA_MURALLA : casillasMinimasPorTipo;
+  // `tipos` es el de `grueso`, que los obstáculos y las esquinas cambian en su
+  // sitio: lo de antes se apuntó al sacar la frontera.
+  const cuenta = (leer: (k: number) => Barrera | null): Map<Barrera, number> => {
+    const m = new Map<Barrera, number>();
+    for (let k = 0; k < deFrontera.length; k++) {
+      const b = leer(k);
+      if (b !== null) m.set(b, (m.get(b) ?? 0) + 1);
+    }
+    return m;
+  };
+  const llenas = (m: Map<Barrera, number>): Barrera[] =>
+    [...m].filter(([b, n]) => n >= minimoDe(b)).map(([b]) => b);
+  const antes = llenas(cuenta((k) => fronteraAntes[k] ?? null));
+  const despues = cuenta((k) => barreraDe(tipos, deFrontera[k] as number));
+  if (llenas(despues).length < Math.min(antes.length, TIPOS_POR_MAPA)) {
+    const cortas = antes
+      .filter((b) => (despues.get(b) ?? 0) < minimoDe(b))
+      .map((b) => `${b} en ${despues.get(b) ?? 0}`);
     return fallo(
       'obstáculos',
-      `las esquinas de agua de las sendas dejan el agua de la frontera en ${queda} casillas, y una barrera del mapa lleva ${casillasMinimasPorTipo}`,
+      `las esquinas que se abren o se cierran dejan la frontera con ${llenas(despues).length} barreras de ${casillasMinimasPorTipo} casillas, y cada mapa lleva ${TIPOS_POR_MAPA}; se quedan cortas ${cortas.join(', ')}`,
     );
+  }
 
   // Los muros, por tramos de fila del mismo tipo: frontera y obstáculos juntos.
   // Las casillas de nodo van dentro del tramo y `buildMap` las abre: es la

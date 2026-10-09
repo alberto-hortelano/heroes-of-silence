@@ -760,13 +760,14 @@ describe('el generador hace redes como las pidió el usuario', () => {
   });
 
   it('la frontera se lee por lo que no es región: dentro es obstáculo; junto a la frontera o a un nodo, frontera (#132)', () => {
-    // Tres casillas de una región pasadas a montaña sobre la semilla 4 (la 2
-    // hasta el mapa de 42×42 de #226, que ya no tiene la pegada solo a un nodo;
-    // la 1, con el vestido que se repite por una silla, #224, tampoco), una a una: lejos de todo cuenta como obstáculo; pegada a la frontera, como
+    // Tres casillas de una región pasadas a montaña sobre la semilla 1 (la 4
+    // hasta las fronteras onduladas de #229, que ya no tiene la pegada solo a un
+    // nodo; la 2 hasta el mapa de 42×42 de #226; la 1, con el vestido que se
+    // repite por una silla, #224, tampoco, y con #229 sí), una a una: lejos de todo cuenta como obstáculo; pegada a la frontera, como
     // frontera; y pegada solo a un nodo —el trozo de un lado del paso que no
     // toca más que una región (la semilla 80 en 28×28)— también como frontera,
     // porque el nodo es un agujero de la frontera y la une a la otra región (#132).
-    const { map } = buildMap(generateMapPlan(createRng(4)));
+    const { map } = buildMap(generateMapPlan(createRng(1)));
     const red = estructura(map);
     const W = map.width;
     const { desde, vecinas } = vecindad(W, map.height);
@@ -919,16 +920,19 @@ describe('el generador hace redes como las pidió el usuario', () => {
   });
 
   it('cuando no sale, el error dice en qué fase se agotaron los intentos', () => {
-    // En 12×12 las redes salen y lo que se agota es el vestido: sus fronteras no
+    // En 12×12 (13×13 desde #229) las redes salen y lo que se agota es el vestido: sus fronteras no
     // dan para tres barreras distintas con su mínimo de casillas cada una (antes
     // de ese mínimo, en la vuelta 1 de QA, se agotaba en los objetos: no cabían
     // las catorce minas). Antes de partir el error decía «no sabe repartir
     // regiones equilibradas» fuera cual fuera la fase, y mentía. Desde #102,
     // 12×12 está fuera del rango del generador y `generateMapPlan` ni lo intenta;
-    // los intentos se piden sin esa comprobación para ver su mensaje.
-    expect(() => trazarYVestir(createRng(1), 12, 12)).toThrow(
+    // los intentos se piden sin esa comprobación para ver su mensaje. Desde la
+    // ondulación de las fronteras (#229), en 12×12 ya no sale ni una red
+    // equilibrada y el error se queda en las redes: la fase del vestido se ve
+    // en 13×13.
+    expect(() => trazarYVestir(createRng(1), 13, 13)).toThrow(
       new RegExp(
-        `no sale un mapa de nodos de 12×12 en ${INTENTOS_DE_RED} redes, dos veces: .*no se dejaron vestir en 10 intentos cada una: \\d+ en fronteras \\(la última: las fronteras de este mapa .* no admiten \\d barreras distintas con 15 casillas cada una\\)`,
+        `no sale un mapa de nodos de 13×13 en ${INTENTOS_DE_RED} redes, dos veces: .*no se dejaron vestir en 10 intentos cada una: \\d+ en fronteras \\(la última: las fronteras de este mapa .* no admiten \\d barreras distintas con 15 casillas cada una\\)`,
       ),
     );
   });

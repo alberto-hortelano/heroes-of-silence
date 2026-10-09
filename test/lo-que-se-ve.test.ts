@@ -26,7 +26,9 @@ import {
 import { newGame } from '../src/core/state/setup.js';
 import type { Point } from '../src/core/types.js';
 
-const SEMILLA = 92;
+// La 1 (la 92 hasta las fronteras onduladas de #229: la ruta a su nodo lejano
+// cruzaba la región de un grupo y la barra empezaba por el aviso, no por el paso).
+const SEMILLA = 1;
 
 /**
  * Una casilla explorada que nadie del jugador 0 mira ahora, a la vista de la

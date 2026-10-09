@@ -64,9 +64,10 @@ describe('cubiertaDeOtroNivel: el guardia muerde', () => {
 /**
  * Los casos de la auditoría 7 en `pnpm verify`; en la orden lenta, además, 1-40.
  * La 51 en vez de la 13 desde #226: en 42×42 la meseta de lava sobre la nieve
- * es la de s51 (17-22, 8-9), y la s13 no tiene lava en lo alto.
+ * era la de s51 (17-22, 8-9), y la s13 no tiene lava en lo alto. Desde las
+ * fronteras onduladas (#229, 09-10-2026), la de s18 (27-31, 15-24).
  */
-const SEMILLAS = LENTO ? [...rango(1, 40), 51, 57, 80] : [51, 80, 57];
+const SEMILLAS = LENTO ? [...rango(1, 40), 57, 80] : [18, 80, 57];
 
 describe('en los mapas reales', () => {
   for (const semilla of SEMILLAS)
@@ -76,19 +77,19 @@ describe('en los mapas reales', () => {
       expect(cubiertaDeOtroNivel(e.sprites, e.suelo, e.W)).toEqual([]);
     });
 
-  it('s51 (17-22, 8-9): lo alto de la meseta de lava, con la nieve como suelo más cercano, lleva roca y nada de nieve', () => {
-    // Era s13 (16-24, 4-7) en 34×34; desde #226 la misma meseta está en s51.
-    // Hasta la columna 22: en (23,8) remata la ladera este de la nieve de
-    // (20-22, 6-7), que cae al agua y es nevada porque es de la nieve (#216).
-    const { map, escena: e } = partidaDe(51);
+  it('s18 (27-31, 15-24): lo alto de la meseta de lava, con la nieve como suelo más cercano, lleva roca y nada de nieve', () => {
+    // Era s13 (16-24, 4-7) en 34×34; desde #226, s51 (17-22, 8-9), y desde
+    // las fronteras onduladas (#229, 09-10-2026), s18: 13 casillas de
+    // acantilado con la nieve como suelo más cercano y lava pintada.
+    const { map, escena: e } = partidaDe(18);
     const a = analizar(map);
     const enLoAlto = e.sprites.filter((s) => {
       const i = Math.floor(s.y) * e.W + Math.floor(s.x);
       return (
-        s.x >= 17 &&
-        s.x < 23 &&
-        s.y >= 8 &&
-        s.y < 10 &&
+        s.x >= 27 &&
+        s.x < 32 &&
+        s.y >= 15 &&
+        s.y < 25 &&
         map.terrain[i] === 'cliff' &&
         // Que el guardia no mire al vacío: ahí el suelo más cercano es la nieve.
         a.suelo[i] === 'snow'
@@ -101,9 +102,10 @@ describe('en los mapas reales', () => {
 });
 
 describe('la frontal de basalto (#220, auditoría 7 §3)', () => {
-  it('s51: lleva tono, como sus laderas y diagonales', () => {
-    // La s13 desde #226 no lleva basalto; la s51 lleva las tres piezas.
-    const basalto = partidaDe(51).escena.sprites.filter((s) =>
+  it('s18: lleva tono, como sus laderas y diagonales', () => {
+    // La s13 desde #226 no lleva basalto; la s51 llevaba las tres piezas, y
+    // desde #229 (09-10-2026) la s18, la de la meseta de lava de arriba.
+    const basalto = partidaDe(18).escena.sprites.filter((s) =>
       /^modulos\/(paredes|laderas|diagonales)-basalto/.test(s.src ?? ''),
     );
     expect(new Set(basalto.map((s) => s.src?.split('/')[1]?.split('-')[0]))).toEqual(

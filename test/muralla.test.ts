@@ -531,34 +531,36 @@ describe('en las partidas', () => {
       expect(tapan.map((s) => `${s.src} en ${s.x},${s.y}`)).toEqual([]);
     });
 
-  it('el nodo de otra barrera es un apoyo; la puerta de la muralla, no (s356 (31,19))', () => {
+  it('el nodo de otra barrera es un apoyo; la puerta de la muralla, no (s23 (20,11))', () => {
     // Era s699 (15,2), de acantilado; con menos mesetas (#210) es raro: en 1-900,
     // solo s219 y s420 llevan un nodo de otra barrera pegado a una muralla. Desde
-    // #226 (mapa de 42×42) hay 35 casos en 1-900; s356 es de montaña, con la
-    // muralla justo encima, como el de s420.
-    const map = partidaDe(356).map;
+    // #226 (mapa de 42×42) hay 35 casos en 1-900, y era s356 (31,19). Con las
+    // fronteras onduladas (#229, 09-10-2026), 25 nodos en 1-400 contados por sus 8
+    // vecinas de muro; s23 (20,11) es de montaña, con la muralla al lado.
+    const map = partidaDe(23).map;
     const a = analizar(map);
     const al = alrededorDeMurallas(a, [], new Array<number>(a.W * a.H).fill(0));
-    const nodo = map.objects.find((o) => o.kind === 'node' && o.at.x === 31 && o.at.y === 19);
-    if (nodo?.kind !== 'node') throw new Error('s356 no tiene el nodo de (31,19)');
+    const nodo = map.objects.find((o) => o.kind === 'node' && o.at.x === 20 && o.at.y === 11);
+    if (nodo?.kind !== 'node') throw new Error('s23 no tiene el nodo de (20,11)');
     expect(nodo.barrera).toBe('mountain');
-    expect(al.apoyos(31, 18)).toContain(`nodo:${nodo.id}`);
+    expect(al.apoyos(21, 11)).toContain(`nodo:${nodo.id}`);
     const puerta = map.objects.find((o) => o.kind === 'node' && o.barrera === 'wall');
-    if (puerta === undefined) throw new Error('s356 no tiene puertas de muralla');
+    if (puerta === undefined) throw new Error('s23 no tiene puertas de muralla');
     expect(al.apoyos(puerta.at.x, puerta.at.y)).not.toContain(`nodo:${puerta.id}`);
   });
 
   it('y el guardia mira algo: hay muros, puertas y tramos', () => {
     // La 5: con los niveles del mapa (#143), la 1 se quedó sin puertas de
     // muralla, y la 3, con el acantilado en línea (#215), en 19 piezas. La 1
-    // desde #226 (mapa de 42×42): la 5 se quedó en 14 piezas.
-    const map = partidaDe(1).map;
+    // desde #226 (mapa de 42×42): la 5 se quedó en 14 piezas. La 8 desde las
+    // fronteras onduladas (#229, 09-10-2026): la 1 se quedó sin puertas de muralla.
+    const map = partidaDe(8).map;
     const a = analizar(map);
     expect(a.franjas.filter((f) => f.barrera === 'wall').length).toBeGreaterThan(5);
     expect([...a.pasos.values()].filter((p) => p.barrera === 'wall').length).toBeGreaterThan(0);
-    // 37 piezas en la 1 (28 en la 5 hasta #226; 62 en la 3 hasta #215; la 1
-    // llevaba 27 desde #208, que dejó las murallas cortas).
-    expect(escenaDe(1).sprites.filter((s) => s.clase === 'muro').length).toBeGreaterThan(20);
+    // 45 piezas en la 8 (37 en la 1 hasta #229; 28 en la 5 hasta #226; 62 en
+    // la 3 hasta #215; la 1 llevaba 27 desde #208, que dejó las murallas cortas).
+    expect(escenaDe(8).sprites.filter((s) => s.clase === 'muro').length).toBeGreaterThan(20);
   });
 
   it('en una casilla de muro no se siembra la cubierta del campo (los huertos de s57)', () => {
@@ -577,14 +579,15 @@ describe('en las partidas', () => {
 
 describe('la muralla de norte a sur, de lado (§29)', () => {
   it('sus tramos son las piezas muro-ns, de 1,6 de alto y por el medio, y no la tira de la hoja', () => {
-    // s7 lleva tramos N-S de las dos piezas (8). Era s5 hasta #226 (el mapa
+    // s12 lleva tramos N-S de las dos piezas (8). Era s7 hasta #229 (las
+    // fronteras onduladas: le quedan 0); s5 hasta #226 (el mapa
     // de 42×42: le quedan 0); s15 hasta #215 (el
     // acantilado en línea: le quedan 0); s3 hasta #210 (menos mesetas: le
     // quedaban 2); antes s21, que con los niveles del mapa (#143) se
     // quedó sin ellos; y antes s12, cuyas dos puertas se quedaron con dos
     // casillas de muro a cada lado al partirse su muralla larga (#208): un
     // tramo cada una.
-    const e = escenaDe(7);
+    const e = escenaDe(12);
     const ns = e.sprites.filter((s) => /^muro-ns-[12]\.webp$/.test(s.src ?? ''));
     expect(ns.length).toBeGreaterThan(5);
     expect(new Set(ns.map((s) => s.src))).toEqual(new Set(['muro-ns-1.webp', 'muro-ns-2.webp']));
@@ -597,8 +600,9 @@ describe('la muralla de norte a sur, de lado (§29)', () => {
   });
 
   it('la puerta N-S se mide por el alto y se apoya en el pie de su arco', () => {
-    // s7 (s19 hasta #226, que en 42×42 lleva una; s12 hasta los niveles del mapa, #143).
-    const e = escenaDe(7);
+    // s25 (s7 hasta #229; s19 hasta #226, que en 42×42 lleva una; s12 hasta los
+    // niveles del mapa, #143).
+    const e = escenaDe(25);
     const puertas = e.sprites.filter((s) => s.src === 'nodo-puerta-hondo.webp');
     expect(puertas.map((s) => s.objeto?.id).sort()).toEqual(['node-0', 'node-13']);
     for (const s of puertas) {

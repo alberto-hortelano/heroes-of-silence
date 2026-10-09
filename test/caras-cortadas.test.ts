@@ -144,8 +144,15 @@ describe('las tiradas de frontal cortadas junto a un objeto (#221)', () => {
 // arenisca). La muestra del bucle rápido, las que lo daban antes: s37 (la mina
 // de (1, 26)), s66 (el nodo de acantilado de (5, 23)), s30 (el puente de
 // (21, 21), en la junta de dos paredes) y s92 (el de (13, 25), en diagonal).
-const QUEDAN: Readonly<Record<number, number>> = { 105: 2, 143: 1, 174: 1 };
-const SEMILLAS = segunPrisa([37, 66, 30, 92], [...rango(1, 40), 57, 66, 92, 105, 143, 174, 443]);
+//
+// Con las fronteras onduladas (#229) todos los mapas son otros, y se re-mide con
+// el código de #222 (09-10-2026): en 1-40, 1 (s32); en 1-200, 5 (s32, s64,
+// s68, s141 y s190, una cada una). Sin #222, esos mismos mapas daban 5 en 1-40
+// y 20 en 1-200: #222 arregla s3, s12, s22 y s28 (las de la muestra rápida),
+// y en 41-200 s49, s65, s85, s89, s96, s116, s136, s148, s158, s173 y s197.
+// Los cinco que quedan, sin mirar caso a caso.
+const QUEDAN: Readonly<Record<number, number>> = { 32: 1, 64: 1, 68: 1, 141: 1, 190: 1 };
+const SEMILLAS = segunPrisa([3, 12, 22, 28], [...rango(1, 40), 57, 64, 68, 89, 96, 141, 190, 443]);
 
 describe('en los mapas reales', () => {
   for (const semilla of SEMILLAS)

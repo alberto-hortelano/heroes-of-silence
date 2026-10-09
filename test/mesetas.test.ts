@@ -129,7 +129,7 @@ describe('en los mapas reales', () => {
       expect(e.informe.acantiladosLisos).toBe(0);
     });
 
-  it('s16 y s24: su meseta más ancha, casilla a casilla', () => {
+  it('s5 y s32: su meseta más ancha, casilla a casilla', () => {
     // Las cajas de la auditoría —s443 (14-16, 9-11) y s34 (17-22, 5-7)— ya no
     // caen en un acantilado con los niveles del mapa (#143): se mira el
     // cuadrado de 3 × 3 con más acantilado de cada una, que es lo que más se lee
@@ -137,9 +137,10 @@ describe('en los mapas reales', () => {
     // va la s1. Con el acantilado en línea (#215) no queda franja ancha: el
     // cuadrado es un codo de la línea, y en la s1 cae junto a una ciudad, cuya
     // huella no deja poner nada (como en `lisosDe`). Desde #226 (42×42) ni la
-    // s1 ni la s34 llevan acantilado: van las dos de 1-60 con más (81 y 78
-    // casillas, 09-10-2026).
-    for (const semilla of [16, 24] as const) {
+    // s1 ni la s34 llevan acantilado: iban las dos de 1-60 con más (s16 y s24,
+    // 81 y 78 casillas); con las fronteras onduladas (#229, 09-10-2026), s5 y
+    // s32 (123 y 110).
+    for (const semilla of [5, 32] as const) {
       const { map, escena: e } = partidaDe(semilla);
       const huella = huellaDeLosObjetos(semilla);
       const [x0, y0] = masAcantiladoEn3x3(map.terrain, e.W, e.H);

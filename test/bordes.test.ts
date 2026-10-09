@@ -254,11 +254,18 @@ describe('en los mapas reales', () => {
   });
 
   it('el informe muerde en un mapa real: quitar los peñascos de una espalda la cuenta', () => {
-    const { map, escena: e } = partidaDe(2);
-    const huella = huellaDeLosObjetos(2);
-    const [x, y] = e.relieve.rebordes.find(
-      ([x, y]) => isWalkable(map.terrain[y * e.W + x] as TerrainKind) && !huella.has(y * e.W + x),
-    ) as readonly [number, number];
+    // Era la s2, que con las fronteras onduladas (#229, 09-10-2026) se quedó
+    // sin espalda que se pise fuera de la huella de un objeto: se busca.
+    const { caso } = primeraSemillaCon('una espalda que se pisa, fuera de toda huella', (s) => {
+      const { map, escena: e } = partidaDe(s);
+      const huella = huellaDeLosObjetos(s);
+      const r = e.relieve.rebordes.find(
+        ([x, y]) => isWalkable(map.terrain[y * e.W + x] as TerrainKind) && !huella.has(y * e.W + x),
+      );
+      return r === undefined ? undefined : { map, e, r };
+    });
+    const { map, e } = caso;
+    const [x, y] = caso.r;
     const sin = e.sprites.filter((s) => Math.floor(s.x) !== x || Math.floor(s.y) !== y);
     expect(espaldasSinReborde(sin, e.relieve.rebordes, map.terrain, e.W, nunca)).toContainEqual([
       x,
@@ -338,17 +345,18 @@ describe('sueloQueSePinta: la barrera y el nodo pintan el suelo de su meseta', (
     ).toEqual(['grass', 'grass', 'grass', 'swamp']);
   });
 
-  it('s40 (8,12): el nodo sin camino que va a la meseta de lava pinta lava, no la ciénaga de abajo (#220)', () => {
-    // Era s13 (18,7), con la nieve abajo; desde #226 (42×42) la s13 no tiene
-    // un nodo así, y la s40 sí.
-    const { map, escena: e } = partidaDe(40);
+  it('s1 (11,34): el nodo sin camino que va a la meseta de lava pinta lava, no la hierba de abajo (#220)', () => {
+    // Era s13 (18,7), con la nieve abajo; desde #226 (42×42), s40 (8,12), con
+    // la ciénaga abajo. Con las fronteras onduladas (#229, 09-10-2026) ningún
+    // nodo así de 1-40 tiene la ciénaga abajo: s1 (11,34) tiene la hierba.
+    const { map, escena: e } = partidaDe(1);
     const a = analizar(map);
-    const i = 12 * a.W + 8;
-    expect(map.objects.some((o) => o.kind === 'node' && o.at.x === 8 && o.at.y === 12)).toBe(true);
-    expect(map.caminos.tiene({ x: 8, y: 12 })).toBe(false);
+    const i = 34 * a.W + 11;
+    expect(map.objects.some((o) => o.kind === 'node' && o.at.x === 11 && o.at.y === 34)).toBe(true);
+    expect(map.caminos.tiene({ x: 11, y: 34 })).toBe(false);
     expect(e.nivel[i]).toBe(2);
-    // Que el guardia no mire al vacío: el más cercano de cualquier nivel es la ciénaga.
-    expect(a.suelo[i]).toBe('swamp');
+    // Que el guardia no mire al vacío: el más cercano de cualquier nivel es la hierba.
+    expect(a.suelo[i]).toBe('grass');
     expect(e.suelo[i]).toBe('lava');
   });
 
@@ -449,16 +457,17 @@ describe('un desnivel bajo una montaña, en los mapas reales (#216)', () => {
       expect(informe.caraDeOtroMaterial).toBe(0);
     });
 
-  it('s29 (20-29, 7-14): la pared bajo la cordillera de arena es de arenisca', () => {
+  it('s53 (29-41, 3-7): la pared bajo la cordillera de arena es de arenisca', () => {
     // Era s5 (2-8, 27-31), de la auditoría; con el acantilado en línea (#215)
     // es otro mapa, y s2 (14-20, 0-5) hasta los vestidos que se repiten por una
-    // silla (#224), y s7 (23-29, 20-25) hasta el mapa de 42×42 (#226). En s29,
-    // la montaña de (20-29, 7-14) es de la meseta de arena y su suelo más
-    // cercano de cualquier nivel no lo es: con la roca de ese suelo, como antes
-    // de #216, saldría de otra.
-    const { escena: e } = partidaDe(29);
+    // silla (#224), s7 (23-29, 20-25) hasta el mapa de 42×42 (#226) y s29
+    // (20-29, 7-14) hasta las fronteras onduladas (#229, 09-10-2026). En s53,
+    // la montaña de (29-41, 3-7) es de la meseta de arena y 16 de sus 39
+    // casillas tienen otro suelo más cercano de cualquier nivel: con la roca de
+    // ese suelo, como antes de #216, saldría de otra.
+    const { escena: e } = partidaDe(53);
     const bajoLaArena = e.relieve.celdas.filter(
-      (c) => c.vx >= 20 && c.vx <= 29 && c.vy >= 7 && c.vy <= 14,
+      (c) => c.vx >= 29 && c.vx <= 41 && c.vy >= 3 && c.vy <= 7,
     );
     expect(bajoLaArena.length).toBeGreaterThan(0);
     expect(new Set(bajoLaArena.map((c) => c.material))).toEqual(new Set(['cara-arenisca']));

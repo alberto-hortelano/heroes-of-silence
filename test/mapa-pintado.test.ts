@@ -46,7 +46,12 @@ import { Session } from '../src/client/session.js';
 import { Casillas, type CasillasLeidas } from '../src/core/map/casillas.js';
 import { LADO_DEL_MAPA } from '../src/core/map/generate.js';
 import { todosALaVista } from '../src/core/state/asaltantes.js';
-import { heroesOf, revealEverything, visibleNow } from '../src/core/state/game.js';
+import {
+  HERO_SCOUT_RADIUS,
+  heroesOf,
+  revealEverything,
+  visibleNow,
+} from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { primeraSemillaCon } from './helpers.js';
 
@@ -1073,15 +1078,19 @@ describe('el lienzo de quien juega pinta los héroes que se ven AHORA (#64)', ()
       escena.dibujar(contexto(), ancho, alto, 0);
       return [...llamadas];
     };
-    // Una casilla explorada, sin mirar, a seis de mi héroe: dentro del encuadre.
+    // Una casilla explorada, sin mirar, en línea con mi héroe y justo fuera de
+    // su vista (de r + 1 a r + 4: dentro del encuadre). Era «a seis» escrito,
+    // y desde #229 la vista es 5 y el castillo mira 6: la casilla a seis de la
+    // semilla 92 queda a la vista de su castillo.
     const mirando = visibleNow(s.state, 0);
-    const lejos = [-6, 6]
+    const lejos = [1, 2, 3, 4]
+      .flatMap((k) => [-(HERO_SCOUT_RADIUS + k), HERO_SCOUT_RADIUS + k])
       .flatMap((d) => [
         { x: mio.at.x + d, y: mio.at.y },
         { x: mio.at.x, y: mio.at.y + d },
       ])
       .find((p) => s.state.players[0]!.fog.has(p) && !mirando.has(p));
-    expect(lejos, 'la semilla no deja una casilla a seis sin mirar').toBeDefined();
+    expect(lejos, 'la semilla no deja una casilla sin mirar junto a la vista').toBeDefined();
 
     suyo.at = { x: mio.at.x + 1, y: mio.at.y };
     const conElRival = aros(fotograma());

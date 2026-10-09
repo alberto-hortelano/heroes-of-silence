@@ -2144,6 +2144,8 @@ class Busqueda {
   readonly hoja: Uint8Array;
   /** Los objetos con puerta: se entran por delante. */
   private readonly puerta: Uint8Array;
+  /** Los objetivos de la región (`EntradaDeCaminos.objetivos`): acaban todos en la red. */
+  private readonly objetivo: Uint8Array;
   /**
    * Las vecinas de un objeto con puerta que no son de su fila de delante: los
    * lados y la espalda. Un radio que pasa por ellas rodea el objeto por detrás
@@ -2168,6 +2170,8 @@ class Busqueda {
     this.nodo = new Uint8Array(N);
     this.hoja = new Uint8Array(N);
     this.puerta = new Uint8Array(N);
+    this.objetivo = new Uint8Array(N);
+    for (const o of e.objetivos[r] ?? []) this.objetivo[o] = 1;
     for (const n of e.nodosDeRegion[r] ?? []) {
       this.nodo[n] = 1;
       this.hoja[n] = 1;
@@ -2242,9 +2246,13 @@ class Busqueda {
     // esté en la red, porque siempre acaba en ella (es objetivo de su región) y
     // la Y saldría al colgar después su ramal. Cuatro y no dos porque la L de
     // al lado suele pasar por el costado de otra (`espalda`, dos rectos más:
-    // una mina y un pueblo vecinos, s195 (11,15)).
+    // una mina y un pueblo vecinos, s195 (11,15)). El nodo que es objetivo y
+    // aún no está en la red, también dos, por lo mismo: con las fronteras
+    // onduladas de #229 un radio pasó en diagonal junto a un nodo que se colgó
+    // después (42×42 s15 (1,21)-(2,22)).
+    const { objetivo } = this;
     const yEnLaEsquina = (k: number): number =>
-      puerta[k] === 1 ? 4 : hoja[k] === 1 && red?.[k] === 1 ? 2 : 0;
+      puerta[k] === 1 ? 4 : hoja[k] === 1 && (red?.[k] === 1 || objetivo[k] === 1) ? 2 : 0;
     const r = this.r;
     const AGUA = indiceDe('water');
     coste.fill(-1);

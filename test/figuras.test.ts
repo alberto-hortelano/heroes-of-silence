@@ -130,19 +130,23 @@ describe('en los mapas reales', () => {
   // quedan 21, y la que más tenía de 1-60 era la 32 (89); con menos mesetas
   // (#210), la 8 (57); con los vestidos que se repiten por una silla (#224),
   // la 30 (54; la 8 se queda en 35); con el mapa de 42×42 (#226), la 21 (60;
-  // la 30 se queda en 34).
-  it('s21: sin subir la clave, vuelven las tapadas de la auditoría, también donde hay un objeto', () => {
-    const { map, escena: e } = partidaDe(21);
+  // la 30 se queda en 34); con las fronteras onduladas (#229, 09-10-2026), la
+  // 5 (67; la 21 se queda en 17).
+  it('s5: sin subir la clave, vuelven las tapadas de la auditoría, también donde hay un objeto', () => {
+    const { map, escena: e } = partidaDe(5);
     const antes = pisablesTapadas(e.sprites, map.terrain, e.W, e.H, perfilDe, false);
     expect(antes.length).toBeGreaterThan(50);
     const objetos = new Set(map.objects.map((o) => o.at.y * e.W + o.at.x));
     expect(antes.some((i) => objetos.has(i))).toBe(true);
   });
 
-  it('s8: cada figura que se taparía sin subir la clave se pinta después de toda pieza que la tapa con su silueta', () => {
-    const { map, escena: e } = partidaDe(8);
+  it('s5: cada figura que se taparía sin subir la clave se pinta después de toda pieza que la tapa con su silueta', () => {
+    // Era s8, que con las fronteras onduladas (#229) no tiene ninguna: el
+    // test pasaba sin mirar nada, y ahora lo dice. La s5 tiene 67.
+    const { map, escena: e } = partidaDe(5);
     const antes = new Set(pisablesTapadas(e.sprites, map.terrain, e.W, e.H, perfilDe, false));
-    const esc = escenarioDe(map, 8);
+    expect(antes.size).toBeGreaterThan(0);
+    const esc = escenarioDe(map, 5);
     let vistas = 0;
     for (const v of esc.separada.volumenes) {
       if (v.s.clase !== 'pared' || v.s.filaAlta === undefined) continue;

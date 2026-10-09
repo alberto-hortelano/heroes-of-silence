@@ -50,8 +50,9 @@ import { catalogoDelDisco, escenaDe } from './helpers.js';
 
 describe('el relieve', () => {
   // La 9 hasta el acantilado en línea (#215), que la dejó sin agua encajada.
-  // La 3 desde #226: en el mapa de 42×42 la 2 no tiene agua encajada.
-  const SEMILLA = 3;
+  // La 3 desde #226: en el mapa de 42×42 la 2 no tiene agua encajada. La 5
+  // desde las fronteras onduladas (#229, 09-10-2026): la 3 se quedó sin ella.
+  const SEMILLA = 5;
   const a = analizar(newGame({ seed: SEMILLA }).map);
   const r = relieve(a);
 

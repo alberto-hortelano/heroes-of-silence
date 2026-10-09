@@ -363,15 +363,16 @@ describe('las piezas en su sitio, con el arte del repo', () => {
     // entona (`BASALTO_DE_LADERA`), y que la frontal (s28, s36; 08-10-2026). La
     // s36 la sigue trayendo con el mapa de #189. Desde #216 la cara es de la
     // roca de su meseta y la s36 ya no lleva laderas de basalto: la s1, sí. Con
-    // el mapa de 42×42 (#226) la s1 no lleva basalto: la s4, laderas y diagonales.
-    const enS4 = componer(newGame({ seed: 4 }).map, 4, catalogo).sprites;
+    // el mapa de 42×42 (#226) la s1 no lleva basalto: la s4, laderas y diagonales;
+    // con las fronteras onduladas (#229, 09-10-2026), otra vez la s1.
+    const enS1 = componer(newGame({ seed: 1 }).map, 1, catalogo).sprites;
     const deLadera = new Set(
-      enS4.filter((s) => s.src?.includes('/laderas-basalto-') === true).map((s) => s.tono),
+      enS1.filter((s) => s.src?.includes('/laderas-basalto-') === true).map((s) => s.tono),
     );
     expect(deLadera.size).toBe(1);
     const tono = [...deLadera][0];
     expect(tono).toBeDefined();
-    const deBasalto = enS4.filter(
+    const deBasalto = enS1.filter(
       (s) => s.src !== null && /\/(diagonales|bajadas)-basalto-/.test(s.src),
     );
     expect(deBasalto.length).toBeGreaterThan(0);

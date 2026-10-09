@@ -3,8 +3,8 @@
  * borde recto y hay su arte, la pared se abre —el cuerpo en el hueco y un
  * costado a cada lado— en vez de llevar la bajada encima. Con rejillas a mano
  * (`rampasDeFrente`), con el arte del repo (`spriteDeRampa`, el guardia
- * `rampasSinSusPiezas`) y en un mapa real (s62, la de roca de (4, 7); era s12 (12, 8)
- * en 34×34, antes de #226).
+ * `rampasSinSusPiezas`) y en un mapa real (s106, la de roca de (34, 19); era s62 (4, 7)
+ * antes de las fronteras onduladas de #229, y s12 (12, 8) en 34×34, antes de #226).
  */
 import { describe, expect, it } from 'vitest';
 import { type CatalogoEnBruto, catalogoValidado } from '../src/client/render/escenario/catalogo.js';
@@ -272,9 +272,10 @@ describe('las piezas de la rampa, con el arte del repo', () => {
 
 // Desde #226 (el mapa de 42×42) la s12 es otro mapa y no lleva rampa. Con
 // arte salen 1 en 1-200 y 19 en 1-1000 (eran 5 y 27 en 34×34; 09-10-2026),
-// todas de caída 1; la de 1-200 es la de roca de s62 (4, 7).
-const SEMILLA = 62;
-const [RX, RY] = [4, 7];
+// todas de caída 1. Con las fronteras onduladas (#229, 09-10-2026), 2 en
+// 1-200 (s106 (34, 19) y s139 (32, 32), las dos de roca).
+const SEMILLA = 106;
+const [RX, RY] = [34, 19];
 
 describe(`las rampas en un mapa real: s${SEMILLA}, (${RX}, ${RY})`, () => {
   const map = newGame({ seed: SEMILLA }).map;
@@ -335,11 +336,16 @@ describe(`las rampas en un mapa real: s${SEMILLA}, (${RX}, ${RY})`, () => {
   });
 });
 
-// Desde #226 (mapa de 42×42) el caso es s16 (30, 11), roca con un nodo; en 34×34 era s3 (4, 20).
-describe('la rampa de muesca en un mapa real: s16, (30, 11) (§36)', () => {
-  const map = newGame({ seed: 16 }).map;
-  const e = componer(map, 16, catalogo);
-  const r = e.relieve.rampas.find((k) => k.x === 30 && k.y === 11);
+// Con las fronteras onduladas (#229, 09-10-2026) el caso es s126 (31, 33), de roca,
+// la única muesca de su mapa (11 muescas en 1-200, 3 de arenisca; eran 27). En
+// s88, s134 y s153 la pieza de la muesca quita caras cortadas (1-2 → 0), y el
+// test pide las mismas con y sin ella. Era s16
+// (30, 11) desde #226 (mapa de 42×42) y s3 (4, 20) en 34×34.
+const [MS, MX, MY] = [126, 31, 33];
+describe(`la rampa de muesca en un mapa real: s${MS}, (${MX}, ${MY}) (§36)`, () => {
+  const map = newGame({ seed: MS }).map;
+  const e = componer(map, MS, catalogo);
+  const r = e.relieve.rampas.find((k) => k.x === MX && k.y === MY);
   const sinMuesca = {
     ...catalogo,
     hojas: Object.fromEntries(
@@ -347,28 +353,28 @@ describe('la rampa de muesca en un mapa real: s16, (30, 11) (§36)', () => {
     ),
   };
 
-  /** La pieza de la muesca de (30, 11). */
+  /** La pieza de la muesca de (MX, MY). */
   const suya = (s: Sprite) =>
-    s.src?.includes('/rampa-muesca-roca-1/') === true && Math.abs(s.x - 30.5) < 1.5;
+    s.src?.includes('/rampa-muesca-roca-1/') === true && Math.abs(s.x - (MX + 0.5)) < 1.5;
 
   it('una pieza en la muesca, sin sus cuatro diagonales ni la bajada de siempre', () => {
     expect(r).toMatchObject({ forma: 'muesca', material: 'cara-roca', caida: 1 });
     expect(e.informe.rampasSinSusPiezas).toBe(0);
-    // La suya, la de junto a (30, 11): s16 lleva otra en la ciudad de (18, 15).
+    // La suya, y la única del mapa.
     expect(e.sprites.filter(suya)).toHaveLength(1);
-    expect(e.relieve.rampas.filter((k) => k.forma === 'muesca')).toHaveLength(2);
+    expect(e.relieve.rampas.filter((k) => k.forma === 'muesca')).toHaveLength(1);
     const fuera = new Set(celdasDeLaRampa(r as Rampa));
     expect(fuera.size).toBe(4);
     expect(e.relieve.celdas.filter((c) => fuera.has(claveDeCelda(c)))).toEqual([]);
-    const b = e.relieve.bajadas.find((k) => k.alto[0] === 30 && k.alto[1] === 11);
-    expect(b).toMatchObject({ rumbo: 's', arriba: [30.5, 12], deUnaRampa: true });
+    const b = e.relieve.bajadas.find((k) => k.alto[0] === MX && k.alto[1] === MY);
+    expect(b).toMatchObject({ rumbo: 's', arriba: [MX + 0.5, MY + 1], deUnaRampa: true });
     expect(
       e.sprites.filter(
         (s) =>
           /\/(bajadas|diagonales)-/.test(s.src ?? '') &&
-          Math.abs(s.x - 30.5) < 0.8 &&
-          s.y > 11.5 &&
-          s.y < 14,
+          Math.abs(s.x - (MX + 0.5)) < 0.8 &&
+          s.y > MY + 0.5 &&
+          s.y < MY + 3,
       ),
     ).toEqual([]);
     expect([
@@ -381,7 +387,7 @@ describe('la rampa de muesca en un mapa real: s16, (30, 11) (§36)', () => {
     ]).toEqual([0, 0, 0, 0, 0, 0]);
     // Las caras cortadas y la senda bajo el relieve, como sin el arte de la
     // muesca (lo que haya en otro sitio, con y sin ella).
-    const s = componer(map, 16, sinMuesca);
+    const s = componer(map, MS, sinMuesca);
     expect(e.informe.carasCortadas).toBe(s.informe.carasCortadas);
     expect(e.informe.sendaBajoElRelieve).toBeLessThanOrEqual(s.informe.sendaBajoElRelieve);
   });
@@ -392,7 +398,7 @@ describe('la rampa de muesca en un mapa real: s16, (30, 11) (§36)', () => {
     const sin = e.sprites.filter((_, k) => k !== i);
     expect(
       rampasSinSusPiezas([...sin, { ...pieza, x: pieza.x + 0.3 }], [r as Rampa], catalogo),
-    ).toEqual(['rampa en 30,11: 0 piezas muesca en su sitio']);
+    ).toEqual([`rampa en ${MX},${MY}: 0 piezas muesca en su sitio`]);
     const diagonal = (catalogo.hojas['diagonales-roca-se-1'] ?? [])[0];
     if (diagonal === undefined) throw new Error('sin diagonales de roca');
     const tapa: Sprite = {
@@ -401,8 +407,8 @@ describe('la rampa de muesca en un mapa real: s16, (30, 11) (§36)', () => {
       nh: diagonal.nh,
       ax: diagonal.ax,
       ay: diagonal.ay,
-      x: 30.5,
-      y: 12.9,
+      x: MX + 0.5,
+      y: MY + 1.9,
       alto: 1,
       clase: 'pared',
       color: '#4c463e',
@@ -410,14 +416,16 @@ describe('la rampa de muesca en un mapa real: s16, (30, 11) (§36)', () => {
       sombra: true,
     };
     expect(rampasSinSusPiezas([...e.sprites, tapa], [r as Rampa], catalogo)).toEqual([
-      expect.stringMatching(/^rampa en 30,11: la pieza .*diagonales-roca-se-1.* tapa el hueco$/),
+      expect.stringMatching(
+        new RegExp(`^rampa en ${MX},${MY}: la pieza .*diagonales-roca-se-1.* tapa el hueco$`),
+      ),
     ]);
   });
 
   it('sin el arte de la muesca, las cuatro diagonales y la bajada encima, como antes', () => {
-    const s = componer(map, 16, sinMuesca);
+    const s = componer(map, MS, sinMuesca);
     expect(s.relieve.rampas.some((k) => k.forma === 'muesca')).toBe(false);
-    expect(s.relieve.bajadas.find((k) => k.alto[0] === 30 && k.alto[1] === 11)?.deUnaRampa).toBe(
+    expect(s.relieve.bajadas.find((k) => k.alto[0] === MX && k.alto[1] === MY)?.deUnaRampa).toBe(
       undefined,
     );
     expect(s.informe.rampasSinSusPiezas).toBe(0);

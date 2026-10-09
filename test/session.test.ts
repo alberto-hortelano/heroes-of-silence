@@ -198,9 +198,21 @@ describe('sesión del cliente: reclutar lo que cabe y ver la ruta entera', () =>
   it('la ruta previsualizada llega hasta el destino y marca lo que no se alcanza hoy', () => {
     const s = new Session(7);
     const heroe = s.selectedHero!;
-    // Lejos: la otra esquina del mapa, que no se anda en un día.
-    const lejos = { x: s.state.map.width - 4, y: s.state.map.height - 4 };
-    const ruta = s.previewPath(lejos);
+    // Lejos: la otra esquina del mapa, que no se anda en un día. La casilla
+    // con ruta más cercana a (W − 4, H − 4), anillo a anillo: desde #229 esa
+    // casilla de la semilla 7 queda detrás del héroe rival, que no se cruza.
+    const esquina = { x: s.state.map.width - 4, y: s.state.map.height - 4 };
+    let lejos = esquina;
+    let ruta = s.previewPath(lejos);
+    for (let r = 1; ruta.length === 0 && r < 6; r++) {
+      for (let dy = -r; dy <= r && ruta.length === 0; dy++) {
+        for (let dx = -r; dx <= r && ruta.length === 0; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          lejos = { x: esquina.x + dx, y: esquina.y + dy };
+          ruta = s.previewPath(lejos);
+        }
+      }
+    }
     expect(ruta.length).toBeGreaterThan(0);
     expect(ruta.at(-1)!.at).toEqual(lejos);
     expect(ruta.some((p) => !p.hoy)).toBe(true);

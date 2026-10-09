@@ -812,11 +812,25 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   batallas 1 576 → 1 572, `hero_defeated` 406 → 412, `node_captured` 1 301 →
  *   1 295, `town_captured` 1 362 → 1 359; ningún tipo nuevo ni ninguno que
  *   desaparezca.
+ * - `880417bb…` (70 915 líneas): **las fronteras onduladas** (#229, 09-10-2026):
+ *   el reparto de regiones mide cada casilla desde un punto movido por un
+ *   ruido fino y antisimétrico en el espejo (`ondulacion`, `sinPuas`), con su
+ *   propia corriente; y cuatro arreglos del generador que la ondulación
+ *   destapó: la Y junto a un nodo objetivo aún sin trazar se cobra, las
+ *   barreras garantizadas se recuentan al final del vestido, la puerta de un
+ *   objeto puesto sin ella libre también se guarda y un puente sin dos orillas
+ *   enfrentadas no vale. Cambia el mapa de todas: **0 de 200 idénticas**, y en
+ *   las 200 el primer hecho distinto es el `raider_spawned` del día 1 (otro
+ *   mapa). 70 con otro ganador, j0 130 → 126, **0 sin terminar**, duración 8 /
+ *   14 / 31 → **8 / 15 / 29**. `hero_moved` 41 649 → 42 671, batallas 1 572 →
+ *   1 487, `hero_defeated` 412 → 343, `node_captured` 1 295 → 1 309,
+ *   `town_captured` 1 359 → 1 267, `march_halted` 141 → 137, `raider_spawned`
+ *   1 622 → 1 613; ningún tipo nuevo ni ninguno que desaparezca.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: 'f10c071139555fc0faabec3453c42fed561ab3b6db7f64dfe7dcbd1fc7d12c8d',
+  sha: '880417bb55e7cd02b096ac4898a00e84e25170fc7a40e11593b5a64a7d37bb3e',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

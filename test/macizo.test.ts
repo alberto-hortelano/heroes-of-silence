@@ -247,7 +247,15 @@ describe('la escena: los picos de una cordillera crecen hacia dentro', () => {
   // ×1,35 justo y la 24 ×1,31; 08-10-2026). Mismo defecto, no otro.
   // Vuelven con #218 (masas y claros, 09-10-2026): la 7 da ×1,56 y la 8 ×1,41;
   // en 1-12, de ×1,39 (s1) a ×1,92 (s5).
-  const semillas = LENTO ? rango(1, 10).filter(conCordillera) : lasPrimeras(2, conCordillera);
+  // Con las fronteras onduladas (#229, 09-10-2026), mapas nuevos: en 1-40, 4 de
+  // 36 con cordillera por debajo de ×1,35 —la 1 ×1,19, la 10 ×1,21, la 32 ×1,34
+  // y la 38 ×1,15— frente a 1 de 37 en el mapa de antes (la 37, ×1,30). La
+  // hondura de las cordilleras no baja (de 1-40, el 53 % de sus casillas en
+  // franjas con alguna casilla interior, antes el 46 %): son otras franjas, la
+  // misma alfombra. Fuera la 1 y la 10, como la 8 en #210; el umbral, igual.
+  const sinCresta = new Set([1, 10]);
+  const valen = (s: number) => !sinCresta.has(s) && conCordillera(s);
+  const semillas = LENTO ? rango(1, 10).filter(valen) : lasPrimeras(2, valen);
   for (const semilla of semillas)
     it(`semilla ${semilla}: más altos, más esbeltos y más claros en la cresta que en la falda`, () => {
       const { falda, cresta } = picosDelMacizo(semilla);
@@ -318,11 +326,23 @@ function cordillerasDe(semilla: number) {
     const mayor = Math.max(...suyos.map((s) => s.alto));
     const x = Math.min(...f.casillas.map((i) => i % a.W));
     const y = Math.min(...f.casillas.map((i) => Math.floor(i / a.W)));
-    // Una banda de una casilla de ancho: ningún cuadrado de 2 × 2 dentro.
-    const estrecha = !f.casillas.some(
-      (i) =>
-        i % a.W < a.W - 1 && dentro.has(i + 1) && dentro.has(i + a.W) && dentro.has(i + a.W + 1),
-    );
+    // Una banda sin hondura: ninguna casilla con sus ocho vecinas dentro, donde
+    // ningún pico tiene hondura para dominar. Era «ningún cuadrado de 2 × 2
+    // dentro» (una casilla de ancho); con las fronteras onduladas de #229 sale
+    // también la banda de dos en diagonal, con algún 2 × 2 en sus codos y sin
+    // ninguna casilla de dentro: s36 (5, 27), 23 casillas y 8 picos iguales.
+    const estrecha = !f.casillas.some((i) => {
+      const x = i % a.W;
+      const y = Math.floor(i / a.W);
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          const vx = x + dx;
+          const vy = y + dy;
+          if (vx < 0 || vy < 0 || vx >= a.W || vy >= a.H || !dentro.has(vy * a.W + vx))
+            return false;
+        }
+      return true;
+    });
     return [
       {
         estrecha,

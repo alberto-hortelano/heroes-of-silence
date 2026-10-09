@@ -91,7 +91,29 @@ function duelo(state: GameState, cerca: Point): Point {
     isEnterable(state.map, p) &&
     objectAt(state.map, p) === undefined &&
     !state.heroes.some((h) => pointKey(h.at) === pointKey(p));
-  for (const clave of costesDelAlcance(reachableFrom(state.map, cerca)).keys()) {
+  // Si `cerca` cae en una barrera (el centro del mapa de la semilla 7 desde que
+  // las fronteras ondulan, #229), se busca desde la casilla pisable más cercana,
+  // anillo a anillo: desde una barrera no se alcanza nada.
+  let desde = cerca;
+  for (let r = 0; !isEnterable(state.map, desde); r++) {
+    const anillo: Point[] = [];
+    for (let dy = -r; dy <= r; dy++)
+      for (let dx = -r; dx <= r; dx++)
+        if (Math.max(Math.abs(dx), Math.abs(dy)) === r)
+          anillo.push({ x: cerca.x + dx, y: cerca.y + dy });
+    const pisable = anillo.find(
+      (p) =>
+        p.x >= 0 &&
+        p.y >= 0 &&
+        p.x < state.map.width &&
+        p.y < state.map.height &&
+        isEnterable(state.map, p),
+    );
+    if (pisable !== undefined) desde = pisable;
+    if (r > state.map.width)
+      throw new Error('no hay sitio para un duelo: el mapa no tiene casilla pisable');
+  }
+  for (const clave of costesDelAlcance(reachableFrom(state.map, desde)).keys()) {
     const defensa = pointFromKey(clave);
     // A su izquierda, porque ahí coloca `forzarBatalla` al atacante.
     if (libre(defensa) && libre({ x: defensa.x - 1, y: defensa.y })) return defensa;
