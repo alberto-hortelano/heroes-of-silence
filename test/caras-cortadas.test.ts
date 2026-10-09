@@ -116,7 +116,11 @@ describe('las tiradas de frontal cortadas junto a un objeto (#221)', () => {
 // (27,22) que se abre a la meseta para que el camino baje de frente a la
 // ciudad de (27,23): la cara de (24-26, 23) acaba ahora a su lado. En 1-100,
 // 8 → 13; en 101-250, 17 → 18 (09-10-2026).
-const QUEDAN: Readonly<Record<number, number>> = { 2: 1, 3: 1, 10: 1, 12: 2, 22: 1, 24: 2 };
+// Los dos de s12 junto al puente (22-23 y 29-30, 10) se van con la rampa de
+// (12, 8) (#225): sin sus cuatro frontales, la corriente de azar de las
+// frontales tira otras en las caras de después. Es suerte, no arreglo: el hueco
+// del puente sigue (09-10-2026).
+const QUEDAN: Readonly<Record<number, number>> = { 2: 1, 3: 1, 10: 1, 22: 1, 24: 2 };
 const SEMILLAS = segunPrisa([57, 443, 10, 37], [...rango(1, 40), 57, 443]);
 
 describe('en los mapas reales', () => {

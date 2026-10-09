@@ -1603,6 +1603,15 @@ Estilo de la imagen de estilo, que manda sobre cualquier otra idea: fantasía me
 Todo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.
 ```
 
+**Cuántas salen** (generador de #224, 09-10-2026, tramos del núcleo que bajan al
+sur): en 1-1000 hay 1 070 bajadas `s` de caída 1; 44 caen en un borde recto de cinco
+casillas (4 %) y 27 de ellas son de roca o arenisca (20 y 7): las rampas con arte.
+El 90 % (961) baja a un rincón: casi siempre a la muesca de una casilla de un nodo
+o la puerta de una ciudad o mina (lo bajo entre dos casillas altas) o a una
+esquina, donde la pared dobla; otras 65 (6 %) tienen el hueco recto pero menos de
+cinco casillas. En 1-200, 5 de 199 (todas de roca). La muesca es el siguiente caso
+que merece pieza: una rampa entre dos laderas.
+
 **Lo que falta** (cuando el usuario lo apruebe): basalto y nevadas; caída 2; los
 rumbos `e` y `o` (la rampa de lado). El rincón (s55) no es un borde recto y sigue con
 la bajada: lo resuelve el generador cruzando el desnivel de frente (#224).

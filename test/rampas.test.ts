@@ -248,10 +248,20 @@ describe('las rampas en un mapa real: s12, (12, 8)', () => {
       e.informe.bajadasTapadas,
       e.informe.bajadasSobreNodo,
       e.informe.rampasDesviadas,
-      e.informe.sendaBajoElRelieve,
       e.informe.paredesTapadas,
       e.informe.carasCortadas,
-    ]).toEqual([0, 0, 0, 0, 0, 0, 0, 0]);
+    ]).toEqual([0, 0, 0, 0, 0, 0, 0]);
+    // La senda bajo el relieve no es 0 (techo de media 5): s12 tiene uno en
+    // (17,5, 10,5) con y sin la rampa (09-10-2026). La rampa no añade ninguno.
+    const sinRampas = {
+      ...catalogo,
+      hojas: Object.fromEntries(
+        Object.entries(catalogo.hojas).filter(([h]) => !h.startsWith('rampa-')),
+      ),
+    };
+    expect(e.informe.sendaBajoElRelieve).toBeLessThanOrEqual(
+      componer(map, 12, sinRampas).informe.sendaBajoElRelieve,
+    );
   });
 
   it('sin el arte de la rampa, todo como antes: la bajada encima de la pared entera', () => {
