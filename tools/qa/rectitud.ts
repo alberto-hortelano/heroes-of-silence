@@ -22,11 +22,18 @@
  * tramos de 103 a 110. Los techos van entre lo de antes y lo de ahora, con
  * margen para una tirada de monedas.
  *
+ * **Desde #230, 1-3000** (09-10-2026): en 1-1000 el ruido de una tirada nueva
+ * del azar ya era del tamaño del margen (ver `TECHOS`).
+ *
  * Sale 1 si alguna cifra pasa de su techo. Uso: `npx tsx tools/qa/rectitud.ts`
- * (~20 s). El guardia de tramos y mapas, con `tramosRectos`, está también en
- * `test/regiones.test.ts`, en la orden lenta.
+ * (tres procesos, uno por bloque de 1000; ~50 s con la máquina libre). El
+ * guardia de tramos y mapas, con `tramosRectos`, está también en
+ * `test/rectitud.test.ts`, en la orden lenta.
  */
+import { spawn } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { analizar } from '../../src/client/render/escenario/analizar.js';
 import { caidas } from '../../src/client/render/escenario/celdas.js';
 import { relieve } from '../../src/client/render/escenario/relieve.js';
@@ -116,43 +123,132 @@ export function largoALaEscala(casillas: number): number {
 }
 
 /**
- * Los techos de #169 y lo que había antes, para que el informe diga las dos cosas.
- * Bajan con #229 (09-10-2026) a entre lo de antes de la ondulación (75 / 10 / 8
- * en 1-1000) y lo de después (64 / 5 / 2): sin ella, los tres muerden. El de
- * los tramos va justo, porque es el que menos baja: lo recto que queda es del
- * engorde, no del reparto.
+ * Los techos de #169, sobre **1-3000** (#230, 09-10-2026). Con #229 eran de
+ * 1-1000 (70 / 8 / 6, entre lo de antes de la ondulación, 75 / 10 / 8, y lo de
+ * después, 64 / 5 / 2), y el ruido se los comía: cualquier cambio que mueva el
+ * sorteo de los objetos cambia qué intento de vestido sale bueno, y en los
+ * mapas que cambian el vestido es otro entero (39-55 % de las barreras
+ * distintas). Medido por bloques de 1000 (tramos / caras / mapas):
+ *
+ * | | 1-1000 | 1001-2000 | 2001-3000 | 1-3000 |
+ * |---|---|---|---|---|
+ * | main (orden en serpiente, `cbd08d2`) | 64 / 5 / 2 | 60 / 1 / 4 | 71 / 1 / 5 | 195 / 7 / 11 |
+ * | las dos puertas de la mina (#230) | 72 / 9 / 6 | 43 / 4 / 4 | 59 / 1 / 4 | 174 / 14 / 14 |
+ * | main con el sorteo de minas y pueblos sobre la lista al revés | 53 / 5 / 3 | 67 / 4 / 5 | 71 / 4 / 6 | 191 / 13 / 14 |
+ *
+ * La tercera fila es una perturbación neutra (las mismas reglas, otra tirada):
+ * ±10 tramos por bloque, y las caras de 7 a 13 sin tocar nada que las haga.
+ * Los techos son el máximo de las tres más un margen pequeño declarado: +10
+ * tramos (~5 %), +3 caras y +3 mapas. Sin la ondulación de #229 (75 / 10 / 8 en
+ * 1-1000) serían, a ojo y ×3, ~225 / 30 / 24: los tres siguen mordiendo.
  */
 export const TECHOS = {
-  tramos: { semillas: 1000, minimo: largoALaEscala(8), techo: 70, antes: 216 },
-  caras: { semillas: 1000, minimo: largoALaEscala(8), techo: 8, antes: 138 },
-  mapas: { semillas: 1000, minimo: largoALaEscala(10), techo: 6, antes: 14 },
+  semillas: 3000,
+  bloque: 1000,
+  tramos: { minimo: largoALaEscala(8), techo: 205 },
+  caras: { minimo: largoALaEscala(8), techo: 17 },
+  mapas: { minimo: largoALaEscala(10), techo: 17 },
 } as const;
 
-function medir(): boolean {
+export interface Rectitud {
+  readonly tramos: number;
+  readonly caras: number;
+  readonly mapas: number;
+}
+
+/** Las tres cuentas en las semillas de `desde` a `hasta`, las dos incluidas. */
+export function rectitudDe(desde: number, hasta: number, conCaras = true): Rectitud {
   let tramos = 0;
   let caras = 0;
   let mapas = 0;
-  for (let s = 1; s <= TECHOS.mapas.semillas; s++) {
+  for (let s = desde; s <= hasta; s++) {
     const { map } = newGame({ seed: s });
-    if (s <= TECHOS.tramos.semillas) tramos += tramosRectos(map, TECHOS.tramos.minimo).largos;
-    if (s <= TECHOS.caras.semillas) caras += carasEnFila(map, TECHOS.caras.minimo);
+    tramos += tramosRectos(map, TECHOS.tramos.minimo).largos;
+    if (conCaras) caras += carasEnFila(map, TECHOS.caras.minimo);
     if (tramosRectos(map, TECHOS.mapas.minimo).largos > 0) mapas++;
   }
+  return { tramos, caras, mapas };
+}
+
+/**
+ * Un bloque en otro proceso: este mismo fichero con `--bloque`, por la CLI de
+ * `tsx`, que escribe su JSON. Por la CLI y no con el `execArgv` de quien llama:
+ * desde vitest no hay cargador de `tsx` que heredar.
+ */
+function enOtroProceso(desde: number, hasta: number): Promise<Rectitud> {
+  const tsx = createRequire(import.meta.url).resolve('tsx/cli');
+  const este = fileURLToPath(import.meta.url);
+  return new Promise((ok, mal) => {
+    const hijo = spawn(process.execPath, [tsx, este, '--bloque', String(desde), String(hasta)], {
+      stdio: ['ignore', 'pipe', 'inherit'],
+    });
+    let salida = '';
+    hijo.stdout.on('data', (d) => {
+      salida += String(d);
+    });
+    hijo.on('error', mal);
+    hijo.on('close', (codigo) => {
+      if (codigo !== 0) mal(new Error(`el bloque ${desde}-${hasta} salió con ${codigo}`));
+      else ok(JSON.parse(salida) as Rectitud);
+    });
+  });
+}
+
+/**
+ * Las tres cuentas de 1-`TECHOS.semillas`, un proceso por bloque de
+ * `TECHOS.bloque` en paralelo, y la de cada bloque. Lo leen este script y
+ * `test/rectitud.test.ts`.
+ */
+export async function rectitudPorBloques(): Promise<{
+  readonly total: Rectitud;
+  readonly bloques: readonly {
+    readonly desde: number;
+    readonly hasta: number;
+    readonly m: Rectitud;
+  }[];
+}> {
+  const rangos: [number, number][] = [];
+  for (let d = 1; d <= TECHOS.semillas; d += TECHOS.bloque)
+    rangos.push([d, Math.min(TECHOS.semillas, d + TECHOS.bloque - 1)]);
+  const medidas = await Promise.all(rangos.map(([d, h]) => enOtroProceso(d, h)));
+  const suma = (c: keyof Rectitud) => medidas.reduce((t, m) => t + m[c], 0);
+  return {
+    total: { tramos: suma('tramos'), caras: suma('caras'), mapas: suma('mapas') },
+    bloques: rangos.map(([desde, hasta], k) => ({ desde, hasta, m: medidas[k] as Rectitud })),
+  };
+}
+
+async function medir(): Promise<boolean> {
+  const { total: t, bloques } = await rectitudPorBloques();
+  for (const { desde, hasta, m } of bloques)
+    console.log(
+      `      ${desde}-${hasta}: tramos ${m.tramos} · caras ${m.caras} · mapas ${m.mapas}`,
+    );
+  const total = (c: keyof Rectitud) => t[c];
   const filas = [
-    ['tramos', tramos, TECHOS.tramos, 'tramos rectos de barrera'],
-    ['caras', caras, TECHOS.caras, 'filas de caras de roca'],
-    ['mapas', mapas, TECHOS.mapas, 'mapas con algún tramo recto'],
+    ['tramos', 'tramos rectos de barrera'],
+    ['caras', 'filas de caras de roca'],
+    ['mapas', 'mapas con algún tramo recto'],
   ] as const;
   let bien = true;
-  for (const [, cifra, t, que] of filas) {
-    const pasa = cifra <= t.techo;
+  for (const [c, que] of filas) {
+    const cifra = total(c);
+    const pasa = cifra <= TECHOS[c].techo;
     bien &&= pasa;
     console.log(
-      `${pasa ? 'bien' : 'MAL '}  ${que} ≥ ${t.minimo} en 1-${t.semillas}: ${cifra} (techo ${t.techo}; antes de #169, ${t.antes})`,
+      `${pasa ? 'bien' : 'MAL '}  ${que} ≥ ${TECHOS[c].minimo} en 1-${TECHOS.semillas}: ${cifra} (techo ${TECHOS[c].techo})`,
     );
   }
   return bien;
 }
 
 const esScript = process.argv[1] !== undefined && resolve(process.argv[1]) === import.meta.filename;
-if (esScript && !medir()) process.exitCode = 1;
+const iBloque = process.argv.indexOf('--bloque');
+if (esScript && iBloque !== -1) {
+  const [d, h] = [Number(process.argv[iBloque + 1]), Number(process.argv[iBloque + 2])];
+  if (!Number.isInteger(d) || !Number.isInteger(h) || d < 1 || h < d)
+    throw new Error(
+      `--bloque pide dos semillas, desde y hasta: ${process.argv.slice(iBloque + 1, iBloque + 3).join(' ')}`,
+    );
+  process.stdout.write(JSON.stringify(rectitudDe(d, h)));
+} else if (esScript && !(await medir())) process.exitCode = 1;

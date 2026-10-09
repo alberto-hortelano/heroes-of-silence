@@ -59,7 +59,6 @@ import {
 } from '../src/core/map/vestir.js';
 import { createRng } from '../src/core/rng.js';
 import type { Point } from '../src/core/types.js';
-import { TECHOS, tramosRectos } from '../tools/qa/rectitud.js';
 import { auditarMapaDenso, barrerasDe, ciclosDeCamino, planDeNodos } from './helpers.js';
 import { itLento, rango, segunPrisa } from './lento.js';
 
@@ -1081,26 +1080,6 @@ describe('el generador hace redes como las pidió el usuario', () => {
     // lado gordo fijo por pareja salía en las 10 semillas; a trechos, en 2 de
     // los 20 lados.
     expect(enteros).toBeLessThanOrEqual(3);
-  });
-
-  itLento('los bordes de barrera no van en tramos rectos largos (#169)', () => {
-    // Un tramo recto: casillas de barrera seguidas en una fila o columna con la
-    // de al lado, del mismo lado, pisable (`tramosRectos`, la misma cuenta que
-    // `tools/qa/rectitud.ts`). En 1-1000: tramos de ≥ 8, 216 antes de #169
-    // (engorde del lado gordo entero y ruido en bloques de 4×4) y 110 después;
-    // mapas con uno de ≥ 10, 14 antes y 5 después. Los techos dejan margen
-    // para una tirada de monedas: en 1-300 los tramos bailaban de 38 a 45 con
-    // solo cambiar cómo se elige el paso. Desde #226 los largos van a la
-    // escala del mapa (8 y 10 en 34×34 son 10 y 12 en 42×42: `largoALaEscala`).
-    let largos = 0;
-    let mapas = 0;
-    for (const s of rango(1, 1000)) {
-      const { map } = delGenerador(s);
-      largos += tramosRectos(map, TECHOS.tramos.minimo).largos;
-      if (tramosRectos(map, TECHOS.mapas.minimo).largos > 0) mapas++;
-    }
-    expect(largos).toBeLessThanOrEqual(TECHOS.tramos.techo);
-    expect(mapas).toBeLessThanOrEqual(TECHOS.mapas.techo);
   });
 
   it('el vestido abre el nodo por su eje aunque la primera recta de cada región sea otra', () => {

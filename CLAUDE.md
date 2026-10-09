@@ -584,7 +584,7 @@ ocupado por algo ajeno no se libera: se reporta.**
 | `pnpm capturas` | ~245 s | si el cambio se ve; sale 1 con un error en consola |
 | `barrido-semillas.ts` | ~1 s | si tocas la IA o la economía: una sola semilla sin terminar es regresión |
 | `pnpm banco` | ~5 s | si tocas el núcleo sin querer cambiar el juego |
-| `npx tsx tools/qa/rectitud.ts` | ~20 s | si tocas `generate.ts` o `vestir.ts`: tramos rectos en 1-1000, con los largos a escala (`largoALaEscala`; en 42×42: ≥ 10 ≤ 70, caras ≥ 10 ≤ 8, mapas con tramo ≥ 12 ≤ 6, desde #229; hoy 64 / 5 / 2) |
+| `npx tsx tools/qa/rectitud.ts` | ~50 s | si tocas `generate.ts` o `vestir.ts`: tramos rectos en **1-3000**, tres procesos por bloques de 1000, con los largos a escala (`largoALaEscala`; en 42×42: ≥ 10 ≤ 205, caras ≥ 10 ≤ 17, mapas con tramo ≥ 12 ≤ 17, desde #230: el máximo de main 195 / 7 / 11, #230 174 / 14 / 14 y una perturbación neutra del azar 191 / 13 / 14, más 10 / 3 / 3; en 1-1000 el ruido de una tirada era ±10 tramos). El guardia, en `test/rectitud.test.ts` (orden lenta) |
 | `enfrentamiento.ts` | ~2 s | si cambias cómo decide la IA de batalla: entra solo con el intervalo entero > 50 % en 5 000 parejas |
 
 - **Presupuesto de pruebas** (la máquina es compartida: varias sesiones prueban a la vez y
