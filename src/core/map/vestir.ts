@@ -17,6 +17,7 @@
  * Todo es puro y determinista: el único azar es el `rng` que se pasa.
  */
 import { BARRERAS_DEL_MAPA, type BarreraConPeso } from '../data.js';
+import { largoALaEscala } from '../escala.js';
 import type { Rng } from '../rng.js';
 import { Frontera } from './frontera.js';
 import { type ConPuerta, rodeosParaEntrar } from './puertas.js';
@@ -620,6 +621,13 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
   const llano = e.niveles.every((n) => n === e.niveles[0]);
   /** Lo que se quedó de muro al partir una muralla: no se vuelve a partir. */
   const partida = new Uint8Array(N);
+  /** Cuántas veces se han buscado caídas largas (`quebrarCaidas`). */
+  let quiebros = 0;
+  const quebrar = (): boolean => {
+    if (llano || quiebros >= VUELTAS_DE_QUIEBROS) return false;
+    quiebros++;
+    return quebrarCaidas(W, H, tipos, region, esNodo, pasillo, cerca, nivelAhora());
+  };
   /** El nivel de cada casilla tal como está ahora el engorde, con la regla de la escena. */
   const nivelAhora = (): Int8Array =>
     nivelesDeLoEngordado(
@@ -736,6 +744,14 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
     if (sinAcantiladoLlano(W, H, tipos, region, esNodo, e.niveles, nivelAhora)) {
       desnivelEnLosCruces(W, H, tipos, region, esNodo, e.niveles);
       barreraDeNodo = barrerasDeLosNodos(e, tipos, esNodo, clave, tipoDePareja, candidatasDe);
+    }
+    // 7a''. Con la línea delgada y sin espolones, las caídas largas al sur se
+    //      parten a trechos (#231). Lo corrido del acantilado lo adelgaza la
+    //      vuelta siguiente, que vuelve a mirar las murallas y los espolones.
+    if (quebrar()) {
+      desnivelEnLosCruces(W, H, tipos, region, esNodo, e.niveles);
+      barreraDeNodo = barrerasDeLosNodos(e, tipos, esNodo, clave, tipoDePareja, candidatasDe);
+      continue;
     }
     // 7b. Sin espigas (#210): ninguna casilla de una de ancho por encima de lo
     //     que tiene a los dos lados. Rellenar puede partir una región y cambiar
@@ -1053,6 +1069,172 @@ export function adelgazarAcantilados(
     if (abrirAcantilado(W, H, tipos, region, esNodo, niveles, alto).length === 0) return cambio;
     cambio = true;
   }
+}
+
+/**
+ * Lo más largo que cae seguido al sur una fila del relieve (#231): una caída de
+ * `largoALaEscala(8)` casillas (10 en el 42×42) o más lleva quiebros. Es el
+ * largo de las caras de `tools/qa/rectitud.ts`, en casillas: la cara que pinta
+ * la escena es una más corta que la caída de casilla a casilla que la hace.
+ */
+export const CAIDA_LARGA = largoALaEscala(8);
+
+/**
+ * El trecho de un quiebro: en una caída larga se corre una fila un trozo de
+ * como mucho este largo, a este largo de lo recto de antes. Es
+ * `TRECHO_DEL_LADO` a la escala del mapa (4 → 5), el trecho al que la
+ * reparación del grosor (paso 4b) le da la vuelta al lado que engorda.
+ */
+export const TRECHO_DEL_QUIEBRO = largoALaEscala(TRECHO_DEL_LADO);
+
+/**
+ * Las caídas al sur de `CAIDA_LARGA` casillas seguidas o más (#231): por fila,
+ * las casillas cuyo nivel es mayor que el de la de debajo. Con el nivel de la
+ * escena (`nivelesDeLoEngordado`, `nivelesDelRelieve`) es la cara frontal que
+ * pinta, una casilla más larga (la cara va de junta a junta). Lo leen el
+ * quiebro del engorde (`quebrarCaidas`), el generador al final del vestido y
+ * `test/caidas-largas.test.ts`.
+ */
+export function caidasLargas(
+  W: number,
+  H: number,
+  nivel: ArrayLike<number>,
+): { readonly y: number; readonly desde: number; readonly largo: number }[] {
+  const largas: { y: number; desde: number; largo: number }[] = [];
+  for (let y = 0; y < H - 1; y++) {
+    let desde = -1;
+    for (let x = 0; x <= W; x++) {
+      if (x < W && (nivel[y * W + x] as number) > (nivel[(y + 1) * W + x] as number)) {
+        if (desde === -1) desde = x;
+        continue;
+      }
+      if (desde !== -1 && x - desde >= CAIDA_LARGA) largas.push({ y, desde, largo: x - desde });
+      desde = -1;
+    }
+  }
+  return largas;
+}
+
+/** Cuántas veces se buscan caídas largas en un engorde: lo que la primera no parte, lo prueba otra. */
+const VUELTAS_DE_QUIEBROS = 2;
+
+/**
+ * Las caídas al sur rectas y largas, partidas a trechos (#231). Tras #229 y
+ * #230 las caras largas que quedaban eran todas un desnivel que cae al sur por
+ * una frontera casi horizontal: la línea de acantilado de 7a, que copia el
+ * borde del lado bajo, o una región alta sobre el agua, que va a ras de la más
+ * baja (s154 (0-11, 23), s503 (6-19, 35)…). La cara frontal es lo único del
+ * relieve que la cámara ve de frente, y una fila recta de diez se lee como un
+ * muro de catálogo.
+ *
+ * Por cada fila con `CAIDA_LARGA` casillas seguidas o más cuyo nivel
+ * (`nivelesDeLoEngordado`, el de la escena) es mayor que el de la de debajo, se
+ * parte: cada `TRECHO_DEL_QUIEBRO` casillas, poco más o menos, un trozo de dos
+ * a `TRECHO_DEL_QUIEBRO` se corre una fila, casilla a casilla según lo que hay:
+ *
+ * - **Hacia lo bajo**, si arriba hay acantilado o montaña y abajo lo bajo que
+ *   se pisa: lo bajo pasa a esa barrera, que va al nivel alto. El acantilado
+ *   queda de dos de hondo y el 7a se come la fila de arriba; las dos puntas del
+ *   trozo se quedan, que tocan lo bajo por la esquina: la escalera de #215.
+ * - **Hacia lo alto** (morder con el agua), si arriba se pisa y abajo hay agua:
+ *   lo alto pasa a agua, que va a ras de lo bajo.
+ *
+ * Solo convierte lo que se pisa en barrera, como el resto del engorde: no
+ * acerca dos regiones. Fuera de las casillas a `RADIO_DEL_PASO` de un nodo
+ * (`cerca`: sus ejes, pasillos y rampas no se tocan) y de los pasillos, y sin
+ * dejar lo que se pisa de una fila de hondo (dos de su región detrás). El trozo
+ * se busca donde quepa sin dejar `CAIDA_LARGA` recto antes de él; si no cabe
+ * en ningún sitio, la caída se queda como estaba: dejarla no cuesta un mapa y
+ * tirar el vestido sí. En espejo donde se puede: lo mismo en la casilla
+ * reflejada (una espalda), si se pisa y cumple lo mismo. Las espigas, los bolsillos y los acantilados
+ * sin caída que pudiera dejar los miran los pasos de siempre (7b, 6, 7c).
+ * Devuelve si cambió algo.
+ */
+export function quebrarCaidas(
+  W: number,
+  H: number,
+  tipos: Tipos,
+  region: Int32Array,
+  esNodo: Uint8Array,
+  pasillo: Uint8Array,
+  cerca: Uint8Array,
+  nivel: ArrayLike<number>,
+): boolean {
+  const N = W * H;
+  const CORTADO = indiceDe('cliff');
+  const MONTAÑA = indiceDe('mountain');
+  const AGUA = indiceDe('water');
+  const abierta = (j: number): boolean => tipos[j] === ABIERTA && esNodo[j] === 0;
+  /** Lo que se puede volver barrera: se pisa, y no es pasillo ni está junto a un nodo. */
+  const libre = (j: number): boolean => abierta(j) && pasillo[j] === 0 && cerca[j] === 0;
+  /** Con dos casillas de su región detrás (hacia `d`): no queda lo que se pisa de una de hondo. */
+  const hondo = (j: number, d: number): boolean =>
+    j + 2 * d >= 0 &&
+    j + 2 * d < N &&
+    abierta(j + d) &&
+    abierta(j + 2 * d) &&
+    region[j + d] === region[j] &&
+    region[j + 2 * d] === region[j];
+  /**
+   * La casilla que pasa a barrera al correr la caída de la columna `x` de la
+   * fila `y`, su barrera y hacia dónde queda lo que se pisa detrás de ella.
+   */
+  const corrimiento = (x: number, y: number): readonly [number, number, number] | null => {
+    const alto = y * W + x;
+    const bajo = alto + W;
+    if (esNodo[alto] === 1 || esNodo[bajo] === 1) return null;
+    const t = tipos[alto] as number;
+    if ((t === CORTADO || t === MONTAÑA) && libre(bajo) && hondo(bajo, W)) return [bajo, t, W];
+    if (tipos[bajo] === AGUA && libre(alto) && hondo(alto, -W)) return [alto, AGUA, -W];
+    return null;
+  };
+  const tocada = new Uint8Array(N);
+  let cambio = false;
+  for (const { y, desde, largo } of caidasLargas(W, H, nivel)) {
+    // De izquierda a derecha: lo recto desde `pos` no llega a `CAIDA_LARGA`
+    // antes del siguiente trozo corrido, que empieza lo más cerca que pueda
+    // de un trecho más allá y mide de dos a un trecho. Lo que no se puede
+    // correr (un nodo cerca) se salta. Si lo corrido sigue recto con lo que
+    // haya más allá de la punta, lo ve la vuelta siguiente.
+    const fin = desde + largo - 1;
+    let pos = desde;
+    while (fin - pos + 1 >= CAIDA_LARGA) {
+      let hecho = false;
+      const candidatas: number[] = [];
+      for (let a = pos; a <= Math.min(fin - 1, pos + CAIDA_LARGA - 1); a++) candidatas.push(a);
+      candidatas.sort(
+        (p, q) =>
+          Math.abs(p - pos - TRECHO_DEL_QUIEBRO) - Math.abs(q - pos - TRECHO_DEL_QUIEBRO) || p - q,
+      );
+      for (const a of candidatas) {
+        const cambios: (readonly [number, number, number])[] = [];
+        for (let cx = a; cx <= Math.min(fin, a + TRECHO_DEL_QUIEBRO - 1); cx++) {
+          const c = corrimiento(cx, y);
+          if (c === null || tocada[c[0]] === 1 || tocada[espejoDe(c[0], N)] === 1) break;
+          cambios.push(c);
+        }
+        if (cambios.length < 2) continue;
+        for (const [j, t, d] of cambios) {
+          tipos[j] = t;
+          tocada[j] = 1;
+          // El reflejo, si en él se puede: el engorde no sale en espejo
+          // casilla a casilla (la reparación del paso 4b va en orden), y
+          // donde el reflejo ya es barrera no hay nada que correr.
+          const m = espejoDe(j, N);
+          if (libre(m) && hondo(m, -d)) {
+            tipos[m] = t;
+            tocada[m] = 1;
+          }
+        }
+        cambio = true;
+        hecho = true;
+        pos = a + cambios.length;
+        break;
+      }
+      if (!hecho) break;
+    }
+  }
+  return cambio;
 }
 
 /**

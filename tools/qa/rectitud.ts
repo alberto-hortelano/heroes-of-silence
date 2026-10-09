@@ -37,7 +37,7 @@ import { fileURLToPath } from 'node:url';
 import { analizar } from '../../src/client/render/escenario/analizar.js';
 import { caidas } from '../../src/client/render/escenario/celdas.js';
 import { relieve } from '../../src/client/render/escenario/relieve.js';
-import { AREA_DE_REFERENCIA, AREA_POR_REGION } from '../../src/core/escala.js';
+import { largoALaEscala } from '../../src/core/escala.js';
 import type { GameMap } from '../../src/core/map/map.js';
 import { esBarrera, type TerrainKind } from '../../src/core/map/terrain.js';
 import { newGame } from '../../src/core/state/setup.js';
@@ -105,22 +105,18 @@ export function carasEnFila(map: GameMap, minimo: number): number {
 }
 
 /**
- * Un largo de los de #169, medido en mapas de `AREA_DE_REFERENCIA` casillas por
- * región, llevado al mapa de hoy (#226): ×√(AREA_POR_REGION / AREA_DE_REFERENCIA),
- * redondeado. Lo que #169 juzga es la forma del borde, y un mapa ×1,22 de lado
- * con las mismas regiones tiene las mismas fronteras ×1,22 de largas: un tramo
- * de 8 en 34×34 es uno de 10 en 42×42. Los techos (cuántos) no se escalan:
- * son las mismas fronteras. Medido en 1-1000 (09-10-2026, 42×42): en casillas
- * sin escalar, 437 tramos de ≥ 8 y 43 mapas con uno de ≥ 10; a escala, 75 de
- * ≥ 10 y 8 mapas con uno de ≥ 12. Los bisectores de Voronoi son rectos, y un
- * mapa mayor los alarga: el umbral absoluto cruza la raya de muchos que en
- * 34×34 se quedaban en 6-7. Con la ondulación del reparto (#229,
- * `ONDULACION` en `map/generate.ts`), 64 tramos de ≥ 10, 5 filas de caras y 2
- * mapas.
+ * Los largos van a la escala del mapa (`largoALaEscala`, en `core/escala.ts`
+ * desde #231, que lo lee el generador). Lo que #169 juzga es la forma del
+ * borde, y un mapa ×1,22 de lado con las mismas regiones tiene las mismas
+ * fronteras ×1,22 de largas. Los techos (cuántos) no se escalan: son las mismas
+ * fronteras. Medido en 1-1000 (09-10-2026, 42×42): en casillas sin escalar, 437
+ * tramos de ≥ 8 y 43 mapas con uno de ≥ 10; a escala, 75 de ≥ 10 y 8 mapas con
+ * uno de ≥ 12. Los bisectores de Voronoi son rectos, y un mapa mayor los alarga:
+ * el umbral absoluto cruza la raya de muchos que en 34×34 se quedaban en 6-7.
+ * Con la ondulación del reparto (#229, `ONDULACION` en `map/generate.ts`), 64
+ * tramos de ≥ 10, 5 filas de caras y 2 mapas.
  */
-export function largoALaEscala(casillas: number): number {
-  return Math.round(casillas * Math.sqrt(AREA_POR_REGION / AREA_DE_REFERENCIA));
-}
+export { largoALaEscala };
 
 /**
  * Los techos de #169, sobre **1-3000** (#230, 09-10-2026). Con #229 eran de
@@ -135,19 +131,29 @@ export function largoALaEscala(casillas: number): number {
  * | main (orden en serpiente, `cbd08d2`) | 64 / 5 / 2 | 60 / 1 / 4 | 71 / 1 / 5 | 195 / 7 / 11 |
  * | las dos puertas de la mina (#230) | 72 / 9 / 6 | 43 / 4 / 4 | 59 / 1 / 4 | 174 / 14 / 14 |
  * | main con el sorteo de minas y pueblos sobre la lista al revés | 53 / 5 / 3 | 67 / 4 / 5 | 71 / 4 / 6 | 191 / 13 / 14 |
+ * | las caídas largas partidas (#231) | 48 / 0 / 5 | 44 / 0 / 4 | 51 / 0 / 3 | 143 / 0 / 12 |
  *
  * La tercera fila es una perturbación neutra (las mismas reglas, otra tirada):
  * ±10 tramos por bloque, y las caras de 7 a 13 sin tocar nada que las haga.
- * Los techos son el máximo de las tres más un margen pequeño declarado: +10
- * tramos (~5 %), +3 caras y +3 mapas. Sin la ondulación de #229 (75 / 10 / 8 en
- * 1-1000) serían, a ojo y ×3, ~225 / 30 / 24: los tres siguen mordiendo.
+ * Hasta #231 los techos eran el máximo de las tres más un margen pequeño
+ * declarado: +10 tramos (~5 %), +3 caras y +3 mapas (205 / 17 / 17).
+ *
+ * **Desde #231** las caras ≥ 10 son 0 por construcción: el engorde parte las
+ * caídas al sur de `CAIDA_LARGA` (`quebrarCaidas`) y el vestido que aún deja
+ * una no vale (`generate.ts`); la cara pintada es una casilla más corta que la
+ * caída. Los techos son lo medido más el mismo margen: 153 / 3 / 15. El de
+ * tramos es justo: la perturbación neutra de arriba movía el total hasta 21, y
+ * un cambio que mueva el azar del vestido puede pasarlo sin hacer nada peor;
+ * entonces se vuelve a medir aquí, con su fila, y no se sube a ciegas. El de
+ * caras deja la misma holgura por si la escena pinta una fila que el núcleo no
+ * ve; el guardia de 0 es `test/caidas-largas.test.ts`.
  */
 export const TECHOS = {
   semillas: 3000,
   bloque: 1000,
-  tramos: { minimo: largoALaEscala(8), techo: 205 },
-  caras: { minimo: largoALaEscala(8), techo: 17 },
-  mapas: { minimo: largoALaEscala(10), techo: 17 },
+  tramos: { minimo: largoALaEscala(8), techo: 153 },
+  caras: { minimo: largoALaEscala(8), techo: 3 },
+  mapas: { minimo: largoALaEscala(10), techo: 15 },
 } as const;
 
 export interface Rectitud {

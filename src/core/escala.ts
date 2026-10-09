@@ -76,8 +76,22 @@ export function marchaALaEscala(puntos: number): number {
 export function radioALaEscala(radio: number): number {
   if (!Number.isSafeInteger(radio) || radio < 0)
     throw new Error(`un radio de vista es un entero ≥ 0, y es ${radio}`);
-  // ⌊√x + ½⌋ = ⌊(⌊√(4x)⌋ + 1) / 2⌋, con x = radio² · A / B: todo en enteros.
-  const cuatroX = Math.floor((4 * radio * radio * AREA_POR_REGION) / AREA_DE_REFERENCIA);
+  return largoALaEscala(radio);
+}
+
+/**
+ * Un largo en casillas medido en mapas de `AREA_DE_REFERENCIA` casillas por
+ * región, llevado al de hoy: ×√(AREA_POR_REGION / AREA_DE_REFERENCIA), **al
+ * entero más cercano** (8 → 10 y 10 → 12 con 450). Lo leen los techos de
+ * rectitud de #169 (`tools/qa/rectitud.ts`) y el quiebro de las caídas largas
+ * (#231, `quebrarCaidas` en `map/vestir.ts`): un tramo de 8 en 34×34 es uno de
+ * 10 en 42×42, las mismas fronteras más largas.
+ */
+export function largoALaEscala(casillas: number): number {
+  if (!Number.isSafeInteger(casillas) || casillas < 0)
+    throw new Error(`un largo en casillas es un entero ≥ 0, y es ${casillas}`);
+  // ⌊√x + ½⌋ = ⌊(⌊√(4x)⌋ + 1) / 2⌋, con x = n² · A / B: todo en enteros.
+  const cuatroX = Math.floor((4 * casillas * casillas * AREA_POR_REGION) / AREA_DE_REFERENCIA);
   return Math.floor((raizEntera(cuatroX) + 1) / 2);
 }
 

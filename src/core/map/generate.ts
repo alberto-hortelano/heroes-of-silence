@@ -73,7 +73,9 @@ import {
   abrirEsquinasTorcidas,
   acantiladoSinCaida,
   barreraDe,
+  CAIDA_LARGA,
   CASILLAS_DE_UNA_MURALLA,
+  caidasLargas,
   conEjePleno,
   engordarFronteras,
   espejoDe,
@@ -2230,6 +2232,31 @@ function vestirRed(
     ciudades: new Set(ciudades),
   });
   if (sinCaida !== null) return fallo('obstáculos', sinCaida);
+  // Y ninguna caída al sur de `CAIDA_LARGA` casillas seguidas (#231). El
+  // engorde las parte (`quebrarCaidas`), pero no junto a un nodo, y el agua de
+  // las esquinas que pasa a montaña sube y puede unir dos trozos (s232 (28-38,
+  // 22)): ese vestido no vale. Son unos pocos mapas de cada mil.
+  const [larga] = caidasLargas(
+    W,
+    H,
+    nivelesDeLoEngordado(
+      W,
+      H,
+      tipos,
+      regionGruesa,
+      esNodoDeLaRed,
+      niveles,
+      nodos,
+      grueso.barreraDeNodo,
+      new Set([...ciudades, ...conCaminoAhora]),
+      new Set(ciudades),
+    ),
+  );
+  if (larga !== undefined)
+    return fallo(
+      'obstáculos',
+      `la caída al sur de (${larga.desde}-${larga.desde + larga.largo - 1}, ${larga.y}) va recta ${larga.largo} casillas, y desde ${CAIDA_LARGA} se lee como un muro`,
+    );
   // Las barreras garantizadas, otra vez, sobre la frontera de después: las
   // esquinas de agua pasan agua a montaña y las esquinas torcidas abren
   // frontera a su región. Con las fronteras onduladas de #229, un acantilado
