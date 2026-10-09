@@ -709,7 +709,10 @@ describe('el agente defiende', () => {
       return { action: payload.legalActions[0] };
     });
 
-    const director = new Director(link, { seed: 201, agentPlayers: [1] });
+    // La primera desde la 201 en que el rival ataca de verdad: con los vestidos
+    // que se repiten por una silla (#224), la 201 dejó de darlo.
+    const seed = await semillaEnQueElRivalAtaca(201);
+    const director = new Director(link, { seed, agentPlayers: [1] });
     const mio = rivalAlAtaque(director.state);
     const misCriaturas = new Set(mio.army.flatMap((s) => (s === null ? [] : [s.creature])));
     expect(director.state.current).toBe(0); // el turno es del RIVAL

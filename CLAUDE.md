@@ -286,6 +286,25 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   `test/sendas-sobre-agua.test.ts`). La senda pintada acaba en cada ciudad o nodo que atraviesa
   (`encadenar`): el vaivén la corría al agua en la puerta. `sendaSobreElAgua` (#211) queda en 2 en 1-40,
   solo s37: la rampa de caída 2 que baja a una ciudad pasa de ella y su pie cae al agua (#192).
+  **Ninguna senda pasa por una silla, y la bajada va de frente** (#224; marca en s55 (27,16), «el
+  camino acaba en un muro de roca»). La regla es `pasoTorcido` (`regiones.ts`), sobre el nivel de la
+  escena: `silla` (en diagonal, a un nivel, con las dos esquinas más altas: la escena une lo alto
+  por ese vértice y la senda pasaba bajo la roca), `diagonal` (cambia de nivel en diagonal: sin
+  rampa recta de dos costados, #225) y `costado` (en cruz, pero a un lado lo de junto a las dos puntas
+  queda por debajo de la alta: la esquina de la meseta). La búsqueda los cobra con el nivel que pintará
+  la escena (`EntradaDeCaminos.nivel`, de `nivelesDeLoEngordado`): torcer junto a un nodo, más que
+  entrar en una ciudad por detrás; una silla entre dos casillas de la región, `SILLA` rectos
+  (`cobroDelTorcido`). Lo que queda —la región que toca el nodo solo por un vértice— abre esa esquina a
+  su región y se vuelve a trazar (`abrirEsquinasTorcidas`, `VUELTAS_DE_ESQUINAS`): solo frontera
+  (nunca un obstáculo), sin tocar otra región ni a dos pasos sin acantilado, sin espiga, sin partir lo
+  que no es región, sin bajar de la densidad, sin quitarle a un nodo su barrera ni dejar la muesca de
+  #222; el reflejo, si también se puede. Si aún queda una silla, o un paso al que se baja torcido, el
+  vestido se repite. **La bajada a una ciudad** en diagonal o por la esquina de la meseta queda,
+  donde la región solo la toca por un vértice (`soloPorUnVertice`): con tres regiones o más, solo una
+  le llega en cruz (dos casillas de regiones distintas no se tocan ni por un vértice). Los puentes,
+  fuera. En 1-200: sillas 117 → 0, bajadas en diagonal a un paso 212 → 0, por la esquina 2 → 0; a una
+  ciudad por un vértice, en diagonal 905 → 570 y por la esquina 37 → 89 (`test/sendas-por-sillas.test.ts`).
+  Cuesta mapas: 76 de 200 son otro vestido y el 64×64 tarda ~1 s (272 ms antes; 09-10-2026).
   **El agente declara el nivel** (#209): `regions[].nivel`
   opcional (0-2, `esNivel`), sin él la región va al 1. Si el plan declara alguno,
   `validateMapPlan` corre `problemasDeNiveles`: cada franja de barrera (`franjasDeBarrera`, la

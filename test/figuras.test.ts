@@ -128,9 +128,10 @@ describe('en los mapas reales', () => {
   // se taparía sin subir la clave, no una.
   // La auditoría era s36 (84 tapadas); con los niveles del mapa (#143) se le
   // quedan 21, y la que más tenía de 1-60 era la 32 (89); con menos mesetas
-  // (#210), la 8 (57).
-  it('s8: sin subir la clave, vuelven las tapadas de la auditoría, también donde hay un objeto', () => {
-    const { map, escena: e } = partidaDe(8);
+  // (#210), la 8 (57); con los vestidos que se repiten por una silla (#224),
+  // la 30 (54; la 8 se queda en 35).
+  it('s30: sin subir la clave, vuelven las tapadas de la auditoría, también donde hay un objeto', () => {
+    const { map, escena: e } = partidaDe(30);
     const antes = pisablesTapadas(e.sprites, map.terrain, e.W, e.H, perfilDe, false);
     expect(antes.length).toBeGreaterThan(50);
     const objetos = new Set(map.objects.map((o) => o.at.y * e.W + o.at.x));

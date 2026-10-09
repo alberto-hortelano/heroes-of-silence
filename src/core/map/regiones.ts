@@ -741,6 +741,106 @@ export const nivelDelNodo = (suyos: readonly number[], alBajo: boolean): number 
   alBajo ? Math.min(...suyos) : Math.max(...suyos);
 
 /**
+ * Cómo pasa una senda del centro de `p` al de `q`, vecinas, por el relieve de
+ * `nivel` (#224). La huella (0,32 de ancho) va de centro a centro, así que un
+ * paso en diagonal pisa el vértice que comparten sus dos esquinas.
+ *
+ * - **`silla`**: en diagonal, con las dos esquinas por encima de las dos
+ *   puntas. La escena une lo alto por el vértice («el alto une», `celdas`):
+ *   pone ahí una diagonal cóncava y una ladera, y la senda pasa por debajo de
+ *   la roca (s55 (26,15)-(27,16), marca del usuario: «el camino acaba en un
+ *   muro de roca»).
+ * - **`diagonal`**: cambia de nivel en diagonal. La bajada cruza el filo por
+ *   una esquina, sin pared a ningún lado, y la rampa no puede ir recta con sus
+ *   dos costados (#225).
+ * - **`costado`**: cambia de nivel en cruz, pero a un lado (en la
+ *   perpendicular del paso) lo de al lado de las dos puntas está por debajo de
+ *   la alta: la rampa baja por la esquina de la meseta, donde la línea dobla, y
+ *   a ese lado no tiene pared. Con pared a los dos lados —la de la muesca, de
+ *   lo alto junto a la punta baja, o la que sigue recta, de lo alto junto a la
+ *   alta— va de frente. El borde del mapa no cuenta: el desnivel sigue fuera
+ *   del marco.
+ * - **`null`**: de frente o a un mismo nivel sin silla.
+ */
+export type PasoTorcido = 'silla' | 'diagonal' | 'costado';
+export function pasoTorcido(
+  width: number,
+  height: number,
+  nivel: ArrayLike<number>,
+  p: number,
+  q: number,
+): PasoTorcido | null {
+  const px = p % width;
+  const qx = q % width;
+  const np = nivel[p] as number;
+  const nq = nivel[q] as number;
+  if (px !== qx && p - px !== q - qx) {
+    if (np !== nq) return 'diagonal';
+    const k1 = p - px + qx;
+    const k2 = q - qx + px;
+    return Math.min(nivel[k1] as number, nivel[k2] as number) > np ? 'silla' : null;
+  }
+  if (np === nq) return null;
+  const [alto, bajo] = np > nq ? [p, q] : [q, p];
+  const tope = nivel[alto] as number;
+  // Cada lado, en la perpendicular del paso: sin borde del mapa a ese lado.
+  const lados = px === qx ? [-1, 1].filter((d) => px + d >= 0 && px + d < width) : [-width, width];
+  for (const d of lados) {
+    const a = alto + d;
+    const b = bajo + d;
+    if (a < 0 || b < 0 || a >= width * height || b >= width * height) continue;
+    if ((nivel[a] as number) < tope && (nivel[b] as number) < tope) return 'costado';
+  }
+  return null;
+}
+
+/**
+ * Si la región `r` toca la casilla `n` solo por un vértice: ninguna casilla de
+ * `r` (`regionDe`, −1 lo que no es de ninguna) está en cruz con ella. A una
+ * ciudad donde se juntan tres regiones o más, solo una le llega en cruz: dos
+ * casillas de regiones distintas no se tocan ni por un vértice (las regiones
+ * son 8-conexas), y cada casilla en cruz de la ciudad toca por un vértice las
+ * dos diagonales de su lado. Las demás bajan a ella en diagonal a la fuerza
+ * (#224).
+ */
+export function soloPorUnVertice(
+  width: number,
+  height: number,
+  regionDe: Int32Array,
+  r: number,
+  n: number,
+): boolean {
+  const x = n % width;
+  const y = (n - x) / width;
+  const cruz = [
+    y > 0 ? n - width : -1,
+    y < height - 1 ? n + width : -1,
+    x > 0 ? n - 1 : -1,
+    x < width - 1 ? n + 1 : -1,
+  ];
+  return !cruz.some((j) => j >= 0 && regionDe[j] === r);
+}
+
+/**
+ * Los tramos de `tramos` que pasan torcidos (`pasoTorcido`), con cómo. Ninguno
+ * en lo procedimental (#224): la búsqueda de sendas los cobra y lo que queda lo
+ * endereza el vestido.
+ */
+export function tramosTorcidos(
+  width: number,
+  height: number,
+  nivel: ArrayLike<number>,
+  tramos: readonly (readonly [number, number])[],
+): { readonly tramo: readonly [number, number]; readonly como: PasoTorcido }[] {
+  const fuera: { tramo: readonly [number, number]; como: PasoTorcido }[] = [];
+  for (const t of tramos) {
+    const como = pasoTorcido(width, height, nivel, t[0], t[1]);
+    if (como !== null) fuera.push({ tramo: t, como });
+  }
+  return fuera;
+}
+
+/**
  * Las casillas que quedan por encima de sus dos vecinas de un eje (este y
  * oeste, o norte y sur): espigas, istmos e islotes de una casilla de ancho
  * (#210, «una elevación no puede acabar de repente»). La auditoría 5 contó 112

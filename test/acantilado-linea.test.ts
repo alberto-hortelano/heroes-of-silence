@@ -183,17 +183,22 @@ describe('en los mapas del procedimental, todo acantilado tiene lo bajo al lado 
     expect(casillas).toBeGreaterThan(segunPrisa(100, 5000));
   });
 
-  it(`24×24 y 64×64, ${segunPrisa('dos semillas', '1-40')}: lo mismo en las dos puntas del generador`, () => {
+  it(`24×24 y 64×64, ${segunPrisa('dos semillas', '1-40')}: lo mismo en las dos puntas del generador`, async () => {
     // En 64×64, s74 dejaba (33,37) a 1 en el generador y a 2 en la escena: el
     // nivel del engorde ponía la barrera bajo la ciudad de al lado.
     for (const lado of [24, 64])
       for (const semilla of segunPrisa([1, 74], rango(1, 40))) {
+        await new Promise((r) => setTimeout(r, 0));
         const { map } = buildMap(
           generateMapPlan(createRng(semilla), { width: lado, height: lado }),
         );
         expect(sinCaidaEn(map), `${lado}×${lado} s${semilla}`).toEqual([]);
       }
-  });
+    // Un 64×64 cuesta ~1 s desde #224: con más ciudades, más vestidos se
+    // repiten por una silla (272 → 990 ms de media en 1-10, 09-10-2026). Por
+    // eso suelta el hilo entre mapa y mapa: si no, el trabajador de vitest no
+    // contesta a tiempo («Timeout calling onTaskUpdate»).
+  }, 180_000);
 
   it('y muerde en un mapa real: una casilla de la meseta pegada a la línea, hecha acantilado, cuenta', () => {
     const { map } = newGame({ seed: 1 });

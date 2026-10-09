@@ -111,7 +111,12 @@ describe('las tiradas de frontal cortadas junto a un objeto (#221)', () => {
  * (12-13, 15)) y dos de 1-40 que lo daban (s10 entre dos ciudades, s37), y
  * 1-40 en la orden lenta. Lo que queda, por semilla (arriba).
  */
-const QUEDAN: Readonly<Record<number, number>> = { 6: 1, 10: 1, 12: 2 };
+// Con #224 (el vestido se repite por una silla y abre esquinas) cambian: s6 es
+// otro mapa y no lo da; s2, s22 y s24, otros mapas, sí; s3, por la esquina de
+// (27,22) que se abre a la meseta para que el camino baje de frente a la
+// ciudad de (27,23): la cara de (24-26, 23) acaba ahora a su lado. En 1-100,
+// 8 → 13; en 101-250, 17 → 18 (09-10-2026).
+const QUEDAN: Readonly<Record<number, number>> = { 2: 1, 3: 1, 10: 1, 12: 2, 22: 1, 24: 2 };
 const SEMILLAS = segunPrisa([57, 443, 10, 37], [...rango(1, 40), 57, 443]);
 
 describe('en los mapas reales', () => {

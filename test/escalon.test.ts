@@ -239,10 +239,11 @@ describe('la espalda, una línea nítida (#223)', () => {
 
   it('la muestra del bucle rápido mide espaldas con oscuro', () => {
     // Si el guardia no encontrara ningún oscuro que medir, pasaría sin mirar.
+    // Más de 10 por semilla: con los mapas de #224 una de las dos da 17.
     for (const s of [55, 2])
       expect(
         oscuroAlNorteDeLasEspaldas(partidaDe(s).escena).filter((q) => q.ancho > 0).length,
-      ).toBeGreaterThan(20);
+      ).toBeGreaterThan(10);
   });
 
   it('el guardia muerde: con todo lo bajo oscuro, la s55 tiene espaldas que pasan', () => {

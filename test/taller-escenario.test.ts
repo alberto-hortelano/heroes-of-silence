@@ -352,8 +352,10 @@ describe('la escena de un mapa real', () => {
   const catalogo = catalogoDelDisco();
   // La 13 en vez de la 7, que con menos mesetas (#210) se quedó sin desnivel;
   // la 6 y la 7 en vez de la 3 y la 9, que con el acantilado en línea (#215)
-  // se quedaron sin laderas a un lado o sin alguna clase de lo que se aparta.
-  for (const semilla of [1, 6, 13, 7]) {
+  // se quedaron sin laderas a un lado o sin alguna clase de lo que se aparta;
+  // la 9 y la 2 en vez de la 1 y la 7, que con los vestidos que se repiten por
+  // una silla (#224) se quedaron con 2 y 1 laderas al oeste.
+  for (const semilla of [9, 6, 13, 2]) {
     const map = newGame({ seed: semilla }).map;
     const e = escenaDe(semilla);
 

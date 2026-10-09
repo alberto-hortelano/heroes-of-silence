@@ -23,8 +23,11 @@ import {
   acantiladosSinCaida,
   aPunto,
   espigasDelRelieve,
+  franjasDeBarrera,
   type NodoDelRelieve,
   nivelesDelRelieve,
+  type PasoTorcido,
+  pasoTorcido,
   rellenar,
   vecindad,
 } from './regiones.js';
@@ -841,7 +844,7 @@ const VUELTAS_SIN_ESPIGAS = 8;
  * nodo de agua que no es ciudad es un puente, agua en la escena; el de lo demás
  * se pisa y va al bajo si es ciudad o lleva camino (`alBajo`) y si no al alto.
  */
-function nivelesDeLoEngordado(
+export function nivelesDeLoEngordado(
   W: number,
   H: number,
   tipos: Tipos,
@@ -2045,6 +2048,18 @@ export interface EntradaDeCaminos {
   readonly monstruos: Uint8Array;
   /** Lo ya puesto —nodos, inicios, objetos, asaltantes—: el centro no cae encima. */
   readonly ocupadas: ReadonlySet<number>;
+  /**
+   * El nivel de cada casilla como lo pintará la escena (`nivelesDelRelieve`,
+   * por `nivelesDeLoEngordado`): la búsqueda no pasa por una silla ni cambia de
+   * nivel en diagonal si tiene otro sitio (#224).
+   */
+  readonly nivel: ArrayLike<number>;
+  /**
+   * Los nodos de agua que no son ciudad: puentes. Su tramo no se mira torcido,
+   * como el agua de las esquinas de #210: el puente es su paso, con su pieza
+   * por eje y su vado, y la escena no le pone bajada.
+   */
+  readonly puentes: ReadonlySet<number>;
 }
 
 /**
@@ -2065,6 +2080,8 @@ export interface EntradaDeCaminos {
  * siendo el camino si no hay otro.
  */
 const AL_PIE_DEL_ACANTILADO = 3;
+/** Los pasos rectos de más de una silla entre dos casillas de una región (`cobroDelTorcido`). */
+const SILLA = 2;
 const AL_PIE_DE_LO_ALTO = 1;
 /**
  * Y por una casilla del borde del mapa, que la escena pinta medio bajo las
@@ -2181,6 +2198,24 @@ class Busqueda {
   }
 
   /**
+   * Lo que cuesta de más un paso torcido por el relieve (`pasoTorcido`, #224).
+   * Cambiar de nivel en diagonal —solo se puede entre un nodo o una ciudad y
+   * su región— cuesta más que cualquier entrada en cruz, también que entrar
+   * en una ciudad por detrás (`porDonde`, cuatro rodeos): la rampa va de
+   * frente o no va. Por un costado de la línea, menos que en diagonal y más
+   * que de frente. Una silla junto a un nodo, igual que la diagonal: es su
+   * entrada, y tiene otra o el vestido la endereza (`sinSillas`). Una silla
+   * entre dos casillas de la región, `SILLA` rectos, como la esquina de agua
+   * de #210: más que la vuelta por la L de una esquina, sin echar el camino al
+   * borde por un vértice.
+   */
+  private cobroDelTorcido(torcido: PasoTorcido, conNodo: boolean): number {
+    if (torcido === 'costado') return 2 * this.rodeo;
+    if (torcido === 'diagonal' || conNodo) return 5 * this.rodeo;
+    return SILLA * this.recto;
+  }
+
+  /**
    * Desde `origen`. Con el `arbol` de la región, lo trazado (`red`) cuesta la
    * mitad y arrimarse (`pegada`: las casillas 8-vecinas de la red), un paso
    * recto más. Con `hasta`, se para al sacarlo: lo que se lee después es su
@@ -2275,6 +2310,11 @@ class Busqueda {
           const jx = j % W;
           if (tipos[y * W + jx] === AGUA || tipos[j - jx + x] === AGUA) paso += 2 * this.recto;
         }
+        const torcido =
+          this.e.puentes.has(a) || this.e.puentes.has(j)
+            ? null
+            : pasoTorcido(W, H, this.e.nivel, a, j);
+        if (torcido !== null) paso += this.cobroDelTorcido(torcido, nodo[a] === 1 || nodo[j] === 1);
         if (enDiagonal && red !== undefined) {
           const jx = j % W;
           const k1 = y * W + jx;
@@ -2454,6 +2494,275 @@ export function sinAguaEnLasEsquinas(
   for (const k of esquinasDeAgua(W, (i) => tipos[i] === AGUA && !nodos.has(i), tramos, puentes))
     for (const c of [k, espejoDe(k, N)])
       if (tipos[c] === AGUA && !nodos.has(c) && !junto(c)) tipos[c] = MONTAÑA;
+}
+
+/**
+ * Abre a su región la esquina de cada tramo que entra torcido en un nodo o una
+ * ciudad (#224, `pasoTorcido`): en diagonal y cambiando de nivel, o por una
+ * silla. La búsqueda ya los cobra (`cobroDelTorcido`), así que lo que queda es
+ * la región que toca el nodo solo por un vértice. Abierta la esquina, la región
+ * llega al nodo en cruz y la rampa baja de frente; quien llama vuelve a trazar.
+ *
+ * Una esquina se abre a la región `r` de la punta que no es nodo si es barrera,
+ * no es nodo, todo lo que se pisa en sus ocho vecinas (sin los nodos) es de
+ * `r` —si no, uniría dos regiones por un vértice— y abierta no queda por encima
+ * de sus dos vecinas de un eje (`sinEspiga`, la regla de #210). Y en espejo: la
+ * esquina reflejada, a la región reflejada, con la misma regla, o ninguna de
+ * las dos. De las dos esquinas, la que deja la rampa de frente, con sus dos
+ * costados (`pasoTorcido` del tramo nuevo), y si no, la otra.
+ *
+ * Es la forma con menos daño: no cambia la barrera de nada más, no toca las
+ * otras regiones y la casilla abierta es de la meseta que ya llegaba al nodo.
+ * Devuelve cuántas casillas abrió.
+ */
+export function abrirEsquinasTorcidas(e: {
+  readonly W: number;
+  readonly H: number;
+  readonly tipos: Tipos;
+  readonly regionDe: Int32Array;
+  readonly nodos: ReadonlySet<number>;
+  readonly nivel: ArrayLike<number>;
+  /** El nivel de cada región: lo que se abre no deja una franja con niveles que no admite. */
+  readonly niveles: readonly Nivel[];
+  /** La barrera de cada nodo que no es ciudad: el de agua es puente, agua en la escena. */
+  readonly puentes: ReadonlySet<number>;
+  /** Las casillas que eran barrera de frontera antes de los obstáculos: un obstáculo no se abre. */
+  readonly deFrontera: (i: number) => boolean;
+  /** La barrera que cruza cada nodo que no es ciudad (`queCruzaElNodo`): tiene que seguir siendo la que más se ve. */
+  readonly barreraDeNodo: ReadonlyMap<number, Barrera>;
+  readonly ciudades: readonly number[];
+  /** Si la región `r` admite una casilla más sin bajar de la densidad mínima de obstáculos. */
+  readonly admiteUnaMas: (r: number) => boolean;
+  readonly tramos: readonly (readonly [number, number])[];
+}): number {
+  const { W, H, tipos, regionDe, nodos } = e;
+  const CORTADO = indiceDe('cliff');
+  const N = W * H;
+  const nivel = Int8Array.from(e.nivel);
+  const { desde, vecinas } = vecindad(W, H);
+  const abrible = (k: number, r: number): boolean => {
+    if (tipos[k] === ABIERTA || nodos.has(k) || r < 0 || esquinaDeRegion(k, r) === k) return false;
+    if (!e.deFrontera(k) || !e.admiteUnaMas(r) || !guardaLosNodos(k) || muerdeUnaPuerta(k))
+      return false;
+    if (separaDosRegiones(k, r) || parteLoQueNoEsRegion(k)) return false;
+    for (let v = desde[k]!; v < desde[k + 1]!; v++) {
+      const j = vecinas[v]!;
+      if (tipos[j] === ABIERTA && !nodos.has(j) && regionDe[j] !== r) return false;
+    }
+    // Abierta va al nivel de `r`: no por encima de sus dos vecinas de un eje.
+    const n = nivel[esquinaDeRegion(k, r)] as number;
+    const x = k % W;
+    if (x > 0 && x < W - 1 && (nivel[k - 1] as number) < n && (nivel[k + 1] as number) < n)
+      return false;
+    return !(k >= W && k < N - W && (nivel[k - W] as number) < n && (nivel[k + W] as number) < n);
+  };
+  // Cada nodo de al lado sigue viendo más de su barrera que de otra
+  // (`queCruzaElNodo`, #145): la esquina que se abre es una menos de la suya.
+  const guardaLosNodos = (k: number): boolean => {
+    const quitada = barreraDe(tipos, k);
+    for (let v = desde[k]!; v < desde[k + 1]!; v++) {
+      const n = vecinas[v]!;
+      const suya = e.barreraDeNodo.get(n);
+      if (suya === undefined) continue;
+      const veces = new Map<Barrera, number>();
+      for (let w = desde[n]!; w < desde[n + 1]!; w++) {
+        const j = vecinas[w]!;
+        const b = j === k || nodos.has(j) ? null : barreraDe(tipos, j);
+        if (b !== null) veces.set(b, (veces.get(b) ?? 0) + 1);
+      }
+      if (quitada !== suya) continue;
+      for (const [b, c] of veces) if (b !== suya && c > (veces.get(suya) ?? 0)) return false;
+    }
+    return true;
+  };
+  // Lejos de los nodos, dos regiones a dos pasos solo con un acantilado en
+  // medio (`engordarFronteras`, paso 7d): el acantilado que se abre puede ser
+  // el que separaba dos casillas de otro sitio.
+  const cercaDeNodo = new Uint8Array(N);
+  for (const n of nodos) {
+    const nx = n % W;
+    const ny = (n - nx) / W;
+    for (let dy = -3; dy <= 3; dy++)
+      for (let dx = -3; dx <= 3; dx++)
+        if (nx + dx >= 0 && ny + dy >= 0 && nx + dx < W && ny + dy < H)
+          cercaDeNodo[(ny + dy) * W + nx + dx] = 1;
+  }
+  const separaDosRegiones = (k: number, r: number): boolean => {
+    const kx = k % W;
+    const ky = (k - kx) / W;
+    const hayAcantilado = (ix: number, iy: number, jx: number, jy: number): boolean => {
+      for (let y = Math.max(iy, jy) - 1; y <= Math.min(iy, jy) + 1; y++)
+        for (let x = Math.max(ix, jx) - 1; x <= Math.min(ix, jx) + 1; x++)
+          if (
+            x >= 0 &&
+            y >= 0 &&
+            x < W &&
+            y < H &&
+            (x !== kx || y !== ky) &&
+            tipos[y * W + x] === CORTADO
+          )
+            return true;
+      return false;
+    };
+    // La propia `k`, abierta y lejos de un nodo (el reflejo puede estarlo).
+    if (cercaDeNodo[k] === 0)
+      for (let jy = ky - 2; jy <= ky + 2; jy++)
+        for (let jx = kx - 2; jx <= kx + 2; jx++) {
+          if (jx < 0 || jy < 0 || jx >= W || jy >= H) continue;
+          const j = jy * W + jx;
+          if (tipos[j] !== ABIERTA || nodos.has(j) || cercaDeNodo[j] === 1 || regionDe[j] === r)
+            continue;
+          if (!hayAcantilado(kx, ky, jx, jy)) return true;
+        }
+    if (tipos[k] !== CORTADO) return false;
+    const libre = (x: number, y: number): boolean => {
+      if (x < 0 || y < 0 || x >= W || y >= H) return false;
+      const j = y * W + x;
+      return tipos[j] === ABIERTA && !nodos.has(j) && cercaDeNodo[j] === 0;
+    };
+    for (let iy = ky - 1; iy <= ky + 1; iy++)
+      for (let ix = kx - 1; ix <= kx + 1; ix++) {
+        if (!libre(ix, iy)) continue;
+        for (let jy = iy - 2; jy <= iy + 2; jy++)
+          for (let jx = ix - 2; jx <= ix + 2; jx++) {
+            if (!libre(jx, jy) || regionDe[jy * W + jx] === regionDe[iy * W + ix]) continue;
+            let otro = false;
+            let pasaPorK = false;
+            for (let y = Math.max(iy, jy) - 1; y <= Math.min(iy, jy) + 1; y++)
+              for (let x = Math.max(ix, jx) - 1; x <= Math.min(ix, jx) + 1; x++) {
+                if (x === kx && y === ky) pasaPorK = true;
+                else if (x >= 0 && y >= 0 && x < W && y < H && tipos[y * W + x] === CORTADO)
+                  otro = true;
+              }
+            if (pasaPorK && !otro) return true;
+          }
+      }
+    return false;
+  };
+  // Ni parte en dos lo que no es región (barreras y nodos, 8-conexo): un trozo
+  // de frontera que se queda tocando una sola región pasa a contar como
+  // obstáculo suyo y le sube la densidad (#132).
+  const fueraDeRegion = (j: number): boolean => tipos[j] !== ABIERTA || nodos.has(j);
+  const parteLoQueNoEsRegion = (k: number): boolean => {
+    const lados: number[] = [];
+    for (let v = desde[k]!; v < desde[k + 1]!; v++)
+      if (fueraDeRegion(vecinas[v]!)) lados.push(vecinas[v]!);
+    if (lados.length <= 1) return false;
+    const visto = new Uint8Array(N);
+    visto[k] = 1;
+    visto[lados[0] as number] = 1;
+    const cola = [lados[0] as number];
+    let faltan = lados.length - 1;
+    const esLado = new Set(lados.slice(1));
+    for (let q = 0; q < cola.length && faltan > 0; q++) {
+      const j = cola[q] as number;
+      for (let v = desde[j]!; v < desde[j + 1]!; v++) {
+        const m = vecinas[v]!;
+        if (visto[m] === 1 || !fueraDeRegion(m)) continue;
+        visto[m] = 1;
+        if (esLado.has(m)) faltan--;
+        cola.push(m);
+      }
+    }
+    return faltan > 0;
+  };
+  // Ni deja la muesca de #222 (`puertasSinMuesca`): la puerta de una ciudad
+  // entre dos acantilados, con acantilado encima y lo que se pisa debajo.
+  const muerdeUnaPuerta = (k: number): boolean => {
+    const pisa = (j: number): boolean => j === k || tipos[j] === ABIERTA;
+    for (const t of e.ciudades) {
+      const x = t % W;
+      const y = (t - x) / W;
+      if (y + 2 >= H) continue;
+      for (const s of [-1, 1]) {
+        if (x + s < 0 || x + s >= W) continue;
+        const lado = t + W + s;
+        if (k !== t + W && k !== lado + W) continue;
+        if (pisa(t + W) && tipos[lado] === CORTADO && tipos[t + s] === CORTADO && pisa(lado + W))
+          return true;
+      }
+    }
+    return false;
+  };
+  // El nivel de la región `r` lo da cualquiera de sus casillas pegadas a `k`.
+  const esquinaDeRegion = (k: number, r: number): number => {
+    for (let v = desde[k]!; v < desde[k + 1]!; v++) {
+      const j = vecinas[v]!;
+      if (tipos[j] === ABIERTA && !nodos.has(j) && regionDe[j] === r) return j;
+    }
+    return k;
+  };
+  // Las franjas de barrera, como las ve la validación (`problemasDeNiveles`):
+  // abrir una casilla puede dar a una franja una región más o partirla, y cada
+  // trozo tiene que admitir los niveles de lo que toca.
+  const terreno: TerrainKind[] = Array.from({ length: N }, (_, i) =>
+    e.puentes.has(i) ? 'water' : nodos.has(i) ? 'grass' : (barreraDe(tipos, i) ?? 'grass'),
+  );
+  const region = Int32Array.from(regionDe, (r, i) => (nodos.has(i) ? -1 : r));
+  const admiten = (abrir: readonly (readonly [number, number])[]): boolean => {
+    const t = terreno.slice();
+    const reg = Int32Array.from(region);
+    for (const [c, rc] of abrir) {
+      t[c] = 'grass';
+      reg[c] = rc;
+    }
+    return franjasDeBarrera(W, H, t, reg).every(
+      (f) =>
+        f.regiones.size === 0 ||
+        admiteLosNiveles(
+          f.barrera,
+          [...f.regiones].map((r) => e.niveles[r] as Nivel),
+        ),
+    );
+  };
+  let abiertas = 0;
+  for (const [p, q] of e.tramos) {
+    if (e.puentes.has(p) || e.puentes.has(q)) continue;
+    const como = pasoTorcido(W, H, nivel, p, q);
+    if (como !== 'silla' && como !== 'diagonal') continue;
+    const n = nodos.has(p) ? p : nodos.has(q) ? q : -1;
+    if (n === -1) continue;
+    const a = n === p ? q : p;
+    const r = regionDe[a] as number;
+    const ax = a % W;
+    const nx = n % W;
+    const esquinas = [a - ax + nx, n - nx + ax];
+    // La que deja la rampa de frente, primero.
+    const deFrente = (k: number): boolean => {
+      const antes = nivel[k] as number;
+      nivel[k] = nivel[a] as number;
+      const torcida = pasoTorcido(W, H, nivel, k, n) !== null;
+      nivel[k] = antes;
+      return !torcida;
+    };
+    esquinas.sort((k1, k2) => Number(deFrente(k2)) - Number(deFrente(k1)));
+    for (const k of esquinas) {
+      const ke = espejoDe(k, N);
+      // Y su reflejo, a la pareja de la región, si también se puede: como los
+      // obstáculos y el agua de las esquinas (`sinAguaEnLasEsquinas`), el
+      // espejo es lo que se pueda, y bajo el reflejo puede haber un obstáculo.
+      // En el centro del mapa una esquina y su reflejo pueden tocarse: abiertas
+      // a dos regiones, las unirían por un vértice.
+      const re = parejaDe(r);
+      if (!abrible(k, r)) continue;
+      const cerca =
+        Math.abs((k % W) - (ke % W)) <= 1 && Math.abs(Math.floor(k / W) - Math.floor(ke / W)) <= 1;
+      const conReflejo = ke !== k && !(cerca && re !== r) && abrible(ke, re);
+      const abrir: (readonly [number, number])[] = [[k, r]];
+      if (conReflejo && admiten([...abrir, [ke, re]])) abrir.push([ke, re]);
+      if (!admiten(abrir)) continue;
+      for (const [c, rc] of abrir) {
+        nivel[c] = nivel[esquinaDeRegion(c, rc)] as number;
+        tipos[c] = ABIERTA;
+        regionDe[c] = rc;
+        terreno[c] = 'grass';
+        region[c] = rc;
+        abiertas++;
+      }
+      break;
+    }
+  }
+  return abiertas;
 }
 
 export function trazarCaminos(e: EntradaDeCaminos): [number, number][] {

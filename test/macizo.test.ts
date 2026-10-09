@@ -407,8 +407,10 @@ describe('las cordilleras se juntan en masas y se abren en claros (#218)', () =>
   // 6). En las 142 casillas que hoy son claro caían 1,63 picos y 1,45 casillas
   // de alto sumado, lo mismo que en las 1 299 de masa (1,46 y 1,45). Hoy, 0,99
   // y 0,80 en el claro frente a 1,73 y 1,67 en la masa.
-  const semillas = segunPrisa([1, 24], rango(1, 20));
-  it(`semillas ${segunPrisa('1 y 24', '1-20')}: un claro lleva menos de 0,6 veces el pico de una masa`, () => {
+  // En el bucle rápido, las dos de 1-20 con más claros: la 1 y la 24 se
+  // quedaron sin ninguno con los vestidos que se repiten por una silla (#224).
+  const semillas = segunPrisa([6, 19], rango(1, 20));
+  it(`semillas ${segunPrisa('6 y 19', '1-20')}: un claro lleva menos de 0,6 veces el pico de una masa`, () => {
     const claros: number[] = [];
     const masas: number[] = [];
     for (const s of semillas) {

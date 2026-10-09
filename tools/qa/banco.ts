@@ -774,11 +774,25 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   **8 / 15 / 20**. Batallas 1 517 → 1 546, `hero_defeated` 310 → 344,
  *   `node_captured` 1 161 → 1 194, `town_captured` 1 365 → 1 376,
  *   `march_halted` 118 → 121; ningún tipo nuevo ni ninguno que desaparezca.
+ * - `9fc436ed…` (58 585 líneas): **ninguna senda por una silla del relieve, y
+ *   la bajada de frente** (#224, 09-10-2026): la búsqueda cobra el paso en
+ *   diagonal con las dos esquinas más altas y la bajada a un nodo en diagonal o
+ *   por la esquina de la meseta (`pasoTorcido`, `cobroDelTorcido`), lo que
+ *   queda abre esa esquina a su región (`abrirEsquinasTorcidas`) y, si no hay
+ *   esquina que abrir, el vestido se repite. Cambia el mapa, no las reglas:
+ *   **144 de 200 cambian**; en 70 el primer hecho distinto es `raider_spawned`
+ *   del día 1 (otro vestido: 76 de 200 mapas son otros) y en 74 `hero_moved`
+ *   (mismo mapa con esquinas abiertas u otras sendas). 37 con otro ganador, j0
+ *   108 → 113, **0 sin terminar**, duración 8 / 15 / 20 → **8 / 13 / 19**.
+ *   Batallas 1 546 → 1 524, `hero_defeated` 344 → 337, `node_captured` 1 194 →
+ *   1 164, `town_captured` 1 376 → 1 337, `march_halted` 121 → 124; ningún tipo
+ *   nuevo ni ninguno que desaparezca. Generar un 34×34 pasa de ~36 a ~55 ms
+ *   (1-10, con la máquina cargada): los vestidos que se repiten.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: 'a0b5d9be3d2b08b1e409e4671af923729964dcab5dd9293042cb70f4b1f94919',
+  sha: '9fc436ed18eca65215e021f5f41dafbb33f072ec7d193d85d5e9262f65b12937',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

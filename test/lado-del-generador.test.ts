@@ -39,7 +39,7 @@ function loQueFallaAlGenerar(width: number, height: number, semilla: number): st
 }
 
 describe('el lado que sabe hacer el generador (#102)', () => {
-  it('el generador hace un plan válido en todo el rango que declara (#102)', () => {
+  it('el generador hace un plan válido en todo el rango que declara (#102)', async () => {
     // El rango era el del plan, 8-128, y el generador no sabía hacer nada por
     // debajo de 24: el respaldo, que es el camino que no puede fallar, lanzaba
     // con un lado que el contrato daba por bueno. En el bucle rápido, las dos
@@ -53,11 +53,17 @@ describe('el lado que sabe hacer el generador (#102)', () => {
       [min, max],
       [max, min],
     ];
-    const malos = medidas.flatMap(([width, height]) =>
-      segunPrisa([1], rango(1, 3)).flatMap((s) => loQueFallaAlGenerar(width, height, s)),
-    );
+    // Un mapa grande cuesta ~1 s desde #224 (los vestidos con una silla se
+    // repiten): se suelta el hilo entre uno y otro para que el trabajador de
+    // vitest conteste («Timeout calling onTaskUpdate»).
+    const malos: string[] = [];
+    for (const [width, height] of medidas)
+      for (const s of segunPrisa([1], rango(1, 3))) {
+        await new Promise((r) => setTimeout(r, 0));
+        malos.push(...loQueFallaAlGenerar(width, height, s));
+      }
     expect(malos).toEqual([]);
-  });
+  }, 180_000);
 
   itLento(
     `el lado mínimo del generador sale en las 200 semillas: es lo que lo define (#102)`,

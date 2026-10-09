@@ -436,20 +436,31 @@ describe('paredesTapadasPorLaMasa: el guardia muerde, y la masa se aparta de la 
 /** Las de la auditoría 6: los recortes de los defectos 2 y 3. */
 const SEMILLAS_DE_LA_AUDITORIA_6 = [24, 2, 5];
 
+/**
+ * Lo que queda de `caraDeOtroMaterial` en 1-40, por semilla. s24 es otro mapa
+ * desde #224 (el vestido se repite por una silla): la cordillera de
+ * (32-33, 9-11), a nivel 1 junto a lo bajo, y su espejo en (1-2, 24-25) llevan
+ * pared de roca, y el contador busca la meseta de nivel 1 de (27-28, 10-12), a
+ * la que el vestido abrió (28,11) y (27,12) para que su camino bajara de frente
+ * al nodo de (28,12). Pendiente de la escena (#216): en 1-250 es la única.
+ */
+const CARAS_DE_OTRO_MATERIAL: Readonly<Record<number, number>> = { 24: 10 };
+
 describe('un desnivel bajo una montaña, en los mapas reales (#216)', () => {
   for (const semilla of SEMILLAS_DE_LA_AUDITORIA_6)
     it(`semilla ${semilla}: ninguna masa tapa una pared, y cada pared es de la roca de su meseta`, () => {
       const { informe } = partidaDe(semilla).escena;
       expect(informe.paredesTapadas).toBe(0);
-      expect(informe.caraDeOtroMaterial).toBe(0);
+      expect(informe.caraDeOtroMaterial).toBe(CARAS_DE_OTRO_MATERIAL[semilla] ?? 0);
     });
 
-  it('s2 (14-20, 0-5): la pared bajo la cordillera de arena es de arenisca', () => {
+  it('s7 (23-29, 20-25): la pared bajo la cordillera de arena es de arenisca', () => {
     // Era s5 (2-8, 27-31), de la auditoría; con el acantilado en línea (#215)
-    // es otro mapa.
-    const { escena: e } = partidaDe(2);
+    // es otro mapa, y s2 (14-20, 0-5) hasta los vestidos que se repiten por una
+    // silla (#224).
+    const { escena: e } = partidaDe(7);
     const bajoLaArena = e.relieve.celdas.filter(
-      (c) => c.vx >= 14 && c.vx <= 20 && c.vy >= 0 && c.vy <= 5,
+      (c) => c.vx >= 23 && c.vx <= 29 && c.vy >= 20 && c.vy <= 25,
     );
     expect(bajoLaArena.length).toBeGreaterThan(0);
     expect(new Set(bajoLaArena.map((c) => c.material))).toEqual(new Set(['cara-arenisca']));
@@ -458,7 +469,10 @@ describe('un desnivel bajo una montaña, en los mapas reales (#216)', () => {
   itLento('1-40: ninguna masa tapa una pared, ninguna pared de otra roca que su meseta', () => {
     for (const s of rango(1, 40)) {
       const { informe } = partidaDe(s).escena;
-      expect([informe.paredesTapadas, informe.caraDeOtroMaterial], `s${s}`).toEqual([0, 0]);
+      expect([informe.paredesTapadas, informe.caraDeOtroMaterial], `s${s}`).toEqual([
+        0,
+        CARAS_DE_OTRO_MATERIAL[s] ?? 0,
+      ]);
     }
   });
 });

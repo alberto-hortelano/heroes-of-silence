@@ -169,14 +169,15 @@ describe('la senda bajo el relieve (#189)', () => {
   });
 
   it(`en los mapas del procedimental, de media no pasa de ${TECHO_POR_MAPA} tramos por mapa`, () => {
-    // La muestra: la 1, la de las capturas, y las que más tienen de 1-40 con
-    // el acantilado en línea (#215: 6, 20 y 22, con 5, 6 y 4; con menos
-    // mesetas, #210, eran 5, 8 y 26; antes, 3, 12 y 28, #206).
-    const semillas = segunPrisa([1, 6, 20, 22], rango(1, 40));
+    // La muestra: las que más tienen de 1-40 con los vestidos que se repiten
+    // por una silla (#224: 9, 28, 8 y 20, con 4, 4, 3 y 3; con el acantilado
+    // en línea, #215, eran 1, 6, 20 y 22; con menos mesetas, #210, 5, 8 y 26;
+    // antes, 3, 12 y 28, #206).
+    const semillas = segunPrisa([9, 28, 8, 20], rango(1, 40));
     const cuentas = semillas.map((s) => escenaDe(s).informe.sendaBajoElRelieve);
     // Que mire algo: en ninguna semilla de la muestra rápida es 0. En 1-40,
     // con menos mesetas (#210), la mitad se queda en 0: 20 de 40 y 1,2 de
-    // media (4,5 antes; 08-10-2026).
+    // media (4,5 antes; 08-10-2026). Con #224, 16 de 40 y 1,25 (09-10-2026).
     expect(cuentas.filter((n) => n > 0).length).toBeGreaterThanOrEqual(segunPrisa(4, 15));
     expect(cuentas.reduce((a, b) => a + b, 0) / semillas.length).toBeLessThanOrEqual(
       TECHO_POR_MAPA,

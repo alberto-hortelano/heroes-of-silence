@@ -44,11 +44,13 @@ import {
   type Estructura,
   estructura,
   juntoANodo,
+  type PasoTorcido,
   problemasDeNiveles,
   problemasDeRed,
   regionesQueToca,
   rellenar,
   territorio,
+  tramosTorcidos,
   VECINAS,
   vecindad,
 } from './regiones.js';
@@ -65,11 +67,14 @@ import {
   type TerrainKind,
 } from './terrain.js';
 import {
+  ABIERTA,
+  abrirEsquinasTorcidas,
   acantiladoSinCaida,
   barreraDe,
   conEjePleno,
   engordarFronteras,
   espejoDe,
+  nivelesDeLoEngordado,
   parejaDe,
   ponerObstaculos,
   sinAguaEnLasEsquinas,
@@ -919,6 +924,14 @@ export const INTENTOS_DE_RED = 30;
  * red, y tirarla con él era pagar otra vez el Voronoi, los nodos y el perfil.
  */
 const INTENTOS_DE_VESTIDO = 10;
+/** Lo que se dice de una senda torcida (`pasoTorcido`) cuando el vestido no vale por ella. */
+const COMO_VA_TORCIDA: Record<PasoTorcido, string> = {
+  silla: 'pasa por una silla del relieve',
+  diagonal: 'cambia de nivel en diagonal',
+  costado: 'baja por la esquina de una meseta, sin pared a un lado',
+};
+/** Cuántas veces se abren esquinas torcidas y se vuelve a trazar (#224); con dos ya no quedan. */
+const VUELTAS_DE_ESQUINAS = 3;
 
 /**
  * Mapa de nodos de dos jugadores. Es el respaldo cuando no hay agente y el
@@ -1851,6 +1864,9 @@ function vestirRed(
   // quita a una región apretada justo lo que le faltaba. Un obstáculo en la
   // puerta deja entrar por otro lado, que lo cobra el trazado.
   if (guardarPuertas) for (const i of anteLaPuerta) vetadas[i] = 1;
+  // Lo que era frontera: la esquina torcida que se abre después es de ella,
+  // nunca un obstáculo (cambiaría la densidad de la región).
+  const antesDeLosObstaculos = Int8Array.from(tipos);
   const caben = ponerObstaculos({
     W,
     H,
@@ -1876,28 +1892,114 @@ function vestirRed(
   for (const o of [...mines, ...villages]) {
     objetivos[regionGruesa[indice(o.at)] as number]?.push(indice(o.at));
   }
-  const trazado = trazarCaminos({
-    W,
-    H,
-    tipos,
-    regionDe: regionGruesa,
-    regiones: semillas.length,
-    suelos,
-    nodosDeRegion,
-    objetivos,
-    puertas: [...ciudadesEnNodo]
-      .map((k) => nodos[k] as number)
-      .concat([...mines, ...villages].map((o) => indice(o.at))),
-    monstruos,
-    ocupadas,
-  });
+  // El nivel de cada casilla como lo pintará la escena, con los nodos que
+  // llevarán camino al bajo (`crucesConCamino`): la búsqueda no pasa por una
+  // silla ni baja en diagonal si tiene otro sitio (#224).
+  const esNodoDeLaRed = new Uint8Array(N);
+  for (const n of nodos) esNodoDeLaRed[n] = 1;
+  const alBajoAlTrazar = new Set([
+    ...ciudades,
+    ...fina.conCamino.flat().map((k) => nodos[k] as number),
+  ]);
+  const nivelAlTrazar = () =>
+    nivelesDeLoEngordado(
+      W,
+      H,
+      tipos,
+      regionGruesa,
+      esNodoDeLaRed,
+      niveles,
+      nodos,
+      grueso.barreraDeNodo,
+      alBajoAlTrazar,
+      new Set(ciudades),
+    );
+  const trazar = (nivel: ArrayLike<number>) =>
+    trazarCaminos({
+      W,
+      H,
+      tipos,
+      regionDe: regionGruesa,
+      regiones: semillas.length,
+      suelos,
+      nodosDeRegion,
+      objetivos,
+      puertas: [...ciudadesEnNodo]
+        .map((k) => nodos[k] as number)
+        .concat([...mines, ...villages].map((o) => indice(o.at))),
+      monstruos,
+      ocupadas,
+      nivel,
+      puentes: puentesDeLaRed,
+    });
+  const puentesDeLaRed = new Set(
+    nodos.filter((_n, k) => !ciudadesEnNodo.has(k) && grueso.barreraDeNodo[k] === 'water'),
+  );
+  let nivelDelTrazado = nivelAlTrazar();
+  let trazado = trazar(nivelDelTrazado);
+  // Lo que la búsqueda no pudo evitar —la región que toca un nodo o una ciudad
+  // solo por un vértice— se endereza abriendo esa esquina a la región, y se
+  // vuelve a trazar (`abrirEsquinasTorcidas`).
+  for (let vuelta = 0; vuelta < VUELTAS_DE_ESQUINAS; vuelta++) {
+    const abiertas = abrirEsquinasTorcidas({
+      W,
+      H,
+      tipos,
+      regionDe: regionGruesa,
+      nodos: nodosDeLaRed,
+      nivel: nivelDelTrazado,
+      niveles,
+      puentes: puentesDeLaRed,
+      deFrontera: (i) => antesDeLosObstaculos[i] !== ABIERTA,
+      barreraDeNodo: new Map(
+        nodos.flatMap((n, k) =>
+          ciudadesEnNodo.has(k) ? [] : [[n, grueso.barreraDeNodo[k] as Barrera] as const],
+        ),
+      ),
+      ciudades,
+      admiteUnaMas: (r) => {
+        // La densidad de obstáculos de la región, como la mide quien la audita:
+        // lo que puso `ponerObstaculos` sobre lo que se pisa más eso.
+        let obstaculos = 0;
+        let pisables = 0;
+        for (let i = 0; i < N; i++) {
+          if (regionGruesa[i] !== r) continue;
+          if (tipos[i] === ABIERTA) pisables++;
+          else if (antesDeLosObstaculos[i] === ABIERTA) obstaculos++;
+        }
+        return (
+          obstaculos * 100 >= BARRERAS_DEL_MAPA.densidadPorCiento.min * (pisables + obstaculos + 1)
+        );
+      },
+      tramos: trazado,
+    });
+    if (abiertas === 0) break;
+    nivelDelTrazado = nivelAlTrazar();
+    trazado = trazar(nivelDelTrazado);
+  }
   const tramos = trazado.map(([p, q]): TramoDeCamino => [punto(p), punto(q)]);
   // Y ninguna senda corta en diagonal la esquina de una casilla de agua, salvo
   // la que llega a un puente (#210): esas esquinas pasan a montaña.
-  const puentes = new Set(
-    nodos.filter((_n, k) => !ciudadesEnNodo.has(k) && grueso.barreraDeNodo[k] === 'water'),
-  );
-  sinAguaEnLasEsquinas(W, H, tipos, trazado, puentes, nodosDeLaRed);
+  sinAguaEnLasEsquinas(W, H, tipos, trazado, puentesDeLaRed, nodosDeLaRed);
+  // Lo que queda torcido es de una región que toca el nodo solo por un vértice
+  // y no se puede abrir, o la esquina de agua que acaba de pasar a montaña y
+  // sube (s110 (16,1)). Una silla, o un paso al que se baja en diagonal o por
+  // la esquina de la meseta: el vestido no vale (#224). La bajada a una ciudad
+  // sí, salvo por una silla: donde se juntan tres regiones o más, solo una le
+  // llega en cruz, porque dos casillas de regiones distintas no se tocan ni por
+  // un vértice (`soloPorUnVertice`, en `regiones.ts`). Los puentes, fuera: el
+  // puente es su paso.
+  const ciudadesDeLaRed = new Set(ciudades);
+  for (const { tramo, como } of tramosTorcidos(W, H, nivelAlTrazar(), trazado)) {
+    const [p, q] = tramo;
+    if (puentesDeLaRed.has(p) || puentesDeLaRed.has(q)) continue;
+    if (como !== 'silla' && (ciudadesDeLaRed.has(p) || ciudadesDeLaRed.has(q))) continue;
+    const [a, b] = [punto(p), punto(q)];
+    return fallo(
+      'obstáculos',
+      `la senda de (${a.x},${a.y}) a (${b.x},${b.y}) ${COMO_VA_TORCIDA[como]} y no hay esquina que abrir`,
+    );
+  }
   // Si con eso el agua de la frontera se queda sin las casillas de una barrera
   // garantizada, el vestido no vale: el mapa perdería una de sus
   // `TIPOS_POR_MAPA` (s164: el agua de 15 a 14).
