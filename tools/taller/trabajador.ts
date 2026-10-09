@@ -112,7 +112,7 @@ import {
 } from './empaquetar.js';
 import { alturaDelReposo, type Encargo, filasDeAtlas, promptDe } from './encargo.js';
 import { escribirCatalogo } from './escenario/catalogo-disco.js';
-import { escenario } from './escenario/escenario.js';
+import { escenario, recortesDeSemilla } from './escenario/escenario.js';
 import {
   encargoDeTexturaDeRelieve,
   encargosDeModulos,
@@ -929,6 +929,19 @@ switch (orden) {
           (i.errores.length > 0 ? ` · ERRORES: ${i.errores.join(' | ')}` : ''),
       );
     }
+    break;
+  }
+  case 'recorte': {
+    // pnpm taller recorte <semilla> <x0> <y0> <x1> <y1> <salida.png> [px por casilla = 96]
+    const [semilla, x0, y0, x1, y1, salida, px] = resto;
+    const n = [semilla, x0, y0, x1, y1].map(Number);
+    if (salida === undefined || n.some((v) => !Number.isFinite(v)))
+      throw new Error('uso: pnpm taller recorte <semilla> <x0> <y0> <x1> <y1> <salida.png> [px]');
+    const [s, ...caja] = n as [number, number, number, number, number];
+    await recortesDeSemilla(s, px === undefined ? 96 : Number(px), [
+      { caja: caja as [number, number, number, number], salida: resolve(salida) },
+    ]);
+    console.log(`→ ${salida}`);
     break;
   }
   case 'guias':

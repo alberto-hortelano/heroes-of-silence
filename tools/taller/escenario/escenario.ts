@@ -168,45 +168,68 @@ export async function escenario(semillas: readonly number[], tile = 48): Promise
  * volúmenes: lo que difiera entre los dos caminos es en sí un hallazgo.
  */
 export async function recorteDeMarca(marca: Marca, salida: string): Promise<{ avisos: string[] }> {
-  const catalogo = await leerCatalogo();
-  const escena = componer(newGame({ seed: marca.semilla }).map, marca.semilla, catalogo);
   const avisos: string[] = [];
-  if (escena.sprites.length !== marca.queHay.spritesDeLaEscena)
-    avisos.push(
-      `el taller compone ${escena.sprites.length} sprites y el juego compuso ${marca.queHay.spritesDeLaEscena}: el catálogo del disco no es el de assets/mapa/escena.json (pnpm taller catalogo-escena), y el recorte puede no ser el mismo sitio`,
-    );
   // Píxeles de dispositivo por casilla: los del PNG de la marca.
   const T = marca.camara.tile * marca.lienzo.densidad;
-  const nombre = `marca-${marca.id}.html`;
+  await recortesDeSemilla(marca.semilla, T, [{ caja: marca.recorte, salida }], (escena) => {
+    if (escena.sprites.length !== marca.queHay.spritesDeLaEscena)
+      avisos.push(
+        `el taller compone ${escena.sprites.length} sprites y el juego compuso ${marca.queHay.spritesDeLaEscena}: el catálogo del disco no es el de assets/mapa/escena.json (pnpm taller catalogo-escena), y el recorte puede no ser el mismo sitio`,
+      );
+  });
+  return { avisos };
+}
+
+/**
+ * Recortes de la escena de `semilla` pintada por el taller a `T` px por
+ * casilla: cada `caja` del mundo (x0, y0, x1, y1, en casillas) a su `salida`.
+ * El de una marca y el de antes y después de un arreglo (`pnpm taller
+ * recorte`). Lanza si la página da errores, de consola incluidos.
+ */
+export async function recortesDeSemilla(
+  semilla: number,
+  T: number,
+  recortes: readonly {
+    readonly caja: readonly [number, number, number, number];
+    readonly salida: string;
+  }[],
+  mirar?: (escena: ReturnType<typeof componer>) => void,
+): Promise<void> {
+  const catalogo = await leerCatalogo();
+  const escena = componer(newGame({ seed: semilla }).map, semilla, catalogo);
+  mirar?.(escena);
+  const nombre = `recorte-${semilla}-${T}.html`;
   await mkdir(DIR_ESCENARIO, { recursive: true });
   await writeFile(
     join(DIR_ESCENARIO, nombre),
     await paginaDeEscena(escena, '../../../assets/mapa/', T),
   );
-  const pixeles = cajaEnPixeles(marca.recorte, T, MARGEN * T);
-  const dataUrl = await conPaginasDeEscena(async (abrir) => {
+  await conPaginasDeEscena(async (abrir) => {
     const { pagina, errores } = await abrir(nombre, { width: 1200, height: 900 }, T);
-    const url = await pagina.evaluate(({ sx, sy, sw, sh }) => {
-      const lienzo = document.getElementById('lienzo') as HTMLCanvasElement;
-      const corte = document.createElement('canvas');
-      corte.width = sw;
-      corte.height = sh;
-      (corte.getContext('2d') as CanvasRenderingContext2D).drawImage(
-        lienzo,
-        sx,
-        sy,
-        sw,
-        sh,
-        0,
-        0,
-        sw,
-        sh,
+    for (const { caja, salida } of recortes) {
+      const url = await pagina.evaluate(
+        ({ sx, sy, sw, sh }) => {
+          const lienzo = document.getElementById('lienzo') as HTMLCanvasElement;
+          const corte = document.createElement('canvas');
+          corte.width = sw;
+          corte.height = sh;
+          (corte.getContext('2d') as CanvasRenderingContext2D).drawImage(
+            lienzo,
+            sx,
+            sy,
+            sw,
+            sh,
+            0,
+            0,
+            sw,
+            sh,
+          );
+          return corte.toDataURL('image/png');
+        },
+        cajaEnPixeles(caja, T, MARGEN * T),
       );
-      return corte.toDataURL('image/png');
-    }, pixeles);
-    if (errores.length > 0) throw new Error(`la página del taller falló: ${errores.join(' · ')}`);
-    return url;
+      if (errores.length > 0) throw new Error(`la página del taller falló: ${errores.join(' · ')}`);
+      await writeFile(salida, Buffer.from(url.slice(url.indexOf(',') + 1), 'base64'));
+    }
   });
-  await writeFile(salida, Buffer.from(dataUrl.slice(dataUrl.indexOf(',') + 1), 'base64'));
-  return { avisos };
 }
