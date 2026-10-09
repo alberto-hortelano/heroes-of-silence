@@ -80,3 +80,33 @@ export function radioALaEscala(radio: number): number {
   const cuatroX = Math.floor((4 * radio * radio * AREA_POR_REGION) / AREA_DE_REFERENCIA);
   return Math.floor((raizEntera(cuatroX) + 1) / 2);
 }
+
+/**
+ * Lo que se anda en `dias` días, a `porDia` casillas por día en el mapa de
+ * referencia, a la escala de este mapa: ⌊dias · porDia · √(AREA_POR_REGION /
+ * AREA_DE_REFERENCIA)⌋, en enteros. Es la fracción acumulada de `deHoyALaEscala`.
+ */
+export function acumuladoALaEscala(porDia: number, dias: number): number {
+  if (!Number.isSafeInteger(porDia) || porDia < 0 || !Number.isSafeInteger(dias) || dias < 0)
+    throw new Error(
+      `lo que se anda a la escala se cuenta con enteros ≥ 0, y son ${porDia} por día en ${dias} días`,
+    );
+  return raizEntera(
+    Math.floor((dias * dias * porDia * porDia * AREA_POR_REGION) / AREA_DE_REFERENCIA),
+  );
+}
+
+/**
+ * Las casillas que se andan el día `dia` (desde 1) a `porDia` casillas por día
+ * en el mapa de referencia, a la escala de este mapa (#229): lo acumulado hasta
+ * hoy menos lo de ayer. Con 2 y 450 sobre 300 son 2,45 de media, en días de 2
+ * y de 3; a la larga, lo mismo que ×√1,5 sin redondear un solo día. Es la
+ * marcha de los que andan por casillas y no por puntos (los asaltantes), que
+ * en enteros por día no podían seguir el ×1,22 de `marchaALaEscala`. **Regla
+ * nuestra.**
+ */
+export function deHoyALaEscala(porDia: number, dia: number): number {
+  if (!Number.isSafeInteger(dia) || dia < 1)
+    throw new Error(`el día de la partida es un entero ≥ 1, y es ${dia}`);
+  return acumuladoALaEscala(porDia, dia) - acumuladoALaEscala(porDia, dia - 1);
+}

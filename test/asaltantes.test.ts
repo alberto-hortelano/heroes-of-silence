@@ -33,6 +33,7 @@ import {
   grupoALaVistaDesde,
   mascaraDeOcupacion,
   pasoDePatrulla,
+  pasosDeLaPatrulla,
   problemasDeAsaltante,
   type Raider,
   recordarAsaltantes,
@@ -121,7 +122,9 @@ describe('la patrulla', () => {
     expect(state.raiders.length).toBeGreaterThan(0);
     const regiones = new Map(state.raiders.map((r) => [r.id, regionDeCasilla(state.map, r.at)]));
     let movidas = 0;
+    let largos = 0;
     for (let dia = 0; dia < 300; dia++) {
+      state.day = dia + 1;
       for (const r of state.raiders) {
         const antes = r.at;
         r.at = pasoDePatrulla(state, r, rng, mascaraDeOcupacion(state));
@@ -129,13 +132,17 @@ describe('la patrulla', () => {
         expect(regionDeCasilla(state.map, r.at), `${r.id} el día ${dia}`).toBe(regiones.get(r.id));
         expect(tocaUnNodo(state.map, r.at), `${r.id} pegado a un nodo`).toBe(false);
         expect(objectAt(state.map, r.at), `${r.id} encima de un objeto`).toBeUndefined();
-        // Como mucho `pasosPorDia` en Chebyshev: andando por la región, nunca saltando.
+        // Como mucho los pasos de hoy en Chebyshev (`pasosDeLaPatrulla`, #229):
+        // andando por la región, nunca saltando.
         const salto = Math.max(Math.abs(antes.x - r.at.x), Math.abs(antes.y - r.at.y));
-        expect(salto).toBeLessThanOrEqual(ASALTANTES.pasosPorDia);
+        expect(salto).toBeLessThanOrEqual(pasosDeLaPatrulla(state.day));
+        if (salto > ASALTANTES.pasosPorDia) largos++;
       }
     }
     // Y que se muevan de verdad: un grupo clavado pasaría todo lo de arriba.
     expect(movidas).toBeGreaterThan(state.raiders.length * 100);
+    // Y que los días de 3 se anden: con 2 fijos, la patrulla no seguía la escala.
+    expect(largos).toBeGreaterThan(0);
   });
 
   it('si no se cree capaz con el héroe de su región, se aparta de él', () => {

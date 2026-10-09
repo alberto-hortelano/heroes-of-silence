@@ -826,11 +826,23 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   1 487, `hero_defeated` 412 → 343, `node_captured` 1 295 → 1 309,
  *   `town_captured` 1 359 → 1 267, `march_halted` 141 → 137, `raider_spawned`
  *   1 622 → 1 613; ningún tipo nuevo ni ninguno que desaparezca.
+ * - `e0f59ff3…` (70 852 líneas): **la patrulla a la escala del mapa** (#229,
+ *   09-10-2026): los pasos de un grupo de asaltantes van por
+ *   `pasosDeLaPatrulla` (`deHoyALaEscala`: lo acumulado de 2 por día ×√1,5
+ *   menos lo de ayer), días de 2 y de 3 —2, 2, 3, 2, 3…— en vez de 2 fijos.
+ *   **63 de 200 idénticas**; las otras 137 cambian desde el día 3, el primero
+ *   de 3 pasos (36 el día 3, 29 el 4, 26 el 5, 22 el 6 y el resto hasta el 11):
+ *   el primer hecho distinto es `hero_moved` en 98 (la ruta esquiva otro sitio,
+ *   o el sello `seen`), `raider_dispersed` en 38 y `turn_start` en 1. 19 con
+ *   otro ganador, j0 126 → 125, **0 sin terminar**, duración 8 / 15 / 29 →
+ *   **8 / 16 / 27**. Batallas 1 487 → 1 497, `hero_defeated` 343 → 343,
+ *   `node_captured` 1 309 → 1 300, `town_captured` 1 267 → 1 276,
+ *   `march_halted` 137 → 139; ningún tipo nuevo ni ninguno que desaparezca.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '880417bb55e7cd02b096ac4898a00e84e25170fc7a40e11593b5a64a7d37bb3e',
+  sha: 'e0f59ff3062043c2fe429ff7fd8a1c9bacce91c476d8742ac64d9e1079017d68',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

@@ -272,8 +272,9 @@ export async function buscarVeteranos(b: Caja, desde = 1): Promise<number> {
  * Dónde empieza `buscarDerrota`. Con el mapa de 34×34 era la 301 (de 201 a
  * 1 000 perdían la 315, 410 y 665; 08-10-2026). Con el de 42×42 (#226) la
  * primera es la 78, y de 301 a 500 no pierde ninguna; en cada tanda de 200 de
- * 1 a 2 600 hay al menos una (78, 220, 583, 728, 934…; 09-10-2026). Es un punto
- * de partida, no una semilla escrita.
+ * 1 a 2 600 hay al menos una (78, 220, 583, 728, 934…; 09-10-2026). Con la
+ * vista a escala y las fronteras onduladas (#229), la primera es la 30. Es un
+ * punto de partida, no una semilla escrita.
  */
 export const DESDE_LA_DERROTA = 1;
 
@@ -339,8 +340,6 @@ export function rutaDeDosColores(
 ): Point | null {
   const explorado = espejo.explorado;
   if (explorado === null) return null;
-  const dentro = (p: { x: number; y: number }) =>
-    p.x > b.x + 30 && p.x < b.x + b.width - 30 && p.y > b.y + 30 && p.y < b.y + b.height - 30;
   let elegido: { destino: Point; pintados: number } | null = null;
   for (const destino of explorado) {
     const ruta = espejo.previewPath(destino);
@@ -351,7 +350,9 @@ export function rutaDeDosColores(
     // búsqueda de #161 elegía una ruta que seguía por tierras desconocidas).
     if (!llegadaDeLaRuta(ruta, explorado).includes('dorado hoy, gris otro día')) continue;
     if (elegido !== null && pintados.length <= elegido.pintados) continue;
-    if (!dentro(pixelDeCasilla(b, e, tile, espejo, destino))) continue;
+    // Con el margen de los botones (`tocable`): con 30 abajo, la s33 de #229
+    // elegía (13,10), bajo el «Marcar», y el ratón no llegaba al lienzo.
+    if (!tocable(b, pixelDeCasilla(b, e, tile, espejo, destino))) continue;
     elegido = { destino, pintados: pintados.length };
   }
   return elegido?.destino ?? null;
@@ -389,7 +390,7 @@ export function buscarEscritorio(b: Caja, desde = 1): number {
     // Una guardia a salvo: la ruta no cruza un grupo que embosca. Con el mapa
     // de 42×42 (#226) y la vista de fheroes2 sin escalar (4 y 5) no la había en
     // 1-400 y se aceptaba la emboscada; con la vista a escala (#229, 5 y 6), la
-    // primera es la 28 (09-10-2026).
+    // primera es la 28, y con las fronteras onduladas, la 54 (09-10-2026).
     const guardia = guardiaEnElMarco(b, e, tileTrasRueda(e, RUEDA_DEL_ESCRITORIO), espejo);
     if (guardia === null) continue;
     espejo.clickTile(guardia);

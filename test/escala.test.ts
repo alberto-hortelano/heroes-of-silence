@@ -6,6 +6,8 @@ import { describe, expect, it } from 'vitest';
 import {
   AREA_DE_REFERENCIA,
   AREA_POR_REGION,
+  acumuladoALaEscala,
+  deHoyALaEscala,
   marchaALaEscala,
   radioALaEscala,
   raizEntera,
@@ -72,5 +74,35 @@ describe('la vista sale del área (#229)', () => {
   it('lanza con lo que no es un entero ≥ 0', () => {
     for (const n of [-1, 2.5, Number.NaN])
       expect(() => radioALaEscala(n)).toThrow(/radio de vista/);
+  });
+});
+
+describe('lo que se anda por casillas sale del área (#229)', () => {
+  it('lo acumulado es ⌊días · porDía · √(A / B)⌋, en enteros', () => {
+    for (const porDia of [1, 2, 3])
+      for (let dias = 0; dias <= 400; dias++) {
+        const a = acumuladoALaEscala(porDia, dias);
+        const x = dias * dias * porDia * porDia * AREA_POR_REGION;
+        expect(a * a * AREA_DE_REFERENCIA).toBeLessThanOrEqual(x);
+        expect((a + 1) * (a + 1) * AREA_DE_REFERENCIA).toBeGreaterThan(x);
+      }
+  });
+
+  it('cada día, lo de hoy menos lo de ayer: días de 2 y de 3 que suman lo acumulado', () => {
+    let suma = 0;
+    const vistos = new Set<number>();
+    for (let dia = 1; dia <= 300; dia++) {
+      const hoy = deHoyALaEscala(2, dia);
+      vistos.add(hoy);
+      suma += hoy;
+      expect(suma).toBe(acumuladoALaEscala(2, dia));
+    }
+    // Con 450 sobre 300: 2 × 1,2247 = 2,449 de media, nunca 2 fijos.
+    expect([...vistos].sort()).toEqual([2, 3]);
+    expect(suma).toBe(734);
+  });
+
+  it('lanza con un día que no es de la partida', () => {
+    for (const d of [0, -1, 1.5]) expect(() => deHoyALaEscala(2, d)).toThrow(/día de la partida/);
   });
 });

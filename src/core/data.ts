@@ -326,7 +326,11 @@ export function guarnicionDeBase(faction: FactionId): readonly GrupoDeTropa[] {
 export interface ReglasDeAsaltantes {
   /** La probabilidad de que brote un grupo cada lunes en cada región que lo admita. */
   readonly probabilidadSemanal: number;
-  /** Cuántas casillas se mueve un grupo al día como mucho, en Chebyshev. */
+  /**
+   * Cuántas casillas se mueve un grupo al día como mucho, en Chebyshev, **en
+   * el mapa de referencia** (`AREA_DE_REFERENCIA`); la patrulla lo lleva a la
+   * escala del mapa (`pasosDeLaPatrulla`, #229).
+   */
   readonly pasosPorDia: number;
   /** El liderazgo que puede sumar un grupo: el techo de lo que ocupa. */
   readonly liderazgoMax: number;

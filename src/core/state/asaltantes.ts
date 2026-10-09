@@ -32,6 +32,7 @@
  */
 import { fuerzaDe, poderDe, ventajaClara } from '../ai/fuerza.js';
 import { ASALTANTES, type GrupoDeTropa, problemasDeTopeDeLiderazgo } from '../data.js';
+import { deHoyALaEscala } from '../escala.js';
 import type { Hero } from '../hero/hero.js';
 import { individuosDe } from '../hero/troop.js';
 import type { CasillasLeidas } from '../map/casillas.js';
@@ -159,8 +160,18 @@ export function mascaraDeOcupacion(state: GameState): Uint8Array {
 // ---------------------------------------------------------------- la patrulla
 
 /**
- * A dónde se mueve hoy un grupo: a una casilla libre de su región a `pasosPorDia`
- * pasos como mucho —contados andando por la región, no a vuelo de pájaro, para
+ * Cuántos pasos da hoy un grupo: `pasosPorDia` de `data/asaltantes.json`, que
+ * se midió en el mapa de 34×34, a la escala del mapa (`deHoyALaEscala`, #229).
+ * Con 2 en el 42×42, días de 2 y de 3 que dan 2,45 de media: los ×1,22 de la
+ * marcha de los héroes (`marchaALaEscala`). Con un entero fijo se quedaba en 2.
+ */
+export function pasosDeLaPatrulla(dia: number): number {
+  return deHoyALaEscala(ASALTANTES.pasosPorDia, dia);
+}
+
+/**
+ * A dónde se mueve hoy un grupo: a una casilla libre de su región a
+ * `pasosDeLaPatrulla` pasos como mucho —contados andando por la región, no a vuelo de pájaro, para
  * que no salte un entrante de montaña—, o se queda donde está.
  *
  * Si en su región hay héroes y no se cree capaz con **ninguno**, se aparta: elige
@@ -188,6 +199,7 @@ export function pasoDePatrulla(
   }
   const junto = juntoANodo(map);
 
+  const pasos = pasosDeLaPatrulla(state.day);
   // Una búsqueda en anchura acotada, por casillas de la región que no tienen
   // nada encima. En orden de `VECINAS`, que es lo que la hace determinista.
   const origen = raider.at.y * W + raider.at.x;
@@ -197,7 +209,7 @@ export function pasoDePatrulla(
   for (let q = 0; q < cola.length; q++) {
     const i = cola[q] as number;
     const d = distancia.get(i) as number;
-    if (d >= ASALTANTES.pasosPorDia) continue;
+    if (d >= pasos) continue;
     const p = aPunto(i, W);
     for (const [dx, dy] of VECINAS) {
       const v = { x: p.x + dx, y: p.y + dy };

@@ -70,6 +70,7 @@ import type {
 } from '../../src/core/battle/types.js';
 import { nombreDeTipoDeHeroe } from '../../src/core/data.js';
 import { troopSummary } from '../../src/core/hero/troop.js';
+import { pasosDeLaPatrulla } from '../../src/core/state/asaltantes.js';
 import { baseOf, heroesOf, visibleNow } from '../../src/core/state/game.js';
 import type { Point } from '../../src/core/types.js';
 import type {
@@ -1783,8 +1784,9 @@ async function patrullaALaVista(
     ];
   };
   for (let intento = 0; intento < 4 && espejo.state.finished === null; intento++) {
-    // Lo que se ve de cada grupo hoy, y el lienzo alrededor: dos casillas son
-    // lo más que anda en un día (`pasosPorDia`).
+    // Lo que se ve de cada grupo hoy, y el lienzo alrededor: lo más que anda
+    // mañana (`pasosDeLaPatrulla`: 2 o 3 en el 42×42, #229).
+    const alcance = pasosDeLaPatrulla(espejo.state.day + 1);
     const antes = new Map<string, number[]>();
     const posiciones = new Map(espejo.state.raiders.map((r) => [r.id, { ...r.at }]));
     // Solo cuenta un grupo que se ve hoy y mañana: uno en lo explorado pero
@@ -1792,8 +1794,8 @@ async function patrullaALaVista(
     const vistosAyer = new Set(espejo.asaltantesALaVista().map((r) => r.id));
     for (const r of espejo.state.raiders) {
       if (!explorada(r.at) || !dentro(await mapa.pixel(r.at))) continue;
-      for (let dy = -2; dy <= 2; dy++) {
-        for (let dx = -2; dx <= 2; dx++) {
+      for (let dy = -alcance; dy <= alcance; dy++) {
+        for (let dx = -alcance; dx <= alcance; dx++) {
           const p = { x: r.at.x + dx, y: r.at.y + dy };
           const clave = `${p.x},${p.y}`;
           if (antes.has(clave)) continue;
