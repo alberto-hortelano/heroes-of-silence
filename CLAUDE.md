@@ -249,6 +249,19 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   donde la cara acababa en seco; el costado de la puerta con acantilado encima se abre a lo bajo y
   la casilla de la meseta a dos de la ciudad en su fila pasa a acantilado (la línea, en escalera),
   salvo si es pasillo o toca un nodo. Costados así en 1-1000: 59 → 5 (`test/puertas-sin-muesca.test.ts`).
+  **Ninguna caída al sur va recta 10 casillas** (#231, `quebrarCaidas`, paso 7a'' tras los
+  espolones): la línea de 7a copia el borde del lado bajo y la región alta sobre el agua cae en su
+  propio borde, y las caras rectas largas que dejaban #229 y #230 eran todas eso. Cada fila que cae
+  al sur `CAIDA_LARGA` (`largoALaEscala(8)` = 10) casillas seguidas o más (`caidasLargas`, sobre
+  `nivelesDeLoEngordado`) se parte: cada ~`TRECHO_DEL_QUIEBRO` (5) un trozo de 2 a 5 se corre una
+  fila, el acantilado o la montaña hacia lo bajo (7a adelgaza lo de arriba; las puntas quedan de
+  codo) o el agua mordiendo lo alto. Solo pasa lo que se pisa a barrera, fuera de `RADIO_DEL_PASO`
+  de un nodo y de los pasillos, con dos casillas de su región detrás, y en espejo donde se puede
+  (el engorde no sale en espejo casilla a casilla). Lo que queda —junto a un nodo, o dos trozos que
+  une el agua de las esquinas al pasar a montaña (s232)— tira el vestido al final (`generate.ts`).
+  En 1-3000 (09-10-2026), caras ≥ 10: 14 → 0; tramos ≥ 10 174 → 143, mapas con tramo ≥ 12 14 → 12.
+  Cuesta 6 mapas de 1-300 (otro vestido), los vestidos tirados no suben (1 846 → 1 833) y generar
+  sigue en 33 ms de mediana (`test/caidas-largas.test.ts`).
   El nivel del engorde
   (`nivelesDeLoEngordado`) pisa los nodos como la escena. **El mapa guarda los
   tramos** (`GameMap.caminos`, una `RedDeCaminos`) y las casillas que abaratan
@@ -584,7 +597,7 @@ ocupado por algo ajeno no se libera: se reporta.**
 | `pnpm capturas` | ~245 s | si el cambio se ve; sale 1 con un error en consola |
 | `barrido-semillas.ts` | ~1 s | si tocas la IA o la economía: una sola semilla sin terminar es regresión |
 | `pnpm banco` | ~5 s | si tocas el núcleo sin querer cambiar el juego |
-| `npx tsx tools/qa/rectitud.ts` | ~50 s | si tocas `generate.ts` o `vestir.ts`: tramos rectos en **1-3000**, tres procesos por bloques de 1000, con los largos a escala (`largoALaEscala`; en 42×42: ≥ 10 ≤ 205, caras ≥ 10 ≤ 17, mapas con tramo ≥ 12 ≤ 17, desde #230: el máximo de main 195 / 7 / 11, #230 174 / 14 / 14 y una perturbación neutra del azar 191 / 13 / 14, más 10 / 3 / 3; en 1-1000 el ruido de una tirada era ±10 tramos). El guardia, en `test/rectitud.test.ts` (orden lenta) |
+| `npx tsx tools/qa/rectitud.ts` | ~50 s | si tocas `generate.ts` o `vestir.ts`: tramos rectos en **1-3000**, tres procesos por bloques de 1000, con los largos a escala (`largoALaEscala`, en `core/escala.ts`; en 42×42: ≥ 10 ≤ 153, caras ≥ 10 ≤ 3, mapas con tramo ≥ 12 ≤ 15, desde #231: lo medido, 143 / 0 / 12, más 10 / 3 / 3; con #230 eran 174 / 14 / 14 y una perturbación neutra del azar movía hasta 21 tramos: si un cambio del azar lo pasa, se vuelve a medir con su fila en `TECHOS`). El guardia, en `test/rectitud.test.ts` (orden lenta) |
 | `enfrentamiento.ts` | ~2 s | si cambias cómo decide la IA de batalla: entra solo con el intervalo entero > 50 % en 5 000 parejas |
 
 - **Presupuesto de pruebas** (la máquina es compartida: varias sesiones prueban a la vez y

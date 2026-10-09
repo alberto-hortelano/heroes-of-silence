@@ -1,0 +1,10 @@
+      1-1000: tramos 72 · caras 9 · mapas 6
+      1001-2000: tramos 43 · caras 4 · mapas 4
+      2001-3000: tramos 59 · caras 1 · mapas 4
+bien  tramos rectos de barrera ≥ 10 en 1-3000: 174 (techo 205)
+bien  filas de caras de roca ≥ 10 en 1-3000: 14 (techo 17)
+bien  mapas con algún tramo recto ≥ 12 en 1-3000: 14 (techo 17)
+
+real	0m50,678s
+user	2m49,094s
+sys	0m1,333s
