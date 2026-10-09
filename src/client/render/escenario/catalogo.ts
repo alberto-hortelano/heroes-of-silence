@@ -97,11 +97,25 @@ export interface JuntasDeBajada {
 }
 
 /**
- * Las tres piezas de una rampa (#225, §35): el cuerpo, la cuesta que baja por el
- * hueco que abre en la pared, y un costado a cada lado, donde la cara de la pared
- * baja en diagonal de su alto entero junto al filo a nada al pie de la rampa.
+ * Las formas de una rampa (#225): la del borde recto (§35), que abre la pared en
+ * un tramo de cinco casillas, y la de la muesca (§36), la casilla baja entre dos
+ * altas por la que baja el camino (el nodo o la ciudad en la línea del acantilado).
  */
-export const PIEZAS_DE_RAMPA = ['costado-izq', 'cuerpo', 'costado-der'] as const;
+export const FORMAS_DE_RAMPA = ['recta', 'muesca'] as const;
+export type FormaDeRampa = (typeof FORMAS_DE_RAMPA)[number];
+
+/**
+ * Las piezas de cada forma de rampa. La recta (§35): el cuerpo, la cuesta que
+ * baja por el hueco que abre en la pared, y un costado a cada lado, donde la cara
+ * de la pared baja en diagonal de su alto entero junto al filo a nada al pie de la
+ * rampa. La muesca (§36): una pieza entera, la cuesta entre sus dos paredes de
+ * lado, que bajan de su alto entero junto a la línea de delante a nada arriba.
+ */
+export const PIEZAS_DE_LA_FORMA = {
+  recta: ['costado-izq', 'cuerpo', 'costado-der'],
+  muesca: ['muesca'],
+} as const satisfies Readonly<Record<FormaDeRampa, readonly string[]>>;
+export const PIEZAS_DE_RAMPA = [...PIEZAS_DE_LA_FORMA.recta, ...PIEZAS_DE_LA_FORMA.muesca] as const;
 export type PiezaDeRampa = (typeof PIEZAS_DE_RAMPA)[number];
 
 /**
@@ -174,8 +188,12 @@ export const esHojaDeDiagonal = (hoja: string): boolean =>
 /** Si una hoja es de bajadas (`bajadas-<material>-<caída>`, §23). */
 export const esHojaDeBajada = (hoja: string): boolean => /^bajadas-[a-z]+-[123]$/.test(hoja);
 
-/** Si una hoja es de rampas (`rampa-<material>-<caída>`, §35). */
-export const esHojaDeRampa = (hoja: string): boolean => /^rampa-[a-z]+-[123]$/.test(hoja);
+/** Si una hoja es de rampas (`rampa-<material>-<caída>`, §35, o `rampa-muesca-<material>-<caída>`, §36). */
+export const esHojaDeRampa = (hoja: string): boolean => /^rampa-(muesca-)?[a-z]+-[123]$/.test(hoja);
+
+/** La forma de una hoja de rampas: la muesca lleva `muesca-` delante del material. */
+export const formaDeHoja = (hoja: string): FormaDeRampa =>
+  hoja.startsWith('rampa-muesca-') ? 'muesca' : 'recta';
 
 /** Si una hoja es del relieve y sus módulos llevan juntas: laderas, diagonales, bajadas o rampas. */
 export const esHojaDeRelieve = (hoja: string): boolean =>
@@ -307,6 +325,7 @@ function bajadaValidada(
 /** Las juntas de una pieza de rampa tal como vienen del JSON, comprobadas, o lanza diciendo qué falta. */
 function rampaValidada(
   donde: string,
+  forma: FormaDeRampa,
   r:
     | {
         readonly filo: readonly (readonly number[])[];
@@ -320,9 +339,10 @@ function rampaValidada(
   const [a, b, ...sobran] = r.filo;
   if (a === undefined || b === undefined || sobran.length > 0 || !esPar(a) || !esPar(b))
     throw new Error(`${donde}: el filo son dos pares [x, y], y trae ${JSON.stringify(r.filo)}`);
-  if (!(PIEZAS_DE_RAMPA as readonly string[]).includes(r.pieza))
+  const piezas: readonly string[] = PIEZAS_DE_LA_FORMA[forma];
+  if (!piezas.includes(r.pieza))
     throw new Error(
-      `${donde}: su pieza es una de ${PIEZAS_DE_RAMPA.join(', ')}, y dice «${r.pieza}»`,
+      `${donde}: su pieza es una de ${piezas.join(', ')} (rampa ${forma}), y dice «${r.pieza}»`,
     );
   if (r.rumbo !== 's')
     throw new Error(`${donde}: las rampas bajan al sur (s), y dice «${r.rumbo}»`);
@@ -355,7 +375,8 @@ export function catalogoValidado(c: CatalogoEnBruto): Catalogo {
           throw new Error(`${donde} trae juntas de rampa y no es una rampa`);
         if (esHojaDeDiagonal(hoja)) return { ...m, diagonal: diagonalValidada(donde, diagonal) };
         if (esHojaDeBajada(hoja)) return { ...m, bajada: bajadaValidada(donde, bajada) };
-        if (esHojaDeRampa(hoja)) return { ...m, rampa: rampaValidada(donde, rampa) };
+        if (esHojaDeRampa(hoja))
+          return { ...m, rampa: rampaValidada(donde, formaDeHoja(hoja), rampa) };
         if (!esHojaDeLadera(hoja)) return m;
         if (ladera === undefined) return moduloDeLadera(m, hoja);
         const { filo, pie, largo, papel } = ladera;

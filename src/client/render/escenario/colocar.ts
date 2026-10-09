@@ -40,6 +40,7 @@ import {
   esHojaDeDiagonal,
   esHojaDeLadera,
   esHojaDeRampa,
+  formaDeHoja,
   type Modulo,
   type ModuloDeBajada,
   type ModuloDeDiagonal,
@@ -47,7 +48,7 @@ import {
   type ModuloDeRampa,
   moduloDeLadera,
   type PapelDeLadera,
-  PIEZAS_DE_RAMPA,
+  PIEZAS_DE_LA_FORMA,
   type Pieza,
   type PiezaDeRampa,
 } from './catalogo.js';
@@ -64,6 +65,7 @@ import {
   claveDeCelda,
   enSuRampa,
   esVisto,
+  FILA_DEL_FILO,
   filosDe,
   JUNTAS,
   pieDeJunta,
@@ -890,6 +892,12 @@ const TONO: Readonly<Record<string, string>> = {
   // desaturado (09-10-2026).
   'rampa-arenisca': 'brightness(0.8) saturate(0.85)',
   'rampa-roca': 'saturate(0.85)',
+  // La rampa de muesca (§36), medida igual (el tercio de fuera de cada frontal):
+  // la roca salió en la luz de su frontal entonada (73-76 contra 77, R−B 25 contra
+  // ~28), sin filtro; la arenisca, en su luz (67-71 contra 69) pero más roja (R−B
+  // 54-59 contra ~47): la mitad del desaturado de su frontal. Sus paredes de lado
+  // quedan entre las dos laderas de su material (09-10-2026).
+  'rampa-muesca-arenisca': 'saturate(0.85)',
 };
 
 /** El tono de una hoja: el suyo o, en una hoja del relieve, el de su familia (sin la caída). */
@@ -1392,7 +1400,8 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       ),
       ...tramosDeLasRampas(map, a),
     ],
-    (material, caida) => piezasDeRampa(catalogo, hojaDeRampa({ material, caida })) !== null,
+    (forma, material, caida) =>
+      piezasDeRampa(catalogo, hojaDeRampa({ forma, material, caida })) !== null,
     pieAdmitido,
   );
   // Las paredes del relieve por celdas (R4), sin las que cruza un puente (las
@@ -1659,7 +1668,25 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   }
 
   // Las diagonales: una pieza por celda, por sus dos filos (`colocarDiagonal`).
-  for (const c of rel.diagonales) {
+  // Las que sustituye una rampa de muesca (§36) gastan su tirada igual: así las
+  // demás sacan el mismo módulo con su arte y sin él, y la muesca no cambia el
+  // resto del mapa (en s3 movía un módulo de (25, 25) y tapaba una senda).
+  const deLasRampas = new Set(rampas.flatMap(celdasDeLaRampa));
+  const conTirada = todasLasCeldas.filter(
+    (c) =>
+      esVisto(c.tipo) &&
+      !bajoLosPuentes.has(claveDeCelda(c)) &&
+      c.tipo !== 'S' &&
+      c.tipo !== 'E' &&
+      c.tipo !== 'O',
+  );
+  const porClave = new Map(rel.diagonales.map((c) => [claveDeCelda(c), c]));
+  for (const t of conTirada) {
+    const c = porClave.get(claveDeCelda(t));
+    if (c === undefined) {
+      if (deLasRampas.has(claveDeCelda(t))) azarDelRelieve();
+      continue;
+    }
     const hoja = hojaDeDiagonal(c);
     const papel = c.tipo.endsWith('convexa') ? 'convexa' : 'concava';
     const ms = (modulosDe(hoja) ?? []).filter(
@@ -1760,8 +1787,11 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     const hoja = hojaDeRampa(r);
     const piezas = piezasDeRampa(catalogo, hoja);
     if (piezas === null) throw new Error(`la rampa de ${r.x},${r.y} no tiene su arte (${hoja})`);
-    for (const p of PIEZAS_DE_RAMPA) {
-      let s = spriteDeRampa(piezas[p], hoja, r);
+    for (const p of PIEZAS_DE_LA_FORMA[r.forma]) {
+      const m = piezas[p];
+      if (m === undefined)
+        throw new Error(`la rampa de ${r.x},${r.y} no tiene su pieza ${p} (${hoja})`);
+      let s = spriteDeRampa(m, hoja, r);
       for (const n of sprites)
         if (esNodoHorneado(n) && n.y < s.y && seSolapan(s, n, perfilDe))
           s = ordenadoEn(s, n.y - 0.01);
@@ -1773,12 +1803,16 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     const { pared: hojaDePared } = materialDeCara(r.material);
     const e = masEstrecho(hojaDePared);
     if (e === undefined) continue;
-    const filo = r.y + 1;
+    const [primera, ultima] = [
+      PIEZAS_DE_LA_FORMA[r.forma][0],
+      PIEZAS_DE_LA_FORMA[r.forma].at(-1) as PiezaDeRampa,
+    ];
+    const filo = r.y + FILA_DEL_FILO[primera];
     const pie = filo + r.caida * ALTO_DE_NIVEL;
     const tono = tonoDe(hojaDePared);
     for (const [borde, fuera] of [
-      [r.x + TRAMO_DE_PIEZA_DE_RAMPA['costado-izq'][0], -1],
-      [r.x + TRAMO_DE_PIEZA_DE_RAMPA['costado-der'][1], 1],
+      [r.x + TRAMO_DE_PIEZA_DE_RAMPA[primera][0], -1],
+      [r.x + TRAMO_DE_PIEZA_DE_RAMPA[ultima][1], 1],
     ] as const) {
       const base: Sprite = {
         ...(tono === undefined ? {} : { tono }),
@@ -4097,23 +4131,28 @@ export function hojaDeBajada(b: Pick<Bajada, 'material' | 'caida'>): string {
   return `bajadas-${materialDeCara(b.material).nombre}-${caidaDeArte(b.caida)}`;
 }
 
-/** La hoja de una rampa (#225, §35): `rampa-<material>-<caída>`, sin estirar. */
-export function hojaDeRampa(r: Pick<Rampa, 'material' | 'caida'>): string {
-  return `rampa-${materialDeCara(r.material).nombre}-${r.caida}`;
+/**
+ * La hoja de una rampa (#225), sin estirar: `rampa-<material>-<caída>` la recta
+ * (§35) y `rampa-muesca-<material>-<caída>` la muesca (§36).
+ */
+export function hojaDeRampa(r: Pick<Rampa, 'forma' | 'material' | 'caida'>): string {
+  const forma = r.forma === 'muesca' ? 'muesca-' : '';
+  return `rampa-${forma}${materialDeCara(r.material).nombre}-${r.caida}`;
 }
 
-/** Las tres piezas de una hoja de rampa, o null si le falta alguna: sin ellas va la bajada de siempre. */
+/**
+ * Las piezas de una hoja de rampa (las de su forma, `PIEZAS_DE_LA_FORMA`), o null
+ * si le falta alguna: sin ellas va la bajada de siempre.
+ */
 export function piezasDeRampa(
   catalogo: Catalogo,
   hoja: string,
-): Readonly<Record<PiezaDeRampa, ModuloDeRampa>> | null {
+): Readonly<Partial<Record<PiezaDeRampa, ModuloDeRampa>>> | null {
   const ms = catalogo.hojas[hoja];
   if (ms === undefined || !esHojaDeRampa(hoja)) return null;
   const fuera: Partial<Record<PiezaDeRampa, ModuloDeRampa>> = {};
   for (const m of ms) if (m.rampa !== undefined) fuera[m.rampa.pieza] = m as ModuloDeRampa;
-  return PIEZAS_DE_RAMPA.every((p) => fuera[p] !== undefined)
-    ? (fuera as Record<PiezaDeRampa, ModuloDeRampa>)
-    : null;
+  return PIEZAS_DE_LA_FORMA[formaDeHoja(hoja)].every((p) => fuera[p] !== undefined) ? fuera : null;
 }
 
 /**
@@ -4137,7 +4176,7 @@ const COSTADO_DETRAS_DE_LA_FRONTAL = 0.1;
  */
 export function spriteDeRampa(m: ModuloDeRampa, hoja: string, r: Rampa): Sprite {
   const [a, b] = TRAMO_DE_PIEZA_DE_RAMPA[m.rampa.pieza];
-  const filo = r.y + 1;
+  const filo = r.y + FILA_DEL_FILO[m.rampa.pieza];
   const pie = filo + r.caida * ALTO_DE_NIVEL;
   const [ma, mb] = m.rampa.filo;
   const cuerpo = m.rampa.pieza === 'cuerpo';
@@ -4173,9 +4212,12 @@ function filoColocado(
 
 /**
  * Las rampas sin sus piezas, cada una dicha (#225): cada una lleva exactamente
- * un cuerpo y un costado a cada lado con su filo en su tramo
- * (`TRAMO_DE_PIEZA_DE_RAMPA`), y ninguna frontal (`paredes-*`) apoyada en su
- * fila tapa el hueco del cuerpo. Se reconstruye desde lo puesto.
+ * una de cada pieza de su forma (`PIEZAS_DE_LA_FORMA`; la recta, un cuerpo y un
+ * costado a cada lado; la muesca, la suya) con su filo en su tramo
+ * (`TRAMO_DE_PIEZA_DE_RAMPA`, en su fila, `FILA_DEL_FILO`), y ninguna frontal,
+ * ladera, diagonal ni bajada de las de siempre tapa su hueco: el punto del medio
+ * de la casilla baja a media caída de su filo de detrás. Se reconstruye desde lo
+ * puesto.
  */
 export function rampasSinSusPiezas(
   sprites: readonly Sprite[],
@@ -4185,11 +4227,10 @@ export function rampasSinSusPiezas(
   const { rampas: deRampa } = modulosDelRelieve(catalogo);
   const mal: string[] = [];
   for (const r of rampas) {
-    const filo = r.y + 1;
-    const pie = filo + r.caida * ALTO_DE_NIVEL;
     const donde = `rampa en ${r.x},${r.y}`;
-    for (const p of PIEZAS_DE_RAMPA) {
+    for (const p of PIEZAS_DE_LA_FORMA[r.forma]) {
       const [a, b] = TRAMO_DE_PIEZA_DE_RAMPA[p];
+      const filo = r.y + FILA_DEL_FILO[p];
       const n = sprites.filter((s) => {
         const m = s.src === null ? undefined : deRampa.get(s.src);
         if (m === undefined || m.rampa.pieza !== p) return false;
@@ -4198,15 +4239,16 @@ export function rampasSinSusPiezas(
       }).length;
       if (n !== 1) mal.push(`${donde}: ${n} piezas ${p} en su sitio`);
     }
+    const hx = r.x + 0.5;
+    const hy = r.y + 1 + (r.caida * ALTO_DE_NIVEL) / 2;
     for (const s of sprites) {
-      if (s.clase !== 'pared' || s.src?.includes('/paredes-') !== true) continue;
-      const [x0, , x1] = cajaDeSprite(s);
-      if (
-        Math.abs(s.y - pie) <= 0.3 &&
-        x1 > r.x + HOLGURA_DE_JUNTA &&
-        x0 < r.x + 1 - HOLGURA_DE_JUNTA
-      )
-        mal.push(`${donde}: la frontal ${s.src} en ${s.x.toFixed(2)} tapa el hueco`);
+      const de = /\/(paredes|laderas|diagonales|bajadas)-/.exec(s.src ?? '')?.[1];
+      if (de === undefined) continue;
+      const [x0, y0, x1, y1] = cajaDeSprite(s);
+      if (x0 < hx && hx < x1 && y0 < hy && hy < y1)
+        mal.push(
+          `${donde}: ${de === 'paredes' ? 'la frontal' : 'la pieza'} ${s.src} en ${s.x.toFixed(2)} tapa el hueco`,
+        );
     }
   }
   return mal;
@@ -4569,7 +4611,8 @@ function esCaminoDeBajada(
   m: Pick<ReturnType<typeof modulosDelRelieve>, 'bajadas' | 'rampas'>,
 ): boolean {
   if (s.src === null) return s.color === COLOR_DE_BAJADA;
-  return m.bajadas.has(s.src) || m.rampas.get(s.src)?.rampa.pieza === 'cuerpo';
+  const pieza = m.rampas.get(s.src)?.rampa.pieza;
+  return m.bajadas.has(s.src) || pieza === 'cuerpo' || pieza === 'muesca';
 }
 
 /**
@@ -4709,9 +4752,11 @@ function arribaColocado(
   if (m !== undefined) return enElMapa(s, m.bajada.arriba);
   const r = s.src === null ? undefined : rampas.get(s.src);
   if (r !== undefined) {
-    if (r.rampa.pieza !== 'cuerpo' || b.deUnaRampa !== true) return null;
+    if ((r.rampa.pieza !== 'cuerpo' && r.rampa.pieza !== 'muesca') || b.deUnaRampa !== true)
+      return null;
+    // El medio del filo de su fondo: el del cuerpo, o la fila de detrás de la de la muesca.
     const [fa, fb] = filoColocado(r, s);
-    return [(fa[0] + fb[0]) / 2, (fa[1] + fb[1]) / 2];
+    return [(fa[0] + fb[0]) / 2, (fa[1] + fb[1]) / 2 - (FILA_DEL_FILO[r.rampa.pieza] - 1)];
   }
   if (s.src === null && s.color === COLOR_DE_BAJADA) {
     // El marcador va en la x del pie, con la clave por debajo de él.

@@ -1,0 +1,29 @@
+{
+  "hoja": "rampa-muesca-arenisca-1.webp",
+  "modulos": [
+    {
+      "imagen": "s-muesca.webp",
+      "sha256": "af846d47fe5d33ec2d3cb108e4598c99f71ef11c9e7646132b1f4943e6d1ba87",
+      "ancho": 1090,
+      "alto": 1126,
+      "ancla": [
+        545,
+        1125
+      ],
+      "rampa": {
+        "filo": [
+          [
+            71,
+            705
+          ],
+          [
+            1019,
+            705
+          ]
+        ],
+        "pieza": "muesca",
+        "rumbo": "s"
+      }
+    }
+  ]
+}

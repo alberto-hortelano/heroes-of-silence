@@ -1615,3 +1615,62 @@ que merece pieza: una rampa entre dos laderas.
 **Lo que falta** (cuando el usuario lo apruebe): basalto y nevadas; caída 2; los
 rumbos `e` y `o` (la rampa de lado). El rincón (s55) no es un borde recto y sigue con
 la bajada: lo resuelve el generador cruzando el desnivel de frente (#224).
+
+## 36. La rampa de muesca: la cuesta entre dos laderas (#225, rama `rampa-muesca`, 09-10-2026)
+
+**Estado: generada (roca y arenisca, caída 1, rumbo `s`) y montada; pendiente de que la vea el usuario.**
+
+**Por qué.** El piloto de §35 abre la pared solo en un borde recto de cinco casillas: 27 de las 1 070 bajadas
+`s` de caída 1 de 1-1000. El 90 % cae en un rincón. El patrón concreto más frecuente (185) es la **muesca de
+una casilla de hondo**: la casilla baja (un nodo con camino, o una ciudad que entra por detrás) entre dos altas, con lo
+bajo delante de las dos (`HHH/HlH/lll`). Ahí iban cuatro diagonales (los rincones SE y SO del fondo y las
+esquinas SE y SO de delante) y la bajada vieja encima.
+
+**Lo que se pide.** Por material y caída, UNA pieza entera (`assets/mapa/modulos/rampa-muesca-<material>-<caída>.webp`,
+su módulo `rampa-muesca-…/s-muesca.webp`) sobre la guía `assets/mapa/guias/rampas-muesca-<caída>.png`. Sustituye
+las cuatro diagonales y casa con lo de fuera por sus dos juntas S, las de las esquinas (`TRAMO_DE_PIEZA_DE_RAMPA.muesca`,
+de `x − 0,5` a `x + 1,5` en la línea de delante, `FILA_DEL_FILO`). La cuesta baja de la meseta de detrás a la
+línea de delante. A cada lado, una ladera en triángulo: entera delante y a nada arriba, donde la cuesta llega a lo alto
+(de muro a cuesta, de lado). Su filo se mete en la meseta en diagonal (`MESETA_DE_MUESCA`) y su pie entra en la muesca
+(`TALUD_DE_MUESCA`). Por delante, media casilla de frontal en cada esquina.
+
+**Referencias**: 1, el estilo del mapa; 2, `paredes-<material>` (las frontales de las esquinas); 3, `bajadas-<material>-1`
+(la tierra); 4, `laderas-<material>-oeste-1` (las paredes de lado); 5, la guía.
+
+**Lotes** (codex por la suscripción, ~270-340 s cada uno con el registro; escala 1,28-1,35, solape 87-93 %):
+
+1. Guía con la cresta ancha a lo largo de cada lado: el pintor levantó dos torres de roca a los lados. Era un desfiladero.
+2. Labio estrecho y filo recto en el borde de la casilla: con esta cámara la cara de lado no se ve, y salió una ranura
+   de paredes paralelas.
+3. **Esta**: el filo de cada ladera se mete en la meseta (V abierta hacia la cámara). Queda un labio claro a lo largo de
+   cada filo, que se lee como un murete fino.
+4. Sin labio: rellenó de roca la meseta de los lados y la muesca salió un monte. Descartada; va la 3.
+
+**Tono**, medido en el tercio de fuera de cada frontal: la roca, 73-76 de luz y R−B 25, contra 77 y ~28 de su frontal
+entonada, va sin filtro. La arenisca, 67-71 y 54-59, contra 69 y ~47, va con `saturate(0.85)`.
+
+**Lo que falta** (con su medida en 1-1000): la muesca con un lado que sigue al sur (199), la honda (88, barranco), el
+rincón de un solo lado (~360), basalto y nevadas, y caída 2.
+
+**Prompt** (el de roca; el de arenisca cambia el material y la meseta; el entero, con las referencias, en cada `.procedencia.json`):
+
+```text
+Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.
+
+La imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.
+La imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.
+La imagen 3 es la referencia de MATERIAL: de ella se toman SOLO el color, la textura y la paleta de la roca y de lo que crece en ella, para que case con estas piezas. NO copies su forma (columnas, prismas, bloques en fila) ni su composición.
+La imagen 4 es la referencia de MATERIAL: de ella se toman SOLO el color, la textura y la paleta de la roca y de lo que crece en ella, para que case con estas piezas. NO copies su forma (columnas, prismas, bloques en fila) ni su composición.
+La imagen 5 es la GUÍA DE GEOMETRÍA: un volumen gris sin acabado, dibujado con la cámara del juego. Manda en la ORIENTACIÓN, la forma, las proporciones, el tamaño y la posición de cada pieza dentro de la imagen: cópialas con exactitud, sin girar ni torcer nada. NO copies su gris liso, sus aristas de esquema ni su fondo plano: el material, el detalle y la luz son los de la imagen de estilo.
+
+Una RAMPA EN UNA MUESCA para el mapa de aventura de un juego de estrategia, vista con la cámara del juego (desde el sur, elevada). El borde de una meseta de roca gris pizarra con musgo oliva oscuro, del color de las paredes de la imagen 2 cae UN nivel hacia la cámara, y tiene una MUESCA de una casilla: un entrante estrecho por el que un camino de tierra BAJA DE FRENTE hacia la cámara por una CUESTA. Es la transición de MURO A CUESTA de los acantilados de StarCraft y Warcraft III (wall-to-slope), pero de LADO: la cuesta va metida entre DOS LADERAS, la de la IZQUIERDA mira a la DERECHA (hacia la cuesta) y la de la DERECHA mira a la IZQUIERDA (hacia la cuesta).
+CADA LADERA BAJA HASTA FUNDIRSE CON LA CUESTA: junto a la línea de delante tiene su alto entero, y hacia el fondo se va haciendo más y más baja hasta quedar en NADA arriba, donde la cuesta llega a lo alto de la meseta. Su filo de arriba es una LÍNEA INCLINADA que se abre hacia delante, metiéndose en la meseta, y su pie sube con la cuesta: cada ladera es un TRIÁNGULO de roca en talud, ancho y alto delante y en punta al fondo, como en la guía. La muesca es una V abierta hacia la cámara, NO una ranura de paredes paralelas. Son paredes de la misma roca que las laderas de la imagen 4 (losas y bloques escalonados, derrubio al pie), NUNCA columnas verticales lisas ni un desfiladero de paredes altas en todo su largo.
+POR DELANTE, cada ladera dobla una esquina y sigue a cada lado como un trozo de PARED FRONTAL a su alto entero: la misma pared de la imagen 2, con su misma roca, el MISMO COLOR Y LA MISMA LUZ, el mismo TAMAÑO de columnas y bloques, su remate de arriba y su musgo; sigue fuera de la imagen por la izquierda y por la derecha en esas mismas piezas y tiene que casar con ellas sin que se note la junta. Sus dos extremos de fuera están a su alto entero y cortados limpios en vertical, como si continuara.
+La CUESTA es tierra pisada en pendiente, MÁS CLARA QUE LA ROCA, del color de la tierra de la imagen 3: con ESTRÍAS (regueros y surcos a lo largo de la pendiente, piedrecillas arrastradas hacia abajo) y un camino claro y gastado por el medio; arriba se mete en la meseta y abajo, entre las dos esquinas, se derrama en un abanico sobre el suelo llano. Es un paso natural: sin escalones, sin peldaños, sin barandillas, sin muretes ni bordillos. Al pie de las paredes, una sombra de contacto oscura y estrecha.
+POR ENCIMA DEL FILO: sobre cada trozo de pared frontal, la cresta de la imagen 2 (las CABEZAS de la misma roca, con musgo y matas); a lo largo de cada ladera, SOLO un labio de roca estrecho y roto en el borde de la meseta. A los dos lados de la cuesta NO HAY TORRES, PILARES NI MUROS ALTOS: la meseta (un prado de hierba corta verde oliva OSCURO y apagado) está a la altura del borde y la pone el juego, así que ahí la imagen es TRANSPARENTE. Al PIE de las paredes: bloques caídos y derrubio de tamaños distintos, irregular; nunca una línea recta limpia, y ninguna piedra suelta separada del resto.
+LA SILUETA ES LA DE LA GUÍA (imagen 5), CALCADA: mismo sitio, mismo alto, mismo ancho, mismas proporciones, sin girar ni torcer nada. En la guía: lo gris medio de abajo a los lados es la PARED FRONTAL de cada esquina; lo gris oscuro de la izquierda, la ladera de la izquierda (en penumbra), y lo gris medio de la derecha junto a la cuesta, la ladera de la derecha (a la luz), las dos en punta hacia arriba; lo más claro, la cresta de las frontales y el labio de las laderas (y fuera de eso, transparente); lo pardo del centro, la cuesta con sus estrías más oscuras y el camino claro, y el abanico de abajo.
+La luz viene de arriba a la izquierda, la misma que en la imagen 2: la ladera de la izquierda queda en penumbra y la de la derecha recibe la luz; las sombras caen hacia la derecha y hacia abajo.
+Estilo de la imagen de estilo, que manda sobre cualquier otra idea: fantasía medieval OSCURA y sombría, pintura digital muy detallada como una maqueta en miniatura, con muchísimo detalle menudo (piedras, matas, grietas, raíces). Paleta APAGADA y poco saturada: verdes oliva y musgo oscuros, grises pizarra, pardos terrosos, rojos óxido; nada de colores vivos ni de aspecto de juego para móvil. Sombras profundas y oclusión marcada entre los detalles, luz tenue y algo fría, con contraste dramático.
+
+Todo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.
+```

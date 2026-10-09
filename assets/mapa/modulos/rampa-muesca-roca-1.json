@@ -1,0 +1,29 @@
+{
+  "hoja": "rampa-muesca-roca-1.webp",
+  "modulos": [
+    {
+      "imagen": "s-muesca.webp",
+      "sha256": "e74581f932fcdeec0198795b90ba65d3d50cf46e49a444fd5dcd779b9c579b5b",
+      "ancho": 1029,
+      "alto": 1111,
+      "ancla": [
+        515,
+        1110
+      ],
+      "rampa": {
+        "filo": [
+          [
+            67,
+            703
+          ],
+          [
+            962,
+            703
+          ]
+        ],
+        "pieza": "muesca",
+        "rumbo": "s"
+      }
+    }
+  ]
+}
