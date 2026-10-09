@@ -1,7 +1,9 @@
 /**
- * La huella de los caminos en el suelo: la senda (`Escena.sendas`) y la trocha
- * de los pasos sin camino (`Escena.trochas`). Las pinta `pintarSuelo` en su
- * capa 3, encima del arcén y debajo del agua.
+ * La huella de los caminos en el suelo: la senda (`Escena.sendas`). La pinta
+ * `pintarSuelo` en su capa 3, encima del arcén y debajo del agua. Los pasos sin
+ * camino no llevan huella: la trocha que los cruzaba (#190) era una franja
+ * recta de tierra que no se entendía (#227); el paso lo dicen su hito y el
+ * hueco de su eje (`pasosALaVista`).
  *
  * La senda era un trazo de pluma —tres `stroke` de 0,2, 0,12 y 0,05 casillas en
  * colores fijos— que no se parecía al camino de HoMM2: una banda de tierra de
@@ -18,7 +20,6 @@
  */
 import type { Suelo } from '@core/map/terrain.js';
 import type { Escena } from './colocar.js';
-import { ANCHO_DE_TROCHA } from './nodos.js';
 import type { Imagen, Lienzo } from './pintar.js';
 import { ANCHO_DE_SENDA, IRREGULARIDAD_DE_SENDA, type Senda } from './sendas.js';
 
@@ -72,15 +73,6 @@ const ORLAS: readonly (readonly [number, string])[] = [
 const LOMO = 0.4;
 const COLOR_DEL_LOMO = 'rgba(232,208,165,0.13)';
 
-/**
- * La trocha: más estrecha que la senda, sin orla, translúcida y con el borde
- * más roto. Se afina en las puntas, donde se pierde entre la hierba.
- */
-const ALFA_DE_LA_TROCHA = 0.62;
-const IRREGULARIDAD_DE_TROCHA = { lenta: 0.25, rapida: 0.3 } as const;
-/** Lo que tarda la trocha en tener su ancho desde cada punta, en casillas. */
-const PUNTA_DE_TROCHA = 0.6;
-
 /** Cada cuánto va un disco a lo largo del trazo, en casillas. */
 const PASO = 0.04;
 
@@ -109,30 +101,21 @@ function ruido(semilla: number): (s: number) => number {
 /**
  * Los discos de unas líneas, línea a línea: uno cada `PASO`, de radio
  * `semiancho` movido por dos ruidos (`lenta` cada ~1,5 casillas, `rapida` cada
- * ~0,15) y multiplicado por `punta(s, largo)`, que afina los extremos si hace falta.
+ * ~0,15).
  */
 export function discosDe(
   lineas: readonly Senda[],
   semiancho: number,
   irregular: { readonly lenta: number; readonly rapida: number },
   semilla: number,
-  punta: (s: number, largo: number) => number = () => 1,
 ): Disco[][] {
   return lineas.flatMap((l, n) => {
     const [p0] = l;
     if (p0 === undefined) return [];
     const lento = ruido(semilla * 131 + n * 2 + 1);
     const rapido = ruido(semilla * 131 + n * 2 + 2);
-    let largo = 0;
-    for (let i = 1; i < l.length; i++) {
-      const [x0, y0] = l[i - 1] as readonly [number, number];
-      const [x1, y1] = l[i] as readonly [number, number];
-      largo += Math.hypot(x1 - x0, y1 - y0);
-    }
     const radio = (s: number) =>
-      semiancho *
-      (1 + irregular.lenta * lento(s / 1.5) + irregular.rapida * rapido(s / 0.15)) *
-      punta(s, largo);
+      semiancho * (1 + irregular.lenta * lento(s / 1.5) + irregular.rapida * rapido(s / 0.15));
     const fuera: Disco[] = [[p0[0], p0[1], radio(0)]];
     let s = 0;
     let siguiente = PASO;
@@ -148,7 +131,7 @@ export function discosDe(
       s += tramo;
     }
     const pn = l.at(-1) as readonly [number, number];
-    fuera.push([pn[0], pn[1], radio(largo)]);
+    fuera.push([pn[0], pn[1], radio(s)]);
     return [fuera];
   });
 }
@@ -250,10 +233,10 @@ function tierraEntonada(im: Imagen, nuevo: (ancho: number, alto: number) => Lien
   return lienzo;
 }
 
-/** Pinta en `c` las sendas y las trochas de `e`, a `T` px por casilla. */
+/** Pinta en `c` las sendas de `e`, a `T` px por casilla. */
 export function pintarHuellas(
   c: Contexto,
-  e: Pick<Escena, 'sendas' | 'trochas' | 'semilla' | 'suelo' | 'W' | 'H'>,
+  e: Pick<Escena, 'sendas' | 'semilla' | 'suelo' | 'W' | 'H'>,
   T: number,
   tierra: Imagen | undefined,
   nuevo: (ancho: number, alto: number) => Lienzo,
@@ -283,18 +266,6 @@ export function pintarHuellas(
   }
   trazarCinta(c, senda, T, LOMO);
   c.fillStyle = COLOR_DEL_LOMO;
-  c.fill();
-
-  const trocha = discosDe(
-    e.trochas,
-    ANCHO_DE_TROCHA / 2,
-    IRREGULARIDAD_DE_TROCHA,
-    e.semilla + 7,
-    (s, largo) => Math.max(0.3, Math.min(1, s / PUNTA_DE_TROCHA, (largo - s) / PUNTA_DE_TROCHA)),
-  );
-  trazarCinta(c, trocha, T);
-  c.fillStyle = tierraDe;
-  c.globalAlpha = ALFA_DE_LA_TROCHA;
   c.fill();
   c.restore();
 }

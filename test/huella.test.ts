@@ -1,24 +1,10 @@
 /**
- * La huella de los caminos (#191, #190): la senda ancha, de borde roto y casi
- * recta donde la rejilla va recta; y la trocha de cada paso sin camino de
- * bosque, montaña o acantilado, que no es camino y nada tapa.
+ * La huella de los caminos (#191): la senda ancha, de borde roto y casi recta
+ * donde la rejilla va recta.
  */
 import { describe, expect, it } from 'vitest';
-import {
-  formaDeLasTrochas,
-  type Sprite,
-  trochasTapadas,
-} from '../src/client/render/escenario/colocar.js';
 import { azarDe } from '../src/client/render/escenario/esparcir.js';
 import { discosDe } from '../src/client/render/escenario/huella.js';
-import {
-  BARRERAS_CON_TROCHA,
-  pasaElCamino,
-  SEMIANCHO_DE_LA_TROCHA,
-  trochasDeLosPasos,
-  VAIVEN_DE_TROCHA,
-} from '../src/client/render/escenario/nodos.js';
-import { Obstaculos } from '../src/client/render/escenario/pasillo.js';
 import {
   ANCHO_DE_SENDA,
   encadenar,
@@ -27,8 +13,6 @@ import {
   VAIVEN,
   VAIVEN_EN_LO_RECTO,
 } from '../src/client/render/escenario/sendas.js';
-import { partidaDe } from './helpers.js';
-import { rango, segunPrisa } from './lento.js';
 
 /** Una fila de `n` casillas, de izquierda a derecha, por la y = 0,5. */
 const fila = (n: number) =>
@@ -95,88 +79,5 @@ describe('la huella: un borde roto dentro de sus cotas (`discosDe`)', () => {
   it('la misma semilla da el mismo borde, y otra semilla otro', () => {
     expect(discosDe([linea], 0.16, IRREGULARIDAD_DE_SENDA, 7)).toEqual([discos]);
     expect(discosDe([linea], 0.16, IRREGULARIDAD_DE_SENDA, 8)).not.toEqual([discos]);
-  });
-});
-
-describe('la trocha de los pasos sin camino (#190)', () => {
-  it(`semillas ${segunPrisa('1, 12 y 36', '1-40')}: todo paso de bosque, montaña o acantilado lleva senda o trocha, y solo uno de los dos`, () => {
-    let trochas = 0;
-    for (const s of segunPrisa([1, 12, 36], rango(1, 40))) {
-      const { map, escena } = partidaDe(s);
-      const puentes = new Set(escena.puentes.map((p) => p.id));
-      const pasos = map.objects.filter(
-        (o) => o.kind === 'node' && !puentes.has(o.id) && BARRERAS_CON_TROCHA.includes(o.barrera),
-      );
-      for (const o of pasos) {
-        const centro = [o.at.x + 0.5, o.at.y + 0.5];
-        // La trocha pasa por el nodo: su eje lo cruza, y un punto suyo cae a
-        // menos de medio paso (0,125 en lo recto, 0,18 en diagonal) más su vaivén.
-        const suya = escena.trochas.filter((t) =>
-          t.some(
-            ([x, y]) =>
-              Math.hypot(x - (centro[0] as number), y - (centro[1] as number)) <=
-              0.18 + VAIVEN_DE_TROCHA,
-          ),
-        );
-        const conCamino = pasaElCamino(map.caminos.tramos, o.at);
-        expect(conCamino || suya.length > 0, `semilla ${s}, nodo ${o.id} sin senda ni trocha`).toBe(
-          true,
-        );
-        expect(conCamino && suya.length > 0, `semilla ${s}, nodo ${o.id} con senda y trocha`).toBe(
-          false,
-        );
-      }
-      trochas += escena.trochas.length;
-      expect(escena.informe.trochasTapadas, `semilla ${s}`).toBe(0);
-      expect(trochasTapadas(escena.sprites, escena.trochas), `semilla ${s}`).toEqual([]);
-    }
-    // Que el guardia mire algo: 20 trochas en 1, 12 y 36 (con los niveles del
-    // mapa, #143, la 5 se quedó con 2 y va la 12, que lleva 12; 08-10-2026).
-    expect(trochas).toBeGreaterThanOrEqual(segunPrisa(12, 120));
-  });
-
-  it('no es camino: la trocha no cambia los tramos del mapa', () => {
-    const { map } = partidaDe(1);
-    const antes = JSON.stringify(map.caminos);
-    trochasDeLosPasos(map, new Set(), 1);
-    expect(JSON.stringify(map.caminos)).toBe(antes);
-  });
-
-  describe('el guardia `trochasTapadas` muerde', () => {
-    const trocha = [
-      [2.5, 5.5],
-      [8.5, 5.5],
-    ] as const;
-    const sprite = (y: number, clase: Sprite['clase'], alto: number): Sprite => ({
-      src: 'x.webp',
-      nw: 100,
-      nh: 100,
-      ax: 50,
-      ay: 100,
-      x: 5.5,
-      y,
-      alto,
-      clase,
-      color: '#000',
-      capa: 0,
-      sombra: false,
-    });
-
-    it('un abeto bajo (no volumen) encima de la trocha se cuenta, y la puerta lo encoge hasta salir', () => {
-      const abeto = sprite(5.7, 'cubierta', 0.6);
-      expect(trochasTapadas([abeto], [trocha])).toHaveLength(1);
-      const puerta = new Obstaculos([formaDeLasTrochas([trocha])]);
-      expect(puerta.pisa(abeto)).toBe(true);
-      const libre = puerta.altoLibre(abeto);
-      expect(libre).toBeLessThan(abeto.alto);
-      expect(trochasTapadas([{ ...abeto, alto: libre }], [trocha])).toEqual([]);
-    });
-
-    it('uno a más de su arcén, no; ni el muro y la pared, que no se apartan', () => {
-      expect(
-        trochasTapadas([sprite(5.5 - SEMIANCHO_DE_LA_TROCHA - 0.05, 'cubierta', 0.3)], [trocha]),
-      ).toEqual([]);
-      expect(trochasTapadas([sprite(6, 'muro', 1), sprite(6, 'pared', 1)], [trocha])).toEqual([]);
-    });
   });
 });

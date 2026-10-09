@@ -491,8 +491,8 @@ export interface Bajada {
   readonly alto: readonly [number, number];
   readonly bajo: readonly [number, number];
   /**
-   * La rampa de un nodo entre dos niveles sin camino (#143), por su eje y con
-   * la trocha de senda: no hay senda pintada que tenga que pasar por ella.
+   * La rampa de un nodo entre dos niveles sin camino (#143), por su eje: no hay
+   * senda pintada que tenga que pasar por ella, y la tierra la lleva su pieza.
    */
   readonly deUnNodo?: true;
   /**

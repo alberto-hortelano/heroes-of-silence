@@ -19,7 +19,7 @@
  *      rejilla (`parches.ts`);
  *   2. el tono de cada nivel (lo bajo, más oscuro; lo alto, más claro);
  *   2b. el arcén: el pasillo de la senda, en el color de su suelo;
- *   3. las sendas y las trochas (`huella.ts`);
+ *   3. las sendas (`huella.ts`);
  *   4. el agua, con su barro y su espuma, cerrada en lo alto y seca por las sendas;
  *   5. la sombra del desnivel, al pie de cada caída hacia donde la echa la luz;
  *   6. la sombra al pie de lo que tiene volumen (también de los volúmenes);
@@ -679,7 +679,7 @@ export function pintarSuelo(
     c.imageSmoothingEnabled = true;
     c.drawImage(arcen(e, pigmentos, nuevo), 0, 0, e.W * T, e.H * T);
     c.globalAlpha = 1;
-    // 3 · Las sendas y las trochas: tierra con textura y el borde roto (`huella.ts`).
+    // 3 · Las sendas: tierra con textura y el borde roto (`huella.ts`).
     pintarHuellas(c, e, T, imagenLista(o.imagen(TEXTURA_DE_LA_HUELLA)), nuevo);
     // 4 · El agua: una orilla fina de barro y el agua encima, más oscura en el centro.
     c.drawImage(
