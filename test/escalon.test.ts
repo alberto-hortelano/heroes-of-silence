@@ -172,8 +172,13 @@ describe('el canto de la espalda (#219)', () => {
   });
 });
 
-/** En la orden lenta, 1-40; en `verify`, la 2 (el istmo de la auditoría 5) y la 443. */
-const SEMILLAS = LENTO ? rango(1, 40) : [2, 443];
+/**
+ * En la orden lenta, 1-40; en `verify`, la 3 y la 443. Era la 2 (el istmo de la
+ * auditoría 5) hasta que las dos puertas de la mina (#230) la dejaron sin meseta
+ * (09-10-2026: 0 rebordes; la 3 tiene 50 y 33 671 píxeles de agua en lo alto sin
+ * el escalón).
+ */
+const SEMILLAS = LENTO ? rango(1, 40) : [3, 443];
 
 describe('en los mapas reales', () => {
   for (const semilla of SEMILLAS)
@@ -187,7 +192,7 @@ describe('en los mapas reales', () => {
     });
 
   it('la muestra del bucle rápido tiene espaldas que mirar', () => {
-    for (const s of [2, 443])
+    for (const s of [3, 443])
       expect(partidaDe(s).escena.relieve.rebordes.length).toBeGreaterThan(0);
   });
 
@@ -196,8 +201,8 @@ describe('en los mapas reales', () => {
       expect(espaldasSinCanto(partidaDe(semilla).escena)).toEqual([]);
     });
 
-  it('el guardia del canto muerde: sin canto, la s2 tiene espaldas sin él', () => {
-    const e = partidaDe(2).escena;
+  it('el guardia del canto muerde: sin canto, la s3 tiene espaldas sin él', () => {
+    const e = partidaDe(3).escena;
     const np = nivelPintado(e);
     const vacio = {
       ancho: np.ancho,
@@ -208,8 +213,8 @@ describe('en los mapas reales', () => {
     expect(espaldasSinCanto(e, vacio).length).toBeGreaterThan(0);
   });
 
-  it('el guardia del labio muerde: sin labio, la s2 tiene espaldas sin él', () => {
-    const e = partidaDe(2).escena;
+  it('el guardia del labio muerde: sin labio, la s3 tiene espaldas sin él', () => {
+    const e = partidaDe(3).escena;
     const np = nivelPintado(e);
     const vacio = {
       ancho: np.ancho,
@@ -220,13 +225,13 @@ describe('en los mapas reales', () => {
     expect(espaldasSinLabio(e, vacio).length).toBeGreaterThan(0);
   });
 
-  it('el guardia muerde: sin el escalón, la s2 tenía agua en lo alto', () => {
-    expect(aguaEnLoAlto(partidaDe(2).escena, true)).toBeGreaterThan(0);
+  it('el guardia muerde: sin el escalón, la s3 tenía agua en lo alto', () => {
+    expect(aguaEnLoAlto(partidaDe(3).escena, true)).toBeGreaterThan(0);
   });
 });
 
-/** En la orden lenta, 1-40; en `verify`, la 55 (la marca de #223) y la 2. */
-const SEMILLAS_DEL_OSCURO = LENTO ? rango(1, 40) : [55, 2];
+/** En la orden lenta, 1-40; en `verify`, la 55 (la marca de #223) y la 3 (la 2 hasta #230, que la dejó sin meseta). */
+const SEMILLAS_DEL_OSCURO = LENTO ? rango(1, 40) : [55, 3];
 
 describe('la espalda, una línea nítida (#223)', () => {
   for (const semilla of SEMILLAS_DEL_OSCURO)
@@ -240,7 +245,7 @@ describe('la espalda, una línea nítida (#223)', () => {
   it('la muestra del bucle rápido mide espaldas con oscuro', () => {
     // Si el guardia no encontrara ningún oscuro que medir, pasaría sin mirar.
     // Más de 10 por semilla: con los mapas de #224 una de las dos da 17.
-    for (const s of [55, 2])
+    for (const s of [55, 3])
       expect(
         oscuroAlNorteDeLasEspaldas(partidaDe(s).escena).filter((q) => q.ancho > 0).length,
       ).toBeGreaterThan(10);

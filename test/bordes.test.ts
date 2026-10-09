@@ -224,8 +224,11 @@ function espaldasDe(semilla: number): (readonly [number, number])[] {
   );
 }
 
-/** Las de la auditoría 5: los recortes del defecto 1 y del 5. */
-const SEMILLAS_DE_LA_AUDITORIA = [2, 443, 1, 57, 9];
+/**
+ * Las de la auditoría 5: los recortes del defecto 1 y del 5. La 3 en vez de la 2
+ * desde las dos puertas de la mina (#230), que dejan la 2 sin meseta.
+ */
+const SEMILLAS_DE_LA_AUDITORIA = [3, 443, 1, 57, 9];
 
 describe('en los mapas reales', () => {
   for (const semilla of SEMILLAS_DE_LA_AUDITORIA)
@@ -391,8 +394,9 @@ describe('caraDeOtroMaterial: el guardia muerde', () => {
   });
 
   it('en un mapa real: con la roca del suelo de cada casilla, como antes de #216, cuenta', () => {
-    // s2: la s5 dejó de tenerla con el acantilado en línea (#215).
-    const { map, escena: e } = partidaDe(2);
+    // s3: la s5 dejó de tenerla con el acantilado en línea (#215), y la s2 se
+    // quedó sin meseta con las dos puertas de la mina (#230).
+    const { map, escena: e } = partidaDe(3);
     const a = analizar(map);
     const antes = celdasDe(e.nivel, e.W, e.H, a.suelo).filter((c) =>
       e.relieve.celdas.some((v) => v.vx === c.vx && v.vy === c.vy && v.tipo === c.tipo),
@@ -409,8 +413,9 @@ describe('caraDeOtroMaterial: el guardia muerde', () => {
 describe('paredesTapadasPorLaMasa: el guardia muerde, y la masa se aparta de la pared', () => {
   const catalogo = catalogoDelDisco();
   const perfilDe = perfilesDelCatalogo(catalogo);
-  // Una frontal de la escena de s2 (s5 hasta #215) y un pico, delante (más al sur) o detrás.
-  const { escena: e } = partidaDe(2);
+  // Una frontal de la escena de s3 (s5 hasta #215, s2 hasta #230, que la dejó
+  // sin meseta) y un pico, delante (más al sur) o detrás.
+  const { escena: e } = partidaDe(3);
   const pared = e.sprites.find(esPiezaDelRelieve) as Sprite;
   const pico = (dy: number): Sprite => ({
     src: 'modulos/picos-arenisca/2.webp',
@@ -444,8 +449,11 @@ describe('paredesTapadasPorLaMasa: el guardia muerde, y la masa se aparta de la 
   });
 });
 
-/** Las de la auditoría 6: los recortes de los defectos 2 y 3. */
-const SEMILLAS_DE_LA_AUDITORIA_6 = [24, 2, 5];
+/**
+ * Las de la auditoría 6: los recortes de los defectos 2 y 3. Con la 3 en vez de
+ * la 2 desde las dos puertas de la mina (#230), que dejan la 2 sin meseta.
+ */
+const SEMILLAS_DE_LA_AUDITORIA_6 = [24, 3, 5];
 
 describe('un desnivel bajo una montaña, en los mapas reales (#216)', () => {
   for (const semilla of SEMILLAS_DE_LA_AUDITORIA_6)

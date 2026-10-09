@@ -26,9 +26,10 @@ const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
  * la 33, que con menos mesetas (#210) ya no lanza ninguno, la 2, que con el
  * acantilado en línea (#215) nace a la vista del rival, la 1, que con el
  * vestido que se repite por una silla (#224) tampoco lanza, y la 3, que con las
- * fronteras onduladas (#229) tampoco. Con ellas, la 1 vuelve a lanzar.
+ * fronteras onduladas (#229) tampoco. Con ellas, la 1 vuelve a lanzar, hasta
+ * las dos puertas de la mina (#230); ni la 2 ni la 3 tampoco: la 4.
  */
-const SEMILLA = 1;
+const SEMILLA = 4;
 
 /** Una batalla contra el primer monstruo, con un héroe que sabe Flecha mágica y tiene maná. */
 function batallaConMagia(seed: number): { state: ReturnType<typeof newGame>; battle: BattleState } {

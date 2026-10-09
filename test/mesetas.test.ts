@@ -109,15 +109,19 @@ function lisosDe(semilla: number): number[] {
 
 /**
  * En `pnpm verify`, las de la auditoría: s34 y s443 (los recortes), s57 y s9
- * (las que más tenían: 17 y 8 sin nada de 0,35).
+ * (las que más tenían: 17 y 8 sin nada de 0,35). Con las dos puertas de la mina
+ * (#230, 09-10-2026) la s9 tiene una entre dos sendas, (16,31): la cuenta el
+ * techo de 1-40, y en su lugar va la s36, la de más acantilado de 1-40 (144).
  */
-const SEMILLAS_DE_LA_AUDITORIA = [34, 443, 57, 9];
+const SEMILLAS_DE_LA_AUDITORIA = [34, 443, 57, 36];
 
 /**
  * El techo en 1-40: casillas entre dos sendas donde ni el pico más estrecho
  * cabe. Eran 2 (s4 y s39); con los mapas de #210, 1 (s23), y con la senda que
  * no corta el agua en diagonal (#210), 3: s23 y dos de s14, donde el camino que
- * rodea el vértice de agua pasa ahora junto a un acantilado.
+ * rodea el vértice de agua pasa ahora junto a un acantilado. Con las dos puertas
+ * de la mina (#230, 09-10-2026), 1: s9 (16,31), con senda al norte y al este y un
+ * nodo debajo.
  */
 const TECHO_EN_1_40 = 3;
 

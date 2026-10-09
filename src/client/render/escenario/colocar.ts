@@ -12,6 +12,7 @@
  * del disco; la escena es un JSON que pinta `pintor.ts`.
  */
 import type { MapObject, TramoDeCamino } from '@core/map/map.js';
+import { puertasDe } from '@core/map/puertas.js';
 import { type Barrera, esBarrera, type Suelo, type TerrainKind } from '@core/map/terrain.js';
 import { type Analisis, analizar, type Franja, type MapaDeEscena } from './analizar.js';
 import {
@@ -4055,8 +4056,9 @@ export function pasosAtravesados(
 
 /**
  * Las minas y los pueblos a los que la senda no llega como en el HoMM (#188):
- * con un solo tramo, que sale de su puerta, la casilla de debajo. Si la puerta
- * no se pisa o cae fuera del mapa, vale cualquier tramo, pero uno. Se mide
+ * con un solo tramo, que sale de una de sus puertas (`puertasDe`: la casilla de
+ * debajo y, en la mina, también la de la derecha, #230). Si ninguna se pisa o
+ * caen fuera del mapa, vale cualquier tramo, pero uno. Se mide
  * sobre los tramos que se pintan, de centro a centro de casilla, no sobre el
  * plan: si el trazado se equivoca, esto lo ve.
  */
@@ -4075,10 +4077,11 @@ export function sendasPorObjeto(
       x0 === cx && y0 === cy ? [[x1, y1]] : x1 === cx && y1 === cy ? [[x0, y0]] : [],
     );
     if (llegan.length !== 1) return true;
-    const conPuerta =
-      o.at.y + 1 < H && !esBarrera(terreno[(o.at.y + 1) * W + o.at.x] as TerrainKind);
+    const puertas = puertasDe(o.kind, o.at, W, H).filter(
+      (p) => !esBarrera(terreno[p.y * W + p.x] as TerrainKind),
+    );
     const [x, y] = llegan[0] as number[];
-    return conPuerta && (x !== cx || y !== cy + 1);
+    return puertas.length > 0 && !puertas.some((p) => x === p.x + 0.5 && y === p.y + 0.5);
   });
 }
 

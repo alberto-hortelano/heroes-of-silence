@@ -40,6 +40,7 @@ import {
   type TramoDeCamino,
   tramosDeCasillas,
 } from './map.js';
+import { type ConPuerta, rumbosDePuerta } from './puertas.js';
 import {
   aPunto,
   type Estructura,
@@ -1782,70 +1783,104 @@ function vestirRed(
     const r = regionGruesa[i] as number;
     if (r !== -1 && sinUsar(i)) candidatas[r]?.push(i);
   }
-  // La puerta de cada mina y cada pueblo (#188, `trazarCaminos`): la casilla
-  // de debajo, por donde llega su camino. Se guarda al colocarlo: nada más cae
-  // en ella, ni un obstáculo; sin eso había minas en la última fila. Y un
-  // objeto con puerta no se pone en la fila de delante de otro, ni otro en la
-  // suya: una mina justo debajo de otra le tapaba la puerta y el camino la
-  // rodeaba por detrás (s3, (26,3)). Guardar también las vecinas de la puerta
-  // dejaba sin sitio a los obstáculos de un 24×24 (56 de 100 sin mapa).
+  // Las puertas de cada mina y cada pueblo (#188, `trazarCaminos`): la casilla
+  // de debajo y, en una mina, también la de la derecha (#230, `puertas.ts`),
+  // por donde llega su camino. Se guardan al colocarlo: nada más cae en ellas,
+  // ni un obstáculo; sin eso había minas en la última fila. Y un objeto con
+  // puerta no se pone delante de la puerta de otro (en la fila que la cruza:
+  // la puerta y sus dos vecinas de través), ni otro delante de las suyas: una
+  // mina justo debajo de otra le tapaba la puerta y el camino la rodeaba por
+  // detrás (s3, (26,3)). Guardar también las vecinas de la puerta dejaba sin
+  // sitio a los obstáculos de un 24×24 (56 de 100 sin mapa).
   const anteLaPuerta = new Set<number>();
   const conPuertaPuestos = new Set<number>();
+  /** Lo que queda delante de una puerta guardada: ahí no va otro objeto con puerta. */
+  const delanteDeLasPuestas = new Set<number>();
   const usada = (i: number): boolean => ocupadas.has(i) || anteLaPuerta.has(i);
-  /** La fila de delante de `i` (la puerta y sus dos vecinas), dentro del mapa. */
-  const filaDeDelante = (i: number): number[] => {
+  const enElMapa = (x: number, y: number): boolean => x >= 0 && y >= 0 && x < W && y < H;
+  /** Las puertas de `kind` en `i`, con su rumbo, aunque caigan fuera del mapa (índice −1). */
+  const puertasEn = (i: number, kind: ConPuerta) => {
     const x = i % W;
-    const puerta = i + W;
-    if (puerta >= N) return [];
-    return [x > 0 ? puerta - 1 : -1, puerta, x < W - 1 ? puerta + 1 : -1].filter((j) => j >= 0);
+    const y = (i - x) / W;
+    return rumbosDePuerta(kind).map(([dx, dy]) => ({
+      x: x + dx,
+      y: y + dy,
+      dx,
+      dy,
+      i: enElMapa(x + dx, y + dy) ? i + dy * W + dx : -1,
+    }));
   };
-  /** Si `i` puede llevar un objeto con puerta: con ella libre y sin otro delante ni detrás. */
-  const tienePuerta = (i: number): boolean => {
-    const puerta = i + W;
+  /** La fila que cruza la puerta (ella y sus dos vecinas de través), dentro del mapa. */
+  const filaDeLaPuerta = (p: { x: number; y: number; dx: number; dy: number }): number[] =>
+    [-1, 0, 1]
+      .map((k) => [p.x + k * p.dy, p.y + k * p.dx] as const)
+      .filter(([x, y]) => enElMapa(x, y))
+      .map(([x, y]) => y * W + x);
+  /**
+   * Si la puerta `p` del objeto en `i` sirve: dentro y no en el borde, de su
+   * región, libre, sin otro objeto con puerta delante y con algo más que los
+   * costados del objeto por donde llegar a ella.
+   */
+  const puertaLibre = (i: number, p: ReturnType<typeof puertasEn>[number]): boolean => {
     // Ni la puerta en el borde del mapa (#189): en la última fila solo se
     // llegaba a ella por la misma fila, y en la primera o la última columna,
     // por la columna; el camino corría pegado al borde, medio bajo las nubes
     // (10,7 casillas de camino por mapa en el borde en 1-100; 5,4, la puerta
     // de un objeto).
-    if (i % W === 0 || i % W === W - 1) return false;
-    if (puerta >= N - W || regionGruesa[puerta] !== regionGruesa[i] || usada(puerta)) return false;
-    if (filaDeDelante(i).some((j) => conPuertaPuestos.has(j))) return false;
-    if (i >= W && filaDeDelante(i - 2 * W).some((j) => conPuertaPuestos.has(j))) return false;
-    // Y que a la puerta se llegue por algo más que los costados del objeto.
-    return [...filaDeDelante(i), puerta + W].some(
-      (j) => j !== puerta && j < N && regionGruesa[j] === regionGruesa[i],
-    );
+    if (p.x < 1 || p.y < 1 || p.x > W - 2 || p.y > H - 2) return false;
+    if (regionGruesa[p.i] !== regionGruesa[i] || usada(p.i)) return false;
+    const fila = filaDeLaPuerta(p);
+    if (fila.some((j) => conPuertaPuestos.has(j))) return false;
+    const masAlla = p.i + p.dy * W + p.dx;
+    return [...fila, masAlla].some((j) => j !== p.i && regionGruesa[j] === regionGruesa[i]);
   };
-  const libres = (r: number, conPuerta: boolean): number[] =>
-    (candidatas[r] ?? []).filter((i) => !usada(i) && (!conPuerta || tienePuerta(i)));
-  // La puerta se guarda también cuando el objeto se puso sin ella libre de
-  // verdad (`libresConPuerta` sin sitio): si es de su región, nada cae en ella.
-  // Sin eso, con las fronteras onduladas de #229 una mina se puso en la puerta
-  // de otra puesta así, y el camino entraba a la de arriba en diagonal
+  /**
+   * Si `i` puede llevar un objeto `kind` con sus puertas libres: todas, o con
+   * `una`, al menos una. Y no delante de la puerta de otro.
+   */
+  const tienePuerta = (i: number, kind: ConPuerta, una = false): boolean => {
+    if (delanteDeLasPuestas.has(i)) return false;
+    const libres = puertasEn(i, kind).filter((p) => puertaLibre(i, p)).length;
+    return una ? libres > 0 : libres === rumbosDePuerta(kind).length;
+  };
+  // Las puertas se guardan también cuando el objeto se puso sin ellas libres de
+  // verdad (`libresConPuerta` sin sitio): si son de su región, nada cae en
+  // ellas. Sin eso, con las fronteras onduladas de #229 una mina se puso en la
+  // puerta de otra puesta así, y el camino entraba a la de arriba en diagonal
   // (42×42 s45 (29,37)).
-  const guardarPuerta = (i: number): void => {
-    const puerta = i + W;
-    if (tienePuerta(i) || (puerta < N && regionGruesa[puerta] === regionGruesa[i]))
-      anteLaPuerta.add(puerta);
+  const guardarPuerta = (i: number, kind: ConPuerta): void => {
+    for (const p of puertasEn(i, kind)) {
+      if (p.i < 0 || regionGruesa[p.i] !== regionGruesa[i]) continue;
+      anteLaPuerta.add(p.i);
+      for (const j of filaDeLaPuerta(p)) delanteDeLasPuestas.add(j);
+    }
     conPuertaPuestos.add(i);
   };
-  // Lo libre de la región `r`; con `conPuerta`, lo que además tiene la puerta
-  // libre, y si no queda nada así, lo libre sin más: en un mapa apretado
-  // (24×24) no siempre queda, y el camino entra entonces por donde se alcance
-  // (lo cobra `trazarCaminos`). En 34×34 no pasa en 1-300 (08-10-2026).
-  const libresConPuerta = (r: number, conPuerta: boolean): number[] => {
-    const lista = libres(r, conPuerta);
-    return lista.length > 0 || !conPuerta ? lista : libres(r, false);
+  const libres = (r: number, kind?: ConPuerta, una = false): number[] =>
+    (candidatas[r] ?? []).filter((i) => !usada(i) && (!kind || tienePuerta(i, kind, una)));
+  // Lo libre de la región `r`; con `kind`, lo que además tiene sus puertas
+  // libres; si no queda nada así, lo que tiene una (la mina, que lleva dos), y
+  // si tampoco, lo libre sin más: en un mapa apretado (24×24) no siempre queda,
+  // y el camino entra entonces por donde se alcance (lo cobra `trazarCaminos`).
+  // En 34×34 no pasa en 1-300 (08-10-2026).
+  const libresConPuerta = (r: number, kind?: ConPuerta): number[] => {
+    if (!kind) return libres(r);
+    for (const lista of [() => libres(r, kind), () => libres(r, kind, true), () => libres(r)]) {
+      const l = lista();
+      if (l.length > 0) return l;
+    }
+    return [];
   };
   // Coloca algo en la región `r` y su espejo en la pareja de `r`: la misma
   // casilla reflejada si está libre y es de esa región, si no otra al azar.
-  // `conPuerta`, para lo que se entra por delante: con la puerta libre, y se
-  // queda guardada.
-  const colocarPar = (r: number, conPuerta = false): [Point, Point] | null => {
-    const lista = libresConPuerta(r, conPuerta);
+  // Con `kind`, lo que se entra por sus puertas: con ellas libres, y se quedan
+  // guardadas. El espejo lleva las mismas puertas, no reflejadas: el sprite no
+  // se espeja.
+  const colocarPar = (r: number, kind?: ConPuerta): [Point, Point] | null => {
+    const lista = libresConPuerta(r, kind);
     if (lista.length === 0) return null;
     const a = rng.pick(lista);
-    if (conPuerta) guardarPuerta(a);
+    if (kind) guardarPuerta(a, kind);
     ocupadas.add(a);
     const im = espejoDe(a, N);
     let b: number;
@@ -1853,15 +1888,15 @@ function vestirRed(
       regionGruesa[im] === parejaDe(r) &&
       !usada(im) &&
       sinUsar(im) &&
-      (!conPuerta || tienePuerta(im))
+      (!kind || tienePuerta(im, kind))
     ) {
       b = im;
     } else {
-      const otra = libresConPuerta(parejaDe(r), conPuerta);
+      const otra = libresConPuerta(parejaDe(r), kind);
       if (otra.length === 0) return null;
       b = rng.pick(otra);
     }
-    if (conPuerta) guardarPuerta(b);
+    if (kind) guardarPuerta(b, kind);
     ocupadas.add(b);
     return [punto(a), punto(b)];
   };
@@ -1907,7 +1942,7 @@ function vestirRed(
     }
   }
   for (const { r, resource } of turnos) {
-    const par = colocarPar(r, true);
+    const par = colocarPar(r, 'mine');
     if (par === null) return fallo('objetos', 'no hay sitio para las minas');
     mines.push({ at: par[0], resource }, { at: par[1], resource });
   }
@@ -1915,7 +1950,7 @@ function vestirRed(
   // Un pueblo en cada región que no es la de casa.
   const villages: { name: string; at: Point }[] = [];
   for (const r of fuera) {
-    const par = colocarPar(r, true);
+    const par = colocarPar(r, 'village');
     if (par === null) return fallo('objetos', 'no hay sitio para los pueblos');
     villages.push(
       { name: nombre(NOMBRES_DE_PUEBLO, villages.length), at: par[0] },
@@ -2056,9 +2091,11 @@ function vestirRed(
       suelos,
       nodosDeRegion,
       objetivos,
-      puertas: [...ciudadesEnNodo]
-        .map((k) => nodos[k] as number)
-        .concat([...mines, ...villages].map((o) => indice(o.at))),
+      puertas: [
+        ...[...ciudadesEnNodo].map((k) => ({ at: nodos[k] as number, kind: 'town' as const })),
+        ...mines.map((o) => ({ at: indice(o.at), kind: 'mine' as const })),
+        ...villages.map((o) => ({ at: indice(o.at), kind: 'village' as const })),
+      ],
       monstruos,
       ocupadas,
       nivel,

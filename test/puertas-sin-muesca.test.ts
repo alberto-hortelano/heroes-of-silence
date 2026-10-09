@@ -22,7 +22,9 @@
  * otros y la lista se re-mide (09-10-2026): en 1-1000, 5 → 4 (s21, s312, s563 y
  * s674, un costado este cada una); en 1-200 queda solo s21 (24,19). Con las
  * fronteras onduladas (#229, 09-10-2026), 4 → 3 en 1-1000 (s162 oeste, s343 y
- * s711 este); en 1-200, s162 (34,34).
+ * s711 este); en 1-200, s162 (34,34). Con las dos puertas de la mina (#230,
+ * 09-10-2026), otros mapas otra vez: 3 → 4 en 1-1000 (s343 y s803 este, s929
+ * oeste, s936 este), y en 1-200 ninguno.
  */
 import { describe, expect, it } from 'vitest';
 import { buildMap, generateMapPlan } from '../src/core/map/generate.js';
@@ -56,13 +58,12 @@ function muescasDe(map: GameMap): string[] {
 const mapaDe = (semilla: number): GameMap => buildMap(generateMapPlan(createRng(semilla))).map;
 
 /** Lo que queda en 1-200, por semilla (arriba). */
-const QUEDAN: Readonly<Record<number, readonly string[]>> = { 162: ['(34,34) oeste'] };
+const QUEDAN: Readonly<Record<number, readonly string[]>> = {};
 
 describe('la puerta de una ciudad no muerde la línea del acantilado (#222)', () => {
   // En el bucle rápido, las que lo daban en 34×34 (s57, s162, s263; en 42×42
   // son otros mapas, pero no cuesta mirarlas), la s21 (la que quedaba hasta
-  // #229) y la que queda (s162, también de 34×34), para que `QUEDAN` no se
-  // quede viejo sin que nadie lo vea.
+  // #229) y la s162 (también de 34×34, la que quedaba hasta #230).
   const semillas = segunPrisa([57, 162, 263, 21], rango(1, 200));
   for (const s of semillas)
     it(`semilla ${s}`, () => {

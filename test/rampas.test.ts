@@ -336,12 +336,14 @@ describe(`las rampas en un mapa real: s${SEMILLA}, (${RX}, ${RY})`, () => {
   });
 });
 
-// Con las fronteras onduladas (#229, 09-10-2026) el caso es s126 (31, 33), de roca,
-// la única muesca de su mapa (11 muescas en 1-200, 3 de arenisca; eran 27). En
-// s88, s134 y s153 la pieza de la muesca quita caras cortadas (1-2 → 0), y el
-// test pide las mismas con y sin ella. Era s16
-// (30, 11) desde #226 (mapa de 42×42) y s3 (4, 20) en 34×34.
-const [MS, MX, MY] = [126, 31, 33];
+// Con las dos puertas de la mina (#230, 09-10-2026) el caso es s134 (32, 12), de
+// roca, la única muesca de su mapa (6 muescas en 1-200, todas de roca y caída 1,
+// una por mapa: s111, s131, s134, s153, s156 y s174). Era s126 (31, 33) desde las
+// fronteras onduladas (#229; 11 muescas en 1-200, 3 de arenisca; eran 27), cuando
+// en s88, s134 y s153 la pieza de la muesca quitaba caras cortadas (1-2 → 0), y el
+// test pide las mismas con y sin ella. Era s16 (30, 11) desde #226 (mapa de
+// 42×42) y s3 (4, 20) en 34×34.
+const [MS, MX, MY] = [134, 32, 12];
 describe(`la rampa de muesca en un mapa real: s${MS}, (${MX}, ${MY}) (§36)`, () => {
   const map = newGame({ seed: MS }).map;
   const e = componer(map, MS, catalogo);

@@ -93,6 +93,9 @@ describe('la memoria de la IA se lee de la crónica', () => {
   });
 });
 
+/** La semilla del vaivén (ver `vaiven`). */
+const SEMILLA_DEL_VAIVEN = 16;
+
 describe('el vaivén', () => {
   /**
    * El héroe en su base (A) y el paso que daría hoy (B). Se le hace ir y volver
@@ -100,14 +103,16 @@ describe('el vaivén', () => {
    * devuelve el estado con el héroe otra vez en A.
    */
   function vaiven(idas: number) {
-    // La 7 (la 6 hasta #229, cuando las fronteras ondulan y la marcha de la 6 ya
-    // no llegaba a su paso; la 48 hasta #226, la 46 hasta #195, la 43 hasta #189): el
+    // La 16 (la 7 hasta #230, cuando la mina pasa a tener dos puertas y el
+    // primer paso de la 7 ya es una ciudad neutral; la 6 hasta #229, cuando las
+    // fronteras ondulan y la marcha de la 6 ya no llegaba a su paso; la 48 hasta #226, la 46 hasta #195, la 43 hasta #189): el
     // primer paso del día 1 es una casilla vacía de camino a un objetivo lejano,
     // e ir y volver no recoge ni toma nada por el camino.
-    const { state, ctx, hero } = sinAsaltantes(7);
+    const { state, ctx, hero } = sinAsaltantes(SEMILLA_DEL_VAIVEN);
     const a = { ...hero.at };
     const marcha = marchaDeHoy(state, hero);
-    if (marcha === null) throw new Error('el héroe de la semilla 7 no tiene a dónde ir el día 1');
+    if (marcha === null)
+      throw new Error(`el héroe de la semilla ${SEMILLA_DEL_VAIVEN} no tiene a dónde ir el día 1`);
     const b = marcha.paso;
     for (let i = 0; i < idas; i++) {
       andar(state, ctx, hero, b);
@@ -143,7 +148,7 @@ describe('el vaivén', () => {
   });
 
   it('quieto no es un vaivén: lo lleva el encierro', () => {
-    const { state, ctx, hero } = sinAsaltantes(7);
+    const { state, ctx, hero } = sinAsaltantes(SEMILLA_DEL_VAIVEN);
     const otra = marchaDeHoy(state, hero)!.paso;
     andar(state, ctx, hero, otra);
     for (let i = 0; i < 5; i++) pasarElDia(state, ctx);
