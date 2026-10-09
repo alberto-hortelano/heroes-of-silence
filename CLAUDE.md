@@ -143,6 +143,7 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 | Lo que se anda hoy (marcha y ruta) | `pasosDeHoy` (`state/game.ts`) |
 | Qué héroe se ve y qué se sabe de un objeto (agente, lienzo, minimapa, barra) | `heroesALaVista` (lo mirado ahora), `objetosConocidos` (vivo si se mira, si no el recuerdo de `memory`); el cliente, por `Session` |
 | Qué grupo de asaltantes se ve | `asaltantesALaVista` (lista con la marca `AsaltantesALaVista`; sin niebla, `todosALaVista`); para un grupo suelto, `grupoALaVistaDesde` |
+| Por dónde se entra en una ciudad, una mina o un pueblo | `puertasDe`, `rodeosParaEntrar` (`map/puertas.ts`, #230) |
 | Por qué una marcha no llegó (veredicto del agente) | `paradaDeLaMarcha` → `notaMarchaParcial` (`server/notas.ts`) |
 | Material de una cara (pared, ladera, pedregal) | `materialDeCara` (`render/escenario/colocar.ts`) |
 | Roca de lo alto de un acantilado (picos, peñascos, reborde) | `materialDeLaCima` (`render/escenario/bordes.ts`) |
@@ -210,13 +211,20 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   y entre dos vecinas **solo un nodo lleva camino**, que elige la red
   (`crucesConCamino`) y traza `trazarCaminos`; los demás pasos se cruzan sin
   él, y los pasos van a Chebyshev ≥ 3 de todo nodo. **A una ciudad, una mina o un pueblo se
-  entra por su puerta** (#188): la casilla de debajo. Son hojas del árbol (no se
+  entra por su puerta** (#188): la casilla de debajo; **la mina tiene dos**, debajo y a
+  la derecha, por donde salen sus raíles (#230), y su ramal sale por la más barata. Las
+  puertas son un hecho (`puertasDe`, `rodeosParaEntrar`, `map/puertas.ts`) que leen la
+  búsqueda, `colocarPar` y `sendasPorObjeto`; el juego no las mira. Son hojas del árbol (no se
   cruzan salvo que sean la única unión, más caro que pisar un monstruo); entrar
-  por la puerta no cuesta, por la diagonal de delante un rodeo, de lado tres y
-  por detrás cuatro, y sus costados y espalda (`espalda`) cobran dos rectos, así
+  por una puerta no cuesta, a 45° de la más cercana un rodeo, a 90° tres y
+  más allá cuatro (con las dos de la mina, el noreste es diagonal de delante, el norte un
+  costado y solo el noroeste espalda), y sus costados y espalda (`espalda`) cobran dos rectos, así
   que el radio que sigue de largo pasa por delante y el objeto cuelga de él con
-  un ramal de una casilla. `colocarPar` guarda la puerta de minas y pueblos (y no
-  pone uno en la fila de delante de otro; si así no sale mapa, `trazarYVestir`
+  un ramal de una casilla. En 1-200, los ramales de mina miden 2,54 → 2,08 pasos, el 46 % sale
+  por la derecha y los que doblan la esquina de su mina (pisan ≥ 3 de sus vecinas) pasan de 99 a
+  20 (`tools/qa/ramales.ts`, `test/ramales-de-minas.test.ts`; 09-10-2026). `colocarPar` guarda las
+  puertas de minas y pueblos (la mina, las dos; si no hay sitio, una; 4 399 de 4 400 con las dos en
+  1-200), y no pone uno delante de la puerta de otro (en la fila que la cruza); si así no sale mapa, `trazarYVestir`
   repite sin vetarla a los obstáculos, que es lo que salva el 24×24); `ponerObstaculos` no parte una región
   por uno. Una ciudad (nodo) llega desde la mejor fila que toca cada región;
   la de detrás, por detrás. Los planes del agente no cambian (su `advice` lo
@@ -288,7 +296,7 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   El agente sigue recibiendo ancho y alto, con el reparto como consejo. Un plan mide de 8 a 128 por lado
   (`LADO_MINIMO_DEL_PLAN`); el generador solo sabe de 24 a 64 (pedido por lado; por regiones, de 30 a 63)
   (`LADO_MINIMO_DEL_GENERADOR`, 200 de 200 semillas en cada lado) y fuera lanza antes de intentarlo (#102).
-  Ninguna mina ni pueblo lleva la puerta en el borde (`colocarPar`, #189), salvo el respaldo sin puerta.
+  Ninguna mina ni pueblo lleva una puerta en el borde (`colocarPar`, #189; la de la derecha de la mina tampoco, #230), salvo el respaldo sin puerta.
   **El nivel es de la región** (#143): `MapRegion.nivel` (0 abajo, 1 el llano, 2 la meseta), sin
   efecto en las reglas. El procedimental lo sortea por pareja en espejo justo después del suelo
   (`data/relieve.json`, inventado: ciénaga 0; nieve, lava y áspero 2 una vez de cada tres; el resto

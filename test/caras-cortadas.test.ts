@@ -151,8 +151,18 @@ describe('las tiradas de frontal cortadas junto a un objeto (#221)', () => {
 // y 20 en 1-200: #222 arregla s3, s12, s22 y s28 (las de la muestra rápida),
 // y en 41-200 s49, s65, s85, s89, s96, s116, s136, s148, s158, s173 y s197.
 // Los cinco que quedan, sin mirar caso a caso.
-const QUEDAN: Readonly<Record<number, number>> = { 32: 1, 64: 1, 68: 1, 141: 1, 190: 1 };
-const SEMILLAS = segunPrisa([3, 12, 22, 28], [...rango(1, 40), 57, 64, 68, 89, 96, 141, 190, 443]);
+//
+// Con las dos puertas de la mina (#230) todos los mapas son otros otra vez
+// (09-10-2026): en 1-40, 1 (s8); en 1-200, 3 (s8, s78 y s121, una cada una), y
+// ninguna junto a una mina: s8 (fila 9) acaba junto a la ciudad de (14,10), s78
+// (fila 33) junto al nodo de (4,33) y s121 (fila 39) entre el pueblo de (13,39)
+// y el nodo de (16,41). s32, s64, s68, s141 y s190 se quedan en la lista lenta,
+// ya sin ninguna.
+const QUEDAN: Readonly<Record<number, number>> = { 8: 1, 78: 1, 121: 1 };
+const SEMILLAS = segunPrisa(
+  [3, 12, 22, 28],
+  [...rango(1, 40), 57, 64, 68, 78, 89, 96, 121, 141, 190, 443],
+);
 
 describe('en los mapas reales', () => {
   for (const semilla of SEMILLAS)
