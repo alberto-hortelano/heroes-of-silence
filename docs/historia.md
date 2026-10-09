@@ -3668,6 +3668,51 @@ delante de su pie: se lee que la cordillera está en lo alto».
   ladera que se lee como cuchilla (s2 (16-17, 22-26)) es del tono por nivel
   (#217).
 
+## El orden de los turnos, en serpiente (09-10-2026)
+
+Decisión del usuario, sobre la propuesta medida en #229: el jugador 0 ganaba
+603 de 1 000 partidas de la IA contra sí misma, y la causa principal era que
+**abría todos los días**, como en fheroes2, donde el orden es fijo: llegaba
+antes a lo que se disputa y atacaba antes. Ahora el orden va en serpiente
+(regla nuestra): quien cierra un día abre el siguiente, día 1 j0, j1; día 2 j1,
+j0; día 3 j0, j1… Lo sabe una sola función, `ordenDelDia` (`state/game.ts`), y
+la leen el paso de turno (`nextPlayer`), el primer turno de la partida y el
+`adventure_turn` del agente (`you.turnOrder`, con su línea de prosa).
+
+**Cómo se separan los efectos.** Cuatro tandas de partidas con el plan
+generado con las facciones pedidas y, si toca, los dueños de las bases
+cambiados (`generateMapPlan` y `newGame({ plan })`; las tiradas no son las de
+`tamanos.ts`): j0 caballero o nigromante, en la base 0 o en la 1. Con un modelo
+aditivo, abrir el día es la media menos 500, la base 0 la mitad de la
+diferencia entre las dos filas de base y el caballero la de las dos de
+facción. Por 1 000 partidas:
+
+| j0 juega con | fijo (1-1000) | fijo (1-500) | serpiente (1-500) |
+|---|---|---|---|
+| caballero, base 0 | 619 | 650 | 568 |
+| nigromante, base 0 | 555 | 560 | 478 |
+| caballero, base 1 | 550 | 546 | 516 |
+| nigromante, base 1 | 535 | 524 | 446 |
+| **abrir el día** | **+65** (±8) | +70 (±11) | **+2** (±11) |
+| la base 0 | +22 | +35 | +21 |
+| el caballero | +20 | +28 | +40 |
+
+En `tamanos.ts` (1-1000): j0 **603 → 534**, 0 sin terminar, duración 8 / 16 /
+34 → **8 / 14 / 26**; en 1-100, 9 / 15 / 31 → 8 / 14 / 22 (j0 64 → 55). El
+barrido de 40 semillas, 0 sin terminar. Lo que queda de ventaja es la base 0
+(los muros sin espejo y los desempates por índice, sin separar) y el caballero
+(#89), que en serpiente pesa más: no es de esta regla.
+
+**Qué supone.** El que cierra un día juega dos turnos seguidos con el cambio
+de día en medio (la patrulla de los asaltantes, la hornada del lunes); entre
+los suyos, el rival juega dos o ninguno. La renta y los puntos de movimiento
+van con el turno, así que nada se cobra dos veces ni se pierde. El agente, que
+es el jugador 1, cierra el día 1 y abre el 2: recibe dos `adventure_turn`
+seguidos, cada uno con su veredicto, y la prosa se lo dice. En el cliente, la
+persona que cierra un día vuelve a tener el turno sin que el rival mueva; la
+pausa de «Fin de turno» (`PAUSA_TRAS_EL_RIVAL`) ya cubre ese instante, y la
+barra lee `state.current`, como el espectador.
+
 ## Decisiones tomadas
 
 - **MCP antes que API key.** El usuario tiene Claude Max: el agente entra por

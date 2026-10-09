@@ -179,6 +179,7 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
 | Carga (`charge`) | **regla nuestra**: +10 %/casilla, tope 5, en línea recta de ≥ 3 sin unidades en medio y con el objetivo en la recta |
 | `fear` del dragón óseo | **divergencia deliberada**: ataque −2 durante 2 rondas (no aura de moral) |
 | Victoria | **regla nuestra**: perder la base elimina en el acto |
+| Orden de turnos | **regla nuestra** (fheroes2 lo tiene fijo): en serpiente, quien cierra un día abre el siguiente (día 1 j0, j1; día 2 j1, j0…; `ordenDelDia`, que leen el paso de turno y el `you.turnOrder` del agente). Con el fijo, j0 ganaba 603 de 1 000 y abrir el día valía +65; en serpiente, 534 y +2 (09-10-2026) |
 
 - Lo temporal vive en `BattleStack.effects` y se suma al leer, nunca al stack.
 - **Economía**: costes de `buildinginfo.cpp` y renta de `ProfitConditions`,
