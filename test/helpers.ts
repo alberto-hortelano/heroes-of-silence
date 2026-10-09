@@ -37,7 +37,7 @@ import {
   type Reachable,
   RedDeCaminos,
 } from '../src/core/map/map.js';
-import { estructura, juntoANodo, rellenar, VECINAS, vecindad } from '../src/core/map/regiones.js';
+import { estructura, rellenar, VECINAS, vecindad } from '../src/core/map/regiones.js';
 import { esBarrera, type TerrainKind } from '../src/core/map/terrain.js';
 import { createRng, type Rng } from '../src/core/rng.js';
 import {
@@ -547,11 +547,19 @@ export function planDeMesetas(): PlanConCasillas {
 
 /**
  * Las barreras de un mapa construido, partidas en **frontera** y **obstáculo**
- * desde fuera, sin preguntarle nada al generador: una componente 8-conexa de
- * barrera cuyas vecinas pisables (nodos aparte) son todas de UNA región y que
- * no se pega a ningún nodo es un obstáculo de esa región; el resto es frontera.
- * Es la definición que el generador se obliga a cumplir al no dejar que una
- * mancha toque la frontera.
+ * desde fuera, sin preguntarle nada al generador. Se mira **lo que no es
+ * región** —barreras y nodos, 8-conexo—: un trozo que toca dos regiones o más
+ * es frontera (la red fina pasa por él), y uno que toca una sola es un
+ * obstáculo suyo. Los nodos van dentro porque son agujeros de la frontera, no
+ * su final: el nodo y su pasillo la cortan en trozos y el de un lado del paso
+ * puede no tocar más que una región (la semilla 80 en 28×28), pero sigue
+ * unido a la otra por el nodo. Solo se cuentan sus casillas de barrera.
+ *
+ * Antes era «solo barreras, y pegada a un nodo es frontera» con la marca con
+ * la que el generador veta sus manchas (`juntoANodo`): una excepción por cada
+ * forma de frontera, y la auditoría leyendo una regla del generador (#132).
+ * En 1 730 mapas (34×34 1-1000, 28×28 1-200, 30, 40, 48, 24 y 64) las dos
+ * reglas dan lo mismo casilla a casilla (09-10-2026).
  */
 export function barrerasDe(map: GameMap): {
   /** Casillas de frontera de cada barrera: las abiertas por un nodo no cuentan. */
@@ -562,21 +570,16 @@ export function barrerasDe(map: GameMap): {
   const red = estructura(map);
   const W = map.width;
   const H = map.height;
-  // Pegada a un nodo es frontera aunque solo toque una región: el nodo y su
-  // pasillo cortan la frontera gruesa en trozos, y el de un lado del paso
-  // puede no tocar más que una (la semilla 80 en 28×28). Un obstáculo nunca
-  // se pega a un nodo: es la misma marca con la que el generador lo veta.
-  const pegadaANodo = juntoANodo(map);
-  const barrera = (i: number) => esBarrera(map.terrain[i] as TerrainKind);
+  const fuera = (i: number) => red.regionDe[i]! < 0;
   const visto = new Uint8Array(W * H);
   const frontera = new Map<TerrainKind, number>();
   const obstaculo = map.regions.map(() => 0);
   for (let i = 0; i < W * H; i++) {
-    if (visto[i] === 1 || !barrera(i)) continue;
+    if (visto[i] === 1 || !fuera(i)) continue;
     const regiones = new Set<number>();
     const toma = (j: number): boolean => {
-      if (!barrera(j)) {
-        if (red.regionDe[j]! >= 0) regiones.add(red.regionDe[j]!);
+      if (!fuera(j)) {
+        regiones.add(red.regionDe[j]!);
         return false;
       }
       if (visto[j] === 1) return false;
@@ -584,11 +587,13 @@ export function barrerasDe(map: GameMap): {
       return true;
     };
     toma(i);
-    const casillas = rellenar(W, H, i, toma);
-    if (regiones.size === 1 && !casillas.some((c) => pegadaANodo[c] === 1)) {
-      obstaculo[[...regiones][0]!]! += casillas.length;
+    const barreras = rellenar(W, H, i, toma).filter((c) =>
+      esBarrera(map.terrain[c] as TerrainKind),
+    );
+    if (regiones.size === 1) {
+      obstaculo[[...regiones][0]!]! += barreras.length;
     } else {
-      for (const c of casillas) {
+      for (const c of barreras) {
         const t = map.terrain[c] as TerrainKind;
         frontera.set(t, (frontera.get(t) ?? 0) + 1);
       }

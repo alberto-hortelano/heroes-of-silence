@@ -36,6 +36,7 @@ import { aPunto, type Estructura, estructura, vecindad } from '../src/core/map/r
 import {
   BARRERAS,
   type Barrera,
+  esBarrera,
   isWalkable,
   type Suelo,
   type TerrainKind,
@@ -53,7 +54,7 @@ import {
 import { createRng } from '../src/core/rng.js';
 import type { Point } from '../src/core/types.js';
 import { tramosRectos } from '../tools/qa/rectitud.js';
-import { auditarMapaDenso, ciclosDeCamino, planDeNodos } from './helpers.js';
+import { auditarMapaDenso, barrerasDe, ciclosDeCamino, planDeNodos } from './helpers.js';
 import { itLento, rango, segunPrisa } from './lento.js';
 
 /** Los fallos de la auditoría densa de un plan, construyéndolo. */
@@ -735,6 +736,60 @@ describe('el generador hace redes como las pidió el usuario', () => {
     expect(densa(cortada).join('\n')).toMatch(
       /en la región b, \(\d+,0\) no se alcanza desde sus nodos sin cruzar un monstruo/,
     );
+  });
+
+  it('la frontera se lee por lo que no es región: dentro es obstáculo; junto a la frontera o a un nodo, frontera (#132)', () => {
+    // Tres casillas de una región pasadas a montaña sobre la semilla 1, una a
+    // una: lejos de todo cuenta como obstáculo; pegada a la frontera, como
+    // frontera; y pegada solo a un nodo —el trozo de un lado del paso que no
+    // toca más que una región (la semilla 80 en 28×28)— también como frontera,
+    // porque el nodo es un agujero de la frontera y la une a la otra región (#132).
+    const { map } = buildMap(generateMapPlan(createRng(1)));
+    const red = estructura(map);
+    const W = map.width;
+    const { desde, vecinas } = vecindad(W, map.height);
+    const nodos = new Set(red.nodos.map((n) => n.at.y * W + n.at.x));
+    const fueraDeRegion = (c: number) =>
+      [...vecinas.subarray(desde[c]!, desde[c + 1]!)].filter((j) => red.regionDe[j]! < 0);
+    const lejos = (c: number) => {
+      const [x, y] = [c % W, Math.floor(c / W)];
+      for (let dy = -2; dy <= 2; dy++)
+        for (let dx = -2; dx <= 2; dx++) {
+          const j = (y + dy) * W + x + dx;
+          if (x + dx < 0 || x + dx >= W || y + dy < 0 || y + dy >= map.height) return false;
+          if (red.regionDe[j]! < 0) return false;
+        }
+      return true;
+    };
+    const regionales = [...red.regionDe.keys()].filter(
+      (c) => red.regionDe[c]! >= 0 && map.regions.every((r) => r.at.y * W + r.at.x !== c),
+    );
+    const dentro = regionales.find(lejos);
+    const juntoAFrontera = regionales.find((c) =>
+      fueraDeRegion(c).some((j) => esBarrera(map.terrain[j]!) && !nodos.has(j)),
+    );
+    const juntoANodo = regionales.find((c) => {
+      const f = fueraDeRegion(c);
+      return f.length > 0 && f.every((j) => nodos.has(j));
+    });
+    expect(dentro, 'una casilla de región lejos de todo').toBeDefined();
+    expect(juntoAFrontera, 'una casilla de región pegada a la frontera').toBeDefined();
+    expect(juntoANodo, 'una casilla de región pegada solo a un nodo').toBeDefined();
+
+    const antes = barrerasDe(map);
+    const conMontaña = (c: number) => {
+      const terrain = [...map.terrain];
+      terrain[c] = 'mountain';
+      const { frontera, obstaculo } = barrerasDe({ ...map, terrain });
+      const k = red.regionDe[c]!;
+      return {
+        frontera: (frontera.get('mountain') ?? 0) - (antes.frontera.get('mountain') ?? 0),
+        obstaculo: obstaculo[k]! - antes.obstaculo[k]!,
+      };
+    };
+    expect(conMontaña(dentro!)).toEqual({ frontera: 0, obstaculo: 1 });
+    expect(conMontaña(juntoAFrontera!)).toEqual({ frontera: 1, obstaculo: 0 });
+    expect(conMontaña(juntoANodo!)).toEqual({ frontera: 1, obstaculo: 0 });
   });
 
   it('la auditoría de caminos muerde: sin cruce, con dos, sin hoja, sin base, una mina suelta y la red partida', () => {
