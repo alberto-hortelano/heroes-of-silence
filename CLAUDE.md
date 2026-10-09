@@ -179,7 +179,7 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
 | Carga (`charge`) | **regla nuestra**: +10 %/casilla, tope 5, en línea recta de ≥ 3 sin unidades en medio y con el objetivo en la recta |
 | `fear` del dragón óseo | **divergencia deliberada**: ataque −2 durante 2 rondas (no aura de moral) |
 | Victoria | **regla nuestra**: perder la base elimina en el acto |
-| Orden de turnos | **regla nuestra** (fheroes2 lo tiene fijo): en serpiente, quien cierra un día abre el siguiente (día 1 j0, j1; día 2 j1, j0…; `ordenDelDia`, que leen el paso de turno y el `you.turnOrder` del agente). Con el fijo, j0 ganaba 603 de 1 000 y abrir el día valía +65; en serpiente, 534 y +2 (09-10-2026) |
+| Orden de turnos | **regla nuestra** (fheroes2 lo tiene fijo): en serpiente, quien cierra un día abre el siguiente (día 1 j0, j1; día 2 j1, j0…; `ordenDelDia`, que leen el paso de turno y el `you.turnOrder` del agente). Con el fijo, j0 ganaba 603 de 1 000 y abrir el día valía +65; en serpiente, 534 y +2 (09-10-2026); con las fronteras onduladas de #229, 524 de 1 000 y duración 8 / 14 / 29 |
 
 - Lo temporal vive en `BattleStack.effects` y se suma al leer, nunca al stack.
 - **Economía**: costes de `buildinginfo.cpp` y renta de `ProfitConditions`,
@@ -281,7 +281,7 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   8 / 15 / 21; en 1-1000, 8 / 16 / 34 → 8 / 15 / 41; 0 sin terminar. **La ventaja del jugador 0 no
   cambia** (603 de 1 000): es sobre todo **abrir el día** (+63 de 1 000, medido cambiando de base y de
   facción en 4 000 partidas; la base 0 da +30 y el caballero +16); con el orden en serpiente (quien cierra
-  un día abre el siguiente) se va a +1. Propuesta en `docs/agents/2026-10-09-mapa-escala/`, sin aplicar. **Minas por región (regla nuestra)**: la de casa, oro, madera y mineral;
+  un día abre el siguiente, «Orden de turnos» en las reglas) se va a +2, y j0 gana 524 de 1 000 (duración 8 / 14 / 29). **Minas por región (regla nuestra)**: la de casa, oro, madera y mineral;
   cada una de fuera, una rara y una básica por turno (`minasDeLasRegiones`): 2·regiones + 1
   por bando, 11 con 5 (con tres por región de fuera no cabían: objetos sin puerta 243 → 314
   de 1 000 y guardias del generador rotos).
