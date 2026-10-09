@@ -78,6 +78,7 @@ import {
   heroById,
   heroesOf,
   MINE_YIELD,
+  ordenDelDia,
   resolvePendingBattle,
   townsOf,
   visibleNow,
@@ -110,6 +111,7 @@ import {
   ejercito,
   esPersonaje,
   forzarBatalla,
+  hastaSuSiguienteTurno,
   monstruoVivo,
   planDeNodos,
   ponerMonstruo,
@@ -552,6 +554,65 @@ describe('calendario', () => {
     expect(dayOfWeek(state)).toBe(2);
   });
 
+  it('el orden de los turnos va en serpiente: quien cierra un día abre el siguiente', () => {
+    // Regla nuestra (fheroes2 tiene el orden fijo): con el 0 abriendo todos los
+    // días, ganaba 603 de 1 000 partidas de la IA contra sí misma.
+    const state = newGame({ seed: 3 });
+    const c = ctx(3);
+    expect(ordenDelDia(state.players, 1)).toEqual([0, 1]);
+    expect(ordenDelDia(state.players, 2)).toEqual([1, 0]);
+    expect(ordenDelDia(state.players, 3)).toEqual([0, 1]);
+    while (state.day < 5) applyAdventureAction(state, { type: 'end_turn' }, c, state.current);
+
+    // La crónica es quien da fe: cada turno empieza con su `turn_start`, y el
+    // cambio de día (con la patrulla de los asaltantes) cae entre los dos
+    // turnos seguidos del mismo jugador.
+    const turnos = state.log
+      .filter((e) => e.kind === 'day_start' || e.kind === 'turn_start')
+      .map((e) => (e.kind === 'day_start' ? `día ${e.day}` : `j${e.actor}`));
+    expect(turnos).toEqual([
+      'día 1',
+      'j0',
+      'j1',
+      'día 2',
+      'j1',
+      'j0',
+      'día 3',
+      'j0',
+      'j1',
+      'día 4',
+      'j1',
+      'j0',
+      'día 5',
+      'j0',
+    ]);
+  });
+
+  it('con más jugadores la serpiente da la vuelta entera, y quien no juega se salta', () => {
+    const tres = [{ id: 0 }, { id: 1 }, { id: 2 }];
+    expect(ordenDelDia(tres, 1)).toEqual([0, 1, 2]);
+    expect(ordenDelDia(tres, 2)).toEqual([2, 1, 0]);
+
+    // Un tercero ya eliminado: el día 2 lo abriría él, y lo abre el siguiente
+    // vivo de su orden, que es quien cerró el 1.
+    const state = newGame({ seed: 3 });
+    const c = ctx(3);
+    state.players.push({ ...structuredClone(state.players[1]!), id: 2, defeated: true });
+    applyAdventureAction(state, { type: 'end_turn' }, c, 0);
+    expect([state.day, state.current]).toEqual([1, 1]);
+    applyAdventureAction(state, { type: 'end_turn' }, c, 1);
+    expect([state.day, state.current]).toEqual([2, 1]);
+    applyAdventureAction(state, { type: 'end_turn' }, c, 1);
+    expect([state.day, state.current]).toEqual([2, 0]);
+  });
+
+  it('un día que no existe no tiene orden de turnos', () => {
+    expect(() => ordenDelDia([{ id: 0 }, { id: 1 }], 0)).toThrow(
+      'no hay orden de turnos para el día 0: los días empiezan en el 1',
+    );
+    expect(() => ordenDelDia([{ id: 0 }, { id: 1 }], 1.5)).toThrow(/los días empiezan en el 1/);
+  });
+
   it('las moradas crecen al empezar la semana', () => {
     const state = newGame({ seed: 4 });
     const c = ctx(4);
@@ -575,9 +636,8 @@ describe('economía', () => {
     const c = ctx(11);
     const oroInicial = state.players[0]!.resources.gold;
 
-    // Un turno de cada jugador devuelve la vez al primero, con su ingreso.
-    for (const _ of state.players)
-      applyAdventureAction(state, { type: 'end_turn' }, c, state.current);
+    // Su turno siguiente, con su ingreso.
+    hastaSuSiguienteTurno(state, c, 0);
     expect(state.players[0]!.resources.gold).toBeGreaterThan(oroInicial);
   });
 
@@ -1918,9 +1978,10 @@ function darCiudad(state: GameState, id: string, jugador: number): void {
 
 /** Lo que cobra el jugador 0 al empezar su turno siguiente. */
 function rentaDel0(state: GameState, c: GameContext): Resources {
-  applyAdventureAction(state, { type: 'end_turn' }, c, 0);
+  // Los turnos del rival no le tocan los recursos al 0: lo que cambia entre su
+  // turno y el siguiente es la renta, que entra al empezar el suyo.
   const antes = { ...state.players[0]!.resources };
-  applyAdventureAction(state, { type: 'end_turn' }, c, 1);
+  hastaSuSiguienteTurno(state, c, 0);
   const despues = state.players[0]!.resources;
   return Object.fromEntries(
     RESOURCE_KINDS.map((k) => [k, despues[k] - antes[k]]),
@@ -1974,8 +2035,7 @@ describe('el mapa de nodos se juega', () => {
     expect(hero.army.some((t) => t.creature === 'peasant')).toBe(true);
     expect(hero.movePoints).toBe(1500);
     // Y al día siguiente manda la criatura más lenta.
-    applyAdventureAction(state, { type: 'end_turn' }, c, 0);
-    applyAdventureAction(state, { type: 'end_turn' }, c, 1);
+    hastaSuSiguienteTurno(state, c, 0);
     expect(hero.movePoints).toBe(lento);
   });
 

@@ -33,7 +33,7 @@ import {
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import type { Point } from '../src/core/types.js';
-import { costesDelAlcance } from './helpers.js';
+import { costesDelAlcance, hastaSuSiguienteTurno } from './helpers.js';
 
 /** Anda `hero` hasta `to` con puntos de sobra: lo que importa es dónde acaba. */
 function andar(state: GameState, ctx: GameContext, hero: Hero, to: Point): void {
@@ -42,12 +42,15 @@ function andar(state: GameState, ctx: GameContext, hero: Hero, to: Point): void 
   expect(pointKey(hero.at), `la marcha de ${hero.id} no llegó`).toBe(pointKey(to));
 }
 
-/** Cierra el día: el turno del jugador 0 y el del 1, sin que ninguno haga nada. */
+/**
+ * Hasta el día siguiente del jugador 0, sin que nadie haga nada: su turno de
+ * mañana, que en serpiente (`ordenDelDia`) va detrás de dos del 1 o justo
+ * detrás del suyo.
+ */
 function pasarElDia(state: GameState, ctx: GameContext): void {
-  expect(state.current).toBe(0);
-  applyAdventureAction(state, { type: 'end_turn' }, ctx, 0);
-  applyAdventureAction(state, { type: 'end_turn' }, ctx, 1);
-  expect(state.current).toBe(0);
+  const dia = state.day;
+  hastaSuSiguienteTurno(state, ctx, 0);
+  expect(state.day).toBe(dia + 1);
 }
 
 /** Una partida sin asaltantes: que ninguno embosque ni tape un camino a mitad del guion. */

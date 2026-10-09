@@ -245,6 +245,21 @@ export function puenteSobreElAgua(): {
  * las casillas escritas a mano de la ruta que avisa (H2).
  */
 /**
+ * Cierra el turno de `jugador` y pasa los de los demás, sin hacer nada, hasta
+ * que le vuelve a tocar. En serpiente (`ordenDelDia`) eso son dos turnos del
+ * rival si `jugador` abrió el día y ninguno si lo cerró: contarlos a mano —un
+ * `end_turn` del 0 y otro del 1— es lo que daba por hecho que el 0 abre todos
+ * los días.
+ */
+export function hastaSuSiguienteTurno(state: GameState, ctx: GameContext, jugador: PlayerId): void {
+  if (state.current !== jugador) {
+    throw new Error(`no es el turno del jugador ${jugador}: juega el ${state.current}`);
+  }
+  do applyAdventureAction(state, { type: 'end_turn' }, ctx, state.current);
+  while (state.current !== jugador && state.finished === null);
+}
+
+/**
  * Una copia de la partida para probar una jugada sin tocar el original.
  *
  * `structuredClone` copia los datos y no el prototipo, así que la niebla

@@ -43,7 +43,12 @@ import {
 } from '../src/core/state/game.js';
 import { newGame, startingArmy } from '../src/core/state/setup.js';
 import { SPEED_TO_MOVE_POINTS } from '../src/core/types.js';
-import { copiaDePartida, ejercito, sinGuarnicionDeSalida } from './helpers.js';
+import {
+  copiaDePartida,
+  ejercito,
+  hastaSuSiguienteTurno,
+  sinGuarnicionDeSalida,
+} from './helpers.js';
 
 const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
 
@@ -314,8 +319,7 @@ describe('todos los lectores del ejército saben de personajes', () => {
     const state = newGame({ seed: 7 });
     const { hero, aren } = conPersonaje(state);
     const dia = state.day;
-    applyAdventureAction(state, { type: 'end_turn' }, ctx(7), 0);
-    applyAdventureAction(state, { type: 'end_turn' }, ctx(7), 1);
+    hastaSuSiguienteTurno(state, ctx(7), 0);
     expect(state.day).toBe(dia + 1);
 
     // Y el movimiento lo marca el más lento: el personaje, por su destreza, y

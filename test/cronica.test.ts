@@ -222,6 +222,8 @@ describe('la crónica pasa por la niebla', () => {
     pasarTurno(state, ctx, 0);
     pasear(state, ctx, 1, [{ x: 31, y: 6 }]);
     pasarTurno(state, ctx, 1);
+    // En serpiente el 1 cierra el día 1 y abre el 2 (`ordenDelDia`).
+    pasarTurno(state, ctx, 1);
 
     const meConsta = (): boolean =>
       leer(state, 0).recentEvents.some((e) => e.kind === 'hero_moved' && e.actor === 1);
@@ -232,7 +234,7 @@ describe('la crónica pasa por la niebla', () => {
     // fuera de la ventana, y el test daría verde por el motivo equivocado.
     pasear(state, ctx, 0, [{ x: 24, y: 6 }]);
     pasarTurno(state, ctx, 0);
-    pasarTurno(state, ctx, 1);
+    expect(state.day).toBe(3);
     expect(visibleNow(state, 0).has({ x: 31, y: 6 })).toBe(false);
 
     // Y sigue llegando, porque el reparto se decidió cuando ocurrió. Si se
@@ -254,9 +256,10 @@ describe('la crónica pasa por la niebla', () => {
     pasear(state, ctx, 1, [{ x: 8, y: 6 }]);
     resolvePendingBattle(state, ctx);
     expect(heroById(state, 'hero-0').at).toEqual(MI_CASTILLO);
-    // Cruzar el día es lo que pone un `day_start` del rival en la ventana.
+    // Cruzar el día es lo que pone un `day_start` del rival en la ventana. En
+    // serpiente (`ordenDelDia`) el 1 cierra el día 1 y abre el 2.
     pasarTurno(state, ctx, 1);
-    pasarTurno(state, ctx, 0);
+    expect(state.day).toBe(2);
     pasear(state, ctx, 1, [MI_CASTILLO]);
     expect(state.pendingBattle?.foe).toEqual({ kind: 'hero', heroId: 'hero-0' });
     expect(resolvePendingBattle(state, ctx).winner).toBe('attacker');

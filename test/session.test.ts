@@ -54,6 +54,11 @@ describe('sesión del cliente: el turno del rival', () => {
 
   it('construir en turno ajeno se rechaza con un motivo escrito para la persona', async () => {
     const s = new Session(13);
+    // Al día 2, que la persona cierra: en serpiente (`ordenDelDia`) abre
+    // también el 3 y el rival no juega en medio.
+    await s.endTurn();
+    expect(s.state.day).toBe(2);
+    expect(s.state.current).toBe(s.viewer);
     s.openTown(s.myTowns()[0]!.id);
     const edificios = s.activeTown!.buildings.length;
 
@@ -61,15 +66,16 @@ describe('sesión del cliente: el turno del rival', () => {
     s.build('town_hall');
     s.hireHero();
 
-    // Con la IA local el turno del rival se juega ENTERO de forma síncrona
-    // dentro de `endTurn()`, así que aquí `state.current` ya ha vuelto a ser el
-    // nuestro y lo único que sabe que hay algo a medias es la bandera. Esa
+    // `state.current` ya vuelve a ser el nuestro y lo único que sabe que hay
+    // algo a medias es la bandera, que baja al resolverse `endTurn()`. Esa
     // frase la pone el cliente porque el núcleo no puede saberla.
+    expect(s.state.current).toBe(s.viewer);
     expect(s.status).toBe('Espera: el turno del rival aún se está resolviendo.');
     expect(s.activeTown!.buildings.length).toBe(edificios);
 
     await enCurso;
     expect(s.isPlayersTurn).toBe(true);
+    expect(s.state.day).toBe(3);
   });
 
   it('cuando el turno es del rival de verdad, la frase la escribe el núcleo', () => {

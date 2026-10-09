@@ -69,6 +69,7 @@ import {
   heroesOf,
   MAX_HEROES_PER_PLAYER,
   objetosConocidos,
+  ordenDelDia,
   playerById,
   townsOf,
   veteranosEnSuBase,
@@ -448,6 +449,11 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId) {
       faction: player.faction,
       day: state.day,
       week: week(state),
+      // El de hoy, sin los eliminados: con él sabe si cierra el día (y vuelve a
+      // jugar enseguida) o lo abre (y el rival juega dos seguidos).
+      turnOrder: ordenDelDia(state.players, state.day).filter(
+        (id) => !playerById(state, id).defeated,
+      ),
       resources: Object.fromEntries(RESOURCE_KINDS.map((k) => [k, player.resources[k]])),
     },
     // A dónde vuelve un héroe derrotado o rendido, o `null` si ya no tiene base:

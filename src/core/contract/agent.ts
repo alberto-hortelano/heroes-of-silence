@@ -480,6 +480,11 @@ Notas:
   licencias, vuelve a la mochila del héroe. Si un héroe cae sin base, pierde
   equipo y mochila. Las piezas:
 ${CATALOGO_DE_EQUIPO_EN_PROSA}
+- ORDEN DE LOS TURNOS, en serpiente: quien cierra un día abre el siguiente
+  (día 1: jugador 0 y luego 1; día 2: 1 y luego 0; día 3: 0 y luego 1…).
+  "you.turnOrder" es el orden de HOY. Si cierras el día, tu siguiente turno
+  llega enseguida, ya en el día nuevo y sin que el rival haya movido; si lo
+  abres, el rival juega dos turnos seguidos antes de que vuelvas.
 - "yourBase" es tu base: el castillo al que vuelve un héroe tuyo que pierde una
   batalla o se rinde. Vuelve con el ejército vacío (o con la tropa que salvó
   rindiéndose) y sin movimiento hasta el día siguiente; la tropa muerta se

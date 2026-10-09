@@ -1592,6 +1592,38 @@ describe('el agente sabe cómo le fue', () => {
     expect(veredicto.problems?.[0]).toMatch(/héroe desconocido/);
   });
 
+  it('en serpiente el agente cierra el día 1 y abre el 2: dos turnos seguidos, cada uno con su veredicto', async () => {
+    // El agente es el 1: el día 1 juega segundo y, como quien cierra un día
+    // abre el siguiente (`ordenDelDia`), su turno del día 2 llega justo
+    // después, sin turno del rival en medio.
+    const { link, agent } = await montar(() => ({ actions: [] }));
+    const director = new Director(link, { seed: 309, agentPlayers: [1] });
+
+    const quienes: string[] = [];
+    for (let i = 0; i < 4; i++) {
+      const informe = await director.playTurn();
+      quienes.push(`día ${director.state.day} · j${informe.player} · ${informe.by}`);
+    }
+    await respira();
+
+    // El día que se lee es el de DESPUÉS de cerrar cada turno.
+    expect(quienes).toEqual([
+      'día 1 · j0 · heuristic',
+      'día 2 · j1 · agent',
+      'día 2 · j1 · agent',
+      'día 3 · j0 · heuristic',
+    ]);
+    const turnos = agent.seen.filter((p) => p.kind === 'adventure_turn');
+    expect(turnos.map((p) => [p.payload.you.day, p.payload.you.turnOrder])).toEqual([
+      [1, [0, 1]],
+      [2, [1, 0]],
+    ]);
+    // Y el veredicto del primero no se pierde por ir seguido del segundo.
+    for (const p of turnos) {
+      expect(agent.results.find((r) => r.requestId === p.requestId)?.ok).toBe(true);
+    }
+  });
+
   it('lo que va detrás de un end_turn se cuenta, no desaparece', async () => {
     // El `break` del `end_turn` tiraba las acciones siguientes sin aplicarlas,
     // sin meterlas en `problems` y sin contarlas: con
@@ -2076,10 +2108,15 @@ describe('la tropa se hace héroe, por el cable', () => {
       },
     });
     const ascensos = (): number => agent.seen.filter((p) => p.kind === 'hero_from_troop').length;
+    // Los turnos del rival que toquen —dos o ninguno: el orden va en serpiente,
+    // `ordenDelDia`— y después el del agente.
+    const siguienteDelAgente = async (): Promise<void> => {
+      while (director.state.current !== 0) await director.playTurn();
+      await director.playTurn();
+    };
 
     await director.playTurn(); // agente
-    await director.playTurn(); // rival
-    await director.playTurn(); // agente otra vez, el veterano sigue en la base
+    await siguienteDelAgente(); // otra vez, el veterano sigue en la base
     await respira();
     expect(ascensos()).toBe(1);
 
@@ -2087,13 +2124,11 @@ describe('la tropa se hace héroe, por el cable', () => {
     const base = director.state.towns.find((t) => t.owner === 0 && t.garrison.length > 0)!;
     const el = base.garrison.find((t) => t.veterania?.id === veterano)!;
     base.garrison = base.garrison.filter((t) => t !== el);
-    await director.playTurn(); // rival
-    await director.playTurn(); // agente, sin el veterano
+    await siguienteDelAgente(); // sin el veterano
     await respira();
     expect(ascensos()).toBe(1);
     base.garrison = [el, ...base.garrison];
-    await director.playTurn(); // rival
-    await director.playTurn(); // agente: ha vuelto
+    await siguienteDelAgente(); // ha vuelto
     await respira();
     expect(ascensos()).toBe(2);
   });

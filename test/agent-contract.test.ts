@@ -503,6 +503,23 @@ describe('lo que ve el agente', () => {
     expect((roundtrip.towns as unknown[]).length).toBeGreaterThan(0);
   });
 
+  it('el turno dice el orden de hoy, en serpiente, y la prosa explica qué supone', () => {
+    // El agente es el jugador 1: el día 1 juega segundo y cierra, y el 2 lo
+    // abre él justo después, sin que el rival haya movido.
+    const state = newGame({ seed: 91 });
+    const ctx = { rng: createRng(91) };
+    const orden = (): unknown => (serializeAdventureTurn(state, 1) as any).you.turnOrder;
+    expect(orden()).toEqual([0, 1]);
+    applyAdventureAction(state, { type: 'end_turn' }, ctx, 0);
+    applyAdventureAction(state, { type: 'end_turn' }, ctx, 1);
+    expect([state.day, state.current]).toEqual([2, 1]);
+    expect(orden()).toEqual([1, 0]);
+    expect(RESPONSE_FORMAT.adventure_turn).toMatch(
+      /en serpiente: quien cierra un día abre el siguiente/,
+    );
+    expect(RESPONSE_FORMAT.adventure_turn).toContain('"you.turnOrder"');
+  });
+
   it('solo enseña lo que ese jugador ha explorado', () => {
     const state = newGame({ seed: 92 });
     const payload = serializeAdventureTurn(state, 0) as {
