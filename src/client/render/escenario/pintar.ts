@@ -335,12 +335,20 @@ export const esVolumen = (s: Pick<Sprite, 'clase' | 'alto'>, umbral = UMBRAL_DE_
   SIEMPRE_VOLUMEN.has(s.clase) || s.alto > umbral;
 
 /**
- * El orden en que se pintan los volúmenes: por su `y`, que es su clave, y a
- * igual `y` de oeste a este. Negativo si `p` va antes que `q`. Lo que se pinta
+ * La clave del pintor de `s`: la de su pie (`y`), salvo lo que se ordena
+ * detrás de otra cosa sin moverse de su sitio (`Sprite.clave`, `ordenadoEn`).
+ */
+export const claveDe = (s: Pick<Sprite, 'y' | 'clave'>): number => s.clave ?? s.y;
+
+/**
+ * El orden en que se pintan los volúmenes: por su clave (`claveDe`), y a igual
+ * clave de oeste a este. Negativo si `p` va antes que `q`. Lo que se pinta
  * después tapa a lo de antes: es la pregunta de `vaDelante` (`colocar.ts`).
  */
-export const ordenDeVolumenes = (p: Pick<Sprite, 'x' | 'y'>, q: Pick<Sprite, 'x' | 'y'>): number =>
-  p.y - q.y || p.x - q.x;
+export const ordenDeVolumenes = (
+  p: Pick<Sprite, 'x' | 'y' | 'clave'>,
+  q: Pick<Sprite, 'x' | 'y' | 'clave'>,
+): number => claveDe(p) - claveDe(q) || p.x - q.x;
 
 /**
  * Parte la escena: cada sprite de la capa del suelo va a una sola lista, y las
@@ -355,7 +363,7 @@ export function separar(
   const volumenes: Volumen[] = [];
   for (const s of e.sprites) {
     if (s.capa !== 0 || !seVe(s, o.objeto)) continue;
-    if (esVolumen(s, umbral)) volumenes.push({ clave: s.y, s });
+    if (esVolumen(s, umbral)) volumenes.push({ clave: claveDe(s), s });
     else planos.push(s);
   }
   // `componer` ya los da por (capa, y, x); se ordena igual por si un día no.
@@ -759,7 +767,7 @@ export function pintarSuelo(
   // 7 · En orden de profundidad: las caras de roca y lo plano.
   const orden: ({ y: number; cara: CaraDeEscena } | { y: number; s: Sprite })[] = [
     ...e.relieve.caras.map((f) => ({ y: f.y + 1 - 0.01, cara: f })),
-    ...sep.planos.map((s) => ({ y: s.y, s })),
+    ...sep.planos.map((s) => ({ y: claveDe(s), s })),
   ].sort((p, q) => p.y - q.y);
   for (const p of orden) 'cara' in p ? pintarCara(p.cara) : pintarSprite(c, p.s, o);
   // 8 · La luz y la niebla baja.

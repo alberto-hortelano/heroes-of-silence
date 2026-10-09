@@ -121,7 +121,7 @@ import {
   Obstaculos,
   pasilloDe,
 } from './pasillo.js';
-import { esVolumen, ordenDeVolumenes, separar } from './pintar.js';
+import { claveDe, esVolumen, ordenDeVolumenes, separar } from './pintar.js';
 import {
   type Puente,
   puenteDe,
@@ -208,6 +208,15 @@ export interface Sprite {
    * `delanteDeLasParedes`): el mapa no levanta lo alto.
    */
   readonly filaAlta?: number;
+  /**
+   * La clave del pintor, si no es su `y` (`claveDe`): lo que se pinta en su
+   * sitio pero detrás de otra cosa (`ordenadoEn`), la pared que pasa por
+   * detrás de una ciudad de su pie. Su sitio (`y`, `ay`) no se toca: los
+   * guardias que leen dónde está una pieza por su pie (`celdasMalCubiertas`,
+   * `juntasColocadas`) siguen leyéndolo (#222). Antes se movían el pie y el
+   * ancla, y por eso solo la diagonal, que se lee por sus filos, podía.
+   */
+  readonly clave?: number;
 }
 
 export interface Luz {
@@ -1516,7 +1525,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     /** Si `s` se pinta después de alguno de `objetos` y lo taparía (sus cajas se solapan). */
     const tapaUnObjeto = (s: Sprite): boolean => {
       const caja = cajaDeSprite(s);
-      return objetos.some((o) => s.y >= o.y && solapan(caja, cajaDeSprite(o)));
+      return objetos.some((o) => claveDe(s) >= claveDe(o) && solapan(caja, cajaDeSprite(o)));
     };
     /**
      * Si `s` taparía la rampa de una bajada o un tramo de senda
@@ -1569,7 +1578,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       // en su sitio, ordenada justo antes que él (como la muralla). Sus filos
       // se leen por su ancla, que se mueve con el pie (`filosColocados`).
       if (reserva === 'ordenada' && !tapaElCamino(s)) {
-        sprites.push(ordenadoEn(s, Math.min(...objetos.map((o) => o.y)) - 0.01));
+        sprites.push(ordenadoEn(s, Math.min(...objetos.map(claveDe)) - 0.01));
         return true;
       }
     }
@@ -1793,8 +1802,8 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         throw new Error(`la rampa de ${r.x},${r.y} no tiene su pieza ${p} (${hoja})`);
       let s = spriteDeRampa(m, hoja, r);
       for (const n of sprites)
-        if (esNodoHorneado(n) && n.y < s.y && seSolapan(s, n, perfilDe))
-          s = ordenadoEn(s, n.y - 0.01);
+        if (esNodoHorneado(n) && claveDe(n) < claveDe(s) && seSolapan(s, n, perfilDe))
+          s = ordenadoEn(s, claveDe(n) - 0.01);
       sprites.push(s);
     }
     // Y una frontal de su material sobre el extremo de fuera de cada costado, que
@@ -2525,7 +2534,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     if (puerta !== undefined && delante === undefined)
       throw new Error(`la puerta ${puerta.id} no está en la escena`);
     if (delante === undefined) return entraria('muro', s.x, s.y, s.alto) && meter(s);
-    sprites.push(s.y < delante.y ? s : ordenadoEn(s, delante.y - 0.01));
+    sprites.push(claveDe(s) < claveDe(delante) ? s : ordenadoEn(s, claveDe(delante) - 0.01));
     return true;
   }
 
@@ -3020,10 +3029,10 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     for (const p of sprites)
       if (
         p.clase === 'pared' &&
-        p.y >= clave &&
+        claveDe(p) >= clave &&
         camino.some(([x, y]) => tapaElPunto(p, perfilDe, x, y))
       )
-        clave = p.y + 0.01;
+        clave = claveDe(p) + 0.01;
     const pieza = (k: number) =>
       m === undefined ? marcadorDeBajada(b, k) : spriteDeBajada(m, hoja, b, k);
     // Y antes de lo horneado de un nodo con el que se solapa: la bajada que
@@ -3031,8 +3040,8 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     // el lote de §23; con marcador no se veía). El nodo tapa el final de la rampa.
     let s = pieza(clave);
     for (const n of sprites)
-      if (esNodoHorneado(n) && n.y < s.y && llegaA(b, n) && seSolapan(s, n, perfilDe))
-        s = pieza(n.y - 0.01);
+      if (esNodoHorneado(n) && claveDe(n) < claveDe(s) && llegaA(b, n) && seSolapan(s, n, perfilDe))
+        s = pieza(claveDe(n) - 0.01);
     // La bajada es el camino: no la para la reserva del objeto al que lleva, ni
     // cuenta como base sobre ella (`meter`), que su pie es la senda que llega.
     sprites.push(s);
@@ -3297,7 +3306,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   const carasDeEscena = rel.caras.map(
     (c): CaraDeEscena => ({ ...c, pintada: pintadaDeCara(c, sprites, perfilDe) }),
   );
-  sprites.sort((p, q) => p.capa - q.capa || p.y - q.y || p.x - q.x);
+  sprites.sort((p, q) => p.capa - q.capa || ordenDeVolumenes(p, q));
   /** Qué sprite es una ladera: cualquier módulo de laderas del catálogo, no solo los que se usaron. */
   const deLadera = modulosDeLadera(catalogo);
   const agua = a.franjas.filter((f) => f.barrera === 'water').flatMap((f) => f.casillas);
@@ -4969,11 +4978,16 @@ export function loQueTapa(
   }
   const objetos = sprites
     .filter((s) => s.clase === 'objeto')
-    .map((o) => ({ y: o.y, caja: cajaDeSprite(o) }));
+    .map((o) => ({ clave: claveDe(o), caja: cajaDeSprite(o) }));
   /** Si lo que pinta `s` en `(x, y)` lo tapa un objeto que se pinta después (#221). */
   const bajoUnObjeto = (s: Sprite, x: number, y: number) =>
     objetos.some(
-      (o) => o.y > s.y && x >= o.caja[0] && x <= o.caja[2] && y >= o.caja[1] && y <= o.caja[3],
+      (o) =>
+        o.clave > claveDe(s) &&
+        x >= o.caja[0] &&
+        x <= o.caja[2] &&
+        y >= o.caja[1] &&
+        y <= o.caja[3],
     );
   return (x, y) => {
     let pared = false;
@@ -5133,12 +5147,9 @@ function cajaDe(casillas: readonly number[], W: number): [number, number, number
   return [x0, y0, x1, y1];
 }
 
-/**
- * `s` pintado en el mismo sitio pero ordenado como si su pie estuviera en `y`:
- * se mueve el pie y el ancla lo mismo, en sentidos contrarios.
- */
+/** `s` pintado en su sitio pero ordenado como si su pie estuviera en `y` (`Sprite.clave`). */
 function ordenadoEn(s: Sprite, y: number): Sprite {
-  return { ...s, y, ay: s.ay - ((s.y - y) * s.nh) / s.alto };
+  return { ...s, clave: y };
 }
 
 export type { Analisis };

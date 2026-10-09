@@ -177,8 +177,10 @@ describe('separar: el suelo fijo y los volúmenes', () => {
           expect(v.s.alto).toBeGreaterThan(UMBRAL_DE_VOLUMEN);
     });
 
-    it(`semilla ${semilla}: los volúmenes van por la y de su base y, a igualdad, por la x`, () => {
-      for (const v of volumenes) expect(v.clave).toBe(v.s.y);
+    it(`semilla ${semilla}: los volúmenes van por su clave (la y de su base, o la de lo que tienen delante) y, a igualdad, por la x`, () => {
+      for (const v of volumenes) expect(v.clave).toBe(v.s.clave ?? v.s.y);
+      // La clave que no es su pie solo adelanta: va detrás de lo que tiene delante.
+      for (const v of volumenes) expect(v.clave).toBeLessThanOrEqual(v.s.y);
       for (let i = 1; i < volumenes.length; i++) {
         const a = volumenes[i - 1]!;
         const b = volumenes[i]!;
