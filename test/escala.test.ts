@@ -7,9 +7,11 @@ import {
   AREA_DE_REFERENCIA,
   AREA_POR_REGION,
   marchaALaEscala,
+  radioALaEscala,
   raizEntera,
 } from '../src/core/escala.js';
 import { maxMovePoints } from '../src/core/hero/hero.js';
+import { HERO_SCOUT_RADIUS, TOWN_SCOUT_RADIUS } from '../src/core/state/game.js';
 import { SPEED_TIERS, SPEED_TO_MOVE_POINTS } from '../src/core/types.js';
 
 describe('la raíz entera', () => {
@@ -47,5 +49,28 @@ describe('la marcha sale del área (#226)', () => {
     expect(maxMovePoints({ army, skills: {} }, undefined)).toBe(
       marchaALaEscala(SPEED_TO_MOVE_POINTS.very_slow),
     );
+  });
+});
+
+describe('la vista sale del área (#229)', () => {
+  it('cada radio, ×√(AREA_POR_REGION / AREA_DE_REFERENCIA), al entero más cercano', () => {
+    for (let r = 0; r <= 40; r++) {
+      const v = radioALaEscala(r);
+      // |v − r·√(A/B)| ≤ ½, en enteros: (2v − 1)² · B ≤ 4r² · A < (2v + 1)² · B.
+      const x4 = 4 * r * r * AREA_POR_REGION;
+      expect(Math.max(0, 2 * v - 1) ** 2 * AREA_DE_REFERENCIA).toBeLessThanOrEqual(x4);
+      expect((2 * v + 1) ** 2 * AREA_DE_REFERENCIA).toBeGreaterThan(x4);
+    }
+  });
+
+  it('los radios del héroe y del castillo son los de fheroes2 a escala, no la cita', () => {
+    // fheroes2: héroe 4, castillo 5 (`getFogDiscoveryDistance`); con 450 sobre 300, 5 y 6.
+    expect([HERO_SCOUT_RADIUS, TOWN_SCOUT_RADIUS]).toEqual([radioALaEscala(4), radioALaEscala(5)]);
+    expect([HERO_SCOUT_RADIUS, TOWN_SCOUT_RADIUS]).toEqual([5, 6]);
+  });
+
+  it('lanza con lo que no es un entero ≥ 0', () => {
+    for (const n of [-1, 2.5, Number.NaN])
+      expect(() => radioALaEscala(n)).toThrow(/radio de vista/);
   });
 });

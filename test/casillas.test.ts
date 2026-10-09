@@ -15,18 +15,20 @@ import { newGame } from '../src/core/state/setup.js';
 const MAPA = { width: 10, height: 6 };
 
 describe('Casillas: la niebla por índice (#146)', () => {
-  it('el cuadrado se recorta al mapa: 81 casillas en medio, 25 en la esquina', () => {
+  it('el cuadrado se recorta al mapa: (2r + 1)² casillas en medio, (r + 1)² en la esquina', () => {
+    // El radio es el del héroe a la escala del mapa (#229: 5 en el 42×42, 121 y 36).
+    const r = HERO_SCOUT_RADIUS;
     const medio = Casillas.vacias({ width: 20, height: 20 });
-    medio.marcarCuadrado({ x: 10, y: 10 }, HERO_SCOUT_RADIUS);
-    expect(medio.size).toBe(81);
+    medio.marcarCuadrado({ x: 10, y: 10 }, r);
+    expect(medio.size).toBe((2 * r + 1) * (2 * r + 1));
     const esquina = Casillas.vacias({ width: 20, height: 20 });
-    esquina.marcarCuadrado({ x: 0, y: 0 }, HERO_SCOUT_RADIUS);
-    expect(esquina.size).toBe(25);
-    expect(esquina.has({ x: 4, y: 4 })).toBe(true);
-    expect(esquina.has({ x: 5, y: 0 })).toBe(false);
+    esquina.marcarCuadrado({ x: 0, y: 0 }, r);
+    expect(esquina.size).toBe((r + 1) * (r + 1));
+    expect(esquina.has({ x: r, y: r })).toBe(true);
+    expect(esquina.has({ x: r + 1, y: 0 })).toBe(false);
     // Marcar dos veces lo mismo no cuenta dos veces: la cuenta es la del lienzo.
     esquina.marcarCuadrado({ x: 1, y: 1 }, 1);
-    expect(esquina.size).toBe(25);
+    expect(esquina.size).toBe((r + 1) * (r + 1));
   });
 
   it('lo de fuera del mapa no está, y escribirlo lanza diciéndolo', () => {

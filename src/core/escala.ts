@@ -60,3 +60,23 @@ export function marchaALaEscala(puntos: number): number {
   // Exacto en enteros: la división va al final, sobre el cuadrado ya escalado.
   return raizEntera(Math.floor((puntos * puntos * AREA_POR_REGION) / AREA_DE_REFERENCIA));
 }
+
+/**
+ * Un radio de vista de fheroes2 (`getFogDiscoveryDistance`: héroe 4, castillo 5)
+ * a la escala de este mapa: ×√(AREA_POR_REGION / AREA_DE_REFERENCIA), **al
+ * entero más cercano** (4 → 5 y 5 → 6 con 450). **Regla nuestra** (#229).
+ *
+ * Es la misma distancia que la marcha, y por la misma razón: si el mapa crece y
+ * la vista no, se ve menos de la partida. Con 4 y 5 en el 42×42 de #226, en
+ * 1-400 ninguna semilla tenía a la vez una ruta de dos colores y una guardia a
+ * salvo a la que se llegue hoy (en 34×34 eran 9): el héroe andaba más lejos de lo
+ * que veía. Al más cercano y no hacia abajo como la marcha: ⌊4 × 1,22⌋ = 4 no
+ * escalaría nada, y el radio es una casilla entera, no unos puntos de marcha.
+ */
+export function radioALaEscala(radio: number): number {
+  if (!Number.isSafeInteger(radio) || radio < 0)
+    throw new Error(`un radio de vista es un entero ≥ 0, y es ${radio}`);
+  // ⌊√x + ½⌋ = ⌊(⌊√(4x)⌋ + 1) / 2⌋, con x = radio² · A / B: todo en enteros.
+  const cuatroX = Math.floor((4 * radio * radio * AREA_POR_REGION) / AREA_DE_REFERENCIA);
+  return Math.floor((raizEntera(cuatroX) + 1) / 2);
+}

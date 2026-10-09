@@ -11,6 +11,7 @@ import { resumenDeBatalla } from '../battle/resumen.js';
 import type { BattleHero, BattleStack, BattleState, Side } from '../battle/types.js';
 import { personajeDe, SIDES } from '../battle/types.js';
 import { allCreatures, creature, tipoDeHeroePorDefecto } from '../data.js';
+import { radioALaEscala } from '../escala.js';
 import { problemaDeTipo, type VeteranoEnBase, veteranosEn } from '../hero/ascenso.js';
 import {
   conEquipoDe,
@@ -192,8 +193,11 @@ export const MINE_YIELD: Readonly<Record<ResourceKind, number>> = {
   gems: 1,
 };
 
-/** Radio de visión de un héroe. */
-export const HERO_SCOUT_RADIUS = 4;
+/**
+ * Radio de visión de un héroe: el 4 de fheroes2 a la escala del mapa
+ * (`radioALaEscala`, #229: 5 en el 42×42).
+ */
+export const HERO_SCOUT_RADIUS = radioALaEscala(4);
 
 /**
  * Radio de visión de un pueblo o castillo (#72).
@@ -208,7 +212,8 @@ export const HERO_SCOUT_RADIUS = 4;
  * ramificar por el fuerte**: no depende de la fortificación, y el enum no tiene
  * un valor `TOWN` aparte. Lo que allí es un disco chapucero aquí es el cuadrado
  * de `marcarCuadrado`, así que el héroe **ya diverge** —81 casillas contra 69— e
- * igualar la forma es otra tarea. Se copia el número.
+ * igualar la forma es otra tarea. Se copia el número, y desde #229 se lleva a la
+ * escala del mapa como la marcha (`radioALaEscala`: 5 → 6 en el 42×42).
  *
  * Y alimenta las DOS mitades de la niebla: `visibleNow` y también `fog` y
  * `memory` (`revealAroundTown`). Durante un tiempo solo alimentó la primera, y
@@ -217,7 +222,7 @@ export const HERO_SCOUT_RADIUS = 4;
  * casilla `terrain: null` y la persona, que pinta con `fog`, no lo veía en 96 de
  * 200 semillas el día 1 — y lo pisaba.
  */
-export const TOWN_SCOUT_RADIUS = 5;
+export const TOWN_SCOUT_RADIUS = radioALaEscala(5);
 
 /**
  * Cómo terminó una partida: quién ganó, o `null` si **no ganó nadie**.

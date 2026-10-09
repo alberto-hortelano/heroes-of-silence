@@ -800,11 +800,23 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   1 576, `hero_defeated` 337 → 406, `node_captured` 1 164 → 1 301,
  *   `town_captured` 1 337 → 1 362, `march_halted` 124 → 179, `raider_spawned`
  *   1 619 → 1 622; ningún tipo nuevo ni ninguno que desaparezca.
+ * - `f10c0711…` (70 847 líneas): **la vista a la escala del mapa** (#229,
+ *   09-10-2026): el radio de fheroes2 del héroe y del castillo, 4 y 5, pasa por
+ *   `radioALaEscala` (5 y 6 en el 42×42). Cambia lo que se ve, no el mapa:
+ *   **0 de 200 idénticas**, todas desde el día 1; el primer hecho distinto es
+ *   `hero_moved` en 131 (otro sello `seen`, o la marcha que ahora se para:
+ *   54 pasan a `march_halted`), `raider_spawned` en 63 (el castillo ve el grupo
+ *   que nace, otro `seen`), `march_halted` en 4 y `battle_started` en 2. Solo 8
+ *   con otro ganador, j0 130 → 130, **0 sin terminar**, duración 8 / 14 / 31
+ *   igual. `march_halted` 179 → 141 (con más vista, más grupos se ven ya al salir y la ruta los avisa),
+ *   batallas 1 576 → 1 572, `hero_defeated` 406 → 412, `node_captured` 1 301 →
+ *   1 295, `town_captured` 1 362 → 1 359; ningún tipo nuevo ni ninguno que
+ *   desaparezca.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '62bd822c83964c51a63f0326157931e1fee042e80de0ad1675f236bde134be2b',
+  sha: 'f10c071139555fc0faabec3453c42fed561ab3b6db7f64dfe7dcbd1fc7d12c8d',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

@@ -361,16 +361,6 @@ export function rutaDeDosColores(
 export const reclutaDeNivel1 = (faction: string): string =>
   faction === 'knight' ? 'peasant' : 'skeleton';
 
-/**
- * La batalla de escritorio vale aunque la ruta a la guardia cruce un grupo que
- * embosca: lo que se mira es una batalla de varios por bando jugada a clics, y
- * la de un grupo lo es. Desde el mapa de 42×42 (#226), con la misma vista
- * (radio 4 y 5) y más marcha, ninguna de 1-400 tenía a la vez la ruta de dos
- * colores y una guardia a salvo a la que se llegue hoy (eran 9 de 400 en 34×34);
- * aunque embosquen, 23 de 400 (la primera, la 41).
- */
-export const EMBOSCADA_DEL_ESCRITORIO = { aunqueEmbosquen: true } as const;
-
 /** Los pasos de rueda que da la pasada de escritorio antes de su batalla (zoom y arrastre). */
 export const RUEDA_DEL_ESCRITORIO = 2;
 
@@ -396,13 +386,11 @@ export function buscarEscritorio(b: Caja, desde = 1): number {
     if (espejo.scene !== 'town' || espejo.activeTown === null) continue;
     espejo.recruitAll(reclutaDeNivel1(espejo.activeTown.faction));
     espejo.closeTown();
-    const guardia = guardiaEnElMarco(
-      b,
-      e,
-      tileTrasRueda(e, RUEDA_DEL_ESCRITORIO),
-      espejo,
-      EMBOSCADA_DEL_ESCRITORIO,
-    );
+    // Una guardia a salvo: la ruta no cruza un grupo que embosca. Con el mapa
+    // de 42×42 (#226) y la vista de fheroes2 sin escalar (4 y 5) no la había en
+    // 1-400 y se aceptaba la emboscada; con la vista a escala (#229, 5 y 6), la
+    // primera es la 28 (09-10-2026).
+    const guardia = guardiaEnElMarco(b, e, tileTrasRueda(e, RUEDA_DEL_ESCRITORIO), espejo);
     if (guardia === null) continue;
     espejo.clickTile(guardia);
     if (espejo.battle !== null && hayAnguloEnLaBatalla(espejo, b)) return semilla;

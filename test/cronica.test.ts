@@ -26,6 +26,7 @@ import {
   applyAdventureAction,
   type GameContext,
   type GameState,
+  HERO_SCOUT_RADIUS,
   heroById,
   resolvePendingBattle,
   visibleNow,
@@ -195,10 +196,10 @@ describe('la crónica pasa por la niebla', () => {
   it('lo que el rival hace a la vista llega, y paso a paso', () => {
     const { state, ctx } = partida(102);
 
-    // Mi héroe se planta en (28,6): ve de la 24 a la 32.
+    // Mi héroe se planta en (28,6): ve de 28 − r a 28 + r (r = 5 en el 42×42, #229).
     pasear(state, ctx, 0, [{ x: 28, y: 6 }]);
     pasarTurno(state, ctx, 0);
-    // El rival viene hacia mí desde la 35. Entra en mi vista en la 32.
+    // El rival viene hacia mí desde la 35. Entra en mi vista en la 28 + r.
     pasear(state, ctx, 1, [{ x: 31, y: 6 }]);
     pasarTurno(state, ctx, 1);
 
@@ -208,7 +209,9 @@ describe('la crónica pasa por la niebla', () => {
 
     // «Entero o nada» se aplica a cada paso, que es lo que es un `hero_moved`:
     // el mismo viaje llega recortado por donde deja de vérsele.
-    expect(pasos).toEqual([32, 31]);
+    const borde = 28 + HERO_SCOUT_RADIUS;
+    expect(borde).toBeLessThan(35); // si no, el rival nacería a la vista
+    expect(pasos).toEqual(Array.from({ length: borde - 30 }, (_, i) => borde - i));
     expect(state.log.filter((e) => e.kind === 'hero_moved' && e.actor === 1)).toHaveLength(4);
   });
 
