@@ -3,7 +3,8 @@
  * borde recto y hay su arte, la pared se abre —el cuerpo en el hueco y un
  * costado a cada lado— en vez de llevar la bajada encima. Con rejillas a mano
  * (`rampasDeFrente`), con el arte del repo (`spriteDeRampa`, el guardia
- * `rampasSinSusPiezas`) y en un mapa real (s12, la de roca de (12, 8)).
+ * `rampasSinSusPiezas`) y en un mapa real (s62, la de roca de (4, 7); era s12 (12, 8)
+ * en 34×34, antes de #226).
  */
 import { describe, expect, it } from 'vitest';
 import { type CatalogoEnBruto, catalogoValidado } from '../src/client/render/escenario/catalogo.js';
@@ -221,10 +222,16 @@ describe('las piezas de la rampa, con el arte del repo', () => {
   });
 });
 
-describe('las rampas en un mapa real: s12, (12, 8)', () => {
-  const map = newGame({ seed: 12 }).map;
-  const e = componer(map, 12, catalogo);
-  const r = e.relieve.rampas.find((k) => k.x === 12 && k.y === 8);
+// Desde #226 (el mapa de 42×42) la s12 es otro mapa y no lleva rampa. Con
+// arte salen 1 en 1-200 y 19 en 1-1000 (eran 5 y 27 en 34×34; 09-10-2026),
+// todas de caída 1; la de 1-200 es la de roca de s62 (4, 7).
+const SEMILLA = 62;
+const [RX, RY] = [4, 7];
+
+describe(`las rampas en un mapa real: s${SEMILLA}, (${RX}, ${RY})`, () => {
+  const map = newGame({ seed: SEMILLA }).map;
+  const e = componer(map, SEMILLA, catalogo);
+  const r = e.relieve.rampas.find((k) => k.x === RX && k.y === RY);
 
   it('se abre la pared: tres piezas, ninguna frontal en el hueco y la bajada sin su pieza', () => {
     expect(r).toBeDefined();
@@ -234,12 +241,13 @@ describe('las rampas en un mapa real: s12, (12, 8)', () => {
     // Sus paredes no son de la cara: ni se pintan ni piden frontal.
     const fuera = new Set(celdasDeLaRampa(r as Rampa));
     expect(e.relieve.celdas.filter((c) => fuera.has(claveDeCelda(c)))).toEqual([]);
-    const b = e.relieve.bajadas.find((k) => k.alto[0] === 12 && k.alto[1] === 8);
-    expect(b).toMatchObject({ rumbo: 's', arriba: [12.5, 9], deUnaRampa: true });
+    const b = e.relieve.bajadas.find((k) => k.alto[0] === RX && k.alto[1] === RY);
+    expect(b).toMatchObject({ rumbo: 's', arriba: [RX + 0.5, RY + 1], deUnaRampa: true });
     // Sin pieza de bajadas en su filo.
     expect(
       e.sprites.filter(
-        (s) => s.src?.includes('/bajadas-') === true && Math.abs(s.x - 12.5) < 0.6 && s.y < 11,
+        (s) =>
+          s.src?.includes('/bajadas-') === true && Math.abs(s.x - (RX + 0.5)) < 0.6 && s.y < RY + 3,
       ),
     ).toEqual([]);
     expect([
@@ -251,8 +259,8 @@ describe('las rampas en un mapa real: s12, (12, 8)', () => {
       e.informe.paredesTapadas,
       e.informe.carasCortadas,
     ]).toEqual([0, 0, 0, 0, 0, 0, 0]);
-    // La senda bajo el relieve no es 0 (techo de media 5): s12 tiene uno en
-    // (17,5, 10,5) con y sin la rampa (09-10-2026). La rampa no añade ninguno.
+    // La senda bajo el relieve no es 0 en todo mapa (techo de media 5): la
+    // rampa no añade ninguno.
     const sinRampas = {
       ...catalogo,
       hojas: Object.fromEntries(
@@ -260,7 +268,7 @@ describe('las rampas en un mapa real: s12, (12, 8)', () => {
       ),
     };
     expect(e.informe.sendaBajoElRelieve).toBeLessThanOrEqual(
-      componer(map, 12, sinRampas).informe.sendaBajoElRelieve,
+      componer(map, SEMILLA, sinRampas).informe.sendaBajoElRelieve,
     );
   });
 
@@ -271,7 +279,7 @@ describe('las rampas en un mapa real: s12, (12, 8)', () => {
         Object.entries(catalogo.hojas).filter(([h]) => !h.startsWith('rampa-')),
       ),
     };
-    const s = componer(map, 12, sin);
+    const s = componer(map, SEMILLA, sin);
     expect(s.relieve.rampas).toEqual([]);
     expect(s.relieve.bajadas.some((b) => b.deUnaRampa === true)).toBe(false);
     expect(s.informe.rampasSinSusPiezas).toBe(0);
