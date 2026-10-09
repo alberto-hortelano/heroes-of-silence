@@ -496,6 +496,41 @@ describe('nada que se pinte encima tapa un puente', () => {
       { y: 0, x0: 4.5, x1: 7.5, caida: 1, material: 'cara-roca' },
     ]);
   });
+
+  it('el puente por la junta de dos paredes solo las toca: por dentro no cruza ninguna (#222)', () => {
+    // Todo puente de norte a sur va por el centro de su casilla, que es la
+    // junta de dos caídas al sur: las cruzaba a las dos por la punta, y la cara
+    // acababa a media casilla de cada lado del tablero (s30 (21, 20)).
+    const nivel = [2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1].concat(
+      Array.from({ length: 9 }, () => 1),
+    );
+    const cs = celdas(
+      nivel,
+      9,
+      3,
+      Array.from({ length: 27 }, () => 'grass' as const),
+    );
+    const enLaJunta = [
+      {
+        extremos: [
+          [4.5, 0.5],
+          [4.5, 2.5],
+        ] as const,
+      },
+    ];
+    expect([...celdasBajoLosPuentes(cs, enLaJunta)].sort()).toEqual(['4,1,S,2', '5,1,S,2']);
+    expect([...celdasBajoLosPuentes(cs, enLaJunta, true)]).toEqual([]);
+    // Y el que cruza una por dentro la sigue dejando sin pieza.
+    const porDentro = [
+      {
+        extremos: [
+          [4.4, 0.5],
+          [4.4, 2.5],
+        ] as const,
+      },
+    ];
+    expect([...celdasBajoLosPuentes(cs, porDentro, true)]).toEqual(['4,1,S,2']);
+  });
 });
 
 describe('los cruces quebrados se asientan con los dos estribos en tierra', () => {

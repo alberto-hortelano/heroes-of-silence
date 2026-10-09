@@ -11,12 +11,17 @@
  * muestra del bucle rápido 2, 1, 2 y 1 (s57, s443, s10 y s37); con la de
  * ahora, 4, 18 y 1, 0, 1 y 0. La muesca de una casilla de la puerta de una
  * ciudad en la línea del acantilado (s57) la quita el generador
- * (`puertasSinMuesca`, #222; `test/puertas-sin-muesca.test.ts`). Lo que queda,
- * en `QUEDAN`: la ciudad de s10 (23,13), cuya muesca no se abre porque cerraría
- * el pasillo de la ciudad de al lado; la de s6, una ciudad a nivel 0 en la
- * línea a la que se entra en diagonal por debajo de la cara, y el puente
- * (s12: la pared que cruza su línea no lleva pieza, `celdasBajoLosPuentes`, y
- * el tablero empieza 0,3 más allá).
+ * (`puertasSinMuesca`, #222; `test/puertas-sin-muesca.test.ts`).
+ *
+ * El resto de #222, en la escena (09-10-2026): la frontal y la ladera también
+ * pasan por detrás del objeto de su pie, y la diagonal por detrás del que pinta
+ * encima el camino que taparía, con la clave del pintor (`Sprite.clave`) y no
+ * moviendo su pie; la que taparía el tablero de un puente va por detrás de él;
+ * y la que un puente solo toca en la punta de su filo lleva pieza
+ * (`celdasBajoLosPuentes(…, true)`). Se vio morder quitando cada una: sin la
+ * pared por detrás del objeto, s37 y s66 en rojo; sin la del puente, s30 y
+ * s92; sin las caras junto al puente, s30. Y con el código de antes, las
+ * cuatro de la muestra.
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -27,6 +32,7 @@ import {
 import type { Modulo } from '../src/client/render/escenario/catalogo.js';
 import type { Sprite } from '../src/client/render/escenario/colocar.js';
 import { cajaDeSprite } from '../src/client/render/escenario/pasillo.js';
+import { claveDe } from '../src/client/render/escenario/pintar.js';
 import { bandaDeCara, type Cara } from '../src/client/render/escenario/relieve.js';
 import { catalogoDelDisco, partidaDe } from './helpers.js';
 import { rango, segunPrisa } from './lento.js';
@@ -107,9 +113,9 @@ describe('las tiradas de frontal cortadas junto a un objeto (#221)', () => {
 });
 
 /**
- * Los mapas reales: las semillas de la auditoría 7 (s57 y s443, que en 42×42
- * ya no lo dan) y dos de 1-40 que lo dan desde #226 (s30 y s37), y 1-40 en la
- * orden lenta. Lo que queda, por semilla (arriba).
+ * Los mapas reales: en el bucle rápido, cuatro que lo daban antes de #222; en
+ * la orden lenta, 1-40, las de la auditoría 7 (s57 y s443) y las que quedan
+ * en 1-200. Lo que queda, por semilla (abajo).
  */
 // Con #224 (el vestido se repite por una silla y abre esquinas) cambian: s6 es
 // otro mapa y no lo da; s2, s22 y s24, otros mapas, sí; s3, por la esquina de
@@ -126,8 +132,20 @@ describe('las tiradas de frontal cortadas junto a un objeto (#221)', () => {
 //
 // Con la rampa de muesca (§36) s17 ya no lo da: el nodo de (29,30) es su muesca
 // y la pieza lleva la esquina de la cara de la fila 30 (09-10-2026).
-const QUEDAN: Readonly<Record<number, number>> = { 30: 1, 37: 1 };
-const SEMILLAS = segunPrisa([57, 443, 30, 37], [...rango(1, 40), 57, 443]);
+//
+// Con #222 (la pared pasa por detrás del objeto de su pie con la clave del
+// pintor, la que taparía un tablero por detrás del puente, y la que un puente
+// solo toca en la punta de su filo lleva pieza), en 1-40, 2 → 0, y en 1-200,
+// 23 → 4 (09-10-2026). Las cuatro que quedan las tapa la senda, no un objeto:
+// la diagonal que cerraría la cara cae sobre el camino que sale del pie de la
+// esquina (s105 (21, 35) a la mina de (21, 36) y (26, 37) de la ciudad de (26,
+// 36); s174 (27, 18), entre dos ciudades) o del de una bajada que no es una
+// rampa de muesca (s143 (33, 25), basalto: la muesca solo tiene arte de roca y
+// arenisca). La muestra del bucle rápido, las que lo daban antes: s37 (la mina
+// de (1, 26)), s66 (el nodo de acantilado de (5, 23)), s30 (el puente de
+// (21, 21), en la junta de dos paredes) y s92 (el de (13, 25), en diagonal).
+const QUEDAN: Readonly<Record<number, number>> = { 105: 2, 143: 1, 174: 1 };
+const SEMILLAS = segunPrisa([37, 66, 30, 92], [...rango(1, 40), 57, 66, 92, 105, 143, 174, 443]);
 
 describe('en los mapas reales', () => {
   for (const semilla of SEMILLAS)
@@ -139,5 +157,20 @@ describe('en los mapas reales', () => {
       const cortadas = carasCortadas(e.relieve.caras, e.sprites, objetos, e.W);
       expect(cortadas.length).toBe(QUEDAN[semilla] ?? 0);
       expect(e.informe.carasCortadas).toBe(cortadas.length);
+    });
+
+  for (const semilla of SEMILLAS)
+    it(`semilla ${semilla}: la pared que va detrás de otra cosa se queda en su sitio, justo antes de un objeto (Sprite.clave)`, () => {
+      // La clave del pintor solo adelanta (#222): la pared que pasa por detrás
+      // de una ciudad, un nodo o un puente se pinta antes que él, a una o dos
+      // centésimas, y su pie sigue donde lo leen los guardias.
+      const { escena: e } = partidaDe(semilla);
+      const conClave = e.sprites.filter((s) => s.clase === 'pared' && s.clave !== undefined);
+      const objetos = e.sprites.filter((s) => s.clase === 'objeto').map(claveDe);
+      for (const s of conClave) {
+        const k = s.clave as number;
+        expect(k).toBeLessThan(s.y);
+        expect(objetos.some((o) => o - k > 0 && o - k <= 0.02 + 1e-9)).toBe(true);
+      }
     });
 });

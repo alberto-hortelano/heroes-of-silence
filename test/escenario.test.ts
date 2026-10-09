@@ -207,8 +207,9 @@ describe('sin arte se pinta igual: cada pieza, su marcador de color', () => {
   // La 20: la 3 se quedó sin caras con el acantilado en línea (#215), y la 7,
   // sin una cara con columnas sin pintar con los vestidos que se repiten por
   // una silla (#224). La 6 desde #226: en el mapa de 42×42 a la 20 no le
-  // queda una cara con columnas sin pintar.
-  const e = escenaDe(6);
+  // queda una cara con columnas sin pintar. La 3 desde #222: la frontal que
+  // pasa por detrás de un objeto de su pie pinta las que le quedaban a la 6.
+  const e = escenaDe(3);
   const sep = separar(e);
   const sinImagenes = { tile: 8, imagen: () => undefined } as const;
 
@@ -542,4 +543,16 @@ describe('la escena es de la partida entera: no cambia al jugarla', () => {
     await jugar(state, 10, semilla);
     expect(JSON.stringify(componer(state.map, semilla, catalogo))).toBe(antes);
   });
+});
+
+describe('la casilla de barrera bajo una pared del desnivel no queda sin formación (#222)', () => {
+  // La masa no cubre la silueta de una pared (#216): la casilla de montaña al
+  // pie de la diagonal que dobla junto a un nodo se quedaba sin pico, tapada
+  // por la pared y contada como desnuda. Eran las tres de 1-200 (s36 (23, 6),
+  // s91 (13, 28), s105 (20, 11)), y con la pared que pasa por detrás de un
+  // objeto, s166 (26, 33).
+  for (const semilla of segunPrisa([36], [36, 91, 105, 166]))
+    it(`semilla ${semilla}: toda casilla de barrera queda bajo su formación, un objeto o una pared`, () => {
+      expect(escenaDe(semilla).informe.casillasDeBarreraSinFormacion).toBe(0);
+    });
 });
