@@ -762,11 +762,23 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   23 → **7 / 14 / 22**. Batallas 1 545 → 1 517, `hero_defeated` 350 → 310,
  *   `node_captured` 1 141 → 1 161, `town_captured` 1 357 → 1 365,
  *   `march_halted` 123 → 118; ningún tipo nuevo ni ninguno que desaparezca.
+ * - `a0b5d9be…` (59 700 líneas): **la puerta de una ciudad no muerde la línea
+ *   del acantilado** (#222, 09-10-2026): la muesca de una casilla de la
+ *   puerta en una franja de dos de hondo se abre a lo bajo y la línea sube a la
+ *   fila de la ciudad (`puertasSinMuesca`), y el vestido al que le queda una
+ *   espiga tras sus vueltas no vale (s49). Cambia el mapa donde la había, y con
+ *   él el azar que sigue: **25 de 200 cambian**; en 12 el primer hecho
+ *   distinto es `raider_spawned` del día 1 (otro vestido), en 6 `hero_moved`,
+ *   en 5 `battle_ended`, en 1 `garrison_taken` y en 1 `turn_start`. 15 con
+ *   otro ganador, j0 107 → 108, **0 sin terminar**, duración 7 / 14 / 22 →
+ *   **8 / 15 / 20**. Batallas 1 517 → 1 546, `hero_defeated` 310 → 344,
+ *   `node_captured` 1 161 → 1 194, `town_captured` 1 365 → 1 376,
+ *   `march_halted` 118 → 121; ningún tipo nuevo ni ninguno que desaparezca.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '18c99aeeaf26c5e0ed706ede830a0501346bcb38ebf93d6bc2befec76735b01a',
+  sha: 'a0b5d9be3d2b08b1e409e4671af923729964dcab5dd9293042cb70f4b1f94919',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

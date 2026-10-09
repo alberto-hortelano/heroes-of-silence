@@ -636,8 +636,13 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
       if (largas.length === 0) {
         // 7a. El acantilado, una línea de una casilla (#215): lo que sobra pasa
         //     a la meseta. Abrir casillas cambia lo que rodea a los nodos, y
-        //     con ello su barrera y quizá una muralla: se vuelve a mirar.
-        if (!adelgazarAcantilados(W, H, tipos, region, esNodo, e.niveles, nivelAhora)) break;
+        //     con ello su barrera y quizá una muralla: se vuelve a mirar. Ya
+        //     delgado, la puerta de una ciudad no muerde la línea (#222).
+        if (
+          !adelgazarAcantilados(W, H, tipos, region, esNodo, e.niveles, nivelAhora) &&
+          !puertasSinMuesca(W, H, tipos, region, esNodo, pasillo, e.niveles, e.ciudades)
+        )
+          break;
         // La meseta que crece puede llegar a un bosque o un muro de la pareja
         // de al lado, que va entre dos regiones más bajas: la regla de los
         // cruces (6b) le da la barrera de desnivel donde toca a la meseta.
@@ -753,6 +758,15 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
     // un bosque tocando dos: se arregla con la regla de los cruces (6b).
     desnivelEnLosCruces(W, H, tipos, region, esNodo, e.niveles);
     barreraDeNodo = barrerasDeLosNodos(e, tipos, esNodo, clave, tipoDePareja, candidatasDe);
+  }
+
+  // 7b'. Y si tras `VUELTAS_SIN_ESPIGAS` aún queda una espiga, el vestido no
+  //     vale: con la última vuelta agotada nada la quitaba y llegaba al mapa
+  //     (s49 (12,3) con #222, una meseta de una casilla entre un nodo y el agua).
+  if (!llano) {
+    const [espiga] = espigasDelRelieve(W, H, nivelAhora());
+    if (espiga !== undefined)
+      return `la casilla (${espiga % W},${Math.floor(espiga / W)}) queda por encima de sus dos lados tras ${VUELTAS_SIN_ESPIGAS} vueltas de quitar espigas`;
   }
 
   // 7c. Ningún acantilado sin caída (#215): lo de arriba lo deja así, salvo que
@@ -1035,6 +1049,104 @@ export function adelgazarAcantilados(
     if (abrirAcantilado(W, H, tipos, region, esNodo, niveles, alto).length === 0) return cambio;
     cambio = true;
   }
+}
+
+/**
+ * La puerta de una ciudad no muerde la línea del acantilado (#222). Cuando el
+ * engorde deja la franja de dos de hondo en una ciudad del borde de la meseta,
+ * la ciudad se queda en la fila de arriba —abrir sus costados a la meseta le
+ * daría un eje de la meseta a la meseta (`abrirAcantilado`)— y su puerta, la
+ * casilla de debajo, atraviesa la de abajo entre dos acantilados: una muesca
+ * de una casilla con el camino de la puerta por ella (s57 (31,25), s162
+ * (29,27), s10 (23,14)). En la escena es un barranco (`sinBarrancos` le quita
+ * las laderas) y la diagonal que remataría la cara tapa el camino: la cara de
+ * al lado acaba de repente, «una elevación no puede acabar sin continuidad».
+ *
+ * Se abre a la región de la puerta cada acantilado de su costado que tiene
+ * acantilado encima, el costado de la ciudad: la línea sube a la fila de la
+ * ciudad y la puerta da al llano, con la cara de cada lado colgando junto a
+ * ella. Lo de la meseta que tocaría lo abierto en diagonal, la casilla a dos
+ * de la ciudad en su fila, pasa a acantilado: la línea va en escalera, cerrada
+ * en ocho vecinas. No se toca si esa casilla es pasillo o toca un nodo, si lo
+ * abierto tocaría otra región o si dejaría una a dos pasos sin acantilado en
+ * medio. Devuelve si cambió algo.
+ */
+export function puertasSinMuesca(
+  W: number,
+  H: number,
+  tipos: Tipos,
+  region: Int32Array,
+  esNodo: Uint8Array,
+  pasillo: Uint8Array,
+  niveles: readonly Nivel[],
+  ciudades: Iterable<number>,
+): boolean {
+  const CORTADO = indiceDe('cliff');
+  const abierta = (j: number): boolean => tipos[j] === ABIERTA && esNodo[j] === 0;
+  const dentro = (x: number, y: number): boolean => x >= 0 && y >= 0 && x < W && y < H;
+  const tocaUnNodo = (x: number, y: number): boolean => {
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++)
+        if ((dx !== 0 || dy !== 0) && dentro(x + dx, y + dy) && esNodo[(y + dy) * W + x + dx] === 1)
+          return true;
+    return false;
+  };
+  let cambio = false;
+  for (const t of ciudades) {
+    const x = t % W;
+    const y = Math.floor(t / W);
+    if (y + 2 >= H) continue;
+    const puerta = t + W;
+    if (!abierta(puerta)) continue;
+    const baja = region[puerta] as number;
+    for (const s of [-1, 1]) {
+      if (!dentro(x + 2 * s, y)) continue;
+      const c = puerta + s;
+      if (tipos[c] !== CORTADO || esNodo[c] === 1) continue;
+      if (tipos[t + s] !== CORTADO || esNodo[t + s] === 1) continue;
+      // Lo que se pisa alrededor de `c`: de la región de la puerta, salvo la
+      // casilla a dos de la ciudad en su fila, que si es de lo alto se cierra.
+      const cerrar = t + 2 * s;
+      let vale = true;
+      for (let dy = 0; dy <= 2 && vale; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          const j = (y + dy) * W + x + s + dx;
+          if (!dentro(x + s + dx, y + dy) || !abierta(j) || region[j] === baja) continue;
+          if (
+            j !== cerrar ||
+            pasillo[j] === 1 ||
+            tocaUnNodo(x + 2 * s, y) ||
+            (niveles[region[j] as number] as number) <= (niveles[baja] as number)
+          )
+            vale = false;
+        }
+      if (!vale) continue;
+      // Y nada de otra región a dos pasos de lo abierto sin un acantilado o un
+      // nodo en medio (`engordarFronteras`, paso 7d, que junto a un nodo no
+      // mira), contando lo que se cierra.
+      const esCorte = (m: number): boolean =>
+        m === cerrar || esNodo[m] === 1 || (m !== c && tipos[m] === CORTADO);
+      for (let dy = -2; dy <= 2 && vale; dy++)
+        for (let dx = -2; dx <= 2 && vale; dx++) {
+          const qx = x + s + dx;
+          const qy = y + 1 + dy;
+          if (!dentro(qx, qy)) continue;
+          const q = qy * W + qx;
+          if (q === cerrar || !abierta(q) || region[q] === baja) continue;
+          let enMedio = false;
+          for (let my = Math.max(y + 1, qy) - 1; my <= Math.min(y + 1, qy) + 1; my++)
+            for (let mx = Math.max(x + s, qx) - 1; mx <= Math.min(x + s, qx) + 1; mx++)
+              if (dentro(mx, my) && esCorte(my * W + mx)) enMedio = true;
+          if (!enMedio) vale = false;
+        }
+      if (!vale) continue;
+      tipos[c] = ABIERTA;
+      region[c] = baja;
+      if (abierta(cerrar)) tipos[cerrar] = CORTADO;
+      cambio = true;
+    }
+  }
+  return cambio;
 }
 
 /**

@@ -233,7 +233,13 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   pasos sin acantilado en medio no vale (7c, 7d; y tras los caminos, `acantiladoSinCaida`). Lo
   bajo va **en ocho vecinas** (`acantiladosSinCaida`): las regiones son 8-conexas y la línea en
   diagonal va en escalera, con el codo tocando lo bajo por la esquina. En 10 semillas, 447 de
-  776 casillas sin caída en cruz → 0 de 414 en ocho (88 son codos). El nivel del engorde
+  776 casillas sin caída en cruz → 0 de 414 en ocho (88 son codos). **La puerta de una ciudad no
+  muerde la línea** (#222, `puertasSinMuesca`, en 7a): en una franja de dos de hondo la ciudad se
+  quedaba en la fila de arriba y su puerta, entre dos acantilados, era un barranco de una casilla
+  donde la cara acababa en seco; el costado de la puerta con acantilado encima se abre a lo bajo y
+  la casilla de la meseta a dos de la ciudad en su fila pasa a acantilado (la línea, en escalera),
+  salvo si es pasillo o toca un nodo. Costados así en 1-1000: 59 → 5 (`test/puertas-sin-muesca.test.ts`).
+  El nivel del engorde
   (`nivelesDeLoEngordado`) pisa los nodos como la escena. **El mapa guarda los
   tramos** (`GameMap.caminos`, una `RedDeCaminos`) y las casillas que abaratan
   el paso salen de ellos; el procedimental guarda los que traza, con las
@@ -270,7 +276,7 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
   camino de `crucesConCamino`), lo que se pisa por encima de sus dos vecinas de un eje (`espigasDelRelieve`)
   se rellena de la barrera baja de al lado, y si es pasillo de un nodo se le abre la orilla a su
   región (sin otra región a menos de tres pasos) o la orilla pasa a montaña; luego bolsillos, cruces y
-  murallas otra vez, hasta `VUELTAS_SIN_ESPIGAS`. 0 en 1-200 y en 24 y 64 (eran 112 en este-oeste en 10
+  murallas otra vez, hasta `VUELTAS_SIN_ESPIGAS`; si aún queda una, el vestido no vale (7b', s49 con #222). 0 en 1-200 y en 24 y 64 (eran 112 en este-oeste en 10
   semillas, `test/espigas.test.ts`). **Ninguna senda corta en diagonal una esquina de agua** salvo junto a un puente (el tramo que
   llega a él y su río, sus ocho vecinas: ahí va el vado) (#210): la búsqueda cobra dos rectos por ese
   paso (con un rodeo el camino se iba al borde) y lo que queda —la entrada en diagonal de un nodo o

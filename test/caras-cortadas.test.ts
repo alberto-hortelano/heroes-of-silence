@@ -9,9 +9,12 @@
  * Se vio morder (09-10-2026): con la pared que se saltaba la reserva de un
  * objeto (lo de antes), el contador da 13 en 1-40 y 72 en 1-200, y en la
  * muestra del bucle rápido 2, 1, 2 y 1 (s57, s443, s10 y s37); con la de
- * ahora, 4, 18 y 1, 0, 1 y 0. Lo que queda, en `QUEDAN`: la muesca de una
- * casilla de una ciudad entre dos niveles con el camino de su puerta por ella
- * (s57, s10, s6: la diagonal que la remataría tapa el camino) y el puente
+ * ahora, 4, 18 y 1, 0, 1 y 0. La muesca de una casilla de la puerta de una
+ * ciudad en la línea del acantilado (s57) la quita el generador
+ * (`puertasSinMuesca`, #222; `test/puertas-sin-muesca.test.ts`). Lo que queda,
+ * en `QUEDAN`: la ciudad de s10 (23,13), cuya muesca no se abre porque cerraría
+ * el pasillo de la ciudad de al lado; la de s6, una ciudad a nivel 0 en la
+ * línea a la que se entra en diagonal por debajo de la cara, y el puente
  * (s12: la pared que cruza su línea no lleva pieza, `celdasBajoLosPuentes`, y
  * el tablero empieza 0,3 más allá).
  */
@@ -108,7 +111,7 @@ describe('las tiradas de frontal cortadas junto a un objeto (#221)', () => {
  * (12-13, 15)) y dos de 1-40 que lo daban (s10 entre dos ciudades, s37), y
  * 1-40 en la orden lenta. Lo que queda, por semilla (arriba).
  */
-const QUEDAN: Readonly<Record<number, number>> = { 6: 1, 10: 1, 12: 2, 57: 1 };
+const QUEDAN: Readonly<Record<number, number>> = { 6: 1, 10: 1, 12: 2 };
 const SEMILLAS = segunPrisa([57, 443, 10, 37], [...rango(1, 40), 57, 443]);
 
 describe('en los mapas reales', () => {
