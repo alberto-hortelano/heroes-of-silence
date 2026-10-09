@@ -1800,6 +1800,11 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     // Y una frontal de su material sobre el extremo de fuera de cada costado, que
     // se pinta después y tapa la arista de su corte: donde el borde recto acaba
     // en una esquina (s2069 (15,5, 8)), no hay frontal vecina que la tape.
+    // La muesca no la lleva: sus extremos dan a la cara de su fila, cuyas
+    // frontales llegan a la junta y la tapan, o a otra esquina, y ahí el extremo
+    // se funde a transparente. Con ella, la de junto a una ciudad (s2 (28, 26))
+    // iba detrás de la ciudad, fuera del pie de toda cara.
+    if (r.forma === 'muesca') continue;
     const { pared: hojaDePared } = materialDeCara(r.material);
     const e = masEstrecho(hojaDePared);
     if (e === undefined) continue;

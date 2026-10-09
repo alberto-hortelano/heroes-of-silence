@@ -335,10 +335,11 @@ describe(`las rampas en un mapa real: s${SEMILLA}, (${RX}, ${RY})`, () => {
   });
 });
 
-describe('la rampa de muesca en un mapa real: s3, (4, 20) (§36)', () => {
-  const map = newGame({ seed: 3 }).map;
-  const e = componer(map, 3, catalogo);
-  const r = e.relieve.rampas.find((k) => k.x === 4 && k.y === 20);
+// Desde #226 (mapa de 42×42) el caso es s16 (30, 11), roca con un nodo; en 34×34 era s3 (4, 20).
+describe('la rampa de muesca en un mapa real: s16, (30, 11) (§36)', () => {
+  const map = newGame({ seed: 16 }).map;
+  const e = componer(map, 16, catalogo);
+  const r = e.relieve.rampas.find((k) => k.x === 30 && k.y === 11);
   const sinMuesca = {
     ...catalogo,
     hojas: Object.fromEntries(
@@ -346,24 +347,28 @@ describe('la rampa de muesca en un mapa real: s3, (4, 20) (§36)', () => {
     ),
   };
 
+  /** La pieza de la muesca de (30, 11). */
+  const suya = (s: Sprite) =>
+    s.src?.includes('/rampa-muesca-roca-1/') === true && Math.abs(s.x - 30.5) < 1.5;
+
   it('una pieza en la muesca, sin sus cuatro diagonales ni la bajada de siempre', () => {
     expect(r).toMatchObject({ forma: 'muesca', material: 'cara-roca', caida: 1 });
     expect(e.informe.rampasSinSusPiezas).toBe(0);
-    expect(e.sprites.filter((s) => s.src?.includes('/rampa-muesca-roca-1/') === true)).toHaveLength(
-      1,
-    );
+    // La suya, la de junto a (30, 11): s16 lleva otra en la ciudad de (18, 15).
+    expect(e.sprites.filter(suya)).toHaveLength(1);
+    expect(e.relieve.rampas.filter((k) => k.forma === 'muesca')).toHaveLength(2);
     const fuera = new Set(celdasDeLaRampa(r as Rampa));
     expect(fuera.size).toBe(4);
     expect(e.relieve.celdas.filter((c) => fuera.has(claveDeCelda(c)))).toEqual([]);
-    const b = e.relieve.bajadas.find((k) => k.alto[0] === 4 && k.alto[1] === 20);
-    expect(b).toMatchObject({ rumbo: 's', arriba: [4.5, 21], deUnaRampa: true });
+    const b = e.relieve.bajadas.find((k) => k.alto[0] === 30 && k.alto[1] === 11);
+    expect(b).toMatchObject({ rumbo: 's', arriba: [30.5, 12], deUnaRampa: true });
     expect(
       e.sprites.filter(
         (s) =>
           /\/(bajadas|diagonales)-/.test(s.src ?? '') &&
-          Math.abs(s.x - 4.5) < 0.8 &&
-          s.y > 20.5 &&
-          s.y < 23,
+          Math.abs(s.x - 30.5) < 0.8 &&
+          s.y > 11.5 &&
+          s.y < 14,
       ),
     ).toEqual([]);
     expect([
@@ -375,19 +380,19 @@ describe('la rampa de muesca en un mapa real: s3, (4, 20) (§36)', () => {
       e.informe.paredesTapadas,
     ]).toEqual([0, 0, 0, 0, 0, 0]);
     // Las caras cortadas y la senda bajo el relieve, como sin el arte de la
-    // muesca (s3 tiene una cara cortada en otro sitio, con y sin ella).
-    const s = componer(map, 3, sinMuesca);
+    // muesca (lo que haya en otro sitio, con y sin ella).
+    const s = componer(map, 16, sinMuesca);
     expect(e.informe.carasCortadas).toBe(s.informe.carasCortadas);
     expect(e.informe.sendaBajoElRelieve).toBeLessThanOrEqual(s.informe.sendaBajoElRelieve);
   });
 
   it('el guardia muerde: la pieza corrida, o una diagonal sobre el hueco', () => {
-    const i = e.sprites.findIndex((s) => s.src?.includes('/rampa-muesca-roca-1/') === true);
+    const i = e.sprites.findIndex(suya);
     const pieza = e.sprites[i] as Sprite;
     const sin = e.sprites.filter((_, k) => k !== i);
     expect(
       rampasSinSusPiezas([...sin, { ...pieza, x: pieza.x + 0.3 }], [r as Rampa], catalogo),
-    ).toEqual(['rampa en 4,20: 0 piezas muesca en su sitio']);
+    ).toEqual(['rampa en 30,11: 0 piezas muesca en su sitio']);
     const diagonal = (catalogo.hojas['diagonales-roca-se-1'] ?? [])[0];
     if (diagonal === undefined) throw new Error('sin diagonales de roca');
     const tapa: Sprite = {
@@ -396,8 +401,8 @@ describe('la rampa de muesca en un mapa real: s3, (4, 20) (§36)', () => {
       nh: diagonal.nh,
       ax: diagonal.ax,
       ay: diagonal.ay,
-      x: 4.5,
-      y: 21.9,
+      x: 30.5,
+      y: 12.9,
       alto: 1,
       clase: 'pared',
       color: '#4c463e',
@@ -405,23 +410,26 @@ describe('la rampa de muesca en un mapa real: s3, (4, 20) (§36)', () => {
       sombra: true,
     };
     expect(rampasSinSusPiezas([...e.sprites, tapa], [r as Rampa], catalogo)).toEqual([
-      expect.stringMatching(/^rampa en 4,20: la pieza .*diagonales-roca-se-1.* tapa el hueco$/),
+      expect.stringMatching(/^rampa en 30,11: la pieza .*diagonales-roca-se-1.* tapa el hueco$/),
     ]);
   });
 
   it('sin el arte de la muesca, las cuatro diagonales y la bajada encima, como antes', () => {
-    const s = componer(map, 3, sinMuesca);
+    const s = componer(map, 16, sinMuesca);
     expect(s.relieve.rampas.some((k) => k.forma === 'muesca')).toBe(false);
-    expect(s.relieve.bajadas.find((k) => k.alto[0] === 4 && k.alto[1] === 20)?.deUnaRampa).toBe(
+    expect(s.relieve.bajadas.find((k) => k.alto[0] === 30 && k.alto[1] === 11)?.deUnaRampa).toBe(
       undefined,
     );
     expect(s.informe.rampasSinSusPiezas).toBe(0);
-    // Las diagonales de fuera de la muesca, las mismas con su arte y sin él: las
-    // cuatro que sustituye gastan su tirada igual.
+    // Las diagonales de fuera de las muescas, las mismas con su arte y sin él:
+    // las cuatro que sustituye cada una gastan su tirada igual.
+    const muescas = e.relieve.rampas.filter((k) => k.forma === 'muesca');
     const diagonales = (l: readonly Sprite[]) =>
       l
         .filter((k) => k.src?.includes('/diagonales-') === true)
-        .filter((k) => Math.abs(k.x - 4.5) > 1.2 || k.y < 20 || k.y > 23.5)
+        .filter((k) =>
+          muescas.every((m) => Math.abs(k.x - (m.x + 0.5)) > 1.2 || k.y < m.y || k.y > m.y + 3.5),
+        )
         .map((k) => `${k.src} ${k.x.toFixed(2)},${k.y.toFixed(2)}`);
     expect(diagonales(e.sprites)).toEqual(diagonales(s.sprites));
   });

@@ -1649,8 +1649,11 @@ línea de delante. A cada lado, una ladera en triángulo: entera delante y a nad
 **Tono**, medido en el tercio de fuera de cada frontal: la roca, 73-76 de luz y R−B 25, contra 77 y ~28 de su frontal
 entonada, va sin filtro. La arenisca, 67-71 y 54-59, contra 69 y ~47, va con `saturate(0.85)`.
 
-**Lo que falta** (con su medida en 1-1000): la muesca con un lado que sigue al sur (199), la honda (88, barranco), el
-rincón de un solo lado (~360), basalto y nevadas, y caída 2.
+**Cobertura en 42×42** (#226, 09-10-2026): 160 de las 992 bajadas `s` de caída 1 de 1-1000 son esta muesca. Con arte, 89
+(más las 19 rectas de §35); en 1-200, 27 (más 1 recta). Las cifras de 34×34 de arriba son de antes de #226.
+
+**Lo que falta** (#228; en 1-1000 de 42×42): la muesca con un lado que sigue al sur (213), la honda (70, barranco), el
+rincón de un solo lado (~300), basalto y nevadas, y caída 2.
 
 **Prompt** (el de roca; el de arenisca cambia el material y la meseta; el entero, con las referencias, en cada `.procedencia.json`):
 

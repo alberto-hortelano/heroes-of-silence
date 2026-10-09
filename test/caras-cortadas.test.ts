@@ -119,11 +119,14 @@ describe('las tiradas de frontal cortadas junto a un objeto (#221)', () => {
 //
 // Desde #226 (el mapa de 42×42, 450 casillas por región) todos los mapas son
 // otros, y la lista se re-mide (09-10-2026): en 1-40, 9 → 3; en 1-100, 13 → 14.
-// Quedan s17 (la cara de la fila 30 que acaba junto al pueblo de (32,30) y el
+// Quedaban s17 (la cara de la fila 30 que acaba junto al pueblo de (32,30) y el
 // nodo de acantilado de (29,30)), s30 (la de la fila 20 entre la ciudad de
 // (18,21) y el puente de (21,21), como el de s12 de antes) y s37 (la de la fila
 // 25 entre la mina de (1,26) y el nodo de acantilado de (5,26)).
-const QUEDAN: Readonly<Record<number, number>> = { 17: 1, 30: 1, 37: 1 };
+//
+// Con la rampa de muesca (§36) s17 ya no lo da: el nodo de (29,30) es su muesca
+// y la pieza lleva la esquina de la cara de la fila 30 (09-10-2026).
+const QUEDAN: Readonly<Record<number, number>> = { 30: 1, 37: 1 };
 const SEMILLAS = segunPrisa([57, 443, 30, 37], [...rango(1, 40), 57, 443]);
 
 describe('en los mapas reales', () => {
