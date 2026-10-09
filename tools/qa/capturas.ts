@@ -56,6 +56,7 @@ import {
   SesionDeArena,
   Session,
 } from '../../src/client/session.js';
+import { nombreEnElCampo } from '../../src/client/views/distintivo.js';
 import { AVISO_DE_ESPERA, explicacionDeFin, rotuloDeDia } from '../../src/client/views/panels.js';
 import { chooseBattleAction } from '../../src/core/ai/tactics.js';
 import { LADOS, ladoDe, type UnidadDeArena, unidadPorDefecto } from '../../src/core/arena.js';
@@ -1307,7 +1308,8 @@ async function veteranoEnElCampo(page: Page, espejo: Session): Promise<void> {
   if (battle === null) throw new Error('no hay batalla en el espejo');
   const vet = battle.stacks.find((s) => s.count > 0 && galonesDe(s) > 0);
   if (vet === undefined) throw new Error('ningún veterano de nivel ≥ 2 pisa este tablero');
-  const esperado = `${vet.unit.name} · nivel ${galonesDe(vet) + 1}`;
+  // Con su distintivo, como lo nombra el panel (#198: dos arqueros, s2 con #224).
+  const esperado = `${nombreEnElCampo(battle, vet)} · nivel ${galonesDe(vet) + 1}`;
   const panel = (await page.locator('#side').innerText()).replace(/\s+/g, ' ');
   if (!panel.includes(esperado)) throw new Error(`en «En el campo» falta «${esperado}»`);
   log(`batalla con veterano: «${esperado}» en el campo, ${galonesDe(vet)} galón(es) en la figura`);
@@ -1784,6 +1786,9 @@ async function patrullaALaVista(
     // lo más que anda en un día (`pasosPorDia`).
     const antes = new Map<string, number[]>();
     const posiciones = new Map(espejo.state.raiders.map((r) => [r.id, { ...r.at }]));
+    // Solo cuenta un grupo que se ve hoy y mañana: uno en lo explorado pero
+    // fuera de la vista no se pinta (s2 con los mapas de #224, raider-5).
+    const vistosAyer = new Set(espejo.asaltantesALaVista().map((r) => r.id));
     for (const r of espejo.state.raiders) {
       if (!explorada(r.at) || !dentro(await mapa.pixel(r.at))) continue;
       for (let dy = -2; dy <= 2; dy++) {
@@ -1829,10 +1834,13 @@ async function patrullaALaVista(
       continue;
     }
     await pasarDia(page, espejo);
+    const vistosHoy = new Set(espejo.asaltantesALaVista().map((r) => r.id));
     const movido = espejo.state.raiders.find((r) => {
       const ayer = posiciones.get(r.id);
       return (
         ayer !== undefined &&
+        vistosAyer.has(r.id) &&
+        vistosHoy.has(r.id) &&
         (ayer.x !== r.at.x || ayer.y !== r.at.y) &&
         antes.has(`${ayer.x},${ayer.y}`) &&
         antes.has(`${r.at.x},${r.at.y}`)
