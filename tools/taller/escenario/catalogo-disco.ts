@@ -17,6 +17,7 @@ import {
   type JuntasDeBajada,
   type JuntasDeDiagonal,
   type JuntasDeLadera,
+  type JuntasDeRampa,
   type MedidasDePuente,
   type Modulo,
   type Pieza,
@@ -46,6 +47,8 @@ interface IndiceDeHoja {
     readonly ladera?: JuntasDeLadera;
     readonly diagonal?: JuntasDeDiagonal;
     readonly bajada?: JuntasDeBajada;
+    /** Solo las rampas (§35): las corta y las lleva de la guía `derivar-relieve`. */
+    readonly rampa?: JuntasDeRampa;
   }[];
 }
 
@@ -92,6 +95,7 @@ export async function leerCatalogo(): Promise<Catalogo> {
         ...(m.ladera === undefined ? {} : { ladera: m.ladera }),
         ...(m.diagonal === undefined ? {} : { diagonal: m.diagonal }),
         ...(m.bajada === undefined ? {} : { bajada: m.bajada }),
+        ...(m.rampa === undefined ? {} : { rampa: m.rampa }),
         ...(perfiles === undefined ? {} : { perfil: perfiles[k] as number[] }),
       }))
       .sort((a, b) => a.ay - b.ay);

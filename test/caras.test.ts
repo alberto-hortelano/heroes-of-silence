@@ -169,11 +169,11 @@ describe('el perfil de un módulo: lo deriva el taller y lo comprueba el catálo
   });
 
   it('toda pared, ladera y peñasco del catálogo del repo trae su perfil, y nada más lo trae', () => {
-    // Las paredes, las laderas, las piezas del relieve por celdas (R4/R5) y los peñascos.
+    // Las paredes, las laderas, las piezas del relieve por celdas (R4/R5), las rampas (#225) y los peñascos.
     for (const [hoja, ms] of Object.entries(catalogo.hojas))
       for (const m of ms)
         expect(m.perfil !== undefined, `${hoja}/${m.nombre}`).toBe(
-          /^(paredes|laderas|diagonales|bajadas)-/.test(hoja) || hoja === 'rocas-caidas',
+          /^(paredes|laderas|diagonales|bajadas|rampa)-/.test(hoja) || hoja === 'rocas-caidas',
         );
   });
 

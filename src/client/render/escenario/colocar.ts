@@ -39,13 +39,17 @@ import {
   esHojaDeBajada,
   esHojaDeDiagonal,
   esHojaDeLadera,
+  esHojaDeRampa,
   type Modulo,
   type ModuloDeBajada,
   type ModuloDeDiagonal,
   type ModuloDeLadera,
+  type ModuloDeRampa,
   moduloDeLadera,
   type PapelDeLadera,
+  PIEZAS_DE_RAMPA,
   type Pieza,
+  type PiezaDeRampa,
 } from './catalogo.js';
 import {
   abajoDe,
@@ -56,15 +60,20 @@ import {
   caidas,
   cantosDe,
   celdas as celdasDe,
+  celdasDeLaRampa,
   claveDeCelda,
+  enSuRampa,
   esVisto,
   filosDe,
   JUNTAS,
   pieDeJunta,
+  type Rampa,
   rampaDe,
+  rampasDeFrente,
   rampasDesviadas,
   rebordesDe,
   sendasPorLasRampas,
+  TRAMO_DE_PIEZA_DE_RAMPA,
   taludDeBajada as taludDeBajadaDe,
 } from './celdas.js';
 import { azarDe, esparcir } from './esparcir.js';
@@ -226,12 +235,17 @@ export interface Escena {
     readonly rebordes: readonly (readonly [number, number])[];
     /**
      * Las paredes que se ven, una por celda de vértice y grupo de umbrales
-     * (`celdas.ts`, R4), sin las que cruza un puente. Lo que mide el informe
-     * (`celdasMalCubiertas`) y lo que guarda una marca.
+     * (`celdas.ts`, R4), sin las que cruza un puente ni las que abre una rampa.
+     * Lo que mide el informe (`celdasMalCubiertas`) y lo que guarda una marca.
      */
     readonly celdas: readonly Celda[];
-    /** Por dónde bajan las sendas hacia la cámara o de lado: una pieza encima de la pared cada una (R5). */
+    /**
+     * Por dónde bajan las sendas hacia la cámara o de lado: una pieza encima de
+     * la pared cada una (R5), o la rampa que la abre (`deUnaRampa`, #225).
+     */
     readonly bajadas: readonly Bajada[];
+    /** Las rampas que abren la pared (#225, `rampasDeFrente`): cuerpo y dos costados cada una. */
+    readonly rampas: readonly Rampa[];
   };
   readonly altoDeNivel: number;
   readonly caminos: readonly (readonly [number, number, number, number])[];
@@ -325,6 +339,11 @@ export interface Escena {
      * senda pasa por ella y sigue desde su pie (#192). Tiene que ser 0.
      */
     readonly rampasDesviadas: number;
+    /**
+     * Rampas sin su cuerpo y sus dos costados en su sitio, o con una frontal
+     * sobre el hueco (`rampasSinSusPiezas`, #225): tiene que ser 0.
+     */
+    readonly rampasSinSusPiezas: number;
     /**
      * Nodos entre dos niveles sin camino ni la rampa de su bajada, salvo los
      * que bajan al norte, de espaldas a la cámara (`nodosSinRampa`, #143):
@@ -1351,14 +1370,46 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   // La trocha de cada paso sin camino (#190): no es camino, pero lo de al lado
   // se aparta de ella como del eje del paso.
   const trochas = trochasDeLosPasos(map, a.puentes, semilla);
-  // Las paredes del relieve por celdas (R4), sin las que cruza un puente: las
-  // tapa su estribo, y debajo del tablero se ve el agua.
+  // Por dónde bajan las sendas (R5): una pieza encima de la pared cada una. La
+  // que llega a un puente no: el puente es su paso.
+  const nodosDePuente = new Set(
+    a.objetos.filter((o) => a.puentes.has(o.id)).map((o) => `${o.at.x},${o.at.y}`),
+  );
+  /**
+   * Dónde puede caer el pie de la rampa de una bajada (#214): nunca en el agua
+   * (la de los puentes incluida). En diagonal, la rampa de caída 2 mide 1,65
+   * casillas y pasaba de la ciudad de s37 (7,26) al agua de (6,27).
+   */
+  const pieAdmitido = (x: number, y: number): boolean =>
+    x >= 0 && y >= 0 && x < W && y < H && a.terreno[y * W + x] !== 'water';
+  const todasLasCeldas = celdasDe(nivel, W, H, meseta);
+  const bajoLosPuentes = celdasBajoLosPuentes(todasLasCeldas, puentes);
+  // Las rampas (#225): donde un camino baja de frente por un borde recto y hay
+  // su arte, la pared se abre —el cuerpo en el hueco y un costado a cada lado—
+  // en vez de llevar la bajada encima. Se deciden por el tramo del núcleo, antes
+  // de toda pared.
+  const rampas = rampasDeFrente(
+    nivel,
+    W,
+    todasLasCeldas.filter((c) => esVisto(c.tipo) && !bajoLosPuentes.has(claveDeCelda(c))),
+    [
+      ...map.caminos.tramos.filter(
+        ([p, q]) => !nodosDePuente.has(`${p.x},${p.y}`) && !nodosDePuente.has(`${q.x},${q.y}`),
+      ),
+      ...tramosDeLasRampas(map, a),
+    ],
+    (material, caida) => piezasDeRampa(catalogo, hojaDeRampa({ material, caida })) !== null,
+    pieAdmitido,
+  );
+  // Las paredes del relieve por celdas (R4), sin las que cruza un puente (las
+  // tapa su estribo, y debajo del tablero se ve el agua) ni las que abre una
+  // rampa (sin cara pintada ni frontal: las sustituyen sus piezas).
   const rel = caidas(
     nivel,
     W,
     H,
     meseta,
-    celdasBajoLosPuentes(celdasDe(nivel, W, H, meseta), puentes),
+    new Set([...bajoLosPuentes, ...rampas.flatMap(celdasDeLaRampa)]),
   );
   // Las paredes del relieve van antes que la senda (#206): nunca se apartan de
   // ella (R4/R5), así que es la senda la que se aparta de su pie. La pared solo
@@ -1403,18 +1454,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
    * baja: ni se corre, ni se encoge, ni se quita por ella, y nunca se corta. La
    * bajada se pinta encima. El muro bajo junto a la senda (#172) era eso.
    */
-  // Por dónde bajan las sendas (R5): una pieza encima de la pared cada una. La
-  // que llega a un puente no: el puente es su paso.
-  const nodosDePuente = new Set(
-    a.objetos.filter((o) => a.puentes.has(o.id)).map((o) => `${o.at.x},${o.at.y}`),
-  );
-  /**
-   * Dónde puede caer el pie de la rampa de una bajada (#214): nunca en el agua
-   * (la de los puentes incluida). En diagonal, la rampa de caída 2 mide 1,65
-   * casillas y pasaba de la ciudad de s37 (7,26) al agua de (6,27).
-   */
-  const pieAdmitido = (x: number, y: number): boolean =>
-    x >= 0 && y >= 0 && x < W && y < H && a.terreno[y * W + x] !== 'water';
+  /** Las bajadas de las sendas `l`, con la de cada rampa por el medio de su hueco (`enSuRampa`). */
   const bajadasDe_ = (l: readonly Senda[]) =>
     bajadasDe(
       nivel,
@@ -1425,7 +1465,19 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       l,
       (p, q) => nodosDePuente.has(`${p.x},${p.y}`) || nodosDePuente.has(`${q.x},${q.y}`),
       pieAdmitido,
-    );
+    ).map((b) => enSuRampa(b, rampas));
+  /** Las bajadas de los nodos entre dos niveles sin camino (#143), por su eje y con la trocha. */
+  const bajadasDeLosNodos = () =>
+    bajadasDe(
+      nivel,
+      W,
+      meseta,
+      rel.celdas,
+      tramosDeLasRampas(map, a),
+      trochas,
+      undefined,
+      pieAdmitido,
+    ).map((b): Bajada => enSuRampa({ ...b, deUnNodo: true }, rampas));
   /** La silueta de cada módulo que tapa una cara: la de las paredes, para lo que pintan encima. */
   const perfilDe = perfilesDelCatalogo(catalogo);
   /**
@@ -1435,19 +1487,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
    * se pinta encima de su pared; dentro, va justo detrás del objeto (`llegaA`) y
    * la pared que se colara entre las dos la tapaba.
    */
-  const rampasPrevias = [
-    ...bajadasDe_(suavizadas),
-    ...bajadasDe(
-      nivel,
-      W,
-      meseta,
-      rel.celdas,
-      tramosDeLasRampas(map, a),
-      trochas,
-      undefined,
-      pieAdmitido,
-    ),
-  ].map(caminoDeBajada);
+  const rampasPrevias = [...bajadasDe_(suavizadas), ...bajadasDeLosNodos()].map(caminoDeBajada);
   /**
    * Las cajas de las paredes que la puerta no dejó entrar, con el porqué (un
    * puente que taparían): la razón declarada de las celdas que quedan vacías
@@ -1716,6 +1756,22 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     }
   }
 
+  // Las rampas (#225): sus tres piezas en el hueco que abren. No pasan por la
+  // puerta de la pared: el cuerpo es camino, y ninguna se encoge. Lo horneado
+  // con el que se solapan (el hito de su nodo, la ciudad de su pie) va encima.
+  for (const r of rampas) {
+    const hoja = hojaDeRampa(r);
+    const piezas = piezasDeRampa(catalogo, hoja);
+    if (piezas === null) throw new Error(`la rampa de ${r.x},${r.y} no tiene su arte (${hoja})`);
+    for (const p of PIEZAS_DE_RAMPA) {
+      let s = spriteDeRampa(piezas[p], hoja, r);
+      for (const n of sprites)
+        if (esNodoHorneado(n) && n.y < s.y && seSolapan(s, n, perfilDe))
+          s = ordenadoEn(s, n.y - 0.01);
+      sprites.push(s);
+    }
+  }
+
   // La senda se aparta de lo que la tapa (#206), menos junto a una bajada, que
   // la cruza por su rampa: ahí la tapa la bajada, que es camino.
   const queTapa = loQueTapa(sprites, catalogo);
@@ -1772,19 +1828,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
   // El nodo entre dos niveles sin camino también es una rampa (#143): la pieza
   // va por su eje, con la trocha de senda. Sin ella, el paso de la meseta al
   // llano no se veía (147 de 257 nodos entre niveles en 1-40).
-  const bajadas = [
-    ...bajadasDeLasSendas,
-    ...bajadasDe(
-      nivel,
-      W,
-      meseta,
-      rel.celdas,
-      tramosDeLasRampas(map, a),
-      trochas,
-      undefined,
-      pieAdmitido,
-    ).map((b): Bajada => ({ ...b, deUnNodo: true })),
-  ];
+  const bajadas = [...bajadasDeLasSendas, ...bajadasDeLosNodos()];
   /**
    * Lo que no se tapa (#151): la senda; la rampa de cada bajada, más ancha que
    * la senda y con sus ribazos (R5); el tablero de cada puente, del que se
@@ -2881,8 +2925,10 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
     }
   }
 
-  // Las bajadas (R5): encima de la pared, en el rumbo de la senda.
+  // Las bajadas (R5): encima de la pared, en el rumbo de la senda. La de una
+  // rampa no: la lleva su cuerpo (#225).
   for (const b of bajadas) {
+    if (b.deUnaRampa === true) continue;
     const hoja = hojaDeBajada(b);
     const m = (modulosDe(hoja) ?? []).find((k): k is ModuloDeBajada => k.bajada?.rumbo === b.rumbo);
     if (m === undefined) faltan.add(hoja);
@@ -3201,6 +3247,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       rebordes,
       celdas: rel.vistas,
       bajadas,
+      rampas,
     },
     altoDeNivel: ALTO_DE_NIVEL,
     caminos,
@@ -3237,6 +3284,7 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
       bajadasTapadas: bajadasTapadas(sprites, bajadas, catalogo).length,
       bajadasSobreNodo: bajadasSobreNodo(sprites, bajadas, catalogo).length,
       rampasDesviadas: rampasDesviadas(bajadas, trazos).length,
+      rampasSinSusPiezas: rampasSinSusPiezas(sprites, rampas, catalogo).length,
       nodosSinRampa: nodosSinRampa(map, a, nivel, bajadas).length,
       sendaBajoElRelieve: sendaBajoElRelieve(sprites, trazos, catalogo).length,
       laderasEnfrentadas: laderasEnfrentadas(sprites, deLadera).length,
@@ -4036,6 +4084,114 @@ export function hojaDeBajada(b: Pick<Bajada, 'material' | 'caida'>): string {
   return `bajadas-${materialDeCara(b.material).nombre}-${caidaDeArte(b.caida)}`;
 }
 
+/** La hoja de una rampa (#225, §35): `rampa-<material>-<caída>`, sin estirar. */
+export function hojaDeRampa(r: Pick<Rampa, 'material' | 'caida'>): string {
+  return `rampa-${materialDeCara(r.material).nombre}-${r.caida}`;
+}
+
+/** Las tres piezas de una hoja de rampa, o null si le falta alguna: sin ellas va la bajada de siempre. */
+export function piezasDeRampa(
+  catalogo: Catalogo,
+  hoja: string,
+): Readonly<Record<PiezaDeRampa, ModuloDeRampa>> | null {
+  const ms = catalogo.hojas[hoja];
+  if (ms === undefined || !esHojaDeRampa(hoja)) return null;
+  const fuera: Partial<Record<PiezaDeRampa, ModuloDeRampa>> = {};
+  for (const m of ms) if (m.rampa !== undefined) fuera[m.rampa.pieza] = m as ModuloDeRampa;
+  return PIEZAS_DE_RAMPA.every((p) => fuera[p] !== undefined)
+    ? (fuera as Record<PiezaDeRampa, ModuloDeRampa>)
+    : null;
+}
+
+/**
+ * Lo que se adelanta la clave de un costado de rampa a su pie: lo pintan antes
+ * las frontales de su cara, que van a 0,05 ± 0,06 de él y tapan su corte recto.
+ */
+const COSTADO_DETRAS_DE_LA_FRONTAL = 0.1;
+
+/**
+ * Dónde va la pieza `m` de la rampa `r`: los dos extremos de su filo sobre los
+ * de su tramo (`TRAMO_DE_PIEZA_DE_RAMPA`), de los que sale la escala. El cuerpo
+ * se pinta después de las paredes de su fila, como una bajada; los costados,
+ * antes que las frontales de al lado.
+ */
+export function spriteDeRampa(m: ModuloDeRampa, hoja: string, r: Rampa): Sprite {
+  const [a, b] = TRAMO_DE_PIEZA_DE_RAMPA[m.rampa.pieza];
+  const filo = r.y + 1;
+  const pie = filo + r.caida * ALTO_DE_NIVEL;
+  const [ma, mb] = m.rampa.filo;
+  const cuerpo = m.rampa.pieza === 'cuerpo';
+  const tono = tonoDe(hoja);
+  return {
+    ...(tono === undefined ? {} : { tono }),
+    ...sobreDosPuntos(
+      m,
+      [ma, mb],
+      [
+        [r.x + a, filo],
+        [r.x + b, filo],
+      ],
+      (mb[0] - ma[0]) / (b - a),
+      1,
+      cuerpo ? pie + DETRAS_DEL_PIE : pie - COSTADO_DETRAS_DE_LA_FRONTAL,
+    ),
+    clase: 'pared',
+    color: cuerpo ? COLOR_DE_BAJADA : '#4c463e',
+    capa: 0,
+    sombra: !cuerpo,
+    filaAlta: r.y,
+  };
+}
+
+/** Dónde quedaron los dos extremos del filo de una pieza de rampa ya colocada: lo inverso de `spriteDeRampa`. */
+function filoColocado(
+  m: ModuloDeRampa,
+  s: Pick<Sprite, 'x' | 'y' | 'ax' | 'ay' | 'nw' | 'nh' | 'alto' | 'ancho'>,
+): readonly [readonly [number, number], readonly [number, number]] {
+  return [enElMapa(s, m.rampa.filo[0]), enElMapa(s, m.rampa.filo[1])];
+}
+
+/**
+ * Las rampas sin sus piezas, cada una dicha (#225): cada una lleva exactamente
+ * un cuerpo y un costado a cada lado con su filo en su tramo
+ * (`TRAMO_DE_PIEZA_DE_RAMPA`), y ninguna frontal (`paredes-*`) apoyada en su
+ * fila tapa el hueco del cuerpo. Se reconstruye desde lo puesto.
+ */
+export function rampasSinSusPiezas(
+  sprites: readonly Sprite[],
+  rampas: readonly Rampa[],
+  catalogo: Catalogo,
+): string[] {
+  const { rampas: deRampa } = modulosDelRelieve(catalogo);
+  const mal: string[] = [];
+  for (const r of rampas) {
+    const filo = r.y + 1;
+    const pie = filo + r.caida * ALTO_DE_NIVEL;
+    const donde = `rampa en ${r.x},${r.y}`;
+    for (const p of PIEZAS_DE_RAMPA) {
+      const [a, b] = TRAMO_DE_PIEZA_DE_RAMPA[p];
+      const n = sprites.filter((s) => {
+        const m = s.src === null ? undefined : deRampa.get(s.src);
+        if (m === undefined || m.rampa.pieza !== p) return false;
+        const [fa, fb] = filoColocado(m, s);
+        return cerca(fa, [r.x + a, filo]) && cerca(fb, [r.x + b, filo]);
+      }).length;
+      if (n !== 1) mal.push(`${donde}: ${n} piezas ${p} en su sitio`);
+    }
+    for (const s of sprites) {
+      if (s.clase !== 'pared' || s.src?.includes('/paredes-') !== true) continue;
+      const [x0, , x1] = cajaDeSprite(s);
+      if (
+        Math.abs(s.y - pie) <= 0.3 &&
+        x1 > r.x + HOLGURA_DE_JUNTA &&
+        x0 < r.x + 1 - HOLGURA_DE_JUNTA
+      )
+        mal.push(`${donde}: la frontal ${s.src} en ${s.x.toFixed(2)} tapa el hueco`);
+    }
+  }
+  return mal;
+}
+
 /** Los pies de las dos juntas de una pared, en el orden de `JUNTAS`. */
 function piesDe(c: Celda): readonly [readonly [number, number], readonly [number, number]] {
   const [a, b] = JUNTAS[c.tipo];
@@ -4365,20 +4521,35 @@ function filosEnSuSitio(
   );
 }
 
-/** Los módulos de diagonales y de bajadas del catálogo por su `src`. */
+/** Los módulos de diagonales, de bajadas y de rampas del catálogo por su `src`. */
 function modulosDelRelieve(catalogo: Catalogo): {
   diagonales: Map<string, ModuloDeDiagonal>;
   bajadas: Map<string, ModuloDeBajada>;
+  rampas: Map<string, ModuloDeRampa>;
 } {
   const diagonales = new Map<string, ModuloDeDiagonal>();
   const bajadas = new Map<string, ModuloDeBajada>();
+  const rampas = new Map<string, ModuloDeRampa>();
   for (const [hoja, ms] of Object.entries(catalogo.hojas))
     for (const m of ms) {
       if (esHojaDeDiagonal(hoja) && m.diagonal !== undefined)
         diagonales.set(m.src, m as ModuloDeDiagonal);
       if (esHojaDeBajada(hoja) && m.bajada !== undefined) bajadas.set(m.src, m as ModuloDeBajada);
+      if (esHojaDeRampa(hoja) && m.rampa !== undefined) rampas.set(m.src, m as ModuloDeRampa);
     }
-  return { diagonales, bajadas };
+  return { diagonales, bajadas, rampas };
+}
+
+/**
+ * Lo que pinta el camino de una bajada: su pieza de `bajadas-*` (o su marcador)
+ * o el cuerpo de una rampa (#225). No el costado, que es pared.
+ */
+function esCaminoDeBajada(
+  s: Sprite,
+  m: Pick<ReturnType<typeof modulosDelRelieve>, 'bajadas' | 'rampas'>,
+): boolean {
+  if (s.src === null) return s.color === COLOR_DE_BAJADA;
+  return m.bajadas.has(s.src) || m.rampas.get(s.src)?.rampa.pieza === 'cuerpo';
 }
 
 /**
@@ -4505,14 +4676,23 @@ export function celdasMalCubiertas(
   return mal;
 }
 
-/** El `arriba` de una bajada ya colocada (su pieza o su marcador), o null si `s` no es una bajada. */
+/**
+ * El `arriba` de una bajada ya colocada (su pieza, su marcador o, la de una
+ * rampa, el medio del filo de su cuerpo), o null si `s` no es una bajada.
+ */
 function arribaColocado(
   s: Sprite,
-  bajadas: ReadonlyMap<string, ModuloDeBajada>,
+  { bajadas, rampas }: Pick<ReturnType<typeof modulosDelRelieve>, 'bajadas' | 'rampas'>,
   b: Bajada,
 ): readonly [number, number] | null {
   const m = s.src === null ? undefined : bajadas.get(s.src);
   if (m !== undefined) return enElMapa(s, m.bajada.arriba);
+  const r = s.src === null ? undefined : rampas.get(s.src);
+  if (r !== undefined) {
+    if (r.rampa.pieza !== 'cuerpo' || b.deUnaRampa !== true) return null;
+    const [fa, fb] = filoColocado(r, s);
+    return [(fa[0] + fb[0]) / 2, (fa[1] + fb[1]) / 2];
+  }
   if (s.src === null && s.color === COLOR_DE_BAJADA) {
     // El marcador va en la x del pie, con la clave por debajo de él.
     const [x, y] = abajoDe(b);
@@ -4578,7 +4758,7 @@ export function bajadasSinPieza(
   bajadas: readonly Bajada[],
   catalogo: Catalogo,
 ): string[] {
-  const m = modulosDelRelieve(catalogo).bajadas;
+  const m = modulosDelRelieve(catalogo);
   return bajadas
     .filter(
       (b) =>
@@ -4605,7 +4785,7 @@ export function bajadasTapadas(
   bajadas: readonly Bajada[],
   catalogo: Catalogo,
 ): string[] {
-  const m = modulosDelRelieve(catalogo).bajadas;
+  const m = modulosDelRelieve(catalogo);
   const perfilDe = perfilesDelCatalogo(catalogo);
   const { volumenes } = separar({ sprites });
   const fuera: string[] = [];
@@ -4624,8 +4804,7 @@ export function bajadasTapadas(
       if (s.clase === 'objeto' || s.clase === 'muro') continue;
       if (nodo !== undefined && ordenDeVolumenes(s, nodo) > 0) continue;
       // Otra bajada que se cruza con esta es el mismo camino que se abre en dos.
-      if ((s.src !== null && m.has(s.src)) || (s.src === null && s.color === COLOR_DE_BAJADA))
-        continue;
+      if (esCaminoDeBajada(s, m)) continue;
       if (puntos.some(([x, y]) => tapaElPunto(s, perfilDe, x, y))) {
         fuera.push(
           `bajada ${b.rumbo} en ${b.arriba[0].toFixed(2)},${b.arriba[1].toFixed(2)}: la tapa ${s.src ?? s.clase} en ${s.x.toFixed(2)},${s.y.toFixed(2)}`,
@@ -4702,10 +4881,9 @@ export function loQueTapa(
   sprites: readonly Sprite[],
   catalogo: Catalogo,
 ): (x: number, y: number) => 'pared' | 'bajada' | null {
-  const m = modulosDelRelieve(catalogo).bajadas;
+  const m = modulosDelRelieve(catalogo);
   const perfilDe = perfilesDelCatalogo(catalogo);
-  const esBajada = (s: Sprite) =>
-    (s.src !== null && m.has(s.src)) || (s.src === null && s.color === COLOR_DE_BAJADA);
+  const esBajada = (s: Sprite) => esCaminoDeBajada(s, m);
   // Las paredes por casilla de su caja: un punto mira solo las de la suya.
   const porCasilla = new Map<number, Sprite[]>();
   for (const s of sprites) {
@@ -4810,7 +4988,7 @@ export function bajadasSobreNodo(
   bajadas: readonly Bajada[],
   catalogo: Catalogo,
 ): string[] {
-  const m = modulosDelRelieve(catalogo).bajadas;
+  const m = modulosDelRelieve(catalogo);
   const perfilDe = perfilesDelCatalogo(catalogo);
   const { volumenes } = separar({ sprites });
   const fuera: string[] = [];

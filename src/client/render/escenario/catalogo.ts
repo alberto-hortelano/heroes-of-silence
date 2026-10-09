@@ -96,8 +96,29 @@ export interface JuntasDeBajada {
   readonly rumbo: RumboDeBajada;
 }
 
-/** Las juntas de cualquier pieza del relieve: una ladera, una diagonal o una bajada. */
-export type JuntasDeRelieve = JuntasDeLadera | JuntasDeDiagonal | JuntasDeBajada;
+/**
+ * Las tres piezas de una rampa (#225, §35): el cuerpo, la cuesta que baja por el
+ * hueco que abre en la pared, y un costado a cada lado, donde la cara de la pared
+ * baja en diagonal de su alto entero junto al filo a nada al pie de la rampa.
+ */
+export const PIEZAS_DE_RAMPA = ['costado-izq', 'cuerpo', 'costado-der'] as const;
+export type PiezaDeRampa = (typeof PIEZAS_DE_RAMPA)[number];
+
+/**
+ * Lo que una pieza de rampa (`rampa-<material>-<caída>`, §35) sabe de sí misma:
+ * dónde caen, en píxeles del módulo, los dos extremos del filo del tramo que
+ * cubre (`TRAMO_DE_PIEZA_DE_RAMPA`, en `celdas.ts`), qué pieza es y hacia dónde
+ * baja. `componer` pone esos dos puntos en el filo de su sitio y saca de ellos la
+ * escala. Los lleva de la guía `pnpm taller derivar-relieve` al cortar la imagen.
+ */
+export interface JuntasDeRampa {
+  readonly filo: readonly [Par, Par];
+  readonly pieza: PiezaDeRampa;
+  readonly rumbo: 's';
+}
+
+/** Las juntas de cualquier pieza del relieve: una ladera, una diagonal, una bajada o una rampa. */
+export type JuntasDeRelieve = JuntasDeLadera | JuntasDeDiagonal | JuntasDeBajada | JuntasDeRampa;
 
 export interface Modulo extends Pieza {
   /** El nombre del módulo dentro de su hoja (`1`, `torre-redonda`…). */
@@ -108,6 +129,8 @@ export interface Modulo extends Pieza {
   readonly diagonal?: JuntasDeDiagonal;
   /** Solo en las hojas de bajadas, y en todas ellas. */
   readonly bajada?: JuntasDeBajada;
+  /** Solo en las hojas de rampas, y en todas ellas. */
+  readonly rampa?: JuntasDeRampa;
   /**
    * Lo alto de su silueta, de izquierda a derecha: por franja de columnas, la
    * fracción del alto de la imagen donde empieza lo opaco (la más baja de la
@@ -123,7 +146,7 @@ export interface Modulo extends Pieza {
  * paredes, las laderas y el pedregal (`rocas-caidas`).
  */
 export const conPerfil = (hoja: string): boolean =>
-  /^(paredes|laderas|diagonales|bajadas)-/.test(hoja) || hoja === 'rocas-caidas';
+  /^(paredes|laderas|diagonales|bajadas|rampa)-/.test(hoja) || hoja === 'rocas-caidas';
 
 /** Un módulo de ladera con sus juntas. */
 export type ModuloDeLadera = Modulo & { readonly ladera: JuntasDeLadera };
@@ -151,14 +174,19 @@ export const esHojaDeDiagonal = (hoja: string): boolean =>
 /** Si una hoja es de bajadas (`bajadas-<material>-<caída>`, §23). */
 export const esHojaDeBajada = (hoja: string): boolean => /^bajadas-[a-z]+-[123]$/.test(hoja);
 
-/** Si una hoja es del relieve y sus módulos llevan juntas: laderas, diagonales o bajadas. */
+/** Si una hoja es de rampas (`rampa-<material>-<caída>`, §35). */
+export const esHojaDeRampa = (hoja: string): boolean => /^rampa-[a-z]+-[123]$/.test(hoja);
+
+/** Si una hoja es del relieve y sus módulos llevan juntas: laderas, diagonales, bajadas o rampas. */
 export const esHojaDeRelieve = (hoja: string): boolean =>
-  esHojaDeLadera(hoja) || esHojaDeDiagonal(hoja) || esHojaDeBajada(hoja);
+  esHojaDeLadera(hoja) || esHojaDeDiagonal(hoja) || esHojaDeBajada(hoja) || esHojaDeRampa(hoja);
 
 /** Un módulo de diagonal con sus juntas. */
 export type ModuloDeDiagonal = Modulo & { readonly diagonal: JuntasDeDiagonal };
 /** Un módulo de bajada con sus juntas. */
 export type ModuloDeBajada = Modulo & { readonly bajada: JuntasDeBajada };
+/** Un módulo de rampa con sus juntas. */
+export type ModuloDeRampa = Modulo & { readonly rampa: JuntasDeRampa };
 
 export interface Catalogo {
   /** Los módulos de cada hoja, de menor a mayor alto de ancla. */
@@ -180,7 +208,7 @@ export interface CatalogoEnBruto {
   readonly hojas: Readonly<
     Record<
       string,
-      readonly (Omit<Modulo, 'ladera' | 'diagonal' | 'bajada'> & {
+      readonly (Omit<Modulo, 'ladera' | 'diagonal' | 'bajada' | 'rampa'> & {
         readonly ladera?: {
           readonly filo: readonly number[];
           readonly pie: readonly number[];
@@ -194,6 +222,11 @@ export interface CatalogoEnBruto {
         readonly bajada?: {
           readonly arriba: readonly number[];
           readonly abajo: readonly number[];
+          readonly rumbo: string;
+        };
+        readonly rampa?: {
+          readonly filo: readonly (readonly number[])[];
+          readonly pieza: string;
           readonly rumbo: string;
         };
       })[]
@@ -271,11 +304,36 @@ function bajadaValidada(
   return { arriba: b.arriba, abajo: b.abajo, rumbo: b.rumbo as RumboDeBajada };
 }
 
+/** Las juntas de una pieza de rampa tal como vienen del JSON, comprobadas, o lanza diciendo qué falta. */
+function rampaValidada(
+  donde: string,
+  r:
+    | {
+        readonly filo: readonly (readonly number[])[];
+        readonly pieza: string;
+        readonly rumbo: string;
+      }
+    | undefined,
+): JuntasDeRampa {
+  if (r === undefined)
+    throw new Error(`${donde} no trae sus juntas de rampa: ${DERIVA_EL_RELIEVE}`);
+  const [a, b, ...sobran] = r.filo;
+  if (a === undefined || b === undefined || sobran.length > 0 || !esPar(a) || !esPar(b))
+    throw new Error(`${donde}: el filo son dos pares [x, y], y trae ${JSON.stringify(r.filo)}`);
+  if (!(PIEZAS_DE_RAMPA as readonly string[]).includes(r.pieza))
+    throw new Error(
+      `${donde}: su pieza es una de ${PIEZAS_DE_RAMPA.join(', ')}, y dice «${r.pieza}»`,
+    );
+  if (r.rumbo !== 's')
+    throw new Error(`${donde}: las rampas bajan al sur (s), y dice «${r.rumbo}»`);
+  return { filo: [a, b], pieza: r.pieza as PiezaDeRampa, rumbo: 's' };
+}
+
 /**
  * El catálogo, comprobado: todo módulo de una hoja de laderas trae sus juntas
  * enteras (filo y pie como pares, largo 1 o 2, un papel de la cadena), todo
  * módulo de diagonal sus dos filos y su papel, toda bajada su arriba, su abajo y
- * su rumbo, y ningún otro las trae; todo módulo de una hoja que tapa una cara trae su perfil, de
+ * su rumbo, toda pieza de rampa su filo, su pieza y su rumbo, y ningún otro las trae; todo módulo de una hoja que tapa una cara trae su perfil, de
  * fracciones entre 0 y 1, y ningún otro lo trae; todo puente trae sus medidas,
  * positivas, y ninguna otra pieza las trae. Lanza diciendo qué módulo y qué
  * hacer: sin esto, la falta solo salía al componer el primer mapa con esa ladera.
@@ -283,31 +341,36 @@ function bajadaValidada(
 export function catalogoValidado(c: CatalogoEnBruto): Catalogo {
   const hojas: Record<string, readonly Modulo[]> = {};
   for (const [hoja, ms] of Object.entries(c.hojas))
-    hojas[hoja] = ms.map(perfilValidado(hoja)).map(({ ladera, diagonal, bajada, ...m }): Modulo => {
-      const donde = `el módulo «${m.nombre}» de «${hoja}»`;
-      if (!esHojaDeLadera(hoja) && ladera !== undefined)
-        throw new Error(`${donde} trae juntas de ladera y no es una ladera`);
-      if (!esHojaDeDiagonal(hoja) && diagonal !== undefined)
-        throw new Error(`${donde} trae juntas de diagonal y no es una diagonal`);
-      if (!esHojaDeBajada(hoja) && bajada !== undefined)
-        throw new Error(`${donde} trae juntas de bajada y no es una bajada`);
-      if (esHojaDeDiagonal(hoja)) return { ...m, diagonal: diagonalValidada(donde, diagonal) };
-      if (esHojaDeBajada(hoja)) return { ...m, bajada: bajadaValidada(donde, bajada) };
-      if (!esHojaDeLadera(hoja)) return m;
-      if (ladera === undefined) return moduloDeLadera(m, hoja);
-      const { filo, pie, largo, papel } = ladera;
-      if (!esPar(filo) || !esPar(pie))
-        throw new Error(
-          `${donde}: el filo y el pie son pares [x, y], y trae ${JSON.stringify({ filo, pie })}`,
-        );
-      if (largo !== 1 && largo !== 2)
-        throw new Error(`${donde}: cubre 1 o 2 casillas, y dice ${largo}`);
-      if (!(PAPELES_DE_LADERA as readonly string[]).includes(papel))
-        throw new Error(
-          `${donde}: su papel es uno de ${PAPELES_DE_LADERA.join(', ')}, y dice «${papel}»`,
-        );
-      return { ...m, ladera: { filo, pie, largo, papel: papel as PapelDeLadera } };
-    });
+    hojas[hoja] = ms
+      .map(perfilValidado(hoja))
+      .map(({ ladera, diagonal, bajada, rampa, ...m }): Modulo => {
+        const donde = `el módulo «${m.nombre}» de «${hoja}»`;
+        if (!esHojaDeLadera(hoja) && ladera !== undefined)
+          throw new Error(`${donde} trae juntas de ladera y no es una ladera`);
+        if (!esHojaDeDiagonal(hoja) && diagonal !== undefined)
+          throw new Error(`${donde} trae juntas de diagonal y no es una diagonal`);
+        if (!esHojaDeBajada(hoja) && bajada !== undefined)
+          throw new Error(`${donde} trae juntas de bajada y no es una bajada`);
+        if (!esHojaDeRampa(hoja) && rampa !== undefined)
+          throw new Error(`${donde} trae juntas de rampa y no es una rampa`);
+        if (esHojaDeDiagonal(hoja)) return { ...m, diagonal: diagonalValidada(donde, diagonal) };
+        if (esHojaDeBajada(hoja)) return { ...m, bajada: bajadaValidada(donde, bajada) };
+        if (esHojaDeRampa(hoja)) return { ...m, rampa: rampaValidada(donde, rampa) };
+        if (!esHojaDeLadera(hoja)) return m;
+        if (ladera === undefined) return moduloDeLadera(m, hoja);
+        const { filo, pie, largo, papel } = ladera;
+        if (!esPar(filo) || !esPar(pie))
+          throw new Error(
+            `${donde}: el filo y el pie son pares [x, y], y trae ${JSON.stringify({ filo, pie })}`,
+          );
+        if (largo !== 1 && largo !== 2)
+          throw new Error(`${donde}: cubre 1 o 2 casillas, y dice ${largo}`);
+        if (!(PAPELES_DE_LADERA as readonly string[]).includes(papel))
+          throw new Error(
+            `${donde}: su papel es uno de ${PAPELES_DE_LADERA.join(', ')}, y dice «${papel}»`,
+          );
+        return { ...m, ladera: { filo, pie, largo, papel: papel as PapelDeLadera } };
+      });
   const piezas: Record<string, Pieza> = {};
   for (const [id, p] of Object.entries(c.piezas)) {
     if (!esPiezaDePuente(id)) {

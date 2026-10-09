@@ -32,10 +32,12 @@
  *                                        las laderas que encadenan (§20, `laderas.ts`), con su guía
  *   pnpm taller encolar --relieve [--solo=diagonales-roca-se-1,bajadas-roca-1,…]
  *                                        las diagonales y las bajadas del relieve por celdas (§23), con su guía
- *   pnpm taller guias                    escribe las guías de geometría de `paredes-puentes.ts`, `laderas.ts`, `diagonales.ts` y `bajadas.ts`
+ *   pnpm taller encolar --rampas [--solo=rampa-roca-1,…]
+ *                                        las rampas que abren la pared (§35, `rampas.ts`), con su guía
+ *   pnpm taller guias                    escribe las guías de geometría de `paredes-puentes.ts`, `laderas.ts`, `diagonales.ts`, `bajadas.ts` y `rampas.ts`
  *   pnpm taller derivar-puentes <puente.webp>…  rehace su ancla (centro del tablero) y su casilla
  *   pnpm taller escenario [semilla…]     el escenógrafo: compone, pinta, captura y mide
- *   pnpm taller derivar-relieve [hoja…]  apunta las juntas de cada módulo del relieve desde su guía: laderas (§20), diagonales y bajadas (§23)
+ *   pnpm taller derivar-relieve [hoja…]  apunta las juntas de cada módulo del relieve desde su guía: laderas (§20), diagonales y bajadas (§23); corta las rampas (§35)
  *   pnpm taller catalogo-escena          rehace assets/mapa/escena.json, el catálogo que lee el juego
  *   pnpm taller vista-ejercitos          una página con todos los ejércitos, para elegir o comparar
  *   pnpm taller vista-8d [unidad|juego]  el visor de 8 direcciones de las unidades y las poses
@@ -59,6 +61,7 @@ import {
   esHojaDeBajada,
   esHojaDeDiagonal,
   esHojaDeLadera,
+  esHojaDeRampa,
   esHojaDeRelieve,
 } from '../../src/client/render/escenario/catalogo.js';
 import type { Escena } from '../../src/client/render/escenario/colocar.js';
@@ -136,6 +139,7 @@ import {
   MATERIALES,
 } from './paredes-puentes.js';
 import { escribirAtlasDePoses, RUTA_DEL_ATLAS_8D, sueltaDeUnidad } from './poses-8d.js';
+import { encargosDeRampas, escribirGuiasDeRampas, escribirRampasDerivadas } from './rampas.js';
 import { aRaster, dePng, recortar, UMBRALES } from './recorte.js';
 import { costura, hacerTeselable, LADO_DE_TEXTURA, UMBRAL_DE_COSTURA } from './textura.js';
 import {
@@ -340,6 +344,11 @@ async function postprocesar(
 
     // Las piezas sueltas del mapa (no las láminas de muestra) llevan su JSON derivado.
     // Y los edificios de ciudad, que se colocan igual: por el centro de su base.
+    // Una rampa (§35) es una imagen entera que se corta en sus tres piezas por la guía.
+    if (encargo.tipo === 'imagen' && esHojaDeRampa(basename(encargo.salida))) {
+      await escribirRelieveDerivado([basename(encargo.salida)]);
+      pasos.push('cortada en sus tres piezas por la guía, con las juntas de cada una');
+    }
     if (
       encargo.tipo === 'imagen' &&
       /^assets\/(mapa|edificios\/[a-z-]+)\/[^/]+$/.test(encargo.salida)
@@ -651,6 +660,23 @@ async function encolar(args: readonly string[]): Promise<void> {
     }
     return;
   }
+  // Las rampas (§35): primero su guía.
+  if (args.includes('--rampas')) {
+    await escribirGuiasDeRampas();
+    const solo = args
+      .find((x) => x.startsWith('--solo='))
+      ?.slice('--solo='.length)
+      .split(',');
+    const todos = encargosDeRampas();
+    const lista = todos.filter((e) => solo === undefined || solo.includes(e.id));
+    if (solo !== undefined && lista.length !== solo.length)
+      throw new Error(`--solo: hay ${todos.map((e) => e.id).join(', ')}`);
+    for (const bruto of lista) {
+      if (args.includes('--rehacer')) await COLA.olvidar(bruto.id);
+      console.log(`encolado ${(await COLA.encolar(bruto)).id}`);
+    }
+    return;
+  }
   // El relieve por celdas (§23): las diagonales y las bajadas, primero sus guías.
   if (args.includes('--relieve')) {
     await escribirGuiasDeDiagonales();
@@ -807,7 +833,11 @@ async function escribirRelieveDerivado(hojas?: readonly string[]): Promise<strin
     if (esHojaDeLadera(hoja)) escritas.push(...(await escribirLaderasDerivadas([hoja])));
     else if (esHojaDeDiagonal(hoja)) escritas.push(await escribirDiagonalesDerivadas(hoja));
     else if (esHojaDeBajada(hoja)) escritas.push(await escribirBajadasDerivadas(hoja));
-    else throw new Error(`«${hoja}» no es una hoja del relieve (laderas, diagonales o bajadas)`);
+    else if (esHojaDeRampa(hoja)) escritas.push(await escribirRampasDerivadas(hoja));
+    else
+      throw new Error(
+        `«${hoja}» no es una hoja del relieve (laderas, diagonales, bajadas o rampas)`,
+      );
   }
   return escritas;
 }
@@ -894,7 +924,7 @@ switch (orden) {
       };
       console.log(`→ ${r.png}`);
       console.log(
-        `  suelo desnudo ${(i.desnudo * 100).toFixed(1)} % · murallas partidas ${i.murallasPartidas} · muralla incoherente ${i.murallaIncoherente} · torres apiladas ${i.torresApiladas} · muralla sobre la senda ${i.murallaSobreSenda} · bases sobre reserva ${i.basesSobreReserva} · barrera sin formación ${i.casillasDeBarreraSinFormacion} · sprites sobre la senda ${i.spritesSobreSenda} · celdas mal cubiertas ${i.celdasMalCubiertas} · bajadas sin pieza ${i.bajadasSinPieza} · bajadas tapadas ${i.bajadasTapadas} · pasos tapados ${i.pasosTapados} · pasos atravesados ${i.pasosAtravesados} · pisables tapadas ${i.pisablesTapadas} · trochas tapadas ${i.trochasTapadas} · rampas desviadas ${i.rampasDesviadas} · sendas por objeto ${i.sendasPorObjeto} · acantilados lisos ${i.acantiladosLisos} · espaldas sin reborde ${i.espaldasSinReborde} · cima de otro material ${i.cimaDeOtroMaterial} · cubierta de otro nivel ${i.cubiertaDeOtroNivel} · cara de otro material ${i.caraDeOtroMaterial} · paredes tapadas ${i.paredesTapadas} · caras cortadas ${i.carasCortadas} · mesas en la cordillera ${i.mesasEnLaCordillera} · senda bajo el relieve ${i.sendaBajoElRelieve} (techo de media 5) · agua en lo alto ${i.aguaEnLoAlto} · espaldas sin labio ${i.espaldasSinLabio} · espaldas sin canto ${i.espaldasSinCanto} · senda sobre el agua ${i.sendaSobreElAgua}` +
+        `  suelo desnudo ${(i.desnudo * 100).toFixed(1)} % · murallas partidas ${i.murallasPartidas} · muralla incoherente ${i.murallaIncoherente} · torres apiladas ${i.torresApiladas} · muralla sobre la senda ${i.murallaSobreSenda} · bases sobre reserva ${i.basesSobreReserva} · barrera sin formación ${i.casillasDeBarreraSinFormacion} · sprites sobre la senda ${i.spritesSobreSenda} · celdas mal cubiertas ${i.celdasMalCubiertas} · bajadas sin pieza ${i.bajadasSinPieza} · bajadas tapadas ${i.bajadasTapadas} · pasos tapados ${i.pasosTapados} · pasos atravesados ${i.pasosAtravesados} · pisables tapadas ${i.pisablesTapadas} · trochas tapadas ${i.trochasTapadas} · rampas desviadas ${i.rampasDesviadas} · rampas sin sus piezas ${i.rampasSinSusPiezas} · sendas por objeto ${i.sendasPorObjeto} · acantilados lisos ${i.acantiladosLisos} · espaldas sin reborde ${i.espaldasSinReborde} · cima de otro material ${i.cimaDeOtroMaterial} · cubierta de otro nivel ${i.cubiertaDeOtroNivel} · cara de otro material ${i.caraDeOtroMaterial} · paredes tapadas ${i.paredesTapadas} · caras cortadas ${i.carasCortadas} · mesas en la cordillera ${i.mesasEnLaCordillera} · senda bajo el relieve ${i.sendaBajoElRelieve} (techo de media 5) · agua en lo alto ${i.aguaEnLoAlto} · espaldas sin labio ${i.espaldasSinLabio} · espaldas sin canto ${i.espaldasSinCanto} · senda sobre el agua ${i.sendaSobreElAgua}` +
           (i.modulosQueFaltan.length > 0 ? ` · faltan ${i.modulosQueFaltan.join(', ')}` : '') +
           (i.errores.length > 0 ? ` · ERRORES: ${i.errores.join(' | ')}` : ''),
       );
@@ -907,6 +937,7 @@ switch (orden) {
       ...(await escribirGuiasDeLaderas()),
       ...(await escribirGuiasDeDiagonales()),
       ...(await escribirGuiasDeBajadas()),
+      ...(await escribirGuiasDeRampas()),
     ])
       console.log(`→ ${g}`);
     break;

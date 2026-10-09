@@ -1,0 +1,77 @@
+{
+  "hoja": "rampa-roca-1.webp",
+  "modulos": [
+    {
+      "imagen": "s-costado-izq.webp",
+      "sha256": "f432bdd15edf569efd00870b6cc43400e496e7fccdc59e2d048097cbf3a285e7",
+      "ancho": 542,
+      "alto": 581,
+      "ancla": [
+        271,
+        580
+      ],
+      "rampa": {
+        "filo": [
+          [
+            0,
+            184
+          ],
+          [
+            542,
+            184
+          ]
+        ],
+        "pieza": "costado-izq",
+        "rumbo": "s"
+      }
+    },
+    {
+      "imagen": "s-cuerpo.webp",
+      "sha256": "f52352adf65980bfb11272260bc26e16ba33d8f9eb148fd18f6b9ea84ba739d7",
+      "ancho": 361,
+      "alto": 580,
+      "ancla": [
+        181,
+        579
+      ],
+      "rampa": {
+        "filo": [
+          [
+            0,
+            113
+          ],
+          [
+            361,
+            113
+          ]
+        ],
+        "pieza": "cuerpo",
+        "rumbo": "s"
+      }
+    },
+    {
+      "imagen": "s-costado-der.webp",
+      "sha256": "5069045ea93a5902a3f4eb6b44918656f8e0d911541dcee6fd368092710619d7",
+      "ancho": 540,
+      "alto": 557,
+      "ancla": [
+        270,
+        556
+      ],
+      "rampa": {
+        "filo": [
+          [
+            0,
+            176
+          ],
+          [
+            540,
+            176
+          ]
+        ],
+        "pieza": "costado-der",
+        "rumbo": "s"
+      }
+    }
+  ]
+}

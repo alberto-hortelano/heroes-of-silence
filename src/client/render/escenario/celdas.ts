@@ -13,7 +13,7 @@
  * Es puro: sale del nivel por casilla de `relieve()` y no cambia el núcleo.
  */
 import type { Suelo } from '@core/map/terrain.js';
-import type { RumboDeBajada } from './catalogo.js';
+import type { PiezaDeRampa, RumboDeBajada } from './catalogo.js';
 import {
   ALTO_DE_NIVEL,
   CARA_DE_SUELO,
@@ -495,6 +495,12 @@ export interface Bajada {
    * la trocha de senda: no hay senda pintada que tenga que pasar por ella.
    */
   readonly deUnNodo?: true;
+  /**
+   * La bajada de una rampa (#225, `rampasDeFrente`): no lleva pieza de
+   * `bajadas-*`, la lleva la rampa que abre la pared, y baja al sur por el medio
+   * de su casilla.
+   */
+  readonly deUnaRampa?: true;
 }
 
 /** El rumbo de bajada de un paso de casilla a casilla, o null si baja al norte (de espaldas). */
@@ -708,6 +714,123 @@ export function rampaDe(
   const [dx, dy] = DIRECCION_DE_BAJADA[b.rumbo];
   const L = largoDeBajada(b.rumbo, b.caida);
   return [b.arriba, [b.arriba[0] + dx * L, b.arriba[1] + dy * L]];
+}
+
+// ------------------------------------------------------------- las rampas
+
+/**
+ * Lo que cubre cada pieza de una rampa (#225, §35), de oeste a este en casillas
+ * desde el borde oeste de la casilla del hueco. Las paredes S del *dual grid* van
+ * de vértice a vértice ± media casilla: la rampa sustituye las de los vértices
+ * `x − 1` a `x + 2`, así que el borde recto mide cinco casillas y cada costado
+ * casilla y media. Es el contrato de la guía (`tools/taller/rampas.ts`).
+ */
+export const TRAMO_DE_PIEZA_DE_RAMPA: Readonly<Record<PiezaDeRampa, readonly [number, number]>> = {
+  'costado-izq': [-1.5, 0],
+  cuerpo: [0, 1],
+  'costado-der': [1, 2.5],
+};
+
+/** Los vértices cuya pared S sustituye una rampa, desde la casilla del hueco. */
+const VERTICES_DE_RAMPA = [-1, 0, 1, 2] as const;
+
+/**
+ * Una rampa (#225): el camino del núcleo baja al sur de la casilla alta `(x, y)`
+ * a la de debajo por un borde recto, y la pared se abre: el cuerpo en el hueco
+ * y un costado a cada lado, en lugar de las frontales (`TRAMO_DE_PIEZA_DE_RAMPA`).
+ */
+export interface Rampa {
+  readonly x: number;
+  readonly y: number;
+  readonly caida: number;
+  /** El primer umbral de sus paredes (`Celda.desde`). */
+  readonly desde: number;
+  /** El material de la cara (`CARA_DE_SUELO`), el de sus paredes. */
+  readonly material: string;
+}
+
+/**
+ * Las rampas de un relieve: cada tramo de `tramos` que baja de una casilla a la
+ * de debajo (al sur, de frente a la cámara) por un borde recto —la pared S de
+ * los vértices `x − 1` a `x + 2` de su filo, una sola caída con el mismo primer
+ * umbral, sin más paredes en esos vértices— cuyo material y caída tienen arte
+ * (`conArte`) y cuyo pie no cae fuera (`pieAdmitido`, el de `bajadasDe`). Dos
+ * que se pisen, la segunda no va: lleva la bajada de siempre. Solo se mira el
+ * tramo del núcleo, no la senda pintada, así que sale igual antes y después de
+ * apartarla. `vistas`, las paredes que se ven (sin las de los puentes).
+ */
+export function rampasDeFrente(
+  nivel: ArrayLike<number>,
+  W: number,
+  vistas: readonly Celda[],
+  tramos: readonly (readonly [
+    { readonly x: number; readonly y: number },
+    { readonly x: number; readonly y: number },
+  ])[],
+  conArte: (material: string, caida: number) => boolean,
+  pieAdmitido: (x: number, y: number) => boolean = () => true,
+): Rampa[] {
+  const enVertice = new Map<string, Celda[]>();
+  for (const c of vistas) {
+    const k = `${c.vx},${c.vy}`;
+    enVertice.set(k, [...(enVertice.get(k) ?? []), c]);
+  }
+  const N = (x: number, y: number) => nivel[y * W + x] as number;
+  const usados = new Set<string>();
+  const fuera: Rampa[] = [];
+  for (const [p, q] of tramos) {
+    if (p.x !== q.x || Math.abs(p.y - q.y) !== 1) continue;
+    const [alto, bajo] = p.y < q.y ? [p, q] : [q, p];
+    if (N(alto.x, alto.y) <= N(bajo.x, bajo.y)) continue;
+    const vy = bajo.y;
+    const paredes = VERTICES_DE_RAMPA.map((d) => enVertice.get(`${alto.x + d},${vy}`) ?? []);
+    const hueco = paredes[1]?.[0];
+    if (
+      hueco === undefined ||
+      !paredes.every(
+        (ps) =>
+          ps.length === 1 &&
+          ps[0]?.tipo === 'S' &&
+          ps[0].desde === hueco.desde &&
+          ps[0].caida === hueco.caida &&
+          ps[0].material === hueco.material,
+      )
+    )
+      continue;
+    if (!conArte(hueco.material, hueco.caida)) continue;
+    const [, [px, py]] = rampaDe({ rumbo: 's', caida: hueco.caida, arriba: [alto.x + 0.5, vy] });
+    if (!pieAdmitido(Math.floor(px), Math.floor(py))) continue;
+    const suyos = VERTICES_DE_RAMPA.map((d) => `${alto.x + d},${vy}`);
+    if (suyos.some((k) => usados.has(k))) continue;
+    for (const k of suyos) usados.add(k);
+    fuera.push({
+      x: alto.x,
+      y: alto.y,
+      caida: hueco.caida,
+      desde: hueco.desde,
+      material: hueco.material,
+    });
+  }
+  return fuera;
+}
+
+/** Las paredes que sustituye una rampa, como `claveDeCelda`: sin cara pintada ni frontal. */
+export function celdasDeLaRampa(r: Rampa): string[] {
+  return VERTICES_DE_RAMPA.map((d) =>
+    claveDeCelda({ vx: r.x + d, vy: r.y + 1, tipo: 'S', desde: r.desde }),
+  );
+}
+
+/**
+ * La bajada de una rampa: al sur, con `arriba` en el medio del filo de su
+ * hueco (la rampa baja por el medio de la casilla y la senda pasa por ella,
+ * `sendasPorLasRampas`), y sin pieza de `bajadas-*` (`deUnaRampa`).
+ */
+export function enSuRampa(b: Bajada, rampas: readonly Rampa[]): Bajada {
+  const r = rampas.find(
+    (r) => b.alto[0] === r.x && b.alto[1] === r.y && b.bajo[0] === r.x && b.bajo[1] === r.y + 1,
+  );
+  return r === undefined ? b : { ...b, rumbo: 's', arriba: [r.x + 0.5, r.y + 1], deUnaRampa: true };
 }
 
 type Punto = readonly [number, number];

@@ -1,0 +1,56 @@
+{
+  "encargo": "rampa-arenisca-1",
+  "tipo": "imagen",
+  "fecha": "2026-10-09T07:34:44.352Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a11f94-5dd7-75d2-b0fc-e790dd8d7836",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadura, armas, colores) y su acabado pintado. No determina la cámara, la anatomía ni la pose.\nLa imagen 3 es la referencia de MATERIAL: de ella se toman SOLO el color, la textura y la paleta de la roca y de lo que crece en ella, para que case con estas piezas. NO copies su forma (columnas, prismas, bloques en fila) ni su composición.\nLa imagen 4 es la GUÍA DE GEOMETRÍA: un volumen gris sin acabado, dibujado con la cámara del juego. Manda en la ORIENTACIÓN, la forma, las proporciones, el tamaño y la posición de cada pieza dentro de la imagen: cópialas con exactitud, sin girar ni torcer nada. NO copies su gris liso, sus aristas de esquema ni su fondo plano: el material, el detalle y la luz son los de la imagen de estilo.\n\nUna RAMPA ABIERTA EN UN RISCO para el mapa de aventura de un juego de estrategia, como las rampas de los acantilados de StarCraft o Warcraft III: el borde recto de una meseta de arenisca rojiza y ocre en estratos, del color de las paredes de la imagen 3, apagada y polvorienta, con bloques caídos que cae UN nivel hacia la cámara, y en su centro un camino de tierra que BAJA DE FRENTE hacia la cámara por un HUECO que corta la pared.\nLA PARED A LOS DOS LADOS ES LA MISMA PARED FRONTAL DE LA IMAGEN 2, con su misma roca, su mismo color, sus mismas formas, su remate de arriba y su musgo: sigue fuera de la imagen por la izquierda y por la derecha en esas mismas piezas, así que sus dos extremos están CORTADOS LIMPIOS en vertical, sin rematar ni redondearse, con la pared a su alto entero hasta el corte.\nPOR ENCIMA DEL FILO, la cresta es la de la imagen 2: las CABEZAS de la misma roca de la pared, con musgo, matas y hierba entre ellas, que asoman sobre la meseta; NUNCA una franja de tierra, un suelo llano ni un camino encima de la pared. Al PIE de la pared, como en la imagen 2: bloques caídos y derrubio de tamaños distintos, irregular, que se mete en el suelo; NUNCA un borde recto ni una línea horizontal limpia, y ninguna piedra suelta separada del resto.\nJunto al hueco, a cada lado, la pared NO acaba de golpe: dobla hacia la cámara y su cara BAJA EN DIAGONAL, de su alto entero junto al filo hasta CERO al pie de la rampa, como un triángulo de roca (el ala): la de la izquierda mira a la luz y la de la derecha queda en sombra. Encima de cada ala, un hombro de roca rota y tierra baja de la cresta a la cuesta.\nLa CUESTA es tierra pisada en pendiente, MÁS CLARA QUE LA ROCA, del color de la tierra de la imagen 3: con ESTRÍAS (regueros y surcos a lo largo de la pendiente, piedrecillas arrastradas hacia abajo) y un camino claro y gastado por el medio; en lo alto se mete en la meseta y abajo se derrama en un abanico sobre el suelo llano. Es un paso natural: sin escalones, sin peldaños, sin barandillas, sin muretes ni bordillos. Donde las alas y la cuesta tocan el suelo, una sombra de contacto oscura y estrecha.\nENCIMA DEL FILO solo la cresta de la pared, como en la imagen 2; la meseta (arena parda rojiza apagada) la pone el juego y por detrás de la cresta la imagen es transparente.\nLA SILUETA ES LA DE LA GUÍA (imagen 4), CALCADA: mismo sitio, mismo alto, mismo ancho, mismas proporciones y el hueco en el mismo sitio, sin girar ni torcer nada. En la guía: lo gris medio de los lados es la cara frontal; el triángulo claro de la izquierda y el oscuro de la derecha, las alas; lo gris de encima de las alas, los hombros; lo pardo, la cuesta con sus estrías más oscuras y el camino claro; lo claro de arriba, la cresta.\nLa luz viene de arriba a la izquierda; las sombras caen hacia la derecha y hacia abajo.\nEstilo de la imagen de estilo, que manda sobre cualquier otra idea: fantasía medieval OSCURA y sombría, pintura digital muy detallada como una maqueta en miniatura, con muchísimo detalle menudo (piedras, matas, grietas, raíces). Paleta APAGADA y poco saturada: verdes oliva y musgo oscuros, grises pizarra, pardos terrosos, rojos óxido; nada de colores vivos ni de aspecto de juego para móvil. Sombras profundas y oclusión marcada entre los detalles, luz tenue y algo fría, con contraste dramático.\n\nTodo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.",
+  "referencias": [
+    {
+      "ruta": "assets/art/mapas/Imagen de ChatGPT 3 oct 2026, 10_05_01.png",
+      "papel": "estilo",
+      "sha256": "a3b78bb6efb486f6c65827e19739696aab723d824331faaa6d58d84c727fe6f5"
+    },
+    {
+      "ruta": "assets/mapa/modulos/paredes-arenisca.webp",
+      "papel": "identidad",
+      "sha256": "b4ad88735462352c84b45b4ee2814acf2a095b356b31a589ea0a5e0c87e46d54"
+    },
+    {
+      "ruta": "assets/mapa/modulos/bajadas-arenisca-1.webp",
+      "papel": "material",
+      "sha256": "dd38977c7fee8541d17a8b68648c6d641414c67384f24a123314ac8650e778fb"
+    },
+    {
+      "ruta": "assets/mapa/guias/rampas-1.png",
+      "papel": "guia",
+      "sha256": "fa8d67fb66962403483faa3aab0902c79ae4a574ec8f5f0165be49a83ae4eacf"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a11f94-5dd7-75d2-b0fc-e790dd8d7836/exec-64ecb9da-d0da-4335-9670-797d1a3b74c2.png",
+    "sha256": "a4989d4a9f594d1b182636b148354507fa7967f455534d0058d4fc3455a24e9d",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "halo recortado desde los bordes (alfa < 96); cuerpo opaco (alfa ≥ 200)",
+    "recortado al contenido con 24 px de margen",
+    "WebP calidad 92, alfa sin pérdida",
+    "cortada en sus tres piezas por la guía, con las juntas de cada una"
+  ],
+  "validacion": {
+    "visibles": 0.571359053099913,
+    "opacos": 0.9931916649473901,
+    "haloSuelto": 0,
+    "ancho": 1477,
+    "alto": 672
+  },
+  "salida": {
+    "ruta": "assets/mapa/modulos/rampa-arenisca-1.webp",
+    "sha256": "e9fd5aae34a2b73ea77530e1edbe2820877d451fdec27e91cd78ec769d06f843"
+  }
+}
