@@ -1524,8 +1524,9 @@ del labio tiene que bajar del 10 % a casi nada.
 
 ## 35. La rampa abre la pared: cuerpo y dos costados (#225, rama `rampas-225`, 09-10-2026)
 
-**Estado: piloto generado (roca y arenisca, caída 1, rumbo `s`), pendiente de que
-lo vea el usuario.** Nada más se genera hasta entonces.
+**Estado: piloto generado otra vez (roca y arenisca, caída 1, rumbo `s`) con la
+forma de muro a cuesta que pidió el usuario al ver el primero; pendiente de que lo
+vea.** Nada más se genera hasta entonces.
 
 **Por qué.** El usuario: «fallan los caminos que pasan a otro nivel, hace falta
 arte específico; hay una transición de muro a cuesta, mira otros juegos». La bajada
@@ -1546,21 +1547,37 @@ cuerpo no casarían. Los cortes caen en el filo, en `TRAMO_DE_PIEZA_DE_RAMPA`
 grid* van de vértice a vértice; por fuera siguen en la frontal (`paredes-*`), que
 se pinta después y tapa el corte.
 
-**Guía** (`tools/taller/rampas.ts`): la frontal de caída 1 (0,6 de cara y 0,4 de
-cresta) hasta 0,4 del hueco; ahí el ala, una cara triangular de su alto entero a
-nada al pie de la rampa (la izquierda mira a la luz, la derecha en sombra), con un
-hombro de roca encima; la cuesta de la boca (0,15-0,85, metida 0,3 en la meseta)
-al pie (0-1, 0,5 por delante del filo), con cuatro estrías y la senda.
+**Guía** (`tools/taller/rampas.ts`, segunda forma, 09-10-2026): la transición de
+MURO A CUESTA (*wall-to-slope*). En cada costado la cara frontal, la misma que la
+frontal vecina, tiene su alto entero en el extremo de fuera (0,4 casillas) y baja
+en diagonal hasta nada en el borde de la cuesta, al pie: un trapecio de pared con
+la cresta siguiendo la inclinación; por encima, la meseta baja también hacia la
+cuesta. Sin caras laterales. La cuesta va de lo alto (0,55 dentro de la meseta) al
+pie, con cuatro estrías, la senda y un abanico. La pared sigue 0,15 por fuera de
+cada costado (`SOLAPE`): esa franja se corta con la pieza y se funde a
+transparente, y en el juego la tapa la frontal más estrecha de su material, puesta
+encima del extremo.
 
 **Referencias**: 1, el estilo del mapa; 2, `paredes-<material>` (la pared con la que
 casa por los dos lados); 3, `bajadas-<material>-1` (la tierra de la cuesta); 4, la guía.
 
-**Lote** (codex por la suscripción, ~100 s cada una). Primera vuelta: copió los
-bloques sueltos de la guía como piedras flotando bajo el pie, cortó el pie de la
-pared en una línea recta y pintó la cresta como una franja de tierra (la meseta)
-en vez de las cabezas de la roca. Segunda vuelta, sin los bloques en la guía y con
-el párrafo de la cresta y el pie: buena. El pintor la dibujó un 10-17 % mayor que
-la guía: el corte la registra con su escala (`registrarConEscala`).
+**Lotes** (codex por la suscripción, 100-230 s cada uno, con el corte).
+- Primera forma (alas triangulares que miraban a la cuesta y un hombro encima),
+  vuelta 1: piedras flotando bajo el pie, el pie de la pared en línea recta y la
+  cresta como una franja de tierra. Vuelta 2, sin bloques en la guía y con el
+  párrafo de la cresta y el pie: buena, pero **el usuario la rechazó**: los
+  costados se leían como paredes de desfiladero, la arenisca salía más oscura
+  que su frontal y en una esquina se veía la arista del corte.
+- Segunda forma (esta guía y este prompt): la arenisca salió bien a la primera;
+  la roca dejó columnas altas junto al camino. El `corregir` sobre su hilo se cortó
+  («websocket closed») y se rehízo desde cero con la frase «Junto a la cuesta la
+  pared NUNCA sigue alta…», que es el prompt de abajo (la arenisca se pintó sin
+  ella, con el resto igual).
+- El pintor la dibuja un 12-17 % mayor que la guía: el corte la registra con su
+  escala (`registrarConEscala`, 1,125 en las dos; solape 93,5 y 83,1 %).
+- Tono, medido en el tercio de fuera del costado contra la frontal sin entonar:
+  arenisca luz 84 contra 84 y R−B 66 contra 80 → `brightness(0.8) saturate(0.85)`;
+  roca 73 contra 107 (77 entonada) → solo `saturate(0.85)`.
 
 **Prompt** (el de roca; el de arenisca cambia el material y la meseta; el entero,
 con las referencias, en cada `.procedencia.json`):
@@ -1573,14 +1590,14 @@ La imagen 2 es la IDENTIDAD DEL PERSONAJE: define su aspecto (cara, ropa, armadu
 La imagen 3 es la referencia de MATERIAL: de ella se toman SOLO el color, la textura y la paleta de la roca y de lo que crece en ella, para que case con estas piezas. NO copies su forma (columnas, prismas, bloques en fila) ni su composición.
 La imagen 4 es la GUÍA DE GEOMETRÍA: un volumen gris sin acabado, dibujado con la cámara del juego. Manda en la ORIENTACIÓN, la forma, las proporciones, el tamaño y la posición de cada pieza dentro de la imagen: cópialas con exactitud, sin girar ni torcer nada. NO copies su gris liso, sus aristas de esquema ni su fondo plano: el material, el detalle y la luz son los de la imagen de estilo.
 
-Una RAMPA ABIERTA EN UN RISCO para el mapa de aventura de un juego de estrategia, como las rampas de los acantilados de StarCraft o Warcraft III: el borde recto de una meseta de roca gris pizarra con musgo oliva oscuro, del color de las paredes de la imagen 3 que cae UN nivel hacia la cámara, y en su centro un camino de tierra que BAJA DE FRENTE hacia la cámara por un HUECO que corta la pared.
-LA PARED A LOS DOS LADOS ES LA MISMA PARED FRONTAL DE LA IMAGEN 2, con su misma roca, su mismo color, sus mismas formas, su remate de arriba y su musgo: sigue fuera de la imagen por la izquierda y por la derecha en esas mismas piezas, así que sus dos extremos están CORTADOS LIMPIOS en vertical, sin rematar ni redondearse, con la pared a su alto entero hasta el corte.
-POR ENCIMA DEL FILO, la cresta es la de la imagen 2: las CABEZAS de la misma roca de la pared, con musgo, matas y hierba entre ellas, que asoman sobre la meseta; NUNCA una franja de tierra, un suelo llano ni un camino encima de la pared. Al PIE de la pared, como en la imagen 2: bloques caídos y derrubio de tamaños distintos, irregular, que se mete en el suelo; NUNCA un borde recto ni una línea horizontal limpia, y ninguna piedra suelta separada del resto.
-Junto al hueco, a cada lado, la pared NO acaba de golpe: dobla hacia la cámara y su cara BAJA EN DIAGONAL, de su alto entero junto al filo hasta CERO al pie de la rampa, como un triángulo de roca (el ala): la de la izquierda mira a la luz y la de la derecha queda en sombra. Encima de cada ala, un hombro de roca rota y tierra baja de la cresta a la cuesta.
-La CUESTA es tierra pisada en pendiente, MÁS CLARA QUE LA ROCA, del color de la tierra de la imagen 3: con ESTRÍAS (regueros y surcos a lo largo de la pendiente, piedrecillas arrastradas hacia abajo) y un camino claro y gastado por el medio; en lo alto se mete en la meseta y abajo se derrama en un abanico sobre el suelo llano. Es un paso natural: sin escalones, sin peldaños, sin barandillas, sin muretes ni bordillos. Donde las alas y la cuesta tocan el suelo, una sombra de contacto oscura y estrecha.
-ENCIMA DEL FILO solo la cresta de la pared, como en la imagen 2; la meseta (un prado de hierba corta verde oliva OSCURO y apagado) la pone el juego y por detrás de la cresta la imagen es transparente.
-LA SILUETA ES LA DE LA GUÍA (imagen 4), CALCADA: mismo sitio, mismo alto, mismo ancho, mismas proporciones y el hueco en el mismo sitio, sin girar ni torcer nada. En la guía: lo gris medio de los lados es la cara frontal; el triángulo claro de la izquierda y el oscuro de la derecha, las alas; lo gris de encima de las alas, los hombros; lo pardo, la cuesta con sus estrías más oscuras y el camino claro; lo claro de arriba, la cresta.
-La luz viene de arriba a la izquierda; las sombras caen hacia la derecha y hacia abajo.
+Una RAMPA para el mapa de aventura de un juego de estrategia: el borde recto de una meseta de roca gris pizarra con musgo oliva oscuro, del color de las paredes de la imagen 3 que cae UN nivel hacia la cámara, y en su centro un camino de tierra que BAJA DE FRENTE hacia la cámara por una CUESTA. Es la transición de MURO A CUESTA de los acantilados de StarCraft y Warcraft III (wall-to-slope): el muro no se corta en un desfiladero, sino que a cada lado de la cuesta SE VA HUNDIENDO hasta desaparecer en ella.
+LA PARED ES LA MISMA PARED FRONTAL DE LA IMAGEN 2, con su misma roca, el MISMO COLOR Y LA MISMA LUZ (ni más oscura ni más clara), el mismo TAMAÑO de columnas y bloques, su remate de arriba y su musgo: sigue fuera de la imagen por la izquierda y por la derecha en esas mismas piezas y tiene que casar con ellas sin que se note la junta. Sus dos extremos de fuera están a su alto entero y cortados limpios en vertical, como si continuara.
+A CADA LADO DE LA CUESTA, LA CARA FRONTAL DEL MURO (la que mira a la cámara, como en la imagen 2) BAJA EN DIAGONAL: tiene su alto entero en el extremo de fuera y se va haciendo más y más baja hacia el centro hasta quedar en NADA, a ras del suelo, en el borde de la cuesta al pie. Su perfil de arriba es una LÍNEA INCLINADA, como la de la guía: un triángulo o un trapecio de pared, con su cresta de roca y musgo siguiendo esa inclinación. Por encima de esa línea, el suelo de la meseta BAJA TAMBIÉN, en pendiente, hacia la cuesta, y se funde con ella.
+NO HAY CARAS LATERALES: nada de paredes verticales que flanqueen el camino ni que miren hacia él, nada de desfiladero, garganta ni corte en la roca. La cuesta y los dos costados son una sola pendiente que se abre de la meseta al llano. Junto a la cuesta la pared NUNCA sigue alta: allí no hay columnas altas, solo la punta baja del triángulo de pared, a ras del suelo, y encima la meseta en pendiente, de hierba y tierra.
+La CUESTA es tierra pisada en pendiente, MÁS CLARA QUE LA ROCA, del color de la tierra de la imagen 3: con ESTRÍAS (regueros y surcos a lo largo de la pendiente, piedrecillas arrastradas hacia abajo) y un camino claro y gastado por el medio; arriba se mete en la meseta y abajo se derrama en un abanico sobre el suelo llano. Es un paso natural: sin escalones, sin peldaños, sin barandillas, sin muretes ni bordillos. Al pie de la pared y de la cuesta, una sombra de contacto oscura y estrecha.
+POR ENCIMA DEL FILO, en los extremos, la cresta es la de la imagen 2: las CABEZAS de la misma roca de la pared, con musgo, matas y hierba entre ellas; NUNCA una franja de tierra ni un suelo llano encima de la pared. La meseta (un prado de hierba corta verde oliva OSCURO y apagado) la pone el juego: por detrás de la cresta, la imagen es transparente. Al PIE de la pared, como en la imagen 2: bloques caídos y derrubio de tamaños distintos, irregular; NUNCA un borde recto ni una línea horizontal limpia, y ninguna piedra suelta separada del resto.
+LA SILUETA ES LA DE LA GUÍA (imagen 4), CALCADA: mismo sitio, mismo alto, mismo ancho, mismas proporciones, sin girar ni torcer nada. En la guía: lo gris medio de abajo a los lados es la CARA FRONTAL, que baja en diagonal hacia el centro; lo gris claro de encima de esa diagonal, la meseta que baja hacia la cuesta; lo más claro de los extremos, la cresta; lo pardo del centro, la cuesta con sus estrías más oscuras y el camino claro.
+La luz viene de arriba a la izquierda, la misma que en la imagen 2; las sombras caen hacia la derecha y hacia abajo.
 Estilo de la imagen de estilo, que manda sobre cualquier otra idea: fantasía medieval OSCURA y sombría, pintura digital muy detallada como una maqueta en miniatura, con muchísimo detalle menudo (piedras, matas, grietas, raíces). Paleta APAGADA y poco saturada: verdes oliva y musgo oscuros, grises pizarra, pardos terrosos, rojos óxido; nada de colores vivos ni de aspecto de juego para móvil. Sombras profundas y oclusión marcada entre los detalles, luz tenue y algo fría, con contraste dramático.
 
 Todo lo dibujado cabe en la imagen con margen. Fondo con alfa real totalmente transparente: sin suelo, sin sombra pintada, sin halo, sin brillo, sin rejilla y sin texto. Iluminación desde arriba a la izquierda y por delante, del lado del espectador: la cara visible del personaje está iluminada y las sombras propias caen hacia la derecha y hacia el fondo. Sin contraluz.

@@ -895,13 +895,23 @@ const TONO: Readonly<Record<string, string>> = {
   'diagonales-basalto-se': BASALTO_DE_LADERA,
   'diagonales-basalto-so': BASALTO_DE_LADERA,
   'bajadas-basalto': BASALTO_DE_LADERA,
+  // Las rampas (#225, §35), como la frontal de su material, con la que casan por
+  // los dos lados. La arenisca salió con la luz de la frontal sin entonar (84
+  // contra 84, el tercio de fuera del costado) pero menos roja (R−B 66 contra 80):
+  // el brillo de la frontal y la mitad de su desaturado. La
+  // roca salió ya más oscura que la suya (73 contra 107, 77 entonada): solo su
+  // desaturado (09-10-2026).
+  'rampa-arenisca': 'brightness(0.8) saturate(0.85)',
+  'rampa-roca': 'saturate(0.85)',
 };
 
 /** El tono de una hoja: el suyo o, en una hoja del relieve, el de su familia (sin la caída). */
 function tonoDe(hoja: string): string | undefined {
   return (
     TONO[hoja] ??
-    (/^(laderas|diagonales|bajadas)-/.test(hoja) ? TONO[hoja.replace(/-[123]$/, '')] : undefined)
+    (/^(laderas|diagonales|bajadas|rampa)-/.test(hoja)
+      ? TONO[hoja.replace(/-[123]$/, '')]
+      : undefined)
   );
 }
 
@@ -1769,6 +1779,51 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
         if (esNodoHorneado(n) && n.y < s.y && seSolapan(s, n, perfilDe))
           s = ordenadoEn(s, n.y - 0.01);
       sprites.push(s);
+    }
+    // Y una frontal de su material sobre el extremo de fuera de cada costado, que
+    // se pinta después y tapa la arista de su corte: donde el borde recto acaba
+    // en una esquina (s2069 (15,5, 8)), no hay frontal vecina que la tape.
+    const { pared: hojaDePared } = materialDeCara(r.material);
+    const e = masEstrecho(hojaDePared);
+    if (e === undefined) continue;
+    const filo = r.y + 1;
+    const pie = filo + r.caida * ALTO_DE_NIVEL;
+    const tono = tonoDe(hojaDePared);
+    for (const [borde, fuera] of [
+      [r.x + TRAMO_DE_PIEZA_DE_RAMPA['costado-izq'][0], -1],
+      [r.x + TRAMO_DE_PIEZA_DE_RAMPA['costado-der'][1], 1],
+    ] as const) {
+      const base: Sprite = {
+        ...(tono === undefined ? {} : { tono }),
+        src: e.src,
+        nw: e.nw,
+        nh: e.nh,
+        ax: e.ax,
+        ay: e.ay,
+        x: borde,
+        y: pie + 0.05,
+        alto: r.caida * ALTO_DE_NIVEL + 0.4,
+        clase: 'pared',
+        color: '#4c463e',
+        capa: 0,
+        sombra: true,
+        filaAlta: r.y,
+      };
+      // Su lado de dentro, `DENTRO_DEL_COSTADO` dentro del costado, donde aún
+      // tiene su alto entero; el resto, por fuera.
+      const [x0, , x1] = cajaDeSprite(base);
+      const dentro = borde - fuera * DENTRO_DEL_COSTADO;
+      const s = { ...base, x: base.x + (fuera > 0 ? dentro - x0 : dentro - x1) };
+      // Junto a un objeto (la ciudad de s2069 (16, 8)) va detrás de él, como la diagonal.
+      ponerPared(
+        [s],
+        s.alto,
+        [
+          [s.x, s.y],
+          [s.x, filo],
+        ],
+        'ordenada',
+      );
     }
   }
 
@@ -4102,6 +4157,13 @@ export function piezasDeRampa(
     ? (fuera as Record<PiezaDeRampa, ModuloDeRampa>)
     : null;
 }
+
+/**
+ * Lo que entra en el costado de una rampa la frontal que tapa su extremo de
+ * fuera: menos de lo que el costado sigue a su alto entero (0,4, `ENTERO` de la
+ * guía, `tools/taller/rampas.ts`), que de ahí baja en diagonal.
+ */
+const DENTRO_DEL_COSTADO = 0.3;
 
 /**
  * Lo que se adelanta la clave de un costado de rampa a su pie: lo pintan antes

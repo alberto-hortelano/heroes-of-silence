@@ -41,33 +41,40 @@ import {
   NIVEL,
   type P2,
   type P3,
-  SOMBRA,
 } from './paredes-puentes.js';
 
 const RAIZ = resolve(import.meta.dirname, '../..');
 
 /**
  * La geometría de la rampa en el mundo de la guía, en casillas desde el borde
- * oeste del hueco (`x`) y desde el filo (`y`), a alto `z`:
+ * oeste del hueco (`x`) y desde el filo (`y`), a alto `z`. Es la transición de
+ * muro a cuesta de los acantilados de StarCraft y Warcraft III (*wall-to-slope*,
+ * Slynyrd): no hay caras laterales que flanqueen el camino. En cada costado la
+ * CARA FRONTAL, la misma que la de la frontal vecina, baja en diagonal: alto
+ * entero en el extremo exterior y nada en el borde de la cuesta, al pie; y lo
+ * de encima de esa diagonal es la meseta, que baja también hacia la cuesta.
  *
  * - `CRESTA`: lo que la pared asoma por encima del filo, como las frontales;
- * - `ALA`: donde la cara deja de ser frontal (a 0,4 del hueco) y baja en
- *   diagonal hasta el pie de la rampa, en el borde del hueco a `PIE` del filo;
- * - `BOCA`: la cuesta en el filo, del hombro al otro hombro; cortada en lo alto
- *   `CORTE` casillas hacia dentro de la meseta.
+ * - `ENTERO`: lo que el costado sigue a su alto entero desde su extremo exterior
+ *   antes de empezar a bajar;
+ * - `ARRIBA_DE_LA_CUESTA` y `PIE`: la cuesta, de lo alto (metida en la meseta) a
+ *   lo bajo, un poco por delante del filo; `DERRAME`, el abanico de tierra;
+ * - `SOLAPE`: lo que la guía sigue la pared más allá del extremo exterior de
+ *   cada costado, que se corta con la pieza (`escribirRampasDerivadas`) y queda
+ *   debajo de la pieza vecina: así no se ve la arista del corte.
  */
 const CRESTA = 0.4;
-const ALA = 0.4;
-const PIE = 0.5;
-const BOCA = [0.15, 0.85] as const;
-const CORTE = 0.3;
+const ENTERO = 0.4;
+const ARRIBA_DE_LA_CUESTA = -0.55;
+const PIE = 0.05;
+const DERRAME = 0.28;
+export const SOLAPE = 0.15;
 
 const TIERRA = '#a09684';
 const ESTRIA = '#867c6c';
 const CAMINO = '#d4cfc4';
-const HOMBRO = '#8e8e8e';
-/** El ala izquierda mira al suroeste, de cara a la luz; la derecha, al sureste, en sombra. */
-const ALA_EN_LUZ = '#c6c6c6';
+/** La meseta que baja hacia la cuesta, por encima de la diagonal del costado. */
+const MESETA_QUE_BAJA = '#c4c4c4';
 
 /** Dibuja la rampa entera: los dos costados y el cuerpo, de atrás adelante. */
 function dibujarRampa(g: Guia, niveles: Niveles): void {
@@ -75,101 +82,87 @@ function dibujarRampa(g: Guia, niveles: Niveles): void {
   const [izq] = TRAMO_DE_PIEZA_DE_RAMPA['costado-izq'];
   const [, der] = TRAMO_DE_PIEZA_DE_RAMPA['costado-der'];
   const azar = azarDe(`rampa-${niveles}`);
-  const alaIzq = -ALA;
-  const alaDer = 1 + ALA;
-  // La cresta de cada costado, por encima del filo.
+  const fuera = [izq - SOLAPE - 0.15, der + SOLAPE + 0.15] as const;
+  /** Donde cada costado empieza a bajar. */
+  const baja = [izq + ENTERO, der - ENTERO] as const;
+  // La cresta: lo de encima del filo, a su alto entero, por fuera de la bajada.
   g.poligono(
     [
-      [izq, -CRESTA, H],
-      [alaIzq, -CRESTA, H],
-      [alaIzq, 0, H],
-      [izq, 0, H],
+      [fuera[0], -CRESTA, H],
+      [baja[0], -CRESTA, H],
+      [baja[0], 0, H],
+      [fuera[0], 0, H],
     ],
     ARRIBA,
   );
   g.poligono(
     [
-      [alaDer, -CRESTA, H],
-      [der, -CRESTA, H],
-      [der, 0, H],
-      [alaDer, 0, H],
+      [baja[1], -CRESTA, H],
+      [fuera[1], -CRESTA, H],
+      [fuera[1], 0, H],
+      [baja[1], 0, H],
     ],
     ARRIBA,
   );
-  // Los hombros: de la cresta a la cuesta, bajando hasta su pie.
+  // La meseta que baja hacia la cuesta: de la cresta al pie del borde de la cuesta.
   g.poligono(
     [
-      [alaIzq, -CRESTA, H],
-      [BOCA[0], -CORTE, H],
+      [baja[0], -CRESTA, H],
+      [0, ARRIBA_DE_LA_CUESTA, H],
       [0, PIE, 0],
-      [alaIzq, 0, H],
+      [baja[0], 0, H],
     ],
-    HOMBRO,
+    MESETA_QUE_BAJA,
   );
   g.poligono(
     [
-      [BOCA[1], -CORTE, H],
-      [alaDer, -CRESTA, H],
-      [alaDer, 0, H],
+      [1, ARRIBA_DE_LA_CUESTA, H],
+      [baja[1], -CRESTA, H],
+      [baja[1], 0, H],
       [1, PIE, 0],
     ],
-    HOMBRO,
+    MESETA_QUE_BAJA,
   );
-  // La cara frontal de cada costado, y el ala que baja en diagonal hasta el pie.
+  // La cara frontal de cada costado: a su alto entero por fuera y bajando en
+  // diagonal hasta nada en el borde de la cuesta. Mira a la cámara, como la frontal.
   g.poligono(
     [
-      [izq, 0, H],
-      [alaIzq, 0, H],
-      [alaIzq, 0, 0],
-      [izq, 0, 0],
+      [fuera[0], 0, H],
+      [baja[0], 0, H],
+      [0, PIE, 0],
+      [fuera[0], 0, 0],
     ],
     FRENTE,
   );
   g.poligono(
     [
-      [alaDer, 0, H],
-      [der, 0, H],
-      [der, 0, 0],
-      [alaDer, 0, 0],
+      [baja[1], 0, H],
+      [fuera[1], 0, H],
+      [fuera[1], 0, 0],
+      [1, PIE, 0],
     ],
     FRENTE,
   );
-  g.poligono(
-    [
-      [alaIzq, 0, H],
-      [0, PIE, 0],
-      [alaIzq, 0, 0],
-    ],
-    ALA_EN_LUZ,
-  );
-  g.poligono(
-    [
-      [alaDer, 0, H],
-      [alaDer, 0, 0],
-      [1, PIE, 0],
-    ],
-    SOMBRA,
-  );
-  // La cuesta, de la boca al pie, con un abanico de tierra que se derrama.
-  const en = (t: number, b: number): P3 => {
-    const x0 = BOCA[0] + (0 - BOCA[0]) * t;
-    const x1 = BOCA[1] + (1 - BOCA[1]) * t;
-    return [x0 + (x1 - x0) * b, -CORTE + (PIE + CORTE) * t, H * (1 - t)];
-  };
+  // La cuesta, del hueco en la meseta al pie, y el abanico que se derrama.
+  const en = (t: number, b: number): P3 => [
+    b,
+    ARRIBA_DE_LA_CUESTA + (PIE - ARRIBA_DE_LA_CUESTA) * t,
+    H * (1 - t),
+  ];
   g.poligono(
     [
       en(0, 0),
       en(0, 1),
       en(1, 1),
-      [0.92, PIE + 0.1, 0],
-      [0.5, PIE + 0.16, 0],
-      [0.08, PIE + 0.1, 0],
+      [1.05, PIE + DERRAME * 0.6, 0],
+      [0.5, PIE + DERRAME, 0],
+      [-0.05, PIE + DERRAME * 0.6, 0],
       en(1, 0),
     ],
     TIERRA,
   );
   // Las estrías: regueros de la cuesta, a lo largo de la pendiente.
-  for (const b of [0.18, 0.33, 0.67, 0.82]) {
+  for (const b of [0.2, 0.34, 0.66, 0.8]) {
     const w = 0.012 + azar() * 0.01;
     g.poligono(
       [en(0.08, b - w), en(0.08, b + w), en(0.97, b + w * 1.6), en(0.97, b - w * 1.6)],
@@ -177,7 +170,7 @@ function dibujarRampa(g: Guia, niveles: Niveles): void {
     );
   }
   // La senda, por el medio de la cuesta.
-  g.poligono([en(0, 0.43), en(0, 0.57), en(1, 0.6), en(1, 0.4)], CAMINO);
+  g.poligono([en(0, 0.44), en(0, 0.56), en(1, 0.59), en(1, 0.41)], CAMINO);
 }
 
 /** La geometría que cuenta de la guía, en píxeles de la guía. */
@@ -251,14 +244,14 @@ export function encargoDeRampa(material: Material, niveles: Niveles): Encargo {
     id: hojaDeRampa(material, niveles),
     tipo: 'imagen',
     descripcion: [
-      `Una RAMPA ABIERTA EN UN RISCO para el mapa de aventura de un juego de estrategia, como las rampas de los acantilados de StarCraft o Warcraft III: el borde recto de una meseta de ${MATERIAL[material]} que cae ${caida} hacia la cámara, y en su centro un camino de tierra que BAJA DE FRENTE hacia la cámara por un HUECO que corta la pared.`,
-      'LA PARED A LOS DOS LADOS ES LA MISMA PARED FRONTAL DE LA IMAGEN 2, con su misma roca, su mismo color, sus mismas formas, su remate de arriba y su musgo: sigue fuera de la imagen por la izquierda y por la derecha en esas mismas piezas, así que sus dos extremos están CORTADOS LIMPIOS en vertical, sin rematar ni redondearse, con la pared a su alto entero hasta el corte.',
-      'POR ENCIMA DEL FILO, la cresta es la de la imagen 2: las CABEZAS de la misma roca de la pared, con musgo, matas y hierba entre ellas, que asoman sobre la meseta; NUNCA una franja de tierra, un suelo llano ni un camino encima de la pared. Al PIE de la pared, como en la imagen 2: bloques caídos y derrubio de tamaños distintos, irregular, que se mete en el suelo; NUNCA un borde recto ni una línea horizontal limpia, y ninguna piedra suelta separada del resto.',
-      'Junto al hueco, a cada lado, la pared NO acaba de golpe: dobla hacia la cámara y su cara BAJA EN DIAGONAL, de su alto entero junto al filo hasta CERO al pie de la rampa, como un triángulo de roca (el ala): la de la izquierda mira a la luz y la de la derecha queda en sombra. Encima de cada ala, un hombro de roca rota y tierra baja de la cresta a la cuesta.',
-      `La CUESTA es tierra pisada en pendiente, MÁS CLARA QUE LA ROCA, del color de la tierra de la imagen 3: con ESTRÍAS (regueros y surcos a lo largo de la pendiente, piedrecillas arrastradas hacia abajo) y un camino claro y gastado por el medio; en lo alto se mete en la meseta y abajo se derrama en un abanico sobre el suelo llano. Es un paso natural: sin escalones, sin peldaños, sin barandillas, sin muretes ni bordillos. Donde las alas y la cuesta tocan el suelo, una sombra de contacto oscura y estrecha.`,
-      `ENCIMA DEL FILO solo la cresta de la pared, como en la imagen 2; la meseta (${MESETA[material]}) la pone el juego y por detrás de la cresta la imagen es transparente.`,
-      'LA SILUETA ES LA DE LA GUÍA (imagen 4), CALCADA: mismo sitio, mismo alto, mismo ancho, mismas proporciones y el hueco en el mismo sitio, sin girar ni torcer nada. En la guía: lo gris medio de los lados es la cara frontal; el triángulo claro de la izquierda y el oscuro de la derecha, las alas; lo gris de encima de las alas, los hombros; lo pardo, la cuesta con sus estrías más oscuras y el camino claro; lo claro de arriba, la cresta.',
-      'La luz viene de arriba a la izquierda; las sombras caen hacia la derecha y hacia abajo.',
+      `Una RAMPA para el mapa de aventura de un juego de estrategia: el borde recto de una meseta de ${MATERIAL[material]} que cae ${caida} hacia la cámara, y en su centro un camino de tierra que BAJA DE FRENTE hacia la cámara por una CUESTA. Es la transición de MURO A CUESTA de los acantilados de StarCraft y Warcraft III (wall-to-slope): el muro no se corta en un desfiladero, sino que a cada lado de la cuesta SE VA HUNDIENDO hasta desaparecer en ella.`,
+      'LA PARED ES LA MISMA PARED FRONTAL DE LA IMAGEN 2, con su misma roca, el MISMO COLOR Y LA MISMA LUZ (ni más oscura ni más clara), el mismo TAMAÑO de columnas y bloques, su remate de arriba y su musgo: sigue fuera de la imagen por la izquierda y por la derecha en esas mismas piezas y tiene que casar con ellas sin que se note la junta. Sus dos extremos de fuera están a su alto entero y cortados limpios en vertical, como si continuara.',
+      'A CADA LADO DE LA CUESTA, LA CARA FRONTAL DEL MURO (la que mira a la cámara, como en la imagen 2) BAJA EN DIAGONAL: tiene su alto entero en el extremo de fuera y se va haciendo más y más baja hacia el centro hasta quedar en NADA, a ras del suelo, en el borde de la cuesta al pie. Su perfil de arriba es una LÍNEA INCLINADA, como la de la guía: un triángulo o un trapecio de pared, con su cresta de roca y musgo siguiendo esa inclinación. Por encima de esa línea, el suelo de la meseta BAJA TAMBIÉN, en pendiente, hacia la cuesta, y se funde con ella.',
+      'NO HAY CARAS LATERALES: nada de paredes verticales que flanqueen el camino ni que miren hacia él, nada de desfiladero, garganta ni corte en la roca. La cuesta y los dos costados son una sola pendiente que se abre de la meseta al llano. Junto a la cuesta la pared NUNCA sigue alta: allí no hay columnas altas, solo la punta baja del triángulo de pared, a ras del suelo, y encima la meseta en pendiente, de hierba y tierra.',
+      `La CUESTA es tierra pisada en pendiente, MÁS CLARA QUE LA ROCA, del color de la tierra de la imagen 3: con ESTRÍAS (regueros y surcos a lo largo de la pendiente, piedrecillas arrastradas hacia abajo) y un camino claro y gastado por el medio; arriba se mete en la meseta y abajo se derrama en un abanico sobre el suelo llano. Es un paso natural: sin escalones, sin peldaños, sin barandillas, sin muretes ni bordillos. Al pie de la pared y de la cuesta, una sombra de contacto oscura y estrecha.`,
+      `POR ENCIMA DEL FILO, en los extremos, la cresta es la de la imagen 2: las CABEZAS de la misma roca de la pared, con musgo, matas y hierba entre ellas; NUNCA una franja de tierra ni un suelo llano encima de la pared. La meseta (${MESETA[material]}) la pone el juego: por detrás de la cresta, la imagen es transparente. Al PIE de la pared, como en la imagen 2: bloques caídos y derrubio de tamaños distintos, irregular; NUNCA un borde recto ni una línea horizontal limpia, y ninguna piedra suelta separada del resto.`,
+      'LA SILUETA ES LA DE LA GUÍA (imagen 4), CALCADA: mismo sitio, mismo alto, mismo ancho, mismas proporciones, sin girar ni torcer nada. En la guía: lo gris medio de abajo a los lados es la CARA FRONTAL, que baja en diagonal hacia el centro; lo gris claro de encima de esa diagonal, la meseta que baja hacia la cuesta; lo más claro de los extremos, la cresta; lo pardo del centro, la cuesta con sus estrías más oscuras y el camino claro.',
+      'La luz viene de arriba a la izquierda, la misma que en la imagen 2; las sombras caen hacia la derecha y hacia abajo.',
       ESTILO_DEL_MAPA,
     ].join('\n'),
     referencias: [
@@ -403,8 +396,11 @@ export async function escribirRampasDerivadas(hoja: string): Promise<string> {
   for (const [k, pieza] of PIEZAS_DE_RAMPA.entries()) {
     const a = cortes[k] as P2;
     const b = cortes[k + 1] as P2;
-    const x0 = Math.max(0, Math.round(a[0]));
-    const x1 = Math.min(info.width, Math.round(b[0]));
+    // Los costados siguen `SOLAPE` por fuera de su tramo: esa franja queda debajo
+    // de la pieza vecina, que se pinta después, y la arista del corte no se ve.
+    const porCasilla = ((cortes[2] as P2)[0] - (cortes[1] as P2)[0]) / 1;
+    const x0 = Math.max(0, Math.round(a[0] - (k === 0 ? SOLAPE * porCasilla : 0)));
+    const x1 = Math.min(info.width, Math.round(b[0] + (k === 2 ? SOLAPE * porCasilla : 0)));
     // En alto, lo opaco de su franja.
     let y0 = info.height;
     let y1 = -1;
@@ -417,6 +413,17 @@ export async function escribirRampasDerivadas(hoja: string): Promise<string> {
     if (y1 < 0) throw new Error(`${hoja}: la pieza ${pieza} no tiene nada opaco`);
     const ancho = x1 - x0;
     const alto = y1 - y0 + 1;
+    // La franja de `SOLAPE` de fuera de cada costado se funde a transparente:
+    // donde no hay frontal vecina que la tape (una esquina, una ciudad), la pared
+    // se deshace en vez de acabar en una arista vertical.
+    const funde = Math.round(SOLAPE * porCasilla);
+    if (k !== 1)
+      for (let y = y0; y <= y1; y++)
+        for (let d = 0; d < funde; d++) {
+          const x = k === 0 ? x0 + d : x1 - 1 - d;
+          const i = (y * info.width + x) * 4 + 3;
+          data[i] = Math.round((data[i] as number) * (d / funde));
+        }
     const bytes = await sharp(data, {
       raw: { width: info.width, height: info.height, channels: 4 },
     })

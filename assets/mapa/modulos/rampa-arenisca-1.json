@@ -3,22 +3,22 @@
   "modulos": [
     {
       "imagen": "s-costado-izq.webp",
-      "sha256": "160610df2bcb1123bb9f86bc873015a26d2faa7dee5f932174d4b1a02bb9b50e",
-      "ancho": 530,
-      "alto": 576,
+      "sha256": "32087ceb2ee3b00104ddba42079b6d4bef1ff7474921daabf121f375bbcfc117",
+      "ancho": 497,
+      "alto": 370,
       "ancla": [
-        265,
-        575
+        249,
+        369
       ],
       "rampa": {
         "filo": [
           [
-            0,
-            173
+            46,
+            138
           ],
           [
-            530,
-            173
+            497,
+            138
           ]
         ],
         "pieza": "costado-izq",
@@ -27,22 +27,22 @@
     },
     {
       "imagen": "s-cuerpo.webp",
-      "sha256": "86e737a07583f6e7b10e5377d3dd6377d5e2a13db15e4c1ec645d9d512deb467",
-      "ancho": 353,
-      "alto": 541,
+      "sha256": "a5de0079d649fc61ba2d77d81e53fdb9c2b4a397e244c6c665cdc251a1a97511",
+      "ancho": 300,
+      "alto": 410,
       "ancla": [
-        177,
-        540
+        150,
+        409
       ],
       "rampa": {
         "filo": [
           [
             0,
-            90
+            138
           ],
           [
-            353,
-            90
+            300,
+            138
           ]
         ],
         "pieza": "cuerpo",
@@ -51,22 +51,22 @@
     },
     {
       "imagen": "s-costado-der.webp",
-      "sha256": "1bb38f771730cb360254bec4d540f1acd70e7c78f8e43b37579f4828b4b83333",
-      "ancho": 529,
-      "alto": 574,
+      "sha256": "0cc990dfb1dfc3c844380f4096f0282daf360615cc4a70a98e0be0808a261e34",
+      "ancho": 495,
+      "alto": 360,
       "ancla": [
-        265,
-        573
+        248,
+        359
       ],
       "rampa": {
         "filo": [
           [
             0,
-            171
+            128
           ],
           [
-            529,
-            171
+            450,
+            128
           ]
         ],
         "pieza": "costado-der",
