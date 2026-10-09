@@ -324,6 +324,10 @@ async function captura(page: Page, nombre: string): Promise<void> {
 }
 
 async function caja(page: Page): Promise<Caja> {
+  // Con las fuentes ya cargadas: la barra de arriba del móvil mide otra cosa
+  // con la de respaldo, y la caja medida en la s1 salía 3,4 px más arriba que
+  // la de la semilla buscada (#229, con la máquina cargada).
+  await page.evaluate(() => document.fonts.ready.then(() => undefined));
   const b = await page.locator('#canvas').boundingBox();
   if (b === null) throw new Error('el lienzo no está en la página');
   return b;
