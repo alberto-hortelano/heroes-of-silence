@@ -189,15 +189,19 @@ describe('la línea de una muralla (#197)', () => {
     expect(guardia(m, otra.pasos, torresDe(otra, []))).toEqual(NADA);
   });
 
-  it('una ruina en medio de una región va de punta a punta; un 2×2 deja una torre (s25)', () => {
-    const ruina = mundo(['aaaaaa', 'a####a', 'a#aaaa', 'aaaaaa']);
-    const e = trazaDeMuralla(ruina.muro, [], ruina.alrededor);
-    expect(e.pasos.length).toBeGreaterThan(0);
-    // El 2×2 da un tramo de norte a sur, que es un tocón: queda una torre.
-    const cuadrado = mundo(['aaaa', 'a##a', 'a##a', 'aaaa']);
-    const dos = trazaDeMuralla(cuadrado.muro, [], cuadrado.alrededor);
-    expect(dos.pasos).toEqual([]);
-    expect(dos.casillas).toHaveLength(1);
+  it('una franja que no separa dos lados no lleva línea: es escombro, sin torres sueltas (#232)', () => {
+    // Antes una ruina en medio de una región iba de punta a punta y un 2×2 se
+    // quedaba en una torre suelta (s25; la torre en los cultivos de la marca de
+    // s42644 (13, 1)). El generador ya no hace ruinas; la de un plan del agente
+    // se lee como escombro.
+    for (const filas of [
+      ['aaaaaa', 'a####a', 'a#aaaa', 'aaaaaa'],
+      ['aaaa', 'a##a', 'a##a', 'aaaa'],
+      ['aaa', 'a#a', 'a#a', 'a#a', 'aaa'],
+    ]) {
+      const ruina = mundo(filas);
+      expect(trazaDeMuralla(ruina.muro, [], ruina.alrededor)).toEqual({ casillas: [], pasos: [] });
+    }
   });
 });
 
@@ -281,18 +285,9 @@ describe('las torres apiladas', () => {
     expect(torresDe(corta, [])).toHaveLength(1);
   });
 
-  it('una ruina corta de norte a sur es una torre, no una chimenea ni un raíl (s2 (3,4)-(3,5), s1 (26,31-33))', () => {
-    for (const filas of [
-      ['aaa', 'a#a', 'a#a', 'aaa'],
-      ['aaa', 'a#a', 'a#a', 'a#a', 'aaa'],
-    ]) {
-      const m = mundo(filas);
-      const e = trazaDeMuralla(m.muro, [], m.alrededor);
-      expect(e.pasos).toEqual([]);
-      expect(torresDe(e, [])).toHaveLength(1);
-    }
-    // De cuatro, un tramo con una torre en cada punta, a tres.
-    const larga = mundo(['aaa', 'a#a', 'a#a', 'a#a', 'a#a', 'aaa']);
+  it('una muralla de norte a sur de cuatro: un tramo con una torre en cada punta, a tres', () => {
+    // Era una ruina hasta #232; ahora separa dos lados entre dos barreras.
+    const larga = mundo(['XXX', 'a#b', 'a#b', 'a#b', 'a#b', 'XXX']);
     const e = trazaDeMuralla(larga.muro, [], larga.alrededor);
     expect(e.pasos).toHaveLength(3);
     expect(apiladas(pintado(e.pasos, torresDe(e, [])))).toEqual([]);
@@ -343,7 +338,9 @@ describe('las torres apiladas', () => {
   });
 
   it('la casilla sola junto a la junta de otra muralla se queda sin torre (s18 (12,23))', () => {
-    const sola = trazaDeMuralla([[4, 4]], [], mundo(['a']).alrededor);
+    // Una línea de una casilla, sin tramos: el muro de una que cierra un hueco
+    // de una entre dos barreras.
+    const sola = { casillas: [[4, 4]] as Casilla[], pasos: [] as Paso[] };
     expect(
       torresDe(
         sola,
@@ -382,8 +379,7 @@ describe('la muralla y la senda (#193)', () => {
   });
 
   it('la casilla sin tramos lleva su torre aunque no quepa: es toda la muralla', () => {
-    const sola = trazaDeMuralla([[4, 4]], [], mundo(['a']).alrededor);
-    expect(sola.pasos).toEqual([]);
+    const sola = { casillas: [[4, 4]] as Casilla[], pasos: [] as Paso[] };
     expect(torresDe(sola, [], () => false).map(clave)).toEqual(['4,4']);
   });
 

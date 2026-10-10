@@ -12,6 +12,7 @@
  * del disco; la escena es un JSON que pinta `pintor.ts`.
  */
 import type { MapObject, TramoDeCamino } from '@core/map/map.js';
+import { APOYOS_DE_MURALLA } from '@core/map/murallas.js';
 import { puertasDe } from '@core/map/puertas.js';
 import { type Barrera, esBarrera, type Suelo, type TerrainKind } from '@core/map/terrain.js';
 import { type Analisis, analizar, type Franja, type MapaDeEscena } from './analizar.js';
@@ -95,10 +96,13 @@ import {
 } from './macizo.js';
 import {
   type Alrededor,
+  ARRIMO,
   CIUDAD,
   murallaSinLeer,
   murallaSobreLaSenda,
   type PuertaDeMuralla,
+  puntasContraSuApoyo,
+  seApilan,
   type TramoPintado,
   torresDe,
   torresObligadas,
@@ -2894,24 +2898,58 @@ export function componer(map: MapaDeEscena, semilla: number, catalogo: Catalogo)
           : deHoja(hoja, x, pie, 1.05, 0.5, 'muro', color, true, eje, ANCHO_DE_TRAMO[eje]);
       if (meterEnLaMuralla(tramo, puerta)) pintados.push({ franja: f.id, a: p.a, b: p.b });
     }
-    for (const c of torresDe(
+    // La punta que toca su apoyo —montaña, acantilado, agua o el borde— lleva
+    // su torre arrimada a él (#232): el lienzo acaba en el centro de su casilla
+    // y sin ella quedaba media casilla de hueco hasta la montaña, que en una
+    // franja de una de ancho son picos bajos (s36 (21,20)). Va también junto a
+    // la puerta, que es donde acaba un brazo de una casilla.
+    const contra = puntasContraSuApoyo(e.pasos, suyas, (x, y) => {
+      if (x < 0 || y < 0 || x >= W || y >= H) return true;
+      return (APOYOS_DE_MURALLA as readonly TerrainKind[]).includes(
+        a.terreno[y * W + x] as TerrainKind,
+      );
+    });
+    /** La torre de `c`, corrida hasta tocar su apoyo si es una punta que se apoya. */
+    const arrimada = (c: readonly [number, number]): Sprite => {
+      const t = torreEn(c);
+      const d = contra.get(`${c}`);
+      return d === undefined ? t : { ...t, x: t.x + d[0] * ARRIMO, y: t.y + d[1] * ARRIMO };
+    };
+    const yaPuestas = (): (readonly [number, number])[] => [
+      ...[...torresPintadas.keys()].map((k) => k.split(',').map(Number) as [number, number]),
+      ...otras,
+    ];
+    const torres = torresDe(
       e,
       suyas.map((p) => p.at),
       (c) => !sendaDeLaMuralla.pisa(torreEn(c)),
       ([x, y]) => alrededorDeLaMuralla.bajoCiudad(x, y).length > 0,
-      [
-        ...[...torresPintadas.keys()].map((k) => k.split(',').map(Number) as [number, number]),
-        ...otras,
-      ],
-    )) {
+      yaPuestas(),
+    );
+    for (const c of torres) {
       // La que no cabe y va igual es la de una casilla sin tramos o la de una
       // esquina (`torresDe`): entra como quepa (`torreQueCabe`) y, si no cabe de
       // ninguna manera (solo una casilla sin tramos: la línea no dobla donde la
       // torre no entra), encogida donde está.
-      const torre = torreQueCabe(c) ?? encogida(torreEn(c));
+      const enSuApoyo = arrimada(c);
+      const torre = !sendaDeLaMuralla.pisa(enSuApoyo)
+        ? enSuApoyo
+        : (torreQueCabe(c) ?? encogida(torreEn(c)));
       if (meterEnLaMuralla(torre, undefined)) {
         pintados.push({ franja: f.id, a: c, b: c });
         torresPintadas.set(`${c}`, torre);
+      }
+    }
+    // Las puntas que `torresDe` deja sin torre (junto a la puerta) la llevan si
+    // cabe entera y no se apila con otra.
+    for (const k of contra.keys()) {
+      const c = k.split(',').map(Number) as [number, number];
+      if (torres.some((t) => `${t}` === k) || yaPuestas().some((t) => seApilan(t, c))) continue;
+      const torre = arrimada(c);
+      if (sendaDeLaMuralla.pisa(torre)) continue;
+      if (meterEnLaMuralla(torre, undefined)) {
+        pintados.push({ franja: f.id, a: c, b: c });
+        torresPintadas.set(k, torre);
       }
     }
   }

@@ -397,9 +397,14 @@ function tirada(
  * (`fugasDe`) y se cierra con otra tirada; lo que cuelga sin llegar a nada se
  * poda (`sinEspolones`).
  *
- * Una franja que no separa dos lados (una mancha de ruina en una región) no
- * tiene apoyos: su línea sale de lo que toque, o de una punta, y va a la
- * casilla más alejada.
+ * Una franja sin puerta que no separa dos lados, o sin nada a lo que llegar,
+ * no lleva línea: es escombro (#232). Con puerta sí, aunque no separe: el trozo
+ * de una muralla que el lado de la puerta rodea (s44 (5,16)) se queda sin tramo
+ * hacia ese lado. El generador ya no hace ruinas —la muralla es el
+ * cierre de un paso, con su puerta entre dos apoyos—, y la de un plan del
+ * agente dentro de una región se lee así como una ruina, sin torres sueltas.
+ * Antes iba de lo que tocase a su casilla más alejada, y un 2×2 se quedaba en
+ * una torre suelta (la de la marca de s42644 (13, 1)).
  */
 export function trazaDeMuralla(
   casillas: readonly Casilla[],
@@ -409,7 +414,8 @@ export function trazaDeMuralla(
   esquinaCabe: (c: Casilla) => boolean = torreCabe,
 ): Esqueleto {
   const primera = casillas[0];
-  if (primera === undefined) return { casillas: [], pasos: [] };
+  if (primera === undefined || (puertas.length === 0 && !separa(casillas, alrededor)))
+    return { casillas: [], pasos: [] };
   const dentro = new Set(casillas.map(clave));
   const esPuerta = new Set(puertas.map((p) => clave(p.at)));
   const hondo = honduras(casillas, dentro);
@@ -423,13 +429,8 @@ export function trazaDeMuralla(
     ...puertas.map((p) => [p.at]),
     ...todos.filter((g) => g.lados.size > 1).map((g) => g.casillas),
   ];
-  // Sin dos sitios a los que llegar, de punta a punta de la franja.
-  if (terminales.length === 0) {
-    // Si toca algo, de ahí sale: un muro que arranca de la barrera, no suelto
-    // por los dos cabos.
-    const tocan = casillas.filter(([x, y]) => alrededor.apoyos(x, y).length > 0);
-    terminales.push([tocan.length > 0 ? (tocan[0] as Casilla) : laMasLejana([primera], casillas)]);
-  }
+  if (terminales.length === 0) return { casillas: [], pasos: [] };
+  // Con un solo sitio al que llegar, de él a la punta más lejana de la franja.
   if (terminales.length === 1) {
     const t = terminales[0] as readonly Casilla[];
     const pie = casillas.filter((c) =>
@@ -609,14 +610,10 @@ export function trazaDeMuralla(
   // relleno de una franja con un solo apoyo, que otra tirada ya cerró (s270
   // (1,10)). Fuera, cabo a cabo, si con ello no se abre nada.
   const podada = sinEspolones(cerrada.hecha, esPuerta, alrededor);
-  const hecha =
-    separa(casillas, alrededor) && fugasDeLaLinea(podada).length <= cerrada.quedan
-      ? podada
-      : cerrada.hecha;
+  const hecha = fugasDeLaLinea(podada).length <= cerrada.quedan ? podada : cerrada.hecha;
   // Un tocón de norte a sur, de dos casillas o menos hasta la siguiente torre,
   // lleva una torre en cada cabo y se ve como una chimenea (s2 (3,4)-(3,5), s1
-  // (26,31-33), auditoría 4): fuera, si con ello no se abre nada. En una ruina
-  // de una sola tirada así queda una torre.
+  // (26,31-33), auditoría 4): fuera, si con ello no se abre nada.
   // Se mide con las torres que irán (`torresDe`), no con una en cada casilla.
   const conSusTorres = (h: { pasos: readonly Paso[]; linea: readonly Casilla[] }) =>
     fugasDe(
@@ -633,13 +630,7 @@ export function trazaDeMuralla(
       [...esPuerta].map(deClave),
       alrededor,
     ).length;
-  const sinTocon = sinTocones(
-    hecha,
-    esPuerta,
-    (c) => alrededor.apoyos(c[0], c[1]).length > 0,
-    !separa(casillas, alrededor),
-    torreCabe,
-  );
+  const sinTocon = sinTocones(hecha, esPuerta);
   const final = conSusTorres(sinTocon) <= conSusTorres(hecha) ? sinTocon : hecha;
   return {
     casillas: final.linea,
@@ -651,17 +642,12 @@ export function trazaDeMuralla(
  * La línea sin sus tocones de norte a sur: las tiradas rectas de norte a sur de
  * dos pasos o menos que van de una punta a la siguiente torre obligada (una
  * junta u otra punta), quitadas una tras otra. Una puerta no es punta. Si la
- * línea entera es un tocón y la franja no separa nada (`soloRuina`), queda la
- * casilla que se apoya en algo y donde su torre cabe (`cabe`); si separa, se queda: su torre sola podía no
- * entrar (junto a la de otra franja) y la franja de s447 (20-21, 23-25) se
- * quedaba sin muralla entre dos lados.
+ * línea entera es un tocón, se queda: es lo que separa los dos lados, y quitada
+ * la franja de s447 (20-21, 23-25) se quedaba sin muralla entre ellos.
  */
 function sinTocones(
   hecha: { readonly pasos: readonly Paso[]; readonly linea: readonly Casilla[] },
   esPuerta: ReadonlySet<string>,
-  seApoya: (c: Casilla) => boolean,
-  soloRuina: boolean,
-  cabe: (c: Casilla) => boolean,
 ): { pasos: Paso[]; linea: Casilla[] } {
   let pasos = [...hecha.pasos];
   for (let cambio = true; cambio && pasos.length > 0; ) {
@@ -684,16 +670,7 @@ function sinTocones(
         if ((de.get(clave(c)) ?? []).length !== 2) break;
       }
       if (tocon.length === 0 || tocon.length > 2 || esPuerta.has(clave(c))) continue;
-      // Una tirada sola de norte a sur: queda la casilla que se apoya.
-      if (tocon.length === pasos.length) {
-        if (!soloRuina) continue;
-        // La que se apoya y donde su torre cabe entera: sola, la torre va
-        // aunque no quepa, y en s995 (15,31) tapaba la senda.
-        const cabos = [punta, ...tocon.flatMap((p) => [p.a, p.b])];
-        const queda =
-          cabos.find((q) => seApoya(q) && cabe(q)) ?? cabos.find(cabe) ?? cabos.find(seApoya) ?? c;
-        return { pasos: [], linea: [queda] };
-      }
+      if (tocon.length === pasos.length) continue;
       pasos = pasos.filter((p) => !tocon.includes(p));
       cambio = true;
       break;
@@ -949,6 +926,45 @@ const MEDIO_LIENZO = 0.5;
 /** Lo que tapa una torre suelta alrededor del centro de su casilla, para el guardia: es de 0,5 de ancho. */
 const RADIO_DE_TORRE = 0.25;
 
+/**
+ * Cuánto se corre hacia su apoyo la torre de una punta que se apoya
+ * (`puntasContraSuApoyo`): lo justo para que su borde toque el lado de la
+ * casilla, sin pasar a la de al lado.
+ */
+export const ARRIMO = 0.5 - RADIO_DE_TORRE;
+
+/**
+ * Las puntas de una línea que tocan un apoyo (#232: montaña, acantilado, agua o
+ * el borde; `esApoyo`), con el rumbo hacia él: el de la línea si sigue hacia
+ * uno, si no el primero en cruz y si no en diagonal. Una puerta no es punta.
+ */
+export function puntasContraSuApoyo(
+  pasos: readonly Paso[],
+  puertas: readonly PuertaDeLinea[],
+  esApoyo: (x: number, y: number) => boolean,
+): Map<string, readonly [number, number]> {
+  const grado = new Map<string, { c: Casilla; n: number; otra: Casilla }>();
+  for (const p of pasos)
+    for (const [c, otra] of [
+      [p.a, p.b],
+      [p.b, p.a],
+    ] as const) {
+      const g = grado.get(clave(c));
+      grado.set(clave(c), { c, n: (g?.n ?? 0) + 1, otra });
+    }
+  const esPuerta = new Set(puertas.map((p) => clave(p.at)));
+  const fuera = new Map<string, readonly [number, number]>();
+  for (const { c, n, otra } of grado.values()) {
+    if (n !== 1 || esPuerta.has(clave(c))) continue;
+    const sigue: Casilla = [c[0] - otra[0], c[1] - otra[1]];
+    const d = [sigue, ...RUMBOS.filter(([dx, dy]) => dx === 0 || dy === 0), ...RUMBOS].find(
+      ([dx, dy]) => esApoyo(c[0] + dx, c[1] + dy),
+    );
+    if (d !== undefined) fuera.set(clave(c), d);
+  }
+  return fuera;
+}
+
 /** Subdivisiones de una casilla con las que el guardia busca un paso entre la muralla y lo de fuera. */
 const FINO = 4;
 
@@ -1110,8 +1126,8 @@ function fugasDe(
  * - `huecos`: trozos de más en que queda partida la línea pintada de una franja;
  * - `espolones`: puntas de la línea de una franja que separa dos lados y que no
  *   llegan a nada (ni barrera, ni borde, ni ciudad, ni puerta): un
- *   muro que no cierra. Una ruina en medio de una región tiene sus dos cabos
- *   sueltos y no cuenta;
+ *   muro que no cierra. Una franja que no separa no lleva línea (es escombro)
+ *   y no cuenta;
  * - `esquinasAbiertas`: casillas donde se juntan tramos de ejes distintos sin
  *   torre pintada encima, fuera de una puerta: la junta se ve abierta;
  * - `puntasSinTorre`: puntas de un tramo de norte a sur sin torre pintada, fuera
