@@ -118,4 +118,10 @@ describe('las tablas de barreras y relieve casan (#143)', () => {
     roto.obstaculos.sand = { cliff: 1, mountain: 1 };
     expect(() => validarBarreras(roto)).toThrow(/"obstaculos.sand" pide "cliff"/);
   });
+
+  it('un muro como obstáculo se rechaza: la muralla es el cierre de un paso (#232)', () => {
+    const roto = structuredClone(barrerasJson) as { obstaculos: Record<string, object> };
+    roto.obstaculos.dirt = { forest: 2, wall: 2 };
+    expect(() => validarBarreras(roto)).toThrow(/"obstaculos.dirt" pide "wall"/);
+  });
 });

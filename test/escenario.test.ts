@@ -276,15 +276,16 @@ describe('sin arte se pinta igual: cada pieza, su marcador de color', () => {
     // La primera semilla con vados (era la 5, escrita a mano, hasta #169).
     // Desde que la senda no corta en diagonal la esquina del agua (#210), la
     // única de 1-300 era la 232. Desde #226 (mapa de 42×42), la 14 y la 187;
-    // con las fronteras onduladas (#229, 09-10-2026), la 60, la 66 y la 88:
-    // se busca desde la 60.
+    // con las fronteras onduladas (#229, 09-10-2026), la 60, la 66 y la 88;
+    // con la muralla como cierre de un paso (#232, 10-10-2026), la 17, la 177
+    // y la 182: se busca desde la 17.
     const { caso: conVados } = primeraSemillaCon(
       'vados junto a un puente',
       (s) => {
         const e = escenaDe(s);
         return e.vados.length > 0 ? e : undefined;
       },
-      60,
+      17,
       300,
     );
     const r = registro();

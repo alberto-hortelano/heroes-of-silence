@@ -27,9 +27,10 @@ const ctx = (seed: number): GameContext => ({ rng: createRng(seed) });
  * acantilado en línea (#215) nace a la vista del rival, la 1, que con el
  * vestido que se repite por una silla (#224) tampoco lanza, y la 3, que con las
  * fronteras onduladas (#229) tampoco. Con ellas, la 1 vuelve a lanzar, hasta
- * las dos puertas de la mina (#230); ni la 2 ni la 3 tampoco: la 4.
+ * las dos puertas de la mina (#230); ni la 2 ni la 3 tampoco: la 4, hasta la
+ * muralla como cierre de un paso (#232), y de la 1 a la 10 solo lanza la 7.
  */
-const SEMILLA = 4;
+const SEMILLA = 7;
 
 /** Una batalla contra el primer monstruo, con un héroe que sabe Flecha mágica y tiene maná. */
 function batallaConMagia(seed: number): { state: ReturnType<typeof newGame>; battle: BattleState } {

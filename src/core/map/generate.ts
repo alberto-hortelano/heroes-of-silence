@@ -40,6 +40,7 @@ import {
   type TramoDeCamino,
   tramosDeCasillas,
 } from './map.js';
+import { murallasDeLaRejilla } from './murallas.js';
 import { type ConPuerta, rumbosDePuerta } from './puertas.js';
 import {
   aPunto,
@@ -2257,6 +2258,19 @@ function vestirRed(
       'obstáculos',
       `la caída al sur de (${larga.desde}-${larga.desde + larga.largo - 1}, ${larga.y}) va recta ${larga.largo} casillas, y desde ${CAIDA_LARGA} se lee como un muro`,
     );
+  // Y cada muralla, el cierre de un paso (#232): el engorde la deja entre sus
+  // dos apoyos, pero una esquina torcida que se abre a su región puede llevarse
+  // el apoyo de un lado (s178 (4,28)). Ese vestido no vale.
+  const [malaMuralla] = murallasDeLaRejilla(
+    W,
+    H,
+    (i) => barreraDe(tipos, i) ?? 'grass',
+    nodos,
+    nodos.filter((_n, k) => !ciudadesEnNodo.has(k) && grueso.barreraDeNodo[k] === 'wall'),
+    ciudades,
+  ).filter((m) => m.sinApoyo.length > 0);
+  if (malaMuralla !== undefined)
+    return fallo('obstáculos', `una muralla no cierra su paso: ${malaMuralla.sinApoyo[0]}`);
   // Las barreras garantizadas, otra vez, sobre la frontera de después: las
   // esquinas de agua pasan agua a montaña y las esquinas torcidas abren
   // frontera a su región. Con las fronteras onduladas de #229, un acantilado

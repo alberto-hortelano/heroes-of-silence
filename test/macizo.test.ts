@@ -257,7 +257,11 @@ describe('la escena: los picos de una cordillera crecen hacia dentro', () => {
   // de 35 con cordillera por debajo de ×1,35 —la 2 ×1,12, la 11 ×1,27, la 22
   // ×1,16, la 28 ×1,12, la 31 ×1,27 y la 38 ×1,34—; la 1 vuelve (×1,39) y la 10
   // también (×1,47). Fuera la 2, la misma alfombra.
-  const sinCresta = new Set([2]);
+  // Con la muralla como cierre de un paso (#232, 10-10-2026), otros mapas: en
+  // 1-40, 4 de 35 con cordillera por debajo de ×1,35 —la 1 ×1,27, la 5 ×1,28,
+  // la 24 ×1,26 y la 33 ×1,23— (con #230, medido igual, 6 de 34). La 2 vuelve;
+  // fuera la 1 y la 5.
+  const sinCresta = new Set([1, 5]);
   const valen = (s: number) => !sinCresta.has(s) && conCordillera(s);
   const semillas = LENTO ? rango(1, 10).filter(valen) : lasPrimeras(2, valen);
   for (const semilla of semillas)

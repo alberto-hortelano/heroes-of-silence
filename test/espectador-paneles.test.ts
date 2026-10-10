@@ -509,11 +509,11 @@ describe('el espectador cuenta cada batalla en orden', () => {
 
   it('`mismaBatalla`: la misma crece; otra no, aunque los stacks se llamen igual', () => {
     const a = fotogramasDeUnaBatalla(4, false).map((f) => f.view.battle!.estado);
-    // La 6 y no la 5: con el mapa de 28 las semillas 4 y 5 dan la MISMA
-    // batalla —cuatro de tropa contra seis esqueletos, y el héroe abre igual—,
-    // así que su primer fotograma es idéntico y nada podría distinguirlas. Lo
-    // que este test mira es que dos batallas distintas no se confundan.
-    const b = fotogramasDeUnaBatalla(6, false).map((f) => f.view.battle!.estado);
+    // La 5: con el mapa de 28 las semillas 4 y 5 daban la MISMA batalla
+    // —cuatro de tropa contra seis esqueletos, y el héroe abre igual—, y fue la
+    // 6 hasta la muralla como cierre de un paso (#232), que la dejó igual que la
+    // 4. Lo que este test mira es que dos batallas distintas no se confundan.
+    const b = fotogramasDeUnaBatalla(5, false).map((f) => f.view.battle!.estado);
     expect(mismaBatalla(null, a[0]!)).toBe(false);
     expect(mismaBatalla(a[0]!, a[1]!)).toBe(true);
     expect(mismaBatalla(a[0]!, a.at(-1)!)).toBe(true);

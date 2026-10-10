@@ -761,7 +761,8 @@ describe('el generador hace redes como las pidió el usuario', () => {
   });
 
   it('la frontera se lee por lo que no es región: dentro es obstáculo; junto a la frontera o a un nodo, frontera (#132)', () => {
-    // Tres casillas de una región pasadas a montaña sobre la semilla 2 (la 4
+    // Tres casillas de una región pasadas a montaña sobre la semilla 5 (la 2
+    // hasta la muralla como cierre de un paso, #232; la 4
     // hasta las fronteras onduladas de #229, que ya no tiene la pegada solo a un
     // nodo; la 2 hasta el mapa de 42×42 de #226; la 1, con el vestido que se
     // repite por una silla, #224, tampoco, y con #229 sí, hasta que las dos
@@ -769,7 +770,7 @@ describe('el generador hace redes como las pidió el usuario', () => {
     // frontera; y pegada solo a un nodo —el trozo de un lado del paso que no
     // toca más que una región (la semilla 80 en 28×28)— también como frontera,
     // porque el nodo es un agujero de la frontera y la une a la otra región (#132).
-    const { map } = buildMap(generateMapPlan(createRng(2)));
+    const { map } = buildMap(generateMapPlan(createRng(5)));
     const red = estructura(map);
     const W = map.width;
     const { desde, vecinas } = vecindad(W, map.height);

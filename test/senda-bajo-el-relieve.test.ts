@@ -179,8 +179,10 @@ describe('la senda bajo el relieve (#189)', () => {
     // 09-10-2026), 8, 13, 23 y 3, con 6, 6, 5 y 4 (media 5,25); la que más
     // tiene es la 39, con 7, ninguno junto a una mina. En la 23, dos de los
     // cinco son la puerta de la derecha de una mina con lo alto al norte
-    // (mine-10 (19,37) y mine-18 (21,39)).
-    const semillas = segunPrisa([8, 13, 23, 3], rango(1, 40));
+    // (mine-10 (19,37) y mine-18 (21,39)). Con la muralla como cierre de un
+    // paso (#232, 10-10-2026), 8, 23, 3 y 6, con 6, 6, 4 y 3 (media 4,75; la
+    // 13 se queda en 0); la que más, la 39, con 8.
+    const semillas = segunPrisa([8, 23, 3, 6], rango(1, 40));
     const cuentas = semillas.map((s) => escenaDe(s).informe.sendaBajoElRelieve);
     // Que mire algo: en ninguna semilla de la muestra rápida es 0. En 1-40,
     // con menos mesetas (#210), la mitad se queda en 0: 20 de 40 y 1,2 de
@@ -188,7 +190,7 @@ describe('la senda bajo el relieve (#189)', () => {
     // Con el mapa de 42×42 (#226), 23 de 40 y 1,25 (09-10-2026). Con las
     // fronteras onduladas (#229), 16 de 40 en 0 y 1,55 de media (62 tramos; en
     // main, medido igual, 17 en 0 y 1,25). Con las dos puertas de la mina
-    // (#230), 17 en 0 y 1,45 (58 tramos).
+    // (#230), 17 en 0 y 1,45 (58 tramos). Con #232, 15 en 0 y 1,6 (64).
     expect(cuentas.filter((n) => n > 0).length).toBeGreaterThanOrEqual(segunPrisa(4, 15));
     expect(cuentas.reduce((a, b) => a + b, 0) / semillas.length).toBeLessThanOrEqual(
       TECHO_POR_MAPA,

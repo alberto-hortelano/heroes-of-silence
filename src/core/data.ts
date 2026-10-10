@@ -842,6 +842,11 @@ export function validarBarreras(json: unknown, fichero = 'data/barreras.json'): 
         `"obstaculos.${suelo}" pide "cliff": un acantilado dentro de una región es una mesa suelta, y el acantilado es el borde de una meseta (#143)`,
       );
     }
+    if (obstaculos[suelo]?.some((c) => c.barrera === 'wall')) {
+      problemas.push(
+        `"obstaculos.${suelo}" pide "wall": una muralla dentro de una región es una ruina que no cierra nada, y la muralla es el cierre de un paso (#232)`,
+      );
+    }
   }
   const densidadPorCiento = rango('densidadPorCiento', 0, 90);
   const mancha = rango('mancha', 1, 50);
