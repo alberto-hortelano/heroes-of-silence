@@ -1215,8 +1215,15 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
   await todo.hover();
   await sleep(150);
   await captura(page, 'desktop-05-castillo-todo-es-lo-que-cabe');
-  await todo.click();
-  espejo.recruitAll(recluta);
+  // Con el ejército lleno no cabe ninguno: el botón sale deshabilitado y no se
+  // pulsa (pasa con los mapas de 42×42 de main, semilla 27: la base se escribió
+  // contra los de 34×34, donde el héroe de la semilla buscada tenía sitio).
+  if ((plan?.maximo ?? 0) > 0) {
+    await todo.click();
+    espejo.recruitAll(recluta);
+  } else if (await todo.isEnabled()) {
+    throw new Error('«Todo» sin nada que quepa debía salir deshabilitado');
+  }
   log(
     `«todo» con ${plan?.disponibles} disponibles y ${plan?.caben} que caben: recluta ${plan?.maximo}`,
   );
@@ -1227,14 +1234,21 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
   // por qué con la frase del núcleo. El espejo dice lo mismo, y el oro no se mueve.
   const uno = page.locator('#side button[data-action="recruit"][data-todo="no"]');
   if ((espejo.selectedHero?.army.length ?? 0) >= 6) {
-    await uno.click();
-    espejo.recruit(recluta, 1);
-    await sleep(250);
-    const dice = await page.locator('#status').innerText();
-    if (!dice.includes('ya lleva 6 de 6 individuos') || dice !== espejo.status) {
-      throw new Error(`reclutar el séptimo debía rechazarse diciéndolo; la barra dice «${dice}»`);
+    // La base apaga «+1» con la frase del núcleo en su `title` cuando no cabe ni
+    // uno (`motivoParaNoReclutar`); antes se pulsaba y la frase salía en la barra.
+    const motivo = await uno.getAttribute('title');
+    const delNucleo = espejo.motivoParaNoReclutar(recluta);
+    if (
+      (await uno.isEnabled()) ||
+      motivo === null ||
+      motivo !== delNucleo ||
+      !motivo.includes('ya lleva 6 de 6 individuos')
+    ) {
+      throw new Error(
+        `el séptimo debía salir apagado con la frase del núcleo («${delNucleo}»); el botón dice «${motivo}»`,
+      );
     }
-    log(`el séptimo se rechaza: «${dice}»`);
+    log(`el séptimo se rechaza: «${motivo}»`);
     await captura(page, 'desktop-05b-castillo-el-septimo-no-cabe');
     await comprobar(page, espejo, 'reclutar el séptimo');
 

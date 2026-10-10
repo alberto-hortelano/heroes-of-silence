@@ -146,6 +146,7 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 | Reglas de la batalla (nuestra / fheroes2) | `BattleState.reglas`; el juego entra por `createBattle` (`REGLAS_DEL_JUEGO`) y solo la arena por `crearBatallaConReglas`, `batallaDeArena`, `SesionDeArena`, `reglasDeLaURL`, `conRegla` o un `'fheroes2'` escrito (lo vigila `invariantes.test.ts`) |
 | Por qué acabó una batalla (arena) | `causaDelFinal` (`battle.ts`, con `bandoVencido`) → `finalDeArena` |
 | Enlace de una pelea de la arena | `montajeALaURL` / `montajeDeLaURL` (`?montaje=`, con `?seed=` y `?reglas=`); un parámetro repetido, `unaVezEnLaURL` |
+| Muros, puertas, niveles y tiro tapado de la batalla | `battle/muralla.ts` (`pasoPermitido`, `hayLinea`, `bonoEnLoAlto`, `validarMuralla`); al montarla, `crearBatallaConReglas(…, muralla)` |
 | Previsión de daño (barra de la partida y de la arena) | `previsionDe` → `horquillaDeDanio`, `trasElGolpe`; opciones del golpe, `opcionesDeDanio` |
 | Desenlace y causa del final (barra, crónica y nota del agente) | `finDePartida`, `desenlaceDe` (`state/desenlace.ts`) |
 | Ventaja para atacar/emboscar | `ventajaClara` (`ai/fuerza.ts`) |
@@ -593,7 +594,14 @@ antes del destino (`battle_started` con `faltan`).
   es una prueba que no se guarda), un héroe por lado con libro (`heroeDeArena`) y
   seis interruptores de reglas por pelea (`battle/reglas.ts`, `?reglas=` con la
   semilla); con todos en «nuestra» pelea como el juego. «Copiar enlace de la
-  pelea» escribe el montaje entero (`?montaje=`); abrirlo lo monta sin luchar. Velocidad en casillas (`escalonDeCasillas`). `SesionDeArena`
+  pelea» escribe el montaje entero (`?montaje=`, versión 2: con la muralla y las escaleras; la 1 se
+  sigue leyendo); abrirlo lo monta sin luchar. **La muralla de la arena** (`battle/muralla.ts`,
+  formas en `data/borradores/murallas.json`, `arena-murallas.ts`): muros altos donde suben los de
+  dentro y los atacantes con escalera o el rasgo `escalar`, puertas entre dos casillas que abre y
+  cierra quien defiende, sin tiro a través en el suelo; un tirador en lo alto suma
+  `defensaEnLoAlto` (`data/muralla.json`, inventado), que pone `opcionesDeDanio` y por eso lo
+  cuentan igual el golpe, la IA, la ficha y la previsión. Funciona con los seis interruptores.
+  Las batallas del mapa van sin muralla (`SIN_MURALLA`). Velocidad en casillas (`escalonDeCasillas`). `SesionDeArena`
   vive en `session.ts`. Una unidad con el arte a medias (el taller generándola)
   se lista como incompleta con su motivo y no se monta —nunca el Y Bot en su
   lugar—; `vite build` lo avisa y no falla (`arteEnOchoDirecciones`, #140).

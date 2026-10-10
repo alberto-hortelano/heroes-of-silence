@@ -3841,6 +3841,49 @@ persona que cierra un día vuelve a tener el turno sin que el rival mueva; la
 pausa de «Fin de turno» (`PAUSA_TRAS_EL_RIVAL`) ya cubre ese instante, y la
 barra lee `state.current`, como el espectador.
 
+## La muralla de la arena, junta con el banco de combate (10-10-2026)
+
+Tres ramas hechas el 09-10 sobre el mismo `eab467d` se integraron en una
+historia lineal sobre main (rama `integracion`): el banco de combate (`combate`),
+las murallas de la arena con la muralla alta (`asalto`,
+`docs/agents/2026-10-09-murallas-en-la-arena/` y `…/muralla-alta/`) y la base
+caminable (`bases`). Las dos primeras tocaban lo mismo —la arena, el motor de
+batalla y el daño— y se juntaron enteras, no una encima de la otra:
+
+- **Una sola puerta para montar**: `crearBatallaConReglas(…, reglas, muralla)`;
+  `createBattle` es el juego (`REGLAS_DEL_JUEGO`) y acepta la muralla solo para
+  los tests. El montaje de la arena (`MontajeDeArena`) lleva la muralla, y cada
+  fuente (hoja del borrador o criatura del catálogo) su escalera; una criatura
+  del catálogo que la lleva entra como personaje, con las cifras del catálogo
+  tal cual, porque la escalera viaja en `BattleMember`.
+- **Lo alto, en las opciones del daño**: `bonoEnLoAlto` lo pone
+  `opcionesDeDanio`, que era ya la única forma de montarlas. Antes cada golpe se
+  lo pasaba a mano y la previsión de la otra rama no lo habría visto; así lo
+  cuentan igual el golpe, el disparo, la IA, la ficha («+3 de defensa en lo
+  alto») y la previsión, que lo dice como causa («…, en lo alto de la
+  muralla»). Lo vigilan dos escenarios nuevos de `test/prevision.test.ts`
+  contra el daño real en las combinaciones de reglas.
+- **El golpe y el disparo leen el nivel y el tiro tapado** en sus `*Blocker`
+  (`golpeBlocker`, `devolveraElGolpe`, `disparoContraBlocker`), que la otra rama
+  había sacado de `applyAction` para la previsión: un disparo tapado por el muro
+  no se prevé, se dice por qué con la frase del núcleo.
+- **La regla del tirador de fheroes2** dejaba escrito «fuera de una muralla, que
+  aquí no hay»: allí tirar a través de la muralla pega la mitad; aquí, en el
+  suelo, no se tira a través, y desde lo alto o hacia lo alto no se cruza. No
+  hay caso que cubrir.
+- **El enlace de la pelea**, versión 2: muralla y escalera por puesto, con las
+  mismas comprobaciones que la página (que quepa en las columnas de salida, que
+  nadie lleve una escalera que no usaría). Un enlace de la versión 1 se sigue
+  leyendo, sin muralla.
+
+La base caminable solo rozaba la batalla en la escala (`escalaDelCombate`, que
+ahora lleva el alzado de la muralla y la base pide sin él) y en la caja de la
+figura (`cajaDeFiguraEn`, con la elevación de lo alto). Lo que pedía adaptar de
+main fue el orden en serpiente en un test de las voces (el segundo turno del
+agente es el cuarto) y re-anclar `test/fixtures/paneles.txt` con la lista
+«Edificios». `pnpm banco`: el hash no cambia (ninguna batalla del mapa lleva
+muralla ni otras reglas).
+
 ## Decisiones tomadas
 
 - **MCP antes que API key.** El usuario tiene Claude Max: el agente entra por
