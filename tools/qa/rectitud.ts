@@ -132,6 +132,7 @@ export { largoALaEscala };
  * | las dos puertas de la mina (#230) | 72 / 9 / 6 | 43 / 4 / 4 | 59 / 1 / 4 | 174 / 14 / 14 |
  * | main con el sorteo de minas y pueblos sobre la lista al revés | 53 / 5 / 3 | 67 / 4 / 5 | 71 / 4 / 6 | 191 / 13 / 14 |
  * | las caídas largas partidas (#231) | 48 / 0 / 5 | 44 / 0 / 4 | 51 / 0 / 3 | 143 / 0 / 12 |
+ * | la muralla como cierre de un paso (#232) | 61 / 0 / 7 | 50 / 0 / 3 | 53 / 0 / 4 | 164 / 0 / 14 |
  *
  * La tercera fila es una perturbación neutra (las mismas reglas, otra tirada):
  * ±10 tramos por bloque, y las caras de 7 a 13 sin tocar nada que las haga.
@@ -147,11 +148,22 @@ export { largoALaEscala };
  * entonces se vuelve a medir aquí, con su fila, y no se sube a ciegas. El de
  * caras deja la misma holgura por si la escena pinta una fila que el núcleo no
  * ve; el guardia de 0 es `test/caidas-largas.test.ts`.
+ *
+ * **Con #232** (10-10-2026) los tramos pasan de 153: 164. Medido aquí, como se
+ * pide arriba, en 1-1000 y por mapa: convertir el muro en otra barrera no
+ * cambia qué casillas son barrera, y en los 655 mapas cuyas barreras quedan
+ * en las mismas casillas los tramos son los mismos (42 y 42). Todo sale de los
+ * 345 que se visten otra vez (el muro ya no se sortea en los obstáculos, y el
+ * vestido con una muralla sin apoyo o una mesa se repite): tenían 6 tramos
+ * (1,7 % por mapa) y tienen 19 (5,5 %), cerca de los que no cambian (6,4 %).
+ * Por barrera, en 1-1000, montaña 10 → 16 y acantilado 11 → 15, el resto igual:
+ * no hay una frontera de muro que se vuelva recta, es otro vestido. Techo, lo
+ * medido más el margen de siempre, y los otros dos igual: 176 / 3 / 15.
  */
 export const TECHOS = {
   semillas: 3000,
   bloque: 1000,
-  tramos: { minimo: largoALaEscala(8), techo: 153 },
+  tramos: { minimo: largoALaEscala(8), techo: 176 },
   caras: { minimo: largoALaEscala(8), techo: 3 },
   mapas: { minimo: largoALaEscala(10), techo: 15 },
 } as const;

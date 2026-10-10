@@ -869,11 +869,24 @@ const sueltos = iDump === -1 ? args : args.filter((_, i) => i !== iDump && i !==
  *   terminar**, duración 8 / 15 / 21 → **8 / 15 / 22** (s186, de 11 a 22 días).
  *   Batallas 1 456 → 1 449, `node_captured` 1 250 → 1 240, `town_captured`
  *   1 305 → 1 300; ningún tipo nuevo ni ninguno que desaparezca.
+ * - `24448339…` (65 220 líneas): **la muralla es el cierre de un paso** (#232,
+ *   10-10-2026): cada franja de muro se queda en la línea de su puerta a sus
+ *   dos apoyos y lo demás pasa a otra barrera; sin puerta, entera; el muro sale
+ *   de los obstáculos; y el vestido con una muralla sin apoyo, un nodo cuya
+ *   entrada no sigue en cruz o una mesa del relieve se repite. **39 de 200
+ *   idénticas**; en 70 el primer hecho distinto es el `raider_spawned` del día
+ *   1 (otro vestido) y en 89 un `hero_moved` (el mismo mapa con otra barrera
+ *   donde estaba el muro: 52 el día 1, el resto del 2 al 13). 38 con otro
+ *   ganador, j0 115 → 117, **0 sin terminar**, duración 8 / 15 / 22 → **8 / 14
+ *   / 20**. Batallas 1 449 → 1 405, `hero_moved` 40 609 → 39 073,
+ *   `node_captured` 1 240 → 1 204, `town_captured` 1 300 → 1 257,
+ *   `troop_level_up` 1 778 → 1 584; ningún tipo nuevo ni ninguno que
+ *   desaparezca.
  */
 const ANCLA = {
   semillas: SEMILLAS_DEL_BANCO,
   dias: DIAS_POR_DEFECTO,
-  sha: '1d8c13f35aa7feb1ee2112c915ee166014109b542ccd73ce9dd93986281cafea',
+  sha: '244483394b041f87873666d936b63dbe83ff6645b6ab4422e636d740993ec46d',
 } as const;
 
 const SEMILLAS = Number(sueltos[0] ?? ANCLA.semillas);

@@ -3896,3 +3896,49 @@ muralla ni otras reglas).
   mejoras.
 
 - **Fronteras de suelo con ruido (R1, 07-10-2026).** La máscara de 1 px por casilla desenfocada dejaba las fronteras de región como rectas difuminadas. `fronterasDelSuelo` lee el campo del suelo en un punto deformado y mezcla por altura con la textura (técnica de Mishkinis; la comparación con VCMI, AoE2 y otros está en `docs/agents/2026-10-07-arquitectura-mapa/comparacion.md`). Medido alternando con la máquina cargada: esbozo +0,15 s, bueno −0,3 s. Se probó primero solo con ruido y altura, y una frontera de 15 casillas seguía leyéndose recta al tope de alejar: hizo falta deformar.
+
+## La muralla es el cierre de un paso (#232, 10-10-2026)
+
+Marca del usuario en s42644 (13, 1), «malas uniones de las murallas»: una
+torre suelta en lo alto de unos cultivos y un lienzo de norte a sur que acababa
+en una ciudad. En la conversación: «las murallas quedan mal, no tienen sentido,
+son trozos de muralla en mitad de ningún sitio y ocupando lo que serían
+extensiones enormes». Decidió: la muralla es el fuerte que tapa un desfiladero,
+un tramo corto con su puerta entre dos apoyos naturales. Trabajo en
+`docs/agents/2026-10-10-murallas/` (capturas antes y después).
+
+- **La regla, en `core/map/murallas.ts`**, una vez: `lineaDeLaPuerta` busca en
+  anchura, por el muro, de la puerta a un apoyo a cada lado de su eje (el lado,
+  el signo del producto vectorial con el eje: enteros). La leen el engorde, la
+  última mirada del vestido y el guardia sobre el mapa hecho.
+- **Los apoyos que ya había no bastaban**: el paso de cada pareja va en el medio
+  de su frontera, lejos de los cruces, y con solo ellos la muralla quedaba en 41
+  de 200 mapas (117 con puerta antes). Por eso lo que sobra de la franja más allá
+  de `RADIO_DE_LA_PUERTA` también apoya, y pasa a montaña o agua: la frontera de
+  la pareja se vuelve sierra o río con su fuerte. Quedan 112.
+- **Lo que no apoya**: el bosque (es frontera como el muro; el usuario nombró
+  montaña, acantilado, agua y borde) y nada junto a una ciudad. Con el peñasco
+  que `sinAguaEnLasEsquinas` deja al lado de una ciudad como apoyo, el lienzo de
+  s30 (12,1)-(12,4) bajaba hasta la ciudad: el mismo defecto de la marca.
+- **En espejo, sin fiarse del espejo**: la franja espejo recibe el reflejo de la
+  decisión solo si es su reflejo casilla a casilla y con las mismas puertas. Las
+  ciudades no van en espejo, y reflejar a ciegas cerraba con montaña el pasillo
+  de un nodo (354 vestidos tirados en 1-200 por «el nodo solo toca una región»).
+- **Lo que sobra sigue la barrera de al lado**: si no, cada trozo tomaba la que
+  le faltaba al mapa y la frontera de s42644 salía a parches.
+- **En la escena**, sin ruinas ni torres sueltas (la franja sin puerta que no
+  separa es escombro), y la punta que toca su apoyo lleva la torre arrimada a él:
+  el lienzo acaba en el centro de su casilla y quedaba media casilla de hueco.
+- **Dos guardias del vestido que destapó**: los mapas que se visten otra vez
+  sacaron un nodo cuya entrada solo seguía en diagonal (s37 (17,15), tras abrir
+  una esquina torcida) y una montaña a 2 en un llano a 1, unida a su meseta por
+  una casilla a 1 (s33 (9-12, 8-9)): la escena le pintaba paredes de una roca
+  que no era la de ninguna meseta (`caraDeOtroMaterial`). Los dos hacen que el
+  vestido no valga (`mesasDelRelieve`; en 1-200 había 3 mesas antes y 6 con
+  #232, ahora 0).
+- **Lo que movió**: `rectitud` 143 → 164 tramos en 1-3000; en 1-1000 los 655
+  mapas con las barreras en las mismas casillas no cambian (42 y 42), y los 345
+  que se visten otra vez pasan de 6 a 19, cerca de la tasa de los que no
+  cambian. La cordillera sin cresta (×1,35), 6 de 34 → 4 de 35 en 1-40. Banco
+  `24448339…`.
+
