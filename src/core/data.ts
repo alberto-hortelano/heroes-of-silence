@@ -8,6 +8,7 @@ import experienciaJson from '../../data/experiencia.json' with { type: 'json' };
 import habilidadesJson from '../../data/habilidades.json' with { type: 'json' };
 import heroeJson from '../../data/heroe.json' with { type: 'json' };
 import liderazgoJson from '../../data/liderazgo.json' with { type: 'json' };
+import murallaJson from '../../data/muralla.json' with { type: 'json' };
 import relieveJson from '../../data/relieve.json' with { type: 'json' };
 import tiposDeHeroeJson from '../../data/tipos-de-heroe.json' with { type: 'json' };
 import {
@@ -187,6 +188,29 @@ export const HEROE: ReglasDelHeroe = {
     velocidad: velocidadDelHeroe(heroeJson.combate.velocidad),
   },
   rendicion: { ...heroeJson.rendicion },
+};
+
+/**
+ * La muralla de la arena, de `data/muralla.json`. **Inventado y provisional**,
+ * como dice su `_comment`: en HoMM2 no hay tirador que se suba al muro.
+ */
+export interface ReglasDeLaMuralla {
+  /** Lo que suma a su defensa un tirador en lo alto de un muro (`effectiveDefense`). */
+  readonly defensaEnLoAlto: number;
+}
+
+/** Se edita a mano: una cifra que no es un entero ≥ 0 se dice al cargar, no en la batalla. */
+function defensaEnLoAlto(v: unknown): number {
+  if (!Number.isSafeInteger(v) || (v as number) < 0) {
+    throw new Error(
+      `data/muralla.json: defensaEnLoAlto tiene que ser un entero de 0 en adelante y es ${JSON.stringify(v)}`,
+    );
+  }
+  return v as number;
+}
+
+export const MURALLA: ReglasDeLaMuralla = {
+  defensaEnLoAlto: defensaEnLoAlto(murallaJson.defensaEnLoAlto),
 };
 
 /** Un grupo de individuos de la misma criatura, como se escriben en los datos. */

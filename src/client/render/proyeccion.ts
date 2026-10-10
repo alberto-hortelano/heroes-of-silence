@@ -76,7 +76,9 @@ const ANCHO_TABLERO = BOARD_WIDTH + 0.5 + 0.6;
 export const COMPRESION_MAXIMA = Math.sin((35 * Math.PI) / 180);
 
 /**
- * El tablero que cabe en un lienzo de `ancho × alto`, centrado.
+ * El tablero que cabe en un lienzo de `ancho × alto`, centrado. `alzado` son los
+ * pasos que pide de más encima de la fila de atrás lo que sube del suelo —las
+ * columnas de una muralla (`alzadoDeLaMuralla`)—; sin él, el de siempre.
  *
  * El paso lo decide el tablero a 25°; si con ese paso sobra alto, la cámara se
  * levanta (hasta `COMPRESION_MAXIMA`) y las filas se separan hasta llenarlo.
@@ -86,20 +88,33 @@ export const COMPRESION_MAXIMA = Math.sin((35 * Math.PI) / 180);
  * se pueden tocar: por eso la hoja de estilos le da al lienzo de batalla un
  * ancho fijo y lo deja desplazarse en horizontal, en vez de encogerlo aquí.
  */
-export function tableroPara(ancho: number, alto: number): Tablero {
+export function tableroPara(ancho: number, alto: number, alzado = 0): Tablero {
+  const fijo = ALTO_FIJO + alzado;
   const paso = Math.max(
     1,
-    Math.min(ancho / ANCHO_TABLERO, alto / (ALTO_FIJO + ALTO_FILAS * COMPRESION_SUELO)),
+    Math.min(ancho / ANCHO_TABLERO, alto / (fijo + ALTO_FILAS * COMPRESION_SUELO)),
   );
-  const cabe = (alto / paso - ALTO_FIJO) / ALTO_FILAS;
+  const cabe = (alto / paso - fijo) / ALTO_FILAS;
   const compresion = Math.max(COMPRESION_SUELO, Math.min(COMPRESION_MAXIMA, cabe));
-  const sobraY = Math.max(0, alto - (ALTO_FIJO + ALTO_FILAS * compresion) * paso);
+  const sobraY = Math.max(0, alto - (fijo + ALTO_FILAS * compresion) * paso);
   return {
     paso,
     origenX: (ancho - (BOARD_WIDTH + 0.5) * paso) / 2 + paso / 2,
-    origenY: sobraY / 2 + (ALTO_FIGURA + RADIO) * paso,
+    origenY: sobraY / 2 + (ALTO_FIGURA + alzado + RADIO) * paso,
     compresion,
   };
+}
+
+/**
+ * El alto de lienzo con el que `tableroPara(ancho, alto', alzado)` sale con el
+ * MISMO paso y la misma cámara que `tableroPara(ancho, alto)`: el de ahora más
+ * `alzado` pasos. Es como crece el lienzo de una batalla con muralla: lo alto de
+ * las columnas pide sitio encima de la fila de atrás, y en vez de encoger el
+ * tablero para meterlo, el tablero baja y el lienzo se alarga (decisión del
+ * usuario, 09-10-2026). Sin alzado, `alto` tal cual.
+ */
+export function altoConAlzado(ancho: number, alto: number, alzado: number): number {
+  return alzado <= 0 ? alto : alto + alzado * tableroPara(ancho, alto).paso;
 }
 
 /** El centro de un hex en el plano. */

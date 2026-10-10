@@ -122,6 +122,7 @@ function stackOf(id: string, count: number): BattleStack {
     topHp: creature(id).hp,
     hex: { col: 0, row: 0 },
     shotsLeft: 0,
+    escalera: false,
     retaliated: false,
     defending: false,
     waited: false,
@@ -765,7 +766,7 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
     const conPista = montar(createRng(51));
     const s = activeStack(conPista) as BattleStack;
     const turno = conPista.turno as TurnoDeUnidad;
-    const conRecorrido = { n: turno.n, gastado: 0, costs: movableFrom(conPista, s) };
+    const conRecorrido = { n: turno.n, gastado: 0, puertas: '', costs: movableFrom(conPista, s) };
     applyAction(conPista, carga, createRng(51), conRecorrido);
 
     expect(conPista.log).toEqual(aPelo.log);
@@ -782,7 +783,7 @@ describe('legalActions recorre el tablero una sola vez (#48)', () => {
     const state = batallaDeCuatroEnemigos();
     const s = activeStack(state) as BattleStack;
     const turno = state.turno as TurnoDeUnidad;
-    const suyo = { n: turno.n, gastado: 0, costs: movableFrom(state, s) };
+    const suyo = { n: turno.n, gastado: 0, puertas: '', costs: movableFrom(state, s) };
     applyAction(state, { type: 'defend' }, createRng(1));
     const otro = activeStack(state) as BattleStack;
     expect(otro.id).not.toBe(s.id);
@@ -2006,7 +2007,7 @@ describe('el turno en tramos (2026-10-02)', () => {
     const state = duelo('swordsman', { col: 0, row: 4 }, 'pikeman', { col: 10, row: 4 });
     const s = stackById(state, 'attacker-0');
     const n = (state.turno as TurnoDeUnidad).n;
-    const viejo = { n, gastado: 0, costs: movableFrom(state, s) };
+    const viejo = { n, gastado: 0, puertas: '', costs: movableFrom(state, s) };
     applyAction(state, { type: 'move', to: { col: 1, row: 4 } }, createRng(1));
     expect(() =>
       applyAction(state, { type: 'move', to: { col: 5, row: 4 } }, createRng(1), viejo),

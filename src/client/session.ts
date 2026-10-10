@@ -21,14 +21,19 @@ import {
   type CasillaDeCarga,
   casillasDeCarga,
   castBlocker,
+  escalaBlocker,
   legalActions,
   MAX_JUGADAS,
+  movimientoBlocker,
   type Prevision,
   pasosQueQuedan,
   previsionDe,
+  puertasBlocker,
+  quienNoEscala,
   SIN_CARGAS,
   surrenderBlocker,
 } from '@core/battle/battle.js';
+import { bonoEnLoAlto, type MurallaDeBatalla, SIN_MURALLA } from '@core/battle/muralla.js';
 import type { ReglasDeBatalla } from '@core/battle/reglas.js';
 import { enOrdenDelLibro, spell } from '@core/battle/spells.js';
 import type {
@@ -37,6 +42,8 @@ import type {
   BattleStack,
   BattleState,
   Side,
+  TipoDeEscala,
+  TipoDePuerta,
 } from '@core/battle/types.js';
 import { type Hero, maxMana } from '@core/hero/hero.js';
 import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '@core/hero/troop.js';
@@ -199,6 +206,20 @@ export interface ControlDeBatalla {
    * es el turno de la persona.
    */
   prevision(action: BattleAction): Prevision | null;
+  /** Por qué la unidad activa no puede ir a ese hex, con la frase del núcleo (`movimientoBlocker`). */
+  moveRejection(hex: Hex): string;
+  /**
+   * Si el siguiente clic en una columna elige el muro de «Poner escalera» o de
+   * «Subir» (lo pone el botón cuando hay más de un muro al pie). Solo la arena
+   * tiene muralla: en la partida es siempre `null`.
+   */
+  muroPorElegir: TipoDeEscala | null;
+  /**
+   * Si el siguiente clic en una portada elige la puerta de «Abrir puerta» o de
+   * «Cerrar puerta» (lo pone el botón cuando hay más de una puerta que abrir o
+   * cerrar). En la partida, siempre `null`.
+   */
+  puertaPorElegir: TipoDePuerta | null;
   playBattleAction(action: BattleAction): void;
 }
 
@@ -264,6 +285,23 @@ function motivoContra(turno: TurnoPropio | null, targetId: string): string {
   const motivo = ataqueBlocker(turno.battle, targetId);
   if (motivo === null) {
     throw new Error(`no se ofrece ninguna acción contra ${targetId} y el núcleo no dice por qué`);
+  }
+  return comoFrase(motivo);
+}
+
+/**
+ * Por qué la unidad activa no puede ir a ese hex: «ahí hay muro», «la puerta
+ * solo la cruza quien defiende», «no llega: le quedan 2 casillas»… La frase es
+ * del núcleo (`movimientoBlocker`); antes la escena decía «No puedes llegar a
+ * ese hexágono.» para todo, y con una muralla delante no explicaba nada. Quien
+ * la pide ya ha visto que no hay `move` allí, así que el núcleo TIENE que dar
+ * motivo.
+ */
+function motivoDeMovimiento(turno: TurnoPropio | null, hex: Hex): string {
+  if (turno === null) return 'Ahora no mueve ninguna unidad tuya.';
+  const motivo = movimientoBlocker(turno.battle, hex);
+  if (motivo === null) {
+    throw new Error(`no se ofrece moverse a (${hex.col},${hex.row}) y el núcleo no dice por qué`);
   }
   return comoFrase(motivo);
 }
@@ -513,6 +551,11 @@ export class Session implements ControlDeBatalla {
     this.barra = texto;
   }
   private barra = '';
+
+  /** La partida no tiene muralla: no hay muro que elegir (`ControlDeBatalla`). */
+  muroPorElegir: TipoDeEscala | null = null;
+  /** Ni puerta (`ControlDeBatalla`). */
+  puertaPorElegir: TipoDePuerta | null = null;
 
   /**
    * Mientras juegan los rivales no se acepta nada de la persona.
@@ -1275,6 +1318,10 @@ export class Session implements ControlDeBatalla {
     return previsionPropia(this.turnoPropio, action);
   }
 
+  moveRejection(hex: Hex): string {
+    return motivoDeMovimiento(this.turnoPropio, hex);
+  }
+
   /**
    * La rendición tal y como se pinta: cuánto costaría y, si no se puede, por
    * qué. Las dos cosas las da el núcleo en una llamada (`surrenderBlocker`),
@@ -1389,7 +1436,10 @@ export class Session implements ControlDeBatalla {
   }
 }
 
-/** Una unidad del montaje de la arena: de dónde sale y quién la mueve. */
+/**
+ * Una unidad del montaje de la arena: de dónde sale (con su escalera, casilla
+ * «Lleva escalera») y quién la mueve.
+ */
 export interface PuestoDeArena {
   readonly fuente: FuenteDeArena;
   readonly ia: boolean;
@@ -1445,11 +1495,18 @@ export class SesionDeArena implements ControlDeBatalla {
   /** No es parte de la versión, por lo mismo que en `Session`: la reescribe el puntero. */
   status = '';
 
+  /** El botón de la escala esperando el clic en una columna (`ControlDeBatalla`). */
+  muroPorElegir: TipoDeEscala | null = null;
+  /** El botón de la puerta esperando el clic en una portada (`ControlDeBatalla`). */
+  puertaPorElegir: TipoDePuerta | null = null;
+
   constructor(
     montaje: {
       readonly izquierda: LadoDeSesion;
       readonly derecha: LadoDeSesion;
       readonly reglas: ReglasDeBatalla;
+      /** La muralla del tablero; sin ella, ninguna (`SIN_MURALLA`). */
+      readonly muralla?: MurallaDeBatalla;
     },
     semilla: number,
   ) {
@@ -1465,6 +1522,7 @@ export class SesionDeArena implements ControlDeBatalla {
         izquierda: lado(montaje.izquierda),
         derecha: lado(montaje.derecha),
         reglas: montaje.reglas,
+        muralla: montaje.muralla ?? SIN_MURALLA,
       },
       this.rng,
     );
@@ -1573,6 +1631,48 @@ export class SesionDeArena implements ControlDeBatalla {
 
   prevision(action: BattleAction): Prevision | null {
     return previsionPropia(this.turnoPropio, action);
+  }
+
+  moveRejection(hex: Hex): string {
+    return motivoDeMovimiento(this.turnoPropio, hex);
+  }
+
+  /**
+   * Por qué la unidad activa —tuya— no puede poner su escalera o subir contra
+   * ningún muro de su pie (`escalaBlocker`), como frase; `null` si puede. Lo
+   * pinta el botón deshabilitado.
+   */
+  motivoDeEscala(tipo: TipoDeEscala): string | null {
+    const turno = this.turnoPropio;
+    if (turno === null) return 'Ahora no mueve ninguna unidad tuya.';
+    const motivo = escalaBlocker(turno.battle, tipo);
+    return motivo === null ? null : comoFrase(motivo);
+  }
+
+  /**
+   * Por qué la unidad activa —tuya— no puede abrir (o cerrar) ninguna puerta
+   * (`puertasBlocker`), como frase; `null` si puede alguna. Lo pinta el botón
+   * deshabilitado.
+   */
+  motivoDePuerta(tipo: TipoDePuerta): string | null {
+    const turno = this.turnoPropio;
+    if (turno === null) return 'Ahora no mueve ninguna unidad tuya.';
+    const motivo = puertasBlocker(turno.battle, tipo);
+    return motivo === null ? null : comoFrase(motivo);
+  }
+
+  /**
+   * Si `s` no escala nunca (`quienNoEscala`: defiende, dos casillas, vuela), el
+   * motivo; `null` si puede llegar a escalar. Con él, sus botones de escala no
+   * salen: al defensor le ocupaban sitio siempre deshabilitados (QA, M5).
+   */
+  noEscalaNunca(s: BattleStack): string | null {
+    return quienNoEscala(s.side, s.unit);
+  }
+
+  /** Lo que suma a la defensa de `s` estar en lo alto (`bonoEnLoAlto`), para la ficha. */
+  defensaEnLoAlto(s: BattleStack): number {
+    return bonoEnLoAlto(this.battle, s);
   }
 
   /** Aplica la jugada de la persona y deja a la IA mover las suyas hasta la siguiente. */

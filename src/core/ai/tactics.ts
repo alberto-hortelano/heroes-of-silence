@@ -8,17 +8,22 @@
 import {
   activeStack,
   applyAction,
-  blockedHexes,
   CARGA_MINIMA,
   canReachMelee,
   cargaDesde,
+  cerradasPara,
+  distanciaACaminar,
+  distanciaAndando,
+  distanciaHasta,
   enemiesOf,
+  escalaDesde,
   isEngaged,
   legalActionsAndCosts,
   MAX_JUGADAS,
   type Movibles,
   opcionesDeDanio,
   pasosQueQuedan,
+  seHaMovido,
   splashTargets,
   stackById,
   stackHexes,
@@ -28,6 +33,13 @@ import {
 import { hexDistance, hexKey, neighbours, type Paso } from '../battle/board.js';
 import { cargaEfectiva, expectedDamage, stackHp, valorDeEfectoDeDanio } from '../battle/damage.js';
 import { roundsLeftOf, type StackEffect } from '../battle/effects.js';
+import {
+  claveDeAbiertas,
+  enLoAlto,
+  esMuro,
+  mismaPuerta,
+  type PuertaDeMuralla,
+} from '../battle/muralla.js';
 import { effectOfSpell, type Spell, spell, spellAmount } from '../battle/spells.js';
 import type { BattleAction, BattleHero, BattleStack, BattleState, Side } from '../battle/types.js';
 import { otroBando } from '../battle/types.js';
@@ -116,8 +128,13 @@ function aQuienIr(
   return mejor;
 }
 
-function distanceTo(from: Hex, target: BattleStack): number {
-  return Math.min(...stackHexes(target).map((h) => hexDistance(from, h)));
+/**
+ * Lo que le cuesta a `s` andar de `from` a pegarse a `target` (`distanciaACaminar`):
+ * sin muralla, `hexDistance` al hex más cercano del objetivo, la de siempre; con
+ * ella, el rodeo por el hueco o la puerta, e `Infinity` si no hay por dónde.
+ */
+function distanceTo(state: BattleState, s: BattleStack, from: Hex, target: BattleStack): number {
+  return distanciaACaminar(state, s, target)(from);
 }
 
 /**
@@ -183,8 +200,8 @@ function escalar(r: Rinde, k: number): Rinde {
  * amenaza quita entre los enemigos a su alcance.
  *
  * El alcance es el de `convieneEsperar` —`hexDistance` hasta la casilla de al
- * lado, sin BFS—: en recta se llega antes que rodeando, así que sobreestima un
- * poco, y al comparar dos velocidades de la misma unidad el error se va casi
+ * lado, sin BFS; con muralla, la distancia andando (`distanceTo`)—: en recta se
+ * llega antes que rodeando, así que sobreestima un poco, y al comparar dos velocidades de la misma unidad el error se va casi
  * entero en la resta. Un tirador con flechas y sin nadie pegado alcanza a
  * todos: la velocidad no le cambia el golpe, que es lo que tiene que salir de
  * aquí para que la IA no le eche una Prisa a un arquero.
@@ -194,7 +211,7 @@ function mejorGolpe(state: BattleState, a: BattleStack, pasos: number): Rinde {
   const golpes = hasTrait(a.unit, 'double_attack') ? 2 : 1;
   let mejor = NADA;
   for (const e of enemiesOf(state, a)) {
-    if (!tira && distanceTo(a.hex, e) > pasos + 1) continue;
+    if (!tira && distanceTo(state, a, a.hex, e) > pasos + 1) continue;
     const r = rindeContra(state, e, golpes * expectedDamage(a, e, opcionesDeDanio(state, a, e)));
     if (r.amenaza > mejor.amenaza) mejor = r;
   }
@@ -401,7 +418,7 @@ function mejorCarga(
   costes: ReadonlyMap<string, Paso>,
 ): BattleAction {
   // Las ocupadas no cambian de una casilla candidata a otra: se piden una vez.
-  const bloqueadas = blockedHexes(state, s.id);
+  const bloqueadas = cerradasPara(state, s);
 
   let mejor = cargas[0] as CargaContra;
   let cargaMejor = -1;
@@ -470,7 +487,7 @@ function pasoParaCargar(
   costes: ReadonlyMap<string, Paso>,
 ): Hex | null {
   if (!hasTrait(s.unit, 'charge')) return null;
-  const bloqueadas = blockedHexes(state, s.id);
+  const bloqueadas = cerradasPara(state, s);
   if (golpes.some((a) => cargaDesde(state, s, a.from, objetivo, bloqueadas) > 0)) return null;
 
   const pasos = pasosQueQuedan(state, s);
@@ -523,7 +540,9 @@ function pasoParaCargar(
  * El alcance se aproxima con `hexDistance` y `stackSpeed(e) + 1` —los pasos que
  * da más el hex desde el que golpea— en vez de un BFS por enemigo: en línea
  * recta se llega antes que rodeando, así que casi siempre sobreestima y la IA
- * espera de más, nunca de menos, sin costar un recorrido de tablero.
+ * espera de más, nunca de menos, sin costar un recorrido de tablero. Con
+ * muralla sí se recorre (`distanciaHasta`, guardado por muralla): el que está
+ * tras un muro cerrado no alcanza a nadie aunque esté a dos hexes.
  *
  * «Casi siempre» y no «siempre», que la diferencia la encontró QA: se mide
  * desde la CABEZA del enemigo, mientras que el `distanceTo` de aquí al lado
@@ -540,12 +559,20 @@ function pasoParaCargar(
  * cuanto haya cualquier enemigo pendiente (24 %) es la tautología por el otro
  * lado y juega peor.
  */
-function convieneEsperar(s: BattleStack, enemigos: readonly BattleStack[], destino: Hex): boolean {
+function convieneEsperar(
+  state: BattleState,
+  s: BattleStack,
+  enemigos: readonly BattleStack[],
+  destino: Hex,
+): boolean {
   if (s.waited) return false;
   return enemigos.some((e) => {
     if (e.acted) return false;
     const alcance = stackSpeed(e) + 1;
-    return hexDistance(e.hex, s.hex) <= alcance || hexDistance(e.hex, destino) <= alcance;
+    return (
+      distanciaHasta(state, e, [s.hex])(e.hex) <= alcance ||
+      distanciaHasta(state, e, [destino])(e.hex) <= alcance
+    );
   });
 }
 
@@ -632,7 +659,12 @@ export function chooseBattleActionAndCosts(
   const { actions, costs } = legalActionsAndCosts(state);
   return {
     action: decideAccion(state, s, actions, costs, noSeRinden),
-    movibles: { n: turno.n, gastado: turno.gastado, costs },
+    movibles: {
+      n: turno.n,
+      gastado: turno.gastado,
+      puertas: claveDeAbiertas(state.puertas),
+      costs,
+    },
   };
 }
 
@@ -669,12 +701,26 @@ function decideAccion(
   const conjuro = bestCast(state, s, acciones);
   if (conjuro !== null) return conjuro;
 
-  // Un tirador con línea libre dispara al mejor objetivo.
-  if (isShooter(s.unit) && s.shotsLeft > 0 && !isEngaged(state, s)) {
+  // La puerta, al principio del turno de quien defiende: tampoco gasta el turno,
+  // y cada puerta se cambia una vez por turno (`puertaBlocker`), así que esto
+  // tampoco da vueltas. Sin puertas, la lista no trae ninguna jugada de puerta.
+  const puerta = puertaDelDefensor(state, s, acciones);
+  if (puerta !== null) return puerta;
+
+  // Con muralla, el tirador que defiende sube a ella antes que nada.
+  const alMuro = tiradorAlMuro(state, s, acciones, costes);
+  if (alMuro !== null) return alMuro;
+
+  // Un tirador con línea libre dispara al mejor objetivo: a quien la lista deja
+  // disparar, que ya ha mirado munición, trabado, tramo y muro (`tiroBlocker`).
+  // Tras moverse no trae ningún `shoot`, y antes se llegaba aquí igual para no
+  // encontrar el disparo: el resultado es el mismo.
+  const aTiro = new Set(acciones.flatMap((a) => (a.type === 'shoot' ? [a.target] : [])));
+  if (aTiro.size > 0) {
     // El liche salpica todo lo pegado al objetivo, aliados incluidos. Eso es
     // legal —y `legalActions` lo sigue ofreciendo, porque filtrarlo sería
     // mentirle al agente—, pero suicida: aquí se elige con cabeza.
-    let candidatos = enemigos;
+    let candidatos = enemigos.filter((e) => aTiro.has(e.id));
     if (hasTrait(s.unit, 'splash_shot')) {
       // A quién alcanza la salpicadura lo dice el motor, no una copia de la
       // regla aquí: si mañana cambia el radio, la IA no se queda jugando con la
@@ -686,7 +732,7 @@ function decideAccion(
       // Se puntúa una vez por enemigo y se elige el mínimo: sin esto la cuenta
       // se rehacía dentro de un `reduce` y de dos `filter`. Sin `rng`: esto no
       // se sortea. Y `enemigos` nunca viene vacío, que ya se ha comprobado.
-      const coste = enemigos.map((e) => ({ enemigo: e, aliados: aliadosSalpicados(e) }));
+      const coste = candidatos.map((e) => ({ enemigo: e, aliados: aliadosSalpicados(e) }));
       const minimo = Math.min(...coste.map((c) => c.aliados));
       candidatos = coste.filter((c) => c.aliados === minimo).map((c) => c.enemigo);
     }
@@ -699,7 +745,7 @@ function decideAccion(
   }
 
   // Golpear a quien ya se alcanza, priorizando el objetivo más valioso.
-  const alcanzables = enemigos.filter((e) => canReachMelee(s, e));
+  const alcanzables = enemigos.filter((e) => canReachMelee(state, s, e));
   const cercano = bestTarget(state, alcanzables);
   if (cercano !== null) {
     const ataque = acciones.find(
@@ -708,8 +754,16 @@ function decideAccion(
     if (ataque !== undefined) return ataque;
   }
 
-  // Acercarse y golpear en el mismo turno, si llega.
-  const objetivo = aQuienIr(state, s, enemigos);
+  // Acercarse y golpear en el mismo turno, si llega. Solo a por quien se puede
+  // llegar andando: el que está detrás de un muro cerrado no es un objetivo, y
+  // sin nadie así la unidad se defiende (abajo). Sin muralla llega a todos.
+  const aMano = enemigos.filter((e) => distanceTo(state, s, s.hex, e) < Number.POSITIVE_INFINITY);
+  // Sin nadie a quien llegar andando, el atacante asalta la muralla.
+  if (aMano.length === 0) {
+    const asalto = asaltoALaMuralla(state, s, acciones);
+    if (asalto !== null) return asalto;
+  }
+  const objetivo = aQuienIr(state, s, aMano);
   if (objetivo !== null) {
     const cargas = acciones.filter(
       (a): a is CargaContra =>
@@ -727,28 +781,20 @@ function decideAccion(
     // llamada y los empuja tal cual. Relanzar el BFS aquí era el 20,6 % de los
     // recorridos de tablero de una batalla —1461 de 7090— y un 11 % del banco:
     // #48 izó el BFS DENTRO de `legalActions` y dejó al gemelo un piso arriba.
-    const movimientos = acciones.filter((a) => a.type === 'move').map((a) => a.to);
-    if (movimientos.length > 0) {
-      // Cada distancia una sola vez: el `reduce` recalculaba la del mejor en
-      // cada comparación. Gana la PRIMERA de las más cercanas, como antes.
-      let mejor = movimientos[0] as Hex;
-      let distanciaMejor = distanceTo(mejor, objetivo);
-      for (const m of movimientos) {
-        const d = distanceTo(m, objetivo);
-        if (d < distanciaMejor) {
-          mejor = m;
-          distanciaMejor = d;
-        }
+    //
+    // La distancia andando (`distanceTo`): sin ella, con muralla, la unidad se
+    // quedaba pegada al muro mirando al enemigo de enfrente. El recorrido es el
+    // mismo que acaba de filtrar `aMano`: se guarda por muralla.
+    const distancia = distanciaACaminar(state, s, objetivo);
+    const mejor = mejorMovimiento(acciones, distancia, distancia(s.hex));
+    if (mejor !== null) {
+      // El paso adelante es lo último que se decide, porque es justo el que
+      // puede salir caro: si al darlo quedo dentro del alcance de alguien que
+      // aún no ha movido, sale más a cuenta esperar y pegarle yo.
+      if (acciones.some((a) => a.type === 'wait') && convieneEsperar(state, s, enemigos, mejor)) {
+        return { type: 'wait' };
       }
-      if (distanciaMejor < distanceTo(s.hex, objetivo)) {
-        // El paso adelante es lo último que se decide, porque es justo el que
-        // puede salir caro: si al darlo quedo dentro del alcance de alguien que
-        // aún no ha movido, sale más a cuenta esperar y pegarle yo.
-        if (acciones.some((a) => a.type === 'wait') && convieneEsperar(s, enemigos, mejor)) {
-          return { type: 'wait' };
-        }
-        return { type: 'move', to: mejor };
-      }
+      return { type: 'move', to: mejor };
     }
   }
 
@@ -758,6 +804,169 @@ function decideAccion(
   // había aquí era una tautología defensiva que además no se alcanzaba nunca,
   // 0 de 10 440 decisiones.
   return colaTerminal(acciones);
+}
+
+/**
+ * El `move` de `acciones` que deja más abajo en `medida`, si baja de `tope`: el
+ * PRIMERO de los mejores, como siempre, y cada medida una sola vez (el `reduce`
+ * de antes recalculaba la del mejor en cada comparación). `null` si ninguno
+ * baja de `tope`.
+ */
+function mejorMovimiento(
+  acciones: readonly BattleAction[],
+  medida: (h: Hex) => number,
+  tope = Number.POSITIVE_INFINITY,
+): Hex | null {
+  let mejor: Hex | null = null;
+  let valor = tope;
+  for (const a of acciones) {
+    if (a.type !== 'move') continue;
+    const d = medida(a.to);
+    if (d < valor) {
+      mejor = a.to;
+      valor = d;
+    }
+  }
+  return mejor;
+}
+
+/**
+ * El tirador que defiende una muralla, a ella: si no está arriba y llega a un
+ * muro libre este turno, sube por el tramo más corto; disparará en el siguiente,
+ * que tras moverse no se dispara. Si ya está arriba y acaba de subir, se queda:
+ * sin cerrar el turno, la regla de «acercarse y golpear» lo bajaría a por el
+ * que tiene al pie. Arriba y sin moverse, dispara por la rama de siempre.
+ *
+ * `null` si no es un tirador con flechas del defensor, o si no hay muro al que
+ * llegar (sin muralla, nunca lo hay): entonces juega como siempre.
+ */
+function tiradorAlMuro(
+  state: BattleState,
+  s: BattleStack,
+  acciones: readonly BattleAction[],
+  costes: ReadonlyMap<string, Paso>,
+): BattleAction | null {
+  if (s.side !== 'defender' || !isShooter(s.unit) || s.shotsLeft <= 0) return null;
+  if (enLoAlto(state, s)) {
+    return seHaMovido(state, s) && !isEngaged(state, s) ? { type: 'end_turn' } : null;
+  }
+  const alMuro = (h: Hex): number =>
+    esMuro(state.muralla, h)
+      ? (costes.get(hexKey(h))?.steps ?? Number.POSITIVE_INFINITY)
+      : Number.POSITIVE_INFINITY;
+  const mejor = mejorMovimiento(acciones, alMuro);
+  if (mejor !== null) return { type: 'move', to: mejor };
+  // Ningún muro a mano este turno: hacia el más cercano, si desde aquí no tira a
+  // nadie. Desde que de lo alto solo se baja hacia dentro, con una muralla que
+  // cierra nadie de fuera es «a mano», y el arquero lento se quedaba
+  // defendiéndose en su esquina (la batalla del test de la línea recta, entera
+  // a `defend` hasta el tope de rondas).
+  if (acciones.some((a) => a.type === 'shoot')) return null;
+  const cerradas = cerradasPara(state, s);
+  const libres = state.muralla.muros.filter((m) => !cerradas.has(hexKey(m)));
+  if (libres.length === 0) return null;
+  const distancia = distanciaAndando(state, s, libres);
+  const hacia = mejorMovimiento(acciones, distancia, distancia(s.hex));
+  return hacia === null ? null : { type: 'move', to: hacia };
+}
+
+/**
+ * Quien defiende, con sus puertas (criterio 24 de la muralla alta): **cierra**
+ * la que un atacante puede pisar este turno —la lista ya no ofrece cerrar la
+ * que tiene a alguien dentro—, y **abre** la que la unidad activa quiere cruzar
+ * —con ella abierta queda más cerca de algún enemigo— si ningún atacante puede
+ * pisarla este turno. `null` si nada de eso, o si la lista no trae puertas.
+ */
+function puertaDelDefensor(
+  state: BattleState,
+  s: BattleStack,
+  acciones: readonly BattleAction[],
+): BattleAction | null {
+  for (const a of acciones) {
+    if (a.type !== 'abrir_puerta' && a.type !== 'cerrar_puerta') continue;
+    const abierta = conLaPuertaAbierta(state, a.puerta);
+    const llegan = enemigoEnLaPuerta(abierta, s, a.puerta);
+    if (a.type === 'cerrar_puerta' && llegan) return a;
+    if (a.type === 'abrir_puerta' && !llegan && quiereCruzar(state, abierta, s)) return a;
+  }
+  return null;
+}
+
+/** `state` con la puerta `puerta` abierta, sin tocarlo: para preguntar qué pasaría. */
+function conLaPuertaAbierta(state: BattleState, puerta: PuertaDeMuralla): BattleState {
+  return {
+    ...state,
+    puertas: state.puertas.map((p) => (mismaPuerta(p, puerta) ? { ...p, abierta: true } : p)),
+  };
+}
+
+/**
+ * ¿Puede algún enemigo de `s` llegar a la puerta `puerta` —a cualquiera de sus
+ * dos casillas— en su próximo turno, con las puertas de `state`?
+ */
+function enemigoEnLaPuerta(state: BattleState, s: BattleStack, puerta: PuertaDeMuralla): boolean {
+  return enemiesOf(state, s).some(
+    (e) => distanciaAndando(state, e, [puerta.a, puerta.b])(e.hex) <= stackSpeed(e),
+  );
+}
+
+/**
+ * ¿Quedaría `s` más cerca de algún enemigo —andando, a pegarse a él— con la
+ * puerta abierta (`abierta`) que como está? El tirador con flechas no sale: lo
+ * suyo es la muralla. El volador no necesita puerta.
+ */
+function quiereCruzar(state: BattleState, abierta: BattleState, s: BattleStack): boolean {
+  if (hasTrait(s.unit, 'flying') || (isShooter(s.unit) && s.shotsLeft > 0)) return false;
+  const masCerca = (st: BattleState): number =>
+    Math.min(...enemiesOf(st, s).map((e) => distanciaACaminar(st, s, e)(s.hex)));
+  return masCerca(abierta) < masCerca(state);
+}
+
+/**
+ * El atacante que no llega andando a nadie, contra la muralla: sube si puede
+ * (escalera puesta o rasgo `escalar`), pone su escalera si la lleva, y si no
+ * está al pie de un muro libre por el que pueda subir, va hacia el más cercano.
+ * `null` si nada de eso sirve —ni escalera, ni rasgo, ni escalera puesta de
+ * otro, o no es quien escala—: entonces se defiende, como siempre.
+ */
+function asaltoALaMuralla(
+  state: BattleState,
+  s: BattleStack,
+  acciones: readonly BattleAction[],
+): BattleAction | null {
+  const escala =
+    acciones.find((a) => a.type === 'subir') ?? acciones.find((a) => a.type === 'poner_escalera');
+  if (escala !== undefined) return escala;
+
+  const pies = piesDeSubida(state, s);
+  if (pies.length === 0) return null;
+  // Sin guardar: los pies dependen de dónde está cada unidad ahora.
+  const distancia = distanciaAndando(state, s, pies);
+  const mejor = mejorMovimiento(acciones, distancia, distancia(s.hex));
+  return mejor === null ? null : { type: 'move', to: mejor };
+}
+
+/**
+ * Las casillas libres del suelo desde las que `s` podría subir a un muro libre
+ * —o poner en él su escalera— en cuanto llegue: lo pregunta a la regla de la
+ * escala (`escalaDesde`) como si ya estuviera allí y quieto.
+ */
+function piesDeSubida(state: BattleState, s: BattleStack): Hex[] {
+  const cerradas = cerradasPara(state, s);
+  const out: Hex[] = [];
+  const vistas = new Set<string>();
+  for (const muro of state.muralla.muros) {
+    if (cerradas.has(hexKey(muro))) continue;
+    for (const pie of neighbours(muro)) {
+      const k = hexKey(pie);
+      if (vistas.has(k) || cerradas.has(k)) continue;
+      const sube = escalaDesde(state, s, 'subir', pie, muro, false) === null;
+      if (!sube && escalaDesde(state, s, 'poner_escalera', pie, muro, false) !== null) continue;
+      vistas.add(k);
+      out.push(pie);
+    }
+  }
+  return out;
 }
 
 /**

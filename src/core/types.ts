@@ -133,6 +133,7 @@ export const CREATURE_TRAITS = [
   'curse_on_hit',
   'bane_undead',
   'fear',
+  'escalar',
 ] as const;
 
 export type CreatureTrait = (typeof CREATURE_TRAITS)[number];

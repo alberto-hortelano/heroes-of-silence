@@ -26,11 +26,14 @@ import {
   type CausaDelFinal,
   causaDelFinal,
   crearBatallaConReglas,
+  despliegueBlocker,
   type HeroeDelBando,
   mandoDe,
+  quienNoEscala,
 } from './battle/battle.js';
 import type { StackEffect } from './battle/effects.js';
-import type { ReglasDeBatalla } from './battle/reglas.js';
+import { type MurallaDeBatalla, SIN_MURALLA, validarMuralla } from './battle/muralla.js';
+import { REGLAS_DEL_JUEGO, type ReglasDeBatalla } from './battle/reglas.js';
 import {
   allSpells,
   duracionDeLoQueLanza,
@@ -414,7 +417,7 @@ function entero(valor: unknown, campo: string, quien: string, minimo: number): n
   return valor;
 }
 
-function texto(valor: unknown, campo: string, quien: string): string {
+export function texto(valor: unknown, campo: string, quien: string): string {
   if (typeof valor !== 'string' || valor.trim() === '') {
     throw new Error(`${quien}: ${campo} tiene que ser un texto no vacío`);
   }
@@ -439,7 +442,7 @@ function sinRepetir(lista: readonly string[], campo: string, quien: string): voi
   if (repetido !== undefined) throw new Error(`${quien}: ${campo} "${repetido}" está dos veces`);
 }
 
-function lista(valor: unknown, campo: string, quien: string): readonly unknown[] {
+export function lista(valor: unknown, campo: string, quien: string): readonly unknown[] {
   if (!Array.isArray(valor)) throw new Error(`${quien}: ${campo} tiene que ser una lista`);
   return valor;
 }
@@ -553,27 +556,15 @@ export function revisarBorradorDeArena(valor: unknown): {
   readonly validas: readonly UnidadDeArena[];
   readonly invalidas: readonly UnidadSinValidar[];
 } {
-  const crudas = listaDelBorrador(valor);
-  const validas: UnidadDeArena[] = [];
-  const invalidas: UnidadSinValidar[] = [];
-  for (const crudo of crudas) {
-    const id =
-      typeof crudo === 'object' &&
-      crudo !== null &&
-      typeof (crudo as { id?: unknown }).id === 'string'
-        ? (crudo as { id: string }).id
-        : null;
-    try {
-      const u = validarUnidadDeArena(crudo);
-      if (validas.some((v) => v.id === u.id)) {
-        throw new Error(`la unidad "${u.id}" está dos veces en el borrador`);
-      }
-      validas.push(u);
-    } catch (err) {
-      invalidas.push({ id, motivo: err instanceof Error ? err.message : String(err), crudo });
-    }
-  }
-  return { validas, invalidas };
+  const { validas, invalidas } = revisarLista(listaDelBorrador(valor), validarUnidadDeArena, {
+    campo: 'id',
+    clave: (u) => u.id,
+    quien: (id) => `la unidad "${id}"`,
+  });
+  return {
+    validas,
+    invalidas: invalidas.map(({ clave, motivo, crudo }) => ({ id: clave, motivo, crudo })),
+  };
 }
 
 function listaDelBorrador(valor: unknown): readonly unknown[] {
@@ -589,13 +580,65 @@ function listaDelBorrador(valor: unknown): readonly unknown[] {
  * querrían decir dos cifras para una hoja—.
  */
 export function validarBorradorDeArena(valor: unknown): readonly UnidadDeArena[] {
-  const unidades = listaDelBorrador(valor).map(validarUnidadDeArena);
-  sinRepetir(
-    unidades.map((u) => u.id),
-    'la unidad',
-    'el borrador de la arena',
-  );
-  return unidades;
+  return todasValidas(revisarBorradorDeArena(valor));
+}
+
+/** Un elemento de un borrador que no pasa su regla: su clave si la trae, por qué, y él tal cual. */
+export interface ElementoSinValidar {
+  readonly clave: string | null;
+  readonly motivo: string;
+  readonly crudo: unknown;
+}
+
+/**
+ * Un borrador elemento a elemento: los que valen y los que no, cada uno con su
+ * motivo, y el segundo con la misma clave cuenta como malo. `campo` es de
+ * dónde se saca la clave de uno que no valida, para decir cuál es. Es la
+ * regla de los dos borradores de la arena —unidades y murallas—: un elemento
+ * editado a mano que no vale no tira los demás (H2 de QA).
+ */
+export function revisarLista<T>(
+  crudas: readonly unknown[],
+  validar: (crudo: unknown) => T,
+  como: {
+    readonly campo: string;
+    readonly clave: (t: T) => string;
+    readonly quien: (clave: string) => string;
+  },
+): { readonly validas: readonly T[]; readonly invalidas: readonly ElementoSinValidar[] } {
+  const validas: T[] = [];
+  const claves = new Set<string>();
+  const invalidas: ElementoSinValidar[] = [];
+  for (const crudo of crudas) {
+    const suya =
+      typeof crudo === 'object' && crudo !== null
+        ? (crudo as Record<string, unknown>)[como.campo]
+        : null;
+    try {
+      const t = validar(crudo);
+      const clave = como.clave(t);
+      if (claves.has(clave)) throw new Error(`${como.quien(clave)} está dos veces en el borrador`);
+      claves.add(clave);
+      validas.push(t);
+    } catch (err) {
+      invalidas.push({
+        clave: typeof suya === 'string' ? suya : null,
+        motivo: err instanceof Error ? err.message : String(err),
+        crudo,
+      });
+    }
+  }
+  return { validas, invalidas };
+}
+
+/** Lo que vale de un borrador revisado, o excepción con el motivo del primero que no. */
+export function todasValidas<T>(r: {
+  readonly validas: readonly T[];
+  readonly invalidas: readonly { readonly motivo: string }[];
+}): readonly T[] {
+  const mala = r.invalidas[0];
+  if (mala !== undefined) throw new Error(mala.motivo);
+  return r.validas;
 }
 
 // ---------------------------------------------------------------- la pelea
@@ -676,11 +719,13 @@ const CAMPOS_DE_CAMBIO: readonly string[] = [
 /**
  * De dónde sale una unidad del montaje: del borrador (las hojas de las cinco
  * facciones) o del catálogo del juego, sin tocar (`cambios: null`) o con una
- * prueba encima.
+ * prueba encima. `escalera` es si sale con escalera para la muralla: es del
+ * montaje, no de la unidad (la misma hoja puede ir con ella o sin ella).
  */
-export type FuenteDeArena =
+export type FuenteDeArena = (
   | { readonly kind: 'borrador'; readonly unidad: UnidadDeArena }
-  | { readonly kind: 'catalogo'; readonly id: string; readonly cambios: CambiosDeCatalogo | null };
+  | { readonly kind: 'catalogo'; readonly id: string; readonly cambios: CambiosDeCatalogo | null }
+) & { readonly escalera?: boolean };
 
 /**
  * Las cifras con las que pelea una criatura del catálogo con sus cambios: las del
@@ -875,11 +920,16 @@ export interface LadoDeArena {
   readonly heroe: HeroeDeArena | null;
 }
 
-/** Los dos lados y las reglas de la pelea, las mismas para los dos (decisión del usuario). */
+/**
+ * Los dos lados, las reglas de la pelea —las mismas para los dos (decisión del
+ * usuario)— y la muralla del tablero, si la hay: es del tablero, y sus puertas
+ * las abre y las cierra la derecha, que defiende (`battle/muralla.ts`).
+ */
 export interface MontajeDeArena {
   readonly izquierda: LadoDeArena;
   readonly derecha: LadoDeArena;
   readonly reglas: ReglasDeBatalla;
+  readonly muralla?: MurallaDeBatalla;
 }
 
 /**
@@ -893,23 +943,44 @@ function stackDeLaFuente(
   member: string,
   members: Map<string, BattleMember>,
 ): Stack {
+  const escalera = fuente.escalera === true;
   switch (fuente.kind) {
     case 'borrador': {
       // Las cifras llegan de la página ya validadas; se vuelven a mirar porque
       // la batalla es la última puerta y un objeto a mano (un test, el arnés)
       // no pasó por ninguna otra.
       const u = validarUnidadDeArena(fuente.unidad);
-      members.set(member, { profile: { unit: unidadDeCombate(u), morale: 0, luck: 0 }, hp: u.hp });
+      members.set(member, {
+        profile: { unit: unidadDeCombate(u), morale: 0, luck: 0 },
+        hp: u.hp,
+        escalera,
+      });
       return { creature: u.id, member, count: 1 };
     }
     case 'catalogo': {
-      // Sin tocar, por la vía del juego: `resolveUnit` le pone las cifras del
-      // catálogo y el origen `catalogo`, como a la tropa de una partida.
-      if (fuente.cambios === null) return { creature: creature(fuente.id).id, count: 1 };
-      const unit = cifrasDeCatalogoEnLaArena(fuente.id, fuente.cambios);
-      members.set(member, { profile: { unit, morale: 0, luck: 0 }, hp: unit.hp });
+      // Sin tocar ni escalera, por la vía del juego: `resolveUnit` le pone las
+      // cifras del catálogo y el origen `catalogo`, como a la tropa de una
+      // partida. La escalera viaja con el personaje (`BattleMember.escalera`), así
+      // que quien la lleva entra como uno, con las cifras del catálogo tal cual.
+      if (fuente.cambios === null && !escalera) {
+        return { creature: creature(fuente.id).id, count: 1 };
+      }
+      const unit = unidadDeLaFuente(fuente);
+      members.set(member, { profile: { unit, morale: 0, luck: 0 }, hp: unit.hp, escalera });
       return { creature: fuente.id, member, count: 1 };
     }
+  }
+}
+
+/** Las cifras con las que pelea una unidad del montaje, comprobadas. */
+function unidadDeLaFuente(fuente: FuenteDeArena): UnitInfo {
+  switch (fuente.kind) {
+    case 'borrador':
+      return unidadDeCombate(validarUnidadDeArena(fuente.unidad));
+    case 'catalogo':
+      return fuente.cambios === null
+        ? creature(fuente.id)
+        : cifrasDeCatalogoEnLaArena(fuente.id, fuente.cambios);
   }
 }
 
@@ -939,7 +1010,8 @@ function bandoDeArena(lado: LadoDeArena, nombre: string): BattleSide {
  * Una batalla de arena: la izquierda ataca y la derecha defiende, con las reglas
  * del montaje. Los stacks de la tropa salen en el orden de cada lista (`slot` =
  * su puesto) y el héroe, si lo hay, el último (`<bando>-heroe`): es lo que deja a
- * quien llama saber qué puesto del montaje es cada stack.
+ * quien llama saber qué puesto del montaje es cada stack. La muralla, si la
+ * hay, es del tablero (`battle/muralla.ts`).
  */
 export function batallaDeArena(montaje: MontajeDeArena, rng: Rng): BattleState {
   return crearBatallaConReglas(
@@ -947,7 +1019,37 @@ export function batallaDeArena(montaje: MontajeDeArena, rng: Rng): BattleState {
     bandoDeArena(montaje.derecha, LADOS.derecha.adjetivo),
     rng,
     montaje.reglas,
+    montaje.muralla ?? SIN_MURALLA,
   );
+}
+
+/**
+ * Por qué este montaje no cabe con su muralla en sus columnas de salida, o
+ * `null` si cabe: la regla de `despliegue`, preguntada antes de pelear para que
+ * el editor lo diga mientras se dibuja. El héroe ocupa un hueco más, detrás de
+ * su tropa. No mira nada más que el sitio: un bando vacío o una unidad mala los
+ * dice `batallaDeArena`.
+ */
+export function despliegueDeArenaBlocker(montaje: MontajeDeArena): string | null {
+  const muralla = montaje.muralla ?? SIN_MURALLA;
+  const unidades = (lado: LadoDeArena): UnitInfo[] => [
+    ...lado.unidades.map(unidadDeLaFuente),
+    ...(lado.heroe === null ? [] : [heroeDeArena(lado.heroe).cuerpo]),
+  ];
+  return (
+    despliegueBlocker(unidades(montaje.izquierda), 'attacker', muralla) ??
+    despliegueBlocker(unidades(montaje.derecha), 'defender', muralla)
+  );
+}
+
+/**
+ * Por qué esta unidad, en este lado, no usaría una escalera, o `null` si sí: la
+ * regla de `quienNoEscala`, preguntada en el montaje. Sin ella la casilla «Lleva
+ * escalera» se marcaba en un troll de dos casillas o en una voladora y
+ * `createBattle` la tiraba sin decir nada (QA de la muralla alta, M1).
+ */
+export function escaleraDeArenaBlocker(fuente: FuenteDeArena, lado: Lado): string | null {
+  return quienNoEscala(LADOS[lado].bando, unidadDeLaFuente(fuente));
 }
 
 /**
@@ -982,11 +1084,12 @@ export function finalDeArena(battle: BattleState): {
 /**
  * Un puesto del montaje tal como va en el enlace: una hoja (sus cifras van en
  * `MontajeDelEnlace.unidades`) o una criatura del catálogo (su prueba, si la
- * tiene, en `pruebas`), y quién la mueve.
+ * tiene, en `pruebas`), quién la mueve y si lleva escalera.
  */
-export type PuestoDelEnlace =
-  | { readonly kind: 'hoja'; readonly hoja: string; readonly ia: boolean }
-  | { readonly kind: 'catalogo'; readonly id: string; readonly ia: boolean };
+export type PuestoDelEnlace = (
+  | { readonly kind: 'hoja'; readonly hoja: string }
+  | { readonly kind: 'catalogo'; readonly id: string }
+) & { readonly ia: boolean; readonly escalera: boolean };
 
 export interface LadoDelEnlace {
   readonly puestos: readonly PuestoDelEnlace[];
@@ -1006,6 +1109,8 @@ export interface MontajeDelEnlace {
   readonly pruebas: Readonly<Record<string, CambiosDeCatalogo>>;
   readonly izquierda: LadoDelEnlace;
   readonly derecha: LadoDelEnlace;
+  /** La muralla del tablero, o `null` sin ella. */
+  readonly muralla: MurallaDeBatalla | null;
 }
 
 /**
@@ -1024,10 +1129,16 @@ export function unaVezEnLaURL(valores: readonly string[], nombre: string): strin
   return valores[0] ?? null;
 }
 
-/** La versión del formato: un enlace de otra versión se rechaza diciéndolo, no se adivina. */
-export const VERSION_DEL_ENLACE = 1;
+/**
+ * La versión del formato: un enlace de otra versión se rechaza diciéndolo, no se
+ * adivina. La 2 trae la muralla y la escalera de cada puesto; la 1, de antes de
+ * juntar la arena con la muralla, se sigue leyendo como lo que era: sin muralla
+ * y sin escaleras.
+ */
+export const VERSION_DEL_ENLACE = 2;
 
-const CAMPOS_DEL_ENLACE = ['v', 'unidades', 'pruebas', 'izquierda', 'derecha'];
+const CAMPOS_DEL_ENLACE = ['v', 'unidades', 'pruebas', 'izquierda', 'derecha', 'muralla'];
+const CAMPOS_DEL_ENLACE_1 = ['v', 'unidades', 'pruebas', 'izquierda', 'derecha'];
 const CAMPOS_DEL_LADO = ['puestos', 'heroe'];
 const CAMPOS_DEL_HEROE = [
   'nombre',
@@ -1057,8 +1168,9 @@ function objetoCon(
   return o;
 }
 
-function siONo(valor: unknown, quien: string): boolean {
-  if (typeof valor !== 'boolean') throw new Error(`${quien}: «ia» tiene que ser true o false`);
+function siONo(valor: unknown, quien: string, campo = 'ia'): boolean {
+  if (typeof valor !== 'boolean')
+    throw new Error(`${quien}: «${campo}» tiene que ser true o false`);
   return valor;
 }
 
@@ -1077,12 +1189,21 @@ export function montajeDeLaURL(textoDelEnlace: string): MontajeDelEnlace {
       `el montaje del enlace no se puede leer (${err instanceof Error ? err.message : String(err)}): puede que se cortara al copiarlo`,
     );
   }
-  const o = objetoCon(crudo, CAMPOS_DEL_ENLACE, 'el montaje del enlace');
-  if (o.v !== VERSION_DEL_ENLACE) {
+  const version =
+    typeof crudo === 'object' && crudo !== null && 'v' in crudo
+      ? (crudo as { v: unknown }).v
+      : null;
+  if (version !== VERSION_DEL_ENLACE && version !== 1) {
     throw new Error(
-      `el montaje del enlace es de la versión ${JSON.stringify(o.v)} y esta arena lee la ${VERSION_DEL_ENLACE}`,
+      `el montaje del enlace es de la versión ${JSON.stringify(version)} y esta arena lee la 1 y la ${VERSION_DEL_ENLACE}`,
     );
   }
+  const conMuralla = version === VERSION_DEL_ENLACE;
+  const o = objetoCon(
+    crudo,
+    conMuralla ? CAMPOS_DEL_ENLACE : CAMPOS_DEL_ENLACE_1,
+    'el montaje del enlace',
+  );
   const unidades = lista(o.unidades, 'las unidades', 'el montaje del enlace').map(
     validarUnidadDeArena,
   );
@@ -1104,8 +1225,18 @@ export function montajeDeLaURL(textoDelEnlace: string): MontajeDelEnlace {
     cifrasDeCatalogoEnLaArena(creature(id).id, cambios as CambiosDeCatalogo);
     pruebas[id] = cambios as CambiosDeCatalogo;
   }
-  const izquierda = ladoDelEnlace(o.izquierda, 'izquierda');
-  const derecha = ladoDelEnlace(o.derecha, 'derecha');
+  const izquierda = ladoDelEnlace(o.izquierda, 'izquierda', conMuralla);
+  const derecha = ladoDelEnlace(o.derecha, 'derecha', conMuralla);
+  let muralla: MurallaDeBatalla | null = null;
+  if (conMuralla && o.muralla !== null) {
+    try {
+      muralla = validarMuralla(o.muralla);
+    } catch (err) {
+      throw new Error(
+        `la muralla del enlace no vale: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
   // Cada cifra del enlace es de un puesto montado, y cada hoja montada trae las
   // suyas: lo que sobra o falta no es un enlace que haya escrito la página.
   const puestos = [...izquierda.puestos, ...derecha.puestos];
@@ -1124,24 +1255,81 @@ export function montajeDeLaURL(textoDelEnlace: string): MontajeDelEnlace {
       throw new Error(`el montaje del enlace trae una prueba de «${id}» y no la monta`);
     }
   }
-  return { unidades, pruebas, izquierda, derecha };
+  const montaje = { unidades, pruebas, izquierda, derecha, muralla };
+  // Que quepa en sus columnas de salida y que nadie lleve una escalera que no
+  // usaría, con las mismas preguntas que el montaje de la página: un enlace no
+  // monta lo que la página no dejaría montar.
+  const delEnlace = montajeDeArenaDelEnlace(montaje, REGLAS_DEL_JUEGO);
+  const despliegue = despliegueDeArenaBlocker(delEnlace);
+  if (despliegue !== null) throw new Error(`el montaje del enlace no cabe: ${despliegue}`);
+  for (const lado of ['izquierda', 'derecha'] as const) {
+    delEnlace[lado].unidades.forEach((fuente, i) => {
+      if (fuente.escalera !== true) return;
+      const motivo = escaleraDeArenaBlocker(fuente, lado);
+      if (motivo !== null) {
+        throw new Error(
+          `el bando ${LADOS[lado].adjetivo} del enlace, puesto ${i + 1}, lleva escalera y ${motivo}`,
+        );
+      }
+    });
+  }
+  return montaje;
 }
 
-function ladoDelEnlace(valor: unknown, lado: Lado): LadoDelEnlace {
+/**
+ * El montaje con el que pelea un enlace ya leído, con estas reglas: las fuentes
+ * de cada puesto (la hoja con sus cifras o la criatura con su prueba) y la
+ * muralla. Lo que mueve la IA no es del montaje: lo lee la página del enlace.
+ */
+export function montajeDeArenaDelEnlace(
+  m: MontajeDelEnlace,
+  reglas: ReglasDeBatalla,
+): MontajeDeArena {
+  const lado = (l: LadoDelEnlace): LadoDeArena => ({
+    unidades: l.puestos.map((p): FuenteDeArena => {
+      if (p.kind === 'hoja') {
+        const unidad = m.unidades.find((u) => u.id === p.hoja);
+        if (unidad === undefined) {
+          throw new Error(`el montaje del enlace pone «${p.hoja}» y no trae sus cifras`);
+        }
+        return { kind: 'borrador', unidad, escalera: p.escalera };
+      }
+      return { kind: 'catalogo', id: p.id, cambios: m.pruebas[p.id] ?? null, escalera: p.escalera };
+    }),
+    heroe: l.heroe?.datos ?? null,
+  });
+  return {
+    izquierda: lado(m.izquierda),
+    derecha: lado(m.derecha),
+    reglas,
+    ...(m.muralla === null ? {} : { muralla: m.muralla }),
+  };
+}
+
+function ladoDelEnlace(valor: unknown, lado: Lado, conEscalera: boolean): LadoDelEnlace {
   const quien = `el bando ${LADOS[lado].adjetivo} del enlace`;
   const delHeroe = `el héroe del bando ${LADOS[lado].adjetivo} del enlace`;
   const o = objetoCon(valor, CAMPOS_DEL_LADO, quien);
   const puestos = lista(o.puestos, 'los puestos', quien).map((crudo, i): PuestoDelEnlace => {
     const q = `${quien}, puesto ${i + 1}`;
+    const extra = conEscalera ? ['ia', 'escalera'] : ['ia'];
+    const escalera = (p: Record<string, unknown>): boolean =>
+      conEscalera ? siONo(p.escalera, q, 'escalera') : false;
     if (typeof crudo === 'object' && crudo !== null && 'hoja' in crudo) {
-      const p = objetoCon(crudo, ['hoja', 'ia'], q);
-      return { kind: 'hoja', hoja: texto(p.hoja, 'la hoja', q), ia: siONo(p.ia, q) };
+      const p = objetoCon(crudo, ['hoja', ...extra], q);
+      return {
+        kind: 'hoja',
+        hoja: texto(p.hoja, 'la hoja', q),
+        ia: siONo(p.ia, q),
+        escalera: escalera(p),
+      };
     }
-    const p = objetoCon(crudo, ['criatura', 'ia'], q);
+    const p = objetoCon(crudo, ['criatura', ...extra], q);
     return {
       kind: 'catalogo',
       id: creature(texto(p.criatura, 'la criatura', q)).id,
       ia: siONo(p.ia, q),
+      escalera: escalera(p),
     };
   });
   let heroe: LadoDelEnlace['heroe'] = null;
@@ -1175,7 +1363,9 @@ export function montajeALaURL(m: MontajeDelEnlace): string {
 function textoDelMontaje(m: MontajeDelEnlace): string {
   const lado = (l: LadoDelEnlace) => ({
     puestos: l.puestos.map((p) =>
-      p.kind === 'hoja' ? { hoja: p.hoja, ia: p.ia } : { criatura: p.id, ia: p.ia },
+      p.kind === 'hoja'
+        ? { hoja: p.hoja, ia: p.ia, escalera: p.escalera }
+        : { criatura: p.id, ia: p.ia, escalera: p.escalera },
     ),
     heroe: l.heroe === null ? null : { ...l.heroe.datos, ia: l.heroe.ia },
   });
@@ -1185,5 +1375,6 @@ function textoDelMontaje(m: MontajeDelEnlace): string {
     pruebas: m.pruebas,
     izquierda: lado(m.izquierda),
     derecha: lado(m.derecha),
+    muralla: m.muralla,
   });
 }

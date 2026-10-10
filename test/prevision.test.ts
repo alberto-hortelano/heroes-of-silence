@@ -10,8 +10,13 @@
  *
  * En `pnpm verify`, las reglas del juego, todas en fheroes2 y cada interruptor
  * solo; en `pnpm verify:lento`, las 64 combinaciones con 300 semillas.
+ *
+ * Con la muralla de la arena (`battle/muralla.ts`) también: el tirador en lo
+ * alto se defiende mejor, y la previsión lo cuenta con las mismas opciones que
+ * el golpe (`opcionesDeDanio`).
  */
 import { describe, expect, it } from 'vitest';
+import { FORMAS_DE_EJEMPLO } from '../src/core/arena-murallas.js';
 import {
   applyAction,
   type BattleSide,
@@ -25,6 +30,7 @@ import {
 import { hexEquals } from '../src/core/battle/board.js';
 import type { Horquilla, RamaDeSuerte } from '../src/core/battle/damage.js';
 import { applyEffect } from '../src/core/battle/effects.js';
+import { type MurallaDeBatalla, SIN_MURALLA } from '../src/core/battle/muralla.js';
 import { NOMBRES_DE_REGLA, type ReglasDeBatalla } from '../src/core/battle/reglas.js';
 import { effectOfSpell, spell } from '../src/core/battle/spells.js';
 import type {
@@ -33,6 +39,7 @@ import type {
   BattleHero,
   BattleState,
 } from '../src/core/battle/types.js';
+import { creature, MURALLA } from '../src/core/data.js';
 import { createRng, type Rng } from '../src/core/rng.js';
 import type { Hex } from '../src/core/types.js';
 import { bando, mando as mandoDePrueba } from './batalla-de-prueba.js';
@@ -78,6 +85,8 @@ interface Escenario {
   readonly contra: Hex;
   readonly antes?: (b: BattleState) => void;
   readonly accion: (b: BattleState) => BattleAction;
+  /** La muralla del tablero, si la hay (la de la arena). */
+  readonly muralla?: MurallaDeBatalla;
   /**
    * Un hechizo que no tira dado ni toca la suerte: da lo mismo en todas las
    * semillas, así que se mira en una sola por combinación de reglas.
@@ -112,6 +121,10 @@ function bendecirYMaldecir(b: BattleState): void {
   applyEffect(a, effectOfSpell(spell('bless'), h, b.reglas)!);
   applyEffect(d, effectOfSpell(spell('curse'), h, b.reglas)!);
 }
+
+/** La línea recta de la arena (la columna 7 entera) y una casilla de lo alto. */
+const LINEA_RECTA = FORMAS_DE_EJEMPLO[0]!.muralla;
+const LO_ALTO: Hex = { col: 7, row: 4 };
 
 const ESCENARIOS: readonly Escenario[] = [
   {
@@ -215,6 +228,24 @@ const ESCENARIOS: readonly Escenario[] = [
     accion: golpe(),
   },
   {
+    nombre: 'disparo al tirador en lo alto de la muralla',
+    izquierda: () => bando([{ creature: 'archer', count: 8 }]),
+    derecha: () => bando([{ creature: 'archer', count: 20 }]),
+    en: { col: 1, row: 4 },
+    contra: LO_ALTO,
+    accion: disparo,
+    muralla: LINEA_RECTA,
+  },
+  {
+    nombre: 'golpe en lo alto de la muralla y el contraataque del tirador',
+    izquierda: () => bando([{ creature: 'swordsman', count: 5 }]),
+    derecha: () => bando([{ creature: 'archer', count: 20 }]),
+    en: { col: 7, row: 3 },
+    contra: LO_ALTO,
+    accion: golpe(),
+    muralla: LINEA_RECTA,
+  },
+  {
     nombre: 'Flecha mágica',
     izquierda: () => bando([{ creature: 'swordsman', count: 5 }], { heroe: mando() }),
     derecha: () => bando([{ creature: 'pikeman', count: 3 }]),
@@ -250,7 +281,13 @@ const ESCENARIOS: readonly Escenario[] = [
 const ACCIONES = new Map<Escenario, BattleAction>();
 
 function montar(e: Escenario, reglas: ReglasDeBatalla, rng: Rng): Montado {
-  const b = crearBatallaConReglas(e.izquierda(), e.derecha(), rng, reglas);
+  const b = crearBatallaConReglas(
+    e.izquierda(),
+    e.derecha(),
+    rng,
+    reglas,
+    e.muralla ?? SIN_MURALLA,
+  );
   stackById(b, 'attacker-0').hex = e.en;
   stackById(b, 'defender-0').hex = e.contra;
   e.antes?.(b);
@@ -421,6 +458,33 @@ describe('la previsión de daño cae en el daño real', () => {
     expect(causas('Bendición del que pega y Maldición del que contraataca', 16)).toContain(
       'Bendición: daño máximo (fheroes2)',
     );
+    // La muralla, con las dos reglas del tirador: en lo alto suma su defensa, y
+    // con la de fheroes2 el arquero que devuelve el golpe pega la mitad.
+    const arquero = creature('archer');
+    expect(causas('disparo al tirador en lo alto de la muralla', 0)[0]).toBe(
+      `ataque ${arquero.attack} contra defensa ${arquero.defense + MURALLA.defensaEnLoAlto}, en lo alto de la muralla`,
+    );
+    const enLoAlto = (m: number) =>
+      (previsionDe(
+        ...((): [BattleState, BattleAction] => {
+          const e = ESCENARIOS.find((x) => x.nombre.startsWith('golpe en lo alto'))!;
+          const { b, accion } = montar(e, reglasDe(m), createRng(1));
+          return [b, accion];
+        })(),
+      ) as PrevisionDeGolpe)!.contraataque!.modificadores.map((x) => x.causa);
+    expect(enLoAlto(1)).toContain('tirador con flechas cuerpo a cuerpo (fheroes2)');
+    expect(enLoAlto(0)).not.toContain('tirador con flechas cuerpo a cuerpo (fheroes2)');
+  });
+
+  it('la muralla tapa el disparo en el suelo, y la previsión lo dice con el motivo del núcleo', () => {
+    const e = ESCENARIOS.find((x) => x.nombre.startsWith('disparo al tirador en lo alto'))!;
+    for (const mascara of MASCARAS) {
+      const { b } = montar(e, reglasDe(mascara), createRng(1));
+      stackById(b, 'defender-0').hex = { col: 9, row: 4 };
+      expect(() => previsionDe(b, { type: 'shoot', target: 'defender-0' })).toThrow(
+        'attacker-0 no puede disparar a defender-0: el muro está en medio',
+      );
+    }
   });
 
   it('una acción que no se puede jugar no se prevé: se dice por qué', () => {

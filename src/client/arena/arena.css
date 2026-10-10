@@ -44,6 +44,8 @@
 .hoja .nombre { line-height: 1.15; }
 .hoja .botones, .puesto .botones, .retrato .botones { display: flex; flex-wrap: wrap; gap: 0.2rem; }
 .hoja button, .puesto .botones button, .retrato button { min-height: 26px; padding: 0.1rem 0.4rem; font-size: 0.75rem; }
+.puesto label.escalera { display: flex; align-items: center; gap: 0.3rem; font-size: 0.75rem; cursor: pointer; }
+.puesto label.escalera.no-la-usa { flex-wrap: wrap; cursor: default; opacity: 0.75; }
 /* Una unidad con el arte a medias en el taller (#140): se lista con su motivo y no se monta. */
 .hoja.incompleta img { grid-row: span 4; opacity: 0.6; }
 .hoja [data-incompleta] { color: var(--danger); font-size: 0.7rem; line-height: 1.2; }
@@ -108,6 +110,55 @@ canvas.figura.grande { width: 200px; height: 230px; }
 .etiqueta { background: #33302a; border: 1px dashed #a68b4d88; padding: 0.1rem 0.3rem; font-size: 0.8rem; }
 .etiqueta button { min-height: 0; padding: 0 0.3rem; background: none; border: 0; }
 
+/* La muralla: una franja bajo los bandos y la ficha, con la rejilla de batalla
+   en botones hexagonales (odd-r: las filas impares, media casilla a la derecha). */
+#montaje { grid-template-rows: minmax(0, 1fr) auto; }
+#catalogo { grid-row: 1 / span 2; }
+#muralla { grid-column: 2 / -1; grid-row: 2; overflow: visible; }
+.muralla { display: flex; gap: 1rem; align-items: flex-start; flex-wrap: wrap; }
+.muralla .rejilla { padding: 4px 0 12px; flex: none; }
+.muralla .fila { display: flex; height: 21px; }
+.muralla .fila.impar { margin-left: 14px; }
+.muralla .hex {
+  width: 28px;
+  height: 30px;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: #2b3328;
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+  cursor: pointer;
+  transform: scale(0.94);
+}
+.muralla .hex.salida-izq { background: #33405a; }
+.muralla .hex.salida-der { background: #5a3a33; }
+/* Lo de fuera de una forma que cierra (`ladoDe`), rayado: de lo alto no se baja ahí. */
+.muralla .hex.fuera { background-image: repeating-linear-gradient(45deg, #0000 0 4px, #c9a24a55 4px 6px); }
+.muralla .hex:hover, .muralla .hex:focus-visible { background: #4c5a44; }
+.muralla .hex.muro { background: #9a948a; }
+/* La puerta va en el lado entre dos casillas: una franja de madera en el borde
+   este de la de la izquierda y en el oeste de la de la derecha (ampliación 4). */
+.muralla .hex.puerta-este { box-shadow: inset -6px 0 0 #9a6634, inset -8px 0 0 #3f2410; }
+.muralla .hex.puerta-oeste { box-shadow: inset 6px 0 0 #9a6634, inset 8px 0 0 #3f2410; }
+.muralla .hex.puerta-este.puerta-oeste {
+  box-shadow: inset -6px 0 0 #9a6634, inset -8px 0 0 #3f2410, inset 6px 0 0 #9a6634, inset 8px 0 0 #3f2410;
+}
+/* Con la herramienta Puerta, el puntero resalta la casilla y su vecina del este: entre las dos va. */
+.muralla .rejilla.herramienta-puerta .hex:hover + .hex { background: #4c5a44; }
+.muralla .mandos { display: grid; gap: 0.35rem; flex: 1; min-width: 16rem; max-width: 34rem; }
+.muralla .mandos .botones { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+.muralla .mandos button { min-height: 26px; padding: 0.1rem 0.5rem; font-size: 0.78rem; }
+.muralla .mandos p { margin: 0; }
+.muralla .aviso-despliegue, #muralla > .aviso-despliegue { color: #f0a070; font-weight: bold; margin: 0; }
+.muralla .aviso-guardado { color: #f0a070; }
+/* La cabecera lleva el botón de plegar: plegado, el editor es esta línea (QA, M7). */
+#montaje h3.cabecera-muralla { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
+.cabecera-muralla button { min-height: 0; padding: 0.05rem 0.5rem; font: 10px system-ui, sans-serif; letter-spacing: 1px; }
+.muralla .formas { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: 0.25rem; }
+.muralla .forma { display: grid; gap: 0.1rem; padding: 0.25rem; background: var(--panel-alt); border: 1px solid #6e71413d; }
+.muralla .forma .botones { display: flex; gap: 0.2rem; }
+
 @media (max-width: 760px) {
   #montaje { display: block; overflow-y: auto; }
   #montaje > section { margin-bottom: 14px; overflow: visible; }
@@ -141,3 +192,8 @@ canvas.figura.grande { width: 200px; height: 230px; }
 .ficha .campo { min-width: 0; }
 .ficha .campo input, .ficha .campo select { width: 100%; min-width: 0; box-sizing: border-box; }
 .efectivos .row > span:last-child { text-align: right; min-width: 0; overflow-wrap: anywhere; }
+
+/* Con muralla el lienzo es más alto que su marco (`alargarLienzo`): el marco se
+   desplaza en vertical, y con el hueco de la barra siempre puesto, para que su
+   ancho —y con él el tablero— no cambie al aparecer. */
+#app[data-muralla] #lienzo { overflow-y: auto; scrollbar-gutter: stable; }

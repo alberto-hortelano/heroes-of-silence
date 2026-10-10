@@ -505,6 +505,7 @@ function stackDePrueba(): BattleStack {
     topHp: 1,
     hex: { col: 0, row: 0 },
     shotsLeft: 0,
+    escalera: false,
     retaliated: false,
     defending: false,
     waited: false,
@@ -685,8 +686,11 @@ describe('invariantes del proyecto', () => {
     // con su línea.
     const deLaArena =
       /\bfrom\s+['"](?:@core\/|(?:\.\.?\/)+(?:(?:src\/)?core\/)?)arena(?:\.js)?['"]/;
+    // `core/arena-murallas.ts` es el formato de las formas de muralla de la misma
+    // arena: lee sus validadores (`lista`, `texto`…) y no monta ninguna batalla.
     const puedeImportarla = (r: string): boolean =>
       enTodoElFichero(r) ||
+      r === 'src/core/arena-murallas.ts' ||
       r.startsWith('tools/arena/') ||
       r.startsWith('tools/taller/') ||
       r in porDeclaracion;

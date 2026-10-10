@@ -594,9 +594,12 @@ describe('el comandante se distingue en el tablero (H-4)', () => {
       cargas: SIN_CARGAS,
       angulo: null,
       atacables: new Set<string>(),
+      escalables: new Set<string>(),
+      puertasPorElegir: new Set<string>(),
       objetivosHechizo: new Set<string>(),
       hoverHex: null,
       hoverStack: null,
+      puntero: null,
       figura: () => {
         throw new Error('no se usa');
       },

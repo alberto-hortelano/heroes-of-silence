@@ -10,13 +10,36 @@
  * el teclado: con una por sitio, «Resolver sola» y Escape se colaban.
  */
 import { type CasillaDeCarga, isAlive, SIN_CARGAS, stackHexes } from '@core/battle/battle.js';
-import { hexEquals } from '@core/battle/board.js';
+import { BOARD_HEIGHT, hexEquals, hexKey } from '@core/battle/board.js';
 import { CHARGE_BONUS_PER_HEX } from '@core/battle/damage.js';
-import type { BattleAction, BattleStack, Side } from '@core/battle/types.js';
+import { mismaPuerta, nivelDe } from '@core/battle/muralla.js';
+import type {
+  BattleAction,
+  BattleStack,
+  Side,
+  TipoDeEscala,
+  TipoDePuerta,
+} from '@core/battle/types.js';
 import type { Hex } from '@core/types.js';
 import { BattleAnimator } from '../anim.js';
-import { type Angulo, bandosSinDueño, cajaDeFigura, drawBatalla } from '../render/batalla.js';
-import { cercaDelCentro, hexEnPixel, type Tablero, tableroPara } from '../render/proyeccion.js';
+import {
+  type Angulo,
+  alzadoDeLaMuralla,
+  bandosSinDueño,
+  cajaDeFigura,
+  claveDePortada,
+  drawBatalla,
+  portadaBajo,
+  tableroA,
+} from '../render/batalla.js';
+import {
+  altoConAlzado,
+  cercaDelCentro,
+  hexEnPixel,
+  type Tablero,
+  tableroPara,
+  verticesHex,
+} from '../render/proyeccion.js';
 import type { ControlDeBatalla } from '../session.js';
 import { nombreEnElCampo } from '../views/distintivo.js';
 import { AVISO_DE_ESPERA } from '../views/panels.js';
@@ -24,6 +47,16 @@ import { textoDePrevision } from '../views/prevision.js';
 import { accionContra, golpeEnPixel } from './angulo.js';
 
 const SIN_NADA: ReadonlySet<string> = new Set();
+
+/** ¿Es una de las dos jugadas de la escala, que llevan muro? */
+function esEscala(a: BattleAction): a is Extract<BattleAction, { type: TipoDeEscala }> {
+  return a.type === 'poner_escalera' || a.type === 'subir';
+}
+
+/** ¿Es una de las dos jugadas de la puerta, que llevan puerta? */
+function esDePuerta(a: BattleAction): a is Extract<BattleAction, { type: TipoDePuerta }> {
+  return a.type === 'abrir_puerta' || a.type === 'cerrar_puerta';
+}
 const NINGUN_BANDO: ReadonlySet<Side> = new Set();
 
 /**
@@ -175,9 +208,17 @@ export class EscenaBatalla {
     const quieta = this.animador.busy;
     const turno = quieta ? null : s.turnoPropio;
     const atacables = new Set<string>();
+    const escalables = new Set<string>();
+    const puertasPorElegir = new Set<string>();
     if (turno !== null && hechizoElegido(s) === null) {
       for (const a of s.battleLegalActions()) {
         if (a.type === 'attack' || a.type === 'shoot') atacables.add(a.target);
+        if (esEscala(a) && (s.muroPorElegir === null || s.muroPorElegir === a.type)) {
+          escalables.add(hexKey(a.muro));
+        }
+        if (esDePuerta(a) && s.puertaPorElegir === a.type) {
+          puertasPorElegir.add(claveDePortada(a.puerta));
+        }
       }
     }
     drawBatalla(ctx, {
@@ -189,19 +230,52 @@ export class EscenaBatalla {
       cargas: quieta || hechizoElegido(s) !== null ? SIN_CARGAS : s.battleCharges(),
       angulo: quieta ? null : this.anguloActual(),
       atacables,
+      escalables,
+      puertasPorElegir,
       objetivosHechizo:
         hechizoElegido(s) === null ? SIN_NADA : new Set(s.hechizos?.castTargets() ?? []),
       hoverHex: this.hoverHex,
       hoverStack: this.hoverStack,
+      puntero: this.puntero,
       figura: (st) => this.animador.figura(st),
       efectos: this.animador.efectos(battle),
       sinDueño: s.dueños === null ? NINGUN_BANDO : bandosSinDueño(s.dueños),
     });
   }
 
-  /** Ajusta el tablero al lienzo. Aparte de `dibujar` para probar el clic sin lienzo. */
+  /**
+   * Ajusta el tablero al lienzo, con el sitio que pide lo alto de la muralla
+   * (`alzadoDeLaMuralla`; sin muralla, el de siempre). Aparte de `dibujar` para
+   * probar el clic sin lienzo.
+   */
   encuadrar(ancho: number, alto: number): void {
-    this.tablero = tableroPara(ancho, alto);
+    this.tablero = tableroPara(ancho, alto, this.alzado());
+  }
+
+  /**
+   * El alto que necesita el lienzo para que, con `ancho` y un marco de
+   * `altoVisible`, la muralla quepa sin encoger el tablero: el marco tal cual sin
+   * muralla, y alargado con ella (`altoConAlzado`). Lo pide la arena, que deja
+   * desplazar el marco en vertical.
+   */
+  altoDelLienzo(ancho: number, altoVisible: number): number {
+    return altoConAlzado(ancho, altoVisible, this.alzado());
+  }
+
+  /**
+   * Dónde acaba el tablero por abajo, en el lienzo: el vértice de abajo de la
+   * última fila y un poco de margen para el aro de quien la pisa. La arena,
+   * con el lienzo alargado, coloca el marco para que se vea ahí el final.
+   */
+  pieDelTablero(): number {
+    const t = this.tablero;
+    const v = verticesHex(t, { col: 0, row: BOARD_HEIGHT - 1 })[3] as { y: number };
+    return v.y + t.paso * 0.12;
+  }
+
+  private alzado(): number {
+    const battle = this.sesion().battle;
+    return battle === null ? 0 : alzadoDeLaMuralla(battle.muralla);
   }
 
   /**
@@ -241,7 +315,7 @@ export class EscenaBatalla {
   mover(px: number, py: number): void {
     this.puntero = { x: px, y: py };
     this.angulo = null;
-    this.hoverHex = hexEnPixel(this.tablero, px, py);
+    this.hoverHex = this.hexBajo(px, py);
     // Lo que se señala es lo que haría el clic: si el centro de un hex al que se
     // puede ir gana a la figura que lo tapa, la figura no se ilumina.
     const movimiento = this.movimientoEn(px, py);
@@ -422,9 +496,40 @@ export class EscenaBatalla {
   private movimientoEn(px: number, py: number): BattleAction | undefined {
     const s = this.sesion();
     if (hechizoElegido(s) !== null) return undefined;
-    const hex = hexEnPixel(this.tablero, px, py);
-    if (hex === null || !cercaDelCentro(this.tablero, hex, px, py)) return undefined;
-    return s.battleLegalActions().find((a) => a.type === 'move' && hexEquals(a.to, hex));
+    // Lo alto de una columna primero, que es lo que se ve; y si ahí no se va,
+    // el suelo de debajo: la columna tapa medio hex de la fila de detrás, y su
+    // centro quedaba sin clic (visto en el navegador, 09-10-2026).
+    const arriba = this.muroBajo(px, py);
+    const suelo = hexEnPixel(this.tablero, px, py);
+    for (const hex of [arriba, suelo]) {
+      if (hex === null || !cercaDelCentro(this.tableroDe(hex), hex, px, py)) continue;
+      const mover = s.battleLegalActions().find((a) => a.type === 'move' && hexEquals(a.to, hex));
+      if (mover !== undefined) return mover;
+    }
+    return undefined;
+  }
+
+  /**
+   * El hex bajo el puntero, con las columnas de la muralla: primero lo alto de
+   * una columna —que tapa lo que hay detrás—, luego el suelo. Es la regla del
+   * clic y del puntero sobre el tablero.
+   */
+  private hexBajo(px: number, py: number): Hex | null {
+    return this.muroBajo(px, py) ?? hexEnPixel(this.tablero, px, py);
+  }
+
+  /** El muro cuya columna tiene lo alto bajo el puntero, o `null`. */
+  private muroBajo(px: number, py: number): Hex | null {
+    const battle = this.sesion().battle;
+    if (battle === null) return null;
+    const h = hexEnPixel(tableroA(this.tablero, 1), px, py);
+    return h !== null && nivelDe(battle.muralla, h) === 1 ? h : null;
+  }
+
+  /** El tablero en el que está `hex`: el de lo alto si es un muro. */
+  private tableroDe(hex: Hex): Tablero {
+    const battle = this.sesion().battle;
+    return battle === null ? this.tablero : tableroA(this.tablero, nivelDe(battle.muralla, hex));
   }
 
   /**
@@ -447,13 +552,14 @@ export class EscenaBatalla {
     let mejor: { s: BattleStack; suelo: number } | null = null;
     for (const s of battle.stacks) {
       if (!isAlive(s)) continue;
-      const c = cajaDeFigura(this.tablero, s, this.animador.figura(s).en);
+      const f = this.animador.figura(s);
+      const c = cajaDeFigura(this.tablero, s, f.en, f.elevacion);
       const dentro =
         Math.abs(px - c.x) <= c.ancho / 2 && py <= c.suelo + 4 && py >= c.suelo - c.alto;
       if (dentro && (mejor === null || c.suelo > mejor.suelo)) mejor = { s, suelo: c.suelo };
     }
     if (mejor !== null) return mejor.s;
-    const hex = hexEnPixel(this.tablero, px, py);
+    const hex = this.hexBajo(px, py);
     return hex === null ? undefined : this.stackEn(hex);
   }
 
@@ -471,20 +577,76 @@ export class EscenaBatalla {
     return battle.stacks.find((s) => isAlive(s) && stackHexes(s).some((h) => hexEquals(h, hex)));
   }
 
+  /**
+   * Un clic en una columna con escala: la del botón que espera un muro
+   * (`muroPorElegir`) o, sin botón, subir —o si no, poner la escalera— contra
+   * ese muro. Devuelve si el clic era suyo. Con un botón esperando, un clic en
+   * otro sitio se queda en él y lo dice.
+   */
+  private pulsarEscala(hex: Hex | null, acciones: readonly BattleAction[]): boolean {
+    const session = this.sesion();
+    const tipo = session.muroPorElegir;
+    const contra = (t: TipoDeEscala): BattleAction | undefined =>
+      hex === null ? undefined : acciones.find((a) => a.type === t && hexEquals(a.muro, hex));
+    const accion = tipo !== null ? contra(tipo) : (contra('subir') ?? contra('poner_escalera'));
+    if (accion !== undefined) {
+      session.muroPorElegir = null;
+      session.playBattleAction(accion);
+      return true;
+    }
+    if (tipo === null) return false;
+    session.status = `${tipo === 'subir' ? 'Para subir' : 'Para poner la escalera'}, pulsa en lo alto de una columna marcada al pie de la unidad.`;
+    return true;
+  }
+
+  /**
+   * Un clic con el botón de la puerta esperando (`puertaPorElegir`): en la
+   * portada de una puerta que se puede abrir (o cerrar), se juega; en otro
+   * sitio, se queda esperando y lo dice. Devuelve si el clic era suyo: sin botón
+   * esperando, no lo es.
+   */
+  private pulsarPuerta(px: number, py: number, acciones: readonly BattleAction[]): boolean {
+    const session = this.sesion();
+    const tipo = session.puertaPorElegir;
+    const battle = session.battle;
+    if (tipo === null || battle === null) return false;
+    // Ya no hay puerta que elegir (otra unidad, o se ha movido): el botón deja de esperar.
+    if (!acciones.some((a) => a.type === tipo)) {
+      session.puertaPorElegir = null;
+      return false;
+    }
+    const puerta = portadaBajo(this.tablero, battle.muralla, { x: px, y: py });
+    const accion =
+      puerta === null
+        ? undefined
+        : acciones.find((a) => a.type === tipo && mismaPuerta(a.puerta, puerta));
+    if (accion !== undefined) {
+      session.puertaPorElegir = null;
+      session.playBattleAction(accion);
+      return true;
+    }
+    session.status = `${tipo === 'abrir_puerta' ? 'Para abrirla' : 'Para cerrarla'}, pulsa en la portada de una puerta marcada.`;
+    return true;
+  }
+
   /** Un clic en el tablero. Quien llama ya ha comprobado que no hay nada contándose. */
   pulsar(px: number, py: number): void {
     const session = this.sesion();
     const battle = session.battle;
     if (battle === null || battle.finished !== null) return;
 
+    const acciones = session.battleLegalActions();
+    // La puerta antes que nada: su portada tapa casillas que también se mueven.
+    if (hechizoElegido(session) === null && this.pulsarPuerta(px, py, acciones)) return;
     const directo = this.movimientoEn(px, py);
     if (directo !== undefined) {
+      session.muroPorElegir = null;
       session.playBattleAction(directo);
       return;
     }
+    const hex = this.hexBajo(px, py);
+    if (hechizoElegido(session) === null && this.pulsarEscala(hex, acciones)) return;
     const objetivo = this.unidadEn(px, py);
-    const hex = hexEnPixel(this.tablero, px, py);
-    const acciones = session.battleLegalActions();
 
     // Con un hechizo elegido, el clic apunta: va ANTES que atacar y moverse.
     const hechizos = session.hechizos;
@@ -524,6 +686,6 @@ export class EscenaBatalla {
       session.playBattleAction(movimiento);
       return;
     }
-    session.status = 'No puedes llegar a ese hexágono.';
+    session.status = session.moveRejection(hex);
   }
 }

@@ -16,13 +16,17 @@ import { SPEED_TO_HEXES } from '../types.js';
 import {
   areAdjacent,
   BOARD_WIDTH,
+  COLUMNAS_DE_SALIDA,
   caminoDe,
+  distanciasDesde,
   hexDistance,
   hexEquals,
   hexKey,
   isInside,
+  neighbours,
   occupiedHexes,
   type Paso,
+  type PasoPermitido,
   reachable,
   rectaLibre,
   siguienteEnRecta,
@@ -49,6 +53,31 @@ import {
   tickEffects,
 } from './effects.js';
 import {
+  bonoEnLoAlto,
+  type CierreDeLaMuralla,
+  casillasDeMuro,
+  cierreDeLaMuralla,
+  claveDeAbiertas,
+  type EstadoDePuerta,
+  enLoAlto,
+  esMuro,
+  hayLinea,
+  hayMuralla,
+  ladoDeLaMuralla,
+  type MurallaDeBatalla,
+  mismaPuerta,
+  mismoNivel,
+  nivelDe,
+  nombreDePuerta,
+  type PuertaDeMuralla,
+  partidaPorUnaPuerta,
+  pasoAlAndar,
+  pasoPorPuertas,
+  puertasAlEmpezar,
+  SIN_MURALLA,
+  validarMuralla,
+} from './muralla.js';
+import {
   efectoConReglas,
   type NombreDeRegla,
   REGLAS_DEL_JUEGO,
@@ -63,6 +92,8 @@ import type {
   BattleState,
   OrigenDelStack,
   Side,
+  TipoDeEscala,
+  TipoDePuerta,
   TurnoDeUnidad,
 } from './types.js';
 import { otroBando, SIDES } from './types.js';
@@ -134,10 +165,16 @@ export interface BattleMember {
   readonly profile: CombatProfile;
   /** PV actuales: entra herido si lo está. */
   readonly hp: number;
+  /**
+   * Lleva escalera para subir a la muralla (`poner_escalera`). Solo la pone la
+   * arena, y no llega al tablero si no la puede usar (`quienNoEscala`).
+   */
+  readonly escalera?: boolean;
 }
 
-/** Columnas de salida de cada bando, contando desde su borde. */
-const COLUMNAS_DE_SALIDA = 3;
+// La zona de salida vive en `board.ts`: la lee también la muralla, que dice qué
+// es dentro y qué es fuera desde la del defensor.
+export { bandoDeSalida } from './board.js';
 
 /** Las filas, del centro hacia fuera: el centro es lo primero que se llena. */
 const DEL_CENTRO_A_FUERA: readonly number[] = [4, 3, 5, 2, 6, 1, 7, 0, 8];
@@ -162,31 +199,32 @@ const DEL_CENTRO_A_FUERA: readonly number[] = [4, 3, 5, 2, 6, 1, 7, 0, 8];
  * ejército saltaba de formación abierta a compacta al pasar de cinco a seis
  * individuos.
  *
- * No comprueba si caben porque caben siempre: un bando lleva como mucho
- * `LIDERAZGO.maxPorBando` individuos, y un test de datos (`tropa.test.ts`) fija
- * que ese número de grandes —dos hexes cada una— no pasa de los 27 de un lado y
- * que no hay más grandes que filas.
+ * Sin muralla no comprueba si caben porque caben siempre: un bando lleva como
+ * mucho `LIDERAZGO.maxPorBando` individuos, y un test de datos
+ * (`tropa.test.ts`) fija que ese número de grandes —dos hexes cada una— no pasa
+ * de los 27 de un lado y que no hay más grandes que filas.
+ *
+ * **Con muralla** (la arena deja dibujarla en cualquier columna, también en las
+ * de salida) se saltan los hexes de muro y de puerta —nadie empieza en una
+ * puerta, tampoco el defensor— y la grande, la fila cuya cabeza o cola caería
+ * en uno; el orden de lo que queda es el mismo. Si así no caben, lanza diciendo
+ * cuántos sitios deja la muralla. Sin ella, `muralla` está vacía y cada `has`
+ * da falso: el despliegue es el de siempre, hex a hex.
  */
-function despliegue(units: readonly UnitInfo[], side: Side, primera: number | null): Hex[] {
-  const marco = (h: Hex): Hex =>
-    side === 'attacker' ? h : { col: BOARD_WIDTH - 1 - h.col, row: h.row };
+function despliegue(
+  units: readonly UnitInfo[],
+  side: Side,
+  primera: number | null,
+  muralla: MurallaDeBatalla,
+): Hex[] {
+  const { filas, huecos, motivo } = salidaDe(units, side, muralla);
+  if (motivo !== null) throw new Error(motivo);
 
   const out: Hex[] = new Array<Hex>(units.length);
-  const ocupadas = new Set<string>();
   let fila = 0;
   units.forEach((u, i) => {
-    if (hexSize(u) <= 1) return;
-    const row = DEL_CENTRO_A_FUERA[fila++]!;
-    out[i] = { col: 1, row };
-    ocupadas.add(hexKey({ col: 0, row })).add(hexKey({ col: 1, row }));
+    if (hexSize(u) > 1) out[i] = { col: 1, row: filas[fila++]! };
   });
-
-  const huecos: Hex[] = [];
-  for (let col = 0; col < COLUMNAS_DE_SALIDA; col++) {
-    for (const row of DEL_CENTRO_A_FUERA) {
-      if (!ocupadas.has(hexKey({ col, row }))) huecos.push({ col, row });
-    }
-  }
   let siguiente = 0;
   if (primera !== null) {
     if (hexSize(units[primera]!) > 1) {
@@ -198,7 +236,87 @@ function despliegue(units: readonly UnitInfo[], side: Side, primera: number | nu
     if (hexSize(u) > 1 || i === primera) return;
     out[i] = huecos[siguiente++]!;
   });
-  return out.map(marco);
+  return out.map((h) => enElMarco(side, h));
+}
+
+/**
+ * Por qué `units` no caben en la salida de `side` con esta muralla, o `null` si
+ * caben. Lo lee `despliegue` —que lanza con ello— y el editor de la arena, que
+ * lo avisa mientras se dibuja en vez de dejar que «Luchar» lo descubra.
+ */
+export function despliegueBlocker(
+  units: readonly UnitInfo[],
+  side: Side,
+  muralla: MurallaDeBatalla,
+): string | null {
+  return salidaDe(units, side, muralla).motivo;
+}
+
+/** Del marco del atacante, en el que se calcula la salida, al del tablero; es su propia inversa. */
+function enElMarco(side: Side, h: Hex): Hex {
+  return side === 'attacker' ? h : { col: BOARD_WIDTH - 1 - h.col, row: h.row };
+}
+
+/**
+ * Las filas de las grandes y los huecos de las pequeñas, en el marco del
+ * atacante, y si no caben, por qué. Las grandes cogen las primeras `filas`
+ * cuya cabeza y cola están libres; los huecos son lo que queda de las columnas
+ * de salida.
+ */
+function salidaDe(
+  units: readonly UnitInfo[],
+  side: Side,
+  muralla: MurallaDeBatalla,
+): {
+  readonly filas: readonly number[];
+  readonly huecos: readonly Hex[];
+  readonly motivo: string | null;
+} {
+  const cerradas = casillasDeMuro(muralla);
+  const cerrada = (h: Hex): boolean => cerradas.has(hexKey(enElMarco(side, h)));
+  const lado = side === 'attacker' ? 'la izquierda' : 'la derecha';
+  // La grande no empieza con una puerta entre la cabeza y la cola: empiezan cerradas.
+  const oeste = Math.min(
+    enElMarco(side, { col: 0, row: 0 }).col,
+    enElMarco(side, { col: 1, row: 0 }).col,
+  );
+  const partida = (row: number): boolean =>
+    muralla.puertas.some((p) => p.a.row === row && p.a.col === oeste);
+
+  const filas = DEL_CENTRO_A_FUERA.filter(
+    (row) => !cerrada({ col: 0, row }) && !cerrada({ col: 1, row }) && !partida(row),
+  );
+  const grandes = units.filter((u) => hexSize(u) > 1).length;
+  if (grandes > filas.length) {
+    return {
+      filas,
+      huecos: [],
+      motivo: `la muralla deja ${unaOVarias(filas.length, 'fila')} de salida para unidades grandes a ${lado} y ${haceFalta(grandes)}`,
+    };
+  }
+  const deGrandes = new Set(filas.slice(0, grandes));
+  const huecos: Hex[] = [];
+  for (let col = 0; col < COLUMNAS_DE_SALIDA; col++) {
+    for (const row of DEL_CENTRO_A_FUERA) {
+      const h = { col, row };
+      if (!cerrada(h) && !(col <= 1 && deGrandes.has(row))) huecos.push(h);
+    }
+  }
+  const pequeñas = units.length - grandes;
+  const motivo =
+    pequeñas > huecos.length
+      ? `la muralla deja ${unaOVarias(huecos.length, 'casilla')} de salida a ${lado} y ${haceFalta(pequeñas)}`
+      : null;
+  return { filas, huecos, motivo };
+}
+
+/** «1 fila», «0 filas», «3 filas»: QA vio «deja 1 filas de salida» (M6). */
+function unaOVarias(n: number, palabra: string): string {
+  return `${n} ${palabra}${n === 1 ? '' : 's'}`;
+}
+
+function haceFalta(n: number): string {
+  return `${n === 1 ? 'hace' : 'hacen'} falta ${n}`;
 }
 
 /**
@@ -252,10 +370,16 @@ export function armyMorale(units: readonly UnitInfo[]): number {
 /**
  * Monta la batalla del JUEGO: con sus reglas (`REGLAS_DEL_JUEGO`), siempre. Es la
  * puerta de la partida, del servidor y de los bancos; ninguna de ellas puede
- * pedir otras reglas.
+ * pedir otras reglas. `muralla` la pone solo la arena (y los tests); toda batalla
+ * del mapa va sin ella.
  */
-export function createBattle(attacker: BattleSide, defender: BattleSide, rng: Rng): BattleState {
-  return crearBatallaConReglas(attacker, defender, rng, REGLAS_DEL_JUEGO);
+export function createBattle(
+  attacker: BattleSide,
+  defender: BattleSide,
+  rng: Rng,
+  murallaPedida: MurallaDeBatalla = SIN_MURALLA,
+): BattleState {
+  return crearBatallaConReglas(attacker, defender, rng, REGLAS_DEL_JUEGO, murallaPedida);
 }
 
 /**
@@ -269,8 +393,10 @@ export function crearBatallaConReglas(
   defender: BattleSide,
   _rng: Rng,
   reglas: ReglasDeBatalla,
+  murallaPedida: MurallaDeBatalla = SIN_MURALLA,
 ): BattleState {
   const stacks: BattleStack[] = [];
+  const muralla = murallaPedida === SIN_MURALLA ? SIN_MURALLA : validarMuralla(murallaPedida);
 
   for (const [side, setup] of [
     ['attacker', attacker],
@@ -294,7 +420,12 @@ export function crearBatallaConReglas(
     const entradas = setup.army.map((stack, slot) => resolveUnit(stack, slot, setup));
     if (setup.hero !== null) entradas.push(entradaDelHeroe(setup.hero, setup.army.length));
     const units = entradas.map((e) => e.unit);
-    const hexes = despliegue(units, side, setup.hero === null ? null : entradas.length - 1);
+    const hexes = despliegue(
+      units,
+      side,
+      setup.hero === null ? null : entradas.length - 1,
+      muralla,
+    );
     // La mezcla de facciones se cuenta UNA vez, con el ejército que entra, y no
     // se recalcula al morir un stack (#49): igual que fheroes2, que la cuenta
     // sobre el `Army` de fuera de la batalla (`army.cpp`, `GetMoraleModificator`:
@@ -318,6 +449,9 @@ export function crearBatallaConReglas(
         topHp: e.topHp,
         hex: hexes[i]!,
         shotsLeft: e.unit.shots ?? 0,
+        // La escalera solo va con quien puede ponerla: el defensor, la grande y
+        // el volador no escalan, y el héroe no trae (`entradaDelHeroe`).
+        escalera: e.escalera && quienNoEscala(side, e.unit) === null,
         retaliated: false,
         defending: false,
         waited: false,
@@ -342,6 +476,9 @@ export function crearBatallaConReglas(
     turno: null,
     heroes: { attacker: attacker.hero?.mando ?? null, defender: defender.hero?.mando ?? null },
     reglas,
+    muralla,
+    escaleras: [],
+    puertas: puertasAlEmpezar(muralla),
     log: [],
     finished: null,
   };
@@ -381,6 +518,8 @@ interface Entrada {
   readonly topHp: number;
   readonly ownMorale: number;
   readonly ownLuck: number;
+  /** Si lleva escalera (`BattleMember.escalera`). */
+  readonly escalera: boolean;
 }
 
 /**
@@ -420,6 +559,7 @@ function resolveUnit(stack: Stack, slot: number, setup: BattleSide): Entrada {
       topHp: unit.hp,
       ownMorale: 0,
       ownLuck: 0,
+      escalera: false,
     };
   }
   const id = stack.member;
@@ -460,6 +600,7 @@ function resolveUnit(stack: Stack, slot: number, setup: BattleSide): Entrada {
     topHp: miembro.hp,
     ownMorale: miembro.profile.morale,
     ownLuck: miembro.profile.luck,
+    escalera: miembro.escalera === true,
   };
 }
 
@@ -474,6 +615,7 @@ function entradaDelHeroe(heroe: HeroeDelBando, slot: number): Entrada {
     topHp: heroe.cuerpo.hp,
     ownMorale: 0,
     ownLuck: 0,
+    escalera: false,
   };
 }
 
@@ -566,30 +708,293 @@ export function stackHexes(s: BattleStack): Hex[] {
   return occupiedHexes(s.hex, hexSize(s.unit), s.side === 'attacker');
 }
 
-/** Hexes ocupados por alguien, excluyendo opcionalmente a un stack. */
-export function blockedHexes(state: BattleState, exceptId?: string): Set<string> {
-  const blocked = new Set<string>();
-  for (const s of state.stacks) {
-    if (!isAlive(s) || s.id === exceptId) continue;
-    for (const h of stackHexes(s)) blocked.add(hexKey(h));
+/**
+ * Los hexes en los que `s` no puede entrar: los de cualquier otra unidad viva y
+ * los que la muralla le cierra para posarse (`cierreDeLaMuralla`).
+ *
+ * Se llamaba `blockedHexes(state, exceptId)` y solo contaba unidades. Cambió de
+ * nombre y de firma con la muralla a propósito: necesita saber el BANDO de quien
+ * pregunta —la puerta deja pasar al defensor—, y así el typecheck señaló a cada
+ * llamante en vez de dejar alguno contando solo unidades.
+ */
+export function cerradasPara(state: BattleState, s: BattleStack): Set<string> {
+  const cerradas = new Set<string>(cierreDe(state, s).posarse);
+  for (const o of state.stacks) {
+    if (!isAlive(o) || o.id === s.id) continue;
+    for (const h of stackHexes(o)) cerradas.add(hexKey(h));
   }
-  return blocked;
+  return cerradas;
 }
+
+/** Lo que la muralla le cierra a `s`, por su bando, su tamaño y si vuela. */
+function cierreDe(state: BattleState, s: BattleStack): CierreDeLaMuralla {
+  return cierreDeLaMuralla(
+    state.muralla,
+    state.puertas,
+    s.side,
+    hexSize(s.unit),
+    hasTrait(s.unit, 'flying'),
+  );
+}
+
+/**
+ * Cómo anda `s` desde donde está, con las casillas `cerradas` para posarse
+ * (`cerradasPara`): lo que se le cierra a su cabeza por el camino y el paso que
+ * no puede dar, si alguno (`cierreDeLaMuralla`). Sin muralla, `cerradas` tal
+ * cual, el mismo objeto, y ningún paso: el banco no se mueve.
+ */
+function alAndar(
+  state: BattleState,
+  s: BattleStack,
+  cerradas: ReadonlySet<string>,
+): { readonly cerradas: ReadonlySet<string>; readonly paso: PasoPermitido | undefined } {
+  const c = cierreDe(state, s);
+  const deMas = c.recorrer === c.posarse ? cerradas : new Set([...cerradas, ...c.recorrer]);
+  return { cerradas: deMas, paso: c.paso };
+}
+
+/**
+ * La primera celda en la que `s` no cabe si pone la cabeza en `head` —fuera del
+ * tablero o en `cerradas`—, o `null` si cabe. Es LA comprobación de dónde se
+ * posa una unidad: la hace `movableFrom` para cada destino y `movimientoBlocker`
+ * para decir por qué no, así que una restricción nueva va aquí y las dos la ven.
+ */
+function celdaQueNoCabe(head: Hex, s: BattleStack, cerradas: ReadonlySet<string>): Hex | null {
+  for (const c of occupiedHexes(head, hexSize(s.unit), s.side === 'attacker')) {
+    if (!isInside(c) || cerradas.has(hexKey(c))) return c;
+  }
+  return null;
+}
+
+/** La frase de la celda `c` que `celdaQueNoCabe` encontró cerrada a `s` con la cabeza en `head`. */
+function porQueNoCabe(state: BattleState, s: BattleStack, head: Hex, c: Hex): string {
+  const cola = !hexEquals(c, head);
+  if (!isInside(c)) return 'no cabe: la cola se sale del tablero';
+  // Al muro solo le cierra el paso a la grande: la de una casilla lo pisa, y si
+  // no cabe es que hay alguien encima (QA del navegador: al orko que señalaba
+  // una columna con el esqueleto arriba se le decía que era de dos casillas).
+  if (esMuro(state.muralla, c) && hexSize(s.unit) > 1) {
+    return cola ? 'la cola caería en el muro' : LA_GRANDE_NO_SUBE;
+  }
+  const ocupa = state.stacks.find(
+    (o) => isAlive(o) && o.id !== s.id && stackHexes(o).some((h) => hexEquals(h, c)),
+  );
+  if (ocupa === undefined) {
+    throw new Error(`(${c.col},${c.row}) está cerrada a ${s.id} sin muro, puerta ni unidad`);
+  }
+  return `ahí está ${ocupa.unit.name}`;
+}
+
+/**
+ * Por qué la unidad activa no puede moverse a `hex`, o `null` si puede. La frase
+ * la escribe el núcleo y la leen `moveTo` —que lanza con ella— y la pantalla,
+ * que la pinta tal cual. Antes el cliente inventaba «No puedes llegar a ese
+ * hexágono.», que con una muralla delante no decía por qué.
+ */
+export function movimientoBlocker(state: BattleState, hex: Hex): string | null {
+  const s = activeStack(state);
+  if (s === null || state.finished !== null) return 'no le toca a ninguna unidad';
+  if (!isInside(hex)) return `(${hex.col},${hex.row}) está fuera del tablero`;
+  if (movableFrom(state, s).has(hexKey(hex))) return null;
+  if (hexEquals(hex, s.hex)) return 'ya está ahí';
+  const c = celdaQueNoCabe(hex, s, cerradasPara(state, s));
+  if (c !== null) return porQueNoCabe(state, s, hex, c);
+  if (partidaPorUnaPuerta(state.muralla, state.puertas, hex, hexSize(s.unit), s.side)) {
+    return 'no cabe: una puerta cerrada quedaría entre la cabeza y la cola';
+  }
+  const subida = subidaAndando(state, s, hex);
+  if (subida !== null) return subida;
+  // La puerta antes que el lado: si abierta llegaría, lo que se lo impide es ella.
+  const puerta = porLaPuerta(state, s, hex);
+  if (puerta !== null) return puerta;
+  const lado = porElLado(state, s, hex);
+  if (lado !== null) return lado;
+  const quedan = pasosQueQuedan(state, s);
+  if (quedan === 0) return 'ya no le quedan casillas este turno';
+  const [verbo, casillas] = quedanCasillas(quedan);
+  return hayMuralla(state.muralla) && !hasTrait(s.unit, 'flying')
+    ? `no llega: le ${verbo} ${casillas} y la muralla o las unidades cortan el camino`
+    : `no llega: le ${verbo} ${casillas}`;
+}
+
+/**
+ * Por qué el atacante que anda por el suelo no llega a `hex` si es un muro:
+ * a la muralla no se sube andando. `null` si no es el caso.
+ */
+function subidaAndando(state: BattleState, s: BattleStack, hex: Hex): string | null {
+  // Con dentro y fuera, el defensor también lleva un paso: no es de él de quien se habla.
+  if (s.side !== 'attacker' || cierreDe(state, s).paso === undefined || enLoAlto(state, s)) {
+    return null;
+  }
+  if (!esMuro(state.muralla, hex)) return null;
+  switch (comoSube(s)) {
+    case 'escalando':
+      return 'a la muralla no se sube andando: desde su pie, «Subir»';
+    case 'con su escalera':
+      return 'a la muralla no se sube andando: desde su pie, «Poner escalera»';
+    case null:
+      return 'para subir a la muralla hace falta una escalera o saber escalar';
+  }
+}
+
+/**
+ * Por qué `s` no llega a `hex` si lo que se lo impide es el lado de la muralla
+ * (`pasoPermitido`): con la regla sin dentro ni fuera llegaría, y con ella no.
+ * `null` si no es el caso. Si `hex` es de fuera, lo que no le deja es bajar a
+ * él; si no, subir desde fuera.
+ */
+function porElLado(state: BattleState, s: BattleStack, hex: Hex): string | null {
+  const m = state.muralla;
+  if (m.muros.length === 0 || hasTrait(s.unit, 'flying') || hexSize(s.unit) > 1) return null;
+  const blocked = cerradasPara(state, s);
+  const sinLados = reachable(
+    s.hex,
+    pasosQueQuedan(state, s),
+    alAndar(state, s, blocked).cerradas,
+    pasoAlAndar(m, state.puertas, s.side, false),
+  );
+  if (!sinLados.has(hexKey(hex))) return null;
+  return ladoDeLaMuralla(m, hex) === 'fuera'
+    ? 'desde la muralla solo se baja hacia dentro'
+    : 'desde fuera no se sube a la muralla: sus escaleras están dentro';
+}
+
+/** La frase de la puerta cerrada: la dicen el paso, el camino y el tiro. */
+const PUERTA_CERRADA = 'la puerta está cerrada: no pasa nadie';
+
+/**
+ * Por qué `s` no llega a `hex` si lo que se lo impide es una puerta cerrada: con
+ * todas abiertas llegaría. `null` si no es el caso. Sin esto, quien señalaba lo
+ * de detrás de la puerta leía «la muralla o las unidades cortan el camino».
+ */
+function porLaPuerta(state: BattleState, s: BattleStack, hex: Hex): string | null {
+  if (hasTrait(s.unit, 'flying') || state.puertas.every((p) => p.abierta)) return null;
+  const abiertas = { ...state, puertas: state.puertas.map((p) => ({ ...p, abierta: true })) };
+  return movableFrom(abiertas, s).has(hexKey(hex)) ? PUERTA_CERRADA : null;
+}
+
+/**
+ * Cuántos pasos le costaría a `s` ir de `desde` a pegarse a `objetivo` para
+ * golpearlo —a uno de sus hexes— andando, sin contar las unidades, que se
+ * mueven, pero sí la muralla, que no. `Infinity` si la muralla no le deja llegar.
+ *
+ * Con muralla, «pegarse» es a una casilla **de su nivel**: al pie de una
+ * columna no se golpea a quien está arriba. Se recorre desde esas casillas y se
+ * suma el paso que falta, que es la misma cuenta que antes sin niveles.
+ */
+export function distanciaACaminar(
+  state: BattleState,
+  s: BattleStack,
+  objetivo: BattleStack,
+): (desde: Hex) => number {
+  const suyas = stackHexes(objetivo);
+  if (!hayMuralla(state.muralla) || hasTrait(s.unit, 'flying')) {
+    return distanciaHasta(state, s, suyas);
+  }
+  const nivel = nivelDe(state.muralla, objetivo.hex);
+  const cerradas = cierreDe(state, s).recorrer;
+  const vistos = new Set<string>();
+  const desdeDonde: Hex[] = [];
+  for (const h of suyas) {
+    for (const n of neighbours(h)) {
+      const k = hexKey(n);
+      if (vistos.has(k) || cerradas.has(k) || nivelDe(state.muralla, n) !== nivel) continue;
+      vistos.add(k);
+      desdeDonde.push(n);
+    }
+  }
+  if (desdeDonde.length === 0) return () => Number.POSITIVE_INFINITY;
+  const hasta = recorrido(state, s, desdeDonde, 'golpe');
+  return (desde) => hasta(desde) + 1;
+}
+
+/**
+ * Cuántos pasos le costaría a `s` ir de `desde` al más cercano de `destino`
+ * andando, con la muralla de su bando y sin las unidades.
+ *
+ * Es regla del tablero y no de la IA, por eso vive aquí. **Sin muralla, o para
+ * un volador, es `hexDistance`** tal cual: la IA de siempre, hex a hex, y el
+ * banco no se mueve. Con muralla, un recorrido desde `destino` —que cuenta
+ * aunque esté en una puerta: al defensor se le golpea en ella—, guardado por
+ * muralla, bando, tamaño y destino: la IA pregunta lo mismo varias veces por decisión
+ * (a quién ir, hacia dónde, si conviene esperar) y la muralla no cambia.
+ */
+export function distanciaHasta(
+  state: BattleState,
+  s: BattleStack,
+  destino: readonly Hex[],
+): (desde: Hex) => number {
+  if (!hayMuralla(state.muralla) || hasTrait(s.unit, 'flying')) {
+    return (desde) => Math.min(...destino.map((h) => hexDistance(desde, h)));
+  }
+  return recorrido(state, s, destino, 'pisar');
+}
+
+/**
+ * Lo mismo que `distanciaHasta`, sin guardar el recorrido: para destinos que
+ * dependen de dónde están las unidades ahora —los pies libres de la IA—, que en
+ * la caché por muralla se irían acumulando batalla adentro sin volver a leerse.
+ */
+export function distanciaAndando(
+  state: BattleState,
+  s: BattleStack,
+  destino: readonly Hex[],
+): (desde: Hex) => number {
+  if (!hayMuralla(state.muralla) || hasTrait(s.unit, 'flying')) {
+    return (desde) => Math.min(...destino.map((h) => hexDistance(desde, h)));
+  }
+  const c = cierreDe(state, s);
+  return distanciasDesde(destino, c.recorrer, c.paso);
+}
+
+/** El recorrido hacia atrás desde `destino`, guardado por muralla, bando, tamaño y destino. */
+function recorrido(
+  state: BattleState,
+  s: BattleStack,
+  destino: readonly Hex[],
+  para: 'pisar' | 'golpe',
+): (desde: Hex) => number {
+  let porDestino = DISTANCIAS.get(state.muralla);
+  if (porDestino === undefined) {
+    porDestino = new Map();
+    DISTANCIAS.set(state.muralla, porDestino);
+  }
+  const size = hexSize(s.unit);
+  // Con las puertas abiertas: el camino cambia al abrir, y una caché solo por
+  // muralla devolvería el de antes (criterio 24 de la muralla alta).
+  const clave = `${claveDeAbiertas(state.puertas)}|${s.side}|${size}|${para}|${destino.map(hexKey).join('|')}`;
+  let lector = porDestino.get(clave);
+  if (lector === undefined) {
+    const c = cierreDe(state, s);
+    lector = distanciasDesde(destino, c.recorrer, c.paso);
+    porDestino.set(clave, lector);
+  }
+  return lector;
+}
+
+/** Los recorridos de `distanciaHasta`, por muralla: por puertas abiertas, bando y destino. */
+const DISTANCIAS = new WeakMap<MurallaDeBatalla, Map<string, (desde: Hex) => number>>();
 
 export function enemiesOf(state: BattleState, s: BattleStack): BattleStack[] {
   return state.stacks.filter((o) => isAlive(o) && o.side !== s.side);
 }
 
-/** ¿Hay un enemigo pegado? Un tirador así no puede disparar. */
+/**
+ * ¿Hay un enemigo pegado **a su nivel**? Un tirador así no puede disparar. El
+ * de lo alto de un muro no está trabado por quien tiene al pie.
+ */
 export function isEngaged(state: BattleState, s: BattleStack): boolean {
-  const own = stackHexes(s);
-  return enemiesOf(state, s).some((e) =>
-    stackHexes(e).some((eh) => own.some((oh) => areAdjacent(oh, eh))),
-  );
+  return enemiesOf(state, s).some((e) => canReachMelee(state, s, e));
 }
 
-/** ¿Puede `s` golpear a `target` desde donde está? */
-export function canReachMelee(s: BattleStack, target: BattleStack): boolean {
+/**
+ * ¿Puede `s` golpear a `target` desde donde está? Pegados y al mismo nivel: de
+ * lo alto de un muro al suelo no se llega con la espada, ni del suelo arriba.
+ * Es LA regla del «se tocan»: la leen el golpe, la represalia, el trabado y la
+ * salpicadura.
+ */
+export function canReachMelee(state: BattleState, s: BattleStack, target: BattleStack): boolean {
+  if (!mismoNivel(state, s, target)) return false;
   const own = stackHexes(s);
   return stackHexes(target).some((th) => own.some((oh) => areAdjacent(oh, th)));
 }
@@ -611,6 +1016,32 @@ function disparoBlocker(state: BattleState, s: BattleStack): string | null {
 }
 
 /**
+ * Por qué `s` no tiene línea de tiro hasta `target`, o `null` si la tiene. En el
+ * suelo, nadie dispara a través de un muro ni de una puerta cerrada (la abierta
+ * no tapa, decisión del usuario); si
+ * uno de los dos está en lo alto, el tiro pasa por encima (decisión del usuario,
+ * 09-10-2026). Una unidad de dos casillas tira si alguna de sus casillas ve
+ * alguna del blanco. Sin muralla, siempre `null`.
+ *
+ * La leen `legalActions` para ofrecer el disparo, `applyAction` para rechazarlo
+ * y `ataqueBlocker` para decírselo a la persona.
+ */
+export function tiroBlocker(
+  state: BattleState,
+  s: BattleStack,
+  target: BattleStack,
+): string | null {
+  const m = state.muralla;
+  if (!hayMuralla(m) || enLoAlto(state, s) || enLoAlto(state, target)) return null;
+  const suyas = stackHexes(target);
+  const ve = (puertas: readonly EstadoDePuerta[]): boolean =>
+    stackHexes(s).some((desde) => suyas.some((h) => hayLinea(m, puertas, desde, h)));
+  if (ve(state.puertas)) return null;
+  const abiertas = state.puertas.map((p) => ({ ...p, abierta: true }));
+  return ve(abiertas) ? 'la puerta cerrada está en medio' : 'el muro está en medio';
+}
+
+/**
  * Por qué la unidad activa no puede actuar contra `targetId` —ni dispararle ni
  * golpearla, moviéndose o no—, o `null` si puede. Es a `attack`/`shoot` lo que
  * `castBlocker` a un hechizo: la frase la escribe el núcleo, sin sujeto, y la
@@ -620,9 +1051,10 @@ function disparoBlocker(state: BattleState, s: BattleStack): string | null {
 export function ataqueBlocker(state: BattleState, targetId: string): string | null {
   const s = activeStack(state);
   if (s === null || state.finished !== null) return 'no le toca a ninguna unidad';
-  const rival = rivalBlocker(s, stackById(state, targetId), 'atacar');
+  const target = stackById(state, targetId);
+  const rival = rivalBlocker(s, target, 'atacar');
   if (rival !== null) return rival;
-  const disparo = disparoBlocker(state, s);
+  const disparo = disparoBlocker(state, s) ?? tiroBlocker(state, s, target);
   if (disparo === null) return null;
   const { actions } = legalActionsAndCosts(state);
   if (actions.some((a) => a.type === 'attack' && a.target === targetId)) return null;
@@ -648,6 +1080,7 @@ function rivalBlocker(s: BattleStack, target: BattleStack, verbo: string): strin
  * golpe: la leen `applyAction`, que lanza ANTES de mover, y `previsionDe`.
  */
 function golpeBlocker(
+  state: BattleState,
   s: BattleStack,
   target: BattleStack,
   from: Hex | undefined,
@@ -659,7 +1092,8 @@ function golpeBlocker(
     return `${s.id} no puede moverse a (${from.col},${from.row})`;
   }
   const desdeAhi = from === undefined ? s : { ...s, hex: from };
-  if (!canReachMelee(desdeAhi, target)) return `${s.id} no alcanza a ${target.id} cuerpo a cuerpo`;
+  if (!canReachMelee(state, desdeAhi, target))
+    return `${s.id} no alcanza a ${target.id} cuerpo a cuerpo`;
   return null;
 }
 
@@ -675,7 +1109,10 @@ function disparoContraBlocker(
 ): string | null {
   const motivo = disparoBlocker(state, s);
   if (motivo !== null) return `${s.id} ${motivo}`;
-  return rivalBlocker(s, target, 'disparar');
+  const rival = rivalBlocker(s, target, 'disparar');
+  if (rival !== null) return rival;
+  const tiro = tiroBlocker(state, s, target);
+  return tiro === null ? null : `${s.id} no puede disparar a ${target.id}: ${tiro}`;
 }
 
 /**
@@ -701,22 +1138,37 @@ export function movableFrom(state: BattleState, s: BattleStack): Map<string, Pas
   const pasos = pasosQueQuedan(state, s);
   if (pasos === 0) return new Map();
   const info = s.unit;
-  const blocked = blockedHexes(state, s.id);
-  const size = hexSize(info);
-  const facingRight = s.side === 'attacker';
-
-  const fits = (head: Hex): boolean => {
-    const cells = occupiedHexes(head, size, facingRight);
-    return cells.every((c) => isInside(c) && !blocked.has(hexKey(c)));
-  };
+  const blocked = cerradasPara(state, s);
 
   // Los voladores ignoran lo que hay en medio: solo les importa dónde aterrizan.
   const volando = hasTrait(info, 'flying');
-  const dist = reachable(s.hex, pasos, volando ? new Set() : blocked);
+  const andando = volando ? null : alAndar(state, s, blocked);
+  // El atacante que arranca en el suelo no sube andando, así que no pisa ningún
+  // muro en todo el recorrido: el muro entero se le cierra y no se pregunta paso
+  // a paso. Solo aquí, donde dónde se acaba también es el recorrido: en la recta
+  // de la carga (`cargaDesde`) la última casilla no se mira en `cerradas`, y el
+  // paso es lo que impide acabarla en un muro. El defensor sí sube andando. Las puertas cerradas sí se preguntan: van entre dos casillas, no en una (ampliación 4).
+  const dist =
+    andando === null
+      ? reachable(s.hex, pasos, new Set())
+      : andando.paso !== undefined && s.side === 'attacker' && !enLoAlto(state, s)
+        ? reachable(
+            s.hex,
+            pasos,
+            new Set([...andando.cerradas, ...casillasDeMuro(state.muralla)]),
+            pasoPorPuertas(state.muralla, state.puertas),
+          )
+        : reachable(s.hex, pasos, andando.cerradas, andando.paso);
 
   const out = new Map<string, Paso>();
+  const tamaño = hexSize(info);
   for (const [key, paso] of dist) {
-    if (hexEquals(paso.at, s.hex) || !fits(paso.at)) continue;
+    if (hexEquals(paso.at, s.hex) || celdaQueNoCabe(paso.at, s, blocked) !== null) continue;
+    // La grande que vuela no se posa con una puerta cerrada entre la cabeza y la
+    // cola; la que anda ya no llega (`cierreDeLaMuralla`, `recorrer`).
+    if (volando && partidaPorUnaPuerta(state.muralla, state.puertas, paso.at, tamaño, s.side)) {
+      continue;
+    }
     out.set(key, paso);
   }
   return out;
@@ -968,8 +1420,13 @@ function abrirTurno(state: BattleState, s: BattleStack): void {
  *
  * Sin tirar, no gasta `rng.chance`: la arena con (d) desplaza las tiradas
  * siguientes, como la Bendición de (e).
+ *
+ * Con `conMoral = false` tampoco lo decide: lo piden las escaladas, que son el
+ * turno entero («al subir se quedan arriba y no pueden atacar ni hacer nada más
+ * ese turno», el usuario). Con el turno extra, la buena moral dejaba golpear
+ * justo después de subir, o subir justo después de poner la escalera (QA, M3).
  */
-function endTurn(state: BattleState, s: BattleStack, rng: Rng): void {
+function endTurn(state: BattleState, s: BattleStack, rng: Rng, conMoral = true): void {
   checkFinished(state);
   if (state.finished !== null) {
     state.turno = null;
@@ -981,6 +1438,7 @@ function endTurn(state: BattleState, s: BattleStack, rng: Rng): void {
   const sinMoral = s.defending && state.reglas.defender === 'fheroes2';
   const moral = s.morale;
   if (
+    conMoral &&
     !sinMoral &&
     isAlive(s) &&
     moral > 0 &&
@@ -1063,11 +1521,14 @@ export function causaDelFinal(state: BattleState): CausaDelFinal | null {
  * antes de su último tramo, tiene las mismas claves «x,y» y no hay forma de
  * distinguirlo mirándolo. Quien lo calculó dice de qué turno (`n`) y con
  * cuánto gastado, y `applyAction` lo compara con el de ahora: el ordinal ya
- * dice de quién es, y lo gastado, de qué tramo.
+ * dice de quién es, y lo gastado, de qué tramo. Y con qué puertas abiertas
+ * (`claveDeAbiertas`): abrir o cerrar una no gasta casillas ni cambia de turno,
+ * pero sí el recorrido.
  */
 export interface Movibles {
   readonly n: number;
   readonly gastado: number;
+  readonly puertas: string;
   readonly costs: ReadonlyMap<string, Paso>;
 }
 
@@ -1097,6 +1558,11 @@ export function applyAction(
     throw new Error(
       `el recorrido que traes es del turno ${movibles.n} con ${movibles.gastado} casillas gastadas, ` +
         `y ahora es el turno ${turno.n} de ${s.id} con ${turno.gastado}`,
+    );
+  }
+  if (movibles !== undefined && movibles.puertas !== claveDeAbiertas(state.puertas)) {
+    throw new Error(
+      'el recorrido que traes es de antes de abrir o cerrar una puerta: el camino ha cambiado',
     );
   }
 
@@ -1153,7 +1619,7 @@ export function applyAction(
         costes ??= movableFrom(state, s);
         return costes;
       };
-      const motivo = golpeBlocker(s, target, action.from, recorrido);
+      const motivo = golpeBlocker(state, s, target, action.from, recorrido);
       if (motivo !== null) throw new Error(motivo);
       // La carga se mide ANTES de mover, desde donde empieza este tramo: es la
       // regla del usuario, «se puede mover un tramo y se vuelve a calcular».
@@ -1173,6 +1639,49 @@ export function applyAction(
       if (motivo !== null) throw new Error(motivo);
       shoot(state, s, target, rng);
       endTurn(state, s, rng);
+      return;
+    }
+
+    case 'poner_escalera': {
+      const motivo = escaleraBlocker(state, action.muro);
+      if (motivo !== null) throw new Error(`${s.id} no puede poner la escalera: ${motivo}`);
+      // La escalera se queda puesta y deja de ir a cuestas: la usa quien llegue
+      // a ese pie (decisión del usuario). Ponerla es el turno entero.
+      state.escaleras.push({ pie: s.hex, muro: action.muro });
+      s.escalera = false;
+      state.log.push({ kind: 'ladder_placed', stack: s.id, pie: s.hex, muro: action.muro });
+      endTurn(state, s, rng, false);
+      return;
+    }
+
+    case 'subir': {
+      const motivo = subirBlocker(state, action.muro);
+      if (motivo !== null) throw new Error(`${s.id} no puede subir: ${motivo}`);
+      const desde = s.hex;
+      s.hex = action.muro;
+      state.log.push({ kind: 'climbed', stack: s.id, from: desde, to: action.muro });
+      // Al subir se queda arriba y no hace nada más ese turno: ni con la moral.
+      endTurn(state, s, rng, false);
+      return;
+    }
+
+    case 'abrir_puerta':
+    case 'cerrar_puerta': {
+      const motivo = puertaBlocker(state, action.type, action.puerta);
+      if (motivo !== null) {
+        const verbo = action.type === 'abrir_puerta' ? 'abrir' : 'cerrar';
+        throw new Error(`${s.id} no puede ${verbo} la puerta: ${motivo}`);
+      }
+      const puerta = state.puertas.find((p) => mismaPuerta(p, action.puerta));
+      if (puerta === undefined) throw new Error('puertaBlocker dejó pasar una puerta que no hay');
+      puerta.abierta = action.type === 'abrir_puerta';
+      puerta.cambiadaEn = turno.n;
+      state.log.push({
+        kind: puerta.abierta ? 'gate_opened' : 'gate_closed',
+        stack: s.id,
+        puerta: { a: puerta.a, b: puerta.b },
+      });
+      // No gasta el turno, como el hechizo: después se mueve, golpea o dispara.
       return;
     }
 
@@ -1301,7 +1810,9 @@ export function cargaDesde(
   bloqueadas?: ReadonlySet<string>,
 ): number {
   if (!hasTrait(s.unit, 'charge')) return 0;
-  const d = rectaLibre(s.hex, from, bloqueadas ?? blockedHexes(state, s.id));
+  // La recta es un recorrido: con muralla, la cola de la grande tampoco la cruza.
+  const andando = alAndar(state, s, bloqueadas ?? cerradasPara(state, s));
+  const d = rectaLibre(s.hex, from, andando.cerradas, andando.paso);
   if (d === null || d < CARGA_MINIMA) return 0;
   const hacia = siguienteEnRecta(s.hex, from);
   if (hacia === null || !stackHexes(target).some((h) => hexEquals(h, hacia))) return 0;
@@ -1322,7 +1833,7 @@ export const CARGA_MINIMA = 3;
  */
 export function casillasDeCarga(state: BattleState, s: BattleStack): readonly CasillaDeCarga[] {
   if (!hasTrait(s.unit, 'charge')) return SIN_CARGAS;
-  const bloqueadas = blockedHexes(state, s.id);
+  const bloqueadas = cerradasPara(state, s);
   const enemigos = enemiesOf(state, s);
   const out: CasillaDeCarga[] = [];
   for (const paso of movableFrom(state, s).values()) {
@@ -1361,7 +1872,8 @@ function moveTo(
   // discrepar de la primera — y si el llamante ya lo hizo, es literalmente ese.
   const paso = (costes ?? movableFrom(state, s)).get(hexKey(to));
   if (paso === undefined) {
-    throw new Error(`${s.id} no puede moverse a (${to.col},${to.row})`);
+    const motivo = movimientoBlocker(state, to) ?? 'el recorrido que trae no es de este tramo';
+    throw new Error(`${s.id} no puede moverse a (${to.col},${to.row}): ${motivo}`);
   }
 
   s.hex = to;
@@ -1467,11 +1979,11 @@ function colgarEfecto(
  * quien pega lo permite y si lo alcanza. La leen el golpe (`melee`) y la
  * previsión (`previsionDe`), que no puede prometer un contraataque que no llega.
  */
-function devolveraElGolpe(attacker: BattleStack, target: BattleStack): boolean {
+function devolveraElGolpe(state: BattleState, attacker: BattleStack, target: BattleStack): boolean {
   return (
     !target.retaliated &&
     !hasTrait(attacker.unit, 'no_retaliation') &&
-    canReachMelee(target, attacker)
+    canReachMelee(state, target, attacker)
   );
 }
 
@@ -1503,7 +2015,7 @@ function melee(
   }
 
   // Contraataque: uno por ronda, y solo si el atacante lo permite.
-  if (isAlive(target) && isAlive(attacker) && devolveraElGolpe(attacker, target)) {
+  if (isAlive(target) && isAlive(attacker) && devolveraElGolpe(state, attacker, target)) {
     // El contraataque no carga: se devuelve el golpe desde donde se está.
     target.retaliated = true;
     strike(state, target, attacker, rng, true, 0);
@@ -1598,25 +2110,32 @@ export function opcionesDeDanio(
   state: BattleState,
   attacker: BattleStack,
   target: BattleStack,
-  extra: Omit<DamageOptions, 'reglas' | 'ataqueDelMando' | 'defensaDelMando'> = SIN_EXTRA,
+  extra: Omit<DamageOptions, ExtraDelEstado> = SIN_EXTRA,
 ): DamageOptions {
   const reglas = state.reglas;
+  // Lo alto de un muro (`bonoEnLoAlto`) también sale del estado: así lo cuentan
+  // a la vez el golpe, el disparo, la IA, la ficha y la previsión.
+  const alto = bonoEnLoAlto(state, target);
+  const enLoAlto = alto > 0 ? { bonoEnLoAlto: alto } : SIN_EXTRA;
   if (reglas.heroe === 'nuestra') {
     // La IA pide estas cientos de veces por decisión, casi siempre sin nada
     // más: un objeto por reglas, no uno por pareja.
-    if (extra === SIN_EXTRA) return soloLasReglas(reglas);
-    return { reglas, ...extra };
+    if (extra === SIN_EXTRA && alto === 0) return soloLasReglas(reglas);
+    return { reglas, ...extra, ...enLoAlto };
   }
   return {
     reglas,
     ...extra,
+    ...enLoAlto,
     ataqueDelMando: delMando(state, attacker)?.ataque ?? 0,
     defensaDelMando: delMando(state, target)?.defensa ?? 0,
   };
 }
 
-const SIN_EXTRA: Omit<DamageOptions, 'reglas' | 'ataqueDelMando' | 'defensaDelMando'> =
-  Object.freeze({});
+/** Lo de `DamageOptions` que no se pide: lo pone `opcionesDeDanio` desde el estado. */
+type ExtraDelEstado = 'reglas' | 'ataqueDelMando' | 'defensaDelMando' | 'bonoEnLoAlto';
+
+const SIN_EXTRA: Omit<DamageOptions, ExtraDelEstado> = Object.freeze({});
 const OPCIONES_SOLO_REGLAS = new WeakMap<ReglasDeBatalla, DamageOptions>();
 
 /** Las opciones con solo las reglas: una por `ReglasDeBatalla`, que no cambian. */
@@ -1756,7 +2275,7 @@ export function splashTargets(state: BattleState, target: BattleStack): BattleSt
   // "Pegado al objetivo" y "alcanza al objetivo cuerpo a cuerpo" son la misma
   // pregunta, así que se hace con la misma función.
   return state.stacks.filter(
-    (otro) => otro.id !== target.id && isAlive(otro) && canReachMelee(otro, target),
+    (otro) => otro.id !== target.id && isAlive(otro) && canReachMelee(state, otro, target),
   );
 }
 
@@ -1975,7 +2494,7 @@ export function previsionDe(state: BattleState, accion: BattleAction): Prevision
     case 'attack': {
       // Las mismas comprobaciones que `applyAction` hace al golpear.
       const target = stackById(state, accion.target);
-      const motivo = golpeBlocker(s, target, accion.from, () => movableFrom(state, s));
+      const motivo = golpeBlocker(state, s, target, accion.from, () => movableFrom(state, s));
       if (motivo !== null) throw new Error(motivo);
       const desdeAhi = accion.from === undefined ? s : { ...s, hex: accion.from };
       const carga = accion.from === undefined ? 0 : cargaDesde(state, s, accion.from, target);
@@ -2003,6 +2522,10 @@ export function previsionDe(state: BattleState, accion: BattleAction): Prevision
     case 'defend':
     case 'surrender':
     case 'end_turn':
+    case 'poner_escalera':
+    case 'subir':
+    case 'abrir_puerta':
+    case 'cerrar_puerta':
       return null;
   }
 }
@@ -2063,7 +2586,7 @@ function previsionDelContraataque(
   h: ReturnType<typeof horquillaDeDanio>,
   tras: (d: number) => { count: number; topHp: number },
 ): PrevisionDeContraataque | null {
-  if (!devolveraElGolpe(a, t)) return null;
+  if (!devolveraElGolpe(state, a, t)) return null;
   // Con suerte el golpe puede quitar más, o menos, que sin ella.
   const peor = h.mala?.min ?? h.danio.min;
   const mejor = h.buena?.max ?? h.danio.max;
@@ -2132,6 +2655,218 @@ function previsionDeHechizo(
   }
 }
 
+// ---------------------------------------------------------------- escalas
+
+/**
+ * Por qué la unidad activa no puede poner su escalera contra el muro `muro`, o
+ * `null` si puede. La escribe el núcleo; la leen `legalActions` y `applyAction`.
+ */
+export function escaleraBlocker(state: BattleState, muro: Hex): string | null {
+  return escalaDeLaActiva(state, 'poner_escalera', muro);
+}
+
+/**
+ * Por qué la unidad activa no puede subir al muro `muro`, o `null` si puede:
+ * por una escalera puesta en su pie contra ese muro, o porque sabe escalar.
+ */
+export function subirBlocker(state: BattleState, muro: Hex): string | null {
+  return escalaDeLaActiva(state, 'subir', muro);
+}
+
+/**
+ * Por qué la unidad activa no puede `tipo` contra ningún muro de su pie, o
+ * `null` si puede contra alguno. Es la frase del botón («Poner escalera»,
+ * «Subir»), que no sabe aún contra qué muro: ese lo elige el clic. Sale de lo
+ * que ofrece la lista (`escalasA`); si no ofrece nada, el motivo es el del
+ * muro que más dice (`muroQueMasDice`), o el de ninguno.
+ */
+export function escalaBlocker(state: BattleState, tipo: TipoDeEscala): string | null {
+  const s = activeStack(state);
+  if (s === null || state.finished !== null) return 'no le toca a ninguna unidad';
+  if (!hayMuralla(state.muralla)) return 'no hay muralla';
+  if (escalasA(state, s).some((a) => a.type === tipo)) return null;
+  return escalaDesde(state, s, tipo, s.hex, muroQueMasDice(state, s.hex), seHaMovido(state, s));
+}
+
+/**
+ * De los muros del pie, aquel cuyo motivo dice algo de lo que se ve: el de una
+ * escalera puesta desde este pie, si la hay. Con el primero de `neighbours`, el
+ * lancero al pie de una escalera cuyo muro estaba ocupado leía «no hay escalera
+ * puesta ahí» con la escalera dibujada a su lado (QA de la muralla alta, I2).
+ * Lo que no depende del muro (bando, tamaño, haberse movido, llevarla) sale
+ * igual con cualquiera; y con el rasgo `escalar` el único motivo de un muro es
+ * quién lo ocupa, que vale el del primero.
+ */
+function muroQueMasDice(state: BattleState, pie: Hex): Hex | null {
+  const muros = murosAlPie(state, pie);
+  const conEscalera = muros.find((m) =>
+    state.escaleras.some((e) => hexEquals(e.pie, pie) && hexEquals(e.muro, m)),
+  );
+  return conEscalera ?? muros[0] ?? null;
+}
+
+function escalaDeLaActiva(state: BattleState, tipo: TipoDeEscala, muro: Hex): string | null {
+  const s = activeStack(state);
+  if (s === null || state.finished !== null) return 'no le toca a ninguna unidad';
+  return escalaDesde(state, s, tipo, s.hex, muro, seHaMovido(state, s));
+}
+
+/**
+ * Por qué `s`, con los pies en `pie`, no puede `tipo` contra `muro`, o `null`
+ * si puede. LA regla de la escala: la leen los motivos de la activa, la lista
+ * de acciones y la IA, que pregunta desde los pies a los que podría ir
+ * (`piesDeSubida`, con `movido = false`). Con `muro = null`, el motivo de no
+ * tener ningún muro al pie.
+ */
+export function escalaDesde(
+  state: BattleState,
+  s: BattleStack,
+  tipo: TipoDeEscala,
+  pie: Hex,
+  muro: Hex | null,
+  movido: boolean,
+): string | null {
+  if (muro !== null && !esMuro(state.muralla, muro)) {
+    return `en (${muro.col},${muro.row}) no hay muro`;
+  }
+  const quien = quienNoEscala(s.side, s.unit);
+  if (quien !== null) return quien;
+  if (esMuro(state.muralla, pie)) return 'ya está en lo alto';
+  if (movido) return 'ya se ha movido este turno: se llega al pie y se sube en el turno siguiente';
+  if (tipo === 'poner_escalera' && !s.escalera) return 'no lleva escalera';
+  if (muro === null) return 'no está al pie de ningún muro';
+  if (!areAdjacent(pie, muro)) return 'no está al pie de ese muro';
+  const puesta = state.escaleras.some((e) => hexEquals(e.pie, pie) && hexEquals(e.muro, muro));
+  if (tipo === 'poner_escalera') return puesta ? 'ahí ya hay una escalera puesta' : null;
+  // Sin contarse a sí misma: desde un pie al que aún no ha ido (la IA), el muro
+  // en el que está ahora queda libre en cuanto baje.
+  const ocupa = state.stacks.find((o) => isAlive(o) && o.id !== s.id && hexEquals(o.hex, muro));
+  if (ocupa !== undefined) return `en ese muro está ${ocupa.unit.name}`;
+  const como = comoSube(s);
+  if (puesta || como === 'escalando') return null;
+  return como === 'con su escalera'
+    ? 'no hay escalera puesta: primero hay que ponerla (un turno), y subir es el siguiente'
+    : 'no hay escalera puesta ahí y no sabe escalar';
+}
+
+/** La frase de la grande y el muro: la dicen el despliegue, el paso y la escala. */
+const LA_GRANDE_NO_SUBE = 'una unidad de dos casillas no sube a la muralla';
+
+/**
+ * Quién no escala nunca, esté donde esté: solo sube por escala el atacante de
+ * una casilla que no vuela. Lo leen también `createBattle`, que no le da escalera
+ * a quien no podría usarla, y el montaje de la arena (`escaleraDeArenaBlocker`).
+ */
+export function quienNoEscala(side: Side, unit: UnitInfo): string | null {
+  if (side !== 'attacker') return 'quien defiende sube a la muralla andando';
+  if (hexSize(unit) > 1) return LA_GRANDE_NO_SUBE;
+  if (hasTrait(unit, 'flying')) return 'vuela: se posa en la muralla sin escalera';
+  return null;
+}
+
+/**
+ * Cómo sube `s` desde un pie sin escalera puesta: escalando (rasgo `escalar`),
+ * poniendo la suya, o de ninguna manera. Una escalera puesta la usa cualquiera.
+ */
+function comoSube(s: BattleStack): 'escalando' | 'con su escalera' | null {
+  if (hasTrait(s.unit, 'escalar')) return 'escalando';
+  return s.escalera ? 'con su escalera' : null;
+}
+
+/** Los muros pegados a `pie`. */
+function murosAlPie(state: BattleState, pie: Hex): Hex[] {
+  return neighbours(pie).filter((h) => esMuro(state.muralla, h));
+}
+
+/**
+ * Las escaladas que tiene a mano la unidad activa: poner la escalera y subir,
+ * contra cada muro de su pie. Sin muros, ninguna.
+ */
+function escalasA(state: BattleState, s: BattleStack): BattleAction[] {
+  const movido = seHaMovido(state, s);
+  const out: BattleAction[] = [];
+  for (const muro of murosAlPie(state, s.hex)) {
+    for (const type of TIPOS_DE_ESCALA) {
+      if (escalaDesde(state, s, type, s.hex, muro, movido) === null) out.push({ type, muro });
+    }
+  }
+  return out;
+}
+
+/** En el orden en que se ofrecen: poner antes que subir, contra el mismo muro. */
+const TIPOS_DE_ESCALA: readonly TipoDeEscala[] = ['poner_escalera', 'subir'];
+
+// ---------------------------------------------------------------- puertas
+
+/**
+ * Por qué la unidad activa no puede `tipo` (abrir o cerrar) la puerta `puerta`
+ * —el lado entre sus dos casillas—, o `null` si puede. LA regla de la puerta: la leen `applyAction`, la
+ * lista de acciones (y con ella la IA) y los botones de la arena.
+ *
+ * Decide quien defiende, al principio del turno de cualquier unidad suya, esté
+ * donde esté: sin haberse movido, y cada puerta una vez por turno de unidad (si
+ * no, abrir y cerrar sería gratis y sin fin). Lo demás que hace una unidad
+ * —golpear, disparar, defender, esperar, escalar— cierra el turno, así que «sin
+ * haberse movido» es «sin haber actuado». El hechizo es del héroe y no cuenta.
+ * No se cierra con una unidad de dos casillas plantada en ella, la cabeza a un
+ * lado y la cola al otro: la puerta no aplasta. Quien está en una de sus dos
+ * casillas no estorba: la puerta va entre ellas, no encima.
+ */
+export function puertaBlocker(
+  state: BattleState,
+  tipo: TipoDePuerta,
+  puerta: PuertaDeMuralla,
+): string | null {
+  const s = activeStack(state);
+  const turno = state.turno;
+  if (s === null || turno === null || state.finished !== null) return 'no le toca a ninguna unidad';
+  const p = state.puertas.find((q) => mismaPuerta(q, puerta));
+  if (p === undefined) return `entre ${nombreDePuerta(puerta)} no hay puerta`;
+  if (s.side !== 'defender') return 'las puertas las abre y las cierra quien defiende';
+  if (seHaMovido(state, s)) {
+    return 'ya se ha movido este turno: la puerta se abre o se cierra al principio del turno';
+  }
+  if (tipo === 'abrir_puerta' && p.abierta) return 'la puerta ya está abierta';
+  if (tipo === 'cerrar_puerta' && !p.abierta) return 'la puerta ya está cerrada';
+  if (p.cambiadaEn === turno.n) return 'esa puerta ya se ha abierto o cerrado en este turno';
+  if (tipo === 'cerrar_puerta') {
+    const enMedio = state.stacks.find((o) => {
+      if (!isAlive(o)) return false;
+      const suyas = stackHexes(o);
+      return suyas.some((h) => hexEquals(h, p.a)) && suyas.some((h) => hexEquals(h, p.b));
+    });
+    if (enMedio !== undefined) {
+      return `no se cierra con alguien en medio: ${enMedio.unit.name} ocupa sus dos casillas`;
+    }
+  }
+  return null;
+}
+
+/**
+ * Por qué la unidad activa no puede `tipo` ninguna puerta, o `null` si puede
+ * alguna. Es la frase del botón («Abrir puerta», «Cerrar puerta»), que no sabe
+ * aún cuál: con varias la elige el clic en la portada. Si ninguna, el motivo de
+ * la primera.
+ */
+export function puertasBlocker(state: BattleState, tipo: TipoDePuerta): string | null {
+  if (state.puertas.length === 0) return 'no hay puerta';
+  const motivos = state.puertas.map((p) => puertaBlocker(state, tipo, p));
+  return motivos.includes(null) ? null : (motivos[0] as string);
+}
+
+/** Lo que la activa puede hacer con las puertas: abrir o cerrar cada una. Sin puertas, nada. */
+function puertasA(state: BattleState): BattleAction[] {
+  const out: BattleAction[] = [];
+  for (const p of state.puertas) {
+    for (const type of TIPOS_DE_PUERTA) {
+      if (puertaBlocker(state, type, p) === null) out.push({ type, puerta: { a: p.a, b: p.b } });
+    }
+  }
+  return out;
+}
+
+const TIPOS_DE_PUERTA: readonly TipoDePuerta[] = ['abrir_puerta', 'cerrar_puerta'];
+
 // ---------------------------------------------------------------- legalidad
 
 /** Acciones legales del stack activo. La usan la IA y el validador del agente. */
@@ -2168,14 +2903,20 @@ export function legalActionsAndCosts(state: BattleState): {
   // siempre y en el mismo orden: `end_turn` va al final para no cambiar lo que
   // encuentra un `find` de la IA.
   const movido = seHaMovido(state, s);
-  const out: BattleAction[] = movido ? [] : [{ type: 'defend' }];
+  // La puerta, la escalera y la subida van delante de `defend`: sin muralla no
+  // sale ninguna, y el orden de siempre no cambia.
+  const out: BattleAction[] = movido
+    ? []
+    : [...puertasA(state), ...escalasA(state, s), { type: 'defend' }];
   if (!s.waited && !movido) out.push({ type: 'wait' });
 
   const info = s.unit;
   const enemies = enemiesOf(state, s);
 
   if (disparoBlocker(state, s) === null) {
-    for (const e of enemies) out.push({ type: 'shoot', target: e.id });
+    for (const e of enemies) {
+      if (tiroBlocker(state, s, e) === null) out.push({ type: 'shoot', target: e.id });
+    }
   }
 
   // Un solo BFS por llamada. Estaba dentro del bucle de ataques, así que con
@@ -2193,10 +2934,19 @@ export function legalActionsAndCosts(state: BattleState): {
   // tamaño era la mitad de su coste. Las casillas del enemigo, una vez por él.
   const tamaño = hexSize(info);
   const miraALaDerecha = s.side === 'attacker';
+  // Solo se golpea al mismo nivel (`canReachMelee`): la casilla de la que se
+  // sale tiene que estar arriba si el enemigo lo está. El nivel de cada casilla,
+  // una vez, fuera del bucle de enemigos.
+  const niveles = alcanzables.map((h) => nivelDe(state.muralla, h));
   for (const e of enemies) {
-    if (canReachMelee(s, e)) out.push({ type: 'attack', target: e.id });
+    if (canReachMelee(state, s, e)) out.push({ type: 'attack', target: e.id });
     const suyas = stackHexes(e);
-    for (const h of alcanzables) {
+    const nivel = nivelDe(state.muralla, e.hex);
+    // Con índice y no con `entries()`: este bucle es el más caliente de la IA,
+    // y el iterador con desestructuración doblaba el coste de la función.
+    for (let i = 0; i < alcanzables.length; i++) {
+      if (niveles[i] !== nivel) continue;
+      const h = alcanzables[i] as Hex;
       const mias = occupiedHexes(h, tamaño, miraALaDerecha);
       if (suyas.some((th) => mias.some((oh) => areAdjacent(oh, th)))) {
         out.push({ type: 'attack', target: e.id, from: h });

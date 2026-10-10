@@ -10,15 +10,24 @@ import {
 import { componer, type Escena } from '../src/client/render/escenario/colocar.js';
 import type { Puente } from '../src/client/render/escenario/puentes.js';
 import type { Senda } from '../src/client/render/escenario/sendas.js';
+import { SesionDeArena } from '../src/client/session.js';
+import {
+  batallaDeArena,
+  type HojaDeArena,
+  type MontajeDeArena,
+  type UnidadDeArena,
+  unidadPorDefecto,
+} from '../src/core/arena.js';
 import {
   activeStack,
   applyAction,
-  blockedHexes,
   enemiesOf,
   legalActions,
   stackHexes,
 } from '../src/core/battle/battle.js';
 import { hexDistance } from '../src/core/battle/board.js';
+import { type MurallaDeBatalla, SIN_MURALLA } from '../src/core/battle/muralla.js';
+import { REGLAS_DEL_JUEGO, type ReglasDeBatalla } from '../src/core/battle/reglas.js';
 import type { BattleAction, BattleStack, BattleState } from '../src/core/battle/types.js';
 import { personajeDe } from '../src/core/battle/types.js';
 import { BARRERAS_DEL_MAPA } from '../src/core/data.js';
@@ -49,7 +58,8 @@ import {
   heroesOf,
 } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
-import type { Army, PlayerId, Point, Stack, Troop } from '../src/core/types.js';
+import type { Army, Hex, PlayerId, Point, Stack, Troop } from '../src/core/types.js';
+import { hojasDeArena } from '../tools/arena/borrador.js';
 
 /**
  * El coste de cada casilla del alcance por `"x,y"`, en orden de primer
@@ -411,14 +421,25 @@ export function avanzarHasta(
   return state.finished === null && llego(state);
 }
 
-export { blockedHexes };
-
 /**
  * Le da el turno a `stack` a mano, como si lo hubiera abierto `advance`: un
  * ordinal nuevo —el siguiente al de ahora— y lo gastado que diga el test.
  */
 export function forzarTurno(state: BattleState, stack: string, gastado = 0): void {
   state.turno = { n: (state.turno?.n ?? 0) + 1, stack, gastado };
+}
+
+/**
+ * Deja abiertas todas las puertas de la muralla de `state` (o solo las que
+ * tienen el lado `a` en `cuales`), sin pasar por `abrir_puerta`: para montar el
+ * caso de un test, como `forzarTurno`. Lanza si alguna no es una puerta.
+ */
+export function abrirPuertas(state: BattleState, cuales?: readonly Hex[]): void {
+  for (const h of cuales ?? state.puertas.map((p) => p.a)) {
+    const p = state.puertas.find((q) => q.a.col === h.col && q.a.row === h.row);
+    if (p === undefined) throw new Error(`ninguna puerta tiene su lado a en (${h.col},${h.row})`);
+    p.abierta = true;
+  }
 }
 
 /** ¿Es este stack el personaje `id`? Para los `find` de los tests. */
@@ -971,3 +992,81 @@ export function partidaDe(semilla: number): { readonly map: GameMap; readonly es
 
 /** La escena de `partidaDe(semilla)`. */
 export const escenaDe = (semilla: number): Escena => partidaDe(semilla).escena;
+
+let hojasLeidas: readonly HojaDeArena[] | null = null;
+
+/** Las hojas de la arena del repo, leídas una vez por fichero de test. */
+export function hojasDeLaArena(): readonly HojaDeArena[] {
+  hojasLeidas ??= hojasDeArena(resolve(import.meta.dirname, '..'));
+  return hojasLeidas;
+}
+
+/** Una unidad de la arena con las cifras por defecto de su hoja y los cambios que diga el test. */
+export function unidadDeArena(id: string, cambios: Partial<UnidadDeArena> = {}): UnidadDeArena {
+  const hoja = hojasDeLaArena().find((h) => h.id === id);
+  if (hoja === undefined) throw new Error(`no hay hoja ${id}`);
+  return { ...unidadPorDefecto(hoja), ...cambios };
+}
+
+/** Una unidad del borrador a su puesto de la pelea, con su escalera o sin ella. */
+export interface PuestoDeLaPelea {
+  readonly unidad: UnidadDeArena;
+  readonly escalera?: boolean;
+}
+
+/** Las unidades, cada una a su puesto de la pelea, sin escalera (`batallaDeArena`). */
+export function aPelear(unidades: readonly UnidadDeArena[]): PuestoDeLaPelea[] {
+  return unidades.map((unidad) => ({ unidad }));
+}
+
+/**
+ * El montaje de la arena con unidades del borrador, sin héroes: los tests de la
+ * muralla no miran ni el catálogo ni la magia. Con las reglas del juego salvo
+ * que se pidan otras.
+ */
+export function montajeDePrueba(
+  izquierda: readonly PuestoDeLaPelea[],
+  derecha: readonly PuestoDeLaPelea[],
+  muralla: MurallaDeBatalla = SIN_MURALLA,
+  reglas: ReglasDeBatalla = REGLAS_DEL_JUEGO,
+): MontajeDeArena {
+  const lado = (puestos: readonly PuestoDeLaPelea[]) => ({
+    unidades: puestos.map(({ unidad, escalera }) => ({
+      kind: 'borrador' as const,
+      unidad,
+      escalera: escalera === true,
+    })),
+    heroe: null,
+  });
+  return { izquierda: lado(izquierda), derecha: lado(derecha), reglas, muralla };
+}
+
+/** `batallaDeArena` con `montajeDePrueba`. */
+export function peleaDeArena(
+  izquierda: readonly PuestoDeLaPelea[],
+  derecha: readonly PuestoDeLaPelea[],
+  rng: Rng,
+  muralla: MurallaDeBatalla = SIN_MURALLA,
+): BattleState {
+  return batallaDeArena(montajeDePrueba(izquierda, derecha, muralla), rng);
+}
+
+/** Una sesión de la arena con unidades del borrador, sin héroes, sin empezar. */
+export function sesionDeArena(
+  izquierda: readonly (PuestoDeLaPelea & { readonly ia: boolean })[],
+  derecha: readonly (PuestoDeLaPelea & { readonly ia: boolean })[],
+  semilla: number,
+  muralla: MurallaDeBatalla = SIN_MURALLA,
+): SesionDeArena {
+  const lado = (puestos: readonly (PuestoDeLaPelea & { readonly ia: boolean })[]) => ({
+    puestos: puestos.map(({ unidad, escalera, ia }) => ({
+      fuente: { kind: 'borrador' as const, unidad, escalera: escalera === true },
+      ia,
+    })),
+    heroe: null,
+  });
+  return new SesionDeArena(
+    { izquierda: lado(izquierda), derecha: lado(derecha), reglas: REGLAS_DEL_JUEGO, muralla },
+    semilla,
+  );
+}

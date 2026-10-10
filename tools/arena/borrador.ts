@@ -18,6 +18,13 @@ import {
   validarBorradorDeArena,
   validarHojasDeArena,
 } from '../../src/core/arena.js';
+import {
+  COMENTARIO_DEL_BORRADOR_DE_MURALLAS,
+  type FormaDeMuralla,
+  type FormaSinValidar,
+  revisarBorradorDeMurallas,
+  validarBorradorDeMurallas,
+} from '../../src/core/arena-murallas.js';
 import { NOMBRES_DE_DIRECCION } from '../../src/shared/arte.js';
 import { arteEnOchoDirecciones, HEROES, juegoDelYBot, UNIDADES } from '../taller/unidades.js';
 import { VELOCIDAD_DE_SALIDA } from './velocidades.js';
@@ -84,69 +91,156 @@ export function hojasDeArena(raiz: string): readonly HojaDeArena[] {
   );
 }
 
-/** El borrador tal como está en disco: lo que vale, lo que no y por qué. */
-export interface BorradorLeido {
-  readonly unidades: readonly UnidadDeArena[];
-  readonly invalidas: readonly UnidadSinValidar[];
+/**
+ * Un borrador de la arena en disco: dónde vive, qué lista lleva y con qué regla
+ * se lee y se escribe. Los dos —cifras y murallas— comparten `leer` y
+ * `escribir`, que son los que guardan las garantías (lo que no vale se conserva,
+ * lo ilegible no se pisa, la escritura es atómica).
+ */
+interface Borrador<T, I extends { readonly crudo: unknown }> {
+  readonly ruta: string;
+  /** La lista del archivo: `{ _comment, [campo]: [...] }`. */
+  readonly campo: string;
+  readonly comentario: string;
+  readonly revisar: (valor: unknown) => {
+    readonly validas: readonly T[];
+    readonly invalidas: readonly I[];
+  };
+  readonly validar: (valor: unknown) => readonly T[];
+  readonly clave: (t: T) => string;
+  /** La clave de uno que no valida, si la trae: mandar uno válido con ella es arreglarlo. */
+  readonly claveSinValidar: (i: I) => string | null;
 }
 
+const DE_UNIDADES: Borrador<UnidadDeArena, UnidadSinValidar> = {
+  ruta: RUTA_DEL_BORRADOR,
+  campo: 'unidades',
+  comentario: COMENTARIO_DEL_BORRADOR,
+  revisar: revisarBorradorDeArena,
+  validar: validarBorradorDeArena,
+  clave: (u) => u.id,
+  claveSinValidar: (u) => u.id,
+};
+
 /**
- * Lo guardado, unidad a unidad (`revisarBorradorDeArena`); vacío si todavía no
- * se ha guardado nada. Lanza si el archivo no es JSON o no tiene forma de
- * borrador: ahí no hay unidad que salvar, y guardar encima lo borraría.
+ * Lo guardado, elemento a elemento (`revisar`); vacío si todavía no se ha
+ * guardado nada. Lanza si el archivo no es JSON o no tiene forma de borrador:
+ * ahí no hay nada que salvar, y guardar encima lo borraría.
  */
-export function leerBorrador(raiz: string): BorradorLeido {
-  const ruta = join(raiz, RUTA_DEL_BORRADOR);
-  if (!existsSync(ruta)) return { unidades: [], invalidas: [] };
+function leer<T, I extends { readonly crudo: unknown }>(
+  raiz: string,
+  b: Borrador<T, I>,
+): { readonly validas: readonly T[]; readonly invalidas: readonly I[] } {
+  const ruta = join(raiz, b.ruta);
+  if (!existsSync(ruta)) return { validas: [], invalidas: [] };
   let json: unknown;
   try {
     json = JSON.parse(readFileSync(ruta, 'utf8')) as unknown;
   } catch (err) {
-    throw new Error(`${RUTA_DEL_BORRADOR} no es JSON: ${err instanceof Error ? err.message : err}`);
+    throw new Error(`${b.ruta} no es JSON: ${err instanceof Error ? err.message : err}`);
   }
-  const { validas, invalidas } = revisarBorradorDeArena(json);
-  return { unidades: validas, invalidas };
+  return b.revisar(json);
 }
 
 /**
- * Escribe el borrador si es válido, y si no lanza con la frase de
- * `validarBorradorDeArena` sin tocar el fichero.
+ * Escribe el borrador si es válido, y si no lanza con la frase de `validar` sin
+ * tocar el fichero.
  *
- * **Guardar no pierde nada que no se haya tocado** (H2 de QA): las unidades del
- * archivo que no validan se escriben otra vez tal cual —salvo que la página
- * mande una válida con el mismo id, que es arreglarla—, y si el archivo de
- * ahora no se puede leer, no se pisa: se rechaza diciéndolo. La escritura es
- * atómica —un temporal y `rename`—: un guardado a medias dejaría un JSON roto.
+ * **Guardar no pierde nada que no se haya tocado** (H2 de QA): lo del archivo
+ * que no valida se escribe otra vez tal cual —salvo que la página mande uno
+ * válido con la misma clave, que es arreglarlo—, y si el archivo de ahora no se
+ * puede leer, no se pisa: se rechaza diciéndolo.
+ *
+ * Arreglarlo es mandar una clave que el archivo no tenía buena. Si ya la tenía,
+ * lo que no valida es una repetida, y la página manda la buena porque la manda
+ * siempre, no para arreglar la otra: la repetida se conserva, como promete el
+ * aviso (QA, M3; antes se la comía la primera forma que se guardara).
  */
-export function escribirBorrador(
+function escribir<T, I extends { readonly crudo: unknown }>(
   raiz: string,
+  b: Borrador<T, I>,
   cuerpo: unknown,
-): { readonly unidades: number; readonly conservadas: number } {
-  const unidades = validarBorradorDeArena(cuerpo);
-  let antes: BorradorLeido;
+): { readonly escritas: number; readonly conservadas: number } {
+  const validas = b.validar(cuerpo);
+  let antes: { readonly validas: readonly T[]; readonly invalidas: readonly I[] };
   try {
-    antes = leerBorrador(raiz);
+    antes = leer(raiz, b);
   } catch (err) {
     throw new Error(
       `no se guarda para no pisarlo: ${err instanceof Error ? err.message : err}. Arréglalo o bórralo a mano`,
     );
   }
-  const nuevos = new Set(unidades.map((u) => u.id));
-  const conservadas = antes.invalidas.filter((u) => u.id === null || !nuevos.has(u.id));
-  const ruta = join(raiz, RUTA_DEL_BORRADOR);
+  const nuevas = new Set(validas.map(b.clave));
+  const yaBuenas = new Set(antes.validas.map(b.clave));
+  const conservadas = antes.invalidas.filter((i) => {
+    const clave = b.claveSinValidar(i);
+    return clave === null || !nuevas.has(clave) || yaBuenas.has(clave);
+  });
+  escribirAtomico(join(raiz, b.ruta), {
+    _comment: b.comentario,
+    [b.campo]: [...validas, ...conservadas.map((i) => i.crudo)],
+  });
+  return { escritas: validas.length, conservadas: conservadas.length };
+}
+
+/** Un temporal y `rename`: un guardado a medias dejaría un JSON roto. */
+function escribirAtomico(ruta: string, contenido: unknown): void {
   mkdirSync(dirname(ruta), { recursive: true });
   const temporal = `${ruta}.${process.pid}.tmp`;
-  writeFileSync(
-    temporal,
-    `${JSON.stringify(
-      {
-        _comment: COMENTARIO_DEL_BORRADOR,
-        unidades: [...unidades, ...conservadas.map((u) => u.crudo)],
-      },
-      null,
-      2,
-    )}\n`,
-  );
+  writeFileSync(temporal, `${JSON.stringify(contenido, null, 2)}\n`);
   renameSync(temporal, ruta);
-  return { unidades: unidades.length, conservadas: conservadas.length };
+}
+
+/** El borrador de cifras tal como está en disco: lo que vale, lo que no y por qué. */
+export function leerBorrador(raiz: string): {
+  readonly unidades: readonly UnidadDeArena[];
+  readonly invalidas: readonly UnidadSinValidar[];
+} {
+  const { validas, invalidas } = leer(raiz, DE_UNIDADES);
+  return { unidades: validas, invalidas };
+}
+
+/** Guarda el borrador de cifras con las garantías de `escribir`. */
+export function escribirBorrador(
+  raiz: string,
+  cuerpo: unknown,
+): { readonly unidades: number; readonly conservadas: number } {
+  const { escritas, conservadas } = escribir(raiz, DE_UNIDADES, cuerpo);
+  return { unidades: escritas, conservadas };
+}
+
+// ---------------------------------------------------------------- murallas
+
+/** Dónde viven las formas de muralla, relativo a la raíz del repo. */
+export const RUTA_DE_MURALLAS = 'data/borradores/murallas.json';
+
+const DE_MURALLAS: Borrador<FormaDeMuralla, FormaSinValidar> = {
+  ruta: RUTA_DE_MURALLAS,
+  campo: 'formas',
+  comentario: COMENTARIO_DEL_BORRADOR_DE_MURALLAS,
+  revisar: revisarBorradorDeMurallas,
+  validar: validarBorradorDeMurallas,
+  clave: (f) => f.nombre,
+  claveSinValidar: (f) => f.nombre,
+};
+
+/** Las formas guardadas, una a una; vacío si aún no se ha guardado ninguna. */
+export function leerMurallas(raiz: string): {
+  readonly formas: readonly FormaDeMuralla[];
+  readonly invalidas: readonly FormaSinValidar[];
+} {
+  const { validas, invalidas } = leer(raiz, DE_MURALLAS);
+  return { formas: validas, invalidas };
+}
+
+/**
+ * Escribe la lista entera de formas que manda la página —guardar una es mandar
+ * la lista con ella; borrarla, sin ella—, con las garantías de `escribir`.
+ */
+export function escribirMurallas(
+  raiz: string,
+  cuerpo: unknown,
+): { readonly formas: number; readonly conservadas: number } {
+  const { escritas, conservadas } = escribir(raiz, DE_MURALLAS, cuerpo);
+  return { formas: escritas, conservadas };
 }

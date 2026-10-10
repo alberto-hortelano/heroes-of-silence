@@ -4,8 +4,11 @@ import { defineConfig, type Plugin } from 'vite';
 import { puertoEspectadores } from './src/server/entorno.js';
 import {
   escribirBorrador,
+  escribirMurallas,
   hojasDeArena,
   leerBorrador,
+  leerMurallas,
+  RUTA_DE_MURALLAS,
   RUTA_DEL_BORRADOR,
 } from './tools/arena/borrador.js';
 import { copiarPublico } from './tools/build/publico.js';
@@ -33,7 +36,56 @@ async function leerCuerpo(
 }
 
 /**
- * La arena (`/arena/`): la lista de hojas y el borrador de cifras.
+ * Un borrador de la arena por HTTP: GET lo lee y POST lo guarda entero. Uno
+ * para las cifras y otro para las murallas, con las mismas respuestas: copiado
+ * dos veces, el 405 y el 400 de uno acabarían diciendo otra cosa que el otro.
+ */
+function servirBorrador(b: {
+  readonly ruta: string;
+  readonly leer: () => Record<string, unknown>;
+  readonly vacio: Record<string, unknown>;
+  readonly escribir: (cuerpo: unknown) => Record<string, unknown>;
+}): (req: IncomingMessage, res: ServerResponse) => void {
+  return (req, res) => {
+    const responder = (estado: number, cuerpo: unknown): void => {
+      res.statusCode = estado;
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify(cuerpo));
+    };
+    if (req.method === 'GET') {
+      // Siempre 200: lo que no valida va con su motivo en `invalidas`, y un
+      // archivo que no se puede leer, en `ilegible`. Un 500 dejaba un error en
+      // la consola por algo que la página sí explica, y `pnpm capturas` no
+      // podía ensayarlo (M13 de QA).
+      try {
+        responder(200, { guardado: true, ruta: b.ruta, ...b.leer() });
+      } catch (err) {
+        responder(200, {
+          guardado: true,
+          ruta: b.ruta,
+          ...b.vacio,
+          ilegible: err instanceof Error ? err.message : String(err),
+        });
+      }
+      return;
+    }
+    if (req.method !== 'POST') {
+      responder(405, {
+        error: `el borrador se lee con GET y se guarda con POST, no con ${req.method}`,
+      });
+      return;
+    }
+    leerCuerpo(req)
+      .then((cuerpo) => responder(200, { ruta: b.ruta, ...b.escribir(cuerpo) }))
+      .catch((err: unknown) => {
+        // Lo que no valida no se escribe: 400 con la frase de la regla.
+        responder(400, { error: err instanceof Error ? err.message : String(err) });
+      });
+  };
+}
+
+/**
+ * La arena (`/arena/`): la lista de hojas y los borradores de cifras y de murallas.
  *
  * El guardado existe **solo en `pnpm dev`** (`configureServer`): un navegador no
  * puede escribir en el repo, y en `vite build` no hay quien escriba. El build
@@ -76,52 +128,36 @@ function arena(): Plugin {
         res.setHeader('content-type', 'application/json');
         res.end(lista((aviso) => server.config.logger.warn(aviso)));
       });
-      server.middlewares.use('/__arena/unidades', (req, res) => {
-        const responder = (estado: number, cuerpo: unknown): void => {
-          res.statusCode = estado;
-          res.setHeader('content-type', 'application/json');
-          res.end(JSON.stringify(cuerpo));
-        };
-        if (req.method === 'GET') {
-          // Siempre 200: una unidad que no valida va con su motivo en
-          // `invalidas`, y un archivo que no se puede leer, en `ilegible`. Un 500
-          // dejaba un error en la consola por algo que la página sí explica, y
-          // `pnpm capturas` no podía ensayarlo (M13 de QA).
-          try {
+      server.middlewares.use(
+        '/__arena/unidades',
+        servirBorrador({
+          ruta: RUTA_DEL_BORRADOR,
+          leer: () => {
             const leido = leerBorrador(raiz);
-            responder(200, {
-              guardado: true,
-              ruta: RUTA_DEL_BORRADOR,
+            return {
               unidades: leido.unidades,
               invalidas: leido.invalidas.map(({ id, motivo }) => ({ id, motivo })),
-            });
-          } catch (err) {
-            responder(200, {
-              guardado: true,
-              ruta: RUTA_DEL_BORRADOR,
-              unidades: [],
-              invalidas: [],
-              ilegible: err instanceof Error ? err.message : String(err),
-            });
-          }
-          return;
-        }
-        if (req.method !== 'POST') {
-          responder(405, {
-            error: `el borrador se lee con GET y se guarda con POST, no con ${req.method}`,
-          });
-          return;
-        }
-        leerCuerpo(req)
-          .then((cuerpo) => {
-            const hecho = escribirBorrador(raiz, cuerpo);
-            responder(200, { ruta: RUTA_DEL_BORRADOR, ...hecho });
-          })
-          .catch((err: unknown) => {
-            // Lo que no valida no se escribe: 400 con la frase de la regla.
-            responder(400, { error: err instanceof Error ? err.message : String(err) });
-          });
-      });
+            };
+          },
+          vacio: { unidades: [], invalidas: [] },
+          escribir: (cuerpo) => escribirBorrador(raiz, cuerpo),
+        }),
+      );
+      server.middlewares.use(
+        '/__arena/murallas',
+        servirBorrador({
+          ruta: RUTA_DE_MURALLAS,
+          leer: () => {
+            const leido = leerMurallas(raiz);
+            return {
+              formas: leido.formas,
+              invalidas: leido.invalidas.map(({ nombre, motivo }) => ({ nombre, motivo })),
+            };
+          },
+          vacio: { formas: [], invalidas: [] },
+          escribir: (cuerpo) => escribirMurallas(raiz, cuerpo),
+        }),
+      );
     },
     generateBundle() {
       this.emitFile({
@@ -129,11 +165,9 @@ function arena(): Plugin {
         fileName: '__arena/hojas',
         source: lista((aviso) => this.warn(aviso)),
       });
-      this.emitFile({
-        type: 'asset',
-        fileName: '__arena/unidades',
-        source: JSON.stringify({ guardado: false }),
-      });
+      for (const fileName of ['__arena/unidades', '__arena/murallas']) {
+        this.emitFile({ type: 'asset', fileName, source: JSON.stringify({ guardado: false }) });
+      }
     },
   };
 }

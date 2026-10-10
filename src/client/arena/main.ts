@@ -10,15 +10,20 @@
  * desarrollo (`vite.config.ts`); sin él la página lo dice y sigue sirviendo para
  * pelear.
  */
+
 import {
   type CambiosDeCatalogo,
   cifrasDeCatalogoEnLaArena,
   criaturasDelCatalogo,
+  despliegueDeArenaBlocker,
+  escaleraDeArenaBlocker,
+  type FuenteDeArena,
   type HeroeDeArena,
   type HojaDeArena,
   heroePorDefecto,
   LADOS,
   type Lado,
+  type MontajeDeArena,
   type MontajeDelEnlace,
   montajeALaURL,
   montajeDeLaURL,
@@ -31,6 +36,22 @@ import {
   validarUnidadDeArena,
 } from '@core/arena.js';
 import {
+  esFormaDeEjemplo,
+  FORMAS_DE_EJEMPLO,
+  type FormaDeMuralla,
+  validarFormaDeMuralla,
+} from '@core/arena-murallas.js';
+import { BOARD_WIDTH, hexEquals } from '@core/battle/board.js';
+import {
+  esMuro,
+  hayMuralla,
+  type MurallaDeBatalla,
+  mismaPuerta,
+  type PuertaDeMuralla,
+  SIN_MURALLA,
+  validarMuralla,
+} from '@core/battle/muralla.js';
+import {
   conRegla,
   REGLAS_DEL_JUEGO,
   type ReglasDeBatalla,
@@ -38,9 +59,10 @@ import {
   reglasDeLaURL,
 } from '@core/battle/reglas.js';
 import { allSpells } from '@core/battle/spells.js';
+import type { TipoDeEscala, TipoDePuerta } from '@core/battle/types.js';
 import { creature, LIDERAZGO } from '@core/data.js';
 import { parseSeed } from '@core/rng.js';
-import type { CreatureTrait, UnitInfo } from '@core/types.js';
+import type { CreatureTrait, Hex, UnitInfo } from '@core/types.js';
 import { FIGURA } from '../../shared/arte.js';
 import type { Direccion } from '../direccion.js';
 import { EscenaBatalla } from '../escenas/batalla.js';
@@ -76,6 +98,7 @@ import {
   type FiltroDeArena,
   type FuenteDePuesto,
   type HeroeDelMontaje,
+  type HerramientaDeMuralla,
   type Puesto,
   renderBando,
   renderCatalogo,
@@ -83,6 +106,7 @@ import {
   renderFicha,
   renderFichaDeCatalogo,
   renderFichaDeHeroe,
+  renderMuralla,
   renderPanelDeBatalla,
   renderReglas,
   resumenDeCifras,
@@ -91,6 +115,7 @@ import {
 
 const app = document.getElementById('app') as HTMLElement;
 const canvas = document.getElementById('canvas') as HTMLCanvasElement;
+const elLienzo = document.getElementById('lienzo') as HTMLElement;
 const elDay = document.getElementById('day') as HTMLElement;
 const elTurn = document.getElementById('turn') as HTMLElement;
 const elSeed = document.getElementById('seed') as HTMLElement;
@@ -98,6 +123,8 @@ const elStatus = document.getElementById('status') as HTMLElement;
 const elSide = document.getElementById('side') as HTMLElement;
 const elFicha = document.getElementById('ficha') as HTMLElement;
 const elCatalogo = document.getElementById('catalogo') as HTMLElement;
+const elMuralla = document.getElementById('muralla') as HTMLElement;
+const botonLuchar = document.querySelector('[data-arena="luchar"]') as HTMLElement;
 const elBando: Record<Lado, HTMLElement> = {
   izquierda: document.getElementById('bando-izquierda') as HTMLElement,
   derecha: document.getElementById('bando-derecha') as HTMLElement,
@@ -147,6 +174,45 @@ let sinGuardado: string | null = null;
 /** Hay cifras que no se han guardado: cerrar la página avisa. */
 let cambiosSinGuardar = false;
 const caben = LIDERAZGO.maxPorBando;
+
+/**
+ * La muralla que se dibuja y con la que se pelea. Se rehace entera en cada clic
+ * (`validarMuralla`, la regla del núcleo), así que nunca hay una a medias.
+ */
+let muralla: MurallaDeBatalla = SIN_MURALLA;
+let herramienta: HerramientaDeMuralla = 'muro';
+/** El nombre con el que se guardaría: el de la forma cargada o el escrito. */
+let nombreDeForma = '';
+/** Las formas del borrador (`data/borradores/murallas.json`), en su orden. */
+let formasGuardadas: readonly FormaDeMuralla[] = [];
+/** Por qué no se pueden guardar ni borrar formas, o `null` si se puede. */
+let murallasSinGuardado: string | null = null;
+
+/**
+ * El editor de la muralla, plegado o no, recordado en este navegador: es una
+ * comodidad de quien mira (a 1280×720 el editor desplegado deja los bandos en
+ * ~250 px), no un dato. Sin `localStorage` —ventana privada, datos bloqueados—
+ * sale desplegado y plegar dura lo que la página.
+ */
+const CLAVE_DE_PLEGADO = 'arena.muralla.plegada';
+let murallaPlegada = leerPlegado();
+
+function leerPlegado(): boolean {
+  try {
+    return localStorage.getItem(CLAVE_DE_PLEGADO) === '1';
+  } catch (err) {
+    console.warn('[arena] no se puede leer si la muralla iba plegada:', err);
+    return false;
+  }
+}
+
+function recordarPlegado(plegada: boolean): void {
+  try {
+    localStorage.setItem(CLAVE_DE_PLEGADO, plegada ? '1' : '0');
+  } catch (err) {
+    console.warn('[arena] no se puede recordar si la muralla va plegada:', err);
+  }
+}
 
 /**
  * La semilla que pide la URL, o `null` para sortear una en cada pelea. La regla
@@ -203,8 +269,33 @@ function cifrasDelCatalogo(id: string): UnitInfo {
   return cambios === undefined ? creature(id) : cifrasDeCatalogoEnLaArena(id, cambios);
 }
 
-/** Lo que la tarjeta de un puesto enseña, salga de donde salga. */
-function describir(p: Puesto): DatosDePuesto {
+/**
+ * De dónde sale un puesto al pelear: la hoja con sus cifras del borrador o la
+ * criatura con su prueba, y su escalera.
+ */
+function fuenteDeArena(p: Puesto): FuenteDeArena {
+  return p.fuente.kind === 'hoja'
+    ? { kind: 'borrador', unidad: unidadDe(p.fuente.hoja), escalera: p.escalera }
+    : {
+        kind: 'catalogo',
+        id: p.fuente.id,
+        cambios: pruebas.get(p.fuente.id) ?? null,
+        escalera: p.escalera,
+      };
+}
+
+/** El montaje de ahora, como lo pelearía el núcleo: lo leen «Luchar» y el aviso de la muralla. */
+function montajeDeArena(): MontajeDeArena {
+  const lado = (l: Lado) => ({
+    unidades: montaje[l].map(fuenteDeArena),
+    heroe: heroes[l]?.datos ?? null,
+  });
+  return { izquierda: lado('izquierda'), derecha: lado('derecha'), reglas, muralla };
+}
+
+/** Lo que la tarjeta de un puesto de `lado` enseña, salga de donde salga. */
+function describir(p: Puesto, lado: Lado): DatosDePuesto {
+  const noEscala = escaleraDeArenaBlocker(fuenteDeArena(p), lado);
   if (p.fuente.kind === 'hoja') {
     const u = unidadDe(p.fuente.hoja);
     return {
@@ -212,6 +303,7 @@ function describir(p: Puesto): DatosDePuesto {
       resumen: resumenDeCifras(u),
       figura: p.fuente.hoja,
       sello: 'borrador',
+      noEscala,
     };
   }
   const u = cifrasDelCatalogo(p.fuente.id);
@@ -220,6 +312,7 @@ function describir(p: Puesto): DatosDePuesto {
     resumen: resumenDeUnidad(u),
     figura: p.fuente.id,
     sello: pruebas.has(p.fuente.id) ? 'catálogo · prueba que no se guarda' : 'catálogo',
+    noEscala,
   };
 }
 
@@ -253,13 +346,75 @@ function unidadDe(id: string): UnidadDeArena {
 
 // ---------------------------------------------------------------- arranque
 
-/** Lo que contesta `GET /__arena/unidades`: en el build, solo `guardado: false`. */
-interface RespuestaDelBorrador {
+/**
+ * Lo que contesta el GET de un borrador (`/__arena/unidades`, `/__arena/murallas`):
+ * en el build, solo `guardado: false`; si no, su ruta y su lista (`unidades` o
+ * `formas`), las que no valen con su motivo, o el archivo ilegible.
+ */
+interface RespuestaDeBorrador {
   readonly guardado: boolean;
   readonly ruta?: string;
   readonly unidades?: unknown;
-  readonly invalidas?: readonly { readonly id: string | null; readonly motivo: string }[];
+  readonly formas?: unknown;
+  readonly invalidas?: readonly {
+    readonly id?: string | null;
+    readonly nombre?: string | null;
+    readonly motivo: string;
+  }[];
   readonly ilegible?: string;
+}
+
+/**
+ * Pide un borrador al servidor de desarrollo. Devuelve la respuesta y, si no se
+ * podrá guardar —sin servidor o con el archivo ilegible—, por qué. Los dos
+ * borradores lo dicen con las mismas frases.
+ */
+async function leerDelServidor(
+  url: string,
+  que: string,
+): Promise<{ readonly cuerpo: RespuestaDeBorrador; readonly sinGuardado: string | null }> {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`no se ha podido leer ${que} (${r.status})`);
+  const cuerpo = (await r.json()) as RespuestaDeBorrador;
+  const sinGuardado = !cuerpo.guardado
+    ? 'esta página no la sirve el servidor de desarrollo. Ábrela con pnpm arena'
+    : cuerpo.ilegible !== undefined
+      ? `${cuerpo.ruta} no se puede leer (${cuerpo.ilegible}), y guardar lo pisaría. Arréglalo o bórralo a mano`
+      : null;
+  return { cuerpo, sinGuardado };
+}
+
+/** Lo que se dice si no sale: antes de mandar (`noSePuede`) o si el servidor lo rechaza (`noSeHa`). */
+interface FalloAlGuardar {
+  readonly noSePuede: string;
+  readonly noSeHa: string;
+}
+
+/**
+ * Manda un borrador entero al servidor. Devuelve su respuesta si lo ha escrito;
+ * si no, deja dicho por qué en `aviso` y devuelve `null`.
+ */
+async function mandarAlServidor(
+  url: string,
+  cuerpo: unknown,
+  sinGuardadoAhora: string | null,
+  fallo: FalloAlGuardar,
+): Promise<Record<string, unknown> | null> {
+  if (sinGuardadoAhora !== null) {
+    aviso = `${fallo.noSePuede}: ${sinGuardadoAhora}.`;
+    return null;
+  }
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(cuerpo),
+  });
+  const respuesta = (await r.json()) as Record<string, unknown>;
+  if (!r.ok) {
+    aviso = `${fallo.noSeHa}: ${String(respuesta.error ?? r.status)}.`;
+    return null;
+  }
+  return respuesta;
 }
 
 /**
@@ -282,17 +437,15 @@ async function arrancar(): Promise<void> {
       .join('; ')}.`;
     console.warn(`[arena]${avisoDeIncompletas}`);
   }
-  const b = await fetch('/__arena/unidades');
-  if (!b.ok) throw new Error(`no se ha podido leer el borrador (${b.status})`);
-  const cuerpo = (await b.json()) as RespuestaDelBorrador;
+  const leido = await leerDelServidor('/__arena/unidades', 'el borrador');
+  const cuerpo = leido.cuerpo;
+  sinGuardado = leido.sinGuardado;
   if (!cuerpo.guardado) {
-    sinGuardado = 'esta página no la sirve el servidor de desarrollo. Ábrela con pnpm arena';
     aviso =
       'Sin el servidor de desarrollo (pnpm arena) no se carga ni se guarda el borrador: las cifras que cambies aquí se pierden al cerrar.';
     return;
   }
   if (cuerpo.ilegible !== undefined) {
-    sinGuardado = `${cuerpo.ruta} no se puede leer (${cuerpo.ilegible}), y guardar lo pisaría. Arréglalo o bórralo a mano`;
     aviso = `No se puede leer ${cuerpo.ruta}: ${cuerpo.ilegible}. Se empieza con las cifras por defecto, y no se guarda hasta que se arregle.`;
     return;
   }
@@ -315,6 +468,123 @@ async function arrancar(): Promise<void> {
     aviso += ` No valen y se conservan tal cual al guardar: ${invalidas
       .map((i) => `${i.id ?? '(sin id)'} (${i.motivo})`)
       .join('; ')}.`;
+  }
+}
+
+/**
+ * Las formas de muralla guardadas, si hay servidor de desarrollo. Devuelve lo
+ * que hay que añadir a la barra: las que no valen o el archivo ilegible. Las
+ * que no valen se conservan al guardar, como las unidades.
+ */
+async function arrancarMurallas(): Promise<string> {
+  const { cuerpo, sinGuardado: porQue } = await leerDelServidor(
+    '/__arena/murallas',
+    'las formas de muralla',
+  );
+  murallasSinGuardado = porQue;
+  if (!cuerpo.guardado) return '';
+  if (cuerpo.ilegible !== undefined) return ` No se puede leer ${cuerpo.ruta}: ${cuerpo.ilegible}.`;
+  formasGuardadas = (Array.isArray(cuerpo.formas) ? cuerpo.formas : []).map(validarFormaDeMuralla);
+  const invalidas = cuerpo.invalidas ?? [];
+  return invalidas.length === 0
+    ? ''
+    : ` Formas de muralla que no valen y se conservan tal cual: ${invalidas
+        .map((i) => `${i.nombre ?? '(sin nombre)'} (${i.motivo})`)
+        .join('; ')}.`;
+}
+
+// ---------------------------------------------------------------- muralla
+
+/**
+ * Un clic en la rejilla: pone la pieza de la herramienta, o la quita si ya
+ * estaba. El muro va en la casilla, y quita las puertas que la tocaban. La
+ * puerta va entre la casilla y su vecina del este (las dos que resalta el
+ * puntero) y quita el muro de las dos, que son suelo. La goma quita el muro de
+ * la casilla y las puertas que la tocan.
+ */
+function tocarHex(hex: Hex): void {
+  // El clic despeja la barra, salvo lo que sigue siendo verdad: si no se puede
+  // guardar, se dice hasta que se pueda (QA, M4: el primer clic lo borraba).
+  aviso =
+    murallasSinGuardado === null
+      ? ''
+      : `No se pueden guardar ni borrar formas: ${murallasSinGuardado}.`;
+  const toca = (p: PuertaDeMuralla, h: Hex): boolean => hexEquals(p.a, h) || hexEquals(p.b, h);
+  if (herramienta === 'puerta') {
+    const este = { col: hex.col + 1, row: hex.row };
+    if (este.col >= BOARD_WIDTH) {
+      aviso = `La puerta va entre una casilla y la de su este: (${hex.col},${hex.row}) es de la última columna y no tiene.`;
+      return;
+    }
+    const nueva = { a: hex, b: este };
+    const estaba = muralla.puertas.some((p) => mismaPuerta(p, nueva));
+    muralla = validarMuralla({
+      muros: muralla.muros.filter((h) => !hexEquals(h, hex) && !hexEquals(h, este)),
+      puertas: estaba
+        ? muralla.puertas.filter((p) => !mismaPuerta(p, nueva))
+        : [...muralla.puertas, nueva],
+    });
+    return;
+  }
+  const habia = esMuro(muralla, hex);
+  const muros = muralla.muros.filter((h) => !hexEquals(h, hex));
+  if (herramienta === 'muro' && !habia) muros.push(hex);
+  const puertas =
+    herramienta === 'muro' && habia
+      ? muralla.puertas
+      : muralla.puertas.filter((p) => !toca(p, hex));
+  muralla = validarMuralla({ muros, puertas });
+}
+
+function formaPorNombre(nombre: string): FormaDeMuralla {
+  const f = [...FORMAS_DE_EJEMPLO, ...formasGuardadas].find((x) => x.nombre === nombre);
+  if (f === undefined) throw new Error(`no hay ninguna forma de muralla «${nombre}»`);
+  return f;
+}
+
+/**
+ * Manda la lista entera de formas al servidor —guardar es mandarla con una más
+ * o con una cambiada; borrar, sin ella— y, si la acepta, es la nueva lista.
+ */
+async function escribirFormas(
+  formas: readonly FormaDeMuralla[],
+  fallo: FalloAlGuardar,
+): Promise<boolean> {
+  const hecho = await mandarAlServidor('/__arena/murallas', { formas }, murallasSinGuardado, fallo);
+  if (hecho === null) return false;
+  formasGuardadas = formas;
+  return true;
+}
+
+async function guardarForma(): Promise<void> {
+  // La regla del nombre y de la muralla es la del núcleo: aquí solo se le pasa.
+  const forma = validarFormaDeMuralla({ nombre: nombreDeForma, muralla });
+  const yaEstaba = formasGuardadas.some((f) => f.nombre === forma.nombre);
+  const formas = yaEstaba
+    ? formasGuardadas.map((f) => (f.nombre === forma.nombre ? forma : f))
+    : [...formasGuardadas, forma];
+  const fallo = {
+    noSePuede: 'No se puede guardar la muralla',
+    noSeHa: 'No se ha guardado la muralla',
+  };
+  if (await escribirFormas(formas, fallo)) {
+    nombreDeForma = forma.nombre;
+    aviso = `${yaEstaba ? 'Cambiada' : 'Guardada'} la forma «${forma.nombre}» en data/borradores/murallas.json.`;
+  }
+}
+
+async function borrarForma(nombre: string): Promise<void> {
+  const fallo = {
+    noSePuede: `No se puede borrar la forma «${nombre}»`,
+    noSeHa: `No se ha borrado la forma «${nombre}»`,
+  };
+  if (
+    await escribirFormas(
+      formasGuardadas.filter((f) => f.nombre !== nombre),
+      fallo,
+    )
+  ) {
+    aviso = `Borrada la forma «${nombre}».`;
   }
 }
 
@@ -353,6 +623,37 @@ function criaturasDeLaLista(): readonly { id: string; name: string; resumen: str
  */
 const pintado = new WeakMap<HTMLCanvasElement, string>();
 
+/**
+ * El editor de la muralla y lo que depende de él: si el montaje cabe con ella
+ * (el aviso del editor y «Luchar», deshabilitado con el motivo). Las acciones de
+ * la muralla repintan solo esto (`repintarMuralla`); el resto del montaje no
+ * cambia con ellas.
+ */
+function pintarMuralla(): void {
+  const despliegue = despliegueDeArenaBlocker(montajeDeArena());
+  pintar(
+    elMuralla,
+    renderMuralla({
+      muralla,
+      herramienta,
+      nombre: nombreDeForma,
+      ejemplos: FORMAS_DE_EJEMPLO,
+      guardadas: formasGuardadas,
+      sinGuardado: murallasSinGuardado,
+      despliegue,
+      plegado: murallaPlegada,
+    }),
+  );
+  botonLuchar.toggleAttribute('disabled', despliegue !== null);
+  botonLuchar.title = despliegue === null ? '' : `No se puede luchar: ${despliegue}.`;
+}
+
+/** Solo el editor de la muralla, y la barra de estado en el siguiente fotograma. */
+function repintarMuralla(): void {
+  pintarMuralla();
+  pedirFotograma();
+}
+
 function repintarMontaje(): void {
   // Repintar quita el foco del campo que se acaba de cambiar: se le devuelve al
   // mismo campo, que es lo que espera quien edita con el tabulador.
@@ -360,7 +661,15 @@ function repintarMontaje(): void {
   for (const lado of ['izquierda', 'derecha'] as const) {
     pintar(
       elBando[lado],
-      renderBando(lado, montaje[lado], describir, elegida, caben, heroes[lado], ocupados(lado)),
+      renderBando(
+        lado,
+        montaje[lado],
+        (p) => describir(p, lado),
+        elegida,
+        caben,
+        heroes[lado],
+        ocupados(lado),
+      ),
     );
   }
   pintar(elFicha, fichaElegida());
@@ -369,6 +678,7 @@ function repintarMontaje(): void {
     elCatalogo,
     html`${renderReglas(reglas)}${renderEnlace(enlaceVigente())}${renderCatalogo(hojas, filtro, criaturas)}`,
   );
+  pintarMuralla();
   if (campo !== null) {
     const otra = elFicha.querySelector(`[data-campo="${campo}"]`);
     if (otra instanceof HTMLElement) otra.focus();
@@ -425,7 +735,7 @@ function ocupados(lado: Lado): number {
   return montaje[lado].length + (heroes[lado] === null ? 0 : 1);
 }
 
-function añadir(lado: Lado, fuente: FuenteDePuesto, ia: boolean): void {
+function añadir(lado: Lado, fuente: FuenteDePuesto, ia: boolean, escalera = false): void {
   const adjetivo = LADOS[lado].adjetivo;
   if (ocupados(lado) >= caben) {
     aviso = `El bando ${adjetivo} ya lleva ${caben}: no cabe ninguna más.`;
@@ -447,8 +757,8 @@ function añadir(lado: Lado, fuente: FuenteDePuesto, ia: boolean): void {
   } else {
     elegida = { kind: 'catalogo', id: creature(fuente.id).id };
   }
-  montaje[lado].push({ clave: siguienteClave++, fuente, ia });
-  aviso = `${describir({ clave: 0, fuente, ia }).nombre} entra en el bando ${adjetivo}.`;
+  montaje[lado].push({ clave: siguienteClave++, fuente, ia, escalera });
+  aviso = `${describir({ clave: 0, fuente, ia, escalera }, lado).nombre} entra en el bando ${adjetivo}.`;
 }
 
 /** Cambia la prueba de una criatura del catálogo, comprobada: lo que no cuadra se dice y no entra. */
@@ -533,10 +843,6 @@ function marcadoDe(el: Element): boolean {
 }
 
 async function guardar(): Promise<void> {
-  if (sinGuardado !== null) {
-    aviso = `No se puede guardar: ${sinGuardado}.`;
-    return;
-  }
   const orden = hojas.map((h) => h.id);
   // Las que no tienen hoja (`indexOf` −1) van al final, en el orden en que llegaron.
   const puesto = (id: string): number => {
@@ -544,21 +850,12 @@ async function guardar(): Promise<void> {
     return i < 0 ? orden.length : i;
   };
   const unidades = [...borrador.values()].sort((a, b) => puesto(a.id) - puesto(b.id));
-  const r = await fetch('/__arena/unidades', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ unidades }),
+  const hecho = await mandarAlServidor('/__arena/unidades', { unidades }, sinGuardado, {
+    noSePuede: 'No se puede guardar',
+    noSeHa: 'No se ha guardado',
   });
-  const cuerpo = (await r.json()) as {
-    ruta?: string;
-    unidades?: number;
-    conservadas?: number;
-    error?: string;
-  };
-  if (!r.ok) {
-    aviso = `No se ha guardado: ${cuerpo.error ?? r.status}.`;
-    return;
-  }
+  if (hecho === null) return;
+  const cuerpo = hecho as { ruta?: string; unidades?: number; conservadas?: number };
   cambiosSinGuardar = false;
   const n = cuerpo.unidades ?? 0;
   aviso = `Guardado en ${cuerpo.ruta}: ${n} ${n === 1 ? 'unidad' : 'unidades'}.`;
@@ -598,8 +895,8 @@ function montajeDelEnlace(): MontajeDelEnlace {
     puestos: montaje[l].map(
       (p): PuestoDelEnlace =>
         p.fuente.kind === 'hoja'
-          ? { kind: 'hoja', hoja: p.fuente.hoja, ia: p.ia }
-          : { kind: 'catalogo', id: p.fuente.id, ia: p.ia },
+          ? { kind: 'hoja', hoja: p.fuente.hoja, ia: p.ia, escalera: p.escalera }
+          : { kind: 'catalogo', id: p.fuente.id, ia: p.ia, escalera: p.escalera },
     ),
     heroe: heroes[l],
   });
@@ -608,6 +905,7 @@ function montajeDelEnlace(): MontajeDelEnlace {
     pruebas: pruebasMontadas,
     izquierda: lado('izquierda'),
     derecha: lado('derecha'),
+    muralla: hayMuralla(muralla) ? muralla : null,
   };
 }
 
@@ -696,9 +994,13 @@ function montarDelEnlace(): { readonly montado: boolean; readonly aviso: string 
         clave: siguienteClave++,
         fuente: p.kind === 'hoja' ? { kind: 'hoja', hoja: p.hoja } : { kind: 'catalogo', id: p.id },
         ia: p.ia,
+        escalera: p.escalera,
       }));
       heroes[l] = m[l].heroe;
     }
+    // La muralla del enlace sustituye a la dibujada; sin ella, el tablero va limpio.
+    muralla = m.muralla ?? SIN_MURALLA;
+    nombreDeForma = '';
     // La barra se queda con la semilla y las reglas: el montaje, si cambia, ya no
     // sería el del enlace.
     reglasALaBarra((url) => url.searchParams.delete('montaje'));
@@ -723,13 +1025,7 @@ const batalla = new EscenaBatalla(() => {
 });
 
 function luchar(): void {
-  const puesto = (p: Puesto): PuestoDeArena => ({
-    fuente:
-      p.fuente.kind === 'hoja'
-        ? { kind: 'borrador', unidad: unidadDe(p.fuente.hoja) }
-        : { kind: 'catalogo', id: p.fuente.id, cambios: pruebas.get(p.fuente.id) ?? null },
-    ia: p.ia,
-  });
+  const puesto = (p: Puesto): PuestoDeArena => ({ fuente: fuenteDeArena(p), ia: p.ia });
   const lado = (l: Lado): LadoDeSesion => ({
     puestos: montaje[l].map(puesto),
     heroe: heroes[l],
@@ -741,7 +1037,7 @@ function luchar(): void {
   let nueva: SesionDeArena;
   try {
     nueva = new SesionDeArena(
-      { izquierda: lado('izquierda'), derecha: lado('derecha'), reglas },
+      { izquierda: lado('izquierda'), derecha: lado('derecha'), reglas, muralla },
       semilla,
     );
   } catch (err) {
@@ -767,6 +1063,41 @@ function volverAlMontaje(): void {
   elTurn.textContent = '';
   aviso = 'De vuelta al montaje: todo sigue como estaba.';
   repintarMontaje();
+}
+
+/**
+ * Con muralla, el lienzo se alarga lo que piden lo alto de sus columnas y quien
+ * está encima (`altoDelLienzo`) y el marco se desplaza en vertical: el tablero
+ * baja en vez de encogerse (el usuario: «si se sale de la pantalla podemos mover
+ * la zona de casillas más abajo y agrandar la pantalla»). Al alargarse, el marco
+ * se coloca con el final del tablero abajo (`pieDelTablero`), tras el primer
+ * fotograma con el tamaño nuevo: con el marco abajo del todo, la cabeza de quien
+ * está en una columna de la fila de atrás quedaba fuera de la vista, y arriba
+ * del todo, la última fila. Sin muralla, el lienzo es el marco.
+ */
+let colocarElMarco = false;
+
+function alargarLienzo(): void {
+  const visible = elLienzo.clientHeight;
+  const pide = (): number =>
+    sesion === null ? visible : batalla.altoDelLienzo(elLienzo.clientWidth, visible);
+  // Dos veces: con el marco desplazable, la barra le quita ancho, y el alto que
+  // pide el tablero sale de ese ancho.
+  app.toggleAttribute('data-muralla', pide() > visible + 0.5);
+  const alto = pide();
+  const css = alto > visible + 0.5 ? `${Math.ceil(alto)}px` : '';
+  if (canvas.style.height === css) return;
+  const alargado = canvas.style.height === '';
+  canvas.style.height = css;
+  principal.remedir();
+  if (alargado && css !== '') colocarElMarco = true;
+}
+
+/** Tras pintar con el lienzo alargado: el final del tablero, al pie del marco. */
+function colocarMarco(): void {
+  if (!colocarElMarco) return;
+  colocarElMarco = false;
+  elLienzo.scrollTop = Math.max(0, batalla.pieDelTablero() - elLienzo.clientHeight);
 }
 
 /** La puerta de los gestos mientras se cuenta la jugada, como en la partida. */
@@ -875,10 +1206,12 @@ function dibujarFiguras(ahora: number): boolean {
 }
 
 function dibujarBatalla(ahora: number, s: SesionDeArena): void {
+  alargarLienzo();
   const rect = principal.preparar();
   principal.ctx.clearRect(0, 0, rect.width, rect.height);
   batalla.sincronizar(ahora);
   batalla.dibujar(principal.ctx, rect.width, rect.height);
+  colocarMarco();
   const ocupada = batalla.ocupada;
   if (paneles === null || paneles.version !== s.version || paneles.ocupada !== ocupada) {
     paneles = { version: s.version, ocupada };
@@ -929,6 +1262,52 @@ canvas.addEventListener('pointerleave', () => {
   pedirFotograma();
 });
 
+/**
+ * «Poner escalera» o «Subir»: con un solo muro al pie, se juega ya; con varios,
+ * el siguiente clic en una columna marcada elige cuál (`muroPorElegir`), y pulsar
+ * el botón otra vez lo cancela.
+ */
+function escala(s: SesionDeArena, tipo: TipoDeEscala): void {
+  const contra = s.battleLegalActions().filter((a) => a.type === tipo);
+  const unica = contra.length === 1 ? contra[0] : undefined;
+  if (unica !== undefined) {
+    s.muroPorElegir = null;
+    s.playBattleAction(unica);
+    return;
+  }
+  if (contra.length === 0) {
+    s.status = s.motivoDeEscala(tipo) ?? 'No hay muro contra el que hacerlo.';
+    return;
+  }
+  s.muroPorElegir = s.muroPorElegir === tipo ? null : tipo;
+  s.status =
+    s.muroPorElegir === null
+      ? ''
+      : 'Elige el muro: pulsa en lo alto de una de las columnas marcadas.';
+}
+
+/**
+ * «Abrir puerta» o «Cerrar puerta»: con una sola puerta que abrir (o cerrar), se
+ * juega ya; con varias, el siguiente clic en una portada marcada elige cuál
+ * (`puertaPorElegir`), y pulsar el botón otra vez lo cancela.
+ */
+function puerta(s: SesionDeArena, tipo: TipoDePuerta): void {
+  const contra = s.battleLegalActions().filter((a) => a.type === tipo);
+  const unica = contra.length === 1 ? contra[0] : undefined;
+  if (unica !== undefined) {
+    s.puertaPorElegir = null;
+    s.playBattleAction(unica);
+    return;
+  }
+  if (contra.length === 0) {
+    s.status = s.motivoDePuerta(tipo) ?? 'No hay puerta que abrir o cerrar.';
+    return;
+  }
+  s.puertaPorElegir = s.puertaPorElegir === tipo ? null : tipo;
+  s.status =
+    s.puertaPorElegir === null ? '' : 'Elige la puerta: pulsa en una de las portadas marcadas.';
+}
+
 /** Los botones de la batalla, los mismos de la partida (`accionesDeLaUnidad`). */
 const JUGADA_DE_BOTON = {
   'battle-end-turn': 'end_turn',
@@ -957,6 +1336,26 @@ document.addEventListener('click', (ev) => {
     // (M12 de QA). `detail` cuenta los clics seguidos.
     if (ev.detail > 1 || sesion === null || jugadaEnCurso()) return;
     sesion.playBattleAction({ type: JUGADA_DE_BOTON[accion as keyof typeof JUGADA_DE_BOTON] });
+    pedirFotograma();
+    return;
+  }
+  if (accion === 'battle-escala') {
+    if (ev.detail > 1 || sesion === null || jugadaEnCurso()) return;
+    const tipo = (ev.target as Element).closest('[data-escala]')?.getAttribute('data-escala');
+    if (tipo !== 'poner_escalera' && tipo !== 'subir') {
+      throw new Error(`el botón de la escala trae «${String(tipo)}»`);
+    }
+    escala(sesion, tipo);
+    pedirFotograma();
+    return;
+  }
+  if (accion === 'battle-puerta') {
+    if (ev.detail > 1 || sesion === null || jugadaEnCurso()) return;
+    const tipo = (ev.target as Element).closest('[data-puerta]')?.getAttribute('data-puerta');
+    if (tipo !== 'abrir_puerta' && tipo !== 'cerrar_puerta') {
+      throw new Error(`el botón de la puerta trae «${String(tipo)}»`);
+    }
+    puerta(sesion, tipo);
     pedirFotograma();
     return;
   }
@@ -1041,7 +1440,12 @@ document.addEventListener('click', (ev) => {
       }
       case 'duplicar': {
         const { lado, p } = puestoPorClave(clave);
-        añadir(lado, p.fuente, p.ia);
+        añadir(lado, p.fuente, p.ia, p.escalera);
+        break;
+      }
+      case 'escalera': {
+        const { lado, i, p } = puestoPorClave(clave);
+        montaje[lado][i] = { ...p, escalera: !p.escalera };
         break;
       }
       case 'quitar': {
@@ -1077,6 +1481,50 @@ document.addEventListener('click', (ev) => {
           repintarMontaje();
         });
         return;
+      case 'hex-muralla':
+        tocarHex({
+          col: Number(el.getAttribute('data-col')),
+          row: Number(el.getAttribute('data-row')),
+        });
+        repintarMuralla();
+        return;
+      case 'herramienta-muralla':
+        herramienta = el.getAttribute('data-herramienta') as HerramientaDeMuralla;
+        repintarMuralla();
+        return;
+      case 'plegar-muralla':
+        murallaPlegada = !murallaPlegada;
+        recordarPlegado(murallaPlegada);
+        repintarMuralla();
+        return;
+      case 'vaciar-muralla':
+        muralla = SIN_MURALLA;
+        aviso = 'Muralla vacía: la pelea será a campo abierto.';
+        repintarMuralla();
+        return;
+      case 'cargar-forma': {
+        const f = formaPorNombre(el.getAttribute('data-nombre') as string);
+        muralla = f.muralla;
+        // Una de ejemplo no se guarda con su nombre: se deja el campo para otro.
+        nombreDeForma = esFormaDeEjemplo(f.nombre) ? '' : f.nombre;
+        aviso = `Cargada la forma «${f.nombre}».`;
+        repintarMuralla();
+        return;
+      }
+      case 'guardar-forma':
+        void guardarForma().then(repintarMuralla, (err: unknown) => {
+          aviso = `No se ha guardado la muralla: ${mensaje(err)}.`;
+          repintarMuralla();
+        });
+        return;
+      case 'borrar-forma': {
+        const nombre = el.getAttribute('data-nombre') as string;
+        void borrarForma(nombre).then(repintarMuralla, (err: unknown) => {
+          aviso = `No se ha borrado la forma «${nombre}»: ${mensaje(err)}.`;
+          repintarMuralla();
+        });
+        return;
+      }
       case 'guardar':
         void guardar().then(repintarMontaje, (err: unknown) => {
           aviso = `No se ha guardado: ${mensaje(err)}.`;
@@ -1098,6 +1546,11 @@ document.addEventListener('click', (ev) => {
 
 document.addEventListener('change', (ev) => {
   const el = ev.target as Element;
+  // El nombre de la forma no es de ninguna unidad: se apunta y nada más.
+  if (el.getAttribute('data-muralla-nombre') !== null) {
+    nombreDeForma = valorDe(el);
+    return;
+  }
   if (elegida === null) return;
   if (elegida.kind === 'catalogo') {
     cambiarDelCatalogo(elegida.id, el);
@@ -1215,12 +1668,13 @@ document.addEventListener('keydown', (ev) => {
   pedirFotograma();
 });
 
-arrancar().then(
-  () => {
+// Las dos lecturas no dependen una de otra: van a la vez.
+Promise.all([arrancar(), arrancarMurallas()]).then(
+  ([, avisoDeMurallas]) => {
     const delEnlace = montarDelEnlace();
     aviso = delEnlace?.montado
-      ? `${delEnlace.aviso}${aviso}${avisoDeIncompletas}`
-      : `${avisoDeSemilla}${delEnlace?.aviso ?? ''}${aviso}${avisoDeIncompletas} Añade unidades a los dos bandos y pulsa Luchar.`;
+      ? `${delEnlace.aviso}${aviso}${avisoDeIncompletas}${avisoDeMurallas}`
+      : `${avisoDeSemilla}${delEnlace?.aviso ?? ''}${aviso}${avisoDeIncompletas}${avisoDeMurallas} Añade unidades a los dos bandos y pulsa Luchar.`;
     repintarMontaje();
   },
   (err: unknown) => {

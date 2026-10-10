@@ -716,6 +716,8 @@ function renderBattlePanel(session: Session, contandoAun: boolean): Html {
           pasos: session.battleStepsLeft(),
           rendicion: renderRendicion(session),
           hechizos: renderSpells(session.hechizos.selectedSpell, session.spellOptions()),
+          // Las batallas del mapa no tienen muralla.
+          muralla: NADA,
         }),
       )
     : html`<p>Turno del enemigo…</p>`;
@@ -768,6 +770,11 @@ export function accionesDeLaUnidad(o: {
   readonly pasos: number | null;
   readonly rendicion: Html;
   readonly hechizos: Html;
+  /**
+   * Los botones de la muralla —«Abrir puerta» y «Cerrar puerta», «Poner
+   * escalera» y «Subir»—, donde la hay (la arena); si no, `NADA`.
+   */
+  readonly muralla: Html;
 }): Html {
   const puede = (tipo: BattleAction['type']): boolean => o.legales.some((a) => a.type === tipo);
   const quedan = o.pasos === null ? null : quedanCasillas(o.pasos);
@@ -777,7 +784,7 @@ export function accionesDeLaUnidad(o: {
          <button data-action="battle-end-turn">Terminar turno</button>
          <button data-action="battle-defend" ${puede('defend') ? NADA : DESHABILITADO}>Defender</button>
          <button data-action="battle-wait" ${puede('wait') ? NADA : DESHABILITADO}>Esperar</button>
-         ${o.rendicion}
+         ${o.rendicion}${o.muralla}
        </div>
        ${o.hechizos}
        <p class="cost" style="margin-top:.5rem">
@@ -1149,6 +1156,15 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
           // del % es duro: en la caja estrecha del parte el «%» bajaba solo a la
           // línea siguiente (visto en la captura).
           return html`<div>Se defiende ${quienEs(e.stack)}: +${Math.round(DEFEND_BONUS * 100)}\u00a0% de defensa hasta el final de la ronda</div>`;
+
+        case 'ladder_placed':
+          return html`<div>${quienEs(e.stack)} apoya su escalera en el muro de (${e.muro.col},${e.muro.row}): se queda puesta</div>`;
+        case 'climbed':
+          return html`<div>Sube a la muralla ${quienEs(e.stack)}, en (${e.to.col},${e.to.row}): este turno no hace nada más</div>`;
+        case 'gate_opened':
+          return html`<div>${quienEs(e.stack)} abre la puerta de entre (${e.puerta.a.col},${e.puerta.a.row}) y (${e.puerta.b.col},${e.puerta.b.row}): ahora pasa cualquiera</div>`;
+        case 'gate_closed':
+          return html`<div>${quienEs(e.stack)} cierra la puerta de entre (${e.puerta.a.col},${e.puerta.a.row}) y (${e.puerta.b.col},${e.puerta.b.row}): no pasa nadie</div>`;
 
         // El único que el parte NO cuenta, escrito aparte en vez de caer por un
         // `default`: el tablero ya enseña dónde está cada unidad, y el paso a

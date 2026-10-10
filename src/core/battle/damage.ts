@@ -59,9 +59,10 @@ export function effectiveAttack(stack: BattleStack): number {
 }
 
 /**
- * La defensa con la que se recibe un golpe: la suya, más lo que le suma su héroe
- * con el interruptor (f) en fheroes2 (`delMando`, 0 en el juego), y el bono de
- * defender.
+ * La defensa con la que se recibe un golpe: la suya, más lo que se le suma
+ * (`extra`: lo de su héroe con el interruptor (f) en fheroes2, 0 en el juego, y
+ * lo de estar en lo alto de un muro, `bonoEnLoAlto`), y el bono de defender
+ * encima de todo.
  *
  * Defender, con el interruptor (d) en fheroes2, no suma nada: allí `SKIP` solo
  * marca la unidad como movida y que no le toque la moral (`defend` en
@@ -74,12 +75,8 @@ export function effectiveAttack(stack: BattleStack): number {
  * ```
  * https://github.com/ihhub/fheroes2/blob/9754feff8501dbb69df95f3b999156a32eb8d7d3/src/fheroes2/battle/battle_action.cpp#L699-L700
  */
-export function effectiveDefense(
-  stack: BattleStack,
-  reglas: ReglasDeBatalla,
-  delMando = 0,
-): number {
-  const base = stack.unit.defense + delMando;
+export function effectiveDefense(stack: BattleStack, reglas: ReglasDeBatalla, extra = 0): number {
+  const base = stack.unit.defense + extra;
   return defiendeConBono(stack, reglas) ? base * (1 + DEFEND_BONUS) : base;
 }
 
@@ -105,7 +102,11 @@ export function ataqueYDefensa(
 ): { readonly ataque: number; readonly defensa: number } {
   return {
     ataque: effectiveAttack(attacker) + (opts.ataqueDelMando ?? 0),
-    defensa: effectiveDefense(defender, opts.reglas, opts.defensaDelMando ?? 0),
+    defensa: effectiveDefense(
+      defender,
+      opts.reglas,
+      (opts.defensaDelMando ?? 0) + (opts.bonoEnLoAlto ?? 0),
+    ),
   };
 }
 
@@ -172,6 +173,8 @@ export interface DamageOptions {
    */
   readonly ataqueDelMando?: number;
   readonly defensaDelMando?: number;
+  /** Lo que suma a la defensa del que recibe estar en lo alto (`bonoEnLoAlto`). */
+  readonly bonoEnLoAlto?: number;
 }
 
 /**
@@ -223,9 +226,10 @@ function applyModifiers(
       (opts.ataqueDelMando ?? 0) > 0 || (opts.defensaDelMando ?? 0) > 0
         ? ', con lo de sus héroes'
         : '';
+    const enLoAlto = (opts.bonoEnLoAlto ?? 0) > 0 ? ', en lo alto de la muralla' : '';
     const formula = reglas.ataqueDefensa === 'fheroes2' ? ', fórmula de fheroes2' : '';
     anotar.push({
-      causa: `ataque ${conComa(ataque, 1)} contra defensa ${conComa(defensa, 1)}${defiende}${mando}${formula}`,
+      causa: `ataque ${conComa(ataque, 1)} contra defensa ${conComa(defensa, 1)}${defiende}${enLoAlto}${mando}${formula}`,
       factor: mult,
     });
   }
@@ -243,8 +247,9 @@ function applyModifiers(
       anotar?.push({ causa: `disparo a ${opts.distance} casillas, más de 5`, factor: 0.5 });
     }
   } else if (opts.ranged !== true && isShooter(info) && attacker.shotsLeft > 0) {
-    // fheroes2: el disparo no pierde con la distancia (fuera de una muralla, que
-    // aquí no hay), y un tirador CON flechas que pega cuerpo a cuerpo —también al
+    // fheroes2: el disparo no pierde con la distancia (fuera de una muralla: allí
+    // tirar a través de ella pega la mitad; la nuestra, en el suelo, no deja
+    // tirar a través, y desde lo alto o hacia lo alto no la cruza), y un tirador CON flechas que pega cuerpo a cuerpo —también al
     // devolver un golpe— pega la mitad. Sin flechas no es tirador: `isArchers()`
     // es `GetShots() > 0`. `NO_MELEE_PENALTY` lo tienen el mago, el archimago y
     // el titán, que el catálogo no tiene.

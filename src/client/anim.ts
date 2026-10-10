@@ -19,8 +19,10 @@
  * que la primera lectura de una batalla toma las posiciones tal y como están.
  */
 import { isAlive, stackHexes } from '@core/battle/battle.js';
+import { nivelDe } from '@core/battle/muralla.js';
 import type { BattleEvent, BattleStack, BattleState } from '@core/battle/types.js';
 import { hexSize } from '@core/data.js';
+import type { Hex } from '@core/types.js';
 import { type Direccion, direccionHacia } from './direccion.js';
 import { msDeSuelta, msPorCasilla } from './marcha.js';
 import type { CharacterClip } from './render/character.js';
@@ -109,6 +111,11 @@ type Paso =
        * de `desde` a `hasta` cruzaba por encima de unidades que el camino rodea.
        */
       readonly camino: readonly Plano[];
+      /**
+       * Lo alto de cada punto de `camino`: 1 en lo alto de un muro, 0 en el
+       * suelo. Entre dos se interpola, y así se ve subir y bajar de la columna.
+       */
+      readonly alturas: readonly number[];
       /** El tramo con el que se carga: el jinete lo anda con la lanza bajada. */
       readonly carga?: true;
       /** Quién anda y lo alto que se pinta, en pasos: lo que fija su zancada. */
@@ -148,6 +155,11 @@ export interface EstadoFigura {
    */
   readonly caida: number | null;
   /**
+   * Lo alto que está: 0 en el suelo, 1 en lo alto de un muro, y lo de en medio
+   * mientras sube o baja. El lienzo lo multiplica por lo que mide una columna.
+   */
+  readonly elevacion: number;
+  /**
    * Hacia dónde mira, en ocho sectores (`direccion.ts`): anda mirando a la
    * casilla siguiente, golpea mirando a su objetivo y se queda mirando a donde
    * miró la última vez. Es estado del animador, no del núcleo.
@@ -169,9 +181,23 @@ function miradaEnElTramo(camino: readonly Plano[], i: number, antes: Direccion):
 
 /** Un efecto suelto encima del tablero: un proyectil o una cifra de daño. */
 export type Efecto =
-  | { readonly tipo: 'proyectil'; readonly desde: Plano; readonly hasta: Plano; readonly t: number }
-  | { readonly tipo: 'danio'; readonly en: Plano; readonly cifra: number; readonly t: number }
-  | { readonly tipo: 'hechizo'; readonly en: Plano; readonly t: number };
+  | {
+      readonly tipo: 'proyectil';
+      readonly desde: Plano;
+      readonly hasta: Plano;
+      readonly t: number;
+      /** Lo alto de quien tira y de su blanco (`EstadoFigura.elevacion`): la flecha sale de la columna. */
+      readonly altoDesde: number;
+      readonly altoHasta: number;
+    }
+  | {
+      readonly tipo: 'danio';
+      readonly en: Plano;
+      readonly alto: number;
+      readonly cifra: number;
+      readonly t: number;
+    }
+  | { readonly tipo: 'hechizo'; readonly en: Plano; readonly alto: number; readonly t: number };
 
 /**
  * Dónde va la figura en la fracción `t` de su paso: por los tramos del camino,
@@ -179,7 +205,7 @@ export type Efecto =
  * misma distancia de sus vecinas).
  */
 /** Qué tramo del camino se anda en la fracción `t`: el mismo reparto que `porElCamino`. */
-function tramoEn(camino: readonly Plano[], t: number): number {
+function tramoEn(camino: readonly unknown[], t: number): number {
   const tramos = camino.length - 1;
   return Math.max(0, Math.min(tramos - 1, Math.floor(Math.min(1, Math.max(0, t)) * tramos)));
 }
@@ -193,6 +219,17 @@ export function porElCamino(camino: readonly Plano[], t: number): Plano {
   const b = camino[i + 1] as Plano;
   const f = recorrido - i;
   return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
+}
+
+/** Lo alto que va la figura en la fracción `t` del camino: el mismo reparto que `porElCamino`. */
+export function alturaEnElCamino(alturas: readonly number[], t: number): number {
+  const tramos = alturas.length - 1;
+  if (tramos <= 0) return alturas[0] ?? 0;
+  const recorrido = Math.min(1, Math.max(0, t)) * tramos;
+  const i = tramoEn(alturas, t);
+  const a = alturas[i] as number;
+  const b = alturas[i + 1] as number;
+  return a + (b - a) * (recorrido - i);
 }
 
 /** Lo largo que es un camino en el plano: casillas, si son vecinas. */
@@ -266,6 +303,11 @@ function pasoDeAccion(e: BattleEvent, battle: BattleState): Exclude<Paso, { tipo
   }
 }
 
+/** Lo alto que se pinta `s`, en pasos: lo que fija su zancada (`msPorCasilla`). */
+function altoDeFigura(s: BattleStack): number {
+  return ALTO_DE_FIGURA[hexSize(s.unit) > 1 ? 'grande' : 'normal'];
+}
+
 /**
  * Lo que tarda el animador, a ritmo normal, en contar `nuevos`, hechos del
  * registro de `battle`: la misma cuenta que hace con su cola, para quien tiene
@@ -276,16 +318,18 @@ function pasoDeAccion(e: BattleEvent, battle: BattleState): Exclude<Paso, { tipo
 export function duracionDeLaJugada(battle: BattleState, nuevos: readonly BattleEvent[]): number {
   let ms = 0;
   for (const [i, e] of nuevos.entries()) {
-    if (e.kind === 'move') {
-      const s = stackDe(battle, e.stack, 'mueve');
+    if (e.kind === 'move' || e.kind === 'climbed') {
+      // Subir es un paso de una casilla, a la marcha.
+      const s = stackDe(battle, e.stack, e.kind === 'move' ? 'mueve' : 'hace subir');
       const siguiente = nuevos[i + 1];
       const carga =
+        e.kind === 'move' &&
         siguiente?.kind === 'attack' &&
         siguiente.stack === e.stack &&
         siguiente.charge !== undefined &&
         !siguiente.retaliation;
-      const alto = ALTO_DE_FIGURA[hexSize(s.unit) > 1 ? 'grande' : 'normal'];
-      ms += e.path.length * msPorCasilla(s.body, carga ? 'charge' : 'walk', alto);
+      const casillas = e.kind === 'move' ? e.path.length : 1;
+      ms += casillas * msPorCasilla(s.body, carga ? 'charge' : 'walk', altoDeFigura(s));
     } else {
       const paso = pasoDeAccion(e, battle);
       if (paso !== null) ms += paso.dura;
@@ -328,6 +372,10 @@ export class BattleAnimator {
   private readonly vista = new Map<string, Plano>();
   /** Dónde estará cuando la cola acabe: el `desde` del siguiente movimiento. */
   private readonly destino = new Map<string, Plano>();
+  /** Lo alto que se VE cada unidad (`EstadoFigura.elevacion`), como `vista`. */
+  private readonly altura = new Map<string, number>();
+  /** Lo alto que estará cuando la cola acabe, como `destino`. */
+  private readonly alturaDestino = new Map<string, number>();
   /**
    * Las que ya cayeron en pantalla, con el instante en que EMPEZÓ su caída: el
    * cadáver sigue el reloj de la muerte desde ahí. Las que ya estaban muertas al
@@ -369,6 +417,8 @@ export class BattleAnimator {
       this.actual = null;
       this.vista.clear();
       this.destino.clear();
+      this.altura.clear();
+      this.alturaDestino.clear();
       this.caidas.clear();
       this.heridas.clear();
       this.aCentro.clear();
@@ -379,6 +429,9 @@ export class BattleAnimator {
         const p = planoDeHex(s.hex);
         this.vista.set(s.id, p);
         this.destino.set(s.id, p);
+        const alto = nivelDe(battle.muralla, s.hex);
+        this.altura.set(s.id, alto);
+        this.alturaDestino.set(s.id, alto);
         if (!isAlive(s)) this.caidas.set(s.id, Number.NEGATIVE_INFINITY);
       }
       this.leidos = battle.log.length;
@@ -403,18 +456,42 @@ export class BattleAnimator {
 
   private traducir(e: BattleEvent, battle: BattleState): Paso | null {
     switch (e.kind) {
-      case 'move': {
-        const hasta = planoDeHex(e.to);
-        const desde = this.destino.get(e.stack) ?? hasta;
-        this.destino.set(e.stack, hasta);
-        const camino = [desde, ...e.path.map(planoDeHex)];
-        const s = stackDe(battle, e.stack, 'mueve');
-        const alto = ALTO_DE_FIGURA[hexSize(s.unit) > 1 ? 'grande' : 'normal'];
-        return { tipo: 'move', stack: e.stack, desde, hasta, camino, body: s.body, alto };
-      }
+      case 'move':
+        return this.andar(battle, e.stack, e.to, e.path, 'mueve');
+      // Subir a la muralla se cuenta como un paso del pie a la columna.
+      case 'climbed':
+        return this.andar(battle, e.stack, e.to, [e.to], 'hace subir');
       default:
         return pasoDeAccion(e, battle);
     }
+  }
+
+  /** El paso de andar `path` hasta `to`, desde donde acabó el anterior y a su altura. */
+  private andar(
+    battle: BattleState,
+    stack: string,
+    to: Hex,
+    path: readonly Hex[],
+    que: string,
+  ): Paso {
+    const hasta = planoDeHex(to);
+    const desde = this.destino.get(stack) ?? hasta;
+    this.destino.set(stack, hasta);
+    const camino = [desde, ...path.map(planoDeHex)];
+    const altoAntes = this.alturaDestino.get(stack) ?? 0;
+    const alturas = [altoAntes, ...path.map((h) => nivelDe(battle.muralla, h))];
+    this.alturaDestino.set(stack, alturas.at(-1) as number);
+    const s = stackDe(battle, stack, que);
+    return {
+      tipo: 'move',
+      stack,
+      desde,
+      hasta,
+      camino,
+      alturas,
+      body: s.body,
+      alto: altoDeFigura(s),
+    };
   }
 
   /**
@@ -461,7 +538,10 @@ export class BattleAnimator {
     if (p.tipo === 'attack' || p.tipo === 'shoot') {
       this.mirada.set(p.stack, this.miradaAlObjetivo(p.stack, p.target));
     }
-    if (p.tipo === 'move') this.vista.set(p.stack, p.hasta);
+    if (p.tipo === 'move') {
+      this.vista.set(p.stack, p.hasta);
+      this.altura.set(p.stack, p.alturas.at(-1) as number);
+    }
     if (p.tipo === 'perished') this.caidas.set(p.stack, inicio);
     // El daño sigue después del paso: se apunta cuándo fue el impacto.
     if (p.tipo === 'attack' || p.tipo === 'shoot' || p.tipo === 'cast') {
@@ -512,6 +592,7 @@ export class BattleAnimator {
     const t = this.progreso();
     const desdeInicio = this.ahora - (this.actual?.inicio ?? 0);
     let cabeza = this.vista.get(s.id) ?? planoDeHex(s.hex);
+    let elevacion = this.altura.get(s.id) ?? 0;
     let clip: CharacterClip = 'idle';
     let tiempo = this.ahora;
     let golpe = 0;
@@ -528,6 +609,7 @@ export class BattleAnimator {
     if (paso !== undefined) {
       if (paso.tipo === 'move' && paso.stack === s.id) {
         cabeza = porElCamino(paso.camino, t);
+        elevacion = alturaEnElCamino(paso.alturas, t);
         mirada = miradaEnElTramo(paso.camino, tramoEn(paso.camino, t), mirada);
         clip = paso.carga === true ? 'charge' : 'walk';
         tiempo = desdeInicio;
@@ -564,6 +646,7 @@ export class BattleAnimator {
     const caida = inicioDeLaCaida === undefined ? null : this.ahora - inicioDeLaCaida;
     return {
       en: this.centro(s, cabeza),
+      elevacion,
       clip,
       tiempo,
       golpe,
@@ -583,6 +666,7 @@ export class BattleAnimator {
       const s = battle.stacks.find((x) => x.id === id);
       return s === undefined ? null : this.centro(s, this.vista.get(id) ?? planoDeHex(s.hex));
     };
+    const alto = (id: string): number => this.altura.get(id) ?? 0;
     const out: Efecto[] = [];
     if (paso.tipo === 'attack' || paso.tipo === 'shoot') {
       const a = donde(paso.stack);
@@ -591,19 +675,39 @@ export class BattleAnimator {
       if (a !== null && b !== null) {
         // Lo que vuela, vuela de la suelta al impacto.
         if (suelta !== null && t >= suelta && t < impacto) {
-          out.push({ tipo: 'proyectil', desde: a, hasta: b, t: (t - suelta) / (impacto - suelta) });
+          out.push({
+            tipo: 'proyectil',
+            desde: a,
+            hasta: b,
+            t: (t - suelta) / (impacto - suelta),
+            altoDesde: alto(paso.stack),
+            altoHasta: alto(paso.target),
+          });
         }
         if (t >= impacto && paso.damage > 0) {
-          out.push({ tipo: 'danio', en: b, cifra: paso.damage, t: trasImpacto(t, impacto) });
+          out.push({
+            tipo: 'danio',
+            en: b,
+            alto: alto(paso.target),
+            cifra: paso.damage,
+            t: trasImpacto(t, impacto),
+          });
         }
       }
     }
     if (paso.tipo === 'cast' && paso.target !== null) {
       const b = donde(paso.target);
       if (b !== null) {
-        out.push({ tipo: 'hechizo', en: b, t });
+        const arriba = alto(paso.target);
+        out.push({ tipo: 'hechizo', en: b, alto: arriba, t });
         if (t >= paso.impacto && paso.damage > 0) {
-          out.push({ tipo: 'danio', en: b, cifra: paso.damage, t: trasImpacto(t, paso.impacto) });
+          out.push({
+            tipo: 'danio',
+            en: b,
+            alto: arriba,
+            cifra: paso.damage,
+            t: trasImpacto(t, paso.impacto),
+          });
         }
       }
     }

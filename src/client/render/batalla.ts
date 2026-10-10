@@ -13,8 +13,16 @@
  * instante, del animador.
  */
 import { activeStack, type CasillaDeCarga, isAlive, stackHexes } from '@core/battle/battle.js';
-import { BOARD_HEIGHT, BOARD_WIDTH, hexKey } from '@core/battle/board.js';
+import { BOARD_HEIGHT, BOARD_WIDTH, hexKey, indiceDe } from '@core/battle/board.js';
 import { CHARGE_BONUS_PER_HEX, stackHp } from '@core/battle/damage.js';
+import {
+  type EstadoDePuerta,
+  hayMuralla,
+  type MurallaDeBatalla,
+  nivelDe,
+  type PuertaDeMuralla,
+  puertaAbierta,
+} from '@core/battle/muralla.js';
 import {
   type BattleStack,
   type BattleState,
@@ -23,6 +31,7 @@ import {
 } from '@core/battle/types.js';
 import { hexSize, isShooter } from '@core/data.js';
 import type { Hex, PlayerId } from '@core/types.js';
+import { COMPRESION_SUELO } from '../../shared/arte.js';
 import type { Efecto, EstadoFigura } from '../anim.js';
 import { nombreEnElCampo } from '../views/distintivo.js';
 import { asset } from './assets.js';
@@ -43,6 +52,7 @@ import {
   centroHex,
   enPantalla,
   type Plano,
+  planoDeHex,
   type Tablero,
   verticesHex,
 } from './proyeccion.js';
@@ -102,10 +112,28 @@ export interface VistaBatalla {
   readonly angulo: Angulo | null;
   /** Unidades a las que puede atacar o disparar la activa, si es tuya. */
   readonly atacables: ReadonlySet<string>;
+  /**
+   * Los muros contra los que la activa —tuya— puede poner su escalera o subir
+   * (`poner_escalera`, `subir`): se marcan en lo alto de su columna, que es
+   * donde se pulsa.
+   */
+  readonly escalables: ReadonlySet<string>;
+  /**
+   * Las puertas que la activa —tuya— puede abrir o cerrar con el botón que
+   * espera la elección (`puertaPorElegir`): se marca su portada, que es donde se
+   * pulsa.
+   */
+  readonly puertasPorElegir: ReadonlySet<string>;
   /** Unidades sobre las que cae el hechizo elegido. */
   readonly objetivosHechizo: ReadonlySet<string>;
   readonly hoverHex: Hex | null;
   readonly hoverStack: string | null;
+  /**
+   * Dónde está el puntero en el lienzo, o `null` (el espectador no tiene). Lo
+   * lee la columna que se vuelve translúcida: la que el puntero pisa delante de
+   * `hoverHex` (`columnasTranslucidas`).
+   */
+  readonly puntero: Punto | null;
   /** Dónde y cómo está cada figura ahora: lo dice el animador. */
   readonly figura: (s: BattleStack) => EstadoFigura;
   readonly efectos: readonly Efecto[];
@@ -118,12 +146,19 @@ export interface VistaBatalla {
  * senos y cosenos por fotograma para dibujar siempre lo mismo; ahora se trazan
  * al cambiar el tamaño del lienzo y nada más.
  */
-let geometria: { clave: string; hexes: { k: string; camino: Path2D }[] } | null = null;
+let geometria: { clave: string; hexes: CasillaPintada[] } | null = null;
 
-function hexesDe(t: Tablero): { k: string; camino: Path2D }[] {
+/** Una casilla del tablero ya trazada, por su índice (`indiceDe`). */
+interface CasillaPintada {
+  readonly hex: Hex;
+  readonly k: string;
+  readonly camino: Path2D;
+}
+
+function hexesDe(t: Tablero): CasillaPintada[] {
   const clave = `${t.paso}|${t.origenX}|${t.origenY}|${t.compresion}`;
   if (geometria !== null && geometria.clave === clave) return geometria.hexes;
-  const hexes: { k: string; camino: Path2D }[] = [];
+  const hexes: CasillaPintada[] = [];
   for (let row = 0; row < BOARD_HEIGHT; row++) {
     for (let col = 0; col < BOARD_WIDTH; col++) {
       const camino = new Path2D();
@@ -132,7 +167,7 @@ function hexesDe(t: Tablero): { k: string; camino: Path2D }[] {
         else camino.lineTo(p.x, p.y);
       }
       camino.closePath();
-      hexes.push({ k: hexKey({ col, row }), camino });
+      hexes.push({ hex: { col, row }, k: hexKey({ col, row }), camino });
     }
   }
   geometria = { clave, hexes };
@@ -168,9 +203,10 @@ export function drawBatalla(ctx: CanvasRenderingContext2D, v: VistaBatalla): voi
   const candidatas = new Set((v.angulo?.candidatas ?? []).map(hexKey));
   const elegida = v.angulo === null ? null : hexKey(v.angulo.elegida);
 
-  // 1 · Los hexes, aplastados sobre el suelo.
+  // 1 · Los hexes, aplastados sobre el suelo. Los de muro van en lo alto de
+  // su columna (abajo, con las figuras): pintados aquí, la columna los tapaba.
   const señalado = v.hoverHex === null ? null : hexKey(v.hoverHex);
-  for (const { k, camino } of hexesDe(tablero)) {
+  const estiloDe = (k: string): EstiloDeCasilla => {
     const encima = señalado === k;
     const deActivo = hexDeActivo.has(k);
     const atacable = hexAtacables.has(k);
@@ -181,64 +217,135 @@ export function drawBatalla(ctx: CanvasRenderingContext2D, v: VistaBatalla): voi
     // casilla en la que ya está la unidad también puede ser la elegida.
     if (k === elegida || candidatas.has(k)) {
       const fuerte = k === elegida;
-      ctx.fillStyle = fuerte ? '#ffd24acc' : '#ffe08a80';
-      ctx.fill(camino);
-      ctx.lineWidth = fuerte ? 3 : 2;
-      ctx.strokeStyle = fuerte ? '#fff4c2' : '#ffe9a8';
-      ctx.stroke(camino);
-      continue;
+      return {
+        relleno: fuerte ? '#ffd24acc' : '#ffe08a80',
+        ancho: fuerte ? 3 : 2,
+        trazo: fuerte ? '#fff4c2' : '#ffe9a8',
+      };
     }
-    ctx.fillStyle = deActivo
-      ? '#edca6066'
-      : cargable
-        ? encima
-          ? '#e7884a99'
-          : '#d9773a66'
-        : atacable
+    return {
+      relleno: deActivo
+        ? '#edca6066'
+        : cargable
           ? encima
-            ? '#e2735888'
-            : '#d6624955'
-          : carga
+            ? '#e7884a99'
+            : '#d9773a66'
+          : atacable
             ? encima
-              ? '#e7a04a88'
-              : '#d98c3a55'
-            : movible
+              ? '#e2735888'
+              : '#d6624955'
+            : carga
               ? encima
-                ? '#7cc8d466'
-                : '#5caab73a'
-              : encima
-                ? '#ffffff22'
-                : '#00000014';
+                ? '#e7a04a88'
+                : '#d98c3a55'
+              : movible
+                ? encima
+                  ? '#7cc8d466'
+                  : '#5caab73a'
+                : encima
+                  ? '#ffffff22'
+                  : '#00000014',
+      ancho: deActivo || cargable ? 2.5 : 1.2,
+      trazo: deActivo
+        ? '#fbe3a0'
+        : cargable
+          ? '#ffc070'
+          : atacable
+            ? '#f39980cc'
+            : carga
+              ? '#f2c084cc'
+              : movible
+                ? '#b6e3e9aa'
+                : '#f2e6c05c',
+    };
+  };
+  for (const { hex, k, camino } of hexesDe(tablero)) {
+    if (nivelDe(battle.muralla, hex) === 1) continue;
+    const e = estiloDe(k);
+    ctx.fillStyle = e.relleno;
     ctx.fill(camino);
-    ctx.lineWidth = deActivo || cargable ? 2.5 : 1.2;
-    ctx.strokeStyle = deActivo
-      ? '#fbe3a0'
-      : cargable
-        ? '#ffc070'
-        : atacable
-          ? '#f39980cc'
-          : carga
-            ? '#f2c084cc'
-            : movible
-              ? '#b6e3e9aa'
-              : '#f2e6c05c';
+    ctx.lineWidth = e.ancho;
+    ctx.strokeStyle = e.trazo;
     ctx.stroke(camino);
   }
   // Y el número de la carga en cada casilla que carga: cuántas casillas cobra.
   if (v.cargas.length > 0) pintarCargas(ctx, tablero, v.cargas, v.angulo);
+  // La puerta, en el suelo: su lado, de madera si está cerrada y de piedra si
+  // está abierta, encima de las casillas y debajo de todo lo que pisa.
+  if (battle.puertas.length > 0) pintarUmbrales(ctx, tablero, battle.puertas);
 
-  // 2 · Los cadáveres, debajo de todo lo que sigue en pie: se quedan en su
-  // casilla hasta el final de la batalla, sin aro, sin barra y sin nombre.
+  // 2 · Los cadáveres del suelo, debajo de todo lo que sigue en pie: se quedan
+  // en su casilla hasta el final de la batalla, sin aro, sin barra y sin nombre.
   const todas = battle.stacks
     .map((s) => ({ s, f: v.figura(s) }))
     .sort((a, b) => a.f.en.y - b.f.en.y);
-  for (const { s, f } of todas) if (f.caida !== null) pintarCadaver(ctx, v, s, f);
-
-  // 3 · Las figuras, de atrás adelante.
-  const figuras = todas.filter(({ f }) => f.visible);
-  for (const { s, f } of figuras) {
-    pintarUnidad(ctx, v, s, f, s.id === activo?.id);
+  for (const { s, f } of todas) {
+    if (f.caida !== null && f.elevacion === 0) pintarCadaver(ctx, v, s, f);
   }
+
+  // 3 · Lo que se levanta del suelo, de atrás adelante (`piezasEnOrden`).
+  const figuras = todas.filter(({ f }) => f.visible);
+  const casillas = hexesDe(tablero);
+  const porId = new Map(todas.map((x) => [x.s.id, x]));
+  // La figura de cada uno, la ya pedida al animador: una vez por fotograma.
+  const yaPedida = (s: BattleStack): EstadoFigura => (porId.get(s.id) as { f: EstadoFigura }).f;
+  const translucidas = columnasTranslucidas(
+    tablero,
+    battle.muralla,
+    v.hoverHex,
+    v.angulo?.elegida ?? null,
+    v.puntero,
+  );
+  for (const p of piezasEnOrden(battle, yaPedida)) {
+    switch (p.kind) {
+      case 'columna': {
+        const { k, camino } = casillas[indiceDe(p.hex)] as CasillaPintada;
+        ctx.save();
+        if (translucidas.has(k)) ctx.globalAlpha = ALFA_DE_LA_TRANSLUCIDA;
+        pintarColumna(ctx, tablero, p.hex, camino, estiloDe(k), v.escalables.has(k));
+        ctx.restore();
+        break;
+      }
+      case 'portada': {
+        const k = claveDePortada(p.puerta);
+        ctx.save();
+        if (translucidas.has(k)) ctx.globalAlpha = ALFA_DE_LA_TRANSLUCIDA;
+        pintarPortada(
+          ctx,
+          tablero,
+          p.puerta,
+          puertaAbierta(battle.puertas, p.puerta),
+          v.puertasPorElegir.has(k),
+        );
+        ctx.restore();
+        break;
+      }
+      case 'escalera':
+        pintarEscalera(ctx, tablero, p.pie, p.muro);
+        break;
+      case 'caido': {
+        const { s, f } = porId.get(p.id) as { s: BattleStack; f: EstadoFigura };
+        pintarCadaver(ctx, v, s, f);
+        break;
+      }
+      case 'figura': {
+        const { s, f } = porId.get(p.id) as { s: BattleStack; f: EstadoFigura };
+        pintarUnidad(ctx, v, s, f, s.id === activo?.id);
+        break;
+      }
+    }
+  }
+  // Quien queda detrás de una columna o una portada, entero o en parte, se ve
+  // en silueta encima de ella (ampliación 2, (b)): con las columnas cuatro
+  // veces más altas, la figura de detrás desaparecía y solo asomaba su barra.
+  for (const [id, cubren] of tapadasPorLaMuralla(tablero, battle, yaPedida)) {
+    const { s, f } = porId.get(id) as { s: BattleStack; f: EstadoFigura };
+    pintarSilueta(ctx, v, s, f, cubren);
+  }
+  // Y las hojas de una puerta que tapan las columnas de delante, igual: en una
+  // línea de norte a sur la puerta queda justo detrás de la columna de la fila
+  // siguiente, y abierta o cerrada se veía lo mismo (ampliación 3, criterio 25).
+  for (const p of battle.puertas) pintarHojasTapadas(ctx, tablero, battle.muralla, p);
   // Las barras van en una pasada aparte, por encima de TODAS las figuras: pintadas
   // con su unidad, la figura de la fila de delante tapaba la barra de la de
   // detrás. Y de atrás adelante, para que la de detrás no tape la de delante.
@@ -254,6 +361,920 @@ export function drawBatalla(ctx: CanvasRenderingContext2D, v: VistaBatalla): voi
 
   // 4 · Lo que vuela por encima: proyectiles, hechizos y cifras.
   for (const e of v.efectos) pintarEfecto(ctx, tablero, e);
+  ctx.restore();
+}
+
+/** Lo que se pinta en la pasada ordenada por profundidad (`piezasEnOrden`). */
+export type PiezaDelTablero =
+  | { readonly kind: 'columna'; readonly hex: Hex }
+  | { readonly kind: 'escalera'; readonly pie: Hex; readonly muro: Hex }
+  | { readonly kind: 'caido'; readonly id: string }
+  | { readonly kind: 'figura'; readonly id: string }
+  | { readonly kind: 'portada'; readonly puerta: PuertaDeMuralla };
+
+/**
+ * Las columnas de la muralla, las portadas de sus puertas, las escaleras, los
+ * caídos en lo alto y las figuras en pie, de atrás adelante: lo de delante tapa
+ * lo de detrás. Una figura que pasa detrás de una columna queda tapada por ella,
+ * y quien está en lo alto se pinta encima de la suya.
+ *
+ * A la misma fila: la columna, su escalera, el caído, la figura y, la última, la
+ * portada: quien está en una de las dos casillas de la puerta pasa por debajo
+ * del arco y el dintel se pinta encima de él (el usuario: «tapar con z index al
+ * que pase por debajo, por ejemplo por la puerta»). Los caídos del suelo van antes, en la
+ * pasada de las casillas; las barras y los nombres, después de todo esto.
+ */
+export function piezasEnOrden(
+  battle: Pick<BattleState, 'muralla' | 'escaleras' | 'stacks'>,
+  figura: (s: BattleStack) => Pick<EstadoFigura, 'en' | 'caida' | 'elevacion' | 'visible'>,
+): PiezaDelTablero[] {
+  const piezas: {
+    readonly y: number;
+    readonly orden: number;
+    readonly p: PiezaDelTablero;
+  }[] = [];
+  for (const hex of battle.muralla.muros) {
+    piezas.push({
+      y: planoDeHex(hex).y,
+      orden: 0,
+      p: { kind: 'columna', hex },
+    });
+  }
+  for (const e of battle.escaleras) {
+    // A la fila de la más adelantada de sus dos casillas, y detrás de su columna:
+    // con la fila del pie, la que se apoyaba desde detrás de su muro quedaba
+    // tapada por la propia columna (QA de la muralla alta, M2).
+    piezas.push({
+      y: Math.max(planoDeHex(e.pie).y, planoDeHex(e.muro).y),
+      orden: 1,
+      p: { kind: 'escalera', pie: e.pie, muro: e.muro },
+    });
+  }
+  for (const s of battle.stacks) {
+    const f = figura(s);
+    if (f.caida !== null && f.elevacion > 0) {
+      piezas.push({ y: f.en.y, orden: 2, p: { kind: 'caido', id: s.id } });
+    }
+    if (f.visible) {
+      piezas.push({ y: f.en.y, orden: 3, p: { kind: 'figura', id: s.id } });
+    }
+  }
+  for (const puerta of battle.muralla.puertas) {
+    piezas.push({
+      y: planoDeHex(puerta.a).y,
+      orden: 4,
+      p: { kind: 'portada', puerta },
+    });
+  }
+  piezas.sort((a, b) => a.y - b.y || a.orden - b.orden);
+  return piezas.map((x) => x.p);
+}
+
+/** Un punto del lienzo, en píxeles. */
+export interface Punto {
+  readonly x: number;
+  readonly y: number;
+}
+
+/**
+ * Lo que tapa en pantalla la columna de `h`: el hex de su pie y el de su tapa, y
+ * lo de en medio. Como sube en vertical, es un hexágono convexo: la punta y los
+ * dos vértices de arriba de la tapa, y los tres de abajo del pie.
+ */
+export function siluetaDeColumna(t: Tablero, h: Hex): Punto[] {
+  const v = verticesHex(t, h) as Punto[];
+  const alto = alturaDeColumna(t);
+  const arriba = (p: Punto): Punto => ({ x: p.x, y: p.y - alto });
+  return [arriba(v[0]!), arriba(v[1]!), v[2]!, v[3]!, v[4]!, arriba(v[5]!)];
+}
+
+/**
+ * La portada de una puerta, en pasos: una fachada de cara a la cámara levantada
+ * sobre el lado de sus dos casillas, centrada en él, con el arco tan ancho que
+ * quien está en cualquiera de las dos pasa entero por debajo (su figura mide
+ * unos 0,8 de ancho y su centro cae a 0,5 del lado). Las jambas acaban antes de
+ * la figura de la casilla siguiente (a 1,5 del lado, desde 1,1).
+ */
+const PORTADA = {
+  /** Del lado a la cara de fuera de cada jamba. */
+  mitad: 1.03,
+  /** Del lado al borde del hueco. */
+  hueco: 0.88,
+  /** Lo alto del hueco, del suelo a la clave del arco: pasa la figura de una casilla (0,95). */
+  arco: 1.2,
+  /** Lo que baja el arco de la clave a sus arranques. */
+  flecha: 0.22,
+  /** El fondo de la fachada visto desde arriba: la tapa. */
+  fondo: 0.3,
+} as const;
+
+/** El pie del lado de la puerta, en el lienzo: el punto del suelo entre sus dos centros. */
+function pieDePortada(t: Tablero, p: PuertaDeMuralla): Punto {
+  const a = centroHex(t, p.a);
+  const b = centroHex(t, p.b);
+  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+}
+
+/**
+ * Lo que tapa en pantalla la portada de `p`: la fachada del suelo a su tapa. Se
+ * cuenta entera, con su arco: por él se ve poco, y una figura de detrás no queda
+ * a la vista por el hueco.
+ */
+export function siluetaDePortada(t: Tablero, p: PuertaDeMuralla): Punto[] {
+  const c = pieDePortada(t, p);
+  const x0 = c.x - PORTADA.mitad * t.paso;
+  const x1 = c.x + PORTADA.mitad * t.paso;
+  const arriba = c.y - alturaDeColumna(t) - PORTADA.fondo * t.paso * t.compresion;
+  return [
+    { x: x0, y: arriba },
+    { x: x1, y: arriba },
+    { x: x1, y: c.y },
+    { x: x0, y: c.y },
+  ];
+}
+
+/** La clave de una portada en los conjuntos del lienzo (translúcidas, por elegir). */
+export function claveDePortada(p: PuertaDeMuralla): string {
+  return `puerta ${hexKey(p.a)}|${hexKey(p.b)}`;
+}
+
+/**
+ * Lo alto de la muralla que tapa lo de detrás: cada columna (por su hex, clave
+ * `hexKey`) y cada portada (`claveDePortada`), con su fila y su silueta.
+ */
+interface PiezaAlta {
+  readonly clave: string;
+  readonly y: number;
+  readonly silueta: Punto[];
+}
+
+function piezasAltas(t: Tablero, m: MurallaDeBatalla): PiezaAlta[] {
+  return [
+    ...m.muros.map((h) => ({
+      clave: hexKey(h),
+      y: planoDeHex(h).y,
+      silueta: siluetaDeColumna(t, h),
+    })),
+    ...m.puertas.map((p) => ({
+      clave: claveDePortada(p),
+      y: planoDeHex(p.a).y,
+      silueta: siluetaDePortada(t, p),
+    })),
+  ];
+}
+
+/** ¿Cae `p` dentro del polígono convexo `poli` (en cualquier sentido de giro)? */
+function dentroDelConvexo(p: Punto, poli: readonly Punto[]): boolean {
+  let signo = 0;
+  for (let i = 0; i < poli.length; i++) {
+    const a = poli[i] as Punto;
+    const b = poli[(i + 1) % poli.length] as Punto;
+    const cruz = (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
+    if (cruz === 0) continue;
+    if (signo === 0) signo = Math.sign(cruz);
+    else if (Math.sign(cruz) !== signo) return false;
+  }
+  return true;
+}
+
+/**
+ * Las columnas y portadas que se pintan delante de la casilla del suelo
+ * `casilla` y le tapan algo: su centro, un punto a 0,6 de cada vértice o
+ * cualquiera de `puntos` (el puntero). Delante es más abajo en el plano
+ * (`piezasEnOrden`): las de su fila o de detrás no le caen encima. Por su clave:
+ * `hexKey` la columna, `claveDePortada` la portada.
+ */
+export function columnasQueTapan(
+  t: Tablero,
+  m: MurallaDeBatalla,
+  casilla: Hex,
+  puntos: readonly Punto[] = [],
+): string[] {
+  const y = planoDeHex(casilla).y;
+  const c = centroHex(t, casilla);
+  const muestras = [
+    c,
+    ...verticesHex(t, casilla).map((v) => ({
+      x: c.x + (v.x - c.x) * 0.6,
+      y: c.y + (v.y - c.y) * 0.6,
+    })),
+    ...puntos,
+  ];
+  return piezasAltas(t, m)
+    .filter((p) => p.y > y && muestras.some((q) => dentroDelConvexo(q, p.silueta)))
+    .map((p) => p.clave);
+}
+
+/**
+ * La puerta cuya portada —entera, del pie a lo alto— cae bajo `p`, o `null`. Si
+ * caen dos, la de delante, que es la que se ve. Es el clic que elige puerta
+ * (`puertaPorElegir`), como lo alto de una columna elige el muro de la escala.
+ */
+export function portadaBajo(t: Tablero, m: MurallaDeBatalla, p: Punto): PuertaDeMuralla | null {
+  let mejor: PuertaDeMuralla | null = null;
+  for (const q of m.puertas) {
+    if (!dentroDelConvexo(p, siluetaDePortada(t, q))) continue;
+    if (mejor === null || planoDeHex(q.a).y > planoDeHex(mejor.a).y) mejor = q;
+  }
+  return mejor;
+}
+
+/** Lo que se deja ver de una columna translúcida. */
+const ALFA_DE_LA_TRANSLUCIDA = 0.3;
+
+/**
+ * Las columnas y portadas que se pintan translúcidas (ampliación 2, (a)): las
+ * que tapan la casilla del suelo bajo el puntero (`hoverHex`, con el propio
+ * puntero) y la casilla elegida del ángulo de un golpe. La casilla bajo el
+ * puntero ya es la del suelo cuando el puntero pisa la cara de una columna
+ * (`hexBajo` mira solo su tapa), así que lo que se ve a través es lo que pulsa
+ * el clic. Un muro bajo el puntero —su tapa— no vuelve a nadie translúcido: es
+ * lo que se señala.
+ */
+export function columnasTranslucidas(
+  t: Tablero,
+  m: MurallaDeBatalla,
+  hoverHex: Hex | null,
+  elegida: Hex | null,
+  puntero: Punto | null,
+): ReadonlySet<string> {
+  const fuera = new Set<string>();
+  if (!hayMuralla(m)) return fuera;
+  const mirar = (h: Hex | null, puntos: readonly Punto[]): void => {
+    if (h === null || nivelDe(m, h) === 1) return;
+    for (const c of columnasQueTapan(t, m, h, puntos)) fuera.add(c);
+  };
+  mirar(hoverHex, puntero === null ? [] : [puntero]);
+  mirar(elegida, []);
+  return fuera;
+}
+
+/**
+ * Las figuras en pie que alguna columna o portada pintada después tapa, entera o
+ * en parte, con las que la tapan (su clave y su silueta): el orden es el de
+ * `piezasEnOrden`, y «tapa» es que la silueta de la pieza pisa la caja de la
+ * figura (`cajaDeFigura`). Las lee la silueta (`pintarSilueta`).
+ */
+export function tapadasPorLaMuralla(
+  t: Tablero,
+  battle: Pick<BattleState, 'muralla' | 'escaleras' | 'stacks'>,
+  figura: (s: BattleStack) => Pick<EstadoFigura, 'en' | 'caida' | 'elevacion' | 'visible'>,
+): Map<string, Tapa[]> {
+  const tapadas = new Map<string, Tapa[]>();
+  if (!hayMuralla(battle.muralla)) return tapadas;
+  const porId = new Map(battle.stacks.map((s) => [s.id, s]));
+  const delante: Tapa[] = [];
+  // De delante atrás: cada figura mira las columnas que ya han salido, que son
+  // las que se pintan después de ella.
+  for (const p of piezasEnOrden(battle, figura).reverse()) {
+    if (p.kind === 'columna') {
+      delante.push({ clave: hexKey(p.hex), silueta: siluetaDeColumna(t, p.hex) });
+      continue;
+    }
+    if (p.kind === 'portada') {
+      delante.push({ clave: claveDePortada(p.puerta), silueta: siluetaDePortada(t, p.puerta) });
+      continue;
+    }
+    if (p.kind !== 'figura' || delante.length === 0) continue;
+    const s = porId.get(p.id) as BattleStack;
+    const f = figura(s);
+    const c = cajaDeFigura(t, s, f.en, f.elevacion);
+    const caja: Punto[] = [
+      { x: c.x - c.ancho / 2, y: c.suelo - c.alto },
+      { x: c.x + c.ancho / 2, y: c.suelo - c.alto },
+      { x: c.x + c.ancho / 2, y: c.suelo },
+      { x: c.x - c.ancho / 2, y: c.suelo },
+    ];
+    const cubren = delante.filter((d) => convexosSeTocan(caja, d.silueta));
+    if (cubren.length > 0) tapadas.set(s.id, cubren);
+  }
+  return tapadas;
+}
+
+/** Una columna o portada que tapa a una figura: su clave y lo que ocupa en el lienzo. */
+export interface Tapa {
+  readonly clave: string;
+  readonly silueta: readonly Punto[];
+}
+
+/**
+ * ¿Se solapan dos polígonos convexos? Separación por ejes: si en la normal de
+ * algún lado sus sombras no se pisan, no se tocan. Tocarse en un borde no cuenta.
+ */
+function convexosSeTocan(a: readonly Punto[], b: readonly Punto[]): boolean {
+  for (const poli of [a, b]) {
+    for (let i = 0; i < poli.length; i++) {
+      const p = poli[i] as Punto;
+      const q = poli[(i + 1) % poli.length] as Punto;
+      const nx = q.y - p.y;
+      const ny = p.x - q.x;
+      const sombra = (ps: readonly Punto[]): [number, number] => {
+        let min = Infinity;
+        let max = -Infinity;
+        for (const r of ps) {
+          const d = r.x * nx + r.y * ny;
+          min = Math.min(min, d);
+          max = Math.max(max, d);
+        }
+        return [min, max];
+      };
+      const [amin, amax] = sombra(a);
+      const [bmin, bmax] = sombra(b);
+      if (amax <= bmin || bmax <= amin) return false;
+    }
+  }
+  return true;
+}
+
+/** Lo grueso del contorno de la silueta, en píxeles del lienzo. */
+const GROSOR_DE_LA_SILUETA = 2;
+/** Lo que se rellena por dentro de la silueta, para que se lea como un cuerpo. */
+const RELLENO_DE_LA_SILUETA = 0.22;
+
+/** Dos lienzos de trabajo para la silueta, del tamaño del de la batalla: se reutilizan. */
+let lienzosDeSilueta: {
+  figura: HTMLCanvasElement;
+  contorno: HTMLCanvasElement;
+} | null = null;
+
+function lienzosPara(ancho: number, alto: number) {
+  if (
+    lienzosDeSilueta === null ||
+    lienzosDeSilueta.figura.width !== ancho ||
+    lienzosDeSilueta.figura.height !== alto
+  ) {
+    const nuevo = (): HTMLCanvasElement => {
+      const c = document.createElement('canvas');
+      c.width = ancho;
+      c.height = alto;
+      return c;
+    };
+    lienzosDeSilueta = { figura: nuevo(), contorno: nuevo() };
+  }
+  return lienzosDeSilueta;
+}
+
+function contexto(c: HTMLCanvasElement): CanvasRenderingContext2D {
+  const ctx = c.getContext('2d');
+  if (ctx === null) throw new Error('este navegador no tiene canvas 2D para pintar siluetas');
+  return ctx;
+}
+
+/**
+ * La silueta de una figura tapada (ampliación 2, (b)): el contorno del color de
+ * su bando y un relleno tenue, pintados encima de las columnas que la tapan y
+ * solo donde la tapan (el recorte es la silueta de esas columnas). Se saca de la
+ * propia figura: se pinta aparte, se tiñe entera (`source-in`), se corre
+ * `GROSOR_DE_LA_SILUETA` en ocho sentidos y se le quita el cuerpo
+ * (`destination-out`): queda el borde, con o sin arte.
+ */
+function pintarSilueta(
+  ctx: CanvasRenderingContext2D,
+  v: VistaBatalla,
+  s: BattleStack,
+  f: EstadoFigura,
+  cubren: readonly Tapa[],
+): void {
+  const caja = cajaDeFigura(v.tablero, s, f.en, f.elevacion);
+  const figura = colocarFigura(figuraDe(v, s, f, caja, caja.x));
+  const transformacion = ctx.getTransform();
+  const escala = Math.max(1e-6, Math.hypot(transformacion.a, transformacion.b));
+  const grosor = GROSOR_DE_LA_SILUETA * escala;
+  // Lo que puede ocupar la figura, en píxeles del dispositivo: su hoja si tiene
+  // arte (un cuadrado de `lado`), y si no, su caja con holgura.
+  const enCss =
+    figura.p === null
+      ? {
+          x: caja.x - caja.ancho,
+          y: caja.suelo - caja.alto * 1.2,
+          ancho: caja.ancho * 2,
+          alto: caja.alto * 1.4,
+        }
+      : {
+          x: caja.x + figura.p.dx,
+          y: caja.suelo + figura.p.dy,
+          ancho: figura.p.lado,
+          alto: figura.p.lado,
+        };
+  const a = transformacion.transformPoint({ x: enCss.x, y: enCss.y });
+  const b = transformacion.transformPoint({
+    x: enCss.x + enCss.ancho,
+    y: enCss.y + enCss.alto,
+  });
+  const margen = Math.ceil(grosor) + 1;
+  const rx = Math.max(0, Math.floor(Math.min(a.x, b.x)) - margen);
+  const ry = Math.max(0, Math.floor(Math.min(a.y, b.y)) - margen);
+  const rw = Math.min(ctx.canvas.width, Math.ceil(Math.max(a.x, b.x)) + margen) - rx;
+  const rh = Math.min(ctx.canvas.height, Math.ceil(Math.max(a.y, b.y)) + margen) - ry;
+  if (rw <= 0 || rh <= 0) return;
+  const lienzos = lienzosPara(ctx.canvas.width, ctx.canvas.height);
+  const fig = contexto(lienzos.figura);
+  const borde = contexto(lienzos.contorno);
+  for (const c of [fig, borde]) {
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.globalCompositeOperation = 'source-over';
+    c.globalAlpha = 1;
+    c.clearRect(rx, ry, rw, rh);
+  }
+  // La figura, teñida entera del color de su bando: sin destello ni fundido.
+  fig.setTransform(transformacion);
+  pintarFigura(fig, {
+    ...figura,
+    f: { ...figura.f, destello: 0, alfaSinArte: 1 },
+  });
+  fig.setTransform(1, 0, 0, 1, 0, 0);
+  fig.globalCompositeOperation = 'source-in';
+  fig.fillStyle = colorDelBando(v, s.side);
+  fig.fillRect(rx, ry, rw, rh);
+  fig.globalCompositeOperation = 'source-over';
+  // El borde: la figura corrida en ocho sentidos, menos la figura.
+  for (let i = 0; i < 8; i++) {
+    const dx = Math.round(Math.cos((i * Math.PI) / 4) * grosor);
+    const dy = Math.round(Math.sin((i * Math.PI) / 4) * grosor);
+    borde.drawImage(lienzos.figura, rx, ry, rw, rh, rx + dx, ry + dy, rw, rh);
+  }
+  borde.globalCompositeOperation = 'destination-out';
+  borde.drawImage(lienzos.figura, rx, ry, rw, rh, rx, ry, rw, rh);
+  borde.globalCompositeOperation = 'source-over';
+  borde.globalAlpha = RELLENO_DE_LA_SILUETA;
+  borde.drawImage(lienzos.figura, rx, ry, rw, rh, rx, ry, rw, rh);
+  borde.globalAlpha = 1;
+  // Encima de lo que la tapa, y solo ahí.
+  const recorte = new Path2D();
+  for (const { silueta } of cubren) {
+    const [primero, ...resto] = silueta;
+    recorte.moveTo((primero as Punto).x, (primero as Punto).y);
+    for (const p of resto) recorte.lineTo(p.x, p.y);
+    recorte.closePath();
+  }
+  ctx.save();
+  ctx.clip(recorte);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = 1;
+  ctx.drawImage(lienzos.contorno, rx, ry, rw, rh, rx, ry, rw, rh);
+  ctx.restore();
+}
+
+/** Cómo se pinta una casilla: relleno, ancho y color del borde. */
+interface EstiloDeCasilla {
+  readonly relleno: string;
+  readonly ancho: number;
+  readonly trazo: string;
+}
+
+/**
+ * Lo que mide una columna de la muralla, en pasos: la figura que está arriba se
+ * pinta así de alta. Era 0,42 —algo menos de media figura, para que la de detrás
+ * asomara la cabeza— y el usuario, al probarlo, la quiso «unas 4 veces más»
+ * alta: la muralla tapa de verdad a quien pasa detrás (`piezasEnOrden`) y lo que
+ * no cabe encima de la fila de atrás lo pide el lienzo (`alzadoDeLaMuralla`).
+ */
+export const ALTO_DE_MURALLA = 4 * 0.42;
+
+/**
+ * Los pasos que el tablero pide de más encima de su fila de atrás para que lo
+ * alto de la muralla —la columna, la portada y la figura de encima— no se salga
+ * del lienzo (`tableroPara`, `altoConAlzado`). Cada pieza pide lo que su
+ * columna sube por encima de la fila de atrás, con la cámara más baja, que es
+ * donde las filas están más juntas. Sin muralla, 0: el encuadre de siempre.
+ */
+export function alzadoDeLaMuralla(m: MurallaDeBatalla): number {
+  let alzado = 0;
+  const alto = ALTO_DE_MURALLA + PORTADA.fondo * COMPRESION_SUELO;
+  for (const h of m.muros) {
+    alzado = Math.max(alzado, ALTO_DE_MURALLA - planoDeHex(h).y * COMPRESION_SUELO);
+  }
+  for (const p of m.puertas) {
+    alzado = Math.max(alzado, alto - planoDeHex(p.a).y * COMPRESION_SUELO);
+  }
+  return alzado;
+}
+
+/** Lo que sube en pantalla quien está en lo alto (elevación 1), en píxeles. */
+export function alturaDeColumna(t: Tablero): number {
+  return t.paso * ALTO_DE_MURALLA;
+}
+
+/**
+ * El tablero de lo que está a `elevacion` (0 en el suelo, 1 en lo alto de un
+ * muro, y lo de en medio al subir): el mismo, subido `alturaDeColumna`. LA
+ * forma de subir en pantalla: la leen la figura (`cajaDeFigura`), los efectos y
+ * el clic sobre las columnas (`escenas/batalla.ts`).
+ */
+export function tableroA(t: Tablero, elevacion: number): Tablero {
+  return elevacion === 0 ? t : { ...t, origenY: t.origenY - elevacion * alturaDeColumna(t) };
+}
+
+/** Piedra de la columna: la cara de la luz (este), la de la sombra y lo alto. */
+const PIEDRA = {
+  luz: '#9b958a',
+  sombra: '#706b62',
+  arriba: '#aaa498',
+  junta: '#55514a',
+  borde: '#2f2c28',
+} as const;
+
+/**
+ * El lado de cada puerta en el suelo, entre sus dos casillas: cerrada, un
+ * tablón oscuro de madera de vértice a vértice; abierta, el umbral de piedra
+ * clara. Las dos casillas se pintan como cualquier suelo (se pisan las dos); esto
+ * dice por dónde va la puerta aunque la tape su portada.
+ */
+function pintarUmbrales(
+  ctx: CanvasRenderingContext2D,
+  t: Tablero,
+  puertas: readonly EstadoDePuerta[],
+): void {
+  ctx.save();
+  ctx.lineCap = 'round';
+  for (const p of puertas) {
+    // El lado este de `a`: sus vértices 1 (arriba a la derecha) y 2 (abajo a la derecha).
+    const v = verticesHex(t, p.a);
+    const arriba = v[1] as Punto;
+    const abajo = v[2] as Punto;
+    for (const [color, grueso] of p.abierta
+      ? ([
+          ['#4a443b', 0.16],
+          ['#b9ad96', 0.1],
+        ] as const)
+      : ([
+          ['#2a160a', 0.2],
+          ['#7a4a22', 0.13],
+        ] as const)) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = Math.max(2, t.paso * grueso);
+      ctx.beginPath();
+      ctx.moveTo(arriba.x, arriba.y);
+      ctx.lineTo(abajo.x, abajo.y);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+/**
+ * Un muro, como columna: el hex subido `alturaDeColumna` es lo alto, donde se
+ * pisa —y donde se pinta la marca de la casilla (`estilo`): movible, atacable,
+ * la de la activa—, y las dos caras de delante, de piedra con hiladas. Las de
+ * los lados del hexágono van de canto a esta cámara y no se ven. Lo alto es el
+ * `camino` de su casilla en el suelo (`hexesDe`), trasladado.
+ * `escalable`, si la activa puede poner su escalera o subir ahí.
+ */
+function pintarColumna(
+  ctx: CanvasRenderingContext2D,
+  t: Tablero,
+  h: Hex,
+  camino: Path2D,
+  estilo: EstiloDeCasilla,
+  escalable: boolean,
+): void {
+  const alto = alturaDeColumna(t);
+  // Punta arriba y en el sentido de las agujas: 0 arriba, 2 abajo a la derecha,
+  // 3 abajo, 4 abajo a la izquierda.
+  const v = verticesHex(t, h);
+  ctx.save();
+  ctx.lineJoin = 'round';
+  for (const [i, j, color] of [
+    [3, 4, PIEDRA.sombra],
+    [2, 3, PIEDRA.luz],
+  ] as const) {
+    const a = v[i] as { x: number; y: number };
+    const b = v[j] as { x: number; y: number };
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.lineTo(b.x, b.y - alto);
+    ctx.lineTo(a.x, a.y - alto);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    pintarSillares(ctx, t, a, b, alto);
+  }
+  ctx.translate(0, -alto);
+  const tapa = camino;
+  ctx.fillStyle = PIEDRA.arriba;
+  ctx.fill(tapa);
+  ctx.lineWidth = Math.max(2, t.paso * 0.045);
+  ctx.strokeStyle = PIEDRA.borde;
+  ctx.stroke(tapa);
+  // La marca de la casilla, encima de la piedra: lo que el suelo diría de ella.
+  ctx.fillStyle = estilo.relleno;
+  ctx.fill(tapa);
+  ctx.lineWidth = estilo.ancho;
+  ctx.strokeStyle = estilo.trazo;
+  ctx.stroke(tapa);
+  if (escalable) {
+    ctx.setLineDash([6, 4]);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#ffd24a';
+    ctx.stroke(tapa);
+    ctx.setLineDash([]);
+  }
+  ctx.restore();
+}
+
+/**
+ * Las hiladas de una cara de piedra de `a` a `b` (sus pies) y `alto` de alto: una
+ * cada `HILADA` pasos, con las juntas verticales a tresbolillo, y el borde.
+ */
+function pintarSillares(
+  ctx: CanvasRenderingContext2D,
+  t: Tablero,
+  a: { readonly x: number; readonly y: number },
+  b: { readonly x: number; readonly y: number },
+  alto: number,
+): void {
+  const hiladas = Math.max(2, Math.round(alto / (t.paso * HILADA)));
+  ctx.strokeStyle = PIEDRA.junta;
+  ctx.lineWidth = Math.max(1, t.paso * 0.02);
+  ctx.beginPath();
+  for (let i = 1; i < hiladas; i++) {
+    const f = i / hiladas;
+    ctx.moveTo(a.x, a.y - alto * f);
+    ctx.lineTo(b.x, b.y - alto * f);
+  }
+  for (let i = 0; i < hiladas; i++) {
+    const g = i % 2 === 0 ? 0.5 : 0.25;
+    for (const u of g === 0.5 ? [0.5] : [0.25, 0.75]) {
+      const x = a.x + (b.x - a.x) * u;
+      const y = a.y + (b.y - a.y) * u;
+      ctx.moveTo(x, y - (alto * i) / hiladas);
+      ctx.lineTo(x, y - (alto * (i + 1)) / hiladas);
+    }
+  }
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(a.x, a.y);
+  ctx.lineTo(b.x, b.y);
+  ctx.lineTo(b.x, b.y - alto);
+  ctx.lineTo(a.x, a.y - alto);
+  ctx.closePath();
+  ctx.strokeStyle = PIEDRA.borde;
+  ctx.lineWidth = Math.max(1.5, t.paso * 0.03);
+  ctx.stroke();
+}
+
+/** Lo que mide una hilada de sillares, en pasos. */
+const HILADA = 0.28;
+
+/**
+ * La portada de una puerta: una fachada de piedra de cara a la cámara, tan alta
+ * como la muralla, levantada sobre el lado de sus dos casillas (`PORTADA`), con
+ * un arco ancho abajo por el que pasa quien está en cualquiera de las dos.
+ * **Cerrada**, en medio del arco, sobre el lado, las dos hojas juntas: un
+ * tablero de madera con herrajes, de canto a esta cámara, que se lee como
+ * «aquí no se pasa». **Abierta**, el medio queda libre y las hojas, abatidas,
+ * asoman contra las jambas. Se pinta después de quien está en su fila
+ * (`piezasEnOrden`): jambas y dintel le pasan por delante. Por arriba no se
+ * anda. `elegible`, si el botón de la puerta espera que se elija esta: se marca
+ * el arco.
+ */
+function pintarPortada(
+  ctx: CanvasRenderingContext2D,
+  t: Tablero,
+  p: PuertaDeMuralla,
+  abierta: boolean,
+  elegible: boolean,
+): void {
+  const alto = alturaDeColumna(t);
+  const c = pieDePortada(t, p);
+  const x0 = c.x - PORTADA.mitad * t.paso;
+  const x1 = c.x + PORTADA.mitad * t.paso;
+  const izq = c.x - PORTADA.hueco * t.paso;
+  const der = c.x + PORTADA.hueco * t.paso;
+  const clave = c.y - PORTADA.arco * t.paso;
+  const arranque = clave + PORTADA.flecha * t.paso;
+  const hueco = new Path2D();
+  hueco.moveTo(izq, c.y);
+  hueco.lineTo(izq, arranque);
+  hueco.ellipse(c.x, arranque, der - c.x, arranque - clave, 0, Math.PI, 0);
+  hueco.lineTo(der, c.y);
+  hueco.closePath();
+  const arriba = c.y - alto;
+  const fondo = PORTADA.fondo * t.paso * t.compresion;
+  ctx.save();
+  ctx.lineJoin = 'round';
+  // La fachada, menos el hueco: piedra con hiladas, como las columnas.
+  const fachada = new Path2D();
+  fachada.rect(x0, arriba, x1 - x0, alto);
+  fachada.addPath(hueco);
+  ctx.save();
+  ctx.clip(fachada, 'evenodd');
+  ctx.fillStyle = PIEDRA.luz;
+  ctx.fillRect(x0, arriba, x1 - x0, alto);
+  // La jamba de la izquierda, en sombra: da volumen sin pintar caras de lado.
+  ctx.fillStyle = PIEDRA.sombra;
+  ctx.fillRect(x0, arriba, izq - x0, alto);
+  pintarSillares(ctx, t, { x: x0, y: c.y }, { x: x1, y: c.y }, alto);
+  ctx.restore();
+  if (abierta) pintarHojasAbiertas(ctx, t, p);
+  else pintarHojasCerradas(ctx, t, c.x, clave, c.y);
+  // La rosca del arco, en madera oscura como la puerta: se lee como un paso.
+  ctx.lineWidth = Math.max(2.5, t.paso * 0.05);
+  ctx.strokeStyle = '#2a160a';
+  ctx.stroke(hueco);
+  // La tapa: el fondo de la fachada visto desde arriba. Ahí no se pisa.
+  ctx.beginPath();
+  ctx.rect(x0, arriba - fondo, x1 - x0, fondo);
+  ctx.fillStyle = PIEDRA.arriba;
+  ctx.fill();
+  ctx.lineWidth = Math.max(2, t.paso * 0.045);
+  ctx.strokeStyle = PIEDRA.borde;
+  ctx.stroke();
+  ctx.strokeRect(x0, arriba, x1 - x0, alto);
+  if (elegible) {
+    ctx.setLineDash([6, 4]);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#ffd24a';
+    ctx.stroke(hueco);
+    ctx.strokeRect(x0, arriba - fondo, x1 - x0, alto + fondo);
+    ctx.setLineDash([]);
+  }
+  ctx.restore();
+}
+
+/**
+ * El contorno de las hojas de la puerta `p` —el tablero cerrado en medio del
+ * arco, o las dos hojas abiertas contra las jambas— en el lienzo: lo que pintan
+ * `pintarHojasCerradas` y `pintarHojasAbiertas`, como un trazo.
+ */
+function formaDeLasHojas(t: Tablero, p: PuertaDeMuralla, abierta: boolean): Path2D {
+  const c = pieDePortada(t, p);
+  const clave = c.y - PORTADA.arco * t.paso;
+  const forma = new Path2D();
+  if (!abierta) {
+    const ancho = ANCHO_DE_LAS_HOJAS * t.paso;
+    const arriba = clave + t.paso * 0.04;
+    forma.rect(c.x - ancho / 2, arriba, ancho, c.y - arriba);
+    return forma;
+  }
+  const arranque = clave + PORTADA.flecha * t.paso;
+  const grueso = t.paso * 0.1;
+  const izq = c.x - PORTADA.hueco * t.paso;
+  const der = c.x + PORTADA.hueco * t.paso;
+  for (const [x0, x1] of [
+    [izq, izq + grueso],
+    [der - grueso, der],
+  ] as const) {
+    forma.moveTo(x0, c.y);
+    forma.lineTo(x0, arranque);
+    forma.lineTo(x1, arranque + grueso * 0.6);
+    forma.lineTo(x1, c.y);
+    forma.closePath();
+  }
+  return forma;
+}
+
+/**
+ * Las hojas de la puerta `p` por encima de las columnas que se pintan delante
+ * de su portada y las tapan, en contorno, como la silueta de una figura: solo
+ * donde esas columnas tapan. Sin ninguna delante, nada.
+ */
+function pintarHojasTapadas(
+  ctx: CanvasRenderingContext2D,
+  t: Tablero,
+  m: MurallaDeBatalla,
+  p: EstadoDePuerta,
+): void {
+  const y = planoDeHex(p.a).y;
+  const portada = siluetaDePortada(t, p);
+  const delante = m.muros.filter(
+    (h) => planoDeHex(h).y > y && convexosSeTocan(portada, siluetaDeColumna(t, h)),
+  );
+  if (delante.length === 0) return;
+  const recorte = new Path2D();
+  for (const h of delante) {
+    const [primero, ...resto] = siluetaDeColumna(t, h);
+    recorte.moveTo((primero as Punto).x, (primero as Punto).y);
+    for (const q of resto) recorte.lineTo(q.x, q.y);
+    recorte.closePath();
+  }
+  const forma = formaDeLasHojas(t, p, p.abierta);
+  ctx.save();
+  ctx.clip(recorte);
+  ctx.fillStyle = HOJA.tapada;
+  ctx.fill(forma);
+  ctx.lineWidth = Math.max(2, t.paso * 0.03);
+  ctx.strokeStyle = HOJA.contorno;
+  ctx.stroke(forma);
+  ctx.restore();
+}
+
+/** La madera de las hojas de la puerta y sus herrajes. */
+const HOJA = {
+  madera: '#7a4a22',
+  tabla: '#4a2a12',
+  hierro: '#26231f',
+  canto: '#5a3418',
+  /** Las hojas tapadas por una columna (`pintarHojasTapadas`): relleno y trazo. */
+  tapada: 'rgba(122, 74, 34, 0.45)',
+  contorno: '#e8b070',
+} as const;
+
+/** Lo ancho del tablero de las hojas cerradas, en pasos: más que su grueso, para que se lea. */
+const ANCHO_DE_LAS_HOJAS = 0.26;
+
+/**
+ * Las dos hojas cerradas, en medio del arco y sobre el lado de la puerta: un
+ * tablero de madera del suelo a la clave, con su junta, sus tablas y dos bandas
+ * de hierro con clavos.
+ */
+function pintarHojasCerradas(
+  ctx: CanvasRenderingContext2D,
+  t: Tablero,
+  medio: number,
+  clave: number,
+  suelo: number,
+): void {
+  const ancho = ANCHO_DE_LAS_HOJAS * t.paso;
+  const x0 = medio - ancho / 2;
+  const arriba = clave + t.paso * 0.04;
+  ctx.save();
+  ctx.fillStyle = HOJA.madera;
+  ctx.fillRect(x0, arriba, ancho, suelo - arriba);
+  ctx.strokeStyle = HOJA.tabla;
+  ctx.lineWidth = Math.max(1, t.paso * 0.02);
+  ctx.beginPath();
+  for (const f of [0.25, 0.75]) {
+    ctx.moveTo(x0 + ancho * f, arriba);
+    ctx.lineTo(x0 + ancho * f, suelo);
+  }
+  ctx.stroke();
+  ctx.strokeStyle = HOJA.hierro;
+  ctx.lineWidth = Math.max(2, t.paso * 0.04);
+  ctx.beginPath();
+  ctx.moveTo(medio, arriba);
+  ctx.lineTo(medio, suelo);
+  for (const f of [0.25, 0.7]) {
+    const y = arriba + (suelo - arriba) * f;
+    ctx.moveTo(x0 - t.paso * 0.03, y);
+    ctx.lineTo(x0 + ancho + t.paso * 0.03, y);
+  }
+  ctx.stroke();
+  ctx.lineWidth = Math.max(1.5, t.paso * 0.025);
+  ctx.strokeRect(x0, arriba, ancho, suelo - arriba);
+  ctx.restore();
+}
+
+/**
+ * Las dos hojas abiertas: abatidas contra las jambas, una tira de madera oscura
+ * a cada lado del hueco, del suelo al arranque del arco (`formaDeLasHojas`). El
+ * medio, libre.
+ */
+function pintarHojasAbiertas(ctx: CanvasRenderingContext2D, t: Tablero, p: PuertaDeMuralla): void {
+  const forma = formaDeLasHojas(t, p, true);
+  ctx.save();
+  ctx.fillStyle = HOJA.canto;
+  ctx.fill(forma);
+  ctx.strokeStyle = HOJA.hierro;
+  ctx.lineWidth = Math.max(1, t.paso * 0.02);
+  ctx.stroke(forma);
+  ctx.restore();
+}
+
+/**
+ * La escalera puesta, sin arte: dos largueros de madera del pie (en el suelo,
+ * junto a la base de la columna) hasta pasado el borde de lo alto, y sus
+ * peldaños. Se queda puesta toda la batalla. Sale ancha y gruesa a propósito:
+ * de 0,09 pasos y apoyada a un tercio del pie, la tapaba la figura que esperaba
+ * en él y no se leía (QA, M2).
+ */
+function pintarEscalera(ctx: CanvasRenderingContext2D, t: Tablero, pie: Hex, muro: Hex): void {
+  const p = centroHex(t, pie);
+  const m = centroHex(t, muro);
+  const abajo = { x: p.x + (m.x - p.x) * 0.48, y: p.y + (m.y - p.y) * 0.48 };
+  const arriba = {
+    x: m.x + (p.x - m.x) * 0.3,
+    y: m.y + (p.y - m.y) * 0.3 - alturaDeColumna(t) * 1.15,
+  };
+  const dx = arriba.x - abajo.x;
+  const dy = arriba.y - abajo.y;
+  const largo = Math.max(1, Math.hypot(dx, dy));
+  const ancho = t.paso * 0.15;
+  const nx = (-dy / largo) * ancho;
+  const ny = (dx / largo) * ancho;
+  ctx.save();
+  ctx.lineCap = 'round';
+  for (const [color, grueso] of [
+    ['#2a160a', Math.max(4, t.paso * 0.075)],
+    ['#d39a52', Math.max(2, t.paso * 0.042)],
+  ] as const) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = grueso;
+    ctx.beginPath();
+    for (const lado of [-1, 1]) {
+      ctx.moveTo(abajo.x + nx * lado, abajo.y + ny * lado);
+      ctx.lineTo(arriba.x + nx * lado, arriba.y + ny * lado);
+    }
+    for (let i = 1; i <= 4; i++) {
+      const f = i / 5;
+      const x = abajo.x + dx * f;
+      const y = abajo.y + dy * f;
+      ctx.moveTo(x - nx, y - ny);
+      ctx.lineTo(x + nx, y + ny);
+    }
+    ctx.stroke();
+  }
   ctx.restore();
 }
 
@@ -297,9 +1318,11 @@ export function cajaDeFigura(
   t: Tablero,
   s: BattleStack,
   en: Plano,
+  elevacion = 0,
 ): { x: number; suelo: number; alto: number; ancho: number } {
   const grande = hexSize(s.unit) > 1;
-  const p = enPantalla(t, en);
+  // En lo alto de una columna los pies van en su tapa: subidos lo que ella mide.
+  const p = enPantalla(tableroA(t, elevacion), en);
   const alto = t.paso * ALTO_DE_FIGURA[grande ? 'grande' : 'normal'];
   return {
     x: p.x,
@@ -315,8 +1338,11 @@ export function cajaDeFigura(
  * cacheado, lo más caro de un fotograma de batalla, y no cambia mientras el
  * lienzo no cambie de tamaño.
  */
-let fondo: { clave: string; campo: HTMLImageElement | null; lienzo: HTMLCanvasElement } | null =
-  null;
+let fondo: {
+  clave: string;
+  campo: HTMLImageElement | null;
+  lienzo: HTMLCanvasElement;
+} | null = null;
 
 function pintarFondo(ctx: CanvasRenderingContext2D, v: VistaBatalla): void {
   const campo = asset('rpg', 'campo');
@@ -434,7 +1460,7 @@ function pintarCadaver(
   s: BattleStack,
   f: EstadoFigura,
 ): void {
-  const caja = cajaDeFigura(v.tablero, s, f.en);
+  const caja = cajaDeFigura(v.tablero, s, f.en, f.elevacion);
   pintarFiguraConSombra(ctx, {
     ...figuraDe(v, s, f, caja, caja.x),
     clip: 'death',
@@ -454,7 +1480,7 @@ function pintarUnidad(
 ): void {
   const paso = v.tablero.paso;
   const grande = hexSize(s.unit) > 1;
-  const caja = cajaDeFigura(v.tablero, s, f.en);
+  const caja = cajaDeFigura(v.tablero, s, f.en, f.elevacion);
   // El retroceso del golpe: un temblor que se apaga.
   const x = caja.x + (f.golpe > 0 ? Math.sin(f.golpe * 22) * paso * 0.06 * (1 - f.golpe) : 0);
   const { suelo } = caja;
@@ -498,7 +1524,7 @@ function pintarUnidad(
 
 /** Lo que va encima de la cabeza: dónde, y de qué ancho es la barra. */
 function cabezaDe(v: VistaBatalla, s: BattleStack, f: EstadoFigura) {
-  const caja = cajaDeFigura(v.tablero, s, f.en);
+  const caja = cajaDeFigura(v.tablero, s, f.en, f.elevacion);
   const grande = hexSize(s.unit) > 1;
   return {
     x: caja.x,
@@ -699,8 +1725,8 @@ function pintarEfecto(ctx: CanvasRenderingContext2D, t: Tablero, e: Efecto): voi
   ctx.save();
   switch (e.tipo) {
     case 'proyectil': {
-      const a = enPantalla(t, e.desde);
-      const b = enPantalla(t, e.hasta);
+      const a = enPantalla(tableroA(t, e.altoDesde), e.desde);
+      const b = enPantalla(tableroA(t, e.altoHasta), e.hasta);
       const x = a.x + (b.x - a.x) * e.t;
       // Un arco: sube y baja sobre la línea recta entre los dos.
       const y = a.y - alto * 0.7 + (b.y - a.y) * e.t - Math.sin(e.t * Math.PI) * t.paso * 0.6;
@@ -715,7 +1741,7 @@ function pintarEfecto(ctx: CanvasRenderingContext2D, t: Tablero, e: Efecto): voi
       break;
     }
     case 'hechizo': {
-      const p = enPantalla(t, e.en);
+      const p = enPantalla(tableroA(t, e.alto), e.en);
       ctx.strokeStyle = '#b5d9ff';
       ctx.shadowColor = '#b5d9ff';
       ctx.shadowBlur = 14;
@@ -727,7 +1753,7 @@ function pintarEfecto(ctx: CanvasRenderingContext2D, t: Tablero, e: Efecto): voi
       break;
     }
     case 'danio': {
-      const p = enPantalla(t, e.en);
+      const p = enPantalla(tableroA(t, e.alto), e.en);
       ctx.globalAlpha = Math.min(1, (1 - e.t) * 3);
       ctx.fillStyle = '#ffe1c2';
       ctx.strokeStyle = '#2a0e06';

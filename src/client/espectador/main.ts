@@ -16,7 +16,7 @@ import type { SpectatorSnapshotMsg } from '../../server/protocol.js';
 import type { SpectatorView } from '../../server/vista-espectador.js';
 import { NADA } from '../html.js';
 import { cargarArte } from '../render/assets.js';
-import { bandosSinDueño, drawBatalla } from '../render/batalla.js';
+import { alzadoDeLaMuralla, bandosSinDueño, drawBatalla } from '../render/batalla.js';
 import { type CamaraMapa, centrarEn, TILE_LEGIBLE } from '../render/camara-mapa.js';
 import { apuntarElSueloEn, escenarioListo, topeDeAlejar } from '../render/escenario/superficie.js';
 import { hayFigurasAnimadas } from '../render/figura.js';
@@ -255,7 +255,8 @@ function pintarTodo(ahora: number): void {
       const enCurso = batalla;
       drawBatalla(ctx, {
         battle: enCurso,
-        tablero: tableroPara(rect.width, rect.height),
+        // Con muralla, el espectador no alarga su lienzo: encoge el tablero.
+        tablero: tableroPara(rect.width, rect.height, alzadoDeLaMuralla(enCurso.muralla)),
         ancho: rect.width,
         alto: rect.height,
         movibles: [],
@@ -263,9 +264,12 @@ function pintarTodo(ahora: number): void {
         cargas: SIN_CARGAS,
         angulo: null,
         atacables: NINGUNO,
+        escalables: NINGUNO,
+        puertasPorElegir: NINGUNO,
         objetivosHechizo: NINGUNO,
         hoverHex: null,
         hoverStack: null,
+        puntero: null,
         figura: (s) => mirada.reproductor.animador.figura(s),
         efectos: mirada.reproductor.animador.efectos(enCurso),
         sinDueño: bandosSinDueño(mirada.reproductor.dueños),

@@ -22,7 +22,26 @@ import {
   NOMBRE_DE_FACCION_DE_ARENA,
   type UnidadDeArena,
 } from '@core/arena.js';
-import { activeStack, ataqueYDefensaEnBatalla, isAlive, MAX_ROUNDS } from '@core/battle/battle.js';
+import {
+  type FormaDeMuralla,
+  ladosDeLaForma,
+  NOMBRE_MAXIMO_DE_FORMA,
+  REGLA_DE_LA_MURALLA,
+} from '@core/arena-murallas.js';
+import {
+  activeStack,
+  ataqueYDefensaEnBatalla,
+  bandoDeSalida,
+  isAlive,
+  MAX_ROUNDS,
+} from '@core/battle/battle.js';
+import { BOARD_HEIGHT, BOARD_WIDTH } from '@core/battle/board.js';
+import {
+  esMuro,
+  ladoDeLaMuralla,
+  type MurallaDeBatalla,
+  type PiezaDeMuralla,
+} from '@core/battle/muralla.js';
 import {
   DESCRIPCION_DE_REGLA,
   NOMBRES_DE_REGLA,
@@ -30,7 +49,7 @@ import {
   reglasEncendidas,
 } from '@core/battle/reglas.js';
 import { allSpells } from '@core/battle/spells.js';
-import type { BattleState } from '@core/battle/types.js';
+import type { BattleState, TipoDeEscala, TipoDePuerta } from '@core/battle/types.js';
 import { CATALOGO_DE_HABILIDADES, isShooter } from '@core/data.js';
 import {
   CREATURE_TRAITS,
@@ -64,6 +83,8 @@ export interface Puesto {
   readonly clave: number;
   readonly fuente: FuenteDePuesto;
   readonly ia: boolean;
+  /** Lleva escalera para subir a la muralla: es del montaje, no de la unidad. */
+  readonly escalera: boolean;
 }
 
 /** El héroe de un lado del montaje y quién lo mueve. */
@@ -86,6 +107,11 @@ export interface DatosDePuesto {
   readonly figura: string;
   /** «catálogo», «catálogo · prueba» o «borrador». */
   readonly sello: string;
+  /**
+   * Por qué no usaría una escalera en su lado (`escaleraDeArenaBlocker`), o
+   * `null` si la usaría: lo dice la casilla «Lleva escalera».
+   */
+  readonly noEscala: string | null;
 }
 
 /** ¿Es esta la elegida? */
@@ -112,6 +138,7 @@ const NOMBRE_DE_RASGO: Readonly<Record<(typeof CREATURE_TRAITS)[number], string>
   curse_on_hit: 'maldice al golpear',
   bane_undead: 'azote de no-muertos',
   fear: 'terror',
+  escalar: 'escala murallas',
 };
 
 const rutaDeIdentidad = (id: string): string => `/unidades/${id}/identidad.webp`;
@@ -244,6 +271,7 @@ export function renderBando(
                   <button data-arena="duplicar" data-clave="${p.clave}" ${lleno ? DESHABILITADO : NADA}>Duplicar</button>
                   <button data-arena="quitar" data-clave="${p.clave}">Quitar</button>
                 </span>
+                ${lado === 'izquierda' ? casillaDeEscalera(p, d.noEscala) : NADA}
               </div>
             </div>`;
           }),
@@ -324,6 +352,62 @@ export function renderEnlace(enlace: string | null): Html {
   if (enlace === null) return NADA;
   return html`<div class="enlace-de-pelea"><h3>Enlace de la pelea</h3>
     <input type="text" readonly data-enlace-de-pelea value="${enlace}" aria-label="Enlace de la pelea"></div>`;
+}
+
+/**
+ * «Poner escalera» y «Subir» para la unidad activa —tuya—: habilitados si hay
+ * contra qué muro, y si no, con el motivo del núcleo en el `title` y debajo.
+ * Al pulsarlos con más de un muro al pie, el clic en la columna elige cuál.
+ */
+function botonesDeEscala(s: VistaDeArena): Html {
+  const boton = (tipo: TipoDeEscala, rotulo: string): Html => {
+    const motivo = s.motivoDeEscala(tipo);
+    const clase = motivo === null && s.muroPorElegir === tipo ? 'escala primary' : 'escala';
+    const estado = motivo === null ? NADA : html`disabled title="${motivo}"`;
+    return html`<button data-action="battle-escala" data-escala="${tipo}" class="${clase}" ${estado}>${rotulo}</button>`;
+  };
+  return html`
+         ${boton('poner_escalera', 'Poner escalera')}
+         ${boton('subir', 'Subir')}`;
+}
+
+/**
+ * «Abrir puerta» y «Cerrar puerta» para la unidad activa —tuya— de quien
+ * defiende: habilitados si hay alguna puerta que abrir (o cerrar) ahora, y si
+ * no, con el motivo del núcleo en el `title` (tras moverse: «la puerta se abre o
+ * se cierra al principio del turno»). Con más de una, el clic en la portada
+ * elige cuál.
+ */
+function botonesDePuerta(s: VistaDeArena): Html {
+  const boton = (tipo: TipoDePuerta, rotulo: string): Html => {
+    const motivo = s.motivoDePuerta(tipo);
+    const clase = motivo === null && s.puertaPorElegir === tipo ? 'puerta primary' : 'puerta';
+    const estado = motivo === null ? NADA : html`disabled title="${motivo}"`;
+    return html`<button data-action="battle-puerta" data-puerta="${tipo}" class="${clase}" ${estado}>${rotulo}</button>`;
+  };
+  return html`
+         ${boton('abrir_puerta', 'Abrir puerta')}
+         ${boton('cerrar_puerta', 'Cerrar puerta')}`;
+}
+
+/**
+ * «Lleva escalera», solo a la izquierda: es el bando que ataca, el único que la
+ * usa (al defensor no le hace falta: sube a la muralla andando). A quien no la
+ * usaría —dos casillas, vuela— le sale deshabilitada y sin marcar, con el motivo
+ * del núcleo (`escaleraDeArenaBlocker`); el puesto la conserva por si la ficha
+ * cambia, y la batalla no se la da (`createBattle`).
+ */
+function casillaDeEscalera(p: Puesto, noLaUsa: string | null): Html {
+  if (noLaUsa !== null) {
+    const motivo = `No la usa: ${noLaUsa}.`;
+    return html`<label class="escalera no-la-usa" title="${motivo}">
+                  <input type="checkbox" data-arena="escalera" data-clave="${p.clave}" disabled> Lleva escalera
+                  <span class="cost">${motivo}</span>
+                </label>`;
+  }
+  return html`<label class="escalera" title="Puede apoyarla en un muro (un turno) y subir por ella (otro)">
+                  <input type="checkbox" data-arena="escalera" data-clave="${p.clave}" ${p.escalera ? MARCADO : NADA}> Lleva escalera
+                </label>`;
 }
 
 // ---------------------------------------------------------------- ficha
@@ -526,19 +610,32 @@ export type VistaDeArena = Pick<
   | 'spellOptions'
   | 'heroeEnJuego'
   | 'hechizos'
+  | 'motivoDeEscala'
+  | 'motivoDePuerta'
+  | 'noEscalaNunca'
+  | 'defensaEnLoAlto'
+  | 'muroPorElegir'
+  | 'puertaPorElegir'
 >;
 
 /**
  * El ataque y la defensa con que pelea ahora: los suyos y, si cambian —un
- * efecto, defender, su héroe con la regla de fheroes2—, los de la pelea al lado.
- * Salen del núcleo (`ataqueYDefensaEnBatalla`), las mismas que cuenta el golpe.
+ * efecto, defender, su héroe con la regla de fheroes2, lo alto de un muro—, los
+ * de la pelea al lado. Salen del núcleo (`ataqueYDefensaEnBatalla`), las mismas
+ * que cuenta el golpe; `enLoAlto` (`bonoEnLoAlto`) solo dice de dónde sale parte
+ * de la defensa, que ya va dentro.
  */
-function ataqueYDefensa(b: BattleState, s: Parameters<typeof ataqueYDefensaEnBatalla>[1]): string {
+function ataqueYDefensa(
+  b: BattleState,
+  s: Parameters<typeof ataqueYDefensaEnBatalla>[1],
+  enLoAlto: number,
+): string {
   const base = `${s.unit.attack} / ${s.unit.defense}`;
   const { ataque, defensa } = ataqueYDefensaEnBatalla(b, s);
+  const alto = enLoAlto > 0 ? `, +${enLoAlto} de defensa en lo alto` : '';
   return ataque === s.unit.attack && defensa === s.unit.defense
     ? base
-    : `${base} (en la pelea, ${conComa(ataque, 1)} / ${conComa(defensa, 1)})`;
+    : `${base} (en la pelea, ${conComa(ataque, 1)} / ${conComa(defensa, 1)}${alto})`;
 }
 
 /**
@@ -604,6 +701,7 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
   const activa = activeStack(b);
   const mia = s.turnoPropio !== null;
   const rasgos = activa === null ? '' : rasgosDichos(activa.unit.traits);
+  const enLoAlto = activa === null ? 0 : s.defensaEnLoAlto(activa);
   const ficha =
     activa === null
       ? NADA
@@ -611,7 +709,7 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
         <div class="row"><span class="label">Bando</span><span>${LADOS[ladoDe(activa.side)].rotulo}</span></div>
         <div class="row"><span class="label">La mueve</span><span>${s.laLlevaLaIA(activa.id) ? 'la IA' : 'tú'}</span></div>
         <div class="row"><span class="label">Vida</span><span>${isAlive(activa) ? activa.topHp : 0} / ${activa.unit.hp}</span></div>
-        <div class="row"><span class="label">Ataque / Defensa</span><span>${ataqueYDefensa(b, activa)}</span></div>
+        <div class="row"><span class="label">Ataque / Defensa</span><span>${ataqueYDefensa(b, activa, enLoAlto)}</span></div>
         <div class="row"><span class="label">Daño</span><span>${activa.unit.damage[0]}–${activa.unit.damage[1]}</span></div>
         <div class="row"><span class="label">Velocidad</span><span>${SPEED_TO_HEXES[activa.unit.speed]} casillas</span></div>
         ${(activa.unit.hexes ?? 1) > 1 ? html`<div class="row"><span class="label">Hexes</span><span>${activa.unit.hexes ?? 1}</span></div>` : NADA}
@@ -627,6 +725,14 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
           rendicion: NADA,
           hechizos:
             heroe === null ? NADA : renderSpells(s.hechizos.selectedSpell, s.spellOptions()),
+          // La puerta, solo a quien defiende: es quien la abre y la cierra. La
+          // escala, solo a quien puede llegar a escalar: al defensor, a la
+          // grande y a la voladora les saldrían siempre deshabilitados.
+          muralla: html`${b.puertas.length > 0 && activa.side === 'defender' ? botonesDePuerta(s) : NADA}${
+            b.muralla.muros.length > 0 && s.noEscalaNunca(activa) === null
+              ? botonesDeEscala(s)
+              : NADA
+          }`,
         })
       : html`<p>Mueve la IA…</p>`;
   const mana =
@@ -650,4 +756,119 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
     ${acciones}
     <h3>En el campo</h3><div class="stack-list">${campo}</div>
     <h3>Parte de guerra</h3>${renderBattleLog(b, null)}`;
+}
+
+// ---------------------------------------------------------------- muralla
+
+/** Con qué pinta el clic en la rejilla de la muralla. */
+export type HerramientaDeMuralla = PiezaDeMuralla | 'goma';
+
+const NOMBRE_DE_HERRAMIENTA: Readonly<Record<HerramientaDeMuralla, string>> = {
+  muro: 'Muro',
+  puerta: 'Puerta',
+  goma: 'Goma',
+};
+
+/** Lo que el editor de la muralla necesita: la que se dibuja y las formas a mano. */
+export interface EditorDeMuralla {
+  readonly muralla: MurallaDeBatalla;
+  readonly herramienta: HerramientaDeMuralla;
+  /** El nombre con el que se guardaría: el de la forma cargada o lo escrito. */
+  readonly nombre: string;
+  readonly ejemplos: readonly FormaDeMuralla[];
+  readonly guardadas: readonly FormaDeMuralla[];
+  /** Por qué no se puede guardar ni borrar, o `null` si se puede. */
+  readonly sinGuardado: string | null;
+  /** Por qué el montaje no cabe con esta muralla (`despliegueDeArenaBlocker`), o `null`. */
+  readonly despliegue: string | null;
+  /**
+   * Plegado, el editor es una línea: a 1280×720 dejaba los bandos y la ficha en
+   * ~250 px de alto (QA, M7). Lo que impide luchar se sigue diciendo.
+   */
+  readonly plegado: boolean;
+}
+
+/** «9 muros · 0 puertas», «1 muro y 1 puerta»: la tarjeta decía «9 muro · 0 puerta» (QA, M6). */
+function piezas(m: MurallaDeBatalla, junta: string): string {
+  const n = (k: number, palabra: string): string => `${k} ${palabra}${k === 1 ? '' : 's'}`;
+  return `${n(m.muros.length, 'muro')}${junta}${n(m.puertas.length, 'puerta')}`;
+}
+
+/** La zona de salida en la que cae el hex, como clase de la rejilla. */
+function claseDeSalida(col: number, row: number): string {
+  const bando = bandoDeSalida({ col, row });
+  if (bando === null) return '';
+  return bando === 'attacker' ? ' salida-izq' : ' salida-der';
+}
+
+/**
+ * El editor de la muralla: la rejilla de batalla (11 × 9, odd-r: las filas
+ * impares van media casilla a la derecha, como en el tablero) donde un clic pone
+ * o quita la pieza de la herramienta, y las formas con nombre. Las columnas de
+ * salida van sombreadas: se puede dibujar en ellas, y el despliegue esquiva la
+ * muralla; si así no caben todos, se dice aquí mientras se dibuja.
+ */
+export function renderMuralla(e: EditorDeMuralla): Html {
+  const despliegue =
+    e.despliegue === null
+      ? NADA
+      : html`<p class="aviso-despliegue" role="alert">No se puede luchar: ${e.despliegue}.</p>`;
+  const cabecera = html`<h3 class="cabecera-muralla"><span>Muralla · ${piezas(e.muralla, ' y ')}</span>
+    <button data-arena="plegar-muralla" aria-expanded="${e.plegado ? 'false' : 'true'}">${e.plegado ? 'Desplegar' : 'Plegar'}</button></h3>`;
+  if (e.plegado) return html`${cabecera}${despliegue}`;
+  // Un botón deshabilitado sin decir por qué es un misterio (QA, M4): el motivo
+  // va en su `title` y, mientras dure, en el propio editor, donde no lo borra
+  // el siguiente clic como a la barra.
+  const sinGuardar =
+    e.sinGuardado === null ? NADA : html`disabled title="No se puede guardar: ${e.sinGuardado}."`;
+  const filas = unir(
+    Array.from({ length: BOARD_HEIGHT }, (_, row) => {
+      const hexes = unir(
+        Array.from({ length: BOARD_WIDTH }, (_, col) => {
+          const muro = esMuro(e.muralla, { col, row });
+          const fuera = !muro && ladoDeLaMuralla(e.muralla, { col, row }) === 'fuera';
+          // La puerta va en el lado: se marca en las dos casillas, a cada una por su borde.
+          const alEste = e.muralla.puertas.some((p) => p.a.col === col && p.a.row === row);
+          const alOeste = e.muralla.puertas.some((p) => p.b.col === col && p.b.row === row);
+          const que = [
+            muro ? 'muro' : fuera ? 'vacío, fuera' : 'vacío',
+            ...(alEste ? ['puerta al este'] : []),
+            ...(alOeste ? ['puerta al oeste'] : []),
+          ].join(', ');
+          return html`<button class="hex${muro ? ' muro' : ''}${alEste ? ' puerta-este' : ''}${alOeste ? ' puerta-oeste' : ''}${fuera ? ' fuera' : ''}${claseDeSalida(col, row)}" data-arena="hex-muralla" data-col="${col}" data-row="${row}" title="(${col},${row}) ${que}" aria-label="hex ${col},${row}: ${que}"></button>`;
+        }),
+      );
+      return html`<div class="fila${row % 2 === 1 ? ' impar' : ''}">${hexes}</div>`;
+    }),
+  );
+  const herramientas = unir(
+    (Object.keys(NOMBRE_DE_HERRAMIENTA) as HerramientaDeMuralla[]).map(
+      (h) =>
+        html`<button data-arena="herramienta-muralla" data-herramienta="${h}" class="${h === e.herramienta ? 'primary' : ''}">${NOMBRE_DE_HERRAMIENTA[h]}</button>`,
+    ),
+  );
+  const forma = (f: FormaDeMuralla, ejemplo: boolean): Html =>
+    html`<div class="forma" data-forma="${f.nombre}">
+      <span class="nombre">${f.nombre}</span>
+      <span class="cost">${piezas(f.muralla, ' · ')}${ejemplo ? ' · ejemplo' : ''}</span>
+      <span class="botones">
+        <button data-arena="cargar-forma" data-nombre="${f.nombre}">Cargar</button>
+        ${ejemplo ? NADA : html`<button data-arena="borrar-forma" data-nombre="${f.nombre}" ${sinGuardar}>Borrar</button>`}
+      </span>
+    </div>`;
+  return html`${cabecera}
+    <div class="muralla">
+      <div class="rejilla herramienta-${e.herramienta}" data-rejilla-muralla>${filas}</div>
+      <div class="mandos">
+        <div class="botones">${herramientas}<button data-arena="vaciar-muralla">Vaciar</button></div>
+        ${despliegue}
+        <p class="cost">Un clic pone la pieza o la quita si ya está; la puerta, entre la casilla y la de su este, que se resaltan juntas. ${REGLA_DE_LA_MURALLA} Sombreadas, las columnas de salida.</p>
+        <p class="cost lados-de-la-forma">${ladosDeLaForma(e.muralla)}</p>
+        <label class="campo"><span class="label">Nombre de la forma</span>
+          <input type="text" data-muralla-nombre="si" value="${e.nombre}" maxlength="${NOMBRE_MAXIMO_DE_FORMA}"></label>
+        <div class="botones"><button data-arena="guardar-forma" ${sinGuardar}>Guardar forma</button></div>
+        ${e.sinGuardado === null ? NADA : html`<p class="aviso-guardado">No se pueden guardar ni borrar formas: ${e.sinGuardado}.</p>`}
+        <div class="formas">${unir(e.ejemplos.map((f) => forma(f, true)))}${unir(e.guardadas.map((f) => forma(f, false)))}</div>
+      </div>
+    </div>`;
 }

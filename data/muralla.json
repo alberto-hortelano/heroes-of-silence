@@ -1,0 +1,4 @@
+{
+  "_comment": "La muralla de la arena (docs/agents/2026-10-09-muralla-alta/). INVENTADO y PROVISIONAL: HoMM2 no tiene tiradores sobre el muro que se puedan elegir, así que no hay fila que copiar. defensaEnLoAlto = lo que suma a su defensa un tirador que está en lo alto de un muro (decisión del usuario, 09-10-2026: «el tirador de arriba tiene +x a defensa»; el 3 es nuestro). Se suma antes del +20 % de defenderse.",
+  "defensaEnLoAlto": 3
+}

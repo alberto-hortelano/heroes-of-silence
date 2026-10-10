@@ -4,10 +4,21 @@
  * impares van desplazadas media celda a la derecha.
  */
 import type { Hex } from '../types.js';
+import type { Side } from './types.js';
 
 export const BOARD_WIDTH = 11;
 export const BOARD_HEIGHT = 9;
 export const BOARD_SIZE = BOARD_WIDTH * BOARD_HEIGHT;
+
+/** Columnas de salida de cada bando, contando desde su borde. */
+export const COLUMNAS_DE_SALIDA = 3;
+
+/** De qué bando es la zona de salida en la que cae `hex`, o `null` si no es de ninguno. */
+export function bandoDeSalida(hex: Hex): Side | null {
+  if (hex.col < COLUMNAS_DE_SALIDA) return 'attacker';
+  if (hex.col >= BOARD_WIDTH - COLUMNAS_DE_SALIDA) return 'defender';
+  return null;
+}
 
 export function isInside(h: Hex): boolean {
   return h.col >= 0 && h.col < BOARD_WIDTH && h.row >= 0 && h.row < BOARD_HEIGHT;
@@ -96,15 +107,109 @@ const DIRECCIONES_CUBICAS: readonly (readonly [number, number])[] = [
  * medio. Entre dos casillas del tablero lo de en medio también lo es: el
  * rectángulo odd-r no tiene entrantes.
  */
-export function rectaLibre(desde: Hex, hasta: Hex, bloqueadas: ReadonlySet<string>): number | null {
+export function rectaLibre(
+  desde: Hex,
+  hasta: Hex,
+  bloqueadas: ReadonlySet<string>,
+  paso?: PasoPermitido,
+): number | null {
   const recta = rectaEntre(desde, hasta);
   if (recta === null) return null;
   let h = desde;
-  for (let paso = 1; paso < recta.d; paso++) {
-    h = vecinaEnDireccion(h, recta.dir);
-    if (bloqueadas.has(hexKey(h))) return null;
+  for (let i = 1; i <= recta.d; i++) {
+    const siguiente = vecinaEnDireccion(h, recta.dir);
+    if (i < recta.d && bloqueadas.has(hexKey(siguiente))) return null;
+    // El último paso también se da: subir al muro en la última casilla de la
+    // recta es tan ilegal como en la de en medio.
+    if (paso !== undefined && !paso(indiceDe(h), indiceDe(siguiente))) return null;
+    h = siguiente;
   }
   return recta.d;
+}
+
+/**
+ * ¿Se puede dar el paso de `desde` a `hasta`, dos casillas vecinas, por su
+ * índice (`indiceDe`)? Lo pasa quien recorre un tablero con niveles (la
+ * muralla: `cierreDeLaMuralla`), donde el camino deja de ser «todo menos lo
+ * bloqueado»: al muro se baja, pero no se sube. Sin él, todo paso entre dos
+ * casillas libres vale, como siempre. Por índice y no por `Hex`: se pregunta en
+ * cada arista de cada recorrido, y con el hex cada pregunta construía su clave
+ * de texto.
+ */
+export type PasoPermitido = (desde: number, hasta: number) => boolean;
+
+/**
+ * ¿Pasa la línea de tiro de `desde` a `hasta` sin cruzar ninguna casilla de
+ * `bloqueadas`? Solo se miran las de EN MEDIO: dónde está cada uno lo decide
+ * quien pregunta.
+ *
+ * Con `cortes` (pares de índices `desde · BOARD_SIZE + hasta`, en los dos
+ * sentidos: las puertas cerradas, que son el lado entre dos casillas) tampoco
+ * pasa de una casilla a la siguiente de la recta por un lado cortado, extremos
+ * incluidos: quien tira desde un lado de la puerta cerrada al otro no ve.
+ *
+ * La recta es la de las casillas que cruza el segmento entre los dos centros,
+ * en cúbicas y con **aritmética entera** (sin coma flotante en `core`): el punto
+ * `i` de `N` es `a·N + (b − a)·i`, en unidades de `1/N`, y se redondea a la
+ * casilla con el redondeo cúbico de siempre —redondear las tres y corregir la
+ * que más se desvió—. Para que un segmento que va justo por el borde de dos
+ * casillas no dependa del orden de las cuentas, los tres ejes llevan un empujón
+ * de `+1, +2, −3` en unidades de `1/(N·EMPUJON)`: suma cero, así que el punto
+ * sigue en el plano, y con él nunca hay empate (un medio exacto pediría que
+ * `N·EMPUJON/2 ≡ 1, 2 o 3` módulo `EMPUJON`, y con 1 000 nunca pasa).
+ */
+export function lineaLibre(
+  desde: Hex,
+  hasta: Hex,
+  bloqueadas: ReadonlySet<string>,
+  cortes?: ReadonlySet<number>,
+): boolean {
+  const n = hexDistance(desde, hasta);
+  if (cortes === undefined && n <= 1) return true;
+  const a = toCube(desde);
+  const b = toCube(hasta);
+  const d = n * EMPUJON;
+  let antes = indiceDe(desde);
+  for (let i = 1; i < n; i++) {
+    const q = (a.q * n + (b.q - a.q) * i) * EMPUJON + 1;
+    const r = (a.r * n + (b.r - a.r) * i) * EMPUJON + 2;
+    const sx = (a.s * n + (b.s - a.s) * i) * EMPUJON - 3;
+    const h = deCubo(redondeoCubico(q, r, sx, d));
+    if (bloqueadas.has(hexKey(h))) return false;
+    if (cortes !== undefined) {
+      const ahora = indiceDe(h);
+      if (cortes.has(antes * BOARD_SIZE + ahora)) return false;
+      antes = ahora;
+    }
+  }
+  return cortes === undefined || !cortes.has(antes * BOARD_SIZE + indiceDe(hasta));
+}
+
+/** El empujón de `lineaLibre`, en milésimas de casilla por paso. */
+const EMPUJON = 1000;
+
+/** El entero más cercano a `x / d` (d > 0, sin empates: los quita el empujón). */
+function divRedondeo(x: number, d: number): number {
+  return Math.floor((2 * x + d) / (2 * d));
+}
+
+/** El redondeo cúbico de `(q, r, s) / d`: se corrige el eje que más se desvió. */
+function redondeoCubico(q: number, r: number, s: number, d: number): Cube {
+  let rq = divRedondeo(q, d);
+  let rr = divRedondeo(r, d);
+  let rs = divRedondeo(s, d);
+  const dq = Math.abs(rq * d - q);
+  const dr = Math.abs(rr * d - r);
+  const ds = Math.abs(rs * d - s);
+  if (dq > dr && dq > ds) rq = -rr - rs;
+  else if (dr > ds) rr = -rq - rs;
+  else rs = -rq - rr;
+  return { q: rq, r: rr, s: rs };
+}
+
+/** La inversa de `toCube`: de cúbicas a odd-r. */
+function deCubo(c: Cube): Hex {
+  return { col: c.q + (c.r - (c.r & 1)) / 2, row: c.r };
 }
 
 /**
@@ -141,7 +246,7 @@ function rectaEntre(desde: Hex, hasta: Hex): { readonly dir: number; readonly d:
 }
 
 /** Índice plano de una casilla del tablero: `row * BOARD_WIDTH + col`. */
-function indiceDe(h: Hex): number {
+export function indiceDe(h: Hex): number {
   return h.row * BOARD_WIDTH + h.col;
 }
 
@@ -269,6 +374,7 @@ export function reachable(
   from: Hex,
   maxSteps: number,
   blocked: ReadonlySet<string>,
+  pasoPermitido?: PasoPermitido,
 ): Map<string, Paso> {
   if (!isInside(from)) {
     throw new Error(
@@ -295,6 +401,9 @@ export function reachable(
         if (visto[n] === 1) continue;
         const c = CASILLAS[n] as Casilla;
         if (blocked.has(c.key)) continue;
+        // Con niveles el grafo tiene sentido: que no se suba por aquí no quiere
+        // decir que no se llegue por otro lado, así que no se marca como visto.
+        if (pasoPermitido !== undefined && !pasoPermitido(h, n)) continue;
         visto[n] = 1;
         const paso: Paso = { at: c.hex, steps: step, previo: pasoEn[h] as Paso };
         pasoEn[n] = paso;
@@ -306,6 +415,50 @@ export function reachable(
     frontier = next;
   }
   return dist;
+}
+
+/**
+ * Cuántos pasos hay de cada casilla al más cercano de `origenes`, esquivando
+ * `blocked` (los orígenes cuentan aunque estén en él) y dando solo los pasos que
+ * deje `pasoPermitido`, si lo hay, sin tope: es la distancia
+ * andando, no lo que se anda hoy. El mismo BFS por índices que `reachable`, sin
+ * los `Paso`: aquí nadie reconstruye el camino. Devuelve quién la lee:
+ * `Infinity` donde no se llega o fuera del tablero.
+ */
+export function distanciasDesde(
+  origenes: readonly Hex[],
+  blocked: ReadonlySet<string>,
+  pasoPermitido?: PasoPermitido,
+): (h: Hex) => number {
+  const dist = new Int16Array(BOARD_SIZE).fill(-1);
+  let frontera: number[] = [];
+  for (const h of origenes) {
+    if (!isInside(h)) {
+      throw new Error(`no se puede medir desde (${h.col},${h.row}): está fuera del tablero`);
+    }
+    const i = indiceDe(h);
+    dist[i] = 0;
+    frontera.push(i);
+  }
+  for (let d = 1; frontera.length > 0; d++) {
+    const siguiente: number[] = [];
+    for (const h of frontera) {
+      for (const n of (CASILLAS[h] as Casilla).indicesVecinas) {
+        const c = CASILLAS[n] as Casilla;
+        if (dist[n] !== -1 || blocked.has(c.key)) continue;
+        // Se busca hacia atrás: quien está en `n` anda hacia `h`, así que el
+        // paso que se pregunta es ese, no el del recorrido.
+        if (pasoPermitido !== undefined && !pasoPermitido(n, h)) continue;
+        dist[n] = d;
+        siguiente.push(n);
+      }
+    }
+    frontera = siguiente;
+  }
+  return (h) => {
+    const d = isInside(h) ? (dist[indiceDe(h)] as number) : -1;
+    return d < 0 ? Number.POSITIVE_INFINITY : d;
+  };
 }
 
 /**

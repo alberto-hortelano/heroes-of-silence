@@ -1,6 +1,7 @@
 import { nivelDeTropa } from '../hero/experiencia.js';
 import type { Hex, UnitInfo, Veterania } from '../types.js';
 import type { EffectKind, StackEffect } from './effects.js';
+import type { EstadoDePuerta, MurallaDeBatalla, PuertaDeMuralla } from './muralla.js';
 import type { ReglasDeBatalla } from './reglas.js';
 
 export type Side = 'attacker' | 'defender';
@@ -134,6 +135,12 @@ export interface BattleStack {
   /** Hex de cabeza. Las unidades grandes ocupan también el de detrás. */
   hex: Hex;
   shotsLeft: number;
+  /**
+   * Lleva una escalera para subir a la muralla (`poner_escalera`). Llega con
+   * el personaje (`BattleMember.escalera`, solo en la arena) si la puede usar, y
+   * se le quita al ponerla: la escalera se queda contra el muro, para quien llegue.
+   */
+  escalera: boolean;
   /** Ya contraatacó en esta ronda. */
   retaliated: boolean;
   defending: boolean;
@@ -237,6 +244,14 @@ export type BattleEvent =
   | { kind: 'effect_end'; stack: string; source: string }
   | { kind: 'immune'; stack: string; source: string }
   | { kind: 'perished'; stack: string }
+  /** Un atacante apoya su escalera en `muro` desde `pie`: se queda puesta. */
+  | { kind: 'ladder_placed'; stack: string; pie: Hex; muro: Hex }
+  /** Un atacante sube de `from` (el pie) al muro `to`, por escalera o escalando. */
+  | { kind: 'climbed'; stack: string; from: Hex; to: Hex }
+  /** Quien defiende abre la puerta `puerta`, al principio del turno de `stack`. */
+  | { kind: 'gate_opened'; stack: string; puerta: PuertaDeMuralla }
+  /** Quien defiende cierra la puerta `puerta`, al principio del turno de `stack`. */
+  | { kind: 'gate_closed'; stack: string; puerta: PuertaDeMuralla }
   /** Un bando se rinde: pierde, y lo que paga está en `finished.surrender`. */
   | { kind: 'surrender'; side: Side }
   | { kind: 'finished'; winner: Side };
@@ -314,6 +329,24 @@ export interface BattleState {
    * pelea con otras.
    */
   readonly reglas: ReglasDeBatalla;
+  /**
+   * Muros y puertas del tablero (`muralla.ts`). No cambia en toda la batalla; en
+   * las del mapa, hoy, `SIN_MURALLA`. Solo la arena la pone.
+   */
+  readonly muralla: MurallaDeBatalla;
+  /**
+   * Las escaleras apoyadas en la muralla, con su pie y su muro. Crece con cada
+   * `poner_escalera` y no se quita: va fuera de `muralla`, que no cambia en toda
+   * la batalla y se guarda en cachés por objeto.
+   */
+  escaleras: { readonly pie: Hex; readonly muro: Hex }[];
+  /**
+   * Cada puerta de la muralla, abierta o cerrada, en el orden de
+   * `muralla.puertas`. Empiezan cerradas; las abre y las cierra quien defiende
+   * (`abrir_puerta`, `cerrar_puerta`). Fuera de `muralla` por lo mismo que las
+   * escaleras. Sin muralla, vacía.
+   */
+  puertas: EstadoDePuerta[];
   log: BattleEvent[];
   finished: BattleFinish | null;
 }
@@ -339,4 +372,27 @@ export type BattleAction =
    */
   | { type: 'surrender'; gold?: number }
   /** Cierra el turno de la unidad activa sin hacer nada más (tras moverse, por ejemplo). */
-  | { type: 'end_turn' };
+  | { type: 'end_turn' }
+  /**
+   * El atacante apoya su escalera en `muro`, al pie del que está, sin haberse
+   * movido: es el turno entero (`escaleraBlocker`).
+   */
+  | { type: 'poner_escalera'; muro: Hex }
+  /**
+   * El atacante sube a `muro` por la escalera de su pie o escalando, sin haberse
+   * movido: arriba se queda y el turno se cierra (`subirBlocker`).
+   */
+  | { type: 'subir'; muro: Hex }
+  /**
+   * Quien defiende abre (o cierra) la puerta `puerta` al principio del turno
+   * de una unidad suya, antes de moverse: no gasta el turno, como `cast`
+   * (`puertaBlocker`).
+   */
+  | { type: 'abrir_puerta'; puerta: PuertaDeMuralla }
+  | { type: 'cerrar_puerta'; puerta: PuertaDeMuralla };
+
+/** Las dos jugadas de la puerta, que eligen una puerta (`puertaBlocker`). */
+export type TipoDePuerta = Extract<BattleAction, { puerta: PuertaDeMuralla }>['type'];
+
+/** Las dos jugadas de la escala, que eligen un muro (`escalaDesde`). */
+export type TipoDeEscala = Extract<BattleAction, { muro: Hex }>['type'];

@@ -53,11 +53,13 @@ import {
   type UnidadDeArena,
   unaVezEnLaURL,
   unidadPorDefecto,
+  VERSION_DEL_ENLACE,
   validarBorradorDeArena,
   validarHeroeDeArena,
   validarHojasDeArena,
   validarUnidadDeArena,
 } from '../src/core/arena.js';
+import { FORMAS_DE_EJEMPLO } from '../src/core/arena-murallas.js';
 import {
   activeStack,
   applyAction,
@@ -90,15 +92,11 @@ import {
   UNIDADES,
   unidad as unidadDelTaller,
 } from '../tools/taller/unidades.js';
+import { hojasDeLaArena, unidadDeArena } from './helpers.js';
 
 const RAIZ = resolve(import.meta.dirname, '..');
-const HOJAS = hojasDeArena(RAIZ);
-
-function unidad(id: string, cambios: Partial<UnidadDeArena> = {}): UnidadDeArena {
-  const hoja = HOJAS.find((h) => h.id === id);
-  if (hoja === undefined) throw new Error(`no hay hoja ${id}`);
-  return { ...unidadPorDefecto(hoja), ...cambios };
-}
+const HOJAS = hojasDeLaArena();
+const unidad = unidadDeArena;
 
 const delBorrador = (u: UnidadDeArena): FuenteDeArena => ({ kind: 'borrador', unidad: u });
 const ia = (u: UnidadDeArena): PuestoDeArena => ({ fuente: delBorrador(u), ia: true });
@@ -141,6 +139,7 @@ const tarjeta = (u: UnidadDeArena): DatosDePuesto => ({
   resumen: resumenDeCifras(u),
   figura: u.id,
   sello: 'borrador',
+  noEscala: null,
 });
 
 /** Una unidad como las guardaba el borrador antes de las casillas: sin ellas. */
@@ -304,7 +303,7 @@ describe('el borrador se valida antes de escribirse', () => {
 
   it('el archivo no trae dos veces la misma hoja', () => {
     expect(() => validarBorradorDeArena({ unidades: [base(), base()] })).toThrow(
-      'el borrador de la arena: la unidad "templario-monje" está dos veces',
+      'la unidad "templario-monje" está dos veces en el borrador',
     );
   });
 
@@ -511,6 +510,7 @@ describe('el marcado de la arena', () => {
       clave: i + 1,
       fuente: { kind: 'hoja', hoja: 'zombi' } as const,
       ia: i > 0,
+      escalera: false,
     }));
     const m = marcadoDe(
       renderBando(
@@ -607,6 +607,20 @@ describe('corrección de hallazgos de QA', () => {
       const arreglada = unidad('zombi');
       expect(escribirBorrador(dir, { unidades: [buena, nueva, arreglada] }).conservadas).toBe(0);
       expect(leerBorrador(dir)).toEqual({ unidades: [buena, nueva, arreglada], invalidas: [] });
+    });
+
+    it('una unidad repetida se conserva al guardar otra (QA, M3)', () => {
+      dir = mkdtempSync(join(tmpdir(), 'arena-'));
+      const buena = unidad('templario-monje', { attack: 11 });
+      const repetida = unidad('templario-monje', { attack: 3 });
+      escribirAMano(dir, [buena, repetida]);
+      expect(leerBorrador(dir).invalidas.map((i) => i.crudo)).toEqual([repetida]);
+      const nueva = unidad('elfo-arquero');
+      expect(escribirBorrador(dir, { unidades: [buena, nueva] }).conservadas).toBe(1);
+      const json = JSON.parse(readFileSync(join(dir, RUTA_DEL_BORRADOR), 'utf8')) as {
+        unidades: unknown[];
+      };
+      expect(json.unidades).toEqual([buena, nueva, repetida]);
     });
 
     it('un archivo que no se puede leer no se pisa: se dice', () => {
@@ -709,7 +723,7 @@ describe('corrección de hallazgos de QA', () => {
     const m = marcadoDe(
       renderBando(
         'izquierda',
-        [{ clave: 1, fuente: { kind: 'hoja', hoja: grande.id }, ia: false }],
+        [{ clave: 1, fuente: { kind: 'hoja', hoja: grande.id }, ia: false, escalera: false }],
         () => tarjeta(grande),
         null,
         7,
@@ -1224,19 +1238,22 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
     pruebas: { pikeman: { attack: 8, damage: [2, 4] } },
     izquierda: {
       puestos: [
-        { kind: 'hoja', hoja: 'templario-escudo', ia: false },
-        { kind: 'catalogo', id: 'pikeman', ia: true },
-        { kind: 'hoja', hoja: 'templario-escudo', ia: true },
+        { kind: 'hoja', hoja: 'templario-escudo', ia: false, escalera: true },
+        { kind: 'catalogo', id: 'pikeman', ia: true, escalera: true },
+        { kind: 'hoja', hoja: 'templario-escudo', ia: true, escalera: false },
       ],
       heroe: { datos: { ...MAGO, figura: 'heroe-elfo-druida', poder: 5 }, ia: false },
     },
     derecha: {
       puestos: [
-        { kind: 'hoja', hoja: 'zombi', ia: true },
-        { kind: 'catalogo', id: 'archer', ia: true },
+        { kind: 'hoja', hoja: 'zombi', ia: true, escalera: false },
+        { kind: 'catalogo', id: 'archer', ia: true, escalera: false },
       ],
       heroe: { datos: heroePorDefecto('derecha'), ia: true },
     },
+    // La muralla viaja también (la integración del banco con la muralla): con
+    // puerta, para que vaya y vuelva entera.
+    muralla: FORMAS_DE_EJEMPLO[1]!.muralla,
   };
 
   /** El enlace de `MONTAJE` con algo cambiado a mano, como lo dejaría una errata. */
@@ -1260,8 +1277,11 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
           (p): PuestoDeArena => ({
             fuente:
               p.kind === 'hoja'
-                ? delBorrador(m.unidades.find((u) => u.id === p.hoja) as UnidadDeArena)
-                : catalogo(p.id, m.pruebas[p.id] ?? null),
+                ? {
+                    ...delBorrador(m.unidades.find((u) => u.id === p.hoja) as UnidadDeArena),
+                    escalera: p.escalera,
+                  }
+                : { ...catalogo(p.id, m.pruebas[p.id] ?? null), escalera: p.escalera },
             ia: true,
           }),
         ),
@@ -1273,6 +1293,7 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
           izquierda: lado('izquierda'),
           derecha: lado('derecha'),
           reglas: reglasDeLaURL('tirador'),
+          ...(m.muralla === null ? {} : { muralla: m.muralla }),
         },
         7,
       );
@@ -1281,13 +1302,57 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
     };
     const a = sesionDe(MONTAJE);
     expect(a.battle.finished).not.toBeNull();
+    expect(a.battle.muralla).toEqual(MONTAJE.muralla);
+    // Las escaleras del montaje llegan al tablero: el piquero del catálogo la
+    // lleva como personaje, con las cifras del catálogo tal cual.
+    const conEscalera = a.battle.stacks.filter((st) => st.side === 'attacker' && st.escalera);
+    expect(conEscalera.map((st) => st.slot)).toEqual([0, 1]);
+    expect(a.battle.stacks.find((st) => st.slot === 1 && st.side === 'attacker')?.unit.attack).toBe(
+      8,
+    );
     expect(sesionDe(leido).battle.log).toEqual(a.battle.log);
+  });
+
+  it('un enlace de la versión 1 (sin muralla ni escaleras) se sigue leyendo', () => {
+    const v1 = tocado((o) => {
+      o.v = 1;
+      delete o.muralla;
+      for (const l of ['izquierda', 'derecha']) {
+        for (const p of o[l].puestos) delete p.escalera;
+      }
+    });
+    const leido = montajeDeLaURL(v1);
+    expect(leido.muralla).toBeNull();
+    expect([...leido.izquierda.puestos, ...leido.derecha.puestos].every((p) => !p.escalera)).toBe(
+      true,
+    );
+    // Y se reescribe en la versión de ahora.
+    expect(JSON.parse(montajeALaURL(leido)).v).toBe(VERSION_DEL_ENLACE);
   });
 
   it('un enlace mal formado o con lo que no existe se rechaza diciendo qué', () => {
     const casos: [string, string][] = [
       ['{"v":1,', 'el montaje del enlace no se puede leer'],
-      [tocado((o) => (o.v = 2)), 'es de la versión 2 y esta arena lee la 1'],
+      [tocado((o) => (o.v = 3)), 'es de la versión 3 y esta arena lee la 1 y la 2'],
+      [tocado((o) => delete o.muralla), 'falta «muralla»'],
+      [tocado((o) => o.muralla.muros.push({ col: 99, row: 0 })), 'la muralla del enlace no vale'],
+      [
+        tocado((o) => (o.derecha.puestos[0].escalera = true)),
+        'el bando derecho del enlace, puesto 1, lleva escalera y quien defiende sube a la muralla andando',
+      ],
+      [
+        tocado((o) => (o.izquierda.puestos[0].escalera = 'si')),
+        '«escalera» tiene que ser true o false',
+      ],
+      [
+        tocado((o) => {
+          o.muralla.muros = [0, 1, 2].flatMap((col) =>
+            Array.from({ length: 9 }, (_, row) => ({ col, row })),
+          );
+          o.muralla.puertas = [];
+        }),
+        'el montaje del enlace no cabe',
+      ],
       [tocado((o) => (o.sobra = 1)), '«sobra» no es un campo del enlace'],
       [tocado((o) => delete o.derecha), 'falta «derecha»'],
       [
@@ -1320,6 +1385,7 @@ describe('el enlace de la pelea (H6 de QA del banco)', () => {
           o.derecha.puestos = Array.from({ length: LIDERAZGO.maxPorBando }, () => ({
             criatura: 'archer',
             ia: true,
+            escalera: false,
           }));
         }),
         `lleva ${LIDERAZGO.maxPorBando + 1} y caben ${LIDERAZGO.maxPorBando}`,

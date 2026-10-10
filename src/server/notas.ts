@@ -800,6 +800,15 @@ export function describeAccion(accion: BattleAction | AdventureAction): string {
       return `unequip ${accion.slot} de ${accion.veteran ?? accion.hero}`;
     case 'end_turn':
       return 'end_turn';
+    // Hoy solo en la arena, que no tiene agente; se dicen por si un día los ve.
+    case 'poner_escalera':
+      return `escalera contra el muro de (${accion.muro.col},${accion.muro.row})`;
+    case 'subir':
+      return `subida al muro de (${accion.muro.col},${accion.muro.row})`;
+    case 'abrir_puerta':
+      return `abre la puerta entre (${accion.puerta.a.col},${accion.puerta.a.row}) y (${accion.puerta.b.col},${accion.puerta.b.row})`;
+    case 'cerrar_puerta':
+      return `cierra la puerta entre (${accion.puerta.a.col},${accion.puerta.a.row}) y (${accion.puerta.b.col},${accion.puerta.b.row})`;
   }
 }
 
