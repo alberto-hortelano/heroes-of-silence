@@ -19,6 +19,21 @@ export interface Town {
   available: Record<string, number>;
   /** Guarnición: defiende el pueblo si no hay héroe. */
   garrison: Army;
+  /**
+   * Lo que dicen sus vecinos, si el narrador lo ha escrito (`town_voices`). Es
+   * presentación: no cambia ninguna regla ni escribe en la crónica, así que el
+   * banco no lo ve. Lo escribe solo `ponerVoces` (`voces.ts`) y lo lee `vozDe`;
+   * sin él, cada vecino dice sus frases de respaldo.
+   */
+  voces?: VocesDeLaBase;
+}
+
+/** Las líneas narradas de los vecinos de una base, con la firma de cuándo se pidieron. */
+export interface VocesDeLaBase {
+  /** `firmaDeVoces` del momento: la semana y los sitios levantados. */
+  readonly firma: string;
+  /** Por id de vecino (`vecinosDeLaBase`), de 1 a 3 líneas. */
+  readonly lineas: Readonly<Record<string, readonly string[]>>;
 }
 
 export function createTown(

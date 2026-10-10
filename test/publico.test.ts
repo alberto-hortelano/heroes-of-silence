@@ -36,6 +36,24 @@ describe('la carpeta pública en el build', () => {
     for (const url of urls) expect(seCopiaAlBuild(deLaUrl(url)), url).toBe(true);
   });
 
+  it('de la base, copia las placas, los recortes y el índice, y deja fuera sus fuentes', () => {
+    // La página pide `indice.json`, `suelo.webp`, `tramo-<n>.webp` y un recorte
+    // por edificio (`render/base/arte.ts`); los maestros, las placas, las
+    // ediciones, las guías y las hojas de identidad solo los lee el taller.
+    for (const f of ['indice.json', 'suelo.webp', 'tramo-1.webp', 'village_hall.webp']) {
+      expect(seCopiaAlBuild(`bases/knight/${f}`), f).toBe(true);
+    }
+    for (const f of [
+      'maestro-t1.webp',
+      'placa-t1.webp',
+      'edicion-town_hall.webp',
+      'guia-t1.png',
+      'identidad-t1.png',
+    ]) {
+      expect(seCopiaAlBuild(`bases/knight/fuentes/${f}`), f).toBe(false);
+    }
+  });
+
   it('deja fuera las hojas, sus procedencias y los JSON del corte de cada dirección', () => {
     for (const f of [
       'hoja-a.webp',

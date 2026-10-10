@@ -14,21 +14,8 @@ import { existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { RESOURCE_KINDS } from '@core/types.js';
 import { FalClient } from './fal.js';
-import {
-  ICON_SIZE,
-  processBuilding,
-  processScene,
-  processSprite,
-  processTerrain,
-} from './postprocess.js';
-import {
-  BUILDING_PROMPTS,
-  buildingPrompt,
-  RESOURCE_ICON_PROMPTS,
-  TERRAIN_PROMPTS,
-  TERRENOS_CON_TEXTURA,
-  TOWN_BACKDROP_PROMPTS,
-} from './prompts.js';
+import { ICON_SIZE, processSprite, processTerrain } from './postprocess.js';
+import { RESOURCE_ICON_PROMPTS, TERRAIN_PROMPTS, TERRENOS_CON_TEXTURA } from './prompts.js';
 
 const ROOT = process.cwd();
 const CACHE_DIR = join(ROOT, 'tools', 'gen', '.cache');
@@ -74,26 +61,12 @@ const MODELS: Record<string, Record<'cheap' | 'quality', ModelSpec>> = {
       params: { rendering_speed: 'QUALITY', num_images: 1, image_size: 'square_hd' },
     },
   },
-  // Fondo de castillo: ni repite ni necesita alfa, así que no vale ninguno
-  // de los dos modelos de arriba.
-  scene: {
-    cheap: {
-      endpoint: 'fal-ai/z-image/turbo',
-      costUsd: 0.02,
-      params: { image_size: 'landscape_16_9', num_images: 1 },
-    },
-    quality: {
-      endpoint: 'fal-ai/z-image/turbo',
-      costUsd: 0.02,
-      params: { image_size: 'landscape_16_9', num_images: 1 },
-    },
-  },
 };
 
 interface Job {
-  readonly group: 'terrains' | 'icons' | 'buildings' | 'towns';
+  readonly group: 'terrains' | 'icons';
   readonly name: string;
-  readonly kind: 'terrain' | 'sprite' | 'scene';
+  readonly kind: 'terrain' | 'sprite';
   readonly prompt: string;
   /** Ruta final dentro de `assets/generated`. */
   readonly out: string;
@@ -126,27 +99,6 @@ function buildJobs(only: string): Job[] {
     }
   }
 
-  if (only === 'all' || only === 'buildings') {
-    for (const name of Object.keys(BUILDING_PROMPTS)) {
-      jobs.push({
-        group: 'buildings',
-        name,
-        kind: 'sprite',
-        prompt: buildingPrompt(name),
-        out: join('buildings', `${name}.png`),
-      });
-    }
-    for (const [faction, prompt] of Object.entries(TOWN_BACKDROP_PROMPTS)) {
-      jobs.push({
-        group: 'towns',
-        name: faction,
-        kind: 'scene',
-        prompt,
-        out: join('towns', `${faction}.jpg`),
-      });
-    }
-  }
-
   return jobs;
 }
 
@@ -174,7 +126,7 @@ function parseArgs(argv: string[]): {
 
 async function main(): Promise<void> {
   const { only, go, quality, budget, limit } = parseArgs(process.argv);
-  const grupos = ['all', 'terrains', 'icons', 'buildings'];
+  const grupos = ['all', 'terrains', 'icons'];
   if (!grupos.includes(only)) {
     console.error(`grupo desconocido: "${only}". Elige uno de: ${grupos.join(', ')}`);
     process.exit(1);
@@ -222,8 +174,6 @@ async function main(): Promise<void> {
         const destino = join(OUT_DIR, job.out);
         mkdirSync(join(destino, '..'), { recursive: true });
         if (job.kind === 'terrain') await processTerrain(path, destino);
-        else if (job.kind === 'scene') await processScene(path, destino);
-        else if (job.group === 'buildings') await processBuilding(path, destino);
         else await processSprite(path, destino, ICON_SIZE);
         const kb = Math.round(statSync(destino).size / 1024);
         console.log(`  \x1b[32m[listo]\x1b[0m ${job.out} (${kb} kB)`);

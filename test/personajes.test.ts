@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { ARTE_RPG } from '../src/client/render/assets.js';
 import {
   arteDe,
+  CUERPO_DE_VECINO,
   comoDireccion8d,
   JUEGO_DEL_CUERPO,
   juegosDelYBot,
@@ -31,10 +32,10 @@ const enDisco = (url: string): string => join(RAIZ, 'assets', url);
 const leer = (r: string): unknown => JSON.parse(readFileSync(r, 'utf8'));
 
 describe('las figuras a 25°, en 8 direcciones', () => {
-  it('cada criatura del catálogo, el héroe y el personaje tienen su juego de armas, y solo ellos', () => {
+  it('cada criatura del catálogo, el héroe, el personaje y la gente de la base tienen su juego de armas, y solo ellos', () => {
     const ids = allCreatures().map((c) => c.id);
     expect(Object.keys(JUEGO_DEL_CUERPO).sort()).toEqual(
-      [...ids, HERO_BODY, CHARACTER_BODY].sort(),
+      [...ids, HERO_BODY, CHARACTER_BODY, CUERPO_DE_VECINO].sort(),
     );
   });
 
@@ -108,11 +109,13 @@ describe('las figuras a 25°, en 8 direcciones', () => {
   });
 
   it('cada imagen de cada figura existe en `assets/`', () => {
-    // Los doce juegos del Y Bot: todos tienen poses, aunque la tabla no los use todos.
+    // Los trece juegos del Y Bot: todos tienen poses, aunque la tabla no los use
+    // todos; `civil` es el de la gente de la base (`CUERPO_DE_VECINO`).
     expect([...juegosDelYBot()].sort()).toEqual([
       'arco',
       'ballesta',
       'baston',
+      'civil',
       'dos-manos',
       'espada-escudo',
       'granada',
@@ -129,6 +132,17 @@ describe('las figuras a 25°, en 8 direcciones', () => {
     for (const [nombre, url] of Object.entries(ARTE_RPG)) {
       expect(existsSync(enDisco(url)), nombre).toBe(true);
     }
+  });
+
+  it('la gente de la base va con el Y Bot sin armas, no con el de su criatura', () => {
+    const vecino = arteDe(CUERPO_DE_VECINO);
+    expect(vecino.nombre).toBe('el Y Bot «civil»');
+    expect(vecino.imagenes.every((u) => u.startsWith('/unidades/_poses/civil-8d/'))).toBe(true);
+    // Un cuerpo del juego más: una hoja de unidad no lo sustituye.
+    expect(JUEGO_DEL_CUERPO[CUERPO_DE_VECINO]).toBe('civil');
+    expect(() => registrarUnidad(CUERPO_DE_VECINO, { juego: 'civil', direcciones: null })).toThrow(
+      /es un cuerpo del juego/,
+    );
   });
 
   it('una unidad con sus ocho `dN` es arte propio y lee cada dirección de su `atlas.webp`', () => {

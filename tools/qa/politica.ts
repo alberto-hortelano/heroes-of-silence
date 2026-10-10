@@ -161,6 +161,15 @@ export function decidir(kind: string, payload: any, semilla: number): unknown {
         reasoning: 'qa: el primer tipo de la lista',
       };
     }
+    case 'town_voices': {
+      // Una línea por persona que la nombra —«QA <npc>»—, para que el arnés la
+      // reconozca luego si quiere. Pedir lo que se ofrece nunca falla, que es lo
+      // que se quiere ver cruzar.
+      const voices = (payload?.towns ?? []).flatMap((t: any) =>
+        (t.npcs ?? []).map((n: any) => ({ town: t.id, npc: n.id, lines: [`QA ${n.id}`] })),
+      );
+      return { voices, reasoning: 'qa: una línea por persona' };
+    }
     default:
       // Antes esto devolvía `{}`. Un `{}` no valida contra ningún esquema, así
       // que zod lo rechazaba en el servidor… y el arnés lo contaba como turno

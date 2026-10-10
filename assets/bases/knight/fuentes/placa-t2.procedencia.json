@@ -1,0 +1,40 @@
+{
+  "encargo": "base-knight-placa-t2",
+  "tipo": "imagen",
+  "fecha": "2026-10-09T17:58:48.813Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a121cf-45be-7d31-a032-f6491c5abe39",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IMAGEN QUE SE EDITA: el resultado es esta misma imagen, píxel a píxel, con el ÚNICO cambio que se pide. Todo lo demás —el encuadre, la escala, la luz, el cielo, el empedrado y cada cosa en su sitio— se queda exactamente igual.\n\nEl único cambio: QUITA los edificios principales de la plaza (la torre del gremio de magos, la taberna, el barracón de arqueros (morada 2)). En su sitio pon lo mismo que ya cierra la plaza entre ellos: traseras y costados de casas de piedra y entramado, muros de piedra, algún árbol; sin puertas principales, sin carteles ni banderas, que no llame la atención.\nNO cambies nada más: el empedrado, su borde, la luz, el cielo, el encuadre, la escala, el árbol y el pilar de la junta de los bordes y lo que ya cerraba la plaza se quedan exactamente igual, en el mismo sitio. El pie de lo nuevo va sobre el mismo borde del empedrado donde estaba el pie de cada edificio quitado.\nMismo tamaño: 1536×1024.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/bases/knight/fuentes/maestro-t2.webp",
+      "papel": "edita",
+      "sha256": "b0d1ffaf3587fc726499eb2e29548dedebf4d9a7f69f67e7feefbb20a0dd7a12"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a121cf-45be-7d31-a032-f6491c5abe39/exec-a768c34b-299f-4c46-9cb7-99d0723b9451.png",
+    "sha256": "f1d87fecf6775288d3bfa24398a7d74cabd63f881d6c94cf03b27cb4499ec49e",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 5 edificios, placas 2 de 5",
+    "mage_guild_1: lo recortado toca el borde de su región en x0 (290) y x1 (562)",
+    "tavern: lo recortado toca el borde de su región en x0 (562)",
+    "knight_dwelling_4: lo recortado toca el borde de su región en x0 (847)",
+    "knight_dwelling_6: lo recortado toca el borde de su región en x1 (847)"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/knight/fuentes/placa-t2.webp",
+    "sha256": "9ea4554751d82a3bab4dea78c3bd069322c4ff32979e2f07ecea4a04b3811e48"
+  }
+}

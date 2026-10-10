@@ -1,0 +1,51 @@
+{
+  "encargo": "base-knight-edicion-mage-guild-2",
+  "tipo": "imagen",
+  "fecha": "2026-10-09T19:00:08.416Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a12207-ed00-7181-87cc-4570006ddc31",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IMAGEN QUE SE EDITA: el resultado es esta misma imagen, píxel a píxel, con el ÚNICO cambio que se pide. Todo lo demás —el encuadre, la escala, la luz, el cielo, el empedrado y cada cosa en su sitio— se queda exactamente igual.\nLa imagen 2 es la hoja de IDENTIDAD de los edificios: cada uno suelto y con su número, que es el de la guía. Manda en su diseño, sus materiales, sus colores, su tejado, su heráldica y sus PROPORCIONES. No manda en el encuadre, la escala ni el atrezo suelto que lleva alrededor.\n\nEl único cambio: el edificio 1 empezando por la izquierda (la torre del gremio de magos, el que está entre las columnas 140 y 476) se MEJORA y pasa a ser el mismo gremio de magia crecido EN ALTO, con el MISMO ANCHO: la torre con una planta más, un mirador con un telescopio de latón en lo alto y vidrieras; sin anexos ni alas a los lados. Es el mismo edificio, en el mismo sitio, con la misma planta, la misma puerta (el umbral donde estaba) y la misma escala; la mejora se le añade. La imagen 2 dice cómo es el edificio mejorado.\nLo nuevo cabe entre las columnas 140 y 476: no toca a los edificios de al lado. NO cambies nada fuera de él: ni los otros edificios, ni el empedrado, la luz, el cielo, el encuadre o lo que cierra la plaza.\nMismo tamaño: 1536×1024.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/bases/knight/fuentes/maestro-t2.webp",
+      "papel": "edita",
+      "sha256": "b0d1ffaf3587fc726499eb2e29548dedebf4d9a7f69f67e7feefbb20a0dd7a12"
+    },
+    {
+      "ruta": "assets/bases/knight/fuentes/identidad-mage_guild_2.png",
+      "papel": "edificios",
+      "sha256": "cccb36bbef09d2459e045e19c377702d8ea366e170f5951bf8d599667df7fe07"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a12207-ed00-7181-87cc-4570006ddc31/exec-34df45d9-8de2-4d91-9b4b-e12b44fc0704.png",
+    "sha256": "7721f676b46b39abc477a7fbf71e72d57aca7cc11e0268a0274aa540bf70b6ba",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 16 edificios, placas 5 de 5",
+    "village_hall: lo recortado toca el borde de su región en x0 (682) y x1 (1110)",
+    "castle: lo recortado toca el borde de su región en x0 (1110)",
+    "mage_guild_1: lo recortado toca el borde de su región en x1 (476)",
+    "mage_guild_2: lo recortado toca el borde de su región en x1 (476)",
+    "tavern: lo recortado toca el borde de su región en x0 (476)",
+    "marketplace: lo recortado toca el borde de su región en x0 (256)",
+    "knight_dwelling_1: lo recortado toca el borde de su región en x0 (256) y x1 (682)",
+    "knight_dwelling_3: lo recortado toca el borde de su región en x1 (600)",
+    "knight_dwelling_5: lo recortado toca el borde de su región en x0 (600) y x1 (1024)",
+    "knight_upgrade_2: lo recortado toca el borde de su región en x0 (931)"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/knight/fuentes/edicion-mage_guild_2.webp",
+    "sha256": "a27619c5739097efe10bafdb963edde0f68c25e9f17b3d5269e26aab4e61856e"
+  }
+}

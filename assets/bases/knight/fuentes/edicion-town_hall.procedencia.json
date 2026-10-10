@@ -1,0 +1,50 @@
+{
+  "encargo": "base-knight-edicion-town-hall",
+  "tipo": "imagen",
+  "fecha": "2026-10-09T19:11:46.644Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a12212-4026-70b2-91ed-edb8c647eb77",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IMAGEN QUE SE EDITA: el resultado es esta misma imagen, píxel a píxel, con el ÚNICO cambio que se pide. Todo lo demás —el encuadre, la escala, la luz, el cielo, el empedrado y cada cosa en su sitio— se queda exactamente igual.\nLa imagen 2 es la hoja de IDENTIDAD de los edificios: cada uno suelto y con su número, que es el de la guía. Manda en su diseño, sus materiales, sus colores, su tejado, su heráldica y sus PROPORCIONES. No manda en el encuadre, la escala ni el atrezo suelto que lleva alrededor.\n\nEl único cambio: el edificio 2 empezando por la izquierda (el ayuntamiento, el que está entre las columnas 530 y 1005) se MEJORA y pasa a ser la casa consistorial: el mismo ayuntamiento crecido, con una torre del reloj de piedra, balcón de madera y un estandarte blanco con cruz roja. Es el mismo edificio, en el mismo sitio, con la misma planta, la misma puerta (el umbral donde estaba) y la misma escala; la mejora se le añade. La imagen 2 dice cómo es el edificio mejorado.\nLo nuevo cabe entre las columnas 530 y 1005: no toca a los edificios de al lado. NO cambies nada fuera de él: ni los otros edificios, ni el empedrado, la luz, el cielo, el encuadre o lo que cierra la plaza.\nMismo tamaño: 1536×1024.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/bases/knight/fuentes/maestro-t3.webp",
+      "papel": "edita",
+      "sha256": "afb604113f1d544dec6d99ae4e51603efb1244191923031c9f17c9e293a3da62"
+    },
+    {
+      "ruta": "assets/bases/knight/fuentes/identidad-town_hall.png",
+      "papel": "edificios",
+      "sha256": "ac83e10e13ff0a75cb2cd6c29bda5cdc24e460f4e9cbff2759ddadd14458c5e5"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a12212-4026-70b2-91ed-edb8c647eb77/exec-815e1897-330e-406b-bb27-fe73ea2d6687.png",
+    "sha256": "ed99b6b14fb9be8afff399960ac3f5b3f4e825bc80626ba0ae75a59c0ce3a712",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 19 edificios, placas 5 de 5",
+    "village_hall: lo recortado toca el borde de su región en x0 (530) y x1 (1005)",
+    "town_hall: lo recortado toca el borde de su región en x0 (530) y x1 (1005)",
+    "mage_guild_1: lo recortado toca el borde de su región en x1 (476)",
+    "mage_guild_2: lo recortado toca el borde de su región en x1 (476)",
+    "tavern: lo recortado toca el borde de su región en x0 (476)",
+    "knight_dwelling_1: lo recortado toca el borde de su región en x1 (530)",
+    "knight_dwelling_5: lo recortado toca el borde de su región en x0 (755)",
+    "knight_upgrade_2: lo recortado toca el borde de su región en x0 (931)",
+    "knight_upgrade_3: lo recortado toca el borde de su región en x1 (755)"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/knight/fuentes/edicion-town_hall.webp",
+    "sha256": "c7976d654c722af36d355f02d4abec880c1adb20e206ebbbc8b1ba20d01725fe"
+  }
+}

@@ -17,7 +17,8 @@ import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 export const CODEX = process.env.CODEX_BIN ?? '/usr/lib/chatgpt/resources/codex';
-const IMAGENES = join(homedir(), '.codex/generated_images');
+/** Donde Codex deja las imágenes que genera, una carpeta por hilo. */
+export const IMAGENES = join(homedir(), '.codex/generated_images');
 /** Una imagen tarda ~1,5 min; un atlas puede tardar bastante más. */
 const LIMITE_MS = Number(process.env.TALLER_LIMITE_MS ?? 20 * 60_000);
 

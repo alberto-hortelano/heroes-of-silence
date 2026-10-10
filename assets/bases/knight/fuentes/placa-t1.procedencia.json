@@ -1,0 +1,40 @@
+{
+  "encargo": "base-knight-placa-t1",
+  "tipo": "imagen",
+  "fecha": "2026-10-09T17:58:30.425Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a121ce-4327-7792-a310-d15f7d233bca",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IMAGEN QUE SE EDITA: el resultado es esta misma imagen, píxel a píxel, con el ÚNICO cambio que se pide. Todo lo demás —el encuadre, la escala, la luz, el cielo, el empedrado y cada cosa en su sitio— se queda exactamente igual.\n\nEl único cambio: QUITA los edificios principales de la plaza (la iglesia de los paladines (morada 6), el salón de armas (morada 4)). En su sitio pon lo mismo que ya cierra la plaza entre ellos: traseras y costados de casas de piedra y entramado, muros de piedra, algún árbol; sin puertas principales, sin carteles ni banderas, que no llame la atención.\nNO cambies nada más: el empedrado, su borde, la luz, el cielo, el encuadre, la escala, el árbol y el pilar de la junta de los bordes y lo que ya cerraba la plaza se quedan exactamente igual, en el mismo sitio. El pie de lo nuevo va sobre el mismo borde del empedrado donde estaba el pie de cada edificio quitado.\nMismo tamaño: 1536×1024.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/bases/knight/fuentes/maestro-t1.webp",
+      "papel": "edita",
+      "sha256": "5ef8b4c40b0eef0514074871c81891fab34dc7562089a5453aaf3e24ba538845"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a121ce-4327-7792-a310-d15f7d233bca/exec-da287159-dec4-4df8-908f-6fa6f9cca259.png",
+    "sha256": "dd7433f22536ce13d3d1f4af7b36e9d39fd6cccf9b51c554dc1cf23432de459e",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 5 edificios, placas 2 de 5",
+    "mage_guild_1: lo recortado toca el borde de su región en x0 (290) y x1 (562)",
+    "tavern: lo recortado toca el borde de su región en x0 (562)",
+    "knight_dwelling_4: lo recortado toca el borde de su región en x0 (847)",
+    "knight_dwelling_6: lo recortado toca el borde de su región en x1 (847)"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/knight/fuentes/placa-t1.webp",
+    "sha256": "01e4bf2ae58427ad37b79cb99a7cb3530ed42cd45ceea1138759540a3f584cb3"
+  }
+}

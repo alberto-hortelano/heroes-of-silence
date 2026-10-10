@@ -28,6 +28,7 @@ import {
   bandosSinDueño,
   cajaDeFigura,
   claveDePortada,
+  dentroDeLaFigura,
   drawBatalla,
   portadaBajo,
   tableroA,
@@ -554,9 +555,8 @@ export class EscenaBatalla {
       if (!isAlive(s)) continue;
       const f = this.animador.figura(s);
       const c = cajaDeFigura(this.tablero, s, f.en, f.elevacion);
-      const dentro =
-        Math.abs(px - c.x) <= c.ancho / 2 && py <= c.suelo + 4 && py >= c.suelo - c.alto;
-      if (dentro && (mejor === null || c.suelo > mejor.suelo)) mejor = { s, suelo: c.suelo };
+      if (dentroDeLaFigura(c, px, py) && (mejor === null || c.suelo > mejor.suelo))
+        mejor = { s, suelo: c.suelo };
     }
     if (mejor !== null) return mejor.s;
     const hex = this.hexBajo(px, py);

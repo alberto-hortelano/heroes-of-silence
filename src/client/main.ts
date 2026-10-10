@@ -8,7 +8,7 @@ import { parseSeed } from '@core/rng.js';
 import type { Desarrollo } from './desarrollo/tipos.js';
 import { EscenaAventura } from './escenas/aventura.js';
 import { EscenaBatalla } from './escenas/batalla.js';
-import { EscenaCastillo } from './escenas/castillo.js';
+import { EscenaBase } from './escenas/castillo.js';
 import { PuertaDeFinDeTurno } from './fin-de-turno.js';
 import { pintar } from './html.js';
 import { cargarArte } from './render/assets.js';
@@ -19,6 +19,7 @@ import { repartirClic } from './reparto-del-clic.js';
 import { semillaSorteada } from './semilla.js';
 import { Session } from './session.js';
 import { pintarSiguiendoElFinal } from './views/al-final.js';
+import { renderConversacion } from './views/base.js';
 import { renderActions, renderSide, renderTopbar } from './views/panels.js';
 
 /**
@@ -41,6 +42,8 @@ const elStatus = document.getElementById('status') as HTMLElement;
 const elActions = document.getElementById('actions') as HTMLElement;
 const elSeed = document.getElementById('seed') as HTMLElement;
 const haciaEnemigo = document.getElementById('hacia-enemigo') as HTMLElement;
+const conversacion = document.getElementById('conversacion') as HTMLDialogElement;
+const stage = document.getElementById('stage') as HTMLElement;
 
 /**
  * La semilla que pide la URL, o `null` si no pide ninguna. Lanza si pide una
@@ -83,7 +86,7 @@ try {
 const sesion = (): Session => session;
 const aventura = new EscenaAventura(sesion);
 const batalla = new EscenaBatalla(sesion);
-const castillo = new EscenaCastillo(sesion);
+const castillo = new EscenaBase(sesion);
 const finDeTurno = new PuertaDeFinDeTurno(() => performance.now());
 /** El modo «marcar fallo» (`desarrollo/marcas.ts`): solo en `pnpm dev`. */
 let desarrollo: Desarrollo | null = null;
@@ -122,7 +125,13 @@ const ctx = principal.ctx;
  * van apagados mientras tanto, #165). Antes se generaba su marcado en cada
  * fotograma para compararlo con el anterior.
  */
-let paneles: { sesion: Session; version: number; arte: number; contando: boolean } | null = null;
+let paneles: {
+  sesion: Session;
+  version: number;
+  arte: number;
+  contando: boolean;
+  base: string;
+} | null = null;
 let arteLlegado = 0;
 cargarArte(() => {
   arteLlegado++;
@@ -162,6 +171,10 @@ function dibujarFotograma(ahora: number): void {
     // El tablero de batalla es más ancho que un móvil: se empieza mirando el
     // centro, que es donde se encuentran los dos bandos.
     lienzo.scrollLeft = Math.max(0, (lienzo.scrollWidth - lienzo.clientWidth) / 2);
+    // En el móvil lo que se desplaza es `#stage`: al abrir la base desde la
+    // lista de castillos, que está debajo del lienzo, la pantalla nueva se
+    // quedaba donde estaba el botón, con medio lienzo fuera de la vista.
+    stage.scrollTop = 0;
     escenaPintada = escena;
   }
 
@@ -171,8 +184,13 @@ function dibujarFotograma(ahora: number): void {
   // miles de sprites a cada fotograma. Depende del zoom: acercando, plena.
   const rect = principal.preparar(enCastillo || enBatalla ? undefined : aventura.presupuesto);
   ctx.clearRect(0, 0, rect.width, rect.height);
+  // Lo abierto en la base o si se anda: lo leen la página (`canvas[data-base]`)
+  // y los paneles. Una lectura por fotograma, después de dibujar.
+  let base = '';
   if (enCastillo) {
     castillo.dibujar(ctx, rect.width, rect.height, ahora);
+    base = castillo.marca;
+    if (canvas.dataset.base !== base) canvas.dataset.base = base;
   } else if (enBatalla) {
     batalla.sincronizar(ahora);
     batalla.dibujar(ctx, rect.width, rect.height);
@@ -184,24 +202,49 @@ function dibujarFotograma(ahora: number): void {
   }
   señalarEnemigo(enBatalla);
 
+  if (!enCastillo && canvas.dataset.base !== undefined) delete canvas.dataset.base;
+
   // Después de `batalla.sincronizar`: es la cola de ESTE fotograma.
   const contando = enBatalla && batalla.ocupada;
+  // Lo abierto en la base cambia el panel sin cambiar la partida: al llegar a
+  // una puerta se abre su panel, y eso no sube la versión de la sesión.
   if (
     paneles === null ||
     paneles.sesion !== session ||
     paneles.version !== session.version ||
     paneles.arte !== arteLlegado ||
-    paneles.contando !== contando
+    paneles.contando !== contando ||
+    paneles.base !== base
   ) {
-    paneles = { sesion: session, version: session.version, arte: arteLlegado, contando };
+    paneles = { sesion: session, version: session.version, arte: arteLlegado, contando, base };
     const top = renderTopbar(session);
     elDay.textContent = top.day;
     pintar(elResources, top.resources);
     elTurn.textContent = top.turn;
-    pintarSiguiendoElFinal(elSide, renderSide(session, contando));
+    pintarSiguiendoElFinal(
+      elSide,
+      renderSide(session, contando, enCastillo ? castillo.abierto : null),
+    );
     pintar(elActions, renderActions(session, contando));
+    mostrarConversacion(enCastillo);
   }
   if (elStatus.textContent !== session.status) elStatus.textContent = session.status;
+}
+
+/**
+ * La conversación con una persona de la base: un `<dialog>` no modal sobre el
+ * lienzo, que se abre cuando quien camina llega a su lado y se cierra con
+ * «Seguir», con Escape o con un clic en el suelo. Se rellena por la puerta del
+ * marcado, como los paneles: el nombre y la línea los puede escribir el agente.
+ */
+function mostrarConversacion(enCastillo: boolean): void {
+  const a = enCastillo ? castillo.abierto : null;
+  if (a === null || a.tipo !== 'pnj') {
+    if (conversacion.open) conversacion.close();
+    return;
+  }
+  pintar(conversacion, renderConversacion(session, a.id));
+  if (!conversacion.open) conversacion.show();
 }
 
 /**
@@ -294,7 +337,7 @@ canvas.addEventListener('pointerdown', (ev) => {
 canvas.addEventListener('pointermove', (ev) => {
   const p = enLienzo(ev);
   if (session.scene === 'town') {
-    canvas.style.cursor = castillo.mover(p.x, p.y) ? 'pointer' : 'default';
+    canvas.style.cursor = castillo.mover(p.x, p.y, performance.now()) ? 'pointer' : 'default';
   } else if (session.scene === 'battle') {
     batalla.mover(p.x, p.y);
   } else {
@@ -306,7 +349,7 @@ canvas.addEventListener('pointermove', (ev) => {
 canvas.addEventListener('pointerup', (ev) => {
   if (ev.button !== 0) return;
   const p = enLienzo(ev);
-  if (session.scene === 'town') castillo.pulsar(p.x, p.y);
+  if (session.scene === 'town') castillo.pulsar(p.x, p.y, performance.now());
   else if (session.scene === 'battle') {
     batalla.mover(p.x, p.y);
     if (!jugadaEnCurso()) batalla.pulsar(p.x, p.y);
@@ -416,8 +459,25 @@ document.addEventListener('click', (ev) => {
       session.openTown(target.getAttribute('data-town') as string);
       break;
     case 'close-town':
+      castillo.cerrar();
       session.closeTown();
       castillo.salir();
+      break;
+    case 'ir-a-sitio':
+      castillo.irA(target.getAttribute('data-sitio') as string, performance.now());
+      break;
+    case 'build':
+      session.build(target.getAttribute('data-building') as string);
+      break;
+    case 'recruit': {
+      const criatura = target.getAttribute('data-creature') as string;
+      if (target.getAttribute('data-todo') === 'si') session.recruitAll(criatura);
+      else session.recruit(criatura, 1);
+      break;
+    }
+    case 'cerrar-en-la-base':
+    case 'cerrar-conversacion':
+      castillo.cerrar();
       break;
     case 'hire-hero':
       session.hireHero();
@@ -498,8 +558,13 @@ document.addEventListener('keydown', (ev) => {
     return;
   }
   if (ev.key === 'Escape' && session.scene === 'town') {
-    session.closeTown();
-    castillo.salir();
+    // Escape cierra primero lo abierto en la base y, si no hay nada, la base.
+    if (castillo.abierto !== null) {
+      castillo.cerrar();
+    } else {
+      session.closeTown();
+      castillo.salir();
+    }
   }
   if (ev.key === 'Escape' && session.scene === 'battle' && !jugadaEnCurso())
     session.hechizos.clearSpell();

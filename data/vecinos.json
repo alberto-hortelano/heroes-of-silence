@@ -1,0 +1,337 @@
+{
+  "_comment": "INVENTADO. La gente de la base de cada facción: el alcaide (quien camina por la base si no hay héroe dentro), un encargado por sitio (sale solo si su sitio está construido) y los vecinos (siempre). `cuerpo` es una criatura del catálogo de la facción, pintada con el Y Bot teñido hasta que haya figuras propias. `frases` son las de respaldo: las que se dicen sin agente, o hasta que el narrador (`town_voices`) escriba las suyas. Son presentación, nunca reglas: ninguna frase promete una cifra. Los ids de `vecinos` son los de `data/bases/<facción>.json`.",
+  "knight": {
+    "alcaide": { "nombre": "Rodrigo", "papel": "alcaide de la villa", "cuerpo": "pikeman" },
+    "encargados": {
+      "hall": {
+        "nombre": "Doña Elvira",
+        "papel": "regidora del ayuntamiento",
+        "cuerpo": "peasant",
+        "frases": [
+          "Las cuentas cuadran, que no es poco con lo que cuesta la piedra.",
+          "Si quieres levantar algo, ya sabes dónde estoy: aquí, con los planos.",
+          "La villa crece, y con ella las quejas por el ruido de las obras."
+        ]
+      },
+      "fort": {
+        "nombre": "Sir Godofredo",
+        "papel": "castellano",
+        "cuerpo": "paladin",
+        "frases": [
+          "Desde la torre se ve hasta el río. Nadie llega sin que lo veamos.",
+          "Los muros aguantan. Los hombres, si se les da de comer.",
+          "Un castillo no se defiende solo, mi señor."
+        ]
+      },
+      "guild": {
+        "nombre": "Maese Anselmo",
+        "papel": "maestro del gremio de magia",
+        "cuerpo": "ranger",
+        "frases": [
+          "Los libros no muerden. Casi nunca.",
+          "Tráeme a alguien con cabeza y le enseñaré lo que sé.",
+          "Anoche la vela ardió azul. Mala señal, o buena; aún no lo sé."
+        ]
+      },
+      "tavern": {
+        "nombre": "Marta",
+        "papel": "tabernera",
+        "cuerpo": "peasant",
+        "frases": [
+          "Cerveza, pan y noticias. Las noticias, gratis.",
+          "Por aquí pasa gente que busca a quien seguir.",
+          "Los soldados cantan peor cuanto mejor les va."
+        ]
+      },
+      "market": {
+        "nombre": "Bertrán",
+        "papel": "mercader",
+        "cuerpo": "peasant",
+        "frases": [
+          "Todavía no hay a quién venderle. Ya llegarán las caravanas.",
+          "La madera sube, el mineral baja. O al revés, según quién pregunte.",
+          "Un buen trato es el que los dos creen haber ganado."
+        ]
+      },
+      "armory": {
+        "nombre": "Gonzalo",
+        "papel": "armero",
+        "cuerpo": "swordsman",
+        "frases": [
+          "Hoja templada tres veces. No se mella ni contra un escudo.",
+          "Trae al héroe y le pruebo la cota.",
+          "El martillo no descansa mientras haya guerra."
+        ]
+      },
+      "lvl1": {
+        "nombre": "Pedro",
+        "papel": "capataz de los campesinos",
+        "cuerpo": "peasant",
+        "frases": [
+          "Labran de día y forman de tarde. No se quejan mucho.",
+          "Con una horca también se defiende uno.",
+          "Esta semana han venido más mozos de las aldeas."
+        ]
+      },
+      "lvl2": {
+        "nombre": "Íñigo",
+        "papel": "maestro arquero",
+        "cuerpo": "archer",
+        "frases": [
+          "Cien flechas al día, y otras cien mañana.",
+          "El viento sopla del norte: hay que apuntar un dedo más arriba.",
+          "Un buen arquero no se ve hasta que ya es tarde."
+        ]
+      },
+      "lvl3": {
+        "nombre": "Sancha",
+        "papel": "sargento de piqueros",
+        "cuerpo": "pikeman",
+        "frases": [
+          "Pica baja, pie firme y nadie da un paso atrás.",
+          "Los caballos se lo piensan dos veces ante un bosque de picas.",
+          "Formación cerrada, como siempre."
+        ]
+      },
+      "lvl4": {
+        "nombre": "Álvaro",
+        "papel": "maestro de esgrima",
+        "cuerpo": "swordsman",
+        "frases": [
+          "Primero se aprende a parar; a pegar, cualquiera.",
+          "Esta tanda promete. Uno de ellos casi me toca.",
+          "La espada pesa menos cuando se sabe usar."
+        ]
+      },
+      "lvl5": {
+        "nombre": "Leonor",
+        "papel": "caballeriza mayor",
+        "cuerpo": "cavalry",
+        "frases": [
+          "Los caballos están herrados y con ganas de correr.",
+          "Una carga a tiempo vale más que diez escaramuzas.",
+          "No dejes que nadie toque la yegua torda."
+        ]
+      },
+      "lvl6": {
+        "nombre": "Fray Tomé",
+        "papel": "prior de los paladines",
+        "cuerpo": "paladin",
+        "frases": [
+          "Rezamos al alba y entrenamos hasta el anochecer.",
+          "La fe no detiene una flecha. El escudo, sí.",
+          "Pocos llegan a vestir esta cruz."
+        ]
+      }
+    },
+    "vecinos": {
+      "pregonero": {
+        "nombre": "Ramiro",
+        "papel": "pregonero",
+        "cuerpo": "peasant",
+        "frases": [
+          "¡Se hace saber que el mercado abre cuando haya mercado!",
+          "Dicen que hay asaltantes en los caminos del este.",
+          "¡Nueva semana, nuevas levas!"
+        ]
+      },
+      "lavandera": {
+        "nombre": "Juana",
+        "papel": "lavandera",
+        "cuerpo": "peasant",
+        "frases": [
+          "Con tanto soldado, no doy abasto con la colada.",
+          "El agua del pozo baja fría esta semana.",
+          "Mi hijo se ha ido con los piqueros. Que vuelva."
+        ]
+      },
+      "mozo": {
+        "nombre": "Nuño",
+        "papel": "mozo de cuadra",
+        "cuerpo": "peasant",
+        "frases": [
+          "Algún día tendré mi propio caballo.",
+          "Me han dicho que el héroe lleva capa nueva.",
+          "Aquí siempre hay algo que cargar."
+        ]
+      },
+      "herrera": {
+        "nombre": "Urraca",
+        "papel": "herrera",
+        "cuerpo": "peasant",
+        "frases": [
+          "Herraduras, clavos, bisagras. Las espadas, para el armero.",
+          "El fuego no se apaga nunca en esta fragua.",
+          "Si se rompe algo, tráemelo antes de que se rompa más."
+        ]
+      }
+    }
+  },
+  "necromancer": {
+    "alcaide": { "nombre": "Morvan", "papel": "guardián de la necrópolis", "cuerpo": "mummy" },
+    "encargados": {
+      "hall": {
+        "nombre": "Ysolde",
+        "papel": "escribana de los muertos",
+        "cuerpo": "vampire",
+        "frases": [
+          "Cada tumba, un nombre. Cada nombre, un tributo.",
+          "Los vivos pagan impuestos. Los muertos, obediencia.",
+          "Los planos de la necrópolis crecen hacia abajo."
+        ]
+      },
+      "fort": {
+        "nombre": "Lord Varnak",
+        "papel": "señor del bastión",
+        "cuerpo": "vampire_lord",
+        "frases": [
+          "Las murallas no duermen. Nosotros tampoco.",
+          "Que vengan. Habrá sitio para ellos en la cripta.",
+          "La noche es larga y está de nuestra parte."
+        ]
+      },
+      "guild": {
+        "nombre": "Maestre Oskar",
+        "papel": "maestre del gremio",
+        "cuerpo": "lich",
+        "frases": [
+          "Los muertos recuerdan conjuros que los vivos olvidaron.",
+          "Trae un aprendiz. Vivo, a ser posible.",
+          "El pergamino se deshace; la palabra queda."
+        ]
+      },
+      "tavern": {
+        "nombre": "Grethe",
+        "papel": "posadera",
+        "cuerpo": "zombie",
+        "frases": [
+          "Aquí se sirve vino tinto. Muy tinto.",
+          "Los clientes no hablan mucho. Ni comen.",
+          "Algún vivo se asoma de vez en cuando."
+        ]
+      },
+      "market": {
+        "nombre": "Silas",
+        "papel": "trapero",
+        "cuerpo": "zombie",
+        "frases": [
+          "Huesos, telas, anillos. Todo tiene su precio.",
+          "Todavía no hay a quién venderle.",
+          "Lo que el muerto no necesita, otro lo aprovecha."
+        ]
+      },
+      "armory": {
+        "nombre": "Brann",
+        "papel": "forjador de hierro negro",
+        "cuerpo": "skeleton",
+        "frases": [
+          "El hierro negro no se oxida ni se olvida.",
+          "Trae al héroe y le ajusto la coraza.",
+          "Mis manos ya no sienten el calor. Mejor."
+        ]
+      },
+      "lvl1": {
+        "nombre": "Huesos",
+        "papel": "capataz de los esqueletos",
+        "cuerpo": "skeleton",
+        "frases": [
+          "No se cansan, no se quejan, no cobran.",
+          "Formados y en silencio, como siempre.",
+          "Otra fosa abierta esta semana."
+        ]
+      },
+      "lvl2": {
+        "nombre": "Madre Ruth",
+        "papel": "cuidadora de los zombis",
+        "cuerpo": "zombie",
+        "frases": [
+          "Lentos, pero no se paran nunca.",
+          "Hay que vigilar que no se coman las vallas.",
+          "Ya casi saben marchar en fila."
+        ]
+      },
+      "lvl3": {
+        "nombre": "Sacerdote Imhet",
+        "papel": "guardián de las momias",
+        "cuerpo": "mummy",
+        "frases": [
+          "Las vendas se renuevan con cada luna.",
+          "Su maldición viaja con ellas.",
+          "Llevan siglos esperando una orden."
+        ]
+      },
+      "lvl4": {
+        "nombre": "Condesa Mirela",
+        "papel": "dama de la mansión",
+        "cuerpo": "vampire",
+        "frases": [
+          "Mis invitados tienen sed.",
+          "La mansión siempre tiene una habitación libre.",
+          "Volamos de noche y volvemos antes del alba."
+        ]
+      },
+      "lvl5": {
+        "nombre": "Archiliche Dov",
+        "papel": "señor de la torre",
+        "cuerpo": "lich",
+        "frases": [
+          "La torre ve más lejos que los vivos.",
+          "Mis discípulos aprenden despacio. Tienen tiempo.",
+          "La muerte es solo el principio del estudio."
+        ]
+      },
+      "lvl6": {
+        "nombre": "Vigía del osario",
+        "papel": "custodio del dragón",
+        "cuerpo": "bone_dragon",
+        "frases": [
+          "Cuando despierta, tiembla la tierra.",
+          "Sus huesos pesan más que esta torre.",
+          "No le mires a los ojos. No tiene."
+        ]
+      }
+    },
+    "vecinos": {
+      "planidera": {
+        "nombre": "Agnes",
+        "papel": "plañidera",
+        "cuerpo": "zombie",
+        "frases": [
+          "Lloro por oficio. Hoy hay mucho trabajo.",
+          "Los cuervos han vuelto al campanario.",
+          "Una semana más sin sol."
+        ]
+      },
+      "sepulturero": {
+        "nombre": "Wendel",
+        "papel": "sepulturero",
+        "cuerpo": "skeleton",
+        "frases": [
+          "Cavo hoy lo que marchará mañana.",
+          "La tierra de aquí es blanda y obediente.",
+          "No falta trabajo, eso no."
+        ]
+      },
+      "acolito": {
+        "nombre": "Pell",
+        "papel": "acólito",
+        "cuerpo": "skeleton",
+        "frases": [
+          "Algún día me enseñarán a levantar a los muertos.",
+          "Barro el templo y escucho a los maestros.",
+          "Dicen que el héroe vuelve pronto."
+        ]
+      },
+      "osario": {
+        "nombre": "Ilse",
+        "papel": "guardiana del osario",
+        "cuerpo": "mummy",
+        "frases": [
+          "Cada hueso en su sitio.",
+          "El osario está lleno. Habrá que ampliarlo.",
+          "Silencio. Aquí se descansa."
+        ]
+      }
+    }
+  }
+}

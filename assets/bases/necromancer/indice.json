@@ -1,0 +1,13 @@
+{
+  "tramos": [
+    null,
+    null,
+    null,
+    null,
+    null
+  ],
+  "suelo": null,
+  "cielo": null,
+  "edificios": {},
+  "derivadoPor": "tools/taller/recorte-base.ts"
+}

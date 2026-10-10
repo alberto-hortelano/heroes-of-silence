@@ -67,6 +67,18 @@ function cargarImagen(clave: string, url: string): Promise<void> {
 }
 
 /**
+ * Una imagen de la base caminable (`render/base/arte.ts`), por su URL, cuando
+ * llega; `null` si no llega. Pasa por la misma carga que el resto del arte —la
+ * URL comprobada por `urlDeImagenSegura`, el fallo dicho en consola—: este
+ * módulo es el único sitio que asigna un `src` (lo vigila `invariantes.test.ts`).
+ */
+export async function imagenDeLaBase(url: string): Promise<HTMLImageElement | null> {
+  const clave = `base:${url}`;
+  await cargarImagen(clave, url);
+  return imagenes.get(clave) ?? null;
+}
+
+/**
  * El arte fijo del cliente nuevo, por el nombre con el que se pide a `asset('rpg',
  * …)`: el fondo de la batalla. El atlas del mapa ya no se pide: el cofre, lo
  * último que salía de él, es una pieza suelta (#147). Las
@@ -163,11 +175,13 @@ function loadRpgArt(mapa: boolean): Promise<unknown> {
 }
 
 /**
- * Los grupos del manifiesto que se pintan: los iconos de recursos, los edificios
- * y el fondo del castillo. Ni `creatures` —la batalla es de figuras a 25°— ni
- * `terrains`: el suelo del mapa lo pinta el escenógrafo con sus texturas.
+ * Los grupos del manifiesto que se pintan: los iconos de recursos. Ni
+ * `creatures` —la batalla es de figuras a 25°— ni `terrains`: el suelo del mapa
+ * lo pinta el escenógrafo con sus texturas. Los edificios y el fondo del
+ * castillo de fal.ai se retiraron con la base caminable: su arte es el del
+ * taller (`assets/bases/`, `render/base/arte.ts`).
  */
-const GRUPOS_QUE_SE_PINTAN: ReadonlySet<string> = new Set(['icons', 'buildings', 'towns']);
+const GRUPOS_QUE_SE_PINTAN: ReadonlySet<string> = new Set(['icons']);
 
 // ------------------------------------------------------------ la escena del mapa
 

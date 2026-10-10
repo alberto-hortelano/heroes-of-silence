@@ -471,6 +471,14 @@ const SIN_ASCENSO =
   'La tropa sigue igual: nadie se hace héroe en tu lugar, y por ese veterano no se te ' +
   'volverá a preguntar hasta que salga de la base y vuelva.';
 
+/**
+ * Lo que pasa cuando las voces de las bases no llegan o no sirven: nadie las
+ * escribe en tu lugar, la gente dice sus frases de siempre y el turno sigue.
+ */
+const SIN_VOCES =
+  'Los vecinos dicen sus frases de siempre, y no se te vuelve a preguntar por esas bases ' +
+  'hasta que empiece semana o se levante algo en un sitio vacío. Tu turno sigue igual.';
+
 /** Lo que pasa con el mapa cuando el del agente no llega o no sirve. */
 const EL_MAPA_LO_PONE_EL_GENERADOR =
   'el mapa lo pone el generador procedimental y la partida empieza igual';
@@ -499,6 +507,7 @@ const EN_SU_LUGAR: Readonly<Record<RequestKind, string>> = {
   battle_turn: `Ese turno lo ${LA_JUEGA_LA_IA}.`,
   map_generate: `${mayuscula(EL_MAPA_LO_PONE_EL_GENERADOR)}.`,
   hero_from_troop: SIN_ASCENSO,
+  town_voices: SIN_VOCES,
 };
 
 function mayuscula(texto: string): string {
@@ -598,6 +607,25 @@ export function notaAscenso(
  */
 export function notaAscensoRechazado(veterano: string): string {
   return `El veterano ${veterano} no se ha hecho héroe (el motivo, debajo). ${SIN_ASCENSO}`;
+}
+
+// ------------------------------------------------------------ las voces
+
+/**
+ * El veredicto de un `town_voices`: cuántas líneas entraron y en cuántas bases,
+ * y qué pasa con lo rechazado. Los motivos, uno por voz o por línea, van debajo
+ * en `problems`.
+ */
+export function notaVoces(aceptadas: number, bases: number, rechazos: number): string {
+  const entraron =
+    aceptadas === 0
+      ? 'No ha entrado ninguna línea'
+      : `${aceptadas === 1 ? 'Ha entrado 1 línea' : `Han entrado ${aceptadas} líneas`} en ${bases === 1 ? '1 base' : `${bases} bases`}`;
+  const resto =
+    rechazos === 0
+      ? '.'
+      : ` y se ${rechazos === 1 ? 'ha rechazado 1' : `han rechazado ${rechazos}`} (el motivo, debajo): quien se quedó sin línea dice sus frases de siempre.`;
+  return `${entraron}${resto}`;
 }
 
 // ------------------------------------------------------------ fin de partida

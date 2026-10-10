@@ -1,0 +1,50 @@
+{
+  "encargo": "base-knight-edicion-knight-upgrade-5",
+  "tipo": "imagen",
+  "fecha": "2026-10-09T19:11:57.991Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a12212-346b-7fb1-bd4e-fbc3ef25d950",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IMAGEN QUE SE EDITA: el resultado es esta misma imagen, píxel a píxel, con el ÚNICO cambio que se pide. Todo lo demás —el encuadre, la escala, la luz, el cielo, el empedrado y cada cosa en su sitio— se queda exactamente igual.\nLa imagen 2 es la hoja de IDENTIDAD de los edificios: cada uno suelto y con su número, que es el de la guía. Manda en su diseño, sus materiales, sus colores, su tejado, su heráldica y sus PROPORCIONES. No manda en el encuadre, la escala ni el atrezo suelto que lleva alrededor.\n\nEl único cambio: el edificio 2 empezando por la izquierda (los establos de la caballería (morada 5), el que está entre las columnas 755 y 1536) se MEJORA y pasa a ser los mismos establos mejorados: con una torre de entrada, caballos con gualdrapa roja y blanca asomando y lanzas de torneo. Es el mismo edificio, en el mismo sitio, con la misma planta, la misma puerta (el umbral donde estaba) y la misma escala; la mejora se le añade. La imagen 2 dice cómo es el edificio mejorado.\nLo nuevo cabe entre las columnas 755 y 1536: no toca a los edificios de al lado. NO cambies nada fuera de él: ni los otros edificios, ni el empedrado, la luz, el cielo, el encuadre o lo que cierra la plaza.\nMismo tamaño: 1536×1024.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/bases/knight/fuentes/maestro-t5.webp",
+      "papel": "edita",
+      "sha256": "5c5ee6548fcd1f4a8a9f5c5d58755daccf135ec2ffac5b3e87dce1a9d9643f56"
+    },
+    {
+      "ruta": "assets/bases/knight/fuentes/identidad-knight_upgrade_5.png",
+      "papel": "edificios",
+      "sha256": "a238ad4f7b1e94e06432a927edd449630d191c9d43a585a75b34f390c9f19d14"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a12212-346b-7fb1-bd4e-fbc3ef25d950/exec-99f31c4a-e5df-4653-9aae-0808eb77bcd8.png",
+    "sha256": "3193002537f055cfb387a8780cf4969532066ff00f1642d7000cd387f53f7bb9",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 19 edificios, placas 5 de 5",
+    "village_hall: lo recortado toca el borde de su región en x0 (530) y x1 (1005)",
+    "town_hall: lo recortado toca el borde de su región en x0 (530) y x1 (1005)",
+    "mage_guild_1: lo recortado toca el borde de su región en x1 (476)",
+    "mage_guild_2: lo recortado toca el borde de su región en x1 (476)",
+    "tavern: lo recortado toca el borde de su región en x0 (476)",
+    "knight_dwelling_1: lo recortado toca el borde de su región en x1 (530)",
+    "knight_dwelling_5: lo recortado toca el borde de su región en x0 (755)",
+    "knight_upgrade_2: lo recortado toca el borde de su región en x0 (931)",
+    "knight_upgrade_3: lo recortado toca el borde de su región en x1 (755)"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/knight/fuentes/edicion-knight_upgrade_5.webp",
+    "sha256": "3f968a798887eb93289fb77d103e05c8a5bd35d5761c9c65dc88f0e475fe61e6"
+  }
+}

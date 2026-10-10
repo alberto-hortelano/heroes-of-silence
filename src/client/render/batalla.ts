@@ -1314,22 +1314,40 @@ function pintarCargas(
  * su hex, y con solo el hex un clic en la cabeza de un esqueleto caía en el de
  * la fila de atrás.
  */
-export function cajaDeFigura(
-  t: Tablero,
-  s: BattleStack,
-  en: Plano,
-  elevacion = 0,
-): { x: number; suelo: number; alto: number; ancho: number } {
-  const grande = hexSize(s.unit) > 1;
+export function cajaDeFigura(t: Tablero, s: BattleStack, en: Plano, elevacion = 0): CajaDeFigura {
   // En lo alto de una columna los pies van en su tapa: subidos lo que ella mide.
-  const p = enPantalla(tableroA(t, elevacion), en);
+  const c = cajaDeFiguraEn(tableroA(t, elevacion), en, hexSize(s.unit) > 1);
+  return { ...c, suelo: c.suelo + t.paso * 0.24 * t.compresion };
+}
+
+/** Una figura en pantalla: el centro de sus pies, el suelo, su alto y su ancho, en píxeles. */
+export interface CajaDeFigura {
+  readonly x: number;
+  readonly suelo: number;
+  readonly alto: number;
+  readonly ancho: number;
+}
+
+/**
+ * La caja de una figura de pie con los pies en `en`, sin el desplazamiento
+ * dentro de su hex que lleva la del combate (`cajaDeFigura`): la de la base
+ * caminable, que no tiene hexes, y la que hay debajo de la del combate. Así un
+ * adulto mide lo mismo en los dos.
+ */
+export function cajaDeFiguraEn(t: Tablero, en: Plano, grande = false): CajaDeFigura {
+  const p = enPantalla(t, en);
   const alto = t.paso * ALTO_DE_FIGURA[grande ? 'grande' : 'normal'];
-  return {
-    x: p.x,
-    suelo: p.y + t.paso * 0.24 * t.compresion,
-    alto,
-    ancho: alto * (grande ? 0.9 : 0.42),
-  };
+  return { x: p.x, suelo: p.y, alto, ancho: alto * (grande ? 0.9 : 0.42) };
+}
+
+/** Lo que se cuenta por debajo del suelo como pulsar la figura, en píxeles: la sombra de los pies. */
+const BAJO_LOS_PIES = 4;
+
+/** Si un píxel cae en el cuerpo de una figura: lo leen el clic de la batalla y el de la base. */
+export function dentroDeLaFigura(c: CajaDeFigura, px: number, py: number): boolean {
+  return (
+    Math.abs(px - c.x) <= c.ancho / 2 && py <= c.suelo + BAJO_LOS_PIES && py >= c.suelo - c.alto
+  );
 }
 
 /**

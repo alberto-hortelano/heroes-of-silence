@@ -40,10 +40,11 @@
     <h2>Valdeluz</h2>
     <div class="row"><span class="label">Ingresos</span><span>500 oro/día</span></div>
     <div class="row"><span class="label">Gremio de magia</span><span>1</span></div>
-    <h3>Enseña</h3><div class="stack-list"><div class="stack"><span>Prisa <span class="count">n.1</span></span><span class="count">3</span></div><div class="stack"><span>Flecha mágica <span class="count">n.1</span></span><span class="count">3</span></div><div class="stack"><span>Lentitud <span class="count">n.1</span></span><span class="count">3</span></div></div>
-    <p class="cost">Un héroe tuyo parado aquí los aprende solo.</p>
     <div class="row"><span class="label">Construir hoy</span><span>ya hecho</span></div>
-    <p class="cost">Pulsa un solar para levantarlo y la franja de abajo para reclutar.</p>
+    <p class="cost">Pulsa el ayuntamiento para ampliar la base, una morada para reclutar, un edificio para ver lo suyo o a alguien para hablar.</p>
+
+    <h3>Edificios</h3>
+    <div class="stack-list ir-a-sitio"><button class="stack" data-action="ir-a-sitio" data-sitio="guild" title="Ir a la puerta"><span>Gremio de magia I</span></button><button class="stack" data-action="ir-a-sitio" data-sitio="lvl1" title="Ir a la puerta"><span>Morada de nivel 1</span></button><button class="stack" data-action="ir-a-sitio" data-sitio="hall" title="Ir a la puerta"><span>Ayuntamiento</span></button></div>
 
     <h3>Crecimiento semanal</h3>
     <div class="stack-list"><div class="stack"><span>Campesino</span><span class="count">+12</span></div></div>
@@ -69,9 +70,11 @@
     <h2>Valdeluz</h2>
     <div class="row"><span class="label">Ingresos</span><span>500 oro/día</span></div>
     <div class="row"><span class="label">Gremio de magia</span><span>—</span></div>
-    <p class="cost">Sin gremio: construye uno para que tus héroes aprendan magia aquí.</p>
     <div class="row"><span class="label">Construir hoy</span><span>disponible</span></div>
-    <p class="cost">Pulsa un solar para levantarlo y la franja de abajo para reclutar.</p>
+    <p class="cost">Pulsa el ayuntamiento para ampliar la base, una morada para reclutar, un edificio para ver lo suyo o a alguien para hablar.</p>
+
+    <h3>Edificios</h3>
+    <div class="stack-list ir-a-sitio"><button class="stack" data-action="ir-a-sitio" data-sitio="lvl1" title="Ir a la puerta"><span>Morada de nivel 1</span></button><button class="stack" data-action="ir-a-sitio" data-sitio="hall" title="Ir a la puerta"><span>Ayuntamiento</span></button></div>
 
     <h3>Crecimiento semanal</h3>
     <div class="stack-list"><div class="stack"><span>Campesino</span><span class="count">+12</span></div></div>
@@ -685,9 +688,11 @@
     <h2>Valdeluz</h2>
     <div class="row"><span class="label">Ingresos</span><span>500 oro/día</span></div>
     <div class="row"><span class="label">Gremio de magia</span><span>—</span></div>
-    <p class="cost">Sin gremio: construye uno para que tus héroes aprendan magia aquí.</p>
     <div class="row"><span class="label">Construir hoy</span><span>disponible</span></div>
-    <p class="cost">Pulsa un solar para levantarlo y la franja de abajo para reclutar.</p>
+    <p class="cost">Pulsa el ayuntamiento para ampliar la base, una morada para reclutar, un edificio para ver lo suyo o a alguien para hablar.</p>
+
+    <h3>Edificios</h3>
+    <div class="stack-list ir-a-sitio"><button class="stack" data-action="ir-a-sitio" data-sitio="lvl1" title="Ir a la puerta"><span>Morada de nivel 1</span></button><button class="stack" data-action="ir-a-sitio" data-sitio="hall" title="Ir a la puerta"><span>Ayuntamiento</span></button></div>
 
     <h3>Crecimiento semanal</h3>
     <div class="stack-list"><div class="stack"><span>Campesino</span><span class="count">+12</span></div></div>
@@ -760,9 +765,11 @@
     <h2>Valdeluz</h2>
     <div class="row"><span class="label">Ingresos</span><span>500 oro/día</span></div>
     <div class="row"><span class="label">Gremio de magia</span><span>—</span></div>
-    <p class="cost">Sin gremio: construye uno para que tus héroes aprendan magia aquí.</p>
     <div class="row"><span class="label">Construir hoy</span><span>disponible</span></div>
-    <p class="cost">Pulsa un solar para levantarlo y la franja de abajo para reclutar.</p>
+    <p class="cost">Pulsa el ayuntamiento para ampliar la base, una morada para reclutar, un edificio para ver lo suyo o a alguien para hablar.</p>
+
+    <h3>Edificios</h3>
+    <div class="stack-list ir-a-sitio"><button class="stack" data-action="ir-a-sitio" data-sitio="lvl1" title="Ir a la puerta"><span>Morada de nivel 1</span></button><button class="stack" data-action="ir-a-sitio" data-sitio="hall" title="Ir a la puerta"><span>Ayuntamiento</span></button><button class="stack" data-action="ir-a-sitio" data-sitio="armory" title="Ir a la puerta"><span>Armería</span></button></div>
 
     <h3>Crecimiento semanal</h3>
     <div class="stack-list"><div class="stack"><span>Campesino</span><span class="count">+12</span></div></div>
@@ -776,8 +783,7 @@
           <div class="row"><span class="label">Liderazgo</span><span>8 / 20</span></div>
     <progress class="liderazgo" max="20" value="8"></progress>
           <p class="cost">Lo que reclutes va a su tropa, hasta su liderazgo. Licencia lo que sobre para hacer sitio a algo mejor.</p>
-          <div class="stack-list"><div class="stack"><span>Piquero<span class="veterania">Veterano · nivel 3 · 70 / 120 exp</span><span class="veterania">Lleva: Garrote</span></span><span class="count">1 <button data-action="dismiss" data-hero="hero-0" data-creature="pikeman" title="Licenciar uno: de cada tipo se va primero el de menos experiencia">−1</button></span></div><div class="stack"><span>Campesino<span class="veterania">Nivel 1 · 0 / 20 exp</span><span class="veterania">Lleva: Cota de malla</span></span><span class="count">1</span></div><div class="stack"><span>Campesino</span><span class="count">1 <button data-action="dismiss" data-hero="hero-0" data-creature="peasant" title="Licenciar uno: de cada tipo se va primero el de menos experiencia">−1</button></span></div></div><h3>Armería</h3><div class="stack-list"><div class="stack"><span>Espada de armería<span class="veterania">Arma · +2 ataque</span></span><span class="count">800 oro <button data-action="buy-item" data-item="espada_de_armeria" title="Comprarla para la mochila del héroe que está dentro">Comprar</button></span></div><div class="stack"><span>Cota de malla<span class="veterania">Armadura · +2 defensa</span></span><span class="count">800 oro <button data-action="buy-item" data-item="cota_de_malla" title="Comprarla para la mochila del héroe que está dentro">Comprar</button></span></div><div class="stack"><span>Brazal de armería<span class="veterania">Accesorio · +1 ataque, +1 defensa</span></span><span class="count">600 oro <button data-action="buy-item" data-item="brazal_de_armeria" title="Comprarla para la mochila del héroe que está dentro">Comprar</button></span></div></div>
-    <p class="cost">Lo comprado va a la mochila del héroe que está dentro; pónselo desde su panel.</p>
+          <div class="stack-list"><div class="stack"><span>Piquero<span class="veterania">Veterano · nivel 3 · 70 / 120 exp</span><span class="veterania">Lleva: Garrote</span></span><span class="count">1 <button data-action="dismiss" data-hero="hero-0" data-creature="pikeman" title="Licenciar uno: de cada tipo se va primero el de menos experiencia">−1</button></span></div><div class="stack"><span>Campesino<span class="veterania">Nivel 1 · 0 / 20 exp</span><span class="veterania">Lleva: Cota de malla</span></span><span class="count">1</span></div><div class="stack"><span>Campesino</span><span class="count">1 <button data-action="dismiss" data-hero="hero-0" data-creature="peasant" title="Licenciar uno: de cada tipo se va primero el de menos experiencia">−1</button></span></div></div>
 ### castillo · con armería y tropa equipada · renderActions
 <button data-action="close-town">Volver al mapa</button>
 ### castillo · con armería y tropa equipada · renderLog

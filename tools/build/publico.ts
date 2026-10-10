@@ -19,9 +19,11 @@ import { relative, sep } from 'node:path';
  * página lee `unidades/<id>/dN/atlas.webp` (`registrarUnidad`,
  * `src/client/render/personajes.ts`) y nada más de esa carpeta: los
  * `atlas.json` le llegan dentro de la lista de hojas (`/__arena/hojas`). Las
- * poses del Y Bot (`_poses/`) no viven en carpetas `dN/` y van enteras.
+ * poses del Y Bot (`_poses/`) no viven en carpetas `dN/` y van enteras. De la
+ * base caminable (vuelta 3), `fuentes/` (maestros, ediciones, guías e
+ * identidades) solo la lee el taller: la página pide las placas y los recortes.
  */
-const SOLO_DEL_TALLER = /^unidades\/[^/]+\/d[0-7]\/(?!atlas\.webp$)[^/]+$/;
+const SOLO_DEL_TALLER = /^unidades\/[^/]+\/d[0-7]\/(?!atlas\.webp$)[^/]+$|^bases\/[^/]+\/fuentes\//;
 
 /** ¿Va a `dist/` este fichero, con su ruta relativa a `assets/`? */
 export function seCopiaAlBuild(relativa: string): boolean {

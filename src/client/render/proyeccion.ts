@@ -17,13 +17,16 @@
  */
 import { BOARD_HEIGHT, BOARD_WIDTH } from '@core/battle/board.js';
 import type { Hex } from '@core/types.js';
-import { COMPRESION_SUELO } from '../../shared/arte.js';
+import {
+  ALTO_DE_FILA,
+  COMPRESION_SUELO,
+  FONDO_DEL_COMBATE,
+  MARGEN_ABAJO,
+  type Plano,
+} from '../../shared/arte.js';
 
-/** Un punto del plano del tablero, en pasos. */
-export interface Plano {
-  readonly x: number;
-  readonly y: number;
-}
+export type { Plano };
+export { FONDO_DEL_COMBATE };
 
 export interface Tablero {
   /** Ancho de un hex en píxeles. */
@@ -39,8 +42,6 @@ export interface Tablero {
   readonly compresion: number;
 }
 
-const ALTO_DE_FILA = Math.sqrt(3) / 2;
-
 /**
  * Lo que mide un adulto de pie en el tablero, en pasos: en un hex y en una
  * unidad grande. Lo leen la caja de la figura (`cajaDeFigura`) y el ritmo de su
@@ -55,11 +56,8 @@ const RADIO = 1 / Math.sqrt(3);
  * —que si no, se le cortaría la cabeza a la fila de atrás—.
  */
 const ALTO_FIGURA = 1.55;
-const MARGEN_ABAJO = 0.35;
 /** Lo que el tablero pide en vertical y no depende de la elevación. */
 const ALTO_FIJO = ALTO_FIGURA + 2 * RADIO + MARGEN_ABAJO;
-/** Las ocho separaciones entre filas, sin aplastar. */
-const ALTO_FILAS = (BOARD_HEIGHT - 1) * ALTO_DE_FILA;
 const ANCHO_TABLERO = BOARD_WIDTH + 0.5 + 0.6;
 
 /**
@@ -76,9 +74,48 @@ const ANCHO_TABLERO = BOARD_WIDTH + 0.5 + 0.6;
 export const COMPRESION_MAXIMA = Math.sin((35 * Math.PI) / 180);
 
 /**
- * El tablero que cabe en un lienzo de `ancho × alto`, centrado. `alzado` son los
- * pasos que pide de más encima de la fila de atrás lo que sube del suelo —las
- * columnas de una muralla (`alzadoDeLaMuralla`)—; sin él, el de siempre.
+ * El ancho fijo del lienzo de batalla en el móvil, en píxeles: el de
+ * `#app[data-escena='battle'] .map-wrap canvas` en `style.css`, que la base
+ * comparte (pregunta A de la vuelta 2). Lo compara un test con la hoja.
+ */
+export const ANCHO_DEL_COMBATE_EN_MOVIL = 860;
+
+/**
+ * El tamaño de un paso y la elevación de la cámara del tablero de combate en un
+ * lienzo de `ancho × alto`: la única cuenta de la escala, que leen la batalla
+ * (`tableroPara`) y la base (`pasoDeLaBase`). `alzado` son los pasos que pide de
+ * más encima de la fila de atrás lo que sube del suelo —las columnas de una
+ * muralla (`alzadoDeLaMuralla`)—; sin él, el de siempre. La base no lo pasa: su
+ * escala es la de una batalla sin muralla.
+ */
+export function escalaDelCombate(
+  ancho: number,
+  alto: number,
+  alzado = 0,
+): { paso: number; compresion: number } {
+  const fijo = ALTO_FIJO + alzado;
+  const paso = Math.max(
+    1,
+    Math.min(ancho / ANCHO_TABLERO, alto / (fijo + FONDO_DEL_COMBATE * COMPRESION_SUELO)),
+  );
+  const cabe = (alto / paso - fijo) / FONDO_DEL_COMBATE;
+  return { paso, compresion: Math.max(COMPRESION_SUELO, Math.min(COMPRESION_MAXIMA, cabe)) };
+}
+
+/**
+ * El paso de la base en un lienzo de `ancho × alto`: el de una batalla en ese
+ * lienzo, para que un adulto mida lo mismo en los dos. En un lienzo más
+ * estrecho que el del combate en el móvil se calcula como si midiera aquel, que
+ * es lo que ve quien juega una batalla en el móvil (con desplazamiento); en un
+ * escritorio estrecho la figura de la base sale hasta un 20 % mayor (aceptado).
+ */
+export function pasoDeLaBase(ancho: number, alto: number): number {
+  return escalaDelCombate(Math.max(ancho, ANCHO_DEL_COMBATE_EN_MOVIL), alto).paso;
+}
+
+/**
+ * El tablero que cabe en un lienzo de `ancho × alto`, centrado, con `alzado`
+ * pasos de más encima de la fila de atrás (`escalaDelCombate`).
  *
  * El paso lo decide el tablero a 25°; si con ese paso sobra alto, la cámara se
  * levanta (hasta `COMPRESION_MAXIMA`) y las filas se separan hasta llenarlo.
@@ -89,14 +126,8 @@ export const COMPRESION_MAXIMA = Math.sin((35 * Math.PI) / 180);
  * ancho fijo y lo deja desplazarse en horizontal, en vez de encogerlo aquí.
  */
 export function tableroPara(ancho: number, alto: number, alzado = 0): Tablero {
-  const fijo = ALTO_FIJO + alzado;
-  const paso = Math.max(
-    1,
-    Math.min(ancho / ANCHO_TABLERO, alto / (fijo + ALTO_FILAS * COMPRESION_SUELO)),
-  );
-  const cabe = (alto / paso - fijo) / ALTO_FILAS;
-  const compresion = Math.max(COMPRESION_SUELO, Math.min(COMPRESION_MAXIMA, cabe));
-  const sobraY = Math.max(0, alto - (fijo + ALTO_FILAS * compresion) * paso);
+  const { paso, compresion } = escalaDelCombate(ancho, alto, alzado);
+  const sobraY = Math.max(0, alto - (ALTO_FIJO + alzado + FONDO_DEL_COMBATE * compresion) * paso);
   return {
     paso,
     origenX: (ancho - (BOARD_WIDTH + 0.5) * paso) / 2 + paso / 2,

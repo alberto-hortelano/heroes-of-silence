@@ -1,0 +1,50 @@
+{
+  "encargo": "base-knight-edicion-knight-upgrade-3",
+  "tipo": "imagen",
+  "fecha": "2026-10-09T19:11:33.562Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a12212-29a1-77e0-b517-973591e7f905",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IMAGEN QUE SE EDITA: el resultado es esta misma imagen, píxel a píxel, con el ÚNICO cambio que se pide. Todo lo demás —el encuadre, la escala, la luz, el cielo, el empedrado y cada cosa en su sitio— se queda exactamente igual.\nLa imagen 2 es la hoja de IDENTIDAD de los edificios: cada uno suelto y con su número, que es el de la guía. Manda en su diseño, sus materiales, sus colores, su tejado, su heráldica y sus PROPORCIONES. No manda en el encuadre, la escala ni el atrezo suelto que lleva alrededor.\n\nEl único cambio: el edificio 1 empezando por la izquierda (el cuartel de piqueros (morada 3), el que está entre las columnas 64 y 755) se MEJORA y pasa a ser el mismo cuartel de piqueros mejorado: con una planta más, almenas y escudos pintados en la fachada. Es el mismo edificio, en el mismo sitio, con la misma planta, la misma puerta (el umbral donde estaba) y la misma escala; la mejora se le añade. La imagen 2 dice cómo es el edificio mejorado.\nLo nuevo cabe entre las columnas 64 y 755: no toca a los edificios de al lado. NO cambies nada fuera de él: ni los otros edificios, ni el empedrado, la luz, el cielo, el encuadre o lo que cierra la plaza.\nMismo tamaño: 1536×1024.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/bases/knight/fuentes/maestro-t5.webp",
+      "papel": "edita",
+      "sha256": "5c5ee6548fcd1f4a8a9f5c5d58755daccf135ec2ffac5b3e87dce1a9d9643f56"
+    },
+    {
+      "ruta": "assets/bases/knight/fuentes/identidad-knight_upgrade_3.png",
+      "papel": "edificios",
+      "sha256": "16c1b3c2b7b831ee91932d3058061803d8bfad37d4be5a33beb1b1f7575c4087"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a12212-29a1-77e0-b517-973591e7f905/exec-795054f4-05f2-408a-a4e6-b079cabe38de.png",
+    "sha256": "a18c62e4e068d4ffa69e4f6c81e224008db955434664ab3ee93f63db4cc72acc",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 19 edificios, placas 5 de 5",
+    "village_hall: lo recortado toca el borde de su región en x0 (530) y x1 (1005)",
+    "town_hall: lo recortado toca el borde de su región en x0 (530) y x1 (1005)",
+    "mage_guild_1: lo recortado toca el borde de su región en x1 (476)",
+    "mage_guild_2: lo recortado toca el borde de su región en x1 (476)",
+    "tavern: lo recortado toca el borde de su región en x0 (476)",
+    "knight_dwelling_1: lo recortado toca el borde de su región en x1 (530)",
+    "knight_dwelling_5: lo recortado toca el borde de su región en x0 (755)",
+    "knight_upgrade_2: lo recortado toca el borde de su región en x0 (931)",
+    "knight_upgrade_3: lo recortado toca el borde de su región en x1 (755)"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/knight/fuentes/edicion-knight_upgrade_3.webp",
+    "sha256": "7b5a7c5ff0f09e13434f5920c92d7392f93ff28fecf815a0d634296e373bca71"
+  }
+}

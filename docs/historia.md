@@ -2193,38 +2193,130 @@ el barrido de 43 160 pares salió en cero con las tres. Se queda donde está por
 que **sí** cuesta —un destino bloqueado recorrería el mapa entero—, y el
 comentario dice eso ahora en vez de lo que se creía.
 
-## La pantalla de castillo
+## La base caminable (antes, la pantalla de castillo)
 
-El castillo no es una lista de edificios: es un cuadro con **solares fijos**
-(`src/client/render/town.ts`). Cada solar tiene una cadena de mejora que se
-levanta en el sitio, y son once para los diecinueve edificios:
+Hasta el 09-10-2026 el castillo era un **cuadro de doce cajas fijas**
+(`render/town.ts`, `townPlots`): cada edificio era un PNG suelto con su isla de
+hierba escalado a su caja, cada solar vacío una parcela punteada y debajo una
+franja de reclutamiento. Se veía a la vez lo que tenías y lo que te faltaba,
+pero no era un lugar: el usuario pidió «una escena con sentido con todo
+integrado», por la que te mueves y hablas con gente, «así la puede usar el motor
+de narrativa para la historia» (`docs/agents/2026-10-09-base-caminable/`).
 
-| Solar | Cadena |
-|---|---|
-| `hall` | `village_hall` → `town_hall` → `city_hall` |
-| `fort` | `castle` |
-| `guild` | `mage_guild_1` → `mage_guild_2` |
-| `tavern` · `market` | un solo edificio cada uno |
-| `lvl1` … `lvl6` | `<facción>_dwelling_N` → `<facción>_upgrade_N` |
+**La primera vuelta** (09-10-2026, sin commitear) fue una plaza cenital: un
+fondo con calles, solares de tierra y los edificios plantados encima, un suelo
+con huecos y un grafo de visibilidad para rodearlos. Funcionaba, pero el usuario
+la vio como un tablero con figuras diminutas y pidió rehacerla «como las de
+combate pero sin casillas»: delante un espacio a escala de personaje, «mas
+estrecho que el de combate, como a la mitad»; detrás los edificios en
+semicírculo, «se ve la puerta y lo que entre de alto»; scroll horizontal y
+movimiento libre.
 
-**Las moradas son propias de cada facción**, con sus requisitos y sus costes: el
-caballero construye con madera y cristal, el nigromante con mineral y gemas. El
-id del edificio *es* el nombre de su PNG (`knight_dwelling_3`), así que la
-pantalla lo resuelve con un solo `asset('buildings', id)`.
+**Ahora la base es un escenario lateral** (`escenas/castillo.ts`, `render/base/`).
+Todo va en **pasos de combate**: el paso sale de la misma cuenta que el tablero
+(`escalaDelCombate`, que leen `tableroPara` y `pasoDeLaBase`), así que un adulto
+mide lo mismo en la base que en una batalla en el mismo lienzo. Solo se comparte
+el paso: el suelo se aplasta a 25°, como el arte, y no a los 35° a los que el
+combate levanta la cámara cuando sobra alto —con 35° la raya de atrás de la
+franja quedaba medio paso por encima del empedrado pintado—. En el móvil la base
+va en el marco de 380 px del combate y su paso es el de una batalla de 860 px
+(`ANCHO_DEL_COMBATE_EN_MOVIL`); en un escritorio de lienzo menor que 860 la
+figura sale hasta un 20 % mayor (aceptado por el usuario). La franja que se pisa
+mide 3,5 pasos de fondo (la mitad de los 6,93 del combate) y 24 de ancho; se anda
+en recta y un clic fuera se recorta (`alaFranja`); la cámara sigue en horizontal
+como `followCamera` de la rama del rpg (`seguir`, `camaraQuieta`). Detrás, las
+fachadas: el JSON (`data/bases/<f>.json`) solo dice la `x` de cada sitio y
+`arcoDeLaPlaza` deriva su profundidad (media elipse: 2,2 pasos detrás de la
+franja en el centro; los extremos se adelantan hasta 1,8 pasos dentro de ella) y
+su giro, que es el de la tangente (52° en los sitios de los extremos). Lo que se
+pisa empieza 0,3 pasos por delante del pie de las fachadas (`bordeDeAtras`), y es
+convexo, así que andar en recta no se sale. **Toda figura va delante de toda
+fachada** (se pintan primero todas las fachadas), y entre fachadas la más honda
+primero. El ayuntamiento va en el centro, sobre la
+costura de las dos mitades del panorama, porque existe desde el día 1. **Un sitio
+sin construir enseña el relleno del panorama** (muro, setos, árboles): no se nota
+que falte nada. La escala de cada fachada sale de su puerta, que mide 1,3 pasos
+(`colocarFachada`, la única cuenta que leen el pintor, el golpe y `vista-base`);
+Codex no pinta la puerta a los 300 px que se le piden, así que se mide a mano en
+`fachadas` del JSON. Quien camina va un `PRISA_EN_LA_BASE` (1,6) más deprisa que
+en una batalla, para llegar al ayuntamiento en menos de 1,5 s.
 
-Y la cadena de la fila de abajo **no siempre tiene dos eslabones**: el
-nigromante no tiene `necromancer_upgrade_6` porque el dragón óseo no tiene
-criatura mejorada, así que su `lvl6` se ve terminado con la morada. La pantalla
-no sabe nada de eso: las cadenas se **derivan del catálogo** (`townPlots`), y lo
-que no está en `data/buildings.json` no se puede ofrecer ni cobrar.
+**Ajustes tras ver la vuelta 2** (09-10-2026, aprobados por el usuario). Con
+el marco del escritorio entero (1080×773, 8,7 pasos de alto) una fachada de ~6
+pasos cabía con cielo encima y, el día 1, con dos edificios, se veía sobre todo
+el relleno del panorama: un muro bajo con campo detrás, «un descampado». Y con
+el pie de 1,1 a 2,2 pasos detrás y giros de ±37° las fachadas se leían en una
+calle recta. Tres cambios: (1) **el marco de la base es apaisado** en el
+escritorio (20:11, 6,7 pasos de alto: se ven la puerta y lo que entre, y las
+del centro se cortan por arriba) y **el panorama cierra la plaza**: un anillo
+alto de traseras de casas, sin campo, horizonte ni cerca; (2) **el arco se curva
+de verdad**: los extremos (1,05 y 22,95, en espejo) se adelantan dentro de la
+franja y giran 52°; las fachadas de los extremos (moradas 5 y 6 y sus mejoras)
+se volvieron a pedir a ese giro, las demás se desvían ≤ 6° del suyo y se
+quedaron; (3) **la gente de la base va sin armas**: todos los reposos del Y Bot
+eran guardias con el arma en la mano, así que hay un juego nuevo, `civil`
+(reposo y marcha de ambiente de Mixamo, sin atrezo), y encargados y vecinos se
+pintan con él (`CUERPO_DE_VECINO`). Codex no deja el pie del anillo de casas en
+la fila que se le da: queda ~170 px (1,3 pasos) más al fondo en el centro, con
+un trozo de empedrado entre la franja y las casas.
 
-Un solar dibuja el último eslabón construido; si le queda alguno, se pulsa y se
-levanta. Vacío se pinta como parcela punteada con el nombre de lo que iría ahí,
-así que se ve a la vez lo que tienes y lo que te falta. Debajo de cada morada,
-su casilla de reclutamiento.
+**La gente y el narrador.** Un encargado por sitio construido y los vecinos de
+la facción (`data/vecinos.json`), con el cuerpo de una criatura del catálogo
+(el Y Bot teñido, en el color neutro; quien camina, en el del jugador). Lo que
+dice cada uno es `vozDe` (`core/town/voces.ts`): la línea que escribió el
+narrador o, sin ella, una frase de respaldo elegida con su propio `createRng`
+(la partida no se entera: el banco no se movió). La petición `town_voices` le
+pide al agente las voces de sus bases caducadas —semana nueva o un **sitio**
+levantado por primera vez— en una sola petición antes del turno. Con «cualquier
+edificio nuevo» salían 6 para 6 turnos en `pnpm qa`; por sitios, 3 para 6
+(09-10-2026). `ponerVoces` es el único que escribe `Town.voces` y juzga cada voz
+y cada línea sola. El navegador nunca tiene agente, así que allí siempre habla
+el respaldo; lo narrado se lee en el espectador («Voces de la base»).
 
-El motivo de un rechazo sale de `buildBlocker`, que ya devuelve la frase escrita
-para la persona: la pantalla no reimplementa ni una regla.
+**El arte** (caballero) es del taller (`tools/taller/base.ts`), por Codex: el
+panorama en dos mitades de 1536×1024 a 128 px por paso (con una sola imagen
+saldrían 64 px por paso, ampliados ×1,4-1,7 en un escritorio), cada una con su
+guía hecha desde la disposición —el suelo en sus filas exactas a 25° y un
+«RELLENO» en cada sitio—, y la derecha con la izquierda como imagen contigua; y
+veinte fachadas altas, sin peana ni atrezo, giradas como su sitio, con una guía
+que pone la puerta de 300 px junto a la silueta de un adulto, cada mejora con su
+edificio de antes (`antes`) y su giro. Se revisa con `pnpm taller vista-base
+knight` (la disposición, la compuesta y la tira de fachadas con la puerta medida
+frente al adulto). El nigromante va con marcadores (cielo, muro bajo de relleno,
+suelo entonado y bloques con su nombre) hasta su ciclo. El arte viejo de fal.ai
+(`assets/generated/buildings` y `towns`) se retiró con sus prompts.
+
+
+**La vuelta 3: un solo cuadro** (09-10-2026). Con los ajustes, el usuario: «No
+quedan integradas, se nota que es un extra». Su idea: pedir una imagen con todos
+los edificios, con la misma perspectiva, y recortarlos con un inpainting. Tres
+pruebas de concepto (`docs/agents/2026-10-09-base-caminable/poc-inpainting.md`)
+la confirmaron: la placa (el maestro editado sin edificios, petición nueva; reabrir
+el hilo falló dos de dos) no mueve ni un píxel y su grano repintado (13/255) queda,
+desenfocado, diez veces por debajo del umbral; el recorte integra. Lo que no salió
+fue la geometría: Codex pinta la curva casi recta y con seis edificios por cuadro
+los pequeños se encogen (puertas de 0,85 adultos); con la silueta de un adulto
+como vara de medir y tres por cuadro, las puertas quedan de 1,05-1,93 adultos. Por
+eso: cinco tramos de tres a 128 px por paso, 50 pasos de escenario, y **manda el
+cuadro** (la disposición se mide sobre él; `arcoDeLaPlaza`, las fachadas sueltas
+y su puerta medida se retiraron). El cierre por desenfoque de la prueba
+redondeaba las esquinas (~20 px de radio: 88 % de un rectángulo); se le devuelve
+lo que la diferencia encendió cerca del edificio (`mascaraDeLaDiferencia`).
+
+**La costura de la vuelta 3** (09-10-2026). Cosidos a tope, dos tramos no casan:
+con la placa de al lado como `contigua`, T2 salió con el muro 120 px más alto y
+otro adoquín; con el final de T1 pintado en su lienzo, Codex lo conservó píxel a
+píxel pero subió la plaza 55 px justo después (escalón al pie del muro y raya en
+el empedrado). Decisión del usuario: **suelo propio y pilar en la junta**. El
+empedrado es uno para toda la plaza (`suelo.webp`, del medio de una placa: hacia
+los lados Codex abre las juntas en abanico y el trozo entero dejaba una uve en
+cada vuelta), y de cada tramo se pinta lo de encima de su pie, alineado por él:
+pedidos por separado, T1 pintó la plaza a 790 y T2 a 687, y da igual. La junta es
+un árbol alto con su pilar en cada borde que da a otro tramo; el solape baja de
+256 a 64 px, dentro del árbol. La línea del pie solo puede errar hacia abajo
+(máximo de 64 px tras la mediana): medida por encima, el zócalo de piedra o una
+puerta de madera parecidos al empedrado quedaban debajo del suelo nuevo y el
+edificio flotaba.
 
 ## La magia, de punta a punta
 

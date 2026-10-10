@@ -826,8 +826,12 @@ describe('invariantes del proyecto', () => {
     // compuerta **pasando** por encima de la primera redacción, que era una
     // lista negra corta.
     const fuera = [...CORE, ...CLIENTE, ...SERVIDOR].filter((r) => r !== 'src/client/html.ts');
-    /** Los únicos tipos del DOM que el cliente nombra. Cerrado y comprobado. */
-    const TIPOS_DOM = ['Element', 'CanvasElement', 'ImageElement'];
+    /**
+     * Los únicos tipos del DOM que el cliente nombra. Cerrado y comprobado.
+     * `DialogElement` entró con la conversación de la base caminable: es el
+     * `<dialog>` que se abre y se cierra, y se rellena por `pintar` como todo.
+     */
+    const TIPOS_DOM = ['Element', 'CanvasElement', 'ImageElement', 'DialogElement'];
     const puertas: readonly (readonly [string, RegExp])[] = [
       [
         'un nombre con `HTML` dentro que no es un tipo del DOM',
@@ -1390,6 +1394,63 @@ describe('invariantes del proyecto', () => {
     expect(serializadores).toBeGreaterThanOrEqual(5);
     // El síntoma, en el servidor: un `as object` es un tipo del contrato tirado.
     expect(infractoresDeCodigo(SERVIDOR, /\bas object\b/)).toEqual([]);
+  });
+
+  it('el núcleo no lee la disposición de la base: un sitio no tiene coordenadas en las reglas', () => {
+    // `data/bases/<f>.json` es presentación (dónde se pinta cada edificio y por
+    // dónde se anda) y la leen el cliente y el taller por `shared/base.ts`. Si el
+    // núcleo la leyera, una coordenada de un fondo pintado pasaría a decidir algo
+    // del juego. Mira el código con sus cadenas: un `import` es una cadena.
+    expect(infractoresDeCodigo(CORE, /data\/bases/)).toEqual([]);
+  });
+
+  it('la escena de la base no cambia el estado: `render/base/` solo importa tipos del núcleo', () => {
+    // La base caminable es estado del cliente; las reglas van por los botones a
+    // la sesión. Un `import` de valor de `@core` en `render/base/` sería una
+    // puerta lateral al núcleo que el guardia de `session.ts` no ve, porque
+    // solo mira las funciones que mutan.
+    const base = CLIENTE.filter((r) => r.startsWith('src/client/render/base/'));
+    expect(base.length).toBeGreaterThan(0);
+    const colados: string[] = [];
+    for (const ruta of base) {
+      const codigo = sinComentarios(leer(ruta));
+      for (const m of codigo.matchAll(/\bimport(?!\s+type\b)\s*([^;]*?)['"]@core\/[^'"]+['"]/gs)) {
+        colados.push(`${ruta} → ${m[0].replace(/\s+/g, ' ')}`);
+      }
+      for (const m of codigo.matchAll(/\bimport\s*\(\s*['"]@core\//g)) {
+        colados.push(`${ruta} → ${m[0]}`);
+      }
+    }
+    expect(colados).toEqual([]);
+  });
+
+  it('la base no copia la escala del combate: la toma de `escalaDelCombate`', () => {
+    // Un adulto mide lo mismo en la base que en una batalla porque el paso sale
+    // de una sola cuenta (`pasoDeLaBase` → `escalaDelCombate`). Las constantes
+    // del tablero son privadas de `proyeccion.ts`; si la escena de la base las
+    // nombrara o fijara su propio alto de figura, la escala sería una copia que
+    // un día deja de casar (vuelta 2 del ciclo de la base).
+    const base = CLIENTE.filter(
+      (r) => r.startsWith('src/client/render/base/') || r === 'src/client/escenas/castillo.ts',
+    );
+    expect(base.length).toBeGreaterThan(5);
+    expect(
+      infractoresDeCodigo(base, /\bANCHO_TABLERO\b|\bALTO_FIJO\b|\bALTO_DE_FIGURA\s*=/),
+    ).toEqual([]);
+  });
+
+  it('lo que dicen los vecinos lo escribe `ponerVoces` y nadie más', () => {
+    // `Town.voces` es presentación del narrador; si otro lo escribiera —la IA,
+    // el cliente, el director a mano— se saltaría el juicio línea a línea y la
+    // firma que dice cuándo caduca. La asignación y los corchetes.
+    const escrituras = infractoresDeCodigo(
+      [...CORE, ...CLIENTE, ...SERVIDOR],
+      /\.voces\s*=(?!=)|\[\s*['"`]voces['"`]\s*\]\s*=(?!=)/,
+    );
+    const ajenas = escrituras.filter((e) => !e.startsWith('src/core/town/voces.ts:'));
+    expect(ajenas).toEqual([]);
+    // Y que mire algo: la escritura de verdad tiene que salir.
+    expect(escrituras).toHaveLength(1);
   });
 
   it('FAL_KEY no llega al navegador', () => {

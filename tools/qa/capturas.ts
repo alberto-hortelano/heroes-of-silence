@@ -43,13 +43,21 @@ import WebSocket from 'ws';
 import { DURACION, duracionDeLaJugada } from '../../src/client/anim.js';
 import { EscenaAventura } from '../../src/client/escenas/aventura.js';
 import { cargaContra, EscenaBatalla, rotuloDeAngulo } from '../../src/client/escenas/batalla.js';
+import { dondeHablarCon } from '../../src/client/escenas/castillo.js';
 import { msPorCasilla } from '../../src/client/marcha.js';
-import { cajaDeFigura, galonesDe } from '../../src/client/render/batalla.js';
+import { camaraDeLaBase, camaraQuieta } from '../../src/client/render/base/camara.js';
+import { dondePulsarElSitio } from '../../src/client/render/base/recortes.js';
+import { cajaDeFigura, cajaDeFiguraEn, galonesDe } from '../../src/client/render/batalla.js';
 import { casillaAPixel, centrarEn, type Encuadre } from '../../src/client/render/camara-mapa.js';
 import { ALTO_DEL_GRUPO, pasosAPintar } from '../../src/client/render/mapa.js';
 import { registrarUnidad } from '../../src/client/render/personajes.js';
-import { centroDeStack, centroHex, tableroPara } from '../../src/client/render/proyeccion.js';
-import { botonDeRecluta, townLayout, townPlots } from '../../src/client/render/town.js';
+import {
+  centroDeStack,
+  centroHex,
+  enPantalla,
+  type Tablero,
+  tableroPara,
+} from '../../src/client/render/proyeccion.js';
 import {
   type ControlDeBatalla,
   type PuestoDeArena,
@@ -81,12 +89,19 @@ import { nombreDeTipoDeHeroe } from '../../src/core/data.js';
 import { troopSummary } from '../../src/core/hero/troop.js';
 import { pasosDeLaPatrulla } from '../../src/core/state/asaltantes.js';
 import { baseOf, heroesOf, visibleNow } from '../../src/core/state/game.js';
+import type { SitioId } from '../../src/core/town/sitios.js';
 import type { Point } from '../../src/core/types.js';
 import type {
   AgentHelloMsg,
   AgentResponseMsg,
   ServerToAgentMsg,
 } from '../../src/server/protocol.js';
+import {
+  type Disposicion,
+  disposicionDe,
+  FONDO_DE_LA_FRANJA,
+  type Plano,
+} from '../../src/shared/base.js';
 import { hojasDeArena, leerBorrador, RUTA_DEL_BORRADOR } from '../arena/borrador.js';
 import {
   buscarDerrota,
@@ -340,6 +355,79 @@ async function caja(page: Page): Promise<Caja> {
   const b = await page.locator('#canvas').boundingBox();
   if (b === null) throw new Error('el lienzo no está en la página');
   return b;
+}
+
+/** El medio de la puerta de un edificio: siempre pintado (`dondePulsarElSitio`). */
+const laPuerta =
+  (d: Disposicion, sitio: SitioId) =>
+  (t: Tablero): { x: number; y: number } =>
+    dondePulsarElSitio(t, d.sitios[sitio]);
+
+/** El medio del cuerpo de una figura de pie en `en`. */
+const laFigura =
+  (en: Plano) =>
+  (t: Tablero): { x: number; y: number } => {
+    const c = cajaDeFiguraEn(t, en);
+    return { x: c.x, y: c.suelo - c.alto / 2 };
+  };
+
+/** Un punto del suelo de la base. */
+const elSuelo =
+  (p: Plano) =>
+  (t: Tablero): { x: number; y: number } =>
+    enPantalla(t, p);
+
+/**
+ * Pulsa lo que diga `donde` con quien camina en `foco`: la cámara sigue a la
+ * figura y, quieta, está en `camaraQuieta`, así que el píxel sale de dónde está
+ * ella con la misma cuenta que el juego.
+ */
+async function pulsarEnLaBase(
+  page: Page,
+  d: Disposicion,
+  foco: Plano,
+  donde: (t: Tablero) => { x: number; y: number },
+): Promise<void> {
+  const bb = await caja(page);
+  const lienzo = { ancho: bb.width, alto: bb.height };
+  const q = donde(camaraDeLaBase(lienzo, camaraQuieta(d, lienzo, foco.x)));
+  const antes = await page.locator('#canvas').getAttribute('data-base');
+  await page.mouse.click(bb.x + q.x, bb.y + q.y);
+  // El fotograma que echa a andar: sin esperarlo, un «quieto» de antes del clic
+  // daría por llegada una marcha que no ha empezado. `data-base` lo escribe cada
+  // fotograma, y una marcha dura varios: se mira en cada uno.
+  await page.waitForFunction((m) => document.getElementById('canvas')?.dataset.base !== m, antes, {
+    polling: 'raf',
+    timeout: 5000,
+  });
+}
+
+/**
+ * Anda por el suelo de la base, desde `foco`, hasta tener `x` a la vista con un
+ * paso de margen, y devuelve dónde se queda quien camina.
+ */
+async function acercarseA(page: Page, d: Disposicion, foco: Plano, x: number): Promise<Plano> {
+  const bb = await caja(page);
+  const medio = bb.width / camaraDeLaBase({ ancho: bb.width, alto: bb.height }, 0).paso / 2 - 1;
+  let en = foco;
+  for (let i = 0; i < 8 && Math.abs(x - en.x) > medio; i++) {
+    const destino = {
+      x: en.x + Math.sign(x - en.x) * Math.min(Math.abs(x - en.x), medio),
+      y: FONDO_DE_LA_FRANJA - 0.3,
+    };
+    await pulsarEnLaBase(page, d, en, elSuelo(destino));
+    await esperarLaBase(page, 'quieto');
+    en = destino;
+  }
+  return en;
+}
+
+/**
+ * Espera a que la base diga `marca` en `canvas[data-base]`: lo abierto al llegar.
+ * Los paneles se pintan en el mismo fotograma que la escribe (`main.ts`).
+ */
+async function esperarLaBase(page: Page, marca: string): Promise<void> {
+  await page.locator(`#canvas[data-base="${marca}"]`).waitFor({ state: 'attached', timeout: 8000 });
 }
 
 /** Comprueba que la página y el espejo juegan la misma partida. */
@@ -1112,25 +1200,23 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
   await mapa.pulsar(castillo.at);
   if (espejo.scene !== 'town')
     throw new Error(`el espejo no ha entrado al castillo: ${espejo.status}`);
-  await sleep(300);
+  await esperarLaBase(page, 'quieto');
   await captura(page, 'desktop-04-castillo');
 
-  // «Todo» en la morada de nivel 1: pide lo que cabe, no lo que hay.
+  // La base es una escena: se camina a la morada de nivel 1 y, al llegar, el
+  // panel ofrece «+1» y «Todo». «Todo» pide lo que cabe, no lo que hay.
   const town = espejo.activeTown!;
-  const plot = townPlots(town.faction).find((p) => p.level === 1)!;
-  const bb = await caja(page);
-  const t = townLayout(bb.width, bb.height);
-  const boton = botonDeRecluta(plot, true);
-  const enPagina = {
-    x: bb.x + t.x + (boton.x + boton.w / 2) * t.scale,
-    y: bb.y + t.y + (boton.y + boton.h / 2) * t.scale,
-  };
-  const plan = espejo.recruitPlan(reclutaDeNivel1(town.faction));
-  await page.mouse.move(enPagina.x, enPagina.y);
+  const d = disposicionDe(town.faction);
+  const recluta = reclutaDeNivel1(town.faction);
+  await pulsarEnLaBase(page, d, d.entrada, laPuerta(d, 'lvl1'));
+  await esperarLaBase(page, 'sitio:lvl1');
+  const todo = page.locator('#side button[data-action="recruit"][data-todo="si"]');
+  const plan = espejo.recruitPlan(recluta);
+  await todo.hover();
   await sleep(150);
   await captura(page, 'desktop-05-castillo-todo-es-lo-que-cabe');
-  await page.mouse.click(enPagina.x, enPagina.y);
-  espejo.recruitAll(reclutaDeNivel1(town.faction));
+  await todo.click();
+  espejo.recruitAll(recluta);
   log(
     `«todo» con ${plan?.disponibles} disponibles y ${plan?.caben} que caben: recluta ${plan?.maximo}`,
   );
@@ -1139,13 +1225,9 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
 
   // «+1» con el ejército ya en sus seis (fase 1b): no recluta, y la barra dice
   // por qué con la frase del núcleo. El espejo dice lo mismo, y el oro no se mueve.
-  const recluta = reclutaDeNivel1(town.faction);
+  const uno = page.locator('#side button[data-action="recruit"][data-todo="no"]');
   if ((espejo.selectedHero?.army.length ?? 0) >= 6) {
-    const uno = botonDeRecluta(plot, false);
-    await page.mouse.click(
-      bb.x + t.x + (uno.x + uno.w / 2) * t.scale,
-      bb.y + t.y + (uno.y + uno.h / 2) * t.scale,
-    );
+    await uno.click();
     espejo.recruit(recluta, 1);
     await sleep(250);
     const dice = await page.locator('#status').innerText();
@@ -1177,10 +1259,7 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
     await captura(page, 'desktop-05c-castillo-licenciado-uno');
     log(`licenciado un ${recluta}: la tropa pasa de ${antes} a ${antes - 1}`);
     if ((espejo.activeTown?.available[recluta] ?? 0) > 0) {
-      await page.mouse.click(
-        bb.x + t.x + (uno.x + uno.w / 2) * t.scale,
-        bb.y + t.y + (uno.y + uno.h / 2) * t.scale,
-      );
+      await uno.click();
       espejo.recruit(recluta, 1);
       await sleep(200);
       if (espejo.selectedHero?.army.length !== antes) {
@@ -1189,6 +1268,76 @@ async function jugarEscritorio(browser: Browser, url: string, problemas: Problem
       log(`y el «+1» vuelve a reclutar: ${antes} de ${antes}`);
     }
     await comprobar(page, espejo, 'licenciar y volver a reclutar');
+  }
+
+  // El ayuntamiento abre «Ampliar»: lo construible con su coste o su motivo.
+  await pulsarEnLaBase(page, d, d.sitios.lvl1.puerta, laPuerta(d, 'hall'));
+  await esperarLaBase(page, 'ampliar');
+  const construir = await page.locator('#side button[data-action="build"]').count();
+  if (construir === 0) throw new Error('«Ampliar» no ofrece nada que construir');
+  await captura(page, 'desktop-05d-castillo-ampliar');
+  log(`«Ampliar» ofrece ${construir} edificios`);
+
+  // Un estado intermedio: con el castillo levantado (lo que se construye el día
+  // 1 con lo de partida), su fachada aparece en su sitio junto al ayuntamiento y
+  // la morada. Lo siguiente de la pasada se juega ya con él.
+  const castilloSePuede = page.locator('#side button[data-action="build"][data-building="castle"]');
+  if ((await castilloSePuede.count()) !== 1 || !(await castilloSePuede.isEnabled())) {
+    throw new Error('«Ampliar» no deja construir el castillo el día 1');
+  }
+  await castilloSePuede.click();
+  espejo.build('castle');
+  if (!espejo.activeTown?.buildings.includes('castle')) {
+    throw new Error(`el espejo no ha construido el castillo: ${espejo.status}`);
+  }
+  await sleep(300);
+  await comprobar(page, espejo, 'construir el castillo');
+  await captura(page, 'desktop-05g-castillo-construido');
+  log(`construido el castillo: ${espejo.activeTown.buildings.join(', ')}`);
+
+  // Un vecino: se camina a su lado y se abre la conversación con su nombre. El
+  // escenario mide unos 58 pasos y el lienzo enseña 12: primero se anda hasta
+  // tenerlo a la vista (con la vista de la vuelta 2, el vecino estaba siempre en
+  // ella y se pulsaba de una vez; en la vuelta 3 caía fuera del lienzo).
+  const [idVecino, vecino] = Object.entries(d.vecinos)[0]!;
+  const cerca = await acercarseA(page, d, d.sitios.hall.puerta, vecino.en.x);
+  await pulsarEnLaBase(page, d, cerca, laFigura(vecino.en));
+  await esperarLaBase(page, `pnj:vecino-${idVecino}`);
+  const dialogo = page.locator('#conversacion[open]');
+  await dialogo.waitFor({ state: 'visible', timeout: 5000 });
+  const dicho = (await dialogo.innerText()).trim();
+  if (!dicho.includes('«')) throw new Error(`la conversación no dice nada: «${dicho}»`);
+  await captura(page, 'desktop-05e-castillo-conversacion');
+  log(`conversación con ${idVecino}: «${dicho.replace(/\s+/g, ' ')}»`);
+  await page.locator('#conversacion button[data-action="cerrar-conversacion"]').click();
+  await esperarLaBase(page, 'quieto');
+
+  // El escenario es más ancho que el lienzo: se anda hasta el extremo derecho y
+  // la vista lo sigue hasta su tope (criterio 3').
+  {
+    const bb = await caja(page);
+    const lienzo = { ancho: bb.width, alto: bb.height };
+    let en = dondeHablarCon(d, vecino.en);
+    for (
+      let i = 0;
+      i < 6 && camaraQuieta(d, lienzo, en.x) < camaraQuieta(d, lienzo, d.ancho);
+      i++
+    ) {
+      const vista = bb.width / camaraDeLaBase(lienzo, 0).paso;
+      const destino = {
+        x: Math.min(d.ancho, camaraQuieta(d, lienzo, en.x) + vista - 0.3),
+        y: FONDO_DE_LA_FRANJA - 0.3,
+      };
+      await pulsarEnLaBase(page, d, en, elSuelo(destino));
+      await esperarLaBase(page, 'quieto');
+      en = { x: Math.min(d.ancho - 0.4, destino.x), y: destino.y };
+    }
+    const tope = camaraQuieta(d, lienzo, d.ancho);
+    if (camaraQuieta(d, lienzo, en.x) !== tope) {
+      throw new Error(`la vista de la base no ha llegado a su extremo derecho (x=${en.x})`);
+    }
+    log(`la vista de la base llega a su extremo derecho: cámara en ${tope.toFixed(2)} pasos`);
+    await captura(page, 'desktop-05f-castillo-extremo');
   }
   await page.getByRole('button', { name: 'Volver al mapa' }).click();
   espejo.closeTown();
@@ -1507,7 +1656,28 @@ async function jugarMovil(browser: Browser, url: string, problemas: Problemas): 
   });
   await captura(page, 'movil-01-mapa');
   await mapa.pulsar(espejo.myTowns()[0]!.at);
-  await sleep(300);
+  await esperarLaBase(page, 'quieto');
+  // En el móvil la base es una ventana que sigue a quien camina: se le manda al
+  // extremo izquierdo de lo que se ve, y la vista va con él.
+  {
+    const d = disposicionDe(espejo.activeTown!.faction);
+    const bb = await caja(page);
+    const lienzo = { ancho: bb.width, alto: bb.height };
+    const antes = camaraQuieta(d, lienzo, d.entrada.x);
+    const destino = { x: antes + 0.5, y: FONDO_DE_LA_FRANJA - 0.9 };
+    // Que eche a andar de verdad (lo espera `pulsarEnLaBase`): un clic fuera del
+    // lienzo dejaba «quieto» y la captura salía con la figura en la entrada (la
+    // primera redacción de esto).
+    await pulsarEnLaBase(page, d, d.entrada, elSuelo(destino));
+    await esperarLaBase(page, 'quieto');
+    const despues = camaraQuieta(d, lienzo, destino.x);
+    if (antes === despues) {
+      throw new Error('móvil: la vista de la base no tenía hacia dónde seguir a quien camina');
+    }
+    log(
+      `móvil: la vista sigue a quien camina, de x=${antes.toFixed(2)} a x=${despues.toFixed(2)} pasos`,
+    );
+  }
   await captura(page, 'movil-02-castillo');
   await page.getByRole('button', { name: 'Volver al mapa' }).click();
   espejo.closeTown();

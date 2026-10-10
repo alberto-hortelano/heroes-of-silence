@@ -65,6 +65,10 @@ const ANIMS_EXTRA = [
   { id: 'bow', file: 'anims/sword_and_shield/sword and shield attack (4).fbx' },
   { id: 'crossbow', file: 'anims/sword_and_shield/sword and shield attack (4).fbx' },
   { id: 'grenade', file: 'anims/sword_and_shield/sword and shield attack (4).fbx' },
+  // El reposo y la marcha de quien no lleva armas (`civil`): los clips de ambiente
+  // del rig de Mixamo, no los del pack de espada y escudo, que van en guardia.
+  { id: 'reposo_civil', file: 'mixamo/ambient_anims/idle_neutral.fbx' },
+  { id: 'andar_civil', file: 'mixamo/ambient_anims/walking.fbx', locomotion: true },
 ];
 
 /**
@@ -1182,6 +1186,19 @@ export const JUEGOS_DE_ARMAS = {
     piernasDeColor: true,
     atrezo: { granada: { radio: 0.08, mecha: 0.07 }, cuerpoACuerpo: SABLE },
   },
+  // Sin armas: la gente de la base (ajuste tras la vuelta 2 de la base caminable,
+  // 09-10-2026). Todos los demás reposos son guardias con el arma en la mano, y
+  // un vecino que habla en la plaza en guardia se leía como un soldado. El reposo
+  // y la marcha son los de ambiente de Mixamo; el ataque, el golpe corto sin nada
+  // en la mano (un vecino no pelea, pero la hoja B es de toda figura).
+  civil: {
+    describe: 'sin armas, con las manos vacías: un vecino de la villa',
+    ataque: 'quick',
+    reposo: 'reposo_civil',
+    marcha: 'andar_civil',
+    piernasDeColor: true,
+    atrezo: null,
+  },
 } as const satisfies Record<
   string,
   {
@@ -1191,8 +1208,11 @@ export const JUEGOS_DE_ARMAS = {
     /** Solo quien dispara: el clip del disparo (hoja C) y su curva (`CURVAS_DEL_DISPARO`). */
     disparo?: ClipDeDisparo;
     reposo: string;
+    /** El clip de la marcha, si no es la de espada y escudo. */
+    marcha?: string;
     piernasDeColor: boolean;
-    atrezo: Atrezo;
+    /** `null`: sin nada en las manos. */
+    atrezo: Atrezo | null;
   }
 >;
 export type JuegoDeArmas = keyof typeof JUEGOS_DE_ARMAS;
@@ -1291,11 +1311,16 @@ export interface FilaDePose {
  * B siempre, la C solo si dispara. Cada fila con el clip que le pone el juego.
  */
 export function hojasDe(j: JuegoDeArmas): Partial<Record<HojaDeFigura, FilaDePose[]>> {
-  const juego: { readonly reposo: string; readonly ataque: string; readonly disparo?: string } =
-    JUEGOS_DE_ARMAS[j];
+  const juego: {
+    readonly reposo: string;
+    readonly marcha?: string;
+    readonly ataque: string;
+    readonly disparo?: string;
+  } = JUEGOS_DE_ARMAS[j];
   const anims: Partial<Record<ClipDeFigura, string>> = {
     ...OCHO_DIRECCIONES.anims,
     idle: juego.reposo,
+    ...(juego.marcha === undefined ? {} : { walk: juego.marcha }),
     attack: juego.ataque,
     ...(juego.disparo === undefined ? {} : { shoot: juego.disparo }),
   };
@@ -1330,8 +1355,8 @@ export function cuerpoACuerpoDe(j: JuegoEn8d, maniqui?: Atrezo): string | null {
 }
 
 /** El arma de mano del atrezo de un tirador; lanza si no la lleva. */
-function armaDeManoDe(j: JuegoDeArmas, atrezo: Atrezo): CuerpoACuerpo {
-  if (!('cuerpoACuerpo' in atrezo)) {
+function armaDeManoDe(j: JuegoDeArmas, atrezo: Atrezo | null): CuerpoACuerpo {
+  if (atrezo === null || !('cuerpoACuerpo' in atrezo)) {
     throw new Error(
       `el juego «${j}» dispara y su atrezo no lleva arma de cuerpo a cuerpo (\`cuerpoACuerpo\`): su ataque no tendría con qué pintarse`,
     );
@@ -1401,7 +1426,7 @@ export const carpetaDeManiqui = (id: string): string => join(DIR_MANIQUIES, `${i
 
 /** Una llamada a sprite-forge: los clips de Mixamo que renderiza con un mismo atrezo. */
 interface PasadaDelRender {
-  readonly atrezo: Atrezo;
+  readonly atrezo: Atrezo | null;
   readonly anims: readonly string[];
   readonly disparo: ClipDeDisparo | null;
 }
@@ -1417,7 +1442,7 @@ interface PasadaDelRender {
 function pasadasDelRender(
   juego: JuegoDeArmas,
   hojas: Partial<Record<HojaDeFigura, FilaDePose[]>>,
-  atrezo: Atrezo,
+  atrezo: Atrezo | null,
 ): PasadaDelRender[] {
   const filas = Object.values(hojas).flat();
   const animsDe = (f: (c: FilaDePose) => boolean) => [
@@ -1451,7 +1476,7 @@ export async function renderizarOchoDirecciones(
   const { celda, encuadre } = OCHO_DIRECCIONES;
   const hojas = hojasDe(juego);
   const perfil = maniqui ? `${maniqui.id}-8d` : `${juego}-8d`;
-  const atrezo: Atrezo = maniqui?.atrezo ?? JUEGOS_DE_ARMAS[juego].atrezo;
+  const atrezo: Atrezo | null = maniqui?.atrezo ?? JUEGOS_DE_ARMAS[juego].atrezo;
   const { piernasDeColor } = JUEGOS_DE_ARMAS[juego];
   const { columnas } = FIGURA;
   const pasadas = pasadasDelRender(juego, hojas, atrezo);

@@ -65,6 +65,7 @@ import {
   baseOf,
   type GameState,
   hayHuecoDeHeroe,
+  heroeEnLaBase,
   heroesALaVista,
   heroesOf,
   MAX_HEROES_PER_PLAYER,
@@ -77,14 +78,17 @@ import {
   week,
 } from '../state/game.js';
 import { building } from '../town/buildings.js';
+import { construidoEn } from '../town/sitios.js';
 import {
   availableBuildings,
   dailyIncome,
   dwellings,
   mageGuildLevel,
+  type Town,
   tieneArmeria,
   townSpells,
 } from '../town/town.js';
+import { vecinosDeLaBase, vozDe } from '../town/voces.js';
 import type { Army, Equipo, PlayerId } from '../types.js';
 import { describirCoste, FACTION_IDS, HUECOS, RESOURCE_KINDS } from '../types.js';
 
@@ -602,6 +606,44 @@ export function serializeHeroFromTroop(state: GameState, playerId: PlayerId, v: 
       description: t.descripcion,
     })),
     heroes: { count: heroesOf(state, playerId).length, max: MAX_HEROES_PER_PLAYER },
+  };
+}
+
+/**
+ * La petición `town_voices`: las bases de `playerId` cuyas voces hay que rehacer,
+ * con su gente y lo que dice ahora.
+ *
+ * Lleva lo que da de qué hablar —qué hay construido, quién está dentro, cuánta
+ * guarnición la guarda— y la crónica corta (10 hechos, por la niebla como
+ * todo): el narrador escribe para esta semana, no un informe. La instrucción
+ * «presentación, nunca reglas» va en la prosa del formato (`RESPONSE_FORMAT`).
+ */
+export function serializeTownVoices(state: GameState, playerId: PlayerId, towns: readonly Town[]) {
+  const player = playerById(state, playerId);
+  const semana = week(state);
+  return {
+    kind: 'town_voices',
+    you: { player: playerId, faction: player.faction },
+    day: state.day,
+    week: semana,
+    towns: towns.map((t) => {
+      const heroe = heroeEnLaBase(state, playerId, t);
+      return {
+        id: t.id,
+        name: t.name,
+        buildings: t.buildings.map((id) => building(id).name),
+        hero: heroe === null ? null : { name: heroe.name, type: heroe.tipo },
+        garrison: armyView(t.garrison, state.characters),
+        npcs: vecinosDeLaBase(t).map((v) => ({
+          id: v.id,
+          name: v.nombre,
+          role: v.papel,
+          building: v.sitio === null ? null : building(construidoEn(t, v.sitio) as string).name,
+          current: vozDe(t, v.id, semana, state.day),
+        })),
+      };
+    }),
+    recentEvents: cronicaPara(state, playerId, 10),
   };
 }
 

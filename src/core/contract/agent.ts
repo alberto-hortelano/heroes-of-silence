@@ -30,7 +30,9 @@ import {
   TERRAIN_KINDS,
 } from '../map/terrain.js';
 import { MAX_HEROES_PER_PLAYER } from '../state/game.js';
+import { LARGO_DE_LINEA, LINEAS_POR_VECINO, MAX_VOCES_POR_RESPUESTA } from '../town/voces.js';
 import { FACTION_IDS, HUECOS } from '../types.js';
+import { lineaLegible } from './linea.js';
 import { CATALOGO_DE_EQUIPO_EN_PROSA, COMO_SE_LEE_EL_MAPA } from './serialize.js';
 
 // ---------------------------------------------------------------- respuestas
@@ -141,119 +143,6 @@ const idDeMapa = (que: string) =>
       /^[a-z0-9][a-z0-9_-]*$/,
       `un id de ${que} va en minúsculas y solo lleva letras, dígitos, guion y guion bajo, empezando por letra o dígito (p. ej. "town-0")`,
     );
-/**
- * Lo que lee una persona: una sola línea **y que se lea**. Sin caracteres de
- * control —el salto parte el bloque de veredictos, que se lee línea a línea, y
- * un `\u0000` o un tabulador no los pinta nadie— y con al menos un carácter
- * visible: QA encontró que `"   "` pasaba, y daba un héroe sin nombre en el
- * panel, la crónica y el veredicto. «Visible» descuenta también los de formato
- * (`\p{Cf}`, el espacio de anchura cero), que `trim()` no quita.
- *
- * #128 cerró lo que aún se colaba, en tres preguntas separadas porque cada una
- * tiene su motivo:
- * - **Una línea** descarta también U+2028/U+2029 (`\p{Zl}`, `\p{Zp}`), que no
- *   son `\p{Cc}` pero parten la línea igual, y los controles de dirección
- *   (`\p{Bidi_Control}`: el RLO U+202E da la vuelta a lo que viene detrás, en
- *   el veredicto también).
- * - **Algo que se lea** descarta lo que se pinta en blanco sin ser espacio: el
- *   braille vacío U+2800, los rellenos coreanos U+3164, U+FFA0 y U+115F
- *   (`\p{Default_Ignorable_Code_Point}`) y las marcas combinantes. Lo ignorable
- *   va SOLO aquí: incluye el selector de variante U+FE0F de ❤️ y el ZWJ U+200D
- *   de 👨‍👩‍👧, que dentro de un texto son legítimos; prohibirlos en la primera
- *   regla rompería los emojis compuestos.
- * - **Sin empezar por una marca**: un acento combinante suelto al principio se
- *   pega a lo que haya antes en la línea donde se pinte.
- * - **Sin invisibles entre lo visible**: un U+200B, un WORD JOINER, un guion
- *   blando o un ZWJ entre dos letras hacen que «Ana​Bo» se vea «AnaBo» y sea
- *   otro nombre; las etiquetas U+E0020–E007F, igual. Se prohíbe todo `Cf` y
- *   todo ignorable salvo lo que forma un emoji (`SECUENCIA_DE_EMOJI`). Se pierde
- *   a propósito el guion blando en nombres largos, los selectores de variante
- *   CJK (U+E0100+) y los rellenos jamo dentro de una palabra.
- *   **Lo que no se cierra del todo**: la regla mira la forma de la secuencia,
- *   no la lista de emojis que existen, que cambia con cada versión y que el
- *   Node del servidor no trae. Así que se cuela un ZWJ entre dos pictográficos
- *   que no formen secuencia reconocida (🐉‍🐉 se ve como dos emojis, igual
- *   que sin el ZWJ), y un U+FE0E/FE0F tras un pictográfico que no lo admite,
- *   que a la vista no cambia nada. Las banderas de etiquetas sí se cierran por
- *   lista (las tres del Reino Unido) y el selector de una tecla exige el
- *   U+20E3 que la cierra (QA de #158, M-1).
- * - **Caracteres que existen**: ni uso privado, ni no-caracteres, ni sustitutos
- *   sueltos, que el estándar fija para siempre. Lo sin asignar (`\p{Cn}`) NO se
- *   prohíbe: sigue la tabla Unicode del motor, así que un emoji más nuevo que el
- *   Node del servidor se rechazaría, y un solo nombre rechazado tira el plan de
- *   mapa entero; un sin asignar se pinta como una caja, que es mucho más barato.
- *   `Extended_Pictographic` reserva de antemano los huecos de emoji futuros, así
- *   que el ZWJ de un emoji nuevo tampoco depende de la versión.
- * - **Lo que queda acotado a la versión**: `\p{M}` y `\p{Cf}` de caracteres
- *   asignados después de la tabla del Node: una marca nueva al principio o un
- *   `Cf` nuevo pasarían por sin asignar. El test se ha corrido a mano con las dos
- *   tablas (Node v24.11.1, Unicode 16, y v26, Unicode 17). CI corre la versión
- *   exacta de `.node-version` (#163: v24.21.0, Unicode 17.0, la misma tabla que
- *   la v26.10 local), que es también el suelo de `engines`: subirla es un cambio
- *   que se ve en el diff, no una menor nueva que entra sola.
- *
- * Es la puerta de todos los textos libres que el agente escribe para una persona
- * —los nombres del plan de mapa (#97) y el nombre y la historia del héroe
- * nacido—, así que un hueco que se cierra aquí se cierra en todos.
- */
-/**
- * La bandera de etiquetas: 🏴 + etiquetas + U+E007F. Solo las tres que existen
- * como emoji (Inglaterra, Escocia y Gales): otra subdivisión, aunque tenga forma
- * válida, se pinta como la bandera negra sola y sería otro nombre que se ve
- * igual. Cuando Unicode añada una, se añade aquí.
- */
-const BANDERA_DE_ETIQUETAS =
-  /\u{1F3F4}\u{E0067}\u{E0062}(?:\u{E0065}\u{E006E}\u{E0067}|\u{E0073}\u{E0063}\u{E0074}|\u{E0077}\u{E006C}\u{E0073})\u{E007F}/u;
-/**
- * El selector de variante tras un pictográfico (❤️) o en una tecla (1️⃣). Tras
- * un dígito, `#` o `*` solo vale si le sigue el U+20E3 que cierra la tecla:
- * «Bo1» + U+FE0F sin él se ve «Bo1».
- */
-const SELECTOR_TRAS_PICTOGRAFICO =
-  /(?<=\p{Extended_Pictographic})[\uFE0E\uFE0F]|(?<=[0-9#*])[\uFE0E\uFE0F](?=\u20E3)/u;
-/**
- * El ZWJ entre pictográficos, también tras un tono de piel o tras el selector de
- * un pictográfico: 👨‍👩‍👧, 👩🏽‍💻, ❤️‍🔥. El selector de una tecla a medias no
- * cuenta: «Bo1» + U+FE0F + ZWJ + 🐉 se ve «Bo1🐉».
- */
-const ZWJ_ENTRE_PICTOGRAFICOS =
-  /(?<=[\p{Extended_Pictographic}\p{Emoji_Modifier}]|\p{Extended_Pictographic}\uFE0F)\u200D(?=\p{Extended_Pictographic})/u;
-/** Lo invisible que sí se deja: lo que forma un emoji. */
-const SECUENCIA_DE_EMOJI = new RegExp(
-  [BANDERA_DE_ETIQUETAS, SELECTOR_TRAS_PICTOGRAFICO, ZWJ_ENTRE_PICTOGRAFICOS]
-    .map((r) => r.source)
-    .join('|'),
-  'gu',
-);
-const INVISIBLE = /[\p{Cf}\p{Default_Ignorable_Code_Point}]/u;
-const lineaLegible = (max: number, sujeto: string) =>
-  z
-    .string()
-    .min(1)
-    .max(max)
-    .regex(
-      /^[^\p{Cc}\p{Zl}\p{Zp}\p{Bidi_Control}]+$/u,
-      `${sujeto} es una sola línea, sin saltos, caracteres de control ni marcas de dirección`,
-    )
-    .regex(
-      // `\p{Cf}` no sobra al lado de lo ignorable: hay `Cf` que no son
-      // ignorables y tampoco se leen, como U+0600–0605 y U+06DD.
-      /[^\s\p{Cc}\p{Cf}\p{M}\p{Default_Ignorable_Code_Point}\u2800]/u,
-      `${sujeto} no puede ir en blanco: tiene que llevar algo que se lea`,
-    )
-    .regex(/^\P{M}/u, `${sujeto} no puede empezar por un acento o una marca suelta`)
-    .regex(
-      // Uso privado (`Co`), no-caracteres (U+FFFF, U+FDD0) y sustitutos sueltos
-      // (`Cs`): no son nada que se lea, y cada pantalla pinta otra cosa —una
-      // caja, un hueco, un glifo de una fuente privada—.
-      /^[^\p{Co}\p{Cs}\p{Noncharacter_Code_Point}]+$/u,
-      `${sujeto} solo puede llevar caracteres que existen: nada de uso privado, no-caracteres ni sustitutos sueltos`,
-    )
-    // El último: `refine` cierra la cadena de `z.string()`.
-    .refine(
-      (s) => !INVISIBLE.test(s.replace(SECUENCIA_DE_EMOJI, '')),
-      `${sujeto} no puede llevar caracteres invisibles: solo los que unen un emoji`,
-    );
 const nombreDeMapa = (que: string) => lineaLegible(40, `el nombre de ${que}`);
 
 export const mapPlanSchema = z.object({
@@ -340,6 +229,28 @@ export const heroFromTroopResponseSchema = z.object({
   reasoning: z.string().max(2000).optional(),
 });
 
+/**
+ * Lo que el narrador devuelve para la gente de sus bases (`town_voices`).
+ *
+ * Las líneas van como texto suelto y NO como `lineaLegible`: el criterio es que
+ * cada línea se rechace sola, con su motivo, y una línea mala en el esquema
+ * tiraría la respuesta entera. Quien las juzga una a una es `ponerVoces`, con la
+ * misma regla (`motivoDeLinea`). Lo que sí acota el esquema es la forma: de 1 a
+ * `LINEAS_POR_VECINO` líneas por vecino y no más voces de las que caben.
+ */
+export const townVoicesResponseSchema = z.object({
+  voices: z
+    .array(
+      z.object({
+        town: z.string().max(64),
+        npc: z.string().max(64),
+        lines: z.array(z.string().max(2000)).min(1).max(LINEAS_POR_VECINO),
+      }),
+    )
+    .max(MAX_VOCES_POR_RESPUESTA),
+  reasoning: z.string().max(2000).optional(),
+});
+
 // ---------------------------------------------------------------- peticiones
 
 export const REQUEST_KINDS = [
@@ -347,6 +258,7 @@ export const REQUEST_KINDS = [
   'battle_turn',
   'map_generate',
   'hero_from_troop',
+  'town_voices',
 ] as const;
 
 export type RequestKind = (typeof REQUEST_KINDS)[number];
@@ -356,6 +268,7 @@ export const responseSchemas = {
   battle_turn: battleTurnResponseSchema,
   map_generate: mapGenerateResponseSchema,
   hero_from_troop: heroFromTroopResponseSchema,
+  town_voices: townVoicesResponseSchema,
 } as const;
 
 /**
@@ -761,4 +674,38 @@ héroe tuyo —el que llevaba al veterano, por ejemplo—, nace al lado sin trop
 la guarnición se la lleva el del castillo, que es quien la defiende. Si tu respuesta no vale —o no llega—, no
 pasa nada: la tropa sigue igual y no se te vuelve a preguntar por él hasta que
 salga de la base y vuelva.`,
+
+  town_voices: `Responde con:
+{
+  "voices": [
+    { "town": "<id de la base>", "npc": "<id de la persona>", "lines": ["una línea", "otra"] }
+  ],
+  "reasoning": "una línea opcional"
+}
+
+Pon voz a la gente de tus bases. "towns" trae cada base tuya cuyas voces hay que
+rehacer (empezó semana o se levantó algo en un sitio vacío, que trae un
+encargado nuevo): sus edificios, su héroe, su
+guarnición y su gente en "npcs", con su "id", su nombre ("name"), su papel
+("role"), el edificio que atiende si es encargado ("building") y lo que dice
+ahora ("current"). "recentEvents" es lo último que te consta, para que hablen de
+lo que ha pasado.
+
+- De 1 a ${LINEAS_POR_VECINO} líneas por persona; se dice una cada día, por turno. Una línea es
+  lo mismo que el nombre de un héroe —una sola línea, sin saltos, caracteres de
+  control ni marcas de dirección, sin empezar por un acento suelto, no en
+  blanco, sin caracteres invisibles (salvo los que forman un emoji) ni de uso
+  privado— y hasta ${LARGO_DE_LINEA} caracteres.
+- Hasta ${MAX_VOCES_POR_RESPUESTA} voces en total. No hace falta darle voz a todo el mundo: quien
+  no la tenga dice sus frases de siempre.
+- Es PRESENTACIÓN, nunca reglas: lo que digan no cambia nada del juego, así que
+  no prometas cifras, precios ni efectos.
+- Cada voz se juzga sola, y cada línea dentro de ella también: una persona que
+  no está en esa base, o una línea que no vale, se rechaza diciendo por qué, sin
+  tirar las demás. Lo que pasa con lo rechazado: esa persona dice sus frases de
+  siempre.
+- Si no respondes, o la respuesta no encaja, todos dicen sus frases de siempre y
+  no se te vuelve a preguntar por esas bases hasta la semana que viene o hasta
+  que se levante algo en un sitio vacío. No detiene tu turno: tu
+  "adventure_turn" llega después igual.`,
 };

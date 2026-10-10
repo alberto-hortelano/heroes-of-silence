@@ -50,6 +50,13 @@ import {
 interface FakeAgent {
   readonly socket: WebSocket;
   readonly seen: { requestId: string; kind: string; payload: any }[];
+  /**
+   * Las peticiones `town_voices`, aparte de `seen`: llegan antes del turno cada
+   * vez que caducan las voces de una base, y los tests del turno miran
+   * `seen[0]` esperando el `adventure_turn`. Las contesta `voces` (por defecto,
+   * ninguna voz: la gente dice sus frases de siempre).
+   */
+  readonly voces: { requestId: string; payload: any }[];
   /** Los veredictos que le llegan de vuelta: la otra mitad del canal. */
   readonly results: { requestId: string; ok: boolean; problems?: string[]; note?: string }[];
   /** El aviso de fin de partida, que llega sin haberlo pedido. */
@@ -104,9 +111,11 @@ async function servidorDePruebas(link: AgentLink): Promise<string> {
 async function conectaAgente(
   url: string,
   responder: (kind: string, payload: any) => unknown,
+  voces: (payload: any) => unknown = () => ({ voices: [] }),
 ): Promise<FakeAgent> {
   const socket = new WebSocket(url);
   const seen: FakeAgent['seen'] = [];
+  const pedidasLasVoces: FakeAgent['voces'] = [];
   const results: FakeAgent['results'] = [];
   const finales: FakeAgent['finales'] = [];
   const esperando = new Map<string, (r: { ok: boolean; data?: unknown; error?: string }) => void>();
@@ -135,6 +144,14 @@ async function conectaAgente(
       return;
     }
     if (msg.type !== 'request') return;
+    if (msg.kind === 'town_voices') {
+      pedidasLasVoces.push({ requestId: msg.requestId, payload: msg.payload });
+      const data = voces(msg.payload);
+      if (data !== undefined) {
+        socket.send(JSON.stringify({ type: 'response', requestId: msg.requestId, data }));
+      }
+      return;
+    }
     seen.push({ requestId: msg.requestId, kind: msg.kind, payload: msg.payload });
     const data = responder(msg.kind, msg.payload);
     // `undefined` es un agente que se calla: ni contesta ni se le fuerza a ello.
@@ -163,15 +180,24 @@ async function conectaAgente(
       socket.send(JSON.stringify({ type: 'query', queryId, what, args }));
     });
   };
-  return { socket, seen, results, finales, pregunta, close: () => socket.close() };
+  return {
+    socket,
+    seen,
+    voces: pedidasLasVoces,
+    results,
+    finales,
+    pregunta,
+    close: () => socket.close(),
+  };
 }
 
 async function montar(
   responder: (kind: string, payload: any) => unknown,
   plazoMs = 4000,
+  voces?: (payload: any) => unknown,
 ): Promise<{ link: AgentLink; agent: FakeAgent }> {
   const link = new AgentLink(plazoMs);
-  const agent = await conectaAgente(await servidorDePruebas(link), responder);
+  const agent = await conectaAgente(await servidorDePruebas(link), responder, voces);
   return { link, agent };
 }
 
@@ -1958,10 +1984,71 @@ describe('el agente sabe cómo le fue', () => {
     await director.playTurn();
     await respira();
 
-    expect(agent.results).toHaveLength(1);
-    expect(agent.results[0]!.ok).toBe(false);
-    expect(agent.results[0]!.note).toMatch(/IA de reglas/);
-    expect(agent.results[0]!.problems?.length).toBeGreaterThan(0);
+    // Sin el veredicto de las voces del día 1, que va por su lado.
+    const delTurno = agent.results.filter((r) =>
+      agent.seen.some((x) => x.requestId === r.requestId),
+    );
+    expect(delTurno).toHaveLength(1);
+    expect(delTurno[0]!.ok).toBe(false);
+    expect(delTurno[0]!.note).toMatch(/IA de reglas/);
+    expect(delTurno[0]!.problems?.length).toBeGreaterThan(0);
+  });
+});
+
+describe('las voces de la base, por el cable', () => {
+  it('llegan antes del turno, entran línea a línea y el veredicto llega con la petición siguiente', async () => {
+    // La base del agente nace caducada (no tiene voces): el día 1 se piden.
+    // Una voz buena, una persona que no está y una línea con un salto: entra lo
+    // bueno, lo demás se rechaza solo y con su motivo, y el turno sigue.
+    const { link, agent } = await montar(
+      (kind) => (kind === 'adventure_turn' ? { actions: [] } : {}),
+      4000,
+      (payload) => {
+        const base = payload.towns[0];
+        return {
+          voices: [
+            { town: base.id, npc: 'encargado-hall', lines: ['Buenos días, señor.', 'otra\nlínea'] },
+            { town: base.id, npc: 'vecino-nadie', lines: ['¿Quién soy?'] },
+          ],
+        };
+      },
+    );
+    const director = new Director(link, { seed: 4711, agentPlayers: [0] });
+    await director.playTurn();
+    await respira();
+
+    expect(agent.voces).toHaveLength(1);
+    const pedida = agent.voces[0]!.payload;
+    expect(pedida.kind).toBe('town_voices');
+    expect(pedida.towns[0].npcs.map((n: any) => n.id)).toContain('encargado-hall');
+    // El turno llega igual, después de las voces.
+    expect(agent.seen[0]?.kind).toBe('adventure_turn');
+
+    const base = director.state.towns.find((t) => t.id === pedida.towns[0].id)!;
+    expect(base.voces?.lineas['encargado-hall']).toEqual(['Buenos días, señor.']);
+    const veredicto = agent.results.find((r) => r.requestId === agent.voces[0]!.requestId)!;
+    expect(veredicto.ok).toBe(false);
+    expect(veredicto.note).toMatch(/Ha entrado 1 línea en 1 base/);
+    expect(veredicto.problems).toHaveLength(2);
+    expect(veredicto.problems!.join('\n')).toMatch(/vecino-nadie: en .* no hay nadie/);
+    expect(veredicto.problems!.join('\n')).toMatch(/encargado-hall, línea 2: /);
+  });
+
+  it('no se vuelven a pedir hasta que cambie la semana o se levante un sitio, y callar no detiene el turno', async () => {
+    // El agente se calla en las voces: el plazo se agota, el turno sigue, y al
+    // día siguiente —misma semana, nada nuevo— no se le vuelve a preguntar.
+    const { link, agent } = await montar(
+      (kind) => (kind === 'adventure_turn' ? { actions: [] } : {}),
+      300,
+      () => undefined,
+    );
+    const director = new Director(link, { seed: 4712, agentPlayers: [0] });
+    // Cuatro jugadas: con el orden en serpiente (`ordenDelDia`) el día 1 va j0,
+    // j1 y el día 2 j1, j0; el segundo turno del agente es la cuarta.
+    for (let i = 0; i < 4; i++) await director.playTurn();
+    await respira();
+    expect(agent.voces).toHaveLength(1);
+    expect(agent.seen.filter((x) => x.kind === 'adventure_turn')).toHaveLength(2);
   });
 });
 

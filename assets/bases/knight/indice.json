@@ -1,0 +1,295 @@
+{
+  "tramos": [
+    {
+      "imagen": "tramo-1.webp",
+      "ancho": 1536,
+      "alto": 831,
+      "sha256": "f9edc2c01a61061a72879179915eb5b984f78b399ec690fade9a9f752e389d0b",
+      "origen": "619e9a290b95d93b16573f3cca322534e320c8b97a1a28814e2b3a17a578d9e5"
+    },
+    {
+      "imagen": "tramo-2.webp",
+      "ancho": 1536,
+      "alto": 708,
+      "sha256": "1772471e05b709522c285fea4934a68e69d17fab940b8a911932baf2c73e2e06",
+      "origen": "c0ab94c3fb48ebc8e213445d3103377c601610ce48ce3b45db615836273e12ab"
+    },
+    {
+      "imagen": "tramo-3.webp",
+      "ancho": 1536,
+      "alto": 677,
+      "sha256": "7df651d9c80dc98689ec36894acdebdba55eed6a2e6769cc455cf14e234b0c86",
+      "origen": "fdc81e2a6ec2efbec4897006403c0915431c562e66e0d847a2efc3c964ba5720"
+    },
+    {
+      "imagen": "tramo-4.webp",
+      "ancho": 1536,
+      "alto": 715,
+      "sha256": "f6b5730dd0319749280ba57c7eecc50e94f9af67c93e9f7386fb63ecec015a97",
+      "origen": "d2a8c3fbb94d5bb1bcc2262dc46cd39969bb3ef38032cbdf9fda7e4b4131d094"
+    },
+    {
+      "imagen": "tramo-5.webp",
+      "ancho": 1536,
+      "alto": 732,
+      "sha256": "964b67cdcdefff272ab25e087f1e034434904313110a27e202d484ed39f10929",
+      "origen": "d39b411667e0f3e631d10d2b6da31c43f1f6d056645d3c29a04d27a40327df73"
+    }
+  ],
+  "suelo": {
+    "imagen": "suelo.webp",
+    "ancho": 768,
+    "alto": 248,
+    "sha256": "7be9ddc51bc292cc3f2ec346ed377c2e4e1a8beddf495b40fdd945aaddae946f",
+    "origen": "3a284d182c2cb85f62fe02565682b8b6dc574e976855be926fad4ad37e83fe2f",
+    "tramo": 3
+  },
+  "cielo": [
+    106,
+    108,
+    108
+  ],
+  "edificios": {
+    "village_hall": {
+      "imagen": "village_hall.webp",
+      "ancho": 508,
+      "alto": 572,
+      "sha256": "3b197898755a7dd9985bf095614efa252707fbaba9e0eeee365dc043c2c5cc80",
+      "origen": "0eed4c8c710ee31631a30d5d3a4c2f75ef10b210436b00a3eed818cae883a392",
+      "tramo": 3,
+      "en": [
+        512,
+        99
+      ]
+    },
+    "town_hall": {
+      "imagen": "town_hall.webp",
+      "ancho": 508,
+      "alto": 635,
+      "sha256": "78759ea14d85d252ed84dc3933aacf4f69ed7b8a1c6c2c307e43a49b0ad3c6ec",
+      "origen": "0f678329bffe6aea6c7ae248feb4d6d6309abe1ef911f6ec9b92df92f9c266c8",
+      "tramo": 3,
+      "en": [
+        512,
+        35
+      ]
+    },
+    "city_hall": {
+      "imagen": "city_hall.webp",
+      "ancho": 508,
+      "alto": 649,
+      "sha256": "d358dede466294ad090b2cb4c519cf76a66ed3a04355ed7dd3fd8070ffca98e9",
+      "origen": "ed867ce86a810133e0684abde17060079ffb0a0a49d3d3eb8bd8829571a2ed22",
+      "tramo": 3,
+      "en": [
+        512,
+        36
+      ]
+    },
+    "castle": {
+      "imagen": "castle.webp",
+      "ancho": 480,
+      "alto": 616,
+      "sha256": "e11865484549d066ffe74980db05423e287f309d5ebd9056282e387799b19bdc",
+      "origen": "1ed4eea5712e3daadc5a0896c9e158e1effa49b1cece6a56d80475229bb2333f",
+      "tramo": 3,
+      "en": [
+        1020,
+        64
+      ]
+    },
+    "mage_guild_1": {
+      "imagen": "mage_guild_1.webp",
+      "ancho": 335,
+      "alto": 654,
+      "sha256": "56fb58e7cc27a316493aed33b834107071039cc9c9e29ed681736530f19cd08c",
+      "origen": "a0d89194bcb503632b8881084a0573e0817ebcce07f2801c82a6983110e465ed",
+      "tramo": 2,
+      "en": [
+        141,
+        45
+      ]
+    },
+    "mage_guild_2": {
+      "imagen": "mage_guild_2.webp",
+      "ancho": 335,
+      "alto": 697,
+      "sha256": "b2a6202e694fbfba857c8a80cf426ec49098d6505a2115731203ba1156a5abed",
+      "origen": "2116dd3b390956cbe23e13a7966bf0154333ab50435cb64f566268a20cdb085f",
+      "tramo": 2,
+      "en": [
+        141,
+        0
+      ]
+    },
+    "tavern": {
+      "imagen": "tavern.webp",
+      "ancho": 455,
+      "alto": 449,
+      "sha256": "0fdf9a510d425c42d7475dbc7c88e650bc68b16554b03143184f4705ef579772",
+      "origen": "908a616f0a8b915410b64c1e6d4ad4ad0d09ff639b6faca951fc46d19f8f6171",
+      "tramo": 2,
+      "en": [
+        476,
+        242
+      ]
+    },
+    "marketplace": {
+      "imagen": "marketplace.webp",
+      "ancho": 674,
+      "alto": 562,
+      "sha256": "3f5341fa05ed4cff83e4faf7886f6978e81d314fb71bdc99bbf675284935ed68",
+      "origen": "adcd4e8aacf4672746bfbe6d56489ad28896cfbb95883f521206a126c8f4750f",
+      "tramo": 4,
+      "en": [
+        76,
+        130
+      ]
+    },
+    "armory": {
+      "imagen": "armory.webp",
+      "ancho": 708,
+      "alto": 596,
+      "sha256": "d521cb4ba5edb6e35041f668ce751f243954b0208ed579aa143efe523a8cf651",
+      "origen": "5e681fc099466e4cdeb23ca9ba12d9f3f5b441d13bf6a54628b5bd8d0b86a208",
+      "tramo": 4,
+      "en": [
+        757,
+        104
+      ]
+    },
+    "knight_dwelling_1": {
+      "imagen": "knight_dwelling_1.webp",
+      "ancho": 404,
+      "alto": 396,
+      "sha256": "112dd4c5c194dac2d13928f8c59c93e2f4a4a3dd39519e5acbcbd4ccbd238359",
+      "origen": "255bcda1cef2390482a8576f6226e3426ffa7e539c470bc957677f140a0e094e",
+      "tramo": 3,
+      "en": [
+        108,
+        273
+      ]
+    },
+    "knight_dwelling_2": {
+      "imagen": "knight_dwelling_2.webp",
+      "ancho": 605,
+      "alto": 487,
+      "sha256": "db6e8a76275ec0450c1f7787cddbfc01f9b6588441b9665307fef3be64b81ddb",
+      "origen": "d3a08ce5fd4ce5dbc9f9116db36188d443015a4e23487faf3b6c85480cc39684",
+      "tramo": 2,
+      "en": [
+        931,
+        209
+      ]
+    },
+    "knight_upgrade_2": {
+      "imagen": "knight_upgrade_2.webp",
+      "ancho": 605,
+      "alto": 490,
+      "sha256": "a2d0b54188d3e89229a492543931935bee9d6a1b779e8a0aebd38883b5a1c22f",
+      "origen": "a816d6dee969579e8ef2f1f0b777a9fefc6d1b8767f12afe1530752719fd5937",
+      "tramo": 2,
+      "en": [
+        931,
+        206
+      ]
+    },
+    "knight_dwelling_3": {
+      "imagen": "knight_dwelling_3.webp",
+      "ancho": 681,
+      "alto": 505,
+      "sha256": "c18181901fa6ac367df258e8c6e29c65677412db88d9d3530687b6b91c6417b2",
+      "origen": "5d16412eb4393ba3ff652e002814bd9aa9fb0d733db19184ae611b7986d3b4b4",
+      "tramo": 5,
+      "en": [
+        74,
+        208
+      ]
+    },
+    "knight_upgrade_3": {
+      "imagen": "knight_upgrade_3.webp",
+      "ancho": 681,
+      "alto": 593,
+      "sha256": "6c06b59b22704720e4711e272d1ffc0cd421faa2eab2150e3c2120abae42c03d",
+      "origen": "988a3788f9c1455afd03ad6c8a29ec9faa65e607b7a5d83bc7f6779e669dec7e",
+      "tramo": 5,
+      "en": [
+        74,
+        119
+      ]
+    },
+    "knight_dwelling_4": {
+      "imagen": "knight_dwelling_4.webp",
+      "ancho": 751,
+      "alto": 600,
+      "sha256": "e859f3dd9d6fd0cf2c8c931303ee0953ddc87672c7875dd3e11aa7cc41a2de81",
+      "origen": "1f7cf1c264da2626b1b5b92d73daee1affb15b200e3f322d198652241f5e2a1c",
+      "tramo": 1,
+      "en": [
+        669,
+        206
+      ]
+    },
+    "knight_upgrade_4": {
+      "imagen": "knight_upgrade_4.webp",
+      "ancho": 751,
+      "alto": 599,
+      "sha256": "ec581c7215880e422af621c14645a83e29962fa95f22ee781c8574a10db3b511",
+      "origen": "be8e64039475de3c804cff6362b1584bb36651d270bae75e5e9cc880efaa1b87",
+      "tramo": 1,
+      "en": [
+        669,
+        206
+      ]
+    },
+    "knight_dwelling_5": {
+      "imagen": "knight_dwelling_5.webp",
+      "ancho": 781,
+      "alto": 467,
+      "sha256": "fc223d3843be1ca25acdfb6d245b5816e5d008aebf0b355b91dc4f4325c7ee9b",
+      "origen": "3768dded9e0466d0f53dd22ed790a904c64b173b72f8985477bda13c70d61d6e",
+      "tramo": 5,
+      "en": [
+        755,
+        243
+      ]
+    },
+    "knight_upgrade_5": {
+      "imagen": "knight_upgrade_5.webp",
+      "ancho": 781,
+      "alto": 601,
+      "sha256": "58d3550d99faa35381be6649f766d9115bc07adb192921e47fab999807be30f9",
+      "origen": "dbd906e332128b5c56735408f88bc06e1589fc7a71519c312a22cdb353d6e55d",
+      "tramo": 5,
+      "en": [
+        755,
+        109
+      ]
+    },
+    "knight_dwelling_6": {
+      "imagen": "knight_dwelling_6.webp",
+      "ancho": 650,
+      "alto": 803,
+      "sha256": "c56c15c0187e4a41ee68f7ff2d3cc03ae3f0d2679dec294b4554c0fead3d6145",
+      "origen": "a645692a98e741a674888e868b78118a438e328f359c9df545ece7faf0e76138",
+      "tramo": 1,
+      "en": [
+        14,
+        0
+      ]
+    },
+    "knight_upgrade_6": {
+      "imagen": "knight_upgrade_6.webp",
+      "ancho": 657,
+      "alto": 797,
+      "sha256": "ffd67c5a0d65de49949ff6ff773f05450357761971f24555aedc26625ae097a1",
+      "origen": "6360e5ea0e217df2a73ca21d54c222e21f792610dcf7e5522fcc1c18d11f005f",
+      "tramo": 1,
+      "en": [
+        12,
+        7
+      ]
+    }
+  },
+  "derivadoPor": "tools/taller/recorte-base.ts"
+}

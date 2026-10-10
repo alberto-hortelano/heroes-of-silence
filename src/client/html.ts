@@ -68,6 +68,16 @@ export function marcadoDe(fragmento: Html): string {
 /** Hueco vacío: la rama del ternario que no pinta nada. */
 export const NADA: Html = crudo('');
 
+/**
+ * El atributo `disabled`, suelto.
+ *
+ * Va dentro de una etiqueta y no dentro de un atributo, así que el hueco solo
+ * acepta marcado: una cadena `'disabled'` ahí la rechaza la puerta, y con razón
+ * —sin comillas alrededor, cualquier texto que caiga en ese sitio se lee como
+ * atributos—. Lo ponen los paneles de la batalla, del turno y de la base.
+ */
+export const DESHABILITADO: Html = crudo('disabled');
+
 function esHtml(valor: unknown): valor is Html {
   return typeof valor === 'object' && valor !== null && MARCA in valor;
 }

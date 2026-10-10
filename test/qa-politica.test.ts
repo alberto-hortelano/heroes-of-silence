@@ -51,6 +51,9 @@ const PAYLOADS: Record<string, unknown> = {
     veteran: { id: 'veterano-3', creatureName: 'Piquero', battles: 4 },
     heroTypes: [{ id: 'caballero' }, { id: 'monje' }],
   },
+  town_voices: {
+    towns: [{ id: 'town-0', npcs: [{ id: 'encargado-hall' }, { id: 'vecino-mozo' }] }],
+  },
 };
 
 describe('la política del arnés de QA (#44)', () => {

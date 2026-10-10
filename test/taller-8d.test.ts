@@ -278,7 +278,10 @@ describe('el maniquí de quien dispara', () => {
   });
 
   it('todo atrezo de tirador, del juego o del maniquí propio, lleva su arma de cuerpo a cuerpo', () => {
-    for (const j of TIRADORES) expect('cuerpoACuerpo' in JUEGOS_DE_ARMAS[j].atrezo, j).toBe(true);
+    for (const j of TIRADORES) {
+      const atrezo = JUEGOS_DE_ARMAS[j].atrezo;
+      expect(atrezo !== null && 'cuerpoACuerpo' in atrezo, j).toBe(true);
+    }
     for (const [id, juego] of Object.entries(EN_OCHO_DIRECCIONES)) {
       const m = unidad(id).maniqui;
       if (m !== undefined && clipDeDisparoDe(juego) !== null)

@@ -126,6 +126,11 @@ docs/agents/<tarea>/   lo que se pasan los roles del ciclo
 | Cifras = catálogo + veteranía + equipo | `cifrasDeCatalogo`, `cifrasDelIndividuo`, `conEquipo` |
 | A quién se licencia | `elQueSeIria` (`hero/troop.ts`) |
 | Construir un héroe | `heroeRecienHecho` |
+| Qué se levanta en cada sitio de la base | `sitiosDeLaBase`, `siguienteDe`, `construidoEn` (`town/sitios.ts`) |
+| De un píxel del cuadro de la base al escenario | `planoDelCuadro` (`shared/base.ts`); en pantalla, `colocarLaPlaca` y `colocarEnElCuadro` (`render/base/recortes.ts`) |
+| Recortar un edificio de la base de su cuadro | `recortarLaBase`, `derivarRecorte` (`tools/taller/recorte-base.ts`) |
+| Escala del tablero de combate (también la de la base) | `escalaDelCombate` (`render/proyeccion.ts`), que leen `tableroPara` y `pasoDeLaBase` |
+| Quién hay en una base y qué dice (narrado o de respaldo) | `vecinosDeLaBase`, `vozDe`; las voces del narrador las escribe solo `ponerVoces` (`town/voces.ts`) |
 | Reindexar el nivel de héroe | `subidasDeHeroe` (lanza por debajo del 5) |
 | Añadir a la mochila | `aLaMochila` |
 | A quién va una pieza | `destinoDeEquipo` |
@@ -198,6 +203,11 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra».
 - **La tropa se hace héroe** (solo con agente): un veterano de nivel 5 en su base
   dispara `hero_from_troop` al empezar el turno del agente
   (`ascensoBlocker`, `ascenderVeterano`).
+- **Las voces de la base** (solo con agente): `town_voices` pide, antes del turno y en una
+  sola petición, las líneas de la gente de las bases caducadas (semana nueva o un sitio
+  levantado por primera vez, `firmaDeVoces`). Cada voz y cada línea se juzga sola
+  (`ponerVoces`); sin agente, respaldo determinista de `data/vecinos.json` con su propio
+  `createRng`. Es presentación: `Town.voces` no escribe en la crónica y el banco no lo ve.
 - **Equipo (inventado)**: arma, armadura y accesorio por individuo y por héroe;
   botín de asaltantes y ciudades neutrales con su propia corriente de azar;
   la armería vende la calidad `armeria`, que es el equipo base del héroe.
@@ -416,7 +426,7 @@ Una marcha que no llega entra como parcial y dice por qué: le faltaron puntos
 antes del destino (`battle_started` con `faltan`).
 
 - Peticiones: `adventure_turn`, `battle_turn`, `map_generate`,
-  `hero_from_troop`. Un test compara los `case` de `decidir` con `REQUEST_KINDS`
+  `hero_from_troop`, `town_voices`. Un test compara los `case` de `decidir` con `REQUEST_KINDS`
   en las dos direcciones; lo que se juega en su lugar es `EN_SU_LUGAR`
   (`Record<RequestKind, string>`).
 - Consultas: `game_state`, `battle_state`, `map`, `creature_stats`,
@@ -542,8 +552,41 @@ antes del destino (`battle_started` con `faltan`).
   **Las laderas** (§20): cada cadena E u O lleva `laderas-<material>-<lado>-<caída>` (nunca espejada; caída > 3 usa la de 3), corrida media fila, con `inicio` al norte y `fin` al sur donde remata —sigue de espaldas o con una caída menor; en el borde del mapa no remata, el desnivel sigue fuera del marco (#212)— y `medio`/`largo` sin repetir el vecino. La `esquina` de §20 ya no entra (dobla la diagonal). Cada módulo trae sus `JuntasDeLadera`, registradas sobre la guía por `pnpm taller derivar-relieve` (también las de las diagonales y las bajadas) y comprobadas al cargar el catálogo (`catalogoValidado`); `colocarLadera` pone el filo en `bordeDeLadera` y el pie en `pieDeLadera`, sin correrse ni encogerse; lo que no entra se prueba con un `medio`. Un barranco de una casilla no lleva laderas (`sinBarrancos`): van los peñascos del canto. `informe.laderasEnfrentadas` = 0.
   **Los acantilados y el relieve** (`relieve`, #143): el nivel es del mapa y la escena lo aplica sin inventar nada. Lo que se pisa va al de su región; un nodo, al de sus regiones y, entre dos niveles, el paso sin camino al alto: es un hueco en el borde de la meseta y su rampa baja de él (al bajo era un pozo con paredes a los lados, s443 (25,10)); el nodo con camino y la ciudad, al bajo (al alto, las rampas de camino dejaban lo alto del acantilado sin roca); cada casilla de barrera, al más alto de **las dos regiones que separa ahí** (las más cercanas por dentro de su franja 8-conexa; `nivelesDelRelieve`, en `core`, la misma regla que mira el generador): **el acantilado es el borde de la meseta**, a su nivel y cubierto de roca, y la cara cae a su pie del lado bajo (por franja, el trozo entre un 1 y un 0 de una franja que tocaba un 2 lejos subía a 2, una cresta: s1 (14-18, 1-9)); **el agua, plana y sin encajar** (#210): cada franja a ras de la más baja de las regiones que toca, la de dentro de una región a ras de ella (encajada un nivel bajo su orilla más baja dejaba toda lengua de la orilla baja y toda ciudad del cruce por encima del agua, y entre dos mesetas cañones de caída 3: 351 lados en 10 semillas; ahora la caída máxima es 2 y entre dos regiones al mismo nivel el río va en el llano). Ninguna barrera ni nodo de una casilla de ancho queda por encima de sus dos vecinas de un eje: baja a lo más alto de ellas (el espolón de una montaña o un acantilado en lo bajo; el paso sin camino con agua a los lados, que entonces baja y su rampa sube de él). Fuera las crestas por encima de las dos orillas, los cañones entre dos llanos, las mesas, la escalera que subía lo que se pisa y el «+1 a ras» (`acantiladosARas`, #174, se retira con ellos; eran 98 de 258 franjas de acantilado entre dos llanos y 250 mesas en 1-40). `informe.nivelFueraDeSuRegion` y `desnivelesSinBarrera` (dos casillas vecinas que se pisan a distinto nivel sin ser la rampa de un nodo) = 0. **El borde de la meseta, entero** (#212, `bordes.ts`): la espalda (el reborde al norte, que la cámara no ve) de **toda** meseta, no solo del acantilado, lleva una hilera de peñascos de la roca de lo alto y la sombra del desnivel (abajo, #211); **el canto** (#219, `cantoDeLaEspalda`, `CANTO_DE_LA_ESPALDA`): cuatro por casilla, seguidos a lo largo del filo, el pie a 0,04-0,1 del lado y de 0,42-0,58 de alto, con su propia corriente de azar (también el módulo: con la de siempre movía toda la cubierta); en el acantilado, encima de su hilera de siempre. En 1-40, de 2,45 a 4,17 peñascos por casilla de reborde que se pisa o de acantilado (09-10-2026); donde no cabe ni el peñasco más bajo (una senda por el canto, la reserva de un objeto) queda como razón declarada; `informe.espaldasSinReborde` = 0 (eran 795 en 1-40). Las mesas de arenisca (`esMesa`: más anchas que `ANCHO_DE_MESA` = 1,3 veces su alto) son del acantilado y la cordillera de arena va con agujas (`informe.mesasEnLaCordillera` = 0, eran 1 444). La ladera sigue leyéndose como cresta por su dibujo: el arte está pedido (`docs/art/peticiones.md` §34). **Lo alto lleva roca** (#205) **de su cara** (#212, `materialDeLaCima`: la de la casilla más cercana de su franja que cae a la vista; con la de su suelo, s57 llevaba picos grises sobre un cantil de arenisca; `informe.cimaDeOtroMaterial` = 0, eran 1 431 en 1-40): cada casilla de acantilado, un pico de esa roca de `ALTO_DE_LO_ALTO` (0,4) o más, y dos en el borde de una meseta y tres dentro (`cimaDeRoca`, `picosDeLaCima`), donde quepan sin pisar senda, paso ni reserva; en lo alto de la arena y la lava (`comoLaBarrera`) la cubierta del relleno se cambia por roca (`rocaEnLoAlto`). Todo eso, con su propia corriente de azar (`azarDeLoAlto`): con la de siempre movía las cordilleras que se visten después. `informe.acantiladosLisos` (casillas de acantilado sin roca ni masa de 0,4, fuera de la huella de un objeto) = 0 salvo 2 en 1-40, entre dos sendas (eran 1 167 de 4 016). **La pared, de la roca de su meseta y entera por delante de la cordillera** (#216, `bordes.ts`): la casilla de barrera alta lleva el nivel de su lado alto pero su suelo (`Analisis.suelo`) es el más cercano de cualquier nivel, a menudo el de abajo; la roca de la pared, de lo alto (`materialDeLaCima`) y de cada macizo (`materialDeLosMacizos`) sale de `sueloDeLaMeseta`: lo que se pisa más cercano **a su nivel**, sin los nodos (la meseta de arena de s5 (2-8, 27-31) acababa en una pared gris; `informe.caraDeOtroMaterial` = 0, eran 806 de 2 506 paredes en 1-40). El suelo pintado bajo la barrera sigue siendo el más cercano. Y ninguna masa (pico o árbol) que se pinte después de una pared del desnivel cubre su silueta (`formasDeLasParedes`, en `obstaculos`: columnas por el perfil, `MARGEN_DE_LA_PARED` 0,05): se encoge o no va; lo de detrás no se mira, lo tapa la pared. `informe.paredesTapadas` (`paredesTapadasPorLaMasa`, frontales, laderas y diagonales sin pedregal ni bajadas) = 0 en 1-40 (eran 653 de 1 939; bajo una montaña, 424 de 757, un 24 % de su silueta). Las casillas de montaña sin un pico de 0,6 pasan del 26,9 al 28,0 % (08-10-2026). **El agua se lee al alejar** (#205): más clara y azul (`FILTRO_DEL_AGUA`, `pintar.ts`), la ciénaga algo más oscura y su niebla a 0,1.
   **Los puentes** (`puentes.ts`): `analizar` decide qué nodos llevan puente (`Analisis.puentes`: los de barrera `water` del mapa; `pasos`, esa barrera y el eje, sobre el terreno del mapa) y su casilla es agua en la escena (`Analisis.terreno`). La pieza `puente-<piedra|troncos>-<eje>[-sube]` sale de las orillas que une (`puenteDe`), de piedra si lleva camino; los quebrados —los planes del agente y el ~1 % del procedimental sin eje— se asientan con `asentar` (escala 0,7-1,15, el medio del tablero como se ve en la casilla del nodo). Se apoya por el centro del tablero con las medidas de su JSON (`pxPorCasilla`, `alturaDelTablero`, `largoDelTablero`, `pnpm taller derivar-puentes`). La senda acaba en sus estribos (`tramosHastaLosEstribos`) y llega por tierra (`Escena.vados`, `informe.sendasDeEstriboEnAgua` = 0). La pared que cruza la línea del puente por dentro de su filo no lleva pieza (`celdasBajoLosPuentes`); la que solo toca, por detrás del puente (#222). **Qué tapa un tablero** es una regla, la del pintor (`vaDelante`: `esVolumen` y `ordenDeVolumenes` de `separar`), en el pasillo de lo que se aparta y en `ponerPared`; la cara se pinta solo bajo la silueta de su pared (`CaraDeEscena.pintada`, `caras.ts`). `informe.puentesTapados` = 0, contado desde el orden del pintor. La marca del dueño cuelga de `Escenario.asientoDeObjeto`, siempre un punto, y la bandera se planta en el tablero (`Puente.mastil`); quien pisa un puente se pinta en él (`pisada`). Un clic sobre el tablero va al nodo (`puenteBajo`) solo si debajo hay agua o la casilla del nodo: la tierra de una orilla manda.
-- **Castillo**: solares fijos con cadenas derivadas del catálogo (`townPlots`);
-  las moradas son de cada facción.
+- **La base es un escenario lateral** (`escenas/castillo.ts`, `render/base/`), como el de
+  combate sin casillas: delante una franja de 3,5 pasos de fondo (la mitad de la rejilla) por
+  la que se anda en recta con el ratón, resbalando por el borde de atrás (`alaFranja` en cada
+  fotograma), y la cámara sigue en horizontal con tope (`camaraQuieta`, `seguir`). **Detrás, la
+  plaza es un solo cuadro** (vuelta 3): `tramos` (5) cuadros de 1536×1024 a 128 px por paso,
+  pedidos cada uno por separado y cosidos por una **junta**: en cada borde que da a otro tramo, la
+  guía pide un árbol alto con su pilar (`JUNTA`, `tools/taller/base.ts`), y el tramo siguiente se
+  monta `SOLAPE` (64 px) sobre él, fundido hoja con hoja (con la placa de al lado como `contigua`,
+  o su final pintado en el lienzo, Codex pintaba la plaza a otra altura: costura de F2). **El suelo
+  es del juego**: un solo empedrado repetible (`suelo.webp`, de las columnas del medio de una placa,
+  cosido por la costura de menor diferencia, `sueloRepetible`) va debajo de todo, y de cada tramo
+  se pinta solo lo de encima de su pie (`lineaDelPie`, columna a columna, que solo yerra hacia
+  abajo; `tramo-<n>.webp`, derivado), bajado lo suyo (`bajar`, uno por tramo: la mediana de sus
+  puertas en la raya). Cada tramo se pide con todos sus edificios a la vez (el *maestro*) y otra
+  vez sin ellos (la *placa*, `fuentes/placa-t<n>.webp`); cada edificio sale del maestro (o de su
+  edición, las mejoras) por la diferencia con la placa en la región de su sitio, cortado por el pie
+  de su cuadro, y se pinta en su sitio exacto, sin escala ni ancla (`recortarLaBase`; el índice
+  `indice.json` es derivado y trae hecho lo que se deriva del cuadro: el solape fundido de cada tramo y el color del cielo; el cliente no crea lienzos al cargar). **Manda el cuadro**: el umbral de la
+  puerta y la región de cada sitio se miden sobre el maestro y se escriben en
+  `data/bases/<f>.json` en píxeles de su tramo; `planoDelCuadro` es la única cuenta de píxel a
+  escenario. El
+  borde de atrás de lo que se pisa une los umbrales (`bordeDeAtras`) y no es convexo.
+  `leerDisposicion` lanza con regiones que salen de su tramo o se pisan, puertas fuera de su
+  región o a más de 1,5 pasos de la raya, y lo que no se pisa. El paso es el del combate en ese
+  lienzo (`pasoDeLaBase` → `escalaDelCombate`) y el suelo va a 25°: un adulto mide lo mismo en la
+  base que en una batalla. Toda figura va delante de todo edificio. Un sitio sin construir enseña
+  la placa. Camina el héroe si está dentro y, si no, el alcaide; un clic lleva a la puerta y, al
+  llegar, el ayuntamiento o el castillo abren «Ampliar», una morada su reclutamiento y una
+  persona la conversación (`<dialog id="conversacion">`). La gente se pinta con el Y Bot sin
+  armas (`CUERPO_DE_VECINO`). Qué se levanta en cada sitio es del núcleo (`sitiosDeLaBase`);
+  dónde, del JSON, que **el núcleo no lee**. Contratar no pide taberna. Taller: `encolar --base
+  knight`, `recortar-base`, `medir-base`, `vista-base`; las fuentes (maestros,
+  ediciones, guías con la silueta del adulto como vara de medir, hojas de identidad) en
+  `assets/bases/<f>/fuentes/`, fuera del build. Sin placa, un tramo pinta su marcador; el
+  nigromante, con marcadores entero.
 - **Arena** (`pnpm arena`): cifras que no pasan por el catálogo, validadas por
   `validarUnidadDeArena`, guardadas en `data/borradores/unidades.json`, que el
   juego no lee. Es también el banco de combate: criaturas del catálogo (editarlas

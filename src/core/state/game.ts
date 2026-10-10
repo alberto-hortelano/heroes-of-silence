@@ -464,6 +464,14 @@ export function heroesOf(state: GameState, player: PlayerId): Hero[] {
   return state.heroes.filter((h) => h.owner === player);
 }
 
+/**
+ * El héroe PROPIO que está en la base `town`, o `null`. Solo los de `player`: un
+ * rival parado en tu castillo no camina por tu base ni le pone voz el narrador.
+ */
+export function heroeEnLaBase(state: GameState, player: PlayerId, town: Town): Hero | null {
+  return heroesOf(state, player).find((h) => h.at.x === town.at.x && h.at.y === town.at.y) ?? null;
+}
+
 export function townsOf(state: GameState, player: PlayerId): Town[] {
   return state.towns.filter((t) => t.owner === player);
 }
@@ -523,6 +531,25 @@ export function destinoDeRecluta(state: GameState, town: Town): DestinoDeRecluta
         quien: 'la guarnición',
       }
     : { hero, army: hero.army, ...capacidadDe(hero), quien: 'el ejército' };
+}
+
+/**
+ * Por qué no se pueden reclutar `count` de `creatureId` en `town` con `purse`,
+ * o `null`: primero lo que el pueblo puede dar —hay tantos, alcanza el oro— y
+ * luego si caben en `destino`. Lo leen la acción `recruit`, que lanza con él, y
+ * el panel de la morada, que apaga «+1» y «Todo» y pone el motivo en su `title`.
+ */
+export function reclutarBlocker(
+  town: Town,
+  creatureId: string,
+  count: number,
+  destino: Pick<DestinoDeRecluta, 'army' | 'tope' | 'cupo' | 'quien'>,
+  purse: Resources,
+): string | null {
+  return (
+    recruitBlocker(town, creatureId, count, purse) ??
+    troopBlocker(destino.army, destino.tope, destino.cupo, creatureId, count, destino.quien)
+  );
 }
 
 /** Cuántos individuos de una criatura se pueden reclutar ahora, y por qué no más. */
@@ -1345,21 +1372,17 @@ function aplicar(
       if (town.owner !== player.id) throw new Error('ese pueblo no es tuyo');
 
       const destino = destinoDeRecluta(state, town);
-      // Primero lo que el pueblo puede dar —hay tantos, alcanza el oro— y luego
-      // si cabe. Las dos ANTES de cobrar: `payRecruit` descuenta las criaturas
-      // del pueblo y el oro del monedero, y un rechazo después de pagar sería
-      // tropa pagada y perdida.
-      const noHay = recruitBlocker(town, action.creature, action.count, player.resources);
-      if (noHay !== null) throw new Error(`no se puede reclutar: ${noHay}`);
-      const noCabe = troopBlocker(
-        destino.army,
-        destino.tope,
-        destino.cupo,
+      // Lo que el pueblo puede dar y lo que cabe (`reclutarBlocker`), ANTES de
+      // cobrar: `payRecruit` descuenta las criaturas del pueblo y el oro del
+      // monedero, y un rechazo después de pagar sería tropa pagada y perdida.
+      const motivo = reclutarBlocker(
+        town,
         action.creature,
         action.count,
-        destino.quien,
+        destino,
+        player.resources,
       );
-      if (noCabe !== null) throw new Error(`no se puede reclutar: ${noCabe}`);
+      if (motivo !== null) throw new Error(`no se puede reclutar: ${motivo}`);
       const ampliado = withTroops(destino.army, action.creature, action.count);
 
       player.resources = payRecruit(town, action.creature, action.count, player.resources);

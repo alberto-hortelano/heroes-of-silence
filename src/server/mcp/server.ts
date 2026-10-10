@@ -255,6 +255,9 @@ Tipos de petición que puedes recibir:
   declarativo y el motor lo construye y lo valida.
 - "hero_from_troop" → un veterano de nivel ${NIVEL_MAXIMO_DE_TROPA} está en tu base y se hace héroe:
   le das nombre, historia y tipo. Llega antes de tu "adventure_turn".
+- "town_voices"    → pon voz a la gente de tus bases (una línea por persona y
+  día) cuando empieza semana o se levanta un edificio en un sitio vacío. Es
+  presentación: no cambia el juego. Llega antes de tu "adventure_turn".
 
 El ciclo tiene final y te avisa de él: cuando la partida termina recibes un
 mensaje que empieza por "${PREFIJO_FIN}" y te dice quién ganó. Ahí se para

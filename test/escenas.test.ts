@@ -11,14 +11,20 @@ import { describe, expect, it } from 'vitest';
 import { DURACION, type EstadoFigura } from '../src/client/anim.js';
 import { EscenaAventura, focoDe, llegadaDeLaRuta } from '../src/client/escenas/aventura.js';
 import { EscenaBatalla } from '../src/client/escenas/batalla.js';
+import { EscenaBase } from '../src/client/escenas/castillo.js';
 import { PAUSA_TRAS_EL_RIVAL, PuertaDeFinDeTurno } from '../src/client/fin-de-turno.js';
 import { marcadoDe } from '../src/client/html.js';
 import { msPorCasilla } from '../src/client/marcha.js';
+import { camaraDeLaBase, camaraQuieta } from '../src/client/render/base/camara.js';
+import { componerBase } from '../src/client/render/base/escena.js';
+import { rachasSinArte } from '../src/client/render/base/pintar.js';
+import { dondePulsarElSitio } from '../src/client/render/base/recortes.js';
 import {
   bandosSinDueño,
   COLOR_BANDO,
   cajaDeCorona,
   cajaDeFigura,
+  cajaDeFiguraEn,
   cajaDeNombre,
   colorDelBando,
   pintarCorona,
@@ -35,15 +41,18 @@ import {
   SITIOS_DE_LA_INICIAL,
 } from '../src/client/render/mapa.js';
 import { COLOR_SIN_DUEÑO, MARCA_DE_COMANDANTE, playerColor } from '../src/client/render/palette.js';
+import { CUERPO_DE_VECINO } from '../src/client/render/personajes.js';
 import {
   ALTO_DE_FIGURA,
   centroDeStack,
   centroHex,
+  enPantalla,
+  type Tablero,
   tableroPara,
 } from '../src/client/render/proyeccion.js';
-import { maquetarCoste } from '../src/client/render/town.js';
 import { repartirClic } from '../src/client/reparto-del-clic.js';
-import { Session } from '../src/client/session.js';
+import { AYUDA_DE_LA_BASE, Session } from '../src/client/session.js';
+import { renderConversacion } from '../src/client/views/base.js';
 import {
   AVISO_DE_ESPERA,
   marcaDeComandante,
@@ -55,6 +64,13 @@ import { isAlive, SIN_CARGAS, stackHexes } from '../src/core/battle/battle.js';
 import type { BattleStack, Side } from '../src/core/battle/types.js';
 import { Casillas } from '../src/core/map/casillas.js';
 import type { Hex } from '../src/core/types.js';
+import {
+  bordeDeAtras,
+  type Disposicion,
+  disposicionDe,
+  enLaFranja,
+  type Plano,
+} from '../src/shared/base.js';
 import {
   destinoDeHoy,
   rutaConEmboscada,
@@ -642,28 +658,6 @@ describe('el comandante se distingue en el tablero (H-4)', () => {
   });
 });
 
-describe('las fichas de coste del castillo', () => {
-  it('la chapa envuelve la última cifra aunque sea de cuatro dígitos', () => {
-    // «5000» en negrita de 10 px mide unos 25 px: con 34 por ficha se salía.
-    const anchos = [25, 6, 6];
-    const m = maquetarCoste(anchos, 160);
-    const ultima = m.fichas[2]!;
-    expect(ultima.x + 14 + 6).toBeLessThanOrEqual(m.ancho - 5);
-    const primera = m.fichas[0]!;
-    expect(primera.x + 14 + 25).toBeLessThan(m.fichas[1]!.x);
-  });
-
-  it('lo que no cabe en una fila baja a la siguiente, y la chapa no pasa del máximo', () => {
-    const anchos = [25, 25, 25, 25, 25, 25, 25];
-    const m = maquetarCoste(anchos, 160);
-    expect(m.ancho).toBeLessThanOrEqual(160);
-    expect(Math.max(...m.fichas.map((f) => f.fila))).toBeGreaterThan(0);
-    for (const [i, f] of m.fichas.entries()) {
-      expect(f.x + 14 + (anchos[i] as number)).toBeLessThanOrEqual(m.ancho - 5);
-    }
-  });
-});
-
 describe('la ruta no se pinta sobre la niebla (M5 de la 2a)', () => {
   const paso = (x: number, hoy: boolean) => ({ at: { x, y: 0 }, hoy });
   /** Lo explorado de una ruta por la fila 0: en ella, el índice es la x. */
@@ -837,5 +831,288 @@ describe('la inicial de un héroe no tapa a otra figura (#166 H11)', () => {
     expect(asientoDeLaInicial(pie, [grupo], radio).y).toBeCloseTo(pie.y - 0.72);
     // A dos casillas al este: lejos de todos los sitios.
     expect(asientoDeLaInicial(pie, [heroe(7.5, 5.8)], radio)).toEqual({ x: 5.5, y: 4.8 });
+  });
+});
+
+describe('la base caminable (escenas/castillo.ts)', () => {
+  /** Una sesión con su base abierta y la escena encuadrada en el lienzo del escritorio. */
+  function enLaBase(seed = 12): { s: Session; escena: EscenaBase; d: Disposicion } {
+    const s = new Session(seed);
+    s.openTown(s.myTowns()[0]!.id);
+    const escena = new EscenaBase(() => s);
+    escena.encuadrar(1086, 778);
+    return { s, escena, d: disposicionDe(s.activeTown!.faction) };
+  }
+
+  /** Pulsa donde diga `donde` en la vista de ahora (sin dibujar, la quieta sobre quien camina). */
+  function pulsar(
+    escena: EscenaBase,
+    donde: (t: Tablero) => { x: number; y: number },
+    ahora: number,
+  ): void {
+    const q = donde(escena.camara()!);
+    escena.pulsar(q.x, q.y, ahora);
+  }
+  const laPuerta = (d: Disposicion, sitio: 'hall' | 'lvl1') => (t: Tablero) =>
+    dondePulsarElSitio(t, d.sitios[sitio]);
+  const elPunto = (p: Plano) => (t: Tablero) => enPantalla(t, p);
+
+  it('sin héroe dentro camina el alcaide; con él, el héroe', () => {
+    const { s } = enLaBase();
+    expect(s.vistaDeLaBase()!.caminante.id).toBe(`alcaide-${s.activeTown!.id}`);
+    const heroe = s.myHeroes()[0]!;
+    s.moveHeroTo(heroe.id, s.activeTown!.at);
+    expect(s.vistaDeLaBase()!.caminante).toMatchObject({ id: heroe.id, nombre: heroe.name });
+  });
+
+  it('un clic en el ayuntamiento lleva a su puerta y, al llegar, abre «Ampliar» (en menos de 1,5 s)', () => {
+    const { s, escena, d } = enLaBase();
+    expect(escena.marca).toBe('quieto');
+    expect(escena.posicion).toEqual(d.entrada);
+    pulsar(escena, laPuerta(d, 'hall'), 0);
+    expect(escena.marca).toBe('andando');
+    expect(escena.abierto).toBeNull();
+    escena.actualizar(1500);
+    expect(escena.abierto).toEqual({ tipo: 'ampliar' });
+    expect(escena.posicion).toEqual(d.sitios.hall.puerta);
+    // Y el panel lista lo construible con su coste o su motivo.
+    const panel = marcadoDe(renderSide(s, false, escena.abierto));
+    expect(panel).toContain('Ampliar');
+    expect(panel).toContain('data-action="build" data-building="town_hall"');
+    expect(panel).toContain('data-building="castle"');
+    // Lo que no se puede lleva el motivo del núcleo (`buildBlocker`).
+    expect(panel).toContain('falta construir &quot;Morada de nivel 2&quot;');
+    // Construir lo hace aparecer en su sitio: el castillo, en el del fuerte.
+    expect(s.vistaDeLaBase()!.edificios.map((e) => e.sitio)).not.toContain('fort');
+    s.build('castle');
+    expect(s.vistaDeLaBase()!.edificios).toContainEqual(
+      expect.objectContaining({ sitio: 'fort', edificio: 'castle' }),
+    );
+    expect(marcadoDe(renderSide(s, false, escena.abierto))).toContain('ya se ha construido hoy');
+  });
+
+  it('una morada abre su reclutamiento al llegar a su puerta: «+1» y «Todo» con lo que calcula el núcleo', () => {
+    const { s, escena, d } = enLaBase();
+    pulsar(escena, laPuerta(d, 'lvl1'), 0);
+    escena.actualizar(10_000);
+    expect(escena.abierto).toEqual({ tipo: 'sitio', sitio: 'lvl1' });
+    expect(escena.posicion).toEqual(d.sitios.lvl1.puerta);
+    const recluta = s.vistaDeLaBase()!.faccion === 'knight' ? 'peasant' : 'skeleton';
+    const plan = s.recruitPlan(recluta)!;
+    // El primer día la guarnición está llena (20 de 20): no cabe ni uno, y los
+    // dos botones salen apagados con la frase del núcleo (QA, H9).
+    expect(plan.maximo).toBe(0);
+    const motivo = s.motivoParaNoReclutar(recluta)!;
+    expect(motivo).toMatch(/no cabe|liderazgo/);
+    const lleno = marcadoDe(renderSide(s, false, escena.abierto));
+    expect(lleno).toContain(
+      `data-action="recruit" data-creature="${recluta}" data-todo="no" disabled title="${motivo}">+1</button>`,
+    );
+    expect(lleno).toContain(
+      `data-todo="si" class="primary" disabled title="${motivo}">Todo (0)</button>`,
+    );
+    // Con sitio, encendidos y con lo que calcula el núcleo.
+    s.activeTown!.garrison = [];
+    const conSitio = s.recruitPlan(recluta)!;
+    expect(conSitio.maximo).toBeGreaterThan(0);
+    expect(s.motivoParaNoReclutar(recluta)).toBeNull();
+    const panel = marcadoDe(renderSide(s, false, escena.abierto));
+    expect(panel).toContain(
+      `data-action="recruit" data-creature="${recluta}" data-todo="no"  title="Reclutar uno">+1</button>`,
+    );
+    expect(panel).toContain(`data-todo="si" class="primary"  title=`);
+    expect(panel).toContain(`>Todo (${conSitio.maximo})</button>`);
+  });
+
+  it('«Construir» sale apagado, con el motivo de `buildBlocker` en el título, cuando no se puede', () => {
+    const { s, escena, d } = enLaBase();
+    pulsar(escena, laPuerta(d, 'hall'), 0);
+    escena.actualizar(10_000);
+    const boton = (panel: string, id: string) =>
+      panel.match(new RegExp(`<button data-action="build" data-building="${id}"[^>]*>`))?.[0];
+    const antes = marcadoDe(renderSide(s, false, escena.abierto));
+    expect(boton(antes, 'castle')).not.toContain('disabled');
+    expect(boton(antes, 'knight_dwelling_3')).toContain('disabled title="falta construir');
+    s.build('castle');
+    const despues = marcadoDe(renderSide(s, false, escena.abierto));
+    expect(boton(despues, 'town_hall')).toContain('disabled title="ya se ha construido hoy');
+  });
+
+  it('el mercado no enseña referencias internas a quien juega', () => {
+    const { s, escena } = enLaBase();
+    s.build('marketplace');
+    escena.irA('market', 0);
+    const panel = marcadoDe(renderSide(s, false, escena.abierto));
+    expect(panel).toContain('El mercado aún no hace nada');
+    expect(panel).not.toMatch(/#\d/);
+  });
+
+  it('la lista de edificios lleva a la puerta del pulsado: cámara y caminante allí, y su panel abierto', () => {
+    const { s, escena, d } = enLaBase();
+    s.build('castle');
+    const panel = marcadoDe(renderSide(s, false, escena.abierto));
+    // De izquierda a derecha en la plaza, solo lo construido.
+    const enLaLista = [...panel.matchAll(/data-action="ir-a-sitio" data-sitio="(\w+)"/g)].map(
+      (m) => m[1],
+    );
+    const construidos = s.vistaDeLaBase()!.edificios.map((e) => e.sitio);
+    expect([...enLaLista].sort()).toEqual([...construidos].sort());
+    const xs = enLaLista.map((x) => d.sitios[x as 'hall'].puerta.x);
+    expect(xs).toEqual([...xs].sort((a, b) => a - b));
+    // La morada, lejos de la entrada: no se ve desde ella.
+    const lienzo = { ancho: 1086, alto: 778 };
+    escena.irA('lvl1', 0);
+    expect(escena.abierto).toEqual({ tipo: 'sitio', sitio: 'lvl1' });
+    expect(escena.posicion).toEqual(d.sitios.lvl1.puerta);
+    expect(escena.camara()).toEqual(
+      camaraDeLaBase(lienzo, camaraQuieta(d, lienzo, d.sitios.lvl1.puerta.x)),
+    );
+    expect(camaraQuieta(d, lienzo, d.sitios.lvl1.puerta.x)).not.toBe(
+      camaraQuieta(d, lienzo, d.entrada.x),
+    );
+    expect(escena.marca).toBe('sitio:lvl1');
+    // El ayuntamiento y el castillo abren «Ampliar».
+    escena.irA('fort', 0);
+    expect(escena.abierto).toEqual({ tipo: 'ampliar' });
+    expect(escena.posicion).toEqual(d.sitios.fort.puerta);
+    // Se sigue paseando: un clic en el suelo cierra lo abierto y echa a andar.
+    pulsar(escena, elPunto({ x: d.sitios.fort.puerta.x + 1, y: 2 }), 100);
+    expect(escena.abierto).toBeNull();
+    expect(escena.marca).toBe('andando');
+    // Lo que no está construido no está en la lista, y pedirlo lanza diciéndolo.
+    expect(() => escena.irA('lvl6', 0)).toThrow(/no hay nada construido/);
+  });
+
+  it('al volver a abrir la base, quien camina está en la entrada y no hay nada abierto (QA, H2)', () => {
+    const { s, escena, d } = enLaBase();
+    pulsar(escena, laPuerta(d, 'lvl1'), 0);
+    escena.actualizar(10_000);
+    expect(escena.abierto).toEqual({ tipo: 'sitio', sitio: 'lvl1' });
+    const town = s.activeTown!.id;
+    s.closeTown();
+    s.openTown(town);
+    expect(escena.abierto).toBeNull();
+    expect(escena.posicion).toEqual(d.entrada);
+    expect(escena.marca).toBe('quieto');
+  });
+
+  it('la barra dice lo de la base, no lo del mapa (QA, H4)', () => {
+    const { s, escena, d } = enLaBase();
+    expect(s.status).toBe(AYUDA_DE_LA_BASE);
+    // El ratón encima de un edificio lo nombra; pulsado, vuelve la ayuda.
+    const q = laPuerta(d, 'hall')(escena.camara()!);
+    expect(escena.mover(q.x, q.y)).toBe(true);
+    expect(s.status).toMatch(/^Ayuntamiento: pulsa/);
+    escena.pulsar(q.x, q.y, 0);
+    expect(s.status).toBe(AYUDA_DE_LA_BASE);
+    s.closeTown();
+    expect(s.status).toBe('');
+  });
+
+  it('sin arte, el marcador va de una vez por cada racha de tramos seguidos sin placa (QA, H10)', () => {
+    const { d } = enLaBase();
+    const sinNada = Array.from({ length: d.tramos }, () => null);
+    expect(rachasSinArte(d, sinNada)).toEqual([{ x0: 0, x1: d.ancho }]);
+    const placa = {} as HTMLImageElement;
+    const conLaTercera = sinNada.map((_, i) => (i === 2 ? placa : null));
+    const rachas = rachasSinArte(d, conLaTercera);
+    expect(rachas).toHaveLength(2);
+    expect(rachas[0]!.x0).toBe(0);
+    expect(rachas[1]!.x1).toBe(d.ancho);
+    expect(rachas[0]!.x1).toBeLessThan(rachas[1]!.x0);
+  });
+
+  it('un vecino abre la conversación con su nombre y su línea, y el suelo la cierra', () => {
+    const { s, escena, d } = enLaBase();
+    const [id, v] = Object.entries(d.vecinos)[0]!;
+    pulsar(
+      escena,
+      (t) => {
+        const c = cajaDeFiguraEn(t, v.en);
+        return { x: c.x, y: c.suelo - c.alto / 2 };
+      },
+      0,
+    );
+    escena.actualizar(10_000);
+    expect(escena.abierto).toEqual({ tipo: 'pnj', id: `vecino-${id}` });
+    const persona = s.vistaDeLaBase()!.gente.find((p) => p.id === `vecino-${id}`)!;
+    const dialogo = marcadoDe(renderConversacion(s, `vecino-${id}`));
+    expect(dialogo).toContain(persona.nombre);
+    expect(dialogo).toContain(`«${persona.linea}»`);
+    // Un clic en el suelo cierra lo abierto y echa a andar.
+    pulsar(escena, elPunto(d.entrada), 10_000);
+    expect(escena.abierto).toBeNull();
+    escena.actualizar(20_000);
+    expect(escena.marca).toBe('quieto');
+  });
+
+  it('un clic sobre la plaza, en un sitio vacío, deja a la figura en el borde de atrás frente a él', () => {
+    const { s, escena, d } = enLaBase();
+    expect(s.vistaDeLaBase()!.edificios.map((e) => e.sitio)).not.toContain('lvl2');
+    const sitio = d.sitios.lvl2;
+    pulsar(escena, elPunto({ x: sitio.umbral.en.x, y: sitio.umbral.en.y - 0.5 }), 0);
+    escena.actualizar(10_000);
+    expect(escena.abierto).toBeNull();
+    expect(escena.posicion.y).toBeCloseTo(bordeDeAtras(d, escena.posicion.x), 9);
+    expect(escena.posicion.x).toBeCloseTo(sitio.umbral.en.x);
+  });
+
+  it('un clic fuera de la franja, por delante, lleva al punto más cercano dentro', () => {
+    const { escena, d } = enLaBase();
+    pulsar(escena, elPunto({ x: d.entrada.x + 1, y: 9 }), 0);
+    escena.actualizar(10_000);
+    expect(enLaFranja(d, escena.posicion)).toBe(true);
+    expect(escena.posicion.x).toBeCloseTo(d.entrada.x + 1);
+  });
+
+  it('profundidad: toda figura va delante de todo edificio, y el edificio más hondo primero', () => {
+    const { s, d } = enLaBase();
+    s.build('castle');
+    const vista = s.vistaDeLaBase()!;
+    // Con todos los sitios levantados, también los de los extremos.
+    const todos = {
+      ...vista,
+      edificios: [
+        ...vista.edificios,
+        { sitio: 'lvl6' as const, edificio: 'knight_dwelling_6', nombre: 'Capilla' },
+        { sitio: 'lvl5' as const, edificio: 'knight_dwelling_5', nombre: 'Establos' },
+      ],
+    };
+    for (const en of [
+      d.sitios.hall.puerta,
+      d.sitios.lvl6.puerta,
+      d.sitios.lvl5.puerta,
+      d.entrada,
+    ]) {
+      const lista = componerBase(d, todos, { en, mira: 'S', clip: 'idle', tiempo: 0 }, 0);
+      const ultimoEdificio = lista.map((e) => e.tipo).lastIndexOf('edificio');
+      const primeraFigura = lista.findIndex((e) => e.tipo === 'figura');
+      expect(ultimoEdificio).toBeLessThan(primeraFigura);
+      const pies = lista.flatMap((e) => (e.tipo === 'edificio' ? [e.pie] : []));
+      expect(pies).toEqual([...pies].sort((a, b) => a - b));
+      // El pie del edificio, en la franja o detrás: nunca delante de quien está en su puerta.
+      for (const e of lista) if (e.tipo === 'edificio') expect(e.pie).toBeLessThan(en.y + 1);
+    }
+  });
+
+  it('la gente de la base se pinta sin armas; quien camina, con su cuerpo', () => {
+    const { s, d } = enLaBase();
+    const vista = s.vistaDeLaBase()!;
+    const lista = componerBase(d, vista, { en: d.entrada, mira: 'N', clip: 'idle', tiempo: 0 }, 0);
+    const figuras = lista.flatMap((e) => (e.tipo === 'figura' ? [e] : []));
+    expect(figuras.filter((f) => f.pnj).length).toBeGreaterThan(0);
+    for (const f of figuras) {
+      expect(f.cuerpo, f.id).toBe(f.pnj ? CUERPO_DE_VECINO : vista.caminante.cuerpo);
+    }
+  });
+
+  it('un sitio sin construir no pinta nada: solo los edificios levantados entran en la escena', () => {
+    const { s, d } = enLaBase();
+    const vista = s.vistaDeLaBase()!;
+    const lista = componerBase(d, vista, { en: d.entrada, mira: 'N', clip: 'idle', tiempo: 0 }, 0);
+    expect(
+      lista.filter((e) => e.tipo === 'edificio').map((e) => (e as { sitio: string }).sitio),
+    ).toEqual(expect.arrayContaining(['hall', 'lvl1']));
+    expect(lista.filter((e) => e.tipo === 'edificio')).toHaveLength(2);
   });
 });

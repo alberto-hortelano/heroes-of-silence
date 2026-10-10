@@ -9,6 +9,7 @@
  * palabras, en vez de depender de que cada encargo se acuerde.
  */
 import { z } from 'zod';
+import { FACTION_IDS } from '../../src/core/types.js';
 import {
   FIGURA,
   HOJAS_DE_FIGURA,
@@ -37,6 +38,19 @@ export const PAPELES = {
   // volvían en cuanto iba como identidad (§20).
   material:
     'es la referencia de MATERIAL: de ella se toman SOLO el color, la textura y la paleta de la roca y de lo que crece en ella, para que case con estas piezas. NO copies su forma (columnas, prismas, bloques en fila) ni su composición',
+  // La guía del cuadro maestro: solo suelo, puertas y la vara de medir. Las cajas
+  // de la primera prueba se copiaron tal cual, altas e inclinadas; sin vara, las
+  // puertas salían de medio adulto (pruebas de la vuelta 3).
+  plaza:
+    'es la GUÍA DE LA PLAZA: el gris CLARO de abajo es el empedrado por el que se anda, solo esa franja baja; cada punto oscuro numerado sobre su borde de atrás es donde va el UMBRAL de la PUERTA del edificio con ese número; y junto a cada punto hay una SILUETA OSCURA DE UN ADULTO de pie, a su tamaño real en este cuadro: es la VARA DE MEDIR de todo. No pintes sus grises lisos, sus puntos, sus números ni sus siluetas',
+  // La hoja de los edificios que van en el cuadro: los de la primera vuelta, que
+  // salieron proporcionados (las fachadas giradas de la vuelta 2, no).
+  edificios:
+    'es la hoja de IDENTIDAD de los edificios: cada uno suelto y con su número, que es el de la guía. Manda en su diseño, sus materiales, sus colores, su tejado, su heráldica y sus PROPORCIONES. No manda en el encuadre, la escala ni el atrezo suelto que lleva alrededor',
+  // Las ediciones del cuadro (la placa vacía, cada mejora): una petición nueva con
+  // la imagen adjunta. Reabrir el hilo con `exec resume` falló dos de dos veces.
+  edita:
+    'es la IMAGEN QUE SE EDITA: el resultado es esta misma imagen, píxel a píxel, con el ÚNICO cambio que se pide. Todo lo demás —el encuadre, la escala, la luz, el cielo, el empedrado y cada cosa en su sitio— se queda exactamente igual',
   guia: 'es la GUÍA DE GEOMETRÍA: un volumen gris sin acabado, dibujado con la cámara del juego. Manda en la ORIENTACIÓN, la forma, las proporciones, el tamaño y la posición de cada pieza dentro de la imagen: cópialas con exactitud, sin girar ni torcer nada. NO copies su gris liso, sus aristas de esquema ni su fondo plano: el material, el detalle y la luz son los de la imagen de estilo',
 } as const;
 export type Papel = keyof typeof PAPELES;
@@ -62,7 +76,7 @@ const ruta = z
 
 const referencia = z.object({
   ruta,
-  papel: z.enum(['pose', 'identidad', 'estilo', 'guia', 'material']),
+  papel: z.enum(Object.keys(PAPELES) as [Papel, ...Papel[]]),
 });
 
 export const encargoSchema = z
@@ -89,6 +103,18 @@ export const encargoSchema = z
     talla: z.number().positive().optional(),
     /** Imagen: si el fondo se recorta o la imagen es opaca (un fondo de batalla). */
     fondo: z.enum(['transparente', 'opaco']).default('transparente'),
+    /**
+     * Imagen opaca: el tamaño exacto al que se lleva lo que devuelva Codex. Los
+     * cuadros de la base miden un tramo (`TRAMO`): se cosen a tope y se recortan
+     * píxel a píxel contra su placa.
+     */
+    tamano: z
+      .object({ ancho: z.number().int().positive(), alto: z.number().int().positive() })
+      .optional(),
+    /** Lo que se rehace después de escribir la salida: los recortes de la base de esa facción. */
+    despues: z
+      .object({ orden: z.literal('recortar-base'), faccion: z.enum(FACTION_IDS) })
+      .optional(),
     /** Corrige una generación anterior en su mismo hilo de Codex, que conserva la identidad. */
     reanudar: z.object({ hilo: z.string().uuid(), correccion: z.string().min(10) }).optional(),
     /**

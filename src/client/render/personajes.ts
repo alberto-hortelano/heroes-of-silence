@@ -264,6 +264,15 @@ function ybot(juego: string): ArteDeFigura {
 }
 
 /**
+ * El cuerpo con que se pinta la gente de la base (encargados y vecinos): el Y Bot
+ * sin armas y en reposo de civil (`civil`). Su `cuerpo` de `data/vecinos.json`
+ * —una criatura de la facción— se queda para cuando haya figuras propias; con
+ * el Y Bot de esa criatura, un vecino que habla en la plaza estaba en guardia con
+ * el arma en la mano (ajuste tras la vuelta 2 de la base caminable).
+ */
+export const CUERPO_DE_VECINO = 'vecino-de-la-base';
+
+/**
  * El juego de armas de cada cuerpo del juego (decisión del usuario, 03-10-2026):
  * piquero → lanza, caballería → montado-lanza, monje o mago → bastón, arquero →
  * arco, y el resto espada y escudo. Cada mejora lleva el de su base.
@@ -276,6 +285,7 @@ function ybot(juego: string): ArteDeFigura {
 export const JUEGO_DEL_CUERPO: Readonly<Record<string, JuegoDelYBot>> = {
   [HERO_BODY]: 'espada-escudo',
   [CHARACTER_BODY]: 'espada-escudo',
+  [CUERPO_DE_VECINO]: 'civil',
   peasant: 'espada-escudo',
   archer: 'arco',
   ranger: 'arco',

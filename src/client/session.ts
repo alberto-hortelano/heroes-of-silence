@@ -45,7 +45,7 @@ import type {
   TipoDeEscala,
   TipoDePuerta,
 } from '@core/battle/types.js';
-import { type Hero, maxMana } from '@core/hero/hero.js';
+import { HERO_BODY, type Hero, maxMana } from '@core/hero/hero.js';
 import { armyLeadership, GARRISON_LEADERSHIP, heroLeadership } from '@core/hero/troop.js';
 import type { CasillasLeidas } from '@core/map/casillas.js';
 import type { MapObject, PathStep } from '@core/map/map.js';
@@ -67,6 +67,7 @@ import {
   type GameContext,
   type GameState,
   heroById,
+  heroeEnLaBase,
   heroesALaVista,
   heroesOf,
   objetosConocidos,
@@ -74,6 +75,7 @@ import {
   pasosDeHoy,
   puedeAndarHoy,
   type RecruitCapacity,
+  reclutarBlocker,
   recruitCapacity,
   resolvePendingBattle,
   settleBattle,
@@ -82,10 +84,19 @@ import {
   townsOf,
   turnBlocker,
   visibleNow,
+  week,
 } from '@core/state/game.js';
 import { newGame } from '@core/state/setup.js';
+import { building } from '@core/town/buildings.js';
+import { construidoEn, sitiosConstruidos } from '@core/town/sitios.js';
+import { alcaideDe, vecinosDeLaBase, vozDe } from '@core/town/voces.js';
 import type { Hex, PlayerId, Point } from '@core/types.js';
 import { quienesDe } from './desenlace.js';
+import type { VistaDeLaBase } from './render/base/escena.js';
+
+/** Lo que dice la barra en la base cuando el ratón no señala nada. */
+export const AYUDA_DE_LA_BASE =
+  'Pulsa el suelo para andar, un edificio para entrar o a alguien para hablar. Escape vuelve al mapa.';
 
 export type Scene = 'adventure' | 'town' | 'battle';
 
@@ -1021,9 +1032,23 @@ export class Session implements ControlDeBatalla {
   }
 
   openTown(townId: string): void {
+    this.aperturas++;
     this.openTownId = townId;
     this.scene = 'town';
+    // Lo que decía la barra era del mapa («haz clic en el mapa para mover a tu
+    // héroe»): en la base no significa nada.
+    this.status = AYUDA_DE_LA_BASE;
   }
+
+  /**
+   * Cuántas veces se ha abierto una base en esta sesión. La escena de la base
+   * (`EscenaBase`) empieza en la entrada y sin nada abierto cada vez que cambia,
+   * también al volver a la misma base.
+   */
+  get aperturaDeLaBase(): number {
+    return this.aperturas;
+  }
+  private aperturas = 0;
 
   closeTown(): void {
     this.openTownId = null;
@@ -1038,6 +1063,58 @@ export class Session implements ControlDeBatalla {
     if (this.openTownId === null) return null;
     return townById(this.state, this.openTownId);
   }
+
+  /**
+   * El héroe PROPIO que está en la base abierta, o `null`. Solo los propios: un
+   * rival parado en tu castillo no te enseña su ejército ni camina por tu base.
+   */
+  heroeEnLaBase(): Hero | null {
+    const town = this.activeTown;
+    return town === null ? null : heroeEnLaBase(this.state, this.viewer, town);
+  }
+
+  /**
+   * Lo que se ve en la base abierta (`render/base/`): qué se ha levantado en
+   * cada sitio, quién hay y qué dice hoy, y quién camina —el héroe si está
+   * dentro, si no el alcaide—. Se rehace cuando cambia la partida (`version`),
+   * no en cada fotograma.
+   *
+   * Lo que dicen es SIEMPRE el respaldo en el navegador: esta sesión juega en
+   * local y nunca habla con el agente, así que `Town.voces` no se escribe aquí.
+   */
+  vistaDeLaBase(): VistaDeLaBase | null {
+    const town = this.activeTown;
+    if (town === null) return null;
+    const c = this.cacheDeLaBase;
+    if (c !== null && c.version === this.version && c.townId === town.id) return c.vista;
+    const semana = week(this.state);
+    const heroe = this.heroeEnLaBase();
+    const alcaide = alcaideDe(town.faction);
+    const vista: VistaDeLaBase = {
+      faccion: town.faction,
+      townId: town.id,
+      owner: town.owner,
+      edificios: sitiosConstruidos(town).map((sitio) => {
+        const edificio = construidoEn(town, sitio) as string;
+        return { sitio, edificio, nombre: building(edificio).name };
+      }),
+      gente: vecinosDeLaBase(town).map((v) => ({
+        id: v.id,
+        nombre: v.nombre,
+        papel: v.papel,
+        sitio: v.sitio,
+        clave: v.clave,
+        linea: vozDe(town, v.id, semana, this.state.day),
+      })),
+      caminante:
+        heroe === null
+          ? { id: `alcaide-${town.id}`, nombre: alcaide.nombre, cuerpo: alcaide.cuerpo }
+          : { id: heroe.id, nombre: heroe.name, cuerpo: HERO_BODY },
+    };
+    this.cacheDeLaBase = { version: this.version, townId: town.id, vista };
+    return vista;
+  }
+  private cacheDeLaBase: { version: number; townId: string; vista: VistaDeLaBase } | null = null;
 
   build(buildingId: string): void {
     if (this.openTownId === null) return;
@@ -1061,6 +1138,17 @@ export class Session implements ControlDeBatalla {
     const town = this.activeTown;
     if (town === null || town.owner === null) return null;
     return recruitCapacity(town, creatureId, destinoDeRecluta(this.state, town), this.resources);
+  }
+
+  /**
+   * Por qué no se puede reclutar ni uno de esa criatura en el castillo abierto,
+   * o `null`: la frase del núcleo (`reclutarBlocker`), la misma con que lanzaría
+   * la acción. Con ella el panel apaga «+1» y «Todo» en vez de ofrecerlos.
+   */
+  motivoParaNoReclutar(creatureId: string): string | null {
+    const town = this.activeTown;
+    if (town === null || town.owner === null) return null;
+    return reclutarBlocker(town, creatureId, 1, destinoDeRecluta(this.state, town), this.resources);
   }
 
   /**

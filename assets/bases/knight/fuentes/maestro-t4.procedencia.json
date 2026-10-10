@@ -1,0 +1,55 @@
+{
+  "encargo": "base-knight-maestro-t4",
+  "tipo": "imagen",
+  "fecha": "2026-10-09T18:48:58.022Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a121fd-8b72-7950-9fd8-da1ca0f33622",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 2 es la referencia de ESTILO: el acabado pintado, los materiales y la paleta que hay que seguir. No copies su contenido ni su composición.\nLa imagen 3 es la GUÍA DE LA PLAZA: el gris CLARO de abajo es el empedrado por el que se anda, solo esa franja baja; cada punto oscuro numerado sobre su borde de atrás es donde va el UMBRAL de la PUERTA del edificio con ese número; y junto a cada punto hay una SILUETA OSCURA DE UN ADULTO de pie, a su tamaño real en este cuadro: es la VARA DE MEDIR de todo. No pintes sus grises lisos, sus puntos, sus números ni sus siluetas.\nLa imagen 4 es la hoja de IDENTIDAD de los edificios: cada uno suelto y con su número, que es el de la guía. Manda en su diseño, sus materiales, sus colores, su tejado, su heráldica y sus PROPORCIONES. No manda en el encuadre, la escala ni el atrezo suelto que lleva alrededor.\n\nLa imagen 2 da además la heráldica de la facción (cruz roja sobre blanco).\nEl TRAMO 4 de 5, de izquierda a derecha, de la PLAZA de una villa medieval de caballeros, vista DE CERCA. Formato apaisado de 1536×1024. Cámara ORTOGRÁFICA elevada 25 grados sobre la horizontal, DE FRENTE, como el escenario de un combate visto de lado. Nunca cenital ni de perfil. Paredes verticales, nada inclinado.\nLA SILUETA DE LA GUÍA ES LA VARA DE MEDIR: un adulto de 122 px de alto da la escala de TODO el cuadro. La PUERTA de cada edificio es un poco MÁS ALTA que la silueta que tiene al lado (la puerta, unos 154-166 px), y las ventanas, plantas, aleros y tejados a esa misma escala, como para gente de ese tamaño. Con esa escala los edificios son GRANDES en el cuadro: llenan el alto de la imagen por encima de la franja del empedrado, y los que de verdad son altos se salen por el borde de arriba, cortados. Eso está bien: no los encojas para que quepan.\nLos 2 edificios (1: el mercado cubierto; 2: la armería), cada uno con el umbral de su puerta en su punto de la guía, a ras del borde de atrás del empedrado. Cada uno es el edificio de la hoja de identidad con ese número: su mismo diseño, materiales, colores, tejado y heráldica, con PROPORCIONES NORMALES, las de la hoja: ni estirados en alto ni estrechados. Entre ellos queda aire: se lee como una plaza, no como una calle.\nSOLO el edificio de cada uno: sin las carretas, huertos, cercas, mesas, escalinatas ni objetos sueltos de la hoja.\nNO AÑADAS PLAZA DELANTE: el empedrado es solo la franja gris clara de abajo, poco honda y PLANA, con su borde de atrás RECTO y a la MISMA ALTURA de punta a punta de la imagen; el pie de cada edificio, de cada muro y de cada pilar va justo en ese borde. Nada de suelo vacío entre el empedrado y los edificios, ni escalones, ni aceras.\nLA JUNTA, en los dos bordes de la imagen: la franja VERDE OSCURA de la guía (las 176 columnas pegadas a cada borde) es UN ÁRBOL ALTO Y FRONDOSO, de copa densa verde oliva oscura que sube desde lo alto del muro hasta el BORDE DE ARRIBA de la imagen y queda CORTADA por el borde lateral, como si el árbol siguiera fuera. El rectángulo PARDO a su pie es un PILAR de piedra del muro, recto y vertical, con su pie en el borde de atrás del empedrado, y detrás de él asoma el tronco. En esas columnas no hay cielo, ni casas, ni tejados: solo el pilar, el tronco y las hojas, de arriba abajo hasta el empedrado.\nDetrás de los edificios y en los huecos que dejen entre ellos, lo que cierra la plaza: traseras de casas de piedra y entramado, muros de piedra, algún árbol; sin puertas principales, ni carteles, ni banderas. Por encima de los tejados, algo de cielo.\nNADA de campo abierto, horizonte ni muralla. Ninguna persona, animal, carro, puesto suelto ni texto. Una sola luz para toda la imagen: un solo cuadro pintado de una vez. No pintes los grises lisos, los puntos, los números, las siluetas ni las franjas de color de la guía: son indicaciones.\nPALETA: SOBRIA y poco saturada, como la imagen 1: piedra gris y ocre apagado, madera parda, pizarra gris y teja de color apagado, verde oliva oscuro. Luz de TARDE NEUTRA, ni dorada ni naranja: cielo gris azulado nublado, sin puesta de sol, sin hojas de otoño. Sombras suaves.\nEstilo: ilustración pintada de fantasía medieval oscura, materiales gastados.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/mapa/muestras/pintado.webp",
+      "papel": "estilo",
+      "sha256": "2257bd10a5efa8f2c430c2d86609ac895750568961a4dea6dfddd4c8081e1838"
+    },
+    {
+      "ruta": "assets/art/templarios/guerrero-con-escudo.png",
+      "papel": "estilo",
+      "sha256": "be91381e9343b31c50ffa617668920c4d950c59351dbe5e0b71534cffb8e5f28"
+    },
+    {
+      "ruta": "assets/bases/knight/fuentes/guia-t4.png",
+      "papel": "plaza",
+      "sha256": "d62ce15fa76fd425a006f51fce1f3d6e64b04d592ebb02a847e69f91f84c6b7f"
+    },
+    {
+      "ruta": "assets/bases/knight/fuentes/identidad-t4.png",
+      "papel": "edificios",
+      "sha256": "b9c4cd6f9dfe9b98aff38bb8bf313eac60bb46f0ef0f932979f25f14323d5f73"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a121fd-8b72-7950-9fd8-da1ca0f33622/exec-67ce0353-644c-4793-93aa-cf1642b89a77.png",
+    "sha256": "1f72a22f814f45079e467f72debb1acdcb6a4dbb572da84f609fbf9adb3bd084",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 9 edificios, placas 2 de 5",
+    "mage_guild_1: lo recortado toca el borde de su región en x1 (476)",
+    "mage_guild_2: lo recortado toca el borde de su región en x1 (476)",
+    "tavern: lo recortado toca el borde de su región en x0 (476)",
+    "knight_upgrade_2: lo recortado toca el borde de su región en x0 (931)"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/knight/fuentes/maestro-t4.webp",
+    "sha256": "e59088601f03446fb67387bc58e05c3cec1b6f939ab0f790308c78bd0bdd9de9"
+  }
+}

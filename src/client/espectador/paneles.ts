@@ -58,7 +58,29 @@ export function panelDelEspectador(
   fin: FinDePartida | null,
   contandoAun = false,
 ): Html {
-  return html`${finDeLaPartida(fin)}${jugadores(v)}${batalla(v, contandoAun)}${crónica(v)}${vozDelDirector(v)}`;
+  return html`${finDeLaPartida(fin)}${jugadores(v)}${batalla(v, contandoAun)}${vocesDeLasBases(v)}${crónica(v)}${vozDelDirector(v)}`;
+}
+
+/**
+ * «Voces de la base»: lo que dice hoy la gente a la que el narrador ha puesto
+ * voz (`town_voices`), por base. Es lo único de la base caminable que llega al
+ * espectador, que no tiene pantalla de base; sin narrador no sale la sección.
+ * El nombre y la línea los escribe el agente: salen por la puerta como todo.
+ */
+export function vocesDeLasBases(v: SpectatorView): Html {
+  const conVoz = v.towns.filter((t) => t.voces.length > 0);
+  if (conVoz.length === 0) return NADA;
+  return html`<h3>Voces de la base</h3>${unir(
+    conVoz.map(
+      (t) => html`<p class="label">${bandera(t.owner)} ${t.name}</p>
+        <div class="stack-list">${unir(
+          t.voces.map(
+            (x) => html`<div class="stack empty"><span>${x.nombre} · ${x.papel}</span></div>
+              <p class="cost">«${x.linea}»</p>`,
+          ),
+        )}</div>`,
+    ),
+  )}`;
 }
 
 /**

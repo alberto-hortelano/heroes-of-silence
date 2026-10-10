@@ -10,6 +10,7 @@
  * Vive en `shared` y no en `core` porque no es una regla del juego: el motor no
  * sabe a qué ángulo se mira el tablero, y no tiene por qué.
  */
+import { BOARD_HEIGHT } from '../core/battle/board.js';
 export const ARTE = {
   /** Proyección ortográfica, 25° hacia abajo: las figuras de Y Bot se renderizaron así. */
   camara: { elevacionGrados: 25 },
@@ -65,6 +66,33 @@ export const FIGURA = {
 
 /** Cuánto se aplasta el suelo visto a 25°: `sin 25°`. */
 export const COMPRESION_SUELO = Math.sin((ARTE.camara.elevacionGrados * Math.PI) / 180);
+
+/**
+ * La escala del tablero de combate, que comparte la base caminable: la leen
+ * `render/proyeccion.ts` (el combate) y `shared/base.ts` (la franja de la base y
+ * las guías del taller). Aquí y no en `proyeccion.ts` porque el taller no importa
+ * del cliente; si las dos cuentas copiaran el número, un día dejarían de casar.
+ */
+/** Lo que separa dos filas de hexes de la rejilla, en pasos sin aplastar. */
+export const ALTO_DE_FILA = Math.sqrt(3) / 2;
+/** Lo que queda el suelo bajo la última fila hasta el borde del lienzo, en pasos de pantalla. */
+export const MARGEN_ABAJO = 0.35;
+/** El fondo de la rejilla de combate, en pasos: las ocho separaciones entre sus nueve filas. */
+export const FONDO_DEL_COMBATE = (BOARD_HEIGHT - 1) * ALTO_DE_FILA;
+
+/** Un punto del plano del suelo (el tablero de combate o el escenario de la base), en pasos. */
+export interface Plano {
+  readonly x: number;
+  readonly y: number;
+}
+
+/**
+ * Las ocho miradas de una figura, en el sentido contrario a las agujas desde el
+ * este: las de la regla (`client/direccion.ts`) y las que escribe
+ * `data/bases/<f>.json` para cada vecino.
+ */
+export const MIRADAS = ['E', 'NE', 'N', 'NO', 'O', 'SO', 'S', 'SE'] as const;
+export type Mirada = (typeof MIRADAS)[number];
 
 /**
  * La sombra de una figura de `altura` píxeles. No admite hacia dónde mira la

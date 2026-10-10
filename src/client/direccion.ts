@@ -9,12 +9,11 @@
  * derecha o espejado, se retiró el 03-10-2026 con la llegada del Y Bot en 8
  * direcciones como respaldo de toda figura.
  */
-import { COMPRESION_SUELO } from '../shared/arte.js';
-import type { Plano } from './render/proyeccion.js';
+import { COMPRESION_SUELO, MIRADAS, type Mirada, type Plano } from '../shared/arte.js';
 
-/** Los ocho sectores, en el sentido contrario a las agujas desde el este. */
-export const DIRECCIONES = ['E', 'NE', 'N', 'NO', 'O', 'SO', 'S', 'SE'] as const;
-export type Direccion = (typeof DIRECCIONES)[number];
+/** Los ocho sectores, en el sentido contrario a las agujas desde el este: las `MIRADAS` del contrato visual. */
+export const DIRECCIONES = MIRADAS;
+export type Direccion = Mirada;
 
 /**
  * La dirección de `desde` hacia `hacia`, dos puntos del plano del tablero.

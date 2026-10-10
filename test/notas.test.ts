@@ -35,6 +35,7 @@ import {
   notaRespuestaInvalida,
   notaSinRespuesta,
   notaTurnoAventura,
+  notaVoces,
   PREFIJO_CORTE,
   PREFIJO_FIN,
   PREFIJO_RELEVO,
@@ -467,6 +468,26 @@ describe('notas para el agente', () => {
       expect(nota).toMatch(/no se te\s+volverá a preguntar hasta que salga de la base y vuelva/);
     }
     expect(notaAscensoRechazado('veterano-3')).toContain('veterano-3');
+  });
+
+  it('y a unas VOCES tampoco: nadie las escribe en su lugar y el turno sigue', () => {
+    for (const nota of [
+      notaRespuestaInvalida('town_voices'),
+      notaSinRespuesta('town_voices', 'no respondiste a tiempo (300 s)'),
+    ]) {
+      expect(nota).not.toContain('juega la IA de reglas en tu lugar');
+      expect(nota).toMatch(/frases de siempre/);
+      expect(nota).toMatch(/Tu turno sigue igual/);
+    }
+  });
+
+  it('el veredicto de las voces cuenta lo que entró y qué pasa con lo rechazado', () => {
+    expect(notaVoces(3, 1, 0)).toBe('Han entrado 3 líneas en 1 base.');
+    expect(notaVoces(1, 2, 2)).toMatch(
+      /^Ha entrado 1 línea en 2 bases y se han rechazado 2 \(el motivo, debajo\)/,
+    );
+    expect(notaVoces(0, 0, 1)).toMatch(/^No ha entrado ninguna línea y se ha rechazado 1/);
+    expect(notaVoces(0, 0, 1)).toMatch(/frases de siempre/);
   });
 
   it('el ascenso que entra dice la tropa con la que quedó el nacido, en sus tres casos (I1)', () => {

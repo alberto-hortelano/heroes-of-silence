@@ -50,6 +50,27 @@ const edificios = existsSync(EDIFICIOS)
     )
   : [];
 
+/**
+ * La plaza de la base caminable (vuelta 3): las placas de cada tramo
+ * (`fuentes/placa-t<n>.webp`) y los cuadros de los que se recortan
+ * (`fuentes/maestro-t<n>.webp`, `fuentes/edicion-<id>.webp`) son de Codex y
+ * llevan su procedencia, sin JSON derivado: son opacos. Lo que pinta el juego
+ * (`tramo-<n>.webp`, `suelo.webp` y el recorte de cada edificio) no sale de
+ * Codex sino del recorte, y su sha256 lo mira `base-arte.test.ts` volviéndolo
+ * a derivar.
+ */
+const BASES = join(RAIZ, 'assets/bases');
+const cuadrosDeLaBase = existsSync(BASES)
+  ? readdirSync(BASES).flatMap((f) => [
+      ...(existsSync(join(BASES, f, 'fuentes'))
+        ? readdirSync(join(BASES, f, 'fuentes'))
+            .filter((x) => /^(maestro-t\d+|placa-t\d+|edicion-[a-z0-9_]+)\.webp$/.test(x))
+            .map((x) => join(BASES, f, 'fuentes', x))
+        : []),
+    ])
+  : [];
+muestras.push(...cuadrosDeLaBase);
+
 const leer = (r: string): any => JSON.parse(readFileSync(r, 'utf8'));
 
 describe('las hojas del taller', () => {

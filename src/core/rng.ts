@@ -66,3 +66,13 @@ export function createRng(seed: number): Rng {
     },
   };
 }
+
+/**
+ * Un entero de 32 bits de un texto, para sembrar una tirada que no es de la
+ * partida (las frases de respaldo de la gente de la base). FNV-1a.
+ */
+export function hashDeTexto(texto: string): number {
+  let h = 2166136261;
+  for (const c of texto) h = Math.imul(h ^ (c.codePointAt(0) as number), 16777619);
+  return h >>> 0;
+}

@@ -53,22 +53,15 @@ import {
 } from '@core/town/town.js';
 import type { Army, Hueco, Point } from '@core/types.js';
 import { describirCoste, HUECOS, NOMBRE_DE_RECURSO, RESOURCE_KINDS } from '@core/types.js';
+import { disposicionDe } from '../../shared/base.js';
 import { quienesDe } from '../desenlace.js';
-import { fondoDeColor, type Html, html, NADA, srcDeImagen, unir } from '../html.js';
+import type { Abierto } from '../escenas/castillo.js';
+import { DESHABILITADO, fondoDeColor, type Html, html, NADA, srcDeImagen, unir } from '../html.js';
 import { asset } from '../render/assets.js';
 import { MARCA_DE_COMANDANTE, RESOURCE_COLORS, RESOURCE_NAMES } from '../render/palette.js';
 import type { Session, SpellOption } from '../session.js';
+import { renderAbierto } from './base.js';
 import { nombreEnElCampo } from './distintivo.js';
-
-/**
- * El atributo `disabled`, suelto.
- *
- * Va dentro de una etiqueta y no dentro de un atributo, así que el hueco solo
- * acepta marcado: una cadena `'disabled'` ahí la rechaza la puerta, y con razón
- * —sin comillas alrededor, cualquier texto que caiga en ese sitio se lee como
- * atributos—. Tres sitios lo ponen.
- */
-const DESHABILITADO: Html = html`disabled`;
 
 /** Lo que dice la barra a quien pulsa mientras la jugada se cuenta. */
 export const AVISO_DE_ESPERA = 'Espera a que termine la jugada.';
@@ -159,10 +152,14 @@ export function renderTopbar(session: Session): {
  * @param contandoAun si el tablero de batalla aún cuenta la última jugada: sus
  *   botones salen apagados (`mientrasSeCuenta`).
  */
-export function renderSide(session: Session, contandoAun = false): Html {
+export function renderSide(
+  session: Session,
+  contandoAun = false,
+  abierto: Abierto | null = null,
+): Html {
   switch (session.scene) {
     case 'town':
-      return renderTownPanel(session);
+      return renderTownPanel(session, abierto);
     case 'battle':
       return renderBattlePanel(session, contandoAun);
     default:
@@ -588,13 +585,23 @@ function renderArmeria(session: Session, town: Town): Html {
 
 // ---------------------------------------------------------------- castillo
 
-function renderTownPanel(session: Session): Html {
+/**
+ * El panel del castillo: lo que se abrió en la base (`views/base.ts`) arriba y
+ * lo general debajo. Contratar héroe va en lo general, con taberna o sin ella:
+ * `hireHero` no la pide, y atarlo a un edificio sería una regla escrita en la
+ * pantalla (crítica del ciclo de la base caminable).
+ */
+function renderTownPanel(session: Session, abierto: Abierto | null): Html {
   const town = session.activeTown;
   if (town === null) return NADA;
 
   // Solo los héroes PROPIOS: un rival parado en tu castillo no te enseña su
   // ejército, y sobre todo no esconde tu guarnición.
-  const heroeAqui = session.myHeroes().find((h) => h.at.x === town.at.x && h.at.y === town.at.y);
+  const heroeAqui = session.heroeEnLaBase() ?? undefined;
+  const contratar =
+    heroeAqui === undefined
+      ? html`<button data-action="hire-hero" class="primary" style="margin-top:.7rem">Contratar héroe (2500 oro)</button>`
+      : html`<p class="cost">${heroeAqui.name} ya está dentro: contrata otro cuando salga.</p>`;
 
   // El `crecimiento || '<div…>Sin moradas</div>'` de antes no vale con marcado:
   // un fragmento vacío es un OBJETO, y `||` lo da por bueno siempre. Se pregunta
@@ -611,13 +618,19 @@ function renderTownPanel(session: Session): Html {
           }),
         );
 
-  return html`
+  return html`${renderAbierto(session, town, abierto, {
+    hechizos: renderTownSpells(town),
+    armeria: renderArmeria(session, town),
+    contratar,
+  })}
     <h2>${town.name}</h2>
     <div class="row"><span class="label">Ingresos</span><span>${dailyIncome(town)} oro/día</span></div>
     <div class="row"><span class="label">Gremio de magia</span><span>${mageGuildLevel(town) || '—'}</span></div>
-    ${renderTownSpells(town)}
     <div class="row"><span class="label">Construir hoy</span><span>${town.builtToday ? 'ya hecho' : 'disponible'}</span></div>
-    <p class="cost">Pulsa un solar para levantarlo y la franja de abajo para reclutar.</p>
+    <p class="cost">Pulsa el ayuntamiento para ampliar la base, una morada para reclutar, un edificio para ver lo suyo o a alguien para hablar.</p>
+
+    <h3>Edificios</h3>
+    <div class="stack-list ir-a-sitio">${renderListaDeEdificios(session)}</div>
 
     <h3>Crecimiento semanal</h3>
     <div class="stack-list">${crecimiento}</div>
@@ -629,12 +642,32 @@ function renderTownPanel(session: Session): Html {
     ${
       heroeAqui === undefined
         ? html`<p class="cost">Sin héroe dentro, lo que reclutes se queda de guarnición.</p>
-          <button data-action="hire-hero" class="primary" style="margin-top:.7rem">Contratar héroe (2500 oro)</button>`
+          ${contratar}`
         : html`${renderLibroEnElCastillo(session, heroeAqui, town)}<h3>Tropa de ${heroeAqui.name}</h3>
           ${filaLiderazgo(session.liderazgo({ heroe: heroeAqui.id }))}
           <p class="cost">Lo que reclutes va a su tropa, hasta su liderazgo. Licencia lo que sobre para hacer sitio a algo mejor.</p>
           ${renderTropaLicenciable(heroeAqui.id, heroeAqui.army, session.state.characters)}`
-    }${renderArmeria(session, town)}`;
+    }`;
+}
+
+/**
+ * Lo construido en la base, de izquierda a derecha en la plaza: pulsar uno
+ * lleva a su puerta y abre lo suyo (`EscenaBase.irA`). El escenario es más
+ * ancho que la vista y un edificio lejano no se ve para pulsarlo.
+ */
+function renderListaDeEdificios(session: Session): Html {
+  const vista = session.vistaDeLaBase();
+  if (vista === null) return NADA;
+  const d = disposicionDe(vista.faccion);
+  const enLaPlaza = [...vista.edificios].sort(
+    (a, b) => d.sitios[a.sitio].puerta.x - d.sitios[b.sitio].puerta.x,
+  );
+  return unir(
+    enLaPlaza.map(
+      (e) =>
+        html`<button class="stack" data-action="ir-a-sitio" data-sitio="${e.sitio}" title="Ir a la puerta"><span>${e.nombre}</span></button>`,
+    ),
+  );
 }
 
 /**

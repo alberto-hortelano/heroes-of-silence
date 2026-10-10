@@ -20,6 +20,7 @@ import {
   serializeAdventureTurn,
   serializeBattleTurn,
   serializeHeroFromTroop,
+  serializeTownVoices,
 } from '@core/contract/serialize.js';
 import { porPreguntar } from '@core/hero/ascenso.js';
 import { NIVEL_MAXIMO_DE_TROPA, nivelDeHeroe } from '@core/hero/experiencia.js';
@@ -39,9 +40,12 @@ import {
   resolvePendingBattle,
   settleBattle,
   sidesOwnedBy,
+  townsOf,
   veteranosEnSuBase,
+  week,
 } from '@core/state/game.js';
 import { newGame } from '@core/state/setup.js';
+import { firmaDeVoces, ponerVoces, vocesCaducadas } from '@core/town/voces.js';
 import type { PlayerId } from '@core/types.js';
 import type { AgentLink } from './agent-link.js';
 import {
@@ -54,6 +58,7 @@ import {
   notaAscensoRechazado,
   notaMarchaParcial,
   notaTurnoAventura,
+  notaVoces,
   paradaDeLaMarcha,
   type TurnoAbierto,
 } from './notas.js';
@@ -154,6 +159,13 @@ export class Director {
    * cada jugador del agente le borraría los suyos al otro.
    */
   private readonly yaPreguntados = new Map<PlayerId, Set<string>>();
+  /**
+   * La firma (`firmaDeVoces`) con la que ya se le pidieron las voces de cada
+   * base. Va aparte de `Town.voces` por lo que no llega: si el agente no
+   * contesta, la base sigue caducada en el núcleo y sin esto se le volvería a
+   * preguntar cada turno lo mismo que acaba de callar.
+   */
+  private readonly vocesPedidas = new Map<string, string>();
 
   /**
    * Un fotograma, si hay quien lo mire.
@@ -312,8 +324,71 @@ export class Director {
     }
   }
 
+  /**
+   * Las voces de las bases de `player` que caducaron —semana nueva o algo
+   * construido—, en **una** petición `town_voices` con todas, no una por base:
+   * el agente hace un `adventure_turn` por día, y una por base lo multiplicaría.
+   *
+   * Va después de los ascensos (que cambian quién hay en la base) y antes del
+   * turno. Como el ascenso, un fallo —plazo agotado, esquema malo— se anota y no
+   * detiene nada: la gente dice sus frases de siempre y la base no se vuelve a
+   * pedir hasta que cambie su firma (`vocesPedidas`).
+   */
+  private async voces(player: PlayerId): Promise<void> {
+    const semana = week(this.state);
+    const caducadas = townsOf(this.state, player).filter(
+      (t) => vocesCaducadas(t, semana) && this.vocesPedidas.get(t.id) !== firmaDeVoces(t, semana),
+    );
+    if (caducadas.length === 0) return;
+    for (const t of caducadas) this.vocesPedidas.set(t.id, firmaDeVoces(t, semana));
+
+    const respuesta = await this.link
+      .ask('town_voices', serializeTownVoices(this.state, player, caducadas))
+      .catch((err: unknown) => {
+        this.note(
+          `Las voces de ${caducadas.map((t) => t.name).join(', ')} no llegan: ${err instanceof Error ? err.message : String(err)}`,
+        );
+        return null;
+      });
+    if (respuesta === null) return;
+    if (respuesta.data.reasoning !== undefined) this.note(`Agente: ${respuesta.data.reasoning}`);
+
+    const rechazos: string[] = [];
+    let aceptadas = 0;
+    let bases = 0;
+    const porBase = new Map<string, { npc: string; lines: string[] }[]>();
+    for (const v of respuesta.data.voices) {
+      if (!caducadas.some((t) => t.id === v.town)) {
+        rechazos.push(
+          `${v.town}/${v.npc}: "${v.town}" no es una de las bases que se te han pedido (${caducadas.map((t) => t.id).join(', ')})`,
+        );
+        continue;
+      }
+      const lista = porBase.get(v.town) ?? [];
+      lista.push({ npc: v.npc, lines: v.lines });
+      porBase.set(v.town, lista);
+    }
+    // Todas las pedidas, también las que no traen ninguna voz: su firma se
+    // apunta igual y su gente vuelve a las frases de siempre.
+    for (const t of caducadas) {
+      const r = ponerVoces(t, player, semana, porBase.get(t.id) ?? []);
+      aceptadas += r.aceptadas;
+      if (r.aceptadas > 0) bases++;
+      rechazos.push(...r.rechazos.map((m) => `${t.id}/${m}`));
+    }
+    this.frame();
+    this.note(`Voces de ${bases} base(s): ${aceptadas} línea(s), ${rechazos.length} rechazo(s).`);
+    this.link.report(
+      respuesta.requestId,
+      rechazos.length === 0,
+      rechazos.length === 0 ? undefined : rechazos,
+      notaVoces(aceptadas, bases, rechazos.length),
+    );
+  }
+
   private async playAgentTurn(playerId: PlayerId): Promise<TurnReport> {
     await this.ascensos(playerId);
+    await this.voces(playerId);
     // El día se anota antes: `end_turn` puede pasar de día y la nota tiene que
     // hablar del turno que el agente acaba de jugar, no del siguiente.
     const dia = this.state.day;

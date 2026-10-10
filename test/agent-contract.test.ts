@@ -31,6 +31,7 @@ import {
   serializeBattleTurn,
   serializeKnownMap,
   serializeMapRequest,
+  serializeTownVoices,
 } from '../src/core/contract/serialize.js';
 import { ASALTANTES, allCreatures, creature, EQUIPO } from '../src/core/data.js';
 import { NOMBRE_DE_CALIDAD } from '../src/core/hero/equipo.js';
@@ -1507,5 +1508,46 @@ describe('la tropa se hace héroe: el contrato', () => {
       expect(h.type).toBe('caballero');
       expect('story' in h).toBe(false);
     }
+  });
+});
+
+describe('las voces de la base (town_voices)', () => {
+  it('está en las tres tablas, y la prosa nombra los campos y los topes', () => {
+    expect(REQUEST_KINDS).toContain('town_voices');
+    expect(responseSchemas.town_voices).toBeDefined();
+    const prosa = RESPONSE_FORMAT.town_voices;
+    for (const campo of ['"voices"', '"town"', '"npc"', '"lines"', '160', 'PRESENTACIÓN']) {
+      expect(prosa, campo).toContain(campo);
+    }
+  });
+
+  it('el esquema acota la forma: de 1 a 3 líneas por persona y 48 voces como mucho', () => {
+    const voz = (lines: string[]) => ({ town: 't', npc: 'encargado-hall', lines });
+    const esquema = responseSchemas.town_voices;
+    expect(esquema.safeParse({ voices: [voz(['Hola.'])] }).success).toBe(true);
+    expect(esquema.safeParse({ voices: [voz([])] }).success).toBe(false);
+    expect(esquema.safeParse({ voices: [voz(['a', 'b', 'c', 'd'])] }).success).toBe(false);
+    expect(
+      esquema.safeParse({ voices: Array.from({ length: 49 }, () => voz(['x'])) }).success,
+    ).toBe(false);
+    // Una línea con un salto NO tira la respuesta entera: la juzga `ponerVoces`
+    // línea a línea (criterio 8), y por eso el esquema la deja pasar.
+    expect(esquema.safeParse({ voices: [voz(['bien', 'con\nsalto'])] }).success).toBe(true);
+  });
+
+  it('la petición trae cada base pedida con su gente y lo que dice ahora, y la crónica corta', () => {
+    const state = newGame({ seed: 41 });
+    const town = state.towns.find((t) => t.owner === 0)!;
+    const p = serializeTownVoices(state, 0, [town]);
+    expect(p.kind).toBe('town_voices');
+    expect(p.towns).toHaveLength(1);
+    const ids = p.towns[0]!.npcs.map((n) => n.id);
+    expect(ids).toContain('encargado-hall');
+    for (const n of p.towns[0]!.npcs) {
+      expect(n.current.length, n.id).toBeGreaterThan(0);
+      expect(n.name.length, n.id).toBeGreaterThan(0);
+    }
+    expect(p.towns[0]!.npcs.find((n) => n.id === 'encargado-hall')!.building).toBe('Ayuntamiento');
+    expect(p.recentEvents.length).toBeLessThanOrEqual(10);
   });
 });

@@ -13,7 +13,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { adaptarBatalla } from '../src/client/espectador/adaptar.js';
-import { batalla, panelDelEspectador } from '../src/client/espectador/paneles.js';
+import { batalla, panelDelEspectador, vocesDeLasBases } from '../src/client/espectador/paneles.js';
 import { Reproductor } from '../src/client/espectador/reproductor.js';
 import {
   batallaTerminada,
@@ -34,6 +34,7 @@ import { reachableFrom } from '../src/core/map/map.js';
 import { createRng } from '../src/core/rng.js';
 import { applyAdventureAction, type GameState, settleBattle } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
+import { ponerVoces } from '../src/core/town/voces.js';
 import type { SpectatorSnapshotMsg } from '../src/server/protocol.js';
 import { construirVista, type SpectatorView } from '../src/server/vista-espectador.js';
 import { costesDelAlcance, forzarBatalla, monstruoVivo } from './helpers.js';
@@ -193,6 +194,29 @@ describe('el fin de la partida en el panel', () => {
     );
     expect(sinGanador).toContain('Fin de la partida');
     expect(sinGanador).toContain('no gana nadie');
+  });
+});
+
+describe('las voces de la base en el espectador', () => {
+  it('sin narrador no sale la sección; con voces narradas, sale con su nombre y su línea', () => {
+    const state = newGame({ seed: 23 });
+    const sin = construirVista(state, []);
+    expect(sin.towns.every((t) => t.voces.length === 0)).toBe(true);
+    expect(marcadoDe(vocesDeLasBases(sin))).toBe('');
+    expect(marcadoDe(panelDelEspectador(sin, null))).not.toContain('Voces de la base');
+
+    const town = state.towns.find((t) => t.owner === 0)!;
+    ponerVoces(town, 0, 1, [{ npc: 'encargado-hall', lines: ['<b>Hoy</b> llueve.'] }]);
+    const con = construirVista(state, []);
+    const voces = con.towns.find((t) => t.id === town.id)!.voces;
+    expect(voces).toEqual([
+      expect.objectContaining({ npc: 'encargado-hall', linea: '<b>Hoy</b> llueve.' }),
+    ]);
+    const marcado = marcadoDe(panelDelEspectador(con, null));
+    expect(marcado).toContain('Voces de la base');
+    // Lo escribe el agente: sale escapado, como todo lo ajeno.
+    expect(marcado).toContain('&lt;b&gt;Hoy&lt;/b&gt; llueve.');
+    expect(marcado).not.toContain('<b>Hoy</b>');
   });
 });
 

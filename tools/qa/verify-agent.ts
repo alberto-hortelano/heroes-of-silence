@@ -154,6 +154,34 @@ const ascenso: { requestId: string | null; nombre: string | null; visto: string 
   visto: null,
 };
 
+/**
+ * Las voces de la base (`town_voices`), cruzadas de verdad: cuántas peticiones
+ * salen frente a los turnos de mapa —el riesgo de la crítica era que casi
+ * doblaran las peticiones del agente— y que al menos una reciba su veredicto
+ * bueno. Sin esto, una petición que no se emitiera saldría verde.
+ */
+const voces: { pedidas: string[]; ultimaPayload: any } = { pedidas: [], ultimaPayload: null };
+
+/** Que las voces crucen: al menos una pedida, con veredicto, y bueno. Y el recuento. */
+function exigeLasVoces(turnos: number): void {
+  if (voces.pedidas.length === 0) {
+    throw new Error('no ha llegado ningún "town_voices": la base del agente no ha pedido voces');
+  }
+  const conVeredicto = voces.pedidas
+    .map((id) => veredictos.find((v) => v.requestId === id))
+    .filter((v) => v !== undefined);
+  if (conVeredicto.length === 0) {
+    throw new Error(`ningún "town_voices" ha recibido veredicto (${voces.pedidas.join(', ')})`);
+  }
+  const malo = conVeredicto.find((v) => !v.ok);
+  if (malo !== undefined) throw new Error(`unas voces se rechazaron: ${detalle(malo)}`);
+  const porTurno = turnos === 0 ? 0 : voces.pedidas.length / turnos;
+  log(
+    `voces: ${voces.pedidas.length} "town_voices" para ${turnos} "adventure_turn" (${porTurno.toFixed(2)} por turno); ${conVeredicto.length} con veredicto bueno; ` +
+      `la última pidió ${voces.ultimaPayload?.towns?.length ?? 0} base(s) y ${(voces.ultimaPayload?.towns ?? []).reduce((n: number, t: any) => n + (t.npcs?.length ?? 0), 0)} persona(s)`,
+  );
+}
+
 /** Una consulta que tiene que devolver JSON. Si no, es que el puente miente. */
 async function consulta(
   client: Client,
@@ -498,6 +526,7 @@ async function terminarBien(
     throw new Error('no se ha llegado a comprobar que ninguna acción se aplicara de verdad');
   }
   avisaRendicion();
+  exigeLasVoces(turnos);
   const faltan = ['game_state', 'map', 'creature_stats', 'spell_list', 'building_list'].filter(
     (n) => !consultadas.has(n),
   );
@@ -812,7 +841,11 @@ async function main(): Promise<void> {
         stepsLeft: Number(payload.stepsLeft),
       });
     } else if (kind === 'map_generate') mapas++;
-    else if (kind === 'hero_from_troop') {
+    else if (kind === 'town_voices') {
+      // Tampoco es un turno de mapa: va antes del `adventure_turn`, como el ascenso.
+      voces.pedidas.push(RE_PETICION.exec(texto)?.[1] ?? '');
+      voces.ultimaPayload = payload;
+    } else if (kind === 'hero_from_troop') {
       ascenso.requestId = RE_PETICION.exec(texto)?.[1] ?? null;
       ascenso.nombre = String((respuesta as { name: string }).name);
     } else turnos++;

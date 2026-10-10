@@ -60,9 +60,12 @@ html, body {
 }
 
 #resources { display: flex; gap: 0.9rem; margin: 0; padding: 0; list-style: none; flex-wrap: wrap; }
-#resources li { display: flex; align-items: center; gap: 0.3rem; font-variant-numeric: tabular-nums; }
+/* La muestra de color y el icono ocupan la misma caja de 1,15rem: cuando llega el
+   icono, la barra de arriba no crece y el lienzo no se mueve (lo daba por movido
+   `pnpm capturas`, que tenía que esperar a que se quedara quieto). */
+#resources li { display: flex; align-items: center; gap: 0.3rem; min-height: 1.15rem; font-variant-numeric: tabular-nums; }
 #resources .res-icon { width: 1.15rem; height: 1.15rem; object-fit: contain; }
-#resources .swatch { width: 0.65rem; height: 0.65rem; border: 1px solid rgba(0, 0, 0, 0.4); }
+#resources .swatch { width: 0.65rem; height: 0.65rem; margin: 0 0.25rem; border: 1px solid rgba(0, 0, 0, 0.4); }
 
 #stage {
   display: grid;
@@ -250,6 +253,21 @@ progress.liderazgo::-moz-progress-bar { background: #d5ba78; }
 .log .lose { color: var(--danger); }
 
 /*
+ * La base en el escritorio: un marco apaisado (alto = 0,55 × ancho), no el alto
+ * entero de la columna. Con el paso del combate (`pasoDeLaBase`) un tramo de la
+ * plaza mide 8 pasos de alto, y en un lienzo de 1080×773 (8,7 pasos) cabía entero
+ * con cielo encima: la plaza se leía como un descampado. A 0,55 se ven las
+ * puertas y lo que entre de alto, y los edificios altos se cortan por arriba. No
+ * baja de 0,495, donde el combate deja de ir por el ancho: así el paso es el
+ * mismo que el de una batalla en el lienzo entero.
+ */
+#app[data-escena='town'] .map-wrap {
+  align-self: start;
+  aspect-ratio: 20 / 11;
+  max-height: 100%;
+}
+
+/*
  * Móvil: se apila todo y la página se desplaza. El tablero de batalla a 25° es
  * casi 3:1 y a 390 px los hexes no se pueden tocar, así que en batalla —y en el
  * castillo, que es un cuadro de 16:9— el lienzo se ensancha y se desplaza en
@@ -267,12 +285,15 @@ progress.liderazgo::-moz-progress-bar { background: #d5ba78; }
   #topbar .marca { display: none; }
   #stage { display: block; padding: 8px; overflow-y: auto; }
   .map-wrap { height: 62dvh; border-width: 5px; }
-  #app[data-escena='battle'] .map-wrap,
-  #app[data-escena='town'] .map-wrap { overflow-x: auto; overflow-y: hidden; }
+  #app[data-escena='battle'] .map-wrap { overflow-x: auto; overflow-y: hidden; }
   #app[data-escena='battle'] #canvas { width: 860px; }
-  #app[data-escena='town'] #canvas { width: 760px; }
-  #app[data-escena='battle'] .map-wrap { height: 380px; }
-  #app[data-escena='town'] .map-wrap { height: 440px; }
+  /* La base va en el marco del combate, 380 px de alto, y su figura mide lo que
+     en una batalla de 860 px (`pasoDeLaBase`, `ANCHO_DEL_COMBATE_EN_MOVIL`). El
+     marco no se desplaza: el escenario ya se recorre con su cámara, que sigue a
+     quien camina (`render/base/camara.ts`). */
+  #app[data-escena='battle'] .map-wrap,
+  #app[data-escena='town'] .map-wrap { height: 380px; }
+  #app[data-escena='town'] .map-wrap { aspect-ratio: auto; }
   .map-tools button { min-width: 44px; min-height: 44px; }
   #lateral { border-left: 0; padding: 12px 0 0; }
   .atlas-panel { max-width: 150px; }
@@ -285,3 +306,30 @@ button.dormir { font-size: 0.75rem; padding: 0.1rem 0.55rem; margin-bottom: 0.4r
 .stack .duerme { color: var(--ink-dim); font-style: italic; font-size: 0.85em; }
 /* La pregunta de fin de turno, en la barra de abajo junto a sus dos botones. */
 .aviso-fin-de-turno { align-self: center; color: #f2deac; }
+
+/* La base caminable: la conversación con un vecino, sobre el lienzo, y lo que se
+   abre en el panel al llegar a una puerta. */
+/* Arriba, sobre el cielo y los tejados: quien habla y quien escucha están
+   siempre abajo, en la franja que se pisa, y abajo el cuadro los tapaba en el
+   lienzo del móvil, de 380 px de alto. */
+.conversacion {
+  position: absolute;
+  left: 1rem;
+  right: auto;
+  top: 1rem;
+  bottom: auto;
+  margin: 0;
+  max-width: min(28rem, calc(100% - 2rem));
+  padding: 0.7rem 0.9rem;
+  background: rgba(24, 21, 16, 0.94);
+  color: var(--ink, #e8dcc4);
+  border: 1px solid #8f7849;
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  z-index: 3;
+}
+.conversacion h3 { margin: 0 0 0.1rem; }
+.conversacion .linea { font-family: Georgia, serif; font-size: 1.05em; margin: 0.4rem 0 0.6rem; }
+.abierto-en-la-base { border-bottom: 1px solid #4a3c2a; padding-bottom: 0.6rem; margin-bottom: 0.6rem; }
+.abierto-en-la-base .motivo { color: #d08a6a; }
+.abierto-en-la-base .reclutar { grid-template-columns: 1fr 1fr; margin: 0.4rem 0; }

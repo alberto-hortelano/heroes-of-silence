@@ -39,6 +39,11 @@
  *   pnpm taller escenario [semilla…]     el escenógrafo: compone, pinta, captura y mide
  *   pnpm taller derivar-relieve [hoja…]  apunta las juntas de cada módulo del relieve desde su guía: laderas (§20), diagonales y bajadas (§23); corta las rampas (§35)
  *   pnpm taller catalogo-escena          rehace assets/mapa/escena.json, el catálogo que lee el juego
+ *   pnpm taller encolar --base knight [--solo=maestro-t1,placa-t1,…]
+ *                                        la plaza de la base en un solo cuadro (vuelta 3, `base.ts`): maestro, placa y ediciones de cada tramo
+ *   pnpm taller recortar-base knight     deriva los tramos (lo de encima del pie), el suelo y cada recorte, y rehace el índice (`recorte-base.ts`)
+ *   pnpm taller medir-base knight [n]    propone las regiones de un tramo, para `data/bases/knight.json`
+ *   pnpm taller vista-base knight [dir]  la revisión: tramos, máscaras, compuesta, costuras y eslabones
  *   pnpm taller vista-ejercitos          una página con todos los ejércitos, para elegir o comparar
  *   pnpm taller vista-8d [unidad|juego]  el visor de 8 direcciones de las unidades y las poses
  *
@@ -65,7 +70,9 @@ import {
   esHojaDeRelieve,
 } from '../../src/client/render/escenario/catalogo.js';
 import type { Escena } from '../../src/client/render/escenario/colocar.js';
+import { FACTION_IDS, type FactionId } from '../../src/core/types.js';
 import { type ClipDeFigura, FIGURA, HOJAS_DE_FIGURA } from '../../src/shared/arte.js';
+import { disposicionDe } from '../../src/shared/base.js';
 import {
   DIR_MANIQUIES,
   JUEGOS_DE_ARMAS,
@@ -79,6 +86,7 @@ import {
   escribirGuiasDeBajadas,
   NIVELES_DE_BAJADA,
 } from './bajadas.js';
+import { encargosDeLaBase, escribirFuentesDeLaBase } from './base.js';
 import { CODEX, FalloDeCodex, type Generacion, generar } from './codex.js';
 import { Cola } from './cola.js';
 import {
@@ -141,6 +149,7 @@ import {
 import { escribirAtlasDePoses, RUTA_DEL_ATLAS_8D, sueltaDeUnidad } from './poses-8d.js';
 import { encargosDeRampas, escribirGuiasDeRampas, escribirRampasDerivadas } from './rampas.js';
 import { aRaster, dePng, recortar, UMBRALES } from './recorte.js';
+import { medirLaBase, recortarLaBase } from './recorte-base.js';
 import { costura, hacerTeselable, LADO_DE_TEXTURA, UMBRAL_DE_COSTURA } from './textura.js';
 import {
   encargoDeGiro,
@@ -152,9 +161,19 @@ import {
 import { validar } from './validar.js';
 import { vistaEdificios, vistaEfectos, vistaEjercitos } from './vista.js';
 import { vista8d } from './vista-8d.js';
+import { vistaBase } from './vista-base.js';
 import { vistaMapa } from './vista-mapa.js';
 
 const RAIZ = resolve(import.meta.dirname, '../..');
+
+/** La facción de un argumento de la línea de órdenes, o lanza con el uso. */
+function faccionDe(arg: string | undefined, uso: string): FactionId {
+  const f = FACTION_IDS.find((x) => x === arg);
+  if (f === undefined) {
+    throw new Error(`uso: ${uso} (la facción es una de ${FACTION_IDS.join(', ')}, no «${arg}»)`);
+  }
+  return f;
+}
 /**
  * El fondo sobre el que se le enseña la hoja de pose a ChatGPT: verde de croma, no
  * transparente ni gris (el gris claro se confundía con el maniquí).
@@ -256,6 +275,16 @@ async function postprocesar(
       extra = { costura: c };
     } else if (encargo.fondo === 'opaco') {
       final = crudo;
+      const t = encargo.tamano;
+      if (t !== undefined) {
+        const m = await sharp(crudo).metadata();
+        if (m.width !== t.ancho || m.height !== t.alto) {
+          final = await sharp(crudo).resize(t.ancho, t.alto, { fit: 'fill' }).png().toBuffer();
+          pasos.push(
+            `llevado de ${m.width}×${m.height} a ${t.ancho}×${t.alto}, el tamaño que pide`,
+          );
+        }
+      }
     } else {
       // Un efecto es semitransparente a propósito (humo, resplandor): recorte suave.
       const r =
@@ -360,6 +389,15 @@ async function postprocesar(
         await escribirPuenteDerivado(rutaSalida);
         pasos.push('ancla llevada al centro del tablero desde la guía de geometría');
       }
+    }
+    // La base caminable: con cada cuadro nuevo (un maestro, una placa, una
+    // edición) se vuelve a recortar lo que ya se puede y se rehace el índice.
+    if (encargo.despues?.orden === 'recortar-base') {
+      const { indice, avisos } = await recortarLaBase(encargo.despues.faccion);
+      pasos.push(
+        `recortes de la base rehechos: ${Object.keys(indice.edificios).length} edificios, placas ${indice.tramos.filter((t) => t !== null).length} de ${indice.tramos.length}`,
+        ...avisos,
+      );
     }
     if (encargo.tipo === 'efecto') {
       const d = await escribirEfectoDerivado(rutaSalida);
@@ -602,6 +640,48 @@ async function encolar(args: readonly string[]): Promise<void> {
     const bruto = encargoDeCofre();
     if (args.includes('--rehacer')) await COLA.olvidar(bruto.id);
     console.log(`encolado ${(await COLA.encolar(bruto)).id}`);
+    return;
+  }
+  // La base caminable (vuelta 3): los maestros, las placas y las ediciones, en
+  // serie; cada uno se encola cuando ya está lo que lleva de referencia, así que
+  // se vuelve a correr cuando haya llegado lo de la tanda anterior. Las guías y
+  // las hojas de identidad que falten se escriben antes en `fuentes/`.
+  const base = args.indexOf('--base');
+  if (base >= 0) {
+    const faccion = faccionDe(
+      args[base + 1],
+      'pnpm taller encolar --base knight [--rehacer] [--solo=maestro-t1,placa-t1,edicion-town-hall,…]',
+    );
+    for (const g of await escribirFuentesDeLaBase(faccion)) console.log(`fuente: ${g}`);
+    const { listos, esperan } = encargosDeLaBase(faccion);
+    // `--solo=`: por el id sin `base-<facción>-`. Con `--rehacer`, solo esos se
+    // olvidan: sin él, `--rehacer` volvería a pedir la base entera.
+    const prefijo = `base-${faccion}-`;
+    const solo = args
+      .find((x) => x.startsWith('--solo='))
+      ?.slice('--solo='.length)
+      .split(',');
+    const desconocidos = (solo ?? []).filter(
+      (s) =>
+        !listos.some((e) => e.id === prefijo + s) && !esperan.some((e) => e.startsWith(`${s} `)),
+    );
+    if (desconocidos.length > 0) {
+      throw new Error(
+        `--solo: no hay ${desconocidos.join(', ')}; se pueden pedir ${listos.map((e) => e.id.slice(prefijo.length)).join(', ')}`,
+      );
+    }
+    await COLA.preparar();
+    for (const bruto of listos) {
+      if (solo !== undefined && !solo.includes(bruto.id.slice(prefijo.length))) continue;
+      if (args.includes('--rehacer')) await COLA.olvidar(bruto.id);
+      const estado = await COLA.estado();
+      if (Object.values(estado).some((ids) => ids.includes(bruto.id))) {
+        console.log(`ya está en la cola: ${bruto.id}`);
+        continue;
+      }
+      console.log(`encolado ${(await COLA.encolar(bruto)).id}`);
+    }
+    for (const e of esperan) console.log(`espera: ${e}`);
     return;
   }
   if (args.includes('--edificios')) {
@@ -881,6 +961,37 @@ switch (orden) {
   case 'vista-ejercitos':
     console.log(`→ ${await vistaEjercitos()}`);
     break;
+  case 'vista-base': {
+    const uso = 'pnpm taller vista-base knight [carpeta-de-salida [prefijo]]';
+    console.log(await vistaBase(faccionDe(resto[0], uso), resto[1], resto[2]));
+    break;
+  }
+  case 'recortar-base': {
+    const faccion = faccionDe(resto[0], 'pnpm taller recortar-base knight');
+    const { indice, avisos } = await recortarLaBase(faccion);
+    for (const [id, e] of Object.entries(indice.edificios))
+      console.log(`${id}: tramo ${e.tramo}, en (${e.en.join(', ')}), ${e.ancho}×${e.alto}`);
+    console.log(
+      `placas: ${indice.tramos.map((t, i) => `T${i + 1} ${t === null ? 'falta' : 'sí'}`).join(' · ')}`,
+    );
+    for (const a of avisos) console.log(`aviso: ${a}`);
+    break;
+  }
+  case 'medir-base': {
+    const faccion = faccionDe(resto[0], 'pnpm taller medir-base knight [tramo]');
+    const tramos =
+      resto[1] === undefined
+        ? Array.from({ length: disposicionDe(faccion).tramos }, (_, i) => i + 1)
+        : [Number(resto[1])];
+    for (const n of tramos) {
+      try {
+        for (const l of await medirLaBase(faccion, n)) console.log(`T${n} ${l}`);
+      } catch (err) {
+        console.log(`T${n}: ${err instanceof Error ? err.message : err}`);
+      }
+    }
+    break;
+  }
   case 'vista-edificios':
     console.log(`→ ${await vistaEdificios()}`);
     break;
@@ -1017,6 +1128,6 @@ switch (orden) {
     break;
   default:
     throw new Error(
-      `orden desconocida «${orden}»: trabajar, encolar, corregir, retirar, reprocesar, estado, devolver, derivar, derivar-poses, derivar-relieve, maniqui, vista-ejercitos, vista-edificios, vista-efectos, vista-8d, vista-mapa, escenario, catalogo-escena, evaluar`,
+      `orden desconocida «${orden}»: trabajar, encolar, corregir, retirar, reprocesar, estado, devolver, derivar, derivar-poses, derivar-relieve, maniqui, vista-base, recortar-base, medir-base, vista-ejercitos, vista-edificios, vista-efectos, vista-8d, vista-mapa, escenario, catalogo-escena, evaluar`,
     );
 }

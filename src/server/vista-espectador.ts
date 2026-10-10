@@ -26,7 +26,9 @@ import type { TerrainKind } from '@core/map/terrain.js';
 import type { VistaAsaltante } from '@core/state/asaltantes.js';
 import type { GameEventDraft } from '@core/state/events.js';
 import { sinSello } from '@core/state/events.js';
-import { battleOwners, type GameState } from '@core/state/game.js';
+import { battleOwners, type GameState, week } from '@core/state/game.js';
+import type { Town } from '@core/town/town.js';
+import { vecinosDeLaBase, vozDe } from '@core/town/voces.js';
 import type { FactionId, PlayerId, Point, Resources, UnitInfo, Veterania } from '@core/types.js';
 
 /**
@@ -91,6 +93,19 @@ export interface VistaPueblo {
   readonly name: string;
   readonly at: Point;
   readonly buildings: readonly string[];
+  /**
+   * Lo que dice hoy la gente a la que el narrador ha puesto voz, ya resuelto: el
+   * espectador no tiene pantalla de base y solo lo lista. Sin narrador va vacío
+   * —las frases de respaldo no son noticia y engordarían cada fotograma—.
+   */
+  readonly voces: readonly VozEnLaBase[];
+}
+
+export interface VozEnLaBase {
+  readonly npc: string;
+  readonly nombre: string;
+  readonly papel: string;
+  readonly linea: string;
 }
 
 /**
@@ -188,6 +203,21 @@ export interface SpectatorView {
  * estado: lo escribe el director, que es quien conduce. Y `| null` en `battle`
  * en vez de opcional, por `exactOptionalPropertyTypes`.
  */
+/** Lo que dice hoy quien tiene voz narrada en esa base, en el orden de su gente. */
+function vocesNarradas(state: GameState, t: Town): VozEnLaBase[] {
+  const lineas = t.voces?.lineas;
+  if (lineas === undefined) return [];
+  const semana = week(state);
+  return vecinosDeLaBase(t)
+    .filter((v) => (lineas[v.id]?.length ?? 0) > 0)
+    .map((v) => ({
+      npc: v.id,
+      nombre: v.nombre,
+      papel: v.papel,
+      linea: vozDe(t, v.id, semana, state.day),
+    }));
+}
+
 export function construirVista(state: GameState, directorLog: readonly string[]): SpectatorView {
   const pending = state.pendingBattle;
   const indice = (p: Point): number => p.y * state.map.width + p.x;
@@ -228,6 +258,7 @@ export function construirVista(state: GameState, directorLog: readonly string[])
       name: t.name,
       at: t.at,
       buildings: t.buildings,
+      voces: vocesNarradas(state, t),
     })),
     raiders: state.raiders.map((r) => ({ id: r.id, at: r.at, troops: r.troops })),
     // Sin el sello: el espectador ve la partida entera —eso es lo que es— pero

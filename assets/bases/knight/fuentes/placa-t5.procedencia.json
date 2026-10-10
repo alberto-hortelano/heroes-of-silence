@@ -1,0 +1,46 @@
+{
+  "encargo": "base-knight-placa-t5",
+  "tipo": "imagen",
+  "fecha": "2026-10-09T18:58:48.400Z",
+  "herramienta": {
+    "nombre": "codex exec (ChatGPT por la suscripción, imagegen integrado)",
+    "version": "codex-cli 0.155.0-alpha.16.4"
+  },
+  "hilo": "01a12206-9037-76d2-b0e5-b92aa59f1ad4",
+  "prompt": "Genera UNA imagen con la herramienta de imágenes integrada. No escribas código ni ficheros: solo la imagen.\n\nLa imagen 1 es la IMAGEN QUE SE EDITA: el resultado es esta misma imagen, píxel a píxel, con el ÚNICO cambio que se pide. Todo lo demás —el encuadre, la escala, la luz, el cielo, el empedrado y cada cosa en su sitio— se queda exactamente igual.\n\nEl único cambio: QUITA los edificios principales de la plaza (el cuartel de piqueros (morada 3), los establos de la caballería (morada 5)). En su sitio pon lo mismo que ya cierra la plaza entre ellos: traseras y costados de casas de piedra y entramado, muros de piedra, algún árbol; sin puertas principales, sin carteles ni banderas, que no llame la atención.\nNO cambies nada más: el empedrado, su borde, la luz, el cielo, el encuadre, la escala, el árbol y el pilar de la junta de los bordes y lo que ya cerraba la plaza se quedan exactamente igual, en el mismo sitio. El pie de lo nuevo va sobre el mismo borde del empedrado donde estaba el pie de cada edificio quitado.\nMismo tamaño: 1536×1024.\n\nImagen opaca, sin texto ni marco.",
+  "referencias": [
+    {
+      "ruta": "assets/bases/knight/fuentes/maestro-t5.webp",
+      "papel": "edita",
+      "sha256": "5c5ee6548fcd1f4a8a9f5c5d58755daccf135ec2ffac5b3e87dce1a9d9643f56"
+    }
+  ],
+  "crudo": {
+    "fichero": "~/.codex/generated_images/01a12206-9037-76d2-b0e5-b92aa59f1ad4/exec-31aa8dd2-4267-43d9-b5f8-8c4af2df4183.png",
+    "sha256": "75347b745cc615635f721ce85339e142df163ea20ff0e6590ceb9a9c5b29fb9a",
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "postproceso": [
+    "WebP calidad 92, alfa sin pérdida",
+    "recortes de la base rehechos: 16 edificios, placas 5 de 5",
+    "village_hall: lo recortado toca el borde de su región en x0 (682) y x1 (1110)",
+    "castle: lo recortado toca el borde de su región en x0 (1110)",
+    "mage_guild_1: lo recortado toca el borde de su región en x1 (476)",
+    "mage_guild_2: lo recortado toca el borde de su región en x1 (476)",
+    "tavern: lo recortado toca el borde de su región en x0 (476)",
+    "marketplace: lo recortado toca el borde de su región en x0 (256)",
+    "knight_dwelling_1: lo recortado toca el borde de su región en x0 (256) y x1 (682)",
+    "knight_dwelling_3: lo recortado toca el borde de su región en x1 (600)",
+    "knight_dwelling_5: lo recortado toca el borde de su región en x0 (600) y x1 (1024)",
+    "knight_upgrade_2: lo recortado toca el borde de su región en x0 (931)"
+  ],
+  "validacion": {
+    "ancho": 1536,
+    "alto": 1024
+  },
+  "salida": {
+    "ruta": "assets/bases/knight/fuentes/placa-t5.webp",
+    "sha256": "4b2a04b2db7e63ee7d7bf76ed8c9efed5879bf4661731f686401f3285406be80"
+  }
+}
