@@ -847,6 +847,49 @@ export function engordarFronteras(e: EntradaDeEngorde): Engordado | string {
   return { tipos, pasillo, semillas, barreraDeNodo };
 }
 
+/**
+ * Las mesas del relieve: un trozo de barrera (8-conexo, a un nivel) por encima
+ * de todo lo que toca —ni una casilla que se pisa a su nivel o más, ni barrera
+ * más alta—. La escena le pinta paredes a los cuatro lados y su roca no sale de
+ * ninguna meseta (#216): s33 (9-12, 8-9) con #232, una montaña a 2 en un llano
+ * a 1, unida a la meseta de lava solo por una casilla de montaña a 1. La regla
+ * del relieve (`nivelesDelRelieve`) las quita casi siempre; las que quedan
+ * —3 en 1-200 antes de #232— hacen que el vestido no valga. Devuelve una
+ * casilla de cada una.
+ */
+export function mesasDelRelieve(
+  W: number,
+  H: number,
+  nivel: ArrayLike<number>,
+  sePisa: (i: number) => boolean,
+): number[] {
+  const N = W * H;
+  const vista = new Uint8Array(N);
+  const { desde, vecinas } = vecindad(W, H);
+  const fuera: number[] = [];
+  for (let i = 0; i < N; i++) {
+    if (vista[i] === 1 || sePisa(i)) continue;
+    const L = nivel[i] as number;
+    vista[i] = 1;
+    const trozo = [i];
+    let apoyada = false;
+    for (let q = 0; q < trozo.length; q++) {
+      const c = trozo[q] as number;
+      for (let v = desde[c]!; v < desde[c + 1]!; v++) {
+        const j = vecinas[v]!;
+        const n = nivel[j] as number;
+        if (sePisa(j) ? n >= L : n > L) apoyada = true;
+        else if (!sePisa(j) && n === L && vista[j] === 0) {
+          vista[j] = 1;
+          trozo.push(j);
+        }
+      }
+    }
+    if (!apoyada && L > 0) fuera.push(i);
+  }
+  return fuera;
+}
+
 /** Cuántas veces se quitan espigas y se vuelven a mirar bolsillos y murallas. */
 const VUELTAS_SIN_ESPIGAS = 8;
 

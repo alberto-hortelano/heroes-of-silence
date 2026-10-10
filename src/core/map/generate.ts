@@ -80,6 +80,7 @@ import {
   conEjePleno,
   engordarFronteras,
   espejoDe,
+  mesasDelRelieve,
   nivelesDeLoEngordado,
   parejaDe,
   ponerObstaculos,
@@ -2237,27 +2238,81 @@ function vestirRed(
   // engorde las parte (`quebrarCaidas`), pero no junto a un nodo, y el agua de
   // las esquinas que pasa a montaña sube y puede unir dos trozos (s232 (28-38,
   // 22)): ese vestido no vale. Son unos pocos mapas de cada mil.
-  const [larga] = caidasLargas(
+  const nivelAlFinal = nivelesDeLoEngordado(
     W,
     H,
-    nivelesDeLoEngordado(
-      W,
-      H,
-      tipos,
-      regionGruesa,
-      esNodoDeLaRed,
-      niveles,
-      nodos,
-      grueso.barreraDeNodo,
-      new Set([...ciudades, ...conCaminoAhora]),
-      new Set(ciudades),
-    ),
+    tipos,
+    regionGruesa,
+    esNodoDeLaRed,
+    niveles,
+    nodos,
+    grueso.barreraDeNodo,
+    new Set([...ciudades, ...conCaminoAhora]),
+    new Set(ciudades),
   );
+  const [larga] = caidasLargas(W, H, nivelAlFinal);
   if (larga !== undefined)
     return fallo(
       'obstáculos',
       `la caída al sur de (${larga.desde}-${larga.desde + larga.largo - 1}, ${larga.y}) va recta ${larga.largo} casillas, y desde ${CAIDA_LARGA} se lee como un muro`,
     );
+  // Ni una mesa: un trozo de barrera por encima de todo lo que toca (#216; s33
+  // con #232). Un nodo se pisa salvo el puente, que es agua.
+  const esPuente = new Set(puentesDeLaRed);
+  const [mesa] = mesasDelRelieve(
+    W,
+    H,
+    nivelAlFinal,
+    (i) => (tipos[i] === ABIERTA || esNodoDeLaRed[i] === 1) && !esPuente.has(i),
+  );
+  if (mesa !== undefined)
+    return fallo(
+      'obstáculos',
+      `la barrera de (${mesa % W},${Math.floor(mesa / W)}) queda por encima de todo lo que toca: una mesa`,
+    );
+  // Y cada nodo entra por un eje que sigue por tierra en cruz (#161): el
+  // engorde lo protege para el eje que ve la red fina, pero una esquina torcida
+  // que se abre a su región le puede dar otro y dejar la entrada que queda en
+  // un bolsillo unido solo en diagonal (s37 (17,15) con #232, otro vestido).
+  // Ese vestido no vale. El nodo sin dos vecinas opuestas de regiones
+  // distintas (el ~1 %, casi todos junto al borde) se viste como siempre.
+  const regionEn = (x: number, y: number): number => {
+    if (x < 0 || y < 0 || x >= W || y >= H) return -1;
+    const i = y * W + x;
+    return tipos[i] === ABIERTA && esNodoDeLaRed[i] === 0 ? (regionGruesa[i] as number) : -1;
+  };
+  for (const [k, n] of nodos.entries()) {
+    if (ciudadesEnNodo.has(k)) continue;
+    const x = n % W;
+    const y = Math.floor(n / W);
+    const sigue = (ex: number, ey: number): boolean =>
+      [
+        [0, 1],
+        [1, 0],
+        [0, -1],
+        [-1, 0],
+      ].some(
+        ([dx, dy]) =>
+          !(ex + dx! === x && ey + dy! === y) && regionEn(ex + dx!, ey + dy!) === regionEn(ex, ey),
+      );
+    const ejes = (
+      [
+        [0, 1],
+        [1, 0],
+        [1, -1],
+        [1, 1],
+      ] as const
+    ).filter(([dx, dy]) => {
+      const a = regionEn(x + dx, y + dy);
+      const b = regionEn(x - dx, y - dy);
+      return a >= 0 && b >= 0 && a !== b;
+    });
+    if (ejes.length > 0 && !ejes.some(([dx, dy]) => sigue(x + dx, y + dy) && sigue(x - dx, y - dy)))
+      return fallo(
+        'obstáculos',
+        `el nodo de (${x},${y}) no tiene un eje cuyas dos entradas sigan por tierra en cruz`,
+      );
+  }
   // Y cada muralla, el cierre de un paso (#232): el engorde la deja entre sus
   // dos apoyos, pero una esquina torcida que se abre a su región puede llevarse
   // el apoyo de un lado (s178 (4,28)). Ese vestido no vale.

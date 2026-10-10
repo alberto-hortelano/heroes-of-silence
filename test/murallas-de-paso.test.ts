@@ -142,7 +142,7 @@ describe('la muralla, el cierre de un paso (#232)', () => {
   });
 
   itLento('más de la mitad de los mapas de 1-200 llevan muralla', () => {
-    // Medido el 10-10-2026: 115 de 200 (antes, 117 con una muralla con puerta
+    // Medido el 10-10-2026: 112 de 200 (antes, 117 con una muralla con puerta
     // y 199 con algún muro, casi todo sin puerta).
     const con = rango(1, 200).filter((s) => murallasDelMapa(mapaDe(s)).length > 0);
     expect(con.length).toBeGreaterThan(100);

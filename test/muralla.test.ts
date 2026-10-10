@@ -12,6 +12,7 @@ import { alrededorDeMurallas, sendaParaLaMuralla } from '../src/client/render/es
 import { ejeDe, type Paso } from '../src/client/render/escenario/esqueleto.js';
 import {
   type Alrededor,
+  ARRIMO,
   apiladas,
   CIUDAD,
   ENTRE_TORRES,
@@ -19,6 +20,7 @@ import {
   murallaSinLeer,
   murallaSobreLaSenda,
   type PuertaDeLinea,
+  puntasContraSuApoyo,
   seApilan,
   type TramoPintado,
   torresDe,
@@ -202,6 +204,26 @@ describe('la línea de una muralla (#197)', () => {
       const ruina = mundo(filas);
       expect(trazaDeMuralla(ruina.muro, [], ruina.alrededor)).toEqual({ casillas: [], pasos: [] });
     }
+  });
+});
+
+describe('la punta contra su apoyo (#232)', () => {
+  it('la punta que toca un apoyo da el rumbo hacia él, el de la línea primero; la puerta no es punta', () => {
+    // M#P#. — la línea va de (1,0) a (3,0) por la puerta (2,0): a la izquierda
+    // hay una montaña, a la derecha nada.
+    const pasos: Paso[] = [
+      { a: [1, 0], b: [2, 0] },
+      { a: [2, 0], b: [3, 0] },
+    ];
+    const apoyo = (x: number, y: number) => x === 0 && y >= 0 && y <= 1;
+    const puertas: PuertaDeLinea[] = [{ at: [2, 0], paso: [0, 1] }];
+    expect([...puntasContraSuApoyo(pasos, puertas, apoyo)]).toEqual([['1,0', [-1, 0]]]);
+    // Sin la montaña de enfrente, el primero en cruz: la de debajo, (1,1).
+    const debajo = (x: number, y: number) => x === 1 && y === 1;
+    expect([...puntasContraSuApoyo(pasos, puertas, debajo)]).toEqual([['1,0', [0, 1]]]);
+    // Una puerta en la punta no la lleva: la flanquean sus propias torres.
+    expect([...puntasContraSuApoyo(pasos, [{ at: [1, 0], paso: [0, 1] }], apoyo)]).toEqual([]);
+    expect(ARRIMO).toBe(0.25);
   });
 });
 

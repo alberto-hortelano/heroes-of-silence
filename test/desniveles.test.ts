@@ -19,7 +19,7 @@ import { NIVEL_POR_SUELO, validarBarreras, validarRelieve } from '../src/core/da
 import { generateMapPlan } from '../src/core/map/generate.js';
 import { problemasDeNiveles } from '../src/core/map/regiones.js';
 import { BARRERAS_DE_DESNIVEL, SUELOS_PISABLES } from '../src/core/map/terrain.js';
-import { barrerasDeLaPareja } from '../src/core/map/vestir.js';
+import { barrerasDeLaPareja, mesasDelRelieve } from '../src/core/map/vestir.js';
 import { createRng } from '../src/core/rng.js';
 import { newGame } from '../src/core/state/setup.js';
 import { itLento, rango, segunPrisa } from './lento.js';
@@ -123,5 +123,37 @@ describe('las tablas de barreras y relieve casan (#143)', () => {
     const roto = structuredClone(barrerasJson) as { obstaculos: Record<string, object> };
     roto.obstaculos.dirt = { forest: 2, wall: 2 };
     expect(() => validarBarreras(roto)).toThrow(/"obstaculos.dirt" pide "wall"/);
+  });
+});
+
+describe('ni una mesa en el relieve (`mesasDelRelieve`, #216, s33 con #232)', () => {
+  /** Filas de nivel y barrera: `M` barrera, `.` se pisa; el dígito de al lado, su nivel. */
+  const rejilla = (filas: readonly string[]) => {
+    const W = (filas[0] as string).length / 2;
+    const celdas = filas.flatMap((f) =>
+      Array.from({ length: W }, (_, k) => f.slice(2 * k, 2 * k + 2)),
+    );
+    return {
+      W,
+      H: filas.length,
+      nivel: celdas.map((c) => Number(c[1])),
+      sePisa: (i: number) => celdas[i]?.[0] === '.',
+    };
+  };
+
+  it('una montaña a 2 en un llano a 1, sin nada a su nivel al lado, es una mesa', () => {
+    const r = rejilla(['.1.1.1.1', '.1M2M2.1', '.1M2M2.1', '.1.1.1.1']);
+    expect(mesasDelRelieve(r.W, r.H, r.nivel, r.sePisa)).toEqual([5]);
+  });
+
+  it('la que toca su meseta, o una barrera más alta, no', () => {
+    const conMeseta = rejilla(['.2.2.1.1', '.1M2M2.1', '.1M2M2.1', '.1.1.1.1']);
+    expect(mesasDelRelieve(conMeseta.W, conMeseta.H, conMeseta.nivel, conMeseta.sePisa)).toEqual(
+      [],
+    );
+    const bajoUnaCumbre = rejilla(['.3M3.1.1', '.1M2M2.1', '.1M2M2.1', '.1.1.1.1']);
+    expect(
+      mesasDelRelieve(bajoUnaCumbre.W, bajoUnaCumbre.H, bajoUnaCumbre.nivel, bajoUnaCumbre.sePisa),
+    ).toEqual([]);
   });
 });
